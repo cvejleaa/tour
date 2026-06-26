@@ -7,7 +7,7 @@
 ## 1. Kort fortalt
 
 Vi har bygget og idriftsat **et færdigt online tipspil til fodbold-VM 2026** på
-`vm.vejleaa.dk`. Spillere opretter sig, gætter på alle kampe, får automatisk
+`tour.vejleaa.dk`. Spillere opretter sig, gætter på alle kampe, får automatisk
 point, og følger en live-rangering — både samlet og i private mini-ligaer.
 Systemet er **selvkørende**: når en kamp er spillet, indtaster en administrator
 blot resultatet, og resten (point, stillinger, slutspil, statistik) opdateres af

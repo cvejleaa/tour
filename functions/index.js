@@ -42,7 +42,7 @@ const SMTP_HOST = 'send.one.com';
 const SMTP_PORT = 465; // implicit TLS
 const SMTP_USER = 'tour@vejleaa.dk';
 const EMAIL_FROM = 'Tour de France Tip <tour@vejleaa.dk>';
-const APP_URL = 'https://vm.vejleaa.dk';
+const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
 const { scoreMatch, scoreKnockout, bonusPoints } = require('./scoring');
@@ -660,7 +660,7 @@ async function runTipReminders(db, transporter) {
       <p>Hej ${u.displayName || 'spiller'} 👋</p>
       <p>Du mangler at tippe på <strong>${missing.length}</strong> kamp${missing.length === 1 ? '' : 'e'} det næste døgn:</p>
       <ul>${list}</ul>
-      <p><a href="${APP_URL}">Afgiv dine tips på vm.vejleaa.dk</a> inden kampstart.</p>
+      <p><a href="${APP_URL}">Afgiv dine tips på tour.vejleaa.dk</a> inden kampstart.</p>
       <p style="color:#888;font-size:12px">Du kan slå disse påmindelser fra på din profilside.</p>`;
 
     try {
@@ -755,7 +755,7 @@ exports.sendTestReminderToMe = onCall(
       }
       html += '</ul>';
     }
-    html += `<p style="margin-top:14px"><a href="${APP_URL}">Gå til vm.vejleaa.dk</a></p>
+    html += `<p style="margin-top:14px"><a href="${APP_URL}">Gå til tour.vejleaa.dk</a></p>
       <p style="color:#888;font-size:12px">Dette er en testmail sendt kun til dig.</p>`;
 
     await sendEmail(db, transporter, {

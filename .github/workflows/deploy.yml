@@ -27,7 +27,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      PROJECT_ID: vm2026-tip
+      PROJECT_ID: tour-85928
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6

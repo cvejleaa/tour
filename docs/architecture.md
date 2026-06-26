@@ -5,7 +5,7 @@
 
 ## Overblik
 ```
-React + Vite (vm.vejleaa.dk)
+React + Vite (tour.vejleaa.dk)
    │  Firebase SDK (auth, firestore, functions)
    ▼
 Firebase
