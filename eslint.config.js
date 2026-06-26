@@ -57,7 +57,7 @@ export default [
 
   // Cloud Functions kildekode: CommonJS + Node
   {
-    files: ['functions/index.js', 'functions/scoring.js', 'functions/tourScoring.js', 'functions/pcsMapping.js', 'functions/standings.js', 'functions/knockout.js', 'functions/breakdown.js', 'functions/footballData.js', 'functions/resultsSync.js', 'functions/bonusResolve.js', 'functions/invites.js', 'functions/leagueRecap.js'],
+    files: ['functions/index.js', 'functions/scoring.js', 'functions/tourScoring.js', 'functions/pcsMapping.js', 'functions/tourTeams.js', 'functions/standings.js', 'functions/knockout.js', 'functions/breakdown.js', 'functions/footballData.js', 'functions/resultsSync.js', 'functions/bonusResolve.js', 'functions/invites.js', 'functions/leagueRecap.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'commonjs',

@@ -68,7 +68,10 @@ Genbruges uændret fra VM: `users`, `leagues`, `leagueComments`, `messages`,
 `reactions`, `config`, `tipParticipation`.
 
 Nyt/erstattet:
-- `teams/{teamCode}` – cykelhold `{ name, code, country }`.
+- `teams/{key}` – cykelhold `{ key, name, ... }`. **Selv-udfyldende:** sync
+  tilføjer automatisk hold den ser i resultaterne (ingen håndholdt roster der
+  kan blive forkert). Matchning sker på normaliseret nøgle (`src/lib/tourTeams.js`),
+  så tip og facit peger på samme hold trods små navneforskelle fra PCS.
 - `riders/{riderId}` – `{ name, team, nationality, bib?, active }`.
 - `stages/{stageId}` – `{ number, date, kickoff, type, startCity, finishCity, km, status, result }`
   hvor `result = { winnerTeam, gcTeam, mountainTeam, sprintTeam }` (+ evt. rå data).
