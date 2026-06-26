@@ -87,9 +87,22 @@ jobs:
           until [ "$n" -ge "$max" ]; do
             n=$((n + 1))
             echo "::group::Deploy-forsøg $n/$max"
-            if firebase deploy --only "$ONLY" --project "$PROJECT_ID" --non-interactive --force; then
+            set +e
+            out=$(firebase deploy --only "$ONLY" --project "$PROJECT_ID" --non-interactive --force 2>&1)
+            code=$?
+            set -e
+            echo "$out"
+            if [ "$code" -eq 0 ]; then
               echo "::endgroup::"
               echo "Deploy lykkedes på forsøg $n/$max."
+              exit 0
+            fi
+            # Idempotent hosting-no-op: det byggede indhold er allerede den
+            # aktive version på live-kanalen (HTTP 400). Det er en succes, ikke
+            # en fejl — ellers fejler et "uændret" deploy uberettiget.
+            if printf '%s' "$out" | grep -q "is the current active version"; then
+              echo "::endgroup::"
+              echo "Hosting-indhold var allerede den aktive version — intet at gøre (forsøg $n/$max)."
               exit 0
             fi
             echo "::endgroup::"
