@@ -185,11 +185,15 @@ class StageResultsService:
 
     # ---- etapeliste ----
     def stage_list(self, force: bool = False) -> list[dict[str, Any]]:
-        cached = None if force else self.cache.get_stage_list(self.year)
-        if cached is not None:
-            return cached
+        # Foretræk en NON-tom cache; en tom liste betyder typisk at skrabningen
+        # fejlede, så den cacher vi ikke (selvhelende ved næste forsøg).
+        if not force:
+            cached = self.cache.get_stage_list(self.year)
+            if cached:
+                return cached
         data = scrape_stage_list(self.year)
-        self.cache.set_stage_list(self.year, data)
+        if data:
+            self.cache.set_stage_list(self.year, data)
         return data
 
     # ---- enkelt etape (med cache) ----
