@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import UsersTab from '../features/admin/UsersTab';
 import MatchesTab from '../features/admin/MatchesTab';
+import TourTab from '../features/admin/TourTab';
 import BonusTab from '../features/admin/BonusTab';
 import LeaguesAdminTab from '../features/admin/LeaguesAdminTab';
 import TestsTab from '../features/admin/TestsTab';
@@ -18,6 +19,7 @@ import AltStandingsTab from '../features/admin/AltStandingsTab';
 
 // Fane-id'er
 const TAB_USERS   = 'users';
+const TAB_TOUR    = 'tour';
 const TAB_MATCHES = 'matches';
 const TAB_BONUS   = 'bonus';
 const TAB_LEAGUES = 'leagues';
@@ -40,6 +42,7 @@ export default function AdminPage() {
     ...(isGlobalAdmin
       ? [{ key: TAB_USERS, label: 'Brugere' }]
       : []),
+    { key: TAB_TOUR,    label: '🚴 Tour' },
     { key: TAB_MATCHES, label: 'Kampe & resultater' },
     { key: TAB_BONUS,   label: 'Bonus-facit' },
     { key: TAB_LEAGUES, label: 'Ligaer' },
@@ -106,6 +109,7 @@ export default function AdminPage() {
       {/* Fane-indhold */}
       <div className="card" style={{ padding: '1.25rem' }}>
         {tab === TAB_USERS   && <UsersTab isOwner={isOwner} isGlobalAdmin={isGlobalAdmin} />}
+        {tab === TAB_TOUR    && <TourTab />}
         {tab === TAB_MATCHES && <MatchesTab />}
         {tab === TAB_BONUS   && <BonusTab />}
         {tab === TAB_LEAGUES && <LeaguesAdminTab />}
