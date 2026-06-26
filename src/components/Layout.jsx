@@ -66,7 +66,7 @@ export default function Layout({ children }) {
                   <CountBadge count={taskCount} title={`${taskCount} udestående opgaver`} testid="tasks-count" />
                 </span>
               </NavLink>
-              <NavLink to="/kampe" style={linkStyle}>Kampe</NavLink>
+              <NavLink to="/etaper" style={linkStyle}>Etaper</NavLink>
               <NavLink to="/mine-tips" style={linkStyle}>Mine tips</NavLink>
               <NavLink to="/bonus" style={linkStyle}>Bonus</NavLink>
               <NavLink to="/turnering" style={linkStyle}>Turnering</NavLink>

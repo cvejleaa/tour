@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import PendingPage from './pages/PendingPage';
 import DashboardPage from './pages/DashboardPage';
 import MatchesPage from './pages/MatchesPage';
+import StagesPage from './pages/StagesPage';
 import HelpPage from './pages/HelpPage';
 import TournamentPage from './pages/TournamentPage';
 import TeamPage from './pages/TeamPage';
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/afventer" element={<PendingPage />} />
           <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/kampe" element={<ProtectedRoute><MatchesPage /></ProtectedRoute>} />
+          <Route path="/etaper" element={<ProtectedRoute><StagesPage /></ProtectedRoute>} />
           <Route path="/hjaelp" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
           <Route path="/mine-tips" element={<ProtectedRoute><MyBetsPage /></ProtectedRoute>} />
           <Route path="/bonus" element={<ProtectedRoute><BonusPage /></ProtectedRoute>} />

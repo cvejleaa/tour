@@ -63,6 +63,10 @@ export const COL = {
   USERS: 'users',
   MATCHES: 'matches',
   BETS: 'bets',
+  STAGES: 'stages', // Tour de France-etaper
+  STAGE_BETS: 'stageBets', // hold-tip pr. etape (uid_stageId)
+  TEAMS: 'teams', // cykelhold (selv-udfyldende fra resultater)
+  RIDERS: 'riders', // ryttere (valgfrit, til rytter-/holdside)
   BONUS_QUESTIONS: 'bonusQuestions',
   BONUS_BETS: 'bonusBets',
   LEAGUES: 'leagues',
