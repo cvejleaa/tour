@@ -1,0 +1,104 @@
+name: Deploy til Firebase
+
+# Manuel udløsning fra GitHub → fanen "Actions" → "Deploy til Firebase" → "Run workflow".
+# Kræver repo-secret FIREBASE_SERVICE_ACCOUNT (indholdet af en service-account-JSON,
+# se docs/firebase-setup.md). Intet deployes automatisk ved push — kun når du trykker.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Hvad skal deployes?'
+        type: choice
+        default: hosting-rules
+        options:
+          - hosting-rules        # frontend + security rules + indexes (virker på gratis Spark-plan)
+          - functions            # kun Cloud Functions (kræver Blaze-plan)
+          - all                  # alt (kræver Blaze-plan)
+      seed:
+        description: 'Indlæs kampe/bonus i databasen bagefter? (seed)'
+        type: boolean
+        default: false
+
+# Kør GitHub's JavaScript-actions på Node 24 (Node 20 udfases)
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: vm2026-tip
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: |
+          npm ci
+          cd functions && npm ci
+
+      - name: Skriv service-account fra secret
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+
+      - name: Installer Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Skriv .env til build (offentlig web-config fra repo-variabler)
+        if: ${{ inputs.target != 'functions' }}
+        run: |
+          if [ -z "${{ vars.VITE_FIREBASE_PROJECT_ID }}" ]; then
+            echo "::error::Mangler repo-variabler VITE_FIREBASE_* — tilføj dem under Settings → Secrets and variables → Actions → Variables før deploy (se docs/firebase-setup.md)."
+            exit 1
+          fi
+          cat > .env <<EOF
+          VITE_FIREBASE_API_KEY=${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_USE_EMULATORS=false
+          VITE_OWNER_EMAIL=${{ vars.VITE_OWNER_EMAIL }}
+          VITE_RECAPTCHA_SITE_KEY=${{ vars.VITE_RECAPTCHA_SITE_KEY }}
+          EOF
+
+      - name: Byg frontend
+        if: ${{ inputs.target != 'functions' }}
+        run: npm run build
+
+      - name: Deploy
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          case "${{ inputs.target }}" in
+            hosting-rules) ONLY="hosting,firestore:rules,firestore:indexes" ;;
+            functions)     ONLY="functions" ;;
+            all)           ONLY="hosting,firestore:rules,firestore:indexes,functions" ;;
+          esac
+          # Firebase-deploy fejler en gang imellem med en forbigående
+          # "Failed to authenticate" — prøv igen med backoff i stedet for at
+          # kræve manuel genkørsel.
+          n=0; max=3
+          until [ "$n" -ge "$max" ]; do
+            n=$((n + 1))
+            echo "::group::Deploy-forsøg $n/$max"
+            if firebase deploy --only "$ONLY" --project "$PROJECT_ID" --non-interactive --force; then
+              echo "::endgroup::"
+              echo "Deploy lykkedes på forsøg $n/$max."
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "::warning::Deploy fejlede på forsøg $n/$max."
+            [ "$n" -lt "$max" ] && sleep $((n * 15))
+          done
+          echo "::error::Deploy fejlede efter $max forsøg."
+          exit 1
+
+      - name: Seed database (valgfrit)
+        if: ${{ inputs.seed }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: npm run seed

@@ -1,0 +1,276 @@
+/* ─── Turneringsside-specifikke styles ─── */
+
+/* Fremhæv hold der går videre (top 2 i gruppen) */
+.standings-row--advance td {
+  background: rgba(11, 110, 79, 0.06);
+}
+
+.standings-row--advance:hover td {
+  background: rgba(11, 110, 79, 0.11) !important;
+}
+
+/* Lille markør ved siden af positionen */
+.standings-pos {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.standings-pos--advance {
+  background: rgba(11, 110, 79, 0.15);
+  color: var(--c-pitch);
+}
+
+.standings-pos--normal {
+  color: var(--c-muted);
+}
+
+/* Holdnavn i stillingstabellen: flag + navn */
+.team-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.team-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+/* Kampkort i gruppe */
+.group-match {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--c-border);
+  gap: 0.5rem;
+}
+
+.group-match:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.group-match__team {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.group-match__team--away {
+  justify-content: flex-end;
+}
+
+.group-match__team-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-match__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 3.5rem;
+  flex-shrink: 0;
+}
+
+.group-match__date {
+  font-size: 0.68rem;
+  color: var(--c-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.group-match__score {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  justify-content: center;
+}
+
+.group-match__score-num {
+  min-width: 1.2rem;
+  text-align: center;
+}
+
+.group-match__score-sep {
+  color: var(--c-muted);
+}
+
+.group-match__time {
+  font-size: 0.78rem;
+  color: var(--c-muted);
+  min-width: 3.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Knockout-kampkort */
+.ko-match {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 220px;
+}
+
+.ko-match__team {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ko-match__team-info {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.ko-match__team-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ko-match__team-name--placeholder {
+  font-weight: 400;
+  color: var(--c-muted);
+  font-style: italic;
+}
+
+.ko-match__score {
+  font-size: 1rem;
+  font-weight: 700;
+  min-width: 1.5rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ko-match__divider {
+  height: 1px;
+  background: var(--c-border);
+  margin: 0.1rem 0;
+}
+
+.ko-match__meta {
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  margin-top: 0.2rem;
+}
+
+/* Bracket-runde-sektion */
+.bracket-round {
+  margin-bottom: 1.5rem;
+}
+
+.bracket-round__title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--c-muted);
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--c-border);
+}
+
+.bracket-round__matches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.65rem;
+}
+
+/* Vinder-markering */
+.ko-match__team--winner .ko-match__team-name {
+  color: var(--c-pitch);
+}
+
+.ko-match__team--winner .ko-match__score {
+  color: var(--c-pitch);
+}
+
+/* Grupper-layout: grid med kortene */
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1rem;
+}
+
+/* Hvert gruppekort er en container, så holdnavne kan tilpasses kortets bredde
+   (ikke skærmens) — undgår klemt tabel + vandret scroll i to-kolonne-layout. */
+.groups-grid > .card {
+  container-type: inline-size;
+}
+
+/* Kompakt stillingstabel i gruppekort: mindre cellepadding så de 9 kolonner
+   får plads uden vandret scroll. To klasser = vinder over .table th/td-padding. */
+.table.table--compact th,
+.table.table--compact td {
+  padding: 0.3rem 0.4rem;
+}
+
+/* Holdnavn i gruppestilling: fuldt navn når kortet er bredt nok, ellers kode. */
+.gstand-name-short { display: none; }
+.gstand-name-long { display: inline; }
+@container (max-width: 430px) {
+  .gstand-name-long { display: none; }
+  .gstand-name-short { display: inline; }
+}
+
+/* Dato/tid over kampene i mellemrunde */
+.round-day-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--c-muted);
+  text-transform: capitalize;
+  margin: 0.75rem 0 0.3rem;
+}
+
+/* Skemalæg-badge */
+.match-status-badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+}
+
+/* Mobil: skjul lange holdnavne i kampvisning */
+@media (max-width: 480px) {
+  .team-name-short {
+    display: inline;
+  }
+  .team-name-long {
+    display: none;
+  }
+}
+
+@media (min-width: 481px) {
+  .team-name-short {
+    display: none;
+  }
+  .team-name-long {
+    display: inline;
+  }
+}

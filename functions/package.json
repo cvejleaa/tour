@@ -1,0 +1,25 @@
+{
+  "name": "vm2026-functions",
+  "version": "1.0.0",
+  "description": "Cloud Functions til VM 2026 tippekonkurrence",
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions",
+    "test": "vitest run --config vitest.config.js",
+    "test:rules": "vitest run --config ../vitest.rules.config.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^7.2.5",
+    "nodemailer": "^6.10.1"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "vitest": "^1.6.0"
+  }
+}

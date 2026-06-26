@@ -1,0 +1,52 @@
+{
+  "name": "tour-de-france-tip",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Tippekonkurrence til Tour de France",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:report": "node scripts/build-test-report.mjs",
+    "test:rules": "vitest run --config vitest.rules.config.js",
+    "test:e2e": "playwright test",
+    "emulators": "firebase emulators:start",
+    "seed": "node scripts/seed.mjs",
+    "deps:check": "npx npm-check-updates && (cd functions && npx npm-check-updates)",
+    "deps:upgrade": "npx npm-check-updates -u && npm install && cd functions && npx npm-check-updates -u && npm install"
+  },
+  "dependencies": {
+    "firebase": "^10.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.44.0",
+    "@testing-library/jest-dom": "^6.4.5",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@vitejs/plugin-react": "^4.3.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "firebase-admin": "^13.0.0",
+    "globals": "^17.6.0",
+    "jsdom": "^29.1.1",
+    "vite": "^5.2.0",
+    "vitest": "^1.6.0"
+  },
+  "overrides": {
+    "test-exclude": {
+      ".": "^7.0.1",
+      "glob": "^11.0.0"
+    }
+  }
+}

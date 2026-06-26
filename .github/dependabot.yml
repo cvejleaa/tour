@@ -1,0 +1,46 @@
+version: 2
+
+# Dependabot holder afhængigheder opdaterede ved automatisk at åbne PR'er.
+# CI (.github/workflows/ci.yml) kører på hver PR, så opdateringer testes før merge.
+# Major-opdateringer (fx vitest v1 -> v4) kommer som separate PR'er, så evt.
+# breaking changes kan vurderes enkeltvis.
+updates:
+  # Frontend (rod-package.json)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      frontend-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "deps"
+
+  # Cloud Functions
+  - package-ecosystem: "npm"
+    directory: "/functions"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      functions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "functions"]
+    commit-message:
+      prefix: "deps(functions)"
+
+  # GitHub Actions (holder fx actions/checkout opdateret -> undgår Node-deprecations)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "ci"]
+    commit-message:
+      prefix: "ci"

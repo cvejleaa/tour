@@ -1,0 +1,4943 @@
+{
+  "generatedAt": "2026-06-08T12:03:56.910Z",
+  "totals": {
+    "files": 64,
+    "tests": 1105,
+    "passed": 1105,
+    "failed": 0
+  },
+  "suites": [
+    {
+      "file": "src/components/Flag.test.jsx",
+      "area": "frontend",
+      "passed": 25,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser img-element for GER (Tyskland)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser flagcdn-URL i src for GER",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser korrekt alt-tekst for FRA (Frankrig)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser korrekt alt-tekst for BRA (Brasilien)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser img med korrekt iso-URL for BRA (br)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser flag med title = fuldt holdnavn",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › bruger lazy loading",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser img for USA (USA)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser img for ARG (Argentina)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser img for ENG (England) med gb-eng iso",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – kendte holdkoder (fra teams.js) › viser img for SCO (Skotland) med gb-sct iso",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – ukendte/ugyldige holdkoder (fallback) › viser 🏳️ fallback-span (ikke img) for ukendt kode (DK ikke i teams.js)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – ukendte/ugyldige holdkoder (fallback) › viser 🏳️ fallback for fuldstændig ukendt kode",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – ukendte/ugyldige holdkoder (fallback) › viser 🏳️ fallback for null",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – ukendte/ugyldige holdkoder (fallback) › viser 🏳️ fallback for undefined",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – ukendte/ugyldige holdkoder (fallback) › viser 🏳️ fallback for tom streng",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – ukendte/ugyldige holdkoder (fallback) › fallback bruger \"ukendt hold\" som aria-label ved null kode",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – ukendte/ugyldige holdkoder (fallback) › fallback bruger koden som aria-label for UKENDT kode",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – ukendte/ugyldige holdkoder (fallback) › viser img-element (ikke fallback) for kendt kode GER",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – størrelse › accepterer size prop og renderer korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – størrelse › bruger w40 URL for size=40",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – størrelse › bruger w20 URL for size=16 (≤20)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – størrelse › bruger w80 URL for size=60 (>40)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – størrelse › bruger w20 URL for size=20 (præcis grænseværdi)",
+          "status": "passed"
+        },
+        {
+          "name": "Flag – størrelse › bruger w40 URL for size=28 (default)",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/components/Hero.test.jsx",
+      "area": "frontend",
+      "passed": 15,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Hero – titel › viser titel tekst",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – titel › viser ⚽ bold emoji i titlen",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – titel › viser h1 element",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – titel › hero wrapper har klassen \"hero\"",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – undertitel › viser undertitel når den er sat",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – undertitel › viser IKKE undertitel når den ikke er sat",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – undertitel › undertitel vises som paragraf-element",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – chips › viser chips når de er sat",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – chips › viser IKKE chip-container ved tomt chips-array",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – chips › viser IKKE chip-container når chips ikke er sat (default = [])",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – chips › chips har klassen \"hero__chip\"",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – chips › viser 3 chips korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – chips › viser én chip korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – komplet rendering › renderer korrekt med alle props",
+          "status": "passed"
+        },
+        {
+          "name": "Hero – komplet rendering › renderer uden props uden at krashe",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/components/PointRules.test.jsx",
+      "area": "frontend",
+      "passed": 28,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "PointRules – grundlæggende rendering › renderer uden fejl",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – grundlæggende rendering › viser \"Sådan får du point\" som summary-tekst",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – grundlæggende rendering › viser \"klik for detaljer\" badge",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – grundlæggende rendering › er implementeret som <details> element (sammenfoldelig)",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – pointværdier › viser 5 point for \"Helt korrekt score\"",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – pointværdier › viser 3 point for \"Korrekt målforskel + vinder\"",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – pointværdier › viser 2 point for \"Korrekt vinder/uafgjort\"",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – pointværdier › viser 0 point for \"Forkert udfald\"",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – pointværdier › viser +2 point for korrekt \"hvem går videre\" i slutspil",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – pointværdier › viser 10 point for korrekt bonus-svar",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – pointværdier › nævner \"Bonus\" i ekstra info",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – pointværdier › nævner \"Slutspil\" i ekstra info",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – pointværdier › nævner \"Deadline\" i ekstra info",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – eksempler › viser eksempel for eksakt score",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – eksempler › viser eksempel for korrekt målforskel",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – eksempler › viser eksempel for korrekt vinder",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – eksempler › viser eksempel for forkert udfald",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – sammenfoldelig › details-elementet er lukket som standard",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – sammenfoldelig › åbner ved klik på summary",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – sammenfoldelig › lukker igen ved andet klik",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – sammenfoldelig › indeholder tabel med pointregler",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – sammenfoldelig › pointtabellen har 4 rækker (én pr. pointkategori)",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – konsistens med POINTS-konstanter › POINTS.EXACT er 5",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – konsistens med POINTS-konstanter › POINTS.GOAL_DIFF er 3",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – konsistens med POINTS-konstanter › POINTS.OUTCOME er 2",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – konsistens med POINTS-konstanter › POINTS.WRONG er 0",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – konsistens med POINTS-konstanter › POINTS.KNOCKOUT_ADVANCE er 2",
+          "status": "passed"
+        },
+        {
+          "name": "PointRules – konsistens med POINTS-konstanter › POINTS.BONUS er 10",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/adminActions.test.js",
+      "area": "frontend",
+      "passed": 41,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "adminActions › setUserStatus › kalder updateDoc med approved status",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › setUserStatus › kalder updateDoc med rejected status",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › setUserStatus › kalder doc med korrekt collection og uid",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › toggleMatchAdminRole › skifter player til matchAdmin",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › toggleMatchAdminRole › skifter matchAdmin til player",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › toggleMatchAdminRole › kaster fejl ved forsøg på at ændre owner-rollen",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › toggleMatchAdminRole › kalder IKKE updateDoc ved owner-fejl",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › saveMatchResult › gemmer resultat med korrekte home/away og status finished",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › saveMatchResult › inkluderer advance-felt for knockout-kamp",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › saveMatchResult › konverterer score til Number",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › saveMatchResult › udelader advance-felt når det ikke er angivet",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › saveMatchResult › kalder doc med matches collection og korrekt matchId",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › saveMatchResult › markerer manuel rettelse som klæbende (manualLock)",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › clearManualLock › fjerner låsen og gendanner automatik",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSyncResultsNow › sender dryRun-flag og returnerer data",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSyncResultsNow › returnerer pæn fejl hvis funktionen ikke er deployet",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSyncFixtures › sender season og returnerer data",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › createMatch › kalder addDoc med matches collection",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › createMatch › inkluderer result:null og createdAt i addDoc-kald",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › createMatch › bruger angivet status",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › createMatch › falder tilbage til scheduled-status hvis ingen angivet",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callBuildKnockout › returnerer ok:true ved succes",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callBuildKnockout › returnerer ok:false ved fejl",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callBuildKnockout › returnerer specifik besked ved functions/not-found",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callBuildKnockout › kalder httpsCallable med buildKnockout",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSendTipRemindersNow › returnerer ok:true med antal sendte ved succes",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSendTipRemindersNow › returnerer ok:false ved fejl",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSendTipRemindersNow › kalder httpsCallable med sendTipRemindersNow",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSendTestReminderToMe › returnerer ok:true med modtager og antal",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSendTestReminderToMe › kalder httpsCallable med sendTestReminderToMe",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › saveBonusFacit › kalder updateDoc med facit-feltet",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › saveBonusFacit › kalder doc med bonusQuestions collection og korrekt id",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › approveBonusAnswer › kalder updateDoc med arrayUnion",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › approveBonusAnswer › kalder doc med bonusQuestions collection",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › removeBonusAnswer › kalder updateDoc med arrayRemove",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › removeBonusAnswer › kalder doc med bonusQuestions collection",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › formatTimestamp › returnerer \"–\" for null",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › formatTimestamp › returnerer \"–\" for undefined",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › formatTimestamp › formaterer Firestore Timestamp med toDate()",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › formatTimestamp › formaterer plain Date-objekt",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › datetimeToTimestamp › konverterer ISO-streng til Timestamp",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/BonusSubmissions.test.jsx",
+      "area": "frontend",
+      "passed": 17,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "BonusSubmissions › viser Henter…-tekst under loading",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser Ingen svar indsendt endnu ved tom liste",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser indsendt svar med antal",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser to forskellige svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser Tæller-badge for svar der matcher facit",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser Tæller ikke-badge for svar der ikke matcher facit",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser Tæller-badge for fuzzy-matchende svar (Håland ≈ Haaland)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser Tæller-badge for manuelt godkendt svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser Godkend som korrekt-knap for svar der ikke tæller",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser IKKE Godkend-knap for svar der allerede tæller",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › kalder approveBonusAnswer ved klik på Godkend som korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser Fjern godkendelse-knap for manuelt godkendt svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › kalder removeBonusAnswer ved klik på Fjern godkendelse",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser advarsel om at sætte facit når ingen er sat",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser IKKE Godkend-knap når ingen facit er sat",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser liste over manuelt godkendte svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusSubmissions › viser IKKE manuelt godkendte svar når listen er tom",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/BonusTab.test.jsx",
+      "area": "frontend",
+      "passed": 19,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "BonusTab › viser indlæsningsbesked under hentning",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser besked om ingen bonusspørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser topscorer-spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser Topscorer-typelabel",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser Ikke sat når facit er null",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser sat facit med grøn farve",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › sorterer topscorer øverst foran gruppevinder",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser Sæt facit-knap for hvert spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › åbner redigeringsformular ved klik på Sæt facit",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser fritekst-input for topscorer (ingen options)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser dropdown for gruppevinder (med options)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser fejl ved tomt facit",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › kalder saveBonusFacit med korrekte argumenter",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser Gemt!-besked efter succesfuldt gem",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › kalder IKKE saveBonusFacit når bekræftelse afvises",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › lukker redigering via Annuller",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser BonusSubmissions-sektion for topscorer-spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser IKKE BonusSubmissions for gruppevinder-spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser fejlbesked ved snapshot-fejl",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/LeaguesAdminTab.test.jsx",
+      "area": "frontend",
+      "passed": 25,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "LeaguesAdminTab › viser indlæsningsbesked under hentning",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser Ingen ligaer-besked ved tom liste",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser lignavn",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser join-kode",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser antal medlemmer",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser flertals-form for antal medlemmer",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser Afventer-badge for pending liga",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser Godkendt-badge for approved liga",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser Afvist-badge for rejected liga",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser Godkend-knap for pending liga",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser Afvis-knap for pending liga",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser IKKE Godkend-knap for allerede godkendt liga",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser IKKE Afvis-knap for allerede afvist liga",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › kan omdøbe en liga via blyant-knappen",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › kalder setLeagueStatus med approved ved klik på Godkend",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › kalder setLeagueStatus med rejected ved klik på Afvis",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser Tilmeld medlem-knap",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › kalder adminAddMember med korrekte argumenter",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › Tilmeld-knap er deaktiveret når ingen spiller er valgt",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser Fjern-knap for ikke-ejer-medlemmer",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser IKKE Fjern-knap for ligaens ejer",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › kalder removeMember ved klik på Fjern",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser ejerens displayName",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser (ejer)-label for ejeren i medlemslisten",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesAdminTab › viser fejlbesked ved snapshot-fejl",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/MatchCreateForm.test.jsx",
+      "area": "frontend",
+      "passed": 23,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "MatchCreateForm › viser Opret ny kamp-overskrift",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser Runde-label",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser runde-dropdown",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser Gruppe-label for gruppe-runde som standard",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › skjuler Gruppe-label for knockout-runde",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser Hjemmehold-label",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser Udehold-label",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser Afspark-label",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser afspark datetime-local input",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser Stadion-label",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser By-label",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser Opret kamp-knap",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser fejl ved manglende afsparktidspunkt",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › kalder IKKE createMatch ved valideringsfejl",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › kalder createMatch med korrekt payload for gruppekamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › konverterer holdkoder til uppercase",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › sætter homeTeam til null når feltet er tomt",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › konverterer gruppenavn til uppercase",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › kalder onClose efter vellykket oprettelse",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser fejlbesked ved createMatch-fejl",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › viser Opretter…-tekst under kald",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › kalder onClose ved klik på Annuller",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCreateForm › sætter groupName til null for knockout-runde (sf)",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/MatchesTab.test.jsx",
+      "area": "frontend",
+      "passed": 21,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "MatchesTab › viser indlæsningsbesked mens kampe hentes",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser Ingen kampe-besked ved tom liste",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser kampnavn (hold vs hold)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser status for kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser resultat for afsluttet kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser advance i resultatet for knockout-kamp (advance i parentes)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser placeholder-holdnavne for ukendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser Sæt resultat-knap for hver kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › åbner resultat-formular ved klik på Sæt resultat",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › lukker resultat-formular ved klik på Luk",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser Opret kamp-knap",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › åbner opret-formular ved klik på + Opret kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › lukker opret-formular ved klik på Annuller oprettelse",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser Generer knockout-kampe-knap",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › kalder callBuildKnockout ved klik og bekræftelse",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › kalder backfill ved klik og viser besked",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser successbesked efter vellykket buildKnockout",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser fejlbesked ved mislykket buildKnockout",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › kalder IKKE callBuildKnockout når bekræftelse afvises",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser Genererer…-tekst under buildKnockout",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesTab › viser fejlbesked ved snapshot-fejl",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/MatchResultForm.test.jsx",
+      "area": "frontend",
+      "passed": 25,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "MatchResultForm › viser kampoverskrift med hold",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser Hjemmemål-label",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser Udemål-label",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser to number-inputs",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser IKKE videregående hold-input for gruppekamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser videregående hold-input for r16",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser videregående hold-input for kvartfinale (qf)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser videregående hold-input for semifinale (sf)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser videregående hold-input for finale",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser videregående hold-input for r32",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser videregående hold-input for bronzekamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser tekst om videregående hold (landekode)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › forudfylder score-felter fra eksisterende resultat",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › forudfylder advance-felt fra eksisterende knockout-resultat",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser fejl ved manglende hjemmemål",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser fejl ved manglende udemål",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser fejl ved manglende videregående hold i knockout",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › kalder IKKE saveMatchResult når bekræftelse afvises",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › kalder saveMatchResult med korrekt payload for gruppekamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › kalder saveMatchResult med advance-felt for knockout-kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › kalder onClose efter vellykket gem",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser fejlbesked ved saveMatchResult-fejl",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser Gemmer…-tekst under gem",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › kalder onClose ved klik på Annuller",
+          "status": "passed"
+        },
+        {
+          "name": "MatchResultForm › viser placeholder-holdnavne i titlen når teams er null",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/TestsTab.test.jsx",
+      "area": "frontend",
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "TestsTab › viser oversigt med antal tests, filer og bestået-andel",
+          "status": "passed"
+        },
+        {
+          "name": "TestsTab › viser tests pr. område (Frontend og Cloud Functions)",
+          "status": "passed"
+        },
+        {
+          "name": "TestsTab › detaljer-fanen viser testfiler og testnavne",
+          "status": "passed"
+        },
+        {
+          "name": "TestsTab › afhængigheds-fanen viser et diagram",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/usePendingApprovals.test.js",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "usePendingApprovals › returnerer 0 når deaktiveret (ikke-admin)",
+          "status": "passed"
+        },
+        {
+          "name": "usePendingApprovals › tæller kun ligaer for matchAdmin (uden brugere)",
+          "status": "passed"
+        },
+        {
+          "name": "usePendingApprovals › tæller både brugere og ligaer for ejer",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/UsersTab.test.jsx",
+      "area": "frontend",
+      "passed": 21,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "UsersTab › returnerer null for ikke-owner (isOwner=false)",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › renderer for owner (isOwner=true)",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser Ingen brugere-besked ved tom liste",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser brugerliste med pending-bruger øverst",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser pending-advarsel når der er afventende brugere",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser flertal i pending-advarsel ved flere afventende brugere",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser IKKE pending-advarsel når ingen afventer",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser sorteret liste: pending, approved, rejected",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser Godkend-knap for pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser Afvis-knap for pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser IKKE Godkend-knap for allerede godkendt bruger",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser IKKE Afvis-knap for allerede afvist bruger",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › kalder updateDoc med approved ved klik på Godkend (bekræftet)",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › kalder updateDoc med rejected ved klik på Afvis (bekræftet)",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › kalder IKKE updateDoc når bekræftelse afvises",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser Til kamp-admin-knap for player-bruger",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser Til spiller-knap for matchAdmin-bruger",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › kalder updateDoc med ny rolle ved klik på rolle-toggle (bekræftet)",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser IKKE handlingsknapper for owner-bruger (rollen er beskyttet)",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser fejlbesked ved snapshot-fejl",
+          "status": "passed"
+        },
+        {
+          "name": "UsersTab › viser indlæsningsbesked mens snapshot ikke er returneret",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/auth/firebaseErrors.test.js",
+      "area": "frontend",
+      "passed": 26,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/invalid-credential til dansk besked om adgangskode",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/user-not-found til dansk besked om bruger",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/wrong-password til dansk besked om adgangskode",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/email-already-in-use til dansk besked om e-mail i brug",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/weak-password til dansk besked om svag adgangskode",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/invalid-email til dansk besked om ugyldig e-mail",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/user-disabled til dansk besked om deaktiveret konto",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/too-many-requests til dansk besked om for mange forsøg",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/network-request-failed til dansk netværksfejlbesked",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/popup-closed-by-user til dansk besked om lukket vindue",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/requires-recent-login til dansk besked",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/operation-not-allowed til dansk besked",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/missing-password til dansk besked om manglende adgangskode",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › oversætter auth/missing-email til dansk besked om manglende e-mail",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › returnerer fallback-besked for ukendt fejlkode",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › returnerer fallback for tom streng",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › returnerer fallback for undefined",
+          "status": "passed"
+        },
+        {
+          "name": "translateFirebaseError — alle kendte koder › returnerer string for alle oversatte koder",
+          "status": "passed"
+        },
+        {
+          "name": "getAuthErrorMessage — udtrækker og oversætter fejlkode › oversætter korrekt fra error-objekt med code",
+          "status": "passed"
+        },
+        {
+          "name": "getAuthErrorMessage — udtrækker og oversætter fejlkode › oversætter auth/email-already-in-use fra error-objekt",
+          "status": "passed"
+        },
+        {
+          "name": "getAuthErrorMessage — udtrækker og oversætter fejlkode › oversætter auth/weak-password fra error-objekt",
+          "status": "passed"
+        },
+        {
+          "name": "getAuthErrorMessage — udtrækker og oversætter fejlkode › returnerer fallback for error-objekt uden code",
+          "status": "passed"
+        },
+        {
+          "name": "getAuthErrorMessage — udtrækker og oversætter fejlkode › returnerer fallback for null",
+          "status": "passed"
+        },
+        {
+          "name": "getAuthErrorMessage — udtrækker og oversætter fejlkode › returnerer fallback for undefined",
+          "status": "passed"
+        },
+        {
+          "name": "getAuthErrorMessage — udtrækker og oversætter fejlkode › returnerer fallback for string (ikke objekt)",
+          "status": "passed"
+        },
+        {
+          "name": "getAuthErrorMessage — udtrækker og oversætter fejlkode › returnerer fallback for error-objekt med ukendt kode",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/auth/useAuthActions.test.js",
+      "area": "frontend",
+      "passed": 19,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "useAuthActions › signup › kalder createUserWithEmailAndPassword med korrekte argumenter",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › signup › kalder updateProfile med trimmet displayName",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › signup › kalder setDoc med role:player og status:pending",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › signup › gemmer email som lowercase i Firestore",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › signup › returnerer user-objektet ved succes",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › signup › returnerer null og sætter error ved Firebase-fejl",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › signup › sætter loading til true under signup og false efter",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › signup › inkluderer serverTimestamp i setDoc-kald",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › login › kalder signInWithEmailAndPassword med korrekte argumenter",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › login › returnerer credential ved succes",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › login › returnerer null og sætter fejlbesked ved forkert adgangskode",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › login › returnerer null og sætter fejlbesked ved ikke-eksisterende bruger",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › login › sætter loading korrekt under og efter login",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › login › rydder forrige fejl inden nyt login-forsøg",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › resetPassword › kalder sendPasswordResetEmail med korrekt e-mail",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › resetPassword › returnerer true ved succes",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › resetPassword › returnerer false og sætter fejlbesked ved fejl",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › resetPassword › sætter loading korrekt under og efter reset",
+          "status": "passed"
+        },
+        {
+          "name": "useAuthActions › clearError › rydder en eksisterende fejlbesked",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/bonus/bonusHelpers.test.js",
+      "area": "frontend",
+      "passed": 24,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "sortBonusQuestions › placerer topscorer øverst og gruppevindere i A→L-rækkefølge",
+          "status": "passed"
+        },
+        {
+          "name": "sortBonusQuestions › muterer ikke input-arrayet",
+          "status": "passed"
+        },
+        {
+          "name": "sortBonusQuestions › håndterer tomt array",
+          "status": "passed"
+        },
+        {
+          "name": "sortBonusQuestions › håndterer undefined input",
+          "status": "passed"
+        },
+        {
+          "name": "sortBonusQuestions › håndterer null input",
+          "status": "passed"
+        },
+        {
+          "name": "sortBonusQuestions › topscorer alene returneres korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "sortBonusQuestions › kun gruppevindere sorteres A→L uden topscorer",
+          "status": "passed"
+        },
+        {
+          "name": "sortBonusQuestions › sorterer grupper L, K, J korrekt (omvendt orden giver rigtig rækkefølge)",
+          "status": "passed"
+        },
+        {
+          "name": "sortBonusQuestions › to topscorer-spørgsmål placeres begge øverst",
+          "status": "passed"
+        },
+        {
+          "name": "sortBonusQuestions › gruppevinder uden groupName sorteres stabilt",
+          "status": "passed"
+        },
+        {
+          "name": "isBonusLocked › er låst når deadline er passeret",
+          "status": "passed"
+        },
+        {
+          "name": "isBonusLocked › er åben før deadline",
+          "status": "passed"
+        },
+        {
+          "name": "isBonusLocked › er låst præcis ved deadline",
+          "status": "passed"
+        },
+        {
+          "name": "isBonusLocked › håndterer Firestore-timestamp (toDate)",
+          "status": "passed"
+        },
+        {
+          "name": "isBonusLocked › returnerer false for null deadline",
+          "status": "passed"
+        },
+        {
+          "name": "isBonusLocked › returnerer false for undefined deadline",
+          "status": "passed"
+        },
+        {
+          "name": "isBonusLocked › 1 ms før deadline er IKKE låst",
+          "status": "passed"
+        },
+        {
+          "name": "isBonusLocked › 1 ms efter deadline ER låst",
+          "status": "passed"
+        },
+        {
+          "name": "isBonusLocked › håndterer deadline som millisekunder",
+          "status": "passed"
+        },
+        {
+          "name": "formatDeadline › returnerer \"Ukendt\" for null",
+          "status": "passed"
+        },
+        {
+          "name": "formatDeadline › returnerer \"Ukendt\" for undefined",
+          "status": "passed"
+        },
+        {
+          "name": "formatDeadline › returnerer en non-tom streng for en dato",
+          "status": "passed"
+        },
+        {
+          "name": "formatDeadline › indeholder tidspunkt i den returnerede streng",
+          "status": "passed"
+        },
+        {
+          "name": "formatDeadline › håndterer Firestore Timestamp (toDate)",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/bonus/BonusQuestion.test.jsx",
+      "area": "frontend",
+      "passed": 28,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "BonusQuestion – åben fritekst (topScorer) › viser input-felt og gem-knap når åben",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben fritekst (topScorer) › gem-knap er deaktiveret ved tomt input",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben fritekst (topScorer) › gem-knap aktiveres efter brugeren skriver et svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben fritekst (topScorer) › kalder setDoc ved klik på gem",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben fritekst (topScorer) › viser hjælpetekst med \"Mbappé, Haaland eller Messi\" for topScorer",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben fritekst (topScorer) › viser \"Åben\" badge for ulåst spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben fritekst (topScorer) › viser spørgsmålets label",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben fritekst (topScorer) › viser \"⚽ Topscorer\" badge for topScorer-type",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben select (groupWinner) › viser select i stedet for input når options er sat",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben select (groupWinner) › viser fulde holdnavne i options (GER = Tyskland, FRA = Frankrig)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben select (groupWinner) › viser \"🏆 Gruppevinder\" badge for groupWinner-type",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – åben select (groupWinner) › viser placeholder \"– Vælg hold –\" som default option",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – låst › deaktiverer svar-felt og skjuler gem-knap efter deadline (locked)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – låst › viser \"Låst\"-badge efter deadline",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – låst › deaktiverer select-felt efter deadline",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – låst › viser IKKE hjælpetekst for topScorer efter deadline",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – låst › viser IKKE \"Åben\" badge for låst spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – facit og point › viser facit og point når spørgsmålet er afgjort (topScorer)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – facit og point › viser \"Facit:\" label ved afgjort spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – facit og point › viser 0 point for forkert svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – facit og point › viser holdnavn (teamName) ved groupWinner-facit (GER = Tyskland)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – eksisterende svar › viser brugerens eksisterende svar for åben topScorer",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – eksisterende svar › viser \"Dit svar:\" label for bruger med svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – eksisterende svar › forhindrer IKKE gem hvis låst (input deaktiveret men klik på save er skjult)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – eksisterende svar › udfylder input med eksisterende svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – eksisterende svar › viser holdnavn for eksisterende groupWinner-svar (GER = Tyskland)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – feedback › viser \"Gemmer…\" tekst mens gem pågår (simuleret)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – feedback › viser point-info tekst for åbent uafgjort spørgsmål",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/comments/commentActions.test.js",
+      "area": "frontend",
+      "passed": 12,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "conversationId › er uafhængig af rækkefølge",
+          "status": "passed"
+        },
+        {
+          "name": "conversationId › joiner sorterede uids med dobbelt-underscore",
+          "status": "passed"
+        },
+        {
+          "name": "postLeagueComment › afviser tom tekst",
+          "status": "passed"
+        },
+        {
+          "name": "postLeagueComment › afviser for lang tekst",
+          "status": "passed"
+        },
+        {
+          "name": "postLeagueComment › kræver liga og bruger",
+          "status": "passed"
+        },
+        {
+          "name": "postLeagueComment › gemmer trimmet tekst og forfatter",
+          "status": "passed"
+        },
+        {
+          "name": "postLeagueComment › falder tilbage til \"Spiller\" uden displayName",
+          "status": "passed"
+        },
+        {
+          "name": "sendMessage › afviser besked til sig selv",
+          "status": "passed"
+        },
+        {
+          "name": "sendMessage › kræver modtager",
+          "status": "passed"
+        },
+        {
+          "name": "sendMessage › sætter sorterede participants og conversationId",
+          "status": "passed"
+        },
+        {
+          "name": "deleteLeagueComment › kræver id",
+          "status": "passed"
+        },
+        {
+          "name": "deleteLeagueComment › kalder deleteDoc",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/comments/dmRead.test.js",
+      "area": "frontend",
+      "passed": 6,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "computeUnread › tæller kun beskeder til mig, der er nyere end sidst set",
+          "status": "passed"
+        },
+        {
+          "name": "computeUnread › returnerer 0 når alt er set",
+          "status": "passed"
+        },
+        {
+          "name": "computeUnread › ignorerer beskeder sendt af mig selv",
+          "status": "passed"
+        },
+        {
+          "name": "markConversationSeen › gemmer seneste set-tidspunkt for en samtale",
+          "status": "passed"
+        },
+        {
+          "name": "markConversationSeen › overskriver ikke med et ældre tidspunkt",
+          "status": "passed"
+        },
+        {
+          "name": "markConversationSeen › opdaterer til et nyere tidspunkt",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/comments/EmojiPicker.test.jsx",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "EmojiPicker › viser ikke gitteret før man klikker",
+          "status": "passed"
+        },
+        {
+          "name": "EmojiPicker › åbner gitteret ved klik på knappen",
+          "status": "passed"
+        },
+        {
+          "name": "EmojiPicker › kalder onSelect med valgt emoji og lukker gitteret",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/comments/formatTimestamp.test.js",
+      "area": "frontend",
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "formatTimestamp › returnerer tom streng for null",
+          "status": "passed"
+        },
+        {
+          "name": "formatTimestamp › viser kun klokkeslæt for samme dag",
+          "status": "passed"
+        },
+        {
+          "name": "formatTimestamp › viser dato + tid for en anden dag",
+          "status": "passed"
+        },
+        {
+          "name": "formatTimestamp › accepterer rå Date",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/comments/useMessages.test.js",
+      "area": "frontend",
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "groupConversations › grupperer pr. modpart",
+          "status": "passed"
+        },
+        {
+          "name": "groupConversations › tæller beskeder pr. samtale",
+          "status": "passed"
+        },
+        {
+          "name": "groupConversations › bruger seneste besked som \"last\"",
+          "status": "passed"
+        },
+        {
+          "name": "groupConversations › sorterer nyeste samtale øverst",
+          "status": "passed"
+        },
+        {
+          "name": "groupConversations › håndterer tom liste",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/dashboard/dashboardTasks.test.js",
+      "area": "frontend",
+      "passed": 9,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "hasAnswerValue › genkender ikke-tomme strenge",
+          "status": "passed"
+        },
+        {
+          "name": "hasAnswerValue › genkender top-liste-arrays med mindst ét felt",
+          "status": "passed"
+        },
+        {
+          "name": "countOpenUnansweredBonus › tæller åbne spørgsmål uden svar",
+          "status": "passed"
+        },
+        {
+          "name": "countOpenUnansweredBonus › udelader besvarede",
+          "status": "passed"
+        },
+        {
+          "name": "countOpenUnansweredBonus › udelader låste også selvom ubesvaret",
+          "status": "passed"
+        },
+        {
+          "name": "countOpenUnansweredBonus › håndterer tom/manglende input",
+          "status": "passed"
+        },
+        {
+          "name": "countOpenLeagueBonus › tæller åbne, ubesvarede",
+          "status": "passed"
+        },
+        {
+          "name": "countOpenLeagueBonus › 0 når alt åbent er besvaret",
+          "status": "passed"
+        },
+        {
+          "name": "countOpenLeagueBonus › tom besvarelse tæller som mangler",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/dashboard/TodoCard.test.jsx",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "TodoCard › viser hver kategori med antal når der mangler",
+          "status": "passed"
+        },
+        {
+          "name": "TodoCard › viser \"alt besvaret\" når total er 0",
+          "status": "passed"
+        },
+        {
+          "name": "TodoCard › skjuler kategorier uden mangler",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leaderboard/StandingsTable.test.jsx",
+      "area": "frontend",
+      "passed": 20,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "StandingsTable › sorterer brugere faldende efter point",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser \"dig\"-badge for den indloggede bruger",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › fremhæver den indloggede brugers række med is-me-klassen",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › andre rækker har IKKE is-me-klassen",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser medalje-emojis for top-3",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › filtrerer til kun memberUids når angivet",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser tom-tilstand når ingen spillere matcher filter",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser spinner under loading",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › bruger getPoints-funktion til at hente daglige point",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser alle spillere med totalPoints=0 når getPoints ikke er sat og ingen point",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser standardtekst ved tom bruger-liste (ingen filter)",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser standard emptyMsg hvis ingen angivet",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser placeringstallet (ikke medalje) for rang 4+",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser ikke \"dig\"-badge når meUid ikke matcher nogen bruger",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser ikke \"dig\"-badge når meUid er null",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser korrekt antal rækker uden filter",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › benytter getPoints fremfor totalPoints til sortering",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › returnerer 0 fra getPoints for brugere uden daglige point",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser tabel-header med #, Spiller og Point",
+          "status": "passed"
+        },
+        {
+          "name": "StandingsTable › viser \"(ukendt)\" for bruger uden displayName",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leaderboard/standingsUtils.test.js",
+      "area": "frontend",
+      "passed": 36,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "getTodayInCPH › returnerer en streng i YYYY-MM-DD format",
+          "status": "passed"
+        },
+        {
+          "name": "getTodayInCPH › accepterer en eksplicit now-dato",
+          "status": "passed"
+        },
+        {
+          "name": "getTodayInCPH › håndterer midnat UTC som forrige dag i CPH (UTC+2)",
+          "status": "passed"
+        },
+        {
+          "name": "getTodayInCPH › returnerer korrekt dato ved nytår",
+          "status": "passed"
+        },
+        {
+          "name": "getTodayInCPH › bruger ny Date() som default (ingen fejl)",
+          "status": "passed"
+        },
+        {
+          "name": "filterByMembers › returnerer alle brugere når memberUids er null",
+          "status": "passed"
+        },
+        {
+          "name": "filterByMembers › returnerer alle brugere når memberUids er tom liste",
+          "status": "passed"
+        },
+        {
+          "name": "filterByMembers › filtrerer til kun de angivne uid-er",
+          "status": "passed"
+        },
+        {
+          "name": "filterByMembers › returnerer tom liste hvis ingen matcher",
+          "status": "passed"
+        },
+        {
+          "name": "filterByMembers › returnerer alle brugere ved undefined memberUids",
+          "status": "passed"
+        },
+        {
+          "name": "filterByMembers › returnerer kun matchende brugere ved én uid",
+          "status": "passed"
+        },
+        {
+          "name": "filterByMembers › muterer ikke input-arrayet",
+          "status": "passed"
+        },
+        {
+          "name": "filterByMembers › ignorerer ukendte uid-er i listen",
+          "status": "passed"
+        },
+        {
+          "name": "collectVisibleUids › samler unionen af medlemmer på tværs af ligaer + sig selv",
+          "status": "passed"
+        },
+        {
+          "name": "collectVisibleUids › dublerer ikke UIDs der går igen i flere ligaer",
+          "status": "passed"
+        },
+        {
+          "name": "collectVisibleUids › returnerer kun sig selv uden ligaer",
+          "status": "passed"
+        },
+        {
+          "name": "collectVisibleUids › inkluderer altid sig selv, også uden at stå i memberUids",
+          "status": "passed"
+        },
+        {
+          "name": "collectVisibleUids › håndterer tomme/manglende felter",
+          "status": "passed"
+        },
+        {
+          "name": "sortByPoints › sorterer faldende efter totalPoints",
+          "status": "passed"
+        },
+        {
+          "name": "sortByPoints › behandler manglende totalPoints som 0",
+          "status": "passed"
+        },
+        {
+          "name": "sortByPoints › muterer ikke input-arrayet",
+          "status": "passed"
+        },
+        {
+          "name": "sortByPoints › returnerer tom liste ved tom input",
+          "status": "passed"
+        },
+        {
+          "name": "sortByPoints › håndterer alle med ens point (stabilt rækkefølge-neutral)",
+          "status": "passed"
+        },
+        {
+          "name": "sortByPoints › håndterer negative point",
+          "status": "passed"
+        },
+        {
+          "name": "sortByPoints › behandler undefined totalPoints som 0 (lavere end positive)",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › returnerer korrekte point for dagens kampe",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › medtager ikke bets fra andre datoer",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › returnerer tomt objekt hvis ingen matches matcher datoen",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › returnerer tomt objekt ved tomme input",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › summerer point fra flere kampe samme dag",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › ignorerer bets uden tilhørende kamp",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › ignorerer kampe uden result (null)",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › beregner knockout-point korrekt (round !== group)",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › returnerer tomt objekt ved tomt matches-array",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › returnerer tomt objekt ved tomt bets-array",
+          "status": "passed"
+        },
+        {
+          "name": "computeDailyPoints › håndterer kickoff som ISO-streng (ikke Timestamp)",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leaderboard/ThemeToggle.test.jsx",
+      "area": "frontend",
+      "passed": 14,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "ThemeToggle › renderer en knap",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › starter med lyst tema når localStorage er tom og OS ikke foretrækker mørkt",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › starter med mørkt tema når OS foretrækker mørkt og localStorage er tom",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › starter med gemt tema fra localStorage (dark)",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › starter med gemt tema fra localStorage (light)",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › skifter fra lyst til mørkt tema ved klik",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › skifter fra mørkt til lyst tema ved andet klik",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › gemmer lyst tema i localStorage efter skift",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › gemmer mørkt tema i localStorage efter skift",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › knappens aria-label ændres ved skift",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › knapteksten viser ☀️ Lyst i mørkt tema",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › knapteksten viser 🌙 Mørkt i lyst tema",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › toggler korrekt frem og tilbage (tre klik)",
+          "status": "passed"
+        },
+        {
+          "name": "ThemeToggle › sætter data-theme allerede ved mount (useEffect)",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leagues/leagueActions.test.js",
+      "area": "frontend",
+      "passed": 40,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "createLeague › returnerer det nye dokuments id",
+          "status": "passed"
+        },
+        {
+          "name": "createLeague › kalder addDoc med status pending",
+          "status": "passed"
+        },
+        {
+          "name": "createLeague › sætter memberUids til [ownerUid]",
+          "status": "passed"
+        },
+        {
+          "name": "createLeague › genererer en joinCode (6 tegn)",
+          "status": "passed"
+        },
+        {
+          "name": "createLeague › trimmer ligaens navn",
+          "status": "passed"
+        },
+        {
+          "name": "createLeague › sætter createdAt til serverTimestamp",
+          "status": "passed"
+        },
+        {
+          "name": "createLeague › kaster fejl ved tomt navn",
+          "status": "passed"
+        },
+        {
+          "name": "createLeague › kaster fejl ved navn kun med mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "createLeague › kaster fejl ved manglende ownerUid",
+          "status": "passed"
+        },
+        {
+          "name": "createLeague › kaster fejl ved null ownerUid",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › kaster fejl ved manglende kode",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › kaster fejl ved null kode",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › kaster fejl ved manglende uid",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › kaster fejl hvis ingen liga fundet",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › kaster fejl hvis liga ikke er godkendt (pending)",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › kaster fejl hvis liga er afvist (rejected)",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › kaster fejl hvis bruger allerede er medlem",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › kalder updateDoc med arrayUnion ved success",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › returnerer id og name ved success",
+          "status": "passed"
+        },
+        {
+          "name": "joinLeague › søger med uppercase-trimmet kode",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueStatus › kalder updateDoc med den nye status",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueStatus › fungerer med pending-status",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueStatus › fungerer med rejected-status",
+          "status": "passed"
+        },
+        {
+          "name": "adminAddMember › kaster fejl ved manglende memberUid",
+          "status": "passed"
+        },
+        {
+          "name": "adminAddMember › kaster fejl ved null memberUid",
+          "status": "passed"
+        },
+        {
+          "name": "adminAddMember › kalder updateDoc med arrayUnion",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueScoring › afviser hvis ingen dele er valgt",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueScoring › gemmer et saniteret scoring-objekt",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueAdmin › kaster fejl uden uid",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueAdmin › tilføjer liga-admin med arrayUnion",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueAdmin › fjerner liga-admin med arrayRemove",
+          "status": "passed"
+        },
+        {
+          "name": "leaveLeague › kaster fejl hvis uid er ejeren",
+          "status": "passed"
+        },
+        {
+          "name": "leaveLeague › kalder updateDoc med arrayRemove når ikke-ejer forlader",
+          "status": "passed"
+        },
+        {
+          "name": "leaveLeague › kalder ikke updateDoc når ejeren forsøger at forlade",
+          "status": "passed"
+        },
+        {
+          "name": "deleteLeague › kaster fejl hvis uid ikke er ejeren",
+          "status": "passed"
+        },
+        {
+          "name": "deleteLeague › kalder deleteDoc når ejeren sletter",
+          "status": "passed"
+        },
+        {
+          "name": "deleteLeague › kalder ikke deleteDoc ved uautoriseret forsøg",
+          "status": "passed"
+        },
+        {
+          "name": "removeMember › kaster fejl hvis memberUid er ownerUid",
+          "status": "passed"
+        },
+        {
+          "name": "removeMember › kalder updateDoc med arrayRemove for ikke-ejer",
+          "status": "passed"
+        },
+        {
+          "name": "removeMember › kalder ikke updateDoc ved ugyldig operation",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leagues/LeagueBonus.test.jsx",
+      "area": "frontend",
+      "passed": 6,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "LeagueBonus › viser spørgsmål med Åben/Låst status",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBonus › viser \"mangler at svare\"-indikator for ubesvarede åbne spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBonus › viser \"Gem svar\"-knap på åbne spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBonus › viser facit, dit svar og point på låst, afgjort spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBonus › viser tom-tilstand uden spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBonus › viser opret-knap for managere",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leagues/leagueBonusActions.test.js",
+      "area": "frontend",
+      "passed": 6,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "createLeagueBonus › afviser en deadline i fortiden",
+          "status": "passed"
+        },
+        {
+          "name": "createLeagueBonus › opretter med en gyldig fremtidig deadline",
+          "status": "passed"
+        },
+        {
+          "name": "createLeagueBonus › kræver mindst to svarmuligheder ved valg",
+          "status": "passed"
+        },
+        {
+          "name": "updateLeagueBonus › afviser ny deadline i fortiden",
+          "status": "passed"
+        },
+        {
+          "name": "updateLeagueBonus › opdaterer label",
+          "status": "passed"
+        },
+        {
+          "name": "updateLeagueBonus › gør intet uden felter",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leagues/leagueBonusScoring.test.js",
+      "area": "frontend",
+      "passed": 10,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "scoreLeagueBonus › giver 0 uden facit eller svar",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueBonus › fritekst: case/whitespace/accent-ufølsom + lille stavefejl",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueBonus › fritekst: manuelt godkendt stavemåde tæller",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueBonus › valg og ja/nej",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueBonus › top-liste med rækkefølge-bonus › point pr. korrekt navn + bonus for rigtig plads",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueBonus › top-liste med rækkefølge-bonus › korrekt navn men forkert plads giver kun navn-point",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueBonus › top-liste med rækkefølge-bonus › helt forkert giver 0",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueBonus › top-liste med rækkefølge-bonus › dublet-navne tæller kun én gang",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueBonus › top-liste med rækkefølge-bonus › fuzzy match på navne i top-liste",
+          "status": "passed"
+        },
+        {
+          "name": "sumLeagueBonus › summerer på tværs af spørgsmål",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leagues/leagueFormat.test.js",
+      "area": "frontend",
+      "passed": 12,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "leagueScore (kombinerbar) › alt slået til = alle komponenter",
+          "status": "passed"
+        },
+        {
+          "name": "leagueScore (kombinerbar) › kun bonus + slutspil kombineret",
+          "status": "passed"
+        },
+        {
+          "name": "leagueScore (kombinerbar) › dobbelt slutspil vægter knockout x2",
+          "status": "passed"
+        },
+        {
+          "name": "leagueScore (kombinerbar) › lægger liga-bonus til når valgt",
+          "status": "passed"
+        },
+        {
+          "name": "leagueScore (kombinerbar) › liga-bonus ignoreres når fravalgt",
+          "status": "passed"
+        },
+        {
+          "name": "normalizeScoring › bruger scoring-objekt hvis til stede",
+          "status": "passed"
+        },
+        {
+          "name": "normalizeScoring › mapper gammelt bonusOnly-format",
+          "status": "passed"
+        },
+        {
+          "name": "normalizeScoring › mapper gammelt doubleKnockout-format",
+          "status": "passed"
+        },
+        {
+          "name": "normalizeScoring › falder tilbage til default uden format/scoring",
+          "status": "passed"
+        },
+        {
+          "name": "scoringLabel / isFullScoring › fuld scoring kaldes Fuld",
+          "status": "passed"
+        },
+        {
+          "name": "scoringLabel / isFullScoring › viser kombination",
+          "status": "passed"
+        },
+        {
+          "name": "scoringLabel / isFullScoring › intet valgt",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leagues/leagueUtils.test.js",
+      "area": "frontend",
+      "passed": 13,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "generateJoinCode › genererer en kode på præcis 6 tegn",
+          "status": "passed"
+        },
+        {
+          "name": "generateJoinCode › indeholder kun tilladte tegn (store bogstaver og tal, ingen tvetydige)",
+          "status": "passed"
+        },
+        {
+          "name": "generateJoinCode › genererer unikke koder (statistisk)",
+          "status": "passed"
+        },
+        {
+          "name": "generateJoinCode › indeholder ingen tvetydige tegn (0, O, 1, I) over 200 kald",
+          "status": "passed"
+        },
+        {
+          "name": "generateJoinCode › alle tegn er fra det tilladte sæt over 200 kald",
+          "status": "passed"
+        },
+        {
+          "name": "generateJoinCode › returnerer en streng (ikke tal)",
+          "status": "passed"
+        },
+        {
+          "name": "generateJoinCode › er altid store bogstaver",
+          "status": "passed"
+        },
+        {
+          "name": "filterUsersByLeague › returnerer kun brugere der er i memberUids",
+          "status": "passed"
+        },
+        {
+          "name": "filterUsersByLeague › returnerer tom liste ved tom memberUids",
+          "status": "passed"
+        },
+        {
+          "name": "filterUsersByLeague › returnerer tom liste ved null memberUids",
+          "status": "passed"
+        },
+        {
+          "name": "filterUsersByLeague › returnerer tom liste hvis ingen brugere matcher",
+          "status": "passed"
+        },
+        {
+          "name": "filterUsersByLeague › returnerer alle matchende brugere når alle uid-er er i listen",
+          "status": "passed"
+        },
+        {
+          "name": "filterUsersByLeague › ignorerer uid-er i memberUids der ikke har tilsvarende bruger",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leagues/useTipParticipation.test.js",
+      "area": "frontend",
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "leagueTipStatus › tæller hvor mange der har tippet",
+          "status": "passed"
+        },
+        {
+          "name": "leagueTipStatus › lister hvem der mangler",
+          "status": "passed"
+        },
+        {
+          "name": "leagueTipStatus › håndterer at ingen har tippet (undefined set)",
+          "status": "passed"
+        },
+        {
+          "name": "leagueTipStatus › håndterer at alle har tippet",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/matches/dashboardUtils.test.js",
+      "area": "frontend",
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "computeDashboard › finder dagens kampe med kendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "computeDashboard › viser kun utippede, ikke-låste kampe i dag som manglende",
+          "status": "passed"
+        },
+        {
+          "name": "computeDashboard › tæller alle manglende tips (også fremtidige dage)",
+          "status": "passed"
+        },
+        {
+          "name": "computeDashboard › vælger den tidligste kommende kamp som næste",
+          "status": "passed"
+        },
+        {
+          "name": "computeDashboard › håndterer tom kampliste",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/matches/MatchCard.test.jsx",
+      "area": "frontend",
+      "passed": 49,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "MatchCard – grundlæggende rendering › viser fuldt holdnavn for GER (Tyskland)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – grundlæggende rendering › viser fuldt holdnavn for FRA (Frankrig)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – grundlæggende rendering › viser fallback-koden for ukendte hold (fx DK er ikke i teams.js)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – grundlæggende rendering › viser match-card container",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – grundlæggende rendering › viser runde + gruppe i headeren (Gruppespil · Gruppe A)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – grundlæggende rendering › viser \"vs\" tekst for uafgjort kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – låst-tilstand › viser IKKE låst-badge for fremtidig kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – låst-tilstand › viser låst-badge for en kamp der allerede er startet",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – låst-tilstand › viser countdown for ulåst kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – låst-tilstand › viser IKKE countdown for låst kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – resultater og point › viser resultatet når kampen er finished",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – resultater og point › viser optjente point for bruger med tip",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – resultater og point › viser +5 point ved eksakt score",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – resultater og point › viser +3 point for korrekt udfald + korrekt målforskel (men ikke eksakt)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – resultater og point › viser +2 point for korrekt udfald (men forkert målforskel)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – resultater og point › viser 0 point for forkert udfald",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – resultater og point › viser IKKE earned-points for åben kamp med tip",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – resultater og point › viser brugerens tip under låst kamp (ikke afgjort)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – ScoreInput formular › viser \"Intet tip afgivet\" for låst kamp uden tip",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – ScoreInput formular › viser ScoreInput for fremtidig åben kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – ScoreInput formular › skjuler ScoreInput for låst kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – ScoreInput formular › udfylder score-felter med eksisterende bet",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – ScoreInput formular › kalder setDoc ved gem af tip",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – ScoreInput formular › viser \"Op til 5 point muligt\" for gruppekamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – pendingTeams › viser pending-teams besked for ukendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – pendingTeams › viser placeholder-tekster for ukendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – pendingTeams › viser ❓ for ukendte hold (ingen flag)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – pendingTeams › skjuler ScoreInput for pendingTeams kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › viser advance-valg for knockout-kamp (qf)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › viser advance-knap med fuldt holdnavn for kendte koder",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › viser videre-resultat for afgjort knockout med kendt holdkode",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › viser \"Op til 7 point muligt\" for knockout",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › viser \"Hvem går videre?\" label for knockout",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › viser advance-knapper for r32-kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › viser advance-bonus-point for knockout i teksten",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › viser eksisterende advance-valg fra bet",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › viser advance i brugerens tip for låst knockout (ikke afgjort)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › +2 ekstrapoint for korrekt advance i knockout",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – knockout-kampe › INGEN advance-bonus for forkert advance i knockout",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – Flag-komponent › viser Flag-komponent for hjemmehold (GER = Tyskland)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – Flag-komponent › viser Flag-komponent for udehold (FRA = Frankrig)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – Flag-komponent › viser flag for BRA (Brasilien)",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – runde-labels › viser \"Gruppespil\" for group",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – runde-labels › viser \"Finale\" for final",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – runde-labels › viser \"Semifinale\" for sf",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – tippet-markering › viser \"✓ Tippet\"-badge når der findes et tip",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – tippet-markering › viser \"Mangler tip\"-badge for åben kamp uden tip",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – tippet-markering › viser hverken tippet- eller mangler-badge på låst kamp uden tip",
+          "status": "passed"
+        },
+        {
+          "name": "MatchCard – tippet-markering › viser \"✓ Tippet\" på låst kamp hvis man nåede at tippe",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/matches/matchHelpers.test.js",
+      "area": "frontend",
+      "passed": 52,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "isTippable › er sand for en kommende kamp med kendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "isTippable › er falsk når holdene ikke er kendt (knockout der venter)",
+          "status": "passed"
+        },
+        {
+          "name": "isTippable › er falsk for status pendingTeams selv med hold",
+          "status": "passed"
+        },
+        {
+          "name": "isTippable › er falsk når kampen er låst (kickoff passeret)",
+          "status": "passed"
+        },
+        {
+          "name": "isTippable › er falsk for null",
+          "status": "passed"
+        },
+        {
+          "name": "isMatchLocked › returnerer false hvis nu er FØR kickoff",
+          "status": "passed"
+        },
+        {
+          "name": "isMatchLocked › returnerer true hvis nu er EFTER kickoff",
+          "status": "passed"
+        },
+        {
+          "name": "isMatchLocked › returnerer true præcis ved kickoff-tidspunktet",
+          "status": "passed"
+        },
+        {
+          "name": "isMatchLocked › håndterer Firestore Timestamp-lignende objekt (toDate)",
+          "status": "passed"
+        },
+        {
+          "name": "isMatchLocked › returnerer false ved null kickoff",
+          "status": "passed"
+        },
+        {
+          "name": "isMatchLocked › returnerer false ved undefined kickoff",
+          "status": "passed"
+        },
+        {
+          "name": "isMatchLocked › håndterer kickoff som millisekunder (number)",
+          "status": "passed"
+        },
+        {
+          "name": "isMatchLocked › grænsetilfælde: 1 ms før kickoff er IKKE låst",
+          "status": "passed"
+        },
+        {
+          "name": "isMatchLocked › grænsetilfælde: 1 ms efter kickoff ER låst",
+          "status": "passed"
+        },
+        {
+          "name": "groupMatchesByDay › grupperer kampe på samme dag korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "groupMatchesByDay › returnerer tom liste for tomt input",
+          "status": "passed"
+        },
+        {
+          "name": "groupMatchesByDay › returnerer én gruppe for en enkelt kamp",
+          "status": "passed"
+        },
+        {
+          "name": "groupMatchesByDay › sorterer grupper kronologisk",
+          "status": "passed"
+        },
+        {
+          "name": "groupMatchesByDay › returnerer label som string for hver gruppe",
+          "status": "passed"
+        },
+        {
+          "name": "groupMatchesByDay › håndterer Firestore Timestamp-objekter i kickoff",
+          "status": "passed"
+        },
+        {
+          "name": "groupMatchesByDay › tre dage giver tre grupper",
+          "status": "passed"
+        },
+        {
+          "name": "dayKey › returnerer en non-tom streng for en dato",
+          "status": "passed"
+        },
+        {
+          "name": "dayKey › returnerer \"Ukendt dato\" for null",
+          "status": "passed"
+        },
+        {
+          "name": "dayKey › returnerer \"Ukendt dato\" for undefined",
+          "status": "passed"
+        },
+        {
+          "name": "dayKey › håndterer Firestore Timestamp (toDate)",
+          "status": "passed"
+        },
+        {
+          "name": "dayKey › to kampe på samme dag giver identisk nøgle",
+          "status": "passed"
+        },
+        {
+          "name": "dayKey › to kampe på forskellige dage giver forskellige nøgler",
+          "status": "passed"
+        },
+        {
+          "name": "formatKickoffTime › returnerer \"--:--\" for null",
+          "status": "passed"
+        },
+        {
+          "name": "formatKickoffTime › returnerer \"--:--\" for undefined",
+          "status": "passed"
+        },
+        {
+          "name": "formatKickoffTime › returnerer en non-tom streng for en dato",
+          "status": "passed"
+        },
+        {
+          "name": "formatKickoffTime › indeholder \"20\" for 18:00 UTC sommertid (CEST = UTC+2)",
+          "status": "passed"
+        },
+        {
+          "name": "formatKickoffTime › indeholder \"18\" for 17:00 UTC vintertid (CET = UTC+1)",
+          "status": "passed"
+        },
+        {
+          "name": "formatKickoffTime › returnerer korrekt Copenhagen-tid om sommeren (UTC+2)",
+          "status": "passed"
+        },
+        {
+          "name": "formatKickoffTime › returnerer korrekt Copenhagen-tid om vinteren (UTC+1)",
+          "status": "passed"
+        },
+        {
+          "name": "formatKickoffTime › håndterer Firestore Timestamp (toDate)",
+          "status": "passed"
+        },
+        {
+          "name": "roundLabel › returnerer \"Gruppespil\" for \"group\"",
+          "status": "passed"
+        },
+        {
+          "name": "roundLabel › returnerer \"1/16-finale\" for \"r32\"",
+          "status": "passed"
+        },
+        {
+          "name": "roundLabel › returnerer \"1/8-finale\" for \"r16\"",
+          "status": "passed"
+        },
+        {
+          "name": "roundLabel › returnerer \"Kvartfinale\" for \"qf\"",
+          "status": "passed"
+        },
+        {
+          "name": "roundLabel › returnerer \"Semifinale\" for \"sf\"",
+          "status": "passed"
+        },
+        {
+          "name": "roundLabel › returnerer \"Bronzekamp\" for \"bronze\"",
+          "status": "passed"
+        },
+        {
+          "name": "roundLabel › returnerer \"Finale\" for \"final\"",
+          "status": "passed"
+        },
+        {
+          "name": "roundLabel › returnerer den ukendte runde-streng som fallback",
+          "status": "passed"
+        },
+        {
+          "name": "roundLabel › returnerer undefined for undefined (ikke crash)",
+          "status": "passed"
+        },
+        {
+          "name": "flagEmoji › returnerer emoji-flag for \"DK\"",
+          "status": "passed"
+        },
+        {
+          "name": "flagEmoji › returnerer emoji-flag for \"FR\"",
+          "status": "passed"
+        },
+        {
+          "name": "flagEmoji › returnerer 🏳️ for null",
+          "status": "passed"
+        },
+        {
+          "name": "flagEmoji › returnerer 🏳️ for undefined",
+          "status": "passed"
+        },
+        {
+          "name": "flagEmoji › returnerer 🏳️ for tom streng",
+          "status": "passed"
+        },
+        {
+          "name": "flagEmoji › returnerer 🏳️ for kode med 1 tegn",
+          "status": "passed"
+        },
+        {
+          "name": "flagEmoji › returnerer 🏳️ for kode med 3 tegn",
+          "status": "passed"
+        },
+        {
+          "name": "flagEmoji › fungerer case-insensitivt med stor kode",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/matches/ScoreInput.test.jsx",
+      "area": "frontend",
+      "passed": 17,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "ScoreInput › renderer to input-felter og en gem-knap",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › kalder onSave med korrekte numeriske værdier ved klik",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › deaktiverer gem-knap hvis felterne er tomme",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › viser ikke gem-knap når disabled=true",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › afviser negative tal (input validering)",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › kalder onSave med 0-0 score korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › viser initialt inputte værdier",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › afviser bogstaver i hjemme-input",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › afviser bogstaver i ude-input",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › gem-knap er deaktiveret hvis kun hjemme-input er udfyldt",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › gem-knap er deaktiveret hvis kun ude-input er udfyldt",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › gem-knap aktiveres når begge felter er udfyldt",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › kalder IKKE onSave hvis felter er tomme",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › håndterer store score-tal korrekt (fx 10-0)",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › synkroniserer eksternt ændrede initialværdier",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › input-felter har aria-labels",
+          "status": "passed"
+        },
+        {
+          "name": "ScoreInput › afviser decimaltal (fx \"1.5\")",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/onboarding/OnboardingChecklist.test.jsx",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "OnboardingChecklist › viser velkomst og de fire trin",
+          "status": "passed"
+        },
+        {
+          "name": "OnboardingChecklist › skjuler og husker valget i localStorage",
+          "status": "passed"
+        },
+        {
+          "name": "OnboardingChecklist › viser ikke noget hvis allerede skjult",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/profile/avatarUtils.test.js",
+      "area": "frontend",
+      "passed": 7,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "avatarColor › er deterministisk for samme seed",
+          "status": "passed"
+        },
+        {
+          "name": "avatarColor › returnerer en hex-farve",
+          "status": "passed"
+        },
+        {
+          "name": "avatarColor › giver (typisk) forskellige farver for forskellige seeds",
+          "status": "passed"
+        },
+        {
+          "name": "initials › tager forbogstaver fra for- og efternavn",
+          "status": "passed"
+        },
+        {
+          "name": "initials › tager to bogstaver fra ét navn",
+          "status": "passed"
+        },
+        {
+          "name": "initials › håndterer tomt navn",
+          "status": "passed"
+        },
+        {
+          "name": "initials › bruger første og sidste ved flere navne",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/profile/profileActions.test.js",
+      "area": "frontend",
+      "passed": 6,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "updateProfile › kræver login",
+          "status": "passed"
+        },
+        {
+          "name": "updateProfile › afviser ukendt hold",
+          "status": "passed"
+        },
+        {
+          "name": "updateProfile › afviser for lang emoji",
+          "status": "passed"
+        },
+        {
+          "name": "updateProfile › gemmer gyldige felter",
+          "status": "passed"
+        },
+        {
+          "name": "updateProfile › konverterer tomt hold/emoji til null",
+          "status": "passed"
+        },
+        {
+          "name": "updateProfile › skriver intet ved tomt felt-objekt",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/reactions/reactionActions.test.js",
+      "area": "frontend",
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "toggleReaction › tilføjer reaktion når brugeren ikke har reageret",
+          "status": "passed"
+        },
+        {
+          "name": "toggleReaction › fjerner reaktion når brugeren allerede har reageret",
+          "status": "passed"
+        },
+        {
+          "name": "toggleReaction › kræver login og emoji",
+          "status": "passed"
+        },
+        {
+          "name": "toggleReaction › har et sæt hurtig-reaktioner",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/stats/statsUtils.test.js",
+      "area": "frontend",
+      "passed": 15,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "computeMatchStats › returnerer nuller uden tips",
+          "status": "passed"
+        },
+        {
+          "name": "computeMatchStats › returnerer nuller hvis kampen ikke har resultat",
+          "status": "passed"
+        },
+        {
+          "name": "computeMatchStats › tæller eksakt, udfald, gennemsnit og populært tip",
+          "status": "passed"
+        },
+        {
+          "name": "computeMatchStats › håndterer knockout med advance-bonus",
+          "status": "passed"
+        },
+        {
+          "name": "topScorersOfDay › sorterer efter point faldende og filtrerer 0",
+          "status": "passed"
+        },
+        {
+          "name": "topScorersOfDay › respekterer limit",
+          "status": "passed"
+        },
+        {
+          "name": "topScorersOfDay › håndterer tomt input",
+          "status": "passed"
+        },
+        {
+          "name": "maxPointsForMatch › gruppekamp = 5",
+          "status": "passed"
+        },
+        {
+          "name": "maxPointsForMatch › knockout = 5 + advance-bonus",
+          "status": "passed"
+        },
+        {
+          "name": "computeSeasonOverview › summerer på tværs af afsluttede kampe (ignorerer uafgjorte)",
+          "status": "passed"
+        },
+        {
+          "name": "computeSeasonOverview › returnerer nuller uden kampe",
+          "status": "passed"
+        },
+        {
+          "name": "computePlayerAccuracy › aggregerer pr. spiller og sorterer efter point",
+          "status": "passed"
+        },
+        {
+          "name": "mostSurprising / bestPredicted › mest overraskende = lavest udfalds-procent (min tips)",
+          "status": "passed"
+        },
+        {
+          "name": "mostSurprising / bestPredicted › bedst forudsagt = højest eksakt-procent",
+          "status": "passed"
+        },
+        {
+          "name": "mostSurprising / bestPredicted › returnerer null hvis ingen kamp har nok tips",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/tournament/computeStandings.test.js",
+      "area": "frontend",
+      "passed": 26,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "computeGroupStandings › registrerer alle hold fra kampe (også uden resultat)",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › kampe uden status finished tæller ikke",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › kampe med status finished men null result tæller ikke",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › sejr giver 3 point til vinder og 0 til taber",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › udesejr giver 3 point til udehold og 0 til hjemmehold",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › uafgjort giver 1 point til begge hold",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › beregner målforskel korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › sorterer korrekt: point først, derefter målforskel",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › bruger scorede mål som tiebreak når point og målforskel er ens",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › bruger landenavn som endelig tiebreak",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › akkumulerer stats korrekt over flere kampe",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › returnerer tom liste ved ingen kampe",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › hvert række-objekt har de forventede felter",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › tæller korrekt med live-status (ikke finished)",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › ignorerer kamp med result.home ikke-numerisk",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › beregner gd korrekt for alle hold",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › 0-0 uafgjort registreres korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings › ignorerer kamp med null homeTeam",
+          "status": "passed"
+        },
+        {
+          "name": "grupperEfterGruppe › ignorerer ikke-gruppe-kampe",
+          "status": "passed"
+        },
+        {
+          "name": "grupperEfterGruppe › samler kampe under korrekt gruppenavn",
+          "status": "passed"
+        },
+        {
+          "name": "grupperEfterGruppe › sorterer grupper alfabetisk (A, B, C ...)",
+          "status": "passed"
+        },
+        {
+          "name": "grupperEfterGruppe › returnerer tom Map ved tom input",
+          "status": "passed"
+        },
+        {
+          "name": "grupperEfterGruppe › ignorerer kampe uden groupName",
+          "status": "passed"
+        },
+        {
+          "name": "grupperEfterGruppe › returnerer Map (ikke Array)",
+          "status": "passed"
+        },
+        {
+          "name": "grupperEfterGruppe › inkluderer kampe uden resultat i gruppen",
+          "status": "passed"
+        },
+        {
+          "name": "grupperEfterGruppe › håndterer mange grupper (A-L)",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/matchData.test.js",
+      "area": "frontend",
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "group-stage.json — dataintegritet › har 104 kampe i alt",
+          "status": "passed"
+        },
+        {
+          "name": "group-stage.json — dataintegritet › har unikke id'er",
+          "status": "passed"
+        },
+        {
+          "name": "group-stage.json — dataintegritet › gruppekampe bruger grp_-præfiks, knockout bruger ko_-præfiks",
+          "status": "passed"
+        },
+        {
+          "name": "group-stage.json — dataintegritet › indeholder præcis de 16 r32-kampe som buildKnockout forventer",
+          "status": "passed"
+        },
+        {
+          "name": "group-stage.json — dataintegritet › har 72 gruppekampe og 32 knockout-kampe",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/scoring.test.js",
+      "area": "frontend",
+      "passed": 21,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "scoreMatch › giver fuldt point for eksakt score",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch › giver målforskel-point for korrekt udfald + målforskel",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch › giver udfald-point for korrekt vinder men forkert målforskel",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch › giver 0 for forkert udfald",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch › håndterer uafgjort eksakt vs. uafgjort målforskel",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch › returnerer 0 ved manglende data",
+          "status": "passed"
+        },
+        {
+          "name": "outcome › klassificerer korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "scoreKnockout › lægger advance-bonus til score-point",
+          "status": "passed"
+        },
+        {
+          "name": "scoreKnockout › giver ikke advance-bonus ved forkert videregående hold",
+          "status": "passed"
+        },
+        {
+          "name": "scoreBonus › giver bonuspoint for korrekt svar",
+          "status": "passed"
+        },
+        {
+          "name": "scoreBonus › giver 0 for forkert svar",
+          "status": "passed"
+        },
+        {
+          "name": "scoreBonus › er ufølsom for store/små bogstaver og mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "scoreBonus › giver 0 for tomt svar",
+          "status": "passed"
+        },
+        {
+          "name": "fuzzyNameMatch › matcher på tværs af accenter og tegn",
+          "status": "passed"
+        },
+        {
+          "name": "fuzzyNameMatch › tilgiver små stavefejl i længere navne",
+          "status": "passed"
+        },
+        {
+          "name": "fuzzyNameMatch › matcher kun efternavn mod fuldt navn",
+          "status": "passed"
+        },
+        {
+          "name": "fuzzyNameMatch › afviser klart forskellige navne",
+          "status": "passed"
+        },
+        {
+          "name": "bonusPoints › topscorer: fuzzy mod facit giver point",
+          "status": "passed"
+        },
+        {
+          "name": "bonusPoints › topscorer: admin-godkendt svar giver point selv ved større afvigelse",
+          "status": "passed"
+        },
+        {
+          "name": "bonusPoints › topscorer: forkert spiller giver 0",
+          "status": "passed"
+        },
+        {
+          "name": "bonusPoints › gruppevinder: kræver eksakt match (ingen fuzzy på koder)",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/teams.test.js",
+      "area": "frontend",
+      "passed": 26,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "teamName › returnerer dansk navn for kendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "teamName › returnerer selve koden for ukendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "teamName › returnerer tom streng ved null",
+          "status": "passed"
+        },
+        {
+          "name": "teamName › returnerer tom streng ved undefined",
+          "status": "passed"
+        },
+        {
+          "name": "teamName › returnerer tom streng ved tom streng",
+          "status": "passed"
+        },
+        {
+          "name": "teamName › returnerer korrekt navn for England med gb-eng iso",
+          "status": "passed"
+        },
+        {
+          "name": "teamName › returnerer korrekt navn for Skotland med gb-sct iso",
+          "status": "passed"
+        },
+        {
+          "name": "teamName › returnerer korrekt navn for særlige tegn (Curaçao)",
+          "status": "passed"
+        },
+        {
+          "name": "teamName › returnerer korrekt navn for Østrig",
+          "status": "passed"
+        },
+        {
+          "name": "teamName › returnerer korrekt navn for Bosnien-Hercegovina",
+          "status": "passed"
+        },
+        {
+          "name": "teamIso › returnerer iso-kode for kendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "teamIso › returnerer gb-eng for England",
+          "status": "passed"
+        },
+        {
+          "name": "teamIso › returnerer gb-sct for Skotland",
+          "status": "passed"
+        },
+        {
+          "name": "teamIso › returnerer null for ukendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "teamIso › returnerer null ved null input",
+          "status": "passed"
+        },
+        {
+          "name": "teamIso › returnerer null ved undefined input",
+          "status": "passed"
+        },
+        {
+          "name": "teamIso › returnerer null ved tom streng",
+          "status": "passed"
+        },
+        {
+          "name": "flagUrl › returnerer korrekt flagcdn-URL for kendte hold med default bredde",
+          "status": "passed"
+        },
+        {
+          "name": "flagUrl › bruger den angivne bredde i URL",
+          "status": "passed"
+        },
+        {
+          "name": "flagUrl › returnerer korrekt URL for England (gb-eng)",
+          "status": "passed"
+        },
+        {
+          "name": "flagUrl › returnerer korrekt URL for Skotland (gb-sct)",
+          "status": "passed"
+        },
+        {
+          "name": "flagUrl › returnerer null for ukendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "flagUrl › returnerer null ved null input",
+          "status": "passed"
+        },
+        {
+          "name": "flagUrl › returnerer null ved undefined input",
+          "status": "passed"
+        },
+        {
+          "name": "flagUrl › returnerer null ved tom streng",
+          "status": "passed"
+        },
+        {
+          "name": "flagUrl › dækker alle 50 hold i TEAMS",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/AdminPage.test.jsx",
+      "area": "frontend",
+      "passed": 19,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › viser Brugere-fanen for owner",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › viser Kampe & resultater-fanen for owner",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › viser Bonus-facit-fanen for owner",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › viser Ligaer-fanen for owner",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › viser alle fem faner for owner",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › viser tekst om fuld adgang som ejer",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › starter på Brugere-fanen for owner",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › faneskift fra Brugere til Kampe viser kamp-indhold",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › faneskift fra Brugere til Bonus-facit viser bonus-indhold",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › Owner-bruger (fuld adgang) › faneskift til Ligaer viser ligaer-indhold",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › MatchAdmin-bruger (begrænset adgang) › SKJULER Brugere-fanen for matchAdmin",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › MatchAdmin-bruger (begrænset adgang) › viser Kampe & resultater-fanen for matchAdmin",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › MatchAdmin-bruger (begrænset adgang) › viser Bonus-facit-fanen for matchAdmin",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › MatchAdmin-bruger (begrænset adgang) › viser Ligaer-fanen for matchAdmin",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › MatchAdmin-bruger (begrænset adgang) › viser præcis 4 faner for matchAdmin (Kampe, Bonus, Ligaer, Tests)",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › MatchAdmin-bruger (begrænset adgang) › viser tekst om kamp-administrator adgang",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › MatchAdmin-bruger (begrænset adgang) › starter på Kampe-fanen for matchAdmin",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › MatchAdmin-bruger (begrænset adgang) › faneskift til Bonus-facit viser bonus-indhold for matchAdmin",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage › viser Admin-panel som overskrift",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/BonusPage.test.jsx",
+      "area": "frontend",
+      "passed": 24,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "BonusPage – loading og tom tilstand › viser spinner under indlæsning (questions + bets)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – loading og tom tilstand › viser spinner hvis kun questions loader",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – loading og tom tilstand › viser spinner hvis kun bets loader",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – loading og tom tilstand › viser tom-tilstand uden spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – loading og tom tilstand › viser fejlbesked ved netværksfejl",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – overskrift og statistik › viser side-overskrift \"🎁 Bonus\"",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – overskrift og statistik › viser bonus-point i statistik-banner",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – overskrift og statistik › viser 0 point i statistik-banner uden svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – overskrift og statistik › viser besvaret/åbne statistik",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – overskrift og statistik › viser 0/0 for besvaret/åbne når alle er låste",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – sektioner › viser åbent spørgsmål med input og gem-knap",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – sektioner › viser låst spørgsmål uden gem-knap",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – sektioner › viser \"Åbne spørgsmål\" sektion-overskrift",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – sektioner › viser \"Låste spørgsmål\" sektion-overskrift",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – sektioner › viser begge sektioner (åbne og låste) når begge typer eksisterer",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – sektioner › viser IKKE \"Åbne spørgsmål\" header hvis ingen åbne",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – sektioner › viser IKKE \"Låste spørgsmål\" header hvis ingen låste",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – sortering › sorterer topscorer øverst foran gruppevindere",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – sortering › sorterer gruppevindere A→L inden for åbne spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – facit og point › viser facit for afgjort spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – facit og point › viser optjente bonus-point for korrekt svar",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – facit og point › viser facit for afgjort topScorer",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – facit og point › kan IKKE svare på låst spørgsmål (input deaktiveret)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusPage – facit og point › summerer bonus-point fra flere spørgsmål",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/DashboardPage.test.jsx",
+      "area": "frontend",
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "DashboardPage › hilser brugeren personligt",
+          "status": "passed"
+        },
+        {
+          "name": "DashboardPage › viser mærket placering og point som chips",
+          "status": "passed"
+        },
+        {
+          "name": "DashboardPage › viser \"Mine opgaver\"-kortet",
+          "status": "passed"
+        },
+        {
+          "name": "DashboardPage › viser genvej til kampene",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/HelpPage.test.jsx",
+      "area": "frontend",
+      "passed": 1,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "HelpPage › viser de centrale hjælpe-afsnit",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/LeaderboardPage.test.jsx",
+      "area": "frontend",
+      "passed": 13,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "LeaderboardPage › viser \"Samlet stilling\"-fanen som standard",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › viser kun spillere fra egne ligaer i samlet stilling",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › fremhæver den indloggede bruger med \"dig\"-badge",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › skifter til \"Dagens kampe\"-fanen ved klik",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › viser ligadropdown da brugeren har ligaer",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › filtrerer stilling til ligamedlemmer ved valg",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › viser daglige point i dagsfanen",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › viser dato-badge i dagsfanen",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › viser samlet stilling for valgt liga med ligaens navn",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › skifter til Dagens kampe og viser ligaens daglige stilling",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › nulstiller filter til eget liga-netværk ved valg af tom option",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › viser ThemeToggle-knap",
+          "status": "passed"
+        },
+        {
+          "name": "LeaderboardPage › \"Samlet stilling\"-fanen er ikke selected i dagsfanen",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/LeaguesPage.test.jsx",
+      "area": "frontend",
+      "passed": 29,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "LeaguesPage – listevisning › viser brugerens ligaer",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – listevisning › viser antal medlemmer på ligakortet",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – listevisning › viser \"ejer\"-badge for brugerens egne ligaer",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – listevisning › viser tom-tilstand når ingen ligaer",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – listevisning › viser \"Opret liga\"-formular ved klik",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – listevisning › viser \"Tilmeld via kode\"-formular ved klik",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – opret liga › kalder createLeague med korrekte argumenter ved submit",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – join via kode › kalder joinLeague med korrekte argumenter ved submit",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – detaljevisning › åbner detaljevisning ved klik på ligakort",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – detaljevisning › viser kun ligamedlemmer i rangering",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – detaljevisning › viser \"Tilbage\"-knap og lukker detaljevisning",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – detaljevisning › viser \"Slet liga\"-knap for ejeren i detaljevisning",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – detaljevisning › viser \"Fjern\"-knapper for ejeren ved hvert ikke-ejer-medlem",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – detaljevisning › kalder removeMember ved klik på Fjern",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – detaljevisning › kalder deleteLeague ved bekræftet sletning",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – detaljevisning › viser ligaens rangering via StandingsTable",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – detaljevisning › viser join-koden i detaljevisning",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – statuser › viser \"afventer godkendelse\"-badge for pending liga",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – statuser › viser \"afvist\"-badge for rejected liga",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – fejl og loading › viser fejlbesked ved leagueError",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – fejl og loading › viser spinner under loading",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – opret liga formular › kalder createLeague og lukker formularen ved success",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – opret liga formular › viser fejlbesked ved createLeague-fejl",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – opret liga formular › deaktiverer submit-knappen ved tomt navn",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – opret liga formular › lukker opret-formularen efter succesfuld oprettelse (onCreated)",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – join via kode formular › viser success-besked efter join",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – join via kode formular › viser fejlbesked ved ugyldig kode",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – join via kode formular › viser fejlbesked når liga ikke er godkendt",
+          "status": "passed"
+        },
+        {
+          "name": "LeaguesPage – join via kode formular › viser fejlbesked når allerede er medlem",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/LoginPage.test.jsx",
+      "area": "frontend",
+      "passed": 35,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "LoginPage › viser VM 2026 Tip-overskrift",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser tagline om Danmarks bedste fodbold-tippekonkurrence",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser Log ind-fane som standard",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser Opret bruger-fane",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser e-mail og adgangskode-felt i login-tilstand",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser Glemt adgangskode-knap i login-fane",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › kalder login med korrekte data ved indsendelse",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser login-knappen som deaktiveret under loading",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser teksten \"Logger ind…\" under loading",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › skifter til Opret bruger-formular ved klik på fane",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › skjuler login-formular efter faneskift til Opret bruger",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › kalder clearError ved faneskift",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › skifter tilbage til login-fane fra opret-fane",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser nulstillingsformular ved klik på Glemt adgangskode",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser vejledende tekst i nulstillingsformularen",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser fejl ved tom e-mail i nulstillingsformular",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › kalder resetPassword med e-mail ved indsendelse",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser succesbesked efter vellykket nulstilling",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser Tilbage til login-knap i nulstillingsformular",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › skifter tilbage til login ved klik på Tilbage til login",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser fejl ved tomt visningsnavn ved signup",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser fejl når visningsnavn er for kort (1 tegn)",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser fejl ved adgangskode kortere end 6 tegn",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser fejl ved manglende e-mail ved signup",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser fejl ved manglende adgangskode ved signup",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › kalder signup med korrekte data ved succesfuld validering",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › navigerer til /afventer efter vellykket oprettelse",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › navigerer IKKE til /afventer når signup returnerer null (fejl)",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser Opretter…-tekst under signup loading",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser deaktiveringsnotat om admin-godkendelse",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › viser fejlbesked fra hook (role=\"alert\")",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › kombinerer lokal valideringsfejl og hook-fejl — lokal viser først",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › redirecter godkendt bruger til forsiden",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › redirecter ikke-godkendt logget-ind bruger til /afventer",
+          "status": "passed"
+        },
+        {
+          "name": "LoginPage › redirecter IKKE når ingen bruger er logget ind",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/MatchesPage.test.jsx",
+      "area": "frontend",
+      "passed": 21,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "MatchesPage – filterknapper › renderer filterknapper",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – filterknapper › filterknappers tekst er korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – filterknapper › filteret \"Mine utippede\" viser antal i parentes",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – filterknapper › filteret \"Mine utippede\" viser IKKE antal hvis ingen utippede",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – visning af kampe › viser alle kampe som standard",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – visning af kampe › viser dag-overskrifter for kampe",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – visning af kampe › viser sideoverskrift \"Kampe\"",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – visning af kampe › linker til hjælp om point",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – filtre › filtrer til kun kommende kampe",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – filtre › filteret \"Mine utippede\" viser kun ulåste kampe uden bet",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – filtre › filteret \"Mine utippede\" viser ingen kampe hvis alle er tippede",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – filtre › filter \"Alle\" viser alle kampe igen efter at have skiftet filter",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – filtre › filter \"I dag\" returnerer tom tilstand for historiske/fremtidige kampe",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – loading og fejl › viser spinner under indlæsning",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – loading og fejl › viser fejlbesked ved netværksfejl",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – loading og fejl › viser tom-tilstand når ingen kampe matcher filter",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – loading og fejl › viser IKKE tom-tilstand under loading",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – loading og fejl › viser ikke kampe mens bets loader",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – gruppering › kampe på samme dag grupperes under samme overskrift",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – gruppering › knockout-runde vises som underoverskrift",
+          "status": "passed"
+        },
+        {
+          "name": "MatchesPage – gruppering › viser IKKE runde-underoverskrift for gruppespil",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/MyBetsPage.test.jsx",
+      "area": "frontend",
+      "passed": 27,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "MyBetsPage – tom tilstand › viser tom-tilstand når ingen tips er afgivet",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – tom tilstand › viser link til kampsiden i tom-tilstand",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – loading › viser spinner under indlæsning",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – loading › viser spinner hvis kun matches loader",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – loading › viser spinner hvis kun bets loader",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – tippede kampe › viser tippede kampe i tabellen (med holdnavne)",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – tippede kampe › viser tabel-headers",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – tippede kampe › viser brugerens tip i tabellen",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – tippede kampe › viser runde-label i tabellen",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – tippede kampe › viser kun kampe som brugeren har tippet",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – point-beregning › beregner korrekte totale point (5 for eksakt)",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – point-beregning › beregner 2 point for korrekt udfald men forkert score",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – point-beregning › beregner 3 point for korrekt målforskel + udfald (ikke eksakt)",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – point-beregning › beregner 0 point for forkert udfald",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – point-beregning › summerer point fra to afgjorte kampe",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – point-beregning › viser \"–\" for point ved ikke-afgjorte kampe",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – status-badges › viser \"Afventer\" badge for ulåst kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – status-badges › viser \"Afgjort\" badge for afsluttet kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – status-badges › viser \"Låst\" badge for låst men ikke afgjort kamp",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – statistik og rediger-links › viser rediger-link for ulåste kampe",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – statistik og rediger-links › viser IKKE rediger-link for låste kampe",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – statistik og rediger-links › viser statistik-oversigt med tippede kampe",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – statistik og rediger-links › viser \"Point i alt\" label",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – statistik og rediger-links › viser \"Kan redigeres\" count for ulåste tips",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – statistik og rediger-links › viser link til kampsiden i statistik-boks",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – knockout-kampe › viser advance i brugerens tip for knockout",
+          "status": "passed"
+        },
+        {
+          "name": "MyBetsPage – knockout-kampe › viser Kvartfinale-label i tabellen for knockout",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/PendingPage.test.jsx",
+      "area": "frontend",
+      "passed": 19,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "PendingPage › viser indlæsningsindikator mens loading er true",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser IKKE afventside-indhold under loading",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser Afventer godkendelse-overskrift for pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser administrator-besked for pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser Hvad sker der nu-liste for pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser Log ud-knap for pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser IKKE Adgang afvist for pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser Adgang afvist-overskrift for rejected bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser afvist-statusbesked for rejected bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser Log ud-knap for rejected bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser IKKE Afventer godkendelse for rejected bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › viser kontaktoplysninger til turneringsarrangør for rejected bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › redirecter approved bruger til \"/\"",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › redirecter ikke-logget-ind bruger til /login",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › redirecter IKKE pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › redirecter IKKE rejected bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › kalder signOut ved klik på Log ud for pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › navigerer til /login efter log ud for pending bruger",
+          "status": "passed"
+        },
+        {
+          "name": "PendingPage › kalder signOut ved klik på Log ud for rejected bruger",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/TournamentPage.test.jsx",
+      "area": "frontend",
+      "passed": 28,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "TournamentPage – loading › viser spinner under indlæsning",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – loading › viser indlæsningstekst under loading",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – fejl › viser fejlbesked når error er sat",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – ingen kampe › viser tom-tilstand når matches er tom liste",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – fane-navigation › viser Grupper-fanen som standard",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – fane-navigation › viser alle tre faner",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – fane-navigation › skifter til Mellemrunde-fanen ved klik",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – fane-navigation › skifter til Slutspil-fanen ved klik",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – fane-navigation › skifter tilbage til Grupper-fanen",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Grupper-fane › viser gruppe-overskrifter",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Grupper-fane › viser holdnavne (dansk) i gruppe-tabel",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Grupper-fane › viser resultat for afsluttet kamp",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Grupper-fane › viser stillingens kolonner (K, V, U, T, M, MD, P)",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Grupper-fane › fremhæver top-2 med standings-row--advance klasse",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Grupper-fane › viser tom-tilstand i Grupper-fane når ingen gruppekampe",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Grupper-fane › viser LIVE-badge for live-kampe",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Mellemrunde-fane › viser tom-tilstand når ingen r32-kampe",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Mellemrunde-fane › viser r32-kampe i Mellemrunde-fanen",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Mellemrunde-fane › viser r32-kampe grupperet efter dato",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Mellemrunde-fane › viser placeholder TBD for ukendte hold",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Mellemrunde-fane › viser resultat for afsluttet r32-kamp",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Slutspil-fane › viser tom-tilstand når ingen slutspilskampe",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Slutspil-fane › viser r16-kamp i slutspilsfanen",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Slutspil-fane › viser finale med 🏆-markering",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Slutspil-fane › viser bronzekamp med 🥉-markering",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Slutspil-fane › viser \"videre\"-badge ved advance-resultat",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Slutspil-fane › viser kampe fra alle slutspilsrunder i korrekt rækkefølge",
+          "status": "passed"
+        },
+        {
+          "name": "TournamentPage – Slutspil-fane › viser LIVE-badge for live-slutspilskamp",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions/breakdown.test.js",
+      "area": "functions",
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "computeBreakdown › opdeler point i grundspil, slutspil og bonus",
+          "status": "passed"
+        },
+        {
+          "name": "computeBreakdown › ignorerer bets uden point",
+          "status": "passed"
+        },
+        {
+          "name": "computeBreakdown › behandler ukendt matchId som grundspil",
+          "status": "passed"
+        },
+        {
+          "name": "computeBreakdown › håndterer tomme lister",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions/footballData.test.js",
+      "area": "functions",
+      "passed": 9,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "mapStatus › kortlægger live/finished/scheduled",
+          "status": "passed"
+        },
+        {
+          "name": "extractScore › udtrækker fuldtidsscore + vinder",
+          "status": "passed"
+        },
+        {
+          "name": "extractScore › returnerer null uden score",
+          "status": "passed"
+        },
+        {
+          "name": "parseRateLimit › læser headere fra et Map-lignende objekt",
+          "status": "passed"
+        },
+        {
+          "name": "parseRateLimit › læser headere fra et almindeligt objekt",
+          "status": "passed"
+        },
+        {
+          "name": "createClient › henter data og throttler ikke når der er rigeligt tilbage",
+          "status": "passed"
+        },
+        {
+          "name": "createClient › venter når kvoten er ved at være brugt",
+          "status": "passed"
+        },
+        {
+          "name": "createClient › respekterer 429 og prøver igen efter reset",
+          "status": "passed"
+        },
+        {
+          "name": "createClient › kaster ved vedvarende fejlstatus",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions/knockout.test.js",
+      "area": "functions",
+      "passed": 7,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "R32_SPEC › definerer præcis 16 kampe med id ko_r32_1..16",
+          "status": "passed"
+        },
+        {
+          "name": "R32_SPEC › matcher de faktiske r32-id'er i data/group-stage.json",
+          "status": "passed"
+        },
+        {
+          "name": "computeR32Assignments › placerer gruppevindere og 2'ere korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "computeR32Assignments › udfylder alle 16 kampe med hold når alle 3'ere kvalificerer",
+          "status": "passed"
+        },
+        {
+          "name": "computeR32Assignments › vælger 3'er fra en af de tilladte grupper",
+          "status": "passed"
+        },
+        {
+          "name": "buildR32FromGroupMatches › rapporterer manglende grupper når der ikke er nok kampe",
+          "status": "passed"
+        },
+        {
+          "name": "buildR32FromGroupMatches › bygger 16 r32-kampe uden manglende grupper når alle 12 er spillet",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions/resultsSync.test.js",
+      "area": "functions",
+      "passed": 20,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "teamCodeMatches › matcher på tla",
+          "status": "passed"
+        },
+        {
+          "name": "teamCodeMatches › matcher når koden indleder navnet",
+          "status": "passed"
+        },
+        {
+          "name": "teamCodeMatches › afviser forskellige hold",
+          "status": "passed"
+        },
+        {
+          "name": "matchFixture › finder kampen på samme dato + hold",
+          "status": "passed"
+        },
+        {
+          "name": "matchFixture › returnerer null ved forkert dato",
+          "status": "passed"
+        },
+        {
+          "name": "matchFixture › returnerer null uden hold",
+          "status": "passed"
+        },
+        {
+          "name": "winnerToCode › oversætter vinder til holdkode",
+          "status": "passed"
+        },
+        {
+          "name": "decideUpdate › springer låste kampe over",
+          "status": "passed"
+        },
+        {
+          "name": "decideUpdate › flagger afbrudte kampe til review",
+          "status": "passed"
+        },
+        {
+          "name": "decideUpdate › springer ikke-startede over",
+          "status": "passed"
+        },
+        {
+          "name": "decideUpdate › skriver live foreløbig score",
+          "status": "passed"
+        },
+        {
+          "name": "decideUpdate › springer over live uden score endnu",
+          "status": "passed"
+        },
+        {
+          "name": "decideUpdate › afslutter gruppekamp uden advance",
+          "status": "passed"
+        },
+        {
+          "name": "decideUpdate › afslutter knockout med advance fra vinder",
+          "status": "passed"
+        },
+        {
+          "name": "decideUpdate › beder om review når knockout-vinder er uklar",
+          "status": "passed"
+        },
+        {
+          "name": "decideUpdate › flagger AWARDED-resultater til review",
+          "status": "passed"
+        },
+        {
+          "name": "patchChangesDoc › false når intet ændrer sig",
+          "status": "passed"
+        },
+        {
+          "name": "patchChangesDoc › true når scoren ændrer sig",
+          "status": "passed"
+        },
+        {
+          "name": "patchChangesDoc › true når status skifter til finished",
+          "status": "passed"
+        },
+        {
+          "name": "patchChangesDoc › true når advance tilføjes",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions/scoring.test.js",
+      "area": "functions",
+      "passed": 27,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "POINTS konstanter › har de korrekte værdier",
+          "status": "passed"
+        },
+        {
+          "name": "outcome() › returnerer \"home\" ved hjemmesejr",
+          "status": "passed"
+        },
+        {
+          "name": "outcome() › returnerer \"away\" ved udesejr",
+          "status": "passed"
+        },
+        {
+          "name": "outcome() › returnerer \"draw\" ved uafgjort",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch() › giver EXACT (5) ved eksakt korrekt score",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch() › giver GOAL_DIFF (3) ved korrekt udfald OG målforskel, men forkert score",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch() › giver OUTCOME (2) ved korrekt udfald men forkert målforskel",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch() › giver WRONG (0) ved forkert udfald",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch() › giver 0 ved null/undefined input",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch() › giver 0 ved ikke-tal input",
+          "status": "passed"
+        },
+        {
+          "name": "scoreMatch() › håndterer 0-0 uafgjort korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "scoreKnockout() › giver score-point + advance-point ved begge korrekte",
+          "status": "passed"
+        },
+        {
+          "name": "scoreKnockout() › giver kun score-point ved forkert advance",
+          "status": "passed"
+        },
+        {
+          "name": "scoreKnockout() › giver advance-point selvom score er delvist korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "scoreKnockout() › giver kun advance-point ved forkert score men korrekt advance",
+          "status": "passed"
+        },
+        {
+          "name": "scoreKnockout() › giver 0 ved forkert alt",
+          "status": "passed"
+        },
+        {
+          "name": "scoreKnockout() › håndterer manglende advance-felt",
+          "status": "passed"
+        },
+        {
+          "name": "scoreKnockout() › håndterer null input som scoreMatch",
+          "status": "passed"
+        },
+        {
+          "name": "scoreBonus() › giver BONUS (10) ved korrekt svar",
+          "status": "passed"
+        },
+        {
+          "name": "scoreBonus() › sammenligner som strenge",
+          "status": "passed"
+        },
+        {
+          "name": "scoreBonus() › giver 0 ved forkert svar",
+          "status": "passed"
+        },
+        {
+          "name": "scoreBonus() › er tolerant: ufølsom for store/små bogstaver og mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "scoreBonus() › giver 0 ved null/undefined",
+          "status": "passed"
+        },
+        {
+          "name": "fuzzyNameMatch + bonusPoints › topscorer matcher accenter og små stavefejl",
+          "status": "passed"
+        },
+        {
+          "name": "fuzzyNameMatch + bonusPoints › bonusPoints: fuzzy topscorer",
+          "status": "passed"
+        },
+        {
+          "name": "fuzzyNameMatch + bonusPoints › bonusPoints: admin-godkendt svar tæller",
+          "status": "passed"
+        },
+        {
+          "name": "fuzzyNameMatch + bonusPoints › bonusPoints: gruppevinder kræver eksakt kode",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions/standings.test.js",
+      "area": "functions",
+      "passed": 15,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "computeGroupStandings() › returnerer alle hold med rank",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings() › beregner mål korrekt",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings() › tiebreak ved ens point: bedste målforskel vinder",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings() › tiebreak ved ens point og MF: flest scorede mål",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings() › ignorerer kampe uden result",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings() › håndterer tom kamplist",
+          "status": "passed"
+        },
+        {
+          "name": "computeGroupStandings() › returnerer korrekt antal rank-numre",
+          "status": "passed"
+        },
+        {
+          "name": "resolveHeadToHead() › favoriserer hold med flest indbyrdes point",
+          "status": "passed"
+        },
+        {
+          "name": "resolveHeadToHead() › returnerer 0 ved uafgjort indbyrdes og ingen mål",
+          "status": "passed"
+        },
+        {
+          "name": "resolveHeadToHead() › bruger indbyrdes GF som tertiær tiebreak (1-1: A scorede 1 mål hjemme)",
+          "status": "passed"
+        },
+        {
+          "name": "resolveHeadToHead() › bruger indbyrdes MF som sekundær tiebreak",
+          "status": "passed"
+        },
+        {
+          "name": "pickBestThirds() › vælger de 8 bedste 3'ere ud af 12",
+          "status": "passed"
+        },
+        {
+          "name": "pickBestThirds() › sorterer korrekt efter point → MF → GF",
+          "status": "passed"
+        },
+        {
+          "name": "pickBestThirds() › returnerer altid max 8",
+          "status": "passed"
+        },
+        {
+          "name": "pickBestThirds() › muterer ikke inputarrayet",
+          "status": "passed"
+        }
+      ]
+    }
+  ]
+}

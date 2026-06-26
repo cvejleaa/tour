@@ -1,0 +1,113 @@
+// App-skal: top-navigation + indhold. Viser kun relevante links efter rolle.
+import { NavLink, useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
+import { useAuth } from '../context/AuthContext';
+import { useTasks } from '../context/TasksContext';
+import { usePendingApprovals } from '../features/admin/usePendingApprovals';
+import { useCompetition } from '../features/stats/useCompetition';
+import { useUnreadMessages } from '../features/comments/useUnreadMessages';
+import Avatar from './Avatar';
+
+// Lille rødt tal-badge (genbruges til godkendelser og beskeder)
+function CountBadge({ count, title, testid }) {
+  if (!count) return null;
+  return (
+    <span
+      data-testid={testid}
+      title={title}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        minWidth: 18, height: 18, padding: '0 5px', borderRadius: 99,
+        background: 'var(--c-err)', color: '#fff', fontSize: '0.7rem', fontWeight: 800,
+      }}
+    >
+      {count}
+    </span>
+  );
+}
+
+const linkStyle = ({ isActive }) => ({
+  padding: '0.5rem 0.75rem',
+  borderRadius: 8,
+  textDecoration: 'none',
+  color: isActive ? '#fff' : 'var(--c-text)',
+  background: isActive ? 'var(--c-pitch)' : 'transparent',
+  fontWeight: 600,
+});
+
+export default function Layout({ children }) {
+  const { user, isApproved, isGlobalAdmin, isOwner, profile } = useAuth();
+  const navigate = useNavigate();
+  // Antal ventende godkendelser (brugere + ligaer for alle globale admins)
+  const { total: pendingCount } = usePendingApprovals({ enabled: isGlobalAdmin, includeUsers: isGlobalAdmin });
+  const competition = useCompetition();
+  // Ulæste private beskeder (badge på Beskeder)
+  const { total: unreadCount } = useUnreadMessages(isApproved ? user?.uid : null);
+  // Samlede udestående opgaver (badge på Forside)
+  const { total: taskCount } = useTasks();
+
+  return (
+    <div>
+      <header style={{ borderBottom: '1px solid var(--c-border)', background: 'var(--c-surface)' }}>
+        <nav className="container" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+            {competition?.emblem
+              ? <img src={competition.emblem} alt={competition.name || 'Turnering'} title={competition.name || ''}
+                  height={34} style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
+              : <span aria-hidden>🚴</span>}
+            <strong style={{ color: 'var(--c-pitch)' }}>Tour de France Tip</strong>
+          </span>
+          {user && isApproved && (
+            <>
+              <NavLink to="/" style={linkStyle} end>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                  Forside
+                  <CountBadge count={taskCount} title={`${taskCount} udestående opgaver`} testid="tasks-count" />
+                </span>
+              </NavLink>
+              <NavLink to="/kampe" style={linkStyle}>Kampe</NavLink>
+              <NavLink to="/mine-tips" style={linkStyle}>Mine tips</NavLink>
+              <NavLink to="/bonus" style={linkStyle}>Bonus</NavLink>
+              <NavLink to="/turnering" style={linkStyle}>Turnering</NavLink>
+              <NavLink to="/stilling" style={linkStyle}>Stilling</NavLink>
+              <NavLink to="/statistik" style={linkStyle}>Statistik</NavLink>
+              <NavLink to="/ligaer" style={linkStyle}>Ligaer</NavLink>
+              <NavLink to="/hjaelp" style={linkStyle} title="Sådan virker det" aria-label="Hjælp">❓</NavLink>
+              <NavLink to="/beskeder" style={linkStyle}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                  Beskeder
+                  <CountBadge count={unreadCount} title={`${unreadCount} ulæste beskeder`} testid="unread-messages-count" />
+                </span>
+              </NavLink>
+              {isGlobalAdmin && (
+                <NavLink to="/admin" style={linkStyle}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                    Admin
+                    <CountBadge count={pendingCount} title={`${pendingCount} venter på godkendelse`} testid="admin-pending-count" />
+                  </span>
+                </NavLink>
+              )}
+            </>
+          )}
+          {user && isApproved && (
+            <NavLink to="/profil" style={linkStyle} title="Min profil"
+              aria-label="Min profil">
+              <Avatar uid={user.uid} name={profile?.displayName} emoji={profile?.avatarEmoji}
+                favoriteTeam={profile?.favoriteTeam} size={26} />
+            </NavLink>
+          )}
+          {user ? (
+            <button className="btn btn--ghost" onClick={() => signOut(auth).then(() => navigate('/login'))}>
+              Log ud{profile?.displayName ? ` (${profile.displayName})` : ''}
+            </button>
+          ) : (
+            <NavLink to="/login" style={linkStyle}>Log ind</NavLink>
+          )}
+          {isOwner && <span title="Ejer" style={{ fontSize: 12, color: 'var(--c-muted)' }}>ejer</span>}
+        </nav>
+      </header>
+      <main className="container">{children}</main>
+    </div>
+  );
+}
