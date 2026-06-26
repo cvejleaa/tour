@@ -59,6 +59,15 @@ done
 echo "  • Venter ~45s på at IAM-ændringer slår igennem…"
 sleep 45
 
+# Valgfri residential scraper-nøgle (PCS blokerer datacenter-IP'er). Angiv den
+# når du kører scriptet:  SCRAPER_API_KEY=din-noegle ./deploy.sh
+EXTRA_FLAGS=()
+if [ -n "${SCRAPER_API_KEY:-}" ]; then
+  EXTRA_FLAGS+=(--set-env-vars "SCRAPER_API_KEY=${SCRAPER_API_KEY}")
+  [ -n "${SCRAPER_API_ENDPOINT:-}" ] && EXTRA_FLAGS+=(--set-env-vars "SCRAPER_API_ENDPOINT=${SCRAPER_API_ENDPOINT}")
+  echo "  • Residential scraper aktiveret (SCRAPER_API_KEY sat)."
+fi
+
 echo "▶ Deployer til Cloud Run (bygger container fra Dockerfile)…"
 deploy_run() {
   gcloud run deploy "$SERVICE" \
@@ -69,6 +78,7 @@ deploy_run() {
     --memory=512Mi \
     --set-env-vars "RACE_YEAR=${RACE_YEAR},RACE_SLUG=tour-de-france,ENABLE_SCHEDULER=0,ALLOWED_ORIGINS=${APP_ORIGIN},DATA_DIR=/tmp/data" \
     --set-secrets "REFRESH_TOKEN=${SECRET}:latest" \
+    "${EXTRA_FLAGS[@]}" \
     --quiet
 }
 n=0

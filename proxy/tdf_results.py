@@ -27,6 +27,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Callable
 
+import requests
 from procyclingstats import Race, Stage
 
 # ----------------------------------------------------------------------------
@@ -37,6 +38,29 @@ RACE_SLUG = os.getenv("RACE_SLUG", "tour-de-france")
 RACE_YEAR = int(os.getenv("RACE_YEAR", str(date.today().year)))
 PCS_BASE = "https://www.procyclingstats.com/"
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data"))
+
+# Residential scraper (valgfrit). PCS blokerer datacenter-IP'er (403), så fra
+# Cloud Run skal HTML hentes via en scraper med rigtige hjemme-IP'er. Sæt
+# SCRAPER_API_KEY, så hentes alt via SCRAPER_API_ENDPOINT (default ScraperAPI:
+# ?api_key=..&url=..&render=false). Uden nøgle bruges procyclingstats' egen
+# henter (virker fra en Raspberry Pi / hjemme-IP).
+SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "")
+SCRAPER_API_ENDPOINT = os.getenv("SCRAPER_API_ENDPOINT", "https://api.scraperapi.com/")
+
+
+def fetch_html(path_or_url: str) -> str | None:
+    """Henter HTML via residential scraper hvis konfigureret, ellers None
+    (så procyclingstats selv henter). `path_or_url` kan være relativ til PCS."""
+    if not SCRAPER_API_KEY:
+        return None
+    full = path_or_url if path_or_url.startswith("http") else PCS_BASE + path_or_url.lstrip("/")
+    resp = requests.get(
+        SCRAPER_API_ENDPOINT,
+        params={"api_key": SCRAPER_API_KEY, "url": full, "render": "false"},
+        timeout=90,
+    )
+    resp.raise_for_status()
+    return resp.text
 
 # Klassement-metoder på Stage → pæne danske labels + trøjefarve.
 # Rækkefølgen styrer rækkefølgen i output.
@@ -111,7 +135,9 @@ def scrape_stage_list(year: int = RACE_YEAR) -> list[dict[str, Any]]:
     Henter etapeoversigten (én request). Returnerer liste med:
     number, date (YYYY-MM-DD el. None), name, url, profile_icon.
     """
-    race = Race(f"race/{RACE_SLUG}/{year}")
+    url = f"race/{RACE_SLUG}/{year}"
+    html = fetch_html(url)
+    race = Race(url, html=html, update_html=False) if html else Race(url)
     rows = _safe(race.stages, [])
     out: list[dict[str, Any]] = []
     for r in rows:
@@ -140,7 +166,8 @@ def scrape_stage(stage_url: str) -> dict[str, Any]:
     ÉT request → metadata + alle klassementer. Tom liste hvor et klassement
     ikke findes endnu (fx før etapen er kørt, eller hold-/ungdom på TTT).
     """
-    stage = Stage(stage_url)  # henter HTML her
+    html = fetch_html(stage_url)
+    stage = Stage(stage_url, html=html, update_html=False) if html else Stage(stage_url)
 
     classifications: dict[str, Any] = {}
     for c in CLASSIFICATIONS:
