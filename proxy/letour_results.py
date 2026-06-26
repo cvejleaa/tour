@@ -172,6 +172,36 @@ def scrape_stage(stage: int) -> dict[str, Any]:
     }
 
 
+def debug_stage(stage: int) -> dict[str, Any]:
+    """Diagnostik: viser hvad proxyen faktisk ser, så fejl kan lokaliseres."""
+    info: dict[str, Any] = {"stage": stage, "base": LETOUR_BASE}
+    try:
+        page = _get(f"/{LETOUR_LANG}/rankings/stage-{stage}")
+    except Exception as e:  # noqa: BLE001
+        info["page_error"] = f"{type(e).__name__}: {e}"
+        return info
+    info["page_len"] = len(page)
+    info["has_ajax_stack"] = "data-ajax-stack" in page
+    info["inline_rider_rows"] = page.count("rankingTables__row__profile--name")
+    ym = re.search(r"Tour de France \d{4}", page)
+    info["year_marker"] = ym.group(0) if ym else None
+    urls = ajax_urls(page, stage)
+    info["ajax_keys"] = sorted(urls.keys())
+    info["ite_url"] = urls.get("ite")
+    if urls.get("ite"):
+        try:
+            frag = _get(urls["ite"])
+            info["ite_frag_len"] = len(frag)
+            info["ite_th_count"] = frag.lower().count("<th")
+            info["ite_rows_parsed"] = len(parse_rider_table(frag))
+            info["ite_snippet"] = frag[:200]
+        except Exception as e:  # noqa: BLE001
+            info["ite_error"] = f"{type(e).__name__}: {e}"
+    else:
+        info["page_snippet"] = page[:300]
+    return info
+
+
 def scrape_stage_list(year: int | None = None, n_stages: int = 21) -> list[dict[str, Any]]:
     """Basal etapeliste (1..21). Datoer/byer seedes/rettes separat — letour-
     ranking-siderne giver resultaterne, som er det scoringen kører på."""

@@ -130,6 +130,13 @@ async def standings() -> dict:
     return await asyncio.to_thread(service.current_standings)
 
 
+@app.get("/api/debug/{n}")
+async def debug(n: int) -> dict:
+    """Diagnostik for én etape (hvad proxyen faktisk ser fra letour)."""
+    from letour_results import debug_stage
+    return await asyncio.to_thread(debug_stage, n)
+
+
 @app.post("/api/refresh")
 async def refresh(x_refresh_token: str | None = Header(default=None)) -> dict:
     _check_token(x_refresh_token)
