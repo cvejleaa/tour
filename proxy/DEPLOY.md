@@ -9,7 +9,29 @@ henter herfra og beregner point. Den kører i **Google Cloud Run** (ikke Firebas
 
 ---
 
-## 0. Forudsætninger
+## ⭐ Hurtig vej (anbefalet): ét script i Cloud Shell
+
+Du behøver **ikke** installere noget. Åbn [Google Cloud Shell](https://shell.cloud.google.com)
+(allerede logget ind på dit projekt) og kør:
+
+```bash
+git clone https://github.com/cvejleaa/tour.git
+cd tour/proxy
+./deploy.sh
+```
+
+`deploy.sh` er idempotent og gør alt automatisk: slår API'er til, laver et
+hemmeligt refresh-token, deployer til Cloud Run (`--min-instances=1`, **ingen
+Postgres nødvendig**), og opretter Cloud Scheduler-jobbet (hvert 5. min 17–22,
+Europe/Copenhagen). Til sidst printer den proxyens URL — **giv den til Claude**,
+så kobles Firebase-sync'en på.
+
+> Resten af dette dokument er den manuelle/avancerede vej (fx hvis du hellere vil
+> køre på en Raspberry Pi, eller bruge Postgres i stedet for warm cache).
+
+---
+
+## 0. Forudsætninger (manuel vej)
 - Samme GCP-projekt som Firebase: **`tour-85928`** (Firebase-projekter ER GCP-projekter).
 - `gcloud` CLI installeret og logget ind: `gcloud auth login && gcloud config set project tour-85928`
 
