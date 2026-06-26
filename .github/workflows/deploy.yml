@@ -73,10 +73,12 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: |
+          # firestore:indexes deployes i et separat, ikke-fatalt trin (et
+          # "index findes allerede"-409 må aldrig vælte hele deployet).
           case "${{ inputs.target }}" in
-            hosting-rules) ONLY="hosting,firestore:rules,firestore:indexes" ;;
+            hosting-rules) ONLY="hosting,firestore:rules" ;;
             functions)     ONLY="functions" ;;
-            all)           ONLY="hosting,firestore:rules,firestore:indexes,functions" ;;
+            all)           ONLY="hosting,firestore:rules,functions" ;;
           esac
           # Firebase-deploy fejler en gang imellem med en forbigående
           # "Failed to authenticate" — prøv igen med backoff i stedet for at
@@ -96,6 +98,16 @@ jobs:
           done
           echo "::error::Deploy fejlede efter $max forsøg."
           exit 1
+
+      - name: Deploy Firestore-indexes (idempotent, ikke-fatal)
+        if: ${{ inputs.target != 'functions' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          # Nye indexes oprettes; eksisterende (409) eller "under opbygning"
+          # ignoreres, så det aldrig fejler hele deployet.
+          firebase deploy --only firestore:indexes --project "$PROJECT_ID" --non-interactive --force \
+            || echo "::warning::Index-deploy gav en fejl (typisk 'findes allerede'/under opbygning) — ignoreret."
 
       - name: Seed database (valgfrit)
         if: ${{ inputs.seed }}
