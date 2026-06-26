@@ -96,19 +96,25 @@ Nyt/erstattet:
 
 ## Status / rækkefølge
 
+> Dette er det **kanoniske status-overblik** (matcher opgavelisten i appen).
+> Hver `[x]` svarer til committet, testet kode på PR #16.
+
+**Fundament — færdigt:**
 - [x] Skelet: motor kopieret, branding VM→Tour, Firebase `tour-85928`, CI grøn.
-- [x] Scoring-kerne: `src/lib/tourScoring.js` + eksempel-tests (hold-model Q1–Q4).
-- [x] PCS-bro: `src/lib/pcsMapping.js` + tests (payload → resolveStageResult + trøjer + meta).
-- [x] Hosting valgt: **Cloud Run + Postgres**. Scaffold i `proxy/` (Dockerfile,
-  `pg_cache.py`, `requirements.txt`, `DEPLOY.md`). Cloud Scheduler poller
-  `/api/refresh` hvert 5. min 17–22 (Europe/Copenhagen).
-- [x] Spejlet scoring + mapping til `functions/` (CommonJS) + tests.
-- [ ] Cloud Function: planlagt sync (hvert 5. min fra 17:00) der henter proxy →
-  mapper → skriver etape-facit → genberegner point.
-- [ ] Datamodel + seed: `teams`, `riders` (2025-startliste), `stages` (2026-rute fra `/api/stages`).
-- [ ] Datamodel + seed: `teams`, `riders` (2025-startliste), `stages` (2026-rute).
-- [ ] Tip-flow: etape-side med fire hold-felter; lås ved etapestart.
+- [x] Scoring-kerne: `src/lib/tourScoring.js` + tests (hold-model Q1–Q4).
+- [x] PCS-bro: `src/lib/pcsMapping.js` + tests (payload → resultat + trøjer + meta).
+- [x] Hold-identitet: `src/lib/tourTeams.js` + tests (selv-udfyldende, tolerant match).
+- [x] Etape-model: `src/lib/tourStages.js` + tests (normalisering + lås-status).
+- [x] Backend-spejl: `functions/tourScoring.js` + `functions/pcsMapping.js` + `functions/tourTeams.js` + tests.
+- [x] Hosting valgt: **Cloud Run + Postgres**. Scaffold i `proxy/` + `DEPLOY.md`
+  (Cloud Scheduler hvert 5. min 17–22 Europe/Copenhagen).
+- [x] Mail-afsender `tour@vejleaa.dk`, domæne `tour.vejleaa.dk`, deploy → `tour-85928`.
+
+**Tilbage (= opgavelisten i appen):**
+- [ ] **#1** Stages-seed: skriv `stages`/`teams` til Firestore fra `/api/stages` *(model klar)*.
+- [ ] **#2** Etape-side med fire hold-tip-felter; lås ved etapestart.
+- [ ] **#3** Planlagt sync Cloud Function (hvert 5. min fra 17:00) → facit → genberegn point.
+- [ ] **#4** Stilling (etaper/bonus/total + gns.) + klassement-visning (4 trøjer + hold).
+- [ ] **#5** Sæson-/klassement-bonusspørgsmål (officielle + ligaens egne).
+- [ ] **#6** Deploy backend + nummereret Firebase-aktiverings-tjekliste til brugeren.
 - [ ] Admin: redigér point + `gcTopN`; manuel resultat-indtastning (smart indsæt).
-- [ ] Stilling: etaper/bonus/total + gns.; klassement-visning.
-- [ ] Bonus: sæson-/klassement-spørgsmål.
-- [ ] Auto-sync via Apify bag `syncResultsNow`.
