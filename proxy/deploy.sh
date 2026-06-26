@@ -90,12 +90,14 @@ SCHED_ARGS=(
   --time-zone "Europe/Copenhagen"
   --uri "${URL}/api/refresh"
   --http-method POST
-  --headers "X-Refresh-Token=${TOKEN}"
 )
+# create bruger --headers, update bruger --update-headers (gcloud-inkonsistens).
 if gcloud scheduler jobs describe tdf-refresh --location "$REGION" >/dev/null 2>&1; then
-  gcloud scheduler jobs update http tdf-refresh "${SCHED_ARGS[@]}" --quiet
+  gcloud scheduler jobs update http tdf-refresh "${SCHED_ARGS[@]}" \
+    --update-headers "X-Refresh-Token=${TOKEN}" --quiet
 else
-  gcloud scheduler jobs create http tdf-refresh "${SCHED_ARGS[@]}" --quiet
+  gcloud scheduler jobs create http tdf-refresh "${SCHED_ARGS[@]}" \
+    --headers "X-Refresh-Token=${TOKEN}" --quiet
 fi
 
 echo ""
