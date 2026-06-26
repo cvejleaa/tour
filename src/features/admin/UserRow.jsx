@@ -210,7 +210,7 @@ export default function UserRow({ user, currentUserIsOwner, currentUserCanApprov
               style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
               disabled={busy}
               onClick={handlePasswordReset}
-              title="Send et nulstillingslink via vm@vejleaa.dk (omgår Firebase-mailen)"
+              title="Send et nulstillingslink via tour@vejleaa.dk (omgår Firebase-mailen)"
             >
               🔑 Nulstil kodeord
             </button>

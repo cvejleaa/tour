@@ -27,7 +27,7 @@ const { getAuth }                  = require('firebase-admin/auth');
 const { initializeApp }            = require('firebase-admin/app');
 const nodemailer                   = require('nodemailer');
 
-// E-mail-udsendelse via SMTP (one.com med vm@vejleaa.dk).
+// E-mail-udsendelse via SMTP (one.com med tour@vejleaa.dk).
 // Kun adgangskoden er hemmelig (Secret Manager):
 //   firebase functions:secrets:set SMTP_PASSWORD
 // De øvrige SMTP-indstillinger er ikke følsomme og sættes som konstanter.
@@ -40,8 +40,8 @@ const FOOTBALL_DATA_TOKEN = defineSecret('FOOTBALL_DATA_TOKEN');
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 const SMTP_HOST = 'send.one.com';
 const SMTP_PORT = 465; // implicit TLS
-const SMTP_USER = 'vm@vejleaa.dk';
-const EMAIL_FROM = 'VM 2026 Tip <vm@vejleaa.dk>';
+const SMTP_USER = 'tour@vejleaa.dk';
+const EMAIL_FROM = 'Tour de France Tip <tour@vejleaa.dk>';
 const APP_URL = 'https://vm.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
