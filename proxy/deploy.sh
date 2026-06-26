@@ -6,9 +6,11 @@
 #
 #   cd proxy && ./deploy.sh
 #
-# Idempotent: kan køres igen for at opdatere. Ingen Postgres nødvendig
-# (min-instances=1 holder JSON-cachen varm; finalitets-logikken gør sjældne
-# gen-skrabninger gratis).
+# Idempotent: kan køres igen for at opdatere. Ingen Postgres nødvendig.
+# min-instances=0 → skalerer til nul når den ikke bruges (reelt gratis det
+# meste af året). I aftenvinduet holder Cloud Scheduler (hvert 5. min)
+# instansen varm, så cachen lever og PCS kun skrabes ved behov. Mister den
+# cachen ved en cold start, genskrabes blot (finalitets-logikken holder det lavt).
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -50,7 +52,7 @@ gcloud run deploy "$SERVICE" \
   --source . \
   --region "$REGION" \
   --allow-unauthenticated \
-  --min-instances=1 \
+  --min-instances=0 \
   --memory=512Mi \
   --set-env-vars "RACE_YEAR=${RACE_YEAR},RACE_SLUG=tour-de-france,ENABLE_SCHEDULER=0,ALLOWED_ORIGINS=${APP_ORIGIN},DATA_DIR=/tmp/data" \
   --set-secrets "REFRESH_TOKEN=${SECRET}:latest" \
