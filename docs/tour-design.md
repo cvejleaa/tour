@@ -77,13 +77,32 @@ Nyt/erstattet:
 - `bonusQuestions` / `bonusBets` – sæson-/klassement-bonus (genbrugt struktur).
 - `leagueBonus` / `leagueBonusAnswers` – ligaens egne spørgsmål (genbrugt 1:1).
 
+## Firebase-aktivering (tjekliste — udfyldes når vi deployer)
+
+> Brugeren vil have **eksplicit besked** før hver aktivering. Intet af dette er
+> nødvendigt endnu; det aktiveres når vi wirer backend + deployer.
+
+- [ ] **Blaze-plan** (pay-as-you-go) — kræves til Cloud Functions Gen2 + Scheduler.
+- [ ] **Authentication** → slå **Email/adgangskode** til.
+- [ ] **Firestore Database** → opret (region `europe-west1`).
+- [ ] **Web-app** registreret → kopiér `VITE_FIREBASE_*` til GitHub **Variables**.
+- [ ] **Hosting** → init + deploy af frontend.
+- [ ] **Service-account** (deploy) → JSON i GitHub **Secret** `FIREBASE_SERVICE_ACCOUNT`.
+- [ ] **Cloud Scheduler / Functions API** → typisk auto med Blaze (til sync-cron).
+- [ ] *(valgfrit)* **App Check** (reCAPTCHA Enterprise) — kan vente.
+
 ## Status / rækkefølge
 
 - [x] Skelet: motor kopieret, branding VM→Tour, Firebase `tour-85928`, CI grøn.
 - [x] Scoring-kerne: `src/lib/tourScoring.js` + eksempel-tests (hold-model Q1–Q4).
 - [x] PCS-bro: `src/lib/pcsMapping.js` + tests (payload → resolveStageResult + trøjer + meta).
-- [ ] Vælg hosting til PCS-proxy (Cloud Run vs Pi+tunnel).
-- [ ] Spejl scoring + mapping til `functions/` + Cloud Function der henter & genberegner.
+- [x] Hosting valgt: **Cloud Run + Postgres**. Scaffold i `proxy/` (Dockerfile,
+  `pg_cache.py`, `requirements.txt`, `DEPLOY.md`). Cloud Scheduler poller
+  `/api/refresh` hvert 5. min 17–22 (Europe/Copenhagen).
+- [x] Spejlet scoring + mapping til `functions/` (CommonJS) + tests.
+- [ ] Cloud Function: planlagt sync (hvert 5. min fra 17:00) der henter proxy →
+  mapper → skriver etape-facit → genberegner point.
+- [ ] Datamodel + seed: `teams`, `riders` (2025-startliste), `stages` (2026-rute fra `/api/stages`).
 - [ ] Datamodel + seed: `teams`, `riders` (2025-startliste), `stages` (2026-rute).
 - [ ] Tip-flow: etape-side med fire hold-felter; lås ved etapestart.
 - [ ] Admin: redigér point + `gcTopN`; manuel resultat-indtastning (smart indsæt).
