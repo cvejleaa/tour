@@ -8,9 +8,11 @@ import Hero from '../components/Hero';
 import { useStages } from '../features/stages/useStages';
 import { useTeams } from '../features/stages/useTeams';
 import { useMyStageBets } from '../features/stages/useMyStageBets';
+import { useClassements } from '../features/stages/useClassements';
 import { stageStatus } from '../lib/tourStages';
 import { placeholderRoute2026 } from '../data/route2026';
 import StageCard from '../features/stages/StageCard';
+import ClassementsCard from '../features/stages/ClassementsCard';
 
 const FILTERS = [
   { key: 'kommende', label: 'Kommende' },
@@ -24,6 +26,7 @@ export default function StagesPage() {
   const { stages: dbStages } = useStages();
   const { teams } = useTeams();
   const { betsByStage } = useMyStageBets(uid);
+  const { jerseys, afterStage } = useClassements();
   const [filter, setFilter] = useState('kommende');
 
   // Brug rigtige etaper hvis de findes, ellers placeholder-ruten.
@@ -48,6 +51,8 @@ export default function StagesPage() {
         subtitle="Tip på holdene: hvem vinder etapen, hvem kører bedst, og hvem tager bjerg- og sprintpoint."
         chips={[`${stages.length} etaper`, `${tippedCount} tippet`, 'Dansk tid']}
       />
+
+      <ClassementsCard jerseys={jerseys} afterStage={afterStage} />
 
       {dbStages.length === 0 && (
         <p className="card" style={{ fontSize: '0.85rem', color: 'var(--c-muted)', borderLeft: '4px solid var(--c-warn)' }}>
