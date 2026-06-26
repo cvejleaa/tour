@@ -19,9 +19,10 @@ const TYPES = [
   'flat', 'mountain', 'mountain', 'hilly', 'itt', 'flat',
 ];
 
-export function placeholderRoute2026() {
+export function placeholderRoute2026(season = 2026) {
   return DATES.map((date, i) => ({
-    id: stageId(i + 1),
+    id: stageId(i + 1, season),
+    season,
     number: i + 1,
     date,
     kickoff: deriveKickoff(date, 12),

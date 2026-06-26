@@ -65,7 +65,7 @@ export default function StageCard({ stage, uid, bet, teams = [], points = {} }) 
     try {
       await setDoc(
         doc(db, COL.STAGE_BETS, `${uid}_${stage.id}`),
-        { uid, stageId: stage.id, ...next, updatedAt: serverTimestamp() },
+        { uid, stageId: stage.id, season: stage.season ?? null, ...next, updatedAt: serverTimestamp() },
         { merge: true },
       );
       setSaved(true);
@@ -76,7 +76,7 @@ export default function StageCard({ stage, uid, bet, teams = [], points = {} }) 
     } finally {
       setSaving(false);
     }
-  }, [uid, locked, stage.id]);
+  }, [uid, locked, stage.id, stage.season]);
 
   function onPick(key, value) {
     const next = { ...picks, [key]: value };

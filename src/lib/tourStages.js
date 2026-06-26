@@ -11,9 +11,21 @@ const TOUR_TZ_OFFSET = '+02:00';
 /** Standard lås-time (lokal, CEST) hvis admin ikke har sat et præcist tidspunkt. */
 export const DEFAULT_LOCK_HOUR = 12;
 
-/** Kortform-id for en etape. `stage-7`. */
-export function stageId(number) {
-  return `stage-${number}`;
+/** Standard-sæson (årstal) hvis admin ikke har sat en aktiv sæson. */
+export const DEFAULT_SEASON = 2026;
+
+/**
+ * Sæson-scopet etape-id. `2026-stage-7`. Holder data adskilt pr. år, så 2025,
+ * 2026 og senere kan ligge side om side uden at overskrive hinanden.
+ */
+export function stageId(number, season = DEFAULT_SEASON) {
+  return `${season}-stage-${number}`;
+}
+
+/** Udled {season, number} af et etape-id. */
+export function parseStageId(id) {
+  const m = /^(\d{4})-stage-(\d+)$/.exec(String(id || ''));
+  return m ? { season: Number(m[1]), number: Number(m[2]) } : null;
 }
 
 /**
@@ -54,13 +66,15 @@ export function deriveKickoff(date, hour = DEFAULT_LOCK_HOUR) {
  */
 export function normalizeStageList(resp, opts = {}) {
   const lockHour = opts.lockHour ?? DEFAULT_LOCK_HOUR;
+  const season = opts.season ?? DEFAULT_SEASON;
   const stages = (resp && Array.isArray(resp.stages)) ? resp.stages : [];
   return stages
     .filter((s) => s && s.number != null && s.number !== '' && Number.isFinite(Number(s.number)))
     .map((s) => {
       const number = Number(s.number);
       return {
-        id: stageId(number),
+        id: stageId(number, season),
+        season,
         number,
         date: s.date ?? null,
         name: s.name ?? null,

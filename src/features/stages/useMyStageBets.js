@@ -4,17 +4,21 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
 
-export function useMyStageBets(uid) {
+export function useMyStageBets(uid, season) {
   const [betsByStage, setBetsByStage] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!uid) {
+    if (!uid || !season) {
       setBetsByStage({});
       setLoading(false);
       return undefined;
     }
-    const q = query(collection(db, COL.STAGE_BETS), where('uid', '==', uid));
+    const q = query(
+      collection(db, COL.STAGE_BETS),
+      where('uid', '==', uid),
+      where('season', '==', season),
+    );
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -32,7 +36,7 @@ export function useMyStageBets(uid) {
       },
     );
     return unsub;
-  }, [uid]);
+  }, [uid, season]);
 
   return { betsByStage, loading };
 }

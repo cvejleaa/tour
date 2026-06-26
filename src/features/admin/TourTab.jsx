@@ -5,8 +5,11 @@
 // ---------------------------------------------------------------------------
 import { useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { functions, db } from '../../firebase';
+import { COL } from '../../lib/constants';
 import { placeholderRoute2026 } from '../../data/route2026';
+import { useActiveSeason } from '../stages/useActiveSeason';
 
 function Result({ data }) {
   if (!data) return null;
@@ -18,9 +21,11 @@ function Result({ data }) {
 }
 
 export default function TourTab() {
+  const season = useActiveSeason();
   const [busy, setBusy] = useState('');
   const [out, setOut] = useState(null);
   const [err, setErr] = useState('');
+  const [seasonInput, setSeasonInput] = useState('');
 
   async function run(name, fn) {
     setBusy(name); setErr(''); setOut(null);
@@ -35,11 +40,18 @@ export default function TourTab() {
   }
 
   const seedRoute = () => run('seed', async () => {
-    const stages = placeholderRoute2026().map((s) => ({
+    const stages = placeholderRoute2026(season).map((s) => ({
       number: s.number, date: s.date, kickoff: s.kickoff, type: s.type,
     }));
-    const res = await httpsCallable(functions, 'seedTourRoute')({ stages });
+    const res = await httpsCallable(functions, 'seedTourRoute')({ season, stages });
     return res.data;
+  });
+
+  const setSeason = () => run('season', async () => {
+    const y = Number(seasonInput);
+    if (!Number.isFinite(y) || y < 2000) throw new Error('Ugyldigt årstal');
+    await setDoc(doc(db, COL.CONFIG, 'settings'), { activeSeason: y }, { merge: true });
+    return { activeSeason: y };
   });
 
   const syncNow = (dryRun) => run('sync', async () => {
@@ -50,6 +62,24 @@ export default function TourTab() {
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚴 Tour de France</h2>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Aktiv sæson: {season}</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          Al data (etaper, tip, hold, stilling) gemmes pr. årstal. Skift sæson
+          næste år, så ligger {season} urørt som historik.
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <input
+            type="number" placeholder={`fx ${season + 1}`} value={seasonInput}
+            onChange={(e) => setSeasonInput(e.target.value)}
+            style={{ width: 110, padding: '0.4rem', borderRadius: 6, border: '1px solid var(--c-border, #ccc)' }}
+          />
+          <button className="btn btn--ghost" disabled={busy || !seasonInput} onClick={setSeason}>
+            {busy === 'season' ? '…' : 'Skift aktiv sæson'}
+          </button>
+        </div>
+      </section>
 
       <section style={{ marginBottom: '1.25rem' }}>
         <h3 style={{ marginBottom: '0.25rem' }}>1. Seed etaperuten</h3>

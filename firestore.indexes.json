@@ -129,6 +129,38 @@
         { "fieldPath": "leagueId",  "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "stages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "season", "order": "ASCENDING" },
+        { "fieldPath": "number", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "stageBets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid",    "order": "ASCENDING" },
+        { "fieldPath": "season", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "stageBets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stageId", "order": "ASCENDING" },
+        { "fieldPath": "uid",     "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bonusBets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid",    "order": "ASCENDING" },
+        { "fieldPath": "season", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

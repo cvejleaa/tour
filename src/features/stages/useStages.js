@@ -1,16 +1,21 @@
-// Hook: useStages – henter alle etaper med onSnapshot, sorteret på nummer.
+// Hook: useStages – etaper for den aktive sæson, sorteret på nummer.
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
 
-export function useStages() {
+export function useStages(season) {
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const q = query(collection(db, COL.STAGES), orderBy('number', 'asc'));
+    if (!season) { setStages([]); setLoading(false); return undefined; }
+    const q = query(
+      collection(db, COL.STAGES),
+      where('season', '==', season),
+      orderBy('number', 'asc'),
+    );
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -24,7 +29,7 @@ export function useStages() {
       },
     );
     return unsub;
-  }, []);
+  }, [season]);
 
   return { stages, loading, error };
 }

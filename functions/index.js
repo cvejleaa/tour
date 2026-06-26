@@ -193,9 +193,10 @@ exports.recomputeBonus = onDocumentWritten(
     }
 
     // Opdater totalPoints for berørte brugere (Tour: etape- + bonus-point)
+    const { activeSeason } = await tourSettings(db);
     const affectedUids = [...new Set(betsSnap.docs.map(d => d.data().uid))];
     for (const uid of affectedUids) {
-      await recalcTourTotal(db, uid);
+      await recalcTourTotal(db, uid, activeSeason, activeSeason);
     }
   }
 );
@@ -207,6 +208,8 @@ exports.recomputeBonus = onDocumentWritten(
 const DEFAULT_TOUR_PROXY = 'https://tdf-results-poi2efmbfa-ew.a.run.app';
 
 // Admin-redigerbar config: point-tabel, top-N til Q2, proxy-URL.
+const DEFAULT_SEASON = 2026;
+
 async function tourSettings(db) {
   const snap = await db.collection('config').doc('settings').get();
   const s = snap.exists ? snap.data() : {};
@@ -214,21 +217,25 @@ async function tourSettings(db) {
     points: normalizePoints(s.tourPoints || {}),
     gcTopN: Number.isFinite(Number(s.gcTopN)) ? Number(s.gcTopN) : DEFAULT_GC_TOP_N,
     proxyUrl: String(s.tourProxyUrl || DEFAULT_TOUR_PROXY).replace(/\/$/, ''),
+    activeSeason: Number.isFinite(Number(s.activeSeason)) ? Number(s.activeSeason) : DEFAULT_SEASON,
   };
 }
 
-// Genberegn en brugers Tour-totaler: etape-point + bonus-point.
-async function recalcTourTotal(db, uid) {
+// Genberegn en brugers totaler for EN sæson (etape- + bonus-point). Historik
+// gemmes pr. sæson i users.seasons.{år}; de flade felter (totalPoints m.fl.)
+// afspejler den aktive sæson, så den eksisterende stilling viser indeværende år.
+async function recalcTourTotal(db, uid, season, activeSeason) {
   const [stageSnap, bonusSnap] = await Promise.all([
-    db.collection('stageBets').where('uid', '==', uid).get(),
-    db.collection('bonusBets').where('uid', '==', uid).get(),
+    db.collection('stageBets').where('uid', '==', uid).where('season', '==', season).get(),
+    db.collection('bonusBets').where('uid', '==', uid).where('season', '==', season).get(),
   ]);
   const stagePoints = stageSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
   const bonusPts = bonusSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
-  await db.collection('users').doc(uid).set(
-    { stagePoints, bonusPoints: bonusPts, totalPoints: stagePoints + bonusPts },
-    { merge: true },
-  );
+  const totals = { stagePoints, bonusPoints: bonusPts, totalPoints: stagePoints + bonusPts };
+
+  const update = { [`seasons.${season}`]: totals };
+  if (season === activeSeason) Object.assign(update, totals); // flade felter = aktiv sæson
+  await db.collection('users').doc(uid).set(update, { merge: true });
 }
 
 // recomputeStage — point for alle etape-tip når et etaperesultat sættes.
@@ -242,7 +249,8 @@ exports.recomputeStage = onDocumentWritten(
     const before = event.data?.before?.data();
     if (JSON.stringify(before?.result) === JSON.stringify(after.result)) return;
 
-    const { points } = await tourSettings(db);
+    const { points, activeSeason } = await tourSettings(db);
+    const season = after.season || activeSeason;
     const betsSnap = await db.collection('stageBets').where('stageId', '==', stageId).get();
     if (betsSnap.empty) return;
 
@@ -258,13 +266,14 @@ exports.recomputeStage = onDocumentWritten(
     for (const b of batches) await b.commit();
 
     const uids = [...new Set(betsSnap.docs.map((d) => d.data().uid))];
-    for (const uid of uids) await recalcTourTotal(db, uid);
+    for (const uid of uids) await recalcTourTotal(db, uid, season, activeSeason);
   },
 );
 
 // Kernen i resultat-sync: hent fra proxyen, map, skriv etape-facit + hold.
 async function syncTourCore(db, { dryRun = false } = {}) {
-  const { gcTopN, proxyUrl } = await tourSettings(db);
+  const { gcTopN, proxyUrl, activeSeason } = await tourSettings(db);
+  const season = activeSeason;
   const listRes = await fetch(`${proxyUrl}/api/stages`);
   if (!listRes.ok) throw new Error(`proxy /api/stages: HTTP ${listRes.status}`);
   const list = await listRes.json();
@@ -275,7 +284,8 @@ async function syncTourCore(db, { dryRun = false } = {}) {
 
   for (const s of stages) {
     const n = s.number;
-    const existing = await db.collection('stages').doc(`stage-${n}`).get();
+    const docId = `${season}-stage-${n}`;
+    const existing = await db.collection('stages').doc(docId).get();
     if (existing.exists && existing.data().status === 'done') continue; // allerede afgjort
     checked++;
     const r = await fetch(`${proxyUrl}/api/stages/${n}`);
@@ -285,7 +295,8 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     if (!upd.resultsPresent) continue;
     upd.teams.forEach((t) => allTeams.set(t.key, t.name));
     if (!dryRun) {
-      await db.collection('stages').doc(`stage-${n}`).set({
+      await db.collection('stages').doc(docId).set({
+        season,
         number: n,
         status: 'done',
         result: upd.result,
@@ -302,11 +313,11 @@ async function syncTourCore(db, { dryRun = false } = {}) {
   if (!dryRun && allTeams.size) {
     const batch = db.batch();
     for (const [key, name] of allTeams) {
-      batch.set(db.collection('teams').doc(key), { key, name }, { merge: true });
+      batch.set(db.collection('teams').doc(`${season}-${key}`), { season, key, name }, { merge: true });
     }
     await batch.commit();
   }
-  return { checked, updated, teams: allTeams.size };
+  return { season, checked, updated, teams: allTeams.size };
 }
 
 // Planlagt sync: hvert 5. minut mellem 17 og 22 (dansk tid) på etapedage.
@@ -347,13 +358,16 @@ exports.syncTourNow = onCall({ region: REGION }, async (request) => {
 exports.seedTourRoute = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   await requireAdmin(db, request);
+  const { activeSeason } = await tourSettings(db);
+  const season = Number(request.data?.season) || activeSeason;
   const route = Array.isArray(request.data?.stages) ? request.data.stages : [];
   if (!route.length) throw new HttpsError('invalid-argument', 'Mangler stages[].');
   const batch = db.batch();
   for (const s of route) {
     const n = Number(s.number);
     if (!Number.isFinite(n)) continue;
-    batch.set(db.collection('stages').doc(`stage-${n}`), {
+    batch.set(db.collection('stages').doc(`${season}-stage-${n}`), {
+      season,
       number: n,
       date: s.date || null,
       kickoff: s.kickoff ? Timestamp.fromDate(new Date(s.kickoff)) : null,
@@ -364,7 +378,7 @@ exports.seedTourRoute = onCall({ region: REGION }, async (request) => {
     }, { merge: true });
   }
   await batch.commit();
-  return { seeded: route.length };
+  return { season, seeded: route.length };
 });
 
 // ---------------------------------------------------------------------------

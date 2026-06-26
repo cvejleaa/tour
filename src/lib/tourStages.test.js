@@ -11,7 +11,8 @@ import {
 
 describe('stageId & classifyStageType', () => {
   it('danner id', () => {
-    expect(stageId(7)).toBe('stage-7');
+    expect(stageId(7)).toBe('2026-stage-7');
+    expect(stageId(7, 2027)).toBe('2027-stage-7');
   });
   it('klassificerer typer', () => {
     expect(classifyStageType('Individual time trial')).toBe('itt');
@@ -49,7 +50,8 @@ describe('normalizeStageList', () => {
     const out = normalizeStageList(resp);
     expect(out).toHaveLength(2);
     expect(out[0].number).toBe(1);
-    expect(out[0].id).toBe('stage-1');
+    expect(out[0].id).toBe('2026-stage-1');
+    expect(out[0].season).toBe(2026);
     expect(out[0].type).toBe('itt');
     expect(out[0].hasResults).toBe(true);
     expect(out[1].kickoff).toBe('2026-07-05T12:00:00+02:00');
