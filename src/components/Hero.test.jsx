@@ -5,8 +5,8 @@ import Hero from './Hero';
 
 describe('Hero – titel', () => {
   it('viser titel tekst', () => {
-    render(<Hero title="VM 2026 Tip" />);
-    expect(screen.getByText('VM 2026 Tip')).toBeInTheDocument();
+    render(<Hero title="Tour de France Tip" />);
+    expect(screen.getByText('Tour de France Tip')).toBeInTheDocument();
   });
 
   it('viser 🚴 cykel emoji i titlen', () => {
@@ -87,12 +87,12 @@ describe('Hero – komplet rendering', () => {
   it('renderer korrekt med alle props', () => {
     render(
       <Hero
-        title="VM 2026 Tip"
+        title="Tour de France Tip"
         subtitle="Afgiv dine tips inden kampstart – point beregnes automatisk."
         chips={['48 hold', '104 kampe', 'Dansk tid']}
       />,
     );
-    expect(screen.getByText('VM 2026 Tip')).toBeInTheDocument();
+    expect(screen.getByText('Tour de France Tip')).toBeInTheDocument();
     expect(screen.getByText(/Afgiv dine tips/)).toBeInTheDocument();
     expect(screen.getByText('48 hold')).toBeInTheDocument();
   });
