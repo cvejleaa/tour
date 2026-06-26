@@ -47,16 +47,37 @@ gcloud secrets add-iam-policy-binding "$SECRET" \
   --member="serviceAccount:${RUNTIME_SA}" \
   --role="roles/secretmanager.secretAccessor" >/dev/null 2>&1 || true
 
+echo "▶ Giver build-/runtime-kontoen de nødvendige roller…"
+# Nyere GCP-projekter giver ikke længere standard-compute-kontoen Editor-rollen,
+# så Cloud Build (som gcloud run deploy --source bruger) mangler adgang til at
+# læse kildekode-zip'en og pushe imaget. cloudbuild.builds.builder dækker det.
+for ROLE in roles/cloudbuild.builds.builder roles/storage.objectViewer roles/artifactregistry.writer roles/logging.logWriter; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${RUNTIME_SA}" \
+    --role="$ROLE" --condition=None >/dev/null 2>&1 || true
+done
+echo "  • Venter ~45s på at IAM-ændringer slår igennem…"
+sleep 45
+
 echo "▶ Deployer til Cloud Run (bygger container fra Dockerfile)…"
-gcloud run deploy "$SERVICE" \
-  --source . \
-  --region "$REGION" \
-  --allow-unauthenticated \
-  --min-instances=0 \
-  --memory=512Mi \
-  --set-env-vars "RACE_YEAR=${RACE_YEAR},RACE_SLUG=tour-de-france,ENABLE_SCHEDULER=0,ALLOWED_ORIGINS=${APP_ORIGIN},DATA_DIR=/tmp/data" \
-  --set-secrets "REFRESH_TOKEN=${SECRET}:latest" \
-  --quiet
+deploy_run() {
+  gcloud run deploy "$SERVICE" \
+    --source . \
+    --region "$REGION" \
+    --allow-unauthenticated \
+    --min-instances=0 \
+    --memory=512Mi \
+    --set-env-vars "RACE_YEAR=${RACE_YEAR},RACE_SLUG=tour-de-france,ENABLE_SCHEDULER=0,ALLOWED_ORIGINS=${APP_ORIGIN},DATA_DIR=/tmp/data" \
+    --set-secrets "REFRESH_TOKEN=${SECRET}:latest" \
+    --quiet
+}
+n=0
+until deploy_run; do
+  n=$((n + 1))
+  if [ "$n" -ge 3 ]; then echo "✖ Deploy fejlede efter $n forsøg."; exit 1; fi
+  echo "  • Forsøg $n fejlede (IAM kan stadig være under udbredelse). Prøver igen om 45s…"
+  sleep 45
+done
 
 URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')"
 echo "✔ Cloud Run kører: $URL"
