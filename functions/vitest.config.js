@@ -12,6 +12,7 @@ export default defineConfig({
       'tourScoring.test.js',
       'pcsMapping.test.js',
       'tourTeams.test.js',
+      'tourSync.test.js',
       'standings.test.js',
       'knockout.test.js',
       'breakdown.test.js',

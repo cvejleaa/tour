@@ -46,6 +46,8 @@ const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
 const { scoreMatch, scoreKnockout, bonusPoints } = require('./scoring');
+const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N } = require('./tourScoring');
+const { buildStageUpdate } = require('./tourSync');
 const { buildR32FromGroupMatches } = require('./knockout');
 const { computeBreakdown } = require('./breakdown');
 const { createClient, mapScorers, summarizeScorers, summarizeMatchDetail, summarizeStandings, mapMatchDetails, mapStandings, mapCompetition } = require('./footballData');
@@ -195,13 +197,180 @@ exports.recomputeBonus = onDocumentWritten(
       await b.commit();
     }
 
-    // Opdater totalPoints for berørte brugere
+    // Opdater totalPoints for berørte brugere (Tour: etape- + bonus-point)
     const affectedUids = [...new Set(betsSnap.docs.map(d => d.data().uid))];
     for (const uid of affectedUids) {
-      await recalcUserTotal(db, uid);
+      await recalcTourTotal(db, uid);
     }
   }
 );
+
+// ===========================================================================
+// TOUR DE FRANCE — etaperesultater, point og sync (fra letour.fr-proxyen)
+// ===========================================================================
+
+const DEFAULT_TOUR_PROXY = 'https://tdf-results-poi2efmbfa-ew.a.run.app';
+
+// Admin-redigerbar config: point-tabel, top-N til Q2, proxy-URL.
+async function tourSettings(db) {
+  const snap = await db.collection('config').doc('settings').get();
+  const s = snap.exists ? snap.data() : {};
+  return {
+    points: normalizePoints(s.tourPoints || {}),
+    gcTopN: Number.isFinite(Number(s.gcTopN)) ? Number(s.gcTopN) : DEFAULT_GC_TOP_N,
+    proxyUrl: String(s.tourProxyUrl || DEFAULT_TOUR_PROXY).replace(/\/$/, ''),
+  };
+}
+
+// Genberegn en brugers Tour-totaler: etape-point + bonus-point.
+async function recalcTourTotal(db, uid) {
+  const [stageSnap, bonusSnap] = await Promise.all([
+    db.collection('stageBets').where('uid', '==', uid).get(),
+    db.collection('bonusBets').where('uid', '==', uid).get(),
+  ]);
+  const stagePoints = stageSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
+  const bonusPts = bonusSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
+  await db.collection('users').doc(uid).set(
+    { stagePoints, bonusPoints: bonusPts, totalPoints: stagePoints + bonusPts },
+    { merge: true },
+  );
+}
+
+// recomputeStage — point for alle etape-tip når et etaperesultat sættes.
+exports.recomputeStage = onDocumentWritten(
+  { document: 'stages/{stageId}', region: REGION },
+  async (event) => {
+    const db = getFirestore();
+    const { stageId } = event.params;
+    const after = event.data?.after?.data();
+    if (!after || !after.result) return;
+    const before = event.data?.before?.data();
+    if (JSON.stringify(before?.result) === JSON.stringify(after.result)) return;
+
+    const { points } = await tourSettings(db);
+    const betsSnap = await db.collection('stageBets').where('stageId', '==', stageId).get();
+    if (betsSnap.empty) return;
+
+    const BATCH_SIZE = 400;
+    let batch = db.batch();
+    let ops = 0;
+    const batches = [batch];
+    for (const d of betsSnap.docs) {
+      const { points: pts } = scoreStageBet(d.data(), after.result, points);
+      batch.update(d.ref, { points: pts });
+      if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; }
+    }
+    for (const b of batches) await b.commit();
+
+    const uids = [...new Set(betsSnap.docs.map((d) => d.data().uid))];
+    for (const uid of uids) await recalcTourTotal(db, uid);
+  },
+);
+
+// Kernen i resultat-sync: hent fra proxyen, map, skriv etape-facit + hold.
+async function syncTourCore(db, { dryRun = false } = {}) {
+  const { gcTopN, proxyUrl } = await tourSettings(db);
+  const listRes = await fetch(`${proxyUrl}/api/stages`);
+  if (!listRes.ok) throw new Error(`proxy /api/stages: HTTP ${listRes.status}`);
+  const list = await listRes.json();
+  const stages = list.stages || [];
+  let checked = 0;
+  let updated = 0;
+  const allTeams = new Map();
+
+  for (const s of stages) {
+    const n = s.number;
+    const existing = await db.collection('stages').doc(`stage-${n}`).get();
+    if (existing.exists && existing.data().status === 'done') continue; // allerede afgjort
+    checked++;
+    const r = await fetch(`${proxyUrl}/api/stages/${n}`);
+    if (r.status === 425 || !r.ok) continue; // resultat ikke klar
+    const payload = await r.json();
+    const upd = buildStageUpdate(payload, gcTopN);
+    if (!upd.resultsPresent) continue;
+    upd.teams.forEach((t) => allTeams.set(t.key, t.name));
+    if (!dryRun) {
+      await db.collection('stages').doc(`stage-${n}`).set({
+        number: n,
+        status: 'done',
+        result: upd.result,
+        jerseys: upd.jerseys,
+        startCity: upd.meta.startCity,
+        finishCity: upd.meta.finishCity,
+        km: upd.meta.km,
+        resultUpdatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    updated++;
+  }
+
+  if (!dryRun && allTeams.size) {
+    const batch = db.batch();
+    for (const [key, name] of allTeams) {
+      batch.set(db.collection('teams').doc(key), { key, name }, { merge: true });
+    }
+    await batch.commit();
+  }
+  return { checked, updated, teams: allTeams.size };
+}
+
+// Planlagt sync: hvert 5. minut mellem 17 og 22 (dansk tid) på etapedage.
+exports.syncTourResults = onSchedule(
+  { schedule: '*/5 17-22 * * *', timeZone: TZ, region: REGION },
+  async () => {
+    const db = getFirestore();
+    const statusRef = db.collection('config').doc('tourSyncStatus');
+    try {
+      const res = await syncTourCore(db, {});
+      await statusRef.set({
+        lastRunAt: FieldValue.serverTimestamp(),
+        lastSuccessAt: FieldValue.serverTimestamp(),
+        ...res,
+        lastError: null,
+      }, { merge: true });
+      if (res.updated) console.log(`syncTourResults: opdaterede ${res.updated} etape(r).`);
+    } catch (err) {
+      console.error('syncTourResults: fejl', err);
+      await statusRef.set({
+        lastRunAt: FieldValue.serverTimestamp(),
+        lastError: String(err?.message || err),
+      }, { merge: true });
+      throw err;
+    }
+  },
+);
+
+// "Kør nu"-knap (admin): henter resultater med det samme.
+exports.syncTourNow = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  return syncTourCore(db, { dryRun: request.data?.dryRun === true });
+});
+
+// seedTourRoute — opretter de 21 etape-dokumenter (med kickoff) så man kan
+// tippe og låsning virker, før resultaterne kommer. Datoer rettes i admin.
+exports.seedTourRoute = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const route = Array.isArray(request.data?.stages) ? request.data.stages : [];
+  if (!route.length) throw new HttpsError('invalid-argument', 'Mangler stages[].');
+  const batch = db.batch();
+  for (const s of route) {
+    const n = Number(s.number);
+    if (!Number.isFinite(n)) continue;
+    batch.set(db.collection('stages').doc(`stage-${n}`), {
+      number: n,
+      date: s.date || null,
+      kickoff: s.kickoff ? Timestamp.fromDate(new Date(s.kickoff)) : null,
+      type: s.type || 'unknown',
+      startCity: s.startCity || null,
+      finishCity: s.finishCity || null,
+      status: 'scheduled',
+    }, { merge: true });
+  }
+  await batch.commit();
+  return { seeded: route.length };
+});
 
 // ---------------------------------------------------------------------------
 // backfillTipParticipation — callable (owner/global admin)
