@@ -1,6 +1,5 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
-procyclingstats>=0.2.8
-cloudscraper>=1.2.71
+requests>=2.31
 apscheduler>=3.10
 psycopg[binary]>=3.1

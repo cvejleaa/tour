@@ -23,12 +23,15 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-import requests
-from procyclingstats import Race, Stage
+# Datakilde: letour.fr (officiel, ikke datacenter-blokeret). Adapteren leverer
+# samme output-form som dette modul tidligere gjorde via ProCyclingStats.
+from letour_results import scrape_stage as _letour_scrape_stage
+from letour_results import scrape_stage_list as _letour_scrape_stage_list
 
 # ----------------------------------------------------------------------------
 # Konfiguration
@@ -36,42 +39,7 @@ from procyclingstats import Race, Stage
 
 RACE_SLUG = os.getenv("RACE_SLUG", "tour-de-france")
 RACE_YEAR = int(os.getenv("RACE_YEAR", str(date.today().year)))
-PCS_BASE = "https://www.procyclingstats.com/"
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data"))
-
-# Residential scraper (valgfrit). PCS blokerer datacenter-IP'er (403), så fra
-# Cloud Run skal HTML hentes via en scraper med rigtige hjemme-IP'er. Sæt
-# SCRAPER_API_KEY, så hentes alt via SCRAPER_API_ENDPOINT (default ScraperAPI:
-# ?api_key=..&url=..&render=false). Uden nøgle bruges procyclingstats' egen
-# henter (virker fra en Raspberry Pi / hjemme-IP).
-SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY", "")
-SCRAPER_API_ENDPOINT = os.getenv("SCRAPER_API_ENDPOINT", "https://api.scraperapi.com/")
-
-
-def fetch_html(path_or_url: str) -> str | None:
-    """Henter HTML via residential scraper hvis konfigureret, ellers None
-    (så procyclingstats selv henter). `path_or_url` kan være relativ til PCS."""
-    if not SCRAPER_API_KEY:
-        return None
-    full = path_or_url if path_or_url.startswith("http") else PCS_BASE + path_or_url.lstrip("/")
-    resp = requests.get(
-        SCRAPER_API_ENDPOINT,
-        params={"api_key": SCRAPER_API_KEY, "url": full, "render": "false"},
-        timeout=90,
-    )
-    resp.raise_for_status()
-    return resp.text
-
-# Klassement-metoder på Stage → pæne danske labels + trøjefarve.
-# Rækkefølgen styrer rækkefølgen i output.
-CLASSIFICATIONS: list[dict[str, str]] = [
-    {"method": "results", "key": "etape",  "label": "Etaperesultat",       "jersey": "—"},
-    {"method": "gc",      "key": "samlet", "label": "Samlet (GC)",          "jersey": "gul"},
-    {"method": "points",  "key": "sprint", "label": "Sprint (point)",       "jersey": "grøn"},
-    {"method": "kom",     "key": "bjerg",  "label": "Bjerg (KOM)",          "jersey": "prikket"},
-    {"method": "youth",   "key": "ungdom", "label": "Ungdom",               "jersey": "hvid"},
-    {"method": "teams",   "key": "hold",   "label": "Holdkonkurrence",      "jersey": "—"},
-]
 
 
 # ----------------------------------------------------------------------------
@@ -114,91 +82,24 @@ class JsonFileCache:
 # Scraping (bedste-forsøg, defensivt)
 # ----------------------------------------------------------------------------
 
-def _safe(fn: Callable[[], Any], default: Any) -> Any:
-    """PCS-parsing kan kaste hvis et felt/klassement mangler. Sluger og defaulter."""
-    try:
-        return fn()
-    except Exception:
-        return default
-
-
 def _stage_number_from_url(stage_url: str) -> int | None:
-    # "race/tour-de-france/2026/stage-7" -> 7
-    tail = stage_url.rstrip("/").rsplit("stage-", 1)
-    if len(tail) == 2 and tail[1].isdigit():
-        return int(tail[1])
-    return None
+    """Udleder etapenummer af en url/streng der indeholder 'stage-N'."""
+    m = re.search(r"stage-(\d+)", str(stage_url))
+    return int(m.group(1)) if m else None
 
 
 def scrape_stage_list(year: int = RACE_YEAR) -> list[dict[str, Any]]:
-    """
-    Henter etapeoversigten (én request). Returnerer liste med:
-    number, date (YYYY-MM-DD el. None), name, url, profile_icon.
-    """
-    url = f"race/{RACE_SLUG}/{year}"
-    html = fetch_html(url)
-    race = Race(url, html=html, update_html=False) if html else Race(url)
-    rows = _safe(race.stages, [])
-    out: list[dict[str, Any]] = []
-    for r in rows:
-        url = r.get("stage_url", "")
-        n = _stage_number_from_url(url)
-        # Race.stages() giver dato i MM-DD; gør den til fuld dato.
-        md = r.get("date")
-        full_date = f"{year}-{md}" if md and len(md) == 5 else None
-        out.append(
-            {
-                "number": n,
-                "date": full_date,
-                "name": r.get("stage_name"),
-                "url": url,
-                "profile_icon": r.get("profile_icon"),
-            }
-        )
-    # Behold kun rigtige etaper med nummer, sorteret.
-    out = [s for s in out if s["number"] is not None]
-    out.sort(key=lambda s: s["number"])
-    return out
+    """Etapeoversigt (number, date, name, url) via letour-adapteren."""
+    return _letour_scrape_stage_list()
 
 
-def scrape_stage(stage_url: str) -> dict[str, Any]:
-    """
-    ÉT request → metadata + alle klassementer. Tom liste hvor et klassement
-    ikke findes endnu (fx før etapen er kørt, eller hold-/ungdom på TTT).
-    """
-    html = fetch_html(stage_url)
-    stage = Stage(stage_url, html=html, update_html=False) if html else Stage(stage_url)
-
-    classifications: dict[str, Any] = {}
-    for c in CLASSIFICATIONS:
-        rows = _safe(getattr(stage, c["method"]), [])
-        classifications[c["key"]] = {
-            "label": c["label"],
-            "jersey": c["jersey"],
-            "rows": rows,
-        }
-
-    results_present = bool(classifications["etape"]["rows"])
-    stage_date = _safe(stage.date, None)
-
-    return {
-        "url": stage_url,
-        "number": _stage_number_from_url(stage_url),
-        "meta": {
-            "date": stage_date,
-            "departure": _safe(stage.departure, None),
-            "arrival": _safe(stage.arrival, None),
-            "distance_km": _safe(stage.distance, None),
-            "stage_type": _safe(stage.stage_type, None),
-            "won_how": _safe(stage.won_how, None),
-            "profile_icon": _safe(stage.profile_icon, None),
-            "avg_speed_winner": _safe(stage.avg_speed_winner, None),
-        },
-        "classifications": classifications,
-        "results_present": results_present,
-        "scraped_at": datetime.utcnow().isoformat() + "Z",
-        "pcs_base": PCS_BASE,
-    }
+def scrape_stage(stage_ref: Any) -> dict[str, Any]:
+    """Henter en etape (resultat + alle klassementer) via letour-adapteren.
+    `stage_ref` kan være et nummer eller en url/streng med 'stage-N'."""
+    n = stage_ref if isinstance(stage_ref, int) else _stage_number_from_url(stage_ref)
+    if n is None:
+        raise ValueError(f"Kan ikke udlede etapenummer af {stage_ref!r}")
+    return _letour_scrape_stage(n)
 
 
 # ----------------------------------------------------------------------------
