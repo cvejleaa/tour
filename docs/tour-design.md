@@ -46,10 +46,19 @@ konkret talcase.*
 | Sportradar / Enetpulse / Sportbex | Officielle, live | Erhvervspriser – overkill til privat liga |
 | LeTourDataSet (GitHub CSV) | Historik t.o.m. 2025 | Gratis, men ikke live – god til seed/test |
 
-**Valgt løsning:** Brugerens egen **PCS-proxy** (FastAPI + `procyclingstats`,
-filerne i `userfiles/`). Ét request pr. etape giver resultat + alle 5 klassementer
-med `rank`/`rider_name`/`team_name`/`points`. Finalitets-logik henter hver etape
-én gang. Endpoints: `/api/stages`, `/api/stages/{n}`, `/api/standings`, `/api/refresh`.
+**VALGT & VIRKER (bekræftet):** Proxy på **Cloud Run** der henter fra **letour.fr**
+(officiel ASO-side). PCS blokerer datacenter-IP'er (403); letour.fr gør IKKE, så
+det kører gratis fra Cloud Run — ingen Pi, ingen scraper-API, ingen credits.
+- Proxy-URL: `https://tdf-results-poi2efmbfa-ew.a.run.app`
+- Henter `/en/rankings/stage-N` + skjulte AJAX-fragmenter `/en/ajax/ranking/{N}/{type}/{hash}/none`.
+- Type-koder: `ite`=etape(Q1/Q2), `ipe`=sprint PÅ etapen(Q4), `ime`=bjerg PÅ etapen(Q3),
+  `itg`=GC(gul), `ijg`=ungdom(hvid), `etg`=holdkonkurrence.
+- `proxy/letour_results.py` parser HTML-tabellerne → samme output-form som før
+  (så `pcsMapping`/scoring er uændret). Valideret mod ægte 2025-data.
+- Endpoints: `/api/stages`, `/api/stages/{n}`, `/api/standings`, `/api/refresh`, `/api/debug/{n}`.
+
+> Historik: vi prøvede PCS direkte (403), cloudscraper (kan ikke ændre IP),
+> ScraperAPI/SerpApi (for dyrt/forkert data). letour.fr blev løsningen.
 
 **Integration:** Cloud Function (`syncResultsNow`) henter `/api/stages/{n}` →
 `src/lib/pcsMapping.js` mapper til `resolveStageResult`-input → skriver
@@ -109,6 +118,9 @@ Nyt/erstattet:
 - [x] Hosting valgt: **Cloud Run + Postgres**. Scaffold i `proxy/` + `DEPLOY.md`
   (Cloud Scheduler hvert 5. min 17–22 Europe/Copenhagen).
 - [x] Mail-afsender `tour@vejleaa.dk`, domæne `tour.vejleaa.dk`, deploy → `tour-85928`.
+- [x] **Datakilde LØST:** letour.fr-proxy live på Cloud Run, henter ægte data
+  (bekræftet `/api/stages/20`). Gratis, automatisk, ingen Pi.
+- [x] Firestore-regler for `stages`/`teams`/`stageBets`.
 
 **Tilbage (= opgavelisten i appen):**
 - [ ] **#1** Stages-seed: skriv `stages`/`teams` til Firestore fra `/api/stages` *(model klar)*.
