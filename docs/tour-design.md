@@ -46,7 +46,21 @@ konkret talcase.*
 | Sportradar / Enetpulse / Sportbex | Officielle, live | Erhvervspriser – overkill til privat liga |
 | LeTourDataSet (GitHub CSV) | Historik t.o.m. 2025 | Gratis, men ikke live – god til seed/test |
 
-**Plan:** manuel smart-indtastning nu (ingen eksterne konti) → Apify auto-sync senere.
+**Valgt løsning:** Brugerens egen **PCS-proxy** (FastAPI + `procyclingstats`,
+filerne i `userfiles/`). Ét request pr. etape giver resultat + alle 5 klassementer
+med `rank`/`rider_name`/`team_name`/`points`. Finalitets-logik henter hver etape
+én gang. Endpoints: `/api/stages`, `/api/stages/{n}`, `/api/standings`, `/api/refresh`.
+
+**Integration:** Cloud Function (`syncResultsNow`) henter `/api/stages/{n}` →
+`src/lib/pcsMapping.js` mapper til `resolveStageResult`-input → skriver
+`stages/{id}.result` → recompute. Holder scoring server-side. Proxyen hostes
+separat (Cloud Run anbefalet, så Functions kan nå den over offentlig HTTPS;
+alternativt Raspberry Pi + tunnel).
+
+**Q3/Q4-nuance:** PCS' bjerg/sprint-blok er KUMULATIV klassement-stilling.
+`pcsMapping.deltaPointsList()` kan udregne ægte point PÅ etapen ved at trække
+forrige etape fra — vælges via `prevPayload`. Default uden delta = "holdet der
+fører klassementet". Afklares med bruger.
 
 ## Datamodel (Firestore) – planlagt
 
@@ -67,7 +81,9 @@ Nyt/erstattet:
 
 - [x] Skelet: motor kopieret, branding VM→Tour, Firebase `tour-85928`, CI grøn.
 - [x] Scoring-kerne: `src/lib/tourScoring.js` + eksempel-tests (hold-model Q1–Q4).
-- [ ] Spejl scoring til `functions/tourScoring.js` + Cloud Function der genberegner.
+- [x] PCS-bro: `src/lib/pcsMapping.js` + tests (payload → resolveStageResult + trøjer + meta).
+- [ ] Vælg hosting til PCS-proxy (Cloud Run vs Pi+tunnel).
+- [ ] Spejl scoring + mapping til `functions/` + Cloud Function der henter & genberegner.
 - [ ] Datamodel + seed: `teams`, `riders` (2025-startliste), `stages` (2026-rute).
 - [ ] Tip-flow: etape-side med fire hold-felter; lås ved etapestart.
 - [ ] Admin: redigér point + `gcTopN`; manuel resultat-indtastning (smart indsæt).
