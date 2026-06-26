@@ -9,6 +9,8 @@ export default defineConfig({
   test: {
     include: [
       'scoring.test.js',
+      'tourScoring.test.js',
+      'pcsMapping.test.js',
       'standings.test.js',
       'knockout.test.js',
       'breakdown.test.js',
