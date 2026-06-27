@@ -47,6 +47,31 @@ def test_parse_stage5_sample():
     # Stage 5 (flad) har en mellemsprint + én kategoriseret stigning (Côte de Baleix).
     assert info["awards"]["sprint"] is True, info["awards"]
     assert info["awards"]["mountain"] is True, info["awards"]
+    # Berigede præsentations-felter.
+    assert info["climbs"] == [{"name": "Côte de Baleix", "category": "3"}], info["climbs"]
+    assert info["sprints"] == [{"name": "VIC-EN-BIGORRE"}], info["sprints"]
+    assert info["profileImage"] and "5-tdf26-profils-web-fr" in info["profileImage"], info["profileImage"]
+
+
+def test_climbs_sprints_dedupe_and_categories():
+    """Stakes-tabellen gentager rækker (desktop+mobil); navne skal dedup'es og
+    kategori udledes af picto (h=HC, cifre=1-4, n=mellemsprint)."""
+    html = (
+        "<p><b>Points awarded on Stage 9</b></p>"
+        '<div class="stakes__wrapper">'
+        '<span class="picto picto--n"></span> <td>BAYONNE</td> 25 pts'
+        '<span class="picto picto--h"></span> <td>Col du Tourmalet</td> 20 pts'
+        '<span class="picto picto--h"></span> <td>Col du Tourmalet</td> 20 pts'  # dублet
+        '<span class="picto picto--4"></span> <td>Côte de Test</td> 1pt'
+        '<span class="picto picto--a"></span> <td>PAU</td> Green jersey 50 pts'
+        "</div>"
+    )
+    climbs, sprints = si._climbs_and_sprints(html, 9)
+    assert sprints == [{"name": "BAYONNE"}], sprints
+    assert climbs == [
+        {"name": "Col du Tourmalet", "category": "HC"},
+        {"name": "Côte de Test", "category": "4"},
+    ], climbs
 
 
 def test_scope_picks_current_stage_not_neighbours():
@@ -119,6 +144,7 @@ def _run_plain():
     test_finish_marker_alone_is_not_sprint()
     test_intermediate_sprint_marker_sets_sprint()
     test_categorized_climb_marker_sets_mountain()
+    test_climbs_sprints_dedupe_and_categories()
     test_type_mapping()
 
     html = _load_sample()

@@ -32,6 +32,10 @@ export function placeholderRoute2026(season = 2026) {
     // Valgfrie felter (tilføjes senere af proxyen) – tag kun med når til stede.
     ...(s.elevation != null ? { elevation: s.elevation } : {}),
     ...(s.expertTip != null ? { expertTip: s.expertTip } : {}),
+    ...(s.profileImage ? { profileImage: s.profileImage } : {}),
+    ...(Array.isArray(s.climbs) && s.climbs.length ? { climbs: s.climbs } : {}),
+    ...(Array.isArray(s.sprints) && s.sprints.length ? { sprints: s.sprints } : {}),
+    ...(s.pointsAwarded ? { pointsAwarded: s.pointsAwarded } : {}),
     // Eksplicitte type-standarder, så friskt seedede etaper bærer deres egne
     // aktive spørgsmål (helperen dækker også fravær af feltet).
     questions: activeQuestionsForStage(s),

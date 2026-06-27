@@ -54,7 +54,22 @@ function stageInfoUpdate(info) {
     };
     hasAwards = true;
   }
-  return { update, hasElevation, hasAwards };
+  // Præsentations-felter (profil, stigninger, sprints) — kun når til stede, så et
+  // merge aldrig nulstiller berigede dokumenter.
+  let hasExtra = false;
+  if (info && typeof info.profileImage === 'string' && info.profileImage) {
+    update.profileImage = info.profileImage;
+    hasExtra = true;
+  }
+  if (info && Array.isArray(info.climbs) && info.climbs.length) {
+    update.climbs = info.climbs;
+    hasExtra = true;
+  }
+  if (info && Array.isArray(info.sprints) && info.sprints.length) {
+    update.sprints = info.sprints;
+    hasExtra = true;
+  }
+  return { update, hasElevation, hasAwards, hasExtra };
 }
 
 /**
@@ -85,12 +100,14 @@ async function syncStageInfoCore({ db, proxyUrl, season, fetchImpl, serverTimest
     const n = Number(info && info.stage);
     if (!Number.isFinite(n)) continue;
     checked++;
-    const { update, hasElevation, hasAwards } = stageInfoUpdate(info);
-    if (!hasElevation && !hasAwards) continue;
+    const { update, hasElevation, hasAwards, hasExtra } = stageInfoUpdate(info);
+    if (!hasElevation && !hasAwards && !hasExtra) continue;
     preview.push({
       stage: n,
       elevation: hasElevation ? update.elevation : null,
       pointsAwarded: hasAwards ? update.pointsAwarded : null,
+      climbs: update.climbs ? update.climbs.length : 0,
+      profileImage: update.profileImage ? true : false,
     });
     if (!dryRun) {
       const docId = `${season}-stage-${n}`;

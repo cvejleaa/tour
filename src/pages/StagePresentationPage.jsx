@@ -26,6 +26,26 @@ const QUESTION_SUMMARY = [
   { key: 'sprintTeam', label: 'Sprintpoint' },
 ];
 
+// Farve pr. bjergkategori (HC hårdest → kat. 4 lettest).
+const CAT_COLOR = {
+  HC: '#8b1a1a', 1: '#c0392b', 2: '#e67e22', 3: '#3a8a3a', 4: '#6b7a8f',
+};
+
+function ClimbBadge({ category }) {
+  const cat = String(category ?? '');
+  return (
+    <span
+      style={{
+        display: 'inline-block', minWidth: 28, textAlign: 'center',
+        background: CAT_COLOR[cat] || 'var(--c-muted)', color: '#fff',
+        borderRadius: 6, padding: '0.1rem 0.4rem', fontSize: '0.74rem', fontWeight: 800,
+      }}
+    >
+      {cat || '?'}
+    </span>
+  );
+}
+
 // Lang dansk dato, fx "lørdag 4. juli". Bruger stage.date ("2026-07-04")
 // hvis muligt, ellers kickoff.
 function formatLongDate(stage) {
@@ -60,13 +80,19 @@ export default function StagePresentationPage() {
 
   const num = Number(number);
 
+  // Den statiske rute bærer de uforanderlige præsentations-felter (profil,
+  // stigninger, sprints), så de virker uanset om etapen er seedet i Firestore.
+  const staticStage = useMemo(
+    () => placeholderRoute2026(season).find((s) => Number(s.number) === num) || null,
+    [season, num],
+  );
+
   // Brug seedet etape hvis den findes, ellers fald tilbage til ruten, så
   // siden virker både før og efter seeding.
   const stage = useMemo(() => {
     const fromDb = dbStages.find((s) => Number(s.number) === num);
-    if (fromDb) return fromDb;
-    return placeholderRoute2026(season).find((s) => Number(s.number) === num) || null;
-  }, [dbStages, season, num]);
+    return fromDb || staticStage;
+  }, [dbStages, num, staticStage]);
 
   if (!stage) {
     return (
@@ -85,6 +111,12 @@ export default function StagePresentationPage() {
   const typeLabel = STAGE_TYPE_LABEL[stage.type] || STAGE_TYPE_LABEL.unknown;
   const longDate = formatLongDate(stage);
   const active = activeQuestionsForStage(stage);
+
+  // Præsentations-felter: foretræk seedet værdi, ellers den statiske rute.
+  const profileImage = stage.profileImage || staticStage?.profileImage || null;
+  const elevation = stage.elevation ?? staticStage?.elevation ?? null;
+  const climbs = (stage.climbs?.length ? stage.climbs : staticStage?.climbs) || [];
+  const sprints = (stage.sprints?.length ? stage.sprints : staticStage?.sprints) || [];
 
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
@@ -109,10 +141,61 @@ export default function StagePresentationPage() {
             <StatTile label="Starttid" value={`${stage.startTime} (fransk/CEST tid)`} />
           )}
           <StatTile label="Type" value={typeLabel} />
-          {stage.elevation != null && (
-            <StatTile label="Højdemeter" value={`${stage.elevation} m`} />
+          {elevation != null && (
+            <StatTile label="Højdemeter" value={`${elevation} m`} />
           )}
         </div>
+
+        {/* Højdeprofil fra letour – den mest fortællende grafik om etapen. */}
+        {profileImage && (
+          <figure style={{ margin: '0 0 1rem' }} data-testid="stage-profile">
+            <img
+              src={profileImage}
+              alt={`Højdeprofil for etape ${stage.number}`}
+              loading="lazy"
+              style={{ maxWidth: '100%', height: 'auto', borderRadius: 12, display: 'block' }}
+            />
+            <figcaption style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+              Højdeprofil
+            </figcaption>
+          </figure>
+        )}
+
+        {/* Stigninger + mellemsprints – parcoursens udfordringer. */}
+        {(climbs.length > 0 || sprints.length > 0) && (
+          <section style={{ marginBottom: '1rem' }} data-testid="stage-challenges">
+            <h3 style={{ marginBottom: '0.5rem' }}>Dagens udfordringer</h3>
+            {climbs.length > 0 && (
+              <div style={{ marginBottom: sprints.length ? '0.6rem' : 0 }}>
+                <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--c-muted)', marginBottom: '0.3rem' }}>
+                  ⛰️ Kategoriserede stigninger
+                </div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
+                  {climbs.map((c, i) => (
+                    <li key={`${c.name}-${i}`} data-testid="climb-row" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                      <ClimbBadge category={c.category} />
+                      <span>{c.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {sprints.length > 0 && (
+              <div>
+                <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--c-muted)', marginBottom: '0.3rem' }}>
+                  🚀 Mellemsprint
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                  {sprints.map((s, i) => (
+                    <span key={`${s.name}-${i}`} data-testid="sprint-chip" className="badge badge--muted" style={{ fontSize: '0.82rem' }}>
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Mål-by-billede som banner */}
         {stage.image && (

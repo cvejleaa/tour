@@ -151,6 +151,73 @@ def _awards(page_html: str, stage: int) -> dict[str, bool]:
     return {"sprint": sprint, "mountain": mountain}
 
 
+# Klip et rækkenavn af ved første point-værdi eller trøje-/bonus-label, så vi får
+# det rene sted-/bjergnavn ("VIC-EN-BIGORRE", "Côte de Baleix").
+_NAME_CUT = re.compile(r"\s+(\d+\s*pts?\b|Green jersey|Polka-?dot jersey|Yellow jersey|Time bonuses)", re.I)
+
+
+def _row_name(after_html: str) -> str:
+    text = ihtml.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", after_html))).strip()
+    cut = _NAME_CUT.search(text)
+    if cut:
+        text = text[: cut.start()]
+    # Fjern enkeltstartens "Point chrono n°N /"-præfiks, så bjerget står rent.
+    text = re.sub(r"^Point chrono\s*n°?\s*\d+\s*/\s*", "", text, flags=re.I)
+    return text.strip(" >-–·/")
+
+
+def _stakes_rows(page_html: str, stage: int) -> list[tuple[str, str]]:
+    """(picto-klasse, rent navn) for hver række i ``Points awarded``-tabellen.
+
+    Tabellen rummer netop denne etapes scorende mellemsprint(s) og stigning(er)
+    med rene navne (ingen vej-præfiks som itinerary-tabellen). Sider gentager
+    ofte rækkerne (desktop+mobil), så kalderen bør dedup'e på navn.
+    """
+    m = re.search(rf"Points awarded on Stage\s*{stage}\b", page_html, re.I)
+    if not m:
+        return []
+    chunk = page_html[m.start(): m.start() + 16000]
+    out: list[tuple[str, str]] = []
+    for pm in re.finditer(r"picto--([a-z0-9]+)\"", chunk, re.I):
+        name = _row_name(chunk[pm.end(): pm.end() + 400])
+        if name:
+            out.append((pm.group(1).lower(), name))
+    return out
+
+
+def _climbs_and_sprints(page_html: str, stage: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Udled kategoriserede stigninger og mellemsprints fra point-tabellen.
+
+    ``picto--n`` = mellemsprint, ``picto--h`` = uden for kategori (HC),
+    ``picto--1..4`` = kategori 1-4. ``a`` (mål) og ``r`` (rutemarkør) springes
+    over. Dedup'er på navn (siden gentager rækkerne).
+    """
+    climbs: list[dict[str, Any]] = []
+    sprints: list[dict[str, Any]] = []
+    seen_c: set[str] = set()
+    seen_s: set[str] = set()
+    for cls, name in _stakes_rows(page_html, stage):
+        if cls == "n":
+            if name.upper() not in seen_s:
+                seen_s.add(name.upper())
+                sprints.append({"name": name})
+        elif cls == "h" or cls.isdigit():
+            cat = "HC" if cls == "h" else cls
+            if name.upper() not in seen_c:
+                seen_c.add(name.upper())
+                climbs.append({"name": name, "category": cat})
+    return climbs, sprints
+
+
+def _profile_image(page_html: str, stage: int) -> str | None:
+    """URL til etapens højdeprofil-billede (``{n}-tdf26-profils-web-fr``)."""
+    m = re.search(
+        rf"https://img\.aso\.fr/[^\"'\s]*(?<!\d){stage}-tdf26-profils-web-fr[^\"'\s]*",
+        page_html,
+    )
+    return m.group(0) if m else None
+
+
 def parse_stage_info(page_html: str, stage: int) -> dict[str, Any]:
     """Ren parser: tag en etapesides HTML → vores stamdata-dict. Ingen IO."""
     scope = _current_stage_scope(page_html, stage)
@@ -162,12 +229,16 @@ def parse_stage_info(page_html: str, stage: int) -> dict[str, Any]:
     # Fald-tilbage: hvis point-tabellen ikke kunne læses, udled bjerg fra typen.
     if not awards["mountain"] and stype in ("mountain", "hilly"):
         awards["mountain"] = True
+    climbs, sprints = _climbs_and_sprints(page_html, stage)
     return {
         "stage": stage,
         "km": km,
         "type": stype,
         "elevation": elevation,
         "awards": awards,
+        "climbs": climbs,
+        "sprints": sprints,
+        "profileImage": _profile_image(page_html, stage),
     }
 
 

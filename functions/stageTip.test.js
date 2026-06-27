@@ -78,6 +78,22 @@ describe('buildStageTipFacts / buildStageTipPrompt', () => {
     expect(prompt).toContain('Brosten undervejs.');
   });
 
+  it('tager stigninger (navn+kategori) og mellemsprints med i prompten', () => {
+    const stage = {
+      number: 9, type: 'mountain', km: 180,
+      climbs: [{ name: 'Col du Tourmalet', category: 'HC' }, { name: 'Côte de Test', category: '3' }],
+      sprints: [{ name: 'BAYONNE' }],
+    };
+    const facts = buildStageTipFacts(stage);
+    expect(facts.climbs).toHaveLength(2);
+    expect(facts.sprints).toEqual([{ name: 'BAYONNE' }]);
+
+    const prompt = buildStageTipPrompt(stage);
+    expect(prompt).toContain('Col du Tourmalet (kat. HC)');
+    expect(prompt).toContain('Côte de Test (kat. 3)');
+    expect(prompt).toContain('BAYONNE');
+  });
+
   it('respekterer questions-override ved aktive spørgsmål', () => {
     const stage = {
       number: 9, type: 'mountain',

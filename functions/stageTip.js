@@ -64,8 +64,17 @@ function buildStageTipFacts(stage = {}) {
     startCity: stage.startCity || null,
     finishCity: stage.finishCity || null,
     description: stage.description || null,
+    climbs: Array.isArray(stage.climbs) ? stage.climbs : [],
+    sprints: Array.isArray(stage.sprints) ? stage.sprints : [],
     activeQuestions,
   };
+}
+
+// "kat. HC", "kat. 1" … til prompten.
+function climbLabel(c) {
+  const cat = c && c.category ? String(c.category) : '';
+  const catTxt = cat ? `kat. ${cat}` : 'stigning';
+  return c && c.name ? `${c.name} (${catTxt})` : catTxt;
 }
 
 /**
@@ -80,6 +89,12 @@ function buildStageTipPrompt(stage = {}) {
   if (f.elevation != null) lines.push(`Højdemeter: ${f.elevation} m`);
   if (f.startCity || f.finishCity) {
     lines.push(`Rute: ${f.startCity || '?'} → ${f.finishCity || '?'}`);
+  }
+  if (f.climbs.length) {
+    lines.push(`Kategoriserede stigninger: ${f.climbs.map(climbLabel).join(', ')}.`);
+  }
+  if (f.sprints.length) {
+    lines.push(`Mellemsprint(s): ${f.sprints.map((s) => s.name).filter(Boolean).join(', ')}.`);
   }
   if (f.description) lines.push(`Beskrivelse: ${f.description}`);
   if (f.activeQuestions.length) {
