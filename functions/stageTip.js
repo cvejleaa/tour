@@ -181,6 +181,7 @@ async function runGenerateStageTips(db, anthropic, { stageId, all, season, force
 
   const results = [];
   const errors = [];
+  const checked = targets.length;
   for (const t of targets) {
     try {
       const text = await generateStageTipText(anthropic, t.data || {});
@@ -197,7 +198,7 @@ async function runGenerateStageTips(db, anthropic, { stageId, all, season, force
       errors.push({ stageId: t.id, error: err?.message || String(err) });
     }
   }
-  return { results, errors };
+  return { results, errors, checked };
 }
 
 module.exports = {

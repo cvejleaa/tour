@@ -233,7 +233,8 @@ function StageExpertTips({ season }) {
       if (!res.ok) { setErr(res.error); return; }
       const n = res.data?.results?.length ?? 0;
       const fails = res.data?.errors?.length ?? 0;
-      setMsg(`Regenererede ${n} ekspert-tip${fails ? ` (${fails} fejlede)` : ''}.`);
+      const checked = res.data?.checked ?? n;
+      setMsg(`Regenererede ${n} af ${checked} etaper${fails ? ` (${fails} fejlede)` : ''}.`);
     } catch (e) {
       console.error(e);
       setErr(e?.message || String(e));
