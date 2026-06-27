@@ -197,15 +197,19 @@ export default function StageCard({
       {/* Genvejs-handlinger – kun når etapen er åben (redigerbar) */}
       {!locked && (
         <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            onClick={copyFromPrevious}
-            disabled={!previousPicks || saving}
-            data-testid="copy-previous"
-          >
-            Kopiér fra forrige etape
-          </button>
+          {/* Skjules helt når der ikke er en tidligere tippet etape at kopiere
+              fra (fx etape 1) — en deaktiveret knap uden funktion er dårligere UX. */}
+          {previousPicks && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={copyFromPrevious}
+              disabled={saving}
+              data-testid="copy-previous"
+            >
+              Kopiér fra forrige etape
+            </button>
+          )}
           {onApplyToOpenStages && (
             <button
               type="button"

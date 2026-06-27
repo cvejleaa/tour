@@ -28,9 +28,9 @@ const PREV = { winnerTeam: 'UAD', gcTeam: 'TVL', mountainTeam: 'EFE', sprintTeam
 describe('StageCard — Kopiér fra forrige etape', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('er deaktiveret når der ikke er en tidligere tippet etape', () => {
+  it('er skjult når der ikke er en tidligere tippet etape (fx etape 1)', () => {
     render(<StageCard stage={openStage()} uid="u1" bet={null} teams={['UAD', 'TVL', 'EFE', 'SOQ']} previousPicks={null} />);
-    expect(screen.getByTestId('copy-previous')).toBeDisabled();
+    expect(screen.queryByTestId('copy-previous')).toBeNull();
   });
 
   it('udfylder de fire felter og gemmer ved klik', async () => {
