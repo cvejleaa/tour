@@ -151,6 +151,19 @@ describe('runGenerateStageTips — all', () => {
     expect(db.writes.map((w) => w.id).sort()).toEqual(['2026-stage-2', '2026-stage-3']);
   });
 
+  it('med force regenererer ALLE etaper i sæsonen (også dem med tip)', async () => {
+    const db = fakeDb({
+      '2026-stage-1': { season: 2026, number: 1, type: 'flat', expertTip: 'allerede sat' },
+      '2026-stage-2': { season: 2026, number: 2, type: 'mountain' },
+      '2025-stage-1': { season: 2025, number: 1, type: 'flat' }, // anden sæson → fra
+    });
+    const out = await runGenerateStageTips(db, fakeClient(), { all: true, force: true, season: 2026, serverTimestamp: 't' });
+
+    const ids = out.results.map((r) => r.stageId).sort();
+    expect(ids).toEqual(['2026-stage-1', '2026-stage-2']);
+    expect(db.writes.map((w) => w.id).sort()).toEqual(['2026-stage-1', '2026-stage-2']);
+  });
+
   it('én fejlende etape afbryder ikke kørslen (fejl samles)', async () => {
     const db = fakeDb({
       '2026-stage-1': { season: 2026, number: 1, type: 'flat' },

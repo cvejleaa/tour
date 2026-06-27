@@ -7,6 +7,13 @@ import TEAMS_2026 from './tourTeams2026.json';
 /** De 23 officielle holdnavne (strenge) — bevarer dropdown- + match-kontrakten. */
 export const TOUR_TEAMS = TEAMS_2026.map((t) => t.name);
 
+/**
+ * Hele holdlisten som metadata-poster (rækkefølge som hos letour). Bruges af
+ * holdsiderne. Hver post: { code, name, nameShort, nationality, jersey, logo,
+ * color, riders? } — `riders` tilføjes senere når startlisten er offentliggjort.
+ */
+export const TEAMS = TEAMS_2026;
+
 /** Normaliser et holdnavn til en opslagsnøgle (små bogstaver, trimmet). */
 function normKey(s) {
   return String(s ?? '').trim().toLowerCase();

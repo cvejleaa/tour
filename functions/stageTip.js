@@ -155,7 +155,7 @@ async function generateStageTipText(anthropic, stage) {
  * @param {*} [opts.serverTimestamp]  FieldValue.serverTimestamp() (injiceres af index.js)
  * @returns {Promise<{ results: Array, errors: Array }>}
  */
-async function runGenerateStageTips(db, anthropic, { stageId, all, season, serverTimestamp } = {}) {
+async function runGenerateStageTips(db, anthropic, { stageId, all, season, force, serverTimestamp } = {}) {
   // Saml mål-etaperne (dokument-snapshots).
   const targets = [];
   if (all) {
@@ -165,8 +165,9 @@ async function runGenerateStageTips(db, anthropic, { stageId, all, season, serve
     for (const d of snap.docs) {
       const data = d.data();
       const tip = data?.expertTip;
-      // Kun etaper uden et (ikke-tomt) tip endnu.
-      if (typeof tip === 'string' && tip.trim() !== '') continue;
+      // Uden force: kun etaper uden et (ikke-tomt) tip endnu. Med force:
+      // regenerér ALLE (fx efter prompten er beriget med stigninger).
+      if (!force && typeof tip === 'string' && tip.trim() !== '') continue;
       targets.push({ id: d.id, ref: d.ref, data });
     }
     targets.sort((a, b) => (Number(a.data?.number) || 0) - (Number(b.data?.number) || 0));

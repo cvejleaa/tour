@@ -224,6 +224,24 @@ function StageExpertTips({ season }) {
     }
   }
 
+  async function regenerateAll() {
+    if (!window.confirm('Regenerér ALLE ekspert-tips? Det overskriver de nuværende tips for alle etaper.')) return;
+    setMsg(''); setErr('');
+    setBusyId('regen-all');
+    try {
+      const res = await callGenerateStageTip({ all: true, force: true, season });
+      if (!res.ok) { setErr(res.error); return; }
+      const n = res.data?.results?.length ?? 0;
+      const fails = res.data?.errors?.length ?? 0;
+      setMsg(`Regenererede ${n} ekspert-tip${fails ? ` (${fails} fejlede)` : ''}.`);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || String(e));
+    } finally {
+      setBusyId('');
+    }
+  }
+
   if (!stages.length) {
     return <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)' }}>Ingen etaper seedet endnu.</p>;
   }
@@ -239,6 +257,16 @@ function StageExpertTips({ season }) {
           data-testid="tip-gen-missing"
         >
           {busyId === 'gen-all' ? 'Genererer…' : '✨ Generér manglende'}
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={!!busyId}
+          onClick={regenerateAll}
+          data-testid="tip-regen-all"
+          style={{ marginLeft: '0.5rem' }}
+        >
+          {busyId === 'regen-all' ? 'Regenererer…' : '🔄 Regenerér alle'}
         </button>
       </div>
       <div style={{ display: 'grid', gap: '0.9rem' }}>

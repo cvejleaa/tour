@@ -334,6 +334,10 @@ exports.seedTourRoute = onCall({ region: REGION }, async (request) => {
       // så merge ikke nulstiller dem på allerede berigede dokumenter.
       ...(s.elevation != null ? { elevation: s.elevation } : {}),
       ...(s.expertTip != null ? { expertTip: s.expertTip } : {}),
+      ...(s.profileImage ? { profileImage: s.profileImage } : {}),
+      ...(Array.isArray(s.climbs) && s.climbs.length ? { climbs: s.climbs } : {}),
+      ...(Array.isArray(s.sprints) && s.sprints.length ? { sprints: s.sprints } : {}),
+      ...(s.pointsAwarded ? { pointsAwarded: s.pointsAwarded } : {}),
       questions: activeQuestionsForStage(s),
       status: 'scheduled',
     }, { merge: true });
@@ -1007,6 +1011,7 @@ exports.generateStageTip = onCall(
     if (!apiKey) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
 
     const all = request.data?.all === true;
+    const force = request.data?.force === true;
     const stageId = request.data?.stageId || null;
     if (!all && !stageId) {
       throw new HttpsError('invalid-argument', 'Angiv enten { stageId } eller { all:true }.');
@@ -1022,6 +1027,7 @@ exports.generateStageTip = onCall(
       return await runGenerateStageTips(db, anthropic, {
         stageId,
         all,
+        force,
         season: all ? season : undefined,
         serverTimestamp: FieldValue.serverTimestamp(),
       });

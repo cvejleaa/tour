@@ -107,4 +107,12 @@ describe('TourTab — Ekspert-tips pr. etape', () => {
     fireEvent.click(screen.getByTestId('tip-save-1'));
     await waitFor(() => expect(mockSaveStageTip).toHaveBeenCalledWith('2026-stage-1', 'Min tekst'));
   });
+
+  it('"Regenerér alle" kalder callGenerateStageTip med force efter bekræftelse', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<TourTab />);
+    fireEvent.click(screen.getByTestId('tip-regen-all'));
+    await waitFor(() => expect(mockCallGenerateStageTip).toHaveBeenCalledWith({ all: true, force: true, season: 2026 }));
+    confirmSpy.mockRestore();
+  });
 });

@@ -8,6 +8,8 @@ import PendingPage from './pages/PendingPage';
 import DashboardPage from './pages/DashboardPage';
 import StagesPage from './pages/StagesPage';
 import StagePresentationPage from './pages/StagePresentationPage';
+import TeamsPage from './pages/TeamsPage';
+import TeamPage from './pages/TeamPage';
 import HelpPage from './pages/HelpPage';
 import MyBetsPage from './pages/MyBetsPage';
 import BonusPage from './pages/BonusPage';
@@ -28,6 +30,8 @@ export default function App() {
           <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/etaper" element={<ProtectedRoute><StagesPage /></ProtectedRoute>} />
           <Route path="/etape/:number" element={<ProtectedRoute><StagePresentationPage /></ProtectedRoute>} />
+          <Route path="/hold" element={<ProtectedRoute><TeamsPage /></ProtectedRoute>} />
+          <Route path="/hold/:code" element={<ProtectedRoute><TeamPage /></ProtectedRoute>} />
           <Route path="/hjaelp" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
           <Route path="/mine-tips" element={<ProtectedRoute><MyBetsPage /></ProtectedRoute>} />
           <Route path="/bonus" element={<ProtectedRoute><BonusPage /></ProtectedRoute>} />

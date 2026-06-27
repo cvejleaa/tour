@@ -196,13 +196,14 @@ export async function callSyncStageInfo({ dryRun = false } = {}) {
 
 /**
  * Kald Cloud Function 'generateStageTip' — AI-generér ekspert-tip til en etape
- * eller (med all:true) alle etaper i sæsonen, der mangler et tip.
- * @param {{ stageId?: string, all?: boolean, season?: number }} [opts]
+ * eller (med all:true) alle etaper i sæsonen. Med force:true regenereres ALLE
+ * (også dem der allerede har et tip), ellers kun de manglende.
+ * @param {{ stageId?: string, all?: boolean, force?: boolean, season?: number }} [opts]
  */
-export async function callGenerateStageTip({ stageId, all = false, season } = {}) {
+export async function callGenerateStageTip({ stageId, all = false, force = false, season } = {}) {
   try {
     const fn = httpsCallable(functions, 'generateStageTip', { timeout: 540000 });
-    const res = await fn({ stageId, all, season });
+    const res = await fn({ stageId, all, force, season });
     return { ok: true, data: res.data };
   } catch (err) {
     const msg =

@@ -152,7 +152,7 @@ describe('adminActions', () => {
       mockHttpsCallable.mockReturnValue(mockFn);
       const res = await callGenerateStageTip({ stageId: 's3' });
       expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'generateStageTip', expect.anything());
-      expect(mockFn).toHaveBeenCalledWith({ stageId: 's3', all: false, season: undefined });
+      expect(mockFn).toHaveBeenCalledWith({ stageId: 's3', all: false, force: false, season: undefined });
       expect(res).toEqual({ ok: true, data: { results: [{ stageId: 's3', expertTip: 'Tip' }], errors: [] } });
     });
 
@@ -160,7 +160,7 @@ describe('adminActions', () => {
       const mockFn = vi.fn().mockResolvedValue({ data: { results: [], errors: [] } });
       mockHttpsCallable.mockReturnValue(mockFn);
       await callGenerateStageTip({ all: true, season: 2026 });
-      expect(mockFn).toHaveBeenCalledWith({ stageId: undefined, all: true, season: 2026 });
+      expect(mockFn).toHaveBeenCalledWith({ stageId: undefined, all: true, force: false, season: 2026 });
     });
 
     it('returnerer ok:false ved fejl', async () => {
