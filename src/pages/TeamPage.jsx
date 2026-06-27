@@ -7,22 +7,24 @@
 import { useParams, Link } from 'react-router-dom';
 import Hero from '../components/Hero';
 import { teamMeta, prettyTeam } from '../data/tourTeams2026';
-import { teamProfile } from '../data/teamProfiles2026';
+import { teamProfile, normRiderName } from '../data/teamProfiles2026';
 import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
 
-function RiderList({ riders }) {
+function RiderList({ riders, starNames }) {
   return (
     <ul data-testid="rider-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
       {riders.map((r, i) => {
         const isDane = r.country === 'Danmark';
+        const isStar = starNames?.has(normRiderName(r.name));
         return (
           <li
             key={`${r.name || i}`}
             data-testid="rider-row"
             style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.92rem' }}
           >
-            <span style={{ fontWeight: isDane ? 800 : 600 }}>{r.name || '—'}</span>
+            {isStar && <span title="Hovednavn">⭐</span>}
+            <span style={{ fontWeight: isDane || isStar ? 800 : 600 }}>{r.name || '—'}</span>
             {isDane && <span title="Dansk rytter">🇩🇰</span>}
             {r.country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {r.country}</span>}
           </li>
@@ -51,6 +53,7 @@ export default function TeamPage() {
 
   const accent = meta.color && meta.color !== '#000000' ? meta.color : 'var(--c-pitch)';
   const profile = teamProfile(meta.code);
+  const starNames = new Set((profile?.stars || []).map((s) => normRiderName(s.name)));
   // Startliste: foretræk den live (Firestore) frem for den statiske snapshot.
   const startlist = live.byCode[meta.code] || staticStartlist(meta.code) || { announced: false, riders: [] };
   const riders = Array.isArray(startlist.riders) ? startlist.riders : [];
@@ -84,19 +87,24 @@ export default function TeamPage() {
                 {profile.profile}
               </span>
             </p>
-            {profile.riders.length > 0 && (
+            {profile.stars?.length > 0 && (
               <>
                 <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--c-muted)', marginBottom: '0.3rem' }}>
-                  Nøgleryttere
+                  Hovednavne 2026
                 </div>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                  {profile.riders.map((r) => (
-                    <li key={r} data-testid="key-rider" className="badge badge--muted" style={{ fontSize: '0.85rem' }}>
-                      {r}
+                  {profile.stars.map((s) => (
+                    <li key={s.name} data-testid="key-rider" className="badge badge--muted" style={{ fontSize: '0.85rem' }}>
+                      ⭐ {s.name}{s.note ? <span style={{ color: 'var(--c-muted)' }}> · {s.note}</span> : null}
                     </li>
                   ))}
                 </ul>
               </>
+            )}
+            {profile.goal && (
+              <p style={{ margin: '0.6rem 0 0', fontSize: '0.85rem' }}>
+                <strong>Mål:</strong> {profile.goal}
+              </p>
             )}
           </section>
         )}
@@ -113,7 +121,7 @@ export default function TeamPage() {
             </span>
           </h3>
           {riders.length > 0 ? (
-            <RiderList riders={riders} />
+            <RiderList riders={riders} starNames={starNames} />
           ) : (
             <p data-testid="riders-pending" style={{ margin: 0, color: 'var(--c-muted)', fontSize: '0.9rem', lineHeight: 1.5 }}>
               {meta.name} har endnu ikke udtaget sit hold til touren. Rytterne vises

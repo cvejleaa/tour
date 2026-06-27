@@ -23,6 +23,7 @@ vi.mock('../data/startlist2026', () => {
   const SL = {
     TVL: { announced: true, riders: [
       { name: 'Rytter Én', country: 'Danmark' },
+      { name: 'Jonas Vingegaard', country: 'Danmark' }, // hovednavn → ⭐
       { name: 'Rider Two', country: 'USA' },
     ] },
   };
@@ -55,17 +56,24 @@ describe('TeamPage', () => {
     expect(screen.getByTestId('rider-list')).toBeInTheDocument();
     expect(screen.getByText('Rytter Én')).toBeInTheDocument();
     expect(screen.getByText('Rider Two')).toBeInTheDocument();
-    // Den danske rytter får et flag-mærke.
-    expect(screen.getByTitle('Dansk rytter')).toBeInTheDocument();
+    // Danske ryttere får et flag-mærke.
+    expect(screen.getAllByTitle('Dansk rytter').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('riders-pending')).toBeNull();
   });
 
-  it('viser holdets profil og nøgleryttere (TVL = Visma)', () => {
+  it('viser holdets profil, hovednavne og mål (TVL = Visma)', () => {
     renderAt('TVL');
     expect(screen.getByTestId('team-profile')).toBeInTheDocument();
     expect(screen.getByText('Klassement & etaper')).toBeInTheDocument();
-    // Nøgleryttere fra den kuraterede profil (ikke startliste-mocken).
-    expect(screen.getByText('Jonas Vingegaard')).toBeInTheDocument();
+    // Hovednavne fra den kuraterede profil + mål.
+    expect(screen.getAllByText(/Jonas Vingegaard/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/vinder samlet/)).toBeInTheDocument();
+  });
+
+  it('markerer et hovednavn i startlisten med ⭐', () => {
+    renderAt('TVL');
+    // Vingegaard er hovednavn → får et ⭐-mærke i rytterlisten.
+    expect(screen.getByTitle('Hovednavn')).toBeInTheDocument();
   });
 
   it('viser "Hold ikke fundet" for en ukendt kode', () => {

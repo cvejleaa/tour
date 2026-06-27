@@ -4,13 +4,15 @@ import { TEAMS } from './tourTeams2026';
 import { TEAM_PROFILES, teamProfile } from './teamProfiles2026';
 
 describe('teamProfiles2026', () => {
-  it('har en profil for hvert hold (matchende holdkoder)', () => {
+  it('har en profil + mindst ét hovednavn for hvert hold (matchende holdkoder)', () => {
     for (const t of TEAMS) {
       const p = teamProfile(t.code);
       expect(p, `mangler profil for ${t.code} (${t.name})`).toBeTruthy();
       expect(typeof p.profile).toBe('string');
       expect(p.profile.length).toBeGreaterThan(0);
-      expect(Array.isArray(p.riders)).toBe(true);
+      expect(Array.isArray(p.stars)).toBe(true);
+      expect(p.stars.length, `mangler hovednavne for ${t.code}`).toBeGreaterThan(0);
+      for (const s of p.stars) expect(typeof s.name).toBe('string');
     }
   });
 

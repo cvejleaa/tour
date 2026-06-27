@@ -1,37 +1,47 @@
 // ---------------------------------------------------------------------------
-// Holdprofiler 2026 — primær disciplin + nøgleryttere pr. hold (slået op på
-// holdkode). MANUELT kurateret; det er IKKE den fulde startliste (den tilføjes
-// som `riders` på holdene når den offentliggøres), men holdets profil og de
-// mest markante ryttere, så holdsiderne har indhold før løbsstart.
+// Holdprofiler 2026 — primær disciplin, forventede HOVEDNAVNE (stjerner) og det
+// primære mål pr. hold (slået op på holdkode). MANUELT kurateret. Det er IKKE
+// den fulde startliste (den hentes live fra TV2 til `riders`), men holdets
+// profil og de navne man skal holde øje med. Når den officielle startliste er
+// udtaget, markeres disse hovednavne med ⭐ i rytterlisten (matchet på navn).
 // ---------------------------------------------------------------------------
 
 export const TEAM_PROFILES = {
-  UEX: { profile: 'Klassement', riders: ['Tadej Pogačar', 'Adam Yates'] },
-  TVL: { profile: 'Klassement & etaper', riders: ['Jonas Vingegaard', 'Sepp Kuss'] },
-  RBH: { profile: 'Klassement & etaper', riders: ['Remco Evenepoel', 'Florian Lipowitz'] },
-  NCI: { profile: 'Klassement & etaper', riders: ['Thomas Pidcock', 'Laurens De Plus'] },
-  SOQ: { profile: 'Klassement & massespurt', riders: ['Julian Alaphilippe'] },
-  LTK: { profile: 'Klassement & klassikere', riders: ['Mattias Skjelmose', 'Mads Pedersen'] },
-  DCT: { profile: 'Klassement & ungdom', riders: ['Paul Seixas'] },
-  MOV: { profile: 'Klassement', riders: ['Cian Uijtdebroeks'] },
-  JAY: { profile: 'Klassement & massespurt', riders: ["Ben O'Connor", 'Michael Matthews'] },
-  TBV: { profile: 'Klassement & etaper', riders: ['Santiago Buitrago', 'Antonio Tiberi'] },
-  TPP: { profile: 'Klassement & etaper', riders: ['Frank van den Broek'] },
-  EFE: { profile: 'Etaper & klassikere', riders: ['Ben Healy'] },
-  GFC: { profile: 'Etaper & ungdom', riders: ['David Gaudu', 'Lenny Martinez'] },
-  UXM: { profile: 'Etaper & udbrydere', riders: ['Magnus Cort', 'Tobias Johannessen'] },
-  APT: { profile: 'Massespurter', riders: ['Mathieu van der Poel', 'Jasper Philipsen'] },
-  COF: { profile: 'Etaper & klassikere', riders: ['Alex Aranburu', 'Ion Izagirre'] },
-  XAT: { profile: 'Etaper & bjerge', riders: ['Lorenzo Fortunato'] },
-  LOI: { profile: 'Massespurter & etaper', riders: ['Arnaud De Lie'] },
-  NSN: { profile: 'Massespurter & etaper', riders: ['Biniam Girmay'] },
-  TUD: { profile: 'Udbrydere & etaper', riders: ['Matteo Trentin', 'Michael Storer'] },
-  TEN: { profile: 'Udbrydere', riders: ['Jordan Jegat'] },
-  PQT: { profile: 'Kuperede etaper & udbrydere', riders: [] },
-  CJR: { profile: 'Udbrydere & bjerge', riders: [] },
+  UEX: { profile: 'Klassement', stars: [{ name: 'Tadej Pogačar', note: 'storfavorit' }], goal: 'Pogačar vinder Tour — rekord-femte sejr' },
+  TVL: { profile: 'Klassement & etaper', stars: [{ name: 'Jonas Vingegaard', note: 'klassementsudfordrer' }], goal: 'Vingegaard vinder samlet — sin tredje' },
+  RBH: { profile: 'Klassement & etaper', stars: [{ name: 'Remco Evenepoel' }, { name: 'Florian Lipowitz' }], goal: 'Evenepoel + Lipowitz på podiet' },
+  NCI: { profile: 'Klassement & etaper', stars: [{ name: 'Carlos Rodríguez' }, { name: 'Kévin Vauquelin' }] },
+  SOQ: { profile: 'Klassement & massespurt', stars: [{ name: 'Tim Merlier' }, { name: 'Mikel Landa' }], goal: 'Etapesejre via Merlier' },
+  LTK: { profile: 'Klassement & klassikere', stars: [{ name: 'Juan Ayuso', note: 'GC' }, { name: 'Mads Pedersen' }], goal: 'Ayuso på podiet + Pedersen vinder grøn trøje' },
+  DCT: { profile: 'Klassement & ungdom', stars: [{ name: 'Paul Seixas', note: 'Tour-debut, GC' }], goal: 'Seixas top 5 samlet i Tour-debut' },
+  MOV: { profile: 'Klassement', stars: [{ name: 'Cian Uijtdebroeks', note: 'GC' }] },
+  JAY: { profile: 'Klassement & massespurt', stars: [{ name: "Ben O'Connor" }, { name: 'Michael Matthews' }] },
+  TBV: { profile: 'Klassement & etaper', stars: [{ name: 'Antonio Tiberi' }, { name: 'Lenny Martínez' }], goal: 'Tiberi / Martínez top 10' },
+  TPP: { profile: 'Klassement & etaper', stars: [{ name: 'Oscar Onley' }] },
+  EFE: { profile: 'Etaper & klassikere', stars: [{ name: 'Richard Carapaz' }, { name: 'Ben Healy' }] },
+  GFC: { profile: 'Etaper & ungdom', stars: [{ name: 'David Gaudu' }, { name: 'Romain Grégoire' }] },
+  UXM: { profile: 'Etaper & udbrydere', stars: [{ name: 'Tobias Halland Johannessen' }], goal: 'Halland Johannessen top 10 samlet' },
+  APT: { profile: 'Massespurter', stars: [{ name: 'Mathieu van der Poel' }, { name: 'Jasper Philipsen' }], goal: 'Etapesejre via Philipsen + Van der Poel' },
+  COF: { profile: 'Etaper & klassikere', stars: [{ name: 'Ion Izagirre' }, { name: 'Alex Aranburu' }] },
+  XAT: { profile: 'Etaper & bjerge', stars: [{ name: 'Harold Tejada', note: 'klassement' }] },
+  LOI: { profile: 'Massespurter & etaper', stars: [{ name: 'Arnaud De Lie' }, { name: 'Lennert Van Eetvelt' }] },
+  NSN: { profile: 'Massespurter & etaper', stars: [{ name: 'Biniam Girmay' }], goal: 'Etapesejr til Girmay' },
+  TUD: { profile: 'Udbrydere & etaper', stars: [{ name: 'Julian Alaphilippe' }, { name: 'Michael Storer' }, { name: 'Matteo Trentin' }], goal: 'Etapesejr (Alaphilippe-faktor)' },
+  TEN: { profile: 'Udbrydere', stars: [{ name: 'Jordan Jegat' }, { name: 'Anthony Turgis' }] },
+  PQT: { profile: 'Kuperede etaper & udbrydere', stars: [{ name: 'Tom Pidcock', note: 'Tour-debut' }], goal: 'Pidcock leverer i Tour-debut' },
+  CJR: { profile: 'Udbrydere & bjerge', stars: [{ name: 'Pablo Castrillo' }, { name: 'Orluis Aular' }] },
 };
 
-/** Slå holdets profil op via holdkode. Returnerer { profile, riders } eller null. */
+/** Normalisér et rytternavn til matchning (små bogstaver, uden accenter). */
+export function normRiderName(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/** Slå holdets profil op via holdkode. Returnerer { profile, stars, goal? } eller null. */
 export function teamProfile(code) {
   return (code && TEAM_PROFILES[code]) || null;
 }
