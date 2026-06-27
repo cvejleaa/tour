@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockAddDoc = vi.fn();
 const mockUpdateDoc = vi.fn();
+const mockGetDocs = vi.fn(() => Promise.resolve({ empty: true, docs: [] }));
 
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn(() => ({})),
@@ -16,6 +17,9 @@ vi.mock('firebase/firestore', () => ({
   serverTimestamp: vi.fn(() => ({ _ts: true })),
   arrayUnion: (v) => ({ _union: v }),
   arrayRemove: (v) => ({ _remove: v }),
+  getDocs: (...a) => mockGetDocs(...a),
+  query: vi.fn((...a) => a),
+  where: vi.fn((...a) => ({ _where: a })),
 }));
 vi.mock('../../firebase', () => ({ db: {} }));
 
@@ -73,18 +77,37 @@ describe('copyLeagueBonusToLeagues', () => {
   beforeEach(() => {
     mockAddDoc.mockReset(); mockAddDoc.mockResolvedValue({ id: 'new' });
     mockUpdateDoc.mockReset(); mockUpdateDoc.mockResolvedValue(undefined);
+    mockGetDocs.mockReset(); mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
   });
 
   const q = {
-    leagueId: 'L0', type: LEAGUE_BONUS_TYPE.NUMBER,
+    id: 'src', leagueId: 'L0', type: LEAGUE_BONUS_TYPE.NUMBER,
     label: 'Hvor mange point?', deadline: future, facit: null,
   };
 
   it('opretter en kopi pr. mål-liga', async () => {
     const res = await copyLeagueBonusToLeagues(q, ['L1', 'L2'], 'admin');
     expect(res.created).toBe(2);
+    expect(res.skipped).toBe(0);
     expect(res.errors).toEqual([]);
     expect(mockAddDoc).toHaveBeenCalledTimes(2);
+  });
+
+  it('mærker kopier med copyGroupId = kildens id', async () => {
+    await copyLeagueBonusToLeagues(q, ['L1'], 'admin');
+    const [, data] = mockAddDoc.mock.calls[0];
+    expect(data.copyGroupId).toBe('src');
+  });
+
+  it('springer ligaer over der allerede har en kopi (idempotent — ingen dobbelt-point)', async () => {
+    // L1 har allerede en kopi fra samme gruppe; L2 har ikke.
+    mockGetDocs
+      .mockResolvedValueOnce({ empty: false, docs: [{ id: 'dup' }] })
+      .mockResolvedValueOnce({ empty: true, docs: [] });
+    const res = await copyLeagueBonusToLeagues(q, ['L1', 'L2'], 'admin');
+    expect(res.skipped).toBe(1);
+    expect(res.created).toBe(1);
+    expect(mockAddDoc).toHaveBeenCalledTimes(1);
   });
 
   it('kopierer facit med, hvis det er sat', async () => {

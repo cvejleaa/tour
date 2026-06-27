@@ -271,9 +271,10 @@ function CopyToAllButton({ q, meUid, allLeagues }) {
     setBusy(true); setMsg('');
     try {
       const res = await copyLeagueBonusToLeagues(q, targets.map((l) => l.id), meUid);
+      const skip = res.skipped ? ` (${res.skipped} havde den allerede)` : '';
       setMsg(res.errors.length
-        ? `Kopieret til ${res.created} — ${res.errors.length} fejlede.`
-        : `✓ Kopieret til ${res.created} ligaer.`);
+        ? `Kopieret til ${res.created}${skip} — ${res.errors.length} fejlede.`
+        : `✓ Kopieret til ${res.created} ligaer${skip}.`);
     } catch (e) {
       setMsg('Fejl: ' + e.message);
     } finally { setBusy(false); }
