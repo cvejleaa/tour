@@ -296,8 +296,12 @@ exports.seedTourRoute = onCall({ region: REGION }, async (request) => {
       date: s.date || null,
       kickoff: s.kickoff ? Timestamp.fromDate(new Date(s.kickoff)) : null,
       type: s.type || 'unknown',
+      typeCode: s.typeCode || null,
+      km: s.km != null ? s.km : null,
       startCity: s.startCity || null,
       finishCity: s.finishCity || null,
+      image: s.image || null,
+      description: s.description || null,
       status: 'scheduled',
     }, { merge: true });
   }

@@ -1,34 +1,31 @@
-// Placeholder-rute for Tour de France 2026 (4.–26. juli, 2 hviledage).
-// Bruges som fallback så etape-siden kan vises/bruges FØR sync'en har seedet
-// de rigtige etaper i Firestore. Datoer/typer er foreløbige og overskrives
-// automatisk når de rigtige etapedata kommer ind.
+// Officiel Tour de France 2026-rute (4.–26. juli, 2 hviledage).
+// Data udtrukket fra racecenter.letour.fr (de 21 etaper med type, distance,
+// start/mål-by, billede og bymotekst). Bruges som fallback/seed så etape-siden
+// kan vises FØR sync'en har seedet etaperne i Firestore — og som kilde til den
+// rigtige seed via admin (TourTab → seedTourRoute).
 import { stageId, deriveKickoff } from '../lib/tourStages';
+import ROUTE_2026 from './route2026.json';
 
-// Datoer: stage 1–9 = 4.–12. juli, hvile 13., 10–15 = 14.–19., hvile 20.,
-// 16–21 = 21.–26. juli.
-const DATES = [
-  '2026-07-04', '2026-07-05', '2026-07-06', '2026-07-07', '2026-07-08',
-  '2026-07-09', '2026-07-10', '2026-07-11', '2026-07-12',
-  '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19',
-  '2026-07-21', '2026-07-22', '2026-07-23', '2026-07-24', '2026-07-25', '2026-07-26',
-];
-// Foreløbig typefordeling (rettes med rigtige data).
-const TYPES = [
-  'flat', 'hilly', 'flat', 'itt', 'hilly', 'mountain', 'flat', 'mountain', 'mountain',
-  'flat', 'hilly', 'flat', 'mountain', 'mountain', 'itt',
-  'flat', 'mountain', 'mountain', 'hilly', 'itt', 'flat',
-];
-
+/**
+ * De 21 officielle 2026-etaper som etape-dokumenter klar til visning/seed.
+ * Beholder navnet `placeholderRoute2026` for ikke at bryde eksisterende imports
+ * (StagesPage, DashboardPage, TourTab) — det er ikke længere placeholder-data.
+ * @param {number} [season]
+ * @returns {Array<object>}
+ */
 export function placeholderRoute2026(season = 2026) {
-  return DATES.map((date, i) => ({
-    id: stageId(i + 1, season),
+  return ROUTE_2026.map((s) => ({
+    id: stageId(s.number, season),
     season,
-    number: i + 1,
-    date,
-    kickoff: deriveKickoff(date, 12),
-    type: TYPES[i] || 'unknown',
-    startCity: null,
-    finishCity: null,
-    placeholder: true,
+    number: s.number,
+    date: s.date,
+    kickoff: deriveKickoff(s.date, 12),
+    type: s.type,
+    typeCode: s.typeCode,
+    km: s.km,
+    startCity: s.startCity,
+    finishCity: s.finishCity,
+    image: s.image,
+    description: s.description,
   }));
 }

@@ -1,5 +1,5 @@
 // ClassementsCard – de fire trøjer + holdkonkurrencen efter seneste etape.
-import { prettyTeam } from '../../data/tourTeams2026';
+import TeamBadge from '../../components/TeamBadge';
 
 const JERSEYS = [
   { key: 'yellow', emoji: '🟡', label: 'Gul (samlet)' },
@@ -25,7 +25,7 @@ export default function ClassementsCard({ jerseys, afterStage }) {
         ))}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', borderTop: '1px solid var(--c-border, #eee)', paddingTop: '0.35rem' }}>
           <span>🏆 Holdkonkurrence</span>
-          <strong>{prettyTeam(jerseys.teamLead) || '—'}</strong>
+          <strong>{jerseys.teamLead ? <TeamBadge name={jerseys.teamLead} /> : '—'}</strong>
         </div>
       </div>
     </div>

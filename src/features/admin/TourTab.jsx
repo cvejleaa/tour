@@ -42,6 +42,8 @@ export default function TourTab() {
   const seedRoute = () => run('seed', async () => {
     const stages = placeholderRoute2026(season).map((s) => ({
       number: s.number, date: s.date, kickoff: s.kickoff, type: s.type,
+      typeCode: s.typeCode, km: s.km, startCity: s.startCity,
+      finishCity: s.finishCity, image: s.image, description: s.description,
     }));
     const res = await httpsCallable(functions, 'seedTourRoute')({ season, stages });
     return res.data;

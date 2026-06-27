@@ -9,6 +9,7 @@ import { COL } from '../../lib/constants';
 import { scoreStageBet, STAGE_FIELDS } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
 import { prettyTeam } from '../../data/tourTeams2026';
+import TeamBadge from '../../components/TeamBadge';
 
 const STAGE_TYPE_LABEL = {
   flat: '🟢 Flad', hilly: '🟡 Kuperet', mountain: '🔴 Bjerg',
@@ -95,7 +96,7 @@ export default function StageCard({ stage, uid, bet, teams = [], points = {} }) 
         <span style={{ fontWeight: 800 }}>
           Etape {stage.number}
           <span style={{ fontWeight: 600, color: 'var(--c-muted)', marginLeft: '0.5rem', fontSize: '0.85rem' }}>
-            {STAGE_TYPE_LABEL[stage.type] || ''}{stage.startCity ? ` · ${stage.startCity} → ${stage.finishCity ?? ''}` : ''}
+            {STAGE_TYPE_LABEL[stage.type] || ''}{stage.startCity ? ` · ${stage.startCity} → ${stage.finishCity ?? ''}` : ''}{stage.km != null ? ` · ${stage.km} km` : ''}
           </span>
         </span>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -126,11 +127,13 @@ export default function StageCard({ stage, uid, bet, teams = [], points = {} }) 
                 {icon} {label}
               </span>
               {locked ? (
-                <span style={{ fontSize: '0.85rem' }}>
-                  <strong>{prettyTeam(picks[key]) || '—'}</strong>
+                <span style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {picks[key]
+                    ? <strong><TeamBadge name={picks[key]} /></strong>
+                    : <strong>—</strong>}
                   {facit && (
-                    <span style={{ marginLeft: '0.5rem', color: hit ? 'var(--c-ok)' : 'var(--c-muted)' }}>
-                      (facit: {prettyTeam(facit)}) {hit ? '✓' : ''}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: hit ? 'var(--c-ok)' : 'var(--c-muted)' }}>
+                      (facit: <TeamBadge name={facit} />) {hit ? '✓' : ''}
                     </span>
                   )}
                 </span>
@@ -157,6 +160,33 @@ export default function StageCard({ stage, uid, bet, teams = [], points = {} }) 
         <p style={{ margin: '0.4rem 0 0', fontSize: '0.74rem', color: 'var(--c-muted)' }}>
           Op til {(points.winnerTeam ?? 5) + (points.gcTeam ?? 4) + (points.mountainTeam ?? 3) + (points.sprintTeam ?? 3)} point · gemmes automatisk · låses ved etapestart
         </p>
+      )}
+
+      {/* Om etapen – kollapset som standard. Viser mål-byens billede + tekst. */}
+      {stage.description && (
+        <details style={{ marginTop: '0.6rem' }}>
+          <summary style={{ cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: 'var(--c-muted)' }}>
+            ℹ️ Om etapen
+          </summary>
+          <div style={{ marginTop: '0.5rem' }}>
+            {stage.finishCity && (
+              <p style={{ margin: '0 0 0.35rem', fontSize: '0.82rem', fontWeight: 700 }}>
+                Om mål-byen {stage.finishCity}
+              </p>
+            )}
+            {stage.image && (
+              <img
+                src={stage.image}
+                alt={stage.finishCity || ''}
+                loading="lazy"
+                style={{ maxWidth: '100%', height: 'auto', borderRadius: 8, marginBottom: '0.4rem', display: 'block' }}
+              />
+            )}
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--c-muted)', lineHeight: 1.45 }}>
+              {stage.description}
+            </p>
+          </div>
+        </details>
       )}
     </div>
   );
