@@ -16,6 +16,7 @@ import StageCard from '../features/stages/StageCard';
 import ClassementsCard from '../features/stages/ClassementsCard';
 import { applyPicksToOpenStages } from '../features/stages/applyPicksToOpenStages';
 import { previousPicksFor } from '../features/stages/previousPicks';
+import { similarStagesFor } from '../features/stages/similarPicks';
 
 const FILTERS = [
   { key: 'kommende', label: 'Kommende' },
@@ -101,6 +102,7 @@ export default function StagesPage() {
             points={points}
             gcTopN={gcTopN}
             previousPicks={previousPicksFor(stage, stages, betsByStage)}
+            similarStages={similarStagesFor(stage, stages, betsByStage)}
             onApplyToOpenStages={applyToOpen}
           />
         ))

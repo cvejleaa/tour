@@ -60,6 +60,38 @@ describe('StageCard — Kopiér fra forrige etape', () => {
   });
 });
 
+describe('StageCard — Hent tip fra lignende etape', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const SIMILAR = [
+    { id: '2026-stage-9', number: 9, startCity: 'X', finishCity: 'Y',
+      picks: { winnerTeam: 'EFE', gcTeam: 'TVL', mountainTeam: 'UAD', sprintTeam: 'SOQ' } },
+  ];
+
+  it('er skjult når der ikke er nogen lignende tippet etape', () => {
+    render(<StageCard stage={openStage({ type: 'mountain' })} uid="u1" bet={null} teams={['UAD', 'TVL', 'EFE', 'SOQ']} similarStages={[]} />);
+    expect(screen.queryByTestId('copy-similar')).toBeNull();
+  });
+
+  it('kopierer holdvalg fra den valgte lignende etape og gemmer', async () => {
+    render(<StageCard stage={openStage({ type: 'mountain' })} uid="u1" bet={null} teams={['UAD', 'TVL', 'EFE', 'SOQ']} similarStages={SIMILAR} />);
+    const select = screen.getByTestId('copy-similar');
+    fireEvent.change(select, { target: { value: '2026-stage-9' } });
+
+    expect(screen.getByTestId('pick-winnerTeam')).toHaveValue('EFE');
+    expect(screen.getByTestId('pick-gcTeam')).toHaveValue('TVL');
+    expect(screen.getByTestId('pick-mountainTeam')).toHaveValue('UAD');
+    expect(screen.getByTestId('pick-sprintTeam')).toHaveValue('SOQ');
+
+    await waitFor(() => expect(mockSetDoc).toHaveBeenCalled());
+    const payload = mockSetDoc.mock.calls[0][1];
+    expect(payload).toMatchObject({
+      uid: 'u1', stageId: '2026-stage-5',
+      winnerTeam: 'EFE', gcTeam: 'TVL', mountainTeam: 'UAD', sprintTeam: 'SOQ',
+    });
+  });
+});
+
 describe('StageCard — Anvend på alle åbne etaper', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());

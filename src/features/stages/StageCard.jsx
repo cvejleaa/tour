@@ -35,7 +35,7 @@ function formatDate(kickoff) {
 
 export default function StageCard({
   stage, uid, bet, teams = [], points = {}, gcTopN = 10,
-  previousPicks = null, onApplyToOpenStages = null,
+  previousPicks = null, similarStages = [], onApplyToOpenStages = null,
 }) {
   const status = stageStatus(stage, Date.now());
   const locked = status !== 'scheduled';
@@ -96,17 +96,23 @@ export default function StageCard({
     save(next);
   }
 
-  // Kopiér de fire holdvalg fra spillerens seneste tidligere tippede etape.
-  function copyFromPrevious() {
-    if (!previousPicks) return;
+  // Sæt alle fire felter til et givet sæt holdvalg og gem. Bruges af både
+  // "kopiér fra forrige etape" og "hent fra lignende etape".
+  function copyPicks(src) {
+    if (!src) return;
     const next = {
-      winnerTeam: previousPicks.winnerTeam ?? '',
-      gcTeam: previousPicks.gcTeam ?? '',
-      mountainTeam: previousPicks.mountainTeam ?? '',
-      sprintTeam: previousPicks.sprintTeam ?? '',
+      winnerTeam: src.winnerTeam ?? '',
+      gcTeam: src.gcTeam ?? '',
+      mountainTeam: src.mountainTeam ?? '',
+      sprintTeam: src.sprintTeam ?? '',
     };
     setPicks(next);
     save(next);
+  }
+
+  // Kopiér de fire holdvalg fra spillerens seneste tidligere tippede etape.
+  function copyFromPrevious() {
+    copyPicks(previousPicks);
   }
 
   // Anvend de aktuelle fire holdvalg på alle åbne etaper (efter bekræftelse).
@@ -222,6 +228,28 @@ export default function StageCard({
             >
               Kopiér fra forrige etape
             </button>
+          )}
+          {/* Hent tip fra en allerede-tippet etape af SAMME type. Skjules når
+              spilleren ikke har tippet nogen lignende etape endnu. Fungerer som
+              en menu: value holdes på "" så pladsholderen altid vises igen. */}
+          {similarStages.length > 0 && (
+            <select
+              value=""
+              disabled={saving}
+              onChange={(e) => {
+                const m = similarStages.find((s) => s.id === e.target.value);
+                if (m) copyPicks(m.picks);
+              }}
+              data-testid="copy-similar"
+              style={{ padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid var(--c-border, #ccc)', fontSize: '0.82rem' }}
+            >
+              <option value="" disabled>Hent tip fra lignende etape…</option>
+              {similarStages.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {`Etape ${s.number}${s.startCity ? ` · ${s.startCity} → ${s.finishCity}` : ''}`}
+                </option>
+              ))}
+            </select>
           )}
           {onApplyToOpenStages && (
             <button
