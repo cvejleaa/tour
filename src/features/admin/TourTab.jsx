@@ -231,10 +231,15 @@ function StageExpertTips({ season }) {
     try {
       const res = await callGenerateStageTip({ all: true, force: true, season });
       if (!res.ok) { setErr(res.error); return; }
+      // 'checked' findes kun i den NYE funktionskode. Mangler den, kører den
+      // deployede funktion stadig gammel kode (force virker så ikke).
+      if (res.data?.checked === undefined) {
+        setErr('Funktionen kører stadig gammel kode (mangler "checked"). Redeploy generateStageTip.');
+        return;
+      }
       const n = res.data?.results?.length ?? 0;
       const fails = res.data?.errors?.length ?? 0;
-      const checked = res.data?.checked ?? n;
-      setMsg(`Regenererede ${n} af ${checked} etaper${fails ? ` (${fails} fejlede)` : ''}.`);
+      setMsg(`Regenererede ${n} af ${res.data.checked} etaper${fails ? ` (${fails} fejlede)` : ''}.`);
     } catch (e) {
       console.error(e);
       setErr(e?.message || String(e));
@@ -412,6 +417,10 @@ export default function TourTab() {
       // Valgfrie felter – kun med når ruten faktisk har dem.
       ...(s.elevation != null ? { elevation: s.elevation } : {}),
       ...(s.expertTip != null ? { expertTip: s.expertTip } : {}),
+      ...(s.profileImage ? { profileImage: s.profileImage } : {}),
+      ...(Array.isArray(s.climbs) && s.climbs.length ? { climbs: s.climbs } : {}),
+      ...(Array.isArray(s.sprints) && s.sprints.length ? { sprints: s.sprints } : {}),
+      ...(s.pointsAwarded ? { pointsAwarded: s.pointsAwarded } : {}),
       questions: s.questions,
     }));
     const res = await httpsCallable(functions, 'seedTourRoute')({ season, stages });
