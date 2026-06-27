@@ -69,17 +69,19 @@ jobs:
         if: ${{ inputs.target != 'functions' }}
         run: npm run build
 
-      - name: Deploy
+      - name: Deploy hosting + regler
+        if: ${{ inputs.target != 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: |
-          # firestore:indexes deployes i et separat, ikke-fatalt trin (et
-          # "index findes allerede"-409 må aldrig vælte hele deployet).
-          case "${{ inputs.target }}" in
-            hosting-rules) ONLY="hosting,firestore:rules" ;;
-            functions)     ONLY="functions" ;;
-            all)           ONLY="hosting,firestore:rules,functions" ;;
-          esac
+          # VIGTIGT: hosting deployes ALENE (uden functions). Tidligere blev
+          # hosting+rules+functions deployet i ÉN kommando — og når functions
+          # fejlede (typisk et harmløst 409 fra 2nd-gen), sprang Firebase
+          # hosting-RELEASE'et over: filerne blev uploadet, men den nye version
+          # kom aldrig live. Functions deployes nu i et separat, ikke-fatalt
+          # trin nedenfor, så et functions-hikke ALDRIG kan blokere at den nye
+          # hjemmeside går live. firestore:indexes deployes ligeledes separat.
+          ONLY="hosting,firestore:rules"
           # Firebase-deploy fejler en gang imellem med en forbigående
           # "Failed to authenticate" — prøv igen med backoff i stedet for at
           # kræve manuel genkørsel.
@@ -111,6 +113,28 @@ jobs:
           done
           echo "::error::Deploy fejlede efter $max forsøg."
           exit 1
+
+      - name: Deploy functions (separat, ikke-fatal)
+        if: ${{ inputs.target == 'functions' || inputs.target == 'all' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          # Functions deployes ALENE og ikke-fatalt: 2nd-gen giver tit harmløse
+          # 409'er ("already exists"/"unable to queue") som ikke må vælte
+          # deployet eller blokere hosting-release'et (som allerede er kørt
+          # ovenfor). En ægte functions-fejl ses som en advarsel i loggen.
+          n=0; max=3
+          until [ "$n" -ge "$max" ]; do
+            n=$((n + 1))
+            echo "::group::Functions-forsøg $n/$max"
+            if firebase deploy --only functions --project "$PROJECT_ID" --non-interactive --force; then
+              echo "::endgroup::"; echo "Functions deployet (forsøg $n/$max)."; exit 0
+            fi
+            echo "::endgroup::"
+            echo "::warning::Functions-deploy gav fejl på forsøg $n/$max (ofte harmløst 409)."
+            [ "$n" -lt "$max" ] && sleep $((n * 15))
+          done
+          echo "::warning::Functions-deploy gennemført med fejl efter $max forsøg — ignoreret (hosting er allerede live)."
 
       - name: Deploy Firestore-indexes (idempotent, ikke-fatal)
         if: ${{ inputs.target != 'functions' }}
