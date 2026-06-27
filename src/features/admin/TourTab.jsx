@@ -226,6 +226,10 @@ export default function TourTab() {
       number: s.number, date: s.date, kickoff: s.kickoff, type: s.type,
       typeCode: s.typeCode, km: s.km, startCity: s.startCity,
       finishCity: s.finishCity, image: s.image, description: s.description,
+      startTime: s.startTime ?? null,
+      // Valgfrie felter – kun med når ruten faktisk har dem.
+      ...(s.elevation != null ? { elevation: s.elevation } : {}),
+      ...(s.expertTip != null ? { expertTip: s.expertTip } : {}),
       questions: s.questions,
     }));
     const res = await httpsCallable(functions, 'seedTourRoute')({ season, stages });

@@ -28,6 +28,10 @@ export function placeholderRoute2026(season = 2026) {
     finishCity: s.finishCity,
     image: s.image,
     description: s.description,
+    startTime: s.startTime,
+    // Valgfrie felter (tilføjes senere af proxyen) – tag kun med når til stede.
+    ...(s.elevation != null ? { elevation: s.elevation } : {}),
+    ...(s.expertTip != null ? { expertTip: s.expertTip } : {}),
     // Eksplicitte type-standarder, så friskt seedede etaper bærer deres egne
     // aktive spørgsmål (helperen dækker også fravær af feltet).
     questions: activeQuestionsForStage(s),

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-27T13:38:22.083Z",
+  "generatedAt": "2026-06-27T13:47:35.229Z",
   "nodes": [
     {
       "id": "firebase",
@@ -84,7 +84,7 @@
     {
       "id": "pages",
       "layer": 3,
-      "files": 13
+      "files": 14
     },
     {
       "id": "app-skal",
@@ -106,7 +106,7 @@
     {
       "from": "app-skal",
       "to": "pages",
-      "count": 13
+      "count": 14
     },
     {
       "from": "components",
@@ -421,22 +421,22 @@
     {
       "from": "pages",
       "to": "features/stages",
-      "count": 18
+      "count": 20
     },
     {
       "from": "pages",
       "to": "lib (kerne)",
-      "count": 6
+      "count": 7
     },
     {
       "from": "pages",
       "to": "app-skal",
-      "count": 4
+      "count": 5
     },
     {
       "from": "pages",
       "to": "components",
-      "count": 5
+      "count": 6
     },
     {
       "from": "pages",

@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-27T13:38:21.955Z",
+  "generatedAt": "2026-06-27T13:47:35.099Z",
   "totals": {
-    "files": 70,
-    "tests": 880,
-    "passed": 880,
+    "files": 71,
+    "tests": 890,
+    "passed": 890,
     "failed": 0
   },
   "suites": [
@@ -2662,7 +2662,7 @@
     {
       "file": "src/features/stages/StageCard.test.jsx",
       "area": "frontend",
-      "passed": 9,
+      "passed": 10,
       "failed": 0,
       "tests": [
         {
@@ -2683,6 +2683,10 @@
         },
         {
           "name": "StageCard — Anvend på alle åbne etaper › viser hverken knapper når etapen er låst",
+          "status": "passed"
+        },
+        {
+          "name": "StageCard — Læs om etapen-link › viser et link til /etape/{number}",
           "status": "passed"
         },
         {
@@ -3775,6 +3779,50 @@
         },
         {
           "name": "ProfilePage › viser Tema-knappen (ThemeToggle) på profilsiden",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/StagePresentationPage.test.jsx",
+      "area": "frontend",
+      "passed": 9,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "StagePresentationPage – nøgletal › viser rute, distance, starttid og type for en kendt etape",
+          "status": "passed"
+        },
+        {
+          "name": "StagePresentationPage – nøgletal › skjuler højdemeter-feltet når elevation mangler",
+          "status": "passed"
+        },
+        {
+          "name": "StagePresentationPage – nøgletal › viser højdemeter-feltet når elevation er til stede",
+          "status": "passed"
+        },
+        {
+          "name": "StagePresentationPage – ekspert-tip › viser IKKE ekspert-tip når feltet mangler",
+          "status": "passed"
+        },
+        {
+          "name": "StagePresentationPage – ekspert-tip › viser ekspert-tip når feltet er til stede",
+          "status": "passed"
+        },
+        {
+          "name": "StagePresentationPage – aktive spørgsmål › lister hvilke spørgsmål der stilles (flad = ingen bjergpoint)",
+          "status": "passed"
+        },
+        {
+          "name": "StagePresentationPage – fallback og fejl › falder tilbage til route2026 når etapen ikke er seedet endnu",
+          "status": "passed"
+        },
+        {
+          "name": "StagePresentationPage – fallback og fejl › viser \"Etape ikke fundet\" for et ukendt nummer",
+          "status": "passed"
+        },
+        {
+          "name": "StagePresentationPage – fallback og fejl › har en \"Tip denne etape\"-knap der peger på /etaper",
           "status": "passed"
         }
       ]

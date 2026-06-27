@@ -310,6 +310,11 @@ exports.seedTourRoute = onCall({ region: REGION }, async (request) => {
       finishCity: s.finishCity || null,
       image: s.image || null,
       description: s.description || null,
+      startTime: s.startTime || null,
+      // Valgfrie felter (tilføjes senere af proxyen) – kun skriv når til stede,
+      // så merge ikke nulstiller dem på allerede berigede dokumenter.
+      ...(s.elevation != null ? { elevation: s.elevation } : {}),
+      ...(s.expertTip != null ? { expertTip: s.expertTip } : {}),
       questions: activeQuestionsForStage(s),
       status: 'scheduled',
     }, { merge: true });

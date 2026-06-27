@@ -2,7 +2,14 @@
 //   1) "Kopiér fra forrige etape" — udfylder + gemmer; deaktiveret uden tidligere tip.
 //   2) "Anvend på alle åbne etaper" — kalder callback efter bekræftelse.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+// StageCard indeholder et <Link> (📖 Læs om etapen), så alle renders skal
+// ske inde i en router.
+function render(ui) {
+  return rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 vi.mock('../../firebase', () => ({ db: {} }));
 
@@ -102,6 +109,17 @@ describe('StageCard — Anvend på alle åbne etaper', () => {
     );
     expect(screen.queryByTestId('copy-previous')).toBeNull();
     expect(screen.queryByTestId('apply-all-open')).toBeNull();
+  });
+});
+
+describe('StageCard — Læs om etapen-link', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('viser et link til /etape/{number}', () => {
+    render(<StageCard stage={openStage({ number: 7 })} uid="u1" bet={null} teams={['UAD']} />);
+    const link = screen.getByTestId('read-about-stage');
+    expect(link).toHaveTextContent(/Læs om etapen/);
+    expect(link).toHaveAttribute('href', '/etape/7');
   });
 });
 

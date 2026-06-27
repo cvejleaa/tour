@@ -3,6 +3,7 @@
 // resultat og optjente point. Hold-spillets hjerte.
 // ---------------------------------------------------------------------------
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
@@ -40,7 +41,7 @@ export default function StageCard({
   const locked = status !== 'scheduled';
   const isDone = status === 'done';
 
-  // Kun de spørgsmål der faktist stilles på etapen (type-standard eller override).
+  // Kun de spørgsmål der faktisk stilles på etapen (type-standard eller override).
   const active = activeQuestionsForStage(stage);
   const shownQuestions = QUESTIONS.filter(({ key }) => active[key]);
 
@@ -145,6 +146,13 @@ export default function StageCard({
           </span>
         </span>
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          <Link
+            to={`/etape/${stage.number}`}
+            data-testid="read-about-stage"
+            style={{ fontSize: '0.74rem', color: 'var(--c-muted)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+          >
+            📖 Læs om etapen
+          </Link>
           {!locked && hasBet && <span className="badge badge--green" style={{ fontSize: '0.72rem' }}>✓ Tippet</span>}
           {!locked && !hasBet && <span className="badge badge--yellow" style={{ fontSize: '0.72rem' }}>Mangler tip</span>}
           <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>{formatDate(stage.kickoff)}</span>
