@@ -20,10 +20,11 @@ Sidens opbygning (bekræftet mod gemte 2025-sider):
     første celle har et ``picto picto--X``-ikon:
       - ``picto--n``           → mellemsprint  ⇒ sprintpoint på etapen
       - ``picto--1..4``/``--h`` → kategoriseret stigning (KOM) ⇒ bjergpoint
-      - ``picto--a``           → ankomst/mål (selve etapesejren; altid sprint)
-    Mål-rækken giver desuden grønttrøje-point, så ``sprint`` er reelt altid sand
-    på en almindelig etape; vi kræver dog en eksplicit sprint-markør for at være
-    robuste over for tempo-etaper uden mellemsprint.
+      - ``picto--a``           → ankomst/mål (findes på HVER etape, også ITT/TTT)
+    Mål-markøren (``picto--a``) optræder på alle etaper og er derfor IKKE en
+    pålidelig sprint-indikator — ellers ville selv enkeltstarter (ITT/TTT) tælle
+    som sprint. Vi kræver en eksplicit mellemsprint-markør (``picto--n``) for at
+    sætte ``sprint``, så tempo-etaper korrekt får ``sprint=False``.
 
 Output (én etape)::
 
@@ -127,9 +128,11 @@ def _awards(page_html: str, stage: int) -> dict[str, bool]:
     """Afgør om der uddeles sprint- og/eller bjergpoint på etapen.
 
     Bruges ``Points awarded on Stage N``-tabellen: pr. række kigger vi på
-    ``picto picto--X``:  ``n`` = mellemsprint (sprint), ``a`` = mål (sprint),
-    cifre ``1..4`` og ``h`` (HC) = kategoriseret stigning (bjerg). Hvis afsnittet
-    ikke findes, falder vi tilbage på etapetypen (mountain/hilly ⇒ bjerg).
+    ``picto picto--X``:  ``n`` = mellemsprint (⇒ sprint), cifre ``1..4`` og
+    ``h`` (HC) = kategoriseret stigning (⇒ bjerg). ``a`` (mål) ignoreres, da
+    den findes på hver etape og derfor ikke skelner sprint-etaper fra tempo.
+    Hvis afsnittet ikke findes, falder vi tilbage på etapetypen
+    (mountain/hilly ⇒ bjerg).
     """
     sprint = False
     mountain = False
@@ -141,7 +144,7 @@ def _awards(page_html: str, stage: int) -> dict[str, bool]:
         pictos = set(re.findall(r"picto\s+picto--([a-z0-9]+)", chunk, re.I))
         for p in pictos:
             pl = p.lower()
-            if pl in ("n", "a"):
+            if pl == "n":
                 sprint = True
             elif pl == "h" or pl.isdigit():
                 mountain = True

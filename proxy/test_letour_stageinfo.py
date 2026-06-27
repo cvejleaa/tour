@@ -56,6 +56,43 @@ def test_scope_picks_current_stage_not_neighbours():
     assert si.parse_stage_info(html, 5)["elevation"] == 1600
 
 
+def test_finish_marker_alone_is_not_sprint():
+    """``picto--a`` (mål) findes på HVER etape og må IKKE i sig selv give sprint —
+    ellers ville enkeltstarter (ITT/TTT) fejlagtigt tælle som sprint-etaper.
+    Uden en eksplicit mellemsprint-markør (``picto--n``) skal ``sprint`` være
+    False."""
+    html = (
+        '<p><b>Points awarded on Stage 16</b></p>'
+        '<div class="stakes__wrapper">'
+        '<span class="picto picto--a"></span>'   # kun mål — ingen mellemsprint
+        '</div>'
+    )
+    assert si._awards(html, 16) == {"sprint": False, "mountain": False}
+
+
+def test_intermediate_sprint_marker_sets_sprint():
+    html = (
+        '<p><b>Points awarded on Stage 7</b></p>'
+        '<div class="stakes__wrapper">'
+        '<span class="picto picto--n"></span>'   # mellemsprint
+        '<span class="picto picto--a"></span>'   # mål
+        '</div>'
+    )
+    assert si._awards(html, 7) == {"sprint": True, "mountain": False}
+
+
+def test_categorized_climb_marker_sets_mountain():
+    html = (
+        '<p><b>Points awarded on Stage 3</b></p>'
+        '<div class="stakes__wrapper">'
+        '<span class="picto picto--3"></span>'   # kat-3 stigning
+        '<span class="picto picto--h"></span>'   # HC-stigning
+        '<span class="picto picto--a"></span>'
+        '</div>'
+    )
+    assert si._awards(html, 3) == {"sprint": False, "mountain": True}
+
+
 def test_type_mapping():
     assert si._parse_type("Flat") == "flat"
     assert si._parse_type("Hilly") == "hilly"
@@ -79,6 +116,9 @@ def _run_plain():
     """Kør uden pytest (simple asserts + en mini monkeypatch-erstatning)."""
     test_parse_stage5_sample()
     test_scope_picks_current_stage_not_neighbours()
+    test_finish_marker_alone_is_not_sprint()
+    test_intermediate_sprint_marker_sets_sprint()
+    test_categorized_climb_marker_sets_mountain()
     test_type_mapping()
 
     html = _load_sample()
