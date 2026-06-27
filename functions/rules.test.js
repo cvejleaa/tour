@@ -37,7 +37,7 @@ let testEnv;
 // ---------------------------------------------------------------------------
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
-    projectId: 'vm2026-tip-test',
+    projectId: 'tour-tip-test',
     firestore: {
       rules,
       host: process.env.FIRESTORE_EMULATOR_HOST?.split(':')[0] || 'localhost',
