@@ -259,3 +259,29 @@ describe('scoreStageBet — kun aktive spørgsmål tæller', () => {
     expect(scoreStageBet(facit, facit, undefined, active).points).toBe(DEFAULT_POINTS.winnerTeam);
   });
 });
+
+describe('podie-point (src-spejl)', () => {
+  const result = {
+    winnerTeam: 'UAD',
+    podium: { winnerTeam: ['UAD', 'VLA', 'SOQ'], gcTeam: [], mountainTeam: [], sprintTeam: [] },
+  };
+  const active = { winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false };
+
+  it('giver faldende point efter placering (5/3/1) og 0 udenfor top-3', () => {
+    expect(scoreStageBet({ winnerTeam: 'UAD' }, result, undefined, active).points).toBe(5);
+    expect(scoreStageBet({ winnerTeam: 'VLA' }, result, undefined, active).points).toBe(3);
+    expect(scoreStageBet({ winnerTeam: 'SOQ' }, result, undefined, active).points).toBe(1);
+    expect(scoreStageBet({ winnerTeam: 'COF' }, result, undefined, active).points).toBe(0);
+  });
+
+  it('respekterer admin-konfigureret skala', () => {
+    const cfg = { winnerTeam: [10, 6, 2] };
+    expect(scoreStageBet({ winnerTeam: 'VLA' }, result, cfg, active).points).toBe(6);
+  });
+
+  it('resolveStageResult udfylder podium med top-3 distinkte hold', () => {
+    const order = (...teams) => teams.map((team, i) => ({ rider: `r${i}`, team, rank: i + 1 }));
+    const res = resolveStageResult({ finishOrder: order('UAD', 'VLA', 'UAD', 'SOQ', 'COF') });
+    expect(res.podium.winnerTeam).toEqual(['UAD', 'VLA', 'SOQ']);
+  });
+});

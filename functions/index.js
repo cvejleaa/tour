@@ -37,7 +37,7 @@ const EMAIL_FROM = 'Tour de France Tip <tour@vejleaa.dk>';
 const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
-const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage } = require('./tourScoring');
+const { scoreStageBet, normalizePodium, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage } = require('./tourScoring');
 const { buildStageUpdate, syncStageInfoCore } = require('./tourSync');
 const { syncStartlistCore } = require('./startlistSync');
 const { redeemInviteCodeCore } = require('./invites');
@@ -144,7 +144,9 @@ async function tourSettings(db) {
   const snap = await db.collection('config').doc('settings').get();
   const s = snap.exists ? snap.data() : {};
   return {
-    points: normalizePoints(s.tourPoints || {}),
+    // Admin skriver til config/settings.points (samme felt som frontenden læser);
+    // normalizePodium giver den fulde [1.,2.,3.]-skala pr. spørgsmål.
+    points: normalizePodium(s.points || s.tourPoints || {}),
     gcTopN: Number.isFinite(Number(s.gcTopN)) ? Number(s.gcTopN) : DEFAULT_GC_TOP_N,
     proxyUrl: String(s.tourProxyUrl || DEFAULT_TOUR_PROXY).replace(/\/$/, ''),
     activeSeason: Number.isFinite(Number(s.activeSeason)) ? Number(s.activeSeason) : DEFAULT_SEASON,

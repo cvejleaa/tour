@@ -28,12 +28,12 @@ const STAGE_TYPE_LABEL = {
   itt: 'Enkeltstart', ttt: 'Holdtidskørsel', unknown: 'Etape',
 };
 
-const POINT_FIELDS = [
+// De fire holdspørgsmål, hvert med en podie-skala [1., 2., 3.-plads].
+const PODIUM_QUESTIONS = [
   { key: 'winnerTeam', label: 'Etapevinderens hold' },
   { key: 'gcTeam', label: 'Bedste hold / de første ryttere' },
   { key: 'mountainTeam', label: 'Flest bjergpoint' },
   { key: 'sprintTeam', label: 'Flest sprintpoint' },
-  { key: 'untippedPenalty', label: 'Straf for utippet etape' },
 ];
 
 function Result({ data }) {
@@ -348,12 +348,13 @@ export default function TourTab() {
   // Synk inputs med config, indtil brugeren begynder at redigere.
   useEffect(() => {
     if (pointsTouched) return;
-    setPointInputs(
-      POINT_FIELDS.reduce((acc, f) => {
-        acc[f.key] = String(tourSettings.points[f.key]);
-        return acc;
-      }, {}),
-    );
+    const next = {};
+    for (const q of PODIUM_QUESTIONS) {
+      const arr = Array.isArray(tourSettings.points[q.key]) ? tourSettings.points[q.key] : [];
+      for (let i = 0; i < 3; i++) next[`${q.key}_${i}`] = String(arr[i] ?? '');
+    }
+    next.untippedPenalty = String(tourSettings.points.untippedPenalty ?? 1);
+    setPointInputs(next);
     setGcTopNInput(String(tourSettings.gcTopN));
   }, [tourSettings, pointsTouched]);
 
@@ -368,14 +369,24 @@ export default function TourTab() {
     setPointsMsg('');
     setPointsErr('');
     const points = {};
-    for (const f of POINT_FIELDS) {
-      const v = Number(pointInputs[f.key]);
-      if (!Number.isFinite(v)) {
-        setPointsErr(`Ugyldigt tal for "${f.label}"`);
-        return;
+    for (const q of PODIUM_QUESTIONS) {
+      const arr = [];
+      for (let i = 0; i < 3; i++) {
+        const v = Number(pointInputs[`${q.key}_${i}`]);
+        if (!Number.isFinite(v)) {
+          setPointsErr(`Ugyldigt tal for "${q.label}" (${i + 1}.-plads)`);
+          return;
+        }
+        arr.push(v);
       }
-      points[f.key] = v;
+      points[q.key] = arr;
     }
+    const pen = Number(pointInputs.untippedPenalty);
+    if (!Number.isFinite(pen)) {
+      setPointsErr('Ugyldigt tal for "Straf for utippet etape"');
+      return;
+    }
+    points.untippedPenalty = Math.abs(pen);
     const gcTopN = Number(gcTopNInput);
     if (!Number.isInteger(gcTopN) || gcTopN < 1) {
       setPointsErr('"Antal ryttere" skal være et helt tal ≥ 1');
@@ -531,23 +542,51 @@ export default function TourTab() {
       </section>
 
       <section style={{ marginBottom: '1.25rem' }}>
-        <h3 style={{ marginBottom: '0.25rem' }}>Pointopsætning</h3>
+        <h3 style={{ marginBottom: '0.25rem' }}>Pointopsætning (podie)</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
-          Justér hvor mange point hvert ramt holdtip giver. Værdierne bruges af
-          serveren ved beregning af etape-point.
+          Sæt point pr. spørgsmål for <strong>1.-, 2.- og 3.-pladsen</strong>. Et
+          tip giver point efter hvor holdet placerer sig i spørgsmålets top-3, så
+          flere tips udløser point. Serveren bruger disse værdier.
         </p>
-        <div style={{ display: 'grid', gap: '0.5rem', maxWidth: 380 }}>
-          {POINT_FIELDS.map((f) => (
-            <label key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.88rem' }}>
-              <span>{f.label}</span>
-              <input
-                type="number"
-                value={pointInputs[f.key] ?? ''}
-                onChange={(e) => editPoint(f.key, e.target.value)}
-                style={{ width: 90, padding: '0.4rem', borderRadius: 6, border: '1px solid var(--c-border, #ccc)' }}
-              />
-            </label>
-          ))}
+        <div style={{ overflowX: 'auto' }}>
+          <table className="table" style={{ fontSize: '0.85rem' }} data-testid="podium-points">
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>Spørgsmål</th>
+                <th>🥇 1.</th><th>🥈 2.</th><th>🥉 3.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PODIUM_QUESTIONS.map((q) => (
+                <tr key={q.key}>
+                  <td>{q.label}</td>
+                  {[0, 1, 2].map((i) => (
+                    <td key={i}>
+                      <input
+                        type="number"
+                        data-testid={`pts-${q.key}-${i}`}
+                        value={pointInputs[`${q.key}_${i}`] ?? ''}
+                        onChange={(e) => editPoint(`${q.key}_${i}`, e.target.value)}
+                        style={{ width: 56, padding: '0.35rem', borderRadius: 6, border: '1px solid var(--c-border, #ccc)' }}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ display: 'grid', gap: '0.5rem', maxWidth: 420, marginTop: '0.6rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.88rem' }}>
+            <span>Straf for utippet etape (trækkes fra)</span>
+            <input
+              type="number"
+              data-testid="pts-untippedPenalty"
+              value={pointInputs.untippedPenalty ?? ''}
+              onChange={(e) => editPoint('untippedPenalty', e.target.value)}
+              style={{ width: 90, padding: '0.4rem', borderRadius: 6, border: '1px solid var(--c-border, #ccc)' }}
+            />
+          </label>
           <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.88rem' }}>
             <span>Antal ryttere der tæller i &quot;bedste hold&quot;</span>
             <input

@@ -29,7 +29,7 @@ vi.mock('../stages/useActiveSeason', () => ({ useActiveSeason: () => 2026 }));
 // re-render-løkke i synk-useEffect'en.
 vi.mock('../stages/useTourSettings', () => {
   const SETTINGS = {
-    points: { winnerTeam: 5, gcTeam: 4, mountainTeam: 3, sprintTeam: 3, untippedPenalty: 1 },
+    points: { winnerTeam: [5, 3, 1], gcTeam: [4, 2, 1], mountainTeam: [3, 2, 1], sprintTeam: [3, 2, 1], untippedPenalty: 1 },
     gcTopN: 10,
   };
   return { useTourSettings: () => SETTINGS };

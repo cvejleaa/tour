@@ -2,25 +2,34 @@
 // functions/tourScoring.js — AUTORITATIV, hold-baseret pointlogik (CommonJS).
 // SPEJL af src/lib/tourScoring.js — hold dem 100% identiske i opførsel!
 // Cloud Functions beregner point; klienten viser kun.
+//
+// PODIE-POINT: et tip giver point efter holdets PLACERING i spørgsmålets top-3,
+// pr. spørgsmål en faldende skala [1., 2., 3.]. Alle værdier er admin-redigerbare.
 // ---------------------------------------------------------------------------
 
 const DEFAULT_POINTS = {
-  winnerTeam: 5, // Q1: etapevinderens hold ramt
-  gcTeam: 4, // Q2: bedste hold på de XX første ryttere ramt
-  mountainTeam: 3, // Q3: flest bjergpoint-hold ramt
-  sprintTeam: 3, // Q4: flest sprintpoint-hold ramt
-  untippedPenalty: 1, // straf (trækkes fra) for en helt utippet etape
+  winnerTeam: 5,
+  gcTeam: 4,
+  mountainTeam: 3,
+  sprintTeam: 3,
+  untippedPenalty: 1,
 };
 
+const DEFAULT_PODIUM = {
+  winnerTeam: [5, 3, 1],
+  gcTeam: [4, 2, 1],
+  mountainTeam: [3, 2, 1],
+  sprintTeam: [3, 2, 1],
+};
+
+const DEFAULT_UNTIPPED_PENALTY = 1;
 const DEFAULT_GC_TOP_N = 10;
+const QUESTION_KEYS = ['winnerTeam', 'gcTeam', 'mountainTeam', 'sprintTeam'];
 
 /**
  * Normaliser et bonus-svar/facit til en sammenlignings-streng. Håndterer både
- * skalar-værdier (text/team/number/time/boolean) og ARRAYS (teams: vælg flere).
- * Arrays sorteres, så rækkefølgen er ligegyldig. Sammenligningen er
- * trimmet og ufølsom for store/små bogstaver.
- * @param {*} x
- * @returns {string}
+ * skalar-værdier og ARRAYS (teams: vælg flere). Arrays sorteres, så rækkefølgen
+ * er ligegyldig. Sammenligningen er trimmet og ufølsom for store/små bogstaver.
  */
 function bonusNorm(x) {
   return Array.isArray(x)
@@ -28,14 +37,38 @@ function bonusNorm(x) {
     : String(x ?? '').trim().toLowerCase();
 }
 
+/** Flad 1.-pladstabel (bagudkompatibel; til visning). Tal eller array ([0]). */
 function normalizePoints(cfg) {
   const out = { ...DEFAULT_POINTS };
   if (cfg && typeof cfg === 'object') {
-    for (const key of Object.keys(DEFAULT_POINTS)) {
-      const v = Number(cfg[key]);
-      if (Number.isFinite(v)) out[key] = key === 'untippedPenalty' ? Math.abs(v) : v;
+    for (const key of QUESTION_KEYS) {
+      const raw = Array.isArray(cfg[key]) ? cfg[key][0] : cfg[key];
+      const v = Number(raw);
+      if (Number.isFinite(v)) out[key] = v;
     }
+    const pen = Number(cfg.untippedPenalty);
+    if (Number.isFinite(pen)) out.untippedPenalty = Math.abs(pen);
   }
+  return out;
+}
+
+/** Fuld PODIE-config: pr. spørgsmål [1., 2., 3.] + untippedPenalty. */
+function normalizePodium(cfg) {
+  const out = {};
+  for (const key of QUESTION_KEYS) {
+    const def = DEFAULT_PODIUM[key];
+    const raw = cfg && cfg[key];
+    let arr;
+    if (Array.isArray(raw)) arr = raw;
+    else if (raw != null && Number.isFinite(Number(raw))) arr = [Number(raw), def[1], def[2]];
+    else arr = def;
+    out[key] = [0, 1, 2].map((i) => {
+      const v = Number(arr[i]);
+      return Number.isFinite(v) ? v : def[i];
+    });
+  }
+  const pen = cfg && Number(cfg.untippedPenalty);
+  out.untippedPenalty = Number.isFinite(pen) ? Math.abs(pen) : DEFAULT_UNTIPPED_PENALTY;
   return out;
 }
 
@@ -51,20 +84,49 @@ function sumByTeam(entries, valueFn) {
   return totals;
 }
 
+function rankTeams(totals, counts) {
+  return [...totals.keys()].sort((a, b) => {
+    const dv = totals.get(b) - totals.get(a);
+    if (dv) return dv;
+    const dc = (counts ? counts.get(b) || 0 : 0) - (counts ? counts.get(a) || 0 : 0);
+    if (dc) return dc;
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+}
+
 function bestTeam(totals, counts) {
-  let best = null;
-  let bestVal = -Infinity;
-  let bestCount = -Infinity;
-  for (const team of [...totals.keys()].sort()) {
-    const val = totals.get(team);
-    const cnt = counts ? counts.get(team) || 0 : 0;
-    if (val > bestVal || (val === bestVal && cnt > bestCount)) {
-      best = team;
-      bestVal = val;
-      bestCount = cnt;
-    }
+  const r = rankTeams(totals, counts);
+  return r.length ? r[0] : null;
+}
+
+function gcTotals(finishOrder, topN = DEFAULT_GC_TOP_N) {
+  const n = Math.max(1, Math.floor(Number(topN) || DEFAULT_GC_TOP_N));
+  const top = (finishOrder || []).slice(0, n);
+  const counts = new Map();
+  const points = top.map((e, i) => {
+    if (e && e.team) counts.set(e.team, (counts.get(e.team) || 0) + 1);
+    return { team: e && e.team, value: n - i };
+  });
+  return { totals: sumByTeam(points, (e) => e.value), counts };
+}
+
+function pointsTotals(pointList) {
+  const counts = new Map();
+  for (const e of pointList || []) {
+    if (e && e.team && Number(e.points) > 0) counts.set(e.team, (counts.get(e.team) || 0) + 1);
   }
-  return best;
+  return { totals: sumByTeam(pointList, (e) => e.points), counts };
+}
+
+function teamPodiumFromFinish(finishOrder, k = 3) {
+  const out = [];
+  for (const e of finishOrder || []) {
+    const t = e && e.team;
+    if (t == null || t === '' || out.includes(t)) continue;
+    out.push(t);
+    if (out.length >= k) break;
+  }
+  return out;
 }
 
 function stageWinnerTeam(finishOrder) {
@@ -73,31 +135,32 @@ function stageWinnerTeam(finishOrder) {
 }
 
 function stageGcTeam(finishOrder, topN = DEFAULT_GC_TOP_N) {
-  const n = Math.max(1, Math.floor(Number(topN) || DEFAULT_GC_TOP_N));
-  const top = (finishOrder || []).slice(0, n);
-  const counts = new Map();
-  const points = top.map((e, i) => {
-    if (e && e.team) counts.set(e.team, (counts.get(e.team) || 0) + 1);
-    return { team: e && e.team, value: n - i };
-  });
-  return bestTeam(sumByTeam(points, (e) => e.value), counts);
+  const { totals, counts } = gcTotals(finishOrder, topN);
+  return bestTeam(totals, counts);
 }
 
 function topPointsTeam(pointList) {
-  const counts = new Map();
-  for (const e of pointList || []) {
-    if (e && e.team && Number(e.points) > 0) counts.set(e.team, (counts.get(e.team) || 0) + 1);
-  }
-  return bestTeam(sumByTeam(pointList, (e) => e.points), counts);
+  const { totals, counts } = pointsTotals(pointList);
+  return bestTeam(totals, counts);
 }
 
 function resolveStageResult(raw = {}) {
   const { finishOrder, mountainPoints, sprintPoints, gcTopN } = raw;
+  const gc = finishOrder && finishOrder.length ? gcTotals(finishOrder, gcTopN) : null;
+  const mt = mountainPoints && mountainPoints.length ? pointsTotals(mountainPoints) : null;
+  const sp = sprintPoints && sprintPoints.length ? pointsTotals(sprintPoints) : null;
+  const podium = {
+    winnerTeam: teamPodiumFromFinish(finishOrder),
+    gcTeam: gc ? rankTeams(gc.totals, gc.counts).slice(0, 3) : [],
+    mountainTeam: mt ? rankTeams(mt.totals, mt.counts).slice(0, 3) : [],
+    sprintTeam: sp ? rankTeams(sp.totals, sp.counts).slice(0, 3) : [],
+  };
   return {
-    winnerTeam: stageWinnerTeam(finishOrder),
-    gcTeam: finishOrder && finishOrder.length ? stageGcTeam(finishOrder, gcTopN) : null,
-    mountainTeam: mountainPoints && mountainPoints.length ? topPointsTeam(mountainPoints) : null,
-    sprintTeam: sprintPoints && sprintPoints.length ? topPointsTeam(sprintPoints) : null,
+    winnerTeam: podium.winnerTeam[0] ?? null,
+    gcTeam: podium.gcTeam[0] ?? null,
+    mountainTeam: podium.mountainTeam[0] ?? null,
+    sprintTeam: podium.sprintTeam[0] ?? null,
+    podium,
   };
 }
 
@@ -145,8 +208,13 @@ function isUntipped(bet, active) {
   );
 }
 
+function podiumFor(res, key) {
+  if (res.podium && Array.isArray(res.podium[key])) return res.podium[key];
+  return res[key] != null && res[key] !== '' ? [res[key]] : [];
+}
+
 function scoreStageBet(bet, result, pointsCfg, stageOrActive) {
-  const P = normalizePoints(pointsCfg);
+  const P = normalizePodium(pointsCfg);
   const res = result || {};
   const active = stageOrActive == null
     ? { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true }
@@ -154,7 +222,7 @@ function scoreStageBet(bet, result, pointsCfg, stageOrActive) {
       ? stageOrActive
       : activeQuestionsForStage(stageOrActive));
   const hasFacit = STAGE_FIELDS.some(
-    ({ key }) => active[key] && res[key] != null && res[key] !== '',
+    ({ key }) => active[key] && podiumFor(res, key).length > 0,
   );
 
   if (isUntipped(bet, active)) {
@@ -164,25 +232,27 @@ function scoreStageBet(bet, result, pointsCfg, stageOrActive) {
 
   let total = 0;
   const breakdown = {};
-  for (const { key, points } of STAGE_FIELDS) {
+  for (const { key } of STAGE_FIELDS) {
     if (!active[key]) continue;
-    const facit = res[key];
-    if (facit == null || facit === '') continue;
-    const hit = bet && bet[key] != null && bet[key] !== '' && bet[key] === facit;
-    if (hit) {
-      breakdown[key] = P[points];
-      total += P[points];
-    } else {
-      breakdown[key] = 0;
-    }
+    const podium = podiumFor(res, key);
+    if (!podium.length) continue;
+    const pick = bet && bet[key];
+    if (pick == null || pick === '') { breakdown[key] = 0; continue; }
+    const rank = podium.findIndex((t) => t === pick);
+    const pts = rank >= 0 ? (P[key][rank] || 0) : 0;
+    breakdown[key] = pts;
+    total += pts;
   }
   return { points: total, breakdown, untipped: false };
 }
 
 module.exports = {
   DEFAULT_POINTS,
+  DEFAULT_PODIUM,
+  DEFAULT_UNTIPPED_PENALTY,
   DEFAULT_GC_TOP_N,
   normalizePoints,
+  normalizePodium,
   stageWinnerTeam,
   stageGcTeam,
   topPointsTeam,

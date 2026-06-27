@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import PointRules from './PointRules';
-import { DEFAULT_POINTS } from '../lib/tourScoring';
+import { DEFAULT_POINTS, DEFAULT_PODIUM } from '../lib/tourScoring';
 import { POINTS } from '../lib/scoring';
 
 describe('PointRules – grundlæggende rendering', () => {
@@ -27,16 +27,16 @@ describe('PointRules – grundlæggende rendering', () => {
 });
 
 describe('PointRules – pointværdier', () => {
-  it(`viser ${DEFAULT_POINTS.winnerTeam} point for "Etapevinderens hold"`, () => {
+  it('viser podie-skalaen for "Etapevinderens hold" (5 / 3 / 1)', () => {
     render(<PointRules />);
     expect(screen.getByText(/Etapevinderens hold/)).toBeInTheDocument();
-    expect(screen.getByText(`${DEFAULT_POINTS.winnerTeam} p`)).toBeInTheDocument();
+    expect(screen.getByText(`${DEFAULT_PODIUM.winnerTeam.join(' / ')} p`)).toBeInTheDocument();
   });
 
-  it(`viser ${DEFAULT_POINTS.gcTeam} point for "Bedste hold"`, () => {
+  it('viser podie-skalaen for "Bedste hold" (4 / 2 / 1)', () => {
     render(<PointRules />);
     expect(screen.getByText(/Bedste hold blandt de første ryttere/)).toBeInTheDocument();
-    expect(screen.getByText(`${DEFAULT_POINTS.gcTeam} p`)).toBeInTheDocument();
+    expect(screen.getByText(`${DEFAULT_PODIUM.gcTeam.join(' / ')} p`)).toBeInTheDocument();
   });
 
   it(`viser bjergpoint-rækken`, () => {

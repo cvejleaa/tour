@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, DEFAULT_POINTS } from '../../lib/tourScoring';
+import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, DEFAULT_PODIUM } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
 import { prettyTeam } from '../../data/tourTeams2026';
 import TeamBadge from '../../components/TeamBadge';
@@ -179,20 +179,34 @@ export default function StageCard({
       <div style={{ display: 'grid', gap: '0.5rem' }}>
         {shownQuestions.map(({ key, icon, label }) => {
           const facit = result?.[key];
-          const hit = facit && picks[key] && picks[key] === facit;
+          const podium = result?.podium?.[key] || (facit ? [facit] : []);
+          const earned = scored?.breakdown?.[key] || 0;
+          const MEDAL = ['🥇', '🥈', '🥉'];
           return (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 600, minWidth: 200 }}>
                 {icon} {label(gcTopN)}
               </span>
               {locked ? (
-                <span style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                   {picks[key]
                     ? <strong><TeamBadge name={picks[key]} /></strong>
                     : <strong>—</strong>}
-                  {facit && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: hit ? 'var(--c-ok)' : 'var(--c-muted)' }}>
-                      (facit: <TeamBadge name={facit} />) {hit ? '✓' : ''}
+                  {podium.length > 0 && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', color: 'var(--c-muted)' }}>
+                      {podium.map((t, i) => (
+                        <span
+                          key={t}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.15rem',
+                            fontWeight: t === picks[key] ? 800 : 400,
+                            color: t === picks[key] ? 'var(--c-ok)' : 'inherit',
+                          }}
+                        >
+                          {MEDAL[i] || `${i + 1}.`} <TeamBadge name={t} />
+                        </span>
+                      ))}
+                      {earned > 0 && <strong style={{ color: 'var(--c-ok)' }}>+{earned}</strong>}
                     </span>
                   )}
                 </span>
@@ -270,9 +284,11 @@ export default function StageCard({
       {error && <p style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--c-err)' }}>{error}</p>}
       {!locked && (
         <p style={{ margin: '0.4rem 0 0', fontSize: '0.74rem', color: 'var(--c-muted)' }}>
-          Op til {STAGE_FIELDS.reduce((sum, { key, points: pk }) => (
-            active[key] ? sum + (points[pk] ?? DEFAULT_POINTS[pk]) : sum
-          ), 0)} point · gemmes automatisk · låses ved etapestart
+          Op til {STAGE_FIELDS.reduce((sum, { key, points: pk }) => {
+            if (!active[key]) return sum;
+            const scale = Array.isArray(points[pk]) ? points[pk] : DEFAULT_PODIUM[pk];
+            return sum + (scale[0] ?? DEFAULT_PODIUM[pk][0]);
+          }, 0)} point · faldende point for 1./2./3.-plads · gemmes automatisk · låses ved etapestart
         </p>
       )}
       {/* Detaljer om etapen ligger på præsentationssiden (📖 Læs om etapen). */}

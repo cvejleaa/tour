@@ -7,11 +7,12 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { DEFAULT_POINTS, DEFAULT_GC_TOP_N, normalizePoints } from '../../lib/tourScoring';
+import { DEFAULT_GC_TOP_N, normalizePodium } from '../../lib/tourScoring';
 
 export function useTourSettings() {
+  // `points` er nu PODIE-config: pr. spørgsmål [1., 2., 3.] + untippedPenalty.
   const [settings, setSettings] = useState({
-    points: { ...DEFAULT_POINTS },
+    points: normalizePodium({}),
     gcTopN: DEFAULT_GC_TOP_N,
   });
 
@@ -22,7 +23,7 @@ export function useTourSettings() {
         const data = snap.data() || {};
         const n = Number(data.gcTopN);
         setSettings({
-          points: normalizePoints(data.points),
+          points: normalizePodium(data.points),
           gcTopN: Number.isInteger(n) && n >= 1 ? n : DEFAULT_GC_TOP_N,
         });
       },

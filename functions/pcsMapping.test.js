@@ -58,7 +58,10 @@ describe('hele kæden payload → resultat → score (med delta)', () => {
     expect(res.mountainTeam).toBe('Bahrain');
     expect(res.sprintTeam).toBe('Visma'); // delta=fuld (intet forrige): Visma 30 > UAE 25
     const bet = { winnerTeam: 'UAE', gcTeam: 'Soudal', mountainTeam: 'Bahrain', sprintTeam: 'Visma' };
-    expect(scoreStageBet(bet, res).points).toBe(5 + 0 + 3 + 3);
+    // Podie-point: vinder UAE 1.-plads (5), bedste hold Soudal er nr. 3 i GC-podiet
+    // [UAE, Visma, Soudal] (1), bjerg Bahrain 1.-plads (3), sprint Visma 1.-plads (3).
+    expect(res.podium.gcTeam).toEqual(['UAE', 'Visma', 'Soudal']);
+    expect(scoreStageBet(bet, res).points).toBe(5 + 1 + 3 + 3);
   });
 });
 

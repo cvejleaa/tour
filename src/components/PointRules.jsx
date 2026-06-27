@@ -21,15 +21,23 @@ export default function PointRules() {
 
       <div style={{ marginTop: '0.85rem' }}>
         <p style={{ margin: '0 0 0.6rem', color: 'var(--c-text)', fontSize: '0.85rem', lineHeight: 1.6 }}>
-          På hver etape tipper du <strong>cykelhold</strong> på fire spørgsmål. Hvert ramt hold giver point:
+          På hver etape tipper du <strong>cykelhold</strong> på fire spørgsmål. Du
+          får <strong>podie-point</strong> efter hvor dit hold placerer sig — point
+          for både 1.-, 2.- og 3.-pladsen (tallene nedenfor):
         </p>
         <table className="table" style={{ fontSize: '0.88rem' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', fontSize: '0.78rem', color: 'var(--c-muted)' }}>1. / 2. / 3.</th>
+              <th style={{ textAlign: 'left' }}></th>
+            </tr>
+          </thead>
           <tbody>
             {ROWS.map((r) => (
               <tr key={r.label}>
-                <td style={{ width: '3.2rem' }}>
-                  <span className="badge badge--green" style={{ fontWeight: 800, fontSize: '0.9rem' }}>
-                    {r.pts} p
+                <td style={{ width: '4.6rem' }}>
+                  <span className="badge badge--green" style={{ fontWeight: 800, fontSize: '0.85rem' }}>
+                    {(Array.isArray(r.pts) ? r.pts : [r.pts]).join(' / ')} p
                   </span>
                 </td>
                 <td>

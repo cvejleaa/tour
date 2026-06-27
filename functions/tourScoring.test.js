@@ -69,7 +69,23 @@ describe('resolveStageResult + scoreStageBet', () => {
       sprintPoints: [{ team: 'SOQ', points: 20 }],
       gcTopN: 4,
     });
-    expect(res).toEqual({ winnerTeam: 'UAD', gcTeam: 'UAD', mountainTeam: 'COF', sprintTeam: 'SOQ' });
+    expect(res).toMatchObject({ winnerTeam: 'UAD', gcTeam: 'UAD', mountainTeam: 'COF', sprintTeam: 'SOQ' });
+    // Podiet: distinkte hold i målrækkefølge (UAD så VLA så SOQ).
+    expect(res.podium.winnerTeam).toEqual(['UAD', 'VLA', 'SOQ']);
+    expect(res.podium.mountainTeam).toEqual(['COF', 'UAD']);
+  });
+
+  it('podie-point: 2.-plads giver mindre end 1.-plads', () => {
+    const result = {
+      winnerTeam: 'UAD',
+      podium: { winnerTeam: ['UAD', 'VLA', 'SOQ'], gcTeam: [], mountainTeam: [], sprintTeam: [] },
+    };
+    const active = { winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false };
+    // 1.-plads (UAD) → 5, 2.-plads (VLA) → 3, 3.-plads (SOQ) → 1, udenfor → 0.
+    expect(scoreStageBet({ winnerTeam: 'UAD' }, result, undefined, active).points).toBe(5);
+    expect(scoreStageBet({ winnerTeam: 'VLA' }, result, undefined, active).points).toBe(3);
+    expect(scoreStageBet({ winnerTeam: 'SOQ' }, result, undefined, active).points).toBe(1);
+    expect(scoreStageBet({ winnerTeam: 'COF' }, result, undefined, active).points).toBe(0);
   });
 });
 
