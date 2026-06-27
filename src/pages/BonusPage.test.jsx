@@ -47,41 +47,39 @@ function renderPage() {
 const futureDeadline = new Date('2099-01-01T00:00:00Z');
 const pastDeadline = new Date('2000-01-01T00:00:00Z');
 
-const openTopScorer = {
+const openSeasonQ = {
   id: 'q_top',
-  type: 'topScorer',
-  label: 'Hvem bliver turneringens topscorer?',
+  type: 'text',
+  label: 'Hvem vinder den samlede Tour?',
   deadline: futureDeadline,
   facit: null,
   options: null,
 };
 
-const openGroupWinnerA = {
+const openTeamChoiceA = {
   id: 'q_gw_A',
-  type: 'groupWinner',
-  label: 'Hvem vinder gruppe A?',
+  type: 'teamChoice',
+  label: 'Hvilket hold tager flest etapesejre?',
   deadline: futureDeadline,
-  groupName: 'A',
   facit: null,
-  options: ['DK', 'GER', 'BRA'],
+  options: ['TVL', 'UAD', 'SOQ'],
 };
 
 const lockedQuestion = {
   id: 'q2',
-  type: 'groupWinner',
-  label: 'Hvem vinder gruppe B?',
+  type: 'teamChoice',
+  label: 'Hvilket hold vinder holdkonkurrencen?',
   deadline: pastDeadline,
-  groupName: 'B',
-  facit: 'DK',
-  options: ['DK', 'FRA', 'BRA'],
+  facit: 'TVL',
+  options: ['TVL', 'INE', 'SOQ'],
 };
 
-const lockedTopScorer = {
+const lockedSeasonQ = {
   id: 'q_top_locked',
-  type: 'topScorer',
-  label: 'Hvem scorer flest mål?',
+  type: 'text',
+  label: 'Hvem vinder bjergtrøjen?',
   deadline: pastDeadline,
-  facit: 'Haaland',
+  facit: 'Pogačar',
   options: null,
 };
 
@@ -138,7 +136,7 @@ describe('BonusPage – loading og tom tilstand', () => {
 // ---------------------------------------------------------------------------
 describe('BonusPage – overskrift og statistik', () => {
   it('viser side-overskrift "🎁 Bonus"', () => {
-    useBonusQuestions.mockReturnValue({ questions: [openTopScorer], loading: false, error: null });
+    useBonusQuestions.mockReturnValue({ questions: [openSeasonQ], loading: false, error: null });
     useMyBonusBets.mockReturnValue({ bonusBets: new Map(), loading: false });
     renderPage();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Bonus');
@@ -151,7 +149,7 @@ describe('BonusPage – overskrift og statistik', () => {
       error: null,
     });
     const betsMap = new Map([
-      ['q2', { questionId: 'q2', uid: 'user1', answer: 'DK', points: 10 }],
+      ['q2', { questionId: 'q2', uid: 'user1', answer: 'TVL', points: 10 }],
     ]);
     useMyBonusBets.mockReturnValue({ bonusBets: betsMap, loading: false });
     renderPage();
@@ -160,7 +158,7 @@ describe('BonusPage – overskrift og statistik', () => {
 
   it('viser 0 point i statistik-banner uden svar', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer],
+      questions: [openSeasonQ],
       loading: false,
       error: null,
     });
@@ -171,13 +169,13 @@ describe('BonusPage – overskrift og statistik', () => {
 
   it('viser besvaret/åbne statistik', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer, openGroupWinnerA],
+      questions: [openSeasonQ, openTeamChoiceA],
       loading: false,
       error: null,
     });
     // Ét besvaret
     const betsMap = new Map([
-      ['q_top', { questionId: 'q_top', uid: 'user1', answer: 'Haaland' }],
+      ['q_top', { questionId: 'q_top', uid: 'user1', answer: 'Pogačar' }],
     ]);
     useMyBonusBets.mockReturnValue({ bonusBets: betsMap, loading: false });
     renderPage();
@@ -203,7 +201,7 @@ describe('BonusPage – overskrift og statistik', () => {
 describe('BonusPage – sektioner', () => {
   it('viser åbent spørgsmål med input og gem-knap', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer],
+      questions: [openSeasonQ],
       loading: false,
       error: null,
     });
@@ -227,7 +225,7 @@ describe('BonusPage – sektioner', () => {
 
   it('viser "Åbne spørgsmål" sektion-overskrift', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer],
+      questions: [openSeasonQ],
       loading: false,
       error: null,
     });
@@ -249,7 +247,7 @@ describe('BonusPage – sektioner', () => {
 
   it('viser begge sektioner (åbne og låste) når begge typer eksisterer', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer, lockedQuestion],
+      questions: [openSeasonQ, lockedQuestion],
       loading: false,
       error: null,
     });
@@ -272,7 +270,7 @@ describe('BonusPage – sektioner', () => {
 
   it('viser IKKE "Låste spørgsmål" header hvis ingen låste', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer],
+      questions: [openSeasonQ],
       loading: false,
       error: null,
     });
@@ -328,22 +326,22 @@ describe('BonusPage – facit og point', () => {
       error: null,
     });
     const betsMap = new Map([
-      ['q2', { questionId: 'q2', uid: 'user1', answer: 'DK', points: 10 }],
+      ['q2', { questionId: 'q2', uid: 'user1', answer: 'TVL', points: 10 }],
     ]);
     useMyBonusBets.mockReturnValue({ bonusBets: betsMap, loading: false });
     renderPage();
     expect(screen.getByText('+10 point')).toBeInTheDocument();
   });
 
-  it('viser facit for afgjort topScorer', () => {
+  it('viser facit for afgjort fri-tekst-spørgsmål', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [lockedTopScorer],
+      questions: [lockedSeasonQ],
       loading: false,
       error: null,
     });
     useMyBonusBets.mockReturnValue({ bonusBets: new Map(), loading: false });
     renderPage();
-    expect(screen.getByText('Haaland')).toBeInTheDocument();
+    expect(screen.getByText('Pogačar')).toBeInTheDocument();
   });
 
   it('kan IKKE svare på låst spørgsmål (input deaktiveret)', () => {
@@ -360,13 +358,13 @@ describe('BonusPage – facit og point', () => {
 
   it('summerer bonus-point fra flere spørgsmål', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [lockedQuestion, lockedTopScorer],
+      questions: [lockedQuestion, lockedSeasonQ],
       loading: false,
       error: null,
     });
     const betsMap = new Map([
-      ['q2', { questionId: 'q2', uid: 'user1', answer: 'DK', points: 10 }],
-      ['q_top_locked', { questionId: 'q_top_locked', uid: 'user1', answer: 'Haaland', points: 10 }],
+      ['q2', { questionId: 'q2', uid: 'user1', answer: 'TVL', points: 10 }],
+      ['q_top_locked', { questionId: 'q_top_locked', uid: 'user1', answer: 'Pogačar', points: 10 }],
     ]);
     useMyBonusBets.mockReturnValue({ bonusBets: betsMap, loading: false });
     renderPage();

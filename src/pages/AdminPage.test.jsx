@@ -69,7 +69,7 @@ describe('AdminPage', () => {
       expect(screen.queryByTestId('tab-users')).toBeInTheDocument();
     });
 
-    it('viser IKKE Kampe-fanen (fjernet)', () => {
+    it('viser IKKE en separat etape-resultatfane (synk ligger i Tour-fanen)', () => {
       renderAdminPage();
       expect(screen.queryByTestId('tab-matches')).not.toBeInTheDocument();
     });

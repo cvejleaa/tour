@@ -13,9 +13,9 @@ vi.mock('../context/AuthContext', () => ({
 
 // ── Mock hooks ────────────────────────────────────────────────────────────────
 const mockStandings = [
-  { uid: 'uid-1', displayName: 'Alice', totalPoints: 50, groupPoints: 33, knockoutPoints: 7, bonusPoints: 10 },
-  { uid: 'me-uid', displayName: 'Mig', totalPoints: 30, groupPoints: 25, knockoutPoints: 0, bonusPoints: 5 },
-  { uid: 'uid-3', displayName: 'Charlie', totalPoints: 10, groupPoints: 10, knockoutPoints: 0, bonusPoints: 0 },
+  { uid: 'uid-1', displayName: 'Alice', totalPoints: 50, stagePoints: 40, bonusPoints: 10 },
+  { uid: 'me-uid', displayName: 'Mig', totalPoints: 30, stagePoints: 25, bonusPoints: 5 },
+  { uid: 'uid-3', displayName: 'Charlie', totalPoints: 10, stagePoints: 10, bonusPoints: 0 },
 ];
 
 vi.mock('../features/leaderboard/useStandings', () => ({
@@ -86,7 +86,7 @@ describe('LeaderboardPage', () => {
     expect(screen.getByText('dig')).toBeInTheDocument();
   });
 
-  it('skifter til "Dagens kampe"-fanen ved klik', () => {
+  it('skifter til "Dagens etape"-fanen ved klik', () => {
     render(<LeaderboardPage />);
     const dailyTab = screen.getByRole('tab', { name: /dagens etape/i });
     fireEvent.click(dailyTab);
@@ -131,7 +131,7 @@ describe('LeaderboardPage', () => {
     expect(screen.getByText(/Testliga – stilling/i)).toBeInTheDocument();
   });
 
-  it('skifter til Dagens kampe og viser ligaens daglige stilling', () => {
+  it('skifter til Dagens etape og viser ligaens daglige stilling', () => {
     render(<LeaderboardPage />);
     const select = screen.getByLabelText(/filtrer efter liga/i);
     fireEvent.change(select, { target: { value: 'league-1' } });
@@ -160,7 +160,7 @@ describe('LeaderboardPage', () => {
   it('viser kun de to faner (samlet + dagens etape)', () => {
     render(<LeaderboardPage />);
     expect(screen.getAllByRole('tab')).toHaveLength(2);
-    expect(screen.queryByRole('tab', { name: /skarpskytten/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /præcision/i })).not.toBeInTheDocument();
   });
 
   it('viser ThemeToggle-knap', () => {

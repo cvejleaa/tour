@@ -1,60 +1,15 @@
 // ---------------------------------------------------------------------------
-// Delt, ren pointlogik (ingen Firebase-afhængigheder).
-// Bruges af frontend til at vise mulige point, OG spejles 1:1 i Cloud Functions
-// (functions/scoring.js) som den autoritative beregning. Hold dem identiske!
+// Delte, rene tekst-/navnehjælpere til bonus-svar (ingen Firebase-afhængigheder).
+// Bruges af frontend og spejles i Cloud Functions. Hold dem identiske!
+//
+// Bemærk: etape-pointlogikken (de fire hold-spørgsmål) bor i tourScoring.js.
+// Her ligger kun den fleksible svar-matchning, som bonus-spørgsmål bruger.
 // ---------------------------------------------------------------------------
 
+/** Point pr. korrekt bonus-svar. */
 export const POINTS = {
-  EXACT: 5, // helt korrekt score
-  GOAL_DIFF: 3, // korrekt udfald + korrekt målforskel (men ikke eksakt)
-  OUTCOME: 2, // korrekt udfald (1-X-2), forkert målforskel
-  WRONG: 0,
-  KNOCKOUT_ADVANCE: 2, // korrekt "hvem går videre" i knockout
-  BONUS: 10, // pr. korrekt bonus-svar (topscorer / gruppevinder)
+  BONUS: 10,
 };
-
-/** Returnerer 'home' | 'draw' | 'away' for en score. */
-export function outcome(home, away) {
-  if (home > away) return 'home';
-  if (home < away) return 'away';
-  return 'draw';
-}
-
-/**
- * Beregner point for et score-tip mod et facit.
- * @param {{home:number, away:number}} bet  spillerens tip
- * @param {{home:number, away:number}} result  det faktiske resultat (ordinær tid)
- * @returns {number}
- */
-export function scoreMatch(bet, result) {
-  if (!bet || !result) return 0;
-  if (
-    !Number.isFinite(bet.home) || !Number.isFinite(bet.away) ||
-    !Number.isFinite(result.home) || !Number.isFinite(result.away)
-  ) return 0;
-
-  if (bet.home === result.home && bet.away === result.away) return POINTS.EXACT;
-
-  const sameOutcome = outcome(bet.home, bet.away) === outcome(result.home, result.away);
-  if (!sameOutcome) return POINTS.WRONG;
-
-  const sameDiff = bet.home - bet.away === result.home - result.away;
-  return sameDiff ? POINTS.GOAL_DIFF : POINTS.OUTCOME;
-}
-
-/**
- * Samlet point for en knockout-kamp: score-point + evt. point for korrekt
- * "hvem går videre".
- * @param {{home:number, away:number, advance?:string}} bet
- * @param {{home:number, away:number, advance?:string}} result
- */
-export function scoreKnockout(bet, result) {
-  let pts = scoreMatch(bet, result);
-  if (bet?.advance && result?.advance && bet.advance === result.advance) {
-    pts += POINTS.KNOCKOUT_ADVANCE;
-  }
-  return pts;
-}
 
 /** Normaliser et bonus-svar: trim + små bogstaver (tolerant matchning). */
 function normalizeAnswer(v) {
@@ -69,9 +24,9 @@ export function scoreBonus(answer, facit) {
 }
 
 // ---------------------------------------------------------------------------
-// Fleksibel navnematchning (til topscorer): ufølsom for store/små bogstaver,
-// accenter (é→e, ø→o), mellemrum/bindestreg/apostrof, + tolerance for stavefejl
-// via Levenshtein-afstand. Plus admin-godkendte svar (acceptedAnswers).
+// Fleksibel navnematchning (til fri-tekst-bonus): ufølsom for store/små
+// bogstaver, accenter (é→e, ø→o), mellemrum/bindestreg/apostrof, + tolerance
+// for stavefejl via Levenshtein-afstand. Plus admin-godkendte svar.
 // ---------------------------------------------------------------------------
 
 /** Reducerer et navn til kun a-z0-9 (accenter strippes). */
@@ -121,22 +76,23 @@ export function fuzzyNameMatch(a, b) {
 
 /**
  * Beregner point for et bonus-svar med fuld fleksibilitet.
+ * - type 'exact': kræver eksakt match (fx en holdkode fra en fast liste).
+ * - ellers: fuzzy-match mod facit ELLER mod et admin-godkendt svar.
  * @param {{answer:string, facit:string, type?:string, acceptedAnswers?:string[]}} o
  */
 export function bonusPoints({ answer, facit, type, acceptedAnswers = [] }) {
   if (answer == null) return 0;
   const accepted = Array.isArray(acceptedAnswers) ? acceptedAnswers : [];
 
-  // Gruppevinder vælges fra en fast liste (holdkoder) → kræv eksakt match.
-  if (type === 'groupWinner') {
+  // Værdier fra en fast liste (fx holdkoder) → kræv eksakt match.
+  if (type === 'exact') {
     return scoreBonus(answer, facit);
   }
 
-  // Topscorer / fri tekst: fuzzy mod facit ELLER mod et admin-godkendt svar.
+  // Fri tekst: fuzzy mod facit ELLER mod et admin-godkendt svar.
   const candidates = [facit, ...accepted].filter((c) => c != null && String(c).trim() !== '');
   for (const c of candidates) {
     if (fuzzyNameMatch(answer, c)) return POINTS.BONUS;
   }
   return 0;
 }
-

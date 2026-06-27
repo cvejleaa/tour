@@ -122,7 +122,7 @@ describe('LeaguesPage – opret liga', () => {
     fireEvent.click(screen.getByText('Opret liga'));
 
     await waitFor(() => {
-      expect(createLeague).toHaveBeenCalledWith('Min Liga', 'me-uid', expect.objectContaining({ group: true, knockout: true, bonus: true }));
+      expect(createLeague).toHaveBeenCalledWith('Min Liga', 'me-uid', expect.objectContaining({ stage: true, bonus: true, leagueBonus: true }));
     });
   });
 });
@@ -283,7 +283,7 @@ describe('LeaguesPage – opret liga formular', () => {
     fireEvent.click(screen.getByText('Opret liga'));
     // onCreated() lukker formularen – Opret ny liga-overskriften forsvinder
     await waitFor(() => {
-      expect(createLeague).toHaveBeenCalledWith('SuperLiga', 'me-uid', expect.objectContaining({ group: true }));
+      expect(createLeague).toHaveBeenCalledWith('SuperLiga', 'me-uid', expect.objectContaining({ stage: true }));
     });
   });
 

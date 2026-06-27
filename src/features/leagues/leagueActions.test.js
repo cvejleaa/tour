@@ -258,14 +258,14 @@ describe('setLeagueScoring', () => {
 
   it('afviser hvis ingen dele er valgt', async () => {
     await expect(setLeagueScoring('liga-1', {
-      group: false, knockout: false, bonus: false, leagueBonus: false,
+      stage: false, bonus: false, leagueBonus: false,
     })).rejects.toThrow('mindst én del');
   });
 
   it('gemmer et saniteret scoring-objekt', async () => {
-    await setLeagueScoring('liga-1', { group: true, knockout: false, bonus: true, doubleKnockout: true });
+    await setLeagueScoring('liga-1', { stage: true, bonus: true, leagueBonus: false });
     const [, payload] = mockUpdateDoc.mock.calls[0];
-    expect(payload.scoring).toMatchObject({ group: true, knockout: false, bonus: true, doubleKnockout: true });
+    expect(payload.scoring).toMatchObject({ stage: true, bonus: true, leagueBonus: false });
   });
 });
 

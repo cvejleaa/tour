@@ -20,9 +20,10 @@ export default function HelpPage() {
     <div className="container">
       <h1 style={{ margin: '0 0 1rem', fontSize: '1.4rem' }}>❓ Sådan virker det</h1>
 
-      <Section emoji="⚽" title="Tip kampene">
-        Gå til <Link to="/etaper">Etaper</Link> og gæt resultatet for hver kamp. Du kan rette
-        dit tip helt indtil <strong>kickoff</strong> – derefter låses det. Find hurtigt de kampe,
+      <Section emoji="🚴" title="Tip etaperne">
+        Gå til <Link to="/etaper">Etaper</Link> og tip cykelhold på hver etape: etapevinderens hold,
+        bedste hold blandt de første ryttere, flest bjergpoint og flest sprintpoint. Du kan rette
+        dit tip helt indtil <strong>etapestart</strong> – derefter låses det. Find hurtigt de etaper,
         du mangler, under filteret <em>“Mine utippede”</em> eller via <Link to="/">forsidens</Link> “Mine opgaver”.
       </Section>
 
@@ -31,9 +32,9 @@ export default function HelpPage() {
       </Section>
 
       <Section emoji="🎁" title="Bonusspørgsmål">
-        På <Link to="/bonus">Bonus</Link> svarer du på spørgsmål som topscorer og gruppevindere.
-        Hvert korrekt svar giver <strong>{POINTS.BONUS} point</strong>. Spørgsmålene har deres egen
-        deadline og låses derefter.
+        På <Link to="/bonus">Bonus</Link> svarer du på sæson- og klassements-spørgsmål, fx hvem
+        der vinder den samlede Tour eller bjergtrøjen. Hvert korrekt svar giver <strong>{POINTS.BONUS} point</strong>.
+        Spørgsmålene har deres egen deadline og låses derefter.
       </Section>
 
       <Section emoji="🏆" title="Mini-ligaer">
@@ -45,7 +46,7 @@ export default function HelpPage() {
 
       <Section emoji="📋" title="Mine opgaver">
         På <Link to="/">forsiden</Link> samler “Mine opgaver” alt, du mangler at svare på inden deadline:
-        utippede kampe, åbne bonusspørgsmål og liga-bonus på tværs af dine ligaer. Tallet i menuen
+        utippede etaper, åbne bonusspørgsmål og liga-bonus på tværs af dine ligaer. Tallet i menuen
         viser, hvor meget der mangler i alt.
       </Section>
 
@@ -56,7 +57,7 @@ export default function HelpPage() {
       </Section>
 
       <Section emoji="✉️" title="E-mail-påmindelser">
-        Du får automatisk en <strong>e-mail-påmindelse</strong> på kampdage, hvis du mangler at tippe.
+        Du får automatisk en <strong>e-mail-påmindelse</strong> på etapedage, hvis du mangler at tippe.
         Vil du være fri, kan du slå dem fra under <Link to="/profil">Profil</Link> (“Send mig
         e-mail-påmindelser …”).
       </Section>

@@ -1,6 +1,6 @@
 /**
  * TodoCard — samlet "Mine opgaver"-kort på forsiden. Viser i ét card alt det,
- * brugeren mangler at svare på inden deadline: kampe, globale bonus og
+ * brugeren mangler at svare på inden deadline: etaper, globale bonus og
  * liga-bonus pr. liga. Alt rødt = "mangler"; grøn = alt besvaret.
  */
 import { Link } from 'react-router-dom';

@@ -1,12 +1,14 @@
-// Kort, sammenfoldelig oversigt over pointreglerne. Værdier kommer fra
-// den centrale pointlogik, så de altid matcher den faktiske beregning.
+// Kort, sammenfoldelig oversigt over pointreglerne for hold-spillet. Værdier
+// kommer fra den centrale pointlogik (tourScoring), så de altid matcher den
+// faktiske beregning.
+import { DEFAULT_POINTS } from '../lib/tourScoring';
 import { POINTS } from '../lib/scoring';
 
 const ROWS = [
-  { pts: POINTS.EXACT, label: 'Helt korrekt score', ex: 'fx du tipper 2–1, og det ender 2–1' },
-  { pts: POINTS.GOAL_DIFF, label: 'Korrekt målforskel + vinder', ex: 'fx du tipper 2–1, det ender 3–2' },
-  { pts: POINTS.OUTCOME, label: 'Korrekt vinder/uafgjort', ex: 'fx du tipper 2–1, det ender 4–0' },
-  { pts: POINTS.WRONG, label: 'Forkert udfald', ex: 'fx du tipper hjemmesejr, men holdet taber' },
+  { pts: DEFAULT_POINTS.winnerTeam, label: 'Etapevinderens hold', ex: 'ram holdet som etapevinderen kører for' },
+  { pts: DEFAULT_POINTS.gcTeam, label: 'Bedste hold blandt de første ryttere', ex: 'holdet med samlet bedste resultat på de forreste ryttere' },
+  { pts: DEFAULT_POINTS.mountainTeam, label: 'Flest bjergpoint', ex: 'holdet der tager flest bjergpoint på etapen' },
+  { pts: DEFAULT_POINTS.sprintTeam, label: 'Flest sprintpoint', ex: 'holdet der tager flest sprintpoint på etapen' },
 ];
 
 export default function PointRules() {
@@ -18,6 +20,9 @@ export default function PointRules() {
       </summary>
 
       <div style={{ marginTop: '0.85rem' }}>
+        <p style={{ margin: '0 0 0.6rem', color: 'var(--c-text)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+          På hver etape tipper du <strong>cykelhold</strong> på fire spørgsmål. Hvert ramt hold giver point:
+        </p>
         <table className="table" style={{ fontSize: '0.88rem' }}>
           <tbody>
             {ROWS.map((r) => (
@@ -38,14 +43,13 @@ export default function PointRules() {
 
         <ul style={{ margin: '0.6rem 0 0', paddingLeft: '1.1rem', color: 'var(--c-text)', fontSize: '0.85rem', lineHeight: 1.7 }}>
           <li>
-            <strong>Slutspil:</strong> ud over scoren får du <strong>+{POINTS.KNOCKOUT_ADVANCE} point</strong> for
-            at ramme, hvilket hold der går videre (gælder forlænget tid/straffe).
+            <strong>Bonus:</strong> <strong>{POINTS.BONUS} point</strong> for hvert korrekt bonus-svar (sæson- og klassements-spørgsmål).
           </li>
           <li>
-            <strong>Bonus:</strong> <strong>{POINTS.BONUS} point</strong> for hvert korrekt bonus-svar (topscorer og gruppevindere).
+            <strong>Utippet etape:</strong> lader du en etape stå helt utippet, trækkes der <strong>−{DEFAULT_POINTS.untippedPenalty} point</strong> fra, når etapen er afgjort.
           </li>
           <li>
-            <strong>Deadline:</strong> hvert tip låses ved kampens kickoff – du kan ikke ændre det bagefter.
+            <strong>Deadline:</strong> hvert tip låses ved etapens start – du kan ikke ændre det bagefter.
           </li>
         </ul>
       </div>

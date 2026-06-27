@@ -105,7 +105,7 @@ export default function ProfilePage() {
                 checked={!optOut}
                 onChange={(e) => setOptOut(!e.target.checked)}
               />
-              Send mig e-mail-påmindelser om kampe jeg mangler at tippe på
+              Send mig e-mail-påmindelser om etaper jeg mangler at tippe på
             </label>
           </div>
 

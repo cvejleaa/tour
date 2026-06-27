@@ -1,6 +1,6 @@
 // Eksempel-drevne tests for den hold-baserede Tour de France-scoring.
 // Talcaserne afspejler spillets regler (Q1–Q4) og kan justeres sammen med
-// brugeren, præcis som vi gjorde for VM.
+// brugeren.
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_POINTS,

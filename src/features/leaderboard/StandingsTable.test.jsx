@@ -41,30 +41,30 @@ describe('StandingsTable', () => {
     expect(meRow).toHaveClass('is-me');
   });
 
-  it('viser Kampe/Bonus/Total-kolonner med showBreakdown', () => {
-    const users = [{ uid: 'u', displayName: 'Eva', groupPoints: 18, knockoutPoints: 4, bonusPoints: 7, totalPoints: 29 }];
+  it('viser Etaper/Bonus/Total-kolonner med showBreakdown', () => {
+    const users = [{ uid: 'u', displayName: 'Eva', stagePoints: 22, bonusPoints: 7, totalPoints: 29 }];
     render(<StandingsTable users={users} showBreakdown />);
-    expect(screen.getByText('Kampe')).toBeInTheDocument();
+    expect(screen.getByText('Etaper')).toBeInTheDocument();
     expect(screen.getByText('Bonus')).toBeInTheDocument();
     expect(screen.getByText('Total')).toBeInTheDocument();
     const row = screen.getByText('Eva').closest('tr');
-    expect(row).toHaveTextContent('22'); // 18 + 4 fra kampe
+    expect(row).toHaveTextContent('22'); // etape-point
     expect(row).toHaveTextContent('7');  // bonus
     expect(row).toHaveTextContent('29'); // total
   });
 
   it('getBreakdown overstyrer standard-opdelingen (fx liga-scoring)', () => {
-    const users = [{ uid: 'u', displayName: 'Eva', groupPoints: 18, knockoutPoints: 4, bonusPoints: 7 }];
+    const users = [{ uid: 'u', displayName: 'Eva', stagePoints: 22, bonusPoints: 7 }];
     render(
       <StandingsTable
         users={users}
         showBreakdown
         getPoints={() => 90}
-        getBreakdown={() => ({ match: 80, bonus: 10 })}
+        getBreakdown={() => ({ stage: 80, bonus: 10 })}
       />,
     );
     const row = screen.getByText('Eva').closest('tr');
-    expect(row).toHaveTextContent('80'); // kampe fra override
+    expect(row).toHaveTextContent('80'); // etaper fra override
     expect(row).toHaveTextContent('10'); // bonus fra override
     expect(row).toHaveTextContent('90'); // total fra getPoints
   });

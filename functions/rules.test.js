@@ -73,7 +73,7 @@ async function createUser(uid, role = 'player', status = 'approved') {
   });
 }
 
-/** Opret en kamp via admin-context */
+/** Opret et match via admin-context */
 async function createMatch(matchId, kickoffDate) {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await ctx.firestore().collection('matches').doc(matchId).set({
@@ -479,7 +479,7 @@ describe('bonusBets/{betId} — sikkerhedsregler', () => {
 // TESTS: matches-collection
 // ---------------------------------------------------------------------------
 describe('matches — sikkerhedsregler', () => {
-  it('godkendt spiller KAN læse kampe', async () => {
+  it('godkendt spiller KAN læse matches', async () => {
     await createUser('matchReader', 'player', 'approved');
     await createMatch('readable_match', new Date(Date.now() + 3600000));
 
@@ -489,7 +489,7 @@ describe('matches — sikkerhedsregler', () => {
     );
   });
 
-  it('spiller KAN IKKE oprette kampe', async () => {
+  it('spiller KAN IKKE oprette matches', async () => {
     await createUser('matchCreator', 'player', 'approved');
 
     const ctx = testEnv.authenticatedContext('matchCreator');
@@ -502,7 +502,7 @@ describe('matches — sikkerhedsregler', () => {
     );
   });
 
-  it('global admin KAN oprette kampe', async () => {
+  it('global admin KAN oprette matches', async () => {
     await createUser('adminUser', 'globalAdmin', 'approved');
 
     const ctx = testEnv.authenticatedContext('adminUser');

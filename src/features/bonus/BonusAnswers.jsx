@@ -1,7 +1,7 @@
 /**
  * BonusAnswers — udfoldelig liste over alle spilleres svar på ét bonusspørgsmål.
  * Vises efter spørgsmålet er låst (hvor reglerne tillader at se andres svar),
- * og altid for admin. Spejler MatchTips for kamp-tips.
+ * og altid for admin. Spejler etape-tip-visningen.
  */
 import { useState } from 'react';
 import { useBonusBets } from './useBonusData';

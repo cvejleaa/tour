@@ -5,104 +5,93 @@
 // kun det testbare: liga-scoring, fakta-opbygning og system-prompten.
 // ---------------------------------------------------------------------------
 
-const RECAP_SYSTEM = `Du er "VM-Botten", som skriver ét kort, varmt morgenopslag på dansk til en privat VM 2026-tippeliga.
+const RECAP_SYSTEM = `Du er "Tour-Botten", som skriver ét kort, varmt morgenopslag på dansk til en privat Tour de France-tippeliga.
 Skriv 70-150 ord i naturlig, sammenhængende prosa (ikke punktopstilling, ingen overskrift, ingen anførselstegn). Brug 1-2 emojis.
 
-Du får et JSON-faktaobjekt. Du må KUN bruge de oplyste fakta og tal. Find ALDRIG på navne, kampe, resultater, point eller placeringer, og lav ALDRIG dine egne udregninger.
+Du får et JSON-faktaobjekt. Du må KUN bruge de oplyste fakta og tal. Find ALDRIG på navne, etaper, resultater, point eller placeringer, og lav ALDRIG dine egne udregninger.
 
 Felterne betyder:
-- "matches": kampene spillet SIDEN sidste opslag (med resultat) — beskriv kun dem.
-- "bonusResolved": bonus-/ekstraspørgsmål der er blevet AFGJORT siden sidste opslag (kan være tom). Hvert element har "type" ("topScorer" = topscorer, "groupWinner" = gruppevinder), "label" (selve spørgsmålet) og "facit" (det rigtige svar; for "groupWinner" er facit en FIFA-landekode — brug det danske landenavn). Nævn dem kort og naturligt, hvis der er nogen.
-- "standings": den AKTUELLE samlede stilling NU (nattens point er allerede lagt til). For hver spiller er "points" deres TOTALE pointtal, og "dayPoints" er hvad de har vundet siden sidste opslag. Bemærk: "dayPoints" kan stamme fra både kampe OG afgjorte bonusspørgsmål — ikke kun kampe.
+- "stages": etaperne afgjort SIDEN sidste opslag (med resultat) — beskriv kun dem. Hvert element har "number" (etapens nummer) og "winnerTeam" (det hold der vandt etapen).
+- "bonusResolved": bonus-/ekstraspørgsmål der er blevet AFGJORT siden sidste opslag (kan være tom). Hvert element har "label" (selve spørgsmålet) og "facit" (det rigtige svar). Nævn dem kort og naturligt, hvis der er nogen.
+- "standings": den AKTUELLE samlede stilling NU (nattens point er allerede lagt til). For hver spiller er "points" deres TOTALE pointtal, og "dayPoints" er hvad de har vundet siden sidste opslag. Bemærk: "dayPoints" kan stamme fra både etaper OG afgjorte bonusspørgsmål — ikke kun etaper.
 - "standout": spilleren med FLEST "dayPoints" siden sidste opslag. "dayPoints" = nattens udbytte, "points" = vedkommendes nuværende total.
 - "standoutTie": true hvis FLERE spillere deler nattens bedste score (se "dayWinners"). "leader": fører lige nu. "previousLeader": hvem der førte ved sidste opslag. "leadChanged": true hvis førstepladsen har skiftet.
 
 Ufravigelige regler:
 - "points" betyder ALTID totalen; "dayPoints" betyder ALTID nattens point. Forveksl dem ALDRIG. Når du nævner en total, så brug "points"; når du nævner nattens udbytte, så brug "dayPoints".
 - Skriv kun at nogen "overhalede"/"tog førstepladsen", hvis "leadChanged" er true. Er "leadChanged" false, kan du skrive at lederen "fører stadig".
-- Hold er FIFA-landekoder (fx BRA=Brasilien, ARG=Argentina, DEN=Danmark) — brug de danske landenavne.
-- Er BÅDE "matches" og "bonusResolved" tomme (intet nyt siden sidst), så skriv en kort, opmuntrende god-morgen-hilsen og mind venligt om at få tippet dagens kampe. Er "matches" tom, men "bonusResolved" har noget, så skriv om de afgjorte spørgsmål og de point, de gav (brug "dayPoints"/"standout" som altid).
-- Slut gerne med en lille optakt til dagens kampe, hvis "upcoming" har nogle.
+- Er BÅDE "stages" og "bonusResolved" tomme (intet nyt siden sidst), så skriv en kort, opmuntrende god-morgen-hilsen og mind venligt om at få tippet dagens etape(r). Er "stages" tom, men "bonusResolved" har noget, så skriv om de afgjorte spørgsmål og de point, de gav (brug "dayPoints"/"standout" som altid).
+- Slut gerne med en lille optakt til dagens etape(r), hvis "upcoming" har nogle.
 
-Tone over for dagens topscorer:
+Tone over for dagens bedste:
 - Er "standoutTie" false (ÉN klar dagsvinder = "standout"), så lykønsk vedkommende med et glimt i øjet — du må gerne være let drillende og hoverende på en venlig, humoristisk måde (en kærlig stikpille til de andre om at hænge på). Hold det godmodigt, aldrig hånligt eller personligt.
 - Er "standoutTie" true (flere deler nattens bedste, se "dayWinners"), så hold tonen neutral og varm: nævn dem ligeværdigt og undlad at drille nogen.`;
 
 /**
  * Minimal liga-scoring (spejler leagueScore i frontend; uden liga-bonus, som
  * beregnes klient-side). Bruges til at finde totaler og lederen i recap'en.
+ * Tæller etape-point + officiel bonus efter ligaens scoring-valg.
  */
 function leagueTotal(user, scoring) {
   const s = scoring || {};
   const on = (k) => s[k] !== false; // mangler feltet ⇒ tæller (default til)
   let t = 0;
-  if (on('group')) t += Number(user?.groupPoints || 0);
-  if (on('knockout')) t += Number(user?.knockoutPoints || 0) * (s.doubleKnockout ? 2 : 1);
+  if (on('stage')) t += Number(user?.stagePoints || 0);
   if (on('bonus')) t += Number(user?.bonusPoints || 0);
   return t;
 }
 
-/** Er en runde knockout (alt undtagen 'group')? */
-function isKnockoutRound(round) {
-  return !!round && round !== 'group';
-}
-
 /**
- * Point en spiller får for ÉN kamp i en given liga, med ligaens scoring-regler
- * påført (gruppe/knockout til/fra + dobbelt-knockout). Bruges til at gøre
- * "dayPoints" konsistent med totalen (leagueTotal) — samme grundlag.
- * @param {number} rawPoints  rå tip-point for kampen (bet.points)
- * @param {string} round      kampens runde ('group' | 'r32' | ...)
- * @param {object} scoring    ligaens scoring-objekt
+ * Point en spiller får for ÉN etape i en given liga, med ligaens scoring-regler
+ * påført (etape-point til/fra). Bruges til at gøre "dayPoints" konsistent med
+ * totalen (leagueTotal) — samme grundlag.
+ * @param {number} rawPoints  rå tip-point for etapen (stageBet.points)
+ * @param {object} scoring    ligaens scoring-objekt {stage,bonus,leagueBonus}
  * @returns {number}
  */
-function leagueMatchPoints(rawPoints, round, scoring) {
+function leagueStagePoints(rawPoints, scoring) {
   const s = scoring || {};
   const on = (k) => s[k] !== false;
   const p = Number(rawPoints || 0);
-  if (isKnockoutRound(round)) return on('knockout') ? p * (s.doubleKnockout ? 2 : 1) : 0;
-  return on('group') ? p : 0;
+  return on('stage') ? p : 0;
 }
 
 /**
  * Rekonstruér medlemmernes point-nedbrydning, som den var op til et bestemt
- * tidspunkt (untilMs), ud fra de kampe der var spillet til da. Bruges til at
+ * tidspunkt (untilMs), ud fra de etaper der var afgjort til da. Bruges til at
  * genskrive gamle opslag med datidens stilling (bonus tælles ikke med — den er
- * forsvindende i gruppespillet).
+ * forsvindende undervejs i løbet).
  * @param {Array<{id:string, displayName?:string}>} memberDocs
- * @param {Array<{id:string, round:string, kickoffMs:number}>} finished  alle spillede kampe
- * @param {Object<string, Object<string, number>>} pointsByMatchUid  matchId → (uid → rå point)
- * @param {number} untilMs  kun kampe med kickoff <= untilMs tæller med
+ * @param {Array<{id:string, kickoffMs:number}>} finished  alle afgjorte etaper
+ * @param {Object<string, Object<string, number>>} pointsByStageUid  stageId → (uid → rå point)
+ * @param {number} untilMs  kun etaper med kickoff <= untilMs tæller med
  */
-function historicalMembers(memberDocs, finished, pointsByMatchUid, untilMs) {
+function historicalMembers(memberDocs, finished, pointsByStageUid, untilMs) {
   return (memberDocs || []).map((u) => {
-    let groupPoints = 0;
-    let knockoutPoints = 0;
+    let stagePoints = 0;
     for (const m of finished || []) {
       if (m.kickoffMs > untilMs) continue;
-      const raw = Number((pointsByMatchUid[m.id] || {})[u.id] || 0);
-      if (isKnockoutRound(m.round)) knockoutPoints += raw;
-      else groupPoints += raw;
+      stagePoints += Number((pointsByStageUid[m.id] || {})[u.id] || 0);
     }
-    return { id: u.id, displayName: u.displayName || 'Spiller', groupPoints, knockoutPoints, bonusPoints: 0 };
+    return { id: u.id, displayName: u.displayName || 'Spiller', stagePoints, bonusPoints: 0 };
   });
 }
 
 /**
- * Point pr. spiller for et sæt kampe (fx vinduet siden sidste opslag), med
+ * Point pr. spiller for et sæt etaper (fx vinduet siden sidste opslag), med
  * ligaens scoring-regler påført — samme grundlag som totalen.
  * @param {string[]} memberIds
- * @param {Array<{id:string, round:string}>} windowMatches
- * @param {Object<string, Object<string, number>>} pointsByMatchUid
+ * @param {Array<{id:string}>} windowStages
+ * @param {Object<string, Object<string, number>>} pointsByStageUid
  * @param {object} scoring
  * @returns {Object<string, number>} uid → dayPoints
  */
-function windowDayPoints(memberIds, windowMatches, pointsByMatchUid, scoring) {
+function windowDayPoints(memberIds, windowStages, pointsByStageUid, scoring) {
   const dayPointsByUid = {};
-  for (const m of windowMatches || []) {
-    const map = pointsByMatchUid[m.id] || {};
+  for (const m of windowStages || []) {
+    const map = pointsByStageUid[m.id] || {};
     for (const uid of memberIds || []) {
-      const pts = leagueMatchPoints(map[uid], m.round, scoring);
+      const pts = leagueStagePoints(map[uid], scoring);
       if (pts) dayPointsByUid[uid] = (dayPointsByUid[uid] || 0) + pts;
     }
   }
@@ -110,7 +99,7 @@ function windowDayPoints(memberIds, windowMatches, pointsByMatchUid, scoring) {
 }
 
 /** Saml fakta-objektet (kun tal/navne) som Claude skriver prosa ud fra. */
-function buildRecapFacts({ league, members, dayPointsByUid = {}, matches = [], bonusResolved = [], upcoming = [], now = new Date() }) {
+function buildRecapFacts({ league, members, dayPointsByUid = {}, stages = [], bonusResolved = [], upcoming = [], now = new Date() }) {
   const date = now.toLocaleDateString('da-DK', {
     weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Copenhagen',
   });
@@ -155,7 +144,7 @@ function buildRecapFacts({ league, members, dayPointsByUid = {}, matches = [], b
   return {
     leagueName: (league && league.name) || 'ligaen',
     date,
-    matches,
+    stages,
     bonusResolved,
     standings,
     dayPoints,
@@ -200,7 +189,7 @@ function recapWindowOpen(currentHM, targetHM, windowMin = 60) {
 }
 
 module.exports = {
-  RECAP_SYSTEM, RECAP_DEFAULT_TIME, leagueTotal, leagueMatchPoints,
-  isKnockoutRound, historicalMembers, windowDayPoints,
+  RECAP_SYSTEM, RECAP_DEFAULT_TIME, leagueTotal, leagueStagePoints,
+  historicalMembers, windowDayPoints,
   buildRecapFacts, parseHM, recapWindowOpen,
 };

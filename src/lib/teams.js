@@ -1,5 +1,6 @@
 // Mapping fra holdkode (FIFA/IOC-stil) til fuldt dansk landenavn + ISO 3166-1
-// alpha-2 kode (til rigtige flag via flagcdn). Genereret fra VM 2026-lodtrækningen.
+// alpha-2 kode (til rigtige flag via flagcdn). Bruges til spillerens valgte
+// nationalitets-flag på avataren.
 export const TEAMS = {
   MEX: { name: 'Mexico', iso: 'mx' },
   KOR: { name: 'Sydkorea', iso: 'kr' },

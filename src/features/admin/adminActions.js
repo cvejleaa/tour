@@ -59,7 +59,7 @@ export async function sendAdminPasswordReset(uid) {
 // ─── Indstillinger (kun ejer — config/settings) ──────────────────────────────
 
 /**
- * Sæt tidspunktet for AI-morgenopslaget (VM-Botten). Format 'HH:MM',
+ * Sæt tidspunktet for AI-morgenopslaget (Tour-Botten). Format 'HH:MM',
  * Europe/Copenhagen. Skrives til config/settings (kun ejer kan skrive iflg. reglerne).
  * @param {string} time  fx '08:15'
  */
@@ -69,10 +69,10 @@ export async function setRecapTime(time) {
 }
 
 /**
- * Sæt straffen for en utippet kamp i Skarpskytten-stillingen. Gemmes som et
- * positivt tal (antal point der trækkes fra pr. manglende kamp) i config/settings.
+ * Sæt straffen for en utippet etape. Gemmes som et positivt tal (antal point der
+ * trækkes fra pr. manglende etape) i config/settings.
  * Læses live af stilling-siden og admin-fanen. Kun owner kan skrive iflg. reglerne.
- * @param {number} penalty  positivt tal, fx 2 (= −2 pr. utippet kamp). Decimaler ok.
+ * @param {number} penalty  positivt tal, fx 2 (= −2 pr. utippet etape). Decimaler ok.
  */
 export async function setUntippedPenalty(penalty) {
   const ref = doc(db, COL.CONFIG, 'settings');
@@ -117,7 +117,7 @@ export async function callSendTipRemindersNow() {
 
 /**
  * Kald Cloud Function 'sendTestReminderToMe' — sender en testmail KUN til
- * admin selv med alle kampe for de første 3 spilledage.
+ * admin selv med alle etaper for de første 3 etapedage.
  */
 export async function callSendTestReminderToMe() {
   try {
@@ -153,7 +153,7 @@ export async function callGenerateLeagueRecapNow({ leagueId, dryRun = false } = 
 }
 
 /**
- * Genskriv VM-Bottens gamle opslag (owner). apply=false = tør-kør (eksempler);
+ * Genskriv Tour-Bottens gamle opslag (owner). apply=false = tør-kør (eksempler);
  * apply=true gemmer i bidder (kald gentagne gange til remaining=0); reset=true
  * rydder genskrivnings-markeringen. Tidspunkterne (createdAt) røres aldrig.
  */

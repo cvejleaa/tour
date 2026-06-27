@@ -13,7 +13,7 @@ const STEPS = [
 ];
 
 function storageKey(uid) {
-  return `vm:onboarded:${uid || 'anon'}`;
+  return `tour:onboarded:${uid || 'anon'}`;
 }
 
 export default function OnboardingChecklist({ uid }) {

@@ -29,18 +29,18 @@ describe('Hero – titel', () => {
 
 describe('Hero – undertitel', () => {
   it('viser undertitel når den er sat', () => {
-    render(<Hero title="VM" subtitle="Afgiv dine tips inden kampstart" />);
-    expect(screen.getByText('Afgiv dine tips inden kampstart')).toBeInTheDocument();
+    render(<Hero title="Tour" subtitle="Afgiv dine tips inden etapestart" />);
+    expect(screen.getByText('Afgiv dine tips inden etapestart')).toBeInTheDocument();
   });
 
   it('viser IKKE undertitel når den ikke er sat', () => {
-    render(<Hero title="VM" />);
+    render(<Hero title="Tour" />);
     // Ingen paragraf for undertitel
     expect(screen.queryByText(/Afgiv/)).not.toBeInTheDocument();
   });
 
   it('undertitel vises som paragraf-element', () => {
-    const { container } = render(<Hero title="VM" subtitle="Test undertitel" />);
+    const { container } = render(<Hero title="Tour" subtitle="Test undertitel" />);
     expect(container.querySelector('.hero__subtitle')).toBeInTheDocument();
     expect(container.querySelector('.hero__subtitle').textContent).toBe('Test undertitel');
   });
@@ -48,37 +48,37 @@ describe('Hero – undertitel', () => {
 
 describe('Hero – chips', () => {
   it('viser chips når de er sat', () => {
-    render(<Hero title="VM" chips={['48 hold', '104 kampe', 'Dansk tid']} />);
-    expect(screen.getByText('48 hold')).toBeInTheDocument();
-    expect(screen.getByText('104 kampe')).toBeInTheDocument();
+    render(<Hero title="Tour" chips={['22 hold', '21 etaper', 'Dansk tid']} />);
+    expect(screen.getByText('22 hold')).toBeInTheDocument();
+    expect(screen.getByText('21 etaper')).toBeInTheDocument();
     expect(screen.getByText('Dansk tid')).toBeInTheDocument();
   });
 
   it('viser IKKE chip-container ved tomt chips-array', () => {
-    const { container } = render(<Hero title="VM" chips={[]} />);
+    const { container } = render(<Hero title="Tour" chips={[]} />);
     expect(container.querySelector('.hero__badges')).not.toBeInTheDocument();
   });
 
   it('viser IKKE chip-container når chips ikke er sat (default = [])', () => {
-    const { container } = render(<Hero title="VM" />);
+    const { container } = render(<Hero title="Tour" />);
     expect(container.querySelector('.hero__badges')).not.toBeInTheDocument();
   });
 
   it('chips har klassen "hero__chip"', () => {
-    const { container } = render(<Hero title="VM" chips={['test']} />);
+    const { container } = render(<Hero title="Tour" chips={['test']} />);
     const chips = container.querySelectorAll('.hero__chip');
     expect(chips.length).toBe(1);
     expect(chips[0].textContent).toBe('test');
   });
 
   it('viser 3 chips korrekt', () => {
-    const { container } = render(<Hero title="VM" chips={['A', 'B', 'C']} />);
+    const { container } = render(<Hero title="Tour" chips={['A', 'B', 'C']} />);
     const chips = container.querySelectorAll('.hero__chip');
     expect(chips.length).toBe(3);
   });
 
   it('viser én chip korrekt', () => {
-    render(<Hero title="VM" chips={['Kun ét']} />);
+    render(<Hero title="Tour" chips={['Kun ét']} />);
     expect(screen.getByText('Kun ét')).toBeInTheDocument();
   });
 });
@@ -88,13 +88,13 @@ describe('Hero – komplet rendering', () => {
     render(
       <Hero
         title="Tour de France Tip"
-        subtitle="Afgiv dine tips inden kampstart – point beregnes automatisk."
-        chips={['48 hold', '104 kampe', 'Dansk tid']}
+        subtitle="Afgiv dine tips inden etapestart – point beregnes automatisk."
+        chips={['22 hold', '21 etaper', 'Dansk tid']}
       />,
     );
     expect(screen.getByText('Tour de France Tip')).toBeInTheDocument();
     expect(screen.getByText(/Afgiv dine tips/)).toBeInTheDocument();
-    expect(screen.getByText('48 hold')).toBeInTheDocument();
+    expect(screen.getByText('22 hold')).toBeInTheDocument();
   });
 
   it('renderer uden props uden at krashe', () => {

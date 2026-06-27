@@ -1,6 +1,6 @@
 // Admin-panel med faner:
 //   1. Brugere (globale admins — rolletildeling dog kun for ejer)
-//   2. Kampe & resultater (globale admins)
+//   2. Tour (etaperute + resultat-synk, globale admins)
 //   3. Bonus-facit (globale admins)
 // Rollebaseret adgang håndhæves her og i ProtectedRoute.
 import { useState } from 'react';

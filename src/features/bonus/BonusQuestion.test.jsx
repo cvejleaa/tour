@@ -33,7 +33,7 @@ function makeQuestion(overrides = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Åbne spørgsmål – fritekst (topScorer)
+// Åbne spørgsmål – fritekst (sæson-spørgsmål)
 // ---------------------------------------------------------------------------
 describe('BonusQuestion – åben fritekst', () => {
   it('viser input-felt og gem-knap når åben', () => {
@@ -125,7 +125,7 @@ describe('BonusQuestion – låst', () => {
     const past = new Date('2000-01-01T00:00:00Z');
     const q = makeQuestion({
       deadline: past,
-      type: 'groupWinner',
+      type: 'teamChoice',
       options: ['GER', 'FRA'],
     });
     render(<BonusQuestion question={q} uid="user1" existingBet={null} />);
@@ -133,11 +133,11 @@ describe('BonusQuestion – låst', () => {
     expect(screen.queryByTestId('bonus-save')).not.toBeInTheDocument();
   });
 
-  it('viser IKKE hjælpetekst for topScorer efter deadline', () => {
+  it('viser IKKE hjælpetekst for fri tekst efter deadline', () => {
     const past = new Date('2000-01-01T00:00:00Z');
-    const q = makeQuestion({ deadline: past, type: 'topScorer' });
+    const q = makeQuestion({ deadline: past, type: 'text' });
     render(<BonusQuestion question={q} uid="user1" existingBet={null} />);
-    expect(screen.queryByText(/Mbappé/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Vingegaard/)).not.toBeInTheDocument();
   });
 
   it('viser IKKE "Åben" badge for låst spørgsmål', () => {
@@ -152,21 +152,21 @@ describe('BonusQuestion – låst', () => {
 // Facit og point (afgjort spørgsmål)
 // ---------------------------------------------------------------------------
 describe('BonusQuestion – facit og point', () => {
-  it('viser facit og point når spørgsmålet er afgjort (topScorer)', () => {
+  it('viser facit og point når spørgsmålet er afgjort (fri tekst)', () => {
     const q = makeQuestion({
       deadline: new Date('2000-01-01T00:00:00Z'),
-      facit: 'Kylian Mbappé',
+      facit: 'Jonas Vingegaard',
     });
-    const bet = { answer: 'Kylian Mbappé', points: 10, questionId: 'q1' };
+    const bet = { answer: 'Jonas Vingegaard', points: 10, questionId: 'q1' };
     render(<BonusQuestion question={q} uid="user1" existingBet={bet} />);
-    expect(screen.getAllByText(/Kylian Mbappé/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Jonas Vingegaard/).length).toBeGreaterThan(0);
     expect(screen.getByText(/\+10 point/)).toBeInTheDocument();
   });
 
   it('viser "Facit:" label ved afgjort spørgsmål', () => {
     const q = makeQuestion({
       deadline: new Date('2000-01-01T00:00:00Z'),
-      facit: 'Haaland',
+      facit: 'Pogačar',
     });
     render(<BonusQuestion question={q} uid="user1" existingBet={null} />);
     expect(screen.getByText(/Facit:/)).toBeInTheDocument();
@@ -175,7 +175,7 @@ describe('BonusQuestion – facit og point', () => {
   it('viser 0 point for forkert svar', () => {
     const q = makeQuestion({
       deadline: new Date('2000-01-01T00:00:00Z'),
-      facit: 'Haaland',
+      facit: 'Pogačar',
     });
     const bet = { answer: 'Ronaldo', points: 0, questionId: 'q1' };
     render(<BonusQuestion question={q} uid="user1" existingBet={bet} />);
@@ -197,11 +197,11 @@ describe('BonusQuestion – facit og point', () => {
 // Brugerens eksisterende svar
 // ---------------------------------------------------------------------------
 describe('BonusQuestion – eksisterende svar', () => {
-  it('viser brugerens eksisterende svar for åben topScorer', () => {
+  it('viser brugerens eksisterende svar for åbent fri-tekst-spørgsmål', () => {
     const q = makeQuestion();
-    const bet = { answer: 'Erling Haaland', questionId: 'q1' };
+    const bet = { answer: 'Tadej Pogačar', questionId: 'q1' };
     render(<BonusQuestion question={q} uid="user1" existingBet={bet} />);
-    expect(screen.getByText(/Erling Haaland/)).toBeInTheDocument();
+    expect(screen.getByText(/Tadej Pogačar/)).toBeInTheDocument();
   });
 
   it('viser "Dit svar:" label for bruger med svar', () => {

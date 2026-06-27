@@ -21,7 +21,7 @@ const past = new Date(Date.now() - 3600_000);
 const future = new Date(Date.now() + 3600_000);
 
 const questions = [
-  { id: 'q1', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem bliver topscorer?', deadline: future, facit: null },
+  { id: 'q1', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder den samlede Tour?', deadline: future, facit: null },
   { id: 'q2', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder?', deadline: past, facit: 'Messi' },
 ];
 
@@ -38,7 +38,7 @@ function renderBonus(props = {}) {
 describe('LeagueBonus', () => {
   it('viser spørgsmål med Åben/Låst status', () => {
     renderBonus();
-    expect(screen.getByText('Hvem bliver topscorer?')).toBeInTheDocument();
+    expect(screen.getByText('Hvem vinder den samlede Tour?')).toBeInTheDocument();
     expect(screen.getByText('Åben')).toBeInTheDocument();
     expect(screen.getByText('Låst')).toBeInTheDocument();
   });
@@ -86,7 +86,7 @@ describe('LeagueBonus', () => {
   it('manager kan afsløre svar også på åbne spørgsmål', () => {
     renderBonus({
       isManager: true,
-      answersByQid: { q1: [{ uid: 'u2', answer: 'Haaland' }] },
+      answersByQid: { q1: [{ uid: 'u2', answer: 'Pogačar' }] },
       usersByUid: { u2: { displayName: 'Uffe' } },
     });
     // Både åbent (q1) og låst (q2) har afslørings-knap for manager

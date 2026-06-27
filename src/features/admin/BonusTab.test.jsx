@@ -44,31 +44,30 @@ function setupQuestions(questions) {
         docs: questions.map((q2) => ({ id: q2.id, data: () => ({ ...q2 }) })),
       });
     } else {
-      // BonusBets — tomt for topscorer
+      // BonusBets — tomt for fri-tekst-spørgsmål
       cb({ docs: [], forEach: vi.fn() });
     }
     return vi.fn();
   });
 }
 
-const topScorerQuestion = {
+const textQuestion = {
   id: 'q1',
-  label: 'Hvem bliver topscorer?',
-  type: 'topScorer',
+  label: 'Hvem vinder den samlede Tour?',
+  type: 'text',
   facit: null,
   deadline: { toDate: () => new Date('2026-06-11') },
   options: [],
   acceptedAnswers: [],
 };
 
-const groupWinnerQuestion = {
+const teamChoiceQuestion = {
   id: 'q2',
-  label: 'Hvem vinder gruppe A?',
-  type: 'groupWinner',
-  groupName: 'A',
-  facit: null,
+  label: 'Hvilket hold vinder holdkonkurrencen?',
+  type: 'teamChoice',
+    facit: null,
   deadline: { toDate: () => new Date('2026-06-11') },
-  options: ['DNK', 'NOR', 'SWE'],
+  options: ['TVL', 'UAD', 'SOQ'],
   acceptedAnswers: [],
 };
 
@@ -102,32 +101,32 @@ describe('BonusTab', () => {
   // ─── Spørgsmål-liste ──────────────────────────────────────────────────────
 
   it('viser spørgsmålets tekst', () => {
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
-    expect(screen.getByText(/Hvem bliver topscorer/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hvem vinder den samlede Tour/i)).toBeInTheDocument();
   });
 
   it('viser spørgsmålets point', () => {
-    setupQuestions([{ ...topScorerQuestion, points: 7 }]);
+    setupQuestions([{ ...textQuestion, points: 7 }]);
     render(<BonusTab />);
     expect(screen.getByText(/7 point/i)).toBeInTheDocument();
   });
 
   it('viser Ikke sat når facit er null', () => {
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     expect(screen.getByText(/Ikke sat/i)).toBeInTheDocument();
   });
 
   it('viser sat facit med grøn farve', () => {
-    setupQuestions([{ ...topScorerQuestion, facit: 'Eriksen' }]);
+    setupQuestions([{ ...textQuestion, facit: 'Vingegaard' }]);
     render(<BonusTab />);
-    expect(screen.getByText('Eriksen')).toBeInTheDocument();
+    expect(screen.getByText('Vingegaard')).toBeInTheDocument();
   });
 
   it('sorterer spørgsmål efter deadline (tidligst først)', () => {
-    const tidlig = { ...topScorerQuestion, id: 'tidlig', label: 'Tidligt', deadline: { toDate: () => new Date('2026-07-01') } };
-    const sen = { ...groupWinnerQuestion, id: 'sen', label: 'Sent', deadline: { toDate: () => new Date('2026-07-20') } };
+    const tidlig = { ...textQuestion, id: 'tidlig', label: 'Tidligt', deadline: { toDate: () => new Date('2026-07-01') } };
+    const sen = { ...teamChoiceQuestion, id: 'sen', label: 'Sent', deadline: { toDate: () => new Date('2026-07-20') } };
     setupQuestions([sen, tidlig]);
     render(<BonusTab />);
     const items = screen.getAllByRole('listitem');
@@ -135,7 +134,7 @@ describe('BonusTab', () => {
   });
 
   it('viser Sæt facit-knap for hvert spørgsmål', () => {
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     expect(screen.getByRole('button', { name: /Sæt facit/i })).toBeInTheDocument();
   });
@@ -143,31 +142,31 @@ describe('BonusTab', () => {
   // ─── Rediger facit ────────────────────────────────────────────────────────
 
   it('åbner redigeringsformular ved klik på Sæt facit', () => {
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
     expect(screen.getByPlaceholderText(/Facit/i)).toBeInTheDocument();
   });
 
-  it('viser fritekst-input for topscorer (ingen options)', () => {
-    setupQuestions([topScorerQuestion]);
+  it('viser fritekst-input for fri tekst (ingen options)', () => {
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
     expect(screen.getByPlaceholderText(/Facit/i)).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
-  it('viser dropdown for gruppevinder (med options)', () => {
-    setupQuestions([groupWinnerQuestion]);
+  it('viser dropdown for holdvalg (med options)', () => {
+    setupQuestions([teamChoiceQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
     expect(screen.getByRole('combobox')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'DNK' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'NOR' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'TVL' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'UAD' })).toBeInTheDocument();
   });
 
   it('viser fejl ved tomt facit', async () => {
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
     fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
@@ -178,22 +177,22 @@ describe('BonusTab', () => {
   });
 
   it('kalder saveBonusFacit med korrekte argumenter', async () => {
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Facit/i), { target: { value: 'Haaland' } });
+    fireEvent.change(screen.getByPlaceholderText(/Facit/i), { target: { value: 'Pogačar' } });
     fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
 
     await waitFor(() => {
-      expect(mockSaveBonusFacit).toHaveBeenCalledWith('q1', 'Haaland');
+      expect(mockSaveBonusFacit).toHaveBeenCalledWith('q1', 'Pogačar');
     });
   });
 
   it('viser Gemt!-besked efter succesfuldt gem', async () => {
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Facit/i), { target: { value: 'Haaland' } });
+    fireEvent.change(screen.getByPlaceholderText(/Facit/i), { target: { value: 'Pogačar' } });
     fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
 
     await waitFor(() => {
@@ -203,10 +202,10 @@ describe('BonusTab', () => {
 
   it('kalder IKKE saveBonusFacit når bekræftelse afvises', async () => {
     window.confirm = vi.fn(() => false);
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Facit/i), { target: { value: 'Haaland' } });
+    fireEvent.change(screen.getByPlaceholderText(/Facit/i), { target: { value: 'Pogačar' } });
     fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
 
     await waitFor(() => {
@@ -215,7 +214,7 @@ describe('BonusTab', () => {
   });
 
   it('lukker redigering via Annuller', () => {
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
     fireEvent.click(screen.getByRole('button', { name: /Annuller/i }));
@@ -223,7 +222,7 @@ describe('BonusTab', () => {
   });
 
   it('viser opret-formular til nye bonusspørgsmål', () => {
-    setupQuestions([topScorerQuestion]);
+    setupQuestions([textQuestion]);
     render(<BonusTab />);
     expect(screen.getByText(/Opret bonusspørgsmål/i)).toBeInTheDocument();
     expect(screen.getByTestId('bonus-new-save')).toBeInTheDocument();

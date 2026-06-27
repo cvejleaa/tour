@@ -21,11 +21,9 @@ export const LEAGUE_STATUS = {
 
 // Liga-format: bestemmer hvilke point der tæller i ligaens stilling
 export const LEAGUE_FORMAT = {
-  FULL: 'full',                 // alt tæller (standard)
-  BONUS_ONLY: 'bonusOnly',      // kun bonus-spørgsmål
-  KNOCKOUT_ONLY: 'knockoutOnly',// kun slutspil
-  GROUP_ONLY: 'groupOnly',      // kun grundspil
-  DOUBLE_KNOCKOUT: 'doubleKnockout', // alt, men slutspil tæller dobbelt
+  FULL: 'full',             // alt tæller (standard)
+  BONUS_ONLY: 'bonusOnly',  // kun bonus-spørgsmål
+  STAGE_ONLY: 'stageOnly',  // kun etape-point
 };
 
 // Typer af individuelle liga-bonusspørgsmål
@@ -50,7 +48,7 @@ export const COL = {
   LEAGUES: 'leagues',
   LEAGUE_COMMENTS: 'leagueComments', // beskeder på en ligas væg
   MESSAGES: 'messages', // private 1:1-beskeder mellem brugere
-  TIP_PARTICIPATION: 'tipParticipation', // hvem har tippet pr. kamp (uden at afsløre tips)
+  TIP_PARTICIPATION: 'tipParticipation', // hvem har tippet pr. etape (uden at afsløre tips)
   LEAGUE_ACTIVITY: 'leagueActivity', // aktivitets-feed pr. liga
   LEAGUE_BONUS: 'leagueBonus', // individuelle bonus-spørgsmål pr. liga
   LEAGUE_BONUS_ANSWERS: 'leagueBonusAnswers', // svar på liga-bonusspørgsmål

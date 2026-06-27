@@ -1,5 +1,5 @@
 // Indstillinger-fanen (kun ejer). Pt. ét valg: tidspunktet for det AI-genererede
-// morgenopslag (VM-Botten). Gemmes i config/settings og læses af Cloud Function'en
+// morgenopslag (Tour-Botten). Gemmes i config/settings og læses af Cloud Function'en
 // generateLeagueRecaps, så tidspunktet kan ændres uden gen-deploy.
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -80,7 +80,7 @@ export default function SettingsTab() {
         🤖 AI-morgenopslag
       </h2>
       <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
-        VM-Botten skriver hver morgen et kort opslag på væggen i hver liga med døgnets udvikling
+        Tour-Botten skriver hver morgen et kort opslag på væggen i hver liga med døgnets udvikling
         og en lille optakt. Vælg hvornår det udgives (dansk tid).
       </p>
 

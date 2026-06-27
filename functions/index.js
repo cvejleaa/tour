@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// functions/index.js — Firebase Cloud Functions v2 til VM 2026 tippekonkurrence.
+// functions/index.js — Firebase Cloud Functions v2 til Tour de France tippekonkurrence.
 // Region: europe-west1, Node 22.
 //
 // Funktioner:
@@ -41,7 +41,7 @@ const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N } = require('./tourScor
 const { buildStageUpdate } = require('./tourSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
-const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueMatchPoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
+const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
 
 // Initialiser Firebase Admin (singleton)
 initializeApp();
@@ -62,7 +62,7 @@ exports.recomputeBonus = onDocumentWritten(
     if (!after?.facit) return; // Facit ikke sat endnu
 
     // Stempl tidspunktet for afgørelsen første gang facit sættes — bruges af
-    // VM-Botten til at fortælle, at et bonusspørgsmål er blevet afgjort.
+    // Tour-Botten til at fortælle, at et bonusspørgsmål er blevet afgjort.
     // (Sættet udløser funktionen igen, men da facit/accepted er uændret,
     // returnerer den hurtigt nedenfor — ingen løkke.)
     if (!after.resolvedAt && event.data?.after?.ref) {
@@ -308,7 +308,7 @@ exports.seedTourRoute = onCall({ region: REGION }, async (request) => {
 // ---------------------------------------------------------------------------
 // backfillTipParticipation — callable (owner/global admin)
 // Engangs-/vedligeholdelsesfunktion: genopbygger tipParticipation ud fra ALLE
-// eksisterende bets, så tip-tælleren også dækker tips afgivet før
+// eksisterende stageBets, så tip-tælleren også dækker tips afgivet før
 // syncTipParticipation blev deployet.
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -380,24 +380,24 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
     throw new HttpsError('permission-denied', 'Kun owner/global admin kan køre backfill.');
   }
 
-  // Saml uids pr. matchId fra alle bets
-  const betsSnap = await db.collection('bets').get();
-  const byMatch = new Map();
+  // Saml uids pr. stageId fra alle stageBets
+  const betsSnap = await db.collection('stageBets').get();
+  const byStage = new Map();
   for (const d of betsSnap.docs) {
-    const { matchId, uid } = d.data();
-    if (!matchId || !uid) continue;
-    if (!byMatch.has(matchId)) byMatch.set(matchId, new Set());
-    byMatch.get(matchId).add(uid);
+    const { stageId, uid } = d.data();
+    if (!stageId || !uid) continue;
+    if (!byStage.has(stageId)) byStage.set(stageId, new Set());
+    byStage.get(stageId).add(uid);
   }
 
-  // Skriv tipParticipation-dokumenter i batches
+  // Skriv tipParticipation-dokumenter i batches (doc-id = stageId)
   const BATCH_SIZE = 400;
   let batch = db.batch();
   let ops = 0;
   const batches = [batch];
-  for (const [matchId, uidSet] of byMatch.entries()) {
-    const ref = db.collection('tipParticipation').doc(matchId);
-    batch.set(ref, { matchId, uids: [...uidSet] }, { merge: true });
+  for (const [stageId, uidSet] of byStage.entries()) {
+    const ref = db.collection('tipParticipation').doc(stageId);
+    batch.set(ref, { stageId, uids: [...uidSet] }, { merge: true });
     ops++;
     if (ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; }
   }
@@ -405,41 +405,41 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
 
   return {
     success: true,
-    matches: byMatch.size,
+    stages: byStage.size,
     bets: betsSnap.size,
-    message: `Backfill færdig: ${byMatch.size} kampe opdateret ud fra ${betsSnap.size} tips.`,
+    message: `Backfill færdig: ${byStage.size} etaper opdateret ud fra ${betsSnap.size} tips.`,
   };
 });
 
 // ---------------------------------------------------------------------------
-// syncTipParticipation — vedligeholder tipParticipation/{matchId} = { uids: [...] }
-// Holder styr på HVEM der har tippet på en kamp (men ikke hvad de tippede),
+// syncTipParticipation — vedligeholder tipParticipation/{stageId} = { uids: [...] }
+// Holder styr på HVEM der har tippet på en etape (men ikke hvad de tippede),
 // så ligaer kan vise "X af N har tippet" og hvem der mangler — uden at afsløre
 // nogen forudsigelser før kickoff.
 // ---------------------------------------------------------------------------
 exports.syncTipParticipation = onDocumentWritten(
-  { document: 'bets/{betId}', region: REGION },
+  { document: 'stageBets/{betId}', region: REGION },
   async (event) => {
     const db = getFirestore();
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
 
-    const matchId = after?.matchId ?? before?.matchId;
+    const stageId = after?.stageId ?? before?.stageId;
     const uid = after?.uid ?? before?.uid;
-    if (!matchId || !uid) return;
+    if (!stageId || !uid) return;
 
-    const ref = db.collection('tipParticipation').doc(matchId);
+    const ref = db.collection('tipParticipation').doc(stageId);
 
     if (after) {
-      // Bet oprettet eller opdateret → uid har tippet på kampen
+      // StageBet oprettet eller opdateret → uid har tippet på etapen
       await ref.set(
-        { matchId, uids: FieldValue.arrayUnion(uid) },
+        { stageId, uids: FieldValue.arrayUnion(uid) },
         { merge: true },
       );
     } else {
-      // Bet slettet → fjern uid (sker normalt ikke fra klienten)
+      // StageBet slettet → fjern uid (sker normalt ikke fra klienten)
       await ref.set(
-        { matchId, uids: FieldValue.arrayRemove(uid) },
+        { stageId, uids: FieldValue.arrayRemove(uid) },
         { merge: true },
       );
     }
@@ -478,8 +478,8 @@ exports.snapshotRanks = onSchedule(
 
 // ---------------------------------------------------------------------------
 // tipReminders — scheduled: sender e-mail til spillere der mangler at tippe
-// på kampe der spilles i dag (CPH). Bruger Resend-API'et via fetch.
-// Sender intet hvis RESEND_API_KEY ikke er sat (graceful no-op).
+// på etaper der køres i dag (CPH). Sender via vores egen SMTP.
+// Sender intet hvis SMTP_PASSWORD ikke er sat (graceful no-op).
 // ---------------------------------------------------------------------------
 function cphDateStr(d) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -518,34 +518,34 @@ async function sendEmail(db, transporter, { to, subject, html, type }) {
   }
 }
 
-// Kerne-logik: send påmindelser om dagens utippede kampe. Returnerer antal sendte.
+// Kerne-logik: send påmindelser om dagens utippede etaper. Returnerer antal sendte.
 async function runTipReminders(db, transporter) {
   if (!transporter) { console.log('tipReminders: ingen SMTP_PASSWORD — springer over.'); return { sent: 0, reason: 'no-smtp-password' }; }
 
   const now = new Date();
   // Rullende 24-timers vindue fra køretidspunktet: kører kl. 09:00, så det dækker
-  // kampe fra kl. 09:00 i dag til kl. 08:59 i morgen — uafhængigt af kalenderdag.
+  // etaper fra kl. 09:00 i dag til kl. 08:59 i morgen — uafhængigt af kalenderdag.
   const windowEnd = new Date(now.getTime() + 24 * 3600 * 1000);
 
-  // Kampe det næste døgn der stadig kan tippes (kendte hold, ikke kickoff endnu)
-  const matchesSnap = await db
-    .collection('matches')
+  // Etaper det næste døgn der stadig kan tippes (ikke kickoff/etapestart endnu)
+  const stagesSnap = await db
+    .collection('stages')
     .where('status', '==', 'scheduled')
     .get();
 
-  const upcomingMatches = matchesSnap.docs
+  const upcomingStages = stagesSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((m) => m.homeTeam && m.awayTeam && m.kickoff?.toDate
-      && m.kickoff.toDate() > now
-      && m.kickoff.toDate() < windowEnd);
+    .filter((s) => s.kickoff?.toDate
+      && s.kickoff.toDate() > now
+      && s.kickoff.toDate() < windowEnd);
 
-  if (upcomingMatches.length === 0) { console.log('tipReminders: ingen kampe det næste døgn.'); return { sent: 0, reason: 'no-matches' }; }
+  if (upcomingStages.length === 0) { console.log('tipReminders: ingen etaper det næste døgn.'); return { sent: 0, reason: 'no-stages' }; }
 
-  // Hvem har tippet hver kamp (fra tipParticipation)
-  const tippedByMatch = {};
-  await Promise.all(upcomingMatches.map(async (m) => {
-    const p = await db.collection('tipParticipation').doc(m.id).get();
-    tippedByMatch[m.id] = new Set(p.exists ? (p.data().uids ?? []) : []);
+  // Hvem har tippet hver etape (fra tipParticipation)
+  const tippedByStage = {};
+  await Promise.all(upcomingStages.map(async (s) => {
+    const p = await db.collection('tipParticipation').doc(s.id).get();
+    tippedByStage[s.id] = new Set(p.exists ? (p.data().uids ?? []) : []);
   }));
 
   const usersSnap = await db
@@ -558,23 +558,23 @@ async function runTipReminders(db, transporter) {
     const u = userDoc.data();
     if (u.emailOptOut || !u.email) continue;
 
-    const missing = upcomingMatches.filter((m) => !tippedByMatch[m.id].has(userDoc.id));
+    const missing = upcomingStages.filter((s) => !tippedByStage[s.id].has(userDoc.id));
     if (missing.length === 0) continue;
 
     const list = missing
-      .map((m) => `<li>${m.homeTeam} – ${m.awayTeam}</li>`)
+      .map((s) => `<li>${s.number ? `Etape ${s.number}` : 'Etape'}${s.name ? ` – ${s.name}` : ''}</li>`)
       .join('');
     const html = `
       <p>Hej ${u.displayName || 'spiller'} 👋</p>
-      <p>Du mangler at tippe på <strong>${missing.length}</strong> kamp${missing.length === 1 ? '' : 'e'} det næste døgn:</p>
+      <p>Du mangler at tippe på <strong>${missing.length}</strong> etape${missing.length === 1 ? '' : 'r'} det næste døgn:</p>
       <ul>${list}</ul>
-      <p><a href="${APP_URL}">Afgiv dine tips på tour.vejleaa.dk</a> inden kampstart.</p>
+      <p><a href="${APP_URL}">Afgiv dine tips på tour.vejleaa.dk</a> inden etapestart.</p>
       <p style="color:#888;font-size:12px">Du kan slå disse påmindelser fra på din profilside.</p>`;
 
     try {
       await sendEmail(db, transporter, {
         to: u.email,
-        subject: `⚽ Du mangler at tippe på ${missing.length} kamp${missing.length === 1 ? '' : 'e'} det næste døgn`,
+        subject: `Du mangler at tippe på ${missing.length} etape${missing.length === 1 ? '' : 'r'} det næste døgn`,
         html,
         type: 'reminder',
       });
@@ -584,7 +584,7 @@ async function runTipReminders(db, transporter) {
     }
   }
   console.log(`tipReminders: sendte ${sent} påmindelser.`);
-  return { sent, candidates: upcomingMatches.length };
+  return { sent, candidates: upcomingStages.length };
 }
 
 exports.tipReminders = onSchedule(
@@ -610,8 +610,8 @@ exports.sendTipRemindersNow = onCall(
   }
 );
 
-// Callable: send en testmail KUN til admin selv, med alle kampe for de
-// første 3 spilledage (uanset om de er tippet).
+// Callable: send en testmail KUN til admin selv, med alle etaper for de
+// første 3 etapedage (uanset om de er tippet).
 exports.sendTestReminderToMe = onCall(
   { region: REGION, secrets: [SMTP_PASSWORD] },
   async (request) => {
@@ -627,39 +627,39 @@ exports.sendTestReminderToMe = onCall(
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
 
-    // Alle kampe med kendte hold, sorteret efter kickoff
-    const snap = await db.collection('matches').get();
+    // Alle etaper med kendt kickoff, sorteret efter kickoff
+    const snap = await db.collection('stages').get();
     const playable = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((m) => m.homeTeam && m.awayTeam && m.kickoff?.toDate)
+      .filter((s) => s.kickoff?.toDate)
       .sort((a, b) => a.kickoff.toDate() - b.kickoff.toDate());
 
-    // Saml de første 3 spilledage (distinkte CPH-datoer)
+    // Saml de første 3 etapedage (distinkte CPH-datoer)
     const days = [];
     const byDay = new Map();
-    for (const m of playable) {
-      const day = cphDateStr(m.kickoff.toDate());
+    for (const s of playable) {
+      const day = cphDateStr(s.kickoff.toDate());
       if (!byDay.has(day)) {
         if (days.length >= 3) break; // sorteret → alle tidligere dage er med
         days.push(day);
         byDay.set(day, []);
       }
-      byDay.get(day).push(m);
+      byDay.get(day).push(s);
     }
 
-    if (days.length === 0) throw new HttpsError('failed-precondition', 'Ingen kampe med kendte hold fundet.');
+    if (days.length === 0) throw new HttpsError('failed-precondition', 'Ingen etaper med kendt etapestart fundet.');
 
     const dayLabel = (d) => new Intl.DateTimeFormat('da-DK', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' }).format(d);
     const timeLabel = (d) => new Intl.DateTimeFormat('da-DK', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(d);
 
     let total = 0;
-    let html = `<p>Hej ${u.displayName || 'spiller'} 👋</p><p>Testmail — kampene for de første 3 spilledage:</p>`;
+    let html = `<p>Hej ${u.displayName || 'spiller'} 👋</p><p>Testmail — etaperne for de første 3 etapedage:</p>`;
     for (const day of days) {
-      const ms = byDay.get(day);
-      total += ms.length;
-      html += `<h3 style="margin:14px 0 4px">${dayLabel(ms[0].kickoff.toDate())}</h3><ul style="margin:0">`;
-      for (const m of ms) {
-        html += `<li>${timeLabel(m.kickoff.toDate())} — ${m.homeTeam} – ${m.awayTeam}</li>`;
+      const ss = byDay.get(day);
+      total += ss.length;
+      html += `<h3 style="margin:14px 0 4px">${dayLabel(ss[0].kickoff.toDate())}</h3><ul style="margin:0">`;
+      for (const s of ss) {
+        html += `<li>${timeLabel(s.kickoff.toDate())} — ${s.number ? `Etape ${s.number}` : 'Etape'}${s.name ? ` – ${s.name}` : ''}</li>`;
       }
       html += '</ul>';
     }
@@ -668,21 +668,17 @@ exports.sendTestReminderToMe = onCall(
 
     await sendEmail(db, transporter, {
       to: u.email,
-      subject: '🧪 Testmail: kampe for de første 3 spilledage',
+      subject: '🧪 Testmail: etaper for de første 3 etapedage',
       html,
       type: 'test-reminder',
     });
 
-    return { success: true, sentTo: u.email, days: days.length, matches: total };
+    return { success: true, sentTo: u.email, days: days.length, stages: total };
   }
 );
 
 // ---------------------------------------------------------------------------
-// Auto-resultater fra football-data.org
-//   syncResults    — onSchedule (hvert minut): henter live/afsluttede resultater
-//   syncResultsNow — callable (admin): kør synk manuelt (evt. dry-run)
-//   syncFixtures   — callable (admin): map vores kampe → football-data-id'er
-//
+// Fælles admin-guard for callable-funktioner.
 // ---------------------------------------------------------------------------
 
 async function requireAdmin(db, request) {
@@ -695,7 +691,7 @@ async function requireAdmin(db, request) {
 }
 
 // ---------------------------------------------------------------------------
-// AI-morgenopslag (VM-Botten) — genererer hver morgen kl. 07:00 et kort dansk
+// AI-morgenopslag (Tour-Botten) — genererer hver morgen kl. 07:00 et kort dansk
 // vægopslag pr. liga om seneste døgns udvikling. Bruger Claude (Opus 4.8).
 // ---------------------------------------------------------------------------
 
@@ -707,60 +703,59 @@ function tsToMs(ts) {
   return Number.isNaN(t) ? null : t;
 }
 
-// Saml fakta ÉN gang (deles af alle ligaer): afsluttede kampe (med runde +
-// kickoff) i et bredt vindue, rå tip-point pr. kamp/spiller, og kommende kampe.
-// Selve "siden sidste opslag"-afgrænsningen + ligaens scoring påføres pr. liga.
+// Saml fakta ÉN gang (deles af alle ligaer): afgjorte etaper (med nummer +
+// vinderhold + kickoff) i et bredt vindue, rå tip-point pr. etape/spiller, og
+// kommende etaper. "Siden sidste opslag"-afgrænsningen + ligaens scoring
+// påføres pr. liga.
 async function gatherRecapData(db, now) {
   const startMs = now.getTime() - 72 * 3600 * 1000; // bredt nok til 'siden sidste opslag'
-  const finSnap = await db.collection('matches')
+  const finSnap = await db.collection('stages')
     .where('kickoff', '>=', Timestamp.fromMillis(startMs))
     .where('kickoff', '<=', Timestamp.fromMillis(now.getTime()))
     .get();
   const finished = finSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((m) => m.status === 'finished' && m.result)
-    .map((m) => ({
-      id: m.id,
-      round: m.round || 'group',
-      home: m.homeTeam,
-      away: m.awayTeam,
-      score: `${m.result.home}-${m.result.away}`,
-      kickoffMs: tsToMs(m.kickoff) ?? 0,
+    .filter((s) => s.result && (s.hasResults || s.result.winnerTeam))
+    .map((s) => ({
+      id: s.id,
+      number: Number(s.number) || null,
+      winnerTeam: s.result.winnerTeam || null,
+      kickoffMs: tsToMs(s.kickoff) ?? 0,
     }));
 
-  // Rå tip-point pr. kamp pr. spiller (uden ligaens scoring-regler endnu).
-  const pointsByMatchUid = {};
-  for (const m of finished) {
-    const bets = await db.collection('bets').where('matchId', '==', m.id).get();
+  // Rå tip-point pr. etape pr. spiller (uden ligaens scoring-regler endnu).
+  const pointsByStageUid = {};
+  for (const s of finished) {
+    const bets = await db.collection('stageBets').where('stageId', '==', s.id).get();
     const map = {};
     for (const b of bets.docs) {
       const x = b.data();
       map[x.uid] = Number(x.points || 0);
     }
-    pointsByMatchUid[m.id] = map;
+    pointsByStageUid[s.id] = map;
   }
 
-  const upSnap = await db.collection('matches')
+  const upSnap = await db.collection('stages')
     .where('kickoff', '>=', Timestamp.fromMillis(now.getTime()))
     .where('kickoff', '<=', Timestamp.fromMillis(now.getTime() + 24 * 3600 * 1000))
     .get();
   const upcoming = upSnap.docs
     .map((d) => d.data())
-    .filter((m) => m.homeTeam && m.awayTeam)
-    .map((m) => ({
-      home: m.homeTeam, away: m.awayTeam,
-      time: m.kickoff.toDate().toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', timeZone: TZ }),
+    .filter((s) => s.kickoff?.toDate)
+    .map((s) => ({
+      number: Number(s.number) || null, type: s.type || null,
+      time: s.kickoff.toDate().toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', timeZone: TZ }),
     }));
 
-  // Officielle bonusspørgsmål (topscorer/gruppevinder) afgjort i vinduet, så
-  // VM-Botten kan nævne dem og lade nattens point afspejle dem.
+  // Officielle bonusspørgsmål (generisk: label + facit) afgjort i vinduet, så
+  // Tour-Botten kan nævne dem og lade nattens point afspejle dem.
   const bqSnap = await db.collection('bonusQuestions').get();
   const resolvedBonus = [];
   for (const d of bqSnap.docs) {
     const q = d.data();
     const resolvedMs = tsToMs(q.resolvedAt);
     if (!q.facit || resolvedMs == null || resolvedMs < startMs) continue;
-    resolvedBonus.push({ id: d.id, type: q.type || null, label: q.label || '', facit: q.facit, resolvedMs });
+    resolvedBonus.push({ id: d.id, label: q.text || q.label || '', facit: q.facit, resolvedMs });
   }
   // Point pr. spiller for hvert afgjort spørgsmål (til at fordele nattens bonus).
   const bonusPtsByQ = {};
@@ -774,22 +769,22 @@ async function gatherRecapData(db, now) {
     bonusPtsByQ[q.id] = map;
   }
 
-  return { finished, pointsByMatchUid, upcoming, resolvedBonus, bonusPtsByQ };
+  return { finished, pointsByStageUid, upcoming, resolvedBonus, bonusPtsByQ };
 }
 
 /**
- * Afgræns til kampe siden ligaens sidste opslag og påfør ligaens scoring, så
+ * Afgræns til etaper siden ligaens sidste opslag og påfør ligaens scoring, så
  * "dayPoints" hviler på samme grundlag som totalen (leagueTotal).
  */
-function recapWindowForLeague({ league, finished, pointsByMatchUid, resolvedBonus = [], bonusPtsByQ = {}, now }) {
+function recapWindowForLeague({ league, finished, pointsByStageUid, resolvedBonus = [], bonusPtsByQ = {}, now }) {
   const lastMs = tsToMs(league.lastRecapAt) ?? (now.getTime() - 26 * 3600 * 1000);
-  const windowMatches = finished.filter((m) => m.kickoffMs > lastMs);
+  const windowStages = finished.filter((s) => s.kickoffMs > lastMs);
   const memberUids = league.memberUids || [];
   const dayPointsByUid = {};
-  for (const m of windowMatches) {
-    const map = pointsByMatchUid[m.id] || {};
+  for (const s of windowStages) {
+    const map = pointsByStageUid[s.id] || {};
     for (const uid of memberUids) {
-      const pts = leagueMatchPoints(map[uid], m.round, league.scoring);
+      const pts = leagueStagePoints(map[uid], league.scoring);
       if (pts) dayPointsByUid[uid] = (dayPointsByUid[uid] || 0) + pts;
     }
   }
@@ -805,9 +800,9 @@ function recapWindowForLeague({ league, finished, pointsByMatchUid, resolvedBonu
     }
   }
 
-  const matches = windowMatches.map((m) => ({ home: m.home, away: m.away, score: m.score }));
-  const bonusResolved = windowBonus.map((q) => ({ type: q.type, label: q.label, facit: q.facit }));
-  return { dayPointsByUid, matches, bonusResolved };
+  const stages = windowStages.map((s) => ({ number: s.number, winnerTeam: s.winnerTeam }));
+  const bonusResolved = windowBonus.map((q) => ({ label: q.label, facit: q.facit }));
+  return { dayPointsByUid, stages, bonusResolved };
 }
 
 function recapAlreadyToday(ts, now) {
@@ -845,7 +840,7 @@ async function generateRecapText(anthropic, facts) {
 
 async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = false, onlyLeagueId = null } = {}) {
   const anthropic = new Anthropic({ apiKey });
-  const { finished, pointsByMatchUid, upcoming, resolvedBonus, bonusPtsByQ } = await gatherRecapData(db, now);
+  const { finished, pointsByStageUid, upcoming, resolvedBonus, bonusPtsByQ } = await gatherRecapData(db, now);
 
   const usersSnap = await db.collection('users').get();
   const usersById = new Map(usersSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]));
@@ -860,11 +855,11 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
     if (members.length < 2) continue;
     if (!dryRun && recapAlreadyToday(league.lastRecapAt, now)) continue;
 
-    // Kun kampe/point siden ligaens sidste opslag, med ligaens scoring påført.
-    const { dayPointsByUid, matches, bonusResolved } = recapWindowForLeague({
-      league, finished, pointsByMatchUid, resolvedBonus, bonusPtsByQ, now,
+    // Kun etaper/point siden ligaens sidste opslag, med ligaens scoring påført.
+    const { dayPointsByUid, stages, bonusResolved } = recapWindowForLeague({
+      league, finished, pointsByStageUid, resolvedBonus, bonusPtsByQ, now,
     });
-    const facts = buildRecapFacts({ league, members, dayPointsByUid, matches, bonusResolved, upcoming, now });
+    const facts = buildRecapFacts({ league, members, dayPointsByUid, stages, bonusResolved, upcoming, now });
     let text;
     try {
       text = await generateRecapText(anthropic, facts);
@@ -877,7 +872,7 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
 
     if (!dryRun) {
       await db.collection('leagueComments').add({
-        leagueId: league.id, uid: 'ai-bot', displayName: 'VM-Botten', avatarEmoji: '🤖',
+        leagueId: league.id, uid: 'ai-bot', displayName: 'Tour-Botten', avatarEmoji: '🤖',
         favoriteTeam: null, text, system: true, createdAt: FieldValue.serverTimestamp(),
       });
       await db.collection('leagues').doc(league.id).set(
@@ -912,11 +907,17 @@ exports.generateLeagueRecaps = onSchedule(
     // Uden for det valgte tidsvindue: gør intet.
     if (!recapWindowOpen(cphHourMinute(now), recapTime, 60)) return;
 
-    // Vent hvis en kamp er i gang: live-kampe får foreløbige point, som ville
-    // forurene stillingen i opslaget. Prøver igen ved næste tick (inden for vinduet).
-    const liveSnap = await db.collection('matches').where('status', '==', 'live').limit(1).get();
-    if (!liveSnap.empty) {
-      console.log('generateLeagueRecaps: kamp i gang — udskyder opslaget.');
+    // Vent hvis en etape fra i går endnu mangler sit resultat: uafsluttede
+    // etaper ville give en ufuldstændig stilling i opslaget. Prøver igen ved
+    // næste tick (inden for vinduet).
+    const dayAgo = Timestamp.fromMillis(now.getTime() - 24 * 3600 * 1000);
+    const recentSnap = await db.collection('stages')
+      .where('kickoff', '>=', dayAgo)
+      .where('kickoff', '<=', Timestamp.fromMillis(now.getTime()))
+      .get();
+    const pendingStage = recentSnap.docs.some((d) => d.data().status !== 'done');
+    if (pendingStage) {
+      console.log('generateLeagueRecaps: etaperesultat afventer — udskyder opslaget.');
       return;
     }
 
@@ -955,33 +956,35 @@ exports.generateLeagueRecapNow = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// Engangs: genskriv ALLE VM-Bottens gamle opslag med den korrekte logik, ud fra
-// stillingen som den var DA opslaget blev lavet. Kun teksten ændres — createdAt
-// (tidspunktet) røres aldrig. Totaler rekonstrueres fra kampresultater (bonus
-// medregnes ikke; forsvindende i gruppespillet).
-async function gatherAllMatchesAndPoints(db) {
-  const snap = await db.collection('matches').get();
+// Engangs: genskriv ALLE Tour-Bottens gamle opslag med den korrekte logik, ud
+// fra stillingen som den var DA opslaget blev lavet. Kun teksten ændres —
+// createdAt (tidspunktet) røres aldrig. Totaler rekonstrueres fra etape-
+// resultater (bonus medregnes ikke; forsvindende undervejs i løbet).
+async function gatherAllStagesAndPoints(db) {
+  const snap = await db.collection('stages').get();
   const all = snap.docs.map((d) => {
-    const m = d.data();
+    const s = d.data();
     return {
-      id: d.id, round: m.round || 'group', home: m.homeTeam, away: m.awayTeam,
-      status: m.status, result: m.result || null, kickoffMs: tsToMs(m.kickoff) ?? 0,
+      id: d.id, number: Number(s.number) || null,
+      type: s.type || null, status: s.status,
+      result: s.result || null, hasResults: !!s.hasResults,
+      kickoffMs: tsToMs(s.kickoff) ?? 0,
     };
   });
   const finished = all
-    .filter((m) => m.status === 'finished' && m.result)
-    .map((m) => ({
-      id: m.id, round: m.round, home: m.home, away: m.away,
-      score: `${m.result.home}-${m.result.away}`, kickoffMs: m.kickoffMs,
+    .filter((s) => s.result && (s.hasResults || s.result.winnerTeam))
+    .map((s) => ({
+      id: s.id, number: s.number,
+      winnerTeam: s.result.winnerTeam || null, kickoffMs: s.kickoffMs,
     }));
-  const pointsByMatchUid = {};
-  for (const m of finished) {
-    const bets = await db.collection('bets').where('matchId', '==', m.id).get();
+  const pointsByStageUid = {};
+  for (const s of finished) {
+    const bets = await db.collection('stageBets').where('stageId', '==', s.id).get();
     const map = {};
     for (const b of bets.docs) { const x = b.data(); map[x.uid] = Number(x.points || 0); }
-    pointsByMatchUid[m.id] = map;
+    pointsByStageUid[s.id] = map;
   }
-  return { all, finished, pointsByMatchUid };
+  return { all, finished, pointsByStageUid };
 }
 
 // Genskriv bottens opslag i SMÅ BIDDER, så det ikke timer ud, kan genoptages,
@@ -1021,7 +1024,7 @@ async function runRegenerateRecaps(db, apiKey, { apply = false, reset = false, l
   }
 
   const anthropic = new Anthropic({ apiKey });
-  const { all, finished, pointsByMatchUid } = await gatherAllMatchesAndPoints(db);
+  const { all, finished, pointsByStageUid } = await gatherAllStagesAndPoints(db);
 
   const previews = [];
   let updated = 0;
@@ -1038,18 +1041,18 @@ async function runRegenerateRecaps(db, apiKey, { apply = false, reset = false, l
 
       const T = p.createdAtMs;
       const prevMs = i > 0 ? posts[i - 1].createdAtMs : (T - 26 * 3600 * 1000);
-      const windowMatches = finished.filter((m) => m.kickoffMs > prevMs && m.kickoffMs <= T);
-      const members = historicalMembers(memberDocs, finished, pointsByMatchUid, T);
-      const dayPointsByUid = windowDayPoints(memberIds, windowMatches, pointsByMatchUid, league.scoring);
-      const matches = windowMatches.map((m) => ({ home: m.home, away: m.away, score: m.score }));
+      const windowStages = finished.filter((s) => s.kickoffMs > prevMs && s.kickoffMs <= T);
+      const members = historicalMembers(memberDocs, finished, pointsByStageUid, T);
+      const dayPointsByUid = windowDayPoints(memberIds, windowStages, pointsByStageUid, league.scoring);
+      const stages = windowStages.map((s) => ({ number: s.number, winnerTeam: s.winnerTeam }));
       const upcoming = all
-        .filter((m) => m.home && m.away && m.kickoffMs > T && m.kickoffMs <= T + 24 * 3600 * 1000)
+        .filter((s) => s.kickoffMs > T && s.kickoffMs <= T + 24 * 3600 * 1000)
         .sort((a, b) => a.kickoffMs - b.kickoffMs)
-        .map((m) => ({
-          home: m.home, away: m.away,
-          time: new Date(m.kickoffMs).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', timeZone: TZ }),
+        .map((s) => ({
+          number: s.number, type: s.type,
+          time: new Date(s.kickoffMs).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', timeZone: TZ }),
         }));
-      const facts = buildRecapFacts({ league, members, dayPointsByUid, matches, upcoming, now: new Date(T) });
+      const facts = buildRecapFacts({ league, members, dayPointsByUid, stages, upcoming, now: new Date(T) });
 
       let newText;
       try {
@@ -1101,7 +1104,7 @@ exports.regenerateRecaps = onCall(
 
 // ---------------------------------------------------------------------------
 // adminSendPasswordReset — KUN ejeren: generér et nulstillingslink server-side
-// og send det via vores egen SMTP (vm@vejleaa.dk). Bruges når Firebase' egen
+// og send det via vores egen SMTP (tour@vejleaa.dk). Bruges når Firebase' egen
 // reset-mail ikke når frem (fx udbyder der blokerer firebaseapp.com).
 // Returnerer også selve linket, så ejeren kan sende det manuelt om nødvendigt.
 // ---------------------------------------------------------------------------
@@ -1138,13 +1141,13 @@ exports.adminSendPasswordReset = onCall(
       const html = `
         <p>Hej ${name},</p>
         <p>Du (eller en administrator) har bedt om at nulstille din adgangskode til
-        <strong>VM 2026 Tip</strong>. Klik på linket nedenfor for at vælge en ny:</p>
+        <strong>Tour de France Tip</strong>. Klik på linket nedenfor for at vælge en ny:</p>
         <p><a href="${link}">Nulstil min adgangskode</a></p>
         <p>Hvis knappen ikke virker, kopiér dette link ind i din browser:<br>
         <span style="word-break:break-all">${link}</span></p>
         <p>Bagefter kan du logge ind på <a href="${APP_URL}">${APP_URL}</a>.</p>
-        <p>Mvh. VM 2026 Tip</p>`;
-      await sendEmail(db, transporter, { to: email, subject: 'Nulstil din adgangskode – VM 2026 Tip', html, type: 'password-reset' });
+        <p>Mvh. Tour de France Tip</p>`;
+      await sendEmail(db, transporter, { to: email, subject: 'Nulstil din adgangskode – Tour de France Tip', html, type: 'password-reset' });
       sent = true;
     }
 

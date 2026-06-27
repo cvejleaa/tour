@@ -7,7 +7,7 @@ import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 /** Hurtig-reaktioner der tilbydes i UI'et. */
-export const QUICK_REACTIONS = ['👍', '😂', '🔥', '⚽', '😮', '❤️'];
+export const QUICK_REACTIONS = ['👍', '😂', '🔥', '🚴', '😮', '❤️'];
 
 /**
  * Slå en reaktion til/fra for den aktuelle bruger.
