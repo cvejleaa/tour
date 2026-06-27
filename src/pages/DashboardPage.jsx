@@ -1,19 +1,22 @@
 /**
  * DashboardPage — brugerens forside ("/"). Samler overblik og handlinger:
- * personlig velkomst, "Mine opgaver", næste kamp, og placering. Selve
- * kamplisten bor nu på sin egen side (/kampe).
+ * personlig velkomst, "Mine opgaver", næste etape at tippe, seneste resultater
+ * og placering. Selve etapelisten bor på sin egen side (/etaper).
  */
 import { useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useStandings } from '../features/leaderboard/useStandings';
 import { collectVisibleUids } from '../features/leaderboard/standingsUtils';
 import { useLeagues } from '../features/leagues/useLeagues';
-import { useMatches } from '../features/matches/useMatches';
-import { useMyBets } from '../features/matches/useMyBets';
+import { useStages } from '../features/stages/useStages';
+import { useTeams } from '../features/stages/useTeams';
+import { useMyStageBets } from '../features/stages/useMyStageBets';
+import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { stageStatus } from '../lib/tourStages';
+import { placeholderRoute2026 } from '../data/route2026';
 import Hero from '../components/Hero';
-import DashboardHub from '../features/matches/DashboardHub';
-import DayMatchesCard from '../features/matches/DayMatchesCard';
+import StageCard from '../features/stages/StageCard';
 import MyStatsCard from '../features/dashboard/MyStatsCard';
 import MiniStandings from '../features/dashboard/MiniStandings';
 import RecentResultsCard from '../features/dashboard/RecentResultsCard';
@@ -22,13 +25,25 @@ import OnboardingChecklist from '../features/onboarding/OnboardingChecklist';
 
 export default function DashboardPage() {
   const { user, profile } = useAuth();
-  const navigate = useNavigate();
   const { standings } = useStandings();
   const { leagues, loading: leaguesLoading } = useLeagues(user?.uid);
-  const { matches, loading: matchesLoading, error } = useMatches();
-  const { bets } = useMyBets(user?.uid ?? null);
+  const season = useActiveSeason();
+  const { stages: dbStages, loading: stagesLoading } = useStages(season);
+  const { teams } = useTeams(season);
+  const { betsByStage } = useMyStageBets(user?.uid ?? null, season);
 
   const name = profile?.displayName || 'spiller';
+
+  // Brug rigtige etaper hvis de findes, ellers placeholder-ruten for sæsonen.
+  const stages = dbStages.length ? dbStages : placeholderRoute2026(season);
+
+  // Næste etape at tippe: første åbne etape uden komplet hold-tip (ellers første åbne).
+  const nextStage = useMemo(() => {
+    const open = stages
+      .filter((s) => stageStatus(s, Date.now()) === 'scheduled')
+      .sort((a, b) => a.number - b.number);
+    return open.find((s) => !betsByStage[s.id]?.winnerTeam) || open[0] || null;
+  }, [stages, betsByStage]);
 
   // Forsidens stilling viser kun de spillere, man deler en liga med (plus én selv) —
   // samme afgrænsning som Stilling-siden bruger som standard.
@@ -58,7 +73,7 @@ export default function DashboardPage() {
     <div className="container">
       <Hero
         title={`Hej, ${name}`}
-        subtitle="Her er dit overblik – hvad mangler du at svare på, og hvornår er næste kamp?"
+        subtitle="Her er dit overblik – hvad mangler du at svare på, og hvornår er næste etape?"
         chips={chips}
       />
 
@@ -66,28 +81,31 @@ export default function DashboardPage() {
 
       <TodoCard />
 
-      {!matchesLoading && !error && (
-        <DashboardHub
-          matches={matches}
-          bets={bets}
-          onJumpToUntipped={() => navigate('/kampe?filter=utippede')}
-        />
+      {/* Næste etape at tippe */}
+      {!stagesLoading && nextStage && (
+        <div style={{ marginBottom: '1rem' }}>
+          <h2 className="card__title" style={{ margin: '0 0 0.5rem' }}>🚴 Næste etape</h2>
+          <StageCard
+            stage={nextStage}
+            uid={user?.uid}
+            bet={betsByStage[nextStage.id] || null}
+            teams={teams}
+          />
+        </div>
       )}
-
-      {!matchesLoading && !error && <DayMatchesCard matches={matches} />}
 
       {!leaguesLoading && <MiniStandings standings={visibleStandings} uid={user?.uid} />}
 
-      {!matchesLoading && !error && (
+      {!stagesLoading && (
         <div className="dashboard-stats-grid" style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-          <MyStatsCard matches={matches} bets={bets} />
-          <RecentResultsCard matches={matches} bets={bets} />
+          <MyStatsCard stages={stages} bets={betsByStage} />
+          <RecentResultsCard stages={stages} bets={betsByStage} />
         </div>
       )}
 
       {/* Genveje */}
       <div className="card" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <Link className="btn" to="/kampe">⚽ Til kampene</Link>
+        <Link className="btn" to="/etaper">🚴 Til etaperne</Link>
         <Link className="btn btn--ghost" to="/stilling">🏆 Stilling</Link>
         <Link className="btn btn--ghost" to="/ligaer">👥 Ligaer</Link>
         <Link className="btn btn--ghost" to="/hjaelp">❓ Sådan virker det</Link>

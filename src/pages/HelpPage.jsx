@@ -21,7 +21,7 @@ export default function HelpPage() {
       <h1 style={{ margin: '0 0 1rem', fontSize: '1.4rem' }}>❓ Sådan virker det</h1>
 
       <Section emoji="⚽" title="Tip kampene">
-        Gå til <Link to="/kampe">Kampe</Link> og gæt resultatet for hver kamp. Du kan rette
+        Gå til <Link to="/etaper">Etaper</Link> og gæt resultatet for hver kamp. Du kan rette
         dit tip helt indtil <strong>kickoff</strong> – derefter låses det. Find hurtigt de kampe,
         du mangler, under filteret <em>“Mine utippede”</em> eller via <Link to="/">forsidens</Link> “Mine opgaver”.
       </Section>

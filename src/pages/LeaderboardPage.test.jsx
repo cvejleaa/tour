@@ -36,29 +36,6 @@ vi.mock('../features/leagues/useLeagueBonus', () => ({
   useLeagueBonus: () => ({ questions: [], myAnswers: {}, pointsByUid: {}, answersByQid: {}, loading: false }),
 }));
 
-// Kampe + tip-deltagelse til gns.-kolonnen
-vi.mock('../features/matches/useMatches', () => ({
-  useMatches: () => ({
-    matches: [
-      { id: 'm1', status: 'finished' },
-      { id: 'm2', status: 'finished' },
-    ],
-    loading: false,
-    error: null,
-  }),
-}));
-
-vi.mock('../features/leagues/useTipParticipation', () => ({
-  useTipParticipation: () => ({
-    // Alice (uid-1) har tippet 2 kampe (50/2 = 25,0); Mig (me-uid) 1 kamp (30/1 = 30,0)
-    byMatch: new Map([
-      ['m1', new Set(['uid-1', 'me-uid'])],
-      ['m2', new Set(['uid-1'])],
-    ]),
-    loading: false,
-  }),
-}));
-
 vi.mock('../features/leagues/useLeagues', () => ({
   useLeagues: () => ({
     leagues: [
@@ -111,7 +88,7 @@ describe('LeaderboardPage', () => {
 
   it('skifter til "Dagens kampe"-fanen ved klik', () => {
     render(<LeaderboardPage />);
-    const dailyTab = screen.getByRole('tab', { name: /dagens kampe/i });
+    const dailyTab = screen.getByRole('tab', { name: /dagens etape/i });
     fireEvent.click(dailyTab);
     expect(dailyTab).toHaveAttribute('aria-selected', 'true');
   });
@@ -133,7 +110,7 @@ describe('LeaderboardPage', () => {
 
   it('viser daglige point i dagsfanen', () => {
     render(<LeaderboardPage />);
-    fireEvent.click(screen.getByRole('tab', { name: /dagens kampe/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /dagens etape/i }));
     // Alice har 8 point, Mig har 3 → 8 bør vises
     expect(screen.getByText('8')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
@@ -141,7 +118,7 @@ describe('LeaderboardPage', () => {
 
   it('viser dato-badge i dagsfanen', () => {
     render(<LeaderboardPage />);
-    fireEvent.click(screen.getByRole('tab', { name: /dagens kampe/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /dagens etape/i }));
     // todayStr = '2026-06-02' → formateret dato vises
     const datoBadge = screen.queryByText(/2026|juni|mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag/i);
     expect(datoBadge).toBeInTheDocument();
@@ -158,7 +135,7 @@ describe('LeaderboardPage', () => {
     render(<LeaderboardPage />);
     const select = screen.getByLabelText(/filtrer efter liga/i);
     fireEvent.change(select, { target: { value: 'league-1' } });
-    fireEvent.click(screen.getByRole('tab', { name: /dagens kampe/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /dagens etape/i }));
     // Alice og Mig er i ligaen → Charlie er ikke
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.queryByText('Charlie')).not.toBeInTheDocument();
@@ -174,32 +151,16 @@ describe('LeaderboardPage', () => {
     expect(screen.queryByText('Charlie')).not.toBeInTheDocument();
   });
 
-  it('viser gns.-kolonne med point pr. tippet kamp', () => {
+  it('viser spillernes samlede point i stillingen', () => {
     render(<LeaderboardPage />);
-    // Alice: 50 point / 2 tippede = 25,0 ; Mig: 30 / 1 = 30,0
-    expect(screen.getByText('25,0')).toBeInTheDocument();
-    expect(screen.getByText('30,0')).toBeInTheDocument();
-  });
-
-  it('viser point fra kampe og bonus + total i samlet stilling', () => {
-    render(<LeaderboardPage />);
-    expect(screen.getByRole('columnheader', { name: 'Kampe' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Bonus' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Total' })).toBeInTheDocument();
-    // Alice: 33 + 7 = 40 fra kampe, 10 bonus, 50 total
     const aliceRow = screen.getByText('Alice').closest('tr');
-    expect(aliceRow).toHaveTextContent('40');
     expect(aliceRow).toHaveTextContent('50');
   });
 
-  it('kan sortere efter gns. og total', () => {
+  it('viser kun de to faner (samlet + dagens etape)', () => {
     render(<LeaderboardPage />);
-    const totalBtn = screen.getByRole('button', { name: /^total$/i });
-    const avgBtn = screen.getByRole('button', { name: /^gns\.$/i });
-    expect(totalBtn).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(avgBtn);
-    expect(avgBtn).toHaveAttribute('aria-pressed', 'true');
-    expect(totalBtn).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.queryByRole('tab', { name: /skarpskytten/i })).not.toBeInTheDocument();
   });
 
   it('viser ThemeToggle-knap', () => {
@@ -211,7 +172,7 @@ describe('LeaderboardPage', () => {
 
   it('"Samlet stilling"-fanen er ikke selected i dagsfanen', () => {
     render(<LeaderboardPage />);
-    fireEvent.click(screen.getByRole('tab', { name: /dagens kampe/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /dagens etape/i }));
     expect(screen.getByRole('tab', { name: /samlet stilling/i })).toHaveAttribute(
       'aria-selected',
       'false',

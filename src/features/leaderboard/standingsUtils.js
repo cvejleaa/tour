@@ -4,7 +4,8 @@
  */
 
 import { TIMEZONE } from '../../lib/constants';
-import { scoreMatch, scoreKnockout } from '../../lib/scoring';
+import { stageStatus } from '../../lib/tourStages';
+import { scoreStageBet } from '../../lib/tourScoring';
 
 /**
  * Returnerer dags dato som 'YYYY-MM-DD' i Europe/Copenhagen-tidszonen.
@@ -60,19 +61,18 @@ export function sortByPoints(users) {
 }
 
 /**
- * Antal afsluttede kampe hver spiller har tippet — bruges til "gns. point pr.
- * tippet kamp". Bygger på tipParticipation (matchId → Set(uids)) krydset med de
- * afsluttede kampe, så kun kampe der har givet point tæller med.
+ * Antal afgjorte etaper hver spiller har tippet — bruges til "gns. point pr.
+ * tippet etape". Tæller etape-tip (mindst ét holdvalg) på afgjorte etaper.
  *
- * @param {Array<object>} matches             – alle kampe (skal have .id og .status)
- * @param {Map<string, Set<string>>} byMatch  – matchId → Set(uids) der har tippet
- * @returns {Record<string, number>}          – uid → antal tippede, afsluttede kampe
+ * @param {Array<object>} stages                – alle etaper (skal have .id + status/result)
+ * @param {Map<string, Set<string>>} byStage    – stageId → Set(uids) der har tippet
+ * @returns {Record<string, number>}            – uid → antal tippede, afgjorte etaper
  */
-export function tippedFinishedCounts(matches, byMatch) {
+export function tippedFinishedCounts(stages, byStage) {
   const counts = {};
-  for (const m of matches ?? []) {
-    if (!m || m.status !== 'finished') continue;
-    const set = byMatch?.get?.(m.id);
+  for (const s of stages ?? []) {
+    if (!s || stageStatus(s, Date.now()) !== 'done') continue;
+    const set = byStage?.get?.(s.id);
     if (!set) continue;
     for (const uid of set) counts[uid] = (counts[uid] ?? 0) + 1;
   }
@@ -80,47 +80,31 @@ export function tippedFinishedCounts(matches, byMatch) {
 }
 
 /**
- * Beregner point pr. spiller fra dagens afsluttede kampe.
- * Rent klient-baseret: matcher (finished + kickoff i dag) + bets.
+ * Beregner point pr. spiller fra dagens afgjorte etaper.
+ * Rent klient-baseret: etaper (afgjort + dato i dag) + etape-tip.
  *
- * @param {Array<object>} matches  – alle hentede kampe
- * @param {Array<object>} bets     – alle hentede bets (documentId = uid_matchId)
- * @param {string} todayStr        – 'YYYY-MM-DD'
- * @returns {Record<string, number>}  – uid → point (kun spillere med ≥1 bet)
+ * @param {Array<object>} stages  – alle hentede etaper
+ * @param {Array<object>} bets    – alle hentede etape-tip (har .stageId, .uid)
+ * @param {string} todayStr       – 'YYYY-MM-DD'
+ * @returns {Record<string, number>}  – uid → point (kun spillere med ≥1 tip)
  */
-export function computeDailyPoints(matches, bets, todayStr) {
-  // Find id'er på afsluttede kampe med kickoff i dag
-  const todayMatchIds = new Set(
-    matches
-      .filter((m) => {
-        if (m.status !== 'finished') return false;
-        const kickoff = m.kickoff?.toDate ? m.kickoff.toDate() : new Date(m.kickoff);
-        const dateStr = kickoff.toLocaleDateString('sv-SE', { timeZone: TIMEZONE });
-        return dateStr === todayStr;
-      })
-      .map((m) => m.id)
+export function computeDailyPoints(stages, bets, todayStr) {
+  // Find afgjorte etaper med dato i dag
+  const todayStages = (stages ?? []).filter(
+    (s) => stageStatus(s, Date.now()) === 'done' && s.date === todayStr && s.result,
   );
+  const resultById = new Map(todayStages.map((s) => [s.id, s.result]));
+  if (resultById.size === 0) return {};
 
-  if (todayMatchIds.size === 0) return {};
-
-  // Beregn point pr. uid
   const pointsByUid = {};
-
-  bets.forEach((bet) => {
-    if (!todayMatchIds.has(bet.matchId)) return;
-
-    // Find den tilhørende kamp for at få resultat
-    const match = matches.find((m) => m.id === bet.matchId);
-    if (!match?.result) return;
-
-    // Knockout-kampe scorer anderledes (advance)
-    const isKnockout = match.round && match.round !== 'group';
-    const pts = isKnockout
-      ? scoreKnockout(bet, match.result)
-      : scoreMatch(bet, match.result);
-
+  for (const bet of bets ?? []) {
+    const result = resultById.get(bet.stageId);
+    if (!result) continue;
+    // Brug serverberegnede point hvis de findes, ellers genberegn lokalt.
+    const pts = typeof bet.points === 'number'
+      ? bet.points
+      : scoreStageBet(bet, result).points;
     pointsByUid[bet.uid] = (pointsByUid[bet.uid] ?? 0) + pts;
-  });
-
+  }
   return pointsByUid;
 }

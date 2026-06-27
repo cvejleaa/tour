@@ -1,13 +1,12 @@
 // ---------------------------------------------------------------------------
 // BonusQuestion – ét bonusspørgsmål med svar-input, låst-tilstand og facit.
+// Generisk: fritekst-svar, eller valg af cykelhold hvis spørgsmålet har options.
 // ---------------------------------------------------------------------------
 import { useState, useEffect } from 'react';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { COL, BONUS_TYPE } from '../../lib/constants';
-import { POINTS } from '../../lib/scoring';
-import { teamName } from '../../lib/teams';
-import Flag from '../../components/Flag';
+import { COL } from '../../lib/constants';
+import { prettyTeam } from '../../data/tourTeams2026';
 import { isBonusLocked, formatDeadline } from './bonusHelpers';
 import BonusAnswers from './BonusAnswers';
 
@@ -59,12 +58,13 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
     }
   }
 
-  // Udled hvilke options der er tilgængelige
+  // Hvis spørgsmålet har valgmuligheder (fx cykelhold), vis dropdown — ellers fritekst.
   const options = question.options ?? null;
   const isSelect = options && options.length > 0;
-  const isGroupWinner = question.type === BONUS_TYPE.GROUP_WINNER;
+  const questionText = question.text ?? question.label ?? '';
+  const questionPoints = Number(question.points) || 0;
 
-  // Afgør status-badge
+  // Afgør status
   const isAnswered = !!existingBet?.answer;
   const isFinished = !!question.facit;
   const earnedPoints = existingBet?.points ?? null;
@@ -77,14 +77,8 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
     >
       {/* Spørgsmålstekst */}
       <div style={{ marginBottom: '0.6rem' }}>
-        <span
-          className="badge badge--blue"
-          style={{ marginBottom: '0.4rem', display: 'inline-block' }}
-        >
-          {question.type === BONUS_TYPE.TOP_SCORER ? '⚽ Topscorer' : '🏆 Gruppevinder'}
-        </span>
         <p style={{ margin: 0, fontWeight: 600, fontSize: '1rem' }}>
-          {question.label}
+          {questionText}
         </p>
         <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
           Deadline: {formatDeadline(question.deadline)}
@@ -119,8 +113,7 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
           }}
         >
           <strong>Facit:</strong>{' '}
-          {isGroupWinner && <Flag code={question.facit} size={18} style={{ marginRight: 4 }} />}
-          {isGroupWinner ? teamName(question.facit) : question.facit}
+          {isSelect ? prettyTeam(question.facit) : question.facit}
           {earnedPoints !== null && (
             <span
               className={`badge ${earnedPoints > 0 ? 'badge--green' : 'badge--muted'}`}
@@ -145,7 +138,7 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
           >
             <option value="">– Vælg hold –</option>
             {options.map((opt) => (
-              <option key={opt} value={opt}>{teamName(opt)}</option>
+              <option key={opt} value={opt}>{prettyTeam(opt)}</option>
             ))}
           </select>
         ) : (
@@ -186,34 +179,24 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
         </p>
       )}
 
-      {/* Hjælpetekst for topscorer (fri tekst) */}
-      {!locked && !isSelect && question.type === BONUS_TYPE.TOP_SCORER && (
-        <p style={{ margin: '0.4rem 0 0', fontSize: '0.78rem', color: 'var(--c-muted)' }}>
-          Skriv spillerens navn — gerne efternavn, fx <em>Mbappé</em>, <em>Haaland</em> eller
-          <em> Messi</em>. Store/små bogstaver, accenter og små stavefejl er ligegyldige —
-          og admin kan godkende din stavemåde manuelt.
-        </p>
-      )}
-
       {/* Vis brugerens eget svar */}
       {isAnswered && (
         <p style={{ margin: '0.4rem 0 0', fontSize: '0.83rem', color: 'var(--c-muted)' }}>
           Dit svar:{' '}
-          {isGroupWinner && <Flag code={existingBet.answer} size={16} style={{ marginRight: 3 }} />}
           <strong style={{ color: 'var(--c-text)' }}>
-            {isGroupWinner ? teamName(existingBet.answer) : existingBet.answer}
+            {isSelect ? prettyTeam(existingBet.answer) : existingBet.answer}
           </strong>
         </p>
       )}
 
       {/* Mulige point-info */}
-      {!locked && !isFinished && (
+      {!locked && !isFinished && questionPoints > 0 && (
         <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: 'var(--c-muted)' }}>
-          Korrekt svar giver {POINTS.BONUS} point. Låses ved deadline (den første relevante kamps start).
+          Korrekt svar giver {questionPoints} point. Låses ved deadline.
         </p>
       )}
 
-      {/* Alle svar — efter låsning for alle, altid for admin (som med kamp-tips) */}
+      {/* Alle svar — efter låsning for alle, altid for admin */}
       {(locked || isAdmin) && (
         <BonusAnswers
           question={question}

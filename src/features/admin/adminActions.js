@@ -80,102 +80,6 @@ export async function setUntippedPenalty(penalty) {
 }
 
 /**
- * Kald Cloud Function 'postSharpshooterNote' — slå en fast forklaring af
- * Skarpskytten op på alle ligavægge (forfattet af VM-Botten). dryRun=true poster
- * ikke, men returnerer teksten + antal vægge til forhåndsvisning. Kun owner.
- * @param {{ dryRun?: boolean }} [opts]
- */
-export async function callPostSharpshooterNote({ dryRun = false } = {}) {
-  try {
-    const fn = httpsCallable(functions, 'postSharpshooterNote');
-    const res = await fn({ dryRun });
-    return { ok: true, data: res.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "postSharpshooterNote" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af postSharpshooterNote.';
-    return { ok: false, error: msg };
-  }
-}
-
-// ─── Kampstyring (global admin + owner) ──────────────────────────────────────
-
-/**
- * Gem resultat på en kamp og sæt status til 'finished'.
- * @param {string} matchId
- * @param {{ home: number, away: number, advance?: string }} result
- */
-export async function saveMatchResult(matchId, result) {
-  const ref = doc(db, COL.MATCHES, matchId);
-  await updateDoc(ref, {
-    result: {
-      home: Number(result.home),
-      away: Number(result.away),
-      ...(result.advance != null ? { advance: result.advance } : {}),
-    },
-    status: 'finished',
-    // Manuel rettelse er "klæbende": auto-synken rører ikke kampen igen.
-    resultSource: 'manual',
-    manualLock: true,
-    needsReview: false,
-  });
-}
-
-/**
- * Gendan automatikken for en kamp: fjern den manuelle lås, så auto-synken
- * igen må opdatere resultatet.
- * @param {string} matchId
- */
-export async function clearManualLock(matchId) {
-  const ref = doc(db, COL.MATCHES, matchId);
-  await updateDoc(ref, { manualLock: false, resultSource: 'auto', needsReview: false });
-}
-
-/**
- * Opdater kamp-felter (homeTeam, awayTeam, kickoff, status osv.)
- * @param {string} matchId
- * @param {object} data
- */
-export async function updateMatch(matchId, data) {
-  const ref = doc(db, COL.MATCHES, matchId);
-  await updateDoc(ref, data);
-}
-
-/**
- * Opret en ny kamp.
- * @param {object} matchData
- */
-export async function createMatch(matchData) {
-  const ref = collection(db, COL.MATCHES);
-  await addDoc(ref, {
-    ...matchData,
-    status: matchData.status ?? 'scheduled',
-    result: null,
-    createdAt: serverTimestamp(),
-  });
-}
-
-/**
- * Kald Cloud Function 'buildKnockout' for at generere knockout-kampe.
- * Håndterer fejl pænt hvis funktionen ikke er deployet endnu.
- */
-export async function callBuildKnockout() {
-  try {
-    const fn = httpsCallable(functions, 'buildKnockout');
-    const result = await fn();
-    return { ok: true, data: result.data };
-  } catch (err) {
-    // Funktionen findes måske ikke endnu (under udvikling)
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "buildKnockout" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af buildKnockout.';
-    return { ok: false, error: msg };
-  }
-}
-
-/**
  * Kald Cloud Function 'backfillTipParticipation' for at genopbygge tip-deltagelse
  * ud fra alle eksisterende tips.
  */
@@ -230,116 +134,6 @@ export async function callSendTestReminderToMe() {
 }
 
 /**
- * Kald Cloud Function 'pruneOrphanMatches' — sletter forældede knockout-kampe
- * (gamle id'er der ikke længere bruges). Kun owner.
- */
-export async function callPruneOrphanMatches() {
-  try {
-    const fn = httpsCallable(functions, 'pruneOrphanMatches');
-    const result = await fn();
-    return { ok: true, data: result.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "pruneOrphanMatches" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af pruneOrphanMatches.';
-    return { ok: false, error: msg };
-  }
-}
-
-/**
- * Kald Cloud Function 'syncResultsNow' — hent live/afsluttede resultater fra
- * football-data.org nu. dryRun=true viser kun hvad der ville ske.
- * @param {{dryRun?: boolean}} [opts]
- */
-export async function callSyncResultsNow({ dryRun = false, full = false } = {}) {
-  try {
-    const fn = httpsCallable(functions, 'syncResultsNow');
-    const result = await fn({ dryRun, full });
-    return { ok: true, data: result.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "syncResultsNow" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af syncResultsNow.';
-    return { ok: false, error: msg };
-  }
-}
-
-/**
- * Kald Cloud Function 'syncScorersNow' — opdater topscorer-listen (Golden Boot)
- * fra football-data.org nu.
- */
-export async function callSyncScorersNow() {
-  try {
-    const fn = httpsCallable(functions, 'syncScorersNow');
-    const result = await fn();
-    return { ok: true, data: result.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "syncScorersNow" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af syncScorersNow.';
-    return { ok: false, error: msg };
-  }
-}
-
-/**
- * Kald Cloud Function 'syncMatchDetailsNow' — hent mål/kort/opstillinger for
- * kampe i vinduet (snart i gang / live / netop afsluttet) fra football-data.org.
- */
-export async function callSyncMatchDetailsNow() {
-  try {
-    const fn = httpsCallable(functions, 'syncMatchDetailsNow');
-    const result = await fn();
-    return { ok: true, data: result.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "syncMatchDetailsNow" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af syncMatchDetailsNow.';
-    return { ok: false, error: msg };
-  }
-}
-
-/**
- * Kald Cloud Function 'syncStandingsNow' — opdater den officielle stilling
- * (gruppetabeller med form) fra football-data.org.
- */
-export async function callSyncStandingsNow() {
-  try {
-    const fn = httpsCallable(functions, 'syncStandingsNow');
-    const result = await fn();
-    return { ok: true, data: result.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "syncStandingsNow" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af syncStandingsNow.';
-    return { ok: false, error: msg };
-  }
-}
-
-/**
- * Kald Cloud Function 'previewFootballData' — hent LIVE data fra en turnering
- * (default Bundesliga) til forhåndsvisning af hvordan tingene kommer til at se ud.
- * @param {{ code?: string }} [opts]
- */
-export async function callPreviewFootballData({ code } = {}) {
-  try {
-    const fn = httpsCallable(functions, 'previewFootballData');
-    const result = await fn(code ? { code } : {});
-    return { ok: true, data: result.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "previewFootballData" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af previewFootballData.';
-    return { ok: false, error: msg };
-  }
-}
-
-/**
  * Kald Cloud Function 'generateLeagueRecapNow' — generér AI-morgenopslag.
  * dryRun=true poster ikke, men returnerer teksten til forhåndsvisning.
  * @param {{ leagueId?: string, dryRun?: boolean }} [opts]
@@ -377,67 +171,27 @@ export async function callRegenerateRecaps({ apply = false, reset = false } = {}
   }
 }
 
-/**
- * Kald Cloud Function 'inspectFootballData' — rapporterer hvilke felter jeres
- * football-data.org-tier giver adgang til (scorers, standings, kampdetaljer).
- */
-export async function callInspectFootballData() {
-  try {
-    const fn = httpsCallable(functions, 'inspectFootballData');
-    const result = await fn();
-    return { ok: true, data: result.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "inspectFootballData" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af inspectFootballData.';
-    return { ok: false, error: msg };
-  }
-}
+// ─── Bonus (global admin + owner) ────────────────────────────────────────────
 
 /**
- * Kald Cloud Function 'syncFixtures' — map vores kampe til football-data-id'er.
- * @param {{season?: number}} [opts]
+ * Opret et generisk bonusspørgsmål. Backend scorer svar generisk mod facit;
+ * klienten skriver ALDRIG point. options er valgfri (fx liste af cykelhold).
+ * @param {{ text: string, points: number, deadline?: string|null, options?: string[] }} q
  */
-export async function callSyncFixtures({ season, dryRun, fixKickoff } = {}) {
-  try {
-    const fn = httpsCallable(functions, 'syncFixtures');
-    const payload = {};
-    if (season != null) payload.season = season;
-    if (dryRun) payload.dryRun = true;
-    if (fixKickoff) payload.fixKickoff = true;
-    const result = await fn(payload);
-    return { ok: true, data: result.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "syncFixtures" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af syncFixtures.';
-    return { ok: false, error: msg };
+export async function createBonusQuestion({ text, points, deadline = null, options } = {}) {
+  const ref = collection(db, COL.BONUS_QUESTIONS);
+  const data = {
+    text: String(text ?? '').trim(),
+    points: Number(points) || 0,
+    facit: null,
+    createdAt: serverTimestamp(),
+  };
+  if (deadline) data.deadline = Timestamp.fromDate(new Date(deadline));
+  if (Array.isArray(options) && options.length) {
+    data.options = options.map((o) => String(o).trim()).filter(Boolean);
   }
+  await addDoc(ref, data);
 }
-
-/**
- * Kald Cloud Function 'syncGroupWinnersNow' — afgør gruppevindere ud fra
- * grupperesultaterne (sætter facit på færdigspillede grupper). dryRun=true
- * viser kun hvad der ville ske.
- * @param {{dryRun?: boolean}} [opts]
- */
-export async function callSyncGroupWinners({ dryRun = false } = {}) {
-  try {
-    const fn = httpsCallable(functions, 'syncGroupWinnersNow');
-    const result = await fn({ dryRun });
-    return { ok: true, data: result.data };
-  } catch (err) {
-    const msg =
-      err?.code === 'functions/not-found'
-        ? 'Cloud Function "syncGroupWinnersNow" er ikke deployet endnu.'
-        : err?.message ?? 'Ukendt fejl ved kald af syncGroupWinnersNow.';
-    return { ok: false, error: msg };
-  }
-}
-
-// ─── Bonus-facit (global admin + owner) ────────────────────────────────────────
 
 /**
  * Sæt facit på et bonusspørgsmål.

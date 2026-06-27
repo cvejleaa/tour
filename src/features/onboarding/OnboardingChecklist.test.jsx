@@ -13,7 +13,7 @@ describe('OnboardingChecklist', () => {
   it('viser velkomst og de fire trin', () => {
     renderIt();
     expect(screen.getByText(/Velkommen/)).toBeInTheDocument();
-    expect(screen.getByText(/Tip kampene/)).toBeInTheDocument();
+    expect(screen.getByText(/Tip etaperne/)).toBeInTheDocument();
     expect(screen.getByText(/Svar på bonus/)).toBeInTheDocument();
     expect(screen.getByText(/Opret eller join en liga/)).toBeInTheDocument();
   });

@@ -1,18 +1,10 @@
 // Bonus-fanen i admin-panelet.
-// Lader global admin og owner sætte facit på bonusspørgsmål.
+// Global admin/owner kan oprette generiske bonusspørgsmål (tekst + point + deadline)
+// og sætte facit. Backend scorer svar generisk mod facit.
 import { useState } from 'react';
 import { useBonusQuestions } from './useBonusQuestions';
-import { saveBonusFacit, callSyncGroupWinners, formatTimestamp } from './adminActions';
-import { BONUS_TYPE } from '../../lib/constants';
+import { saveBonusFacit, createBonusQuestion, formatTimestamp } from './adminActions';
 import { sortBonusQuestions } from '../bonus/bonusHelpers';
-import BonusSubmissions from './BonusSubmissions';
-import { useTopScorers } from '../stats/useTopScorers';
-
-// Oversæt type til dansk
-const TYPE_LABELS = {
-  [BONUS_TYPE.TOP_SCORER]:  'Topscorer',
-  [BONUS_TYPE.GROUP_WINNER]:'Gruppevinder',
-};
 
 const inputStyle = {
   padding: '0.5rem 0.6rem',
@@ -24,30 +16,81 @@ const inputStyle = {
   width: '100%',
 };
 
+function CreateQuestionForm() {
+  const [text, setText] = useState('');
+  const [points, setPoints] = useState('5');
+  const [deadline, setDeadline] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function handleCreate() {
+    const t = text.trim();
+    if (!t) { setMsg('Spørgsmålstekst må ikke være tom.'); return; }
+    const p = Number(points);
+    if (!Number.isFinite(p) || p <= 0) { setMsg('Point skal være et positivt tal.'); return; }
+    setBusy(true); setMsg('');
+    try {
+      await createBonusQuestion({ text: t, points: p, deadline: deadline || null });
+      setText(''); setPoints('5'); setDeadline('');
+      setMsg('Spørgsmål oprettet!');
+    } catch (err) {
+      setMsg('Fejl: ' + (err.message ?? 'Ukendt fejl'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginBottom: '1rem', padding: '0.85rem' }}>
+      <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Opret bonusspørgsmål</div>
+      <div style={{ display: 'grid', gap: '0.5rem' }}>
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Spørgsmål, fx: Hvilket hold vinder samlet?"
+          style={inputStyle}
+          data-testid="bonus-new-text"
+        />
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <input
+            type="number"
+            value={points}
+            min="1"
+            onChange={(e) => setPoints(e.target.value)}
+            placeholder="Point"
+            style={{ ...inputStyle, maxWidth: 120 }}
+            data-testid="bonus-new-points"
+            aria-label="Point"
+          />
+          <input
+            type="datetime-local"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            style={{ ...inputStyle, maxWidth: 240 }}
+            data-testid="bonus-new-deadline"
+            aria-label="Deadline"
+          />
+          <button className="btn" disabled={busy} onClick={handleCreate} data-testid="bonus-new-save">
+            {busy ? 'Opretter…' : 'Opret'}
+          </button>
+        </div>
+        {msg && (
+          <div style={{ fontSize: '0.8rem', color: msg.startsWith('Fejl') ? 'var(--c-err)' : 'var(--c-ok)' }}>
+            {msg}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function BonusTab() {
   const { questions: rawQuestions, loading, error } = useBonusQuestions();
-  const { list: topScorers } = useTopScorers();
-  const topScorerLeader = topScorers?.[0]?.playerName || null;
   const questions = sortBonusQuestions(rawQuestions);
   const [editing, setEditing] = useState({}); // { [questionId]: string }
   const [busy, setBusy] = useState({});        // { [questionId]: boolean }
   const [msgs, setMsgs] = useState({});        // { [questionId]: string }
-  const [gwBusy, setGwBusy] = useState(false);
-  const [gwMsg, setGwMsg] = useState('');
-
-  async function handleSyncGroupWinners(dryRun) {
-    if (!dryRun && !window.confirm('Afgør gruppevindere ud fra grupperesultaterne nu?')) return;
-    setGwBusy(true); setGwMsg('');
-    const res = await callSyncGroupWinners({ dryRun });
-    setGwBusy(false);
-    if (!res.ok) { setGwMsg(`Fejl: ${res.error}`); return; }
-    const d = res.data ?? {};
-    const groups = (d.changes ?? []).map((c) => `${c.groupName}→${c.facit}`).join(', ');
-    setGwMsg(
-      `${dryRun ? 'Tør-kør' : 'Afgjort'}: ${d.resolved ?? 0} gruppevinder(e)`
-      + `${groups ? ` (${groups})` : ''}, ${d.pending ?? 0} afventer færdigspil.`,
-    );
-  }
 
   function startEdit(q) {
     setEditing((prev) => ({ ...prev, [q.id]: q.facit ?? '' }));
@@ -69,7 +112,7 @@ export default function BonusTab() {
       return;
     }
 
-    if (!window.confirm(`Sæt facit "${facit}" for "${q.label}"?`)) return;
+    if (!window.confirm(`Sæt facit "${facit}" for "${q.text ?? q.label}"?`)) return;
 
     setBusy((prev) => ({ ...prev, [q.id]: true }));
     try {
@@ -98,37 +141,13 @@ export default function BonusTab() {
     );
   }
 
-  if (questions.length === 0) {
-    return <p style={{ color: 'var(--c-muted)' }}>Ingen bonusspørgsmål oprettet endnu.</p>;
-  }
-
   return (
     <>
-      {/* Auto-afgør gruppevindere ud fra grupperesultaterne */}
-      <div style={{ marginBottom: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button
-          className="btn"
-          disabled={gwBusy}
-          onClick={() => handleSyncGroupWinners(false)}
-          style={{ fontSize: '0.85rem', padding: '0.35rem 0.8rem' }}
-        >
-          {gwBusy ? 'Afgør…' : '🏆 Afgør gruppevindere'}
-        </button>
-        <button
-          className="btn btn--ghost"
-          disabled={gwBusy}
-          onClick={() => handleSyncGroupWinners(true)}
-          style={{ fontSize: '0.85rem', padding: '0.35rem 0.8rem' }}
-        >
-          Tør-kør
-        </button>
-        {gwMsg && (
-          <span style={{ fontSize: '0.82rem', color: gwMsg.startsWith('Fejl') ? 'var(--c-err)' : 'var(--c-muted)' }}>
-            {gwMsg}
-          </span>
-        )}
-      </div>
+      <CreateQuestionForm />
 
+      {questions.length === 0 ? (
+        <p style={{ color: 'var(--c-muted)' }}>Ingen bonusspørgsmål oprettet endnu.</p>
+      ) : (
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
       {questions.map((q) => {
         const isEditing = q.id in editing;
@@ -154,10 +173,9 @@ export default function BonusTab() {
             >
               {/* Info */}
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>{q.label}</div>
+                <div style={{ fontWeight: 600 }}>{q.text ?? q.label}</div>
                 <div style={{ fontSize: '0.82rem', color: 'var(--c-muted)' }}>
-                  {TYPE_LABELS[q.type] ?? q.type}
-                  {q.groupName ? ` · Gruppe ${q.groupName}` : ''}
+                  {`${Number(q.points) || 0} point`}
                   {' · Deadline: '}
                   {formatTimestamp(q.deadline)}
                 </div>
@@ -231,18 +249,6 @@ export default function BonusTab() {
                     style={{ ...inputStyle, flex: 1 }}
                   />
                 )}
-                {q.type === BONUS_TYPE.TOP_SCORER && topScorerLeader && (
-                  <button
-                    className="btn btn--ghost"
-                    type="button"
-                    disabled={isBusy}
-                    title="Indsæt den nuværende topscorer fra football-data"
-                    onClick={() => setEditing((prev) => ({ ...prev, [q.id]: topScorerLeader }))}
-                    style={{ whiteSpace: 'nowrap' }}
-                  >
-                    ⚽ {topScorerLeader}
-                  </button>
-                )}
                 <button
                   className="btn"
                   disabled={isBusy}
@@ -260,13 +266,11 @@ export default function BonusTab() {
                 </button>
               </div>
             )}
-
-            {/* Topscorer: indsendte svar + manuel godkendelse af stavevarianter */}
-            {q.type === BONUS_TYPE.TOP_SCORER && <BonusSubmissions question={q} />}
           </li>
         );
       })}
       </ul>
+      )}
     </>
   );
 }

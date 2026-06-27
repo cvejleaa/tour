@@ -23,8 +23,8 @@ import { setDoc } from 'firebase/firestore';
 function makeQuestion(overrides = {}) {
   return {
     id: 'q1',
-    type: 'topScorer',
-    label: 'Hvem bliver turneringens topscorer?',
+    text: 'Hvilket hold vinder samlet?',
+    points: 10,
     deadline: new Date('2099-01-01T00:00:00Z'), // langt i fremtiden = åben
     facit: null,
     options: null,
@@ -35,7 +35,7 @@ function makeQuestion(overrides = {}) {
 // ---------------------------------------------------------------------------
 // Åbne spørgsmål – fritekst (topScorer)
 // ---------------------------------------------------------------------------
-describe('BonusQuestion – åben fritekst (topScorer)', () => {
+describe('BonusQuestion – åben fritekst', () => {
   it('viser input-felt og gem-knap når åben', () => {
     render(<BonusQuestion question={makeQuestion()} uid="user1" existingBet={null} />);
     expect(screen.getByTestId('bonus-input')).toBeInTheDocument();
@@ -49,23 +49,17 @@ describe('BonusQuestion – åben fritekst (topScorer)', () => {
 
   it('gem-knap aktiveres efter brugeren skriver et svar', () => {
     render(<BonusQuestion question={makeQuestion()} uid="user1" existingBet={null} />);
-    fireEvent.change(screen.getByTestId('bonus-input'), { target: { value: 'Haaland' } });
+    fireEvent.change(screen.getByTestId('bonus-input'), { target: { value: 'Visma' } });
     expect(screen.getByTestId('bonus-save')).not.toBeDisabled();
   });
 
   it('kalder setDoc ved klik på gem', async () => {
     render(<BonusQuestion question={makeQuestion()} uid="user1" existingBet={null} />);
-    fireEvent.change(screen.getByTestId('bonus-input'), { target: { value: 'Messi' } });
+    fireEvent.change(screen.getByTestId('bonus-input'), { target: { value: 'Visma' } });
     fireEvent.click(screen.getByTestId('bonus-save'));
     await waitFor(() => {
       expect(setDoc).toHaveBeenCalled();
     });
-  });
-
-  it('viser hjælpetekst med "Mbappé, Haaland eller Messi" for topScorer', () => {
-    render(<BonusQuestion question={makeQuestion()} uid="user1" existingBet={null} />);
-    expect(screen.getByText(/Mbappé/)).toBeInTheDocument();
-    expect(screen.getByText(/Haaland/)).toBeInTheDocument();
   });
 
   it('viser "Åben" badge for ulåst spørgsmål', () => {
@@ -73,49 +67,36 @@ describe('BonusQuestion – åben fritekst (topScorer)', () => {
     expect(screen.getByText('Åben')).toBeInTheDocument();
   });
 
-  it('viser spørgsmålets label', () => {
+  it('viser spørgsmålets tekst', () => {
     render(<BonusQuestion question={makeQuestion()} uid="user1" existingBet={null} />);
-    expect(screen.getByText('Hvem bliver turneringens topscorer?')).toBeInTheDocument();
-  });
-
-  it('viser "⚽ Topscorer" badge for topScorer-type', () => {
-    render(<BonusQuestion question={makeQuestion()} uid="user1" existingBet={null} />);
-    expect(screen.getByText('⚽ Topscorer')).toBeInTheDocument();
+    expect(screen.getByText('Hvilket hold vinder samlet?')).toBeInTheDocument();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Åbne spørgsmål – select (groupWinner)
+// Åbne spørgsmål – select (hold-valg)
 // ---------------------------------------------------------------------------
-describe('BonusQuestion – åben select (groupWinner)', () => {
+describe('BonusQuestion – åben select (hold)', () => {
   it('viser select i stedet for input når options er sat', () => {
     const q = makeQuestion({
-      type: 'groupWinner',
-      options: ['DK', 'GER', 'FRA'],
+      options: ['Visma', 'UAE', 'INEOS'],
     });
     render(<BonusQuestion question={q} uid="user1" existingBet={null} />);
     expect(screen.getByTestId('bonus-select')).toBeInTheDocument();
     expect(screen.queryByTestId('bonus-input')).not.toBeInTheDocument();
   });
 
-  it('viser fulde holdnavne i options (GER = Tyskland, FRA = Frankrig)', () => {
+  it('viser holdnavne i options', () => {
     const q = makeQuestion({
-      type: 'groupWinner',
-      options: ['GER', 'FRA'],
+      options: ['Visma', 'UAE'],
     });
     render(<BonusQuestion question={q} uid="user1" existingBet={null} />);
-    expect(screen.getByText('Tyskland')).toBeInTheDocument();
-    expect(screen.getByText('Frankrig')).toBeInTheDocument();
-  });
-
-  it('viser "🏆 Gruppevinder" badge for groupWinner-type', () => {
-    const q = makeQuestion({ type: 'groupWinner', options: ['DK'] });
-    render(<BonusQuestion question={q} uid="user1" existingBet={null} />);
-    expect(screen.getByText('🏆 Gruppevinder')).toBeInTheDocument();
+    expect(screen.getByText('Visma')).toBeInTheDocument();
+    expect(screen.getByText('UAE')).toBeInTheDocument();
   });
 
   it('viser placeholder "– Vælg hold –" som default option', () => {
-    const q = makeQuestion({ type: 'groupWinner', options: ['DK', 'GER'] });
+    const q = makeQuestion({ options: ['Visma', 'UAE'] });
     render(<BonusQuestion question={q} uid="user1" existingBet={null} />);
     expect(screen.getByText('– Vælg hold –')).toBeInTheDocument();
   });
@@ -201,17 +182,14 @@ describe('BonusQuestion – facit og point', () => {
     expect(screen.getByText('0 point')).toBeInTheDocument();
   });
 
-  it('viser holdnavn (teamName) ved groupWinner-facit (GER = Tyskland)', () => {
+  it('viser holdnavn ved hold-facit (select)', () => {
     const q = makeQuestion({
-      type: 'groupWinner',
       deadline: new Date('2000-01-01T00:00:00Z'),
-      facit: 'GER',
-      options: ['GER', 'FRA'],
+      facit: 'Visma',
+      options: ['Visma', 'UAE'],
     });
     render(<BonusQuestion question={q} uid="user1" existingBet={null} />);
-    // Facit "GER" skal vises som "Tyskland"
-    const tysklandTexts = screen.getAllByText('Tyskland');
-    expect(tysklandTexts.length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Visma').length).toBeGreaterThan(0);
   });
 });
 
@@ -247,17 +225,14 @@ describe('BonusQuestion – eksisterende svar', () => {
     expect(screen.getByTestId('bonus-input').value).toBe('Ronaldo');
   });
 
-  it('viser holdnavn for eksisterende groupWinner-svar (GER = Tyskland)', () => {
+  it('viser holdnavn for eksisterende hold-svar (select)', () => {
     const q = makeQuestion({
-      type: 'groupWinner',
-      options: ['GER', 'FRA'],
+      options: ['Visma', 'UAE'],
     });
-    const bet = { answer: 'GER', questionId: 'q1' };
+    const bet = { answer: 'Visma', questionId: 'q1' };
     render(<BonusQuestion question={q} uid="user1" existingBet={bet} />);
-    // "Dit svar: Tyskland" bør vises
     expect(screen.getByText(/Dit svar:/)).toBeInTheDocument();
-    const tysklandTexts = screen.getAllByText('Tyskland');
-    expect(tysklandTexts.length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Visma').length).toBeGreaterThan(0);
   });
 });
 

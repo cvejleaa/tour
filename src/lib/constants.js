@@ -28,28 +28,6 @@ export const LEAGUE_FORMAT = {
   DOUBLE_KNOCKOUT: 'doubleKnockout', // alt, men slutspil tæller dobbelt
 };
 
-export const MATCH_STATUS = {
-  SCHEDULED: 'scheduled', // hold kendt, kan tippes indtil kickoff
-  PENDING_TEAMS: 'pendingTeams', // knockout hvor hold endnu ikke kendes
-  LIVE: 'live',
-  FINISHED: 'finished',
-};
-
-export const ROUNDS = {
-  GROUP: 'group',
-  R32: 'r32', // 1/16-finale
-  R16: 'r16', // 1/8-finale
-  QF: 'qf', // kvartfinale
-  SF: 'sf', // semifinale
-  BRONZE: 'bronze',
-  FINAL: 'final',
-};
-
-export const BONUS_TYPE = {
-  TOP_SCORER: 'topScorer',
-  GROUP_WINNER: 'groupWinner',
-};
-
 // Typer af individuelle liga-bonusspørgsmål
 export const LEAGUE_BONUS_TYPE = {
   TEXT: 'text',     // fritekst

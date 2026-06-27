@@ -1,46 +1,82 @@
 import { describe, it, expect } from 'vitest';
-import { computeMyStats, recentResults } from './dashboardStats';
+import { computeMyStats, recentResults, countUntippedOpenStages } from './dashboardStats';
 
-const matches = [
-  { id: '1', round: 'group', kickoff: new Date('2026-06-11T18:00:00Z'), result: { home: 2, away: 1 } },
-  { id: '2', round: 'group', kickoff: new Date('2026-06-12T18:00:00Z'), result: { home: 0, away: 0 } },
-  { id: '3', round: 'group', kickoff: new Date('2026-06-13T18:00:00Z'), result: { home: 1, away: 3 } },
-  { id: '4', round: 'group', kickoff: new Date('2026-06-14T18:00:00Z'), result: null }, // ikke spillet
+// Afgjorte etaper (result udfyldt → stageStatus = 'done'). Kickoff i fortiden.
+const stages = [
+  {
+    id: '2026-stage-1', number: 1, kickoff: '2026-07-01T12:00:00+02:00',
+    result: { winnerTeam: 'A', gcTeam: 'A', mountainTeam: 'B', sprintTeam: 'C' },
+  },
+  {
+    id: '2026-stage-2', number: 2, kickoff: '2026-07-02T12:00:00+02:00',
+    result: { winnerTeam: 'B', gcTeam: 'B', mountainTeam: 'A', sprintTeam: 'A' },
+  },
+  {
+    id: '2026-stage-3', number: 3, kickoff: '2026-07-03T12:00:00+02:00',
+    result: { winnerTeam: 'C', gcTeam: 'C', mountainTeam: 'C', sprintTeam: 'B' },
+  },
+  // Fremtidig, åben etape (intet resultat)
+  {
+    id: '2026-stage-4', number: 4, kickoff: '2999-07-04T12:00:00+02:00', result: null,
+  },
 ];
 
-// u1: eksakt i kamp 1, rigtigt udfald (men ej eksakt) i kamp 3, intet tip i kamp 2.
-const bets = new Map([
-  ['1', { id: 'b1', matchId: '1', uid: 'u1', home: 2, away: 1 }],
-  ['3', { id: 'b3', matchId: '3', uid: 'u1', home: 0, away: 2 }],
-]);
+// u1: alle fire rigtige på etape 1; intet tip på etape 2; ét rigtigt (winner) på etape 3.
+const betsByStage = {
+  '2026-stage-1': { winnerTeam: 'A', gcTeam: 'A', mountainTeam: 'B', sprintTeam: 'C' },
+  '2026-stage-3': { winnerTeam: 'C', gcTeam: 'A', mountainTeam: 'A', sprintTeam: 'A' },
+};
 
 describe('computeMyStats', () => {
-  it('beregner tips, eksakt, udfald og point', () => {
-    const s = computeMyStats(matches, bets);
-    expect(s.tips).toBe(2);
-    expect(s.exact).toBe(1);
-    expect(s.correctOutcome).toBe(2);
-    expect(s.exactPct).toBe(50);
-    expect(s.outcomePct).toBe(100);
+  it('beregner tippede etaper, ramte hold og point', () => {
+    const s = computeMyStats(stages, betsByStage);
+    expect(s.tips).toBe(2); // etape 1 + 3 tippet og afgjort
+    expect(s.hits).toBe(5); // 4 på etape 1 + 1 (winner) på etape 3
     expect(s.points).toBeGreaterThan(0);
+    // 8 afgjorte felter på de to tippede etaper → 5/8 = 63%
+    expect(s.hitPct).toBe(63);
   });
 
   it('returnerer nuller uden tips', () => {
-    expect(computeMyStats(matches, new Map())).toMatchObject({ tips: 0, points: 0, exactPct: 0 });
-    expect(computeMyStats([], new Map())).toMatchObject({ tips: 0 });
+    expect(computeMyStats(stages, {})).toMatchObject({ tips: 0, points: 0, hitPct: 0 });
+    expect(computeMyStats([], {})).toMatchObject({ tips: 0 });
   });
 });
 
 describe('recentResults', () => {
-  it('returnerer seneste afsluttede kampe (nyeste først) med point', () => {
-    const rows = recentResults(matches, bets, 5);
-    expect(rows.map((r) => r.match.id)).toEqual(['3', '2', '1']); // nyeste først, kamp 4 mangler resultat
-    expect(rows[0].points).toBeGreaterThan(0); // u1 ramte udfald i kamp 3
-    expect(rows[1].points).toBeNull(); // intet tip i kamp 2
+  it('returnerer seneste afgjorte etaper (nyeste først) med point', () => {
+    const rows = recentResults(stages, betsByStage, {}, 5);
+    expect(rows.map((r) => r.stage.id)).toEqual(['2026-stage-3', '2026-stage-2', '2026-stage-1']);
+    expect(rows[0].points).toBeGreaterThan(0); // u1 ramte winner på etape 3
+    expect(rows[1].points).toBeNull(); // intet tip på etape 2
   });
 
   it('respekterer limit', () => {
-    expect(recentResults(matches, bets, 1)).toHaveLength(1);
-    expect(recentResults([], new Map())).toEqual([]);
+    expect(recentResults(stages, betsByStage, {}, 1)).toHaveLength(1);
+    expect(recentResults([], {})).toEqual([]);
+  });
+});
+
+describe('countUntippedOpenStages', () => {
+  it('tæller åbne etaper uden komplet tip', () => {
+    // etape 4 er åben og utippet → 1
+    expect(countUntippedOpenStages(stages, betsByStage)).toBe(1);
+  });
+
+  it('en åben etape med komplet tip tæller ikke', () => {
+    const open = [{ id: '2026-stage-9', number: 9, kickoff: '2999-07-09T12:00:00+02:00', result: null }];
+    const complete = { '2026-stage-9': { winnerTeam: 'A', gcTeam: 'B', mountainTeam: 'C', sprintTeam: 'D' } };
+    expect(countUntippedOpenStages(open, complete)).toBe(0);
+  });
+
+  it('en åben etape med delvist tip tæller med', () => {
+    const open = [{ id: '2026-stage-9', number: 9, kickoff: '2999-07-09T12:00:00+02:00', result: null }];
+    const partial = { '2026-stage-9': { winnerTeam: 'A' } };
+    expect(countUntippedOpenStages(open, partial)).toBe(1);
+  });
+
+  it('robust over for tomme input', () => {
+    expect(countUntippedOpenStages([], {})).toBe(0);
+    expect(countUntippedOpenStages(null)).toBe(0);
   });
 });

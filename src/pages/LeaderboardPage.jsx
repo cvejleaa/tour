@@ -1,7 +1,7 @@
 /**
  * LeaderboardPage – rangering med to faner:
  *   1. "Samlet stilling" – alle godkendte spillere, live via onSnapshot.
- *   2. "Dagens kampe"   – point kun fra dagens finished matches.
+ *   2. "Dagens etape"    – point kun fra dagens afgjorte etaper.
  *
  * Har en dropdown til at filtrere til én af brugerens egne ligaer.
  */
@@ -10,11 +10,8 @@ import { useAuth } from '../context/AuthContext';
 import { useStandings } from '../features/leaderboard/useStandings';
 import { useDailyStandings } from '../features/leaderboard/useDailyStandings';
 import { useLeagues } from '../features/leagues/useLeagues';
-import { useMatches } from '../features/matches/useMatches';
-import { useTipParticipation } from '../features/leagues/useTipParticipation';
-import { collectVisibleUids, tippedFinishedCounts } from '../features/leaderboard/standingsUtils';
+import { collectVisibleUids } from '../features/leaderboard/standingsUtils';
 import StandingsTable from '../features/leaderboard/StandingsTable';
-import SharpStandings from '../features/leaderboard/SharpStandings';
 import ThemeToggle from '../features/leaderboard/ThemeToggle';
 import { leagueScore, scoringLabel, normalizeScoring, isFullScoring } from '../features/leagues/leagueFormat';
 import { useLeagueBonus } from '../features/leagues/useLeagueBonus';
@@ -22,13 +19,11 @@ import { useLeagueBonus } from '../features/leagues/useLeagueBonus';
 // ── Fane-konstanter ──────────────────────────────────────────────────────────
 const TAB_OVERALL = 'overall';
 const TAB_DAILY = 'daily';
-const TAB_SHARP = 'sharp';
 
 export default function LeaderboardPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(TAB_OVERALL);
   const [selectedLeagueId, setSelectedLeagueId] = useState(''); // '' = alle
-  const [sortMode, setSortMode] = useState('total'); // 'total' | 'avg' (samlet stilling)
 
   // Hooks
   const { standings, loading: loadingStandings, error: errorStandings } = useStandings();
@@ -51,15 +46,6 @@ export default function LeaderboardPage() {
     (uid) => pointsByUid[uid] ?? 0,
     [pointsByUid],
   );
-
-  // Antal tippede (afsluttede) kampe pr. spiller → gns. point pr. tippet kamp.
-  const { matches: allMatches } = useMatches();
-  const { byMatch: tipByMatch } = useTipParticipation();
-  const tippedByUid = useMemo(
-    () => tippedFinishedCounts(allMatches, tipByMatch),
-    [allMatches, tipByMatch],
-  );
-  const getTipped = useCallback((uid) => tippedByUid[uid] ?? 0, [tippedByUid]);
 
   // Når en liga er valgt, rangeres efter dens scoring-valg — inkl. liga-bonus,
   // så forsidens filter matcher ligaens egen side præcist.
@@ -126,15 +112,7 @@ export default function LeaderboardPage() {
           aria-selected={activeTab === TAB_DAILY}
           onClick={() => setActiveTab(TAB_DAILY)}
         >
-          📅 Dagens kampe
-        </button>
-        <button
-          role="tab"
-          className={`tab${activeTab === TAB_SHARP ? ' tab--active' : ''}`}
-          aria-selected={activeTab === TAB_SHARP}
-          onClick={() => setActiveTab(TAB_SHARP)}
-        >
-          🎯 Skarpskytten
+          📅 Dagens etape
         </button>
       </div>
 
@@ -163,42 +141,19 @@ export default function LeaderboardPage() {
             </p>
           )}
 
-          {/* Sortér: total eller gns. point pr. tippet kamp */}
-          <div className="flex items-center gap-1 mb-2" style={{ fontSize: '0.82rem' }}>
-            <span style={{ color: 'var(--c-muted)' }}>Sortér efter:</span>
-            <button
-              className={`btn btn--sm${sortMode === 'total' ? '' : ' btn--ghost'}`}
-              onClick={() => setSortMode('total')}
-              aria-pressed={sortMode === 'total'}
-            >
-              Total
-            </button>
-            <button
-              className={`btn btn--sm${sortMode === 'avg' ? '' : ' btn--ghost'}`}
-              onClick={() => setSortMode('avg')}
-              aria-pressed={sortMode === 'avg'}
-            >
-              Gns.
-            </button>
-          </div>
-
           <StandingsTable
             users={standings}
             meUid={user?.uid}
             memberUids={memberUids}
             getPoints={useLeagueScoring ? getLeaguePoints : null}
             loading={loadingStandings}
-            showMovement={!selectedLeagueId && sortMode === 'total'}
-            showAvg
-            getTipped={getTipped}
-            sortMode={sortMode}
-            showBreakdown={!useLeagueScoring}
+            showMovement={!selectedLeagueId}
             emptyMsg="Ingen godkendte spillere endnu."
           />
         </div>
       )}
 
-      {/* ── Dagens kampe ──────────────────────────────────────────────── */}
+      {/* ── Dagens etape ──────────────────────────────────────────────── */}
       {activeTab === TAB_DAILY && (
         <div className="card card--flat">
           <div className="card__header">
@@ -214,7 +169,7 @@ export default function LeaderboardPage() {
 
           {!loadingDaily && Object.keys(pointsByUid).length === 0 && (
             <p className="text-muted text-sm mb-2">
-              Ingen afsluttede kampe i dag endnu — point opdateres løbende.
+              Ingen afgjorte etaper i dag endnu — point opdateres løbende.
             </p>
           )}
 
@@ -224,14 +179,9 @@ export default function LeaderboardPage() {
             memberUids={memberUids}
             getPoints={getDailyPoints}
             loading={loadingDaily || loadingStandings}
-            emptyMsg="Ingen point fra dagens kampe endnu."
+            emptyMsg="Ingen point fra dagens etape endnu."
           />
         </div>
-      )}
-
-      {/* ── 🎯 Skarpskytten ───────────────────────────────────────────── */}
-      {activeTab === TAB_SHARP && (
-        <SharpStandings meUid={user?.uid} memberUids={memberUids} />
       )}
     </div>
   );

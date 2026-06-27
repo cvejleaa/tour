@@ -5,12 +5,18 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { setRecapTime, setUntippedPenalty, callPostSharpshooterNote } from './adminActions';
+import { setRecapTime, setUntippedPenalty } from './adminActions';
 import { DEFAULT_UNTIPPED_PENALTY } from '../leaderboard/useUntippedPenalty';
-import { fmtPenalty } from '../leaderboard/sharpFormat';
 
 const DEFAULT_RECAP_TIME = '08:15';
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Vis straffen for en utippet etape som negativ point-tekst, fx "−2". */
+function fmtPenalty(penalty) {
+  const v = Math.abs(Number(penalty) || 0);
+  const n = Number.isInteger(v) ? v : Math.round(v * 10) / 10;
+  return n === 0 ? '0' : `−${n}`;
+}
 
 export default function SettingsTab() {
   const [time, setTime] = useState(DEFAULT_RECAP_TIME);
@@ -18,15 +24,10 @@ export default function SettingsTab() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null); // 'saved' | 'error' | null
 
-  // Skarpskytten: straf for utippet kamp (positivt tal; trækkes fra)
+  // Straf for utippet etape (positivt tal; trækkes fra)
   const [penalty, setPenalty] = useState(DEFAULT_UNTIPPED_PENALTY);
   const [savingPen, setSavingPen] = useState(false);
   const [penStatus, setPenStatus] = useState(null);
-
-  // Vægopslag om Skarpskytten (forhåndsvis → slå op)
-  const [preview, setPreview] = useState(null); // { text, leagues } | null
-  const [noteBusy, setNoteBusy] = useState(false);
-  const [noteMsg, setNoteMsg] = useState(null); // { kind:'ok'|'err', text } | null
 
   useEffect(() => {
     const ref = doc(db, COL.CONFIG, 'settings');
@@ -73,29 +74,6 @@ export default function SettingsTab() {
     }
   };
 
-  const doPreview = async () => {
-    setNoteBusy(true);
-    setNoteMsg(null);
-    const res = await callPostSharpshooterNote({ dryRun: true });
-    setNoteBusy(false);
-    if (res.ok) setPreview({ text: res.data?.text || '', leagues: res.data?.leagues ?? 0 });
-    else setNoteMsg({ kind: 'err', text: res.error });
-  };
-
-  const doPost = async () => {
-    if (!window.confirm('Slå opslaget op på ALLE ligavægge nu? Det kan ikke fortrydes uden at slette på hver væg.')) return;
-    setNoteBusy(true);
-    setNoteMsg(null);
-    const res = await callPostSharpshooterNote({ dryRun: false });
-    setNoteBusy(false);
-    if (res.ok) {
-      setPreview(null);
-      setNoteMsg({ kind: 'ok', text: `Slået op på ${res.data?.leagues ?? 0} ligavægge.` });
-    } else {
-      setNoteMsg({ kind: 'err', text: res.error });
-    }
-  };
-
   return (
     <div>
       <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>
@@ -136,13 +114,13 @@ export default function SettingsTab() {
 
       <hr style={{ margin: '1.75rem 0', border: 'none', borderTop: '1px solid var(--c-border)' }} />
 
-      {/* ── 🎯 Skarpskytten: straf for utippet kamp ─────────────────────── */}
+      {/* ── Straf for utippet etape ─────────────────────────────────────── */}
       <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>
-        🎯 Skarpskytten — straf for utippet kamp
+        🎯 Straf for utippet etape
       </h2>
       <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
-        En kamp man ikke har tippet trækker point fra i Skarpskytten-stillingen. Vælg hvor mange
-        point der trækkes fra pr. manglende kamp (decimaler ok, fx 1,5). Vises som {fmtPenalty(penalty)} på stillingen.
+        En etape man slet ikke har tippet trækker point fra. Vælg hvor mange
+        point der trækkes fra pr. manglende etape (decimaler ok, fx 1,5). Vises som {fmtPenalty(penalty)} på stillingen.
       </p>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', fontWeight: 600 }}>
@@ -172,43 +150,6 @@ export default function SettingsTab() {
         {penStatus === 'saved' && <span style={{ color: 'var(--c-ok)', fontSize: '0.9rem' }}>✓ Gemt</span>}
         {penStatus === 'error' && <span style={{ color: 'var(--c-err)', fontSize: '0.9rem' }}>Kunne ikke gemme.</span>}
       </div>
-
-      <hr style={{ margin: '1.75rem 0', border: 'none', borderTop: '1px solid var(--c-border)' }} />
-
-      {/* ── Opslag om Skarpskytten på alle vægge ────────────────────────── */}
-      <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>
-        📣 Forklar Skarpskytten på alle vægge
-      </h2>
-      <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
-        Slå en fast, klar forklaring af Skarpskytten op på væggen i alle ligaer (forfattet af VM-Botten).
-        Forhåndsvis teksten først, og slå den derefter op.
-      </p>
-      <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-        <button className="btn" onClick={doPreview} disabled={noteBusy} data-testid="preview-sharp-note">
-          {noteBusy && !preview ? 'Henter…' : 'Forhåndsvis'}
-        </button>
-        <button className="btn btn--primary" onClick={doPost} disabled={noteBusy || !preview} data-testid="post-sharp-note">
-          {noteBusy && preview ? 'Slår op…' : 'Slå op på alle vægge'}
-        </button>
-      </div>
-      {noteMsg && (
-        <p style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: noteMsg.kind === 'ok' ? 'var(--c-ok)' : 'var(--c-err)' }}>
-          {noteMsg.kind === 'ok' ? '✓ ' : ''}{noteMsg.text}
-        </p>
-      )}
-      {preview && (
-        <div style={{ marginTop: '0.9rem' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', marginBottom: '0.3rem' }}>
-            Forhåndsvisning — slås op på {preview.leagues} {preview.leagues === 1 ? 'væg' : 'vægge'}:
-          </div>
-          <div
-            data-testid="sharp-note-preview"
-            style={{ whiteSpace: 'pre-wrap', background: 'var(--c-surface-2, #f7f7f7)', borderRadius: 10, padding: '0.75rem 0.9rem', fontSize: '0.9rem', lineHeight: 1.5 }}
-          >
-            {preview.text}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

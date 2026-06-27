@@ -5,15 +5,13 @@
  */
 import { useState } from 'react';
 import { useBonusBets } from './useBonusData';
-import { BONUS_TYPE } from '../../lib/constants';
-import { teamName } from '../../lib/teams';
+import { prettyTeam } from '../../data/tourTeams2026';
 import Avatar from '../../components/Avatar';
-import Flag from '../../components/Flag';
 
 export default function BonusAnswers({ question, meUid, usersByUid = {}, visibleUids = null, isAdmin = false }) {
   const [open, setOpen] = useState(false);
   const { bets, loading } = useBonusBets(question.id, open);
-  const isGroupWinner = question.type === BONUS_TYPE.GROUP_WINNER;
+  const isSelect = (question.options?.length ?? 0) > 0;
 
   const nameOf = (uid) => usersByUid[uid]?.displayName || 'Spiller';
 
@@ -63,8 +61,7 @@ export default function BonusAnswers({ question, meUid, usersByUid = {}, visible
                     {nameOf(b.uid)}{mine && <span className="badge badge--blue" style={{ marginLeft: '0.3rem' }}>dig</span>}
                   </span>
                   <span style={{ fontSize: '0.86rem' }}>
-                    {isGroupWinner && b.answer && <Flag code={b.answer} size={16} style={{ marginRight: 3 }} />}
-                    {isGroupWinner ? teamName(b.answer) : b.answer}
+                    {isSelect ? prettyTeam(b.answer) : b.answer}
                   </span>
                   {typeof b.points === 'number' && (
                     <span className={`badge ${b.points > 0 ? 'badge--green' : 'badge--muted'}`} style={{ fontSize: '0.7rem', marginLeft: 'auto' }}>

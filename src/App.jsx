@@ -6,12 +6,8 @@ import { TasksProvider } from './context/TasksContext';
 import LoginPage from './pages/LoginPage';
 import PendingPage from './pages/PendingPage';
 import DashboardPage from './pages/DashboardPage';
-import MatchesPage from './pages/MatchesPage';
 import StagesPage from './pages/StagesPage';
 import HelpPage from './pages/HelpPage';
-import TournamentPage from './pages/TournamentPage';
-import TeamPage from './pages/TeamPage';
-import StatsPage from './pages/StatsPage';
 import MyBetsPage from './pages/MyBetsPage';
 import BonusPage from './pages/BonusPage';
 import LeaderboardPage from './pages/LeaderboardPage';
@@ -29,14 +25,10 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/afventer" element={<PendingPage />} />
           <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="/kampe" element={<ProtectedRoute><MatchesPage /></ProtectedRoute>} />
           <Route path="/etaper" element={<ProtectedRoute><StagesPage /></ProtectedRoute>} />
           <Route path="/hjaelp" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
           <Route path="/mine-tips" element={<ProtectedRoute><MyBetsPage /></ProtectedRoute>} />
           <Route path="/bonus" element={<ProtectedRoute><BonusPage /></ProtectedRoute>} />
-          <Route path="/turnering" element={<ProtectedRoute><TournamentPage /></ProtectedRoute>} />
-          <Route path="/hold/:code" element={<ProtectedRoute><TeamPage /></ProtectedRoute>} />
-          <Route path="/statistik" element={<ProtectedRoute><StatsPage /></ProtectedRoute>} />
           <Route path="/stilling" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
           <Route path="/ligaer" element={<ProtectedRoute><LeaguesPage /></ProtectedRoute>} />
           <Route path="/beskeder" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />

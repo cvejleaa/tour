@@ -1,43 +1,43 @@
 /**
- * LeagueTipCounter — viser pr. kommende kamp hvor mange af ligaens medlemmer
+ * LeagueTipCounter — viser pr. kommende etape hvor mange af ligaens medlemmer
  * der har tippet, og hvem der mangler. Afslører ikke selve tippene.
  */
 import { useState } from 'react';
-import { useMatches } from '../matches/useMatches';
+import { useStages } from '../stages/useStages';
+import { useActiveSeason } from '../stages/useActiveSeason';
 import { useTipParticipation, leagueTipStatus } from './useTipParticipation';
-import { isMatchLocked, formatKickoffTime, dayKey } from '../matches/matchHelpers';
-import { teamName, flagUrl } from '../../lib/teams';
+import { stageStatus } from '../../lib/tourStages';
 
-function TeamLabel({ code }) {
-  if (!code) return <span style={{ color: 'var(--c-muted)' }}>?</span>;
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-      <img src={flagUrl(code, 20)} alt="" width={20} height={15} style={{ borderRadius: 2 }} />
-      {teamName(code)}
-    </span>
-  );
+const STAGE_TYPE_LABEL = {
+  flat: '🟢 Flad', hilly: '🟡 Kuperet', mountain: '🔴 Bjerg',
+  itt: '⏱️ Enkeltstart', ttt: '⏱️ Holdtidskørsel', unknown: 'Etape',
+};
+
+function formatDate(kickoff) {
+  if (!kickoff) return '';
+  const d = kickoff?.toDate ? kickoff.toDate() : new Date(kickoff);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 export default function LeagueTipCounter({ members }) {
-  const { matches, loading: loadingMatches } = useMatches();
-  const { byMatch, loading: loadingPart } = useTipParticipation();
+  const season = useActiveSeason();
+  const { stages, loading: loadingStages } = useStages(season);
+  const { byMatch: byStage, loading: loadingPart } = useTipParticipation();
   const [expanded, setExpanded] = useState(null);
   const [showAll, setShowAll] = useState(false);
 
-  if (loadingMatches || loadingPart) {
+  if (loadingStages || loadingPart) {
     return <div className="spinner" role="status" aria-label="Indlæser" />;
   }
 
-  // Kun kampe der endnu ikke er kickoff'et og har kendte hold
-  const now = new Date();
-  const upcoming = matches.filter(
-    (m) => m.homeTeam && m.awayTeam && !isMatchLocked(m.kickoff, now),
-  );
+  // Kun etaper hvor tip stadig er åbent
+  const upcoming = stages.filter((s) => stageStatus(s, Date.now()) === 'scheduled');
 
   if (upcoming.length === 0) {
     return (
       <p style={{ color: 'var(--c-muted)', fontSize: '0.9rem' }}>
-        Ingen kommende kampe at tippe på lige nu.
+        Ingen kommende etaper at tippe på lige nu.
       </p>
     );
   }
@@ -47,28 +47,31 @@ export default function LeagueTipCounter({ members }) {
   return (
     <div>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {shown.map((m) => {
-          const { tipped, total, missing } = leagueTipStatus(byMatch.get(m.id), members);
+        {shown.map((s) => {
+          const { tipped, total, missing } = leagueTipStatus(byStage.get(s.id), members);
           const allTipped = total > 0 && tipped === total;
-          const isOpen = expanded === m.id;
+          const isOpen = expanded === s.id;
           return (
             <li
-              key={m.id}
+              key={s.id}
               data-testid="league-tip-row"
               style={{ borderBottom: '1px solid var(--c-border)', paddingBottom: '0.5rem' }}
             >
               <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--c-muted)' }}>
-                    {dayKey(m.kickoff)} · {formatKickoffTime(m.kickoff)}
+                    {formatDate(s.kickoff)}
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem' }}>
-                    <TeamLabel code={m.homeTeam} /> <span style={{ color: 'var(--c-muted)' }}>–</span> <TeamLabel code={m.awayTeam} />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                    Etape {s.number}
+                    <span style={{ fontWeight: 400, color: 'var(--c-muted)', marginLeft: '0.4rem', fontSize: '0.82rem' }}>
+                      {STAGE_TYPE_LABEL[s.type] || ''}
+                    </span>
                   </span>
                 </div>
                 <button
                   className={`badge ${allTipped ? 'badge--green' : 'badge--yellow'}`}
-                  onClick={() => setExpanded(isOpen ? null : m.id)}
+                  onClick={() => setExpanded(isOpen ? null : s.id)}
                   style={{ cursor: 'pointer', border: 'none' }}
                   data-testid="league-tip-badge"
                   aria-expanded={isOpen}
@@ -99,7 +102,7 @@ export default function LeagueTipCounter({ members }) {
 
       {upcoming.length > 8 && (
         <button className="btn btn--ghost btn--sm mt-2" onClick={() => setShowAll((v) => !v)}>
-          {showAll ? 'Vis færre' : `Vis alle ${upcoming.length} kommende kampe`}
+          {showAll ? 'Vis færre' : `Vis alle ${upcoming.length} kommende etaper`}
         </button>
       )}
     </div>

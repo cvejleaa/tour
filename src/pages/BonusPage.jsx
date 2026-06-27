@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// BonusPage – bonus-spørgsmål (topscorer, gruppevinder).
+// BonusPage – generiske bonus-spørgsmål for Tour de France.
 // Brugeren kan svare inden deadline; derefter vises facit + point.
 // ---------------------------------------------------------------------------
 import { useMemo } from 'react';
@@ -10,7 +10,6 @@ import { isBonusLocked, sortBonusQuestions } from '../features/bonus/bonusHelper
 import { useStandings } from '../features/leaderboard/useStandings';
 import { useLeagues } from '../features/leagues/useLeagues';
 import { collectVisibleUids } from '../features/leaderboard/standingsUtils';
-import { POINTS } from '../lib/scoring';
 
 export default function BonusPage() {
   const { user, isGlobalAdmin } = useAuth();
@@ -60,7 +59,7 @@ export default function BonusPage() {
       <div style={{ marginBottom: '1rem' }}>
         <h1 style={{ margin: '0 0 0.25rem', fontSize: '1.4rem' }}>🎁 Bonus</h1>
         <p style={{ margin: 0, color: 'var(--c-muted)', fontSize: '0.88rem' }}>
-          Korrekt bonus-svar giver {POINTS.BONUS} point pr. spørgsmål.
+          Svar på bonus-spørgsmålene inden deadline. Hvert spørgsmål giver point ved korrekt svar.
         </p>
       </div>
 

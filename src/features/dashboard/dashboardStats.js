@@ -1,68 +1,93 @@
 // Rene hjælpefunktioner til forsidens "egen statistik" og "seneste resultater".
-import { scoreMatch, scoreKnockout, outcome } from '../../lib/scoring';
-import { ROUNDS } from '../../lib/constants';
-
-const isKnockout = (m) => m.round && m.round !== ROUNDS.GROUP;
-const hasScore = (b) => b && Number.isFinite(b.home) && Number.isFinite(b.away);
+// Hold-baseret Tour de France-udgave: bygger på etaper + etape-tip.
+import { scoreStageBet, STAGE_FIELDS, isUntipped } from '../../lib/tourScoring';
+import { stageStatus } from '../../lib/tourStages';
 
 function kickoffMs(kickoff) {
   if (!kickoff) return 0;
-  const d = typeof kickoff.toDate === 'function' ? kickoff.toDate() : new Date(kickoff);
+  const d = typeof kickoff?.toDate === 'function' ? kickoff.toDate() : new Date(kickoff);
   const t = d.getTime();
   return Number.isNaN(t) ? 0 : t;
 }
 
-function pointsFor(match, bet) {
-  return isKnockout(match) ? scoreKnockout(bet, match.result) : scoreMatch(bet, match.result);
+/** Er etapen afgjort (har et resultat)? */
+function isDone(stage) {
+  return stageStatus(stage, Date.now()) === 'done';
+}
+
+/** Har brugeren et komplet hold-tip (alle fire felter udfyldt)? */
+function isComplete(bet) {
+  return !!bet && STAGE_FIELDS.every(({ key }) => bet[key] != null && bet[key] !== '');
 }
 
 /**
- * Brugerens egen træfsikkerhed over alle afsluttede kampe, hvor han har tippet.
- * @param {Array<object>} matches
- * @param {Map<string,object>|{get?:Function}} betsMap  matchId -> bet
- * @returns {{tips:number, exact:number, correctOutcome:number, points:number,
- *            exactPct:number, outcomePct:number, avgPoints:number}}
+ * Antal ÅBNE etaper (tip stadig muligt) hvor brugeren mangler at tippe helt
+ * eller kun har tippet delvist. Bruges til forsidens "Mine opgaver".
+ * @param {Array<object>} stages
+ * @param {Record<string, object>} betsByStage  stageId -> bet
+ * @returns {number}
  */
-export function computeMyStats(matches, betsMap) {
-  let tips = 0;
-  let exact = 0;
-  let correctOutcome = 0;
-  let points = 0;
-  for (const m of matches ?? []) {
-    if (!m.result) continue;
-    const bet = betsMap?.get?.(m.id);
-    if (!hasScore(bet)) continue;
+export function countUntippedOpenStages(stages, betsByStage = {}) {
+  return (stages ?? []).filter(
+    (s) => stageStatus(s, Date.now()) === 'scheduled' && !isComplete(betsByStage[s.id]),
+  ).length;
+}
+
+/**
+ * Brugerens egen statistik over alle afgjorte etaper, hvor han har tippet.
+ * @param {Array<object>} stages
+ * @param {Record<string, object>} betsByStage  stageId -> bet
+ * @param {object} [points]  point-config (flettes med standard)
+ * @returns {{tips:number, hits:number, points:number, avgPoints:number, hitPct:number}}
+ */
+export function computeMyStats(stages, betsByStage = {}, points = {}) {
+  let tips = 0;   // antal afgjorte etaper med et (ikke-tomt) tip
+  let hits = 0;   // antal rigtige holdvalg i alt
+  let fields = 0; // antal afgjorte felter (facit findes) på tippede etaper
+  let total = 0;  // optjente point i alt
+  for (const s of stages ?? []) {
+    if (!isDone(s) || !s.result) continue;
+    const bet = betsByStage[s.id];
+    if (isUntipped(bet)) continue;
     tips += 1;
-    points += pointsFor(m, bet);
-    if (bet.home === m.result.home && bet.away === m.result.away) exact += 1;
-    if (outcome(bet.home, bet.away) === outcome(m.result.home, m.result.away)) correctOutcome += 1;
+    const scored = scoreStageBet(bet, s.result, points);
+    total += scored.points;
+    for (const { key } of STAGE_FIELDS) {
+      const facit = s.result[key];
+      if (facit == null || facit === '') continue;
+      fields += 1;
+      if (bet[key] && bet[key] === facit) hits += 1;
+    }
   }
   return {
     tips,
-    exact,
-    correctOutcome,
-    points,
-    exactPct: tips ? Math.round((exact / tips) * 100) : 0,
-    outcomePct: tips ? Math.round((correctOutcome / tips) * 100) : 0,
-    avgPoints: tips ? Math.round((points / tips) * 10) / 10 : 0,
+    hits,
+    points: total,
+    avgPoints: tips ? Math.round((total / tips) * 10) / 10 : 0,
+    hitPct: fields ? Math.round((hits / fields) * 100) : 0,
   };
 }
 
 /**
- * De seneste afsluttede kampe (nyeste først) med de point brugeren fik på hver.
- * @param {Array<object>} matches
- * @param {Map<string,object>|{get?:Function}} betsMap
+ * De seneste afgjorte etaper (nyeste først) med de point brugeren fik på hver.
+ * @param {Array<object>} stages
+ * @param {Record<string, object>} betsByStage  stageId -> bet
+ * @param {object} [points]
  * @param {number} [limit]
- * @returns {Array<{match:object, points:number|null, bet:object|null}>}
+ * @returns {Array<{stage:object, points:number|null, bet:object|null}>}
  */
-export function recentResults(matches, betsMap, limit = 5) {
-  return (matches ?? [])
-    .filter((m) => m.result)
+export function recentResults(stages, betsByStage = {}, points = {}, limit = 5) {
+  return (stages ?? [])
+    .filter((s) => isDone(s) && s.result)
     .sort((a, b) => kickoffMs(b.kickoff) - kickoffMs(a.kickoff))
     .slice(0, limit)
-    .map((m) => {
-      const bet = betsMap?.get?.(m.id);
-      const has = hasScore(bet);
-      return { match: m, points: has ? pointsFor(m, bet) : null, bet: has ? bet : null };
+    .map((s) => {
+      const bet = betsByStage[s.id];
+      const has = !isUntipped(bet);
+      return {
+        stage: s,
+        points: has ? scoreStageBet(bet, s.result, points).points : null,
+        bet: has ? bet : null,
+      };
     });
 }

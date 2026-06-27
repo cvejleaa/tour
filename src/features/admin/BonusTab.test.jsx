@@ -26,9 +26,8 @@ const mockSaveBonusFacit = vi.fn();
 
 vi.mock('./adminActions', () => ({
   saveBonusFacit: (...args) => mockSaveBonusFacit(...args),
+  createBonusQuestion: vi.fn().mockResolvedValue(undefined),
   formatTimestamp: vi.fn(() => '11.06.2026 18:00'),
-  approveBonusAnswer: vi.fn().mockResolvedValue(undefined),
-  removeBonusAnswer: vi.fn().mockResolvedValue(undefined),
 }));
 
 import BonusTab from './BonusTab';
@@ -102,17 +101,16 @@ describe('BonusTab', () => {
 
   // ─── Spørgsmål-liste ──────────────────────────────────────────────────────
 
-  it('viser topscorer-spørgsmål', () => {
+  it('viser spørgsmålets tekst', () => {
     setupQuestions([topScorerQuestion]);
     render(<BonusTab />);
     expect(screen.getByText(/Hvem bliver topscorer/i)).toBeInTheDocument();
   });
 
-  it('viser Topscorer-typelabel', () => {
-    setupQuestions([topScorerQuestion]);
+  it('viser spørgsmålets point', () => {
+    setupQuestions([{ ...topScorerQuestion, points: 7 }]);
     render(<BonusTab />);
-    // Topscorer optræder både i label og typelabel — brug getAllByText
-    expect(screen.getAllByText(/Topscorer/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/7 point/i)).toBeInTheDocument();
   });
 
   it('viser Ikke sat når facit er null', () => {
@@ -127,11 +125,13 @@ describe('BonusTab', () => {
     expect(screen.getByText('Eriksen')).toBeInTheDocument();
   });
 
-  it('sorterer topscorer øverst foran gruppevinder', () => {
-    setupQuestions([groupWinnerQuestion, topScorerQuestion]);
+  it('sorterer spørgsmål efter deadline (tidligst først)', () => {
+    const tidlig = { ...topScorerQuestion, id: 'tidlig', label: 'Tidligt', deadline: { toDate: () => new Date('2026-07-01') } };
+    const sen = { ...groupWinnerQuestion, id: 'sen', label: 'Sent', deadline: { toDate: () => new Date('2026-07-20') } };
+    setupQuestions([sen, tidlig]);
     render(<BonusTab />);
     const items = screen.getAllByRole('listitem');
-    expect(items[0]).toHaveTextContent(/topscorer/i);
+    expect(items[0]).toHaveTextContent('Tidligt');
   });
 
   it('viser Sæt facit-knap for hvert spørgsmål', () => {
@@ -222,16 +222,11 @@ describe('BonusTab', () => {
     expect(screen.queryByPlaceholderText(/Facit/i)).not.toBeInTheDocument();
   });
 
-  it('viser BonusSubmissions-sektion for topscorer-spørgsmål', () => {
+  it('viser opret-formular til nye bonusspørgsmål', () => {
     setupQuestions([topScorerQuestion]);
     render(<BonusTab />);
-    expect(screen.getByText(/Indsendte svar/i)).toBeInTheDocument();
-  });
-
-  it('viser IKKE BonusSubmissions for gruppevinder-spørgsmål', () => {
-    setupQuestions([groupWinnerQuestion]);
-    render(<BonusTab />);
-    expect(screen.queryByText(/Indsendte svar/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Opret bonusspørgsmål/i)).toBeInTheDocument();
+    expect(screen.getByTestId('bonus-new-save')).toBeInTheDocument();
   });
 
   // ─── Fejlhåndtering ───────────────────────────────────────────────────────
