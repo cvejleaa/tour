@@ -8,18 +8,10 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: [
-      'scoring.test.js',
       'tourScoring.test.js',
       'pcsMapping.test.js',
       'tourTeams.test.js',
       'tourSync.test.js',
-      'standings.test.js',
-      'knockout.test.js',
-      'breakdown.test.js',
-      'footballData.test.js',
-      'resultsSync.test.js',
-      'bonusResolve.test.js',
-      'pipeline.integration.test.js',
       'invites.test.js',
       'leagueRecap.test.js',
     ],

@@ -3,12 +3,7 @@
 // Region: europe-west1, Node 22.
 //
 // Funktioner:
-//   recomputeMatch    — Firestore onWrite: beregner point når kampresultat sættes
 //   recomputeBonus    — Firestore onWrite: beregner point når bonus-facit sættes
-//   buildKnockout     — callable: bygger knockout-bracket fra grupperesultater
-//   resolveGroupWinnerOnFinish — Firestore onWrite: sætter gruppevinder-facit
-//                       automatisk når en gruppes sidste kamp er færdig
-//   syncGroupWinnersNow — callable (admin): afgør gruppevindere manuelt/dry-run
 //
 // Bemærk: bruger-oprettelse (users/{uid} med role:'player', status:'pending')
 // håndteres på klienten ved registrering + Security Rules. Owner sættes manuelt
@@ -42,12 +37,8 @@ const EMAIL_FROM = 'Tour de France Tip <tour@vejleaa.dk>';
 const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
-const { scoreMatch, scoreKnockout, bonusPoints } = require('./scoring');
 const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N } = require('./tourScoring');
 const { buildStageUpdate } = require('./tourSync');
-const { buildR32FromGroupMatches } = require('./knockout');
-const { computeBreakdown } = require('./breakdown');
-const { resolveGroupWinners } = require('./bonusResolve');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueMatchPoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
@@ -57,78 +48,6 @@ initializeApp();
 
 // Region for alle funktioner
 const REGION = 'europe-west1';
-
-// ---------------------------------------------------------------------------
-// recomputeMatch — beregner point for alle bets når et kampresultat ændres
-// ---------------------------------------------------------------------------
-exports.recomputeMatch = onDocumentWritten(
-  { document: 'matches/{matchId}', region: REGION },
-  async (event) => {
-    const db = getFirestore();
-    const { matchId } = event.params;
-
-    const after = event.data?.after?.data();
-    if (!after) return; // slettet kamp — intet at gøre
-
-    // Beregn point når kampen er afsluttet ELLER live (foreløbige point),
-    // så stillingen også opdateres løbende under kampe.
-    const scored = after.status === 'finished' || after.status === 'live';
-    if (!scored || !after.result) return;
-
-    const before = event.data?.before?.data();
-    // Undgå genberegning hvis hverken status eller result har ændret sig
-    if (
-      before?.status === after.status &&
-      JSON.stringify(before?.result) === JSON.stringify(after.result)
-    ) return;
-
-    const result = after.result;
-    // Afgør om det er en knockout-runde
-    const isKnockout = after.round && after.round !== 'group';
-
-    // Hent alle bets for denne kamp
-    const betsSnap = await db
-      .collection('bets')
-      .where('matchId', '==', matchId)
-      .get();
-
-    if (betsSnap.empty) return;
-
-    // Beregn point i batches (Firestore max 500 pr. batch)
-    const BATCH_SIZE = 400;
-    let batch = db.batch();
-    let opsInBatch = 0;
-    const batches = [batch];
-
-    for (const betDoc of betsSnap.docs) {
-      const bet = betDoc.data();
-      const pts = isKnockout
-        ? scoreKnockout(bet, result)
-        : scoreMatch(bet, result);
-
-      batch.update(betDoc.ref, { points: pts });
-      opsInBatch++;
-
-      if (opsInBatch >= BATCH_SIZE) {
-        batch = db.batch();
-        batches.push(batch);
-        opsInBatch = 0;
-      }
-    }
-
-    // Commit alle batches
-    for (const b of batches) {
-      await b.commit();
-    }
-
-    // Opdater totalPoints for hver berørt bruger
-    const affectedUids = [...new Set(betsSnap.docs.map(d => d.data().uid))];
-
-    for (const uid of affectedUids) {
-      await recalcUserTotal(db, uid);
-    }
-  }
-);
 
 // ---------------------------------------------------------------------------
 // recomputeBonus — beregner point for alle bonusBets når facit sættes
@@ -157,8 +76,12 @@ exports.recomputeBonus = onDocumentWritten(
     if (before?.facit === after.facit && beforeAcceptedJSON === acceptedJSON) return;
 
     const facit = after.facit;
-    const acceptedAnswers = after.acceptedAnswers ?? [];
-    const type = after.type;
+    // Generisk, type-agnostisk pointgivning: ret svar = facit (trimmet,
+    // ufølsomt for store/små bogstaver). Point pr. korrekt svar er spørgsmålets
+    // egne points hvis sat (endeligt tal), ellers standard 3.
+    const norm = (x) => String(x ?? '').trim().toLowerCase();
+    const facitNorm = norm(facit);
+    const correctPoints = Number.isFinite(Number(after.points)) ? Number(after.points) : 3;
 
     // Hent alle bonusBets for dette spørgsmål
     const betsSnap = await db
@@ -176,7 +99,8 @@ exports.recomputeBonus = onDocumentWritten(
 
     for (const betDoc of betsSnap.docs) {
       const bet = betDoc.data();
-      const pts = bonusPoints({ answer: bet.answer, facit, type, acceptedAnswers });
+      const answerNorm = norm(bet.answer);
+      const pts = answerNorm !== '' && answerNorm === facitNorm ? correctPoints : 0;
 
       batch.update(betDoc.ref, { points: pts });
       opsInBatch++;
@@ -521,200 +445,6 @@ exports.syncTipParticipation = onDocumentWritten(
     }
   }
 );
-
-// ---------------------------------------------------------------------------
-// buildKnockout — callable funktion (kun owner/global admin)
-// Beregner grupperangering og udfylder holdnavne på knockout-kampe
-// ---------------------------------------------------------------------------
-exports.buildKnockout = onCall({ region: REGION }, async (request) => {
-  const db = getFirestore();
-
-  // Tjek autentificering
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
-  }
-
-  // Hent brugerens rolle
-  const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  if (!userDoc.exists) {
-    throw new HttpsError('permission-denied', 'Brugerprofil ikke fundet.');
-  }
-
-  const userRole = userDoc.data()?.role;
-  if (userRole !== 'owner' && userRole !== 'globalAdmin') {
-    throw new HttpsError('permission-denied', 'Kun owner/global admin kan bygge knockout-bracket.');
-  }
-
-  // Hent alle gruppekampe der er finished
-  const groupMatchesSnap = await db
-    .collection('matches')
-    .where('round', '==', 'group')
-    .where('status', '==', 'finished')
-    .get();
-
-  const finishedGroupMatches = groupMatchesSnap.docs.map((d) => d.data());
-
-  // Byg r32 ud fra grupperesultaterne (ren, testet logik i knockout.js)
-  const { assignments: r32Assignments, best8ThirdsGroups, missingGroups } =
-    buildR32FromGroupMatches(finishedGroupMatches);
-
-  if (missingGroups.length > 0) {
-    throw new HttpsError(
-      'failed-precondition',
-      `Følgende grupper har ikke alle 6 finished kampe: ${missingGroups.join(', ')}`
-    );
-  }
-
-  // Opdater knockout-kampe med hold og sæt status til 'scheduled'
-  const writeBatch = db.batch();
-  let updatedCount = 0;
-
-  for (const assignment of r32Assignments) {
-    if (!assignment.home || !assignment.away) continue;
-
-    const matchRef = db.collection('matches').doc(assignment.id);
-    writeBatch.update(matchRef, {
-      homeTeam:          assignment.home,
-      awayTeam:          assignment.away,
-      homePlaceholder:   null,
-      awayPlaceholder:   null,
-      status:            'scheduled',
-    });
-    updatedCount++;
-  }
-
-  await writeBatch.commit();
-
-  return {
-    success: true,
-    message: `Knockout-bracket bygget. ${updatedCount} r32-kampe opdateret.`,
-    best8ThirdsGroups,
-  };
-});
-
-// ---------------------------------------------------------------------------
-// pruneOrphanMatches — callable (kun owner): sletter forældede knockout-kampe.
-// Tidligere blev knockout seedet med id'er som 'r32_m01'; efter opdateringen
-// hedder de 'ko_r32_1' osv. De gamle dokumenter blev aldrig slettet og fik
-// kamp-tællere til at vise for mange kampe. Her fjernes alle knockout-kampe
-// (round != 'group') hvis id IKKE starter med 'ko_'.
-// ---------------------------------------------------------------------------
-exports.pruneOrphanMatches = onCall({ region: REGION }, async (request) => {
-  const db = getFirestore();
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
-  const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  if (userDoc.data()?.role !== 'owner') {
-    throw new HttpsError('permission-denied', 'Kun ejeren kan rydde forældede kampe.');
-  }
-
-  const snap = await db.collection('matches').get();
-  const orphans = snap.docs.filter((d) => {
-    const m = d.data();
-    return m.round && m.round !== 'group' && !d.id.startsWith('ko_');
-  });
-
-  let batch = db.batch();
-  let ops = 0;
-  const batches = [batch];
-  for (const d of orphans) {
-    batch.delete(d.ref);
-    if (++ops >= 400) { batch = db.batch(); batches.push(batch); ops = 0; }
-  }
-  for (const b of batches) await b.commit();
-
-  return {
-    success: true,
-    deleted: orphans.length,
-    ids: orphans.map((d) => d.id),
-    remaining: snap.size - orphans.length,
-  };
-});
-
-// ---------------------------------------------------------------------------
-// postSharpshooterNote — callable (kun owner): slå en fast, klar forklaring af
-// "🎯 Skarpskytten" op på væggen i alle ligaer, forfattet af VM-Botten.
-// dryRun=true poster ikke, men returnerer teksten + antal vægge til forhåndsvisning.
-// ---------------------------------------------------------------------------
-function fmtPenaltyText(penalty) {
-  const n = Math.abs(Number(penalty) || 0);
-  const rounded = Number.isInteger(n) ? n : Math.round(n * 10) / 10;
-  return rounded === 0 ? '0' : `−${rounded}`;
-}
-
-function buildSharpshooterNote(penalty) {
-  return [
-    '🎯 Ny stilling: Skarpskytten!',
-    '',
-    'Der er kommet en ny måde at score på under "Stilling" → fanen 🎯 Skarpskytten. Her belønnes du for at ramme antal mål for HVERT hold i hver afsluttede kamp — ikke kun hvem der vinder.',
-    '',
-    `• Rigtigt antal mål for et hold: +(antal + 1) point (rammer du fx 3 mål = +4). Rigtigt 0 = +1.`,
-    `• Forkert antal: minus forskellen — men højst −2 pr. hold, så én vild kamp ikke ødelægger alt.`,
-    `• +1 bonus hvis du rammer kampens udfald (hjemmesejr, uafgjort eller udesejr).`,
-    `• Ikke tippet en kamp: ${fmtPenaltyText(penalty)} point.`,
-    '',
-    'Point lægges sammen over alle afsluttede kampe, og hvert hold tæller for sig. Skarpe øjne belønnes — held og lykke! 🍀',
-  ].join('\n');
-}
-
-exports.postSharpshooterNote = onCall({ region: REGION }, async (request) => {
-  const db = getFirestore();
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
-  const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  if (userDoc.data()?.role !== 'owner') {
-    throw new HttpsError('permission-denied', 'Kun ejeren kan slå opslag op på alle vægge.');
-  }
-
-  const dryRun = request.data?.dryRun !== false; // default: tør-kør (sikkerhed)
-
-  const cfg = await db.collection('config').doc('settings').get();
-  const penalty = cfg.exists && Number.isFinite(Number(cfg.data().untippedPenalty))
-    ? Math.abs(Number(cfg.data().untippedPenalty)) : 2;
-  const text = buildSharpshooterNote(penalty);
-
-  const leaguesSnap = await db.collection('leagues').get();
-  if (dryRun) {
-    return { dryRun: true, text, leagues: leaguesSnap.size };
-  }
-
-  let posted = 0;
-  for (const league of leaguesSnap.docs) {
-    await db.collection('leagueComments').add({
-      leagueId: league.id, uid: 'ai-bot', displayName: 'VM-Botten', avatarEmoji: '🤖',
-      favoriteTeam: null, text, system: true, createdAt: FieldValue.serverTimestamp(),
-    });
-    posted += 1;
-  }
-  return { dryRun: false, text, leagues: posted };
-});
-
-// ---------------------------------------------------------------------------
-// Hjælpefunktion: genberegn totalPoints for en bruger
-// Summer alle bets.points + bonusBets.points for brugeren
-// ---------------------------------------------------------------------------
-async function recalcUserTotal(db, uid) {
-  // Hent brugerens bets/bonusBets samt alle kampe (til runde-opslag)
-  const [betsSnap, bonusBetsSnap, matchesSnap] = await Promise.all([
-    db.collection('bets').where('uid', '==', uid).get(),
-    db.collection('bonusBets').where('uid', '==', uid).get(),
-    db.collection('matches').get(),
-  ]);
-
-  const roundById = {};
-  for (const m of matchesSnap.docs) roundById[m.id] = m.data().round;
-
-  const { total, groupPoints, knockoutPoints, bonusPoints } = computeBreakdown(
-    betsSnap.docs.map((d) => d.data()),
-    bonusBetsSnap.docs.map((d) => d.data()),
-    roundById,
-  );
-
-  await db.collection('users').doc(uid).update({
-    totalPoints: total,
-    groupPoints,
-    knockoutPoints,
-    bonusPoints,
-  });
-}
 
 // ---------------------------------------------------------------------------
 // snapshotRanks — scheduled: gemmer hver brugers nuværende placering som
@@ -1366,65 +1096,6 @@ exports.regenerateRecaps = onCall(
       reset: request.data?.reset === true,
       limit: Math.min(Math.max(Number(request.data?.limit) || 8, 1), 20),
     });
-  }
-);
-
-
-// ---------------------------------------------------------------------------
-// Gruppevindere — afgøres automatisk ud fra grupperesultaterne, på samme måde
-// som auto-resultater. Når en gruppe er færdigspillet (6 finished kampe),
-// sættes facit på det tilsvarende groupWinner-bonusspørgsmål; recomputeBonus
-// giver så automatisk point. Allerede satte facit (fx manuelt) røres aldrig.
-// ---------------------------------------------------------------------------
-async function runResolveGroupWinners(db, { dryRun = false } = {}) {
-  const qSnap = await db.collection('bonusQuestions').where('type', '==', 'groupWinner').get();
-  const questions = qSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const open = questions.filter((q) => q.facit == null || String(q.facit).trim() === '');
-  if (open.length === 0) return { resolved: 0, pending: 0, changes: [] };
-
-  const mSnap = await db.collection('matches')
-    .where('round', '==', 'group')
-    .where('status', '==', 'finished')
-    .get();
-  const finishedGroupMatches = mSnap.docs.map((d) => d.data());
-
-  const resolutions = resolveGroupWinners(open, finishedGroupMatches);
-  if (!dryRun && resolutions.length > 0) {
-    const batch = db.batch();
-    for (const r of resolutions) {
-      batch.update(db.collection('bonusQuestions').doc(r.questionId), {
-        facit: r.facit,
-        facitSource: 'auto',
-        autoResolvedAt: FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
-  }
-  return { resolved: resolutions.length, pending: open.length - resolutions.length, dryRun, changes: resolutions };
-}
-
-// Trigger: når en gruppekamp netop er blevet finished, så prøv at afgøre
-// gruppevindere (gør kun noget, når en gruppe dermed er fuldt færdigspillet).
-exports.resolveGroupWinnerOnFinish = onDocumentWritten(
-  { document: 'matches/{matchId}', region: REGION },
-  async (event) => {
-    const after = event.data?.after?.data();
-    if (!after || after.round !== 'group' || after.status !== 'finished') return;
-    const before = event.data?.before?.data();
-    if (before?.status === 'finished') return; // var allerede færdig — undgå gentagne kørsler
-
-    const res = await runResolveGroupWinners(getFirestore());
-    if (res.resolved) console.log(`resolveGroupWinnerOnFinish: afgjorde ${res.resolved} gruppevinder(e).`, res.changes);
-  }
-);
-
-// Callable (admin): afgør gruppevindere nu. dryRun=true viser kun hvad der ville ske.
-exports.syncGroupWinnersNow = onCall(
-  { region: REGION },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    return runResolveGroupWinners(db, { dryRun: request.data?.dryRun === true });
   }
 );
 
