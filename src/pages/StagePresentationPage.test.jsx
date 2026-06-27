@@ -56,17 +56,37 @@ describe('StagePresentationPage – nøgletal', () => {
     expect(screen.getByText(/Om mål-byen Pau/)).toBeInTheDocument();
   });
 
-  it('skjuler højdemeter-feltet når elevation mangler', () => {
+  it('udfylder højdemeter fra den statiske rute når den seedede etape mangler den', () => {
+    // flatStage() har ingen elevation, men route2026 (etape 5) har 1600 m.
     useStages.mockReturnValue({ stages: [flatStage()] });
     renderAt(5);
-    expect(screen.queryByText(/Højdemeter/)).toBeNull();
+    expect(screen.getByText(/Højdemeter/)).toBeInTheDocument();
+    expect(screen.getByText(/1600 m/)).toBeInTheDocument();
   });
 
-  it('viser højdemeter-feltet når elevation er til stede', () => {
+  it('lader den seedede etapes elevation vinde over den statiske rute', () => {
     useStages.mockReturnValue({ stages: [flatStage({ elevation: 2450 })] });
     renderAt(5);
     expect(screen.getByText(/Højdemeter/)).toBeInTheDocument();
     expect(screen.getByText(/2450 m/)).toBeInTheDocument();
+  });
+});
+
+describe('StagePresentationPage – berigelse fra letour', () => {
+  it('viser højdeprofil, stigninger med kategori og mellemsprint fra ruten', () => {
+    // Etape 5 i route2026 er beriget med profil, Côte de Baleix (kat. 3) og Vic-en-Bigorre.
+    useStages.mockReturnValue({ stages: [flatStage()] });
+    renderAt(5);
+    expect(screen.getByTestId('stage-profile')).toBeInTheDocument();
+    expect(screen.getByTestId('stage-challenges')).toBeInTheDocument();
+    expect(screen.getByText(/Côte de Baleix/)).toBeInTheDocument();
+    expect(screen.getByText(/VIC-EN-BIGORRE/)).toBeInTheDocument();
+  });
+
+  it('viser ingen udfordrings-sektion på en etape uden stigninger/sprints (etape 1)', () => {
+    useStages.mockReturnValue({ stages: [] });
+    renderAt(1);
+    expect(screen.queryByTestId('stage-challenges')).toBeNull();
   });
 });
 
