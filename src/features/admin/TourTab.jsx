@@ -207,45 +207,43 @@ function StageExpertTips({ season }) {
     }
   }
 
-  async function generateMissing() {
+  // Loop over etaperne og generér ét enkelt-tip ad gangen. Vi laver IKKE alle
+  // 21 Claude-kald i ét server-kald (det rammer funktionens timeout → 504), men
+  // ét callable-kald pr. etape med fremgangsvisning.
+  async function regenerateList(targets, label) {
     setMsg(''); setErr('');
     setBusyId('gen-all');
-    try {
-      const res = await callGenerateStageTip({ all: true, season });
-      if (!res.ok) { setErr(res.error); return; }
-      const n = res.data?.results?.length ?? 0;
-      const fails = res.data?.errors?.length ?? 0;
-      setMsg(`Genererede ${n} ekspert-tip${fails ? ` (${fails} fejlede)` : ''}.`);
-    } catch (e) {
-      console.error(e);
-      setErr(e?.message || String(e));
-    } finally {
-      setBusyId('');
+    const sorted = [...targets].sort((a, b) => (Number(a.number) || 0) - (Number(b.number) || 0));
+    let done = 0; let failed = 0;
+    for (const stage of sorted) {
+      setMsg(`${label} ${done + failed + 1}/${sorted.length} (etape ${stage.number})…`);
+      try {
+        const res = await callGenerateStageTip({ stageId: stage.id });
+        if (res.ok) {
+          done++;
+          // Ryd lokalt udkast, så onSnapshot-værdien (den nye tekst) vises.
+          setDrafts((prev) => { const next = { ...prev }; delete next[stage.id]; return next; });
+        } else {
+          failed++;
+        }
+      } catch (e) {
+        console.error(e);
+        failed++;
+      }
     }
+    setBusyId('');
+    setMsg(`Færdig: ${done} af ${sorted.length} ekspert-tip${failed ? ` (${failed} fejlede)` : ''}.`);
+  }
+
+  async function generateMissing() {
+    const targets = stages.filter((s) => !(typeof s.expertTip === 'string' && s.expertTip.trim()));
+    if (!targets.length) { setMsg('Alle etaper har allerede et tip.'); return; }
+    await regenerateList(targets, 'Genererer');
   }
 
   async function regenerateAll() {
     if (!window.confirm('Regenerér ALLE ekspert-tips? Det overskriver de nuværende tips for alle etaper.')) return;
-    setMsg(''); setErr('');
-    setBusyId('regen-all');
-    try {
-      const res = await callGenerateStageTip({ all: true, force: true, season });
-      if (!res.ok) { setErr(res.error); return; }
-      // 'checked' findes kun i den NYE funktionskode. Mangler den, kører den
-      // deployede funktion stadig gammel kode (force virker så ikke).
-      if (res.data?.checked === undefined) {
-        setErr('Funktionen kører stadig gammel kode (mangler "checked"). Redeploy generateStageTip.');
-        return;
-      }
-      const n = res.data?.results?.length ?? 0;
-      const fails = res.data?.errors?.length ?? 0;
-      setMsg(`Regenererede ${n} af ${res.data.checked} etaper${fails ? ` (${fails} fejlede)` : ''}.`);
-    } catch (e) {
-      console.error(e);
-      setErr(e?.message || String(e));
-    } finally {
-      setBusyId('');
-    }
+    await regenerateList(stages, 'Regenererer');
   }
 
   if (!stages.length) {

@@ -95,10 +95,12 @@ describe('TourTab — Ekspert-tips pr. etape', () => {
     await waitFor(() => expect(mockCallGenerateStageTip).toHaveBeenCalledWith({ stageId: '2026-stage-1' }));
   });
 
-  it('"Generér manglende" kalder callGenerateStageTip med all + season', async () => {
+  it('"Generér manglende" looper enkelt-kald for etaper uden tip (etape 1)', async () => {
     render(<TourTab />);
     fireEvent.click(screen.getByTestId('tip-gen-missing'));
-    await waitFor(() => expect(mockCallGenerateStageTip).toHaveBeenCalledWith({ all: true, season: 2026 }));
+    // Kun etape 1 mangler et tip (etape 2 har 'Sprint-etape.').
+    await waitFor(() => expect(mockCallGenerateStageTip).toHaveBeenCalledWith({ stageId: '2026-stage-1' }));
+    expect(mockCallGenerateStageTip).not.toHaveBeenCalledWith({ stageId: '2026-stage-2' });
   });
 
   it('"Gem" kalder saveStageTip med (stageId, tekst)', async () => {
@@ -108,11 +110,12 @@ describe('TourTab — Ekspert-tips pr. etape', () => {
     await waitFor(() => expect(mockSaveStageTip).toHaveBeenCalledWith('2026-stage-1', 'Min tekst'));
   });
 
-  it('"Regenerér alle" kalder callGenerateStageTip med force efter bekræftelse', async () => {
+  it('"Regenerér alle" looper enkelt-kald for ALLE etaper efter bekræftelse', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<TourTab />);
     fireEvent.click(screen.getByTestId('tip-regen-all'));
-    await waitFor(() => expect(mockCallGenerateStageTip).toHaveBeenCalledWith({ all: true, force: true, season: 2026 }));
+    await waitFor(() => expect(mockCallGenerateStageTip).toHaveBeenCalledWith({ stageId: '2026-stage-1' }));
+    await waitFor(() => expect(mockCallGenerateStageTip).toHaveBeenCalledWith({ stageId: '2026-stage-2' }));
     confirmSpy.mockRestore();
   });
 });
