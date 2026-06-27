@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { scoreLeagueBonus, sumLeagueBonus, LB_POINTS } from './leagueBonusScoring';
+import {
+  scoreLeagueBonus, sumLeagueBonus, LB_POINTS, closestWinners, scoreLeagueBonusAll,
+} from './leagueBonusScoring';
 import { LEAGUE_BONUS_TYPE } from '../../lib/constants';
 
 describe('scoreLeagueBonus', () => {
@@ -53,6 +55,64 @@ describe('scoreLeagueBonus', () => {
       // 'Mbappe' (uden accent) matcher facit 'Mbappé' på plads 1
       expect(scoreLeagueBonus(q, ['Messi', 'Mbappe'])).toBe(6);
     });
+  });
+});
+
+describe('closestWinners (NUMBER — nærmeste vinder pr. liga)', () => {
+  const subs = [
+    { uid: 'a', answer: '300' },
+    { uid: 'b', answer: '320' },
+    { uid: 'c', answer: '290' },
+  ];
+
+  it('den nærmeste på facit vinder (311 → b på 320)', () => {
+    const w = closestWinners('311', subs);
+    expect([...w]).toEqual(['b']);
+  });
+
+  it('uafgjort: alle de nærmeste vinder', () => {
+    // facit 305 → a(300) og b(320) er begge 5 og 15 væk… nej: a=5, b=15, c=15.
+    // facit 310 → a=10, b=10, c=20 → a og b vinder.
+    const w = closestWinners('310', subs);
+    expect([...w].sort()).toEqual(['a', 'b']);
+  });
+
+  it('ugyldige/tomme svar kan ikke vinde', () => {
+    const w = closestWinners('311', [{ uid: 'a', answer: '' }, { uid: 'b', answer: 'abc' }, { uid: 'c', answer: '312' }]);
+    expect([...w]).toEqual(['c']);
+  });
+
+  it('ugyldigt facit → ingen vindere', () => {
+    expect([...closestWinners('', subs)]).toEqual([]);
+    expect([...closestWinners(null, subs)]).toEqual([]);
+  });
+
+  it('ingen svar → ingen vindere', () => {
+    expect([...closestWinners('311', [])]).toEqual([]);
+  });
+});
+
+describe('scoreLeagueBonusAll', () => {
+  it('NUMBER: vinder(e) får fuldt point, resten 0', () => {
+    const q = { type: LEAGUE_BONUS_TYPE.NUMBER, facit: '311' };
+    const subs = [{ uid: 'a', answer: '300' }, { uid: 'b', answer: '320' }];
+    expect(scoreLeagueBonusAll(q, subs)).toEqual({ a: 0, b: LB_POINTS.NUMBER });
+  });
+
+  it('NUMBER uafgjort: begge nærmeste får fuldt point', () => {
+    const q = { type: LEAGUE_BONUS_TYPE.NUMBER, facit: '310' };
+    const subs = [{ uid: 'a', answer: '300' }, { uid: 'b', answer: '320' }, { uid: 'c', answer: '500' }];
+    expect(scoreLeagueBonusAll(q, subs)).toEqual({ a: LB_POINTS.NUMBER, b: LB_POINTS.NUMBER, c: 0 });
+  });
+
+  it('uden facit → tomt resultat', () => {
+    expect(scoreLeagueBonusAll({ type: LEAGUE_BONUS_TYPE.NUMBER, facit: null }, [{ uid: 'a', answer: '1' }])).toEqual({});
+  });
+
+  it('individuelle typer scores som hidtil', () => {
+    const q = { type: LEAGUE_BONUS_TYPE.YESNO, facit: 'yes' };
+    const subs = [{ uid: 'a', answer: 'yes' }, { uid: 'b', answer: 'no' }];
+    expect(scoreLeagueBonusAll(q, subs)).toEqual({ a: LB_POINTS.YESNO, b: 0 });
   });
 });
 

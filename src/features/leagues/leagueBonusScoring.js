@@ -11,6 +11,7 @@ export const LB_POINTS = {
   YESNO: 2,
   TOPLIST_NAME: 2,      // pr. korrekt navn (uanset plads)
   TOPLIST_POSITION: 1,  // ekstra hvis navnet står på den rigtige plads
+  NUMBER: 3,            // til den/de nærmeste på facit i ligaen
 };
 
 /** Normalisér en streng til simpel sammenligning (valg/ja-nej). */
@@ -66,13 +67,61 @@ export function scoreLeagueBonus(question, answer) {
       return pts;
     }
 
+    // NUMBER afgøres relativt (mod ligaens øvrige svar) og kan derfor ikke
+    // scores isoleret — brug scoreLeagueBonusAll/closestWinners i stedet.
     default:
       return 0;
   }
 }
 
 /**
+ * Find vinder-uid'erne for et NUMBER-spørgsmål: dem hvis svar er tættest på
+ * facit. Ved uafgjort vinder ALLE de nærmeste (fuldt point hver).
+ * @param {number|string} facit
+ * @param {Array<{uid:string, answer:any}>} submissions
+ * @returns {Set<string>} vinder-uid'er
+ */
+export function closestWinners(facit, submissions = []) {
+  const winners = new Set();
+  if (facit == null || facit === '') return winners; // Number('') === 0 — undgå falsk facit
+  const target = Number(facit);
+  if (!Number.isFinite(target)) return winners;
+  let best = Infinity;
+  const dists = [];
+  for (const s of submissions) {
+    const v = Number(s?.answer);
+    if (!Number.isFinite(v)) continue; // tomt/ugyldigt svar kan ikke vinde
+    const d = Math.abs(v - target);
+    dists.push([s.uid, d]);
+    if (d < best) best = d;
+  }
+  if (!Number.isFinite(best)) return winners;
+  for (const [uid, d] of dists) if (d === best) winners.add(uid);
+  return winners;
+}
+
+/**
+ * Point pr. uid for ÉT spørgsmål, givet alle ligaens svar.
+ * NUMBER afgøres relativt (nærmeste vinder); øvrige typer scores individuelt.
+ * @param {object} question
+ * @param {Array<{uid:string, answer:any}>} submissions
+ * @returns {Record<string, number>} uid → point
+ */
+export function scoreLeagueBonusAll(question, submissions = []) {
+  const out = {};
+  if (!question || question.facit == null || question.facit === '') return out;
+  if (question.type === LEAGUE_BONUS_TYPE.NUMBER) {
+    const winners = closestWinners(question.facit, submissions);
+    for (const s of submissions) out[s.uid] = winners.has(s.uid) ? LB_POINTS.NUMBER : 0;
+    return out;
+  }
+  for (const s of submissions) out[s.uid] = scoreLeagueBonus(question, s.answer);
+  return out;
+}
+
+/**
  * Summér en spillers point på tværs af en ligas bonusspørgsmål.
+ * (Bemærk: dækker ikke NUMBER, der er relativ — brug scoreLeagueBonusAll.)
  * @param {Array<object>} questions
  * @param {Record<string, any>} answersByQid – qid → svarets værdi for denne spiller
  * @returns {number}

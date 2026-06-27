@@ -55,6 +55,39 @@ export async function setLeagueBonusFacit(questionId, facit) {
 }
 
 /**
+ * Kopiér et bonusspørgsmål til flere ligaer (global admin). Hver kopi afgøres
+ * for sig i sin egen liga — for NUMBER betyder det at den nærmeste i HVER liga
+ * vinder. Er facit allerede sat, kopieres det med, så resultatet propagerer.
+ * @param {object} question  – kildespørgsmålet (label, type, deadline, …)
+ * @param {string[]} targetLeagueIds  – ligaer der skal have en kopi
+ * @param {string} createdBy  – admins uid
+ * @returns {Promise<{created:number, errors:Array<{leagueId:string, message:string}>}>}
+ */
+export async function copyLeagueBonusToLeagues(question, targetLeagueIds, createdBy) {
+  const result = { created: 0, errors: [] };
+  for (const leagueId of targetLeagueIds) {
+    try {
+      const newId = await createLeagueBonus({
+        leagueId,
+        createdBy,
+        type: question.type,
+        label: question.label,
+        deadline: question.deadline,
+        options: question.options ?? [],
+        size: question.size ?? 5,
+      });
+      if (question.facit != null && question.facit !== '') {
+        await setLeagueBonusFacit(newId, question.facit);
+      }
+      result.created += 1;
+    } catch (e) {
+      result.errors.push({ leagueId, message: e.message });
+    }
+  }
+  return result;
+}
+
+/**
  * Redigér et eksisterende spørgsmål (manager). Sender kun de felter der gives.
  * @param {string} questionId
  * @param {{label?:string, deadline?:any, options?:string[], size?:number, type?:string}} fields

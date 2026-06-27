@@ -32,6 +32,7 @@ export const LEAGUE_BONUS_TYPE = {
   CHOICE: 'choice', // vælg én af flere
   TOPLIST: 'toplist', // ordnet liste (fx top 5)
   YESNO: 'yesno',   // ja/nej
+  NUMBER: 'number', // tal — den/de nærmeste på facit i ligaen vinder
 };
 
 // Svartyper for (sæson-)bonusspørgsmål. Bestemmer både admin-facit-input og

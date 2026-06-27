@@ -29,6 +29,7 @@ import {
   normalizeScoring, scoringLabel, isFullScoring, SCORING_COMPONENTS, DEFAULT_SCORING, leagueScore, leagueBreakdown,
 } from '../features/leagues/leagueFormat';
 import { useLeagueBonus } from '../features/leagues/useLeagueBonus';
+import { useAllLeagues } from '../features/leagues/useAllLeagues';
 import LeagueBonus from '../features/leagues/LeagueBonus';
 import { filterUsersByLeague } from '../features/leagues/leagueUtils';
 import { sortByPoints } from '../features/leaderboard/standingsUtils';
@@ -147,6 +148,9 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
     () => Object.fromEntries((standings || []).map((u) => [u.uid, u])),
     [standings],
   );
+  // Global admin kan kopiere et liga-bonusspørgsmål til alle ligaer på én gang.
+  // Kun globalAdmin/owner må læse alle ligaer (Security Rules) — derfor enabled=isAdmin.
+  const { leagues: allLeagues } = useAllLeagues(isAdmin);
 
   async function handleScoringToggle(nextScoring) {
     setSavingFormat(true); setActionError('');
@@ -376,6 +380,8 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
         leagueId={league.id}
         meUid={meUid}
         isManager={isManager}
+        isAdmin={isAdmin}
+        allLeagues={allLeagues}
         questions={bonusQuestions}
         myAnswers={bonusAnswers}
         answersByQid={bonusAnswersByQid}

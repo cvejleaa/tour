@@ -8,8 +8,9 @@ import { LEAGUE_BONUS_TYPE } from '../../lib/constants';
 import {
   createLeagueBonus, setLeagueBonusFacit, deleteLeagueBonus, saveLeagueBonusAnswer,
   updateLeagueBonus, approveLeagueBonusAnswer, removeLeagueBonusAnswer,
+  copyLeagueBonusToLeagues,
 } from './leagueBonusActions';
-import { scoreLeagueBonus } from './leagueBonusScoring';
+import { scoreLeagueBonus, closestWinners, LB_POINTS } from './leagueBonusScoring';
 import { isBonusLocked, formatDeadline } from '../bonus/bonusHelpers';
 
 /** Firestore Timestamp/Date → 'YYYY-MM-DDTHH:mm' til <input type="datetime-local">. */
@@ -25,6 +26,7 @@ const TYPE_BADGE = {
   [LEAGUE_BONUS_TYPE.CHOICE]: '🔘 Valg',
   [LEAGUE_BONUS_TYPE.TOPLIST]: '🔢 Top-liste',
   [LEAGUE_BONUS_TYPE.YESNO]: '🔀 Ja/Nej',
+  [LEAGUE_BONUS_TYPE.NUMBER]: '🎯 Tal (nærmest vinder)',
 };
 
 const YESNO_LABEL = { yes: 'Ja', no: 'Nej' };
@@ -57,6 +59,14 @@ function AnswerInput({ q, value, onChange, disabled }) {
         <option value="yes">Ja</option>
         <option value="no">Nej</option>
       </select>
+    );
+  }
+  if (q.type === LEAGUE_BONUS_TYPE.NUMBER) {
+    return (
+      <input
+        className="input" type="number" style={{ maxWidth: 300 }} disabled={disabled}
+        value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder="Et tal..."
+      />
     );
   }
   if (q.type === LEAGUE_BONUS_TYPE.TOPLIST) {
@@ -181,11 +191,19 @@ function AllAnswers({ q, meUid, submissions, usersByUid, isManager }) {
   const isFinished = q.facit != null && q.facit !== '';
   const nameOf = (uid) => usersByUid[uid]?.displayName || 'Spiller';
 
+  // NUMBER afgøres relativt: find vinder-uid'erne (de nærmeste) én gang.
+  const numberWinners = (q.type === LEAGUE_BONUS_TYPE.NUMBER && isFinished)
+    ? closestWinners(q.facit, submissions) : null;
+  const ptsOf = (s) => {
+    if (!isFinished) return null;
+    if (q.type === LEAGUE_BONUS_TYPE.NUMBER) return numberWinners.has(s.uid) ? LB_POINTS.NUMBER : 0;
+    return scoreLeagueBonus(q, s.answer);
+  };
+
   const sorted = [...submissions].sort((a, b) => {
     if (isFinished) {
-      const pb = scoreLeagueBonus(q, b.answer);
-      const pa = scoreLeagueBonus(q, a.answer);
-      if (pb !== pa) return pb - pa;
+      const diff = ptsOf(b) - ptsOf(a);
+      if (diff !== 0) return diff;
     }
     return nameOf(a.uid).localeCompare(nameOf(b.uid), 'da');
   });
@@ -208,7 +226,7 @@ function AllAnswers({ q, meUid, submissions, usersByUid, isManager }) {
           <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             {sorted.map((s) => {
               const mine = s.uid === meUid;
-              const pts = isFinished ? scoreLeagueBonus(q, s.answer) : null;
+              const pts = ptsOf(s);
               return (
                 <li
                   key={s.uid}
@@ -234,8 +252,52 @@ function AllAnswers({ q, meUid, submissions, usersByUid, isManager }) {
   );
 }
 
+// ── Global admin: kopiér spørgsmålet til alle andre (godkendte) ligaer ────────
+function CopyToAllButton({ q, meUid, allLeagues }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  // Mål: alle godkendte ligaer undtagen denne. (status mangler på ældre ligaer
+  // → behandl manglende status som godkendt.)
+  const targets = allLeagues.filter(
+    (l) => l.id !== q.leagueId && (l.status ?? 'approved') === 'approved',
+  );
+
+  async function handleCopy() {
+    if (!targets.length) { setMsg('Ingen andre ligaer at kopiere til.'); return; }
+    if (!window.confirm(
+      `Kopiér «${q.label}» til ${targets.length} andre ligaer? ` +
+      'Hver liga afgøres for sig (den nærmeste i ligaen vinder).',
+    )) return;
+    setBusy(true); setMsg('');
+    try {
+      const res = await copyLeagueBonusToLeagues(q, targets.map((l) => l.id), meUid);
+      setMsg(res.errors.length
+        ? `Kopieret til ${res.created} — ${res.errors.length} fejlede.`
+        : `✓ Kopieret til ${res.created} ligaer.`);
+    } catch (e) {
+      setMsg('Fejl: ' + e.message);
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div style={{ marginTop: '0.5rem' }}>
+      <button
+        className="btn btn--ghost btn--sm" disabled={busy} onClick={handleCopy}
+        data-testid="copy-league-bonus-all"
+      >
+        {busy ? 'Kopierer…' : `📋 Kopiér til alle ligaer (${targets.length})`}
+      </button>
+      {msg && (
+        <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: msg.startsWith('Fejl') ? 'var(--c-err)' : 'var(--c-ok)' }}>
+          {msg}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ── Ét spørgsmål ──────────────────────────────────────────────────────────────
-function QuestionCard({ q, meUid, isManager, initialAnswer, submissions = [], usersByUid = {} }) {
+function QuestionCard({ q, meUid, isManager, isAdmin = false, allLeagues = [], initialAnswer, submissions = [], usersByUid = {} }) {
   const [editing, setEditing] = useState(false);
   const locked = isBonusLocked(q.deadline);
   const empty = q.type === LEAGUE_BONUS_TYPE.TOPLIST ? [] : '';
@@ -251,7 +313,12 @@ function QuestionCard({ q, meUid, isManager, initialAnswer, submissions = [], us
 
   const isFinished = q.facit != null && q.facit !== '';
   const isAnswered = hasAnswer(initialAnswer);
-  const earnedPoints = isFinished ? scoreLeagueBonus(q, initialAnswer) : null;
+  // NUMBER afgøres relativt mod ligaens øvrige svar (nærmeste vinder).
+  const earnedPoints = !isFinished
+    ? null
+    : q.type === LEAGUE_BONUS_TYPE.NUMBER
+      ? (closestWinners(q.facit, submissions).has(meUid) ? LB_POINTS.NUMBER : 0)
+      : scoreLeagueBonus(q, initialAnswer);
 
   async function handleSave() {
     if (!hasAnswer(answer) || locked) return;
@@ -356,6 +423,10 @@ function QuestionCard({ q, meUid, isManager, initialAnswer, submissions = [], us
             <button className="btn btn--ghost" onClick={saveFacit} disabled={saving} style={{ whiteSpace: 'nowrap' }}>Gem facit</button>
           </div>
           {facitMsg && <p style={{ margin: '0.4rem 0 0', fontSize: '0.82rem', color: facitMsg.startsWith('Fejl') ? 'var(--c-err)' : 'var(--c-ok)' }}>{facitMsg}</p>}
+          {/* Global admin: kopiér spørgsmålet (m. evt. facit) til alle andre ligaer */}
+          {isAdmin && allLeagues.length > 0 && (
+            <CopyToAllButton q={q} meUid={meUid} allLeagues={allLeagues} />
+          )}
           {/* Godkend stavemåder (fritekst, når svar er synlige efter deadline) */}
           {q.type === LEAGUE_BONUS_TYPE.TEXT && locked && isFinished && (
             <ApprovalList q={q} submissions={submissions} />
@@ -402,6 +473,7 @@ function CreateForm({ leagueId, meUid }) {
         <option value={LEAGUE_BONUS_TYPE.CHOICE}>Valg (1 ud af flere)</option>
         <option value={LEAGUE_BONUS_TYPE.TOPLIST}>Top-liste</option>
         <option value={LEAGUE_BONUS_TYPE.YESNO}>Ja/Nej</option>
+        <option value={LEAGUE_BONUS_TYPE.NUMBER}>Tal (nærmest vinder)</option>
       </select>
       <input className="input" placeholder="Spørgsmål" value={label} maxLength={140} onChange={(e) => setLabel(e.target.value)} required />
       {type === LEAGUE_BONUS_TYPE.CHOICE && (
@@ -424,7 +496,7 @@ function CreateForm({ leagueId, meUid }) {
   );
 }
 
-export default function LeagueBonus({ leagueId, meUid, isManager, questions, myAnswers, answersByQid = {}, usersByUid = {} }) {
+export default function LeagueBonus({ leagueId, meUid, isManager, isAdmin = false, allLeagues = [], questions, myAnswers, answersByQid = {}, usersByUid = {} }) {
   // #6: hvor mange åbne spørgsmål mangler jeg at svare på?
   const unanswered = questions.filter(
     (q) => !isBonusLocked(q.deadline) && !hasAnswer(myAnswers[q.id]),
@@ -451,6 +523,7 @@ export default function LeagueBonus({ leagueId, meUid, isManager, questions, myA
           {questions.map((q) => (
             <QuestionCard
               key={q.id} q={q} meUid={meUid} isManager={isManager}
+              isAdmin={isAdmin} allLeagues={allLeagues}
               initialAnswer={myAnswers[q.id]} submissions={answersByQid[q.id] ?? []}
               usersByUid={usersByUid}
             />

@@ -19,7 +19,9 @@ vi.mock('firebase/firestore', () => ({
 }));
 vi.mock('../../firebase', () => ({ db: {} }));
 
-const { createLeagueBonus, updateLeagueBonus } = await import('./leagueBonusActions');
+const {
+  createLeagueBonus, updateLeagueBonus, copyLeagueBonusToLeagues,
+} = await import('./leagueBonusActions');
 const { LEAGUE_BONUS_TYPE } = await import('../../lib/constants');
 
 const future = { toMillis: () => Date.now() + 3600_000 };
@@ -64,5 +66,36 @@ describe('updateLeagueBonus', () => {
   it('gør intet uden felter', async () => {
     await updateLeagueBonus('q1', {});
     expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+});
+
+describe('copyLeagueBonusToLeagues', () => {
+  beforeEach(() => {
+    mockAddDoc.mockReset(); mockAddDoc.mockResolvedValue({ id: 'new' });
+    mockUpdateDoc.mockReset(); mockUpdateDoc.mockResolvedValue(undefined);
+  });
+
+  const q = {
+    leagueId: 'L0', type: LEAGUE_BONUS_TYPE.NUMBER,
+    label: 'Hvor mange point?', deadline: future, facit: null,
+  };
+
+  it('opretter en kopi pr. mål-liga', async () => {
+    const res = await copyLeagueBonusToLeagues(q, ['L1', 'L2'], 'admin');
+    expect(res.created).toBe(2);
+    expect(res.errors).toEqual([]);
+    expect(mockAddDoc).toHaveBeenCalledTimes(2);
+  });
+
+  it('kopierer facit med, hvis det er sat', async () => {
+    await copyLeagueBonusToLeagues({ ...q, facit: '311' }, ['L1'], 'admin');
+    expect(mockUpdateDoc).toHaveBeenCalledTimes(1); // setLeagueBonusFacit
+  });
+
+  it('samler fejl pr. liga uden at afbryde', async () => {
+    mockAddDoc.mockRejectedValueOnce(new Error('boom')).mockResolvedValue({ id: 'ok' });
+    const res = await copyLeagueBonusToLeagues(q, ['L1', 'L2'], 'admin');
+    expect(res.created).toBe(1);
+    expect(res.errors).toHaveLength(1);
   });
 });
