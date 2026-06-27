@@ -57,7 +57,7 @@ export default [
 
   // Cloud Functions kildekode: CommonJS + Node
   {
-    files: ['functions/index.js', 'functions/tourScoring.js', 'functions/pcsMapping.js', 'functions/tourTeams.js', 'functions/tourSync.js', 'functions/invites.js', 'functions/leagueRecap.js'],
+    files: ['functions/index.js', 'functions/tourScoring.js', 'functions/pcsMapping.js', 'functions/tourTeams.js', 'functions/tourSync.js', 'functions/invites.js', 'functions/leagueRecap.js', 'functions/stageTip.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'commonjs',
