@@ -22,10 +22,12 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 // ─── Mock adminActions ────────────────────────────────────────────────────────
-const mockSaveBonusFacit = vi.fn();
+const mockUpdateBonusQuestion = vi.fn();
+const mockDeleteBonusQuestion = vi.fn();
 
 vi.mock('./adminActions', () => ({
-  saveBonusFacit: (...args) => mockSaveBonusFacit(...args),
+  updateBonusQuestion: (...args) => mockUpdateBonusQuestion(...args),
+  deleteBonusQuestion: (...args) => mockDeleteBonusQuestion(...args),
   createBonusQuestion: vi.fn().mockResolvedValue(undefined),
   formatTimestamp: vi.fn(() => '11.06.2026 18:00'),
 }));
@@ -75,7 +77,8 @@ describe('BonusTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.confirm = vi.fn(() => true);
-    mockSaveBonusFacit.mockResolvedValue(undefined);
+    mockUpdateBonusQuestion.mockResolvedValue(undefined);
+    mockDeleteBonusQuestion.mockResolvedValue(undefined);
     // Standard: tomt snapshot
     mockOnSnapshot.mockImplementation((q, cb) => {
       cb({ docs: [], forEach: vi.fn() });
@@ -133,95 +136,107 @@ describe('BonusTab', () => {
     expect(items[0]).toHaveTextContent('Tidligt');
   });
 
-  it('viser Sæt facit-knap for hvert spørgsmål', () => {
+  it('viser Rediger- og Slet-knap for hvert spørgsmål', () => {
     setupQuestions([textQuestion]);
     render(<BonusTab />);
-    expect(screen.getByRole('button', { name: /Sæt facit/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Rediger$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Slet$/ })).toBeInTheDocument();
   });
 
-  // ─── Rediger facit ────────────────────────────────────────────────────────
+  // ─── Rediger spørgsmål ──────────────────────────────────────────────────────
 
-  it('åbner redigeringsformular ved klik på Sæt facit', () => {
+  it('åbner fuld redigeringsformular ved klik på Rediger', () => {
     setupQuestions([textQuestion]);
     render(<BonusTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    // Editorens fritekst-facit-input (type 'text').
-    expect(screen.getByTestId('facit-text')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Rediger$/ }));
+    expect(screen.getByTestId('bonus-edit-form')).toBeInTheDocument();
   });
 
-  it('viser fritekst-input for fri tekst (ingen options)', () => {
+  it('forudfylder redigeringsformularen med spørgsmålets værdier', () => {
+    setupQuestions([{ ...textQuestion, text: 'Hvem vinder?', points: 9, facit: 'Pogačar' }]);
+    render(<BonusTab />);
+    fireEvent.click(screen.getByRole('button', { name: /^Rediger$/ }));
+    expect(screen.getByTestId('bonus-edit-text').value).toBe('Hvem vinder?');
+    expect(screen.getByTestId('bonus-edit-points').value).toBe('9');
+    expect(screen.getByTestId('bonus-edit-facit-text').value).toBe('Pogačar');
+  });
+
+  it('skifter facit-input når typen ændres i redigering', () => {
     setupQuestions([textQuestion]);
     render(<BonusTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    expect(screen.getByTestId('facit-text')).toBeInTheDocument();
-    // Ingen options → ingen options-dropdown i editoren.
-    expect(screen.queryByRole('option', { name: 'TVL' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Rediger$/ }));
+    fireEvent.change(screen.getByTestId('bonus-edit-type'), { target: { value: 'boolean' } });
+    expect(screen.getByTestId('bonus-edit-facit-boolean')).toBeInTheDocument();
   });
 
-  it('viser dropdown for holdvalg (med options)', () => {
-    setupQuestions([teamChoiceQuestion]);
+  it('kalder updateBonusQuestion med ændrede felter ved Gem ændringer', async () => {
+    setupQuestions([{ ...textQuestion, text: 'Hvem vinder?', points: 5, facit: null }]);
     render(<BonusTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    // Legacy options-spørgsmål → dropdown med de eksplicitte options.
-    expect(screen.getByRole('option', { name: 'TVL' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'UAD' })).toBeInTheDocument();
-  });
-
-  it('viser fejl ved tomt facit', async () => {
-    setupQuestions([textQuestion]);
-    render(<BonusTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Rediger$/ }));
+    fireEvent.change(screen.getByTestId('bonus-edit-text'), { target: { value: 'Hvem vinder bjergtrøjen?' } });
+    fireEvent.change(screen.getByTestId('bonus-edit-points'), { target: { value: '8' } });
+    fireEvent.change(screen.getByTestId('bonus-edit-facit-text'), { target: { value: 'Pogačar' } });
+    fireEvent.click(screen.getByTestId('bonus-edit-save'));
 
     await waitFor(() => {
-      expect(screen.getByText(/Facit må ikke være tomt/i)).toBeInTheDocument();
+      expect(mockUpdateBonusQuestion).toHaveBeenCalledWith(
+        'q1',
+        expect.objectContaining({ text: 'Hvem vinder bjergtrøjen?', points: 8, type: 'text', facit: 'Pogačar' }),
+      );
     });
   });
 
-  it('kalder saveBonusFacit med korrekte argumenter', async () => {
-    setupQuestions([textQuestion]);
+  it('viser fejl ved tom tekst i redigering', async () => {
+    setupQuestions([{ ...textQuestion, text: 'Hvem vinder?' }]);
     render(<BonusTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.change(screen.getByTestId('facit-text'), { target: { value: 'Pogačar' } });
-    fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Rediger$/ }));
+    fireEvent.change(screen.getByTestId('bonus-edit-text'), { target: { value: '  ' } });
+    fireEvent.click(screen.getByTestId('bonus-edit-save'));
 
     await waitFor(() => {
-      expect(mockSaveBonusFacit).toHaveBeenCalledWith('q1', 'Pogačar');
+      expect(screen.getByText(/Spørgsmålstekst må ikke være tom/i)).toBeInTheDocument();
+    });
+    expect(mockUpdateBonusQuestion).not.toHaveBeenCalled();
+  });
+
+  it('lukker redigering via Annullér', () => {
+    setupQuestions([textQuestion]);
+    render(<BonusTab />);
+    fireEvent.click(screen.getByRole('button', { name: /^Rediger$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Annullér/i }));
+    expect(screen.queryByTestId('bonus-edit-form')).not.toBeInTheDocument();
+  });
+
+  // ─── Slet spørgsmål ─────────────────────────────────────────────────────────
+
+  it('kalder deleteBonusQuestion efter bekræftelse', async () => {
+    setupQuestions([textQuestion]);
+    render(<BonusTab />);
+    fireEvent.click(screen.getByRole('button', { name: /^Slet$/ }));
+    expect(window.confirm).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockDeleteBonusQuestion).toHaveBeenCalledWith('q1');
     });
   });
 
-  it('viser Gemt!-besked efter succesfuldt gem', async () => {
-    setupQuestions([textQuestion]);
-    render(<BonusTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.change(screen.getByTestId('facit-text'), { target: { value: 'Pogačar' } });
-    fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Gemt!')).toBeInTheDocument();
-    });
-  });
-
-  it('kalder IKKE saveBonusFacit når bekræftelse afvises', async () => {
+  it('kalder IKKE deleteBonusQuestion når bekræftelse afvises', async () => {
     window.confirm = vi.fn(() => false);
     setupQuestions([textQuestion]);
     render(<BonusTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.change(screen.getByTestId('facit-text'), { target: { value: 'Pogačar' } });
-    fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
-
+    fireEvent.click(screen.getByRole('button', { name: /^Slet$/ }));
     await waitFor(() => {
-      expect(mockSaveBonusFacit).not.toHaveBeenCalled();
+      expect(mockDeleteBonusQuestion).not.toHaveBeenCalled();
     });
   });
 
-  it('lukker redigering via Annuller', () => {
+  it('viser fejlbesked når sletning fejler', async () => {
+    mockDeleteBonusQuestion.mockRejectedValueOnce(new Error('Permission denied'));
     setupQuestions([textQuestion]);
     render(<BonusTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Annuller/i }));
-    // Editorens facit-input forsvinder (opret-formularens input findes stadig).
-    expect(screen.queryByTestId('facit-text')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Slet$/ }));
+    await waitFor(() => {
+      expect(screen.getByText(/Fejl: Permission denied/i)).toBeInTheDocument();
+    });
   });
 
   it('viser opret-formular til nye bonusspørgsmål', () => {

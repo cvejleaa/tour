@@ -3,7 +3,12 @@
 // og sætte facit. Backend scorer svar generisk mod facit.
 import { useState } from 'react';
 import { useBonusQuestions } from './useBonusQuestions';
-import { saveBonusFacit, createBonusQuestion, formatTimestamp } from './adminActions';
+import {
+  createBonusQuestion,
+  updateBonusQuestion,
+  deleteBonusQuestion,
+  formatTimestamp,
+} from './adminActions';
 import { sortBonusQuestions, bonusAnswerType, formatBonusAnswer } from '../bonus/bonusHelpers';
 import { BONUS_ANSWER_TYPES } from '../../lib/constants';
 import { TOUR_TEAMS, prettyTeam } from '../../data/tourTeams2026';
@@ -121,10 +126,142 @@ function emptyFacitFor(type) {
   return type === 'teams' ? [] : '';
 }
 
-/** Er facit-værdien udfyldt nok til at kunne gemmes? */
-function facitFilled(value) {
-  if (Array.isArray(value)) return value.length > 0;
-  return String(value ?? '').trim() !== '';
+/**
+ * Konverter en Firestore-deadline (Timestamp/Date) til en datetime-local-streng
+ * ("YYYY-MM-DDTHH:MM") til input-feltet. Tomt hvis ingen deadline.
+ */
+function deadlineToInputValue(deadline) {
+  if (!deadline) return '';
+  const date = deadline.toDate ? deadline.toDate() : new Date(deadline);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}
+
+/**
+ * Fuld redigeringsformular for et eksisterende bonusspørgsmål: tekst, type,
+ * point, deadline og facit (type-passende). Gemmer via updateBonusQuestion.
+ */
+function EditQuestionForm({ question, onClose }) {
+  const initialType = bonusAnswerType(question);
+  const [text, setText] = useState(question.text ?? question.label ?? '');
+  const [type, setType] = useState(initialType);
+  const [points, setPoints] = useState(String(Number(question.points) || ''));
+  const [deadline, setDeadline] = useState(deadlineToInputValue(question.deadline));
+  const [facit, setFacit] = useState(question.facit ?? emptyFacitFor(initialType));
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  function handleTypeChange(nextType) {
+    setType(nextType);
+    setFacit(emptyFacitFor(nextType));
+  }
+
+  async function handleSave() {
+    const t = text.trim();
+    if (!t) { setMsg('Fejl: Spørgsmålstekst må ikke være tom.'); return; }
+    const p = Number(points);
+    if (!Number.isFinite(p) || p <= 0) { setMsg('Fejl: Point skal være et positivt tal.'); return; }
+    setBusy(true); setMsg('');
+    try {
+      await updateBonusQuestion(question.id, {
+        text: t,
+        type,
+        points: p,
+        deadline: deadline || null,
+        facit,
+      });
+      setMsg('Ændringer gemt!');
+      onClose();
+    } catch (err) {
+      setMsg('Fejl: ' + (err.message ?? 'Ukendt fejl'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }} data-testid="bonus-edit-form">
+      <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>Spørgsmål</label>
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        style={inputStyle}
+        data-testid="bonus-edit-text"
+        aria-label="Spørgsmål"
+      />
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+          Type
+          <select
+            value={type}
+            onChange={(e) => handleTypeChange(e.target.value)}
+            style={{ ...inputStyle, maxWidth: 200 }}
+            data-testid="bonus-edit-type"
+            aria-label="Type"
+          >
+            {BONUS_ANSWER_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+          Point
+          <input
+            type="number"
+            value={points}
+            min="1"
+            onChange={(e) => setPoints(e.target.value)}
+            style={{ ...inputStyle, maxWidth: 120 }}
+            data-testid="bonus-edit-points"
+            aria-label="Point"
+          />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+          Deadline
+          <input
+            type="datetime-local"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            style={{ ...inputStyle, maxWidth: 240 }}
+            data-testid="bonus-edit-deadline"
+            aria-label="Deadline"
+          />
+        </label>
+      </div>
+      <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>Facit (valgfrit)</label>
+      <div style={{ display: 'flex' }}>
+        <FacitInput type={type} value={facit} onChange={setFacit} testIdPrefix="bonus-edit-facit" />
+      </div>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <button
+          className="btn"
+          disabled={busy}
+          onClick={handleSave}
+          data-testid="bonus-edit-save"
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          {busy ? 'Gemmer…' : 'Gem ændringer'}
+        </button>
+        <button
+          className="btn btn--ghost"
+          onClick={onClose}
+          disabled={busy}
+        >
+          Annullér
+        </button>
+      </div>
+      {msg && (
+        <div style={{ fontSize: '0.8rem', color: msg.startsWith('Fejl') ? 'var(--c-err)' : 'var(--c-ok)' }}>
+          {msg}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CreateQuestionForm() {
@@ -241,47 +378,27 @@ function CreateQuestionForm() {
 export default function BonusTab() {
   const { questions: rawQuestions, loading, error } = useBonusQuestions();
   const questions = sortBonusQuestions(rawQuestions);
-  const [editing, setEditing] = useState({}); // { [questionId]: string }
-  const [busy, setBusy] = useState({});        // { [questionId]: boolean }
-  const [msgs, setMsgs] = useState({});        // { [questionId]: string }
+  const [editingId, setEditingId] = useState(null); // hvilket spørgsmål redigeres
+  const [busy, setBusy] = useState({});             // { [questionId]: boolean }
+  const [msgs, setMsgs] = useState({});             // { [questionId]: string }
 
   function startEdit(q) {
-    const type = bonusAnswerType(q);
-    const initial = q.facit ?? emptyFacitFor(type);
-    setEditing((prev) => ({ ...prev, [q.id]: initial }));
+    setEditingId(q.id);
     setMsgs((prev) => ({ ...prev, [q.id]: '' }));
   }
 
-  function cancelEdit(id) {
-    setEditing((prev) => {
-      const copy = { ...prev };
-      delete copy[id];
-      return copy;
-    });
+  function cancelEdit() {
+    setEditingId(null);
   }
 
-  async function handleSave(q) {
-    const type = bonusAnswerType(q);
-    const raw = editing[q.id];
-    let facit;
-    if (Array.isArray(raw)) {
-      facit = raw;
-    } else {
-      facit = String(raw ?? '').trim();
-    }
-    if (!facitFilled(facit)) {
-      setMsgs((prev) => ({ ...prev, [q.id]: 'Facit må ikke være tomt.' }));
-      return;
-    }
-
-    const facitLabel = formatBonusAnswer(facit, type);
-    if (!window.confirm(`Sæt facit "${facitLabel}" for "${q.text ?? q.label}"?`)) return;
-
+  async function handleDelete(q) {
+    const label = q.text ?? q.label ?? '';
+    if (!window.confirm(`Slet bonusspørgsmålet «${label}»? Det kan ikke fortrydes.`)) return;
     setBusy((prev) => ({ ...prev, [q.id]: true }));
+    setMsgs((prev) => ({ ...prev, [q.id]: '' }));
     try {
-      await saveBonusFacit(q.id, facit);
-      setMsgs((prev) => ({ ...prev, [q.id]: 'Gemt!' }));
-      cancelEdit(q.id);
+      await deleteBonusQuestion(q.id);
+      // Listen er onSnapshot-drevet og opdaterer sig selv.
     } catch (err) {
       setMsgs((prev) => ({
         ...prev,
@@ -313,7 +430,7 @@ export default function BonusTab() {
       ) : (
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
       {questions.map((q) => {
-        const isEditing = q.id in editing;
+        const isEditing = editingId === q.id;
         const isBusy = busy[q.id] ?? false;
         const msg = msgs[q.id] ?? '';
 
@@ -375,58 +492,32 @@ export default function BonusTab() {
                 )}
               </div>
 
-              {/* Rediger-knap */}
+              {/* Handlinger */}
               {!isEditing && (
-                <button
-                  className="btn btn--ghost"
-                  style={{ fontSize: '0.82rem', padding: '0.3rem 0.7rem', whiteSpace: 'nowrap' }}
-                  onClick={() => startEdit(q)}
-                >
-                  Sæt facit
-                </button>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn--ghost"
+                    style={{ fontSize: '0.82rem', padding: '0.3rem 0.7rem', whiteSpace: 'nowrap' }}
+                    onClick={() => startEdit(q)}
+                    disabled={isBusy}
+                  >
+                    Rediger
+                  </button>
+                  <button
+                    className="btn btn--ghost"
+                    style={{ fontSize: '0.82rem', padding: '0.3rem 0.7rem', whiteSpace: 'nowrap', color: 'var(--c-err)' }}
+                    onClick={() => handleDelete(q)}
+                    disabled={isBusy}
+                  >
+                    {isBusy ? 'Sletter…' : 'Slet'}
+                  </button>
+                </div>
               )}
             </div>
 
-            {/* Facit-input */}
+            {/* Fuld redigeringsformular */}
             {isEditing && (
-              <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {/* Legacy: eksplicitte options → dropdown. Ellers type-baseret input. */}
-                {q.options?.length > 0 ? (
-                  <select
-                    value={editing[q.id] ?? ''}
-                    onChange={(e) =>
-                      setEditing((prev) => ({ ...prev, [q.id]: e.target.value }))
-                    }
-                    style={{ ...inputStyle, flex: 1 }}
-                  >
-                    <option value="">Vælg…</option>
-                    {q.options.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <FacitInput
-                    type={bonusAnswerType(q)}
-                    value={editing[q.id]}
-                    onChange={(next) => setEditing((prev) => ({ ...prev, [q.id]: next }))}
-                  />
-                )}
-                <button
-                  className="btn"
-                  disabled={isBusy}
-                  onClick={() => handleSave(q)}
-                  style={{ whiteSpace: 'nowrap' }}
-                >
-                  {isBusy ? 'Gemmer…' : 'Gem'}
-                </button>
-                <button
-                  className="btn btn--ghost"
-                  onClick={() => cancelEdit(q.id)}
-                  disabled={isBusy}
-                >
-                  Annuller
-                </button>
-              </div>
+              <EditQuestionForm question={q} onClose={cancelEdit} />
             )}
           </li>
         );

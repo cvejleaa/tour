@@ -3,6 +3,7 @@
 import {
   doc,
   updateDoc,
+  deleteDoc,
   setDoc,
   addDoc,
   collection,
@@ -194,6 +195,49 @@ export async function createBonusQuestion({ text, points, type, deadline = null,
     data.options = options.map((o) => String(o).trim()).filter(Boolean);
   }
   await addDoc(ref, data);
+}
+
+/**
+ * Opdater et eksisterende bonusspørgsmål (tekst, type, point, deadline, facit).
+ * Validerer som createBonusQuestion. Skriver ALDRIG point på bonusBets — dette
+ * er selve SPØRGSMÅLS-dokumentet. facit beholder sin form pr. type (array for 'teams').
+ * @param {string} questionId
+ * @param {{ text: string, type?: string, points: number, deadline?: string|null, facit?: * }} q
+ */
+export async function updateBonusQuestion(questionId, { text, type, points, deadline = null, facit = null } = {}) {
+  const t = String(text ?? '').trim();
+  if (!t) throw new Error('Spørgsmålstekst må ikke være tom.');
+  const p = Number(points);
+  if (!Number.isFinite(p) || p <= 0) throw new Error('Point skal være et positivt tal.');
+  const resolvedType = BONUS_ANSWER_TYPE_VALUES.includes(type) ? type : DEFAULT_BONUS_ANSWER_TYPE;
+
+  // Normaliser facit til naturlig form (array for 'teams', ellers streng); tomt → null.
+  let facitValue = null;
+  if (Array.isArray(facit)) {
+    facitValue = facit.length ? facit : null;
+  } else {
+    const trimmed = String(facit ?? '').trim();
+    facitValue = trimmed === '' ? null : trimmed;
+  }
+
+  const ref = doc(db, COL.BONUS_QUESTIONS, questionId);
+  const data = {
+    text: t,
+    points: p,
+    type: resolvedType,
+    facit: facitValue,
+    deadline: deadline ? Timestamp.fromDate(new Date(deadline)) : null,
+  };
+  await updateDoc(ref, data);
+}
+
+/**
+ * Slet et bonusspørgsmål (kun globalAdmin/owner iflg. reglerne).
+ * Evt. orphaned bonusBets er harmløse; recompute-triggeren no-op'er uden spørgsmål/facit.
+ * @param {string} questionId
+ */
+export async function deleteBonusQuestion(questionId) {
+  await deleteDoc(doc(db, COL.BONUS_QUESTIONS, questionId));
 }
 
 /**

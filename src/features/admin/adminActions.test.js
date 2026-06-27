@@ -9,6 +9,7 @@ vi.mock('../../firebase', () => ({
 }));
 
 const mockUpdateDoc = vi.fn();
+const mockDeleteDoc = vi.fn();
 const mockAddDoc = vi.fn();
 const mockDoc = vi.fn();
 const mockCollection = vi.fn();
@@ -19,6 +20,7 @@ const mockArrayRemove = vi.fn((v) => ({ _remove: v }));
 vi.mock('firebase/firestore', () => ({
   doc: (...args) => mockDoc(...args),
   updateDoc: (...args) => mockUpdateDoc(...args),
+  deleteDoc: (...args) => mockDeleteDoc(...args),
   addDoc: (...args) => mockAddDoc(...args),
   collection: (...args) => mockCollection(...args),
   serverTimestamp: () => mockServerTimestamp(),
@@ -42,6 +44,8 @@ import {
   callSendTipRemindersNow,
   callSendTestReminderToMe,
   createBonusQuestion,
+  updateBonusQuestion,
+  deleteBonusQuestion,
   saveBonusFacit,
   approveBonusAnswer,
   removeBonusAnswer,
@@ -55,6 +59,7 @@ describe('adminActions', () => {
     mockDoc.mockReturnValue({ id: 'mock-doc-ref' });
     mockCollection.mockReturnValue({ id: 'mock-collection-ref' });
     mockUpdateDoc.mockResolvedValue(undefined);
+    mockDeleteDoc.mockResolvedValue(undefined);
     mockAddDoc.mockResolvedValue({ id: 'new-doc-id' });
   });
 
@@ -278,6 +283,80 @@ describe('adminActions', () => {
       const { db } = await import('../../firebase');
       await saveBonusFacit('q-abc', 'Mbappe');
       expect(mockDoc).toHaveBeenCalledWith(db, 'bonusQuestions', 'q-abc');
+    });
+  });
+
+  // ─── updateBonusQuestion ──────────────────────────────────────────────────
+
+  describe('updateBonusQuestion', () => {
+    it('kalder doc med bonusQuestions collection og korrekt id', async () => {
+      const { db } = await import('../../firebase');
+      await updateBonusQuestion('q-9', { text: 'x', points: 3, type: 'text' });
+      expect(mockDoc).toHaveBeenCalledWith(db, 'bonusQuestions', 'q-9');
+    });
+
+    it('skriver text, points, type, facit og deadline', async () => {
+      await updateBonusQuestion('q-9', { text: '  Hvem?  ', points: '7', type: 'boolean', facit: 'ja' });
+      const call = mockUpdateDoc.mock.calls[0][1];
+      expect(call.text).toBe('Hvem?');
+      expect(call.points).toBe(7);
+      expect(call.type).toBe('boolean');
+      expect(call.facit).toBe('ja');
+      expect(call.deadline).toBeNull();
+    });
+
+    it('skriver IKKE point på bonusBets — kun spørgsmåls-doc opdateres', async () => {
+      await updateBonusQuestion('q-9', { text: 'x', points: 5 });
+      // Kun ét updateDoc-kald, mod bonusQuestions-dokumentet.
+      expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
+      expect(mockDoc).toHaveBeenCalledWith(expect.anything(), 'bonusQuestions', 'q-9');
+    });
+
+    it('sætter deadline som Timestamp når angivet', async () => {
+      await updateBonusQuestion('q-9', { text: 'x', points: 3, deadline: '2026-07-01T12:00' });
+      const call = mockUpdateDoc.mock.calls[0][1];
+      expect(call.deadline).toBeDefined();
+      expect(call.deadline).not.toBeNull();
+    });
+
+    it('beholder facit som array for teams', async () => {
+      await updateBonusQuestion('q-9', { text: 'x', points: 3, type: 'teams', facit: ['UAD', 'TVL'] });
+      expect(mockUpdateDoc.mock.calls[0][1].facit).toEqual(['UAD', 'TVL']);
+    });
+
+    it('normaliserer tomt facit til null', async () => {
+      await updateBonusQuestion('q-9', { text: 'x', points: 3, type: 'text', facit: '   ' });
+      expect(mockUpdateDoc.mock.calls[0][1].facit).toBeNull();
+    });
+
+    it('falder tilbage til text ved ukendt type', async () => {
+      await updateBonusQuestion('q-9', { text: 'x', points: 3, type: 'football' });
+      expect(mockUpdateDoc.mock.calls[0][1].type).toBe('text');
+    });
+
+    it('kaster fejl ved tom tekst og kalder ikke updateDoc', async () => {
+      await expect(updateBonusQuestion('q-9', { text: '   ', points: 3 })).rejects.toThrow(/tom/i);
+      expect(mockUpdateDoc).not.toHaveBeenCalled();
+    });
+
+    it('kaster fejl ved ikke-positivt point og kalder ikke updateDoc', async () => {
+      await expect(updateBonusQuestion('q-9', { text: 'x', points: 0 })).rejects.toThrow(/positivt tal/i);
+      expect(mockUpdateDoc).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── deleteBonusQuestion ──────────────────────────────────────────────────
+
+  describe('deleteBonusQuestion', () => {
+    it('kalder deleteDoc', async () => {
+      await deleteBonusQuestion('q-del');
+      expect(mockDeleteDoc).toHaveBeenCalledTimes(1);
+    });
+
+    it('kalder doc med bonusQuestions collection og korrekt id', async () => {
+      const { db } = await import('../../firebase');
+      await deleteBonusQuestion('q-del');
+      expect(mockDoc).toHaveBeenCalledWith(db, 'bonusQuestions', 'q-del');
     });
   });
 

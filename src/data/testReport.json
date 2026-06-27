@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-27T12:50:43.326Z",
+  "generatedAt": "2026-06-27T12:58:56.429Z",
   "totals": {
     "files": 69,
-    "tests": 847,
-    "passed": 847,
+    "tests": 859,
+    "passed": 859,
     "failed": 0
   },
   "suites": [
@@ -318,7 +318,7 @@
     {
       "file": "src/features/admin/adminActions.test.js",
       "area": "frontend",
-      "passed": 36,
+      "passed": 47,
       "failed": 0,
       "tests": [
         {
@@ -430,6 +430,50 @@
           "status": "passed"
         },
         {
+          "name": "adminActions › updateBonusQuestion › kalder doc med bonusQuestions collection og korrekt id",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › updateBonusQuestion › skriver text, points, type, facit og deadline",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › updateBonusQuestion › skriver IKKE point på bonusBets — kun spørgsmåls-doc opdateres",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › updateBonusQuestion › sætter deadline som Timestamp når angivet",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › updateBonusQuestion › beholder facit som array for teams",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › updateBonusQuestion › normaliserer tomt facit til null",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › updateBonusQuestion › falder tilbage til text ved ukendt type",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › updateBonusQuestion › kaster fejl ved tom tekst og kalder ikke updateDoc",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › updateBonusQuestion › kaster fejl ved ikke-positivt point og kalder ikke updateDoc",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › deleteBonusQuestion › kalder deleteDoc",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › deleteBonusQuestion › kalder doc med bonusQuestions collection og korrekt id",
+          "status": "passed"
+        },
+        {
           "name": "adminActions › approveBonusAnswer › kalder updateDoc med arrayUnion",
           "status": "passed"
         },
@@ -470,7 +514,7 @@
     {
       "file": "src/features/admin/BonusTab.test.jsx",
       "area": "frontend",
-      "passed": 25,
+      "passed": 26,
       "failed": 0,
       "tests": [
         {
@@ -502,39 +546,43 @@
           "status": "passed"
         },
         {
-          "name": "BonusTab › viser Sæt facit-knap for hvert spørgsmål",
+          "name": "BonusTab › viser Rediger- og Slet-knap for hvert spørgsmål",
           "status": "passed"
         },
         {
-          "name": "BonusTab › åbner redigeringsformular ved klik på Sæt facit",
+          "name": "BonusTab › åbner fuld redigeringsformular ved klik på Rediger",
           "status": "passed"
         },
         {
-          "name": "BonusTab › viser fritekst-input for fri tekst (ingen options)",
+          "name": "BonusTab › forudfylder redigeringsformularen med spørgsmålets værdier",
           "status": "passed"
         },
         {
-          "name": "BonusTab › viser dropdown for holdvalg (med options)",
+          "name": "BonusTab › skifter facit-input når typen ændres i redigering",
           "status": "passed"
         },
         {
-          "name": "BonusTab › viser fejl ved tomt facit",
+          "name": "BonusTab › kalder updateBonusQuestion med ændrede felter ved Gem ændringer",
           "status": "passed"
         },
         {
-          "name": "BonusTab › kalder saveBonusFacit med korrekte argumenter",
+          "name": "BonusTab › viser fejl ved tom tekst i redigering",
           "status": "passed"
         },
         {
-          "name": "BonusTab › viser Gemt!-besked efter succesfuldt gem",
+          "name": "BonusTab › lukker redigering via Annullér",
           "status": "passed"
         },
         {
-          "name": "BonusTab › kalder IKKE saveBonusFacit når bekræftelse afvises",
+          "name": "BonusTab › kalder deleteBonusQuestion efter bekræftelse",
           "status": "passed"
         },
         {
-          "name": "BonusTab › lukker redigering via Annuller",
+          "name": "BonusTab › kalder IKKE deleteBonusQuestion når bekræftelse afvises",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser fejlbesked når sletning fejler",
           "status": "passed"
         },
         {
