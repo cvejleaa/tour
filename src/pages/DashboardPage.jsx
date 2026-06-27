@@ -13,6 +13,7 @@ import { useStages } from '../features/stages/useStages';
 import { useTeams } from '../features/stages/useTeams';
 import { useMyStageBets } from '../features/stages/useMyStageBets';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { useTourSettings } from '../features/stages/useTourSettings';
 import { stageStatus } from '../lib/tourStages';
 import { placeholderRoute2026 } from '../data/route2026';
 import Hero from '../components/Hero';
@@ -28,6 +29,7 @@ export default function DashboardPage() {
   const { standings } = useStandings();
   const { leagues, loading: leaguesLoading } = useLeagues(user?.uid);
   const season = useActiveSeason();
+  const { points: stagePoints } = useTourSettings();
   const { stages: dbStages, loading: stagesLoading } = useStages(season);
   const { teams } = useTeams(season);
   const { betsByStage } = useMyStageBets(user?.uid ?? null, season);
@@ -90,6 +92,7 @@ export default function DashboardPage() {
             uid={user?.uid}
             bet={betsByStage[nextStage.id] || null}
             teams={teams}
+            points={stagePoints}
           />
         </div>
       )}

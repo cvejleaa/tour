@@ -9,6 +9,7 @@ import { useStages } from '../features/stages/useStages';
 import { useTeams } from '../features/stages/useTeams';
 import { useMyStageBets } from '../features/stages/useMyStageBets';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { useTourSettings } from '../features/stages/useTourSettings';
 import { stageStatus } from '../lib/tourStages';
 import { placeholderRoute2026 } from '../data/route2026';
 import StageCard from '../features/stages/StageCard';
@@ -24,6 +25,7 @@ export default function StagesPage() {
   const { user } = useAuth();
   const uid = user?.uid;
   const season = useActiveSeason();
+  const { points } = useTourSettings();
   const { stages: dbStages } = useStages(season);
   const { teams } = useTeams(season);
   const { betsByStage } = useMyStageBets(uid, season);
@@ -90,6 +92,7 @@ export default function StagesPage() {
             uid={uid}
             bet={betsByStage[stage.id] || null}
             teams={teams}
+            points={points}
           />
         ))
       )}

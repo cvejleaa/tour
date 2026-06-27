@@ -1,17 +1,17 @@
 // Kort, sammenfoldelig oversigt over pointreglerne for hold-spillet. Værdier
 // kommer fra den centrale pointlogik (tourScoring), så de altid matcher den
 // faktiske beregning.
-import { DEFAULT_POINTS } from '../lib/tourScoring';
 import { POINTS } from '../lib/scoring';
-
-const ROWS = [
-  { pts: DEFAULT_POINTS.winnerTeam, label: 'Etapevinderens hold', ex: 'ram holdet som etapevinderen kører for' },
-  { pts: DEFAULT_POINTS.gcTeam, label: 'Bedste hold blandt de første ryttere', ex: 'holdet med samlet bedste resultat på de forreste ryttere' },
-  { pts: DEFAULT_POINTS.mountainTeam, label: 'Flest bjergpoint', ex: 'holdet der tager flest bjergpoint på etapen' },
-  { pts: DEFAULT_POINTS.sprintTeam, label: 'Flest sprintpoint', ex: 'holdet der tager flest sprintpoint på etapen' },
-];
+import { useTourSettings } from '../features/stages/useTourSettings';
 
 export default function PointRules() {
+  const { points } = useTourSettings();
+  const ROWS = [
+    { pts: points.winnerTeam, label: 'Etapevinderens hold', ex: 'ram holdet som etapevinderen kører for' },
+    { pts: points.gcTeam, label: 'Bedste hold blandt de første ryttere', ex: 'holdet med samlet bedste resultat på de forreste ryttere' },
+    { pts: points.mountainTeam, label: 'Flest bjergpoint', ex: 'holdet der tager flest bjergpoint på etapen' },
+    { pts: points.sprintTeam, label: 'Flest sprintpoint', ex: 'holdet der tager flest sprintpoint på etapen' },
+  ];
   return (
     <details className="card" style={{ marginBottom: '1rem' }}>
       <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -46,7 +46,7 @@ export default function PointRules() {
             <strong>Bonus:</strong> <strong>{POINTS.BONUS} point</strong> for hvert korrekt bonus-svar (sæson- og klassements-spørgsmål).
           </li>
           <li>
-            <strong>Utippet etape:</strong> lader du en etape stå helt utippet, trækkes der <strong>−{DEFAULT_POINTS.untippedPenalty} point</strong> fra, når etapen er afgjort.
+            <strong>Utippet etape:</strong> lader du en etape stå helt utippet, trækkes der <strong>−{points.untippedPenalty} point</strong> fra, når etapen er afgjort.
           </li>
           <li>
             <strong>Deadline:</strong> hvert tip låses ved etapens start – du kan ikke ændre det bagefter.

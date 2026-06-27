@@ -634,7 +634,7 @@ export default function LeaguesPage() {
         <div className="spinner" role="status" aria-label="Indlæser" />
       ) : leagues.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state__icon">🏟️</div>
+          <div className="empty-state__icon">🚴</div>
           <div className="empty-state__title">Du er ikke med i nogen liga endnu</div>
           <p style={{ color: 'var(--c-muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
             Opret en liga eller tilmeld dig med en kode nedenfor.
