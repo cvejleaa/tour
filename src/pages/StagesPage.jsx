@@ -14,6 +14,8 @@ import { stageStatus } from '../lib/tourStages';
 import { placeholderRoute2026 } from '../data/route2026';
 import StageCard from '../features/stages/StageCard';
 import ClassementsCard from '../features/stages/ClassementsCard';
+import { applyPicksToOpenStages } from '../features/stages/applyPicksToOpenStages';
+import { previousPicksFor } from '../features/stages/previousPicks';
 
 const FILTERS = [
   { key: 'kommende', label: 'Kommende' },
@@ -52,6 +54,10 @@ export default function StagesPage() {
   }, [stages, filter, betsByStage]);
 
   const tippedCount = stages.filter((s) => betsByStage[s.id]?.winnerTeam).length;
+
+  // Anvend ét sæt holdvalg på alle åbne etaper (batched). Stages-listen ligger
+  // her, så batchen kører over den fulde rute.
+  const applyToOpen = (picks) => applyPicksToOpenStages(uid, picks, stages);
 
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
@@ -93,6 +99,8 @@ export default function StagesPage() {
             bet={betsByStage[stage.id] || null}
             teams={teams}
             points={points}
+            previousPicks={previousPicksFor(stage, stages, betsByStage)}
+            onApplyToOpenStages={applyToOpen}
           />
         ))
       )}

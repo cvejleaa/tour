@@ -31,7 +31,10 @@ function formatDate(kickoff) {
   return d.toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-export default function StageCard({ stage, uid, bet, teams = [], points = {} }) {
+export default function StageCard({
+  stage, uid, bet, teams = [], points = {},
+  previousPicks = null, onApplyToOpenStages = null,
+}) {
   const status = stageStatus(stage, Date.now());
   const locked = status !== 'scheduled';
   const isDone = status === 'done';
@@ -45,6 +48,8 @@ export default function StageCard({ stage, uid, bet, teams = [], points = {} }) 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [applying, setApplying] = useState(false);
+  const [applyMsg, setApplyMsg] = useState('');
 
   useEffect(() => {
     setPicks({
@@ -83,6 +88,41 @@ export default function StageCard({ stage, uid, bet, teams = [], points = {} }) 
     const next = { ...picks, [key]: value };
     setPicks(next);
     save(next);
+  }
+
+  // Kopiér de fire holdvalg fra spillerens seneste tidligere tippede etape.
+  function copyFromPrevious() {
+    if (!previousPicks) return;
+    const next = {
+      winnerTeam: previousPicks.winnerTeam ?? '',
+      gcTeam: previousPicks.gcTeam ?? '',
+      mountainTeam: previousPicks.mountainTeam ?? '',
+      sprintTeam: previousPicks.sprintTeam ?? '',
+    };
+    setPicks(next);
+    save(next);
+  }
+
+  // Anvend de aktuelle fire holdvalg på alle åbne etaper (efter bekræftelse).
+  async function applyToAllOpen() {
+    if (!onApplyToOpenStages || applying) return;
+    const ok = window.confirm(
+      'Anvend disse 4 hold på alle åbne etaper? Det overskriver dine nuværende tips på de åbne etaper.',
+    );
+    if (!ok) return;
+    setApplying(true);
+    setApplyMsg('');
+    setError('');
+    try {
+      const n = await onApplyToOpenStages({ ...picks });
+      setApplyMsg(`✓ Anvendt på ${n} åbne etaper`);
+      setTimeout(() => setApplyMsg(''), 3000);
+    } catch (e) {
+      console.error('Kunne ikke anvende på alle åbne etaper:', e);
+      setError('Kunne ikke anvende på alle åbne etaper. Prøv igen.');
+    } finally {
+      setApplying(false);
+    }
   }
 
   const borderColor = locked
@@ -154,6 +194,33 @@ export default function StageCard({ stage, uid, bet, teams = [], points = {} }) 
         })}
       </div>
 
+      {/* Genvejs-handlinger – kun når etapen er åben (redigerbar) */}
+      {!locked && (
+        <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={copyFromPrevious}
+            disabled={!previousPicks || saving}
+            data-testid="copy-previous"
+          >
+            Kopiér fra forrige etape
+          </button>
+          {onApplyToOpenStages && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={applyToAllOpen}
+              disabled={applying || saving}
+              data-testid="apply-all-open"
+            >
+              {applying ? 'Anvender…' : 'Anvend på alle åbne etaper'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {applyMsg && <p style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--c-ok)' }} data-testid="apply-msg">{applyMsg}</p>}
       {saved && <p style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--c-ok)' }}>✓ Gemt!</p>}
       {error && <p style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--c-err)' }}>{error}</p>}
       {!locked && (
