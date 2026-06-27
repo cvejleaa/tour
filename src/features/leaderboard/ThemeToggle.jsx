@@ -1,7 +1,7 @@
 /**
  * ThemeToggle – knap til at skifte mellem lyst og mørkt tema.
  * Gemmer præferencen i localStorage og sætter data-theme på <html>.
- * Kan bruges fra Leaderboard og Liga-sider.
+ * Vises på Min profil-siden under "Udseende".
  */
 import { useState, useEffect } from 'react';
 

@@ -1,12 +1,40 @@
 {
-  "generatedAt": "2026-06-27T09:41:05.646Z",
+  "generatedAt": "2026-06-27T12:44:16.838Z",
   "totals": {
-    "files": 60,
-    "tests": 791,
-    "passed": 791,
+    "files": 68,
+    "tests": 837,
+    "passed": 837,
     "failed": 0
   },
   "suites": [
+    {
+      "file": "src/components/Avatar.test.jsx",
+      "area": "frontend",
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Avatar › viser emoji når den er sat",
+          "status": "passed"
+        },
+        {
+          "name": "Avatar › viser initialer uden emoji",
+          "status": "passed"
+        },
+        {
+          "name": "Avatar › uden yndlingshold vises der intet mærke",
+          "status": "passed"
+        },
+        {
+          "name": "Avatar › viser cykelholdets trøje/logo som mærke (ikke flag)",
+          "status": "passed"
+        },
+        {
+          "name": "Avatar › viser INTET mærke for ukendt/legacy lande-kode (graceful fallback)",
+          "status": "passed"
+        }
+      ]
+    },
     {
       "file": "src/components/Hero.test.jsx",
       "area": "frontend",
@@ -71,6 +99,22 @@
         },
         {
           "name": "Hero – komplet rendering › renderer uden props uden at krashe",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/components/Layout.test.jsx",
+      "area": "frontend",
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Layout › viser \"Min profil\"-tekst i profil-linket",
+          "status": "passed"
+        },
+        {
+          "name": "Layout › profil-linket peger på /profil",
           "status": "passed"
         }
       ]
@@ -164,9 +208,117 @@
       ]
     },
     {
+      "file": "src/components/TeamBadge.test.jsx",
+      "area": "frontend",
+      "passed": 6,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "TeamBadge › viser holdnavn og logo når metadata findes (opslag på navn)",
+          "status": "passed"
+        },
+        {
+          "name": "TeamBadge › slår op på holdkode og bruger det officielle navn",
+          "status": "passed"
+        },
+        {
+          "name": "TeamBadge › mangler ikke blandet-kasse navne",
+          "status": "passed"
+        },
+        {
+          "name": "TeamBadge › falder tilbage til kun navnet uden metadata (intet logo)",
+          "status": "passed"
+        },
+        {
+          "name": "TeamBadge › viser bindestreg ved tomt navn",
+          "status": "passed"
+        },
+        {
+          "name": "TeamBadge › img er lazy",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/data/route2026.test.js",
+      "area": "frontend",
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "placeholderRoute2026 › har 21 etaper",
+          "status": "passed"
+        },
+        {
+          "name": "placeholderRoute2026 › hver etape har de nye felter med rigtige data",
+          "status": "passed"
+        },
+        {
+          "name": "placeholderRoute2026 › etape 1 er holdtidskørsel i Barcelona",
+          "status": "passed"
+        },
+        {
+          "name": "placeholderRoute2026 › sidste etape slutter på Champs-Élysées",
+          "status": "passed"
+        },
+        {
+          "name": "placeholderRoute2026 › respekterer season i id",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/data/tourTeams2026.test.js",
+      "area": "frontend",
+      "passed": 10,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "TOUR_TEAMS › er 23 holdnavne (strenge)",
+          "status": "passed"
+        },
+        {
+          "name": "TOUR_TEAMS › indeholder de officielle 2026-navne",
+          "status": "passed"
+        },
+        {
+          "name": "teamMeta › slår op på kode",
+          "status": "passed"
+        },
+        {
+          "name": "teamMeta › slår op på navn (case-insensitivt)",
+          "status": "passed"
+        },
+        {
+          "name": "teamMeta › returnerer null for ukendt",
+          "status": "passed"
+        },
+        {
+          "name": "teamMeta › TEAM_META er nøglet på både kode og navn",
+          "status": "passed"
+        },
+        {
+          "name": "prettyTeam › lader blandet-kasse navne være urørt",
+          "status": "passed"
+        },
+        {
+          "name": "prettyTeam › title-caser ALL-CAPS letour-resultatnavne",
+          "status": "passed"
+        },
+        {
+          "name": "prettyTeam › bevarer kendte forkortelser i versaler",
+          "status": "passed"
+        },
+        {
+          "name": "prettyTeam › tom → tom streng",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/features/admin/adminActions.test.js",
       "area": "frontend",
-      "passed": 30,
+      "passed": 36,
       "failed": 0,
       "tests": [
         {
@@ -246,6 +398,30 @@
           "status": "passed"
         },
         {
+          "name": "adminActions › createBonusQuestion › default-type er text når type ikke angives",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › createBonusQuestion › gemmer en gyldig type",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › createBonusQuestion › falder tilbage til text ved ukendt type",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › createBonusQuestion › gemmer facit som streng for skalar-typer",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › createBonusQuestion › gemmer facit som array for teams",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › createBonusQuestion › facit defaulter til null når ikke angivet",
+          "status": "passed"
+        },
+        {
           "name": "adminActions › saveBonusFacit › kalder updateDoc med facit-feltet",
           "status": "passed"
         },
@@ -294,7 +470,7 @@
     {
       "file": "src/features/admin/BonusTab.test.jsx",
       "area": "frontend",
-      "passed": 18,
+      "passed": 25,
       "failed": 0,
       "tests": [
         {
@@ -363,6 +539,34 @@
         },
         {
           "name": "BonusTab › viser opret-formular til nye bonusspørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › viser type-vælger med alle 6 typer",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › skifter facit-input til tal ved type number",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › skifter facit-input til Ja/Nej ved type boolean",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › skifter facit-input til hold-dropdown ved type team",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › skifter facit-input til hold-checkboxliste ved type teams",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › time-facit-input bruger tekst med formathint",
+          "status": "passed"
+        },
+        {
+          "name": "BonusTab › opretter spørgsmål med type og facit",
           "status": "passed"
         },
         {
@@ -962,7 +1166,7 @@
     {
       "file": "src/features/bonus/BonusQuestion.test.jsx",
       "area": "frontend",
-      "passed": 25,
+      "passed": 35,
       "failed": 0,
       "tests": [
         {
@@ -999,6 +1203,46 @@
         },
         {
           "name": "BonusQuestion – åben select (hold) › viser placeholder \"– Vælg hold –\" som default option",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › text → tekst-input",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › number → tal-input",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › time → tekst-input med formathint",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › boolean → Ja/Nej-dropdown",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › team → enkelt hold-dropdown",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › teams → checkbox-liste (flere hold)",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › teams → gem-knap deaktiveret indtil mindst ét hold valgt",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › teams → gemmer svaret som array",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › teams → viser eksisterende array-svar sammenkædet",
+          "status": "passed"
+        },
+        {
+          "name": "BonusQuestion – svartyper › boolean → facit vises som \"Ja\"",
           "status": "passed"
         },
         {
@@ -2256,6 +2500,82 @@
       ]
     },
     {
+      "file": "src/features/stages/applyPicksToOpenStages.test.js",
+      "area": "frontend",
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "applyPicksToOpenStages › skriver kun til åbne etaper og commit'er én batch",
+          "status": "passed"
+        },
+        {
+          "name": "applyPicksToOpenStages › skriver dokument-formen uden points",
+          "status": "passed"
+        },
+        {
+          "name": "applyPicksToOpenStages › skriver til flere åbne etaper i samme batch",
+          "status": "passed"
+        },
+        {
+          "name": "applyPicksToOpenStages › gør intet uden uid",
+          "status": "passed"
+        },
+        {
+          "name": "applyPicksToOpenStages › committer ikke når der ingen åbne etaper er",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/stages/previousPicks.test.js",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "previousPicksFor › returnerer holdvalg fra den seneste tidligere tippede etape",
+          "status": "passed"
+        },
+        {
+          "name": "previousPicksFor › springer etaper uden noget udfyldt felt over",
+          "status": "passed"
+        },
+        {
+          "name": "previousPicksFor › returnerer null når der ingen tidligere tippet etape findes",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/stages/StageCard.test.jsx",
+      "area": "frontend",
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "StageCard — Kopiér fra forrige etape › er deaktiveret når der ikke er en tidligere tippet etape",
+          "status": "passed"
+        },
+        {
+          "name": "StageCard — Kopiér fra forrige etape › udfylder de fire felter og gemmer ved klik",
+          "status": "passed"
+        },
+        {
+          "name": "StageCard — Anvend på alle åbne etaper › kalder callback med de aktuelle holdvalg efter bekræftelse",
+          "status": "passed"
+        },
+        {
+          "name": "StageCard — Anvend på alle åbne etaper › kalder IKKE callback når bekræftelse afvises",
+          "status": "passed"
+        },
+        {
+          "name": "StageCard — Anvend på alle åbne etaper › viser hverken knapper når etapen er låst",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/lib/pcsMapping.test.js",
       "area": "frontend",
       "passed": 9,
@@ -2351,118 +2671,6 @@
         },
         {
           "name": "bonusPoints › exact: kræver eksakt match (ingen fuzzy på koder)",
-          "status": "passed"
-        }
-      ]
-    },
-    {
-      "file": "src/lib/teams.test.js",
-      "area": "frontend",
-      "passed": 26,
-      "failed": 0,
-      "tests": [
-        {
-          "name": "teamName › returnerer dansk navn for kendte hold",
-          "status": "passed"
-        },
-        {
-          "name": "teamName › returnerer selve koden for ukendte hold",
-          "status": "passed"
-        },
-        {
-          "name": "teamName › returnerer tom streng ved null",
-          "status": "passed"
-        },
-        {
-          "name": "teamName › returnerer tom streng ved undefined",
-          "status": "passed"
-        },
-        {
-          "name": "teamName › returnerer tom streng ved tom streng",
-          "status": "passed"
-        },
-        {
-          "name": "teamName › returnerer korrekt navn for England med gb-eng iso",
-          "status": "passed"
-        },
-        {
-          "name": "teamName › returnerer korrekt navn for Skotland med gb-sct iso",
-          "status": "passed"
-        },
-        {
-          "name": "teamName › returnerer korrekt navn for særlige tegn (Curaçao)",
-          "status": "passed"
-        },
-        {
-          "name": "teamName › returnerer korrekt navn for Østrig",
-          "status": "passed"
-        },
-        {
-          "name": "teamName › returnerer korrekt navn for Bosnien-Hercegovina",
-          "status": "passed"
-        },
-        {
-          "name": "teamIso › returnerer iso-kode for kendte hold",
-          "status": "passed"
-        },
-        {
-          "name": "teamIso › returnerer gb-eng for England",
-          "status": "passed"
-        },
-        {
-          "name": "teamIso › returnerer gb-sct for Skotland",
-          "status": "passed"
-        },
-        {
-          "name": "teamIso › returnerer null for ukendte hold",
-          "status": "passed"
-        },
-        {
-          "name": "teamIso › returnerer null ved null input",
-          "status": "passed"
-        },
-        {
-          "name": "teamIso › returnerer null ved undefined input",
-          "status": "passed"
-        },
-        {
-          "name": "teamIso › returnerer null ved tom streng",
-          "status": "passed"
-        },
-        {
-          "name": "flagUrl › returnerer korrekt flagcdn-URL for kendte hold med default bredde",
-          "status": "passed"
-        },
-        {
-          "name": "flagUrl › bruger den angivne bredde i URL",
-          "status": "passed"
-        },
-        {
-          "name": "flagUrl › returnerer korrekt URL for England (gb-eng)",
-          "status": "passed"
-        },
-        {
-          "name": "flagUrl › returnerer korrekt URL for Skotland (gb-sct)",
-          "status": "passed"
-        },
-        {
-          "name": "flagUrl › returnerer null for ukendte hold",
-          "status": "passed"
-        },
-        {
-          "name": "flagUrl › returnerer null ved null input",
-          "status": "passed"
-        },
-        {
-          "name": "flagUrl › returnerer null ved undefined input",
-          "status": "passed"
-        },
-        {
-          "name": "flagUrl › returnerer null ved tom streng",
-          "status": "passed"
-        },
-        {
-          "name": "flagUrl › dækker alle 50 hold i TEAMS",
           "status": "passed"
         }
       ]
@@ -2950,7 +3158,7 @@
           "status": "passed"
         },
         {
-          "name": "LeaderboardPage › viser ThemeToggle-knap",
+          "name": "LeaderboardPage › viser IKKE længere ThemeToggle-knappen (flyttet til Min profil)",
           "status": "passed"
         },
         {
@@ -3388,6 +3596,22 @@
       ]
     },
     {
+      "file": "src/pages/ProfilePage.test.jsx",
+      "area": "frontend",
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "ProfilePage › viser yndlingshold-dropdown med cykelhold (ikke landshold)",
+          "status": "passed"
+        },
+        {
+          "name": "ProfilePage › viser Tema-knappen (ThemeToggle) på profilsiden",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "functions/invites.test.js",
       "area": "functions",
       "passed": 12,
@@ -3570,7 +3794,7 @@
     {
       "file": "functions/tourScoring.test.js",
       "area": "functions",
-      "passed": 12,
+      "passed": 18,
       "failed": 0,
       "tests": [
         {
@@ -3619,6 +3843,30 @@
         },
         {
           "name": "resolveStageResult + scoreStageBet › resolveStageResult fra rå data",
+          "status": "passed"
+        },
+        {
+          "name": "bonusNorm (bonus-svar normalisering) › trimmer og laver små bogstaver for skalarer",
+          "status": "passed"
+        },
+        {
+          "name": "bonusNorm (bonus-svar normalisering) › håndterer null/undefined som tom streng",
+          "status": "passed"
+        },
+        {
+          "name": "bonusNorm (bonus-svar normalisering) › konverterer tal til streng",
+          "status": "passed"
+        },
+        {
+          "name": "bonusNorm (bonus-svar normalisering) › sorterer arrays så rækkefølge er ligegyldig (teams)",
+          "status": "passed"
+        },
+        {
+          "name": "bonusNorm (bonus-svar normalisering) › multi-team svar matcher facit uafhængigt af rækkefølge",
+          "status": "passed"
+        },
+        {
+          "name": "bonusNorm (bonus-svar normalisering) › skalar og array giver forskellige normaliseringer",
           "status": "passed"
         }
       ]

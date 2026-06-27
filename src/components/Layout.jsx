@@ -86,8 +86,11 @@ export default function Layout({ children }) {
           {user && isApproved && (
             <NavLink to="/profil" style={linkStyle} title="Min profil"
               aria-label="Min profil">
-              <Avatar uid={user.uid} name={profile?.displayName} emoji={profile?.avatarEmoji}
-                favoriteTeam={profile?.favoriteTeam} size={26} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Avatar uid={user.uid} name={profile?.displayName} emoji={profile?.avatarEmoji}
+                  favoriteTeam={profile?.favoriteTeam} size={26} />
+                Min profil
+              </span>
             </NavLink>
           )}
           {user ? (

@@ -163,11 +163,10 @@ describe('LeaderboardPage', () => {
     expect(screen.queryByRole('tab', { name: /præcision/i })).not.toBeInTheDocument();
   });
 
-  it('viser ThemeToggle-knap', () => {
+  it('viser IKKE længere ThemeToggle-knappen (flyttet til Min profil)', () => {
     render(<LeaderboardPage />);
-    // ThemeToggle er til stede – kigger efter knap med tema-relateret label
-    const toggleBtn = screen.getByRole('button', { name: /tema/i });
-    expect(toggleBtn).toBeInTheDocument();
+    // Tema-knappen er flyttet til profilsiden — må ikke længere være her
+    expect(screen.queryByRole('button', { name: /tema/i })).not.toBeInTheDocument();
   });
 
   it('"Samlet stilling"-fanen er ikke selected i dagsfanen', () => {

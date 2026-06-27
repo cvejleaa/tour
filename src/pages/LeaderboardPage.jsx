@@ -12,7 +12,6 @@ import { useDailyStandings } from '../features/leaderboard/useDailyStandings';
 import { useLeagues } from '../features/leagues/useLeagues';
 import { collectVisibleUids } from '../features/leaderboard/standingsUtils';
 import StandingsTable from '../features/leaderboard/StandingsTable';
-import ThemeToggle from '../features/leaderboard/ThemeToggle';
 import { leagueScore, scoringLabel, normalizeScoring, isFullScoring } from '../features/leagues/leagueFormat';
 import { useLeagueBonus } from '../features/leagues/useLeagueBonus';
 
@@ -75,7 +74,6 @@ export default function LeaderboardPage() {
         <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'var(--c-text)' }}>
           🏆 Stilling
         </h1>
-        <ThemeToggle />
       </div>
 
       {/* Liga-filter */}

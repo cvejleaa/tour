@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-27T09:41:05.795Z",
+  "generatedAt": "2026-06-27T12:44:16.964Z",
   "nodes": [
     {
       "id": "firebase",
@@ -9,7 +9,7 @@
     {
       "id": "lib (kerne)",
       "layer": 0,
-      "files": 7
+      "files": 6
     },
     {
       "id": "Cloud Functions",
@@ -24,7 +24,7 @@
     {
       "id": "components",
       "layer": 2,
-      "files": 5
+      "files": 6
     },
     {
       "id": "features/admin",
@@ -79,7 +79,7 @@
     {
       "id": "features/stages",
       "layer": 2,
-      "files": 6
+      "files": 9
     },
     {
       "id": "pages",
@@ -115,8 +115,8 @@
     },
     {
       "from": "components",
-      "to": "lib (kerne)",
-      "count": 3
+      "to": "app-skal",
+      "count": 2
     },
     {
       "from": "components",
@@ -136,6 +136,16 @@
     {
       "from": "components",
       "to": "features/comments",
+      "count": 1
+    },
+    {
+      "from": "components",
+      "to": "lib (kerne)",
+      "count": 1
+    },
+    {
+      "from": "components",
+      "to": "features/stages",
       "count": 1
     },
     {
@@ -175,18 +185,18 @@
     },
     {
       "from": "features/admin",
+      "to": "lib (kerne)",
+      "count": 11
+    },
+    {
+      "from": "features/admin",
       "to": "app-skal",
-      "count": 3
+      "count": 5
     },
     {
       "from": "features/admin",
       "to": "features/leagues",
       "count": 2
-    },
-    {
-      "from": "features/admin",
-      "to": "lib (kerne)",
-      "count": 11
     },
     {
       "from": "features/admin",
@@ -206,7 +216,7 @@
     {
       "from": "features/admin",
       "to": "features/stages",
-      "count": 1
+      "count": 2
     },
     {
       "from": "features/admin",
@@ -226,7 +236,7 @@
     {
       "from": "features/bonus",
       "to": "app-skal",
-      "count": 2
+      "count": 3
     },
     {
       "from": "features/bonus",
@@ -346,7 +356,12 @@
     {
       "from": "features/profile",
       "to": "lib (kerne)",
-      "count": 2
+      "count": 1
+    },
+    {
+      "from": "features/profile",
+      "to": "app-skal",
+      "count": 1
     },
     {
       "from": "features/reactions",
@@ -355,18 +370,23 @@
     },
     {
       "from": "features/stages",
-      "to": "app-skal",
-      "count": 3
+      "to": "components",
+      "count": 2
     },
     {
       "from": "features/stages",
       "to": "firebase",
-      "count": 5
+      "count": 7
     },
     {
       "from": "features/stages",
       "to": "lib (kerne)",
-      "count": 8
+      "count": 14
+    },
+    {
+      "from": "features/stages",
+      "to": "app-skal",
+      "count": 2
     },
     {
       "from": "pages",
@@ -396,17 +416,17 @@
     {
       "from": "pages",
       "to": "features/stages",
-      "count": 14
+      "count": 18
     },
     {
       "from": "pages",
       "to": "lib (kerne)",
-      "count": 7
+      "count": 6
     },
     {
       "from": "pages",
       "to": "app-skal",
-      "count": 3
+      "count": 4
     },
     {
       "from": "pages",

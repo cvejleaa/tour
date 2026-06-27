@@ -6,10 +6,11 @@ import { useAuth } from '../context/AuthContext';
 import { updateProfile } from '../features/profile/profileActions';
 import Avatar from '../components/Avatar';
 import EmojiPicker from '../features/comments/EmojiPicker';
-import { TEAMS, teamName } from '../lib/teams';
+import ThemeToggle from '../features/leaderboard/ThemeToggle';
+import { TOUR_TEAMS, prettyTeam } from '../data/tourTeams2026';
 
-const teamOptions = Object.keys(TEAMS).sort((a, b) =>
-  teamName(a).localeCompare(teamName(b), 'da'));
+const teamOptions = [...TOUR_TEAMS].sort((a, b) =>
+  prettyTeam(a).localeCompare(prettyTeam(b), 'da'));
 
 export default function ProfilePage() {
   const { user, profile } = useAuth();
@@ -90,8 +91,8 @@ export default function ProfilePage() {
               style={{ maxWidth: 280 }}
             >
               <option value="">– Intet valgt –</option>
-              {teamOptions.map((code) => (
-                <option key={code} value={code}>{teamName(code)}</option>
+              {teamOptions.map((name) => (
+                <option key={name} value={name}>{prettyTeam(name)}</option>
               ))}
             </select>
           </div>
@@ -116,6 +117,17 @@ export default function ProfilePage() {
             {busy ? 'Gemmer…' : 'Gem profil'}
           </button>
         </form>
+
+        {/* Udseende */}
+        <div className="form-group mt-2" style={{ borderTop: '1px solid var(--c-border)', paddingTop: '1rem' }}>
+          <label className="form-label">Tema</label>
+          <div className="flex gap-1" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <ThemeToggle />
+            <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+              Skifter mellem lyst og mørkt for hele appen
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
