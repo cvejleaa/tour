@@ -21,7 +21,10 @@ vi.mock('../data/tourTeams2026', () => {
 // Mock den statiske startliste (live-hook'en er no-op pga. onSnapshot-mocken).
 vi.mock('../data/startlist2026', () => {
   const SL = {
-    TVL: { announced: true, riders: [{ name: 'Rytter Én', country: 'Danmark', leader: true }] },
+    TVL: { announced: true, riders: [
+      { name: 'Rytter Én', country: 'Danmark' },
+      { name: 'Rider Two', country: 'USA' },
+    ] },
   };
   return { staticStartlist: (c) => SL[c] || null };
 });
@@ -47,10 +50,13 @@ describe('TeamPage', () => {
     expect(screen.queryByTestId('rider-list')).toBeNull();
   });
 
-  it('viser rytterlisten når den er til stede', () => {
+  it('viser rytterlisten med danskere fremhævet', () => {
     renderAt('TVL');
     expect(screen.getByTestId('rider-list')).toBeInTheDocument();
     expect(screen.getByText('Rytter Én')).toBeInTheDocument();
+    expect(screen.getByText('Rider Two')).toBeInTheDocument();
+    // Den danske rytter får et flag-mærke.
+    expect(screen.getByTitle('Dansk rytter')).toBeInTheDocument();
     expect(screen.queryByTestId('riders-pending')).toBeNull();
   });
 

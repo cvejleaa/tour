@@ -1,7 +1,8 @@
 // ---------------------------------------------------------------------------
-// TeamPage – ét holds egen side (/hold/:code). Header med logo/trøje/farve +
-// en RYTTER-sektion der er klar til at vise startlisten, så snart den er på
-// plads (meta.riders). Indtil da vises en pæn "kommer snart"-tilstand.
+// TeamPage – ét holds egen side (/hold/:code). Header med logo/trøje/farve, en
+// kurateret PROFIL (disciplin + nøgleryttere) og den fulde STARTLISTE (live fra
+// Firestore, ellers statisk snapshot) med danske ryttere fremhævet. Hold der
+// endnu ikke har udtaget vises med en "afventer"-tilstand.
 // ---------------------------------------------------------------------------
 import { useParams, Link } from 'react-router-dom';
 import Hero from '../components/Hero';
@@ -13,17 +14,20 @@ import { useStartlist } from '../features/teams/useStartlist';
 function RiderList({ riders }) {
   return (
     <ul data-testid="rider-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
-      {riders.map((r, i) => (
-        <li
-          key={`${r.name || i}`}
-          data-testid="rider-row"
-          style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.92rem' }}
-        >
-          <span style={{ fontWeight: r.leader ? 800 : 600 }}>{r.name || '—'}</span>
-          {r.leader && <span style={{ fontSize: '0.72rem', color: 'var(--c-pitch)' }}>kaptajn</span>}
-          {r.country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {r.country}</span>}
-        </li>
-      ))}
+      {riders.map((r, i) => {
+        const isDane = r.country === 'Danmark';
+        return (
+          <li
+            key={`${r.name || i}`}
+            data-testid="rider-row"
+            style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.92rem' }}
+          >
+            <span style={{ fontWeight: isDane ? 800 : 600 }}>{r.name || '—'}</span>
+            {isDane && <span title="Dansk rytter">🇩🇰</span>}
+            {r.country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {r.country}</span>}
+          </li>
+        );
+      })}
     </ul>
   );
 }

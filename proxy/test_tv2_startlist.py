@@ -47,11 +47,10 @@ def test_announced_teams_have_riders():
     assert len(tvl["riders"]) == 8, tvl["riders"]
     names = [r["name"] for r in tvl["riders"]]
     assert "Jonas Vingegaard" in names, names
-    # Kaptajnen er markeret.
-    assert any(r["leader"] for r in tvl["riders"])
-    # Land parses ud.
+    # Land parses ud (bruges bl.a. til at fremhæve danskere).
     vinge = next(r for r in tvl["riders"] if r["name"] == "Jonas Vingegaard")
     assert vinge["country"] == "Danmark", vinge
+    assert "leader" not in vinge, "leader-feltet skal være fjernet (det var danskere, ikke kaptajner)"
 
 
 def test_unannounced_team_has_no_riders():

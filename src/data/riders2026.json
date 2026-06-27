@@ -32,43 +32,35 @@
     "riders": [
       {
         "name": "Pascal Ackermann",
-        "country": "Tyskland",
-        "leader": false
+        "country": "Tyskland"
       },
       {
         "name": "Luke Durbridge",
-        "country": "Australien",
-        "leader": false
+        "country": "Australien"
       },
       {
         "name": "Felix Engelhardt",
-        "country": "Tyskland",
-        "leader": false
+        "country": "Tyskland"
       },
       {
         "name": "Kelland O’Brien",
-        "country": "Australien",
-        "leader": false
+        "country": "Australien"
       },
       {
         "name": "Ben O’Connor",
-        "country": "Australien",
-        "leader": false
+        "country": "Australien"
       },
       {
         "name": "Michael Matthews",
-        "country": "Australien",
-        "leader": false
+        "country": "Australien"
       },
       {
         "name": "Luke Plapp",
-        "country": "Australien",
-        "leader": false
+        "country": "Australien"
       },
       {
         "name": "Mauro Schmid",
-        "country": "Schweiz",
-        "leader": false
+        "country": "Schweiz"
       }
     ]
   },
@@ -93,43 +85,35 @@
     "riders": [
       {
         "name": "Lewis Askey",
-        "country": "Storbritannien",
-        "leader": false
+        "country": "Storbritannien"
       },
       {
         "name": "George Bennett",
-        "country": "New Zealand",
-        "leader": false
+        "country": "New Zealand"
       },
       {
         "name": "Marco Frigo",
-        "country": "Italien",
-        "leader": false
+        "country": "Italien"
       },
       {
         "name": "Biniam Girmay",
-        "country": "Eritrea",
-        "leader": false
+        "country": "Eritrea"
       },
       {
         "name": "Matîs Louvel",
-        "country": "Frankrig",
-        "leader": false
+        "country": "Frankrig"
       },
       {
         "name": "Krists Neilands",
-        "country": "Letland",
-        "leader": false
+        "country": "Letland"
       },
       {
         "name": "Jake Stewart",
-        "country": "Storbritannien",
-        "leader": false
+        "country": "Storbritannien"
       },
       {
         "name": "Tom Van Asbroeck",
-        "country": "Belgien",
-        "leader": false
+        "country": "Belgien"
       }
     ]
   },
@@ -146,43 +130,35 @@
     "riders": [
       {
         "name": "Remco Evenepoel",
-        "country": "Belgien",
-        "leader": false
+        "country": "Belgien"
       },
       {
         "name": "Mattia Cattaneo",
-        "country": "Italien",
-        "leader": false
+        "country": "Italien"
       },
       {
         "name": "Nico Denz",
-        "country": "Tyskland",
-        "leader": false
+        "country": "Tyskland"
       },
       {
         "name": "Jai Hindley",
-        "country": "Australien",
-        "leader": false
+        "country": "Australien"
       },
       {
         "name": "Florian Lipowitz",
-        "country": "Tyskland",
-        "leader": false
+        "country": "Tyskland"
       },
       {
         "name": "Jan Tratnik",
-        "country": "Slovenien",
-        "leader": false
+        "country": "Slovenien"
       },
       {
         "name": "Tim van Dijke",
-        "country": "Holland",
-        "leader": false
+        "country": "Holland"
       },
       {
         "name": "Maxim van Gils",
-        "country": "Belgien",
-        "leader": false
+        "country": "Belgien"
       }
     ]
   },
@@ -207,43 +183,35 @@
     "riders": [
       {
         "name": "Jonas Abrahamsen",
-        "country": "Norge",
-        "leader": false
+        "country": "Norge"
       },
       {
         "name": "Anthon Charmig",
-        "country": "Danmark",
-        "leader": true
+        "country": "Danmark"
       },
       {
         "name": "Magnus Cort",
-        "country": "Danmark",
-        "leader": true
+        "country": "Danmark"
       },
       {
         "name": "Tobias Halland Johannessen",
-        "country": "Norge",
-        "leader": false
+        "country": "Norge"
       },
       {
         "name": "Anders Skårseth",
-        "country": "Norge",
-        "leader": false
+        "country": "Norge"
       },
       {
         "name": "Torstein Træen",
-        "country": "Norge",
-        "leader": false
+        "country": "Norge"
       },
       {
         "name": "Søren Wærenskjold",
-        "country": "Norge",
-        "leader": false
+        "country": "Norge"
       },
       {
         "name": "Anders Halland Johannessen",
-        "country": "Norge",
-        "leader": false
+        "country": "Norge"
       }
     ]
   },
@@ -252,43 +220,35 @@
     "riders": [
       {
         "name": "Jonas Vingegaard",
-        "country": "Danmark",
-        "leader": true
+        "country": "Danmark"
       },
       {
         "name": "Adoardo Affini",
-        "country": "Italien",
-        "leader": false
+        "country": "Italien"
       },
       {
         "name": "Bruno Armirail",
-        "country": "Frankrig",
-        "leader": false
+        "country": "Frankrig"
       },
       {
         "name": "Victor Campenaerts",
-        "country": "Belgien",
-        "leader": false
+        "country": "Belgien"
       },
       {
         "name": "Per Stand Hagenes",
-        "country": "Norge",
-        "leader": false
+        "country": "Norge"
       },
       {
         "name": "Matteo Jorgenson",
-        "country": "USA",
-        "leader": false
+        "country": "USA"
       },
       {
         "name": "Sepp Kuss",
-        "country": "USA",
-        "leader": false
+        "country": "USA"
       },
       {
         "name": "Davide Piganzoli",
-        "country": "Italien",
-        "leader": false
+        "country": "Italien"
       }
     ]
   },

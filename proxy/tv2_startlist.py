@@ -52,16 +52,17 @@ def _parse_riders(block: str) -> list[dict[str, Any]]:
     if not m:
         return riders
     for li in re.findall(r"<li>(.*?)</li>", m.group(1), re.S | re.I):
-        leader = "<strong>" in li.lower()
         text = _clean(li)
         if not text:
             continue
         # "Navn, Land" — land er sidste komma-led (navne kan selv have komma sjældent).
+        # (TV2 bruger fed skrift til at fremhæve DANSKERE — ikke kaptajner — så vi
+        #  bevarer ikke den markering; danskere kan udledes af land == "Danmark".)
         name, _, country = text.rpartition(",")
         if name:
-            riders.append({"name": name.strip(), "country": country.strip(), "leader": leader})
+            riders.append({"name": name.strip(), "country": country.strip()})
         else:
-            riders.append({"name": text, "country": "", "leader": leader})
+            riders.append({"name": text, "country": ""})
     return riders
 
 

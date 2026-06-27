@@ -23,7 +23,6 @@ function buildStartlistDoc(payload) {
         .map((r) => ({
           name: String((r && r.name) || '').trim(),
           country: String((r && r.country) || '').trim(),
-          leader: r && r.leader === true,
         }))
         .filter((r) => r.name)
       : [];

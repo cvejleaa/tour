@@ -5,9 +5,9 @@ import { buildStartlistDoc, syncStartlistCore } from './startlistSync';
 const PAYLOAD = {
   teams: [
     { code: 'TVL', name: 'Visma | Lease a Bike', announced: true, riders: [
-      { name: 'Jonas Vingegaard', country: 'Danmark', leader: true },
-      { name: 'Sepp Kuss', country: 'USA', leader: false },
-      { name: '', country: 'X', leader: false }, // tom navn → frasorteres
+      { name: 'Jonas Vingegaard', country: 'Danmark' },
+      { name: 'Sepp Kuss', country: 'USA' },
+      { name: '', country: 'X' }, // tom navn → frasorteres
     ] },
     { code: 'UEX', name: 'UAE Team Emirates - XRG', announced: false, riders: [] },
     { name: 'uden kode', announced: true, riders: [] }, // ingen kode → springes over
@@ -21,8 +21,8 @@ describe('buildStartlistDoc', () => {
     expect(doc.announced).toBe(1); // kun TVL (holdet uden kode tælles ikke i byCode men i total)
     expect(Object.keys(doc.teams).sort()).toEqual(['TVL', 'UEX']);
     expect(doc.teams.TVL.riders).toEqual([
-      { name: 'Jonas Vingegaard', country: 'Danmark', leader: true },
-      { name: 'Sepp Kuss', country: 'USA', leader: false },
+      { name: 'Jonas Vingegaard', country: 'Danmark' },
+      { name: 'Sepp Kuss', country: 'USA' },
     ]);
     expect(doc.teams.UEX).toEqual({ name: 'UAE Team Emirates - XRG', announced: false, riders: [] });
   });
