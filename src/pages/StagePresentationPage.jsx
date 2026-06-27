@@ -117,6 +117,9 @@ export default function StagePresentationPage() {
   const elevation = stage.elevation ?? staticStage?.elevation ?? null;
   const climbs = (stage.climbs?.length ? stage.climbs : staticStage?.climbs) || [];
   const sprints = (stage.sprints?.length ? stage.sprints : staticStage?.sprints) || [];
+  // Foretræk den statiske rutes beskrivelse (oversat til dansk) frem for et
+  // ældre seedet engelsk dokument.
+  const description = staticStage?.description || stage.description || '';
 
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
@@ -215,13 +218,13 @@ export default function StagePresentationPage() {
         )}
 
         {/* Om etapen / mål-byen */}
-        {stage.description && (
+        {description && (
           <section style={{ marginBottom: '1rem' }}>
             <h3 style={{ marginBottom: '0.4rem' }}>
               Om mål-byen {stage.finishCity ?? ''}
             </h3>
             <p style={{ margin: 0, lineHeight: 1.5, color: 'var(--c-muted)' }}>
-              {stage.description}
+              {description}
             </p>
           </section>
         )}

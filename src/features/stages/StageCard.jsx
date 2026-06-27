@@ -275,33 +275,7 @@ export default function StageCard({
           ), 0)} point · gemmes automatisk · låses ved etapestart
         </p>
       )}
-
-      {/* Om etapen – kollapset som standard. Viser mål-byens billede + tekst. */}
-      {stage.description && (
-        <details style={{ marginTop: '0.6rem' }}>
-          <summary style={{ cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: 'var(--c-muted)' }}>
-            ℹ️ Om etapen
-          </summary>
-          <div style={{ marginTop: '0.5rem' }}>
-            {stage.finishCity && (
-              <p style={{ margin: '0 0 0.35rem', fontSize: '0.82rem', fontWeight: 700 }}>
-                Om mål-byen {stage.finishCity}
-              </p>
-            )}
-            {stage.image && (
-              <img
-                src={stage.image}
-                alt={stage.finishCity || ''}
-                loading="lazy"
-                style={{ maxWidth: '100%', height: 'auto', borderRadius: 8, marginBottom: '0.4rem', display: 'block' }}
-              />
-            )}
-            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--c-muted)', lineHeight: 1.45 }}>
-              {stage.description}
-            </p>
-          </div>
-        </details>
-      )}
+      {/* Detaljer om etapen ligger på præsentationssiden (📖 Læs om etapen). */}
     </div>
   );
 }
