@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { scoreStageBet, STAGE_FIELDS } from '../../lib/tourScoring';
+import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, DEFAULT_POINTS } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
 import { prettyTeam } from '../../data/tourTeams2026';
 import TeamBadge from '../../components/TeamBadge';
@@ -16,12 +16,13 @@ const STAGE_TYPE_LABEL = {
   itt: '⏱️ Enkeltstart', ttt: '⏱️ Holdtidskørsel', unknown: 'Etape',
 };
 
-// De fire spørgsmål i visningsrækkefølge.
+// De fire spørgsmål i visningsrækkefølge. gcTeam-labellen får antal ryttere
+// indsat dynamisk (afhænger af admin-indstillingen gcTopN).
 const QUESTIONS = [
-  { key: 'winnerTeam', icon: '🏆', label: 'Etapevinderens hold' },
-  { key: 'gcTeam', icon: '⏱️', label: 'Bedste hold (de første ryttere)' },
-  { key: 'mountainTeam', icon: '⛰️', label: 'Flest bjergpoint' },
-  { key: 'sprintTeam', icon: '🚀', label: 'Flest sprintpoint' },
+  { key: 'winnerTeam', icon: '🏆', label: () => 'Etapevinderens hold' },
+  { key: 'gcTeam', icon: '⏱️', label: (gcTopN) => `Bedste hold (de første ${gcTopN} ryttere)` },
+  { key: 'mountainTeam', icon: '⛰️', label: () => 'Flest bjergpoint' },
+  { key: 'sprintTeam', icon: '🚀', label: () => 'Flest sprintpoint' },
 ];
 
 function formatDate(kickoff) {
@@ -32,12 +33,16 @@ function formatDate(kickoff) {
 }
 
 export default function StageCard({
-  stage, uid, bet, teams = [], points = {},
+  stage, uid, bet, teams = [], points = {}, gcTopN = 10,
   previousPicks = null, onApplyToOpenStages = null,
 }) {
   const status = stageStatus(stage, Date.now());
   const locked = status !== 'scheduled';
   const isDone = status === 'done';
+
+  // Kun de spørgsmål der faktist stilles på etapen (type-standard eller override).
+  const active = activeQuestionsForStage(stage);
+  const shownQuestions = QUESTIONS.filter(({ key }) => active[key]);
 
   const [picks, setPicks] = useState({
     winnerTeam: bet?.winnerTeam ?? '',
@@ -62,7 +67,7 @@ export default function StageCard({
 
   const hasBet = STAGE_FIELDS.some(({ key }) => bet?.[key]);
   const result = isDone ? stage.result : null;
-  const scored = result ? scoreStageBet(bet, result, points) : null;
+  const scored = result ? scoreStageBet(bet, result, points, active) : null;
 
   const save = useCallback(async (next) => {
     if (!uid || locked) return;
@@ -158,13 +163,13 @@ export default function StageCard({
 
       {/* De fire spørgsmål */}
       <div style={{ display: 'grid', gap: '0.5rem' }}>
-        {QUESTIONS.map(({ key, icon, label }) => {
+        {shownQuestions.map(({ key, icon, label }) => {
           const facit = result?.[key];
           const hit = facit && picks[key] && picks[key] === facit;
           return (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 600, minWidth: 200 }}>
-                {icon} {label}
+                {icon} {label(gcTopN)}
               </span>
               {locked ? (
                 <span style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -229,7 +234,9 @@ export default function StageCard({
       {error && <p style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--c-err)' }}>{error}</p>}
       {!locked && (
         <p style={{ margin: '0.4rem 0 0', fontSize: '0.74rem', color: 'var(--c-muted)' }}>
-          Op til {(points.winnerTeam ?? 5) + (points.gcTeam ?? 4) + (points.mountainTeam ?? 3) + (points.sprintTeam ?? 3)} point · gemmes automatisk · låses ved etapestart
+          Op til {STAGE_FIELDS.reduce((sum, { key, points: pk }) => (
+            active[key] ? sum + (points[pk] ?? DEFAULT_POINTS[pk]) : sum
+          ), 0)} point · gemmes automatisk · låses ved etapestart
         </p>
       )}
 

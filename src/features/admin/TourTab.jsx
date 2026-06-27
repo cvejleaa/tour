@@ -11,6 +11,21 @@ import { COL } from '../../lib/constants';
 import { placeholderRoute2026 } from '../../data/route2026';
 import { useActiveSeason } from '../stages/useActiveSeason';
 import { useTourSettings } from '../stages/useTourSettings';
+import { useStages } from '../stages/useStages';
+import { activeQuestionsForStage } from '../../lib/tourScoring';
+
+// Kolonneoverskrifter for spørgsmåls-overblikket (samme rækkefølge som STAGE_FIELDS).
+const QUESTION_COLS = [
+  { key: 'winnerTeam', label: 'Vinder-hold' },
+  { key: 'gcTeam', label: 'Bedste hold' },
+  { key: 'mountainTeam', label: 'Bjergpoint' },
+  { key: 'sprintTeam', label: 'Sprintpoint' },
+];
+
+const STAGE_TYPE_LABEL = {
+  flat: 'Flad', hilly: 'Kuperet', mountain: 'Bjerg',
+  itt: 'Enkeltstart', ttt: 'Holdtidskørsel', unknown: 'Etape',
+};
 
 const POINT_FIELDS = [
   { key: 'winnerTeam', label: 'Etapevinderens hold' },
@@ -26,6 +41,106 @@ function Result({ data }) {
     <pre style={{ fontSize: '0.78rem', background: 'var(--c-bg-alt, #f5f5f5)', padding: '0.5rem', borderRadius: 6, overflow: 'auto' }}>
       {JSON.stringify(data, null, 2)}
     </pre>
+  );
+}
+
+// Overblik: aktive spørgsmål pr. etape. Hver række har 4 checkboxes, forudfyldt
+// fra activeQuestionsForStage(stage) (override eller type-standard). "Gem"
+// skriver { questions: {...} } på etape-dokumentet (setDoc merge).
+function StageQuestionsOverview({ season }) {
+  const { stages } = useStages(season);
+  const [draft, setDraft] = useState({}); // stageId -> {winnerTeam,...}
+  const [savingId, setSavingId] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+
+  function questionsFor(stage) {
+    return draft[stage.id] || activeQuestionsForStage(stage);
+  }
+
+  function toggle(stage, key) {
+    setMsg(''); setErr('');
+    const cur = questionsFor(stage);
+    setDraft((prev) => ({ ...prev, [stage.id]: { ...cur, [key]: !cur[key] } }));
+  }
+
+  async function saveRow(stage) {
+    setMsg(''); setErr('');
+    setSavingId(stage.id);
+    try {
+      await setDoc(
+        doc(db, COL.STAGES, stage.id),
+        { questions: questionsFor(stage) },
+        { merge: true },
+      );
+      setDraft((prev) => { const next = { ...prev }; delete next[stage.id]; return next; });
+      setMsg(`Spørgsmål gemt for etape ${stage.number}.`);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || String(e));
+    } finally {
+      setSavingId('');
+    }
+  }
+
+  if (!stages.length) {
+    return <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)' }}>Ingen etaper seedet endnu.</p>;
+  }
+
+  return (
+    <div style={{ overflowX: 'auto' }} data-testid="questions-overview">
+      <table style={{ borderCollapse: 'collapse', fontSize: '0.82rem', width: '100%' }}>
+        <thead>
+          <tr style={{ textAlign: 'left' }}>
+            <th style={{ padding: '0.3rem 0.5rem' }}>#</th>
+            <th style={{ padding: '0.3rem 0.5rem' }}>Type</th>
+            <th style={{ padding: '0.3rem 0.5rem' }}>Rute</th>
+            {QUESTION_COLS.map((c) => (
+              <th key={c.key} style={{ padding: '0.3rem 0.5rem', textAlign: 'center' }}>{c.label}</th>
+            ))}
+            <th style={{ padding: '0.3rem 0.5rem' }} />
+          </tr>
+        </thead>
+        <tbody>
+          {stages.map((stage) => {
+            const q = questionsFor(stage);
+            const dirty = !!draft[stage.id];
+            return (
+              <tr key={stage.id} data-testid={`q-row-${stage.number}`} style={{ borderTop: '1px solid var(--c-border, #ddd)' }}>
+                <td style={{ padding: '0.3rem 0.5rem', fontWeight: 700 }}>{stage.number}</td>
+                <td style={{ padding: '0.3rem 0.5rem' }}>{STAGE_TYPE_LABEL[stage.type] || stage.type || '—'}</td>
+                <td style={{ padding: '0.3rem 0.5rem', color: 'var(--c-muted)' }}>
+                  {stage.startCity ? `${stage.startCity} → ${stage.finishCity ?? ''}` : '—'}
+                </td>
+                {QUESTION_COLS.map((c) => (
+                  <td key={c.key} style={{ padding: '0.3rem 0.5rem', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!q[c.key]}
+                      onChange={() => toggle(stage, c.key)}
+                      data-testid={`q-${stage.number}-${c.key}`}
+                    />
+                  </td>
+                ))}
+                <td style={{ padding: '0.3rem 0.5rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    disabled={!dirty || savingId === stage.id}
+                    onClick={() => saveRow(stage)}
+                    data-testid={`q-save-${stage.number}`}
+                  >
+                    {savingId === stage.id ? '…' : 'Gem'}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {msg && <p style={{ color: 'var(--c-ok, green)', fontSize: '0.85rem' }}>{msg}</p>}
+      {err && <p style={{ color: 'var(--c-err)', fontSize: '0.85rem' }}>{err}</p>}
+    </div>
   );
 }
 
@@ -111,6 +226,7 @@ export default function TourTab() {
       number: s.number, date: s.date, kickoff: s.kickoff, type: s.type,
       typeCode: s.typeCode, km: s.km, startCity: s.startCity,
       finishCity: s.finishCity, image: s.image, description: s.description,
+      questions: s.questions,
     }));
     const res = await httpsCallable(functions, 'seedTourRoute')({ season, stages });
     return res.data;
@@ -215,6 +331,17 @@ export default function TourTab() {
         </div>
         {pointsMsg && <p style={{ color: 'var(--c-ok, green)', fontSize: '0.85rem' }}>{pointsMsg}</p>}
         {pointsErr && <p style={{ color: 'var(--c-err)', fontSize: '0.85rem' }}>{pointsErr}</p>}
+      </section>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Spørgsmål pr. etape</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          Vælg hvilke af de fire holdspørgsmål der stilles på hver etape. Som
+          standard følger de etapetypen (fx ingen bjergpoint på en flad etape,
+          kun vinder-hold på en holdtidskørsel). Fravalgte spørgsmål vises ikke
+          og kan hverken give point eller straf.
+        </p>
+        <StageQuestionsOverview season={season} />
       </section>
 
       {err && <p style={{ color: 'var(--c-err)' }}>{err}</p>}

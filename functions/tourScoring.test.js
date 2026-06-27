@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url);
 const {
   DEFAULT_POINTS, normalizePoints, stageWinnerTeam, stageGcTeam,
   topPointsTeam, resolveStageResult, isUntipped, scoreStageBet, bonusNorm,
+  QUESTION_DEFAULTS_BY_TYPE, activeQuestionsForStage,
 } = require('./tourScoring.js');
 
 const order = (...teams) => teams.map((team, i) => ({ rider: `r${i + 1}`, team, rank: i + 1 }));
@@ -69,6 +70,35 @@ describe('resolveStageResult + scoreStageBet', () => {
       gcTopN: 4,
     });
     expect(res).toEqual({ winnerTeam: 'UAD', gcTeam: 'UAD', mountainTeam: 'COF', sprintTeam: 'SOQ' });
+  });
+});
+
+describe('activeQuestionsForStage + scoreStageBet (aktive spørgsmål)', () => {
+  const facit = { winnerTeam: 'UAD', gcTeam: 'SOQ', mountainTeam: 'COF', sprintTeam: 'SOQ' };
+
+  it('type-standarder', () => {
+    expect(activeQuestionsForStage({ type: 'ttt' })).toEqual(QUESTION_DEFAULTS_BY_TYPE.ttt);
+    expect(activeQuestionsForStage({ type: 'flat' })).toEqual(QUESTION_DEFAULTS_BY_TYPE.flat);
+    expect(activeQuestionsForStage({ type: 'sjov' })).toEqual(QUESTION_DEFAULTS_BY_TYPE.unknown);
+  });
+
+  it('override vinder over typen', () => {
+    const q = { winnerTeam: true, gcTeam: false, mountainTeam: true, sprintTeam: false };
+    expect(activeQuestionsForStage({ type: 'flat', questions: q })).toEqual(q);
+  });
+
+  it('kun aktive spørgsmål scorer', () => {
+    expect(scoreStageBet(facit, facit, undefined, { type: 'ttt' }).points).toBe(DEFAULT_POINTS.winnerTeam);
+  });
+
+  it('straf kun for utippet blandt aktive', () => {
+    const r = scoreStageBet({ sprintTeam: 'SOQ' }, facit, { untippedPenalty: 2 }, { type: 'ttt' });
+    expect(r.untipped).toBe(true);
+    expect(r.points).toBe(-2);
+  });
+
+  it('uændret når alle fire aktive', () => {
+    expect(scoreStageBet(facit, facit).points).toBe(15);
   });
 });
 

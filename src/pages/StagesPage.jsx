@@ -27,7 +27,7 @@ export default function StagesPage() {
   const { user } = useAuth();
   const uid = user?.uid;
   const season = useActiveSeason();
-  const { points } = useTourSettings();
+  const { points, gcTopN } = useTourSettings();
   const { stages: dbStages } = useStages(season);
   const { teams } = useTeams(season);
   const { betsByStage } = useMyStageBets(uid, season);
@@ -99,6 +99,7 @@ export default function StagesPage() {
             bet={betsByStage[stage.id] || null}
             teams={teams}
             points={points}
+            gcTopN={gcTopN}
             previousPicks={previousPicksFor(stage, stages, betsByStage)}
             onApplyToOpenStages={applyToOpen}
           />

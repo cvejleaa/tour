@@ -12,6 +12,8 @@ import {
   resolveStageResult,
   isUntipped,
   scoreStageBet,
+  QUESTION_DEFAULTS_BY_TYPE,
+  activeQuestionsForStage,
 } from './tourScoring.js';
 
 // Lille hjælper: byg en målrækkefølge fra [team, team, ...].
@@ -175,5 +177,85 @@ describe('scoreStageBet', () => {
     const { points, breakdown } = scoreStageBet(bet, { winnerTeam: 'UAD' });
     expect(points).toBe(DEFAULT_POINTS.winnerTeam);
     expect(breakdown).toEqual({ winnerTeam: 5 });
+  });
+});
+
+describe('activeQuestionsForStage', () => {
+  it('giver type-standarden når der ikke er noget override', () => {
+    expect(activeQuestionsForStage({ type: 'ttt' })).toEqual(QUESTION_DEFAULTS_BY_TYPE.ttt);
+    expect(activeQuestionsForStage({ type: 'itt' })).toEqual(QUESTION_DEFAULTS_BY_TYPE.itt);
+    expect(activeQuestionsForStage({ type: 'flat' })).toEqual(QUESTION_DEFAULTS_BY_TYPE.flat);
+    expect(activeQuestionsForStage({ type: 'hilly' })).toEqual(QUESTION_DEFAULTS_BY_TYPE.hilly);
+    expect(activeQuestionsForStage({ type: 'mountain' })).toEqual(QUESTION_DEFAULTS_BY_TYPE.mountain);
+  });
+
+  it('ttt har kun vinder-hold aktivt', () => {
+    expect(activeQuestionsForStage({ type: 'ttt' })).toEqual({
+      winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false,
+    });
+  });
+
+  it('ukendt/umappet type → alle fire aktive', () => {
+    expect(activeQuestionsForStage({ type: 'unknown' })).toEqual({
+      winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true,
+    });
+    expect(activeQuestionsForStage({ type: 'sjov' })).toEqual({
+      winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true,
+    });
+    expect(activeQuestionsForStage({})).toEqual({
+      winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true,
+    });
+    expect(activeQuestionsForStage(undefined)).toEqual({
+      winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true,
+    });
+  });
+
+  it('et eksplicit override (alle fire boolean) vinder over type-standarden', () => {
+    const stage = {
+      type: 'flat',
+      questions: { winnerTeam: true, gcTeam: false, mountainTeam: true, sprintTeam: false },
+    };
+    expect(activeQuestionsForStage(stage)).toEqual(stage.questions);
+  });
+
+  it('ignorerer et ufuldstændigt questions-felt og falder tilbage til typen', () => {
+    expect(activeQuestionsForStage({ type: 'ttt', questions: { winnerTeam: true } }))
+      .toEqual(QUESTION_DEFAULTS_BY_TYPE.ttt);
+  });
+});
+
+describe('scoreStageBet — kun aktive spørgsmål tæller', () => {
+  const facit = { winnerTeam: 'UAD', gcTeam: 'SOQ', mountainTeam: 'COF', sprintTeam: 'SOQ' };
+
+  it('scorer ikke et inaktivt spørgsmål, selv ved facit + rigtigt tip', () => {
+    // ttt: kun winnerTeam aktiv. Spilleren ramte alle fire, men kun winnerTeam tæller.
+    const { points, breakdown } = scoreStageBet(facit, facit, undefined, { type: 'ttt' });
+    expect(points).toBe(DEFAULT_POINTS.winnerTeam);
+    expect(breakdown).toEqual({ winnerTeam: 5 });
+  });
+
+  it('straffer kun for utippet blandt de aktive spørgsmål', () => {
+    // Spilleren har kun tippet sprintTeam, men sprintTeam er IKKE aktiv (ttt) →
+    // betragtes som helt utippet → straf.
+    const bet = { sprintTeam: 'SOQ' };
+    const { points, untipped } = scoreStageBet(bet, facit, { untippedPenalty: 2 }, { type: 'ttt' });
+    expect(untipped).toBe(true);
+    expect(points).toBe(-2);
+  });
+
+  it('ingen straf når et aktivt felt er tippet', () => {
+    const bet = { winnerTeam: 'UAD' };
+    const { points, untipped } = scoreStageBet(bet, facit, { untippedPenalty: 2 }, { type: 'ttt' });
+    expect(untipped).toBe(false);
+    expect(points).toBe(DEFAULT_POINTS.winnerTeam);
+  });
+
+  it('uændret opførsel når alle fire er aktive (intet stage-arg)', () => {
+    expect(scoreStageBet(facit, facit).points).toBe(15);
+  });
+
+  it('accepterer både et active-objekt og en hel etape', () => {
+    const active = { winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false };
+    expect(scoreStageBet(facit, facit, undefined, active).points).toBe(DEFAULT_POINTS.winnerTeam);
   });
 });

@@ -37,7 +37,7 @@ const EMAIL_FROM = 'Tour de France Tip <tour@vejleaa.dk>';
 const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
-const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N, bonusNorm } = require('./tourScoring');
+const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage } = require('./tourScoring');
 const { buildStageUpdate } = require('./tourSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -182,12 +182,16 @@ exports.recomputeStage = onDocumentWritten(
     const betsSnap = await db.collection('stageBets').where('stageId', '==', stageId).get();
     if (betsSnap.empty) return;
 
+    // Kun de spørgsmål der faktisk stilles på etapen scorer/straffer
+    // (override i stage.questions, ellers type-standard).
+    const active = activeQuestionsForStage(after);
+
     const BATCH_SIZE = 400;
     let batch = db.batch();
     let ops = 0;
     const batches = [batch];
     for (const d of betsSnap.docs) {
-      const { points: pts } = scoreStageBet(d.data(), after.result, points);
+      const { points: pts } = scoreStageBet(d.data(), after.result, points, active);
       batch.update(d.ref, { points: pts });
       if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; }
     }
@@ -306,6 +310,7 @@ exports.seedTourRoute = onCall({ region: REGION }, async (request) => {
       finishCity: s.finishCity || null,
       image: s.image || null,
       description: s.description || null,
+      questions: activeQuestionsForStage(s),
       status: 'scheduled',
     }, { merge: true });
   }

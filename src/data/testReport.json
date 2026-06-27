@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-27T12:58:56.429Z",
+  "generatedAt": "2026-06-27T13:38:21.955Z",
   "totals": {
-    "files": 69,
-    "tests": 859,
-    "passed": 859,
+    "files": 70,
+    "tests": 880,
+    "passed": 880,
     "failed": 0
   },
   "suites": [
@@ -775,6 +775,22 @@
         },
         {
           "name": "TestsTab › afhængigheds-fanen viser et diagram",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/TourTab.test.jsx",
+      "area": "frontend",
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "TourTab — Spørgsmål pr. etape › renderer overblik med forudfyldte type-standarder",
+          "status": "passed"
+        },
+        {
+          "name": "TourTab — Spørgsmål pr. etape › gemmer ændrede spørgsmål på etape-dokumentet (setDoc merge)",
           "status": "passed"
         }
       ]
@@ -2646,11 +2662,11 @@
     {
       "file": "src/features/stages/StageCard.test.jsx",
       "area": "frontend",
-      "passed": 5,
+      "passed": 9,
       "failed": 0,
       "tests": [
         {
-          "name": "StageCard — Kopiér fra forrige etape › er deaktiveret når der ikke er en tidligere tippet etape",
+          "name": "StageCard — Kopiér fra forrige etape › er skjult når der ikke er en tidligere tippet etape (fx etape 1)",
           "status": "passed"
         },
         {
@@ -2667,6 +2683,22 @@
         },
         {
           "name": "StageCard — Anvend på alle åbne etaper › viser hverken knapper når etapen er låst",
+          "status": "passed"
+        },
+        {
+          "name": "StageCard — betingede spørgsmål pr. etape › en flad etape skjuler bjergpoint-spørgsmålet",
+          "status": "passed"
+        },
+        {
+          "name": "StageCard — betingede spørgsmål pr. etape › en holdtidskørsel (ttt) viser kun vinder-hold",
+          "status": "passed"
+        },
+        {
+          "name": "StageCard — betingede spørgsmål pr. etape › et override i stage.questions vinder over typen",
+          "status": "passed"
+        },
+        {
+          "name": "StageCard — betingede spørgsmål pr. etape › viser antal ryttere (gcTopN) i bedste-hold-labellen",
           "status": "passed"
         }
       ]
@@ -2774,7 +2806,7 @@
     {
       "file": "src/lib/tourScoring.test.js",
       "area": "frontend",
-      "passed": 23,
+      "passed": 33,
       "failed": 0,
       "tests": [
         {
@@ -2867,6 +2899,46 @@
         },
         {
           "name": "scoreStageBet › et ikke-afgjort felt giver hverken point eller straf",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage › giver type-standarden når der ikke er noget override",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage › ttt har kun vinder-hold aktivt",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage › ukendt/umappet type → alle fire aktive",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage › et eksplicit override (alle fire boolean) vinder over type-standarden",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage › ignorerer et ufuldstændigt questions-felt og falder tilbage til typen",
+          "status": "passed"
+        },
+        {
+          "name": "scoreStageBet — kun aktive spørgsmål tæller › scorer ikke et inaktivt spørgsmål, selv ved facit + rigtigt tip",
+          "status": "passed"
+        },
+        {
+          "name": "scoreStageBet — kun aktive spørgsmål tæller › straffer kun for utippet blandt de aktive spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "scoreStageBet — kun aktive spørgsmål tæller › ingen straf når et aktivt felt er tippet",
+          "status": "passed"
+        },
+        {
+          "name": "scoreStageBet — kun aktive spørgsmål tæller › uændret opførsel når alle fire er aktive (intet stage-arg)",
+          "status": "passed"
+        },
+        {
+          "name": "scoreStageBet — kun aktive spørgsmål tæller › accepterer både et active-objekt og en hel etape",
           "status": "passed"
         }
       ]
@@ -3890,7 +3962,7 @@
     {
       "file": "functions/tourScoring.test.js",
       "area": "functions",
-      "passed": 18,
+      "passed": 23,
       "failed": 0,
       "tests": [
         {
@@ -3939,6 +4011,26 @@
         },
         {
           "name": "resolveStageResult + scoreStageBet › resolveStageResult fra rå data",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage + scoreStageBet (aktive spørgsmål) › type-standarder",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage + scoreStageBet (aktive spørgsmål) › override vinder over typen",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage + scoreStageBet (aktive spørgsmål) › kun aktive spørgsmål scorer",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage + scoreStageBet (aktive spørgsmål) › straf kun for utippet blandt aktive",
+          "status": "passed"
+        },
+        {
+          "name": "activeQuestionsForStage + scoreStageBet (aktive spørgsmål) › uændret når alle fire aktive",
           "status": "passed"
         },
         {

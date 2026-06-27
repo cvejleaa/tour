@@ -4,6 +4,7 @@
 // kan vises FØR sync'en har seedet etaperne i Firestore — og som kilde til den
 // rigtige seed via admin (TourTab → seedTourRoute).
 import { stageId, deriveKickoff } from '../lib/tourStages';
+import { activeQuestionsForStage } from '../lib/tourScoring';
 import ROUTE_2026 from './route2026.json';
 
 /**
@@ -27,5 +28,8 @@ export function placeholderRoute2026(season = 2026) {
     finishCity: s.finishCity,
     image: s.image,
     description: s.description,
+    // Eksplicitte type-standarder, så friskt seedede etaper bærer deres egne
+    // aktive spørgsmål (helperen dækker også fravær af feltet).
+    questions: activeQuestionsForStage(s),
   }));
 }

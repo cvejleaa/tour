@@ -163,10 +163,62 @@ export const STAGE_FIELDS = [
   { key: 'sprintTeam', points: 'sprintTeam' },
 ];
 
-/** True hvis tippet ikke indeholder ét eneste udfyldt holdvalg. */
-export function isUntipped(bet) {
+/**
+ * Hvilke af de fire spørgsmål er aktive pr. etapetype som standard.
+ * En holdtidskørsel (ttt) har fx hverken bedste-hold-, bjerg- eller
+ * sprint-spørgsmål; en flad etape har ingen bjergpoint, osv.
+ * Ukendt (og enhver ikke-mappet type) → alle fire aktive.
+ */
+export const QUESTION_DEFAULTS_BY_TYPE = {
+  ttt: { winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false },
+  itt: { winnerTeam: true, gcTeam: true, mountainTeam: false, sprintTeam: false },
+  flat: { winnerTeam: true, gcTeam: true, mountainTeam: false, sprintTeam: true },
+  hilly: { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true },
+  mountain: { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true },
+  unknown: { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true },
+};
+
+/** True hvis x er et objekt med de fire boolean-nøgler (et gyldigt override). */
+function isQuestionsObject(x) {
+  return (
+    x != null &&
+    typeof x === 'object' &&
+    STAGE_FIELDS.every(({ key }) => typeof x[key] === 'boolean')
+  );
+}
+
+/**
+ * Hvilke spørgsmål er aktive for en given etape:
+ * - et eksplicit `stage.questions`-override (med de fire boolean-nøgler) vinder,
+ * - ellers type-standarden for `stage.type` (ukendt/umappet → alle fire).
+ * Etaper seedet før dette felt eksisterede får automatisk type-standarden.
+ * @param {{type?:string, questions?:object}} [stage]
+ * @returns {{winnerTeam:boolean, gcTeam:boolean, mountainTeam:boolean, sprintTeam:boolean}}
+ */
+export function activeQuestionsForStage(stage) {
+  if (stage && isQuestionsObject(stage.questions)) {
+    return {
+      winnerTeam: stage.questions.winnerTeam,
+      gcTeam: stage.questions.gcTeam,
+      mountainTeam: stage.questions.mountainTeam,
+      sprintTeam: stage.questions.sprintTeam,
+    };
+  }
+  const type = stage && stage.type;
+  return { ...(QUESTION_DEFAULTS_BY_TYPE[type] || QUESTION_DEFAULTS_BY_TYPE.unknown) };
+}
+
+/**
+ * True hvis tippet ikke indeholder ét eneste udfyldt holdvalg blandt de
+ * AKTIVE spørgsmål (inaktive spørgsmål kan aldrig udløse straf).
+ * @param {object} bet
+ * @param {object} [active]  aktive spørgsmål; default = alle fire aktive
+ */
+export function isUntipped(bet, active) {
   if (!bet || typeof bet !== 'object') return true;
-  return STAGE_FIELDS.every(({ key }) => bet[key] == null || bet[key] === '');
+  return STAGE_FIELDS.every(
+    ({ key }) => (active && !active[key]) || bet[key] == null || bet[key] === '',
+  );
 }
 
 /**
@@ -178,14 +230,23 @@ export function isUntipped(bet) {
  * @param {{winnerTeam?,gcTeam?,mountainTeam?,sprintTeam?}} bet  spillerens holdvalg
  * @param {{winnerTeam?,gcTeam?,mountainTeam?,sprintTeam?}} result  facit (vinderhold)
  * @param {object} [pointsCfg]  rå point-config (flettes med DEFAULT_POINTS)
+ * @param {object} [stageOrActive]  etape ELLER aktive-spørgsmål-objekt; kun
+ *   aktive spørgsmål scorer/straffer. Default = alle fire aktive.
  * @returns {{points:number, breakdown:object, untipped:boolean}}
  */
-export function scoreStageBet(bet, result, pointsCfg) {
+export function scoreStageBet(bet, result, pointsCfg, stageOrActive) {
   const P = normalizePoints(pointsCfg);
   const res = result || {};
-  const hasFacit = STAGE_FIELDS.some(({ key }) => res[key] != null && res[key] !== '');
+  const active = stageOrActive == null
+    ? { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true }
+    : (isQuestionsObject(stageOrActive)
+      ? stageOrActive
+      : activeQuestionsForStage(stageOrActive));
+  const hasFacit = STAGE_FIELDS.some(
+    ({ key }) => active[key] && res[key] != null && res[key] !== '',
+  );
 
-  if (isUntipped(bet)) {
+  if (isUntipped(bet, active)) {
     const penalty = hasFacit ? -P.untippedPenalty : 0;
     return { points: penalty, breakdown: {}, untipped: true };
   }
@@ -193,6 +254,7 @@ export function scoreStageBet(bet, result, pointsCfg) {
   let total = 0;
   const breakdown = {};
   for (const { key, points } of STAGE_FIELDS) {
+    if (!active[key]) continue; // spørgsmålet stilles ikke → ingen point/straf
     const facit = res[key];
     if (facit == null || facit === '') continue; // ikke afgjort → ingen point
     const hit = bet && bet[key] != null && bet[key] !== '' && bet[key] === facit;

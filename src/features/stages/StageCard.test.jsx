@@ -34,7 +34,8 @@ describe('StageCard — Kopiér fra forrige etape', () => {
   });
 
   it('udfylder de fire felter og gemmer ved klik', async () => {
-    render(<StageCard stage={openStage()} uid="u1" bet={null} teams={['UAD', 'TVL', 'EFE', 'SOQ']} previousPicks={PREV} />);
+    // Bjergetape så alle fire spørgsmål (inkl. bjerg) faktisk vises.
+    render(<StageCard stage={openStage({ type: 'mountain' })} uid="u1" bet={null} teams={['UAD', 'TVL', 'EFE', 'SOQ']} previousPicks={PREV} />);
     const btn = screen.getByTestId('copy-previous');
     expect(btn).not.toBeDisabled();
     fireEvent.click(btn);
@@ -101,5 +102,42 @@ describe('StageCard — Anvend på alle åbne etaper', () => {
     );
     expect(screen.queryByTestId('copy-previous')).toBeNull();
     expect(screen.queryByTestId('apply-all-open')).toBeNull();
+  });
+});
+
+describe('StageCard — betingede spørgsmål pr. etape', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('en flad etape skjuler bjergpoint-spørgsmålet', () => {
+    render(<StageCard stage={openStage({ type: 'flat' })} uid="u1" bet={null} teams={['UAD']} />);
+    expect(screen.getByTestId('pick-winnerTeam')).toBeTruthy();
+    expect(screen.getByTestId('pick-gcTeam')).toBeTruthy();
+    expect(screen.getByTestId('pick-sprintTeam')).toBeTruthy();
+    expect(screen.queryByTestId('pick-mountainTeam')).toBeNull();
+  });
+
+  it('en holdtidskørsel (ttt) viser kun vinder-hold', () => {
+    render(<StageCard stage={openStage({ number: 1, type: 'ttt' })} uid="u1" bet={null} teams={['UAD']} />);
+    expect(screen.getByTestId('pick-winnerTeam')).toBeTruthy();
+    expect(screen.queryByTestId('pick-gcTeam')).toBeNull();
+    expect(screen.queryByTestId('pick-mountainTeam')).toBeNull();
+    expect(screen.queryByTestId('pick-sprintTeam')).toBeNull();
+  });
+
+  it('et override i stage.questions vinder over typen', () => {
+    const stage = openStage({
+      type: 'flat',
+      questions: { winnerTeam: true, gcTeam: false, mountainTeam: true, sprintTeam: false },
+    });
+    render(<StageCard stage={stage} uid="u1" bet={null} teams={['UAD']} />);
+    expect(screen.getByTestId('pick-winnerTeam')).toBeTruthy();
+    expect(screen.getByTestId('pick-mountainTeam')).toBeTruthy();
+    expect(screen.queryByTestId('pick-gcTeam')).toBeNull();
+    expect(screen.queryByTestId('pick-sprintTeam')).toBeNull();
+  });
+
+  it('viser antal ryttere (gcTopN) i bedste-hold-labellen', () => {
+    render(<StageCard stage={openStage({ type: 'flat' })} uid="u1" bet={null} teams={['UAD']} gcTopN={15} />);
+    expect(screen.getByText(/de første 15 ryttere/)).toBeTruthy();
   });
 });

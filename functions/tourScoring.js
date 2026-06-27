@@ -108,17 +108,56 @@ const STAGE_FIELDS = [
   { key: 'sprintTeam', points: 'sprintTeam' },
 ];
 
-function isUntipped(bet) {
-  if (!bet || typeof bet !== 'object') return true;
-  return STAGE_FIELDS.every(({ key }) => bet[key] == null || bet[key] === '');
+const QUESTION_DEFAULTS_BY_TYPE = {
+  ttt: { winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false },
+  itt: { winnerTeam: true, gcTeam: true, mountainTeam: false, sprintTeam: false },
+  flat: { winnerTeam: true, gcTeam: true, mountainTeam: false, sprintTeam: true },
+  hilly: { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true },
+  mountain: { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true },
+  unknown: { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true },
+};
+
+function isQuestionsObject(x) {
+  return (
+    x != null &&
+    typeof x === 'object' &&
+    STAGE_FIELDS.every(({ key }) => typeof x[key] === 'boolean')
+  );
 }
 
-function scoreStageBet(bet, result, pointsCfg) {
+function activeQuestionsForStage(stage) {
+  if (stage && isQuestionsObject(stage.questions)) {
+    return {
+      winnerTeam: stage.questions.winnerTeam,
+      gcTeam: stage.questions.gcTeam,
+      mountainTeam: stage.questions.mountainTeam,
+      sprintTeam: stage.questions.sprintTeam,
+    };
+  }
+  const type = stage && stage.type;
+  return { ...(QUESTION_DEFAULTS_BY_TYPE[type] || QUESTION_DEFAULTS_BY_TYPE.unknown) };
+}
+
+function isUntipped(bet, active) {
+  if (!bet || typeof bet !== 'object') return true;
+  return STAGE_FIELDS.every(
+    ({ key }) => (active && !active[key]) || bet[key] == null || bet[key] === '',
+  );
+}
+
+function scoreStageBet(bet, result, pointsCfg, stageOrActive) {
   const P = normalizePoints(pointsCfg);
   const res = result || {};
-  const hasFacit = STAGE_FIELDS.some(({ key }) => res[key] != null && res[key] !== '');
+  const active = stageOrActive == null
+    ? { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true }
+    : (isQuestionsObject(stageOrActive)
+      ? stageOrActive
+      : activeQuestionsForStage(stageOrActive));
+  const hasFacit = STAGE_FIELDS.some(
+    ({ key }) => active[key] && res[key] != null && res[key] !== '',
+  );
 
-  if (isUntipped(bet)) {
+  if (isUntipped(bet, active)) {
     const penalty = hasFacit ? -P.untippedPenalty : 0;
     return { points: penalty, breakdown: {}, untipped: true };
   }
@@ -126,6 +165,7 @@ function scoreStageBet(bet, result, pointsCfg) {
   let total = 0;
   const breakdown = {};
   for (const { key, points } of STAGE_FIELDS) {
+    if (!active[key]) continue;
     const facit = res[key];
     if (facit == null || facit === '') continue;
     const hit = bet && bet[key] != null && bet[key] !== '' && bet[key] === facit;
@@ -148,6 +188,8 @@ module.exports = {
   topPointsTeam,
   resolveStageResult,
   STAGE_FIELDS,
+  QUESTION_DEFAULTS_BY_TYPE,
+  activeQuestionsForStage,
   isUntipped,
   scoreStageBet,
   bonusNorm,
