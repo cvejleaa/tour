@@ -7,28 +7,21 @@ import { useParams, Link } from 'react-router-dom';
 import Hero from '../components/Hero';
 import { teamMeta, prettyTeam } from '../data/tourTeams2026';
 import { teamProfile } from '../data/teamProfiles2026';
+import { staticStartlist } from '../data/startlist2026';
+import { useStartlist } from '../features/teams/useStartlist';
 
 function RiderList({ riders }) {
   return (
     <ul data-testid="rider-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
       {riders.map((r, i) => (
         <li
-          key={`${r.name || r.bib || i}`}
+          key={`${r.name || i}`}
           data-testid="rider-row"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.92rem' }}
+          style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.92rem' }}
         >
-          {r.bib != null && (
-            <span className="badge badge--muted" style={{ minWidth: 28, textAlign: 'center', fontSize: '0.74rem' }}>
-              {r.bib}
-            </span>
-          )}
-          <span style={{ fontWeight: 600 }}>{r.name || '—'}</span>
-          {r.role && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {r.role}</span>}
-          {r.nationality && (
-            <span style={{ fontSize: '0.72rem', color: 'var(--c-muted)', textTransform: 'uppercase' }}>
-              {r.nationality}
-            </span>
-          )}
+          <span style={{ fontWeight: r.leader ? 800 : 600 }}>{r.name || '—'}</span>
+          {r.leader && <span style={{ fontSize: '0.72rem', color: 'var(--c-pitch)' }}>kaptajn</span>}
+          {r.country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {r.country}</span>}
         </li>
       ))}
     </ul>
@@ -38,6 +31,7 @@ function RiderList({ riders }) {
 export default function TeamPage() {
   const { code } = useParams();
   const meta = teamMeta(code);
+  const live = useStartlist();
 
   if (!meta) {
     return (
@@ -52,8 +46,10 @@ export default function TeamPage() {
   }
 
   const accent = meta.color && meta.color !== '#000000' ? meta.color : 'var(--c-pitch)';
-  const riders = Array.isArray(meta.riders) ? meta.riders : [];
   const profile = teamProfile(meta.code);
+  // Startliste: foretræk den live (Firestore) frem for den statiske snapshot.
+  const startlist = live.byCode[meta.code] || staticStartlist(meta.code) || { announced: false, riders: [] };
+  const riders = Array.isArray(startlist.riders) ? startlist.riders : [];
 
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
@@ -101,15 +97,24 @@ export default function TeamPage() {
           </section>
         )}
 
-        {/* Ryttere – klar til at modtage den fulde startliste */}
+        {/* Ryttere – fuld startliste (live fra Firestore eller statisk snapshot) */}
         <section data-testid="riders-section">
-          <h3 style={{ marginBottom: '0.5rem' }}>Ryttere</h3>
+          <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            Ryttere
+            <span
+              className={`badge ${startlist.announced ? 'badge--green' : 'badge--muted'}`}
+              style={{ fontSize: '0.72rem' }}
+            >
+              {startlist.announced ? '✅ Udtaget' : '⏳ Afventer'}
+            </span>
+          </h3>
           {riders.length > 0 ? (
             <RiderList riders={riders} />
           ) : (
             <p data-testid="riders-pending" style={{ margin: 0, color: 'var(--c-muted)', fontSize: '0.9rem', lineHeight: 1.5 }}>
-              Startlisten er ikke offentliggjort endnu. Holdets ryttere vises her,
-              så snart de er på plads (typisk tættere på løbsstart 4. juli).
+              {meta.name} har endnu ikke udtaget sit hold til touren. Rytterne vises
+              her automatisk, så snart de er offentliggjort (typisk tættere på
+              løbsstart 4. juli).
             </p>
           )}
         </section>

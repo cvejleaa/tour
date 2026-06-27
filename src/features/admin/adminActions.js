@@ -192,6 +192,25 @@ export async function callSyncStageInfo({ dryRun = false } = {}) {
   }
 }
 
+/**
+ * Kald Cloud Function 'syncStartlistNow' — hent startlisten (udtagne ryttere
+ * pr. hold) fra TV2 via proxyen og skriv den til config/startlist. Den samme
+ * sync kører automatisk hver 2. time.
+ */
+export async function callSyncStartlistNow() {
+  try {
+    const fn = httpsCallable(functions, 'syncStartlistNow', { timeout: 120000 });
+    const res = await fn({});
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "syncStartlistNow" er ikke deployet endnu.'
+        : err?.message ?? 'Ukendt fejl ved kald af syncStartlistNow.';
+    return { ok: false, error: msg };
+  }
+}
+
 // ─── Ekspert-tips pr. etape (global admin + owner) ───────────────────────────
 
 /**

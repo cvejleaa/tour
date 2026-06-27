@@ -145,6 +145,15 @@ async def stage_info_one(n: int) -> dict:
     return await asyncio.to_thread(scrape_stage_info, n)
 
 
+@app.get("/api/startlist")
+async def startlist() -> dict:
+    """Startliste (udtagne ryttere pr. hold) fra TV2's hold-og-ryttere-artikel."""
+    from tv2_startlist import scrape_startlist
+    teams = await asyncio.to_thread(scrape_startlist)
+    announced = sum(1 for t in teams if t.get("announced"))
+    return {"teams": teams, "announced": announced, "total": len(teams)}
+
+
 @app.get("/api/debug/{n}")
 async def debug(n: int) -> dict:
     """Diagnostik for én etape (hvad proxyen faktisk ser fra letour)."""

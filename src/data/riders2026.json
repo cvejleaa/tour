@@ -1,0 +1,299 @@
+{
+  "APT": {
+    "announced": false,
+    "riders": []
+  },
+  "TBV": {
+    "announced": false,
+    "riders": []
+  },
+  "CJR": {
+    "announced": false,
+    "riders": []
+  },
+  "COF": {
+    "announced": false,
+    "riders": []
+  },
+  "DCT": {
+    "announced": false,
+    "riders": []
+  },
+  "EFE": {
+    "announced": false,
+    "riders": []
+  },
+  "GFC": {
+    "announced": false,
+    "riders": []
+  },
+  "JAY": {
+    "announced": true,
+    "riders": [
+      {
+        "name": "Pascal Ackermann",
+        "country": "Tyskland",
+        "leader": false
+      },
+      {
+        "name": "Luke Durbridge",
+        "country": "Australien",
+        "leader": false
+      },
+      {
+        "name": "Felix Engelhardt",
+        "country": "Tyskland",
+        "leader": false
+      },
+      {
+        "name": "Kelland O’Brien",
+        "country": "Australien",
+        "leader": false
+      },
+      {
+        "name": "Ben O’Connor",
+        "country": "Australien",
+        "leader": false
+      },
+      {
+        "name": "Michael Matthews",
+        "country": "Australien",
+        "leader": false
+      },
+      {
+        "name": "Luke Plapp",
+        "country": "Australien",
+        "leader": false
+      },
+      {
+        "name": "Mauro Schmid",
+        "country": "Schweiz",
+        "leader": false
+      }
+    ]
+  },
+  "LTK": {
+    "announced": false,
+    "riders": []
+  },
+  "LOI": {
+    "announced": false,
+    "riders": []
+  },
+  "MOV": {
+    "announced": false,
+    "riders": []
+  },
+  "NCI": {
+    "announced": false,
+    "riders": []
+  },
+  "NSN": {
+    "announced": true,
+    "riders": [
+      {
+        "name": "Lewis Askey",
+        "country": "Storbritannien",
+        "leader": false
+      },
+      {
+        "name": "George Bennett",
+        "country": "New Zealand",
+        "leader": false
+      },
+      {
+        "name": "Marco Frigo",
+        "country": "Italien",
+        "leader": false
+      },
+      {
+        "name": "Biniam Girmay",
+        "country": "Eritrea",
+        "leader": false
+      },
+      {
+        "name": "Matîs Louvel",
+        "country": "Frankrig",
+        "leader": false
+      },
+      {
+        "name": "Krists Neilands",
+        "country": "Letland",
+        "leader": false
+      },
+      {
+        "name": "Jake Stewart",
+        "country": "Storbritannien",
+        "leader": false
+      },
+      {
+        "name": "Tom Van Asbroeck",
+        "country": "Belgien",
+        "leader": false
+      }
+    ]
+  },
+  "TPP": {
+    "announced": false,
+    "riders": []
+  },
+  "PQT": {
+    "announced": false,
+    "riders": []
+  },
+  "RBH": {
+    "announced": true,
+    "riders": [
+      {
+        "name": "Remco Evenepoel",
+        "country": "Belgien",
+        "leader": false
+      },
+      {
+        "name": "Mattia Cattaneo",
+        "country": "Italien",
+        "leader": false
+      },
+      {
+        "name": "Nico Denz",
+        "country": "Tyskland",
+        "leader": false
+      },
+      {
+        "name": "Jai Hindley",
+        "country": "Australien",
+        "leader": false
+      },
+      {
+        "name": "Florian Lipowitz",
+        "country": "Tyskland",
+        "leader": false
+      },
+      {
+        "name": "Jan Tratnik",
+        "country": "Slovenien",
+        "leader": false
+      },
+      {
+        "name": "Tim van Dijke",
+        "country": "Holland",
+        "leader": false
+      },
+      {
+        "name": "Maxim van Gils",
+        "country": "Belgien",
+        "leader": false
+      }
+    ]
+  },
+  "SOQ": {
+    "announced": false,
+    "riders": []
+  },
+  "TEN": {
+    "announced": false,
+    "riders": []
+  },
+  "TUD": {
+    "announced": false,
+    "riders": []
+  },
+  "UEX": {
+    "announced": false,
+    "riders": []
+  },
+  "UXM": {
+    "announced": true,
+    "riders": [
+      {
+        "name": "Jonas Abrahamsen",
+        "country": "Norge",
+        "leader": false
+      },
+      {
+        "name": "Anthon Charmig",
+        "country": "Danmark",
+        "leader": true
+      },
+      {
+        "name": "Magnus Cort",
+        "country": "Danmark",
+        "leader": true
+      },
+      {
+        "name": "Tobias Halland Johannessen",
+        "country": "Norge",
+        "leader": false
+      },
+      {
+        "name": "Anders Skårseth",
+        "country": "Norge",
+        "leader": false
+      },
+      {
+        "name": "Torstein Træen",
+        "country": "Norge",
+        "leader": false
+      },
+      {
+        "name": "Søren Wærenskjold",
+        "country": "Norge",
+        "leader": false
+      },
+      {
+        "name": "Anders Halland Johannessen",
+        "country": "Norge",
+        "leader": false
+      }
+    ]
+  },
+  "TVL": {
+    "announced": true,
+    "riders": [
+      {
+        "name": "Jonas Vingegaard",
+        "country": "Danmark",
+        "leader": true
+      },
+      {
+        "name": "Adoardo Affini",
+        "country": "Italien",
+        "leader": false
+      },
+      {
+        "name": "Bruno Armirail",
+        "country": "Frankrig",
+        "leader": false
+      },
+      {
+        "name": "Victor Campenaerts",
+        "country": "Belgien",
+        "leader": false
+      },
+      {
+        "name": "Per Stand Hagenes",
+        "country": "Norge",
+        "leader": false
+      },
+      {
+        "name": "Matteo Jorgenson",
+        "country": "USA",
+        "leader": false
+      },
+      {
+        "name": "Sepp Kuss",
+        "country": "USA",
+        "leader": false
+      },
+      {
+        "name": "Davide Piganzoli",
+        "country": "Italien",
+        "leader": false
+      }
+    ]
+  },
+  "XAT": {
+    "announced": false,
+    "riders": []
+  }
+}

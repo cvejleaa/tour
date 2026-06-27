@@ -3,19 +3,27 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
-// Mock holddata, så vi kan styre riders-tilstanden (statisk data har dem ikke endnu).
+vi.mock('../firebase', () => ({ db: {} }));
+vi.mock('firebase/firestore', () => ({ doc: vi.fn(), onSnapshot: vi.fn() }));
+
+// Mock holddata, så vi kan styre hold-opslag.
 vi.mock('../data/tourTeams2026', () => {
   const META = {
-    UAD: { code: 'UAD', name: 'UAE Team Emirates', nationality: 'uae', color: '#000000', riders: [] },
-    TVL: {
-      code: 'TVL', name: 'Team Visma | Lease a Bike', nationality: 'ned', color: '#f7d417',
-      riders: [{ bib: 1, name: 'Rytter Én', role: 'Kaptajn', nationality: 'den' }],
-    },
+    UAD: { code: 'UAD', name: 'UAE Team Emirates', nationality: 'uae', color: '#000000' },
+    TVL: { code: 'TVL', name: 'Team Visma | Lease a Bike', nationality: 'ned', color: '#f7d417' },
   };
   return {
     teamMeta: (c) => META[c] || null,
     prettyTeam: (n) => n,
   };
+});
+
+// Mock den statiske startliste (live-hook'en er no-op pga. onSnapshot-mocken).
+vi.mock('../data/startlist2026', () => {
+  const SL = {
+    TVL: { announced: true, riders: [{ name: 'Rytter Én', country: 'Danmark', leader: true }] },
+  };
+  return { staticStartlist: (c) => SL[c] || null };
 });
 
 import TeamPage from './TeamPage';

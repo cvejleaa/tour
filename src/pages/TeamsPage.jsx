@@ -6,14 +6,20 @@ import { Link } from 'react-router-dom';
 import Hero from '../components/Hero';
 import { TEAMS, prettyTeam } from '../data/tourTeams2026';
 import { teamProfile } from '../data/teamProfiles2026';
+import { staticStartlist } from '../data/startlist2026';
+import { useStartlist } from '../features/teams/useStartlist';
 
 export default function TeamsPage() {
+  const live = useStartlist();
+  const isAnnounced = (code) => (live.byCode[code]?.announced ?? staticStartlist(code)?.announced) === true;
+  const announcedCount = TEAMS.filter((t) => isAnnounced(t.code)).length;
+
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
       <Hero
         title="Hold"
         subtitle="Overblik over de 23 hold og deres primære profil. Klik på et hold for at se det nærmere."
-        chips={[`${TEAMS.length} hold`]}
+        chips={[`${TEAMS.length} hold`, `${announcedCount} har udtaget`]}
       />
 
       <div
@@ -45,11 +51,12 @@ export default function TeamsPage() {
                 {teamProfile(t.code).profile}
               </span>
             )}
-            {t.nationality && (
-              <span className="badge badge--muted" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>
-                {t.nationality}
-              </span>
-            )}
+            <span
+              className={`badge ${isAnnounced(t.code) ? 'badge--green' : 'badge--muted'}`}
+              style={{ fontSize: '0.68rem' }}
+            >
+              {isAnnounced(t.code) ? '✅ Udtaget' : '⏳ Afventer'}
+            </span>
           </Link>
         ))}
       </div>

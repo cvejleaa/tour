@@ -1,7 +1,11 @@
 // Tests for TeamsPage – holdoversigten (/hold).
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+
+vi.mock('../firebase', () => ({ db: {} }));
+vi.mock('firebase/firestore', () => ({ doc: vi.fn(), onSnapshot: vi.fn() }));
+
 import TeamsPage from './TeamsPage';
 import { TEAMS } from '../data/tourTeams2026';
 

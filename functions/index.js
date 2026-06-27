@@ -39,6 +39,7 @@ const TZ = 'Europe/Copenhagen';
 
 const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage } = require('./tourScoring');
 const { buildStageUpdate, syncStageInfoCore } = require('./tourSync');
+const { syncStartlistCore } = require('./startlistSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
@@ -301,6 +302,40 @@ exports.syncStageInfo = onCall({ region: REGION }, async (request) => {
     fetchImpl: fetch,
     serverTimestamp: () => FieldValue.serverTimestamp(),
     dryRun: request.data?.dryRun === true,
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Startliste-sync: skraber TV2's hold-og-ryttere-artikel (via proxyen) og
+// skriver de udtagne ryttere til config/startlist. Planlagt hver 2. time, så
+// holdene fyldes ud af sig selv efterhånden som de melder ud. Plus en manuel
+// admin-knap (syncStartlistNow).
+// ---------------------------------------------------------------------------
+exports.syncStartlist = onSchedule(
+  { schedule: '17 */2 * * *', timeZone: TZ, region: REGION },
+  async () => {
+    const db = getFirestore();
+    const { proxyUrl, activeSeason } = await tourSettings(db);
+    try {
+      const res = await syncStartlistCore({
+        db, proxyUrl, season: activeSeason, fetchImpl: fetch,
+        serverTimestamp: () => FieldValue.serverTimestamp(),
+      });
+      console.log(`syncStartlist: ${res.announced}/${res.total} hold har udtaget.`);
+    } catch (err) {
+      console.error('syncStartlist: fejl', err);
+      throw err;
+    }
+  },
+);
+
+exports.syncStartlistNow = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const { proxyUrl, activeSeason } = await tourSettings(db);
+  return syncStartlistCore({
+    db, proxyUrl, season: activeSeason, fetchImpl: fetch,
+    serverTimestamp: () => FieldValue.serverTimestamp(),
   });
 });
 

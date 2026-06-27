@@ -13,7 +13,7 @@ import { useActiveSeason } from '../stages/useActiveSeason';
 import { useTourSettings } from '../stages/useTourSettings';
 import { useStages } from '../stages/useStages';
 import { activeQuestionsForStage } from '../../lib/tourScoring';
-import { callGenerateStageTip, saveStageTip, callSyncStageInfo } from './adminActions';
+import { callGenerateStageTip, saveStageTip, callSyncStageInfo, callSyncStartlistNow } from './adminActions';
 
 // Kolonneoverskrifter for spørgsmåls-overblikket (samme rækkefølge som STAGE_FIELDS).
 const QUESTION_COLS = [
@@ -443,6 +443,12 @@ export default function TourTab() {
     return res.data;
   });
 
+  const syncStartlist = () => run('startlist', async () => {
+    const res = await callSyncStartlistNow();
+    if (!res.ok) throw new Error(res.error);
+    return res.data;
+  });
+
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚴 Tour de France</h2>
@@ -510,6 +516,18 @@ export default function TourTab() {
             {busy === 'stageinfo' ? 'Henter…' : '⛰️ Hent etape-info (højdemeter + point)'}
           </button>
         </div>
+      </section>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Startliste (udtagne ryttere)</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          Henter holdenes udtagne ryttere fra TV2 og skriver dem til holdsiderne.
+          Kører <strong>automatisk hver 2. time</strong>, så holdene fyldes ud af
+          sig selv efterhånden som de melder ud — knappen her henter med det samme.
+        </p>
+        <button className="btn" disabled={busy} onClick={syncStartlist}>
+          {busy === 'startlist' ? 'Henter…' : '👥 Hent startliste nu'}
+        </button>
       </section>
 
       <section style={{ marginBottom: '1.25rem' }}>
