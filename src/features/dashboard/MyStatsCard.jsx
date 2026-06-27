@@ -1,4 +1,4 @@
-// Forside-kort: brugerens egen statistik (tips, point, træfsikkerhed).
+// Forside-kort: brugerens egen statistik (tippede etaper, point, træfsikkerhed).
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { computeMyStats } from './dashboardStats';
@@ -12,22 +12,21 @@ function Stat({ value, label, color }) {
   );
 }
 
-export default function MyStatsCard({ matches, bets }) {
-  const s = useMemo(() => computeMyStats(matches, bets), [matches, bets]);
+export default function MyStatsCard({ stages, bets, points = {} }) {
+  const s = useMemo(() => computeMyStats(stages, bets, points), [stages, bets, points]);
   if (s.tips === 0) return null;
 
   return (
     <div className="card" data-testid="my-stats-card" style={{ marginBottom: '1rem' }}>
       <div className="flex items-center justify-between" style={{ marginBottom: '0.6rem' }}>
         <h2 className="card__title" style={{ margin: 0 }}>Din statistik</h2>
-        <Link to="/statistik" className="badge badge--blue" style={{ textDecoration: 'none' }}>Mere →</Link>
+        <Link to="/mine-tips" className="badge badge--blue" style={{ textDecoration: 'none' }}>Mine tips →</Link>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
         <Stat value={s.points} label="point i alt" />
-        <Stat value={s.tips} label="tippede kampe" color="var(--c-text)" />
-        <Stat value={`${s.exactPct}%`} label={`eksakt (${s.exact})`} color="var(--c-ok)" />
-        <Stat value={`${s.outcomePct}%`} label={`rigtigt udfald (${s.correctOutcome})`} color="var(--c-text)" />
-        <Stat value={s.avgPoints} label="point/tip" color="var(--c-warn)" />
+        <Stat value={s.tips} label="tippede etaper" color="var(--c-text)" />
+        <Stat value={`${s.hitPct}%`} label={`rigtige hold (${s.hits})`} color="var(--c-ok)" />
+        <Stat value={s.avgPoints} label="point/etape" color="var(--c-warn)" />
       </div>
     </div>
   );

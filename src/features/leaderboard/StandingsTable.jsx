@@ -27,11 +27,11 @@ function MovementArrow({ delta }) {
  * @param {function} [props.getPoints]  – fn(uid) → number; overskriver totalPoints-feltet
  * @param {boolean}  [props.loading]    – vis spinner
  * @param {string}   [props.emptyMsg]   – tekst når listen er tom
- * @param {boolean}  [props.showAvg]    – vis "Gns."-kolonne (point pr. tippet kamp)
- * @param {function} [props.getTipped]  – fn(uid) → antal tippede kampe (nævner i gns.)
+ * @param {boolean}  [props.showAvg]    – vis "Gns."-kolonne (point pr. tippet etape)
+ * @param {function} [props.getTipped]  – fn(uid) → antal tippede etaper (nævner i gns.)
  * @param {'total'|'avg'} [props.sortMode] – sortér efter total eller gennemsnit
- * @param {boolean}  [props.showBreakdown] – vis "Kampe"- og "Bonus"-kolonner (kun global total)
- * @param {function} [props.getBreakdown] – fn(user) → {match, bonus}; overstyrer standard-opdelingen (fx liga-scoring)
+ * @param {boolean}  [props.showBreakdown] – vis "Etaper"- og "Bonus"-kolonner (kun global total)
+ * @param {function} [props.getBreakdown] – fn(user) → {stage, bonus}; overstyrer standard-opdelingen (fx liga-scoring)
  */
 export default function StandingsTable({
   users = [],
@@ -52,15 +52,15 @@ export default function StandingsTable({
     // Filtrer til medlemmer af valgt liga
     const filtered = filterByMembers(users, memberUids);
 
-    // Beregn point (evt. fra ekstern funktion, f.eks. dagspoint) + gns. pr. tippet kamp
+    // Beregn point (evt. fra ekstern funktion, f.eks. dagspoint) + gns. pr. tippet etape
     const withPoints = filtered.map((u) => {
       const displayPoints = getPoints ? (getPoints(u.uid) ?? 0) : (u.totalPoints ?? 0);
       const tipped = getTipped ? (getTipped(u.uid) ?? 0) : 0;
       const avg = tipped > 0 ? Math.round((displayPoints / tipped) * 10) / 10 : null;
       const bd = getBreakdown ? getBreakdown(u) : null;
-      const matchPoints = bd ? bd.match : (u.groupPoints ?? 0) + (u.knockoutPoints ?? 0);
+      const stagePoints = bd ? bd.stage : (u.stagePoints ?? 0);
       const bonus = bd ? bd.bonus : (u.bonusPoints ?? 0);
-      return { ...u, displayPoints, tipped, avg, matchPoints, bonus };
+      return { ...u, displayPoints, tipped, avg, stagePoints, bonus };
     });
 
     // Sortér faldende — efter gns. når valgt, ellers efter total. Tiebreak: total, så navn.
@@ -96,10 +96,10 @@ export default function StandingsTable({
             <th style={{ width: '2.5rem' }}>#</th>
             {showMovement && <th style={{ width: '2.5rem' }} title="Bevægelse siden i går">±</th>}
             <th>Spiller</th>
-            {showBreakdown && <th style={{ textAlign: 'right' }} title="Point fra kampe (gruppe + slutspil)">Kampe</th>}
+            {showBreakdown && <th style={{ textAlign: 'right' }} title="Point fra etaperne (de fire hold-spørgsmål)">Etaper</th>}
             {showBreakdown && <th style={{ textAlign: 'right' }} title="Point fra bonusspørgsmål">Bonus</th>}
             <th style={{ textAlign: 'right' }}>{showBreakdown ? 'Total' : 'Point'}</th>
-            {showAvg && <th style={{ textAlign: 'right' }} title="Gennemsnitlige point pr. tippet kamp">Gns.</th>}
+            {showAvg && <th style={{ textAlign: 'right' }} title="Gennemsnitlige point pr. tippet etape">Gns.</th>}
           </tr>
         </thead>
         <tbody>
@@ -143,10 +143,10 @@ export default function StandingsTable({
                   </span>
                 </td>
 
-                {/* Point fra kampe / bonus (kun global total) */}
+                {/* Point fra etaper / bonus (kun global total) */}
                 {showBreakdown && (
                   <td style={{ textAlign: 'right' }}>
-                    <span className="text-muted" style={{ fontSize: '0.9rem' }}>{u.matchPoints}</span>
+                    <span className="text-muted" style={{ fontSize: '0.9rem' }}>{u.stagePoints}</span>
                   </td>
                 )}
                 {showBreakdown && (
@@ -160,9 +160,9 @@ export default function StandingsTable({
                   <span className="pts">{u.displayPoints}</span>
                 </td>
 
-                {/* Gns. point pr. tippet kamp */}
+                {/* Gns. point pr. tippet etape */}
                 {showAvg && (
-                  <td style={{ textAlign: 'right' }} title={u.tipped ? `${u.displayPoints} point på ${u.tipped} tippede kampe` : 'Ingen tippede kampe endnu'}>
+                  <td style={{ textAlign: 'right' }} title={u.tipped ? `${u.displayPoints} point på ${u.tipped} tippede etaper` : 'Ingen tippede etaper endnu'}>
                     <span className="text-muted" style={{ fontSize: '0.9rem' }}>
                       {u.avg === null ? '–' : u.avg.toFixed(1).replace('.', ',')}
                     </span>

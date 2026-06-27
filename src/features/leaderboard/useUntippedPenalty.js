@@ -1,4 +1,4 @@
-// Hook: læser straffen for en utippet kamp (Skarpskytten) fra config/settings.
+// Hook: læser straffen for en utippet etape fra config/settings.
 // Værdien gemmes som et positivt tal (antal point der trækkes fra). Default 2.
 // Owner sætter den under Admin → ⚙️ Indstillinger; alle godkendte kan læse den.
 import { useEffect, useState } from 'react';

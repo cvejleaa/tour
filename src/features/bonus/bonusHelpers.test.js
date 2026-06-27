@@ -5,21 +5,48 @@ import { sortBonusQuestions, isBonusLocked, formatDeadline } from './bonusHelper
 // sortBonusQuestions
 // ---------------------------------------------------------------------------
 describe('sortBonusQuestions', () => {
-  it('placerer topscorer øverst og gruppevindere i A→L-rækkefølge', () => {
+  it('sorterer efter deadline (tidligst først)', () => {
     const input = [
-      { id: 'gw_C', type: 'groupWinner', groupName: 'C' },
-      { id: 'gw_A', type: 'groupWinner', groupName: 'A' },
-      { id: 'top', type: 'topScorer', groupName: null },
-      { id: 'gw_B', type: 'groupWinner', groupName: 'B' },
+      { id: 'c', deadline: new Date('2026-07-10T10:00:00Z') },
+      { id: 'a', deadline: new Date('2026-07-01T10:00:00Z') },
+      { id: 'b', deadline: new Date('2026-07-05T10:00:00Z') },
     ];
     const out = sortBonusQuestions(input).map((q) => q.id);
-    expect(out).toEqual(['top', 'gw_A', 'gw_B', 'gw_C']);
+    expect(out).toEqual(['a', 'b', 'c']);
+  });
+
+  it('placerer spørgsmål uden deadline til sidst', () => {
+    const input = [
+      { id: 'ingen', deadline: null },
+      { id: 'med', deadline: new Date('2026-07-01T10:00:00Z') },
+    ];
+    const out = sortBonusQuestions(input).map((q) => q.id);
+    expect(out).toEqual(['med', 'ingen']);
+  });
+
+  it('sorterer efter tekst når deadlines er ens', () => {
+    const dl = new Date('2026-07-01T10:00:00Z');
+    const input = [
+      { id: '2', text: 'B-spørgsmål', deadline: dl },
+      { id: '1', text: 'A-spørgsmål', deadline: dl },
+    ];
+    const out = sortBonusQuestions(input).map((q) => q.id);
+    expect(out).toEqual(['1', '2']);
+  });
+
+  it('håndterer Firestore-timestamp (toDate)', () => {
+    const input = [
+      { id: 'b', deadline: { toDate: () => new Date('2026-07-05T10:00:00Z') } },
+      { id: 'a', deadline: { toDate: () => new Date('2026-07-01T10:00:00Z') } },
+    ];
+    const out = sortBonusQuestions(input).map((q) => q.id);
+    expect(out).toEqual(['a', 'b']);
   });
 
   it('muterer ikke input-arrayet', () => {
     const input = [
-      { id: 'gw_B', type: 'groupWinner', groupName: 'B' },
-      { id: 'top', type: 'topScorer' },
+      { id: 'b', deadline: new Date('2026-07-05T10:00:00Z') },
+      { id: 'a', deadline: new Date('2026-07-01T10:00:00Z') },
     ];
     const copy = [...input];
     sortBonusQuestions(input);
@@ -36,55 +63,6 @@ describe('sortBonusQuestions', () => {
 
   it('håndterer null input', () => {
     expect(sortBonusQuestions(null)).toEqual([]);
-  });
-
-  it('topscorer alene returneres korrekt', () => {
-    const input = [{ id: 'top', type: 'topScorer' }];
-    const out = sortBonusQuestions(input);
-    expect(out).toHaveLength(1);
-    expect(out[0].id).toBe('top');
-  });
-
-  it('kun gruppevindere sorteres A→L uden topscorer', () => {
-    const input = [
-      { id: 'gw_D', type: 'groupWinner', groupName: 'D' },
-      { id: 'gw_B', type: 'groupWinner', groupName: 'B' },
-      { id: 'gw_A', type: 'groupWinner', groupName: 'A' },
-      { id: 'gw_C', type: 'groupWinner', groupName: 'C' },
-    ];
-    const out = sortBonusQuestions(input).map((q) => q.id);
-    expect(out).toEqual(['gw_A', 'gw_B', 'gw_C', 'gw_D']);
-  });
-
-  it('sorterer grupper L, K, J korrekt (omvendt orden giver rigtig rækkefølge)', () => {
-    const input = [
-      { id: 'gw_L', type: 'groupWinner', groupName: 'L' },
-      { id: 'gw_J', type: 'groupWinner', groupName: 'J' },
-      { id: 'gw_K', type: 'groupWinner', groupName: 'K' },
-    ];
-    const out = sortBonusQuestions(input).map((q) => q.id);
-    expect(out).toEqual(['gw_J', 'gw_K', 'gw_L']);
-  });
-
-  it('to topscorer-spørgsmål placeres begge øverst', () => {
-    const input = [
-      { id: 'gw_A', type: 'groupWinner', groupName: 'A' },
-      { id: 'top2', type: 'topScorer' },
-      { id: 'top1', type: 'topScorer' },
-    ];
-    const out = sortBonusQuestions(input);
-    // begge top-spørgsmål skal komme før gw_A
-    const gwAIdx = out.findIndex((q) => q.id === 'gw_A');
-    expect(out.slice(0, gwAIdx).every((q) => q.type === 'topScorer')).toBe(true);
-  });
-
-  it('gruppevinder uden groupName sorteres stabilt', () => {
-    const input = [
-      { id: 'gw_nul', type: 'groupWinner', groupName: null },
-      { id: 'gw_A', type: 'groupWinner', groupName: 'A' },
-    ];
-    const out = sortBonusQuestions(input);
-    expect(out).toHaveLength(2);
   });
 });
 

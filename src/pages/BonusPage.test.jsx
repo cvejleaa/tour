@@ -47,41 +47,39 @@ function renderPage() {
 const futureDeadline = new Date('2099-01-01T00:00:00Z');
 const pastDeadline = new Date('2000-01-01T00:00:00Z');
 
-const openTopScorer = {
+const openSeasonQ = {
   id: 'q_top',
-  type: 'topScorer',
-  label: 'Hvem bliver turneringens topscorer?',
+  type: 'text',
+  label: 'Hvem vinder den samlede Tour?',
   deadline: futureDeadline,
   facit: null,
   options: null,
 };
 
-const openGroupWinnerA = {
+const openTeamChoiceA = {
   id: 'q_gw_A',
-  type: 'groupWinner',
-  label: 'Hvem vinder gruppe A?',
+  type: 'teamChoice',
+  label: 'Hvilket hold tager flest etapesejre?',
   deadline: futureDeadline,
-  groupName: 'A',
   facit: null,
-  options: ['DK', 'GER', 'BRA'],
+  options: ['TVL', 'UAD', 'SOQ'],
 };
 
 const lockedQuestion = {
   id: 'q2',
-  type: 'groupWinner',
-  label: 'Hvem vinder gruppe B?',
+  type: 'teamChoice',
+  label: 'Hvilket hold vinder holdkonkurrencen?',
   deadline: pastDeadline,
-  groupName: 'B',
-  facit: 'DK',
-  options: ['DK', 'FRA', 'BRA'],
+  facit: 'TVL',
+  options: ['TVL', 'INE', 'SOQ'],
 };
 
-const lockedTopScorer = {
+const lockedSeasonQ = {
   id: 'q_top_locked',
-  type: 'topScorer',
-  label: 'Hvem scorer flest mål?',
+  type: 'text',
+  label: 'Hvem vinder bjergtrøjen?',
   deadline: pastDeadline,
-  facit: 'Haaland',
+  facit: 'Pogačar',
   options: null,
 };
 
@@ -138,7 +136,7 @@ describe('BonusPage – loading og tom tilstand', () => {
 // ---------------------------------------------------------------------------
 describe('BonusPage – overskrift og statistik', () => {
   it('viser side-overskrift "🎁 Bonus"', () => {
-    useBonusQuestions.mockReturnValue({ questions: [openTopScorer], loading: false, error: null });
+    useBonusQuestions.mockReturnValue({ questions: [openSeasonQ], loading: false, error: null });
     useMyBonusBets.mockReturnValue({ bonusBets: new Map(), loading: false });
     renderPage();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Bonus');
@@ -151,7 +149,7 @@ describe('BonusPage – overskrift og statistik', () => {
       error: null,
     });
     const betsMap = new Map([
-      ['q2', { questionId: 'q2', uid: 'user1', answer: 'DK', points: 10 }],
+      ['q2', { questionId: 'q2', uid: 'user1', answer: 'TVL', points: 10 }],
     ]);
     useMyBonusBets.mockReturnValue({ bonusBets: betsMap, loading: false });
     renderPage();
@@ -160,7 +158,7 @@ describe('BonusPage – overskrift og statistik', () => {
 
   it('viser 0 point i statistik-banner uden svar', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer],
+      questions: [openSeasonQ],
       loading: false,
       error: null,
     });
@@ -171,13 +169,13 @@ describe('BonusPage – overskrift og statistik', () => {
 
   it('viser besvaret/åbne statistik', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer, openGroupWinnerA],
+      questions: [openSeasonQ, openTeamChoiceA],
       loading: false,
       error: null,
     });
     // Ét besvaret
     const betsMap = new Map([
-      ['q_top', { questionId: 'q_top', uid: 'user1', answer: 'Haaland' }],
+      ['q_top', { questionId: 'q_top', uid: 'user1', answer: 'Pogačar' }],
     ]);
     useMyBonusBets.mockReturnValue({ bonusBets: betsMap, loading: false });
     renderPage();
@@ -203,7 +201,7 @@ describe('BonusPage – overskrift og statistik', () => {
 describe('BonusPage – sektioner', () => {
   it('viser åbent spørgsmål med input og gem-knap', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer],
+      questions: [openSeasonQ],
       loading: false,
       error: null,
     });
@@ -227,7 +225,7 @@ describe('BonusPage – sektioner', () => {
 
   it('viser "Åbne spørgsmål" sektion-overskrift', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer],
+      questions: [openSeasonQ],
       loading: false,
       error: null,
     });
@@ -249,7 +247,7 @@ describe('BonusPage – sektioner', () => {
 
   it('viser begge sektioner (åbne og låste) når begge typer eksisterer', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer, lockedQuestion],
+      questions: [openSeasonQ, lockedQuestion],
       loading: false,
       error: null,
     });
@@ -272,7 +270,7 @@ describe('BonusPage – sektioner', () => {
 
   it('viser IKKE "Låste spørgsmål" header hvis ingen låste', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [openTopScorer],
+      questions: [openSeasonQ],
       loading: false,
       error: null,
     });
@@ -286,53 +284,22 @@ describe('BonusPage – sektioner', () => {
 // Sortering af spørgsmål
 // ---------------------------------------------------------------------------
 describe('BonusPage – sortering', () => {
-  it('sorterer topscorer øverst foran gruppevindere', () => {
-    // useBonusQuestions returnerer dem i "forkert" rækkefølge
-    const questions = [
-      { ...openGroupWinnerA },
-      { ...openTopScorer },
-    ];
-    useBonusQuestions.mockReturnValue({ questions, loading: false, error: null });
+  it('sorterer spørgsmål efter deadline (tidligst først)', () => {
+    const tidlig = {
+      id: 'q_tidlig', text: 'Tidligt spørgsmål',
+      deadline: new Date('2026-07-01T10:00:00Z'), facit: null, options: null,
+    };
+    const sen = {
+      id: 'q_sen', text: 'Sent spørgsmål',
+      deadline: new Date('2026-07-20T10:00:00Z'), facit: null, options: null,
+    };
+    // Bevidst forkert rækkefølge: sen, tidlig
+    useBonusQuestions.mockReturnValue({ questions: [sen, tidlig], loading: false, error: null });
     useMyBonusBets.mockReturnValue({ bonusBets: new Map(), loading: false });
     renderPage();
     const bonusCards = screen.getAllByTestId('bonus-question');
-    // Første kort bør have "⚽ Topscorer" tekst (topscorer er sorteret øverst)
-    expect(bonusCards[0]).toHaveTextContent('Topscorer');
-  });
-
-  it('sorterer gruppevindere A→L inden for åbne spørgsmål', () => {
-    const qA = { ...openGroupWinnerA, id: 'gw_A', groupName: 'A' };
-    const qC = {
-      id: 'gw_C',
-      type: 'groupWinner',
-      label: 'Hvem vinder gruppe C?',
-      deadline: futureDeadline,
-      groupName: 'C',
-      facit: null,
-      options: ['DK'],
-    };
-    const qB = {
-      id: 'gw_B',
-      type: 'groupWinner',
-      label: 'Hvem vinder gruppe B?',
-      deadline: futureDeadline,
-      groupName: 'B',
-      facit: null,
-      options: ['GER'],
-    };
-    // Bevidst forkert rækkefølge: C, A, B
-    useBonusQuestions.mockReturnValue({
-      questions: [qC, qA, qB],
-      loading: false,
-      error: null,
-    });
-    useMyBonusBets.mockReturnValue({ bonusBets: new Map(), loading: false });
-    renderPage();
-    const bonusCards = screen.getAllByTestId('bonus-question');
-    // Kort 0 = gruppe A, kort 1 = gruppe B, kort 2 = gruppe C
-    expect(bonusCards[0]).toHaveTextContent('gruppe A');
-    expect(bonusCards[1]).toHaveTextContent('gruppe B');
-    expect(bonusCards[2]).toHaveTextContent('gruppe C');
+    expect(bonusCards[0]).toHaveTextContent('Tidligt spørgsmål');
+    expect(bonusCards[1]).toHaveTextContent('Sent spørgsmål');
   });
 });
 
@@ -340,19 +307,16 @@ describe('BonusPage – sortering', () => {
 // Facit og points
 // ---------------------------------------------------------------------------
 describe('BonusPage – facit og point', () => {
-  it('viser facit for afgjort spørgsmål', () => {
-    // Brug GER som facit (GER er i teams.js → vises som "Tyskland")
-    const lockedWithGER = { ...lockedQuestion, facit: 'GER', options: ['GER', 'FRA', 'BRA'] };
+  it('viser facit for afgjort spørgsmål (fritekst)', () => {
+    const lockedFree = { ...lockedQuestion, facit: 'UAE Team Emirates', options: null };
     useBonusQuestions.mockReturnValue({
-      questions: [lockedWithGER],
+      questions: [lockedFree],
       loading: false,
       error: null,
     });
     useMyBonusBets.mockReturnValue({ bonusBets: new Map(), loading: false });
     renderPage();
-    // Facit "GER" vises som "Tyskland"
-    const tysklandTexts = screen.getAllByText('Tyskland');
-    expect(tysklandTexts.length).toBeGreaterThan(0);
+    expect(screen.getByText('UAE Team Emirates')).toBeInTheDocument();
   });
 
   it('viser optjente bonus-point for korrekt svar', () => {
@@ -362,22 +326,22 @@ describe('BonusPage – facit og point', () => {
       error: null,
     });
     const betsMap = new Map([
-      ['q2', { questionId: 'q2', uid: 'user1', answer: 'DK', points: 10 }],
+      ['q2', { questionId: 'q2', uid: 'user1', answer: 'TVL', points: 10 }],
     ]);
     useMyBonusBets.mockReturnValue({ bonusBets: betsMap, loading: false });
     renderPage();
     expect(screen.getByText('+10 point')).toBeInTheDocument();
   });
 
-  it('viser facit for afgjort topScorer', () => {
+  it('viser facit for afgjort fri-tekst-spørgsmål', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [lockedTopScorer],
+      questions: [lockedSeasonQ],
       loading: false,
       error: null,
     });
     useMyBonusBets.mockReturnValue({ bonusBets: new Map(), loading: false });
     renderPage();
-    expect(screen.getByText('Haaland')).toBeInTheDocument();
+    expect(screen.getByText('Pogačar')).toBeInTheDocument();
   });
 
   it('kan IKKE svare på låst spørgsmål (input deaktiveret)', () => {
@@ -394,13 +358,13 @@ describe('BonusPage – facit og point', () => {
 
   it('summerer bonus-point fra flere spørgsmål', () => {
     useBonusQuestions.mockReturnValue({
-      questions: [lockedQuestion, lockedTopScorer],
+      questions: [lockedQuestion, lockedSeasonQ],
       loading: false,
       error: null,
     });
     const betsMap = new Map([
-      ['q2', { questionId: 'q2', uid: 'user1', answer: 'DK', points: 10 }],
-      ['q_top_locked', { questionId: 'q_top_locked', uid: 'user1', answer: 'Haaland', points: 10 }],
+      ['q2', { questionId: 'q2', uid: 'user1', answer: 'TVL', points: 10 }],
+      ['q_top_locked', { questionId: 'q_top_locked', uid: 'user1', answer: 'Pogačar', points: 10 }],
     ]);
     useMyBonusBets.mockReturnValue({ bonusBets: betsMap, loading: false });
     renderPage();

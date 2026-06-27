@@ -1,4 +1,4 @@
-// Køreplan-fanen i admin-panelet — en kort, praktisk guide til turneringen.
+// Køreplan-fanen i admin-panelet — en kort, praktisk guide til Touren.
 // Ligger direkte i appen, så admin altid har den ved hånden (ingen ekstern doc).
 
 const sectionStyle = { marginBottom: '1.5rem' };
@@ -22,52 +22,45 @@ export default function RunbookTab() {
       </p>
 
       <section style={sectionStyle}>
-        <h2 style={h2Style}>⚽ Under kampene (automatisk)</h2>
-        <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
-          <li style={liStyle}>Resultater hentes fra football-data.org hvert minut — status, live-scores og slutresultater opdateres selv, og point beregnes automatisk.</li>
-          <li style={liStyle}>Hold øje med <Kbd>✅ Auto-synk kører</Kbd> øverst på <Kbd>Kampe &amp; resultater</Kbd>. Bliver den gul eller rød, er automatikken stoppet — se nederst.</li>
-          <li style={liStyle}>Knockout afgjort på straffespark håndteres automatisk: resultatet gemmes som uafgjort, og det hold der gik videre, sættes som «videre».</li>
-        </ul>
-      </section>
-
-      <section style={sectionStyle}>
-        <h2 style={h2Style}>✏️ Ret et forkert resultat</h2>
+        <h2 style={h2Style}>🚴 1. Seed ruten (én gang)</h2>
         <p style={pStyle}>
-          Ret kampen under <Kbd>Kampe &amp; resultater</Kbd>. Din rettelse er «klæbende»: automatikken rører ikke kampen igen.
-          Vil du give automatikken kontrollen tilbage, tryk <Kbd>Gendan automatik</Kbd> på kampen.
+          Inden Touren går i gang: åbn <Kbd>🚴 Tour</Kbd>-fanen og tryk <Kbd>Seed 2026-rute (21 etaper)</Kbd>.
+          Det opretter alle etaperne med datoer, så spillerne kan tippe hold på dem.
         </p>
       </section>
 
       <section style={sectionStyle}>
-        <h2 style={h2Style}>🏆 Gruppevindere &amp; bonus</h2>
+        <h2 style={h2Style}>📡 2. Under etaperne (automatisk)</h2>
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
-          <li style={liStyle}>Gruppevindere afgøres automatisk, når en gruppe er færdigspillet. Du kan også trykke <Kbd>🏆 Afgør gruppevindere</Kbd> i <Kbd>Bonus-facit</Kbd> (brug <Kbd>Tør-kør</Kbd> for at se uden at gemme).</li>
-          <li style={liStyle}>Topscorer afgøres <em>manuelt</em> i <Kbd>Bonus-facit</Kbd>, når den er kendt (kan ikke udledes af resultaterne alene).</li>
+          <li style={liStyle}>Resultater hentes automatisk fra <Kbd>letour.fr</Kbd> hvert 5. minut i tidsrummet <Kbd>kl. 17–22</Kbd> under etaperne — etapevinder, klassementer og holdresultater udfyldes selv.</li>
+          <li style={liStyle}>Når en etapes facit er hentet, beregnes point automatisk for alle tip.</li>
+          <li style={liStyle}>Vil du ikke vente på det næste 5-minutters-tjek, så tryk <Kbd>⬇️ Synk resultater nu</Kbd> i <Kbd>🚴 Tour</Kbd>-fanen.</li>
         </ul>
       </section>
 
       <section style={sectionStyle}>
-        <h2 style={h2Style}>🔁 Efter gruppespillet</h2>
-        <ol style={{ margin: 0, paddingLeft: '1.2rem' }}>
-          <li style={liStyle}>Når 1/16-lodtrækningen er kendt og holdene er sat på knockout-kampene: tryk <Kbd>{"🔗 Map kamp-id'er"}</Kbd> igen, så de nye kampe kobles til football-data.org.</li>
-          <li style={liStyle}>Tryk <Kbd>Byg knockout</Kbd> for at fylde bracketten ud fra grupperesultaterne.</li>
-        </ol>
+        <h2 style={h2Style}>🏷️ 3. Hold udfyldes af sig selv</h2>
+        <p style={pStyle}>
+          Cykelholdene oprettes automatisk ud fra de hentede resultater — du skal ikke
+          indtaste holdlister manuelt. De dukker op, efterhånden som etaperne afgøres.
+        </p>
       </section>
 
       <section style={sectionStyle}>
-        <h2 style={h2Style}>🧪 Tjek før go-live</h2>
-        <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
-          <li style={liStyle}>Tryk <Kbd>⚽ Synk nu</Kbd> under Auto-resultater for at hente resultater med det samme (ellers kører synken selv hvert minut).</li>
-          <li style={liStyle}>Efter den første afsluttede kamp: bekræft at resultatet står som «Afsluttet», og at leaderboardet har opdateret point.</li>
-        </ul>
+        <h2 style={h2Style}>🎁 4. Bonus-facit</h2>
+        <p style={pStyle}>
+          Sæson- og klassements-bonus (fx samlet Tour-vinder, bjerg- og pointtrøje) sættes
+          manuelt i <Kbd>Bonus</Kbd>-fanen, når svaret er kendt. Point for bonus beregnes,
+          så snart du gemmer facit.
+        </p>
       </section>
 
       <section style={{ ...sectionStyle, marginBottom: 0 }}>
-        <h2 style={h2Style}>🚑 Hvis automatikken er gul/rød</h2>
+        <h2 style={h2Style}>🚑 5. Hvis noget driller</h2>
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
-          <li style={liStyle}><strong>Gul (forsinket):</strong> vent et par minutter — er den stadig gul, er den planlagte funktion sandsynligvis stoppet.</li>
-          <li style={liStyle}><strong>Rød (fejl):</strong> teksten viser fejlen. Typisk årsag: <Kbd>FOOTBALL_DATA_TOKEN</Kbd> mangler/udløbet i Secret Manager (projekt <Kbd>vm2026-tip</Kbd>), eller football-data.org har nedetid.</li>
-          <li style={liStyle}>Imens kan du altid rette resultater manuelt — point beregnes med det samme.</li>
+          <li style={liStyle}>Mangler en etape sit resultat? Åbn <Kbd>🚴 Tour</Kbd>-fanen og tryk <Kbd>⬇️ Synk resultater nu</Kbd> for at hente med det samme.</li>
+          <li style={liStyle}>Tjek beskeden i Tour-fanens synk-status — den fortæller, hvad der sidst blev hentet, og om der var en fejl.</li>
+          <li style={liStyle}>Du kan altid rette point ved at synke igen, når kilden er opdateret.</li>
         </ul>
       </section>
     </div>

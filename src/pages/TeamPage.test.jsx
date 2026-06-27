@@ -1,14 +1,36 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+// Tests for TeamPage – ét holds side (/hold/:code).
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
-vi.mock('../firebase', () => ({ db: {}, auth: {} }));
-vi.mock('../features/matches/useMatches', () => ({ useMatches: vi.fn() }));
+vi.mock('../firebase', () => ({ db: {} }));
+vi.mock('firebase/firestore', () => ({ doc: vi.fn(), onSnapshot: vi.fn() }));
+
+// Mock holddata, så vi kan styre hold-opslag.
+vi.mock('../data/tourTeams2026', () => {
+  const META = {
+    UAD: { code: 'UAD', name: 'UAE Team Emirates', nationality: 'uae', color: '#000000' },
+    TVL: { code: 'TVL', name: 'Team Visma | Lease a Bike', nationality: 'ned', color: '#f7d417' },
+  };
+  return {
+    teamMeta: (c) => META[c] || null,
+    prettyTeam: (n) => n,
+  };
+});
+
+// Mock den statiske startliste (live-hook'en er no-op pga. onSnapshot-mocken).
+vi.mock('../data/startlist2026', () => {
+  const SL = {
+    TVL: { announced: true, riders: [
+      { name: 'Rytter Én', country: 'Danmark' },
+      { name: 'Jonas Vingegaard', country: 'Danmark' }, // hovednavn → ⭐
+      { name: 'Rider Two', country: 'USA' },
+    ] },
+  };
+  return { staticStartlist: (c) => SL[c] || null };
+});
 
 import TeamPage from './TeamPage';
-import { useMatches } from '../features/matches/useMatches';
-
-const DAY = 86400000;
 
 function renderAt(code) {
   return render(
@@ -20,44 +42,42 @@ function renderAt(code) {
   );
 }
 
-const matches = [
-  { id: 'a', round: 'group', groupName: 'A', homeTeam: 'BRA', awayTeam: 'ARG',
-    kickoff: new Date(Date.now() - 2 * DAY), status: 'finished', result: { home: 2, away: 1 } },
-  { id: 'b', round: 'group', groupName: 'A', homeTeam: 'DEN', awayTeam: 'BRA',
-    kickoff: new Date(Date.now() - DAY), status: 'finished', result: { home: 3, away: 0 } },
-  { id: 'c', round: 'group', groupName: 'A', homeTeam: 'BRA', awayTeam: 'FRA',
-    kickoff: new Date(Date.now() + DAY), status: 'scheduled', result: null },
-  { id: 'd', round: 'group', groupName: 'B', homeTeam: 'GER', awayTeam: 'ESP',
-    kickoff: new Date(Date.now() + DAY), status: 'scheduled', result: null },
-];
-
-beforeEach(() => {
-  useMatches.mockReturnValue({ matches, loading: false, error: null });
-});
-
 describe('TeamPage', () => {
-  it('viser holdets navn og kun holdets kampe', () => {
-    renderAt('BRA');
-    expect(screen.getByRole('heading', { level: 1, name: 'Brasilien' })).toBeInTheDocument();
-    // Spillede: a (vundet) + b (tabt). Kommende: c. Ikke d (andet hold).
-    expect(screen.getByText('Spillede kampe')).toBeInTheDocument();
-    expect(screen.getByText('Kommende kampe')).toBeInTheDocument();
-    expect(screen.getByText('Argentina')).toBeInTheDocument();
-    expect(screen.getByText('Frankrig')).toBeInTheDocument();
-    expect(screen.queryByText('Spanien')).not.toBeInTheDocument();
+  it('viser holdets header og en "kommer snart" når der ingen ryttere er', () => {
+    renderAt('UAD');
+    expect(screen.getByTestId('team-presentation')).toBeInTheDocument();
+    expect(screen.getAllByText('UAE Team Emirates').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('riders-pending')).toBeInTheDocument();
+    expect(screen.queryByTestId('rider-list')).toBeNull();
   });
 
-  it('viser udfald set fra holdet (vundet/tabt)', () => {
-    renderAt('BRA');
-    expect(screen.getByText('Vundet')).toBeInTheDocument();
-    expect(screen.getByText('Tabt')).toBeInTheDocument();
-    // V/U/T-optælling i headeren: 1 vundet, 0 uafgjort, 1 tabt.
-    expect(screen.getByText('1 V · 0 U · 1 T')).toBeInTheDocument();
+  it('viser rytterlisten med danskere fremhævet', () => {
+    renderAt('TVL');
+    expect(screen.getByTestId('rider-list')).toBeInTheDocument();
+    expect(screen.getByText('Rytter Én')).toBeInTheDocument();
+    expect(screen.getByText('Rider Two')).toBeInTheDocument();
+    // Danske ryttere får et flag-mærke.
+    expect(screen.getAllByTitle('Dansk rytter').length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('riders-pending')).toBeNull();
   });
 
-  it('viser tom-tilstand / ukendt hold for ukendt kode', () => {
-    renderAt('XXX');
-    expect(screen.getByRole('heading', { level: 1, name: 'Ukendt hold' })).toBeInTheDocument();
-    expect(screen.getByText(/Ingen kampe fundet/)).toBeInTheDocument();
+  it('viser holdets profil, hovednavne og mål (TVL = Visma)', () => {
+    renderAt('TVL');
+    expect(screen.getByTestId('team-profile')).toBeInTheDocument();
+    expect(screen.getByText('Klassement & etaper')).toBeInTheDocument();
+    // Hovednavne fra den kuraterede profil + mål.
+    expect(screen.getAllByText(/Jonas Vingegaard/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/vinder samlet/)).toBeInTheDocument();
+  });
+
+  it('markerer et hovednavn i startlisten med ⭐', () => {
+    renderAt('TVL');
+    // Vingegaard er hovednavn → får et ⭐-mærke i rytterlisten.
+    expect(screen.getByTitle('Hovednavn')).toBeInTheDocument();
+  });
+
+  it('viser "Hold ikke fundet" for en ukendt kode', () => {
+    renderAt('ZZZ');
+    expect(screen.getByText('Hold ikke fundet')).toBeInTheDocument();
   });
 });

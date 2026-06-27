@@ -6,8 +6,8 @@ vi.mock('firebase/firestore', () => ({
   doc: vi.fn((_db, col, id) => ({ col, id })),
   updateDoc: (...a) => updateDocMock(...a),
 }));
-// Kun et par hold til validering
-vi.mock('../../lib/teams', () => ({ TEAMS: { BRA: { name: 'Brasilien' }, DEN: { name: 'Danmark' } } }));
+// Kun et par cykelhold til validering
+vi.mock('../../data/tourTeams2026', () => ({ TOUR_TEAMS: ['Cofidis', 'Movistar Team'] }));
 
 import { updateProfile } from './profileActions';
 
@@ -27,9 +27,9 @@ describe('updateProfile', () => {
   });
 
   it('gemmer gyldige felter', async () => {
-    await updateProfile('u1', { avatarEmoji: '🦁', favoriteTeam: 'BRA', emailOptOut: true });
+    await updateProfile('u1', { avatarEmoji: '🦁', favoriteTeam: 'Cofidis', emailOptOut: true });
     const patch = updateDocMock.mock.calls[0][1];
-    expect(patch).toEqual({ avatarEmoji: '🦁', favoriteTeam: 'BRA', emailOptOut: true });
+    expect(patch).toEqual({ avatarEmoji: '🦁', favoriteTeam: 'Cofidis', emailOptOut: true });
   });
 
   it('konverterer tomt hold/emoji til null', async () => {

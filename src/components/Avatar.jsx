@@ -1,9 +1,10 @@
 /**
  * Avatar — rund avatar med enten valgt emoji eller initialer på en
- * personlig farve, med et lille yndlingshold-flag i hjørnet.
+ * personlig farve, med et lille yndlingshold-mærke (cykelhold-trøje/logo)
+ * i hjørnet.
  */
 import { avatarColor, initials } from '../features/profile/avatarUtils';
-import { flagUrl, teamName } from '../lib/teams';
+import { teamMeta, prettyTeam } from '../data/tourTeams2026';
 
 export default function Avatar({
   uid = '',
@@ -14,6 +15,12 @@ export default function Avatar({
 }) {
   const bg = avatarColor(uid || name);
   const fontSize = emoji ? size * 0.58 : size * 0.42;
+
+  // Yndlingshold-mærke: vis cykelholdets trøje eller logo. Hvis holdet ikke
+  // findes (fx gamle lande-koder), vis intet mærke.
+  const meta = favoriteTeam ? teamMeta(favoriteTeam) : null;
+  const badgeSrc = meta?.jersey || meta?.logo || null;
+  const badgeAlt = badgeSrc ? prettyTeam(favoriteTeam) : '';
 
   return (
     <span
@@ -31,11 +38,11 @@ export default function Avatar({
       >
         {emoji || initials(name)}
       </span>
-      {favoriteTeam && (
+      {badgeSrc && (
         <img
-          src={flagUrl(favoriteTeam, 20)}
-          alt={teamName(favoriteTeam)}
-          title={teamName(favoriteTeam)}
+          src={badgeSrc}
+          alt={badgeAlt}
+          title={badgeAlt}
           width={Math.round(size * 0.42)}
           height={Math.round(size * 0.32)}
           style={{

@@ -69,12 +69,12 @@ describe('AdminPage', () => {
       expect(screen.queryByTestId('tab-users')).toBeInTheDocument();
     });
 
-    it('viser Kampe & resultater-fanen for owner', () => {
+    it('viser IKKE en separat etape-resultatfane (synk ligger i Tour-fanen)', () => {
       renderAdminPage();
-      expect(screen.queryByTestId('tab-matches')).toBeInTheDocument();
+      expect(screen.queryByTestId('tab-matches')).not.toBeInTheDocument();
     });
 
-    it('viser Bonus-facit-fanen for owner', () => {
+    it('viser Bonus-fanen for owner', () => {
       renderAdminPage();
       expect(screen.queryByTestId('tab-bonus')).toBeInTheDocument();
     });
@@ -84,15 +84,18 @@ describe('AdminPage', () => {
       expect(screen.queryByTestId('tab-leagues')).toBeInTheDocument();
     });
 
-    it('viser alle ti faner for owner (inkl. Indstillinger)', () => {
+    it('viser alle otte faner for owner (inkl. Indstillinger)', () => {
       renderAdminPage();
       const tabs = screen.queryAllByTestId(/^tab-/);
-      expect(tabs).toHaveLength(10);
-      expect(screen.queryByTestId('tab-altstanding')).toBeInTheDocument();
+      expect(tabs).toHaveLength(8);
+      expect(screen.queryByTestId('tab-tour')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-tests')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-runbook')).toBeInTheDocument();
-      expect(screen.queryByTestId('tab-preview')).toBeInTheDocument();
+      expect(screen.queryByTestId('tab-mails')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-settings')).toBeInTheDocument();
+      // Fjernede faner
+      expect(screen.queryByTestId('tab-altstanding')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('tab-preview')).not.toBeInTheDocument();
     });
 
     it('viser tekst om fuld adgang som ejer', () => {
@@ -107,26 +110,14 @@ describe('AdminPage', () => {
       expect(brugereTab).toBeInTheDocument();
     });
 
-    it('faneskift fra Brugere til Kampe viser kamp-indhold', async () => {
-      renderAdminPage();
-      fireEvent.click(screen.getByTestId('tab-matches'));
-      await waitFor(() => {
-        // MatchesTab indlæser — tjek loading-besked eller kamp-liste
-        expect(
-          screen.queryByText(/Henter kampe/i) ||
-          screen.queryByText(/Ingen kampe/i) ||
-          screen.queryByText(/Opret kamp/i)
-        ).toBeTruthy();
-      });
-    });
-
-    it('faneskift fra Brugere til Bonus-facit viser bonus-indhold', async () => {
+    it('faneskift fra Brugere til Bonus viser bonus-indhold', async () => {
       renderAdminPage();
       fireEvent.click(screen.getByTestId('tab-bonus'));
       await waitFor(() => {
         expect(
           screen.queryByText(/Henter bonusspørgsmål/i) ||
-          screen.queryByText(/Ingen bonusspørgsmål/i)
+          screen.queryByText(/Ingen bonusspørgsmål/i) ||
+          screen.queryByText(/Opret bonusspørgsmål/i)
         ).toBeTruthy();
       });
     });
@@ -160,12 +151,7 @@ describe('AdminPage', () => {
       expect(screen.queryByTestId('tab-users')).toBeInTheDocument();
     });
 
-    it('viser Kampe & resultater-fanen for global admin', () => {
-      renderAdminPage();
-      expect(screen.queryByTestId('tab-matches')).toBeInTheDocument();
-    });
-
-    it('viser Bonus-facit-fanen for global admin', () => {
+    it('viser Bonus-fanen for global admin', () => {
       renderAdminPage();
       expect(screen.queryByTestId('tab-bonus')).toBeInTheDocument();
     });
@@ -175,11 +161,11 @@ describe('AdminPage', () => {
       expect(screen.queryByTestId('tab-leagues')).toBeInTheDocument();
     });
 
-    it('viser præcis 9 faner for global admin (ingen Indstillinger)', () => {
+    it('viser præcis 7 faner for global admin (ingen Indstillinger)', () => {
       renderAdminPage();
       const tabs = screen.queryAllByTestId(/^tab-/);
-      expect(tabs).toHaveLength(9);
-      expect(screen.queryByTestId('tab-altstanding')).toBeInTheDocument();
+      expect(tabs).toHaveLength(7);
+      expect(screen.queryByTestId('tab-tour')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-tests')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-runbook')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-settings')).not.toBeInTheDocument();

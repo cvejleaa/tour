@@ -18,8 +18,8 @@ describe('EmojiPicker', () => {
     const onSelect = vi.fn();
     render(<EmojiPicker onSelect={onSelect} />);
     fireEvent.click(screen.getByRole('button', { name: /Indsæt emoji/i }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Emoji ⚽' }));
-    expect(onSelect).toHaveBeenCalledWith('⚽');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Emoji 🚴' }));
+    expect(onSelect).toHaveBeenCalledWith('🚴');
     expect(screen.queryByTestId('emoji-grid')).not.toBeInTheDocument();
   });
 });

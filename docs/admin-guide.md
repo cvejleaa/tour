@@ -29,7 +29,7 @@ Logges automatisk hver gang systemet sender en mail. Synlig for globale admins.
 Hvis en spiller ikke modtager Firebase' egen nulstillingsmail (den havner ofte i
 spam eller blokeres af visse udbydere som Outlook/Hotmail):
 - **Admin → Brugere** → find spilleren → **🔑 Nulstil kodeord** (kun ejeren).
-- Et nulstillingslink genereres og sendes via **vm@vejleaa.dk** (jeres egen
+- Et nulstillingslink genereres og sendes via **tour@vejleaa.dk** (jeres egen
   SMTP, som leverer pålideligt). Du får også selve linket vist, så du kan sende
   det manuelt (fx SMS) hvis det skulle være nødvendigt.
 

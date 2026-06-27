@@ -13,25 +13,27 @@ import {
 
 // ── tippedFinishedCounts ─────────────────────────────────────────────────────
 describe('tippedFinishedCounts', () => {
-  const matches = [
-    { id: 'm1', status: 'finished' },
-    { id: 'm2', status: 'finished' },
-    { id: 'm3', status: 'scheduled' }, // ikke afsluttet → tæller ikke
+  // Afgjorte etaper har et result; den åbne har ingen (kickoff i fremtiden).
+  const done = (id) => ({ id, result: { winnerTeam: 'A' } });
+  const stages = [
+    done('s1'),
+    done('s2'),
+    { id: 's3', kickoff: '2999-07-03T12:00:00+02:00', result: null }, // ikke afgjort → tæller ikke
   ];
-  const byMatch = new Map([
-    ['m1', new Set(['a', 'b'])],
-    ['m2', new Set(['a'])],
-    ['m3', new Set(['a', 'b'])], // ignoreres (scheduled)
+  const byStage = new Map([
+    ['s1', new Set(['a', 'b'])],
+    ['s2', new Set(['a'])],
+    ['s3', new Set(['a', 'b'])], // ignoreres (ikke afgjort)
   ]);
 
-  it('tæller kun tippede, afsluttede kampe pr. spiller', () => {
-    expect(tippedFinishedCounts(matches, byMatch)).toEqual({ a: 2, b: 1 });
+  it('tæller kun tippede, afgjorte etaper pr. spiller', () => {
+    expect(tippedFinishedCounts(stages, byStage)).toEqual({ a: 2, b: 1 });
   });
 
   it('robust over for tomme/manglende input', () => {
     expect(tippedFinishedCounts([], new Map())).toEqual({});
     expect(tippedFinishedCounts(null, null)).toEqual({});
-    expect(tippedFinishedCounts(matches, new Map())).toEqual({});
+    expect(tippedFinishedCounts(stages, new Map())).toEqual({});
   });
 });
 
@@ -210,155 +212,86 @@ describe('sortByPoints', () => {
 
 // ── computeDailyPoints ───────────────────────────────────────────────────────
 describe('computeDailyPoints', () => {
-  const todayStr = '2026-06-15';
+  const todayStr = '2026-07-15';
 
-  // Hjælpefunktion til at lave Timestamp-lignende objekt
-  const ts = (dateStr) => ({
-    toDate: () => new Date(`${dateStr}T12:00:00Z`),
-  });
-
-  const matches = [
+  // Afgjorte etaper har et result; date afgør "i dag".
+  const stages = [
     {
-      id: 'match-1',
-      status: 'finished',
-      kickoff: ts('2026-06-15'),
-      round: 'group',
-      result: { home: 2, away: 1 },
+      id: 's-1', date: '2026-07-15',
+      result: { winnerTeam: 'A', gcTeam: 'A', mountainTeam: 'B', sprintTeam: 'C' },
     },
     {
-      id: 'match-2',
-      status: 'finished',
-      kickoff: ts('2026-06-14'), // i går → ikke talt med
-      round: 'group',
-      result: { home: 0, away: 0 },
+      id: 's-2', date: '2026-07-14', // i går → ikke talt med
+      result: { winnerTeam: 'B' },
     },
     {
-      id: 'match-3',
-      status: 'scheduled', // ikke finished
-      kickoff: ts('2026-06-15'),
-      round: 'group',
-      result: null,
+      id: 's-3', date: '2026-07-15', kickoff: '2999-07-15T12:00:00+02:00', result: null, // ikke afgjort
     },
   ];
 
+  // Etape-tip med serverberegnede point.
   const bets = [
-    // Korrekt score for match-1 → 5 point (EXACT)
-    { uid: 'player-1', matchId: 'match-1', home: 2, away: 1 },
-    // Korrekt udfald, forkert score → 2 point (OUTCOME)
-    { uid: 'player-2', matchId: 'match-1', home: 3, away: 1 },
-    // Bet på gårsdagens kamp (tæller ikke)
-    { uid: 'player-1', matchId: 'match-2', home: 0, away: 0 },
-    // Bet på ikke-finished kamp (tæller ikke)
-    { uid: 'player-1', matchId: 'match-3', home: 1, away: 0 },
+    { uid: 'player-1', stageId: 's-1', points: 5 },
+    { uid: 'player-2', stageId: 's-1', points: 2 },
+    { uid: 'player-1', stageId: 's-2', points: 4 }, // i går → tæller ikke
+    { uid: 'player-1', stageId: 's-3', points: 0 }, // ikke afgjort → tæller ikke
   ];
 
-  it('returnerer korrekte point for dagens kampe', () => {
-    const result = computeDailyPoints(matches, bets, todayStr);
-    expect(result['player-1']).toBe(5); // EXACT på match-1
-    expect(result['player-2']).toBe(2); // OUTCOME på match-1
+  it('returnerer korrekte point for dagens etape', () => {
+    const result = computeDailyPoints(stages, bets, todayStr);
+    expect(result['player-1']).toBe(5);
+    expect(result['player-2']).toBe(2);
   });
 
-  it('medtager ikke bets fra andre datoer', () => {
-    const result = computeDailyPoints(matches, bets, todayStr);
-    // player-1's bet på match-2 bør ikke tælle
-    expect(result['player-1']).toBe(5); // kun match-1
+  it('medtager ikke tip fra andre datoer', () => {
+    const result = computeDailyPoints(stages, bets, todayStr);
+    expect(result['player-1']).toBe(5); // kun s-1
   });
 
-  it('returnerer tomt objekt hvis ingen matches matcher datoen', () => {
-    const result = computeDailyPoints(matches, bets, '2099-01-01');
+  it('returnerer tomt objekt hvis ingen etaper matcher datoen', () => {
+    const result = computeDailyPoints(stages, bets, '2099-01-01');
     expect(result).toEqual({});
   });
 
   it('returnerer tomt objekt ved tomme input', () => {
     expect(computeDailyPoints([], [], todayStr)).toEqual({});
-    expect(computeDailyPoints(matches, [], todayStr)).toEqual({});
+    expect(computeDailyPoints(stages, [], todayStr)).toEqual({});
   });
 
-  it('summerer point fra flere kampe samme dag', () => {
-    const multiMatches = [
-      ...matches,
-      {
-        id: 'match-4',
-        status: 'finished',
-        kickoff: ts('2026-06-15'),
-        round: 'group',
-        result: { home: 1, away: 1 },
-      },
+  it('summerer point fra flere etaper samme dag', () => {
+    const multiStages = [
+      ...stages,
+      { id: 's-4', date: '2026-07-15', result: { winnerTeam: 'C' } },
     ];
     const multiBets = [
       ...bets,
-      // player-1 tipper korrekt udfald (uafgjort) → 5 point (EXACT)
-      { uid: 'player-1', matchId: 'match-4', home: 1, away: 1 },
+      { uid: 'player-1', stageId: 's-4', points: 3 },
     ];
-    const result = computeDailyPoints(multiMatches, multiBets, todayStr);
-    expect(result['player-1']).toBe(10); // 5 + 5
+    const result = computeDailyPoints(multiStages, multiBets, todayStr);
+    expect(result['player-1']).toBe(8); // 5 + 3
   });
 
-  it('ignorerer bets uden tilhørende kamp', () => {
-    const result = computeDailyPoints(matches, [
-      { uid: 'spiller-x', matchId: 'ukendt-match', home: 1, away: 0 },
+  it('genberegner point lokalt når bet mangler points-felt', () => {
+    const local = [
+      // intet points-felt → scoreStageBet bruges; rammer winnerTeam (5 point som standard)
+      { uid: 'calc', stageId: 's-1', winnerTeam: 'A', gcTeam: '', mountainTeam: '', sprintTeam: '' },
+    ];
+    const result = computeDailyPoints(stages, local, todayStr);
+    expect(result['calc']).toBeGreaterThan(0);
+  });
+
+  it('ignorerer tip uden tilhørende etape', () => {
+    const result = computeDailyPoints(stages, [
+      { uid: 'x', stageId: 'ukendt', points: 9 },
     ], todayStr);
-    // ingen kamp fundet → ingen point
-    expect(result['spiller-x']).toBeUndefined();
+    expect(result['x']).toBeUndefined();
   });
 
-  it('ignorerer kampe uden result (null)', () => {
-    const matchesIngenResult = [
-      {
-        id: 'match-nr',
-        status: 'finished',
-        kickoff: ts(todayStr),
-        round: 'group',
-        result: null,
-      },
-    ];
-    const result = computeDailyPoints(matchesIngenResult, [
-      { uid: 'spiller-y', matchId: 'match-nr', home: 0, away: 0 },
+  it('ignorerer etaper uden result (null)', () => {
+    const noResult = [{ id: 's-nr', date: todayStr, result: null }];
+    const result = computeDailyPoints(noResult, [
+      { uid: 'y', stageId: 's-nr', points: 3 },
     ], todayStr);
-    expect(result['spiller-y']).toBeUndefined();
-  });
-
-  it('beregner knockout-point korrekt (round !== group)', () => {
-    const koMatches = [
-      {
-        id: 'ko-1',
-        status: 'finished',
-        kickoff: ts(todayStr),
-        round: 'r16',
-        result: { home: 2, away: 1 },
-      },
-    ];
-    const koBets = [
-      // Korrekt resultat i knockout
-      { uid: 'ko-player', matchId: 'ko-1', home: 2, away: 1 },
-    ];
-    const result = computeDailyPoints(koMatches, koBets, todayStr);
-    // Knockout scorer anderledes – blot tjek at vi får et tal
-    expect(typeof result['ko-player']).toBe('number');
-    expect(result['ko-player']).toBeGreaterThan(0);
-  });
-
-  it('returnerer tomt objekt ved tomt matches-array', () => {
-    expect(computeDailyPoints([], bets, todayStr)).toEqual({});
-  });
-
-  it('returnerer tomt objekt ved tomt bets-array', () => {
-    expect(computeDailyPoints(matches, [], todayStr)).toEqual({});
-  });
-
-  it('håndterer kickoff som ISO-streng (ikke Timestamp)', () => {
-    const matchesIso = [
-      {
-        id: 'match-iso',
-        status: 'finished',
-        kickoff: `${todayStr}T14:00:00Z`,
-        round: 'group',
-        result: { home: 1, away: 0 },
-      },
-    ];
-    const result = computeDailyPoints(matchesIso, [
-      { uid: 'iso-player', matchId: 'match-iso', home: 1, away: 0 },
-    ], todayStr);
-    expect(result['iso-player']).toBeGreaterThan(0);
+    expect(result['y']).toBeUndefined();
   });
 });

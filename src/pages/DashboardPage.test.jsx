@@ -17,14 +17,20 @@ vi.mock('../features/leaderboard/useStandings', () => ({
 vi.mock('../features/leagues/useLeagues', () => ({
   useLeagues: () => ({ leagues: [{ id: 'L', memberUids: ['me', 'x'] }], loading: false, error: null }),
 }));
-vi.mock('../features/matches/useMatches', () => ({
-  useMatches: () => ({ matches: [], loading: false, error: null }),
+vi.mock('../features/stages/useStages', () => ({
+  useStages: () => ({ stages: [], loading: false, error: null }),
 }));
-vi.mock('../features/matches/useMyBets', () => ({
-  useMyBets: () => ({ bets: new Map() }),
+vi.mock('../features/stages/useTeams', () => ({
+  useTeams: () => ({ teams: [] }),
+}));
+vi.mock('../features/stages/useMyStageBets', () => ({
+  useMyStageBets: () => ({ betsByStage: {}, loading: false }),
+}));
+vi.mock('../features/stages/useActiveSeason', () => ({
+  useActiveSeason: () => 2026,
 }));
 vi.mock('../context/TasksContext', () => ({
-  useTasks: () => ({ matchCount: 1, bonusCount: 0, leagueBonus: { total: 0, byLeague: [] }, total: 1 }),
+  useTasks: () => ({ stageCount: 1, bonusCount: 0, leagueBonus: { total: 0, byLeague: [] }, total: 1 }),
 }));
 
 function renderPage() {
@@ -55,11 +61,11 @@ describe('DashboardPage', () => {
   it('viser "Mine opgaver"-kortet', () => {
     renderPage();
     expect(screen.getByText('📋 Mine opgaver')).toBeInTheDocument();
-    expect(screen.getByText(/kamp mangler tip/)).toBeInTheDocument();
+    expect(screen.getByText(/etape mangler tip/)).toBeInTheDocument();
   });
 
-  it('viser genvej til kampene', () => {
+  it('viser genvej til etaperne', () => {
     renderPage();
-    expect(screen.getByText(/Til kampene/)).toBeInTheDocument();
+    expect(screen.getByText(/Til etaperne/)).toBeInTheDocument();
   });
 });

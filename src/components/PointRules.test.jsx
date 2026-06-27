@@ -1,7 +1,8 @@
-// Tests for PointRules-komponenten – point-regler fra POINTS-konstanterne.
+// Tests for PointRules-komponenten – hold-spillets pointregler.
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import PointRules from './PointRules';
+import { DEFAULT_POINTS, DEFAULT_PODIUM } from '../lib/tourScoring';
 import { POINTS } from '../lib/scoring';
 
 describe('PointRules – grundlæggende rendering', () => {
@@ -26,36 +27,26 @@ describe('PointRules – grundlæggende rendering', () => {
 });
 
 describe('PointRules – pointværdier', () => {
-  it(`viser ${POINTS.EXACT} point for "Helt korrekt score"`, () => {
+  it('viser podie-skalaen for "Etapevinderens hold" (5 / 3 / 1)', () => {
     render(<PointRules />);
-    // POINTS.EXACT = 5
-    expect(screen.getByText(/Helt korrekt score/)).toBeInTheDocument();
-    expect(screen.getByText(`${POINTS.EXACT} p`)).toBeInTheDocument();
+    expect(screen.getByText(/Etapevinderens hold/)).toBeInTheDocument();
+    expect(screen.getByText(`${DEFAULT_PODIUM.winnerTeam.join(' / ')} p`)).toBeInTheDocument();
   });
 
-  it(`viser ${POINTS.GOAL_DIFF} point for "Korrekt målforskel + vinder"`, () => {
+  it('viser podie-skalaen for "Bedste hold" (4 / 2 / 1)', () => {
     render(<PointRules />);
-    expect(screen.getByText(/Korrekt målforskel/)).toBeInTheDocument();
-    expect(screen.getByText(`${POINTS.GOAL_DIFF} p`)).toBeInTheDocument();
+    expect(screen.getByText(/Bedste hold blandt de første ryttere/)).toBeInTheDocument();
+    expect(screen.getByText(`${DEFAULT_PODIUM.gcTeam.join(' / ')} p`)).toBeInTheDocument();
   });
 
-  it(`viser ${POINTS.OUTCOME} point for "Korrekt vinder/uafgjort"`, () => {
+  it(`viser bjergpoint-rækken`, () => {
     render(<PointRules />);
-    expect(screen.getByText(/Korrekt vinder\/uafgjort/)).toBeInTheDocument();
-    expect(screen.getByText(`${POINTS.OUTCOME} p`)).toBeInTheDocument();
+    expect(screen.getByText(/Flest bjergpoint/)).toBeInTheDocument();
   });
 
-  it(`viser ${POINTS.WRONG} point for "Forkert udfald"`, () => {
+  it(`viser sprintpoint-rækken`, () => {
     render(<PointRules />);
-    expect(screen.getByText(/Forkert udfald/)).toBeInTheDocument();
-    expect(screen.getByText(`${POINTS.WRONG} p`)).toBeInTheDocument();
-  });
-
-  it(`viser +${POINTS.KNOCKOUT_ADVANCE} point for korrekt "hvem går videre" i slutspil`, () => {
-    render(<PointRules />);
-    // Teksten er spredt over strong-tag og brødtekst – søg i container
-    const { container } = render(<PointRules />);
-    expect(container.textContent).toContain(`+${POINTS.KNOCKOUT_ADVANCE} point`);
+    expect(screen.getByText(/Flest sprintpoint/)).toBeInTheDocument();
   });
 
   it(`viser ${POINTS.BONUS} point for korrekt bonus-svar`, () => {
@@ -68,36 +59,14 @@ describe('PointRules – pointværdier', () => {
     expect(screen.getByText(/Bonus:/)).toBeInTheDocument();
   });
 
-  it('nævner "Slutspil" i ekstra info', () => {
+  it('nævner "Utippet etape" i ekstra info', () => {
     render(<PointRules />);
-    expect(screen.getByText(/Slutspil:/)).toBeInTheDocument();
+    expect(screen.getByText(/Utippet etape:/)).toBeInTheDocument();
   });
 
   it('nævner "Deadline" i ekstra info', () => {
     render(<PointRules />);
     expect(screen.getByText(/Deadline:/)).toBeInTheDocument();
-  });
-});
-
-describe('PointRules – eksempler', () => {
-  it('viser eksempel for eksakt score', () => {
-    render(<PointRules />);
-    expect(screen.getByText(/fx du tipper 2–1, og det ender 2–1/)).toBeInTheDocument();
-  });
-
-  it('viser eksempel for korrekt målforskel', () => {
-    render(<PointRules />);
-    expect(screen.getByText(/fx du tipper 2–1, det ender 3–2/)).toBeInTheDocument();
-  });
-
-  it('viser eksempel for korrekt vinder', () => {
-    render(<PointRules />);
-    expect(screen.getByText(/fx du tipper 2–1, det ender 4–0/)).toBeInTheDocument();
-  });
-
-  it('viser eksempel for forkert udfald', () => {
-    render(<PointRules />);
-    expect(screen.getByText(/fx du tipper hjemmesejr, men holdet taber/)).toBeInTheDocument();
   });
 });
 
@@ -112,7 +81,6 @@ describe('PointRules – sammenfoldelig', () => {
     const { container } = render(<PointRules />);
     const summary = container.querySelector('summary');
     fireEvent.click(summary);
-    // Note: jsdom toggler details.open ved click på summary
     const details = container.querySelector('details');
     expect(details.open).toBe(true);
   });
@@ -131,7 +99,7 @@ describe('PointRules – sammenfoldelig', () => {
     expect(container.querySelector('table')).toBeInTheDocument();
   });
 
-  it('pointtabellen har 4 rækker (én pr. pointkategori)', () => {
+  it('pointtabellen har 4 rækker (én pr. spørgsmål)', () => {
     const { container } = render(<PointRules />);
     const tbody = container.querySelector('tbody');
     const rows = tbody.querySelectorAll('tr');
@@ -139,25 +107,13 @@ describe('PointRules – sammenfoldelig', () => {
   });
 });
 
-describe('PointRules – konsistens med POINTS-konstanter', () => {
-  it('POINTS.EXACT er 5', () => {
-    expect(POINTS.EXACT).toBe(5);
+describe('PointRules – konsistens med pointkonstanter', () => {
+  it('DEFAULT_POINTS.winnerTeam er 5', () => {
+    expect(DEFAULT_POINTS.winnerTeam).toBe(5);
   });
 
-  it('POINTS.GOAL_DIFF er 3', () => {
-    expect(POINTS.GOAL_DIFF).toBe(3);
-  });
-
-  it('POINTS.OUTCOME er 2', () => {
-    expect(POINTS.OUTCOME).toBe(2);
-  });
-
-  it('POINTS.WRONG er 0', () => {
-    expect(POINTS.WRONG).toBe(0);
-  });
-
-  it('POINTS.KNOCKOUT_ADVANCE er 2', () => {
-    expect(POINTS.KNOCKOUT_ADVANCE).toBe(2);
+  it('DEFAULT_POINTS.gcTeam er 4', () => {
+    expect(DEFAULT_POINTS.gcTeam).toBe(4);
   });
 
   it('POINTS.BONUS er 10', () => {

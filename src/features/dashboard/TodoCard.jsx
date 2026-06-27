@@ -1,6 +1,6 @@
 /**
  * TodoCard — samlet "Mine opgaver"-kort på forsiden. Viser i ét card alt det,
- * brugeren mangler at svare på inden deadline: kampe, globale bonus og
+ * brugeren mangler at svare på inden deadline: etaper, globale bonus og
  * liga-bonus pr. liga. Alt rødt = "mangler"; grøn = alt besvaret.
  */
 import { Link } from 'react-router-dom';
@@ -28,7 +28,7 @@ function TaskRow({ to, label, count }) {
 }
 
 export default function TodoCard() {
-  const { matchCount, bonusCount, leagueBonus, total } = useTasks();
+  const { stageCount, bonusCount, leagueBonus, total } = useTasks();
 
   return (
     <div className="card" style={{ marginBottom: '1rem' }}>
@@ -45,9 +45,9 @@ export default function TodoCard() {
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-          {matchCount > 0 && (
-            <TaskRow to="/kampe?filter=utippede" count={matchCount}
-              label={matchCount === 1 ? 'kamp mangler tip' : 'kampe mangler tip'} />
+          {stageCount > 0 && (
+            <TaskRow to="/etaper?filter=utippede" count={stageCount}
+              label={stageCount === 1 ? 'etape mangler tip' : 'etaper mangler tip'} />
           )}
           {bonusCount > 0 && (
             <TaskRow to="/bonus" count={bonusCount}

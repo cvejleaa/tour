@@ -1,14 +1,9 @@
 // ---------------------------------------------------------------------------
-// functions/index.js — Firebase Cloud Functions v2 til VM 2026 tippekonkurrence.
+// functions/index.js — Firebase Cloud Functions v2 til Tour de France tippekonkurrence.
 // Region: europe-west1, Node 22.
 //
 // Funktioner:
-//   recomputeMatch    — Firestore onWrite: beregner point når kampresultat sættes
 //   recomputeBonus    — Firestore onWrite: beregner point når bonus-facit sættes
-//   buildKnockout     — callable: bygger knockout-bracket fra grupperesultater
-//   resolveGroupWinnerOnFinish — Firestore onWrite: sætter gruppevinder-facit
-//                       automatisk når en gruppes sidste kamp er færdig
-//   syncGroupWinnersNow — callable (admin): afgør gruppevindere manuelt/dry-run
 //
 // Bemærk: bruger-oprettelse (users/{uid} med role:'player', status:'pending')
 // håndteres på klienten ved registrering + Security Rules. Owner sættes manuelt
@@ -27,111 +22,34 @@ const { getAuth }                  = require('firebase-admin/auth');
 const { initializeApp }            = require('firebase-admin/app');
 const nodemailer                   = require('nodemailer');
 
-// E-mail-udsendelse via SMTP (one.com med vm@vejleaa.dk).
+// E-mail-udsendelse via SMTP (one.com med tour@vejleaa.dk).
 // Kun adgangskoden er hemmelig (Secret Manager):
 //   firebase functions:secrets:set SMTP_PASSWORD
 // De øvrige SMTP-indstillinger er ikke følsomme og sættes som konstanter.
 const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD');
-// football-data.org API-token (auto-resultater). Sættes med:
-//   firebase functions:secrets:set FOOTBALL_DATA_TOKEN
-const FOOTBALL_DATA_TOKEN = defineSecret('FOOTBALL_DATA_TOKEN');
 // Anthropic API-nøgle til AI-morgenopslag. Sættes med:
 //   firebase functions:secrets:set ANTHROPIC_API_KEY
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 const SMTP_HOST = 'send.one.com';
 const SMTP_PORT = 465; // implicit TLS
-const SMTP_USER = 'vm@vejleaa.dk';
-const EMAIL_FROM = 'VM 2026 Tip <vm@vejleaa.dk>';
-const APP_URL = 'https://vm.vejleaa.dk';
+const SMTP_USER = 'tour@vejleaa.dk';
+const EMAIL_FROM = 'Tour de France Tip <tour@vejleaa.dk>';
+const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
-const { scoreMatch, scoreKnockout, bonusPoints } = require('./scoring');
-const { buildR32FromGroupMatches } = require('./knockout');
-const { computeBreakdown } = require('./breakdown');
-const { createClient, mapScorers, summarizeScorers, summarizeMatchDetail, summarizeStandings, mapMatchDetails, mapStandings, mapCompetition } = require('./footballData');
-const { decideUpdate, matchFixture, patchChangesDoc, auditKickoffs } = require('./resultsSync');
-const { resolveGroupWinners } = require('./bonusResolve');
+const { scoreStageBet, normalizePodium, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage } = require('./tourScoring');
+const { buildStageUpdate, syncStageInfoCore } = require('./tourSync');
+const { syncStartlistCore } = require('./startlistSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
-const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueMatchPoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
+const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
+const { runGenerateStageTips } = require('./stageTip');
 
 // Initialiser Firebase Admin (singleton)
 initializeApp();
 
 // Region for alle funktioner
 const REGION = 'europe-west1';
-
-// ---------------------------------------------------------------------------
-// recomputeMatch — beregner point for alle bets når et kampresultat ændres
-// ---------------------------------------------------------------------------
-exports.recomputeMatch = onDocumentWritten(
-  { document: 'matches/{matchId}', region: REGION },
-  async (event) => {
-    const db = getFirestore();
-    const { matchId } = event.params;
-
-    const after = event.data?.after?.data();
-    if (!after) return; // slettet kamp — intet at gøre
-
-    // Beregn point når kampen er afsluttet ELLER live (foreløbige point),
-    // så stillingen også opdateres løbende under kampe.
-    const scored = after.status === 'finished' || after.status === 'live';
-    if (!scored || !after.result) return;
-
-    const before = event.data?.before?.data();
-    // Undgå genberegning hvis hverken status eller result har ændret sig
-    if (
-      before?.status === after.status &&
-      JSON.stringify(before?.result) === JSON.stringify(after.result)
-    ) return;
-
-    const result = after.result;
-    // Afgør om det er en knockout-runde
-    const isKnockout = after.round && after.round !== 'group';
-
-    // Hent alle bets for denne kamp
-    const betsSnap = await db
-      .collection('bets')
-      .where('matchId', '==', matchId)
-      .get();
-
-    if (betsSnap.empty) return;
-
-    // Beregn point i batches (Firestore max 500 pr. batch)
-    const BATCH_SIZE = 400;
-    let batch = db.batch();
-    let opsInBatch = 0;
-    const batches = [batch];
-
-    for (const betDoc of betsSnap.docs) {
-      const bet = betDoc.data();
-      const pts = isKnockout
-        ? scoreKnockout(bet, result)
-        : scoreMatch(bet, result);
-
-      batch.update(betDoc.ref, { points: pts });
-      opsInBatch++;
-
-      if (opsInBatch >= BATCH_SIZE) {
-        batch = db.batch();
-        batches.push(batch);
-        opsInBatch = 0;
-      }
-    }
-
-    // Commit alle batches
-    for (const b of batches) {
-      await b.commit();
-    }
-
-    // Opdater totalPoints for hver berørt bruger
-    const affectedUids = [...new Set(betsSnap.docs.map(d => d.data().uid))];
-
-    for (const uid of affectedUids) {
-      await recalcUserTotal(db, uid);
-    }
-  }
-);
 
 // ---------------------------------------------------------------------------
 // recomputeBonus — beregner point for alle bonusBets når facit sættes
@@ -143,10 +61,12 @@ exports.recomputeBonus = onDocumentWritten(
     const { questionId } = event.params;
 
     const after = event.data?.after?.data();
-    if (!after?.facit) return; // Facit ikke sat endnu
+    // Facit kan være streng eller array (teams). Tomt array = ikke sat endnu.
+    const facitSet = Array.isArray(after?.facit) ? after.facit.length > 0 : !!after?.facit;
+    if (!facitSet) return; // Facit ikke sat endnu
 
     // Stempl tidspunktet for afgørelsen første gang facit sættes — bruges af
-    // VM-Botten til at fortælle, at et bonusspørgsmål er blevet afgjort.
+    // Tour-Botten til at fortælle, at et bonusspørgsmål er blevet afgjort.
     // (Sættet udløser funktionen igen, men da facit/accepted er uændret,
     // returnerer den hurtigt nedenfor — ingen løkke.)
     if (!after.resolvedAt && event.data?.after?.ref) {
@@ -154,14 +74,20 @@ exports.recomputeBonus = onDocumentWritten(
     }
 
     const before = event.data?.before?.data();
-    // Genberegn hvis facit ELLER de admin-godkendte svar er ændret
+    // Genberegn hvis facit ELLER de admin-godkendte svar er ændret.
+    // bonusNorm håndterer både skalarer og arrays (teams) for facit-sammenligning.
     const acceptedJSON = JSON.stringify(after.acceptedAnswers ?? []);
     const beforeAcceptedJSON = JSON.stringify(before?.acceptedAnswers ?? []);
-    if (before?.facit === after.facit && beforeAcceptedJSON === acceptedJSON) return;
+    if (bonusNorm(before?.facit) === bonusNorm(after.facit) && beforeAcceptedJSON === acceptedJSON) return;
 
     const facit = after.facit;
-    const acceptedAnswers = after.acceptedAnswers ?? [];
-    const type = after.type;
+    // Generisk, type-agnostisk pointgivning: ret svar = facit (trimmet,
+    // ufølsomt for store/små bogstaver). Arrays (teams: vælg flere) matcher
+    // rækkefølge-uafhængigt. Point pr. korrekt svar er spørgsmålets egne points
+    // hvis sat (endeligt tal), ellers standard 3.
+    const norm = bonusNorm;
+    const facitNorm = norm(facit);
+    const correctPoints = Number.isFinite(Number(after.points)) ? Number(after.points) : 3;
 
     // Hent alle bonusBets for dette spørgsmål
     const betsSnap = await db
@@ -179,7 +105,8 @@ exports.recomputeBonus = onDocumentWritten(
 
     for (const betDoc of betsSnap.docs) {
       const bet = betDoc.data();
-      const pts = bonusPoints({ answer: bet.answer, facit, type, acceptedAnswers });
+      const answerNorm = norm(bet.answer);
+      const pts = answerNorm !== '' && answerNorm === facitNorm ? correctPoints : 0;
 
       batch.update(betDoc.ref, { points: pts });
       opsInBatch++;
@@ -195,18 +122,271 @@ exports.recomputeBonus = onDocumentWritten(
       await b.commit();
     }
 
-    // Opdater totalPoints for berørte brugere
+    // Opdater totalPoints for berørte brugere (Tour: etape- + bonus-point)
+    const { activeSeason } = await tourSettings(db);
     const affectedUids = [...new Set(betsSnap.docs.map(d => d.data().uid))];
     for (const uid of affectedUids) {
-      await recalcUserTotal(db, uid);
+      await recalcTourTotal(db, uid, activeSeason, activeSeason);
     }
   }
 );
 
+// ===========================================================================
+// TOUR DE FRANCE — etaperesultater, point og sync (fra letour.fr-proxyen)
+// ===========================================================================
+
+const DEFAULT_TOUR_PROXY = 'https://tdf-results-poi2efmbfa-ew.a.run.app';
+
+// Admin-redigerbar config: point-tabel, top-N til Q2, proxy-URL.
+const DEFAULT_SEASON = 2026;
+
+async function tourSettings(db) {
+  const snap = await db.collection('config').doc('settings').get();
+  const s = snap.exists ? snap.data() : {};
+  return {
+    // Admin skriver til config/settings.points (samme felt som frontenden læser);
+    // normalizePodium giver den fulde [1.,2.,3.]-skala pr. spørgsmål.
+    points: normalizePodium(s.points || s.tourPoints || {}),
+    gcTopN: Number.isFinite(Number(s.gcTopN)) ? Number(s.gcTopN) : DEFAULT_GC_TOP_N,
+    proxyUrl: String(s.tourProxyUrl || DEFAULT_TOUR_PROXY).replace(/\/$/, ''),
+    activeSeason: Number.isFinite(Number(s.activeSeason)) ? Number(s.activeSeason) : DEFAULT_SEASON,
+  };
+}
+
+// Genberegn en brugers totaler for EN sæson (etape- + bonus-point). Historik
+// gemmes pr. sæson i users.seasons.{år}; de flade felter (totalPoints m.fl.)
+// afspejler den aktive sæson, så den eksisterende stilling viser indeværende år.
+async function recalcTourTotal(db, uid, season, activeSeason) {
+  const [stageSnap, bonusSnap] = await Promise.all([
+    db.collection('stageBets').where('uid', '==', uid).where('season', '==', season).get(),
+    db.collection('bonusBets').where('uid', '==', uid).where('season', '==', season).get(),
+  ]);
+  const stagePoints = stageSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
+  const bonusPts = bonusSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
+  const totals = { stagePoints, bonusPoints: bonusPts, totalPoints: stagePoints + bonusPts };
+
+  const update = { [`seasons.${season}`]: totals };
+  if (season === activeSeason) Object.assign(update, totals); // flade felter = aktiv sæson
+  await db.collection('users').doc(uid).set(update, { merge: true });
+}
+
+// recomputeStage — point for alle etape-tip når et etaperesultat sættes.
+exports.recomputeStage = onDocumentWritten(
+  { document: 'stages/{stageId}', region: REGION },
+  async (event) => {
+    const db = getFirestore();
+    const { stageId } = event.params;
+    const after = event.data?.after?.data();
+    if (!after || !after.result) return;
+    const before = event.data?.before?.data();
+    if (JSON.stringify(before?.result) === JSON.stringify(after.result)) return;
+
+    const { points, activeSeason } = await tourSettings(db);
+    const season = after.season || activeSeason;
+    const betsSnap = await db.collection('stageBets').where('stageId', '==', stageId).get();
+    if (betsSnap.empty) return;
+
+    // Kun de spørgsmål der faktisk stilles på etapen scorer/straffer
+    // (override i stage.questions, ellers type-standard).
+    const active = activeQuestionsForStage(after);
+
+    const BATCH_SIZE = 400;
+    let batch = db.batch();
+    let ops = 0;
+    const batches = [batch];
+    for (const d of betsSnap.docs) {
+      const { points: pts } = scoreStageBet(d.data(), after.result, points, active);
+      batch.update(d.ref, { points: pts });
+      if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; }
+    }
+    for (const b of batches) await b.commit();
+
+    const uids = [...new Set(betsSnap.docs.map((d) => d.data().uid))];
+    for (const uid of uids) await recalcTourTotal(db, uid, season, activeSeason);
+  },
+);
+
+// Kernen i resultat-sync: hent fra proxyen, map, skriv etape-facit + hold.
+async function syncTourCore(db, { dryRun = false } = {}) {
+  const { gcTopN, proxyUrl, activeSeason } = await tourSettings(db);
+  const season = activeSeason;
+  const listRes = await fetch(`${proxyUrl}/api/stages`);
+  if (!listRes.ok) throw new Error(`proxy /api/stages: HTTP ${listRes.status}`);
+  const list = await listRes.json();
+  const stages = list.stages || [];
+  let checked = 0;
+  let updated = 0;
+  const allTeams = new Map();
+
+  for (const s of stages) {
+    const n = s.number;
+    const docId = `${season}-stage-${n}`;
+    const existing = await db.collection('stages').doc(docId).get();
+    if (existing.exists && existing.data().status === 'done') continue; // allerede afgjort
+    checked++;
+    const r = await fetch(`${proxyUrl}/api/stages/${n}`);
+    if (r.status === 425 || !r.ok) continue; // resultat ikke klar
+    const payload = await r.json();
+    const upd = buildStageUpdate(payload, gcTopN);
+    if (!upd.resultsPresent) continue;
+    upd.teams.forEach((t) => allTeams.set(t.key, t.name));
+    if (!dryRun) {
+      await db.collection('stages').doc(docId).set({
+        season,
+        number: n,
+        status: 'done',
+        result: upd.result,
+        jerseys: upd.jerseys,
+        startCity: upd.meta.startCity,
+        finishCity: upd.meta.finishCity,
+        km: upd.meta.km,
+        resultUpdatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    updated++;
+  }
+
+  if (!dryRun && allTeams.size) {
+    const batch = db.batch();
+    for (const [key, name] of allTeams) {
+      batch.set(db.collection('teams').doc(`${season}-${key}`), { season, key, name }, { merge: true });
+    }
+    await batch.commit();
+  }
+  return { season, checked, updated, teams: allTeams.size };
+}
+
+// Planlagt sync: hvert 5. minut mellem 17 og 22 (dansk tid) på etapedage.
+exports.syncTourResults = onSchedule(
+  { schedule: '*/5 17-22 * * *', timeZone: TZ, region: REGION },
+  async () => {
+    const db = getFirestore();
+    const statusRef = db.collection('config').doc('tourSyncStatus');
+    try {
+      const res = await syncTourCore(db, {});
+      await statusRef.set({
+        lastRunAt: FieldValue.serverTimestamp(),
+        lastSuccessAt: FieldValue.serverTimestamp(),
+        ...res,
+        lastError: null,
+      }, { merge: true });
+      if (res.updated) console.log(`syncTourResults: opdaterede ${res.updated} etape(r).`);
+    } catch (err) {
+      console.error('syncTourResults: fejl', err);
+      await statusRef.set({
+        lastRunAt: FieldValue.serverTimestamp(),
+        lastError: String(err?.message || err),
+      }, { merge: true });
+      throw err;
+    }
+  },
+);
+
+// "Kør nu"-knap (admin): henter resultater med det samme.
+exports.syncTourNow = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  return syncTourCore(db, { dryRun: request.data?.dryRun === true });
+});
+
+// "Hent etape-info"-knap (admin): per-etape højdemeter (D+) + hvilke
+// klassementer (sprint/bjerg) der uddeler point. Henter fra proxyens
+// /api/stage-info og skriver ikke-destruktivt { elevation } +
+// { pointsAwarded:{sprint,mountain} } på etape-dokumenterne (merge).
+exports.syncStageInfo = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const { proxyUrl, activeSeason } = await tourSettings(db);
+  return syncStageInfoCore({
+    db,
+    proxyUrl,
+    season: activeSeason,
+    fetchImpl: fetch,
+    serverTimestamp: () => FieldValue.serverTimestamp(),
+    dryRun: request.data?.dryRun === true,
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Startliste-sync: skraber TV2's hold-og-ryttere-artikel (via proxyen) og
+// skriver de udtagne ryttere til config/startlist. Planlagt hver 2. time, så
+// holdene fyldes ud af sig selv efterhånden som de melder ud. Plus en manuel
+// admin-knap (syncStartlistNow).
+// ---------------------------------------------------------------------------
+exports.syncStartlist = onSchedule(
+  { schedule: '17 */2 * * *', timeZone: TZ, region: REGION },
+  async () => {
+    const db = getFirestore();
+    const { proxyUrl, activeSeason } = await tourSettings(db);
+    try {
+      const res = await syncStartlistCore({
+        db, proxyUrl, season: activeSeason, fetchImpl: fetch,
+        serverTimestamp: () => FieldValue.serverTimestamp(),
+      });
+      console.log(`syncStartlist: ${res.announced}/${res.total} hold har udtaget.`);
+    } catch (err) {
+      console.error('syncStartlist: fejl', err);
+      throw err;
+    }
+  },
+);
+
+exports.syncStartlistNow = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const { proxyUrl, activeSeason } = await tourSettings(db);
+  return syncStartlistCore({
+    db, proxyUrl, season: activeSeason, fetchImpl: fetch,
+    serverTimestamp: () => FieldValue.serverTimestamp(),
+  });
+});
+
+// seedTourRoute — opretter de 21 etape-dokumenter (med kickoff) så man kan
+// tippe og låsning virker, før resultaterne kommer. Datoer rettes i admin.
+exports.seedTourRoute = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const { activeSeason } = await tourSettings(db);
+  const season = Number(request.data?.season) || activeSeason;
+  const route = Array.isArray(request.data?.stages) ? request.data.stages : [];
+  if (!route.length) throw new HttpsError('invalid-argument', 'Mangler stages[].');
+  const batch = db.batch();
+  for (const s of route) {
+    const n = Number(s.number);
+    if (!Number.isFinite(n)) continue;
+    batch.set(db.collection('stages').doc(`${season}-stage-${n}`), {
+      season,
+      number: n,
+      date: s.date || null,
+      kickoff: s.kickoff ? Timestamp.fromDate(new Date(s.kickoff)) : null,
+      type: s.type || 'unknown',
+      typeCode: s.typeCode || null,
+      km: s.km != null ? s.km : null,
+      startCity: s.startCity || null,
+      finishCity: s.finishCity || null,
+      image: s.image || null,
+      description: s.description || null,
+      startTime: s.startTime || null,
+      // Valgfrie felter (tilføjes senere af proxyen) – kun skriv når til stede,
+      // så merge ikke nulstiller dem på allerede berigede dokumenter.
+      ...(s.elevation != null ? { elevation: s.elevation } : {}),
+      ...(s.expertTip != null ? { expertTip: s.expertTip } : {}),
+      ...(s.profileImage ? { profileImage: s.profileImage } : {}),
+      ...(Array.isArray(s.climbs) && s.climbs.length ? { climbs: s.climbs } : {}),
+      ...(Array.isArray(s.sprints) && s.sprints.length ? { sprints: s.sprints } : {}),
+      ...(s.pointsAwarded ? { pointsAwarded: s.pointsAwarded } : {}),
+      questions: activeQuestionsForStage(s),
+      status: 'scheduled',
+    }, { merge: true });
+  }
+  await batch.commit();
+  return { season, seeded: route.length };
+});
+
 // ---------------------------------------------------------------------------
 // backfillTipParticipation — callable (owner/global admin)
 // Engangs-/vedligeholdelsesfunktion: genopbygger tipParticipation ud fra ALLE
-// eksisterende bets, så tip-tælleren også dækker tips afgivet før
+// eksisterende stageBets, så tip-tælleren også dækker tips afgivet før
 // syncTipParticipation blev deployet.
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -278,24 +458,24 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
     throw new HttpsError('permission-denied', 'Kun owner/global admin kan køre backfill.');
   }
 
-  // Saml uids pr. matchId fra alle bets
-  const betsSnap = await db.collection('bets').get();
-  const byMatch = new Map();
+  // Saml uids pr. stageId fra alle stageBets
+  const betsSnap = await db.collection('stageBets').get();
+  const byStage = new Map();
   for (const d of betsSnap.docs) {
-    const { matchId, uid } = d.data();
-    if (!matchId || !uid) continue;
-    if (!byMatch.has(matchId)) byMatch.set(matchId, new Set());
-    byMatch.get(matchId).add(uid);
+    const { stageId, uid } = d.data();
+    if (!stageId || !uid) continue;
+    if (!byStage.has(stageId)) byStage.set(stageId, new Set());
+    byStage.get(stageId).add(uid);
   }
 
-  // Skriv tipParticipation-dokumenter i batches
+  // Skriv tipParticipation-dokumenter i batches (doc-id = stageId)
   const BATCH_SIZE = 400;
   let batch = db.batch();
   let ops = 0;
   const batches = [batch];
-  for (const [matchId, uidSet] of byMatch.entries()) {
-    const ref = db.collection('tipParticipation').doc(matchId);
-    batch.set(ref, { matchId, uids: [...uidSet] }, { merge: true });
+  for (const [stageId, uidSet] of byStage.entries()) {
+    const ref = db.collection('tipParticipation').doc(stageId);
+    batch.set(ref, { stageId, uids: [...uidSet] }, { merge: true });
     ops++;
     if (ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; }
   }
@@ -303,240 +483,46 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
 
   return {
     success: true,
-    matches: byMatch.size,
+    stages: byStage.size,
     bets: betsSnap.size,
-    message: `Backfill færdig: ${byMatch.size} kampe opdateret ud fra ${betsSnap.size} tips.`,
+    message: `Backfill færdig: ${byStage.size} etaper opdateret ud fra ${betsSnap.size} tips.`,
   };
 });
 
 // ---------------------------------------------------------------------------
-// syncTipParticipation — vedligeholder tipParticipation/{matchId} = { uids: [...] }
-// Holder styr på HVEM der har tippet på en kamp (men ikke hvad de tippede),
+// syncTipParticipation — vedligeholder tipParticipation/{stageId} = { uids: [...] }
+// Holder styr på HVEM der har tippet på en etape (men ikke hvad de tippede),
 // så ligaer kan vise "X af N har tippet" og hvem der mangler — uden at afsløre
 // nogen forudsigelser før kickoff.
 // ---------------------------------------------------------------------------
 exports.syncTipParticipation = onDocumentWritten(
-  { document: 'bets/{betId}', region: REGION },
+  { document: 'stageBets/{betId}', region: REGION },
   async (event) => {
     const db = getFirestore();
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
 
-    const matchId = after?.matchId ?? before?.matchId;
+    const stageId = after?.stageId ?? before?.stageId;
     const uid = after?.uid ?? before?.uid;
-    if (!matchId || !uid) return;
+    if (!stageId || !uid) return;
 
-    const ref = db.collection('tipParticipation').doc(matchId);
+    const ref = db.collection('tipParticipation').doc(stageId);
 
     if (after) {
-      // Bet oprettet eller opdateret → uid har tippet på kampen
+      // StageBet oprettet eller opdateret → uid har tippet på etapen
       await ref.set(
-        { matchId, uids: FieldValue.arrayUnion(uid) },
+        { stageId, uids: FieldValue.arrayUnion(uid) },
         { merge: true },
       );
     } else {
-      // Bet slettet → fjern uid (sker normalt ikke fra klienten)
+      // StageBet slettet → fjern uid (sker normalt ikke fra klienten)
       await ref.set(
-        { matchId, uids: FieldValue.arrayRemove(uid) },
+        { stageId, uids: FieldValue.arrayRemove(uid) },
         { merge: true },
       );
     }
   }
 );
-
-// ---------------------------------------------------------------------------
-// buildKnockout — callable funktion (kun owner/global admin)
-// Beregner grupperangering og udfylder holdnavne på knockout-kampe
-// ---------------------------------------------------------------------------
-exports.buildKnockout = onCall({ region: REGION }, async (request) => {
-  const db = getFirestore();
-
-  // Tjek autentificering
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
-  }
-
-  // Hent brugerens rolle
-  const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  if (!userDoc.exists) {
-    throw new HttpsError('permission-denied', 'Brugerprofil ikke fundet.');
-  }
-
-  const userRole = userDoc.data()?.role;
-  if (userRole !== 'owner' && userRole !== 'globalAdmin') {
-    throw new HttpsError('permission-denied', 'Kun owner/global admin kan bygge knockout-bracket.');
-  }
-
-  // Hent alle gruppekampe der er finished
-  const groupMatchesSnap = await db
-    .collection('matches')
-    .where('round', '==', 'group')
-    .where('status', '==', 'finished')
-    .get();
-
-  const finishedGroupMatches = groupMatchesSnap.docs.map((d) => d.data());
-
-  // Byg r32 ud fra grupperesultaterne (ren, testet logik i knockout.js)
-  const { assignments: r32Assignments, best8ThirdsGroups, missingGroups } =
-    buildR32FromGroupMatches(finishedGroupMatches);
-
-  if (missingGroups.length > 0) {
-    throw new HttpsError(
-      'failed-precondition',
-      `Følgende grupper har ikke alle 6 finished kampe: ${missingGroups.join(', ')}`
-    );
-  }
-
-  // Opdater knockout-kampe med hold og sæt status til 'scheduled'
-  const writeBatch = db.batch();
-  let updatedCount = 0;
-
-  for (const assignment of r32Assignments) {
-    if (!assignment.home || !assignment.away) continue;
-
-    const matchRef = db.collection('matches').doc(assignment.id);
-    writeBatch.update(matchRef, {
-      homeTeam:          assignment.home,
-      awayTeam:          assignment.away,
-      homePlaceholder:   null,
-      awayPlaceholder:   null,
-      status:            'scheduled',
-    });
-    updatedCount++;
-  }
-
-  await writeBatch.commit();
-
-  return {
-    success: true,
-    message: `Knockout-bracket bygget. ${updatedCount} r32-kampe opdateret.`,
-    best8ThirdsGroups,
-  };
-});
-
-// ---------------------------------------------------------------------------
-// pruneOrphanMatches — callable (kun owner): sletter forældede knockout-kampe.
-// Tidligere blev knockout seedet med id'er som 'r32_m01'; efter opdateringen
-// hedder de 'ko_r32_1' osv. De gamle dokumenter blev aldrig slettet og fik
-// kamp-tællere til at vise for mange kampe. Her fjernes alle knockout-kampe
-// (round != 'group') hvis id IKKE starter med 'ko_'.
-// ---------------------------------------------------------------------------
-exports.pruneOrphanMatches = onCall({ region: REGION }, async (request) => {
-  const db = getFirestore();
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
-  const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  if (userDoc.data()?.role !== 'owner') {
-    throw new HttpsError('permission-denied', 'Kun ejeren kan rydde forældede kampe.');
-  }
-
-  const snap = await db.collection('matches').get();
-  const orphans = snap.docs.filter((d) => {
-    const m = d.data();
-    return m.round && m.round !== 'group' && !d.id.startsWith('ko_');
-  });
-
-  let batch = db.batch();
-  let ops = 0;
-  const batches = [batch];
-  for (const d of orphans) {
-    batch.delete(d.ref);
-    if (++ops >= 400) { batch = db.batch(); batches.push(batch); ops = 0; }
-  }
-  for (const b of batches) await b.commit();
-
-  return {
-    success: true,
-    deleted: orphans.length,
-    ids: orphans.map((d) => d.id),
-    remaining: snap.size - orphans.length,
-  };
-});
-
-// ---------------------------------------------------------------------------
-// postSharpshooterNote — callable (kun owner): slå en fast, klar forklaring af
-// "🎯 Skarpskytten" op på væggen i alle ligaer, forfattet af VM-Botten.
-// dryRun=true poster ikke, men returnerer teksten + antal vægge til forhåndsvisning.
-// ---------------------------------------------------------------------------
-function fmtPenaltyText(penalty) {
-  const n = Math.abs(Number(penalty) || 0);
-  const rounded = Number.isInteger(n) ? n : Math.round(n * 10) / 10;
-  return rounded === 0 ? '0' : `−${rounded}`;
-}
-
-function buildSharpshooterNote(penalty) {
-  return [
-    '🎯 Ny stilling: Skarpskytten!',
-    '',
-    'Der er kommet en ny måde at score på under "Stilling" → fanen 🎯 Skarpskytten. Her belønnes du for at ramme antal mål for HVERT hold i hver afsluttede kamp — ikke kun hvem der vinder.',
-    '',
-    `• Rigtigt antal mål for et hold: +(antal + 1) point (rammer du fx 3 mål = +4). Rigtigt 0 = +1.`,
-    `• Forkert antal: minus forskellen — men højst −2 pr. hold, så én vild kamp ikke ødelægger alt.`,
-    `• +1 bonus hvis du rammer kampens udfald (hjemmesejr, uafgjort eller udesejr).`,
-    `• Ikke tippet en kamp: ${fmtPenaltyText(penalty)} point.`,
-    '',
-    'Point lægges sammen over alle afsluttede kampe, og hvert hold tæller for sig. Skarpe øjne belønnes — held og lykke! 🍀',
-  ].join('\n');
-}
-
-exports.postSharpshooterNote = onCall({ region: REGION }, async (request) => {
-  const db = getFirestore();
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
-  const userDoc = await db.collection('users').doc(request.auth.uid).get();
-  if (userDoc.data()?.role !== 'owner') {
-    throw new HttpsError('permission-denied', 'Kun ejeren kan slå opslag op på alle vægge.');
-  }
-
-  const dryRun = request.data?.dryRun !== false; // default: tør-kør (sikkerhed)
-
-  const cfg = await db.collection('config').doc('settings').get();
-  const penalty = cfg.exists && Number.isFinite(Number(cfg.data().untippedPenalty))
-    ? Math.abs(Number(cfg.data().untippedPenalty)) : 2;
-  const text = buildSharpshooterNote(penalty);
-
-  const leaguesSnap = await db.collection('leagues').get();
-  if (dryRun) {
-    return { dryRun: true, text, leagues: leaguesSnap.size };
-  }
-
-  let posted = 0;
-  for (const league of leaguesSnap.docs) {
-    await db.collection('leagueComments').add({
-      leagueId: league.id, uid: 'ai-bot', displayName: 'VM-Botten', avatarEmoji: '🤖',
-      favoriteTeam: null, text, system: true, createdAt: FieldValue.serverTimestamp(),
-    });
-    posted += 1;
-  }
-  return { dryRun: false, text, leagues: posted };
-});
-
-// ---------------------------------------------------------------------------
-// Hjælpefunktion: genberegn totalPoints for en bruger
-// Summer alle bets.points + bonusBets.points for brugeren
-// ---------------------------------------------------------------------------
-async function recalcUserTotal(db, uid) {
-  // Hent brugerens bets/bonusBets samt alle kampe (til runde-opslag)
-  const [betsSnap, bonusBetsSnap, matchesSnap] = await Promise.all([
-    db.collection('bets').where('uid', '==', uid).get(),
-    db.collection('bonusBets').where('uid', '==', uid).get(),
-    db.collection('matches').get(),
-  ]);
-
-  const roundById = {};
-  for (const m of matchesSnap.docs) roundById[m.id] = m.data().round;
-
-  const { total, groupPoints, knockoutPoints, bonusPoints } = computeBreakdown(
-    betsSnap.docs.map((d) => d.data()),
-    bonusBetsSnap.docs.map((d) => d.data()),
-    roundById,
-  );
-
-  await db.collection('users').doc(uid).update({
-    totalPoints: total,
-    groupPoints,
-    knockoutPoints,
-    bonusPoints,
-  });
-}
 
 // ---------------------------------------------------------------------------
 // snapshotRanks — scheduled: gemmer hver brugers nuværende placering som
@@ -570,8 +556,8 @@ exports.snapshotRanks = onSchedule(
 
 // ---------------------------------------------------------------------------
 // tipReminders — scheduled: sender e-mail til spillere der mangler at tippe
-// på kampe der spilles i dag (CPH). Bruger Resend-API'et via fetch.
-// Sender intet hvis RESEND_API_KEY ikke er sat (graceful no-op).
+// på etaper der køres i dag (CPH). Sender via vores egen SMTP.
+// Sender intet hvis SMTP_PASSWORD ikke er sat (graceful no-op).
 // ---------------------------------------------------------------------------
 function cphDateStr(d) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -610,34 +596,34 @@ async function sendEmail(db, transporter, { to, subject, html, type }) {
   }
 }
 
-// Kerne-logik: send påmindelser om dagens utippede kampe. Returnerer antal sendte.
+// Kerne-logik: send påmindelser om dagens utippede etaper. Returnerer antal sendte.
 async function runTipReminders(db, transporter) {
   if (!transporter) { console.log('tipReminders: ingen SMTP_PASSWORD — springer over.'); return { sent: 0, reason: 'no-smtp-password' }; }
 
   const now = new Date();
   // Rullende 24-timers vindue fra køretidspunktet: kører kl. 09:00, så det dækker
-  // kampe fra kl. 09:00 i dag til kl. 08:59 i morgen — uafhængigt af kalenderdag.
+  // etaper fra kl. 09:00 i dag til kl. 08:59 i morgen — uafhængigt af kalenderdag.
   const windowEnd = new Date(now.getTime() + 24 * 3600 * 1000);
 
-  // Kampe det næste døgn der stadig kan tippes (kendte hold, ikke kickoff endnu)
-  const matchesSnap = await db
-    .collection('matches')
+  // Etaper det næste døgn der stadig kan tippes (ikke kickoff/etapestart endnu)
+  const stagesSnap = await db
+    .collection('stages')
     .where('status', '==', 'scheduled')
     .get();
 
-  const upcomingMatches = matchesSnap.docs
+  const upcomingStages = stagesSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((m) => m.homeTeam && m.awayTeam && m.kickoff?.toDate
-      && m.kickoff.toDate() > now
-      && m.kickoff.toDate() < windowEnd);
+    .filter((s) => s.kickoff?.toDate
+      && s.kickoff.toDate() > now
+      && s.kickoff.toDate() < windowEnd);
 
-  if (upcomingMatches.length === 0) { console.log('tipReminders: ingen kampe det næste døgn.'); return { sent: 0, reason: 'no-matches' }; }
+  if (upcomingStages.length === 0) { console.log('tipReminders: ingen etaper det næste døgn.'); return { sent: 0, reason: 'no-stages' }; }
 
-  // Hvem har tippet hver kamp (fra tipParticipation)
-  const tippedByMatch = {};
-  await Promise.all(upcomingMatches.map(async (m) => {
-    const p = await db.collection('tipParticipation').doc(m.id).get();
-    tippedByMatch[m.id] = new Set(p.exists ? (p.data().uids ?? []) : []);
+  // Hvem har tippet hver etape (fra tipParticipation)
+  const tippedByStage = {};
+  await Promise.all(upcomingStages.map(async (s) => {
+    const p = await db.collection('tipParticipation').doc(s.id).get();
+    tippedByStage[s.id] = new Set(p.exists ? (p.data().uids ?? []) : []);
   }));
 
   const usersSnap = await db
@@ -650,23 +636,23 @@ async function runTipReminders(db, transporter) {
     const u = userDoc.data();
     if (u.emailOptOut || !u.email) continue;
 
-    const missing = upcomingMatches.filter((m) => !tippedByMatch[m.id].has(userDoc.id));
+    const missing = upcomingStages.filter((s) => !tippedByStage[s.id].has(userDoc.id));
     if (missing.length === 0) continue;
 
     const list = missing
-      .map((m) => `<li>${m.homeTeam} – ${m.awayTeam}</li>`)
+      .map((s) => `<li>${s.number ? `Etape ${s.number}` : 'Etape'}${s.name ? ` – ${s.name}` : ''}</li>`)
       .join('');
     const html = `
       <p>Hej ${u.displayName || 'spiller'} 👋</p>
-      <p>Du mangler at tippe på <strong>${missing.length}</strong> kamp${missing.length === 1 ? '' : 'e'} det næste døgn:</p>
+      <p>Du mangler at tippe på <strong>${missing.length}</strong> etape${missing.length === 1 ? '' : 'r'} det næste døgn:</p>
       <ul>${list}</ul>
-      <p><a href="${APP_URL}">Afgiv dine tips på vm.vejleaa.dk</a> inden kampstart.</p>
+      <p><a href="${APP_URL}">Afgiv dine tips på tour.vejleaa.dk</a> inden etapestart.</p>
       <p style="color:#888;font-size:12px">Du kan slå disse påmindelser fra på din profilside.</p>`;
 
     try {
       await sendEmail(db, transporter, {
         to: u.email,
-        subject: `⚽ Du mangler at tippe på ${missing.length} kamp${missing.length === 1 ? '' : 'e'} det næste døgn`,
+        subject: `Du mangler at tippe på ${missing.length} etape${missing.length === 1 ? '' : 'r'} det næste døgn`,
         html,
         type: 'reminder',
       });
@@ -676,7 +662,7 @@ async function runTipReminders(db, transporter) {
     }
   }
   console.log(`tipReminders: sendte ${sent} påmindelser.`);
-  return { sent, candidates: upcomingMatches.length };
+  return { sent, candidates: upcomingStages.length };
 }
 
 exports.tipReminders = onSchedule(
@@ -702,8 +688,8 @@ exports.sendTipRemindersNow = onCall(
   }
 );
 
-// Callable: send en testmail KUN til admin selv, med alle kampe for de
-// første 3 spilledage (uanset om de er tippet).
+// Callable: send en testmail KUN til admin selv, med alle etaper for de
+// første 3 etapedage (uanset om de er tippet).
 exports.sendTestReminderToMe = onCall(
   { region: REGION, secrets: [SMTP_PASSWORD] },
   async (request) => {
@@ -719,66 +705,59 @@ exports.sendTestReminderToMe = onCall(
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
 
-    // Alle kampe med kendte hold, sorteret efter kickoff
-    const snap = await db.collection('matches').get();
+    // Alle etaper med kendt kickoff, sorteret efter kickoff
+    const snap = await db.collection('stages').get();
     const playable = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((m) => m.homeTeam && m.awayTeam && m.kickoff?.toDate)
+      .filter((s) => s.kickoff?.toDate)
       .sort((a, b) => a.kickoff.toDate() - b.kickoff.toDate());
 
-    // Saml de første 3 spilledage (distinkte CPH-datoer)
+    // Saml de første 3 etapedage (distinkte CPH-datoer)
     const days = [];
     const byDay = new Map();
-    for (const m of playable) {
-      const day = cphDateStr(m.kickoff.toDate());
+    for (const s of playable) {
+      const day = cphDateStr(s.kickoff.toDate());
       if (!byDay.has(day)) {
         if (days.length >= 3) break; // sorteret → alle tidligere dage er med
         days.push(day);
         byDay.set(day, []);
       }
-      byDay.get(day).push(m);
+      byDay.get(day).push(s);
     }
 
-    if (days.length === 0) throw new HttpsError('failed-precondition', 'Ingen kampe med kendte hold fundet.');
+    if (days.length === 0) throw new HttpsError('failed-precondition', 'Ingen etaper med kendt etapestart fundet.');
 
     const dayLabel = (d) => new Intl.DateTimeFormat('da-DK', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' }).format(d);
     const timeLabel = (d) => new Intl.DateTimeFormat('da-DK', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(d);
 
     let total = 0;
-    let html = `<p>Hej ${u.displayName || 'spiller'} 👋</p><p>Testmail — kampene for de første 3 spilledage:</p>`;
+    let html = `<p>Hej ${u.displayName || 'spiller'} 👋</p><p>Testmail — etaperne for de første 3 etapedage:</p>`;
     for (const day of days) {
-      const ms = byDay.get(day);
-      total += ms.length;
-      html += `<h3 style="margin:14px 0 4px">${dayLabel(ms[0].kickoff.toDate())}</h3><ul style="margin:0">`;
-      for (const m of ms) {
-        html += `<li>${timeLabel(m.kickoff.toDate())} — ${m.homeTeam} – ${m.awayTeam}</li>`;
+      const ss = byDay.get(day);
+      total += ss.length;
+      html += `<h3 style="margin:14px 0 4px">${dayLabel(ss[0].kickoff.toDate())}</h3><ul style="margin:0">`;
+      for (const s of ss) {
+        html += `<li>${timeLabel(s.kickoff.toDate())} — ${s.number ? `Etape ${s.number}` : 'Etape'}${s.name ? ` – ${s.name}` : ''}</li>`;
       }
       html += '</ul>';
     }
-    html += `<p style="margin-top:14px"><a href="${APP_URL}">Gå til vm.vejleaa.dk</a></p>
+    html += `<p style="margin-top:14px"><a href="${APP_URL}">Gå til tour.vejleaa.dk</a></p>
       <p style="color:#888;font-size:12px">Dette er en testmail sendt kun til dig.</p>`;
 
     await sendEmail(db, transporter, {
       to: u.email,
-      subject: '🧪 Testmail: kampe for de første 3 spilledage',
+      subject: '🧪 Testmail: etaper for de første 3 etapedage',
       html,
       type: 'test-reminder',
     });
 
-    return { success: true, sentTo: u.email, days: days.length, matches: total };
+    return { success: true, sentTo: u.email, days: days.length, stages: total };
   }
 );
 
 // ---------------------------------------------------------------------------
-// Auto-resultater fra football-data.org
-//   syncResults    — onSchedule (hvert minut): henter live/afsluttede resultater
-//   syncResultsNow — callable (admin): kør synk manuelt (evt. dry-run)
-//   syncFixtures   — callable (admin): map vores kampe → football-data-id'er
-//
-// Klæbende manuel override: når admin retter et resultat sættes manualLock=true,
-// og synken rører aldrig den kamp igen (før admin gendanner automatikken).
+// Fælles admin-guard for callable-funktioner.
 // ---------------------------------------------------------------------------
-const utcDateStr = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 async function requireAdmin(db, request) {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
@@ -789,63 +768,8 @@ async function requireAdmin(db, request) {
   }
 }
 
-// Kerne: synk resultater for kampe i "vinduet" (lige startet / i gang).
-// Returnerer en oversigt. Laver kun ét football-data-kald, når der er kampe.
-async function runSyncResults(db, token, { now = new Date(), dryRun = false, full = false } = {}) {
-  const client = createClient({ token });
-  let candidates;
-  let fdById;
-
-  if (full) {
-    // Backfill: ALLE ikke-færdige kampe med externalId — uanset tidspunkt.
-    const snap = await db.collection('matches').get();
-    candidates = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((m) => m.externalId && !m.manualLock && m.status !== 'finished');
-    if (candidates.length === 0) return { checked: 0, updated: 0, reason: 'no-unfinished-matches' };
-    const data = await client.getSeasonMatches(now.getUTCFullYear());
-    fdById = new Map((data.matches || []).map((m) => [String(m.id), m]));
-  } else {
-    // Standard: kun "vinduet" omkring nu (live / netop startede kampe).
-    const fromTs = Timestamp.fromMillis(now.getTime() - 3.5 * 3600 * 1000);
-    const toTs = Timestamp.fromMillis(now.getTime() + 15 * 60 * 1000);
-    const snap = await db.collection('matches')
-      .where('kickoff', '>=', fromTs)
-      .where('kickoff', '<=', toTs)
-      .get();
-    candidates = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
-      .filter((m) => m.externalId && !m.manualLock && m.status !== 'finished');
-    if (candidates.length === 0) return { checked: 0, updated: 0, reason: 'no-window-matches' };
-
-    // Datospan (UTC) der dækker kandidaterne — typisk samme dag.
-    const times = candidates.map((m) => m.kickoff.toMillis());
-    const dateFrom = utcDateStr(Math.min(...times));
-    const dateTo = utcDateStr(Math.max(...times) + 6 * 3600 * 1000); // dæk kampe der trækker ud
-    const data = await client.getMatchesInRange(dateFrom, dateTo);
-    fdById = new Map((data.matches || []).map((m) => [String(m.id), m]));
-  }
-
-  let updated = 0; const changes = []; let review = 0;
-  for (const m of candidates) {
-    const fd = fdById.get(String(m.externalId));
-    if (!fd) continue;
-    const { action, patch } = decideUpdate(m, fd, now);
-    if (action === 'skip' || !patch) continue;
-    if (action === 'review') review++;
-    if (!patchChangesDoc(m, patch)) continue;
-    changes.push({ id: m.id, action, result: patch.result, status: patch.status, needsReview: !!patch.needsReview });
-    if (!dryRun) {
-      // Spred patch og erstat klientens Date med servertid.
-      await db.collection('matches').doc(m.id).update({ ...patch, autoUpdatedAt: FieldValue.serverTimestamp() });
-    }
-    updated++;
-  }
-  return { checked: candidates.length, updated, review, dryRun, changes };
-}
-
 // ---------------------------------------------------------------------------
-// AI-morgenopslag (VM-Botten) — genererer hver morgen kl. 07:00 et kort dansk
+// AI-morgenopslag (Tour-Botten) — genererer hver morgen kl. 07:00 et kort dansk
 // vægopslag pr. liga om seneste døgns udvikling. Bruger Claude (Opus 4.8).
 // ---------------------------------------------------------------------------
 
@@ -857,60 +781,59 @@ function tsToMs(ts) {
   return Number.isNaN(t) ? null : t;
 }
 
-// Saml fakta ÉN gang (deles af alle ligaer): afsluttede kampe (med runde +
-// kickoff) i et bredt vindue, rå tip-point pr. kamp/spiller, og kommende kampe.
-// Selve "siden sidste opslag"-afgrænsningen + ligaens scoring påføres pr. liga.
+// Saml fakta ÉN gang (deles af alle ligaer): afgjorte etaper (med nummer +
+// vinderhold + kickoff) i et bredt vindue, rå tip-point pr. etape/spiller, og
+// kommende etaper. "Siden sidste opslag"-afgrænsningen + ligaens scoring
+// påføres pr. liga.
 async function gatherRecapData(db, now) {
   const startMs = now.getTime() - 72 * 3600 * 1000; // bredt nok til 'siden sidste opslag'
-  const finSnap = await db.collection('matches')
+  const finSnap = await db.collection('stages')
     .where('kickoff', '>=', Timestamp.fromMillis(startMs))
     .where('kickoff', '<=', Timestamp.fromMillis(now.getTime()))
     .get();
   const finished = finSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((m) => m.status === 'finished' && m.result)
-    .map((m) => ({
-      id: m.id,
-      round: m.round || 'group',
-      home: m.homeTeam,
-      away: m.awayTeam,
-      score: `${m.result.home}-${m.result.away}`,
-      kickoffMs: tsToMs(m.kickoff) ?? 0,
+    .filter((s) => s.result && (s.hasResults || s.result.winnerTeam))
+    .map((s) => ({
+      id: s.id,
+      number: Number(s.number) || null,
+      winnerTeam: s.result.winnerTeam || null,
+      kickoffMs: tsToMs(s.kickoff) ?? 0,
     }));
 
-  // Rå tip-point pr. kamp pr. spiller (uden ligaens scoring-regler endnu).
-  const pointsByMatchUid = {};
-  for (const m of finished) {
-    const bets = await db.collection('bets').where('matchId', '==', m.id).get();
+  // Rå tip-point pr. etape pr. spiller (uden ligaens scoring-regler endnu).
+  const pointsByStageUid = {};
+  for (const s of finished) {
+    const bets = await db.collection('stageBets').where('stageId', '==', s.id).get();
     const map = {};
     for (const b of bets.docs) {
       const x = b.data();
       map[x.uid] = Number(x.points || 0);
     }
-    pointsByMatchUid[m.id] = map;
+    pointsByStageUid[s.id] = map;
   }
 
-  const upSnap = await db.collection('matches')
+  const upSnap = await db.collection('stages')
     .where('kickoff', '>=', Timestamp.fromMillis(now.getTime()))
     .where('kickoff', '<=', Timestamp.fromMillis(now.getTime() + 24 * 3600 * 1000))
     .get();
   const upcoming = upSnap.docs
     .map((d) => d.data())
-    .filter((m) => m.homeTeam && m.awayTeam)
-    .map((m) => ({
-      home: m.homeTeam, away: m.awayTeam,
-      time: m.kickoff.toDate().toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', timeZone: TZ }),
+    .filter((s) => s.kickoff?.toDate)
+    .map((s) => ({
+      number: Number(s.number) || null, type: s.type || null,
+      time: s.kickoff.toDate().toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', timeZone: TZ }),
     }));
 
-  // Officielle bonusspørgsmål (topscorer/gruppevinder) afgjort i vinduet, så
-  // VM-Botten kan nævne dem og lade nattens point afspejle dem.
+  // Officielle bonusspørgsmål (generisk: label + facit) afgjort i vinduet, så
+  // Tour-Botten kan nævne dem og lade nattens point afspejle dem.
   const bqSnap = await db.collection('bonusQuestions').get();
   const resolvedBonus = [];
   for (const d of bqSnap.docs) {
     const q = d.data();
     const resolvedMs = tsToMs(q.resolvedAt);
     if (!q.facit || resolvedMs == null || resolvedMs < startMs) continue;
-    resolvedBonus.push({ id: d.id, type: q.type || null, label: q.label || '', facit: q.facit, resolvedMs });
+    resolvedBonus.push({ id: d.id, label: q.text || q.label || '', facit: q.facit, resolvedMs });
   }
   // Point pr. spiller for hvert afgjort spørgsmål (til at fordele nattens bonus).
   const bonusPtsByQ = {};
@@ -924,22 +847,22 @@ async function gatherRecapData(db, now) {
     bonusPtsByQ[q.id] = map;
   }
 
-  return { finished, pointsByMatchUid, upcoming, resolvedBonus, bonusPtsByQ };
+  return { finished, pointsByStageUid, upcoming, resolvedBonus, bonusPtsByQ };
 }
 
 /**
- * Afgræns til kampe siden ligaens sidste opslag og påfør ligaens scoring, så
+ * Afgræns til etaper siden ligaens sidste opslag og påfør ligaens scoring, så
  * "dayPoints" hviler på samme grundlag som totalen (leagueTotal).
  */
-function recapWindowForLeague({ league, finished, pointsByMatchUid, resolvedBonus = [], bonusPtsByQ = {}, now }) {
+function recapWindowForLeague({ league, finished, pointsByStageUid, resolvedBonus = [], bonusPtsByQ = {}, now }) {
   const lastMs = tsToMs(league.lastRecapAt) ?? (now.getTime() - 26 * 3600 * 1000);
-  const windowMatches = finished.filter((m) => m.kickoffMs > lastMs);
+  const windowStages = finished.filter((s) => s.kickoffMs > lastMs);
   const memberUids = league.memberUids || [];
   const dayPointsByUid = {};
-  for (const m of windowMatches) {
-    const map = pointsByMatchUid[m.id] || {};
+  for (const s of windowStages) {
+    const map = pointsByStageUid[s.id] || {};
     for (const uid of memberUids) {
-      const pts = leagueMatchPoints(map[uid], m.round, league.scoring);
+      const pts = leagueStagePoints(map[uid], league.scoring);
       if (pts) dayPointsByUid[uid] = (dayPointsByUid[uid] || 0) + pts;
     }
   }
@@ -955,9 +878,9 @@ function recapWindowForLeague({ league, finished, pointsByMatchUid, resolvedBonu
     }
   }
 
-  const matches = windowMatches.map((m) => ({ home: m.home, away: m.away, score: m.score }));
-  const bonusResolved = windowBonus.map((q) => ({ type: q.type, label: q.label, facit: q.facit }));
-  return { dayPointsByUid, matches, bonusResolved };
+  const stages = windowStages.map((s) => ({ number: s.number, winnerTeam: s.winnerTeam }));
+  const bonusResolved = windowBonus.map((q) => ({ label: q.label, facit: q.facit }));
+  return { dayPointsByUid, stages, bonusResolved };
 }
 
 function recapAlreadyToday(ts, now) {
@@ -995,7 +918,7 @@ async function generateRecapText(anthropic, facts) {
 
 async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = false, onlyLeagueId = null } = {}) {
   const anthropic = new Anthropic({ apiKey });
-  const { finished, pointsByMatchUid, upcoming, resolvedBonus, bonusPtsByQ } = await gatherRecapData(db, now);
+  const { finished, pointsByStageUid, upcoming, resolvedBonus, bonusPtsByQ } = await gatherRecapData(db, now);
 
   const usersSnap = await db.collection('users').get();
   const usersById = new Map(usersSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]));
@@ -1010,11 +933,11 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
     if (members.length < 2) continue;
     if (!dryRun && recapAlreadyToday(league.lastRecapAt, now)) continue;
 
-    // Kun kampe/point siden ligaens sidste opslag, med ligaens scoring påført.
-    const { dayPointsByUid, matches, bonusResolved } = recapWindowForLeague({
-      league, finished, pointsByMatchUid, resolvedBonus, bonusPtsByQ, now,
+    // Kun etaper/point siden ligaens sidste opslag, med ligaens scoring påført.
+    const { dayPointsByUid, stages, bonusResolved } = recapWindowForLeague({
+      league, finished, pointsByStageUid, resolvedBonus, bonusPtsByQ, now,
     });
-    const facts = buildRecapFacts({ league, members, dayPointsByUid, matches, bonusResolved, upcoming, now });
+    const facts = buildRecapFacts({ league, members, dayPointsByUid, stages, bonusResolved, upcoming, now });
     let text;
     try {
       text = await generateRecapText(anthropic, facts);
@@ -1027,7 +950,7 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
 
     if (!dryRun) {
       await db.collection('leagueComments').add({
-        leagueId: league.id, uid: 'ai-bot', displayName: 'VM-Botten', avatarEmoji: '🤖',
+        leagueId: league.id, uid: 'ai-bot', displayName: 'Tour-Botten', avatarEmoji: '🤖',
         favoriteTeam: null, text, system: true, createdAt: FieldValue.serverTimestamp(),
       });
       await db.collection('leagues').doc(league.id).set(
@@ -1062,11 +985,17 @@ exports.generateLeagueRecaps = onSchedule(
     // Uden for det valgte tidsvindue: gør intet.
     if (!recapWindowOpen(cphHourMinute(now), recapTime, 60)) return;
 
-    // Vent hvis en kamp er i gang: live-kampe får foreløbige point, som ville
-    // forurene stillingen i opslaget. Prøver igen ved næste tick (inden for vinduet).
-    const liveSnap = await db.collection('matches').where('status', '==', 'live').limit(1).get();
-    if (!liveSnap.empty) {
-      console.log('generateLeagueRecaps: kamp i gang — udskyder opslaget.');
+    // Vent hvis en etape fra i går endnu mangler sit resultat: uafsluttede
+    // etaper ville give en ufuldstændig stilling i opslaget. Prøver igen ved
+    // næste tick (inden for vinduet).
+    const dayAgo = Timestamp.fromMillis(now.getTime() - 24 * 3600 * 1000);
+    const recentSnap = await db.collection('stages')
+      .where('kickoff', '>=', dayAgo)
+      .where('kickoff', '<=', Timestamp.fromMillis(now.getTime()))
+      .get();
+    const pendingStage = recentSnap.docs.some((d) => d.data().status !== 'done');
+    if (pendingStage) {
+      console.log('generateLeagueRecaps: etaperesultat afventer — udskyder opslaget.');
       return;
     }
 
@@ -1105,33 +1034,76 @@ exports.generateLeagueRecapNow = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// Engangs: genskriv ALLE VM-Bottens gamle opslag med den korrekte logik, ud fra
-// stillingen som den var DA opslaget blev lavet. Kun teksten ændres — createdAt
-// (tidspunktet) røres aldrig. Totaler rekonstrueres fra kampresultater (bonus
-// medregnes ikke; forsvindende i gruppespillet).
-async function gatherAllMatchesAndPoints(db) {
-  const snap = await db.collection('matches').get();
+// generateStageTip — callable (owner/global admin): AI-genererer et dansk
+// ekspert-tip pr. etape og gemmer det som expertTip på etape-dokumentet.
+// Input { stageId } (én etape) ELLER { all:true, season } (alle etaper i
+// sæsonen uden tip endnu). Bruger SAMME SDK/model som AI-morgenopslaget.
+// ---------------------------------------------------------------------------
+exports.generateStageTip = onCall(
+  { region: REGION, secrets: [ANTHROPIC_API_KEY] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const apiKey = ANTHROPIC_API_KEY.value();
+    if (!apiKey) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
+
+    const all = request.data?.all === true;
+    const force = request.data?.force === true;
+    const stageId = request.data?.stageId || null;
+    if (!all && !stageId) {
+      throw new HttpsError('invalid-argument', 'Angiv enten { stageId } eller { all:true }.');
+    }
+    let season = request.data?.season;
+    if (all && season == null) {
+      const s = await tourSettings(db);
+      season = s.activeSeason;
+    }
+
+    const anthropic = new Anthropic({ apiKey });
+    try {
+      return await runGenerateStageTips(db, anthropic, {
+        stageId,
+        all,
+        force,
+        season: all ? season : undefined,
+        serverTimestamp: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      throw new HttpsError('internal', err?.message || 'Kunne ikke generere ekspert-tip.');
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Engangs: genskriv ALLE Tour-Bottens gamle opslag med den korrekte logik, ud
+// fra stillingen som den var DA opslaget blev lavet. Kun teksten ændres —
+// createdAt (tidspunktet) røres aldrig. Totaler rekonstrueres fra etape-
+// resultater (bonus medregnes ikke; forsvindende undervejs i løbet).
+async function gatherAllStagesAndPoints(db) {
+  const snap = await db.collection('stages').get();
   const all = snap.docs.map((d) => {
-    const m = d.data();
+    const s = d.data();
     return {
-      id: d.id, round: m.round || 'group', home: m.homeTeam, away: m.awayTeam,
-      status: m.status, result: m.result || null, kickoffMs: tsToMs(m.kickoff) ?? 0,
+      id: d.id, number: Number(s.number) || null,
+      type: s.type || null, status: s.status,
+      result: s.result || null, hasResults: !!s.hasResults,
+      kickoffMs: tsToMs(s.kickoff) ?? 0,
     };
   });
   const finished = all
-    .filter((m) => m.status === 'finished' && m.result)
-    .map((m) => ({
-      id: m.id, round: m.round, home: m.home, away: m.away,
-      score: `${m.result.home}-${m.result.away}`, kickoffMs: m.kickoffMs,
+    .filter((s) => s.result && (s.hasResults || s.result.winnerTeam))
+    .map((s) => ({
+      id: s.id, number: s.number,
+      winnerTeam: s.result.winnerTeam || null, kickoffMs: s.kickoffMs,
     }));
-  const pointsByMatchUid = {};
-  for (const m of finished) {
-    const bets = await db.collection('bets').where('matchId', '==', m.id).get();
+  const pointsByStageUid = {};
+  for (const s of finished) {
+    const bets = await db.collection('stageBets').where('stageId', '==', s.id).get();
     const map = {};
     for (const b of bets.docs) { const x = b.data(); map[x.uid] = Number(x.points || 0); }
-    pointsByMatchUid[m.id] = map;
+    pointsByStageUid[s.id] = map;
   }
-  return { all, finished, pointsByMatchUid };
+  return { all, finished, pointsByStageUid };
 }
 
 // Genskriv bottens opslag i SMÅ BIDDER, så det ikke timer ud, kan genoptages,
@@ -1171,7 +1143,7 @@ async function runRegenerateRecaps(db, apiKey, { apply = false, reset = false, l
   }
 
   const anthropic = new Anthropic({ apiKey });
-  const { all, finished, pointsByMatchUid } = await gatherAllMatchesAndPoints(db);
+  const { all, finished, pointsByStageUid } = await gatherAllStagesAndPoints(db);
 
   const previews = [];
   let updated = 0;
@@ -1188,18 +1160,18 @@ async function runRegenerateRecaps(db, apiKey, { apply = false, reset = false, l
 
       const T = p.createdAtMs;
       const prevMs = i > 0 ? posts[i - 1].createdAtMs : (T - 26 * 3600 * 1000);
-      const windowMatches = finished.filter((m) => m.kickoffMs > prevMs && m.kickoffMs <= T);
-      const members = historicalMembers(memberDocs, finished, pointsByMatchUid, T);
-      const dayPointsByUid = windowDayPoints(memberIds, windowMatches, pointsByMatchUid, league.scoring);
-      const matches = windowMatches.map((m) => ({ home: m.home, away: m.away, score: m.score }));
+      const windowStages = finished.filter((s) => s.kickoffMs > prevMs && s.kickoffMs <= T);
+      const members = historicalMembers(memberDocs, finished, pointsByStageUid, T);
+      const dayPointsByUid = windowDayPoints(memberIds, windowStages, pointsByStageUid, league.scoring);
+      const stages = windowStages.map((s) => ({ number: s.number, winnerTeam: s.winnerTeam }));
       const upcoming = all
-        .filter((m) => m.home && m.away && m.kickoffMs > T && m.kickoffMs <= T + 24 * 3600 * 1000)
+        .filter((s) => s.kickoffMs > T && s.kickoffMs <= T + 24 * 3600 * 1000)
         .sort((a, b) => a.kickoffMs - b.kickoffMs)
-        .map((m) => ({
-          home: m.home, away: m.away,
-          time: new Date(m.kickoffMs).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', timeZone: TZ }),
+        .map((s) => ({
+          number: s.number, type: s.type,
+          time: new Date(s.kickoffMs).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', timeZone: TZ }),
         }));
-      const facts = buildRecapFacts({ league, members, dayPointsByUid, matches, upcoming, now: new Date(T) });
+      const facts = buildRecapFacts({ league, members, dayPointsByUid, stages, upcoming, now: new Date(T) });
 
       let newText;
       try {
@@ -1249,471 +1221,9 @@ exports.regenerateRecaps = onCall(
   }
 );
 
-exports.syncResults = onSchedule(
-  { schedule: 'every 1 minutes', timeZone: TZ, region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async () => {
-    const db = getFirestore();
-    const statusRef = db.collection('config').doc('syncStatus');
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) {
-      console.log('syncResults: FOOTBALL_DATA_TOKEN ikke sat — springer over.');
-      await statusRef.set({
-        lastRunAt: FieldValue.serverTimestamp(),
-        lastError: 'FOOTBALL_DATA_TOKEN ikke sat',
-        lastErrorAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-      return;
-    }
-    try {
-      const res = await runSyncResults(db, token);
-      await statusRef.set({
-        lastRunAt: FieldValue.serverTimestamp(),
-        lastSuccessAt: FieldValue.serverTimestamp(),
-        checked: res.checked ?? 0,
-        updated: res.updated ?? 0,
-        reason: res.reason ?? null,
-        lastError: null,
-      }, { merge: true });
-      if (res.updated) console.log(`syncResults: opdaterede ${res.updated} kamp(e).`, res.changes);
-    } catch (err) {
-      console.error('syncResults: fejl', err);
-      await statusRef.set({
-        lastRunAt: FieldValue.serverTimestamp(),
-        lastError: String(err?.message || err),
-        lastErrorAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-      throw err; // lad Cloud Function-kørslen markeres som fejlet (synlig i logs)
-    }
-  }
-);
-
-exports.syncResultsNow = onCall(
-  { region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) throw new HttpsError('failed-precondition', 'FOOTBALL_DATA_TOKEN er ikke sat.');
-    return runSyncResults(db, token, {
-      dryRun: request.data?.dryRun === true,
-      full: request.data?.full === true,
-    });
-  }
-);
-
-// Map vores kampe til football-data-id'er (gemmes som externalId på kampen).
-exports.syncFixtures = onCall(
-  { region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) throw new HttpsError('failed-precondition', 'FOOTBALL_DATA_TOKEN er ikke sat.');
-
-    const season = Number(request.data?.season) || new Date().getUTCFullYear();
-    const dryRun = request.data?.dryRun === true;
-    const fixKickoff = request.data?.fixKickoff === true;
-    const client = createClient({ token });
-    const data = await client.getSeasonMatches(season);
-    const fdMatches = data.matches || [];
-
-    const snap = await db.collection('matches').get();
-    const ours = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-    let mapped = 0; let already = 0; const unmatched = []; const unmatchedDetail = [];
-    const batch = db.batch();
-    for (const m of ours) {
-      if (!m.homeTeam || !m.awayTeam) continue; // ukendte hold (knockout-pladsholdere)
-      const fd = matchFixture(m, fdMatches);
-      if (!fd) {
-        unmatched.push(m.id);
-        unmatchedDetail.push({ id: m.id, home: m.homeTeam, away: m.awayTeam });
-        continue;
-      }
-      if (String(m.externalId) === String(fd.id)) { already++; continue; }
-      if (!dryRun) batch.update(db.collection('matches').doc(m.id), { externalId: String(fd.id) });
-      mapped++;
-    }
-    if (mapped > 0 && !dryRun) await batch.commit();
-
-    // Tjek/ret kamptider mod football-data (matcher på hold → fanger også store fejl).
-    let kickoffChanges = [];
-    if (fixKickoff) {
-      kickoffChanges = auditKickoffs(ours, fdMatches);
-      if (!dryRun && kickoffChanges.length > 0) {
-        const kb = db.batch();
-        for (const c of kickoffChanges) {
-          kb.update(db.collection('matches').doc(c.id), {
-            kickoff: Timestamp.fromMillis(Date.parse(c.toISO)),
-            externalId: c.fdId,
-          });
-        }
-        await kb.commit();
-      }
-    }
-
-    return {
-      season, totalFixtures: fdMatches.length, mapped, already, unmatched, unmatchedDetail,
-      dryRun, kickoffChanges,
-    };
-  }
-);
-
-// ---------------------------------------------------------------------------
-// Topscorere (Golden Boot) — synk fra football-data.org /scorers og gem som
-// config/topScorers, så frontenden kan vise et live "kapløb om guldstøvlen".
-// ---------------------------------------------------------------------------
-async function runSyncScorers(db, token, { limit = 20 } = {}) {
-  const client = createClient({ token });
-  const data = await client.getScorers(limit);
-  const list = mapScorers(data);
-  await db.collection('config').doc('topScorers').set({
-    list,
-    count: list.length,
-    season: data?.season?.startDate ? String(data.season.startDate).slice(0, 4) : null,
-    updatedAt: FieldValue.serverTimestamp(),
-    lastError: null,
-  }, { merge: true });
-  return { count: list.length, top: list[0]?.playerName || null };
-}
-
-// Skemalagt: hver 30. minut (topscorere ændrer sig langsomt).
-exports.syncScorers = onSchedule(
-  { schedule: 'every 30 minutes', timeZone: TZ, region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async () => {
-    const db = getFirestore();
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) { console.log('syncScorers: FOOTBALL_DATA_TOKEN ikke sat — springer over.'); return; }
-    try {
-      const res = await runSyncScorers(db, token);
-      if (res.count) console.log(`syncScorers: ${res.count} scorere, top: ${res.top}`);
-    } catch (err) {
-      console.error('syncScorers: fejl', err);
-      // Gem fejlen, men kast ikke videre (topscorere er ikke kritiske).
-      await db.collection('config').doc('topScorers').set({
-        lastError: String(err?.message || err),
-        lastErrorAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-    }
-  }
-);
-
-// Manuel opdatering (owner/global admin).
-exports.syncScorersNow = onCall(
-  { region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) throw new HttpsError('failed-precondition', 'FOOTBALL_DATA_TOKEN er ikke sat.');
-    return runSyncScorers(db, token, { limit: Number(request.data?.limit) || 20 });
-  }
-);
-
-// ---------------------------------------------------------------------------
-// Kampdetaljer — mål, kort og opstillinger pr. kamp fra /matches/{id}.
-// Henter detaljer for kampe i "vinduet" (snart i gang / live / netop afsluttet)
-// og gemmer dem som `details` på kamp-doc'et. Rører ALDRIG result/status, så
-// det kan ikke forstyrre point-beregningen. Skriver kun ved ændringer.
-// ---------------------------------------------------------------------------
-async function runSyncMatchDetails(db, token, { now = new Date() } = {}) {
-  const fromTs = Timestamp.fromMillis(now.getTime() - 3.5 * 3600 * 1000);
-  const toTs = Timestamp.fromMillis(now.getTime() + 75 * 60 * 1000); // dæk opstillinger ~1t før
-
-  const snap = await db.collection('matches')
-    .where('kickoff', '>=', fromTs)
-    .where('kickoff', '<=', toTs)
-    .get();
-
-  const candidates = snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((m) => m.externalId);
-
-  if (candidates.length === 0) return { checked: 0, updated: 0, reason: 'no-window-matches' };
-
-  const client = createClient({ token });
-  let updated = 0;
-  for (const m of candidates) {
-    let raw;
-    try {
-      raw = await client.getMatch(m.externalId);
-    } catch (err) {
-      console.error(`syncMatchDetails: kunne ikke hente kamp ${m.id}/${m.externalId}`, err?.message || err);
-      continue;
-    }
-    const details = mapMatchDetails(raw);
-    // Skriv kun hvis noget faktisk har ændret sig (sparer skrivninger).
-    if (JSON.stringify(m.details || null) === JSON.stringify(details)) continue;
-    await db.collection('matches').doc(m.id).set(
-      { details, detailsUpdatedAt: FieldValue.serverTimestamp() },
-      { merge: true },
-    );
-    updated++;
-  }
-  return { checked: candidates.length, updated };
-}
-
-// Skemalagt: hver 2. minut (kun når der er kampe i vinduet).
-exports.syncMatchDetails = onSchedule(
-  { schedule: 'every 2 minutes', timeZone: TZ, region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async () => {
-    const db = getFirestore();
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) { console.log('syncMatchDetails: FOOTBALL_DATA_TOKEN ikke sat — springer over.'); return; }
-    try {
-      const res = await runSyncMatchDetails(db, token);
-      if (res.updated) console.log(`syncMatchDetails: opdaterede detaljer for ${res.updated} kamp(e).`);
-    } catch (err) {
-      console.error('syncMatchDetails: fejl', err);
-    }
-  }
-);
-
-// Manuel opdatering (owner/global admin).
-exports.syncMatchDetailsNow = onCall(
-  { region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) throw new HttpsError('failed-precondition', 'FOOTBALL_DATA_TOKEN er ikke sat.');
-    return runSyncMatchDetails(db, token);
-  }
-);
-
-// ---------------------------------------------------------------------------
-// Officiel stilling — gruppetabeller med form fra football-data.org /standings.
-// Gemmes som config/standings, så frontenden kan vise den officielle tabel.
-// ---------------------------------------------------------------------------
-async function runSyncStandings(db, token) {
-  const client = createClient({ token });
-  const data = await client.getStandings();
-  const tables = mapStandings(data);
-  await db.collection('config').doc('standings').set({
-    tables,
-    updatedAt: FieldValue.serverTimestamp(),
-    lastError: null,
-  }, { merge: true });
-
-  // Hent også turneringsmeta (logo, navn, spilledag) — ændrer sig sjældent.
-  let competition = null;
-  try {
-    competition = mapCompetition(await client.getCompetition());
-    await db.collection('config').doc('competition').set({
-      ...competition, updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-  } catch (err) {
-    console.error('runSyncStandings: kunne ikke hente turneringsmeta', err?.message || err);
-  }
-  return { tables: tables.length, emblem: competition?.emblem ?? null };
-}
-
-exports.syncStandings = onSchedule(
-  { schedule: 'every 30 minutes', timeZone: TZ, region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async () => {
-    const db = getFirestore();
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) { console.log('syncStandings: FOOTBALL_DATA_TOKEN ikke sat — springer over.'); return; }
-    try {
-      const res = await runSyncStandings(db, token);
-      if (res.tables) console.log(`syncStandings: ${res.tables} tabel(ler).`);
-    } catch (err) {
-      console.error('syncStandings: fejl', err);
-      await db.collection('config').doc('standings').set({
-        lastError: String(err?.message || err), lastErrorAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-    }
-  }
-);
-
-exports.syncStandingsNow = onCall(
-  { region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) throw new HttpsError('failed-precondition', 'FOOTBALL_DATA_TOKEN er ikke sat.');
-    return runSyncStandings(db, token);
-  }
-);
-
-// ---------------------------------------------------------------------------
-// previewFootballData — owner/global admin: henter LIVE data fra en valgfri
-// turnering (default Bundesliga BL1, indeværende sæson) og returnerer det
-// normaliseret, så admin kan forhåndsvise hvordan topscorere, stilling og
-// kampdetaljer kommer til at se ud — før VM går i gang. Skriver intet i basen.
-// ---------------------------------------------------------------------------
-exports.previewFootballData = onCall(
-  { region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) throw new HttpsError('failed-precondition', 'FOOTBALL_DATA_TOKEN er ikke sat.');
-    const code = String(request.data?.code || 'BL1').toUpperCase();
-    const client = createClient({ token });
-
-    const out = { code };
-    try { out.scorers = mapScorers(await client.getScorers(15, code)); }
-    catch (err) { out.scorersError = String(err?.message || err); out.scorers = []; }
-    try { out.standings = mapStandings(await client.getStandings(code)); }
-    catch (err) { out.standingsError = String(err?.message || err); out.standings = []; }
-
-    // Seneste afsluttede kamp → fuld detalje (mål, kort, opstillinger).
-    out.sampleMatch = null;
-    try {
-      const fin = await client.getFinishedMatches(code);
-      const matches = Array.isArray(fin?.matches) ? fin.matches : [];
-      const last = matches[matches.length - 1];
-      if (last?.id) {
-        const raw = await client.getMatch(last.id);
-        const ft = last.score?.fullTime || {};
-        out.sampleMatch = {
-          homeName: last.homeTeam?.name ?? 'Hjemme',
-          awayName: last.awayTeam?.name ?? 'Ude',
-          utcDate: last.utcDate ?? null,
-          result: (ft.home != null) ? { home: ft.home, away: ft.away } : null,
-          details: mapMatchDetails(raw),
-        };
-      }
-    } catch (err) { out.sampleMatchError = String(err?.message || err); }
-
-    return out;
-  }
-);
-
-// ---------------------------------------------------------------------------
-// inspectFootballData — owner/global admin: prober football-data.org-endpoints
-// med jeres token og rapporterer hvilke felter jeres TIER giver adgang til.
-// Henter intet ind i basen; bruges kun til at beslutte hvad vi kan bygge på.
-// ---------------------------------------------------------------------------
-exports.inspectFootballData = onCall(
-  { region: REGION, secrets: [FOOTBALL_DATA_TOKEN] },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    const token = FOOTBALL_DATA_TOKEN.value();
-    if (!token) throw new HttpsError('failed-precondition', 'FOOTBALL_DATA_TOKEN er ikke sat.');
-    const client = createClient({ token });
-
-    // Prober hvert endpoint isoleret, så ét manglende (403) ikke vælter resten.
-    const probe = async (label, fn, summarize) => {
-      try {
-        const data = await fn();
-        return { label, ok: true, ...summarize(data) };
-      } catch (err) {
-        const msg = String(err?.message || err);
-        const forbidden = /403/.test(msg);
-        return { label, ok: false, forbidden, error: forbidden ? 'Ikke tilgængelig på jeres tier (403).' : msg };
-      }
-    };
-
-    // Find en allerede-spillet kamp at probe detaljer på.
-    let sampleMatchId = null;
-    const finishedSnap = await db.collection('matches')
-      .where('status', '==', 'finished').limit(1).get();
-    if (!finishedSnap.empty) sampleMatchId = finishedSnap.docs[0].data().externalId || null;
-
-    const result = {
-      checkedAt: new Date().toISOString(),
-      competitionCode: client.competitionCode,
-      scorers: await probe('scorers', () => client.getScorers(5), summarizeScorers),
-      standings: await probe('standings', () => client.getStandings(), summarizeStandings),
-    };
-    if (sampleMatchId) {
-      result.matchDetail = await probe('matchDetail', () => client.getMatch(sampleMatchId), summarizeMatchDetail);
-      result.matchDetail.sampleMatchId = String(sampleMatchId);
-    } else {
-      result.matchDetail = { label: 'matchDetail', ok: false, error: 'Ingen afsluttet VM-kamp endnu (turneringen er ikke begyndt).' };
-    }
-
-    // VM 2026 er måske ikke begyndt endnu → tomme svar siger intet om tieren.
-    // Prob derfor en AKTIV reference-turnering (default Premier League) med
-    // rigtige data, så vi entydigt kan se hvilke felter tieren leverer.
-    const refCode = String(request.data?.referenceCode || 'PL').toUpperCase();
-    const reference = { code: refCode };
-    reference.scorers = await probe('refScorers', () => client.getScorers(5, refCode), summarizeScorers);
-    try {
-      const fin = await client.getFinishedMatches(refCode);
-      const matches = Array.isArray(fin?.matches) ? fin.matches : [];
-      const last = matches[matches.length - 1];
-      if (last?.id) {
-        reference.matchDetail = await probe('refMatchDetail', () => client.getMatch(last.id), summarizeMatchDetail);
-        reference.matchDetail.sampleMatchId = String(last.id);
-      } else {
-        reference.matchDetail = { label: 'refMatchDetail', ok: false, error: 'Ingen afsluttede kampe i reference-turneringen.' };
-      }
-    } catch (err) {
-      const msg = String(err?.message || err);
-      reference.matchDetail = { label: 'refMatchDetail', ok: false, forbidden: /403/.test(msg), error: msg };
-    }
-    result.reference = reference;
-
-    return result;
-  }
-);
-
-// ---------------------------------------------------------------------------
-// Gruppevindere — afgøres automatisk ud fra grupperesultaterne, på samme måde
-// som auto-resultater. Når en gruppe er færdigspillet (6 finished kampe),
-// sættes facit på det tilsvarende groupWinner-bonusspørgsmål; recomputeBonus
-// giver så automatisk point. Allerede satte facit (fx manuelt) røres aldrig.
-// ---------------------------------------------------------------------------
-async function runResolveGroupWinners(db, { dryRun = false } = {}) {
-  const qSnap = await db.collection('bonusQuestions').where('type', '==', 'groupWinner').get();
-  const questions = qSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const open = questions.filter((q) => q.facit == null || String(q.facit).trim() === '');
-  if (open.length === 0) return { resolved: 0, pending: 0, changes: [] };
-
-  const mSnap = await db.collection('matches')
-    .where('round', '==', 'group')
-    .where('status', '==', 'finished')
-    .get();
-  const finishedGroupMatches = mSnap.docs.map((d) => d.data());
-
-  const resolutions = resolveGroupWinners(open, finishedGroupMatches);
-  if (!dryRun && resolutions.length > 0) {
-    const batch = db.batch();
-    for (const r of resolutions) {
-      batch.update(db.collection('bonusQuestions').doc(r.questionId), {
-        facit: r.facit,
-        facitSource: 'auto',
-        autoResolvedAt: FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
-  }
-  return { resolved: resolutions.length, pending: open.length - resolutions.length, dryRun, changes: resolutions };
-}
-
-// Trigger: når en gruppekamp netop er blevet finished, så prøv at afgøre
-// gruppevindere (gør kun noget, når en gruppe dermed er fuldt færdigspillet).
-exports.resolveGroupWinnerOnFinish = onDocumentWritten(
-  { document: 'matches/{matchId}', region: REGION },
-  async (event) => {
-    const after = event.data?.after?.data();
-    if (!after || after.round !== 'group' || after.status !== 'finished') return;
-    const before = event.data?.before?.data();
-    if (before?.status === 'finished') return; // var allerede færdig — undgå gentagne kørsler
-
-    const res = await runResolveGroupWinners(getFirestore());
-    if (res.resolved) console.log(`resolveGroupWinnerOnFinish: afgjorde ${res.resolved} gruppevinder(e).`, res.changes);
-  }
-);
-
-// Callable (admin): afgør gruppevindere nu. dryRun=true viser kun hvad der ville ske.
-exports.syncGroupWinnersNow = onCall(
-  { region: REGION },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    return runResolveGroupWinners(db, { dryRun: request.data?.dryRun === true });
-  }
-);
-
 // ---------------------------------------------------------------------------
 // adminSendPasswordReset — KUN ejeren: generér et nulstillingslink server-side
-// og send det via vores egen SMTP (vm@vejleaa.dk). Bruges når Firebase' egen
+// og send det via vores egen SMTP (tour@vejleaa.dk). Bruges når Firebase' egen
 // reset-mail ikke når frem (fx udbyder der blokerer firebaseapp.com).
 // Returnerer også selve linket, så ejeren kan sende det manuelt om nødvendigt.
 // ---------------------------------------------------------------------------
@@ -1750,13 +1260,13 @@ exports.adminSendPasswordReset = onCall(
       const html = `
         <p>Hej ${name},</p>
         <p>Du (eller en administrator) har bedt om at nulstille din adgangskode til
-        <strong>VM 2026 Tip</strong>. Klik på linket nedenfor for at vælge en ny:</p>
+        <strong>Tour de France Tip</strong>. Klik på linket nedenfor for at vælge en ny:</p>
         <p><a href="${link}">Nulstil min adgangskode</a></p>
         <p>Hvis knappen ikke virker, kopiér dette link ind i din browser:<br>
         <span style="word-break:break-all">${link}</span></p>
         <p>Bagefter kan du logge ind på <a href="${APP_URL}">${APP_URL}</a>.</p>
-        <p>Mvh. VM 2026 Tip</p>`;
-      await sendEmail(db, transporter, { to: email, subject: 'Nulstil din adgangskode – VM 2026 Tip', html, type: 'password-reset' });
+        <p>Mvh. Tour de France Tip</p>`;
+      await sendEmail(db, transporter, { to: email, subject: 'Nulstil din adgangskode – Tour de France Tip', html, type: 'password-reset' });
       sent = true;
     }
 

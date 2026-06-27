@@ -1,7 +1,7 @@
 {
-  "name": "vm2026-functions",
+  "name": "tour-de-france-tip-functions",
   "version": "1.0.0",
-  "description": "Cloud Functions til VM 2026 tippekonkurrence",
+  "description": "Cloud Functions til Tour de France tippekonkurrence",
   "main": "index.js",
   "engines": {
     "node": "22"

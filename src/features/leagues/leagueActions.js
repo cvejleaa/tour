@@ -23,11 +23,9 @@ import { DEFAULT_SCORING } from './leagueFormat';
 function cleanScoring(scoring) {
   const s = scoring || {};
   return {
-    group: !!(s.group ?? true),
-    knockout: !!(s.knockout ?? true),
+    stage: !!(s.stage ?? true),
     bonus: !!(s.bonus ?? true),
     leagueBonus: !!(s.leagueBonus ?? true),
-    doubleKnockout: !!(s.doubleKnockout ?? false),
   };
 }
 
@@ -58,7 +56,7 @@ export async function createLeague(name, ownerUid, scoring = DEFAULT_SCORING) {
 }
 
 /**
- * Slå AI-morgenopslag (VM-Botten) til/fra for en liga (liga-ejer).
+ * Slå AI-morgenopslag (Tour-Botten) til/fra for en liga (liga-ejer).
  * @param {string} leagueId
  * @param {boolean} enabled
  */
@@ -87,7 +85,7 @@ export async function regenerateJoinCode(leagueId) {
  */
 export async function setLeagueScoring(leagueId, scoring) {
   const clean = cleanScoring(scoring);
-  if (!clean.group && !clean.knockout && !clean.bonus && !clean.leagueBonus) {
+  if (!clean.stage && !clean.bonus && !clean.leagueBonus) {
     throw new Error('Vælg mindst én del der skal tælle.');
   }
   await updateDoc(doc(db, COL.LEAGUES, leagueId), { scoring: clean });

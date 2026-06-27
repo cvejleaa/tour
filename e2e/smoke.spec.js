@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Login & ruter (uautentificeret)', () => {
   test('uautentificeret bruger sendes til login fra forsiden', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'VM 2026 Tip' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tour de France Tip' })).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
   });
 

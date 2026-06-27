@@ -6,14 +6,14 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const STEPS = [
-  { to: '/kampe', emoji: '⚽', title: 'Tip kampene', text: 'Gæt resultatet inden kickoff – tips låses ved kampstart.' },
-  { to: '/bonus', emoji: '🎁', title: 'Svar på bonus', text: 'Topscorer, gruppevindere m.m. giver ekstra point.' },
+  { to: '/etaper', emoji: '🚴', title: 'Tip etaperne', text: 'Gæt holdene inden etapestart – tips låses ved start.' },
+  { to: '/bonus', emoji: '🎁', title: 'Svar på bonus', text: 'Bonus-spørgsmål giver ekstra point.' },
   { to: '/ligaer', emoji: '🏆', title: 'Opret eller join en liga', text: 'Dyst mod vennerne – og svar på ligaens egne spørgsmål.' },
   { to: '/hjaelp', emoji: '❓', title: 'Læs “Sådan virker det”', text: 'Hurtigt overblik over point, deadlines og ligaer.' },
 ];
 
 function storageKey(uid) {
-  return `vm:onboarded:${uid || 'anon'}`;
+  return `tour:onboarded:${uid || 'anon'}`;
 }
 
 export default function OnboardingChecklist({ uid }) {

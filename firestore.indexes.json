@@ -1,22 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "bets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "matchId", "order": "ASCENDING" },
-        { "fieldPath": "uid",     "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "bets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "uid",    "order": "ASCENDING" },
-        { "fieldPath": "points", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "bonusBets",
       "queryScope": "COLLECTION",
       "fields": [
@@ -30,40 +14,6 @@
       "fields": [
         { "fieldPath": "uid",    "order": "ASCENDING" },
         { "fieldPath": "points", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "matches",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "round",   "order": "ASCENDING" },
-        { "fieldPath": "kickoff", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "matches",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "round",     "order": "ASCENDING" },
-        { "fieldPath": "status",    "order": "ASCENDING" },
-        { "fieldPath": "kickoff",   "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "matches",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "groupName", "order": "ASCENDING" },
-        { "fieldPath": "kickoff",   "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "matches",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "round",     "order": "ASCENDING" },
-        { "fieldPath": "groupName", "order": "ASCENDING" },
-        { "fieldPath": "status",    "order": "ASCENDING" }
       ]
     },
     {
@@ -128,6 +78,38 @@
       "fields": [
         { "fieldPath": "leagueId",  "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "stages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "season", "order": "ASCENDING" },
+        { "fieldPath": "number", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "stageBets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid",    "order": "ASCENDING" },
+        { "fieldPath": "season", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "stageBets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stageId", "order": "ASCENDING" },
+        { "fieldPath": "uid",     "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bonusBets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid",    "order": "ASCENDING" },
+        { "fieldPath": "season", "order": "ASCENDING" }
       ]
     }
   ],

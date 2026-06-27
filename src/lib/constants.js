@@ -21,33 +21,9 @@ export const LEAGUE_STATUS = {
 
 // Liga-format: bestemmer hvilke point der tæller i ligaens stilling
 export const LEAGUE_FORMAT = {
-  FULL: 'full',                 // alt tæller (standard)
-  BONUS_ONLY: 'bonusOnly',      // kun bonus-spørgsmål
-  KNOCKOUT_ONLY: 'knockoutOnly',// kun slutspil
-  GROUP_ONLY: 'groupOnly',      // kun grundspil
-  DOUBLE_KNOCKOUT: 'doubleKnockout', // alt, men slutspil tæller dobbelt
-};
-
-export const MATCH_STATUS = {
-  SCHEDULED: 'scheduled', // hold kendt, kan tippes indtil kickoff
-  PENDING_TEAMS: 'pendingTeams', // knockout hvor hold endnu ikke kendes
-  LIVE: 'live',
-  FINISHED: 'finished',
-};
-
-export const ROUNDS = {
-  GROUP: 'group',
-  R32: 'r32', // 1/16-finale
-  R16: 'r16', // 1/8-finale
-  QF: 'qf', // kvartfinale
-  SF: 'sf', // semifinale
-  BRONZE: 'bronze',
-  FINAL: 'final',
-};
-
-export const BONUS_TYPE = {
-  TOP_SCORER: 'topScorer',
-  GROUP_WINNER: 'groupWinner',
+  FULL: 'full',             // alt tæller (standard)
+  BONUS_ONLY: 'bonusOnly',  // kun bonus-spørgsmål
+  STAGE_ONLY: 'stageOnly',  // kun etape-point
 };
 
 // Typer af individuelle liga-bonusspørgsmål
@@ -58,17 +34,46 @@ export const LEAGUE_BONUS_TYPE = {
   YESNO: 'yesno',   // ja/nej
 };
 
+// Svartyper for (sæson-)bonusspørgsmål. Bestemmer både admin-facit-input og
+// spillerens svar-input. Default 'text' for ældre spørgsmål uden type.
+// Facit/svar gemmes som den naturlige værdi: streng for alle typer undtagen
+// 'teams', der gemmes som et array af holdnavne. 'boolean' gemmes som 'ja'|'nej'.
+export const BONUS_ANSWER_TYPES = [
+  { value: 'text', label: 'Fritekst' },
+  { value: 'team', label: 'Hold (vælg ét)' },
+  { value: 'teams', label: 'Hold (vælg flere)' },
+  { value: 'number', label: 'Tal' },
+  { value: 'time', label: 'Tidsangivelse' },
+  { value: 'boolean', label: 'Ja/nej' },
+];
+
+/** Sættet af gyldige type-værdier. */
+export const BONUS_ANSWER_TYPE_VALUES = BONUS_ANSWER_TYPES.map((t) => t.value);
+
+/** Default-type for spørgsmål uden et type-felt (legacy). */
+export const DEFAULT_BONUS_ANSWER_TYPE = 'text';
+
+/** Normaliser et spørgsmåls type til en kendt værdi (fallback til default). */
+export function bonusAnswerType(question) {
+  const t = question?.type;
+  return BONUS_ANSWER_TYPE_VALUES.includes(t) ? t : DEFAULT_BONUS_ANSWER_TYPE;
+}
+
 // Firestore-collections
 export const COL = {
   USERS: 'users',
   MATCHES: 'matches',
   BETS: 'bets',
+  STAGES: 'stages', // Tour de France-etaper
+  STAGE_BETS: 'stageBets', // hold-tip pr. etape (uid_stageId)
+  TEAMS: 'teams', // cykelhold (selv-udfyldende fra resultater)
+  RIDERS: 'riders', // ryttere (valgfrit, til rytter-/holdside)
   BONUS_QUESTIONS: 'bonusQuestions',
   BONUS_BETS: 'bonusBets',
   LEAGUES: 'leagues',
   LEAGUE_COMMENTS: 'leagueComments', // beskeder på en ligas væg
   MESSAGES: 'messages', // private 1:1-beskeder mellem brugere
-  TIP_PARTICIPATION: 'tipParticipation', // hvem har tippet pr. kamp (uden at afsløre tips)
+  TIP_PARTICIPATION: 'tipParticipation', // hvem har tippet pr. etape (uden at afsløre tips)
   LEAGUE_ACTIVITY: 'leagueActivity', // aktivitets-feed pr. liga
   LEAGUE_BONUS: 'leagueBonus', // individuelle bonus-spørgsmål pr. liga
   LEAGUE_BONUS_ANSWERS: 'leagueBonusAnswers', // svar på liga-bonusspørgsmål

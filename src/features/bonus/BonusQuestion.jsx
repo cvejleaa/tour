@@ -1,15 +1,117 @@
 // ---------------------------------------------------------------------------
 // BonusQuestion – ét bonusspørgsmål med svar-input, låst-tilstand og facit.
+// Generisk: fritekst-svar, eller valg af cykelhold hvis spørgsmålet har options.
 // ---------------------------------------------------------------------------
 import { useState, useEffect } from 'react';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { COL, BONUS_TYPE } from '../../lib/constants';
-import { POINTS } from '../../lib/scoring';
-import { teamName } from '../../lib/teams';
-import Flag from '../../components/Flag';
-import { isBonusLocked, formatDeadline } from './bonusHelpers';
+import { COL } from '../../lib/constants';
+import { TOUR_TEAMS, prettyTeam } from '../../data/tourTeams2026';
+import { isBonusLocked, formatDeadline, bonusAnswerType, formatBonusAnswer, isBonusAnswerEmpty } from './bonusHelpers';
 import BonusAnswers from './BonusAnswers';
+
+/**
+ * Type-passende svar-input for spilleren.
+ * - team / legacy-options → enkelt-dropdown (data-testid bonus-select)
+ * - teams → checkbox-liste (data-testid bonus-teams)
+ * - boolean → Ja/Nej-dropdown (data-testid bonus-select)
+ * - number/time/text → tekst-/tal-input (data-testid bonus-input)
+ */
+function AnswerInput({ type, legacyOptions, value, onChange, disabled }) {
+  // Legacy: eksplicitte options → dropdown over dem.
+  if (legacyOptions) {
+    return (
+      <select
+        className="select"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        data-testid="bonus-select"
+        style={{ maxWidth: 300 }}
+      >
+        <option value="">– Vælg hold –</option>
+        {legacyOptions.map((opt) => (
+          <option key={opt} value={opt}>{prettyTeam(opt)}</option>
+        ))}
+      </select>
+    );
+  }
+
+  if (type === 'team') {
+    return (
+      <select
+        className="select"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        data-testid="bonus-select"
+        style={{ maxWidth: 300 }}
+      >
+        <option value="">– Vælg hold –</option>
+        {TOUR_TEAMS.map((t) => (
+          <option key={t} value={t}>{prettyTeam(t)}</option>
+        ))}
+      </select>
+    );
+  }
+
+  if (type === 'teams') {
+    const selected = Array.isArray(value) ? value : [];
+    const toggle = (t) => {
+      const next = selected.includes(t) ? selected.filter((x) => x !== t) : [...selected, t];
+      onChange(next);
+    };
+    return (
+      <div
+        data-testid="bonus-teams"
+        style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', maxWidth: 300, maxHeight: 200, overflowY: 'auto' }}
+      >
+        {TOUR_TEAMS.map((t) => (
+          <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem' }}>
+            <input
+              type="checkbox"
+              checked={selected.includes(t)}
+              onChange={() => toggle(t)}
+              disabled={disabled}
+            />
+            {prettyTeam(t)}
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  if (type === 'boolean') {
+    return (
+      <select
+        className="select"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        data-testid="bonus-select"
+        style={{ maxWidth: 300 }}
+      >
+        <option value="">– Vælg –</option>
+        <option value="ja">Ja</option>
+        <option value="nej">Nej</option>
+      </select>
+    );
+  }
+
+  // number / time / text
+  return (
+    <input
+      type={type === 'number' ? 'number' : 'text'}
+      className="input"
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      placeholder={type === 'time' ? 'fx 1:23' : 'Dit svar...'}
+      data-testid="bonus-input"
+      style={{ maxWidth: 300 }}
+    />
+  );
+}
 
 /**
  * @param {{
@@ -23,28 +125,40 @@ import BonusAnswers from './BonusAnswers';
  */
 export default function BonusQuestion({ question, uid, existingBet, isAdmin = false, usersByUid = {}, visibleUids = null }) {
   const locked = isBonusLocked(question.deadline);
-  const [answer, setAnswer] = useState(existingBet?.answer ?? '');
+  const type = bonusAnswerType(question);
+
+  // Hvis spørgsmålet har eksplicitte options (legacy), vis dropdown med dem.
+  const options = question.options ?? null;
+  const isLegacySelect = !!(options && options.length > 0);
+
+  // Tom startværdi: array for 'teams', ellers tom streng.
+  const emptyAnswer = type === 'teams' ? [] : '';
+  const [answer, setAnswer] = useState(existingBet?.answer ?? emptyAnswer);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
   // Synkroniser eksternt svar (fx ved load)
   useEffect(() => {
-    setAnswer(existingBet?.answer ?? '');
-  }, [existingBet?.answer]);
+    setAnswer(existingBet?.answer ?? (type === 'teams' ? [] : ''));
+  }, [existingBet?.answer, type]);
+
+  const answerEmpty = isBonusAnswerEmpty(answer);
 
   async function handleSave() {
-    if (!answer.trim() || locked) return;
+    if (answerEmpty || locked) return;
     setSaving(true);
     setError('');
     try {
       const betId = `${uid}_${question.id}`;
+      // Gem svaret i naturlig form: array for 'teams', trimmet streng ellers.
+      const value = Array.isArray(answer) ? answer : String(answer).trim();
       await setDoc(
         doc(db, COL.BONUS_BETS, betId),
         {
           uid,
           questionId: question.id,
-          answer: answer.trim(),
+          answer: value,
           updatedAt: serverTimestamp(),
         },
         { merge: true },
@@ -59,14 +173,13 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
     }
   }
 
-  // Udled hvilke options der er tilgængelige
-  const options = question.options ?? null;
-  const isSelect = options && options.length > 0;
-  const isGroupWinner = question.type === BONUS_TYPE.GROUP_WINNER;
+  const setAnswerAndReset = (v) => { setAnswer(v); setSaved(false); };
+  const questionText = question.text ?? question.label ?? '';
+  const questionPoints = Number(question.points) || 0;
 
-  // Afgør status-badge
-  const isAnswered = !!existingBet?.answer;
-  const isFinished = !!question.facit;
+  // Afgør status
+  const isAnswered = existingBet?.answer != null && !isBonusAnswerEmpty(existingBet.answer);
+  const isFinished = Array.isArray(question.facit) ? question.facit.length > 0 : !!question.facit;
   const earnedPoints = existingBet?.points ?? null;
 
   return (
@@ -77,14 +190,8 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
     >
       {/* Spørgsmålstekst */}
       <div style={{ marginBottom: '0.6rem' }}>
-        <span
-          className="badge badge--blue"
-          style={{ marginBottom: '0.4rem', display: 'inline-block' }}
-        >
-          {question.type === BONUS_TYPE.TOP_SCORER ? '⚽ Topscorer' : '🏆 Gruppevinder'}
-        </span>
         <p style={{ margin: 0, fontWeight: 600, fontSize: '1rem' }}>
-          {question.label}
+          {questionText}
         </p>
         <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
           Deadline: {formatDeadline(question.deadline)}
@@ -119,8 +226,7 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
           }}
         >
           <strong>Facit:</strong>{' '}
-          {isGroupWinner && <Flag code={question.facit} size={18} style={{ marginRight: 4 }} />}
-          {isGroupWinner ? teamName(question.facit) : question.facit}
+          {isLegacySelect ? prettyTeam(question.facit) : formatBonusAnswer(question.facit, type)}
           {earnedPoints !== null && (
             <span
               className={`badge ${earnedPoints > 0 ? 'badge--green' : 'badge--muted'}`}
@@ -134,38 +240,19 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
 
       {/* Svar-felt */}
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        {isSelect ? (
-          <select
-            className="select"
-            value={answer}
-            onChange={(e) => { setAnswer(e.target.value); setSaved(false); }}
-            disabled={locked}
-            data-testid="bonus-select"
-            style={{ maxWidth: 300 }}
-          >
-            <option value="">– Vælg hold –</option>
-            {options.map((opt) => (
-              <option key={opt} value={opt}>{teamName(opt)}</option>
-            ))}
-          </select>
-        ) : (
-          <input
-            type="text"
-            className="input"
-            value={answer}
-            onChange={(e) => { setAnswer(e.target.value); setSaved(false); }}
-            disabled={locked}
-            placeholder="Dit svar..."
-            data-testid="bonus-input"
-            style={{ maxWidth: 300 }}
-          />
-        )}
+        <AnswerInput
+          type={type}
+          legacyOptions={isLegacySelect ? options : null}
+          value={answer}
+          onChange={setAnswerAndReset}
+          disabled={locked}
+        />
 
         {!locked && (
           <button
             className="btn"
             onClick={handleSave}
-            disabled={saving || !answer.trim()}
+            disabled={saving || answerEmpty}
             data-testid="bonus-save"
             style={{ whiteSpace: 'nowrap' }}
           >
@@ -186,34 +273,24 @@ export default function BonusQuestion({ question, uid, existingBet, isAdmin = fa
         </p>
       )}
 
-      {/* Hjælpetekst for topscorer (fri tekst) */}
-      {!locked && !isSelect && question.type === BONUS_TYPE.TOP_SCORER && (
-        <p style={{ margin: '0.4rem 0 0', fontSize: '0.78rem', color: 'var(--c-muted)' }}>
-          Skriv spillerens navn — gerne efternavn, fx <em>Mbappé</em>, <em>Haaland</em> eller
-          <em> Messi</em>. Store/små bogstaver, accenter og små stavefejl er ligegyldige —
-          og admin kan godkende din stavemåde manuelt.
-        </p>
-      )}
-
       {/* Vis brugerens eget svar */}
       {isAnswered && (
         <p style={{ margin: '0.4rem 0 0', fontSize: '0.83rem', color: 'var(--c-muted)' }}>
           Dit svar:{' '}
-          {isGroupWinner && <Flag code={existingBet.answer} size={16} style={{ marginRight: 3 }} />}
           <strong style={{ color: 'var(--c-text)' }}>
-            {isGroupWinner ? teamName(existingBet.answer) : existingBet.answer}
+            {isLegacySelect ? prettyTeam(existingBet.answer) : formatBonusAnswer(existingBet.answer, type)}
           </strong>
         </p>
       )}
 
       {/* Mulige point-info */}
-      {!locked && !isFinished && (
+      {!locked && !isFinished && questionPoints > 0 && (
         <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: 'var(--c-muted)' }}>
-          Korrekt svar giver {POINTS.BONUS} point. Låses ved deadline (den første relevante kamps start).
+          Korrekt svar giver {questionPoints} point. Låses ved deadline.
         </p>
       )}
 
-      {/* Alle svar — efter låsning for alle, altid for admin (som med kamp-tips) */}
+      {/* Alle svar — efter låsning for alle, altid for admin */}
       {(locked || isAdmin) && (
         <BonusAnswers
           question={question}

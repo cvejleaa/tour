@@ -1,15 +1,17 @@
-// Kort, sammenfoldelig oversigt over pointreglerne. Værdier kommer fra
-// den centrale pointlogik, så de altid matcher den faktiske beregning.
+// Kort, sammenfoldelig oversigt over pointreglerne for hold-spillet. Værdier
+// kommer fra den centrale pointlogik (tourScoring), så de altid matcher den
+// faktiske beregning.
 import { POINTS } from '../lib/scoring';
-
-const ROWS = [
-  { pts: POINTS.EXACT, label: 'Helt korrekt score', ex: 'fx du tipper 2–1, og det ender 2–1' },
-  { pts: POINTS.GOAL_DIFF, label: 'Korrekt målforskel + vinder', ex: 'fx du tipper 2–1, det ender 3–2' },
-  { pts: POINTS.OUTCOME, label: 'Korrekt vinder/uafgjort', ex: 'fx du tipper 2–1, det ender 4–0' },
-  { pts: POINTS.WRONG, label: 'Forkert udfald', ex: 'fx du tipper hjemmesejr, men holdet taber' },
-];
+import { useTourSettings } from '../features/stages/useTourSettings';
 
 export default function PointRules() {
+  const { points } = useTourSettings();
+  const ROWS = [
+    { pts: points.winnerTeam, label: 'Etapevinderens hold', ex: 'ram holdet som etapevinderen kører for' },
+    { pts: points.gcTeam, label: 'Bedste hold blandt de første ryttere', ex: 'holdet med samlet bedste resultat på de forreste ryttere' },
+    { pts: points.mountainTeam, label: 'Flest bjergpoint', ex: 'holdet der tager flest bjergpoint på etapen' },
+    { pts: points.sprintTeam, label: 'Flest sprintpoint', ex: 'holdet der tager flest sprintpoint på etapen' },
+  ];
   return (
     <details className="card" style={{ marginBottom: '1rem' }}>
       <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -18,13 +20,24 @@ export default function PointRules() {
       </summary>
 
       <div style={{ marginTop: '0.85rem' }}>
+        <p style={{ margin: '0 0 0.6rem', color: 'var(--c-text)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+          På hver etape tipper du <strong>cykelhold</strong> på fire spørgsmål. Du
+          får <strong>podie-point</strong> efter hvor dit hold placerer sig — point
+          for både 1.-, 2.- og 3.-pladsen (tallene nedenfor):
+        </p>
         <table className="table" style={{ fontSize: '0.88rem' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', fontSize: '0.78rem', color: 'var(--c-muted)' }}>1. / 2. / 3.</th>
+              <th style={{ textAlign: 'left' }}></th>
+            </tr>
+          </thead>
           <tbody>
             {ROWS.map((r) => (
               <tr key={r.label}>
-                <td style={{ width: '3.2rem' }}>
-                  <span className="badge badge--green" style={{ fontWeight: 800, fontSize: '0.9rem' }}>
-                    {r.pts} p
+                <td style={{ width: '4.6rem' }}>
+                  <span className="badge badge--green" style={{ fontWeight: 800, fontSize: '0.85rem' }}>
+                    {(Array.isArray(r.pts) ? r.pts : [r.pts]).join(' / ')} p
                   </span>
                 </td>
                 <td>
@@ -38,14 +51,13 @@ export default function PointRules() {
 
         <ul style={{ margin: '0.6rem 0 0', paddingLeft: '1.1rem', color: 'var(--c-text)', fontSize: '0.85rem', lineHeight: 1.7 }}>
           <li>
-            <strong>Slutspil:</strong> ud over scoren får du <strong>+{POINTS.KNOCKOUT_ADVANCE} point</strong> for
-            at ramme, hvilket hold der går videre (gælder forlænget tid/straffe).
+            <strong>Bonus:</strong> <strong>{POINTS.BONUS} point</strong> for hvert korrekt bonus-svar (sæson- og klassements-spørgsmål).
           </li>
           <li>
-            <strong>Bonus:</strong> <strong>{POINTS.BONUS} point</strong> for hvert korrekt bonus-svar (topscorer og gruppevindere).
+            <strong>Utippet etape:</strong> lader du en etape stå helt utippet, trækkes der <strong>−{points.untippedPenalty} point</strong> fra, når etapen er afgjort.
           </li>
           <li>
-            <strong>Deadline:</strong> hvert tip låses ved kampens kickoff – du kan ikke ændre det bagefter.
+            <strong>Deadline:</strong> hvert tip låses ved etapens start – du kan ikke ændre det bagefter.
           </li>
         </ul>
       </div>

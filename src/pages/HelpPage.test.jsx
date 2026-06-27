@@ -7,7 +7,7 @@ describe('HelpPage', () => {
   it('viser de centrale hjælpe-afsnit', () => {
     render(<MemoryRouter><HelpPage /></MemoryRouter>);
     expect(screen.getByRole('heading', { level: 1, name: /Sådan virker det/ })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Tip kampene/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Tip etaperne/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Bonusspørgsmål/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Mini-ligaer/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Mine opgaver/ })).toBeInTheDocument();

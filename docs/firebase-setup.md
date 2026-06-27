@@ -1,7 +1,7 @@
 # Firebase-opsætning & deploy
 
 Trin-for-trin guide til at oprette Firebase-projektet fra bunden og koble det
-til frontenden på `vm.vejleaa.dk`. Du behøver ikke kunne kode for at følge den.
+til frontenden på `tour.vejleaa.dk`. Du behøver ikke kunne kode for at følge den.
 
 ---
 
@@ -27,7 +27,7 @@ til frontenden på `vm.vejleaa.dk`. Du behøver ikke kunne kode for at følge de
 1. I venstremenuen: **Build → Authentication → Kom i gang**.
 2. Fanen **Sign-in method** → aktivér **Email/adgangskode**. (Lad
    "email link" være slået fra.)
-3. Under **Settings → Authorized domains**: tilføj `vm.vejleaa.dk`
+3. Under **Settings → Authorized domains**: tilføj `tour.vejleaa.dk`
    (og behold `localhost`).
 
 ### 2b. Selvbetjent godkendelse via invitationskode
@@ -178,7 +178,7 @@ FIRESTORE_EMULATOR_HOST=localhost:8080 npm run seed
 
 ---
 
-## 9. Byg og hostér frontenden på vm.vejleaa.dk
+## 9. Byg og hostér frontenden på tour.vejleaa.dk
 Du har to muligheder:
 
 ### A) Firebase Hosting (nemmest, gratis SSL, custom domæne)
@@ -188,11 +188,11 @@ npm run build
 firebase deploy --only hosting
 ```
 
-**Kobl `vm.vejleaa.dk` på (trin for trin):**
+**Kobl `tour.vejleaa.dk` på (trin for trin):**
 1. Firebase Console → **Hosting** → knappen **"Tilføj brugerdefineret domæne"**.
-2. Skriv `vm.vejleaa.dk` → **Fortsæt**.
+2. Skriv `tour.vejleaa.dk` → **Fortsæt**.
 3. **Bekræft ejerskab:** Firebase viser én **TXT**-record (navn `vm` eller
-   `vm.vejleaa.dk`, en lang værdi). Opret den hos din udbyder af `vejleaa.dk`
+   `tour.vejleaa.dk`, en lang værdi). Opret den hos din udbyder af `vejleaa.dk`
    (se nedenfor), vent et par minutter, og tryk **Bekræft**.
 4. **Peg domænet:** Firebase viser nu typisk **to A-records** (to IP-adresser).
    Opret begge med host/navn `vm`. *(Brug præcis de værdier Firebase viser —
@@ -213,7 +213,7 @@ fx Simply.com, one.com, GratisDNS, UnoEuro, Cloudflare):
 
 - Gem. DNS kan tage op til et par timer at slå igennem (TTL).
 - Når Firebase viser domænet som **"Forbundet"**, virker
-  <https://vm.vejleaa.dk>. ✅
+  <https://tour.vejleaa.dk>. ✅
 
 > Har du allerede en anden A-/CNAME-record på `vm` (fx en tidligere side),
 > skal den **fjernes/erstattes**, ellers peger domænet stadig det gamle sted.
@@ -221,7 +221,7 @@ fx Simply.com, one.com, GratisDNS, UnoEuro, Cloudflare):
 > (grå sky), mens Firebase udsteder certifikatet.
 
 ### B) Din egen webserver
-Kør `npm run build` og upload indholdet af `dist/` til den mappe `vm.vejleaa.dk`
+Kør `npm run build` og upload indholdet af `dist/` til den mappe `tour.vejleaa.dk`
 peger på. Vigtigt: konfigurér serveren til at sende alle ukendte stier til
 `index.html` (SPA-fallback), ellers virker direkte links/refresh ikke.
 

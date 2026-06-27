@@ -1,7 +1,7 @@
 /**
  * Hook: useTipParticipation
  * Abonnerer (live) på tipParticipation-collectionen og returnerer et opslag
- * matchId → Set(uids), så man kan se hvem der har tippet på hver kamp.
+ * stageId → Set(uids), så man kan se hvem der har tippet på hver etape.
  * (Afslører IKKE selve tippene — kun hvem der har afgivet et.)
  */
 import { useEffect, useMemo, useState } from 'react';
@@ -41,8 +41,8 @@ export function useTipParticipation() {
 }
 
 /**
- * Beregn tip-status for en kamp inden for en liga.
- * @param {Set<string>|undefined} tippedSet  – uids der har tippet på kampen
+ * Beregn tip-status for en etape inden for en liga.
+ * @param {Set<string>|undefined} tippedSet  – uids der har tippet på etapen
  * @param {Array<{uid:string, displayName?:string}>} members – ligaens medlemmer
  * @returns {{ tipped: number, total: number, missing: Array<object> }}
  */

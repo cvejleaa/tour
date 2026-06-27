@@ -13,7 +13,7 @@ describe('OnboardingChecklist', () => {
   it('viser velkomst og de fire trin', () => {
     renderIt();
     expect(screen.getByText(/Velkommen/)).toBeInTheDocument();
-    expect(screen.getByText(/Tip kampene/)).toBeInTheDocument();
+    expect(screen.getByText(/Tip etaperne/)).toBeInTheDocument();
     expect(screen.getByText(/Svar på bonus/)).toBeInTheDocument();
     expect(screen.getByText(/Opret eller join en liga/)).toBeInTheDocument();
   });
@@ -22,11 +22,11 @@ describe('OnboardingChecklist', () => {
     renderIt('u1');
     fireEvent.click(screen.getByText(/Forstået, skjul/));
     expect(screen.queryByText(/Velkommen/)).not.toBeInTheDocument();
-    expect(localStorage.getItem('vm:onboarded:u1')).toBe('1');
+    expect(localStorage.getItem('tour:onboarded:u1')).toBe('1');
   });
 
   it('viser ikke noget hvis allerede skjult', () => {
-    localStorage.setItem('vm:onboarded:u2', '1');
+    localStorage.setItem('tour:onboarded:u2', '1');
     renderIt('u2');
     expect(screen.queryByText(/Velkommen/)).not.toBeInTheDocument();
   });

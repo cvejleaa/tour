@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ROLES, USER_STATUS } from '../../lib/constants';
 import { setUserStatus, setGlobalAdminRole, sendAdminPasswordReset } from './adminActions';
 import Avatar from '../../components/Avatar';
-import { teamName } from '../../lib/teams';
+import { prettyTeam } from '../../data/tourTeams2026';
 
 // Oversæt status til dansk
 const statusLabel = {
@@ -138,7 +138,7 @@ export default function UserRow({ user, currentUserIsOwner, currentUserCanApprov
             </span>
           </div>
           <div style={{ marginTop: 2, fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-            Yndlingshold: {user.favoriteTeam ? teamName(user.favoriteTeam) : '–'}
+            Yndlingshold: {user.favoriteTeam ? prettyTeam(user.favoriteTeam) : '–'}
             {' · '}
             Avatar: {user.avatarEmoji || '–'}
             {' · '}
@@ -210,7 +210,7 @@ export default function UserRow({ user, currentUserIsOwner, currentUserCanApprov
               style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
               disabled={busy}
               onClick={handlePasswordReset}
-              title="Send et nulstillingslink via vm@vejleaa.dk (omgår Firebase-mailen)"
+              title="Send et nulstillingslink via tour@vejleaa.dk (omgår Firebase-mailen)"
             >
               🔑 Nulstil kodeord
             </button>

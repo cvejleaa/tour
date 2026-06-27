@@ -1,4 +1,4 @@
-// Engangs-værktøj (kun ejer): genskriv VM-Bottens gamle opslag med den korrekte
+// Engangs-værktøj (kun ejer): genskriv Tour-Bottens gamle opslag med den korrekte
 // logik og stillingen, som den var dengang. Kun teksten ændres — tidspunkterne
 // (createdAt) røres ikke. Kører i små bidder (timer ikke ud), kan genoptages og
 // nulstilles. Tør-kør viser eksempler uden at gemme.
@@ -69,7 +69,7 @@ export default function RecapBackfillPanel() {
 
   return (
     <div className="card" style={{ marginTop: '1rem', borderColor: 'var(--c-border)' }}>
-      <h3 style={{ margin: '0 0 0.25rem', fontSize: '1rem' }}>🤖 Genskriv VM-Bottens gamle opslag</h3>
+      <h3 style={{ margin: '0 0 0.25rem', fontSize: '1rem' }}>🤖 Genskriv Tour-Bottens gamle opslag</h3>
       <p style={{ margin: '0 0 0.6rem', fontSize: '0.82rem', color: 'var(--c-muted)' }}>
         Genskriver teksten på alle bottens opslag (alle ligaer) med stillingen, som den var, da opslaget blev lavet.
         Kun teksten ændres — tidspunkterne røres ikke. Kører i små bidder, så det ikke timer ud; allerede genskrevne

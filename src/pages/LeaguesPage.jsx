@@ -294,15 +294,6 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
                   {c.label}
                 </label>
               ))}
-              <label style={{ display: 'inline-flex', gap: '0.3rem', alignItems: 'center', fontSize: '0.85rem' }}>
-                <input
-                  type="checkbox"
-                  checked={!!scoring.doubleKnockout}
-                  disabled={savingFormat || !scoring.knockout}
-                  onChange={(e) => handleScoringToggle({ ...scoring, doubleKnockout: e.target.checked })}
-                />
-                Slutspil tæller dobbelt
-              </label>
             </div>
           </div>
         )}
@@ -312,7 +303,7 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
           <div style={{ marginTop: '0.6rem' }}>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
               <input type="checkbox" checked={aiRecapsOn} onChange={handleToggleAiRecaps} />
-              🤖 AI-morgenopslag kl. 07:00 (VM-Botten)
+              🤖 AI-morgenopslag kl. 07:00 (Tour-Botten)
             </label>
             {aiRecapsOn && (
               <button
@@ -391,7 +382,7 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
         usersByUid={usersByUid}
       />
 
-      {/* Hvem har tippet på de kommende kampe */}
+      {/* Hvem har tippet på de kommende etaper */}
       <div className="card mt-2">
         <h3 className="card__title mb-2">✅ Hvem har tippet?</h3>
         <LeagueTipCounter members={members} />
@@ -525,15 +516,6 @@ function CreateLeagueForm({ uid, meName, onCreated }) {
               {c.label}
             </label>
           ))}
-          <label style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center', fontSize: '0.88rem' }}>
-            <input
-              type="checkbox"
-              checked={!!scoring.doubleKnockout}
-              disabled={!scoring.knockout}
-              onChange={(e) => setScoring((s) => ({ ...s, doubleKnockout: e.target.checked }))}
-            />
-            Slutspil tæller dobbelt
-          </label>
         </div>
       </div>
       {error && <p className="form-error mt-1">{error}</p>}
@@ -652,7 +634,7 @@ export default function LeaguesPage() {
         <div className="spinner" role="status" aria-label="Indlæser" />
       ) : leagues.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state__icon">🏟️</div>
+          <div className="empty-state__icon">🚴</div>
           <div className="empty-state__title">Du er ikke med i nogen liga endnu</div>
           <p style={{ color: 'var(--c-muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
             Opret en liga eller tilmeld dig med en kode nedenfor.

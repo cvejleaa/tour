@@ -4,7 +4,7 @@
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { TEAMS } from '../../lib/teams';
+import { TOUR_TEAMS } from '../../data/tourTeams2026';
 
 /**
  * Opdater den indloggede brugers profil-felter (ikke beskyttede felter).
@@ -22,7 +22,7 @@ export async function updateProfile(uid, fields) {
   }
   if ('favoriteTeam' in fields) {
     const t = fields.favoriteTeam;
-    if (t && !TEAMS[t]) throw new Error('Ukendt hold.');
+    if (t && !TOUR_TEAMS.includes(t)) throw new Error('Ukendt hold.');
     patch.favoriteTeam = t || null;
   }
   if ('emailOptOut' in fields) {

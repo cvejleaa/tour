@@ -137,6 +137,56 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
+    // Tour de France — stages / teams / stageBets
+    // -----------------------------------------------------------------------
+
+    // stages/{stageId} — etaper (svarer til matches). kickoff = etapestart (lås).
+    match /stages/{stageId} {
+      allow read: if isApproved();
+      allow create, update: if isGlobalAdmin();
+      allow delete: if false;
+    }
+
+    // teams/{teamKey} — cykelhold. Udfyldes typisk server-side (Admin SDK
+    // omgår reglerne); admin kan redigere/rette navne fra klienten.
+    match /teams/{teamKey} {
+      allow read: if isApproved();
+      allow create, update: if isGlobalAdmin();
+      allow delete: if false;
+    }
+
+    // stageBets/{betId}  (betId = uid_stageId) — hold-tip pr. etape
+    match /stageBets/{betId} {
+      // Egne tips kan altid læses. Andres først EFTER etapestart (kickoff),
+      // så man ikke kan snyde før låsning. Admin kan altid læse.
+      allow read: if isGlobalAdmin()
+        || (isSignedIn() && request.auth.uid == resource.data.uid)
+        || (isApproved()
+            && request.time >= get(/databases/$(database)/documents/stages/$(resource.data.stageId)).data.kickoff);
+
+      // Opret tip: kun eget, points-felt må ikke sættes, og kun FØR etapestart
+      allow create: if isSignedIn()
+        && request.auth.uid == request.resource.data.uid
+        && !request.resource.data.keys().hasAny(['points'])
+        && request.time < get(/databases/$(database)/documents/stages/$(request.resource.data.stageId)).data.kickoff;
+
+      // Opdater tip: kun eget, points må ikke ændres, og kun FØR etapestart
+      allow update: if isSignedIn()
+        && request.auth.uid == resource.data.uid
+        && !writingPointsField()
+        && request.time < get(/databases/$(database)/documents/stages/$(resource.data.stageId)).data.kickoff;
+
+      // Reaktioner: enhver godkendt bruger må ændre KUN 'reactions', og kun
+      // EFTER etapestart (hvor andres tips alligevel er synlige).
+      allow update: if isApproved()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+        && request.time >= get(/databases/$(database)/documents/stages/$(resource.data.stageId)).data.kickoff;
+
+      // Ingen sletter tips fra klienten
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------------------
     // bonusQuestions/{questionId}
     // -----------------------------------------------------------------------
     match /bonusQuestions/{questionId} {
@@ -145,7 +195,8 @@ service cloud.firestore {
 
       // Kun globalAdmin/owner kan oprette og opdatere (inkl. sætte facit)
       allow create, update: if isGlobalAdmin();
-      allow delete: if false;
+      // Kun globalAdmin/owner kan slette bonusspørgsmål
+      allow delete: if isGlobalAdmin();
     }
 
     // -----------------------------------------------------------------------

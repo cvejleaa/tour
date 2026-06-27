@@ -31,3 +31,9 @@ test-results/
 .idea/
 .vscode/
 *.log
+
+# Python (proxy)
+__pycache__/
+*.py[cod]
+proxy/data/
+.venv/

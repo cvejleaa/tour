@@ -1,74 +1,63 @@
 // ---------------------------------------------------------------------------
-// MyBetsPage – overblik over brugerens egne tips.
-// Viser alle tippede kampe, status, optjente point og samlet sum.
+// MyBetsPage – overblik over brugerens egne etape-tip.
+// Viser alle tippede etaper, status, optjente point og samlet sum.
 // Giver mulighed for at hoppe til redigering af ulåste tips.
 // ---------------------------------------------------------------------------
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useMatches } from '../features/matches/useMatches';
-import { useMyBets } from '../features/matches/useMyBets';
-import {
-  isMatchLocked,
-  formatKickoffTime,
-  dayKey,
-  roundLabel,
-} from '../features/matches/matchHelpers';
-import { teamName } from '../lib/teams';
-import Flag from '../components/Flag';
-import { scoreMatch, scoreKnockout } from '../lib/scoring';
-import { MATCH_STATUS, ROUNDS } from '../lib/constants';
+import { useStages } from '../features/stages/useStages';
+import { useMyStageBets } from '../features/stages/useMyStageBets';
+import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { stageStatus } from '../lib/tourStages';
+import { scoreStageBet, STAGE_FIELDS } from '../lib/tourScoring';
+import { prettyTeam } from '../data/tourTeams2026';
 
-/** Hjælper: returnerer statuslabel og badge-farve for et bet. */
-function betStatus(match, bet) {
-  if (!bet) return { label: 'Ikke tippet', cls: 'badge--muted' };
-  if (match.status === MATCH_STATUS.FINISHED)
-    return { label: 'Afgjort', cls: 'badge--green' };
-  if (isMatchLocked(match.kickoff))
-    return { label: 'Låst', cls: 'badge--red' };
+/** Hjælper: statuslabel og badge-farve for et etape-tip. */
+function betStatus(status) {
+  if (status === 'done') return { label: 'Afgjort', cls: 'badge--green' };
+  if (status === 'locked') return { label: 'Låst', cls: 'badge--red' };
   return { label: 'Afventer', cls: 'badge--blue' };
 }
 
 export default function MyBetsPage() {
   const { user } = useAuth();
-  const { matches, loading: matchesLoading } = useMatches();
-  const { bets, loading: betsLoading } = useMyBets(user?.uid ?? null);
+  const season = useActiveSeason();
+  const { stages, loading: stagesLoading } = useStages(season);
+  const { betsByStage, loading: betsLoading } = useMyStageBets(user?.uid ?? null, season);
 
-  const isLoading = matchesLoading || betsLoading;
+  const isLoading = stagesLoading || betsLoading;
 
-  // Filtrér til kun kampe brugeren har tippet
-  const tippedMatches = useMemo(
-    () => matches.filter((m) => bets.has(m.id)),
-    [matches, bets],
+  // Filtrér til kun etaper brugeren har tippet (mindst ét holdvalg)
+  const tippedStages = useMemo(
+    () => stages.filter((s) => STAGE_FIELDS.some(({ key }) => betsByStage[s.id]?.[key])),
+    [stages, betsByStage],
   );
 
-  // Beregn point for afgjorte kampe
-  const pointsPerMatch = useMemo(() => {
+  // Beregn point for afgjorte etaper
+  const pointsPerStage = useMemo(() => {
     const map = new Map();
-    for (const m of tippedMatches) {
-      if (m.status !== MATCH_STATUS.FINISHED || !m.result) {
-        map.set(m.id, null);
+    for (const s of tippedStages) {
+      if (stageStatus(s, Date.now()) !== 'done' || !s.result) {
+        map.set(s.id, null);
         continue;
       }
-      const bet = bets.get(m.id);
-      const isKnockout = m.round !== ROUNDS.GROUP;
-      const pts = isKnockout ? scoreKnockout(bet, m.result) : scoreMatch(bet, m.result);
-      map.set(m.id, pts);
+      map.set(s.id, scoreStageBet(betsByStage[s.id], s.result).points);
     }
     return map;
-  }, [tippedMatches, bets]);
+  }, [tippedStages, betsByStage]);
 
   // Samlet sum af kendte point
   const totalPoints = useMemo(() => {
     let sum = 0;
-    pointsPerMatch.forEach((pts) => {
+    pointsPerStage.forEach((pts) => {
       if (pts !== null) sum += pts;
     });
     return sum;
-  }, [pointsPerMatch]);
+  }, [pointsPerStage]);
 
-  // Antal ulåste kampe der kan redigeres
-  const editableCount = tippedMatches.filter((m) => !isMatchLocked(m.kickoff)).length;
+  // Antal ulåste etaper der kan redigeres
+  const editableCount = tippedStages.filter((s) => stageStatus(s, Date.now()) === 'scheduled').length;
 
   if (isLoading) {
     return (
@@ -84,7 +73,7 @@ export default function MyBetsPage() {
       <div style={{ marginBottom: '1rem' }}>
         <h1 style={{ margin: '0 0 0.25rem', fontSize: '1.4rem' }}>📋 Mine tips</h1>
         <p style={{ margin: 0, color: 'var(--c-muted)', fontSize: '0.88rem' }}>
-          Dine afgivne tips og optjente point.
+          Dine afgivne etape-tip og optjente point.
         </p>
       </div>
 
@@ -112,10 +101,10 @@ export default function MyBetsPage() {
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--c-text)' }}>
-            {tippedMatches.length}
+            {tippedStages.length}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--c-muted)', fontWeight: 600 }}>
-            Tippede kampe
+            Tippede etaper
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>
@@ -127,129 +116,72 @@ export default function MyBetsPage() {
           </div>
         </div>
         <div style={{ marginLeft: 'auto' }}>
-          <Link to="/kampe" className="btn btn--ghost btn--sm">
-            ⚽ Til kampsiden
+          <Link to="/etaper" className="btn btn--ghost btn--sm">
+            🚴 Til etaperne
           </Link>
         </div>
       </div>
 
       {/* Tom tilstand */}
-      {tippedMatches.length === 0 && (
+      {tippedStages.length === 0 && (
         <div className="empty-state">
           <div className="empty-state__icon">🎯</div>
           <div className="empty-state__title">Ingen tips endnu</div>
-          <p>Gå til kampsiden for at afgive dine første tips.</p>
-          <Link to="/kampe" className="btn" style={{ marginTop: '0.75rem' }}>
-            Gå til kampe
+          <p>Gå til etapesiden for at afgive dine første tips.</p>
+          <Link to="/etaper" className="btn" style={{ marginTop: '0.75rem' }}>
+            Gå til etaper
           </Link>
         </div>
       )}
 
-      {/* Tippede kampe */}
-      {tippedMatches.length > 0 && (
+      {/* Tippede etaper */}
+      {tippedStages.length > 0 && (
         <div className="card card--flat" style={{ padding: 0, overflow: 'hidden' }}>
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Kamp</th>
-                  <th>Kickoff</th>
-                  <th>Dit tip</th>
-                  <th>Resultat</th>
+                  <th>Etape</th>
+                  <th>Etapevinder</th>
+                  <th>Bedste hold</th>
+                  <th>Bjerg</th>
+                  <th>Sprint</th>
                   <th>Point</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {tippedMatches.map((match) => {
-                  const bet = bets.get(match.id);
-                  const isKnockout = match.round !== ROUNDS.GROUP;
-                  const locked = isMatchLocked(match.kickoff);
-                  const pts = pointsPerMatch.get(match.id);
-                  const { label: statusLabel, cls: statusCls } = betStatus(match, bet);
-                  const homeName = match.homeTeam ? teamName(match.homeTeam) : (match.homePlaceholder ?? '?');
-                  const awayName = match.awayTeam ? teamName(match.awayTeam) : (match.awayPlaceholder ?? '?');
+                {tippedStages.map((stage) => {
+                  const bet = betsByStage[stage.id];
+                  const status = stageStatus(stage, Date.now());
+                  const locked = status !== 'scheduled';
+                  const pts = pointsPerStage.get(stage.id);
+                  const { label: statusLabel, cls: statusCls } = betStatus(status);
 
                   return (
-                    <tr key={match.id}>
-                      {/* Kamp */}
-                      <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600, fontSize: '0.9rem' }}>
-                          {match.homeTeam ? <Flag code={match.homeTeam} size={20} /> : '❓'} {homeName}
-                          {' '}vs{' '}
-                          {match.awayTeam ? <Flag code={match.awayTeam} size={20} /> : '❓'} {awayName}
-                        </span>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--c-muted)' }}>
-                          {roundLabel(match.round)}
-                          {match.groupName ? ` · Gruppe ${match.groupName}` : ''}
-                        </div>
-                      </td>
-
-                      {/* Kickoff */}
-                      <td>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--c-muted)' }}>
-                          {dayKey(match.kickoff)}
-                          <br />
-                          {formatKickoffTime(match.kickoff)}
-                        </span>
-                      </td>
-
-                      {/* Dit tip */}
-                      <td>
-                        {bet ? (
-                          <span style={{ fontWeight: 700 }}>
-                            {bet.home}–{bet.away}
-                            {isKnockout && bet.advance && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--c-muted)', fontWeight: 400 }}>
-                                Videre: {bet.advance}
-                              </div>
-                            )}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--c-muted)' }}>–</span>
-                        )}
-                      </td>
-
-                      {/* Resultat */}
-                      <td>
-                        {match.status === MATCH_STATUS.FINISHED && match.result ? (
-                          <span style={{ fontWeight: 700 }}>
-                            {match.result.home}–{match.result.away}
-                            {isKnockout && match.result.advance && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--c-muted)', fontWeight: 400 }}>
-                                Videre: {match.result.advance}
-                              </div>
-                            )}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--c-muted)' }}>–</span>
-                        )}
-                      </td>
-
-                      {/* Point */}
+                    <tr key={stage.id}>
+                      <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Etape {stage.number}</td>
+                      <td>{prettyTeam(bet?.winnerTeam) || '–'}</td>
+                      <td>{prettyTeam(bet?.gcTeam) || '–'}</td>
+                      <td>{prettyTeam(bet?.mountainTeam) || '–'}</td>
+                      <td>{prettyTeam(bet?.sprintTeam) || '–'}</td>
                       <td>
                         {pts !== null ? (
-                          <span
-                            className={`badge ${pts > 0 ? 'badge--green' : 'badge--muted'}`}
-                          >
-                            {pts > 0 ? `+${pts}` : '0'}
+                          <span className={`badge ${pts > 0 ? 'badge--green' : 'badge--muted'}`}>
+                            {pts > 0 ? `+${pts}` : String(pts)}
                           </span>
                         ) : (
                           <span style={{ color: 'var(--c-muted)' }}>–</span>
                         )}
                       </td>
-
-                      {/* Status */}
                       <td>
                         <span className={`badge ${statusCls}`}>{statusLabel}</span>
                       </td>
-
-                      {/* Rediger-link */}
                       <td>
                         {!locked && (
                           <Link
-                            to="/kampe"
+                            to="/etaper"
                             className="btn btn--ghost btn--sm"
                             title="Rediger tip"
                           >

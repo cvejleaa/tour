@@ -5,7 +5,6 @@ import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTasks } from '../context/TasksContext';
 import { usePendingApprovals } from '../features/admin/usePendingApprovals';
-import { useCompetition } from '../features/stats/useCompetition';
 import { useUnreadMessages } from '../features/comments/useUnreadMessages';
 import Avatar from './Avatar';
 
@@ -41,7 +40,6 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   // Antal ventende godkendelser (brugere + ligaer for alle globale admins)
   const { total: pendingCount } = usePendingApprovals({ enabled: isGlobalAdmin, includeUsers: isGlobalAdmin });
-  const competition = useCompetition();
   // Ulæste private beskeder (badge på Beskeder)
   const { total: unreadCount } = useUnreadMessages(isApproved ? user?.uid : null);
   // Samlede udestående opgaver (badge på Forside)
@@ -52,10 +50,7 @@ export default function Layout({ children }) {
       <header style={{ borderBottom: '1px solid var(--c-border)', background: 'var(--c-surface)' }}>
         <nav className="container" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-            {competition?.emblem
-              ? <img src={competition.emblem} alt={competition.name || 'Turnering'} title={competition.name || ''}
-                  height={34} style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
-              : <span aria-hidden>🚴</span>}
+            <span aria-hidden>🚴</span>
             <strong style={{ color: 'var(--c-pitch)' }}>Tour de France Tip</strong>
           </span>
           {user && isApproved && (
@@ -66,12 +61,11 @@ export default function Layout({ children }) {
                   <CountBadge count={taskCount} title={`${taskCount} udestående opgaver`} testid="tasks-count" />
                 </span>
               </NavLink>
-              <NavLink to="/kampe" style={linkStyle}>Kampe</NavLink>
+              <NavLink to="/etaper" style={linkStyle}>Etaper</NavLink>
+              <NavLink to="/hold" style={linkStyle}>Hold</NavLink>
               <NavLink to="/mine-tips" style={linkStyle}>Mine tips</NavLink>
               <NavLink to="/bonus" style={linkStyle}>Bonus</NavLink>
-              <NavLink to="/turnering" style={linkStyle}>Turnering</NavLink>
               <NavLink to="/stilling" style={linkStyle}>Stilling</NavLink>
-              <NavLink to="/statistik" style={linkStyle}>Statistik</NavLink>
               <NavLink to="/ligaer" style={linkStyle}>Ligaer</NavLink>
               <NavLink to="/hjaelp" style={linkStyle} title="Sådan virker det" aria-label="Hjælp">❓</NavLink>
               <NavLink to="/beskeder" style={linkStyle}>
@@ -93,8 +87,11 @@ export default function Layout({ children }) {
           {user && isApproved && (
             <NavLink to="/profil" style={linkStyle} title="Min profil"
               aria-label="Min profil">
-              <Avatar uid={user.uid} name={profile?.displayName} emoji={profile?.avatarEmoji}
-                favoriteTeam={profile?.favoriteTeam} size={26} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Avatar uid={user.uid} name={profile?.displayName} emoji={profile?.avatarEmoji}
+                  favoriteTeam={profile?.favoriteTeam} size={26} />
+                Min profil
+              </span>
             </NavLink>
           )}
           {user ? (
