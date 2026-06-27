@@ -14,6 +14,15 @@ vi.mock('firebase/firestore', () => ({
 
 vi.mock('firebase/functions', () => ({ httpsCallable: vi.fn(() => vi.fn()) }));
 
+// Mock kun de to ekspert-tip-handlinger; resten af adminActions er ægte.
+const mockCallGenerateStageTip = vi.fn(() => Promise.resolve({ ok: true, data: { results: [], errors: [] } }));
+const mockSaveStageTip = vi.fn(() => Promise.resolve());
+vi.mock('./adminActions', async (importOriginal) => ({
+  ...(await importOriginal()),
+  callGenerateStageTip: (...a) => mockCallGenerateStageTip(...a),
+  saveStageTip: (...a) => mockSaveStageTip(...a),
+}));
+
 vi.mock('../stages/useActiveSeason', () => ({ useActiveSeason: () => 2026 }));
 // Stabil reference (samme objekt hver render) — det rigtige hook holder
 // værdien i useState, så et nyt objekt pr. render ville give uendelig
@@ -28,7 +37,7 @@ vi.mock('../stages/useTourSettings', () => {
 
 const STAGES = [
   { id: '2026-stage-1', number: 1, type: 'ttt', startCity: 'A', finishCity: 'B' },
-  { id: '2026-stage-2', number: 2, type: 'flat', startCity: 'C', finishCity: 'D' },
+  { id: '2026-stage-2', number: 2, type: 'flat', startCity: 'C', finishCity: 'D', expertTip: 'Sprint-etape.' },
 ];
 vi.mock('../stages/useStages', () => ({
   useStages: () => ({ stages: STAGES, loading: false, error: null }),
@@ -67,5 +76,35 @@ describe('TourTab — Spørgsmål pr. etape', () => {
       questions: { winnerTeam: true, gcTeam: true, mountainTeam: true, sprintTeam: true },
     });
     expect(opts).toEqual({ merge: true });
+  });
+});
+
+describe('TourTab — Ekspert-tips pr. etape', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('renderer sektionen med en textarea forudfyldt fra stage.expertTip', () => {
+    render(<TourTab />);
+    expect(screen.getByTestId('expert-tips')).toBeTruthy();
+    expect(screen.getByTestId('tip-text-1').value).toBe('');
+    expect(screen.getByTestId('tip-text-2').value).toBe('Sprint-etape.');
+  });
+
+  it('"Generér" kalder callGenerateStageTip for den etape', async () => {
+    render(<TourTab />);
+    fireEvent.click(screen.getByTestId('tip-gen-1'));
+    await waitFor(() => expect(mockCallGenerateStageTip).toHaveBeenCalledWith({ stageId: '2026-stage-1' }));
+  });
+
+  it('"Generér manglende" kalder callGenerateStageTip med all + season', async () => {
+    render(<TourTab />);
+    fireEvent.click(screen.getByTestId('tip-gen-missing'));
+    await waitFor(() => expect(mockCallGenerateStageTip).toHaveBeenCalledWith({ all: true, season: 2026 }));
+  });
+
+  it('"Gem" kalder saveStageTip med (stageId, tekst)', async () => {
+    render(<TourTab />);
+    fireEvent.change(screen.getByTestId('tip-text-1'), { target: { value: 'Min tekst' } });
+    fireEvent.click(screen.getByTestId('tip-save-1'));
+    await waitFor(() => expect(mockSaveStageTip).toHaveBeenCalledWith('2026-stage-1', 'Min tekst'));
   });
 });

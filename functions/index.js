@@ -42,6 +42,7 @@ const { buildStageUpdate } = require('./tourSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
+const { runGenerateStageTips } = require('./stageTip');
 
 // Initialiser Firebase Admin (singleton)
 initializeApp();
@@ -970,6 +971,45 @@ exports.generateLeagueRecapNow = onCall(
       dryRun: request.data?.dryRun === true,
       onlyLeagueId: request.data?.leagueId || null,
     });
+  }
+);
+
+// ---------------------------------------------------------------------------
+// generateStageTip — callable (owner/global admin): AI-genererer et dansk
+// ekspert-tip pr. etape og gemmer det som expertTip på etape-dokumentet.
+// Input { stageId } (én etape) ELLER { all:true, season } (alle etaper i
+// sæsonen uden tip endnu). Bruger SAMME SDK/model som AI-morgenopslaget.
+// ---------------------------------------------------------------------------
+exports.generateStageTip = onCall(
+  { region: REGION, secrets: [ANTHROPIC_API_KEY] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const apiKey = ANTHROPIC_API_KEY.value();
+    if (!apiKey) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
+
+    const all = request.data?.all === true;
+    const stageId = request.data?.stageId || null;
+    if (!all && !stageId) {
+      throw new HttpsError('invalid-argument', 'Angiv enten { stageId } eller { all:true }.');
+    }
+    let season = request.data?.season;
+    if (all && season == null) {
+      const s = await tourSettings(db);
+      season = s.activeSeason;
+    }
+
+    const anthropic = new Anthropic({ apiKey });
+    try {
+      return await runGenerateStageTips(db, anthropic, {
+        stageId,
+        all,
+        season: all ? season : undefined,
+        serverTimestamp: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      throw new HttpsError('internal', err?.message || 'Kunne ikke generere ekspert-tip.');
+    }
   }
 );
 

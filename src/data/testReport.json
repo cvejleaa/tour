@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-27T13:47:35.099Z",
+  "generatedAt": "2026-06-27T14:04:25.324Z",
   "totals": {
-    "files": 71,
-    "tests": 890,
-    "passed": 890,
+    "files": 72,
+    "tests": 908,
+    "passed": 908,
     "failed": 0
   },
   "suites": [
@@ -318,7 +318,7 @@
     {
       "file": "src/features/admin/adminActions.test.js",
       "area": "frontend",
-      "passed": 47,
+      "passed": 51,
       "failed": 0,
       "tests": [
         {
@@ -355,6 +355,22 @@
         },
         {
           "name": "adminActions › callGenerateLeagueRecapNow › kalder generateLeagueRecapNow med leagueId og dryRun",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callGenerateStageTip › kalder generateStageTip for én etape (stageId)",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callGenerateStageTip › kalder generateStageTip med all + season",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callGenerateStageTip › returnerer ok:false ved fejl",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › saveStageTip › kalder updateDoc med trimmet expertTip på etape-dokumentet",
           "status": "passed"
         },
         {
@@ -782,7 +798,7 @@
     {
       "file": "src/features/admin/TourTab.test.jsx",
       "area": "frontend",
-      "passed": 2,
+      "passed": 6,
       "failed": 0,
       "tests": [
         {
@@ -791,6 +807,22 @@
         },
         {
           "name": "TourTab — Spørgsmål pr. etape › gemmer ændrede spørgsmål på etape-dokumentet (setDoc merge)",
+          "status": "passed"
+        },
+        {
+          "name": "TourTab — Ekspert-tips pr. etape › renderer sektionen med en textarea forudfyldt fra stage.expertTip",
+          "status": "passed"
+        },
+        {
+          "name": "TourTab — Ekspert-tips pr. etape › \"Generér\" kalder callGenerateStageTip for den etape",
+          "status": "passed"
+        },
+        {
+          "name": "TourTab — Ekspert-tips pr. etape › \"Generér manglende\" kalder callGenerateStageTip med all + season",
+          "status": "passed"
+        },
+        {
+          "name": "TourTab — Ekspert-tips pr. etape › \"Gem\" kalder saveStageTip med (stageId, tekst)",
           "status": "passed"
         }
       ]
@@ -4003,6 +4035,54 @@
         },
         {
           "name": "jerseyHolders & stageMetaFromPcs › metadata",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions/stageTip.test.js",
+      "area": "functions",
+      "passed": 10,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "buildStageTipFacts / buildStageTipPrompt › bygger en dansk prompt af etapefelterne + aktive spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "buildStageTipFacts / buildStageTipPrompt › respekterer questions-override ved aktive spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "generateStageTipText › kalder den mockede SDK med den rigtige model og returnerer teksten",
+          "status": "passed"
+        },
+        {
+          "name": "runGenerateStageTips — én etape › skriver expertTip + expertTipUpdatedAt på etape-dokumentet",
+          "status": "passed"
+        },
+        {
+          "name": "runGenerateStageTips — én etape › kaster hvis etapen ikke findes",
+          "status": "passed"
+        },
+        {
+          "name": "runGenerateStageTips — all › genererer kun for etaper UDEN tip i sæsonen",
+          "status": "passed"
+        },
+        {
+          "name": "runGenerateStageTips — all › én fejlende etape afbryder ikke kørslen (fejl samles)",
+          "status": "passed"
+        },
+        {
+          "name": "admin-guard kontrakt › afviser uautentificerede",
+          "status": "passed"
+        },
+        {
+          "name": "admin-guard kontrakt › afviser almindelige spillere",
+          "status": "passed"
+        },
+        {
+          "name": "admin-guard kontrakt › tillader owner og globalAdmin",
           "status": "passed"
         }
       ]

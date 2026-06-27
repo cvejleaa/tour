@@ -14,6 +14,7 @@ export default defineConfig({
       'tourSync.test.js',
       'invites.test.js',
       'leagueRecap.test.js',
+      'stageTip.test.js',
     ],
     exclude: [
       'rules.test.js',

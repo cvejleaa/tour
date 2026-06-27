@@ -41,6 +41,8 @@ import {
   setGlobalAdminRole,
   sendAdminPasswordReset,
   callGenerateLeagueRecapNow,
+  callGenerateStageTip,
+  saveStageTip,
   callSendTipRemindersNow,
   callSendTestReminderToMe,
   createBonusQuestion,
@@ -141,6 +143,41 @@ describe('adminActions', () => {
       expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'generateLeagueRecapNow');
       expect(mockFn).toHaveBeenCalledWith({ leagueId: 'lg1', dryRun: true });
       expect(res).toEqual({ ok: true, data: { leagues: 1, results: [{ text: 'God morgen!' }] } });
+    });
+  });
+
+  describe('callGenerateStageTip', () => {
+    it('kalder generateStageTip for én etape (stageId)', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { results: [{ stageId: 's3', expertTip: 'Tip' }], errors: [] } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const res = await callGenerateStageTip({ stageId: 's3' });
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'generateStageTip', expect.anything());
+      expect(mockFn).toHaveBeenCalledWith({ stageId: 's3', all: false, season: undefined });
+      expect(res).toEqual({ ok: true, data: { results: [{ stageId: 's3', expertTip: 'Tip' }], errors: [] } });
+    });
+
+    it('kalder generateStageTip med all + season', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { results: [], errors: [] } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      await callGenerateStageTip({ all: true, season: 2026 });
+      expect(mockFn).toHaveBeenCalledWith({ stageId: undefined, all: true, season: 2026 });
+    });
+
+    it('returnerer ok:false ved fejl', async () => {
+      const mockFn = vi.fn().mockRejectedValue({ message: 'ANTHROPIC_API_KEY er ikke sat.' });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const res = await callGenerateStageTip({ stageId: 's1' });
+      expect(res.ok).toBe(false);
+      expect(res.error).toContain('ANTHROPIC_API_KEY');
+    });
+  });
+
+  describe('saveStageTip', () => {
+    it('kalder updateDoc med trimmet expertTip på etape-dokumentet', async () => {
+      const { db } = await import('../../firebase');
+      await saveStageTip('2026-stage-4', '  Manuel tekst.  ');
+      expect(mockDoc).toHaveBeenCalledWith(db, 'stages', '2026-stage-4');
+      expect(mockUpdateDoc).toHaveBeenCalledWith(expect.anything(), { expertTip: 'Manuel tekst.' });
     });
   });
 

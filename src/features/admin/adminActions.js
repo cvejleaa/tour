@@ -172,6 +172,37 @@ export async function callRegenerateRecaps({ apply = false, reset = false } = {}
   }
 }
 
+// ─── Ekspert-tips pr. etape (global admin + owner) ───────────────────────────
+
+/**
+ * Kald Cloud Function 'generateStageTip' — AI-generér ekspert-tip til en etape
+ * eller (med all:true) alle etaper i sæsonen, der mangler et tip.
+ * @param {{ stageId?: string, all?: boolean, season?: number }} [opts]
+ */
+export async function callGenerateStageTip({ stageId, all = false, season } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'generateStageTip', { timeout: 540000 });
+    const res = await fn({ stageId, all, season });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "generateStageTip" er ikke deployet endnu.'
+        : err?.message ?? 'Ukendt fejl ved kald af generateStageTip.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Gem et manuelt redigeret ekspert-tip på etape-dokumentet (override af AI-tekst).
+ * @param {string} stageId
+ * @param {string} text
+ */
+export async function saveStageTip(stageId, text) {
+  const ref = doc(db, COL.STAGES, stageId);
+  await updateDoc(ref, { expertTip: String(text ?? '').trim() });
+}
+
 // ─── Bonus (global admin + owner) ────────────────────────────────────────────
 
 /**

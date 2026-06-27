@@ -13,6 +13,7 @@ import { useActiveSeason } from '../stages/useActiveSeason';
 import { useTourSettings } from '../stages/useTourSettings';
 import { useStages } from '../stages/useStages';
 import { activeQuestionsForStage } from '../../lib/tourScoring';
+import { callGenerateStageTip, saveStageTip } from './adminActions';
 
 // Kolonneoverskrifter for spørgsmåls-overblikket (samme rækkefølge som STAGE_FIELDS).
 const QUESTION_COLS = [
@@ -138,6 +139,148 @@ function StageQuestionsOverview({ season }) {
           })}
         </tbody>
       </table>
+      {msg && <p style={{ color: 'var(--c-ok, green)', fontSize: '0.85rem' }}>{msg}</p>}
+      {err && <p style={{ color: 'var(--c-err)', fontSize: '0.85rem' }}>{err}</p>}
+    </div>
+  );
+}
+
+// Ekspert-tips pr. etape: hver etape har en redigerbar textarea (forudfyldt fra
+// stage.expertTip), en "Generér" (AI for netop den etape) og en "Gem" (manuel
+// override). "Generér manglende" kører AI for alle etaper uden tip. Listen er
+// onSnapshot-drevet (useStages), så genererede tips dukker op af sig selv.
+function StageExpertTips({ season }) {
+  const { stages } = useStages(season);
+  const [drafts, setDrafts] = useState({}); // stageId -> tekst (kun redigerede)
+  const [busyId, setBusyId] = useState(''); // 'gen:<id>' | 'save:<id>' | 'gen-all'
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+
+  function valueFor(stage) {
+    return drafts[stage.id] != null ? drafts[stage.id] : (stage.expertTip || '');
+  }
+
+  function editTip(stageId, text) {
+    setMsg(''); setErr('');
+    setDrafts((prev) => ({ ...prev, [stageId]: text }));
+  }
+
+  async function generateOne(stage) {
+    setMsg(''); setErr('');
+    setBusyId(`gen:${stage.id}`);
+    try {
+      const res = await callGenerateStageTip({ stageId: stage.id });
+      if (!res.ok) { setErr(res.error); return; }
+      // Ryd lokalt udkast, så onSnapshot-værdien (den nye tekst) vises.
+      setDrafts((prev) => { const next = { ...prev }; delete next[stage.id]; return next; });
+      setMsg(`Ekspert-tip genereret for etape ${stage.number}.`);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || String(e));
+    } finally {
+      setBusyId('');
+    }
+  }
+
+  async function saveOne(stage) {
+    setMsg(''); setErr('');
+    setBusyId(`save:${stage.id}`);
+    try {
+      await saveStageTip(stage.id, valueFor(stage));
+      setDrafts((prev) => { const next = { ...prev }; delete next[stage.id]; return next; });
+      setMsg(`Ekspert-tip gemt for etape ${stage.number}.`);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || String(e));
+    } finally {
+      setBusyId('');
+    }
+  }
+
+  async function generateMissing() {
+    setMsg(''); setErr('');
+    setBusyId('gen-all');
+    try {
+      const res = await callGenerateStageTip({ all: true, season });
+      if (!res.ok) { setErr(res.error); return; }
+      const n = res.data?.results?.length ?? 0;
+      const fails = res.data?.errors?.length ?? 0;
+      setMsg(`Genererede ${n} ekspert-tip${fails ? ` (${fails} fejlede)` : ''}.`);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || String(e));
+    } finally {
+      setBusyId('');
+    }
+  }
+
+  if (!stages.length) {
+    return <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)' }}>Ingen etaper seedet endnu.</p>;
+  }
+
+  return (
+    <div data-testid="expert-tips">
+      <div style={{ marginBottom: '0.75rem' }}>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={!!busyId}
+          onClick={generateMissing}
+          data-testid="tip-gen-missing"
+        >
+          {busyId === 'gen-all' ? 'Genererer…' : '✨ Generér manglende'}
+        </button>
+      </div>
+      <div style={{ display: 'grid', gap: '0.9rem' }}>
+        {stages.map((stage) => {
+          const genBusy = busyId === `gen:${stage.id}`;
+          const saveBusy = busyId === `save:${stage.id}`;
+          return (
+            <div
+              key={stage.id}
+              data-testid={`tip-row-${stage.number}`}
+              style={{ borderTop: '1px solid var(--c-border, #ddd)', paddingTop: '0.6rem' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
+                <strong style={{ fontSize: '0.9rem' }}>
+                  Etape {stage.number} · {STAGE_TYPE_LABEL[stage.type] || stage.type || 'Etape'}
+                </strong>
+                <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+                  {stage.startCity ? `${stage.startCity} → ${stage.finishCity ?? ''}` : ''}
+                </span>
+              </div>
+              <textarea
+                value={valueFor(stage)}
+                onChange={(e) => editTip(stage.id, e.target.value)}
+                rows={3}
+                placeholder="Intet ekspert-tip endnu."
+                data-testid={`tip-text-${stage.number}`}
+                style={{ width: '100%', marginTop: '0.4rem', padding: '0.45rem', borderRadius: 6, border: '1px solid var(--c-border, #ccc)', fontSize: '0.85rem', boxSizing: 'border-box' }}
+              />
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.35rem' }}>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  disabled={!!busyId}
+                  onClick={() => generateOne(stage)}
+                  data-testid={`tip-gen-${stage.number}`}
+                >
+                  {genBusy ? '…' : '✨ Generér'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--sm"
+                  disabled={!!busyId}
+                  onClick={() => saveOne(stage)}
+                  data-testid={`tip-save-${stage.number}`}
+                >
+                  {saveBusy ? '…' : 'Gem'}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
       {msg && <p style={{ color: 'var(--c-ok, green)', fontSize: '0.85rem' }}>{msg}</p>}
       {err && <p style={{ color: 'var(--c-err)', fontSize: '0.85rem' }}>{err}</p>}
     </div>
@@ -346,6 +489,17 @@ export default function TourTab() {
           og kan hverken give point eller straf.
         </p>
         <StageQuestionsOverview season={season} />
+      </section>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Ekspert-tips pr. etape</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          AI-genererede ekspert-tips (dansk) vises på etapens præsentationsside.
+          Tryk <strong>Generér</strong> for at lave et tip til en enkelt etape,
+          eller <strong>Generér manglende</strong> for alle etaper uden tip. Du
+          kan redigere teksten frit og trykke <strong>Gem</strong>.
+        </p>
+        <StageExpertTips season={season} />
       </section>
 
       {err && <p style={{ color: 'var(--c-err)' }}>{err}</p>}
