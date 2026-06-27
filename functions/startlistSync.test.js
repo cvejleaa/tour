@@ -53,6 +53,17 @@ describe('syncStartlistCore', () => {
     expect(set.mock.calls[0][1]).toEqual({ merge: true });
   });
 
+  it('skriver IKKE når hentningen er helt tom (sikring mod at wipe data)', async () => {
+    const set = vi.fn(() => Promise.resolve());
+    const db = { collection: () => ({ doc: () => ({ set }) }) };
+    const empty = { teams: [{ code: 'UEX', announced: false, riders: [] }] };
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => empty }));
+
+    const res = await syncStartlistCore({ db, proxyUrl: 'https://p', fetchImpl });
+    expect(res).toMatchObject({ skipped: true });
+    expect(set).not.toHaveBeenCalled();
+  });
+
   it('kaster ved ikke-ok svar fra proxyen', async () => {
     const db = { collection: () => ({ doc: () => ({ set: vi.fn() }) }) };
     const fetchImpl = vi.fn(async () => ({ ok: false, status: 502 }));

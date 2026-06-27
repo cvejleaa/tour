@@ -50,6 +50,13 @@ async function syncStartlistCore({ db, proxyUrl, season, fetchImpl, serverTimest
   if (!res.ok) throw new Error(`proxy /api/startlist: HTTP ${res.status}`);
   const data = await res.json();
   const doc = buildStartlistDoc(data);
+  // Sikring: hvis hentningen ikke gav ÉN eneste rytter (TV2 nede, markup-ændring
+  // e.l.), så skriv IKKE — ellers ville et tomt resultat overskrive de hold der
+  // allerede er fyldt ud. Den statiske snapshot/forrige data bevares.
+  const totalRiders = Object.values(doc.teams).reduce((n, t) => n + (t.riders ? t.riders.length : 0), 0);
+  if (totalRiders === 0) {
+    return { announced: 0, total: doc.total, skipped: true };
+  }
   await db.collection('config').doc('startlist').set(
     {
       season: season != null ? Number(season) : null,
