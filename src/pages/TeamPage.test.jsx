@@ -46,6 +46,14 @@ describe('TeamPage', () => {
     expect(screen.queryByTestId('riders-pending')).toBeNull();
   });
 
+  it('viser holdets profil og nøgleryttere (TVL = Visma)', () => {
+    renderAt('TVL');
+    expect(screen.getByTestId('team-profile')).toBeInTheDocument();
+    expect(screen.getByText('Klassement & etaper')).toBeInTheDocument();
+    // Nøgleryttere fra den kuraterede profil (ikke startliste-mocken).
+    expect(screen.getByText('Jonas Vingegaard')).toBeInTheDocument();
+  });
+
   it('viser "Hold ikke fundet" for en ukendt kode', () => {
     renderAt('ZZZ');
     expect(screen.getByText('Hold ikke fundet')).toBeInTheDocument();

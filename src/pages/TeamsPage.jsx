@@ -5,13 +5,14 @@
 import { Link } from 'react-router-dom';
 import Hero from '../components/Hero';
 import { TEAMS, prettyTeam } from '../data/tourTeams2026';
+import { teamProfile } from '../data/teamProfiles2026';
 
 export default function TeamsPage() {
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
       <Hero
         title="Hold"
-        subtitle="De 23 hold i Tour de France 2026. Klik på et hold for at se det nærmere."
+        subtitle="Overblik over de 23 hold og deres primære profil. Klik på et hold for at se det nærmere."
         chips={[`${TEAMS.length} hold`]}
       />
 
@@ -39,6 +40,11 @@ export default function TeamsPage() {
               <img src={t.jersey} alt="" loading="lazy" style={{ width: 60, height: 60, objectFit: 'contain' }} />
             )}
             <span style={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.2 }}>{prettyTeam(t.name)}</span>
+            {teamProfile(t.code) && (
+              <span style={{ fontSize: '0.75rem', color: 'var(--c-muted)', lineHeight: 1.25 }}>
+                {teamProfile(t.code).profile}
+              </span>
+            )}
             {t.nationality && (
               <span className="badge badge--muted" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>
                 {t.nationality}

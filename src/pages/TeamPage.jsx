@@ -6,6 +6,7 @@
 import { useParams, Link } from 'react-router-dom';
 import Hero from '../components/Hero';
 import { teamMeta, prettyTeam } from '../data/tourTeams2026';
+import { teamProfile } from '../data/teamProfiles2026';
 
 function RiderList({ riders }) {
   return (
@@ -52,6 +53,7 @@ export default function TeamPage() {
 
   const accent = meta.color && meta.color !== '#000000' ? meta.color : 'var(--c-pitch)';
   const riders = Array.isArray(meta.riders) ? meta.riders : [];
+  const profile = teamProfile(meta.code);
 
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
@@ -73,7 +75,33 @@ export default function TeamPage() {
           </div>
         </div>
 
-        {/* Ryttere – klar til at modtage startlisten */}
+        {/* Profil + nøgleryttere (kurateret) */}
+        {profile && (
+          <section data-testid="team-profile" style={{ marginBottom: '1.25rem' }}>
+            <h3 style={{ marginBottom: '0.4rem' }}>Profil</h3>
+            <p style={{ margin: '0 0 0.6rem' }}>
+              <span className="badge" style={{ background: accent, color: '#fff', fontSize: '0.8rem' }}>
+                {profile.profile}
+              </span>
+            </p>
+            {profile.riders.length > 0 && (
+              <>
+                <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--c-muted)', marginBottom: '0.3rem' }}>
+                  Nøgleryttere
+                </div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  {profile.riders.map((r) => (
+                    <li key={r} data-testid="key-rider" className="badge badge--muted" style={{ fontSize: '0.85rem' }}>
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+        )}
+
+        {/* Ryttere – klar til at modtage den fulde startliste */}
         <section data-testid="riders-section">
           <h3 style={{ marginBottom: '0.5rem' }}>Ryttere</h3>
           {riders.length > 0 ? (
