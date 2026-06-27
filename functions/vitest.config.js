@@ -12,6 +12,7 @@ export default defineConfig({
       'pcsMapping.test.js',
       'tourTeams.test.js',
       'tourSync.test.js',
+      'stageInfoSync.test.js',
       'invites.test.js',
       'leagueRecap.test.js',
       'stageTip.test.js',

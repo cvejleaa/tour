@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-27T14:04:25.324Z",
+  "generatedAt": "2026-06-27T14:17:17.736Z",
   "totals": {
-    "files": 72,
-    "tests": 908,
-    "passed": 908,
+    "files": 73,
+    "tests": 913,
+    "passed": 913,
     "failed": 0
   },
   "suites": [
@@ -4035,6 +4035,34 @@
         },
         {
           "name": "jerseyHolders & stageMetaFromPcs › metadata",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions/stageInfoSync.test.js",
+      "area": "functions",
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "stageInfoUpdate › skriver elevation + pointsAwarded når til stede",
+          "status": "passed"
+        },
+        {
+          "name": "stageInfoUpdate › udelader felter der mangler",
+          "status": "passed"
+        },
+        {
+          "name": "syncStageInfoCore › skriver elevation+pointsAwarded pr. etape (mock fetch, ingen netværk)",
+          "status": "passed"
+        },
+        {
+          "name": "syncStageInfoCore › dryRun: skriver intet men returnerer preview",
+          "status": "passed"
+        },
+        {
+          "name": "syncStageInfoCore › kaster ved HTTP-fejl fra proxyen",
           "status": "passed"
         }
       ]

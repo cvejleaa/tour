@@ -13,7 +13,7 @@ import { useActiveSeason } from '../stages/useActiveSeason';
 import { useTourSettings } from '../stages/useTourSettings';
 import { useStages } from '../stages/useStages';
 import { activeQuestionsForStage } from '../../lib/tourScoring';
-import { callGenerateStageTip, saveStageTip } from './adminActions';
+import { callGenerateStageTip, saveStageTip, callSyncStageInfo } from './adminActions';
 
 // Kolonneoverskrifter for spørgsmåls-overblikket (samme rækkefølge som STAGE_FIELDS).
 const QUESTION_COLS = [
@@ -112,6 +112,16 @@ function StageQuestionsOverview({ season }) {
                 <td style={{ padding: '0.3rem 0.5rem' }}>{STAGE_TYPE_LABEL[stage.type] || stage.type || '—'}</td>
                 <td style={{ padding: '0.3rem 0.5rem', color: 'var(--c-muted)' }}>
                   {stage.startCity ? `${stage.startCity} → ${stage.finishCity ?? ''}` : '—'}
+                  {stage.pointsAwarded && (
+                    <span
+                      data-testid={`q-hint-${stage.number}`}
+                      title="Hentet fra letour: hvilke point-klassementer der uddeles på etapen"
+                      style={{ display: 'block', fontSize: '0.72rem', color: 'var(--c-muted)' }}
+                    >
+                      letour: sprintpoint {stage.pointsAwarded.sprint ? '✓' : '✗'} / bjergpoint {stage.pointsAwarded.mountain ? '✓' : '✗'}
+                      {stage.elevation != null ? ` · D+ ${stage.elevation} m` : ''}
+                    </span>
+                  )}
                 </td>
                 {QUESTION_COLS.map((c) => (
                   <td key={c.key} style={{ padding: '0.3rem 0.5rem', textAlign: 'center' }}>
@@ -391,6 +401,12 @@ export default function TourTab() {
     return res.data;
   });
 
+  const syncStageInfo = (dryRun) => run('stageinfo', async () => {
+    const res = await callSyncStageInfo({ dryRun });
+    if (!res.ok) throw new Error(res.error);
+    return res.data;
+  });
+
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚴 Tour de France</h2>
@@ -437,6 +453,25 @@ export default function TourTab() {
           </button>
           <button className="btn" disabled={busy} onClick={() => syncNow(false)}>
             {busy === 'sync' ? 'Synker…' : '⬇️ Synk resultater nu'}
+          </button>
+        </div>
+      </section>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Etape-info (højdemeter + point)</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          Henter per-etape <strong>højdemeter (D+)</strong> og hvilke
+          klassementer (sprint/bjerg) der uddeler point, fra letour-proxyen.
+          Skriver kun <code>elevation</code> + <code>pointsAwarded</code> på
+          etaperne — dine spørgsmåls-valg røres ikke. Tør-kør viser resultatet
+          uden at gemme.
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button className="btn btn--ghost" disabled={busy} onClick={() => syncStageInfo(true)}>
+            {busy === 'stageinfo' ? '…' : '🔍 Tør-kør'}
+          </button>
+          <button className="btn" disabled={busy} onClick={() => syncStageInfo(false)}>
+            {busy === 'stageinfo' ? 'Henter…' : '⛰️ Hent etape-info (højdemeter + point)'}
           </button>
         </div>
       </section>

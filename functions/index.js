@@ -38,7 +38,7 @@ const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
 const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage } = require('./tourScoring');
-const { buildStageUpdate } = require('./tourSync');
+const { buildStageUpdate, syncStageInfoCore } = require('./tourSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
@@ -284,6 +284,24 @@ exports.syncTourNow = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   await requireAdmin(db, request);
   return syncTourCore(db, { dryRun: request.data?.dryRun === true });
+});
+
+// "Hent etape-info"-knap (admin): per-etape højdemeter (D+) + hvilke
+// klassementer (sprint/bjerg) der uddeler point. Henter fra proxyens
+// /api/stage-info og skriver ikke-destruktivt { elevation } +
+// { pointsAwarded:{sprint,mountain} } på etape-dokumenterne (merge).
+exports.syncStageInfo = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const { proxyUrl, activeSeason } = await tourSettings(db);
+  return syncStageInfoCore({
+    db,
+    proxyUrl,
+    season: activeSeason,
+    fetchImpl: fetch,
+    serverTimestamp: () => FieldValue.serverTimestamp(),
+    dryRun: request.data?.dryRun === true,
+  });
 });
 
 // seedTourRoute — opretter de 21 etape-dokumenter (med kickoff) så man kan

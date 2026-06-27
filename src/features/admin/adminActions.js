@@ -172,6 +172,26 @@ export async function callRegenerateRecaps({ apply = false, reset = false } = {}
   }
 }
 
+/**
+ * Kald Cloud Function 'syncStageInfo' — hent per-etape højdemeter (D+) og
+ * hvilke klassementer (sprint/bjerg) der uddeler point, fra letour-proxyen.
+ * dryRun=true skriver intet, men returnerer et preview.
+ * @param {{ dryRun?: boolean }} [opts]
+ */
+export async function callSyncStageInfo({ dryRun = false } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'syncStageInfo', { timeout: 120000 });
+    const res = await fn({ dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "syncStageInfo" er ikke deployet endnu.'
+        : err?.message ?? 'Ukendt fejl ved kald af syncStageInfo.';
+    return { ok: false, error: msg };
+  }
+}
+
 // ─── Ekspert-tips pr. etape (global admin + owner) ───────────────────────────
 
 /**

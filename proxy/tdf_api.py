@@ -130,6 +130,21 @@ async def standings() -> dict:
     return await asyncio.to_thread(service.current_standings)
 
 
+@app.get("/api/stage-info")
+async def stage_info_all() -> dict:
+    """Stamdata (km, type, højdemeter D+, sprint/bjerg-point) for alle etaper."""
+    from letour_stageinfo import scrape_all_stage_info
+    data = await asyncio.to_thread(scrape_all_stage_info)
+    return {"year": service.year, "stages": data}
+
+
+@app.get("/api/stage-info/{n}")
+async def stage_info_one(n: int) -> dict:
+    """Stamdata for én etape (km, type, højdemeter D+, sprint/bjerg-point)."""
+    from letour_stageinfo import scrape_stage_info
+    return await asyncio.to_thread(scrape_stage_info, n)
+
+
 @app.get("/api/debug/{n}")
 async def debug(n: int) -> dict:
     """Diagnostik for én etape (hvad proxyen faktisk ser fra letour)."""
