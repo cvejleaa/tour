@@ -2,6 +2,42 @@
 // Rene hjælpefunktioner til bonus-logik. Ingen Firebase-afhængigheder.
 // ---------------------------------------------------------------------------
 import { TIMEZONE } from '../../lib/constants';
+import { prettyTeam } from '../../data/tourTeams2026';
+
+// Re-eksporter så bonus-moduler kan importere typen ét sted fra.
+export { bonusAnswerType } from '../../lib/constants';
+
+/**
+ * Afgør om et svar er "tomt" (intet valgt/skrevet) for en given type.
+ * For 'teams' er et tomt array tomt.
+ * @param {*} value
+ * @returns {boolean}
+ */
+export function isBonusAnswerEmpty(value) {
+  if (Array.isArray(value)) return value.length === 0;
+  return String(value ?? '').trim() === '';
+}
+
+/**
+ * Formater et bonus-svar/facit til en læsbar streng ud fra spørgsmålets type.
+ * Hold vises via prettyTeam; flere hold sammenkædes med komma; boolean → Ja/Nej.
+ * @param {*} value
+ * @param {string} type
+ * @returns {string}
+ */
+export function formatBonusAnswer(value, type) {
+  if (value == null || value === '') return '';
+  if (type === 'teams') {
+    const arr = Array.isArray(value) ? value : [value];
+    return arr.map((t) => prettyTeam(t)).join(', ');
+  }
+  if (type === 'team') return prettyTeam(value);
+  if (type === 'boolean') {
+    const v = String(value).trim().toLowerCase();
+    return v === 'ja' ? 'Ja' : v === 'nej' ? 'Nej' : String(value);
+  }
+  return String(value);
+}
 
 /**
  * Afgør om et bonusspørgsmål er låst (nu >= deadline).

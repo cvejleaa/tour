@@ -227,6 +227,40 @@ describe('adminActions', () => {
       const call = mockAddDoc.mock.calls[0][1];
       expect(call.options).toEqual(['A', 'B']);
     });
+
+    it('default-type er text når type ikke angives', async () => {
+      await createBonusQuestion({ text: 'x', points: 3 });
+      const call = mockAddDoc.mock.calls[0][1];
+      expect(call.type).toBe('text');
+    });
+
+    it('gemmer en gyldig type', async () => {
+      for (const t of ['team', 'teams', 'number', 'time', 'boolean']) {
+        mockAddDoc.mockClear();
+        await createBonusQuestion({ text: 'x', points: 3, type: t });
+        expect(mockAddDoc.mock.calls[0][1].type).toBe(t);
+      }
+    });
+
+    it('falder tilbage til text ved ukendt type', async () => {
+      await createBonusQuestion({ text: 'x', points: 3, type: 'football' });
+      expect(mockAddDoc.mock.calls[0][1].type).toBe('text');
+    });
+
+    it('gemmer facit som streng for skalar-typer', async () => {
+      await createBonusQuestion({ text: 'x', points: 3, type: 'boolean', facit: 'ja' });
+      expect(mockAddDoc.mock.calls[0][1].facit).toBe('ja');
+    });
+
+    it('gemmer facit som array for teams', async () => {
+      await createBonusQuestion({ text: 'x', points: 3, type: 'teams', facit: ['UAD', 'TVL'] });
+      expect(mockAddDoc.mock.calls[0][1].facit).toEqual(['UAD', 'TVL']);
+    });
+
+    it('facit defaulter til null når ikke angivet', async () => {
+      await createBonusQuestion({ text: 'x', points: 3, type: 'number' });
+      expect(mockAddDoc.mock.calls[0][1].facit).toBeNull();
+    });
   });
 
   // ─── saveBonusFacit ───────────────────────────────────────────────────────

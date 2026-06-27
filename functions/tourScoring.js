@@ -14,6 +14,20 @@ const DEFAULT_POINTS = {
 
 const DEFAULT_GC_TOP_N = 10;
 
+/**
+ * Normaliser et bonus-svar/facit til en sammenlignings-streng. Håndterer både
+ * skalar-værdier (text/team/number/time/boolean) og ARRAYS (teams: vælg flere).
+ * Arrays sorteres, så rækkefølgen er ligegyldig. Sammenligningen er
+ * trimmet og ufølsom for store/små bogstaver.
+ * @param {*} x
+ * @returns {string}
+ */
+function bonusNorm(x) {
+  return Array.isArray(x)
+    ? x.map((v) => String(v ?? '').trim().toLowerCase()).sort().join('|')
+    : String(x ?? '').trim().toLowerCase();
+}
+
 function normalizePoints(cfg) {
   const out = { ...DEFAULT_POINTS };
   if (cfg && typeof cfg === 'object') {
@@ -136,4 +150,5 @@ module.exports = {
   STAGE_FIELDS,
   isUntipped,
   scoreStageBet,
+  bonusNorm,
 };

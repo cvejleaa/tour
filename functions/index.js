@@ -37,7 +37,7 @@ const EMAIL_FROM = 'Tour de France Tip <tour@vejleaa.dk>';
 const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
-const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N } = require('./tourScoring');
+const { scoreStageBet, normalizePoints, DEFAULT_GC_TOP_N, bonusNorm } = require('./tourScoring');
 const { buildStageUpdate } = require('./tourSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -59,7 +59,9 @@ exports.recomputeBonus = onDocumentWritten(
     const { questionId } = event.params;
 
     const after = event.data?.after?.data();
-    if (!after?.facit) return; // Facit ikke sat endnu
+    // Facit kan være streng eller array (teams). Tomt array = ikke sat endnu.
+    const facitSet = Array.isArray(after?.facit) ? after.facit.length > 0 : !!after?.facit;
+    if (!facitSet) return; // Facit ikke sat endnu
 
     // Stempl tidspunktet for afgørelsen første gang facit sættes — bruges af
     // Tour-Botten til at fortælle, at et bonusspørgsmål er blevet afgjort.
@@ -70,16 +72,18 @@ exports.recomputeBonus = onDocumentWritten(
     }
 
     const before = event.data?.before?.data();
-    // Genberegn hvis facit ELLER de admin-godkendte svar er ændret
+    // Genberegn hvis facit ELLER de admin-godkendte svar er ændret.
+    // bonusNorm håndterer både skalarer og arrays (teams) for facit-sammenligning.
     const acceptedJSON = JSON.stringify(after.acceptedAnswers ?? []);
     const beforeAcceptedJSON = JSON.stringify(before?.acceptedAnswers ?? []);
-    if (before?.facit === after.facit && beforeAcceptedJSON === acceptedJSON) return;
+    if (bonusNorm(before?.facit) === bonusNorm(after.facit) && beforeAcceptedJSON === acceptedJSON) return;
 
     const facit = after.facit;
     // Generisk, type-agnostisk pointgivning: ret svar = facit (trimmet,
-    // ufølsomt for store/små bogstaver). Point pr. korrekt svar er spørgsmålets
-    // egne points hvis sat (endeligt tal), ellers standard 3.
-    const norm = (x) => String(x ?? '').trim().toLowerCase();
+    // ufølsomt for store/små bogstaver). Arrays (teams: vælg flere) matcher
+    // rækkefølge-uafhængigt. Point pr. korrekt svar er spørgsmålets egne points
+    // hvis sat (endeligt tal), ellers standard 3.
+    const norm = bonusNorm;
     const facitNorm = norm(facit);
     const correctPoints = Number.isFinite(Number(after.points)) ? Number(after.points) : 3;
 

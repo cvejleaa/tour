@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../firebase';
-import { COL, ROLES } from '../../lib/constants';
+import { COL, ROLES, BONUS_ANSWER_TYPE_VALUES, DEFAULT_BONUS_ANSWER_TYPE } from '../../lib/constants';
 
 // ─── Brugerstyring (global admin: godkend/afvis · ejer: roller) ──────────────
 
@@ -175,15 +175,18 @@ export async function callRegenerateRecaps({ apply = false, reset = false } = {}
 
 /**
  * Opret et generisk bonusspørgsmål. Backend scorer svar generisk mod facit;
- * klienten skriver ALDRIG point. options er valgfri (fx liste af cykelhold).
- * @param {{ text: string, points: number, deadline?: string|null, options?: string[] }} q
+ * klienten skriver ALDRIG point. `type` styrer både admin-facit-input og
+ * spillerens svar-input (se BONUS_ANSWER_TYPES). options er valgfri.
+ * @param {{ text: string, points: number, type?: string, deadline?: string|null, facit?: *, options?: string[] }} q
  */
-export async function createBonusQuestion({ text, points, deadline = null, options } = {}) {
+export async function createBonusQuestion({ text, points, type, deadline = null, facit = null, options } = {}) {
   const ref = collection(db, COL.BONUS_QUESTIONS);
+  const resolvedType = BONUS_ANSWER_TYPE_VALUES.includes(type) ? type : DEFAULT_BONUS_ANSWER_TYPE;
   const data = {
     text: String(text ?? '').trim(),
     points: Number(points) || 0,
-    facit: null,
+    type: resolvedType,
+    facit: facit ?? null,
     createdAt: serverTimestamp(),
   };
   if (deadline) data.deadline = Timestamp.fromDate(new Date(deadline));

@@ -6,7 +6,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   DEFAULT_POINTS, normalizePoints, stageWinnerTeam, stageGcTeam,
-  topPointsTeam, resolveStageResult, isUntipped, scoreStageBet,
+  topPointsTeam, resolveStageResult, isUntipped, scoreStageBet, bonusNorm,
 } = require('./tourScoring.js');
 
 const order = (...teams) => teams.map((team, i) => ({ rider: `r${i + 1}`, team, rank: i + 1 }));
@@ -69,5 +69,38 @@ describe('resolveStageResult + scoreStageBet', () => {
       gcTopN: 4,
     });
     expect(res).toEqual({ winnerTeam: 'UAD', gcTeam: 'UAD', mountainTeam: 'COF', sprintTeam: 'SOQ' });
+  });
+});
+
+describe('bonusNorm (bonus-svar normalisering)', () => {
+  it('trimmer og laver små bogstaver for skalarer', () => {
+    expect(bonusNorm('  Vingegaard ')).toBe('vingegaard');
+    expect(bonusNorm('JA')).toBe('ja');
+  });
+
+  it('håndterer null/undefined som tom streng', () => {
+    expect(bonusNorm(null)).toBe('');
+    expect(bonusNorm(undefined)).toBe('');
+  });
+
+  it('konverterer tal til streng', () => {
+    expect(bonusNorm(42)).toBe('42');
+  });
+
+  it('sorterer arrays så rækkefølge er ligegyldig (teams)', () => {
+    expect(bonusNorm(['UAD', 'TVL'])).toBe(bonusNorm(['TVL', 'UAD']));
+    expect(bonusNorm([' uad ', 'TVL'])).toBe('tvl|uad');
+  });
+
+  it('multi-team svar matcher facit uafhængigt af rækkefølge', () => {
+    const facit = ['Visma', 'UAE'];
+    const answerSame = ['UAE', 'Visma'];
+    const answerWrong = ['UAE', 'EF'];
+    expect(bonusNorm(answerSame)).toBe(bonusNorm(facit));
+    expect(bonusNorm(answerWrong)).not.toBe(bonusNorm(facit));
+  });
+
+  it('skalar og array giver forskellige normaliseringer', () => {
+    expect(bonusNorm('a')).not.toBe(bonusNorm(['a', 'b']));
   });
 });

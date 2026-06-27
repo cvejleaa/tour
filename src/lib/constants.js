@@ -34,6 +34,31 @@ export const LEAGUE_BONUS_TYPE = {
   YESNO: 'yesno',   // ja/nej
 };
 
+// Svartyper for (sæson-)bonusspørgsmål. Bestemmer både admin-facit-input og
+// spillerens svar-input. Default 'text' for ældre spørgsmål uden type.
+// Facit/svar gemmes som den naturlige værdi: streng for alle typer undtagen
+// 'teams', der gemmes som et array af holdnavne. 'boolean' gemmes som 'ja'|'nej'.
+export const BONUS_ANSWER_TYPES = [
+  { value: 'text', label: 'Fritekst' },
+  { value: 'team', label: 'Hold (vælg ét)' },
+  { value: 'teams', label: 'Hold (vælg flere)' },
+  { value: 'number', label: 'Tal' },
+  { value: 'time', label: 'Tidsangivelse' },
+  { value: 'boolean', label: 'Ja/nej' },
+];
+
+/** Sættet af gyldige type-værdier. */
+export const BONUS_ANSWER_TYPE_VALUES = BONUS_ANSWER_TYPES.map((t) => t.value);
+
+/** Default-type for spørgsmål uden et type-felt (legacy). */
+export const DEFAULT_BONUS_ANSWER_TYPE = 'text';
+
+/** Normaliser et spørgsmåls type til en kendt værdi (fallback til default). */
+export function bonusAnswerType(question) {
+  const t = question?.type;
+  return BONUS_ANSWER_TYPE_VALUES.includes(t) ? t : DEFAULT_BONUS_ANSWER_TYPE;
+}
+
 // Firestore-collections
 export const COL = {
   USERS: 'users',

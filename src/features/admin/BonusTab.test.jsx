@@ -145,22 +145,24 @@ describe('BonusTab', () => {
     setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    expect(screen.getByPlaceholderText(/Facit/i)).toBeInTheDocument();
+    // Editorens fritekst-facit-input (type 'text').
+    expect(screen.getByTestId('facit-text')).toBeInTheDocument();
   });
 
   it('viser fritekst-input for fri tekst (ingen options)', () => {
     setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    expect(screen.getByPlaceholderText(/Facit/i)).toBeInTheDocument();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.getByTestId('facit-text')).toBeInTheDocument();
+    // Ingen options → ingen options-dropdown i editoren.
+    expect(screen.queryByRole('option', { name: 'TVL' })).not.toBeInTheDocument();
   });
 
   it('viser dropdown for holdvalg (med options)', () => {
     setupQuestions([teamChoiceQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    // Legacy options-spørgsmål → dropdown med de eksplicitte options.
     expect(screen.getByRole('option', { name: 'TVL' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'UAD' })).toBeInTheDocument();
   });
@@ -180,7 +182,7 @@ describe('BonusTab', () => {
     setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Facit/i), { target: { value: 'Pogačar' } });
+    fireEvent.change(screen.getByTestId('facit-text'), { target: { value: 'Pogačar' } });
     fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
 
     await waitFor(() => {
@@ -192,7 +194,7 @@ describe('BonusTab', () => {
     setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Facit/i), { target: { value: 'Pogačar' } });
+    fireEvent.change(screen.getByTestId('facit-text'), { target: { value: 'Pogačar' } });
     fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
 
     await waitFor(() => {
@@ -205,7 +207,7 @@ describe('BonusTab', () => {
     setupQuestions([textQuestion]);
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Facit/i), { target: { value: 'Pogačar' } });
+    fireEvent.change(screen.getByTestId('facit-text'), { target: { value: 'Pogačar' } });
     fireEvent.click(screen.getByRole('button', { name: /^Gem$/ }));
 
     await waitFor(() => {
@@ -218,7 +220,8 @@ describe('BonusTab', () => {
     render(<BonusTab />);
     fireEvent.click(screen.getByRole('button', { name: /Sæt facit/i }));
     fireEvent.click(screen.getByRole('button', { name: /Annuller/i }));
-    expect(screen.queryByPlaceholderText(/Facit/i)).not.toBeInTheDocument();
+    // Editorens facit-input forsvinder (opret-formularens input findes stadig).
+    expect(screen.queryByTestId('facit-text')).not.toBeInTheDocument();
   });
 
   it('viser opret-formular til nye bonusspørgsmål', () => {
@@ -226,6 +229,60 @@ describe('BonusTab', () => {
     render(<BonusTab />);
     expect(screen.getByText(/Opret bonusspørgsmål/i)).toBeInTheDocument();
     expect(screen.getByTestId('bonus-new-save')).toBeInTheDocument();
+  });
+
+  // ─── Type-vælger + type-passende facit i opret-formular ─────────────────────
+
+  it('viser type-vælger med alle 6 typer', () => {
+    render(<BonusTab />);
+    expect(screen.getByTestId('bonus-new-type')).toBeInTheDocument();
+    for (const label of ['Fritekst', 'Hold (vælg ét)', 'Hold (vælg flere)', 'Tal', 'Tidsangivelse', 'Ja/nej']) {
+      expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it('skifter facit-input til tal ved type number', () => {
+    render(<BonusTab />);
+    fireEvent.change(screen.getByTestId('bonus-new-type'), { target: { value: 'number' } });
+    expect(screen.getByTestId('bonus-new-facit-number')).toBeInTheDocument();
+  });
+
+  it('skifter facit-input til Ja/Nej ved type boolean', () => {
+    render(<BonusTab />);
+    fireEvent.change(screen.getByTestId('bonus-new-type'), { target: { value: 'boolean' } });
+    expect(screen.getByTestId('bonus-new-facit-boolean')).toBeInTheDocument();
+  });
+
+  it('skifter facit-input til hold-dropdown ved type team', () => {
+    render(<BonusTab />);
+    fireEvent.change(screen.getByTestId('bonus-new-type'), { target: { value: 'team' } });
+    expect(screen.getByTestId('bonus-new-facit-team')).toBeInTheDocument();
+  });
+
+  it('skifter facit-input til hold-checkboxliste ved type teams', () => {
+    render(<BonusTab />);
+    fireEvent.change(screen.getByTestId('bonus-new-type'), { target: { value: 'teams' } });
+    expect(screen.getByTestId('bonus-new-facit-teams')).toBeInTheDocument();
+  });
+
+  it('time-facit-input bruger tekst med formathint', () => {
+    render(<BonusTab />);
+    fireEvent.change(screen.getByTestId('bonus-new-type'), { target: { value: 'time' } });
+    expect(screen.getByTestId('bonus-new-facit-text').placeholder).toMatch(/1:23/);
+  });
+
+  it('opretter spørgsmål med type og facit', async () => {
+    const { createBonusQuestion } = await import('./adminActions');
+    render(<BonusTab />);
+    fireEvent.change(screen.getByTestId('bonus-new-text'), { target: { value: 'Vinder Pogačar?' } });
+    fireEvent.change(screen.getByTestId('bonus-new-type'), { target: { value: 'boolean' } });
+    fireEvent.change(screen.getByTestId('bonus-new-facit-boolean'), { target: { value: 'ja' } });
+    fireEvent.click(screen.getByTestId('bonus-new-save'));
+    await waitFor(() => {
+      expect(createBonusQuestion).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Vinder Pogačar?', type: 'boolean', facit: 'ja' }),
+      );
+    });
   });
 
   // ─── Fejlhåndtering ───────────────────────────────────────────────────────

@@ -103,6 +103,79 @@ describe('BonusQuestion – åben select (hold)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Svartyper – korrekt input pr. question.type
+// ---------------------------------------------------------------------------
+describe('BonusQuestion – svartyper', () => {
+  it('text → tekst-input', () => {
+    render(<BonusQuestion question={makeQuestion({ type: 'text' })} uid="u" existingBet={null} />);
+    expect(screen.getByTestId('bonus-input').type).toBe('text');
+  });
+
+  it('number → tal-input', () => {
+    render(<BonusQuestion question={makeQuestion({ type: 'number' })} uid="u" existingBet={null} />);
+    expect(screen.getByTestId('bonus-input').type).toBe('number');
+  });
+
+  it('time → tekst-input med formathint', () => {
+    render(<BonusQuestion question={makeQuestion({ type: 'time' })} uid="u" existingBet={null} />);
+    const inp = screen.getByTestId('bonus-input');
+    expect(inp.type).toBe('text');
+    expect(inp.placeholder).toMatch(/1:23/);
+  });
+
+  it('boolean → Ja/Nej-dropdown', () => {
+    render(<BonusQuestion question={makeQuestion({ type: 'boolean' })} uid="u" existingBet={null} />);
+    expect(screen.getByTestId('bonus-select')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Ja' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Nej' })).toBeInTheDocument();
+  });
+
+  it('team → enkelt hold-dropdown', () => {
+    render(<BonusQuestion question={makeQuestion({ type: 'team' })} uid="u" existingBet={null} />);
+    expect(screen.getByTestId('bonus-select')).toBeInTheDocument();
+  });
+
+  it('teams → checkbox-liste (flere hold)', () => {
+    render(<BonusQuestion question={makeQuestion({ type: 'teams' })} uid="u" existingBet={null} />);
+    expect(screen.getByTestId('bonus-teams')).toBeInTheDocument();
+    expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(1);
+  });
+
+  it('teams → gem-knap deaktiveret indtil mindst ét hold valgt', () => {
+    render(<BonusQuestion question={makeQuestion({ type: 'teams' })} uid="u" existingBet={null} />);
+    expect(screen.getByTestId('bonus-save')).toBeDisabled();
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    expect(screen.getByTestId('bonus-save')).not.toBeDisabled();
+  });
+
+  it('teams → gemmer svaret som array', async () => {
+    render(<BonusQuestion question={makeQuestion({ type: 'teams' })} uid="u" existingBet={null} />);
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    fireEvent.click(screen.getByTestId('bonus-save'));
+    await waitFor(() => expect(setDoc).toHaveBeenCalled());
+    const written = setDoc.mock.calls.at(-1)[1];
+    expect(Array.isArray(written.answer)).toBe(true);
+    expect(written.answer.length).toBe(1);
+  });
+
+  it('teams → viser eksisterende array-svar sammenkædet', () => {
+    const q = makeQuestion({ type: 'teams', deadline: new Date('2000-01-01') });
+    const bet = { answer: ['Visma', 'UAE'], questionId: 'q1' };
+    render(<BonusQuestion question={q} uid="u" existingBet={bet} />);
+    expect(screen.getByText(/Dit svar:/)).toBeInTheDocument();
+    expect(screen.getByText(/Visma, UAE/)).toBeInTheDocument();
+  });
+
+  it('boolean → facit vises som "Ja"', () => {
+    const q = makeQuestion({ type: 'boolean', deadline: new Date('2000-01-01'), facit: 'ja' });
+    render(<BonusQuestion question={q} uid="u" existingBet={null} />);
+    // Facit-boksen indeholder teksten "Facit: Ja".
+    const facitLabel = screen.getByText(/Facit:/);
+    expect(facitLabel.parentElement).toHaveTextContent(/Facit:\s*Ja/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Låste spørgsmål (deadline i fortiden)
 // ---------------------------------------------------------------------------
 describe('BonusQuestion – låst', () => {
