@@ -23,8 +23,8 @@ const past = new Date(Date.now() - 3600_000);
 const future = new Date(Date.now() + 3600_000);
 
 const questions = [
-  { id: 'q1', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder den samlede Tour?', deadline: future, facit: null },
-  { id: 'q2', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder?', deadline: past, facit: 'Messi' },
+  { id: 'q1', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder den samlede Tour?', deadline: future, facit: null, points: 3 },
+  { id: 'q2', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder?', deadline: past, facit: 'Messi', points: 3 },
 ];
 
 function renderBonus(props = {}) {
@@ -98,7 +98,7 @@ describe('LeagueBonus', () => {
   it('NUMBER: den nærmeste i ligaen får point (relativ scoring)', () => {
     const numQ = [{
       id: 'qn', leagueId: 'L', type: LEAGUE_BONUS_TYPE.NUMBER,
-      label: 'Hvor mange point vinder grøn trøje med?', deadline: past, facit: '311',
+      label: 'Hvor mange point vinder grøn trøje med?', deadline: past, facit: '311', points: 3,
     }];
     renderBonus({
       questions: numQ,

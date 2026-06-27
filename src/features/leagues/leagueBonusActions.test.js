@@ -40,17 +40,26 @@ describe('createLeagueBonus', () => {
     })).rejects.toThrow(/fremtiden/);
   });
 
-  it('opretter med en gyldig fremtidig deadline', async () => {
+  it('opretter med en gyldig fremtidig deadline + pointfelt', async () => {
     const id = await createLeagueBonus({
-      leagueId: 'L', createdBy: 'u', type: LEAGUE_BONUS_TYPE.TEXT, label: 'x', deadline: future,
+      leagueId: 'L', createdBy: 'u', type: LEAGUE_BONUS_TYPE.TEXT, label: 'x', points: 4, deadline: future,
     });
     expect(id).toBe('q1');
+    const [, data] = mockAddDoc.mock.calls[0];
+    expect(data.points).toBe(4);
+    expect(data.type).toBe('text');
   });
 
-  it('kræver mindst to svarmuligheder ved valg', async () => {
+  it('afviser ugyldigt point', async () => {
     await expect(createLeagueBonus({
-      leagueId: 'L', createdBy: 'u', type: LEAGUE_BONUS_TYPE.CHOICE, label: 'x', deadline: future, options: ['kun en'],
-    })).rejects.toThrow(/to svarmuligheder/);
+      leagueId: 'L', createdBy: 'u', type: LEAGUE_BONUS_TYPE.TEXT, label: 'x', points: 0, deadline: future,
+    })).rejects.toThrow(/positivt tal/);
+  });
+
+  it('afviser ukendt type', async () => {
+    await expect(createLeagueBonus({
+      leagueId: 'L', createdBy: 'u', type: 'toplist', label: 'x', deadline: future,
+    })).rejects.toThrow(/Ukendt sp/);
   });
 });
 

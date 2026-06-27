@@ -26,13 +26,17 @@ export const LEAGUE_FORMAT = {
   STAGE_ONLY: 'stageOnly',  // kun etape-point
 };
 
-// Typer af individuelle liga-bonusspørgsmål
+// Typer af individuelle liga-bonusspørgsmål. Identiske med de officielle
+// bonus-svartyper (BONUS_ANSWER_TYPES nedenfor), så liga-bonus har samme
+// opsætning som officielle bonusspørgsmål. 'number' afgøres relativt pr. liga
+// (den/de nærmeste på facit vinder).
 export const LEAGUE_BONUS_TYPE = {
-  TEXT: 'text',     // fritekst
-  CHOICE: 'choice', // vælg én af flere
-  TOPLIST: 'toplist', // ordnet liste (fx top 5)
-  YESNO: 'yesno',   // ja/nej
-  NUMBER: 'number', // tal — den/de nærmeste på facit i ligaen vinder
+  TEXT: 'text',       // fritekst
+  TEAM: 'team',       // hold (vælg ét)
+  TEAMS: 'teams',     // hold (vælg flere)
+  NUMBER: 'number',   // tal — den/de nærmeste på facit i ligaen vinder
+  TIME: 'time',       // tidsangivelse
+  BOOLEAN: 'boolean', // ja/nej
 };
 
 // Svartyper for (sæson-)bonusspørgsmål. Bestemmer både admin-facit-input og
