@@ -2,8 +2,9 @@
    Design-agenten kan udvide dette; hold variabelnavne stabile.
    Udvidet med badge, tabs, table, medal, input, select og dark-mode-klasser. */
 :root {
-  --c-pitch: #0b6e4f; /* græsgrøn */
+  --c-pitch: #0b6e4f; /* græsgrøn — primær accent */
   --c-pitch-dark: #074b36;
+  --c-on-pitch: #ffffff; /* læsbar tekst oven på --c-pitch (kan overskrives af holdtema) */
   --c-accent: #ffd23f; /* gul */
   --c-accent-2: #ee4266; /* pink/rød */
   --c-bg: #f7f9fb;
@@ -96,7 +97,7 @@ button {
   align-items: center;
   gap: 0.4em;
   background: var(--c-pitch);
-  color: #fff;
+  color: var(--c-on-pitch);
   border: none;
   border-radius: var(--radius-sm);
   padding: 0.6rem 1.1rem;
@@ -503,7 +504,7 @@ button {
   border-radius: var(--radius);
   padding: 1.6rem 1.4rem;
   margin-bottom: 1.25rem;
-  color: #fff;
+  color: var(--c-on-pitch);
   background:
     radial-gradient(1200px 200px at 110% -40%, rgba(255,210,63,0.35), transparent 60%),
     linear-gradient(135deg, var(--c-pitch) 0%, var(--c-pitch-dark) 100%);
@@ -557,3 +558,33 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .hero__ball { animation: none; }
 }
+
+/* ═══════════════════════ HOLDFARVE-TEMAER ═══════════════════════
+   Valgbart accent-tema pr. cykelhold. Sættes via data-team på <html> og
+   lægger sig oven på BÅDE lyst og mørkt basistema — kun accenten recolores
+   (--c-pitch / --c-pitch-dark / --c-on-pitch), ikke baggrund/tekst.
+   Holdes synkroniseret med src/data/teamThemes.js (key → primary). */
+
+[data-team='alpecin']    { --c-pitch: #C8102E; --c-pitch-dark: #9c0c23; --c-on-pitch: #fff; }
+[data-team='bahrain']    { --c-pitch: #E30613; --c-pitch-dark: #b1040f; --c-on-pitch: #fff; }
+[data-team='cajarural']  { --c-pitch: #009639; --c-pitch-dark: #00702b; --c-on-pitch: #fff; }
+[data-team='cofidis']    { --c-pitch: #E2001A; --c-pitch-dark: #b10014; --c-on-pitch: #fff; }
+[data-team='decathlon']  { --c-pitch: #0082C3; --c-pitch-dark: #006497; --c-on-pitch: #fff; }
+[data-team='ef']         { --c-pitch: #FF0098; --c-pitch-dark: #c40076; --c-on-pitch: #fff; }
+[data-team='groupama']   { --c-pitch: #003DA5; --c-pitch-dark: #002d7a; --c-on-pitch: #fff; }
+[data-team='jayco']      { --c-pitch: #00B0B9; --c-pitch-dark: #008990; --c-on-pitch: #111; }
+[data-team='lotto']      { --c-pitch: #E30613; --c-pitch-dark: #b1040f; --c-on-pitch: #fff; }
+[data-team='lidltrek']   { --c-pitch: #0050AA; --c-pitch-dark: #003c80; --c-on-pitch: #fff; }
+[data-team='movistar']   { --c-pitch: #0033A0; --c-pitch-dark: #002677; --c-on-pitch: #fff; }
+[data-team='netcompany'] { --c-pitch: #DA291C; --c-pitch-dark: #a91f15; --c-on-pitch: #fff; }
+[data-team='nsn']        { --c-pitch: #2B3A67; --c-pitch-dark: #1f2b4d; --c-on-pitch: #fff; }
+[data-team='pinarello']  { --c-pitch: #00B7C4; --c-pitch-dark: #008f99; --c-on-pitch: #111; }
+[data-team='redbull']    { --c-pitch: #122E5C; --c-pitch-dark: #0c2042; --c-on-pitch: #fff; }
+[data-team='soudal']     { --c-pitch: #0E1A7B; --c-pitch-dark: #0a1259; --c-on-pitch: #fff; }
+[data-team='total']      { --c-pitch: #ED1C24; --c-pitch-dark: #bd141b; --c-on-pitch: #fff; }
+[data-team='picnic']     { --c-pitch: #E2001A; --c-pitch-dark: #b10014; --c-on-pitch: #fff; }
+[data-team='tudor']      { --c-pitch: #1A1A1A; --c-pitch-dark: #000000; --c-on-pitch: #fff; }
+[data-team='visma']      { --c-pitch: #FFE500; --c-pitch-dark: #d6c000; --c-on-pitch: #111; }
+[data-team='uae']        { --c-pitch: #E4002B; --c-pitch-dark: #b10021; --c-on-pitch: #fff; }
+[data-team='unox']       { --c-pitch: #ED1C45; --c-pitch-dark: #c01334; --c-on-pitch: #fff; }
+[data-team='astana']     { --c-pitch: #009DDC; --c-pitch-dark: #0079aa; --c-on-pitch: #111; }

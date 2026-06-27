@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-06-27T12:44:16.838Z",
+  "generatedAt": "2026-06-27T12:50:43.326Z",
   "totals": {
-    "files": 68,
-    "tests": 837,
-    "passed": 837,
+    "files": 69,
+    "tests": 847,
+    "passed": 847,
     "failed": 0
   },
   "suites": [
@@ -2471,6 +2471,54 @@
         },
         {
           "name": "updateProfile › skriver intet ved tomt felt-objekt",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/profile/TeamThemePicker.test.jsx",
+      "area": "frontend",
+      "passed": 10,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "TEAM_THEMES data › har præcis 23 poster",
+          "status": "passed"
+        },
+        {
+          "name": "TEAM_THEMES data › hver post har unik key og gyldige hex-farver",
+          "status": "passed"
+        },
+        {
+          "name": "TEAM_THEMES data › onPrimary er læsbar oven på primary (kontrast >= 3)",
+          "status": "passed"
+        },
+        {
+          "name": "TEAM_THEMES data › teamThemeByKey og teamThemeKeyForName matcher labels",
+          "status": "passed"
+        },
+        {
+          "name": "TeamThemePicker › sætter data-team + localStorage ved valg af hold",
+          "status": "passed"
+        },
+        {
+          "name": "TeamThemePicker › rydder data-team + localStorage ved valg af Standard",
+          "status": "passed"
+        },
+        {
+          "name": "TeamThemePicker › initialiserer fra gemt key i localStorage",
+          "status": "passed"
+        },
+        {
+          "name": "TeamThemePicker › viser Standard + 23 hold-options",
+          "status": "passed"
+        },
+        {
+          "name": "TeamThemePicker › getInitialTeamTheme ignorerer ugyldig gemt key",
+          "status": "passed"
+        },
+        {
+          "name": "TeamThemePicker › applyTeamTheme sætter og fjerner attributten",
           "status": "passed"
         }
       ]

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-27T12:44:16.964Z",
+  "generatedAt": "2026-06-27T12:50:43.451Z",
   "nodes": [
     {
       "id": "firebase",
@@ -69,7 +69,7 @@
     {
       "id": "features/profile",
       "layer": 2,
-      "files": 2
+      "files": 3
     },
     {
       "id": "features/reactions",
@@ -350,17 +350,17 @@
     },
     {
       "from": "features/profile",
+      "to": "app-skal",
+      "count": 2
+    },
+    {
+      "from": "features/profile",
       "to": "firebase",
       "count": 1
     },
     {
       "from": "features/profile",
       "to": "lib (kerne)",
-      "count": 1
-    },
-    {
-      "from": "features/profile",
-      "to": "app-skal",
       "count": 1
     },
     {
@@ -387,6 +387,11 @@
       "from": "features/stages",
       "to": "app-skal",
       "count": 2
+    },
+    {
+      "from": "app-skal",
+      "to": "features/profile",
+      "count": 1
     },
     {
       "from": "pages",
@@ -461,7 +466,7 @@
     {
       "from": "pages",
       "to": "features/profile",
-      "count": 1
+      "count": 2
     }
   ]
 }

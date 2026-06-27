@@ -7,6 +7,7 @@ import { updateProfile } from '../features/profile/profileActions';
 import Avatar from '../components/Avatar';
 import EmojiPicker from '../features/comments/EmojiPicker';
 import ThemeToggle from '../features/leaderboard/ThemeToggle';
+import TeamThemePicker from '../features/profile/TeamThemePicker';
 import { TOUR_TEAMS, prettyTeam } from '../data/tourTeams2026';
 
 const teamOptions = [...TOUR_TEAMS].sort((a, b) =>
@@ -127,6 +128,12 @@ export default function ProfilePage() {
               Skifter mellem lyst og mørkt for hele appen
             </span>
           </div>
+
+          <label className="form-label mt-2" htmlFor="team-theme">Holdfarve</label>
+          <TeamThemePicker />
+          <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+            Giver appen dit yndlingsholds accentfarve
+          </span>
         </div>
       </div>
     </div>
