@@ -1,19 +1,46 @@
 // ---------------------------------------------------------------------------
 // TeamsPage – oversigt over de 23 hold (/hold). Hvert kort linker til holdets
-// egen side. Bruger den statiske holdliste (TEAMS) med trøje/logo/farve.
+// egen side. Kan sorteres efter navn, holdets verdensrang eller summen af
+// rytternes verdensrangsplacering (startlisten; uden for top-2000 = nr. 2000).
 // ---------------------------------------------------------------------------
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Hero from '../components/Hero';
 import { TEAMS, prettyTeam } from '../data/tourTeams2026';
 import { teamProfile } from '../data/teamProfiles2026';
 import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
-import { teamWorldRank } from '../data/uciRanking2026';
+import { teamWorldRank, riderRankSum } from '../data/uciRanking2026';
+
+const SORTS = [
+  { key: 'name', label: 'Navn' },
+  { key: 'rank', label: 'Verdensrang (hold)' },
+  { key: 'sum', label: 'Rytter-sum' },
+];
 
 export default function TeamsPage() {
   const live = useStartlist();
+  const [sort, setSort] = useState('name');
+
   const isAnnounced = (code) => (live.byCode[code]?.announced ?? staticStartlist(code)?.announced) === true;
+  const ridersOf = (code) => (live.byCode[code]?.riders ?? staticStartlist(code)?.riders ?? []);
   const announcedCount = TEAMS.filter((t) => isAnnounced(t.code)).length;
+
+  // Dekorér + sortér holdene efter det valgte kriterium.
+  const rows = useMemo(() => {
+    const decorated = TEAMS.map((t) => {
+      const wr = teamWorldRank(t.code);
+      const sum = riderRankSum(ridersOf(t.code), t.code); // null hvis ingen startliste
+      return { t, teamRank: wr ? wr.rank : Infinity, sum: sum == null ? Infinity : sum };
+    });
+    const byName = (a, b) => prettyTeam(a.t.name).localeCompare(prettyTeam(b.t.name), 'da');
+    decorated.sort((a, b) => {
+      if (sort === 'rank') return (a.teamRank - b.teamRank) || byName(a, b);
+      if (sort === 'sum') return (a.sum - b.sum) || byName(a, b);
+      return byName(a, b);
+    });
+    return decorated;
+  }, [sort, live]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
@@ -23,6 +50,27 @@ export default function TeamsPage() {
         chips={[`${TEAMS.length} hold`, `${announcedCount} har udtaget`]}
       />
 
+      {/* Sortering */}
+      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+        <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)' }}>Sortér efter:</span>
+        {SORTS.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => setSort(s.key)}
+            data-testid={`sort-${s.key}`}
+            className={`btn btn--sm ${sort === s.key ? '' : 'btn--ghost'}`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {sort === 'sum' && (
+        <p style={{ fontSize: '0.76rem', color: 'var(--c-muted)', margin: '0.4rem 0 0' }}>
+          Σ = summen af startlistens rytteres verdensrang (uden for top-2000 tæller som 2000). Hold uden offentliggjort startliste vises sidst.
+        </p>
+      )}
+
       <div
         data-testid="teams-grid"
         style={{
@@ -30,7 +78,7 @@ export default function TeamsPage() {
           gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
         }}
       >
-        {TEAMS.map((t) => (
+        {rows.map(({ t, sum }) => (
           <Link
             key={t.code}
             to={`/hold/${t.code}`}
@@ -56,6 +104,11 @@ export default function TeamsPage() {
               {teamWorldRank(t.code) && (
                 <span className="badge badge--muted" style={{ fontSize: '0.68rem' }} title="UCI verdensrang">
                   🌍 #{teamWorldRank(t.code).rank}
+                </span>
+              )}
+              {sort === 'sum' && Number.isFinite(sum) && (
+                <span className="badge badge--muted" style={{ fontSize: '0.68rem' }} title="Sum af rytternes verdensrang">
+                  Σ {sum.toLocaleString('da-DK')}
                 </span>
               )}
               <span

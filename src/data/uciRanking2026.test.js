@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   teamWorldRank, teamWorldRiders, riderWorldRank, flagEmoji,
-  UCI_RIDER_TOP_N, UCI_RANKING_DATE,
+  riderRankSum, UNRANKED_PLACE, UCI_RIDER_TOP_N, UCI_RANKING_DATE,
 } from './uciRanking2026';
 
 describe('uciRanking2026', () => {
@@ -33,6 +33,14 @@ describe('uciRanking2026', () => {
   it('riderWorldRank: team-parameteren begrænser til holdet', () => {
     // Pogačar er på UEX, ikke TVL → ingen match når team=TVL
     expect(riderWorldRank('Tadej Pogačar', 'TVL')).toBeNull();
+  });
+
+  it('riderRankSum: summerer rang, 2000 for ukendte, null uden ryttere', () => {
+    // Pogačar #1 + en ukendt rytter (2000)
+    const sum = riderRankSum([{ name: 'Tadej Pogačar' }, { name: 'Ukendt Rytter' }], 'UEX');
+    expect(sum).toBe(1 + UNRANKED_PLACE);
+    expect(riderRankSum([], 'UEX')).toBeNull();
+    expect(riderRankSum(null)).toBeNull();
   });
 
   it('flagEmoji: ISO-2 → flag', () => {

@@ -70,6 +70,24 @@ export function riderWorldRank(name, team) {
   return best;
 }
 
+/** Antaget placering for en rytter uden for top-N (bruges i rytter-sum). */
+export const UNRANKED_PLACE = 2000;
+
+/**
+ * Sum af et holds rytteres verdensrangsplacering. Ryttere uden for ranglisten
+ * (top-N) tæller som UNRANKED_PLACE (2000). Lavere sum = stærkere felt.
+ * @param {Array<{name:string}>} riders  holdets ryttere (startlisten)
+ * @param {string} [team]  holdkode (begrænser navne-match til holdet)
+ * @returns {number|null}  summen, eller null hvis der ingen ryttere er
+ */
+export function riderRankSum(riders, team) {
+  if (!Array.isArray(riders) || riders.length === 0) return null;
+  return riders.reduce((sum, r) => {
+    const wr = riderWorldRank(r?.name, team);
+    return sum + (wr ? wr.rank : UNRANKED_PLACE);
+  }, 0);
+}
+
 /** Flag-emoji ud fra ISO-3166-1 alpha-2 (fx 'dk' → 🇩🇰). */
 export function flagEmoji(iso2) {
   const c = String(iso2 || '').trim().toUpperCase();
