@@ -465,6 +465,14 @@ export default function TourTab() {
     return res.data;
   });
 
+  const resetResults = () => {
+    if (!window.confirm('Nulstil ALLE etaperesultater? Etaperne sættes tilbage til "kan tippes", facit/trøjer fjernes og stillingen genberegnes. Tip bevares.')) return undefined;
+    return run('reset', async () => {
+      const res = await httpsCallable(functions, 'resetTourResults')({ season });
+      return res.data;
+    });
+  };
+
   const syncStageInfo = (dryRun) => run('stageinfo', async () => {
     const res = await callSyncStageInfo({ dryRun });
     if (!res.ok) throw new Error(res.error);
@@ -533,8 +541,8 @@ export default function TourTab() {
         <h3 style={{ marginBottom: '0.25rem' }}>2. Hent resultater</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
           Henter etaperesultater fra letour-proxyen, beregner point og udfylder
-          holdene. <strong>Indtil Tour 2026 er kørt, henter den 2025-data</strong> —
-          så denne knap er også din test med rigtige resultater.
+          holdene. Synken skriver kun resultater på etaper der <strong>er startet</strong>,
+          så den kan ikke afgøre fremtidige etaper med sidste års data.
         </p>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button className="btn btn--ghost" disabled={busy} onClick={() => syncNow(true)}>
@@ -542,6 +550,9 @@ export default function TourTab() {
           </button>
           <button className="btn" disabled={busy} onClick={() => syncNow(false)}>
             {busy === 'sync' ? 'Synker…' : '⬇️ Synk resultater nu'}
+          </button>
+          <button className="btn btn--ghost" disabled={busy} onClick={resetResults} data-testid="reset-results" style={{ color: 'var(--c-err)' }}>
+            {busy === 'reset' ? 'Nulstiller…' : '♻️ Nulstil alle resultater'}
           </button>
         </div>
       </section>

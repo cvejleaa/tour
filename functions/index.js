@@ -222,7 +222,13 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     const n = s.number;
     const docId = `${season}-stage-${n}`;
     const existing = await db.collection('stages').doc(docId).get();
-    if (existing.exists && existing.data().status === 'done') continue; // allerede afgjort
+    const exData = existing.exists ? existing.data() : null;
+    if (exData?.status === 'done') continue; // allerede afgjort
+    // SPÆRRE: en etape kan ikke have et ægte resultat før den er startet. Uden
+    // dette ville synken (indtil 2026-løbet køres) skrive sidste års resultater
+    // fra proxyen ind på fremtidige etaper og afgøre hele turneringen for tidligt.
+    const kickoffMs = exData?.kickoff?.toDate ? exData.kickoff.toDate().getTime() : null;
+    if (kickoffMs && kickoffMs > Date.now()) continue; // endnu ikke startet
     checked++;
     const r = await fetch(`${proxyUrl}/api/stages/${n}`);
     if (r.status === 425 || !r.ok) continue; // resultat ikke klar
@@ -287,6 +293,54 @@ exports.syncTourNow = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   await requireAdmin(db, request);
   return syncTourCore(db, { dryRun: request.data?.dryRun === true });
+});
+
+// Nulstil resultater (admin): fjerner facit/trøjer fra etaperne, sætter dem
+// tilbage til 'scheduled', nulstiller etape-tip-point og genberegner stillingen.
+// Bruges fx hvis synken nåede at skrive sidste års resultater ind.
+exports.resetTourResults = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const { activeSeason } = await tourSettings(db);
+  const season = Number(request.data?.season) || activeSeason;
+
+  // 1) Nulstil etaper (fjern resultat/trøjer, status → scheduled)
+  const stagesSnap = await db.collection('stages').where('season', '==', season).get();
+  let stagesReset = 0;
+  {
+    let batch = db.batch(); let ops = 0; const batches = [batch];
+    for (const d of stagesSnap.docs) {
+      const data = d.data();
+      if (data.status !== 'done' && data.result == null && data.jerseys == null) continue;
+      batch.set(d.ref, {
+        status: 'scheduled',
+        result: FieldValue.delete(),
+        jerseys: FieldValue.delete(),
+        resultUpdatedAt: FieldValue.delete(),
+      }, { merge: true });
+      stagesReset++;
+      if (++ops >= 400) { batch = db.batch(); batches.push(batch); ops = 0; }
+    }
+    for (const b of batches) await b.commit();
+  }
+
+  // 2) Nulstil etape-tip-point
+  const betsSnap = await db.collection('stageBets').where('season', '==', season).get();
+  {
+    let batch = db.batch(); let ops = 0; const batches = [batch];
+    for (const d of betsSnap.docs) {
+      if (d.data().points == null) continue;
+      batch.update(d.ref, { points: FieldValue.delete() });
+      if (++ops >= 400) { batch = db.batch(); batches.push(batch); ops = 0; }
+    }
+    for (const b of batches) await b.commit();
+  }
+
+  // 3) Genberegn stillingen for berørte spillere
+  const uids = [...new Set(betsSnap.docs.map((d) => d.data().uid))];
+  for (const uid of uids) await recalcTourTotal(db, uid, season, activeSeason);
+
+  return { season, stagesReset, betsReset: betsSnap.size, users: uids.length };
 });
 
 // "Hent etape-info"-knap (admin): per-etape højdemeter (D+) + hvilke
