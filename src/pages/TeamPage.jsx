@@ -13,12 +13,22 @@ import { useStartlist } from '../features/teams/useStartlist';
 import { teamWorldRank, riderWorldRank } from '../data/uciRanking2026';
 
 function RiderList({ riders, starNames, teamCode }) {
+  // Beregn verdensrang én gang og sortér holdet efter placering (bedst først);
+  // ryttere uden for ranglisten sidst, derefter alfabetisk.
+  const rows = riders
+    .map((r) => ({ r, wr: riderWorldRank(r.name, teamCode) }))
+    .sort((a, b) => {
+      const ra = a.wr ? a.wr.rank : Infinity;
+      const rb = b.wr ? b.wr.rank : Infinity;
+      if (ra !== rb) return ra - rb;
+      return String(a.r.name || '').localeCompare(String(b.r.name || ''), 'da');
+    });
+
   return (
     <ul data-testid="rider-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
-      {riders.map((r, i) => {
+      {rows.map(({ r, wr }, i) => {
         const isDane = r.country === 'Danmark';
         const isStar = starNames?.has(normRiderName(r.name));
-        const wr = riderWorldRank(r.name, teamCode); // verdensrang hvis rytteren er rangeret
         return (
           <li
             key={`${r.name || i}`}
