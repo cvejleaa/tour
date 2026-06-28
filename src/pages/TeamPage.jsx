@@ -12,13 +12,13 @@ import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
 import { teamWorldRank, riderWorldRank } from '../data/uciRanking2026';
 
-function RiderList({ riders, starNames }) {
+function RiderList({ riders, starNames, teamCode }) {
   return (
     <ul data-testid="rider-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
       {riders.map((r, i) => {
         const isDane = r.country === 'Danmark';
         const isStar = starNames?.has(normRiderName(r.name));
-        const wr = riderWorldRank(r.name); // verdensrang hvis rytteren er i top-N
+        const wr = riderWorldRank(r.name, teamCode); // verdensrang hvis rytteren er rangeret
         return (
           <li
             key={`${r.name || i}`}
@@ -29,8 +29,8 @@ function RiderList({ riders, starNames }) {
             <span style={{ fontWeight: isDane || isStar ? 800 : 600 }}>{r.name || '—'}</span>
             {isDane && <span title="Dansk rytter">🇩🇰</span>}
             {wr && (
-              <span className="badge badge--muted" title={`UCI verdensrang · ${wr.points} point`} style={{ fontSize: '0.7rem' }}>
-                🌍 #{wr.rank}
+              <span className="badge badge--muted" title="UCI verdensrang" style={{ fontSize: '0.7rem' }}>
+                🌍 #{wr.rank} · {wr.points.toLocaleString('da-DK')} p
               </span>
             )}
             {r.country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {r.country}</span>}
@@ -139,7 +139,7 @@ export default function TeamPage() {
             </span>
           </h3>
           {riders.length > 0 ? (
-            <RiderList riders={riders} starNames={starNames} />
+            <RiderList riders={riders} starNames={starNames} teamCode={meta.code} />
           ) : (
             <p data-testid="riders-pending" style={{ margin: 0, color: 'var(--c-muted)', fontSize: '0.9rem', lineHeight: 1.5 }}>
               {meta.name} har endnu ikke udtaget sit hold til touren. Rytterne vises

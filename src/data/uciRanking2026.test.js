@@ -24,6 +24,17 @@ describe('uciRanking2026', () => {
     expect(riderWorldRank('Ukendt Rytter')).toBeNull();
   });
 
+  it('riderWorldRank: matcher selv om UCI har et mellemnavn (Lenny Martinez)', () => {
+    // UCI: "Lenny Sydney Martinez" — startlisten har kun "Lenny Martinez"
+    expect(riderWorldRank('Lenny Martinez')).toMatchObject({ rank: 24 });
+    expect(riderWorldRank('Lenny Martinez', 'TBV')).toMatchObject({ rank: 24 });
+  });
+
+  it('riderWorldRank: team-parameteren begrænser til holdet', () => {
+    // Pogačar er på UEX, ikke TVL → ingen match når team=TVL
+    expect(riderWorldRank('Tadej Pogačar', 'TVL')).toBeNull();
+  });
+
   it('flagEmoji: ISO-2 → flag', () => {
     expect(flagEmoji('dk')).toBe('🇩🇰');
     expect(flagEmoji('SI')).toBe('🇸🇮');

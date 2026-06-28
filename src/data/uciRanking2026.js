@@ -31,28 +31,43 @@ export function teamWorldRiders(code) {
     .sort((a, b) => a.rank - b.rank);
 }
 
-// Rækkefølge-uafhængig navnenøgle (accent/store-små-ufølsom, sorterede ord).
-function nameKey(s) {
-  return String(s || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z\s]/g, ' ')
-    .split(/\s+/).filter(Boolean).sort()
-    .join(' ');
+// Robust navne-match: for-/efternavn er adskilt i data (UCI har efternavnet i
+// caps). En rytter matcher hvis FORnavnet optræder i søgenavnet OG mindst ét
+// EFTERnavn-ord gør. Det håndterer mellemnavne (UCI: "Lenny Sydney Martinez"
+// vs startliste: "Lenny Martinez"), omvendt rækkefølge og accenter.
+function normWord(w) {
+  return String(w || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+}
+function nameTokens(name) {
+  return new Set(String(name || '').split(/\s+/).map(normWord).filter(Boolean));
 }
 
-const BY_NAME = new Map();
-for (const r of RIDER_RANK.riders) {
-  const k = nameKey(r.name);
-  if (k) BY_NAME.set(k, r);
-}
+// Forindekser ryttere med normaliseret for-/efternavn (samme NFD-normalisering
+// som søgenavnet), så accenter (fx Pogačar) altid matcher.
+const INDEXED = RIDER_RANK.riders.map((r) => ({
+  ref: r,
+  first: normWord(r.first),
+  last: (Array.isArray(r.last) ? r.last : []).map(normWord).filter(Boolean),
+}));
 
 /**
- * Slå en rytters verdensrang op på navn (rækkefølge-uafhængigt).
+ * Slå en rytters verdensrang op på navn. Hvis `team` (holdkode) gives, søges
+ * kun blandt holdets ryttere — det fjerner risiko for navnesammenfald.
  * @param {string} name
- * @returns {{rank:number, points:number}|null}
+ * @param {string} [team]
+ * @returns {{rank:number, points:number, name:string}|null}
  */
-export function riderWorldRank(name) {
-  return BY_NAME.get(nameKey(name)) || null;
+export function riderWorldRank(name, team) {
+  const q = nameTokens(name);
+  if (q.size === 0) return null;
+  let best = null;
+  for (const x of INDEXED) {
+    if (team && x.ref.team !== team) continue;
+    if (!x.first || !q.has(x.first)) continue;
+    if (!x.last.some((t) => q.has(t))) continue;
+    if (!best || x.ref.rank < best.rank) best = x.ref;
+  }
+  return best;
 }
 
 /** Flag-emoji ud fra ISO-3166-1 alpha-2 (fx 'dk' → 🇩🇰). */
