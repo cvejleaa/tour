@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { setRecapTime, setUntippedPenalty } from './adminActions';
+import { setRecapTime, setUntippedPenalty, callSendTestReminderToMe, callSendTipRemindersNow } from './adminActions';
 import { DEFAULT_UNTIPPED_PENALTY } from '../leaderboard/useUntippedPenalty';
 
 const DEFAULT_RECAP_TIME = '08:15';
@@ -72,6 +72,28 @@ export default function SettingsTab() {
     } finally {
       setSavingPen(false);
     }
+  };
+
+  // E-mail-påmindelser: test (kun til mig) + udløs den rigtige nu.
+  const [mailBusy, setMailBusy] = useState('');
+  const [mailMsg, setMailMsg] = useState('');
+  const sendTestMail = async () => {
+    setMailBusy('test'); setMailMsg('');
+    const res = await callSendTestReminderToMe();
+    setMailBusy('');
+    setMailMsg(res.ok
+      ? `✓ Testmail sendt til ${res.data?.sentTo ?? 'dig'} (${res.data?.stages ?? '?'} etaper over ${res.data?.days ?? '?'} dage).`
+      : 'Fejl: ' + res.error);
+  };
+  const sendRealNow = async () => {
+    setMailBusy('real'); setMailMsg('');
+    const res = await callSendTipRemindersNow();
+    setMailBusy('');
+    if (!res.ok) { setMailMsg('Fejl: ' + res.error); return; }
+    const d = res.data || {};
+    setMailMsg(d.sent > 0
+      ? `✓ Sendte ${d.sent} påmindelser.`
+      : `Sendte 0 — ${d.reason === 'no-stages' ? 'ingen etaper inden for det næste døgn endnu (sender automatisk fra dagen før 1. etape).' : (d.reason || 'intet at sende lige nu.')}`);
   };
 
   return (
@@ -149,6 +171,32 @@ export default function SettingsTab() {
         </button>
         {penStatus === 'saved' && <span style={{ color: 'var(--c-ok)', fontSize: '0.9rem' }}>✓ Gemt</span>}
         {penStatus === 'error' && <span style={{ color: 'var(--c-err)', fontSize: '0.9rem' }}>Kunne ikke gemme.</span>}
+      </div>
+
+      <hr style={{ margin: '1.75rem 0', border: 'none', borderTop: '1px solid var(--c-border)' }} />
+
+      {/* ── E-mail-påmindelser om manglende tips ───────────────────────────── */}
+      <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>
+        ✉️ Påmindelser om manglende tips
+      </h2>
+      <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
+        Spillere får automatisk en mail kl. 09.00 på etapedage, hvis de mangler at tippe på en
+        etape inden for det næste døgn. <strong>Testmail</strong> sender de første 3 etapedage
+        (med starttider) <em>kun til dig</em>. <strong>Send nu</strong> kører den rigtige
+        udsendelse til alle med manglende tips.
+      </p>
+      <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className="btn" onClick={sendTestMail} disabled={!!mailBusy} data-testid="send-test-reminder">
+          {mailBusy === 'test' ? 'Sender…' : '🧪 Send testmail til mig'}
+        </button>
+        <button className="btn btn--ghost" onClick={sendRealNow} disabled={!!mailBusy} data-testid="send-reminders-now">
+          {mailBusy === 'real' ? 'Sender…' : 'Send påmindelser nu'}
+        </button>
+        {mailMsg && (
+          <span style={{ fontSize: '0.9rem', color: mailMsg.startsWith('Fejl') ? 'var(--c-err)' : 'var(--c-ok)' }}>
+            {mailMsg}
+          </span>
+        )}
       </div>
     </div>
   );
