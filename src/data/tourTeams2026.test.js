@@ -1,6 +1,25 @@
 // Tests for 2026-startfeltet: holdliste, metadata-opslag og prettyTeam.
 import { describe, it, expect } from 'vitest';
-import { TOUR_TEAMS, TEAM_META, teamMeta, prettyTeam } from './tourTeams2026';
+import { TOUR_TEAMS, TEAM_META, teamMeta, prettyTeam, countryName } from './tourTeams2026';
+
+describe('countryName', () => {
+  it('oversætter 3-bogstavs-koder til danske landenavne', () => {
+    expect(countryName('brn')).toBe('Bahrain');
+    expect(countryName('FRA')).toBe('Frankrig');
+    expect(countryName('ned')).toBe('Holland');
+    expect(countryName('uae')).toBe('De Forenede Arabiske Emirater');
+  });
+  it('falder tilbage til versal-kode for ukendte', () => {
+    expect(countryName('zzz')).toBe('ZZZ');
+    expect(countryName('')).toBe('');
+  });
+  it('alle holds nationalitet giver en ikke-tom streng', () => {
+    for (const code of Object.keys(TEAM_META)) {
+      const nat = TEAM_META[code].nationality;
+      if (nat) expect(countryName(nat).length).toBeGreaterThan(0);
+    }
+  });
+});
 
 describe('TOUR_TEAMS', () => {
   it('er 23 holdnavne (strenge)', () => {

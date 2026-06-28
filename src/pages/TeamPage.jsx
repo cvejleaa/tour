@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 import { useParams, Link } from 'react-router-dom';
 import Hero from '../components/Hero';
-import { teamMeta, prettyTeam } from '../data/tourTeams2026';
+import { teamMeta, prettyTeam, countryName } from '../data/tourTeams2026';
 import { teamProfile, normRiderName } from '../data/teamProfiles2026';
 import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
@@ -79,7 +79,7 @@ export default function TeamPage() {
 
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
-      <Hero title={prettyTeam(meta.name)} subtitle="Hold · Tour de France 2026" chips={meta.nationality ? [meta.nationality.toUpperCase()] : []} />
+      <Hero title={prettyTeam(meta.name)} subtitle="Hold · Tour de France 2026" chips={meta.nationality ? [countryName(meta.nationality)] : []} />
 
       <div className="card" data-testid="team-presentation" style={{ borderTop: `4px solid ${accent}` }}>
         {/* Header: logo + trøje + navn */}
@@ -91,7 +91,7 @@ export default function TeamPage() {
             <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
               <span className="badge badge--muted" style={{ fontSize: '0.74rem' }}>{meta.code}</span>
               {meta.nationality && (
-                <span className="badge badge--muted" style={{ fontSize: '0.74rem', textTransform: 'uppercase' }}>{meta.nationality}</span>
+                <span className="badge badge--muted" style={{ fontSize: '0.74rem' }}>{countryName(meta.nationality)}</span>
               )}
               {teamRank && (
                 <span

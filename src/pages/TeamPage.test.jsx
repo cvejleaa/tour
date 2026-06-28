@@ -15,6 +15,7 @@ vi.mock('../data/tourTeams2026', () => {
   return {
     teamMeta: (c) => META[c] || null,
     prettyTeam: (n) => n,
+    countryName: (code) => ({ uae: 'De Forenede Arabiske Emirater', ned: 'Holland' }[code] || String(code).toUpperCase()),
   };
 });
 

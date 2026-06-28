@@ -57,6 +57,25 @@ export function teamMeta(nameOrCode) {
  * Lease a Bike" ikke mangles). Ellers title-cases ALL-CAPS letour-navne, mens
  * kendte forkortelser bevares i versaler.
  */
+// UCI/IOC 3-bogstavs-landekoder → danske landenavne (cykel-nationer).
+const COUNTRY_DA = {
+  bel: 'Belgien', brn: 'Bahrain', esp: 'Spanien', fra: 'Frankrig', usa: 'USA',
+  ger: 'Tyskland', sui: 'Schweiz', gbr: 'Storbritannien', ned: 'Holland',
+  aus: 'Australien', nor: 'Norge', kaz: 'Kasakhstan', uae: 'De Forenede Arabiske Emirater',
+  ita: 'Italien', den: 'Danmark', slo: 'Slovenien', por: 'Portugal', irl: 'Irland',
+  aut: 'Østrig', cze: 'Tjekkiet', pol: 'Polen', lux: 'Luxembourg', svk: 'Slovakiet',
+  rsa: 'Sydafrika', eri: 'Eritrea', col: 'Colombia', ecu: 'Ecuador', mex: 'Mexico',
+  can: 'Canada', nzl: 'New Zealand', jpn: 'Japan', lat: 'Letland', est: 'Estland',
+  fin: 'Finland', swe: 'Sverige', ukr: 'Ukraine', rus: 'Rusland', bel2: 'Belgien',
+};
+
+/** Dansk landenavn ud fra en 3-bogstavs-kode (fx 'brn' → 'Bahrain'). */
+export function countryName(code) {
+  if (!code) return '';
+  const key = String(code).trim().toLowerCase();
+  return COUNTRY_DA[key] || String(code).toUpperCase();
+}
+
 const KEEP_UPPER = new Set(['UAE', 'EF', 'AG2R', 'FDJ', 'XDS', 'B&B', 'XRG', 'NSN', 'CGM', 'CMA', 'RGA', 'NL']);
 export function prettyTeam(name) {
   if (!name) return '';
