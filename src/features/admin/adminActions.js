@@ -135,6 +135,25 @@ export async function callSendTestReminderToMe() {
 }
 
 /**
+ * Kald Cloud Function 'sendBroadcastEmail' — send en fritekst-besked til en
+ * liste af modtagere (fx invitationer).
+ * @param {{subject:string, body:string, recipients:string[]}} payload
+ */
+export async function callSendBroadcastEmail(payload) {
+  try {
+    const fn = httpsCallable(functions, 'sendBroadcastEmail');
+    const result = await fn(payload);
+    return { ok: true, data: result.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "sendBroadcastEmail" er ikke deployet endnu.'
+        : err?.message ?? 'Ukendt fejl ved kald af sendBroadcastEmail.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
  * Kald Cloud Function 'generateLeagueRecapNow' — generér AI-morgenopslag.
  * dryRun=true poster ikke, men returnerer teksten til forhåndsvisning.
  * @param {{ leagueId?: string, dryRun?: boolean }} [opts]

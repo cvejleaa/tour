@@ -6,6 +6,7 @@ const TYPE_LABELS = {
   reminder: 'Påmindelse',
   'test-reminder': 'Test-påmindelse',
   'password-reset': 'Kodeord-nulstilling',
+  broadcast: 'Besked',
   other: 'Andet',
 };
 

@@ -786,6 +786,68 @@ async function requireAdmin(db, request) {
 }
 
 // ---------------------------------------------------------------------------
+// sendBroadcastEmail — callable (admin): send en fritekst-besked (emne + tekst)
+// til en liste af modtagere, fx invitationer. Logges som type 'broadcast'.
+// ---------------------------------------------------------------------------
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function broadcastHtml(body) {
+  const safe = escapeHtml(body).replace(/\r\n|\r|\n/g, '<br>');
+  return `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222">${safe}`
+    + `<hr style="border:none;border-top:1px solid #eee;margin:18px 0">`
+    + `<p style="color:#888;font-size:12px">Sendt fra Tour de France Tip · <a href="${APP_URL}">${APP_URL}</a></p></div>`;
+}
+
+exports.sendBroadcastEmail = onCall(
+  { region: REGION, secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+
+    const subject = String(request.data?.subject || '').trim();
+    const body = String(request.data?.body || '').trim();
+    const rawRecipients = Array.isArray(request.data?.recipients) ? request.data.recipients : [];
+    if (!subject) throw new HttpsError('invalid-argument', 'Emne mangler.');
+    if (!body) throw new HttpsError('invalid-argument', 'Beskeden er tom.');
+
+    // Valider + dedupliker modtagere (uafhængigt af store/små bogstaver).
+    const seen = new Set();
+    const valid = [];
+    const invalid = [];
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const r of rawRecipients) {
+      const e = String(r || '').trim();
+      if (!e) continue;
+      const key = e.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (re.test(e)) valid.push(e); else invalid.push(e);
+    }
+    if (valid.length === 0) throw new HttpsError('invalid-argument', 'Ingen gyldige modtagere.');
+    if (valid.length > 300) throw new HttpsError('invalid-argument', 'For mange modtagere (max 300).');
+
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
+
+    const html = broadcastHtml(body);
+    let sent = 0;
+    const failed = [];
+    for (const to of valid) {
+      try {
+        await sendEmail(db, transporter, { to, subject, html, type: 'broadcast' });
+        sent += 1;
+      } catch (e) {
+        failed.push(to);
+        console.error('broadcast: kunne ikke sende til', to, e.message);
+      }
+    }
+    return { sent, failed, invalid, total: valid.length };
+  }
+);
+
+// ---------------------------------------------------------------------------
 // AI-morgenopslag (Tour-Botten) — genererer hver morgen kl. 07:00 et kort dansk
 // vægopslag pr. liga om seneste døgns udvikling. Bruger Claude (Opus 4.8).
 // ---------------------------------------------------------------------------

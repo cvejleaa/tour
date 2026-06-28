@@ -12,6 +12,7 @@ import LeaguesAdminTab from '../features/admin/LeaguesAdminTab';
 import TestsTab from '../features/admin/TestsTab';
 import RunbookTab from '../features/admin/RunbookTab';
 import EmailLogTab from '../features/admin/EmailLogTab';
+import BroadcastTab from '../features/admin/BroadcastTab';
 import SettingsTab from '../features/admin/SettingsTab';
 
 // Fane-id'er
@@ -22,6 +23,7 @@ const TAB_LEAGUES = 'leagues';
 const TAB_TESTS   = 'tests';
 const TAB_RUNBOOK = 'runbook';
 const TAB_MAILS   = 'mails';
+const TAB_BROADCAST = 'broadcast';
 const TAB_SETTINGS = 'settings';
 
 export default function AdminPage() {
@@ -42,9 +44,10 @@ export default function AdminPage() {
     { key: TAB_TESTS,   label: 'Tests' },
     { key: TAB_RUNBOOK, label: '📋 Køreplan' },
     { key: TAB_MAILS,   label: '✉️ Mail-log' },
-    // Indstillinger skriver til config (kun ejer kan skrive iflg. reglerne)
+    // Send mail (masseudsendelse) + indstillinger — kun ejer
     ...(isOwner
-      ? [{ key: TAB_SETTINGS, label: '⚙️ Indstillinger' }]
+      ? [{ key: TAB_BROADCAST, label: '📣 Send mail' },
+         { key: TAB_SETTINGS, label: '⚙️ Indstillinger' }]
       : []),
   ];
 
@@ -106,6 +109,7 @@ export default function AdminPage() {
         {tab === TAB_TESTS   && <TestsTab />}
         {tab === TAB_RUNBOOK && <RunbookTab />}
         {tab === TAB_MAILS   && <EmailLogTab />}
+        {tab === TAB_BROADCAST && <BroadcastTab />}
         {tab === TAB_SETTINGS && <SettingsTab />}
       </div>
     </div>

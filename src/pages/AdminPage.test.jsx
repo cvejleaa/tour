@@ -84,14 +84,15 @@ describe('AdminPage', () => {
       expect(screen.queryByTestId('tab-leagues')).toBeInTheDocument();
     });
 
-    it('viser alle otte faner for owner (inkl. Indstillinger)', () => {
+    it('viser alle ni faner for owner (inkl. Send mail + Indstillinger)', () => {
       renderAdminPage();
       const tabs = screen.queryAllByTestId(/^tab-/);
-      expect(tabs).toHaveLength(8);
+      expect(tabs).toHaveLength(9);
       expect(screen.queryByTestId('tab-tour')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-tests')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-runbook')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-mails')).toBeInTheDocument();
+      expect(screen.queryByTestId('tab-broadcast')).toBeInTheDocument();
       expect(screen.queryByTestId('tab-settings')).toBeInTheDocument();
       // Fjernede faner
       expect(screen.queryByTestId('tab-altstanding')).not.toBeInTheDocument();

@@ -45,6 +45,7 @@ import {
   saveStageTip,
   callSendTipRemindersNow,
   callSendTestReminderToMe,
+  callSendBroadcastEmail,
   createBonusQuestion,
   updateBonusQuestion,
   deleteBonusQuestion,
@@ -230,6 +231,30 @@ describe('adminActions', () => {
 
       await callSendTestReminderToMe();
       expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'sendTestReminderToMe');
+    });
+  });
+
+  // ─── callSendBroadcastEmail ───────────────────────────────────────────────
+
+  describe('callSendBroadcastEmail', () => {
+    it('kalder httpsCallable med sendBroadcastEmail og videresender payload', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { sent: 2, total: 2, failed: [] } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+
+      const payload = { subject: 'Hej', body: 'Tekst', recipients: ['a@b.dk', 'c@d.dk'] };
+      const result = await callSendBroadcastEmail(payload);
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'sendBroadcastEmail');
+      expect(mockFn).toHaveBeenCalledWith(payload);
+      expect(result.ok).toBe(true);
+      expect(result.data.sent).toBe(2);
+    });
+
+    it('returnerer ok:false ved fejl', async () => {
+      const mockFn = vi.fn().mockRejectedValue(new Error('boom'));
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const result = await callSendBroadcastEmail({ subject: 's', body: 'b', recipients: [] });
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/boom/);
     });
   });
 
