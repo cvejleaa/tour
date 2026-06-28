@@ -208,6 +208,16 @@ function isUntipped(bet, active) {
   );
 }
 
+// Er etapens hold-tip komplet? Dvs. er ALLE de aktive spørgsmål (jf. etapens
+// type eller et questions-override) besvaret? Spejler src/lib/tourScoring.js.
+function stageTipComplete(stage, bet) {
+  if (!bet || typeof bet !== 'object') return false;
+  const active = activeQuestionsForStage(stage);
+  const activeKeys = STAGE_FIELDS.filter(({ key }) => active[key]);
+  if (activeKeys.length === 0) return true;
+  return activeKeys.every(({ key }) => bet[key] != null && bet[key] !== '');
+}
+
 function podiumFor(res, key) {
   if (res.podium && Array.isArray(res.podium[key])) return res.podium[key];
   return res[key] != null && res[key] !== '' ? [res[key]] : [];
@@ -261,6 +271,7 @@ module.exports = {
   QUESTION_DEFAULTS_BY_TYPE,
   activeQuestionsForStage,
   isUntipped,
+  stageTipComplete,
   scoreStageBet,
   bonusNorm,
 };

@@ -13,7 +13,7 @@ import { useActiveSeason } from '../stages/useActiveSeason';
 import { useTourSettings } from '../stages/useTourSettings';
 import { useStages } from '../stages/useStages';
 import { activeQuestionsForStage } from '../../lib/tourScoring';
-import { callGenerateStageTip, saveStageTip, callSyncStageInfo, callSyncStartlistNow } from './adminActions';
+import { callGenerateStageTip, saveStageTip, callSyncStageInfo, callSyncStartlistNow, callBackfillTipParticipation } from './adminActions';
 
 // Kolonneoverskrifter for spørgsmåls-overblikket (samme rækkefølge som STAGE_FIELDS).
 const QUESTION_COLS = [
@@ -460,6 +460,12 @@ export default function TourTab() {
     return res.data;
   });
 
+  const backfillParticipation = () => run('participation', async () => {
+    const res = await callBackfillTipParticipation();
+    if (!res.ok) throw new Error(res.error);
+    return res.data;
+  });
+
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚴 Tour de France</h2>
@@ -538,6 +544,19 @@ export default function TourTab() {
         </p>
         <button className="btn" disabled={busy} onClick={syncStartlist}>
           {busy === 'startlist' ? 'Henter…' : '👥 Hent startliste nu'}
+        </button>
+      </section>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Tip-deltagelse (hvem har tippet)</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          Genopbygger «hvem har tippet»-tælleren i ligaerne ud fra alle tips. En
+          etape tæller som tippet, når <strong>alle dens aktive spørgsmål</strong>
+          er besvaret. Kør én gang efter en opdatering, så gamle delvise tips ikke
+          fejlagtigt vises som færdige.
+        </p>
+        <button className="btn" disabled={busy} onClick={backfillParticipation} data-testid="backfill-participation">
+          {busy === 'participation' ? 'Genopbygger…' : '🔄 Genopbyg tip-deltagelse'}
         </button>
       </section>
 

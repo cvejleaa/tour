@@ -14,6 +14,7 @@ import {
   scoreStageBet,
   QUESTION_DEFAULTS_BY_TYPE,
   activeQuestionsForStage,
+  stageTipComplete,
 } from './tourScoring.js';
 
 // Lille hjælper: byg en målrækkefølge fra [team, team, ...].
@@ -221,6 +222,26 @@ describe('activeQuestionsForStage', () => {
   it('ignorerer et ufuldstændigt questions-felt og falder tilbage til typen', () => {
     expect(activeQuestionsForStage({ type: 'ttt', questions: { winnerTeam: true } }))
       .toEqual(QUESTION_DEFAULTS_BY_TYPE.ttt);
+  });
+});
+
+describe('stageTipComplete (komplet = alle aktive spørgsmål besvaret)', () => {
+  it('holdtidskørsel: kun vinder-hold kræves', () => {
+    expect(stageTipComplete({ type: 'ttt' }, { winnerTeam: 'UAD' })).toBe(true);
+    expect(stageTipComplete({ type: 'ttt' }, {})).toBe(false);
+  });
+  it('flad etape: vinder + bedste hold + sprint kræves (ikke bjerg)', () => {
+    const flat = { type: 'flat' };
+    expect(stageTipComplete(flat, { winnerTeam: 'A', gcTeam: 'B', sprintTeam: 'C' })).toBe(true);
+    expect(stageTipComplete(flat, { winnerTeam: 'A', gcTeam: 'B' })).toBe(false);
+  });
+  it('questions-override styrer hvad der kræves', () => {
+    const stage = { type: 'mountain', questions: { winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false } };
+    expect(stageTipComplete(stage, { winnerTeam: 'A' })).toBe(true);
+    expect(stageTipComplete(stage, {})).toBe(false);
+  });
+  it('intet tip → ikke komplet', () => {
+    expect(stageTipComplete({ type: 'flat' }, null)).toBe(false);
   });
 });
 

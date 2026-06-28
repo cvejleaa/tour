@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const {
   DEFAULT_POINTS, normalizePoints, stageWinnerTeam, stageGcTeam,
   topPointsTeam, resolveStageResult, isUntipped, scoreStageBet, bonusNorm,
-  QUESTION_DEFAULTS_BY_TYPE, activeQuestionsForStage,
+  QUESTION_DEFAULTS_BY_TYPE, activeQuestionsForStage, stageTipComplete,
 } = require('./tourScoring.js');
 
 const order = (...teams) => teams.map((team, i) => ({ rider: `r${i + 1}`, team, rank: i + 1 }));
@@ -115,6 +115,25 @@ describe('activeQuestionsForStage + scoreStageBet (aktive spørgsmål)', () => {
 
   it('uændret når alle fire aktive', () => {
     expect(scoreStageBet(facit, facit).points).toBe(15);
+  });
+});
+
+describe('stageTipComplete (komplet = alle aktive spørgsmål besvaret)', () => {
+  it('holdtidskørsel: kun vinder-hold kræves', () => {
+    expect(stageTipComplete({ type: 'ttt' }, { winnerTeam: 'UAD' })).toBe(true);
+    expect(stageTipComplete({ type: 'ttt' }, {})).toBe(false);
+  });
+  it('flad etape: vinder + bedste hold + sprint kræves (ikke bjerg)', () => {
+    const flat = { type: 'flat' };
+    expect(stageTipComplete(flat, { winnerTeam: 'A', gcTeam: 'B', sprintTeam: 'C' })).toBe(true);
+    expect(stageTipComplete(flat, { winnerTeam: 'A', gcTeam: 'B' })).toBe(false);
+  });
+  it('questions-override styrer hvad der kræves', () => {
+    const stage = { type: 'mountain', questions: { winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false } };
+    expect(stageTipComplete(stage, { winnerTeam: 'A' })).toBe(true);
+  });
+  it('intet tip → ikke komplet', () => {
+    expect(stageTipComplete({ type: 'flat' }, null)).toBe(false);
   });
 });
 

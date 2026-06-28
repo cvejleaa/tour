@@ -37,7 +37,7 @@ const EMAIL_FROM = 'Tour de France Tip <tour@vejleaa.dk>';
 const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
-const { scoreStageBet, normalizePodium, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage } = require('./tourScoring');
+const { scoreStageBet, normalizePodium, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage, stageTipComplete } = require('./tourScoring');
 const { buildStageUpdate, syncStageInfoCore } = require('./tourSync');
 const { syncStartlistCore } = require('./startlistSync');
 const { redeemInviteCodeCore } = require('./invites');
@@ -458,22 +458,33 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
     throw new HttpsError('permission-denied', 'Kun owner/global admin kan køre backfill.');
   }
 
-  // Saml uids pr. stageId fra alle stageBets
+  // Hent alle etaper, så vi kan afgøre KOMPLETHED pr. etape (aktive spørgsmål).
+  const stagesSnap = await db.collection('stages').get();
+  const stageById = new Map();
+  for (const d of stagesSnap.docs) stageById.set(d.id, d.data());
+
+  // Saml uids pr. stageId fra alle stageBets — kun KOMPLETTE tip tæller med,
+  // så backfill matcher den løbende syncTipParticipation og forsiden.
   const betsSnap = await db.collection('stageBets').get();
   const byStage = new Map();
   for (const d of betsSnap.docs) {
-    const { stageId, uid } = d.data();
+    const bet = d.data();
+    const { stageId, uid } = bet;
     if (!stageId || !uid) continue;
+    if (!stageTipComplete(stageById.get(stageId), bet)) continue;
     if (!byStage.has(stageId)) byStage.set(stageId, new Set());
     byStage.get(stageId).add(uid);
   }
 
-  // Skriv tipParticipation-dokumenter i batches (doc-id = stageId)
+  // Skriv tipParticipation for ALLE etaper (doc-id = stageId) — også dem uden
+  // komplette tip, så tidligere (delvise) deltagere ryddes væk og tælleren
+  // matcher den nye komplet-definition.
   const BATCH_SIZE = 400;
   let batch = db.batch();
   let ops = 0;
   const batches = [batch];
-  for (const [stageId, uidSet] of byStage.entries()) {
+  for (const stageId of stageById.keys()) {
+    const uidSet = byStage.get(stageId) ?? new Set();
     const ref = db.collection('tipParticipation').doc(stageId);
     batch.set(ref, { stageId, uids: [...uidSet] }, { merge: true });
     ops++;
@@ -483,9 +494,9 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
 
   return {
     success: true,
-    stages: byStage.size,
+    stages: stageById.size,
     bets: betsSnap.size,
-    message: `Backfill færdig: ${byStage.size} etaper opdateret ud fra ${betsSnap.size} tips.`,
+    message: `Backfill færdig: ${stageById.size} etaper opdateret ud fra ${betsSnap.size} tips.`,
   };
 });
 
@@ -508,19 +519,25 @@ exports.syncTipParticipation = onDocumentWritten(
 
     const ref = db.collection('tipParticipation').doc(stageId);
 
+    // "Har tippet" = etapens hold-tip er KOMPLET: alle de aktive spørgsmål for
+    // etapen (admins opsætning / type-standard) er besvaret. Et delvist tip
+    // tæller IKKE, så "X har tippet" og "hvem mangler" matcher forsiden og
+    // etape-listen. Inaktive spørgsmål kræves ikke.
+    let complete = false;
     if (after) {
-      // StageBet oprettet eller opdateret → uid har tippet på etapen
-      await ref.set(
-        { stageId, uids: FieldValue.arrayUnion(uid) },
-        { merge: true },
-      );
-    } else {
-      // StageBet slettet → fjern uid (sker normalt ikke fra klienten)
-      await ref.set(
-        { stageId, uids: FieldValue.arrayRemove(uid) },
-        { merge: true },
-      );
+      const stageSnap = await db.collection('stages').doc(stageId).get();
+      const stage = stageSnap.exists ? stageSnap.data() : null;
+      complete = stageTipComplete(stage, after);
     }
+
+    await ref.set(
+      {
+        stageId,
+        // Komplet → tilføj; ufuldstændigt eller slettet → fjern igen.
+        uids: complete ? FieldValue.arrayUnion(uid) : FieldValue.arrayRemove(uid),
+      },
+      { merge: true },
+    );
   }
 );
 
