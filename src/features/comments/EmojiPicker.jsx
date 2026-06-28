@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 
+// Generelt sæt — til kommentarer/beskeder (indsæt emoji i tekst).
 const EMOJIS = [
   // Ansigter & følelser
   '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
@@ -21,8 +22,8 @@ const EMOJIS = [
   '💥', '💯', '✨', '⭐', '🌟', '🔥', '🎉', '🎊',
   // Cykling & sport
   '🚴', '🏆', '🥇', '🥈', '🥉', '🎯', '🚵', '🏔️',
-  '🏁', '🟡', '🟢',
-  '🟥', '🟨', '🚩', '📣', '🍀', '🐐', '👑', '🤞',
+  '🏁', '🟡', '🟢', '🟥', '🟨', '🚩', '📣', '🍀',
+  '🐐', '👑',
   // Dyr (gode til avatar)
   '🦁', '🐯', '🐻', '🦊', '🐶', '🐱', '🐵', '🦅',
   '🐺', '🦄', '🐉', '🦈', '🐝', '🐢', '🐬', '🦓',
@@ -30,7 +31,26 @@ const EMOJIS = [
   '🍺', '🍻', '🥤', '🍕', '🌭', '🎮', '🚀', '💩',
 ];
 
-export default function EmojiPicker({ onSelect }) {
+/**
+ * Cykling-/Tour-tema — til profil-avataren. Ryttere, trøjer (gul/grøn/prik/
+ * ungdom), bjerge, vejr, tilnavne og fransk forplejning.
+ */
+export const CYCLING_EMOJIS = [
+  // Ryttere & cykler
+  '🚴', '🚵', '🚲', '🛞', '⚙️', '🔧', '🏁', '🚩',
+  // Trøjer & klassementer
+  '🟡', '🟢', '⚪', '🔴', '🎽', '🏆', '🥇', '👑',
+  // Bjerge, vej & ur
+  '🏔️', '⛰️', '🗻', '🧭', '⏱️', '📣', '🗼', '🇫🇷',
+  // Vejr & fart
+  '☀️', '🌧️', '💨', '⚡', '🔥', '🌪️', '🥵', '🥶',
+  // Power & tilnavne
+  '💪', '🦵', '🐐', '🦁', '🦅', '🦊', '🐺', '🐉',
+  // Forplejning
+  '🍌', '🥤', '🧃', '🍷', '🥐', '🥖', '🧀', '☕',
+];
+
+export default function EmojiPicker({ onSelect, emojis = EMOJIS, triggerLabel = '😀', label = 'Indsæt emoji' }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -49,12 +69,12 @@ export default function EmojiPicker({ onSelect }) {
       <button
         type="button"
         className="btn btn--ghost btn--sm"
-        aria-label="Indsæt emoji"
+        aria-label={label}
         aria-expanded={open}
-        title="Indsæt emoji"
+        title={label}
         onClick={() => setOpen((v) => !v)}
       >
-        😀
+        {triggerLabel}
       </button>
       {open && (
         <div
@@ -77,7 +97,7 @@ export default function EmojiPicker({ onSelect }) {
             maxWidth: '80vw',
           }}
         >
-          {EMOJIS.map((e) => (
+          {emojis.map((e) => (
             <button
               key={e}
               type="button"

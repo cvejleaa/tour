@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile } from '../features/profile/profileActions';
 import Avatar from '../components/Avatar';
-import EmojiPicker from '../features/comments/EmojiPicker';
+import EmojiPicker, { CYCLING_EMOJIS } from '../features/comments/EmojiPicker';
 import ThemeToggle from '../features/leaderboard/ThemeToggle';
 import TeamThemePicker from '../features/profile/TeamThemePicker';
 import { TOUR_TEAMS, prettyTeam } from '../data/tourTeams2026';
@@ -68,7 +68,12 @@ export default function ProfilePage() {
           <div className="form-group">
             <label className="form-label">Avatar-emoji</label>
             <div className="flex gap-1" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-              <EmojiPicker onSelect={(e) => setEmoji(e)} />
+              <EmojiPicker
+                onSelect={(e) => setEmoji(e)}
+                emojis={CYCLING_EMOJIS}
+                triggerLabel="🚴"
+                label="Vælg avatar"
+              />
               <span style={{ fontSize: '1.5rem' }}>{emoji || '—'}</span>
               {emoji && (
                 <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEmoji(null)}>
