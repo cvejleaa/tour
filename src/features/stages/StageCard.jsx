@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { COL } from '../../lib/constants';
+import { COL, TIMEZONE } from '../../lib/constants';
 import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, stageTipComplete, DEFAULT_PODIUM } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
 import { prettyTeam } from '../../data/tourTeams2026';
@@ -31,6 +31,19 @@ function formatDate(kickoff) {
   const d = kickoff?.toDate ? kickoff.toDate() : new Date(kickoff);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+// Tip-frist (lås-tidspunkt) med dato + klokkeslæt i dansk tid — uafhængigt af
+// brugerens egen tidszone, så fristen altid vises i Tour-tid (CEST).
+function formatDeadline(kickoff) {
+  if (!kickoff) return '';
+  const d = kickoff?.toDate ? kickoff.toDate() : new Date(kickoff);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('da-DK', {
+    timeZone: TIMEZONE,
+    weekday: 'short', day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit',
+  }).format(d);
 }
 
 export default function StageCard({
@@ -167,6 +180,13 @@ export default function StageCard({
           {locked && <span className={`badge ${isDone ? 'badge--green' : 'badge--red'}`} style={{ fontSize: '0.72rem' }}>{isDone ? '✓ Afgjort' : '🔒 Låst'}</span>}
         </div>
       </div>
+
+      {/* Tip-frist — kun mens etapen er åben. Tippet låses ved etapestart. */}
+      {!locked && stage.kickoff && (
+        <div data-testid="stage-deadline" style={{ fontSize: '0.8rem', color: 'var(--c-muted)', marginBottom: '0.5rem' }}>
+          ⏳ Tip lukker <strong style={{ color: 'var(--c-text)' }}>{formatDeadline(stage.kickoff)}</strong>
+        </div>
+      )}
 
       {/* Optjente point */}
       {scored && (

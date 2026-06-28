@@ -40,6 +40,14 @@ describe('StageCard — Kopiér fra forrige etape', () => {
     expect(screen.queryByTestId('copy-previous')).toBeNull();
   });
 
+  it('viser tip-fristen (dato + kl. i dansk tid) på en åben etape', () => {
+    render(<StageCard stage={openStage()} uid="u1" bet={null} teams={['UAD']} />);
+    const dl = screen.getByTestId('stage-deadline');
+    expect(dl.textContent).toMatch(/Tip lukker/);
+    // kickoff 12:00 +02:00 → 12.00 i Europe/Copenhagen
+    expect(dl.textContent).toMatch(/12\.00/);
+  });
+
   it('udfylder de fire felter og gemmer ved klik', async () => {
     // Bjergetape så alle fire spørgsmål (inkl. bjerg) faktisk vises.
     render(<StageCard stage={openStage({ type: 'mountain' })} uid="u1" bet={null} teams={['UAD', 'TVL', 'EFE', 'SOQ']} previousPicks={PREV} />);
