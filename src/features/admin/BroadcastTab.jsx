@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { callSendBroadcastEmail } from './adminActions';
 import { parseRecipients } from './broadcastUtils';
+import { useUsers } from './useUsers';
 
 const DEFAULT_SUBJECT = 'Kom og tab til mig i Tour de France 🚴💨';
 const DEFAULT_BODY = `Kære familie,
@@ -29,8 +30,22 @@ export default function BroadcastTab() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
+  const { users } = useUsers();
+  const approvedEmails = useMemo(
+    () => users.filter((u) => u.status === 'approved' && u.email).map((u) => u.email),
+    [users],
+  );
+
   const { valid, invalid } = useMemo(() => parseRecipients(recipientsText), [recipientsText]);
   const canSend = subject.trim() && body.trim() && valid.length > 0 && !busy;
+
+  // Tilføj godkendte spilleres mails til listen (uden dubletter, behold det skrevne).
+  function addApproved() {
+    const existing = String(recipientsText).split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
+    const seen = new Set(existing.map((e) => e.toLowerCase()));
+    const additions = approvedEmails.filter((e) => !seen.has(e.toLowerCase()));
+    setRecipientsText([...existing, ...additions].join('\n'));
+  }
 
   async function handleSend() {
     if (!canSend) return;
@@ -80,6 +95,16 @@ export default function BroadcastTab() {
             data-testid="broadcast-recipients"
           />
         </label>
+
+        <div>
+          <button
+            type="button" className="btn btn--ghost btn--sm"
+            onClick={addApproved} disabled={approvedEmails.length === 0}
+            data-testid="broadcast-add-approved"
+          >
+            ➕ Indsæt godkendte spilleres mails ({approvedEmails.length})
+          </button>
+        </div>
 
         <div style={{ fontSize: '0.82rem', color: 'var(--c-muted)' }} data-testid="broadcast-count">
           {valid.length} gyldige modtager{valid.length === 1 ? '' : 'e'}
