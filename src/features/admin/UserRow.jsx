@@ -5,6 +5,7 @@ import { ROLES, USER_STATUS } from '../../lib/constants';
 import { setUserStatus, setGlobalAdminRole, sendAdminPasswordReset } from './adminActions';
 import Avatar from '../../components/Avatar';
 import { prettyTeam } from '../../data/tourTeams2026';
+import { isJerseyToken, JERSEY_BY_TOKEN } from '../../data/jerseyAvatars';
 
 // Oversæt status til dansk
 const statusLabel = {
@@ -140,7 +141,9 @@ export default function UserRow({ user, currentUserIsOwner, currentUserCanApprov
           <div style={{ marginTop: 2, fontSize: '0.8rem', color: 'var(--c-muted)' }}>
             Yndlingshold: {user.favoriteTeam ? prettyTeam(user.favoriteTeam) : '–'}
             {' · '}
-            Avatar: {user.avatarEmoji || '–'}
+            Avatar: {user.avatarEmoji
+              ? (isJerseyToken(user.avatarEmoji) ? (JERSEY_BY_TOKEN[user.avatarEmoji]?.label ?? 'Trøje') : user.avatarEmoji)
+              : '–'}
             {' · '}
             Påmindelser: {user.emailOptOut ? 'Fra' : 'Til'}
           </div>

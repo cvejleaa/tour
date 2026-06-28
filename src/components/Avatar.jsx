@@ -5,6 +5,7 @@
  */
 import { avatarColor, initials } from '../features/profile/avatarUtils';
 import { teamMeta, prettyTeam } from '../data/tourTeams2026';
+import { isJerseyToken, JERSEY_BY_TOKEN, JerseyIcon } from '../data/jerseyAvatars';
 
 export default function Avatar({
   uid = '',
@@ -14,6 +15,7 @@ export default function Avatar({
   size = 32,
 }) {
   const bg = avatarColor(uid || name);
+  const jersey = isJerseyToken(emoji) ? JERSEY_BY_TOKEN[emoji] : null;
   const fontSize = emoji ? size * 0.58 : size * 0.42;
 
   // Yndlingshold-mærke: vis cykelholdets trøje eller logo. Hvis holdet ikke
@@ -36,7 +38,9 @@ export default function Avatar({
           overflow: 'hidden',
         }}
       >
-        {emoji || initials(name)}
+        {jersey
+          ? <JerseyIcon kind={jersey.kind} size={Math.round(size * 0.74)} title={jersey.label} />
+          : (emoji || initials(name))}
       </span>
       {badgeSrc && (
         <img

@@ -31,24 +31,11 @@ const EMOJIS = [
   '🍺', '🍻', '🥤', '🍕', '🌭', '🎮', '🚀', '💩',
 ];
 
-/**
- * Cykling-/Tour-tema — til profil-avataren. Ryttere, trøjer (gul/grøn/prik/
- * ungdom), bjerge, vejr, tilnavne og fransk forplejning.
- */
-export const CYCLING_EMOJIS = [
-  // Ryttere & cykler
-  '🚴', '🚵', '🚲', '🛞', '⚙️', '🔧', '🏁', '🚩',
-  // Trøjer & klassementer
-  '🟡', '🟢', '⚪', '🔴', '🎽', '🏆', '🥇', '👑',
-  // Bjerge, vej & ur
-  '🏔️', '⛰️', '🗻', '🧭', '⏱️', '📣', '🗼', '🇫🇷',
-  // Vejr & fart
-  '☀️', '🌧️', '💨', '⚡', '🔥', '🌪️', '🥵', '🥶',
-  // Power & tilnavne
-  '💪', '🦵', '🐐', '🦁', '🦅', '🦊', '🐺', '🐉',
-  // Forplejning
-  '🍌', '🥤', '🧃', '🍷', '🥐', '🥖', '🧀', '☕',
-];
+// Et element er enten en emoji-streng eller et objekt { value, label, node }
+// (fx en tegnet trøje). Disse hjælpere normaliserer begge former.
+const itemValue = (it) => (typeof it === 'string' ? it : it.value);
+const itemLabel = (it) => (typeof it === 'string' ? `Emoji ${it}` : (it.label || `Emoji ${it.value}`));
+const itemNode = (it) => (typeof it === 'string' ? it : (it.node ?? it.value));
 
 export default function EmojiPicker({ onSelect, emojis = EMOJIS, triggerLabel = '😀', label = 'Indsæt emoji' }) {
   const [open, setOpen] = useState(false);
@@ -97,21 +84,22 @@ export default function EmojiPicker({ onSelect, emojis = EMOJIS, triggerLabel = 
             maxWidth: '80vw',
           }}
         >
-          {emojis.map((e) => (
+          {emojis.map((it) => (
             <button
-              key={e}
+              key={itemValue(it)}
               type="button"
               role="menuitem"
-              aria-label={`Emoji ${e}`}
-              onClick={() => { onSelect(e); setOpen(false); }}
+              aria-label={itemLabel(it)}
+              onClick={() => { onSelect(itemValue(it)); setOpen(false); }}
               style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontSize: '1.25rem', lineHeight: 1, padding: '0.2rem', borderRadius: 6,
               }}
               onMouseEnter={(ev) => { ev.currentTarget.style.background = 'var(--c-surface-2, #f0f0f0)'; }}
               onMouseLeave={(ev) => { ev.currentTarget.style.background = 'none'; }}
             >
-              {e}
+              {itemNode(it)}
             </button>
           ))}
         </div>

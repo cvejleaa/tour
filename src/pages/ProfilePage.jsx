@@ -5,7 +5,9 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile } from '../features/profile/profileActions';
 import Avatar from '../components/Avatar';
-import EmojiPicker, { CYCLING_EMOJIS } from '../features/comments/EmojiPicker';
+import EmojiPicker from '../features/comments/EmojiPicker';
+import { AVATAR_SET } from '../data/avatarSet';
+import { isJerseyToken, JERSEY_BY_TOKEN, JerseyIcon } from '../data/jerseyAvatars';
 import ThemeToggle from '../features/leaderboard/ThemeToggle';
 import TeamThemePicker from '../features/profile/TeamThemePicker';
 import { TOUR_TEAMS, prettyTeam } from '../data/tourTeams2026';
@@ -70,11 +72,17 @@ export default function ProfilePage() {
             <div className="flex gap-1" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
               <EmojiPicker
                 onSelect={(e) => setEmoji(e)}
-                emojis={CYCLING_EMOJIS}
+                emojis={AVATAR_SET}
                 triggerLabel="🚴"
                 label="Vælg avatar"
               />
-              <span style={{ fontSize: '1.5rem' }}>{emoji || '—'}</span>
+              <span style={{ fontSize: '1.5rem', display: 'inline-flex', alignItems: 'center' }}>
+                {emoji
+                  ? (isJerseyToken(emoji)
+                    ? <JerseyIcon kind={JERSEY_BY_TOKEN[emoji]?.kind} size={28} title={JERSEY_BY_TOKEN[emoji]?.label} />
+                    : emoji)
+                  : '—'}
+              </span>
               {emoji && (
                 <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEmoji(null)}>
                   Ryd

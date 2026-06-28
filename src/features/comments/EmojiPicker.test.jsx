@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import EmojiPicker, { CYCLING_EMOJIS } from './EmojiPicker';
+import EmojiPicker from './EmojiPicker';
 
 describe('EmojiPicker', () => {
   it('viser ikke gitteret før man klikker', () => {
@@ -23,16 +23,20 @@ describe('EmojiPicker', () => {
     expect(screen.queryByTestId('emoji-grid')).not.toBeInTheDocument();
   });
 
-  it('viser et brugerdefineret sæt (cykling-avatarer) med egen triggerknap', () => {
+  it('understøtter et brugerdefineret sæt + egen triggerknap', () => {
     const onSelect = vi.fn();
-    render(<EmojiPicker onSelect={onSelect} emojis={CYCLING_EMOJIS} triggerLabel="🚴" label="Vælg avatar" />);
+    render(<EmojiPicker onSelect={onSelect} emojis={['🚴', '🐂']} triggerLabel="🚴" label="Vælg avatar" />);
     fireEvent.click(screen.getByRole('button', { name: /Vælg avatar/i }));
-    // Den gule trøje (🟡) er en del af cykling-sættet
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Emoji 🟡' }));
-    expect(onSelect).toHaveBeenCalledWith('🟡');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Emoji 🐂' }));
+    expect(onSelect).toHaveBeenCalledWith('🐂');
   });
 
-  it('CYCLING_EMOJIS har ingen dubletter', () => {
-    expect(new Set(CYCLING_EMOJIS).size).toBe(CYCLING_EMOJIS.length);
+  it('understøtter objekt-elementer { value, label, node } (fx tegnet trøje)', () => {
+    const onSelect = vi.fn();
+    const items = [{ value: 'jersey:polka', label: 'Prik-trøje', node: <svg data-testid="polka" /> }];
+    render(<EmojiPicker onSelect={onSelect} emojis={items} label="Vælg avatar" />);
+    fireEvent.click(screen.getByRole('button', { name: /Vælg avatar/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Prik-trøje' }));
+    expect(onSelect).toHaveBeenCalledWith('jersey:polka');
   });
 });

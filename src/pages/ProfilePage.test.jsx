@@ -22,7 +22,6 @@ vi.mock('../features/profile/profileActions', () => ({
 // EmojiPicker rører ikke noget eksternt, men holdes simpel her
 vi.mock('../features/comments/EmojiPicker', () => ({
   default: () => null,
-  CYCLING_EMOJIS: ['🚴'],
 }));
 
 // ThemeToggle kræver window.matchMedia
