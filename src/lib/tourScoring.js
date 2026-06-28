@@ -291,6 +291,23 @@ export function isUntipped(bet, active) {
   );
 }
 
+/**
+ * Er etapens hold-tip komplet? Dvs. er ALLE de aktive spørgsmål (jf. etapens
+ * type eller et `questions`-override) besvaret? En holdtidskørsel kræver fx kun
+ * "etapevinderens hold". Bruges ens på forsiden, etape-listen og etape-kortet,
+ * så "mangler tip" altid betyder det samme.
+ * @param {object} stage
+ * @param {object|null} bet
+ * @returns {boolean}
+ */
+export function stageTipComplete(stage, bet) {
+  if (!bet || typeof bet !== 'object') return false;
+  const active = activeQuestionsForStage(stage);
+  const activeKeys = STAGE_FIELDS.filter(({ key }) => active[key]);
+  if (activeKeys.length === 0) return true; // ingen spørgsmål → intet at mangle
+  return activeKeys.every(({ key }) => bet[key] != null && bet[key] !== '');
+}
+
 /** Podiet (top-3 hold) for et spørgsmål — fra `result.podium`, ellers blot vinderen. */
 function podiumFor(res, key) {
   if (res.podium && Array.isArray(res.podium[key])) return res.podium[key];

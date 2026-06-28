@@ -75,6 +75,22 @@ describe('countUntippedOpenStages', () => {
     expect(countUntippedOpenStages(open, partial)).toBe(1);
   });
 
+  it('en holdtidskørsel (kun vinder-hold aktivt) tæller IKKE når vinder-hold er tippet', () => {
+    // Regression: forsiden krævede tidligere ALLE fire felter, så en TTT med
+    // kun vinder-hold blev fejlagtigt vist som "mangler tip".
+    const open = [{ id: '2026-stage-1', number: 1, type: 'ttt', kickoff: '2999-07-01T12:00:00+02:00', result: null }];
+    expect(countUntippedOpenStages(open, { '2026-stage-1': { winnerTeam: 'A' } })).toBe(0);
+  });
+
+  it('respekterer et questions-override for hvilke spørgsmål der kræves', () => {
+    const open = [{
+      id: '2026-stage-9', number: 9, kickoff: '2999-07-09T12:00:00+02:00', result: null,
+      questions: { winnerTeam: true, gcTeam: true, mountainTeam: false, sprintTeam: false },
+    }];
+    expect(countUntippedOpenStages(open, { '2026-stage-9': { winnerTeam: 'A', gcTeam: 'B' } })).toBe(0);
+    expect(countUntippedOpenStages(open, { '2026-stage-9': { winnerTeam: 'A' } })).toBe(1);
+  });
+
   it('robust over for tomme input', () => {
     expect(countUntippedOpenStages([], {})).toBe(0);
     expect(countUntippedOpenStages(null)).toBe(0);

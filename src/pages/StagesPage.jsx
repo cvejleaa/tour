@@ -11,6 +11,7 @@ import { useMyStageBets } from '../features/stages/useMyStageBets';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
 import { useTourSettings } from '../features/stages/useTourSettings';
 import { stageStatus } from '../lib/tourStages';
+import { stageTipComplete } from '../lib/tourScoring';
 import { placeholderRoute2026 } from '../data/route2026';
 import StageCard from '../features/stages/StageCard';
 import ClassementsCard from '../features/stages/ClassementsCard';
@@ -48,13 +49,13 @@ export default function StagesPage() {
     if (filter === 'alle') return stages;
     if (filter === 'utippede') {
       return stages.filter((s) => stageStatus(s, Date.now()) === 'scheduled'
-        && !betsByStage[s.id]?.winnerTeam);
+        && !stageTipComplete(s, betsByStage[s.id]));
     }
     // kommende = ikke-afgjorte (åbne + låste uden resultat)
     return stages.filter((s) => stageStatus(s, Date.now()) !== 'done');
   }, [stages, filter, betsByStage]);
 
-  const tippedCount = stages.filter((s) => betsByStage[s.id]?.winnerTeam).length;
+  const tippedCount = stages.filter((s) => stageTipComplete(s, betsByStage[s.id])).length;
 
   // Anvend ét sæt holdvalg på alle åbne etaper (batched). Stages-listen ligger
   // her, så batchen kører over den fulde rute.

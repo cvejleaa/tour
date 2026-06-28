@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, DEFAULT_PODIUM } from '../../lib/tourScoring';
+import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, stageTipComplete, DEFAULT_PODIUM } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
 import { prettyTeam } from '../../data/tourTeams2026';
 import TeamBadge from '../../components/TeamBadge';
@@ -66,7 +66,9 @@ export default function StageCard({
     });
   }, [bet?.winnerTeam, bet?.gcTeam, bet?.mountainTeam, bet?.sprintTeam]);
 
-  const hasBet = STAGE_FIELDS.some(({ key }) => bet?.[key]);
+  // "Tippet" = alle AKTIVE spørgsmål for etapen er besvaret (samme definition
+  // som forsiden og etape-listen, så badges og opgavetæller altid stemmer).
+  const hasBet = stageTipComplete(stage, bet);
   const result = isDone ? stage.result : null;
   const scored = result ? scoreStageBet(bet, result, points, active) : null;
 

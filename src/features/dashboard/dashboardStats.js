@@ -1,6 +1,6 @@
 // Rene hjælpefunktioner til forsidens "egen statistik" og "seneste resultater".
 // Hold-baseret Tour de France-udgave: bygger på etaper + etape-tip.
-import { scoreStageBet, STAGE_FIELDS, isUntipped } from '../../lib/tourScoring';
+import { scoreStageBet, STAGE_FIELDS, isUntipped, stageTipComplete } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
 
 function kickoffMs(kickoff) {
@@ -15,21 +15,18 @@ function isDone(stage) {
   return stageStatus(stage, Date.now()) === 'done';
 }
 
-/** Har brugeren et komplet hold-tip (alle fire felter udfyldt)? */
-function isComplete(bet) {
-  return !!bet && STAGE_FIELDS.every(({ key }) => bet[key] != null && bet[key] !== '');
-}
-
 /**
  * Antal ÅBNE etaper (tip stadig muligt) hvor brugeren mangler at tippe helt
- * eller kun har tippet delvist. Bruges til forsidens "Mine opgaver".
+ * eller kun har tippet delvist. "Komplet" = alle AKTIVE spørgsmål for etapen er
+ * besvaret (en holdtidskørsel kræver fx kun ét). Bruges til forsidens
+ * "Mine opgaver" — samme definition som etape-listen, så de altid stemmer.
  * @param {Array<object>} stages
  * @param {Record<string, object>} betsByStage  stageId -> bet
  * @returns {number}
  */
 export function countUntippedOpenStages(stages, betsByStage = {}) {
   return (stages ?? []).filter(
-    (s) => stageStatus(s, Date.now()) === 'scheduled' && !isComplete(betsByStage[s.id]),
+    (s) => stageStatus(s, Date.now()) === 'scheduled' && !stageTipComplete(s, betsByStage[s.id]),
   ).length;
 }
 
