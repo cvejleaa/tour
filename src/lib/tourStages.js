@@ -59,6 +59,27 @@ export function deriveKickoff(date, hour = DEFAULT_LOCK_HOUR) {
 }
 
 /**
+ * Lås-tidspunkt ud fra etapedato + et præcist starttidspunkt ("HH:MM", CEST).
+ * Bruges når vi kender etapens reelle start (frist = etapestart). Falder tilbage
+ * til standard-låstimen hvis starttidspunktet mangler/er ugyldigt.
+ * @param {string} date  'YYYY-MM-DD'
+ * @param {string} startTime  'HH:MM'
+ * @param {number} [fallbackHour]
+ * @returns {string|null} ISO-streng, fx '2026-07-04T17:05:00+02:00'
+ */
+export function kickoffFromStartTime(date, startTime, fallbackHour = DEFAULT_LOCK_HOUR) {
+  if (typeof startTime === 'string') {
+    const m = /^\s*(\d{1,2}):(\d{2})\s*$/.exec(startTime);
+    if (m && date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const hh = String(Math.max(0, Math.min(23, Number(m[1])))).padStart(2, '0');
+      const mm = String(Math.max(0, Math.min(59, Number(m[2])))).padStart(2, '0');
+      return `${date}T${hh}:${mm}:00${TOUR_TZ_OFFSET}`;
+    }
+  }
+  return deriveKickoff(date, fallbackHour);
+}
+
+/**
  * Normaliserer proxyens /api/stages-svar til etape-dokumenter klar til seed.
  * @param {{year?:number, stages?:Array}} resp
  * @param {{lockHour?:number}} [opts]

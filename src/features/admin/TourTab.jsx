@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 import { useEffect, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { functions, db } from '../../firebase';
 import { COL } from '../../lib/constants';
 import { placeholderRoute2026 } from '../../data/route2026';
@@ -436,6 +436,23 @@ export default function TourTab() {
     return res.data;
   });
 
+  // Sæt hver etapes lås-tidspunkt (kickoff) til den reelle starttid fra ruten.
+  // Skriver kun kickoff + startTime (merge), så spørgsmåls-overrides m.m. bevares.
+  const setStartTimes = () => run('starttimes', async () => {
+    const route = placeholderRoute2026(season);
+    let n = 0;
+    for (const s of route) {
+      if (!s.kickoff) continue;
+      await setDoc(
+        doc(db, COL.STAGES, s.id),
+        { kickoff: Timestamp.fromDate(new Date(s.kickoff)), startTime: s.startTime ?? null },
+        { merge: true },
+      );
+      n += 1;
+    }
+    return { updated: n };
+  });
+
   const setSeason = () => run('season', async () => {
     const y = Number(seasonInput);
     if (!Number.isFinite(y) || y < 2000) throw new Error('Ugyldigt årstal');
@@ -496,6 +513,19 @@ export default function TourTab() {
         </p>
         <button className="btn" disabled={busy} onClick={seedRoute}>
           {busy === 'seed' ? 'Seeder…' : 'Seed 2026-rute (21 etaper)'}
+        </button>
+      </section>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Tip-frister (præcise starttider)</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          Sætter hver etapes lås-tidspunkt til den <strong>reelle starttid</strong>
+          {' '}fra ruten (fx etape 1 kl. 17.05, etape 20 kl. 11.30), så fristen følger
+          etapestarten. Opdaterer kun tidspunktet — rører ikke tip, spørgsmål eller
+          andet. Kør efter en seed.
+        </p>
+        <button className="btn" disabled={busy} onClick={setStartTimes} data-testid="set-start-times">
+          {busy === 'starttimes' ? 'Sætter…' : '⏱️ Sæt præcise starttider'}
         </button>
       </section>
 

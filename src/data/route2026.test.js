@@ -32,7 +32,9 @@ describe('placeholderRoute2026', () => {
     expect(s1.startCity).toBe('Barcelone');
     expect(s1.finishCity).toBe('Barcelone');
     expect(s1.km).toBe(19.6);
-    expect(s1.kickoff).toBe('2026-07-04T12:00:00+02:00');
+    // Lås-tidspunktet er etapens reelle start (17:05), ikke standard kl. 12.
+    expect(s1.startTime).toBe('17:05');
+    expect(s1.kickoff).toBe('2026-07-04T17:05:00+02:00');
   });
 
   it('sidste etape slutter på Champs-Élysées', () => {
