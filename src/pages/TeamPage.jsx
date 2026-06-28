@@ -10,9 +10,7 @@ import { teamMeta, prettyTeam } from '../data/tourTeams2026';
 import { teamProfile, normRiderName } from '../data/teamProfiles2026';
 import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
-import {
-  teamWorldRank, teamWorldRiders, riderWorldRank, flagEmoji, UCI_RANKING_DATE,
-} from '../data/uciRanking2026';
+import { teamWorldRank, riderWorldRank } from '../data/uciRanking2026';
 
 function RiderList({ riders, starNames }) {
   return (
@@ -43,11 +41,6 @@ function RiderList({ riders, starNames }) {
   );
 }
 
-function rankDate() {
-  return UCI_RANKING_DATE
-    ? UCI_RANKING_DATE.toLocaleDateString('da-DK', { day: 'numeric', month: 'short', year: 'numeric' })
-    : '';
-}
 
 export default function TeamPage() {
   const { code } = useParams();
@@ -70,8 +63,6 @@ export default function TeamPage() {
   const profile = teamProfile(meta.code);
   const starNames = new Set((profile?.stars || []).map((s) => normRiderName(s.name)));
   const teamRank = teamWorldRank(meta.code);
-  const worldRiders = teamWorldRiders(meta.code);
-  const topWorld = worldRiders.slice(0, 8);
   // Startliste: foretræk den live (Firestore) frem for den statiske snapshot.
   const startlist = live.byCode[meta.code] || staticStartlist(meta.code) || { announced: false, riders: [] };
   const riders = Array.isArray(startlist.riders) ? startlist.riders : [];
@@ -133,31 +124,6 @@ export default function TeamPage() {
                 <strong>Mål:</strong> {profile.goal}
               </p>
             )}
-          </section>
-        )}
-
-        {/* Holdets ryttere på UCI's verdensrangliste (uafhængigt af startlisten) */}
-        {worldRiders.length > 0 && (
-          <section data-testid="world-riders" style={{ marginBottom: '1.25rem' }}>
-            <h3 style={{ marginBottom: '0.4rem' }}>🌍 På verdensranglisten</h3>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.25rem' }}>
-              {topWorld.map((r) => (
-                <li key={r.name} data-testid="world-rider-row" style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.9rem' }}>
-                  <span style={{ color: 'var(--c-muted)', minWidth: '2.4rem' }}>#{r.rank}</span>
-                  <span style={{ fontWeight: 700 }}>{r.name}</span>
-                  {r.flag && <span title={r.nat}>{flagEmoji(r.flag)}</span>}
-                  <span style={{ color: 'var(--c-muted)', fontSize: '0.8rem' }}>· {r.points.toLocaleString('da-DK')} p</span>
-                </li>
-              ))}
-            </ul>
-            {worldRiders.length > topWorld.length && (
-              <p style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-                +{worldRiders.length - topWorld.length} flere ryttere på ranglisten.
-              </p>
-            )}
-            <p style={{ margin: '0.4rem 0 0', fontSize: '0.74rem', color: 'var(--c-muted)' }}>
-              Kilde: UCI verdensrangliste{rankDate() ? ` · ${rankDate()}` : ''}.
-            </p>
           </section>
         )}
 
