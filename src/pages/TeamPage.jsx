@@ -10,6 +10,9 @@ import { teamMeta, prettyTeam } from '../data/tourTeams2026';
 import { teamProfile, normRiderName } from '../data/teamProfiles2026';
 import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
+import {
+  teamWorldRank, teamWorldRiders, riderWorldRank, flagEmoji, UCI_RANKING_DATE,
+} from '../data/uciRanking2026';
 
 function RiderList({ riders, starNames }) {
   return (
@@ -17,6 +20,7 @@ function RiderList({ riders, starNames }) {
       {riders.map((r, i) => {
         const isDane = r.country === 'Danmark';
         const isStar = starNames?.has(normRiderName(r.name));
+        const wr = riderWorldRank(r.name); // verdensrang hvis rytteren er i top-N
         return (
           <li
             key={`${r.name || i}`}
@@ -26,12 +30,23 @@ function RiderList({ riders, starNames }) {
             {isStar && <span title="Hovednavn">⭐</span>}
             <span style={{ fontWeight: isDane || isStar ? 800 : 600 }}>{r.name || '—'}</span>
             {isDane && <span title="Dansk rytter">🇩🇰</span>}
+            {wr && (
+              <span className="badge badge--muted" title={`UCI verdensrang · ${wr.points} point`} style={{ fontSize: '0.7rem' }}>
+                🌍 #{wr.rank}
+              </span>
+            )}
             {r.country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {r.country}</span>}
           </li>
         );
       })}
     </ul>
   );
+}
+
+function rankDate() {
+  return UCI_RANKING_DATE
+    ? UCI_RANKING_DATE.toLocaleDateString('da-DK', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '';
 }
 
 export default function TeamPage() {
@@ -54,6 +69,9 @@ export default function TeamPage() {
   const accent = meta.color && meta.color !== '#000000' ? meta.color : 'var(--c-pitch)';
   const profile = teamProfile(meta.code);
   const starNames = new Set((profile?.stars || []).map((s) => normRiderName(s.name)));
+  const teamRank = teamWorldRank(meta.code);
+  const worldRiders = teamWorldRiders(meta.code);
+  const topWorld = worldRiders.slice(0, 8);
   // Startliste: foretræk den live (Firestore) frem for den statiske snapshot.
   const startlist = live.byCode[meta.code] || staticStartlist(meta.code) || { announced: false, riders: [] };
   const riders = Array.isArray(startlist.riders) ? startlist.riders : [];
@@ -73,6 +91,15 @@ export default function TeamPage() {
               <span className="badge badge--muted" style={{ fontSize: '0.74rem' }}>{meta.code}</span>
               {meta.nationality && (
                 <span className="badge badge--muted" style={{ fontSize: '0.74rem', textTransform: 'uppercase' }}>{meta.nationality}</span>
+              )}
+              {teamRank && (
+                <span
+                  className="badge" data-testid="team-world-rank"
+                  title={`UCI verdensrang · ${teamRank.points.toLocaleString('da-DK')} point`}
+                  style={{ fontSize: '0.74rem', background: 'var(--c-pitch)', color: '#fff' }}
+                >
+                  🌍 Verdensrang #{teamRank.rank}
+                </span>
               )}
             </div>
           </div>
@@ -106,6 +133,31 @@ export default function TeamPage() {
                 <strong>Mål:</strong> {profile.goal}
               </p>
             )}
+          </section>
+        )}
+
+        {/* Holdets ryttere på UCI's verdensrangliste (uafhængigt af startlisten) */}
+        {worldRiders.length > 0 && (
+          <section data-testid="world-riders" style={{ marginBottom: '1.25rem' }}>
+            <h3 style={{ marginBottom: '0.4rem' }}>🌍 På verdensranglisten</h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.25rem' }}>
+              {topWorld.map((r) => (
+                <li key={r.name} data-testid="world-rider-row" style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.9rem' }}>
+                  <span style={{ color: 'var(--c-muted)', minWidth: '2.4rem' }}>#{r.rank}</span>
+                  <span style={{ fontWeight: 700 }}>{r.name}</span>
+                  {r.flag && <span title={r.nat}>{flagEmoji(r.flag)}</span>}
+                  <span style={{ color: 'var(--c-muted)', fontSize: '0.8rem' }}>· {r.points.toLocaleString('da-DK')} p</span>
+                </li>
+              ))}
+            </ul>
+            {worldRiders.length > topWorld.length && (
+              <p style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+                +{worldRiders.length - topWorld.length} flere ryttere på ranglisten.
+              </p>
+            )}
+            <p style={{ margin: '0.4rem 0 0', fontSize: '0.74rem', color: 'var(--c-muted)' }}>
+              Kilde: UCI verdensrangliste{rankDate() ? ` · ${rankDate()}` : ''}.
+            </p>
           </section>
         )}
 

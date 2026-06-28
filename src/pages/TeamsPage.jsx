@@ -8,6 +8,7 @@ import { TEAMS, prettyTeam } from '../data/tourTeams2026';
 import { teamProfile } from '../data/teamProfiles2026';
 import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
+import { teamWorldRank } from '../data/uciRanking2026';
 
 export default function TeamsPage() {
   const live = useStartlist();
@@ -51,12 +52,19 @@ export default function TeamsPage() {
                 {teamProfile(t.code).profile}
               </span>
             )}
-            <span
-              className={`badge ${isAnnounced(t.code) ? 'badge--green' : 'badge--muted'}`}
-              style={{ fontSize: '0.68rem' }}
-            >
-              {isAnnounced(t.code) ? '✅ Udtaget' : '⏳ Afventer'}
-            </span>
+            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+              {teamWorldRank(t.code) && (
+                <span className="badge badge--muted" style={{ fontSize: '0.68rem' }} title="UCI verdensrang">
+                  🌍 #{teamWorldRank(t.code).rank}
+                </span>
+              )}
+              <span
+                className={`badge ${isAnnounced(t.code) ? 'badge--green' : 'badge--muted'}`}
+                style={{ fontSize: '0.68rem' }}
+              >
+                {isAnnounced(t.code) ? '✅ Udtaget' : '⏳ Afventer'}
+              </span>
+            </div>
           </Link>
         ))}
       </div>
