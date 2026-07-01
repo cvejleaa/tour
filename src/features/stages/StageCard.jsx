@@ -11,6 +11,7 @@ import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, stageTipComplete,
 import { stageStatus } from '../../lib/tourStages';
 import { prettyTeam } from '../../data/tourTeams2026';
 import TeamBadge from '../../components/TeamBadge';
+import StageAnswers from './StageAnswers';
 
 const STAGE_TYPE_LABEL = {
   flat: '🟢 Flad', hilly: '🟡 Kuperet', mountain: '🔴 Bjerg',
@@ -69,6 +70,7 @@ export default function StageCard({
   const [error, setError] = useState('');
   const [applying, setApplying] = useState(false);
   const [applyMsg, setApplyMsg] = useState('');
+  const [showAnswers, setShowAnswers] = useState(false);
 
   useEffect(() => {
     setPicks({
@@ -248,6 +250,23 @@ export default function StageCard({
           );
         })}
       </div>
+
+      {/* Alles svar + etapens top – kun når etapen er afgjort. Lazy: data
+          hentes først når man folder ud (så etape-listen forbliver let). */}
+      {isDone && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => setShowAnswers((v) => !v)}
+            aria-expanded={showAnswers}
+            data-testid="reveal-stage-answers"
+          >
+            {showAnswers ? 'Skjul alles svar' : '👀 Se alles svar'}
+          </button>
+          {showAnswers && <StageAnswers stage={stage} points={points} gcTopN={gcTopN} />}
+        </div>
+      )}
 
       {/* Genvejs-handlinger – kun når etapen er åben (redigerbar) */}
       {!locked && (

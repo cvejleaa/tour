@@ -10,8 +10,11 @@ import { useParams, Link } from 'react-router-dom';
 import Hero from '../components/Hero';
 import { useStages } from '../features/stages/useStages';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { useTourSettings } from '../features/stages/useTourSettings';
+import StageAnswers from '../features/stages/StageAnswers';
 import { placeholderRoute2026 } from '../data/route2026';
 import { activeQuestionsForStage } from '../lib/tourScoring';
+import { stageStatus } from '../lib/tourStages';
 
 const STAGE_TYPE_LABEL = {
   flat: '🟢 Flad', hilly: '🟡 Kuperet', mountain: '🔴 Bjerg',
@@ -77,6 +80,7 @@ export default function StagePresentationPage() {
   const { number } = useParams();
   const season = useActiveSeason();
   const { stages: dbStages } = useStages(season);
+  const { points, gcTopN } = useTourSettings();
 
   const num = Number(number);
 
@@ -111,6 +115,7 @@ export default function StagePresentationPage() {
   const typeLabel = STAGE_TYPE_LABEL[stage.type] || STAGE_TYPE_LABEL.unknown;
   const longDate = formatLongDate(stage);
   const active = activeQuestionsForStage(stage);
+  const isDone = stageStatus(stage, Date.now()) === 'done';
 
   // Præsentations-felter: foretræk seedet værdi, ellers den statiske rute.
   const profileImage = stage.profileImage || staticStage?.profileImage || null;
@@ -240,6 +245,14 @@ export default function StagePresentationPage() {
             ))}
           </ul>
         </section>
+
+        {/* Facit + alles tips + etapens top – kun når etapen er afgjort. */}
+        {isDone && (
+          <section style={{ marginBottom: '1rem' }} data-testid="stage-results">
+            <h3 style={{ marginBottom: '0.4rem' }}>Resultat &amp; alles tips</h3>
+            <StageAnswers stage={stage} points={points} gcTopN={gcTopN} />
+          </section>
+        )}
 
         {/* Ekspert-tip – kun når til stede */}
         {stage.expertTip && (
