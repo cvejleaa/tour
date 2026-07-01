@@ -10,6 +10,8 @@ import { TEAMS, prettyTeam } from '../data/tourTeams2026';
 import { teamProfile } from '../data/teamProfiles2026';
 import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
+import RiderSearch from '../features/teams/RiderSearch';
+import { buildRiderIndex } from '../features/teams/riderSearch';
 import { teamWorldRank, riderRankSum } from '../data/uciRanking2026';
 
 const SORTS = [
@@ -25,6 +27,12 @@ export default function TeamsPage() {
   const isAnnounced = (code) => (live.byCode[code]?.announced ?? staticStartlist(code)?.announced) === true;
   const ridersOf = (code) => (live.byCode[code]?.riders ?? staticStartlist(code)?.riders ?? []);
   const announcedCount = TEAMS.filter((t) => isAnnounced(t.code)).length;
+
+  // Fladt rytter-indeks til søgning (opdateres når den live startliste ændrer sig).
+  const riderIndex = useMemo(
+    () => buildRiderIndex(TEAMS, ridersOf, prettyTeam),
+    [live], // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // Dekorér + sortér holdene efter det valgte kriterium.
   const rows = useMemo(() => {
@@ -49,6 +57,9 @@ export default function TeamsPage() {
         subtitle="Overblik over de 23 hold og deres primære profil. Klik på et hold for at se det nærmere."
         chips={[`${TEAMS.length} hold`, `${announcedCount} har udtaget`]}
       />
+
+      {/* Søg efter en rytter på tværs af holdene */}
+      <RiderSearch index={riderIndex} />
 
       {/* Sortering */}
       <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.75rem' }}>
