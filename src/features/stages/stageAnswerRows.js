@@ -33,3 +33,18 @@ export function stageAnswerRows(bets, {
       || String(name(a.bet.uid)).localeCompare(String(name(b.bet.uid)), 'da')
     ));
 }
+
+/**
+ * "Etapens top": spillere med point > 0, sorteret faldende. Skærer IKKE
+ * uafgjorte placeringer fra — er der flere spillere lige med den `limit`.
+ * placering, kommer de alle med (så alle på delt sidsteplads vises).
+ * @param {Array<{scored:{points:number}}>} rows  fra stageAnswerRows (sorteret)
+ * @param {number} [limit=3]
+ * @returns {Array}
+ */
+export function stageTop(rows, limit = 3) {
+  const scored = (Array.isArray(rows) ? rows : []).filter((r) => r.scored.points > 0);
+  if (scored.length <= limit) return scored;
+  const cutoff = scored[limit - 1].scored.points; // pointtal på limit-pladsen
+  return scored.filter((r) => r.scored.points >= cutoff);
+}

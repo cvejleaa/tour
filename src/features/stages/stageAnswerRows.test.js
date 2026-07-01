@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stageAnswerRows } from './stageAnswerRows';
+import { stageAnswerRows, stageTop } from './stageAnswerRows';
 
 // Flad etape: winnerTeam, gcTeam og sprintTeam er aktive (ikke mountainTeam).
 const stage = { id: '2026-stage-5', type: 'flat' };
@@ -43,5 +43,25 @@ describe('stageAnswerRows', () => {
   it('tåler tomt input', () => {
     expect(stageAnswerRows(null, { stage, result })).toEqual([]);
     expect(stageAnswerRows([], { stage, result })).toEqual([]);
+  });
+});
+
+describe('stageTop', () => {
+  const mk = (uid, points) => ({ bet: { uid }, scored: { points } });
+
+  it('kun spillere med point > 0', () => {
+    const rows = [mk('a', 10), mk('b', 0), mk('c', -1)];
+    expect(stageTop(rows, 3).map((r) => r.bet.uid)).toEqual(['a']);
+  });
+
+  it('får ALLE med der er lige med sidste plads (ingen afskæring ved uafgjort)', () => {
+    // 3.-pladsen er 5 point, og både d og e har 5 → begge med (4 rækker).
+    const rows = [mk('a', 11), mk('b', 8), mk('c', 5), mk('d', 5), mk('e', 3)];
+    expect(stageTop(rows, 3).map((r) => r.bet.uid)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('returnerer alle når der er færre end limit', () => {
+    const rows = [mk('a', 7), mk('b', 3)];
+    expect(stageTop(rows, 3)).toHaveLength(2);
   });
 });

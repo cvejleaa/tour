@@ -6,7 +6,7 @@
 import { useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useStageBets } from './useStageBets';
-import { stageAnswerRows } from './stageAnswerRows';
+import { stageAnswerRows, stageTop } from './stageAnswerRows';
 import { useStandings } from '../leaderboard/useStandings';
 import { useLeagues } from '../leagues/useLeagues';
 import { collectVisibleUids } from '../leaderboard/standingsUtils';
@@ -53,7 +53,9 @@ export default function StageAnswers({ stage, points = {}, gcTopN = 10 }) {
     [bets, stage, result, points, visibleUids, isGlobalAdmin, meUid, usersByUid], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const top = rows.filter((r) => r.scored.points > 0).slice(0, 3);
+  // Etapens top — uafgjorte placeringer skæres ikke fra (alle lige med den
+  // sidste plads kommer med).
+  const top = stageTop(rows, 3);
 
   return (
     <div data-testid="stage-answers" style={{ marginTop: '0.6rem', display: 'grid', gap: '0.8rem' }}>
@@ -86,14 +88,19 @@ export default function StageAnswers({ stage, points = {}, gcTopN = 10 }) {
         <section data-testid="stage-top">
           <h4 style={{ margin: '0 0 0.35rem', fontSize: '0.95rem' }}>🏆 Etapens top</h4>
           <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.25rem' }}>
-            {top.map((r, i) => (
+            {top.map((r) => {
+              // Placering = antal spillere med strengt flere point → delt plads
+              // giver samme medalje (fx to på 3.-pladsen får begge 🥉).
+              const rank = top.filter((x) => x.scored.points > r.scored.points).length;
+              return (
               <li key={r.bet.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}>
-                <span style={{ width: 22 }}>{MEDAL[i]}</span>
+                <span style={{ width: 22 }}>{MEDAL[rank] || `${rank + 1}.`}</span>
                 <Avatar uid={r.bet.uid} name={nameOf(r.bet.uid)} emoji={usersByUid[r.bet.uid]?.avatarEmoji} favoriteTeam={usersByUid[r.bet.uid]?.favoriteTeam} size={22} />
                 <span style={{ fontWeight: 700 }}>{nameOf(r.bet.uid)}</span>
                 <span className="badge badge--green" style={{ marginLeft: 'auto', fontSize: '0.72rem' }}>+{r.scored.points}</span>
               </li>
-            ))}
+              );
+            })}
           </ol>
         </section>
       )}
