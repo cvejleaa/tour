@@ -3,6 +3,7 @@
 // startlister. Accent- og rækkefølge-uafhængig, så "vingegaard", "Jonas" og
 // "pogacar tadej" alle matcher. UI'et ligger i RiderSearch.jsx.
 // ---------------------------------------------------------------------------
+import { splitRiderName } from './riderName';
 
 /** Normalisér et navn til søgeform: uden accenter, små bogstaver, kun ord. */
 export function normName(s) {
@@ -27,13 +28,16 @@ export function buildRiderIndex(teams, ridersOf, prettyTeam) {
     const riders = (ridersOf ? ridersOf(t.code) : null) || [];
     for (const r of riders) {
       if (!r || !r.name) continue;
+      // Rens navn/land, så ryttere fra live-synk ("Ben Healy (Irland)") og den
+      // statiske snapshot indekseres og vises ens.
+      const { name, country } = splitRiderName(r.name, r.country);
       out.push({
-        name: r.name,
-        country: r.country || '',
+        name,
+        country,
         leader: !!r.leader,
         code: t.code,
         teamName: prettyTeam ? prettyTeam(t.name) : t.name,
-        _norm: normName(r.name),
+        _norm: normName(name),
       });
     }
   }

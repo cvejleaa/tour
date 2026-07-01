@@ -11,39 +11,45 @@ import { teamProfile, normRiderName } from '../data/teamProfiles2026';
 import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
 import { teamWorldRank, riderWorldRank } from '../data/uciRanking2026';
+import { splitRiderName } from '../features/teams/riderName';
 
 function RiderList({ riders, starNames, teamCode }) {
   // Beregn verdensrang én gang og sortér holdet efter placering (bedst først);
   // ryttere uden for ranglisten sidst, derefter alfabetisk.
   const rows = riders
-    .map((r) => ({ r, wr: riderWorldRank(r.name, teamCode) }))
+    // Normalisér navn/land, så hold fra forskellige kilder vises ens (nogle
+    // startlister bager landet ind i navnet som "Ben Healy (Irland)").
+    .map((r) => {
+      const { name, country } = splitRiderName(r?.name, r?.country);
+      return { name, country, wr: riderWorldRank(name, teamCode) };
+    })
     .sort((a, b) => {
       const ra = a.wr ? a.wr.rank : Infinity;
       const rb = b.wr ? b.wr.rank : Infinity;
       if (ra !== rb) return ra - rb;
-      return String(a.r.name || '').localeCompare(String(b.r.name || ''), 'da');
+      return String(a.name || '').localeCompare(String(b.name || ''), 'da');
     });
 
   return (
     <ul data-testid="rider-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
-      {rows.map(({ r, wr }, i) => {
-        const isDane = r.country === 'Danmark';
-        const isStar = starNames?.has(normRiderName(r.name));
+      {rows.map(({ name, country, wr }, i) => {
+        const isDane = country === 'Danmark';
+        const isStar = starNames?.has(normRiderName(name));
         return (
           <li
-            key={`${r.name || i}`}
+            key={`${name || i}`}
             data-testid="rider-row"
             style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.92rem' }}
           >
             {isStar && <span title="Hovednavn">⭐</span>}
-            <span style={{ fontWeight: isDane || isStar ? 800 : 600 }}>{r.name || '—'}</span>
+            <span style={{ fontWeight: isDane || isStar ? 800 : 600 }}>{name || '—'}</span>
             {isDane && <span title="Dansk rytter">🇩🇰</span>}
             {wr && (
               <span className="badge badge--muted" title="UCI verdensrang" style={{ fontSize: '0.7rem' }}>
                 🌍 #{wr.rank} · {wr.points.toLocaleString('da-DK')} p
               </span>
             )}
-            {r.country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {r.country}</span>}
+            {country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {country}</span>}
           </li>
         );
       })}

@@ -26,6 +26,7 @@ vi.mock('../data/startlist2026', () => {
       { name: 'Rytter Én', country: 'Danmark' },
       { name: 'Jonas Vingegaard', country: 'Danmark' }, // hovednavn → ⭐
       { name: 'Rider Two', country: 'USA' },
+      { name: 'Ben Healy (Irland)' }, // live-synk-format: land bagt ind i navnet
     ] },
   };
   return { staticStartlist: (c) => SL[c] || null };
@@ -60,6 +61,14 @@ describe('TeamPage', () => {
     // Danske ryttere får et flag-mærke.
     expect(screen.getAllByTitle('Dansk rytter').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('riders-pending')).toBeNull();
+  });
+
+  it('normaliserer "Navn (Land)"-format så navn og land vises adskilt', () => {
+    renderAt('TVL');
+    // Navnet vises uden parentesen, og landet vises som separat tekst.
+    expect(screen.getByText('Ben Healy')).toBeInTheDocument();
+    expect(screen.queryByText('Ben Healy (Irland)')).toBeNull();
+    expect(screen.getByText('· Irland')).toBeInTheDocument();
   });
 
   it('viser holdets profil, hovednavne og mål (TVL = Visma)', () => {
