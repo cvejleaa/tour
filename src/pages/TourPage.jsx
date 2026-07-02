@@ -71,6 +71,8 @@ export default function TourPage() {
 
   const standings = data?.standings || {};
   const jerseys = data?.jerseys || {};
+  const isPrev = data?.previousYear === true;
+  const prevYear = (data?.season || season) - 1;
   const teamOf = (stdKey, rider) => (standings[stdKey] || []).find((r) => r.rider === rider)?.team || null;
 
   return (
@@ -78,8 +80,27 @@ export default function TourPage() {
       <Hero
         title="Tour"
         subtitle="Stillingen i alle Tour de France-konkurrencer — samlet, point, bjerg, ungdom og hold."
-        chips={data?.afterStage ? [`Efter etape ${data.afterStage}`] : ['Afventer løbsstart']}
+        chips={isPrev
+          ? [`📅 Sidste års Tour (${prevYear})`]
+          : (data?.afterStage ? [`Efter etape ${data.afterStage}`] : ['Afventer løbsstart'])}
       />
+
+      {isPrev && (
+        <div
+          data-testid="previous-year-banner"
+          style={{
+            marginTop: '0.75rem', padding: '0.7rem 0.9rem', borderRadius: 12,
+            background: '#fff4e0', border: '1px solid #f0c674', color: '#7a4b00',
+            fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem',
+          }}
+        >
+          <span aria-hidden style={{ fontSize: '1.1rem' }}>⚠️</span>
+          <span>
+            Dette er <strong>sidste års resultater (Tour de France {prevYear})</strong> — vist som forsmag.
+            Stillingen nulstilles automatisk, når årets Tour går i gang.
+          </span>
+        </div>
+      )}
 
       {loading ? (
         <div className="spinner" role="status" aria-label="Indlæser" style={{ marginTop: '1rem' }} />

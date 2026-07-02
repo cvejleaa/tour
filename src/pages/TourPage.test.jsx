@@ -54,4 +54,19 @@ describe('TourPage', () => {
     expect(screen.getByTestId('highlight-mine')).toBeInTheDocument();
     expect(screen.getByTestId('highlight-liga')).toBeInTheDocument();
   });
+
+  it('markerer tydeligt når det er sidste års resultater', () => {
+    mockData = { ...DATA, season: 2026, previousYear: true };
+    render(<TourPage />);
+    const banner = screen.getByTestId('previous-year-banner');
+    expect(banner).toHaveTextContent('sidste års resultater');
+    expect(banner).toHaveTextContent('2025');
+    // Uden previousYear vises banneret ikke.
+  });
+
+  it('viser IKKE sidste-års-banner for årets data', () => {
+    mockData = { ...DATA, previousYear: false };
+    render(<TourPage />);
+    expect(screen.queryByTestId('previous-year-banner')).toBeNull();
+  });
 });

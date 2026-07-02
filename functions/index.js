@@ -265,17 +265,50 @@ async function syncTourCore(db, { dryRun = false } = {}) {
 
   // Fulde stillinger pr. konkurrence efter seneste afgjorte etape → config/classifications
   // (læses af Tour-siden). Skrives kun når en (ny) etape er blevet afgjort.
-  if (!dryRun && latest) {
+  const writeClassifications = async (afterStage, payload, jerseys, previousYear) => {
     await db.collection('config').doc('classifications').set({
       season,
-      afterStage: latest.number,
-      standings: classificationStandings(latest.payload),
-      stageResult: stageResultRows(latest.payload),
-      jerseys: latest.jerseys,
+      afterStage,
+      previousYear,
+      standings: classificationStandings(payload),
+      stageResult: stageResultRows(payload),
+      jerseys,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: false });
+  };
+
+  let previousYear = false;
+  if (!dryRun) {
+    if (latest) {
+      // Årets data (mindst én 2026-etape afgjort) → overskriver evt. sidste-års-preview.
+      await writeClassifications(latest.number, latest.payload, latest.jerseys, false);
+    } else {
+      // Ingen 2026-etape afgjort endnu. Vis sidste års stilling som tydeligt markeret
+      // preview (proxyen returnerer forrige TdF). Skrives KUN hvis der ikke allerede
+      // findes et klassement-dokument — så ægte 2026-data (previousYear:false) aldrig
+      // overskrives, og previewet ikke genskrives i hver kørsel. Nulstilles automatisk
+      // når grenen ovenfor skriver årets data.
+      const cur = await db.collection('config').doc('classifications').get();
+      if (!cur.exists) {
+        for (let n = stages.length; n >= 1; n -= 1) {
+          const r = await fetch(`${proxyUrl}/api/stages/${n}`);
+          if (!r.ok) continue;
+          const payload = await r.json();
+          const upd = buildStageUpdate(payload, gcTopN);
+          if (!upd.resultsPresent) continue;
+          await writeClassifications(n, payload, upd.jerseys, true);
+          previousYear = true;
+          break;
+        }
+      } else {
+        previousYear = cur.data()?.previousYear === true;
+      }
+    }
   }
-  return { season, checked, updated, teams: allTeams.size, classementsAfter: latest ? latest.number : null };
+  return {
+    season, checked, updated, teams: allTeams.size,
+    classementsAfter: latest ? latest.number : null, previousYear,
+  };
 }
 
 // Planlagt sync: hvert 5. minut mellem 17 og 22 (dansk tid) på etapedage.
