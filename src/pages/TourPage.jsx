@@ -12,8 +12,10 @@ import { riderFlag } from '../data/uciRanking2026';
 import { useAuth } from '../context/AuthContext';
 import { useClassifications } from '../features/tour/useClassifications';
 import StandingsTable from '../features/tour/StandingsTable';
+import GameCompetitions from '../features/tour/GameCompetitions';
 import { useMyStageBets } from '../features/stages/useMyStageBets';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { useTourSettings } from '../features/stages/useTourSettings';
 import { useLeagues } from '../features/leagues/useLeagues';
 import { collectVisibleUids } from '../features/leaderboard/standingsUtils';
 import { collectTippedTeams } from '../features/tour/tippedTeams';
@@ -59,6 +61,7 @@ export default function TourPage() {
   const { data, loading } = useClassifications();
   const { user } = useAuth();
   const season = useActiveSeason();
+  const { gcTopN } = useTourSettings();
 
   // Fremhævning: hold tippet af dig eller din liga (skift mellem de to).
   const [mode, setMode] = useState('mine');
@@ -153,8 +156,16 @@ export default function TourPage() {
             </span>
           </div>
 
-          {/* Fulde stillinger pr. konkurrence */}
-          <section style={{ marginTop: '0.6rem', display: 'grid', gap: '0.75rem' }}>
+          {/* Spillets fire konkurrencer (top-5 hold + rytter-specifikation) */}
+          <h3 style={{ margin: '1rem 0 0.1rem' }}>🎮 Spillets konkurrencer</h3>
+          <p style={{ fontSize: '0.78rem', color: 'var(--c-muted)', margin: '0 0 0.5rem' }}>
+            Sådan står holdene i de fire ting du tipper{data.afterStage ? ` (efter etape ${data.afterStage})` : ''}.
+          </p>
+          <GameCompetitions data={data} gcTopN={gcTopN} highlightTeams={highlightTeams} />
+
+          {/* Officielle klassementer */}
+          <h3 style={{ margin: '1.25rem 0 0.5rem' }}>📊 Officielle klassementer</h3>
+          <section style={{ marginTop: '0', display: 'grid', gap: '0.75rem' }}>
             {COMPS.map((c) => (
               <div key={c.key} className="card" data-testid={`standings-${c.key}`}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>

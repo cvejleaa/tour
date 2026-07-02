@@ -11,6 +11,7 @@ vi.mock('../features/tour/useClassifications', () => ({
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'me' } }) }));
 vi.mock('../features/stages/useMyStageBets', () => ({ useMyStageBets: () => ({ betsByStage: {}, loading: false }) }));
 vi.mock('../features/stages/useActiveSeason', () => ({ useActiveSeason: () => 2026 }));
+vi.mock('../features/stages/useTourSettings', () => ({ useTourSettings: () => ({ gcTopN: 4, points: {} }) }));
 vi.mock('../features/leagues/useLeagues', () => ({ useLeagues: () => ({ leagues: [] }) }));
 vi.mock('../features/tour/useLeagueTippedTeams', () => ({ useLeagueTippedTeams: () => new Set() }));
 
