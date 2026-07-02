@@ -3,9 +3,9 @@
 // bedste hold, flest bjergpoint, flest sprintpoint) som HOLD-stillinger med top-5
 // hold og en specifikation af hvilke ryttere der udgør hvert holds resultat.
 // Bygger på config/classifications (seneste etapes målrækkefølge + bjerg/sprint-
-// stillinger). Rangeringen matcher tourScoring: højeste sum → flest tællende
-// ryttere → alfabetisk.
+// stillinger). Rangeringen matcher tourScoring.
 // ---------------------------------------------------------------------------
+import { gcTeamStanding } from '../../lib/tourScoring';
 
 function rankTeams(map) {
   return [...map.values()].sort((a, b) => (
@@ -50,22 +50,14 @@ function winnerComp(finish) {
     .map((t) => ({ team: t.team, best: t.best, riders: t.riders.sort((a, b) => a.rank - b.rank).slice(0, 4) }));
 }
 
-/** Bedste hold: point = (N − position + 1) for hver rytter i top-N, sum pr. hold. */
+/**
+ * Bedste hold: holdets N bedst placerede rytteres målplaceringer summeres;
+ * LAVEST sum vinder. Genbruger scoringens gcTeamStanding, så visning = facit.
+ */
 function gcComp(finish, topN) {
-  const n = Math.max(1, Math.floor(Number(topN) || 10));
-  const map = new Map();
-  (finish || []).slice(0, n).forEach((r, i) => {
-    const team = r && r.team;
-    if (!team) return;
-    const pts = n - i;
-    const cur = map.get(team) || { team, total: 0, riders: [] };
-    cur.total += pts;
-    cur.riders.push({ rider: r.rider, rank: Number(r.rank) || i + 1, points: pts });
-    map.set(team, cur);
-  });
-  return rankTeams(map)
+  return gcTeamStanding(finish, topN)
     .slice(0, 5)
-    .map((t) => ({ team: t.team, total: t.total, riders: t.riders.sort((a, b) => a.rank - b.rank) }));
+    .map((t) => ({ team: t.team, sum: t.sum, riders: t.riders }));
 }
 
 /**

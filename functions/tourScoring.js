@@ -99,15 +99,27 @@ function bestTeam(totals, counts) {
   return r.length ? r[0] : null;
 }
 
-function gcTotals(finishOrder, topN = DEFAULT_GC_TOP_N) {
+// Q2-holdstilling: hvert holds N bedst placerede rytteres målplaceringer
+// summeres; LAVEST sum vinder. Kun hold med mindst N ryttere i mål kvalificerer.
+function gcTeamStanding(finishOrder, topN = DEFAULT_GC_TOP_N) {
   const n = Math.max(1, Math.floor(Number(topN) || DEFAULT_GC_TOP_N));
-  const top = (finishOrder || []).slice(0, n);
-  const counts = new Map();
-  const points = top.map((e, i) => {
-    if (e && e.team) counts.set(e.team, (counts.get(e.team) || 0) + 1);
-    return { team: e && e.team, value: n - i };
+  const byTeam = new Map();
+  (finishOrder || []).forEach((e, i) => {
+    const team = e && e.team;
+    if (team == null || team === '') return;
+    const rank = Number.isFinite(Number(e && e.rank)) ? Number(e.rank) : i + 1;
+    const arr = byTeam.get(team) || [];
+    arr.push({ rider: (e && e.rider) || null, rank });
+    byTeam.set(team, arr);
   });
-  return { totals: sumByTeam(points, (e) => e.value), counts };
+  const rows = [];
+  for (const [team, riders] of byTeam) {
+    if (riders.length < n) continue;
+    const best = [...riders].sort((a, b) => a.rank - b.rank).slice(0, n);
+    rows.push({ team, sum: best.reduce((s, r) => s + r.rank, 0), riders: best });
+  }
+  rows.sort((a, b) => (a.sum - b.sum) || (a.team < b.team ? -1 : a.team > b.team ? 1 : 0));
+  return rows;
 }
 
 function pointsTotals(pointList) {
@@ -135,8 +147,8 @@ function stageWinnerTeam(finishOrder) {
 }
 
 function stageGcTeam(finishOrder, topN = DEFAULT_GC_TOP_N) {
-  const { totals, counts } = gcTotals(finishOrder, topN);
-  return bestTeam(totals, counts);
+  const r = gcTeamStanding(finishOrder, topN);
+  return r.length ? r[0].team : null;
 }
 
 function topPointsTeam(pointList) {
@@ -146,12 +158,12 @@ function topPointsTeam(pointList) {
 
 function resolveStageResult(raw = {}) {
   const { finishOrder, mountainPoints, sprintPoints, gcTopN } = raw;
-  const gc = finishOrder && finishOrder.length ? gcTotals(finishOrder, gcTopN) : null;
+  const gcOrder = finishOrder && finishOrder.length ? gcTeamStanding(finishOrder, gcTopN) : [];
   const mt = mountainPoints && mountainPoints.length ? pointsTotals(mountainPoints) : null;
   const sp = sprintPoints && sprintPoints.length ? pointsTotals(sprintPoints) : null;
   const podium = {
     winnerTeam: teamPodiumFromFinish(finishOrder),
-    gcTeam: gc ? rankTeams(gc.totals, gc.counts).slice(0, 3) : [],
+    gcTeam: gcOrder.slice(0, 3).map((r) => r.team),
     mountainTeam: mt ? rankTeams(mt.totals, mt.counts).slice(0, 3) : [],
     sprintTeam: sp ? rankTeams(sp.totals, sp.counts).slice(0, 3) : [],
   };
@@ -265,6 +277,7 @@ module.exports = {
   normalizePodium,
   stageWinnerTeam,
   stageGcTeam,
+  gcTeamStanding,
   topPointsTeam,
   resolveStageResult,
   STAGE_FIELDS,

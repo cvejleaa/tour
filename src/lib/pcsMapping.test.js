@@ -88,10 +88,10 @@ describe('deltaPointsList (ægte point på etapen)', () => {
 
 describe('pcsToStageInput → resolveStageResult (hele kæden)', () => {
   it('afgør Q1–Q4 korrekt fra et payload (kumulativ)', () => {
-    const input = pcsToStageInput(payloadN, { gcTopN: 4 });
+    const input = pcsToStageInput(payloadN, { gcTopN: 2 });
     const res = resolveStageResult(input);
     expect(res.winnerTeam).toBe('UAE Team Emirates'); // Q1: rytter nr.1
-    // Q2 top-4: UAE nr1+nr3 = 4+2 = 6 → UAE
+    // Q2 (N=2): UAE har nr.1+nr.3 = 4 og er eneste hold med 2 i mål → UAE
     expect(res.gcTeam).toBe('UAE Team Emirates');
     // Q3 bjerg kumulativ: Bahrain 12 > UAE 8 → Bahrain
     expect(res.mountainTeam).toBe('Bahrain Victorious');
@@ -100,7 +100,7 @@ describe('pcsToStageInput → resolveStageResult (hele kæden)', () => {
   });
 
   it('en spiller kan scores ende-til-ende mod payload-facit', () => {
-    const facit = resolveStageResult(pcsToStageInput(payloadN, { gcTopN: 4 }));
+    const facit = resolveStageResult(pcsToStageInput(payloadN, { gcTopN: 2 }));
     const bet = { winnerTeam: 'UAE Team Emirates', gcTeam: 'UAE Team Emirates', mountainTeam: 'Soudal Quick-Step', sprintTeam: 'Visma | Lease a Bike' };
     const { points } = scoreStageBet(bet, facit); // 5 + 4 + 0 + 3 = 12
     expect(points).toBe(12);

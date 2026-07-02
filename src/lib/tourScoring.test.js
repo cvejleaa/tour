@@ -8,6 +8,7 @@ import {
   normalizePoints,
   stageWinnerTeam,
   stageGcTeam,
+  gcTeamStanding,
   topPointsTeam,
   resolveStageResult,
   isUntipped,
@@ -47,39 +48,43 @@ describe('Q1 – stageWinnerTeam', () => {
   });
 });
 
-describe('Q2 – stageGcTeam (samlet bedste på de XX første ryttere)', () => {
-  it('belønner flere ryttere højt oppe frem for én enkelt vinder', () => {
-    // top-4: VLA på nr.1, men SOQ har nr.2,3,4.
-    // Placerings-point (N=4): nr1=4, nr2=3, nr3=2, nr4=1.
-    // VLA=4, SOQ=3+2+1=6 → SOQ vinder.
-    const fo = order('VLA', 'SOQ', 'SOQ', 'SOQ');
-    expect(stageGcTeam(fo, 4)).toBe('SOQ');
+describe('Q2 – stageGcTeam (holdets N bedste rytteres placeringssum, lavest vinder)', () => {
+  it('summerer holdets N bedste placeringer; lavest sum vinder', () => {
+    // N=3. AAA på 1,4,5 (sum 10); BBB på 2,3,6 (sum 11) → AAA vinder.
+    expect(stageGcTeam(order('AAA', 'BBB', 'BBB', 'AAA', 'AAA', 'BBB'), 3)).toBe('AAA');
   });
 
-  it('én topplacering slår spredte lave placeringer', () => {
-    // top-5: UAD nr.1 (5p). Resten ét hold hver lavt.
-    const fo = order('UAD', 'A', 'B', 'C', 'D');
-    expect(stageGcTeam(fo, 5)).toBe('UAD');
+  it('kun de N bedste placeringer tæller (dårlige ignoreres)', () => {
+    // N=2. AAA på 1,2,(5); BBB på 3,4 → AAA sum 3 < BBB sum 7.
+    expect(stageGcTeam(order('AAA', 'AAA', 'BBB', 'BBB', 'AAA'), 2)).toBe('AAA');
   });
 
-  it('respekterer topN-grænsen (ryttere udenfor tæller ikke)', () => {
-    // Kun top-2 tæller: nr1 UAD(2p), nr2 VLA(1p) → UAD. SOQ udenfor.
-    const fo = order('UAD', 'VLA', 'SOQ', 'SOQ', 'SOQ');
-    expect(stageGcTeam(fo, 2)).toBe('UAD');
+  it('hold med færre end N ryttere i mål kvalificerer ikke', () => {
+    // N=3. AAA har 3 (1,2,3); BBB har kun 2 (4,5) → kun AAA kvalificerer.
+    expect(stageGcTeam(order('AAA', 'AAA', 'AAA', 'BBB', 'BBB'), 3)).toBe('AAA');
+  });
+
+  it('null når intet hold har N ryttere i mål', () => {
+    expect(stageGcTeam(order('AAA', 'BBB'), 3)).toBeNull();
   });
 
   it('bruger default top-N når intet er angivet', () => {
-    const fo = order(...Array(DEFAULT_GC_TOP_N + 5).fill('UAD'));
-    expect(stageGcTeam(fo)).toBe('UAD');
+    const fo = order(...Array(DEFAULT_GC_TOP_N).fill('UAD'), ...Array(DEFAULT_GC_TOP_N).fill('VLA'));
+    expect(stageGcTeam(fo)).toBe('UAD'); // UAD har de N første pladser (lavest sum)
   });
 
   it('er deterministisk ved lige sum (alfabetisk tie-break)', () => {
-    // top-2: nr1 'BBB'(2p), nr2 'AAA'(1p) → BBB højest. Byt om:
-    expect(stageGcTeam(order('BBB', 'AAA'), 2)).toBe('BBB');
-    // To hold med præcis samme samlede point og antal → alfabetisk først.
-    // nr1 'ZZZ', nr2 'AAA', nr3 'AAA', nr4 'ZZZ' (N=4):
-    // ZZZ=4+1=5, AAA=3+2=5, begge 2 ryttere → 'AAA' vinder (alfabetisk).
-    expect(stageGcTeam(order('ZZZ', 'AAA', 'AAA', 'ZZZ'), 4)).toBe('AAA');
+    // N=2. ZZZ på 1,4 (sum 5); AAA på 2,3 (sum 5) → lige → 'AAA' først.
+    expect(stageGcTeam(order('ZZZ', 'AAA', 'AAA', 'ZZZ'), 2)).toBe('AAA');
+  });
+});
+
+describe('gcTeamStanding – fuld Q2-holdstilling med rytter-detaljer', () => {
+  it('sorterer hold efter laveste sum og angiver de tællende ryttere', () => {
+    const rows = gcTeamStanding(order('AAA', 'BBB', 'BBB', 'AAA', 'AAA', 'BBB'), 3);
+    expect(rows.map((r) => r.team)).toEqual(['AAA', 'BBB']);
+    expect(rows[0]).toMatchObject({ team: 'AAA', sum: 10 });
+    expect(rows[0].riders.map((r) => r.rank)).toEqual([1, 4, 5]);
   });
 });
 
@@ -107,14 +112,14 @@ describe('Q3/Q4 – topPointsTeam (bjerg-/sprintpoint)', () => {
 describe('resolveStageResult – fuldt facit fra rå etapedata', () => {
   it('afgør alle fire spørgsmål når data findes', () => {
     const raw = {
-      finishOrder: order('UAD', 'VLA', 'UAD', 'SOQ'),
+      finishOrder: order('UAD', 'UAD', 'VLA', 'SOQ', 'VLA'),
       mountainPoints: [{ team: 'COF', points: 12 }, { team: 'UAD', points: 5 }],
       sprintPoints: [{ team: 'SOQ', points: 20 }, { team: 'UAD', points: 8 }],
-      gcTopN: 4,
+      gcTopN: 2,
     };
     const res = resolveStageResult(raw);
     expect(res.winnerTeam).toBe('UAD'); // nr.1
-    // top-4: UAD nr1+nr3 = 4+2 = 6, VLA nr2 = 3, SOQ nr4 = 1 → UAD
+    // N=2: UAD nr1+nr2 = 3 (lavest); VLA nr3+nr5 = 8; SOQ kun 1 rytter → udgår → UAD
     expect(res.gcTeam).toBe('UAD');
     expect(res.mountainTeam).toBe('COF');
     expect(res.sprintTeam).toBe('SOQ');

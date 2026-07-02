@@ -25,11 +25,13 @@ describe('Q1/Q2', () => {
   it('stageWinnerTeam = nr.1', () => {
     expect(stageWinnerTeam(order('UAD', 'VLA'))).toBe('UAD');
   });
-  it('stageGcTeam belønner flere ryttere oppe', () => {
-    expect(stageGcTeam(order('VLA', 'SOQ', 'SOQ', 'SOQ'), 4)).toBe('SOQ');
+  it('stageGcTeam: laveste sum af N bedste placeringer vinder', () => {
+    // N=3. AAA på 1,4,5 (10) < BBB på 2,3,6 (11).
+    expect(stageGcTeam(order('AAA', 'BBB', 'BBB', 'AAA', 'AAA', 'BBB'), 3)).toBe('AAA');
   });
-  it('stageGcTeam respekterer topN', () => {
-    expect(stageGcTeam(order('UAD', 'VLA', 'SOQ', 'SOQ', 'SOQ'), 2)).toBe('UAD');
+  it('stageGcTeam: hold med færre end N i mål kvalificerer ikke', () => {
+    // N=3. AAA har 3 (1,2,3); BBB kun 2 (4,5) → AAA.
+    expect(stageGcTeam(order('AAA', 'AAA', 'AAA', 'BBB', 'BBB'), 3)).toBe('AAA');
   });
 });
 
@@ -64,10 +66,10 @@ describe('resolveStageResult + scoreStageBet', () => {
   });
   it('resolveStageResult fra rå data', () => {
     const res = resolveStageResult({
-      finishOrder: order('UAD', 'VLA', 'UAD', 'SOQ'),
+      finishOrder: order('UAD', 'UAD', 'VLA', 'SOQ', 'VLA'),
       mountainPoints: [{ team: 'COF', points: 12 }, { team: 'UAD', points: 5 }],
       sprintPoints: [{ team: 'SOQ', points: 20 }],
-      gcTopN: 4,
+      gcTopN: 2,
     });
     expect(res).toMatchObject({ winnerTeam: 'UAD', gcTeam: 'UAD', mountainTeam: 'COF', sprintTeam: 'SOQ' });
     // Podiet: distinkte hold i målrækkefølge (UAD så VLA så SOQ).

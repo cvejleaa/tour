@@ -20,12 +20,16 @@ export default function GameCompetitions({ data, gcTopN = 10, highlightTeams = n
   const comps = gameCompetitions(data, gcTopN);
   const CONFIG = [
     { key: 'winnerTeam', icon: '🏆', label: 'Etapevinderens hold', kind: 'pos' },
-    { key: 'gcTeam', icon: '⏱️', label: `Bedste hold (de første ${gcTopN} ryttere)`, kind: 'gc' },
+    { key: 'gcTeam', icon: '⏱️', label: `Bedste hold (de første ${gcTopN} ryttere)`, kind: 'sum', note: 'Sum af holdets N bedste placeringer — lavest vinder' },
     { key: 'mountainTeam', icon: '⛰️', label: 'Flest bjergpoint', kind: 'pts' },
     { key: 'sprintTeam', icon: '🚀', label: 'Flest sprintpoint', kind: 'pts' },
   ];
 
-  const valueOf = (c, t) => (c.kind === 'pos' ? `#${t.best}` : `${t.total} p`);
+  const valueOf = (c, t) => {
+    if (c.kind === 'pos') return `#${t.best}`;
+    if (c.kind === 'sum') return `Σ ${t.sum}`;
+    return `${t.total} p`;
+  };
 
   return (
     <section style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }} data-testid="game-competitions">
@@ -33,10 +37,13 @@ export default function GameCompetitions({ data, gcTopN = 10, highlightTeams = n
         const teams = comps[c.key] || [];
         return (
           <div key={c.key} className="card" data-testid={`gamecomp-${c.key}`}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: c.note ? '0.1rem' : '0.5rem' }}>
               <span aria-hidden>{c.icon}</span>
               <strong style={{ fontSize: '0.98rem' }}>{c.label}</strong>
             </div>
+            {c.note && (
+              <div style={{ fontSize: '0.72rem', color: 'var(--c-muted)', marginBottom: '0.5rem' }}>{c.note}</div>
+            )}
             {teams.length === 0 ? (
               <p style={{ fontSize: '0.83rem', color: 'var(--c-muted)', margin: 0 }}>Ingen data endnu.</p>
             ) : (

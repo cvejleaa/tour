@@ -22,7 +22,7 @@ const data = {
 };
 
 describe('gameCompetitions', () => {
-  const c = gameCompetitions(data, 4);
+  const c = gameCompetitions(data, 2);
 
   it('etapevinder-hold: holdets placering = bedste rytter, top-5', () => {
     expect(c.winnerTeam[0].team).toBe('UAE'); // Pogačar nr. 1
@@ -30,10 +30,11 @@ describe('gameCompetitions', () => {
     expect(c.winnerTeam[0].riders.map((r) => r.rider)).toEqual(['Pogačar', 'Almeida']);
   });
 
-  it('bedste hold: (N−pos+1)-point summeret pr. hold (N=4)', () => {
-    // UAE: nr.1(4)+nr.3(2)=6, Visma: nr.2(3)+nr.4(1)=4 → UAE først
-    expect(c.gcTeam[0]).toMatchObject({ team: 'UAE', total: 6 });
-    expect(c.gcTeam[1]).toMatchObject({ team: 'Visma', total: 4 });
+  it('bedste hold: laveste sum af de N bedste placeringer (N=2)', () => {
+    // UAE nr.1+nr.3 = 4; Visma nr.2+nr.4 = 6 → UAE først (lavest)
+    expect(c.gcTeam[0]).toMatchObject({ team: 'UAE', sum: 4 });
+    expect(c.gcTeam[1]).toMatchObject({ team: 'Visma', sum: 6 });
+    expect(c.gcTeam[0].riders.map((r) => r.rank)).toEqual([1, 3]);
   });
 
   it('bjergpoint: sum pr. hold med rytter-specifikation', () => {
