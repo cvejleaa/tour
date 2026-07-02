@@ -28,4 +28,22 @@ describe('StandingsTable', () => {
     render(<StandingsTable rows={[]} />);
     expect(screen.getByText(/Ingen data endnu/)).toBeInTheDocument();
   });
+
+  it('viser flag og fremhæver tippede hold', () => {
+    render(
+      <StandingsTable
+        rows={[
+          { rank: 1, rider: 'A', team: 'UAE Team Emirates XRG', time: '0:00' },
+          { rank: 2, rider: 'B', team: 'Team Visma | Lease a Bike', time: '+1:00' },
+        ]}
+        valueType="time"
+        flagFor={(name) => (name === 'A' ? '🇸🇮' : '')}
+        highlightTeams={new Set(['Team Visma | Lease a Bike'])}
+      />,
+    );
+    expect(screen.getByText('🇸🇮')).toBeInTheDocument();
+    const rows = screen.getAllByTestId('standings-row');
+    expect(rows[0]).not.toHaveAttribute('data-tipped');
+    expect(rows[1]).toHaveAttribute('data-tipped', 'true');
+  });
 });

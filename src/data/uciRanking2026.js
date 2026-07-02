@@ -94,3 +94,14 @@ export function flagEmoji(iso2) {
   if (!/^[A-Z]{2}$/.test(c)) return '';
   return String.fromCodePoint(...[...c].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65));
 }
+
+/**
+ * Flag-emoji for en rytter slået op på navn i UCI-datasættet (robust match).
+ * Tom streng hvis rytteren ikke findes (fx uden for top-2000).
+ * @param {string} name
+ * @returns {string}
+ */
+export function riderFlag(name) {
+  const wr = riderWorldRank(name);
+  return wr && wr.flag ? flagEmoji(wr.flag) : '';
+}

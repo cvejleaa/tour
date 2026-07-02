@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  teamWorldRank, teamWorldRiders, riderWorldRank, flagEmoji,
+  teamWorldRank, teamWorldRiders, riderWorldRank, flagEmoji, riderFlag,
   riderRankSum, UNRANKED_PLACE, UCI_RIDER_TOP_N, UCI_RANKING_DATE,
 } from './uciRanking2026';
 
@@ -47,6 +47,11 @@ describe('uciRanking2026', () => {
     expect(flagEmoji('dk')).toBe('🇩🇰');
     expect(flagEmoji('SI')).toBe('🇸🇮');
     expect(flagEmoji('')).toBe('');
+  });
+
+  it('riderFlag: slår rytterens flag op på navn', () => {
+    expect(riderFlag('Tadej Pogačar')).toBe('🇸🇮'); // Slovenien
+    expect(riderFlag('Ukendt Rytter')).toBe('');
   });
 
   it('snapshot har data', () => {

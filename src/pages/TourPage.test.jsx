@@ -8,6 +8,11 @@ let mockData = null;
 vi.mock('../features/tour/useClassifications', () => ({
   useClassifications: () => ({ data: mockData, loading: false }),
 }));
+vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'me' } }) }));
+vi.mock('../features/stages/useMyStageBets', () => ({ useMyStageBets: () => ({ betsByStage: {}, loading: false }) }));
+vi.mock('../features/stages/useActiveSeason', () => ({ useActiveSeason: () => 2026 }));
+vi.mock('../features/leagues/useLeagues', () => ({ useLeagues: () => ({ leagues: [] }) }));
+vi.mock('../features/tour/useLeagueTippedTeams', () => ({ useLeagueTippedTeams: () => new Set() }));
 
 import TourPage from './TourPage';
 
@@ -41,5 +46,12 @@ describe('TourPage', () => {
     expect(screen.getByTestId('standings-hold')).toBeInTheDocument();
     expect(screen.getByTestId('latest-stage-result')).toBeInTheDocument();
     expect(screen.getAllByText('Tadej Pogačar').length).toBeGreaterThan(0);
+  });
+
+  it('har en Mine/Ligaen-skifter til fremhævning', () => {
+    mockData = DATA;
+    render(<TourPage />);
+    expect(screen.getByTestId('highlight-mine')).toBeInTheDocument();
+    expect(screen.getByTestId('highlight-liga')).toBeInTheDocument();
   });
 });

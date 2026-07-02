@@ -8,7 +8,10 @@ import TeamBadge from '../../components/TeamBadge';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
-export default function StandingsTable({ rows = [], valueType = 'time', teamsMode = false, topN = 10, accent = 'var(--c-pitch)' }) {
+export default function StandingsTable({
+  rows = [], valueType = 'time', teamsMode = false, topN = 10, accent = 'var(--c-pitch)',
+  flagFor = null, highlightTeams = null,
+}) {
   const [open, setOpen] = useState(false);
   const list = Array.isArray(rows) ? rows : [];
   if (list.length === 0) {
@@ -27,15 +30,19 @@ export default function StandingsTable({ rows = [], valueType = 'time', teamsMod
         {shown.map((r, i) => {
           const rank = Number.isFinite(Number(r.rank)) ? Number(r.rank) : i + 1;
           const isTop = rank <= 3;
+          const flag = flagFor && r.rider ? flagFor(r.rider) : '';
+          const tipped = !!(highlightTeams && r.team && highlightTeams.has(r.team));
           return (
             <li
               key={`${rank}-${r.rider || r.team || i}`}
               data-testid="standings-row"
+              data-tipped={tipped ? 'true' : undefined}
+              title={tipped ? 'Tippet hold' : undefined}
               style={{
                 display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem',
                 padding: '0.3rem 0.4rem', borderRadius: 8,
-                background: isTop ? 'var(--c-surface-alt, #f6faf8)' : 'transparent',
-                borderLeft: rank === 1 ? `3px solid ${accent}` : '3px solid transparent',
+                background: tipped ? 'rgba(11,110,79,0.10)' : (isTop ? 'var(--c-surface-alt, #f6faf8)' : 'transparent'),
+                borderLeft: tipped ? '3px solid var(--c-pitch)' : (rank === 1 ? `3px solid ${accent}` : '3px solid transparent'),
               }}
             >
               <span style={{ width: 26, textAlign: 'center', fontWeight: 700, color: 'var(--c-muted)' }}>
@@ -43,11 +50,14 @@ export default function StandingsTable({ rows = [], valueType = 'time', teamsMod
               </span>
               {teamsMode ? (
                 <span style={{ fontWeight: isTop ? 700 : 600, flex: 1, minWidth: 0 }}>
+                  {tipped && <span aria-label="Tippet hold" title="Tippet hold">⭐ </span>}
                   <TeamBadge name={r.team} />
                 </span>
               ) : (
                 <>
+                  {flag && <span aria-hidden style={{ flexShrink: 0 }}>{flag}</span>}
                   <span style={{ fontWeight: isTop ? 700 : 600, flex: 1, minWidth: 0 }}>{r.rider || '—'}</span>
+                  {tipped && <span aria-label="Tippet hold" title="Tippet hold" style={{ flexShrink: 0 }}>⭐</span>}
                   {r.team && (
                     <span style={{ flexShrink: 0 }}><TeamBadge name={r.team} size={16} /></span>
                   )}

@@ -4,11 +4,20 @@
 // Data kommer fra config/classifications, som sync-funktionen skriver efter
 // hver afgjorte etape.
 // ---------------------------------------------------------------------------
+import { useMemo, useState } from 'react';
 import Hero from '../components/Hero';
 import TeamBadge from '../components/TeamBadge';
 import { JerseyIcon } from '../data/jerseyAvatars';
+import { riderFlag } from '../data/uciRanking2026';
+import { useAuth } from '../context/AuthContext';
 import { useClassifications } from '../features/tour/useClassifications';
 import StandingsTable from '../features/tour/StandingsTable';
+import { useMyStageBets } from '../features/stages/useMyStageBets';
+import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { useLeagues } from '../features/leagues/useLeagues';
+import { collectVisibleUids } from '../features/leaderboard/standingsUtils';
+import { collectTippedTeams } from '../features/tour/tippedTeams';
+import { useLeagueTippedTeams } from '../features/tour/useLeagueTippedTeams';
 
 // De fem konkurrencer med visnings-metadata (titel, trøjefarve-accent, værditype).
 const COMPS = [
@@ -48,6 +57,17 @@ function LeaderCard({ jersey, name, teamName, sub, accent }) {
 
 export default function TourPage() {
   const { data, loading } = useClassifications();
+  const { user } = useAuth();
+  const season = useActiveSeason();
+
+  // Fremhævning: hold tippet af dig eller din liga (skift mellem de to).
+  const [mode, setMode] = useState('mine');
+  const { betsByStage } = useMyStageBets(user?.uid ?? null, season);
+  const { leagues } = useLeagues(user?.uid ?? null);
+  const visibleUids = useMemo(() => new Set(collectVisibleUids(leagues, user?.uid)), [leagues, user?.uid]);
+  const mineTeams = useMemo(() => collectTippedTeams(Object.values(betsByStage || {})), [betsByStage]);
+  const ligaTeams = useLeagueTippedTeams({ afterStage: data?.afterStage, season, memberUids: visibleUids });
+  const highlightTeams = mode === 'liga' ? ligaTeams : mineTeams;
 
   const standings = data?.standings || {};
   const jerseys = data?.jerseys || {};
@@ -93,8 +113,27 @@ export default function TourPage() {
             </div>
           </section>
 
+          {/* Fremhævning: skift mellem dine og ligaens tippede hold */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)' }}>⭐ Fremhæv tippede hold:</span>
+            {[{ k: 'mine', label: 'Mine' }, { k: 'liga', label: 'Ligaen' }].map((m) => (
+              <button
+                key={m.k}
+                type="button"
+                onClick={() => setMode(m.k)}
+                data-testid={`highlight-${m.k}`}
+                className={`btn btn--sm ${mode === m.k ? '' : 'btn--ghost'}`}
+              >
+                {m.label}
+              </button>
+            ))}
+            <span style={{ fontSize: '0.76rem', color: 'var(--c-muted)' }}>
+              ({highlightTeams.size} hold)
+            </span>
+          </div>
+
           {/* Fulde stillinger pr. konkurrence */}
-          <section style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
+          <section style={{ marginTop: '0.6rem', display: 'grid', gap: '0.75rem' }}>
             {COMPS.map((c) => (
               <div key={c.key} className="card" data-testid={`standings-${c.key}`}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -107,6 +146,8 @@ export default function TourPage() {
                   valueType={c.valueType}
                   teamsMode={!!c.teamsMode}
                   accent={c.accent}
+                  flagFor={c.teamsMode ? null : riderFlag}
+                  highlightTeams={highlightTeams}
                 />
               </div>
             ))}
@@ -121,7 +162,7 @@ export default function TourPage() {
                   <strong style={{ fontSize: '1.02rem' }}>Seneste etaperesultat</strong>
                   {data.afterStage && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· etape {data.afterStage}</span>}
                 </div>
-                <StandingsTable rows={data.stageResult} valueType="time" />
+                <StandingsTable rows={data.stageResult} valueType="time" flagFor={riderFlag} highlightTeams={highlightTeams} />
               </div>
             </section>
           )}
