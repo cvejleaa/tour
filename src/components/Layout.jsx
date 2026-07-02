@@ -62,6 +62,7 @@ export default function Layout({ children }) {
                 </span>
               </NavLink>
               <NavLink to="/etaper" style={linkStyle}>Etaper</NavLink>
+              <NavLink to="/tour" style={linkStyle}>Tour</NavLink>
               <NavLink to="/hold" style={linkStyle}>Hold</NavLink>
               <NavLink to="/mine-tips" style={linkStyle}>Mine tips</NavLink>
               <NavLink to="/bonus" style={linkStyle}>Bonus</NavLink>

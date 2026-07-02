@@ -8,6 +8,8 @@ import {
   pcsToStageInput,
   jerseyHolders,
   stageMetaFromPcs,
+  classificationStandings,
+  stageResultRows,
 } from './pcsMapping.js';
 import { resolveStageResult, scoreStageBet } from './tourScoring.js';
 
@@ -120,5 +122,32 @@ describe('jerseyHolders & stageMetaFromPcs', () => {
       number: 2, date: '2026-07-05', startCity: 'Lille', finishCity: 'Boulogne',
       km: 209, type: 'Hilly', profileIcon: 'p2',
     });
+  });
+});
+
+describe('classificationStandings & stageResultRows', () => {
+  it('normaliserer alle fem konkurrencer med rank/rytter/hold/tid/point', () => {
+    const s = classificationStandings(payloadN);
+    expect(Object.keys(s)).toEqual(['samlet', 'sprint', 'bjerg', 'ungdom', 'hold']);
+    expect(s.samlet[0]).toEqual({ rank: 1, rider: 'Tadej Pogačar', team: 'UAE Team Emirates', time: '0:00', points: null });
+    expect(s.sprint).toHaveLength(2);
+    expect(s.sprint[0]).toMatchObject({ rank: 1, rider: 'Jonas Vingegaard', points: 30, time: null });
+    expect(s.hold[0]).toMatchObject({ rank: 1, team: 'UAE Team Emirates' });
+  });
+
+  it('respekterer topN', () => {
+    expect(classificationStandings(payloadN, 1).sprint).toHaveLength(1);
+  });
+
+  it('stageResultRows giver målrækkefølgen', () => {
+    const rows = stageResultRows(payloadN);
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toMatchObject({ rank: 1, rider: 'Tadej Pogačar', team: 'UAE Team Emirates' });
+  });
+
+  it('tåler manglende klassementer', () => {
+    const empty = classificationStandings({});
+    expect(empty.samlet).toEqual([]);
+    expect(stageResultRows({})).toEqual([]);
   });
 });

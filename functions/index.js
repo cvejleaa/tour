@@ -39,6 +39,7 @@ const TZ = 'Europe/Copenhagen';
 
 const { scoreStageBet, normalizePodium, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage, stageTipComplete } = require('./tourScoring');
 const { buildStageUpdate, syncStageInfoCore } = require('./tourSync');
+const { classificationStandings, stageResultRows } = require('./pcsMapping');
 const { syncStartlistCore } = require('./startlistSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -217,6 +218,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
   let checked = 0;
   let updated = 0;
   const allTeams = new Map();
+  let latest = null; // seneste afgjorte etape (til de fulde klassement-stillinger)
 
   for (const s of stages) {
     const n = s.number;
@@ -235,6 +237,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     const payload = await r.json();
     const upd = buildStageUpdate(payload, gcTopN);
     if (!upd.resultsPresent) continue;
+    if (!latest || n > latest.number) latest = { number: n, payload, jerseys: upd.jerseys };
     upd.teams.forEach((t) => allTeams.set(t.key, t.name));
     if (!dryRun) {
       await db.collection('stages').doc(docId).set({
@@ -259,7 +262,20 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     }
     await batch.commit();
   }
-  return { season, checked, updated, teams: allTeams.size };
+
+  // Fulde stillinger pr. konkurrence efter seneste afgjorte etape → config/classifications
+  // (læses af Tour-siden). Skrives kun når en (ny) etape er blevet afgjort.
+  if (!dryRun && latest) {
+    await db.collection('config').doc('classifications').set({
+      season,
+      afterStage: latest.number,
+      standings: classificationStandings(latest.payload),
+      stageResult: stageResultRows(latest.payload),
+      jerseys: latest.jerseys,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: false });
+  }
+  return { season, checked, updated, teams: allTeams.size, classementsAfter: latest ? latest.number : null };
 }
 
 // Planlagt sync: hvert 5. minut mellem 17 og 22 (dansk tid) på etapedage.

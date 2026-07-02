@@ -76,6 +76,30 @@ function jerseyHolders(payload) {
   };
 }
 
+const COMPETITIONS = ['samlet', 'sprint', 'bjerg', 'ungdom', 'hold'];
+
+function standingRow(r, i) {
+  return {
+    rank: Number.isFinite(Number(r && r.rank)) ? Number(r.rank) : i + 1,
+    rider: (r && r.rider_name) || null,
+    team: (r && r.team_name) || null,
+    time: (r && r.time) || null,
+    points: (r && r.points != null && r.points !== '') ? Number(r.points) || 0 : null,
+  };
+}
+
+function classificationStandings(payload, topN = 200) {
+  const out = {};
+  for (const key of COMPETITIONS) {
+    out[key] = classRows(payload, key).slice(0, topN).map(standingRow);
+  }
+  return out;
+}
+
+function stageResultRows(payload, topN = 200) {
+  return classRows(payload, 'etape').slice(0, topN).map(standingRow);
+}
+
 function stageMetaFromPcs(payload) {
   const m = (payload && payload.meta) || {};
   return {
@@ -96,5 +120,8 @@ module.exports = {
   deltaPointsList,
   pcsToStageInput,
   jerseyHolders,
+  classificationStandings,
+  stageResultRows,
+  COMPETITIONS,
   stageMetaFromPcs,
 };

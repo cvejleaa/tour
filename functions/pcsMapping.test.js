@@ -5,6 +5,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   finishOrderFromPcs, deltaPointsList, pcsToStageInput, jerseyHolders, stageMetaFromPcs,
+  classificationStandings, stageResultRows,
 } = require('./pcsMapping.js');
 const { resolveStageResult, scoreStageBet } = require('./tourScoring.js');
 
@@ -75,5 +76,20 @@ describe('jerseyHolders & stageMetaFromPcs', () => {
     expect(stageMetaFromPcs(payloadN)).toEqual({
       number: 2, date: '2026-07-05', startCity: 'Lille', finishCity: 'Boulogne', km: 209, type: 'Hilly', profileIcon: 'p2',
     });
+  });
+});
+
+describe('classificationStandings & stageResultRows', () => {
+  it('normaliserer alle fem konkurrencer', () => {
+    const s = classificationStandings(payloadN);
+    expect(Object.keys(s)).toEqual(['samlet', 'sprint', 'bjerg', 'ungdom', 'hold']);
+    expect(s.samlet[0]).toEqual({ rank: 1, rider: 'Pogačar', team: 'UAE', time: null, points: null });
+    expect(s.sprint[0]).toMatchObject({ rank: 1, rider: 'Vingegaard', points: 30 });
+    expect(s.hold[0]).toMatchObject({ rank: 1, team: 'UAE' });
+  });
+  it('stageResultRows + topN + tomt', () => {
+    expect(stageResultRows(payloadN)).toHaveLength(4);
+    expect(classificationStandings(payloadN, 1).sprint).toHaveLength(1);
+    expect(classificationStandings({}).samlet).toEqual([]);
   });
 });

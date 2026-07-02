@@ -108,6 +108,38 @@ export function jerseyHolders(payload) {
   };
 }
 
+/** De fem Tour-konkurrencer i visningsrækkefølge (klassement-nøgler fra PCS). */
+export const COMPETITIONS = ['samlet', 'sprint', 'bjerg', 'ungdom', 'hold'];
+
+/** Normalisér én klassement-række til visning (rank/rytter/hold/tid/point). */
+function standingRow(r, i) {
+  return {
+    rank: Number.isFinite(Number(r?.rank)) ? Number(r.rank) : i + 1,
+    rider: r?.rider_name ?? null,
+    team: r?.team_name ?? null,
+    time: r?.time ?? null,
+    points: (r?.points != null && r?.points !== '') ? Number(r.points) || 0 : null,
+  };
+}
+
+/**
+ * Fulde stillinger pr. konkurrence (samlet/sprint/bjerg/ungdom/hold), op til
+ * topN rækker hver. Bruges af Tour-stillingssiden.
+ * @returns {{samlet:Array, sprint:Array, bjerg:Array, ungdom:Array, hold:Array}}
+ */
+export function classificationStandings(payload, topN = 200) {
+  const out = {};
+  for (const key of COMPETITIONS) {
+    out[key] = classRows(payload, key).slice(0, topN).map(standingRow);
+  }
+  return out;
+}
+
+/** Etaperesultatet (målrækkefølge) normaliseret til visning, op til topN. */
+export function stageResultRows(payload, topN = 200) {
+  return classRows(payload, 'etape').slice(0, topN).map(standingRow);
+}
+
 /** Etape-metadata til seed/visning. */
 export function stageMetaFromPcs(payload) {
   const m = payload?.meta || {};
