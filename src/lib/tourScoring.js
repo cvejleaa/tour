@@ -39,8 +39,10 @@ export const DEFAULT_PODIUM = {
 
 export const DEFAULT_UNTIPPED_PENALTY = 1;
 
-/** Top-N ryttere der tæller med i Q2-holdberegningen, hvis admin ikke har sat andet. */
-export const DEFAULT_GC_TOP_N = 10;
+// Top-N ryttere der tæller med i Q2-holdberegningen, hvis admin ikke har sat
+// andet. MAX 8: et Tour-hold starter 8 ryttere, og et hold skal have mindst N i
+// mål for at kvalificere — en større værdi ville gøre Q2 uafgørlig.
+export const DEFAULT_GC_TOP_N = 4;
 
 /** Nøglerne for de fire holdspørgsmål. */
 const QUESTION_KEYS = ['winnerTeam', 'gcTeam', 'mountainTeam', 'sprintTeam'];

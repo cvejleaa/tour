@@ -88,6 +88,19 @@ async function createMatch(matchId, kickoffDate) {
   });
 }
 
+/** Opret en etape via admin-context (til stageBets-regeltests) */
+async function createStage(stageId, kickoffDate) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().collection('stages').doc(stageId).set({
+      season: 2026,
+      number: 1,
+      kickoff: Timestamp.fromDate(kickoffDate),
+      status: 'scheduled',
+      result: null,
+    });
+  });
+}
+
 /** Opret et bonusspørgsmål via admin-context */
 async function createBonusQuestion(questionId, deadline) {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -135,6 +148,27 @@ describe('users/{uid} — sikkerhedsregler', () => {
     await assertFails(
       updateDoc(doc(ctx.firestore(), 'users', 'user1'), {
         status: 'approved', // forsøger at godkende sig selv
+      })
+    );
+  });
+
+  it('en spiller KAN IKKE ændre sit eget totalPoints (rangliste-snyd)', async () => {
+    await createUser('user1', 'player', 'approved');
+
+    const ctx = testEnv.authenticatedContext('user1');
+    await assertFails(
+      updateDoc(doc(ctx.firestore(), 'users', 'user1'), {
+        totalPoints: 99999, // forsøger at pumpe sin egen placering
+      })
+    );
+  });
+
+  it('en spiller KAN IKKE oprette sin profil med point-felter', async () => {
+    const ctx = testEnv.authenticatedContext('newUser');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'users', 'newUser'), {
+        displayName: 'Snyder', email: 'x@test.dk', role: 'player', status: 'pending',
+        totalPoints: 99999,
       })
     );
   });
@@ -471,6 +505,68 @@ describe('bonusBets/{betId} — sikkerhedsregler', () => {
     const ctx = testEnv.authenticatedContext(adminUid);
     await assertSucceeds(
       getDoc(doc(ctx.firestore(), 'bonusBets', `${uid1}_${questionId}`))
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TESTS: stageBets-collection (Tour) — id-binding + points-beskyttelse
+// ---------------------------------------------------------------------------
+describe('stageBets/{betId} — sikkerhedsregler', () => {
+  it('spiller KAN oprette et etape-tip med korrekt id (uid_stageId) FØR start', async () => {
+    const uid = 'sbUser1';
+    const stageId = '2026-stage-1';
+    await createUser(uid, 'player', 'approved');
+    await createStage(stageId, new Date(Date.now() + 60 * 60 * 1000));
+
+    const ctx = testEnv.authenticatedContext(uid);
+    await assertSucceeds(
+      setDoc(doc(ctx.firestore(), 'stageBets', `${uid}_${stageId}`), {
+        uid, stageId, season: 2026, winnerTeam: 'UAE', updatedAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('spiller KAN IKKE oprette et dublet-tip med et andet id (dublet-beskyttelse)', async () => {
+    const uid = 'sbUser2';
+    const stageId = '2026-stage-1';
+    await createUser(uid, 'player', 'approved');
+    await createStage(stageId, new Date(Date.now() + 60 * 60 * 1000));
+
+    const ctx = testEnv.authenticatedContext(uid);
+    await assertFails(
+      // Rigtig uid + stageId, men doc-id følger ikke uid_stageId → afvises.
+      setDoc(doc(ctx.firestore(), 'stageBets', `${uid}_${stageId}_dup`), {
+        uid, stageId, season: 2026, winnerTeam: 'UAE', updatedAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('spiller KAN IKKE oprette et etape-tip EFTER start', async () => {
+    const uid = 'sbUser3';
+    const stageId = '2026-stage-1';
+    await createUser(uid, 'player', 'approved');
+    await createStage(stageId, new Date(Date.now() - 60 * 60 * 1000));
+
+    const ctx = testEnv.authenticatedContext(uid);
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'stageBets', `${uid}_${stageId}`), {
+        uid, stageId, season: 2026, winnerTeam: 'UAE', updatedAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('spiller KAN IKKE skrive points-feltet på et etape-tip', async () => {
+    const uid = 'sbUser4';
+    const stageId = '2026-stage-1';
+    await createUser(uid, 'player', 'approved');
+    await createStage(stageId, new Date(Date.now() + 60 * 60 * 1000));
+
+    const ctx = testEnv.authenticatedContext(uid);
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'stageBets', `${uid}_${stageId}`), {
+        uid, stageId, season: 2026, winnerTeam: 'UAE', points: 15, updatedAt: Timestamp.now(),
+      })
     );
   });
 });

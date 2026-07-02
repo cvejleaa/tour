@@ -229,8 +229,10 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     // SPÆRRE: en etape kan ikke have et ægte resultat før den er startet. Uden
     // dette ville synken (indtil 2026-løbet køres) skrive sidste års resultater
     // fra proxyen ind på fremtidige etaper og afgøre hele turneringen for tidligt.
+    // En etape uden kendt starttid kan ikke bekræftes som startet → spring over
+    // (ellers ville proxyens sidste-års-resultat kunne skrives ind på den).
     const kickoffMs = exData?.kickoff?.toDate ? exData.kickoff.toDate().getTime() : null;
-    if (kickoffMs && kickoffMs > Date.now()) continue; // endnu ikke startet
+    if (!kickoffMs || kickoffMs > Date.now()) continue; // ingen starttid el. endnu ikke startet
     checked++;
     const r = await fetch(`${proxyUrl}/api/stages/${n}`);
     if (r.status === 425 || !r.ok) continue; // resultat ikke klar
@@ -517,6 +519,11 @@ exports.redeemInviteCode = onCall({ region: REGION }, async (request) => {
     },
     saveAttempt: (u, state) =>
       db.collection('inviteAttempts').doc(u).set(state, { merge: true }),
+
+    getUserStatus: async (u) => {
+      const snap = await db.collection('users').doc(u).get();
+      return snap.exists ? snap.data()?.status : null;
+    },
 
     findApprovedLeagueByCode: async (code) => {
       const snap = await db.collection('leagues')

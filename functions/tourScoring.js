@@ -23,7 +23,7 @@ const DEFAULT_PODIUM = {
 };
 
 const DEFAULT_UNTIPPED_PENALTY = 1;
-const DEFAULT_GC_TOP_N = 10;
+const DEFAULT_GC_TOP_N = 4; // maks 8 (holdstørrelse); ellers kan Q2 ikke afgøres
 const QUESTION_KEYS = ['winnerTeam', 'gcTeam', 'mountainTeam', 'sprintTeam'];
 
 /**

@@ -124,7 +124,10 @@ export function stageStatus(stage, now) {
   if (hasResult) return 'done';
   if (!stage.kickoff) return 'scheduled';
   const t = new Date(now).getTime();
-  const k = new Date(stage.kickoff).getTime();
+  // kickoff kan være en Firestore-Timestamp (fra seed/starttider), en Date
+  // eller en ISO-streng — normalisér ligesom formatterne (StageCard, dashboard).
+  const kd = stage.kickoff?.toDate ? stage.kickoff.toDate() : new Date(stage.kickoff);
+  const k = kd.getTime();
   if (!Number.isFinite(t) || !Number.isFinite(k)) return 'scheduled';
   return t >= k ? 'locked' : 'scheduled';
 }

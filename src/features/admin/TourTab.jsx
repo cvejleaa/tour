@@ -388,8 +388,10 @@ export default function TourTab() {
     }
     points.untippedPenalty = Math.abs(pen);
     const gcTopN = Number(gcTopNInput);
-    if (!Number.isInteger(gcTopN) || gcTopN < 1) {
-      setPointsErr('"Antal ryttere" skal være et helt tal ≥ 1');
+    // Maks 8: et hold har 8 ryttere og skal have mindst N i mål for at kvalificere
+    // til "bedste hold" — en større værdi gør Q2 uafgørlig.
+    if (!Number.isInteger(gcTopN) || gcTopN < 1 || gcTopN > 8) {
+      setPointsErr('"Antal ryttere" skal være et helt tal mellem 1 og 8');
       return;
     }
     setBusy('points');

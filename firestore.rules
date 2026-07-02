@@ -46,10 +46,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == docData.ownerUid;
     }
 
-    /** Forsøger klienten at skrive til et beskyttet felt? */
+    /** Forsøger klienten at skrive til et beskyttet felt? Ud over rolle/status
+     *  omfatter det ALLE denormaliserede scoring-felter (skrives kun af serveren),
+     *  så en spiller ikke kan pumpe sin egen rangliste-placering. */
     function writingProtectedUserFields() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['role', 'status', 'approvedViaInvite', 'approvedAt']);
+        .hasAny([
+          'role', 'status', 'approvedViaInvite', 'approvedAt',
+          'totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank',
+        ]);
     }
 
     /** Forsøger klienten at skrive til points-feltet? */
@@ -67,10 +72,13 @@ service cloud.firestore {
       allow read: if isApproved() || (isSignedIn() && request.auth.uid == uid);
 
       // Brugeren opretter selv sin profil ved registrering, men KUN med
-      // role:'player' og status:'pending' (kan ikke selv blive owner/approved)
+      // role:'player' og status:'pending' (kan ikke selv blive owner/approved),
+      // og UDEN at kunne seede scoring-felter (dem sætter kun serveren).
       allow create: if isSignedIn() && request.auth.uid == uid
         && request.resource.data.role == 'player'
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && !request.resource.data.keys().hasAny(
+            ['totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank', 'points']);
 
       // Brugeren kan opdatere egne ikke-beskyttede felter (f.eks. displayName)
       allow update: if isSignedIn() && request.auth.uid == uid
@@ -164,9 +172,12 @@ service cloud.firestore {
         || (isApproved()
             && request.time >= get(/databases/$(database)/documents/stages/$(resource.data.stageId)).data.kickoff);
 
-      // Opret tip: kun eget, points-felt må ikke sættes, og kun FØR etapestart
+      // Opret tip: kun eget, doc-id SKAL være uid_stageId (præcis ét tip pr.
+      // etape — ellers kunne dublet-docs få point talt flere gange), points-felt
+      // må ikke sættes, og kun FØR etapestart.
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.uid
+        && betId == request.auth.uid + '_' + request.resource.data.stageId
         && !request.resource.data.keys().hasAny(['points'])
         && request.time < get(/databases/$(database)/documents/stages/$(request.resource.data.stageId)).data.kickoff;
 
@@ -211,9 +222,11 @@ service cloud.firestore {
         || (isApproved()
             && request.time >= get(/databases/$(database)/documents/bonusQuestions/$(resource.data.questionId)).data.deadline);
 
-      // Opret bonusbet: kun eget, points må ikke sættes, og kun FØR deadline
+      // Opret bonusbet: kun eget, doc-id SKAL være uid_questionId (præcis ét svar
+      // pr. spørgsmål), points må ikke sættes, og kun FØR deadline.
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.uid
+        && bonusBetId == request.auth.uid + '_' + request.resource.data.questionId
         && !request.resource.data.keys().hasAny(['points'])
         && request.time < get(/databases/$(database)/documents/bonusQuestions/$(request.resource.data.questionId)).data.deadline;
 
@@ -415,9 +428,12 @@ service cloud.firestore {
         || (isApproved()
             && request.time >= get(/databases/$(database)/documents/leagueBonus/$(resource.data.questionId)).data.deadline);
 
-      // Opret/opdater eget svar, som medlem af ligaen, FØR deadline, uden points-felt
+      // Opret/opdater eget svar, som medlem af ligaen, FØR deadline, uden points-felt.
+      // Doc-id SKAL være questionId_uid → man kan hverken lave dublet-svar eller
+      // skrive på en andens svar-dokument.
       allow create, update: if isApproved()
         && request.auth.uid == request.resource.data.uid
+        && ansId == request.resource.data.questionId + '_' + request.auth.uid
         && !request.resource.data.keys().hasAny(['points'])
         && isMemberOfLeague(request.resource.data.leagueId)
         && request.time < get(/databases/$(database)/documents/leagueBonus/$(request.resource.data.questionId)).data.deadline;

@@ -94,4 +94,12 @@ describe('stageStatus & isTipOpen', () => {
   it('uden kickoff → scheduled', () => {
     expect(stageStatus({ kickoff: null }, '2026-07-05T18:00:00+02:00')).toBe('scheduled');
   });
+  it('håndterer en Firestore-Timestamp-kickoff (toDate)', () => {
+    // Seedede etaper gemmer kickoff som Timestamp; new Date(Timestamp) er Invalid,
+    // så stageStatus SKAL bruge .toDate(). Regressionstest for låse-bug.
+    const ts = { toDate: () => new Date('2026-07-05T12:00:00+02:00') };
+    const tsStage = { kickoff: ts, hasResults: false };
+    expect(stageStatus(tsStage, '2026-07-05T09:00:00+02:00')).toBe('scheduled');
+    expect(stageStatus(tsStage, '2026-07-05T13:00:00+02:00')).toBe('locked');
+  });
 });
