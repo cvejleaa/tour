@@ -15,7 +15,6 @@ import { useMyStageBets } from '../features/stages/useMyStageBets';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
 import { useTourSettings } from '../features/stages/useTourSettings';
 import { stageStatus } from '../lib/tourStages';
-import { stageTipComplete } from '../lib/tourScoring';
 import { placeholderRoute2026 } from '../data/route2026';
 import Hero from '../components/Hero';
 import StageCard from '../features/stages/StageCard';
@@ -40,15 +39,16 @@ export default function DashboardPage() {
   // Brug rigtige etaper hvis de findes, ellers placeholder-ruten for sæsonen.
   const stages = dbStages.length ? dbStages : placeholderRoute2026(season);
 
-  // Næste etape at tippe: første åbne etape uden KOMPLET hold-tip (alle aktive
-  // spørgsmål besvaret), ellers første åbne. Samme "komplet"-definition som
-  // forsidens "Mine opgaver" og etape-listen, så de altid stemmer overens.
+  // Næste etape = den KRONOLOGISK næste åbne etape (den der starter først og
+  // stadig kan tippes) — ikke den næste utippede. Så "Næste etape" matcher det
+  // man forventer (fx etape 1 før løbet er gået i gang), uanset hvor mange man
+  // allerede har tippet. Nudget til at tippe ligger i "Mine opgaver" ovenfor.
   const nextStage = useMemo(() => {
     const open = stages
       .filter((s) => stageStatus(s, Date.now()) === 'scheduled')
       .sort((a, b) => a.number - b.number);
-    return open.find((s) => !stageTipComplete(s, betsByStage[s.id])) || open[0] || null;
-  }, [stages, betsByStage]);
+    return open[0] || null;
+  }, [stages]);
 
   // Forsidens stilling viser kun de spillere, man deler en liga med (plus én selv) —
   // samme afgrænsning som Stilling-siden bruger som standard.
