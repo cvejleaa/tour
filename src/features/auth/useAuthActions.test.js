@@ -36,10 +36,17 @@ import { useAuthActions } from './useAuthActions';
 describe('useAuthActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockDoc.mockReturnValue({ id: 'test-doc-ref' });
+    // Kod collection+uid ind i ref'en, så vi kan skelne users- fra
+    // userContacts-skrivningen i signup.
+    mockDoc.mockImplementation((_db, col, uid) => ({ col, uid }));
     mockSetDoc.mockResolvedValue(undefined);
     mockUpdateProfile.mockResolvedValue(undefined);
   });
+
+  /** Find det setDoc-kald der skrev til en given collection. */
+  function setDocCallFor(col) {
+    return mockSetDoc.mock.calls.find(([ref]) => ref?.col === col);
+  }
 
   // ─── signup ──────────────────────────────────────────────────────────────
 
@@ -71,7 +78,7 @@ describe('useAuthActions', () => {
       expect(mockUpdateProfile).toHaveBeenCalledWith(fakeUser, { displayName: 'Test Bruger' });
     });
 
-    it('kalder setDoc med role:player og status:pending', async () => {
+    it('opretter den offentlige profil med role:player og status:pending UDEN e-mail/point', async () => {
       const fakeUser = { uid: 'new-uid' };
       mockCreateUser.mockResolvedValue({ user: fakeUser });
 
@@ -81,19 +88,19 @@ describe('useAuthActions', () => {
         await result.current.signup('test@test.dk', 'password123', 'Test Bruger');
       });
 
-      expect(mockSetDoc).toHaveBeenCalledWith(
-        { id: 'test-doc-ref' },
-        expect.objectContaining({
-          displayName: 'Test Bruger',
-          email: 'test@test.dk',
-          role: 'player',
-          status: 'pending',
-          totalPoints: 0,
-        })
-      );
+      const usersCall = setDocCallFor('users');
+      expect(usersCall).toBeTruthy();
+      expect(usersCall[1]).toMatchObject({
+        displayName: 'Test Bruger',
+        role: 'player',
+        status: 'pending',
+      });
+      // Reglerne afviser en profil der selv sætter point-felter; e-mail er privat.
+      expect(usersCall[1]).not.toHaveProperty('email');
+      expect(usersCall[1]).not.toHaveProperty('totalPoints');
     });
 
-    it('gemmer email som lowercase i Firestore', async () => {
+    it('gemmer e-mailen PRIVAT i userContacts (lowercase)', async () => {
       const fakeUser = { uid: 'new-uid' };
       mockCreateUser.mockResolvedValue({ user: fakeUser });
 
@@ -103,10 +110,9 @@ describe('useAuthActions', () => {
         await result.current.signup('TEST@TEST.DK', 'password123', 'Test');
       });
 
-      expect(mockSetDoc).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ email: 'test@test.dk' })
-      );
+      const contactCall = setDocCallFor('userContacts');
+      expect(contactCall).toBeTruthy();
+      expect(contactCall[1]).toEqual({ uid: 'new-uid', email: 'test@test.dk' });
     });
 
     it('returnerer user-objektet ved succes', async () => {

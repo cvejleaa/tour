@@ -739,6 +739,19 @@ async function sendEmail(db, transporter, { to, subject, html, type }) {
   }
 }
 
+// Byg et opslag uid → e-mail fra den private userContacts-collection. E-mail
+// bor der (ikke længere på den offentlige users-profil), så almindelige spillere
+// ikke kan udtrække alle deltageres adresser. Admin-SDK'en omgår reglerne.
+async function emailByUidMap(db) {
+  const snap = await db.collection('userContacts').get();
+  const map = new Map();
+  for (const d of snap.docs) {
+    const email = d.data()?.email;
+    if (email) map.set(d.id, email);
+  }
+  return map;
+}
+
 // Kerne-logik: send påmindelser om dagens utippede etaper. Returnerer antal sendte.
 async function runTipReminders(db, transporter) {
   if (!transporter) { console.log('tipReminders: ingen SMTP_PASSWORD — springer over.'); return { sent: 0, reason: 'no-smtp-password' }; }
@@ -774,10 +787,15 @@ async function runTipReminders(db, transporter) {
     .where('status', '==', 'approved')
     .get();
 
+  // E-mail hentes fra userContacts (privat); fald tilbage til en evt. gammel
+  // e-mail på users-dokumentet for endnu ikke migrerede profiler.
+  const emails = await emailByUidMap(db);
+
   let sent = 0;
   for (const userDoc of usersSnap.docs) {
     const u = userDoc.data();
-    if (u.emailOptOut || !u.email) continue;
+    const email = emails.get(userDoc.id) || u.email;
+    if (u.emailOptOut || !email) continue;
 
     const missing = upcomingStages.filter((s) => !tippedByStage[s.id].has(userDoc.id));
     if (missing.length === 0) continue;
@@ -794,14 +812,14 @@ async function runTipReminders(db, transporter) {
 
     try {
       await sendEmail(db, transporter, {
-        to: u.email,
+        to: email,
         subject: `Du mangler at tippe på ${missing.length} etape${missing.length === 1 ? '' : 'r'} det næste døgn`,
         html,
         type: 'reminder',
       });
       sent++;
     } catch (e) {
-      console.error(`tipReminders: kunne ikke sende til ${u.email}:`, e.message);
+      console.error(`tipReminders: kunne ikke sende til ${email}:`, e.message);
     }
   }
   console.log(`tipReminders: sendte ${sent} påmindelser.`);
@@ -843,7 +861,11 @@ exports.sendTestReminderToMe = onCall(
     if (!u || (u.role !== 'owner' && u.role !== 'globalAdmin')) {
       throw new HttpsError('permission-denied', 'Kun owner/global admin kan sende testmail.');
     }
-    if (!u.email) throw new HttpsError('failed-precondition', 'Din profil har ingen e-mailadresse.');
+    // Kalderens egen e-mail: fra Auth-tokenet (kilde til sandhed), ellers den
+    // private userContacts-post, ellers en gammel e-mail på users-dokumentet.
+    const contactSnap = await db.collection('userContacts').doc(request.auth.uid).get();
+    const email = request.auth.token?.email || contactSnap.data()?.email || u.email;
+    if (!email) throw new HttpsError('failed-precondition', 'Din profil har ingen e-mailadresse.');
 
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
@@ -888,13 +910,13 @@ exports.sendTestReminderToMe = onCall(
       <p style="color:#888;font-size:12px">Dette er en testmail sendt kun til dig.</p>`;
 
     await sendEmail(db, transporter, {
-      to: u.email,
+      to: email,
       subject: '🧪 Testmail: etaper for de første 3 etapedage',
       html,
       type: 'test-reminder',
     });
 
-    return { success: true, sentTo: u.email, days: days.length, stages: total };
+    return { success: true, sentTo: email, days: days.length, stages: total };
   }
 );
 
@@ -1476,5 +1498,49 @@ exports.adminSendPasswordReset = onCall(
     }
 
     return { ok: true, email, sent, link };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// migrateEmailPrivacy — KUN ejeren: engangs-migrering der flytter e-mail fra den
+// OFFENTLIGE users-profil til den PRIVATE userContacts-collection og fjerner
+// e-mail-feltet fra users-dokumentet. Idempotent: kør den igen uden skade.
+// Kør den én gang efter deploy for at lukke hullet, hvor alle godkendte spillere
+// kunne læse alle e-mailadresser.
+// ---------------------------------------------------------------------------
+exports.migrateEmailPrivacy = onCall(
+  { region: REGION },
+  async (request) => {
+    const db = getFirestore();
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    const callerSnap = await db.collection('users').doc(request.auth.uid).get();
+    if (callerSnap.data()?.role !== 'owner') {
+      throw new HttpsError('permission-denied', 'Kun ejeren kan køre migreringen.');
+    }
+
+    const usersSnap = await db.collection('users').get();
+    let moved = 0;
+    let alreadyClean = 0;
+
+    const BATCH_SIZE = 400;
+    let batch = db.batch();
+    let ops = 0;
+    const batches = [batch];
+    const commit = () => { if (ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+
+    for (const d of usersSnap.docs) {
+      const email = d.data()?.email;
+      if (!email) { alreadyClean++; continue; }
+      // Skriv den private kontaktpost (uden at overskrive en eksisterende e-mail).
+      batch.set(db.collection('userContacts').doc(d.id), { uid: d.id, email }, { merge: true });
+      ops++; commit();
+      // Fjern e-mailen fra den offentlige profil.
+      batch.update(d.ref, { email: FieldValue.delete() });
+      ops++; commit();
+      moved++;
+    }
+
+    for (const b of batches) await b.commit();
+    return { ok: true, moved, alreadyClean, totalUsers: usersSnap.size };
   }
 );

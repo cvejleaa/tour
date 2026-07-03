@@ -36,16 +36,24 @@ export function useAuthActions() {
       // Sæt displayName på Auth-profilen
       await updateProfile(cred.user, { displayName: displayName.trim() });
 
-      // Opret Firestore-profilen. role/status sættes til de eneste værdier
-      // reglerne tillader ved selv-oprettelse (player / pending).
+      // Opret den OFFENTLIGE profil. role/status sættes til de eneste værdier
+      // reglerne tillader ved selv-oprettelse (player / pending). Ingen e-mail
+      // her (den er privat, se nedenfor) og INGEN point-felter — dem seeder
+      // serveren; reglerne afviser en profil, der selv sætter dem.
       const userRef = doc(db, COL.USERS, cred.user.uid);
       await setDoc(userRef, {
         displayName: displayName.trim(),
-        email: email.toLowerCase(),
         role: 'player',
         status: 'pending',
-        totalPoints: 0,
         createdAt: serverTimestamp(),
+      });
+
+      // Gem e-mailen PRIVAT i userContacts/{uid}. Kun brugeren selv og en admin
+      // kan læse den (jf. reglerne), så andre spillere ikke kan udtrække alle
+      // deltageres e-mailadresser.
+      await setDoc(doc(db, COL.USER_CONTACTS, cred.user.uid), {
+        uid: cred.user.uid,
+        email: email.toLowerCase(),
       });
 
       return cred.user;

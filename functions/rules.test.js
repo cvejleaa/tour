@@ -173,6 +173,16 @@ describe('users/{uid} — sikkerhedsregler', () => {
     );
   });
 
+  it('en ny bruger KAN oprette sin egen profil (signup-form: ingen e-mail/point)', async () => {
+    const ctx = testEnv.authenticatedContext('newUser');
+    await assertSucceeds(
+      setDoc(doc(ctx.firestore(), 'users', 'newUser'), {
+        displayName: 'Ny Spiller', role: 'player', status: 'pending',
+        createdAt: Timestamp.now(),
+      })
+    );
+  });
+
   it('en spiller KAN opdatere sit eget displayName', async () => {
     await createUser('user1', 'player', 'approved');
 
@@ -230,6 +240,64 @@ describe('users/{uid} — sikkerhedsregler', () => {
         status: 'approved',
       })
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TESTS: userContacts-collection (privat e-mail)
+// ---------------------------------------------------------------------------
+describe('userContacts/{uid} — privat e-mail', () => {
+  async function seedContact(uid, email) {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('userContacts').doc(uid).set({ uid, email: email || `${uid}@test.dk` });
+    });
+  }
+
+  it('brugeren KAN oprette sin egen kontaktpost', async () => {
+    const ctx = testEnv.authenticatedContext('u1');
+    await assertSucceeds(
+      setDoc(doc(ctx.firestore(), 'userContacts', 'u1'), { uid: 'u1', email: 'u1@test.dk' })
+    );
+  });
+
+  it('brugeren KAN IKKE oprette en ANDENS kontaktpost', async () => {
+    const ctx = testEnv.authenticatedContext('u1');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'userContacts', 'u2'), { uid: 'u2', email: 'x@test.dk' })
+    );
+  });
+
+  it('brugeren KAN IKKE forfalske uid-feltet', async () => {
+    const ctx = testEnv.authenticatedContext('u1');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'userContacts', 'u1'), { uid: 'u2', email: 'x@test.dk' })
+    );
+  });
+
+  it('brugeren KAN læse sin egen kontaktpost', async () => {
+    await seedContact('u1');
+    const ctx = testEnv.authenticatedContext('u1');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'userContacts', 'u1')));
+  });
+
+  it('en anden godkendt spiller KAN IKKE læse ens kontaktpost', async () => {
+    await seedContact('u1');
+    await createUser('u2', 'player', 'approved');
+    const ctx = testEnv.authenticatedContext('u2');
+    await assertFails(getDoc(doc(ctx.firestore(), 'userContacts', 'u1')));
+  });
+
+  it('en global admin KAN læse kontaktposter', async () => {
+    await seedContact('u1');
+    await createUser('admin1', 'globalAdmin', 'approved');
+    const ctx = testEnv.authenticatedContext('admin1');
+    await assertSucceeds(getDoc(doc(ctx.firestore(), 'userContacts', 'u1')));
+  });
+
+  it('ingen kan slette en kontaktpost fra klienten', async () => {
+    await seedContact('u1');
+    const ctx = testEnv.authenticatedContext('u1');
+    await assertFails(deleteDoc(doc(ctx.firestore(), 'userContacts', 'u1')));
   });
 });
 

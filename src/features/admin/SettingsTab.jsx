@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { setRecapTime, setUntippedPenalty, callSendTestReminderToMe, callSendTipRemindersNow } from './adminActions';
+import { setRecapTime, setUntippedPenalty, callSendTestReminderToMe, callSendTipRemindersNow, callMigrateEmailPrivacy } from './adminActions';
 import { DEFAULT_UNTIPPED_PENALTY, readUntippedPenalty } from '../leaderboard/useUntippedPenalty';
 
 const DEFAULT_RECAP_TIME = '08:15';
@@ -93,6 +93,19 @@ export default function SettingsTab() {
     setMailMsg(d.sent > 0
       ? `✓ Sendte ${d.sent} påmindelser.`
       : `Sendte 0 — ${d.reason === 'no-stages' ? 'ingen etaper inden for det næste døgn endnu (sender automatisk fra dagen før 1. etape).' : (d.reason || 'intet at sende lige nu.')}`);
+  };
+
+  // E-mail-privatliv: engangs-migrering (flyt e-mail til privat collection).
+  const [migBusy, setMigBusy] = useState(false);
+  const [migMsg, setMigMsg] = useState('');
+  const runMigration = async () => {
+    if (!window.confirm('Flyt alle e-mails til privat opbevaring? Kan køres flere gange uden skade.')) return;
+    setMigBusy(true); setMigMsg('');
+    const res = await callMigrateEmailPrivacy();
+    setMigBusy(false);
+    setMigMsg(res.ok
+      ? `✓ Migrering færdig: ${res.data?.moved ?? 0} flyttet, ${res.data?.alreadyClean ?? 0} allerede private (af ${res.data?.totalUsers ?? '?'} brugere).`
+      : 'Fejl: ' + res.error);
   };
 
   return (
@@ -194,6 +207,28 @@ export default function SettingsTab() {
         {mailMsg && (
           <span style={{ fontSize: '0.9rem', color: mailMsg.startsWith('Fejl') ? 'var(--c-err)' : 'var(--c-ok)' }}>
             {mailMsg}
+          </span>
+        )}
+      </div>
+
+      <hr style={{ margin: '1.75rem 0', border: 'none', borderTop: '1px solid var(--c-border)' }} />
+
+      {/* ── E-mail-privatliv (engangs-migrering) ───────────────────────────── */}
+      <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>
+        🔒 E-mail-privatliv
+      </h2>
+      <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
+        Spilleres e-mailadresser opbevares nu privat (kun du og admins kan se dem). Nye brugere
+        gemmes automatisk sådan. Kør denne migrering <strong>én gang</strong> for at flytte de
+        eksisterende adresser væk fra de offentlige profiler. Den kan trygt køres flere gange.
+      </p>
+      <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button className="btn" onClick={runMigration} disabled={migBusy} data-testid="migrate-email-privacy">
+          {migBusy ? 'Migrerer…' : '🔒 Flyt e-mails til privat opbevaring'}
+        </button>
+        {migMsg && (
+          <span style={{ fontSize: '0.9rem', color: migMsg.startsWith('Fejl') ? 'var(--c-err)' : 'var(--c-ok)' }}>
+            {migMsg}
           </span>
         )}
       </div>

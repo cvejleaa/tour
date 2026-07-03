@@ -85,6 +85,26 @@ export async function setUntippedPenalty(penalty) {
 }
 
 /**
+ * Kald Cloud Function 'migrateEmailPrivacy' (kun ejer) — flytter e-mail fra den
+ * offentlige users-profil til den private userContacts-collection og fjerner
+ * e-mail fra users-dokumentet. Idempotent.
+ * @returns {Promise<{ok:boolean, data?:object, error?:string}>}
+ */
+export async function callMigrateEmailPrivacy() {
+  try {
+    const fn = httpsCallable(functions, 'migrateEmailPrivacy', { timeout: 120000 });
+    const res = await fn();
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "migrateEmailPrivacy" er ikke deployet endnu.'
+        : err?.message ?? 'Ukendt fejl ved kald af migrateEmailPrivacy.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
  * Kald Cloud Function 'backfillTipParticipation' for at genopbygge tip-deltagelse
  * ud fra alle eksisterende tips.
  */

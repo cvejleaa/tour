@@ -67,6 +67,7 @@ export function bonusAnswerType(question) {
 // Firestore-collections
 export const COL = {
   USERS: 'users',
+  USER_CONTACTS: 'userContacts', // privat kontaktinfo (e-mail) — kun bruger selv + admin kan læse
   MATCHES: 'matches',
   BETS: 'bets',
   STAGES: 'stages', // Tour de France-etaper

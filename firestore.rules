@@ -97,6 +97,24 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
+    // userContacts/{uid} — PRIVAT kontaktinfo (e-mail).
+    // Adskilt fra den offentlige users-profil, så almindelige (godkendte)
+    // spillere ikke kan udtrække alle deltageres e-mailadresser. Kun brugeren
+    // selv og en global admin/owner kan læse; brugeren skriver kun sin egen.
+    // Serveren (Cloud Functions, admin-SDK) omgår disse regler.
+    // -----------------------------------------------------------------------
+    match /userContacts/{uid} {
+      allow read: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == uid);
+
+      // Opret/opdater KUN sit eget dokument, og uid-feltet skal matche.
+      allow create, update: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------------------
     // matches/{matchId}
     // -----------------------------------------------------------------------
     match /matches/{matchId} {
