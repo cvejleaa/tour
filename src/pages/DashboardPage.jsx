@@ -15,6 +15,7 @@ import { useMyStageBets } from '../features/stages/useMyStageBets';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
 import { useTourSettings } from '../features/stages/useTourSettings';
 import { stageStatus } from '../lib/tourStages';
+import { stageTipComplete } from '../lib/tourScoring';
 import { placeholderRoute2026 } from '../data/route2026';
 import Hero from '../components/Hero';
 import StageCard from '../features/stages/StageCard';
@@ -39,12 +40,14 @@ export default function DashboardPage() {
   // Brug rigtige etaper hvis de findes, ellers placeholder-ruten for sæsonen.
   const stages = dbStages.length ? dbStages : placeholderRoute2026(season);
 
-  // Næste etape at tippe: første åbne etape uden komplet hold-tip (ellers første åbne).
+  // Næste etape at tippe: første åbne etape uden KOMPLET hold-tip (alle aktive
+  // spørgsmål besvaret), ellers første åbne. Samme "komplet"-definition som
+  // forsidens "Mine opgaver" og etape-listen, så de altid stemmer overens.
   const nextStage = useMemo(() => {
     const open = stages
       .filter((s) => stageStatus(s, Date.now()) === 'scheduled')
       .sort((a, b) => a.number - b.number);
-    return open.find((s) => !betsByStage[s.id]?.winnerTeam) || open[0] || null;
+    return open.find((s) => !stageTipComplete(s, betsByStage[s.id])) || open[0] || null;
   }, [stages, betsByStage]);
 
   // Forsidens stilling viser kun de spillere, man deler en liga med (plus én selv) —

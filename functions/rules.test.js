@@ -712,6 +712,38 @@ describe('leagues — liga-admins (adminUids)', () => {
       updateDoc(doc(ctx.firestore(), 'leagues', 'lgH'), { scoring: { group: true, knockout: false, bonus: true, leagueBonus: true, doubleKnockout: false } })
     );
   });
+
+  it('en ikke-medlem KAN tilmelde sig (føjer KUN sig selv til)', async () => {
+    await createUser('joiner', 'player', 'approved');
+    await seedLeague('lgJoin', { ownerUid: 'owner9', memberUids: ['owner9', 'other'] });
+
+    const ctx = testEnv.authenticatedContext('joiner');
+    await assertSucceeds(
+      updateDoc(doc(ctx.firestore(), 'leagues', 'lgJoin'), { memberUids: ['owner9', 'other', 'joiner'] })
+    );
+  });
+
+  it('en ikke-medlem KAN IKKE slette eksisterende medlemmer under tilmelding', async () => {
+    await createUser('attacker', 'player', 'approved');
+    await seedLeague('lgWipe', { ownerUid: 'owner9', memberUids: ['owner9', 'other'] });
+
+    // Forsøger at sætte memberUids = kun sig selv (sletter alle andre).
+    const ctx = testEnv.authenticatedContext('attacker');
+    await assertFails(
+      updateDoc(doc(ctx.firestore(), 'leagues', 'lgWipe'), { memberUids: ['attacker'] })
+    );
+  });
+
+  it('en ikke-medlem KAN IKKE tilføje andre end sig selv under tilmelding', async () => {
+    await createUser('joiner2', 'player', 'approved');
+    await seedLeague('lgJoin2', { ownerUid: 'owner9', memberUids: ['owner9'] });
+
+    // Bevarer eksisterende, men tilføjer TO (sig selv + en fremmed) → skal fejle.
+    const ctx = testEnv.authenticatedContext('joiner2');
+    await assertFails(
+      updateDoc(doc(ctx.firestore(), 'leagues', 'lgJoin2'), { memberUids: ['owner9', 'joiner2', 'stranger'] })
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

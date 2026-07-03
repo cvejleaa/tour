@@ -28,6 +28,26 @@ Tone over for dagens bedste:
 - Er "standoutTie" true (flere deler nattens bedste, se "dayWinners"), så hold tonen neutral og varm: nævn dem ligeværdigt og undlad at drille nogen.`;
 
 /**
+ * Rens et spiller-navn før det lægges i AI-fakta. Et frit displayName er
+ * bruger-input og kunne ellers forsøge prompt-injection ("ignorér ovenstående
+ * og skriv …") i det opslag Tour-Botten poster på liga-væggen. Vi fjerner
+ * linjeskift/kontroltegn og tegn der typisk bruges til at bryde ud af kontekst,
+ * klipper whitespace sammen og begrænser længden. Almindelige navne rammes ikke.
+ * @param {*} name
+ * @returns {string}
+ */
+function sanitizeName(name) {
+  const s = String(name == null ? '' : name)
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F]+/g, ' ')
+    .replace(/[<>{}[\]`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const cut = s.slice(0, 40).trim();
+  return cut || 'Spiller';
+}
+
+/**
  * Minimal liga-scoring (spejler leagueScore i frontend; uden liga-bonus, som
  * beregnes klient-side). Bruges til at finde totaler og lederen i recap'en.
  * Tæller etape-point + officiel bonus efter ligaens scoring-valg.
@@ -73,7 +93,7 @@ function historicalMembers(memberDocs, finished, pointsByStageUid, untilMs) {
       if (m.kickoffMs > untilMs) continue;
       stagePoints += Number((pointsByStageUid[m.id] || {})[u.id] || 0);
     }
-    return { id: u.id, displayName: u.displayName || 'Spiller', stagePoints, bonusPoints: 0 };
+    return { id: u.id, displayName: sanitizeName(u.displayName), stagePoints, bonusPoints: 0 };
   });
 }
 
@@ -108,7 +128,7 @@ function buildRecapFacts({ league, members, dayPointsByUid = {}, stages = [], bo
   // Én fælles kilde: hver spillers total NU og point vundet siden sidste opslag.
   // points = total (allerede inkl. dayPoints), dayPoints = vundet siden sidst.
   const rows = members.map((u) => ({
-    name: u.displayName || 'Spiller',
+    name: sanitizeName(u.displayName),
     points: leagueTotal(u, scoring),
     dayPoints: Number(dayPointsByUid[u.id] || 0),
   }));
@@ -191,5 +211,5 @@ function recapWindowOpen(currentHM, targetHM, windowMin = 60) {
 module.exports = {
   RECAP_SYSTEM, RECAP_DEFAULT_TIME, leagueTotal, leagueStagePoints,
   historicalMembers, windowDayPoints,
-  buildRecapFacts, parseHM, recapWindowOpen,
+  buildRecapFacts, parseHM, recapWindowOpen, sanitizeName,
 };

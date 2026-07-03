@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router-dom';
 vi.mock('../firebase', () => ({ db: {}, auth: {} }));
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn(),
+  doc: vi.fn(),
   onSnapshot: vi.fn(),
   query: vi.fn(),
   orderBy: vi.fn(),

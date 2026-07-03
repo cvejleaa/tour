@@ -4,7 +4,6 @@
  */
 import { Link } from 'react-router-dom';
 import PointRules from '../components/PointRules';
-import { POINTS } from '../lib/scoring';
 
 function Section({ emoji, title, children }) {
   return (
@@ -24,7 +23,7 @@ export default function HelpPage() {
         Gå til <Link to="/etaper">Etaper</Link> og tip cykelhold på hver etape: etapevinderens hold,
         bedste hold blandt de første ryttere, flest bjergpoint og flest sprintpoint. Du kan rette
         dit tip helt indtil <strong>etapestart</strong> – derefter låses det. Find hurtigt de etaper,
-        du mangler, under filteret <em>“Mine utippede”</em> eller via <Link to="/">forsidens</Link> “Mine opgaver”.
+        du mangler, under filteret <em>“Mangler tip”</em> eller via <Link to="/">forsidens</Link> “Mine opgaver”.
       </Section>
 
       <Section emoji="🎯" title="Sådan får du point">
@@ -33,8 +32,8 @@ export default function HelpPage() {
 
       <Section emoji="🎁" title="Bonusspørgsmål">
         På <Link to="/bonus">Bonus</Link> svarer du på sæson- og klassements-spørgsmål, fx hvem
-        der vinder den samlede Tour eller bjergtrøjen. Hvert korrekt svar giver <strong>{POINTS.BONUS} point</strong>.
-        Spørgsmålene har deres egen deadline og låses derefter.
+        der vinder den samlede Tour eller bjergtrøjen. Hvert spørgsmål giver det antal point,
+        der står ved spørgsmålet, hvis du svarer rigtigt. Spørgsmålene har deres egen deadline og låses derefter.
       </Section>
 
       <Section emoji="🏆" title="Mini-ligaer">

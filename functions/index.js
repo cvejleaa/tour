@@ -88,6 +88,14 @@ exports.recomputeBonus = onDocumentWritten(
     // hvis sat (endeligt tal), ellers standard 3.
     const norm = bonusNorm;
     const facitNorm = norm(facit);
+    // Admin kan manuelt godkende (fejlstavede) svar som korrekte via
+    // acceptedAnswers. Byg mængden af normaliserede korrekte svar = facit +
+    // alle godkendte alternativer, så et godkendt svar rent faktisk giver point.
+    const correctNorms = new Set([facitNorm]);
+    for (const a of Array.isArray(after.acceptedAnswers) ? after.acceptedAnswers : []) {
+      const an = norm(a);
+      if (an !== '') correctNorms.add(an);
+    }
     const correctPoints = Number.isFinite(Number(after.points)) ? Number(after.points) : 3;
 
     // Hent alle bonusBets for dette spørgsmål
@@ -107,7 +115,7 @@ exports.recomputeBonus = onDocumentWritten(
     for (const betDoc of betsSnap.docs) {
       const bet = betDoc.data();
       const answerNorm = norm(bet.answer);
-      const pts = answerNorm !== '' && answerNorm === facitNorm ? correctPoints : 0;
+      const pts = answerNorm !== '' && correctNorms.has(answerNorm) ? correctPoints : 0;
 
       batch.update(betDoc.ref, { points: pts });
       opsInBatch++;
@@ -137,6 +145,14 @@ exports.recomputeBonus = onDocumentWritten(
 // ===========================================================================
 
 const DEFAULT_TOUR_PROXY = 'https://tdf-results-poi2efmbfa-ew.a.run.app';
+
+// Alle kald til PCS-proxyen får en hård timeout, så en hængende proxy ikke
+// blokerer funktionen indtil platformens maks-timeout (og brænder invocation-tid
+// / rammer sync-loopet). Kastes som en AbortError, som kalderne allerede fanger.
+const PROXY_TIMEOUT_MS = 20000;
+function fetchWithTimeout(url, opts = {}) {
+  return fetch(url, { ...opts, signal: AbortSignal.timeout(PROXY_TIMEOUT_MS) });
+}
 
 // Admin-redigerbar config: point-tabel, top-N til Q2, proxy-URL.
 const DEFAULT_SEASON = 2026;
@@ -211,7 +227,7 @@ exports.recomputeStage = onDocumentWritten(
 async function syncTourCore(db, { dryRun = false } = {}) {
   const { gcTopN, proxyUrl, activeSeason } = await tourSettings(db);
   const season = activeSeason;
-  const listRes = await fetch(`${proxyUrl}/api/stages`);
+  const listRes = await fetchWithTimeout(`${proxyUrl}/api/stages`);
   if (!listRes.ok) throw new Error(`proxy /api/stages: HTTP ${listRes.status}`);
   const list = await listRes.json();
   const stages = list.stages || [];
@@ -234,7 +250,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     const kickoffMs = exData?.kickoff?.toDate ? exData.kickoff.toDate().getTime() : null;
     if (!kickoffMs || kickoffMs > Date.now()) continue; // ingen starttid el. endnu ikke startet
     checked++;
-    const r = await fetch(`${proxyUrl}/api/stages/${n}`);
+    const r = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
     if (r.status === 425 || !r.ok) continue; // resultat ikke klar
     const payload = await r.json();
     const upd = buildStageUpdate(payload, gcTopN);
@@ -293,7 +309,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
       const cur = await db.collection('config').doc('classifications').get();
       if (!cur.exists) {
         for (let n = stages.length; n >= 1; n -= 1) {
-          const r = await fetch(`${proxyUrl}/api/stages/${n}`);
+          const r = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
           if (!r.ok) continue;
           const payload = await r.json();
           const upd = buildStageUpdate(payload, gcTopN);
@@ -406,7 +422,7 @@ exports.syncStageInfo = onCall({ region: REGION }, async (request) => {
     db,
     proxyUrl,
     season: activeSeason,
-    fetchImpl: fetch,
+    fetchImpl: fetchWithTimeout,
     serverTimestamp: () => FieldValue.serverTimestamp(),
     dryRun: request.data?.dryRun === true,
   });
@@ -425,7 +441,7 @@ exports.syncStartlist = onSchedule(
     const { proxyUrl, activeSeason } = await tourSettings(db);
     try {
       const res = await syncStartlistCore({
-        db, proxyUrl, season: activeSeason, fetchImpl: fetch,
+        db, proxyUrl, season: activeSeason, fetchImpl: fetchWithTimeout,
         serverTimestamp: () => FieldValue.serverTimestamp(),
       });
       console.log(`syncStartlist: ${res.announced}/${res.total} hold har udtaget.`);
@@ -441,7 +457,7 @@ exports.syncStartlistNow = onCall({ region: REGION }, async (request) => {
   await requireAdmin(db, request);
   const { proxyUrl, activeSeason } = await tourSettings(db);
   return syncStartlistCore({
-    db, proxyUrl, season: activeSeason, fetchImpl: fetch,
+    db, proxyUrl, season: activeSeason, fetchImpl: fetchWithTimeout,
     serverTimestamp: () => FieldValue.serverTimestamp(),
   });
 });
@@ -770,7 +786,7 @@ async function runTipReminders(db, transporter) {
       .map((s) => `<li>${s.number ? `Etape ${s.number}` : 'Etape'}${s.name ? ` – ${s.name}` : ''}</li>`)
       .join('');
     const html = `
-      <p>Hej ${u.displayName || 'spiller'} 👋</p>
+      <p>Hej ${escapeHtml(u.displayName || 'spiller')} 👋</p>
       <p>Du mangler at tippe på <strong>${missing.length}</strong> etape${missing.length === 1 ? '' : 'r'} det næste døgn:</p>
       <ul>${list}</ul>
       <p><a href="${APP_URL}">Afgiv dine tips på tour.vejleaa.dk</a> inden etapestart.</p>
@@ -858,7 +874,7 @@ exports.sendTestReminderToMe = onCall(
     const timeLabel = (d) => new Intl.DateTimeFormat('da-DK', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(d);
 
     let total = 0;
-    let html = `<p>Hej ${u.displayName || 'spiller'} 👋</p><p>Testmail — etaperne for de første 3 etapedage:</p>`;
+    let html = `<p>Hej ${escapeHtml(u.displayName || 'spiller')} 👋</p><p>Testmail — etaperne for de første 3 etapedage:</p>`;
     for (const day of days) {
       const ss = byDay.get(day);
       total += ss.length;
@@ -1445,7 +1461,7 @@ exports.adminSendPasswordReset = onCall(
     const transporter = buildTransport(SMTP_PASSWORD.value());
     let sent = false;
     if (transporter) {
-      const name = userRecord.displayName || 'spiller';
+      const name = escapeHtml(userRecord.displayName || 'spiller');
       const html = `
         <p>Hej ${name},</p>
         <p>Du (eller en administrator) har bedt om at nulstille din adgangskode til

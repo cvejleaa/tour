@@ -71,13 +71,17 @@ export async function setRecapTime(time) {
 
 /**
  * Sæt straffen for en utippet etape. Gemmes som et positivt tal (antal point der
- * trækkes fra pr. manglende etape) i config/settings.
- * Læses live af stilling-siden og admin-fanen. Kun owner kan skrive iflg. reglerne.
+ * trækkes fra pr. manglende etape) i config/settings under `points.untippedPenalty`
+ * — SAMME felt som serverens scoring (normalizePodium(points)) og Tour-fanens
+ * pointeditor læser. (Tidligere blev et top-niveau-felt skrevet her, som scoringen
+ * aldrig så — så indstillingen var reelt uden effekt.)
+ * Kun owner kan skrive iflg. reglerne.
  * @param {number} penalty  positivt tal, fx 2 (= −2 pr. utippet etape). Decimaler ok.
  */
 export async function setUntippedPenalty(penalty) {
   const ref = doc(db, COL.CONFIG, 'settings');
-  await setDoc(ref, { untippedPenalty: Math.abs(Number(penalty)) || 0 }, { merge: true });
+  // Dyb merge: rører kun points.untippedPenalty, ikke de øvrige points-felter.
+  await setDoc(ref, { points: { untippedPenalty: Math.abs(Number(penalty)) || 0 } }, { merge: true });
 }
 
 /**

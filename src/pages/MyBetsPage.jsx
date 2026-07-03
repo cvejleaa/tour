@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useStages } from '../features/stages/useStages';
 import { useMyStageBets } from '../features/stages/useMyStageBets';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { useTourSettings } from '../features/stages/useTourSettings';
 import { stageStatus } from '../lib/tourStages';
 import { scoreStageBet, STAGE_FIELDS } from '../lib/tourScoring';
 import { prettyTeam } from '../data/tourTeams2026';
@@ -25,6 +26,7 @@ export default function MyBetsPage() {
   const season = useActiveSeason();
   const { stages, loading: stagesLoading } = useStages(season);
   const { betsByStage, loading: betsLoading } = useMyStageBets(user?.uid ?? null, season);
+  const { points } = useTourSettings();
 
   const isLoading = stagesLoading || betsLoading;
 
@@ -42,10 +44,10 @@ export default function MyBetsPage() {
         map.set(s.id, null);
         continue;
       }
-      map.set(s.id, scoreStageBet(betsByStage[s.id], s.result).points);
+      map.set(s.id, scoreStageBet(betsByStage[s.id], s.result, points, s).points);
     }
     return map;
-  }, [tippedStages, betsByStage]);
+  }, [tippedStages, betsByStage, points]);
 
   // Samlet sum af kendte point
   const totalPoints = useMemo(() => {

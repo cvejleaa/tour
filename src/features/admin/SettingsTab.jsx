@@ -6,7 +6,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
 import { setRecapTime, setUntippedPenalty, callSendTestReminderToMe, callSendTipRemindersNow } from './adminActions';
-import { DEFAULT_UNTIPPED_PENALTY } from '../leaderboard/useUntippedPenalty';
+import { DEFAULT_UNTIPPED_PENALTY, readUntippedPenalty } from '../leaderboard/useUntippedPenalty';
 
 const DEFAULT_RECAP_TIME = '08:15';
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -36,8 +36,7 @@ export default function SettingsTab() {
       (snap) => {
         const d = snap && typeof snap.exists === 'function' && snap.exists() ? snap.data() : null;
         setTime((d && d.recapTime) || DEFAULT_RECAP_TIME);
-        const p = d && Number.isFinite(Number(d.untippedPenalty)) ? Math.abs(Number(d.untippedPenalty)) : DEFAULT_UNTIPPED_PENALTY;
-        setPenalty(p);
+        setPenalty(readUntippedPenalty(d));
         setLoaded(true);
       },
       () => setLoaded(true),

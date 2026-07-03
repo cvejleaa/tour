@@ -47,7 +47,7 @@ export function computeMyStats(stages, betsByStage = {}, points = {}) {
     const bet = betsByStage[s.id];
     if (isUntipped(bet)) continue;
     tips += 1;
-    const scored = scoreStageBet(bet, s.result, points);
+    const scored = scoreStageBet(bet, s.result, points, s);
     total += scored.points;
     for (const { key } of STAGE_FIELDS) {
       const facit = s.result[key];
@@ -83,7 +83,7 @@ export function recentResults(stages, betsByStage = {}, points = {}, limit = 5) 
       const has = !isUntipped(bet);
       return {
         stage: s,
-        points: has ? scoreStageBet(bet, s.result, points).points : null,
+        points: has ? scoreStageBet(bet, s.result, points, s).points : null,
         bet: has ? bet : null,
       };
     });
