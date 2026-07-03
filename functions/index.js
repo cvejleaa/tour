@@ -201,7 +201,6 @@ exports.recomputeStage = onDocumentWritten(
     const { points, activeSeason } = await tourSettings(db);
     const season = after.season || activeSeason;
     const betsSnap = await db.collection('stageBets').where('stageId', '==', stageId).get();
-    if (betsSnap.empty) return;
 
     // Kun de spørgsmål der faktisk stilles på etapen scorer/straffer
     // (override i stage.questions, ellers type-standard).
@@ -211,14 +210,39 @@ exports.recomputeStage = onDocumentWritten(
     let batch = db.batch();
     let ops = 0;
     const batches = [batch];
+    const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
     for (const d of betsSnap.docs) {
       const { points: pts } = scoreStageBet(d.data(), after.result, points, active);
       batch.update(d.ref, { points: pts });
-      if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; }
+      bump();
+    }
+
+    // HÅNDHÆV utippet-straffen ens for ALLE: en godkendt spiller helt UDEN
+    // bet-dokument skal have samme straf som en, der gemte et tomt tip
+    // (PointRules lover "-1 pr. utippet etape"). Vi opretter et tomt bet-doc
+    // med straffens point (scoreStageBet({}) = -straf når facit findes, ellers
+    // 0 — så oprettes intet). Doc-id uid_stageId matcher klientens skema, og
+    // ved senere facit-ændringer genscorer løkken ovenfor dokumentet korrekt.
+    const betUids = new Set(betsSnap.docs.map((d) => d.data().uid));
+    const { points: penaltyPts } = scoreStageBet({}, after.result, points, active);
+    const penalized = [];
+    if (penaltyPts !== 0) {
+      const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
+      for (const u of usersSnap.docs) {
+        if (betUids.has(u.id)) continue;
+        batch.set(db.collection('stageBets').doc(`${u.id}_${stageId}`), {
+          uid: u.id, stageId, season,
+          points: penaltyPts,
+          autoPenalty: true, // markør: oprettet af serveren, intet aktivt tip
+          createdAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+        bump();
+        penalized.push(u.id);
+      }
     }
     for (const b of batches) await b.commit();
 
-    const uids = [...new Set(betsSnap.docs.map((d) => d.data().uid))];
+    const uids = [...new Set([...betUids, ...penalized])];
     for (const uid of uids) await recalcTourTotal(db, uid, season, activeSeason);
   },
 );
@@ -236,12 +260,18 @@ async function syncTourCore(db, { dryRun = false } = {}) {
   const allTeams = new Map();
   let latest = null; // seneste afgjorte etape (til de fulde klassement-stillinger)
 
+  // En 'done'-etape gen-synces stadig i timerne efter etapestart: letour kan
+  // vise provisoriske rækker mens etapen kører, og juryen ændrer jævnligt
+  // spurt-/bjergpoint og placeringer 30-60 min efter målgang (deklasseringer).
+  // Uden dette vindue ville det FØRSTE hentede facit fryse for evigt.
+  // recomputeStage genberegner kun når result-JSON faktisk ændrer sig.
+  const RESULT_REFRESH_MS = 8 * 3600 * 1000; // frys 8 timer efter etapestart
+
   for (const s of stages) {
     const n = s.number;
     const docId = `${season}-stage-${n}`;
     const existing = await db.collection('stages').doc(docId).get();
     const exData = existing.exists ? existing.data() : null;
-    if (exData?.status === 'done') continue; // allerede afgjort
     // SPÆRRE: en etape kan ikke have et ægte resultat før den er startet. Uden
     // dette ville synken (indtil 2026-løbet køres) skrive sidste års resultater
     // fra proxyen ind på fremtidige etaper og afgøre hele turneringen for tidligt.
@@ -249,6 +279,8 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     // (ellers ville proxyens sidste-års-resultat kunne skrives ind på den).
     const kickoffMs = exData?.kickoff?.toDate ? exData.kickoff.toDate().getTime() : null;
     if (!kickoffMs || kickoffMs > Date.now()) continue; // ingen starttid el. endnu ikke startet
+    // Allerede afgjort OG uden for jury-vinduet → frosset for altid.
+    if (exData?.status === 'done' && (Date.now() - kickoffMs) > RESULT_REFRESH_MS) continue;
     checked++;
     const r = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
     if (r.status === 425 || !r.ok) continue; // resultat ikke klar
@@ -688,8 +720,15 @@ exports.snapshotRanks = onSchedule(
     let batch = db.batch();
     let ops = 0;
     const batches = [batch];
+    // DELT konkurrence-placering (samme princip som frontendens tabeller):
+    // pointlighed = samme placering. Ellers ville en ren tie-omrokering give
+    // falske ▲/▼-pile i stillingen — fx alle på 0 point før første etape.
     users.forEach((u, idx) => {
-      batch.update(db.collection('users').doc(u.id), { previousRank: idx + 1 });
+      const rank = idx > 0 && users[idx - 1].total === u.total
+        ? users[idx - 1].rank
+        : idx + 1;
+      u.rank = rank;
+      batch.update(db.collection('users').doc(u.id), { previousRank: rank });
       if (++ops >= 400) { batch = db.batch(); batches.push(batch); ops = 0; }
     });
     for (const b of batches) await b.commit();

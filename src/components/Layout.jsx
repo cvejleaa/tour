@@ -48,7 +48,7 @@ export default function Layout({ children }) {
   return (
     <div>
       <header style={{ borderBottom: '1px solid var(--c-border)', background: 'var(--c-surface)' }}>
-        <nav className="container" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <nav className="container topnav">
           <span style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
             <span aria-hidden>🚴</span>
             <strong style={{ color: 'var(--c-pitch)' }}>Tour de France Tip</strong>

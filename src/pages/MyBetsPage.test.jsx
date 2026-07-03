@@ -86,7 +86,9 @@ describe('MyBetsPage – tippede etaper', () => {
     });
     renderPage();
     expect(screen.getByText('Etape')).toBeInTheDocument();
-    expect(screen.getByText('Etapevinder')).toBeInTheDocument();
+    // Emoji-headers (mobilvenlige) med fuldt navn som title/aria-label.
+    expect(screen.getByTitle('Etapevinderens hold')).toBeInTheDocument();
+    expect(screen.getByTitle('Flest bjergpoint')).toBeInTheDocument();
     expect(screen.getByText('Point')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
   });

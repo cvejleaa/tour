@@ -3,6 +3,7 @@
 // `teams`-kollektionen er udfyldt automatisk fra de første etaperesultater.
 // Holdnavne + logoer/trøjer er udtrukket fra racecenter.letour.fr (2026-startfelt).
 import TEAMS_2026 from './tourTeams2026.json';
+import { normalizeTeam } from '../lib/tourTeams';
 
 /** De 23 officielle holdnavne (strenge) — bevarer dropdown- + match-kontrakten. */
 export const TOUR_TEAMS = TEAMS_2026.map((t) => t.name);
@@ -74,6 +75,22 @@ export function countryName(code) {
   if (!code) return '';
   const key = String(code).trim().toLowerCase();
   return COUNTRY_DA[key] || String(code).toUpperCase();
+}
+
+/**
+ * KORT visningsnavn til smalle tabelceller (fx "Mine tips" på mobil):
+ * slår holdet op tolerant (også på letour-/resultat-stavemåder via
+ * normalizeTeam) og returnerer nameShort — ellers prettyTeam som fallback.
+ */
+export function prettyTeamShort(name) {
+  if (!name) return '';
+  const meta = teamMeta(name);
+  if (meta?.nameShort) return meta.nameShort;
+  const n = normalizeTeam(name);
+  for (const t of TEAMS_2026) {
+    if (normalizeTeam(t.name) === n) return t.nameShort || prettyTeam(t.name);
+  }
+  return prettyTeam(name);
 }
 
 const KEEP_UPPER = new Set(['UAE', 'EF', 'AG2R', 'FDJ', 'XDS', 'B&B', 'XRG', 'NSN', 'CGM', 'CMA', 'RGA', 'NL']);

@@ -12,7 +12,7 @@ import { useActiveSeason } from '../features/stages/useActiveSeason';
 import { useTourSettings } from '../features/stages/useTourSettings';
 import { stageStatus } from '../lib/tourStages';
 import { scoreStageBet, STAGE_FIELDS } from '../lib/tourScoring';
-import { prettyTeam } from '../data/tourTeams2026';
+import { prettyTeamShort } from '../data/tourTeams2026';
 
 /** Hjælper: statuslabel og badge-farve for et etape-tip. */
 function betStatus(status) {
@@ -144,10 +144,12 @@ export default function MyBetsPage() {
               <thead>
                 <tr>
                   <th>Etape</th>
-                  <th>Etapevinder</th>
-                  <th>Bedste hold</th>
-                  <th>Bjerg</th>
-                  <th>Sprint</th>
+                  {/* Emoji-headers (samme sprog som etapekortet) + korte holdnavne
+                      i cellerne → tabellen kan faktisk læses på en telefon. */}
+                  <th title="Etapevinderens hold" aria-label="Etapevinderens hold">🏆</th>
+                  <th title="Bedste hold" aria-label="Bedste hold">⏱️</th>
+                  <th title="Flest bjergpoint" aria-label="Flest bjergpoint">⛰️</th>
+                  <th title="Flest sprintpoint" aria-label="Flest sprintpoint">🚀</th>
                   <th>Point</th>
                   <th>Status</th>
                   <th></th>
@@ -164,10 +166,10 @@ export default function MyBetsPage() {
                   return (
                     <tr key={stage.id}>
                       <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Etape {stage.number}</td>
-                      <td>{prettyTeam(bet?.winnerTeam) || '–'}</td>
-                      <td>{prettyTeam(bet?.gcTeam) || '–'}</td>
-                      <td>{prettyTeam(bet?.mountainTeam) || '–'}</td>
-                      <td>{prettyTeam(bet?.sprintTeam) || '–'}</td>
+                      <td>{prettyTeamShort(bet?.winnerTeam) || '–'}</td>
+                      <td>{prettyTeamShort(bet?.gcTeam) || '–'}</td>
+                      <td>{prettyTeamShort(bet?.mountainTeam) || '–'}</td>
+                      <td>{prettyTeamShort(bet?.sprintTeam) || '–'}</td>
                       <td>
                         {pts !== null ? (
                           <span className={`badge ${pts > 0 ? 'badge--green' : 'badge--muted'}`}>

@@ -1,6 +1,6 @@
 // Rene hjælpefunktioner til forsidens "egen statistik" og "seneste resultater".
 // Hold-baseret Tour de France-udgave: bygger på etaper + etape-tip.
-import { scoreStageBet, STAGE_FIELDS, isUntipped, stageTipComplete } from '../../lib/tourScoring';
+import { scoreStageBet, STAGE_FIELDS, isUntipped, stageTipComplete, activeQuestionsForStage } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
 
 function kickoffMs(kickoff) {
@@ -39,8 +39,8 @@ export function countUntippedOpenStages(stages, betsByStage = {}) {
  */
 export function computeMyStats(stages, betsByStage = {}, points = {}) {
   let tips = 0;   // antal afgjorte etaper med et (ikke-tomt) tip
-  let hits = 0;   // antal rigtige holdvalg i alt
-  let fields = 0; // antal afgjorte felter (facit findes) på tippede etaper
+  let hits = 0;   // antal holdvalg der gav point (podietræf)
+  let fields = 0; // antal afgjorte AKTIVE felter (facit findes) på tippede etaper
   let total = 0;  // optjente point i alt
   for (const s of stages ?? []) {
     if (!isDone(s) || !s.result) continue;
@@ -49,11 +49,17 @@ export function computeMyStats(stages, betsByStage = {}, points = {}) {
     tips += 1;
     const scored = scoreStageBet(bet, s.result, points, s);
     total += scored.points;
+    // Kun spørgsmål der faktisk STILLES på etapen tæller i træfprocenten —
+    // et inaktivt spørgsmål (fx bjerg på en holdtidskørsel) kunne brugeren
+    // aldrig tippe, så det må ikke tælle som en forbier. Et "træf" er et
+    // podietræf (gav point), så procenten matcher de point man ser.
+    const active = activeQuestionsForStage(s);
     for (const { key } of STAGE_FIELDS) {
+      if (!active[key]) continue;
       const facit = s.result[key];
       if (facit == null || facit === '') continue;
       fields += 1;
-      if (bet[key] && bet[key] === facit) hits += 1;
+      if ((scored.breakdown[key] ?? 0) > 0) hits += 1;
     }
   }
   return {

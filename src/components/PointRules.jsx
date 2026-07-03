@@ -1,14 +1,13 @@
 // Kort, sammenfoldelig oversigt over pointreglerne for hold-spillet. Værdier
 // kommer fra den centrale pointlogik (tourScoring), så de altid matcher den
 // faktiske beregning.
-import { POINTS } from '../lib/scoring';
 import { useTourSettings } from '../features/stages/useTourSettings';
 
 export default function PointRules() {
-  const { points } = useTourSettings();
+  const { points, gcTopN } = useTourSettings();
   const ROWS = [
     { pts: points.winnerTeam, label: 'Etapevinderens hold', ex: 'ram holdet som etapevinderen kører for' },
-    { pts: points.gcTeam, label: 'Bedste hold blandt de første ryttere', ex: 'holdet med samlet bedste resultat på de forreste ryttere' },
+    { pts: points.gcTeam, label: `Bedste hold (holdets ${gcTopN} bedste ryttere)`, ex: `holdets ${gcTopN} bedste målplaceringer lægges sammen — laveste sum vinder. Et hold med færre end ${gcTopN} ryttere i mål tæller ikke med` },
     { pts: points.mountainTeam, label: 'Flest bjergpoint', ex: 'holdet der tager flest bjergpoint på etapen' },
     { pts: points.sprintTeam, label: 'Flest sprintpoint', ex: 'holdet der tager flest sprintpoint på etapen' },
   ];
@@ -51,7 +50,10 @@ export default function PointRules() {
 
         <ul style={{ margin: '0.6rem 0 0', paddingLeft: '1.1rem', color: 'var(--c-text)', fontSize: '0.85rem', lineHeight: 1.7 }}>
           <li>
-            <strong>Bonus:</strong> <strong>{POINTS.BONUS} point</strong> for hvert korrekt bonus-svar (sæson- og klassements-spørgsmål).
+            <strong>Ikke alle spørgsmål på alle etaper:</strong> enkeltstarter og holdtidskørsler har færre spørgsmål — du tipper kun det, der reelt uddeles point for.
+          </li>
+          <li>
+            <strong>Bonus:</strong> hvert bonusspørgsmål giver de point, der står ved spørgsmålet, hvis du svarer rigtigt.
           </li>
           <li>
             <strong>Utippet etape:</strong> lader du en etape stå helt utippet, trækkes der <strong>−{points.untippedPenalty} point</strong> fra, når etapen er afgjort.

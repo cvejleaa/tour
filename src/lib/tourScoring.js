@@ -15,7 +15,15 @@
 // Pr. spørgsmål en faldende skala [1.-plads, 2.-plads, 3.-plads]. Alle værdier er
 // admin-redigerbare. Et ramt 1.-plads-tip giver mest; 2./3.-plads giver mindre,
 // så langt flere tips udløser point.
+//
+// VIGTIGT: tip og facit sammenlignes TOLERANT (normaliseret holdnavn via
+// sameTeam), aldrig med rå strenglighed — tip-værdier (seed/letour-liste) og
+// facit-værdier (letour-resultattabeller) kan afvige i store/små bogstaver,
+// tegnsætning eller sponsor-suffiks, og én afvigelse ville ellers lydløst give
+// 0 point til ALLE spillere.
 // ---------------------------------------------------------------------------
+
+import { sameTeam } from './tourTeams';
 
 /**
  * Standard 1.-pladspoint pr. spørgsmål (bagudkompatibel flad tabel — bruges til
@@ -372,7 +380,7 @@ export function scoreStageBet(bet, result, pointsCfg, stageOrActive) {
     if (!podium.length) continue; // ikke afgjort → ingen point
     const pick = bet && bet[key];
     if (pick == null || pick === '') { breakdown[key] = 0; continue; }
-    const rank = podium.findIndex((t) => t === pick);
+    const rank = podium.findIndex((t) => sameTeam(t, pick));
     const pts = rank >= 0 ? (P[key][rank] || 0) : 0;
     breakdown[key] = pts;
     total += pts;

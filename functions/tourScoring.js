@@ -5,7 +5,13 @@
 //
 // PODIE-POINT: et tip giver point efter holdets PLACERING i spørgsmålets top-3,
 // pr. spørgsmål en faldende skala [1., 2., 3.]. Alle værdier er admin-redigerbare.
+//
+// VIGTIGT: tip og facit sammenlignes TOLERANT (normaliseret holdnavn via
+// sameTeam) — aldrig rå strenglighed. Én stavningsforskel mellem tip-listen og
+// letour-facit ville ellers lydløst give 0 point til alle. Spejlet i src-udgaven.
 // ---------------------------------------------------------------------------
+
+const { sameTeam } = require('./tourTeams');
 
 const DEFAULT_POINTS = {
   winnerTeam: 5,
@@ -260,7 +266,7 @@ function scoreStageBet(bet, result, pointsCfg, stageOrActive) {
     if (!podium.length) continue;
     const pick = bet && bet[key];
     if (pick == null || pick === '') { breakdown[key] = 0; continue; }
-    const rank = podium.findIndex((t) => t === pick);
+    const rank = podium.findIndex((t) => sameTeam(t, pick));
     const pts = rank >= 0 ? (P[key][rank] || 0) : 0;
     breakdown[key] = pts;
     total += pts;

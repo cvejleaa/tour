@@ -9,6 +9,11 @@
   --c-accent-2: #ee4266; /* pink/rød */
   --c-bg: #f7f9fb;
   --c-surface: #ffffff;
+  /* Sekundære flader (fremhævede tabelrækker, beskedbobler, kommentarer).
+     SKAL være defineret i BEGGE temaer — komponenter bruger dem med lyse
+     fallbacks, som ellers giver lys-på-lys i mørkt tema. */
+  --c-surface-alt: #f6faf8;
+  --c-surface-2: #f0f2f5;
   --c-text: #14181f;
   --c-muted: #6b7682;
   --c-border: #e2e8ee;
@@ -27,12 +32,17 @@
 [data-theme='dark'] {
   --c-bg: #0e1419;
   --c-surface: #161e26;
+  --c-surface-alt: #1c2630;
+  --c-surface-2: #202a34;
   --c-text: #eef3f7;
   --c-muted: #9aa7b2;
   --c-border: #26323d;
   --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
+
+/* Vigtigste badge ("Mangler tip") skal også kunne læses i mørkt tema. */
+[data-theme='dark'] .badge--yellow { color: var(--c-accent); }
 
 * { box-sizing: border-box; }
 
@@ -165,6 +175,29 @@ button {
   padding: 0.4rem 0.5rem;
   border-radius: 6px;
   line-height: 1;
+}
+
+/* ═══════════════════════ TOP-NAVIGATION ═══════════════════════ */
+
+/* Wrap på desktop; VANDRET SCROLL på mobil — 12 links i flex-wrap åd ellers
+   4-5 rækker (~40 % af skærmen) på små telefoner. Samme mønster som .tabs. */
+.topnav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .topnav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .topnav::-webkit-scrollbar { display: none; }
+  .topnav > * { flex: 0 0 auto; }
+  .topnav a, .topnav .btn { white-space: nowrap; }
 }
 
 /* ═══════════════════════ TABS ═══════════════════════ */

@@ -184,6 +184,23 @@ describe('scoreStageBet', () => {
     expect(points).toBe(DEFAULT_POINTS.winnerTeam);
     expect(breakdown).toEqual({ winnerTeam: 5 });
   });
+
+  it('matcher holdnavne TOLERANT (case/tegnsætning/whitespace må afvige)', () => {
+    // Tip gemt med seed-navnet; facit kommer fra letour-resultattabellen med
+    // anden kapitalisering og tegnsætning. Skal stadig give fuld gevinst.
+    const bet = { winnerTeam: 'Alpecin-Premier Tech', gcTeam: 'Team Visma | Lease a Bike' };
+    const res = { winnerTeam: 'ALPECIN PREMIER TECH', gcTeam: 'TEAM VISMA-LEASE A BIKE' };
+    const { points, breakdown } = scoreStageBet(bet, res);
+    expect(breakdown.winnerTeam).toBe(DEFAULT_POINTS.winnerTeam);
+    expect(breakdown.gcTeam).toBe(DEFAULT_POINTS.gcTeam);
+    expect(points).toBe(DEFAULT_POINTS.winnerTeam + DEFAULT_POINTS.gcTeam);
+  });
+
+  it('tolerant match gælder også podie-pladserne (2./3.)', () => {
+    const res = { podium: { winnerTeam: ['UAE TEAM EMIRATES XRG', 'SOUDAL QUICK-STEP', 'COFIDIS'] } };
+    const { breakdown } = scoreStageBet({ winnerTeam: 'Soudal Quick-Step' }, res);
+    expect(breakdown.winnerTeam).toBe(3); // 2.-pladsen i standard-skalaen [5,3,1]
+  });
 });
 
 describe('activeQuestionsForStage', () => {

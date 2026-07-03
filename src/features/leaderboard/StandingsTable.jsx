@@ -64,7 +64,7 @@ export default function StandingsTable({
     });
 
     // Sortér faldende — efter gns. når valgt, ellers efter total. Tiebreak: total, så navn.
-    return withPoints.sort((a, b) => {
+    const sorted = withPoints.sort((a, b) => {
       if (showAvg && sortMode === 'avg') {
         const av = a.avg ?? -Infinity;
         const bv = b.avg ?? -Infinity;
@@ -73,7 +73,24 @@ export default function StandingsTable({
       if (b.displayPoints !== a.displayPoints) return b.displayPoints - a.displayPoints;
       return (a.displayName || '').localeCompare(b.displayName || '', 'da');
     });
+
+    // ÆGTE konkurrence-placering: deler man den viste metrik, deler man plads
+    // (alle på 0 point → alle nr. 1 — IKKE 🥇🥈🥉 efter alfabetet på dag 0).
+    // Samme princip som forsiden (MiniStandings/DashboardPage), så siderne
+    // aldrig viser to forskellige placeringer for samme spiller.
+    const sameKey = (a, b) => (showAvg && sortMode === 'avg'
+      ? (a.avg ?? null) === (b.avg ?? null) && a.displayPoints === b.displayPoints
+      : a.displayPoints === b.displayPoints);
+    let prevRank = 0;
+    return sorted.map((u, i) => {
+      const rank = i > 0 && sameKey(u, sorted[i - 1]) ? prevRank : i + 1;
+      prevRank = rank;
+      return { ...u, rank };
+    });
   }, [users, memberUids, getPoints, getTipped, showAvg, sortMode, getBreakdown]);
+
+  // Før første etape (alle på 0) er der ingen stilling at vise medaljer for.
+  const allZero = rows.length > 0 && rows.every((u) => !(u.displayPoints > 0) && !(u.displayPoints < 0));
 
   if (loading) {
     return <div className="spinner" role="status" aria-label="Indlæser" />;
@@ -90,6 +107,11 @@ export default function StandingsTable({
 
   return (
     <div className="table-wrap">
+      {allZero && (
+        <p className="text-muted" style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+          Alle står lige endnu — stillingen afgøres fra første etape 🚴
+        </p>
+      )}
       <table className="table">
         <thead>
           <tr>
@@ -103,18 +125,19 @@ export default function StandingsTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((u, idx) => {
+          {rows.map((u) => {
             const isMe = u.uid === meUid;
-            const rank = idx + 1;
+            const rank = u.rank;
             const delta = showMovement && typeof u.previousRank === 'number'
               ? u.previousRank - rank
               : null;
 
             return (
               <tr key={u.uid} className={isMe ? 'is-me' : ''}>
-                {/* Placering med medalje til top 3 */}
+                {/* Placering med medalje til top 3 — men først når der ER spillet
+                    (ingen guldregn efter alfabetet før etape 1). */}
                 <td>
-                  {rank <= 3 ? (
+                  {rank <= 3 && !allZero ? (
                     <span className={`medal medal--${rank}`} aria-label={`Placering ${rank}`}>
                       {rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}
                     </span>

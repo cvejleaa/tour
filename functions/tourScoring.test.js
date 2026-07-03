@@ -89,6 +89,14 @@ describe('resolveStageResult + scoreStageBet', () => {
     expect(scoreStageBet({ winnerTeam: 'SOQ' }, result, undefined, active).points).toBe(1);
     expect(scoreStageBet({ winnerTeam: 'COF' }, result, undefined, active).points).toBe(0);
   });
+
+  it('matcher holdnavne TOLERANT (case/tegnsætning må afvige mellem tip og facit)', () => {
+    const bet = { winnerTeam: 'Alpecin-Premier Tech', gcTeam: 'Team Visma | Lease a Bike' };
+    const res = { winnerTeam: 'ALPECIN PREMIER TECH', gcTeam: 'TEAM VISMA-LEASE A BIKE' };
+    const r = scoreStageBet(bet, res);
+    expect(r.breakdown.winnerTeam).toBe(5);
+    expect(r.breakdown.gcTeam).toBe(4);
+  });
 });
 
 describe('activeQuestionsForStage + scoreStageBet (aktive spørgsmål)', () => {
