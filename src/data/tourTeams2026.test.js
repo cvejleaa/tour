@@ -60,11 +60,17 @@ describe('prettyTeam', () => {
     expect(prettyTeam('Team Visma | Lease a Bike')).toBe('Team Visma | Lease a Bike');
     expect(prettyTeam('Cofidis')).toBe('Cofidis');
   });
-  it('title-caser ALL-CAPS letour-resultatnavne', () => {
-    expect(prettyTeam('SOUDAL QUICK-STEP')).toBe('Soudal Quick-step');
-  });
-  it('bevarer kendte forkortelser i versaler', () => {
+  it('kendte hold vises ALTID med det officielle navn fra holdlisten', () => {
+    expect(prettyTeam('SOUDAL QUICK-STEP')).toBe('Soudal Quick-Step');
     expect(prettyTeam('UAE TEAM EMIRATES XRG')).toBe('UAE Team Emirates XRG');
+  });
+  it('ALIAS: resultattabellernes "INEOS GRENADIERS" vises som "Netcompany Ineos"', () => {
+    expect(prettyTeam('INEOS GRENADIERS')).toBe('Netcompany Ineos');
+    expect(prettyTeam('Ineos Grenadiers')).toBe('Netcompany Ineos');
+    expect(prettyTeam('NETCOMPANY INEOS CYCLING TEAM')).toBe('Netcompany Ineos');
+  });
+  it('ukendte ALL-CAPS navne title-cases stadig (fallback)', () => {
+    expect(prettyTeam('TEAM UKENDT CYKLING')).toBe('Team Ukendt Cykling');
   });
   it('tom → tom streng', () => {
     expect(prettyTeam('')).toBe('');

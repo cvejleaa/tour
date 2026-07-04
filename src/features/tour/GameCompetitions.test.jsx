@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import GameCompetitions from './GameCompetitions';
+import { collectTippedTeams } from './tippedTeams';
 
 const data = {
   stageResult: [
@@ -27,7 +28,7 @@ describe('GameCompetitions', () => {
   });
 
   it('fremhæver tippede hold', () => {
-    render(<GameCompetitions data={data} gcTopN={4} highlightTeams={new Set(['UAE Team Emirates XRG'])} />);
+    render(<GameCompetitions data={data} gcTopN={4} highlightTeams={collectTippedTeams([{ winnerTeam: 'UAE Team Emirates XRG' }])} />);
     const tipped = screen.getAllByTestId('gamecomp-team').filter((el) => el.getAttribute('data-tipped') === 'true');
     expect(tipped.length).toBeGreaterThan(0);
   });

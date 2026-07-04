@@ -39,10 +39,29 @@ export function teamKeyFromRow(row) {
   return name ? normalizeTeam(name) : null;
 }
 
-/** True hvis to holdnavne/-nøgler refererer til samme hold (normaliseret). */
+/**
+ * ALIAS-tabel: samme hold optræder under FORSKELLIGE navne i letours egne
+ * kilder — holdlisten/racecenteret siger fx "Netcompany Ineos", mens
+ * resultat-/rankingtabellerne (timing-leverandøren) skriver "INEOS
+ * GRENADIERS". Normalisering alene kan ikke bygge bro over et sponsorskifte,
+ * så kendte varianter mappes eksplicit til den officielle navne-nøgle.
+ * Nøgler og værdier er normalizeTeam-nøgler. Spejles i functions-udgaven!
+ */
+export const TEAM_ALIASES = {
+  ineosgrenadiers: 'netcompanyineos', // timing-leverandørens gamle navn
+  netcompanyineoscyclingteam: 'netcompanyineos', // racecenterets lange form
+};
+
+/** Kanonisk hold-nøgle: normaliseret navn med kendte aliaser slået sammen. */
+export function canonicalTeamKey(name) {
+  const key = normalizeTeam(name);
+  return TEAM_ALIASES[key] || key;
+}
+
+/** True hvis to holdnavne/-nøgler refererer til samme hold (normaliseret + alias). */
 export function sameTeam(a, b) {
   if (a == null || b == null) return false;
-  return normalizeTeam(a) === normalizeTeam(b);
+  return canonicalTeamKey(a) === canonicalTeamKey(b);
 }
 
 /**

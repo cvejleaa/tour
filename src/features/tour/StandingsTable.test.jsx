@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import StandingsTable from './StandingsTable';
+import { collectTippedTeams } from './tippedTeams';
 
 const many = Array.from({ length: 14 }, (_, i) => ({
   rank: i + 1, rider: `Rytter ${i + 1}`, team: 'UAE Team Emirates XRG', time: `+0:${i}`, points: 100 - i,
@@ -38,7 +39,7 @@ describe('StandingsTable', () => {
         ]}
         valueType="time"
         flagFor={(name) => (name === 'A' ? '🇸🇮' : '')}
-        highlightTeams={new Set(['Team Visma | Lease a Bike'])}
+        highlightTeams={collectTippedTeams([{ winnerTeam: 'Team Visma | Lease a Bike' }])}
       />,
     );
     expect(screen.getByText('🇸🇮')).toBeInTheDocument();

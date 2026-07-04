@@ -97,6 +97,11 @@ describe('resolveStageResult + scoreStageBet', () => {
     expect(r.breakdown.winnerTeam).toBe(5);
     expect(r.breakdown.gcTeam).toBe(4);
   });
+
+  it('ALIAS-match: tip på "Netcompany Ineos" scorer mod facit "INEOS GRENADIERS"', () => {
+    const r = scoreStageBet({ winnerTeam: 'Netcompany Ineos' }, { winnerTeam: 'INEOS GRENADIERS' });
+    expect(r.breakdown.winnerTeam).toBe(5);
+  });
 });
 
 describe('activeQuestionsForStage + scoreStageBet (aktive spørgsmål)', () => {

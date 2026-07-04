@@ -201,6 +201,14 @@ describe('scoreStageBet', () => {
     const { breakdown } = scoreStageBet({ winnerTeam: 'Soudal Quick-Step' }, res);
     expect(breakdown.winnerTeam).toBe(3); // 2.-pladsen i standard-skalaen [5,3,1]
   });
+
+  it('ALIAS-match: tip på "Netcompany Ineos" scorer mod facit "INEOS GRENADIERS"', () => {
+    // Timing-leverandøren bruger holdets gamle navn i resultattabellerne —
+    // et sponsorskifte må ALDRIG koste spillerne point.
+    const res = { winnerTeam: 'INEOS GRENADIERS' };
+    const { breakdown } = scoreStageBet({ winnerTeam: 'Netcompany Ineos' }, res);
+    expect(breakdown.winnerTeam).toBe(DEFAULT_POINTS.winnerTeam);
+  });
 });
 
 describe('activeQuestionsForStage', () => {

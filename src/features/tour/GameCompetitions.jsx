@@ -5,6 +5,7 @@
 // flest bjergpoint, flest sprintpoint.
 // ---------------------------------------------------------------------------
 import TeamBadge from '../../components/TeamBadge';
+import { canonicalTeamKey } from '../../lib/tourTeams';
 import { gameCompetitions } from './gameCompetitions';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
@@ -49,7 +50,7 @@ export default function GameCompetitions({ data, gcTopN = 10, highlightTeams = n
             ) : (
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.35rem' }}>
                 {teams.map((t, i) => {
-                  const tipped = !!(highlightTeams && highlightTeams.has(t.team));
+                  const tipped = !!(highlightTeams && highlightTeams.has(canonicalTeamKey(t.team)));
                   const line = ridersLine(t.riders, c.kind);
                   return (
                     <li

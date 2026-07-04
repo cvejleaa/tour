@@ -69,3 +69,15 @@ describe('teamsFromRows (selv-udfyldning)', () => {
     expect(teams).toContainEqual({ key: 'cofidis', name: 'Cofidis' });
   });
 });
+
+
+describe('canonicalTeamKey + aliaser (Ineos-sagen)', () => {
+  it('resultattabellens "INEOS GRENADIERS" = holdlistens "Netcompany Ineos"', async () => {
+    const { canonicalTeamKey, sameTeam } = await import('./tourTeams');
+    expect(sameTeam('INEOS GRENADIERS', 'Netcompany Ineos')).toBe(true);
+    expect(sameTeam('NETCOMPANY INEOS CYCLING TEAM', 'Netcompany Ineos')).toBe(true);
+    expect(canonicalTeamKey('Ineos Grenadiers')).toBe('netcompanyineos');
+    // Andre hold påvirkes ikke.
+    expect(sameTeam('Cofidis', 'Netcompany Ineos')).toBe(false);
+  });
+});

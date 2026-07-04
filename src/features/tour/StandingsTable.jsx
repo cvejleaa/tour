@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 import { useState } from 'react';
 import TeamBadge from '../../components/TeamBadge';
+import { canonicalTeamKey } from '../../lib/tourTeams';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
 
@@ -31,7 +32,7 @@ export default function StandingsTable({
           const rank = Number.isFinite(Number(r.rank)) ? Number(r.rank) : i + 1;
           const isTop = rank <= 3;
           const flag = flagFor && r.rider ? flagFor(r.rider) : '';
-          const tipped = !!(highlightTeams && r.team && highlightTeams.has(r.team));
+          const tipped = !!(highlightTeams && r.team && highlightTeams.has(canonicalTeamKey(r.team)));
           return (
             <li
               key={`${rank}-${r.rider || r.team || i}`}

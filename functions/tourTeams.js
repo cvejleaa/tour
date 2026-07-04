@@ -22,9 +22,23 @@ function teamKeyFromRow(row) {
   return name ? normalizeTeam(name) : null;
 }
 
+// ALIAS-tabel: samme hold under FORSKELLIGE navne i letours egne kilder
+// (holdliste: "Netcompany Ineos"; resultattabeller: "INEOS GRENADIERS").
+// Normalisering kan ikke bygge bro over et sponsorskifte — kendte varianter
+// mappes eksplicit. Nøgler/værdier er normalizeTeam-nøgler. Spejl af src!
+const TEAM_ALIASES = {
+  ineosgrenadiers: 'netcompanyineos',
+  netcompanyineoscyclingteam: 'netcompanyineos',
+};
+
+function canonicalTeamKey(name) {
+  const key = normalizeTeam(name);
+  return TEAM_ALIASES[key] || key;
+}
+
 function sameTeam(a, b) {
   if (a == null || b == null) return false;
-  return normalizeTeam(a) === normalizeTeam(b);
+  return canonicalTeamKey(a) === canonicalTeamKey(b);
 }
 
 function findKnownTeam(name, known) {
@@ -48,6 +62,8 @@ function teamsFromRows(rows) {
 
 module.exports = {
   normalizeTeam,
+  canonicalTeamKey,
+  TEAM_ALIASES,
   teamKeyFromRow,
   sameTeam,
   findKnownTeam,

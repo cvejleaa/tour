@@ -3,7 +3,7 @@
 // `teams`-kollektionen er udfyldt automatisk fra de første etaperesultater.
 // Holdnavne + logoer/trøjer er udtrukket fra racecenter.letour.fr (2026-startfelt).
 import TEAMS_2026 from './tourTeams2026.json';
-import { normalizeTeam } from '../lib/tourTeams';
+import { normalizeTeam, canonicalTeamKey } from '../lib/tourTeams';
 
 /** De 23 officielle holdnavne (strenge) — bevarer dropdown- + match-kontrakten. */
 export const TOUR_TEAMS = TEAMS_2026.map((t) => t.name);
@@ -38,18 +38,22 @@ export const TEAM_META = (() => {
     };
     if (t.code) map[t.code] = entry;
     map[normKey(t.name)] = entry;
+    // Kanonisk nøgle (normaliseret + alias) → opslag virker også for
+    // resultattabellernes navnevarianter (fx "INEOS GRENADIERS").
+    map[canonicalTeamKey(t.name)] = entry;
   }
   return map;
 })();
 
 /**
- * Slå holdmetadata op via kode eller navn. Returnerer posten eller null.
+ * Slå holdmetadata op via kode eller navn — tolerant: også resultat-
+ * tabellernes navnevarianter rammer rigtigt (via canonicalTeamKey/alias).
  * @param {string} nameOrCode
  */
 export function teamMeta(nameOrCode) {
   if (!nameOrCode) return null;
   const raw = String(nameOrCode).trim();
-  return TEAM_META[raw] || TEAM_META[normKey(raw)] || null;
+  return TEAM_META[raw] || TEAM_META[normKey(raw)] || TEAM_META[canonicalTeamKey(raw)] || null;
 }
 
 /**
@@ -97,6 +101,11 @@ const KEEP_UPPER = new Set(['UAE', 'EF', 'AG2R', 'FDJ', 'XDS', 'B&B', 'XRG', 'NS
 export function prettyTeam(name) {
   if (!name) return '';
   const str = String(name);
+  // Kendt hold (også under resultattabellernes navnevarianter som "INEOS
+  // GRENADIERS") → vis ALTID det officielle navn fra holdlisten, så samme
+  // hold aldrig optræder under to navne i appen.
+  const meta = TEAM_META[canonicalTeamKey(str)];
+  if (meta) return meta.name;
   // Allerede blandet kasse (har små bogstaver) → lad være med at mangle.
   if (/[a-z]/.test(str)) return str;
   return str
