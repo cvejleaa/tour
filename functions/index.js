@@ -44,6 +44,7 @@ const { syncStartlistCore } = require('./startlistSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
+const { salesPitchHtml } = require('./salesPitch');
 const { runGenerateStageTips } = require('./stageTip');
 
 // Initialiser Firebase Admin (singleton)
@@ -1002,6 +1003,19 @@ exports.sendBroadcastEmail = onCall(
     if (!subject) throw new HttpsError('invalid-argument', 'Emne mangler.');
     if (!body) throw new HttpsError('invalid-argument', 'Beskeden er tom.');
 
+    // Valgfri flot skabelon: 'salespitch' = salgstalen med skærmbilleder + gul
+    // tilmeldingsblok. joinLink SKAL i så fald pege på vores egen /tilmeld-side
+    // (aldrig et vilkårligt eksternt link i en mail vi afsender).
+    const template = request.data?.template === 'salespitch' ? 'salespitch' : null;
+    const joinLink = String(request.data?.joinLink || '').trim();
+    const leagueName = String(request.data?.leagueName || '').trim();
+    if (joinLink && !joinLink.startsWith(`${APP_URL}/tilmeld?kode=`)) {
+      throw new HttpsError('invalid-argument', 'Ugyldigt tilmeldingslink.');
+    }
+    if (template && !joinLink) {
+      throw new HttpsError('invalid-argument', 'Salgstale-skabelonen kræver et liga-tilmeldingslink.');
+    }
+
     // Valider + dedupliker modtagere (uafhængigt af store/små bogstaver).
     const seen = new Set();
     const valid = [];
@@ -1021,7 +1035,9 @@ exports.sendBroadcastEmail = onCall(
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
 
-    const html = broadcastHtml(body);
+    const html = template === 'salespitch'
+      ? salesPitchHtml({ intro: body, joinLink, leagueName, appUrl: APP_URL })
+      : broadcastHtml(body);
     let sent = 0;
     const failed = [];
     for (const to of valid) {

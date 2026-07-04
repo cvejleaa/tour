@@ -17,6 +17,7 @@ export default defineConfig({
       'leagueRecap.test.js',
       'stageTip.test.js',
       'startlistSync.test.js',
+      'salesPitch.test.js',
     ],
     exclude: [
       'rules.test.js',

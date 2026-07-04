@@ -15,6 +15,13 @@ import { LEAGUE_STATUS } from '../../lib/constants';
 const LINK_TOKEN = '[LINK]';
 
 const DEFAULT_SUBJECT = '🚨 SIDSTE CHANCE: Touren ruller i dag kl. 17.05 – er du med?';
+
+/** Kort personlig intro til SALGSTALE-skabelonen (mailens hero, skærmbilleder
+ *  og den gule tilmeldingsblok kommer fra skabelonen — introen står øverst). */
+const TEMPLATE_INTRO = `Kære familie og venner,
+
+I DAG kl. 17.05 smækker døren for at være med fra allerførste etape. Tre ugers fælles sommerdrilleri venter — og I vil ikke stå udenfor, når vi andre driller hinanden ved morgenbordet. Klik på den gule knap nederst, så er I med på ét minut. Vi ses på ranglisten!`;
+
 const DEFAULT_BODY = `Kære familie og venner,
 
 I DAG kl. 17.05 ruller Tour de France ud fra Barcelona – og så smækker døren for at være med fra allerførste etape i vores tippespil. Det her bliver sommerens samtaleemne i tre uger. Vil du virkelig stå udenfor, når vi andre driller hinanden ved morgenbordet?
@@ -42,10 +49,21 @@ const inputStyle = {
 
 export default function BroadcastTab() {
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
-  const [body, setBody] = useState(DEFAULT_BODY);
+  // Salgstale-skabelonen (hero + skærmbilleder + gul tilmeldingsblok) er
+  // standard — det er kampagne-mailen. Slå fra for en ren tekstmail.
+  const [useTemplate, setUseTemplate] = useState(true);
+  const [body, setBody] = useState(TEMPLATE_INTRO);
   const [recipientsText, setRecipientsText] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+
+  function toggleTemplate() {
+    const next = !useTemplate;
+    setUseTemplate(next);
+    // Skift kun standardteksten hvis admin ikke selv har redigeret den.
+    if (next && body === DEFAULT_BODY) setBody(TEMPLATE_INTRO);
+    if (!next && body === TEMPLATE_INTRO) setBody(DEFAULT_BODY);
+  }
 
   const { users } = useUsers();
   const approvedEmails = useMemo(
@@ -63,7 +81,9 @@ export default function BroadcastTab() {
   );
   const selectedLeague = approvedLeagues.find((l) => l.id === leagueId) ?? null;
   const joinLink = selectedLeague ? joinLinkFor(selectedLeague.joinCode) : '';
-  const needsLeague = body.includes(LINK_TOKEN) && !selectedLeague;
+  // Skabelonens gule knap SKAL pege på en liga; ren tekst kræver kun liga
+  // hvis [LINK] faktisk står i teksten.
+  const needsLeague = (useTemplate || body.includes(LINK_TOKEN)) && !selectedLeague;
 
   const { valid, invalid } = useMemo(() => parseRecipients(recipientsText), [recipientsText]);
   const canSend = subject.trim() && body.trim() && valid.length > 0 && !busy && !needsLeague;
@@ -82,7 +102,14 @@ export default function BroadcastTab() {
     setBusy(true); setMsg('');
     // Flet den valgte ligas tilmeldingslink ind hvor [LINK] står.
     const finalBody = joinLink ? body.split(LINK_TOKEN).join(joinLink) : body;
-    const res = await callSendBroadcastEmail({ subject: subject.trim(), body: finalBody.trim(), recipients: valid });
+    const res = await callSendBroadcastEmail({
+      subject: subject.trim(),
+      body: finalBody.trim(),
+      recipients: valid,
+      // Salgstale-skabelon: serveren bygger HTML'en med skærmbilleder + gul
+      // tilmeldingsblok; teksten ovenfor bliver mailens personlige intro.
+      ...(useTemplate ? { template: 'salespitch', joinLink, leagueName: selectedLeague?.name } : {}),
+    });
     setBusy(false);
     if (!res.ok) { setMsg('Fejl: ' + res.error); return; }
     const d = res.data || {};
@@ -94,13 +121,22 @@ export default function BroadcastTab() {
     <div>
       <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>📣 Send mail</h2>
       <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
-        Skriv en besked og send den til en liste af modtagere — fx en invitation til familie og venner.
-        Vælg en liga, så erstattes <strong>[LINK]</strong> i teksten med ligaens direkte
-        tilmeldingslink: modtageren oprettes, godkendes og tilmeldes ligaen med ét klik.
+        Send invitationen til familie og venner. Med <strong>salgstale-skabelonen</strong> sendes
+        den flotte mail med skærmbilleder og den gule tilmeldingsblok — teksten nedenfor bliver
+        mailens personlige intro, og knappen i den gule blok er ligaens direkte tilmeldingslink
+        (modtageren oprettes, godkendes og tilmeldes med ét klik).
         Adresser kan adskilles med komma, semikolon, mellemrum eller linjeskift.
       </p>
 
       <div style={{ display: 'grid', gap: '0.75rem', maxWidth: 680 }}>
+        <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+          <input
+            type="checkbox" checked={useTemplate} onChange={toggleTemplate}
+            data-testid="broadcast-template"
+          />
+          📸 Brug salgstale-skabelonen (skærmbilleder + gul tilmeldingsblok)
+        </label>
+
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
           Emne
           <input
@@ -110,7 +146,9 @@ export default function BroadcastTab() {
         </label>
 
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-          Invitér til liga ([LINK] i teksten bliver til ligaens tilmeldingslink)
+          {useTemplate
+            ? 'Invitér til liga (den gule knap i mailen bliver ligaens tilmeldingslink)'
+            : 'Invitér til liga ([LINK] i teksten bliver til ligaens tilmeldingslink)'}
           <select
             value={leagueId} onChange={(e) => setLeagueId(e.target.value)}
             style={{ ...inputStyle, marginTop: '0.25rem' }} data-testid="broadcast-league"
@@ -127,13 +165,15 @@ export default function BroadcastTab() {
           )}
           {needsLeague && (
             <span style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.78rem', color: 'var(--c-warn)' }} data-testid="broadcast-needs-league">
-              Teksten indeholder [LINK] — vælg en liga (eller fjern [LINK]) for at kunne sende.
+              {useTemplate
+                ? 'Vælg en liga — skabelonens gule knap skal pege på en liga-tilmelding.'
+                : 'Teksten indeholder [LINK] — vælg en liga (eller fjern [LINK]) for at kunne sende.'}
             </span>
           )}
         </label>
 
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-          Besked
+          {useTemplate ? 'Personlig intro (står øverst i mailen — resten kommer fra skabelonen)' : 'Besked'}
           <textarea
             value={body} onChange={(e) => setBody(e.target.value)} rows={12}
             style={{ ...inputStyle, marginTop: '0.25rem', resize: 'vertical', fontFamily: 'inherit' }}

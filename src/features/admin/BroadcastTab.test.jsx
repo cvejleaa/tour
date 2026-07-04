@@ -44,22 +44,35 @@ describe('BroadcastTab', () => {
     expect(screen.getByTestId('broadcast-count').textContent).toMatch(/2 gyldige/);
   });
 
-  it('sender beskeden med emne, tekst og gyldige modtagere — og fletter ligaens tilmeldingslink ind', async () => {
+  it('sender salgstale-skabelonen (standard) med liga-link og intro', async () => {
     render(<BroadcastTab />);
     fireEvent.change(screen.getByTestId('broadcast-recipients'), { target: { value: 'a@b.dk, ugyldig' } });
-    // Standardteksten indeholder [LINK] → en liga skal vælges før der kan sendes.
     fireEvent.change(screen.getByTestId('broadcast-league'), { target: { value: 'lg1' } });
     fireEvent.click(screen.getByTestId('broadcast-send'));
     await waitFor(() => expect(mockSend).toHaveBeenCalled());
     const arg = mockSend.mock.calls[0][0];
     expect(arg.recipients).toEqual(['a@b.dk']); // ugyldig frasorteret
     expect(arg.subject).toBeTruthy();
-    // [LINK] er erstattet med det direkte tilmeldingslink for den valgte liga.
+    expect(arg.template).toBe('salespitch');
+    expect(arg.joinLink).toContain('/tilmeld?kode=X4KR2M');
+    expect(arg.leagueName).toBe('Familie-ligaen');
+    expect(arg.body).toBeTruthy(); // introen
+  });
+
+  it('ren tekst-tilstand: [LINK] flettes ind i brødteksten, ingen skabelon', async () => {
+    render(<BroadcastTab />);
+    fireEvent.click(screen.getByTestId('broadcast-template')); // slå skabelon FRA
+    fireEvent.change(screen.getByTestId('broadcast-recipients'), { target: { value: 'a@b.dk' } });
+    fireEvent.change(screen.getByTestId('broadcast-league'), { target: { value: 'lg1' } });
+    fireEvent.click(screen.getByTestId('broadcast-send'));
+    await waitFor(() => expect(mockSend).toHaveBeenCalled());
+    const arg = mockSend.mock.calls[0][0];
+    expect(arg.template).toBeUndefined();
     expect(arg.body).toContain('/tilmeld?kode=X4KR2M');
     expect(arg.body).not.toContain('[LINK]');
   });
 
-  it('blokerer afsendelse når teksten har [LINK] men ingen liga er valgt', () => {
+  it('blokerer afsendelse når skabelonen er valgt uden liga', () => {
     render(<BroadcastTab />);
     fireEvent.change(screen.getByTestId('broadcast-recipients'), { target: { value: 'a@b.dk' } });
     expect(screen.getByTestId('broadcast-needs-league')).toBeInTheDocument();
