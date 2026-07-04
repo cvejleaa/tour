@@ -1,7 +1,23 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { mapPosts, fetchLiveTickerCore } = require('./liveTicker');
+const { mapPosts, fetchLiveTickerCore, cleanText } = require('./liveTicker');
+
+describe('cleanText', () => {
+  it('konverterer <br /> til linjeskift (fejlen fra etape 1-tickeren)', () => {
+    expect(cleanText('Lidl-Trek er 0,07 sekunder foran ved km 10,5!<br />Hvis Netcompany Ineos holder stand…'))
+      .toBe('Lidl-Trek er 0,07 sekunder foran ved km 10,5!\nHvis Netcompany Ineos holder stand…');
+    expect(cleanText('a<BR>b<br/>c')).toBe('a\nb\nc');
+  });
+  it('fjerner øvrige tags og afkoder gængse entities', () => {
+    expect(cleanText('<p>Pogacar &amp; Vingegaard</p>')).toBe('Pogacar & Vingegaard');
+    expect(cleanText('22&#39;49&quot;')).toBe('22’49"');
+    expect(cleanText('a&nbsp;b')).toBe('a b');
+  });
+  it('kollapser overskydende linjeskift og trimmer', () => {
+    expect(cleanText('  a<br /><br /><br />b  ')).toBe('a\n\nb');
+  });
+});
 
 const RAW = [
   { id: 1, title: 'Etapen er i gang!', text: ['Afsted fra Barcelona.'], picto: 'liv_actual_start', publicationAt: '2026-07-04T17:05:00+02:00', pinned: false, highlight: true },

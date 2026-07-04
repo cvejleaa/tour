@@ -14,6 +14,27 @@
 const RACECENTER = 'https://racecenter.letour.fr/api';
 
 /**
+ * Rens letours opslags-tekst: teksterne indeholder rå HTML (<br />, af og til
+ * andre tags og entities), som frontenden ellers ville vise bogstaveligt.
+ * <br>/<p> bliver linjeskift, øvrige tags fjernes, gængse entities afkodes.
+ */
+function cleanText(s) {
+  return String(s ?? '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#0?39;|&apos;|&rsquo;/gi, '’')
+    .replace(/&quot;/gi, '"')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * Normalisér racecenter-opslag til det frontend viser. Nyeste først;
  * pinned-opslag øverst (letours egen fremhævning).
  * @param {Array} json  rå publication_da-payload
@@ -25,8 +46,8 @@ function mapPosts(json, limit = 30) {
     .filter((p) => p && (p.title || (Array.isArray(p.text) && p.text.length)))
     .map((p) => ({
       id: p.id ?? p._id ?? p.slug ?? null,
-      title: String(p.title || '').trim(),
-      text: Array.isArray(p.text) ? p.text.map((t) => String(t)).join('\n\n') : String(p.text || ''),
+      title: cleanText(p.title || ''),
+      text: Array.isArray(p.text) ? p.text.map(cleanText).filter(Boolean).join('\n\n') : cleanText(p.text || ''),
       picto: p.picto || null,
       publicationAt: p.publicationAt || p.createdAt || null,
       pinned: !!p.pinned,
@@ -83,4 +104,4 @@ async function fetchLiveTickerCore({
   return value;
 }
 
-module.exports = { RACECENTER, mapPosts, fetchLiveTickerCore };
+module.exports = { RACECENTER, cleanText, mapPosts, fetchLiveTickerCore };
