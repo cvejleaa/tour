@@ -12,6 +12,7 @@ import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
 import { teamWorldRank, riderWorldRank } from '../data/uciRanking2026';
 import { splitRiderName } from '../features/teams/riderName';
+import { riderInfo, profileLabel } from '../data/ridersTdf2026';
 
 function RiderList({ riders, starNames, teamCode }) {
   // Beregn verdensrang én gang og sortér holdet efter placering (bedst først);
@@ -21,7 +22,9 @@ function RiderList({ riders, starNames, teamCode }) {
     // startlister bager landet ind i navnet som "Ben Healy (Irland)").
     .map((r) => {
       const { name, country } = splitRiderName(r?.name, r?.country);
-      return { name, country, wr: riderWorldRank(name, teamCode) };
+      // Officiel letour-info: startnummer + profiltype (kaptajn/bjerg/sprint/allround)
+      const info = riderInfo(name, teamCode);
+      return { name, country, wr: riderWorldRank(name, teamCode), info };
     })
     .sort((a, b) => {
       const ra = a.wr ? a.wr.rank : Infinity;
@@ -32,18 +35,34 @@ function RiderList({ riders, starNames, teamCode }) {
 
   return (
     <ul data-testid="rider-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
-      {rows.map(({ name, country, wr }, i) => {
+      {rows.map(({ name, country, wr, info }, i) => {
         const isDane = country === 'Danmark';
         const isStar = starNames?.has(normRiderName(name));
+        const prof = info ? profileLabel(info.profile) : null;
         return (
           <li
             key={`${name || i}`}
             data-testid="rider-row"
-            style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.92rem' }}
+            style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.92rem', flexWrap: 'wrap' }}
           >
+            {info && (
+              <span
+                className="badge badge--muted"
+                title="Startnummer"
+                data-testid="rider-bib"
+                style={{ fontSize: '0.7rem', fontVariantNumeric: 'tabular-nums', minWidth: '2.2rem', textAlign: 'center' }}
+              >
+                #{info.bib}
+              </span>
+            )}
             {isStar && <span title="Hovednavn">⭐</span>}
             <span style={{ fontWeight: isDane || isStar ? 800 : 600 }}>{name || '—'}</span>
             {isDane && <span title="Dansk rytter">🇩🇰</span>}
+            {prof && (
+              <span className="badge badge--blue" title="Letours profiltype" data-testid="rider-profile" style={{ fontSize: '0.7rem' }}>
+                {prof.emoji} {prof.label}
+              </span>
+            )}
             {wr && (
               <span className="badge badge--muted" title="UCI verdensrang" style={{ fontSize: '0.7rem' }}>
                 🌍 #{wr.rank} · {wr.points.toLocaleString('da-DK')} p
