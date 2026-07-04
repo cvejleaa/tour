@@ -99,6 +99,19 @@ export default function DashboardPage() {
       {/* Dansk live-dækning fra letour.fr, mens etapen kører */}
       <LiveTicker stage={liveStage} enabled={!!liveStage} />
 
+      {/* Genvej: fra etapestart må alle se hinandens tips — direkte herfra,
+          i stedet for Etaper → find etapen → fold ud. */}
+      {liveStage && (
+        <div className="card" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+            👀 Etape {liveStage.number} er i gang — se hvad de andre har tippet
+          </span>
+          <Link className="btn btn--sm" to={`/etape/${liveStage.number}`} data-testid="live-answers-link" style={{ marginLeft: 'auto' }}>
+            Se alles tips →
+          </Link>
+        </div>
+      )}
+
       <TodoCard />
 
       {/* Næste etape at tippe */}

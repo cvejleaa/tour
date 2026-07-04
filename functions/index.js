@@ -335,25 +335,15 @@ async function syncTourCore(db, { dryRun = false } = {}) {
       // Årets data (mindst én 2026-etape afgjort) → overskriver evt. sidste-års-preview.
       await writeClassifications(latest.number, latest.payload, latest.jerseys, false);
     } else {
-      // Ingen 2026-etape afgjort endnu. Vis sidste års stilling som tydeligt markeret
-      // preview (proxyen returnerer forrige TdF). Skrives KUN hvis der ikke allerede
-      // findes et klassement-dokument — så ægte 2026-data (previousYear:false) aldrig
-      // overskrives, og previewet ikke genskrives i hver kørsel. Nulstilles automatisk
-      // når grenen ovenfor skriver årets data.
+      // Ingen NY etape afgjort i denne kørsel. Sidste-års-previewet (skrevet
+      // før løbsstart) er UDTJENT nu hvor løbet er i gang: står der stadig et
+      // preview (previousYear:true), ryddes det, så Tour-siden viser den rene
+      // "Afventer..."-fallback indtil første 2026-resultat lander. Ægte
+      // 2026-data (previousYear:false) røres aldrig. Preview-genskrivningen
+      // er fjernet med vilje — den hørte tiden FØR løbsstart til.
       const cur = await db.collection('config').doc('classifications').get();
-      if (!cur.exists) {
-        for (let n = stages.length; n >= 1; n -= 1) {
-          const r = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
-          if (!r.ok) continue;
-          const payload = await r.json();
-          const upd = buildStageUpdate(payload, gcTopN);
-          if (!upd.resultsPresent) continue;
-          await writeClassifications(n, payload, upd.jerseys, true);
-          previousYear = true;
-          break;
-        }
-      } else {
-        previousYear = cur.data()?.previousYear === true;
+      if (cur.exists && cur.data()?.previousYear === true) {
+        await cur.ref.delete();
       }
     }
   }

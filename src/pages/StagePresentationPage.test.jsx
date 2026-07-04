@@ -15,6 +15,10 @@ vi.mock('firebase/firestore', () => ({
 
 vi.mock('../features/stages/useStages', () => ({ useStages: vi.fn() }));
 vi.mock('../features/stages/useActiveSeason', () => ({ useActiveSeason: () => 2026 }));
+// StageAnswers henter bets + auth — mockes; her testes kun HVORNÅR den vises.
+vi.mock('../features/stages/StageAnswers', () => ({
+  default: () => <div data-testid="stage-answers-mock" />,
+}));
 
 import StagePresentationPage from './StagePresentationPage';
 import { useStages } from '../features/stages/useStages';

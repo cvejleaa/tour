@@ -115,7 +115,11 @@ export default function StagePresentationPage() {
   const typeLabel = STAGE_TYPE_LABEL[stage.type] || STAGE_TYPE_LABEL.unknown;
   const longDate = formatLongDate(stage);
   const active = activeQuestionsForStage(stage);
-  const isDone = stageStatus(stage, Date.now()) === 'done';
+  const status = stageStatus(stage, Date.now());
+  const isDone = status === 'done';
+  // Fra etapestart (låst) må alle se hinandens tips — reglerne åbner læsning
+  // ved kickoff, så visningen skal ikke vente på facit.
+  const showAnswers = status === 'locked' || isDone;
 
   // Præsentations-felter: foretræk seedet værdi, ellers den statiske rute.
   const profileImage = stage.profileImage || staticStage?.profileImage || null;
@@ -246,10 +250,11 @@ export default function StagePresentationPage() {
           </ul>
         </section>
 
-        {/* Facit + alles tips + etapens top – kun når etapen er afgjort. */}
-        {isDone && (
+        {/* Alles tips fra etapestart; facit + etapens top kommer til, når
+            resultatet lander. */}
+        {showAnswers && (
           <section style={{ marginBottom: '1rem' }} data-testid="stage-results">
-            <h3 style={{ marginBottom: '0.4rem' }}>Resultat &amp; alles tips</h3>
+            <h3 style={{ marginBottom: '0.4rem' }}>{isDone ? 'Resultat & alles tips' : 'Alles tips (etapen er i gang)'}</h3>
             <StageAnswers stage={stage} points={points} gcTopN={gcTopN} />
           </section>
         )}
