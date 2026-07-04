@@ -5,6 +5,7 @@ import { TasksProvider } from './context/TasksContext';
 
 import LoginPage from './pages/LoginPage';
 import PendingPage from './pages/PendingPage';
+import JoinPage from './pages/JoinPage';
 import DashboardPage from './pages/DashboardPage';
 import StagesPage from './pages/StagesPage';
 import StagePresentationPage from './pages/StagePresentationPage';
@@ -28,6 +29,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/afventer" element={<PendingPage />} />
+          {/* Liga-invitationslink: virker for både nye, afventende og godkendte brugere */}
+          <Route path="/tilmeld" element={<JoinPage />} />
           <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/etaper" element={<ProtectedRoute><StagesPage /></ProtectedRoute>} />
           <Route path="/etape/:number" element={<ProtectedRoute><StagePresentationPage /></ProtectedRoute>} />

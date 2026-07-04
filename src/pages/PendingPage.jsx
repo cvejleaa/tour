@@ -7,6 +7,7 @@ import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { USER_STATUS } from '../lib/constants';
 import { redeemInviteCode } from '../features/auth/inviteActions';
+import { getPendingJoinCode, clearPendingJoinCode } from '../features/leagues/joinLink';
 
 export default function PendingPage() {
   const { user, status, loading } = useAuth();
@@ -18,13 +19,13 @@ export default function PendingPage() {
   const [redeemError, setRedeemError] = useState('');
   const [redeemOk, setRedeemOk] = useState('');
 
-  async function handleRedeem(e) {
-    e.preventDefault();
+  async function redeem(rawCode) {
     setRedeemError('');
     setRedeemOk('');
     setRedeeming(true);
     try {
-      const { leagueName } = await redeemInviteCode(code);
+      const { leagueName } = await redeemInviteCode(rawCode);
+      clearPendingJoinCode();
       setRedeemOk(`Godkendt! Du er tilmeldt "${leagueName}". Sender dig videre…`);
       // Statusskiftet (pending→approved) opdaterer automatisk via AuthContext,
       // men vi navigerer også eksplicit for en hurtig oplevelse.
@@ -35,6 +36,22 @@ export default function PendingPage() {
       setRedeeming(false);
     }
   }
+
+  async function handleRedeem(e) {
+    e.preventDefault();
+    await redeem(code);
+  }
+
+  // Kom brugeren via et invitationslink (/tilmeld?kode=…), ligger koden gemt:
+  // udfyld feltet og indløs den AUTOMATISK — modtageren skal ikke taste noget.
+  useEffect(() => {
+    if (loading || !user || status !== USER_STATUS.PENDING) return;
+    const stored = getPendingJoinCode();
+    if (!stored || redeeming || redeemOk) return;
+    setCode(stored);
+    redeem(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user, status]);
 
   // Redirect til forsiden hvis brugeren allerede er godkendt
   useEffect(() => {

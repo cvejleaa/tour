@@ -38,6 +38,7 @@ import LeagueWall from '../features/comments/LeagueWall';
 import LeagueTipCounter from '../features/leagues/LeagueTipCounter';
 import LeagueActivity from '../features/leagues/LeagueActivity';
 import { tryLogActivity, ACTIVITY } from '../features/leagues/activityActions';
+import { joinLinkFor } from '../features/leagues/joinLink';
 
 // ── Liga-kort (listevisning) ─────────────────────────────────────────────────
 function LeagueCard({ league, standings, meUid, onOpen }) {
@@ -126,6 +127,21 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
     try { await regenerateJoinCode(league.id); }
     catch (e) { setActionError(e.message); }
     finally { setRegenerating(false); }
+  }
+
+  // Kopiér et delbart invitationslink (/tilmeld?kode=…) — modtageren tilmeldes
+  // automatisk, også selv om vedkommende først skal oprette en bruger.
+  const [copyMsg, setCopyMsg] = useState('');
+  async function handleCopyLink() {
+    const link = joinLinkFor(league.joinCode);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyMsg('Link kopieret! Send det til dem, du vil invitere.');
+    } catch {
+      // Clipboard kan være blokeret (http/ældre browser) — vis linket i stedet.
+      setCopyMsg(link);
+    }
+    setTimeout(() => setCopyMsg(''), 6000);
   }
 
   const isOwner = league.ownerUid === meUid;
@@ -265,6 +281,15 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
             <span className="badge badge--muted">
               Kode: <strong>{league.joinCode}</strong>
             </span>
+            <button
+              className="btn--icon" title="Kopiér invitationslink"
+              aria-label="Kopiér invitationslink"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '0.9rem' }}
+              onClick={handleCopyLink}
+              data-testid="copy-join-link"
+            >
+              🔗
+            </button>
             {isOwner && (
               <button
                 className="btn--icon" title="Generér ny invitationskode"
@@ -280,6 +305,11 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
             <span className="badge badge--muted" title="Liga-format">⚙️ {scoringLabel(scoring)}</span>
             {isLeagueAdmin && !isOwner && <span className="badge badge--green">du er liga-admin</span>}
           </div>
+          {copyMsg && (
+            <p className="text-muted" style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', wordBreak: 'break-all' }} data-testid="copy-join-link-msg">
+              {copyMsg}
+            </p>
+          )}
         </div>
 
         {/* Format-valg (kun liga-ejer / global admin) — kombinerbare dele */}
