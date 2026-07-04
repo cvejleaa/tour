@@ -45,6 +45,7 @@ const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
 const { salesPitchHtml } = require('./salesPitch');
+const { fetchLiveTickerCore } = require('./liveTicker');
 const { runGenerateStageTips } = require('./stageTip');
 
 // Initialiser Firebase Admin (singleton)
@@ -1600,5 +1601,24 @@ exports.migrateEmailPrivacy = onCall(
 
     for (const b of batches) await b.commit();
     return { ok: true, moved, alreadyClean, totalUsers: usersSnap.size };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// getLiveTicker — callable: dansk live-ticker fra letour racecenter under
+// etapen. Browser kan ikke hente den selv (ingen CORS), så den går her
+// igennem med et 45 sek. server-cache-vindue — uanset hvor mange spillere
+// der følger med, rammer vi letour højst ~1 gang i minuttet pr. etape.
+// ---------------------------------------------------------------------------
+const liveTickerCache = new Map();
+exports.getLiveTicker = onCall(
+  { region: REGION },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    return fetchLiveTickerCore({
+      stageNumber: request.data?.stage,
+      fetchImpl: fetchWithTimeout,
+      cache: liveTickerCache,
+    });
   }
 );

@@ -18,6 +18,8 @@ import { stageStatus } from '../lib/tourStages';
 import { placeholderRoute2026 } from '../data/route2026';
 import Hero from '../components/Hero';
 import StageCard from '../features/stages/StageCard';
+import LiveTicker from '../features/live/LiveTicker';
+import { isTodayInCopenhagen } from '../features/live/liveTickerUtils';
 import MyStatsCard from '../features/dashboard/MyStatsCard';
 import MiniStandings from '../features/dashboard/MiniStandings';
 import RecentResultsCard from '../features/dashboard/RecentResultsCard';
@@ -48,6 +50,16 @@ export default function DashboardPage() {
       .filter((s) => stageStatus(s, Date.now()) === 'scheduled')
       .sort((a, b) => a.number - b.number);
     return open[0] || null;
+  }, [stages]);
+
+  // Dagens LIVE etape: startet i dag (dansk tid) — tickeren følger med hele
+  // aftenen (også efter målgang, hvor mål-opslagene lander).
+  const liveStage = useMemo(() => {
+    const now = Date.now();
+    return stages.find((s) => {
+      const st = stageStatus(s, now);
+      return (st === 'locked' || st === 'done') && isTodayInCopenhagen(s.kickoff);
+    }) || null;
   }, [stages]);
 
   // Forsidens stilling viser kun de spillere, man deler en liga med (plus én selv) —
@@ -83,6 +95,9 @@ export default function DashboardPage() {
       />
 
       <OnboardingChecklist uid={user?.uid} />
+
+      {/* Dansk live-dækning fra letour.fr, mens etapen kører */}
+      <LiveTicker stage={liveStage} enabled={!!liveStage} />
 
       <TodoCard />
 

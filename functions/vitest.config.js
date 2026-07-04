@@ -18,6 +18,7 @@ export default defineConfig({
       'stageTip.test.js',
       'startlistSync.test.js',
       'salesPitch.test.js',
+      'liveTicker.test.js',
     ],
     exclude: [
       'rules.test.js',
