@@ -158,6 +158,12 @@ def scrape_stage(stage: int) -> dict[str, Any]:
         if url:
             frag = _get(url)
             rows = parse_team_table(frag) if is_team else parse_rider_table(frag)
+            if not rows and code == "ite":
+                # HOLDTIDSKØRSEL: etape-resultatet er en HOLD-tabel
+                # (plads/hold/tid), ikke rytterrækker — fx etape 1 i 2026.
+                # parse_team_table sætter team_name (og rider_name=holdnavn),
+                # som er præcis hvad det hold-baserede spil scorer på.
+                rows = parse_team_table(frag)
         classifications[key] = {"label": label, "jersey": jersey, "rows": rows}
 
     results_present = bool(classifications["etape"]["rows"])
