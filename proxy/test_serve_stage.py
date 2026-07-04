@@ -97,4 +97,40 @@ out = svc.serve_stage(2)
 assert out["marker"] == "STALE-2025-TEST"
 print("4) skrab-fejl → cachen serveres som fallback ✓")
 
+
+def _empty(ref):
+    CALLS["n"] += 1
+    return {"results_present": False, "meta": {"date": None}, "marker": "EMPTY"}
+
+
+# 5) TOM skrabning må ikke fortrænge et godt (ikke-final) facit.
+svc = make_service()
+good = {"results_present": True, "meta": {"date": None}, "marker": "GOOD"}
+svc.cache.set_stage(2026, 1, dict(good))
+tdf_results._letour_scrape_stage = _empty
+sys.modules["letour_results"].scrape_stage = _empty
+out = svc.serve_stage(1)
+assert out["marker"] == "GOOD", f"forventede GOOD, fik {out['marker']}"
+assert svc.cache.get_stage(2026, 1)["marker"] == "GOOD"
+print("5) tom skrabning fortrænger ikke et godt facit ✓")
+
+# 6) TTL gælder også UDEN cache: én skrabning pr. vindue, derefter None (425).
+svc = make_service()
+CALLS["n"] = 0
+out = svc.serve_stage(3)
+assert out["marker"] == "EMPTY" and CALLS["n"] == 1
+out = svc.serve_stage(3)
+assert out is None and CALLS["n"] == 1, "TTL skulle have forhindret nyt scrape uden cache"
+print("6) ukørt etape: højst ét scrape pr. TTL-vindue (derefter 425) ✓")
+
+# 7) Efterfølger-finalitet: har etape n+1 resultater, fryses etape n
+#    (letour-payloads har meta.date=None og kan aldrig blive dato-finale).
+svc = make_service()
+svc.cache.set_stage(2026, 1, dict(good))
+svc.cache.set_stage(2026, 2, {"results_present": True, "meta": {"date": None}, "marker": "NEXT"})
+CALLS["n"] = 0
+out = svc.serve_stage(1)
+assert out["marker"] == "GOOD" and CALLS["n"] == 0, "etape 1 skulle være frosset via etape 2"
+print("7) senere etape med resultat fryser tidligere etaper ✓")
+
 print("\nAlle serve_stage-tests bestået.")

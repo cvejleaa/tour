@@ -18,10 +18,13 @@ sys.modules.setdefault("requests", types.ModuleType("requests"))
 
 import letour_results  # noqa: E402
 
-# 2026 TTT-side: ajax-stacken har "ete" (hold-etape) — INGEN "ite".
+# 2026 TTT-side: ajax-stacken har "ete" (hold-etape) — INGEN "ite". De
+# KUMULATIVE point-klassementer (ipg/img) er med; per-etape (ipe/ime) mangler.
 PAGE_TTT = """
 <div data-ajax-stack='{"ete":"\\/en\\/ajax\\/ranking\\/1\\/ete\\/aaa111\\/none",
 "itg":"\\/en\\/ajax\\/ranking\\/1\\/itg\\/bbb222\\/none",
+"ipg":"\\/en\\/ajax\\/ranking\\/1\\/ipg\\/eee555\\/none",
+"img":"\\/en\\/ajax\\/ranking\\/1\\/img\\/fff666\\/none",
 "etg":"\\/en\\/ajax\\/ranking\\/1\\/etg\\/ccc333\\/none"}'></div>
 """
 
@@ -48,7 +51,17 @@ RIDER_TABLE = """
 </tbody></table>
 """
 
-FRAGMENTS = {"aaa111": TEAM_TABLE, "bbb222": RIDER_TABLE, "ccc333": TEAM_TABLE, "ddd444": RIDER_TABLE}
+POINTS_TABLE = """
+<table><thead>
+<tr><th>Rank</th><th>Rider</th><th>Rider No.</th><th>Team</th><th>Points</th><th>Gap</th></tr>
+</thead><tbody>
+<tr><td>1</td><td><a href="/en/rider/y" class="rankingTables__row__profile--name">J. PHILIPSEN</a></td>
+<td>31</td><td>ALPECIN - DECEUNINCK</td><td>50 PTS</td><td>-</td></tr>
+</tbody></table>
+"""
+
+FRAGMENTS = {"aaa111": TEAM_TABLE, "bbb222": RIDER_TABLE, "ccc333": TEAM_TABLE,
+             "ddd444": RIDER_TABLE, "eee555": POINTS_TABLE, "fff666": POINTS_TABLE}
 CURRENT_PAGE = {"html": PAGE_TTT}
 
 
@@ -75,6 +88,13 @@ print("1) 2026-TTT: 'ete' findes og parses som hold-tabel ✓")
 samlet = data["classifications"]["samlet"]["rows"]
 assert len(samlet) == 1 and samlet[0]["rider_name"] == "J. VINGEGAARD"
 print("2) GC-rytter-tabellen uændret ✓")
+
+# 2b) Kumulative point-klassementer (ipg/img) eksponeres som sprintKlass/bjergKlass.
+sk = data["classifications"]["sprintKlass"]["rows"]
+bk = data["classifications"]["bjergKlass"]["rows"]
+assert len(sk) == 1 and sk[0]["rider_name"] == "J. PHILIPSEN" and sk[0]["points"] == 50
+assert len(bk) == 1 and bk[0]["points"] == 50
+print("2b) ipg/img → sprintKlass/bjergKlass med point ✓")
 
 # 3) Normal etape (ite, rytterrækker) fungerer som hidtil.
 CURRENT_PAGE["html"] = PAGE_NORMAL

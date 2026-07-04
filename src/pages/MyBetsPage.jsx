@@ -97,8 +97,10 @@ export default function MyBetsPage() {
           >
             {totalPoints}
           </div>
+          {/* Ærlig etiket: summen her er KUN point fra afgivne tip — evt.
+              -1-straffe for utippede etaper ligger i stillingen, ikke her. */}
           <div style={{ fontSize: '0.78rem', color: 'var(--c-muted)', fontWeight: 600 }}>
-            Point i alt
+            Point fra dine tips
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>

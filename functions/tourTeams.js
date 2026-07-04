@@ -11,17 +11,6 @@ function normalizeTeam(name) {
     .replace(/[^a-z0-9]/g, '');
 }
 
-function teamKeyFromRow(row) {
-  const url = row && row.team_url;
-  if (url) {
-    const slug = String(url).split('/').pop() || '';
-    const noYear = slug.replace(/-\d{4}$/, '');
-    if (noYear) return noYear;
-  }
-  const name = row && row.team_name;
-  return name ? normalizeTeam(name) : null;
-}
-
 // ALIAS-tabel: samme hold under FORSKELLIGE navne i letours egne kilder
 // (holdliste: "Netcompany Ineos"; resultattabeller: "INEOS GRENADIERS").
 // Normalisering kan ikke bygge bro over et sponsorskifte — kendte varianter
@@ -34,6 +23,19 @@ const TEAM_ALIASES = {
 function canonicalTeamKey(name) {
   const key = normalizeTeam(name);
   return TEAM_ALIASES[key] || key;
+}
+
+function teamKeyFromRow(row) {
+  const url = row && row.team_url;
+  if (url) {
+    const slug = String(url).split('/').pop() || '';
+    const noYear = slug.replace(/-\d{4}$/, '');
+    // Alias-opslag også på slug'en, så et hold aldrig får to nøgler
+    // fordi kilderne bruger forskellige navne/slugs.
+    if (noYear) return TEAM_ALIASES[normalizeTeam(noYear)] || noYear;
+  }
+  const name = row && row.team_name;
+  return name ? canonicalTeamKey(name) : null;
 }
 
 function sameTeam(a, b) {

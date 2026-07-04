@@ -113,17 +113,14 @@ async def stages() -> dict:
 
 @app.get("/api/stages/{n}")
 async def stage(n: int) -> dict:
-    # serve_stage: final → cache; ikke-final → gen-scrape (TTL-begrænset).
-    # Cachen kan dermed ALDRIG fryse forældede data fast på en åben etape.
+    # serve_stage: final → cache; ikke-final → gen-scrape (TTL-begrænset,
+    # også når intet er cachet endnu). Cachen kan dermed ALDRIG fryse
+    # forældede data fast på en åben etape — og 425-pollere på en ukørt
+    # etape udløser højst ét letour-scrape pr. TTL.
     try:
         data = await asyncio.to_thread(service.serve_stage, n)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    if data is None:
-        try:
-            data = await asyncio.to_thread(service.refresh_stage, n)
-        except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
     if not data or not data.get("results_present"):
         raise HTTPException(status_code=425, detail="resultat ikke klar endnu")
     return data

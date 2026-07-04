@@ -28,6 +28,11 @@ describe('teamKeyFromRow', () => {
   it('falder tilbage til normaliseret team_name uden url', () => {
     expect(teamKeyFromRow({ team_name: 'Soudal Quick-Step' })).toBe('soudalquickstep');
   });
+  it('alias-varianter giver den KANONISKE nøgle (ingen dublet-docs)', () => {
+    expect(teamKeyFromRow({ team_name: 'INEOS GRENADIERS' })).toBe('netcompanyineos');
+    expect(teamKeyFromRow({ team_name: 'NETCOMPANY INEOS CYCLING TEAM' })).toBe('netcompanyineos');
+    expect(teamKeyFromRow({ team_url: 'team/ineos-grenadiers-2026' })).toBe('netcompanyineos');
+  });
   it('null uden hold', () => {
     expect(teamKeyFromRow({})).toBeNull();
   });
@@ -67,6 +72,14 @@ describe('teamsFromRows (selv-udfyldning)', () => {
     expect(teams).toHaveLength(2);
     expect(teams).toContainEqual({ key: 'uae-team-emirates', name: 'UAE Team Emirates' });
     expect(teams).toContainEqual({ key: 'cofidis', name: 'Cofidis' });
+  });
+  it('alias-varianter smelter sammen til ÉT hold', () => {
+    const teams = teamsFromRows([
+      { rider_name: 'A', team_name: 'INEOS GRENADIERS' },
+      { rider_name: 'B', team_name: 'NETCOMPANY INEOS CYCLING TEAM' },
+    ]);
+    expect(teams).toHaveLength(1);
+    expect(teams[0].key).toBe('netcompanyineos');
   });
 });
 

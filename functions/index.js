@@ -39,7 +39,7 @@ const TZ = 'Europe/Copenhagen';
 
 const { scoreStageBet, normalizePodium, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage, stageTipComplete } = require('./tourScoring');
 const { buildStageUpdate, syncStageInfoCore } = require('./tourSync');
-const { classificationStandings, stageResultRows } = require('./pcsMapping');
+const { classificationStandings, stageResultRows, needsPrevForPoints } = require('./pcsMapping');
 const { syncStartlistCore } = require('./startlistSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -213,10 +213,15 @@ exports.recomputeStage = onDocumentWritten(
     let ops = 0;
     const batches = [batch];
     const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+    const changedUids = new Set();
     for (const d of betsSnap.docs) {
       const { points: pts } = scoreStageBet(d.data(), after.result, points, active);
+      // Skriv (og genberegn) kun når pointtallet faktisk ændrer sig — jury-
+      // vinduets gen-syncs rører ellers hvert eneste bet-doc hvert 5. minut.
+      if (Number(d.data().points) === pts) continue;
       batch.update(d.ref, { points: pts });
       bump();
+      changedUids.add(d.data().uid);
     }
 
     // HÅNDHÆV utippet-straffen ens for ALLE: en godkendt spiller helt UDEN
@@ -225,13 +230,18 @@ exports.recomputeStage = onDocumentWritten(
     // med straffens point (scoreStageBet({}) = -straf når facit findes, ellers
     // 0 — så oprettes intet). Doc-id uid_stageId matcher klientens skema, og
     // ved senere facit-ændringer genscorer løkken ovenfor dokumentet korrekt.
+    // SCOPING: straffen gælder kun den AKTIVE sæson (et historisk facit må
+    // aldrig strafe nuværende spillere), og kun spillere der var oprettet før
+    // etapestart — man får ikke -1 for etaper kørt før man meldte sig til.
     const betUids = new Set(betsSnap.docs.map((d) => d.data().uid));
     const { points: penaltyPts } = scoreStageBet({}, after.result, points, active);
-    const penalized = [];
-    if (penaltyPts !== 0) {
+    if (penaltyPts !== 0 && season === activeSeason) {
+      const kickoffMs = after.kickoff?.toDate ? after.kickoff.toDate().getTime() : null;
       const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
       for (const u of usersSnap.docs) {
         if (betUids.has(u.id)) continue;
+        const createdMs = u.data().createdAt?.toDate ? u.data().createdAt.toDate().getTime() : null;
+        if (kickoffMs && createdMs && createdMs > kickoffMs) continue; // tilmeldt efter etapen
         batch.set(db.collection('stageBets').doc(`${u.id}_${stageId}`), {
           uid: u.id, stageId, season,
           points: penaltyPts,
@@ -239,13 +249,17 @@ exports.recomputeStage = onDocumentWritten(
           createdAt: FieldValue.serverTimestamp(),
         }, { merge: true });
         bump();
-        penalized.push(u.id);
+        changedUids.add(u.id);
       }
     }
     for (const b of batches) await b.commit();
 
-    const uids = [...new Set([...betUids, ...penalized])];
-    for (const uid of uids) await recalcTourTotal(db, uid, season, activeSeason);
+    // Kun spillere med ÆNDREDE point genberegnes — parallelt i små bidder.
+    const uids = [...changedUids];
+    const CHUNK = 10;
+    for (let i = 0; i < uids.length; i += CHUNK) {
+      await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcTourTotal(db, uid, season, activeSeason)));
+    }
   },
 );
 
@@ -287,8 +301,34 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     const r = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
     if (r.status === 425 || !r.ok) continue; // resultat ikke klar
     const payload = await r.json();
-    const upd = buildStageUpdate(payload, gcTopN);
+    // 2026-stakken: mangler per-etape sprint-/bjergpoint (ipe/ime), regnes
+    // Q3/Q4 som delta af de kumulative klassementer — hent forrige etape.
+    // Kan n-1 ikke hentes, springes etapen over (delta mod ingenting ville
+    // give hele den kumulative stilling som etape-facit); næste 5-min-kørsel
+    // prøver igen.
+    let prevPayload = null;
+    if (needsPrevForPoints(payload)) {
+      try {
+        const pr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n - 1}`);
+        if (pr.ok) prevPayload = await pr.json();
+      } catch { /* håndteres af null-tjekket herunder */ }
+      if (!prevPayload) continue;
+    }
+    const upd = buildStageUpdate(payload, gcTopN, prevPayload);
     if (!upd.resultsPresent) continue;
+
+    // KVALITETSGATE i jury-vinduet: et allerede afgjort facit må kun
+    // overskrives af et MINDST lige så komplet et. Får letour et hikke
+    // (halvtom tabel midt i en gen-scrape), ville sidste sync-cyklus ellers
+    // kunne fryse et forkrøblet facit fast for altid. Jury-rettelser ændrer
+    // point/placeringer — ikke antallet af rækker (±enkelte udgåede ryttere),
+    // så 80 % af det hidtidige antal er en sikker undergrænse.
+    const rowCount = (payload?.classifications?.etape?.rows || []).length;
+    const prevCount = Number(exData?.resultRowCount) || 0;
+    if (exData?.status === 'done' && prevCount > 0 && rowCount < prevCount * 0.8) {
+      continue; // beskadiget/ufuldstændig tabel — behold det gamle facit
+    }
+
     if (!latest || n > latest.number) latest = { number: n, payload, jerseys: upd.jerseys };
     upd.teams.forEach((t) => allTeams.set(t.key, t.name));
     if (!dryRun) {
@@ -301,6 +341,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
         startCity: upd.meta.startCity,
         finishCity: upd.meta.finishCity,
         km: upd.meta.km,
+        resultRowCount: rowCount,
         resultUpdatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     }

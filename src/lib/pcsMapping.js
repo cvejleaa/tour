@@ -72,22 +72,44 @@ export function deltaPointsList(payload, prevPayload, key) {
 }
 
 /**
+ * True hvis payloadet MANGLER per-etape sprint-/bjergpoint men HAR de
+ * kumulative klassementer — så skal kalderen skaffe forrige etapes payload
+ * (prevCumulative) for at Q3/Q4 kan regnes som delta. Etape 1 behøver ingen
+ * forrige (delta mod tom = kumulativ = korrekt).
+ */
+export function needsPrevForPoints(payload) {
+  const missing = (stageKey, cumKey) =>
+    classRows(payload, stageKey).length === 0 && classRows(payload, cumKey).length > 0;
+  return (Number(payload?.number) || 0) > 1
+    && (missing('sprint', 'sprintKlass') || missing('bjerg', 'bjergKlass'));
+}
+
+/**
  * Byg input til resolveStageResult() ud fra et PCS-payload.
  * @param {object} payload  /api/stages/{n}
  * @param {object} [opts]
  * @param {number} [opts.gcTopN]  top-N til Q2
  * @param {object} [opts.prevPayload]  forrige etape — udløser delta-baserede Q3/Q4
+ * @param {object} [opts.prevCumulative]  forrige etape — bruges KUN som delta-
+ *   basis for de kumulative klassementer (sprintKlass/bjergKlass) når letour
+ *   ikke leverer per-etape-point (ipe/ime mangler i 2026-stakken).
  */
-export function pcsToStageInput(payload, { gcTopN, prevPayload } = {}) {
+export function pcsToStageInput(payload, { gcTopN, prevPayload, prevCumulative } = {}) {
   const useDelta = prevPayload !== undefined;
+  const pick = (stageKey, cumKey) => {
+    if (useDelta) return deltaPointsList(payload, prevPayload, stageKey);
+    const perStage = pointsListFromPcs(payload, stageKey);
+    if (perStage.length) return perStage;
+    // letour 2026: per-etape-koderne mangler → kumulativ klassement-delta.
+    if (classRows(payload, cumKey).length) {
+      return deltaPointsList(payload, prevCumulative ?? null, cumKey);
+    }
+    return perStage;
+  };
   return {
     finishOrder: finishOrderFromPcs(payload),
-    mountainPoints: useDelta
-      ? deltaPointsList(payload, prevPayload, 'bjerg')
-      : pointsListFromPcs(payload, 'bjerg'),
-    sprintPoints: useDelta
-      ? deltaPointsList(payload, prevPayload, 'sprint')
-      : pointsListFromPcs(payload, 'sprint'),
+    mountainPoints: pick('bjerg', 'bjergKlass'),
+    sprintPoints: pick('sprint', 'sprintKlass'),
     gcTopN,
   };
 }
@@ -101,8 +123,10 @@ export function jerseyHolders(payload) {
   const rider = (key) => top(key)?.rider_name ?? null;
   return {
     yellow: rider('samlet'),
-    green: rider('sprint'),
-    polka: rider('bjerg'),
+    // Trøjen bæres af KLASSEMENTETS fører — foretræk de kumulative
+    // klassementer (2026-stakken); per-etape-listen er kun fallback.
+    green: rider('sprintKlass') ?? rider('sprint'),
+    polka: rider('bjergKlass') ?? rider('bjerg'),
     white: rider('ungdom'),
     teamLead: top('hold')?.team_name ?? null,
   };
@@ -127,10 +151,17 @@ function standingRow(r, i) {
  * topN rækker hver. Bruges af Tour-stillingssiden.
  * @returns {{samlet:Array, sprint:Array, bjerg:Array, ungdom:Array, hold:Array}}
  */
+// Stillingen i point-konkurrencerne er den KUMULATIVE klassement-stilling —
+// foretræk 2026-stakkens ipg/img (sprintKlass/bjergKlass) når de findes;
+// per-etape-listen (kun én etapes point) er fallback.
+const CUMULATIVE_PREF = { sprint: 'sprintKlass', bjerg: 'bjergKlass' };
+
 export function classificationStandings(payload, topN = 200) {
   const out = {};
   for (const key of COMPETITIONS) {
-    out[key] = classRows(payload, key).slice(0, topN).map(standingRow);
+    const cum = CUMULATIVE_PREF[key] ? classRows(payload, CUMULATIVE_PREF[key]) : [];
+    const rows = cum.length ? cum : classRows(payload, key);
+    out[key] = rows.slice(0, topN).map(standingRow);
   }
   return out;
 }

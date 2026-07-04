@@ -3,7 +3,7 @@
  * personlig velkomst, "Mine opgaver", næste etape at tippe, seneste resultater
  * og placering. Selve etapelisten bor på sin egen side (/etaper).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useStandings } from '../features/leaderboard/useStandings';
@@ -45,28 +45,36 @@ export default function DashboardPage() {
   // Brug rigtige etaper hvis de findes, ellers placeholder-ruten for sæsonen.
   const stages = dbStages.length ? dbStages : placeholderRoute2026(season);
 
+  // Minut-puls: "næste etape"/"live etape" afhænger af klokken (kickoff,
+  // målgang, midnat). Uden pulsen genberegnes memo'erne kun når etape-listen
+  // ændrer sig — siden skulle så genindlæses for at skifte kort/tekst.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   // Næste etape = den KRONOLOGISK næste åbne etape (den der starter først og
   // stadig kan tippes) — ikke den næste utippede. Så "Næste etape" matcher det
   // man forventer (fx etape 1 før løbet er gået i gang), uanset hvor mange man
   // allerede har tippet. Nudget til at tippe ligger i "Mine opgaver" ovenfor.
   const nextStage = useMemo(() => {
     const open = stages
-      .filter((s) => stageStatus(s, Date.now()) === 'scheduled')
+      .filter((s) => stageStatus(s, now) === 'scheduled')
       .sort((a, b) => a.number - b.number);
     return open[0] || null;
-  }, [stages]);
+  }, [stages, now]);
 
   // Dagens LIVE etape: startet i dag (dansk tid) — tickeren følger med hele
   // aftenen (også efter målgang, hvor mål-opslagene lander). `done` styrer
   // fold-ud-kortets tekst ("i gang" vs. "afgjort").
   const { liveStage, liveStageDone } = useMemo(() => {
-    const now = Date.now();
     const s = stages.find((st) => {
       const status = stageStatus(st, now);
       return (status === 'locked' || status === 'done') && isTodayInCopenhagen(st.kickoff);
     }) || null;
     return { liveStage: s, liveStageDone: s ? stageStatus(s, now) === 'done' : false };
-  }, [stages]);
+  }, [stages, now]);
 
   // Forsidens stilling viser kun de spillere, man deler en liga med (plus én selv) —
   // samme afgrænsning som Stilling-siden bruger som standard.

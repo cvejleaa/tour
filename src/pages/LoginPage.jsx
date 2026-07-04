@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAuthActions } from '../features/auth/useAuthActions';
+import { getPendingJoinCode } from '../features/leagues/joinLink';
 
 // Interne fane-konstanter
 const TAB_LOGIN  = 'login';
@@ -23,13 +24,17 @@ export default function LoginPage() {
   const [localError, setLocalError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Redirect hvis allerede logget ind
+  // Redirect hvis allerede logget ind. Kom man fra et invitationslink
+  // (gemt kode), fortsættes til /tilmeld så ligaen faktisk indløses —
+  // ellers ville en godkendt bruger lande på forsiden med koden ubrugt.
   useEffect(() => {
     if (!user) return;
-    if (isApproved) {
-      navigate('/', { replace: true });
-    } else {
+    if (!isApproved) {
       navigate('/afventer', { replace: true });
+    } else if (getPendingJoinCode()) {
+      navigate('/tilmeld', { replace: true });
+    } else {
+      navigate('/', { replace: true });
     }
   }, [user, isApproved, navigate]);
 

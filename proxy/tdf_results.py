@@ -142,6 +142,17 @@ class StageResultsService:
         except Exception:
             return False
 
+    def _final_by_succession(self, n: int) -> bool:
+        """letour-payloads har INGEN dato (meta.date=None), så dato-reglen kan
+        aldrig erklære dem finale — hver decideret etape ville gen-scrapes hvert
+        4. minut resten af touren. Men har en SENERE etape resultater, er etape
+        n uigenkaldeligt afgjort → cachen kan serveres uden nyt scrape."""
+        for m in (n + 1, n + 2):
+            later = self.cache.get_stage(self.year, m)
+            if later and later.get("results_present"):
+                return True
+        return False
+
     def refresh_stage(self, n: int, stage_url: str | None = None, force: bool = False) -> dict[str, Any]:
         """
         Henter (eller genhenter) en etape. Springer over hvis allerede 'final'
@@ -181,14 +192,25 @@ class StageResultsService:
         cached = self.cache.get_stage(self.year, n)
         if cached and self._is_final(cached):
             return cached
+        # Afgjort via efterfølger-etape (letour har ingen datoer i payloadet).
+        if cached and cached.get("results_present") and self._final_by_succession(n):
+            return cached
         now = time.monotonic()
-        if cached and (now - self._last_refresh.get(n, -1e9)) < self.REFRESH_TTL_S:
+        # TTL gælder OGSÅ uden cache — endpointet er offentligt, og uden
+        # spærren ville hvert eneste request på en ukørt etape udløse et
+        # fuldt letour-scrape. None → API'et svarer 425 uden nyt scrape.
+        if (now - self._last_refresh.get(n, -1e9)) < self.REFRESH_TTL_S:
             return cached
         self._last_refresh[n] = now
         try:
-            return self.refresh_stage(n, force=True)
+            fresh = self.refresh_stage(n, force=True)
         except Exception:
             return cached
+        # En tom/halv skrabning (letour-hikke) må ALDRIG fortrænge et godt
+        # facit — behold cachen til letour svarer ordentligt igen.
+        if cached and cached.get("results_present") and not fresh.get("results_present"):
+            return cached
+        return fresh
 
     def refresh_latest(self) -> dict[str, Any] | None:
         """

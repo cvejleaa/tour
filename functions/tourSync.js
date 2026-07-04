@@ -12,11 +12,15 @@ const { teamsFromRows } = require('./tourTeams');
 /**
  * @param {object} payload  proxy /api/stages/{n}
  * @param {number} [gcTopN] top-N til Q2
+ * @param {object} [prevPayload] proxy /api/stages/{n-1} — delta-basis for de
+ *   KUMULATIVE point-klassementer (2026-stakken mangler per-etape ipe/ime på
+ *   nogle etaper). Kun nødvendig når needsPrevForPoints(payload) er true.
  * @returns {{result, jerseys, meta, teams, resultsPresent}}
  */
-function buildStageUpdate(payload, gcTopN) {
-  // letour leverer sprint/bjerg PÅ etapen (ikke kumulativt), så ingen delta.
-  const input = pcsToStageInput(payload, { gcTopN });
+function buildStageUpdate(payload, gcTopN, prevPayload = null) {
+  // letour leverer sprint/bjerg PÅ etapen når ipe/ime findes; ellers regnes
+  // delta af de kumulative klassementer (sprintKlass/bjergKlass) mod n-1.
+  const input = pcsToStageInput(payload, { gcTopN, prevCumulative: prevPayload });
   const result = resolveStageResult(input);
   const etapeRows = (payload && payload.classifications && payload.classifications.etape
     && payload.classifications.etape.rows) || [];

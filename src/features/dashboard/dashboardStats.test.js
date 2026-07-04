@@ -28,18 +28,23 @@ const betsByStage = {
 };
 
 describe('computeMyStats', () => {
-  it('beregner tippede etaper, ramte hold og point', () => {
+  it('beregner tippede etaper, ramte hold og point (inkl. -1 for utippet)', () => {
     const s = computeMyStats(stages, betsByStage);
     expect(s.tips).toBe(2); // etape 1 + 3 tippet og afgjort
     expect(s.hits).toBe(5); // 4 på etape 1 + 1 (winner) på etape 3
-    expect(s.points).toBeGreaterThan(0);
+    // Totalen INKLUDERER utippet-straffen på etape 2 (-1) — så "point i alt"
+    // matcher stillingen: etape1 (5+4+3+3=15) - 1 + etape3 (5) = 19.
+    expect(s.points).toBe(19);
+    // Snit over de 3 etaper der talte (2 tippede + 1 straffet): 19/3 ≈ 6.3
+    expect(s.avgPoints).toBe(6.3);
     // 8 afgjorte felter på de to tippede etaper → 5/8 = 63%
     expect(s.hitPct).toBe(63);
   });
 
-  it('returnerer nuller uden tips', () => {
-    expect(computeMyStats(stages, {})).toMatchObject({ tips: 0, points: 0, hitPct: 0 });
-    expect(computeMyStats([], {})).toMatchObject({ tips: 0 });
+  it('uden tips tælles KUN straffene', () => {
+    // 3 afgjorte etaper uden tip → -3 point i alt.
+    expect(computeMyStats(stages, {})).toMatchObject({ tips: 0, points: -3, hitPct: 0 });
+    expect(computeMyStats([], {})).toMatchObject({ tips: 0, points: 0 });
   });
 });
 
@@ -48,7 +53,8 @@ describe('recentResults', () => {
     const rows = recentResults(stages, betsByStage, {}, 5);
     expect(rows.map((r) => r.stage.id)).toEqual(['2026-stage-3', '2026-stage-2', '2026-stage-1']);
     expect(rows[0].points).toBeGreaterThan(0); // u1 ramte winner på etape 3
-    expect(rows[1].points).toBeNull(); // intet tip på etape 2
+    expect(rows[1].points).toBe(-1); // intet tip på etape 2 → straffen vises
+    expect(rows[1].bet).toBeNull();
   });
 
   it('respekterer limit', () => {

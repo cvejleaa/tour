@@ -47,6 +47,11 @@ CLASS_MAP = [
     ("itg", "samlet", "Samlet (GC)",    "gul",     False),
     ("ijg", "ungdom", "Ungdom",         "hvid",    False),
     ("etg", "hold",   "Holdkonkurrence", "—",      True),
+    # 2026-stakken har KUMULATIVE point-klassementer (ipg/img) — per-etape-
+    # koderne (ipe/ime) mangler på nogle etaper. Eksponér dem separat;
+    # scoringen regner selv delta (etape n minus n-1) når per-etape mangler.
+    ("ipg", "sprintKlass", "Sprint (samlet)", "grøn",    False),
+    ("img", "bjergKlass",  "Bjerg (samlet)",  "prikket", False),
 ]
 
 # 2026-siderne bruger andre koder på visse etaper: på HOLDTIDSKØRSLEN hedder

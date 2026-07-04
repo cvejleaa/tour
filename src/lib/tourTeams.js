@@ -24,22 +24,6 @@ export function normalizeTeam(name) {
 }
 
 /**
- * Udleder en stabil hold-nøgle af en PCS-resultatrække. Foretrækker team_url
- * (uden årstal-suffiks), falder tilbage til normaliseret team_name.
- * "team/uae-team-emirates-xrg-2025" → "uae-team-emirates-xrg".
- */
-export function teamKeyFromRow(row) {
-  const url = row && row.team_url;
-  if (url) {
-    const slug = String(url).split('/').pop() || '';
-    const noYear = slug.replace(/-\d{4}$/, '');
-    if (noYear) return noYear;
-  }
-  const name = row && row.team_name;
-  return name ? normalizeTeam(name) : null;
-}
-
-/**
  * ALIAS-tabel: samme hold optræder under FORSKELLIGE navne i letours egne
  * kilder — holdlisten/racecenteret siger fx "Netcompany Ineos", mens
  * resultat-/rankingtabellerne (timing-leverandøren) skriver "INEOS
@@ -56,6 +40,23 @@ export const TEAM_ALIASES = {
 export function canonicalTeamKey(name) {
   const key = normalizeTeam(name);
   return TEAM_ALIASES[key] || key;
+}
+
+/**
+ * Udleder en stabil hold-nøgle af en PCS-resultatrække. Foretrækker team_url
+ * (uden årstal-suffiks), falder tilbage til KANONISK team_name-nøgle, så
+ * navnevarianter (alias-tabellen) aldrig giver samme hold to nøgler.
+ * "team/uae-team-emirates-xrg-2025" → "uae-team-emirates-xrg".
+ */
+export function teamKeyFromRow(row) {
+  const url = row && row.team_url;
+  if (url) {
+    const slug = String(url).split('/').pop() || '';
+    const noYear = slug.replace(/-\d{4}$/, '');
+    if (noYear) return TEAM_ALIASES[normalizeTeam(noYear)] || noYear;
+  }
+  const name = row && row.team_name;
+  return name ? canonicalTeamKey(name) : null;
 }
 
 /** True hvis to holdnavne/-nøgler refererer til samme hold (normaliseret + alias). */

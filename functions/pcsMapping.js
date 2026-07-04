@@ -45,17 +45,30 @@ function deltaPointsList(payload, prevPayload, key) {
     .filter((e) => e.points > 0);
 }
 
+function needsPrevForPoints(payload) {
+  const missing = (stageKey, cumKey) =>
+    classRows(payload, stageKey).length === 0 && classRows(payload, cumKey).length > 0;
+  return (Number(payload?.number) || 0) > 1
+    && (missing('sprint', 'sprintKlass') || missing('bjerg', 'bjergKlass'));
+}
+
 function pcsToStageInput(payload, opts = {}) {
-  const { gcTopN, prevPayload } = opts;
+  const { gcTopN, prevPayload, prevCumulative } = opts;
   const useDelta = prevPayload !== undefined;
+  const pick = (stageKey, cumKey) => {
+    if (useDelta) return deltaPointsList(payload, prevPayload, stageKey);
+    const perStage = pointsListFromPcs(payload, stageKey);
+    if (perStage.length) return perStage;
+    // letour 2026: per-etape-koderne mangler → kumulativ klassement-delta.
+    if (classRows(payload, cumKey).length) {
+      return deltaPointsList(payload, prevCumulative ?? null, cumKey);
+    }
+    return perStage;
+  };
   return {
     finishOrder: finishOrderFromPcs(payload),
-    mountainPoints: useDelta
-      ? deltaPointsList(payload, prevPayload, 'bjerg')
-      : pointsListFromPcs(payload, 'bjerg'),
-    sprintPoints: useDelta
-      ? deltaPointsList(payload, prevPayload, 'sprint')
-      : pointsListFromPcs(payload, 'sprint'),
+    mountainPoints: pick('bjerg', 'bjergKlass'),
+    sprintPoints: pick('sprint', 'sprintKlass'),
     gcTopN,
   };
 }
@@ -65,8 +78,10 @@ function jerseyHolders(payload) {
   const rider = (key) => top(key)?.rider_name ?? null;
   return {
     yellow: rider('samlet'),
-    green: rider('sprint'),
-    polka: rider('bjerg'),
+    // Trøjen bæres af KLASSEMENTETS fører — foretræk de kumulative
+    // klassementer (2026-stakken); per-etape-listen er kun fallback.
+    green: rider('sprintKlass') ?? rider('sprint'),
+    polka: rider('bjergKlass') ?? rider('bjerg'),
     white: rider('ungdom'),
     teamLead: top('hold')?.team_name ?? null,
   };
@@ -84,10 +99,16 @@ function standingRow(r, i) {
   };
 }
 
+// Stillingen i point-konkurrencerne er den KUMULATIVE klassement-stilling —
+// foretræk 2026-stakkens ipg/img (sprintKlass/bjergKlass) når de findes.
+const CUMULATIVE_PREF = { sprint: 'sprintKlass', bjerg: 'bjergKlass' };
+
 function classificationStandings(payload, topN = 200) {
   const out = {};
   for (const key of COMPETITIONS) {
-    out[key] = classRows(payload, key).slice(0, topN).map(standingRow);
+    const cum = CUMULATIVE_PREF[key] ? classRows(payload, CUMULATIVE_PREF[key]) : [];
+    const rows = cum.length ? cum : classRows(payload, key);
+    out[key] = rows.slice(0, topN).map(standingRow);
   }
   return out;
 }
@@ -114,6 +135,7 @@ module.exports = {
   finishOrderFromPcs,
   pointsListFromPcs,
   deltaPointsList,
+  needsPrevForPoints,
   pcsToStageInput,
   jerseyHolders,
   classificationStandings,

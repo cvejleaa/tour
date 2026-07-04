@@ -23,6 +23,14 @@ describe('teamsFromRows', () => {
     expect(teams).toHaveLength(2);
     expect(teams).toContainEqual({ key: 'uae-team-emirates', name: 'UAE Team Emirates' });
   });
+  it('alias-varianter smelter sammen til ÉT hold med kanonisk nøgle', () => {
+    const teams = teamsFromRows([
+      { team_name: 'INEOS GRENADIERS' },
+      { team_name: 'NETCOMPANY INEOS CYCLING TEAM' },
+    ]);
+    expect(teams).toHaveLength(1);
+    expect(teams[0].key).toBe('netcompanyineos');
+  });
 });
 
 
