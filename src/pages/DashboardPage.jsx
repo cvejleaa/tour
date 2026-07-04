@@ -57,13 +57,15 @@ export default function DashboardPage() {
   }, [stages]);
 
   // Dagens LIVE etape: startet i dag (dansk tid) — tickeren følger med hele
-  // aftenen (også efter målgang, hvor mål-opslagene lander).
-  const liveStage = useMemo(() => {
+  // aftenen (også efter målgang, hvor mål-opslagene lander). `done` styrer
+  // fold-ud-kortets tekst ("i gang" vs. "afgjort").
+  const { liveStage, liveStageDone } = useMemo(() => {
     const now = Date.now();
-    return stages.find((s) => {
-      const st = stageStatus(s, now);
-      return (st === 'locked' || st === 'done') && isTodayInCopenhagen(s.kickoff);
+    const s = stages.find((st) => {
+      const status = stageStatus(st, now);
+      return (status === 'locked' || status === 'done') && isTodayInCopenhagen(st.kickoff);
     }) || null;
+    return { liveStage: s, liveStageDone: s ? stageStatus(s, now) === 'done' : false };
   }, [stages]);
 
   // Forsidens stilling viser kun de spillere, man deler en liga med (plus én selv) —
@@ -113,7 +115,11 @@ export default function DashboardPage() {
           onToggle={(e) => setAnswersOpen(e.currentTarget.open)}
         >
           <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <span>👀 Etape {liveStage.number} er i gang — se hvad de andre har tippet</span>
+            <span>
+              {liveStageDone
+                ? `🏁 Etape ${liveStage.number} er afgjort — se resultatet og alles tips`
+                : `👀 Etape ${liveStage.number} er i gang — se hvad de andre har tippet`}
+            </span>
             <span className="badge badge--blue">{answersOpen ? 'fold sammen' : 'fold ud'}</span>
           </summary>
           {answersOpen && (
