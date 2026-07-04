@@ -3,7 +3,7 @@
  * personlig velkomst, "Mine opgaver", næste etape at tippe, seneste resultater
  * og placering. Selve etapelisten bor på sin egen side (/etaper).
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useStandings } from '../features/leaderboard/useStandings';
@@ -18,6 +18,7 @@ import { stageStatus } from '../lib/tourStages';
 import { placeholderRoute2026 } from '../data/route2026';
 import Hero from '../components/Hero';
 import StageCard from '../features/stages/StageCard';
+import StageAnswers from '../features/stages/StageAnswers';
 import LiveTicker from '../features/live/LiveTicker';
 import { isTodayInCopenhagen } from '../features/live/liveTickerUtils';
 import MyStatsCard from '../features/dashboard/MyStatsCard';
@@ -31,7 +32,10 @@ export default function DashboardPage() {
   const { standings } = useStandings();
   const { leagues, loading: leaguesLoading } = useLeagues(user?.uid);
   const season = useActiveSeason();
-  const { points: stagePoints } = useTourSettings();
+  const { points: stagePoints, gcTopN } = useTourSettings();
+  // Fold-ud af "alles tips" på forsiden — indholdet renderes (og bets hentes)
+  // først når man faktisk åbner den.
+  const [answersOpen, setAnswersOpen] = useState(false);
   const { stages: dbStages, loading: stagesLoading } = useStages(season);
   const { teams } = useTeams(season);
   const { betsByStage } = useMyStageBets(user?.uid ?? null, season);
@@ -99,17 +103,25 @@ export default function DashboardPage() {
       {/* Dansk live-dækning fra letour.fr, mens etapen kører */}
       <LiveTicker stage={liveStage} enabled={!!liveStage} />
 
-      {/* Genvej: fra etapestart må alle se hinandens tips — direkte herfra,
-          i stedet for Etaper → find etapen → fold ud. */}
+      {/* Alles tips DIREKTE på forsiden fra etapestart — fold ud, færdig.
+          (Reglerne åbner læsning af andres tips ved kickoff.) */}
       {liveStage && (
-        <div className="card" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-            👀 Etape {liveStage.number} er i gang — se hvad de andre har tippet
-          </span>
-          <Link className="btn btn--sm" to={`/etape/${liveStage.number}`} data-testid="live-answers-link" style={{ marginLeft: 'auto' }}>
-            Se alles tips →
-          </Link>
-        </div>
+        <details
+          className="card"
+          style={{ marginBottom: '1rem' }}
+          data-testid="live-answers"
+          onToggle={(e) => setAnswersOpen(e.currentTarget.open)}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span>👀 Etape {liveStage.number} er i gang — se hvad de andre har tippet</span>
+            <span className="badge badge--blue">{answersOpen ? 'fold sammen' : 'fold ud'}</span>
+          </summary>
+          {answersOpen && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <StageAnswers stage={liveStage} points={stagePoints} gcTopN={gcTopN} />
+            </div>
+          )}
+        </details>
       )}
 
       <TodoCard />

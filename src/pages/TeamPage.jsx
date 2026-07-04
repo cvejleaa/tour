@@ -15,8 +15,9 @@ import { splitRiderName } from '../features/teams/riderName';
 import { riderInfo, profileLabel } from '../data/ridersTdf2026';
 
 function RiderList({ riders, starNames, teamCode }) {
-  // Beregn verdensrang én gang og sortér holdet efter placering (bedst først);
-  // ryttere uden for ranglisten sidst, derefter alfabetisk.
+  // Sortér efter STARTNUMMER (kaptajnen bærer holdets laveste nummer — det er
+  // sådan startlister læses). Ryttere uden kendt bib sidst, dér efter
+  // verdensrang og til sidst alfabetisk.
   const rows = riders
     // Normalisér navn/land, så hold fra forskellige kilder vises ens (nogle
     // startlister bager landet ind i navnet som "Ben Healy (Irland)").
@@ -27,6 +28,9 @@ function RiderList({ riders, starNames, teamCode }) {
       return { name, country, wr: riderWorldRank(name, teamCode), info };
     })
     .sort((a, b) => {
+      const ba = a.info ? a.info.bib : Infinity;
+      const bb = b.info ? b.info.bib : Infinity;
+      if (ba !== bb) return ba - bb;
       const ra = a.wr ? a.wr.rank : Infinity;
       const rb = b.wr ? b.wr.rank : Infinity;
       if (ra !== rb) return ra - rb;

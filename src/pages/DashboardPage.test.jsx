@@ -37,6 +37,11 @@ vi.mock('../context/TasksContext', () => ({
 vi.mock('../features/live/useLiveTicker', () => ({
   useLiveTicker: () => ({ posts: [], updatedAt: null, failed: false }),
 }));
+// StageAnswers henter bets fra Firestore — stub'et (fold-ud'en renderes kun
+// for en live etape, og fixturen har ingen).
+vi.mock('../features/stages/StageAnswers', () => ({
+  default: () => <div data-testid="stage-answers-mock" />,
+}));
 
 function renderPage() {
   return render(<MemoryRouter><DashboardPage /></MemoryRouter>);
