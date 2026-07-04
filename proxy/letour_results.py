@@ -49,6 +49,15 @@ CLASS_MAP = [
     ("etg", "hold",   "Holdkonkurrence", "—",      True),
 ]
 
+# 2026-siderne bruger andre koder på visse etaper: på HOLDTIDSKØRSLEN hedder
+# etape-resultatet "ete" (équipe-étape = HOLD-tabel), og "ite" findes slet
+# ikke i sidens ajax-stack. Prøv kandidaterne i rækkefølge; koder i
+# TEAM_CODES parses som holdtabel uanset CLASS_MAP-flaget.
+CODE_CANDIDATES = {
+    "ite": ["ite", "ete"],
+}
+TEAM_CODES = {"etg", "ete"}
+
 
 def _get(path: str) -> str:
     r = requests.get(LETOUR_BASE + path, headers=HEADERS, timeout=60)
@@ -154,16 +163,20 @@ def scrape_stage(stage: int) -> dict[str, Any]:
     classifications: dict[str, Any] = {}
     for code, key, label, jersey, is_team in CLASS_MAP:
         rows: list[dict[str, Any]] = []
-        url = urls.get(code)
-        if url:
-            frag = _get(url)
-            rows = parse_team_table(frag) if is_team else parse_rider_table(frag)
+        used = None
+        for cand in CODE_CANDIDATES.get(code, [code]):
+            if urls.get(cand):
+                used = cand
+                break
+        if used:
+            frag = _get(urls[used])
+            as_team = is_team or used in TEAM_CODES
+            rows = parse_team_table(frag) if as_team else parse_rider_table(frag)
             if not rows and code == "ite":
-                # HOLDTIDSKØRSEL: etape-resultatet er en HOLD-tabel
-                # (plads/hold/tid), ikke rytterrækker — fx etape 1 i 2026.
-                # parse_team_table sætter team_name (og rider_name=holdnavn),
-                # som er præcis hvad det hold-baserede spil scorer på.
-                rows = parse_team_table(frag)
+                # Sikkerhedsnet: giver rytter-parseren intet på etape-
+                # resultatet, prøves hold-parseren (og omvendt) — så en
+                # uventet tabel-form aldrig efterlader os uden facit.
+                rows = parse_rider_table(frag) if as_team else parse_team_table(frag)
         classifications[key] = {"label": label, "jersey": jersey, "rows": rows}
 
     results_present = bool(classifications["etape"]["rows"])
