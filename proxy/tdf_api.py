@@ -113,9 +113,13 @@ async def stages() -> dict:
 
 @app.get("/api/stages/{n}")
 async def stage(n: int) -> dict:
-    data = service.get_stage(n)
+    # serve_stage: final → cache; ikke-final → gen-scrape (TTL-begrænset).
+    # Cachen kan dermed ALDRIG fryse forældede data fast på en åben etape.
+    try:
+        data = await asyncio.to_thread(service.serve_stage, n)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     if data is None:
-        # Endnu ikke cachet → forsøg en hentning (fx hvis du tilgår en gammel etape).
         try:
             data = await asyncio.to_thread(service.refresh_stage, n)
         except ValueError as e:
@@ -172,7 +176,9 @@ async def refresh(x_refresh_token: str | None = Header(default=None)) -> dict:
 async def refresh_one(n: int, x_refresh_token: str | None = Header(default=None)) -> dict:
     _check_token(x_refresh_token)
     try:
-        data = await asyncio.to_thread(service.refresh_stage, n)
+        # force=True: det manuelle endpoint skal ALTID kunne bryde en (evt.
+        # forkert) frosset etape op og scrape forfra.
+        data = await asyncio.to_thread(service.refresh_stage, n, None, True)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return {"refreshed": n, "results_present": data.get("results_present", False)}
