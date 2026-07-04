@@ -19,6 +19,25 @@ function esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** Én nummereret række (grøn cirkel + titel + tekst) — samme sprog som den
+ *  oprindelige salgstales bonus-blok. */
+function featureRow({ n, title, text, last }) {
+  return `
+    <tr><td style="padding:14px 0;${last ? '' : 'border-bottom:1px solid #eef3f0;'}">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+        <td width="34" valign="top" style="width:34px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td width="26" height="26" bgcolor="#0b6e4f" align="center" valign="middle" style="width:26px;height:26px;background:#0b6e4f;border-radius:13px;font-family:${FONT};color:#ffffff;font-size:13px;font-weight:bold;">${n}</td>
+          </tr></table>
+        </td>
+        <td valign="top" style="font-family:${FONT};">
+          <div style="font-family:${FONT};font-size:15px;line-height:21px;font-weight:bold;color:#12211b;">${title}</div>
+          <div style="font-family:${FONT};font-size:14px;line-height:20px;color:#28362f;padding-top:3px;">${text}</div>
+        </td>
+      </tr></table>
+    </td></tr>`;
+}
+
 /** Et hvidt kort med overskrift, tekst og et skærmbillede. */
 function screenshotCard({ kicker, title, text, img, alt }) {
   return `
@@ -94,6 +113,31 @@ function salesPitchHtml({ intro, joinLink, leagueName, appUrl = 'https://tour.ve
     img: `${appUrl}/salgstale/holdoversigt.png`,
     alt: 'Oversigt over de 23 hold',
   })}
+
+  <tr><td style="padding:0 0 22px 0;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:600px;background:#ffffff;border:1px solid #e3ece8;">
+      <tr><td style="padding:22px 26px 8px 26px;font-family:${FONT};">
+        <div style="font-family:${FONT};font-size:12px;font-weight:bold;color:#0b6e4f;letter-spacing:1px;text-transform:uppercase;">&#127942; ${league.charAt(0).toUpperCase() + league.slice(1)}</div>
+        <div style="font-family:${FONT};font-size:22px;font-weight:bold;color:#12211b;padding:6px 0 4px 0;">Det hele sker p&aring; liga-siden</div>
+        <div style="font-family:${FONT};font-size:15px;line-height:22px;color:#28362f;padding:0 0 6px 0;">Det er her de tre uger bliver SJOVE &mdash; jeres helt eget rum:</div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+          ${featureRow({ n: 1, title: 'Daglig stilling &mdash; kun mod hinanden', text: 'Se hvem der f&oslash;rer, hvem der haler ind, og hvem der f&aring;r pil ned. Opdateres automatisk hver aften, n&aring;r etapen er afgjort.' })}
+          ${featureRow({ n: 2, title: 'Liga-v&aelig;ggen + Tour-Botten &#129302;', text: 'Kommentarer, emoji-reaktioner og private beskeder &mdash; og hver morgen skriver Tour-Botten et opslag om nattens drama med k&aelig;rlige stikpiller til dagens taber.' })}
+          ${featureRow({ n: 3, title: 'Egne bonussp&oslash;rgsm&aring;l og "hvem har tippet?"', text: 'Ligaen kan stille sine egne sp&oslash;rgsm&aring;l, og I kan se hvem der mangler at tippe dagens etape &mdash; perfekt til at prikke til de sl&oslash;ve.', last: true })}
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:0 0 22px 0;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#eef6f1" style="width:600px;background:#eef6f1;border:1px solid #d9e8df;">
+      <tr><td style="padding:18px 26px;font-family:${FONT};font-size:14px;line-height:21px;color:#22302a;">
+        <b>Godt at vide, n&aring;r du er inde:</b><br>
+        &#10067; <b>Hj&aelig;lpesiden</b> forklarer alt p&aring; to minutter &mdash; tips, point, bonus og ligaer: <a href="${appUrl}/hjaelp" style="color:#0b6e4f;font-weight:bold;">${appUrl.replace('https://', '')}/hjaelp</a><br>
+        &#128578; <b>Din profil</b>: v&aelig;lg en emoji som profilbillede, s&aelig;t dit yndlingshold (farver hele appen!) og styr dine e-mail-p&aring;mindelser &mdash; du f&aring;r automatisk en venlig mail p&aring; etapedage, hvis du mangler at tippe (og kan sl&aring; den fra igen).
+      </td></tr>
+    </table>
+  </td></tr>
 
   <tr><td bgcolor="#f7d417" style="background:#f7d417;padding:28px 26px;text-align:center;">
     <div style="font-family:${FONT};font-size:22px;font-weight:bold;color:#12211b;">D&oslash;ren smækker kl. 17.05 &#9200;</div>

@@ -49,4 +49,20 @@ describe('salesPitchHtml', () => {
     expect(html).toContain('Sidste chance');
     expect(html).toContain('17.05');
   });
+
+  it('beskriver liga-siden (stilling, væg/bot, egne bonusspørgsmål)', () => {
+    const html = salesPitchHtml(opts);
+    expect(html).toContain('liga-siden');
+    expect(html).toContain('Daglig stilling');
+    expect(html).toContain('Tour-Botten');
+    expect(html).toContain('hvem har tippet?');
+  });
+
+  it('henviser til hjælpesiden og profil-mulighederne', () => {
+    const html = salesPitchHtml(opts);
+    expect(html).toContain('href="https://tour.vejleaa.dk/hjaelp"');
+    expect(html).toContain('Din profil');
+    expect(html).toContain('yndlingshold');
+    expect(html).toContain('p&aring;mindelser');
+  });
 });
