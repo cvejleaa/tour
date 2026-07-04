@@ -1,20 +1,37 @@
 // "Send mail"-fanen: skriv en fritekst-besked og send den til en liste af
 // modtagere (fx invitationer). Bruger Cloud Function sendBroadcastEmail.
+// Vælges en liga, flettes dens DIREKTE tilmeldingslink (/tilmeld?kode=…) ind
+// hvor [LINK] står i teksten — modtageren oprettes, godkendes og tilmeldes
+// ligaen automatisk med ét klik.
 import { useMemo, useState } from 'react';
 import { callSendBroadcastEmail } from './adminActions';
 import { parseRecipients } from './broadcastUtils';
 import { useUsers } from './useUsers';
+import { useAllLeagues } from '../leagues/useAllLeagues';
+import { joinLinkFor } from '../leagues/joinLink';
+import { LEAGUE_STATUS } from '../../lib/constants';
 
-const DEFAULT_SUBJECT = 'Kom og tab til mig i Tour de France 🚴💨';
-const DEFAULT_BODY = `Kære familie,
+/** Markør i brødteksten der erstattes med den valgte ligas tilmeldingslink. */
+const LINK_TOKEN = '[LINK]';
 
-Ingen af os ved en pind om cykling — og det er præcis derfor, det bliver sjovt. På tour.vejleaa.dk tipper du holdene før hver etape: etapevinder, bedste hold, bjerg- og sprintpoint. Ren magefornemmelse, to minutter om dagen, og lige vilkår for os alle sammen.
+const DEFAULT_SUBJECT = '🚨 SIDSTE CHANCE: Touren ruller i dag kl. 17.05 – er du med?';
+const DEFAULT_BODY = `Kære familie og venner,
 
-Og så er der bonusspørgsmål undervejs — store gæt om hele løbet, der giver ekstra point og kan vende stillingen på hovedet til allersidst. Så ingen er ude, før Paris er nået.
+I DAG kl. 17.05 ruller Tour de France ud fra Barcelona – og så smækker døren for at være med fra allerførste etape i vores tippespil. Det her bliver sommerens samtaleemne i tre uger. Vil du virkelig stå udenfor, når vi andre driller hinanden ved morgenbordet?
 
-Vores egen familie-liga, daglig stilling og fuld ret til at drille den, der ligger sidst. Opret en bruger, så hiver jeg dig ind.
+Det tager 2 minutter om dagen – og kræver NUL cykelviden:
+• Tip cykelhold på fire enkle spørgsmål før hver etape – ren mavefornemmelse
+• Bonusspørgsmål om gul trøje & co. kan vende HELE stillingen til allersidst
+• Vores egen liga med daglig stilling, live-resultater, trøje-overblik og en morgen-bot, der uddeler kærlige stikpiller
+• Alt samlet på tour.vejleaa.dk – og det spiller på mobilen
 
-Første etape ruller 4. juli. Held er også en evne — har du den?
+Og det er blevet nemmere end nogensinde at komme med. Klik på linket, opret dig med navn og adgangskode – så er du AUTOMATISK godkendt og med i vores liga. Intet at taste, ingen ventetid:
+
+${LINK_TOKEN}
+
+Første etape er en holdtidskørsel i Barcelona i aften – dit første tip venter allerede. I morgen er du enten med i snakken eller udenfor den.
+
+Held er også en evne. Har du den?
 
 Kærlig (men nådesløs) hilsen`;
 
@@ -36,8 +53,20 @@ export default function BroadcastTab() {
     [users],
   );
 
+  // Liga-invitation: vælg hvilken liga modtagerne inviteres med i.
+  // [LINK] i teksten erstattes ved afsendelse med ligaens /tilmeld-link.
+  const { leagues } = useAllLeagues();
+  const [leagueId, setLeagueId] = useState('');
+  const approvedLeagues = useMemo(
+    () => (leagues ?? []).filter((l) => l.status === LEAGUE_STATUS.APPROVED && l.joinCode),
+    [leagues],
+  );
+  const selectedLeague = approvedLeagues.find((l) => l.id === leagueId) ?? null;
+  const joinLink = selectedLeague ? joinLinkFor(selectedLeague.joinCode) : '';
+  const needsLeague = body.includes(LINK_TOKEN) && !selectedLeague;
+
   const { valid, invalid } = useMemo(() => parseRecipients(recipientsText), [recipientsText]);
-  const canSend = subject.trim() && body.trim() && valid.length > 0 && !busy;
+  const canSend = subject.trim() && body.trim() && valid.length > 0 && !busy && !needsLeague;
 
   // Tilføj godkendte spilleres mails til listen (uden dubletter, behold det skrevne).
   function addApproved() {
@@ -51,7 +80,9 @@ export default function BroadcastTab() {
     if (!canSend) return;
     if (!window.confirm(`Send beskeden til ${valid.length} modtager${valid.length === 1 ? '' : 'e'}?`)) return;
     setBusy(true); setMsg('');
-    const res = await callSendBroadcastEmail({ subject: subject.trim(), body: body.trim(), recipients: valid });
+    // Flet den valgte ligas tilmeldingslink ind hvor [LINK] står.
+    const finalBody = joinLink ? body.split(LINK_TOKEN).join(joinLink) : body;
+    const res = await callSendBroadcastEmail({ subject: subject.trim(), body: finalBody.trim(), recipients: valid });
     setBusy(false);
     if (!res.ok) { setMsg('Fejl: ' + res.error); return; }
     const d = res.data || {};
@@ -64,8 +95,9 @@ export default function BroadcastTab() {
       <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>📣 Send mail</h2>
       <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
         Skriv en besked og send den til en liste af modtagere — fx en invitation til familie og venner.
-        Adresser kan adskilles med komma, semikolon, mellemrum eller linjeskift. Teksten sendes som en
-        pæn e-mail med et link til siden.
+        Vælg en liga, så erstattes <strong>[LINK]</strong> i teksten med ligaens direkte
+        tilmeldingslink: modtageren oprettes, godkendes og tilmeldes ligaen med ét klik.
+        Adresser kan adskilles med komma, semikolon, mellemrum eller linjeskift.
       </p>
 
       <div style={{ display: 'grid', gap: '0.75rem', maxWidth: 680 }}>
@@ -75,6 +107,29 @@ export default function BroadcastTab() {
             type="text" value={subject} onChange={(e) => setSubject(e.target.value)}
             style={{ ...inputStyle, marginTop: '0.25rem' }} data-testid="broadcast-subject"
           />
+        </label>
+
+        <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+          Invitér til liga ([LINK] i teksten bliver til ligaens tilmeldingslink)
+          <select
+            value={leagueId} onChange={(e) => setLeagueId(e.target.value)}
+            style={{ ...inputStyle, marginTop: '0.25rem' }} data-testid="broadcast-league"
+          >
+            <option value="">– vælg liga –</option>
+            {approvedLeagues.map((l) => (
+              <option key={l.id} value={l.id}>{l.name} (kode: {l.joinCode})</option>
+            ))}
+          </select>
+          {joinLink && (
+            <span style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.78rem', wordBreak: 'break-all' }} data-testid="broadcast-join-link">
+              Linket der flettes ind: {joinLink}
+            </span>
+          )}
+          {needsLeague && (
+            <span style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.78rem', color: 'var(--c-warn)' }} data-testid="broadcast-needs-league">
+              Teksten indeholder [LINK] — vælg en liga (eller fjern [LINK]) for at kunne sende.
+            </span>
+          )}
         </label>
 
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>

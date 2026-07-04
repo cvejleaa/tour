@@ -982,7 +982,10 @@ function escapeHtml(s) {
 }
 function broadcastHtml(body) {
   const safe = escapeHtml(body).replace(/\r\n|\r|\n/g, '<br>');
-  return `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222">${safe}`
+  // Gør rå URL'er klikbare (efter escaping, så kun ægte links rammes) —
+  // vigtigt for liga-invitationslinket, som skal kunne klikkes direkte i mailen.
+  const linked = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+  return `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222">${linked}`
     + `<hr style="border:none;border-top:1px solid #eee;margin:18px 0">`
     + `<p style="color:#888;font-size:12px">Sendt fra Tour de France Tip · <a href="${APP_URL}">${APP_URL}</a></p></div>`;
 }

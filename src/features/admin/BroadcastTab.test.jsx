@@ -18,6 +18,16 @@ vi.mock('./useUsers', () => ({
   }),
 }));
 
+vi.mock('../leagues/useAllLeagues', () => ({
+  useAllLeagues: () => ({
+    leagues: [
+      { id: 'lg1', name: 'Familie-ligaen', joinCode: 'X4KR2M', status: 'approved' },
+      { id: 'lg2', name: 'Afventer', joinCode: 'PEND01', status: 'pending' }, // ikke valgbar
+    ],
+    loading: false, error: '',
+  }),
+}));
+
 import BroadcastTab from './BroadcastTab';
 
 describe('BroadcastTab', () => {
@@ -34,14 +44,34 @@ describe('BroadcastTab', () => {
     expect(screen.getByTestId('broadcast-count').textContent).toMatch(/2 gyldige/);
   });
 
-  it('sender beskeden med emne, tekst og gyldige modtagere', async () => {
+  it('sender beskeden med emne, tekst og gyldige modtagere — og fletter ligaens tilmeldingslink ind', async () => {
     render(<BroadcastTab />);
     fireEvent.change(screen.getByTestId('broadcast-recipients'), { target: { value: 'a@b.dk, ugyldig' } });
+    // Standardteksten indeholder [LINK] → en liga skal vælges før der kan sendes.
+    fireEvent.change(screen.getByTestId('broadcast-league'), { target: { value: 'lg1' } });
     fireEvent.click(screen.getByTestId('broadcast-send'));
     await waitFor(() => expect(mockSend).toHaveBeenCalled());
     const arg = mockSend.mock.calls[0][0];
     expect(arg.recipients).toEqual(['a@b.dk']); // ugyldig frasorteret
     expect(arg.subject).toBeTruthy();
-    expect(arg.body).toBeTruthy();
+    // [LINK] er erstattet med det direkte tilmeldingslink for den valgte liga.
+    expect(arg.body).toContain('/tilmeld?kode=X4KR2M');
+    expect(arg.body).not.toContain('[LINK]');
+  });
+
+  it('blokerer afsendelse når teksten har [LINK] men ingen liga er valgt', () => {
+    render(<BroadcastTab />);
+    fireEvent.change(screen.getByTestId('broadcast-recipients'), { target: { value: 'a@b.dk' } });
+    expect(screen.getByTestId('broadcast-needs-league')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('broadcast-send'));
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('kun godkendte ligaer kan vælges', () => {
+    render(<BroadcastTab />);
+    const select = screen.getByTestId('broadcast-league');
+    const labels = Array.from(select.options).map((o) => o.textContent);
+    expect(labels.some((l) => l.includes('Familie-ligaen'))).toBe(true);
+    expect(labels.some((l) => l.includes('Afventer'))).toBe(false);
   });
 });
