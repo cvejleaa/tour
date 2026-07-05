@@ -40,6 +40,23 @@ describe('StageCard — Kopiér fra forrige etape', () => {
     expect(screen.queryByTestId('copy-previous')).toBeNull();
   });
 
+  it('viser gemte tips selv når de er gemt under en navnevariant', () => {
+    // Regression: tips gemt mens dropdownen viste resultattabellernes
+    // ALL-CAPS-navne skal stadig vises når listen bruger de officielle navne.
+    const bet = {
+      winnerTeam: 'TEAM VISMA | LEASE A BIKE',
+      gcTeam: 'Ineos Grenadiers', // alias → Netcompany Ineos
+      mountainTeam: 'EF Education - EasyPost',
+      sprintTeam: 'Soudal Quick-Step',
+    };
+    const teams = ['Team Visma | Lease a Bike', 'Netcompany Ineos', 'EF Education - EasyPost', 'Soudal Quick-Step'];
+    render(<StageCard stage={openStage({ type: 'mountain' })} uid="u1" bet={bet} teams={teams} />);
+    expect(screen.getByTestId('pick-winnerTeam')).toHaveValue('Team Visma | Lease a Bike');
+    expect(screen.getByTestId('pick-gcTeam')).toHaveValue('Netcompany Ineos');
+    expect(screen.getByTestId('pick-mountainTeam')).toHaveValue('EF Education - EasyPost');
+    expect(screen.getByTestId('pick-sprintTeam')).toHaveValue('Soudal Quick-Step');
+  });
+
   it('viser tip-fristen (dato + kl. i dansk tid) på en åben etape', () => {
     render(<StageCard stage={openStage()} uid="u1" bet={null} teams={['UAD']} />);
     const dl = screen.getByTestId('stage-deadline');

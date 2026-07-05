@@ -9,6 +9,7 @@ import { db } from '../../firebase';
 import { COL, TIMEZONE } from '../../lib/constants';
 import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, stageTipComplete, DEFAULT_PODIUM } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
+import { canonicalTeamKey } from '../../lib/tourTeams';
 import { prettyTeam } from '../../data/tourTeams2026';
 import TeamBadge from '../../components/TeamBadge';
 import StageAnswers from './StageAnswers';
@@ -111,6 +112,17 @@ export default function StageCard({
     const next = { ...picks, [key]: value };
     setPicks(next);
     save(next);
+  }
+
+  // Et <select> viser kun valget når værdien matcher en option PRÆCIST.
+  // Gemte tips kan stamme fra en anden navnevariant af samme hold (resultat-
+  // tabellernes ALL-CAPS, alias som "Ineos Grenadiers") — slå derfor op via
+  // kanonisk hold-nøgle, så tippet altid vises. Gemmes der igen, normaliseres
+  // værdien automatisk til listens navn.
+  function selectValue(val) {
+    if (!val || teams.includes(val)) return val;
+    const k = canonicalTeamKey(val);
+    return teams.find((t) => canonicalTeamKey(t) === k) ?? val;
   }
 
   // Sæt alle fire felter til et givet sæt holdvalg og gem. Bruges af både
@@ -236,7 +248,7 @@ export default function StageCard({
                 </span>
               ) : (
                 <select
-                  value={picks[key]}
+                  value={selectValue(picks[key])}
                   disabled={saving}
                   onChange={(e) => onPick(key, e.target.value)}
                   data-testid={`pick-${key}`}
