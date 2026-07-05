@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTasks } from '../context/TasksContext';
 import { usePendingApprovals } from '../features/admin/usePendingApprovals';
 import { useUnreadMessages } from '../features/comments/useUnreadMessages';
+import { usePresenceBeacon } from '../features/presence/usePresenceBeacon';
 import Avatar from './Avatar';
 
 // Lille rødt tal-badge (genbruges til godkendelser og beskeder)
@@ -44,6 +45,8 @@ export default function Layout({ children }) {
   const { total: unreadCount } = useUnreadMessages(isApproved ? user?.uid : null);
   // Samlede udestående opgaver (badge på Forside)
   const { total: taskCount } = useTasks();
+  // Besøgsstatistik: stempler lastSeenAt/besøg/side pr. navigation (best-effort)
+  usePresenceBeacon(isApproved ? user?.uid : null);
 
   return (
     <div>

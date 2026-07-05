@@ -465,6 +465,21 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
+    // presence/{uid} — besøgsstatistik (sidst set, besøg pr. dag, sidetællere).
+    // Brugeren skriver KUN sit eget dokument; kun admin (og brugeren selv) kan
+    // læse — spillere kan ikke overvåge hinandens aktivitet.
+    // -----------------------------------------------------------------------
+    match /presence/{uid} {
+      allow read: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == uid);
+
+      allow create, update: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------------------
     // config/{docId}
     // -----------------------------------------------------------------------
     match /config/{docId} {
