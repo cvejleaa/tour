@@ -11,7 +11,7 @@ const MEDAL = ['🥇', '🥈', '🥉'];
 
 export default function StandingsTable({
   rows = [], valueType = 'time', teamsMode = false, topN = 10, accent = 'var(--c-pitch)',
-  flagFor = null, highlightTeams = null, danishFor = null,
+  flagFor = null, highlightTeams = null, danishFor = null, riderNameFor = null,
 }) {
   const [open, setOpen] = useState(false);
   const list = Array.isArray(rows) ? rows : [];
@@ -66,7 +66,9 @@ export default function StandingsTable({
               ) : (
                 <>
                   {flag && <span aria-hidden style={{ flexShrink: 0 }}>{flag}</span>}
-                  <span style={{ fontWeight: (isTop || danish) ? 700 : 600, flex: 1, minWidth: 0 }}>{r.rider || '—'}</span>
+                  <span style={{ fontWeight: (isTop || danish) ? 700 : 600, flex: 1, minWidth: 0 }}>
+                    {(riderNameFor && r.rider ? riderNameFor(r.rider) : r.rider) || '—'}
+                  </span>
                   {tipped && <span aria-label="Tippet hold" title="Tippet hold" style={{ flexShrink: 0 }}>⭐</span>}
                   {r.team && (
                     <span style={{ flexShrink: 0 }}><TeamBadge name={r.team} size={16} /></span>

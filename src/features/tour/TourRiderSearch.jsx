@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import TeamBadge from '../../components/TeamBadge';
 import { riderFlag } from '../../data/uciRanking2026';
-import { isDanishRider } from '../../data/ridersTdf2026';
+import { isDanishRider, prettyRiderName } from '../../data/ridersTdf2026';
 import { searchTourStandings, SEARCH_COMPS } from './tourRiderSearch';
 
 function PlaceChip({ icon, label, place }) {
@@ -73,7 +73,7 @@ export default function TourRiderSearch({ standings, stageResult }) {
                     }}
                   >
                     {flag && <span aria-hidden>{flag}</span>}
-                    <span style={{ fontWeight: 700 }}>{r.rider}</span>
+                    <span style={{ fontWeight: 700 }}>{prettyRiderName(r.rider)}</span>
                     {r.team && <TeamBadge name={r.team} size={16} />}
                     <span style={{ display: 'inline-flex', gap: '0.3rem', flexWrap: 'wrap', marginLeft: 'auto' }}>
                       {SEARCH_COMPS.map(({ key, label, icon }) => (

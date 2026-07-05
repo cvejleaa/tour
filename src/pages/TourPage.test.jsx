@@ -46,7 +46,9 @@ describe('TourPage', () => {
     expect(screen.getByTestId('standings-samlet')).toBeInTheDocument();
     expect(screen.getByTestId('standings-hold')).toBeInTheDocument();
     expect(screen.getByTestId('latest-stage-result')).toBeInTheDocument();
-    expect(screen.getAllByText('Tadej Pogačar').length).toBeGreaterThan(0);
+    // prettyRiderName viser letour-navnet i fuld form (title-caset) —
+    // "Tadej Pogačar" i fixturen slås op i rytterfilen som "Tadej Pogacar".
+    expect(screen.getAllByText('Tadej Pogacar').length).toBeGreaterThan(0);
   });
 
   it('har en Mine/Ligaen-skifter til fremhævning', () => {

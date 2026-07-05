@@ -8,6 +8,10 @@
 // versaler væk) og navnets ord SORTERES, så rækkefølgen er ligegyldig.
 // ---------------------------------------------------------------------------
 import RIDERS from './ridersTdf2026.json';
+// Startlisten (TV2) har navnene i den form holdsiderne viser ("Jonas
+// Vingegaard") — foretrukken visningsform i prettyRiderName, så
+// Tour-stillingerne matcher holdsiderne 1:1 hvor navnene stemmer overens.
+import STARTLIST from './riders2026.json';
 
 /** Navn → nøgle: små bogstaver, accenter væk, ord sorteret alfabetisk. */
 function nameKey(s) {
@@ -92,6 +96,35 @@ export function teamRiders(teamCode) {
  */
 export function isDanishRider(name) {
   return riderInfo(name)?.nat === 'den';
+}
+
+/** "VINGEGAARD HANSEN" → "Vingegaard Hansen" (også efter bindestreg/apostrof). */
+function titleCaseName(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/(^|[\s\-'])([a-zà-ž])/g, (m, sep, ch) => sep + ch.toUpperCase());
+}
+
+/**
+ * Fuldt visningsnavn for et (evt. forkortet) letour-navn: "J. VINGEGAARD" →
+ * "Jonas Vingegaard". Slår rytteren op tolerant i letours rytterfil og
+ * foretrækker holdsidens (startlistens) navneform; ellers letours fornavn +
+ * title-caset efternavn. Ukendte navne returneres uændret.
+ * @param {string} name
+ * @returns {string}
+ */
+export function prettyRiderName(name) {
+  const r = riderInfo(name);
+  if (!r) return String(name ?? '');
+  const own = tokens(`${r.first} ${r.last}`);
+  for (const s of (STARTLIST[r.team]?.riders) || []) {
+    const st = [...tokens(s.name)];
+    // Startlist-navnet skal være en delmængde af letour-navnet (letour har
+    // ofte flere efternavne) — og mindst for-/efternavn, så vi aldrig rammer
+    // en navnebror på ét ord.
+    if (st.length >= 2 && st.every((w) => own.has(w))) return s.name;
+  }
+  return `${r.first} ${titleCaseName(r.last)}`.trim();
 }
 
 export { RIDERS };

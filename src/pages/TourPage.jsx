@@ -20,7 +20,7 @@ import { useLeagues } from '../features/leagues/useLeagues';
 import { collectVisibleUids } from '../features/leaderboard/standingsUtils';
 import { collectTippedTeams } from '../features/tour/tippedTeams';
 import { useLeagueTippedTeams } from '../features/tour/useLeagueTippedTeams';
-import { isDanishRider } from '../data/ridersTdf2026';
+import { isDanishRider, prettyRiderName } from '../data/ridersTdf2026';
 import TourRiderSearch from '../features/tour/TourRiderSearch';
 
 const EMPTY_SET = new Set();
@@ -126,7 +126,7 @@ export default function TourPage() {
                 <LeaderCard
                   key={j.key}
                   jersey={j.key}
-                  name={jerseys[j.holderKey] || standings[j.std]?.[0]?.rider}
+                  name={prettyRiderName(jerseys[j.holderKey] || standings[j.std]?.[0]?.rider)}
                   teamName={teamOf(j.std, jerseys[j.holderKey] || standings[j.std]?.[0]?.rider)}
                   sub={j.sub}
                   accent={j.accent}
@@ -189,6 +189,7 @@ export default function TourPage() {
                   accent={c.accent}
                   flagFor={c.teamsMode ? null : riderFlag}
                   danishFor={c.teamsMode ? null : isDanishRider}
+                  riderNameFor={c.teamsMode ? null : prettyRiderName}
                   highlightTeams={highlightTeams}
                 />
               </div>
@@ -204,7 +205,7 @@ export default function TourPage() {
                   <strong style={{ fontSize: '1.02rem' }}>Seneste etaperesultat</strong>
                   {data.afterStage && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· etape {data.afterStage}</span>}
                 </div>
-                <StandingsTable rows={data.stageResult} valueType="time" flagFor={riderFlag} danishFor={isDanishRider} highlightTeams={highlightTeams} />
+                <StandingsTable rows={data.stageResult} valueType="time" flagFor={riderFlag} danishFor={isDanishRider} riderNameFor={prettyRiderName} highlightTeams={highlightTeams} />
               </div>
             </section>
           )}

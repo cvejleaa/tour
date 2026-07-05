@@ -2,7 +2,7 @@
 // liveMapUtils — rene hjælpere til live-kortet (danske gruppe-etiketter,
 // tidsgab-format og bib → rytternavn med dansk markering).
 // ---------------------------------------------------------------------------
-import { RIDERS } from '../../data/ridersTdf2026';
+import { RIDERS, prettyRiderName } from '../../data/ridersTdf2026';
 
 const BY_BIB = new Map(RIDERS.map((r) => [r.bib, r]));
 
@@ -44,7 +44,8 @@ export function ridersForBibs(bibs) {
     if (!r) return { bib, name: `#${bib}`, danish: false };
     return {
       bib,
-      name: `${String(r.first || '').charAt(0)}. ${r.last || ''}`.trim(),
+      // Fuldt navn i holdsidens form ("Jonas Vingegaard") — som resten af appen.
+      name: prettyRiderName(`${r.first} ${r.last}`),
       danish: r.nat === 'den',
     };
   });

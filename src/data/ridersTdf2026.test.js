@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { riderInfo, profileLabel, teamRiders, isDanishRider, RIDERS } from './ridersTdf2026';
+import { riderInfo, profileLabel, teamRiders, isDanishRider, prettyRiderName, RIDERS } from './ridersTdf2026';
 
 describe('ridersTdf2026 – datasæt', () => {
   it('184 ryttere, unikke startnumre, 23 hold', () => {
@@ -59,5 +59,22 @@ describe('isDanishRider', () => {
     expect(isDanishRider('VINGEGAARD Jonas')).toBe(true);
     expect(isDanishRider('Tadej Pogačar')).toBe(false);
     expect(isDanishRider('')).toBe(false);
+  });
+});
+
+describe('prettyRiderName', () => {
+  it('konverterer letours forkortede navn til holdsidens fulde navn', () => {
+    // Startlisten (TV2) har "Jonas Vingegaard" — samme form som holdsiden.
+    expect(prettyRiderName('J. VINGEGAARD')).toBe('Jonas Vingegaard');
+    expect(prettyRiderName('VINGEGAARD HANSEN Jonas')).toBe('Jonas Vingegaard');
+  });
+  it('falder tilbage til letours fornavn + title-caset efternavn', () => {
+    // TV2 staver "Adoardo Affini" forkert → delmængde-matchet fejler,
+    // og letours (korrekte) navn bruges i stedet.
+    expect(prettyRiderName('E. AFFINI')).toBe('Edoardo Affini');
+  });
+  it('ukendte navne returneres uændret', () => {
+    expect(prettyRiderName('X. UKENDT')).toBe('X. UKENDT');
+    expect(prettyRiderName('')).toBe('');
   });
 });
