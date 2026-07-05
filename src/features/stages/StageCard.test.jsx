@@ -57,6 +57,15 @@ describe('StageCard — Kopiér fra forrige etape', () => {
     expect(screen.getByTestId('pick-sprintTeam')).toHaveValue('Soudal Quick-Step');
   });
 
+  it('viser pointskalaen (1./2./3.-plads) direkte ved hvert spørgsmål', () => {
+    render(<StageCard stage={openStage({ type: 'mountain' })} uid="u1" bet={null} teams={['UAD']} />);
+    // Standardskala: vinder 5·3·1 — synlig uden at skulle forbi hjælpesiden.
+    expect(screen.getByTestId('scale-winnerTeam')).toHaveTextContent('5·3·1 p');
+    expect(screen.getByTestId('scale-gcTeam')).toBeInTheDocument();
+    expect(screen.getByTestId('scale-mountainTeam')).toBeInTheDocument();
+    expect(screen.getByTestId('scale-sprintTeam')).toBeInTheDocument();
+  });
+
   it('viser tip-fristen (dato + kl. i dansk tid) på en åben etape', () => {
     render(<StageCard stage={openStage()} uid="u1" bet={null} teams={['UAD']} />);
     const dl = screen.getByTestId('stage-deadline');

@@ -19,6 +19,7 @@ export default defineConfig({
       'startlistSync.test.js',
       'salesPitch.test.js',
       'liveTicker.test.js',
+      'liveMap.test.js',
     ],
     exclude: [
       'rules.test.js',

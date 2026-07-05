@@ -46,6 +46,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
 const { salesPitchHtml } = require('./salesPitch');
 const { fetchLiveTickerCore } = require('./liveTicker');
+const { fetchLiveMapCore } = require('./liveMap');
 const { runGenerateStageTips } = require('./stageTip');
 
 // Initialiser Firebase Admin (singleton)
@@ -1650,6 +1651,24 @@ exports.getLiveTicker = onCall(
       stageNumber: request.data?.stage,
       fetchImpl: fetchWithTimeout,
       cache: liveTickerCache,
+    });
+  }
+);
+
+// getLiveMap — callable: live-kortets data (rute + grupper på vejen) fra
+// letour racecenter. Samme CORS-/cache-rationale som getLiveTicker; ruten
+// caches længe (statisk pr. etape), telemetrien 45 sek.
+const liveMapCache = new Map();
+const liveMapRouteCache = new Map();
+exports.getLiveMap = onCall(
+  { region: REGION },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    return fetchLiveMapCore({
+      stageNumber: request.data?.stage,
+      fetchImpl: fetchWithTimeout,
+      cache: liveMapCache,
+      routeCache: liveMapRouteCache,
     });
   }
 );

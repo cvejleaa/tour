@@ -20,6 +20,7 @@ import Hero from '../components/Hero';
 import StageCard from '../features/stages/StageCard';
 import StageAnswers from '../features/stages/StageAnswers';
 import LiveTicker from '../features/live/LiveTicker';
+import LiveMapCard from '../features/live/LiveMapCard';
 import { isTodayInCopenhagen } from '../features/live/liveTickerUtils';
 import MyStatsCard from '../features/dashboard/MyStatsCard';
 import MiniStandings from '../features/dashboard/MiniStandings';
@@ -109,6 +110,9 @@ export default function DashboardPage() {
       />
 
       <OnboardingChecklist uid={user?.uid} />
+
+      {/* Live-kort (rute + udbrud/hovedfelt) — kun mens etapen KØRER */}
+      <LiveMapCard stage={liveStage} enabled={!!liveStage && !liveStageDone} />
 
       {/* Dansk live-dækning fra letour.fr, mens etapen kører */}
       <LiveTicker stage={liveStage} enabled={!!liveStage} />

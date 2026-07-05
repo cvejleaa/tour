@@ -218,10 +218,24 @@ export default function StageCard({
           const podium = result?.podium?.[key] || (facit ? [facit] : []);
           const earned = scored?.breakdown?.[key] || 0;
           const MEDAL = ['🥇', '🥈', '🥉'];
+          // Pointskalaen for spørgsmålet (fx 5·2·1) vises direkte på etapen,
+          // så man ikke skal forbi hjælpesiden for at se hvad et tip er værd.
+          const scale = (Array.isArray(points[key]) ? points[key] : DEFAULT_PODIUM[key]) || [];
+          const scaleShown = scale.filter((p) => Number(p) > 0);
           return (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 600, minWidth: 200 }}>
                 {icon} {label(gcTopN)}
+                {!locked && scaleShown.length > 0 && (
+                  <span
+                    className="badge badge--muted"
+                    data-testid={`scale-${key}`}
+                    title={`Point hvis dit hold ender som nr. 1/2/3: ${scaleShown.map((p, i) => `${i + 1}. plads ${p} point`).join(', ')}`}
+                    style={{ fontSize: '0.64rem', marginLeft: '0.4rem', verticalAlign: 'middle', fontWeight: 700 }}
+                  >
+                    {scaleShown.join('·')} p
+                  </span>
+                )}
               </span>
               {locked ? (
                 <span style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
@@ -341,7 +355,7 @@ export default function StageCard({
             if (!active[key]) return sum;
             const scale = Array.isArray(points[pk]) ? points[pk] : DEFAULT_PODIUM[pk];
             return sum + (scale[0] ?? DEFAULT_PODIUM[pk][0]);
-          }, 0)} point · faldende point for 1./2./3.-plads · gemmes automatisk · låses ved etapestart
+          }, 0)} point · tallene ved hvert spørgsmål er point for 1./2./3.-plads · gemmes automatisk · låses ved etapestart
         </p>
       )}
       {/* Detaljer om etapen ligger på præsentationssiden (📖 Læs om etapen). */}
