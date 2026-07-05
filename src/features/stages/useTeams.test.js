@@ -1,41 +1,32 @@
-// mergeTeamNames — de syncede resultat-navne (ALL-CAPS/varianter) skal blive
-// til seed-listens officielle navne i dropdowns, så <select>-værdier matcher
-// de gemte tips præcist.
+// useTeams — tip-dropdown'en skal vise PRÆCIS holdsidens officielle 2026-liste
+// (ingen historisk støj fra teams-kollektionen: nedlagte hold, 2025-navne,
+// ALL-CAPS-varianter fra resultattabellerne).
 import { describe, it, expect } from 'vitest';
-import { mergeTeamNames } from './useTeams';
-import { TOUR_TEAMS } from '../../data/tourTeams2026';
+import { renderHook } from '@testing-library/react';
+import { useTeams } from './useTeams';
+import { TOUR_TEAMS, TEAMS } from '../../data/tourTeams2026';
 
-describe('mergeTeamNames', () => {
-  it('oversætter resultattabellens ALL-CAPS-navne til seed-navne', () => {
-    const out = mergeTeamNames(['TEAM VISMA | LEASE A BIKE', 'COFIDIS']);
-    for (const name of out) {
-      expect(TOUR_TEAMS).toContain(name);
-    }
-    expect(out).toHaveLength(2);
+describe('useTeams', () => {
+  const { result } = renderHook(() => useTeams(2026));
+
+  it('viser præcis holdsidens 23 officielle hold — hverken flere eller færre', () => {
+    expect(result.current.teams).toHaveLength(TEAMS.length);
+    expect([...result.current.teams].sort()).toEqual([...TOUR_TEAMS].sort());
   });
 
-  it('alias-varianter (Ineos) rammer det officielle navn og dedupleres', () => {
-    const out = mergeTeamNames([
-      'INEOS GRENADIERS',
-      'NETCOMPANY INEOS CYCLING TEAM',
-    ]);
-    expect(out).toHaveLength(1);
-    expect(out[0].toLowerCase()).toContain('netcompany');
-    expect(TOUR_TEAMS).toContain(out[0]);
+  it('er sorteret alfabetisk (dansk)', () => {
+    const t = result.current.teams;
+    expect(t).toEqual([...t].sort((a, b) => a.localeCompare(b, 'da')));
   });
 
-  it('ukendte hold beholdes råt (nyt/omdøbt hold kan stadig tippes)', () => {
-    const out = mergeTeamNames(['HELT NYT HOLD 2027']);
-    expect(out).toContain('HELT NYT HOLD 2027');
+  it('indeholder INGEN nedlagte hold eller navnevarianter', () => {
+    const t = result.current.teams;
+    expect(t).not.toContain('ARKEA-B&B HOTELS');
+    expect(t).not.toContain('Israel - Premier Tech');
+    expect(t.every((n) => TOUR_TEAMS.includes(n))).toBe(true);
   });
 
-  it('tom synced liste → seed-listen uændret', () => {
-    expect(mergeTeamNames([])).toEqual(TOUR_TEAMS);
-    expect(mergeTeamNames(null)).toEqual(TOUR_TEAMS);
-  });
-
-  it('resultatet er sorteret dansk', () => {
-    const out = mergeTeamNames(['MOVISTAR TEAM', 'COFIDIS']);
-    expect(out).toEqual([...out].sort((a, b) => a.localeCompare(b, 'da')));
+  it('er klar med det samme (ingen loading)', () => {
+    expect(result.current.loading).toBe(false);
   });
 });
