@@ -13,6 +13,7 @@ import { useActiveSeason } from '../stages/useActiveSeason';
 import { useTourSettings } from '../stages/useTourSettings';
 import { useStages } from '../stages/useStages';
 import { activeQuestionsForStage } from '../../lib/tourScoring';
+import TeamNameAudit from './TeamNameAudit';
 import { callGenerateStageTip, saveStageTip, callSyncStageInfo, callSyncStartlistNow, callBackfillTipParticipation } from './adminActions';
 
 // Kolonneoverskrifter for spørgsmåls-overblikket (samme rækkefølge som STAGE_FIELDS).
@@ -691,6 +692,9 @@ export default function TourTab() {
         </p>
         <StageExpertTips season={season} />
       </section>
+
+      {/* Fuld gennemgang af holdnavne i data (tips + teams) mod 2026-listen */}
+      <TeamNameAudit />
 
       {err && <p style={{ color: 'var(--c-err)' }}>{err}</p>}
       <Result data={out} />

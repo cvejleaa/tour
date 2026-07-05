@@ -693,6 +693,77 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
 });
 
 // ---------------------------------------------------------------------------
+// remapTeamName — admin-værktøj: omdøb ét (forældet) holdnavn til det
+// officielle 2026-navn på tværs af ALLE etape-tip. Tips gemt fra en gammel
+// holdliste ("Israel - Premier Tech", "Alpecin-deceuninck", ...) matcher
+// hverken dropdown, logoer eller facit — og reglerne tillader ikke admin at
+// rette andres bets fra klienten, så rewritet sker her (admin-SDK). Point
+// genberegnes for afgjorte etaper, og spillernes totaler opdateres.
+// ---------------------------------------------------------------------------
+exports.remapTeamName = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+  const userDoc = await db.collection('users').doc(request.auth.uid).get();
+  const role = userDoc.data()?.role;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun owner/global admin kan omdøbe hold.');
+  }
+  const from = String(request.data?.from || '').trim();
+  const to = String(request.data?.to || '').trim();
+  if (!from || !to || from === to) {
+    throw new HttpsError('invalid-argument', 'Angiv både gammelt og nyt (forskelligt) holdnavn.');
+  }
+
+  const { points, activeSeason } = await tourSettings(db);
+  const stagesSnap = await db.collection('stages').get();
+  const stageById = new Map(stagesSnap.docs.map((d) => [d.id, d.data()]));
+
+  const FIELDS = ['winnerTeam', 'gcTeam', 'mountainTeam', 'sprintTeam'];
+  const betsSnap = await db.collection('stageBets').get();
+  const BATCH_SIZE = 400;
+  let batch = db.batch();
+  let ops = 0;
+  const batches = [batch];
+  const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+  let changed = 0;
+  const touchedUids = new Set();
+  for (const d of betsSnap.docs) {
+    const bet = d.data();
+    const upd = {};
+    for (const f of FIELDS) if (bet[f] === from) upd[f] = to;
+    if (Object.keys(upd).length === 0) continue;
+    // Afgjort etape → genberegn dokumentets point med det nye navn med det
+    // samme (recomputeStage trigges kun af facit-ændringer, ikke af bets).
+    const stage = stageById.get(bet.stageId);
+    if (stage && stage.result) {
+      const active = activeQuestionsForStage(stage);
+      upd.points = scoreStageBet({ ...bet, ...upd }, stage.result, points, active).points;
+    }
+    batch.update(d.ref, upd);
+    bump();
+    changed++;
+    if (bet.uid) touchedUids.add(bet.uid);
+  }
+
+  // Ryd teams-docs med det gamle navn (dubletter i dropdown-kollektionen).
+  const teamsSnap = await db.collection('teams').where('name', '==', from).get();
+  let removedTeams = 0;
+  for (const d of teamsSnap.docs) {
+    batch.delete(d.ref);
+    bump();
+    removedTeams++;
+  }
+  for (const b of batches) await b.commit();
+
+  const uids = [...touchedUids];
+  const CHUNK = 10;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcTourTotal(db, uid, activeSeason, activeSeason)));
+  }
+  return { changed, removedTeams, players: uids.length };
+});
+
+// ---------------------------------------------------------------------------
 // syncTipParticipation — vedligeholder tipParticipation/{stageId} = { uids: [...] }
 // Holder styr på HVEM der har tippet på en etape (men ikke hvad de tippede),
 // så ligaer kan vise "X af N har tippet" og hvem der mangler — uden at afsløre
