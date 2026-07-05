@@ -84,4 +84,14 @@ export function teamRiders(teamCode) {
   return (BY_TEAM.get(teamCode) || []).slice().sort((a, b) => a.bib - b.bib);
 }
 
+/**
+ * Er rytteren dansk? Tolerant navneopslag i letours rytterfil (nat: 'den').
+ * Bruges til 🇩🇰-markering i Tour-stillingerne.
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function isDanishRider(name) {
+  return riderInfo(name)?.nat === 'den';
+}
+
 export { RIDERS };

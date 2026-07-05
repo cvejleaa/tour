@@ -20,6 +20,10 @@ import { useLeagues } from '../features/leagues/useLeagues';
 import { collectVisibleUids } from '../features/leaderboard/standingsUtils';
 import { collectTippedTeams } from '../features/tour/tippedTeams';
 import { useLeagueTippedTeams } from '../features/tour/useLeagueTippedTeams';
+import { isDanishRider } from '../data/ridersTdf2026';
+import TourRiderSearch from '../features/tour/TourRiderSearch';
+
+const EMPTY_SET = new Set();
 
 // De fem konkurrencer med visnings-metadata (titel, trøjefarve-accent, værditype).
 const COMPS = [
@@ -63,14 +67,14 @@ export default function TourPage() {
   const season = useActiveSeason();
   const { gcTopN } = useTourSettings();
 
-  // Fremhævning: hold tippet af dig eller din liga (skift mellem de to).
+  // Fremhævning: hold tippet af dig eller din liga — eller slået helt fra.
   const [mode, setMode] = useState('mine');
   const { betsByStage } = useMyStageBets(user?.uid ?? null, season);
   const { leagues } = useLeagues(user?.uid ?? null);
   const visibleUids = useMemo(() => new Set(collectVisibleUids(leagues, user?.uid)), [leagues, user?.uid]);
   const mineTeams = useMemo(() => collectTippedTeams(Object.values(betsByStage || {})), [betsByStage]);
   const ligaTeams = useLeagueTippedTeams({ afterStage: data?.afterStage, season, memberUids: visibleUids });
-  const highlightTeams = mode === 'liga' ? ligaTeams : mineTeams;
+  const highlightTeams = mode === 'liga' ? ligaTeams : (mode === 'mine' ? mineTeams : EMPTY_SET);
 
   const standings = data?.standings || {};
   const jerseys = data?.jerseys || {};
@@ -137,10 +141,13 @@ export default function TourPage() {
             </div>
           </section>
 
-          {/* Fremhævning: skift mellem dine og ligaens tippede hold */}
+          {/* Søg en rytter i ALLE stillinger på én gang */}
+          <TourRiderSearch standings={standings} stageResult={data.stageResult} />
+
+          {/* Fremhævning: dine/ligaens tippede hold — eller ingen fremhævning */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
             <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)' }}>⭐ Fremhæv tippede hold:</span>
-            {[{ k: 'mine', label: 'Mine' }, { k: 'liga', label: 'Ligaen' }].map((m) => (
+            {[{ k: 'mine', label: 'Mine' }, { k: 'liga', label: 'Ligaen' }, { k: 'ingen', label: 'Ingen' }].map((m) => (
               <button
                 key={m.k}
                 type="button"
@@ -151,9 +158,11 @@ export default function TourPage() {
                 {m.label}
               </button>
             ))}
-            <span style={{ fontSize: '0.76rem', color: 'var(--c-muted)' }}>
-              ({highlightTeams.size} hold)
-            </span>
+            {mode !== 'ingen' && (
+              <span style={{ fontSize: '0.76rem', color: 'var(--c-muted)' }}>
+                ({highlightTeams.size} hold)
+              </span>
+            )}
           </div>
 
           {/* Spillets fire konkurrencer (top-5 hold + rytter-specifikation) */}
@@ -179,6 +188,7 @@ export default function TourPage() {
                   teamsMode={!!c.teamsMode}
                   accent={c.accent}
                   flagFor={c.teamsMode ? null : riderFlag}
+                  danishFor={c.teamsMode ? null : isDanishRider}
                   highlightTeams={highlightTeams}
                 />
               </div>
@@ -194,7 +204,7 @@ export default function TourPage() {
                   <strong style={{ fontSize: '1.02rem' }}>Seneste etaperesultat</strong>
                   {data.afterStage && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· etape {data.afterStage}</span>}
                 </div>
-                <StandingsTable rows={data.stageResult} valueType="time" flagFor={riderFlag} highlightTeams={highlightTeams} />
+                <StandingsTable rows={data.stageResult} valueType="time" flagFor={riderFlag} danishFor={isDanishRider} highlightTeams={highlightTeams} />
               </div>
             </section>
           )}

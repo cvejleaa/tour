@@ -47,4 +47,35 @@ describe('StandingsTable', () => {
     expect(rows[0]).not.toHaveAttribute('data-tipped');
     expect(rows[1]).toHaveAttribute('data-tipped', 'true');
   });
+
+  it('markerer danske ryttere med 🇩🇰 og fremhævning', () => {
+    render(
+      <StandingsTable
+        rows={[
+          { rank: 1, rider: 'VINGEGAARD Jonas', team: 'Team Visma | Lease a Bike', time: '0:00' },
+          { rank: 2, rider: 'POGACAR Tadej', team: 'UAE Team Emirates XRG', time: '+0:12' },
+        ]}
+        valueType="time"
+        danishFor={(name) => /vingegaard/i.test(name)}
+      />,
+    );
+    const rows = screen.getAllByTestId('standings-row');
+    expect(rows[0]).toHaveAttribute('data-danish', 'true');
+    expect(rows[1]).not.toHaveAttribute('data-danish');
+    expect(screen.getByText('🇩🇰')).toBeInTheDocument();
+  });
+
+  it('grøn tip-fremhævning vinder over dansker-markeringens styling (begge attributter sat)', () => {
+    render(
+      <StandingsTable
+        rows={[{ rank: 1, rider: 'VINGEGAARD Jonas', team: 'Team Visma | Lease a Bike', time: '0:00' }]}
+        valueType="time"
+        danishFor={() => true}
+        highlightTeams={collectTippedTeams([{ winnerTeam: 'Team Visma | Lease a Bike' }])}
+      />,
+    );
+    const row = screen.getByTestId('standings-row');
+    expect(row).toHaveAttribute('data-tipped', 'true');
+    expect(row).toHaveAttribute('data-danish', 'true');
+  });
 });

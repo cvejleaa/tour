@@ -11,7 +11,7 @@ const MEDAL = ['🥇', '🥈', '🥉'];
 
 export default function StandingsTable({
   rows = [], valueType = 'time', teamsMode = false, topN = 10, accent = 'var(--c-pitch)',
-  flagFor = null, highlightTeams = null,
+  flagFor = null, highlightTeams = null, danishFor = null,
 }) {
   const [open, setOpen] = useState(false);
   const list = Array.isArray(rows) ? rows : [];
@@ -31,19 +31,28 @@ export default function StandingsTable({
         {shown.map((r, i) => {
           const rank = Number.isFinite(Number(r.rank)) ? Number(r.rank) : i + 1;
           const isTop = rank <= 3;
-          const flag = flagFor && r.rider ? flagFor(r.rider) : '';
+          // Danskere markeres altid med Dannebrog + rød fremhævning — også
+          // uden for UCI-flagdatasættet. Tip-fremhævning (grøn) vinder ved
+          // sammenfald, så betydningen af farverne er entydig.
+          const danish = !!(danishFor && r.rider && danishFor(r.rider));
+          const flag = danish ? '🇩🇰' : (flagFor && r.rider ? flagFor(r.rider) : '');
           const tipped = !!(highlightTeams && r.team && highlightTeams.has(canonicalTeamKey(r.team)));
           return (
             <li
               key={`${rank}-${r.rider || r.team || i}`}
               data-testid="standings-row"
               data-tipped={tipped ? 'true' : undefined}
-              title={tipped ? 'Tippet hold' : undefined}
+              data-danish={danish ? 'true' : undefined}
+              title={tipped ? 'Tippet hold' : (danish ? 'Dansk rytter' : undefined)}
               style={{
                 display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem',
                 padding: '0.3rem 0.4rem', borderRadius: 8,
-                background: tipped ? 'rgba(11,110,79,0.10)' : (isTop ? 'var(--c-surface-alt, #f6faf8)' : 'transparent'),
-                borderLeft: tipped ? '3px solid var(--c-pitch)' : (rank === 1 ? `3px solid ${accent}` : '3px solid transparent'),
+                background: tipped ? 'rgba(11,110,79,0.10)'
+                  : danish ? 'rgba(198,12,48,0.07)'
+                    : (isTop ? 'var(--c-surface-alt, #f6faf8)' : 'transparent'),
+                borderLeft: tipped ? '3px solid var(--c-pitch)'
+                  : danish ? '3px solid #c8102e'
+                    : (rank === 1 ? `3px solid ${accent}` : '3px solid transparent'),
               }}
             >
               <span style={{ width: 26, textAlign: 'center', fontWeight: 700, color: 'var(--c-muted)' }}>
@@ -57,7 +66,7 @@ export default function StandingsTable({
               ) : (
                 <>
                   {flag && <span aria-hidden style={{ flexShrink: 0 }}>{flag}</span>}
-                  <span style={{ fontWeight: isTop ? 700 : 600, flex: 1, minWidth: 0 }}>{r.rider || '—'}</span>
+                  <span style={{ fontWeight: (isTop || danish) ? 700 : 600, flex: 1, minWidth: 0 }}>{r.rider || '—'}</span>
                   {tipped && <span aria-label="Tippet hold" title="Tippet hold" style={{ flexShrink: 0 }}>⭐</span>}
                   {r.team && (
                     <span style={{ flexShrink: 0 }}><TeamBadge name={r.team} size={16} /></span>

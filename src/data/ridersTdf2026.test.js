@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { riderInfo, profileLabel, teamRiders, RIDERS } from './ridersTdf2026';
+import { riderInfo, profileLabel, teamRiders, isDanishRider, RIDERS } from './ridersTdf2026';
 
 describe('ridersTdf2026 – datasæt', () => {
   it('184 ryttere, unikke startnumre, 23 hold', () => {
@@ -50,5 +50,14 @@ describe('teamRiders', () => {
     expect(uex).toHaveLength(8);
     expect(uex[0].bib).toBe(1);
     expect([...uex].sort((a, b) => a.bib - b.bib)).toEqual(uex);
+  });
+});
+
+describe('isDanishRider', () => {
+  it('genkender danskere — også på letours navneformer', () => {
+    expect(isDanishRider('Jonas Vingegaard')).toBe(true);
+    expect(isDanishRider('VINGEGAARD Jonas')).toBe(true);
+    expect(isDanishRider('Tadej Pogačar')).toBe(false);
+    expect(isDanishRider('')).toBe(false);
   });
 });
