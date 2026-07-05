@@ -51,18 +51,32 @@ export default function TeamNameAudit() {
     const to = remapTo[name];
     if (!to) return;
     if (!window.confirm(`Omdøb "${name}" til "${to}" i ALLE tips? Point genberegnes.`)) return;
+    await runRemap({ from: name, to }, `✓ "${name}" → "${to}"`);
+  }
+
+  // Nedlagt hold uden efterfølger: felterne tømmes, så tippet fremstår
+  // uspillet — på åbne etaper kan spilleren tippe forfra.
+  async function clearName(name) {
+    if (!window.confirm(
+      `Ryd ALLE tips på "${name}"? Felterne tømmes (fremstår uspillet), og point genberegnes. `
+      + 'Spillere kan gen-tippe på åbne etaper.',
+    )) return;
+    await runRemap({ from: name, clear: true }, `✓ Tips på "${name}" ryddet`);
+  }
+
+  async function runRemap(payload, prefix) {
     setBusy(true);
     setError('');
     setMsg('');
     try {
       const fn = httpsCallable(functions, 'remapTeamName');
-      const res = await fn({ from: name, to });
+      const res = await fn(payload);
       const { changed, players } = res.data || {};
-      setMsg(`✓ "${name}" → "${to}": ${changed} tip rettet hos ${players} spillere.`);
+      setMsg(`${prefix}: ${changed} tip rettet hos ${players} spillere.`);
       await runAudit(); // vis den friske tilstand
     } catch (e) {
-      console.error('Omdøbning fejlede:', e);
-      setError(e?.message || 'Omdøbningen fejlede.');
+      console.error('Holdnavne-rettelse fejlede:', e);
+      setError(e?.message || 'Rettelsen fejlede.');
     } finally {
       setBusy(false);
     }
@@ -138,6 +152,16 @@ export default function TeamNameAudit() {
                             data-testid={`remap-run-${r.name}`}
                           >
                             Omdøb
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--sm"
+                            disabled={busy}
+                            onClick={() => clearName(r.name)}
+                            title="Nedlagt hold uden efterfølger: tøm felterne, så tippet fremstår uspillet"
+                            data-testid={`clear-run-${r.name}`}
+                          >
+                            Ryd tips
                           </button>
                         </span>
                       )}

@@ -694,10 +694,12 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
 
 // ---------------------------------------------------------------------------
 // remapTeamName — admin-værktøj: omdøb ét (forældet) holdnavn til det
-// officielle 2026-navn på tværs af ALLE etape-tip. Tips gemt fra en gammel
-// holdliste ("Israel - Premier Tech", "Alpecin-deceuninck", ...) matcher
-// hverken dropdown, logoer eller facit — og reglerne tillader ikke admin at
-// rette andres bets fra klienten, så rewritet sker her (admin-SDK). Point
+// officielle 2026-navn på tværs af ALLE etape-tip — eller RYD det helt
+// (clear: true), når holdet er nedlagt uden efterfølger (fx "ARKEA-B&B
+// HOTELS"): felterne tømmes, så tippet fremstår uspillet og kan gen-tippes
+// på åbne etaper. Tips gemt fra en gammel holdliste matcher hverken
+// dropdown, logoer eller facit — og reglerne tillader ikke admin at rette
+// andres bets fra klienten, så rewritet sker her (admin-SDK). Point
 // genberegnes for afgjorte etaper, og spillernes totaler opdateres.
 // ---------------------------------------------------------------------------
 exports.remapTeamName = onCall({ region: REGION }, async (request) => {
@@ -709,9 +711,10 @@ exports.remapTeamName = onCall({ region: REGION }, async (request) => {
     throw new HttpsError('permission-denied', 'Kun owner/global admin kan omdøbe hold.');
   }
   const from = String(request.data?.from || '').trim();
-  const to = String(request.data?.to || '').trim();
-  if (!from || !to || from === to) {
-    throw new HttpsError('invalid-argument', 'Angiv både gammelt og nyt (forskelligt) holdnavn.');
+  const clear = request.data?.clear === true;
+  const to = clear ? '' : String(request.data?.to || '').trim();
+  if (!from || (!clear && (!to || from === to))) {
+    throw new HttpsError('invalid-argument', 'Angiv gammelt navn og enten nyt navn eller clear:true.');
   }
 
   const { points, activeSeason } = await tourSettings(db);
