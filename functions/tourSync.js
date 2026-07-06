@@ -30,6 +30,12 @@ function buildStageUpdate(payload, gcTopN, prevPayload = null) {
     meta: stageMetaFromPcs(payload),
     teams: teamsFromRows(etapeRows),
     resultsPresent: Boolean(payload && payload.results_present) || etapeRows.length > 0,
+    // Point PÅ etapen (delta når letour kun leverer kumulativt) — bruges til
+    // etapesidens bjerg-/sprint-resultat, samme lister som Q3/Q4-facit bygger på.
+    pointsLists: {
+      sprint: input.sprintPoints || [],
+      mountain: input.mountainPoints || [],
+    },
   };
 }
 

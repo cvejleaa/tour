@@ -277,6 +277,14 @@ async function syncTourCore(db, { dryRun = false } = {}) {
   const allTeams = new Map();
   let latest = null; // seneste afgjorte etape (til de fulde klassement-stillinger)
 
+  // Pointliste (rytter/hold/point) → visningsrækker til etapesiden, sorteret
+  // efter point (flest først), top 10.
+  const toPointRows = (list, topN = 10) => (list || [])
+    .slice()
+    .sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0))
+    .slice(0, topN)
+    .map((e, i) => ({ rank: i + 1, rider: e.rider ?? null, team: e.team ?? null, points: Number(e.points) || 0 }));
+
   // En 'done'-etape gen-synces stadig i timerne efter etapestart: letour kan
   // vise provisoriske rækker mens etapen kører, og juryen ændrer jævnligt
   // spurt-/bjergpoint og placeringer 30-60 min efter målgang (deklasseringer).
@@ -298,16 +306,29 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     if (!kickoffMs || kickoffMs > Date.now()) continue; // ingen starttid el. endnu ikke startet
     // Allerede afgjort OG uden for jury-vinduet → frosset for altid.
     if (exData?.status === 'done' && (Date.now() - kickoffMs) > RESULT_REFRESH_MS) {
-      // Selv-opheling: mangler etapens målrækkefølge (resultRows kom til
-      // senere end de første etaper), hentes og gemmes KUN den — facit
+      // Selv-opheling: mangler etapens visningsresultater (målrækkefølge,
+      // bjerg-/sprintpoint på etapen, holdkonkurrencen — felterne kom til
+      // senere end de første etaper), hentes og gemmes KUN de — facit
       // (result) røres aldrig på en frosset etape.
-      if (!dryRun && !Array.isArray(exData.resultRows)) {
+      if (!dryRun && (!Array.isArray(exData.resultRows) || !Array.isArray(exData.holdRows))) {
         try {
           const rr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
           if (rr.ok) {
-            const rows = stageResultRows(await rr.json(), 30);
+            const p = await rr.json();
+            let prev = null;
+            if (needsPrevForPoints(p)) {
+              const pr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n - 1}`);
+              if (pr.ok) prev = await pr.json();
+            }
+            const rows = stageResultRows(p, 30);
+            const lists = buildStageUpdate(p, gcTopN, prev).pointsLists;
             if (rows.length) {
-              await db.collection('stages').doc(docId).set({ resultRows: rows }, { merge: true });
+              await db.collection('stages').doc(docId).set({
+                resultRows: rows,
+                mountainRows: toPointRows(lists.mountain),
+                sprintRows: toPointRows(lists.sprint),
+                holdRows: classificationStandings(p, 10).hold,
+              }, { merge: true });
             }
           }
         } catch { /* næste kørsel prøver igen */ }
@@ -359,8 +380,13 @@ async function syncTourCore(db, { dryRun = false } = {}) {
         finishCity: upd.meta.finishCity,
         km: upd.meta.km,
         resultRowCount: rowCount,
-        // Etapens målrækkefølge (top 30) — vises på etapens egen side.
+        // Etapens visningsresultater — vises på etapens egen side:
+        // målrækkefølge (top 30), bjerg-/sprintpoint PÅ etapen og
+        // holdkonkurrencens stilling efter etapen.
         resultRows: stageResultRows(payload, 30),
+        mountainRows: toPointRows(upd.pointsLists.mountain),
+        sprintRows: toPointRows(upd.pointsLists.sprint),
+        holdRows: classificationStandings(payload, 10).hold,
         resultUpdatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     }

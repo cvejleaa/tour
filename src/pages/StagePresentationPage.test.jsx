@@ -169,3 +169,36 @@ describe('StagePresentationPage – etapens resultat', () => {
     expect(screen.queryByTestId('stage-finish-order')).toBeNull();
   });
 });
+
+describe('StagePresentationPage – klassement-resultater pr. etape', () => {
+  it('viser bjerg-, sprint- og hold-blokkene når data findes', () => {
+    useStages.mockReturnValue({ stages: [flatStage({
+      kickoff: '2026-07-01T13:00:00+02:00',
+      result: { winnerTeam: 'Lidl-Trek' },
+      resultRows: [{ rank: 1, rider: 'PEDERSEN Mads', team: 'Lidl-Trek', time: "4h 12' 03\"" }],
+      mountainRows: [{ rank: 1, rider: 'MARTINEZ Lenny', team: 'Bahrain Victorious', points: 5 }],
+      sprintRows: [{ rank: 1, rider: 'PHILIPSEN Jasper', team: 'Alpecin-Premier Tech', points: 50 }],
+      holdRows: [{ rank: 1, rider: 'Team Visma | Lease a Bike', team: 'Team Visma | Lease a Bike', time: "12h 40' 12\"" }],
+    })] });
+    renderAt(5);
+    expect(screen.getByTestId('stage-mountain-result')).toBeInTheDocument();
+    expect(screen.getByTestId('stage-sprint-result')).toBeInTheDocument();
+    expect(screen.getByTestId('stage-team-result')).toBeInTheDocument();
+    expect(screen.getByText('50 p')).toBeInTheDocument();
+  });
+
+  it('skjuler tomme blokke (fx TTT uden bjerg-/sprintpoint)', () => {
+    useStages.mockReturnValue({ stages: [flatStage({
+      kickoff: '2026-07-01T13:00:00+02:00',
+      result: { winnerTeam: 'Lidl-Trek' },
+      resultRows: [{ rank: 1, rider: 'PEDERSEN Mads', team: 'Lidl-Trek', time: "21' 47\"" }],
+      mountainRows: [],
+      sprintRows: [],
+      holdRows: [{ rank: 1, rider: 'Team Visma | Lease a Bike', team: 'Team Visma | Lease a Bike', time: "21' 47\"" }],
+    })] });
+    renderAt(5);
+    expect(screen.queryByTestId('stage-mountain-result')).toBeNull();
+    expect(screen.queryByTestId('stage-sprint-result')).toBeNull();
+    expect(screen.getByTestId('stage-team-result')).toBeInTheDocument();
+  });
+});

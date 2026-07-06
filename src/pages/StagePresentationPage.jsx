@@ -268,6 +268,48 @@ export default function StagePresentationPage() {
           </section>
         )}
 
+        {/* Bjerg-/sprintpoint PÅ etapen + holdkonkurrencen efter etapen —
+            de resultater Q2-Q4 afgøres på. Kun blokke med data vises (en
+            holdtidskørsel har fx hverken bjerg- eller sprintpoint). */}
+        {isDone && (stage.mountainRows?.length > 0 || stage.sprintRows?.length > 0 || stage.holdRows?.length > 0) && (
+          <section style={{ marginBottom: '1rem' }} data-testid="stage-class-results">
+            <div style={{ display: 'grid', gap: '0.9rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+              {stage.mountainRows?.length > 0 && (
+                <div data-testid="stage-mountain-result">
+                  <h3 style={{ margin: '0 0 0.4rem' }}>⛰️ Bjergpoint på etapen</h3>
+                  <StandingsTable
+                    rows={stage.mountainRows}
+                    valueType="points"
+                    topN={5}
+                    flagFor={riderFlag}
+                    danishFor={isDanishRider}
+                    riderNameFor={prettyRiderName}
+                  />
+                </div>
+              )}
+              {stage.sprintRows?.length > 0 && (
+                <div data-testid="stage-sprint-result">
+                  <h3 style={{ margin: '0 0 0.4rem' }}>🚀 Sprintpoint på etapen</h3>
+                  <StandingsTable
+                    rows={stage.sprintRows}
+                    valueType="points"
+                    topN={5}
+                    flagFor={riderFlag}
+                    danishFor={isDanishRider}
+                    riderNameFor={prettyRiderName}
+                  />
+                </div>
+              )}
+              {stage.holdRows?.length > 0 && (
+                <div data-testid="stage-team-result">
+                  <h3 style={{ margin: '0 0 0.4rem' }}>👥 Holdkonkurrencen efter etapen</h3>
+                  <StandingsTable rows={stage.holdRows} valueType="time" teamsMode topN={5} />
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Alles tips fra etapestart; facit + etapens top kommer til, når
             resultatet lander. */}
         {showAnswers && (
