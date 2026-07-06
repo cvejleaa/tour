@@ -12,6 +12,9 @@ import { useStages } from '../features/stages/useStages';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
 import { useTourSettings } from '../features/stages/useTourSettings';
 import StageAnswers from '../features/stages/StageAnswers';
+import StandingsTable from '../features/tour/StandingsTable';
+import { riderFlag } from '../data/uciRanking2026';
+import { isDanishRider, prettyRiderName } from '../data/ridersTdf2026';
 import { placeholderRoute2026 } from '../data/route2026';
 import { activeQuestionsForStage } from '../lib/tourScoring';
 import { stageStatus } from '../lib/tourStages';
@@ -249,6 +252,21 @@ export default function StagePresentationPage() {
             ))}
           </ul>
         </section>
+
+        {/* Etapens fulde målrækkefølge — når resultatet er gemt af synken.
+            (Ældre afgjorte etaper selv-opheles af næste sync-kørsel.) */}
+        {isDone && Array.isArray(stage.resultRows) && stage.resultRows.length > 0 && (
+          <section style={{ marginBottom: '1rem' }} data-testid="stage-finish-order">
+            <h3 style={{ marginBottom: '0.4rem' }}>🏁 Etapens resultat</h3>
+            <StandingsTable
+              rows={stage.resultRows}
+              valueType="time"
+              flagFor={riderFlag}
+              danishFor={isDanishRider}
+              riderNameFor={prettyRiderName}
+            />
+          </section>
+        )}
 
         {/* Alles tips fra etapestart; facit + etapens top kommer til, når
             resultatet lander. */}

@@ -297,7 +297,23 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     const kickoffMs = exData?.kickoff?.toDate ? exData.kickoff.toDate().getTime() : null;
     if (!kickoffMs || kickoffMs > Date.now()) continue; // ingen starttid el. endnu ikke startet
     // Allerede afgjort OG uden for jury-vinduet → frosset for altid.
-    if (exData?.status === 'done' && (Date.now() - kickoffMs) > RESULT_REFRESH_MS) continue;
+    if (exData?.status === 'done' && (Date.now() - kickoffMs) > RESULT_REFRESH_MS) {
+      // Selv-opheling: mangler etapens målrækkefølge (resultRows kom til
+      // senere end de første etaper), hentes og gemmes KUN den — facit
+      // (result) røres aldrig på en frosset etape.
+      if (!dryRun && !Array.isArray(exData.resultRows)) {
+        try {
+          const rr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
+          if (rr.ok) {
+            const rows = stageResultRows(await rr.json(), 30);
+            if (rows.length) {
+              await db.collection('stages').doc(docId).set({ resultRows: rows }, { merge: true });
+            }
+          }
+        } catch { /* næste kørsel prøver igen */ }
+      }
+      continue;
+    }
     checked++;
     const r = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
     if (r.status === 425 || !r.ok) continue; // resultat ikke klar
@@ -343,6 +359,8 @@ async function syncTourCore(db, { dryRun = false } = {}) {
         finishCity: upd.meta.finishCity,
         km: upd.meta.km,
         resultRowCount: rowCount,
+        // Etapens målrækkefølge (top 30) — vises på etapens egen side.
+        resultRows: stageResultRows(payload, 30),
         resultUpdatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     }

@@ -145,3 +145,27 @@ describe('StagePresentationPage – fallback og fejl', () => {
     expect(screen.getByTestId('tip-stage-btn')).toHaveAttribute('href', '/etaper');
   });
 });
+
+describe('StagePresentationPage – etapens resultat', () => {
+  it('viser målrækkefølgen (resultRows) for en afgjort etape', () => {
+    useStages.mockReturnValue({ stages: [flatStage({
+      kickoff: '2026-07-01T13:00:00+02:00', // i fortiden
+      result: { winnerTeam: 'Lidl-Trek' },  // → status 'done'
+      resultRows: [
+        { rank: 1, rider: 'VINGEGAARD Jonas', team: 'Team Visma | Lease a Bike', time: "21'47\"" },
+        { rank: 2, rider: 'GANNA Filippo', team: 'Netcompany Ineos', time: "21'55\"" },
+      ],
+    })] });
+    renderAt(5);
+    expect(screen.getByTestId('stage-finish-order')).toBeInTheDocument();
+    expect(screen.getByText(/Etapens resultat/)).toBeInTheDocument();
+    // Fuldt navn (letours forkortelse konverteres) + tid.
+    expect(screen.getByText('Jonas Vingegaard')).toBeInTheDocument();
+  });
+
+  it('vises IKKE på en åben etape eller uden resultRows', () => {
+    useStages.mockReturnValue({ stages: [flatStage({ kickoff: '2999-07-08T13:00:00+02:00' })] });
+    renderAt(5);
+    expect(screen.queryByTestId('stage-finish-order')).toBeNull();
+  });
+});
