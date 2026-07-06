@@ -90,7 +90,7 @@ export default function StandingsTable({
           data-testid="standings-toggle"
           style={{ marginTop: '0.4rem' }}
         >
-          {open ? 'Vis top 10' : `Vis alle (${list.length})`}
+          {open ? `Vis top ${topN}` : `Vis alle (${list.length})`}
         </button>
       )}
     </div>

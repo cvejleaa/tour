@@ -278,12 +278,16 @@ async function syncTourCore(db, { dryRun = false } = {}) {
   let latest = null; // seneste afgjorte etape (til de fulde klassement-stillinger)
 
   // Pointliste (rytter/hold/point) → visningsrækker til etapesiden, sorteret
-  // efter point (flest først), top 10.
-  const toPointRows = (list, topN = 10) => (list || [])
+  // efter point (flest først). ALLE med point gemmes (typisk 10-40 ryttere) —
+  // spillerne bruger listen som form-data til at tippe de næste etaper.
+  const toPointRows = (list) => (list || [])
     .slice()
     .sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0))
-    .slice(0, topN)
     .map((e, i) => ({ rank: i + 1, rider: e.rider ?? null, team: e.team ?? null, points: Number(e.points) || 0 }));
+
+  // Version af etapesidens visningsfelter — bump'es når felterne udvides, så
+  // allerede-backfillede (frosne) etaper selv-opheler til den nye form.
+  const PRESENTATION_V = 2;
 
   // En 'done'-etape gen-synces stadig i timerne efter etapestart: letour kan
   // vise provisoriske rækker mens etapen kører, og juryen ændrer jævnligt
@@ -310,7 +314,8 @@ async function syncTourCore(db, { dryRun = false } = {}) {
       // bjerg-/sprintpoint på etapen, holdkonkurrencen — felterne kom til
       // senere end de første etaper), hentes og gemmes KUN de — facit
       // (result) røres aldrig på en frosset etape.
-      if (!dryRun && (!Array.isArray(exData.resultRows) || !Array.isArray(exData.holdRows))) {
+      if (!dryRun && (!Array.isArray(exData.resultRows) || !Array.isArray(exData.holdRows)
+        || exData.presentationV !== PRESENTATION_V)) {
         try {
           const rr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
           if (rr.ok) {
@@ -328,6 +333,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
                 mountainRows: toPointRows(lists.mountain),
                 sprintRows: toPointRows(lists.sprint),
                 holdRows: classificationStandings(p, 10).hold,
+                presentationV: PRESENTATION_V,
               }, { merge: true });
             }
           }
@@ -387,6 +393,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
         mountainRows: toPointRows(upd.pointsLists.mountain),
         sprintRows: toPointRows(upd.pointsLists.sprint),
         holdRows: classificationStandings(payload, 10).hold,
+        presentationV: PRESENTATION_V,
         resultUpdatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     }
