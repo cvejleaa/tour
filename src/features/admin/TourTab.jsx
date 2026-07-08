@@ -612,12 +612,14 @@ export default function TourTab() {
       <section style={{ marginBottom: '1.25rem' }}>
         <h3 style={{ marginBottom: '0.25rem' }}>Genberegn stillingen</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
-          Genberegner ALLE spilleres totaler ud fra deres tips. Kør denne hvis
-          en spillers total i stillingen ikke stemmer med summen af etapepointene
-          (kan ske hvis to etaper blev afgjort samtidig). Rører ikke selve tippene.
+          Genscorer hver afgjort etape med det nuværende facit og den nuværende
+          pointopsætning, og genberegner derefter ALLE spilleres totaler. Kør
+          denne hvis en spillers total i stillingen ikke stemmer med «Din
+          statistik»/«Seneste resultater» — fx efter du har ændret pointtabellen,
+          rettet et facit eller omdøbt hold. Rører ikke selve tippene.
         </p>
         <button className="btn" disabled={busy} onClick={recalcTotals} data-testid="recalc-totals">
-          {busy === 'recalc' ? 'Genberegner…' : '🧮 Genberegn alle totaler'}
+          {busy === 'recalc' ? 'Genberegner…' : '🧮 Genscore & genberegn stillingen'}
         </button>
       </section>
 

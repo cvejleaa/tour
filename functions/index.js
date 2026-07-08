@@ -750,10 +750,12 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
 });
 
 // ---------------------------------------------------------------------------
-// recalcAllTotals — admin-værktøj: genberegn ALLE godkendte spilleres totaler
-// fra deres stageBets/bonusBets. Reparerer skæve totaler (fx efter en race
-// mellem to samtidige etape-afgørelser, hvor et forældet sum blev skrevet).
-// Idempotent — kan trygt køres når som helst.
+// recalcAllTotals — admin-værktøj: GENSCORE hver afgjort etape med det
+// nuværende facit + den nuværende pointopsætning, og genberegn derefter ALLE
+// godkendte spilleres totaler. recomputeStage genberegner kun når FACIT
+// ændrer sig — ikke når pointopsætningen justeres — så en ændret pointtabel
+// efterlader ellers serverens totaler forældede (klienten viser de nye tal,
+// stillingen de gamle). Denne reparation bringer dem i sync. Idempotent.
 // ---------------------------------------------------------------------------
 exports.recalcAllTotals = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
@@ -763,14 +765,41 @@ exports.recalcAllTotals = onCall({ region: REGION }, async (request) => {
   if (role !== 'owner' && role !== 'globalAdmin') {
     throw new HttpsError('permission-denied', 'Kun owner/global admin kan genberegne totaler.');
   }
-  const { activeSeason } = await tourSettings(db);
+  const { points, activeSeason } = await tourSettings(db);
+
+  // 1) Genscore hver afgjort etapes tips med nuværende facit + pointopsætning.
+  const stagesSnap = await db.collection('stages').get();
+  let rescored = 0;
+  for (const sdoc of stagesSnap.docs) {
+    const stage = sdoc.data();
+    if (!stage || !stage.result) continue;
+    const active = activeQuestionsForStage(stage);
+    const betsSnap = await db.collection('stageBets').where('stageId', '==', sdoc.id).get();
+    const BATCH_SIZE = 400;
+    let batch = db.batch();
+    let pending = 0;
+    let ops = 0;
+    const commits = [];
+    for (const d of betsSnap.docs) {
+      const { points: pts } = scoreStageBet(d.data(), stage.result, points, active);
+      if (Number(d.data().points) === pts) continue; // uændret → spring over
+      batch.update(d.ref, { points: pts });
+      rescored++;
+      pending++;
+      if (++ops >= BATCH_SIZE) { commits.push(batch.commit()); batch = db.batch(); pending = 0; ops = 0; }
+    }
+    if (pending > 0) commits.push(batch.commit());
+    await Promise.all(commits);
+  }
+
+  // 2) Genberegn alle godkendte spilleres totaler fra de (nu friske) point.
   const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
   const uids = usersSnap.docs.map((d) => d.id);
   const CHUNK = 10;
   for (let i = 0; i < uids.length; i += CHUNK) {
     await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcTourTotal(db, uid, activeSeason, activeSeason)));
   }
-  return { recalculated: uids.length };
+  return { recalculated: uids.length, rescored };
 });
 
 // ---------------------------------------------------------------------------
