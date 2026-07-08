@@ -177,18 +177,30 @@ async function tourSettings(db) {
 // gemmes pr. sæson i users.seasons.{år}; de flade felter (totalPoints m.fl.)
 // afspejler den aktive sæson, så den eksisterende stilling viser indeværende år.
 async function recalcTourTotal(db, uid, season, activeSeason) {
-  const stageQ = db.collection('stageBets').where('uid', '==', uid).where('season', '==', season);
-  const bonusQ = db.collection('bonusBets').where('uid', '==', uid).where('season', '==', season);
+  // Filtrér IKKE på et `season`-felt: nogle tips (gemt tidligt af klienten med
+  // `season: stage.season ?? null`) mangler feltet, og en `where('season','==')`
+  // ville så udelade dem fra totalen — så stillingen blev for lav, selv om det
+  // gemte etapepoint er korrekt. `stageId`/`questionId` bærer altid sæsonen
+  // (`2026-stage-N`), så vi henter alle brugerens tips og afgør sæson-tilhør
+  // ud fra id'et (med season-feltet som fallback).
+  const prefix = `${season}-`;
+  const stageQ = db.collection('stageBets').where('uid', '==', uid);
+  const bonusQ = db.collection('bonusBets').where('uid', '==', uid);
+  const inSeason = (data, idField) => {
+    if (Number(data.season) === season) return true;
+    return String(data[idField] || '').startsWith(prefix);
+  };
   // Læs-sammenlæg-skriv i en TRANSAKTION: to etaper der afgøres tæt på
   // hinanden udløser hver sin recomputeStage, som begge genberegner denne
   // brugers total parallelt. Uden transaktionen kunne den langsomste skrive
-  // et forældet sum oveni det friske (last-writer-wins) og efterlade totalen
-  // permanent for lav. Transaktionen serialiserer læsning + skrivning, så
-  // resultatet altid afspejler alle bet-docs.
+  // et forældet sum oveni det friske (last-writer-wins). Transaktionen
+  // serialiserer læsning + skrivning, så resultatet altid afspejler alle bets.
   await db.runTransaction(async (tx) => {
     const [stageSnap, bonusSnap] = await Promise.all([tx.get(stageQ), tx.get(bonusQ)]);
-    const stagePoints = stageSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
-    const bonusPts = bonusSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
+    const stagePoints = stageSnap.docs.reduce(
+      (a, d) => (inSeason(d.data(), 'stageId') ? a + (Number(d.data().points) || 0) : a), 0);
+    const bonusPts = bonusSnap.docs.reduce(
+      (a, d) => (inSeason(d.data(), 'questionId') ? a + (Number(d.data().points) || 0) : a), 0);
     const totals = { stagePoints, bonusPoints: bonusPts, totalPoints: stagePoints + bonusPts };
     const update = { [`seasons.${season}`]: totals };
     if (season === activeSeason) Object.assign(update, totals); // flade felter = aktiv sæson
