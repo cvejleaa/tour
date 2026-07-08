@@ -857,12 +857,40 @@ exports.debugUserPoints = onCall({ region: REGION }, async (request) => {
   });
   const stageSum = stageBets.reduce((a, b) => a + b.points, 0);
   const bonusSum = bonusBets.reduce((a, b) => a + b.points, 0);
+
+  // Pr. etape: det gemte facit (podie) + server-breakdown for spillerens tip,
+  // så vi kan se PRÆCIS hvilket felt/podie der giver forskellen mod klienten.
+  const { points } = await tourSettings(db);
+  const perStage = [];
+  for (const sb of stageBets) {
+    const sdoc = await db.collection('stages').doc(sb.stageId).get();
+    const stage = sdoc.data() || {};
+    const betDoc = stageSnap.docs.find((d) => d.id === sb.id);
+    const active = activeQuestionsForStage(stage);
+    const scored = scoreStageBet(betDoc.data(), stage.result, points, active);
+    const podium = (stage.result && stage.result.podium) || {};
+    perStage.push({
+      stageId: sb.stageId,
+      type: stage.type ?? null,
+      active,
+      serverScore: scored.points,
+      breakdown: scored.breakdown,
+      resultUpdatedAt: stage.resultUpdatedAt ? String(stage.resultUpdatedAt.toDate?.() ?? stage.resultUpdatedAt) : null,
+      podium: {
+        winnerTeam: podium.winnerTeam || null,
+        gcTeam: podium.gcTeam || null,
+        mountainTeam: podium.mountainTeam || null,
+        sprintTeam: podium.sprintTeam || null,
+      },
+    });
+  }
+
   return {
     uid, displayName: u.displayName ?? null,
     stored: { totalPoints: u.totalPoints ?? null, stagePoints: u.stagePoints ?? null, bonusPoints: u.bonusPoints ?? null },
     computed: { stageSum, bonusSum, total: stageSum + bonusSum },
     stageBetsCount: stageBets.length,
-    stageBets, bonusBets,
+    stageBets, bonusBets, perStage,
   };
 });
 
