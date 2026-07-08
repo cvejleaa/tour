@@ -46,6 +46,20 @@ describe('computeMyStats', () => {
     expect(computeMyStats(stages, {})).toMatchObject({ tips: 0, points: -3, hitPct: 0 });
     expect(computeMyStats([], {})).toMatchObject({ tips: 0, points: 0 });
   });
+
+  it('bruger den GIVNE pointopsætning, ikke standardværdien (gcTeam 3 vs 4)', () => {
+    // Regression: forsidens kort scorede med standard-config (gcTeam 1.-plads=4)
+    // i stedet for admins config (3), så "point i alt" lå for højt vs stillingen.
+    const oneStage = [{
+      id: '2026-stage-1', number: 1, kickoff: '2026-07-01T12:00:00+02:00',
+      result: { winnerTeam: 'A', gcTeam: 'B', mountainTeam: 'C', sprintTeam: 'D' },
+    }];
+    const bet = { '2026-stage-1': { winnerTeam: 'X', gcTeam: 'B', mountainTeam: 'X', sprintTeam: 'X' } };
+    const cfg = { winnerTeam: [5, 3, 1], gcTeam: [3, 2, 1], mountainTeam: [3, 2, 1], sprintTeam: [3, 2, 1] };
+    // gcTeam ramt som nr. 1 → 3 med config, 4 med standard.
+    expect(computeMyStats(oneStage, bet, cfg).points).toBe(3);
+    expect(computeMyStats(oneStage, bet).points).toBe(4); // standard-fallback
+  });
 });
 
 describe('recentResults', () => {

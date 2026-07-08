@@ -162,8 +162,8 @@ export default function DashboardPage() {
 
       {!stagesLoading && (
         <div className="dashboard-stats-grid" style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-          <MyStatsCard stages={stages} bets={betsByStage} />
-          <RecentResultsCard stages={stages} bets={betsByStage} />
+          <MyStatsCard stages={stages} bets={betsByStage} points={stagePoints} />
+          <RecentResultsCard stages={stages} bets={betsByStage} points={stagePoints} />
         </div>
       )}
 
