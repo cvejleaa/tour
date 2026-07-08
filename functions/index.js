@@ -815,6 +815,58 @@ exports.recalcAllTotals = onCall({ region: REGION }, async (request) => {
 });
 
 // ---------------------------------------------------------------------------
+// debugUserPoints — admin-diagnose: dump ALLE en spillers stageBets/bonusBets
+// med point, så vi kan se præcis hvor totalen afviger fra summen af etaperne.
+// Input: { displayName } eller { uid }.
+// ---------------------------------------------------------------------------
+exports.debugUserPoints = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+  const me = await db.collection('users').doc(request.auth.uid).get();
+  const role = me.data()?.role;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun owner/global admin.');
+  }
+  let uid = request.data?.uid;
+  const displayName = request.data?.displayName;
+  if (!uid && displayName) {
+    const q = await db.collection('users').where('displayName', '==', displayName).limit(1).get();
+    if (q.empty) throw new HttpsError('not-found', `Ingen spiller med navnet "${displayName}".`);
+    uid = q.docs[0].id;
+  }
+  if (!uid) throw new HttpsError('invalid-argument', 'Angiv uid eller displayName.');
+
+  const userDoc = await db.collection('users').doc(uid).get();
+  const u = userDoc.data() || {};
+  const [stageSnap, bonusSnap] = await Promise.all([
+    db.collection('stageBets').where('uid', '==', uid).get(),
+    db.collection('bonusBets').where('uid', '==', uid).get(),
+  ]);
+  const FIELDS = ['winnerTeam', 'gcTeam', 'mountainTeam', 'sprintTeam'];
+  const stageBets = stageSnap.docs.map((d) => {
+    const b = d.data();
+    return {
+      id: d.id, stageId: b.stageId ?? null, season: b.season ?? null,
+      points: Number(b.points) || 0, autoPenalty: !!b.autoPenalty,
+      picks: FIELDS.filter((f) => b[f]).map((f) => `${f}=${b[f]}`).join(',') || '(tomt)',
+    };
+  }).sort((a, b) => String(a.stageId).localeCompare(String(b.stageId)));
+  const bonusBets = bonusSnap.docs.map((d) => {
+    const b = d.data();
+    return { id: d.id, questionId: b.questionId ?? null, season: b.season ?? null, points: Number(b.points) || 0 };
+  });
+  const stageSum = stageBets.reduce((a, b) => a + b.points, 0);
+  const bonusSum = bonusBets.reduce((a, b) => a + b.points, 0);
+  return {
+    uid, displayName: u.displayName ?? null,
+    stored: { totalPoints: u.totalPoints ?? null, stagePoints: u.stagePoints ?? null, bonusPoints: u.bonusPoints ?? null },
+    computed: { stageSum, bonusSum, total: stageSum + bonusSum },
+    stageBetsCount: stageBets.length,
+    stageBets, bonusBets,
+  };
+});
+
+// ---------------------------------------------------------------------------
 // remapTeamName — admin-værktøj: omdøb ét (forældet) holdnavn til det
 // officielle 2026-navn på tværs af ALLE etape-tip — eller RYD det helt
 // (clear: true), når holdet er nedlagt uden efterfølger (fx "ARKEA-B&B

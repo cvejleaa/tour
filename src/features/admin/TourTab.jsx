@@ -337,6 +337,7 @@ export default function TourTab() {
   const [out, setOut] = useState(null);
   const [err, setErr] = useState('');
   const [seasonInput, setSeasonInput] = useState('');
+  const [debugName, setDebugName] = useState('');
 
   // Pointopsætning – forudfyldes med nuværende værdier fra config/settings
   // (flettet over standardværdier af useTourSettings).
@@ -499,6 +500,11 @@ export default function TourTab() {
     return res.data;
   });
 
+  const debugUser = () => run('debug', async () => {
+    const res = await httpsCallable(functions, 'debugUserPoints')({ displayName: debugName.trim() });
+    return res.data;
+  });
+
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚴 Tour de France</h2>
@@ -621,6 +627,26 @@ export default function TourTab() {
         <button className="btn" disabled={busy} onClick={recalcTotals} data-testid="recalc-totals">
           {busy === 'recalc' ? 'Genberegner…' : '🧮 Genscore & genberegn stillingen'}
         </button>
+      </section>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Diagnose: en spillers point</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          Viser ALLE en spillers etape- og bonus-tips med point, så vi kan se
+          præcis hvor totalen afviger fra summen af etaperne. Skriv spillerens
+          visningsnavn (fx <strong>Bibamus</strong>).
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <input
+            type="text" placeholder="Visningsnavn" value={debugName}
+            onChange={(e) => setDebugName(e.target.value)}
+            style={{ width: 180, padding: '0.4rem', borderRadius: 6, border: '1px solid var(--c-border, #ccc)' }}
+            data-testid="debug-name"
+          />
+          <button className="btn btn--ghost" disabled={busy || !debugName.trim()} onClick={debugUser} data-testid="debug-user">
+            {busy === 'debug' ? 'Henter…' : '🔍 Vis pointfordeling'}
+          </button>
+        </div>
       </section>
 
       <section style={{ marginBottom: '1.25rem' }}>
