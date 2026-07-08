@@ -177,17 +177,23 @@ async function tourSettings(db) {
 // gemmes pr. sæson i users.seasons.{år}; de flade felter (totalPoints m.fl.)
 // afspejler den aktive sæson, så den eksisterende stilling viser indeværende år.
 async function recalcTourTotal(db, uid, season, activeSeason) {
-  const [stageSnap, bonusSnap] = await Promise.all([
-    db.collection('stageBets').where('uid', '==', uid).where('season', '==', season).get(),
-    db.collection('bonusBets').where('uid', '==', uid).where('season', '==', season).get(),
-  ]);
-  const stagePoints = stageSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
-  const bonusPts = bonusSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
-  const totals = { stagePoints, bonusPoints: bonusPts, totalPoints: stagePoints + bonusPts };
-
-  const update = { [`seasons.${season}`]: totals };
-  if (season === activeSeason) Object.assign(update, totals); // flade felter = aktiv sæson
-  await db.collection('users').doc(uid).set(update, { merge: true });
+  const stageQ = db.collection('stageBets').where('uid', '==', uid).where('season', '==', season);
+  const bonusQ = db.collection('bonusBets').where('uid', '==', uid).where('season', '==', season);
+  // Læs-sammenlæg-skriv i en TRANSAKTION: to etaper der afgøres tæt på
+  // hinanden udløser hver sin recomputeStage, som begge genberegner denne
+  // brugers total parallelt. Uden transaktionen kunne den langsomste skrive
+  // et forældet sum oveni det friske (last-writer-wins) og efterlade totalen
+  // permanent for lav. Transaktionen serialiserer læsning + skrivning, så
+  // resultatet altid afspejler alle bet-docs.
+  await db.runTransaction(async (tx) => {
+    const [stageSnap, bonusSnap] = await Promise.all([tx.get(stageQ), tx.get(bonusQ)]);
+    const stagePoints = stageSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
+    const bonusPts = bonusSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
+    const totals = { stagePoints, bonusPoints: bonusPts, totalPoints: stagePoints + bonusPts };
+    const update = { [`seasons.${season}`]: totals };
+    if (season === activeSeason) Object.assign(update, totals); // flade felter = aktiv sæson
+    tx.set(db.collection('users').doc(uid), update, { merge: true });
+  });
 }
 
 // recomputeStage — point for alle etape-tip når et etaperesultat sættes.
@@ -741,6 +747,30 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
     bets: betsSnap.size,
     message: `Backfill færdig: ${stageById.size} etaper opdateret ud fra ${betsSnap.size} tips.`,
   };
+});
+
+// ---------------------------------------------------------------------------
+// recalcAllTotals — admin-værktøj: genberegn ALLE godkendte spilleres totaler
+// fra deres stageBets/bonusBets. Reparerer skæve totaler (fx efter en race
+// mellem to samtidige etape-afgørelser, hvor et forældet sum blev skrevet).
+// Idempotent — kan trygt køres når som helst.
+// ---------------------------------------------------------------------------
+exports.recalcAllTotals = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+  const userDoc = await db.collection('users').doc(request.auth.uid).get();
+  const role = userDoc.data()?.role;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun owner/global admin kan genberegne totaler.');
+  }
+  const { activeSeason } = await tourSettings(db);
+  const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
+  const uids = usersSnap.docs.map((d) => d.id);
+  const CHUNK = 10;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcTourTotal(db, uid, activeSeason, activeSeason)));
+  }
+  return { recalculated: uids.length };
 });
 
 // ---------------------------------------------------------------------------

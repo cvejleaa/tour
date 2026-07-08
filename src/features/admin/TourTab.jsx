@@ -494,6 +494,11 @@ export default function TourTab() {
     return res.data;
   });
 
+  const recalcTotals = () => run('recalc', async () => {
+    const res = await httpsCallable(functions, 'recalcAllTotals')({});
+    return res.data;
+  });
+
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚴 Tour de France</h2>
@@ -601,6 +606,18 @@ export default function TourTab() {
         </p>
         <button className="btn" disabled={busy} onClick={backfillParticipation} data-testid="backfill-participation">
           {busy === 'participation' ? 'Genopbygger…' : '🔄 Genopbyg tip-deltagelse'}
+        </button>
+      </section>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Genberegn stillingen</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          Genberegner ALLE spilleres totaler ud fra deres tips. Kør denne hvis
+          en spillers total i stillingen ikke stemmer med summen af etapepointene
+          (kan ske hvis to etaper blev afgjort samtidig). Rører ikke selve tippene.
+        </p>
+        <button className="btn" disabled={busy} onClick={recalcTotals} data-testid="recalc-totals">
+          {busy === 'recalc' ? 'Genberegner…' : '🧮 Genberegn alle totaler'}
         </button>
       </section>
 
