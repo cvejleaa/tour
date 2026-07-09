@@ -69,6 +69,15 @@ describe('riderRowComparator', () => {
     expect([...rows].sort(riderRowComparator('name')).map((r) => r.last)).toEqual(['Alpha', 'Beta', 'Charlie']);
     expect([...rows].sort(riderRowComparator('name', true)).map((r) => r.last)).toEqual(['Charlie', 'Beta', 'Alpha']);
   });
+
+  it('hold: sorterer på holdnavn (teamName), tiebreak på rytternavn', () => {
+    const teamRows = [
+      { last: 'Y', first: 'y', teamName: 'Lidl-Trek', stats: {} },
+      { last: 'A', first: 'a', teamName: 'Alpecin', stats: {} },
+      { last: 'B', first: 'b', teamName: 'Lidl-Trek', stats: {} },
+    ];
+    expect([...teamRows].sort(riderRowComparator('team')).map((r) => r.last)).toEqual(['A', 'B', 'Y']);
+  });
 });
 
 describe('riderRowsForProfile', () => {

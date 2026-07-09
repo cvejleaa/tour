@@ -3,7 +3,7 @@
 // Allrounder) og få en sorterbar tabel over alle ryttere af den type med
 // deres placering/point/tid i hver konkurrence indtil videre i touren.
 // ---------------------------------------------------------------------------
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useClassifications } from '../tour/useClassifications';
 import { profileLabel, prettyRiderName, isDanishRider } from '../../data/ridersTdf2026';
 import { riderFlag } from '../../data/uciRanking2026';
@@ -29,19 +29,57 @@ function statCell(stat, valueType) {
   );
 }
 
+function RiderRow({ row, showTeam }) {
+  const name = prettyRiderName(`${row.first} ${row.last}`);
+  const danish = isDanishRider(name);
+  const flag = danish ? '🇩🇰' : riderFlag(name);
+  return (
+    <tr data-testid="rider-row" style={danish ? { background: 'rgba(198,12,48,0.06)' } : undefined}>
+      <td style={{ whiteSpace: 'nowrap' }}>
+        {flag && <span aria-hidden style={{ marginRight: 4 }}>{flag}</span>}
+        <span style={{ fontWeight: 600 }}>{name}</span>
+      </td>
+      <td style={{ whiteSpace: 'nowrap', color: 'var(--c-muted)' }}>
+        {showTeam ? row.teamName : ''}
+      </td>
+      {STAT_COMPS.map((c) => (
+        <td key={c.key} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+          {statCell(row.stats[c.key], c.valueType)}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
 export default function RiderTypeExplorer() {
   const { data, loading } = useClassifications();
   const [profile, setProfile] = useState(null);
   const [sortCol, setSortCol] = useState('samlet');
   const [desc, setDesc] = useState(false);
+  const [grouped, setGrouped] = useState(false);
 
   const statsByBib = useMemo(() => buildRiderStats(data?.standings || {}), [data]);
 
   const rows = useMemo(() => {
     if (!profile) return [];
-    const list = riderRowsForProfile(profile, statsByBib);
+    const list = riderRowsForProfile(profile, statsByBib).map((r) => {
+      const meta = teamMeta(r.team);
+      return { ...r, teamName: meta ? prettyTeam(meta.name) : r.team };
+    });
     return list.sort(riderRowComparator(sortCol, desc));
   }, [profile, statsByBib, sortCol, desc]);
+
+  // Gruppér på hold: bevar den valgte kolonnesortering INDEN for hvert hold,
+  // og sortér holdene alfabetisk. null = flad visning.
+  const groups = useMemo(() => {
+    if (!grouped) return null;
+    const m = new Map();
+    for (const r of rows) {
+      if (!m.has(r.teamName)) m.set(r.teamName, []);
+      m.get(r.teamName).push(r);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'da'));
+  }, [grouped, rows]);
 
   function toggleSort(col) {
     if (col === sortCol) { setDesc((d) => !d); return; }
@@ -58,7 +96,7 @@ export default function RiderTypeExplorer() {
       <p style={{ fontSize: '0.82rem', color: 'var(--c-muted)', margin: '0 0 0.5rem' }}>
         Klik på en type og se hvordan rytterne står i hver konkurrence indtil videre.
       </p>
-      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
         {PROFILES.map((p) => {
           const meta = profileLabel(p);
           const active = p === profile;
@@ -74,6 +112,17 @@ export default function RiderTypeExplorer() {
             </button>
           );
         })}
+        {profile && (
+          <button
+            type="button"
+            onClick={() => setGrouped((g) => !g)}
+            data-testid="group-teams"
+            className={`btn btn--sm ${grouped ? '' : 'btn--ghost'}`}
+            style={{ marginLeft: 'auto' }}
+          >
+            {grouped ? '✓ Grupperet på hold' : '👥 Gruppér på hold'}
+          </button>
+        )}
       </div>
 
       {profile && (
@@ -95,6 +144,13 @@ export default function RiderTypeExplorer() {
                   >
                     Rytter{arrow('name')}
                   </th>
+                  <th
+                    style={{ textAlign: 'left', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    onClick={() => toggleSort('team')}
+                    data-testid="sort-team"
+                  >
+                    Hold{arrow('team')}
+                  </th>
                   {STAT_COMPS.map((c) => (
                     <th
                       key={c.key}
@@ -109,33 +165,26 @@ export default function RiderTypeExplorer() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
-                  const name = prettyRiderName(`${r.first} ${r.last}`);
-                  const danish = isDanishRider(name);
-                  const flag = danish ? '🇩🇰' : riderFlag(name);
-                  const team = teamMeta(r.team);
-                  return (
-                    <tr key={r.bib} data-testid="rider-row" style={danish ? { background: 'rgba(198,12,48,0.06)' } : undefined}>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {flag && <span aria-hidden style={{ marginRight: 4 }}>{flag}</span>}
-                        <span style={{ fontWeight: 600 }}>{name}</span>
-                        <span style={{ color: 'var(--c-muted)', marginLeft: 6, fontSize: '0.82em' }}>
-                          {team ? prettyTeam(team.name) : r.team}
-                        </span>
-                      </td>
-                      {STAT_COMPS.map((c) => (
-                        <td key={c.key} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                          {statCell(r.stats[c.key], c.valueType)}
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
+                {groups
+                  ? groups.map(([teamName, teamRows]) => (
+                    <Fragment key={teamName}>
+                      <tr data-testid="team-group">
+                        <th
+                          colSpan={2 + STAT_COMPS.length}
+                          style={{ textAlign: 'left', background: 'var(--c-surface-alt, #f6faf8)', padding: '0.3rem 0.5rem' }}
+                        >
+                          {teamName} <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}>· {teamRows.length}</span>
+                        </th>
+                      </tr>
+                      {teamRows.map((r) => <RiderRow key={r.bib} row={r} showTeam={false} />)}
+                    </Fragment>
+                  ))
+                  : rows.map((r) => <RiderRow key={r.bib} row={r} showTeam />)}
               </tbody>
             </table>
           </div>
           <p style={{ fontSize: '0.74rem', color: 'var(--c-muted)', marginTop: '0.4rem' }}>
-            {rows.length} ryttere · klik på en kolonne for at sortere.
+            {rows.length} ryttere · klik på en kolonne for at sortere{grouped ? ' inden for hvert hold' : ''}.
           </p>
         </div>
       )}

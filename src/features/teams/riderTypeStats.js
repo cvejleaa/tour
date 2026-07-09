@@ -76,6 +76,13 @@ export function riderRowComparator(col, desc = false) {
       return desc ? -r : r;
     };
   }
+  if (col === 'team') {
+    return (a, b) => {
+      const r = String(a.teamName || a.team || '').localeCompare(String(b.teamName || b.team || ''), 'da')
+        || `${a.last} ${a.first}`.localeCompare(`${b.last} ${b.first}`, 'da');
+      return desc ? -r : r;
+    };
+  }
   const comp = STAT_COMPS.find((c) => c.key === col);
   if (!comp) return () => 0;
   return (a, b) => {
