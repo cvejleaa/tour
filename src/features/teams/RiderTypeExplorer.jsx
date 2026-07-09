@@ -8,7 +8,7 @@ import { useClassifications } from '../tour/useClassifications';
 import { profileLabel, prettyRiderName, isDanishRider } from '../../data/ridersTdf2026';
 import { riderFlag } from '../../data/uciRanking2026';
 import { prettyTeam, teamMeta } from '../../data/tourTeams2026';
-import { STAT_COMPS, buildRiderStats, riderRowsForProfile, riderRowComparator } from './riderTypeStats';
+import { STAT_COMPS, buildRiderStats, riderRowsForProfile, riderRowComparator, groupRowsByTeam } from './riderTypeStats';
 
 const PROFILES = ['leader', 'climber', 'sprinter', 'polyvalent'];
 
@@ -69,17 +69,14 @@ export default function RiderTypeExplorer() {
     return list.sort(riderRowComparator(sortCol, desc));
   }, [profile, statsByBib, sortCol, desc]);
 
-  // Gruppér på hold: bevar den valgte kolonnesortering INDEN for hvert hold,
-  // og sortér holdene alfabetisk. null = flad visning.
-  const groups = useMemo(() => {
-    if (!grouped) return null;
-    const m = new Map();
-    for (const r of rows) {
-      if (!m.has(r.teamName)) m.set(r.teamName, []);
-      m.get(r.teamName).push(r);
-    }
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'da'));
-  }, [grouped, rows]);
+  // Gruppér på hold: HOLDENE sorteres efter deres samlede værdi i den valgte
+  // kolonne (fx total bjergpoint), og rytterne bevarer kolonnesorteringen
+  // inden for hvert hold. null = flad visning.
+  const groups = useMemo(
+    () => (grouped ? groupRowsByTeam(rows, sortCol, desc) : null),
+    [grouped, rows, sortCol, desc],
+  );
+  const sortComp = STAT_COMPS.find((c) => c.key === sortCol);
 
   function toggleSort(col) {
     if (col === sortCol) { setDesc((d) => !d); return; }
@@ -166,14 +163,20 @@ export default function RiderTypeExplorer() {
               </thead>
               <tbody>
                 {groups
-                  ? groups.map(([teamName, teamRows]) => (
+                  ? groups.map(({ teamName, rows: teamRows, agg }) => (
                     <Fragment key={teamName}>
                       <tr data-testid="team-group">
                         <th
                           colSpan={2 + STAT_COMPS.length}
                           style={{ textAlign: 'left', background: 'var(--c-surface-alt, #f6faf8)', padding: '0.3rem 0.5rem' }}
                         >
-                          {teamName} <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}>· {teamRows.length}</span>
+                          {teamName}
+                          <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> · {teamRows.length} ryttere</span>
+                          {sortComp && agg != null && (
+                            <span style={{ color: 'var(--c-pitch)', fontWeight: 700, marginLeft: '0.5rem' }}>
+                              {sortComp.icon} {sortComp.valueType === 'points' ? `${agg} p` : `bedst #${agg}`}
+                            </span>
+                          )}
                         </th>
                       </tr>
                       {teamRows.map((r) => <RiderRow key={r.bib} row={r} showTeam={false} />)}

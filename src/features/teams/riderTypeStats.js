@@ -100,3 +100,56 @@ export function riderRowComparator(col, desc = false) {
     return desc ? -d : d;
   };
 }
+
+/**
+ * Holdets samlede værdi i en kolonne: SUM af point (point-konkurrencer) eller
+ * BEDSTE (laveste) placering (tids-konkurrencer). null når kolonnen ikke er en
+ * konkurrence (navn/hold) eller holdet ingen data har.
+ */
+export function teamAggregate(teamRows, col) {
+  const comp = STAT_COMPS.find((c) => c.key === col);
+  if (!comp) return null;
+  if (comp.valueType === 'points') {
+    let any = false;
+    let sum = 0;
+    for (const r of teamRows) {
+      const p = r.stats?.[col]?.points;
+      if (p != null) { any = true; sum += p; }
+    }
+    return any ? sum : null;
+  }
+  const ranks = teamRows.map((r) => r.stats?.[col]?.rank).filter((x) => x != null);
+  return ranks.length ? Math.min(...ranks) : null;
+}
+
+/**
+ * Gruppér rytter-rækker på hold og sortér HOLDENE efter deres samlede værdi i
+ * den valgte kolonne (point-konkurrence: flest samlede point først; tids-
+ * konkurrence: bedste placering først; navn/hold: alfabetisk). Rækkerne inden
+ * for hvert hold bevarer den rækkefølge de kommer i (dvs. rytter-sorteringen).
+ * @returns {Array<{teamName:string, rows:Array, agg:number|null}>}
+ */
+export function groupRowsByTeam(rows, col, desc = false) {
+  const m = new Map();
+  for (const r of rows || []) {
+    const key = r.teamName || r.team || '—';
+    if (!m.has(key)) m.set(key, []);
+    m.get(key).push(r);
+  }
+  const comp = STAT_COMPS.find((c) => c.key === col);
+  const entries = [...m.entries()].map(([teamName, teamRows]) => ({
+    teamName, rows: teamRows, agg: teamAggregate(teamRows, col),
+  }));
+  entries.sort((a, b) => {
+    if (!comp) {
+      const r = a.teamName.localeCompare(b.teamName, 'da');
+      return desc ? -r : r;
+    }
+    if (a.agg == null && b.agg == null) return a.teamName.localeCompare(b.teamName, 'da');
+    if (a.agg == null) return 1; // hold uden data → sidst
+    if (b.agg == null) return -1;
+    const d = comp.valueType === 'points' ? (b.agg - a.agg) : (a.agg - b.agg);
+    return desc ? -d : d;
+  });
+  return entries;
+}

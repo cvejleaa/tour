@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildRiderStats, ridersOfProfile, riderRowsForProfile, riderRowComparator,
+  teamAggregate, groupRowsByTeam,
 } from './riderTypeStats';
 
 // Realistiske klassement-rækker (letour-navneform, som synken gemmer dem).
@@ -77,6 +78,36 @@ describe('riderRowComparator', () => {
       { last: 'B', first: 'b', teamName: 'Lidl-Trek', stats: {} },
     ];
     expect([...teamRows].sort(riderRowComparator('team')).map((r) => r.last)).toEqual(['A', 'B', 'Y']);
+  });
+});
+
+describe('teamAggregate & groupRowsByTeam', () => {
+  const rows = [
+    { bib: 1, last: 'A', teamName: 'Visma', stats: { bjerg: { points: 10, rank: 2 }, samlet: { rank: 5 } } },
+    { bib: 2, last: 'B', teamName: 'Lidl', stats: { bjerg: { points: 4, rank: 6 }, samlet: { rank: 1 } } },
+    { bib: 3, last: 'C', teamName: 'Visma', stats: { bjerg: { points: 8, rank: 3 }, samlet: { rank: 9 } } },
+  ];
+
+  it('teamAggregate: sum af point / bedste placering', () => {
+    expect(teamAggregate([rows[0], rows[2]], 'bjerg')).toBe(18); // 10+8
+    expect(teamAggregate([rows[0], rows[2]], 'samlet')).toBe(5); // bedste (laveste) placering
+    expect(teamAggregate([rows[0]], 'name')).toBeNull(); // ikke en konkurrence
+  });
+
+  it('grupperer og sorterer HOLDENE efter samlet bjergpoint (flest først)', () => {
+    const g = groupRowsByTeam(rows, 'bjerg');
+    expect(g.map((x) => x.teamName)).toEqual(['Visma', 'Lidl']); // Visma 18 > Lidl 4
+    expect(g[0].agg).toBe(18);
+  });
+
+  it('tids-kolonne: holdene sorteres efter bedste placering', () => {
+    const g = groupRowsByTeam(rows, 'samlet');
+    expect(g.map((x) => x.teamName)).toEqual(['Lidl', 'Visma']); // Lidl #1 < Visma #5
+  });
+
+  it('desc vender holdenes rækkefølge', () => {
+    const g = groupRowsByTeam(rows, 'bjerg', true);
+    expect(g.map((x) => x.teamName)).toEqual(['Lidl', 'Visma']);
   });
 });
 
