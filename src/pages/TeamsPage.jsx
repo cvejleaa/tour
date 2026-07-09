@@ -11,6 +11,7 @@ import { teamProfile } from '../data/teamProfiles2026';
 import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
 import RiderSearch from '../features/teams/RiderSearch';
+import RiderTypeExplorer from '../features/teams/RiderTypeExplorer';
 import { buildRiderIndex } from '../features/teams/riderSearch';
 import { teamWorldRank, riderRankSum } from '../data/uciRanking2026';
 
@@ -60,6 +61,9 @@ export default function TeamsPage() {
 
       {/* Søg efter en rytter på tværs af holdene */}
       <RiderSearch index={riderIndex} />
+
+      {/* Klik på en ryttertype → sorterbar tabel over deres klassement-status */}
+      <RiderTypeExplorer />
 
       {/* Sortering */}
       <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.75rem' }}>
