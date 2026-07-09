@@ -67,10 +67,15 @@ function gcComp(finish, topN) {
  */
 export function gameCompetitions(data, gcTopN = 10) {
   const finish = data?.stageResult || [];
+  // Bjerg/sprint = point PÅ seneste etape (det man tipper), ikke kumulativt.
+  // `stagePoints` skrives af synken; falder tilbage til de kumulative
+  // klassementer for gamle classifications-docs (før feltet fandtes).
+  const bjerg = data?.stagePoints?.bjerg ?? data?.standings?.bjerg;
+  const sprint = data?.stagePoints?.sprint ?? data?.standings?.sprint;
   return {
     winnerTeam: winnerComp(finish),
     gcTeam: gcComp(finish, gcTopN),
-    mountainTeam: pointsComp(data?.standings?.bjerg),
-    sprintTeam: pointsComp(data?.standings?.sprint),
+    mountainTeam: pointsComp(bjerg),
+    sprintTeam: pointsComp(sprint),
   };
 }

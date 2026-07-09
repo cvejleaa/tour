@@ -168,7 +168,8 @@ export default function TourPage() {
           {/* Spillets fire konkurrencer (top-5 hold + rytter-specifikation) */}
           <h3 style={{ margin: '1rem 0 0.1rem' }}>🎮 Spillets konkurrencer</h3>
           <p style={{ fontSize: '0.78rem', color: 'var(--c-muted)', margin: '0 0 0.5rem' }}>
-            Sådan står holdene i de fire ting du tipper{data.afterStage ? ` (efter etape ${data.afterStage})` : ''}.
+            Sådan faldt de fire ting du tipper ud{data.afterStage ? ` på etape ${data.afterStage}` : ''} —
+            point er dét holdet tog PÅ etapen (ikke sæsontotal). Trøje-klassementerne nedenfor er de kumulative.
           </p>
           <GameCompetitions data={data} gcTopN={gcTopN} highlightTeams={highlightTeams} />
 

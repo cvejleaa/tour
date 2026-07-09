@@ -47,6 +47,25 @@ describe('gameCompetitions', () => {
     expect(c.sprintTeam[0]).toMatchObject({ team: 'Alpecin', total: 200 });
   });
 
+  it('foretrækker ETAPENS point (stagePoints) frem for kumulativ standings', () => {
+    // Nu tipper man point PÅ etapen — panelet skal bruge stagePoints, ikke
+    // de kumulative klassementer (der ville give sæsontotalen).
+    const withStage = gameCompetitions({
+      ...data,
+      stagePoints: {
+        bjerg: [{ rider: 'Onley', team: 'Jayco', points: 8 }, { rider: 'Martinez', team: 'Bahrain', points: 5 }],
+        sprint: [{ rider: 'Merlier', team: 'Soudal', points: 20 }],
+      },
+    }, 2);
+    expect(withStage.mountainTeam[0]).toMatchObject({ team: 'Jayco', total: 8 });
+    expect(withStage.sprintTeam[0]).toMatchObject({ team: 'Soudal', total: 20 });
+  });
+
+  it('falder tilbage til kumulativ standings uden stagePoints (gamle docs)', () => {
+    // Ingen stagePoints → brug standings (bagudkompatibelt).
+    expect(c.mountainTeam[0]).toMatchObject({ team: 'Bahrain', total: 70 });
+  });
+
   it('tåler manglende data', () => {
     const empty = gameCompetitions({}, 4);
     expect(empty.winnerTeam).toEqual([]);

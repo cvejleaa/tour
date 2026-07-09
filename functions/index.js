@@ -391,7 +391,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
       continue; // beskadiget/ufuldstændig tabel — behold det gamle facit
     }
 
-    if (!latest || n > latest.number) latest = { number: n, payload, jerseys: upd.jerseys };
+    if (!latest || n > latest.number) latest = { number: n, payload, jerseys: upd.jerseys, pointsLists: upd.pointsLists };
     upd.teams.forEach((t) => allTeams.set(t.key, t.name));
     if (!dryRun) {
       await db.collection('stages').doc(docId).set({
@@ -428,13 +428,23 @@ async function syncTourCore(db, { dryRun = false } = {}) {
 
   // Fulde stillinger pr. konkurrence efter seneste afgjorte etape → config/classifications
   // (læses af Tour-siden). Skrives kun når en (ny) etape er blevet afgjort.
-  const writeClassifications = async (afterStage, payload, jerseys, previousYear) => {
+  const writeClassifications = async (afterStage, payload, jerseys, previousYear, pointsLists) => {
+    const toRows = (list) => (list || [])
+      .filter((e) => e && e.team && Number(e.points) > 0)
+      .map((e) => ({ rider: e.rider ?? null, team: e.team, points: Number(e.points) || 0 }));
     await db.collection('config').doc('classifications').set({
       season,
       afterStage,
       previousYear,
       standings: classificationStandings(payload),
       stageResult: stageResultRows(payload),
+      // Bjerg-/sprintpoint PÅ seneste etape (ikke kumulativt) — så "Spillets
+      // konkurrencer" viser det man faktisk tipper: etapens point, som
+      // etapevinder-/bedste-hold-kortene også gør.
+      stagePoints: {
+        bjerg: toRows(pointsLists?.mountain),
+        sprint: toRows(pointsLists?.sprint),
+      },
       jerseys,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: false });
@@ -444,7 +454,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
   if (!dryRun) {
     if (latest) {
       // Årets data (mindst én 2026-etape afgjort) → overskriver evt. sidste-års-preview.
-      await writeClassifications(latest.number, latest.payload, latest.jerseys, false);
+      await writeClassifications(latest.number, latest.payload, latest.jerseys, false, latest.pointsLists);
     } else {
       // Ingen NY etape afgjort i denne kørsel. Sidste-års-previewet (skrevet
       // før løbsstart) er UDTJENT nu hvor løbet er i gang: står der stadig et
