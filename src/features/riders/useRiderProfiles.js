@@ -72,7 +72,26 @@ export function useRiderProfiles() {
     const notesForBib = (bib) => (riders[bib] && riders[bib].notes) || '';
     const typeForBib = (bib, fallback) => typeOverrides.get(Number(bib)) || fallback;
 
-    return { riders, aiRaw, aiByBib, typeOverrides, tagsForBib, notesForBib, typeForBib };
+    // Tag → startnumre (til klikbare tag-filtre). Bygges fra alle ryttere der
+    // har mindst ét tag (manuelt eller AI). allTags er unikke labels, sorteret.
+    const tagToBibs = new Map();
+    const taggedBibs = new Set([...Object.keys(riders).map(Number), ...aiByBib.keys()]);
+    for (const bib of taggedBibs) {
+      for (const t of tagsForBib(bib)) {
+        const key = t.label.toLowerCase();
+        if (!tagToBibs.has(key)) tagToBibs.set(key, { label: t.label, bibs: new Set() });
+        tagToBibs.get(key).bibs.add(Number(bib));
+      }
+    }
+    const allTags = [...tagToBibs.values()]
+      .map((v) => ({ label: v.label, count: v.bibs.size }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'da'));
+    const bibsForTag = (tag) => {
+      const e = tagToBibs.get(String(tag || '').toLowerCase());
+      return e ? [...e.bibs] : [];
+    };
+
+    return { riders, aiRaw, aiByBib, typeOverrides, tagsForBib, notesForBib, typeForBib, allTags, bibsForTag };
   }, [docData]);
 
   return { ...value, loading };

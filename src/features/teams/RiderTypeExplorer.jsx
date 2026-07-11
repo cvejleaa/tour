@@ -9,7 +9,7 @@ import { profileLabel, prettyRiderName, isDanishRider } from '../../data/ridersT
 import { riderFlag } from '../../data/uciRanking2026';
 import { prettyTeam, teamMeta } from '../../data/tourTeams2026';
 import { useRiderProfiles } from '../riders/useRiderProfiles';
-import { STAT_COMPS, buildRiderStats, riderRowsForProfile, riderRowComparator, groupRowsByTeam } from './riderTypeStats';
+import { STAT_COMPS, buildRiderStats, riderRowsForProfile, riderRowsForBibs, riderRowComparator, groupRowsByTeam } from './riderTypeStats';
 
 const PROFILES = ['leader', 'climber', 'sprinter', 'polyvalent'];
 
@@ -81,22 +81,31 @@ function RiderRow({ row, showTeam, tags = [] }) {
 
 export default function RiderTypeExplorer() {
   const { data, loading } = useClassifications();
-  const { tagsForBib, typeOverrides } = useRiderProfiles();
+  const { tagsForBib, typeOverrides, allTags, bibsForTag } = useRiderProfiles();
   const [profile, setProfile] = useState(null);
+  const [tag, setTag] = useState(null);
   const [sortCol, setSortCol] = useState('samlet');
   const [desc, setDesc] = useState(false);
   const [grouped, setGrouped] = useState(false);
 
+  // Ét valg ad gangen: en profiltype ELLER et frit tag.
+  const selectProfile = (p) => { setProfile((cur) => (cur === p ? null : p)); setTag(null); };
+  const selectTag = (t) => { setTag((cur) => (cur === t ? null : t)); setProfile(null); };
+  const active = profile || tag;
+
   const statsByBib = useMemo(() => buildRiderStats(data?.standings || {}), [data]);
 
   const rows = useMemo(() => {
-    if (!profile) return [];
-    const list = riderRowsForProfile(profile, statsByBib, typeOverrides).map((r) => {
+    if (!profile && !tag) return [];
+    const base = tag
+      ? riderRowsForBibs(bibsForTag(tag), statsByBib)
+      : riderRowsForProfile(profile, statsByBib, typeOverrides);
+    const list = base.map((r) => {
       const meta = teamMeta(r.team);
       return { ...r, teamName: meta ? prettyTeam(meta.name) : r.team, tags: tagsForBib(r.bib) };
     });
     return list.sort(riderRowComparator(sortCol, desc));
-  }, [profile, statsByBib, sortCol, desc, typeOverrides, tagsForBib]);
+  }, [profile, tag, statsByBib, sortCol, desc, typeOverrides, tagsForBib, bibsForTag]);
 
   // Gruppér på hold: HOLDENE sorteres efter deres samlede værdi i den valgte
   // kolonne (fx total bjergpoint), og rytterne bevarer kolonnesorteringen
@@ -120,25 +129,26 @@ export default function RiderTypeExplorer() {
     <div style={{ marginTop: '1rem' }}>
       <h2 className="card__title" style={{ margin: '0 0 0.4rem' }}>🚴 Ryttertyper</h2>
       <p style={{ fontSize: '0.82rem', color: 'var(--c-muted)', margin: '0 0 0.5rem' }}>
-        Klik på en type og se hvordan rytterne står i hver konkurrence indtil videre.
+        Klik på en type — eller et tag (fx <em>baroudeur</em>) — og se hvordan rytterne står
+        i hver konkurrence indtil videre.
       </p>
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
         {PROFILES.map((p) => {
           const meta = profileLabel(p);
-          const active = p === profile;
+          const isActive = p === profile;
           return (
             <button
               key={p}
               type="button"
-              onClick={() => setProfile(active ? null : p)}
+              onClick={() => selectProfile(p)}
               data-testid={`profile-${p}`}
-              className={`btn btn--sm ${active ? '' : 'btn--ghost'}`}
+              className={`btn btn--sm ${isActive ? '' : 'btn--ghost'}`}
             >
               {meta ? `${meta.emoji} ${meta.label}` : p}
             </button>
           );
         })}
-        {profile && (
+        {active && (
           <button
             type="button"
             onClick={() => setGrouped((g) => !g)}
@@ -151,7 +161,29 @@ export default function RiderTypeExplorer() {
         )}
       </div>
 
-      {profile && (
+      {/* Frie tags (manuelle + AI ✨) som klikbare filtre — kun når der er nogen. */}
+      {allTags.length > 0 && (
+        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.4rem' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--c-muted)', marginRight: 2 }}>Tags:</span>
+          {allTags.map((t) => {
+            const isActive = t.label === tag;
+            return (
+              <button
+                key={t.label}
+                type="button"
+                onClick={() => selectTag(t.label)}
+                data-testid={`tag-filter-${t.label}`}
+                className={`btn btn--sm ${isActive ? '' : 'btn--ghost'}`}
+                style={{ fontSize: '0.72rem', padding: '0.1rem 0.5rem' }}
+              >
+                {t.label} <span style={{ opacity: 0.6 }}>{t.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {active && (
         <div style={{ marginTop: '0.75rem' }} data-testid="rider-type-table">
           {loading && <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>Henter stillinger…</p>}
           {!loading && !hasStandings && (

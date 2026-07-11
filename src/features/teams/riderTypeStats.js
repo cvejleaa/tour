@@ -60,6 +60,26 @@ export function ridersOfProfile(profile, typeOverrides = null) {
     .map((r) => ({ bib: r.bib, first: r.first, last: r.last, nat: r.nat, team: r.team }));
 }
 
+// Startnummer → rytter (til opslag når vi filtrerer på tags i stedet for profil).
+const RIDER_BY_BIB = new Map(RIDERS.map((r) => [Number(r.bib), r]));
+
+/**
+ * Tabelrækker for en eksplicit liste af startnumre (bruges når man filtrerer på
+ * et frit tag frem for en profiltype). Ukendte startnumre springes over.
+ * @param {Array<number>} bibs
+ * @param {Map<number,object>} statsByBib
+ * @returns {Array<{bib,first,last,nat,team,stats:object}>}
+ */
+export function riderRowsForBibs(bibs, statsByBib) {
+  const rows = [];
+  for (const bib of bibs || []) {
+    const r = RIDER_BY_BIB.get(Number(bib));
+    if (!r) continue;
+    rows.push({ bib: r.bib, first: r.first, last: r.last, nat: r.nat, team: r.team, stats: statsByBib.get(r.bib) || {} });
+  }
+  return rows;
+}
+
 /**
  * Sammensæt tabelrækker for en profiltype: rytter + stats pr. konkurrence.
  * @param {string} profile

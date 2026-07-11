@@ -57,4 +57,22 @@ describe('useRiderProfiles', () => {
     emit({ aiRaw: [{ rider: 'Ukendt Rytter', tag: 'spurter', stage: 1 }] });
     expect(result.current.aiByBib.size).toBe(0);
   });
+
+  it('bygger allTags + bibsForTag på tværs af manuelle og AI-tags', () => {
+    const { result } = renderHook(() => useRiderProfiles());
+    emit({
+      riders: { 11: { tags: ['baroudeur'] } },
+      aiRaw: [
+        { rider: 'Jasper Philipsen', tag: 'spurter', stage: 3 },
+        { rider: 'Jonas Vingegaard', tag: 'baroudeur', stage: 5 }, // samme tag, anden rytter
+      ],
+    });
+    const labels = result.current.allTags.map((t) => t.label).sort();
+    expect(labels).toEqual(['baroudeur', 'spurter']);
+    // baroudeur dækker begge ryttere (bib 11 + 11? nej: 11 manuel + 11 ai er samme) →
+    // 11 (manuel) og 11 (ai for Vingegaard = bib 11) er samme rytter, så 1 bib.
+    expect(result.current.bibsForTag('baroudeur').sort()).toEqual([11]);
+    expect(result.current.bibsForTag('spurter')).toEqual([42]);
+    expect(result.current.bibsForTag('findes-ikke')).toEqual([]);
+  });
 });
