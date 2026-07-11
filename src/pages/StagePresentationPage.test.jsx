@@ -51,7 +51,8 @@ describe('StagePresentationPage – nøgletal', () => {
   it('viser rute, distance, starttid og type for en kendt etape', () => {
     useStages.mockReturnValue({ stages: [flatStage()] });
     renderAt(5);
-    expect(screen.getByTestId('route-line')).toHaveTextContent('Bordeaux → Pau');
+    // Rute vises i Hero'ens undertitel.
+    expect(screen.getByText('Bordeaux → Pau')).toBeInTheDocument();
     expect(screen.getByText(/174.2 km/)).toBeInTheDocument();
     expect(screen.getByText(/13:25/)).toBeInTheDocument();
     expect(screen.getAllByText(/Flad/).length).toBeGreaterThan(0);
@@ -112,9 +113,11 @@ describe('StagePresentationPage – aktive spørgsmål', () => {
   it('lister hvilke spørgsmål der stilles (flad = ingen bjergpoint)', () => {
     useStages.mockReturnValue({ stages: [flatStage()] });
     renderAt(5);
-    expect(screen.getByTestId('question-winnerTeam')).toHaveTextContent('✅');
-    expect(screen.getByTestId('question-gcTeam')).toHaveTextContent('✅');
-    expect(screen.getByTestId('question-sprintTeam')).toHaveTextContent('✅');
+    // Aktive spørgsmål markeres med en neutral prik (✅ er reserveret til
+    // "rigtigt gættet" på resultat-visningen).
+    expect(screen.getByTestId('question-winnerTeam')).toHaveTextContent('●');
+    expect(screen.getByTestId('question-gcTeam')).toHaveTextContent('●');
+    expect(screen.getByTestId('question-sprintTeam')).toHaveTextContent('●');
     // Bjergpoint er ikke aktiv på en flad etape → vises med "—".
     const mountain = screen.getByTestId('question-mountainTeam');
     expect(mountain).toHaveTextContent('Bjergpoint');
@@ -127,9 +130,8 @@ describe('StagePresentationPage – fallback og fejl', () => {
     // Tomt DB-resultat → siden skal stadig finde etape 1 i ruten.
     useStages.mockReturnValue({ stages: [] });
     renderAt(1);
-    expect(screen.getByTestId('route-line')).toBeInTheDocument();
-    // Etape 1 i 2026 er Barcelone → Barcelone (fra route2026.json).
-    expect(screen.getByTestId('route-line')).toHaveTextContent('Barcelone → Barcelone');
+    // Etape 1 i 2026 er Barcelone → Barcelone (fra route2026.json) — vises i Hero.
+    expect(screen.getByText('Barcelone → Barcelone')).toBeInTheDocument();
   });
 
   it('viser "Etape ikke fundet" for et ukendt nummer', () => {

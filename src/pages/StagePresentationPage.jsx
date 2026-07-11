@@ -80,6 +80,20 @@ function StatTile({ label, value }) {
   );
 }
 
+// Foldbar sektion — bruges til at pakke "Om etapen" og "Fuldt resultat" væk på
+// en afgjort etape, så spillerens resultat ikke drukner i tabeller.
+function Fold({ title, subtitle, open = false, testid, children }) {
+  return (
+    <details open={open} data-testid={testid} style={{ borderTop: '1px solid var(--c-border)', padding: '0.6rem 0' }}>
+      <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '1rem', listStyle: 'revert' }}>
+        {title}
+        {subtitle && <span style={{ fontWeight: 400, color: 'var(--c-muted)', fontSize: '0.82rem', marginLeft: '0.4rem' }}>{subtitle}</span>}
+      </summary>
+      <div style={{ marginTop: '0.75rem' }}>{children}</div>
+    </details>
+  );
+}
+
 export default function StagePresentationPage() {
   const { number } = useParams();
   const season = useActiveSeason();
@@ -134,6 +148,144 @@ export default function StagePresentationPage() {
   // ældre seedet engelsk dokument.
   const description = staticStage?.description || stage.description || '';
 
+  const isUpcoming = status === 'scheduled';
+  const hasResultTables = isDone && (
+    (stage.resultRows?.length > 0)
+    || stage.mountainRows?.length > 0 || stage.sprintRows?.length > 0 || stage.holdRows?.length > 0
+  );
+
+  // "Om etapen"-indhold: nøgletal, højdeprofil, dagens udfordringer, mål-by.
+  // På en kommende etape er det sidens hovedindhold (vist åbent); på en
+  // afgjort etape er det retrospektivt og foldes væk.
+  const aboutContent = (
+    <>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }} data-testid="stage-keyfacts">
+        {stage.km != null && <StatTile label="Distance" value={`${stage.km} km`} />}
+        {stage.startTime && <StatTile label="Starttid" value={`${stage.startTime} (CEST)`} />}
+        {elevation != null && <StatTile label="Højdemeter" value={`${elevation} m`} />}
+      </div>
+
+      {profileImage && (
+        <figure style={{ margin: '0 0 1rem' }} data-testid="stage-profile">
+          <img
+            src={profileImage}
+            alt={`Højdeprofil for etape ${stage.number}`}
+            loading="lazy"
+            style={{ maxWidth: '100%', height: 'auto', borderRadius: 12, display: 'block' }}
+          />
+          <figcaption style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: 'var(--c-muted)' }}>Højdeprofil</figcaption>
+        </figure>
+      )}
+
+      {(climbs.length > 0 || sprints.length > 0) && (
+        <section style={{ marginBottom: '1rem' }} data-testid="stage-challenges">
+          <h4 style={{ margin: '0 0 0.5rem' }}>Dagens udfordringer</h4>
+          {climbs.length > 0 && (
+            <div style={{ marginBottom: sprints.length ? '0.6rem' : 0 }}>
+              <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--c-muted)', marginBottom: '0.3rem' }}>
+                Kategoriserede stigninger
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
+                {climbs.map((c, i) => (
+                  <li key={`${c.name}-${i}`} data-testid="climb-row" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                    <ClimbBadge category={c.category} />
+                    <span>{c.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {sprints.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--c-muted)', marginBottom: '0.3rem' }}>
+                Mellemsprint
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                {sprints.map((s, i) => (
+                  <span key={`${s.name}-${i}`} data-testid="sprint-chip" className="badge badge--muted" style={{ fontSize: '0.82rem' }}>
+                    {s.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {stage.image && (
+        <figure style={{ margin: '0 0 1rem' }}>
+          <img
+            src={stage.image}
+            alt={stage.finishCity || ''}
+            loading="lazy"
+            style={{ maxWidth: '100%', height: 'auto', borderRadius: 12, display: 'block' }}
+          />
+          {stage.finishCity && (
+            <figcaption style={{ marginTop: '0.35rem', fontSize: '0.85rem', color: 'var(--c-muted)' }}>{stage.finishCity}</figcaption>
+          )}
+        </figure>
+      )}
+
+      {description && (
+        <section>
+          <h4 style={{ margin: '0 0 0.4rem' }}>Om mål-byen {stage.finishCity ?? ''}</h4>
+          <p style={{ margin: 0, lineHeight: 1.5, color: 'var(--c-muted)' }}>{description}</p>
+        </section>
+      )}
+    </>
+  );
+
+  // Alle resultat-tabeller (fuld målrækkefølge + spillets hold-konkurrencer +
+  // bjerg/sprint/hold) — "bevismaterialet" bag facit. Foldes væk, så det
+  // kompakte facit i "Resultat & alles tips" er det man møder først.
+  const resultTables = (
+    <>
+      {stage.resultRows?.length > 0 && (
+        <section style={{ marginBottom: '1.1rem' }} data-testid="stage-finish-order">
+          <h4 style={{ margin: '0 0 0.4rem' }}>🏁 Etapens resultat</h4>
+          <StandingsTable rows={stage.resultRows} valueType="time" flagFor={riderFlag} danishFor={isDanishRider} riderNameFor={prettyRiderName} />
+        </section>
+      )}
+      {stage.resultRows?.length > 0 && (
+        <section style={{ marginBottom: '1.1rem' }} data-testid="stage-game-teams">
+          <h4 style={{ margin: '0 0 0.4rem' }}>🎮 Spillets holdkonkurrencer</h4>
+          <GameCompetitions data={{ stageResult: stage.resultRows }} gcTopN={gcTopN} only={['winnerTeam', 'gcTeam']} />
+        </section>
+      )}
+      {(stage.mountainRows?.length > 0 || stage.sprintRows?.length > 0 || stage.holdRows?.length > 0) && (
+        <section data-testid="stage-class-results">
+          <div style={{ display: 'grid', gap: '0.9rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+            {stage.mountainRows?.length > 0 && (
+              <div data-testid="stage-mountain-result">
+                <h4 style={{ margin: '0 0 0.4rem' }}>⛰️ Bjergpoint på etapen</h4>
+                <StandingsTable rows={stage.mountainRows} valueType="points" topN={5} flagFor={riderFlag} danishFor={isDanishRider} riderNameFor={prettyRiderName} />
+              </div>
+            )}
+            {stage.sprintRows?.length > 0 && (
+              <div data-testid="stage-sprint-result">
+                <h4 style={{ margin: '0 0 0.4rem' }}>🚀 Sprintpoint på etapen</h4>
+                <StandingsTable rows={stage.sprintRows} valueType="points" topN={5} flagFor={riderFlag} danishFor={isDanishRider} riderNameFor={prettyRiderName} />
+              </div>
+            )}
+            {stage.holdRows?.length > 0 && (
+              <div data-testid="stage-team-result">
+                <h4 style={{ margin: '0 0 0.4rem' }}>👥 Holdkonkurrence (samlet efter etapen)</h4>
+                <StandingsTable rows={stage.holdRows} valueType="time" teamsMode topN={5} />
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+    </>
+  );
+
+  const expertTip = stage.expertTip ? (
+    <section style={{ marginBottom: '1rem' }} data-testid="expert-tip">
+      <h3 style={{ marginBottom: '0.4rem' }}>💡 Ekspert-tip</h3>
+      <p style={{ margin: 0, lineHeight: 1.5 }}>{stage.expertTip}</p>
+    </section>
+  ) : null;
+
   return (
     <div className="page" style={{ paddingBottom: '2rem' }}>
       <Hero
@@ -143,208 +295,56 @@ export default function StagePresentationPage() {
       />
 
       <div className="card" data-testid="stage-presentation">
-        {/* Stor rute-linje */}
-        <h2 style={{ marginTop: 0, marginBottom: '0.75rem' }} data-testid="route-line">
-          {stage.startCity ?? '?'} → {stage.finishCity ?? '?'}
-        </h2>
+        {isUpcoming ? (
+          <>
+            {/* Kommende etape: rute-info + udfordringer er hovedindholdet. */}
+            {aboutContent}
 
-        {/* Nøgletal */}
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          {stage.km != null && (
-            <StatTile label="Distance" value={`${stage.km} km`} />
-          )}
-          {stage.startTime && (
-            <StatTile label="Starttid" value={`${stage.startTime} (fransk/CEST tid)`} />
-          )}
-          <StatTile label="Type" value={typeLabel} />
-          {elevation != null && (
-            <StatTile label="Højdemeter" value={`${elevation} m`} />
-          )}
-        </div>
+            <section style={{ margin: '1rem 0' }} data-testid="active-questions">
+              <h3 style={{ marginBottom: '0.4rem' }}>Det tipper du på denne etape</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.25rem' }}>
+                {QUESTION_SUMMARY.map((q) => (
+                  <li key={q.key} data-testid={`question-${q.key}`} style={{ fontSize: '0.9rem', color: active[q.key] ? 'var(--c-text)' : 'var(--c-muted)' }}>
+                    <span aria-hidden style={{ color: active[q.key] ? 'var(--c-pitch)' : 'var(--c-muted)' }}>{active[q.key] ? '●' : '—'}</span>
+                    {' '}{q.label}{!active[q.key] && ' (tæller ikke på denne type)'}
+                  </li>
+                ))}
+              </ul>
+            </section>
 
-        {/* Højdeprofil fra letour – den mest fortællende grafik om etapen. */}
-        {profileImage && (
-          <figure style={{ margin: '0 0 1rem' }} data-testid="stage-profile">
-            <img
-              src={profileImage}
-              alt={`Højdeprofil for etape ${stage.number}`}
-              loading="lazy"
-              style={{ maxWidth: '100%', height: 'auto', borderRadius: 12, display: 'block' }}
-            />
-            <figcaption style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-              Højdeprofil
-            </figcaption>
-          </figure>
-        )}
+            {expertTip}
 
-        {/* Stigninger + mellemsprints – parcoursens udfordringer. */}
-        {(climbs.length > 0 || sprints.length > 0) && (
-          <section style={{ marginBottom: '1rem' }} data-testid="stage-challenges">
-            <h3 style={{ marginBottom: '0.5rem' }}>Dagens udfordringer</h3>
-            {climbs.length > 0 && (
-              <div style={{ marginBottom: sprints.length ? '0.6rem' : 0 }}>
-                <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--c-muted)', marginBottom: '0.3rem' }}>
-                  ⛰️ Kategoriserede stigninger
-                </div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
-                  {climbs.map((c, i) => (
-                    <li key={`${c.name}-${i}`} data-testid="climb-row" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
-                      <ClimbBadge category={c.category} />
-                      <span>{c.name}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <Link className="btn" to="/etaper" data-testid="tip-stage-btn">
+              Tip denne etape
+            </Link>
+          </>
+        ) : (
+          <>
+            {/* Afgjort/låst etape: spillerens resultat øverst — dét man kommer for. */}
+            {showAnswers && (
+              <section style={{ marginBottom: '1rem' }} data-testid="stage-results">
+                <h3 style={{ marginTop: 0, marginBottom: '0.4rem' }}>{isDone ? '🎯 Resultat & alles tips' : '👀 Alles tips (etapen er i gang)'}</h3>
+                <StageAnswers stage={stage} points={points} gcTopN={gcTopN} />
+              </section>
             )}
-            {sprints.length > 0 && (
-              <div>
-                <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.03em', color: 'var(--c-muted)', marginBottom: '0.3rem' }}>
-                  🚀 Mellemsprint
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                  {sprints.map((s, i) => (
-                    <span key={`${s.name}-${i}`} data-testid="sprint-chip" className="badge badge--muted" style={{ fontSize: '0.82rem' }}>
-                      {s.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
+
+            {expertTip}
+
+            {hasResultTables && (
+              <Fold title="Fuldt resultat & pointfordeling" testid="stage-result-details">
+                {resultTables}
+              </Fold>
             )}
-          </section>
+
+            <Fold title="Om etapen" subtitle="rute, profil, udfordringer" testid="stage-about-details">
+              {aboutContent}
+            </Fold>
+
+            <Link className="btn btn--ghost" to="/etaper" data-testid="tip-stage-btn" style={{ marginTop: '1rem' }}>
+              ← Til etaperne
+            </Link>
+          </>
         )}
-
-        {/* Mål-by-billede som banner */}
-        {stage.image && (
-          <figure style={{ margin: '0 0 1rem' }}>
-            <img
-              src={stage.image}
-              alt={stage.finishCity || ''}
-              loading="lazy"
-              style={{ maxWidth: '100%', height: 'auto', borderRadius: 12, display: 'block' }}
-            />
-            {stage.finishCity && (
-              <figcaption style={{ marginTop: '0.35rem', fontSize: '0.85rem', color: 'var(--c-muted)' }}>
-                {stage.finishCity}
-              </figcaption>
-            )}
-          </figure>
-        )}
-
-        {/* Om etapen / mål-byen */}
-        {description && (
-          <section style={{ marginBottom: '1rem' }}>
-            <h3 style={{ marginBottom: '0.4rem' }}>
-              Om mål-byen {stage.finishCity ?? ''}
-            </h3>
-            <p style={{ margin: 0, lineHeight: 1.5, color: 'var(--c-muted)' }}>
-              {description}
-            </p>
-          </section>
-        )}
-
-        {/* Aktive spørgsmål */}
-        <section style={{ marginBottom: '1rem' }} data-testid="active-questions">
-          <h3 style={{ marginBottom: '0.4rem' }}>Spørgsmål på denne etape</h3>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.25rem' }}>
-            {QUESTION_SUMMARY.map((q) => (
-              <li key={q.key} data-testid={`question-${q.key}`} style={{ fontSize: '0.9rem' }}>
-                {active[q.key] ? '✅' : '—'} {q.label}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {/* Etapens fulde målrækkefølge — når resultatet er gemt af synken.
-            (Ældre afgjorte etaper selv-opheles af næste sync-kørsel.) */}
-        {isDone && Array.isArray(stage.resultRows) && stage.resultRows.length > 0 && (
-          <section style={{ marginBottom: '1rem' }} data-testid="stage-finish-order">
-            <h3 style={{ marginBottom: '0.4rem' }}>🏁 Etapens resultat</h3>
-            <StandingsTable
-              rows={stage.resultRows}
-              valueType="time"
-              flagFor={riderFlag}
-              danishFor={isDanishRider}
-              riderNameFor={prettyRiderName}
-            />
-          </section>
-        )}
-
-        {/* Spillets hold-konkurrencer PÅ etapen: etapevinder-hold + bedste
-            hold (Q1 og Q2), regnet af etapens målrækkefølge — så man kan se
-            hvordan de to hold-tip faldt ud. */}
-        {isDone && Array.isArray(stage.resultRows) && stage.resultRows.length > 0 && (
-          <section style={{ marginBottom: '1rem' }} data-testid="stage-game-teams">
-            <h3 style={{ marginBottom: '0.4rem' }}>🎮 Spillets holdkonkurrencer</h3>
-            <GameCompetitions
-              data={{ stageResult: stage.resultRows }}
-              gcTopN={gcTopN}
-              only={['winnerTeam', 'gcTeam']}
-            />
-          </section>
-        )}
-
-        {/* Bjerg-/sprintpoint PÅ etapen + holdkonkurrencen efter etapen —
-            de resultater Q2-Q4 afgøres på. Kun blokke med data vises (en
-            holdtidskørsel har fx hverken bjerg- eller sprintpoint). */}
-        {isDone && (stage.mountainRows?.length > 0 || stage.sprintRows?.length > 0 || stage.holdRows?.length > 0) && (
-          <section style={{ marginBottom: '1rem' }} data-testid="stage-class-results">
-            <div style={{ display: 'grid', gap: '0.9rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-              {stage.mountainRows?.length > 0 && (
-                <div data-testid="stage-mountain-result">
-                  <h3 style={{ margin: '0 0 0.4rem' }}>⛰️ Bjergpoint på etapen</h3>
-                  <StandingsTable
-                    rows={stage.mountainRows}
-                    valueType="points"
-                    topN={5}
-                    flagFor={riderFlag}
-                    danishFor={isDanishRider}
-                    riderNameFor={prettyRiderName}
-                  />
-                </div>
-              )}
-              {stage.sprintRows?.length > 0 && (
-                <div data-testid="stage-sprint-result">
-                  <h3 style={{ margin: '0 0 0.4rem' }}>🚀 Sprintpoint på etapen</h3>
-                  <StandingsTable
-                    rows={stage.sprintRows}
-                    valueType="points"
-                    topN={5}
-                    flagFor={riderFlag}
-                    danishFor={isDanishRider}
-                    riderNameFor={prettyRiderName}
-                  />
-                </div>
-              )}
-              {stage.holdRows?.length > 0 && (
-                <div data-testid="stage-team-result">
-                  <h3 style={{ margin: '0 0 0.4rem' }}>👥 Holdkonkurrencen efter etapen</h3>
-                  <StandingsTable rows={stage.holdRows} valueType="time" teamsMode topN={5} />
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Alles tips fra etapestart; facit + etapens top kommer til, når
-            resultatet lander. */}
-        {showAnswers && (
-          <section style={{ marginBottom: '1rem' }} data-testid="stage-results">
-            <h3 style={{ marginBottom: '0.4rem' }}>{isDone ? 'Resultat & alles tips' : 'Alles tips (etapen er i gang)'}</h3>
-            <StageAnswers stage={stage} points={points} gcTopN={gcTopN} />
-          </section>
-        )}
-
-        {/* Ekspert-tip – kun når til stede */}
-        {stage.expertTip && (
-          <section style={{ marginBottom: '1rem' }} data-testid="expert-tip">
-            <h3 style={{ marginBottom: '0.4rem' }}>💡 Ekspert-tip</h3>
-            <p style={{ margin: 0, lineHeight: 1.5 }}>{stage.expertTip}</p>
-          </section>
-        )}
-
-        <Link className="btn" to="/etaper" data-testid="tip-stage-btn">
-          Tip denne etape
-        </Link>
       </div>
     </div>
   );

@@ -61,7 +61,7 @@ export default function StageAnswers({ stage, points = {}, gcTopN = 10 }) {
     <div data-testid="stage-answers" style={{ marginTop: '0.6rem', display: 'grid', gap: '0.8rem' }}>
       {/* Facit */}
       <section data-testid="stage-facit">
-        <h4 style={{ margin: '0 0 0.35rem', fontSize: '0.95rem' }}>✅ Facit</h4>
+        <h4 style={{ margin: '0 0 0.35rem', fontSize: '0.95rem' }}>🎯 Facit</h4>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
           {shownQ.map((q) => {
             const pod = podiumOf(q.key);
