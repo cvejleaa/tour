@@ -8,9 +8,30 @@ import { useClassifications } from '../tour/useClassifications';
 import { profileLabel, prettyRiderName, isDanishRider } from '../../data/ridersTdf2026';
 import { riderFlag } from '../../data/uciRanking2026';
 import { prettyTeam, teamMeta } from '../../data/tourTeams2026';
+import { useRiderProfiles } from '../riders/useRiderProfiles';
 import { STAT_COMPS, buildRiderStats, riderRowsForProfile, riderRowComparator, groupRowsByTeam } from './riderTypeStats';
 
 const PROFILES = ['leader', 'climber', 'sprinter', 'polyvalent'];
+
+/** Lille tag-chip. AI-tags markeres diskret med ✨ + evidens som tooltip. */
+function TagChip({ tag }) {
+  const ai = tag.source === 'ai';
+  return (
+    <span
+      data-testid="rider-tag"
+      title={ai && tag.evidence ? `AI · etape ${tag.stage ?? '?'}: ${tag.evidence}` : (ai ? 'AI-udledt' : 'manuelt tag')}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 2,
+        fontSize: '0.68rem', fontWeight: 600, lineHeight: 1.4,
+        padding: '0 6px', borderRadius: 999,
+        background: ai ? 'rgba(120,80,200,0.12)' : 'var(--c-surface-alt, #eef3f0)',
+        color: ai ? 'var(--c-accent, #6a44c7)' : 'var(--c-muted)',
+      }}
+    >
+      {ai && <span aria-hidden>✨</span>}{tag.label}
+    </span>
+  );
+}
 
 function statCell(stat, valueType) {
   if (!stat) return <span style={{ color: 'var(--c-muted)' }}>–</span>;
@@ -29,15 +50,22 @@ function statCell(stat, valueType) {
   );
 }
 
-function RiderRow({ row, showTeam }) {
+function RiderRow({ row, showTeam, tags = [] }) {
   const name = prettyRiderName(`${row.first} ${row.last}`);
   const danish = isDanishRider(name);
   const flag = danish ? '🇩🇰' : riderFlag(name);
   return (
     <tr data-testid="rider-row" style={danish ? { background: 'rgba(198,12,48,0.06)' } : undefined}>
-      <td style={{ whiteSpace: 'nowrap' }}>
-        {flag && <span aria-hidden style={{ marginRight: 4 }}>{flag}</span>}
-        <span style={{ fontWeight: 600 }}>{name}</span>
+      <td>
+        <div style={{ whiteSpace: 'nowrap' }}>
+          {flag && <span aria-hidden style={{ marginRight: 4 }}>{flag}</span>}
+          <span style={{ fontWeight: 600 }}>{name}</span>
+        </div>
+        {tags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
+            {tags.map((t) => <TagChip key={`${t.source}-${t.label}`} tag={t} />)}
+          </div>
+        )}
       </td>
       <td style={{ whiteSpace: 'nowrap', color: 'var(--c-muted)' }}>
         {showTeam ? row.teamName : ''}
@@ -53,6 +81,7 @@ function RiderRow({ row, showTeam }) {
 
 export default function RiderTypeExplorer() {
   const { data, loading } = useClassifications();
+  const { tagsForBib, typeOverrides } = useRiderProfiles();
   const [profile, setProfile] = useState(null);
   const [sortCol, setSortCol] = useState('samlet');
   const [desc, setDesc] = useState(false);
@@ -62,12 +91,12 @@ export default function RiderTypeExplorer() {
 
   const rows = useMemo(() => {
     if (!profile) return [];
-    const list = riderRowsForProfile(profile, statsByBib).map((r) => {
+    const list = riderRowsForProfile(profile, statsByBib, typeOverrides).map((r) => {
       const meta = teamMeta(r.team);
-      return { ...r, teamName: meta ? prettyTeam(meta.name) : r.team };
+      return { ...r, teamName: meta ? prettyTeam(meta.name) : r.team, tags: tagsForBib(r.bib) };
     });
     return list.sort(riderRowComparator(sortCol, desc));
-  }, [profile, statsByBib, sortCol, desc]);
+  }, [profile, statsByBib, sortCol, desc, typeOverrides, tagsForBib]);
 
   // Gruppér på hold: HOLDENE sorteres efter deres samlede værdi i den valgte
   // kolonne (fx total bjergpoint), og rytterne bevarer kolonnesorteringen
@@ -179,10 +208,10 @@ export default function RiderTypeExplorer() {
                           )}
                         </th>
                       </tr>
-                      {teamRows.map((r) => <RiderRow key={r.bib} row={r} showTeam={false} />)}
+                      {teamRows.map((r) => <RiderRow key={r.bib} row={r} showTeam={false} tags={r.tags} />)}
                     </Fragment>
                   ))
-                  : rows.map((r) => <RiderRow key={r.bib} row={r} showTeam />)}
+                  : rows.map((r) => <RiderRow key={r.bib} row={r} showTeam tags={r.tags} />)}
               </tbody>
             </table>
           </div>

@@ -15,6 +15,7 @@ import EmailLogTab from '../features/admin/EmailLogTab';
 import BroadcastTab from '../features/admin/BroadcastTab';
 import SettingsTab from '../features/admin/SettingsTab';
 import ActivityTab from '../features/admin/ActivityTab';
+import RiderProfilesTab from '../features/admin/RiderProfilesTab';
 
 // Fane-id'er
 const TAB_USERS   = 'users';
@@ -27,6 +28,7 @@ const TAB_MAILS   = 'mails';
 const TAB_BROADCAST = 'broadcast';
 const TAB_SETTINGS = 'settings';
 const TAB_ACTIVITY = 'activity';
+const TAB_RIDERS = 'riders';
 
 export default function AdminPage() {
   const { isOwner, isGlobalAdmin } = useAuth();
@@ -41,6 +43,7 @@ export default function AdminPage() {
       ? [{ key: TAB_USERS, label: 'Brugere' }]
       : []),
     { key: TAB_TOUR,    label: '🚴 Tour' },
+    { key: TAB_RIDERS,  label: '🏷️ Ryttertyper' },
     { key: TAB_BONUS,   label: 'Bonus' },
     { key: TAB_LEAGUES, label: 'Ligaer' },
     { key: TAB_TESTS,   label: 'Tests' },
@@ -107,6 +110,7 @@ export default function AdminPage() {
       <div className="card" style={{ padding: '1.25rem' }}>
         {tab === TAB_USERS   && <UsersTab isOwner={isOwner} isGlobalAdmin={isGlobalAdmin} />}
         {tab === TAB_TOUR    && <TourTab />}
+        {tab === TAB_RIDERS  && <RiderProfilesTab />}
         {tab === TAB_BONUS   && <BonusTab />}
         {tab === TAB_LEAGUES && <LeaguesAdminTab />}
         {tab === TAB_TESTS   && <TestsTab />}

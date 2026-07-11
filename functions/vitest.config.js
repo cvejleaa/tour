@@ -20,6 +20,7 @@ export default defineConfig({
       'salesPitch.test.js',
       'liveTicker.test.js',
       'liveMap.test.js',
+      'riderTags.test.js',
     ],
     exclude: [
       'rules.test.js',

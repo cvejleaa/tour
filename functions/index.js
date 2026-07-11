@@ -48,6 +48,7 @@ const { salesPitchHtml } = require('./salesPitch');
 const { fetchLiveTickerCore } = require('./liveTicker');
 const { fetchLiveMapCore } = require('./liveMap');
 const { runGenerateStageTips } = require('./stageTip');
+const { runEnrichRiderTags } = require('./riderTags');
 
 // Initialiser Firebase Admin (singleton)
 initializeApp();
@@ -1960,5 +1961,70 @@ exports.getLiveMap = onCall(
       cache: liveMapCache,
       routeCache: liveMapRouteCache,
     });
+  }
+);
+
+// ---------------------------------------------------------------------------
+// enrichRiderTags — AI-udledte rytter-karakteristika fra live-tickeren.
+// Auto (onSchedule): én gang i døgnet (efter etaperne) beriges nyligt afgjorte
+// etaper, der endnu ikke er behandlet. Manuel (enrichRiderTagsNow, admin):
+// kør nu — evt. for én bestemt etape og/eller med force. Skriver AI-tags
+// (kilde 'ai') på config/riderProfiles; frontenden slår navn → startnummer op.
+// ---------------------------------------------------------------------------
+const enrichTickerCache = new Map();
+const fetchTickerForEnrich = ({ stageNumber, season }) =>
+  fetchLiveTickerCore({ stageNumber, season, fetchImpl: fetchWithTimeout, cache: enrichTickerCache });
+
+// Berig alle afgjorte etaper (evt. kun én) i sæsonen. runEnrichRiderTags
+// springer selv allerede-berigede etaper over, medmindre force er sat.
+async function enrichDecidedStages(db, anthropic, { season, force = false, onlyStage = null } = {}) {
+  const snap = await db.collection('stages').where('season', '==', Number(season)).get();
+  const numbers = snap.docs
+    .map((d) => d.data())
+    .filter((s) => s && s.status === 'done' && Array.isArray(s.resultRows) && s.resultRows.length)
+    .map((s) => Number(s.number))
+    .filter((n) => Number.isInteger(n) && (onlyStage == null || n === onlyStage))
+    .sort((a, b) => a - b);
+  const results = [];
+  for (const n of numbers) {
+    try {
+      results.push(await runEnrichRiderTags(db, anthropic, {
+        stageNumber: n, season, fetchTicker: fetchTickerForEnrich,
+        serverTimestamp: FieldValue.serverTimestamp(), force,
+      }));
+    } catch (err) {
+      results.push({ ok: false, stage: n, added: 0, reason: (err && err.message) || String(err) });
+    }
+  }
+  return results;
+}
+
+exports.enrichRiderTags = onSchedule(
+  { schedule: '30 22 * * *', timeZone: TZ, region: REGION, secrets: [ANTHROPIC_API_KEY] },
+  async () => {
+    const db = getFirestore();
+    const apiKey = ANTHROPIC_API_KEY.value();
+    if (!apiKey) { console.log('enrichRiderTags: ANTHROPIC_API_KEY ikke sat — springer over.'); return; }
+    const { activeSeason } = await tourSettings(db);
+    const anthropic = new Anthropic({ apiKey });
+    const results = await enrichDecidedStages(db, anthropic, { season: activeSeason });
+    const withTags = results.filter((r) => r.ok && r.added > 0);
+    console.log(`enrichRiderTags: behandlede ${results.length} etaper, ${withTags.length} med nye tags.`);
+  }
+);
+
+exports.enrichRiderTagsNow = onCall(
+  { region: REGION, secrets: [ANTHROPIC_API_KEY] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const apiKey = ANTHROPIC_API_KEY.value();
+    if (!apiKey) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
+    const { activeSeason } = await tourSettings(db);
+    const anthropic = new Anthropic({ apiKey });
+    const onlyStage = Number.isInteger(Number(request.data?.stage)) ? Number(request.data.stage) : null;
+    const force = request.data?.force === true;
+    const results = await enrichDecidedStages(db, anthropic, { season: activeSeason, force, onlyStage });
+    return { results };
   }
 );

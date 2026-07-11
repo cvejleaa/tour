@@ -43,10 +43,20 @@ export function buildRiderStats(standings) {
   return byBib;
 }
 
-/** Alle ryttere med en given profiltype (fra rytter-filen). */
-export function ridersOfProfile(profile) {
+/**
+ * Alle ryttere med en given profiltype. Med et valgfrit typeOverrides-kort
+ * (bib → type) vinder en manuel override over den statiske letour-profil, så en
+ * rytter kan flyttes til en anden type på admin-siden.
+ * @param {string} profile
+ * @param {Map<number,string>} [typeOverrides]
+ */
+export function ridersOfProfile(profile, typeOverrides = null) {
   const p = String(profile || '').toLowerCase();
-  return RIDERS.filter((r) => String(r.profile || '').toLowerCase() === p)
+  const effType = (r) => {
+    const o = typeOverrides && typeOverrides.get(Number(r.bib));
+    return String(o || r.profile || '').toLowerCase();
+  };
+  return RIDERS.filter((r) => effType(r) === p)
     .map((r) => ({ bib: r.bib, first: r.first, last: r.last, nat: r.nat, team: r.team }));
 }
 
@@ -54,10 +64,11 @@ export function ridersOfProfile(profile) {
  * Sammensæt tabelrækker for en profiltype: rytter + stats pr. konkurrence.
  * @param {string} profile
  * @param {Map<number,object>} statsByBib
+ * @param {Map<number,string>} [typeOverrides]
  * @returns {Array<{bib,first,last,nat,team,stats:object}>}
  */
-export function riderRowsForProfile(profile, statsByBib) {
-  return ridersOfProfile(profile).map((r) => ({ ...r, stats: statsByBib.get(r.bib) || {} }));
+export function riderRowsForProfile(profile, statsByBib, typeOverrides = null) {
+  return ridersOfProfile(profile, typeOverrides).map((r) => ({ ...r, stats: statsByBib.get(r.bib) || {} }));
 }
 
 /**
