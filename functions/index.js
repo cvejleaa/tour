@@ -305,7 +305,11 @@ async function syncTourCore(db, { dryRun = false } = {}) {
 
   // Version af etapesidens visningsfelter — bump'es når felterne udvides, så
   // allerede-backfillede (frosne) etaper selv-opheler til den nye form.
-  const PRESENTATION_V = 2;
+  // v3: hele målrækkefølgen gemmes (ikke kun top 30), så "bedste hold" kan
+  // udregnes korrekt på etapesiden (kræver hvert holds N bedste ryttere).
+  const PRESENTATION_V = 3;
+  // Nok rækker til at ALLE hold har mindst gcTopN ryttere med (fuldt felt).
+  const RESULT_ROWS_MAX = 220;
 
   // En 'done'-etape gen-synces stadig i timerne efter etapestart: letour kan
   // vise provisoriske rækker mens etapen kører, og juryen ændrer jævnligt
@@ -343,7 +347,7 @@ async function syncTourCore(db, { dryRun = false } = {}) {
               const pr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n - 1}`);
               if (pr.ok) prev = await pr.json();
             }
-            const rows = stageResultRows(p, 30);
+            const rows = stageResultRows(p, RESULT_ROWS_MAX);
             const lists = buildStageUpdate(p, gcTopN, prev).pointsLists;
             if (rows.length) {
               await db.collection('stages').doc(docId).set({
@@ -405,9 +409,9 @@ async function syncTourCore(db, { dryRun = false } = {}) {
         km: upd.meta.km,
         resultRowCount: rowCount,
         // Etapens visningsresultater — vises på etapens egen side:
-        // målrækkefølge (top 30), bjerg-/sprintpoint PÅ etapen og
-        // holdkonkurrencens stilling efter etapen.
-        resultRows: stageResultRows(payload, 30),
+        // HELE målrækkefølgen (så "bedste hold" kan udregnes), bjerg-/
+        // sprintpoint PÅ etapen og holdkonkurrencens stilling efter etapen.
+        resultRows: stageResultRows(payload, RESULT_ROWS_MAX),
         mountainRows: toPointRows(upd.pointsLists.mountain),
         sprintRows: toPointRows(upd.pointsLists.sprint),
         holdRows: classificationStandings(payload, 10).hold,
