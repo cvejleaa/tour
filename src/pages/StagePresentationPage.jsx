@@ -13,6 +13,7 @@ import { useActiveSeason } from '../features/stages/useActiveSeason';
 import { useTourSettings } from '../features/stages/useTourSettings';
 import StageAnswers from '../features/stages/StageAnswers';
 import StandingsTable from '../features/tour/StandingsTable';
+import GameCompetitions from '../features/tour/GameCompetitions';
 import { riderFlag } from '../data/uciRanking2026';
 import { isDanishRider, prettyRiderName } from '../data/ridersTdf2026';
 import { placeholderRoute2026 } from '../data/route2026';
@@ -264,6 +265,20 @@ export default function StagePresentationPage() {
               flagFor={riderFlag}
               danishFor={isDanishRider}
               riderNameFor={prettyRiderName}
+            />
+          </section>
+        )}
+
+        {/* Spillets hold-konkurrencer PÅ etapen: etapevinder-hold + bedste
+            hold (Q1 og Q2), regnet af etapens målrækkefølge — så man kan se
+            hvordan de to hold-tip faldt ud. */}
+        {isDone && Array.isArray(stage.resultRows) && stage.resultRows.length > 0 && (
+          <section style={{ marginBottom: '1rem' }} data-testid="stage-game-teams">
+            <h3 style={{ marginBottom: '0.4rem' }}>🎮 Spillets holdkonkurrencer</h3>
+            <GameCompetitions
+              data={{ stageResult: stage.resultRows }}
+              gcTopN={gcTopN}
+              only={['winnerTeam', 'gcTeam']}
             />
           </section>
         )}

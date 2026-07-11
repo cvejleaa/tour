@@ -17,14 +17,16 @@ function ridersLine(riders, kind) {
     .join(' · ');
 }
 
-export default function GameCompetitions({ data, gcTopN = 10, highlightTeams = null }) {
+export default function GameCompetitions({ data, gcTopN = 10, highlightTeams = null, only = null }) {
   const comps = gameCompetitions(data, gcTopN);
-  const CONFIG = [
+  const ALL = [
     { key: 'winnerTeam', icon: '🏆', label: 'Etapevinderens hold', kind: 'pos' },
     { key: 'gcTeam', icon: '⏱️', label: `Bedste hold (de første ${gcTopN} ryttere)`, kind: 'sum', note: 'Sum af holdets N bedste placeringer — lavest vinder' },
     { key: 'mountainTeam', icon: '⛰️', label: 'Flest bjergpoint', kind: 'pts' },
     { key: 'sprintTeam', icon: '🚀', label: 'Flest sprintpoint', kind: 'pts' },
   ];
+  // `only` begrænser til udvalgte konkurrencer (fx kun hold-baserede på etapesiden).
+  const CONFIG = only ? ALL.filter((c) => only.includes(c.key)) : ALL;
 
   const valueOf = (c, t) => {
     if (c.kind === 'pos') return `#${t.best}`;

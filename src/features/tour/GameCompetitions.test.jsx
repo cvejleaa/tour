@@ -27,6 +27,14 @@ describe('GameCompetitions', () => {
     expect(screen.getByText(/Martinez 50p/)).toBeInTheDocument();
   });
 
+  it('only-prop begrænser til udvalgte konkurrencer', () => {
+    render(<GameCompetitions data={data} gcTopN={4} only={['winnerTeam', 'gcTeam']} />);
+    expect(screen.getByTestId('gamecomp-winnerTeam')).toBeInTheDocument();
+    expect(screen.getByTestId('gamecomp-gcTeam')).toBeInTheDocument();
+    expect(screen.queryByTestId('gamecomp-mountainTeam')).toBeNull();
+    expect(screen.queryByTestId('gamecomp-sprintTeam')).toBeNull();
+  });
+
   it('fremhæver tippede hold', () => {
     render(<GameCompetitions data={data} gcTopN={4} highlightTeams={collectTippedTeams([{ winnerTeam: 'UAE Team Emirates XRG' }])} />);
     const tipped = screen.getAllByTestId('gamecomp-team').filter((el) => el.getAttribute('data-tipped') === 'true');
