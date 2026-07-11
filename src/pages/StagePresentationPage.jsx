@@ -104,10 +104,14 @@ export default function StagePresentationPage() {
 
   // Den statiske rute bærer de uforanderlige præsentations-felter (profil,
   // stigninger, sprints), så de virker uanset om etapen er seedet i Firestore.
+  const route = useMemo(() => placeholderRoute2026(season), [season]);
   const staticStage = useMemo(
-    () => placeholderRoute2026(season).find((s) => Number(s.number) === num) || null,
-    [season, num],
+    () => route.find((s) => Number(s.number) === num) || null,
+    [route, num],
   );
+  const totalStages = route.length;
+  const prevNum = num > 1 ? num - 1 : null;
+  const nextNum = num < totalStages ? num + 1 : null;
 
   // Brug seedet etape hvis den findes, ellers fald tilbage til ruten, så
   // siden virker både før og efter seeding.
@@ -293,6 +297,26 @@ export default function StagePresentationPage() {
         subtitle={`${stage.startCity ?? ''} → ${stage.finishCity ?? ''}`}
         chips={[typeLabel, longDate].filter(Boolean)}
       />
+
+      {/* Bladr frem/tilbage gennem alle etaperne. */}
+      <nav
+        data-testid="stage-nav"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', margin: '0.75rem 0' }}
+      >
+        {prevNum ? (
+          <Link className="btn btn--ghost btn--sm" to={`/etape/${prevNum}`} data-testid="stage-nav-prev">← Etape {prevNum}</Link>
+        ) : (
+          <span className="btn btn--ghost btn--sm" aria-hidden style={{ visibility: 'hidden' }}>←</span>
+        )}
+        <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          Etape {num} af {totalStages}
+        </span>
+        {nextNum ? (
+          <Link className="btn btn--ghost btn--sm" to={`/etape/${nextNum}`} data-testid="stage-nav-next">Etape {nextNum} →</Link>
+        ) : (
+          <span className="btn btn--ghost btn--sm" aria-hidden style={{ visibility: 'hidden' }}>→</span>
+        )}
+      </nav>
 
       <div className="card" data-testid="stage-presentation">
         {isUpcoming ? (

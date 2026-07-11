@@ -148,6 +148,30 @@ describe('StagePresentationPage – fallback og fejl', () => {
   });
 });
 
+describe('StagePresentationPage – frem/tilbage-navigation', () => {
+  it('linker til forrige og næste etape', () => {
+    useStages.mockReturnValue({ stages: [flatStage()] });
+    renderAt(5);
+    expect(screen.getByTestId('stage-nav-prev')).toHaveAttribute('href', '/etape/4');
+    expect(screen.getByTestId('stage-nav-next')).toHaveAttribute('href', '/etape/6');
+    expect(screen.getByTestId('stage-nav')).toHaveTextContent('Etape 5 af 21');
+  });
+
+  it('skjuler "forrige" på etape 1', () => {
+    useStages.mockReturnValue({ stages: [] });
+    renderAt(1);
+    expect(screen.queryByTestId('stage-nav-prev')).toBeNull();
+    expect(screen.getByTestId('stage-nav-next')).toHaveAttribute('href', '/etape/2');
+  });
+
+  it('skjuler "næste" på sidste etape (21)', () => {
+    useStages.mockReturnValue({ stages: [] });
+    renderAt(21);
+    expect(screen.getByTestId('stage-nav-prev')).toHaveAttribute('href', '/etape/20');
+    expect(screen.queryByTestId('stage-nav-next')).toBeNull();
+  });
+});
+
 describe('StagePresentationPage – etapens resultat', () => {
   it('viser målrækkefølgen (resultRows) for en afgjort etape', () => {
     useStages.mockReturnValue({ stages: [flatStage({
