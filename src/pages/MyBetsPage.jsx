@@ -30,21 +30,26 @@ export default function MyBetsPage() {
 
   const isLoading = stagesLoading || betsLoading;
 
-  // Filtrér til kun etaper brugeren har tippet (mindst ét holdvalg)
+  // Filtrér til kun etaper brugeren har tippet (mindst ét holdvalg).
+  // Nyeste etape øverst → sortér faldende på etapenummer.
   const tippedStages = useMemo(
-    () => stages.filter((s) => STAGE_FIELDS.some(({ key }) => betsByStage[s.id]?.[key])),
+    () => stages
+      .filter((s) => STAGE_FIELDS.some(({ key }) => betsByStage[s.id]?.[key]))
+      .sort((a, b) => (b.number ?? 0) - (a.number ?? 0)),
     [stages, betsByStage],
   );
 
-  // Beregn point for afgjorte etaper
-  const pointsPerStage = useMemo(() => {
+  // Beregn point + pr.-spørgsmål-fordeling for afgjorte etaper.
+  // Værdien er null for endnu ikke afgjorte etaper.
+  const scoredPerStage = useMemo(() => {
     const map = new Map();
     for (const s of tippedStages) {
       if (stageStatus(s, Date.now()) !== 'done' || !s.result) {
         map.set(s.id, null);
         continue;
       }
-      map.set(s.id, scoreStageBet(betsByStage[s.id], s.result, points, s).points);
+      const { points: pts, breakdown } = scoreStageBet(betsByStage[s.id], s.result, points, s);
+      map.set(s.id, { points: pts, breakdown: breakdown || {} });
     }
     return map;
   }, [tippedStages, betsByStage, points]);
@@ -52,11 +57,11 @@ export default function MyBetsPage() {
   // Samlet sum af kendte point
   const totalPoints = useMemo(() => {
     let sum = 0;
-    pointsPerStage.forEach((pts) => {
-      if (pts !== null) sum += pts;
+    scoredPerStage.forEach((sc) => {
+      if (sc !== null) sum += sc.points;
     });
     return sum;
-  }, [pointsPerStage]);
+  }, [scoredPerStage]);
 
   // Antal ulåste etaper der kan redigeres
   const editableCount = tippedStages.filter((s) => stageStatus(s, Date.now()) === 'scheduled').length;
@@ -162,16 +167,39 @@ export default function MyBetsPage() {
                   const bet = betsByStage[stage.id];
                   const status = stageStatus(stage, Date.now());
                   const locked = status !== 'scheduled';
-                  const pts = pointsPerStage.get(stage.id);
+                  const scored = scoredPerStage.get(stage.id);
+                  const pts = scored === null ? null : scored.points;
                   const { label: statusLabel, cls: statusCls } = betStatus(status);
+
+                  // Pick-celle: holdnavn + (for afgjorte etaper) hvor mange
+                  // point netop dette tip gav.
+                  const pickCell = (key) => {
+                    const earned = scored ? (scored.breakdown[key] || 0) : null;
+                    return (
+                      <td>
+                        <div>{prettyTeamShort(bet?.[key]) || '–'}</div>
+                        {earned !== null && bet?.[key] && (
+                          <div
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              color: earned > 0 ? 'var(--c-ok)' : 'var(--c-muted)',
+                            }}
+                          >
+                            {earned > 0 ? `+${earned} p` : '0 p'}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  };
 
                   return (
                     <tr key={stage.id}>
                       <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Etape {stage.number}</td>
-                      <td>{prettyTeamShort(bet?.winnerTeam) || '–'}</td>
-                      <td>{prettyTeamShort(bet?.gcTeam) || '–'}</td>
-                      <td>{prettyTeamShort(bet?.mountainTeam) || '–'}</td>
-                      <td>{prettyTeamShort(bet?.sprintTeam) || '–'}</td>
+                      {pickCell('winnerTeam')}
+                      {pickCell('gcTeam')}
+                      {pickCell('mountainTeam')}
+                      {pickCell('sprintTeam')}
                       <td>
                         {pts !== null ? (
                           <span className={`badge ${pts > 0 ? 'badge--green' : 'badge--muted'}`}>
