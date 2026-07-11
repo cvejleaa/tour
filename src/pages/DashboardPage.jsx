@@ -154,6 +154,7 @@ export default function DashboardPage() {
             bet={betsByStage[nextStage.id] || null}
             teams={teams}
             points={stagePoints}
+            gcTopN={gcTopN}
           />
         </div>
       )}

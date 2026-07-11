@@ -10,7 +10,7 @@ import { stageAnswerRows, stageTop } from './stageAnswerRows';
 import { useStandings } from '../leaderboard/useStandings';
 import { useLeagues } from '../leagues/useLeagues';
 import { collectVisibleUids } from '../leaderboard/standingsUtils';
-import { activeQuestionsForStage } from '../../lib/tourScoring';
+import { activeQuestionsForStage, DEFAULT_GC_TOP_N } from '../../lib/tourScoring';
 import Avatar from '../../components/Avatar';
 import TeamBadge from '../../components/TeamBadge';
 
@@ -23,7 +23,7 @@ const QUESTIONS = [
   { key: 'sprintTeam', icon: '🚀', label: () => 'Sprintpoint' },
 ];
 
-export default function StageAnswers({ stage, points = {}, gcTopN = 10 }) {
+export default function StageAnswers({ stage, points = {}, gcTopN = DEFAULT_GC_TOP_N }) {
   const { user, isGlobalAdmin } = useAuth();
   const meUid = user?.uid ?? '';
   const { bets, loading } = useStageBets(stage?.id ?? null, true);

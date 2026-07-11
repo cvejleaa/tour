@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL, TIMEZONE } from '../../lib/constants';
-import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, stageTipComplete, DEFAULT_PODIUM } from '../../lib/tourScoring';
+import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, stageTipComplete, DEFAULT_PODIUM, DEFAULT_GC_TOP_N } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
 import { canonicalTeamKey } from '../../lib/tourTeams';
 import { prettyTeam } from '../../data/tourTeams2026';
@@ -49,7 +49,7 @@ function formatDeadline(kickoff) {
 }
 
 export default function StageCard({
-  stage, uid, bet, teams = [], points = {}, gcTopN = 10,
+  stage, uid, bet, teams = [], points = {}, gcTopN = DEFAULT_GC_TOP_N,
   previousPicks = null, similarStages = [], onApplyToOpenStages = null,
 }) {
   const status = stageStatus(stage, Date.now());

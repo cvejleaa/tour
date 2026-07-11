@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------
 import TeamBadge from '../../components/TeamBadge';
 import { canonicalTeamKey } from '../../lib/tourTeams';
+import { DEFAULT_GC_TOP_N } from '../../lib/tourScoring';
 import { gameCompetitions } from './gameCompetitions';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
@@ -17,7 +18,7 @@ function ridersLine(riders, kind) {
     .join(' · ');
 }
 
-export default function GameCompetitions({ data, gcTopN = 10, highlightTeams = null, only = null }) {
+export default function GameCompetitions({ data, gcTopN = DEFAULT_GC_TOP_N, highlightTeams = null, only = null }) {
   const comps = gameCompetitions(data, gcTopN);
   const ALL = [
     { key: 'winnerTeam', icon: '🏆', label: 'Etapevinderens hold', kind: 'pos' },

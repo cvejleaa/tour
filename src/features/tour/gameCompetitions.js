@@ -5,7 +5,7 @@
 // Bygger på config/classifications (seneste etapes målrækkefølge + bjerg/sprint-
 // stillinger). Rangeringen matcher tourScoring.
 // ---------------------------------------------------------------------------
-import { gcTeamStanding } from '../../lib/tourScoring';
+import { gcTeamStanding, DEFAULT_GC_TOP_N } from '../../lib/tourScoring';
 
 function rankTeams(map) {
   return [...map.values()].sort((a, b) => (
@@ -62,10 +62,10 @@ function gcComp(finish, topN) {
 
 /**
  * @param {object} data  config/classifications ({ stageResult, standings:{bjerg,sprint} })
- * @param {number} [gcTopN=10]
+ * @param {number} [gcTopN=DEFAULT_GC_TOP_N]
  * @returns {{winnerTeam:Array, gcTeam:Array, mountainTeam:Array, sprintTeam:Array}}
  */
-export function gameCompetitions(data, gcTopN = 10) {
+export function gameCompetitions(data, gcTopN = DEFAULT_GC_TOP_N) {
   const finish = data?.stageResult || [];
   // Bjerg/sprint = point PÅ seneste etape (det man tipper), ikke kumulativt.
   // `stagePoints` skrives af synken; falder tilbage til de kumulative
