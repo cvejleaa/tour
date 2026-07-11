@@ -129,7 +129,7 @@ export default function RiderTypeExplorer() {
     <div style={{ marginTop: '1rem' }}>
       <h2 className="card__title" style={{ margin: '0 0 0.4rem' }}>🚴 Ryttertyper</h2>
       <p style={{ fontSize: '0.82rem', color: 'var(--c-muted)', margin: '0 0 0.5rem' }}>
-        Klik på en type — eller et tag (fx <em>baroudeur</em>) — og se hvordan rytterne står
+        Klik på en type — eller et tag (fx <em>udbryder</em>) — og se hvordan rytterne står
         i hver konkurrence indtil videre.
       </p>
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>

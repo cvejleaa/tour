@@ -21,6 +21,7 @@ export default defineConfig({
       'liveTicker.test.js',
       'liveMap.test.js',
       'riderTags.test.js',
+      'riderTagCanon.test.js',
     ],
     exclude: [
       'rules.test.js',

@@ -62,6 +62,12 @@ describe('extractRiderTags', () => {
     expect(out).toEqual([{ rider: 'A', tag: 'klatrer' }]);
     expect(anthropic.messages.create).toHaveBeenCalledOnce();
   });
+
+  it('kanoniserer synonymer (sprinter → spurter, baroudeur → udbryder)', async () => {
+    const anthropic = { messages: { create: vi.fn().mockResolvedValue({ content: [{ type: 'text', text: '{"tags":[{"rider":"A","tag":"Sprinter"},{"rider":"B","tag":"baroudeur"}]}' }] }) } };
+    const out = await extractRiderTags(anthropic, [{ text: 'x' }], 1);
+    expect(out.map((t) => t.tag)).toEqual(['spurter', 'udbryder']);
+  });
 });
 
 describe('runEnrichRiderTags', () => {
@@ -99,7 +105,8 @@ describe('runEnrichRiderTags', () => {
     });
     expect(r).toMatchObject({ ok: true, stage: 5, added: 1 });
     expect(db._store.data.enrichedStages).toEqual([5]);
-    expect(db._store.data.aiRaw[0]).toMatchObject({ rider: 'Veistroffer', tag: 'baroudeur', stage: 5 });
+    // baroudeur kanoniseres til udbryder ved skrivning.
+    expect(db._store.data.aiRaw[0]).toMatchObject({ rider: 'Veistroffer', tag: 'udbryder', stage: 5 });
   });
 
   it('er idempotent: anden kørsel med force tilføjer ikke duplikater', async () => {

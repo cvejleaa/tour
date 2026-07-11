@@ -14,11 +14,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { riderInfo } from '../../data/ridersTdf2026';
+import { canonTag } from '../../lib/riderTagCanon';
 
-/** Normalisér et manuelt tag (streng eller objekt) til {label, source}. */
+/** Normalisér et manuelt tag (streng eller objekt) til {label, source} (kanonisk). */
 function normManualTag(t) {
-  if (typeof t === 'string') return { label: t.trim(), source: 'manual' };
-  return { label: String(t?.label || '').trim(), source: t?.source || 'manual' };
+  const raw = typeof t === 'string' ? t : (t && t.label);
+  return { label: canonTag(raw), source: (t && t.source) || 'manual' };
 }
 
 export function useRiderProfiles() {
@@ -44,8 +45,10 @@ export function useRiderProfiles() {
     for (const t of aiRaw) {
       const info = riderInfo(t && t.rider);
       if (!info || info.bib == null) continue;
+      const label = canonTag(t.tag);
+      if (!label) continue;
       const arr = aiByBib.get(info.bib) || [];
-      arr.push({ label: String(t.tag || '').trim(), source: 'ai', evidence: t.evidence || '', stage: t.stage ?? null });
+      arr.push({ label, source: 'ai', evidence: t.evidence || '', stage: t.stage ?? null });
       aiByBib.set(info.bib, arr);
     }
 

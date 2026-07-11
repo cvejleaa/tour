@@ -12,6 +12,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../firebase';
 import { RIDERS, riderInfo, profileLabel, prettyRiderName } from '../../data/ridersTdf2026';
 import { prettyTeam, teamMeta } from '../../data/tourTeams2026';
+import { canonTag } from '../../lib/riderTagCanon';
 import { useRiderProfiles } from '../riders/useRiderProfiles';
 
 const PROFILES = ['leader', 'climber', 'sprinter', 'polyvalent'];
@@ -71,7 +72,7 @@ export default function RiderProfilesTab() {
       const info = riderInfo(t.rider);
       const sameBib = info && Number(info.bib) === Number(bib);
       return !(sameBib
-        && String(t.tag).toLowerCase() === String(tag).toLowerCase()
+        && canonTag(t.tag) === canonTag(tag)
         && (t.stage ?? null) === (stage ?? null));
     });
     await setDoc(PROFILE_REF, { aiRaw: next, updatedAt: serverTimestamp() }, { merge: true });
@@ -100,7 +101,7 @@ export default function RiderProfilesTab() {
       <div>
         <h2 className="card__title" style={{ margin: '0 0 0.25rem' }}>🏷️ Ryttertyper & karakteristika</h2>
         <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', margin: 0 }}>
-          Ret en rytters type, tilføj frie tags (fx <em>baroudeur</em>) og noter. AI udleder selv tags
+          Ret en rytters type, tilføj frie tags (fx <em>udbryder</em>) og noter. AI udleder selv tags
           fra live-tickeren efter hver etape (mærket ✨) — dem kan du fjerne her.
         </p>
       </div>

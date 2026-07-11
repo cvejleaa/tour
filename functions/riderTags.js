@@ -14,6 +14,8 @@
 
 'use strict';
 
+const { canonTag, CANON_TAGS } = require('./riderTagCanon');
+
 // Hold ens med de øvrige AI-kald i projektet.
 const RIDER_TAG_MODEL = 'claude-opus-4-8';
 
@@ -51,7 +53,7 @@ const RIDER_TAG_SYSTEM = [
  * @param {number} [stageNumber]
  * @returns {string}
  */
-function buildRiderTagPrompt(posts = [], stageNumber = null) {
+function buildRiderTagPrompt(posts = [], stageNumber = null, existingTags = []) {
   const chunks = (Array.isArray(posts) ? posts : [])
     .slice(0, MAX_POSTS)
     .map((p) => [p && p.title, p && p.text].filter(Boolean).join('. '))
@@ -60,7 +62,14 @@ function buildRiderTagPrompt(posts = [], stageNumber = null) {
   const head = stageNumber != null
     ? `Live-ticker fra etape ${stageNumber}. Udtræk rytter-karakteristika:`
     : 'Live-ticker fra en etape. Udtræk rytter-karakteristika:';
-  return `${head}\n\n${chunks.join('\n\n')}`;
+  // Genbrugs-ordliste: eksisterende tags + de kanoniske termer, uden dubletter.
+  const vocab = [...new Set([...(existingTags || []).map((s) => String(s).toLowerCase()), ...CANON_TAGS])];
+  const reuse = [
+    'GENBRUG så vidt muligt ét af disse eksisterende tags frem for at opfinde et nyt/synonymt:',
+    vocab.join(', '),
+    'Brug altid det danske ord (fx "spurter", ikke "sprinter"). Opret kun et NYT tag hvis intet af dem passer.',
+  ].join('\n');
+  return `${head}\n\n${reuse}\n\n${chunks.join('\n\n')}`;
 }
 
 /**
@@ -102,8 +111,8 @@ function parseRiderTags(raw) {
  * @param {number} [stageNumber]
  * @returns {Promise<Array<{rider,tag,evidence?}>>}
  */
-async function extractRiderTags(anthropic, posts, stageNumber = null) {
-  const prompt = buildRiderTagPrompt(posts, stageNumber);
+async function extractRiderTags(anthropic, posts, stageNumber = null, existingTags = []) {
+  const prompt = buildRiderTagPrompt(posts, stageNumber, existingTags);
   let attempt = 0;
   for (;;) {
     try {
@@ -117,7 +126,10 @@ async function extractRiderTags(anthropic, posts, stageNumber = null) {
         .filter((b) => b.type === 'text')
         .map((b) => b.text)
         .join('');
-      return parseRiderTags(txt);
+      // Kanonisér med det samme, så synonymer samles (sprinter → spurter).
+      return parseRiderTags(txt)
+        .map((t) => ({ ...t, tag: canonTag(t.tag) }))
+        .filter((t) => t.tag);
     } catch (err) {
       attempt += 1;
       const status = err && err.status;
@@ -195,7 +207,19 @@ async function runEnrichRiderTags(db, anthropic, {
     return { ok: false, stage: n, added: 0, reason: `no-ticker:${ticker && ticker.reason ? ticker.reason : 'empty'}` };
   }
 
-  const fresh = await extractRiderTags(anthropic, ticker.posts, n);
+  // Saml den eksisterende ordliste (AI + manuelle tags), så modellen genbruger.
+  const existingTags = new Set();
+  for (const t of Array.isArray(data.aiRaw) ? data.aiRaw : []) {
+    if (t && t.tag) existingTags.add(canonTag(t.tag));
+  }
+  for (const r of Object.values(data.riders || {})) {
+    for (const t of (r && r.tags) || []) {
+      const label = typeof t === 'string' ? t : (t && t.label);
+      if (label) existingTags.add(canonTag(label));
+    }
+  }
+
+  const fresh = await extractRiderTags(anthropic, ticker.posts, n, [...existingTags]);
   const at = new Date().toISOString();
   const aiRaw = mergeAiTags(data.aiRaw, fresh, n, at);
   const added = aiRaw.length - (Array.isArray(data.aiRaw) ? data.aiRaw.length : 0);

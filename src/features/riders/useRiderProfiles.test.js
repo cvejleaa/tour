@@ -26,22 +26,23 @@ function emit(data) {
 beforeEach(() => { snapshotCb = null; });
 
 describe('useRiderProfiles', () => {
-  it('merger manuelle + AI-tags og deduplikerer (manuel vinder)', () => {
+  it('merger + kanoniserer synonymer og deduplikerer (manuel vinder)', () => {
     const { result } = renderHook(() => useRiderProfiles());
     emit({
-      riders: { 11: { type: 'climber', tags: ['kaptajn', 'baroudeur'] } },
+      riders: { 11: { type: 'climber', tags: ['klatrer', 'sprinter'] } }, // sprinter → spurter
       aiRaw: [
-        { rider: 'Jonas Vingegaard', tag: 'baroudeur', stage: 5, evidence: 'e' }, // dublet af manuel
-        { rider: 'Jonas Vingegaard', tag: 'angrebsrytter', stage: 5, evidence: 'x' },
-        { rider: 'Jasper Philipsen', tag: 'spurter', stage: 3 },
+        { rider: 'Jonas Vingegaard', tag: 'spurter', stage: 5, evidence: 'e' }, // dublet af manuel (fra sprinter)
+        { rider: 'Jonas Vingegaard', tag: 'baroudeur', stage: 5, evidence: 'x' }, // → udbryder (ny)
+        { rider: 'Jonas Vingegaard', tag: 'angrebsrytter', stage: 6 }, // → udbryder (dublet)
+        { rider: 'Jasper Philipsen', tag: 'Sprinter', stage: 3 }, // → spurter
       ],
     });
     const tags11 = result.current.tagsForBib(11);
-    expect(tags11.map((t) => t.label)).toEqual(['kaptajn', 'baroudeur', 'angrebsrytter']);
-    // baroudeur kommer fra manuel (ikke ai), fordi manuel vinder
-    expect(tags11.find((t) => t.label === 'baroudeur').source).toBe('manual');
-    expect(tags11.find((t) => t.label === 'angrebsrytter').source).toBe('ai');
-    // Philipsen (bib 42) får sit AI-spurter-tag
+    expect(tags11.map((t) => t.label)).toEqual(['klatrer', 'spurter', 'udbryder']);
+    // spurter kommer fra manuel (fra 'sprinter'), fordi manuel vinder
+    expect(tags11.find((t) => t.label === 'spurter').source).toBe('manual');
+    expect(tags11.find((t) => t.label === 'udbryder').source).toBe('ai');
+    // Philipsen (bib 42): 'Sprinter' → 'spurter'
     expect(result.current.tagsForBib(42).map((t) => t.label)).toEqual(['spurter']);
   });
 
@@ -58,20 +59,19 @@ describe('useRiderProfiles', () => {
     expect(result.current.aiByBib.size).toBe(0);
   });
 
-  it('bygger allTags + bibsForTag på tværs af manuelle og AI-tags', () => {
+  it('bygger allTags + bibsForTag (kanonisk) på tværs af manuelle og AI-tags', () => {
     const { result } = renderHook(() => useRiderProfiles());
     emit({
-      riders: { 11: { tags: ['baroudeur'] } },
+      riders: { 11: { tags: ['baroudeur'] } }, // → udbryder
       aiRaw: [
-        { rider: 'Jasper Philipsen', tag: 'spurter', stage: 3 },
-        { rider: 'Jonas Vingegaard', tag: 'baroudeur', stage: 5 }, // samme tag, anden rytter
+        { rider: 'Jasper Philipsen', tag: 'sprinter', stage: 3 }, // → spurter
+        { rider: 'Jonas Vingegaard', tag: 'angrebsrytter', stage: 5 }, // → udbryder (bib 11)
       ],
     });
     const labels = result.current.allTags.map((t) => t.label).sort();
-    expect(labels).toEqual(['baroudeur', 'spurter']);
-    // baroudeur dækker begge ryttere (bib 11 + 11? nej: 11 manuel + 11 ai er samme) →
-    // 11 (manuel) og 11 (ai for Vingegaard = bib 11) er samme rytter, så 1 bib.
-    expect(result.current.bibsForTag('baroudeur').sort()).toEqual([11]);
+    expect(labels).toEqual(['spurter', 'udbryder']);
+    // udbryder dækker bib 11 (manuel baroudeur + AI angrebsrytter → samme rytter)
+    expect(result.current.bibsForTag('udbryder').sort()).toEqual([11]);
     expect(result.current.bibsForTag('spurter')).toEqual([42]);
     expect(result.current.bibsForTag('findes-ikke')).toEqual([]);
   });
