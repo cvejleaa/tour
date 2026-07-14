@@ -465,6 +465,25 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
+    // leagueBonusAwards/{awardId}  (id = leagueId_questionId)
+    // Manuelle liga-point pr. medlem baseret på et FÆLLES bonusspørgsmål:
+    // { leagueId, questionId, label, awards: {uid: points}, updatedBy }.
+    // Tæller kun i den pågældende ligas stilling (under liga-bonus-delen).
+    // -----------------------------------------------------------------------
+    match /leagueBonusAwards/{awardId} {
+      // Medlemmer (og admins) kan læse ligaens tildelinger (transparens +
+      // stillingen beregnes klient-side).
+      allow read: if isMemberOfLeague(resource.data.leagueId) || isGlobalAdmin();
+
+      // Liga-manager ELLER global admin kan oprette/redigere/slette.
+      // Doc-id SKAL være leagueId_questionId → én tildeling pr. spørgsmål
+      // pr. liga, og leagueId kan ikke ændres under et andet id.
+      allow create, update: if (isLeagueManager(request.resource.data.leagueId) || isGlobalAdmin())
+        && awardId == request.resource.data.leagueId + '_' + request.resource.data.questionId;
+      allow delete: if isLeagueManager(resource.data.leagueId) || isGlobalAdmin();
+    }
+
+    // -----------------------------------------------------------------------
     // presence/{uid} — besøgsstatistik (sidst set, besøg pr. dag, sidetællere).
     // Brugeren skriver KUN sit eget dokument; kun admin (og brugeren selv) kan
     // læse — spillere kan ikke overvåge hinandens aktivitet.

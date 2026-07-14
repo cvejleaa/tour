@@ -29,6 +29,8 @@ import {
   normalizeScoring, scoringLabel, isFullScoring, SCORING_COMPONENTS, DEFAULT_SCORING, leagueScore, leagueBreakdown,
 } from '../features/leagues/leagueFormat';
 import { useLeagueBonus } from '../features/leagues/useLeagueBonus';
+import { useLeagueAwards } from '../features/leagues/useLeagueAwards';
+import LeagueAwards from '../features/leagues/LeagueAwards';
 import { useAllLeagues } from '../features/leagues/useAllLeagues';
 import LeagueBonus from '../features/leagues/LeagueBonus';
 import { filterUsersByLeague } from '../features/leagues/leagueUtils';
@@ -160,6 +162,10 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
     questions: bonusQuestions, myAnswers: bonusAnswers,
     pointsByUid: bonusPointsByUid, answersByQid: bonusAnswersByQid,
   } = useLeagueBonus(league.id, meUid, isManager);
+  // Manuelle liga-point på fælles bonusspørgsmål — tæller sammen med
+  // liga-bonus i denne ligas stilling.
+  const { awards: leagueAwards, awardsByUid } = useLeagueAwards(league.id);
+  const lbPointsOf = (uid) => (bonusPointsByUid[uid] || 0) + (awardsByUid[uid] || 0);
   const usersByUid = useMemo(
     () => Object.fromEntries((standings || []).map((u) => [u.uid, u])),
     [standings],
@@ -398,9 +404,9 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
           users={standings}
           meUid={meUid}
           memberUids={league.memberUids}
-          getPoints={(uid) => leagueScore(standings.find((u) => u.uid === uid), scoring, bonusPointsByUid[uid] || 0)}
+          getPoints={(uid) => leagueScore(standings.find((u) => u.uid === uid), scoring, lbPointsOf(uid))}
           showBreakdown
-          getBreakdown={(u) => leagueBreakdown(u, scoring, bonusPointsByUid[u.uid] || 0)}
+          getBreakdown={(u) => leagueBreakdown(u, scoring, lbPointsOf(u.uid))}
           emptyMsg="Ingen spillere i ligaen."
         />
       </div>
@@ -416,6 +422,15 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
         myAnswers={bonusAnswers}
         answersByQid={bonusAnswersByQid}
         usersByUid={usersByUid}
+      />
+
+      {/* Individuelle point på fælles bonusspørgsmål (manager/global admin) */}
+      <LeagueAwards
+        leagueId={league.id}
+        meUid={meUid}
+        isManager={isManager}
+        members={members}
+        awards={leagueAwards}
       />
 
       {/* Hvem har tippet på de kommende etaper */}

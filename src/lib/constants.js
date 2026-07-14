@@ -83,6 +83,7 @@ export const COL = {
   LEAGUE_ACTIVITY: 'leagueActivity', // aktivitets-feed pr. liga
   LEAGUE_BONUS: 'leagueBonus', // individuelle bonus-spørgsmål pr. liga
   LEAGUE_BONUS_ANSWERS: 'leagueBonusAnswers', // svar på liga-bonusspørgsmål
+  LEAGUE_BONUS_AWARDS: 'leagueBonusAwards', // manuelle liga-point pr. medlem på FÆLLES bonusspørgsmål
   CONFIG: 'config',
   EMAIL_LOG: 'emailLog', // log over udsendte mails (kun admin-læsning)
   PRESENCE: 'presence', // besøgsstatistik pr. bruger (selv-skrevet, admin-læst)

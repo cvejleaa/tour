@@ -19,6 +19,7 @@ import { useActiveSeason } from '../features/stages/useActiveSeason';
 import { useTourSettings } from '../features/stages/useTourSettings';
 import { leagueScore, scoringLabel, normalizeScoring, isFullScoring } from '../features/leagues/leagueFormat';
 import { useLeagueBonus } from '../features/leagues/useLeagueBonus';
+import { useLeagueAwards } from '../features/leagues/useLeagueAwards';
 
 // ── Fane-konstanter ──────────────────────────────────────────────────────────
 const TAB_OVERALL = 'overall';
@@ -64,9 +65,15 @@ export default function LeaderboardPage() {
   // så forsidens filter matcher ligaens egen side præcist.
   const leagueScoring = normalizeScoring(selectedLeague);
   const { pointsByUid: leagueBonusByUid } = useLeagueBonus(selectedLeagueId || null, user?.uid);
+  // Manuelle liga-point på fælles bonusspørgsmål tæller sammen med liga-bonus.
+  const { awardsByUid: leagueAwardsByUid } = useLeagueAwards(selectedLeagueId || null);
   const getLeaguePoints = useCallback(
-    (uid) => leagueScore(standings.find((u) => u.uid === uid), leagueScoring, leagueBonusByUid[uid] || 0),
-    [standings, leagueScoring, leagueBonusByUid],
+    (uid) => leagueScore(
+      standings.find((u) => u.uid === uid),
+      leagueScoring,
+      (leagueBonusByUid[uid] || 0) + (leagueAwardsByUid[uid] || 0),
+    ),
+    [standings, leagueScoring, leagueBonusByUid, leagueAwardsByUid],
   );
   // Brug liga-scoring når en liga er valgt (også ved fuld scoring, så liga-bonus tæller med)
   const useLeagueScoring = !!selectedLeagueId;
