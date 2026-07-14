@@ -495,6 +495,13 @@ export default function TourTab() {
     return res.data;
   });
 
+  // Officielle starttider fra racecenter — retter kickoff/tip-lås hvor letour
+  // har justeret tidsplanen. dryRun viser kun afvigelserne.
+  const syncStageTimes = (dryRun) => run('stagetimes', async () => {
+    const res = await httpsCallable(functions, 'syncStageTimesNow')({ dryRun });
+    return res.data;
+  });
+
   const recalcTotals = () => run('recalc', async () => {
     const res = await httpsCallable(functions, 'recalcAllTotals')({});
     return res.data;
@@ -541,14 +548,23 @@ export default function TourTab() {
       <section style={{ marginBottom: '1.25rem' }}>
         <h3 style={{ marginBottom: '0.25rem' }}>Tip-frister (præcise starttider)</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
-          Sætter hver etapes lås-tidspunkt til den <strong>reelle starttid</strong>
-          {' '}fra ruten (fx etape 1 kl. 17.05, etape 20 kl. 11.30), så fristen følger
-          etapestarten. Opdaterer kun tidspunktet — rører ikke tip, spørgsmål eller
-          andet. Kør efter en seed.
+          Henter de <strong>officielle starttider</strong> fra letours racecenter og
+          retter dato/starttid/lås-tidspunkt på de etaper der afviger (letour justerer
+          tidsplanen løbende — fx etape 10: 13.25 → 13.15). Kører <strong>automatisk
+          hver time</strong>; knappen henter med det samme. «Vis afvigelser» ændrer
+          intet. Afgjorte etaper røres ikke.
         </p>
-        <button className="btn" disabled={busy} onClick={setStartTimes} data-testid="set-start-times">
-          {busy === 'starttimes' ? 'Sætter…' : '⏱️ Sæt præcise starttider'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button className="btn btn--ghost" disabled={busy} onClick={() => syncStageTimes(true)} data-testid="sync-start-times-dry">
+            {busy === 'stagetimes' ? 'Tjekker…' : '🔍 Vis afvigelser'}
+          </button>
+          <button className="btn" disabled={busy} onClick={() => syncStageTimes(false)} data-testid="sync-start-times">
+            {busy === 'stagetimes' ? 'Henter…' : '⏱️ Hent officielle starttider'}
+          </button>
+          <button className="btn btn--ghost btn--sm" disabled={busy} onClick={setStartTimes} data-testid="set-start-times" title="Fallback: skriv de statiske rutetider (bruges kun hvis racecenteret er nede)">
+            {busy === 'starttimes' ? 'Sætter…' : 'Fallback: rutetider'}
+          </button>
+        </div>
       </section>
 
       <section style={{ marginBottom: '1.25rem' }}>

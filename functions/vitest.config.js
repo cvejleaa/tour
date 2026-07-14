@@ -22,6 +22,7 @@ export default defineConfig({
       'liveMap.test.js',
       'riderTags.test.js',
       'riderTagCanon.test.js',
+      'stageTimes.test.js',
     ],
     exclude: [
       'rules.test.js',

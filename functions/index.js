@@ -49,6 +49,7 @@ const { fetchLiveTickerCore } = require('./liveTicker');
 const { fetchLiveMapCore } = require('./liveMap');
 const { runGenerateStageTips } = require('./stageTip');
 const { runEnrichRiderTags } = require('./riderTags');
+const { syncStageTimesCore } = require('./stageTimes');
 
 // Initialiser Firebase Admin (singleton)
 initializeApp();
@@ -1998,6 +1999,42 @@ async function enrichDecidedStages(db, anthropic, { season, force = false, onlyS
   }
   return results;
 }
+
+// ---------------------------------------------------------------------------
+// syncStageTimes — officielle starttider fra racecenter (api/stage-{år}).
+// Letour justerer tidsplanen løbende (fx etape 10: 13:25 → 13:15), og kickoff
+// styrer tip-låsen — så tiderne tjekkes hver time og rettes automatisk.
+// Manuel (syncStageTimesNow, admin): kør nu, evt. dryRun for kun at se diffen.
+// ---------------------------------------------------------------------------
+async function runSyncStageTimes(db, { dryRun = false } = {}) {
+  const { activeSeason } = await tourSettings(db);
+  return syncStageTimesCore(db, {
+    season: activeSeason,
+    fetchImpl: fetchWithTimeout,
+    toTimestamp: (iso) => Timestamp.fromDate(new Date(iso)),
+    serverTimestamp: FieldValue.serverTimestamp(),
+    dryRun,
+  });
+}
+
+exports.syncStageTimes = onSchedule(
+  { schedule: '7 * * * *', timeZone: TZ, region: REGION },
+  async () => {
+    const db = getFirestore();
+    const res = await runSyncStageTimes(db, {});
+    if (!res.ok) { console.log(`syncStageTimes: ${res.reason}`); return; }
+    if (res.applied > 0) {
+      const desc = res.changes.map((c) => `etape ${c.number}: ${c.from.startTime ?? '?'} → ${c.to.startTime}`).join(', ');
+      console.log(`syncStageTimes: rettede ${res.applied} etape(r) — ${desc}`);
+    }
+  }
+);
+
+exports.syncStageTimesNow = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  return runSyncStageTimes(db, { dryRun: request.data?.dryRun === true });
+});
 
 exports.enrichRiderTags = onSchedule(
   { schedule: '30 22 * * *', timeZone: TZ, region: REGION, secrets: [ANTHROPIC_API_KEY] },
