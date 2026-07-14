@@ -15,8 +15,9 @@ vi.mock('firebase/firestore', () => ({
   onSnapshot: vi.fn(() => () => {}),
 }));
 
+// Fælles bonusspørgsmål gemmer teksten i 'text' (ikke 'label').
 const QUESTIONS = [
-  { id: 'q1', label: 'Hvem vinder bjergtrøjen?', type: 'team', deadline: null, points: 3 },
+  { id: 'q1', text: 'Hvem vinder bjergtrøjen?', type: 'team', deadline: null, points: 3 },
 ];
 vi.mock('../admin/useBonusQuestions', () => ({
   useBonusQuestions: () => ({ questions: QUESTIONS, loading: false, error: '' }),
@@ -52,9 +53,13 @@ describe('LeagueAwards', () => {
     expect(screen.getByText(/Ingen individuelle point tildelt endnu/)).toBeInTheDocument();
   });
 
-  it('manager kan vælge spørgsmål, indtaste point og gemme', async () => {
+  it('manager kan vælge spørgsmål, indtaste point og gemme (tekst fra text-feltet)', async () => {
     render(<LeagueAwards leagueId="liga1" meUid="admin" isManager members={MEMBERS} awards={[]} />);
+    // Dropdownens option viser spørgsmålsteksten (ikke kun deadline).
+    expect(screen.getByRole('option', { name: /Hvem vinder bjergtrøjen\?/ })).toBeInTheDocument();
     fireEvent.change(screen.getByTestId('award-question'), { target: { value: 'q1' } });
+    // Den valgte spørgsmålstekst vises over tabellen.
+    expect(screen.getByTestId('award-question-text')).toHaveTextContent('Hvem vinder bjergtrøjen?');
     fireEvent.change(await screen.findByTestId('award-input-u1'), { target: { value: '4' } });
     fireEvent.click(screen.getByTestId('award-save'));
     await waitFor(() => expect(saveLeagueBonusAwards).toHaveBeenCalledWith(expect.objectContaining({

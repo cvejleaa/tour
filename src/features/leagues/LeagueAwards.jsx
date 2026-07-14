@@ -27,6 +27,8 @@ export default function LeagueAwards({ leagueId, meUid, isManager, members = [],
   );
   const nameOf = (uid) => members.find((m) => m.uid === uid)?.displayName || 'Spiller';
   const question = questions.find((q) => q.id === selectedQid) || null;
+  // De fælles spørgsmål gemmer teksten i 'text' ('label' er ældre fallback).
+  const questionText = (q) => String(q?.text ?? q?.label ?? '').trim();
 
   // Ved valg af spørgsmål: udfyld felterne med den eksisterende tildeling.
   useEffect(() => {
@@ -67,7 +69,7 @@ export default function LeagueAwards({ leagueId, meUid, isManager, members = [],
       const res = await saveLeagueBonusAwards({
         leagueId,
         questionId: question.id,
-        label: question.label,
+        label: questionText(question),
         awards: inputs,
         updatedBy: meUid,
       });
@@ -120,7 +122,7 @@ export default function LeagueAwards({ leagueId, meUid, isManager, members = [],
               <option value="">— vælg spørgsmål —</option>
               {questions.map((q) => (
                 <option key={q.id} value={q.id}>
-                  {q.label} ({formatDeadline(q.deadline)}){awardByQid[q.id] ? ' ✓' : ''}
+                  {questionText(q) || 'Bonusspørgsmål'} ({formatDeadline(q.deadline)}){awardByQid[q.id] ? ' ✓' : ''}
                 </option>
               ))}
             </select>
@@ -128,6 +130,14 @@ export default function LeagueAwards({ leagueId, meUid, isManager, members = [],
 
           {question && (
             <>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem' }} data-testid="award-question-text">
+                <strong>{questionText(question) || 'Bonusspørgsmål'}</strong>
+                {question.facit != null && String(question.facit).trim() !== '' && (
+                  <span style={{ color: 'var(--c-muted)', marginLeft: '0.4rem' }}>
+                    · facit: {formatBonusAnswer(question.facit, question.type)}
+                  </span>
+                )}
+              </p>
               <div className="table-wrap">
                 <table className="table" style={{ fontSize: '0.85rem' }}>
                   <thead>
