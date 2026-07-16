@@ -43,7 +43,11 @@ export function pointsListFromPcs(payload, key) {
       rider: r.rider_name ?? null,
       team: r.team_name,
       points: Number(r?.points) || 0,
-    }));
+    }))
+    // 0-point-poster er ikke point: letour lister af og til førstepasseringer
+    // med 0 point (fx etape 12: ingen KOM-point uddelt) — de må ikke blive til
+    // et facit-podie eller vises som "etapens bjergpoint".
+    .filter((e) => e.points > 0);
 }
 
 /**

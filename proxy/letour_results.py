@@ -100,7 +100,9 @@ def _header_period(frag: str) -> int:
 
 
 def _parse_points(s: str) -> int | None:
-    m = re.search(r"(-?\d+)\s*PTS", s, re.I) or re.search(r"^\s*(-?\d+)\s*$", s)
+    # "12 PTS" (flertal) OG "1 PT" (ental — stigningstabellerne på KOM-siden
+    # skriver 'PT' ved 1 point; uden ental-match blev de parset som 0).
+    m = re.search(r"(-?\d+)\s*PTS?\b", s, re.I) or re.search(r"^\s*(-?\d+)\s*$", s)
     return int(m.group(1)) if m else None
 
 

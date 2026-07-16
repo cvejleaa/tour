@@ -285,7 +285,7 @@ exports.recomputeStage = onDocumentWritten(
 );
 
 // Kernen i resultat-sync: hent fra proxyen, map, skriv etape-facit + hold.
-async function syncTourCore(db, { dryRun = false } = {}) {
+async function syncTourCore(db, { dryRun = false, forceStage = null } = {}) {
   const { gcTopN, proxyUrl, activeSeason } = await tourSettings(db);
   const season = activeSeason;
   const listRes = await fetchWithTimeout(`${proxyUrl}/api/stages`);
@@ -333,7 +333,9 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     const kickoffMs = exData?.kickoff?.toDate ? exData.kickoff.toDate().getTime() : null;
     if (!kickoffMs || kickoffMs > Date.now()) continue; // ingen starttid el. endnu ikke startet
     // Allerede afgjort OG uden for jury-vinduet → frosset for altid.
-    if (exData?.status === 'done' && (Date.now() - kickoffMs) > RESULT_REFRESH_MS) {
+    // forceStage (admin gen-synk) omgår frysningen for ÉN udpeget etape —
+    // fx en sen jury-rettelse eller et facit skrevet med en senere rettet bug.
+    if (exData?.status === 'done' && (Date.now() - kickoffMs) > RESULT_REFRESH_MS && n !== forceStage) {
       // Selv-opheling: mangler etapens visningsresultater (målrækkefølge,
       // bjerg-/sprintpoint på etapen, holdkonkurrencen — felterne kom til
       // senere end de første etaper), hentes og gemmes KUN de — facit
@@ -464,8 +466,16 @@ async function syncTourCore(db, { dryRun = false } = {}) {
   let previousYear = false;
   if (!dryRun) {
     if (latest) {
-      // Årets data (mindst én 2026-etape afgjort) → overskriver evt. sidste-års-preview.
-      await writeClassifications(latest.number, latest.payload, latest.jerseys, false, latest.pointsLists);
+      // Værn: en gen-synk af en GAMMEL etape (forceStage) må ikke rulle
+      // klassements-visningen tilbage — skriv kun hvis denne kørsels seneste
+      // etape er mindst lige så ny som den der allerede vises.
+      const curCls = await db.collection('config').doc('classifications').get();
+      const curAfter = curCls.exists && curCls.data()?.previousYear !== true
+        ? Number(curCls.data()?.afterStage) || 0 : 0;
+      if (latest.number >= curAfter) {
+        // Årets data (mindst én 2026-etape afgjort) → overskriver evt. sidste-års-preview.
+        await writeClassifications(latest.number, latest.payload, latest.jerseys, false, latest.pointsLists);
+      }
     } else {
       // Ingen NY etape afgjort i denne kørsel. Sidste-års-previewet (skrevet
       // før løbsstart) er UDTJENT nu hvor løbet er i gang: står der stadig et
@@ -511,11 +521,15 @@ exports.syncTourResults = onSchedule(
   },
 );
 
-// "Kør nu"-knap (admin): henter resultater med det samme.
+// "Kør nu"-knap (admin): henter resultater med det samme. Med { stage: n }
+// omgås 8-timers-frysningen for netop den etape (sen jury-rettelse/bugfix) —
+// recomputeStage genberegner automatisk alle tips hvis facittet ændrer sig.
 exports.syncTourNow = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   await requireAdmin(db, request);
-  return syncTourCore(db, { dryRun: request.data?.dryRun === true });
+  const forceStage = Number.isInteger(Number(request.data?.stage)) && request.data?.stage != null
+    ? Number(request.data.stage) : null;
+  return syncTourCore(db, { dryRun: request.data?.dryRun === true, forceStage });
 });
 
 // Nulstil resultater (admin): fjerner facit/trøjer fra etaperne, sætter dem

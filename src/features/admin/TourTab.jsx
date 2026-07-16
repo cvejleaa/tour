@@ -518,6 +518,13 @@ export default function TourTab() {
     return res.data;
   });
 
+  // Gen-synk ÉN etape med omgåelse af 8-timers-frysningen (sen jury-rettelse
+  // eller facit skrevet med en senere rettet bug). Tips genberegnes automatisk.
+  const resyncStage = () => run('resyncstage', async () => {
+    const res = await httpsCallable(functions, 'syncTourNow')({ stage: Number(debugStageNum) });
+    return res.data;
+  });
+
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚴 Tour de France</h2>
@@ -688,6 +695,10 @@ export default function TourTab() {
           />
           <button className="btn btn--ghost" disabled={busy || !debugStageNum} onClick={debugStage} data-testid="debug-stage">
             {busy === 'debugstage' ? 'Henter…' : '🔍 Diagnosticér etape'}
+          </button>
+          <button className="btn" disabled={busy || !debugStageNum} onClick={resyncStage} data-testid="resync-stage"
+            title="Henter etapens facit + visningsdata forfra og omgår 8-timers-frysningen. Tips genberegnes automatisk hvis facittet ændrer sig.">
+            {busy === 'resyncstage' ? 'Gen-synker…' : '🔁 Gen-synk etape (omgå frysning)'}
           </button>
         </div>
       </section>
