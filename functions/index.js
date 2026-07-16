@@ -30,6 +30,9 @@ const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD');
 // Anthropic API-nøgle til AI-morgenopslag. Sættes med:
 //   firebase functions:secrets:set ANTHROPIC_API_KEY
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
+// Proxyens refresh-token (samme secret som proxy/deploy.sh binder) — bruges
+// af syncTourNow({stage}) til at bryde en frosset proxy-cache op før gen-synk.
+const TDF_REFRESH_TOKEN = defineSecret('TDF_REFRESH_TOKEN');
 const SMTP_HOST = 'send.one.com';
 const SMTP_PORT = 465; // implicit TLS
 const SMTP_USER = 'tour@vejleaa.dk';
@@ -522,15 +525,44 @@ exports.syncTourResults = onSchedule(
 );
 
 // "Kør nu"-knap (admin): henter resultater med det samme. Med { stage: n }
-// omgås 8-timers-frysningen for netop den etape (sen jury-rettelse/bugfix) —
+// omgås 8-timers-frysningen for netop den etape (sen jury-rettelse/bugfix):
+// først bedes PROXYEN gen-scrape etapen (force-refresh — dens egen cache
+// fryser også færdige etaper), dernæst gen-synces facit + visningsdata.
 // recomputeStage genberegner automatisk alle tips hvis facittet ændrer sig.
-exports.syncTourNow = onCall({ region: REGION }, async (request) => {
-  const db = getFirestore();
-  await requireAdmin(db, request);
-  const forceStage = Number.isInteger(Number(request.data?.stage)) && request.data?.stage != null
-    ? Number(request.data.stage) : null;
-  return syncTourCore(db, { dryRun: request.data?.dryRun === true, forceStage });
-});
+exports.syncTourNow = onCall(
+  { region: REGION, secrets: [TDF_REFRESH_TOKEN] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const forceStage = Number.isInteger(Number(request.data?.stage)) && request.data?.stage != null
+      ? Number(request.data.stage) : null;
+
+    // Bryd proxyens frosne cache op for den udpegede etape. Tolerant: fejler
+    // refresh (manglende token/proxy nede), fortsætter synken mod cachen —
+    // status rapporteres til admin i svaret.
+    let proxyRefresh = null;
+    if (forceStage != null) {
+      const token = TDF_REFRESH_TOKEN.value();
+      if (!token) {
+        proxyRefresh = 'springes over: TDF_REFRESH_TOKEN er ikke sat';
+      } else {
+        try {
+          const { proxyUrl } = await tourSettings(db);
+          const res = await fetchWithTimeout(`${proxyUrl}/api/refresh/${forceStage}`, {
+            method: 'POST',
+            headers: { 'x-refresh-token': token },
+          });
+          proxyRefresh = res.ok ? 'ok (gen-scrapet)' : `http-${res.status}`;
+        } catch (e) {
+          proxyRefresh = `fejl: ${String(e?.message || e)}`;
+        }
+      }
+    }
+
+    const result = await syncTourCore(db, { dryRun: request.data?.dryRun === true, forceStage });
+    return proxyRefresh != null ? { proxyRefresh, ...result } : result;
+  },
+);
 
 // Nulstil resultater (admin): fjerner facit/trøjer fra etaperne, sætter dem
 // tilbage til 'scheduled', nulstiller etape-tip-point og genberegner stillingen.
