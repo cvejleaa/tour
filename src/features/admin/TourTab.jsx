@@ -338,6 +338,7 @@ export default function TourTab() {
   const [err, setErr] = useState('');
   const [seasonInput, setSeasonInput] = useState('');
   const [debugName, setDebugName] = useState('');
+  const [debugStageNum, setDebugStageNum] = useState('');
 
   // Pointopsætning – forudfyldes med nuværende værdier fra config/settings
   // (flettet over standardværdier af useTourSettings).
@@ -512,6 +513,11 @@ export default function TourTab() {
     return res.data;
   });
 
+  const debugStage = () => run('debugstage', async () => {
+    const res = await httpsCallable(functions, 'debugStageSync')({ stage: Number(debugStageNum) });
+    return res.data;
+  });
+
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚴 Tour de France</h2>
@@ -661,6 +667,27 @@ export default function TourTab() {
           />
           <button className="btn btn--ghost" disabled={busy || !debugName.trim()} onClick={debugUser} data-testid="debug-user">
             {busy === 'debug' ? 'Henter…' : '🔍 Vis pointfordeling'}
+          </button>
+        </div>
+      </section>
+
+      <section style={{ marginBottom: '1.25rem' }}>
+        <h3 style={{ marginBottom: '0.25rem' }}>Diagnose: en etapes bjerg-/sprintdata</h3>
+        <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', marginTop: 0 }}>
+          Viser side om side hvad der er <strong>gemt</strong> (etapesidens bjerg-/sprintrækker
+          + facit-podiet og forsidens «Spillets konkurrencer»-data) og hvad letour leverer
+          <strong> lige nu</strong> (frisk delta-beregning). Brug den når forsiden og etapesiden
+          viser forskellige resultater.
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <input
+            type="number" min="1" max="21" placeholder="Etape" value={debugStageNum}
+            onChange={(e) => setDebugStageNum(e.target.value)}
+            style={{ width: 90, padding: '0.4rem', borderRadius: 6, border: '1px solid var(--c-border, #ccc)' }}
+            data-testid="debug-stage-num"
+          />
+          <button className="btn btn--ghost" disabled={busy || !debugStageNum} onClick={debugStage} data-testid="debug-stage">
+            {busy === 'debugstage' ? 'Henter…' : '🔍 Diagnosticér etape'}
           </button>
         </div>
       </section>

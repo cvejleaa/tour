@@ -345,13 +345,18 @@ async function syncTourCore(db, { dryRun = false } = {}) {
           if (rr.ok) {
             const p = await rr.json();
             let prev = null;
+            let prevMissing = false;
             if (needsPrevForPoints(p)) {
               const pr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n - 1}`);
               if (pr.ok) prev = await pr.json();
+              // Kan n-1 ikke hentes, ville delta mod ingenting skrive HELE det
+              // kumulative klassement som etapens bjerg-/sprintpoint (samme
+              // værn som hovedstien) — spring healen over; næste kørsel prøver igen.
+              prevMissing = !prev;
             }
             const rows = stageResultRows(p, RESULT_ROWS_MAX);
             const lists = buildStageUpdate(p, gcTopN, prev).pointsLists;
-            if (rows.length) {
+            if (rows.length && !prevMissing) {
               await db.collection('stages').doc(docId).set({
                 resultRows: rows,
                 mountainRows: toPointRows(lists.mountain),
@@ -920,6 +925,84 @@ exports.debugUserPoints = onCall({ region: REGION }, async (request) => {
 // andres bets fra klienten, så rewritet sker her (admin-SDK). Point
 // genberegnes for afgjorte etaper, og spillernes totaler opdateres.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// debugStageSync — callable (owner/global admin): diagnose for ÉN etape.
+// Viser side om side hvad der er GEMT (etape-dokumentets mountainRows/
+// sprintRows + facit-podiet og classifications.stagePoints) og hvad letour
+// leverer LIGE NU (frisk delta-beregning via proxyen). Bruges når forside og
+// etapeside viser forskellige bjerg-/sprintresultater.
+// ---------------------------------------------------------------------------
+exports.debugStageSync = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const n = Number(request.data?.stage);
+  if (!Number.isInteger(n) || n < 1 || n > 21) {
+    throw new HttpsError('invalid-argument', 'Angiv etape 1-21.');
+  }
+  const { gcTopN, proxyUrl, activeSeason } = await tourSettings(db);
+  const cap = (rows) => (Array.isArray(rows) ? { count: rows.length, rows: rows.slice(0, 10) } : null);
+
+  // 1) Gemt på etape-dokumentet
+  const stageSnap = await db.collection('stages').doc(`${activeSeason}-stage-${n}`).get();
+  const s = stageSnap.exists ? stageSnap.data() : null;
+  const stored = s ? {
+    status: s.status ?? null,
+    presentationV: s.presentationV ?? null,
+    resultRowCount: s.resultRowCount ?? null,
+    resultUpdatedAt: s.resultUpdatedAt ? String(s.resultUpdatedAt.toDate?.() ?? s.resultUpdatedAt) : null,
+    podium: (s.result && s.result.podium) || null,
+    mountainRows: cap(s.mountainRows),
+    sprintRows: cap(s.sprintRows),
+  } : null;
+
+  // 2) Gemt i config/classifications (forsiden/Tour-sidens "Spillets konkurrencer")
+  const clsSnap = await db.collection('config').doc('classifications').get();
+  const c = clsSnap.exists ? clsSnap.data() : null;
+  const classifications = c ? {
+    afterStage: c.afterStage ?? null,
+    updatedAt: c.updatedAt ? String(c.updatedAt.toDate?.() ?? c.updatedAt) : null,
+    stagePointsBjerg: cap(c.stagePoints?.bjerg),
+    stagePointsSprint: cap(c.stagePoints?.sprint),
+    cumulativeBjergTop: cap((c.standings?.bjerg || []).slice(0, 5)),
+  } : null;
+
+  // 3) Frisk beregning fra proxyen (hvad synken VILLE skrive nu)
+  let live = null;
+  try {
+    const r = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
+    if (!r.ok) {
+      live = { error: `proxy http-${r.status}` };
+    } else {
+      const payload = await r.json();
+      const needsPrev = needsPrevForPoints(payload);
+      let prevPayload = null;
+      let prevStatus = 'ikke nødvendig';
+      if (needsPrev) {
+        try {
+          const pr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n - 1}`);
+          prevStatus = pr.ok ? 'ok' : `http-${pr.status}`;
+          if (pr.ok) prevPayload = await pr.json();
+        } catch (e) { prevStatus = `fejl: ${e?.message || e}`; }
+      }
+      const upd = buildStageUpdate(payload, gcTopN, prevPayload);
+      live = {
+        resultsPresent: upd.resultsPresent,
+        needsPrev,
+        prevStatus,
+        // Delta-beregnede etape-point som synken ville gemme dem NU. Hvis
+        // needsPrev && prev mangler, ville hovedstien springe over (værn).
+        mountain: cap(upd.pointsLists?.mountain),
+        sprint: cap(upd.pointsLists?.sprint),
+        podium: (upd.result && upd.result.podium) || null,
+      };
+    }
+  } catch (e) {
+    live = { error: String(e?.message || e) };
+  }
+
+  return { stage: n, season: activeSeason, stored, classifications, live };
+});
+
 exports.remapTeamName = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
