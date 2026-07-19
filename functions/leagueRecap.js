@@ -18,7 +18,8 @@ Felterne betyder:
 - "standoutTie": true hvis FLERE spillere deler nattens bedste score (se "dayWinners"). "leader": fører lige nu. "previousLeader": hvem der førte ved sidste opslag. "leadChanged": true hvis førstepladsen har skiftet.
 
 Ufravigelige regler:
-- "points" betyder ALTID totalen; "dayPoints" betyder ALTID nattens point. Forveksl dem ALDRIG. Når du nævner en total, så brug "points"; når du nævner nattens udbytte, så brug "dayPoints".
+- "points" betyder ALTID totalen; "dayPoints" betyder ALTID nattens point. Forveksl dem ALDRIG. Når du nævner en total, så brug "points"-tallet; når du nævner nattens udbytte, så brug "dayPoints"-tallet.
+- Feltnavnene er INTERNE: skriv ALDRIG ordene "dayPoints", "points", "standout" el.lign. i selve teksten — skriv naturligt dansk ("11 point i nat", "i alt 67 point").
 - Skriv kun at nogen "overhalede"/"tog førstepladsen", hvis "leadChanged" er true. Er "leadChanged" false, kan du skrive at lederen "fører stadig".
 - Er BÅDE "stages" og "bonusResolved" tomme (intet nyt siden sidst), så skriv en kort, opmuntrende god-morgen-hilsen og mind venligt om at få tippet dagens etape(r). Er "stages" tom, men "bonusResolved" har noget, så skriv om de afgjorte spørgsmål og de point, de gav (brug "dayPoints"/"standout" som altid).
 - Slut gerne med en lille optakt til dagens etape(r), hvis "upcoming" har nogle.
@@ -52,12 +53,15 @@ function sanitizeName(name) {
  * beregnes klient-side). Bruges til at finde totaler og lederen i recap'en.
  * Tæller etape-point + officiel bonus efter ligaens scoring-valg.
  */
-function leagueTotal(user, scoring) {
+function leagueTotal(user, scoring, leagueBonusPoints = 0) {
   const s = scoring || {};
   const on = (k) => s[k] !== false; // mangler feltet ⇒ tæller (default til)
   let t = 0;
   if (on('stage')) t += Number(user?.stagePoints || 0);
   if (on('bonus')) t += Number(user?.bonusPoints || 0);
+  // Liga-lokal bonus: ligaens egne spørgsmål + manuelle tildelinger — samme
+  // grundlag som ligaens stillingsvisning (leagueScore i frontenden).
+  if (on('leagueBonus')) t += Number(leagueBonusPoints || 0);
   return t;
 }
 
@@ -119,7 +123,7 @@ function windowDayPoints(memberIds, windowStages, pointsByStageUid, scoring) {
 }
 
 /** Saml fakta-objektet (kun tal/navne) som Claude skriver prosa ud fra. */
-function buildRecapFacts({ league, members, dayPointsByUid = {}, stages = [], bonusResolved = [], upcoming = [], now = new Date() }) {
+function buildRecapFacts({ league, members, dayPointsByUid = {}, leagueBonusByUid = {}, stages = [], bonusResolved = [], upcoming = [], now = new Date() }) {
   const date = now.toLocaleDateString('da-DK', {
     weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Copenhagen',
   });
@@ -129,7 +133,7 @@ function buildRecapFacts({ league, members, dayPointsByUid = {}, stages = [], bo
   // points = total (allerede inkl. dayPoints), dayPoints = vundet siden sidst.
   const rows = members.map((u) => ({
     name: sanitizeName(u.displayName),
-    points: leagueTotal(u, scoring),
+    points: leagueTotal(u, scoring, leagueBonusByUid[u.id] || 0),
     dayPoints: Number(dayPointsByUid[u.id] || 0),
   }));
 

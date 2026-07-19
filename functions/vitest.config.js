@@ -23,6 +23,7 @@ export default defineConfig({
       'riderTags.test.js',
       'riderTagCanon.test.js',
       'stageTimes.test.js',
+      'leagueBonus.test.js',
     ],
     exclude: [
       'rules.test.js',

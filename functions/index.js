@@ -47,6 +47,7 @@ const { syncStartlistCore } = require('./startlistSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
+const { leagueBonusTotalsByUid } = require('./leagueBonus');
 const { salesPitchHtml } = require('./salesPitch');
 const { fetchLiveTickerCore } = require('./liveTicker');
 const { fetchLiveMapCore } = require('./liveMap');
@@ -1662,6 +1663,34 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
   const usersSnap = await db.collection('users').get();
   const usersById = new Map(usersSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]));
 
+  // Liga-lokal bonus (ligaens egne spørgsmål + manuelle tildelinger), så
+  // bottens stilling matcher ligaens stillingsvisning — grupperet pr. liga.
+  const [lbQSnap, lbASnap, lbAwardSnap] = await Promise.all([
+    db.collection('leagueBonus').get(),
+    db.collection('leagueBonusAnswers').get(),
+    db.collection('leagueBonusAwards').get(),
+  ]);
+  const lbQByLeague = new Map(); // leagueId → [spørgsmål]
+  for (const d of lbQSnap.docs) {
+    const q = { id: d.id, ...d.data() };
+    if (!q.leagueId) continue;
+    if (!lbQByLeague.has(q.leagueId)) lbQByLeague.set(q.leagueId, []);
+    lbQByLeague.get(q.leagueId).push(q);
+  }
+  const lbAnsByQid = {}; // qid → [{uid, answer}]
+  for (const d of lbASnap.docs) {
+    const a = d.data();
+    if (!a.questionId) continue;
+    (lbAnsByQid[a.questionId] = lbAnsByQid[a.questionId] || []).push({ uid: a.uid, answer: a.answer });
+  }
+  const lbAwardsByLeague = new Map(); // leagueId → [award-docs]
+  for (const d of lbAwardSnap.docs) {
+    const a = d.data();
+    if (!a.leagueId) continue;
+    if (!lbAwardsByLeague.has(a.leagueId)) lbAwardsByLeague.set(a.leagueId, []);
+    lbAwardsByLeague.get(a.leagueId).push(a);
+  }
+
   const leaguesSnap = await db.collection('leagues').where('status', '==', 'approved').get();
   const results = [];
   for (const ld of leaguesSnap.docs) {
@@ -1676,7 +1705,10 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
     const { dayPointsByUid, stages, bonusResolved } = recapWindowForLeague({
       league, finished, pointsByStageUid, resolvedBonus, bonusPtsByQ, now,
     });
-    const facts = buildRecapFacts({ league, members, dayPointsByUid, stages, bonusResolved, upcoming, now });
+    const leagueBonusByUid = leagueBonusTotalsByUid(
+      lbQByLeague.get(league.id) || [], lbAnsByQid, lbAwardsByLeague.get(league.id) || [],
+    );
+    const facts = buildRecapFacts({ league, members, dayPointsByUid, leagueBonusByUid, stages, bonusResolved, upcoming, now });
     let text;
     try {
       text = await generateRecapText(anthropic, facts);
