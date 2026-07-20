@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   OUTCOME, OUTCOME_POINTS, isOutcome, outcomeFromScore, outcomePoints,
   eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
-  CHANCE, chanceMaxStake, canUseChance, isValidStake, settleChance,
+  chanceMaxStake, canUseChance, isValidStake, settleChance,
   updateElo, actualHomeFromOutcome,
 } from './superligaScoring';
 
