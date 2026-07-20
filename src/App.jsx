@@ -1,7 +1,8 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { TasksProvider } from './context/TasksContext';
+import { PLATFORM_MODE } from './lib/platform';
 
 import LoginPage from './pages/LoginPage';
 import PendingPage from './pages/PendingPage';
@@ -17,6 +18,7 @@ import MyBetsPage from './pages/MyBetsPage';
 import BonusPage from './pages/BonusPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import LeaguesPage from './pages/LeaguesPage';
+import GamesPage from './pages/GamesPage';
 import MessagesPage from './pages/MessagesPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
@@ -31,7 +33,12 @@ export default function App() {
           <Route path="/afventer" element={<PendingPage />} />
           {/* Liga-invitationslink: virker for både nye, afventende og godkendte brugere */}
           <Route path="/tilmeld" element={<JoinPage />} />
-          <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          {/* Platform: forsiden er spiloversigten. Enkelt-spil: Tour-dashboard. */}
+          <Route path="/" element={
+            PLATFORM_MODE
+              ? <Navigate to="/spil" replace />
+              : <ProtectedRoute><DashboardPage /></ProtectedRoute>
+          } />
           <Route path="/etaper" element={<ProtectedRoute><StagesPage /></ProtectedRoute>} />
           <Route path="/etape/:number" element={<ProtectedRoute><StagePresentationPage /></ProtectedRoute>} />
           <Route path="/tour" element={<ProtectedRoute><TourPage /></ProtectedRoute>} />
@@ -42,6 +49,7 @@ export default function App() {
           <Route path="/bonus" element={<ProtectedRoute><BonusPage /></ProtectedRoute>} />
           <Route path="/stilling" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
           <Route path="/ligaer" element={<ProtectedRoute><LeaguesPage /></ProtectedRoute>} />
+          <Route path="/spil" element={<ProtectedRoute><GamesPage /></ProtectedRoute>} />
           <Route path="/beskeder" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute require="admin"><AdminPage /></ProtectedRoute>} />

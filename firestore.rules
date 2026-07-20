@@ -499,6 +499,50 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
+    // games/{gameId} — ét spil i den samlede platform (tip.vejleaa.dk).
+    // Spilleren opretter sig ÉN gang (users/{uid}) og vælger derefter hvilke
+    // spil de vil deltage i ved at oprette games/{gameId}/players/{uid}.
+    // Se docs/samlet-platform.md.
+    // -----------------------------------------------------------------------
+    match /games/{gameId} {
+      // Alle godkendte brugere kan se spiloversigten (metadata er ikke følsom)
+      allow read: if isApproved();
+
+      // Kun globalAdmin/owner opretter og redigerer spil
+      allow create, update: if isGlobalAdmin();
+      allow delete: if false;
+
+      // games/{gameId}/players/{uid} — deltagelse + per-spil-point.
+      // "Deltag i dette spil" = opret sit EGET players-dokument.
+      match /players/{uid} {
+        // Godkendte kan læse deltagerlisten (til stilling/oversigt); man kan
+        // altid læse sit eget medlemskab — også via en collectionGroup-query
+        // (spiloversigten spørger "hvilke spil er JEG med i").
+        allow read: if isApproved() || (isSignedIn() && request.auth.uid == uid);
+
+        // Tilmeld: opret sit eget medlemskab UDEN at kunne seede point-felter
+        // (dem sætter kun serveren — samme princip som users-profilen).
+        allow create: if isApproved()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && !request.resource.data.keys().hasAny(
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'previousRank', 'points']);
+
+        // Opdatér eget medlemskab, men aldrig point-felterne.
+        allow update: if isApproved()
+          && request.auth.uid == uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'previousRank', 'points']);
+
+        // Man kan fortryde en tilmelding (forlade spillet) SÅ LÆNGE der endnu
+        // ikke er tildelt point — så en placering ikke kan gå tabt ved uheld.
+        // Serveren (Admin SDK) omgår reglen og kan altid rydde op.
+        allow delete: if isSignedIn() && request.auth.uid == uid
+          && (!('totalPoints' in resource.data) || resource.data.totalPoints == 0);
+      }
+    }
+
+    // -----------------------------------------------------------------------
     // config/{docId}
     // -----------------------------------------------------------------------
     match /config/{docId} {

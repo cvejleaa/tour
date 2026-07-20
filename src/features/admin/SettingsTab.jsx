@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { setRecapTime, setUntippedPenalty, callSendTestReminderToMe, callSendTipRemindersNow, callMigrateEmailPrivacy } from './adminActions';
+import { setRecapTime, setUntippedPenalty, callSendTestReminderToMe, callSendTipRemindersNow, callMigrateEmailPrivacy, callSetAutomationPaused, callSendThankYouEmails } from './adminActions';
 import { DEFAULT_UNTIPPED_PENALTY, readUntippedPenalty } from '../leaderboard/useUntippedPenalty';
 
 const DEFAULT_RECAP_TIME = '08:15';
@@ -29,6 +29,14 @@ export default function SettingsTab() {
   const [savingPen, setSavingPen] = useState(false);
   const [penStatus, setPenStatus] = useState(null);
 
+  // 🏁 Afslutning: global pause + takke-mail
+  const [paused, setPaused] = useState(false);
+  const [pauseLoaded, setPauseLoaded] = useState(false);
+  const [pauseBusy, setPauseBusy] = useState(false);
+  const [pauseMsg, setPauseMsg] = useState(null);
+  const [thankBusy, setThankBusy] = useState(false);
+  const [thankMsg, setThankMsg] = useState(null);
+
   useEffect(() => {
     const ref = doc(db, COL.CONFIG, 'settings');
     const unsub = onSnapshot(
@@ -40,6 +48,21 @@ export default function SettingsTab() {
         setLoaded(true);
       },
       () => setLoaded(true),
+    );
+    return unsub;
+  }, []);
+
+  // Global pause-tilstand (config/automation) — egen doc, egen lytter.
+  useEffect(() => {
+    const ref = doc(db, COL.CONFIG, 'automation');
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const d = snap && typeof snap.exists === 'function' && snap.exists() ? snap.data() : null;
+        setPaused(!!(d && d.paused));
+        setPauseLoaded(true);
+      },
+      () => setPauseLoaded(true),
     );
     return unsub;
   }, []);
@@ -93,6 +116,37 @@ export default function SettingsTab() {
     setMailMsg(d.sent > 0
       ? `✓ Sendte ${d.sent} påmindelser.`
       : `Sendte 0 — ${d.reason === 'no-stages' ? 'ingen etaper inden for det næste døgn endnu (sender automatisk fra dagen før 1. etape).' : (d.reason || 'intet at sende lige nu.')}`);
+  };
+
+  const togglePause = async () => {
+    const next = !paused;
+    const q = next
+      ? 'Sæt ALLE automatiske jobs på pause? Resultat-sync, AI-morgenopslag og påmindelses-mails stopper straks.'
+      : 'Genoptag alle automatiske jobs? De begynder at køre igen efter deres skema.';
+    if (!window.confirm(q)) return;
+    setPauseBusy(true); setPauseMsg(null);
+    const res = await callSetAutomationPaused(next);
+    setPauseBusy(false);
+    if (res.ok) setPauseMsg({ kind: 'ok', text: next ? 'Automatikken er sat på pause.' : 'Automatikken kører igen.' });
+    else setPauseMsg({ kind: 'err', text: res.error });
+  };
+
+  const doThankYouDraft = async () => {
+    setThankBusy(true); setThankMsg(null);
+    const res = await callSendThankYouEmails({ dryRun: true });
+    setThankBusy(false);
+    if (res.ok) setThankMsg({ kind: 'ok', text: `Udkast sendt til dig (${res.data?.sentTo || 'din mail'}). Tjek din indbakke.` });
+    else setThankMsg({ kind: 'err', text: res.error });
+  };
+
+  const doThankYouAll = async () => {
+    if (!window.confirm('Send takke-mailen til ALLE spillere nu? Dette kan ikke fortrydes. Har du set udkastet i din egen indbakke først?')) return;
+    if (!window.confirm('Helt sikker? Mailen sendes til alle godkendte spillere med en registreret mailadresse.')) return;
+    setThankBusy(true); setThankMsg(null);
+    const res = await callSendThankYouEmails({ dryRun: false });
+    setThankBusy(false);
+    if (res.ok) setThankMsg({ kind: 'ok', text: `Sendt til ${res.data?.sent ?? 0} spillere (${res.data?.failed ?? 0} fejlede, ${res.data?.noEmail ?? 0} uden mail).` });
+    else setThankMsg({ kind: 'err', text: res.error });
   };
 
   // E-mail-privatliv: engangs-migrering (flyt e-mail til privat collection).
@@ -232,6 +286,50 @@ export default function SettingsTab() {
           </span>
         )}
       </div>
+
+      <hr style={{ margin: '1.75rem 0', border: 'none', borderTop: '1px solid var(--c-border)' }} />
+
+      {/* ── 🏁 Afslutning af løbet ──────────────────────────────────────── */}
+      <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>
+        🏁 Afslutning af løbet
+      </h2>
+
+      <p style={{ margin: '0 0 0.75rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
+        Når Touren er slut: sæt al automatik på pause (resultat-sync, AI-morgenopslag og
+        påmindelses-mails) og send den afsluttende takke-mail til spillerne. Pausen kan slås fra igen når som helst.
+      </p>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Automatik:</span>
+        <button
+          className={`btn btn--sm${paused ? ' btn--primary' : ''}`}
+          onClick={togglePause} disabled={pauseBusy || !pauseLoaded} data-testid="toggle-automation"
+        >
+          {pauseBusy ? 'Skifter…' : paused ? '▶ Genoptag automatik' : '⏸ Sæt automatik på pause'}
+        </button>
+        <span style={{ fontSize: '0.85rem', color: paused ? 'var(--c-err)' : 'var(--c-ok)' }}>
+          {pauseLoaded ? (paused ? '● Sat på pause' : '● Kører') : '…'}
+        </span>
+      </div>
+      {pauseMsg && (
+        <p style={{ marginTop: '0.6rem', fontSize: '0.9rem', color: pauseMsg.kind === 'ok' ? 'var(--c-ok)' : 'var(--c-err)' }}>
+          {pauseMsg.kind === 'ok' ? '✓ ' : ''}{pauseMsg.text}
+        </p>
+      )}
+
+      <div style={{ marginTop: '1.1rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className="btn" onClick={doThankYouDraft} disabled={thankBusy} data-testid="thankyou-draft">
+          {thankBusy ? 'Arbejder…' : '✉️ Send udkast til mig'}
+        </button>
+        <button className="btn btn--primary" onClick={doThankYouAll} disabled={thankBusy} data-testid="thankyou-all">
+          {thankBusy ? 'Sender…' : '📣 Send takke-mail til alle'}
+        </button>
+        <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)' }}>Se altid udkastet i din egen indbakke først.</span>
+      </div>
+      {thankMsg && (
+        <p style={{ marginTop: '0.6rem', fontSize: '0.9rem', color: thankMsg.kind === 'ok' ? 'var(--c-ok)' : 'var(--c-err)' }}>
+          {thankMsg.kind === 'ok' ? '✓ ' : ''}{thankMsg.text}
+        </p>
+      )}
     </div>
   );
 }

@@ -16,6 +16,11 @@ import types
 
 sys.modules.setdefault("requests", types.ModuleType("requests"))
 
+# Ved fuld pytest-kørsel har test_serve_stage.py (samlet FØR denne fil) erstattet
+# letour_results med sin stub i sys.modules — smid den ud, så vi tester det
+# RIGTIGE modul. (Standalone er pop'et et no-op.)
+sys.modules.pop("letour_results", None)
+
 import letour_results  # noqa: E402
 
 # 2026 TTT-side: ajax-stacken har "ete" (hold-etape) — INGEN "ite". De

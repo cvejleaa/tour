@@ -100,6 +100,34 @@ giver jeg dig en præcis Firebase-tjekliste** (Blaze-plan, Cloud Scheduler m.m.)
 
 ---
 
+## Superliga-endpoints (Flashscore/livescore.in)
+
+Proxyen udstiller også data til **Superliga-spillet** (sæsonstart 24-07-2026).
+Datakilde er Flashscores interne feeds (samme som livescore.in's frontend):
+
+- `GET /api/superliga/fixtures?day={-7..7}` — dagens (± offset) Superliga-kampe
+  (event_id, kickoff, hold, status, scorer). Cache-TTL 15 min.
+- `GET /api/superliga/match/{event_id}` — samlet kampbillede: stamdata (kickoff,
+  status, slutstilling), hændelsesforløb (mål/kort/udskiftninger med minutter,
+  venue/tilskuere) og statistik (xG, boldbesiddelse … via GraphQL). Tolerant
+  over for delvise upstream-fejl: de dele der lykkes serveres, resten er `null`
+  med fejltekst under `errors`. TTL: hændelser/statistik 60 s, stamdata 1 t.
+- `GET /api/superliga/season?from=-7&to=7` — kampe over flere dags-offsets,
+  dedupet pr. event_id (Flashscore kan kun levere -7..7 dage ad gangen).
+
+**x-fsign-mekanismen:** feed-API'et (`50.flashscore.ninja`) kræver en
+`x-fsign`-signaturheader. Signaturen roterer og ligger indlejret i
+livescore.in's JS-bundle, så klienten (`flashscore_client.py`) henter forsiden
+→ finder bundle-URL'en → regex'er signaturen ud, og cacher den. Svarer feedet
+401/403/404 (typisk tegn på rotation), gen-hentes signaturen én gang og kaldet
+prøves igen. Knækker site-skrabningen (fx nyt bundle-layout), kan signaturen
+sættes manuelt med miljøvariablen `FLASHSCORE_FSIGN` (find den i browserens
+netværksfane på livescore.in) og redeployes. GraphQL-API'et (`50.ds.lsapp.eu`)
+kræver ingen signatur — kun Origin/Referer/User-Agent, som klienten sætter.
+
+Cachen er nøgle/værdi i Postgres (`flashscore_cache`-tabellen, oprettes
+idempotent) når `DATABASE_URL` er sat, ellers in-memory pr. instans.
+
 ## Drift
 - **Logs:** `gcloud run services logs read tdf-results --region europe-west1`
 - **Hold `procyclingstats` opdateret** (PCS ændrer HTML): bump versionen i

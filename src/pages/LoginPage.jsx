@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAuthActions } from '../features/auth/useAuthActions';
 import { getPendingJoinCode } from '../features/leagues/joinLink';
+import { HOME_PATH } from '../lib/platform';
 
 // Interne fane-konstanter
 const TAB_LOGIN  = 'login';
@@ -13,7 +14,7 @@ const TAB_SIGNUP = 'signup';
 export default function LoginPage() {
   const { user, isApproved } = useAuth();
   const navigate = useNavigate();
-  const { loading, error, clearError, signup, login, resetPassword } = useAuthActions();
+  const { loading, error, clearError, signup, login, resetPassword, signInWithGoogle } = useAuthActions();
 
   const [tab, setTab]             = useState(TAB_LOGIN);
   const [email, setEmail]         = useState('');
@@ -34,7 +35,7 @@ export default function LoginPage() {
     } else if (getPendingJoinCode()) {
       navigate('/tilmeld', { replace: true });
     } else {
-      navigate('/', { replace: true });
+      navigate(HOME_PATH, { replace: true });
     }
   }, [user, isApproved, navigate]);
 
@@ -77,6 +78,12 @@ export default function LoginPage() {
 
     // Altid til /afventer efter oprettelse (status er pending)
     navigate('/afventer', { replace: true });
+  }
+
+  async function handleGoogleLogin() {
+    setLocalError('');
+    // Navigation sker via useEffect når user/status ændres (pending → /afventer).
+    await signInWithGoogle();
   }
 
   async function handleResetPassword(e) {
@@ -134,6 +141,59 @@ export default function LoginPage() {
               {label}
             </button>
           ))}
+        </div>
+
+        {/* Log ind med Google — vises på begge faner */}
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.6rem',
+            padding: '0.7rem',
+            background: 'var(--c-bg)',
+            border: '1px solid var(--c-border)',
+            borderRadius: 8,
+            color: 'var(--c-text)',
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            marginBottom: '1.25rem',
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              fontWeight: 700,
+              fontSize: '1.05rem',
+              color: '#4285F4',
+              fontFamily: 'Arial, sans-serif',
+            }}
+          >
+            G
+          </span>
+          Log ind med Google
+        </button>
+
+        {/* "eller"-skillelinje mellem Google og e-mail-login */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            marginBottom: '1.25rem',
+            color: 'var(--c-muted)',
+            fontSize: '0.8rem',
+          }}
+        >
+          <span style={{ flex: 1, height: 1, background: 'var(--c-border)' }} />
+          eller
+          <span style={{ flex: 1, height: 1, background: 'var(--c-border)' }} />
         </div>
 
         {/* Fejlbesked */}

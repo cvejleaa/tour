@@ -13,20 +13,26 @@ const mockCreateUser = vi.fn();
 const mockSignIn = vi.fn();
 const mockUpdateProfile = vi.fn();
 const mockSendReset = vi.fn();
+const mockSignInWithPopup = vi.fn();
 
 vi.mock('firebase/auth', () => ({
   createUserWithEmailAndPassword: (...args) => mockCreateUser(...args),
   signInWithEmailAndPassword: (...args) => mockSignIn(...args),
   updateProfile: (...args) => mockUpdateProfile(...args),
   sendPasswordResetEmail: (...args) => mockSendReset(...args),
+  signInWithPopup: (...args) => mockSignInWithPopup(...args),
+  // Klasse-mock så `new GoogleAuthProvider()` virker.
+  GoogleAuthProvider: class MockGoogleAuthProvider {},
 }));
 
 const mockDoc = vi.fn();
+const mockGetDoc = vi.fn();
 const mockSetDoc = vi.fn();
 const mockServerTimestamp = vi.fn(() => ({ _serverTimestamp: true }));
 
 vi.mock('firebase/firestore', () => ({
   doc: (...args) => mockDoc(...args),
+  getDoc: (...args) => mockGetDoc(...args),
   setDoc: (...args) => mockSetDoc(...args),
   serverTimestamp: () => mockServerTimestamp(),
 }));
@@ -41,6 +47,8 @@ describe('useAuthActions', () => {
     mockDoc.mockImplementation((_db, col, uid) => ({ col, uid }));
     mockSetDoc.mockResolvedValue(undefined);
     mockUpdateProfile.mockResolvedValue(undefined);
+    // Default: profilen findes ikke endnu (førstegangs-login).
+    mockGetDoc.mockResolvedValue({ exists: () => false });
   });
 
   /** Find det setDoc-kald der skrev til en given collection. */
@@ -337,6 +345,114 @@ describe('useAuthActions', () => {
       });
 
       expect(result.current.loading).toBe(false);
+    });
+  });
+
+  // ─── signInWithGoogle ─────────────────────────────────────────────────────
+
+  describe('signInWithGoogle', () => {
+    it('opretter users + userContacts (pending) ved allerførste Google-login', async () => {
+      const fakeUser = { uid: 'g-uid', displayName: 'Google Bruger', email: 'GOOGLE@Gmail.com' };
+      mockSignInWithPopup.mockResolvedValue({ user: fakeUser });
+      mockGetDoc.mockResolvedValue({ exists: () => false });
+
+      const { result } = renderHook(() => useAuthActions());
+
+      let returnedUser;
+      await act(async () => {
+        returnedUser = await result.current.signInWithGoogle();
+      });
+
+      expect(returnedUser).toBe(fakeUser);
+
+      const usersCall = setDocCallFor('users');
+      expect(usersCall).toBeTruthy();
+      expect(usersCall[1]).toMatchObject({
+        displayName: 'Google Bruger',
+        role: 'player',
+        status: 'pending',
+      });
+      // Ingen e-mail/point i den offentlige profil.
+      expect(usersCall[1]).not.toHaveProperty('email');
+      expect(usersCall[1]).not.toHaveProperty('totalPoints');
+
+      const contactCall = setDocCallFor('userContacts');
+      expect(contactCall).toBeTruthy();
+      expect(contactCall[1]).toEqual({ uid: 'g-uid', email: 'google@gmail.com' });
+    });
+
+    it('bruger fallback-navnet "Spiller" når Google ikke giver et displayName', async () => {
+      const fakeUser = { uid: 'g-uid', displayName: null, email: 'a@b.dk' };
+      mockSignInWithPopup.mockResolvedValue({ user: fakeUser });
+      mockGetDoc.mockResolvedValue({ exists: () => false });
+
+      const { result } = renderHook(() => useAuthActions());
+
+      await act(async () => {
+        await result.current.signInWithGoogle();
+      });
+
+      const usersCall = setDocCallFor('users');
+      expect(usersCall[1]).toMatchObject({ displayName: 'Spiller' });
+    });
+
+    it('genskaber IKKE profilen for en returnerende bruger', async () => {
+      const fakeUser = { uid: 'g-uid', displayName: 'Google Bruger', email: 'a@b.dk' };
+      mockSignInWithPopup.mockResolvedValue({ user: fakeUser });
+      mockGetDoc.mockResolvedValue({ exists: () => true });
+
+      const { result } = renderHook(() => useAuthActions());
+
+      let returnedUser;
+      await act(async () => {
+        returnedUser = await result.current.signInWithGoogle();
+      });
+
+      expect(returnedUser).toBe(fakeUser);
+      // Ingen setDoc-skrivninger når profilen allerede findes.
+      expect(mockSetDoc).not.toHaveBeenCalled();
+    });
+
+    it('returnerer null uden hård fejl når brugeren lukker popup', async () => {
+      mockSignInWithPopup.mockRejectedValue({ code: 'auth/popup-closed-by-user' });
+
+      const { result } = renderHook(() => useAuthActions());
+
+      let returnedUser;
+      await act(async () => {
+        returnedUser = await result.current.signInWithGoogle();
+      });
+
+      expect(returnedUser).toBeNull();
+      expect(result.current.error).toBe('');
+    });
+
+    it('returnerer null uden hård fejl når popup-forespørgslen afbrydes', async () => {
+      mockSignInWithPopup.mockRejectedValue({ code: 'auth/cancelled-popup-request' });
+
+      const { result } = renderHook(() => useAuthActions());
+
+      let returnedUser;
+      await act(async () => {
+        returnedUser = await result.current.signInWithGoogle();
+      });
+
+      expect(returnedUser).toBeNull();
+      expect(result.current.error).toBe('');
+    });
+
+    it('returnerer null og sætter fejlbesked ved øvrige Firebase-fejl', async () => {
+      mockSignInWithPopup.mockRejectedValue({ code: 'auth/network-request-failed' });
+
+      const { result } = renderHook(() => useAuthActions());
+
+      let returnedUser;
+      await act(async () => {
+        returnedUser = await result.current.signInWithGoogle();
+      });
+
+      expect(returnedUser).toBeNull();
+      expect(result.current.error).not.toBe('');
     });
   });
 

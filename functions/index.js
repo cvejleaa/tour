@@ -54,12 +54,28 @@ const { fetchLiveMapCore } = require('./liveMap');
 const { runGenerateStageTips } = require('./stageTip');
 const { runEnrichRiderTags } = require('./riderTags');
 const { syncStageTimesCore } = require('./stageTimes');
+const tourSummary = require('./tourSummary');
+const { leagueStandings, renderThankYouEmail } = require('./thankYouEmail');
 
 // Initialiser Firebase Admin (singleton)
 initializeApp();
 
 // Region for alle funktioner
 const REGION = 'europe-west1';
+
+// Global "automatik på pause"-kontakt: når config/automation.paused === true,
+// springer alle skemalagte jobs over (resultat-sync, AI-morgenopslag, tip-
+// påmindelsesmails m.fl.). Reversibelt via setAutomationPaused. Fejler sikkert
+// til "ikke på pause", så en læsefejl ikke utilsigtet standser alt.
+async function automationPaused(db) {
+  try {
+    const snap = await db.collection('config').doc('automation').get();
+    return snap.exists && snap.data().paused === true;
+  } catch (e) {
+    console.error('automationPaused: kunne ikke læse config/automation', e?.message || e);
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // recomputeBonus — beregner point for alle bonusBets når facit sættes
@@ -504,6 +520,7 @@ exports.syncTourResults = onSchedule(
   { schedule: '*/5 17-22 * * *', timeZone: TZ, region: REGION },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('syncTourResults: automatik på pause — springer over.'); return; }
     const statusRef = db.collection('config').doc('tourSyncStatus');
     try {
       const res = await syncTourCore(db, {});
@@ -641,6 +658,7 @@ exports.syncStartlist = onSchedule(
   { schedule: '17 */2 * * *', timeZone: TZ, region: REGION },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('syncStartlist: automatik på pause — springer over.'); return; }
     const { proxyUrl, activeSeason } = await tourSettings(db);
     try {
       const res = await syncStartlistCore({
@@ -1164,6 +1182,7 @@ exports.snapshotRanks = onSchedule(
   { schedule: '5 4 * * *', timeZone: TZ, region: REGION },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('snapshotRanks: automatik på pause — springer over.'); return; }
     const snap = await db
       .collection('users')
       .where('status', '==', 'approved')
@@ -1323,7 +1342,11 @@ async function runTipReminders(db, transporter) {
 
 exports.tipReminders = onSchedule(
   { schedule: '0 9 * * *', timeZone: TZ, region: REGION, secrets: [SMTP_PASSWORD] },
-  async () => { await runTipReminders(getFirestore(), buildTransport(SMTP_PASSWORD.value())); }
+  async () => {
+    const db = getFirestore();
+    if (await automationPaused(db)) { console.log('tipReminders: automatik på pause — springer over.'); return; }
+    await runTipReminders(db, buildTransport(SMTP_PASSWORD.value()));
+  }
 );
 
 // Callable: admin kan udløse påmindelserne manuelt (til test).
@@ -1413,6 +1436,154 @@ exports.sendTestReminderToMe = onCall(
 
     return { success: true, sentTo: email, days: days.length, stages: total };
   }
+);
+
+// ---------------------------------------------------------------------------
+// setAutomationPaused — owner/global admin sætter/ophæver global pause for ALLE
+// skemalagte jobs (config/automation.paused). Bruges når løbet er slut.
+// ---------------------------------------------------------------------------
+exports.setAutomationPaused = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+  const role = (await db.collection('users').doc(request.auth.uid).get()).data()?.role;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun owner/global admin kan styre automatikken.');
+  }
+  const paused = request.data?.paused === true;
+  await db.collection('config').doc('automation').set(
+    { paused, updatedAt: FieldValue.serverTimestamp(), updatedBy: request.auth.uid },
+    { merge: true },
+  );
+  console.log(`setAutomationPaused: paused=${paused} af ${request.auth.uid}`);
+  return { success: true, paused };
+});
+
+// ---------------------------------------------------------------------------
+// sendThankYouEmails — afsluttende takke-mail med løbs-tilbageblik (Tour-
+// vinderen, trøjerne, etapesejre og fakta) + hver spillers liga-slutstillinger.
+// dryRun:true (default) sender KUN til admin selv til gennemsyn; dryRun:false
+// sender til alle godkendte spillere med en registreret mailadresse (respekterer
+// emailOptOut — samme fravalg som tip-påmindelserne).
+// ---------------------------------------------------------------------------
+async function buildThankYouContext(db) {
+  const stagesSnap = await db.collection('stages').get();
+  const stages = stagesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const clsSnap = await db.collection('config').doc('classifications').get();
+  const classifications = clsSnap.exists ? clsSnap.data() : null;
+  const gcPodium = tourSummary.computeGcPodium(classifications, stages);
+  const jerseys = tourSummary.computeJerseyWinners(stages);
+  const facts = tourSummary.computeFacts(stages);
+  const stageWins = tourSummary.computeStageWins(stages);
+
+  const usersSnap = await db.collection('users').get();
+  const membersById = {};
+  const recipientUids = [];
+  const optOutUids = new Set();
+  const legacyEmailByUid = {}; // fallback for endnu ikke migrerede profiler
+  usersSnap.docs.forEach((d) => {
+    const u = d.data();
+    membersById[d.id] = {
+      displayName: u.displayName,
+      stagePoints: u.stagePoints, bonusPoints: u.bonusPoints,
+    };
+    if (u.status === 'approved') recipientUids.push(d.id);
+    if (u.emailOptOut) optOutUids.add(d.id);
+    if (u.email) legacyEmailByUid[d.id] = u.email;
+  });
+
+  // Liga-lokal bonus (ligaens egne spørgsmål + manuelle tildelinger) → point
+  // pr. uid pr. liga, så slutstillingen matcher ligaens stillingsvisning —
+  // samme grundlag som AI-morgenopslaget (leagueBonusTotalsByUid).
+  const [lbQSnap, lbASnap, lbAwardSnap] = await Promise.all([
+    db.collection('leagueBonus').get(),
+    db.collection('leagueBonusAnswers').get(),
+    db.collection('leagueBonusAwards').get(),
+  ]);
+  const lbQByLeague = {};
+  lbQSnap.docs.forEach((d) => {
+    const q = { id: d.id, ...d.data() };
+    if (!q.leagueId) return;
+    (lbQByLeague[q.leagueId] = lbQByLeague[q.leagueId] || []).push(q);
+  });
+  const lbAnsByQid = {};
+  lbASnap.docs.forEach((d) => {
+    const a = d.data();
+    if (!a.questionId) return;
+    (lbAnsByQid[a.questionId] = lbAnsByQid[a.questionId] || []).push({ uid: a.uid, answer: a.answer });
+  });
+  const lbAwardsByLeague = {};
+  lbAwardSnap.docs.forEach((d) => {
+    const a = d.data();
+    if (!a.leagueId) return;
+    (lbAwardsByLeague[a.leagueId] = lbAwardsByLeague[a.leagueId] || []).push(a);
+  });
+
+  const leaguesSnap = await db.collection('leagues').where('status', '==', 'approved').get();
+  const standings = leaguesSnap.docs.map((d) => {
+    const lg = { id: d.id, ...d.data() };
+    const lbByUid = leagueBonusTotalsByUid(
+      lbQByLeague[lg.id] || [], lbAnsByQid, lbAwardsByLeague[lg.id] || [],
+    );
+    return { memberUids: Array.isArray(lg.memberUids) ? lg.memberUids : [], std: leagueStandings(lg, membersById, lbByUid) };
+  });
+  const leaguesForUid = (uid) => standings.filter((x) => x.memberUids.includes(uid)).map((x) => x.std);
+
+  return { gcPodium, jerseys, facts, stageWins, membersById, recipientUids, optOutUids, legacyEmailByUid, leaguesForUid };
+}
+
+exports.sendThankYouEmails = onCall(
+  { region: REGION, timeoutSeconds: 300, memory: '512MiB', secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    const me = (await db.collection('users').doc(request.auth.uid).get()).data();
+    if (!me || (me.role !== 'owner' && me.role !== 'globalAdmin')) {
+      throw new HttpsError('permission-denied', 'Kun owner/global admin kan sende takke-mailen.');
+    }
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
+
+    const dryRun = request.data?.dryRun !== false; // default: kun til mig
+    const ctx = await buildThankYouContext(db);
+    const subject = '🚴 Tak for Tour de France 2026 — dit tilbageblik på løbet';
+    const renderFor = (uid, name) => renderThankYouEmail({
+      displayName: name, youUid: uid, gcPodium: ctx.gcPodium, jerseys: ctx.jerseys,
+      facts: ctx.facts, stageWins: ctx.stageWins, leagues: ctx.leaguesForUid(uid),
+      appUrl: APP_URL,
+    });
+
+    if (dryRun) {
+      // Kalderens egen e-mail: Auth-tokenet (kilde til sandhed), ellers den
+      // private userContacts-post, ellers en gammel e-mail på users-dokumentet.
+      const contactSnap = await db.collection('userContacts').doc(request.auth.uid).get();
+      const email = request.auth.token?.email || contactSnap.data()?.email || me.email;
+      if (!email) throw new HttpsError('failed-precondition', 'Din profil har ingen e-mailadresse.');
+      const html = renderFor(request.auth.uid, me.displayName || 'spiller');
+      await sendEmail(db, transporter, { to: email, subject: `[UDKAST] ${subject}`, html, type: 'thankyou-dryrun' });
+      return { success: true, dryRun: true, sentTo: email };
+    }
+
+    // Rigtig udsendelse: alle godkendte spillere med en mailadresse i den
+    // private userContacts-collection (fravalgte springes over; gamle e-mails
+    // på users-dokumentet bruges som fallback — samme regel som tipReminders).
+    const emails = await emailByUidMap(db);
+    let sent = 0; let failed = 0; let noEmail = 0;
+    for (const uid of ctx.recipientUids) {
+      if (ctx.optOutUids.has(uid)) continue;
+      const email = emails.get(uid) || ctx.legacyEmailByUid[uid];
+      if (!email) { noEmail += 1; continue; }
+      const name = (ctx.membersById[uid] && ctx.membersById[uid].displayName) || 'spiller';
+      try {
+        await sendEmail(db, transporter, { to: email, subject, html: renderFor(uid, name), type: 'thankyou' });
+        sent += 1;
+      } catch (e) {
+        failed += 1;
+        console.error(`sendThankYouEmails: fejl til ${email}:`, e?.message || e);
+      }
+    }
+    console.log(`sendThankYouEmails: sendt=${sent}, fejlet=${failed}, uden-mail=${noEmail}`);
+    return { success: true, dryRun: false, sent, failed, noEmail, recipients: ctx.recipientUids.length };
+  },
 );
 
 // ---------------------------------------------------------------------------
@@ -1746,6 +1917,7 @@ exports.generateLeagueRecaps = onSchedule(
   { schedule: '*/5 * * * *', timeZone: TZ, region: REGION, secrets: [ANTHROPIC_API_KEY] },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('generateLeagueRecaps: automatik på pause — springer over.'); return; }
     const apiKey = ANTHROPIC_API_KEY.value();
     if (!apiKey) { console.log('generateLeagueRecaps: ANTHROPIC_API_KEY ikke sat — springer over.'); return; }
 
@@ -2182,6 +2354,7 @@ exports.syncStageTimes = onSchedule(
   { schedule: '7 * * * *', timeZone: TZ, region: REGION },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('syncStageTimes: automatik på pause — springer over.'); return; }
     const res = await runSyncStageTimes(db, {});
     if (!res.ok) { console.log(`syncStageTimes: ${res.reason}`); return; }
     if (res.applied > 0) {
@@ -2201,6 +2374,7 @@ exports.enrichRiderTags = onSchedule(
   { schedule: '30 22 * * *', timeZone: TZ, region: REGION, secrets: [ANTHROPIC_API_KEY] },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('enrichRiderTags: automatik på pause — springer over.'); return; }
     const apiKey = ANTHROPIC_API_KEY.value();
     if (!apiKey) { console.log('enrichRiderTags: ANTHROPIC_API_KEY ikke sat — springer over.'); return; }
     const { activeSeason } = await tourSettings(db);

@@ -24,6 +24,8 @@ export default defineConfig({
       'riderTagCanon.test.js',
       'stageTimes.test.js',
       'leagueBonus.test.js',
+      'tourSummary.test.js',
+      'thankYouEmail.test.js',
     ],
     exclude: [
       'rules.test.js',
