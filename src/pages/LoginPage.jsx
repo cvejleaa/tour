@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAuthActions } from '../features/auth/useAuthActions';
 import { getPendingJoinCode } from '../features/leagues/joinLink';
+import { HOME_PATH } from '../lib/platform';
 
 // Interne fane-konstanter
 const TAB_LOGIN  = 'login';
@@ -34,7 +35,7 @@ export default function LoginPage() {
     } else if (getPendingJoinCode()) {
       navigate('/tilmeld', { replace: true });
     } else {
-      navigate('/', { replace: true });
+      navigate(HOME_PATH, { replace: true });
     }
   }, [user, isApproved, navigate]);
 

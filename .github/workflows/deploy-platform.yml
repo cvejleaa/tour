@@ -1,0 +1,116 @@
+name: Deploy platform (tip.vejleaa.dk)
+
+# Manuel udløsning: GitHub → Actions → "Deploy platform (tip.vejleaa.dk)" → Run workflow.
+# Deployer den SAMLEDE platform-frontend + Firestore-regler/-indexes til
+# projektet spil-89af9 (tip.vejleaa.dk). Deployer BEVIDST ikke Cloud Functions
+# endnu (skelettet kører på ren klient + Firestore-regler).
+#
+# Engangsopsætning før første kørsel:
+#   1) Repo → Settings → Secrets and variables → Actions → New repository secret:
+#        FIREBASE_SERVICE_ACCOUNT_SPIL = hele JSON-indholdet af en service-account
+#        for projektet spil-89af9 (Google Cloud Console → IAM → Service Accounts →
+#        opret nøgle, eller genbrug firebase-adminsdk-kontoen). Se docs/platform-deploy.md.
+#   Den offentlige web-config er bagt ind nedenfor (apiKey m.fl. er IKKE hemmelige).
+
+on:
+  workflow_dispatch:
+    inputs:
+      seedGames:
+        description: 'Seed spillene (VM/Tour/Superliga) i databasen bagefter?'
+        type: boolean
+        default: true
+      bootstrapOwnerEmail:
+        description: 'Gør denne e-mail til owner (kræver at brugeren har logget ind mindst én gang). Tom = spring over.'
+        type: string
+        default: ''
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: spil-89af9
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      - name: Tjek at service-account-secret er sat
+        run: |
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' ]; then
+            echo "::error::Mangler repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL — tilføj service-account-JSON for spil-89af9 (se docs/platform-deploy.md)."
+            exit 1
+          fi
+
+      - name: Skriv service-account fra secret
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' > "$RUNNER_TEMP/sa.json"
+
+      - name: Installer Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Skriv .env til build (offentlig web-config for spil-89af9)
+        run: |
+          cat > .env <<EOF
+          VITE_FIREBASE_API_KEY=AIzaSyDdP6zteOBHKOGWEIH6ARctMx3nOJc0Zhc
+          VITE_FIREBASE_AUTH_DOMAIN=spil-89af9.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID=spil-89af9
+          VITE_FIREBASE_STORAGE_BUCKET=spil-89af9.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID=549049171754
+          VITE_FIREBASE_APP_ID=1:549049171754:web:627b27c367fc7dbdf82853
+          VITE_USE_EMULATORS=false
+          VITE_PLATFORM_MODE=true
+          VITE_OWNER_EMAIL=cvejleaa@gmail.com
+          EOF
+
+      - name: Byg platform-frontend
+        run: npm run build
+
+      - name: Deploy hosting + regler (med backoff)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          ONLY="hosting,firestore:rules"
+          n=0; max=3
+          until [ "$n" -ge "$max" ]; do
+            n=$((n + 1))
+            echo "::group::Deploy-forsøg $n/$max"
+            set +e
+            out=$(firebase deploy --only "$ONLY" --project "$PROJECT_ID" --non-interactive --force 2>&1)
+            code=$?
+            set -e
+            echo "$out"
+            if [ "$code" -eq 0 ]; then echo "::endgroup::"; echo "Deploy lykkedes ($n/$max)."; break; fi
+            if printf '%s' "$out" | grep -q "is the current active version"; then
+              echo "::endgroup::"; echo "Hosting allerede aktiv version — OK ($n/$max)."; break
+            fi
+            echo "::endgroup::"; echo "::warning::Deploy fejlede ($n/$max)."
+            if [ "$n" -ge "$max" ]; then echo "::error::Deploy fejlede efter $max forsøg."; exit 1; fi
+            sleep $((n * 15))
+          done
+
+      - name: Deploy Firestore-indexes (idempotent, ikke-fatal)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          firebase deploy --only firestore:indexes --project "$PROJECT_ID" --non-interactive --force \
+            || echo "::warning::Index-deploy gav en fejl (typisk 'findes allerede'/under opbygning) — ignoreret."
+
+      - name: Seed games-collection'en
+        if: ${{ inputs.seedGames }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: node scripts/seed-games.mjs
+
+      - name: Bootstrap owner (valgfrit)
+        if: ${{ inputs.bootstrapOwnerEmail != '' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          OWNER_EMAIL: ${{ inputs.bootstrapOwnerEmail }}
+        run: node scripts/bootstrap-owner.mjs

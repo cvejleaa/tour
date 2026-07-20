@@ -1,7 +1,8 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { TasksProvider } from './context/TasksContext';
+import { PLATFORM_MODE } from './lib/platform';
 
 import LoginPage from './pages/LoginPage';
 import PendingPage from './pages/PendingPage';
@@ -32,7 +33,12 @@ export default function App() {
           <Route path="/afventer" element={<PendingPage />} />
           {/* Liga-invitationslink: virker for både nye, afventende og godkendte brugere */}
           <Route path="/tilmeld" element={<JoinPage />} />
-          <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          {/* Platform: forsiden er spiloversigten. Enkelt-spil: Tour-dashboard. */}
+          <Route path="/" element={
+            PLATFORM_MODE
+              ? <Navigate to="/spil" replace />
+              : <ProtectedRoute><DashboardPage /></ProtectedRoute>
+          } />
           <Route path="/etaper" element={<ProtectedRoute><StagesPage /></ProtectedRoute>} />
           <Route path="/etape/:number" element={<ProtectedRoute><StagePresentationPage /></ProtectedRoute>} />
           <Route path="/tour" element={<ProtectedRoute><TourPage /></ProtectedRoute>} />

@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "tour-85928"
+    "default": "tour-85928",
+    "tour": "tour-85928",
+    "spil": "spil-89af9"
   }
 }
