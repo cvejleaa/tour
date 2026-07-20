@@ -8,14 +8,21 @@ endnu). Domænet `tip.vejleaa.dk` er allerede oprettet og connected.
 
 Deploy kører via GitHub Actions med en service-account for `spil-89af9`:
 
-1. Google Cloud Console → projekt **spil-89af9** → **IAM & Admin → Service
-   Accounts**. Brug den eksisterende `firebase-adminsdk-…@spil-89af9…`-konto
-   (eller opret en ny med rollerne *Firebase Admin* + *Cloud Datastore User*).
-2. Fanen **Keys → Add key → Create new key → JSON** → hent filen.
-3. GitHub → repoet `cvejleaa/tour` → **Settings → Secrets and variables →
-   Actions → New repository secret**:
-   - Navn: `FIREBASE_SERVICE_ACCOUNT_SPIL`
-   - Værdi: HELE indholdet af JSON-filen.
+**Nemmeste vej — via Firebase Console (henter nøglen direkte):**
+
+1. Åbn <https://console.firebase.google.com/project/spil-89af9/settings/serviceaccounts/adminsdk>
+   (Projektindstillinger → Tjenestekonti). Klik **"Generér ny privat nøgle" →
+   "Generér nøgle"** — en JSON-fil downloades. (Denne firebase-adminsdk-konto
+   har allerede de nødvendige rettigheder til deploy + seed.)
+2. Åbn <https://github.com/cvejleaa/tour/settings/secrets/actions/new> og opret
+   et repository-secret:
+   - **Name:** `FIREBASE_SERVICE_ACCOUNT_SPIL`
+   - **Secret:** åbn den downloadede JSON-fil i en teksteditor og indsæt HELE
+     indholdet (fra `{` til `}`). Klik **Add secret**.
+
+> Alternativ (Google Cloud Console): <https://console.cloud.google.com/iam-admin/serviceaccounts?project=spil-89af9>
+> → klik `firebase-adminsdk-…@spil-89af9…` → fanen **Keys → Add key → Create
+> new key → JSON**.
 
 Den offentlige web-config (apiKey m.fl.) er bagt ind i workflowen — den er
 IKKE hemmelig, så den kræver ingen ekstra opsætning.
