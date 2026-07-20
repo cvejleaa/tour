@@ -87,6 +87,34 @@ export const COL = {
   CONFIG: 'config',
   EMAIL_LOG: 'emailLog', // log over udsendte mails (kun admin-læsning)
   PRESENCE: 'presence', // besøgsstatistik pr. bruger (selv-skrevet, admin-læst)
+  // --- Samlet platform (tip.vejleaa.dk) ---
+  GAMES: 'games', // ét dokument pr. spil (VM, Tour, Superliga …) — se docs/samlet-platform.md
+  GAME_PLAYERS: 'players', // sub-collection games/{gameId}/players/{uid}: deltagelse + per-spil-point
 };
+
+// --- Samlet platform: spil-begrebet ------------------------------------------
+// Et "spil" er én tippekonkurrence (fx VM 2026, Tour de France 2026,
+// Superligaen 2026/27). Spilleren opretter sig ÉN gang (users/{uid}) og vælger
+// derefter hvilke spil de vil deltage i (games/{gameId}/players/{uid}).
+
+// Spil-type bestemmer hvilket domæne-modul (sider + scoring) spillet bruger.
+export const GAME_TYPE = {
+  FOOTBALL: 'football', // kampe/hold/runder (VM, Superliga)
+  CYCLING: 'cycling',   // etaper/ryttere/klassementer (Tour)
+};
+
+// Spillets livscyklus. Styrer hvad der kan lade sig gøre i oversigten.
+export const GAME_STATUS = {
+  OPEN: 'open',         // åbent for tilmelding + tips (endnu ikke i gang)
+  LIVE: 'live',         // i gang (kan stadig tilmeldes hvis game.joinable)
+  FINISHED: 'finished', // afsluttet (kun visning/historik)
+};
+
+// Point-felter på games/{gameId}/players/{uid} som KUN serveren må sætte.
+// En spiller kan oprette sit eget players-dokument (= "deltag"), men aldrig
+// seede sin egen pointsum eller placering (samme princip som users-profilen).
+export const PROTECTED_PLAYER_FIELDS = [
+  'totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'previousRank', 'points',
+];
 
 export const TIMEZONE = 'Europe/Copenhagen';

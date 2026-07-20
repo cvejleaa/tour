@@ -1260,3 +1260,145 @@ describe('emailLog — sikkerhedsregler', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// TESTS: games/{gameId} + games/{gameId}/players/{uid} (samlet platform)
+// ---------------------------------------------------------------------------
+
+/** Opret et spil via admin-context */
+async function createGame(gameId, extra = {}) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().collection('games').doc(gameId).set({
+      name: 'Testspil', type: 'football', status: 'open', joinable: true,
+      season: '2026', order: 1, createdAt: Timestamp.now(), ...extra,
+    });
+  });
+}
+
+/** Opret et players-medlemskab via admin-context (fx med point) */
+async function seedMembership(gameId, uid, extra = {}) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().collection('games').doc(gameId)
+      .collection('players').doc(uid)
+      .set({ uid, joinedAt: Timestamp.now(), ...extra });
+  });
+}
+
+describe('games/{gameId} — sikkerhedsregler', () => {
+  it('godkendt spiller KAN læse spiloversigten', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await assertSucceeds(getDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026')));
+  });
+
+  it('en spiller KAN IKKE oprette et spil', async () => {
+    await createUser('p1', 'player', 'approved');
+    const ctx = testEnv.authenticatedContext('p1');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'games', 'nyt'), {
+        name: 'Snyd', type: 'football', status: 'open', joinable: true,
+      })
+    );
+  });
+
+  it('global admin KAN oprette et spil', async () => {
+    await createUser('admin1', 'globalAdmin', 'approved');
+    const ctx = testEnv.authenticatedContext('admin1');
+    await assertSucceeds(
+      setDoc(doc(ctx.firestore(), 'games', 'superliga2627'), {
+        name: 'Superligaen 2026/27', type: 'football', status: 'open', joinable: true,
+        season: '2026-27', order: 3, createdAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('ingen KAN slette et spil fra klienten', async () => {
+    await createUser('admin1', 'globalAdmin', 'approved');
+    await createGame('vm2026');
+    await assertFails(deleteDoc(doc(testEnv.authenticatedContext('admin1').firestore(), 'games', 'vm2026')));
+  });
+});
+
+describe('games/{gameId}/players/{uid} — deltagelse', () => {
+  it('godkendt bruger KAN tilmelde sig (oprette sit eget medlemskab)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    const ctx = testEnv.authenticatedContext('p1');
+    await assertSucceeds(
+      setDoc(doc(ctx.firestore(), 'games', 'vm2026', 'players', 'p1'), {
+        uid: 'p1', joinedAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('en IKKE-godkendt (pending) bruger KAN IKKE tilmelde sig', async () => {
+    await createUser('pend', 'player', 'pending');
+    await createGame('vm2026');
+    const ctx = testEnv.authenticatedContext('pend');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'games', 'vm2026', 'players', 'pend'), {
+        uid: 'pend', joinedAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('man KAN IKKE tilmelde en ANDEN bruger', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    const ctx = testEnv.authenticatedContext('p1');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'games', 'vm2026', 'players', 'p2'), {
+        uid: 'p2', joinedAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('man KAN IKKE seede sine egne point ved tilmelding', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    const ctx = testEnv.authenticatedContext('p1');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'games', 'vm2026', 'players', 'p1'), {
+        uid: 'p1', joinedAt: Timestamp.now(), totalPoints: 999,
+      })
+    );
+  });
+
+  it('man KAN IKKE opskrive sine point på et eksisterende medlemskab', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { totalPoints: 5 });
+    const ctx = testEnv.authenticatedContext('p1');
+    await assertFails(
+      updateDoc(doc(ctx.firestore(), 'games', 'vm2026', 'players', 'p1'), { totalPoints: 999 })
+    );
+  });
+
+  it('godkendt spiller KAN læse en andens medlemskab (til stilling)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p2', { totalPoints: 12 });
+    await assertSucceeds(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p2'))
+    );
+  });
+
+  it('man KAN forlade et spil uden point (slette eget friskt medlemskab)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1');
+    await assertSucceeds(
+      deleteDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p1'))
+    );
+  });
+
+  it('man KAN IKKE forlade et spil hvor man HAR fået point (placering ville gå tabt)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { totalPoints: 8 });
+    await assertFails(
+      deleteDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p1'))
+    );
+  });
+});
