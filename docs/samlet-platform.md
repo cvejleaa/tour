@@ -19,7 +19,8 @@ Firebase-projekt, hvor "spil" er et begreb i datamodellen.
 
 ## 2. Målarkitektur
 
-- **Ét Firebase-projekt** (arbejdsnavn `vejleaa-tip`): én Authentication
+- **Ét Firebase-projekt — OPRETTET 20/7:** navn **Spil**, projekt-ID
+  **`spil-89af9`**, projektnummer **549049171754**. Én Authentication
   (email/adgangskode), én Firestore, ét sæt Cloud Functions (europe-west1).
 - **Én frontend på ét domæne:** `tip.vejleaa.dk`. Efter login lander spilleren
   på en spiloversigt ("Mine spil" / "Åbne spil — deltag"). Ét domæne er vigtigt:
@@ -59,8 +60,10 @@ tilføjes senere som et felt på `games/{gameId}` uden at ændre modellen.
 
 ## 4. Ejerens tjekliste — kan gøres allerede nu (rører ikke de kørende spil)
 
-1. **Opret Firebase-projektet:** <https://console.firebase.google.com> →
-   Tilføj projekt, fx `vejleaa-tip`. Analytics fra. Notér projekt-ID'et.
+Status 20/7: punkt 1 er gjort (projektet **Spil** / `spil-89af9`).
+Hosting/DNS for `tip.vejleaa.dk` (punkt 6) er endnu IKKE oprettet.
+
+1. ~~Opret Firebase-projektet~~ **GJORT:** `spil-89af9` (Spil).
 2. **Opgradér til Blaze-planen** (kræves for Cloud Functions, som i de to
    eksisterende projekter).
 3. **Authentication:** Build → Authentication → Kom i gang → aktivér
@@ -121,3 +124,55 @@ Et nyt spil oprettes fra admin-panelet (eller seed-script): nyt
 `games/{gameId}`-dokument + spillets data. Det dukker op på spiloversigten som
 "Åbent — deltag", og eksisterende brugere tilmelder sig med ét klik. Ingen ny
 app, intet nyt Firebase-projekt, ingen ny registrering.
+
+## 8. Superligaen 2026/27 — platformens første nye spil
+
+Den danske Superliga starter **fredag 24/7 2026** (første kamp: Viborg hjemme,
+kickoff 19:00 dansk tid) — altså FØR Touren slutter (26/7). Planen:
+
+- **Spiltype:** `football`-modulet (fra VM) genbruges næsten direkte: kampe,
+  1X2-/målscore-tips, deadline ved kickoff, runde-baseret stilling. Ingen
+  gruppespil/knockout — i stedet en lang sæson (33 runder + slutspil), så
+  spillet skal kunne køre pr. runde og have en sæson-dimension (Tours
+  `season`-mønster genbruges).
+- **Lancering:** platformen når realistisk ikke at være klar til runde 1.
+  Derfor: (a) datasynk (kampprogram/resultater) sættes i gang nu og backfiller,
+  (b) spillet åbnes for tips fra den runde, hvor platformen går i luften, og
+  stillingen tæller fra dér. Alternativt kan runde 1-2 køre uden point.
+
+### 8.1 Datakilde: livescore.in / Flashscore (verificeret 20/7)
+
+livescore.in er Flashscores danske site. HAR-analyse af to kampe (Superliga
+26/27-premieren + VM-finalen) viser to anvendelige, gratis (uofficielle) API'er,
+og BEGGE er efterprøvet med direkte serverkald 20/7 (virker uden browser):
+
+1. **Feed-API** `https://50.flashscore.ninja/50/x/feed/…` — kræver headeren
+   `x-fsign` (signatur der roterer; skal scrapes fra deres JS-bundle — samme
+   disciplin som Tours letour-proxy allerede mestrer). Format: felt-koder
+   adskilt af `÷`/`¬` (simpel parser). Vigtigste feeds:
+   - `f_1_{dagOffset}_3_en_1` — ALLE kampe pr. dag (±7 dage): sektion
+     `ZA÷DENMARK: Superliga`, pr. kamp `AA÷eventId`, `AD÷kickoff-epoch`,
+     `AE/AF÷hold`, status + scorer. → **kampprogram-import og resultat-synk.**
+   - `df_sui_1_{eventId}` — fuld hændelsesliste (mål med minut og målscorer,
+     kort, udskiftninger, VAR + engelsk kommentartekst).
+   - `dc_1_{eventId}` (meta), `df_dos_` (opstillinger), `df_hh_`
+     (head-to-head), `df_mr_` (kamprapport).
+2. **GraphQL-API** `https://50.ds.lsapp.eu/pq_graphql?_hash=…&eventId=…`
+   — rent JSON, **kræver INGEN signatur** (kun alm. Origin/Referer-headers):
+   - `dsof`/`dsos2`: kampstatistik inkl. **xG**, boldbesiddelse, skud m.m.
+   - `mmte`/`mmts`: hændelser + minut-for-minut momentum.
+   Persisted-query-hashes (`dsof` osv.) er stabile men uofficielle.
+
+**Arkitektur:** udvid Tours **proxy-microservice** (Python/FastAPI med cache,
+`proxy/`) med et `flashscore`-modul: dagslister for `DENMARK: Superliga` →
+fixtures/resultater; pr. kamp `df_sui` + GraphQL-stats. Firebase-siden bruger
+**VM's adapter-mønster** (ren mapping → ren beslutning → orkestrering bag et
+kilde-flag), så Flashscore kan skiftes ud senere uden at røre resten.
+
+**Risici/afbødning:** uofficielt API (ingen SLA, ToS-gråzone) → aggressiv
+cache i proxyen, lav kaldsfrekvens (dagsliste 1×/time udenfor kampdage,
+1×/2 min under kampe), fail-silent som liveticker'en. `x-fsign`-rotation →
+proxy henter signaturen automatisk fra JS-bundlet og fornyer ved 4xx.
+**Alternativ/fallback:** API-Football (api-sports.io) har Superligaen med
+gratis-tier (100 kald/dag — nok til dagligt program + resultater, ikke live);
+football-data.org's gratis-tier dækker IKKE Superligaen.

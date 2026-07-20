@@ -1,87 +1,130 @@
 # Sammenligning: VM-appen vs. Tour-appen
 
-Systematisk sammenligning af `cvejleaa/vm` (original-motoren) og `cvejleaa/tour`
-(nyeste fork). Formål: finde forbedringer, der skal på tværs — nu eller når den
-fælles platform bygges (se `samlet-platform.md`). Domæne-specifikt (fodbold
-vs. cykling) holdes ude; det lever videre i hvert sit spil-modul.
+**Version 2 — opdateret 20/7 2026** (VM 2026 sluttede 19/7; Touren kører til 26/7).
+Systematisk sammenligning af `cvejleaa/vm` og `cvejleaa/tour` med fokus på
+forbedringer på tværs og input til den fælles platform (`samlet-platform.md`).
+Siden version 1 (5/7) er der landet ~40 betydelige commits i HVER app.
 
 ---
 
-## 1. Vigtigste enkeltfund: tipping kræver ikke godkendelse i Tour
+## 1. Status på version 1-anbefalingerne
 
-I VM's security rules kræver skrivning af tips `isApproved()`; i Tour kræver
-`bets`/`stageBets`/`bonusBets` kun `isSignedIn()`. En oprettet-men-ikke-godkendt
-bruger kan altså tippe i Tour. Skal afklares: bevidst valg (man må gerne tippe,
-mens man venter) eller en regression? VM guarder desuden `createdAt` mod
-opdatering; det gør Tour ikke.
+| Anbefaling (5/7) | Status 20/7 |
+|---|---|
+| Tipping krævede kun `isSignedIn()` i Tour | **Løst i VM** — `bets`/`bonusBets` kræver nu `isApproved()`. Tour bør følge med (afklaring udestår stadig). |
+| `sanitizeName()` + afvist-bruger-blok til VM | **Landet** (porteret via PR #140-branchen, nu i VM main). |
+| Point-felter kunne selv-skrives | **Løst i VM** — `writingProtectedUserFields` dækker nu alle pointfelter; profil-create kræver 0-point. |
+| Liga-kapring (memberUids overskrivning) | **Løst i VM** — append-only join-regel som Tour. |
+| E-mail-privatliv | **Løst i VM — men med en ANDEN model end Tour:** VM holder e-mail helt ude af Firestore (kun i Firebase Auth); Tour bruger `userContacts`-collection. Platformen skal vælge: `userContacts` er mere fleksibel (admin/broadcast kan læse), Auth-only er mest lukket. Anbefaling: `userContacts` (platformen arver Tours broadcast). |
+| Doc-ID-pinning (`uid_matchId`) i VM | **Stadig ikke løst** — VM håndhæver kun `uid`-feltet, ikke dokument-ID'et. Tour pinner. Tages i platform-rules. |
+| Dependabot-oprydning | Gennemført (VM: kun security; Tour: minor/patch merget, majors venter på platformen). |
 
-**Anbefaling:** Beslut bevidst; i den fælles platform bør udgangspunktet være
-VM's strammere `isApproved()`-gate.
+## 2. Vigtigste NYE fund (20/7)
 
-## 2. Hvad VM bør arve fra Tour (generiske forbedringer)
+### 2.1 VM har Tours netop-fiksede race condition — u-fikset ⚠️
+Tour fandt og fiksede tre alvorlige scoring-fejl, som VM's motor deler arkitektur med:
 
-| # | Forbedring | Hvor i Tour | Værdi |
-|---|---|---|---|
-| 1 | **Privat e-mail via `userContacts`** + `migrateEmailPrivacy` | `features/auth/useAuthActions.js`, `functions/index.js` | E-mails væk fra offentlige profiler, men stadig tilgængelige for admin/broadcast. VM's Auth-only-model kan ikke det. |
-| 2 | **Broadcast-mail** (`sendBroadcastEmail` + `BroadcastTab` + skabelon) | `functions/index.js` ~L1009, `features/admin/BroadcastTab.jsx` | Admin kan skrive til spillerne — VM har ingen broadcast. |
-| 3 | **Liga-joinlinks + `/tilmeld`** (`joinLink.js`, `JoinPage.jsx`) | `features/leagues/`, `pages/JoinPage.jsx` | Delbart invite-link der overlever login/signup (localStorage, 7 dages TTL). Stærk onboarding. |
-| 4 | **Sikkerhed i AI-recap:** `sanitizeName()` mod prompt-injection | `functions/leagueRecap.js` | VM's leagueRecap sender rå displayNames ind i AI-prompten. Lav indsats, bør backportes straks. |
-| 5 | **Afviste brugere blokeres i invite-flowet** | `functions/invites.js` (`getUserStatus`-tjek) | I VM kan en `rejected` bruger godkende sig selv igen med en gyldig kode. |
-| 6 | **Rules-hardening: sammensatte doc-ID'er** (`uid_stageId` m.fl.) | `firestore.rules` | Forhindrer strukturelt dublet-tips/-svar. VM pinner ikke doc-ID'er. |
-| 7 | **Presence-statistik + ActivityTab** | `features/presence/`, `features/admin/ActivityTab.jsx` | Privatlivsvenlig førsteparts "hvem er aktive"-indsigt til at spotte frafaldne spillere. |
-| 8 | **Hosting cache-headers** (`no-cache` på index.html, `immutable` på assets) | `firebase.json` | Undgår at brugere hænger på en gammel SPA-shell efter deploy. VM mangler dem. |
-| 9 | **Sæson-dimension** i data/indexes (`season` på stageBets/bonusBets) | `firestore.indexes.json`, rules | Gør motoren flerårig — direkte relevant for platformens genbrugs-tanke. |
-| 10 | Team-temavælger (`TeamThemePicker`) og point-breakdown i stillingen | `features/profile/`, `features/leaderboard/` | Generisk UX-mønster; kolonnerne mappes pr. spiltype. |
+1. **Race på total-beregning** (Tour-fix `4f4a60b`): to kampe/etaper afgjort tæt
+   på hinanden → parallelle `recalcUserTotal`-kald → last-writer-wins skriver
+   en forældet sum. Tour kører nu i `runTransaction`; **VM's `recalcUserTotal`
+   (functions/index.js ~L680) har stadig ingen transaktion** og kaldes fra
+   flere parallelle onWrite-stier. VM 2026 er slut, men lav en efterkontrol med
+   Tours `recalcAllTotals`-mønster, hvis slutstillingen betvivles — og
+   platformen SKAL arve transaktions-varianten.
+2. **Genscoring ved config-ændring** (Tour-fix `b79cfa6`): server-totaler frøs
+   med gammel pointtabel, når admin ændrede den. Platform-krav: genscor alle
+   afgjorte runder ved facit- OG config-ændringer.
+3. **Aggregering tabte docs uden season-felt** (Tour-fix `021a172`) — relevant
+   så snart platformen bliver flersæsonet.
 
-## 3. Hvad Tour bør arve fra VM (generiske forbedringer)
+### 2.2 Nyt i VM siden 5/7 (og hvad platformen skal bruge)
 
-| # | Forbedring | Hvor i VM | Værdi |
-|---|---|---|---|
-| 1 | **SyncHealthBanner + `useSyncStatus`** | `features/admin/SyncHealthBanner.jsx`, `config/syncStatus` | Gør en stille-død synk (udløbet token, API-fejl) synlig med det samme. Tour har en synk-pipeline (proxy/tourSync) men nul overvågning af den. |
-| 2 | **Integrationstests** (`pipeline.integration.test.js`, `knockout.integration.test.js`) | `functions/` | Tester hele kæden på tværs af moduler + emulator-seedet data; koder en rigtig produktionsbug (NED–MAR straffespark) som permanent regressionstest. Tour har kun unit-tests. |
-| 3 | **`deploy.yml`-forbedringer:** self-healing invoker-IAM for Gen2-callables, `onlyFunction`-input, detektion af delvist fejlede functions-deploys | `.github/workflows/deploy.yml` | Tour's deploy er tavs ved delvise fejl og har ingen IAM-reparation. VM's er den kamptestede. |
-| 4 | **`docs/learnings.md`** — driftserfaringer/runbook | `docs/learnings.md` (11 KB) | Tour har intet tilsvarende; erfaringerne bør samles ét sted for platformen. |
-| 5 | **Statistik-side (tip-præcision)** — hitrates pr. kamp/spiller, "dagens topscorer", "mest overraskende resultat", to-fanet StatsPage | `features/stats/`, `pages/StatsPage.jsx` | Motoren er domæne-agnostisk forudsigelses-analyse; skal blot udtrykkes mod Tour's scoring. Tour har ingen statistik-side. |
-| 6 | **`DaySelector`** ◀ dag ▶-navigation | `components/DaySelector.jsx` | Ren generisk komponent med tests; Tour er dag/etape-baseret og mangler den. |
-| 7 | **BonusSubmissions** — manuel godkendelse af fritekst-bonussvar (fuzzy-match + acceptedAnswers) | `features/admin/BonusSubmissions.jsx` | Generisk moderations-UX for stavefejl i bonussvar. |
-| 8 | **Alternativ/parallel stilling** som mønster (Sharpshooter) | `features/leaderboard/SharpStandings.jsx`, `stats/altStandings.js` | Selve fodbold-formlen portes ikke, men "ekstra pointmodel over samme tips" er et sjovt, genbrugeligt koncept. |
+- **FIFA-datakilde med kildeskift (GENERISK mønster, høj værdi):** komplet
+  adapter-lag (`fifaData.js` → `fifaMap.js` (ren mapping) → `fifaResultsSync.js`
+  (ren beslutning) → `fifaSync.js` (orkestrering)) bag ét config-flag
+  `config/settings.dataSource`, med skygge-scoring/dry-run side om side med
+  football-data før omlægning. **Det er præcis mønstret, platformen skal bruge
+  til flere spil/datakilder — inkl. Superligaen via Flashscore** (se
+  `samlet-platform.md` §8).
+- **Statistik-universet** (spillersider, skudkort, stil-radar, xG, power-index,
+  Turneringens Hold, målmands-/straffetavler, landeoversigt): fodbold-indhold,
+  men `PlayerLink`/detaljeside-mønstret og "foldbare statistikgrupper" er
+  generisk UX, platformen bør standardisere.
+- **Afslutnings-feature (pause-kontakt + takke-mail):** generisk pause-kontakt
+  `config/automation.paused` der gater ALLE schedulede jobs + afsluttende
+  takke-mail med slutstilling pr. liga (standard-konkurrencerangering ved
+  delte placeringer), medaljer og turneringsfakta. **Porteres til Tour nu**
+  (se §3) og bliver platform-standard for alle spil.
+- **Server-spejl af liga-bonus-scoring** (`leagueBonusScoring.js`) så mails/
+  server-beregninger matcher klientens liga-stilling.
 
-## 4. Fælles huller (ingen af apperne har det)
+### 2.3 Nyt i Tour siden 5/7 (og hvad VM/platformen skal bruge)
 
-- **Ingen lazy loading / code-splitting og ingen error boundaries** i nogen af
-  apperne (`lazy(`/`Suspense`/`ErrorBoundary`: 0 hits i begge `src/`). Én
-  komponent-fejl kan vælte hele appen. Bør løses i platform-skelettet fra dag 1.
-- **E2E dækker kun uautentificerede flows** (samme 4 smoke-tests i begge).
-  Login → tip → stilling burde med, evt. mod emulator.
+- **Scoring-robusthed** (§2.1) — transaktion + `recalcAllTotals`-reparation +
+  genscoring ved config-ændring. **Platform-krav nr. 1.**
+- **LeagueAwards** (`leagueBonusAwards`-collection): liga-bestyrer kan tildele
+  manuelle point pr. medlem på fælles bonusspørgsmål — fuldt generisk, direkte
+  portérbar.
+- **AI-berigelse med fri-tags** (`riderTags.js` + kanonisering af synonymer +
+  idempotent merge + live-redigerbart overlay-doc): generisk mønster —
+  "AI udtrækker entitets-tags fra tekstfeed" — kan genbruges på spillere/hold.
+- **Holdnavne-audit + remap** på tværs af historiske tips inkl. genscoring:
+  generisk mønster for enhver entitets-omdøbning.
+- **Autoritativ tidsplan-synk** (`stageTimes.js`): officielle starttider
+  overskriver seedede, og tip-låsen følger med — generisk mønster (VM gør
+  reelt det samme via fixtures; platformen bør have ét fælles mønster).
+- **Diagnose-callables** (`debugUserPoints`, `debugStageSync`): "dump en
+  spillers point-fordeling" og "stored vs. live kilde-diff" — generiske
+  admin-mønstre.
+- **Selfheal-værn i synk** (delta-mod-manglende-forrige-etape-guard) og
+  force-refresh af proxy-cache: cykel-specifik mekanik, men lærdommen
+  (delta-beregninger skal nægte at regne mod et hul) er generel.
 
-## 5. Hvad der forbliver domæne-specifikt (spil-moduler)
+### 2.4 SyncHealthBanner: begge har nu halvdelen hver
+Tour SKRIVER `config/tourSyncStatus` (lastRunAt/lastSuccessAt/lastError), men
+har **ingen UI** der viser det. VM har banneret (`SyncHealthBanner.jsx` +
+`useSyncStatus`) og har haft det hele tiden. **Portér VM's banner til Tour**
+(lille indsats — datakilden findes allerede) og gør det til platform-standard.
 
-- **Fodbold-modulet (fra VM):** gruppespil/knockout-bracket (`standings.js`,
-  `knockout.js`), football-data.org-klient + resultatsynk med selvhelende
-  90-min-score (`resultsSync.js`, `footballData.js`), fixtureImport, live
-  kamp-UX (`MATCH_STATUS`, liveminut), Flag, GroupWinnerDerivedTab, PreviewTab,
-  turnerings-/kampsider.
-- **Cykel-modulet (fra Tour):** etaper/podie-scoring (`tourScoring.js`),
-  PCS/letour-scraping via det eksterne Python-proxy-service (`proxy/`),
-  startlistSync, LiveTicker (letour-feed), StagePresentationPage,
-  RiderSearch/TeamBadge.
-- Python-proxy-mønsteret (eksternt scraper-service med egen cache og tests) er
-  værd at genbruge, hvis et fremtidigt spil mangler en ren API.
+## 3. Igangværende port: afslutnings-featuren VM → Tour
 
-## 6. Prioriteret rækkefølge
+Porteres på branch `claude/multi-game-player-collection-21mc1w`:
+- Generisk 1:1: `automationPaused`-gate på Tours 7 schedulede jobs,
+  `setAutomationPaused`, mail-plumbing (Tour bruger sin egen
+  `userContacts`-baserede `emailByUidMap` i stedet for VM's Auth-opslag),
+  liga-slutstilling med 1224-delt-placering, medaljer/"· dig", admin-panelet
+  "🏁 Afslutning" med udkast-til-mig (dryRun) og dobbelt-bekræftet send-til-alle.
+- Omskrevet til cykel-domænet: `tourSummary.js` (samlet klassement-podie,
+  trøjevindere, etapesejrs-optælling, Tour-fakta) erstatter VM's
+  `tournamentSummary.js` (verdensmester, topscorer, Turneringens Hold).
 
-**Straks (små, sikkerhed — kan gøres i VM-repoet uden risiko for spillet):**
-1. `sanitizeName()` i VM's leagueRecap (afsnit 2.4).
-2. `rejected`-blokering i VM's invites (afsnit 2.5).
-3. Afklar `isApproved` vs `isSignedIn` på tipping i Tour (afsnit 1).
+## 4. Fælles huller (uændret siden 5/7)
 
-**I platform-skelettet (arves fra start):**
-- Tour: userContacts, joinlinks, broadcast, rules-hardening, cache-headers,
-  sæson-dimension, presence.
-- VM: `isApproved`-gate, deploy.yml, integrationstest-disciplin, learnings.md,
-  SyncHealthBanner-mønsteret.
-- Nyt: lazy loading + error boundaries, autentificeret e2e.
+- Ingen lazy loading/code-splitting og ingen error boundaries i nogen af
+  apperne. Skal ind i platform-skelettet fra dag 1.
+- E2E er stadig kun det uautentificerede smoke-spec i begge.
 
-**Efter migreringen (features til glæde for spillerne):**
-- Statistik-side og DaySelector til Tour-spillet; BonusSubmissions,
-  ActivityTab/presence og TeamThemePicker på tværs; evt. alternativ stilling.
+## 5. Testtal (20/7)
+
+| | Unit-testfiler | E2E |
+|---|---|---|
+| Tour | ~115 | 1 (smoke) |
+| VM | ~101 | 1 (smoke) |
+
+Integrationstest-disciplinen (VM: pipeline/knockout mod emulator) er fortsat
+kun i VM — stadig et punkt, platformen skal arve.
+
+## 6. Prioriteret platform-arv (revideret)
+
+1. **Scoring-kernen fra Tour** (transaktion, recalcAllTotals, genscoring ved
+   config-ændring, season-robust aggregering).
+2. **Sikkerhedsmodellen som fælles superset:** VM's isApproved-gate +
+   pointfelt-lockdown + append-only medlemskab, Tours doc-ID-pinning +
+   `userContacts` + invite-hardening + sanitizeName.
+3. **VM's adapter-mønster for datakilder** (kildeskift-flag, ren mapping/
+   beslutning/orkestrering, skygge-kørsel) — genbruges til Superligaen.
+4. **Afslutnings-featuren** (pause + takke-mail) som standard-livscyklus for
+   ethvert spil: åbn → kør → afslut → tak.
+5. **SyncHealthBanner + diagnose-callables** som standard driftsudstyr pr. spil.
+6. **LeagueAwards, broadcast, joinlinks, presence** — engagement-laget.
+7. Lazy loading + error boundaries + autentificeret e2e i skelettet.
