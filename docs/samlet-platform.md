@@ -60,8 +60,28 @@ tilføjes senere som et felt på `games/{gameId}` uden at ændre modellen.
 
 ## 4. Ejerens tjekliste — kan gøres allerede nu (rører ikke de kørende spil)
 
-Status 20/7: punkt 1 er gjort (projektet **Spil** / `spil-89af9`).
-Hosting/DNS for `tip.vejleaa.dk` (punkt 6) er endnu IKKE oprettet.
+Status 20/7 (aften): Firebase-fundamentet ER på plads —
+- **Projekt:** `spil-89af9` (Spil) ✅
+- **Authentication:** aktiveret med **e-mail/adgangskode OG Google-login** ✅
+  (NB: motoren understøtter i dag kun e-mail/adgangskode — platformens
+  login-side skal udvides med Google-knappen, se §9.)
+- **Firestore:** oprettet ✅
+- **Hosting:** `tip.vejleaa.dk` oprettet og connected ✅
+- **E-mail-afsender:** `tip@vejleaa.dk` oprettet ✅
+- **Web-app-konfiguration** (offentlige værdier, til `.env`):
+  `apiKey=AIzaSyDdP6zteOBHKOGWEIH6ARctMx3nOJc0Zhc`,
+  `authDomain=spil-89af9.firebaseapp.com`, `projectId=spil-89af9`,
+  `storageBucket=spil-89af9.firebasestorage.app`,
+  `messagingSenderId=549049171754`,
+  `appId=1:549049171754:web:627b27c367fc7dbdf82853`,
+  `measurementId=G-734NLW2WDP` (Analytics er slået til; motoren bruger den
+  ikke, måle-ID'et er valgfrit).
+
+**Udestående på tjeklisten:** Blaze-plan (kræves for Cloud Functions),
+secrets ved første functions-deploy (`SMTP_PASSWORD` til `tip@vejleaa.dk`,
+`ANTHROPIC_API_KEY`), evt. App Check-nøgle, og **password-hash-parametrene
+fra begge gamle projekter** (til migreringen — Authentication → Users → ⋮ →
+Password hash parameters; gem sikkert, ikke i git).
 
 1. ~~Opret Firebase-projektet~~ **GJORT:** `spil-89af9` (Spil).
 2. **Opgradér til Blaze-planen** (kræves for Cloud Functions, som i de to
@@ -174,5 +194,20 @@ cache i proxyen, lav kaldsfrekvens (dagsliste 1×/time udenfor kampdage,
 1×/2 min under kampe), fail-silent som liveticker'en. `x-fsign`-rotation →
 proxy henter signaturen automatisk fra JS-bundlet og fornyer ved 4xx.
 **Alternativ/fallback:** API-Football (api-sports.io) har Superligaen med
-gratis-tier (100 kald/dag — nok til dagligt program + resultater, ikke live);
-football-data.org's gratis-tier dækker IKKE Superligaen.
+gratis-tier (100 kald/dag — nok til dagligt program + resultater, ikke live).
+**football-data.org er OPSAGT (20/7) og må ikke benyttes fremover** — VM's
+football-data-adapter er dermed legacy og portes ikke til platformen; kun
+adapter-MØNSTRET genbruges, med Flashscore som kilde.
+
+## 9. Google-login
+
+Authentication i `spil-89af9` er sat op med både e-mail/adgangskode og
+Google. Motoren har i dag kun e-mail/adgangskode, så platformen skal:
+- tilføje "Log ind med Google"-knap (`signInWithPopup`/`GoogleAuthProvider`)
+  på login-/opret-siden og oprette `users/{uid}`-profilen ved første
+  Google-login (samme pending-godkendelsesflow som i dag),
+- håndtere **konto-sammenfletning ved migreringen**: importerede
+  password-brugere, der senere logger ind med Google med SAMME e-mail,
+  skal lande på samme konto (Firebase linker automatisk, når
+  "One account per email address" er slået til — verificér indstillingen),
+- gemme e-mailen i `userContacts` også for Google-brugere.
