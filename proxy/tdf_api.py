@@ -11,6 +11,11 @@ Endpoints:
   POST /api/refresh/{n}         -> hent en specifik etape (sikret)
   GET  /healthz
 
+Superliga-spillet (datakilde: Flashscore/livescore.in, se flashscore_client.py):
+  GET  /api/superliga/fixtures?day={-7..7}   -> dagens Superliga-kampe
+  GET  /api/superliga/match/{event_id}       -> meta + hændelser + statistik
+  GET  /api/superliga/season?from=-7&to=7    -> kampe over flere dage (dedupet)
+
 Scraping er synkront → vi kører det i en threadpool (asyncio.to_thread) så
 event-loopet ikke blokeres.
 
@@ -33,7 +38,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from tdf_results import StageResultsService
@@ -160,6 +165,68 @@ async def debug(n: int) -> dict:
     """Diagnostik for én etape (hvad proxyen faktisk ser fra letour)."""
     from letour_results import debug_stage
     return await asyncio.to_thread(debug_stage, n)
+
+
+# ----------------------------------------------------------------------------
+# Superliga (Flashscore/livescore.in) — datakilde for Superliga-spillet.
+# Se flashscore_client.py (HTTP/signatur/cache) og flashscore_feed.py (parsere).
+# ----------------------------------------------------------------------------
+
+@app.get("/api/superliga/fixtures")
+async def superliga_fixtures(day: int = 0) -> dict:
+    """Dagens (± day, -7..7) Superliga-kampe fra Flashscores dagsliste."""
+    from flashscore_client import fetch_daily
+    if not -7 <= day <= 7:
+        raise HTTPException(status_code=400, detail="day skal være i -7..7")
+    matches = await asyncio.to_thread(fetch_daily, day)
+    return {"day": day, "matches": matches}
+
+
+@app.get("/api/superliga/match/{event_id}")
+async def superliga_match(event_id: str) -> dict:
+    """Samlet kampbillede: meta + hændelser + statistik. Tolerant over for
+    delvise fejl — de dele der lykkes, serveres (resten er None + fejltekst),
+    så en enkelt upstream-hikke ikke blænder hele kampsiden."""
+    from flashscore_client import fetch_incidents, fetch_meta, fetch_stats
+
+    out: dict = {"event_id": event_id, "errors": {}}
+    for key, fn in (("meta", fetch_meta), ("incidents", fetch_incidents), ("stats", fetch_stats)):
+        try:
+            out[key] = await asyncio.to_thread(fn, event_id)
+        except Exception as e:  # noqa: BLE001 — delvise svar er hele pointen
+            out[key] = None
+            out["errors"][key] = str(e)
+    if out["meta"] is None and out["incidents"] is None and out["stats"] is None:
+        raise HTTPException(status_code=502, detail=out["errors"])
+    return out
+
+
+@app.get("/api/superliga/season")
+async def superliga_season(
+    # "from" er et Python-nøgleord → Query-alias.
+    from_: int = Query(default=-7, alias="from", ge=-7, le=7),
+    to: int = Query(default=7, ge=-7, le=7),
+) -> dict:
+    """Superliga-kampe over et interval af dags-offsets (Flashscore kan kun
+    levere -7..7 dage ad gangen). Dedupe pr. event_id — en kamp der glider
+    over midnat kan optræde i to dagslister."""
+    from flashscore_client import fetch_daily
+
+    if from_ > to:
+        raise HTTPException(status_code=400, detail="from skal være <= to")
+    seen: set = set()
+    matches: list = []
+    errors: dict = {}
+    for day in range(from_, to + 1):
+        try:
+            for m in await asyncio.to_thread(fetch_daily, day):
+                if m["event_id"] not in seen:
+                    seen.add(m["event_id"])
+                    matches.append(m)
+        except Exception as e:  # noqa: BLE001 — én død dag skal ikke vælte resten
+            errors[day] = str(e)
+    matches.sort(key=lambda m: (m["kickoff"] or 0))
+    return {"from": from_, "to": to, "matches": matches, "errors": errors}
 
 
 @app.post("/api/refresh")
