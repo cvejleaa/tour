@@ -77,11 +77,24 @@ Status 20/7 (aften): Firebase-fundamentet ER på plads —
   `measurementId=G-734NLW2WDP` (Analytics er slået til; motoren bruger den
   ikke, måle-ID'et er valgfrit).
 
-**Udestående på tjeklisten:** Blaze-plan (kræves for Cloud Functions),
-secrets ved første functions-deploy (`SMTP_PASSWORD` til `tip@vejleaa.dk`,
-`ANTHROPIC_API_KEY`), evt. App Check-nøgle, og **password-hash-parametrene
-fra begge gamle projekter** (til migreringen — Authentication → Users → ⋮ →
-Password hash parameters; gem sikkert, ikke i git).
+~~Blaze-plan~~ **GJORT** (20/7 aften).
+
+**Udestående på tjeklisten:**
+
+- **Secrets** (kan sættes nu; træder først i kraft ved functions-deploy):
+  ```bash
+  firebase functions:secrets:set SMTP_PASSWORD --project spil-89af9      # kodeord til tip@vejleaa.dk
+  firebase functions:secrets:set ANTHROPIC_API_KEY --project spil-89af9  # kan genbruges fra gammelt projekt:
+  firebase functions:secrets:access ANTHROPIC_API_KEY --project tour-85928
+  ```
+  Verificér med `functions:secrets:access <NAVN> --project spil-89af9`.
+- **Password-hash-parametre fra BEGGE gamle projekter** (til migreringen):
+  Console → projektet (`vm2026-tip` hhv. `tour-85928`) → Build →
+  Authentication → fanen **Users** → tre-prikker-menuen ⋮ →
+  **Password hash parameters** → kopiér hele boksen og gem den sikkert
+  (password-manager/privat note, mærket med projektnavn — ALDRIG i git).
+  Bruges af `firebase auth:import`, så alle beholder deres kodeord.
+- Evt. App Check-nøgle (reCAPTCHA Enterprise for tip.vejleaa.dk) — valgfrit.
 
 1. ~~Opret Firebase-projektet~~ **GJORT:** `spil-89af9` (Spil).
 2. **Opgradér til Blaze-planen** (kræves for Cloud Functions, som i de to
