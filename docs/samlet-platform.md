@@ -1,12 +1,18 @@
-# Samlet tippeplatform på tip.vejleaa.dk
+# Samlet tippeplatform på tip.vejleaa.dk — PLAN & ARKITEKTUR
+
+> **Dette er PLANEN/designet (målarkitektur, datamodel, migreringsplan).**
+> For LIVE STATUS — hvad der er færdigt, og hvad der mangler — se
+> **[`platform-status.md`](platform-status.md)** (det er "hvor er vi"-dokumentet).
 
 Plan for at samle VM 2026-tippen (`cvejleaa/vm`) og Tour-tippen (`cvejleaa/tour`)
 i én platform, hvor en spiller **opretter sig én gang** og derefter selv vælger,
 hvilke spil de vil se eller deltage i. Fremtidige spil oprettes som data — ikke
 som nye apps eller nye Firebase-projekter.
 
-**Besluttet:** Vi venter med selve migreringen til begge sommerens spil er
-afsluttet (VM slutter 19/7, Tour slutter 26/7 2026), men forbereder alt nu.
+**Status (20/7):** Platformen er LIVE på tip.vejleaa.dk; skelettet virker, og
+de eksisterende Tour-spilleres KONTI er migreret (så de kan logge ind nu). Selve
+SPILDATAEN (tips/point) migreres først, når sommerens spil er afsluttet
+(VM sluttede 19/7, Tour slutter 26/7). Se `platform-status.md` for detaljer.
 
 ---
 

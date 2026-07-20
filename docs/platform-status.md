@@ -58,6 +58,19 @@ og brandingen er ryddet op. Næste store blok er Fase B: de rigtige spil-sider.
 
 ---
 
+## 📚 Dokument-oversigt (så vi holder styr på det)
+
+| Dokument | Hvad det er |
+|---|---|
+| **`platform-status.md`** (denne) | LIVE status/roadmap — "hvor er vi". Opdateres løbende. |
+| `samlet-platform.md` | PLANEN/arkitekturen — målbillede, datamodel, migreringsplan. |
+| `app-sammenligning.md` | VM- vs. Tour-appen: forbedringer på tværs. |
+| `platform-deploy.md` | Sådan deployes platformen (workflow, secrets, owner). |
+
+**Arbejdsdisciplin (så intet stikker af):** alt arbejde committes på arbejds-
+branchen, samles i en PR og **merges ind på hovedbranchen** — mainline skal
+altid matche det, der kører live. Platform-deploys sker fra hovedbranchen.
+
 *Hvordan følge med live:* denne fil på GitHub
 (<https://github.com/cvejleaa/tour/blob/claude/tour-de-france-game-knyiqq/docs/platform-status.md>)
-opdateres, når vi rykker. Selve koden ligger i PR'erne på `cvejleaa/tour`.
+opdateres, når vi rykker.
