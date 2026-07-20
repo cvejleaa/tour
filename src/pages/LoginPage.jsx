@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAuthActions } from '../features/auth/useAuthActions';
 import { getPendingJoinCode } from '../features/leagues/joinLink';
-import { HOME_PATH } from '../lib/platform';
+import { HOME_PATH, PLATFORM_MODE } from '../lib/platform';
 
 // Interne fane-konstanter
 const TAB_LOGIN  = 'login';
@@ -107,12 +107,14 @@ export default function LoginPage() {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '2rem 1rem' }}>
       <div className="card" style={{ width: '100%', maxWidth: 440, marginTop: '2rem' }}>
-        {/* Logo / overskrift */}
+        {/* Logo / overskrift — neutral på den samlede platform, Tour-branding i enkelt-spil */}
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.25rem' }}>🚴</div>
-          <h1 style={{ margin: 0, color: 'var(--c-pitch)', fontSize: '1.5rem' }}>Tour de France Tip</h1>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.25rem' }}>{PLATFORM_MODE ? '🏆' : '🚴'}</div>
+          <h1 style={{ margin: 0, color: 'var(--c-pitch)', fontSize: '1.5rem' }}>
+            {PLATFORM_MODE ? 'Vejleaa Tip' : 'Tour de France Tip'}
+          </h1>
           <p style={{ margin: '0.25rem 0 0', color: 'var(--c-muted)', fontSize: '0.875rem' }}>
-            Danmarks bedste cykel-tippekonkurrence
+            {PLATFORM_MODE ? 'Én konto — alle dine tipspil' : 'Danmarks bedste cykel-tippekonkurrence'}
           </p>
         </div>
 

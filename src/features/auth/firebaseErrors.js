@@ -23,9 +23,14 @@ export function translateFirebaseError(code) {
     'auth/operation-not-allowed':    'Denne login-metode er ikke aktiveret.',
     'auth/missing-password':         'Angiv venligst en adgangskode.',
     'auth/missing-email':            'Angiv venligst en e-mailadresse.',
+    'auth/configuration-not-found':  'Login-metoden er ikke sat op i Firebase (er e-mail/adgangskode og Google aktiveret?).',
+    'auth/unauthorized-domain':      'Dette domæne er ikke godkendt i Firebase Authentication → Authorized domains.',
+    'auth/popup-blocked':            'Browseren blokerede login-vinduet. Tillad pop op-vinduer og prøv igen.',
   };
 
-  return errors[code] ?? 'Der opstod en ukendt fejl. Prøv igen.';
+  // Ukendte koder vises med selve koden i parentes, så en fejl kan diagnosticeres
+  // uden at åbne udviklerkonsollen.
+  return errors[code] ?? `Der opstod en ukendt fejl${code ? ` (${code})` : ''}. Prøv igen.`;
 }
 
 /**
