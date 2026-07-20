@@ -7,6 +7,7 @@ import { useTasks } from '../context/TasksContext';
 import { usePendingApprovals } from '../features/admin/usePendingApprovals';
 import { useUnreadMessages } from '../features/comments/useUnreadMessages';
 import { usePresenceBeacon } from '../features/presence/usePresenceBeacon';
+import { PLATFORM_MODE, HOME_PATH } from '../lib/platform';
 import Avatar from './Avatar';
 
 // Lille rødt tal-badge (genbruges til godkendelser og beskeder)
@@ -53,25 +54,32 @@ export default function Layout({ children }) {
       <header style={{ borderBottom: '1px solid var(--c-border)', background: 'var(--c-surface)' }}>
         <nav className="container topnav">
           <span style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span aria-hidden>🚴</span>
-            <strong style={{ color: 'var(--c-pitch)' }}>Tour de France Tip</strong>
+            <span aria-hidden>{PLATFORM_MODE ? '🏆' : '🚴'}</span>
+            <strong style={{ color: 'var(--c-pitch)' }}>{PLATFORM_MODE ? 'Vejleaa Tip' : 'Tour de France Tip'}</strong>
           </span>
           {user && isApproved && (
             <>
-              <NavLink to="/" style={linkStyle} end>
+              <NavLink to={HOME_PATH} style={linkStyle} end>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                   Forside
-                  <CountBadge count={taskCount} title={`${taskCount} udestående opgaver`} testid="tasks-count" />
+                  {!PLATFORM_MODE && (
+                    <CountBadge count={taskCount} title={`${taskCount} udestående opgaver`} testid="tasks-count" />
+                  )}
                 </span>
               </NavLink>
-              <NavLink to="/etaper" style={linkStyle}>Etaper</NavLink>
-              <NavLink to="/tour" style={linkStyle}>Tour</NavLink>
-              <NavLink to="/hold" style={linkStyle}>Hold</NavLink>
-              <NavLink to="/mine-tips" style={linkStyle}>Mine tips</NavLink>
-              <NavLink to="/bonus" style={linkStyle}>Bonus</NavLink>
-              <NavLink to="/stilling" style={linkStyle}>Stilling</NavLink>
-              <NavLink to="/ligaer" style={linkStyle}>Ligaer</NavLink>
-              <NavLink to="/hjaelp" style={linkStyle} title="Sådan virker det" aria-label="Hjælp">❓</NavLink>
+              {/* Spil-specifikke links hører til INDE i et spil (Fase B), ikke i platform-skallen */}
+              {!PLATFORM_MODE && (
+                <>
+                  <NavLink to="/etaper" style={linkStyle}>Etaper</NavLink>
+                  <NavLink to="/tour" style={linkStyle}>Tour</NavLink>
+                  <NavLink to="/hold" style={linkStyle}>Hold</NavLink>
+                  <NavLink to="/mine-tips" style={linkStyle}>Mine tips</NavLink>
+                  <NavLink to="/bonus" style={linkStyle}>Bonus</NavLink>
+                  <NavLink to="/stilling" style={linkStyle}>Stilling</NavLink>
+                  <NavLink to="/ligaer" style={linkStyle}>Ligaer</NavLink>
+                  <NavLink to="/hjaelp" style={linkStyle} title="Sådan virker det" aria-label="Hjælp">❓</NavLink>
+                </>
+              )}
               <NavLink to="/beskeder" style={linkStyle}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                   Beskeder

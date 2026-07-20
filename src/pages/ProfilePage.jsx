@@ -11,6 +11,7 @@ import { isJerseyToken, JERSEY_BY_TOKEN, JerseyIcon } from '../data/jerseyAvatar
 import ThemeToggle from '../features/leaderboard/ThemeToggle';
 import TeamThemePicker from '../features/profile/TeamThemePicker';
 import { TOUR_TEAMS, prettyTeam } from '../data/tourTeams2026';
+import { PLATFORM_MODE } from '../lib/platform';
 
 const teamOptions = [...TOUR_TEAMS].sort((a, b) =>
   prettyTeam(a).localeCompare(prettyTeam(b), 'da'));
@@ -73,7 +74,7 @@ export default function ProfilePage() {
               <EmojiPicker
                 onSelect={(e) => setEmoji(e)}
                 emojis={AVATAR_SET}
-                triggerLabel="🚴"
+                triggerLabel={PLATFORM_MODE ? '😀' : '🚴'}
                 label="Vælg avatar"
               />
               <span style={{ fontSize: '1.5rem', display: 'inline-flex', alignItems: 'center' }}>
@@ -94,22 +95,24 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Yndlingshold */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="fav-team">Yndlingshold</label>
-            <select
-              id="fav-team"
-              className="select"
-              value={team}
-              onChange={(e) => setTeam(e.target.value)}
-              style={{ maxWidth: 280 }}
-            >
-              <option value="">– Intet valgt –</option>
-              {teamOptions.map((name) => (
-                <option key={name} value={name}>{prettyTeam(name)}</option>
-              ))}
-            </select>
-          </div>
+          {/* Yndlingshold — Tour-hold-specifikt, skjules på den samlede platform */}
+          {!PLATFORM_MODE && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="fav-team">Yndlingshold</label>
+              <select
+                id="fav-team"
+                className="select"
+                value={team}
+                onChange={(e) => setTeam(e.target.value)}
+                style={{ maxWidth: 280 }}
+              >
+                <option value="">– Intet valgt –</option>
+                {teamOptions.map((name) => (
+                  <option key={name} value={name}>{prettyTeam(name)}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* E-mail-præferencer */}
           <div className="form-group">
@@ -120,7 +123,9 @@ export default function ProfilePage() {
                 checked={!optOut}
                 onChange={(e) => setOptOut(!e.target.checked)}
               />
-              Send mig e-mail-påmindelser om etaper jeg mangler at tippe på
+              {PLATFORM_MODE
+                ? 'Send mig e-mail-påmindelser om spil jeg mangler at tippe på'
+                : 'Send mig e-mail-påmindelser om etaper jeg mangler at tippe på'}
             </label>
           </div>
 
@@ -142,11 +147,16 @@ export default function ProfilePage() {
             </span>
           </div>
 
-          <label className="form-label mt-2" htmlFor="team-theme">Holdfarve</label>
-          <TeamThemePicker />
-          <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-            Giver appen dit yndlingsholds accentfarve
-          </span>
+          {/* Holdfarve — Tour-hold-tema, skjules på den samlede platform */}
+          {!PLATFORM_MODE && (
+            <>
+              <label className="form-label mt-2" htmlFor="team-theme">Holdfarve</label>
+              <TeamThemePicker />
+              <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+                Giver appen dit yndlingsholds accentfarve
+              </span>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -19,6 +19,7 @@ import BonusPage from './pages/BonusPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import LeaguesPage from './pages/LeaguesPage';
 import GamesPage from './pages/GamesPage';
+import GamePage from './pages/GamePage';
 import MessagesPage from './pages/MessagesPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/stilling" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
           <Route path="/ligaer" element={<ProtectedRoute><LeaguesPage /></ProtectedRoute>} />
           <Route path="/spil" element={<ProtectedRoute><GamesPage /></ProtectedRoute>} />
+          <Route path="/spil/:gameId" element={<ProtectedRoute><GamePage /></ProtectedRoute>} />
           <Route path="/beskeder" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute require="admin"><AdminPage /></ProtectedRoute>} />
