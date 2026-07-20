@@ -6,11 +6,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   collection,
-  collectionGroup,
+  doc,
   onSnapshot,
   query,
   orderBy,
-  where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -68,33 +67,51 @@ export function useGames() {
     return unsub;
   }, []);
 
-  // Mine deltagelser (players-dokumenter med mit uid, på tværs af alle spil).
+  // Mine deltagelser: lyt på players/{uid} i HVERT spil. Vi bruger bevidst
+  // IKKE en collectionGroup-forespørgsel — den kræver et særligt indeks og
+  // rammer collectionGroup-regel-særheder. Én lytter pr. spil rammer den
+  // simple per-dokument-regel (auth.uid == uid) og virker uden indeks.
+  // gameIdsKey er en primitiv streng, så effekten kun kører når spil-sættet
+  // (eller brugeren) reelt ændrer sig.
+  const gameIdsKey = useMemo(
+    () => games.map((g) => g.id).sort().join(','),
+    [games],
+  );
   useEffect(() => {
-    if (!uid) {
+    const gameIds = gameIdsKey ? gameIdsKey.split(',') : [];
+    if (!uid || gameIds.length === 0) {
       setMyGameIds(new Set());
       setMembershipLoading(false);
       return undefined;
     }
     setMembershipLoading(true);
-    const q = query(collectionGroup(db, COL.GAME_PLAYERS), where('uid', '==', uid));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        // gameId udledes af forælderens forælder: games/{gameId}/players/{uid}
-        const ids = new Set(
-          snap.docs.map((d) => d.ref.parent.parent?.id).filter(Boolean),
-        );
-        setMyGameIds(ids);
-        setMembershipLoading(false);
-      },
-      (err) => {
-        console.error('useGames (deltagelser) fejl:', err);
-        setMyGameIds(new Set());
-        setMembershipLoading(false);
-      },
+    const present = new Map(); // gameId -> boolean (er jeg medlem?)
+    let settled = 0;
+    const recompute = () => {
+      setMyGameIds(new Set(
+        [...present.entries()].filter(([, isMember]) => isMember).map(([id]) => id),
+      ));
+    };
+    const unsubs = gameIds.map((gid) =>
+      onSnapshot(
+        doc(db, COL.GAMES, gid, COL.GAME_PLAYERS, uid),
+        (snap) => {
+          present.set(gid, snap.exists());
+          recompute();
+          settled += 1;
+          if (settled >= gameIds.length) setMembershipLoading(false);
+        },
+        (err) => {
+          console.error('useGames (deltagelse) fejl for', gid, err);
+          present.set(gid, false);
+          recompute();
+          settled += 1;
+          if (settled >= gameIds.length) setMembershipLoading(false);
+        },
+      ),
     );
-    return unsub;
-  }, [uid]);
+    return () => unsubs.forEach((u) => u());
+  }, [uid, gameIdsKey]);
 
   const loading = gamesLoading || membershipLoading;
   // Genbrug samme Set-reference mellem renders når indholdet er uændret.
