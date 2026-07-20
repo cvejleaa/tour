@@ -78,23 +78,17 @@ Status 20/7 (aften): Firebase-fundamentet ER på plads —
   ikke, måle-ID'et er valgfrit).
 
 ~~Blaze-plan~~ **GJORT** (20/7 aften).
+~~Secrets~~ **GJORT** (20/7 aften): `SMTP_PASSWORD` + `ANTHROPIC_API_KEY`
+er sat i `spil-89af9` via `firebase functions:secrets:set`.
+~~Password-hash-parametre~~ **GJORT** (20/7 aften): hentet fra både
+`vm2026-tip` og `tour-85928` og gemt sikkert udenfor git.
 
-**Udestående på tjeklisten:**
+**EJERENS TJEKLISTE ER DERMED KOMPLET.** Eneste valgfrie rest: App
+Check-nøgle (reCAPTCHA Enterprise for tip.vejleaa.dk) — kan tilføjes senere.
 
-- **Secrets** (kan sættes nu; træder først i kraft ved functions-deploy):
-  ```bash
-  firebase functions:secrets:set SMTP_PASSWORD --project spil-89af9      # kodeord til tip@vejleaa.dk
-  firebase functions:secrets:set ANTHROPIC_API_KEY --project spil-89af9  # kan genbruges fra gammelt projekt:
-  firebase functions:secrets:access ANTHROPIC_API_KEY --project tour-85928
-  ```
-  Verificér med `functions:secrets:access <NAVN> --project spil-89af9`.
-- **Password-hash-parametre fra BEGGE gamle projekter** (til migreringen):
-  Console → projektet (`vm2026-tip` hhv. `tour-85928`) → Build →
-  Authentication → fanen **Users** → tre-prikker-menuen ⋮ →
-  **Password hash parameters** → kopiér hele boksen og gem den sikkert
-  (password-manager/privat note, mærket med projektnavn — ALDRIG i git).
-  Bruges af `firebase auth:import`, så alle beholder deres kodeord.
-- Evt. App Check-nøgle (reCAPTCHA Enterprise for tip.vejleaa.dk) — valgfrit.
+Næste fase er kode: platform-skelettet (login med e-mail + Google,
+spiloversigt, `games/{gameId}`-model, rules), Superliga-spillet ovenpå
+Flashscore-modulet, og migreringsscripts til efter 26/7.
 
 1. ~~Opret Firebase-projektet~~ **GJORT:** `spil-89af9` (Spil).
 2. **Opgradér til Blaze-planen** (kræves for Cloud Functions, som i de to
