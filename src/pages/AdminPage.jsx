@@ -49,8 +49,12 @@ export default function AdminPage() {
       { key: TAB_TOUR,    label: '🚴 Tour' },
       { key: TAB_RIDERS,  label: '🏷️ Ryttertyper' },
     ]),
-    { key: TAB_BONUS,   label: 'Bonus' },
-    { key: TAB_LEAGUES, label: 'Ligaer' },
+    // Bonus-facit + Ligaer er Tour-spilspecifikke (BonusTab/LeaguesAdminTab);
+    // de flytter ind under det enkelte spils admin i Fase B.
+    ...(PLATFORM_MODE ? [] : [
+      { key: TAB_BONUS,   label: 'Bonus' },
+      { key: TAB_LEAGUES, label: 'Ligaer' },
+    ]),
     { key: TAB_TESTS,   label: 'Tests' },
     ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
     { key: TAB_MAILS,   label: '✉️ Mail-log' },

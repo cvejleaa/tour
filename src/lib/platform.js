@@ -7,3 +7,6 @@ export const PLATFORM_MODE = import.meta.env.VITE_PLATFORM_MODE === 'true';
 
 // Hvor en godkendt bruger lander efter login. På platformen: spiloversigten.
 export const HOME_PATH = PLATFORM_MODE ? '/spil' : '/';
+
+// Appens navn. Neutralt på den samlede platform, Tour-branding i enkelt-spil.
+export const APP_NAME = PLATFORM_MODE ? 'Vejleaa Tip' : 'Tour de France Tip';

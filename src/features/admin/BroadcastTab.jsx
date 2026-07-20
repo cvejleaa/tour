@@ -10,19 +10,28 @@ import { useUsers } from './useUsers';
 import { useAllLeagues } from '../leagues/useAllLeagues';
 import { joinLinkFor } from '../leagues/joinLink';
 import { LEAGUE_STATUS } from '../../lib/constants';
+import { PLATFORM_MODE } from '../../lib/platform';
 
 /** Markør i brødteksten der erstattes med den valgte ligas tilmeldingslink. */
 const LINK_TOKEN = '[LINK]';
 
-const DEFAULT_SUBJECT = '🚨 SIDSTE CHANCE: Touren ruller i dag kl. 17.05 – er du med?';
+// På den samlede platform starter en udsendelse med blanke felter — den
+// Tour-specifikke salgstale-skabelon hører til under det enkelte spil (Fase B).
+const DEFAULT_SUBJECT = PLATFORM_MODE
+  ? ''
+  : '🚨 SIDSTE CHANCE: Touren ruller i dag kl. 17.05 – er du med?';
 
 /** Kort personlig intro til SALGSTALE-skabelonen (mailens hero, skærmbilleder
  *  og den gule tilmeldingsblok kommer fra skabelonen — introen står øverst). */
-const TEMPLATE_INTRO = `Kære familie og venner,
+const TEMPLATE_INTRO = PLATFORM_MODE
+  ? ''
+  : `Kære familie og venner,
 
 I DAG kl. 17.05 smækker døren for at være med fra allerførste etape. Tre ugers fælles sommerdrilleri venter — og I vil ikke stå udenfor, når vi andre driller hinanden ved morgenbordet. Klik på den gule knap nederst, så er I med på ét minut. Vi ses på ranglisten!`;
 
-const DEFAULT_BODY = `Kære familie og venner,
+const DEFAULT_BODY = PLATFORM_MODE
+  ? ''
+  : `Kære familie og venner,
 
 I DAG kl. 17.05 ruller Tour de France ud fra Barcelona – og så smækker døren for at være med fra allerførste etape i vores tippespil. Det her bliver sommerens samtaleemne i tre uger. Vil du virkelig stå udenfor, når vi andre driller hinanden ved morgenbordet?
 
@@ -50,9 +59,11 @@ const inputStyle = {
 export default function BroadcastTab() {
   const [subject, setSubject] = useState(DEFAULT_SUBJECT);
   // Salgstale-skabelonen (hero + skærmbilleder + gul tilmeldingsblok) er
-  // standard — det er kampagne-mailen. Slå fra for en ren tekstmail.
-  const [useTemplate, setUseTemplate] = useState(true);
-  const [body, setBody] = useState(TEMPLATE_INTRO);
+  // standard i enkelt-spillet — det er kampagne-mailen. Slå fra for en ren
+  // tekstmail. På platformen er den Tour-specifikke skabelon slået fra som
+  // udgangspunkt, så admin starter fra en blank tekstmail.
+  const [useTemplate, setUseTemplate] = useState(!PLATFORM_MODE);
+  const [body, setBody] = useState(PLATFORM_MODE ? DEFAULT_BODY : TEMPLATE_INTRO);
   const [recipientsText, setRecipientsText] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -121,21 +132,36 @@ export default function BroadcastTab() {
     <div>
       <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>📣 Send mail</h2>
       <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
-        Send invitationen til familie og venner. Med <strong>salgstale-skabelonen</strong> sendes
-        den flotte mail med skærmbilleder og den gule tilmeldingsblok — teksten nedenfor bliver
-        mailens personlige intro, og knappen i den gule blok er ligaens direkte tilmeldingslink
-        (modtageren oprettes, godkendes og tilmeldes med ét klik).
-        Adresser kan adskilles med komma, semikolon, mellemrum eller linjeskift.
+        {PLATFORM_MODE ? (
+          <>
+            Skriv en besked og send den til en liste af modtagere. Sætter du [LINK] ind i
+            teksten, flettes den valgte ligas tilmeldingslink ind (modtageren oprettes,
+            godkendes og tilmeldes med ét klik).
+            Adresser kan adskilles med komma, semikolon, mellemrum eller linjeskift.
+          </>
+        ) : (
+          <>
+            Send invitationen til familie og venner. Med <strong>salgstale-skabelonen</strong> sendes
+            den flotte mail med skærmbilleder og den gule tilmeldingsblok — teksten nedenfor bliver
+            mailens personlige intro, og knappen i den gule blok er ligaens direkte tilmeldingslink
+            (modtageren oprettes, godkendes og tilmeldes med ét klik).
+            Adresser kan adskilles med komma, semikolon, mellemrum eller linjeskift.
+          </>
+        )}
       </p>
 
       <div style={{ display: 'grid', gap: '0.75rem', maxWidth: 680 }}>
-        <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-          <input
-            type="checkbox" checked={useTemplate} onChange={toggleTemplate}
-            data-testid="broadcast-template"
-          />
-          📸 Brug salgstale-skabelonen (skærmbilleder + gul tilmeldingsblok)
-        </label>
+        {/* Salgstale-skabelonen (Tour-skærmbilleder) hører til under det enkelte
+            spil (Fase B) — skjules på den samlede platform. */}
+        {!PLATFORM_MODE && (
+          <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+            <input
+              type="checkbox" checked={useTemplate} onChange={toggleTemplate}
+              data-testid="broadcast-template"
+            />
+            📸 Brug salgstale-skabelonen (skærmbilleder + gul tilmeldingsblok)
+          </label>
+        )}
 
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
           Emne

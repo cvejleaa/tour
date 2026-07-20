@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
+import { PLATFORM_MODE } from '../../lib/platform';
 import { setRecapTime, setUntippedPenalty, callSendTestReminderToMe, callSendTipRemindersNow, callMigrateEmailPrivacy, callSetAutomationPaused, callSendThankYouEmails } from './adminActions';
 import { DEFAULT_UNTIPPED_PENALTY, readUntippedPenalty } from '../leaderboard/useUntippedPenalty';
 
@@ -104,7 +105,7 @@ export default function SettingsTab() {
     const res = await callSendTestReminderToMe();
     setMailBusy('');
     setMailMsg(res.ok
-      ? `✓ Testmail sendt til ${res.data?.sentTo ?? 'dig'} (${res.data?.stages ?? '?'} etaper over ${res.data?.days ?? '?'} dage).`
+      ? `✓ Testmail sendt til ${res.data?.sentTo ?? 'dig'} (${res.data?.stages ?? '?'} ${PLATFORM_MODE ? 'runder' : 'etaper'} over ${res.data?.days ?? '?'} dage).`
       : 'Fejl: ' + res.error);
   };
   const sendRealNow = async () => {
@@ -115,7 +116,7 @@ export default function SettingsTab() {
     const d = res.data || {};
     setMailMsg(d.sent > 0
       ? `✓ Sendte ${d.sent} påmindelser.`
-      : `Sendte 0 — ${d.reason === 'no-stages' ? 'ingen etaper inden for det næste døgn endnu (sender automatisk fra dagen før 1. etape).' : (d.reason || 'intet at sende lige nu.')}`);
+      : `Sendte 0 — ${d.reason === 'no-stages' ? (PLATFORM_MODE ? 'ingen runder inden for det næste døgn endnu (sender automatisk fra dagen før første runde).' : 'ingen etaper inden for det næste døgn endnu (sender automatisk fra dagen før 1. etape).') : (d.reason || 'intet at sende lige nu.')}`);
   };
 
   const togglePause = async () => {
@@ -168,7 +169,7 @@ export default function SettingsTab() {
         🤖 AI-morgenopslag
       </h2>
       <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
-        Tour-Botten skriver hver morgen et kort opslag på væggen i hver liga med døgnets udvikling
+        {PLATFORM_MODE ? 'Morgen-bot\'en' : 'Tour-Botten'} skriver hver morgen et kort opslag på væggen i hver liga med døgnets udvikling
         og en lille optakt. Vælg hvornår det udgives (dansk tid).
       </p>
 
@@ -204,11 +205,11 @@ export default function SettingsTab() {
 
       {/* ── Straf for utippet etape ─────────────────────────────────────── */}
       <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>
-        🎯 Straf for utippet etape
+        🎯 Straf for {PLATFORM_MODE ? 'manglende tip' : 'utippet etape'}
       </h2>
       <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
-        En etape man slet ikke har tippet trækker point fra. Vælg hvor mange
-        point der trækkes fra pr. manglende etape (decimaler ok, fx 1,5). Vises som {fmtPenalty(penalty)} på stillingen.
+        En {PLATFORM_MODE ? 'runde' : 'etape'} man slet ikke har tippet trækker point fra. Vælg hvor mange
+        point der trækkes fra pr. manglende {PLATFORM_MODE ? 'tip' : 'etape'} (decimaler ok, fx 1,5). Vises som {fmtPenalty(penalty)} på stillingen.
       </p>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', fontWeight: 600 }}>
@@ -246,8 +247,8 @@ export default function SettingsTab() {
         ✉️ Påmindelser om manglende tips
       </h2>
       <p style={{ margin: '0 0 1rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
-        Spillere får automatisk en mail kl. 09.00 på etapedage, hvis de mangler at tippe på en
-        etape inden for det næste døgn. <strong>Testmail</strong> sender de første 3 etapedage
+        Spillere får automatisk en mail kl. 09.00 på {PLATFORM_MODE ? 'spildage' : 'etapedage'}, hvis de mangler at tippe på en
+        {PLATFORM_MODE ? ' runde' : ' etape'} inden for det næste døgn. <strong>Testmail</strong> sender de første 3 {PLATFORM_MODE ? 'spildage' : 'etapedage'}
         (med starttider) <em>kun til dig</em>. <strong>Send nu</strong> kører den rigtige
         udsendelse til alle med manglende tips.
       </p>
@@ -289,13 +290,13 @@ export default function SettingsTab() {
 
       <hr style={{ margin: '1.75rem 0', border: 'none', borderTop: '1px solid var(--c-border)' }} />
 
-      {/* ── 🏁 Afslutning af løbet ──────────────────────────────────────── */}
+      {/* ── 🏁 Afslutning ────────────────────────────────────────────────── */}
       <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.1rem', color: 'var(--c-pitch)' }}>
-        🏁 Afslutning af løbet
+        {PLATFORM_MODE ? '🏁 Afslutning' : '🏁 Afslutning af løbet'}
       </h2>
 
       <p style={{ margin: '0 0 0.75rem', fontSize: '0.92rem', lineHeight: 1.5, color: 'var(--c-muted)' }}>
-        Når Touren er slut: sæt al automatik på pause (resultat-sync, AI-morgenopslag og
+        {PLATFORM_MODE ? 'Når spillet er slut' : 'Når Touren er slut'}: sæt al automatik på pause (resultat-sync, AI-morgenopslag og
         påmindelses-mails) og send den afsluttende takke-mail til spillerne. Pausen kan slås fra igen når som helst.
       </p>
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
