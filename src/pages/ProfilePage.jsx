@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { updateProfile } from '../features/profile/profileActions';
 import Avatar from '../components/Avatar';
 import EmojiPicker from '../features/comments/EmojiPicker';
-import { AVATAR_SET } from '../data/avatarSet';
+import { AVATAR_SET, NEUTRAL_AVATAR_SET } from '../data/avatarSet';
 import { isJerseyToken, JERSEY_BY_TOKEN, JerseyIcon } from '../data/jerseyAvatars';
 import ThemeToggle from '../features/leaderboard/ThemeToggle';
 import TeamThemePicker from '../features/profile/TeamThemePicker';
@@ -73,7 +73,7 @@ export default function ProfilePage() {
             <div className="flex gap-1" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
               <EmojiPicker
                 onSelect={(e) => setEmoji(e)}
-                emojis={AVATAR_SET}
+                emojis={PLATFORM_MODE ? NEUTRAL_AVATAR_SET : AVATAR_SET}
                 triggerLabel={PLATFORM_MODE ? '😀' : '🚴'}
                 label="Vælg avatar"
               />

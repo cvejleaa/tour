@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { USER_STATUS } from '../lib/constants';
 import { redeemInviteCode } from '../features/auth/inviteActions';
 import { getPendingJoinCode, clearPendingJoinCode } from '../features/leagues/joinLink';
+import { APP_NAME } from '../lib/platform';
 
 export default function PendingPage() {
   const { user, status, loading } = useAuth();
@@ -102,7 +103,7 @@ export default function PendingPage() {
           </h1>
 
           <p style={{ color: 'var(--c-muted)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-            Din adgang til Tour de France Tip er desværre blevet afvist af en administrator.
+            Din adgang til {APP_NAME} er desværre blevet afvist af en administrator.
             Hvis du mener, det er en fejl, bedes du kontakte turneringsarrangøren.
           </p>
 
@@ -157,7 +158,7 @@ export default function PendingPage() {
 
         <p style={{ color: 'var(--c-muted)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
           Din konto er oprettet, men du mangler at blive godkendt af en administrator,
-          inden du kan deltage i Tour de France Tip.
+          inden du kan deltage i {APP_NAME}.
         </p>
 
         <div

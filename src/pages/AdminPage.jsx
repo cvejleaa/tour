@@ -5,6 +5,7 @@
 // Rollebaseret adgang håndhæves her og i ProtectedRoute.
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { PLATFORM_MODE } from '../lib/platform';
 import UsersTab from '../features/admin/UsersTab';
 import TourTab from '../features/admin/TourTab';
 import BonusTab from '../features/admin/BonusTab';
@@ -42,12 +43,20 @@ export default function AdminPage() {
     ...(isGlobalAdmin
       ? [{ key: TAB_USERS, label: 'Brugere' }]
       : []),
-    { key: TAB_TOUR,    label: '🚴 Tour' },
-    { key: TAB_RIDERS,  label: '🏷️ Ryttertyper' },
-    { key: TAB_BONUS,   label: 'Bonus' },
-    { key: TAB_LEAGUES, label: 'Ligaer' },
+    // Tour-spilspecifikke faner skjules på den samlede platform (Fase B:
+    // de flytter ind under det enkelte spils admin).
+    ...(PLATFORM_MODE ? [] : [
+      { key: TAB_TOUR,    label: '🚴 Tour' },
+      { key: TAB_RIDERS,  label: '🏷️ Ryttertyper' },
+    ]),
+    // Bonus-facit + Ligaer er Tour-spilspecifikke (BonusTab/LeaguesAdminTab);
+    // de flytter ind under det enkelte spils admin i Fase B.
+    ...(PLATFORM_MODE ? [] : [
+      { key: TAB_BONUS,   label: 'Bonus' },
+      { key: TAB_LEAGUES, label: 'Ligaer' },
+    ]),
     { key: TAB_TESTS,   label: 'Tests' },
-    { key: TAB_RUNBOOK, label: '📋 Køreplan' },
+    ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
     { key: TAB_MAILS,   label: '✉️ Mail-log' },
     { key: TAB_ACTIVITY, label: '📈 Aktivitet' },
     // Send mail (masseudsendelse) + indstillinger — kun ejer
