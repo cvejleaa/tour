@@ -111,6 +111,13 @@
         { "fieldPath": "uid",    "order": "ASCENDING" },
         { "fieldPath": "season", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "players",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

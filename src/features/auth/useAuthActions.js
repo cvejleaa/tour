@@ -6,8 +6,10 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../firebase';
 import { COL } from '../../lib/constants';
 import { getAuthErrorMessage } from './firebaseErrors';
@@ -100,5 +102,54 @@ export function useAuthActions() {
     }
   }
 
-  return { loading, error, clearError, signup, login, resetPassword };
+  /**
+   * Logger ind med Google via popup. Første gang en bruger logger ind,
+   * oprettes den OFFENTLIGE profil (users/{uid}) og den PRIVATE kontaktinfo
+   * (userContacts/{uid}) præcis som ved signup — role:'player', status:'pending',
+   * INGEN e-mail/point i den offentlige profil. En returnerende bruger får IKKE
+   * sin profil overskrevet.
+   * @returns {import('firebase/auth').User | null}
+   */
+  async function signInWithGoogle() {
+    setLoading(true);
+    setError('');
+    try {
+      const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+
+      // Kun ved allerførste login oprettes profilen. Findes den allerede,
+      // rører vi den ikke (returnerende bruger).
+      const userRef = doc(db, COL.USERS, cred.user.uid);
+      const snap = await getDoc(userRef);
+      if (!snap.exists()) {
+        await setDoc(userRef, {
+          displayName: cred.user.displayName || 'Spiller',
+          role: 'player',
+          status: 'pending',
+          createdAt: serverTimestamp(),
+        });
+
+        await setDoc(doc(db, COL.USER_CONTACTS, cred.user.uid), {
+          uid: cred.user.uid,
+          email: (cred.user.email || '').toLowerCase(),
+        });
+      }
+
+      return cred.user;
+    } catch (err) {
+      // Brugeren lukkede/afbrød selv popup'en — ikke en rigtig fejl.
+      if (
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request'
+      ) {
+        setError('');
+        return null;
+      }
+      setError(getAuthErrorMessage(err));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return { loading, error, clearError, signup, login, resetPassword, signInWithGoogle };
 }
