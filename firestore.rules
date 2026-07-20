@@ -540,6 +540,41 @@ service cloud.firestore {
         allow delete: if isSignedIn() && request.auth.uid == uid
           && (!('totalPoints' in resource.data) || resource.data.totalPoints == 0);
       }
+
+      // games/{gameId}/matches/{matchId} — kampe/etaper i ét spil (Fase B).
+      // Spil-scoped modstykke til top-level matches/stages. kickoff = tip-lås.
+      match /matches/{matchId} {
+        allow read: if isApproved();
+        allow create, update: if isGlobalAdmin();
+        allow delete: if false;
+      }
+
+      // games/{gameId}/bets/{betId} (betId = uid_matchId) — tips på en kamp.
+      // Kun eget tip, kun FØR kickoff, og kun hvis man DELTAGER i spillet
+      // (har et players/{uid}-dokument). points sættes kun af serveren.
+      match /bets/{betId} {
+        // Egne tips kan altid læses; andres først EFTER kickoff (statistik/
+        // dags-rangering). Admin kan altid læse.
+        allow read: if isGlobalAdmin()
+          || (isSignedIn() && request.auth.uid == resource.data.uid)
+          || (isApproved()
+              && request.time >= get(/databases/$(database)/documents/games/$(gameId)/matches/$(resource.data.matchId)).data.kickoff);
+
+        // Opret tip: godkendt deltager, eget uid, ingen points, før kickoff.
+        allow create: if isApproved()
+          && request.auth.uid == request.resource.data.uid
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && !request.resource.data.keys().hasAny(['points'])
+          && request.time < get(/databases/$(database)/documents/games/$(gameId)/matches/$(request.resource.data.matchId)).data.kickoff;
+
+        // Opdatér tip: eget, points uændret, før kickoff.
+        allow update: if isApproved()
+          && request.auth.uid == resource.data.uid
+          && !writingPointsField()
+          && request.time < get(/databases/$(database)/documents/games/$(gameId)/matches/$(resource.data.matchId)).data.kickoff;
+
+        allow delete: if false;
+      }
     }
 
     // -----------------------------------------------------------------------
