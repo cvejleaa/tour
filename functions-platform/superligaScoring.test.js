@@ -3,17 +3,20 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const {
-  OUTCOME_POINTS, isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet,
+  DEFAULT_POINTS, round1, outcomeReward,
+  isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
 } = require('./superligaScoring');
 
 describe('superligaScoring (server-spejl)', () => {
-  it('1X2-point er vægtet 2/4/3', () => {
-    expect(outcomePoints('1', '1')).toBe(2);
-    expect(outcomePoints('X', 'X')).toBe(4);
-    expect(outcomePoints('2', '2')).toBe(3);
-    expect(outcomePoints('1', 'X')).toBe(0);
-    expect(OUTCOME_POINTS.X).toBe(4);
+  it('1X2-point følger kampens odds (1 decimal)', () => {
+    const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
+    expect(outcomePoints('1', '1', odds)).toBe(3.1);
+    expect(outcomePoints('X', 'X', odds)).toBe(4.3);
+    expect(outcomePoints('2', '2', odds)).toBe(2.3);
+    expect(outcomePoints('1', 'X', odds)).toBe(0);
+    expect(round1(4.27)).toBe(4.3);
+    expect(outcomeReward('X', null)).toBe(DEFAULT_POINTS.X);
   });
 
   it('udleder udfald af mål', () => {
@@ -35,20 +38,23 @@ describe('superligaScoring (server-spejl)', () => {
   });
 
   describe('scoreBet (1X2 + Chancen samlet)', () => {
-    it('uden chance = kun 1X2-point', () => {
-      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X')).toBe(4);
-      expect(scoreBet({ pick: '1', chanceStake: 0 }, '2')).toBe(0);
+    it('uden chance = kun 1X2-point (= odds, 1 decimal)', () => {
+      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X', { X: 4.27 })).toBe(4.3);
+      expect(scoreBet({ pick: '1', chanceStake: 0 }, '2', { '1': 2.5 })).toBe(0);
     });
-    it('med chance og ramt: base + gevinst', () => {
-      // pick X rammer: 4 base + 8×(3−1)=16 → 20
-      expect(scoreBet({ pick: 'X', chanceStake: 8 }, 'X', { X: 3 })).toBe(20);
+    it('uden odds falder base tilbage til standard', () => {
+      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X')).toBe(DEFAULT_POINTS.X);
+    });
+    it('med chance og ramt: base(odds) + gevinst', () => {
+      // pick X rammer med odds 3: base 3 + 8×(3−1)=16 → 19
+      expect(scoreBet({ pick: 'X', chanceStake: 8 }, 'X', { X: 3 })).toBe(19);
     });
     it('med chance og forbi: 0 base − indsats', () => {
       expect(scoreBet({ pick: '1', chanceStake: 5 }, '2', { 1: 2 })).toBe(-5);
     });
-    it('uden gyldige odds afregnes chancen ikke (kun base)', () => {
-      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', null)).toBe(2);
-      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', {})).toBe(2);
+    it('uden gyldige odds afregnes chancen ikke (kun fallback-base)', () => {
+      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', null)).toBe(DEFAULT_POINTS['1']);
+      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', {})).toBe(DEFAULT_POINTS['1']);
     });
   });
 
@@ -76,8 +82,9 @@ describe('superligaScoring (server-spejl)', () => {
 
   it('server-spejl matcher src-udgaven (point, chance, odds, elo)', async () => {
     const src = await import('../src/lib/superligaScoring.js');
+    const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
     for (const [pick, result] of [['1', '1'], ['X', 'X'], ['2', '2'], ['1', 'X']]) {
-      expect(outcomePoints(pick, result)).toBe(src.outcomePoints(pick, result));
+      expect(outcomePoints(pick, result, odds)).toBe(src.outcomePoints(pick, result, odds));
     }
     expect(settleChance({ correct: true, stake: 6, fairOdds: 2.5 }).delta)
       .toBe(src.settleChance({ correct: true, stake: 6, fairOdds: 2.5 }).delta);

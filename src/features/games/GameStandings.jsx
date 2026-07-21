@@ -7,6 +7,7 @@ import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useGameStandings } from './useGameStandings';
 import { rankDelta } from './gameStandings';
+import { formatPoints } from './GameLayout';
 
 function DeltaArrow({ row }) {
   const d = rankDelta(row);
@@ -67,7 +68,7 @@ export default function GameStandings({ gameId }) {
           </span>
         </td>
         <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-          {r.totalPoints}
+          {formatPoints(r.totalPoints)}
         </td>
       </tr>
     );
@@ -86,7 +87,7 @@ export default function GameStandings({ gameId }) {
               <span className="podium__medal">{MEDAL[r.rank - 1] || `#${r.rank}`}</span>
               <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={r.rank === 1 ? 40 : 32} />
               <span className="podium__name">{r.name}</span>
-              <span className="podium__pts">{r.totalPoints} p</span>
+              <span className="podium__pts">{formatPoints(r.totalPoints)} p</span>
             </div>
           ))}
         </div>

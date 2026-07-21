@@ -5,7 +5,9 @@
 // Spillet: man tipper 1X2 (ikke resultat) på hver kamp i en runde, og kan
 // (valgfrit) bruge "Chancen" på ÉN kamp pr. runde: sæt point på spil til
 // elo-lite fair odds. Design låst med ejeren 20/7-2026:
-//   - 1X2-point: hjemme 2 / uafgjort 4 / ude 3.
+//   - 1X2-point: point FØLGER oddsene — et ramt udfald giver kampens frosne
+//     odds afrundet til 1 decimal (fx 3.1 / 4.3 / 2.3). Så en favorit-tip
+//     giver få point og et overraskende udfald giver mange, i takt med oddsene.
 //   - Chancen: indsats mellem MIN og MAX, hvor MAX cappes til < 50 % af saldo.
 //   - Gevinst = indsats × (fair odds − 1). Tab = kun indsatsen (ingen bøde).
 //   - Saldoen kan aldrig gå i minus (garanteret af 40 %-cappet).
@@ -18,14 +20,34 @@ export const OUTCOME = { HOME: '1', DRAW: 'X', AWAY: '2' };
 export const OUTCOMES = [OUTCOME.HOME, OUTCOME.DRAW, OUTCOME.AWAY];
 
 /**
- * Point pr. ramt udfald. Vægtede, så det ikke bare kan betale sig at tippe
- * favoritten: uafgjort er svært (4), udesejr sværere end hjemmesejr (3 vs 2).
+ * Standard-point pr. udfald — bruges KUN som fallback, hvis en kamp mangler
+ * frosne odds (bør ikke ske; odds fryses ved seeding). Normalt følger pointene
+ * oddsene, se outcomeReward().
  */
-export const OUTCOME_POINTS = {
+export const DEFAULT_POINTS = {
   [OUTCOME.HOME]: 2,
   [OUTCOME.DRAW]: 4,
   [OUTCOME.AWAY]: 3,
 };
+
+/** Afrund et tal til 1 decimal (0 for ugyldigt). Bruges til point = odds. */
+export function round1(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? Math.round(n * 10) / 10 : 0;
+}
+
+/**
+ * Point for et RAMT udfald = kampens frosne odds (1 decimal). Falder tilbage til
+ * DEFAULT_POINTS, hvis kampen ikke har gyldige odds for udfaldet.
+ * @param {string} outcome – '1'|'X'|'2'
+ * @param {object} [odds]   – kampens frosne odds { '1','X','2' }
+ * @returns {number}
+ */
+export function outcomeReward(outcome, odds) {
+  if (!isOutcome(outcome)) return 0;
+  const raw = odds ? Number(odds[outcome]) : NaN;
+  return Number.isFinite(raw) ? round1(raw) : DEFAULT_POINTS[outcome];
+}
 
 /** Er en værdi et gyldigt 1X2-udfald? */
 export function isOutcome(v) {
@@ -44,14 +66,16 @@ export function outcomeFromScore(homeGoals, awayGoals) {
 }
 
 /**
- * Point for ét 1X2-tip mod facit.
+ * Point for ét 1X2-tip mod facit. Et ramt udfald giver kampens frosne odds
+ * (1 decimal); forkert giver 0. Odds trådes ind fra kamp-dokumentet.
  * @param {string} pick   – spillerens tip ('1'|'X'|'2')
  * @param {string} result – facit ('1'|'X'|'2')
- * @returns {number} vægtet point (0 hvis forkert eller ugyldigt)
+ * @param {object} [odds] – kampens frosne odds { '1','X','2' }
+ * @returns {number} point (0 hvis forkert eller ugyldigt)
  */
-export function outcomePoints(pick, result) {
+export function outcomePoints(pick, result, odds) {
   if (!isOutcome(pick) || !isOutcome(result)) return 0;
-  return pick === result ? OUTCOME_POINTS[result] : 0;
+  return pick === result ? outcomeReward(result, odds) : 0;
 }
 
 // --- Elo-lite: sandsynligheder + fair odds -----------------------------------

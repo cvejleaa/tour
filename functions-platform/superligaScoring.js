@@ -3,14 +3,16 @@
 // SPEJL af src/lib/superligaScoring.js — hold dem 100% identiske i opførsel!
 // Cloud Functions beregner point; klienten viser kun.
 //
-// 1X2-point vægtet (hjemme 2 / uafgjort 4 / ude 3). "Chancen": indsats på ét
-// 1X2-valg afregnes til kampens FROSNE odds (gemt på kamp-dokumentet, ikke på
-// tippet — så en klient ikke kan puste gevinsten op). Tab koster kun indsatsen.
+// 1X2-point FØLGER oddsene: et ramt udfald giver kampens FROSNE odds afrundet
+// til 1 decimal (fx 3.1 / 4.3 / 2.3). "Chancen": indsats på ét 1X2-valg afregnes
+// til de samme frosne odds (gemt på kamp-dokumentet, ikke på tippet — så en
+// klient ikke kan puste gevinsten op). Tab koster kun indsatsen.
 // ---------------------------------------------------------------------------
 
 const OUTCOME = { HOME: '1', DRAW: 'X', AWAY: '2' };
 const OUTCOMES = [OUTCOME.HOME, OUTCOME.DRAW, OUTCOME.AWAY];
-const OUTCOME_POINTS = {
+// Fallback-point hvis en kamp mangler frosne odds (bør ikke ske).
+const DEFAULT_POINTS = {
   [OUTCOME.HOME]: 2,
   [OUTCOME.DRAW]: 4,
   [OUTCOME.AWAY]: 3,
@@ -18,6 +20,17 @@ const OUTCOME_POINTS = {
 
 function isOutcome(v) {
   return v === OUTCOME.HOME || v === OUTCOME.DRAW || v === OUTCOME.AWAY;
+}
+
+function round1(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? Math.round(n * 10) / 10 : 0;
+}
+
+function outcomeReward(outcome, odds) {
+  if (!isOutcome(outcome)) return 0;
+  const raw = odds ? Number(odds[outcome]) : NaN;
+  return Number.isFinite(raw) ? round1(raw) : DEFAULT_POINTS[outcome];
 }
 
 function outcomeFromScore(homeGoals, awayGoals) {
@@ -30,9 +43,9 @@ function outcomeFromScore(homeGoals, awayGoals) {
   return OUTCOME.DRAW;
 }
 
-function outcomePoints(pick, result) {
+function outcomePoints(pick, result, odds) {
   if (!isOutcome(pick) || !isOutcome(result)) return 0;
-  return pick === result ? OUTCOME_POINTS[result] : 0;
+  return pick === result ? outcomeReward(result, odds) : 0;
 }
 
 /**
@@ -60,7 +73,7 @@ function settleChance({ correct, stake, fairOdds }) {
  */
 function scoreBet(bet, result, odds) {
   if (!bet || !isOutcome(bet.pick) || !isOutcome(result)) return 0;
-  const base = outcomePoints(bet.pick, result);
+  const base = outcomePoints(bet.pick, result, odds);
   const stake = Math.max(0, Math.floor(Number(bet.chanceStake) || 0));
   if (stake <= 0) return base;
   const o = odds && Number.isFinite(odds[bet.pick]) ? Number(odds[bet.pick]) : null;
@@ -121,8 +134,9 @@ function actualHomeFromOutcome(outcome) {
 }
 
 module.exports = {
-  OUTCOME, OUTCOMES, OUTCOME_POINTS, ELO, ODDS,
-  isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet,
+  OUTCOME, OUTCOMES, DEFAULT_POINTS, ELO, ODDS,
+  isOutcome, outcomeFromScore, round1, outcomeReward, outcomePoints,
+  settleChance, scoreBet,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
 };

@@ -17,6 +17,12 @@ export function playerBank(me) {
   return Number(me?.totalPoints ?? me?.points ?? 0) || 0;
 }
 
+/** Vis point pænt: heltal uden decimaler, ellers 1 decimal (point følger odds). */
+export function formatPoints(n) {
+  const v = Number(n) || 0;
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
 export default function GameLayout({ game, me, children }) {
   const bank = playerBank(me);
   return (
@@ -32,7 +38,7 @@ export default function GameLayout({ game, me, children }) {
         </h1>
         {me && (
           <span className="badge" title="Din saldo i dette spil">
-            💰 {bank} point
+            💰 {formatPoints(bank)} point
           </span>
         )}
       </div>
