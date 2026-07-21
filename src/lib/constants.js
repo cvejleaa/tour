@@ -92,6 +92,7 @@ export const COL = {
   GAME_PLAYERS: 'players', // sub-collection games/{gameId}/players/{uid}: deltagelse + per-spil-point
   GAME_MATCHES: 'matches', // games/{gameId}/matches/{matchId}: kampe/etaper i ét spil (Fase B)
   GAME_BETS: 'bets',       // games/{gameId}/bets/{uid_matchId}: tips i ét spil (Fase B)
+  GAME_LEAGUES: 'leagues', // games/{gameId}/leagues/{leagueId}: private mini-ligaer (medlemmer via invitationskode)
 };
 
 // --- Samlet platform: spil-begrebet ------------------------------------------

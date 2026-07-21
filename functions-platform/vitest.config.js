@@ -11,6 +11,7 @@ export default defineConfig({
       'gameScoring.test.js',
       'superligaScoring.test.js',
       'superligaSync.test.js',
+      'gameLeagues.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

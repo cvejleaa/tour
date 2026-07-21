@@ -20,6 +20,7 @@ const { initializeApp } = require('firebase-admin/app');
 
 const { recomputeGameMatchCore, recomputeSeasonElo } = require('./gameScoring');
 const { syncResultsCore } = require('./superligaSync');
+const { redeemLeagueCodeCore } = require('./gameLeagues');
 
 initializeApp();
 
@@ -73,4 +74,23 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION }, async (request) => 
     throw new HttpsError('permission-denied', 'Kun admin kan synke resultater.');
   }
   return syncResultsCore(db, FieldValue);
+});
+
+// redeemGameLeagueCode — deltag i en privat mini-liga via invitationskode.
+const LEAGUE_ERR = {
+  unauthenticated: ['unauthenticated', 'Log ind for at deltage.'],
+  'bad-code': ['invalid-argument', 'Indtast en gyldig kode.'],
+  'not-approved': ['permission-denied', 'Din konto er ikke godkendt endnu.'],
+  'not-member': ['failed-precondition', 'Du skal deltage i spillet, før du kan være med i en liga.'],
+  'not-found': ['not-found', 'Ingen liga fundet med den kode.'],
+};
+exports.redeemGameLeagueCode = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid;
+  const { gameId, code } = request.data || {};
+  try {
+    return await redeemLeagueCodeCore(getFirestore(), FieldValue, { uid, gameId, code });
+  } catch (err) {
+    const [httpCode, msg] = LEAGUE_ERR[err.message] || ['internal', 'Kunne ikke deltage i ligaen.'];
+    throw new HttpsError(httpCode, msg);
+  }
 });

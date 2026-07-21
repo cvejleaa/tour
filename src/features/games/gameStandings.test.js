@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rankStandings, rankDelta } from './gameStandings';
+import { rankStandings, rankDelta, subsetRanking } from './gameStandings';
 
 const users = {
   a: { displayName: 'Anna', avatarEmoji: '🦊' },
@@ -48,6 +48,24 @@ describe('rankStandings', () => {
     const cille = rows.find((r) => r.uid === 'c');
     expect(cille.favoriteTeam).toBe('FCK');
     expect(rows.find((r) => r.uid === 'a').emoji).toBe('🦊');
+  });
+});
+
+describe('subsetRanking (liga-stilling)', () => {
+  const ranked = rankStandings([
+    { uid: 'b', totalPoints: 12 },
+    { uid: 'c', totalPoints: 8 },
+    { uid: 'a', totalPoints: 5 },
+  ], users);
+
+  it('filtrerer til medlemmer og gen-tildeler placering', () => {
+    const league = subsetRanking(ranked, ['a', 'b']); // uden c
+    expect(league.map((r) => r.uid)).toEqual(['b', 'a']);
+    expect(league.map((r) => r.rank)).toEqual([1, 2]); // gen-rangeret indenfor ligaen
+  });
+
+  it('tom medlemsliste → tom stilling', () => {
+    expect(subsetRanking(ranked, [])).toEqual([]);
   });
 });
 
