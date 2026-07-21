@@ -2,12 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { recomputeGameMatchCore, recomputeSeasonElo } = require('./gameScoring');
+const {
+  recomputeGameMatchCore, recomputeSeasonElo, buildRoundContext, playerRoundBonus,
+} = require('./gameScoring');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
-// Understøtter: games/{g}/bets (where uid==, where matchId==), games/{g}/players/{uid},
-// batch().update/commit, runTransaction(tx.get(query)/tx.set(ref)).
-function makeDb(betList) {
+// Understøtter: games/{g}/bets (where uid==, where matchId==), games/{g}/matches
+// (.get() → alle), games/{g}/players/{uid}, batch().update/commit,
+// runTransaction(tx.get(query)/tx.set(ref)).
+function makeDb(betList, matchList = []) {
   const bets = betList.map((b) => ({ data: { ...b } }));
   bets.forEach((b) => { b.ref = { __bet: b }; });
   const players = {}; // uid -> data
@@ -21,11 +24,20 @@ function makeDb(betList) {
       }),
     }),
   };
+  const matchesCollection = {
+    get: async () => ({
+      docs: matchList.map((m) => ({ id: m.id, data: () => m })),
+    }),
+  };
   const playersCollection = {
     doc: (uid) => ({ __player: uid }),
   };
   const gameDoc = {
-    collection: (name) => (name === 'bets' ? betsCollection : playersCollection),
+    collection: (name) => {
+      if (name === 'bets') return betsCollection;
+      if (name === 'matches') return matchesCollection;
+      return playersCollection;
+    },
   };
   const db = {
     collection: (name) => {
@@ -84,6 +96,67 @@ describe('recomputeGameMatchCore', () => {
     const db = makeDb([{ uid: 'A', matchId: 'm1', pick: '1', points: 0 }]);
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: null });
     expect(res).toEqual({ rescored: 0, players: 0 });
+  });
+
+  it('lægger combi-runde-bonus til når hele runden er ramt', async () => {
+    // Runde 1 = to kampe. A tipper begge og rammer begge → bonus = 2.0×3.0 = 6.0.
+    // B tipper kun m1 → ingen bonus (tippede ikke hele runden).
+    const matches = [
+      { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+      { id: 'm2', round: 1, result: 'X', odds: { 1: 2, X: 3.0, 2: 4 } },
+    ];
+    const db = makeDb([
+      { uid: 'A', matchId: 'm1', pick: '1', chanceStake: 0, points: 2 }, // allerede scoret
+      { uid: 'A', matchId: 'm2', pick: 'X', chanceStake: 0, points: 0 }, // scores nu
+      { uid: 'B', matchId: 'm1', pick: '1', chanceStake: 0, points: 2 },
+    ], matches);
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm2', {
+      result: 'X', odds: { 1: 2, X: 3.0, 2: 4 }, round: 1,
+    });
+    expect(res.rescored).toBe(1);              // kun A's m2-bet ændrede sig
+    // A: 2 (m1) + 3 (m2) + 6 (combi 2.0×3.0) = 11
+    expect(db._players.A.totalPoints).toBe(11);
+    expect(db._players.A.roundBonus).toBe(6);
+    // B rørt ikke (ingen bet på m2) → ingen genberegning
+    expect(db._players.B).toBeUndefined();
+  });
+});
+
+describe('buildRoundContext + playerRoundBonus', () => {
+  const matches = [
+    { id: 'r1-a', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+    { id: 'r1-b', round: 1, result: 'X', odds: { 1: 2, X: 3.0, 2: 4 } },
+    { id: 'r1-c', round: 1, result: '2', odds: { 1: 2, X: 4, 2: 2.5 } }, // ikke afgjort endnu nedenfor
+  ];
+  it('bygger opslag pr. kamp og pr. runde', () => {
+    const ctx = buildRoundContext(matches);
+    expect(ctx.rounds[1]).toEqual({ count: 3, settledCount: 3 });
+    expect(ctx.byMatch['r1-b'].result).toBe('X');
+  });
+  it('kræver at HELE runden er afgjort + at spilleren tippede alle kampe', () => {
+    const ctx = buildRoundContext(matches);
+    // tippede kun 2 af 3 → ingen bonus
+    expect(playerRoundBonus([
+      { matchId: 'r1-a', pick: '1' }, { matchId: 'r1-b', pick: 'X' },
+    ], ctx)).toBe(0);
+    // tippede alle 3, ramte alle → 2.0×3.0×2.5 = 15
+    expect(playerRoundBonus([
+      { matchId: 'r1-a', pick: '1' }, { matchId: 'r1-b', pick: 'X' }, { matchId: 'r1-c', pick: '2' },
+    ], ctx)).toBe(15);
+  });
+  it('giver ingen bonus når en kamp i runden mangler facit', () => {
+    const partial = [
+      { id: 'r1-a', round: 1, result: '1', odds: { 1: 2, X: 4, 2: 4 } },
+      { id: 'r1-b', round: 1, result: null, odds: { 1: 2, X: 3, 2: 4 } },
+    ];
+    const ctx = buildRoundContext(partial);
+    expect(ctx.rounds[1].settledCount).toBe(1);
+    expect(playerRoundBonus([
+      { matchId: 'r1-a', pick: '1' }, { matchId: 'r1-b', pick: 'X' },
+    ], ctx)).toBe(0);
+  });
+  it('uden roundCtx gives 0', () => {
+    expect(playerRoundBonus([{ matchId: 'x', pick: '1' }], null)).toBe(0);
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  OUTCOME, DEFAULT_POINTS, round1, outcomeReward,
+  OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, ROUND_BONUS,
   isOutcome, outcomeFromScore, outcomePoints,
   eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
   chanceMaxStake, canUseChance, isValidStake, settleChance,
@@ -62,6 +62,28 @@ describe('outcomeReward + round1', () => {
   });
 });
 
+describe('roundComboBonus (combi-runde-bonus)', () => {
+  it('alle 6 ramt → odds ganget, loftet ved PERFECT_CAP', () => {
+    // 1.5^6 ≈ 11.4 < 25 → ikke loftet
+    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(round1(1.5 ** 6));
+    // store odds → loft rammer
+    expect(roundComboBonus([2, 2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.PERFECT_CAP);
+  });
+  it('alle på nær én (5 af 6) → 5 odds ganget, loftet ved NEAR_CAP', () => {
+    expect(roundComboBonus([1.4, 1.4, 1.4, 1.4, 1.4], 6)).toBe(round1(1.4 ** 5)); // ≈5.4
+    expect(roundComboBonus([2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.NEAR_CAP);        // 32 → loft 12
+  });
+  it('to eller flere fejl → ingen bonus', () => {
+    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(0);
+    expect(roundComboBonus([], 6)).toBe(0);
+  });
+  it('robust mod ugyldigt input', () => {
+    expect(roundComboBonus(null, 6)).toBe(0);
+    expect(roundComboBonus([2, 2], 1)).toBe(0);
+    expect(roundComboBonus([1.5, 1.5], 2)).toBe(round1(2.25)); // 2-kamps runde, alle ramt
+  });
+});
+
 describe('elo-lite sandsynligheder', () => {
   it('lige hold: hjemme favorit pga. hjemmebane, symmetrisk uafgjort', () => {
     const p = outcomeProbabilities({ eloHome: 1500, eloAway: 1500 });
@@ -105,27 +127,28 @@ describe('fair odds', () => {
 });
 
 describe('Chancen — indsatsgrænser', () => {
-  it('max = min(absolut loft, 40% af saldo)', () => {
-    expect(chanceMaxStake(10)).toBe(4);      // 40% af 10
-    expect(chanceMaxStake(100)).toBe(20);    // absolut loft rammer først
+  it('max = min(absolut loft, 15% af saldo)', () => {
+    expect(chanceMaxStake(10)).toBe(1);      // floor(0.15*10) = 1
+    expect(chanceMaxStake(100)).toBe(15);    // 15% af 100
+    expect(chanceMaxStake(200)).toBe(20);    // absolut loft (20) rammer først
     expect(chanceMaxStake(0)).toBe(0);
-    expect(chanceMaxStake(2)).toBe(0);       // floor(0.8) = 0
+    expect(chanceMaxStake(6)).toBe(0);       // floor(0.9) = 0
   });
   it('cap er strengt under 50% ⇒ kan aldrig gå i minus', () => {
-    for (const bank of [3, 7, 25, 50, 200]) {
+    for (const bank of [7, 25, 50, 200]) {
       expect(chanceMaxStake(bank)).toBeLessThan(bank * 0.5);
     }
   });
-  it('canUseChance kræver råd til mindste indsats', () => {
+  it('canUseChance kræver råd til mindste indsats (mindst 7 point)', () => {
     expect(canUseChance(0)).toBe(false);
-    expect(canUseChance(2)).toBe(false);     // max 0
-    expect(canUseChance(3)).toBe(true);      // 40% = 1
+    expect(canUseChance(6)).toBe(false);     // max 0
+    expect(canUseChance(7)).toBe(true);      // 15% = 1
   });
   it('validerer indsats mod saldo', () => {
-    expect(isValidStake(1, 3)).toBe(true);
-    expect(isValidStake(4, 10)).toBe(true);
-    expect(isValidStake(5, 10)).toBe(false); // over max (4)
-    expect(isValidStake(0, 10)).toBe(false); // under MIN
+    expect(isValidStake(1, 7)).toBe(true);
+    expect(isValidStake(15, 100)).toBe(true);
+    expect(isValidStake(16, 100)).toBe(false); // over max (15)
+    expect(isValidStake(0, 100)).toBe(false);  // under MIN
     expect(isValidStake(2.5, 100)).toBe(false); // ikke heltal
   });
 });

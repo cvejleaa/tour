@@ -8,9 +8,12 @@
 //   - 1X2-point: point FØLGER oddsene — et ramt udfald giver kampens frosne
 //     odds afrundet til 1 decimal (fx 3.1 / 4.3 / 2.3). Så en favorit-tip
 //     giver få point og et overraskende udfald giver mange, i takt med oddsene.
+//   - RUNDE-BONUS (combi): tipper man ALLE kampe i en runde og rammer dem alle
+//     (eller alle på nær én), får man en bonus = de ramte odds GANGET sammen,
+//     med et loft — som en tæmmet bookmaker-kupon. Belønner "hele runden".
 //   - Chancen: indsats mellem MIN og MAX, hvor MAX cappes til < 50 % af saldo.
 //   - Gevinst = indsats × (fair odds − 1). Tab = kun indsatsen (ingen bøde).
-//   - Saldoen kan aldrig gå i minus (garanteret af 40 %-cappet).
+//   - Saldoen kan aldrig gå i minus (garanteret af 15 %-cappet).
 // ---------------------------------------------------------------------------
 
 /** Kamp-udfald (1X2). '1' = hjemmesejr, 'X' = uafgjort, '2' = udesejr. */
@@ -76,6 +79,35 @@ export function outcomeFromScore(homeGoals, awayGoals) {
 export function outcomePoints(pick, result, odds) {
   if (!isOutcome(pick) || !isOutcome(result)) return 0;
   return pick === result ? outcomeReward(result, odds) : 0;
+}
+
+// --- Runde-bonus (combi/kupon) -----------------------------------------------
+
+/**
+ * Lofter for runde-bonussen. Bonussen = de ramte odds ganget sammen, men aldrig
+ * mere end loftet — så en enkelt heldig runde ikke ødelægger stillingen.
+ *   PERFECT = alle kampe ramt · NEAR = alle på nær én.
+ */
+export const ROUND_BONUS = { PERFECT_CAP: 25, NEAR_CAP: 12 };
+
+/**
+ * Runde-bonus for én spillers runde. FORUDSÆTTER at spilleren har tippet ALLE
+ * kampe i runden (kaldes kun så) — `hitOdds` er de (1-decimals) odds for de
+ * kampe, spilleren RAMTE, og `matchCount` er antal kampe i runden.
+ *   0 fejl  → de ramte odds ganget, loftet ved PERFECT_CAP.
+ *   1 fejl  → de ramte odds ganget, loftet ved NEAR_CAP.
+ *   ≥2 fejl → 0.
+ * @param {number[]} hitOdds
+ * @param {number} matchCount
+ * @returns {number} bonus (1 decimal)
+ */
+export function roundComboBonus(hitOdds, matchCount) {
+  if (!Array.isArray(hitOdds) || !Number.isFinite(matchCount) || matchCount < 2) return 0;
+  const misses = matchCount - hitOdds.length;
+  if (misses < 0 || misses > 1) return 0;
+  const product = hitOdds.reduce((a, b) => a * (Number(b) || 0), 1);
+  const cap = misses === 0 ? ROUND_BONUS.PERFECT_CAP : ROUND_BONUS.NEAR_CAP;
+  return round1(Math.min(product, cap));
 }
 
 // --- Elo-lite: sandsynligheder + fair odds -----------------------------------
@@ -150,11 +182,11 @@ export function outcomeOdds(eloArgs) {
 
 // --- Chancen: indsats-grænser + afregning ------------------------------------
 
-/** Chancen-parametre. Cap er bevidst < 50 % af saldoen (kan aldrig gå i minus). */
+/** Chancen-parametre. Cap er bevidst << 50 % af saldoen (kan aldrig gå i minus). */
 export const CHANCE = {
   MIN: 1,             // mindste indsats
   MAX_ABS: 20,        // absolut loft uanset saldo
-  CAP_FRACTION: 0.40, // maks. andel af saldoen (< 0.5 ⇒ ingen negativ saldo)
+  CAP_FRACTION: 0.15, // maks. andel af saldoen (taktisk krydderi, ikke lotteri)
 };
 
 /**

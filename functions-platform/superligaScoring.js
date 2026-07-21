@@ -48,6 +48,19 @@ function outcomePoints(pick, result, odds) {
   return pick === result ? outcomeReward(result, odds) : 0;
 }
 
+// Runde-bonus (combi): de ramte odds ganget sammen, loftet. Kaldes kun når
+// spilleren har tippet ALLE kampe i runden. 0 fejl → PERFECT_CAP, 1 fejl → NEAR_CAP.
+const ROUND_BONUS = { PERFECT_CAP: 25, NEAR_CAP: 12 };
+
+function roundComboBonus(hitOdds, matchCount) {
+  if (!Array.isArray(hitOdds) || !Number.isFinite(matchCount) || matchCount < 2) return 0;
+  const misses = matchCount - hitOdds.length;
+  if (misses < 0 || misses > 1) return 0;
+  const product = hitOdds.reduce((a, b) => a * (Number(b) || 0), 1);
+  const cap = misses === 0 ? ROUND_BONUS.PERFECT_CAP : ROUND_BONUS.NEAR_CAP;
+  return round1(Math.min(product, cap));
+}
+
 /**
  * Afregn Chancen for ét tip. delta = korrekt ? +indsats×(odds−1) : −indsats.
  * @param {{correct:boolean, stake:number, fairOdds:number}} o
@@ -134,8 +147,8 @@ function actualHomeFromOutcome(outcome) {
 }
 
 module.exports = {
-  OUTCOME, OUTCOMES, DEFAULT_POINTS, ELO, ODDS,
-  isOutcome, outcomeFromScore, round1, outcomeReward, outcomePoints,
+  OUTCOME, OUTCOMES, DEFAULT_POINTS, ROUND_BONUS, ELO, ODDS,
+  isOutcome, outcomeFromScore, round1, outcomeReward, outcomePoints, roundComboBonus,
   settleChance, scoreBet,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
