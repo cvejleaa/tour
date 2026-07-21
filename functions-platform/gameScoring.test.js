@@ -4,16 +4,18 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   recomputeGameMatchCore, recomputeSeasonElo, buildRoundContext, playerRoundBonus,
+  computeRanks, snapshotRoundRanks,
 } = require('./gameScoring');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
 // Understøtter: games/{g}/bets (where uid==, where matchId==), games/{g}/matches
-// (.get() → alle), games/{g}/players/{uid}, batch().update/commit,
-// runTransaction(tx.get(query)/tx.set(ref)).
-function makeDb(betList, matchList = []) {
+// (.get()), games/{g}/players (.get() + .doc(uid)), spil-dok (.get()/.set()),
+// batch().update/commit, runTransaction(tx.get(query)/tx.set(ref)).
+function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}) {
   const bets = betList.map((b) => ({ data: { ...b } }));
   bets.forEach((b) => { b.ref = { __bet: b }; });
-  const players = {}; // uid -> data
+  const players = { ...playerSeed }; // uid -> data (forud-seedede placeringer mv.)
+  const game = { ...gameData };
 
   const betsCollection = {
     where: (field, _op, val) => ({
@@ -25,19 +27,35 @@ function makeDb(betList, matchList = []) {
     }),
   };
   const matchesCollection = {
-    get: async () => ({
-      docs: matchList.map((m) => ({ id: m.id, data: () => m })),
-    }),
+    get: async () => ({ docs: matchList.map((m) => ({ id: m.id, data: () => m })) }),
   };
   const playersCollection = {
     doc: (uid) => ({ __player: uid }),
+    get: async () => ({
+      docs: Object.keys(players).map((uid) => ({
+        id: uid, ref: { __player: uid }, data: () => players[uid],
+      })),
+    }),
   };
   const gameDoc = {
+    get: async () => ({ exists: Object.keys(game).length > 0, data: () => game }),
+    set: (data) => {
+      for (const [k, v] of Object.entries(data)) {
+        if (v && v.__arrayUnion) {
+          const cur = Array.isArray(game[k]) ? game[k] : [];
+          game[k] = [...new Set([...cur, ...v.__arrayUnion])];
+        } else { game[k] = v; }
+      }
+    },
     collection: (name) => {
       if (name === 'bets') return betsCollection;
       if (name === 'matches') return matchesCollection;
       return playersCollection;
     },
+  };
+  const applyOp = (ref, data) => {
+    if (ref.__bet) { Object.assign(ref.__bet.data, data); return; }
+    if (ref.__player) { players[ref.__player] = { ...(players[ref.__player] || {}), ...data }; }
   };
   const db = {
     collection: (name) => {
@@ -47,21 +65,25 @@ function makeDb(betList, matchList = []) {
     batch: () => ({
       _ops: [],
       update(ref, data) { this._ops.push({ ref, data }); },
-      async commit() { for (const op of this._ops) Object.assign(op.ref.__bet.data, op.data); },
+      async commit() { for (const op of this._ops) applyOp(op.ref, op.data); },
     }),
     async runTransaction(fn) {
       await fn({
         get: async (q) => q.get(),
-        set: (ref, data) => { players[ref.__player] = { ...(players[ref.__player] || {}), ...data }; },
+        set: (ref, data) => applyOp(ref, data),
       });
     },
     _players: players,
     _bets: bets,
+    _game: game,
   };
   return db;
 }
 
-const FieldValue = { serverTimestamp: () => '@ts' };
+const FieldValue = {
+  serverTimestamp: () => '@ts',
+  arrayUnion: (...vals) => ({ __arrayUnion: vals }),
+};
 
 describe('recomputeGameMatchCore', () => {
   it('scorer bets og gulver spillerens total (ingen negativ saldo)', async () => {
@@ -157,6 +179,85 @@ describe('buildRoundContext + playerRoundBonus', () => {
   });
   it('uden roundCtx gives 0', () => {
     expect(playerRoundBonus([{ matchId: 'x', pick: '1' }], null)).toBe(0);
+  });
+});
+
+describe('computeRanks', () => {
+  it('standard-konkurrence-rang (1,2,2,4) efter point', () => {
+    const r = computeRanks([
+      { uid: 'a', totalPoints: 12 }, { uid: 'b', totalPoints: 8 },
+      { uid: 'c', totalPoints: 8 }, { uid: 'd', totalPoints: 5 },
+    ]);
+    expect(r.get('a')).toBe(1);
+    expect(r.get('b')).toBe(2);
+    expect(r.get('c')).toBe(2); // delt 2.-plads
+    expect(r.get('d')).toBe(4); // springer 3 over
+  });
+  it('deterministisk tie-break på uid ved lige point', () => {
+    const r1 = computeRanks([{ uid: 'z', totalPoints: 5 }, { uid: 'a', totalPoints: 5 }]);
+    const r2 = computeRanks([{ uid: 'a', totalPoints: 5 }, { uid: 'z', totalPoints: 5 }]);
+    expect(r1.get('a')).toBe(r2.get('a')); // samme rang uanset input-orden
+  });
+});
+
+describe('snapshotRoundRanks', () => {
+  it('sætter previousRank = hidtidig rank, rank = ny rang', async () => {
+    // Før: A var nr. 1, B nr. 2 (gemt rank). Nu har B overhalet A på point.
+    const db = makeDb([], [], {}, {
+      A: { totalPoints: 10, rank: 1 },
+      B: { totalPoints: 20, rank: 2 },
+    });
+    const res = await snapshotRoundRanks(db, FieldValue, 'g1');
+    expect(res.ranked).toBe(2);
+    expect(db._players.B.rank).toBe(1);           // B nu nr. 1
+    expect(db._players.B.previousRank).toBe(2);   // B var nr. 2
+    expect(db._players.A.rank).toBe(2);           // A nu nr. 2
+    expect(db._players.A.previousRank).toBe(1);   // A var nr. 1 → rankDelta -1 (faldt)
+  });
+  it('første snapshot: previousRank = rank (ingen bevægelse)', async () => {
+    const db = makeDb([], [], {}, { A: { totalPoints: 10 }, B: { totalPoints: 5 } });
+    await snapshotRoundRanks(db, FieldValue, 'g1');
+    expect(db._players.A).toMatchObject({ rank: 1, previousRank: 1 });
+    expect(db._players.B).toMatchObject({ rank: 2, previousRank: 2 });
+  });
+});
+
+describe('recomputeGameMatchCore — placerings-snapshot ved rundeafslutning', () => {
+  it('snapshotter ranks når sidste kamp i runden afgøres (én gang)', async () => {
+    // Runde 1 = to kampe. m1 allerede afgjort; m2 afgøres nu → runden komplet.
+    const matches = [
+      { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+      { id: 'm2', round: 1, result: 'X', odds: { 1: 2, X: 3.0, 2: 4 } },
+    ];
+    const db = makeDb([
+      { uid: 'A', matchId: 'm1', pick: '1', chanceStake: 0, points: 2 },
+      { uid: 'A', matchId: 'm2', pick: 'X', chanceStake: 0, points: 0 },
+      { uid: 'B', matchId: 'm2', pick: '1', chanceStake: 0, points: 0 },
+    ], matches, {}, { A: {}, B: {} });
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'm2', {
+      result: 'X', odds: { 1: 2, X: 3.0, 2: 4 }, round: 1,
+    });
+    // A ramte begge (+combi) → foran B; ranks snapshottet, runden markeret.
+    expect(db._players.A.rank).toBe(1);
+    expect(db._game.snapshottedRounds).toEqual([1]);
+  });
+
+  it('snapshotter IKKE igen for en allerede-snapshottet runde (resultat-rettelse)', async () => {
+    const matches = [
+      { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+      { id: 'm2', round: 1, result: 'X', odds: { 1: 2, X: 3.0, 2: 4 } },
+    ];
+    // Runde 1 er allerede snapshottet; A's m2-bet har et forkert gemt pointtal,
+    // så en genberegning rescorer (og recalc kører) — men snapshot skal springes over.
+    const db = makeDb([
+      { uid: 'A', matchId: 'm2', pick: 'X', chanceStake: 0, points: 99 },
+    ], matches, { snapshottedRounds: [1] }, { A: { rank: 7, previousRank: 7 } });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm2', {
+      result: 'X', odds: { 1: 2, X: 3.0, 2: 4 }, round: 1,
+    });
+    expect(res.rescored).toBe(1);           // pointtallet blev rettet
+    expect(db._players.A.rank).toBe(7);     // rank urørt → snapshot kørte ikke igen
+    expect(db._players.A.previousRank).toBe(7);
   });
 });
 
