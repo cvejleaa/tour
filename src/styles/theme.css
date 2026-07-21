@@ -712,6 +712,26 @@ button {
 .facit__up { color: var(--c-pitch, #2e7d32); }
 .facit__down { color: var(--c-red, #c0392b); }
 
+/* Mine tips */
+.mytips__summary { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
+.mytips__summary > div { display: flex; flex-direction: column; }
+.mytips__big { font-family: var(--font-mono, ui-monospace, monospace); font-size: 1.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.mytips__summary span { font-size: 0.72rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.15rem; }
+.mytips__head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.mytips__round { font-weight: 800; }
+.mytips__meta { font-size: 0.8rem; color: var(--c-muted); }
+.mytips__bonus { color: var(--c-pitch); font-weight: 700; }
+.mytips__rows { display: flex; flex-direction: column; gap: 0.15rem; }
+.mytips__row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.5rem; padding: 0.35rem 0.2rem; border-top: 1px solid var(--c-border); font-size: 0.88rem; }
+.mytips__row--chance { background: color-mix(in srgb, var(--c-accent, #f5b301) 8%, transparent); border-radius: var(--radius-sm); }
+.mytips__kick { font-size: 0.7rem; color: var(--c-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mytips__match { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mytips__dash { color: var(--c-muted); margin: 0 0.25rem; }
+.mytips__pick { font-weight: 800; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 0.15rem; }
+.mytips__chance { font-size: 0.8rem; }
+.mytips__res { text-align: right; font-variant-numeric: tabular-nums; }
+.mytips__none, .mytips__pending { color: var(--c-muted); font-size: 0.8rem; }
+
 /* Stilling: top-3 podie */
 .podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 0.5rem; align-items: end; margin-bottom: 1rem; }
 .podium__spot {
