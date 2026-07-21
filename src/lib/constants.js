@@ -90,6 +90,8 @@ export const COL = {
   // --- Samlet platform (tip.vejleaa.dk) ---
   GAMES: 'games', // ét dokument pr. spil (VM, Tour, Superliga …) — se docs/samlet-platform.md
   GAME_PLAYERS: 'players', // sub-collection games/{gameId}/players/{uid}: deltagelse + per-spil-point
+  GAME_MATCHES: 'matches', // games/{gameId}/matches/{matchId}: kampe/etaper i ét spil (Fase B)
+  GAME_BETS: 'bets',       // games/{gameId}/bets/{uid_matchId}: tips i ét spil (Fase B)
 };
 
 // --- Samlet platform: spil-begrebet ------------------------------------------

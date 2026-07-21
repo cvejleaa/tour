@@ -1402,3 +1402,82 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// TESTS: games/{gameId}/matches + games/{gameId}/bets (Fase B — spil-scoped)
+// ---------------------------------------------------------------------------
+
+/** Opret en kamp i et spil via admin-context. */
+async function createGameMatch(gameId, matchId, kickoffDate) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().collection('games').doc(gameId)
+      .collection('matches').doc(matchId)
+      .set({ home: 'VIB', away: 'ODE', kickoff: Timestamp.fromDate(kickoffDate), status: 'scheduled', result: null });
+  });
+}
+
+describe('games/{gameId}/matches — sikkerhedsregler', () => {
+  it('godkendt spiller KAN læse kampe', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl');
+    await createGameMatch('sl', 'm1', new Date(Date.now() + 3600e3));
+    await assertSucceeds(getDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'matches', 'm1')));
+  });
+  it('en spiller KAN IKKE oprette en kamp', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl');
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'matches', 'm2'),
+      { home: 'A', away: 'B', kickoff: Timestamp.fromDate(new Date(Date.now() + 3600e3)), status: 'scheduled' }));
+  });
+  it('global admin KAN oprette en kamp', async () => {
+    await createUser('a1', 'globalAdmin', 'approved');
+    await createGame('sl');
+    await assertSucceeds(setDoc(doc(testEnv.authenticatedContext('a1').firestore(), 'games', 'sl', 'matches', 'm3'),
+      { home: 'A', away: 'B', kickoff: Timestamp.fromDate(new Date(Date.now() + 3600e3)), status: 'scheduled', result: null }));
+  });
+});
+
+describe('games/{gameId}/bets — sikkerhedsregler', () => {
+  const future = () => new Date(Date.now() + 3600e3);
+  const past = () => new Date(Date.now() - 3600e3);
+
+  it('deltager KAN tippe før kickoff (eget uid, ingen points)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl');
+    await seedMembership('sl', 'p1');
+    await createGameMatch('sl', 'm1', future());
+    await assertSucceeds(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', homeScore: 2, awayScore: 1 }));
+  });
+  it('IKKE-deltager KAN IKKE tippe (mangler players-dok)', async () => {
+    await createUser('p2', 'player', 'approved');
+    await createGame('sl');
+    await createGameMatch('sl', 'm1', future());
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p2').firestore(), 'games', 'sl', 'bets', 'p2_m1'),
+      { uid: 'p2', matchId: 'm1', homeScore: 1, awayScore: 0 }));
+  });
+  it('KAN IKKE tippe efter kickoff', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl');
+    await seedMembership('sl', 'p1');
+    await createGameMatch('sl', 'm1', past());
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', homeScore: 2, awayScore: 1 }));
+  });
+  it('KAN IKKE seede points på sit tip', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl');
+    await seedMembership('sl', 'p1');
+    await createGameMatch('sl', 'm1', future());
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', homeScore: 2, awayScore: 1, points: 5 }));
+  });
+  it('KAN IKKE tippe i en andens navn', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl');
+    await seedMembership('sl', 'p1');
+    await createGameMatch('sl', 'm1', future());
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'bets', 'p2_m1'),
+      { uid: 'p2', matchId: 'm1', homeScore: 2, awayScore: 1 }));
+  });
+});

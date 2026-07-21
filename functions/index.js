@@ -53,6 +53,7 @@ const { fetchLiveTickerCore } = require('./liveTicker');
 const { fetchLiveMapCore } = require('./liveMap');
 const { runGenerateStageTips } = require('./stageTip');
 const { runEnrichRiderTags } = require('./riderTags');
+const { recomputeGameMatchCore } = require('./gameScoring');
 const { syncStageTimesCore } = require('./stageTimes');
 const tourSummary = require('./tourSummary');
 const { leagueStandings, renderThankYouEmail } = require('./thankYouEmail');
@@ -301,6 +302,23 @@ exports.recomputeStage = onDocumentWritten(
     for (let i = 0; i < uids.length; i += CHUNK) {
       await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcTourTotal(db, uid, season, activeSeason)));
     }
+  },
+);
+
+// recomputeGameMatch — afregn point i den samlede platform når en kamps facit
+// (result) sættes: score alle bets på kampen (1X2 + Chancen) og genberegn hver
+// berørt spillers total. Spejler recomputeStage, men spil-scoped.
+exports.recomputeGameMatch = onDocumentWritten(
+  { document: 'games/{gameId}/matches/{matchId}', region: REGION },
+  async (event) => {
+    const db = getFirestore();
+    const { gameId, matchId } = event.params;
+    const after = event.data?.after?.data();
+    if (!after || !after.result) return;
+    const before = event.data?.before?.data();
+    // Kør kun når facit reelt ændrer sig (undgå løkker ved andre felt-skriv).
+    if (before?.result === after.result) return;
+    await recomputeGameMatchCore(db, FieldValue, gameId, matchId, after);
   },
 );
 
