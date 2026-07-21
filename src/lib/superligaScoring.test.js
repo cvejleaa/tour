@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  OUTCOME, OUTCOME_POINTS, isOutcome, outcomeFromScore, outcomePoints,
+  OUTCOME, DEFAULT_POINTS, round1, outcomeReward,
+  isOutcome, outcomeFromScore, outcomePoints,
   eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
   chanceMaxStake, canUseChance, isValidStake, settleChance,
   updateElo, actualHomeFromOutcome,
@@ -25,28 +26,39 @@ describe('1X2-udfald', () => {
   });
 });
 
-describe('outcomePoints (vægtet 2/4/3)', () => {
-  it('hjemme rammer = 2', () => {
-    expect(outcomePoints('1', '1')).toBe(2);
-  });
-  it('uafgjort rammer = 4', () => {
-    expect(outcomePoints('X', 'X')).toBe(4);
-  });
-  it('ude rammer = 3', () => {
-    expect(outcomePoints('2', '2')).toBe(3);
+describe('outcomePoints (point = odds, 1 decimal)', () => {
+  const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
+  it('ramt udfald giver kampens odds afrundet til 1 decimal', () => {
+    expect(outcomePoints('1', '1', odds)).toBe(3.1);
+    expect(outcomePoints('X', 'X', odds)).toBe(4.3);
+    expect(outcomePoints('2', '2', odds)).toBe(2.3);
   });
   it('forkert tip = 0', () => {
-    expect(outcomePoints('1', 'X')).toBe(0);
-    expect(outcomePoints('2', '1')).toBe(0);
+    expect(outcomePoints('1', 'X', odds)).toBe(0);
+    expect(outcomePoints('2', '1', odds)).toBe(0);
   });
   it('ugyldigt input = 0', () => {
-    expect(outcomePoints('1', null)).toBe(0);
-    expect(outcomePoints(undefined, '1')).toBe(0);
+    expect(outcomePoints('1', null, odds)).toBe(0);
+    expect(outcomePoints(undefined, '1', odds)).toBe(0);
   });
-  it('point-tabellen matcher konstanterne', () => {
-    expect(OUTCOME_POINTS['1']).toBe(2);
-    expect(OUTCOME_POINTS.X).toBe(4);
-    expect(OUTCOME_POINTS['2']).toBe(3);
+  it('falder tilbage til DEFAULT_POINTS uden gyldige odds', () => {
+    expect(outcomePoints('1', '1')).toBe(DEFAULT_POINTS['1']);
+    expect(outcomePoints('X', 'X', {})).toBe(DEFAULT_POINTS.X);
+    expect(outcomePoints('2', '2', { '2': 'x' })).toBe(DEFAULT_POINTS['2']);
+  });
+});
+
+describe('outcomeReward + round1', () => {
+  it('round1 afrunder til 1 decimal', () => {
+    expect(round1(3.12)).toBe(3.1);
+    expect(round1(4.27)).toBe(4.3);
+    expect(round1(2.25)).toBe(2.3);
+    expect(round1('x')).toBe(0);
+  });
+  it('outcomeReward = kampens odds (1 decimal), ellers fallback', () => {
+    expect(outcomeReward('1', { '1': 5.99 })).toBe(6);
+    expect(outcomeReward('X', null)).toBe(DEFAULT_POINTS.X);
+    expect(outcomeReward('bad', { bad: 2 })).toBe(0);
   });
 });
 

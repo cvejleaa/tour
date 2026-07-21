@@ -15,7 +15,7 @@ import {
   groupByRound, activeRound, isLocked, toMillis,
 } from './footballRounds';
 import {
-  OUTCOME, OUTCOMES, OUTCOME_POINTS,
+  OUTCOME, OUTCOMES, round1, outcomeReward,
   chanceMaxStake, canUseChance, CHANCE, settleChance,
 } from '../../../lib/superligaScoring';
 
@@ -162,6 +162,9 @@ export default function FootballTip({ game, me, matches }) {
         <span className={`badge ${tipped >= total && total > 0 ? 'badge--green' : 'badge--yellow'}`}>
           {tipped}/{total} tippet
         </span>
+        <span style={{ color: 'var(--c-muted)', fontSize: '0.78rem' }}>
+          Point følger oddsene — jo større overraskelse, jo flere point.
+        </span>
       </div>
 
       {error && <p className="badge badge--red mb-2">{error}</p>}
@@ -180,7 +183,7 @@ export default function FootballTip({ game, me, matches }) {
               <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0 }}>
                 {h.venue && <span className="match-card__venue">{h.venue}</span>}
                 {m.result ? (
-                  hit === true ? <span className="badge badge--green">Ramt +{OUTCOME_POINTS[m.result]}</span>
+                  hit === true ? <span className="badge badge--green">Ramt +{outcomeReward(m.result, m.odds).toFixed(1)}</span>
                     : hit === false ? <span className="badge badge--red">Ikke ramt</span>
                       : <span className="badge">Spillet</span>
                 ) : isChance ? (
@@ -207,17 +210,18 @@ export default function FootballTip({ game, me, matches }) {
               {OUTCOMES.map((o) => {
                 const selected = bet?.pick === o;
                 const odds = matchOdds(m, o);
+                const pts = odds ? round1(odds) : null;
                 return (
                   <button
                     key={o}
                     className={`pick ${selected ? 'pick--selected' : ''}`}
                     disabled={locked || busy === m.id}
                     onClick={() => pick(m, o)}
-                    title={`${OUTCOME_POINTS[o]} point hvis rigtigt`}
+                    title={pts != null ? `${pts.toFixed(1)} point hvis rigtigt (= odds)` : 'Odds mangler endnu'}
                   >
                     <span className="pick__label">{OUTCOME_LABEL[o]}</span>
-                    <span className="pick__odds">{odds ? odds.toFixed(2) : '—'}</span>
-                    <span className="pick__pts">{OUTCOME_POINTS[o]} p</span>
+                    <span className="pick__odds">{pts != null ? pts.toFixed(1) : '—'}</span>
+                    <span className="pick__pts">point</span>
                   </button>
                 );
               })}

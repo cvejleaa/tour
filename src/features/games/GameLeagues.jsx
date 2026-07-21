@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useGameLeagues } from './useGameLeagues';
 import { useGameStandings } from './useGameStandings';
 import { subsetRanking } from './gameStandings';
+import { formatPoints } from './GameLayout';
 import { createLeague, joinLeagueByCode, leaveLeague } from './gameLeagueActions';
 
 function LeagueTable({ rows, meUid }) {
@@ -26,7 +27,7 @@ function LeagueTable({ rows, meUid }) {
                 {r.name}{r.uid === meUid && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
               </span>
             </td>
-            <td style={{ padding: '0.35rem 0.4rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.totalPoints}</td>
+            <td style={{ padding: '0.35rem 0.4rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatPoints(r.totalPoints)}</td>
           </tr>
         ))}
       </tbody>

@@ -101,7 +101,9 @@ async function recalcPlayerTotal(db, FieldValue, gameId, uid) {
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(betsQ);
     const raw = snap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
-    const totalPoints = Math.max(0, raw);
+    // Point følger oddsene (1 decimal) → afrund summen, så float-støj ikke giver
+    // grimme totaler som 7.399999999. Gulv ved 0 (Chancen kan give negative bets).
+    const totalPoints = Math.max(0, Math.round(raw * 10) / 10);
     tx.set(playerRef, {
       totalPoints,
       updatedAt: FieldValue.serverTimestamp(),

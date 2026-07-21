@@ -53,7 +53,8 @@ const FieldValue = { serverTimestamp: () => '@ts' };
 
 describe('recomputeGameMatchCore', () => {
   it('scorer bets og gulver spillerens total (ingen negativ saldo)', async () => {
-    // A: pick X rammer facit X → 4 base + chance 8@3.0 = +16 → 20
+    // Point følger oddsene: base = kampens odds (1 decimal).
+    // A: pick X rammer facit X → 3.0 base (odds X) + chance 8@3.0 = +16 → 19
     // B: pick 1, facit X → 0, chance 5@2.0 forbi → −5 (skal gulves til 0 i total)
     const db = makeDb([
       { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 8, points: 0 },
@@ -65,7 +66,7 @@ describe('recomputeGameMatchCore', () => {
     });
     expect(res.rescored).toBe(2);
     expect(res.players).toBe(2);
-    expect(db._players.A.totalPoints).toBe(20);
+    expect(db._players.A.totalPoints).toBe(19);
     expect(db._players.B.totalPoints).toBe(0); // −5 gulvet til 0
     expect(db._players.C).toBeUndefined();     // ikke berørt
   });
