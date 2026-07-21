@@ -19,6 +19,10 @@ on:
         description: 'Seed spillene (VM/Tour/Superliga) i databasen bagefter?'
         type: boolean
         default: true
+      seedSuperliga:
+        description: 'Seed Superliga-kampprogrammet (132 kampe + odds fra scripts/superliga-fixtures.json)?'
+        type: boolean
+        default: false
       bootstrapOwnerEmail:
         description: 'Gør denne e-mail til owner (kræver at brugeren har logget ind mindst én gang). Tom = spring over.'
         type: string
@@ -107,6 +111,12 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: node scripts/seed-games.mjs
+
+      - name: Seed Superliga-kampprogram (valgfrit)
+        if: ${{ inputs.seedSuperliga }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: node scripts/seed-superliga.mjs scripts/superliga-fixtures.json
 
       - name: Bootstrap owner (valgfrit)
         if: ${{ inputs.bootstrapOwnerEmail != '' }}
