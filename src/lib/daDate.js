@@ -46,6 +46,17 @@ export function relativeDeadline(d, now = new Date()) {
   return `om ${Math.round(min / 1440)} dage`;
 }
 
+/** Relativ FORTID: "nu", "for 4 min siden", "for 2 t siden", "for 3 dage siden". */
+export function relativeTime(d, now = new Date()) {
+  const date = toDate(d);
+  if (!date) return '';
+  const min = Math.round((now.getTime() - date.getTime()) / 60000);
+  if (min < 1) return 'nu';
+  if (min < 60) return `for ${min} min siden`;
+  if (min < 1440) return `for ${Math.round(min / 60)} t siden`;
+  return `for ${Math.round(min / 1440)} dage siden`;
+}
+
 /** Datospænd for en runde: "8.–10. aug" eller "9. aug" hvis samme dag. */
 export function formatDateRange(fromD, toD) {
   const a = toDate(fromD);

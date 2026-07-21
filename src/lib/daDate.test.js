@@ -1,9 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import {
-  formatKickoff, formatTime, relativeDeadline, formatDateRange,
+  formatKickoff, formatTime, relativeDeadline, formatDateRange, relativeTime,
 } from './daDate';
 
 const D = (iso) => new Date(iso);
+
+describe('relativeTime', () => {
+  const now = new Date('2026-08-09T18:00:00Z');
+  it('viser dansk fortid', () => {
+    expect(relativeTime(new Date('2026-08-09T17:59:40Z'), now)).toBe('nu');
+    expect(relativeTime(new Date('2026-08-09T17:45:00Z'), now)).toBe('for 15 min siden');
+    expect(relativeTime(new Date('2026-08-09T15:00:00Z'), now)).toBe('for 3 t siden');
+    expect(relativeTime(new Date('2026-08-07T18:00:00Z'), now)).toBe('for 2 dage siden');
+  });
+  it('håndterer Firestore-timestamp og tom værdi', () => {
+    expect(relativeTime({ seconds: Math.floor(now.getTime() / 1000) - 120 }, now)).toBe('for 2 min siden');
+    expect(relativeTime(null, now)).toBe('');
+  });
+});
 
 describe('formatKickoff', () => {
   it('formaterer dansk med punktum-tid', () => {

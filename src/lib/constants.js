@@ -94,6 +94,7 @@ export const COL = {
   GAME_BETS: 'bets',       // games/{gameId}/bets/{uid_matchId}: tips i ét spil (Fase B)
   GAME_LEAGUES: 'leagues', // games/{gameId}/leagues/{leagueId}: private mini-ligaer (medlemmer via invitationskode)
   GAME_PULJE: 'puljeBets', // games/{gameId}/puljeBets/{uid}: pulje-tip (mesterskabs-/nedrykningsspil)
+  GAME_LEAGUE_MSGS: 'messages', // games/{gameId}/leagues/{leagueId}/messages: liga-væg
 };
 
 // --- Samlet platform: spil-begrebet ------------------------------------------

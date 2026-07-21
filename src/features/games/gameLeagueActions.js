@@ -9,12 +9,15 @@
  * ligaer — kun via en gyldig kode.
  */
 import {
-  collection, doc, setDoc, updateDoc, arrayRemove, serverTimestamp,
+  collection, doc, setDoc, updateDoc, deleteDoc, addDoc, arrayRemove, serverTimestamp,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../firebase';
 import { COL } from '../../lib/constants';
 import { generateJoinCode } from '../leagues/leagueUtils';
+
+/** Maks. længde på en liga-væg-besked. */
+export const LEAGUE_MSG_MAX = 280;
 
 function danishError(err, fallback) {
   const code = err?.code || '';
@@ -75,8 +78,8 @@ export async function joinLeagueByCode({ gameId, code }) {
 }
 
 /**
- * Forlad en liga (fjern sig selv fra memberUids). Ejeren kan også forlade;
- * ligaen består (evt. tom) — oprydning er en senere finpudsning.
+ * Forlad en liga (fjern sig selv fra memberUids). Ejeren forlader ikke — de
+ * sletter i stedet (se deleteLeague), så en liga aldrig bliver ejerløs.
  * @param {{uid:string, gameId:string, leagueId:string}} o
  */
 export async function leaveLeague({ uid, gameId, leagueId }) {
@@ -88,5 +91,55 @@ export async function leaveLeague({ uid, gameId, leagueId }) {
     return { ok: true };
   } catch (err) {
     return { ok: false, error: danishError(err, 'Kunne ikke forlade ligaen.') };
+  }
+}
+
+/**
+ * Omdøb en liga (kun ejeren — håndhæves af security rules).
+ * @param {{gameId:string, leagueId:string, name:string}} o
+ */
+export async function renameLeague({ gameId, leagueId, name }) {
+  const cleanName = String(name || '').trim();
+  if (!gameId || !leagueId) return { ok: false, error: 'Mangler oplysninger.' };
+  if (cleanName.length < 2) return { ok: false, error: 'Ligaen skal have et navn (mindst 2 tegn).' };
+  try {
+    await updateDoc(doc(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId), { name: cleanName });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke omdøbe ligaen.') };
+  }
+}
+
+/**
+ * Slet en liga (kun ejeren). Bruges også til at rydde tomme ligaer op.
+ * @param {{gameId:string, leagueId:string}} o
+ */
+export async function deleteLeague({ gameId, leagueId }) {
+  if (!gameId || !leagueId) return { ok: false, error: 'Mangler oplysninger.' };
+  try {
+    await deleteDoc(doc(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId));
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke slette ligaen.') };
+  }
+}
+
+/**
+ * Skriv en besked på liga-væggen (kun medlemmer). text ≤ LEAGUE_MSG_MAX.
+ * @param {{uid:string, gameId:string, leagueId:string, text:string}} o
+ */
+export async function postLeagueMessage({ uid, gameId, leagueId, text }) {
+  const clean = String(text || '').trim();
+  if (!uid || !gameId || !leagueId) return { ok: false, error: 'Mangler oplysninger.' };
+  if (!clean) return { ok: false, error: 'Skriv en besked.' };
+  if (clean.length > LEAGUE_MSG_MAX) return { ok: false, error: `Beskeden må højst være ${LEAGUE_MSG_MAX} tegn.` };
+  try {
+    await addDoc(
+      collection(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId, COL.GAME_LEAGUE_MSGS),
+      { uid, text: clean, createdAt: serverTimestamp() },
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke sende beskeden.') };
   }
 }

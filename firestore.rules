@@ -633,6 +633,28 @@ service cloud.firestore {
 
         // Slet: kun ejer.
         allow delete: if isApproved() && resource.data.ownerUid == request.auth.uid;
+
+        // games/{gameId}/leagues/{leagueId}/messages/{msgId} — liga-væg.
+        // Kun ligaens medlemmer kan læse/skrive; man skriver kun i eget navn.
+        match /messages/{msgId} {
+          function members() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.memberUids;
+          }
+          function ownerUid() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.ownerUid;
+          }
+          allow read: if isApproved() && request.auth.uid in members();
+          allow create: if isApproved()
+            && request.auth.uid in members()
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 280;
+          allow update: if false;
+          // Slet egen besked, eller liga-ejeren kan moderere.
+          allow delete: if isApproved()
+            && (resource.data.uid == request.auth.uid || ownerUid() == request.auth.uid);
+        }
       }
     }
 
