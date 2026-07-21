@@ -5,6 +5,7 @@
  */
 import { Link } from 'react-router-dom';
 import { GAME_STATUS } from '../../lib/constants';
+import { fmtPoints } from '../../lib/daNum';
 
 const STATUS_LABEL = {
   [GAME_STATUS.OPEN]: 'Åben',
@@ -17,11 +18,9 @@ export function playerBank(me) {
   return Number(me?.totalPoints ?? me?.points ?? 0) || 0;
 }
 
-/** Vis point pænt: heltal uden decimaler, ellers 1 decimal (point følger odds). */
-export function formatPoints(n) {
-  const v = Number(n) || 0;
-  return Number.isInteger(v) ? String(v) : v.toFixed(1);
-}
+/** Vis point pænt (dansk komma). Genudstilles fra daNum, så eksisterende
+ *  importsteder (GameStandings/GameLeagues) er uændrede. */
+export const formatPoints = fmtPoints;
 
 export default function GameLayout({ game, me, children }) {
   const bank = playerBank(me);
