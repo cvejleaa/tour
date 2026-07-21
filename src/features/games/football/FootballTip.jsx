@@ -26,12 +26,16 @@ function matchOdds(match, outcome) {
   return Number.isFinite(o) ? o : null;
 }
 
-/** Badge-info for et hold: klub-kortkode + farve + stadion (fallback for ukendte). */
-function badgeFor(name) {
+/**
+ * Badge-info for et hold: klub-kortkode + farve + stadion.
+ * Admin-farve (games/{id}.teamStyles) vinder over standardfarven.
+ */
+function badgeFor(name, styles = {}) {
   const info = superligaTeamInfo(name);
-  if (info) return { code: info.short, color: info.color, venue: info.venue };
+  const override = styles?.[name]?.color;
+  if (info) return { code: info.short, color: override || info.color, venue: info.venue };
   const code = String(name || '').replace(/[^A-Za-zÆØÅæøå]/g, '').slice(0, 3).toUpperCase() || '?';
-  return { code, color: '#5b6b7a', venue: null };
+  return { code, color: override || '#5b6b7a', venue: null };
 }
 
 export default function FootballTip({ game, me, matches }) {
@@ -136,8 +140,8 @@ export default function FootballTip({ game, me, matches }) {
         const bet = betsByMatch[m.id];
         const locked = isLocked(m, nowMs);
         const isChance = m.id === chanceMatchId;
-        const h = badgeFor(m.home);
-        const a = badgeFor(m.away);
+        const h = badgeFor(m.home, game?.teamStyles);
+        const a = badgeFor(m.away, game?.teamStyles);
         const hit = m.result && bet?.pick ? bet.pick === m.result : null;
         return (
           <div className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`} key={m.id}>
