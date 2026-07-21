@@ -51,7 +51,27 @@ describe('splitGames', () => {
   });
 
   it('tolererer tomme/undefined input', () => {
-    expect(splitGames(undefined, undefined)).toEqual({ mine: [], open: [] });
-    expect(splitGames([], new Set())).toEqual({ mine: [], open: [] });
+    expect(splitGames(undefined, undefined)).toEqual({ mine: [], open: [], external: [] });
+    expect(splitGames([], new Set())).toEqual({ mine: [], open: [], external: [] });
+  });
+
+  it('lægger eksterne spil (externalUrl) under "external" — uanset medlemskab', () => {
+    const withExt = [
+      ...games,
+      { id: 'e', name: 'Ekstern', order: 5, joinable: false, status: 'live', externalUrl: 'https://tour.vejleaa.dk' },
+    ];
+    // Ikke medlem: stadig i external, aldrig i open/mine.
+    const a = splitGames(withExt, new Set());
+    expect(a.external.map((g) => g.id)).toEqual(['e']);
+    expect(a.open.map((g) => g.id)).not.toContain('e');
+    // Selv hvis man "er medlem": vises som link-ud, ikke under mine.
+    const b = splitGames(withExt, new Set(['e']));
+    expect(b.external.map((g) => g.id)).toEqual(['e']);
+    expect(b.mine.map((g) => g.id)).not.toContain('e');
+  });
+
+  it('afsluttede eksterne spil vises ikke som link-ud', () => {
+    const withExt = [{ id: 'f', name: 'Slut', order: 1, joinable: false, status: 'finished', externalUrl: 'https://x' }];
+    expect(splitGames(withExt, new Set()).external).toEqual([]);
   });
 });

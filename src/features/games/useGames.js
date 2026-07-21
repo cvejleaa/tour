@@ -26,11 +26,15 @@ import { COL, GAME_STATUS } from '../../lib/constants';
 export function splitGames(games, myGameIds) {
   const ids = myGameIds instanceof Set ? myGameIds : new Set(myGameIds || []);
   const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0);
-  const mine = (games || []).filter((g) => ids.has(g.id)).sort(byOrder);
+  // Eksterne spil (kører i deres egen app, fx tour.vejleaa.dk) vises altid som
+  // link-ud — uanset medlemskab — indtil de migreres ind i platformen.
+  const isExternal = (g) => !!g.externalUrl && g.status !== GAME_STATUS.FINISHED;
+  const external = (games || []).filter(isExternal).sort(byOrder);
+  const mine = (games || []).filter((g) => ids.has(g.id) && !isExternal(g)).sort(byOrder);
   const open = (games || [])
-    .filter((g) => !ids.has(g.id) && g.joinable && g.status !== GAME_STATUS.FINISHED)
+    .filter((g) => !ids.has(g.id) && g.joinable && g.status !== GAME_STATUS.FINISHED && !isExternal(g))
     .sort(byOrder);
-  return { mine, open };
+  return { mine, open, external };
 }
 
 /**

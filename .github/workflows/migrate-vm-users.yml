@@ -1,0 +1,57 @@
+name: Migrér VM-brugere (vm2026-tip → spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+# Migrerer VM-spillere ind i platformen og FLETTER dem med de eksisterende
+# brugere (match på e-mail — ingen dubletter). Se scripts/migrate-vm-users.mjs.
+#
+# Engangsopsætning — tilføj disse repo-secrets (Settings → Secrets → Actions):
+#   FIREBASE_SERVICE_ACCOUNT_VM    (NY) — service-account for vm2026-tip.
+#   FIREBASE_SERVICE_ACCOUNT_SPIL  (findes) — service-account for spil-89af9.
+#   VM_HASH_CONFIG                 (valgfrit) — HELE "Password hash parameters"-
+#     blokken fra vm2026-tip (Firebase Console → Authentication → Users → ⋮ →
+#     Password hash parameters). Kun nødvendig hvis VM brugte e-mail/kodeord og
+#     kodeordene skal bevares for NYE konti. Google-logins følger altid med.
+#
+# Kør ALTID med dryRun=true først og tjek tallene i loggen.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Kun tælle/vise (ingen skrivning)? Slå fra for at migrere rigtigt.'
+        type: boolean
+        default: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      - name: Tjek secrets
+        run: |
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VM }}' ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_VM (vm2026-tip)."; exit 1; fi
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+
+      - name: Skriv service-accounts
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VM }}' > "$RUNNER_TEMP/vm-sa.json"
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Migrér + flet VM-brugere
+        env:
+          VM_SA: ${{ runner.temp }}/vm-sa.json
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          VM_HASH_CONFIG: ${{ secrets.VM_HASH_CONFIG }}
+          DRY_RUN: ${{ inputs.dryRun }}
+        run: node scripts/migrate-vm-users.mjs
