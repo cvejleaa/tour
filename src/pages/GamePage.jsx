@@ -12,6 +12,7 @@ import { useGame } from '../features/games/useGame';
 import { useAuth } from '../context/AuthContext';
 import { joinGame } from '../features/games/gameActions';
 import GameLayout from '../features/games/GameLayout';
+import GameStandings from '../features/games/GameStandings';
 import FootballTip from '../features/games/football/FootballTip';
 import { GAME_TYPE } from '../lib/constants';
 
@@ -21,6 +22,7 @@ export default function GamePage() {
   const { game, me, isMember, matches, loading } = useGame(gameId);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
+  const [tab, setTab] = useState('tip');
 
   if (loading || game === undefined) {
     return <div className="spinner" role="status" aria-label="Indlæser" />;
@@ -61,16 +63,39 @@ export default function GamePage() {
             {joining ? 'Tilmelder…' : 'Deltag'}
           </button>
         </div>
-      ) : game.type === GAME_TYPE.FOOTBALL ? (
-        <FootballTip game={game} me={me} matches={matches} />
       ) : (
-        <div className="card">
-          <h3 className="card__title">🚧 Spillets sider er på vej</h3>
-          <p style={{ marginBottom: 0 }}>
-            Du er tilmeldt <strong>{game.name}</strong>. Denne spiltype
-            ({game.type || 'ukendt'}) får sin egen tip-flade i et senere trin.
-          </p>
-        </div>
+        <>
+          {/* Faner: tip / stilling */}
+          <div className="flex items-center mb-2" role="tablist" style={{ gap: '0.4rem' }}>
+            <button
+              role="tab"
+              aria-selected={tab === 'tip'}
+              className={tab === 'tip' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
+              onClick={() => setTab('tip')}
+            >Tip</button>
+            <button
+              role="tab"
+              aria-selected={tab === 'stilling'}
+              className={tab === 'stilling' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
+              onClick={() => setTab('stilling')}
+            >🏆 Stilling</button>
+          </div>
+
+          {tab === 'stilling' ? (
+            <GameStandings gameId={gameId} />
+          ) : game.type === GAME_TYPE.FOOTBALL ? (
+            <FootballTip game={game} me={me} matches={matches} />
+          ) : (
+            <div className="card">
+              <h3 className="card__title">🚧 Spillets sider er på vej</h3>
+              <p style={{ marginBottom: 0 }}>
+                Du er tilmeldt <strong>{game.name}</strong>. Denne spiltype
+                ({game.type || 'ukendt'}) får sin egen tip-flade i et senere trin.
+                Stillingen virker allerede — se fanen ovenfor.
+              </p>
+            </div>
+          )}
+        </>
       )}
     </GameLayout>
   );
