@@ -621,3 +621,81 @@ button {
 [data-team='uae']        { --c-pitch: #E4002B; --c-pitch-dark: #b10021; --c-on-pitch: #fff; }
 [data-team='unox']       { --c-pitch: #ED1C45; --c-pitch-dark: #c01334; --c-on-pitch: #fff; }
 [data-team='astana']     { --c-pitch: #009DDC; --c-pitch-dark: #0079aa; --c-on-pitch: #111; }
+
+/* ============================================================================
+   Superliga / fodbold-tip — kamp-kort, 1X2-valg, Chancen, podie (Fase B)
+   Bygger på de eksisterende tokens. Virker i lyst + mørkt tema.
+   ========================================================================= */
+
+/* Runde-header */
+.round-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.5rem; flex-wrap: wrap; margin: 0.25rem 0 0.75rem;
+}
+.round-head__title {
+  font-size: 0.8rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--c-pitch);
+}
+.round-head__meta { font-size: 0.75rem; color: var(--c-muted); }
+.round-head__deadline--soon { color: var(--c-err); font-weight: 700; }
+
+/* Kamp-kort */
+.match-card { padding: 0.85rem; }
+.match-card__meta {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; font-size: 0.75rem; color: var(--c-muted); margin-bottom: 0.6rem;
+}
+.match-card__venue { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.match-card__teams { display: flex; flex-direction: column; gap: 0.5rem; }
+.match-card__team { display: flex; align-items: center; gap: 0.6rem; }
+.match-card__team-name { font-size: 1rem; font-weight: 700; color: var(--c-text); }
+.match-card--chance {
+  border-color: var(--c-accent) !important;
+  box-shadow: 0 0 0 1px var(--c-accent), var(--shadow);
+}
+
+/* Chancen-pille */
+.chance-pill {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  background: var(--c-accent); color: var(--c-pitch-dark);
+  font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 0.15rem 0.5rem; border-radius: 99px;
+}
+
+/* 1X2-valgknapper */
+.pick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.85rem; }
+.pick {
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  padding: 0.7rem 0.4rem; min-height: 64px;
+  background: var(--c-surface); border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+.pick:active { transform: scale(0.97); }
+.pick:disabled { cursor: default; opacity: 0.6; }
+.pick__label { font-size: 1.15rem; font-weight: 800; color: var(--c-text); line-height: 1; }
+.pick__odds { font-size: 0.8rem; font-weight: 600; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.pick__pts { font-size: 0.68rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.pick--selected {
+  background: color-mix(in srgb, var(--c-pitch) 12%, var(--c-surface));
+  border-color: var(--c-pitch); box-shadow: 0 0 0 1px var(--c-pitch);
+}
+.pick--selected .pick__label { color: var(--c-pitch); }
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .pick--selected { background: var(--c-surface-alt); }
+}
+
+/* Stilling: top-3 podie */
+.podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 0.5rem; align-items: end; margin-bottom: 1rem; }
+.podium__spot {
+  display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+  padding: 0.7rem 0.4rem; border-radius: var(--radius-sm);
+  background: var(--c-surface-alt); border: 1px solid var(--c-border); text-align: center;
+}
+.podium__spot--1 { transform: translateY(-8px); box-shadow: var(--shadow); }
+.podium__medal { font-size: 1.3rem; line-height: 1; }
+.podium__name { font-size: 0.82rem; font-weight: 700; color: var(--c-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.podium__pts { font-size: 0.78rem; font-weight: 700; color: var(--c-pitch); font-variant-numeric: tabular-nums; }
+
+/* Sticky egen-række i stillingen */
+.rank-row--me { position: sticky; bottom: 0; background: var(--c-surface-alt); box-shadow: 0 -2px 8px rgba(0,0,0,.06); }

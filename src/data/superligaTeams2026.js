@@ -16,21 +16,24 @@
 //
 // `name` er de EKSAKTE navne fra api.superliga.dk (samme kilde som program +
 // facit), så Elo-opslag og resultat-matchning altid rammer.
+//
+// `color` = klubbens brandfarve (til selvstændige hold-badges — vi hotlinker
+// IKKE officielle logoer). `venue` = hjemmestadion (fra api.superliga.dk).
 // ---------------------------------------------------------------------------
 
 export const SUPERLIGA_TEAMS_2026 = [
-  { name: 'FC Midtjylland',      short: 'FCM', elo: 1657 },
-  { name: 'F.C. København',      short: 'FCK', elo: 1657 },
-  { name: 'Brøndby IF',          short: 'BIF', elo: 1581 },
-  { name: 'AGF',                 short: 'AGF', elo: 1578 },
-  { name: 'FC Nordsjælland',     short: 'FCN', elo: 1537 },
-  { name: 'Viborg FF',           short: 'VFF', elo: 1486 },
-  { name: 'OB',                  short: 'OB',  elo: 1486 },
-  { name: 'Randers FC',          short: 'RFC', elo: 1472 },
-  { name: 'Sønderjyske Fodbold', short: 'SJF', elo: 1465 },
-  { name: 'Silkeborg IF',        short: 'SIF', elo: 1453 },
-  { name: 'AC Horsens',          short: 'ACH', elo: 1420 },
-  { name: 'Lyngby Boldklub',     short: 'LBK', elo: 1413 },
+  { name: 'FC Midtjylland',      short: 'FCM', elo: 1657, color: '#E4002B', venue: 'MCH Arena' },
+  { name: 'F.C. København',      short: 'FCK', elo: 1657, color: '#0A2240', venue: 'Parken' },
+  { name: 'Brøndby IF',          short: 'BIF', elo: 1581, color: '#F5C500', venue: 'Brøndby Stadion' },
+  { name: 'AGF',                 short: 'AGF', elo: 1578, color: '#004C9B', venue: 'Ceres Park' },
+  { name: 'FC Nordsjælland',     short: 'FCN', elo: 1537, color: '#FFD200', venue: 'Right To Dream Park' },
+  { name: 'Viborg FF',           short: 'VFF', elo: 1486, color: '#1E7A46', venue: 'Energi Viborg Arena' },
+  { name: 'OB',                  short: 'OB',  elo: 1486, color: '#0A56A5', venue: 'Nature Energy Park' },
+  { name: 'Randers FC',          short: 'RFC', elo: 1472, color: '#003C7E', venue: 'Cepheus Park Randers' },
+  { name: 'Sønderjyske Fodbold', short: 'SJF', elo: 1465, color: '#1B3A6B', venue: 'Sydbank Park' },
+  { name: 'Silkeborg IF',        short: 'SIF', elo: 1453, color: '#003DA5', venue: 'JYSK Park' },
+  { name: 'AC Horsens',          short: 'ACH', elo: 1420, color: '#FFC600', venue: 'Hybel Arena' },
+  { name: 'Lyngby Boldklub',     short: 'LBK', elo: 1413, color: '#123C82', venue: 'Lyngby Stadion' },
 ];
 
 /** Opslag holdnavn → Elo (fallback håndteres af teamElo i superligaSeed). */
@@ -38,4 +41,9 @@ export function superligaEloMap() {
   const map = {};
   for (const t of SUPERLIGA_TEAMS_2026) map[t.name] = t.elo;
   return map;
+}
+
+/** Opslag holdnavn → { short, color, venue } til visning (badges/kamp-kort). */
+export function superligaTeamInfo(name) {
+  return SUPERLIGA_TEAMS_2026.find((t) => t.name === name) || null;
 }

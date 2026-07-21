@@ -7,8 +7,11 @@ import { useMemo, useState } from 'react';
 import { useGameBets } from '../useGameBets';
 import { setBet } from '../betActions';
 import { playerBank } from '../GameLayout';
+import ClubBadge from '../../../components/ClubBadge';
+import { superligaTeamInfo } from '../../../data/superligaTeams2026';
+import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
 import {
-  groupByRound, activeRound, isLocked,
+  groupByRound, activeRound, isLocked, toMillis,
 } from './footballRounds';
 import {
   OUTCOME, OUTCOMES, OUTCOME_POINTS,
@@ -21,6 +24,14 @@ const OUTCOME_LABEL = { [OUTCOME.HOME]: '1', [OUTCOME.DRAW]: 'X', [OUTCOME.AWAY]
 function matchOdds(match, outcome) {
   const o = match?.odds?.[outcome];
   return Number.isFinite(o) ? o : null;
+}
+
+/** Badge-info for et hold: klub-kortkode + farve + stadion (fallback for ukendte). */
+function badgeFor(name) {
+  const info = superligaTeamInfo(name);
+  if (info) return { code: info.short, color: info.color, venue: info.venue };
+  const code = String(name || '').replace(/[^A-Za-zÆØÅæøå]/g, '').slice(0, 3).toUpperCase() || '?';
+  return { code, color: '#5b6b7a', venue: null };
 }
 
 export default function FootballTip({ game, me, matches }) {
@@ -80,21 +91,42 @@ export default function FootballTip({ game, me, matches }) {
     setBusy(null);
   }
 
+  // Runde-header-data: datospænd, næste deadline, hvor mange kampe tippet.
+  const kickoffs = roundMatches.map((m) => toMillis(m.kickoff)).filter((x) => x != null);
+  const rangeFrom = kickoffs.length ? Math.min(...kickoffs) : null;
+  const rangeTo = kickoffs.length ? Math.max(...kickoffs) : null;
+  const upcoming = roundMatches.filter((m) => !isLocked(m, nowMs))
+    .map((m) => toMillis(m.kickoff)).filter((x) => x != null);
+  const nextDeadline = upcoming.length ? Math.min(...upcoming) : null;
+  const deadlineSoon = nextDeadline != null && nextDeadline - nowMs < 2 * 3600 * 1000;
+  const tipped = roundMatches.filter((m) => betsByMatch[m.id]?.pick).length;
+  const total = roundMatches.length;
+
   return (
     <div>
-      {/* Runde-vælger */}
+      {/* Runde-header */}
       <div className="flex items-center justify-between mb-2" style={{ gap: '0.5rem' }}>
-        <button
-          className="btn btn--ghost btn--sm"
-          disabled={idx <= 0}
-          onClick={() => setRoundNo(rounds[idx - 1].round)}
-        >← Forrige</button>
-        <strong>{current?.round ? `Runde ${current.round}` : 'Kampe'}</strong>
-        <button
-          className="btn btn--ghost btn--sm"
-          disabled={idx >= rounds.length - 1}
-          onClick={() => setRoundNo(rounds[idx + 1].round)}
-        >Næste →</button>
+        <button className="btn btn--ghost btn--sm" disabled={idx <= 0}
+          onClick={() => setRoundNo(rounds[idx - 1].round)} aria-label="Forrige runde">←</button>
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <div className="round-head__title">
+            {current?.round ? `Runde ${current.round}` : 'Kampe'}
+            {rangeFrom && <span className="round-head__meta" style={{ marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>{formatDateRange(rangeFrom, rangeTo)}</span>}
+          </div>
+          {nextDeadline != null && (
+            <div className={`round-head__meta ${deadlineSoon ? 'round-head__deadline--soon' : ''}`}>
+              Deadline {relativeDeadline(nextDeadline, new Date(nowMs))}
+            </div>
+          )}
+        </div>
+        <button className="btn btn--ghost btn--sm" disabled={idx >= rounds.length - 1}
+          onClick={() => setRoundNo(rounds[idx + 1].round)} aria-label="Næste runde">→</button>
+      </div>
+
+      <div className="flex items-center justify-between mb-2" style={{ gap: '0.5rem' }}>
+        <span className={`badge ${tipped >= total && total > 0 ? 'badge--green' : 'badge--yellow'}`}>
+          {tipped}/{total} tippet
+        </span>
       </div>
 
       {error && <p className="badge badge--red mb-2">{error}</p>}
@@ -104,32 +136,53 @@ export default function FootballTip({ game, me, matches }) {
         const bet = betsByMatch[m.id];
         const locked = isLocked(m, nowMs);
         const isChance = m.id === chanceMatchId;
+        const h = badgeFor(m.home);
+        const a = badgeFor(m.away);
+        const hit = m.result && bet?.pick ? bet.pick === m.result : null;
         return (
-          <div className="card mb-2" key={m.id}>
-            <div className="flex items-center justify-between" style={{ gap: '0.5rem' }}>
-              <span style={{ fontWeight: 600 }}>
-                {m.home} <span style={{ color: 'var(--c-muted)' }}>–</span> {m.away}
-                {isChance && <span title="Chancen aktiv" style={{ marginLeft: 6 }}>⚡</span>}
+          <div className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`} key={m.id}>
+            <div className="match-card__meta">
+              <span>
+                {formatKickoff(m.kickoff)}
+                {h.venue && <span className="match-card__venue"> · {h.venue}</span>}
               </span>
-              {locked && <span className="badge badge--muted">Låst</span>}
+              {m.result ? (
+                hit === true ? <span className="badge badge--green">Ramt +{OUTCOME_POINTS[m.result]}</span>
+                  : hit === false ? <span className="badge badge--red">Ikke ramt</span>
+                    : <span className="badge">Spillet</span>
+              ) : isChance ? (
+                <span className="chance-pill">⚡ Chancen</span>
+              ) : locked ? (
+                <span className="badge badge--muted">Låst</span>
+              ) : null}
             </div>
-            <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem', marginTop: '0.5rem' }}>
+
+            <div className="match-card__teams">
+              <div className="match-card__team">
+                <ClubBadge code={h.code} color={h.color} size={40} title={m.home} />
+                <span className="match-card__team-name">{m.home}</span>
+              </div>
+              <div className="match-card__team">
+                <ClubBadge code={a.code} color={a.color} size={40} title={m.away} />
+                <span className="match-card__team-name">{m.away}</span>
+              </div>
+            </div>
+
+            <div className="pick-grid">
               {OUTCOMES.map((o) => {
                 const selected = bet?.pick === o;
                 const odds = matchOdds(m, o);
                 return (
                   <button
                     key={o}
-                    className={selected ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
+                    className={`pick ${selected ? 'pick--selected' : ''}`}
                     disabled={locked || busy === m.id}
                     onClick={() => pick(m, o)}
-                    style={{ flexDirection: 'column', lineHeight: 1.2 }}
                     title={`${OUTCOME_POINTS[o]} point hvis rigtigt`}
                   >
-                    <span style={{ fontWeight: 700 }}>{OUTCOME_LABEL[o]}</span>
-                    <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>
-                      {odds ? `odds ${odds.toFixed(2)}` : `${OUTCOME_POINTS[o]}p`}
-                    </span>
+                    <span className="pick__label">{OUTCOME_LABEL[o]}</span>
+                    <span className="pick__odds">{odds ? odds.toFixed(2) : '—'}</span>
+                    <span className="pick__pts">{OUTCOME_POINTS[o]} p</span>
                   </button>
                 );
               })}
