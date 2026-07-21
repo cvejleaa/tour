@@ -25,7 +25,7 @@ export const SUPERLIGA_TEAMS_2026 = [
   { name: 'FC Midtjylland',      short: 'FCM', elo: 1657, color: '#E4002B', venue: 'MCH Arena' },
   { name: 'F.C. København',      short: 'FCK', elo: 1657, color: '#0A2240', venue: 'Parken' },
   { name: 'Brøndby IF',          short: 'BIF', elo: 1581, color: '#F5C500', venue: 'Brøndby Stadion' },
-  { name: 'AGF',                 short: 'AGF', elo: 1578, color: '#004C9B', venue: 'Ceres Park' },
+  { name: 'AGF',                 short: 'AGF', elo: 1578, color: '#FFFFFF', venue: 'Ceres Park' },
   { name: 'FC Nordsjælland',     short: 'FCN', elo: 1537, color: '#FFD200', venue: 'Right To Dream Park' },
   { name: 'Viborg FF',           short: 'VFF', elo: 1486, color: '#1E7A46', venue: 'Energi Viborg Arena' },
   { name: 'OB',                  short: 'OB',  elo: 1486, color: '#0A56A5', venue: 'Nature Energy Park' },

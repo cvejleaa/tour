@@ -11,7 +11,9 @@
  *   { ok: true }  ved succes
  *   { ok: false, error: 'dansk fejlbesked' }  ved fejl
  */
-import { doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  doc, setDoc, deleteDoc, serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
 
@@ -48,6 +50,27 @@ export async function joinGame(uid, gameId) {
     return { ok: true };
   } catch (err) {
     return { ok: false, error: danishError(err, 'Kunne ikke deltage i spillet.') };
+  }
+}
+
+/**
+ * Gem hold-visnings-overrides (fx badge-farve) på spillet. Kun admin/owner
+ * (håndhæves af security rules: games/{gameId} write = isGlobalAdmin).
+ * @param {string} gameId
+ * @param {Record<string, {color?:string}>} teamStyles – holdnavn → { color }
+ * @returns {Promise<{ok:true}|{ok:false,error:string}>}
+ */
+export async function setTeamStyles(gameId, teamStyles) {
+  if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
+  try {
+    await setDoc(
+      doc(db, COL.GAMES, gameId),
+      { teamStyles, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke gemme hold-farver.') };
   }
 }
 
