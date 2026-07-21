@@ -14,6 +14,7 @@ import { setPuljeBet } from '../gameActions';
 import { toMillis } from './footballRounds';
 import ClubBadge from '../../../components/ClubBadge';
 import { fmtPoints } from '../../../lib/daNum';
+import { formatKickoff, relativeDeadline } from '../../../lib/daDate';
 
 export default function PuljeTip({ game, matches }) {
   const gameId = game?.id;
@@ -87,9 +88,17 @@ export default function PuljeTip({ game, matches }) {
           <strong> +{PULJE.PER_TEAM} point</strong> pr. rigtigt hold, og <strong>+{PULJE.PERFECT_BONUS} bonus</strong> hvis
           du rammer alle 6.
         </p>
-        {locked
-          ? <p className="badge badge--muted" style={{ display: 'inline-block' }}>🔒 Deadline passeret — pulje-tippet er låst.</p>
-          : <p className="badge badge--yellow" style={{ display: 'inline-block' }}>Deadline: før runde 1</p>}
+        {lockMs == null ? (
+          <p className="badge badge--yellow" style={{ display: 'inline-block' }}>Deadline: før runde 1</p>
+        ) : locked ? (
+          <p className="badge badge--muted" style={{ display: 'inline-block' }}>
+            🔒 Deadline passeret ({formatKickoff(lockMs)}) — pulje-tippet er låst.
+          </p>
+        ) : (
+          <p className="badge badge--yellow" style={{ display: 'inline-block' }}>
+            Deadline: {formatKickoff(lockMs)} ({relativeDeadline(lockMs)})
+          </p>
+        )}
       </div>
 
       {/* Facit når grundspillet er slut */}
