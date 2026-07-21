@@ -1,31 +1,34 @@
 // ---------------------------------------------------------------------------
 // Superligaen 2026/27 — hold + Elo-startværdier.
 //
-// Elo-værdierne er STARTGÆT (relativ styrke ved sæsonstart). De behøver ikke
-// være perfekte: elo-lite selv-korrigerer efter hver kamp (se updateElo), og
-// odds fryses pr. kamp ud fra Elo på seedet-tidspunktet. Justér `elo` her hvis
-// et hold er åbenlyst fejlvurderet, og verificér HOLD-LISTEN mod det officielle
-// program før go-live (op-/nedrykning kan ændre 1-2 hold).
+// Elo-værdierne er BEREGNET fra historiske resultater (de seneste 3 sæsoner,
+// 2023/24–2025/26, 579 kampe) via scripts/compute-superliga-elo.mjs: alle hold
+// starter i 1500, kampene køres kronologisk gennem updateElo (K=20, HFA=60),
+// med 25 % regression mod middel mellem sæsoner. Slutværdien = startværdi her.
 //
-// `name` er det kanoniske holdnavn (skal matche kampprogrammet/facit).
-// `short` bruges til kompakt visning.
+// Undtagelse: AC Horsens er oprykker uden top-historik i perioden og får en
+// oprykker-basisværdi (1425 — bevidst under det svageste etablerede hold).
+//
+// Elo selv-korrigerer i sæsonen (den levende opdatering genberegner ratings +
+// odds efter hvert resultat), så små unøjagtigheder udlignes hurtigt.
+//
+// `name` er de EKSAKTE navne fra api.superliga.dk (samme kilde som program +
+// facit), så Elo-opslag og resultat-matchning altid rammer.
 // ---------------------------------------------------------------------------
 
-// Navnene er de EKSAKTE fra api.superliga.dk (samme kilde som kampprogram +
-// facit), så Elo-opslag og resultat-matchning altid rammer. Elo = startgæt.
 export const SUPERLIGA_TEAMS_2026 = [
-  { name: 'F.C. København',      short: 'FCK', elo: 1680 },
-  { name: 'FC Midtjylland',      short: 'FCM', elo: 1660 },
-  { name: 'Brøndby IF',          short: 'BIF', elo: 1580 },
-  { name: 'FC Nordsjælland',     short: 'FCN', elo: 1560 },
-  { name: 'AGF',                 short: 'AGF', elo: 1520 },
-  { name: 'Silkeborg IF',        short: 'SIF', elo: 1495 },
-  { name: 'Randers FC',          short: 'RFC', elo: 1480 },
-  { name: 'Viborg FF',           short: 'VFF', elo: 1480 },
-  { name: 'OB',                  short: 'OB',  elo: 1470 },
-  { name: 'Sønderjyske Fodbold', short: 'SJF', elo: 1450 },
-  { name: 'Lyngby Boldklub',     short: 'LBK', elo: 1450 },
-  { name: 'AC Horsens',          short: 'ACH', elo: 1400 },
+  { name: 'FC Midtjylland',      short: 'FCM', elo: 1623 },
+  { name: 'AGF',                 short: 'AGF', elo: 1620 },
+  { name: 'F.C. København',      short: 'FCK', elo: 1574 },
+  { name: 'FC Nordsjælland',     short: 'FCN', elo: 1565 },
+  { name: 'Brøndby IF',          short: 'BIF', elo: 1526 },
+  { name: 'Viborg FF',           short: 'VFF', elo: 1521 },
+  { name: 'Sønderjyske Fodbold', short: 'SJF', elo: 1509 },
+  { name: 'Silkeborg IF',        short: 'SIF', elo: 1471 },
+  { name: 'OB',                  short: 'OB',  elo: 1468 },
+  { name: 'Randers FC',          short: 'RFC', elo: 1458 },
+  { name: 'Lyngby Boldklub',     short: 'LBK', elo: 1443 },
+  { name: 'AC Horsens',          short: 'ACH', elo: 1425 },
 ];
 
 /** Opslag holdnavn → Elo (fallback håndteres af teamElo i superligaSeed). */

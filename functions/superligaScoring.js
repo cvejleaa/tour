@@ -70,7 +70,59 @@ function scoreBet(bet, result, odds) {
   return base + delta;
 }
 
+// --- Elo-lite: sandsynligheder, odds + vedligeholdelse (spejl af src) --------
+
+const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.28, DRAW_DECAY: 0.55 };
+const ODDS = { MIN: 1.1, MAX: 6.0 };
+
+function eloExpectedHome(eloHome, eloAway, hfa = ELO.HFA) {
+  const dr = (Number(eloHome) + hfa) - Number(eloAway);
+  return 1 / (1 + 10 ** (-dr / 400));
+}
+
+function outcomeProbabilities({
+  eloHome = ELO.START, eloAway = ELO.START, hfa = ELO.HFA,
+  drawBase = ELO.DRAW_BASE, drawDecay = ELO.DRAW_DECAY,
+} = {}) {
+  const e = eloExpectedHome(eloHome, eloAway, hfa);
+  const skew = Math.abs(2 * e - 1);
+  const pDraw = drawBase * Math.exp(-drawDecay * skew * 2);
+  const rest = 1 - pDraw;
+  return { [OUTCOME.HOME]: rest * e, [OUTCOME.DRAW]: pDraw, [OUTCOME.AWAY]: rest * (1 - e) };
+}
+
+function fairOdds(p) {
+  const prob = Number(p);
+  if (!Number.isFinite(prob) || prob <= 0) return ODDS.MAX;
+  const clamped = Math.min(ODDS.MAX, Math.max(ODDS.MIN, 1 / prob));
+  return Math.round(clamped * 100) / 100;
+}
+
+function outcomeOdds(eloArgs) {
+  const p = outcomeProbabilities(eloArgs);
+  return {
+    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME]),
+    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW]),
+    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY]),
+  };
+}
+
+function updateElo(eloHome, eloAway, actualHome, { hfa = ELO.HFA, k = ELO.K } = {}) {
+  const expH = eloExpectedHome(eloHome, eloAway, hfa);
+  const home = Number(eloHome) + k * (actualHome - expH);
+  const away = Number(eloAway) + k * ((1 - actualHome) - (1 - expH));
+  return { home, away };
+}
+
+function actualHomeFromOutcome(outcome) {
+  if (outcome === OUTCOME.HOME) return 1;
+  if (outcome === OUTCOME.AWAY) return 0;
+  return 0.5;
+}
+
 module.exports = {
-  OUTCOME, OUTCOMES, OUTCOME_POINTS,
+  OUTCOME, OUTCOMES, OUTCOME_POINTS, ELO, ODDS,
   isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet,
+  eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
+  updateElo, actualHomeFromOutcome,
 };

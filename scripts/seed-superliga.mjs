@@ -61,9 +61,14 @@ async function run() {
   const fixtures = loadFixtures(fixturesPath);
   console.log(`\nSeeder ${fixtures.length} Superliga-kampe fra ${fixturesPath}...`);
 
-  // Gem hold-Elo på spil-dokumentet (reference + fremtidig genberegning).
+  // Gem hold-Elo på spil-dokumentet: `teams` = SEED (fast startpunkt for den
+  // levende genberegning), `eloCurrent` = aktuel Elo (starter = seed, opdateres
+  // løbende af recomputeSeasonElo når resultater kommer ind).
+  const eloCurrent = {};
+  for (const t of SUPERLIGA_TEAMS_2026) eloCurrent[t.name] = t.elo;
   await db.collection('games').doc(GAME_ID).set({
     teams: SUPERLIGA_TEAMS_2026,
+    eloCurrent,
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
 
