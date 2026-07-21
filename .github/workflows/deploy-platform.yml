@@ -127,12 +127,11 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: |
-          # Firebase-CLI'en indlæser functions-koden lokalt for at finde
-          # funktions-definitionerne → functions-afhængigheder skal installeres.
-          npm --prefix functions ci
-          # Kun spil-afregningen deployes (recomputeGameMatch) — den bruger ingen
-          # secrets, så Tour-motorens øvrige functions/secrets røres ikke.
-          firebase deploy --only functions:recomputeGameMatch --project "$PROJECT_ID" --non-interactive --force
+          # Platform-funktionerne bor i deres EGEN codebase (functions-platform),
+          # så Firebase-CLI'en aldrig validerer Tour-motorens secrets
+          # (SMTP_PASSWORD m.fl. findes kun i tour-85928) mod spil-89af9.
+          npm --prefix functions-platform ci
+          firebase deploy --only functions:platform --project "$PROJECT_ID" --non-interactive --force
 
       - name: Bootstrap owner (valgfrit)
         if: ${{ inputs.bootstrapOwnerEmail != '' }}

@@ -26,8 +26,6 @@ export default defineConfig({
       'leagueBonus.test.js',
       'tourSummary.test.js',
       'thankYouEmail.test.js',
-      'superligaScoring.test.js',
-      'gameScoring.test.js',
     ],
     exclude: [
       'rules.test.js',

@@ -127,7 +127,7 @@ jobs:
           until [ "$n" -ge "$max" ]; do
             n=$((n + 1))
             echo "::group::Functions-forsøg $n/$max"
-            if firebase deploy --only functions --project "$PROJECT_ID" --non-interactive --force; then
+            if firebase deploy --only functions:default --project "$PROJECT_ID" --non-interactive --force; then
               echo "::endgroup::"; echo "Functions deployet (forsøg $n/$max)."; exit 0
             fi
             echo "::endgroup::"
