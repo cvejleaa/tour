@@ -7,10 +7,12 @@ import { useMemo, useState } from 'react';
 import { useGameBets } from '../useGameBets';
 import { setBet } from '../betActions';
 import { playerBank } from '../GameLayout';
+import { useGameStandings } from '../useGameStandings';
 import ClubBadge from '../../../components/ClubBadge';
 import { superligaTeamInfo } from '../../../data/superligaTeams2026';
 import { colorsClash } from '../../../lib/contrastText';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
+import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
 import {
   groupByRound, activeRound, isLocked, toMillis,
 } from './footballRounds';
@@ -72,6 +74,7 @@ function matchBadges(home, away, styles) {
 export default function FootballTip({ game, me, matches }) {
   const gameId = game?.id;
   const { betsByMatch } = useGameBets(gameId);
+  const { standings } = useGameStandings(gameId);
   const bank = playerBank(me);
   const nowMs = Date.now();
 
@@ -148,6 +151,16 @@ export default function FootballTip({ game, me, matches }) {
   const roundBonus = roundSettled && tippedAllRound
     ? roundComboBonus(roundHitOdds, total) : 0;
 
+  // Rundens facit: point tjent i runden (bet-point + combi-bonus) + placering.
+  const roundHitsAll = roundMatches.filter((m) => m.result && betsByMatch[m.id]?.pick === m.result);
+  const roundBetPoints = roundMatches.reduce((a, m) => a + (Number(betsByMatch[m.id]?.points) || 0), 0);
+  const roundEarned = round1(roundBetPoints + roundBonus);
+  const myIdx = standings.findIndex((r) => r.uid === me?.uid);
+  const myRow = myIdx >= 0 ? standings[myIdx] : null;
+  const rivalAbove = myIdx > 0 ? standings[myIdx - 1] : null;
+  const rivalBelow = myIdx >= 0 && myIdx < standings.length - 1 ? standings[myIdx + 1] : null;
+  const showFacit = roundSettled && tipped > 0;
+
   return (
     <div>
       {/* Runde-header */}
@@ -169,6 +182,36 @@ export default function FootballTip({ game, me, matches }) {
           onClick={() => setRoundNo(rounds[idx + 1].round)} aria-label="Næste runde">→</button>
       </div>
 
+      {/* Rundens facit — vises når hele runden er spillet */}
+      {showFacit && (
+        <div className="card facit mb-2">
+          <div className="facit__top">
+            <span className="facit__title">Runde {current?.round} · facit</span>
+            <span className="facit__earned">{fmtSignedPoints(roundEarned)}</span>
+          </div>
+          <div className="facit__sub">
+            <strong>{roundHitsAll.length}/{total}</strong> ramt
+            {roundBonus > 0 && <> · <span className="facit__combi">combi +{fmtDec(roundBonus)} ⚡</span></>}
+          </div>
+          {myRow && (
+            <div className="facit__pos">
+              <div className="facit__rank">
+                Du er nr. <strong>{myRow.rank}</strong> af {standings.length}
+                <span className="facit__total"> · {fmtPoints(myRow.totalPoints)} point</span>
+              </div>
+              <div className="facit__rivals">
+                {rivalAbove
+                  ? <span>⬆ {fmtPoints(rivalAbove.totalPoints - myRow.totalPoints)} op til {rivalAbove.name}</span>
+                  : <span className="facit__lead">🥇 Du fører!</span>}
+                {rivalBelow && (
+                  <span>⬇ {fmtPoints(myRow.totalPoints - rivalBelow.totalPoints)} foran {rivalBelow.name}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-2" style={{ gap: '0.5rem' }}>
         <span className={`badge ${tipped >= total && total > 0 ? 'badge--green' : 'badge--yellow'}`}>
           {tipped}/{total} tippet
@@ -184,7 +227,7 @@ export default function FootballTip({ game, me, matches }) {
           <span style={{ fontWeight: 700 }}>🎯 Runde-bonus</span>
           {roundSettled && tippedAllRound ? (
             roundBonus > 0
-              ? <span className="badge badge--green">+{roundBonus.toFixed(1)} ({roundHits.length}/{total} ramt)</span>
+              ? <span className="badge badge--green">+{fmtDec(roundBonus)} ({roundHits.length}/{total} ramt)</span>
               : <span className="badge badge--muted">Ingen ({roundHits.length}/{total} ramt)</span>
           ) : tippedAllRound ? (
             <span className="chance-pill">⚡ I spil — {roundHits.length}/{total} ramt indtil videre</span>
@@ -214,7 +257,7 @@ export default function FootballTip({ game, me, matches }) {
               <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0 }}>
                 {h.venue && <span className="match-card__venue">{h.venue}</span>}
                 {m.result ? (
-                  hit === true ? <span className="badge badge--green">Ramt +{outcomeReward(m.result, m.odds).toFixed(1)}</span>
+                  hit === true ? <span className="badge badge--green">Ramt +{fmtDec(outcomeReward(m.result, m.odds))}</span>
                     : hit === false ? <span className="badge badge--red">Ikke ramt</span>
                       : <span className="badge">Spillet</span>
                 ) : isChance ? (
@@ -248,10 +291,10 @@ export default function FootballTip({ game, me, matches }) {
                     className={`pick ${selected ? 'pick--selected' : ''}`}
                     disabled={locked || busy === m.id}
                     onClick={() => pick(m, o)}
-                    title={pts != null ? `${pts.toFixed(1)} point hvis rigtigt (= odds)` : 'Odds mangler endnu'}
+                    title={pts != null ? `${fmtDec(pts)} point hvis rigtigt (= odds)` : 'Odds mangler endnu'}
                   >
                     <span className="pick__label">{OUTCOME_LABEL[o]}</span>
-                    <span className="pick__odds">{pts != null ? pts.toFixed(1) : '—'}</span>
+                    <span className="pick__odds">{pts != null ? fmtDec(pts) : '—'}</span>
                     <span className="pick__pts">point</span>
                   </button>
                 );
@@ -367,7 +410,7 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
             {odds ? (
               <>Rammer du: <strong style={{ color: 'var(--c-pitch)' }}>+{win}</strong>
                 {'  '}· Rammer du ikke: <strong style={{ color: 'var(--c-red, #c0392b)' }}>−{clampedStake}</strong>
-                {'  '}<span style={{ color: 'var(--c-muted)' }}>(odds {odds.toFixed(2)})</span></>
+                {'  '}<span style={{ color: 'var(--c-muted)' }}>(odds {fmtDec(odds, 2)})</span></>
             ) : (
               <span style={{ color: 'var(--c-muted)' }}>Odds er ikke lagt ind på kampen endnu.</span>
             )}

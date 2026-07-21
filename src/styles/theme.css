@@ -696,6 +696,19 @@ button {
   .pick--selected { background: var(--c-surface-alt); }
 }
 
+/* Rundens facit-skærm */
+.facit { border-left: 4px solid var(--c-pitch); }
+.facit__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.facit__title { font-weight: 800; font-size: 1.05rem; letter-spacing: -0.01em; }
+.facit__earned { font-weight: 800; font-size: 1.5rem; color: var(--c-pitch); font-variant-numeric: tabular-nums; line-height: 1; }
+.facit__sub { color: var(--c-muted); font-size: 0.9rem; margin-top: 0.15rem; }
+.facit__combi { color: var(--c-pitch); font-weight: 700; }
+.facit__pos { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--c-border); }
+.facit__rank { font-size: 0.95rem; }
+.facit__total { color: var(--c-muted); font-variant-numeric: tabular-nums; }
+.facit__rivals { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin-top: 0.3rem; font-size: 0.82rem; color: var(--c-muted); font-variant-numeric: tabular-nums; }
+.facit__lead { color: var(--c-pitch); font-weight: 700; }
+
 /* Stilling: top-3 podie */
 .podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 0.5rem; align-items: end; margin-bottom: 1rem; }
 .podium__spot {
