@@ -10,6 +10,7 @@
 
 const {
   scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeFromScore, outcomeOdds, isOutcome,
+  roundComboBonus, outcomeReward,
 } = require('./superligaScoring');
 
 /** Millisekunder fra et Firestore-Timestamp | tal | ISO-streng. */
@@ -91,21 +92,78 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
 }
 
 /**
- * Genberegn én spillers total i et spil = summen af alle vedkommendes bet-point,
- * gulvet ved 0. Kør i transaktion, så to kampe der afgøres tæt på hinanden ikke
- * overskriver hinandens sum (samme princip som recalcTourTotal).
+ * Byg en runde-kontekst ud fra alle kampe i spillet: opslag pr. kamp-id
+ * (runde, facit-udfald, frosne odds) + pr. runde (antal kampe + antal afgjorte).
+ * Bruges til combi-runde-bonussen, som kræver at hele runden er spillet.
  */
-async function recalcPlayerTotal(db, FieldValue, gameId, uid) {
+function buildRoundContext(matches) {
+  const byMatch = {};
+  const rounds = {};
+  for (const m of matches) {
+    const round = m.round;
+    if (round == null) continue;
+    const result = matchOutcome(m); // '1'|'X'|'2'|null
+    byMatch[m.id] = { round, result, odds: m.odds || null };
+    if (!rounds[round]) rounds[round] = { count: 0, settledCount: 0 };
+    rounds[round].count += 1;
+    if (result) rounds[round].settledCount += 1;
+  }
+  return { byMatch, rounds };
+}
+
+/**
+ * Samlet combi-runde-bonus for én spillers bets. For hver runde hvor (a) alle
+ * kampe er afgjort, og (b) spilleren har tippet ALLE kampe i runden: gang de
+ * ramte odds sammen (loftet) hvis 0 eller 1 fejl. Ren funktion → let at teste.
+ * @param {Array<{matchId:string, pick:string}>} bets
+ * @param {ReturnType<buildRoundContext>|null} roundCtx
+ * @returns {number}
+ */
+function playerRoundBonus(bets, roundCtx) {
+  if (!roundCtx) return 0;
+  const byRound = new Map();
+  for (const b of bets) {
+    const info = roundCtx.byMatch[b.matchId];
+    if (!info) continue;
+    if (!byRound.has(info.round)) byRound.set(info.round, []);
+    byRound.get(info.round).push(b);
+  }
+  let bonus = 0;
+  for (const [round, pbs] of byRound) {
+    const rc = roundCtx.rounds[round];
+    if (!rc || rc.count < 2) continue;
+    if (rc.settledCount !== rc.count) continue; // runden ikke helt afgjort endnu
+    if (pbs.length !== rc.count) continue;      // spilleren tippede ikke alle kampe
+    const hitOdds = [];
+    for (const pb of pbs) {
+      const info = roundCtx.byMatch[pb.matchId];
+      if (info.result && pb.pick === info.result) hitOdds.push(outcomeReward(info.result, info.odds));
+    }
+    bonus += roundComboBonus(hitOdds, rc.count);
+  }
+  return bonus;
+}
+
+/**
+ * Genberegn én spillers total i et spil = summen af alle vedkommendes bet-point
+ * PLUS combi-runde-bonusser, gulvet ved 0. Kør i transaktion, så to kampe der
+ * afgøres tæt på hinanden ikke overskriver hinandens sum.
+ * @param {object|null} roundCtx – runde-kontekst (buildRoundContext); uden den gives ingen bonus.
+ */
+async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null) {
   const betsQ = db.collection('games').doc(gameId).collection('bets').where('uid', '==', uid);
   const playerRef = db.collection('games').doc(gameId).collection('players').doc(uid);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(betsQ);
-    const raw = snap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
+    const bets = snap.docs.map((d) => d.data());
+    const raw = bets.reduce((a, b) => a + (Number(b.points) || 0), 0);
+    const bonus = playerRoundBonus(bets, roundCtx);
     // Point følger oddsene (1 decimal) → afrund summen, så float-støj ikke giver
     // grimme totaler som 7.399999999. Gulv ved 0 (Chancen kan give negative bets).
-    const totalPoints = Math.max(0, Math.round(raw * 10) / 10);
+    const totalPoints = Math.max(0, Math.round((raw + bonus) * 10) / 10);
     tx.set(playerRef, {
       totalPoints,
+      roundBonus: Math.round(bonus * 10) / 10,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   });
@@ -144,12 +202,19 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   if (rescored === 0) return { rescored: 0, players: 0 }; // intet ændret
   for (const b of batches) await b.commit();
 
+  // Runde-kontekst til combi-bonussen: hentes kun når vi faktisk skal genberegne.
+  const matchesSnap = await db.collection('games').doc(gameId).collection('matches').get();
+  const roundCtx = buildRoundContext(matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
   const uids = [...changedUids];
   const CHUNK = 10;
   for (let i = 0; i < uids.length; i += CHUNK) {
-    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid)));
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx)));
   }
   return { rescored, players: uids.length };
 }
 
-module.exports = { recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo };
+module.exports = {
+  recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo,
+  buildRoundContext, playerRoundBonus,
+};

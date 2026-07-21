@@ -15,7 +15,7 @@ import {
   groupByRound, activeRound, isLocked, toMillis,
 } from './footballRounds';
 import {
-  OUTCOME, OUTCOMES, round1, outcomeReward,
+  OUTCOME, OUTCOMES, round1, outcomeReward, roundComboBonus, ROUND_BONUS,
   chanceMaxStake, canUseChance, CHANCE, settleChance,
 } from '../../../lib/superligaScoring';
 
@@ -137,6 +137,17 @@ export default function FootballTip({ game, me, matches }) {
   const tipped = roundMatches.filter((m) => betsByMatch[m.id]?.pick).length;
   const total = roundMatches.length;
 
+  // Combi-runde-bonus: tip ALLE kampe i runden, ram dem alle (eller alle på nær
+  // én), og de ramte odds ganges sammen (loftet). Preview mens runden spilles.
+  const tippedAllRound = total > 0 && tipped === total;
+  const roundSettled = total > 0 && roundMatches.every((m) => m.result);
+  const roundHits = tippedAllRound
+    ? roundMatches.filter((m) => m.result && betsByMatch[m.id].pick === m.result)
+    : [];
+  const roundHitOdds = roundHits.map((m) => outcomeReward(m.result, m.odds));
+  const roundBonus = roundSettled && tippedAllRound
+    ? roundComboBonus(roundHitOdds, total) : 0;
+
   return (
     <div>
       {/* Runde-header */}
@@ -165,6 +176,26 @@ export default function FootballTip({ game, me, matches }) {
         <span style={{ color: 'var(--c-muted)', fontSize: '0.78rem' }}>
           Point følger oddsene — jo større overraskelse, jo flere point.
         </span>
+      </div>
+
+      {/* Combi-runde-bonus */}
+      <div className="card mb-2" style={{ borderStyle: 'dashed' }}>
+        <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700 }}>🎯 Runde-bonus</span>
+          {roundSettled && tippedAllRound ? (
+            roundBonus > 0
+              ? <span className="badge badge--green">+{roundBonus.toFixed(1)} ({roundHits.length}/{total} ramt)</span>
+              : <span className="badge badge--muted">Ingen ({roundHits.length}/{total} ramt)</span>
+          ) : tippedAllRound ? (
+            <span className="chance-pill">⚡ I spil — {roundHits.length}/{total} ramt indtil videre</span>
+          ) : (
+            <span className="badge badge--yellow">Tip alle {total} kampe for at være med</span>
+          )}
+        </div>
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.78rem', margin: '0.4rem 0 0' }}>
+          Rammer du <strong>alle {total}</strong> (eller alle på nær én), ganges dine ramte odds sammen som en kupon —
+          maks +{ROUND_BONUS.PERFECT_CAP} for hele runden, +{ROUND_BONUS.NEAR_CAP} for én fejl.
+        </p>
       </div>
 
       {error && <p className="badge badge--red mb-2">{error}</p>}

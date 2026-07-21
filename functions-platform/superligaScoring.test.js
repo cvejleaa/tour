@@ -3,7 +3,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const {
-  DEFAULT_POINTS, round1, outcomeReward,
+  DEFAULT_POINTS, ROUND_BONUS, round1, outcomeReward, roundComboBonus,
   isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
 } = require('./superligaScoring');
@@ -29,6 +29,13 @@ describe('superligaScoring (server-spejl)', () => {
   it('validerer udfald', () => {
     expect(isOutcome('X')).toBe(true);
     expect(isOutcome('3')).toBe(false);
+  });
+
+  it('roundComboBonus: odds ganget, loftet; 0/1 fejl giver bonus, ≥2 giver 0', () => {
+    expect(roundComboBonus([2, 2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.PERFECT_CAP); // 64 → loft 25
+    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(round1(1.5 ** 6));
+    expect(roundComboBonus([2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.NEAR_CAP);        // 1 fejl, 32 → loft 12
+    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(0);                              // 2 fejl
   });
 
   it('settleChance: gevinst = indsats×(odds−1), tab = −indsats, ingen bøde', () => {
@@ -88,6 +95,9 @@ describe('superligaScoring (server-spejl)', () => {
     }
     expect(settleChance({ correct: true, stake: 6, fairOdds: 2.5 }).delta)
       .toBe(src.settleChance({ correct: true, stake: 6, fairOdds: 2.5 }).delta);
+    // Combi-runde-bonus identisk med frontend-biblioteket.
+    expect(roundComboBonus([2.2, 3.1, 1.8, 4.3, 2.0, 1.5], 6))
+      .toBe(src.roundComboBonus([2.2, 3.1, 1.8, 4.3, 2.0, 1.5], 6));
     // Odds + Elo identisk med frontend-biblioteket.
     const args = { eloHome: 1623, eloAway: 1458 };
     expect(outcomeOdds(args)).toEqual(src.outcomeOdds(args));
