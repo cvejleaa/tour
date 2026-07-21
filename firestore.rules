@@ -575,6 +575,42 @@ service cloud.firestore {
 
         allow delete: if false;
       }
+
+      // games/{gameId}/leagues/{leagueId} — private mini-ligaer.
+      // Kun medlemmer kan læse (privat). Man deltager via en invitationskode,
+      // og selve tilføjelsen sker SERVER-SIDE (Cloud Function redeemGameLeagueCode
+      // med Admin SDK), så man ikke kan læse/tilføje sig til vilkårlige ligaer.
+      match /leagues/{leagueId} {
+        allow read: if isApproved() && request.auth.uid in resource.data.memberUids;
+
+        // Opret: godkendt deltager, ejer = selv, medlemmer = kun selv.
+        allow create: if isApproved()
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.memberUids == [request.auth.uid]
+          && request.resource.data.name is string
+          && request.resource.data.code is string;
+
+        // Opdatér: (a) ejer omdøber (medlemmer uændret), ELLER
+        //          (b) et medlem forlader (fjerner KUN sig selv).
+        // Deltag-i-liga sker server-side (Admin SDK omgår denne regel).
+        allow update: if isApproved() && (
+            (resource.data.ownerUid == request.auth.uid
+              && request.resource.data.memberUids == resource.data.memberUids
+              && request.resource.data.ownerUid == resource.data.ownerUid
+              && request.resource.data.code == resource.data.code)
+            ||
+            (request.auth.uid in resource.data.memberUids
+              && !(request.auth.uid in request.resource.data.memberUids)
+              && request.resource.data.memberUids.size() == resource.data.memberUids.size() - 1
+              && request.resource.data.ownerUid == resource.data.ownerUid
+              && request.resource.data.code == resource.data.code
+              && request.resource.data.name == resource.data.name)
+          );
+
+        // Slet: kun ejer.
+        allow delete: if isApproved() && resource.data.ownerUid == request.auth.uid;
+      }
     }
 
     // -----------------------------------------------------------------------

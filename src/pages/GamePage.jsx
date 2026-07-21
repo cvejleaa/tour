@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { joinGame } from '../features/games/gameActions';
 import GameLayout from '../features/games/GameLayout';
 import GameStandings from '../features/games/GameStandings';
+import GameLeagues from '../features/games/GameLeagues';
 import FootballTip from '../features/games/football/FootballTip';
 import { GAME_TYPE } from '../lib/constants';
 
@@ -79,10 +80,18 @@ export default function GamePage() {
               className={tab === 'stilling' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
               onClick={() => setTab('stilling')}
             >🏆 Stilling</button>
+            <button
+              role="tab"
+              aria-selected={tab === 'ligaer'}
+              className={tab === 'ligaer' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
+              onClick={() => setTab('ligaer')}
+            >👥 Ligaer</button>
           </div>
 
           {tab === 'stilling' ? (
             <GameStandings gameId={gameId} />
+          ) : tab === 'ligaer' ? (
+            <GameLeagues gameId={gameId} />
           ) : game.type === GAME_TYPE.FOOTBALL ? (
             <FootballTip game={game} me={me} matches={matches} />
           ) : (

@@ -41,3 +41,21 @@ export function rankDelta(row) {
   if (row?.previousRank == null || row?.rank == null) return null;
   return row.previousRank - row.rank;
 }
+
+/**
+ * Liga-stilling: filtrér en allerede rangeret liste (fra rankStandings) til
+ * ligaens medlemmer og gen-tildel placeringer INDEN FOR ligaen. Bevarer den
+ * eksisterende point-sortering.
+ * @param {Array<object>} rows       – rangeret spil-stilling
+ * @param {Array<string>|Set<string>} memberUids
+ */
+export function subsetRanking(rows, memberUids) {
+  const set = memberUids instanceof Set ? memberUids : new Set(memberUids || []);
+  const filtered = (rows || []).filter((r) => set.has(r.uid));
+  let rank = 0;
+  let prevPts = null;
+  return filtered.map((r, i) => {
+    if (r.totalPoints !== prevPts) { rank = i + 1; prevPts = r.totalPoints; }
+    return { ...r, rank };
+  });
+}
