@@ -146,7 +146,50 @@ function actualHomeFromOutcome(outcome) {
   return 0.5;
 }
 
+// --- Pulje-tip (spejl af src): slutstilling + pulje-score ---------------------
+const PULJE = { POOL_SIZE: 6, PER_TEAM: 4, PERFECT_BONUS: 10 };
+
+function leagueTable(matches) {
+  const table = new Map();
+  const row = (name) => {
+    if (!table.has(name)) table.set(name, { name, played: 0, points: 0, gf: 0, ga: 0, gd: 0 });
+    return table.get(name);
+  };
+  const goalOf = (g) => (g == null || g === '' ? NaN : Number(g));
+  for (const m of matches || []) {
+    const hg = goalOf(m.homeGoals);
+    const ag = goalOf(m.awayGoals);
+    if (!m.home || !m.away || !Number.isFinite(hg) || !Number.isFinite(ag)) continue;
+    const h = row(m.home);
+    const a = row(m.away);
+    h.played += 1; a.played += 1;
+    h.gf += hg; h.ga += ag; a.gf += ag; a.ga += hg;
+    if (hg > ag) h.points += 3;
+    else if (hg < ag) a.points += 3;
+    else { h.points += 1; a.points += 1; }
+  }
+  const rows = [...table.values()];
+  for (const r of rows) r.gd = r.gf - r.ga;
+  rows.sort((x, y) => (y.points - x.points) || (y.gd - x.gd) || (y.gf - x.gf)
+    || x.name.localeCompare(y.name, 'da'));
+  return rows;
+}
+
+function championshipTeams(matches, poolSize = PULJE.POOL_SIZE) {
+  return leagueTable(matches).slice(0, poolSize).map((r) => r.name);
+}
+
+function puljeScore(championshipPick, actualTop6) {
+  const top = actualTop6 instanceof Set ? actualTop6 : new Set(actualTop6 || []);
+  const picks = Array.isArray(championshipPick) ? [...new Set(championshipPick)] : [];
+  const correct = picks.filter((t) => top.has(t)).length;
+  const perfect = correct === PULJE.POOL_SIZE && picks.length === PULJE.POOL_SIZE;
+  const points = correct * PULJE.PER_TEAM + (perfect ? PULJE.PERFECT_BONUS : 0);
+  return { correct, points };
+}
+
 module.exports = {
+  PULJE, leagueTable, championshipTeams, puljeScore,
   OUTCOME, OUTCOMES, DEFAULT_POINTS, ROUND_BONUS, ELO, ODDS,
   isOutcome, outcomeFromScore, round1, outcomeReward, outcomePoints, roundComboBonus,
   settleChance, scoreBet,

@@ -10,10 +10,12 @@ import { playerBank } from '../GameLayout';
 import { useGameStandings } from '../useGameStandings';
 import { rankDelta } from '../gameStandings';
 import ClubBadge from '../../../components/ClubBadge';
+import CountUp from '../../../components/CountUp';
 import { superligaTeamInfo } from '../../../data/superligaTeams2026';
 import { colorsClash } from '../../../lib/contrastText';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
+import { shareText } from '../../../lib/share';
 import {
   groupByRound, activeRound, isLocked, toMillis,
 } from './footballRounds';
@@ -84,6 +86,7 @@ export default function FootballTip({ game, me, matches }) {
   const [roundNo, setRoundNo] = useState(initialRound);
   const [busy, setBusy] = useState(null); // matchId der gemmes
   const [error, setError] = useState('');
+  const [shareMsg, setShareMsg] = useState('');
 
   const { current, roundMatches, idx } = useMemo(() => {
     const cur = rounds.find((r) => r.round === roundNo)
@@ -173,6 +176,19 @@ export default function FootballTip({ game, me, matches }) {
         && r.previousRank > myPrev && r.rank < myRow.rank).map((r) => r.name)
     : [];
 
+  function buildFacitShare() {
+    const parts = [`⚽ Superliga R${current?.round}: ${fmtSignedPoints(roundEarned)} point (${roundHitsAll.length}/${total} ramt)`];
+    if (roundBonus > 0) parts.push(`combi +${fmtDec(roundBonus)} ⚡`);
+    if (myRow) parts.push(`nr. ${myRow.rank} af ${standings.length}`);
+    if (overtook.length) parts.push(`overhalede ${overtook.slice(0, 2).join(', ')} 🎉`);
+    return `${parts.join(' · ')}\ntip.vejleaa.dk`;
+  }
+  async function onShareFacit() {
+    const res = await shareText(buildFacitShare());
+    if (res.ok) setShareMsg(res.method === 'copy' ? 'Kopieret — indsæt i chatten!' : 'Delt!');
+    else if (res.error) setShareMsg('Kunne ikke dele.');
+  }
+
   return (
     <div>
       {/* Runde-header */}
@@ -199,7 +215,10 @@ export default function FootballTip({ game, me, matches }) {
         <div className="card facit mb-2">
           <div className="facit__top">
             <span className="facit__title">Runde {current?.round} · facit</span>
-            <span className="facit__earned">{fmtSignedPoints(roundEarned)}</span>
+            <span className="facit__earned">
+              <CountUp value={Math.abs(roundEarned)} prefix={roundEarned < 0 ? '−' : '+'}
+                decimals={Number.isInteger(roundEarned) ? 0 : 1} />
+            </span>
           </div>
           <div className="facit__sub">
             <strong>{roundHitsAll.length}/{total}</strong> ramt
@@ -236,6 +255,10 @@ export default function FootballTip({ game, me, matches }) {
               </div>
             </div>
           )}
+          <div className="facit__share">
+            <button className="btn btn--ghost btn--sm" onClick={onShareFacit}>📣 Del i chatten</button>
+            {shareMsg && <span className="facit__sharemsg">{shareMsg}</span>}
+          </div>
         </div>
       )}
 

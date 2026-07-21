@@ -6,6 +6,7 @@ const {
   DEFAULT_POINTS, ROUND_BONUS, round1, outcomeReward, roundComboBonus,
   isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
+  leagueTable, championshipTeams, puljeScore,
 } = require('./superligaScoring');
 
 describe('superligaScoring (server-spejl)', () => {
@@ -36,6 +37,18 @@ describe('superligaScoring (server-spejl)', () => {
     expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(round1(1.5 ** 6));
     expect(roundComboBonus([2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.NEAR_CAP);        // 1 fejl, 32 → loft 12
     expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(0);                              // 2 fejl
+  });
+
+  it('pulje-tip: slutstilling + score (spejl)', () => {
+    const matches = [
+      { home: 'A', away: 'B', homeGoals: 2, awayGoals: 0 },
+      { home: 'A', away: 'C', homeGoals: 1, awayGoals: 0 },
+      { home: 'B', away: 'C', homeGoals: 3, awayGoals: 1 },
+    ];
+    expect(leagueTable(matches).map((r) => r.name)).toEqual(['A', 'B', 'C']);
+    expect(championshipTeams(matches, 2)).toEqual(['A', 'B']);
+    const top6 = ['A', 'B', 'C', 'D', 'E', 'F'];
+    expect(puljeScore(['A', 'B', 'C', 'D', 'E', 'X'], top6)).toEqual({ correct: 5, points: 20 });
   });
 
   it('settleChance: gevinst = indsats×(odds−1), tab = −indsats, ingen bøde', () => {
@@ -98,6 +111,10 @@ describe('superligaScoring (server-spejl)', () => {
     // Combi-runde-bonus identisk med frontend-biblioteket.
     expect(roundComboBonus([2.2, 3.1, 1.8, 4.3, 2.0, 1.5], 6))
       .toBe(src.roundComboBonus([2.2, 3.1, 1.8, 4.3, 2.0, 1.5], 6));
+    // Pulje-score identisk.
+    const top6 = ['A', 'B', 'C', 'D', 'E', 'F'];
+    expect(puljeScore(['A', 'B', 'C', 'X', 'Y', 'Z'], top6))
+      .toEqual(src.puljeScore(['A', 'B', 'C', 'X', 'Y', 'Z'], top6));
     // Odds + Elo identisk med frontend-biblioteket.
     const args = { eloHome: 1623, eloAway: 1458 };
     expect(outcomeOdds(args)).toEqual(src.outcomeOdds(args));

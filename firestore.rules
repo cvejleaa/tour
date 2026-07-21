@@ -549,6 +549,29 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // games/{gameId}/puljeBets/{uid} — pulje-tip (mesterskabsspil-forudsigelse).
+      // Præcis 6 hold, kun FØR deadline (game.puljeLockAt). points/correct sættes
+      // kun af serveren. Eget tip kan altid læses; andres først EFTER deadline.
+      match /puljeBets/{uid} {
+        function gameLock() {
+          return get(/databases/$(database)/documents/games/$(gameId)).data.puljeLockAt;
+        }
+        function beforeDeadline() {
+          return gameLock() != null && request.time < gameLock();
+        }
+        allow read: if (isSignedIn() && request.auth.uid == uid)
+          || (isApproved() && !beforeDeadline());
+        allow create, update: if isApproved()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && beforeDeadline()
+          && request.resource.data.championship is list
+          && request.resource.data.championship.size() == 6
+          && !request.resource.data.keys().hasAny(['points', 'correct']);
+        allow delete: if false;
+      }
+
       // games/{gameId}/bets/{betId} (betId = uid_matchId) — tips på en kamp.
       // Kun eget tip, kun FØR kickoff, og kun hvis man DELTAGER i spillet
       // (har et players/{uid}-dokument). points sættes kun af serveren.
@@ -610,6 +633,28 @@ service cloud.firestore {
 
         // Slet: kun ejer.
         allow delete: if isApproved() && resource.data.ownerUid == request.auth.uid;
+
+        // games/{gameId}/leagues/{leagueId}/messages/{msgId} — liga-væg.
+        // Kun ligaens medlemmer kan læse/skrive; man skriver kun i eget navn.
+        match /messages/{msgId} {
+          function members() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.memberUids;
+          }
+          function ownerUid() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.ownerUid;
+          }
+          allow read: if isApproved() && request.auth.uid in members();
+          allow create: if isApproved()
+            && request.auth.uid in members()
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 280;
+          allow update: if false;
+          // Slet egen besked, eller liga-ejeren kan moderere.
+          allow delete: if isApproved()
+            && (resource.data.uid == request.auth.uid || ownerUid() == request.auth.uid);
+        }
       }
     }
 

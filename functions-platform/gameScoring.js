@@ -10,7 +10,7 @@
 
 const {
   scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeFromScore, outcomeOdds, isOutcome,
-  roundComboBonus, outcomeReward,
+  roundComboBonus, outcomeReward, championshipTeams, puljeScore,
 } = require('./superligaScoring');
 
 /** Millisekunder fra et Firestore-Timestamp | tal | ISO-streng. */
@@ -56,7 +56,17 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
   const snap = await gameRef.collection('matches').get();
   const matches = snap.docs.map((d) => ({ id: d.id, ref: d.ref, ...d.data() }));
 
-  // Spillede kampe i kronologisk rækkefølge → opdatér Elo.
+  // Kampe pr. runde (til Elo-historik-snapshot, når en hel runde er spillet).
+  const roundTotal = new Map();
+  for (const m of matches) {
+    if (m.round == null) continue;
+    roundTotal.set(m.round, (roundTotal.get(m.round) || 0) + 1);
+  }
+  const roundPlayed = new Map();
+  const eloHistory = []; // [{ round, elo: {name: rating} }] efter hver HELE runde
+
+  // Spillede kampe i kronologisk rækkefølge → opdatér Elo. Efter den kamp der
+  // fuldender en runde, gemmes et Elo-snapshot for den runde.
   const played = matches
     .filter((m) => matchOutcome(m))
     .sort((a, b) => (kickoffMs(a) ?? 0) - (kickoffMs(b) ?? 0));
@@ -65,12 +75,22 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
     const { home, away } = updateElo(get(m.home), get(m.away), actualHomeFromOutcome(outcome));
     elo.set(m.home, home);
     elo.set(m.away, away);
+    if (m.round != null) {
+      roundPlayed.set(m.round, (roundPlayed.get(m.round) || 0) + 1);
+      if (roundPlayed.get(m.round) === roundTotal.get(m.round)
+        && !eloHistory.some((h) => h.round === m.round)) {
+        const rowSnap = {};
+        for (const [n, r] of elo) rowSnap[n] = Math.round(r);
+        eloHistory.push({ round: m.round, elo: rowSnap });
+      }
+    }
   }
+  eloHistory.sort((a, b) => a.round - b.round);
 
-  // Gem aktuel Elo på spillet (til oversigt/visning).
+  // Gem aktuel Elo + rundevis historik på spillet (til Elo-tabellen).
   const eloCurrent = {};
   for (const [n, r] of elo) eloCurrent[n] = Math.round(r);
-  await gameRef.set({ eloCurrent, eloUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await gameRef.set({ eloCurrent, eloHistory, eloUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
   // Friske odds på fremtidige, ikke-låste kampe — kun hvis de reelt ændrer sig.
   let batch = db.batch();
@@ -155,12 +175,16 @@ async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null) {
   const playerRef = db.collection('games').doc(gameId).collection('players').doc(uid);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(betsQ);
+    const playerSnap = await tx.get(playerRef);
     const bets = snap.docs.map((d) => d.data());
     const raw = bets.reduce((a, b) => a + (Number(b.points) || 0), 0);
     const bonus = playerRoundBonus(bets, roundCtx);
+    // Pulje-bonus (mesterskabsspil-tip) afregnes ved sæsonslut og gemmes på
+    // spilleren; her lægges den bare oveni den løbende total.
+    const puljeBonus = Number(playerSnap.exists ? playerSnap.data().bonusPoints : 0) || 0;
     // Point følger oddsene (1 decimal) → afrund summen, så float-støj ikke giver
     // grimme totaler som 7.399999999. Gulv ved 0 (Chancen kan give negative bets).
-    const totalPoints = Math.max(0, Math.round((raw + bonus) * 10) / 10);
+    const totalPoints = Math.max(0, Math.round((raw + bonus + puljeBonus) * 10) / 10);
     tx.set(playerRef, {
       totalPoints,
       roundBonus: Math.round(bonus * 10) / 10,
@@ -215,6 +239,62 @@ async function snapshotRoundRanks(db, FieldValue, gameId) {
 }
 
 /**
+ * Top-6 (mesterskabsspil) fra den OFFICIELLE stilling — kun hvis stillingen er
+ * synket helt igennem grundspillet (hvert hold har spillet `expectedPlayed`).
+ * Returnerer null hvis stillingen mangler/ikke er komplet (så kalderen kan bruge
+ * en beregnet fallback).
+ * @returns {string[]|null}
+ */
+function officialTop6(standings, expectedPlayed) {
+  if (!Array.isArray(standings) || standings.length < 12) return null;
+  if (expectedPlayed && !standings.every((r) => Number(r.played) === expectedPlayed)) return null;
+  return standings.filter((r) => Number(r.rank) >= 1 && Number(r.rank) <= 6 && r.teamName)
+    .map((r) => r.teamName);
+}
+
+/**
+ * Afregn pulje-tip (mesterskabsspil-forudsigelse) NÅR hele grundspillet er
+ * spillet. Beregner top-6 fra slutstillingen, scorer hvert pulje-tip, gemmer
+ * point/correct på tippet + bonusPoints på spilleren, og genberegner totalerne.
+ * Self-guardet (gør intet før alle kampe har mål) og idempotent.
+ * @returns {Promise<{settled:number}>}
+ */
+async function settlePuljeBets(db, FieldValue, gameId, matches) {
+  const goalOf = (g) => (g == null || g === '' ? NaN : Number(g));
+  const complete = matches.length > 0 && matches.every(
+    (m) => Number.isFinite(goalOf(m.homeGoals)) && Number.isFinite(goalOf(m.awayGoals)),
+  );
+  if (!complete) return { settled: 0 };
+
+  const gameRef = db.collection('games').doc(gameId);
+  const puljeSnap = await gameRef.collection('puljeBets').get();
+  if (puljeSnap.empty) return { settled: 0 };
+
+  // Top-6 fra den OFFICIELLE stilling (autoritativ); beregnet tabel kun som
+  // fallback, hvis stillingen ikke er synket helt igennem grundspillet.
+  const gameSnap = await gameRef.get();
+  const standings = gameSnap.exists ? gameSnap.data().standings : null;
+  const expectedPlayed = matches.length % 6 === 0 ? matches.length / 6 : null;
+  const top6 = new Set(officialTop6(standings, expectedPlayed) || championshipTeams(matches));
+  const batch = db.batch();
+  const uids = [];
+  for (const d of puljeSnap.docs) {
+    const { correct, points } = puljeScore(d.data().championship, top6);
+    batch.update(d.ref, { correct, points });
+    const playerRef = db.collection('games').doc(gameId).collection('players').doc(d.id);
+    batch.set(playerRef, { bonusPoints: points }, { merge: true });
+    uids.push(d.id);
+  }
+  await batch.commit();
+
+  const CHUNK = 10;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid)));
+  }
+  return { settled: uids.length };
+}
+
+/**
  * Kernen bag recomputeGameMatch (uden Cloud Functions-wrapper, så den kan
  * unit-testes). Scorer alle bets på en kamp og genberegner berørte spillere.
  * @returns {Promise<{rescored:number, players:number}>}
@@ -249,7 +329,8 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
 
   // Runde-kontekst til combi-bonussen: hentes kun når vi faktisk skal genberegne.
   const matchesSnap = await db.collection('games').doc(gameId).collection('matches').get();
-  const roundCtx = buildRoundContext(matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const roundCtx = buildRoundContext(allMatches);
 
   const uids = [...changedUids];
   const CHUNK = 10;
@@ -271,10 +352,16 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
       await gameRef.set({ snapshottedRounds: FieldValue.arrayUnion(round) }, { merge: true });
     }
   }
+
+  // Pulje-tip: afregn mesterskabsspil-tippene når HELE grundspillet er spillet
+  // (self-guardet + idempotent — rescores hvis et resultat senere rettes).
+  await settlePuljeBets(db, FieldValue, gameId, allMatches);
+
   return { rescored, players: uids.length };
 }
 
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo,
   buildRoundContext, playerRoundBonus, computeRanks, snapshotRoundRanks,
+  settlePuljeBets, officialTop6,
 };

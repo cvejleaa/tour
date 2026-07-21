@@ -13,6 +13,8 @@
 
 const GAME_ID = 'superliga2627';
 const SEASON_ID = 35802; // 3F Superliga 2026/2027 (fra tournament_by_season)
+const TOURNAMENT_ID = 46; // 3F Superliga (template)
+const STAGE_ID = 935487; // grundspillet 2026/27 (fra tournament_by_season.stages)
 const API_BASE = 'https://api.superliga.dk';
 // Offentligt app-token (ligger i superliga.dk's offentlige app — ikke en secret).
 const ACCESS_TOKEN = '5b6ab6f5eb84c60031bbbd24';
@@ -90,6 +92,54 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
   return { checked: events.length, updated };
 }
 
+/** URL til den OFFICIELLE stilling (grundspil-stage), med form (last5). */
+function standingsUrl(seasonId = SEASON_ID, stageId = STAGE_ID) {
+  return `${API_BASE}/tournaments/${TOURNAMENT_ID}/standings?appName=superligadk&access_token=${ACCESS_TOKEN}`
+    + `&env=production&locale=da&addResults=true&resultsLimit=6&form=last5&seasonId=${seasonId}&stageId=${stageId}`;
+}
+
+/**
+ * Synk den OFFICIELLE stilling fra api.superliga.dk til spil-dokumentet
+ * (games/{gameId}.standings). Vi BEREGNER ikke selv tabellen — den hentes som
+ * autoritativ kilde (samme princip som resultaterne).
+ * @returns {Promise<{rows:number}>}
+ */
+async function syncStandingsCore(db, FieldValue, opts = {}) {
+  const gameId = opts.gameId || GAME_ID;
+  const seasonId = opts.seasonId || SEASON_ID;
+  const stageId = opts.stageId || STAGE_ID;
+  const fetchFn = opts.fetchFn || fetch;
+
+  const res = await fetchFn(standingsUrl(seasonId, stageId));
+  if (!res.ok) throw new Error(`superliga standings HTTP ${res.status}`);
+  const data = await res.json();
+  const rows = (Array.isArray(data) ? data : [])
+    .map((r) => ({
+      rank: Number(r.rank) || 0,
+      teamName: r.teamName,
+      teamShortName: r.teamShortName || null,
+      points: Number(r.points) || 0,
+      played: Number(r.matchesPlayed) || 0,
+      won: Number(r.matchesWon) || 0,
+      draw: Number(r.matchesDraw) || 0,
+      lost: Number(r.matchesLost) || 0,
+      gf: Number(r.goalsScored) || 0,
+      ga: Number(r.goalsConceded) || 0,
+      rankType: r.rankType || null,
+    }))
+    .filter((r) => r.teamName)
+    .sort((a, b) => a.rank - b.rank);
+  if (rows.length === 0) return { rows: 0 };
+
+  await db.collection('games').doc(gameId).set({
+    standings: rows,
+    standingsSyncedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+  return { rows: rows.length };
+}
+
 module.exports = {
-  GAME_ID, SEASON_ID, outcomeFromScore, matchDocId, resultsUrl, syncResultsCore,
+  GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
+  outcomeFromScore, matchDocId, resultsUrl, syncResultsCore,
+  standingsUrl, syncStandingsCore,
 };

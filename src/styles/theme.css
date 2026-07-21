@@ -711,6 +711,93 @@ button {
 .facit__moves { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; margin-top: 0.35rem; font-size: 0.85rem; font-weight: 600; }
 .facit__up { color: var(--c-pitch, #2e7d32); }
 .facit__down { color: var(--c-red, #c0392b); }
+.facit__share { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px solid var(--c-border); }
+.facit__sharemsg { font-size: 0.8rem; color: var(--c-pitch); font-weight: 600; }
+@media (prefers-reduced-motion: no-preference) {
+  .facit__moves .facit__up { animation: facitpop 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+}
+@keyframes facitpop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* Mine tips */
+.mytips__summary { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
+.mytips__summary > div { display: flex; flex-direction: column; }
+.mytips__big { font-family: var(--font-mono, ui-monospace, monospace); font-size: 1.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.mytips__summary span { font-size: 0.72rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.15rem; }
+.mytips__head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.mytips__round { font-weight: 800; }
+.mytips__meta { font-size: 0.8rem; color: var(--c-muted); }
+.mytips__bonus { color: var(--c-pitch); font-weight: 700; }
+.mytips__rows { display: flex; flex-direction: column; gap: 0.15rem; }
+.mytips__row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.5rem; padding: 0.35rem 0.2rem; border-top: 1px solid var(--c-border); font-size: 0.88rem; }
+.mytips__row--chance { background: color-mix(in srgb, var(--c-accent, #f5b301) 8%, transparent); border-radius: var(--radius-sm); }
+.mytips__kick { font-size: 0.7rem; color: var(--c-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mytips__match { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mytips__dash { color: var(--c-muted); margin: 0 0.25rem; }
+.mytips__pick { font-weight: 800; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 0.15rem; }
+.mytips__chance { font-size: 0.8rem; }
+.mytips__res { text-align: right; font-variant-numeric: tabular-nums; }
+.mytips__none, .mytips__pending { color: var(--c-muted); font-size: 0.8rem; }
+
+/* Pulje-tip */
+.pulje-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+@media (min-width: 620px) { .pulje-grid { grid-template-columns: repeat(3, 1fr); } }
+.pulje-team { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.7rem; text-align: left;
+  background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: var(--radius-sm); position: relative; }
+.pulje-team:disabled { cursor: default; opacity: 0.55; }
+.pulje-team__name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pulje-team--chosen { border-color: var(--c-pitch); background: color-mix(in srgb, var(--c-pitch) 12%, var(--c-surface)); box-shadow: 0 0 0 1px var(--c-pitch); }
+.pulje-team__check { margin-left: auto; color: var(--c-pitch); font-weight: 800; }
+.pulje-team__actual { position: absolute; top: 4px; right: 6px; font-size: 0.8rem; }
+.pulje-team--hit { border-color: var(--c-ok); box-shadow: 0 0 0 1px var(--c-ok); }
+.pulje-team--miss { border-color: var(--c-err); }
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .pulje-team--chosen { background: var(--c-surface-alt); }
+}
+
+/* Elo-tabel (rating gennem sæsonen) */
+.elo-wrap { overflow-x: auto; border: 1px solid var(--c-border); border-radius: var(--radius-sm); }
+.elo-table { border-collapse: collapse; font-size: 0.82rem; min-width: 100%; }
+.elo-table th, .elo-table td { padding: 0.4rem 0.6rem; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--c-border); }
+.elo-table thead th { position: sticky; top: 0; background: var(--c-surface); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--c-muted); }
+.elo-table tbody tr:last-child td { border-bottom: none; }
+.elo-team-col { position: sticky; left: 0; z-index: 1; background: var(--c-surface); text-align: left !important; box-shadow: 1px 0 0 var(--c-border); }
+.elo-start-col { color: var(--c-muted); }
+.elo-team { display: inline-flex; align-items: center; gap: 0.4rem; }
+.elo-team__name { font-weight: 700; }
+.elo-cell__rating { font-variant-numeric: tabular-nums; font-weight: 600; }
+.elo-cell { min-width: 62px; }
+.elo__up { color: var(--c-ok); font-size: 0.7rem; margin-left: 0.25rem; }
+.elo__down { color: var(--c-err); font-size: 0.7rem; margin-left: 0.25rem; }
+.elo__flat { color: var(--c-muted); font-size: 0.7rem; margin-left: 0.25rem; }
+
+/* Superliga-tabel (officiel stilling) */
+.sltab-wrap { overflow-x: auto; border: 1px solid var(--c-border); border-radius: var(--radius-sm); }
+.sltab { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.sltab th, .sltab td { padding: 0.45rem 0.5rem; text-align: center; white-space: nowrap; }
+.sltab thead th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--c-muted); border-bottom: 2px solid var(--c-border); }
+.sltab tbody td { border-bottom: 1px solid var(--c-border); font-variant-numeric: tabular-nums; }
+.sltab__rank { width: 1.8rem; color: var(--c-muted); }
+.sltab__team { text-align: left !important; }
+.sltab__teamcell { display: inline-flex; align-items: center; gap: 0.45rem; }
+.sltab__name { font-weight: 600; }
+.sltab__pts { font-weight: 800; }
+.sltab__divider td { text-align: left; font-weight: 700; font-size: 0.78rem; padding: 0.4rem 0.5rem; background: var(--c-surface-2); }
+.sltab__divider--champ td { color: var(--c-pitch); box-shadow: inset 3px 0 0 var(--c-pitch); }
+.sltab__divider--releg td { color: var(--c-err); box-shadow: inset 3px 0 0 var(--c-err); }
+@media (max-width: 480px) { .sltab__hide-sm { display: none; } }
+
+/* Liga-væg */
+.wall { margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--c-border); }
+.wall__title { font-weight: 700; font-size: 0.9rem; margin-bottom: 0.5rem; }
+.wall__form { display: flex; gap: 0.4rem; }
+.wall__form input { flex: 1; min-width: 0; }
+.wall__list { list-style: none; padding: 0; margin: 0.6rem 0 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.wall__msg { display: flex; gap: 0.5rem; align-items: flex-start; }
+.wall__body { min-width: 0; }
+.wall__meta { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.wall__meta strong { font-size: 0.85rem; }
+.wall__time { font-size: 0.72rem; color: var(--c-muted); }
+.wall__text { font-size: 0.9rem; white-space: pre-wrap; word-break: break-word; }
 
 /* Stilling: top-3 podie */
 .podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 0.5rem; align-items: end; margin-bottom: 1rem; }
