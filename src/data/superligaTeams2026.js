@@ -11,19 +11,21 @@
 // `short` bruges til kompakt visning.
 // ---------------------------------------------------------------------------
 
+// Navnene er de EKSAKTE fra api.superliga.dk (samme kilde som kampprogram +
+// facit), så Elo-opslag og resultat-matchning altid rammer. Elo = startgæt.
 export const SUPERLIGA_TEAMS_2026 = [
-  { name: 'FC København',    short: 'FCK', elo: 1680 },
-  { name: 'FC Midtjylland',  short: 'FCM', elo: 1660 },
-  { name: 'Brøndby IF',      short: 'BIF', elo: 1580 },
-  { name: 'FC Nordsjælland', short: 'FCN', elo: 1560 },
-  { name: 'AGF',             short: 'AGF', elo: 1520 },
-  { name: 'Randers FC',      short: 'RFC', elo: 1490 },
-  { name: 'Silkeborg IF',    short: 'SIF', elo: 1490 },
-  { name: 'Viborg FF',       short: 'VFF', elo: 1470 },
-  { name: 'AaB',             short: 'AAB', elo: 1440 },
-  { name: 'Sønderjyske',     short: 'SØN', elo: 1450 },
-  { name: 'Lyngby BK',       short: 'LBK', elo: 1450 },
-  { name: 'Vejle BK',        short: 'VBK', elo: 1420 },
+  { name: 'F.C. København',      short: 'FCK', elo: 1680 },
+  { name: 'FC Midtjylland',      short: 'FCM', elo: 1660 },
+  { name: 'Brøndby IF',          short: 'BIF', elo: 1580 },
+  { name: 'FC Nordsjælland',     short: 'FCN', elo: 1560 },
+  { name: 'AGF',                 short: 'AGF', elo: 1520 },
+  { name: 'Silkeborg IF',        short: 'SIF', elo: 1495 },
+  { name: 'Randers FC',          short: 'RFC', elo: 1480 },
+  { name: 'Viborg FF',           short: 'VFF', elo: 1480 },
+  { name: 'OB',                  short: 'OB',  elo: 1470 },
+  { name: 'Sønderjyske Fodbold', short: 'SJF', elo: 1450 },
+  { name: 'Lyngby Boldklub',     short: 'LBK', elo: 1450 },
+  { name: 'AC Horsens',          short: 'ACH', elo: 1400 },
 ];
 
 /** Opslag holdnavn → Elo (fallback håndteres af teamElo i superligaSeed). */
