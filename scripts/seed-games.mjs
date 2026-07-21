@@ -42,7 +42,10 @@ const GAMES = [
   {
     id: 'tour2026',
     name: 'Tour de France 2026', shortName: 'Tour', emoji: '🚴',
-    type: 'cycling', status: 'live', joinable: true,
+    // Kører endnu i sin egen app; forsiden linker UD hertil indtil spillet
+    // migreres ind i platformen. joinable: false → intet Deltag, kun link.
+    type: 'cycling', status: 'live', joinable: false,
+    externalUrl: 'https://tour.vejleaa.dk',
     season: '2026', order: 2,
   },
   {

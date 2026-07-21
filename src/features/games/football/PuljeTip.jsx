@@ -36,13 +36,10 @@ export default function PuljeTip({ game, matches }) {
     }, () => setBet(null));
   }, [gameId, uid]);
 
-  // Deadline: game.puljeLockAt, ellers tidligste kickoff.
-  const lockMs = useMemo(() => {
-    const explicit = toMillis(game?.puljeLockAt);
-    if (explicit != null) return explicit;
-    const kicks = (matches || []).map((m) => toMillis(m.kickoff)).filter((x) => x != null);
-    return kicks.length ? Math.min(...kicks) : null;
-  }, [game, matches]);
+  // Deadline styres af admin (game.puljeLockAt). Er den ikke sat endnu, er
+  // bonus-tippet åbent — vi låser IKKE automatisk ved runde 1, så der er tid
+  // til at få spillere med.
+  const lockMs = useMemo(() => toMillis(game?.puljeLockAt), [game]);
   const locked = lockMs != null && Date.now() >= lockMs;
 
   // Facit fra den OFFICIELLE stilling (vi beregner den ikke selv): de 6 øverste,
@@ -89,7 +86,7 @@ export default function PuljeTip({ game, matches }) {
           du rammer alle 6.
         </p>
         {lockMs == null ? (
-          <p className="badge badge--yellow" style={{ display: 'inline-block' }}>Deadline: før runde 1</p>
+          <p className="badge badge--blue" style={{ display: 'inline-block' }}>🟢 Åbent — deadline fastsættes af admin.</p>
         ) : locked ? (
           <p className="badge badge--muted" style={{ display: 'inline-block' }}>
             🔒 Deadline passeret ({formatKickoff(lockMs)}) — pulje-tippet er låst.

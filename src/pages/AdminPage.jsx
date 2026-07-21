@@ -18,6 +18,7 @@ import SettingsTab from '../features/admin/SettingsTab';
 import ActivityTab from '../features/admin/ActivityTab';
 import RiderProfilesTab from '../features/admin/RiderProfilesTab';
 import TeamStylesTab from '../features/admin/TeamStylesTab';
+import GameScheduleTab from '../features/admin/GameScheduleTab';
 
 // Fane-id'er
 const TAB_USERS   = 'users';
@@ -32,6 +33,7 @@ const TAB_SETTINGS = 'settings';
 const TAB_ACTIVITY = 'activity';
 const TAB_RIDERS = 'riders';
 const TAB_TEAMSTYLES = 'teamstyles';
+const TAB_SCHEDULE = 'schedule';
 
 export default function AdminPage() {
   const { isOwner, isGlobalAdmin } = useAuth();
@@ -57,8 +59,11 @@ export default function AdminPage() {
       { key: TAB_BONUS,   label: 'Bonus' },
       { key: TAB_LEAGUES, label: 'Ligaer' },
     ]),
-    // Samlet platform: Superliga-hold-farver (badges).
-    ...(PLATFORM_MODE ? [{ key: TAB_TEAMSTYLES, label: '🎨 Hold-farver' }] : []),
+    // Samlet platform: spil-tidsplan (start + bonus-deadline) + hold-farver.
+    ...(PLATFORM_MODE ? [
+      { key: TAB_SCHEDULE, label: '🗓️ Spil-tidsplan' },
+      { key: TAB_TEAMSTYLES, label: '🎨 Hold-farver' },
+    ] : []),
     { key: TAB_TESTS,   label: 'Tests' },
     ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
     { key: TAB_MAILS,   label: '✉️ Mail-log' },
@@ -124,6 +129,7 @@ export default function AdminPage() {
         {tab === TAB_USERS   && <UsersTab isOwner={isOwner} isGlobalAdmin={isGlobalAdmin} />}
         {tab === TAB_TOUR    && <TourTab />}
         {tab === TAB_RIDERS  && <RiderProfilesTab />}
+        {tab === TAB_SCHEDULE && <GameScheduleTab />}
         {tab === TAB_TEAMSTYLES && <TeamStylesTab />}
         {tab === TAB_BONUS   && <BonusTab />}
         {tab === TAB_LEAGUES && <LeaguesAdminTab />}

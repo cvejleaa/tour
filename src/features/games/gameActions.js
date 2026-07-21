@@ -12,10 +12,21 @@
  *   { ok: false, error: 'dansk fejlbesked' }  ved fejl
  */
 import {
-  doc, setDoc, deleteDoc, serverTimestamp,
+  doc, setDoc, deleteDoc, deleteField, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
+
+/**
+ * Oversæt en admin-indtastet dato til en Firestore-værdi:
+ *   null/'' → deleteField() (ryd feltet)   ·   Date/ms/ISO → Timestamp.
+ */
+function toScheduleValue(v) {
+  if (v == null || v === '') return deleteField();
+  const ms = typeof v === 'number' ? v : (v instanceof Date ? v.getTime() : Date.parse(v));
+  if (!Number.isFinite(ms)) return deleteField();
+  return Timestamp.fromMillis(ms);
+}
 
 /**
  * Oversæt en fejl til en brugervenlig dansk besked.
@@ -71,6 +82,30 @@ export async function setTeamStyles(gameId, teamStyles) {
     return { ok: true };
   } catch (err) {
     return { ok: false, error: danishError(err, 'Kunne ikke gemme hold-farver.') };
+  }
+}
+
+/**
+ * Sæt spillets tidsplan (kun admin/owner — håndhæves af security rules:
+ * games/{gameId} write = isGlobalAdmin). Felterne styres uafhængigt:
+ *   - startAt     : hvornår selve spillet går i gang (informativt/gate).
+ *   - puljeLockAt : deadline for bonus-/pulje-tippet.
+ * Udelad et felt (undefined) for at lade det være urørt; giv null/'' for at
+ * rydde det. Så kan admin fx åbne for bonus-tip længere end til runde 1.
+ * @param {string} gameId
+ * @param {{startAt?: Date|number|string|null, puljeLockAt?: Date|number|string|null}} schedule
+ * @returns {Promise<{ok:true}|{ok:false,error:string}>}
+ */
+export async function setGameSchedule(gameId, { startAt, puljeLockAt } = {}) {
+  if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
+  const patch = { updatedAt: serverTimestamp() };
+  if (startAt !== undefined) patch.startAt = toScheduleValue(startAt);
+  if (puljeLockAt !== undefined) patch.puljeLockAt = toScheduleValue(puljeLockAt);
+  try {
+    await setDoc(doc(db, COL.GAMES, gameId), patch, { merge: true });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke gemme spillets tidsplan.') };
   }
 }
 

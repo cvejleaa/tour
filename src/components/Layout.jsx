@@ -86,6 +86,10 @@ export default function Layout({ children }) {
                   <CountBadge count={unreadCount} title={`${unreadCount} ulæste beskeder`} testid="unread-messages-count" />
                 </span>
               </NavLink>
+              {/* Platform-skallen: hjælpesiden (❓) hører til her, da spil-links bor inde i spillet. */}
+              {PLATFORM_MODE && (
+                <NavLink to="/hjaelp" style={linkStyle} title="Sådan virker det" aria-label="Hjælp">❓</NavLink>
+              )}
               {isGlobalAdmin && (
                 <NavLink to="/admin" style={linkStyle}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>

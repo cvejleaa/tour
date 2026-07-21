@@ -2,7 +2,7 @@
  * Tests for gameActions.js – fuldstændig mock af Firebase.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { joinGame, leaveGame } from './gameActions';
+import { joinGame, leaveGame, setGameSchedule } from './gameActions';
 
 // ── Mock firebase/firestore ───────────────────────────────────────────────────
 const mockSetDoc = vi.fn();
@@ -22,6 +22,8 @@ vi.mock('firebase/firestore', () => ({
   setDoc: (...args) => mockSetDoc(...args),
   deleteDoc: (...args) => mockDeleteDoc(...args),
   serverTimestamp: () => mockServerTimestamp(),
+  deleteField: () => ({ _deleteField: true }),
+  Timestamp: { fromMillis: (ms) => ({ _ts: ms }) },
 }));
 
 vi.mock('../../firebase', () => ({ db: {} }));
@@ -106,5 +108,38 @@ describe('leaveGame', () => {
     const res = await leaveGame('uid-1', 'spil-1');
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/adgang/i);
+  });
+});
+
+describe('setGameSchedule', () => {
+  it('returnerer fejl uden gameId', async () => {
+    const res = await setGameSchedule('', { startAt: Date.now() });
+    expect(res.ok).toBe(false);
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it('skriver Timestamp for satte felter (merge) på games/{gameId}', async () => {
+    const res = await setGameSchedule('superliga2627', { startAt: 1000, puljeLockAt: 2000 });
+    expect(res).toEqual({ ok: true });
+    expect(mockDoc).toHaveBeenCalledWith({}, 'games', 'superliga2627');
+    const [, patch, opts] = mockSetDoc.mock.calls[0];
+    expect(patch.startAt).toEqual({ _ts: 1000 });
+    expect(patch.puljeLockAt).toEqual({ _ts: 2000 });
+    expect(opts).toEqual({ merge: true });
+  });
+
+  it('rydder feltet med deleteField() når værdien er null/tom', async () => {
+    await setGameSchedule('superliga2627', { puljeLockAt: null });
+    const [, patch] = mockSetDoc.mock.calls[0];
+    expect(patch.puljeLockAt).toEqual({ _deleteField: true });
+    // startAt ikke nævnt → urørt.
+    expect('startAt' in patch).toBe(false);
+  });
+
+  it('lader udeladte felter være urørt (undefined)', async () => {
+    await setGameSchedule('superliga2627', { startAt: 500 });
+    const [, patch] = mockSetDoc.mock.calls[0];
+    expect(patch.startAt).toEqual({ _ts: 500 });
+    expect('puljeLockAt' in patch).toBe(false);
   });
 });

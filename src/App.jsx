@@ -51,7 +51,8 @@ export default function App() {
           <Route path="/tour" element={gamePage(<ProtectedRoute><TourPage /></ProtectedRoute>)} />
           <Route path="/hold" element={gamePage(<ProtectedRoute><TeamsPage /></ProtectedRoute>)} />
           <Route path="/hold/:code" element={gamePage(<ProtectedRoute><TeamPage /></ProtectedRoute>)} />
-          <Route path="/hjaelp" element={gamePage(<ProtectedRoute><HelpPage /></ProtectedRoute>)} />
+          {/* Hjælp findes i begge tilstande (indholdet skifter efter PLATFORM_MODE) */}
+          <Route path="/hjaelp" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
           <Route path="/mine-tips" element={gamePage(<ProtectedRoute><MyBetsPage /></ProtectedRoute>)} />
           <Route path="/bonus" element={gamePage(<ProtectedRoute><BonusPage /></ProtectedRoute>)} />
           <Route path="/stilling" element={gamePage(<ProtectedRoute><LeaderboardPage /></ProtectedRoute>)} />

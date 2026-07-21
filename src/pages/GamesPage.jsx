@@ -27,8 +27,39 @@ function statusBadgeClass(status) {
   return 'badge badge--blue';
 }
 
+// ── Kort til et EKSTERNT spil (kører i sin egen app, fx tour.vejleaa.dk) ───────
+// Linker ud i stedet for ind i platformen — bruges indtil spillet er migreret.
+function ExternalGameCard({ game }) {
+  return (
+    <div className="card">
+      <a
+        href={game.externalUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+        aria-label={`Åbn ${game.name} i sin egen app (nyt faneblad)`}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="card__title" style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+            {game.emoji && <span aria-hidden="true">{game.emoji}</span>}
+            {game.name}
+          </h3>
+          <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+            {game.season && <span className="badge badge--muted">{game.season}</span>}
+            <span className={statusBadgeClass(game.status)}>{STATUS_LABEL[game.status] ?? game.status}</span>
+          </span>
+        </div>
+        <div style={{ marginTop: '0.4rem', color: 'var(--c-pitch)', fontSize: '0.9rem', fontWeight: 600 }}>
+          Åbn spillet ↗
+        </div>
+      </a>
+    </div>
+  );
+}
+
 // ── Spil-kort til "Mine spil" ─────────────────────────────────────────────────
 function MyGameCard({ game, onLeave, leaving }) {
+  if (game.externalUrl) return <ExternalGameCard game={game} />;
   // Forlad tillades kun før spillet går i gang (åbent = ingen point endnu).
   const canLeave = game.status === GAME_STATUS.OPEN;
   return (
@@ -67,6 +98,7 @@ function MyGameCard({ game, onLeave, leaving }) {
 
 // ── Spil-kort til "Åbne spil" ─────────────────────────────────────────────────
 function OpenGameCard({ game, onJoin, joining }) {
+  if (game.externalUrl) return <ExternalGameCard game={game} />;
   return (
     <div className="card">
       <div className="flex items-center justify-between">
@@ -98,7 +130,7 @@ export default function GamesPage() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const { games, myGameIds, loading } = useGames();
-  const { mine, open } = splitGames(games, myGameIds);
+  const { mine, open, external } = splitGames(games, myGameIds);
 
   const [busyId, setBusyId] = useState(null); // id på spil der behandles
   const [error, setError] = useState('');
@@ -155,6 +187,18 @@ export default function GamesPage() {
               </div>
             )}
           </section>
+
+          {/* Spil i deres egen app (link ud) */}
+          {external.length > 0 && (
+            <section className="mb-2">
+              <h2 className="card__title mb-2">Andre spil</h2>
+              <div className="grid-2">
+                {external.map((g) => (
+                  <ExternalGameCard key={g.id} game={g} />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Åbne spil — deltag */}
           <section>
