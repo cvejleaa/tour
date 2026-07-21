@@ -127,10 +127,10 @@ describe('fair odds', () => {
 });
 
 describe('Chancen — indsatsgrænser', () => {
-  it('max = min(absolut loft, 15% af saldo)', () => {
-    expect(chanceMaxStake(10)).toBe(1);      // floor(0.15*10) = 1
-    expect(chanceMaxStake(100)).toBe(15);    // 15% af 100
-    expect(chanceMaxStake(200)).toBe(20);    // absolut loft (20) rammer først
+  it('max = min(absolut loft 8, 15% af saldo)', () => {
+    expect(chanceMaxStake(10)).toBe(1);      // 15% binder: floor(0.15*10) = 1
+    expect(chanceMaxStake(40)).toBe(6);      // 15% binder: floor(0.15*40) = 6
+    expect(chanceMaxStake(100)).toBe(8);     // absolut loft (8) binder før 15%
     expect(chanceMaxStake(0)).toBe(0);
     expect(chanceMaxStake(6)).toBe(0);       // floor(0.9) = 0
   });
@@ -146,9 +146,9 @@ describe('Chancen — indsatsgrænser', () => {
   });
   it('validerer indsats mod saldo', () => {
     expect(isValidStake(1, 7)).toBe(true);
-    expect(isValidStake(15, 100)).toBe(true);
-    expect(isValidStake(16, 100)).toBe(false); // over max (15)
-    expect(isValidStake(0, 100)).toBe(false);  // under MIN
+    expect(isValidStake(8, 100)).toBe(true);    // = absolut loft
+    expect(isValidStake(9, 100)).toBe(false);   // over max (8)
+    expect(isValidStake(0, 100)).toBe(false);   // under MIN
     expect(isValidStake(2.5, 100)).toBe(false); // ikke heltal
   });
 });

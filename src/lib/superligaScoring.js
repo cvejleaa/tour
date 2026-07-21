@@ -185,7 +185,7 @@ export function outcomeOdds(eloArgs) {
 /** Chancen-parametre. Cap er bevidst << 50 % af saldoen (kan aldrig gå i minus). */
 export const CHANCE = {
   MIN: 1,             // mindste indsats
-  MAX_ABS: 20,        // absolut loft uanset saldo
+  MAX_ABS: 8,         // absolut loft uanset saldo (holder Chancen som krydderi, ikke vind-knap)
   CAP_FRACTION: 0.15, // maks. andel af saldoen (taktisk krydderi, ikke lotteri)
 };
 
