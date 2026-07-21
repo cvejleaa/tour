@@ -56,7 +56,17 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
   const snap = await gameRef.collection('matches').get();
   const matches = snap.docs.map((d) => ({ id: d.id, ref: d.ref, ...d.data() }));
 
-  // Spillede kampe i kronologisk rækkefølge → opdatér Elo.
+  // Kampe pr. runde (til Elo-historik-snapshot, når en hel runde er spillet).
+  const roundTotal = new Map();
+  for (const m of matches) {
+    if (m.round == null) continue;
+    roundTotal.set(m.round, (roundTotal.get(m.round) || 0) + 1);
+  }
+  const roundPlayed = new Map();
+  const eloHistory = []; // [{ round, elo: {name: rating} }] efter hver HELE runde
+
+  // Spillede kampe i kronologisk rækkefølge → opdatér Elo. Efter den kamp der
+  // fuldender en runde, gemmes et Elo-snapshot for den runde.
   const played = matches
     .filter((m) => matchOutcome(m))
     .sort((a, b) => (kickoffMs(a) ?? 0) - (kickoffMs(b) ?? 0));
@@ -65,12 +75,22 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
     const { home, away } = updateElo(get(m.home), get(m.away), actualHomeFromOutcome(outcome));
     elo.set(m.home, home);
     elo.set(m.away, away);
+    if (m.round != null) {
+      roundPlayed.set(m.round, (roundPlayed.get(m.round) || 0) + 1);
+      if (roundPlayed.get(m.round) === roundTotal.get(m.round)
+        && !eloHistory.some((h) => h.round === m.round)) {
+        const rowSnap = {};
+        for (const [n, r] of elo) rowSnap[n] = Math.round(r);
+        eloHistory.push({ round: m.round, elo: rowSnap });
+      }
+    }
   }
+  eloHistory.sort((a, b) => a.round - b.round);
 
-  // Gem aktuel Elo på spillet (til oversigt/visning).
+  // Gem aktuel Elo + rundevis historik på spillet (til Elo-tabellen).
   const eloCurrent = {};
   for (const [n, r] of elo) eloCurrent[n] = Math.round(r);
-  await gameRef.set({ eloCurrent, eloUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await gameRef.set({ eloCurrent, eloHistory, eloUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
   // Friske odds på fremtidige, ikke-låste kampe — kun hvis de reelt ændrer sig.
   let batch = db.batch();

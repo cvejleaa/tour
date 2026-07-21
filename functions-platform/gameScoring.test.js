@@ -369,4 +369,18 @@ describe('recomputeSeasonElo (levende Elo)', () => {
     const res = await recomputeSeasonElo(db, FieldValue, 'g1', 1_000_000);
     expect(res).toEqual({ updated: 0 });
   });
+
+  it('gemmer Elo-historik pr. HELT spillet runde', async () => {
+    const db = makeEloDb({ teams }, [
+      // Runde 1 = én kamp, spillet → giver et historik-snapshot.
+      { id: 'r1', round: 1, home: 'A', away: 'B', kickoff: past, result: '1' },
+      // Runde 2 = to kampe, kun den ene spillet → INTET snapshot for runde 2.
+      { id: 'r2a', round: 2, home: 'A', away: 'B', kickoff: past + 1, result: 'X' },
+      { id: 'r2b', round: 2, home: 'B', away: 'A', kickoff: future },
+    ]);
+    await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+    expect(Array.isArray(db._game.eloHistory)).toBe(true);
+    expect(db._game.eloHistory.map((h) => h.round)).toEqual([1]); // kun runde 1 komplet
+    expect(db._game.eloHistory[0].elo.A).toBeGreaterThan(db._game.eloHistory[0].elo.B);
+  });
 });
