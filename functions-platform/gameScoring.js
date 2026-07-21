@@ -170,6 +170,51 @@ async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null) {
 }
 
 /**
+ * Standard-konkurrence-rang (1, 2, 2, 4) efter totalPoints faldende.
+ * Deterministisk tie-break på uid, så snapshots er stabile på tværs af kald.
+ * @param {Array<{uid:string, totalPoints?:number}>} players
+ * @returns {Map<string, number>} uid → rang
+ */
+function computeRanks(players) {
+  const sorted = [...players].sort((a, b) => (
+    (Number(b.totalPoints) || 0) - (Number(a.totalPoints) || 0)
+    || String(a.uid).localeCompare(String(b.uid))
+  ));
+  const ranks = new Map();
+  let rank = 0;
+  let prevPts = null;
+  sorted.forEach((p, i) => {
+    const pts = Number(p.totalPoints) || 0;
+    if (pts !== prevPts) { rank = i + 1; prevPts = pts; }
+    ranks.set(p.uid, rank);
+  });
+  return ranks;
+}
+
+/**
+ * Snapshot placeringer ved en rundes afslutning: sæt previousRank = spillerens
+ * hidtidige rang (= rang før denne runde), og rank = ny rang efter runden. Så
+ * kan facit-skærmen vise bevægelse ("du overhalede X"). Kør ÉN gang pr. runde —
+ * kalderen vogter via game.snapshottedRounds, så resultat-rettelser ikke skubber
+ * previousRank igen. Første snapshot giver previousRank = rank (ingen bevægelse).
+ * @returns {Promise<{ranked:number}>}
+ */
+async function snapshotRoundRanks(db, FieldValue, gameId) {
+  const playersSnap = await db.collection('games').doc(gameId).collection('players').get();
+  const players = playersSnap.docs.map((d) => ({ uid: d.id, ref: d.ref, ...d.data() }));
+  if (players.length === 0) return { ranked: 0 };
+  const ranks = computeRanks(players);
+  const batch = db.batch();
+  for (const p of players) {
+    const newRank = ranks.get(p.uid);
+    const prev = Number.isFinite(p.rank) ? p.rank : newRank;
+    batch.update(p.ref, { previousRank: prev, rank: newRank });
+  }
+  await batch.commit();
+  return { ranked: players.length };
+}
+
+/**
  * Kernen bag recomputeGameMatch (uden Cloud Functions-wrapper, så den kan
  * unit-testes). Scorer alle bets på en kamp og genberegner berørte spillere.
  * @returns {Promise<{rescored:number, players:number}>}
@@ -211,10 +256,25 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   for (let i = 0; i < uids.length; i += CHUNK) {
     await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx)));
   }
+
+  // Placerings-snapshot: når denne kamps runde netop er blevet HELT afgjort,
+  // gem hver spillers rang (én gang pr. runde) → facit-skærmens "du overhalede X".
+  const round = roundCtx.byMatch[matchId]?.round;
+  const rc = round != null ? roundCtx.rounds[round] : null;
+  if (rc && rc.settledCount === rc.count) {
+    const gameRef = db.collection('games').doc(gameId);
+    const gsnap = await gameRef.get();
+    const done = (gsnap.exists && Array.isArray(gsnap.data().snapshottedRounds))
+      ? gsnap.data().snapshottedRounds : [];
+    if (!done.includes(round)) {
+      await snapshotRoundRanks(db, FieldValue, gameId);
+      await gameRef.set({ snapshottedRounds: FieldValue.arrayUnion(round) }, { merge: true });
+    }
+  }
   return { rescored, players: uids.length };
 }
 
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo,
-  buildRoundContext, playerRoundBonus,
+  buildRoundContext, playerRoundBonus, computeRanks, snapshotRoundRanks,
 };

@@ -8,6 +8,7 @@ import { useGameBets } from '../useGameBets';
 import { setBet } from '../betActions';
 import { playerBank } from '../GameLayout';
 import { useGameStandings } from '../useGameStandings';
+import { rankDelta } from '../gameStandings';
 import ClubBadge from '../../../components/ClubBadge';
 import { superligaTeamInfo } from '../../../data/superligaTeams2026';
 import { colorsClash } from '../../../lib/contrastText';
@@ -160,6 +161,17 @@ export default function FootballTip({ game, me, matches }) {
   const rivalAbove = myIdx > 0 ? standings[myIdx - 1] : null;
   const rivalBelow = myIdx >= 0 && myIdx < standings.length - 1 ? standings[myIdx + 1] : null;
   const showFacit = roundSettled && tipped > 0;
+  // Bevægelse siden sidste runde (server-snapshot af previousRank).
+  const myPrev = myRow?.previousRank;
+  const myDelta = myRow ? rankDelta(myRow) : null;
+  const overtook = (myRow && myPrev != null)
+    ? standings.filter((r) => r.uid !== me?.uid && r.previousRank != null
+        && r.previousRank < myPrev && r.rank > myRow.rank).map((r) => r.name)
+    : [];
+  const overtakenBy = (myRow && myPrev != null)
+    ? standings.filter((r) => r.uid !== me?.uid && r.previousRank != null
+        && r.previousRank > myPrev && r.rank < myRow.rank).map((r) => r.name)
+    : [];
 
   return (
     <div>
@@ -197,8 +209,23 @@ export default function FootballTip({ game, me, matches }) {
             <div className="facit__pos">
               <div className="facit__rank">
                 Du er nr. <strong>{myRow.rank}</strong> af {standings.length}
+                {myDelta != null && myDelta !== 0 && (
+                  <span className={myDelta > 0 ? 'facit__up' : 'facit__down'}>
+                    {' '}{myDelta > 0 ? `▲${myDelta}` : `▼${-myDelta}`}
+                  </span>
+                )}
                 <span className="facit__total"> · {fmtPoints(myRow.totalPoints)} point</span>
               </div>
+              {(overtook.length > 0 || overtakenBy.length > 0) && (
+                <div className="facit__moves">
+                  {overtook.length > 0 && (
+                    <span className="facit__up">⬆ Du overhalede {overtook.slice(0, 3).join(', ')}{overtook.length > 3 ? ` +${overtook.length - 3}` : ''}</span>
+                  )}
+                  {overtakenBy.length > 0 && (
+                    <span className="facit__down">⬇ Overhalet af {overtakenBy.slice(0, 3).join(', ')}{overtakenBy.length > 3 ? ` +${overtakenBy.length - 3}` : ''}</span>
+                  )}
+                </div>
+              )}
               <div className="facit__rivals">
                 {rivalAbove
                   ? <span>⬆ {fmtPoints(rivalAbove.totalPoints - myRow.totalPoints)} op til {rivalAbove.name}</span>

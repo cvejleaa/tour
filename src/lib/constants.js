@@ -117,7 +117,8 @@ export const GAME_STATUS = {
 // En spiller kan oprette sit eget players-dokument (= "deltag"), men aldrig
 // seede sin egen pointsum eller placering (samme princip som users-profilen).
 export const PROTECTED_PLAYER_FIELDS = [
-  'totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'previousRank', 'points',
+  'totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus',
+  'previousRank', 'rank', 'points',
 ];
 
 export const TIMEZONE = 'Europe/Copenhagen';

@@ -526,13 +526,13 @@ service cloud.firestore {
           && request.auth.uid == uid
           && request.resource.data.uid == uid
           && !request.resource.data.keys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'previousRank', 'points']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points']);
 
-        // Opdatér eget medlemskab, men aldrig point-felterne.
+        // Opdatér eget medlemskab, men aldrig point-/placerings-felterne.
         allow update: if isApproved()
           && request.auth.uid == uid
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'previousRank', 'points']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points']);
 
         // Man kan fortryde en tilmelding (forlade spillet) SÅ LÆNGE der endnu
         // ikke er tildelt point — så en placering ikke kan gå tabt ved uheld.
