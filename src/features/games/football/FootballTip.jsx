@@ -176,29 +176,30 @@ export default function FootballTip({ game, me, matches }) {
         return (
           <div className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`} key={m.id}>
             <div className="match-card__meta">
-              <span>
-                {formatKickoff(m.kickoff)}
-                {h.venue && <span className="match-card__venue"> · {h.venue}</span>}
+              <span className="match-card__kickoff">{formatKickoff(m.kickoff)}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0 }}>
+                {h.venue && <span className="match-card__venue">{h.venue}</span>}
+                {m.result ? (
+                  hit === true ? <span className="badge badge--green">Ramt +{OUTCOME_POINTS[m.result]}</span>
+                    : hit === false ? <span className="badge badge--red">Ikke ramt</span>
+                      : <span className="badge">Spillet</span>
+                ) : isChance ? (
+                  <span className="chance-pill">⚡ Chancen</span>
+                ) : locked ? (
+                  <span className="badge badge--muted">Låst</span>
+                ) : null}
               </span>
-              {m.result ? (
-                hit === true ? <span className="badge badge--green">Ramt +{OUTCOME_POINTS[m.result]}</span>
-                  : hit === false ? <span className="badge badge--red">Ikke ramt</span>
-                    : <span className="badge">Spillet</span>
-              ) : isChance ? (
-                <span className="chance-pill">⚡ Chancen</span>
-              ) : locked ? (
-                <span className="badge badge--muted">Låst</span>
-              ) : null}
             </div>
 
-            <div className="match-card__teams">
-              <div className="match-card__team">
-                <ClubBadge code={h.code} color={h.color} size={40} title={m.home} />
-                <span className="match-card__team-name">{m.home}</span>
+            <div className="match-card__lineup">
+              <div className="match-card__side">
+                <ClubBadge code={h.code} color={h.color} size={34} title={m.home} />
+                <span className="match-card__side-name">{m.home}</span>
               </div>
-              <div className="match-card__team">
-                <ClubBadge code={a.code} color={a.color} size={40} title={m.away} />
-                <span className="match-card__team-name">{m.away}</span>
+              <div className="match-card__dash" aria-hidden="true">–</div>
+              <div className="match-card__side">
+                <ClubBadge code={a.code} color={a.color} size={34} title={m.away} />
+                <span className="match-card__side-name">{m.away}</span>
               </div>
             </div>
 
