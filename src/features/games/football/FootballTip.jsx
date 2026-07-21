@@ -9,6 +9,7 @@ import { setBet } from '../betActions';
 import { playerBank } from '../GameLayout';
 import ClubBadge from '../../../components/ClubBadge';
 import { superligaTeamInfo } from '../../../data/superligaTeams2026';
+import { colorsClash } from '../../../lib/contrastText';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
 import {
   groupByRound, activeRound, isLocked, toMillis,
@@ -26,21 +27,46 @@ function matchOdds(match, outcome) {
   return Number.isFinite(o) ? o : null;
 }
 
+const GREY = '#5b6b7a';
+
 /**
  * Badge-info for et hold: klub-kortkode + farve + stadion.
- * variant 'home' = hjemmefarve, 'away' = udefarve. Admin-override
- * (games/{id}.teamStyles) vinder over standardfarven.
+ * variant 'home' | 'away' | 'third'. Admin-override (games/{id}.teamStyles)
+ * vinder over standardfarven; hver variant falder pænt tilbage.
  */
 function badgeFor(name, styles = {}, variant = 'home') {
   const info = superligaTeamInfo(name);
   const ov = styles?.[name] || {};
-  const override = variant === 'away' ? ov.awayColor : ov.color;
-  const fallback = variant === 'away'
-    ? (info?.awayColor || info?.color || '#5b6b7a')
-    : (info?.color || '#5b6b7a');
+  let override;
+  let fallback;
+  if (variant === 'away') {
+    override = ov.awayColor;
+    fallback = info?.awayColor || info?.color || GREY;
+  } else if (variant === 'third') {
+    override = ov.thirdColor;
+    fallback = info?.thirdColor || info?.awayColor || info?.color || GREY;
+  } else {
+    override = ov.color;
+    fallback = info?.color || GREY;
+  }
   const code = info?.short
     || String(name || '').replace(/[^A-Za-zÆØÅæøå]/g, '').slice(0, 3).toUpperCase() || '?';
   return { code, color: override || fallback, venue: info?.venue ?? null };
+}
+
+/**
+ * Farver til et kamp-kort: hjemmeholdet i hjemmefarve, udeholdet i udefarve —
+ * men skift til udeholdets tertiærfarve hvis udefarven clasher med hjemmefarven.
+ */
+function matchBadges(home, away, styles) {
+  const h = badgeFor(home, styles, 'home');
+  let a = badgeFor(away, styles, 'away');
+  if (colorsClash(a.color, h.color)) {
+    const third = badgeFor(away, styles, 'third');
+    // Brug kun tertiær hvis den faktisk er mindre clash end udefarven.
+    if (!colorsClash(third.color, h.color)) a = third;
+  }
+  return { h, a };
 }
 
 export default function FootballTip({ game, me, matches }) {
@@ -145,8 +171,7 @@ export default function FootballTip({ game, me, matches }) {
         const bet = betsByMatch[m.id];
         const locked = isLocked(m, nowMs);
         const isChance = m.id === chanceMatchId;
-        const h = badgeFor(m.home, game?.teamStyles, 'home');
-        const a = badgeFor(m.away, game?.teamStyles, 'away');
+        const { h, a } = matchBadges(m.home, m.away, game?.teamStyles);
         const hit = m.result && bet?.pick ? bet.pick === m.result : null;
         return (
           <div className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`} key={m.id}>

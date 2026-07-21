@@ -18,7 +18,9 @@ const eq = (a, b) => String(a).toUpperCase() === String(b).toUpperCase();
 export default function TeamStylesTab() {
   const defaults = useMemo(() => {
     const m = {};
-    for (const t of SUPERLIGA_TEAMS_2026) m[t.name] = { color: t.color, awayColor: t.awayColor };
+    for (const t of SUPERLIGA_TEAMS_2026) {
+      m[t.name] = { color: t.color, awayColor: t.awayColor, thirdColor: t.thirdColor };
+    }
     return m;
   }, []);
 
@@ -39,6 +41,7 @@ export default function TeamStylesTab() {
         merged[t.name] = {
           color: isHex6(o.color) ? o.color : t.color,
           awayColor: isHex6(o.awayColor) ? o.awayColor : t.awayColor,
+          thirdColor: isHex6(o.thirdColor) ? o.thirdColor : t.thirdColor,
         };
       }
       setStyles(merged);
@@ -60,6 +63,7 @@ export default function TeamStylesTab() {
       const o = {};
       if (isHex6(s.color) && !eq(s.color, t.color)) o.color = s.color;
       if (isHex6(s.awayColor) && !eq(s.awayColor, t.awayColor)) o.awayColor = s.awayColor;
+      if (isHex6(s.thirdColor) && !eq(s.thirdColor, t.thirdColor)) o.thirdColor = s.thirdColor;
       if (Object.keys(o).length) out[t.name] = o;
     }
     const res = await setTeamStyles(GAME_ID, out);
@@ -76,7 +80,7 @@ export default function TeamStylesTab() {
     const changed = !eq(val, def);
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-        <span style={{ fontSize: '0.7rem', color: 'var(--c-muted)', width: 42 }}>{label}</span>
+        <span style={{ fontSize: '0.7rem', color: 'var(--c-muted)', width: 52 }}>{label}</span>
         <ClubBadge code={SUPERLIGA_TEAMS_2026.find((t) => t.name === name).short}
           color={isHex6(val) ? val : '#888888'} size={26} title={`${name} ${label}`} />
         <input type="color" value={isHex6(val) ? val : '#888888'}
@@ -97,9 +101,9 @@ export default function TeamStylesTab() {
     <div>
       <h3 style={{ marginTop: 0 }}>🎨 Superliga — hold-farver</h3>
       <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
-        Sæt hver klubs <strong>hjemme-</strong> og <strong>udefarve</strong>. I en kamp vises
-        hjemmeholdet i hjemmefarve og udeholdet i udefarve. Ændringer gemmes på spillet og
-        slår igennem for alle med det samme.
+        Sæt hver klubs <strong>hjemme-</strong>, <strong>ude-</strong> og <strong>3. farve</strong>.
+        I en kamp vises hjemmeholdet i hjemmefarve og udeholdet i udefarve — men skifter automatisk
+        til 3. farve, hvis udefarven er for tæt på hjemmeholdets farve. Ændringer slår igennem for alle med det samme.
       </p>
 
       {msg && <p className="badge badge--green mb-2" style={{ display: 'block' }}>{msg}</p>}
@@ -112,6 +116,7 @@ export default function TeamStylesTab() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.25rem' }}>
               <Picker name={t.name} field="color" label="Hjemme" />
               <Picker name={t.name} field="awayColor" label="Ude" />
+              <Picker name={t.name} field="thirdColor" label="3. farve" />
             </div>
           </div>
         ))}
