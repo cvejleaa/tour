@@ -1,71 +1,77 @@
 /**
- * GamePage – midlertidig spil-side for den samlede platform.
+ * GamePage – spil-side for den samlede platform (/spil/:gameId).
  *
- * Fase B flytter de rigtige spil-sider (kampe/etaper/tips/stilling) ind under
- * /spil/:gameId afhængigt af spillets type. Indtil da viser denne side blot
- * spillets metadata + en venlig "under opbygning"-besked, så et spil-kort ikke
- * er et dødt link.
+ * Henter spillet via useGame og dispatcher på spiltype: fodbold-spil (VM,
+ * Superliga) viser tip-fladen (1X2 + Chancen). Andre typer får indtil videre
+ * en "under opbygning"-besked. Er man ikke tilmeldt, vises en deltag-knap.
  */
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
-import { COL, GAME_STATUS } from '../lib/constants';
-
-const STATUS_LABEL = {
-  [GAME_STATUS.OPEN]: 'Åben',
-  [GAME_STATUS.LIVE]: 'I gang',
-  [GAME_STATUS.FINISHED]: 'Afsluttet',
-};
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useGame } from '../features/games/useGame';
+import { useAuth } from '../context/AuthContext';
+import { joinGame } from '../features/games/gameActions';
+import GameLayout from '../features/games/GameLayout';
+import FootballTip from '../features/games/football/FootballTip';
+import { GAME_TYPE } from '../lib/constants';
 
 export default function GamePage() {
   const { gameId } = useParams();
-  const [game, setGame] = useState(undefined); // undefined = indlæser, null = findes ikke
+  const { user } = useAuth();
+  const { game, me, isMember, matches, loading } = useGame(gameId);
+  const [joining, setJoining] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    const unsub = onSnapshot(
-      doc(db, COL.GAMES, gameId),
-      (snap) => setGame(snap.exists() ? { id: snap.id, ...snap.data() } : null),
-      () => setGame(null),
-    );
-    return unsub;
-  }, [gameId]);
-
-  if (game === undefined) {
+  if (loading || game === undefined) {
     return <div className="spinner" role="status" aria-label="Indlæser" />;
   }
 
-  return (
-    <div>
-      <p style={{ marginTop: 0 }}>
-        <Link to="/spil" style={{ color: 'var(--c-pitch)' }}>← Alle spil</Link>
-      </p>
-
-      {game === null ? (
+  if (game === null) {
+    return (
+      <div>
+        <p style={{ marginTop: 0 }}>
+          <Link to="/spil" style={{ color: 'var(--c-pitch)' }}>← Alle spil</Link>
+        </p>
         <div className="empty-state">
           <div className="empty-state__icon">🔍</div>
           <div className="empty-state__title">Spillet blev ikke fundet.</div>
         </div>
-      ) : (
-        <>
-          <h1 style={{ margin: '0 0 0.5rem', fontSize: '1.5rem', fontWeight: 800, display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
-            {game.emoji && <span aria-hidden="true">{game.emoji}</span>}
-            {game.name}
-          </h1>
-          <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
-            {game.season ? `Sæson ${game.season} · ` : ''}{STATUS_LABEL[game.status] ?? game.status}
-          </p>
+      </div>
+    );
+  }
 
-          <div className="card" style={{ marginTop: '1rem' }}>
-            <h3 className="card__title">🚧 Spillets sider er på vej</h3>
-            <p style={{ marginBottom: 0 }}>
-              Du er tilmeldt <strong>{game.name}</strong>. Selve spil-siderne
-              (kampe/etaper, tips og stilling) bygges her i næste trin. Indtil da
-              kan du følge med i spiloversigten.
-            </p>
-          </div>
-        </>
+  async function onJoin() {
+    setError('');
+    setJoining(true);
+    const res = await joinGame(user?.uid, gameId);
+    if (!res.ok) setError(res.error);
+    setJoining(false);
+  }
+
+  return (
+    <GameLayout game={game} me={me}>
+      {!isMember ? (
+        <div className="card">
+          <h3 className="card__title">Deltag i {game.name}</h3>
+          <p style={{ color: 'var(--c-muted)' }}>
+            Tilmeld dig for at tippe. Du kan altid forlade spillet igen, så længe du ikke har point.
+          </p>
+          {error && <p className="badge badge--red mb-2">{error}</p>}
+          <button className="btn btn--sm" disabled={joining} onClick={onJoin}>
+            {joining ? 'Tilmelder…' : 'Deltag'}
+          </button>
+        </div>
+      ) : game.type === GAME_TYPE.FOOTBALL ? (
+        <FootballTip game={game} me={me} matches={matches} />
+      ) : (
+        <div className="card">
+          <h3 className="card__title">🚧 Spillets sider er på vej</h3>
+          <p style={{ marginBottom: 0 }}>
+            Du er tilmeldt <strong>{game.name}</strong>. Denne spiltype
+            ({game.type || 'ukendt'}) får sin egen tip-flade i et senere trin.
+          </p>
+        </div>
       )}
-    </div>
+    </GameLayout>
   );
 }
