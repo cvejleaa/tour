@@ -131,7 +131,19 @@ jobs:
           # så Firebase-CLI'en aldrig validerer Tour-motorens secrets
           # (SMTP_PASSWORD m.fl. findes kun i tour-85928) mod spil-89af9.
           npm --prefix functions-platform ci
-          firebase deploy --only functions:platform --project "$PROJECT_ID" --non-interactive --force
+          set +e
+          out=$(firebase deploy --only functions:platform --project "$PROJECT_ID" --non-interactive --force 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          # Firebase-CLI'en exit'er med fejl hvis cleanup-policy for container-
+          # images ikke kan sættes (kræver Artifact Registry Admin på deploy-
+          # SA'en) — selvom funktionerne ER deployet. Det må ikke vælte kørslen.
+          if [ "$code" -ne 0 ] && printf '%s' "$out" | grep -q "Functions successfully deployed but could not set up cleanup policy"; then
+            echo "::warning::Funktionerne er deployet, men cleanup-policy for gamle container-images kunne ikke sættes. Giv evt. deploy-SA'en rollen 'Artifact Registry Administrator', eller kør 'firebase functions:artifacts:setpolicy --project spil-89af9' én gang."
+            code=0
+          fi
+          exit "$code"
 
       - name: Bootstrap owner (valgfrit)
         if: ${{ inputs.bootstrapOwnerEmail != '' }}
