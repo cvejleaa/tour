@@ -9,7 +9,7 @@ import { db } from '../../../firebase';
 import { useAuth } from '../../../context/AuthContext';
 import { COL } from '../../../lib/constants';
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
-import { PULJE, championshipTeams } from '../../../lib/superligaScoring';
+import { PULJE } from '../../../lib/superligaScoring';
 import { setPuljeBet } from '../gameActions';
 import { toMillis } from './footballRounds';
 import ClubBadge from '../../../components/ClubBadge';
@@ -44,9 +44,16 @@ export default function PuljeTip({ game, matches }) {
   }, [game, matches]);
   const locked = lockMs != null && Date.now() >= lockMs;
 
-  // Grundspillet slut? → vis facit.
-  const seasonDone = matches.length > 0 && matches.every((m) => m.result);
-  const actualTop6 = useMemo(() => (seasonDone ? championshipTeams(matches) : null), [seasonDone, matches]);
+  // Facit fra den OFFICIELLE stilling (vi beregner den ikke selv): de 6 øverste,
+  // når hele grundspillet er spillet igennem.
+  const actualTop6 = useMemo(() => {
+    const st = Array.isArray(game?.standings) ? game.standings : null;
+    if (!st || st.length < 12) return null;
+    const expectedPlayed = matches.length % 6 === 0 ? matches.length / 6 : null;
+    if (expectedPlayed && !st.every((r) => Number(r.played) === expectedPlayed)) return null;
+    return st.filter((r) => Number(r.rank) <= PULJE.POOL_SIZE).map((r) => r.teamName);
+  }, [game, matches]);
+  const seasonDone = actualTop6 != null;
 
   function toggle(name) {
     setMsg(''); setErr('');

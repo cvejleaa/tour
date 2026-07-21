@@ -4,7 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   recomputeGameMatchCore, recomputeSeasonElo, buildRoundContext, playerRoundBonus,
-  computeRanks, snapshotRoundRanks, settlePuljeBets,
+  computeRanks, snapshotRoundRanks, settlePuljeBets, officialTop6,
 } = require('./gameScoring');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
@@ -306,6 +306,36 @@ describe('settlePuljeBets', () => {
     const res = await settlePuljeBets(db, FieldValue, 'g1', partial);
     expect(res.settled).toBe(0);
     expect(db._pulje.P1.points).toBeUndefined();
+  });
+
+  it('bruger den OFFICIELLE stilling til top-6 (ikke beregnet tabel)', async () => {
+    // Dummy-kamp mellem Y/Z (så en beregnet tabel ville give top = [Y,Z]).
+    // Den officielle stilling siger derimod at A–F er top-6.
+    const standings = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+      .map((name, i) => ({ rank: i + 1, teamName: name, played: 1 }));
+    const dummy = [{ id: 'm1', home: 'Y', away: 'Z', homeGoals: 1, awayGoals: 0 }];
+    const db = makeDb([], dummy, { standings }, { P1: {}, P2: {} }, {
+      P1: { championship: ['A', 'B', 'C', 'D', 'E', 'F'] }, // alle 6 rigtige → 34
+      P2: { championship: ['A', 'B', 'C', 'D', 'E', 'X'] }, // 5 rigtige → 20
+    });
+    await settlePuljeBets(db, FieldValue, 'g1', dummy);
+    expect(db._pulje.P1).toMatchObject({ correct: 6, points: 34 });
+    expect(db._pulje.P2).toMatchObject({ correct: 5, points: 20 });
+  });
+});
+
+describe('officialTop6', () => {
+  const std = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+    .map((name, i) => ({ rank: i + 1, teamName: name, played: 22 }));
+  it('tager rank 1–6 fra den officielle stilling', () => {
+    expect(officialTop6(std, 22)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
+  });
+  it('returnerer null hvis stillingen ikke er helt spillet igennem', () => {
+    expect(officialTop6(std, 30)).toBeNull(); // forventer 30 spillede, har 22
+  });
+  it('returnerer null uden en fuld 12-holds stilling', () => {
+    expect(officialTop6(null)).toBeNull();
+    expect(officialTop6(std.slice(0, 5))).toBeNull();
   });
 });
 

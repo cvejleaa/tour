@@ -239,6 +239,20 @@ async function snapshotRoundRanks(db, FieldValue, gameId) {
 }
 
 /**
+ * Top-6 (mesterskabsspil) fra den OFFICIELLE stilling — kun hvis stillingen er
+ * synket helt igennem grundspillet (hvert hold har spillet `expectedPlayed`).
+ * Returnerer null hvis stillingen mangler/ikke er komplet (så kalderen kan bruge
+ * en beregnet fallback).
+ * @returns {string[]|null}
+ */
+function officialTop6(standings, expectedPlayed) {
+  if (!Array.isArray(standings) || standings.length < 12) return null;
+  if (expectedPlayed && !standings.every((r) => Number(r.played) === expectedPlayed)) return null;
+  return standings.filter((r) => Number(r.rank) >= 1 && Number(r.rank) <= 6 && r.teamName)
+    .map((r) => r.teamName);
+}
+
+/**
  * Afregn pulje-tip (mesterskabsspil-forudsigelse) NÅR hele grundspillet er
  * spillet. Beregner top-6 fra slutstillingen, scorer hvert pulje-tip, gemmer
  * point/correct på tippet + bonusPoints på spilleren, og genberegner totalerne.
@@ -252,10 +266,16 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   );
   if (!complete) return { settled: 0 };
 
-  const puljeSnap = await db.collection('games').doc(gameId).collection('puljeBets').get();
+  const gameRef = db.collection('games').doc(gameId);
+  const puljeSnap = await gameRef.collection('puljeBets').get();
   if (puljeSnap.empty) return { settled: 0 };
 
-  const top6 = new Set(championshipTeams(matches));
+  // Top-6 fra den OFFICIELLE stilling (autoritativ); beregnet tabel kun som
+  // fallback, hvis stillingen ikke er synket helt igennem grundspillet.
+  const gameSnap = await gameRef.get();
+  const standings = gameSnap.exists ? gameSnap.data().standings : null;
+  const expectedPlayed = matches.length % 6 === 0 ? matches.length / 6 : null;
+  const top6 = new Set(officialTop6(standings, expectedPlayed) || championshipTeams(matches));
   const batch = db.batch();
   const uids = [];
   for (const d of puljeSnap.docs) {
@@ -343,5 +363,5 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo,
   buildRoundContext, playerRoundBonus, computeRanks, snapshotRoundRanks,
-  settlePuljeBets,
+  settlePuljeBets, officialTop6,
 };

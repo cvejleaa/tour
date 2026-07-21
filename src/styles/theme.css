@@ -770,6 +770,22 @@ button {
 .elo__down { color: var(--c-err); font-size: 0.7rem; margin-left: 0.25rem; }
 .elo__flat { color: var(--c-muted); font-size: 0.7rem; margin-left: 0.25rem; }
 
+/* Superliga-tabel (officiel stilling) */
+.sltab-wrap { overflow-x: auto; border: 1px solid var(--c-border); border-radius: var(--radius-sm); }
+.sltab { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.sltab th, .sltab td { padding: 0.45rem 0.5rem; text-align: center; white-space: nowrap; }
+.sltab thead th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--c-muted); border-bottom: 2px solid var(--c-border); }
+.sltab tbody td { border-bottom: 1px solid var(--c-border); font-variant-numeric: tabular-nums; }
+.sltab__rank { width: 1.8rem; color: var(--c-muted); }
+.sltab__team { text-align: left !important; }
+.sltab__teamcell { display: inline-flex; align-items: center; gap: 0.45rem; }
+.sltab__name { font-weight: 600; }
+.sltab__pts { font-weight: 800; }
+.sltab__divider td { text-align: left; font-weight: 700; font-size: 0.78rem; padding: 0.4rem 0.5rem; background: var(--c-surface-2); }
+.sltab__divider--champ td { color: var(--c-pitch); box-shadow: inset 3px 0 0 var(--c-pitch); }
+.sltab__divider--releg td { color: var(--c-err); box-shadow: inset 3px 0 0 var(--c-err); }
+@media (max-width: 480px) { .sltab__hide-sm { display: none; } }
+
 /* Stilling: top-3 podie */
 .podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 0.5rem; align-items: end; margin-bottom: 1rem; }
 .podium__spot {

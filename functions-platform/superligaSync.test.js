@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore,
+  standingsUrl, syncStandingsCore,
 } = require('./superligaSync');
 
 const FieldValue = { serverTimestamp: () => '@ts' };
@@ -101,6 +102,46 @@ describe('syncResultsCore', () => {
   it('kaster ved API-fejl', async () => {
     const db = makeDb([]);
     await expect(syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([], false) }))
+      .rejects.toThrow(/HTTP 500/);
+  });
+});
+
+// --- Officiel stilling-synk --------------------------------------------------
+function makeGameDb() {
+  const game = {};
+  return {
+    collection(name) {
+      if (name !== 'games') throw new Error(`uventet ${name}`);
+      return { doc: () => ({ set: (data) => Object.assign(game, data) }) };
+    },
+    _game: game,
+  };
+}
+const fakeStandingsFetch = (rows, ok = true) => async () => ({ ok, status: ok ? 200 : 500, json: async () => rows });
+
+describe('syncStandingsCore (officiel stilling)', () => {
+  it('bygger URL med stage + form', () => {
+    const u = standingsUrl(35802, 935487);
+    expect(u).toContain('/tournaments/46/standings');
+    expect(u).toContain('seasonId=35802');
+    expect(u).toContain('stageId=935487');
+    expect(u).toContain('form=last5');
+  });
+
+  it('gemmer trimmet, rang-sorteret stilling på spillet', async () => {
+    const db = makeGameDb();
+    const rows = [
+      { rank: 2, teamName: 'B', teamShortName: 'B', points: 1, matchesPlayed: 1, matchesWon: 0, matchesDraw: 1, matchesLost: 0, goalsScored: 1, goalsConceded: 1, rankType: 'championship_playoff' },
+      { rank: 1, teamName: 'A', teamShortName: 'A', points: 3, matchesPlayed: 1, matchesWon: 1, matchesDraw: 0, matchesLost: 0, goalsScored: 2, goalsConceded: 0, rankType: 'championship_playoff' },
+    ];
+    const res = await syncStandingsCore(db, FieldValue, { fetchFn: fakeStandingsFetch(rows) });
+    expect(res.rows).toBe(2);
+    expect(db._game.standings.map((r) => r.teamName)).toEqual(['A', 'B']); // sorteret på rank
+    expect(db._game.standings[0]).toMatchObject({ rank: 1, points: 3, played: 1, won: 1, gf: 2, ga: 0 });
+  });
+
+  it('kaster ved API-fejl', async () => {
+    await expect(syncStandingsCore(makeGameDb(), FieldValue, { fetchFn: fakeStandingsFetch([], false) }))
       .rejects.toThrow(/HTTP 500/);
   });
 });

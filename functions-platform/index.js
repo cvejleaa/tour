@@ -19,7 +19,7 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { initializeApp } = require('firebase-admin/app');
 
 const { recomputeGameMatchCore, recomputeSeasonElo } = require('./gameScoring');
-const { syncResultsCore } = require('./superligaSync');
+const { syncResultsCore, syncStandingsCore } = require('./superligaSync');
 const { redeemLeagueCodeCore } = require('./gameLeagues');
 
 initializeApp();
@@ -60,6 +60,14 @@ exports.syncSuperligaResults = onSchedule(
     } catch (err) {
       console.error('Superliga-synk fejlede (ignoreret):', err?.message || err);
     }
+    // Officiel stilling (autoritativ kilde — vi beregner den ikke selv).
+    try {
+      const db = getFirestore();
+      const { rows } = await syncStandingsCore(db, FieldValue);
+      console.log(`Superliga-stilling synket: ${rows} hold.`);
+    } catch (err) {
+      console.error('Stilling-synk fejlede (ignoreret):', err?.message || err);
+    }
   },
 );
 
@@ -73,7 +81,9 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION }, async (request) => 
   if (role !== 'owner' && role !== 'globalAdmin') {
     throw new HttpsError('permission-denied', 'Kun admin kan synke resultater.');
   }
-  return syncResultsCore(db, FieldValue);
+  const results = await syncResultsCore(db, FieldValue);
+  const standings = await syncStandingsCore(db, FieldValue).catch((e) => ({ error: e?.message }));
+  return { ...results, standings };
 });
 
 // redeemGameLeagueCode — deltag i en privat mini-liga via invitationskode.
