@@ -23,6 +23,10 @@ on:
         description: 'Seed Superliga-kampprogrammet (132 kampe + odds fra scripts/superliga-fixtures.json)?'
         type: boolean
         default: false
+      deployFunctions:
+        description: 'Deploy Cloud Function recomputeGameMatch (afregning + levende Elo) til spil-89af9?'
+        type: boolean
+        default: false
       bootstrapOwnerEmail:
         description: 'Gør denne e-mail til owner (kræver at brugeren har logget ind mindst én gang). Tom = spring over.'
         type: string
@@ -117,6 +121,18 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: node scripts/seed-superliga.mjs scripts/superliga-fixtures.json
+
+      - name: Deploy Cloud Function (afregning + levende Elo)
+        if: ${{ inputs.deployFunctions }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          # Firebase-CLI'en indlæser functions-koden lokalt for at finde
+          # funktions-definitionerne → functions-afhængigheder skal installeres.
+          npm --prefix functions ci
+          # Kun spil-afregningen deployes (recomputeGameMatch) — den bruger ingen
+          # secrets, så Tour-motorens øvrige functions/secrets røres ikke.
+          firebase deploy --only functions:recomputeGameMatch --project "$PROJECT_ID" --non-interactive --force
 
       - name: Bootstrap owner (valgfrit)
         if: ${{ inputs.bootstrapOwnerEmail != '' }}
