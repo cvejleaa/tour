@@ -5,6 +5,7 @@ import {
   eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
   chanceMaxStake, canUseChance, isValidStake, settleChance,
   updateElo, actualHomeFromOutcome,
+  leagueTable, championshipTeams, puljeScore, PULJE,
 } from './superligaScoring';
 
 describe('1X2-udfald', () => {
@@ -169,6 +170,38 @@ describe('Chancen — afregning', () => {
     const stake = chanceMaxStake(bank); // 4
     const { delta } = settleChance({ correct: false, stake, fairOdds: 6 });
     expect(bank + delta).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('pulje-tip: slutstilling + score', () => {
+  // 3 hold, hver spiller hinanden én gang. A slår B og C; B slår C.
+  const matches = [
+    { home: 'A', away: 'B', homeGoals: 2, awayGoals: 0 }, // A 3
+    { home: 'A', away: 'C', homeGoals: 1, awayGoals: 0 }, // A 3
+    { home: 'B', away: 'C', homeGoals: 3, awayGoals: 1 }, // B 3
+  ];
+  it('leagueTable rangerer efter point, målforskel, mål', () => {
+    const t = leagueTable(matches);
+    expect(t.map((r) => r.name)).toEqual(['A', 'B', 'C']);
+    expect(t[0]).toMatchObject({ name: 'A', points: 6, gd: 3 });
+    expect(t[1]).toMatchObject({ name: 'B', points: 3, gd: 0 });
+    expect(t[2]).toMatchObject({ name: 'C', points: 0, gd: -3 });
+  });
+  it('championshipTeams tager de øverste N', () => {
+    expect(championshipTeams(matches, 2)).toEqual(['A', 'B']);
+  });
+  it('ignorerer kampe uden gyldige mål', () => {
+    const t = leagueTable([...matches, { home: 'A', away: 'B', homeGoals: null, awayGoals: 2 }]);
+    expect(t[0].played).toBe(2); // den ugyldige kamp tælles ikke
+  });
+  it('puljeScore: point pr. korrekt hold + perfekt-bonus', () => {
+    const top6 = ['A', 'B', 'C', 'D', 'E', 'F'];
+    expect(puljeScore(['A', 'B', 'C', 'D', 'E', 'F'], top6))
+      .toEqual({ correct: 6, points: 6 * PULJE.PER_TEAM + PULJE.PERFECT_BONUS });
+    expect(puljeScore(['A', 'B', 'C', 'D', 'E', 'X'], top6))
+      .toEqual({ correct: 5, points: 5 * PULJE.PER_TEAM });
+    expect(puljeScore(['X', 'Y', 'Z', 'Q', 'R', 'S'], top6))
+      .toEqual({ correct: 0, points: 0 });
   });
 });
 

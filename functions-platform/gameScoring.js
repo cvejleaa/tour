@@ -10,7 +10,7 @@
 
 const {
   scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeFromScore, outcomeOdds, isOutcome,
-  roundComboBonus, outcomeReward,
+  roundComboBonus, outcomeReward, championshipTeams, puljeScore,
 } = require('./superligaScoring');
 
 /** Millisekunder fra et Firestore-Timestamp | tal | ISO-streng. */
@@ -155,12 +155,16 @@ async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null) {
   const playerRef = db.collection('games').doc(gameId).collection('players').doc(uid);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(betsQ);
+    const playerSnap = await tx.get(playerRef);
     const bets = snap.docs.map((d) => d.data());
     const raw = bets.reduce((a, b) => a + (Number(b.points) || 0), 0);
     const bonus = playerRoundBonus(bets, roundCtx);
+    // Pulje-bonus (mesterskabsspil-tip) afregnes ved sæsonslut og gemmes på
+    // spilleren; her lægges den bare oveni den løbende total.
+    const puljeBonus = Number(playerSnap.exists ? playerSnap.data().bonusPoints : 0) || 0;
     // Point følger oddsene (1 decimal) → afrund summen, så float-støj ikke giver
     // grimme totaler som 7.399999999. Gulv ved 0 (Chancen kan give negative bets).
-    const totalPoints = Math.max(0, Math.round((raw + bonus) * 10) / 10);
+    const totalPoints = Math.max(0, Math.round((raw + bonus + puljeBonus) * 10) / 10);
     tx.set(playerRef, {
       totalPoints,
       roundBonus: Math.round(bonus * 10) / 10,
@@ -215,6 +219,42 @@ async function snapshotRoundRanks(db, FieldValue, gameId) {
 }
 
 /**
+ * Afregn pulje-tip (mesterskabsspil-forudsigelse) NÅR hele grundspillet er
+ * spillet. Beregner top-6 fra slutstillingen, scorer hvert pulje-tip, gemmer
+ * point/correct på tippet + bonusPoints på spilleren, og genberegner totalerne.
+ * Self-guardet (gør intet før alle kampe har mål) og idempotent.
+ * @returns {Promise<{settled:number}>}
+ */
+async function settlePuljeBets(db, FieldValue, gameId, matches) {
+  const goalOf = (g) => (g == null || g === '' ? NaN : Number(g));
+  const complete = matches.length > 0 && matches.every(
+    (m) => Number.isFinite(goalOf(m.homeGoals)) && Number.isFinite(goalOf(m.awayGoals)),
+  );
+  if (!complete) return { settled: 0 };
+
+  const puljeSnap = await db.collection('games').doc(gameId).collection('puljeBets').get();
+  if (puljeSnap.empty) return { settled: 0 };
+
+  const top6 = new Set(championshipTeams(matches));
+  const batch = db.batch();
+  const uids = [];
+  for (const d of puljeSnap.docs) {
+    const { correct, points } = puljeScore(d.data().championship, top6);
+    batch.update(d.ref, { correct, points });
+    const playerRef = db.collection('games').doc(gameId).collection('players').doc(d.id);
+    batch.set(playerRef, { bonusPoints: points }, { merge: true });
+    uids.push(d.id);
+  }
+  await batch.commit();
+
+  const CHUNK = 10;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid)));
+  }
+  return { settled: uids.length };
+}
+
+/**
  * Kernen bag recomputeGameMatch (uden Cloud Functions-wrapper, så den kan
  * unit-testes). Scorer alle bets på en kamp og genberegner berørte spillere.
  * @returns {Promise<{rescored:number, players:number}>}
@@ -249,7 +289,8 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
 
   // Runde-kontekst til combi-bonussen: hentes kun når vi faktisk skal genberegne.
   const matchesSnap = await db.collection('games').doc(gameId).collection('matches').get();
-  const roundCtx = buildRoundContext(matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const roundCtx = buildRoundContext(allMatches);
 
   const uids = [...changedUids];
   const CHUNK = 10;
@@ -271,10 +312,16 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
       await gameRef.set({ snapshottedRounds: FieldValue.arrayUnion(round) }, { merge: true });
     }
   }
+
+  // Pulje-tip: afregn mesterskabsspil-tippene når HELE grundspillet er spillet
+  // (self-guardet + idempotent — rescores hvis et resultat senere rettes).
+  await settlePuljeBets(db, FieldValue, gameId, allMatches);
+
   return { rescored, players: uids.length };
 }
 
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo,
   buildRoundContext, playerRoundBonus, computeRanks, snapshotRoundRanks,
+  settlePuljeBets,
 };

@@ -66,9 +66,14 @@ async function run() {
   // løbende af recomputeSeasonElo når resultater kommer ind).
   const eloCurrent = {};
   for (const t of SUPERLIGA_TEAMS_2026) eloCurrent[t.name] = t.elo;
+  // Pulje-tip-deadline = grundspillets start (tidligste kickoff). Efter dette
+  // kan pulje-tippet ikke længere ændres (håndhæves af security rules).
+  const kickoffs = fixtures.map((f) => Date.parse(f.kickoff)).filter((n) => !Number.isNaN(n));
+  const puljeLockAt = kickoffs.length ? Timestamp.fromMillis(Math.min(...kickoffs)) : null;
   await db.collection('games').doc(GAME_ID).set({
     teams: SUPERLIGA_TEAMS_2026,
     eloCurrent,
+    ...(puljeLockAt ? { puljeLockAt } : {}),
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
 

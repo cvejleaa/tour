@@ -4,17 +4,19 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   recomputeGameMatchCore, recomputeSeasonElo, buildRoundContext, playerRoundBonus,
-  computeRanks, snapshotRoundRanks,
+  computeRanks, snapshotRoundRanks, settlePuljeBets,
 } = require('./gameScoring');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
 // Understøtter: games/{g}/bets (where uid==, where matchId==), games/{g}/matches
 // (.get()), games/{g}/players (.get() + .doc(uid)), spil-dok (.get()/.set()),
 // batch().update/commit, runTransaction(tx.get(query)/tx.set(ref)).
-function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}) {
+function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSeed = {}) {
   const bets = betList.map((b) => ({ data: { ...b } }));
   bets.forEach((b) => { b.ref = { __bet: b }; });
   const players = { ...playerSeed }; // uid -> data (forud-seedede placeringer mv.)
+  const pulje = {}; // uid -> data
+  for (const [uid, d] of Object.entries(puljeSeed)) pulje[uid] = { uid, ...d };
   const game = { ...gameData };
 
   const betsCollection = {
@@ -37,6 +39,15 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}) {
       })),
     }),
   };
+  const puljeCollection = {
+    doc: (uid) => ({ __pulje: uid }),
+    get: async () => ({
+      empty: Object.keys(pulje).length === 0,
+      docs: Object.keys(pulje).map((uid) => ({
+        id: uid, ref: { __pulje: uid }, data: () => pulje[uid],
+      })),
+    }),
+  };
   const gameDoc = {
     get: async () => ({ exists: Object.keys(game).length > 0, data: () => game }),
     set: (data) => {
@@ -50,12 +61,19 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}) {
     collection: (name) => {
       if (name === 'bets') return betsCollection;
       if (name === 'matches') return matchesCollection;
+      if (name === 'puljeBets') return puljeCollection;
       return playersCollection;
     },
   };
   const applyOp = (ref, data) => {
     if (ref.__bet) { Object.assign(ref.__bet.data, data); return; }
-    if (ref.__player) { players[ref.__player] = { ...(players[ref.__player] || {}), ...data }; }
+    if (ref.__player) { players[ref.__player] = { ...(players[ref.__player] || {}), ...data }; return; }
+    if (ref.__pulje) { pulje[ref.__pulje] = { ...(pulje[ref.__pulje] || {}), ...data }; }
+  };
+  // tx.get skal kunne læse både queries (som har .get) og player-refs.
+  const txGet = async (q) => {
+    if (q && q.__player) return { exists: q.__player in players, data: () => players[q.__player] || {} };
+    return q.get();
   };
   const db = {
     collection: (name) => {
@@ -65,17 +83,19 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}) {
     batch: () => ({
       _ops: [],
       update(ref, data) { this._ops.push({ ref, data }); },
+      set(ref, data) { this._ops.push({ ref, data }); },
       async commit() { for (const op of this._ops) applyOp(op.ref, op.data); },
     }),
     async runTransaction(fn) {
       await fn({
-        get: async (q) => q.get(),
+        get: txGet,
         set: (ref, data) => applyOp(ref, data),
       });
     },
     _players: players,
     _bets: bets,
     _game: game,
+    _pulje: pulje,
   };
   return db;
 }
@@ -258,6 +278,34 @@ describe('recomputeGameMatchCore — placerings-snapshot ved rundeafslutning', (
     expect(res.rescored).toBe(1);           // pointtallet blev rettet
     expect(db._players.A.rank).toBe(7);     // rank urørt → snapshot kørte ikke igen
     expect(db._players.A.previousRank).toBe(7);
+  });
+});
+
+describe('settlePuljeBets', () => {
+  // 3 hold spillet færdigt: A > B > C. top-6 (slice) = [A, B, C].
+  const matches = [
+    { id: 'm1', home: 'A', away: 'B', homeGoals: 2, awayGoals: 0 },
+    { id: 'm2', home: 'A', away: 'C', homeGoals: 1, awayGoals: 0 },
+    { id: 'm3', home: 'B', away: 'C', homeGoals: 3, awayGoals: 1 },
+  ];
+  it('scorer pulje-tip og lægger bonusPoints i spillerens total', async () => {
+    const db = makeDb([], matches, {}, { P1: {}, P2: {} }, {
+      P1: { championship: ['A', 'B', 'C'] }, // alle 3 i top → 3×4 = 12
+      P2: { championship: ['A', 'X', 'Y'] }, // 1 rigtig → 4
+    });
+    const res = await settlePuljeBets(db, FieldValue, 'g1', matches);
+    expect(res.settled).toBe(2);
+    expect(db._pulje.P1).toMatchObject({ correct: 3, points: 12 });
+    expect(db._pulje.P2).toMatchObject({ correct: 1, points: 4 });
+    expect(db._players.P1).toMatchObject({ bonusPoints: 12, totalPoints: 12 });
+    expect(db._players.P2).toMatchObject({ bonusPoints: 4, totalPoints: 4 });
+  });
+  it('gør intet før grundspillet er helt spillet', async () => {
+    const partial = [...matches.slice(0, 2), { id: 'm3', home: 'B', away: 'C', homeGoals: null, awayGoals: null }];
+    const db = makeDb([], partial, {}, { P1: {} }, { P1: { championship: ['A', 'B', 'C'] } });
+    const res = await settlePuljeBets(db, FieldValue, 'g1', partial);
+    expect(res.settled).toBe(0);
+    expect(db._pulje.P1.points).toBeUndefined();
   });
 });
 

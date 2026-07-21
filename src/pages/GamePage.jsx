@@ -16,6 +16,7 @@ import GameStandings from '../features/games/GameStandings';
 import GameLeagues from '../features/games/GameLeagues';
 import FootballTip from '../features/games/football/FootballTip';
 import MyTips from '../features/games/football/MyTips';
+import PuljeTip from '../features/games/football/PuljeTip';
 import { GAME_TYPE } from '../lib/constants';
 
 export default function GamePage() {
@@ -83,6 +84,14 @@ export default function GamePage() {
                 onClick={() => setTab('mine')}
               >📋 Mine tips</button>
             )}
+            {game.type === GAME_TYPE.FOOTBALL && (
+              <button
+                role="tab"
+                aria-selected={tab === 'pulje'}
+                className={tab === 'pulje' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
+                onClick={() => setTab('pulje')}
+              >🎖️ Pulje</button>
+            )}
             <button
               role="tab"
               aria-selected={tab === 'stilling'}
@@ -103,6 +112,8 @@ export default function GamePage() {
             <GameLeagues gameId={gameId} />
           ) : tab === 'mine' && game.type === GAME_TYPE.FOOTBALL ? (
             <MyTips game={game} matches={matches} />
+          ) : tab === 'pulje' && game.type === GAME_TYPE.FOOTBALL ? (
+            <PuljeTip game={game} matches={matches} />
           ) : game.type === GAME_TYPE.FOOTBALL ? (
             <FootballTip game={game} me={me} matches={matches} />
           ) : (

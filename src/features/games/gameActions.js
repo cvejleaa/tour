@@ -75,6 +75,29 @@ export async function setTeamStyles(gameId, teamStyles) {
 }
 
 /**
+ * Gem et pulje-tip: spillerens 6 valgte mesterskabs-hold (games/{gameId}/
+ * puljeBets/{uid}). De øvrige 6 hold = nedrykningsspillet. Point sættes af
+ * serveren ved grundspillets slut. Deadline håndhæves af security rules.
+ * @param {string} uid
+ * @param {string} gameId
+ * @param {string[]} championship – præcis 6 distinkte holdnavne
+ * @returns {Promise<{ok:true}|{ok:false,error:string}>}
+ */
+export async function setPuljeBet(uid, gameId, championship) {
+  if (!uid) return { ok: false, error: 'Du skal være logget ind.' };
+  if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
+  const picks = Array.isArray(championship) ? [...new Set(championship.filter(Boolean))] : [];
+  if (picks.length !== 6) return { ok: false, error: 'Vælg præcis 6 hold til mesterskabsspillet.' };
+  try {
+    const ref = doc(db, COL.GAMES, gameId, COL.GAME_PULJE, uid);
+    await setDoc(ref, { uid, championship: picks, updatedAt: serverTimestamp() }, { merge: true });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke gemme pulje-tippet (deadline måske passeret).') };
+  }
+}
+
+/**
  * Forlad et spil (slet games/{gameId}/players/{uid}).
  * Reglerne tillader kun sletning, hvis dokumentet ikke har point.
  * @param {string} uid     – den indloggede brugers uid

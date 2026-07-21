@@ -248,3 +248,68 @@ export function actualHomeFromOutcome(outcome) {
   if (outcome === OUTCOME.AWAY) return 0;
   return 0.5;
 }
+
+// --- Pulje-tip: grundspillets slutstilling → mesterskabs-/nedrykningsspil -----
+
+/** Pulje-tip-parametre. Superligaen deler efter grundspillet i 6 + 6. */
+export const PULJE = {
+  POOL_SIZE: 6,        // hold i hver pulje (mesterskab / nedrykning)
+  PER_TEAM: 4,         // point pr. korrekt mesterskabs-hold
+  PERFECT_BONUS: 10,   // ekstra hvis alle 6 er rigtige
+};
+
+/**
+ * Beregn grundspillets stilling ud fra spillede kampe (3-1-0). Kun kampe med
+ * gyldige mål tælles med. Sorteres: point ↓, målforskel ↓, scorede mål ↓, navn ↑.
+ * @param {Array<{home:string, away:string, homeGoals:*, awayGoals:*}>} matches
+ * @returns {Array<{name:string, played:number, points:number, gf:number, ga:number, gd:number}>}
+ */
+export function leagueTable(matches) {
+  const table = new Map();
+  const row = (name) => {
+    if (!table.has(name)) table.set(name, { name, played: 0, points: 0, gf: 0, ga: 0, gd: 0 });
+    return table.get(name);
+  };
+  const goalOf = (g) => (g == null || g === '' ? NaN : Number(g));
+  for (const m of matches || []) {
+    const hg = goalOf(m.homeGoals);
+    const ag = goalOf(m.awayGoals);
+    if (!m.home || !m.away || !Number.isFinite(hg) || !Number.isFinite(ag)) continue;
+    const h = row(m.home);
+    const a = row(m.away);
+    h.played += 1; a.played += 1;
+    h.gf += hg; h.ga += ag; a.gf += ag; a.ga += hg;
+    if (hg > ag) h.points += 3;
+    else if (hg < ag) a.points += 3;
+    else { h.points += 1; a.points += 1; }
+  }
+  const rows = [...table.values()];
+  for (const r of rows) r.gd = r.gf - r.ga;
+  rows.sort((x, y) => (y.points - x.points)
+    || (y.gd - x.gd)
+    || (y.gf - x.gf)
+    || x.name.localeCompare(y.name, 'da'));
+  return rows;
+}
+
+/** De øverste POOL_SIZE hold (mesterskabsspillet) ud fra slutstillingen. */
+export function championshipTeams(matches, poolSize = PULJE.POOL_SIZE) {
+  return leagueTable(matches).slice(0, poolSize).map((r) => r.name);
+}
+
+/**
+ * Scor et pulje-tip: hvor mange af spillerens POOL_SIZE mesterskabs-valg endte i
+ * top-6. Point = korrekte × PER_TEAM (+ PERFECT_BONUS hvis alle rigtige).
+ * @param {string[]} championshipPick  – spillerens valgte mesterskabs-hold
+ * @param {string[]|Set<string>} actualTop6
+ * @returns {{correct:number, points:number}}
+ */
+export function puljeScore(championshipPick, actualTop6) {
+  const top = actualTop6 instanceof Set ? actualTop6 : new Set(actualTop6 || []);
+  const picks = Array.isArray(championshipPick) ? [...new Set(championshipPick)] : [];
+  const correct = picks.filter((t) => top.has(t)).length;
+  const perfect = correct === PULJE.POOL_SIZE && picks.length === PULJE.POOL_SIZE;
+  const points = correct * PULJE.PER_TEAM + (perfect ? PULJE.PERFECT_BONUS : 0);
+  return { correct, points };
+}
+
