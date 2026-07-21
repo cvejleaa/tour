@@ -10,6 +10,7 @@ export default defineConfig({
     include: [
       'gameScoring.test.js',
       'superligaScoring.test.js',
+      'superligaSync.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

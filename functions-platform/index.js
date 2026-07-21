@@ -13,14 +13,18 @@
 'use strict';
 
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { initializeApp } = require('firebase-admin/app');
 
 const { recomputeGameMatchCore, recomputeSeasonElo } = require('./gameScoring');
+const { syncResultsCore } = require('./superligaSync');
 
 initializeApp();
 
 const REGION = 'europe-west1';
+const TZ = 'Europe/Copenhagen';
 
 // recomputeGameMatch — afregn point i den samlede platform når en kamps facit
 // (result) sættes: score alle bets på kampen (1X2 + Chancen) og genberegn hver
@@ -41,3 +45,32 @@ exports.recomputeGameMatch = onDocumentWritten(
     await recomputeSeasonElo(db, FieldValue, gameId, Date.now());
   },
 );
+
+// syncSuperligaResults — hent færdigspillede kampe fra api.superliga.dk og sæt
+// facit på de matchende kampe. At skrive result udløser recomputeGameMatch
+// (afregning + levende Elo). Kører i kamp-vinduet; fail-silent som Tour-synken.
+exports.syncSuperligaResults = onSchedule(
+  { schedule: '*/15 14-23 * * *', timeZone: TZ, region: REGION },
+  async () => {
+    try {
+      const db = getFirestore();
+      const { checked, updated } = await syncResultsCore(db, FieldValue);
+      console.log(`Superliga-synk: ${checked} færdige kampe, ${updated} nye facit.`);
+    } catch (err) {
+      console.error('Superliga-synk fejlede (ignoreret):', err?.message || err);
+    }
+  },
+);
+
+// syncSuperligaResultsNow — manuel udløsning (admin/owner). Til test/tvungen synk.
+exports.syncSuperligaResultsNow = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Log ind.');
+  const db = getFirestore();
+  const userSnap = await db.collection('users').doc(uid).get();
+  const role = userSnap.exists ? userSnap.data().role : null;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun admin kan synke resultater.');
+  }
+  return syncResultsCore(db, FieldValue);
+});
