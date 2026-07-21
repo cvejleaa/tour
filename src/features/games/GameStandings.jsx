@@ -39,43 +39,69 @@ export default function GameStandings({ gameId }) {
     );
   }
 
+  const meUid = user?.uid;
+  const hasPodium = standings.length >= 3;
+  const podium = hasPodium ? standings.slice(0, 3) : [];
+  const listRows = hasPodium ? standings.slice(3) : standings;
+  const meRow = standings.find((r) => r.uid === meUid);
+  const meInList = meRow && (!hasPodium || meRow.rank > 3);
+
+  const Row = ({ r, sticky = false }) => {
+    const isMe = r.uid === meUid;
+    return (
+      <tr
+        className={sticky ? 'rank-row--me' : ''}
+        style={{
+          borderTop: '1px solid var(--c-border)',
+          background: isMe && !sticky ? 'var(--c-surface-alt)' : undefined,
+          fontWeight: isMe ? 700 : 400,
+        }}
+      >
+        <td style={{ padding: '0.45rem 0.5rem', fontVariantNumeric: 'tabular-nums', width: 52 }}>
+          {r.rank}<DeltaArrow row={r} />
+        </td>
+        <td style={{ padding: '0.45rem 0.5rem' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={26} />
+            {r.name}{isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
+          </span>
+        </td>
+        <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+          {r.totalPoints}
+        </td>
+      </tr>
+    );
+  };
+
+  const MEDAL = ['🥇', '🥈', '🥉'];
+  // Podie-rækkefølge: 2. plads, 1. plads (løftet), 3. plads.
+  const podiumOrder = podium.length === 3 ? [podium[1], podium[0], podium[2]] : podium;
+
   return (
-    <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-      <thead>
-        <tr style={{ textAlign: 'left', color: 'var(--c-muted)', fontSize: '0.8rem' }}>
-          <th style={{ padding: '0.4rem 0.5rem', width: 44 }}>#</th>
-          <th style={{ padding: '0.4rem 0.5rem' }}>Spiller</th>
-          <th style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>Point</th>
-        </tr>
-      </thead>
-      <tbody>
-        {standings.map((r) => {
-          const isMe = r.uid === user?.uid;
-          return (
-            <tr
-              key={r.uid}
-              style={{
-                borderTop: '1px solid var(--c-border, #eee)',
-                background: isMe ? 'var(--c-surface-2, #f3f7f3)' : 'transparent',
-                fontWeight: isMe ? 700 : 400,
-              }}
-            >
-              <td style={{ padding: '0.45rem 0.5rem', fontVariantNumeric: 'tabular-nums' }}>
-                {r.rank}<DeltaArrow row={r} />
-              </td>
-              <td style={{ padding: '0.45rem 0.5rem' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={26} />
-                  {r.name}{isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
-                </span>
-              </td>
-              <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                {r.totalPoints}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div>
+      {hasPodium && (
+        <div className="podium">
+          {podiumOrder.map((r) => (
+            <div key={r.uid} className={`podium__spot podium__spot--${r.rank}`}>
+              <span className="podium__medal">{MEDAL[r.rank - 1] || `#${r.rank}`}</span>
+              <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={r.rank === 1 ? 40 : 32} />
+              <span className="podium__name">{r.name}</span>
+              <span className="podium__pts">{r.totalPoints} p</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {listRows.length > 0 && (
+        <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <tbody>
+            {listRows.map((r) => <Row key={r.uid} r={r} />)}
+            {meInList && meRow && !listRows.some((r) => r.uid === meUid) && (
+              <Row r={meRow} sticky />
+            )}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
