@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { recomputeGameMatchCore } = require('./gameScoring');
+const { recomputeGameMatchCore, recomputeSeasonElo } = require('./gameScoring');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
 // Understøtter: games/{g}/bets (where uid==, where matchId==), games/{g}/players/{uid},
@@ -83,5 +83,67 @@ describe('recomputeGameMatchCore', () => {
     const db = makeDb([{ uid: 'A', matchId: 'm1', pick: '1', points: 0 }]);
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: null });
     expect(res).toEqual({ rescored: 0, players: 0 });
+  });
+});
+
+// --- Fake-Firestore for recomputeSeasonElo (spil-dok + kampe) ----------------
+function makeEloDb(gameData, matchList) {
+  const game = { ...gameData };
+  const matches = matchList.map((m) => ({ data: { ...m } }));
+  matches.forEach((m) => { m.ref = { __match: m }; });
+  const gameRef = {
+    async get() { return { exists: true, data: () => game }; },
+    set(data) { Object.assign(game, data); },
+    collection() {
+      return { async get() { return { docs: matches.map((m) => ({ id: m.data.id, ref: m.ref, data: () => m.data })) }; } };
+    },
+  };
+  return {
+    _game: game,
+    _matches: matches,
+    collection: () => ({ doc: () => gameRef }),
+    batch: () => ({
+      _ops: [],
+      update(ref, data) { this._ops.push({ ref, data }); },
+      async commit() { for (const op of this._ops) Object.assign(op.ref.__match.data, op.data); },
+    }),
+  };
+}
+
+describe('recomputeSeasonElo (levende Elo)', () => {
+  const teams = [{ name: 'A', elo: 1500 }, { name: 'B', elo: 1500 }];
+  const future = 5_000_000_000_000; // langt ude i fremtiden
+  const past = 1_000;
+
+  it('opdaterer Elo efter spillet kamp og friske odds på fremtidig kamp', async () => {
+    const db = makeEloDb({ teams }, [
+      { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },        // A vandt
+      { id: 'm2', home: 'A', away: 'B', kickoff: future, odds: { 1: 9, X: 9, 2: 9 } }, // fremtidig
+    ]);
+    const res = await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+    // A's rating steg over B's.
+    expect(db._game.eloCurrent.A).toBeGreaterThan(db._game.eloCurrent.B);
+    // Den fremtidige kamps odds blev opdateret (var urealistiske 9/9/9).
+    expect(res.updated).toBe(1);
+    const m2 = db._matches.find((m) => m.data.id === 'm2').data;
+    expect(m2.odds['1']).not.toBe(9);
+    expect(m2.eloHome).toBeGreaterThan(m2.eloAway);
+  });
+
+  it('rører ikke låste (allerede spillede/kickoff-passerede) kampe', async () => {
+    const db = makeEloDb({ teams }, [
+      { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'm2', home: 'B', away: 'A', kickoff: past, odds: { 1: 9, X: 9, 2: 9 } }, // kickoff passeret → låst
+    ]);
+    const res = await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+    expect(res.updated).toBe(0);
+    const m2 = db._matches.find((m) => m.data.id === 'm2').data;
+    expect(m2.odds['1']).toBe(9); // uændret
+  });
+
+  it('gør intet uden seed-hold', async () => {
+    const db = makeEloDb({}, [{ id: 'm1', home: 'A', away: 'B', kickoff: future }]);
+    const res = await recomputeSeasonElo(db, FieldValue, 'g1', 1_000_000);
+    expect(res).toEqual({ updated: 0 });
   });
 });

@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   OUTCOME_POINTS, isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet,
+  outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
 } = require('./superligaScoring');
 
 describe('superligaScoring (server-spejl)', () => {
@@ -51,13 +52,38 @@ describe('superligaScoring (server-spejl)', () => {
     });
   });
 
-  it('server-spejl matcher src-udgaven for 1X2-point', async () => {
-    // Sanity: samme vægtning som frontend-biblioteket.
+  describe('Elo/odds', () => {
+    it('opdaterer Elo nulsum (vinder op, taber ned)', () => {
+      const { home, away } = updateElo(1500, 1500, 1);
+      expect(home).toBeGreaterThan(1500);
+      expect(away).toBeLessThan(1500);
+      expect((home - 1500) + (away - 1500)).toBeCloseTo(0, 6);
+    });
+    it('actualHome oversætter udfald', () => {
+      expect(actualHomeFromOutcome('1')).toBe(1);
+      expect(actualHomeFromOutcome('X')).toBe(0.5);
+      expect(actualHomeFromOutcome('2')).toBe(0);
+    });
+    it('favorit hjemme → lav hjemme-odds', () => {
+      const o = outcomeOdds({ eloHome: 1900, eloAway: 1300 });
+      expect(o['1']).toBeLessThan(o['2']);
+    });
+    it('sandsynligheder summer til 1', () => {
+      const p = outcomeProbabilities({ eloHome: 1600, eloAway: 1450 });
+      expect(p['1'] + p.X + p['2']).toBeCloseTo(1, 6);
+    });
+  });
+
+  it('server-spejl matcher src-udgaven (point, chance, odds, elo)', async () => {
     const src = await import('../src/lib/superligaScoring.js');
     for (const [pick, result] of [['1', '1'], ['X', 'X'], ['2', '2'], ['1', 'X']]) {
       expect(outcomePoints(pick, result)).toBe(src.outcomePoints(pick, result));
     }
     expect(settleChance({ correct: true, stake: 6, fairOdds: 2.5 }).delta)
       .toBe(src.settleChance({ correct: true, stake: 6, fairOdds: 2.5 }).delta);
+    // Odds + Elo identisk med frontend-biblioteket.
+    const args = { eloHome: 1623, eloAway: 1458 };
+    expect(outcomeOdds(args)).toEqual(src.outcomeOdds(args));
+    expect(updateElo(1574, 1521, 1)).toEqual(src.updateElo(1574, 1521, 1));
   });
 });

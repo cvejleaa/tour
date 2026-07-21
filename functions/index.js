@@ -53,7 +53,7 @@ const { fetchLiveTickerCore } = require('./liveTicker');
 const { fetchLiveMapCore } = require('./liveMap');
 const { runGenerateStageTips } = require('./stageTip');
 const { runEnrichRiderTags } = require('./riderTags');
-const { recomputeGameMatchCore } = require('./gameScoring');
+const { recomputeGameMatchCore, recomputeSeasonElo } = require('./gameScoring');
 const { syncStageTimesCore } = require('./stageTimes');
 const tourSummary = require('./tourSummary');
 const { leagueStandings, renderThankYouEmail } = require('./thankYouEmail');
@@ -319,6 +319,9 @@ exports.recomputeGameMatch = onDocumentWritten(
     // Kør kun når facit reelt ændrer sig (undgå løkker ved andre felt-skriv).
     if (before?.result === after.result) return;
     await recomputeGameMatchCore(db, FieldValue, gameId, matchId, after);
+    // Levende Elo: opdatér ratings + friske odds på fremtidige kampe.
+    // (Odds-skriv på kampe uden facit gen-udløser IKKE denne funktion.)
+    await recomputeSeasonElo(db, FieldValue, gameId, Date.now());
   },
 );
 
