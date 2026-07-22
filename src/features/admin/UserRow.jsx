@@ -233,9 +233,13 @@ export default function UserRow({ user, authInfo, currentUserIsOwner, currentUse
         </div>
       </div>
 
-      {/* Handlingsknapper — skjules for owner-rækken */}
-      {!isOwner && (currentUserCanApprove || currentUserIsOwner) && (
+      {/* Handlingsknapper. Godkend/afvis/rolle/kodeord vises kun for ikke-ejer-
+          rækker; slet-knappen kan også ramme en DUBLET-ejer (bare ikke dig selv),
+          så to ejer-konti på samme mail kan ryddes op. */}
+      {((!isOwner && (currentUserCanApprove || currentUserIsOwner)) || (currentUserIsOwner && !isSelf)) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+          {!isOwner && (currentUserCanApprove || currentUserIsOwner) && (
+            <>
           {/* Godkend/afvis — globale admins (og ejer) */}
           {user.status !== USER_STATUS.APPROVED && (
             <button
@@ -284,9 +288,12 @@ export default function UserRow({ user, authInfo, currentUserIsOwner, currentUse
               🔑 Nulstil kodeord
             </button>
           )}
+            </>
+          )}
 
-          {/* Slet bruger permanent — kun ejeren, aldrig sig selv. Fjerner
-              Auth-kontoen + users/userContacts + medlemskaber i alle spil. */}
+          {/* Slet bruger permanent — kun ejeren, aldrig sig selv. Rammer også en
+              dublet-EJER-konto. Fjerner Auth-kontoen + users/userContacts +
+              medlemskaber i alle spil. */}
           {currentUserIsOwner && !isSelf && (
             <button
               className="btn btn--ghost"
