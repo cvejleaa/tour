@@ -17,7 +17,7 @@ import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/d
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
 import { shareText } from '../../../lib/share';
 import {
-  groupByRound, activeRound, isLocked, toMillis,
+  groupByRound, activeRound, isLocked, toMillis, afterStart,
 } from './footballRounds';
 import {
   OUTCOME, OUTCOMES, round1, outcomeReward, roundComboBonus, ROUND_BONUS,
@@ -81,7 +81,11 @@ export default function FootballTip({ game, me, matches }) {
   const bank = playerBank(me);
   const nowMs = Date.now();
 
-  const rounds = useMemo(() => groupByRound(matches), [matches]);
+  // Skjul kampe før spillets starttidspunkt (game.startAt) — så en sæson kan
+  // starte midt i (fx fra runde 2) uden at vise de tidligere runder.
+  const startMs = toMillis(game?.startAt);
+  const shownMatches = useMemo(() => afterStart(matches, startMs), [matches, startMs]);
+  const rounds = useMemo(() => groupByRound(shownMatches), [shownMatches]);
   const initialRound = useMemo(() => activeRound(rounds, nowMs), [rounds, nowMs]);
   const [roundNo, setRoundNo] = useState(initialRound);
   const [busy, setBusy] = useState(null); // matchId der gemmes
