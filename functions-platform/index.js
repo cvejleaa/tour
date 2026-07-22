@@ -25,6 +25,7 @@ const { syncResultsCore, syncStandingsCore } = require('./superligaSync');
 const { redeemLeagueCodeCore } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
+const { runGameRoundRecap } = require('./gameRecap');
 
 initializeApp();
 
@@ -35,11 +36,24 @@ const TZ = 'Europe/Copenhagen';
 //   firebase functions:secrets:set SMTP_PASSWORD --project spil-89af9
 const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD');
 
+// Claude-nøgle til Runde-Botten. Sæt én gang (uden den no-op'er botten):
+//   firebase functions:secrets:set ANTHROPIC_API_KEY --project spil-89af9
+const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
+
+/** Klar Anthropic-klient, eller null hvis nøglen ikke er sat. */
+function anthropicClient() {
+  const apiKey = ANTHROPIC_API_KEY.value();
+  if (!apiKey) return null;
+  // Lazy-require, så cold start uden botten ikke betaler for SDK'et.
+  const Anthropic = require('@anthropic-ai/sdk');
+  return new Anthropic({ apiKey });
+}
+
 // recomputeGameMatch — afregn point i den samlede platform når en kamps facit
 // (result) sættes: score alle bets på kampen (1X2 + Chancen) og genberegn hver
 // berørt spillers total. Spejler Tour-motorens recomputeStage, men spil-scoped.
 exports.recomputeGameMatch = onDocumentWritten(
-  { document: 'games/{gameId}/matches/{matchId}', region: REGION },
+  { document: 'games/{gameId}/matches/{matchId}', region: REGION, secrets: [ANTHROPIC_API_KEY] },
   async (event) => {
     const db = getFirestore();
     const { gameId, matchId } = event.params;
@@ -48,10 +62,49 @@ exports.recomputeGameMatch = onDocumentWritten(
     const before = event.data?.before?.data();
     // Kør kun når facit reelt ændrer sig (undgå løkker ved andre felt-skriv).
     if (before?.result === after.result) return;
-    await recomputeGameMatchCore(db, FieldValue, gameId, matchId, after);
+    const { roundCompleted } = await recomputeGameMatchCore(db, FieldValue, gameId, matchId, after) || {};
     // Levende Elo: opdatér ratings + friske odds på fremtidige kampe.
     // (Odds-skriv på kampe uden facit gen-udløser IKKE denne funktion.)
     await recomputeSeasonElo(db, FieldValue, gameId, Date.now());
+    // Runde-Botten: når rundens SIDSTE kamp netop er afregnet, generér og post
+    // runde-opslaget på spillets liga-vægge. No-op'er pænt uden nøgle, og
+    // botten er selv idempotent (game.recappedRounds) — et AI-udfald må aldrig
+    // vælte selve afregningen, så fejl logges kun.
+    if (roundCompleted != null) {
+      try {
+        const anthropic = anthropicClient();
+        if (!anthropic) { console.log('rundeBot: ANTHROPIC_API_KEY ikke sat — springer over.'); return; }
+        const out = await runGameRoundRecap(db, FieldValue, anthropic, gameId, roundCompleted);
+        console.log(`rundeBot(${gameId}, runde ${roundCompleted}):`, JSON.stringify({ posted: out.posted, reason: out.reason || null }));
+      } catch (e) {
+        console.error('rundeBot fejlede:', e && e.message);
+      }
+    }
+  },
+);
+
+// generateGameRecapNow — admin: generér runde-opslaget manuelt. dryRun=true
+// (forhåndsvisning) poster ikke, men returnerer teksten; dryRun=false poster på
+// alle spillets liga-vægge (idempotent pr. runde). Uden runde vælges den
+// seneste helt afgjorte.
+exports.generateGameRecapNow = onCall(
+  { region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 300 },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const gameId = String(request.data?.gameId || '').trim();
+    if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    const anthropic = anthropicClient();
+    if (!anthropic) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
+    const roundNo = Number.isFinite(Number(request.data?.round)) && request.data?.round !== null && request.data?.round !== ''
+      ? Number(request.data.round) : null;
+    const dryRun = request.data?.dryRun !== false; // default: forhåndsvisning
+    try {
+      return await runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo, { dryRun });
+    } catch (e) {
+      console.error('generateGameRecapNow:', e && e.message);
+      throw new HttpsError('internal', 'Kunne ikke generere opslaget: ' + (e && e.message));
+    }
   },
 );
 

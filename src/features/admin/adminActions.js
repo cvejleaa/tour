@@ -235,6 +235,22 @@ export async function callSendGameTipRemindersNow(gameId) {
 }
 
 /**
+ * Runde-Botten (platform): generér runde-opslaget for et spil. dryRun=true
+ * returnerer kun teksten (forhåndsvisning); dryRun=false poster på alle
+ * spillets liga-vægge. Uden runde vælges den seneste helt afgjorte.
+ * @param {{gameId:string, round?:number|null, dryRun?:boolean}} args
+ */
+export async function callGenerateGameRecapNow({ gameId, round = null, dryRun = true } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'generateGameRecapNow', { timeout: 300000 });
+    const res = await fn({ gameId, round, dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke generere opslaget.' };
+  }
+}
+
+/**
  * Per-spil påmindelser (platform): send en testmail KUN til admin selv.
  * @param {string} gameId
  */

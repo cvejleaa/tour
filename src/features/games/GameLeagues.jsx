@@ -76,7 +76,9 @@ function LeagueWall({ gameId, leagueId, meUid, byUid }) {
       ) : (
         <ul className="wall__list">
           {messages.map((m) => {
-            const u = byUid[m.uid] || {};
+            // System-/bot-beskeder (fx Runde-Botten) bærer selv navn og emoji —
+            // afsenderen findes ikke i spillets deltagerliste.
+            const u = byUid[m.uid] || { name: m.displayName, emoji: m.avatarEmoji };
             return (
               <li key={m.id} className="wall__msg">
                 <Avatar uid={m.uid} name={u.name} emoji={u.emoji} favoriteTeam={u.favoriteTeam} size={22} />
