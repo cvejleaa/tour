@@ -15,6 +15,23 @@ export function toMillis(t) {
 }
 
 /**
+ * Skjul kampe der ligger FØR spillets starttidspunkt (game.startAt). Bruges når
+ * spillet først går i gang midt i sæsonen — så tæller/vises kun runder fra
+ * starttidspunktet og frem. Uden starttidspunkt vises alle kampe.
+ * Kampe uden kickoff bevares (kan ikke afgøres som "før start").
+ * @param {Array<object>} matches
+ * @param {number|null} startMs  millisekunder (fra toMillis(game.startAt))
+ * @returns {Array<object>}
+ */
+export function afterStart(matches, startMs) {
+  if (startMs == null) return matches || [];
+  return (matches || []).filter((m) => {
+    const k = toMillis(m.kickoff);
+    return k == null || k >= startMs;
+  });
+}
+
+/**
  * Grupper kampe i runder. Kampe uden runde-nummer samles i runde 0.
  * @param {Array<object>} matches
  * @returns {Array<{round:number, matches:Array<object>}>} sorteret efter runde

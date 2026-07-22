@@ -7,7 +7,7 @@ import { useGameBets } from '../useGameBets';
 import { superligaTeamInfo } from '../../../data/superligaTeams2026';
 import { formatKickoff } from '../../../lib/daDate';
 import { fmtDec, fmtPoints } from '../../../lib/daNum';
-import { groupByRound } from './footballRounds';
+import { groupByRound, afterStart, toMillis } from './footballRounds';
 import { buildTipsHistory } from './tipsHistory';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
@@ -24,7 +24,10 @@ function ResultCell({ row }) {
 export default function MyTips({ game, matches }) {
   const gameId = game?.id;
   const { betsByMatch, loading } = useGameBets(gameId);
-  const rounds = useMemo(() => groupByRound(matches), [matches]);
+  // Skjul kampe før spillets starttidspunkt (som i tip-fladen).
+  const startMs = toMillis(game?.startAt);
+  const shownMatches = useMemo(() => afterStart(matches, startMs), [matches, startMs]);
+  const rounds = useMemo(() => groupByRound(shownMatches), [shownMatches]);
   const history = useMemo(() => buildTipsHistory(rounds, betsByMatch), [rounds, betsByMatch]);
 
   if (loading) return <div className="spinner" role="status" aria-label="Indlæser" />;

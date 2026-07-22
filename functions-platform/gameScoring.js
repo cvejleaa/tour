@@ -116,6 +116,24 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
  * (runde, facit-udfald, frosne odds) + pr. runde (antal kampe + antal afgjorte).
  * Bruges til combi-runde-bonussen, som kræver at hele runden er spillet.
  */
+/**
+ * Match-id'er for kampe FØR spillets starttidspunkt (game.startAt). De tæller
+ * IKKE med i pointgivningen — så en sæson kan starte midt i (fx fra runde 2)
+ * uden at tidligere runders tips giver point. Uden starttidspunkt: tom mængde.
+ * @param {Array<object>} matches
+ * @param {number|null} startMs
+ * @returns {Set<string>}
+ */
+function gatedIds(matches, startMs) {
+  const s = new Set();
+  if (startMs == null) return s;
+  for (const m of matches) {
+    const k = kickoffMs(m);
+    if (k != null && k < startMs) s.add(m.id);
+  }
+  return s;
+}
+
 function buildRoundContext(matches) {
   const byMatch = {};
   const rounds = {};
@@ -169,14 +187,17 @@ function playerRoundBonus(bets, roundCtx) {
  * PLUS combi-runde-bonusser, gulvet ved 0. Kør i transaktion, så to kampe der
  * afgøres tæt på hinanden ikke overskriver hinandens sum.
  * @param {object|null} roundCtx – runde-kontekst (buildRoundContext); uden den gives ingen bonus.
+ * @param {Set<string>|null} gated – match-id'er før spillets start; deres bets tæller ikke med.
  */
-async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null) {
+async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null, gated = null) {
   const betsQ = db.collection('games').doc(gameId).collection('bets').where('uid', '==', uid);
   const playerRef = db.collection('games').doc(gameId).collection('players').doc(uid);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(betsQ);
     const playerSnap = await tx.get(playerRef);
-    const bets = snap.docs.map((d) => d.data());
+    const all = snap.docs.map((d) => d.data());
+    // Kampe før spillets starttidspunkt tæller ikke med (hverken bet-point eller combi).
+    const bets = gated ? all.filter((b) => !gated.has(b.matchId)) : all;
     const raw = bets.reduce((a, b) => a + (Number(b.points) || 0), 0);
     const bonus = playerRoundBonus(bets, roundCtx);
     // Pulje-bonus (mesterskabsspil-tip) afregnes ved sæsonslut og gemmes på
@@ -274,6 +295,8 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   // fallback, hvis stillingen ikke er synket helt igennem grundspillet.
   const gameSnap = await gameRef.get();
   const standings = gameSnap.exists ? gameSnap.data().standings : null;
+  const startMs = gameSnap.exists ? kickoffMs({ kickoff: gameSnap.data().startAt }) : null;
+  const gated = gatedIds(matches, startMs);
   const expectedPlayed = matches.length % 6 === 0 ? matches.length / 6 : null;
   const top6 = new Set(officialTop6(standings, expectedPlayed) || championshipTeams(matches));
   const batch = db.batch();
@@ -289,7 +312,7 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
 
   const CHUNK = 10;
   for (let i = 0; i < uids.length; i += CHUNK) {
-    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid)));
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, null, gated)));
   }
   return { settled: uids.length };
 }
@@ -303,6 +326,16 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   const result = matchData?.result;
   if (!result) return { rescored: 0, players: 0 };
   const odds = matchData.odds || null;
+
+  // Spillets starttidspunkt (game.startAt): kampe før det tæller ikke med. Er
+  // DENNE kamp før start, scorer vi den slet ikke.
+  const gameRef = db.collection('games').doc(gameId);
+  const gameSnap = await gameRef.get();
+  const startMs = gameSnap.exists ? kickoffMs({ kickoff: gameSnap.data().startAt }) : null;
+  if (startMs != null) {
+    const thisKickoff = kickoffMs(matchData);
+    if (thisKickoff != null && thisKickoff < startMs) return { rescored: 0, players: 0, gated: true };
+  }
 
   const betsSnap = await db
     .collection('games').doc(gameId).collection('bets')
@@ -330,12 +363,14 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   // Runde-kontekst til combi-bonussen: hentes kun når vi faktisk skal genberegne.
   const matchesSnap = await db.collection('games').doc(gameId).collection('matches').get();
   const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const roundCtx = buildRoundContext(allMatches);
+  // Kampe før spillets start udelukkes fra både combi-kontekst og totalen.
+  const gated = gatedIds(allMatches, startMs);
+  const roundCtx = buildRoundContext(allMatches.filter((m) => !gated.has(m.id)));
 
   const uids = [...changedUids];
   const CHUNK = 10;
   for (let i = 0; i < uids.length; i += CHUNK) {
-    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx)));
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx, gated)));
   }
 
   // Placerings-snapshot: når denne kamps runde netop er blevet HELT afgjort,
@@ -360,8 +395,34 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   return { rescored, players: uids.length };
 }
 
+/**
+ * Genberegn ALLE spilleres totaler i et spil med den aktuelle gate (game.startAt).
+ * Bruges når admin lige har sat/ændret starttidspunktet, så tidligere runders
+ * point fjernes fra stillingen med det samme (triggeren rører kun berørte
+ * spillere, når en kamp skrives). Ren aggregering — ændrer ikke bet-point.
+ * @returns {Promise<{players:number, gatedMatches:number}>}
+ */
+async function recomputeAllPlayerTotals(db, FieldValue, gameId) {
+  const gameRef = db.collection('games').doc(gameId);
+  const [gameSnap, matchesSnap, playersSnap] = await Promise.all([
+    gameRef.get(),
+    gameRef.collection('matches').get(),
+    gameRef.collection('players').get(),
+  ]);
+  const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const startMs = gameSnap.exists ? kickoffMs({ kickoff: gameSnap.data().startAt }) : null;
+  const gated = gatedIds(allMatches, startMs);
+  const roundCtx = buildRoundContext(allMatches.filter((m) => !gated.has(m.id)));
+  const uids = playersSnap.docs.map((d) => d.id);
+  const CHUNK = 10;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx, gated)));
+  }
+  return { players: uids.length, gatedMatches: gated.size };
+}
+
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo,
   buildRoundContext, playerRoundBonus, computeRanks, snapshotRoundRanks,
-  settlePuljeBets, officialTop6,
+  settlePuljeBets, officialTop6, gatedIds, recomputeAllPlayerTotals,
 };

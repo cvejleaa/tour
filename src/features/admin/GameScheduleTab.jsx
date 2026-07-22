@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { useGames } from '../games/useGames';
 import { setGameSchedule } from '../games/gameActions';
+import { callRecomputeGameScores } from './adminActions';
 import { formatKickoff } from '../../lib/daDate';
 
 /** ms → værdi til <input type="datetime-local"> i LOKAL tid ('YYYY-MM-DDTHH:mm'). */
@@ -36,6 +37,8 @@ function GameRow({ game }) {
   const [puljeLockAt, setPuljeLockAt] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null); // 'saved' | 'error' | string
+  const [recalcBusy, setRecalcBusy] = useState(false);
+  const [recalcMsg, setRecalcMsg] = useState(null); // { kind, text }
 
   // Synk felterne når spillet (gen)indlæses.
   useEffect(() => {
@@ -54,6 +57,15 @@ function GameRow({ game }) {
     });
     setStatus(res.ok ? 'saved' : (res.error || 'error'));
     setBusy(false);
+  }
+
+  async function recalc() {
+    setRecalcBusy(true); setRecalcMsg(null);
+    const res = await callRecomputeGameScores(game.id);
+    setRecalcMsg(res.ok
+      ? { kind: 'ok', text: `Genberegnet for ${res.data?.players ?? '?'} spillere (${res.data?.gatedMatches ?? 0} kampe før start udeladt).` }
+      : { kind: 'err', text: res.error });
+    setRecalcBusy(false);
   }
 
   return (
@@ -103,6 +115,21 @@ function GameRow({ game }) {
           {isFootball && puljeLockAt && ` Deadline: ${formatKickoff(new Date(puljeLockAt).getTime())}.`}
         </span>
       </div>
+
+      {/* Genberegn stillingen med den aktuelle start-gate — så tidligere runders
+          point fjernes fra totalerne straks efter et start-skift (fodbold). */}
+      {isFootball && (
+        <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+          <button className="btn btn--ghost btn--sm" onClick={recalc} disabled={recalcBusy}>
+            {recalcBusy ? 'Genberegner…' : '🔄 Genberegn point efter start-ændring'}
+          </button>
+          {recalcMsg && (
+            <span className={`badge ${recalcMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
+              {recalcMsg.text}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

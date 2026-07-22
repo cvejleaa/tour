@@ -1,9 +1,38 @@
 import { describe, it, expect } from 'vitest';
 import {
-  toMillis, groupByRound, activeRound, isLocked,
+  toMillis, groupByRound, activeRound, isLocked, afterStart,
 } from './footballRounds';
 
 const M = (round, kickoffMs, extra = {}) => ({ round, kickoff: kickoffMs, ...extra });
+
+describe('afterStart', () => {
+  const ms = [M(1, 100), M(1, 150), M(2, 500), M(3, 900)];
+
+  it('uden starttidspunkt vises alle kampe', () => {
+    expect(afterStart(ms, null)).toHaveLength(4);
+  });
+
+  it('skjuler kampe FØR starttidspunktet (fx runde 1)', () => {
+    // start = 1 ms før runde 2's kickoff → runde 1 forsvinder, runde 2+ bliver.
+    const out = afterStart(ms, 499);
+    expect(out.map((m) => m.round)).toEqual([2, 3]);
+  });
+
+  it('inkluderer kampe præcis PÅ starttidspunktet', () => {
+    expect(afterStart(ms, 500).map((m) => m.kickoff)).toEqual([500, 900]);
+  });
+
+  it('beholder kampe uden kickoff (kan ikke afgøres som før start)', () => {
+    const withNull = [M(1, 100), { round: 2, kickoff: null }];
+    expect(afterStart(withNull, 500)).toHaveLength(1);
+    expect(afterStart(withNull, 500)[0].round).toBe(2);
+  });
+
+  it('groupByRound på filtreret liste giver kun runder fra start og frem', () => {
+    const rounds = groupByRound(afterStart(ms, 499));
+    expect(rounds.map((r) => r.round)).toEqual([2, 3]);
+  });
+});
 
 describe('toMillis', () => {
   it('håndterer tal, ISO, Date, Firestore-Timestamp', () => {

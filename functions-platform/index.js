@@ -20,7 +20,7 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { initializeApp } = require('firebase-admin/app');
 
-const { recomputeGameMatchCore, recomputeSeasonElo } = require('./gameScoring');
+const { recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals } = require('./gameScoring');
 const { syncResultsCore, syncStandingsCore } = require('./superligaSync');
 const { redeemLeagueCodeCore } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
@@ -54,6 +54,17 @@ exports.recomputeGameMatch = onDocumentWritten(
     await recomputeSeasonElo(db, FieldValue, gameId, Date.now());
   },
 );
+
+// recomputeGameScores — admin: genberegn ALLE spilleres totaler i et spil med
+// den aktuelle start-gate (game.startAt). Bruges efter at have sat/ændret
+// starttidspunktet, så tidligere runders point fjernes fra stillingen straks.
+exports.recomputeGameScores = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const gameId = String(request.data?.gameId || '').trim();
+  if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+  return recomputeAllPlayerTotals(db, FieldValue, gameId);
+});
 
 // syncSuperligaResults — hent færdigspillede kampe fra api.superliga.dk og sæt
 // facit på de matchende kampe. At skrive result udløser recomputeGameMatch
