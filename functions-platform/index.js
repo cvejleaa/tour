@@ -280,3 +280,69 @@ exports.gameTipReminders = onSchedule(
     }
   },
 );
+
+// ---------------------------------------------------------------------------
+// adminAuthUserInfo — owner/globalAdmin: hent login-metode (providers) m.m. for
+// alle Auth-brugere, så to konti med samme e-mail kan skelnes i admin-listen.
+// ---------------------------------------------------------------------------
+exports.adminAuthUserInfo = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const auth = getAuth();
+  const out = [];
+  let token;
+  do {
+    const res = await auth.listUsers(1000, token);
+    for (const u of res.users) {
+      out.push({
+        uid: u.uid,
+        email: u.email || null,
+        providers: (u.providerData || []).map((p) => p.providerId),
+        lastSignIn: (u.metadata && u.metadata.lastSignInTime) || null,
+        creation: (u.metadata && u.metadata.creationTime) || null,
+        disabled: !!u.disabled,
+      });
+    }
+    token = res.pageToken;
+  } while (token);
+  return { users: out };
+});
+
+// ---------------------------------------------------------------------------
+// adminDeleteUser — KUN ejeren: slet en bruger helt (Auth-konto + users-profil +
+// userContacts + spil-medlemskaber). Kan ikke slette sig selv. Blokerer hvis
+// brugeren har optjent point i et spil (medmindre force), så en rigtig spiller
+// ikke fjernes ved en fejl. Bruges bl.a. til at rydde dublet-konti op.
+// ---------------------------------------------------------------------------
+exports.adminDeleteUser = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  const caller = await requireAdmin(db, request);
+  if (caller?.role !== 'owner') throw new HttpsError('permission-denied', 'Kun ejeren kan slette brugere.');
+  const uid = String(request.data?.uid || '').trim();
+  if (!uid) throw new HttpsError('invalid-argument', 'Mangler bruger-id.');
+  if (uid === request.auth.uid) throw new HttpsError('failed-precondition', 'Du kan ikke slette dig selv.');
+
+  const gamesSnap = await db.collection('games').get();
+  if (!request.data?.force) {
+    for (const g of gamesSnap.docs) {
+      const p = await g.ref.collection('players').doc(uid).get();
+      if (p.exists && (Number(p.data().totalPoints) || 0) > 0) {
+        throw new HttpsError('failed-precondition', `Brugeren har point i "${g.data().name || g.id}". Bekræft med force for at slette alligevel.`);
+      }
+    }
+  }
+
+  try {
+    await getAuth().deleteUser(uid);
+  } catch (e) {
+    if (e.code !== 'auth/user-not-found') throw new HttpsError('internal', 'Kunne ikke slette Auth-kontoen.');
+  }
+
+  const batch = db.batch();
+  batch.delete(db.collection('users').doc(uid));
+  batch.delete(db.collection('userContacts').doc(uid));
+  for (const g of gamesSnap.docs) batch.delete(g.ref.collection('players').doc(uid));
+  await batch.commit();
+
+  return { ok: true, uid };
+});

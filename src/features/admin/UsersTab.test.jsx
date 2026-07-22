@@ -5,6 +5,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // ─── Mock Firebase ────────────────────────────────────────────────────────────
 vi.mock('../../firebase', () => ({
   db: {},
+  auth: { currentUser: null },
+  functions: {},
+}));
+
+// UsersTab henter login-metode via en callable ved mount — no-op i tests.
+vi.mock('firebase/functions', () => ({
+  httpsCallable: () => () => Promise.resolve({ data: { users: [] } }),
 }));
 
 const mockOnSnapshot = vi.fn();
@@ -122,7 +129,7 @@ describe('UsersTab', () => {
       { id: 'u1', displayName: 'Bent', email: 'b@test.dk', status: 'pending', role: 'player' },
     ]);
     render(<UsersTab isOwner={true} isGlobalAdmin={true} />);
-    expect(screen.getByRole('button', { name: /Godkend/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Godkend' })).toBeInTheDocument();
   });
 
   it('viser Afvis-knap for pending bruger', () => {
@@ -158,7 +165,7 @@ describe('UsersTab', () => {
     ]);
     render(<UsersTab isOwner={true} isGlobalAdmin={true} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Godkend/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Godkend' }));
 
     await waitFor(() => {
       expect(updateDoc).toHaveBeenCalledWith(
@@ -196,7 +203,7 @@ describe('UsersTab', () => {
     ]);
     render(<UsersTab isOwner={true} isGlobalAdmin={true} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Godkend/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Godkend' }));
 
     await waitFor(() => {
       expect(updateDoc).not.toHaveBeenCalled();
@@ -257,7 +264,7 @@ describe('UsersTab', () => {
       { id: 'u1', displayName: 'Bent', email: 'b@test.dk', status: 'pending', role: 'player' },
     ]);
     render(<UsersTab isOwner={false} isGlobalAdmin={true} />);
-    expect(screen.getByRole('button', { name: /Godkend/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Godkend' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Til global admin/i })).not.toBeInTheDocument();
   });
 
