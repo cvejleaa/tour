@@ -23,7 +23,8 @@ const { initializeApp } = require('firebase-admin/app');
 const { recomputeGameMatchCore, recomputeSeasonElo } = require('./gameScoring');
 const { syncResultsCore, syncStandingsCore } = require('./superligaSync');
 const { redeemLeagueCodeCore } = require('./gameLeagues');
-const { buildTransport, sendEmail, escapeHtml, APP_URL } = require('./mailer');
+const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
+const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
 
 initializeApp();
 
@@ -160,5 +161,122 @@ exports.adminSendPasswordReset = onCall(
     }
 
     return { ok: true, email, sent, link };
+  },
+);
+
+// --- Fælles: kræv owner/globalAdmin --------------------------------------
+async function requireAdmin(db, request) {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+  const snap = await db.collection('users').doc(request.auth.uid).get();
+  const role = snap.data()?.role;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun owner/global admin har adgang.');
+  }
+  return snap.data();
+}
+
+// ---------------------------------------------------------------------------
+// sendBroadcastEmail — masseudsendelse (platform-globalt). Fritekst-emne + body
+// til en liste modtagere. Logges som 'broadcast'. No-op-sikker uden SMTP.
+// ---------------------------------------------------------------------------
+exports.sendBroadcastEmail = onCall(
+  { region: REGION, secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+
+    const subject = String(request.data?.subject || '').trim();
+    const body = String(request.data?.body || '').trim();
+    const raw = Array.isArray(request.data?.recipients) ? request.data.recipients : [];
+    if (!subject) throw new HttpsError('invalid-argument', 'Emne mangler.');
+    if (!body) throw new HttpsError('invalid-argument', 'Beskeden er tom.');
+
+    const seen = new Set();
+    const valid = [];
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const r of raw) {
+      const e = String(r || '').trim();
+      if (!e) continue;
+      const key = e.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (re.test(e)) valid.push(e);
+    }
+    if (valid.length === 0) throw new HttpsError('invalid-argument', 'Ingen gyldige modtagere.');
+    if (valid.length > 300) throw new HttpsError('invalid-argument', 'For mange modtagere (max 300).');
+
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
+
+    const html = broadcastHtml(body);
+    let sent = 0;
+    const failed = [];
+    for (const to of valid) {
+      try {
+        await sendEmail(db, transporter, { to, subject, html, type: 'broadcast' });
+        sent += 1;
+      } catch (e) {
+        failed.push(to);
+        console.error('broadcast: kunne ikke sende til', to, e && e.message);
+      }
+    }
+    return { success: true, sent, failed };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Per-spil tip-påmindelser. gameId styrer hvilket spil. Kun owner/globalAdmin.
+// ---------------------------------------------------------------------------
+exports.sendGameTipRemindersNow = onCall(
+  { region: REGION, secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const gameId = String(request.data?.gameId || '').trim();
+    if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
+    const result = await runGameTipReminders(db, transporter, gameId);
+    return { success: true, ...result };
+  },
+);
+
+exports.sendGameTestReminderToMe = onCall(
+  { region: REGION, secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    const caller = await requireAdmin(db, request);
+    const gameId = String(request.data?.gameId || '').trim();
+    if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    const contactSnap = await db.collection('userContacts').doc(request.auth.uid).get();
+    const email = request.auth.token?.email || contactSnap.data()?.email || caller?.email;
+    if (!email) throw new HttpsError('failed-precondition', 'Din profil har ingen e-mailadresse.');
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
+    const result = await sendGameTestReminder(db, transporter, gameId, email, caller?.displayName);
+    return { success: true, ...result };
+  },
+);
+
+// Skemalagt: kl. 09:00 hver dag. Kør påmindelser for alle aktive fodbold-spil
+// (status open/live), medmindre spillet er sat på pause (game.paused).
+exports.gameTipReminders = onSchedule(
+  { schedule: '0 9 * * *', timeZone: TZ, region: REGION, secrets: [SMTP_PASSWORD] },
+  async () => {
+    const db = getFirestore();
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    if (!transporter) { console.log('gameTipReminders: ingen SMTP_PASSWORD — springer over.'); return; }
+    const snap = await db.collection('games').where('type', '==', 'football').get();
+    for (const d of snap.docs) {
+      const g = d.data();
+      if (g.paused) continue;
+      if (g.status !== 'open' && g.status !== 'live') continue;
+      try {
+        const r = await runGameTipReminders(db, transporter, d.id);
+        console.log(`gameTipReminders(${d.id}): sendte ${r.sent}${r.reason ? ` (${r.reason})` : ''}.`);
+      } catch (e) {
+        console.error(`gameTipReminders(${d.id}) fejl:`, e && e.message);
+      }
+    }
   },
 );

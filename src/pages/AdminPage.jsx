@@ -19,6 +19,7 @@ import ActivityTab from '../features/admin/ActivityTab';
 import RiderProfilesTab from '../features/admin/RiderProfilesTab';
 import TeamStylesTab from '../features/admin/TeamStylesTab';
 import GameScheduleTab from '../features/admin/GameScheduleTab';
+import GameReminderTab from '../features/admin/GameReminderTab';
 
 // Fane-id'er
 const TAB_USERS   = 'users';
@@ -34,6 +35,7 @@ const TAB_ACTIVITY = 'activity';
 const TAB_RIDERS = 'riders';
 const TAB_TEAMSTYLES = 'teamstyles';
 const TAB_SCHEDULE = 'schedule';
+const TAB_REMINDERS = 'reminders';
 
 export default function AdminPage() {
   const { isOwner, isGlobalAdmin } = useAuth();
@@ -59,10 +61,12 @@ export default function AdminPage() {
       { key: TAB_BONUS,   label: 'Bonus' },
       { key: TAB_LEAGUES, label: 'Ligaer' },
     ]),
-    // Samlet platform: spil-tidsplan (start + bonus-deadline) + hold-farver.
+    // Samlet platform: spil-tidsplan (start + bonus-deadline) + hold-farver
+    // + per-spil påmindelser.
     ...(PLATFORM_MODE ? [
       { key: TAB_SCHEDULE, label: '🗓️ Spil-tidsplan' },
       { key: TAB_TEAMSTYLES, label: '🎨 Hold-farver' },
+      { key: TAB_REMINDERS, label: '🔔 Påmindelser' },
     ] : []),
     { key: TAB_TESTS,   label: 'Tests' },
     ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
@@ -73,9 +77,11 @@ export default function AdminPage() {
     // Functions (sendBroadcastEmail / påmindelser / straf / afslutning), der pt.
     // kun findes i Tour-kodebasen (functions/), ikke i functions-platform. De
     // spil-specifikke indstillinger skal desuden bygges PR. SPIL (spil-vælger).
+    // Send mail (broadcast) — ejer, i BEGGE tilstande (backend findes nu på
+    // platformen). Indstillinger (recap/straf/afslutning) er stadig Tour-only.
+    ...(isOwner ? [{ key: TAB_BROADCAST, label: '📣 Send mail' }] : []),
     ...(isOwner && !PLATFORM_MODE
-      ? [{ key: TAB_BROADCAST, label: '📣 Send mail' },
-         { key: TAB_SETTINGS, label: '⚙️ Indstillinger' }]
+      ? [{ key: TAB_SETTINGS, label: '⚙️ Indstillinger' }]
       : []),
   ];
 
@@ -135,6 +141,7 @@ export default function AdminPage() {
         {tab === TAB_RIDERS  && <RiderProfilesTab />}
         {tab === TAB_SCHEDULE && <GameScheduleTab />}
         {tab === TAB_TEAMSTYLES && <TeamStylesTab />}
+        {tab === TAB_REMINDERS && <GameReminderTab />}
         {tab === TAB_BONUS   && <BonusTab />}
         {tab === TAB_LEAGUES && <LeaguesAdminTab />}
         {tab === TAB_TESTS   && <TestsTab />}
