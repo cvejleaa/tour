@@ -40,7 +40,7 @@ function PlatformHelp() {
       <h1 style={{ margin: '0 0 0.35rem', fontSize: '1.5rem' }}>❓ Velkommen til Vejleaa Tip</h1>
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1.25rem', fontSize: '0.95rem' }}>
         Én konto — flere tippespil. Her forklarer vi, hvordan platformen hænger sammen. Hjælp til det
-        <strong> enkelte spil</strong> finder du inde i spillet under fanen <strong>❓ Hjælp</strong>.
+        <strong> enkelte spil</strong> finder du inde i spillet under fanen <strong>❓ Guide</strong>.
       </p>
 
       <Section emoji="🎮" title="Én bruger, flere spil">
@@ -55,7 +55,7 @@ function PlatformHelp() {
           Tip fodboldkampene runde for runde (1X2). Point <strong>følger oddsene</strong>, og der er bonus
           for at ramme hele runden (combi), et lille væddemål (Chancen) og et pulje-tip om, hvem der når
           mesterskabsspillet. Følg holdenes Elo og dyst i mini-ligaer. Fuld guide inde i spillet under
-          {' '}<strong>❓ Hjælp</strong>.
+          {' '}<strong>❓ Guide</strong>.
         </GameBlurb>
         <GameBlurb emoji="🚴" name="Tour de France 2026" status="i gang">
           Cykel-tipning etape for etape: hold på etapevinderen, bedste hold, bjerg- og sprintpoint. Kører i
