@@ -49,6 +49,12 @@ describe('rankStandings', () => {
     expect(cille.favoriteTeam).toBe('FCK');
     expect(rows.find((r) => r.uid === 'a').emoji).toBe('🦊');
   });
+
+  it('per-spil-hold (players-doc) har forrang for den globale profil', () => {
+    // Cille har 'FCK' i den globale profil, men 'Brøndby' i dette spil.
+    const rows = rankStandings([{ uid: 'c', totalPoints: 2, favoriteTeam: 'Brøndby' }], users);
+    expect(rows.find((r) => r.uid === 'c').favoriteTeam).toBe('Brøndby');
+  });
 });
 
 describe('subsetRanking (liga-stilling)', () => {
