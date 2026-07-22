@@ -211,8 +211,9 @@ export default function UserRow({ user, currentUserIsOwner, currentUserCanApprov
             </button>
           )}
 
-          {/* Send nulstillingslink — kun ejeren */}
-          {currentUserIsOwner && (
+          {/* Send nulstillingslink — kun ejeren. Skjult på platformen indtil
+              adminSendPasswordReset er portéret til functions-platform. */}
+          {currentUserIsOwner && !PLATFORM_MODE && (
             <button
               className="btn btn--ghost"
               style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
