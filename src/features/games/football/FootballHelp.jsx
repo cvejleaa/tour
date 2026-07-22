@@ -23,10 +23,31 @@ export default function FootballHelp() {
   return (
     <div>
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1rem', fontSize: '0.95rem' }}>
-        Alt om at tippe her — fra dit første tip til bonus, Elo og mini-ligaer. Du finder det hele via
-        fanerne øverst: <Tab>⚽ Tip</Tab> <Tab>📋 Mine tips</Tab> <Tab>🎖️ Pulje</Tab> <Tab>📈 Elo</Tab>{' '}
-        <Tab>⚽ Tabel</Tab> <Tab>🏆 Stilling</Tab> <Tab>👥 Ligaer</Tab> <Tab>🙂 Mit hold</Tab>.
+        Alt om at tippe her — fra dit ugentlige flow til point, bonus, Elo og mini-ligaer.
       </p>
+
+      {/* Det daglige/ugentlige flow først — så resten er detaljerne. */}
+      <Section emoji="🗓️" title="Sådan forløber en runde">
+        <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Før kampene:</strong> På <Tab>⚽ Tip</Tab> sætter du 1X2 på rundens kampe — du kan rette
+            frit indtil hver kampstart. Tip gerne <strong>hele runden</strong> (combi-bonus), og brug evt.
+            {' '}<strong>Chancen</strong> på den kamp, du har bedst fornemmelse for.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Mens der spilles:</strong> Følg den officielle <Tab>⚽ Tabel</Tab> og jeres indbyrdes
+            {' '}<Tab>🏆 Stilling</Tab>.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Efter runden:</strong> Se dit facit og din træfprocent under <Tab>📋 Mine tips</Tab>, og
+            hvordan holdenes rating flyttede sig under <Tab>📈 Elo</Tab>.
+          </li>
+          <li>
+            <strong>Løbende:</strong> Afgiv dit <Tab>🎖️ Pulje</Tab>-tip før deadline (én gang), dyst i
+            {' '}<Tab>👥 Ligaer</Tab> med vennerne, og vælg dit hold under <Tab>🙂 Mit hold</Tab>.
+          </li>
+        </ul>
+      </Section>
 
       <Section emoji="⚽" title="Tip kampene (1X2)">
         På <Tab>⚽ Tip</Tab> gætter du udfaldet af hver kamp i runden: <strong>1</strong> (hjemmesejr),
@@ -69,12 +90,15 @@ export default function FootballHelp() {
         </p>
       </Section>
 
-      <Section emoji="🎖️" title="Bonus: pulje-tip">
-        På <Tab>🎖️ Pulje</Tab> forudsiger du, hvilke <strong>{PULJE.POOL_SIZE} hold</strong> der ender i
-        <strong> mesterskabsspillet</strong> efter grundspillet (de øvrige 6 ryger i nedrykningsspillet).
-        Hvert rigtigt hold giver <strong>+{PULJE.PER_TEAM} point</strong>, og rammer du alle{' '}
-        {PULJE.POOL_SIZE}, får du <strong>+{PULJE.PERFECT_BONUS}</strong> i bonus. Deadline sættes af
-        arrangøren og vises på fanen.
+      <Section emoji="📋" title="Mine tips">
+        <Tab>📋 Mine tips</Tab> samler alle dine tips runde for runde med facit, point pr. kamp og din
+        combi-bonus — plus en opsummering med samlet point og din træfprocent.
+      </Section>
+
+      <Section emoji="🏆" title="Stilling & tabel">
+        <Tab>🏆 Stilling</Tab> viser jeres indbyrdes kamp — spillernes samlede point. <Tab>⚽ Tabel</Tab>
+        {' '}viser den <strong>officielle Superliga-stilling</strong> (hentet direkte fra ligaen), delt op i
+        mesterskabsspil (top 6) og nedrykningsspil (bund 6). Det er den, pulje-tippet afgøres på.
       </Section>
 
       <Section emoji="📈" title="Elo-tabellen">
@@ -110,15 +134,12 @@ export default function FootballHelp() {
         </p>
       </Section>
 
-      <Section emoji="🏆" title="Stilling & tabel">
-        <Tab>🏆 Stilling</Tab> viser jeres indbyrdes kamp — spillernes samlede point. <Tab>⚽ Tabel</Tab>
-        {' '}viser den <strong>officielle Superliga-stilling</strong> (hentet direkte fra ligaen), delt op i
-        mesterskabsspil (top 6) og nedrykningsspil (bund 6). Det er den, pulje-tippet afgøres på.
-      </Section>
-
-      <Section emoji="📋" title="Mine tips">
-        <Tab>📋 Mine tips</Tab> samler alle dine tips runde for runde med facit, point pr. kamp og din
-        combi-bonus — plus en opsummering med samlet point og din træfprocent.
+      <Section emoji="🎖️" title="Bonus: pulje-tip">
+        På <Tab>🎖️ Pulje</Tab> forudsiger du, hvilke <strong>{PULJE.POOL_SIZE} hold</strong> der ender i
+        <strong> mesterskabsspillet</strong> efter grundspillet (de øvrige 6 ryger i nedrykningsspillet).
+        Hvert rigtigt hold giver <strong>+{PULJE.PER_TEAM} point</strong>, og rammer du alle{' '}
+        {PULJE.POOL_SIZE}, får du <strong>+{PULJE.PERFECT_BONUS}</strong> i bonus. Deadline sættes af
+        arrangøren og vises på fanen.
       </Section>
 
       <Section emoji="👥" title="Mini-ligaer">

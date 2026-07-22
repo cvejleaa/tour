@@ -6,6 +6,7 @@ import FootballHelp from './FootballHelp';
 describe('FootballHelp (spil-intern hjælp)', () => {
   it('viser Superliga-mekanikken inkl. hvordan combi-bonus beregnes', () => {
     render(<MemoryRouter><FootballHelp /></MemoryRouter>);
+    expect(screen.getByRole('heading', { name: /Sådan forløber en runde/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Point følger oddsene/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Combi-runde-bonus/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Chancen/ })).toBeInTheDocument();
