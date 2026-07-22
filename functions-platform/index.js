@@ -15,17 +15,24 @@
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { initializeApp } = require('firebase-admin/app');
 
 const { recomputeGameMatchCore, recomputeSeasonElo } = require('./gameScoring');
 const { syncResultsCore, syncStandingsCore } = require('./superligaSync');
 const { redeemLeagueCodeCore } = require('./gameLeagues');
+const { buildTransport, sendEmail, escapeHtml, APP_URL } = require('./mailer');
 
 initializeApp();
 
 const REGION = 'europe-west1';
 const TZ = 'Europe/Copenhagen';
+
+// SMTP-adgangskode for tip@vejleaa.dk. Sæt én gang (uden den no-op'er mail):
+//   firebase functions:secrets:set SMTP_PASSWORD --project spil-89af9
+const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD');
 
 // recomputeGameMatch — afregn point i den samlede platform når en kamps facit
 // (result) sættes: score alle bets på kampen (1X2 + Chancen) og genberegn hver
@@ -104,3 +111,54 @@ exports.redeemGameLeagueCode = onCall({ region: REGION }, async (request) => {
     throw new HttpsError(httpCode, msg);
   }
 });
+
+// ---------------------------------------------------------------------------
+// adminSendPasswordReset — KUN ejeren: generér et nulstillingslink server-side
+// og send det via platformens egen SMTP (tip@vejleaa.dk). Platform-globalt
+// (gælder brugeren, ikke ét spil) — nyttigt for de migrerede VM-brugere med
+// kodeord. No-op'er pænt uden SMTP_PASSWORD (returnerer stadig linket).
+// ---------------------------------------------------------------------------
+exports.adminSendPasswordReset = onCall(
+  { region: REGION, secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    const db = getFirestore();
+    const callerSnap = await db.collection('users').doc(request.auth.uid).get();
+    if (callerSnap.data()?.role !== 'owner') {
+      throw new HttpsError('permission-denied', 'Kun ejeren kan sende nulstillingslink.');
+    }
+
+    const uid = request.data?.uid;
+    if (!uid) throw new HttpsError('invalid-argument', 'Mangler bruger-id.');
+
+    let userRecord;
+    try {
+      userRecord = await getAuth().getUser(uid);
+    } catch {
+      throw new HttpsError('not-found', 'Brugeren findes ikke i Authentication.');
+    }
+    const email = userRecord.email;
+    if (!email) throw new HttpsError('failed-precondition', 'Brugeren har ingen e-mailadresse.');
+
+    const link = await getAuth().generatePasswordResetLink(email);
+
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    let sent = false;
+    if (transporter) {
+      const name = escapeHtml(userRecord.displayName || 'spiller');
+      const html = `
+        <p>Hej ${name},</p>
+        <p>Du (eller en administrator) har bedt om at nulstille din adgangskode til
+        <strong>Vejleaa Tip</strong>. Klik på linket nedenfor for at vælge en ny:</p>
+        <p><a href="${link}">Nulstil min adgangskode</a></p>
+        <p>Hvis knappen ikke virker, kopiér dette link ind i din browser:<br>
+        <span style="word-break:break-all">${link}</span></p>
+        <p>Bagefter kan du logge ind på <a href="${APP_URL}">${APP_URL}</a>.</p>
+        <p>Mvh. Vejleaa Tip</p>`;
+      await sendEmail(db, transporter, { to: email, subject: 'Nulstil din adgangskode – Vejleaa Tip', html, type: 'password-reset' });
+      sent = true;
+    }
+
+    return { ok: true, email, sent, link };
+  },
+);

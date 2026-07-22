@@ -217,9 +217,9 @@ button {
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 0.7rem;
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   color: var(--c-muted);
   cursor: pointer;
   white-space: nowrap;

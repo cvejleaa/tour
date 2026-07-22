@@ -24,7 +24,7 @@ import { GAME_TYPE } from '../lib/constants';
 
 // Faner i spillet. football: true = kun for fodbold-spil. Rækkefølgen er
 // visnings-rækkefølgen; navnene er valgt så de ikke kolliderer med top-nav
-// ("Mit hold" vs. global Profil, "Sådan tipper du" vs. platform-Hjælp).
+// ("Mit hold" vs. global Profil, "Guide" vs. platform-Hjælp).
 const GAME_TABS = [
   { key: 'tip', label: 'Tip' },
   { key: 'mine', label: '📋 Mine tips', football: true },
@@ -34,7 +34,7 @@ const GAME_TABS = [
   { key: 'elo', label: '📈 Elo', football: true },
   { key: 'ligaer', label: '👥 Ligaer' },
   { key: 'profil', label: '🙂 Mit hold' },
-  { key: 'hjaelp', label: '❓ Sådan tipper du', football: true },
+  { key: 'hjaelp', label: '❓ Guide', football: true },
 ];
 
 export default function GamePage() {

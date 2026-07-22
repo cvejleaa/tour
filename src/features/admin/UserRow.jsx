@@ -211,14 +211,16 @@ export default function UserRow({ user, currentUserIsOwner, currentUserCanApprov
             </button>
           )}
 
-          {/* Send nulstillingslink — kun ejeren */}
+          {/* Send nulstillingslink — kun ejeren. Backend findes nu i BEGGE
+              codebases (functions + functions-platform), så knappen virker på
+              både Tour og platformen (no-op'er pænt uden SMTP_PASSWORD). */}
           {currentUserIsOwner && (
             <button
               className="btn btn--ghost"
               style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
               disabled={busy}
               onClick={handlePasswordReset}
-              title="Send et nulstillingslink via tour@vejleaa.dk (omgår Firebase-mailen)"
+              title="Send et nulstillingslink via egen SMTP (omgår Firebase-mailen)"
             >
               🔑 Nulstil kodeord
             </button>

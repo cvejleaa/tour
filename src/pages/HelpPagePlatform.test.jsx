@@ -19,6 +19,6 @@ describe('HelpPage (platform/samleside)', () => {
     // Spil-specifik mekanik (Chancen/combi) hører til inde i spillet, ikke her.
     expect(screen.queryByRole('heading', { name: /Combi-runde-bonus/ })).not.toBeInTheDocument();
     // Peger på den spil-interne hjælp.
-    expect(screen.getAllByText(/❓ Hjælp/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/❓ Guide/).length).toBeGreaterThan(0);
   });
 });

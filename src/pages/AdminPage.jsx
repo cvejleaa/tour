@@ -68,8 +68,12 @@ export default function AdminPage() {
     ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
     { key: TAB_MAILS,   label: '✉️ Mail-log' },
     { key: TAB_ACTIVITY, label: '📈 Aktivitet' },
-    // Send mail (masseudsendelse) + indstillinger — kun ejer
-    ...(isOwner
+    // Send mail (masseudsendelse) + indstillinger — kun ejer.
+    // Skjult på den samlede platform indtil videre: begge afhænger af Cloud
+    // Functions (sendBroadcastEmail / påmindelser / straf / afslutning), der pt.
+    // kun findes i Tour-kodebasen (functions/), ikke i functions-platform. De
+    // spil-specifikke indstillinger skal desuden bygges PR. SPIL (spil-vælger).
+    ...(isOwner && !PLATFORM_MODE
       ? [{ key: TAB_BROADCAST, label: '📣 Send mail' },
          { key: TAB_SETTINGS, label: '⚙️ Indstillinger' }]
       : []),
