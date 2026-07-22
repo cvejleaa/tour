@@ -63,6 +63,22 @@ export async function callAuthUserInfo() {
   }
 }
 
+/**
+ * Genberegn alle spilleres totaler i et spil med den aktuelle start-gate
+ * (game.startAt). Bruges når starttidspunktet lige er sat/ændret, så tidligere
+ * runders point fjernes fra stillingen med det samme.
+ * @param {string} gameId
+ */
+export async function callRecomputeGameScores(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'recomputeGameScores', { timeout: 120000 });
+    const res = await fn({ gameId });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke genberegne point.' };
+  }
+}
+
 /** Slet en bruger helt (kun ejer). force=true sletter selv med point. */
 export async function callDeleteUser(uid, force = false) {
   try {

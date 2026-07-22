@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 const {
   recomputeGameMatchCore, recomputeSeasonElo, buildRoundContext, playerRoundBonus,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officialTop6,
+  gatedIds, recomputeAllPlayerTotals,
 } = require('./gameScoring');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
@@ -161,6 +162,66 @@ describe('recomputeGameMatchCore', () => {
     expect(db._players.A.roundBonus).toBe(6);
     // B rørt ikke (ingen bet på m2) → ingen genberegning
     expect(db._players.B).toBeUndefined();
+  });
+});
+
+describe('gatedIds (kampe før spillets start)', () => {
+  it('uden startAt: tom mængde', () => {
+    expect(gatedIds([{ id: 'm1', kickoff: 100 }], null).size).toBe(0);
+  });
+  it('markerer kun kampe med kickoff FØR start', () => {
+    const g = gatedIds([{ id: 'm1', kickoff: 100 }, { id: 'm2', kickoff: 500 }, { id: 'm3', kickoff: 900 }], 500);
+    expect([...g]).toEqual(['m1']); // 500 er PÅ start → tæller med
+  });
+});
+
+describe('recomputeGameMatchCore — start-gate (game.startAt)', () => {
+  it('scorer ikke en kamp før spillets start', async () => {
+    const db = makeDb(
+      [{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 0 }],
+      [{ id: 'm1', round: 1, kickoff: 100, result: 'X', odds: { 1: 2, X: 3, 2: 4 } }],
+      { startAt: 500 },
+    );
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', {
+      result: 'X', odds: { 1: 2, X: 3, 2: 4 }, round: 1, kickoff: 100,
+    });
+    expect(res.gated).toBe(true);
+    expect(res.rescored).toBe(0);
+    expect(Object.keys(db._players)).toHaveLength(0);
+  });
+
+  it('udelader point fra runde FØR start i totalen', async () => {
+    const matches = [
+      { id: 'm1', round: 1, kickoff: 100, result: '1', odds: { 1: 5, X: 5, 2: 5 } },
+      { id: 'm2', round: 2, kickoff: 900, result: 'X', odds: { 1: 2, X: 3, 2: 4 } },
+    ];
+    const db = makeDb([
+      { uid: 'A', matchId: 'm1', pick: '1', chanceStake: 0, points: 5 }, // runde 1 → skal IKKE tælle
+      { uid: 'A', matchId: 'm2', pick: 'X', chanceStake: 0, points: 0 }, // runde 2 → scores nu til 3
+    ], matches, { startAt: 500 });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm2', {
+      result: 'X', odds: { 1: 2, X: 3, 2: 4 }, round: 2, kickoff: 900,
+    });
+    expect(res.rescored).toBe(1);
+    expect(db._players.A.totalPoints).toBe(3); // kun m2; m1's 5 point gated væk
+  });
+});
+
+describe('recomputeAllPlayerTotals — genberegn med gate', () => {
+  it('fjerner point før start for ALLE spillere', async () => {
+    const matches = [
+      { id: 'm1', round: 1, kickoff: 100 },
+      { id: 'm2', round: 2, kickoff: 900 },
+    ];
+    const db = makeDb([
+      { uid: 'A', matchId: 'm1', pick: '1', points: 5 },
+      { uid: 'A', matchId: 'm2', pick: 'X', points: 3 },
+      { uid: 'B', matchId: 'm1', pick: '1', points: 5 },
+    ], matches, { startAt: 500 }, { A: { totalPoints: 8 }, B: { totalPoints: 5 } });
+    const res = await recomputeAllPlayerTotals(db, FieldValue, 'g1');
+    expect(res).toEqual({ players: 2, gatedMatches: 1 });
+    expect(db._players.A.totalPoints).toBe(3); // kun m2
+    expect(db._players.B.totalPoints).toBe(0); // kun m1 (gated)
   });
 });
 
