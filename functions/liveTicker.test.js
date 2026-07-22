@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { mapPosts, fetchLiveTickerCore, cleanText } = require('./liveTicker');
+const { mapPosts, postStats, fetchLiveTickerCore, cleanText } = require('./liveTicker');
 
 describe('cleanText', () => {
   it('konverterer <br /> til linjeskift (fejlen fra etape 1-tickeren)', () => {
@@ -41,6 +41,48 @@ describe('mapPosts', () => {
     expect(mapPosts(null)).toEqual([]);
     expect(mapPosts({})).toEqual([]);
   });
+
+  it('sorterer efter FAKTISK tid, ikke streng — blandede offsets (etape 17-fejlen)', () => {
+    // "15:20Z" er 17:20 dansk tid → NYERE end "17:10+02:00", men strengsortering
+    // ville lægge den nederst (og limit ville skære finalen af).
+    const mixed = [
+      { id: 'a', title: 'Sidste 10 km', publicationAt: '2026-07-22T17:10:00+02:00' },
+      { id: 'b', title: 'Stuyven vinder!', publicationAt: '2026-07-22T15:20:00Z' },
+      { id: 'c', title: 'Podiet', publicationAt: '2026-07-22T15:35:00+00:00' },
+    ];
+    expect(mapPosts(mixed).map((p) => p.id)).toEqual(['c', 'b', 'a']);
+  });
+
+  it('limit beholder de N reelt nyeste ved blandede offsets', () => {
+    const mixed = [
+      { id: 'old1', title: 'x', publicationAt: '2026-07-22T16:00:00+02:00' },
+      { id: 'old2', title: 'x', publicationAt: '2026-07-22T16:30:00+02:00' },
+      { id: 'finale', title: 'x', publicationAt: '2026-07-22T15:40:00Z' }, // 17:40 lokal
+    ];
+    expect(mapPosts(mixed, 2).map((p) => p.id)).toEqual(['finale', 'old2']);
+  });
+
+  it('lækker ikke det interne _epoch-felt', () => {
+    for (const p of mapPosts(RAW)) expect(p).not.toHaveProperty('_epoch');
+  });
+});
+
+describe('postStats', () => {
+  it('tæller opslag, offset-varianter og finder nyeste/ældste', () => {
+    const s = postStats([
+      { publicationAt: '2026-07-22T17:10:00+02:00' },
+      { publicationAt: '2026-07-22T15:20:00Z' },
+      { title: 'uden tid' },
+    ]);
+    expect(s.total).toBe(3);
+    expect(s.nullTime).toBe(1);
+    expect(s.offsets).toEqual({ '+02:00': 1, Z: 1 });
+    expect(s.newestAt).toBe('2026-07-22T15:20:00.000Z'); // 17:20 dansk tid
+    expect(s.oldestAt).toBe('2026-07-22T15:10:00.000Z');
+  });
+  it('tåler ikke-array input', () => {
+    expect(postStats(null).total).toBe(0);
+  });
 });
 
 describe('fetchLiveTickerCore', () => {
@@ -61,6 +103,8 @@ describe('fetchLiveTickerCore', () => {
     const r1 = await fetchLiveTickerCore({ stageNumber: 1, fetchImpl: f, cache, now });
     expect(r1.ok).toBe(true);
     expect(r1.posts).toHaveLength(3);
+    // Cache-buster mod letours CDN: URL'en skal variere pr. hentning.
+    expect(f.mock.calls[0][0]).toContain('?_=1000');
     // Inden for cache-vinduet → intet nyt kald.
     t += 10000;
     await fetchLiveTickerCore({ stageNumber: 1, fetchImpl: f, cache, now });

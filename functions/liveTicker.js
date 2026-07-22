@@ -35,6 +35,17 @@ function cleanText(s) {
 }
 
 /**
+ * Opslagets tidsstempel som epoch-ms. VIGTIGT: sammenlign aldrig ISO-strenge
+ * leksikografisk — letour blander offset-formater (fx "+02:00" og "Z"), og
+ * strengsortering lægger så finale-opslagene NEDERST, hvor de bliver skåret
+ * af limit. Ukendt/manglende tid → 0 (ældst).
+ */
+function postEpoch(p) {
+  const t = Date.parse(p?.publicationAt || p?.createdAt || '');
+  return Number.isFinite(t) ? t : 0;
+}
+
+/**
  * Normalisér racecenter-opslag til det frontend viser. Nyeste først;
  * pinned-opslag øverst (letours egen fremhævning).
  * @param {Array} json  rå publication_da-payload
@@ -50,12 +61,45 @@ function mapPosts(json, limit = 30) {
       text: Array.isArray(p.text) ? p.text.map(cleanText).filter(Boolean).join('\n\n') : cleanText(p.text || ''),
       picto: p.picto || null,
       publicationAt: p.publicationAt || p.createdAt || null,
+      _epoch: postEpoch(p),
       pinned: !!p.pinned,
       highlight: !!p.highlight,
     }))
-    .sort((a, b) => (Number(b.pinned) - Number(a.pinned))
-      || String(b.publicationAt || '').localeCompare(String(a.publicationAt || '')))
-    .slice(0, limit);
+    .sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || (b._epoch - a._epoch))
+    .slice(0, limit)
+    .map((p) => { delete p._epoch; return p; });
+}
+
+/**
+ * Diagnose-statistik over det RÅ publication-payload: hvor mange opslag,
+ * nyeste/ældste tidsstempel, offset-varianter og evt. opslag uden tid.
+ * Bruges af debugLiveTicker-callablen når tickeren "stopper for tidligt".
+ */
+function postStats(json) {
+  const arr = Array.isArray(json) ? json : [];
+  const offsets = {};
+  let nullTime = 0;
+  let newest = null;
+  let oldest = null;
+  for (const p of arr) {
+    const raw = String(p?.publicationAt || p?.createdAt || '');
+    if (!raw) { nullTime += 1; continue; }
+    const m = raw.match(/(Z|[+-]\d{2}:?\d{2})$/);
+    const suffix = m ? m[1] : '(intet offset)';
+    offsets[suffix] = (offsets[suffix] || 0) + 1;
+    const t = Date.parse(raw);
+    if (Number.isFinite(t)) {
+      if (newest === null || t > newest) newest = t;
+      if (oldest === null || t < oldest) oldest = t;
+    }
+  }
+  return {
+    total: arr.length,
+    nullTime,
+    offsets,
+    newestAt: newest !== null ? new Date(newest).toISOString() : null,
+    oldestAt: oldest !== null ? new Date(oldest).toISOString() : null,
+  };
 }
 
 /**
@@ -82,12 +126,17 @@ async function fetchLiveTickerCore({
 
   let value;
   try {
-    const res = await fetchImpl(`${RACECENTER}/publication_da-${season}-${n}`, {
+    // Cache-buster + no-cache: uden dem kan letours CDN servere et TIMER
+    // gammelt svar til os (set live: "Opdateret 20.32" men nyeste opslag
+    // 17.10) — deres egen side poller med friske forespørgsler.
+    const res = await fetchImpl(`${RACECENTER}/publication_da-${season}-${n}?_=${now()}`, {
       headers: {
         // Racecenteret er en offentlig side; en almindelig browser-UA og
         // Accept-header er nok (payloadet i HAR'en havde intet krav udover det).
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
         Accept: 'application/json',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
       },
     });
     if (!res.ok) {
@@ -104,4 +153,4 @@ async function fetchLiveTickerCore({
   return value;
 }
 
-module.exports = { RACECENTER, cleanText, mapPosts, fetchLiveTickerCore };
+module.exports = { RACECENTER, cleanText, mapPosts, postStats, fetchLiveTickerCore };

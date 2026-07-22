@@ -111,7 +111,10 @@ async function fetchLiveMapCore({
       if (routeCache) routeCache.set(key, { at: now(), value: route });
     }
 
-    const { groups, date } = mapGroups(await getJson(`${RACECENTER}/telemetryPack-${season}-${n}`));
+    // Cache-buster: uden den kan letours CDN servere gammel telemetri
+    // (samme problem som live-tickeren). Ruten ovenfor er statisk og må
+    // gerne komme fra CDN-cache.
+    const { groups, date } = mapGroups(await getJson(`${RACECENTER}/telemetryPack-${season}-${n}?_=${now()}`));
     value = {
       ok: true, stage: n, route, groups,
       updatedAt: date, fetchedAt: new Date(now()).toISOString(),

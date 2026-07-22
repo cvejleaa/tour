@@ -525,6 +525,13 @@ export default function TourTab() {
     return res.data;
   });
 
+  // Rå ticker-diagnose: friskt letour-feed uden cache — antal opslag,
+  // nyeste/ældste tidsstempel og offset-varianter.
+  const debugTicker = () => run('debugticker', async () => {
+    const res = await httpsCallable(functions, 'debugLiveTicker')({ stage: Number(debugStageNum) });
+    return res.data;
+  });
+
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>🚴 Tour de France</h2>
@@ -699,6 +706,10 @@ export default function TourTab() {
           <button className="btn" disabled={busy || !debugStageNum} onClick={resyncStage} data-testid="resync-stage"
             title="Henter etapens facit + visningsdata forfra og omgår 8-timers-frysningen. Tips genberegnes automatisk hvis facittet ændrer sig.">
             {busy === 'resyncstage' ? 'Gen-synker…' : '🔁 Gen-synk etape (omgå frysning)'}
+          </button>
+          <button className="btn btn--ghost" disabled={busy || !debugStageNum} onClick={debugTicker} data-testid="debug-ticker"
+            title="Henter live-ticker-feedet helt frisk (uden cache) og viser rå statistik: antal opslag, nyeste/ældste tidsstempel og offset-varianter. Brug den hvis tickeren mangler de sidste opslag.">
+            {busy === 'debugticker' ? 'Henter…' : '🎙️ Ticker-diagnose'}
           </button>
         </div>
       </section>

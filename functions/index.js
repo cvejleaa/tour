@@ -49,7 +49,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
 const { leagueBonusTotalsByUid } = require('./leagueBonus');
 const { salesPitchHtml } = require('./salesPitch');
-const { fetchLiveTickerCore } = require('./liveTicker');
+const { fetchLiveTickerCore, mapPosts, postStats, RACECENTER } = require('./liveTicker');
 const { fetchLiveMapCore } = require('./liveMap');
 const { runGenerateStageTips } = require('./stageTip');
 const { runEnrichRiderTags } = require('./riderTags');
@@ -2283,6 +2283,39 @@ exports.getLiveTicker = onCall(
     });
   }
 );
+
+// ---------------------------------------------------------------------------
+// debugLiveTicker — callable (owner/global admin): diagnose når tickeren
+// "stopper for tidligt". Henter publication-feedet HELT frisk (uden cache,
+// med cache-buster) og viser rå statistik: antal opslag, nyeste/ældste
+// tidsstempel, offset-varianter (Z vs +02:00) og de 5 nyeste opslag som de
+// bliver mappet. Sammenlign newestAt med letour.fr for at se, om vi får et
+// forældet CDN-svar eller om sortering/limit skar noget af.
+// ---------------------------------------------------------------------------
+exports.debugLiveTicker = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const n = Number(request.data?.stage);
+  if (!Number.isInteger(n) || n < 1 || n > 21) {
+    throw new HttpsError('invalid-argument', 'Angiv etape 1-21.');
+  }
+  const season = 2026;
+  const url = `${RACECENTER}/publication_da-${season}-${n}?_=${Date.now()}`;
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+      Accept: 'application/json',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+    },
+  });
+  if (!res.ok) return { ok: false, httpStatus: res.status };
+  const json = await res.json();
+  const posts = mapPosts(json, 5).map((p) => ({
+    publicationAt: p.publicationAt, pinned: p.pinned, picto: p.picto, title: p.title,
+  }));
+  return { ok: true, httpStatus: res.status, stats: postStats(json), newestMapped: posts };
+});
 
 // getLiveMap — callable: live-kortets data (rute + grupper på vejen) fra
 // letour racecenter. Samme CORS-/cache-rationale som getLiveTicker; ruten
