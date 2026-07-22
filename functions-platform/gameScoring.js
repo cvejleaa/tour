@@ -377,14 +377,16 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   // gem hver spillers rang (én gang pr. runde) → facit-skærmens "du overhalede X".
   const round = roundCtx.byMatch[matchId]?.round;
   const rc = round != null ? roundCtx.rounds[round] : null;
+  let roundCompleted = null; // sat første gang en runde bliver HELT afgjort
   if (rc && rc.settledCount === rc.count) {
-    const gameRef = db.collection('games').doc(gameId);
-    const gsnap = await gameRef.get();
+    const gRef = db.collection('games').doc(gameId);
+    const gsnap = await gRef.get();
     const done = (gsnap.exists && Array.isArray(gsnap.data().snapshottedRounds))
       ? gsnap.data().snapshottedRounds : [];
     if (!done.includes(round)) {
       await snapshotRoundRanks(db, FieldValue, gameId);
-      await gameRef.set({ snapshottedRounds: FieldValue.arrayUnion(round) }, { merge: true });
+      await gRef.set({ snapshottedRounds: FieldValue.arrayUnion(round) }, { merge: true });
+      roundCompleted = round; // → Runde-Botten (index.js) poster opslaget
     }
   }
 
@@ -392,7 +394,7 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   // (self-guardet + idempotent — rescores hvis et resultat senere rettes).
   await settlePuljeBets(db, FieldValue, gameId, allMatches);
 
-  return { rescored, players: uids.length };
+  return { rescored, players: uids.length, roundCompleted };
 }
 
 /**
