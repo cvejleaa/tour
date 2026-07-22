@@ -51,7 +51,8 @@ function postEpoch(p) {
  * @param {Array} json  rå publication_da-payload
  * @param {number} [limit]
  */
-function mapPosts(json, limit = 30) {
+/** Som mapPosts, men beholder det interne _epoch-felt (til fletning). */
+function mapPostsWithEpoch(json) {
   const arr = Array.isArray(json) ? json : [];
   return arr
     .filter((p) => p && (p.title || (Array.isArray(p.text) && p.text.length)))
@@ -65,9 +66,15 @@ function mapPosts(json, limit = 30) {
       pinned: !!p.pinned,
       highlight: !!p.highlight,
     }))
-    .sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || (b._epoch - a._epoch))
-    .slice(0, limit)
-    .map((p) => { delete p._epoch; return p; });
+    .sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || (b._epoch - a._epoch));
+}
+
+function stripEpoch(posts, limit) {
+  return posts.slice(0, limit).map((p) => { const q = { ...p }; delete q._epoch; return q; });
+}
+
+function mapPosts(json, limit = 30) {
+  return stripEpoch(mapPostsWithEpoch(json), limit);
 }
 
 /**
@@ -114,8 +121,47 @@ function postStats(json) {
  * @param {number} [opts.cacheMs]
  * @returns {Promise<{ok:true, stage:number, posts:Array, fetchedAt:string} | {ok:false, reason:string}>}
  */
+/** Feed-URL for et sprog. `lang` er fx 'da'/'en'; tom streng = letours basisfeed. */
+function feedUrl(season, n, lang, buster) {
+  const suffix = lang ? `_${lang}` : '';
+  return `${RACECENTER}/publication${suffix}-${season}-${n}?_=${buster}`;
+}
+
+const FEED_HEADERS = {
+  // Racecenteret er en offentlig side; en almindelig browser-UA og
+  // Accept-header er nok (payloadet i HAR'en havde intet krav udover det).
+  // no-cache: uden den kan letours CDN servere et gammelt svar.
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+  Accept: 'application/json',
+  'Cache-Control': 'no-cache',
+  Pragma: 'no-cache',
+};
+
+// Fallback: det danske feed går ofte i stå FØR finalen (redaktionen stopper
+// med at oversætte — set på etape 17: sidste danske opslag 17.10, mens det
+// engelske feed dækkede målgang 17.18). Er nyeste danske opslag ældre end
+// dette, hentes det engelske feed også, og dets NYERE opslag flettes ind.
+const DA_STALE_MS = 10 * 60 * 1000;
+const FALLBACK_LANGS = ['en', ''];
+
+/**
+ * Hent (og cache) live-tickeren for en etape.
+ * Fejl caches OGSÅ, så et blokeret/nede endpoint ikke hamres hvert sekund.
+ * @param {object} opts
+ * @param {number} opts.stageNumber  1-21
+ * @param {number} [opts.season]
+ * @param {Function} opts.fetchImpl
+ * @param {Map}    [opts.cache]     nøgle → {at, value}
+ * @param {Function} [opts.now]     () => ms
+ * @param {number} [opts.cacheMs]
+ * @param {number} [opts.staleMs]   hvornår dansk feed regnes for gået i stå
+ * @param {Function} [opts.translateImpl]  async (posts) => posts — oversætter
+ *   fallback-opslag til dansk. Fejler den, vises opslagene uoversat.
+ * @returns {Promise<{ok:true, stage:number, posts:Array, fetchedAt:string} | {ok:false, reason:string}>}
+ */
 async function fetchLiveTickerCore({
-  stageNumber, season = 2026, fetchImpl, cache, now = () => Date.now(), cacheMs = 45000,
+  stageNumber, season = 2026, fetchImpl, cache, now = () => Date.now(),
+  cacheMs = 45000, staleMs = DA_STALE_MS, limit = 30, translateImpl = null,
 }) {
   const n = Number(stageNumber);
   if (!Number.isInteger(n) || n < 1 || n > 21) return { ok: false, reason: 'bad-stage' };
@@ -124,26 +170,43 @@ async function fetchLiveTickerCore({
   const hit = cache && cache.get(key);
   if (hit && now() - hit.at < cacheMs) return hit.value;
 
+  const getJson = async (lang) => {
+    const res = await fetchImpl(feedUrl(season, n, lang, now()), { headers: FEED_HEADERS });
+    if (!res.ok) return { ok: false, status: res.status };
+    return { ok: true, json: await res.json() };
+  };
+
   let value;
   try {
-    // Cache-buster + no-cache: uden dem kan letours CDN servere et TIMER
-    // gammelt svar til os (set live: "Opdateret 20.32" men nyeste opslag
-    // 17.10) — deres egen side poller med friske forespørgsler.
-    const res = await fetchImpl(`${RACECENTER}/publication_da-${season}-${n}?_=${now()}`, {
-      headers: {
-        // Racecenteret er en offentlig side; en almindelig browser-UA og
-        // Accept-header er nok (payloadet i HAR'en havde intet krav udover det).
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
-        Accept: 'application/json',
-        'Cache-Control': 'no-cache',
-        Pragma: 'no-cache',
-      },
-    });
-    if (!res.ok) {
-      value = { ok: false, reason: `http-${res.status}` };
+    const da = await getJson('da');
+    if (!da.ok) {
+      value = { ok: false, reason: `http-${da.status}` };
     } else {
-      const json = await res.json();
-      value = { ok: true, stage: n, posts: mapPosts(json), fetchedAt: new Date(now()).toISOString() };
+      let posts = mapPostsWithEpoch(da.json);
+      const newestDa = posts.reduce((m, p) => Math.max(m, p._epoch), 0);
+
+      // Dansk feed i stå (eller tomt)? Flet nyere opslag fra fallback-feedet.
+      if (!posts.length || now() - newestDa > staleMs) {
+        for (const lang of FALLBACK_LANGS) {
+          try {
+            const fb = await getJson(lang);
+            if (!fb.ok) continue;
+            let extra = mapPostsWithEpoch(fb.json).filter((p) => p._epoch > newestDa);
+            if (extra.length) {
+              // AI-oversæt fallback-opslagene til dansk. Fejler oversættelsen,
+              // vises de uoversat — hellere engelsk finale end ingen finale.
+              if (translateImpl) {
+                try { extra = await translateImpl(extra); } catch { /* uoversat */ }
+              }
+              posts = posts.concat(extra)
+                .sort((a, b) => (Number(b.pinned) - Number(a.pinned)) || (b._epoch - a._epoch));
+              break; // ét fallback-sprog er nok
+            }
+            if (Array.isArray(fb.json) && fb.json.length) break; // feedet virker, men intet nyere
+          } catch { /* fallback må aldrig vælte det danske feed */ }
+        }
+      }
+      value = { ok: true, stage: n, posts: stripEpoch(posts, limit), fetchedAt: new Date(now()).toISOString() };
     }
   } catch (e) {
     value = { ok: false, reason: String((e && e.message) || e) };
@@ -153,4 +216,6 @@ async function fetchLiveTickerCore({
   return value;
 }
 
-module.exports = { RACECENTER, cleanText, mapPosts, postStats, fetchLiveTickerCore };
+module.exports = {
+  RACECENTER, cleanText, mapPosts, postStats, fetchLiveTickerCore, feedUrl, FEED_HEADERS,
+};

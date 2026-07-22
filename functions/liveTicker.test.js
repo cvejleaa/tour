@@ -132,3 +132,66 @@ describe('fetchLiveTickerCore', () => {
     expect(res.reason).toContain('timeout');
   });
 });
+
+describe('fetchLiveTickerCore — engelsk fallback når dansk feed går i stå (etape 17)', () => {
+  // Dansk feed slutter 17:10; klokken er 17:45 → i stå. Engelsk har finalen.
+  const T = Date.parse('2026-07-22T17:45:00+02:00');
+  const DA = [
+    { id: 'da1', title: '10 kilometer til mål', text: ['x'], publicationAt: '2026-07-22T17:05:00+02:00' },
+    { id: 'da2', title: 'Pedersen er dagens mest angrebsivrige', text: ['x'], publicationAt: '2026-07-22T17:10:00+02:00' },
+  ];
+  const EN = [
+    { id: 'en0', title: 'Km 50: peloton rolling', text: ['old'], publicationAt: '2026-07-22T15:00:00+02:00' }, // ældre end da → må IKKE med
+    { id: 'en1', title: 'Philipsen wins stage 17!', text: ['Eleventh stage win.'], publicationAt: '2026-07-22T17:18:00+02:00' },
+    { id: 'en2', title: 'Top 5', text: ['1. Philipsen'], publicationAt: '2026-07-22T17:19:00+02:00' },
+  ];
+  const feedFetch = (en = EN) => vi.fn().mockImplementation((url) => {
+    if (url.includes('publication_da-')) return Promise.resolve({ ok: true, json: async () => DA });
+    if (url.includes('publication_en-')) return Promise.resolve({ ok: true, json: async () => en });
+    return Promise.resolve({ ok: false, status: 404 });
+  });
+
+  it('fletter KUN nyere engelske opslag ind, nyeste først', async () => {
+    const f = feedFetch();
+    const res = await fetchLiveTickerCore({ stageNumber: 17, fetchImpl: f, now: () => T });
+    expect(res.ok).toBe(true);
+    expect(res.posts.map((p) => p.id)).toEqual(['en2', 'en1', 'da2', 'da1']);
+    expect(f.mock.calls.some(([u]) => u.includes('publication_en-2026-17'))).toBe(true);
+  });
+
+  it('oversætter fallback-opslagene via translateImpl', async () => {
+    const translateImpl = vi.fn(async (posts) => posts.map((p) => ({ ...p, title: `DA: ${p.title}`, translated: true })));
+    const res = await fetchLiveTickerCore({ stageNumber: 17, fetchImpl: feedFetch(), now: () => T, translateImpl });
+    expect(translateImpl).toHaveBeenCalledTimes(1);
+    expect(translateImpl.mock.calls[0][0].map((p) => p.id)).toEqual(['en2', 'en1']); // kun de nye
+    const top = res.posts[0];
+    expect(top.title).toBe('DA: Top 5');
+    expect(top.translated).toBe(true);
+    // Danske opslag urørte.
+    expect(res.posts.find((p) => p.id === 'da2').title).toBe('Pedersen er dagens mest angrebsivrige');
+  });
+
+  it('fejlet oversættelse viser opslagene uoversat (hellere engelsk end intet)', async () => {
+    const translateImpl = vi.fn().mockRejectedValue(new Error('AI nede'));
+    const res = await fetchLiveTickerCore({ stageNumber: 17, fetchImpl: feedFetch(), now: () => T, translateImpl });
+    expect(res.posts[0].title).toBe('Top 5');
+    expect(res.posts[0].translated).toBeUndefined();
+  });
+
+  it('friskt dansk feed → INTET fallback-kald', async () => {
+    const f = feedFetch();
+    const freshNow = Date.parse('2026-07-22T17:12:00+02:00'); // 2 min efter nyeste da-opslag
+    await fetchLiveTickerCore({ stageNumber: 17, fetchImpl: f, now: () => freshNow });
+    expect(f.mock.calls.every(([u]) => u.includes('publication_da-'))).toBe(true);
+  });
+
+  it('fallback-fejl vælter ikke det danske feed', async () => {
+    const f = vi.fn().mockImplementation((url) => {
+      if (url.includes('publication_da-')) return Promise.resolve({ ok: true, json: async () => DA });
+      return Promise.reject(new Error('en-feed nede'));
+    });
+    const res = await fetchLiveTickerCore({ stageNumber: 17, fetchImpl: f, now: () => T });
+    expect(res.ok).toBe(true);
+    expect(res.posts.map((p) => p.id)).toEqual(['da2', 'da1']);
+  });
+});

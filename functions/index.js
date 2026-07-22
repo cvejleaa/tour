@@ -49,7 +49,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
 const { leagueBonusTotalsByUid } = require('./leagueBonus');
 const { salesPitchHtml } = require('./salesPitch');
-const { fetchLiveTickerCore, mapPosts, postStats, RACECENTER } = require('./liveTicker');
+const { fetchLiveTickerCore, mapPosts, postStats, feedUrl, FEED_HEADERS } = require('./liveTicker');
 const { fetchLiveMapCore } = require('./liveMap');
 const { runGenerateStageTips } = require('./stageTip');
 const { runEnrichRiderTags } = require('./riderTags');
@@ -2271,15 +2271,61 @@ exports.migrateEmailPrivacy = onCall(
 // igennem med et 45 sek. server-cache-vindue — uanset hvor mange spillere
 // der følger med, rammer vi letour højst ~1 gang i minuttet pr. etape.
 // ---------------------------------------------------------------------------
+// Letours danske redaktion går ofte i stå før finalen (etape 17: sidste
+// danske opslag 17.10, målgang 17.18). Kernen falder da tilbage på det
+// engelske feed, og opslagene AI-oversættes til dansk her. Hvert opslag
+// oversættes kun ÉN gang og gemmes i config/tickerXlat-{sæson}-{etape},
+// så hverken genstartede instanser eller nye pollere koster nye AI-kald.
+const TICKER_XLAT_SYSTEM = 'Du oversætter live-opslag fra Tour de France (letour.fr racecenter) til dansk for en dansk tipsside. '
+  + 'Naturligt, kort dansk cykelsprog i nutid. Bevar rytter- og holdnavne, tal, tider, afstande og placeringer PRÆCIST; bevar linjeskift. '
+  + 'Svar KUN med et JSON-array på formen [{"id":"...","title":"...","text":"..."}] med samme id\'er som input — ingen forklaring, intet andet.';
+
+async function translateTickerPosts(db, anthropic, season, stage, posts) {
+  const ref = db.collection('config').doc(`tickerXlat-${season}-${stage}`);
+  const snap = await ref.get();
+  const cached = (snap.exists && snap.data().posts) || {};
+  const missing = posts.filter((p) => p.id != null && !cached[String(p.id)]);
+  if (missing.length) {
+    // Højst 20 pr. kald (finalen er typisk <15 opslag); resten tager næste poll.
+    const payload = missing.slice(0, 20).map((p) => ({ id: String(p.id), title: p.title, text: p.text }));
+    const res = await anthropic.messages.create({
+      model: 'claude-opus-4-8',
+      max_tokens: 3000,
+      system: TICKER_XLAT_SYSTEM,
+      messages: [{ role: 'user', content: JSON.stringify(payload) }],
+    });
+    const raw = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const m = raw.match(/\[[\s\S]*\]/);
+    const arr = m ? JSON.parse(m[0]) : [];
+    for (const t of arr) {
+      if (t && t.id != null && (t.title || t.text)) {
+        cached[String(t.id)] = { title: String(t.title || ''), text: String(t.text || '') };
+      }
+    }
+    await ref.set({ posts: cached, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  }
+  return posts.map((p) => {
+    const t = p.id != null ? cached[String(p.id)] : null;
+    return t ? { ...p, title: t.title || p.title, text: t.text || p.text, translated: true } : p;
+  });
+}
+
 const liveTickerCache = new Map();
 exports.getLiveTicker = onCall(
-  { region: REGION },
+  { region: REGION, secrets: [ANTHROPIC_API_KEY] },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    const db = getFirestore();
+    const apiKey = ANTHROPIC_API_KEY.value();
+    // Uden nøgle: fallback-opslag vises uoversat (kernen tåler translateImpl=null).
+    const translateImpl = apiKey
+      ? (posts) => translateTickerPosts(db, new Anthropic({ apiKey }), DEFAULT_SEASON, Number(request.data?.stage), posts)
+      : null;
     return fetchLiveTickerCore({
       stageNumber: request.data?.stage,
       fetchImpl: fetchWithTimeout,
       cache: liveTickerCache,
+      translateImpl,
     });
   }
 );
@@ -2300,21 +2346,24 @@ exports.debugLiveTicker = onCall({ region: REGION }, async (request) => {
     throw new HttpsError('invalid-argument', 'Angiv etape 1-21.');
   }
   const season = 2026;
-  const url = `${RACECENTER}/publication_da-${season}-${n}?_=${Date.now()}`;
-  const res = await fetchWithTimeout(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
-      Accept: 'application/json',
-      'Cache-Control': 'no-cache',
-      Pragma: 'no-cache',
-    },
-  });
-  if (!res.ok) return { ok: false, httpStatus: res.status };
-  const json = await res.json();
-  const posts = mapPosts(json, 5).map((p) => ({
+  const feeds = {};
+  let daJson = null;
+  for (const lang of ['da', 'en', '']) {
+    const label = lang || 'base';
+    try {
+      const res = await fetchWithTimeout(feedUrl(season, n, lang, Date.now()), { headers: FEED_HEADERS });
+      if (!res.ok) { feeds[label] = { httpStatus: res.status }; continue; }
+      const json = await res.json();
+      if (lang === 'da') daJson = json;
+      feeds[label] = { httpStatus: res.status, stats: postStats(json) };
+    } catch (e) {
+      feeds[label] = { error: String((e && e.message) || e) };
+    }
+  }
+  const posts = mapPosts(daJson || [], 5).map((p) => ({
     publicationAt: p.publicationAt, pinned: p.pinned, picto: p.picto, title: p.title,
   }));
-  return { ok: true, httpStatus: res.status, stats: postStats(json), newestMapped: posts };
+  return { ok: true, feeds, newestMappedDa: posts };
 });
 
 // getLiveMap — callable: live-kortets data (rute + grupper på vejen) fra

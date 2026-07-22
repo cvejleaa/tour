@@ -45,6 +45,15 @@ export default function LiveTicker({ stage, enabled = true }) {
                   {formatPostTime(p.publicationAt)}
                 </span>
                 {p.title}
+                {p.translated && (
+                  <span
+                    title="AI-oversat — letours danske dækning var bagud, så opslaget er hentet fra deres engelske feed og oversat"
+                    aria-label="AI-oversat fra letours engelske feed"
+                    style={{ marginLeft: '0.3rem', fontSize: '0.7rem', opacity: 0.7 }}
+                  >
+                    ✨
+                  </span>
+                )}
                 {p.pinned && <span className="badge badge--yellow" style={{ marginLeft: '0.4rem' }}>📌</span>}
               </div>
               {p.text && (
