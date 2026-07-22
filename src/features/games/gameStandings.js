@@ -16,7 +16,8 @@ export function rankStandings(players, usersById = {}) {
       uid: p.uid,
       name: u.displayName || 'Ukendt spiller',
       emoji: u.avatarEmoji ?? null,
-      favoriteTeam: u.favoriteTeam ?? null,
+      // Yndlingshold pr. spil (players-doc) har forrang for den globale profil.
+      favoriteTeam: p.favoriteTeam ?? u.favoriteTeam ?? null,
       totalPoints: Number(p.totalPoints) || 0,
       previousRank: p.previousRank ?? null,
     };

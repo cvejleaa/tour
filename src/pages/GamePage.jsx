@@ -14,11 +14,13 @@ import { joinGame } from '../features/games/gameActions';
 import GameLayout from '../features/games/GameLayout';
 import GameStandings from '../features/games/GameStandings';
 import GameLeagues from '../features/games/GameLeagues';
+import GameProfile from '../features/games/GameProfile';
 import FootballTip from '../features/games/football/FootballTip';
 import MyTips from '../features/games/football/MyTips';
 import PuljeTip from '../features/games/football/PuljeTip';
 import EloTable from '../features/games/football/EloTable';
 import SuperligaTable from '../features/games/football/SuperligaTable';
+import FootballHelp from '../features/games/football/FootballHelp';
 import { GAME_TYPE } from '../lib/constants';
 
 export default function GamePage() {
@@ -122,12 +124,30 @@ export default function GamePage() {
               className={tab === 'ligaer' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
               onClick={() => setTab('ligaer')}
             >👥 Ligaer</button>
+            <button
+              role="tab"
+              aria-selected={tab === 'profil'}
+              className={tab === 'profil' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
+              onClick={() => setTab('profil')}
+            >🙂 Profil</button>
+            {game.type === GAME_TYPE.FOOTBALL && (
+              <button
+                role="tab"
+                aria-selected={tab === 'hjaelp'}
+                className={tab === 'hjaelp' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
+                onClick={() => setTab('hjaelp')}
+              >❓ Hjælp</button>
+            )}
           </div>
 
           {tab === 'stilling' ? (
             <GameStandings gameId={gameId} />
           ) : tab === 'ligaer' ? (
             <GameLeagues gameId={gameId} />
+          ) : tab === 'profil' ? (
+            <GameProfile game={game} me={me} />
+          ) : tab === 'hjaelp' && game.type === GAME_TYPE.FOOTBALL ? (
+            <FootballHelp />
           ) : tab === 'mine' && game.type === GAME_TYPE.FOOTBALL ? (
             <MyTips game={game} matches={matches} />
           ) : tab === 'pulje' && game.type === GAME_TYPE.FOOTBALL ? (

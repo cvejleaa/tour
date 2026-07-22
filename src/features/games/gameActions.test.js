@@ -2,7 +2,7 @@
  * Tests for gameActions.js – fuldstændig mock af Firebase.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { joinGame, leaveGame, setGameSchedule } from './gameActions';
+import { joinGame, leaveGame, setGameSchedule, setPlayerFavoriteTeam } from './gameActions';
 
 // ── Mock firebase/firestore ───────────────────────────────────────────────────
 const mockSetDoc = vi.fn();
@@ -141,5 +141,28 @@ describe('setGameSchedule', () => {
     const [, patch] = mockSetDoc.mock.calls[0];
     expect(patch.startAt).toEqual({ _ts: 500 });
     expect('puljeLockAt' in patch).toBe(false);
+  });
+});
+
+describe('setPlayerFavoriteTeam', () => {
+  it('kræver uid og gameId', async () => {
+    expect((await setPlayerFavoriteTeam('', 'g')).ok).toBe(false);
+    expect((await setPlayerFavoriteTeam('u', '')).ok).toBe(false);
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it('skriver favoriteTeam på games/{gameId}/players/{uid} (merge)', async () => {
+    const res = await setPlayerFavoriteTeam('uid-1', 'superliga2627', 'FC København');
+    expect(res).toEqual({ ok: true });
+    expect(mockDoc).toHaveBeenCalledWith({}, 'games', 'superliga2627', 'players', 'uid-1');
+    const [, data, opts] = mockSetDoc.mock.calls[0];
+    expect(data.favoriteTeam).toBe('FC København');
+    expect(opts).toEqual({ merge: true });
+  });
+
+  it('rydder holdet når værdien er tom', async () => {
+    await setPlayerFavoriteTeam('uid-1', 'superliga2627', '');
+    const [, data] = mockSetDoc.mock.calls[0];
+    expect(data.favoriteTeam).toBeNull();
   });
 });

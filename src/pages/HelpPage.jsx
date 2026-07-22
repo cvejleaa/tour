@@ -7,7 +7,6 @@
 import { Link } from 'react-router-dom';
 import PointRules from '../components/PointRules';
 import { PLATFORM_MODE } from '../lib/platform';
-import { CHANCE, ROUND_BONUS, PULJE } from '../lib/superligaScoring';
 
 function Section({ emoji, title, children }) {
   return (
@@ -18,102 +17,66 @@ function Section({ emoji, title, children }) {
   );
 }
 
-/** Lille "chip" til at fremhæve en fane inde i spillet. */
-function Tab({ children }) {
+/** Kort til ét spil i "Spillene lige nu"-oversigten. */
+function GameBlurb({ emoji, name, status, children }) {
   return (
-    <span
-      className="badge badge--muted"
-      style={{ whiteSpace: 'nowrap', fontWeight: 600 }}
-    >
-      {children}
-    </span>
+    <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.5rem 0' }}>
+      <span aria-hidden="true" style={{ fontSize: '1.4rem', lineHeight: 1 }}>{emoji}</span>
+      <div>
+        <div style={{ fontWeight: 600 }}>
+          {name}
+          {status && <span className="badge badge--muted" style={{ marginLeft: '0.4rem', fontWeight: 400 }}>{status}</span>}
+        </div>
+        <div style={{ color: 'var(--c-muted)' }}>{children}</div>
+      </div>
+    </div>
   );
 }
 
-// ── Superliga / platform-hjælp ────────────────────────────────────────────────
+// ── Platform-hjælp (samlesiden) — handler om HELE platformen, ikke ét spil ────
 function PlatformHelp() {
   return (
     <div className="container">
-      <h1 style={{ margin: '0 0 0.35rem', fontSize: '1.5rem' }}>❓ Sådan virker det</h1>
+      <h1 style={{ margin: '0 0 0.35rem', fontSize: '1.5rem' }}>❓ Velkommen til Vejleaa Tip</h1>
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1.25rem', fontSize: '0.95rem' }}>
-        Alt du skal vide for at tippe Superligaen — fra dit første tip til bonus, Elo og mini-ligaer.
+        Én konto — flere tippespil. Her forklarer vi, hvordan platformen hænger sammen. Hjælp til det
+        <strong> enkelte spil</strong> finder du inde i spillet under fanen <strong>❓ Hjælp</strong>.
       </p>
 
-      <Section emoji="🚀" title="Kom i gang">
-        Log ind, og vælg <strong>Superligaen</strong> under <Link to="/spil">🎮 Spil</Link>. Tryk
-        <strong> Deltag</strong>, så er du med. Inde i spillet finder du alt via fanerne øverst:
-        {' '}<Tab>⚽ Tip</Tab> <Tab>📋 Mine tips</Tab> <Tab>🎖️ Pulje</Tab> <Tab>📈 Elo</Tab>{' '}
-        <Tab>⚽ Tabel</Tab> <Tab>🏆 Stilling</Tab> <Tab>👥 Ligaer</Tab>.
+      <Section emoji="🎮" title="Én bruger, flere spil">
+        Du har <strong>én konto</strong> til det hele. Under <Link to="/spil">🎮 Spil</Link> ser du alle
+        tippespil: dem du er med i, og dem du kan <strong>tilmelde dig</strong>. Tryk <strong>Deltag</strong>
+        {' '}på et spil, så er du med — du kan sagtens være med i flere på én gang. Hvert spil har sin
+        <strong> egen stilling, sine egne point og sine egne mini-ligaer</strong>, så de blander sig ikke.
       </Section>
 
-      <Section emoji="⚽" title="Tip kampene (1X2)">
-        På <Tab>⚽ Tip</Tab> gætter du udfaldet af hver kamp i runden: <strong>1</strong> (hjemmesejr),
-        {' '}<strong>X</strong> (uafgjort) eller <strong>2</strong> (udesejr). Du kan rette dit tip helt
-        indtil <strong>kampstart</strong> — derefter låses netop den kamp. Du behøver ikke tippe hele runden
-        på én gang, men jo flere kampe du rammer, jo mere kan du hente på combi-bonussen (se nedenfor).
+      <Section emoji="🏟️" title="Spillene lige nu">
+        <GameBlurb emoji="⚽" name="Superligaen 2026/27" status="åben">
+          Tip fodboldkampene runde for runde (1X2). Point <strong>følger oddsene</strong>, og der er bonus
+          for at ramme hele runden (combi), et lille væddemål (Chancen) og et pulje-tip om, hvem der når
+          mesterskabsspillet. Følg holdenes Elo og dyst i mini-ligaer. Fuld guide inde i spillet under
+          {' '}<strong>❓ Hjælp</strong>.
+        </GameBlurb>
+        <GameBlurb emoji="🚴" name="Tour de France 2026" status="i gang">
+          Cykel-tipning etape for etape: hold på etapevinderen, bedste hold, bjerg- og sprintpoint. Kører i
+          sin egen app — åbn den fra <Link to="/spil">🎮 Spil</Link> (“Åbn spillet ↗”).
+        </GameBlurb>
+        <GameBlurb emoji="⚽" name="VM 2026" status="afsluttet">
+          Vores fodbold-VM-tipning. Spillet er slut, men stillingen kan stadig ses.
+        </GameBlurb>
       </Section>
 
-      <Section emoji="🎯" title="Point følger oddsene">
-        Du får point <strong>svarende til oddsene</strong> på det udfald, du rammer — afrundet til én
-        decimal. Rammer du en storfavorit til odds 1,3, giver det <strong>1,3 point</strong>; rammer du en
-        overraskelse til odds 4,5, giver det <strong>4,5 point</strong>. Forkert tip giver 0. Så det betaler
-        sig at turde satse på outsidere — men de sikre kampe holder dig stabil.
+      <Section emoji="🙂" title="Din profil & login">
+        Du logger ind med <strong>Google</strong> eller e-mail. På <Link to="/profil">Profil</Link> kan du
+        vælge et <strong>emoji som profilbillede</strong> og styre dine e-mail-påmindelser. Profilen følger
+        dig på tværs af alle spillene — dit <strong>yndlingshold vælger du inde i det enkelte spil</strong>
+        {' '}(holdene er jo forskellige fra spil til spil).
       </Section>
 
-      <Section emoji="⚡" title="Chancen">
-        På én kamp pr. runde kan du bruge <strong>Chancen</strong>: sæt et lille antal point i spil på dit
-        1X2-valg. Rammer du, vinder du <strong>indsats × (odds − 1)</strong> oveni; rammer du forkert,
-        mister du kun indsatsen. Indsatsen er mellem <strong>{CHANCE.MIN}</strong> og{' '}
-        <strong>{CHANCE.MAX_ABS}</strong> point og kan aldrig være mere end{' '}
-        {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus. Tænk på den
-        som et krydderi til en kamp, du har en stærk mavefornemmelse om.
-      </Section>
-
-      <Section emoji="🎰" title="Combi-runde-bonus">
-        Tipper du <strong>alle</strong> kampe i en runde, får du en bonus oveni — som en tæmmet
-        bookmaker-kupon: de ramte odds ganges sammen. Rammer du <strong>hele runden</strong>, gives bonussen
-        med et loft på <strong>{ROUND_BONUS.PERFECT_CAP}</strong> point; rammer du <strong>alle på nær én</strong>,
-        er loftet <strong>{ROUND_BONUS.NEAR_CAP}</strong>. To eller flere fejl → ingen combi. Det belønner at
-        turde tippe hele runden.
-      </Section>
-
-      <Section emoji="🎖️" title="Bonus: pulje-tip">
-        På <Tab>🎖️ Pulje</Tab> forudsiger du, hvilke <strong>{PULJE.POOL_SIZE} hold</strong> der ender i
-        <strong> mesterskabsspillet</strong> efter grundspillet (de øvrige 6 ryger i nedrykningsspillet).
-        Hvert rigtigt hold giver <strong>+{PULJE.PER_TEAM} point</strong>, og rammer du alle{' '}
-        {PULJE.POOL_SIZE}, får du <strong>+{PULJE.PERFECT_BONUS}</strong> i bonus. Deadline for pulje-tippet
-        sættes af arrangøren og vises på fanen — den behøver ikke være før runde 1.
-      </Section>
-
-      <Section emoji="📈" title="Elo-tabellen">
-        På <Tab>📈 Elo</Tab> kan du følge holdenes <strong>styrke-rating</strong> hele sæsonen. Efter hver
-        færdigspillet runde kommer der en ny kolonne forrest med den nye rating og en pil, der viser
-        udviklingen. Elo-ratingen er også det, oddsene bygger på — så tabellen giver et fingerpeg om, hvor
-        der er point at hente.
-      </Section>
-
-      <Section emoji="🏆" title="Stilling & tabel">
-        <Tab>🏆 Stilling</Tab> viser jeres indbyrdes kamp — spillernes samlede point. <Tab>⚽ Tabel</Tab>
-        {' '}viser den <strong>officielle Superliga-stilling</strong> (hentet direkte fra ligaen), delt op i
-        mesterskabsspil (top 6) og nedrykningsspil (bund 6). Det er den, pulje-tippet afgøres på.
-      </Section>
-
-      <Section emoji="📋" title="Mine tips">
-        <Tab>📋 Mine tips</Tab> samler alle dine tips runde for runde med facit, point pr. kamp og din
-        combi-bonus — plus en opsummering med samlet point og din træfprocent. Perfekt til at se, hvor det
-        gik godt, og hvor outsiderne drillede.
-      </Section>
-
-      <Section emoji="👥" title="Mini-ligaer">
-        På <Tab>👥 Ligaer</Tab> kan du oprette en privat liga (du får en <strong>invitationskode</strong>)
-        eller deltage med en kode fra en ven. I ligaen dyster I på jeres egen stilling, og hver liga har en
-        {' '}<strong>væg</strong>, hvor I kan skrive sammen undervejs. Ejeren kan omdøbe og rydde op i ligaen.
-      </Section>
-
-      <Section emoji="🙂" title="Din profil & avatar">
-        På <Link to="/profil">Profil</Link> kan du vælge et <strong>emoji som profilbillede</strong> i stedet
-        for dine initialer, sætte dit yndlingshold og styre dine e-mail-præferencer. Har du spørgsmål, så
-        skriv i en liga-væg eller send en <Link to="/beskeder">besked</Link> til en medspiller.
+      <Section emoji="💬" title="Skriv sammen">
+        <Link to="/beskeder">Beskeder</Link> er private 1-til-1-beskeder mellem spillere. Derudover har hver
+        mini-liga sin egen <strong>væg</strong> inde i det spil, ligaen hører til. Et rødt tal ved “Beskeder”
+        viser ulæste beskeder.
       </Section>
     </div>
   );

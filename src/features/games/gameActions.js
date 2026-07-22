@@ -133,6 +133,28 @@ export async function setPuljeBet(uid, gameId, championship) {
 }
 
 /**
+ * Sæt spillerens yndlingshold I DETTE spil (games/{gameId}/players/{uid}.
+ * favoriteTeam). Holdene er forskellige fra spil til spil, så holdet hører til
+ * spillet — ikke den globale profil. Tom værdi rydder valget. favoriteTeam er
+ * ikke et beskyttet point-felt, så spilleren må selv skrive det (security rules).
+ * @param {string} uid
+ * @param {string} gameId
+ * @param {string} team – holdnavn (tom = ryd)
+ * @returns {Promise<{ok:true}|{ok:false,error:string}>}
+ */
+export async function setPlayerFavoriteTeam(uid, gameId, team) {
+  if (!uid) return { ok: false, error: 'Du skal være logget ind.' };
+  if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
+  try {
+    const ref = doc(db, COL.GAMES, gameId, COL.GAME_PLAYERS, uid);
+    await setDoc(ref, { favoriteTeam: team || null, updatedAt: serverTimestamp() }, { merge: true });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke gemme dit hold.') };
+  }
+}
+
+/**
  * Forlad et spil (slet games/{gameId}/players/{uid}).
  * Reglerne tillader kun sletning, hvis dokumentet ikke har point.
  * @param {string} uid     – den indloggede brugers uid
