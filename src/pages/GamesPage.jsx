@@ -41,7 +41,9 @@ function ExternalGameCard({ game }) {
       >
         <div className="flex items-center justify-between">
           <h3 className="card__title" style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
-            {game.emoji && <span aria-hidden="true">{game.emoji}</span>}
+            {game.logo
+              ? <img src={game.logo} alt="" width={22} height={22} style={{ borderRadius: 6, flexShrink: 0 }} />
+              : game.emoji && <span aria-hidden="true">{game.emoji}</span>}
             {game.name}
           </h3>
           <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
@@ -71,7 +73,9 @@ function MyGameCard({ game, onLeave, leaving }) {
       >
         <div className="flex items-center justify-between">
           <h3 className="card__title" style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
-            {game.emoji && <span aria-hidden="true">{game.emoji}</span>}
+            {game.logo
+              ? <img src={game.logo} alt="" width={22} height={22} style={{ borderRadius: 6, flexShrink: 0 }} />
+              : game.emoji && <span aria-hidden="true">{game.emoji}</span>}
             {game.name}
           </h3>
           <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>

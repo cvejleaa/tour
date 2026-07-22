@@ -98,7 +98,7 @@ function scoreBet(bet, result, odds) {
 
 // --- Elo-lite: sandsynligheder, odds + vedligeholdelse (spejl af src) --------
 
-const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.28, DRAW_DECAY: 0.55 };
+const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.26, DRAW_DECAY: 0.55 };
 const ODDS = { MIN: 1.1, MAX: 6.0 };
 
 function eloExpectedHome(eloHome, eloAway, hfa = ELO.HFA) {
@@ -110,8 +110,11 @@ function outcomeProbabilities({
   eloHome = ELO.START, eloAway = ELO.START, hfa = ELO.HFA,
   drawBase = ELO.DRAW_BASE, drawDecay = ELO.DRAW_DECAY,
 } = {}) {
-  const e = eloExpectedHome(eloHome, eloAway, hfa);
-  const skew = Math.abs(2 * e - 1);
+  const e = eloExpectedHome(eloHome, eloAway, hfa); // med hjemmebane — til fordeling
+  // Uafgjort topper ved REELT lige hold: mål skævheden UDEN hjemmebane, så
+  // hjemmefordelen ikke lækker ind og trækker uafgjort-niveauet kunstigt ned.
+  const eLevel = eloExpectedHome(eloHome, eloAway, 0);
+  const skew = Math.abs(2 * eLevel - 1);
   const pDraw = drawBase * Math.exp(-drawDecay * skew * 2);
   const rest = 1 - pDraw;
   return { [OUTCOME.HOME]: rest * e, [OUTCOME.DRAW]: pDraw, [OUTCOME.AWAY]: rest * (1 - e) };

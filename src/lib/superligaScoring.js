@@ -117,7 +117,7 @@ export const ELO = {
   START: 1500,      // rating for et nyt/ukendt hold
   HFA: 60,          // hjemmebane-fordel i Elo-point (~0.09 forventning)
   K: 20,            // opdateringshastighed pr. kamp
-  DRAW_BASE: 0.28,  // uafgjort-sandsynlighed når holdene er lige stærke
+  DRAW_BASE: 0.26,  // uafgjort-sandsynlighed når holdene er LIGE stærke (~Superligaens rate)
   DRAW_DECAY: 0.55, // hvor hurtigt uafgjort-chancen falder med styrkeforskel
 };
 
@@ -143,9 +143,12 @@ export function outcomeProbabilities({
   drawBase = ELO.DRAW_BASE,
   drawDecay = ELO.DRAW_DECAY,
 } = {}) {
-  const e = eloExpectedHome(eloHome, eloAway, hfa); // 0..1
-  // |2e-1| er 0 når holdene er lige, 1 når det er totalt ensidigt.
-  const skew = Math.abs(2 * e - 1);
+  const e = eloExpectedHome(eloHome, eloAway, hfa); // med hjemmebane — til fordeling af hjemme/ude
+  // Uafgjort skal toppe når holdene er REELT lige stærke, ikke når hjemmebanen
+  // er "brugt op". Derfor måles skævheden på forventningen UDEN hjemmebane, så
+  // hjemmefordelen ikke lækker ind og trækker uafgjort-niveauet kunstigt ned.
+  const eLevel = eloExpectedHome(eloHome, eloAway, 0);
+  const skew = Math.abs(2 * eLevel - 1); // 0 ved lige hold, 1 ved totalt ensidigt
   const pDraw = drawBase * Math.exp(-drawDecay * skew * 2);
   const rest = 1 - pDraw;
   return {

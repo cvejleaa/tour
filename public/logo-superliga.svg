@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Vejleaa Tip">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e7a58"/>
+      <stop offset="1" stop-color="#075038"/>
+    </linearGradient>
+    <radialGradient id="ballShade" cx="0.38" cy="0.34" r="0.75">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.72" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe7e3"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd34d"/>
+      <stop offset="1" stop-color="#f5a623"/>
+    </linearGradient>
+  </defs>
+
+  <!-- App-ikon-baggrund -->
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#bg)"/>
+  <!-- subtil bane-glød -->
+  <ellipse cx="256" cy="470" rx="230" ry="70" fill="#ffffff" opacity="0.06"/>
+
+  <!-- Fodbold -->
+  <g>
+    <circle cx="248" cy="242" r="150" fill="url(#ballShade)"/>
+    <!-- centralt femkant + sømlinjer (klassisk fodbold) -->
+    <g fill="none" stroke="#17352b" stroke-width="13" stroke-linejoin="round" stroke-linecap="round">
+      <polygon points="248,170 318,220 291,303 205,303 178,220" fill="#17352b"/>
+      <line x1="248" y1="170" x2="248" y2="98"/>
+      <line x1="318" y1="220" x2="389" y2="197"/>
+      <line x1="291" y1="303" x2="335" y2="365"/>
+      <line x1="205" y1="303" x2="161" y2="365"/>
+      <line x1="178" y1="220" x2="107" y2="197"/>
+    </g>
+  </g>
+
+  <!-- Guld flueben-badge = ramt/tip -->
+  <g>
+    <circle cx="372" cy="366" r="74" fill="url(#gold)" stroke="#075038" stroke-width="10"/>
+    <path d="M341 368 l22 24 l42 -52" fill="none" stroke="#17352b" stroke-width="20"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
