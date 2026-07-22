@@ -105,6 +105,18 @@ describe('elo-lite sandsynligheder', () => {
     expect(strong['1']).toBeGreaterThan(even['1']);
     expect(strong.X).toBeLessThan(even.X); // uafgjort falder med styrkeforskel
   });
+  it('uafgjort ved lige hold er kalibreret mod Superligaens ~26 %', () => {
+    const p = outcomeProbabilities({ eloHome: 1500, eloAway: 1500 });
+    expect(p.X).toBeGreaterThan(0.24);
+    expect(p.X).toBeLessThan(0.28);
+  });
+  it('uafgjort topper ved REELT lige hold (måles uden hjemmebane)', () => {
+    const even = outcomeProbabilities({ eloHome: 1500, eloAway: 1500 }).X;
+    // Et udehold der lige akkurat udligner hjemmebanen må ikke give MERE uafgjort
+    // end to lige stærke hold (fejlen vi rettede: draw-toppen lå forskudt).
+    const awayEdge = outcomeProbabilities({ eloHome: 1500, eloAway: 1560 }).X;
+    expect(even).toBeGreaterThanOrEqual(awayEdge);
+  });
   it('eloExpectedHome > 0.5 ved lige hold (hjemmebane)', () => {
     expect(eloExpectedHome(1500, 1500)).toBeGreaterThan(0.5);
     expect(eloExpectedHome(1500, 1500, 0)).toBeCloseTo(0.5, 6);

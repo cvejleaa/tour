@@ -32,7 +32,11 @@ export default function GameLayout({ game, me, children }) {
 
       <div className="flex items-center justify-between mb-2" style={{ gap: '0.75rem', flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
-          {game?.emoji && <span aria-hidden="true">{game.emoji}</span>}
+          {game?.logo ? (
+            <img src={game.logo} alt="" width={36} height={36} style={{ borderRadius: 9, flexShrink: 0 }} />
+          ) : (
+            game?.emoji && <span aria-hidden="true">{game.emoji}</span>
+          )}
           {game?.name}
         </h1>
         {me && (

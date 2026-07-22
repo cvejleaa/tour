@@ -51,6 +51,8 @@ const GAMES = [
   {
     id: 'superliga2627',
     name: 'Superligaen 2026/27', shortName: 'Superliga', emoji: '⚽',
+    // Spil-specifikt logo (fodbold-mærket) — platform-logoet er neutralt.
+    logo: '/logo-superliga.svg',
     type: 'football', status: 'open', joinable: true,
     season: '2026-27', order: 3,
   },
