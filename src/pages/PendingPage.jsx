@@ -7,8 +7,9 @@ import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { USER_STATUS } from '../lib/constants';
 import { redeemInviteCode } from '../features/auth/inviteActions';
-import { getPendingJoinCode, clearPendingJoinCode } from '../features/leagues/joinLink';
-import { APP_NAME } from '../lib/platform';
+import { joinLeagueByCode } from '../features/games/gameLeagueActions';
+import { getPendingJoinCode, getPendingJoinGameId, clearPendingJoinCode } from '../features/leagues/joinLink';
+import { APP_NAME, PLATFORM_MODE } from '../lib/platform';
 
 export default function PendingPage() {
   const { user, status, loading } = useAuth();
@@ -25,12 +26,25 @@ export default function PendingPage() {
     setRedeemOk('');
     setRedeeming(true);
     try {
-      const { leagueName } = await redeemInviteCode(rawCode);
+      let leagueName;
+      let dest = '/';
+      if (PLATFORM_MODE) {
+        // Platform: spil-ligaer kræver et spil-id. Det kommer fra invitationslinket
+        // (gemt sammen med koden); en manuelt tastet kode uden spil kan ikke bruges.
+        const gameId = getPendingJoinGameId();
+        if (!gameId) throw new Error('Brug invitationslinket fra din mail — en kode alene er ikke nok her.');
+        const res = await joinLeagueByCode({ gameId, code: rawCode });
+        if (!res.ok) throw new Error(res.error || 'Kunne ikke indløse koden.');
+        leagueName = res.name;
+        dest = `/spil/${gameId}`;
+      } else {
+        ({ leagueName } = await redeemInviteCode(rawCode));
+      }
       clearPendingJoinCode();
       setRedeemOk(`Godkendt! Du er tilmeldt "${leagueName}". Sender dig videre…`);
       // Statusskiftet (pending→approved) opdaterer automatisk via AuthContext,
       // men vi navigerer også eksplicit for en hurtig oplevelse.
-      setTimeout(() => navigate('/', { replace: true }), 1200);
+      setTimeout(() => navigate(dest, { replace: true }), 1200);
     } catch (err) {
       setRedeemError(err?.message || 'Kunne ikke indløse koden. Prøv igen.');
     } finally {
