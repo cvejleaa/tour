@@ -11,7 +11,7 @@
 //   - RUNDE-BONUS (combi): tipper man ALLE kampe i en runde og rammer dem alle
 //     (eller alle på nær én), får man en bonus = de ramte odds GANGET sammen,
 //     med et loft — som en tæmmet bookmaker-kupon. Belønner "hele runden".
-//   - Chancen: indsats mellem MIN og MAX, hvor MAX cappes til < 50 % af saldo.
+//   - Chancen: indsats mellem MIN og MAX, hvor MAX cappes til 15 % af saldo.
 //   - Gevinst = indsats × (fair odds − 1). Tab = kun indsatsen (ingen bøde).
 //   - Saldoen kan aldrig gå i minus (garanteret af 15 %-cappet).
 // ---------------------------------------------------------------------------
@@ -182,7 +182,7 @@ export function outcomeOdds(eloArgs) {
 
 // --- Chancen: indsats-grænser + afregning ------------------------------------
 
-/** Chancen-parametre. Cap er bevidst << 50 % af saldoen (kan aldrig gå i minus). */
+/** Chancen-parametre. Cap er bevidst kun 15 % af saldoen (kan aldrig gå i minus). */
 export const CHANCE = {
   MIN: 1,             // mindste indsats
   MAX_ABS: 8,         // absolut loft uanset saldo (holder Chancen som krydderi, ikke vind-knap)
@@ -191,7 +191,7 @@ export const CHANCE = {
 
 /**
  * Maksimal tilladt indsats givet spillerens nuværende saldo (point).
- * = min(absolut loft, 40 % af saldoen), rundet ned. 0 hvis for lav saldo.
+ * = min(absolut loft, 15 % af saldoen), rundet ned. 0 hvis for lav saldo.
  */
 export function chanceMaxStake(bank) {
   const b = Number(bank);

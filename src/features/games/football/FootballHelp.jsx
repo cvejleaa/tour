@@ -25,7 +25,7 @@ export default function FootballHelp() {
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1rem', fontSize: '0.95rem' }}>
         Alt om at tippe her — fra dit første tip til bonus, Elo og mini-ligaer. Du finder det hele via
         fanerne øverst: <Tab>⚽ Tip</Tab> <Tab>📋 Mine tips</Tab> <Tab>🎖️ Pulje</Tab> <Tab>📈 Elo</Tab>{' '}
-        <Tab>⚽ Tabel</Tab> <Tab>🏆 Stilling</Tab> <Tab>👥 Ligaer</Tab> <Tab>🙂 Profil</Tab>.
+        <Tab>⚽ Tabel</Tab> <Tab>🏆 Stilling</Tab> <Tab>👥 Ligaer</Tab> <Tab>🙂 Mit hold</Tab>.
       </p>
 
       <Section emoji="⚽" title="Tip kampene (1X2)">
@@ -47,7 +47,9 @@ export default function FootballHelp() {
         1X2-valg. Rammer du, vinder du <strong>indsats × (odds − 1)</strong> oveni; rammer du forkert,
         mister du kun indsatsen. Indsatsen er mellem <strong>{CHANCE.MIN}</strong> og{' '}
         <strong>{CHANCE.MAX_ABS}</strong> point og kan aldrig være mere end{' '}
-        {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus.
+        {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus. Indsatsen
+        tages fra dine <strong>optjente point</strong>, så du kan først bruge Chancen, når du har samlet
+        nogle point.
       </Section>
 
       <Section emoji="🎰" title="Combi-runde-bonus">
@@ -126,7 +128,7 @@ export default function FootballHelp() {
       </Section>
 
       <Section emoji="🙂" title="Dit hold">
-        Under <Tab>🙂 Profil</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>. Det giver din
+        Under <Tab>🙂 Mit hold</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>. Det giver din
         avatar holdets farve i stillingen og i dine ligaer. Holdet gælder kun her — andre spil har deres
         egne hold.
       </Section>

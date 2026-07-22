@@ -8,7 +8,7 @@
  * Data hentes live via useGames(); uid kommer fra useAuth().
  */
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGames, splitGames } from '../features/games/useGames';
 import { joinGame, leaveGame } from '../features/games/gameActions';
@@ -31,7 +31,7 @@ function statusBadgeClass(status) {
 // Linker ud i stedet for ind i platformen — bruges indtil spillet er migreret.
 function ExternalGameCard({ game }) {
   return (
-    <div className="card">
+    <div className="card card--link">
       <a
         href={game.externalUrl}
         target="_blank"
@@ -63,7 +63,7 @@ function MyGameCard({ game, onLeave, leaving }) {
   // Forlad tillades kun før spillet går i gang (åbent = ingen point endnu).
   const canLeave = game.status === GAME_STATUS.OPEN;
   return (
-    <div className="card">
+    <div className="card card--link">
       <Link
         to={`/spil/${game.id}`}
         style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
@@ -129,6 +129,7 @@ function OpenGameCard({ game, onJoin, joining }) {
 export default function GamesPage() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
+  const navigate = useNavigate();
   const { games, myGameIds, loading } = useGames();
   const { mine, open, external } = splitGames(games, myGameIds);
 
@@ -139,8 +140,11 @@ export default function GamesPage() {
     setBusyId(game.id);
     setError('');
     const res = await joinGame(uid, game.id);
-    if (!res.ok) setError(res.error);
     setBusyId(null);
+    // Efter tilmelding: hop direkte ind i spillet (til Tip), så man ikke skal
+    // finde kortet igen. Fejl vises på oversigten.
+    if (res.ok) navigate(`/spil/${game.id}`);
+    else setError(res.error);
   }
 
   async function handleLeave(game) {
@@ -154,9 +158,12 @@ export default function GamesPage() {
 
   return (
     <div>
-      <h1 style={{ margin: '0 0 1rem', fontSize: '1.4rem', fontWeight: 800 }}>
-        🎮 Spil
-      </h1>
+      <div className="hero">
+        <h1 className="hero__title">🏆 Vejleaa Tip</h1>
+        <p className="hero__subtitle">
+          Vælg et spil og tip mod vennerne. Én konto — flere spil, hver med sin egen stilling og ligaer.
+        </p>
+      </div>
 
       {error && (
         <p className="badge badge--red mb-2" role="alert" style={{ display: 'block' }}>{error}</p>

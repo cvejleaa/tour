@@ -16,7 +16,7 @@ function DeltaArrow({ row }) {
   return (
     <span
       title={up ? `Rykket ${d} op` : `Rykket ${-d} ned`}
-      style={{ color: up ? 'var(--c-pitch, #2e7d32)' : 'var(--c-red, #c0392b)', fontSize: '0.75rem', marginLeft: 4 }}
+      style={{ color: up ? 'var(--c-pitch)' : 'var(--c-err)', fontSize: '0.75rem', marginLeft: 4 }}
     >
       {up ? `▲${d}` : `▼${-d}`}
     </span>

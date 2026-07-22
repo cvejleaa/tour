@@ -7,8 +7,9 @@ import { getInitialTeamTheme, applyTeamTheme } from './features/profile/TeamThem
 import { PLATFORM_MODE } from './lib/platform';
 import './styles/theme.css';
 
-// Browser-fanens titel: neutral på den samlede platform.
-if (PLATFORM_MODE) document.title = 'Vejleaa Tip';
+// Browser-fanens titel efter tilstand (index.html har en platform-standard,
+// men Tour-bygget skal vise sit eget navn).
+document.title = PLATFORM_MODE ? 'Vejleaa Tip — fodbold-tipping med vennerne' : 'Tour de France Tip';
 
 // Anvend gemt holdfarve-tema tidligt (mirror af lyst/mørkt-init) før render.
 // På platformen bruges holdfarver ikke, så det springes over.

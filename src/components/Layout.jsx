@@ -61,7 +61,7 @@ export default function Layout({ children }) {
             <>
               <NavLink to={HOME_PATH} style={linkStyle} end>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                  Forside
+                  {PLATFORM_MODE ? 'Spil' : 'Forside'}
                   {!PLATFORM_MODE && (
                     <CountBadge count={taskCount} title={`${taskCount} udestående opgaver`} testid="tasks-count" />
                   )}
