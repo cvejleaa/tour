@@ -2,11 +2,26 @@
 // Viser navn, e-mail, rolle, status og handlingsknapper.
 import { useState } from 'react';
 import { ROLES, USER_STATUS } from '../../lib/constants';
-import { setUserStatus, setGlobalAdminRole, sendAdminPasswordReset } from './adminActions';
+import { setUserStatus, setGlobalAdminRole, sendAdminPasswordReset, callDeleteUser } from './adminActions';
 import Avatar from '../../components/Avatar';
 import { prettyTeam } from '../../data/tourTeams2026';
 import { isJerseyToken, JERSEY_BY_TOKEN } from '../../data/jerseyAvatars';
 import { PLATFORM_MODE } from '../../lib/platform';
+import { auth } from '../../firebase';
+
+// Vis login-metode, så to konti med samme e-mail kan skelnes (fx en Google- og
+// en e-mail/kodeord-konto). authInfo kommer fra adminAuthUserInfo (kun platform).
+function providerBadges(authInfo) {
+  const provs = authInfo?.providers || [];
+  const out = [];
+  if (provs.includes('google.com')) out.push({ key: 'g', label: '🔵 Google' });
+  if (provs.includes('password')) out.push({ key: 'p', label: '✉️ E-mail' });
+  for (const p of provs) {
+    if (p === 'google.com' || p === 'password') continue;
+    out.push({ key: p, label: p });
+  }
+  return out;
+}
 
 // Oversæt status til dansk
 const statusLabel = {
@@ -30,14 +45,19 @@ const roleLabel = {
 };
 
 /**
- * @param {{ user: object, currentUserIsOwner: boolean, currentUserCanApprove: boolean }} props
+ * @param {{ user: object, authInfo?: object, currentUserIsOwner: boolean, currentUserCanApprove: boolean }} props
  */
-export default function UserRow({ user, currentUserIsOwner, currentUserCanApprove }) {
+export default function UserRow({ user, authInfo, currentUserIsOwner, currentUserCanApprove }) {
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState('');
   const [resetInfo, setResetInfo] = useState(null);
 
   const isOwner = user.role === ROLES.OWNER;
+  // Kun kosmetisk: skjul slet-knappen på egen række (backend blokerer også
+  // selv-sletning). Læses fra auth-singletonen, ikke useAuth, så UserRow kan
+  // renderes uden AuthProvider (fx i tests).
+  const isSelf = auth?.currentUser?.uid === user.id;
+  const badges = providerBadges(authInfo);
 
   async function handlePasswordReset() {
     if (!window.confirm(`Send et nulstillingslink til ${user.displayName} (${user.email})?`)) return;
@@ -90,6 +110,31 @@ export default function UserRow({ user, currentUserIsOwner, currentUserCanApprov
     }
   }
 
+  async function handleDelete() {
+    if (!window.confirm(
+      `Slet ${user.displayName || user.email} PERMANENT?\n\n` +
+      'Kontoen fjernes fra login og alle spil. Dette kan ikke fortrydes.',
+    )) return;
+    setBusy(true);
+    setLocalError('');
+    try {
+      let res = await callDeleteUser(user.id, false);
+      // Backend blokerer sletning af brugere med point — spørg og prøv igen med force.
+      if (!res.ok && res.code === 'functions/failed-precondition') {
+        if (window.confirm(`${res.error}\n\nSlet alligevel?`)) {
+          res = await callDeleteUser(user.id, true);
+        } else {
+          setBusy(false);
+          return;
+        }
+      }
+      if (!res.ok) setLocalError('Fejl: ' + res.error);
+      // Ved succes forsvinder rækken automatisk (useUsers-listeneren opdaterer).
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <li
       style={{
@@ -123,8 +168,16 @@ export default function UserRow({ user, currentUserIsOwner, currentUserCanApprov
               </span>
             )}
           </div>
-          <div style={{ fontSize: '0.82rem', color: 'var(--c-muted)' }}>
-            {user.email}
+          <div style={{ fontSize: '0.82rem', color: 'var(--c-muted)', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span>{user.email}</span>
+            {badges.map((b) => (
+              <span key={b.key} style={{
+                fontSize: '0.7rem', background: 'var(--c-border)', color: 'var(--c-text)',
+                borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap',
+              }}>
+                {b.label}
+              </span>
+            ))}
           </div>
           <div style={{ marginTop: 2, fontSize: '0.82rem' }}>
             <span style={{ color: statusColor[user.status] ?? 'var(--c-muted)' }}>
@@ -223,6 +276,20 @@ export default function UserRow({ user, currentUserIsOwner, currentUserCanApprov
               title="Send et nulstillingslink via egen SMTP (omgår Firebase-mailen)"
             >
               🔑 Nulstil kodeord
+            </button>
+          )}
+
+          {/* Slet bruger permanent — kun ejeren, aldrig sig selv. Fjerner
+              Auth-kontoen + users/userContacts + medlemskaber i alle spil. */}
+          {currentUserIsOwner && !isSelf && (
+            <button
+              className="btn btn--ghost"
+              style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem', color: 'var(--c-err)', borderColor: 'var(--c-err)' }}
+              disabled={busy}
+              onClick={handleDelete}
+              title="Sletter kontoen permanent fra login og alle spil"
+            >
+              🗑️ Slet bruger
             </button>
           )}
         </div>

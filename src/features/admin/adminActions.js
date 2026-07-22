@@ -11,6 +11,7 @@ import {
   Timestamp,
   arrayUnion,
   arrayRemove,
+  writeBatch,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../firebase';
@@ -26,6 +27,51 @@ import { COL, ROLES, BONUS_ANSWER_TYPE_VALUES, DEFAULT_BONUS_ANSWER_TYPE } from 
 export async function setUserStatus(uid, newStatus) {
   const ref = doc(db, COL.USERS, uid);
   await updateDoc(ref, { status: newStatus });
+}
+
+/**
+ * Masse-godkend flere brugere på én gang (fx alle importerede VM-brugere).
+ * Sætter status='approved' på hver. Der sendes INGEN besked ved godkendelse.
+ * @param {string[]} uids
+ * @returns {Promise<{ok:true,count:number}|{ok:false,error:string}>}
+ */
+export async function approveUsers(uids) {
+  const list = [...new Set((uids || []).filter(Boolean))];
+  if (list.length === 0) return { ok: true, count: 0 };
+  try {
+    for (let i = 0; i < list.length; i += 400) {
+      const batch = writeBatch(db);
+      for (const uid of list.slice(i, i + 400)) {
+        batch.set(doc(db, COL.USERS, uid), { status: 'approved' }, { merge: true });
+      }
+      await batch.commit();
+    }
+    return { ok: true, count: list.length };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke godkende brugerne.' };
+  }
+}
+
+/** Hent login-metode (providers) m.m. for alle Auth-brugere (owner/globalAdmin). */
+export async function callAuthUserInfo() {
+  try {
+    const fn = httpsCallable(functions, 'adminAuthUserInfo');
+    const res = await fn();
+    return { ok: true, users: res.data?.users || [] };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke hente login-info.' };
+  }
+}
+
+/** Slet en bruger helt (kun ejer). force=true sletter selv med point. */
+export async function callDeleteUser(uid, force = false) {
+  try {
+    const fn = httpsCallable(functions, 'adminDeleteUser');
+    const res = await fn({ uid, force });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, code: err?.code, error: err?.message || 'Kunne ikke slette brugeren.' };
+  }
 }
 
 /**
