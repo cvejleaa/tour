@@ -51,7 +51,27 @@ async function sendEmail(db, transporter, { to, subject, html, type }) {
   }
 }
 
+/** Fritekst-broadcast → HTML (linjeskift + klikbare links + platform-footer). */
+function broadcastHtml(body) {
+  const safe = escapeHtml(body).replace(/\r\n|\r|\n/g, '<br>');
+  const linked = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+  return `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222">${linked}`
+    + '<hr style="border:none;border-top:1px solid #eee;margin:18px 0">'
+    + `<p style="color:#888;font-size:12px">Sendt fra Vejleaa Tip · <a href="${APP_URL}">${APP_URL}</a></p></div>`;
+}
+
+/** uid → e-mail fra den PRIVATE userContacts-collection. */
+async function emailByUidMap(db) {
+  const snap = await db.collection('userContacts').get();
+  const map = new Map();
+  for (const d of snap.docs) {
+    const e = d.data() && d.data().email;
+    if (e) map.set(d.id, e);
+  }
+  return map;
+}
+
 module.exports = {
   SMTP_HOST, SMTP_PORT, SMTP_USER, EMAIL_FROM, APP_URL,
-  escapeHtml, buildTransport, logEmail, sendEmail,
+  escapeHtml, buildTransport, logEmail, sendEmail, broadcastHtml, emailByUidMap,
 };

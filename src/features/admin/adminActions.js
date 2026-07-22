@@ -159,6 +159,34 @@ export async function callSendTestReminderToMe() {
 }
 
 /**
+ * Per-spil påmindelser (platform): send de rigtige påmindelser NU for ét spil.
+ * @param {string} gameId
+ */
+export async function callSendGameTipRemindersNow(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'sendGameTipRemindersNow');
+    const result = await fn({ gameId });
+    return { ok: true, data: result.data };
+  } catch (err) {
+    return { ok: false, error: err?.message ?? 'Kunne ikke sende påmindelser.' };
+  }
+}
+
+/**
+ * Per-spil påmindelser (platform): send en testmail KUN til admin selv.
+ * @param {string} gameId
+ */
+export async function callSendGameTestReminderToMe(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'sendGameTestReminderToMe');
+    const result = await fn({ gameId });
+    return { ok: true, data: result.data };
+  } catch (err) {
+    return { ok: false, error: err?.message ?? 'Kunne ikke sende testmail.' };
+  }
+}
+
+/**
  * Kald Cloud Function 'setAutomationPaused' — sæt/ophæv den globale pause for
  * ALLE skemalagte jobs (resultat-sync, AI-morgenopslag, påmindelses-mails).
  * Kun owner/global admin. Bruges når løbet er slut.
