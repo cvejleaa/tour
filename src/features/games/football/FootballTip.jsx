@@ -191,28 +191,62 @@ export default function FootballTip({ game, me, matches }) {
 
   return (
     <div>
-      {/* Runde-header */}
-      <div className="flex items-center justify-between mb-2" style={{ gap: '0.5rem' }}>
-        <button className="btn btn--ghost btn--sm" disabled={idx <= 0}
-          onClick={() => setRoundNo(rounds[idx - 1].round)} aria-label="Forrige runde">←</button>
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <div className="round-head__title">
-            {current?.round ? `Runde ${current.round}` : 'Kampe'}
-            {rangeFrom && <span className="round-head__meta" style={{ marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>{formatDateRange(rangeFrom, rangeTo)}</span>}
-          </div>
-          {nextDeadline != null && (
-            <>
-              <div className={`round-head__meta ${deadlineSoon ? 'round-head__deadline--soon' : ''}`}>
-                Deadline {relativeDeadline(nextDeadline, new Date(nowMs))}
-              </div>
-              <div className="round-head__meta" style={{ textTransform: 'none', letterSpacing: 0, opacity: 0.75 }}>
-                Hver kamp låser ved sin egen kampstart
-              </div>
-            </>
-          )}
+      {/* Runde-navigation — bladr let frem/tilbage mellem ALLE runder (som
+          etaperne i Tour): navngivne pile + en "Runde X af Y"-tæller, så det er
+          tydeligt at der er flere runder end den aktuelle. Ved enderne holdes
+          en usynlig pladsholder, så tælleren bliver centreret. */}
+      <nav
+        className="round-nav mb-2"
+        data-testid="round-nav"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}
+      >
+        {idx > 0 ? (
+          <button
+            className="btn btn--ghost btn--sm"
+            data-testid="round-nav-prev"
+            onClick={() => setRoundNo(rounds[idx - 1].round)}
+            aria-label={`Forrige runde (runde ${rounds[idx - 1].round})`}
+          >
+            ← Runde {rounds[idx - 1].round}
+          </button>
+        ) : (
+          <span className="btn btn--ghost btn--sm" aria-hidden="true" style={{ visibility: 'hidden' }}>←</span>
+        )}
+
+        <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          Runde {idx + 1} af {rounds.length}
+        </span>
+
+        {idx < rounds.length - 1 ? (
+          <button
+            className="btn btn--ghost btn--sm"
+            data-testid="round-nav-next"
+            onClick={() => setRoundNo(rounds[idx + 1].round)}
+            aria-label={`Næste runde (runde ${rounds[idx + 1].round})`}
+          >
+            Runde {rounds[idx + 1].round} →
+          </button>
+        ) : (
+          <span className="btn btn--ghost btn--sm" aria-hidden="true" style={{ visibility: 'hidden' }}>→</span>
+        )}
+      </nav>
+
+      {/* Rundens overskrift + datospænd + deadline */}
+      <div className="round-head mb-2" style={{ textAlign: 'center' }}>
+        <div className="round-head__title">
+          {current?.round ? `Runde ${current.round}` : 'Kampe'}
+          {rangeFrom && <span className="round-head__meta" style={{ marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>{formatDateRange(rangeFrom, rangeTo)}</span>}
         </div>
-        <button className="btn btn--ghost btn--sm" disabled={idx >= rounds.length - 1}
-          onClick={() => setRoundNo(rounds[idx + 1].round)} aria-label="Næste runde">→</button>
+        {nextDeadline != null && (
+          <>
+            <div className={`round-head__meta ${deadlineSoon ? 'round-head__deadline--soon' : ''}`}>
+              Deadline {relativeDeadline(nextDeadline, new Date(nowMs))}
+            </div>
+            <div className="round-head__meta" style={{ textTransform: 'none', letterSpacing: 0, opacity: 0.75 }}>
+              Hver kamp låser ved sin egen kampstart
+            </div>
+          </>
+        )}
       </div>
 
       {/* Rundens facit — vises når hele runden er spillet */}
