@@ -17,6 +17,11 @@ vi.mock('../context/AuthContext', () => ({
 
 vi.mock('../features/profile/profileActions', () => ({
   updateProfile: vi.fn(async () => {}),
+  updateDisplayName: vi.fn(async () => {}),
+  updateContactEmail: vi.fn(async () => {}),
+  changeLoginEmail: vi.fn(async () => {}),
+  linkGoogleLogin: vi.fn(async () => {}),
+  hasProvider: () => false,
 }));
 
 // EmojiPicker rører ikke noget eksternt, men holdes simpel her

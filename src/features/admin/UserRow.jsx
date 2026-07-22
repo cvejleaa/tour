@@ -11,6 +11,9 @@ import { auth } from '../../firebase';
 
 // Vis login-metode, så to konti med samme e-mail kan skelnes (fx en Google- og
 // en e-mail/kodeord-konto). authInfo kommer fra adminAuthUserInfo (kun platform).
+// En række står ALDRIG tvetydigt tom: kan metoden ikke bestemmes (login-info
+// ikke hentet, eller kontoen fandtes ikke i Auth-opslaget), vises "❔ Ukendt" —
+// tom betyder altså IKKE Google.
 function providerBadges(authInfo) {
   const provs = authInfo?.providers || [];
   const out = [];
@@ -19,6 +22,9 @@ function providerBadges(authInfo) {
   for (const p of provs) {
     if (p === 'google.com' || p === 'password') continue;
     out.push({ key: p, label: p });
+  }
+  if (out.length === 0) {
+    out.push({ key: 'unknown', label: authInfo ? '❔ Ukendt' : '❔ Login ukendt' });
   }
   return out;
 }

@@ -3,7 +3,8 @@
  */
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { updateProfile } from '../features/profile/profileActions';
+import { updateProfile, updateDisplayName } from '../features/profile/profileActions';
+import AccountSection from '../features/profile/AccountSection';
 import Avatar from '../components/Avatar';
 import EmojiPicker from '../features/comments/EmojiPicker';
 import { AVATAR_SET, NEUTRAL_AVATAR_SET } from '../data/avatarSet';
@@ -20,6 +21,7 @@ export default function ProfilePage() {
   const { user, profile } = useAuth();
   const uid = user?.uid;
 
+  const [name, setName] = useState('');
   const [emoji, setEmoji] = useState(null);
   const [team, setTeam] = useState('');
   const [optOut, setOptOut] = useState(false);
@@ -30,6 +32,7 @@ export default function ProfilePage() {
   // Synk fra profil når den loader
   useEffect(() => {
     if (!profile) return;
+    setName(profile.displayName ?? '');
     setEmoji(profile.avatarEmoji ?? null);
     setTeam(profile.favoriteTeam ?? '');
     setOptOut(!!profile.emailOptOut);
@@ -39,6 +42,10 @@ export default function ProfilePage() {
     e.preventDefault();
     setBusy(true); setMsg(''); setErr('');
     try {
+      const cleanName = name.trim();
+      if (cleanName && cleanName !== (profile?.displayName ?? '')) {
+        await updateDisplayName(uid, cleanName);
+      }
       await updateProfile(uid, {
         avatarEmoji: emoji,
         favoriteTeam: team || null,
@@ -67,6 +74,22 @@ export default function ProfilePage() {
         </div>
 
         <form onSubmit={handleSave}>
+          {/* Visningsnavn */}
+          <div className="form-group">
+            <label className="form-label" htmlFor="display-name">Navn</label>
+            <input
+              id="display-name"
+              className="input"
+              type="text"
+              value={name}
+              maxLength={40}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Dit navn"
+              style={{ maxWidth: 280 }}
+              data-testid="profile-name"
+            />
+          </div>
+
           {/* Avatar-emoji */}
           <div className="form-group">
             <label className="form-label">Avatar-emoji</label>
@@ -158,6 +181,9 @@ export default function ProfilePage() {
             </>
           )}
         </div>
+
+        {/* Konto & login: skift kontakt-/login-mail og tilkobl Google-login. */}
+        <AccountSection user={user} uid={uid} />
       </div>
     </div>
   );
