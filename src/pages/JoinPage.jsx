@@ -10,10 +10,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { USER_STATUS } from '../lib/constants';
 import { joinLeague } from '../features/leagues/leagueActions';
+import { joinLeagueByCode } from '../features/games/gameLeagueActions';
 import { tryLogActivity, ACTIVITY } from '../features/leagues/activityActions';
 import {
-  setPendingJoinCode, getPendingJoinCode, clearPendingJoinCode,
+  setPendingJoinCode, getPendingJoinCode, getPendingJoinGameId, clearPendingJoinCode,
 } from '../features/leagues/joinLink';
+import { PLATFORM_MODE } from '../lib/platform';
 
 export default function JoinPage() {
   const { user, status, profile, loading } = useAuth();
@@ -22,14 +24,17 @@ export default function JoinPage() {
   // Kode fra linket; fald tilbage til en tidligere gemt (fx efter login-runde).
   const code = (params.get('kode') || params.get('code') || '').trim().toUpperCase()
     || getPendingJoinCode();
+  // Spil-id (kun platform-ligaer): fra linket eller en tidligere gemt runde.
+  const gameId = (params.get('spil') || params.get('game') || '').trim()
+    || getPendingJoinGameId();
 
   const [state, setState] = useState({ phase: 'working', msg: '' }); // working|ok|error|invite
   const attempted = useRef(false);
 
-  // Gem koden med det samme, så den overlever login/oprettelses-redirects.
+  // Gem kode (+ spil-id) med det samme, så det overlever login/oprettelses-redirects.
   useEffect(() => {
-    if (code) setPendingJoinCode(code);
-  }, [code]);
+    if (code) setPendingJoinCode(code, gameId);
+  }, [code, gameId]);
 
   useEffect(() => {
     if (loading) return;
@@ -38,11 +43,29 @@ export default function JoinPage() {
     // Ikke logget ind: forklar hvad der sker, og send videre til login/oprettelse.
     if (!user) { setState({ phase: 'invite', msg: '' }); return; }
 
-    // Afventende bruger: afventer-siden indløser koden automatisk (godkender + tilmelder).
+    if (attempted.current) return;
+
+    // ── Platform: spil-liga via kode (auto-godkender + tilmelder spil + liga). ──
+    if (PLATFORM_MODE) {
+      if (!gameId) { setState({ phase: 'error', msg: 'Linket mangler et spil. Bed afsenderen om et nyt link.' }); return; }
+      attempted.current = true;
+      (async () => {
+        const res = await joinLeagueByCode({ gameId, code });
+        if (res.ok) {
+          clearPendingJoinCode();
+          setState({ phase: 'ok', msg: res.already ? `Du er allerede med i "${res.name}". 🎉` : `Du er nu med i "${res.name}"! 🎉` });
+          setTimeout(() => navigate(`/spil/${gameId}`, { replace: true }), 1400);
+        } else {
+          setState({ phase: 'error', msg: res.error || 'Kunne ikke tilmelde dig ligaen.' });
+        }
+      })();
+      return;
+    }
+
+    // ── Tour: top-niveau-liga. Afventende bruger indløses på afventer-siden. ──
     if (status !== USER_STATUS.APPROVED) { navigate('/afventer', { replace: true }); return; }
 
     // Godkendt bruger: tilmeld direkte — men kun ét forsøg (StrictMode/dobbelt-render).
-    if (attempted.current) return;
     attempted.current = true;
     (async () => {
       try {
@@ -60,7 +83,7 @@ export default function JoinPage() {
         setState({ phase: already ? 'ok' : 'error', msg: err?.message || 'Kunne ikke tilmelde dig ligaen.' });
       }
     })();
-  }, [loading, user, status, code, navigate, profile?.displayName]);
+  }, [loading, user, status, code, gameId, navigate, profile?.displayName]);
 
   const box = { maxWidth: 460, margin: '3rem auto', textAlign: 'center' };
 

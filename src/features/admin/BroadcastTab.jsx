@@ -8,7 +8,9 @@ import { callSendBroadcastEmail } from './adminActions';
 import { parseRecipients } from './broadcastUtils';
 import { useUsers } from './useUsers';
 import { useAllLeagues } from '../leagues/useAllLeagues';
-import { joinLinkFor } from '../leagues/joinLink';
+import { useGames } from '../games/useGames';
+import { useGameLeagues } from '../games/useGameLeagues';
+import { joinLinkFor, gameJoinLinkFor } from '../leagues/joinLink';
 import { LEAGUE_STATUS } from '../../lib/constants';
 import { PLATFORM_MODE } from '../../lib/platform';
 
@@ -84,14 +86,32 @@ export default function BroadcastTab() {
 
   // Liga-invitation: vælg hvilken liga modtagerne inviteres med i.
   // [LINK] i teksten erstattes ved afsendelse med ligaens /tilmeld-link.
-  const { leagues } = useAllLeagues();
+  //
+  // Tour: top-niveau-ligaer (joinCode). Platform: vælg FØRST spil, så en liga
+  // i det spil (code) — linket bærer både spil-id og kode, og modtageren
+  // auto-godkendes + tilmeldes spil + liga med ét klik.
+  const { leagues: topLeagues } = useAllLeagues(!PLATFORM_MODE);
+  const { games } = useGames();
+  const [gameId, setGameId] = useState('');
+  const { leagues: gameLeagues } = useGameLeagues(PLATFORM_MODE ? gameId : null);
   const [leagueId, setLeagueId] = useState('');
-  const approvedLeagues = useMemo(
-    () => (leagues ?? []).filter((l) => l.status === LEAGUE_STATUS.APPROVED && l.joinCode),
-    [leagues],
-  );
-  const selectedLeague = approvedLeagues.find((l) => l.id === leagueId) ?? null;
-  const joinLink = selectedLeague ? joinLinkFor(selectedLeague.joinCode) : '';
+
+  // Nulstil ligavalget når spillet skifter.
+  const onGameChange = (id) => { setGameId(id); setLeagueId(''); };
+
+  const leagueOptions = useMemo(() => {
+    if (PLATFORM_MODE) {
+      return (gameLeagues ?? []).map((l) => ({ id: l.id, name: l.name, code: l.code }));
+    }
+    return (topLeagues ?? [])
+      .filter((l) => l.status === LEAGUE_STATUS.APPROVED && l.joinCode)
+      .map((l) => ({ id: l.id, name: l.name, code: l.joinCode }));
+  }, [topLeagues, gameLeagues]);
+
+  const selectedLeague = leagueOptions.find((l) => l.id === leagueId) ?? null;
+  const joinLink = selectedLeague
+    ? (PLATFORM_MODE ? gameJoinLinkFor(gameId, selectedLeague.code) : joinLinkFor(selectedLeague.code))
+    : '';
   // Skabelonens gule knap SKAL pege på en liga; ren tekst kræver kun liga
   // hvis [LINK] faktisk står i teksten.
   const needsLeague = (useTemplate || body.includes(LINK_TOKEN)) && !selectedLeague;
@@ -171,6 +191,22 @@ export default function BroadcastTab() {
           />
         </label>
 
+        {/* Platform: vælg FØRST spillet, så ligaen i det spil. */}
+        {PLATFORM_MODE && (
+          <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+            Spil
+            <select
+              value={gameId} onChange={(e) => onGameChange(e.target.value)}
+              style={{ ...inputStyle, marginTop: '0.25rem' }} data-testid="broadcast-game"
+            >
+              <option value="">– vælg spil –</option>
+              {(games ?? []).map((g) => (
+                <option key={g.id} value={g.id}>{g.emoji ? `${g.emoji} ` : ''}{g.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
           {useTemplate
             ? 'Invitér til liga (den gule knap i mailen bliver ligaens tilmeldingslink)'
@@ -178,10 +214,13 @@ export default function BroadcastTab() {
           <select
             value={leagueId} onChange={(e) => setLeagueId(e.target.value)}
             style={{ ...inputStyle, marginTop: '0.25rem' }} data-testid="broadcast-league"
+            disabled={PLATFORM_MODE && !gameId}
           >
-            <option value="">– vælg liga –</option>
-            {approvedLeagues.map((l) => (
-              <option key={l.id} value={l.id}>{l.name} (kode: {l.joinCode})</option>
+            <option value="">
+              {PLATFORM_MODE && !gameId ? '– vælg spil først –' : leagueOptions.length === 0 ? '– ingen ligaer –' : '– vælg liga –'}
+            </option>
+            {leagueOptions.map((l) => (
+              <option key={l.id} value={l.id}>{l.name} (kode: {l.code})</option>
             ))}
           </select>
           {joinLink && (

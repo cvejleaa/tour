@@ -28,6 +28,10 @@ vi.mock('../leagues/useAllLeagues', () => ({
   }),
 }));
 
+// De spil-scopede hooks bruges kun i platform-tilstand; her (Tour) er de no-ops.
+vi.mock('../games/useGames', () => ({ useGames: () => ({ games: [], myGameIds: [], loading: false }) }));
+vi.mock('../games/useGameLeagues', () => ({ useGameLeagues: () => ({ leagues: [], loading: false, error: null }) }));
+
 import BroadcastTab from './BroadcastTab';
 
 describe('BroadcastTab', () => {

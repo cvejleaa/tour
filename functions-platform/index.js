@@ -98,8 +98,7 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION }, async (request) => 
 const LEAGUE_ERR = {
   unauthenticated: ['unauthenticated', 'Log ind for at deltage.'],
   'bad-code': ['invalid-argument', 'Indtast en gyldig kode.'],
-  'not-approved': ['permission-denied', 'Din konto er ikke godkendt endnu.'],
-  'not-member': ['failed-precondition', 'Du skal deltage i spillet, før du kan være med i en liga.'],
+  'no-user': ['failed-precondition', 'Opret en bruger først, så tilmelder vi dig ligaen.'],
   'not-found': ['not-found', 'Ingen liga fundet med den kode.'],
 };
 exports.redeemGameLeagueCode = onCall({ region: REGION }, async (request) => {

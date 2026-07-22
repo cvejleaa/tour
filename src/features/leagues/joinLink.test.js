@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  joinLinkFor, setPendingJoinCode, getPendingJoinCode, clearPendingJoinCode,
-  CANONICAL_ORIGIN,
+  joinLinkFor, gameJoinLinkFor, setPendingJoinCode, getPendingJoinCode,
+  getPendingJoinGameId, clearPendingJoinCode, CANONICAL_ORIGIN, PLATFORM_ORIGIN,
 } from './joinLink';
 
 describe('joinLinkFor', () => {
@@ -48,5 +48,33 @@ describe('pendingJoinCode (localStorage)', () => {
   it('læser det GAMLE format (ren streng) uden fejl', () => {
     localStorage.setItem('tour.pendingJoinCode', 'LEGACY');
     expect(getPendingJoinCode()).toBe('LEGACY');
+    expect(getPendingJoinGameId()).toBe(''); // gammelt format har intet spil-id
+  });
+});
+
+describe('gameJoinLinkFor (platform-spil-ligaer)', () => {
+  it('bygger /tilmeld-linket med spil-id + normaliseret kode på tip.vejleaa.dk', () => {
+    expect(gameJoinLinkFor('spil-1', ' x4kr2m '))
+      .toBe('https://tip.vejleaa.dk/tilmeld?spil=spil-1&kode=X4KR2M');
+    expect(PLATFORM_ORIGIN).toBe('https://tip.vejleaa.dk');
+  });
+  it('URL-enkoder spil-id og kode', () => {
+    expect(gameJoinLinkFor('a b', 'A&B', 'https://t.dk')).toBe('https://t.dk/tilmeld?spil=a%20b&kode=A%26B');
+  });
+});
+
+describe('pendingJoinGameId (localStorage)', () => {
+  beforeEach(() => clearPendingJoinCode());
+
+  it('gemmer og henter både kode og spil-id', () => {
+    setPendingJoinCode('abc123', 'spil-7');
+    expect(getPendingJoinCode()).toBe('ABC123');
+    expect(getPendingJoinGameId()).toBe('spil-7');
+  });
+
+  it('uden spil-id er gameId tomt', () => {
+    setPendingJoinCode('abc123');
+    expect(getPendingJoinCode()).toBe('ABC123');
+    expect(getPendingJoinGameId()).toBe('');
   });
 });

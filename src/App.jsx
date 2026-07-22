@@ -39,7 +39,9 @@ export default function App() {
           <Route path="/afventer" element={<PendingPage />} />
           {/* Liga-invitationslink: virker for både nye, afventende og godkendte brugere.
               Ligaer hører til inde i et spil (Fase B) — på platformen redirectes det. */}
-          <Route path="/tilmeld" element={gamePage(<JoinPage />)} />
+          {/* Invitationslink virker i begge tilstande — JoinPage er selv
+              platform-bevidst (spil-ligaer via ?spil=…&kode=…). */}
+          <Route path="/tilmeld" element={<JoinPage />} />
           {/* Platform: forsiden er spiloversigten. Enkelt-spil: Tour-dashboard. */}
           <Route path="/" element={
             PLATFORM_MODE
