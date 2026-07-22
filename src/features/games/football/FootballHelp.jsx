@@ -25,7 +25,7 @@ export default function FootballHelp() {
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1rem', fontSize: '0.95rem' }}>
         Alt om at tippe her — fra dit første tip til bonus, Elo og mini-ligaer. Du finder det hele via
         fanerne øverst: <Tab>⚽ Tip</Tab> <Tab>📋 Mine tips</Tab> <Tab>🎖️ Pulje</Tab> <Tab>📈 Elo</Tab>{' '}
-        <Tab>⚽ Tabel</Tab> <Tab>🏆 Stilling</Tab> <Tab>👥 Ligaer</Tab> <Tab>🙂 Profil</Tab>.
+        <Tab>⚽ Tabel</Tab> <Tab>🏆 Stilling</Tab> <Tab>👥 Ligaer</Tab> <Tab>🙂 Mit hold</Tab>.
       </p>
 
       <Section emoji="⚽" title="Tip kampene (1X2)">
@@ -47,7 +47,9 @@ export default function FootballHelp() {
         1X2-valg. Rammer du, vinder du <strong>indsats × (odds − 1)</strong> oveni; rammer du forkert,
         mister du kun indsatsen. Indsatsen er mellem <strong>{CHANCE.MIN}</strong> og{' '}
         <strong>{CHANCE.MAX_ABS}</strong> point og kan aldrig være mere end{' '}
-        {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus.
+        {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus. Indsatsen
+        tages fra dine <strong>optjente point</strong>, så du kan først bruge Chancen, når du har samlet
+        nogle point.
       </Section>
 
       <Section emoji="🎰" title="Combi-runde-bonus">
@@ -81,7 +83,11 @@ export default function FootballHelp() {
         udviklingen. Elo-ratingen er også det, <strong>oddsene bygger på</strong>.
         <p style={{ margin: '0.5rem 0 0' }}><strong>Sådan beregnes Elo:</strong></p>
         <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.2rem' }}>
-          <li>Alle hold starter på <strong>{ELO.START}</strong>.</li>
+          <li><strong>Holdene starter ikke alle på {ELO.START}.</strong> {ELO.START} er blot det neutrale
+            nulpunkt. Hvert hold får en <strong>start-rating</strong>, vi har beregnet ud fra de
+            <strong> sidste 3 års resultater</strong> plus en vurdering af holdets aktuelle styrke — så en
+            storklub starter <em>over</em> {ELO.START} og et oprykker-/svagt hold <em>under</em>. Derfor
+            er favoritter og outsidere forskellige allerede fra første kamp.</li>
           <li>Før en kamp regnes en <strong>forventning</strong> til hjemmeholdet ud fra forskellen i rating
             {' '}plus en <strong>hjemmebanefordel på ~{ELO.HFA}</strong> point. Lige stærke hold ≈ 50/50.</li>
           <li>Efter kampen flyttes rating mod resultatet: <em>ny rating = gammel + {ELO.K} ×
@@ -91,9 +97,16 @@ export default function FootballHelp() {
             en favorit, rykker det meget; vinder favoritten som ventet, rykker det lidt).</li>
         </ul>
         <p style={{ margin: '0.5rem 0 0' }}>
-          <em>Eksempel:</em> to lige stærke hold (forventning 50 %). Vinder hjemmeholdet, får det
-          {' '}{ELO.K} × (1 − 0,5) = <strong>+{Math.round(ELO.K * 0.5)}</strong> point, og udeholdet
+          <em>Eksempel 1 — jævnbyrdige:</em> to lige stærke hold (forventning 50 %). Vinder hjemmeholdet,
+          får det {ELO.K} × (1 − 0,5) = <strong>+{Math.round(ELO.K * 0.5)}</strong> point, og udeholdet
           {' '}−{Math.round(ELO.K * 0.5)}.
+        </p>
+        <p style={{ margin: '0.35rem 0 0' }}>
+          <em>Eksempel 2 — outsider slår favorit:</em> favoritten er ventet til at vinde med 80 %, outsideren
+          har altså kun 20 % forventning. Vinder outsideren alligevel, får den {ELO.K} × (1 − 0,2) =
+          {' '}<strong>+{Math.round(ELO.K * 0.8)}</strong> point, og favoritten
+          {' '}<strong>−{Math.round(ELO.K * 0.8)}</strong> — et langt større udsving end mellem jævnbyrdige
+          hold, netop fordi resultatet var overraskende.
         </p>
       </Section>
 
@@ -115,7 +128,7 @@ export default function FootballHelp() {
       </Section>
 
       <Section emoji="🙂" title="Dit hold">
-        Under <Tab>🙂 Profil</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>. Det giver din
+        Under <Tab>🙂 Mit hold</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>. Det giver din
         avatar holdets farve i stillingen og i dine ligaer. Holdet gælder kun her — andre spil har deres
         egne hold.
       </Section>

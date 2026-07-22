@@ -12,8 +12,11 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     // Combi-beregningen forklares konkret (ganges sammen + eksempel).
     expect(screen.getByText(/Sådan beregnes den/)).toBeInTheDocument();
     expect(screen.getByText(/1,5 × 2,0 × 3,0/)).toBeInTheDocument();
-    // Elo-beregningen forklares også.
+    // Elo-beregningen forklares også — inkl. hvorfor holdene ikke starter ens
+    // og et outsider-slår-favorit-eksempel.
     expect(screen.getByRole('heading', { name: /Elo-tabellen/ })).toBeInTheDocument();
     expect(screen.getByText(/Sådan beregnes Elo/)).toBeInTheDocument();
+    expect(screen.getByText(/sidste 3 års resultater/)).toBeInTheDocument();
+    expect(screen.getByText(/outsider slår favorit/i)).toBeInTheDocument();
   });
 });

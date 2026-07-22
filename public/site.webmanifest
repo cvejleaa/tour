@@ -1,14 +1,16 @@
 {
-  "name": "Tour de France Tip",
-  "short_name": "Tour Tip",
-  "description": "Tippekonkurrence til Tour de France",
+  "name": "Vejleaa Tip",
+  "short_name": "Vejleaa Tip",
+  "description": "Tip Superligaen og andre spil mod dine venner — point efter oddsene, ligaer, Chancen og combi-bonus.",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "theme_color": "#0b6e4f",
   "background_color": "#0b6e4f",
   "display": "standalone",
-  "start_url": "/",
+  "start_url": "/spil",
+  "scope": "/",
   "lang": "da"
 }

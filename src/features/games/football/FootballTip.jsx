@@ -201,9 +201,14 @@ export default function FootballTip({ game, me, matches }) {
             {rangeFrom && <span className="round-head__meta" style={{ marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>{formatDateRange(rangeFrom, rangeTo)}</span>}
           </div>
           {nextDeadline != null && (
-            <div className={`round-head__meta ${deadlineSoon ? 'round-head__deadline--soon' : ''}`}>
-              Deadline {relativeDeadline(nextDeadline, new Date(nowMs))}
-            </div>
+            <>
+              <div className={`round-head__meta ${deadlineSoon ? 'round-head__deadline--soon' : ''}`}>
+                Deadline {relativeDeadline(nextDeadline, new Date(nowMs))}
+              </div>
+              <div className="round-head__meta" style={{ textTransform: 'none', letterSpacing: 0, opacity: 0.75 }}>
+                Hver kamp låser ved sin egen kampstart
+              </div>
+            </>
           )}
         </div>
         <button className="btn btn--ghost btn--sm" disabled={idx >= rounds.length - 1}
@@ -395,7 +400,7 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
         <h3 className="card__title">Chancen ⚡</h3>
         <p style={{ color: 'var(--c-muted)', marginBottom: 0 }}>
           Du kan bruge Chancen, når du har mindst {Math.ceil(CHANCE.MIN / CHANCE.CAP_FRACTION)} point.
-          Sæt point på spil på ét tip og doblér din gevinst — eller mist indsatsen.
+          Sæt point på spil på ét tip: rammer du, ganges indsatsen med oddsene — ellers mister du kun indsatsen.
         </p>
       </div>
     );
@@ -459,7 +464,7 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
           <p style={{ margin: '0.25rem 0' }}>
             {odds ? (
               <>Rammer du: <strong style={{ color: 'var(--c-pitch)' }}>+{win}</strong>
-                {'  '}· Rammer du ikke: <strong style={{ color: 'var(--c-red, #c0392b)' }}>−{clampedStake}</strong>
+                {'  '}· Rammer du ikke: <strong style={{ color: 'var(--c-err)' }}>−{clampedStake}</strong>
                 {'  '}<span style={{ color: 'var(--c-muted)' }}>(odds {fmtDec(odds, 2)})</span></>
             ) : (
               <span style={{ color: 'var(--c-muted)' }}>Odds er ikke lagt ind på kampen endnu.</span>

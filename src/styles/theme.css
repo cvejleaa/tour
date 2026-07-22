@@ -310,7 +310,7 @@ button {
   border: 1px solid var(--c-border);
 }
 
-/* Generelt badge */
+/* Generelt badge — neutral standard, så en bar .badge aldrig ser "nøgen" ud */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -321,6 +321,9 @@ button {
   font-weight: 600;
   letter-spacing: 0.03em;
   line-height: 1.4;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .badge--green  { background: rgba(31, 157, 85, 0.12); color: var(--c-ok); }
@@ -328,6 +331,34 @@ button {
 .badge--red    { background: rgba(214, 69, 69, 0.12); color: var(--c-err); }
 .badge--blue   { background: rgba(11, 110, 79, 0.1);  color: var(--c-pitch); }
 .badge--muted  { background: var(--c-bg); color: var(--c-muted); border: 1px solid var(--c-border); }
+
+/* ── Tilgængeligt fokus på alt klikbart (tastatur/switch) ── */
+.btn:focus-visible,
+.tab:focus-visible,
+.pick:focus-visible,
+.pulje-team:focus-visible,
+.pulje-team__name:focus-visible,
+a:focus-visible,
+.card--link:focus-visible {
+  outline: 2px solid var(--c-pitch);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Interaktivt kort (klikbar flade) — løft ved hover, snap ved tryk ── */
+.card--link {
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.card--link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow, 0 6px 20px rgba(0, 0, 0, 0.12));
+}
+.card--link:active { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card--link { transition: none; }
+  .card--link:hover { transform: none; }
+}
 
 /* ═══════════════════════ FORM ELEMENTER ═══════════════════════ */
 
@@ -638,6 +669,10 @@ button {
 }
 .round-head__meta { font-size: 0.75rem; color: var(--c-muted); }
 .round-head__deadline--soon { color: var(--c-err); font-weight: 700; }
+@media (prefers-reduced-motion: no-preference) {
+  .round-head__deadline--soon { animation: soonpulse 1.6s ease-in-out infinite; }
+  @keyframes soonpulse { 50% { opacity: 0.5; } }
+}
 
 /* Kamp-kort */
 .match-card { padding: 0.85rem; }
@@ -710,7 +745,7 @@ button {
 .facit__lead { color: var(--c-pitch); font-weight: 700; }
 .facit__moves { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; margin-top: 0.35rem; font-size: 0.85rem; font-weight: 600; }
 .facit__up { color: var(--c-pitch, #2e7d32); }
-.facit__down { color: var(--c-red, #c0392b); }
+.facit__down { color: var(--c-err); }
 .facit__share { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px solid var(--c-border); }
 .facit__sharemsg { font-size: 0.8rem; color: var(--c-pitch); font-weight: 600; }
 @media (prefers-reduced-motion: no-preference) {

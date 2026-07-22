@@ -6,8 +6,7 @@
  * en "under opbygning"-besked. Er man ikke tilmeldt, vises en deltag-knap.
  */
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useGame } from '../features/games/useGame';
 import { useAuth } from '../context/AuthContext';
 import { joinGame } from '../features/games/gameActions';
@@ -23,13 +22,32 @@ import SuperligaTable from '../features/games/football/SuperligaTable';
 import FootballHelp from '../features/games/football/FootballHelp';
 import { GAME_TYPE } from '../lib/constants';
 
+// Faner i spillet. football: true = kun for fodbold-spil. Rækkefølgen er
+// visnings-rækkefølgen; navnene er valgt så de ikke kolliderer med top-nav
+// ("Mit hold" vs. global Profil, "Sådan tipper du" vs. platform-Hjælp).
+const GAME_TABS = [
+  { key: 'tip', label: 'Tip' },
+  { key: 'mine', label: '📋 Mine tips', football: true },
+  { key: 'stilling', label: '🏆 Stilling' },
+  { key: 'pulje', label: '🎖️ Pulje', football: true },
+  { key: 'tabel', label: '⚽ Tabel', football: true },
+  { key: 'elo', label: '📈 Elo', football: true },
+  { key: 'ligaer', label: '👥 Ligaer' },
+  { key: 'profil', label: '🙂 Mit hold' },
+  { key: 'hjaelp', label: '❓ Sådan tipper du', football: true },
+];
+
 export default function GamePage() {
   const { gameId } = useParams();
   const { user } = useAuth();
   const { game, me, isMember, matches, loading } = useGame(gameId);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState('tip');
+  // Fanen lever i URL'en (?fane=…), så browserens tilbage-knap, refresh og
+  // deling virker. Standard = tip (ingen parameter).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('fane') || 'tip';
+  const setTab = (key) => setSearchParams(key === 'tip' ? {} : { fane: key });
 
   if (loading || game === undefined) {
     return <div className="spinner" role="status" aria-label="Indlæser" />;
@@ -72,72 +90,22 @@ export default function GamePage() {
         </div>
       ) : (
         <>
-          {/* Faner: tip / mine tips / stilling / ligaer */}
-          <div className="flex items-center mb-2" role="tablist" style={{ gap: '0.4rem', flexWrap: 'wrap' }}>
-            <button
-              role="tab"
-              aria-selected={tab === 'tip'}
-              className={tab === 'tip' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
-              onClick={() => setTab('tip')}
-            >Tip</button>
-            {game.type === GAME_TYPE.FOOTBALL && (
-              <button
-                role="tab"
-                aria-selected={tab === 'mine'}
-                className={tab === 'mine' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
-                onClick={() => setTab('mine')}
-              >📋 Mine tips</button>
-            )}
-            {game.type === GAME_TYPE.FOOTBALL && (
-              <button
-                role="tab"
-                aria-selected={tab === 'pulje'}
-                className={tab === 'pulje' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
-                onClick={() => setTab('pulje')}
-              >🎖️ Pulje</button>
-            )}
-            {game.type === GAME_TYPE.FOOTBALL && (
-              <button
-                role="tab"
-                aria-selected={tab === 'tabel'}
-                className={tab === 'tabel' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
-                onClick={() => setTab('tabel')}
-              >⚽ Tabel</button>
-            )}
-            {game.type === GAME_TYPE.FOOTBALL && (
-              <button
-                role="tab"
-                aria-selected={tab === 'elo'}
-                className={tab === 'elo' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
-                onClick={() => setTab('elo')}
-              >📈 Elo</button>
-            )}
-            <button
-              role="tab"
-              aria-selected={tab === 'stilling'}
-              className={tab === 'stilling' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
-              onClick={() => setTab('stilling')}
-            >🏆 Stilling</button>
-            <button
-              role="tab"
-              aria-selected={tab === 'ligaer'}
-              className={tab === 'ligaer' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
-              onClick={() => setTab('ligaer')}
-            >👥 Ligaer</button>
-            <button
-              role="tab"
-              aria-selected={tab === 'profil'}
-              className={tab === 'profil' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
-              onClick={() => setTab('profil')}
-            >🙂 Profil</button>
-            {game.type === GAME_TYPE.FOOTBALL && (
-              <button
-                role="tab"
-                aria-selected={tab === 'hjaelp'}
-                className={tab === 'hjaelp' ? 'btn btn--sm' : 'btn btn--ghost btn--sm'}
-                onClick={() => setTab('hjaelp')}
-              >❓ Hjælp</button>
-            )}
+          {/* Faner — vandret-scrollende underline-system (samme som andre steder).
+              Sekundære faner scroller væk på mobil i stedet for at wrappe. */}
+          <div className="tabs" role="tablist">
+            {GAME_TABS
+              .filter((t) => !t.football || game.type === GAME_TYPE.FOOTBALL)
+              .map((t) => (
+                <button
+                  key={t.key}
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  className={tab === t.key ? 'tab tab--active' : 'tab'}
+                  onClick={() => setTab(t.key)}
+                >
+                  {t.label}
+                </button>
+              ))}
           </div>
 
           {tab === 'stilling' ? (
