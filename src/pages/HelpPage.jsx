@@ -62,7 +62,8 @@ function PlatformHelp() {
           sin egen app — åbn den fra <Link to="/spil">🎮 Spil</Link> (“Åbn spillet ↗”).
         </GameBlurb>
         <GameBlurb emoji="⚽" name="VM 2026" status="afsluttet">
-          Vores fodbold-VM-tipning. Spillet er slut, men stillingen kan stadig ses.
+          Vores fodbold-VM-tipning. Spillet er slut, men du kan stadig se{' '}
+          <a href="https://vm.vejleaa.dk" target="_blank" rel="noopener noreferrer">stillingen i VM-appen ↗</a>.
         </GameBlurb>
       </Section>
 
