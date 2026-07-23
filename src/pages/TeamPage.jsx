@@ -4,6 +4,7 @@
 // Firestore, ellers statisk snapshot) med danske ryttere fremhævet. Hold der
 // endnu ikke har udtaget vises med en "afventer"-tilstand.
 // ---------------------------------------------------------------------------
+import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Hero from '../components/Hero';
 import { teamMeta, prettyTeam, countryName } from '../data/tourTeams2026';
@@ -13,70 +14,148 @@ import { useStartlist } from '../features/teams/useStartlist';
 import { teamWorldRank, riderWorldRank } from '../data/uciRanking2026';
 import { splitRiderName } from '../features/teams/riderName';
 import { riderInfo, profileLabel } from '../data/ridersTdf2026';
+import { useClassifications } from '../features/tour/useClassifications';
+import { STAT_COMPS, buildRiderStats, riderRowComparator } from '../features/teams/riderTypeStats';
+
+/** Klassement-celle: point-konkurrencer viser point, tids-konkurrencer #placering + tid. */
+function statCell(stat, valueType) {
+  if (!stat) return <span style={{ color: 'var(--c-muted)' }}>–</span>;
+  if (valueType === 'points') {
+    return stat.points != null
+      ? <span style={{ fontWeight: 600 }}>{stat.points} p</span>
+      : <span style={{ color: 'var(--c-muted)' }}>–</span>;
+  }
+  if (stat.rank == null) return <span style={{ color: 'var(--c-muted)' }}>–</span>;
+  return (
+    <span>
+      <strong>#{stat.rank}</strong>
+      {stat.time ? <span style={{ color: 'var(--c-muted)', marginLeft: 4, fontSize: '0.82em' }}>{stat.time}</span> : null}
+    </span>
+  );
+}
 
 function RiderList({ riders, starNames, teamCode }) {
-  // Sortér efter STARTNUMMER (kaptajnen bærer holdets laveste nummer — det er
-  // sådan startlister læses). Ryttere uden kendt bib sidst, dér efter
-  // verdensrang og til sidst alfabetisk.
-  const rows = riders
-    // Normalisér navn/land, så hold fra forskellige kilder vises ens (nogle
-    // startlister bager landet ind i navnet som "Ben Healy (Irland)").
-    .map((r) => {
-      const { name, country } = splitRiderName(r?.name, r?.country);
-      // Officiel letour-info: startnummer + profiltype (kaptajn/bjerg/sprint/allround)
-      const info = riderInfo(name, teamCode);
-      return { name, country, wr: riderWorldRank(name, teamCode), info };
-    })
-    .sort((a, b) => {
-      const ba = a.info ? a.info.bib : Infinity;
-      const bb = b.info ? b.info.bib : Infinity;
-      if (ba !== bb) return ba - bb;
-      const ra = a.wr ? a.wr.rank : Infinity;
-      const rb = b.wr ? b.wr.rank : Infinity;
-      if (ra !== rb) return ra - rb;
-      return String(a.name || '').localeCompare(String(b.name || ''), 'da');
-    });
+  // Fulde Tour-klassementer (samlet/sprint/bjerg/ungdom) → opslag pr. startnummer.
+  const { data } = useClassifications();
+  const statsByBib = useMemo(() => buildRiderStats(data?.standings || null), [data]);
+  const hasStandings = STAT_COMPS.some((c) => (data?.standings?.[c.key] || []).length);
+
+  // Sortering: 'bib' (standard — kaptajnen bærer holdets laveste nummer, det er
+  // sådan startlister læses) eller en konkurrence-kolonne.
+  const [sortCol, setSortCol] = useState('bib');
+  const [desc, setDesc] = useState(false);
+
+  const rows = useMemo(() => {
+    const base = riders
+      // Normalisér navn/land, så hold fra forskellige kilder vises ens (nogle
+      // startlister bager landet ind i navnet som "Ben Healy (Irland)").
+      .map((r) => {
+        const { name, country } = splitRiderName(r?.name, r?.country);
+        // Officiel letour-info: startnummer + profiltype (kaptajn/bjerg/sprint/allround)
+        const info = riderInfo(name, teamCode);
+        return {
+          name, country, wr: riderWorldRank(name, teamCode), info,
+          stats: (info && statsByBib.get(info.bib)) || {},
+        };
+      })
+      .sort((a, b) => {
+        const ba = a.info ? a.info.bib : Infinity;
+        const bb = b.info ? b.info.bib : Infinity;
+        if (ba !== bb) return ba - bb;
+        const ra = a.wr ? a.wr.rank : Infinity;
+        const rb = b.wr ? b.wr.rank : Infinity;
+        if (ra !== rb) return ra - rb;
+        return String(a.name || '').localeCompare(String(b.name || ''), 'da');
+      });
+    if (sortCol === 'bib') return desc ? [...base].reverse() : base;
+    // Konkurrence-kolonne: bedste først (point ↓ / placering ↑); stabil oven på bib-ordenen.
+    return [...base].sort(riderRowComparator(sortCol, desc));
+  }, [riders, teamCode, statsByBib, sortCol, desc]);
+
+  function toggleSort(col) {
+    if (col === sortCol) { setDesc((d) => !d); return; }
+    setSortCol(col);
+    setDesc(false);
+  }
+  const arrow = (col) => (col === sortCol ? (desc ? ' ▼' : ' ▲') : '');
 
   return (
-    <ul data-testid="rider-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.3rem' }}>
-      {rows.map(({ name, country, wr, info }, i) => {
-        const isDane = country === 'Danmark';
-        const isStar = starNames?.has(normRiderName(name));
-        const prof = info ? profileLabel(info.profile) : null;
-        return (
-          <li
-            key={`${name || i}`}
-            data-testid="rider-row"
-            style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.92rem', flexWrap: 'wrap' }}
-          >
-            {info && (
-              <span
-                className="badge badge--muted"
-                title="Startnummer"
-                data-testid="rider-bib"
-                style={{ fontSize: '0.7rem', fontVariantNumeric: 'tabular-nums', minWidth: '2.2rem', textAlign: 'center' }}
+    <>
+      {!hasStandings && (
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', margin: '0 0 0.4rem' }}>
+          Klassement-kolonnerne udfyldes automatisk, når de første etaper er afgjort.
+        </p>
+      )}
+      <div style={{ overflowX: 'auto' }}>
+        <table className="table" data-testid="rider-list" style={{ width: '100%', fontSize: '0.86rem' }}>
+          <thead>
+            <tr>
+              <th
+                style={{ textAlign: 'left', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                onClick={() => toggleSort('bib')}
+                title="Sortér efter startnummer"
               >
-                #{info.bib}
-              </span>
-            )}
-            {isStar && <span title="Hovednavn">⭐</span>}
-            <span style={{ fontWeight: isDane || isStar ? 800 : 600 }}>{name || '—'}</span>
-            {isDane && <span title="Dansk rytter">🇩🇰</span>}
-            {prof && (
-              <span className="badge badge--blue" title="Letours profiltype" data-testid="rider-profile" style={{ fontSize: '0.7rem' }}>
-                {prof.emoji} {prof.label}
-              </span>
-            )}
-            {wr && (
-              <span className="badge badge--muted" title="UCI verdensrang" style={{ fontSize: '0.7rem' }}>
-                🌍 #{wr.rank} · {wr.points.toLocaleString('da-DK')} p
-              </span>
-            )}
-            {country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {country}</span>}
-          </li>
-        );
-      })}
-    </ul>
+                Rytter{arrow('bib')}
+              </th>
+              {STAT_COMPS.map((c) => (
+                <th
+                  key={c.key}
+                  style={{ textAlign: 'right', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  onClick={() => toggleSort(c.key)}
+                  title={`Sortér efter ${c.label.toLowerCase()}`}
+                  data-testid={`sort-${c.key}`}
+                >
+                  {c.icon} {c.label}{arrow(c.key)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ name, country, info, stats }, i) => {
+              const isDane = country === 'Danmark';
+              const isStar = starNames?.has(normRiderName(name));
+              const prof = info ? profileLabel(info.profile) : null;
+              return (
+                <tr
+                  key={`${name || i}`}
+                  data-testid="rider-row"
+                  style={isDane ? { background: 'rgba(198,12,48,0.06)' } : undefined}
+                >
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      {info && (
+                        <span
+                          className="badge badge--muted"
+                          title="Startnummer"
+                          data-testid="rider-bib"
+                          style={{ fontSize: '0.7rem', fontVariantNumeric: 'tabular-nums', minWidth: '2.2rem', textAlign: 'center' }}
+                        >
+                          #{info.bib}
+                        </span>
+                      )}
+                      {isStar && <span title="Hovednavn">⭐</span>}
+                      <span style={{ fontWeight: isDane || isStar ? 800 : 600 }}>{name || '—'}</span>
+                      {isDane && <span title="Dansk rytter">🇩🇰</span>}
+                      {prof && (
+                        <span className="badge badge--blue" title="Letours profiltype" data-testid="rider-profile" style={{ fontSize: '0.7rem' }}>
+                          {prof.emoji} {prof.label}
+                        </span>
+                      )}
+                      {country && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>· {country}</span>}
+                    </div>
+                  </td>
+                  {STAT_COMPS.map((c) => (
+                    <td key={c.key} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                      {statCell(stats[c.key], c.valueType)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 

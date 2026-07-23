@@ -86,6 +86,17 @@ describe('TeamPage', () => {
     expect(screen.getByTitle('Hovednavn')).toBeInTheDocument();
   });
 
+  it('viser skemaet med en kolonne pr. indbygget Tour-konkurrence', () => {
+    renderAt('TVL');
+    // Tabel-layout med sorterbare kolonner for samlet/sprint/bjerg/ungdom.
+    for (const k of ['samlet', 'sprint', 'bjerg', 'ungdom']) {
+      expect(screen.getByTestId(`sort-${k}`)).toBeInTheDocument();
+    }
+    // Uden klassement-data endnu: cellerne viser '–' og en forklaring.
+    expect(screen.getAllByText('–').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Klassement-kolonnerne udfyldes automatisk/)).toBeInTheDocument();
+  });
+
   it('viser "Hold ikke fundet" for en ukendt kode', () => {
     renderAt('ZZZ');
     expect(screen.getByText('Hold ikke fundet')).toBeInTheDocument();
