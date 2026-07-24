@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // Samme kodebase bygger to sites: Tour (tour.vejleaa.dk, uden env) og den
@@ -6,8 +6,9 @@ import react from '@vitejs/plugin-react';
 // skrevet med platform-branding; dette plugin bytter manifest/ikoner/meta til
 // Tour-udgaverne i Tour-buildet, så "Føj til hjemmeskærm" får rigtigt navn,
 // ikon og start-url på begge sites.
-function tourBrandingPlugin() {
-  const isPlatform = process.env.VITE_PLATFORM_MODE === 'true';
+// VIGTIGT: platform-deployet sætter VITE_PLATFORM_MODE via en .env-FIL (ikke
+// procesmiljøet), så flaget SKAL læses med loadEnv — process.env er tomt dér.
+function tourBrandingPlugin(isPlatform) {
   const swaps = [
     ['/site.webmanifest', '/site-tour.webmanifest'],
     ['/logo.svg', '/logo-tour.svg'],
@@ -32,19 +33,23 @@ function tourBrandingPlugin() {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), tourBrandingPlugin()],
-  server: { port: 5173 },
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: './src/test/setup.js',
-    include: ['src/**/*.{test,spec}.{js,jsx}', 'scripts/**/*.{test,spec}.mjs'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
-      include: ['src/**/*.{js,jsx}'],
-      exclude: ['src/**/*.{test,spec}.{js,jsx}', 'src/test/**'],
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const isPlatform = env.VITE_PLATFORM_MODE === 'true';
+  return {
+    plugins: [react(), tourBrandingPlugin(isPlatform)],
+    server: { port: 5173 },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: './src/test/setup.js',
+      include: ['src/**/*.{test,spec}.{js,jsx}', 'scripts/**/*.{test,spec}.mjs'],
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'html', 'lcov'],
+        include: ['src/**/*.{js,jsx}'],
+        exclude: ['src/**/*.{test,spec}.{js,jsx}', 'src/test/**'],
+      },
     },
-  },
+  };
 });
