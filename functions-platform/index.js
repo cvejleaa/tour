@@ -321,6 +321,91 @@ exports.sendGameTestReminderToMe = onCall(
   },
 );
 
+// ---------------------------------------------------------------------------
+// gamePuljeStatus — admin: hvem har/mangler pulje-tippet (mesterskabsspillet)?
+// Med remind=true sendes samtidig en påmindelses-mail til dem der mangler
+// (respekterer emailOptOut; kræver SMTP og at deadline ikke er passeret).
+// ---------------------------------------------------------------------------
+exports.gamePuljeStatus = onCall(
+  { region: REGION, secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const gameId = String(request.data?.gameId || '').trim();
+    if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    const remind = request.data?.remind === true;
+
+    const gameRef = db.collection('games').doc(gameId);
+    const [gameSnap, playersSnap, puljeSnap, usersSnap, contactsSnap] = await Promise.all([
+      gameRef.get(),
+      gameRef.collection('players').get(),
+      gameRef.collection('puljeBets').get(),
+      db.collection('users').get(),
+      db.collection('userContacts').get(),
+    ]);
+    if (!gameSnap.exists) throw new HttpsError('not-found', 'Spillet findes ikke.');
+    const game = gameSnap.data();
+    const lockRaw = game.puljeLockAt;
+    const lockMs = lockRaw == null ? null
+      : (typeof lockRaw === 'number' ? lockRaw
+        : (typeof lockRaw.toMillis === 'function' ? lockRaw.toMillis() : Date.parse(lockRaw)));
+    const locked = lockMs != null && lockMs <= Date.now();
+
+    const nameOf = new Map(usersSnap.docs.map((d) => [d.id, d.data().displayName || 'Spiller']));
+    const optOut = new Set(usersSnap.docs.filter((d) => d.data().emailOptOut).map((d) => d.id));
+    const emailOf = new Map(contactsSnap.docs.map((d) => [d.id, d.data().email]));
+    const hasPulje = new Set(
+      puljeSnap.docs.filter((d) => Array.isArray(d.data().championship) && d.data().championship.length > 0).map((d) => d.id),
+    );
+    const tipped = [];
+    const missing = [];
+    for (const p of playersSnap.docs) {
+      const row = { uid: p.id, name: nameOf.get(p.id) || 'Spiller' };
+      (hasPulje.has(p.id) ? tipped : missing).push(row);
+    }
+    const byName = (a, b) => a.name.localeCompare(b.name, 'da');
+    tipped.sort(byName); missing.sort(byName);
+
+    let reminded = 0;
+    if (remind && missing.length > 0) {
+      if (locked) throw new HttpsError('failed-precondition', 'Puljen er låst — det giver ikke mening at rykke nu.');
+      const transporter = buildTransport(SMTP_PASSWORD.value());
+      if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
+      const deadlineTxt = lockMs != null
+        ? new Date(lockMs).toLocaleString('da-DK', { timeZone: TZ, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : null;
+      const gameName = game.name || 'spillet';
+      for (const m of missing) {
+        const email = emailOf.get(m.uid);
+        if (!email || optOut.has(m.uid)) continue;
+        const html = `
+          <p>Hej ${escapeHtml(m.name)} 👋</p>
+          <p>Du mangler at sætte dit <strong>pulje-tip</strong> (mesterskabsspillet) i ${escapeHtml(gameName)} —
+          det er dér, de store bonuspoint ligger til sæsonafslutningen.</p>
+          ${deadlineTxt ? `<p>Deadline: <strong>${escapeHtml(deadlineTxt)}</strong>.</p>` : ''}
+          <p><a href="${APP_URL}">Sæt dit pulje-tip på tip.vejleaa.dk</a> — det tager to minutter.</p>
+          <p style="color:#888;font-size:12px">Du kan slå påmindelser fra på din profilside.</p>`;
+        try {
+          await sendEmail(db, transporter, {
+            to: email,
+            subject: `Husk pulje-tippet i ${gameName}${deadlineTxt ? ` — deadline ${deadlineTxt}` : ''}`,
+            html,
+            type: 'pulje-reminder',
+          });
+          reminded += 1;
+        } catch (e) {
+          console.error(`gamePuljeStatus: kunne ikke sende til ${email}:`, e && e.message);
+        }
+      }
+    }
+
+    return {
+      total: playersSnap.size, locked, lockAt: lockMs,
+      tipped, missing, reminded: remind ? reminded : null,
+    };
+  },
+);
+
 // Skemalagt: kl. 09:00 hver dag. Kør påmindelser for alle aktive fodbold-spil
 // (status open/live), medmindre spillet er sat på pause (game.paused).
 exports.gameTipReminders = onSchedule(
