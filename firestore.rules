@@ -668,5 +668,15 @@ service cloud.firestore {
       // Kun owner kan skrive konfiguration
       allow write: if isOwner();
     }
+
+    // -----------------------------------------------------------------------
+    // legacyLeagueResults/{id} — top 5 fra de GAMLE spils ligaer (Tour/VM).
+    // Skrives af eksport-workflowet (Admin SDK omgår reglerne); læses kun af
+    // admins til "Indsæt top 5" i Send mail.
+    // -----------------------------------------------------------------------
+    match /legacyLeagueResults/{id} {
+      allow read: if isGlobalAdmin();
+      allow write: if false;
+    }
   }
 }

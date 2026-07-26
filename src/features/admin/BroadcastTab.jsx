@@ -3,8 +3,9 @@
 // Vælges en liga, flettes dens DIREKTE tilmeldingslink (/tilmeld?kode=…) ind
 // hvor [LINK] står i teksten — modtageren oprettes, godkendes og tilmeldes
 // ligaen automatisk med ét klik.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { callSendBroadcastEmail } from './adminActions';
+import { fetchLegacyResults, applyLegacyResult } from './legacyResults';
 import { parseRecipients } from './broadcastUtils';
 import { useUsers } from './useUsers';
 import { useAllLeagues } from '../leagues/useAllLeagues';
@@ -115,6 +116,27 @@ export default function BroadcastTab() {
   // Skabelonens gule knap SKAL pege på en liga; ren tekst kræver kun liga
   // hvis [LINK] faktisk står i teksten.
   const needsLeague = (useTemplate || body.includes(LINK_TOKEN)) && !selectedLeague;
+
+  // 🏁 Tilbageblik: top 5 fra de GAMLE spils ligaer (Tour/VM) — eksporteret af
+  // export-legacy-leagues-workflowet. Kun platform.
+  const [legacy, setLegacy] = useState([]);
+  const [legacyId, setLegacyId] = useState('');
+  const [legacyMsg, setLegacyMsg] = useState('');
+  useEffect(() => {
+    if (!PLATFORM_MODE) return undefined;
+    let alive = true;
+    fetchLegacyResults().then((res) => { if (alive && res.ok) setLegacy(res.results); });
+    return () => { alive = false; };
+  }, []);
+  const selectedLegacy = legacy.find((l) => l.id === legacyId) ?? null;
+
+  function insertLegacyTop5() {
+    if (!selectedLegacy) return;
+    const out = applyLegacyResult({ subject, body, result: selectedLegacy });
+    setSubject(out.subject);
+    setBody(out.body);
+    setLegacyMsg(`Top 5 fra "${selectedLegacy.name}" er sat ind.`);
+  }
 
   const { valid, invalid } = useMemo(() => parseRecipients(recipientsText), [recipientsText]);
   const canSend = subject.trim() && body.trim() && valid.length > 0 && !busy && !needsLeague;
@@ -236,6 +258,39 @@ export default function BroadcastTab() {
             </span>
           )}
         </label>
+
+        {/* 🏁 Tilbageblik: indsæt en gammel ligas slutstilling (top 5) i mailen.
+            [TOP5]/[VINDER]/[LIGANAVN GAMMEL] i emne/besked erstattes; uden
+            [TOP5] tilføjes blokken sidst i beskeden. */}
+        {PLATFORM_MODE && legacy.length > 0 && (
+          <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+            🏁 Tilbageblik: tidligere liga (indsætter slutstillingens top 5)
+            <div className="flex" style={{ gap: '0.5rem', marginTop: '0.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={legacyId} onChange={(e) => { setLegacyId(e.target.value); setLegacyMsg(''); }}
+                style={{ ...inputStyle, maxWidth: 340 }} data-testid="broadcast-legacy"
+              >
+                <option value="">– vælg tidligere liga –</option>
+                {legacy.map((l) => (
+                  <option key={l.id} value={l.id}>{l.sourceLabel}: {l.name} ({l.memberCount} spillere)</option>
+                ))}
+              </select>
+              <button
+                type="button" className="btn btn--ghost btn--sm"
+                disabled={!selectedLegacy} onClick={insertLegacyTop5}
+                data-testid="broadcast-legacy-insert"
+              >
+                📋 Indsæt top 5
+              </button>
+              {legacyMsg && <span className="badge badge--green">{legacyMsg}</span>}
+            </div>
+            {selectedLegacy && (
+              <span style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.78rem' }} data-testid="broadcast-legacy-preview">
+                {selectedLegacy.top?.map((t) => `${t.rank}. ${t.name} (${t.points})`).join(' · ')}
+              </span>
+            )}
+          </label>
+        )}
 
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
           {useTemplate ? 'Personlig intro (står øverst i mailen — resten kommer fra skabelonen)' : 'Besked'}
