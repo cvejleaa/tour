@@ -8,7 +8,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useGames } from '../games/useGames';
 import {
   callSendGameTipRemindersNow, callSendGameTestReminderToMe, callGenerateGameRecapNow,
+  callGamePuljeStatus,
 } from './adminActions';
+import { formatKickoff } from '../../lib/daDate';
 
 export default function GameReminderTab() {
   const { games, loading } = useGames();
@@ -23,8 +25,23 @@ export default function GameReminderTab() {
     if (eligible.length && !eligible.some((g) => g.id === gameId)) setGameId(eligible[0].id);
   }, [eligible, gameId]);
 
-  const [busy, setBusy] = useState(null); // 'test' | 'now' | 'bot-preview' | 'bot-post' | null
+  const [busy, setBusy] = useState(null); // 'test' | 'now' | 'bot-preview' | 'bot-post' | 'pulje' | 'pulje-remind' | null
   const [msg, setMsg] = useState(null);   // { kind, text }
+  const [pulje, setPulje] = useState(null);     // resultat fra gamePuljeStatus
+  const [puljeMsg, setPuljeMsg] = useState(null); // { kind, text }
+
+  async function checkPulje(remind) {
+    if (remind && !window.confirm(`Send påmindelses-mail til de ${pulje?.missing?.length ?? '?'} der mangler pulje-tippet?`)) return;
+    setBusy(remind ? 'pulje-remind' : 'pulje'); setPuljeMsg(null);
+    const res = await callGamePuljeStatus(gameId, { remind });
+    if (res.ok) {
+      setPulje(res.data);
+      if (remind) setPuljeMsg({ kind: 'ok', text: `Påmindelse sendt til ${res.data.reminded} spiller${res.data.reminded === 1 ? '' : 'e'}.` });
+    } else {
+      setPuljeMsg({ kind: 'err', text: res.error });
+    }
+    setBusy(null);
+  }
   const [botMsg, setBotMsg] = useState(null);   // { kind, text }
   const [preview, setPreview] = useState(null); // { round, text }
 
@@ -112,6 +129,55 @@ export default function GameReminderTab() {
         <button className="btn" disabled={!gameId || busy} onClick={sendNow}>
           {busy === 'now' ? 'Sender…' : 'Send påmindelser nu'}
         </button>
+      </div>
+
+      {/* ── Pulje-status ─────────────────────────────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--c-border)', marginTop: '1.25rem', paddingTop: '1rem' }}>
+        <h3 style={{ marginTop: 0 }}>🎖️ Pulje-status</h3>
+        <p style={{ color: 'var(--c-muted)' }}>
+          Se hvem der har sat deres <strong>pulje-tip</strong> (mesterskabsspillet) — og ryk dem,
+          der mangler, med én mail.
+        </p>
+
+        {puljeMsg && (
+          <p className={`badge ${puljeMsg.kind === 'ok' ? 'badge--green' : 'badge--red'} mb-2`} style={{ display: 'block' }}>
+            {puljeMsg.text}
+          </p>
+        )}
+
+        {pulje && (
+          <div className="card mb-2" style={{ padding: '0.75rem 1rem' }}>
+            <div style={{ fontSize: '0.85rem', marginBottom: 6 }}>
+              <strong>{pulje.tipped.length}/{pulje.total}</strong> har tippet puljen
+              {pulje.lockAt != null && (
+                <span style={{ color: 'var(--c-muted)' }}>
+                  {' '}· {pulje.locked ? 'Låst siden' : 'Deadline'} {formatKickoff(pulje.lockAt)}
+                </span>
+              )}
+            </div>
+            {pulje.missing.length === 0 ? (
+              <span className="badge badge--green">Alle har tippet 🎉</span>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)', alignSelf: 'center' }}>Mangler:</span>
+                {pulje.missing.map((m) => (
+                  <span key={m.uid} className="badge badge--yellow">{m.name}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
+          <button className="btn btn--ghost" disabled={!gameId || busy} onClick={() => checkPulje(false)}>
+            {busy === 'pulje' ? 'Tjekker…' : '🔎 Tjek pulje-status'}
+          </button>
+          {pulje && pulje.missing.length > 0 && !pulje.locked && (
+            <button className="btn" disabled={busy} onClick={() => checkPulje(true)}>
+              {busy === 'pulje-remind' ? 'Sender…' : `📣 Ryk dem der mangler (${pulje.missing.length})`}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Runde-Botten ─────────────────────────────────────────────────── */}

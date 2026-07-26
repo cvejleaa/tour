@@ -251,6 +251,22 @@ export async function callSendGameTipRemindersNow(gameId) {
 }
 
 /**
+ * Pulje-status (platform): hvem har/mangler pulje-tippet i et spil.
+ * remind=true sender samtidig en påmindelses-mail til dem der mangler.
+ * @param {string} gameId
+ * @param {{remind?: boolean}} [opts]
+ */
+export async function callGamePuljeStatus(gameId, { remind = false } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'gamePuljeStatus', { timeout: 120000 });
+    const res = await fn({ gameId, remind });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke hente pulje-status.' };
+  }
+}
+
+/**
  * Runde-Botten (platform): generér runde-opslaget for et spil. dryRun=true
  * returnerer kun teksten (forhåndsvisning); dryRun=false poster på alle
  * spillets liga-vægge. Uden runde vælges den seneste helt afgjorte.
