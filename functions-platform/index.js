@@ -377,6 +377,41 @@ exports.adminAuthUserInfo = onCall({ region: REGION }, async (request) => {
 // brugeren har optjent point i et spil (medmindre force), så en rigtig spiller
 // ikke fjernes ved en fejl. Bruges bl.a. til at rydde dublet-konti op.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// adminSetUserEmail — KUN ejeren: skift en brugers e-mail direkte (Auth-kontoen
+// + users.email + userContacts.email). Ingen bekræftelses-mail — admin-skiftet
+// gælder med det samme. Mest til e-mail/kodeord-konti (en Google-konto logger
+// stadig ind med sin Google-adresse, selv om Auth-mailen ændres).
+// ---------------------------------------------------------------------------
+exports.adminSetUserEmail = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  const caller = await requireAdmin(db, request);
+  if (caller?.role !== 'owner') throw new HttpsError('permission-denied', 'Kun ejeren kan skifte brugeres e-mail.');
+  const uid = String(request.data?.uid || '').trim();
+  const newEmail = String(request.data?.email || '').trim().toLowerCase();
+  if (!uid) throw new HttpsError('invalid-argument', 'Mangler bruger-id.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+    throw new HttpsError('invalid-argument', 'Angiv en gyldig e-mailadresse.');
+  }
+  try {
+    await getAuth().updateUser(uid, { email: newEmail, emailVerified: true });
+  } catch (e) {
+    if (e.code === 'auth/email-already-exists') {
+      throw new HttpsError('already-exists', 'Der findes allerede en konto med den e-mail.');
+    }
+    if (e.code === 'auth/user-not-found') {
+      throw new HttpsError('not-found', 'Brugeren findes ikke i Authentication.');
+    }
+    console.error('adminSetUserEmail:', e && e.message);
+    throw new HttpsError('internal', 'Kunne ikke ændre e-mailen.');
+  }
+  const batch = db.batch();
+  batch.set(db.collection('users').doc(uid), { email: newEmail }, { merge: true });
+  batch.set(db.collection('userContacts').doc(uid), { uid, email: newEmail }, { merge: true });
+  await batch.commit();
+  return { ok: true, uid, email: newEmail };
+});
+
 exports.adminDeleteUser = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   const caller = await requireAdmin(db, request);

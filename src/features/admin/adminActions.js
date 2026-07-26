@@ -79,6 +79,22 @@ export async function callRecomputeGameScores(gameId) {
   }
 }
 
+/**
+ * Skift en brugers e-mail direkte (kun ejer) — Auth-konto + profil + kontakt-mail.
+ * Ingen bekræftelses-mail; skiftet gælder med det samme.
+ * @param {string} uid
+ * @param {string} email
+ */
+export async function callSetUserEmail(uid, email) {
+  try {
+    const fn = httpsCallable(functions, 'adminSetUserEmail');
+    const res = await fn({ uid, email });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke ændre e-mailen.' };
+  }
+}
+
 /** Slet en bruger helt (kun ejer). force=true sletter selv med point. */
 export async function callDeleteUser(uid, force = false) {
   try {
