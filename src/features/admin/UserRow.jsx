@@ -2,7 +2,7 @@
 // Viser navn, e-mail, rolle, status og handlingsknapper.
 import { useState } from 'react';
 import { ROLES, USER_STATUS } from '../../lib/constants';
-import { setUserStatus, setGlobalAdminRole, sendAdminPasswordReset, callDeleteUser } from './adminActions';
+import { setUserStatus, setGlobalAdminRole, sendAdminPasswordReset, callDeleteUser, callSetUserEmail } from './adminActions';
 import Avatar from '../../components/Avatar';
 import { prettyTeam } from '../../data/tourTeams2026';
 import { isJerseyToken, JERSEY_BY_TOKEN } from '../../data/jerseyAvatars';
@@ -114,6 +114,20 @@ export default function UserRow({ user, authInfo, currentUserIsOwner, currentUse
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleChangeEmail() {
+    const next = window.prompt(
+      `Ny e-mail for ${user.displayName || user.email}?\n\n`
+      + 'Skiftet gælder med det samme (login + påmindelser) — ingen bekræftelses-mail.',
+      user.email || '',
+    );
+    if (next == null) return;
+    setBusy(true);
+    setLocalError('');
+    const res = await callSetUserEmail(user.id, next);
+    if (!res.ok) setLocalError('Fejl: ' + res.error);
+    setBusy(false);
   }
 
   async function handleDelete() {
@@ -289,6 +303,20 @@ export default function UserRow({ user, authInfo, currentUserIsOwner, currentUse
             </button>
           )}
             </>
+          )}
+
+          {/* Skift e-mail — kun ejeren, ikke sig selv (egen mail skiftes på
+              profilsiden). Ændrer login + påmindelser med det samme. */}
+          {currentUserIsOwner && !isSelf && (
+            <button
+              className="btn btn--ghost"
+              style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
+              disabled={busy}
+              onClick={handleChangeEmail}
+              title="Skift brugerens e-mail (login + påmindelser) med det samme"
+            >
+              ✏️ Skift e-mail
+            </button>
           )}
 
           {/* Slet bruger permanent — kun ejeren, aldrig sig selv. Rammer også en
