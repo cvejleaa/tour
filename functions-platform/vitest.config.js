@@ -13,6 +13,7 @@ export default defineConfig({
       'superligaSync.test.js',
       'gameLeagues.test.js',
       'gameRecap.test.js',
+      'inviteTemplate.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

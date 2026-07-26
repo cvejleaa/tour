@@ -161,7 +161,9 @@ export default function BroadcastTab() {
       recipients: valid,
       // Salgstale-skabelon: serveren bygger HTML'en med skærmbilleder + gul
       // tilmeldingsblok; teksten ovenfor bliver mailens personlige intro.
-      ...(useTemplate ? { template: 'salespitch', joinLink, leagueName: selectedLeague?.name } : {}),
+      ...(useTemplate
+        ? { template: PLATFORM_MODE ? 'superliga' : 'salespitch', joinLink, leagueName: selectedLeague?.name }
+        : {}),
     });
     setBusy(false);
     if (!res.ok) { setMsg('Fejl: ' + res.error); return; }
@@ -193,17 +195,17 @@ export default function BroadcastTab() {
       </p>
 
       <div style={{ display: 'grid', gap: '0.75rem', maxWidth: 680 }}>
-        {/* Salgstale-skabelonen (Tour-skærmbilleder) hører til under det enkelte
-            spil (Fase B) — skjules på den samlede platform. */}
-        {!PLATFORM_MODE && (
-          <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-            <input
-              type="checkbox" checked={useTemplate} onChange={toggleTemplate}
-              data-testid="broadcast-template"
-            />
-            📸 Brug salgstale-skabelonen (skærmbilleder + gul tilmeldingsblok)
-          </label>
-        )}
+        {/* Skabelon-flueben: Tour har salgstalen; platformen har Superliga-
+            invitationen (pulje-skærmbillede + gul tilmeldingsknap). */}
+        <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+          <input
+            type="checkbox" checked={useTemplate} onChange={toggleTemplate}
+            data-testid="broadcast-template"
+          />
+          {PLATFORM_MODE
+            ? '📸 Brug invitations-skabelonen (pulje-skærmbillede + gul tilmeldingsknap)'
+            : '📸 Brug salgstale-skabelonen (skærmbilleder + gul tilmeldingsblok)'}
+        </label>
 
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
           Emne

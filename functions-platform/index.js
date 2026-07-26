@@ -26,6 +26,7 @@ const { redeemLeagueCodeCore } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
+const { superligaInviteHtml } = require('./inviteTemplate');
 
 initializeApp();
 
@@ -271,7 +272,23 @@ exports.sendBroadcastEmail = onCall(
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
 
-    const html = broadcastHtml(body);
+    // Invitations-skabelon (grøn hero + pulje-skærmbillede + gul tilmeldings-
+    // knap). Kræver et joinLink på vores eget domæne, så knappen aldrig kan
+    // pege ud af huset.
+    let html;
+    if (request.data?.template === 'superliga') {
+      const joinLink = String(request.data?.joinLink || '').trim();
+      if (!joinLink.startsWith(APP_URL)) {
+        throw new HttpsError('invalid-argument', 'Skabelonen kræver et tilmeldingslink på tip.vejleaa.dk.');
+      }
+      html = superligaInviteHtml({
+        intro: body, joinLink,
+        leagueName: String(request.data?.leagueName || '').slice(0, 60),
+        appUrl: APP_URL,
+      });
+    } else {
+      html = broadcastHtml(body);
+    }
     let sent = 0;
     const failed = [];
     for (const to of valid) {
