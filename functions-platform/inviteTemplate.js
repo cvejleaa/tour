@@ -1,9 +1,11 @@
 'use strict';
 // ---------------------------------------------------------------------------
 // inviteTemplate.js — HTML-skabelon for Superliga-invitationen (Send mail).
-// Spejler Tour-salgstalens design: grøn hero, hvide kort, skærmbillede fra
-// sitet (public/salgstale/pulje.png) og en gul tilmeldingsblok med ligaens
+// Spejler Tour-salgstalens design: grøn hero, hvide kort, skærmbilleder fra
+// sitet (public/salgstale/*.png) og en gul tilmeldingsblok med ligaens
 // ét-kliks-link. Admins egen tekst (inkl. tilbageblik/top 5) står øverst.
+// Mailen skal præsentere HELE spillet: runde-tippet er hovedretten, mens
+// bonusserne, puljen, ligaen og ranglisten står som sidestillede kapitler.
 // Ren funktion — testbar uden Firebase.
 // ---------------------------------------------------------------------------
 
@@ -29,13 +31,31 @@ function featureRow({ n, title, text, last }) {
   </td></tr>`;
 }
 
+/** Hvidt kort: overskrift, brødtekst/punkter og (valgfrit) et skærmbillede nederst. */
+function card({ kicker, title, body, rows, img, imgAlt, imgWidth = 430 }) {
+  return `
+  <tr><td style="padding:0 0 22px 0;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:600px;background:#ffffff;border:1px solid #e3ece8;">
+      <tr><td style="padding:22px 26px ${img ? 8 : 18}px 26px;font-family:${FONT};">
+        <div style="font-family:${FONT};font-size:12px;font-weight:bold;color:#0b6e4f;letter-spacing:1px;text-transform:uppercase;">${kicker}</div>
+        <div style="font-family:${FONT};font-size:22px;font-weight:bold;color:#12211b;padding:6px 0 4px 0;">${title}</div>
+        ${body ? `<div style="font-family:${FONT};font-size:15px;line-height:22px;color:#28362f;padding:0 0 ${rows ? 4 : 10}px 0;">${body}</div>` : ''}
+        ${rows ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">${rows}</table>` : ''}
+      </td></tr>
+      ${img ? `<tr><td style="padding:0;border-top:1px solid #e3ece8;" bgcolor="#fbfdfc" align="center">
+        <img src="${img}" alt="${imgAlt}" width="${imgWidth}" style="width:${imgWidth}px;max-width:100%;display:block;border:0;margin:0 auto;" />
+      </td></tr>` : ''}
+    </table>
+  </td></tr>`;
+}
+
 /**
  * Byg hele Superliga-invitationen.
  * @param {object} opts
  * @param {string} opts.intro      Admins egen tekst (ren tekst; escapes — typisk med tilbageblik/top 5)
  * @param {string} opts.joinLink   Ligaens /tilmeld-link (knappen i den gule blok)
  * @param {string} [opts.leagueName]  Ligaens navn (nævnes i den gule blok)
- * @param {string} [opts.appUrl]   Basis-URL (default tip.vejleaa.dk) — også til skærmbilledet
+ * @param {string} [opts.appUrl]   Basis-URL (default tip.vejleaa.dk) — også til skærmbillederne
  * @returns {string} komplet HTML-dokument til e-mail
  */
 function superligaInviteHtml({ intro, joinLink, leagueName, appUrl = 'https://tip.vejleaa.dk' } = {}) {
@@ -53,7 +73,7 @@ function superligaInviteHtml({ intro, joinLink, leagueName, appUrl = 'https://ti
   <tr><td bgcolor="#0b6e4f" style="background:#0b6e4f;padding:34px 30px 30px 30px;">
     <div style="font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#f7d417;">&#9917; Superligaen skal tippes &middot; hele s&aelig;sonen</div>
     <div style="font-family:${FONT};font-size:30px;line-height:34px;font-weight:bold;color:#ffffff;padding:10px 0 8px 0;">Klar til revanche?</div>
-    <div style="font-family:${FONT};font-size:16px;line-height:23px;color:#eaf5ef;">Tip 1, X eller 2 p&aring; rundens kampe, jagt combi-bonussen &mdash; og s&aelig;t sæsonens store pulje-tip. Alle starter p&aring; nul, og det kr&aelig;ver nul fodboldforstand.</div>
+    <div style="font-family:${FONT};font-size:16px;line-height:23px;color:#eaf5ef;">Runde for runde tipper du 1, X eller 2. Point f&oslash;lger oddsene, bonusserne bel&oslash;nner de modige, og mini-ligaen med vennerne holder gryden i kog hele s&aelig;sonen. Alle starter p&aring; nul, og det kr&aelig;ver nul fodboldforstand.</div>
     <div style="font-family:${FONT};font-size:13px;font-weight:bold;color:#0b3f2c;padding:16px 0 0 0;">
       <span style="background:#ffffff;padding:6px 12px;border-radius:20px;">&#9201; ~2 min pr. runde</span>&nbsp;
       <span style="background:#ffffff;padding:6px 12px;border-radius:20px;">&#129504; Ren mavefornemmelse</span>&nbsp;
@@ -64,32 +84,36 @@ function superligaInviteHtml({ intro, joinLink, leagueName, appUrl = 'https://ti
   ${introHtml ? `<tr><td style="padding:22px 4px 4px 4px;font-family:${FONT};font-size:16px;line-height:23px;color:#22302a;">${introHtml}</td></tr>
   <tr><td style="height:16px;line-height:16px;font-size:0;">&nbsp;</td></tr>` : ''}
 
-  <tr><td style="padding:0 0 22px 0;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:600px;background:#ffffff;border:1px solid #e3ece8;">
-      <tr><td style="padding:22px 26px 4px 26px;font-family:${FONT};">
-        <div style="font-family:${FONT};font-size:12px;font-weight:bold;color:#0b6e4f;letter-spacing:1px;text-transform:uppercase;">&#127942; S&aelig;sonens store bonuspot</div>
-        <div style="font-family:${FONT};font-size:22px;font-weight:bold;color:#12211b;padding:6px 0 4px 0;">Pulje-tippet &mdash; s&aelig;t det F&Oslash;R det l&aring;ser</div>
-        <div style="font-family:${FONT};font-size:15px;line-height:22px;color:#28362f;padding:0 0 14px 0;">Udpeg de <b>6 hold</b> du tror ender i mesterskabsspillet: <b>+4 point</b> pr. rigtigt hold og <b>+10 bonus</b> for alle 6. Det afg&oslash;res f&oslash;rst til aller sidst &mdash; og kan vende HELE stillingen. Du finder det under fanen <b>&quot;Puljen&quot;</b>.</div>
-      </td></tr>
-      <tr><td style="padding:0;border-top:1px solid #e3ece8;" bgcolor="#fbfdfc" align="center">
-        <img src="${appUrl}/salgstale/pulje.png" alt="Pulje-tippet: v&aelig;lg de 6 mesterskabshold" width="430" style="width:430px;max-width:100%;display:block;border:0;margin:0 auto;" />
-      </td></tr>
-    </table>
-  </td></tr>
+  ${card({
+    kicker: '&#9917; Spillets hjerte',
+    title: 'Tip rundens kampe &mdash; 1, X eller 2',
+    body: 'Hver runde sætter du hjemmesejr, uafgjort eller udesejr p&aring; kampene. Du f&aring;r <b>point svarende til oddsene</b>: rammer du storfavoritten, giver det lidt &mdash; rammer du overraskelsen, giver det stort. Du kan rette frit, indtil den enkelte kamp starter, og du kan bladre frem og tilbage mellem alle sæsonens runder.',
+    img: `${appUrl}/salgstale/runde.png`,
+    imgAlt: 'Tip-fladen: rundens kampe med 1X2-knapper',
+  })}
 
-  <tr><td style="padding:0 0 22px 0;">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:600px;background:#ffffff;border:1px solid #e3ece8;">
-      <tr><td style="padding:22px 26px 18px 26px;font-family:${FONT};">
-        <div style="font-family:${FONT};font-size:12px;font-weight:bold;color:#0b6e4f;letter-spacing:1px;text-transform:uppercase;">&#9917; S&aring;dan spiller du</div>
-        <div style="font-family:${FONT};font-size:22px;font-weight:bold;color:#12211b;padding:6px 0 4px 0;">Runde for runde &mdash; med bonus til de modige</div>
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-          ${featureRow({ n: 1, title: 'Tip 1X2 p&aring; rundens kampe', text: 'Point f&oslash;lger oddsene &mdash; jo st&oslash;rre overraskelse du rammer, jo flere point. Hver kamp l&aring;ser ved sin egen kampstart.' })}
-          ${featureRow({ n: 2, title: 'Combi-bonus &amp; Chancen &#9889;', text: 'Ram hele runden (eller alle p&aring; n&aelig;r &eacute;n) og f&aring; oddsene ganget sammen som bonus. Og n&aring;r du er HELT sikker: s&aelig;t point p&aring; spil med Chancen.' })}
-          ${featureRow({ n: 3, title: 'Liga-v&aelig;g + Runde-Botten &#129302;', text: 'Jeres eget rum med intern stilling, liga-sp&oslash;rgsm&aring;l og en bot, der efter hver runde uddeler k&aelig;rlige stikpiller til rundens bedste (og v&aelig;rste).', last: true })}
-        </table>
-      </td></tr>
-    </table>
-  </td></tr>
+  ${card({
+    kicker: '&#127919; Flere veje til point',
+    title: 'Combi-bonus, Chancen og s&aelig;sonens pulje',
+    rows: [
+      featureRow({ n: 1, title: 'Combi-bonus &#127920;', text: 'Tip hele runden: rammer du alle (eller alle p&aring; n&aelig;r &eacute;n), ganges dine ramte odds sammen som en kupon og l&aelig;gges til som bonus-point.' }),
+      featureRow({ n: 2, title: 'Chancen &#9889;', text: 'N&aring;r du er HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af rundens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.' }),
+      featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: 'S&aelig;sonens store bonuspot: udpeg de <b>6 hold</b>, du tror ender i mesterskabsspillet. <b>+4 point</b> pr. rigtigt hold og <b>+10 bonus</b> for alle 6 &mdash; afgjort til allersidst, s&aring; det kan vende hele stillingen.', last: true }),
+    ].join(''),
+    img: `${appUrl}/salgstale/pulje.png`,
+    imgAlt: 'Pulje-tippet: v&aelig;lg de 6 mesterskabshold',
+    imgWidth: 340,
+  })}
+
+  ${card({
+    kicker: '&#128101; Og s&aring; er der de andre',
+    title: 'Din liga, ranglisten og Runde-Botten',
+    rows: [
+      featureRow({ n: 1, title: 'Jeres egen mini-liga', text: 'Intern stilling, en liga-v&aelig;g til drillerier &mdash; og liga-sp&oslash;rgsm&aring;l, som liga-admin selv finder p&aring; (&quot;hvem bliver topscorer?&quot;) og giver point for.' }),
+      featureRow({ n: 2, title: 'Runde-Botten &#129302;', text: 'Efter rundens sidste kamp skriver botten et resum&eacute; p&aring; jeres v&aelig;g &mdash; med k&aelig;rlige stikpiller til rundens bedste og v&aelig;rste.' }),
+      featureRow({ n: 3, title: 'Facit, rangliste og statistik', text: 'Efter hver runde ser du dit facit, hvem du overhalede, din tr&aelig;fprocent under &quot;Mine tips&quot;, den officielle tabel og holdenes Elo-udvikling.', last: true }),
+    ].join(''),
+  })}
 
   <tr><td bgcolor="#f7d417" style="background:#f7d417;padding:28px 26px;text-align:center;">
     <div style="font-family:${FONT};font-size:22px;font-weight:bold;color:#12211b;">&Eacute;t klik &mdash; s&aring; er du med &#9917;</div>
