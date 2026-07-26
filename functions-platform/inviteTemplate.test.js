@@ -22,9 +22,19 @@ describe('superligaInviteHtml', () => {
     expect(html).toContain('Kontorligaen');
   });
 
-  it('viser pulje-skærmbilledet fra sitet', () => {
+  it('viser skærmbilleder af både runde-tip og pulje', () => {
     const html = superligaInviteHtml(base);
+    expect(html).toContain('https://tip.vejleaa.dk/salgstale/runde.png');
     expect(html).toContain('https://tip.vejleaa.dk/salgstale/pulje.png');
+  });
+
+  it('præsenterer hele spillet, ikke kun puljen', () => {
+    const html = superligaInviteHtml(base);
+    for (const s of ['1, X eller 2', 'Combi-bonus', 'Chancen', 'Pulje-tippet', 'mini-liga', 'Runde-Botten', 'Elo']) {
+      expect(html).toContain(s);
+    }
+    // Runde-tippet skal stå før puljen i mailen.
+    expect(html.indexOf('salgstale/runde.png')).toBeLessThan(html.indexOf('salgstale/pulje.png'));
   });
 
   it('bevarer linjeskift i admins tekst', () => {
