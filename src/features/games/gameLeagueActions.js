@@ -143,3 +143,83 @@ export async function postLeagueMessage({ uid, gameId, leagueId, text }) {
     return { ok: false, error: danishError(err, 'Kunne ikke sende beskeden.') };
   }
 }
+
+// ─── Liga-spørgsmål (liga-ejerens egne spørgsmål med deadline + facit) ───────
+
+/** Maks. længder for liga-spørgsmål. */
+export const LEAGUE_Q_LABEL_MAX = 120;
+
+/**
+ * Opret et liga-spørgsmål (kun liga-ejeren iflg. reglerne).
+ * @param {{uid:string, gameId:string, leagueId:string, label:string, type?:'text'|'yesno'|'number', points?:number, deadline?:string|null}} o
+ */
+export async function createLeagueQuestion({ uid, gameId, leagueId, label, type = 'text', points = 5, deadline = null }) {
+  const clean = String(label || '').trim();
+  if (!uid || !gameId || !leagueId) return { ok: false, error: 'Mangler oplysninger.' };
+  if (clean.length < 3) return { ok: false, error: 'Skriv et spørgsmål (mindst 3 tegn).' };
+  if (clean.length > LEAGUE_Q_LABEL_MAX) return { ok: false, error: `Højst ${LEAGUE_Q_LABEL_MAX} tegn.` };
+  const p = Number(points);
+  if (!Number.isFinite(p) || p <= 0 || p > 100) return { ok: false, error: 'Point skal være 1-100.' };
+  try {
+    await addDoc(collection(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId, COL.GAME_LEAGUE_QUESTIONS), {
+      label: clean,
+      type: ['text', 'yesno', 'number'].includes(type) ? type : 'text',
+      points: p,
+      deadline: deadline ? new Date(deadline).getTime() : null,
+      facit: null,
+      createdBy: uid,
+      createdAt: serverTimestamp(),
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke oprette spørgsmålet.') };
+  }
+}
+
+/**
+ * Sæt facit på et liga-spørgsmål (kun liga-ejeren). acceptedAnswers er
+ * alternative korrekte stavemåder (kun 'text').
+ */
+export async function setLeagueQuestionFacit({ gameId, leagueId, questionId, facit, acceptedAnswers = [] }) {
+  const clean = String(facit ?? '').trim();
+  if (!clean) return { ok: false, error: 'Skriv et facit.' };
+  try {
+    await updateDoc(doc(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId, COL.GAME_LEAGUE_QUESTIONS, questionId), {
+      facit: clean,
+      acceptedAnswers: (acceptedAnswers || []).map((s) => String(s).trim()).filter(Boolean),
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke gemme facit.') };
+  }
+}
+
+/** Slet et liga-spørgsmål (kun liga-ejeren). Evt. svar bliver harmløst forældreløse. */
+export async function deleteLeagueQuestion({ gameId, leagueId, questionId }) {
+  try {
+    await deleteDoc(doc(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId, COL.GAME_LEAGUE_QUESTIONS, questionId));
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke slette spørgsmålet.') };
+  }
+}
+
+/**
+ * Gem eget svar på et liga-spørgsmål (doc-id = qId_uid → ét svar pr. spiller).
+ * Reglerne afviser efter deadline.
+ */
+export async function saveLeagueQuestionAnswer({ uid, gameId, leagueId, questionId, answer }) {
+  const clean = String(answer ?? '').trim();
+  if (!uid || !questionId) return { ok: false, error: 'Mangler oplysninger.' };
+  if (!clean) return { ok: false, error: 'Skriv et svar.' };
+  try {
+    await setDoc(
+      doc(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId, COL.GAME_LEAGUE_QUESTION_ANSWERS, `${questionId}_${uid}`),
+      { questionId, uid, answer: clean, updatedAt: serverTimestamp() },
+    );
+    return { ok: true };
+  } catch (err) {
+    if (err?.code === 'permission-denied') return { ok: false, error: 'Deadline er passeret — svaret kan ikke ændres.' };
+    return { ok: false, error: danishError(err, 'Kunne ikke gemme svaret.') };
+  }
+}
