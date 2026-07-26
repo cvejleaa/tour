@@ -95,6 +95,8 @@ export const COL = {
   GAME_LEAGUES: 'leagues', // games/{gameId}/leagues/{leagueId}: private mini-ligaer (medlemmer via invitationskode)
   GAME_PULJE: 'puljeBets', // games/{gameId}/puljeBets/{uid}: pulje-tip (mesterskabs-/nedrykningsspil)
   GAME_LEAGUE_MSGS: 'messages', // games/{gameId}/leagues/{leagueId}/messages: liga-væg
+  GAME_LEAGUE_QUESTIONS: 'questions', // games/{gameId}/leagues/{leagueId}/questions: liga-ejerens egne spørgsmål
+  GAME_LEAGUE_QUESTION_ANSWERS: 'questionAnswers', // games/{gameId}/leagues/{leagueId}/questionAnswers/{qId_uid}: medlemmernes svar
 };
 
 // --- Samlet platform: spil-begrebet ------------------------------------------

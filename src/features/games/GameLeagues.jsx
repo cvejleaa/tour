@@ -8,7 +8,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useGameLeagues } from './useGameLeagues';
 import { useGameStandings } from './useGameStandings';
 import { useLeagueMessages } from './useLeagueMessages';
-import { subsetRanking } from './gameStandings';
+import { useLeagueQuestions } from './useLeagueQuestions';
+import { leagueQuestionPointsByUid, leagueRankingWithQuestions } from './leagueQuestionScoring';
+import LeagueQuestions from './LeagueQuestions';
 import { formatPoints } from './GameLayout';
 import { relativeTime } from '../../lib/daDate';
 import {
@@ -32,7 +34,12 @@ function LeagueTable({ rows, meUid }) {
                 {r.name}{r.uid === meUid && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
               </span>
             </td>
-            <td style={{ padding: '0.35rem 0.4rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatPoints(r.totalPoints)}</td>
+            <td style={{ padding: '0.35rem 0.4rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+              {formatPoints(r.totalPoints)}
+              {r.lqPoints > 0 && (
+                <span style={{ color: 'var(--c-muted)', fontSize: '0.75rem' }} title="Heraf liga-spørgsmål"> (+{formatPoints(r.lqPoints)}❓)</span>
+              )}
+            </td>
           </tr>
         ))}
       </tbody>
@@ -104,8 +111,16 @@ function LeagueCard({ league, standings, byUid, meUid, gameId }) {
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(league.name);
   const [err, setErr] = useState('');
-  const rows = useMemo(() => subsetRanking(standings, league.memberUids), [standings, league.memberUids]);
   const isOwner = league.ownerUid === meUid;
+
+  // Liga-spørgsmål (kun når kortet er åbent — null skipper lytterne).
+  const { questions, answersByQid } = useLeagueQuestions(gameId, open ? league.id : null);
+  const lqByUid = useMemo(() => leagueQuestionPointsByUid(questions, answersByQid), [questions, answersByQid]);
+  // Intern stilling = spillets point + liga-spørgsmåls-point (kun i ligaen).
+  const rows = useMemo(
+    () => leagueRankingWithQuestions(standings, league.memberUids, lqByUid),
+    [standings, league.memberUids, lqByUid],
+  );
 
   async function handleLeave() {
     if (!window.confirm(`Forlad "${league.name}"?`)) return;
@@ -170,6 +185,11 @@ function LeagueCard({ league, standings, byUid, meUid, gameId }) {
               )}
             </span>
           </div>
+
+          <LeagueQuestions
+            gameId={gameId} leagueId={league.id} meUid={meUid} isOwner={isOwner}
+            questions={questions} answersByQid={answersByQid} byUid={byUid}
+          />
 
           <LeagueWall gameId={gameId} leagueId={league.id} meUid={meUid} byUid={byUid} />
         </>

@@ -655,6 +655,51 @@ service cloud.firestore {
           allow delete: if isApproved()
             && (resource.data.uid == request.auth.uid || ownerUid() == request.auth.uid);
         }
+
+        // games/{gameId}/leagues/{leagueId}/questions/{qId} — liga-ejerens egne
+        // spørgsmål (label/type/point/deadline/facit). Kun medlemmer læser;
+        // kun liga-ejeren opretter/retter/sletter.
+        match /questions/{qId} {
+          function qMembers() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.memberUids;
+          }
+          function qOwner() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.ownerUid;
+          }
+          allow read: if isApproved() && request.auth.uid in qMembers();
+          allow create: if isApproved()
+            && qOwner() == request.auth.uid
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.label is string
+            && request.resource.data.label.size() >= 3
+            && request.resource.data.label.size() <= 120
+            && request.resource.data.points is number
+            && request.resource.data.points > 0
+            && request.resource.data.points <= 100;
+          allow update, delete: if isApproved() && qOwner() == request.auth.uid;
+        }
+
+        // games/{gameId}/leagues/{leagueId}/questionAnswers/{qId_uid} — medlemmernes
+        // svar (doc-id = qId_uid → ét svar pr. spiller pr. spørgsmål). Svar er
+        // synlige for medlemmerne (som liga-væggen); man skriver kun eget svar,
+        // og kun før spørgsmålets deadline og før facit er sat.
+        match /questionAnswers/{answerId} {
+          function aMembers() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.memberUids;
+          }
+          function question(qid) {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)/questions/$(qid)).data;
+          }
+          allow read: if isApproved() && request.auth.uid in aMembers();
+          allow create, update: if isApproved()
+            && request.auth.uid in aMembers()
+            && request.resource.data.uid == request.auth.uid
+            && answerId == request.resource.data.questionId + '_' + request.auth.uid
+            && question(request.resource.data.questionId).facit == null
+            && (question(request.resource.data.questionId).deadline == null
+                || request.time.toMillis() < question(request.resource.data.questionId).deadline);
+          allow delete: if false;
+        }
       }
     }
 
