@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// functions/gameScoring.js — afregning af point i den samlede platform
+// functions-platform/gameScoring.js — afregning af point i den samlede platform
 // (games/{gameId}/…). Spejler mønsteret fra recomputeStage: når en kamps facit
 // (result) sættes, scores alle bets på kampen (1X2 + Chancen) og hver berørt
 // spillers total genberegnes i games/{gameId}/players/{uid}.
@@ -112,11 +112,6 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
 }
 
 /**
- * Byg en runde-kontekst ud fra alle kampe i spillet: opslag pr. kamp-id
- * (runde, facit-udfald, frosne odds) + pr. runde (antal kampe + antal afgjorte).
- * Bruges til combi-runde-bonussen, som kræver at hele runden er spillet.
- */
-/**
  * Match-id'er for kampe FØR spillets starttidspunkt (game.startAt). De tæller
  * IKKE med i pointgivningen — så en sæson kan starte midt i (fx fra runde 2)
  * uden at tidligere runders tips giver point. Uden starttidspunkt: tom mængde.
@@ -134,6 +129,11 @@ function gatedIds(matches, startMs) {
   return s;
 }
 
+/**
+ * Byg en runde-kontekst ud fra alle kampe i spillet: opslag pr. kamp-id
+ * (runde, facit-udfald, frosne odds) + pr. runde (antal kampe + antal afgjorte).
+ * Bruges til combi-runde-bonussen, som kræver at hele runden er spillet.
+ */
 function buildRoundContext(matches) {
   const byMatch = {};
   const rounds = {};

@@ -35,6 +35,21 @@ updates:
     commit-message:
       prefix: "deps(functions)"
 
+  # Cloud Functions for platformen (spil-89af9) — egen package.json
+  - package-ecosystem: "npm"
+    directory: "/functions-platform"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      functions-platform-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "functions"]
+    commit-message:
+      prefix: "deps(functions-platform)"
+
   # GitHub Actions (holder fx actions/checkout opdateret -> undgår Node-deprecations)
   - package-ecosystem: "github-actions"
     directory: "/"

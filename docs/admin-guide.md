@@ -1,105 +1,87 @@
 # Admin-vejledning
 
-Daglig brug af tippekonkurrencen for administratorer.
+Daglig drift. Fanerne skifter efter hvilken app du er logget ind på —
+**platformen** (tip.vejleaa.dk) og **Tour** (tour.vejleaa.dk) har hver deres sæt.
 
 ## Roller
-| Rolle | Udpege/fjerne admins | Godkende brugere | Kampe, resultater, bonus, ligaer, config | Tippe som spiller |
+| Rolle | Udpege admins | Godkende brugere | Spil, resultater, mails | Tippe |
 |---|:---:|:---:|:---:|:---:|
 | **Ejer** (dig) | ✅ | ✅ | ✅ | ✅ |
 | **Global admin** | ❌ | ✅ | ✅ | ✅ |
-| **Liga-admin** (pr. liga) | ❌ | ❌ | kun ligaens bonus + medlemmer/navn | ✅ |
+| **Liga-admin** (pr. liga) | ❌ | ❌ | kun ligaens egne spørgsmål, medlemmer og navn | ✅ |
 | **Spiller** | ❌ | ❌ | ❌ | ✅ |
 
-- **Global admin** har fuld daglig adgang (godkende brugere, kampe, resultater,
-  bonus-facit, ligaer, indstillinger) — men **kun du (ejer)** kan udpege/fjerne
-  admins. Udnævn dem under **Admin → Brugere** med **↑ Til global admin**.
-- **Liga-admin** udpeges pr. liga (på ligaens side) og kan kun styre den ligas
-  **bonusspørgsmål**, medlemmer og navn — ikke scoring/format.
+Udnævn globale admins under **Admin → Brugere → ↑ Til global admin** (kun ejer).
+Liga-admin følger med at have oprettet ligaen.
 
-> Bemærk: Den tidligere **kamp-admin**-rolle er fjernet (resultater opdateres nu
-> automatisk). Evt. gamle kamp-admins mister automatisk deres rettigheder og kan
-> sættes til **spiller** eller **global admin** under **Admin → Brugere**.
+## Faner
 
-## Mail-log
-**Admin → ✉️ Mail-log** viser de seneste udsendte mails (påmindelser, kodeord-
-nulstilling m.m.) med tidspunkt, type, modtager, emne og status (sendt/fejl).
-Logges automatisk hver gang systemet sender en mail. Synlig for globale admins.
+**Begge apps:** Brugere · Tests · ✉️ Mail-log · 📈 Aktivitet · 📣 Send mail (ejer)
 
-## Nulstil en spillers adgangskode
-Hvis en spiller ikke modtager Firebase' egen nulstillingsmail (den havner ofte i
-spam eller blokeres af visse udbydere som Outlook/Hotmail):
-- **Admin → Brugere** → find spilleren → **🔑 Nulstil kodeord** (kun ejeren).
-- Et nulstillingslink genereres og sendes via **tour@vejleaa.dk** (jeres egen
-  SMTP, som leverer pålideligt). Du får også selve linket vist, så du kan sende
-  det manuelt (fx SMS) hvis det skulle være nødvendigt.
+**Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver · 🔔 Påmindelser
 
-## Godkend nye spillere
-1. Nye brugere lander i status **afventer**.
-2. **Admin → Brugere** viser ventelisten. Tryk **Godkend** (eller **Afvis**).
-3. Godkendte spillere kan straks logge ind og tippe.
+**Kun Tour:** 🚴 Tour · 🏷️ Ryttertyper · Bonus · Ligaer · 📋 Køreplan · ⚙️ Indstillinger
 
-## Indtast resultater
-1. **Admin → Kampe & resultater**.
-2. Find kampen, skriv slutresultatet (mål for hjemme/ude) og tryk **Gem resultat**.
-3. For **knockout-kampe** angiver du også **hvem der gik videre** (håndterer
-   forlænget tid/straffe).
-4. Point til alle spillere beregnes automatisk med det samme.
+## Brugere
 
-> **Resultater opdateres normalt automatisk** fra football-data.org under kampe.
-> Mangler der resultater for ældre, færdigspillede kampe, så brug **Admin →
-> Kampe → 🗓 Synk alle resultater** (henter for alle uafsluttede kampe, ikke kun
-> de igangværende). **🕐 Tjek kamptider** retter forskudte kickoff-tider.
+- **Godkend nye spillere:** nye brugere lander som *afventer*. **Godkend** eller
+  **Afvis** i listen. Brug **Godkend alle**, når en invitationsrunde vælter ind.
+- **Login-metode** vises pr. bruger: E-mail, Google eller ❔ Ukendt (ældre
+  konti, hvor metoden ikke er registreret).
+- **🔑 Nulstil kodeord** (ejer): sender et nulstillingslink via egen SMTP, som
+  leverer mere pålideligt end Firebases egen mail. Linket vises også, så du kan
+  sende det manuelt.
+- **✏️ Skift e-mail** (ejer): ændrer Auth-kontoen og kontakt-mailen med det
+  samme, uden bekræftelsesmail. En Google-konto logger dog stadig ind med sin
+  Google-adresse.
+- **🗑️ Slet** (ejer): fjerner brugeren fra **dette** projekt. Sletter man på
+  platformen, rører det ikke tour-85928 eller vm2026-tip — de er adskilte
+  Firebase-projekter med hver sine konti.
 
-## Byg slutspillet
-- Når **alle** gruppekampe har resultat, tryk **Byg slutspil**.
-- Systemet udregner grupperangeringen og sætter de rigtige hold ind i
-  1/16-finalerne (og senere runder, efterhånden som resultater indtastes).
-- Først når holdene i en knockout-kamp er kendt, kan spillerne tippe på den.
+## Spil-tidsplan (platformen)
 
-## Bonus-facit
-- **Admin → Bonus**: sæt det korrekte svar på topscorer og hver gruppevinder,
-  når det er afgjort. Bonuspoint (10 pr. korrekt) tildeles automatisk.
-- For **topscorer** kan du trykke på knappen **⚽ \<navn\>** (den nuværende fører
-  fra football-data) for at indsætte facit automatisk — bekræft med **Gem**.
-- Bonus-spørgsmål låses for spillerne ved deadline (den første relevante kamps
-  kickoff), så ingen kan svare bagklogt.
+- **Starttidspunkt** afgør, hvornår spillet tæller fra. Kampe før det vises
+  ikke, giver ingen point og udløser ingen påmindelser — så en sæson kan starte
+  midt i, fx fra runde 2.
+- **Bonus-deadline** lukker pulje-tippet. Den behøver ikke ligge før runde 1;
+  giv gerne tid til at få spillere med.
+- **🔄 Genberegn point efter start-ændring** — kør den, når du har flyttet
+  starttidspunktet, så tidligere runders point forsvinder fra totalerne straks.
+- **🔐 Genopbyg liga-adgang til stillingen** — kun nødvendig, hvis stillingen
+  står tom. Se [drift.md](drift.md).
 
-## Topscorer-ræs (Golden Boot)
-- Turneringens topscorere hentes automatisk fra football-data.org hver 30. minut
-  og vises på **Statistik → Hele turneringen** ("Kapløbet om guldstøvlen").
-- Under **Admin → Kampe & resultater** kan du:
-  - **⚽ Opdater topscorere** — hent listen nu (i stedet for at vente på automatikken).
-  - **📋 Opdater kampdetaljer** — hent mål, kort og opstillinger for kampe i vinduet.
-  - **🔍 Tjek football-data felter** (kun ejer) — se præcis hvilke felter jeres
-    football-data.org-abonnement (tier) giver adgang til: topscorere, stilling/form
-    og kampdetaljer (målscorere, kort, straffesparkskonkurrence, indbyrdes opgør).
-    Brug det til at beslutte, hvilke ekstra data vi kan bygge videre på.
+## Påmindelser (platformen)
 
-## Kampdetaljer (mål, kort, opstillinger)
-- Under kampe hentes mål, kort og startopstillinger automatisk fra football-data.org
-  (hver 2. minut for kampe der snart starter, er live eller netop er afsluttet).
-- Vises på hvert **kampkort**: et mål-feed ("23' ⚽ scorer (assist)"), gule/røde kort,
-  halvleg/straffe/tilskuertal, og en udfoldelig **opstilling** pr. hold.
-- **Statistik → Hele turneringen** viser også **Disciplin** (flest kort pr. hold/spiller).
-- **Turnering → Grupper** viser den **officielle FIFA-stilling** med form-stime
-  (synket fra football-data.org; opdater manuelt med **📊 Opdater stilling**).
+- **🔔 Send påmindelser nu** mailer de spillere, der mangler at tippe på kampe
+  i det næste døgn. Kampe før spillets start tælles ikke med.
+- **🎖️ Pulje-status** viser, hvem der mangler at afgive pulje-tip, og
+  **📣 Ryk dem der mangler** sender en mail til netop dem. Knappen forsvinder,
+  når puljen er låst.
+- **🤖 Runde-Botten** kan køres manuelt med tør-kørsel, så du kan se teksten,
+  før den postes. Normalt kører den selv efter rundens sidste kamp.
 
-## Forhåndsvisning (kontrolside)
-Under **Admin → 🔮 Forhåndsvisning** kan du hente ægte data fra en aktiv turnering
-(fx **Bundesliga 2025/26**) og se præcis, hvordan topscorer-ræs, stilling med form
-og kampdetaljer kommer til at se ud — allerede før VM går i gang. Vælg turnering,
-tryk **Hent forhåndsvisning**. Intet gemmes i databasen.
+## Send mail (ejer)
 
-## Pointmodel (til reference)
-| Situation | Point |
-|---|---|
-| Eksakt score | 5 |
-| Korrekt udfald + målforskel | 3 |
-| Korrekt udfald | 2 |
-| Forkert | 0 |
-| Knockout: korrekt videregående hold | +2 |
-| Bonus | 10 pr. korrekt |
+- Vælg spil og liga → tilmeldingslinket hentes automatisk.
+- **🏁 Tilbageblik** henter slutstillingen fra en gammel liga i Tour eller VM;
+  **Indsæt top 5** skriver den ind i teksten. Kræver, at eksport-workflowet er
+  kørt, se [drift.md](drift.md).
+- **📸 Brug invitations-skabelonen** pakker teksten ind i et layout med
+  skærmbilleder og en ét-kliks-tilmeldingsknap.
+- Mails logges under **✉️ Mail-log** med tidspunkt, type, modtager og status.
 
-## Tips
-- Resultater kan rettes; point genberegnes automatisk ved hver ændring.
-- Rangeringen (samlet + dagens) opdateres live for alle spillere.
+## Resultater
+
+Superliga-resultater hentes automatisk fra `api.superliga.dk` hvert kvarter i
+kampvinduet. Når et facit sættes, sker der tre ting af sig selv: alle tips på
+kampen scores, holdenes Elo og fremtidige odds opdateres, og — hvis det var
+rundens sidste kamp — poster Runde-Botten et resumé på liga-væggene.
+
+Er noget gået galt, kan du sætte facit manuelt; point genberegnes ved hver
+ændring. Bemærk: **fjerner** du et facit igen, nulstilles pointene ikke
+automatisk.
+
+## Hvis noget ser forkert ud
+
+Se fejlsøgningstabellen i [drift.md](drift.md) — den dækker tom stilling,
+manglende runder, manglende point og udeblevne mails.
