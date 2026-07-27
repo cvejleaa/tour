@@ -157,9 +157,12 @@ service cloud.firestore {
         || (isApproved()
             && request.time >= get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.kickoff);
 
-      // Opret bet: kun eget, points-felt må ikke sættes, og kun FØR kickoff
+      // Opret bet: kun eget, doc-id SKAL være uid_matchId (ét tip pr. kamp —
+      // ellers kunne dublet-docs få point talt flere gange), points-felt må
+      // ikke sættes, og kun FØR kickoff
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.uid
+        && betId == request.auth.uid + '_' + request.resource.data.matchId
         && !request.resource.data.keys().hasAny(['points'])
         && request.time < get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.kickoff;
 
@@ -614,8 +617,12 @@ service cloud.firestore {
               && request.time >= get(/databases/$(database)/documents/games/$(gameId)/matches/$(resource.data.matchId)).data.kickoff);
 
         // Opret tip: godkendt deltager, eget uid, ingen points, før kickoff.
+        // Doc-id SKAL være uid_matchId — præcis ét tip pr. kamp. Uden det kunne
+        // man skrive 1, X OG 2 på samme kamp i hver sit dokument og få point
+        // for dem alle (serveren lægger alle bets sammen pr. spiller).
         allow create: if isApproved()
           && request.auth.uid == request.resource.data.uid
+          && betId == request.auth.uid + '_' + request.resource.data.matchId
           && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
           && !request.resource.data.keys().hasAny(['points'])
           && request.time < get(/databases/$(database)/documents/games/$(gameId)/matches/$(request.resource.data.matchId)).data.kickoff;

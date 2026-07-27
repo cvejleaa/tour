@@ -361,6 +361,27 @@ describe('settlePuljeBets', () => {
     expect(db._players.P1).toMatchObject({ bonusPoints: 12, totalPoints: 12 });
     expect(db._players.P2).toMatchObject({ bonusPoints: 4, totalPoints: 4 });
   });
+  it('bevarer combi-bonussen når puljen afregnes', async () => {
+    // To kampe i runde 1, begge ramt → combi = 2,0 × 3,0 = 6. Plus 3 råpoint.
+    // Puljen giver 4. Uden runde-konteksten ville combi'en blive nulstillet.
+    const roundMatches = [
+      { id: 'm1', round: 1, home: 'A', away: 'B', homeGoals: 2, awayGoals: 0, result: '1', odds: { 1: 2, X: 3, 2: 4 } },
+      { id: 'm2', round: 1, home: 'A', away: 'C', homeGoals: 1, awayGoals: 0, result: '1', odds: { 1: 3, X: 3, 2: 4 } },
+      { id: 'm3', round: 2, home: 'B', away: 'C', homeGoals: 3, awayGoals: 1, result: '1', odds: { 1: 2, X: 3, 2: 4 } },
+    ];
+    const db = makeDb([
+      { uid: 'P1', matchId: 'm1', pick: '1', points: 2 },
+      { uid: 'P1', matchId: 'm2', pick: '1', points: 3 },
+    ], roundMatches, {}, { P1: {} }, { P1: { championship: ['A'] } });
+
+    const res = await settlePuljeBets(db, FieldValue, 'g1', roundMatches);
+    expect(res.settled).toBe(1);
+    // 5 råpoint + 6 combi + 4 pulje = 15 (uden fix: 9).
+    expect(db._players.P1.bonusPoints).toBe(4);
+    expect(db._players.P1.roundBonus).toBe(6);
+    expect(db._players.P1.totalPoints).toBe(15);
+  });
+
   it('gør intet før grundspillet er helt spillet', async () => {
     const partial = [...matches.slice(0, 2), { id: 'm3', home: 'B', away: 'C', homeGoals: null, awayGoals: null }];
     const db = makeDb([], partial, {}, { P1: {} }, { P1: { championship: ['A', 'B', 'C'] } });
