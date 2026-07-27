@@ -7,11 +7,32 @@ const { escapeHtml, sendEmail, emailByUidMap, APP_URL } = require('./mailer');
 
 const DAY_MS = 24 * 3600 * 1000;
 
-/** Kampe i (now, now+24h) der stadig kan tippes (kickoff i fremtiden). */
-function upcomingMatches(matches, now, windowEnd) {
+/** Millisekunder fra et Firestore-Timestamp | tal | ISO-streng. */
+function toMillis(v) {
+  if (v == null) return null;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') { const n = Date.parse(v); return Number.isNaN(n) ? null : n; }
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (typeof v.toDate === 'function') return v.toDate().getTime();
+  if (v.seconds != null) return v.seconds * 1000;
+  return null;
+}
+
+/**
+ * Kampe i (now, now+24h) der stadig kan tippes (kickoff i fremtiden).
+ * Kampe FØR spillets starttidspunkt (game.startAt) tælles ikke med — de vises
+ * ikke i appen og giver ingen point, så der skal heller ikke rykkes for dem.
+ * @param {Array<object>} matches
+ * @param {Date} now
+ * @param {Date} windowEnd
+ * @param {number|null} [startMs] spillets starttidspunkt i ms
+ */
+function upcomingMatches(matches, now, windowEnd, startMs = null) {
   return matches.filter((m) => {
-    const k = m.kickoff && m.kickoff.toDate ? m.kickoff.toDate() : null;
-    return k && k > now && k < windowEnd;
+    const k = toMillis(m.kickoff);
+    if (k == null) return false;
+    if (startMs != null && k < startMs) return false;
+    return k > now.getTime() && k < windowEnd.getTime();
   });
 }
 
@@ -24,9 +45,13 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
   const windowEnd = new Date(now.getTime() + DAY_MS);
   const gameRef = db.collection('games').doc(gameId);
 
+  // Spillets starttidspunkt afgør hvad der overhovedet er i spil.
+  const gameSnap = await gameRef.get();
+  const startMs = gameSnap.exists ? toMillis(gameSnap.data().startAt) : null;
+
   const matchesSnap = await gameRef.collection('matches').get();
   const matches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const upcoming = upcomingMatches(matches, now, windowEnd);
+  const upcoming = upcomingMatches(matches, now, windowEnd, startMs);
   if (upcoming.length === 0) return { sent: 0, reason: 'no-matches' };
   const upcomingIds = new Set(upcoming.map((m) => m.id));
 
@@ -47,7 +72,6 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
   const emails = await emailByUidMap(db);
   const usersSnap = await db.collection('users').get();
   const userById = new Map(usersSnap.docs.map((d) => [d.id, d.data()]));
-  const gameSnap = await gameRef.get();
   const gameName = (gameSnap.exists && gameSnap.data().name) || 'spillet';
 
   let sent = 0;
@@ -85,14 +109,15 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
 /** Send en test-påmindelse KUN til admin selv med spillets næste kampe. */
 async function sendGameTestReminder(db, transporter, gameId, toEmail, displayName) {
   const gameRef = db.collection('games').doc(gameId);
-  const matchesSnap = await gameRef.collection('matches').get();
-  const now = new Date();
-  const next = matchesSnap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((m) => m.kickoff && m.kickoff.toDate && m.kickoff.toDate() > now)
-    .sort((a, b) => a.kickoff.toDate() - b.kickoff.toDate())
-    .slice(0, 6);
   const gameSnap = await gameRef.get();
+  const startMs = gameSnap.exists ? toMillis(gameSnap.data().startAt) : null;
+  const matchesSnap = await gameRef.collection('matches').get();
+  const nowMs = Date.now();
+  const next = matchesSnap.docs
+    .map((d) => ({ id: d.id, ...d.data(), _ms: toMillis(d.data().kickoff) }))
+    .filter((m) => m._ms != null && m._ms > nowMs && (startMs == null || m._ms >= startMs))
+    .sort((a, b) => a._ms - b._ms)
+    .slice(0, 6);
   const gameName = (gameSnap.exists && gameSnap.data().name) || 'spillet';
   const list = next.length
     ? next.map((m) => `<li>${escapeHtml(m.home || '')} – ${escapeHtml(m.away || '')}</li>`).join('')

@@ -14,6 +14,8 @@ export default defineConfig({
       'gameLeagues.test.js',
       'gameRecap.test.js',
       'inviteTemplate.test.js',
+      'reminders.test.js',
+      'playerLeagues.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,
