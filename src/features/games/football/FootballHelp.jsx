@@ -30,7 +30,7 @@ export default function FootballHelp() {
       <Section emoji="🗓️" title="Sådan forløber en runde">
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
           <li style={{ marginBottom: '0.4rem' }}>
-            <strong>Før kampene:</strong> På <Tab>⚽ Tip</Tab> sætter du 1X2 på rundens kampe — du kan rette
+            <strong>Før kampene:</strong> På <Tab>Tip</Tab> sætter du 1X2 på rundens kampe — du kan rette
             frit indtil hver kampstart. Tip gerne <strong>hele runden</strong> (combi-bonus), og brug evt.
             {' '}<strong>Chancen</strong> på den kamp, du har bedst fornemmelse for.
           </li>
@@ -42,15 +42,20 @@ export default function FootballHelp() {
             <strong>Efter runden:</strong> Se dit facit og din træfprocent under <Tab>📋 Mine tips</Tab>, og
             hvordan holdenes rating flyttede sig under <Tab>📈 Elo</Tab>.
           </li>
-          <li>
+          <li style={{ marginBottom: '0.4rem' }}>
             <strong>Løbende:</strong> Afgiv dit <Tab>🎖️ Pulje</Tab>-tip før deadline (én gang), dyst i
             {' '}<Tab>👥 Ligaer</Tab> med vennerne, og vælg dit hold under <Tab>🙂 Mit hold</Tab>.
+          </li>
+          <li>
+            <strong>Spillet kan starte midt i sæsonen.</strong> Kampe, der er spillet <em>før</em> spillets
+            startdato, vises ikke og giver ingen point — så alle er med fra samme runde. Derfor kan runde 1
+            mangle, hvis spillet først begynder ved runde 2.
           </li>
         </ul>
       </Section>
 
       <Section emoji="⚽" title="Tip kampene (1X2)">
-        På <Tab>⚽ Tip</Tab> gætter du udfaldet af hver kamp i runden: <strong>1</strong> (hjemmesejr),
+        På <Tab>Tip</Tab> gætter du udfaldet af hver kamp i runden: <strong>1</strong> (hjemmesejr),
         {' '}<strong>X</strong> (uafgjort) eller <strong>2</strong> (udesejr). Du kan rette dit tip helt
         indtil <strong>kampstart</strong> — derefter låses netop den kamp. Du behøver ikke tippe hele runden
         på én gang, men jo flere kampe du rammer, jo mere kan du hente på combi-bonussen.
@@ -115,7 +120,8 @@ export default function FootballHelp() {
             storklub starter <em>over</em> {ELO.START} og et oprykker-/svagt hold <em>under</em>. Derfor
             er favoritter og outsidere forskellige allerede fra første kamp.</li>
           <li>Før en kamp regnes en <strong>forventning</strong> til hjemmeholdet ud fra forskellen i rating
-            {' '}plus en <strong>hjemmebanefordel på ~{ELO.HFA}</strong> point. Lige stærke hold ≈ 50/50.</li>
+            {' '}plus en <strong>hjemmebanefordel på ~{ELO.HFA}</strong> point. To hold med samme rating er altså
+            ikke 50/50 — hjemmeholdet forventes at tage omkring 59 % takket være hjemmebanen.</li>
           <li>Efter kampen flyttes rating mod resultatet: <em>ny rating = gammel + {ELO.K} ×
             (resultat − forventning)</em>, hvor resultat er 1 (sejr), ½ (uafgjort) eller 0 (nederlag).
             Vinderens point lægges til, taberens trækkes fra — lige meget begge veje.</li>
@@ -148,6 +154,16 @@ export default function FootballHelp() {
         På <Tab>👥 Ligaer</Tab> kan du oprette en privat liga (du får en <strong>invitationskode</strong>)
         eller deltage med en kode fra en ven. I ligaen dyster I på jeres egen stilling, og hver liga har en
         {' '}<strong>væg</strong>, hvor I kan skrive sammen undervejs.
+        <p style={{ margin: '0.5rem 0 0' }}>
+          <strong>Liga-spørgsmål:</strong> den, der oprettede ligaen, kan stille jeres egne spørgsmål
+          (&quot;hvem bliver topscorer?&quot;) med deadline og pointværdi. Andres svar er skjult, indtil
+          spørgsmålet lukker — så ingen kan skrive af. Point fra spørgsmål tæller <em>kun</em> i den liga og
+          vises som <strong>(+X❓)</strong> i liga-stillingen.
+        </p>
+        <p style={{ margin: '0.5rem 0 0' }}>
+          <strong>Runde-Botten 🤖:</strong> efter rundens sidste kamp skriver en bot et kort resumé på jeres
+          væg — hvem der løb med runden, hvem der brændte den, og hvordan stillingen ser ud.
+        </p>
       </Section>
 
       <Section emoji="🙂" title="Dit hold">

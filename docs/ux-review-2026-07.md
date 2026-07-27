@@ -1,5 +1,7 @@
 # UX-ekspertgennemgang — Vejleaa Tip (juli 2026)
 
+> ⚠️ **HISTORIK (juli 2026).** Statusmarkeringerne er ikke vedligeholdt.
+
 Tre UX-eksperter gennemgik platformen (mobil-først, PLATFORM_MODE, tip.vejleaa.dk):
 **navigation & informationsarkitektur**, **indhold & info-placering**, og
 **visuel polish & delight**. Nedenfor de vigtigste fund, prioriteret, med

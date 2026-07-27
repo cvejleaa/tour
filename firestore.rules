@@ -1,6 +1,10 @@
 // ---------------------------------------------------------------------------
-// firestore.rules — Sikkerhedsregler for VM 2026 tippekonkurrence.
-// Håndhæver principper fra docs/architecture.md:
+// firestore.rules — Sikkerhedsregler for BEGGE apps (tip.vejleaa.dk og
+// tour.vejleaa.dk deler denne fil; den deployes til hvert projekt for sig).
+//
+// Tre lag: globale users/userContacts, Tour-collections på topniveau, og
+// platformens games/{gameId}/… Se docs/architecture.md.
+// Håndhæver bl.a.:
 //   - Spillere kan kun læse/skrive egne bets/bonusBets, og kun FØR deadline.
 //   - points, role, status, result, facit kan aldrig skrives af spillere.
 //   - Kun globalAdmin/owner skriver matches, result, facit.

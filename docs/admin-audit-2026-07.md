@@ -1,5 +1,10 @@
 # Admin-panel audit — de rigtige funktioner de rigtige steder (juli 2026)
 
+> ⚠️ **HISTORIK (juli 2026).** Alle de beskrevne mangler er siden løst:
+> platform-codebasen har nu 17 funktioner, Send mail og kodeord-nulstilling er
+> synlige igen, og påmindelser/recap er per spil. Bevaret, fordi den forklarer
+> HVORFOR der er to adskilte functions-codebases.
+
 Dette repo bygger BÅDE standalone-Tour (tour-85928, `PLATFORM_MODE=false`) og
 den samlede platform "Vejleaa Tip" (spil-89af9, `PLATFORM_MODE=true`) fra samme
 kode. Flere admin-funktioner blev bygget til én-spils-apps (Tour/VM) og stod

@@ -18,7 +18,9 @@ on:
       seedGames:
         description: 'Seed spillene (VM/Tour/Superliga) i databasen bagefter?'
         type: boolean
-        default: true
+        # Default FALSE: en almindelig deploy skal ikke skrive i produktions-
+        # databasen. Slå den kun til, når spil-dokumenterne faktisk skal ind.
+        default: false
       seedSuperliga:
         description: 'Seed Superliga-kampprogrammet (132 kampe + odds fra scripts/superliga-fixtures.json)?'
         type: boolean

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// functions/superligaScoring.js — AUTORITATIV Superliga-pointlogik (CommonJS).
+// functions-platform/superligaScoring.js — AUTORITATIV Superliga-pointlogik (CommonJS).
 // SPEJL af src/lib/superligaScoring.js — hold dem 100% identiske i opførsel!
 // Cloud Functions beregner point; klienten viser kun.
 //

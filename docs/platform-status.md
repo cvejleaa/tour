@@ -1,5 +1,10 @@
 # Platform-status — tip.vejleaa.dk
 
+> ⚠️ **FORÆLDET (skrevet juli 2026).** Statusdelen er overhalet af
+> udviklingen — Fase B er leveret. Se [architecture.md](architecture.md) for
+> hvordan systemet ser ud nu, og [drift.md](drift.md) for hvordan det køres.
+> Bevaret som historik.
+
 Levende overblik over, hvor langt vi er med den samlede tippeplatform.
 Opdateres løbende. Se også `samlet-platform.md` (planen) og
 `app-sammenligning.md` (VM vs. Tour).
