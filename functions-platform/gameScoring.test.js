@@ -135,10 +135,24 @@ describe('recomputeGameMatchCore', () => {
     expect(Object.keys(db._players)).toHaveLength(0);
   });
 
-  it('gør intet uden facit', async () => {
+  it('rører ikke tips der allerede står på 0 uden facit', async () => {
     const db = makeDb([{ uid: 'A', matchId: 'm1', pick: '1', points: 0 }]);
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: null });
     expect(res).toEqual({ rescored: 0, players: 0 });
+  });
+
+  it('nulstiller point når et facit FJERNES igen', async () => {
+    // Admin satte et forkert resultat og fjerner det. Så skal pointene rulles
+    // tilbage — ellers beholder spilleren point for en kamp uden resultat.
+    const matches = [{ id: 'm1', round: 1, result: null, odds: { 1: 2.5, X: 4, 2: 4 } }];
+    const db = makeDb(
+      [{ uid: 'A', matchId: 'm1', pick: '1', points: 2.5 }],
+      matches, {}, { A: { totalPoints: 2.5 } },
+    );
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: null });
+    expect(res.rescored).toBe(1);
+    expect(db._bets[0].data.points).toBe(0);
+    expect(db._players.A.totalPoints).toBe(0);
   });
 
   it('lægger combi-runde-bonus til når hele runden er ramt', async () => {

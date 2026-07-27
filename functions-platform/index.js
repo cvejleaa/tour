@@ -60,10 +60,13 @@ exports.recomputeGameMatch = onDocumentWritten(
     const db = getFirestore();
     const { gameId, matchId } = event.params;
     const after = event.data?.after?.data();
-    if (!after || !after.result) return;
+    if (!after) return; // kampen er slettet
     const before = event.data?.before?.data();
     // Kør kun når facit reelt ændrer sig (undgå løkker ved andre felt-skriv).
-    if (before?.result === after.result) return;
+    // Bemærk: også når facit FJERNES (null) — så rulles pointene tilbage.
+    const prevResult = before?.result ?? null;
+    const nextResult = after.result ?? null;
+    if (prevResult === nextResult) return;
     const { roundCompleted } = await recomputeGameMatchCore(db, FieldValue, gameId, matchId, after) || {};
     // Levende Elo: opdatér ratings + friske odds på fremtidige kampe.
     // (Odds-skriv på kampe uden facit gen-udløser IKKE denne funktion.)

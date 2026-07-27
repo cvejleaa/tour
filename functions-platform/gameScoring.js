@@ -328,9 +328,12 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
  * @returns {Promise<{rescored:number, players:number}>}
  */
 async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData) {
-  const result = matchData?.result;
-  if (!result) return { rescored: 0, players: 0 };
-  const odds = matchData.odds || null;
+  // Facit kan også være FJERNET igen (admin rettede en fejl). Så skal pointene
+  // rulles tilbage: scoreBet giver 0 uden gyldigt facit, og totalerne
+  // genberegnes nedenfor. Uden det ville spillerne beholde point for en kamp,
+  // der ikke længere har et resultat.
+  const result = matchData?.result || null;
+  const odds = matchData?.odds || null;
 
   // Spillets starttidspunkt (game.startAt): kampe før det tæller ikke med. Er
   // DENNE kamp før start, scorer vi den slet ikke.
