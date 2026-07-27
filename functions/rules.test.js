@@ -1519,6 +1519,23 @@ describe('games/{gameId}/bets — sikkerhedsregler', () => {
     await assertSucceeds(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'bets', 'p1_m1'),
       { uid: 'p1', matchId: 'm1', homeScore: 2, awayScore: 1 }));
   });
+  it('KAN IKKE lave et dublet-tip på samme kamp (doc-id skal være uid_matchId)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl');
+    await seedMembership('sl', 'p1');
+    await createGameMatch('sl', 'm1', future());
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    // Det rigtige id går igennem...
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: '1' }));
+    // ...men et ekstra dokument på SAMME kamp må ikke kunne oprettes; ellers
+    // kunne man tippe 1, X og 2 og få point for dem alle.
+    await assertFails(setDoc(doc(fs, 'games', 'sl', 'bets', 'p1_m1_dup'),
+      { uid: 'p1', matchId: 'm1', pick: 'X' }));
+    await assertFails(setDoc(doc(fs, 'games', 'sl', 'bets', 'vilkaarligt'),
+      { uid: 'p1', matchId: 'm1', pick: '2' }));
+  });
+
   it('IKKE-deltager KAN IKKE tippe (mangler players-dok)', async () => {
     await createUser('p2', 'player', 'approved');
     await createGame('sl');

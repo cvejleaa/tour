@@ -61,13 +61,39 @@ function roundComboBonus(hitOdds, matchCount) {
   return round1(Math.min(product, cap));
 }
 
+// Chancen: samme loft som klienten (src/lib/superligaScoring.js). Serveren er
+// eneste autoritet — klientens validering kan omgås, så indsatsen SKAL klippes
+// her, ellers ville et forfalsket chanceStake give ubegrænset gevinst.
+const CHANCE = { MIN: 1, MAX_ABS: 8, CAP_FRACTION: 0.15 };
+
+/** Maksimal tilladt indsats givet spillerens saldo: min(loft, 15 % af saldo). */
+function chanceMaxStake(bank) {
+  const b = Number(bank);
+  if (!Number.isFinite(b) || b <= 0) return 0;
+  return Math.max(0, Math.min(CHANCE.MAX_ABS, Math.floor(b * CHANCE.CAP_FRACTION)));
+}
+
+/**
+ * Klip en indsats til det tilladte: heltal, aldrig over det absolutte loft, og
+ * aldrig over saldo-andelen når saldoen kendes. Ukendt saldo → kun loftet.
+ * @param {number} stake
+ * @param {number} [bank] spillerens point FØR runden (udelades = kun MAX_ABS)
+ */
+function clampStake(stake, bank) {
+  const s = Math.max(0, Math.floor(Number(stake) || 0));
+  if (s <= 0) return 0;
+  const cap = bank == null ? CHANCE.MAX_ABS : chanceMaxStake(bank);
+  return Math.min(s, cap);
+}
+
 /**
  * Afregn Chancen for ét tip. delta = korrekt ? +indsats×(odds−1) : −indsats.
- * @param {{correct:boolean, stake:number, fairOdds:number}} o
+ * Indsatsen klippes til loftet — se clampStake.
+ * @param {{correct:boolean, stake:number, fairOdds:number, bank?:number}} o
  * @returns {{delta:number, profit:number}}
  */
-function settleChance({ correct, stake, fairOdds }) {
-  const s = Math.max(0, Math.floor(Number(stake) || 0));
+function settleChance({ correct, stake, fairOdds, bank }) {
+  const s = clampStake(stake, bank);
   if (s <= 0) return { delta: 0, profit: 0 };
   if (correct) {
     const profit = Math.round(s * (Number(fairOdds) - 1));
@@ -84,10 +110,10 @@ function settleChance({ correct, stake, fairOdds }) {
  * @param {object} [odds] – kampens odds { '1','X','2' } (frosset)
  * @returns {number}
  */
-function scoreBet(bet, result, odds) {
+function scoreBet(bet, result, odds, bank) {
   if (!bet || !isOutcome(bet.pick) || !isOutcome(result)) return 0;
   const base = outcomePoints(bet.pick, result, odds);
-  const stake = Math.max(0, Math.floor(Number(bet.chanceStake) || 0));
+  const stake = clampStake(bet.chanceStake, bank);
   if (stake <= 0) return base;
   const o = odds && Number.isFinite(odds[bet.pick]) ? Number(odds[bet.pick]) : null;
   // Uden gyldige odds kan Chancen ikke afregnes fair → ingen gevinst/tab.
@@ -193,9 +219,9 @@ function puljeScore(championshipPick, actualTop6) {
 
 module.exports = {
   PULJE, leagueTable, championshipTeams, puljeScore,
-  OUTCOME, OUTCOMES, DEFAULT_POINTS, ROUND_BONUS, ELO, ODDS,
+  OUTCOME, OUTCOMES, DEFAULT_POINTS, ROUND_BONUS, ELO, ODDS, CHANCE,
   isOutcome, outcomeFromScore, round1, outcomeReward, outcomePoints, roundComboBonus,
-  settleChance, scoreBet,
+  settleChance, scoreBet, chanceMaxStake, clampStake,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
 };

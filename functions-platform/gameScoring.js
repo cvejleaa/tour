@@ -310,9 +310,14 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   }
   await batch.commit();
 
+  // VIGTIGT: send runde-konteksten med. Uden den giver playerRoundBonus 0, og
+  // spillerne ville miste hele deres opsparede combi-bonus i samme øjeblik
+  // puljen blev afregnet — altså præcis ved sæsonafslutningen.
+  const roundCtx = buildRoundContext(matches);
   const CHUNK = 10;
   for (let i = 0; i < uids.length; i += CHUNK) {
-    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, null, gated)));
+    await Promise.all(uids.slice(i, i + CHUNK)
+      .map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx, gated)));
   }
   return { settled: uids.length };
 }

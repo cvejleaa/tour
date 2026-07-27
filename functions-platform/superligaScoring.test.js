@@ -4,7 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   DEFAULT_POINTS, ROUND_BONUS, round1, outcomeReward, roundComboBonus,
-  isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet,
+  isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet, clampStake, CHANCE,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
   leagueTable, championshipTeams, puljeScore,
 } = require('./superligaScoring');
@@ -55,6 +55,32 @@ describe('superligaScoring (server-spejl)', () => {
     expect(settleChance({ correct: true, stake: 5, fairOdds: 3 })).toEqual({ delta: 10, profit: 10 });
     expect(settleChance({ correct: false, stake: 5, fairOdds: 3 })).toEqual({ delta: -5, profit: 0 });
     expect(settleChance({ correct: true, stake: 0, fairOdds: 3 })).toEqual({ delta: 0, profit: 0 });
+  });
+
+  it('settleChance: en forfalsket indsats klippes til det absolutte loft', () => {
+    // Klienten begrænser indsatsen, men klienten kan omgås — serveren er
+    // eneste autoritet. Uden loft ville dette give 1.999.998 point.
+    const huge = settleChance({ correct: true, stake: 1000000, fairOdds: 3 });
+    expect(huge.delta).toBe(CHANCE.MAX_ABS * 2); // 8 × (3−1)
+    // Tabet er tilsvarende begrænset.
+    expect(settleChance({ correct: false, stake: 1000000, fairOdds: 3 }).delta).toBe(-CHANCE.MAX_ABS);
+  });
+
+  it('clampStake: heltal, aldrig negativ, og saldo-andelen når saldoen kendes', () => {
+    expect(clampStake(3)).toBe(3);
+    expect(clampStake(99)).toBe(CHANCE.MAX_ABS);
+    expect(clampStake(-5)).toBe(0);
+    expect(clampStake(2.9)).toBe(2);
+    expect(clampStake('nej')).toBe(0);
+    // 15 % af 20 point = 3 → en indsats på 8 klippes til 3.
+    expect(clampStake(8, 20)).toBe(3);
+    // Uden point kan man ikke bruge Chancen.
+    expect(clampStake(5, 0)).toBe(0);
+  });
+
+  it('scoreBet: en forfalsket indsats kan ikke give absurd mange point', () => {
+    const pts = scoreBet({ pick: '1', chanceStake: 1000000 }, '1', { '1': 3 });
+    expect(pts).toBe(3 + CHANCE.MAX_ABS * 2); // 1X2-point + loftet gevinst
   });
 
   describe('scoreBet (1X2 + Chancen samlet)', () => {
