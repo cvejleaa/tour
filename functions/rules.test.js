@@ -808,35 +808,56 @@ describe('leagues — liga-admins (adminUids)', () => {
     );
   });
 
-  it('en ikke-medlem KAN tilmelde sig (føjer KUN sig selv til)', async () => {
+  it('en ikke-medlem KAN IKKE skrive sig ind i en liga (tilmelding sker server-side)', async () => {
     await createUser('joiner', 'player', 'approved');
     await seedLeague('lgJoin', { ownerUid: 'owner9', memberUids: ['owner9', 'other'] });
 
     const ctx = testEnv.authenticatedContext('joiner');
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(ctx.firestore(), 'leagues', 'lgJoin'), { memberUids: ['owner9', 'other', 'joiner'] })
     );
   });
 
-  it('en ikke-medlem KAN IKKE slette eksisterende medlemmer under tilmelding', async () => {
-    await createUser('attacker', 'player', 'approved');
-    await seedLeague('lgWipe', { ownerUid: 'owner9', memberUids: ['owner9', 'other'] });
+  it('en ikke-medlem KAN IKKE læse en fremmed liga (join-kode + medlemsliste)', async () => {
+    await createUser('outsider', 'player', 'approved');
+    await seedLeague('lgSecret', { ownerUid: 'owner9', memberUids: ['owner9', 'other'] });
 
-    // Forsøger at sætte memberUids = kun sig selv (sletter alle andre).
-    const ctx = testEnv.authenticatedContext('attacker');
     await assertFails(
-      updateDoc(doc(ctx.firestore(), 'leagues', 'lgWipe'), { memberUids: ['attacker'] })
+      getDoc(doc(testEnv.authenticatedContext('outsider').firestore(), 'leagues', 'lgSecret'))
     );
   });
 
-  it('en ikke-medlem KAN IKKE tilføje andre end sig selv under tilmelding', async () => {
-    await createUser('joiner2', 'player', 'approved');
-    await seedLeague('lgJoin2', { ownerUid: 'owner9', memberUids: ['owner9'] });
+  it('et medlem KAN læse sin egen liga, og admin kan læse alle', async () => {
+    await createUser('m9', 'player', 'approved');
+    await createUser('adm9', 'globalAdmin', 'approved');
+    await seedLeague('lgMine', { ownerUid: 'owner9', memberUids: ['owner9', 'm9'] });
 
-    // Bevarer eksisterende, men tilføjer TO (sig selv + en fremmed) → skal fejle.
-    const ctx = testEnv.authenticatedContext('joiner2');
+    await assertSucceeds(getDoc(doc(testEnv.authenticatedContext('m9').firestore(), 'leagues', 'lgMine')));
+    await assertSucceeds(getDoc(doc(testEnv.authenticatedContext('adm9').firestore(), 'leagues', 'lgMine')));
+  });
+
+  it('et medlem KAN forlade ligaen (fjerner KUN sig selv)', async () => {
+    await createUser('leaver', 'player', 'approved');
+    await seedLeague('lgLeave', { ownerUid: 'owner9', memberUids: ['owner9', 'leaver', 'other'] });
+
+    await assertSucceeds(
+      updateDoc(doc(testEnv.authenticatedContext('leaver').firestore(), 'leagues', 'lgLeave'),
+        { memberUids: ['owner9', 'other'] })
+    );
+  });
+
+  it('et medlem KAN IKKE smide andre ud, mens det forlader ligaen', async () => {
+    await createUser('attacker', 'player', 'approved');
+    await seedLeague('lgWipe', { ownerUid: 'owner9', memberUids: ['owner9', 'attacker', 'other'] });
+
+    const ctx = testEnv.authenticatedContext('attacker');
+    // Fjerner sig selv OG 'other' i samme skriv → skal fejle.
     await assertFails(
-      updateDoc(doc(ctx.firestore(), 'leagues', 'lgJoin2'), { memberUids: ['owner9', 'joiner2', 'stranger'] })
+      updateDoc(doc(ctx.firestore(), 'leagues', 'lgWipe'), { memberUids: ['owner9'] })
+    );
+    // Sætter listen til kun sig selv (sletter alle andre) → skal fejle.
+    await assertFails(
+      updateDoc(doc(ctx.firestore(), 'leagues', 'lgWipe'), { memberUids: ['attacker'] })
     );
   });
 });
@@ -1566,5 +1587,118 @@ describe('games/{gameId}/bets — sikkerhedsregler', () => {
     await createGameMatch('sl', 'm1', future());
     await assertFails(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'bets', 'p2_m1'),
       { uid: 'p2', matchId: 'm1', homeScore: 2, awayScore: 1 }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TESTS: games/{gameId}/leagues — private mini-ligaer + liga-spørgsmål
+// ---------------------------------------------------------------------------
+describe('games/{gameId}/leagues — sikkerhedsregler', () => {
+  /** Opret en spil-liga via admin-context. */
+  async function seedGameLeague(gameId, leagueId, data) {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('games').doc(gameId)
+        .collection('leagues').doc(leagueId)
+        .set({ name: 'Ligaen', code: 'KODE12', createdAt: Timestamp.now(), ...data });
+    });
+  }
+  /** Opret et liga-spørgsmål + et svar via admin-context. */
+  async function seedQuestionAndAnswer(gameId, leagueId, qid, question, answers) {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const lg = ctx.firestore().collection('games').doc(gameId).collection('leagues').doc(leagueId);
+      await lg.collection('questions').doc(qid).set({
+        label: 'Hvem bliver topscorer?', type: 'text', points: 5,
+        facit: null, deadline: null, createdAt: Timestamp.now(), ...question,
+      });
+      for (const [uid, answer] of Object.entries(answers)) {
+        await lg.collection('questionAnswers').doc(`${qid}_${uid}`).set({ uid, questionId: qid, answer });
+      }
+    });
+  }
+
+  it('et medlem KAN forlade ligaen (fjerner KUN sig selv)', async () => {
+    await createUser('vic', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lg1', { ownerUid: 'own', memberUids: ['own', 'vic', 'ven'] });
+
+    await assertSucceeds(
+      updateDoc(doc(testEnv.authenticatedContext('vic').firestore(), 'games', 'sl', 'leagues', 'lg1'),
+        { memberUids: ['own', 'ven'] })
+    );
+  });
+
+  it('et medlem KAN IKKE omskrive medlemslisten (smide ud / lukke fremmede ind)', async () => {
+    await createUser('vic', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lg1', { ownerUid: 'own', memberUids: ['own', 'vic', 'ven'] });
+
+    const fs = testEnv.authenticatedContext('vic').firestore();
+    // Fjerner sig selv, men smider samtidig 'ven' ud og lukker 'mal' ind.
+    await assertFails(
+      updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lg1'), { memberUids: ['own', 'mal'] })
+    );
+    // Samme antal, men en fremmed byttet ind.
+    await assertFails(
+      updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lg1'), { memberUids: ['own', 'mal', 'ven'] })
+    );
+  });
+
+  it('en udenforstående KAN IKKE læse en privat spil-liga', async () => {
+    await createUser('outsider', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lg1', { ownerUid: 'own', memberUids: ['own'] });
+
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('outsider').firestore(), 'games', 'sl', 'leagues', 'lg1'))
+    );
+  });
+
+  it('et medlem KAN IKKE se andres svar før spørgsmålet er lukket', async () => {
+    await createUser('vic', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lg1', { ownerUid: 'own', memberUids: ['own', 'vic'] });
+    await seedQuestionAndAnswer('sl', 'lg1', 'q1', {}, { own: 'Isaksen', vic: 'Cornelius' });
+
+    const fs = testEnv.authenticatedContext('vic').firestore();
+    // Eget svar må man altid se...
+    await assertSucceeds(getDoc(doc(fs, 'games', 'sl', 'leagues', 'lg1', 'questionAnswers', 'q1_vic')));
+    // ...men ikke de andres, så længe spørgsmålet er åbent.
+    await assertFails(getDoc(doc(fs, 'games', 'sl', 'leagues', 'lg1', 'questionAnswers', 'q1_own')));
+  });
+
+  it('andres svar bliver læsbare når facit er sat', async () => {
+    await createUser('vic', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lg1', { ownerUid: 'own', memberUids: ['own', 'vic'] });
+    await seedQuestionAndAnswer('sl', 'lg1', 'q1', { facit: 'Isaksen' }, { own: 'Isaksen' });
+
+    await assertSucceeds(
+      getDoc(doc(testEnv.authenticatedContext('vic').firestore(),
+        'games', 'sl', 'leagues', 'lg1', 'questionAnswers', 'q1_own'))
+    );
+  });
+
+  it('andres svar bliver læsbare når deadline er passeret', async () => {
+    await createUser('vic', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lg1', { ownerUid: 'own', memberUids: ['own', 'vic'] });
+    await seedQuestionAndAnswer('sl', 'lg1', 'q1', { deadline: Date.now() - 3600e3 }, { own: 'Isaksen' });
+
+    await assertSucceeds(
+      getDoc(doc(testEnv.authenticatedContext('vic').firestore(),
+        'games', 'sl', 'leagues', 'lg1', 'questionAnswers', 'q1_own'))
+    );
+  });
+
+  it('en udenforstående KAN IKKE se svar overhovedet', async () => {
+    await createUser('outsider', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lg1', { ownerUid: 'own', memberUids: ['own'] });
+    await seedQuestionAndAnswer('sl', 'lg1', 'q1', { facit: 'Isaksen' }, { own: 'Isaksen' });
+
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('outsider').firestore(),
+        'games', 'sl', 'leagues', 'lg1', 'questionAnswers', 'q1_own'))
+    );
   });
 });

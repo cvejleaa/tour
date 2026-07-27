@@ -9,12 +9,10 @@ import {
   doc,
   arrayUnion,
   arrayRemove,
-  query,
-  where,
-  getDocs,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../../firebase';
 import { COL, LEAGUE_STATUS } from '../../lib/constants';
 import { generateJoinCode } from './leagueUtils';
 import { DEFAULT_SCORING } from './leagueFormat';
@@ -106,41 +104,23 @@ export async function setLeagueAdmin(leagueId, uid, makeAdmin) {
 
 /**
  * Tilmeld den aktuelle bruger til en liga via join-kode.
+ *
+ * Selve opslaget og tilmeldingen sker SERVER-SIDE (redeemInviteCode med Admin
+ * SDK): ligaer er private, så klienten kan hverken læse fremmede ligaer eller
+ * skrive sig ind i dem. Serveren rate-limiter også kodegæt.
  * @param {string} joinCode
- * @param {string} uid
  * @returns {Promise<{id: string, name: string}>} – liga-info
  */
-export async function joinLeague(joinCode, uid) {
-  if (!joinCode?.trim()) throw new Error('Angiv en gyldig kode.');
-  if (!uid) throw new Error('Mangler brugerId.');
-
-  // Find liga med den angivne kode
-  const q = query(
-    collection(db, COL.LEAGUES),
-    where('joinCode', '==', joinCode.trim().toUpperCase()),
-  );
-  const snap = await getDocs(q);
-
-  if (snap.empty) throw new Error('Ingen liga fundet med den kode.');
-
-  const leagueDoc = snap.docs[0];
-  const leagueData = leagueDoc.data();
-
-  // Ligaen skal være godkendt af admin før man kan tilmelde sig
-  if (leagueData.status !== LEAGUE_STATUS.APPROVED) {
-    throw new Error('Ligaen er endnu ikke godkendt af admin.');
+export async function joinLeague(joinCode) {
+  const code = String(joinCode || '').trim();
+  if (!code) throw new Error('Angiv en gyldig kode.');
+  try {
+    const fn = httpsCallable(functions, 'redeemInviteCode');
+    const res = await fn({ code });
+    return { id: res.data?.leagueId, name: res.data?.leagueName };
+  } catch (err) {
+    throw new Error(err?.message || 'Kunne ikke tilmelde dig ligaen.');
   }
-
-  // Tjek om brugeren allerede er medlem
-  if (leagueData.memberUids?.includes(uid)) {
-    throw new Error('Du er allerede medlem af denne liga.');
-  }
-
-  await updateDoc(leagueDoc.ref, {
-    memberUids: arrayUnion(uid),
-  });
-
-  return { id: leagueDoc.id, name: leagueData.name };
 }
 
 /**
