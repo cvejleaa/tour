@@ -9,20 +9,28 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
-  collection, doc, onSnapshot, query, where,
+  collection, doc, documentId, onSnapshot, query, where,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
-import { COL, USER_STATUS } from '../../lib/constants';
+import { COL } from '../../lib/constants';
 import { rankStandings } from './gameStandings';
 import { useGameLeagues } from './useGameLeagues';
 
-// array-contains-any tager højst 30 værdier.
+// array-contains-any og 'in' tager højst 30 værdier.
 const MAX_LEAGUES_IN_QUERY = 30;
+const IN_CHUNK = 30;
+
+/** Del en liste i grupper af højst `size`. */
+function chunk(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
 
 /**
  * @param {string} gameId
- * @returns {{ standings: Array<object>, loading: boolean, error: string|null }}
+ * @returns {{ standings: Array<object>, leagues: Array<object>, loading: boolean, error: string|null }}
  */
 export function useGameStandings(gameId) {
   const { user } = useAuth();
@@ -80,24 +88,38 @@ export function useGameStandings(gameId) {
     return unsub;
   }, [gameId, uid]);
 
-  // Bruger-profiler (navn/avatar) for de godkendte spillere.
+  // Bruger-profiler (navn/avatar) — KUN for de spillere der faktisk vises.
+  // Tidligere blev hele brugerkartoteket hentet for at slå en håndfuld navne op.
+  const playerUids = useMemo(() => {
+    const set = new Set(mates.map((p) => p.uid));
+    if (me) set.add(me.uid);
+    return [...set].sort();
+  }, [mates, me]);
+  const playerKey = playerUids.join(',');
+
   useEffect(() => {
-    const q = query(collection(db, COL.USERS), where('status', '==', USER_STATUS.APPROVED));
-    const unsub = onSnapshot(
-      q,
+    if (playerUids.length === 0) { setUsersById({}); setUsersLoading(false); return undefined; }
+    const groups = chunk(playerUids, IN_CHUNK);
+    const byGroup = groups.map(() => ({}));
+    let pending = groups.length;
+    const unsubs = groups.map((ids, i) => onSnapshot(
+      query(collection(db, COL.USERS), where(documentId(), 'in', ids)),
       (snap) => {
         const map = {};
         snap.docs.forEach((d) => { map[d.id] = d.data(); });
-        setUsersById(map);
-        setUsersLoading(false);
+        byGroup[i] = map;
+        setUsersById(Object.assign({}, ...byGroup));
+        if (pending > 0) { pending -= 1; if (pending === 0) setUsersLoading(false); }
       },
       (err) => {
         console.error('useGameStandings (brugere) fejl:', err);
         setUsersLoading(false);
       },
-    );
-    return unsub;
-  }, []);
+    ));
+    return () => unsubs.forEach((u) => u());
+    // playerKey holder effekten stabil, selvom array-referencen skifter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerKey]);
 
   const players = useMemo(() => {
     const byUid = new Map(mates.map((p) => [p.uid, p]));
@@ -106,5 +128,6 @@ export function useGameStandings(gameId) {
   }, [mates, me]);
 
   const standings = useMemo(() => rankStandings(players, usersById), [players, usersById]);
-  return { standings, loading: leaguesLoading || matesLoading || usersLoading, error };
+  // leagues gives med retur, så kaldere ikke behøver et ekstra abonnement.
+  return { standings, leagues, loading: leaguesLoading || matesLoading || usersLoading, error };
 }

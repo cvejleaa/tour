@@ -6,6 +6,15 @@
 const { escapeHtml, sendEmail, emailByUidMap, APP_URL } = require('./mailer');
 
 const DAY_MS = 24 * 3600 * 1000;
+// 'in' tager højst 30 værdier pr. forespørgsel.
+const IN_CHUNK = 30;
+
+/** Del en liste i grupper af højst `size`. */
+function chunk(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
 
 /** Millisekunder fra et Firestore-Timestamp | tal | ISO-streng. */
 function toMillis(v) {
@@ -59,19 +68,24 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
   const memberUids = playersSnap.docs.map((d) => d.id);
   if (memberUids.length === 0) return { sent: 0, reason: 'no-members' };
 
-  // uid → Set(matchId) af tippede kommende kampe.
-  const betsSnap = await gameRef.collection('bets').get();
+  // uid → Set(matchId) af tippede kommende kampe. Hent KUN tips på de kampe der
+  // er i vinduet ('in' tager 30 værdier, og en runde har langt færre) — ellers
+  // ville en daglig påmindelse læse hvert eneste tip i hele sæsonen.
   const betByUid = new Map();
-  for (const d of betsSnap.docs) {
-    const b = d.data();
-    if (!b || !b.uid || !upcomingIds.has(b.matchId)) continue;
-    if (!betByUid.has(b.uid)) betByUid.set(b.uid, new Set());
-    betByUid.get(b.uid).add(b.matchId);
+  for (const ids of chunk([...upcomingIds], IN_CHUNK)) {
+    const snap = await gameRef.collection('bets').where('matchId', 'in', ids).get();
+    for (const d of snap.docs) {
+      const b = d.data();
+      if (!b || !b.uid) continue;
+      if (!betByUid.has(b.uid)) betByUid.set(b.uid, new Set());
+      betByUid.get(b.uid).add(b.matchId);
+    }
   }
 
   const emails = await emailByUidMap(db);
-  const usersSnap = await db.collection('users').get();
-  const userById = new Map(usersSnap.docs.map((d) => [d.id, d.data()]));
+  // Kun deltagernes profiler — ikke hele brugerkartoteket.
+  const userDocs = await db.getAll(...memberUids.map((uid) => db.collection('users').doc(uid)));
+  const userById = new Map(userDocs.filter((d) => d.exists).map((d) => [d.id, d.data()]));
   const gameName = (gameSnap.exists && gameSnap.data().name) || 'spillet';
 
   let sent = 0;

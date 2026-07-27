@@ -6,7 +6,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useGameStandings } from './useGameStandings';
-import { useGameLeagues } from './useGameLeagues';
 import { leagueMateStandings } from './gameStandings';
 
 /**
@@ -16,13 +15,14 @@ import { leagueMateStandings } from './gameStandings';
 export function useVisibleGameStandings(gameId) {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
-  const { standings: all, loading: sLoading, error } = useGameStandings(gameId);
-  const { leagues, loading: lLoading } = useGameLeagues(gameId);
+  // useGameStandings abonnerer allerede på mine ligaer og giver dem med retur —
+  // et ekstra useGameLeagues her ville åbne et dublet-abonnement på samme query.
+  const { standings: all, leagues, loading, error } = useGameStandings(gameId);
 
   const standings = useMemo(
     () => leagueMateStandings(all, leagues, uid),
     [all, leagues, uid],
   );
 
-  return { standings, leagueCount: leagues.length, loading: sLoading || lLoading, error };
+  return { standings, leagueCount: leagues.length, loading, error };
 }

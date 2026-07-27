@@ -8,6 +8,16 @@
 
 const { buildRoundContext, playerRoundBonus } = require('./gameScoring');
 
+// 'in' tager højst 30 værdier pr. forespørgsel.
+const IN_CHUNK = 30;
+
+/** Del en liste i grupper af højst `size`. */
+function chunk(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
 const RECAP_SYSTEM = `Du er "Runde-Botten", som skriver ét kort, varmt opslag på dansk til en privat fodbold-tippeliga, lige efter en Superliga-runde er færdigspillet.
 Skriv 70-150 ord i naturlig, sammenhængende prosa (ikke punktopstilling, ingen overskrift, ingen anførselstegn). Brug 1-2 emojis.
 
@@ -183,23 +193,30 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
   const done = Array.isArray(game.recappedRounds) ? game.recappedRounds : [];
   if (!dryRun && done.includes(round)) return { posted: 0, reason: 'already', round };
 
-  // Spillere + navne (users) + alle bets i spillet.
-  const [playersSnap, usersSnap, betsSnap] = await Promise.all([
-    gameRef.collection('players').get(),
-    db.collection('users').get(),
-    gameRef.collection('bets').get(),
+  // Spillerne, deres navne, og KUN rundens tips. (Botten regner udelukkende på
+  // rundens kampe, så hverken hele bet-samlingen eller hele brugerkartoteket
+  // skal hentes — det ville vokse med hele sæsonen.)
+  const playersSnap = await gameRef.collection('players').get();
+  const playerUids = playersSnap.docs.map((d) => d.id);
+  if (playerUids.length < 2) return { posted: 0, reason: 'too-few-players', round };
+
+  const [userDocs, ...betSnaps] = await Promise.all([
+    db.getAll(...playerUids.map((uid) => db.collection('users').doc(uid))),
+    ...chunk(roundMatches.map((m) => m.id), IN_CHUNK)
+      .map((ids) => gameRef.collection('bets').where('matchId', 'in', ids).get()),
   ]);
-  const nameOf = new Map(usersSnap.docs.map((d) => [d.id, d.data().displayName]));
+  const nameOf = new Map(userDocs.filter((d) => d.exists).map((d) => [d.id, d.data().displayName]));
   const players = playersSnap.docs.map((d) => ({
     uid: d.id, name: nameOf.get(d.id) || 'Spiller', ...d.data(),
   }));
-  if (players.length < 2) return { posted: 0, reason: 'too-few-players', round };
   const betsByUid = new Map();
-  for (const d of betsSnap.docs) {
-    const b = d.data();
-    if (!b.uid) continue;
-    if (!betsByUid.has(b.uid)) betsByUid.set(b.uid, []);
-    betsByUid.get(b.uid).push(b);
+  for (const snap of betSnaps) {
+    for (const d of snap.docs) {
+      const b = d.data();
+      if (!b.uid) continue;
+      if (!betsByUid.has(b.uid)) betsByUid.set(b.uid, []);
+      betsByUid.get(b.uid).push(b);
+    }
   }
 
   const nextRound = settledRounds.length && byRound.size
