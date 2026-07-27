@@ -60,3 +60,35 @@ export function subsetRanking(rows, memberUids) {
     return { ...r, rank };
   });
 }
+
+/**
+ * De spillere man deler mindst én liga med — plus én selv.
+ * @param {Array<{memberUids?:Array<string>}>} leagues – mine ligaer i spillet
+ * @param {string|null} uid
+ * @returns {Set<string>}
+ */
+export function leagueMateUids(leagues, uid) {
+  const set = new Set();
+  if (!uid) return set;
+  set.add(uid);
+  for (const l of leagues || []) {
+    const members = l?.memberUids || [];
+    // Kun ligaer man selv er med i tæller — defensivt, selvom kilden kun
+    // henter egne ligaer.
+    if (!members.includes(uid)) continue;
+    for (const m of members) set.add(m);
+  }
+  return set;
+}
+
+/**
+ * Spil-stillingen som den må vises for én bruger: kun spillere man deler
+ * mindst én liga med (plus én selv), gen-rangeret inden for den kreds.
+ * @param {Array<object>} rows     – rangeret spil-stilling (fra rankStandings)
+ * @param {Array<object>} leagues  – mine ligaer i spillet (med memberUids)
+ * @param {string|null} uid
+ */
+export function leagueMateStandings(rows, leagues, uid) {
+  if (!uid) return [];
+  return subsetRanking(rows, leagueMateUids(leagues, uid));
+}

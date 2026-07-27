@@ -5,7 +5,7 @@
  */
 import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
-import { useGameStandings } from './useGameStandings';
+import { useVisibleGameStandings } from './useVisibleGameStandings';
 import { rankDelta } from './gameStandings';
 import { formatPoints } from './GameLayout';
 
@@ -25,7 +25,7 @@ function DeltaArrow({ row }) {
 
 export default function GameStandings({ gameId }) {
   const { user } = useAuth();
-  const { standings, loading, error } = useGameStandings(gameId);
+  const { standings, leagueCount, loading, error } = useVisibleGameStandings(gameId);
 
   if (loading) return <div className="spinner" role="status" aria-label="Indlæser" />;
   if (error) return <p className="badge badge--red">{error}</p>;
@@ -36,6 +36,20 @@ export default function GameStandings({ gameId }) {
         <div className="empty-state__icon">🏆</div>
         <div className="empty-state__title">Ingen deltagere endnu.</div>
         <p style={{ color: 'var(--c-muted)' }}>Stillingen fyldes, når spillere tilmelder sig og tipper.</p>
+      </div>
+    );
+  }
+
+  // Ranglisten er jeres indbyrdes opgør: kun spillere fra dine egne ligaer.
+  if (leagueCount === 0) {
+    return (
+      <div className="empty-state">
+        <div className="empty-state__icon">👥</div>
+        <div className="empty-state__title">Du er ikke med i en liga endnu.</div>
+        <p style={{ color: 'var(--c-muted)' }}>
+          Ranglisten viser kun de spillere, du deler liga med. Opret eller tilmeld dig
+          en liga under <strong>👥 Ligaer</strong> — så dukker de andre op her.
+        </p>
       </div>
     );
   }
@@ -80,6 +94,9 @@ export default function GameStandings({ gameId }) {
 
   return (
     <div>
+      <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', margin: '0 0 0.6rem' }}>
+        Viser de {standings.length} spillere, du deler liga med.
+      </p>
       {hasPodium && (
         <div className="podium">
           {podiumOrder.map((r) => (

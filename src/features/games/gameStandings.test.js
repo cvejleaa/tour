@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { rankStandings, rankDelta, subsetRanking } from './gameStandings';
+import {
+  rankStandings, rankDelta, subsetRanking, leagueMateUids, leagueMateStandings,
+} from './gameStandings';
 
 const users = {
   a: { displayName: 'Anna', avatarEmoji: '🦊' },
@@ -81,5 +83,42 @@ describe('rankDelta', () => {
     expect(rankDelta({ rank: 6, previousRank: 3 })).toBe(-3);
     expect(rankDelta({ rank: 1, previousRank: 1 })).toBe(0);
     expect(rankDelta({ rank: 1 })).toBeNull();
+  });
+});
+
+describe('leagueMateUids / leagueMateStandings', () => {
+  const ranked = rankStandings([
+    { uid: 'a', totalPoints: 5 },
+    { uid: 'b', totalPoints: 12 },
+    { uid: 'c', totalPoints: 8 },
+  ], users);
+  const leagues = [
+    { id: 'L1', memberUids: ['a', 'b'] },
+    { id: 'L2', memberUids: ['a', 'x'] },
+  ];
+
+  it('samler medlemmer fra alle mine ligaer plus mig selv', () => {
+    expect([...leagueMateUids(leagues, 'a')].sort()).toEqual(['a', 'b', 'x']);
+  });
+
+  it('ser bort fra ligaer jeg ikke selv er med i', () => {
+    expect([...leagueMateUids([{ memberUids: ['b', 'c'] }], 'a')]).toEqual(['a']);
+  });
+
+  it('viser kun liga-kammerater og gen-rangerer', () => {
+    const rows = leagueMateStandings(ranked, leagues, 'a');
+    // c er ikke i nogen af mine ligaer → væk. b (12 p) foran a (5 p).
+    expect(rows.map((r) => r.uid)).toEqual(['b', 'a']);
+    expect(rows.map((r) => r.rank)).toEqual([1, 2]);
+  });
+
+  it('uden ligaer står man alene på listen', () => {
+    const rows = leagueMateStandings(ranked, [], 'a');
+    expect(rows.map((r) => r.uid)).toEqual(['a']);
+    expect(rows[0].rank).toBe(1);
+  });
+
+  it('uden bruger vises ingenting', () => {
+    expect(leagueMateStandings(ranked, leagues, null)).toEqual([]);
   });
 });
