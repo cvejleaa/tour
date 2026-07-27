@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react';
 import { useGameBets } from '../useGameBets';
 import { setBet } from '../betActions';
 import { playerBank } from '../GameLayout';
-import { useGameStandings } from '../useGameStandings';
+import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
@@ -77,7 +77,8 @@ function matchBadges(home, away, styles) {
 export default function FootballTip({ game, me, matches }) {
   const gameId = game?.id;
   const { betsByMatch } = useGameBets(gameId);
-  const { standings } = useGameStandings(gameId);
+  // Facittet måler dig mod dem du deler liga med — samme kreds som ranglisten.
+  const { standings } = useVisibleGameStandings(gameId);
   const bank = playerBank(me);
   const nowMs = Date.now();
 

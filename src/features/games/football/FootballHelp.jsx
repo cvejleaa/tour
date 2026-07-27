@@ -96,7 +96,9 @@ export default function FootballHelp() {
       </Section>
 
       <Section emoji="🏆" title="Stilling & tabel">
-        <Tab>🏆 Stilling</Tab> viser jeres indbyrdes kamp — spillernes samlede point. <Tab>⚽ Tabel</Tab>
+        <Tab>🏆 Stilling</Tab> viser jeres indbyrdes kamp — de samlede point for de spillere, du
+        {' '}<strong>deler liga med</strong>. Er du ikke med i en liga endnu, er der ingen at måle dig
+        mod: opret eller tilmeld dig én under <Tab>👥 Ligaer</Tab>. <Tab>⚽ Tabel</Tab>
         {' '}viser den <strong>officielle Superliga-stilling</strong> (hentet direkte fra ligaen), delt op i
         mesterskabsspil (top 6) og nedrykningsspil (bund 6). Det er den, pulje-tippet afgøres på.
       </Section>
