@@ -26,6 +26,7 @@ const { redeemLeagueCodeCore } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
+const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { superligaInviteHtml } = require('./inviteTemplate');
 
 initializeApp();
@@ -112,6 +113,32 @@ exports.generateGameRecapNow = onCall(
 // recomputeGameScores — admin: genberegn ALLE spilleres totaler i et spil med
 // den aktuelle start-gate (game.startAt). Bruges efter at have sat/ændret
 // starttidspunktet, så tidligere runders point fjernes fra stillingen straks.
+// syncPlayerLeagues — hold games/{gameId}/players/{uid}.leagueIds i sync med
+// ligaernes memberUids. Feltet er dét, security rules bruger til at afgøre,
+// hvem der må se hvis point: kun spillere der deler mindst én liga. Klienten
+// må ikke skrive feltet, så serveren gør det her ved enhver liga-ændring.
+exports.syncPlayerLeagues = onDocumentWritten(
+  { document: 'games/{gameId}/leagues/{leagueId}', region: REGION },
+  async (event) => {
+    const { gameId, leagueId } = event.params;
+    const delta = membershipDelta(event.data?.before?.data() || null, event.data?.after?.data() || null);
+    if (delta.added.length === 0 && delta.removed.length === 0) return;
+    const db = getFirestore();
+    const out = await applyMembershipDelta(db, FieldValue, gameId, leagueId, delta);
+    console.log(`syncPlayerLeagues(${gameId}/${leagueId}):`, JSON.stringify(out));
+  },
+);
+
+// backfillPlayerLeagues — engangs-/vedligeholdelseskørsel: genopbyg leagueIds
+// for alle spillere i ét spil ud fra ligaernes memberUids.
+exports.backfillPlayerLeagues = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const gameId = String(request.data?.gameId || '').trim();
+  if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+  return rebuildGamePlayerLeagues(db, gameId);
+});
+
 exports.recomputeGameScores = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   await requireAdmin(db, request);

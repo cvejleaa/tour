@@ -515,24 +515,37 @@ service cloud.firestore {
       // games/{gameId}/players/{uid} — deltagelse + per-spil-point.
       // "Deltag i dette spil" = opret sit EGET players-dokument.
       match /players/{uid} {
-        // Godkendte kan læse deltagerlisten (til stilling/oversigt); man kan
-        // altid læse sit eget medlemskab — også via en collectionGroup-query
+        // Ligaerne man selv er med i (denormaliseret på ens eget players-doc
+        // af serveren). Tom liste hvis man ikke deltager i spillet.
+        function myLeagueIds() {
+          return isSignedIn()
+            && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+            ? get(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid)).data.get('leagueIds', [])
+            : [];
+        }
+
+        // Stillingen er jeres indbyrdes opgør: en spillers point kan kun læses
+        // af dem, der deler mindst én liga med spilleren. Man kan altid læse
+        // sit eget medlemskab — også via en collectionGroup-query
         // (spiloversigten spørger "hvilke spil er JEG med i").
-        allow read: if isApproved() || (isSignedIn() && request.auth.uid == uid);
+        allow read: if isGlobalAdmin()
+          || (isSignedIn() && request.auth.uid == uid)
+          || (isApproved() && resource.data.get('leagueIds', []).hasAny(myLeagueIds()));
 
         // Tilmeld: opret sit eget medlemskab UDEN at kunne seede point-felter
-        // (dem sætter kun serveren — samme princip som users-profilen).
+        // eller liga-medlemskab (dem sætter kun serveren — samme princip som
+        // users-profilen).
         allow create: if isApproved()
           && request.auth.uid == uid
           && request.resource.data.uid == uid
           && !request.resource.data.keys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'leagueIds']);
 
-        // Opdatér eget medlemskab, men aldrig point-/placerings-felterne.
+        // Opdatér eget medlemskab, men aldrig point-/placerings-/liga-felterne.
         allow update: if isApproved()
           && request.auth.uid == uid
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'leagueIds']);
 
         // Man kan fortryde en tilmelding (forlade spillet) SÅ LÆNGE der endnu
         // ikke er tildelt point — så en placering ikke kan gå tabt ved uheld.

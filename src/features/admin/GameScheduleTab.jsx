@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import { useGames } from '../games/useGames';
 import { setGameSchedule } from '../games/gameActions';
-import { callRecomputeGameScores } from './adminActions';
+import { callRecomputeGameScores, callBackfillPlayerLeagues } from './adminActions';
 import { formatKickoff } from '../../lib/daDate';
 
 /** ms → værdi til <input type="datetime-local"> i LOKAL tid ('YYYY-MM-DDTHH:mm'). */
@@ -39,6 +39,8 @@ function GameRow({ game }) {
   const [status, setStatus] = useState(null); // 'saved' | 'error' | string
   const [recalcBusy, setRecalcBusy] = useState(false);
   const [recalcMsg, setRecalcMsg] = useState(null); // { kind, text }
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState(null); // { kind, text }
 
   // Synk felterne når spillet (gen)indlæses.
   useEffect(() => {
@@ -66,6 +68,15 @@ function GameRow({ game }) {
       ? { kind: 'ok', text: `Genberegnet for ${res.data?.players ?? '?'} spillere (${res.data?.gatedMatches ?? 0} kampe før start udeladt).` }
       : { kind: 'err', text: res.error });
     setRecalcBusy(false);
+  }
+
+  async function syncLeagues() {
+    setSyncBusy(true); setSyncMsg(null);
+    const res = await callBackfillPlayerLeagues(game.id);
+    setSyncMsg(res.ok
+      ? { kind: 'ok', text: `Gennemgik ${res.data?.players ?? '?'} spillere, rettede ${res.data?.changed ?? 0}.` }
+      : { kind: 'err', text: res.error });
+    setSyncBusy(false);
   }
 
   return (
@@ -130,6 +141,19 @@ function GameRow({ game }) {
           )}
         </div>
       )}
+
+      {/* Liga-medlemskabet på spillernes dokumenter afgør, hvem der kan se hvis
+          point. Serveren holder det opdateret — knappen genopbygger det. */}
+      <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+        <button className="btn btn--ghost btn--sm" onClick={syncLeagues} disabled={syncBusy}>
+          {syncBusy ? 'Genopbygger…' : '🔐 Genopbyg liga-adgang til stillingen'}
+        </button>
+        {syncMsg && (
+          <span className={`badge ${syncMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
+            {syncMsg.text}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

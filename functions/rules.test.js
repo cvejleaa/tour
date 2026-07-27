@@ -1374,13 +1374,56 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     );
   });
 
-  it('godkendt spiller KAN læse en andens medlemskab (til stilling)', async () => {
+  it('godkendt spiller KAN læse en LIGAKAMMERATS medlemskab (til stilling)', async () => {
     await createUser('p1', 'player', 'approved');
     await createUser('p2', 'player', 'approved');
     await createGame('vm2026');
-    await seedMembership('vm2026', 'p2', { totalPoints: 12 });
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await seedMembership('vm2026', 'p2', { totalPoints: 12, leagueIds: ['L1'] });
     await assertSucceeds(
       getDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p2'))
+    );
+  });
+
+  it('godkendt spiller KAN IKKE læse point for en man IKKE deler liga med', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await seedMembership('vm2026', 'p2', { totalPoints: 12, leagueIds: ['L2'] });
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p2'))
+    );
+  });
+
+  it('uden liga kan man kun se sig selv', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1');
+    await seedMembership('vm2026', 'p2', { totalPoints: 12 });
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertSucceeds(getDoc(doc(fs, 'games', 'vm2026', 'players', 'p1')));
+    await assertFails(getDoc(doc(fs, 'games', 'vm2026', 'players', 'p2')));
+  });
+
+  it('admin KAN læse alle medlemskaber', async () => {
+    await createUser('adm', 'globalAdmin', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p2', { totalPoints: 12, leagueIds: ['L2'] });
+    await assertSucceeds(
+      getDoc(doc(testEnv.authenticatedContext('adm').firestore(), 'games', 'vm2026', 'players', 'p2'))
+    );
+  });
+
+  it('man KAN IKKE selv skrive leagueIds (serveren ejer feltet)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p1'),
+        { leagueIds: ['L1', 'L2'] })
     );
   });
 

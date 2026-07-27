@@ -80,6 +80,22 @@ export async function callRecomputeGameScores(gameId) {
 }
 
 /**
+ * Genopbyg players/{uid}.leagueIds ud fra ligaernes medlemmer. Feltet er dét,
+ * security rules bruger til at afgøre, hvem der må se hvis point — så en
+ * genopbygning retter op, hvis noget er drevet fra hinanden.
+ * @param {string} gameId
+ */
+export async function callBackfillPlayerLeagues(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'backfillPlayerLeagues', { timeout: 120000 });
+    const res = await fn({ gameId });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke genopbygge liga-medlemskab.' };
+  }
+}
+
+/**
  * Skift en brugers e-mail direkte (kun ejer) — Auth-konto + profil + kontakt-mail.
  * Ingen bekræftelses-mail; skiftet gælder med det samme.
  * @param {string} uid
