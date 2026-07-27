@@ -99,7 +99,18 @@ function makeDb({ game = {}, matches = [], players = {}, users = {}, bets = [], 
     collection: (name) => {
       if (name === 'matches') return { get: async () => ({ docs: matches.map((m) => ({ id: m.id, data: () => m })) }) };
       if (name === 'players') return { get: async () => ({ docs: Object.entries(players).map(([uid, d]) => ({ id: uid, data: () => d })) }) };
-      if (name === 'bets') return { get: async () => ({ docs: bets.map((b) => ({ data: () => b })) }) };
+      if (name === 'bets') {
+        return {
+          get: async () => ({ docs: bets.map((b) => ({ data: () => b })) }),
+          // Botten henter kun rundens tips: where('matchId','in',[...]).
+          where: (field, op, vals) => ({
+            get: async () => ({
+              docs: bets.filter((b) => op === 'in' && vals.includes(b[field]))
+                .map((b) => ({ data: () => b })),
+            }),
+          }),
+        };
+      }
       if (name === 'leagues') return { get: async () => ({ docs: leagueDocs }) };
       throw new Error(`uventet subcollection ${name}`);
     },
@@ -109,9 +120,18 @@ function makeDb({ game = {}, matches = [], players = {}, users = {}, bets = [], 
     _game: g,
     collection: (name) => {
       if (name === 'games') return { doc: () => gameDoc };
-      if (name === 'users') return { get: async () => ({ docs: Object.entries(users).map(([uid, d]) => ({ id: uid, data: () => d })) }) };
+      if (name === 'users') {
+        return {
+          get: async () => ({ docs: Object.entries(users).map(([uid, d]) => ({ id: uid, data: () => d })) }),
+          doc: (uid) => ({ __user: uid }),
+        };
+      }
       throw new Error(`uventet collection ${name}`);
     },
+    // Admin SDK's getAll: hent netop de profiler der skal bruges.
+    getAll: async (...refs) => refs.map((r) => ({
+      id: r.__user, exists: users[r.__user] != null, data: () => users[r.__user],
+    })),
   };
 }
 
