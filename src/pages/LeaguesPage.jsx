@@ -591,7 +591,7 @@ function JoinLeagueForm({ uid, meName }) {
     setSuccess('');
     setLoading(true);
     try {
-      const { id, name } = await joinLeague(code, uid);
+      const { id, name } = await joinLeague(code);
       tryLogActivity({ leagueId: id, type: ACTIVITY.JOIN, actorUid: uid, actorName: meName, text: 'tilmeldte sig ligaen' });
       setSuccess(`Du er nu med i "${name}"! 🎉`);
       setCode('');

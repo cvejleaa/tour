@@ -138,7 +138,7 @@ describe('LeaguesPage – join via kode', () => {
     fireEvent.click(screen.getByText('Tilmeld via kode', { selector: 'button[type="submit"]' }));
 
     await waitFor(() => {
-      expect(joinLeague).toHaveBeenCalledWith('XYZ789', 'me-uid');
+      expect(joinLeague).toHaveBeenCalledWith('XYZ789');
     });
   });
 });

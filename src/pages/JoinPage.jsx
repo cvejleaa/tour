@@ -69,7 +69,7 @@ export default function JoinPage() {
     attempted.current = true;
     (async () => {
       try {
-        const { id, name } = await joinLeague(code, user.uid);
+        const { id, name } = await joinLeague(code);
         tryLogActivity({
           leagueId: id, type: ACTIVITY.JOIN, actorUid: user.uid,
           actorName: profile?.displayName || 'Spiller', text: 'tilmeldte sig ligaen',

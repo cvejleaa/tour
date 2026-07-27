@@ -281,9 +281,12 @@ service cloud.firestore {
     // leagues/{leagueId}
     // -----------------------------------------------------------------------
     match /leagues/{leagueId} {
-      // Godkendte brugere kan læse ligaer (nødvendigt for opslag via join-kode);
-      // admin kan også læse alle.
-      allow read: if isApproved() || isGlobalAdmin();
+      // Ligaer er PRIVATE: kun medlemmer (og admin) kan læse dem. Ellers kunne
+      // enhver godkendt bruger læse alle ligaers join-koder og medlemslister —
+      // og dermed skrive sig ind i fremmede ligaer og læse deres væg.
+      // Opslag via join-kode sker server-side (redeemInviteCode, Admin SDK).
+      allow read: if isGlobalAdmin()
+        || (isApproved() && request.auth.uid in resource.data.memberUids);
 
       // Opret liga: kun for sig selv, og altid som 'pending' (skal godkendes)
       allow create: if isApproved()
@@ -304,16 +307,15 @@ service cloud.firestore {
         && (request.auth.uid in resource.data.get('adminUids', []))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids', 'name']);
 
-      // Tilmeld: godkendt bruger føjer sit eget uid til en GODKENDT liga.
-      // Kun ÉN tilføjelse (sig selv) er tilladt: den nye liste skal indeholde
-      // ALLE de hidtidige medlemmer plus præcis ét ekstra. Ellers kunne en
-      // ikke-medlem sætte memberUids = [sig selv] og dermed slette alle andre.
+      // Tilmelding sker SERVER-SIDE (redeemInviteCode med Admin SDK), som slår
+      // koden op og rate-limiter gæt. Klienten kan derfor ikke selv skrive sig
+      // ind i en liga — den kan jo alligevel ikke læse fremmede ligaer.
+      //
+      // Forlad ligaen: et medlem må fjerne PRÆCIS sig selv. De øvrige
+      // medlemmer skal være uændrede, så ingen kan smides ud ad den vej.
       allow update: if isApproved()
-        && resource.data.status == 'approved'
-        && !(request.auth.uid in resource.data.memberUids)
-        && request.auth.uid in request.resource.data.memberUids
-        && request.resource.data.memberUids.hasAll(resource.data.memberUids)
-        && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
+        && request.auth.uid in resource.data.memberUids
+        && request.resource.data.memberUids == resource.data.memberUids.removeAll([request.auth.uid])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids']);
 
       // globalAdmin/owner kan godkende/afvise og styre medlemmer — men kun den
@@ -660,9 +662,11 @@ service cloud.firestore {
               && request.resource.data.ownerUid == resource.data.ownerUid
               && request.resource.data.code == resource.data.code)
             ||
+            // Præcis "fjern mig selv": de øvrige medlemmer skal være uændrede.
+            // Uden den betingelse kunne et medlem skrive en helt ny liste og
+            // dermed smide andre ud eller lukke fremmede ind i ligaen.
             (request.auth.uid in resource.data.memberUids
-              && !(request.auth.uid in request.resource.data.memberUids)
-              && request.resource.data.memberUids.size() == resource.data.memberUids.size() - 1
+              && request.resource.data.memberUids == resource.data.memberUids.removeAll([request.auth.uid])
               && request.resource.data.ownerUid == resource.data.ownerUid
               && request.resource.data.code == resource.data.code
               && request.resource.data.name == resource.data.name)
@@ -727,7 +731,16 @@ service cloud.firestore {
           function question(qid) {
             return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)/questions/$(qid)).data;
           }
-          allow read: if isApproved() && request.auth.uid in aMembers();
+          // Eget svar kan altid læses. Andres først når spørgsmålet er lukket
+          // — altså når facit er sat, eller deadline er passeret (SERVERENS ur).
+          // Ellers kunne man kigge de andre i kortene og svare bagefter.
+          allow read: if isApproved()
+            && request.auth.uid in aMembers()
+            && (resource.data.uid == request.auth.uid
+                || question(resource.data.questionId).facit != null
+                || (question(resource.data.questionId).deadline != null
+                    && request.time.toMillis() >= question(resource.data.questionId).deadline));
+
           allow create, update: if isApproved()
             && request.auth.uid in aMembers()
             && request.resource.data.uid == request.auth.uid
