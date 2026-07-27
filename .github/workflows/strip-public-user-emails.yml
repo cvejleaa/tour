@@ -1,0 +1,45 @@
+name: Ryd e-mails fra offentlige profiler (spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+# Fjerner feltet 'email' fra users/{uid} (som alle godkendte brugere kan læse)
+# og sikrer, at adressen står i userContacts/{uid} (kun brugeren selv + admin).
+# Se scripts/strip-public-user-emails.mjs.
+#
+# Bruger repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Kun vise hvilke profiler der ville blive ryddet?'
+        type: boolean
+        default: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      - name: Tjek secret
+        run: |
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+
+      - name: Skriv service-account
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Ryd e-mails fra offentlige profiler
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          DRY_RUN: ${{ inputs.dryRun }}
+        run: node scripts/strip-public-user-emails.mjs

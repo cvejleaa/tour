@@ -534,9 +534,12 @@ exports.adminSetUserEmail = onCall({ region: REGION }, async (request) => {
     console.error('adminSetUserEmail:', e && e.message);
     throw new HttpsError('internal', 'Kunne ikke ændre e-mailen.');
   }
+  // E-mailen hører KUN hjemme i userContacts (kun brugeren selv + admin kan
+  // læse den). users/{uid} er den offentlige profil, som alle godkendte kan
+  // læse — den må aldrig indeholde adressen. Et evt. gammelt felt ryddes med.
   const batch = db.batch();
-  batch.set(db.collection('users').doc(uid), { email: newEmail }, { merge: true });
   batch.set(db.collection('userContacts').doc(uid), { uid, email: newEmail }, { merge: true });
+  batch.set(db.collection('users').doc(uid), { email: FieldValue.delete() }, { merge: true });
   await batch.commit();
   return { ok: true, uid, email: newEmail };
 });
