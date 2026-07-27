@@ -57,6 +57,20 @@ service cloud.firestore {
         ]);
     }
 
+    /** Opretter klienten en profil MED e-mail? E-mails hører kun hjemme i
+     *  userContacts/{uid} (kun brugeren selv + admin kan læse dem) —
+     *  users/{uid} kan alle godkendte brugere læse. */
+    function creatingWithUserEmail() {
+      return request.resource.data.keys().hasAny(['email']);
+    }
+
+    /** Rører opdateringen e-mail-feltet på den offentlige profil? Måles på
+     *  ÆNDRINGEN, så en profil der stadig har et gammelt felt, godt kan få
+     *  rettet fx sit navn. Serveren (Admin SDK) rydder feltet. */
+    function changingUserEmail() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(['email']);
+    }
+
     /** Forsøger klienten at skrive til points-feltet? */
     function writingPointsField() {
       return request.resource.data.diff(resource.data).affectedKeys()
@@ -77,20 +91,23 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.auth.uid == uid
         && request.resource.data.role == 'player'
         && request.resource.data.status == 'pending'
+        && !creatingWithUserEmail()
         && !request.resource.data.keys().hasAny(
             ['totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank', 'points']);
 
       // Brugeren kan opdatere egne ikke-beskyttede felter (f.eks. displayName)
       allow update: if isSignedIn() && request.auth.uid == uid
-        && !writingProtectedUserFields();
+        && !writingProtectedUserFields() && !changingUserEmail();
 
       // Global admin kan godkende/afvise brugere (status m.m.), men IKKE ændre
       // roller — kun ejeren udpeger/fjerner admins.
       allow update: if isGlobalAdmin()
+        && !changingUserEmail()
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
 
-      // Ejeren kan ændre alt, inkl. role (udpege/fjerne globale admins)
-      allow update: if isOwner();
+      // Ejeren kan ændre alt, inkl. role (udpege/fjerne globale admins) — men
+      // heller ikke ejeren lægger e-mails på den offentlige profil.
+      allow update: if isOwner() && !changingUserEmail();
 
       // Ingen kan slette brugerprofiler (kun admin via Functions/console)
       allow delete: if false;

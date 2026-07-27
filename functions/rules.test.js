@@ -183,6 +183,33 @@ describe('users/{uid} — sikkerhedsregler', () => {
     );
   });
 
+  it('en bruger KAN IKKE lægge sin e-mail på den OFFENTLIGE profil', async () => {
+    const ctx = testEnv.authenticatedContext('newUser');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'users', 'newUser'), {
+        displayName: 'Ny Spiller', role: 'player', status: 'pending',
+        email: 'ny@test.dk',
+      })
+    );
+  });
+
+  it('en bruger KAN IKKE tilføje e-mail til sin profil bagefter', async () => {
+    await createUser('user1', 'player', 'approved');
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('user1').firestore(), 'users', 'user1'),
+        { email: 'mig@test.dk' })
+    );
+  });
+
+  it('heller ikke ejeren kan lægge en e-mail på en offentlig profil', async () => {
+    await createUser('boss', 'owner', 'approved');
+    await createUser('user1', 'player', 'approved');
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('boss').firestore(), 'users', 'user1'),
+        { email: 'nogen@test.dk' })
+    );
+  });
+
   it('en spiller KAN opdatere sit eget displayName', async () => {
     await createUser('user1', 'player', 'approved');
 
