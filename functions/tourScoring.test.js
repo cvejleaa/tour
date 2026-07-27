@@ -184,3 +184,47 @@ describe('bonusNorm (bonus-svar normalisering)', () => {
     expect(bonusNorm('a')).not.toBe(bonusNorm(['a', 'b']));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Paritet: server-spejlet SKAL opføre sig som src/lib/tourScoring.js.
+// De to filer er ESM og CommonJS og kan ikke dele kode, så det eneste der
+// holder dem ens, er disciplin — og denne test. En stavefejl i holdmatchningen
+// giver 0 point til alle, uden at nogen ser det.
+// ---------------------------------------------------------------------------
+describe('tourScoring — paritet med src-udgaven', () => {
+  const FINISH = ['Rytter A', 'Rytter B', 'Rytter C', 'Rytter D', 'Rytter E'];
+
+  it('samme point, samme klassement, samme facit-udledning', async () => {
+    const src = await import('../src/lib/tourScoring.js');
+
+    expect(DEFAULT_POINTS).toEqual(src.DEFAULT_POINTS);
+    expect(QUESTION_DEFAULTS_BY_TYPE).toEqual(src.QUESTION_DEFAULTS_BY_TYPE);
+    expect(normalizePoints({})).toEqual(src.normalizePoints({}));
+    expect(normalizePoints({ q1: 9 })).toEqual(src.normalizePoints({ q1: 9 }));
+
+    expect(stageWinnerTeam(FINISH)).toBe(src.stageWinnerTeam(FINISH));
+    expect(stageGcTeam(FINISH)).toEqual(src.stageGcTeam(FINISH));
+    expect(topPointsTeam([{ rider: 'Rytter B', points: 30 }, { rider: 'Rytter A', points: 30 }]))
+      .toEqual(src.topPointsTeam([{ rider: 'Rytter B', points: 30 }, { rider: 'Rytter A', points: 30 }]));
+
+    const raw = { winnerTeam: 'Rytter A', gcTeam: 'Rytter B', mountainTeam: 'Rytter C' };
+    expect(resolveStageResult(raw)).toEqual(src.resolveStageResult(raw));
+
+    const stage = { number: 5, type: 'mountain' };
+    expect(activeQuestionsForStage(stage)).toEqual(src.activeQuestionsForStage(stage));
+
+    const bet = { winnerTeam: 'Rytter A', gcTeam: 'Rytter X' };
+    expect(isUntipped(bet, activeQuestionsForStage(stage)))
+      .toBe(src.isUntipped(bet, src.activeQuestionsForStage(stage)));
+    expect(stageTipComplete(stage, bet)).toBe(src.stageTipComplete(stage, bet));
+    expect(scoreStageBet(bet, raw, null, stage)).toEqual(src.scoreStageBet(bet, raw, null, stage));
+  });
+
+  it('bonusNorm er server-only og hører ikke til spejlet', async () => {
+    // Dokumenterer med vilje: normaliseringen bruges kun ved facit-matchning på
+    // serveren. Dukker den op i src, skal den med i paritets-tjekket ovenfor.
+    const src = await import('../src/lib/tourScoring.js');
+    expect(typeof bonusNorm).toBe('function');
+    expect(src.bonusNorm).toBeUndefined();
+  });
+});

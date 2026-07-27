@@ -43,6 +43,16 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       globals: true,
       setupFiles: './src/test/setup.js',
+      // src/firebase.js initialiserer Firebase ved import, så ENHVER testfil der
+      // (transitivt) importerer den, fejler uden web-config. Dummy-værdier her
+      // gør en lokal kørsel identisk med CI — ellers står to suiter permanent
+      // røde lokalt, og rød-der-er-normalt er dét, der skjuler ægte rød.
+      env: {
+        VITE_FIREBASE_API_KEY: 'demo-key',
+        VITE_FIREBASE_AUTH_DOMAIN: 'demo.firebaseapp.com',
+        VITE_FIREBASE_PROJECT_ID: 'demo-vm2026',
+        VITE_FIREBASE_APP_ID: '1:000000000000:web:demo',
+      },
       include: ['src/**/*.{test,spec}.{js,jsx}', 'scripts/**/*.{test,spec}.mjs'],
       coverage: {
         provider: 'v8',

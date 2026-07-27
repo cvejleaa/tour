@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 const {
   DEFAULT_POINTS, ROUND_BONUS, round1, outcomeReward, roundComboBonus,
   isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet, clampStake, CHANCE,
+  PULJE, ELO,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
   leagueTable, championshipTeams, puljeScore,
 } = require('./superligaScoring');
@@ -145,5 +146,23 @@ describe('superligaScoring (server-spejl)', () => {
     const args = { eloHome: 1623, eloAway: 1458 };
     expect(outcomeOdds(args)).toEqual(src.outcomeOdds(args));
     expect(updateElo(1574, 1521, 1)).toEqual(src.updateElo(1574, 1521, 1));
+
+    // Slutstillingens tie-break afgør puljen (6./7.-pladsen) og er et oplagt
+    // sted for drift mellem ESM og CommonJS — dansk localeCompare til sidst.
+    const tied = [
+      { home: 'Æble', away: 'Bo', homeGoals: 1, awayGoals: 1 },
+      { home: 'Anders', away: 'Åge', homeGoals: 1, awayGoals: 1 },
+      { home: 'Bo', away: 'Anders', homeGoals: 0, awayGoals: 0 },
+      { home: 'Åge', away: 'Æble', homeGoals: 2, awayGoals: 2 },
+    ];
+    expect(leagueTable(tied).map((r) => r.name)).toEqual(src.leagueTable(tied).map((r) => r.name));
+    expect(championshipTeams(tied, 2)).toEqual(src.championshipTeams(tied, 2));
+
+    // Konstanterne skal også være ens — et loft der kun ændres ét sted er
+    // præcis den slags drift, ingen opdager før pointene er forkerte.
+    expect(ROUND_BONUS).toEqual(src.ROUND_BONUS);
+    expect(CHANCE).toEqual(src.CHANCE);
+    expect(PULJE).toEqual(src.PULJE);
+    expect(ELO).toEqual(src.ELO);
   });
 });
