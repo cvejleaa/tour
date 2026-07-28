@@ -65,6 +65,15 @@ describe('updateProfile', () => {
   it('afviser for lang emoji', async () => {
     await expect(updateProfile('u1', { avatarEmoji: 'aaaaa' })).rejects.toThrow(/enkelt emoji/);
   });
+  it('accepterer en trøje-avatar (token, ikke emoji)', async () => {
+    // "jersey:polka" er 12 tegn og røg tidligere i emoji-længdetjekket, så man
+    // ikke kunne gemme profilen efter at have valgt en klassementstrøje.
+    await updateProfile('u1', { avatarEmoji: 'jersey:polka' });
+    expect(updateDocMock.mock.calls[0][1]).toEqual({ avatarEmoji: 'jersey:polka' });
+  });
+  it('afviser en ukendt trøje-token', async () => {
+    await expect(updateProfile('u1', { avatarEmoji: 'jersey:findes-ikke' })).rejects.toThrow(/Ukendt trøje/);
+  });
   it('gemmer gyldige felter', async () => {
     await updateProfile('u1', { avatarEmoji: '🦁', favoriteTeam: 'Cofidis', emailOptOut: true });
     expect(updateDocMock.mock.calls[0][1]).toEqual({ avatarEmoji: '🦁', favoriteTeam: 'Cofidis', emailOptOut: true });
