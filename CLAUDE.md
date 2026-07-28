@@ -15,6 +15,15 @@ De er defineret som agenter i `.claude/agents/` og køres parallelt, når
 | **Quality Control Manager** | Løser den det rigtige problem — og hvad rører den ellers ved? | at lande med en halv rettelse |
 | **Release Manager** | Hvad skal deployes, i hvilken rækkefølge, og hvad tjekkes bagefter? | en forkert udrulning |
 
+Dertil én rolle, der **kun** køres når ændringen kalder på det:
+
+| Rolle | Køres når ændringen rører |
+|---|---|
+| **Security Reviewer** | `firestore.rules`, `functions*/`, auth, invitationer, liga-tilmelding — eller noget andet, der afgør hvem der ser hvad |
+
+Den er med vilje ikke fast. En sikkerhedsgennemgang af en tekstrettelse lærer
+ingen noget, og en rolle, der altid siger "ser fint ud", holder man op med at læse.
+
 De er ikke en formalitet. Hver rolle har blokeret noget ægte:
 en grøn test, der ikke kunne fange fejlen; en rettelse, der kun lukkede
 symptomet; og en regel-udrulning, der ville have vist alle en tom stilling.
@@ -29,11 +38,22 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
 ## Rækkefølgen i praksis
 
 1. Skriv ændringen. Kør lokalt: `npm run lint`, relevante tests, `npm run build`.
-2. **Kør de tre roller.** Ret det, de finder.
+2. **Kør de tre roller** — plus Security Reviewer, hvis ændringen rører adgang.
+   Ret det, de finder.
 3. Commit → push → opret PR som draft.
 4. Vent på grøn CI (fire jobs). Un-draft → squash-merge.
 5. Deploy efter Release Managers plan.
 6. Verificér i produktion, og fortæl brugeren hvad der er live.
+
+## Sæsoneftersyn
+
+Rollerne kigger på én ændring ad gangen. Det, der vokser stille **mellem**
+ændringerne — forbrug, bundle, forældede afhængigheder, dokumentation der er
+drevet fra virkeligheden — ser ingen af dem.
+
+Kør derfor `/saesoneftersyn` før hver ny sæson, eller ca. hver anden måned.
+Aldrig midt i en aktiv runde. Kommandoen ligger i
+`.claude/commands/saesoneftersyn.md`.
 
 ## Faste regler
 
