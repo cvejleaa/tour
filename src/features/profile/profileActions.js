@@ -15,6 +15,7 @@ import {
 import { auth, db } from '../../firebase';
 import { COL } from '../../lib/constants';
 import { TOUR_TEAMS } from '../../data/tourTeams2026';
+import { isJerseyToken, JERSEY_BY_TOKEN } from '../../data/jerseyAvatars';
 import { PLATFORM_MODE } from '../../lib/platform';
 import { getAuthErrorMessage } from '../auth/firebaseErrors';
 
@@ -135,7 +136,11 @@ export async function updateProfile(uid, fields) {
   const patch = {};
   if ('avatarEmoji' in fields) {
     const e = fields.avatarEmoji;
-    if (e && [...e].length > 4) throw new Error('Vælg en enkelt emoji.');
+    // Trøje-avatarer gemmes som tokens ("jersey:polka"), ikke som emoji — de er
+    // længere end fire tegn og må ikke ryge i emoji-længdetjekket. Ellers kan
+    // man ikke gemme sin profil efter at have valgt en klassementstrøje.
+    if (e && !isJerseyToken(e) && [...e].length > 4) throw new Error('Vælg en enkelt emoji.');
+    if (isJerseyToken(e) && !JERSEY_BY_TOKEN[e]) throw new Error('Ukendt trøje.');
     patch.avatarEmoji = e || null;
   }
   if ('favoriteTeam' in fields) {
