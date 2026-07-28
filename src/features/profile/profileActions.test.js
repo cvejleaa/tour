@@ -28,6 +28,8 @@ vi.mock('firebase/auth', () => ({
 }));
 vi.mock('../auth/firebaseErrors', () => ({ getAuthErrorMessage: (e) => e?.message || 'auth-fejl' }));
 vi.mock('../../data/tourTeams2026', () => ({ TOUR_TEAMS: ['Cofidis', 'Movistar Team'] }));
+vi.mock('../../lib/platform', () => ({ get PLATFORM_MODE() { return platformState.on; } }));
+const platformState = { on: false };
 
 import {
   updateProfile, updateDisplayName, updateContactEmail, changeLoginEmail,
@@ -45,8 +47,20 @@ describe('updateProfile', () => {
   it('kræver login', async () => {
     await expect(updateProfile(null, { avatarEmoji: '😀' })).rejects.toThrow(/logget ind/);
   });
-  it('afviser ukendt hold', async () => {
+  it('afviser ukendt hold i Tour-appen', async () => {
     await expect(updateProfile('u1', { favoriteTeam: 'XXX' })).rejects.toThrow(/Ukendt hold/);
+  });
+  it('spærrer IKKE på platformen, hvor holdet hører til det enkelte spil', async () => {
+    // Migrerede profiler kan have et hold fra et andet spil (fx VM-landshold)
+    // liggende i den globale profil. Det må ikke blokere for at gemme navn,
+    // avatar eller mail-præferencer.
+    platformState.on = true;
+    try {
+      await updateProfile('u1', { avatarEmoji: '🦁', favoriteTeam: 'Danmark' });
+      expect(updateDocMock.mock.calls[0][1]).toEqual({ avatarEmoji: '🦁', favoriteTeam: 'Danmark' });
+    } finally {
+      platformState.on = false;
+    }
   });
   it('afviser for lang emoji', async () => {
     await expect(updateProfile('u1', { avatarEmoji: 'aaaaa' })).rejects.toThrow(/enkelt emoji/);

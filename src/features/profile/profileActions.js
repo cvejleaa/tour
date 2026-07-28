@@ -15,6 +15,7 @@ import {
 import { auth, db } from '../../firebase';
 import { COL } from '../../lib/constants';
 import { TOUR_TEAMS } from '../../data/tourTeams2026';
+import { PLATFORM_MODE } from '../../lib/platform';
 import { getAuthErrorMessage } from '../auth/firebaseErrors';
 
 const NAME_MAX = 40;
@@ -139,7 +140,11 @@ export async function updateProfile(uid, fields) {
   }
   if ('favoriteTeam' in fields) {
     const t = fields.favoriteTeam;
-    if (t && !TOUR_TEAMS.includes(t)) throw new Error('Ukendt hold.');
+    // Kun Tour-appen har en fast holdliste på den globale profil. På platformen
+    // er holdet spil-specifikt (games/{id}/players/{uid}.favoriteTeam), og
+    // migrerede profiler kan have et hold fra et HELT andet spil liggende —
+    // det må ikke spærre for at gemme navn, avatar eller mail-præferencer.
+    if (!PLATFORM_MODE && t && !TOUR_TEAMS.includes(t)) throw new Error('Ukendt hold.');
     patch.favoriteTeam = t || null;
   }
   if ('emailOptOut' in fields) {
