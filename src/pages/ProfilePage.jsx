@@ -48,8 +48,12 @@ export default function ProfilePage() {
       }
       await updateProfile(uid, {
         avatarEmoji: emoji,
-        favoriteTeam: team || null,
         emailOptOut: optOut,
+        // Yndlingshold hører til ét spil ad gangen på platformen (vælges under
+        // "Mit hold" inde i spillet), så feltet vises ikke her — og må derfor
+        // heller ikke sendes med. Ellers ville en gemt profil forsøge at skrive
+        // en værdi, brugeren hverken kan se eller ændre.
+        ...(PLATFORM_MODE ? {} : { favoriteTeam: team || null }),
       });
       setMsg('Profilen er gemt ✔');
     } catch (e2) {
