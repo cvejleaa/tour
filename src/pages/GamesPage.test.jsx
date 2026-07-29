@@ -86,6 +86,22 @@ describe('GamesPage', () => {
     });
   });
 
+  // Forlad sletter spillerens players-dokument med point og liga-medlemskab.
+  // Knappen må derfor kun findes, mens spillet er åbent — også hvis admin
+  // sætter et spil tilbage fra "Afsluttet" til en anden status.
+  it('viser ikke Forlad for et spil i gang', () => {
+    myGameIds = new Set(['tour']);
+    renderPage();
+    expect(screen.queryByRole('button', { name: /forlad Tour de France/i })).not.toBeInTheDocument();
+  });
+
+  it('viser ikke Forlad for et afsluttet spil', () => {
+    gamesData = allGames.map((g) => (g.id === 'wm' ? { ...g, status: 'finished' } : g));
+    renderPage();
+    expect(screen.getByText('Afsluttet')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /forlad VM 2026/i })).not.toBeInTheDocument();
+  });
+
   it('viser tom-tilstand når jeg ikke deltager i nogen spil', () => {
     myGameIds = new Set();
     renderPage();

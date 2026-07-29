@@ -61,12 +61,28 @@ const GAMES = [
   },
 ];
 
+// Felter, admin styrer fra Spil-tidsplan-fanen. På et spil, der allerede
+// findes, er virkeligheden i Firestore mere rigtig end listen heroppe: seedet
+// ville ellers stille rulle en "Afsluttet"-markering tilbage ved næste kørsel —
+// uden fejl og uden spor, fordi det skriver med merge.
+const ADMIN_OWNED = ['status', 'joinable'];
+
 async function seedGames() {
   console.log(`\nSeeder ${GAMES.length} spil i games-collection'en...`);
   const batch = db.batch();
   for (const { id, ...data } of GAMES) {
-    batch.set(db.collection('games').doc(id), { ...data, updatedAt: now, createdAt: now }, { merge: true });
-    console.log(`  • ${id} — ${data.name} (${data.status})`);
+    const ref = db.collection('games').doc(id);
+    const exists = (await ref.get()).exists;
+    const payload = { ...data, updatedAt: now };
+    if (exists) {
+      for (const f of ADMIN_OWNED) delete payload[f];
+    } else {
+      payload.createdAt = now;
+    }
+    batch.set(ref, payload, { merge: true });
+    console.log(exists
+      ? `  • ${id} — ${data.name} (findes; status/joinable urørt)`
+      : `  • ${id} — ${data.name} (ny, ${data.status})`);
   }
   await batch.commit();
   console.log('Spil seedet.');

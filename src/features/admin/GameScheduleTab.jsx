@@ -17,7 +17,7 @@ import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/co
 // Hvad hver status betyder i praksis — vises under vælgeren, så konsekvensen
 // af "Afsluttet" ikke først opdages, når spillet er væk fra oversigten.
 const STATUS_HELP = {
-  [GAME_STATUS.OPEN]: 'Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er joinable.',
+  [GAME_STATUS.OPEN]: 'Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er joinable. Spillerne kan forlade spillet igen — og et forladt spil tager point og liga-medlemskab med sig.',
   [GAME_STATUS.LIVE]: 'I gang. Påmindelser sendes, og Forlad-knappen er væk.',
   [GAME_STATUS.FINISHED]: 'Afsluttet: forsvinder fra "Åbne spil — deltag", og der sendes ikke flere påmindelser. Stilling og historik kan stadig ses.',
 };

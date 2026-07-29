@@ -1365,6 +1365,41 @@ describe('games/{gameId} — sikkerhedsregler', () => {
     await createGame('vm2026');
     await assertFails(deleteDoc(doc(testEnv.authenticatedContext('admin1').firestore(), 'games', 'vm2026')));
   });
+
+  // Status afgør, om spillet står som afsluttet, om det kan tilmeldes, og om
+  // der sendes påmindelser. Admin-fanen skriver feltet direkte fra klienten,
+  // så det er reglen — ikke knappen — der skal holde spillerne ude.
+  it('en spiller KAN IKKE ændre et spils status', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('tour2026', { status: 'live' });
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'tour2026'), {
+        status: 'finished',
+      })
+    );
+  });
+
+  it('global admin KAN sætte et spil til afsluttet', async () => {
+    await createUser('admin1', 'globalAdmin', 'approved');
+    await createGame('tour2026', { status: 'live' });
+    await assertSucceeds(
+      setDoc(
+        doc(testEnv.authenticatedContext('admin1').firestore(), 'games', 'tour2026'),
+        { status: 'finished' },
+        { merge: true },
+      )
+    );
+  });
+
+  it('en spiller KAN IKKE åbne et afsluttet spil igen', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026', { status: 'finished' });
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026'), {
+        status: 'open', joinable: true,
+      })
+    );
+  });
 });
 
 describe('games/{gameId}/players/{uid} — deltagelse', () => {
