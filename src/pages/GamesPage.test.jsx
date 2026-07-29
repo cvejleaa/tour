@@ -102,6 +102,23 @@ describe('GamesPage', () => {
     expect(screen.queryByRole('button', { name: /forlad VM 2026/i })).not.toBeInTheDocument();
   });
 
+  // Det brugeren bad om: et afsluttet eksternt spil skal STÅ på oversigten med
+  // grå etiket — ikke forsvinde. Kortet skal stadig linke til sin egen app.
+  it('viser et afsluttet eksternt spil under "Andre spil" med link i behold', () => {
+    gamesData = [
+      { id: 'tour2026', name: 'Tour de France 2026', emoji: '🚴', order: 1, season: '2026',
+        status: 'finished', joinable: false, externalUrl: 'https://tour.vejleaa.dk' },
+    ];
+    myGameIds = new Set();
+    renderPage();
+    expect(screen.getByText('Andre spil')).toBeInTheDocument();
+    expect(screen.getByText('Afsluttet')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /åbn Tour de France 2026 i sin egen app/i });
+    expect(link).toHaveAttribute('href', 'https://tour.vejleaa.dk');
+    // …og det reklameres ikke som noget, man kan deltage i.
+    expect(screen.getByText('Ingen åbne spil at deltage i lige nu.')).toBeInTheDocument();
+  });
+
   it('viser tom-tilstand når jeg ikke deltager i nogen spil', () => {
     myGameIds = new Set();
     renderPage();

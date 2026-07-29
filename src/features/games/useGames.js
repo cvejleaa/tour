@@ -16,12 +16,13 @@ import { useAuth } from '../../context/AuthContext';
 import { COL, GAME_STATUS } from '../../lib/constants';
 
 /**
- * Ren hjælpefunktion: opdel spil i "mine" (jeg deltager) og "åbne"
- * (jeg deltager IKKE, spillet er joinable og ikke afsluttet). Begge lister
- * sorteres efter game.order.
+ * Ren hjælpefunktion: opdel spil i tre lister, alle sorteret efter game.order.
+ *   - external : kører i sin egen app (externalUrl) — vises som link-ud
+ *   - mine     : jeg deltager, og spillet er ikke eksternt
+ *   - open     : jeg deltager IKKE, spillet er joinable og ikke afsluttet
  * @param {Array<object>} games       – alle spil
  * @param {Set<string>|Array<string>} myGameIds – id'er på mine spil
- * @returns {{ mine: Array<object>, open: Array<object> }}
+ * @returns {{ mine: Array<object>, open: Array<object>, external: Array<object> }}
  */
 export function splitGames(games, myGameIds) {
   const ids = myGameIds instanceof Set ? myGameIds : new Set(myGameIds || []);

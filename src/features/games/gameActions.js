@@ -115,8 +115,13 @@ export async function setGameSchedule(gameId, { startAt, puljeLockAt } = {}) {
  *
  * "finished" er ikke kun en etiket: spillet forsvinder fra "Åbne spil — deltag",
  * Forlad-knappen falder væk, og de daglige påmindelser holder op med at blive
- * sendt for spillet. Derfor valideres værdien her — en tastefejl ville ellers
- * lande som en status, ingen visning kender, og kortet ville vise rå-teksten.
+ * sendt for spillet.
+ *
+ * Værdien tjekkes her, så en tastefejl i UI'et ikke lander som en status, ingen
+ * visning kender (kortet ville vise rå-teksten, og påmindelserne ville stoppe
+ * tavst). Det er en hjælp, ikke en spærring: reglerne lader en global admin
+ * skrive hvad som helst på games/{gameId}, så beskyttelsen mod fremmede ligger
+ * i isGlobalAdmin() — ikke i denne linje.
  * @param {string} gameId
  * @param {string} status – en værdi fra GAME_STATUS
  * @returns {Promise<{ok:true}|{ok:false,error:string}>}

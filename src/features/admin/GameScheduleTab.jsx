@@ -52,12 +52,19 @@ function GameRow({ game }) {
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState(null); // { kind, text }
 
-  // Synk felterne når spillet (gen)indlæses.
+  // Synk felterne når spillet (gen)indlæses. Deps er bevidst PRIMITIVER:
+  // game.startAt/puljeLockAt er Timestamp-objekter, som useGames laver forfra
+  // ved hver snapshot. Med objekterne i deps ville et ugemt valg blive
+  // nulstillet, hver gang noget andet på spil-dokumentet blev skrevet — fx
+  // syncSuperligaResults, der opdaterer standings hvert kvarter. Admin ville
+  // se sit valg hoppe tilbage uden besked.
+  const startMs = toMs(game.startAt);
+  const puljeMs = toMs(game.puljeLockAt);
   useEffect(() => {
-    setStartAt(toLocalInput(toMs(game.startAt)));
-    setPuljeLockAt(toLocalInput(toMs(game.puljeLockAt)));
+    setStartAt(toLocalInput(startMs));
+    setPuljeLockAt(toLocalInput(puljeMs));
     setGameStatusField(game.status || '');
-  }, [game.startAt, game.puljeLockAt, game.status]);
+  }, [startMs, puljeMs, game.status]);
 
   const isFootball = game.type === 'football';
   const statusChanged = gameStatus && gameStatus !== game.status;

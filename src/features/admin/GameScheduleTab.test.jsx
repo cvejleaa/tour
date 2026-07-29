@@ -112,8 +112,29 @@ describe('GameScheduleTab — status', () => {
     fireEvent.change(screen.getByLabelText(/Spil-start/), { target: { value: '2026-07-04T12:00' } });
     fireEvent.change(statusSelect(), { target: { value: 'finished' } });
     fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
     expect(await screen.findByText(/tidsplan/i)).toBeInTheDocument();
     expect(mockSetGameStatus).not.toHaveBeenCalled();
+  });
+
+  // Spil-dokumentet skrives også af serveren (fx standings hvert kvarter).
+  // Et ugemt valg må ikke blive nulstillet af sådan en snapshot — ellers
+  // hopper vælgeren tilbage, uden at admin får besked.
+  it('beholder et ugemt statusvalg når spillet opdateres udefra', () => {
+    // Firestore-Timestamps er nye objekter ved hver snapshot — samme tidspunkt,
+    // anden reference.
+    const stamp = () => ({ toMillis: () => 1_700_000_000_000 });
+    mockGames.mockReturnValue({ games: [{ ...TOUR, startAt: stamp() }], loading: false });
+    const { rerender } = render(<GameScheduleTab />);
+    fireEvent.change(statusSelect(), { target: { value: 'finished' } });
+
+    // Serveren skriver noget andet på dokumentet; datoen er uændret.
+    mockGames.mockReturnValue({
+      games: [{ ...TOUR, startAt: stamp(), standings: ['ny'] }],
+      loading: false,
+    });
+    rerender(<GameScheduleTab />);
+    expect(statusSelect().value).toBe('finished');
   });
 
   it('tilbyder et tomt valg, når spillet slet ingen status har', () => {

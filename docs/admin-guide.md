@@ -45,6 +45,18 @@ Liga-admin følger med at have oprettet ligaen.
   midt i, fx fra runde 2.
 - **Bonus-deadline** lukker pulje-tippet. Den behøver ikke ligge før runde 1;
   giv gerne tid til at få spillere med.
+- **🏁 Status** er spillets livscyklus og et bevidst valg — den følger *ikke*
+  automatisk starttidspunktet eller sidste kamp:
+
+  | Status | Betyder |
+  |---|---|
+  | **Åben** | Kan tilmeldes. Spillerne kan også forlade spillet igen — og et forladt spil tager point og liga-medlemskab med sig. |
+  | **I gang** | Forlad-knappen er væk. Påmindelser sendes. |
+  | **Afsluttet** | Ude af "Åbne spil — deltag" og af 🔔 Påmindelser-fanen, og det daglige påmindelses-job springer spillet over. Stilling og historik kan stadig ses, og du kan stadig rette facit og genberegne. |
+
+  Et **eksternt** spil (fx Touren, der kører i sin egen app) bliver stående på
+  oversigten som link-ud, også når det er afsluttet — bare med grå etiket.
+  Statussen findes kun på platformen; tour.vejleaa.dk ser uændret ud.
 - **🔄 Genberegn point efter start-ændring** — kør den, når du har flyttet
   starttidspunktet, så tidligere runders point forsvinder fra totalerne straks.
 - **🔐 Genopbyg liga-adgang til stillingen** — kun nødvendig, hvis stillingen
