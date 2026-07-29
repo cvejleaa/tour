@@ -63,9 +63,30 @@ describe('GameScheduleTab — status', () => {
   // skrive status igen — ellers ville hver gemning røre ved livscyklussen.
   it('rører ikke status når kun tidsplanen ændres', async () => {
     render(<GameScheduleTab />);
+    fireEvent.change(screen.getByLabelText(/Spil-start/), { target: { value: '2026-07-04T12:00' } });
     fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
     await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
     expect(mockSetGameStatus).not.toHaveBeenCalled();
+  });
+
+  // Omvendt: kommer man kun for at afslutte spillet, må gemningen ikke skrive
+  // startAt igen. datetime-local har kun minut-præcision, så en blind skrivning
+  // ville nulstille sekunderne på en dato, ingen havde rørt.
+  it('rører ikke tidsplanen når kun status ændres', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.change(statusSelect(), { target: { value: 'finished' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameStatus).toHaveBeenCalledWith('tour2026', 'finished'));
+    expect(mockSetGameSchedule).not.toHaveBeenCalled();
+  });
+
+  it('sender kun det ændrede dato-felt med', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.change(screen.getByLabelText(/Spil-start/), { target: { value: '2026-07-04T12:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
+    const [, patch] = mockSetGameSchedule.mock.calls[0];
+    expect(Object.keys(patch)).toEqual(['startAt']);
   });
 
   it('forklarer hvad Afsluttet betyder, før der gemmes', () => {
@@ -87,6 +108,8 @@ describe('GameScheduleTab — status', () => {
   it('springer status over, hvis tidsplanen fejlede', async () => {
     mockSetGameSchedule.mockResolvedValue({ ok: false, error: 'Kunne ikke gemme spillets tidsplan.' });
     render(<GameScheduleTab />);
+    // Begge dele ændres, så tidsplanen faktisk skrives — og fejler.
+    fireEvent.change(screen.getByLabelText(/Spil-start/), { target: { value: '2026-07-04T12:00' } });
     fireEvent.change(statusSelect(), { target: { value: 'finished' } });
     fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
     expect(await screen.findByText(/tidsplan/i)).toBeInTheDocument();

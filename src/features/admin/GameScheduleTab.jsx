@@ -64,11 +64,18 @@ function GameRow({ game }) {
 
   async function save() {
     setBusy(true); setSaveMsg(null);
-    // Tomt felt → null (ryd). datetime-local læses som lokal tid.
-    const res = await setGameSchedule(game.id, {
-      startAt: startAt ? new Date(startAt).getTime() : null,
-      ...(isFootball ? { puljeLockAt: puljeLockAt ? new Date(puljeLockAt).getTime() : null } : {}),
-    });
+    // Kun de datoer, der faktisk er ændret. datetime-local har kun
+    // minut-præcision, så et blindt gem ville nulstille sekunderne på et
+    // startAt, ingen havde rørt — fx når man kun kom for at skifte status.
+    // Tomt felt → null (ryd).
+    const patch = {};
+    if (startAt !== toLocalInput(toMs(game.startAt))) {
+      patch.startAt = startAt ? new Date(startAt).getTime() : null;
+    }
+    if (isFootball && puljeLockAt !== toLocalInput(toMs(game.puljeLockAt))) {
+      patch.puljeLockAt = puljeLockAt ? new Date(puljeLockAt).getTime() : null;
+    }
+    const res = Object.keys(patch).length ? await setGameSchedule(game.id, patch) : { ok: true };
     // Status skrives kun når den faktisk er ændret — så en gemt tidsplan ikke
     // rører ved livscyklussen.
     const statusRes = res.ok && statusChanged
