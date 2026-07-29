@@ -15,7 +15,7 @@ import {
   doc, setDoc, deleteDoc, deleteField, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { COL } from '../../lib/constants';
+import { COL, GAME_STATUS_VALUES } from '../../lib/constants';
 
 /**
  * Oversæt en admin-indtastet dato til en Firestore-værdi:
@@ -106,6 +106,38 @@ export async function setGameSchedule(gameId, { startAt, puljeLockAt } = {}) {
     return { ok: true };
   } catch (err) {
     return { ok: false, error: danishError(err, 'Kunne ikke gemme spillets tidsplan.') };
+  }
+}
+
+/**
+ * Sæt spillets status — open → live → finished (kun admin/owner; håndhæves af
+ * security rules: games/{gameId} write = isGlobalAdmin).
+ *
+ * "finished" er ikke kun en etiket: spillet forsvinder fra "Åbne spil — deltag",
+ * Forlad-knappen falder væk, og de daglige påmindelser holder op med at blive
+ * sendt for spillet.
+ *
+ * Værdien tjekkes her, så en tastefejl i UI'et ikke lander som en status, ingen
+ * visning kender (kortet ville vise rå-teksten, og påmindelserne ville stoppe
+ * tavst). Det er en hjælp, ikke en spærring: reglerne lader en global admin
+ * skrive hvad som helst på games/{gameId}, så beskyttelsen mod fremmede ligger
+ * i isGlobalAdmin() — ikke i denne linje.
+ * @param {string} gameId
+ * @param {string} status – en værdi fra GAME_STATUS
+ * @returns {Promise<{ok:true}|{ok:false,error:string}>}
+ */
+export async function setGameStatus(gameId, status) {
+  if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
+  if (!GAME_STATUS_VALUES.includes(status)) return { ok: false, error: 'Ukendt status.' };
+  try {
+    await setDoc(
+      doc(db, COL.GAMES, gameId),
+      { status, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke gemme spillets status.') };
   }
 }
 

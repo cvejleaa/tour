@@ -117,6 +117,18 @@ export const GAME_STATUS = {
   FINISHED: 'finished', // afsluttet (kun visning/historik)
 };
 
+// De gyldige status-værdier — brug denne til at validere admin-input, så en
+// tastefejl ikke lander som en status, ingen visning kender.
+export const GAME_STATUS_VALUES = Object.values(GAME_STATUS);
+
+// Dansk etiket pr. status. Ét sted, så spiloversigten, spil-siden og
+// admin-fanen ikke kan komme til at kalde det samme tre forskellige ting.
+export const GAME_STATUS_LABEL = {
+  [GAME_STATUS.OPEN]: 'Åben',
+  [GAME_STATUS.LIVE]: 'I gang',
+  [GAME_STATUS.FINISHED]: 'Afsluttet',
+};
+
 // Point-felter på games/{gameId}/players/{uid} som KUN serveren må sætte.
 // En spiller kan oprette sit eget players-dokument (= "deltag"), men aldrig
 // seede sin egen pointsum eller placering (samme princip som users-profilen).

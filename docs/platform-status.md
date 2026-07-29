@@ -26,8 +26,9 @@ og brandingen er ryddet op. Næste store blok er Fase B: de rigtige spil-sider.
       veje. Selvbetjent godkendelse bevaret.
 - [x] **Spiloversigt** (`/spil`): "Mine spil" / "Åbne spil — deltag", ét-kliks
       tilmelding, forlad-igen (uden point).
-- [x] **De tre spil seedet:** VM 2026 (afsluttet), Tour de France 2026 (i gang),
-      Superligaen 2026/27 (åben).
+- [x] **De tre spil seedet:** VM 2026 (afsluttet), Tour de France 2026
+      (afsluttet), Superligaen 2026/27 (åben). Status sættes i Admin →
+      🗓️ Spil-tidsplan; seedet rører den ikke på spil, der allerede findes.
 - [x] **Bruger-migrering:** 20 Tour-konti importeret til platformen med
       **bevarede kodeord** + profiler. Eksisterende spillere kan logge ind nu.
 - [x] **Branding ryddet op** i platform-tilstand: neutral login/menu/profil,

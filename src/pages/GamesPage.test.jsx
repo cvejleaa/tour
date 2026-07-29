@@ -86,6 +86,39 @@ describe('GamesPage', () => {
     });
   });
 
+  // Forlad sletter spillerens players-dokument med point og liga-medlemskab.
+  // Knappen må derfor kun findes, mens spillet er åbent — også hvis admin
+  // sætter et spil tilbage fra "Afsluttet" til en anden status.
+  it('viser ikke Forlad for et spil i gang', () => {
+    myGameIds = new Set(['tour']);
+    renderPage();
+    expect(screen.queryByRole('button', { name: /forlad Tour de France/i })).not.toBeInTheDocument();
+  });
+
+  it('viser ikke Forlad for et afsluttet spil', () => {
+    gamesData = allGames.map((g) => (g.id === 'wm' ? { ...g, status: 'finished' } : g));
+    renderPage();
+    expect(screen.getByText('Afsluttet')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /forlad VM 2026/i })).not.toBeInTheDocument();
+  });
+
+  // Det brugeren bad om: et afsluttet eksternt spil skal STÅ på oversigten med
+  // grå etiket — ikke forsvinde. Kortet skal stadig linke til sin egen app.
+  it('viser et afsluttet eksternt spil under "Andre spil" med link i behold', () => {
+    gamesData = [
+      { id: 'tour2026', name: 'Tour de France 2026', emoji: '🚴', order: 1, season: '2026',
+        status: 'finished', joinable: false, externalUrl: 'https://tour.vejleaa.dk' },
+    ];
+    myGameIds = new Set();
+    renderPage();
+    expect(screen.getByText('Andre spil')).toBeInTheDocument();
+    expect(screen.getByText('Afsluttet')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /åbn Tour de France 2026 i sin egen app/i });
+    expect(link).toHaveAttribute('href', 'https://tour.vejleaa.dk');
+    // …og det reklameres ikke som noget, man kan deltage i.
+    expect(screen.getByText('Ingen åbne spil at deltage i lige nu.')).toBeInTheDocument();
+  });
+
   it('viser tom-tilstand når jeg ikke deltager i nogen spil', () => {
     myGameIds = new Set();
     renderPage();

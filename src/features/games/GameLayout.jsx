@@ -4,14 +4,8 @@
  * og renderer det spiltype-specifikke indhold nedenunder.
  */
 import { Link } from 'react-router-dom';
-import { GAME_STATUS } from '../../lib/constants';
+import { GAME_STATUS_LABEL as STATUS_LABEL } from '../../lib/constants';
 import { fmtPoints } from '../../lib/daNum';
-
-const STATUS_LABEL = {
-  [GAME_STATUS.OPEN]: 'Åben',
-  [GAME_STATUS.LIVE]: 'I gang',
-  [GAME_STATUS.FINISHED]: 'Afsluttet',
-};
 
 /** Spillerens saldo (bank) ud fra players-dokumentet. */
 export function playerBank(me) {

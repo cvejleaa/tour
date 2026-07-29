@@ -57,6 +57,11 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   en almindelig deploy. Har du ændret noget i `functions-platform/`, skal det
   sættes til true, ellers kører den gamle backend videre.
 - `seedGames` (default false) — skriver spil-dokumenter i produktion.
+  På spil, der **allerede findes**, springer seedet `status` og `joinable` over.
+  De to felter ejes af Admin → 🗓️ Spil-tidsplan, og listen i scriptet er ældre
+  end virkeligheden. Uden den undtagelse ville en seed-kørsel stille rulle et
+  spil fra "Afsluttet" tilbage til "I gang" — den skriver med merge, så det
+  hverken fejler eller efterlader spor.
 - `seedSuperliga` (default false) — skriver hele kampprogrammet.
 
 ## Hvis noget ser tomt ud
