@@ -70,8 +70,21 @@ describe('splitGames', () => {
     expect(b.mine.map((g) => g.id)).not.toContain('e');
   });
 
-  it('afsluttede eksterne spil vises ikke som link-ud', () => {
+  // Et afsluttet eksternt spil må IKKE forsvinde fra oversigten: appen kører
+  // stadig, og stillingen skal kunne slås op bagefter. Tidligere faldt det ud
+  // af alle tre lister på én gang og var dermed usynligt for alle, der ikke
+  // tilfældigvis havde et players-dokument i spillet.
+  it('afsluttede eksterne spil bliver stående som link-ud', () => {
     const withExt = [{ id: 'f', name: 'Slut', order: 1, joinable: false, status: 'finished', externalUrl: 'https://x' }];
-    expect(splitGames(withExt, new Set()).external).toEqual([]);
+    const { external, mine, open } = splitGames(withExt, new Set());
+    expect(external.map((g) => g.id)).toEqual(['f']);
+    // …men det reklameres stadig ikke som noget, man kan deltage i.
+    expect(open).toEqual([]);
+    expect(mine).toEqual([]);
+  });
+
+  it('afsluttet eksternt spil er stadig ude af "åbne", selv når det er joinable', () => {
+    const withExt = [{ id: 'g', name: 'Slut2', order: 1, joinable: true, status: 'finished', externalUrl: 'https://x' }];
+    expect(splitGames(withExt, new Set()).open).toEqual([]);
   });
 });

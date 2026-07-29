@@ -11,12 +11,13 @@ import {
   callGamePuljeStatus,
 } from './adminActions';
 import { formatKickoff } from '../../lib/daDate';
+import { GAME_STATUS } from '../../lib/constants';
 
 export default function GameReminderTab() {
   const { games, loading } = useGames();
   // Kun spil med et kampprogram (fodbold-spil) kan have tip-påmindelser.
   const eligible = useMemo(
-    () => (games || []).filter((g) => g.type === 'football' && g.status !== 'finished'),
+    () => (games || []).filter((g) => g.type === 'football' && g.status !== GAME_STATUS.FINISHED),
     [games],
   );
 

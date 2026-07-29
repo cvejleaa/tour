@@ -27,8 +27,11 @@ export function splitGames(games, myGameIds) {
   const ids = myGameIds instanceof Set ? myGameIds : new Set(myGameIds || []);
   const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0);
   // Eksterne spil (kører i deres egen app, fx tour.vejleaa.dk) vises altid som
-  // link-ud — uanset medlemskab — indtil de migreres ind i platformen.
-  const isExternal = (g) => !!g.externalUrl && g.status !== GAME_STATUS.FINISHED;
+  // link-ud — uanset medlemskab OG uanset status. Et afsluttet spil skal stå
+  // med et gråt "Afsluttet"-mærkat, ikke forsvinde: appen er der stadig, og
+  // stillingen er værd at kunne slå op bagefter. At det ikke reklameres som
+  // noget, man kan deltage i, klarer "åbne"-filteret nedenfor.
+  const isExternal = (g) => !!g.externalUrl;
   const external = (games || []).filter(isExternal).sort(byOrder);
   const mine = (games || []).filter((g) => ids.has(g.id) && !isExternal(g)).sort(byOrder);
   const open = (games || [])

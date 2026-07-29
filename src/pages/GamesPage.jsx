@@ -12,14 +12,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGames, splitGames } from '../features/games/useGames';
 import { joinGame, leaveGame } from '../features/games/gameActions';
-import { GAME_STATUS } from '../lib/constants';
-
-// Dansk etiket for et spils status.
-const STATUS_LABEL = {
-  [GAME_STATUS.OPEN]: 'Åben',
-  [GAME_STATUS.LIVE]: 'I gang',
-  [GAME_STATUS.FINISHED]: 'Afsluttet',
-};
+import { GAME_STATUS, GAME_STATUS_LABEL as STATUS_LABEL } from '../lib/constants';
 
 function statusBadgeClass(status) {
   if (status === GAME_STATUS.LIVE) return 'badge badge--green';

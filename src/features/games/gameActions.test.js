@@ -2,7 +2,9 @@
  * Tests for gameActions.js – fuldstændig mock af Firebase.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { joinGame, leaveGame, setGameSchedule, setPlayerFavoriteTeam } from './gameActions';
+import {
+  joinGame, leaveGame, setGameSchedule, setGameStatus, setPlayerFavoriteTeam,
+} from './gameActions';
 
 // ── Mock firebase/firestore ───────────────────────────────────────────────────
 const mockSetDoc = vi.fn();
@@ -141,6 +143,49 @@ describe('setGameSchedule', () => {
     const [, patch] = mockSetDoc.mock.calls[0];
     expect(patch.startAt).toEqual({ _ts: 500 });
     expect('puljeLockAt' in patch).toBe(false);
+  });
+});
+
+describe('setGameStatus', () => {
+  it('returnerer fejl uden gameId', async () => {
+    const res = await setGameStatus('', 'finished');
+    expect(res.ok).toBe(false);
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it('afviser en ukendt status uden at skrive', async () => {
+    const res = await setGameStatus('tour2026', 'afsluttet'); // dansk ≠ feltværdi
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/ukendt status/i);
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it('afviser tom status', async () => {
+    expect((await setGameStatus('tour2026', '')).ok).toBe(false);
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it('skriver status på games/{gameId} (merge) og rører intet andet', async () => {
+    const res = await setGameStatus('tour2026', 'finished');
+    expect(res).toEqual({ ok: true });
+    expect(mockDoc).toHaveBeenCalledWith({}, 'games', 'tour2026');
+    const [, patch, opts] = mockSetDoc.mock.calls[0];
+    expect(patch.status).toBe('finished');
+    expect(Object.keys(patch).sort()).toEqual(['status', 'updatedAt']);
+    expect(opts).toEqual({ merge: true });
+  });
+
+  it('accepterer alle tre livscyklus-værdier', async () => {
+    for (const s of ['open', 'live', 'finished']) {
+      expect((await setGameStatus('g', s)).ok).toBe(true);
+    }
+  });
+
+  it('returnerer dansk fejl når skrivningen afvises', async () => {
+    mockSetDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+    const res = await setGameStatus('tour2026', 'finished');
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/adgang/i);
   });
 });
 
