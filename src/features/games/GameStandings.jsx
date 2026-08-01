@@ -3,11 +3,16 @@
  * navn) og point, med en lille pil for placerings-ændring. Fremhæver den
  * indloggede spiller.
  */
+import { useMemo, useState } from 'react';
 import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useVisibleGameStandings } from './useVisibleGameStandings';
-import { rankDelta } from './gameStandings';
+import { rankDelta, subsetRanking } from './gameStandings';
 import { formatPoints } from './GameLayout';
+
+// Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
+// et manglende valg.
+const ALLE = '__alle__';
 
 function DeltaArrow({ row }) {
   const d = rankDelta(row);
@@ -25,12 +30,24 @@ function DeltaArrow({ row }) {
 
 export default function GameStandings({ gameId }) {
   const { user } = useAuth();
-  const { standings, leagueCount, loading, error } = useVisibleGameStandings(gameId);
+  const { standings: alleMine, leagues, leagueCount, loading, error } = useVisibleGameStandings(gameId);
+
+  // Filter: hele kredsen (alle mine ligaer samlet) eller én enkelt liga.
+  const [leagueId, setLeagueId] = useState(ALLE);
+  // Er ligaen forsvundet under fødderne på en (forladt, slettet), falder vi
+  // tilbage til alle — hellere end en tom tabel uden forklaring.
+  const valgt = leagues.find((l) => l.id === leagueId) || null;
+  const standings = useMemo(
+    () => (valgt ? subsetRanking(alleMine, valgt.memberUids) : alleMine),
+    [alleMine, valgt],
+  );
 
   if (loading) return <div className="spinner" role="status" aria-label="Indlæser" />;
   if (error) return <p className="badge badge--red">{error}</p>;
 
-  if (standings.length === 0) {
+  // Måles på HELE kredsen, ikke på det filtrerede resultat: ellers ville en
+  // tom liga skjule selve filteret, og man kunne ikke vælge sig tilbage.
+  if (alleMine.length === 0) {
     return (
       <div className="empty-state">
         <div className="empty-state__icon">🏆</div>
@@ -94,8 +111,31 @@ export default function GameStandings({ gameId }) {
 
   return (
     <div>
+      {/* Filteret vises kun, når der er noget at vælge imellem: med én liga
+          er "alle mine ligaer" og den ene liga det samme. */}
+      {leagueCount > 1 && (
+        <label style={{ display: 'block', margin: '0 0 0.6rem' }}>
+          <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--c-muted)', marginBottom: '0.2rem' }}>
+            Vis stilling for
+          </span>
+          <select
+            value={valgt ? valgt.id : ALLE}
+            onChange={(e) => setLeagueId(e.target.value)}
+            style={{ width: '100%', maxWidth: '18rem' }}
+            aria-label="Vis stilling for"
+          >
+            <option value={ALLE}>Alle mine ligaer</option>
+            {leagues.map((l) => (
+              <option key={l.id} value={l.id}>{l.name || 'Liga uden navn'}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', margin: '0 0 0.6rem' }}>
-        Viser de {standings.length} spillere, du deler liga med.
+        {valgt
+          ? `Viser de ${standings.length} spillere i ${valgt.name || 'ligaen'}.`
+          : `Viser de ${standings.length} spillere, du deler liga med.`}
       </p>
       {hasPodium && (
         <div className="podium">
@@ -108,6 +148,12 @@ export default function GameStandings({ gameId }) {
             </div>
           ))}
         </div>
+      )}
+
+      {standings.length === 0 && (
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>
+          Ingen af ligaens medlemmer er med i stillingen endnu.
+        </p>
       )}
 
       {listRows.length > 0 && (
