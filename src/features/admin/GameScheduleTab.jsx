@@ -106,7 +106,7 @@ function GameRow({ game }) {
     setSyncBusy(true); setSyncMsg(null);
     const res = await callBackfillPlayerLeagues(game.id);
     setSyncMsg(res.ok
-      ? { kind: 'ok', text: `Gennemgik ${res.data?.players ?? '?'} spillere, rettede ${res.data?.changed ?? 0}.` }
+      ? { kind: 'ok', text: `Gennemgik ${res.data?.players ?? '?'} spillere (rettede ${res.data?.changed ?? 0}) og ${res.data?.bets ?? 0} tips (rettede ${res.data?.betsChanged ?? 0}).` }
       : { kind: 'err', text: res.error });
     setSyncBusy(false);
   }
@@ -197,11 +197,12 @@ function GameRow({ game }) {
         </div>
       )}
 
-      {/* Liga-medlemskabet på spillernes dokumenter afgør, hvem der kan se hvis
-          point. Serveren holder det opdateret — knappen genopbygger det. */}
+      {/* Liga-medlemskabet står både på spillerne (hvem ser hvis point) og på
+          tippene (hvem ser hvis tip efter kickoff). Serveren holder begge dele
+          opdateret — knappen genopbygger dem ud fra ligaernes memberUids. */}
       <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
         <button className="btn btn--ghost btn--sm" onClick={syncLeagues} disabled={syncBusy}>
-          {syncBusy ? 'Genopbygger…' : '🔐 Genopbyg liga-adgang til stillingen'}
+          {syncBusy ? 'Genopbygger…' : '🔐 Genopbyg liga-adgang til stilling og tips'}
         </button>
         {syncMsg && (
           <span className={`badge ${syncMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
