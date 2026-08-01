@@ -7,6 +7,9 @@ import { useMemo, useState } from 'react';
 import { useGameBets } from '../useGameBets';
 import { setBet } from '../betActions';
 import LeagueBets from './LeagueBets';
+import MatchElo from './MatchElo';
+import { eloFormByTeam } from './eloHistory';
+import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
 import { playerBank } from '../GameLayout';
 import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
@@ -113,6 +116,16 @@ export default function FootballTip({ game, me, matches }) {
     }
     return null;
   }, [roundMatches, betsByMatch]);
+
+  // Elo-opslaget bygges ÉN gang for hele runden — ikke pr. kampkort. Kilden er
+  // de rundevise snapshots, serveren har lagt på spillet; her regnes intet.
+  const eloByTeam = useMemo(
+    () => eloFormByTeam(
+      Array.isArray(game?.teams) && game.teams.length ? game.teams : SUPERLIGA_TEAMS_2026,
+      game?.eloHistory,
+    ),
+    [game?.teams, game?.eloHistory],
+  );
 
   if (!rounds.length) {
     return (
@@ -375,6 +388,8 @@ export default function FootballTip({ game, me, matches }) {
                 <span className="match-card__side-name">{m.away}</span>
               </div>
             </div>
+
+            <MatchElo home={m.home} away={m.away} eloByTeam={eloByTeam} />
 
             <div className="pick-grid">
               {OUTCOMES.map((o) => {

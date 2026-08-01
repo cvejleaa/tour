@@ -30,3 +30,36 @@ export function eloRows(teams, serverHistory) {
   rows.sort((a, b) => b.current - a.current || a.name.localeCompare(b.name, 'da'));
   return { rows, rounds: cols.map((c) => c.round) };
 }
+
+/** Hvor mange udviklingspunkter tip-fladen viser pr. hold. */
+export const FORM_POINTS = 5;
+
+/**
+ * Opslag holdnavn → rating og de seneste udviklingspunkter. Bruges på
+ * tip-fladen, hvor der ikke er plads til hele sæsonen.
+ *
+ * Er der færre end n spillede runder, vises dem der er — formen skal ikke
+ * lyve om, hvor meget den bygger på. Er der ingen, er form tom, og current er
+ * start-ratingen.
+ *
+ * @param {Array<object>} teams          – seed (start-rating)
+ * @param {Array<object>} serverHistory  – game.eloHistory
+ * @param {number} [n=FORM_POINTS]       – højst så mange punkter, nyeste sidst
+ * @returns {Record<string, {current:number, start:number, form:Array<object>, trend:number}>}
+ *   trend = summen af de VISTE deltaer, ikke hele sæsonens bevægelse.
+ */
+export function eloFormByTeam(teams, serverHistory, n = FORM_POINTS) {
+  const { rows } = eloRows(teams, serverHistory);
+  const antal = Math.max(0, Math.floor(Number(n)) || 0);
+  const out = {};
+  for (const r of rows) {
+    const form = antal ? r.cells.slice(-antal) : [];
+    out[r.name] = {
+      current: r.current,
+      start: r.start,
+      form,
+      trend: form.reduce((sum, c) => sum + c.delta, 0),
+    };
+  }
+  return out;
+}
