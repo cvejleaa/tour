@@ -10,7 +10,15 @@ import { leagueMateStandings } from './gameStandings';
 
 /**
  * @param {string} gameId
- * @returns {{ standings: Array<object>, leagueCount: number, loading: boolean, error: string|null }}
+ * @returns {{
+ *   standings: Array<object>,
+ *   leagues: Array<object>,
+ *   leagueCount: number,
+ *   loading: boolean,
+ *   error: string|null,
+ * }}
+ *   leagues gives med retur, så visningen kan filtrere ned på én enkelt liga
+ *   uden at åbne et dublet-abonnement på samme forespørgsel.
  */
 export function useVisibleGameStandings(gameId) {
   const { user } = useAuth();
@@ -24,5 +32,5 @@ export function useVisibleGameStandings(gameId) {
     [all, leagues, uid],
   );
 
-  return { standings, leagueCount: leagues.length, loading, error };
+  return { standings, leagues, leagueCount: leagues.length, loading, error };
 }

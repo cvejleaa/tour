@@ -75,6 +75,51 @@ describe('subsetRanking (liga-stilling)', () => {
   it('tom medlemsliste → tom stilling', () => {
     expect(subsetRanking(ranked, [])).toEqual([]);
   });
+
+  // previousRank er spillets SAMLEDE rang. Følger den uændret med ind i en
+  // delmængde, sammenligner rankDelta to forskellige skalaer, og alle får en
+  // stor grøn pil op uden at have flyttet sig.
+  it('gen-tildeler også previousRank inden for delmængden', () => {
+    const rows = [
+      { uid: 'b', totalPoints: 12, rank: 1, previousRank: 11 },
+      { uid: 'c', totalPoints: 8, rank: 2, previousRank: 4 },
+      { uid: 'a', totalPoints: 5, rank: 3, previousRank: 17 },
+    ];
+    const league = subsetRanking(rows, ['a', 'b']);
+    // b var bedst placeret af de to (11 < 17) → forrige plads 1, nu 1: ingen pil.
+    expect(league.map((r) => [r.uid, r.rank, r.previousRank]))
+      .toEqual([['b', 1, 1], ['a', 2, 2]]);
+    expect(league.map(rankDelta)).toEqual([0, 0]);
+  });
+
+  it('lader en spiller uden forrige placering slippe for en pil', () => {
+    const rows = [
+      { uid: 'b', totalPoints: 12, rank: 1, previousRank: 3 },
+      { uid: 'a', totalPoints: 5, rank: 2 }, // ny spiller
+    ];
+    const league = subsetRanking(rows, ['a', 'b']);
+    expect(league[1].previousRank).toBeNull();
+    expect(rankDelta(league[1])).toBeNull();
+  });
+
+  it('deler forrige placering ved lige forrige rang', () => {
+    const rows = [
+      { uid: 'b', totalPoints: 12, rank: 1, previousRank: 5 },
+      { uid: 'a', totalPoints: 9, rank: 2, previousRank: 5 },
+      { uid: 'c', totalPoints: 3, rank: 3, previousRank: 9 },
+    ];
+    const league = subsetRanking(rows, ['a', 'b', 'c']);
+    expect(league.map((r) => r.previousRank)).toEqual([1, 1, 3]);
+  });
+
+  it('gen-tildeler rank ved lige point', () => {
+    const rows = [
+      { uid: 'b', totalPoints: 9, rank: 2, previousRank: 2 },
+      { uid: 'a', totalPoints: 9, rank: 3, previousRank: 3 },
+      { uid: 'c', totalPoints: 1, rank: 8, previousRank: 8 },
+    ];
+    expect(subsetRanking(rows, ['a', 'b', 'c']).map((r) => r.rank)).toEqual([1, 1, 3]);
+  });
 });
 
 describe('rankDelta', () => {

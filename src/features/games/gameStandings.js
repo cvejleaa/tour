@@ -53,11 +53,29 @@ export function rankDelta(row) {
 export function subsetRanking(rows, memberUids) {
   const set = memberUids instanceof Set ? memberUids : new Set(memberUids || []);
   const filtered = (rows || []).filter((r) => set.has(r.uid));
+
+  // previousRank kommer fra serveren og er rangen i HELE spillet. Lader man
+  // den stå, mens rank gen-tildeles inden for delmængden, sammenligner
+  // rankDelta to forskellige skalaer — og så får alle en stor grøn pil op,
+  // hver eneste gang, uden at have flyttet sig. Den skal derfor også
+  // gen-tildeles inden for delmængden, i den indbyrdes rækkefølge den havde.
+  const prevRankByUid = new Map();
+  const medForrige = filtered.filter((r) => Number.isFinite(r.previousRank));
+  const iForrigeOrden = [...medForrige].sort((a, b) => a.previousRank - b.previousRank);
+  let pRank = 0;
+  let pPrev = null;
+  iForrigeOrden.forEach((r, i) => {
+    if (r.previousRank !== pPrev) { pRank = i + 1; pPrev = r.previousRank; }
+    prevRankByUid.set(r.uid, pRank);
+  });
+
   let rank = 0;
   let prevPts = null;
   return filtered.map((r, i) => {
     if (r.totalPoints !== prevPts) { rank = i + 1; prevPts = r.totalPoints; }
-    return { ...r, rank };
+    // Ingen forrige placering (ny spiller) → ingen pil, frem for en falsk en.
+    const previousRank = prevRankByUid.has(r.uid) ? prevRankByUid.get(r.uid) : null;
+    return { ...r, rank, previousRank };
   });
 }
 
