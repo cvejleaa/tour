@@ -2,10 +2,13 @@
 // scripts/backfill-player-leagues.mjs — skriv liga-medlemskabet ned på
 // games/{gameId}/players/{uid}.leagueIds i platformen (spil-89af9).
 //
-// Feltet er dét, security rules bruger til at afgøre, hvem der må se hvis
-// point: stillingen viser kun spillere, man deler mindst én liga med. Serveren
-// holder feltet opdateret via syncPlayerLeagues-triggeren; dette script laver
-// engangs-backfill af eksisterende data (kør FØR de strammede regler går live).
+// Feltet er dét, security rules bruger til at afgøre, hvem der må se hvad:
+// stillingen viser kun spillere, man deler mindst én liga med, og efter
+// kickoff kan man kun se liga-kammeraters TIPS. Derfor skrives den samme
+// liste også på games/{gameId}/bets — reglen skal kunne afgøres ud fra
+// dokumentet alene. Serveren holder begge dele opdateret via
+// syncPlayerLeagues-triggeren; dette script laver engangs-backfill af
+// eksisterende data (kør FØR de strammede regler går live).
 //
 // Miljø:
 //   SPIL_SA  – sti til service-account-JSON for spil-89af9
@@ -57,14 +60,25 @@ for (const gameId of gameIds) {
         byUid.get(uid).push(l.id);
       }
     }
-    console.log(`[tør-kørsel] ${gameId}: ${players.size} spillere, ${leagues.size} ligaer`);
+    // Tips bagfyldes også — vis hvor mange der VILLE blive rørt, ellers
+    // dokumenterer tør-kørslen kun halvdelen af det, der faktisk sker.
+    const bets = await gameRef.collection('bets').get();
+    let betsWouldChange = 0;
+    for (const b of bets.docs) {
+      const want = (byUid.get(b.data().uid) || []).slice().sort();
+      const have = (Array.isArray(b.data().leagueIds) ? b.data().leagueIds : []).slice().sort();
+      if (want.length !== have.length || !want.every((v, i) => v === have[i])) betsWouldChange += 1;
+    }
+    console.log(`[tør-kørsel] ${gameId}: ${players.size} spillere, ${leagues.size} ligaer, `
+      + `${bets.size} tips (${betsWouldChange} ville blive rettet)`);
     for (const p of players.docs) {
       console.log(`  ${p.id}: ${(byUid.get(p.id) || []).join(', ') || '(ingen liga)'}`);
     }
     continue;
   }
   const out = await rebuildGamePlayerLeagues(db, gameId);
-  console.log(`${gameId}: gennemgik ${out.players} spillere, rettede ${out.changed}.`);
+  console.log(`${gameId}: gennemgik ${out.players} spillere (rettede ${out.changed}) `
+    + `og ${out.bets} tips (rettede ${out.betsChanged}).`);
 }
 
 console.log('Færdig.');

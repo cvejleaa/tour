@@ -64,11 +64,13 @@ describe('LeagueBets', () => {
     expect(screen.getByText(/Anne/)).toBeInTheDocument();
   });
 
-  it('siger det, hvis ingen andre nåede at tippe', () => {
+  // Formuleringen må ikke påstå, at ingen tippede: en tom liste kan også
+  // være tips, der endnu ikke er bagfyldt med liga-feltet.
+  it('siger forsigtigt til, når der ikke er noget at vise', () => {
     mockHook.mockReturnValue({ bets: [{ id: 'b0', uid: 'me', name: 'Mig', pick: '1' }], loading: false, error: '' });
     renderIt();
     fireEvent.click(screen.getByRole('button', { name: /se ligaens tips/i }));
-    expect(screen.getByText(/Ingen andre i dine ligaer/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ingen tips at vise/i)).toBeInTheDocument();
   });
 
   // Uden liga ville forespørgslen blive afvist af reglen. Forklar hvorfor i

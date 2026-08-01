@@ -15,7 +15,7 @@ tør-kørslen først og læs loggen, før du slår den fra.
 |---|---|---|---|
 | **Deploy platform** (`deploy-platform.yml`) | Bygger og udruller tip.vejleaa.dk: hosting, `firestore.rules`, indexes — og valgfrit Cloud Functions | Efter hver merge til base-branchen | `FIREBASE_SERVICE_ACCOUNT_SPIL` |
 | **Deploy** (`deploy.yml`) | Samme for tour.vejleaa.dk | Når Tour-appen ændres | `FIREBASE_SERVICE_ACCOUNT` |
-| **Backfill liga-adgang** (`backfill-player-leagues.yml`) | Genopbygger `players/{uid}.leagueIds` ud fra ligaernes `memberUids` | Hvis stillingen står tom, eller efter en dataimport | `FIREBASE_SERVICE_ACCOUNT_SPIL` |
+| **Backfill liga-adgang** (`backfill-player-leagues.yml`) | Genopbygger `leagueIds` på både `players/{uid}` og `bets/{uid_matchId}` ud fra ligaernes `memberUids` | Hvis stillingen står tom, hvis ligaens tips ikke vises efter kickoff, eller efter en dataimport | `FIREBASE_SERVICE_ACCOUNT_SPIL` |
 | **Tjek for dublet-tips** (`audit-duplicate-bets.yml`) | LÆS-ONLY: finder flere tips fra samme spiller på samme kamp | Ved mistanke om snyd | `FIREBASE_SERVICE_ACCOUNT_SPIL` |
 | **Ryd e-mails fra offentlige profiler** (`strip-public-user-emails.yml`) | Fjerner `email` fra `users/{uid}`; sikrer først adressen i `userContacts` | Engangs — kørt 27/7 2026 | `FIREBASE_SERVICE_ACCOUNT_SPIL` |
 | **Eksportér gamle liga-slutstillinger** (`export-legacy-leagues.yml`) | Top 5 pr. liga fra Tour + VM → `legacyLeagueResults`. Driver "Indsæt top 5" i Send mail | Før en invitationsrunde | `FIREBASE_SERVICE_ACCOUNT`, `…_VM`, `…_SPIL` |
@@ -69,6 +69,8 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 | Symptom | Sandsynlig årsag |
 |---|---|
 | Stillingen er tom for alle | `players/{uid}.leagueIds` mangler → kør backfill, eller brug 🔐 **Genopbyg liga-adgang** i Admin → Spil-planlægning |
+| "Ingen tips at vise fra dine ligaer" på en spillet kamp | `bets.leagueIds` mangler (tip skrevet før feltet fandtes) → samme backfill |
+| "Kunne ikke hente ligaens tips" | Composite-indexet `bets` (matchId + leagueIds) er ikke bygget færdigt → tjek Firestore → Indexes |
 | Stillingen viser kun dig selv | Du er ikke med i en liga endnu — det er den forventede visning |
 | Runde 1 mangler i spillet | `game.startAt` ligger efter runde 1. Det er tilsigtet; ryd feltet for at vise alt |
 | Point mangler for tidlige runder | Samme gate. Efter et skift i `startAt`: tryk 🔄 **Genberegn point** |

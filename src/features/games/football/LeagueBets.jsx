@@ -78,9 +78,12 @@ export default function LeagueBets({ gameId, match, myUid, leagueIds }) {
         <div style={{ marginTop: '0.5rem' }}>
           {loading && <div className="spinner" role="status" aria-label="Indlæser" />}
           {error && <p className="badge badge--red" role="alert">{error}</p>}
+          {/* Bevidst forsigtig formulering: en tom liste kan også betyde, at
+              tippene er ældre end liga-feltet og endnu ikke bagfyldt. At sige
+              "ingen tippede" ville pege det forkerte sted hen. */}
           {!loading && !error && others.length === 0 && (
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--c-muted)' }}>
-              Ingen andre i dine ligaer nåede at tippe denne kamp.
+              Ingen tips at vise fra dine ligaer på denne kamp.
             </p>
           )}
           {!loading && !error && byOutcome.map((g) => (

@@ -36,7 +36,10 @@ export default function FootballHelp() {
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Mens der spilles:</strong> Følg den officielle <Tab>⚽ Tabel</Tab> og jeres indbyrdes
-            {' '}<Tab>🏆 Stilling</Tab>.
+            {' '}<Tab>🏆 Stilling</Tab>. Når en kamp er <strong>gået i gang</strong>, kan du folde
+            {' '}<em>Se ligaens tips</em> ud under kampen på <Tab>Tip</Tab> og se, hvad de andre i dine
+            ligaer valgte — og de kan se dit. Før kampstart er alles tips skjult, så ingen kan kigge
+            efter.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Efter runden:</strong> Se dit facit og din træfprocent under <Tab>📋 Mine tips</Tab>, og

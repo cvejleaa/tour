@@ -113,6 +113,25 @@ describe('applyMembershipDelta', () => {
     ]);
   });
 
+  // VIGTIGT: stub'en SKAL have tips. Uden dem er testen grøn, selv hvis hele
+  // propageringen til tippene fjernes — og så beviser den ingenting.
+  // (Samme fælde som pulje-testen, der kørte med et tomt bet-sæt.)
+  it('slår også igennem på spillerens TIPS — ellers ser liga-kammeraterne dem aldrig', async () => {
+    const { db, betUpdates } = makeDb({
+      players: { a: { uid: 'a' }, b: { uid: 'b' } },
+      bets: {
+        a_m1: { uid: 'a', matchId: 'm1' },
+        b_m1: { uid: 'b', matchId: 'm1', leagueIds: ['L1'] },
+      },
+    });
+    const out = await applyMembershipDelta(db, FieldValue, 'g1', 'L1', { added: ['a'], removed: ['b'] });
+    expect(out).toEqual({ updated: 2, added: 1, removed: 1, bets: 2 });
+    expect(betUpdates).toEqual([
+      { id: 'a_m1', patch: { leagueIds: { union: ['L1'] } } },
+      { id: 'b_m1', patch: { leagueIds: { remove: ['L1'] } } },
+    ]);
+  });
+
   it('springer spillere over, der ikke deltager i spillet', async () => {
     const { db, updates } = makeDb({ players: {} });
     const out = await applyMembershipDelta(db, FieldValue, 'g1', 'L1', { added: ['ukendt'], removed: [] });
