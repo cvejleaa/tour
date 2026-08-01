@@ -21,7 +21,9 @@ import {
 import { readFileSync }            from 'fs';
 import { fileURLToPath }           from 'url';
 import { dirname, join }           from 'path';
-import { setDoc, doc, updateDoc, getDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import {
+  setDoc, doc, updateDoc, getDoc, getDocs, deleteDoc, collection, query, where, Timestamp,
+} from 'firebase/firestore';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
@@ -1590,6 +1592,191 @@ describe('games/{gameId}/bets — sikkerhedsregler', () => {
       { uid: 'p1', matchId: 'm1', pick: 'X' }));
     await assertFails(setDoc(doc(fs, 'games', 'sl', 'bets', 'vilkaarligt'),
       { uid: 'p1', matchId: 'm1', pick: '2' }));
+  });
+
+  // ── Hvem må se ANDRES tips? ────────────────────────────────────────────────
+  // Efter kickoff, og kun hvis man deler mindst én liga. Afgrænsningen bygger
+  // på leagueIds PÅ tippet — reglen skal kunne afgøres ud fra dokumentet alene.
+
+  /** Læg et tip ind uden om reglerne (som en anden spiller ville have gjort). */
+  async function seedBet(gameId, uid, matchId, data = {}) {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('games').doc(gameId)
+        .collection('bets').doc(`${uid}_${matchId}`)
+        .set({ uid, matchId, pick: '1', ...data });
+    });
+  }
+
+  it('KAN læse en liga-kammerats tip EFTER kickoff', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('sl-mate');
+    await seedMembership('sl-mate', 'p1', { leagueIds: ['liga-a'] });
+    await seedMembership('sl-mate', 'p2', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-mate', 'm1', past());
+    await seedBet('sl-mate', 'p2', 'm1', { leagueIds: ['liga-a'] });
+    await assertSucceeds(getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+      'games', 'sl-mate', 'bets', 'p2_m1')));
+  });
+
+  it('KAN IKKE læse en liga-kammerats tip FØR kickoff', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('sl-pre');
+    await seedMembership('sl-pre', 'p1', { leagueIds: ['liga-a'] });
+    await seedMembership('sl-pre', 'p2', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-pre', 'm1', future());
+    await seedBet('sl-pre', 'p2', 'm1', { leagueIds: ['liga-a'] });
+    await assertFails(getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+      'games', 'sl-pre', 'bets', 'p2_m1')));
+  });
+
+  it('KAN IKKE læse tip fra en UDEN FOR mine ligaer — heller ikke efter kickoff', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p3', 'player', 'approved');
+    await createGame('sl-outside');
+    await seedMembership('sl-outside', 'p1', { leagueIds: ['liga-a'] });
+    await seedMembership('sl-outside', 'p3', { leagueIds: ['liga-b'] });
+    await createGameMatch('sl-outside', 'm1', past());
+    await seedBet('sl-outside', 'p3', 'm1', { leagueIds: ['liga-b'] });
+    await assertFails(getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+      'games', 'sl-outside', 'bets', 'p3_m1')));
+  });
+
+  it('KAN IKKE læse tip uden leagueIds (fx skrevet før feltet fandtes)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('sl-nofield');
+    await seedMembership('sl-nofield', 'p1', { leagueIds: ['liga-a'] });
+    await seedMembership('sl-nofield', 'p2', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-nofield', 'm1', past());
+    await seedBet('sl-nofield', 'p2', 'm1'); // ingen leagueIds
+    await assertFails(getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+      'games', 'sl-nofield', 'bets', 'p2_m1')));
+  });
+
+  it('KAN altid læse sit EGET tip — også før kickoff og uden ligaer', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl-own');
+    await seedMembership('sl-own', 'p1');
+    await createGameMatch('sl-own', 'm1', future());
+    await seedBet('sl-own', 'p1', 'm1');
+    await assertSucceeds(getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+      'games', 'sl-own', 'bets', 'p1_m1')));
+  });
+
+  it('KAN IKKE skrive en FREMMED ligas id på sit tip', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl-foreign');
+    await seedMembership('sl-foreign', 'p1', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-foreign', 'm1', future());
+    // liga-b er ikke min — det ville invitere mig ind i deres visning.
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+      'games', 'sl-foreign', 'bets', 'p1_m1'),
+    { uid: 'p1', matchId: 'm1', pick: '1', leagueIds: ['liga-a', 'liga-b'] }));
+    // Egne ligaer går igennem.
+    await assertSucceeds(setDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+      'games', 'sl-foreign', 'bets', 'p1_m1'),
+    { uid: 'p1', matchId: 'm1', pick: '1', leagueIds: ['liga-a'] }));
+  });
+
+  // ── Tippet må ikke kunne pege et andet sted hen ────────────────────────────
+  // uid_matchId-bindingen håndhæves kun ved create. Uden uforanderlige uid og
+  // matchId kunne man rette sit EGET tip om bagefter.
+
+  it('KAN IKKE skifte uid på sit tip (opdigtet tip i en andens navn)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('sl-immuid');
+    await seedMembership('sl-immuid', 'p1', { leagueIds: ['liga-a'] });
+    await seedMembership('sl-immuid', 'p2', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-immuid', 'm1', future());
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl-immuid', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: '1', leagueIds: ['liga-a'] }));
+    // Doc-id'et er stadig p1_m1, så p2's eget tip ville bestå — men serveren
+    // summerer på uid, så forfalskningen ville tælle i p2's total.
+    await assertFails(updateDoc(doc(fs, 'games', 'sl-immuid', 'bets', 'p1_m1'),
+      { uid: 'p2', pick: '2' }));
+  });
+
+  it('KAN IKKE flytte sit tip til en anden kamp (tip efter kickoff + dublet)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl-immmatch');
+    await seedMembership('sl-immmatch', 'p1', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-immmatch', 'senere', future());
+    await createGameMatch('sl-immmatch', 'igang', past());
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl-immmatch', 'bets', 'p1_senere'),
+      { uid: 'p1', matchId: 'senere', pick: '1', leagueIds: ['liga-a'] }));
+    // Kickoff-tjekket slår op på det GAMLE matchId, så uden vagten ville dette
+    // være et tip på en kamp, der allerede er i gang.
+    await assertFails(updateDoc(doc(fs, 'games', 'sl-immmatch', 'bets', 'p1_senere'),
+      { matchId: 'igang', pick: '2' }));
+  });
+
+  it('KAN stadig rette sit valg og sin Chancen-indsats før kickoff', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl-edit');
+    await seedMembership('sl-edit', 'p1', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-edit', 'm1', future());
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl-edit', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: '1', chanceStake: 0, leagueIds: ['liga-a'] }));
+    // Klienten skriver med merge og sender uid/matchId med uændret — det skal
+    // stadig gå igennem.
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl-edit', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: 'X', chanceStake: 3, leagueIds: ['liga-a'] },
+      { merge: true }));
+  });
+
+  // ── Selve FORESPØRGSLEN, ikke bare enkeltdokumenter ────────────────────────
+  // Alle øvrige regel-tests bruger getDoc. Men det er list-forespørgslen, der
+  // afgør, om funktionen virker: kan reglen ikke afgøres for hvert dokument,
+  // afvises HELE forespørgslen — ikke bare de dokumenter, man ikke må se.
+
+  it('klientens forespørgsel (matchId + array-contains-any) lykkes', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('sl-q-ok');
+    await seedMembership('sl-q-ok', 'p1', { leagueIds: ['liga-a'] });
+    await seedMembership('sl-q-ok', 'p2', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-q-ok', 'm1', past());
+    await seedBet('sl-q-ok', 'p2', 'm1', { leagueIds: ['liga-a'] });
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertSucceeds(getDocs(query(
+      collection(fs, 'games', 'sl-q-ok', 'bets'),
+      where('matchId', '==', 'm1'),
+      where('leagueIds', 'array-contains-any', ['liga-a']),
+    )));
+  });
+
+  it('samme forespørgsel UDEN liga-filteret afvises helt', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('sl-q-bred');
+    await seedMembership('sl-q-bred', 'p1', { leagueIds: ['liga-a'] });
+    await seedMembership('sl-q-bred', 'p2', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-q-bred', 'm1', past());
+    await seedBet('sl-q-bred', 'p2', 'm1', { leagueIds: ['liga-a'] });
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertFails(getDocs(query(
+      collection(fs, 'games', 'sl-q-bred', 'bets'),
+      where('matchId', '==', 'm1'),
+    )));
+  });
+
+  it('MyTips-forespørgslen (mine egne tips) virker stadig efter stramningen', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl-q-mine');
+    await seedMembership('sl-q-mine', 'p1');
+    await createGameMatch('sl-q-mine', 'm1', future());
+    await seedBet('sl-q-mine', 'p1', 'm1');
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertSucceeds(getDocs(query(
+      collection(fs, 'games', 'sl-q-mine', 'bets'),
+      where('uid', '==', 'p1'),
+    )));
   });
 
   it('IKKE-deltager KAN IKKE tippe (mangler players-dok)', async () => {

@@ -50,14 +50,19 @@ læse. Adskilt netop for at ingen kan trække alle deltageres adresser ud.
 |---|---|---|
 | `players/{uid}` | uid | deltagelse + point: `totalPoints`, `roundBonus`, `bonusPoints`, `rank`, `previousRank`, **`leagueIds`** |
 | `matches/{matchId}` | | `round`, `home`, `away`, `kickoff`, `odds`, `result`, `homeGoals`, `awayGoals` |
-| `bets/{uid_matchId}` | **skal** være `uid_matchId` | `pick` (1/X/2), `chanceStake`, `points` |
+| `bets/{uid_matchId}` | **skal** være `uid_matchId` | `pick` (1/X/2), `chanceStake`, `points`, **`leagueIds`** |
 | `puljeBets/{uid}` | uid | `championship` (6 hold), `correct`, `points` |
 | `leagues/{leagueId}` | | `name`, `code`, `ownerUid`, `memberUids` |
 | `leagues/…/messages` | | liga-væg (også Runde-Bottens opslag) |
 | `leagues/…/questions` | | liga-ejerens egne spørgsmål + facit |
 | `leagues/…/questionAnswers/{qId_uid}` | | medlemmernes svar |
 
-Point og `leagueIds` skrives **kun** af serveren; reglerne afviser klienten.
+Point skrives **kun** af serveren; reglerne afviser klienten. Det samme gælder
+`leagueIds` på `players`. På **tippet** skriver klienten selv `leagueIds` — den
+kan ikke slås op pr. dokument uden at sprænge Firestores grænse for opslag i én
+forespørgsel — men reglen afviser ligaer, man ikke er med i (`hasOnly`), og
+serveren retter feltet, når medlemskaber ændrer sig. `uid` og `matchId` er
+uforanderlige efter oprettelsen.
 
 ### Tour (uændret siden 2026-spillet)
 `stages`, `stageBets/{uid_stageId}`, `bonusQuestions`, `bonusBets`,
@@ -72,22 +77,27 @@ og udløser ingen påmindelser (`reminders.upcomingMatches`). Så en sæson kan
 starte midt i. Efter et skift i `startAt` skal totalerne genberegnes — knappen
 🔄 **Genberegn point** i Admin → Spil-planlægning.
 
-**2. `players/{uid}.leagueIds` styrer, hvem der ser hvis point.** Stillingen er
+**2. `leagueIds` styrer, hvem der ser hvad.** Både stillingen og andres tips er
 jeres indbyrdes opgør: man ser kun spillere, man deler mindst én liga med.
+Feltet står to steder, fordi reglen skal kunne afgøres ud fra dokumentet alene.
 Kæden er:
 
 ```
 leagues.memberUids  ──syncPlayerLeagues (trigger)──▶  players/{uid}.leagueIds
+                                                 └──▶  bets/{uid_matchId}.leagueIds
                                                         │
 firestore.rules: læs players kun hvis leagueIds overlapper mine
+                 læs andres bets kun EFTER kickoff og med samme overlap
                                                         │
-useGameStandings: where('leagueIds','array-contains-any', mine)
+useGameStandings:     where('leagueIds','array-contains-any', mine)
+useMatchLeagueBets:   where('matchId','==',…) + samme array-contains-any
 ```
 
 Firestore-regler er **ikke filtre**: kan reglen ikke afgøres for hvert dokument
 i en forespørgsel, afvises hele forespørgslen. Derfor skal klientens query
 matche reglen præcist. Brister ét led i kæden, ser brugerne en tom stilling
-uden fejlbesked — kør backfill, se [drift.md](drift.md).
+eller ingen tips fra ligaen — uden fejlbesked. Kør backfill, se
+[drift.md](drift.md).
 
 Samme mønster gælder liga-spørgsmålenes svar: andres svar er først læsbare, når
 spørgsmålet er lukket, og `useLeagueQuestions` forespørger tilsvarende.

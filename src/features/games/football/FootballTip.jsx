@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react';
 import { useGameBets } from '../useGameBets';
 import { setBet } from '../betActions';
+import LeagueBets from './LeagueBets';
 import { playerBank } from '../GameLayout';
 import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
@@ -133,6 +134,7 @@ export default function FootballTip({ game, me, matches }) {
     const res = await setBet({
       uid: me?.uid, gameId, matchId: match.id, pick: outcome,
       chanceStake: Number(existing?.chanceStake) || 0, bank,
+      leagueIds: me?.leagueIds || [],
     });
     if (!res.ok) setError(res.error);
     setBusy(null);
@@ -394,6 +396,16 @@ export default function FootballTip({ game, me, matches }) {
                 );
               })}
             </div>
+
+            {/* Efter kickoff: hvad tippede de andre i mine ligaer? */}
+            {locked && (
+              <LeagueBets
+                gameId={gameId}
+                match={m}
+                myUid={me?.uid}
+                leagueIds={me?.leagueIds || []}
+              />
+            )}
           </div>
         );
       })}
@@ -454,10 +466,12 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
       const prev = betsByMatch[chanceMatchId];
       await setBet({
         uid: me?.uid, gameId, matchId: chanceMatchId, pick: prev.pick, chanceStake: 0, bank,
+        leagueIds: me?.leagueIds || [],
       });
     }
     const res = await setBet({
       uid: me?.uid, gameId, matchId: selMatch.id, pick, chanceStake: newStake, bank,
+      leagueIds: me?.leagueIds || [],
     });
     if (!res.ok) setError(res.error);
     setBusy(false);

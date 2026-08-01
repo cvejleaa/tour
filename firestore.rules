@@ -170,9 +170,16 @@ service cloud.firestore {
         && !request.resource.data.keys().hasAny(['points'])
         && request.time < get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.kickoff;
 
-      // Opdater bet: kun eget, points må ikke ændres, og kun FØR kickoff
+      // Opdater bet: kun eget, points må ikke ændres, og kun FØR kickoff.
+      // uid og matchId er uforanderlige — samme hul som i spil-tippene:
+      // uid_matchId-bindingen håndhæves kun ved create, så uden de to linjer
+      // kunne man rette sit tip om til at stå i en andens navn, eller pege det
+      // på en kamp der allerede var i gang (kickoff-tjekket nedenfor læser det
+      // GAMLE matchId).
       allow update: if isSignedIn()
         && request.auth.uid == resource.data.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.matchId == resource.data.matchId
         && !writingPointsField()
         && request.time < get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.kickoff;
 
@@ -531,6 +538,18 @@ service cloud.firestore {
     // Se docs/samlet-platform.md.
     // -----------------------------------------------------------------------
     match /games/{gameId} {
+      // Ligaerne man selv er med i (denormaliseret på ens eget players-doc af
+      // serveren). Tom liste hvis man ikke deltager i spillet. Ligger her —
+      // ikke inde i players/ — fordi både stillingen OG tips-læsningen skal
+      // bruge den. Stien er den samme for alle dokumenter i én forespørgsel,
+      // så opslaget tælles kun én gang mod Firestores grænse.
+      function myLeagueIds() {
+        return isSignedIn()
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          ? get(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid)).data.get('leagueIds', [])
+          : [];
+      }
+
       // Alle godkendte brugere kan se spiloversigten (metadata er ikke følsom)
       allow read: if isApproved();
 
@@ -541,15 +560,6 @@ service cloud.firestore {
       // games/{gameId}/players/{uid} — deltagelse + per-spil-point.
       // "Deltag i dette spil" = opret sit EGET players-dokument.
       match /players/{uid} {
-        // Ligaerne man selv er med i (denormaliseret på ens eget players-doc
-        // af serveren). Tom liste hvis man ikke deltager i spillet.
-        function myLeagueIds() {
-          return isSignedIn()
-            && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
-            ? get(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid)).data.get('leagueIds', [])
-            : [];
-        }
-
         // Stillingen er jeres indbyrdes opgør: en spillers point kan kun læses
         // af dem, der deler mindst én liga med spilleren. Man kan altid læse
         // sit eget medlemskab — også via en collectionGroup-query
@@ -615,12 +625,33 @@ service cloud.firestore {
       // Kun eget tip, kun FØR kickoff, og kun hvis man DELTAGER i spillet
       // (har et players/{uid}-dokument). points sættes kun af serveren.
       match /bets/{betId} {
-        // Egne tips kan altid læses; andres først EFTER kickoff (statistik/
-        // dags-rangering). Admin kan altid læse.
+        // Egne tips kan altid læses. ANDRES tips kræver to ting: kampen skal
+        // være i gang (før kickoff ville det være at kigge i kortene), og man
+        // skal dele mindst én liga med spilleren — samme afgrænsning som
+        // stillingen.
+        //
+        // Liga-medlemskabet står PÅ tippet (leagueIds), fordi et opslag pr.
+        // dokument ville sprænge Firestores grænse på antal opslag i én
+        // forespørgsel: 30 liga-kammerater = 30 forskellige stier. Med feltet
+        // på tippet er der kun to opslag — kampens kickoff og mine egne ligaer
+        // — og begge er samme sti for alle dokumenter i forespørgslen.
+        //
+        // VIGTIGT for klienten: en forespørgsel efter andres tips SKAL have
+        // where('leagueIds', 'array-contains-any', mine) med, ellers rammer
+        // den dokumenter, reglen afviser, og hele forespørgslen fejler.
         allow read: if isGlobalAdmin()
           || (isSignedIn() && request.auth.uid == resource.data.uid)
           || (isApproved()
-              && request.time >= get(/databases/$(database)/documents/games/$(gameId)/matches/$(resource.data.matchId)).data.kickoff);
+              && request.time >= get(/databases/$(database)/documents/games/$(gameId)/matches/$(resource.data.matchId)).data.kickoff
+              && resource.data.get('leagueIds', []).hasAny(myLeagueIds()));
+
+        // leagueIds på tippet må kun indeholde ligaer, man FAKTISK er med i —
+        // ellers kunne man skrive en fremmed ligas id på sit tip og dermed
+        // invitere sig selv ind i deres visning. Undertal er tilladt (man
+        // skjuler kun sig selv), overtal er ikke.
+        function claimsOnlyOwnLeagues() {
+          return request.resource.data.get('leagueIds', []).hasOnly(myLeagueIds());
+        }
 
         // Opret tip: godkendt deltager, eget uid, ingen points, før kickoff.
         // Doc-id SKAL være uid_matchId — præcis ét tip pr. kamp. Uden det kunne
@@ -631,12 +662,30 @@ service cloud.firestore {
           && betId == request.auth.uid + '_' + request.resource.data.matchId
           && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
           && !request.resource.data.keys().hasAny(['points'])
+          && claimsOnlyOwnLeagues()
           && request.time < get(/databases/$(database)/documents/games/$(gameId)/matches/$(request.resource.data.matchId)).data.kickoff;
 
         // Opdatér tip: eget, points uændret, før kickoff.
+        //
+        // uid og matchId er UFORANDERLIGE. Uden de to linjer kunne man rette
+        // sit eget tip om til at pege et andet sted hen:
+        //  - skiftet uid → et opdigtet tip i en andens navn. Doc-id'et er
+        //    stadig ens eget, så offerets rigtige tip består, og serveren
+        //    (som summerer på uid) ville tælle forfalskningen med i DERES
+        //    total. Liga-visningen ville vise det frem som deres tip.
+        //  - skiftet matchId → kickoff-tjekket nedenfor slår op på det GAMLE
+        //    matchId. Man kunne tippe på en kamp, der allerede var i gang, få
+        //    to dokumenter til at pege på samme kamp (dublet-point), eller
+        //    fjerne leagueIds fra et tip EFTER kickoff og dermed skjule sig
+        //    selv, mens man selv så alle andres.
+        // uid_matchId-bindingen håndhæves kun ved create, så den fanger det
+        // ikke: doc-id'et ændrer sig jo ikke ved en opdatering.
         allow update: if isApproved()
           && request.auth.uid == resource.data.uid
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.matchId == resource.data.matchId
           && !writingPointsField()
+          && claimsOnlyOwnLeagues()
           && request.time < get(/databases/$(database)/documents/games/$(gameId)/matches/$(resource.data.matchId)).data.kickoff;
 
         allow delete: if false;
