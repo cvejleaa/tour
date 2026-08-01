@@ -100,3 +100,24 @@ describe('eloFormByTeam', () => {
     expect(m.AGF.current).toBe(1525);
   });
 });
+
+// Et hold, der slet ikke optræder i historikken (ukendt navn, omdøbt, tilføjet
+// efter sæsonstart), må ikke se ud som et hold, der har spillet flade runder.
+describe('eloFormByTeam — hold uden historik', () => {
+  const teams = [
+    { name: 'AGF', short: 'AGF', elo: 1500 },
+    { name: 'Nyt Hold', short: 'NYT', elo: 1490 },
+  ];
+  const history = [
+    { round: 1, elo: { AGF: 1510 } },
+    { round: 2, elo: { AGF: 1520 } },
+  ];
+
+  it('giver tom form frem for et ±0 pr. runde', () => {
+    const m = eloFormByTeam(teams, history);
+    expect(m['Nyt Hold'].form).toEqual([]);
+    expect(m['Nyt Hold'].current).toBe(1490);
+    // Kontrol: holdet MED historik får sine punkter.
+    expect(m.AGF.form).toHaveLength(2);
+  });
+});

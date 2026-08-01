@@ -52,8 +52,15 @@ export function eloFormByTeam(teams, serverHistory, n = FORM_POINTS) {
   const { rows } = eloRows(teams, serverHistory);
   const antal = Math.max(0, Math.floor(Number(n)) || 0);
   const out = {};
+  const snapshots = serverHistory || [];
   for (const r of rows) {
-    const form = antal ? r.cells.slice(-antal) : [];
+    // Optræder holdet slet ikke i historikken (ukendt navn, omdøbt hold,
+    // tilføjet efter sæsonstart), falder eloRows tilbage til start-ratingen i
+    // hver runde og laver dermed et ±0-punkt pr. runde. På kortet ville det
+    // ligne et hold, der har spillet fem helt flade kampe. Det er værre end
+    // ingen data: vis hellere ingenting og lad "Start-rating"-beskeden stå.
+    const kendtIHistorik = snapshots.some((c) => Number.isFinite(Number(c?.elo?.[r.name])));
+    const form = antal && kendtIHistorik ? r.cells.slice(-antal) : [];
     out[r.name] = {
       current: r.current,
       start: r.start,

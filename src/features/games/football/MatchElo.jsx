@@ -5,23 +5,21 @@
  * Elo BEREGNES kun på serveren. Her vises tal, der allerede ligger på spillet
  * (game.eloHistory) — ingen formel, så beregningen bliver ét sted.
  *
- * Formålet er beslutningsstøtte lige dér, hvor man vælger 1X2: hvem er
- * stærkest, og hvilken vej går det for dem lige nu.
+ * BEVIDST udeladt: forskellen mellem de to hold. Odds bygger ikke på den alene
+ * — serveren lægger 60 point hjemmebanefordel oveni (superligaScoring.HFA), så
+ * på enhver kamp med under 60 points forskel ville et "hvem er stærkest" her
+ * modsige 1X2-knapperne lige nedenunder. Knapperne viser point pr. udfald og
+ * er det autoritative svar på, hvem der er favorit.
+ *
+ * Ligeledes udeladt: en samlet trend over de viste runder. ▲/▼ betyder
+ * "siden forrige runde" på Elo-fanen, og det skal betyde det samme her.
  */
-import { fmtDec } from '../../../lib/daNum';
-
-/** Ét udviklingspunkt: op, ned eller uændret. */
-function Delta({ d }) {
-  if (!d) return <span className="elo__flat" title="Uændret">±0</span>;
-  return d > 0
-    ? <span className="elo__up" title={`Steg ${d}`}>▲{d}</span>
-    : <span className="elo__down" title={`Faldt ${-d}`}>▼{-d}</span>;
-}
+import EloDelta from './EloDelta';
 
 /** Én side af kampen: rating + de seneste udviklingspunkter. */
 function Side({ navn, elo, align }) {
   if (!elo) return <span />;
-  const { current, form, trend } = elo;
+  const { current, form } = elo;
   return (
     <span
       style={{
@@ -29,20 +27,20 @@ function Side({ navn, elo, align }) {
         alignItems: align === 'right' ? 'flex-end' : 'flex-start', minWidth: 0,
       }}
     >
-      <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700, fontSize: '0.85rem' }}>
+      <span
+        style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700, fontSize: '0.85rem' }}
+        title={`${navn}: rating ${current}`}
+      >
         {current}
-        {form.length > 0 && (
-          <span style={{ fontWeight: 400, marginLeft: '0.35rem' }}>
-            <Delta d={trend} />
-          </span>
-        )}
       </span>
       {form.length > 0 && (
         <span
-          style={{ display: 'inline-flex', gap: '0.3rem', fontSize: '0.72rem' }}
+          style={{ display: 'inline-flex', gap: '0.15rem', fontSize: '0.7rem', flexWrap: 'wrap' }}
           aria-label={`${navn}: udvikling over de seneste ${form.length} runder`}
         >
-          {form.map((c) => <Delta key={c.round} d={c.delta} />)}
+          {form.map((c) => (
+            <EloDelta key={c.round} d={c.delta} title={`Runde ${c.round}`} />
+          ))}
         </span>
       )}
     </span>
@@ -60,9 +58,6 @@ export default function MatchElo({ home, away, eloByTeam }) {
   const a = eloByTeam?.[away];
   if (!h && !a) return null;
 
-  // Forskellen er dét, odds bygger på — den er mere sigende end de to tal hver
-  // for sig, når man skal vælge.
-  const diff = h && a ? h.current - a.current : null;
   const spilletRunder = Math.max(h?.form?.length || 0, a?.form?.length || 0);
 
   return (
@@ -74,25 +69,22 @@ export default function MatchElo({ home, away, eloByTeam }) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
         <Side navn={home} elo={h} align="left" />
-        <span
-          style={{ fontSize: '0.68rem', color: 'var(--c-muted)', textAlign: 'center', whiteSpace: 'nowrap' }}
-          title="Styrke-rating (elo-lite). Odds bygger på forskellen."
-        >
+        <span style={{ fontSize: '0.68rem', color: 'var(--c-muted)', textAlign: 'center', whiteSpace: 'nowrap' }}>
           📈 Elo
-          {diff != null && diff !== 0 && (
+          {spilletRunder > 0 && (
             <>
               <br />
-              {diff > 0 ? '←' : '→'} {fmtDec(Math.abs(diff))}
+              <span style={{ fontSize: '0.62rem' }}>seneste {spilletRunder}</span>
             </>
           )}
         </span>
         <Side navn={away} elo={a} align="right" />
       </div>
-      {spilletRunder === 0 && (
-        <p style={{ margin: '0.3rem 0 0', fontSize: '0.7rem', color: 'var(--c-muted)', textAlign: 'center' }}>
-          Start-rating — udviklingen kommer, når der er spillet runder.
-        </p>
-      )}
+      <p style={{ margin: '0.3rem 0 0', fontSize: '0.68rem', color: 'var(--c-muted)', textAlign: 'center' }}>
+        {spilletRunder === 0
+          ? 'Start-rating — udviklingen kommer, når der er spillet runder.'
+          : 'Styrke efter seneste spillede runde — ikke et bud på denne kamp.'}
+      </p>
     </div>
   );
 }

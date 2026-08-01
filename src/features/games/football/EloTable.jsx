@@ -7,13 +7,8 @@ import { useMemo } from 'react';
 import { SUPERLIGA_TEAMS_2026, superligaTeamInfo } from '../../../data/superligaTeams2026';
 import { eloRows } from './eloHistory';
 import ClubBadge from '../../../components/ClubBadge';
-
-function Delta({ d }) {
-  if (!d) return <span className="elo__flat">±0</span>;
-  return d > 0
-    ? <span className="elo__up">▲{d}</span>
-    : <span className="elo__down">▼{-d}</span>;
-}
+// Delt med kampkortet, så ▲/▼ betyder det samme begge steder.
+import Delta from './EloDelta';
 
 export default function EloTable({ game }) {
   // Elo BEREGNES på serveren; her vises kun game.eloHistory (rundevis snapshots).

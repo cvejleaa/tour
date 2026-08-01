@@ -1,69 +1,70 @@
 // Tests for MatchElo — Elo-rating og seneste udvikling på kampkortet.
+//
+// Assertions er bevidst præcise (title-attributter, eksakte tekster) frem for
+// toContain: "1525" findes også i "-1525", og en løs assertion kan ikke
+// skelne en rigtig visning fra en forkert.
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import MatchElo from './MatchElo';
 
-const ELO = {
-  AGF: {
-    current: 1525,
-    start: 1500,
-    trend: 15,
-    form: [
-      { round: 2, elo: 1505, delta: -5 },
-      { round: 3, elo: 1520, delta: 15 },
-      { round: 4, elo: 1515, delta: -5 },
-      { round: 5, elo: 1530, delta: 15 },
-      { round: 6, elo: 1525, delta: -5 },
-    ],
-  },
-  FCK: { current: 1620, start: 1600, trend: 20, form: [{ round: 6, elo: 1620, delta: 20 }] },
+const punkt = (round, elo, delta) => ({ round, elo, delta });
+
+const AGF = { // navnet i seedet er 'AGF'
+  current: 1525,
+  start: 1500,
+  trend: 15,
+  form: [
+    punkt(2, 1505, -5), punkt(3, 1520, 15), punkt(4, 1515, -5),
+    punkt(5, 1530, 15), punkt(6, 1525, -5),
+  ],
 };
+const FCK = { current: 1620, start: 1600, trend: 20, form: [punkt(6, 1620, 20)] };
+const UDEN = (elo) => ({ current: elo, start: elo, trend: 0, form: [] });
 
 const renderIt = (props = {}) =>
-  render(<MatchElo home="AGF" away="FCK" eloByTeam={ELO} {...props} />);
+  render(<MatchElo home="AGF" away="FCK" eloByTeam={{ AGF, FCK }} {...props} />);
 
 describe('MatchElo', () => {
   it('viser begge holds aktuelle rating', () => {
-    const { container } = renderIt();
-    expect(container.textContent).toContain('1525');
-    expect(container.textContent).toContain('1620');
+    renderIt();
+    expect(screen.getByTitle('AGF: rating 1525')).toBeInTheDocument();
+    expect(screen.getByTitle('FCK: rating 1620')).toBeInTheDocument();
   });
 
   it('viser ét udviklingspunkt pr. spillet runde', () => {
     renderIt();
-    const stribe = screen.getByLabelText(/AGF: udvikling over de seneste 5 runder/);
-    expect(stribe.children).toHaveLength(5);
+    expect(screen.getByLabelText(/AGF: udvikling over de seneste 5 runder/).children).toHaveLength(5);
   });
 
-  // Retningen skal kunne læses uden at regne: ▲ op, ▼ ned.
   it('markerer op og ned hver for sig', () => {
     renderIt();
     const stribe = screen.getByLabelText(/AGF: udvikling/);
-    const tekster = [...stribe.children].map((c) => c.textContent);
-    expect(tekster).toEqual(['▼5', '▲15', '▼5', '▲15', '▼5']);
+    expect([...stribe.children].map((c) => c.textContent))
+      .toEqual(['▼5', '▲15', '▼5', '▲15', '▼5']);
   });
 
-  it('viser forskellen mellem holdene — det er dét, odds bygger på', () => {
-    const { container } = renderIt();
-    // FCK er 95 stærkere end AGF, så pilen peger mod udebanen.
-    expect(container.textContent).toContain('95');
-    expect(container.textContent).toContain('→');
+  it('viser ±0 for en runde uden bevægelse', () => {
+    renderIt({
+      eloByTeam: { AGF: { ...AGF, trend: 0, form: [punkt(6, 1525, 0)] }, FCK },
+    });
+    const stribe = screen.getByLabelText(/AGF: udvikling/);
+    expect(stribe.textContent).toBe('±0');
   });
 
   it('siger til, når sæsonen ikke har givet udviklingspunkter endnu', () => {
-    renderIt({
-      eloByTeam: {
-        AGF: { current: 1500, start: 1500, trend: 0, form: [] },
-        FCK: { current: 1600, start: 1600, trend: 0, form: [] },
-      },
-    });
+    renderIt({ eloByTeam: { AGF: UDEN(1500), FCK: UDEN(1600) } });
     expect(screen.getByText(/Start-rating/)).toBeInTheDocument();
+  });
+
+  // Har ét hold spillet runder, er det ikke "start-rating" — så skal beskeden væk.
+  it('siger ikke start-rating, når kun det ene hold har punkter', () => {
+    renderIt({ eloByTeam: { AGF, FCK: UDEN(1600) } });
+    expect(screen.queryByText(/Start-rating/)).not.toBeInTheDocument();
   });
 
   it('viser færre punkter, når der er spillet færre runder', () => {
     renderIt();
-    const stribe = screen.getByLabelText(/FCK: udvikling over de seneste 1 runder/);
-    expect(stribe.children).toHaveLength(1);
+    expect(screen.getByLabelText(/FCK: udvikling over de seneste 1 runder/).children).toHaveLength(1);
   });
 
   it('viser intet, når spillet slet ikke har Elo', () => {
@@ -72,9 +73,17 @@ describe('MatchElo', () => {
   });
 
   it('klarer at kun det ene hold har rating', () => {
-    const { container } = renderIt({ eloByTeam: { AGF: ELO.AGF } });
-    expect(container.textContent).toContain('1525');
-    // Ingen forskel at vise, når modstanderen mangler.
+    renderIt({ eloByTeam: { AGF } });
+    expect(screen.getByTitle('AGF: rating 1525')).toBeInTheDocument();
+  });
+
+  // Vi viser bevidst IKKE, hvem der er stærkest: odds lægger 60 point
+  // hjemmebanefordel oveni, så et "hvem vinder" her ville modsige knapperne
+  // lige nedenunder.
+  it('udtaler sig ikke om, hvem der er favorit', () => {
+    const { container } = renderIt();
     expect(container.textContent).not.toContain('→');
+    expect(container.textContent).not.toContain('←');
+    expect(container.textContent).toContain('ikke et bud på denne kamp');
   });
 });

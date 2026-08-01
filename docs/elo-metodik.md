@@ -10,9 +10,21 @@ funktionerne `eloExpectedHome`, `outcomeProbabilities`, `fairOdds`, `outcomeOdds
 
 ## Formål (hvorfor modellen ser ud som den gør)
 Elo bruges til to ting i tippespillet:
-1. **Generere "fair" 1X2-odds pr. kamp**, som fryses ved seeding. Spillernes
-   point følger de frosne odds, så odds ændrer sig ikke gennem sæsonen.
-2. **Følge holdenes styrke gennem sæsonen** (Elo-tabellen, ny kolonne pr. runde).
+1. **Generere "fair" 1X2-odds pr. kamp.** Odds fryses pr. kamp — men først når
+   kampen låser (kickoff). Efter hver spillet kamp genberegner
+   `recomputeSeasonElo` ratings og friskner odds på de kampe, der endnu ikke er
+   låst. En kamp langt ude i fremtiden kan altså have andre odds i dag end i
+   går; en kamp, der er gået i gang, kan ikke.
+2. **Følge holdenes styrke gennem sæsonen** (Elo-tabellen, ny kolonne pr. runde,
+   og de seneste udviklingspunkter på hvert kampkort).
+
+Bemærk forskellen på de to visninger: `eloHistory` — som både Elo-tabellen og
+kampkortet læser — får kun et snapshot, når en **hel runde** er spillet, mens
+`eloCurrent` og kampenes egne `eloHome`/`eloAway` opdateres efter hver kamp.
+Ratingen på kampkortet er derfor "efter seneste hele runde", ikke nødvendigvis
+den, kampens odds blev regnet på. Odds bygger desuden på forskellen **plus 60
+points hjemmebanefordel** (`HFA` i `superligaScoring.js`), så ratingerne alene
+afgør ikke, hvem der er favorit.
 
 Hvert holds **start-rating er seedet** ud fra de sidste ~3 års resultater +
 styrkevurdering (ikke 1500 for alle). Kun 1X2-udfaldet bruges til at opdatere
