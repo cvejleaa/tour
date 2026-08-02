@@ -32,8 +32,14 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
   const matchesCollection = {
     get: async () => ({ docs: matchList.map((m) => ({ id: m.id, data: () => m })) }),
   };
+  const detalje = {};
   const playersCollection = {
-    doc: (uid) => ({ __player: uid }),
+    // Spiller-ref'en bærer sin egen detalje-subcollection, så faken kan fange
+    // BÅDE at rækkerne skrives, og at de skrives UDEN merge.
+    doc: (uid) => ({
+      __player: uid,
+      collection: () => ({ doc: (d) => ({ __detalje: uid, __detaljeDoc: d }) }),
+    }),
     get: async () => ({
       docs: Object.keys(players).map((uid) => ({
         id: uid, ref: { __player: uid }, data: () => players[uid],
@@ -66,9 +72,23 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
       return playersCollection;
     },
   };
-  const applyOp = (ref, data) => {
+  // Faken SKAL kende forskel på set() med og uden { merge: true }. Uden det
+  // kunne man tilføje merge til detalje-skrivningen, og testen for "rækken
+  // forsvinder, når facit fjernes" ville blive grøn alligevel — altså ikke
+  // beskytte noget.
+  const applyOp = (ref, data, opts) => {
     if (ref.__bet) { Object.assign(ref.__bet.data, data); return; }
     if (ref.__player) { players[ref.__player] = { ...(players[ref.__player] || {}), ...data }; return; }
+    // FULD ERSTATNING, ikke merge — spejler set() uden { merge: true }. Faken
+    // skal opføre sig som Firestore her, ellers kan testene ikke se forskel på
+    // "rækken er væk" og "rækken blev bare ikke skrevet igen".
+    if (ref.__detalje) {
+      const cur = detalje[ref.__detalje];
+      detalje[ref.__detalje] = (opts && opts.merge && cur)
+        ? { ...cur, ...data, kampe: { ...(cur.kampe || {}), ...(data.kampe || {}) } }
+        : data;
+      return;
+    }
     if (ref.__pulje) { pulje[ref.__pulje] = { ...(pulje[ref.__pulje] || {}), ...data }; }
   };
   // tx.get skal kunne læse både queries (som har .get) og player-refs.
@@ -84,16 +104,17 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
     batch: () => ({
       _ops: [],
       update(ref, data) { this._ops.push({ ref, data }); },
-      set(ref, data) { this._ops.push({ ref, data }); },
-      async commit() { for (const op of this._ops) applyOp(op.ref, op.data); },
+      set(ref, data, opts) { this._ops.push({ ref, data, opts }); },
+      async commit() { for (const op of this._ops) applyOp(op.ref, op.data, op.opts); },
     }),
     async runTransaction(fn) {
       await fn({
         get: txGet,
-        set: (ref, data) => applyOp(ref, data),
+        set: (ref, data, opts) => applyOp(ref, data, opts),
       });
     },
     _players: players,
+    _detalje: detalje,
     _bets: bets,
     _game: game,
     _pulje: pulje,
@@ -115,7 +136,7 @@ describe('recomputeGameMatchCore', () => {
       { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 8, points: 0 },
       { uid: 'B', matchId: 'm1', pick: '1', chanceStake: 5, points: 0 },
       { uid: 'C', matchId: 'other', pick: '1', chanceStake: 0, points: 3 }, // anden kamp, urørt
-    ]);
+    ], [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2.0, X: 3.0, 2: 4.0 }, kickoff: 1 }]);
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', {
       result: 'X', odds: { 1: 2.0, X: 3.0, 2: 4.0 },
     });
@@ -164,6 +185,62 @@ describe('recomputeGameMatchCore', () => {
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: null });
     expect(res.rescored).toBe(1);
     expect(db._bets[0].data.points).toBe(0);
+    expect(db._players.A.totalPoints).toBe(0);
+  });
+
+  it('skriver rubrikkerne på spilleren', async () => {
+    const matches = [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: 1 }];
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 0 }], matches);
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', {
+      result: 'X', odds: { 1: 2, X: 3, 2: 4 }, round: 1,
+    });
+    expect(db._players.A.opdeling).toEqual({ p1x2: 3, chance: 0, combi: 0, pulje: 0 });
+    expect(db._players.A.totalPoints).toBe(3);
+  });
+
+  it('skriver spillerens rækker i detalje-dokumentet', async () => {
+    const matches = [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: 1 }];
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 2, points: 0 }], matches);
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', {
+      result: 'X', odds: { 1: 2, X: 3, 2: 4 }, round: 1,
+    });
+    expect(db._detalje.A.uid).toBe('A');
+    expect(db._detalje.A.kampe.m1).toMatchObject({ pick: 'X', chanceStake: 2 });
+  });
+
+  // Detalje-dokumentet skrives med FULD ERSTATNING, ikke merge. Fjerner en
+  // admin et facit igen — den sti er understøttet — skal kampen VÆK fra
+  // rækkerne. Med merge ville den blive stående for evigt med sine gamle
+  // point, og spillerens egen oversigt ville sige noget andet end stillingen.
+  // Fejlen hverken fejler eller logger; den opdages først, når nogen undrer sig.
+  it('fjerner rækken igen, når et facit FJERNES', async () => {
+    const matches = [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: 1 }];
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 0 }], matches);
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', {
+      result: 'X', odds: { 1: 2, X: 3, 2: 4 }, round: 1,
+    });
+    expect(db._detalje.A.kampe.m1).toBeDefined();
+
+    // Admin fortryder: facit fjernes fra kampdokumentet.
+    matches[0].result = null;
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: null, round: 1 });
+
+    expect(db._detalje.A.kampe.m1).toBeUndefined();
+    expect(db._players.A.totalPoints).toBe(0);
+  });
+
+  // Kampen har facit, men er ikke begyndt (admin-tastefejl). Rækken må ikke
+  // med: detalje-dokumentet læses af liga-kammerater og kommer aldrig forbi
+  // kickoff-tjekket i firestore.rules, så tippet ville blive udstillet før
+  // kampstart.
+  it('holder en kamp, der ikke er begyndt, ude af rækkerne', async () => {
+    const fremtid = Date.now() + 60 * 60_000;
+    const matches = [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: fremtid }];
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 0 }], matches);
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', {
+      result: 'X', odds: { 1: 2, X: 3, 2: 4 }, round: 1,
+    });
+    expect(db._detalje.A.kampe.m1).toBeUndefined();
     expect(db._players.A.totalPoints).toBe(0);
   });
 
@@ -263,8 +340,8 @@ describe('recomputeGameMatchCore — start-gate (game.startAt)', () => {
 describe('recomputeAllPlayerTotals — genberegn med gate', () => {
   it('fjerner point før start for ALLE spillere', async () => {
     const matches = [
-      { id: 'm1', round: 1, kickoff: 100 },
-      { id: 'm2', round: 2, kickoff: 900 },
+      { id: 'm1', round: 1, kickoff: 100, result: '1', odds: { 1: 5, X: 4, 2: 4 } },
+      { id: 'm2', round: 2, kickoff: 900, result: 'X', odds: { 1: 2, X: 3, 2: 4 } },
     ];
     const db = makeDb([
       { uid: 'A', matchId: 'm1', pick: '1', points: 5 },
