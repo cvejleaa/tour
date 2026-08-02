@@ -336,6 +336,25 @@ describe('FootballTip — kampen er i gang', () => {
     expect(screen.queryByText(/DIREKTE/)).toBeNull();
   });
 
+  // REGRESSIONEN. Første udgave slettede live-feltet ved slutfløjt, og så stod
+  // kortet med en streg, mens brugeren stadig troede, kampen var i gang.
+  // Tallet SKAL blive stående, indtil facit lander.
+  it('beholder stillingen og siger "Slut · afventer facit"', () => {
+    setup(frisk, '/spil/sl', kampe({ ...LIVE, status: 'slut' }));
+    expect(screen.getByText(/Slut · afventer facit/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Stillingen ved slutfløjt/)).toHaveTextContent('1 – 0');
+    expect(screen.queryByText(/DIREKTE/)).toBeNull();
+  });
+
+  // "Opdatering afbrudt" ville være en løgn på en sluttet kamp: synken fejler
+  // ikke, den venter på resultatet. Derfor går `sluttet` forrest.
+  it('siger ikke "Opdatering afbrudt" på en kamp, der er slut', () => {
+    // Pulsen er gammel — uden forrangen ville kortet melde afbrudt opdatering.
+    setup({ liveHeartbeatAt: NU - 60 * 60_000 }, '/spil/sl', kampe({ ...LIVE, status: 'slut' }));
+    expect(screen.getByText(/Slut · afventer facit/)).toBeInTheDocument();
+    expect(screen.queryByText(/Opdatering afbrudt/)).toBeNull();
+  });
+
   // Vi sletter aldrig stillingen — vi siger, hvornår den sidst blev set.
   it('dæmper i stedet for at lyve, når opdateringen er stoppet', () => {
     setup({ liveHeartbeatAt: NU - 30 * 60000 }, '/spil/sl', kampe(LIVE));

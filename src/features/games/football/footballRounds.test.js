@@ -142,6 +142,25 @@ describe('liveScore', () => {
     expect(liveScore(live({ home: 0, away: 0 }), NU, NU)).toMatchObject({ home: 0, away: 0 });
   });
 
+  // Kampen er fløjtet af, men facit er ikke nået frem. Serveren markerer med
+  // 'slut' i stedet for at slette, så tallet bliver stående.
+  it('melder sluttet, når serveren har markeret kampen som slut', () => {
+    expect(liveScore(live({ status: 'slut' }), NU, NU)).toMatchObject({
+      home: 1, away: 0, sluttet: true,
+    });
+  });
+
+  it('melder ikke sluttet på en kamp, der er i gang', () => {
+    expect(liveScore(live(), NU, NU).sluttet).toBe(false);
+  });
+
+  // 'slut' må ALDRIG få en halvlegs-tekst. Fik den det, ville kortets sidste
+  // udvej — "har den en halvleg, så sig DIREKTE" — kalde en afsluttet kamp
+  // levende igen. Det var præcis den fejl, hele rettelsen skulle af med.
+  it('giver ingen halvlegs-tekst til en sluttet kamp', () => {
+    expect(liveScore(live({ status: 'slut' }), NU, NU).halvleg).toBeNull();
+  });
+
   // Slutresultatet er sandheden. Ligger der live tilbage, er det affald.
   it('lader facit slå live', () => {
     expect(liveScore({ ...live(), result: '1' }, NU, NU)).toBeNull();

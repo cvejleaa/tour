@@ -149,6 +149,15 @@ export function liveScore(match, friskAt, nowMs) {
     away: Number(l.away),
     halvleg: HALVLEG[l.status] || null,
     afbrudt: l.status === 'afbrudt',
+    // Kampen er fløjtet af, men facit er ikke nået frem endnu. Serveren sætter
+    // 'slut' i stedet for at slette stillingen, netop for at holde det løfte,
+    // der står længere nede: vi sletter aldrig tallet, vi dæmper det.
+    //
+    // 'slut' står MED VILJE ikke i HALVLEG. Fandtes den dér, ville et kort med
+    // ukendt status falde tilbage til "DIREKTE" — og en kamp, der var slut,
+    // ville igen se levende ud. Kortet skal spørge på `sluttet`, ikke gætte ud
+    // fra halvlegen.
+    sluttet: l.status === 'slut',
     // Forældet, ikke forsvundet: et tal med et ærligt forbehold er mere værd
     // end en streg. Vi sletter aldrig stillingen, vi dæmper den.
     forældet: Number.isFinite(puls) ? nowMs - puls > LIVE_STALE_MS : true,

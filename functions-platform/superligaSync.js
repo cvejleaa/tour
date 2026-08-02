@@ -242,7 +242,7 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
  *
  * @param {{fetchFn?:Function, gameId?:string, seasonId?:number, nowMs?:number,
  *          only?:Array<{id:string,data:object}>}} [opts]
- * @returns {Promise<{live:number, skrevet:number, ryddet:number}>}
+ * @returns {Promise<{live:number, skrevet:number, sluttet:number}>}
  */
 async function syncLiveCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
@@ -313,18 +313,39 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   // ikke inden da, rørte minut-synken den aldrig igen, og stillingen blev
   // stående til nattens sweep.
   //
-  // Kun kampe, vi har spurgt om (opts.only), og kun dem der faktisk HAR en
-  // live-stilling: ellers ville hvert minut uden kampe koste en tom skrivning
-  // pr. kamp i vinduet.
-  let ryddet = 0;
+  // Vi MARKERER, vi sletter ikke. Første udgave slettede feltet, og det kostede
+  // en ægte fejl: en kamp, der stadig blev spillet, fik tallet visket ud, fordi
+  // ét enkelt fravær fra kildens liste blev taget som bevis for slutfløjt. Et
+  // fravær er et svagt signal — kilden kan flakke, og den melder fra, før den
+  // melder facit. At slette på det signal modsiger klientens eget princip i
+  // footballRounds.js: "Forældet, ikke forsvundet ... vi sletter aldrig
+  // stillingen, vi dæmper den."
+  //
+  // Med 'slut' bliver tallet stående, kortet siger "Slut · afventer facit", og
+  // et flakkende minut koster et forkert "Slut" i 60 sekunder i stedet for et
+  // slettet resultat. Kommer kampen igen i kildens liste, skriver løkken
+  // ovenfor den levende status tilbage — status er forskellig, så skrive-
+  // vagten slipper den igennem. Selvhelbredende.
+  //
+  // Feltet ryddes stadig — men af facit (syncResultsCore), som er det stærke
+  // signal. Indtil da er "Slut · afventer facit" sandt.
+  //
+  // Kun kampe, vi har spurgt om (opts.only), kun dem der faktisk HAR en
+  // live-stilling, og kun dem der ikke allerede er markeret: ellers ville hvert
+  // minut uden kampe koste en tom skrivning pr. kamp i vinduet.
+  let sluttet = 0;
   for (const m of (opts.only || [])) {
-    if (m.data.live == null) continue;
+    const f = m.data.live;
+    if (f == null) continue;
     if (stadigIGang.has(m.id)) continue;
-    batch.set(matchesCol.doc(m.id), { live: FieldValue.delete() }, { merge: true });
-    ryddet += 1;
+    if (f.status === 'slut') continue;
+    // `at` beholdes med vilje: det fortæller, hvornår stillingen sidst flyttede
+    // sig, og det bliver ikke sandere af, at kampen er fløjtet af.
+    batch.set(matchesCol.doc(m.id), { live: { ...f, status: 'slut' } }, { merge: true });
+    sluttet += 1;
   }
 
-  if (skrevet || ryddet) await batch.commit();
+  if (skrevet || sluttet) await batch.commit();
 
   // Pulsen. Uden den ville et 0-0, der står stille i 40 minutter, give et
   // live.at fra kampens start — og kortet ville se dødt ud, selv om synken
@@ -334,7 +355,7 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   if (events.length > 0) {
     await db.collection('games').doc(gameId).set({ liveHeartbeatAt: nowMs }, { merge: true });
   }
-  return { live: events.length, skrevet, ryddet };
+  return { live: events.length, skrevet, sluttet };
 }
 
 /** URL til den OFFICIELLE stilling (grundspil-stage), med form (last5). */

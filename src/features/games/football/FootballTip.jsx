@@ -414,11 +414,15 @@ export default function FootballTip({ game, me, matches }) {
                 ) : live ? (
                   /* Live har forrang over Chancen-pillen: chance-kampen er
                      netop den, man følger tættest. */
-                  <span className={`live-pill ${live.forældet ? 'live-pill--doed' : ''}`}>
-                    {live.forældet ? '⏸' : <span className="live-pill__prik" aria-hidden="true" />}
-                    {live.forældet ? 'Opdatering afbrudt'
-                      : live.afbrudt ? 'Afbrudt'
-                        : live.halvleg ? `DIREKTE · ${live.halvleg}` : 'DIREKTE'}
+                  <span className={`live-pill ${live.forældet || live.sluttet ? 'live-pill--doed' : ''}`}>
+                    {live.forældet || live.sluttet ? '⏸' : <span className="live-pill__prik" aria-hidden="true" />}
+                    {/* `sluttet` går FORREST. Er kampen fløjtet af, er "Slut ·
+                        afventer facit" sandt og "Opdatering afbrudt" en løgn —
+                        synken fejler jo ikke, den venter bare på resultatet. */}
+                    {live.sluttet ? 'Slut · afventer facit'
+                      : live.forældet ? 'Opdatering afbrudt'
+                        : live.afbrudt ? 'Afbrudt'
+                          : live.halvleg ? `DIREKTE · ${live.halvleg}` : 'DIREKTE'}
                   </span>
                 ) : isChance ? (
                   <span className="chance-pill">⚡ Chancen</span>
@@ -452,15 +456,21 @@ export default function FootballTip({ game, me, matches }) {
                    står pillen og tallet langt fra hinanden, og det er dér,
                    forvekslingen sker. */
                 <div
-                  className={`match-card__score match-card__score--live ${live.forældet ? 'match-card__score--doed' : ''}`}
-                  aria-label={`Stillingen lige nu: ${m.home} ${live.home}, ${m.away} ${live.away}.`
-                    + ` ${live.afbrudt ? 'Kampen er afbrudt.' : live.halvleg ? `Kampen er i gang, ${live.halvleg}.` : 'Kampen er i gang.'}`
-                    + ` ${live.forældet ? 'Opdateringen er afbrudt' : 'Opdateret'}`
-                    + `${live.setAt ? ` ${klokken(live.setAt)}` : ''}.`}
+                  className={`match-card__score match-card__score--live ${live.forældet || live.sluttet ? 'match-card__score--doed' : ''}`}
+                  aria-label={`${live.sluttet ? 'Stillingen ved slutfløjt' : 'Stillingen lige nu'}:`
+                    + ` ${m.home} ${live.home}, ${m.away} ${live.away}.`
+                    + ` ${live.sluttet ? 'Kampen er slut, det officielle resultat er ikke nået frem endnu.'
+                      : live.afbrudt ? 'Kampen er afbrudt.' : live.halvleg ? `Kampen er i gang, ${live.halvleg}.` : 'Kampen er i gang.'}`
+                    // Tidsstemplet hører til opdateringen, ikke til slutfløjtet.
+                    // På en sluttet kamp er "Opdateret 19.52" misvisende: tallet
+                    // står nu stille, fordi kampen er forbi, ikke fordi vi kigger.
+                    + `${live.sluttet ? '' : ` ${live.forældet ? 'Opdateringen er afbrudt' : 'Opdateret'}`
+                      + `${live.setAt ? ` ${klokken(live.setAt)}` : ''}.`}`}
                 >
                   <span aria-hidden="true">{live.home} – {live.away}</span>
                   <span className="match-card__score-note" aria-hidden="true">
-                    {live.forældet ? 'sidst ' : ''}{live.setAt ? klokken(live.setAt) : 'lige nu'}
+                    {live.sluttet ? 'ved slutfløjt'
+                      : `${live.forældet ? 'sidst ' : ''}${live.setAt ? klokken(live.setAt) : 'lige nu'}`}
                   </span>
                 </div>
               ) : (
