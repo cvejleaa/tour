@@ -574,7 +574,7 @@ describe('runScheduledSync', () => {
     });
     const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
     expect(out.updated).toBe(0);
-    expect(out.live).toEqual({ live: 1, skrevet: 1, sluttet: 0 });
+    expect(out.live).toEqual({ live: 1, skrevet: 1, sluttet: 0, sluttede: [] });
   });
 
   it('bruger den tid, den får ind — ikke uret', async () => {
@@ -871,7 +871,7 @@ describe('syncLiveCore', () => {
     const res = await syncLiveCore(db, FieldValue, {
       fetchFn: fetchLive([hændelse({ home: 1, away: 0 })]), only: [kamp], nowMs: NU,
     });
-    expect(res).toEqual({ live: 1, skrevet: 1, sluttet: 0 });
+    expect(res).toEqual({ live: 1, skrevet: 1, sluttet: 0, sluttede: [] });
     expect(db._docs.get('r2-brondbyif-viborgff').live).toEqual({
       home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: NU,
     });
@@ -965,7 +965,7 @@ describe('syncLiveCore', () => {
     const res = await syncLiveCore(db, FieldValue, {
       fetchFn: fetchLive([færdig]), only: [kamp], nowMs: NU,
     });
-    expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0 });
+    expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0, sluttede: [] });
     expect(db._spil.liveHeartbeatAt).toBeUndefined(); // heller ingen puls
   });
 
@@ -1235,9 +1235,110 @@ describe('syncLiveCore', () => {
       ];
       const db = makeDb(only);
       const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only, nowMs: NU });
-      expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0 });
+      expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0, sluttede: [] });
       expect(db._docs.get('r2-silkeborg-horsens').live).toBeUndefined();
       expect(db._docs.get('r2-randers-odense').live).toBeUndefined();
+    });
+
+    // Vagten mod at markere igen må springe DEN ENE kamp over — ikke afbryde
+    // løkken. Med `break` ville en kamp, der allerede står som slut, standse
+    // markeringen af alle efterfølgende: to samtidige kickoffs, A markeret i
+    // minut 1, og B ville aldrig blive markeret, fordi A ligger først i listen.
+    it('markerer kamp nummer to, selv om kamp nummer ét allerede står som slut', async () => {
+      const only = [
+        { id: 'r2-silkeborg-horsens', data: { round: 2, live: { home: 1, away: 1, status: 'slut', at: NU - 60_000 } } },
+        { id: 'r2-randers-odense', data: { round: 2, live: { home: 2, away: 1, status: 'anden', at: NU - 60_000 } } },
+      ];
+      const db = makeDb(only);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only, nowMs: NU });
+      expect(res.sluttet).toBe(1);
+      expect(res.sluttede).toEqual(['r2-randers-odense']);
+      expect(db._docs.get('r2-randers-odense').live).toMatchObject({ home: 2, away: 1, status: 'slut' });
+    });
+
+    // KONTRAKTEN MELLEM SERVER OG KLIENT.
+    //
+    // 'slut' er en magisk streng, der står i to codebases. Omdøbes den ét sted
+    // — en helt almindelig omdøbning, der tager serveren og dens egne tests med
+    // — skriver serveren ét ord, mens klienten spørger på et andet. Så falder
+    // statussen igennem til null, og kortet siger DIREKTE på en afsluttet kamp.
+    // Præcis den fejl, hele rettelsen findes for. Uden denne test er alle 339
+    // tests grønne imens.
+    //
+    // Derfor køres serverens FAKTISKE output gennem klientens FAKTISKE læser.
+    it('skriver den status, klienten læser som sluttet', async () => {
+      const db = makeDb([medLive]);
+      await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [medLive], nowMs: NU });
+      const skrevet = db._docs.get('r2-brondbyif-viborgff');
+
+      const { liveScore } = await import('../src/features/games/football/footballRounds.js');
+      // kickoff skal med: klienten nægter at vise en stilling på et kort, der
+      // stadig tager imod tips.
+      const set = liveScore({ ...skrevet, kickoff: NU - 2 * 60 * 60_000 }, NU, NU);
+
+      expect(set).not.toBeNull();
+      expect(set.sluttet).toBe(true);
+      expect(set.halvleg).toBeNull(); // må ALDRIG kunne læses som "DIREKTE"
+      expect(set.home).toBe(1);
+      expect(set.away).toBe(0);
+    });
+  });
+
+  // HALVLEGSPAUSEN. Melder kilden en kamp ud af sin liste i pausen, ville
+  // fraværet blive læst som slutfløjt — og hver eneste kamp ville sige "Slut"
+  // midt i kampen.
+  describe('markerer ikke, før kampen overhovedet kan være slut', () => {
+    const medKickoff = (minutterSiden) => ({
+      id: 'r2-brondbyif-viborgff',
+      data: {
+        round: 2,
+        kickoff: new Date(NU - minutterSiden * 60_000),
+        live: { home: 1, away: 0, status: 'pause', statusRaw: 'halftime', at: NU - 60_000 },
+      },
+    });
+
+    it('markerer IKKE en kamp, der er 50 minutter gammel (halvlegspause)', async () => {
+      const m = medKickoff(50);
+      const db = makeDb([m]);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [m], nowMs: NU });
+      expect(res.sluttet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ status: 'pause' });
+    });
+
+    it('markerer, når kampen er gammel nok til at kunne være slut', async () => {
+      const m = medKickoff(100);
+      const db = makeDb([m]);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [m], nowMs: NU });
+      expect(res.sluttet).toBe(1);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0, status: 'slut' });
+    });
+
+    // Uden kickoff kan vi ikke afgøre det. Så markerer vi: markeringen er
+    // ikke-destruktiv, og alternativet var at lade kortet sige DIREKTE.
+    it('markerer, når kickoff ikke kan læses', async () => {
+      const m = { id: 'r2-brondbyif-viborgff', data: { round: 2, kickoff: '', live: { home: 1, away: 0, status: 'anden', at: NU } } };
+      const db = makeDb([m]);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [m], nowMs: NU });
+      expect(res.sluttet).toBe(1);
+    });
+  });
+
+  // En afbrudt kamp er ikke slut, den er afbrudt. Overskrev vi statussen, ville
+  // kortet holde op med at sige "Afbrudt" og begynde at sige "Slut".
+  describe('rører ikke en afbrudt kamp', () => {
+    it('lader en afbrudt kamp beholde sin status', async () => {
+      const m = {
+        id: 'r2-brondbyif-viborgff',
+        data: {
+          round: 2,
+          kickoff: new Date(NU - 120 * 60_000),
+          live: { home: 1, away: 0, status: 'afbrudt', statusRaw: 'abandoned', at: NU - 60_000 },
+        },
+      };
+      const db = makeDb([m]);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [m], nowMs: NU });
+      expect(res.sluttet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ status: 'afbrudt' });
     });
   });
 

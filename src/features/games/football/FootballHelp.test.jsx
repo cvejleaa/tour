@@ -39,6 +39,15 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     expect(screen.getByText(/opdaterer sig selv hvert minut/)).toBeInTheDocument();
   });
 
+  // Hjælpeteksten og kortet er drevet fra hinanden to gange på to dage: først
+  // lovede den, at slutresultatet AFLØSER den levende stilling, og derefter at
+  // kortet står uden tal. Begge dele var forkerte, og intet fangede det.
+  it('lover det samme om slutfløjt, som kortet faktisk gør', () => {
+    render(<MemoryRouter><FootballHelp /></MemoryRouter>);
+    expect(screen.getByText(/Slut · afventer facit/)).toBeInTheDocument();
+    expect(screen.getByText(/tallet forsvinder ikke/)).toBeInTheDocument();
+  });
+
   it('gør fane-henvisningerne til rigtige links', () => {
     render(
       <MemoryRouter initialEntries={['/spil/sl?fane=hjaelp']}>

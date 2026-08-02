@@ -65,10 +65,10 @@ export default function FootballHelp() {
             komme, siger kortet det i stedet for at lade som ingenting.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
-            <strong>Når kampen er slut:</strong> Ved slutfløjt forsvinder den levende stilling, og kortet
-            står et øjeblik uden tal. Så lander slutresultatet, det rigtige 1X2 markeres, og dine point
-            afregnes i samme øjeblik. Alt kommer fra Superligaens eget system, så der kan gå et minut
-            eller to, hvor kampen er slut uden at resultatet er nået frem.
+            <strong>Når kampen er slut:</strong> Ved slutfløjt bliver stillingen stående, og kortet
+            skifter til <em>Slut · afventer facit</em> — tallet forsvinder ikke. Så lander slutresultatet,
+            det rigtige 1X2 markeres, og dine point afregnes i samme øjeblik. Alt kommer fra Superligaens
+            eget system, så der kan gå et minut eller to, hvor kampen er slut, uden at resultatet er nået frem.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Efter runden:</strong> Se dit facit og din træfprocent under <Tab fane="mine">📋 Mine tips</Tab>, og

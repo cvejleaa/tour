@@ -346,6 +346,38 @@ describe('FootballTip — kampen er i gang', () => {
     expect(screen.queryByText(/DIREKTE/)).toBeNull();
   });
 
+  // Uden disse assertions kan man fjerne HELE den visuelle forskel på "slut"
+  // og "i gang", og alle tests bliver grønne: teksten ville sige "Slut", mens
+  // den pulserende røde direkte-prik stod ved siden af, og tallet stod i
+  // levende rød. Mutationstesten fandt præcis det hul.
+  it('dæmper BÅDE pillen og tallet på en sluttet kamp — og viser ingen levende prik', () => {
+    const { container } = setup(frisk, '/spil/sl', kampe({ ...LIVE, status: 'slut' }));
+    expect(container.querySelectorAll('.live-pill--doed')).toHaveLength(1);
+    expect(container.querySelectorAll('.match-card__score--doed')).toHaveLength(1);
+    expect(container.querySelectorAll('.live-pill__prik')).toHaveLength(0);
+  });
+
+  // ⏸ er "noget er galt". Slutfløjt er ikke en fejl, og må ikke se ud som en.
+  it('bruger målflaget, ikke pause-tegnet, når kampen er slut', () => {
+    setup(frisk, '/spil/sl', kampe({ ...LIVE, status: 'slut' }));
+    expect(screen.getByText(/🏁/)).toBeInTheDocument();
+    expect(screen.queryByText(/⏸/)).toBeNull();
+  });
+
+  it('skriver "ved slutfløjt" under tallet i stedet for et klokkeslæt', () => {
+    const { container } = setup(frisk, '/spil/sl', kampe({ ...LIVE, status: 'slut' }));
+    expect(container.querySelector('.match-card__score-note').textContent).toBe('ved slutfløjt');
+  });
+
+  // Skærmlæseren er den eneste, der ikke kan se pillen. Uden det her mister
+  // den helt beskeden om, at tallet er foreløbigt.
+  it('oplæser en sluttet kamp som slut — uden at love en opdatering', () => {
+    setup(frisk, '/spil/sl', kampe({ ...LIVE, status: 'slut' }));
+    const m = screen.getByLabelText(/Stillingen ved slutfløjt/);
+    expect(m.getAttribute('aria-label')).toContain('Kampen er slut, det officielle resultat er ikke nået frem endnu.');
+    expect(m.getAttribute('aria-label')).not.toMatch(/Opdateret|Opdateringen er afbrudt/);
+  });
+
   // "Opdatering afbrudt" ville være en løgn på en sluttet kamp: synken fejler
   // ikke, den venter på resultatet. Derfor går `sluttet` forrest.
   it('siger ikke "Opdatering afbrudt" på en kamp, der er slut', () => {

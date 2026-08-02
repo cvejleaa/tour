@@ -159,7 +159,12 @@ export default function FootballTip({ game, me, matches }) {
   //
   // Står OVER den tidlige return nedenfor: hooks skal kaldes i samme
   // rækkefølge ved hver gentegning.
-  const harLive = roundMatches.some((m) => m.live && (m.result == null || m.result === ''));
+  // En kamp, der står som slut, har intet ur at tælle: både tidsstemplet og
+  // forældet-teksten er undertrykt. Uden 'slut'-undtagelsen ville uret køre
+  // resten af vinduet — og for evigt på en kamp, der aldrig får facit — og
+  // gentegne kortet hvert halve minut uden at noget kunne ændre sig.
+  const harLive = roundMatches.some((m) => m.live && m.live.status !== 'slut'
+    && (m.result == null || m.result === ''));
   const [liveNu, setLiveNu] = useState(() => Date.now());
   useEffect(() => {
     if (!harLive) return undefined;
@@ -415,7 +420,12 @@ export default function FootballTip({ game, me, matches }) {
                   /* Live har forrang over Chancen-pillen: chance-kampen er
                      netop den, man følger tættest. */
                   <span className={`live-pill ${live.forældet || live.sluttet ? 'live-pill--doed' : ''}`}>
-                    {live.forældet || live.sluttet ? '⏸' : <span className="live-pill__prik" aria-hidden="true" />}
+                    {/* Eget tegn til slutfløjt. ⏸ er appens "noget er galt"-look
+                        ("Opdatering afbrudt"), og en helt normal afslutning må
+                        ikke ligne en fejl — den rammer jo hver eneste kamp. */}
+                    {live.sluttet ? '🏁'
+                      : live.forældet ? '⏸'
+                        : <span className="live-pill__prik" aria-hidden="true" />}
                     {/* `sluttet` går FORREST. Er kampen fløjtet af, er "Slut ·
                         afventer facit" sandt og "Opdatering afbrudt" en løgn —
                         synken fejler jo ikke, den venter bare på resultatet. */}

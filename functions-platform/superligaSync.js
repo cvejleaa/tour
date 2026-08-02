@@ -26,6 +26,24 @@ const APP_NAME = 'dk.releaze.livecenter.spdk';
 // facit, holder vi op med at spørge.
 const WINDOW_MS = 2.5 * 60 * 60 * 1000;
 
+// Hvor længe der MINDST skal være gået siden kickoff, før vi tør kalde en kamp
+// slut: 2×45 minutter plus pausen plus lidt tillægstid.
+//
+// Vagten findes for HALVLEGSPAUSEN. Melder kilden en kamp ud af sin
+// inprogress-liste i de 15 minutter, ville fraværet blive læst som slutfløjt,
+// og så sagde hver eneste kamp "Slut · afventer facit" midt i kampen — en løgn
+// to gange pr. kamp, hver kamp. Vi ved ikke, om kilden gør det; vagten koster
+// os ingenting, hvis den ikke gør, for en kamp der FAKTISK er slut, er altid
+// mere end 95 minutter gammel.
+const MIN_SPILLETID_MS = 95 * 60 * 1000;
+
+/** Millisekunder ud af et kickoff-felt (Firestore-Timestamp, Date eller streng). */
+function kickoffMs(k) {
+  if (k == null) return NaN;
+  const ms = typeof k.toMillis === 'function' ? k.toMillis() : new Date(k).getTime();
+  return Number.isFinite(ms) ? ms : NaN;
+}
+
 // Et hængende kald holder funktionen kørende, til dens egen timeout løber ud —
 // og vi ringer nu 15 gange så ofte.
 //
@@ -126,7 +144,13 @@ const LIVE_STATUS = {
 /** statusFull → vores lukkede sæt. Ukendt bliver 'ukendt' og logges. */
 function liveStatus(raw) {
   const n = String(raw ?? '').trim().toLowerCase();
-  const kendt = LIVE_STATUS[n];
+  // hasOwnProperty og ikke et almindeligt opslag: `LIVE_STATUS['constructor']`
+  // rammer Object.prototype og giver en FUNKTION tilbage. Den kan Admin SDK
+  // ikke serialisere, så hele synken ville kaste hvert minut — tavst, fordi
+  // runScheduledSync fanger fejlen — og hverken live eller slut blev skrevet
+  // for nogen kamp. '__proto__' giver tilsvarende et objekt, som skrive-vagten
+  // aldrig kan sammenligne sig ud af, så hver kørsel ville skrive igen.
+  const kendt = Object.prototype.hasOwnProperty.call(LIVE_STATUS, n) ? LIVE_STATUS[n] : null;
   if (!kendt && n) console.warn(`superliga: ukendt live-status "${raw}" — vises som blot "direkte".`);
   return kendt || 'ukendt';
 }
@@ -242,7 +266,7 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
  *
  * @param {{fetchFn?:Function, gameId?:string, seasonId?:number, nowMs?:number,
  *          only?:Array<{id:string,data:object}>}} [opts]
- * @returns {Promise<{live:number, skrevet:number, sluttet:number}>}
+ * @returns {Promise<{live:number, skrevet:number, sluttet:number, sluttede:string[]}>}
  */
 async function syncLiveCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
@@ -334,15 +358,30 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   // live-stilling, og kun dem der ikke allerede er markeret: ellers ville hvert
   // minut uden kampe koste en tom skrivning pr. kamp i vinduet.
   let sluttet = 0;
+  const sluttede = [];
   for (const m of (opts.only || [])) {
     const f = m.data.live;
     if (f == null) continue;
+    // Facit slår live — samme vagt som skriveløkken har. Lander resultatet i
+    // vinduet mellem pendingMatches og denne løkke, ville vi ellers hæfte en
+    // live-stilling tilbage på en kamp, der lige er afgjort.
+    if (m.data.result != null && m.data.result !== '') continue;
     if (stadigIGang.has(m.id)) continue;
     if (f.status === 'slut') continue;
+    // En afbrudt kamp er ikke slut, den er afbrudt. Overskrev vi statussen her,
+    // ville kortet holde op med at sige "Afbrudt" og begynde at sige "Slut",
+    // og det er en anden — og forkert — påstand.
+    if (f.status === 'afbrudt') continue;
+    // Kan kampen overhovedet være slut endnu? Se MIN_SPILLETID_MS. Uden
+    // kickoff kan vi ikke afgøre det; så markerer vi, for markeringen er
+    // ikke-destruktiv, og alternativet var at lade kortet sige DIREKTE.
+    const ko = kickoffMs(m.data.kickoff);
+    if (Number.isFinite(ko) && nowMs - ko < MIN_SPILLETID_MS) continue;
     // `at` beholdes med vilje: det fortæller, hvornår stillingen sidst flyttede
     // sig, og det bliver ikke sandere af, at kampen er fløjtet af.
     batch.set(matchesCol.doc(m.id), { live: { ...f, status: 'slut' } }, { merge: true });
     sluttet += 1;
+    sluttede.push(m.id);
   }
 
   if (skrevet || sluttet) await batch.commit();
@@ -355,7 +394,7 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   if (events.length > 0) {
     await db.collection('games').doc(gameId).set({ liveHeartbeatAt: nowMs }, { merge: true });
   }
-  return { live: events.length, skrevet, sluttet };
+  return { live: events.length, skrevet, sluttet, sluttede };
 }
 
 /** URL til den OFFICIELLE stilling (grundspil-stage), med form (last5). */
