@@ -158,7 +158,9 @@ exports.recomputeGameScores = onCall({ region: REGION }, async (request) => {
 //
 // Kører HVERT MINUT i tidsrummet, hvor der overhovedet kan være kampe i gang —
 // men gør intet, med mindre en kamp faktisk er sat i gang og stadig mangler
-// facit. Det tidlige exit er dét, der gør frekvensen billig:
+// facit. Samme kørsel henter den LEVENDE stilling på kampe midt i spillet, så
+// man kan følge med på tip-fladen. Det tidlige exit er dét, der gør frekvensen
+// billig:
 //
 //   før:  hvert kvarter 14-23, HVER dag året rundt, 132 læsninger pr. kørsel
 //         = 14.600 kørsler og ~1,9 mio. læsninger om året
@@ -178,6 +180,7 @@ exports.syncSuperligaResults = onSchedule(
     if (out.fejl) console.error('Superliga-synk (ignoreret):', out.fejl);
     if (out.pending === 0) return; // stille minut: intet i gang, intet rørt
     console.log(`Superliga-synk: ${out.pending} kampe uden facit, ${out.updated} nye facit.`
+      + (out.live ? ` ${out.live.live} i gang, ${out.live.skrevet} live-opdateringer.` : '')
       + (out.standings ? ` Stilling ${out.standings.changed ? 'opdateret' : 'uændret'}.` : ''));
   },
 );

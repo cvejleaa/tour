@@ -30,6 +30,15 @@ describe('FootballHelp (spil-intern hjælp)', () => {
   // Guiden henviser til faner mange steder. Uden en Route ville GameTabLink
   // falde tilbage til ren tekst, og alle henvisningerne ville være grønne og
   // utestede.
+  // Hjælpesiden skal blive ved med at passe på appen. Fjernes afsnittet, står
+  // der intet sted, at stillingen kommer af sig selv — og så genindlæser folk
+  // siden manuelt for at se, om der er sket noget.
+  it('forklarer, at stillingen opdaterer sig selv under kampen', () => {
+    render(<MemoryRouter><FootballHelp /></MemoryRouter>);
+    expect(screen.getByText(/Mens kampen spilles/)).toBeInTheDocument();
+    expect(screen.getByText(/opdaterer sig selv hvert minut/)).toBeInTheDocument();
+  });
+
   it('gør fane-henvisningerne til rigtige links', () => {
     render(
       <MemoryRouter initialEntries={['/spil/sl?fane=hjaelp']}>
