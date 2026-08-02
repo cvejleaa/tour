@@ -26,6 +26,14 @@ const APP_NAME = 'dk.releaze.livecenter.spdk';
 // facit, holder vi op med at spørge.
 const WINDOW_MS = 2.5 * 60 * 60 * 1000;
 
+// Et hængende kald holder funktionen kørende, til dens egen timeout løber ud —
+// og vi ringer nu 15 gange så ofte.
+//
+// Funktion og ikke en konstant: AbortSignal.timeout() starter uret med det
+// samme, så et delt signal ville udløbe 10 sekunder efter modulet blev
+// indlæst og derefter afbryde hvert eneste kald.
+const hentOpt = () => ({ signal: AbortSignal.timeout(10000) });
+
 /**
  * Kampe, der er sat i gang inden for vinduet og STADIG mangler facit.
  *
@@ -45,6 +53,30 @@ async function pendingMatches(db, nowMs, opts = {}) {
   return snap.docs
     .map((d) => ({ id: d.id, data: d.data() }))
     .filter((m) => m.data.result == null || m.data.result === '');
+}
+
+/**
+ * Kampe, der for længst er begyndt og STADIG mangler facit — dem vinduet har
+ * sluppet. En kamp uden kickoff-felt tælles med: den kan aldrig komme i noget
+ * vindue overhovedet.
+ *
+ * Findes der nogen af dem, er point ikke afregnet, og ingen ville opdage det:
+ * puljebonussen kræver, at ALLE kampe har mål, så én strandet kamp blokerer
+ * hele sæsonafregningen.
+ */
+async function strandedMatches(db, nowMs, opts = {}) {
+  const gameId = opts.gameId || GAME_ID;
+  const snap = await db.collection('games').doc(gameId).collection('matches').get();
+  const graense = nowMs - WINDOW_MS;
+  return snap.docs
+    .map((d) => ({ id: d.id, data: d.data() }))
+    .filter((m) => m.data.result == null || m.data.result === '')
+    .filter((m) => {
+      const k = m.data.kickoff;
+      if (k == null) return true; // uden kickoff rammer den aldrig et vindue
+      const ms = typeof k.toMillis === 'function' ? k.toMillis() : new Date(k).getTime();
+      return Number.isFinite(ms) && ms < graense;
+    });
 }
 
 /** 1X2-udfald af mål (spejler superligaScoring.outcomeFromScore). */
@@ -87,7 +119,7 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
   const seasonId = opts.seasonId || SEASON_ID;
   const fetchFn = opts.fetchFn || fetch;
 
-  const res = await fetchFn(resultsUrl(seasonId));
+  const res = await fetchFn(resultsUrl(seasonId), hentOpt());
   if (!res.ok) throw new Error(`superliga API HTTP ${res.status}`);
   const data = await res.json();
   const events = (data.events || []).filter((e) => e.statusType === 'finished'
@@ -154,7 +186,7 @@ async function syncStandingsCore(db, FieldValue, opts = {}) {
   const stageId = opts.stageId || STAGE_ID;
   const fetchFn = opts.fetchFn || fetch;
 
-  const res = await fetchFn(standingsUrl(seasonId, stageId));
+  const res = await fetchFn(standingsUrl(seasonId, stageId), hentOpt());
   if (!res.ok) throw new Error(`superliga standings HTTP ${res.status}`);
   const data = await res.json();
   const rows = (Array.isArray(data) ? data : [])
@@ -238,5 +270,5 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
-  standingsUrl, syncStandingsCore, runScheduledSync,
+  standingsUrl, syncStandingsCore, runScheduledSync, strandedMatches,
 };

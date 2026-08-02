@@ -219,6 +219,23 @@ describe('FootballTip — slutresultat på kampkortet', () => {
     expect(vundet[0]).toHaveTextContent('1');    // hjemmesejr 3-2
   });
 
+  // Klassen bærer CSS'en i theme.css. Uden en assertion kan stilarten dø
+  // ubemærket, og scoren ville se ud som den streg, den erstattede.
+  it('scoren bærer sin egen klasse (så CSS\'en ikke kan dø ubemærket)', () => {
+    const { container } = setup({}, '/spil/sl', spillede());
+    expect(container.querySelectorAll('.match-card__score')).toHaveLength(1);
+    expect(container.querySelectorAll('.match-card__dash')).toHaveLength(0);
+  });
+
+  it('en afgjort kamp lover ikke længere point for at gætte rigtigt', () => {
+    setup({}, '/spil/sl', spillede());
+    const vinder = screen.getByTitle('1 blev udfaldet');
+    expect(vinder).toBeInTheDocument();
+    // De to tabende udfald beholder deres odds-tekst; kun vinderen skifter.
+    expect(screen.getAllByTitle(/point hvis rigtigt/)).toHaveLength(2);
+    expect(vinder.title).not.toMatch(/hvis rigtigt/);
+  });
+
   it('markerer intet udfald, før kampen er afgjort', () => {
     const { container } = setup();
     expect(container.querySelectorAll('.pick--won')).toHaveLength(0);

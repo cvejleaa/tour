@@ -4,7 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
-  standingsUrl, syncStandingsCore, runScheduledSync,
+  standingsUrl, syncStandingsCore, runScheduledSync, strandedMatches,
 } = require('./superligaSync');
 
 const FieldValue = { serverTimestamp: () => '@ts' };
@@ -21,8 +21,19 @@ function makeDb(matchDocs, gameData = {}) {
     async get() {
       const passer = (d) => filtre.every(({ felt, op, vaerdi }) => {
         const v = d.data()[felt];
+        // Firestore udelader dokumenter uden feltet fra en range-query.
         if (v == null) return false;
-        return op === '>=' ? v >= vaerdi : op === '<=' ? v <= vaerdi : v === vaerdi;
+        switch (op) {
+          case '>=': return v >= vaerdi;
+          case '<=': return v <= vaerdi;
+          case '>': return v > vaerdi;
+          case '<': return v < vaerdi;
+          case '==': return v === vaerdi;
+          // Faldt vi tilbage til lighed her, ville en mutation af >= til >
+          // "dø" af den forkerte grund: to Date-objekter er aldrig strikt ens,
+          // så ENHVER ukendt operator ville give tom liste og se rigtig ud.
+          default: throw new Error(`faken kender ikke operatoren ${op}`);
+        }
       });
       return { docs: alle().filter(passer) };
     },
@@ -41,7 +52,14 @@ function makeDb(matchDocs, gameData = {}) {
     _spil: spil,
     collection(name) {
       if (name !== 'games') throw new Error(`uventet ${name}`);
-      return { doc: () => gameDoc };
+      return {
+        doc: (id) => {
+          // Uden denne vagt er det usynligt for testene, om gameId overhovedet
+          // bliver ført igennem — faken svarede ens på ethvert spil-id.
+          if (id !== undefined && id !== 'superliga2627') throw new Error(`uventet spil ${id}`);
+          return gameDoc;
+        },
+      };
     },
     batch() {
       return {
@@ -124,6 +142,20 @@ describe('syncResultsCore', () => {
     expect(res.updated).toBe(1);
     expect(db._docs.get('r1-viborgff-ob').homeGoals).toBe(3);
     expect(db._docs.get('r1-viborgff-ob').result).toBe('1'); // facit uændret
+  });
+
+  // Spejlvendt af ovenstående: ude-halvdelen af guarden var ubevist, så
+  // `cur.awayGoals === e.score.away` kunne fjernes uden en eneste rød test.
+  it('retter en ændret score, når kun UDEholdets mål er rettet', async () => {
+    const db = makeDb([
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 3, awayGoals: 1 } },
+    ]);
+    const events = [
+      { statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 3, away: 2 } },
+    ];
+    const res = await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch(events) });
+    expect(res.updated).toBe(1);
+    expect(db._docs.get('r1-viborgff-ob').awayGoals).toBe(2);
   });
 
   it('bagfylder mål på en kamp, der har facit men mangler dem', async () => {
@@ -249,17 +281,50 @@ describe('pendingMatches', () => {
     expect(await pendingMatches(db, NU)).toEqual([]);
   });
 
-  // Loftet er det, der forhindrer, at én kamp uden facit holder synken kørende
-  // i ugevis — fx hvis API'et aldrig melder den færdig.
-  it('slipper en kamp, der er ældre end vinduet, selv uden facit', async () => {
-    const foerVinduet = new Date(NU - WINDOW_MS - 60000);
-    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: foerVinduet } }]);
+  // ABSOLUT tid, ikke WINDOW_MS. Regnede fixturet ud fra konstanten selv, kunne
+  // testen aldrig fejle — et vindue på 24 timer ville stå lige så grønt, og så
+  // var hele besparelsen væk uden at nogen opdagede det.
+  it('en kamp fra for 2 timer siden er stadig med', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: kickoff(120) } }]);
+    expect((await pendingMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  });
+
+  // Selve luften. Et vindue på præcis 2 timer ville stå grønt uden denne:
+  // en kamp med lang tillægstid slutter efter 2 timer, og API'et er selv et
+  // par minutter bagefter. Uden slæk ville sådan en kamp falde ud og først
+  // blive afregnet af nattens sweep.
+  it('en kamp med lang tillægstid er stadig med efter 2 timer og 20 minutter', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: kickoff(140) } }]);
+    expect((await pendingMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  });
+
+  it('en kamp fra for 3 timer siden er ude af vinduet', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: kickoff(180) } }]);
     expect(await pendingMatches(db, NU)).toEqual([]);
   });
 
-  it('vinduet rækker længere end en kamp varer', () => {
-    // ~105 min spil + pause; resten er luft til forlænget tid og API-forsinkelse.
-    expect(WINDOW_MS).toBeGreaterThan(2 * 60 * 60 * 1000);
+  // Begge grænser er INKLUSIVE (>= og <=). Uden disse to kunne >= byttes til >
+  // uden at noget blev rødt.
+  it('tager en kamp, der begynder præcis nu', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: new Date(NU) } }]);
+    expect((await pendingMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  });
+
+  it('tager en kamp, der ligger præcis på vinduets bagkant', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: new Date(NU - WINDOW_MS) } }]);
+    expect((await pendingMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  });
+
+  it('ser bort fra en kamp helt uden kickoff-felt', async () => {
+    // Firestore udelader dokumenter uden feltet fra en range-query. Sådan en
+    // kamp fanges kun af sweep'et — derfor findes sweep'et.
+    const db = makeDb([{ id: 'r1-a-b', data: { round: 1 } }]);
+    expect(await pendingMatches(db, NU)).toEqual([]);
+  });
+
+  it('tæller tomt facit som manglende facit', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: kickoff(30), result: '' } }]);
+    expect((await pendingMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
   });
 });
 
@@ -291,6 +356,19 @@ describe('syncStandingsCore — skriver kun ved ændring', () => {
     expect(res.changed).toBe(false);
     expect(db._spil.standingsSyncedAt).toBe('urørt'); // ingen skrivning
     expect(foer).toBe('@ts');
+  });
+
+  // Det almindeligste tilfælde: samme point, anden målscore (3-0 mod 1-0).
+  // Uden denne kunne gf/ga falde ud af sammenligningen ubemærket.
+  it('skriver igen, når kun målscoren har flyttet sig', async () => {
+    const db = makeDb([]);
+    await syncStandingsCore(db, FieldValue, { fetchFn: fetchStanding(raekker) });
+    db._spil.standingsSyncedAt = 'urørt';
+
+    const nye = [{ ...raekker[0], goalsScored: 7 }, raekker[1]];
+    const res = await syncStandingsCore(db, FieldValue, { fetchFn: fetchStanding(nye) });
+    expect(res.changed).toBe(true);
+    expect(db._spil.standingsSyncedAt).toBe('@ts');
   });
 
   it('skriver igen, når et hold har fået point', async () => {
@@ -395,5 +473,193 @@ describe('runScheduledSync', () => {
     const out = await runScheduledSync(db, FieldValue, NU, { fetchFn: nede });
     expect(out.fejl).toMatch(/resultater/);
     expect(out.updated).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// De fejl-tavse grene i runScheduledSync. "Fejler tavst" må ikke betyde
+// "fejler usynligt" — derfor skal hver gren rapportere sig.
+// ---------------------------------------------------------------------------
+describe('runScheduledSync — fejl i hvert led', () => {
+  const NU = Date.parse('2026-08-02T18:30:00Z');
+  const iGang = new Date(NU - 30 * 60000);
+
+  it('et fejlende opslag vælter ikke kørslen', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: iGang } }]);
+    db.collection('games').doc().collection().where = () => ({
+      where: () => ({ get: async () => { throw new Error('databasen svarer ikke'); } }),
+    });
+    const out = await runScheduledSync(db, FieldValue, NU, { fetchFn: async () => { throw new Error('må ikke kaldes'); } });
+    expect(out.fejl).toMatch(/opslag/);
+    expect(out.pending).toBe(0);
+  });
+
+  it('en nede stilling skjuler ikke, at facit landede', async () => {
+    const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang } }]);
+    const fetchFn = async (url) => {
+      if (String(url).includes('/standings')) return { ok: false, status: 503, json: async () => [] };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          events: [{ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 2, away: 1 } }],
+        }),
+      };
+    };
+    const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
+    expect(out.updated).toBe(1);              // facit landede
+    expect(out.fejl).toMatch(/stilling/);     // men vi hører om stillingen
+    expect(db._docs.get('r1-viborgff-ob').result).toBe('1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// strandedMatches — alarmen. Minut-synken ser kun ind i sit vindue, så uden
+// denne ville "ingen kampe i gang" og "kampen bliver aldrig afregnet" se ens
+// ud. Puljebonussen kræver mål på ALLE kampe, så én strandet kamp blokerer
+// hele sæsonafregningen.
+// ---------------------------------------------------------------------------
+describe('strandedMatches', () => {
+  const NU = Date.parse('2026-08-02T18:30:00Z');
+  const forSiden = (t) => new Date(NU - t * 3600e3);
+
+  it('finder en kamp, der for længst er begyndt uden at få facit', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: forSiden(5) } }]);
+    expect((await strandedMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  });
+
+  it('råber ikke op om en kamp, der stadig er i gang', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: forSiden(1) } }]);
+    expect(await strandedMatches(db, NU)).toEqual([]);
+  });
+
+  it('råber ikke op om en kamp, der HAR fået facit', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: forSiden(5), result: '1' } }]);
+    expect(await strandedMatches(db, NU)).toEqual([]);
+  });
+
+  it('råber ikke op om kampe, der ikke er spillet endnu', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: new Date(NU + 3600e3) } }]);
+    expect(await strandedMatches(db, NU)).toEqual([]);
+  });
+
+  // Uden kickoff kan kampen aldrig komme i et vindue — den ville stå strandet
+  // for evigt, og minut-synken ville aldrig se den.
+  it('tager en kamp helt uden kickoff med', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { round: 1 } }]);
+    expect((await strandedMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  });
+
+  it('forstår et Firestore-Timestamp lige så godt som en Date', async () => {
+    const ms = NU - 5 * 3600e3;
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: { toMillis: () => ms } } }]);
+    expect((await strandedMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  });
+
+  it('tæller tomt facit som manglende', async () => {
+    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: forSiden(5), result: '' } }]);
+    expect((await strandedMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Skemaet mod kampprogrammet.
+//
+// Cron-udtrykkene er den ene ting, ingen enhedstest normalt rører — og fejlen
+// ville være tavs: en kamp uden for tidsrummet får aldrig sit facit fra
+// minut-synken. Læses som TEKST ud af index.js, fordi filen ikke kan
+// importeres uden firebase-functions.
+// ---------------------------------------------------------------------------
+describe('skemaet dækker kampprogrammet', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const kilde = fs.readFileSync(path.join(__dirname, 'index.js'), 'utf8');
+  const fixtures = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '..', 'scripts', 'superliga-fixtures.json'), 'utf8'),
+  ).fixtures;
+
+  /** Timerne i et cron-felt som "12-23" eller "*". */
+  function cronTimer(udtryk) {
+    const felt = udtryk.split(' ')[1];
+    if (felt === '*') return { fra: 0, til: 23 };
+    const [fra, til] = felt.split('-').map(Number);
+    return { fra, til: til ?? fra };
+  }
+  const skema = (navn) => {
+    const m = kilde.match(new RegExp(`exports\\.${navn} = onSchedule\\(\\s*\\{ schedule: '([^']+)'`));
+    if (!m) throw new Error(`fandt ikke skemaet for ${navn} — er funktionen omdøbt?`);
+    return m[1];
+  };
+
+  /** Time på døgnet i dansk tid (sommertid marts-oktober). */
+  const dkTime = (iso) => {
+    const t = new Date(iso);
+    const off = t.getUTCMonth() > 2 && t.getUTCMonth() < 10 ? 2 : 1;
+    return new Date(t.getTime() + off * 3600e3).getUTCHours();
+  };
+
+  it('kampprogrammet findes og er komplet', () => {
+    expect(fixtures.length).toBe(132);
+    expect(fixtures.every((f) => f.kickoff)).toBe(true);
+  });
+
+  it('hver kamp begynder inden for minut-synkens tidsrum', () => {
+    const { fra, til } = cronTimer(skema('syncSuperligaResults'));
+    const udenfor = fixtures.filter((f) => dkTime(f.kickoff) < fra || dkTime(f.kickoff) > til);
+    expect(udenfor.map((f) => `${f.home}-${f.away} ${f.kickoff}`)).toEqual([]);
+  });
+
+  // Bagkanten er den asymmetriske: et vindue, der klippes ved midnat, betyder
+  // at kampen først fanges af sweep'et næste dag.
+  it('hvert kampvindue LUKKER også inden for tidsrummet', () => {
+    const { til } = cronTimer(skema('syncSuperligaResults'));
+    const klippet = fixtures.filter((f) => {
+      const slut = new Date(new Date(f.kickoff).getTime() + WINDOW_MS);
+      // Krydser vinduet midnat, er dagens sidste kørsel passeret.
+      return dkTime(slut.toISOString()) > til || dkTime(slut.toISOString()) < dkTime(f.kickoff);
+    });
+    expect(klippet.map((f) => `${f.home}-${f.away} ${f.kickoff}`)).toEqual([]);
+  });
+
+  it('sweep\'et kører efter dagens sidste kampvindue', () => {
+    const senesteSlut = Math.max(...fixtures.map(
+      (f) => dkTime(new Date(new Date(f.kickoff).getTime() + WINDOW_MS).toISOString()),
+    ));
+    const { til } = cronTimer(skema('syncSuperligaSweep'));
+    expect(til).toBeGreaterThanOrEqual(senesteSlut);
+  });
+});
+
+// Et hængende kald mod tredjeparten holder funktionen kørende, til dens egen
+// timeout løber ud — og vi ringer nu 15 gange så ofte som før.
+describe('kald mod api.superliga.dk giver op i tide', () => {
+  /** Fanger de options, fetch bliver kaldt med. */
+  function sporFetch(svar) {
+    const set = [];
+    const fn = async (_url, opt) => { set.push(opt); return svar; };
+    fn.options = set;
+    return fn;
+  }
+
+  it('resultat-kaldet har en timeout', async () => {
+    const fetchFn = sporFetch({ ok: true, status: 200, json: async () => ({ events: [] }) });
+    await syncResultsCore(makeDb([]), FieldValue, { fetchFn });
+    expect(fetchFn.options[0]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('stilling-kaldet har en timeout', async () => {
+    const fetchFn = sporFetch({ ok: true, status: 200, json: async () => [] });
+    await syncStandingsCore(makeDb([]), FieldValue, { fetchFn });
+    expect(fetchFn.options[0]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  // Et delt signal ville starte uret ved modul-indlæsning og derefter afbryde
+  // hvert eneste kald — funktionen skal lave et nyt pr. gang.
+  it('hvert kald får sit EGET signal', async () => {
+    const fetchFn = sporFetch({ ok: true, status: 200, json: async () => ({ events: [] }) });
+    const db = makeDb([]);
+    await syncResultsCore(db, FieldValue, { fetchFn });
+    await syncResultsCore(db, FieldValue, { fetchFn });
+    expect(fetchFn.options[0].signal).not.toBe(fetchFn.options[1].signal);
   });
 });
