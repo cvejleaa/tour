@@ -1526,6 +1526,33 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     );
   });
 
+  // myLeagueIds() rammer sin exists()-gren, når læseren slet ikke deltager i
+  // spillet. Opfører sig korrekt i dag, men intet vogtede det.
+  it('man KAN IKKE læse en andens detalje uden selv at deltage i spillet', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p2', { leagueIds: ['L1'] });
+    await seedDetalje('vm2026', 'p2');
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+        'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
+  it('en IKKE-godkendt bruger KAN IKKE læse en ligakammerats detalje', async () => {
+    await createUser('pend', 'player', 'pending');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'pend', { leagueIds: ['L1'] });
+    await seedMembership('vm2026', 'p2', { leagueIds: ['L1'] });
+    await seedDetalje('vm2026', 'p2');
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('pend').firestore(),
+        'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
   // Rækkerne er afledt af bets og facit. Kunne man skrive dem, kunne man vise
   // sig selv med point, man ikke har fået — også sine egne.
   it('INGEN klient kan skrive i detaljen — heller ikke sin egen', async () => {

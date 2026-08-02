@@ -20,10 +20,27 @@ import { outcomePoints, outcomeReward, roundComboBonus, round1 } from './superli
  * i firestore.rules. Uden denne linje ville en admin-tastefejl på en fremtidig
  * kamp — et facit sat for tidligt — lække spillerens tip, før kampen er spillet.
  */
-function taeller(info, nowMs) {
-  if (!info || !info.result) return false;
-  if (info.kickoff != null && info.kickoff > nowMs) return false;
-  return true;
+function taeller(info) {
+  return !!(info && info.result);
+}
+
+/**
+ * Må kampens RÆKKE vises for andre? Strengere end taeller().
+ *
+ * De to filtre er med vilje adskilt. Blander man dem, gater kickoff også
+ * TOTALEN — og så forsvinder point fra stillingen, hvis vores gemte kickoff er
+ * forkert. Det sker: ligaen flytter en kamp, facit kommer fra API'et uanset
+ * hvad vi har gemt, og lander det før vores kickoff, taber alle tippere deres
+ * point for den kamp. Tavst, indtil en anden kamp tilfældigvis genberegner dem.
+ *
+ * Her er kravet derimod nødvendigt og skal være STRENGT: rækkerne havner i et
+ * dokument, liga-kammerater må læse, og det kommer aldrig forbi kickoff-tjekket
+ * i firestore.rules. Et ulæseligt kickoff må derfor betyde "vis ikke", ikke
+ * "vis alligevel" — ellers kunne et tip blive udstillet før kampstart.
+ */
+function maaVises(info, nowMs) {
+  if (!taeller(info)) return false;
+  return Number.isFinite(info.kickoff) && info.kickoff <= nowMs;
 }
 
 /**
@@ -76,20 +93,32 @@ export function combiBonus(bets, roundCtx) {
  */
 export function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs = Date.now() } = {}) {
   const byMatch = roundCtx?.byMatch || {};
-  const kampe = [];
+  const afgjorte = []; // kendt og afgjort → kan deles op i rubrikker
+  const kampe = [];    // må vises for andre
   let p1x2 = 0;
   let chance = 0;
+  // Summen af ALLE bet-point — præcis som recalcPlayerTotal regnede før.
+  //
+  // Totalen må IKKE afhænge af, om runde-konteksten er komplet. Regnede vi den
+  // ud af rubrikkerne, ville en ufuldstændig kamplæsning — eller et slettet
+  // kampdokument — nulstille spillerens stilling, tavst. Rubrikkerne er
+  // best-effort; totalen er stillingen.
+  let raw = 0;
 
   for (const b of bets) {
+    raw += Number(b.points) || 0;
     const info = byMatch[b.matchId];
-    if (!taeller(info, nowMs)) continue;
+    if (!taeller(info)) continue;
     const tip = outcomePoints(b.pick, info.result, info.odds);
     p1x2 += tip;
     chance += (Number(b.points) || 0) - tip;
-    kampe.push(b);
+    afgjorte.push(b);
+    if (maaVises(info, nowMs)) kampe.push(b);
   }
 
-  const combi = combiBonus(kampe, roundCtx);
+  // Combi regnes på ALLE afgjorte kampe, ikke kun de synlige. Ellers ville en
+  // kamp med et ulæseligt kickoff koste spilleren hans rundebonus.
+  const combi = combiBonus(afgjorte, roundCtx);
   const pulje = Number(puljeBonus) || 0;
 
   // Totalen afrundes ÉN gang og gulves ÉN gang — nøjagtig som recalcPlayerTotal.
@@ -100,7 +129,9 @@ export function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs =
     chance: round1(chance),
     combi: round1(combi),
     pulje: round1(pulje),
-    total: Math.max(0, round1(p1x2 + chance + combi + pulje)),
+    // raw, ikke p1x2 + chance: identisk med den gamle formel i
+    // recalcPlayerTotal, så stillingen ikke kan flytte sig af denne ændring.
+    total: Math.max(0, round1(raw + combi + pulje)),
     kampe,
   };
 }

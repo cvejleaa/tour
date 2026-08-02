@@ -13,7 +13,12 @@ function ctx(matches) {
   const byMatch = {};
   const rounds = {};
   for (const m of matches) {
-    byMatch[m.id] = { round: m.round, result: m.result, odds: m.odds || null, kickoff: m.kickoff ?? foer };
+    // 'kickoff' in m og ikke ??: et EKSPLICIT null skal nå igennem, ellers
+    // testede fixturen aldrig den vagt, den var skrevet for at teste.
+    byMatch[m.id] = {
+      round: m.round, result: m.result, odds: m.odds || null,
+      kickoff: 'kickoff' in m ? m.kickoff : foer,
+    };
     if (!rounds[m.round]) rounds[m.round] = { count: 0, settledCount: 0 };
     rounds[m.round].count += 1;
     if (m.result) rounds[m.round].settledCount += 1;
@@ -60,24 +65,95 @@ describe('opdelPoint', () => {
     expect(res.total).toBe(0);
   });
 
-  // SIKKERHED, ikke pynt. Opdelingen havner i et dokument, liga-kammerater må
-  // læse, og det kommer aldrig forbi kickoff-tjekket i firestore.rules. Sætter
-  // en admin et facit på en kamp, der ikke er begyndt, ville tippet ellers
-  // blive udstillet før kampstart.
-  it('tæller IKKE en kamp, hvis kickoff ligger i fremtiden', () => {
+  // De to filtre er ADSKILTE, og det er hele pointen. Rækken må ikke vises —
+  // men POINTENE skal tælle. Blandede man dem, ville kickoff gate totalen, og
+  // flytter ligaen en kamp tidligere end vores gemte tidspunkt, ville alle
+  // tippere tavst miste deres point for den kamp i stillingen.
+  it('viser ikke rækken, når kickoff ligger i fremtiden — men beholder pointene', () => {
     const roundCtx = ctx([{
       id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 }, kickoff: NU + 60 * 60_000,
     }]);
     const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 2.5 }], roundCtx, nowMs: NU });
-    expect(res.kampe).toHaveLength(0);
-    expect(res.p1x2).toBe(0);
-    expect(res.total).toBe(0);
+    expect(res.kampe).toHaveLength(0); // ikke synlig for andre
+    expect(res.p1x2).toBe(2.5);        // men pointene er der
+    expect(res.total).toBe(2.5);
   });
 
-  it('ser bort fra tips på kampe, konteksten ikke kender', () => {
+  // Et ulæseligt kickoff skal betyde "vis ikke", ikke "vis alligevel".
+  it('viser ikke rækken, når kickoff mangler — men beholder pointene', () => {
+    const roundCtx = ctx([{
+      id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 }, kickoff: null,
+    }]);
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 2.5 }], roundCtx, nowMs: NU });
+    expect(res.kampe).toHaveLength(0);
+    expect(res.total).toBe(2.5);
+  });
+
+  // Combi regnes på alle AFGJORTE kampe, ikke kun de synlige. Ellers ville en
+  // kamp med et ulæseligt kickoff koste spilleren hans rundebonus.
+  it('giver stadig combi, når en af rundens kampe ikke må vises', () => {
+    const roundCtx = ctx([
+      { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+      { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 }, kickoff: null },
+    ]);
+    const res = opdelPoint({
+      bets: [
+        { matchId: 'm1', pick: '1', points: 2 },
+        { matchId: 'm2', pick: 'X', points: 3 },
+      ],
+      roundCtx,
+      nowMs: NU,
+    });
+    expect(res.kampe).toHaveLength(1);    // kun m1 må vises
+    expect(res.combi).toBeGreaterThan(0); // men bonussen er intakt
+  });
+
+  // TOTALEN ER STILLINGEN. Den regnes af de gemte bet-point, ikke af
+  // rubrikkerne — ellers ville en ufuldstændig kamplæsning eller et slettet
+  // kampdokument nulstille spillerens point, tavst. Rubrikkerne er
+  // best-effort; totalen må aldrig være det.
+  it('beholder pointene i totalen, selv om konteksten ikke kender kampen', () => {
     const roundCtx = ctx([{ id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 } }]);
     const res = opdelPoint({ bets: [{ matchId: 'ukendt', pick: '1', points: 5 }], roundCtx, nowMs: NU });
-    expect(res.total).toBe(0);
+    expect(res.total).toBe(5);   // pointene overlever
+    expect(res.p1x2).toBe(0);    // men kan ikke placeres i en rubrik
+    expect(res.kampe).toHaveLength(0);
+  });
+
+  it('nulstiller ikke totalen, når runde-konteksten er helt tom', () => {
+    const res = opdelPoint({
+      bets: [{ matchId: 'm1', pick: '1', points: 4 }], roundCtx: null, nowMs: NU,
+    });
+    expect(res.total).toBe(4);
+  });
+
+  // Rubrikkerne er IKKE altid ét decimal i forvejen: chance er
+  // (gemte point − afrundet odds), og summer af ét-decimals odds bærer
+  // float-støj. Uden round1 pr. rubrik ville skærmen vise 3.3000000000000003.
+  it('afrunder hver rubrik for sig', () => {
+    const roundCtx = ctx([
+      { id: 'm1', round: 1, result: '1', odds: { 1: 1.1, X: 4, 2: 4 } },
+      { id: 'm2', round: 2, result: '1', odds: { 1: 1.1, X: 4, 2: 4 } },
+      { id: 'm3', round: 3, result: '1', odds: { 1: 1.1, X: 4, 2: 4 } },
+    ]);
+    const res = opdelPoint({
+      bets: [
+        { matchId: 'm1', pick: '1', points: 1.1 },
+        { matchId: 'm2', pick: '1', points: 1.1 },
+        { matchId: 'm3', pick: '1', points: 1.1 },
+      ],
+      roundCtx,
+      nowMs: NU,
+    });
+    expect(res.p1x2).toBe(3.3); // ikke 3.3000000000000003
+  });
+
+  it('afrunder Chancen, som er en forskel mellem to tal', () => {
+    // odds 3.33 → 1X2-point afrundes til 3,3; points 3.33 gemt på tippet.
+    const roundCtx = ctx([{ id: 'm1', round: 1, result: 'X', odds: { 1: 4, X: 3.33, 2: 4 } }]);
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: 'X', points: 3.33 }], roundCtx, nowMs: NU });
+    expect(res.p1x2).toBe(3.3);
+    expect(res.chance).toBe(0);  // 3.33 − 3.3 = 0.03 → afrundet 0
   });
 
   it('lægger puljebonussen med i totalen', () => {
@@ -167,21 +243,82 @@ describe('combiBonus', () => {
     const bets = [{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }];
     expect(combiBonus(bets, runde)).toBe(playerRoundBonus(bets, runde));
   });
+
+  // Kampe UDEN rundenummer må aldrig give combi. Jeg påstod i en commit, at
+  // det fulgte af sig selv — det gjorde det ikke. Uden vagten i
+  // buildRoundContext samles de i én pseudo-runde, og bonussen udbetales for
+  // kampe, der ikke hører sammen: to facit-kampe uden runde gav 9 point ud af
+  // ingenting.
+  it('giver ingen combi for kampe uden rundenummer', () => {
+    const uden = {
+      byMatch: {
+        m1: { round: null, result: '1', odds: { 1: 3.0, X: 4, 2: 4 }, kickoff: foer },
+        m2: { round: null, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 }, kickoff: foer },
+      },
+      rounds: {},
+    };
+    const bets = [{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }];
+    expect(combiBonus(bets, uden)).toBe(0);
+
+    // …men pointene tæller stadig i totalen.
+    const res = opdelPoint({
+      bets: [{ matchId: 'm1', pick: '1', points: 3 }, { matchId: 'm2', pick: 'X', points: 3 }],
+      roundCtx: uden,
+      nowMs: NU,
+    });
+    expect(res.combi).toBe(0);
+    expect(res.total).toBe(6);
+  });
 });
 
 describe('spejling mod src/lib', () => {
-  it('server-spejlet matcher src-udgaven', async () => {
-    const src = await import('../src/lib/pointOpdeling.js');
-    const roundCtx = ctx([
-      { id: 'm1', round: 1, result: '1', odds: { 1: 2.17, X: 4, 2: 4 } },
-      { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.33, 2: 4 } },
-    ]);
-    const bets = [
-      { matchId: 'm1', pick: '1', points: 5.42 },
-      { matchId: 'm2', pick: 'X', points: 3.33 },
-    ];
-    const arg = { bets, roundCtx, puljeBonus: 7.5, nowMs: NU };
-    expect(opdelPoint(arg)).toEqual(src.opdelPoint(arg));
-    expect(combiBonus(bets, roundCtx)).toBe(src.combiBonus(bets, roundCtx));
-  });
+  // EN TABEL, ikke ét lykkeligt tilfælde. Med kun ét fixture — begge kampe
+  // afgjorte, i fortiden, positiv total — kunne både kickoff-vagten og gulvet
+  // ved 0 fjernes i den ene fil, uden at pariteten opdagede det. Hvert
+  // tilfælde herunder rammer en gren, der ellers kunne drive fra hinanden.
+  const tilfaelde = [
+    ['almindelig runde med Chancen', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.17, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.33, 2: 4 } },
+      ],
+      bets: [
+        { matchId: 'm1', pick: '1', points: 5.42 },
+        { matchId: 'm2', pick: 'X', points: 3.33 },
+      ],
+      puljeBonus: 7.5,
+    }],
+    ['kickoff i fremtiden — rækken skjules, pointene tæller', {
+      matches: [{ id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 }, kickoff: NU + 3_600_000 }],
+      bets: [{ matchId: 'm1', pick: '1', points: 2.5 }],
+    }],
+    ['kickoff mangler', {
+      matches: [{ id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 }, kickoff: null }],
+      bets: [{ matchId: 'm1', pick: '1', points: 2.5 }],
+    }],
+    ['negativ saldo — gulvet ved 0', {
+      matches: [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2.0, X: 4, 2: 4 } }],
+      bets: [{ matchId: 'm1', pick: '1', points: -9.5 }],
+    }],
+    ['ingen bets', { matches: [{ id: 'm1', round: 1, result: '1', odds: { 1: 2, X: 4, 2: 4 } }], bets: [] }],
+    ['kun puljebonus', { matches: [], bets: [], puljeBonus: 24 }],
+    ['ukendt kamp', {
+      matches: [{ id: 'm1', round: 1, result: '1', odds: { 1: 2, X: 4, 2: 4 } }],
+      bets: [{ matchId: 'ukendt', pick: '1', points: 5 }],
+    }],
+    ['kamp uden facit', {
+      matches: [{ id: 'm1', round: 1, result: null, odds: { 1: 2, X: 4, 2: 4 } }],
+      bets: [{ matchId: 'm1', pick: '1', points: 0 }],
+    }],
+  ];
+
+  for (const [navn, { matches, bets, puljeBonus = 0 }] of tilfaelde) {
+    it(`server-spejlet matcher src-udgaven: ${navn}`, async () => {
+      const src = await import('../src/lib/pointOpdeling.js');
+      const roundCtx = ctx(matches);
+      const arg = { bets, roundCtx, puljeBonus, nowMs: NU };
+      expect(opdelPoint(arg)).toEqual(src.opdelPoint(arg));
+      expect(combiBonus(bets, roundCtx)).toBe(src.combiBonus(bets, roundCtx));
+    });
+  }
 });
