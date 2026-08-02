@@ -115,6 +115,15 @@ export default function FootballHelp() {
         mesterskabsspil (top 6) og nedrykningsspil (bund 6). Det er den, pulje-tippet afgøres på.
       </Section>
 
+      <Section emoji="📈" title="Elo på kampkortet">
+        På <Tab>Tip</Tab> står begge holds <strong>styrke-rating</strong> under kampen sammen med de
+        seneste op til fem runders udvikling (▲/▼ pr. runde — samme betydning som i Elo-tabellen).
+        Ratingen er holdets styrke <strong>efter seneste hele runde</strong> — den er ikke et bud på
+        netop denne kamp. Hvem der er favorit, kan du læse direkte på 1X2-knapperne: der står, hvor
+        mange point hvert udfald giver. De tal er ikke bare forskellen i rating — hjemmebanen tæller
+        også med.
+      </Section>
+
       <Section emoji="📈" title="Elo-tabellen">
         På <Tab>📈 Elo</Tab> kan du følge holdenes <strong>styrke-rating</strong> hele sæsonen. Efter hver
         færdigspillet runde kommer der en ny kolonne forrest med den nye rating og en pil, der viser
