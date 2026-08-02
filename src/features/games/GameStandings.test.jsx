@@ -113,7 +113,23 @@ describe('GameStandings — liga-filter', () => {
   it('fortæller hvilken liga der vises', () => {
     setup();
     fireEvent.change(filter(), { target: { value: 'L1' } });
-    expect(screen.getByText(/Viser 5 spillere i Kontoret/)).toBeInTheDocument();
+    expect(screen.getByText('Viser de 5 spillere i Kontoret.')).toBeInTheDocument();
+  });
+
+  // Den mest sandsynlige forekomst: en ny spiller, der lige har oprettet sin
+  // egen liga, står alene i STANDARDVISNINGEN. "Viser 1 spiller, du deler liga
+  // med" ville være usandt — den ene spiller er én selv.
+  it('siger det ligeud, når man er alene i standardvisningen', () => {
+    setup({ standings: [ROWS[4]] });
+    expect(screen.getByText(/Viser kun dig selv/)).toBeInTheDocument();
+    expect(screen.queryByText(/du deler liga med/)).not.toBeInTheDocument();
+  });
+
+  // Bestemt form i flertal: listen trunkeres aldrig, så "de N" siger korrekt,
+  // at det er dem alle. Uden denne kunne "de" fjernes ubemærket.
+  it('beholder bestemt form i flertal', () => {
+    setup();
+    expect(screen.getByText('Viser de 6 spillere, du deler liga med.')).toBeInTheDocument();
   });
 
   // En liga kan have ét medlem — så må der ikke stå "1 spillere".

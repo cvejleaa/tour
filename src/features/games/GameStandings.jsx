@@ -105,6 +105,18 @@ export default function GameStandings({ gameId }) {
     );
   };
 
+  // Bestemt form i flertal er med vilje: listen trunkeres aldrig, så "de N
+  // spillere" siger korrekt, at det er dem alle. Ved ÉN spiller er det én selv
+  // — man deler ikke liga med sig selv, så den sætning skal skrives om.
+  const antal = standings.length;
+  const opsummering = valgt
+    ? (antal === 1
+      ? `Viser 1 spiller i ${valgt.name || 'ligaen'}.`
+      : `Viser de ${antal} spillere i ${valgt.name || 'ligaen'}.`)
+    : (antal === 1
+      ? 'Viser kun dig selv — ingen andre i dine ligaer er med endnu.'
+      : `Viser de ${antal} spillere, du deler liga med.`);
+
   const MEDAL = ['🥇', '🥈', '🥉'];
   // Podie-rækkefølge: 2. plads, 1. plads (løftet), 3. plads.
   const podiumOrder = podium.length === 3 ? [podium[1], podium[0], podium[2]] : podium;
@@ -133,14 +145,7 @@ export default function GameStandings({ gameId }) {
       )}
 
       <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', margin: '0 0 0.6rem' }}>
-        {(() => {
-          // Ental/flertal: en liga kan sagtens have ét medlem.
-          const n = standings.length;
-          const spillere = n === 1 ? '1 spiller' : `${n} spillere`;
-          return valgt
-            ? `Viser ${spillere} i ${valgt.name || 'ligaen'}.`
-            : `Viser ${spillere}, du deler liga med.`;
-        })()}
+        {opsummering}
       </p>
       {hasPodium && (
         <div className="podium">
