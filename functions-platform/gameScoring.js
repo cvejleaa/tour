@@ -12,6 +12,7 @@ const {
   scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeFromScore, outcomeOdds, isOutcome,
   roundComboBonus, outcomeReward, championshipTeams, puljeScore,
 } = require('./superligaScoring');
+const { opdelPoint } = require('./pointOpdeling');
 
 /** Millisekunder fra et Firestore-Timestamp | tal | ISO-streng. */
 function kickoffMs(m) {
@@ -139,9 +140,16 @@ function buildRoundContext(matches) {
   const rounds = {};
   for (const m of matches) {
     const round = m.round;
-    if (round == null) continue;
     const result = matchOutcome(m); // '1'|'X'|'2'|null
-    byMatch[m.id] = { round, result, odds: m.odds || null };
+    // ALLE kampe med i byMatch — også dem uden runde. Opslaget bruges nu også
+    // til pointopdelingen, og en kamp uden rundenummer ville ellers stille
+    // miste sine point i totalen. Rundetællingen nedenfor springer den fortsat
+    // over, så combi-bonussen er upåvirket: den kræver et rundenummer.
+    //
+    // kickoff med: opdelPoint bruger det til at holde en kamp, der ikke er
+    // begyndt, ude af opdelingen — også hvis den ved en fejl har fået facit.
+    byMatch[m.id] = { round, result, odds: m.odds || null, kickoff: kickoffMs(m) };
+    if (round == null) continue;
     if (!rounds[round]) rounds[round] = { count: 0, settledCount: 0 };
     rounds[round].count += 1;
     if (result) rounds[round].settledCount += 1;
@@ -189,28 +197,53 @@ function playerRoundBonus(bets, roundCtx) {
  * @param {object|null} roundCtx – runde-kontekst (buildRoundContext); uden den gives ingen bonus.
  * @param {Set<string>|null} gated – match-id'er før spillets start; deres bets tæller ikke med.
  */
-async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null, gated = null) {
+async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null, gated = null, nowMs = Date.now()) {
   const betsQ = db.collection('games').doc(gameId).collection('bets').where('uid', '==', uid);
   const playerRef = db.collection('games').doc(gameId).collection('players').doc(uid);
+  // Rækkerne ligger i et UNDERDOKUMENT, ikke på spilleren selv: stillingen
+  // abonnerer live på alle liga-kammeraters players-dokumenter, så en hel
+  // sæsons historik dér ville følge med ned ved hver eneste pointændring.
+  //
+  // Læseadgangen er indtil videre KUN spillerens egen (firestore.rules).
+  // Liga-klausulen tilføjes sammen med den skærm, der skal bruge den.
+  const detaljeRef = playerRef.collection('detalje').doc('opdeling');
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(betsQ);
     const playerSnap = await tx.get(playerRef);
     const all = snap.docs.map((d) => d.data());
     // Kampe før spillets starttidspunkt tæller ikke med (hverken bet-point eller combi).
     const bets = gated ? all.filter((b) => !gated.has(b.matchId)) : all;
-    const raw = bets.reduce((a, b) => a + (Number(b.points) || 0), 0);
-    const bonus = playerRoundBonus(bets, roundCtx);
     // Pulje-bonus (mesterskabsspil-tip) afregnes ved sæsonslut og gemmes på
     // spilleren; her lægges den bare oveni den løbende total.
     const puljeBonus = Number(playerSnap.exists ? playerSnap.data().bonusPoints : 0) || 0;
-    // Point følger oddsene (1 decimal) → afrund summen, så float-støj ikke giver
-    // grimme totaler som 7.399999999. Gulv ved 0 (Chancen kan give negative bets).
-    const totalPoints = Math.max(0, Math.round((raw + bonus + puljeBonus) * 10) / 10);
+
+    const o = opdelPoint({ bets, roundCtx, puljeBonus, nowMs });
+
     tx.set(playerRef, {
-      totalPoints,
-      roundBonus: Math.round(bonus * 10) / 10,
+      totalPoints: o.total,
+      roundBonus: o.combi,
+      // Ét felt og ikke fire løse: rubrikkerne skrives altid sammen, så de
+      // ikke kan komme til at stamme fra hver sin kørsel.
+      opdeling: { p1x2: o.p1x2, chance: o.chance, combi: o.combi, pulje: o.pulje },
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
+
+    // FULD ERSTATNING — bevidst ingen merge.
+    //
+    // Fjerner en admin et facit igen (den sti er understøttet), forsvinder
+    // kampen fra o.kampe. Med merge ville dens række blive stående for evigt,
+    // og detaljen ville vise point, spilleren ikke længere har. Den fejl
+    // hverken fejler eller logger; den opdages først, når nogen undrer sig
+    // over, at hans egen oversigt siger noget andet end stillingen.
+    const kampe = {};
+    for (const b of o.kampe) {
+      kampe[b.matchId] = {
+        pick: b.pick ?? null,
+        points: Number(b.points) || 0,
+        chanceStake: Number(b.chanceStake) || 0,
+      };
+    }
+    tx.set(detaljeRef, { uid, kampe, updatedAt: FieldValue.serverTimestamp() });
   });
 }
 
@@ -355,18 +388,31 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   const batches = [batch];
   const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
 
-  const changedUids = new Set();
+  // ALLE, der har tippet på kampen — ikke kun dem, hvis point ændrede sig.
+  //
+  // Rammer en spiller forkert uden at bruge Chancen, går hans point 0 → 0.
+  // Samlede vi kun de ændrede, blev han aldrig genberegnet — og var det
+  // rundens SIDSTE kamp, fik han derfor aldrig sin combi-bonus for én fejl.
+  // Bonussen kræver, at hele runden er spillet, så den kunne kun komme fra
+  // netop denne genberegning. Fejlen var tavs: totalen var jo "rigtig" set fra
+  // hver enkelt kamp.
+  const berorteUids = new Set();
   let rescored = 0;
   for (const d of betsSnap.docs) {
-    const pts = scoreBet(d.data(), result, odds);
-    if (Number(d.data().points) === pts) continue; // uændret → rør ikke
+    const bet = d.data();
+    if (bet.uid) berorteUids.add(bet.uid);
+    const pts = scoreBet(bet, result, odds);
+    if (Number(bet.points) === pts) continue; // uændret → spar skrivningen
     batch.update(d.ref, { points: pts });
     bump();
     rescored += 1;
-    if (d.data().uid) changedUids.add(d.data().uid);
   }
-  if (rescored === 0) return { rescored: 0, players: 0 }; // intet ændret
-  for (const b of batches) await b.commit();
+  // Ingen tidlig exit på rescored === 0. Ud over combi-bonussen hang både
+  // runde-snapshottet og puljeafregningen nedenfor på den: ramte HELE feltet
+  // forkert på en kamp, blev runden aldrig snapshottet, og Runde-Botten fyrede
+  // aldrig. Triggeren (index.js) returnerer allerede, når facit er uændret, så
+  // vi kommer kun herned, når der faktisk er sket noget.
+  if (rescored) for (const b of batches) await b.commit();
 
   // Runde-kontekst til combi-bonussen: hentes kun når vi faktisk skal genberegne.
   const matchesSnap = await db.collection('games').doc(gameId).collection('matches').get();
@@ -375,7 +421,7 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   const gated = gatedIds(allMatches, startMs);
   const roundCtx = buildRoundContext(allMatches.filter((m) => !gated.has(m.id)));
 
-  const uids = [...changedUids];
+  const uids = [...berorteUids];
   const CHUNK = 10;
   for (let i = 0; i < uids.length; i += CHUNK) {
     await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx, gated)));

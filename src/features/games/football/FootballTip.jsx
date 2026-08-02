@@ -562,6 +562,22 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  // selMatchId sættes ÉN gang, når panelet monteres. Har man ikke tippet noget
+  // endnu — eller er runden ikke hentet fra Firestore endnu — er `options` tom,
+  // og state bliver ''. Tipper man så sin første kamp, mens panelet står åbent,
+  // fyldes listen, men state følger ikke med.
+  //
+  // <select> med en value, der ikke matcher nogen option, viser den FØRSTE
+  // kamp alligevel. Så ser det ud, som om der er valgt en kamp, mens opslaget
+  // nedenfor ikke finder nogen: boksen påstod "Odds er ikke lagt ind på kampen
+  // endnu" — selv om oddsene stod på knapperne lige ovenover — og knappen var
+  // død, fordi `pick` også blev undefined. Man kunne altså slet ikke sætte
+  // Chancen.
+  useEffect(() => {
+    if (options.some((m) => m.id === selMatchId)) return;
+    setSelMatchId(chanceMatchId || options[0]?.id || '');
+  }, [options, selMatchId, chanceMatchId]);
+
   const selMatch = roundMatches.find((m) => m.id === selMatchId);
   const selBet = selMatch ? betsByMatch[selMatch.id] : null;
   const pick = selBet?.pick;

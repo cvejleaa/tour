@@ -134,7 +134,7 @@ export const GAME_STATUS_LABEL = {
 // seede sin egen pointsum eller placering (samme princip som users-profilen).
 export const PROTECTED_PLAYER_FIELDS = [
   'totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus',
-  'previousRank', 'rank', 'points',
+  'previousRank', 'rank', 'points', 'opdeling',
 ];
 
 export const TIMEZONE = 'Europe/Copenhagen';

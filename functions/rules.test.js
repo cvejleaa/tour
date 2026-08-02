@@ -1475,6 +1475,122 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     );
   });
 
+  // --- players/{uid}/detalje/{docId} — spillerens rækker -------------------
+  // Underdokumentet har INGEN kickoff-vagt, fordi serveren kun skriver kampe,
+  // der er afgjort og begyndt. Adgangen er ren liga-afgrænsning, slået op på
+  // players-dokumentet i stedet for en kopi af leagueIds.
+
+  async function seedDetalje(gameId, uid, kampe = { m1: { pick: '1', points: 2.5 } }) {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('games').doc(gameId)
+        .collection('players').doc(uid)
+        .collection('detalje').doc('opdeling')
+        .set({ uid, kampe });
+    });
+  }
+
+  it('man KAN læse sin EGEN detalje', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await seedDetalje('vm2026', 'p1');
+    await assertSucceeds(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+        'games', 'vm2026', 'players', 'p1', 'detalje', 'opdeling'))
+    );
+  });
+
+  // Liga-kammerater kan IKKE læse endnu — og det er med vilje. Klausulen
+  // tilføjes sammen med den skærm, der skal bruge den (D6), så asymmetrien
+  // mod bets-reglen bliver en beslutning og ikke en bivirkning. Går denne
+  // test i grønt, er adgangen udvidet, uden at nogen har taget stilling.
+  it('en LIGAKAMMERAT kan endnu IKKE læse detaljen (klausulen kommer i D6)', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await seedMembership('vm2026', 'p2', { leagueIds: ['L1'] });
+    await seedDetalje('vm2026', 'p2');
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+        'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
+  it('man KAN IKKE læse detaljen for en man IKKE deler liga med', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await seedMembership('vm2026', 'p2', { leagueIds: ['L2'] });
+    await seedDetalje('vm2026', 'p2');
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+        'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
+  // myLeagueIds() rammer sin exists()-gren, når læseren slet ikke deltager i
+  // spillet. Opfører sig korrekt i dag, men intet vogtede det.
+  it('man KAN IKKE læse en andens detalje uden selv at deltage i spillet', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p2', { leagueIds: ['L1'] });
+    await seedDetalje('vm2026', 'p2');
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+        'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
+  it('en IKKE-godkendt bruger KAN IKKE læse en ligakammerats detalje', async () => {
+    await createUser('pend', 'player', 'pending');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'pend', { leagueIds: ['L1'] });
+    await seedMembership('vm2026', 'p2', { leagueIds: ['L1'] });
+    await seedDetalje('vm2026', 'p2');
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('pend').firestore(),
+        'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
+  // Rækkerne er afledt af bets og facit. Kunne man skrive dem, kunne man vise
+  // sig selv med point, man ikke har fået — også sine egne.
+  it('INGEN klient kan skrive i detaljen — heller ikke sin egen', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await assertFails(
+      setDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+        'games', 'vm2026', 'players', 'p1', 'detalje', 'opdeling'),
+      { uid: 'p1', kampe: { m1: { pick: '1', points: 999 } } })
+    );
+  });
+
+  it('man KAN IKKE seede sin egen opdeling ved tilmelding', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    const ctx = testEnv.authenticatedContext('p1');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'games', 'vm2026', 'players', 'p1'), {
+        uid: 'p1', joinedAt: Timestamp.now(), opdeling: { p1x2: 999, chance: 0, combi: 0, pulje: 0 },
+      })
+    );
+  });
+
+  it('man KAN IKKE skrive opdeling på et eksisterende medlemskab', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { totalPoints: 5 });
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p1'),
+        { opdeling: { p1x2: 999, chance: 0, combi: 0, pulje: 0 } })
+    );
+  });
+
   it('godkendt spiller KAN IKKE læse point for en man IKKE deler liga med', async () => {
     await createUser('p1', 'player', 'approved');
     await createUser('p2', 'player', 'approved');

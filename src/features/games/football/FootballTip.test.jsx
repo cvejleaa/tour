@@ -316,6 +316,49 @@ describe('FootballTip — kampen er i gang', () => {
     expect(container.querySelector('.match-card__score-note').textContent).toMatch(/^sidst \d{2}[.:]\d{2}$/);
   });
 
+  // Panelet vælger kampen ÉN gang ved montering. Tipper man sin første kamp,
+  // mens panelet står åbent, gik listen fra tom til fyldt uden at valget fulgte
+  // med — og <select> viste den første kamp, mens state stadig var tom. Så
+  // påstod boksen "Odds er ikke lagt ind på kampen endnu", selv om oddsene stod
+  // på knapperne lige ovenover, og knappen var død. Man kunne ikke sætte Chancen.
+  it('vælger kampen, når man tipper sin FØRSTE kamp med panelet åbent', () => {
+    const medOdds = [
+      { id: 'm1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF, odds: { 1: 2.2, X: 4.1, 2: 3.4 }, result: null },
+    ];
+    // En FUNKTION, ikke en konstant: genbruger man samme element-reference i
+    // render og rerender, springer React gentegningen over, og testen måler
+    // ingenting.
+    const tree = () => (
+      <MemoryRouter initialEntries={['/spil/sl']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                me={{ uid: 'me', totalPoints: 100 }}
+                matches={medOdds}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    mockBets.mockReturnValue({ betsByMatch: {}, loading: false });
+    const { rerender } = render(tree());
+    expect(screen.getByText(/Tip mindst én kamp i runden først/)).toBeInTheDocument();
+
+    // Brugeren tipper kampen — panelet står stadig åbent.
+    mockBets.mockReturnValue({ betsByMatch: { m1: { matchId: 'm1', pick: '1' } }, loading: false });
+    rerender(tree());
+
+    expect(screen.queryByText(/Odds er ikke lagt ind/)).toBeNull();
+    // Det, der faktisk blokerede: knappen var deaktiveret, fordi `pick` blev
+    // undefined sammen med kampen. Man kunne se panelet og ikke bruge det.
+    expect(screen.getByRole('button', { name: /Aktivér Chancen/ })).toBeEnabled();
+  });
+
   // Live har forrang over Chancen-pillen: chance-kampen er den, man følger tættest.
   it('lader live vinde over Chancen-pillen', () => {
     // Chancen kommer fra TIPPET, ikke fra spillet — og chance-kampen er
