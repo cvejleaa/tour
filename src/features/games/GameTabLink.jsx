@@ -24,7 +24,10 @@ export function gameTabPath(gameId, fane, runde) {
   const base = `/spil/${gameId}`;
   const params = new URLSearchParams();
   if (fane && fane !== DEFAULT_TAB) params.set('fane', fane);
-  if (runde != null) params.set('runde', String(runde));
+  // Runder er 1-indekserede. Læseren i FootballTip ignorerer 0 og negative
+  // tal, så byggeren må ikke producere dem — ellers siger de to halvdele
+  // ikke det samme.
+  if (Number(runde) > 0) params.set('runde', String(runde));
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
 }

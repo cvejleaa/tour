@@ -30,8 +30,12 @@ describe('gameTabPath', () => {
     expect(gameTabPath('sl', 'mine', 3)).toBe('/spil/sl?fane=mine&runde=3');
   });
 
-  it('tager runde 0 alvorligt frem for at smide den væk', () => {
-    expect(gameTabPath('sl', 'tip', 0)).toBe('/spil/sl?runde=0');
+  // Runder er 1-indekserede, og læseren i FootballTip ignorerer 0 og negative
+  // tal. Byggeren må derfor ikke producere dem.
+  it('udelader runder, der ikke findes', () => {
+    expect(gameTabPath('sl', 'tip', 0)).toBe('/spil/sl');
+    expect(gameTabPath('sl', 'tip', -1)).toBe('/spil/sl');
+    expect(gameTabPath('sl', 'stilling', 0)).toBe('/spil/sl?fane=stilling');
   });
 });
 

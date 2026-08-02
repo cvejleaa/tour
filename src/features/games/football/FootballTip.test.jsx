@@ -20,9 +20,14 @@ vi.mock('../../../components/ClubBadge', () => ({ default: () => <span /> }));
 import FootballTip from './FootballTip';
 
 const KICKOFF = new Date('2026-09-01T18:00:00Z');
+const KICKOFF2 = new Date('2026-09-08T18:00:00Z');
+// To runder, så rundenavigationen (og ?runde=) har noget at navigere MELLEM.
+// Begge ligger i fremtiden, så runde 1 er den aktive.
 const MATCHES = [
   { id: 'm1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF, odds: null, result: null },
   { id: 'm2', round: 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: KICKOFF, odds: null, result: null },
+  { id: 'm3', round: 2, home: 'F.C. København', away: 'Brøndby IF', kickoff: KICKOFF2, odds: null, result: null },
+  { id: 'm4', round: 2, home: 'FC Midtjylland', away: 'AGF', kickoff: KICKOFF2, odds: null, result: null },
 ];
 
 // To spillede runder, så der er udviklingspunkter at vise.
@@ -94,6 +99,31 @@ describe('FootballTip — Elo på kampkortene', () => {
     setup({ eloHistory: [] });
     expect(screen.getByTitle('AGF: rating 1500')).toBeInTheDocument();
     expect(screen.getAllByText(/Start-rating/).length).toBeGreaterThan(0);
+  });
+
+  // ── Runden i URL'en ────────────────────────────────────────────────────────
+  // setup() tog imod en url, men ingen test brugte den: intet beviste, at
+  // ?runde= bliver LÆST eller SKREVET.
+
+  it('åbner den runde, URL\'en peger på', () => {
+    setup({}, '/spil/sl?runde=2');
+    expect(screen.getByText(/Runde 2 af/)).toBeInTheDocument();
+  });
+
+  it('viser den aktive runde, når URL\'en ikke siger noget', () => {
+    setup();
+    expect(screen.getByText(/Runde 1 af/)).toBeInTheDocument();
+  });
+
+  // En delt eller redigeret URL må ikke give en tom side.
+  it('falder tilbage til den aktive runde ved en runde, der ikke findes', () => {
+    setup({}, '/spil/sl?runde=99');
+    expect(screen.getByText(/Runde 1 af/)).toBeInTheDocument();
+  });
+
+  it('ignorerer en ugyldig runde-parameter', () => {
+    setup({}, '/spil/sl?runde=abc');
+    expect(screen.getByText(/Runde 1 af/)).toBeInTheDocument();
   });
 
   // Elo må ikke vælte tip-fladen for et spil, der slet ikke har ratings.
