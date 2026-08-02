@@ -180,7 +180,8 @@ exports.syncSuperligaResults = onSchedule(
     if (out.fejl) console.error('Superliga-synk (ignoreret):', out.fejl);
     if (out.pending === 0) return; // stille minut: intet i gang, intet rørt
     console.log(`Superliga-synk: ${out.pending} kampe uden facit, ${out.updated} nye facit.`
-      + (out.live ? ` ${out.live.live} i gang, ${out.live.skrevet} live-opdateringer.` : '')
+      + (out.live ? ` ${out.live.live} i gang, ${out.live.skrevet} live-opdateringer`
+        + `${out.live.ryddet ? `, ${out.live.ryddet} live-stillinger ryddet` : ''}.` : '')
       + (out.standings ? ` Stilling ${out.standings.changed ? 'opdateret' : 'uændret'}.` : ''));
   },
 );

@@ -574,7 +574,7 @@ describe('runScheduledSync', () => {
     });
     const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
     expect(out.updated).toBe(0);
-    expect(out.live).toEqual({ live: 1, skrevet: 1 });
+    expect(out.live).toEqual({ live: 1, skrevet: 1, ryddet: 0 });
   });
 
   it('bruger den tid, den får ind — ikke uret', async () => {
@@ -871,7 +871,7 @@ describe('syncLiveCore', () => {
     const res = await syncLiveCore(db, FieldValue, {
       fetchFn: fetchLive([hændelse({ home: 1, away: 0 })]), only: [kamp], nowMs: NU,
     });
-    expect(res).toEqual({ live: 1, skrevet: 1 });
+    expect(res).toEqual({ live: 1, skrevet: 1, ryddet: 0 });
     expect(db._docs.get('r2-brondbyif-viborgff').live).toEqual({
       home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: NU,
     });
@@ -965,7 +965,7 @@ describe('syncLiveCore', () => {
     const res = await syncLiveCore(db, FieldValue, {
       fetchFn: fetchLive([færdig]), only: [kamp], nowMs: NU,
     });
-    expect(res).toEqual({ live: 0, skrevet: 0 });
+    expect(res).toEqual({ live: 0, skrevet: 0, ryddet: 0 });
     expect(db._spil.liveHeartbeatAt).toBeUndefined(); // heller ingen puls
   });
 
@@ -1033,6 +1033,103 @@ describe('syncLiveCore', () => {
     const fetchFn = async (_u, opt) => { set.push(opt); return { ok: true, status: 200, json: async () => ({ events: [] }) }; };
     await syncLiveCore(makeDb([]), FieldValue, { fetchFn, only: [] });
     expect(set[0]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  // Kampen er fløjtet af, men facit er ikke nået frem endnu. Uden rydningen
+  // her stod kortet med en rød, levende stilling på en kamp, der var slut —
+  // og efter 2,5 time slap pendingMatches den, så den aldrig blev rørt igen.
+  describe('rydder live, når kampen ikke er i gang længere', () => {
+    const medLive = {
+      id: 'r2-brondbyif-viborgff',
+      data: { round: 2, live: { home: 1, away: 0, status: 'anden', statusRaw: '2nd half', at: NU - 60_000 } },
+    };
+
+    it('sender en delete, når kampen er væk fra kildens liste', async () => {
+      const db = makeDb([medLive]);
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([]), only: [medLive], nowMs: NU,
+      });
+      expect(res.ryddet).toBe(1);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toBe('@delete');
+    });
+
+    // Rydningen sker i en kørsel, hvor der ikke skrives noget andet. Committer
+    // vi kun på `skrevet`, ville deleten blive samlet op og aldrig sendt.
+    it('committer, selv om ingen live-stilling blev skrevet', async () => {
+      const db = makeDb([medLive]);
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([]), only: [medLive], nowMs: NU,
+      });
+      expect(res.skrevet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toBe('@delete');
+    });
+
+    it('rører ALDRIG facit-felterne, når den rydder', async () => {
+      const db = makeDb([medLive]);
+      await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [medLive], nowMs: NU });
+      const dok = db._docs.get('r2-brondbyif-viborgff');
+      expect(Object.keys(dok).sort()).toEqual(['live', 'round']);
+      for (const felt of ['result', 'homeGoals', 'awayGoals', 'status']) {
+        expect(dok[felt]).toBeUndefined();
+      }
+    });
+
+    it('rydder IKKE, mens kampen stadig står i kildens liste', async () => {
+      const db = makeDb([medLive]);
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([hændelse({ home: 1, away: 0 }, '2nd half')]), only: [medLive], nowMs: NU,
+      });
+      expect(res.ryddet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0 });
+    });
+
+    // Sættet over "stadig i gang" bygges på den UFILTREREDE liste. Bygges det
+    // på `events`, bliver vores eget score-filter til bevis for, at kampen er
+    // slut — og en kamp i gang med en ubrugelig score får ryddet stillingen
+    // midt i det hele.
+    it('rydder IKKE en kamp, der er i gang med en ubrugelig score', async () => {
+      const db = makeDb([medLive]);
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([hændelse({ home: null, away: 0 })]), only: [medLive], nowMs: NU,
+      });
+      expect(res.ryddet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0 });
+    });
+
+    it('rydder heller ikke, når kampen slet ikke har nogen score med', async () => {
+      const db = makeDb([medLive]);
+      const uden = { statusType: 'inprogress', round: 2, homeName: 'Brøndby IF', awayName: 'Viborg FF' };
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([uden]), only: [medLive], nowMs: NU,
+      });
+      expect(res.ryddet).toBe(0);
+    });
+
+    // Uden dette led ville hvert stille minut koste en tom skrivning pr. kamp
+    // i vinduet — og hver skrivning én læsning pr. åben browser.
+    it('skriver ikke på en kamp, der ikke har nogen live-stilling', async () => {
+      const db = makeDb([kamp]);
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([]), only: [kamp], nowMs: NU,
+      });
+      expect(res.ryddet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toBeUndefined();
+    });
+
+    it('rydder kun kampe, vi har spurgt om', async () => {
+      const db = makeDb([medLive]);
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([]), only: [], nowMs: NU,
+      });
+      expect(res.ryddet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0 });
+    });
+
+    it('sætter ingen puls, når den kun rydder', async () => {
+      const db = makeDb([medLive]);
+      await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [medLive], nowMs: NU });
+      expect(db._spil.liveHeartbeatAt).toBeUndefined();
+    });
   });
 });
 
