@@ -21,14 +21,22 @@ export const LEAGUE_MSG_MAX = 280;
 
 function danishError(err, fallback) {
   const code = err?.code || '';
-  if (code === 'permission-denied' || code === 'functions/permission-denied') {
-    return 'Du har ikke adgang til denne handling.';
-  }
-  if (code === 'not-found' || code === 'functions/not-found') {
-    return 'Ingen liga fundet med den kode.';
-  }
+  // Netværksfejl først: 'unavailable' kommer fra SDK'et, ikke fra vores kode,
+  // så teksten er engelsk og ubrugelig.
   if (code === 'unavailable' || code === 'functions/unavailable') {
     return 'Kunne ikke få forbindelse. Prøv igen.';
+  }
+  // Derefter KUN de rå Firestore-koder (uden 'functions/'-præfiks). En Cloud
+  // Function har allerede formuleret sig på dansk (LEAGUE_ERR i
+  // functions-platform/gameLeagues.js) og falder igennem til sin egen besked.
+  // Fangede vi også 'functions/permission-denied' her, blev "Din adgang er
+  // afvist. Kontakt en administrator." til det intetsigende "Du har ikke
+  // adgang til denne handling." — serveren ved hvorfor, klienten gætter.
+  if (code === 'permission-denied') {
+    return 'Du har ikke adgang til denne handling.';
+  }
+  if (code === 'not-found') {
+    return 'Ingen liga fundet med den kode.';
   }
   return err?.message || fallback;
 }
