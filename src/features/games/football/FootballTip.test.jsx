@@ -64,6 +64,13 @@ describe('FootballTip — Elo på kampkortene', () => {
     expect(screen.getByLabelText(/AGF: udvikling over de seneste 2 runder/).children).toHaveLength(2);
   });
 
+  // Sæsonens virkelighed lige nu: præcis én spillet runde.
+  it('viser ét punkt, når kun én runde er spillet', () => {
+    setup({ eloHistory: [HISTORY[0]] });
+    expect(screen.getByLabelText(/AGF: udvikling seneste runde/).children).toHaveLength(1);
+    expect(screen.getByTitle('AGF: rating 1510')).toBeInTheDocument();
+  });
+
   // Har spillet ingen egne hold, falder opslaget tilbage til Superliga-seedet.
   // Uden det ville kampkortene stå uden Elo for et spil, der ellers har historik.
   it('falder tilbage til Superliga-seedet, når spillet ikke har egne hold', () => {

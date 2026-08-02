@@ -35,6 +35,11 @@ export function formatTime(d) {
   return date ? fmtTime.format(date) : '';
 }
 
+/** Ental/flertal på dansk: 1 dag, 2 dage. */
+function dage(n) {
+  return n === 1 ? '1 dag' : `${n} dage`;
+}
+
 /** Relativ deadline: "om 4 t", "om 2 dage", "om 12 min", "lukket". */
 export function relativeDeadline(d, now = new Date()) {
   const date = toDate(d);
@@ -43,7 +48,7 @@ export function relativeDeadline(d, now = new Date()) {
   if (min < 0) return 'lukket';
   if (min < 60) return `om ${min} min`;
   if (min < 1440) return `om ${Math.round(min / 60)} t`;
-  return `om ${Math.round(min / 1440)} dage`;
+  return `om ${dage(Math.round(min / 1440))}`;
 }
 
 /** Relativ FORTID: "nu", "for 4 min siden", "for 2 t siden", "for 3 dage siden". */
@@ -54,7 +59,7 @@ export function relativeTime(d, now = new Date()) {
   if (min < 1) return 'nu';
   if (min < 60) return `for ${min} min siden`;
   if (min < 1440) return `for ${Math.round(min / 60)} t siden`;
-  return `for ${Math.round(min / 1440)} dage siden`;
+  return `for ${dage(Math.round(min / 1440))} siden`;
 }
 
 /** Datospænd for en runde: "8.–10. aug" eller "9. aug" hvis samme dag. */

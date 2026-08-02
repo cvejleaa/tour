@@ -36,7 +36,9 @@ function Side({ navn, elo, align }) {
       {form.length > 0 && (
         <span
           style={{ display: 'inline-flex', gap: '0.15rem', fontSize: '0.7rem', flexWrap: 'wrap' }}
-          aria-label={`${navn}: udvikling over de seneste ${form.length} runder`}
+          aria-label={form.length === 1
+            ? `${navn}: udvikling seneste runde`
+            : `${navn}: udvikling over de seneste ${form.length} runder`}
         >
           {form.map((c) => (
             <EloDelta key={c.round} d={c.delta} title={`Runde ${c.round}`} />
@@ -74,7 +76,9 @@ export default function MatchElo({ home, away, eloByTeam }) {
           {spilletRunder > 0 && (
             <>
               <br />
-              <span style={{ fontSize: '0.62rem' }}>seneste {spilletRunder}</span>
+              <span style={{ fontSize: '0.62rem' }}>
+                {spilletRunder === 1 ? 'seneste runde' : `seneste ${spilletRunder}`}
+              </span>
             </>
           )}
         </span>
