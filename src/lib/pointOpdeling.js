@@ -13,12 +13,11 @@
 import { outcomePoints, outcomeReward, roundComboBonus, round1 } from './superligaScoring';
 
 /**
- * Tæller kampen med i opdelingen?
+ * Tæller kampens point med i TOTALEN? Kun ét krav: kampen skal være afgjort.
  *
- * Kickoff-kravet er SIKKERHED, ikke pynt. Opdelingen gemmes i et dokument, som
- * liga-kammerater må læse, og det dokument kommer aldrig forbi kickoff-tjekket
- * i firestore.rules. Uden denne linje ville en admin-tastefejl på en fremtidig
- * kamp — et facit sat for tidligt — lække spillerens tip, før kampen er spillet.
+ * Bevidst uden kickoff-tjek — det bor i maaVises() nedenfor. Blandede vi de to,
+ * ville kickoff gate totalen, og et forkert gemt tidspunkt kunne fjerne point
+ * fra stillingen.
  */
 function taeller(info) {
   return !!(info && info.result);
