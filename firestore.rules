@@ -625,7 +625,7 @@ service cloud.firestore {
           && request.auth.uid == uid
           && request.resource.data.uid == uid
           && !request.resource.data.keys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'leagueIds']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'leagueIds']);
 
         // Opdatér eget medlemskab, men aldrig point-/placerings-/liga-felterne.
         //
@@ -651,13 +651,47 @@ service cloud.firestore {
           && request.auth.uid == uid
           && request.resource.data.get('uid', uid) == uid
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'leagueIds', 'name']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'leagueIds', 'name']);
 
         // Man kan fortryde en tilmelding (forlade spillet) SÅ LÆNGE der endnu
         // ikke er tildelt point — så en placering ikke kan gå tabt ved uheld.
         // Serveren (Admin SDK) omgår reglen og kan altid rydde op.
         allow delete: if isSignedIn() && request.auth.uid == uid
           && (!('totalPoints' in resource.data) || resource.data.totalPoints == 0);
+
+        // games/{gameId}/players/{uid}/detalje/{docId} — spillerens rækker:
+        // hvilke kampe han har tippet, hvad han valgte, og hvad det gav.
+        //
+        // INGEN kickoff-vagt her, modsat bets-reglen. Den er unødvendig, fordi
+        // serveren kun skriver kampe, der ER afgjort OG begyndt (pointOpdeling
+        // filtrerer på begge dele, og det er testdækket). Præmissen er altså
+        // sand ved konstruktion — ikke ved held. Ændrer nogen det filter, er
+        // dette den regel, der holder op med at være rigtig.
+        //
+        // Liga-medlemskabet slås op på players-dokumentet i stedet for at
+        // kopiere leagueIds herned. En kopi ville være tredje udgave af et
+        // felt, der allerede holdes synkront to steder — og en spiller, der
+        // forlod en liga, ville blive ved med at kunne læses, fordi ingen
+        // huskede at rydde op i den tredje.
+        //
+        // Opslaget er forsvarligt HER, men ville ikke være det i bets: dette er
+        // ét dokument på en KENDT sti, så der er 10 opslag til rådighed, og vi
+        // bruger 3. I bets læses der med en forespørgsel, hvor opslaget koster
+        // ét PR. DOKUMENT og sprænger loftet efter 10 kampe — hvorefter hele
+        // forespørgslen afvises, ikke bare de dokumenter man ikke må se.
+        // Klienten må derfor ALDRIG lave en collectionGroup-query over detalje.
+        match /detalje/{docId} {
+          allow read: if isGlobalAdmin()
+            || (isSignedIn() && request.auth.uid == uid)
+            || (isApproved()
+                && get(/databases/$(database)/documents/games/$(gameId)/players/$(uid))
+                    .data.get('leagueIds', []).hasAny(myLeagueIds()));
+
+          // Kun serveren (Admin SDK) skriver rækkerne. De er afledt af bets og
+          // facit; kunne klienten skrive dem, kunne man vise sig selv med
+          // point, man ikke har fået.
+          allow write: if false;
+        }
       }
 
       // games/{gameId}/matches/{matchId} — kampe/etaper i ét spil (Fase B).
