@@ -21,7 +21,7 @@ import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/d
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
 import { shareText } from '../../../lib/share';
 import {
-  groupByRound, activeRound, isLocked, toMillis, afterStart, matchScore,
+  groupByRound, activeRound, isLocked, toMillis, afterStart, matchScore, liveScore,
 } from './footballRounds';
 import {
   OUTCOME, OUTCOMES, round1, outcomeReward, roundComboBonus, ROUND_BONUS,
@@ -37,6 +37,11 @@ function matchOdds(match, outcome) {
 }
 
 const GREY = '#5b6b7a';
+
+/** Klokkeslæt uden dato — "opdateret 20.44". */
+function klokken(ms) {
+  return new Date(ms).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
+}
 
 /**
  * Badge-info for et hold: klub-kortkode + farve + stadion.
@@ -377,6 +382,7 @@ export default function FootballTip({ game, me, matches }) {
         const { h, a } = matchBadges(m.home, m.away, game?.teamStyles);
         const hit = m.result && bet?.pick ? bet.pick === m.result : null;
         const score = matchScore(m);
+        const live = liveScore(m, game?.liveHeartbeatAt, nowMs);
         return (
           <div className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`} key={m.id}>
             <div className="match-card__meta">
@@ -387,6 +393,15 @@ export default function FootballTip({ game, me, matches }) {
                   hit === true ? <span className="badge badge--green">Ramt +{fmtDec(outcomeReward(m.result, m.odds))}</span>
                     : hit === false ? <span className="badge badge--red">Ikke ramt</span>
                       : <span className="badge">Spillet</span>
+                ) : live ? (
+                  /* Live har forrang over Chancen-pillen: chance-kampen er
+                     netop den, man følger tættest. */
+                  <span className={`live-pill ${live.forældet ? 'live-pill--doed' : ''}`}>
+                    {live.forældet ? '⏸' : <span className="live-pill__prik" aria-hidden="true" />}
+                    {live.forældet ? 'Opdatering afbrudt'
+                      : live.afbrudt ? 'Afbrudt'
+                        : live.halvleg ? `DIREKTE · ${live.halvleg}` : 'DIREKTE'}
+                  </span>
                 ) : isChance ? (
                   <span className="chance-pill">⚡ Chancen</span>
                 ) : locked ? (
@@ -411,6 +426,24 @@ export default function FootballTip({ game, me, matches }) {
                   aria-label={`Slutresultat: ${m.home} ${score.home}, ${m.away} ${score.away}`}
                 >
                   <span aria-hidden="true">{score.home} – {score.away}</span>
+                </div>
+              ) : live ? (
+                /* Tre uafhængige kanaler skiller en LEVENDE stilling fra en
+                   endelig: pillen øverst, teksten her under tallet, og
+                   oplæsningen. Kun farve ville ikke være nok — på en telefon
+                   står pillen og tallet langt fra hinanden, og det er dér,
+                   forvekslingen sker. */
+                <div
+                  className={`match-card__score match-card__score--live ${live.forældet ? 'match-card__score--doed' : ''}`}
+                  aria-label={`Stillingen lige nu: ${m.home} ${live.home}, ${m.away} ${live.away}.`
+                    + ` ${live.afbrudt ? 'Kampen er afbrudt.' : live.halvleg ? `Kampen er i gang, ${live.halvleg}.` : 'Kampen er i gang.'}`
+                    + ` ${live.forældet ? 'Opdateringen er afbrudt' : 'Opdateret'}`
+                    + `${live.setAt ? ` ${klokken(live.setAt)}` : ''}.`}
+                >
+                  <span aria-hidden="true">{live.home} – {live.away}</span>
+                  <span className="match-card__score-note" aria-hidden="true">
+                    {live.forældet ? 'sidst ' : ''}{live.setAt ? klokken(live.setAt) : 'lige nu'}
+                  </span>
                 </div>
               ) : (
                 <div className="match-card__dash" aria-hidden="true">–</div>

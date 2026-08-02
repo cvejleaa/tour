@@ -97,3 +97,56 @@ export function matchScore(match) {
   const away = tal(match?.awayGoals);
   return Number.isFinite(home) && Number.isFinite(away) ? { home, away } : null;
 }
+
+/** Hvor længe en levende stilling må stå uden en puls, før vi kalder den
+ *  forældet. Fem mistede minut-kørsler — rundhåndet, fordi brugerens ur kan
+ *  gå skævt af serverens. */
+export const LIVE_STALE_MS = 5 * 60 * 1000;
+
+/** Dansk tekst for halvlegen. Serveren har allerede oversat til et lukket sæt;
+ *  'ukendt' giver ingen tekst, så kortet bare siger "direkte". */
+const HALVLEG = {
+  foerste: '1. halvleg',
+  pause: 'Pause',
+  anden: '2. halvleg',
+  forlaenget: 'Forlænget spilletid',
+  straffe: 'Straffespark',
+  afbrudt: 'Afbrudt',
+};
+
+/**
+ * Den LEVENDE stilling på en kamp, eller null.
+ *
+ * Facit slår altid live: har kampen et resultat, er den slut, uanset hvad der
+ * måtte ligge tilbage i live-feltet.
+ *
+ * `friskAt` er spillets puls (game.liveHeartbeatAt) — tidspunktet hvor synken
+ * sidst kiggede. Den bruges frem for live.at, fordi live.at kun flytter sig,
+ * når stillingen ÆNDRER sig: et 0-0 i 40 minutter ville ellers se dødt ud.
+ *
+ * @param {object} match
+ * @param {number|null} friskAt
+ * @param {number} nowMs
+ * @returns {{home:number, away:number, halvleg:string|null, afbrudt:boolean,
+ *            forældet:boolean, setAt:number|null}|null}
+ */
+export function liveScore(match, friskAt, nowMs) {
+  if (match?.result != null && match.result !== '') return null;
+  const l = match?.live;
+  if (!l || !Number.isFinite(Number(l.home)) || !Number.isFinite(Number(l.away))) return null;
+  // Number(null) er 0, ikke NaN — uden vagten ville en manglende puls læses
+  // som 1970 og gøre enhver levende stilling "forældet". Samme fælde som
+  // Number('') i matchScore ovenfor.
+  const tid = (v) => (v == null || v === '' ? NaN : Number(v));
+  const puls = Number.isFinite(tid(friskAt)) ? tid(friskAt) : tid(l.at);
+  return {
+    home: Number(l.home),
+    away: Number(l.away),
+    halvleg: HALVLEG[l.status] || null,
+    afbrudt: l.status === 'afbrudt',
+    // Forældet, ikke forsvundet: et tal med et ærligt forbehold er mere værd
+    // end en streg. Vi sletter aldrig stillingen, vi dæmper den.
+    forældet: Number.isFinite(puls) ? nowMs - puls > LIVE_STALE_MS : true,
+    setAt: Number.isFinite(puls) ? puls : null,
+  };
+}

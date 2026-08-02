@@ -4,10 +4,13 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
+  liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, strandedMatches,
 } = require('./superligaSync');
 
-const FieldValue = { serverTimestamp: () => '@ts' };
+// '@delete' står for FieldValue.delete(). Faken fjerner ikke feltet, men
+// sentinel-værdien gør det synligt i testene, at rydningen FAKTISK sendes med.
+const FieldValue = { serverTimestamp: () => '@ts', delete: () => '@delete' };
 
 // Fake-Firestore: games/{g}/matches med get()/doc(id)/where() + batch.set/commit,
 // og selve spil-dokumentet (stilling-synken sammenligner med det, der står).
@@ -418,13 +421,18 @@ describe('runScheduledSync', () => {
   const NU = Date.parse('2026-08-02T18:30:00Z');
   const iGang = new Date(NU - 30 * 60000);
 
-  /** Fetch der svarer på BEGGE endpoints og tæller kaldene pr. slags. */
-  function fakeApi({ events = [], standings = [] } = {}) {
-    const kald = { resultater: 0, stilling: 0 };
+  /** Fetch der svarer på ALLE TRE endpoints og tæller kaldene pr. slags. */
+  function fakeApi({ events = [], live = [], standings = [] } = {}) {
+    const kald = { resultater: 0, live: 0, stilling: 0 };
     const fn = async (url) => {
-      if (String(url).includes('/standings')) {
+      const u = String(url);
+      if (u.includes('/standings')) {
         kald.stilling += 1;
         return { ok: true, status: 200, json: async () => standings };
+      }
+      if (u.includes('status=inprogress')) {
+        kald.live += 1;
+        return { ok: true, status: 200, json: async () => ({ events: live }) };
       }
       kald.resultater += 1;
       return { ok: true, status: 200, json: async () => ({ events }) };
@@ -437,8 +445,8 @@ describe('runScheduledSync', () => {
     const db = makeDb([{ id: 'r1-a-b', data: { kickoff: new Date(NU + 3600e3) } }]);
     const fetchFn = fakeApi();
     const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
-    expect(out).toEqual({ pending: 0, updated: 0, standings: null, fejl: null });
-    expect(fetchFn.kald).toEqual({ resultater: 0, stilling: 0 }); // ingen API-kald
+    expect(out).toEqual({ pending: 0, updated: 0, live: null, standings: null, fejl: null });
+    expect(fetchFn.kald).toEqual({ resultater: 0, live: 0, stilling: 0 }); // ingen API-kald
   });
 
   it('rører INTET, når kampene i gang allerede har facit', async () => {
@@ -484,6 +492,26 @@ describe('runScheduledSync', () => {
     expect(db._docs.get('r1-agf-brondbyif').result).toBeUndefined();
   });
 
+  // Listen `venter` er hentet FØR gen-synken. Får en kamp facit i samme
+  // kørsel, mens live-endpointet stadig melder den i gang — hvilket er
+  // realistisk, de to opdateres ikke samtidig — ville vi uden filteret skrive
+  // en live-stilling oven på en kamp, der lige er afgjort. Kortet ville sige
+  // "DIREKTE" om en færdig kamp.
+  it('skriver IKKE live på en kamp, der lige har fået facit', async () => {
+    const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang } }]);
+    const fetchFn = fakeApi({
+      events: [{ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 2, away: 1 } }],
+      live: [{ statusType: 'inprogress', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 2, away: 1 }, statusFull: '2nd half' }],
+      standings: [{ rank: 1, teamName: 'Viborg FF', points: 3, matchesPlayed: 1 }],
+    });
+    const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
+    expect(out.updated).toBe(1);
+    expect(out.live.skrevet).toBe(0);
+    const dok = db._docs.get('r1-viborgff-ob');
+    expect(dok.result).toBe('1');
+    expect(dok.live).toBe('@delete');   // ryddet af facit-skrivningen, ikke genskabt
+  });
+
   // Stillingen kan kun have flyttet sig, hvis en kamp lige blev afgjort.
   it('springer stillingen over, når intet facit landede', async () => {
     const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang } }]);
@@ -491,7 +519,8 @@ describe('runScheduledSync', () => {
     const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
     expect(out.updated).toBe(0);
     expect(out.standings).toBeNull();
-    expect(fetchFn.kald).toEqual({ resultater: 1, stilling: 0 });
+    // Live spørges der stadig om — det er netop en kamp midt i spillet.
+    expect(fetchFn.kald).toEqual({ resultater: 1, live: 1, stilling: 0 });
   });
 
   it('fejler tavst, når kilden er nede', async () => {
@@ -713,5 +742,216 @@ describe('skemaet dækker kampprogrammet', () => {
       ? time + 24 - t[t.length - 1]   // hullet hen over midnat
       : time - t[i - 1]));
     expect(Math.max(...huller)).toBeLessThanOrEqual(12);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Levende stilling.
+//
+// Den ufravigelige regel: live-skrivningen må ALDRIG røre result, homeGoals,
+// awayGoals eller status. matchOutcome() i gameScoring udleder facit FRA
+// MÅLENE, når result mangler — en levende 1-0 i homeGoals ville flytte Elo på
+// en halvlegsstilling, standse friske odds og få runden til at se afgjort ud,
+// hvorefter snapshotRoundRanks og Runde-Botten fyrer idempotent. Det rigtige
+// snapshot ville aldrig blive taget.
+// ---------------------------------------------------------------------------
+describe('liveUrl', () => {
+  it('spørger kun om kampe, der er i gang', () => {
+    const u = liveUrl(35802);
+    expect(u).toContain('seasonId=35802');
+    expect(u).toContain('status=inprogress');
+    // Ikke det samme kald som resultaterne — ellers ville sweep'et og den
+    // manuelle synk komme til at skrive live-felter på hele sæsonen.
+    expect(u).not.toContain('status=finished');
+  });
+});
+
+describe('liveStatus', () => {
+  it('oversætter halvlegene til dansk', () => {
+    expect(liveStatus('1st half')).toBe('foerste');
+    expect(liveStatus('Halftime')).toBe('pause');
+    expect(liveStatus('2nd half')).toBe('anden');
+  });
+
+  it('er ligeglad med store bogstaver og mellemrum', () => {
+    expect(liveStatus('  2ND HALF ')).toBe('anden');
+  });
+
+  // En afbrudt kamp har stadig statusType 'inprogress'. Kaldte vi den
+  // "DIREKTE", ville vi påstå, der spilles.
+  it('skelner en AFBRUDT kamp fra en, der er i gang', () => {
+    expect(liveStatus('Abandoned')).toBe('afbrudt');
+    expect(liveStatus('Interrupted')).toBe('afbrudt');
+    expect(liveStatus('Postponed')).toBe('afbrudt');
+  });
+
+  it('falder tilbage til "ukendt" i stedet for at vælte', () => {
+    expect(liveStatus('Sudden Death')).toBe('ukendt');
+    expect(liveStatus(undefined)).toBe('ukendt');
+    expect(liveStatus('')).toBe('ukendt');
+  });
+});
+
+describe('syncLiveCore', () => {
+  const NU = 1_754_150_000_000;
+  const kamp = { id: 'r2-brondbyif-viborgff', data: { round: 2 } };
+  const hændelse = (score, statusFull = '1st half') => ({
+    statusType: 'inprogress', round: 2, homeName: 'Brøndby IF', awayName: 'Viborg FF',
+    score, statusFull,
+  });
+  const fetchLive = (events) => async () => ({ ok: true, status: 200, json: async () => ({ events }) });
+
+  it('skriver den levende stilling', async () => {
+    const db = makeDb([kamp]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 1, away: 0 })]), only: [kamp], nowMs: NU,
+    });
+    expect(res).toEqual({ live: 1, skrevet: 1 });
+    expect(db._docs.get('r2-brondbyif-viborgff').live).toEqual({
+      home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: NU,
+    });
+  });
+
+  // DEN VIGTIGSTE TEST I FILEN.
+  it('rører ALDRIG facit-felterne', async () => {
+    const db = makeDb([kamp]);
+    await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 2, away: 1 })]), only: [kamp], nowMs: NU,
+    });
+    const dok = db._docs.get('r2-brondbyif-viborgff');
+    // Præcis ét nyt felt — hverken result, homeGoals, awayGoals eller status.
+    expect(Object.keys(dok).sort()).toEqual(['live', 'round']);
+    for (const felt of ['result', 'homeGoals', 'awayGoals', 'status']) {
+      expect(dok[felt]).toBeUndefined();
+    }
+  });
+
+  it('viser 0-0 som en rigtig stilling', async () => {
+    const db = makeDb([kamp]);
+    await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 0, away: 0 })]), only: [kamp], nowMs: NU,
+    });
+    expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 0, away: 0 });
+  });
+
+  // Hver skrivning koster én læsning pr. åben browser, og under en kamp
+  // sidder folk der.
+  it('skriver IKKE, når hverken stilling eller halvleg har flyttet sig', async () => {
+    const uændret = { id: kamp.id, data: { round: 2, live: { home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: 1 } } };
+    const db = makeDb([uændret]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 1, away: 0 })]), only: [uændret], nowMs: NU,
+    });
+    expect(res.skrevet).toBe(0);
+    expect(db._docs.get(kamp.id).live.at).toBe(1); // urørt
+  });
+
+  it('skriver ved MÅL', async () => {
+    const før = { id: kamp.id, data: { round: 2, live: { home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: 1 } } };
+    const db = makeDb([før]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 1, away: 1 })]), only: [før], nowMs: NU,
+    });
+    expect(res.skrevet).toBe(1);
+    expect(db._docs.get(kamp.id).live).toMatchObject({ home: 1, away: 1, at: NU });
+  });
+
+  it('skriver ved skift af halvleg, selv om stillingen står stille', async () => {
+    const før = { id: kamp.id, data: { round: 2, live: { home: 0, away: 0, status: 'foerste', statusRaw: '1st half', at: 1 } } };
+    const db = makeDb([før]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 0, away: 0 }, 'Halftime')]), only: [før], nowMs: NU,
+    });
+    expect(res.skrevet).toBe(1);
+    expect(db._docs.get(kamp.id).live.status).toBe('pause');
+  });
+
+  it('rører ikke en kamp, der allerede HAR facit', async () => {
+    const afgjort = { id: kamp.id, data: { round: 2, result: '1', homeGoals: 2, awayGoals: 1 } };
+    const db = makeDb([afgjort]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 2, away: 1 })]), only: [afgjort], nowMs: NU,
+    });
+    expect(res.skrevet).toBe(0);
+    expect(db._docs.get(kamp.id).live).toBeUndefined();
+  });
+
+  it('springer kampe over, den ikke kender', async () => {
+    const db = makeDb([kamp]);
+    const fremmed = { ...hændelse({ home: 1, away: 0 }), homeName: 'Ukendt', awayName: 'Hold' };
+    const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([fremmed]), only: [kamp], nowMs: NU });
+    expect(res.skrevet).toBe(0);
+  });
+
+  it('kaster ved API-fejl (og fanges tavst af runScheduledSync)', async () => {
+    const db = makeDb([kamp]);
+    await expect(syncLiveCore(db, FieldValue, {
+      fetchFn: async () => ({ ok: false, status: 503, json: async () => ({}) }), only: [kamp],
+    })).rejects.toThrow(/live HTTP 503/);
+  });
+
+  // Pulsen gør kortet ærligt: står stillingen stille, kan brugeren stadig se,
+  // at vi har kigget for et øjeblik siden.
+  it('sætter en puls på spil-dokumentet, mens der spilles', async () => {
+    const db = makeDb([kamp]);
+    await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 0, away: 0 })]), only: [kamp], nowMs: NU,
+    });
+    expect(db._spil.liveHeartbeatAt).toBe(NU);
+  });
+
+  it('sætter pulsen OGSÅ når stillingen står stille', async () => {
+    const uændret = { id: kamp.id, data: { round: 2, live: { home: 0, away: 0, status: 'foerste', statusRaw: '1st half', at: 1 } } };
+    const db = makeDb([uændret]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 0, away: 0 })]), only: [uændret], nowMs: NU,
+    });
+    expect(res.skrevet).toBe(0);            // ingen kamp-skrivning
+    expect(db._spil.liveHeartbeatAt).toBe(NU); // men pulsen slår
+  });
+
+  it('sætter INGEN puls, når ingen kamp er i gang', async () => {
+    const db = makeDb([kamp]);
+    await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [kamp], nowMs: NU });
+    expect(db._spil.liveHeartbeatAt).toBeUndefined();
+  });
+
+  it('har en timeout på kaldet', async () => {
+    const set = [];
+    const fetchFn = async (_u, opt) => { set.push(opt); return { ok: true, status: 200, json: async () => ({ events: [] }) }; };
+    await syncLiveCore(makeDb([]), FieldValue, { fetchFn, only: [] });
+    expect(set[0]?.signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe('facit rydder den levende stilling', () => {
+  it('sender en delete med, når facit skrives', async () => {
+    const db = makeDb([{
+      id: 'r1-viborgff-ob',
+      data: { round: 1, live: { home: 1, away: 0, status: 'anden', statusRaw: '2nd half', at: 1 } },
+    }]);
+    const events = [{ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 2, away: 0 } }];
+    await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch(events) });
+    expect(db._docs.get('r1-viborgff-ob').live).toBe('@delete');
+  });
+
+  // Uden det sidste led i guarden ville en kamp, hvor facit og den sidste
+  // live-skrivning landede i samme kørsel, stå med BÅDE slutresultat og
+  // "DIREKTE" for evigt.
+  it('rydder også op på en kamp, der allerede har korrekt facit', async () => {
+    const db = makeDb([{
+      id: 'r1-viborgff-ob',
+      data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, live: { home: 2, away: 0, status: 'anden', statusRaw: '2nd half', at: 1 } },
+    }]);
+    const events = [{ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 2, away: 0 } }];
+    const res = await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch(events) });
+    expect(res.updated).toBe(1);
+    expect(db._docs.get('r1-viborgff-ob').live).toBe('@delete');
+  });
+
+  it('rører ikke en kamp, der hverken har live eller ændret facit', async () => {
+    const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0 } }]);
+    const events = [{ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 2, away: 0 } }];
+    expect((await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch(events) })).updated).toBe(0);
   });
 });

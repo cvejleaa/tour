@@ -100,6 +100,37 @@ function outcomeFromScore(h, a) {
   return 'X';
 }
 
+// API'ets statusFull er engelsk fritekst. Oversæt til et LUKKET sæt server-side,
+// så der aldrig kan slippe engelsk ud på skærmen — og så en værdi, vi ikke har
+// set før, ikke vælter noget.
+//
+// 'afbrudt' er den vigtige: en afbrudt kamp har stadig statusType 'inprogress',
+// og at kalde den "DIREKTE" ville være en løgn.
+const LIVE_STATUS = {
+  '1st half': 'foerste',
+  'halftime': 'pause',
+  'half time': 'pause',
+  'ht': 'pause',
+  '2nd half': 'anden',
+  'extra time': 'forlaenget',
+  '1st extra': 'forlaenget',
+  '2nd extra': 'forlaenget',
+  'awaiting extra time': 'forlaenget',
+  'penalties': 'straffe',
+  'penalty shootout': 'straffe',
+  'interrupted': 'afbrudt',
+  'abandoned': 'afbrudt',
+  'postponed': 'afbrudt',
+};
+
+/** statusFull → vores lukkede sæt. Ukendt bliver 'ukendt' og logges. */
+function liveStatus(raw) {
+  const n = String(raw ?? '').trim().toLowerCase();
+  const kendt = LIVE_STATUS[n];
+  if (!kendt && n) console.warn(`superliga: ukendt live-status "${raw}" — vises som blot "direkte".`);
+  return kendt || 'ukendt';
+}
+
 /** Dokument-id: r{runde}-{slug(hjemme)}-{slug(ude)} (spejler superligaSeed.matchId). */
 function matchDocId(round, home, away) {
   const slug = (s) => String(s ?? '')
@@ -114,6 +145,12 @@ function matchDocId(round, home, away) {
 function resultsUrl(seasonId) {
   return `${API_BASE}/events-v2?appName=${APP_NAME}&access_token=${ACCESS_TOKEN}`
     + `&env=production&locale=da&seasonId=${seasonId}&status=finished`;
+}
+
+/** URL til kampe, der er I GANG lige nu. */
+function liveUrl(seasonId) {
+  return `${API_BASE}/events-v2?appName=${APP_NAME}&access_token=${ACCESS_TOKEN}`
+    + `&env=production&locale=da&seasonId=${seasonId}&status=inprogress`;
 }
 
 /**
@@ -162,15 +199,23 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
     // rettet score aldrig komme ind: 2-1 → 3-1 er samme 1X2, så dokumentet
     // blev sprunget over for altid — også ved manuel synk. Usynligt dengang
     // målene ikke blev vist; synligt nu, hvor de står på kampkortet.
+    // ...og på om der stadig ligger en live-stilling, der skal ryddes. Uden
+    // det sidste led kunne en kamp, hvor facit og den sidste live-skrivning
+    // landede i samme kørsel, stå med BÅDE slutresultat og "DIREKTE" for evigt.
     if (cur.result === result
         && cur.homeGoals === e.score.home
-        && cur.awayGoals === e.score.away) continue;
+        && cur.awayGoals === e.score.away
+        && cur.live == null) continue;
     batch.set(matchesCol.doc(id), {
       result,
       homeGoals: e.score.home,
       awayGoals: e.score.away,
       status: 'finished',
       resultSyncedAt: FieldValue.serverTimestamp(),
+      // Facit slår live. Rydningen ligger HER og ikke i live-stien, fordi
+      // sweep'et også sætter facit — og så er det den eneste kørsel, der kan
+      // rydde op efter en kamp, minut-synken ikke nåede.
+      live: FieldValue.delete(),
     }, { merge: true });
     rettede.push(id);
   }
@@ -179,6 +224,75 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
   // lade være med at melde dem strandet i samme åndedrag — så slipper det for
   // at skanne alle 132 kampe en ekstra gang bare for at få et friskt billede.
   return { checked: events.length, updated: rettede.length, rettede };
+}
+
+/**
+ * Levende stilling på kampe, der er i gang lige nu.
+ *
+ * Skriver KUN til feltet `live` — aldrig result, homeGoals, awayGoals eller
+ * status. Det er ikke en høflighed: matchOutcome() i gameScoring udleder facit
+ * FRA MÅLENE, når result mangler, så en levende 1-0 i homeGoals ville flytte
+ * Elo på en halvlegsstilling, standse friske odds og få runden til at se
+ * afgjort ud — hvorefter snapshotRoundRanks og Runde-Botten fyrer idempotent,
+ * så det RIGTIGE snapshot aldrig blev taget. Og settlePuljeBets ville regne
+ * kampen for spillet.
+ *
+ * Ét map-felt og ikke fire løse: så er rydningen én delete og kan ikke gøres
+ * halvt.
+ *
+ * @param {{fetchFn?:Function, gameId?:string, seasonId?:number, nowMs?:number,
+ *          only?:Array<{id:string,data:object}>}} [opts]
+ * @returns {Promise<{live:number, skrevet:number}>}
+ */
+async function syncLiveCore(db, FieldValue, opts = {}) {
+  const gameId = opts.gameId || GAME_ID;
+  const seasonId = opts.seasonId || SEASON_ID;
+  const fetchFn = opts.fetchFn || fetch;
+  const nowMs = opts.nowMs ?? Date.now();
+
+  const res = await fetchFn(liveUrl(seasonId), hentOpt());
+  if (!res.ok) throw new Error(`superliga live HTTP ${res.status}`);
+  const data = await res.json();
+  const events = (data.events || []).filter((e) => e.statusType === 'inprogress'
+    && e.score && Number.isFinite(e.score.home) && Number.isFinite(e.score.away));
+
+  const current = new Map((opts.only || []).map((m) => [m.id, m.data]));
+  const matchesCol = db.collection('games').doc(gameId).collection('matches');
+  const batch = db.batch();
+  let skrevet = 0;
+  for (const e of events) {
+    const cur = current.get(matchDocId(e.round, e.homeName, e.awayName));
+    if (!cur) continue;
+    if (cur.result != null && cur.result !== '') continue; // facit slår live
+    const status = liveStatus(e.statusFull);
+    const f = cur.live;
+    // Skriv KUN når stillingen eller halvlegen faktisk har flyttet sig. Hvert
+    // kampdokument lyttes på af hver åben browser, så en skrivning uden
+    // ændring koster én læsning pr. klient — og under en kamp sidder folk der.
+    if (f && f.home === e.score.home && f.away === e.score.away && f.status === status) continue;
+    batch.set(matchesCol.doc(matchDocId(e.round, e.homeName, e.awayName)), {
+      live: {
+        home: e.score.home,
+        away: e.score.away,
+        status,
+        // Kun til fejlsøgning i loggen — må ALDRIG renderes.
+        statusRaw: String(e.statusFull ?? ''),
+        at: nowMs,
+      },
+    }, { merge: true });
+    skrevet += 1;
+  }
+  if (skrevet) await batch.commit();
+
+  // Pulsen. Uden den ville et 0-0, der står stille i 40 minutter, give et
+  // live.at fra kampens start — og kortet ville se dødt ud, selv om synken
+  // kørte fint. Ét felt på SPIL-dokumentet i stedet for på hver kamp: det
+  // koster én læsning pr. klient i minuttet frem for én pr. kamp, og useGame
+  // lytter på dokumentet i forvejen. Ingen trigger hænger på games/{id}.
+  if (events.length > 0) {
+    await db.collection('games').doc(gameId).set({ liveHeartbeatAt: nowMs }, { merge: true });
+  }
+  return { live: events.length, skrevet };
 }
 
 /** URL til den OFFICIELLE stilling (grundspil-stage), med form (last5). */
@@ -251,25 +365,46 @@ async function syncStandingsCore(db, FieldValue, opts = {}) {
  * vælte funktionen eller forhindre næste led i at prøve.
  *
  * @param {number} nowMs
- * @returns {Promise<{pending:number, updated:number, standings:object|null, fejl:string|null}>}
+ * @returns {Promise<{pending:number, updated:number, live:object|null,
+ *          standings:object|null, fejl:string|null}>}
  */
 async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
   let venter;
   try {
     venter = await pendingMatches(db, nowMs, opts);
   } catch (err) {
-    return { pending: 0, updated: 0, standings: null, fejl: `opslag: ${err?.message || err}` };
+    return { pending: 0, updated: 0, live: null, standings: null, fejl: `opslag: ${err?.message || err}` };
   }
-  if (venter.length === 0) return { pending: 0, updated: 0, standings: null, fejl: null };
+  if (venter.length === 0) return { pending: 0, updated: 0, live: null, standings: null, fejl: null };
 
   let updated = 0;
+  let rettede = [];
   let fejl = null;
   try {
-    ({ updated } = await syncResultsCore(db, FieldValue, { ...opts, only: venter }));
+    ({ updated, rettede } = await syncResultsCore(db, FieldValue, { ...opts, only: venter }));
   } catch (err) {
     fejl = `resultater: ${err?.message || err}`;
   }
-  if (updated === 0) return { pending: venter.length, updated, standings: null, fejl };
+
+  // Levende stilling på dem, der STADIG spiller. Kampe, der lige fik facit,
+  // holdes udenfor: listen `venter` er hentet FØR gen-synken, så uden det
+  // ville vi skrive en live-stilling oven på en kamp, der lige er afgjort.
+  //
+  // Ligger efter resultaterne, men FØR det tidlige exit nedenfor — ellers
+  // ville en kamp uden nyt facit (altså en kamp midt i spillet) aldrig få sin
+  // live-stilling opdateret, hvilket er præcis det tilfælde, feltet findes for.
+  const nyFacit = new Set(rettede);
+  let live = null;
+  try {
+    live = await syncLiveCore(db, FieldValue, {
+      ...opts,
+      only: venter.filter((m) => !nyFacit.has(m.id)),
+    });
+  } catch (err) {
+    fejl = `${fejl ? `${fejl}; ` : ''}live: ${err?.message || err}`;
+  }
+
+  if (updated === 0) return { pending: venter.length, updated, live, standings: null, fejl };
 
   let standings = null;
   try {
@@ -277,11 +412,12 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
   } catch (err) {
     fejl = `${fejl ? `${fejl}; ` : ''}stilling: ${err?.message || err}`;
   }
-  return { pending: venter.length, updated, standings, fejl };
+  return { pending: venter.length, updated, live, standings, fejl };
 }
 
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
+  liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, strandedMatches, allMatches,
 };

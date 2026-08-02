@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   toMillis, groupByRound, activeRound, isLocked, afterStart, matchScore,
+  liveScore, LIVE_STALE_MS,
 } from './footballRounds';
 
 const M = (round, kickoffMs, extra = {}) => ({ round, kickoff: kickoffMs, ...extra });
@@ -117,5 +118,79 @@ describe('matchScore', () => {
 
   it('tåler at blive kaldt uden kamp', () => {
     expect(matchScore(undefined)).toBeNull();
+  });
+});
+
+// liveScore — den levende stilling under en kamp. Facit slår altid live, og
+// en stilling må aldrig se frisk ud, når synken er holdt op med at kigge.
+describe('liveScore', () => {
+  const NU = 1_754_150_000_000;
+  const live = (extra = {}) => ({ live: { home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: NU - 60_000, ...extra } });
+
+  it('læser stillingen og halvlegen', () => {
+    expect(liveScore(live(), NU - 30_000, NU)).toMatchObject({
+      home: 1, away: 0, halvleg: '1. halvleg', afbrudt: false, forældet: false,
+    });
+  });
+
+  it('viser 0-0 som en rigtig stilling', () => {
+    expect(liveScore(live({ home: 0, away: 0 }), NU, NU)).toMatchObject({ home: 0, away: 0 });
+  });
+
+  // Slutresultatet er sandheden. Ligger der live tilbage, er det affald.
+  it('lader facit slå live', () => {
+    expect(liveScore({ ...live(), result: '1' }, NU, NU)).toBeNull();
+  });
+
+  it('giver null, når kampen ikke er i gang', () => {
+    expect(liveScore({}, NU, NU)).toBeNull();
+    expect(liveScore({ live: {} }, NU, NU)).toBeNull();
+    expect(liveScore(undefined, NU, NU)).toBeNull();
+  });
+
+  it('oversætter alle halvlegene', () => {
+    const h = (status) => liveScore(live({ status }), NU, NU).halvleg;
+    expect(h('foerste')).toBe('1. halvleg');
+    expect(h('pause')).toBe('Pause');
+    expect(h('anden')).toBe('2. halvleg');
+    expect(h('forlaenget')).toBe('Forlænget spilletid');
+    expect(h('straffe')).toBe('Straffespark');
+  });
+
+  // En afbrudt kamp må ikke stå som "DIREKTE" — så påstår vi, der spilles.
+  it('markerer en afbrudt kamp for sig', () => {
+    const r = liveScore(live({ status: 'afbrudt' }), NU, NU);
+    expect(r.afbrudt).toBe(true);
+    expect(r.halvleg).toBe('Afbrudt');
+  });
+
+  it('siger ingenting om halvlegen, når serveren ikke kendte statussen', () => {
+    expect(liveScore(live({ status: 'ukendt' }), NU, NU).halvleg).toBeNull();
+  });
+
+  // Pulsen og ikke live.at: et 0-0, der står stille i 40 minutter, ville
+  // ellers se dødt ud, selv om synken kørte fint.
+  it('måler friskhed på spillets puls, ikke på hvornår stillingen sidst ændrede sig', () => {
+    const gammelStilling = live({ at: NU - 40 * 60_000 });
+    expect(liveScore(gammelStilling, NU - 30_000, NU).forældet).toBe(false);
+    expect(liveScore(gammelStilling, NU - 40 * 60_000, NU).forældet).toBe(true);
+  });
+
+  it('kalder stillingen forældet, når pulsen er stoppet', () => {
+    expect(liveScore(live(), NU - LIVE_STALE_MS - 1000, NU).forældet).toBe(true);
+    expect(liveScore(live(), NU - LIVE_STALE_MS + 1000, NU).forældet).toBe(false);
+  });
+
+  it('falder tilbage til live.at, hvis pulsen mangler helt', () => {
+    const r = liveScore(live({ at: NU - 60_000 }), null, NU);
+    expect(r.forældet).toBe(false);
+    expect(r.setAt).toBe(NU - 60_000);
+  });
+
+  // Vi sletter ALDRIG stillingen — et tal med forbehold er mere værd end en streg.
+  it('beholder stillingen, selv når den er forældet', () => {
+    const r = liveScore(live(), NU - 60 * 60_000, NU);
+    expect(r.forældet).toBe(true);
+    expect(r.home).toBe(1);
   });
 });

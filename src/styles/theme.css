@@ -706,6 +706,35 @@ a:focus-visible,
   box-shadow: 0 0 0 1px var(--c-accent), var(--shadow);
 }
 
+/* Live-pille: kampen er i gang lige nu. Rød og pulserende, så den ikke kan
+   forveksles med "Spillet". Dæmpet variant når opdateringen er stoppet — vi
+   fjerner aldrig stillingen, vi siger bare hvornår den sidst blev set. */
+.live-pill {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: var(--c-err); color: #fff;
+  font-size: 0.66rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 0.15rem 0.5rem; border-radius: 99px;
+  white-space: nowrap;
+}
+.live-pill__prik {
+  width: 0.42rem; height: 0.42rem; border-radius: 50%;
+  background: #fff; animation: live-puls 1.6s ease-in-out infinite;
+}
+@keyframes live-puls { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .live-pill__prik { animation: none; }
+}
+.live-pill--doed { background: var(--c-surface-alt); color: var(--c-muted); }
+
+/* Den levende stilling står samme sted som slutresultatet, men med tekst
+   under tallet — badge og tal står langt fra hinanden på en telefon. */
+.match-card__score--live { color: var(--c-err); }
+.match-card__score-note {
+  display: block; font-size: 0.6rem; font-weight: 600;
+  color: var(--c-muted); text-transform: none; letter-spacing: 0;
+}
+.match-card__score--doed { color: var(--c-muted); }
+
 /* Chancen-pille */
 .chance-pill {
   display: inline-flex; align-items: center; gap: 0.2rem;
