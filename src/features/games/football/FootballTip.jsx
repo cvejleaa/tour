@@ -4,6 +4,7 @@
  * på ÉN kamp: sæt point på spil på dit 1X2-valg til elo-lite fair odds.
  */
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useGameBets } from '../useGameBets';
 import { setBet } from '../betActions';
 import LeagueBets from './LeagueBets';
@@ -91,7 +92,24 @@ export default function FootballTip({ game, me, matches }) {
   const shownMatches = useMemo(() => afterStart(matches, startMs), [matches, startMs]);
   const rounds = useMemo(() => groupByRound(shownMatches), [shownMatches]);
   const initialRound = useMemo(() => activeRound(rounds, nowMs), [rounds, nowMs]);
-  const [roundNo, setRoundNo] = useState(initialRound);
+
+  // Runden ligger i URL'en, ikke i komponent-tilstand: så kan man dele et link
+  // til en bestemt runde, bruge browserens tilbage-knap og bogmærke den.
+  // Uden ?runde= vises den aktive runde.
+  const [searchParams, setSearchParams] = useSearchParams();
+  // NaN > 0 er falsk, så både "abc" og manglende parameter giver den aktive
+  // runde. En runde, der ikke findes (fx 99), fanges af opslaget nedenfor —
+  // derfor ingen ekstra validering her: den ville være uobserverbar.
+  const rundeParam = Number(searchParams.get('runde'));
+  const roundNo = rundeParam > 0 ? rundeParam : initialRound;
+  const setRoundNo = (r) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('runde', String(r));
+    // replace, ikke push: at bladre mellem runder er filtrering, ikke
+    // navigation. Uden den ville seks rundeklik kræve seks tryk på
+    // tilbage-knappen for at forlade tip-fladen — før forlod ét tryk siden.
+    setSearchParams(next, { replace: true });
+  };
   const [busy, setBusy] = useState(null); // matchId der gemmes
   const [error, setError] = useState('');
   const [shareMsg, setShareMsg] = useState('');

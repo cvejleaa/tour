@@ -3,6 +3,7 @@
  * opret/deltag, omdøb (ejer), slet/forlad, og en liga-væg med beskeder.
  */
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useGameLeagues } from './useGameLeagues';
@@ -105,8 +106,11 @@ function LeagueWall({ gameId, leagueId, meUid, byUid }) {
   );
 }
 
-function LeagueCard({ league, standings, byUid, meUid, gameId }) {
-  const [open, setOpen] = useState(false);
+function LeagueCard({ league, standings, byUid, meUid, gameId, forvalgt }) {
+  // Kommer man fra "Åbn ligaen →" i stillingen, skal DEN liga stå åben. Ellers
+  // lander man på en liste, hvor alt er foldet sammen — og linket lovede mere,
+  // end klikket gav.
+  const [open, setOpen] = useState(!!forvalgt);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(league.name);
@@ -199,6 +203,9 @@ function LeagueCard({ league, standings, byUid, meUid, gameId }) {
 }
 
 export default function GameLeagues({ gameId }) {
+  // ?liga=<id> forvælger ét kort — sat af "Åbn ligaen →" i stillingen.
+  const [ligaParams] = useSearchParams();
+  const valgtLigaId = ligaParams.get('liga');
   const { user } = useAuth();
   const meUid = user?.uid;
   const { leagues, loading, error } = useGameLeagues(gameId);
@@ -251,7 +258,15 @@ export default function GameLeagues({ gameId }) {
         </div>
       ) : (
         leagues.map((l) => (
-          <LeagueCard key={l.id} league={l} standings={standings} byUid={byUid} meUid={meUid} gameId={gameId} />
+          <LeagueCard
+            key={l.id}
+            league={l}
+            standings={standings}
+            byUid={byUid}
+            meUid={meUid}
+            gameId={gameId}
+            forvalgt={l.id === valgtLigaId}
+          />
         ))
       )}
 

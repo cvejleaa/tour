@@ -11,7 +11,7 @@ De er defineret som agenter i `.claude/agents/` og køres parallelt, når
 
 | Rolle | Spørger | Kan blokere for |
 |---|---|---|
-| **Test Manager** | Er ændringen bevist? Ville testen fejle uden rettelsen? | at lande uden dækning |
+| **Test Manager** | Er ændringen bevist? Mutationstest kernen — en grøn suite beviser intet | at lande uden dækning |
 | **Quality Control Manager** | Løser den det rigtige problem — og hvad rører den ellers ved? | at lande med en halv rettelse |
 | **Release Manager** | Hvad skal deployes, i hvilken rækkefølge, og hvad tjekkes bagefter? | en forkert udrulning |
 
@@ -23,6 +23,12 @@ Dertil én rolle, der **kun** køres når ændringen kalder på det:
 
 Den er med vilje ikke fast. En sikkerhedsgennemgang af en tekstrettelse lærer
 ingen noget, og en rolle, der altid siger "ser fint ud", holder man op med at læse.
+
+**Antag, at dine egne tests bekræfter sig selv.** Koden og testene skrives af
+den samme i samme åndedrag og indkoder samme forståelse — også når den er
+forkert. Derfor er mutationstest ikke en ekstra grundighed, men den eneste
+måde at vide, om noget er dækket. Alt, der er sluppet igennem her, er sluppet
+igennem med en grøn suite.
 
 De er ikke en formalitet. Hver rolle har blokeret noget ægte:
 en grøn test, der ikke kunne fange fejlen; en rettelse, der kun lukkede
@@ -37,13 +43,23 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
 
 ## Rækkefølgen i praksis
 
+0. Tilføjer ændringen **ny brugerflade eller nye tal på skærmen**, så kør
+   Quality Control på *planen* først. To minutter dér sparer en omskrivning:
+   de dyreste fund har været designfejl, ikke kodefejl.
 1. Skriv ændringen. Kør lokalt: `npm run lint`, relevante tests, `npm run build`.
+   **Kontrollér, at hver ændring faktisk landede** — en tekst-erstatning, der
+   ikke matcher, fejler tavst, og så står testfilen grøn uden at dække noget.
 2. **Kør de tre roller** — plus Security Reviewer, hvis ændringen rører adgang.
    Ret det, de finder.
 3. Commit → push → opret PR som draft.
 4. Vent på grøn CI (fire jobs). Un-draft → squash-merge.
-5. Deploy efter Release Managers plan.
+5. **Deploy efter Release Managers plan — uden at spørge om lov.** Er CI grøn,
+   og har rollerne ikke blokerende fund, så rul ud. Spørg ikke hver gang.
 6. Verificér i produktion, og fortæl brugeren hvad der er live.
+
+Undtagelserne fra trin 5, hvor der **stadig** spørges først: alt der skriver i
+produktionsdata (bagfyldninger, migreringer, `seedGames`/`seedSuperliga`),
+tilbagerulninger, og udrulninger med et blokerende fund fra en rolle.
 
 ## Sæsoneftersyn
 

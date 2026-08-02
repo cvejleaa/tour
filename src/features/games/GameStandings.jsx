@@ -8,6 +8,7 @@ import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useVisibleGameStandings } from './useVisibleGameStandings';
 import { rankDelta, subsetRanking } from './gameStandings';
+import GameTabLink from './GameTabLink';
 import { formatPoints } from './GameLayout';
 
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
@@ -65,7 +66,10 @@ export default function GameStandings({ gameId }) {
         <div className="empty-state__title">Du er ikke med i en liga endnu.</div>
         <p style={{ color: 'var(--c-muted)' }}>
           Ranglisten viser kun de spillere, du deler liga med. Opret eller tilmeld dig
-          en liga under <strong>👥 Ligaer</strong> — så dukker de andre op her.
+          en liga — så dukker de andre op her.
+        </p>
+        <p style={{ marginTop: '0.6rem' }}>
+          <GameTabLink fane="ligaer" className="btn btn--sm">👥 Gå til Ligaer</GameTabLink>
         </p>
       </div>
     );
@@ -146,6 +150,14 @@ export default function GameStandings({ gameId }) {
 
       <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', margin: '0 0 0.6rem' }}>
         {opsummering}
+        {/* Har man valgt en liga, står man typisk og vil videre TIL den —
+            væggen, spørgsmålene, medlemmerne. */}
+        {valgt && (
+          <>
+            {' '}
+            <GameTabLink fane="ligaer" liga={valgt.id}>Åbn ligaen →</GameTabLink>
+          </>
+        )}
       </p>
       {hasPodium && (
         <div className="podium">

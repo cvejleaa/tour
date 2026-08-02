@@ -9,6 +9,7 @@
  */
 import { useState } from 'react';
 import { useMatchLeagueBets } from './useMatchLeagueBets';
+import GameTabLink from '../GameTabLink';
 import { fmtDec } from '../../../lib/daNum';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
@@ -54,7 +55,7 @@ export default function LeagueBets({ gameId, match, myUid, leagueIds }) {
   if (!leagueIds?.length) {
     return (
       <p style={{ margin: '0.6rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-        Bliv med i en liga for at se, hvad de andre tippede.
+        <GameTabLink fane="ligaer">Bliv med i en liga</GameTabLink> for at se, hvad de andre tippede.
       </p>
     );
   }

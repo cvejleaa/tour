@@ -3,8 +3,9 @@
 // Baggrund: hele <MatchElo/>-linjen kunne fjernes fra tip-fladen, uden at én
 // af 1362 tests sagde fra. Denne fil dækker, at Elo faktisk NÅR ud på hvert
 // kampkort — selve visningen er dækket i MatchElo.test.jsx.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 
 vi.mock('../../../firebase', () => ({ db: {} }));
 
@@ -19,9 +20,14 @@ vi.mock('../../../components/ClubBadge', () => ({ default: () => <span /> }));
 import FootballTip from './FootballTip';
 
 const KICKOFF = new Date('2026-09-01T18:00:00Z');
+const KICKOFF2 = new Date('2026-09-08T18:00:00Z');
+// To runder, så rundenavigationen (og ?runde=) har noget at navigere MELLEM.
+// Begge ligger i fremtiden, så runde 1 er den aktive.
 const MATCHES = [
   { id: 'm1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF, odds: null, result: null },
   { id: 'm2', round: 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: KICKOFF, odds: null, result: null },
+  { id: 'm3', round: 2, home: 'F.C. København', away: 'Brøndby IF', kickoff: KICKOFF2, odds: null, result: null },
+  { id: 'm4', round: 2, home: 'FC Midtjylland', away: 'AGF', kickoff: KICKOFF2, odds: null, result: null },
 ];
 
 // To spillede runder, så der er udviklingspunkter at vise.
@@ -39,15 +45,39 @@ const TEAMS = [
   { name: 'FC Midtjylland', short: 'FCM', elo: 1440 },
 ];
 
-const setup = (game = {}) => render(
-  <FootballTip
-    game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY, ...game }}
-    me={{ uid: 'me', totalPoints: 100 }}
-    matches={MATCHES}
-  />,
+// Runden ligger i URL'en, så komponenten skal stå i en router. Ruten matcher
+// den rigtige (/spil/:gameId), så GameTabLink kan bygge sine stier.
+function UrlProbe() {
+  const { search } = useLocation();
+  return <output data-testid="url">{search}</output>;
+}
+
+const setup = (game = {}, url = '/spil/sl') => render(
+  <MemoryRouter initialEntries={[url]}>
+    <Routes>
+      <Route
+        path="/spil/:gameId"
+        element={(
+          <FootballTip
+            game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY, ...game }}
+            me={{ uid: 'me', totalPoints: 100 }}
+            matches={MATCHES}
+          />
+        )}
+      />
+    </Routes>
+    <UrlProbe />
+  </MemoryRouter>,
 );
 
-beforeEach(() => vi.clearAllMocks());
+// activeRound bygger på Date.now(), og kampene ligger i sep. 2026. Uden en
+// frossen tid ville testen skifte betydning, når den dato passerer.
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-08-02T08:00:00Z'));
+});
+afterEach(() => vi.useRealTimers());
 
 describe('FootballTip — Elo på kampkortene', () => {
   it('viser Elo for begge hold på hver kamp i runden', () => {
@@ -82,6 +112,47 @@ describe('FootballTip — Elo på kampkortene', () => {
     setup({ eloHistory: [] });
     expect(screen.getByTitle('AGF: rating 1500')).toBeInTheDocument();
     expect(screen.getAllByText(/Start-rating/).length).toBeGreaterThan(0);
+  });
+
+  // ── Runden i URL'en ────────────────────────────────────────────────────────
+  // setup() tog imod en url, men ingen test brugte den: intet beviste, at
+  // ?runde= bliver LÆST eller SKREVET.
+
+  it('åbner den runde, URL\'en peger på', () => {
+    setup({}, '/spil/sl?runde=2');
+    expect(screen.getByText(/Runde 2 af/)).toBeInTheDocument();
+  });
+
+  it('viser den aktive runde, når URL\'en ikke siger noget', () => {
+    setup();
+    expect(screen.getByText(/Runde 1 af/)).toBeInTheDocument();
+  });
+
+  // En delt eller redigeret URL må ikke give en tom side.
+  it('falder tilbage til den aktive runde ved en runde, der ikke findes', () => {
+    setup({}, '/spil/sl?runde=99');
+    expect(screen.getByText(/Runde 1 af/)).toBeInTheDocument();
+  });
+
+  it('ignorerer en ugyldig runde-parameter', () => {
+    setup({}, '/spil/sl?runde=abc');
+    expect(screen.getByText(/Runde 1 af/)).toBeInTheDocument();
+  });
+
+  it('skriver runden i URL\'en, når man bladrer', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: /Næste runde/ }));
+    expect(screen.getByTestId('url').textContent).toContain('runde=2');
+    expect(screen.getByText(/Runde 2 af/)).toBeInTheDocument();
+  });
+
+  // Fanen må ikke gå tabt, når runden skifter.
+  it('bevarer fanen ved rundeskift', () => {
+    setup({}, '/spil/sl?fane=tip&runde=1');
+    fireEvent.click(screen.getByRole('button', { name: /Næste runde/ }));
+    const url = screen.getByTestId('url').textContent;
+    expect(url).toContain('fane=tip');
+    expect(url).toContain('runde=2');
   });
 
   // Elo må ikke vælte tip-fladen for et spil, der slet ikke har ratings.

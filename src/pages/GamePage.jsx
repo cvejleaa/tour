@@ -21,6 +21,7 @@ import EloTable from '../features/games/football/EloTable';
 import SuperligaTable from '../features/games/football/SuperligaTable';
 import FootballHelp from '../features/games/football/FootballHelp';
 import { GAME_TYPE } from '../lib/constants';
+import { withTab } from '../features/games/GameTabLink';
 
 // Faner i spillet. football: true = kun for fodbold-spil. Rækkefølgen er
 // visnings-rækkefølgen; navnene er valgt så de ikke kolliderer med top-nav
@@ -47,7 +48,11 @@ export default function GamePage() {
   // deling virker. Standard = tip (ingen parameter).
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('fane') || 'tip';
-  const setTab = (key) => setSearchParams(key === 'tip' ? {} : { fane: key });
+  // Flet ind i de eksisterende parametre — objekt-formen ville erstatte HELE
+  // query-strengen og dermed tørre ?runde= af, hver gang man skiftede fane.
+  // withTab fletter ind i de eksisterende parametre. Objekt-formen ville
+  // erstatte HELE query-strengen og dermed tørre ?runde= af ved hvert klik.
+  const setTab = (key) => setSearchParams(withTab(searchParams, key));
 
   if (loading || game === undefined) {
     return <div className="spinner" role="status" aria-label="Indlæser" />;

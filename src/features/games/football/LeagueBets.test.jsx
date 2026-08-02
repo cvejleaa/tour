@@ -1,6 +1,7 @@
 // Tests for LeagueBets — hvad tippede mine liga-kammerater på en startet kamp.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('../../../firebase', () => ({ db: {} }));
 
@@ -19,8 +20,16 @@ beforeEach(() => {
 });
 
 function renderIt(props = {}) {
+  // På den rigtige rute, så "Bliv med i en liga" bliver et ægte link.
   return render(
-    <LeagueBets gameId="sl" match={MATCH} myUid="me" leagueIds={['L1']} {...props} />,
+    <MemoryRouter initialEntries={['/spil/sl']}>
+      <Routes>
+        <Route
+          path="/spil/:gameId"
+          element={<LeagueBets gameId="sl" match={MATCH} myUid="me" leagueIds={['L1']} {...props} />}
+        />
+      </Routes>
+    </MemoryRouter>,
   );
 }
 
@@ -77,7 +86,8 @@ describe('LeagueBets', () => {
   // stedet for at vise en tom liste.
   it('forklarer, at man skal være i en liga — og henter ikke', () => {
     renderIt({ leagueIds: [] });
-    expect(screen.getByText(/Bliv med i en liga/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Bliv med i en liga/i }))
+      .toHaveAttribute('href', '/spil/sl?fane=ligaer');
     expect(screen.queryByRole('button', { name: /se ligaens tips/i })).not.toBeInTheDocument();
   });
 

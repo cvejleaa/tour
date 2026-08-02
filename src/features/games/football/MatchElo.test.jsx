@@ -5,6 +5,7 @@
 // skelne en rigtig visning fra en forkert.
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import MatchElo from './MatchElo';
 
 const punkt = (round, elo, delta) => ({ round, elo, delta });
@@ -21,8 +22,18 @@ const AGF = { // navnet i seedet er 'AGF'
 const FCK = { current: 1620, start: 1600, trend: 20, form: [punkt(6, 1620, 20)] };
 const UDEN = (elo) => ({ current: elo, start: elo, trend: 0, form: [] });
 
+// På den rigtige rute, så 📈 Elo bliver et ægte link og ikke ren tekst.
 const renderIt = (props = {}) =>
-  render(<MatchElo home="AGF" away="FCK" eloByTeam={{ AGF, FCK }} {...props} />);
+  render(
+    <MemoryRouter initialEntries={['/spil/sl']}>
+      <Routes>
+        <Route
+          path="/spil/:gameId"
+          element={<MatchElo home="AGF" away="FCK" eloByTeam={{ AGF, FCK }} {...props} />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
 
 describe('MatchElo', () => {
   it('viser begge holds aktuelle rating', () => {
@@ -103,5 +114,13 @@ describe('MatchElo', () => {
     expect(container.textContent).not.toContain('→');
     expect(container.textContent).not.toContain('←');
     expect(container.textContent).toContain('ikke et bud på denne kamp');
+  });
+
+  // Her står man og undrer sig over tallet — så herfra skal man kunne komme
+  // videre til hele sæsonen.
+  it('linker videre til Elo-fanen', () => {
+    renderIt();
+    expect(screen.getByRole('link', { name: /Elo/ }))
+      .toHaveAttribute('href', '/spil/sl?fane=elo');
   });
 });
