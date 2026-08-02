@@ -55,27 +55,37 @@ async function pendingMatches(db, nowMs, opts = {}) {
     .filter((m) => m.data.result == null || m.data.result === '');
 }
 
+/** Alle kampe i spillet, som {id, data} — ét opslag, der kan deles. */
+async function allMatches(db, opts = {}) {
+  const gameId = opts.gameId || GAME_ID;
+  const snap = await db.collection('games').doc(gameId).collection('matches').get();
+  return snap.docs.map((d) => ({ id: d.id, data: d.data() }));
+}
+
 /**
  * Kampe, der for længst er begyndt og STADIG mangler facit — dem vinduet har
- * sluppet. En kamp uden kickoff-felt tælles med: den kan aldrig komme i noget
- * vindue overhovedet.
+ * sluppet. Ren funktion over en liste, så sweep'et kan nøjes med ÉT opslag
+ * frem for at skanne de 132 kampe to gange.
  *
  * Findes der nogen af dem, er point ikke afregnet, og ingen ville opdage det:
  * puljebonussen kræver, at ALLE kampe har mål, så én strandet kamp blokerer
  * hele sæsonafregningen.
+ *
+ * Alt, vi ikke kan læse et tidspunkt ud af, rapporteres. Det er den sikre
+ * retning: en kamp med et ubrugeligt kickoff kan aldrig komme i et vindue, så
+ * tav alarmen om den, ville den stå uafregnet for evigt — og netop de
+ * dokumenter, hvor data ser mærkelige ud, er dem man helst vil høre om.
  */
-async function strandedMatches(db, nowMs, opts = {}) {
-  const gameId = opts.gameId || GAME_ID;
-  const snap = await db.collection('games').doc(gameId).collection('matches').get();
+function strandedMatches(matches, nowMs) {
   const graense = nowMs - WINDOW_MS;
-  return snap.docs
-    .map((d) => ({ id: d.id, data: d.data() }))
+  return matches
     .filter((m) => m.data.result == null || m.data.result === '')
     .filter((m) => {
       const k = m.data.kickoff;
-      if (k == null) return true; // uden kickoff rammer den aldrig et vindue
+      if (k == null) return true;
       const ms = typeof k.toMillis === 'function' ? k.toMillis() : new Date(k).getTime();
-      return Number.isFinite(ms) && ms < graense;
+      if (!Number.isFinite(ms)) return true; // tom streng, skrald, råt objekt
+      return ms < graense;
     });
 }
 
@@ -112,7 +122,7 @@ function resultsUrl(seasonId) {
  * @param {object} FieldValue
  * @param {{fetchFn?:Function, gameId?:string, seasonId?:number,
  *          only?:Array<{id:string,data:object}>}} [opts]
- * @returns {Promise<{checked:number, updated:number}>}
+ * @returns {Promise<{checked:number, updated:number, rettede:string[]}>}
  */
 async function syncResultsCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
@@ -141,7 +151,7 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
   }
 
   const batch = db.batch();
-  let updated = 0;
+  const rettede = [];
   for (const e of events) {
     const id = matchDocId(e.round, e.homeName, e.awayName);
     const cur = current.get(id);
@@ -162,10 +172,13 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
       status: 'finished',
       resultSyncedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
-    updated += 1;
+    rettede.push(id);
   }
-  if (updated) await batch.commit();
-  return { checked: events.length, updated };
+  if (rettede.length) await batch.commit();
+  // rettede: hvilke kampe der netop fik facit. Sweep'et bruger listen til at
+  // lade være med at melde dem strandet i samme åndedrag — så slipper det for
+  // at skanne alle 132 kampe en ekstra gang bare for at få et friskt billede.
+  return { checked: events.length, updated: rettede.length, rettede };
 }
 
 /** URL til den OFFICIELLE stilling (grundspil-stage), med form (last5). */
@@ -270,5 +283,5 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
-  standingsUrl, syncStandingsCore, runScheduledSync, strandedMatches,
+  standingsUrl, syncStandingsCore, runScheduledSync, strandedMatches, allMatches,
 };

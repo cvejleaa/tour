@@ -158,6 +158,33 @@ describe('syncResultsCore', () => {
     expect(db._docs.get('r1-viborgff-ob').awayGoals).toBe(2);
   });
 
+  // Sweep'et bruger listen til at lade være med at melde en kamp strandet i
+  // samme åndedrag, som den lige har reddet den. Uden id'erne måtte det hente
+  // et friskt billede af alle 132 kampe.
+  it('fortæller HVILKE kampe der fik facit', async () => {
+    const db = makeDb([
+      { id: 'r1-viborgff-ob', data: { round: 1 } },
+      { id: 'r1-agf-brondbyif', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0 } },
+    ]);
+    const events = [
+      { statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 1, away: 0 } },
+      { statusType: 'finished', round: 1, homeName: 'AGF', awayName: 'Brøndby IF', score: { home: 2, away: 0 } },
+    ];
+    const res = await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch(events) });
+    expect(res.rettede).toEqual(['r1-viborgff-ob']);   // kun den, der faktisk ændrede sig
+    expect(res.updated).toBe(res.rettede.length);
+  });
+
+  it('melder ingen rettede, når intet ændrede sig', async () => {
+    const db = makeDb([
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 1, awayGoals: 0 } },
+    ]);
+    const events = [
+      { statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 1, away: 0 } },
+    ];
+    expect((await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch(events) })).rettede).toEqual([]);
+  });
+
   it('bagfylder mål på en kamp, der har facit men mangler dem', async () => {
     const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, result: '1' } }]);
     const events = [
@@ -522,111 +549,56 @@ describe('runScheduledSync — fejl i hvert led', () => {
 describe('strandedMatches', () => {
   const NU = Date.parse('2026-08-02T18:30:00Z');
   const forSiden = (t) => new Date(NU - t * 3600e3);
+  /** Ren funktion: sweep'et deler ét opslag mellem gen-synken og alarmen. */
+  const strandet = (data) => strandedMatches([{ id: 'r1-a-b', data }], NU).map((m) => m.id);
 
-  it('finder en kamp, der for længst er begyndt uden at få facit', async () => {
-    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: forSiden(5) } }]);
-    expect((await strandedMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  it('finder en kamp, der for længst er begyndt uden at få facit', () => {
+    expect(strandet({ kickoff: forSiden(5) })).toEqual(['r1-a-b']);
   });
 
-  it('råber ikke op om en kamp, der stadig er i gang', async () => {
-    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: forSiden(1) } }]);
-    expect(await strandedMatches(db, NU)).toEqual([]);
+  it('råber ikke op om en kamp, der stadig er i gang', () => {
+    expect(strandet({ kickoff: forSiden(1) })).toEqual([]);
   });
 
-  it('råber ikke op om en kamp, der HAR fået facit', async () => {
-    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: forSiden(5), result: '1' } }]);
-    expect(await strandedMatches(db, NU)).toEqual([]);
+  it('råber ikke op om en kamp, der HAR fået facit', () => {
+    expect(strandet({ kickoff: forSiden(5), result: '1' })).toEqual([]);
   });
 
-  it('råber ikke op om kampe, der ikke er spillet endnu', async () => {
-    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: new Date(NU + 3600e3) } }]);
-    expect(await strandedMatches(db, NU)).toEqual([]);
+  it('råber ikke op om kampe, der ikke er spillet endnu', () => {
+    expect(strandet({ kickoff: new Date(NU + 3600e3) })).toEqual([]);
   });
 
-  // Uden kickoff kan kampen aldrig komme i et vindue — den ville stå strandet
-  // for evigt, og minut-synken ville aldrig se den.
-  it('tager en kamp helt uden kickoff med', async () => {
-    const db = makeDb([{ id: 'r1-a-b', data: { round: 1 } }]);
-    expect((await strandedMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  it('forstår et Firestore-Timestamp lige så godt som en Date', () => {
+    expect(strandet({ kickoff: { toMillis: () => NU - 5 * 3600e3 } })).toEqual(['r1-a-b']);
   });
 
-  it('forstår et Firestore-Timestamp lige så godt som en Date', async () => {
-    const ms = NU - 5 * 3600e3;
-    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: { toMillis: () => ms } } }]);
-    expect((await strandedMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
+  it('tæller tomt facit som manglende', () => {
+    expect(strandet({ kickoff: forSiden(5), result: '' })).toEqual(['r1-a-b']);
   });
 
-  it('tæller tomt facit som manglende', async () => {
-    const db = makeDb([{ id: 'r1-a-b', data: { kickoff: forSiden(5), result: '' } }]);
-    expect((await strandedMatches(db, NU)).map((m) => m.id)).toEqual(['r1-a-b']);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Skemaet mod kampprogrammet.
-//
-// Cron-udtrykkene er den ene ting, ingen enhedstest normalt rører — og fejlen
-// ville være tavs: en kamp uden for tidsrummet får aldrig sit facit fra
-// minut-synken. Læses som TEKST ud af index.js, fordi filen ikke kan
-// importeres uden firebase-functions.
-// ---------------------------------------------------------------------------
-describe('skemaet dækker kampprogrammet', () => {
-  const fs = require('fs');
-  const path = require('path');
-  const kilde = fs.readFileSync(path.join(__dirname, 'index.js'), 'utf8');
-  const fixtures = JSON.parse(
-    fs.readFileSync(path.join(__dirname, '..', 'scripts', 'superliga-fixtures.json'), 'utf8'),
-  ).fixtures;
-
-  /** Timerne i et cron-felt som "12-23" eller "*". */
-  function cronTimer(udtryk) {
-    const felt = udtryk.split(' ')[1];
-    if (felt === '*') return { fra: 0, til: 23 };
-    const [fra, til] = felt.split('-').map(Number);
-    return { fra, til: til ?? fra };
-  }
-  const skema = (navn) => {
-    const m = kilde.match(new RegExp(`exports\\.${navn} = onSchedule\\(\\s*\\{ schedule: '([^']+)'`));
-    if (!m) throw new Error(`fandt ikke skemaet for ${navn} — er funktionen omdøbt?`);
-    return m[1];
-  };
-
-  /** Time på døgnet i dansk tid (sommertid marts-oktober). */
-  const dkTime = (iso) => {
-    const t = new Date(iso);
-    const off = t.getUTCMonth() > 2 && t.getUTCMonth() < 10 ? 2 : 1;
-    return new Date(t.getTime() + off * 3600e3).getUTCHours();
-  };
-
-  it('kampprogrammet findes og er komplet', () => {
-    expect(fixtures.length).toBe(132);
-    expect(fixtures.every((f) => f.kickoff)).toBe(true);
+  // Alt, vi ikke kan læse et tidspunkt ud af, skal RAPPORTERES. Fejler alarmen
+  // den anden vej, tier den netop dér, hvor data ser mistænkelige ud — og en
+  // kamp med ubrugeligt kickoff kan aldrig komme i et vindue, så den ville
+  // stå uafregnet for evigt.
+  it.each([
+    ['helt uden kickoff-felt', { round: 1 }],
+    ['kickoff: null', { kickoff: null }],
+    ['kickoff: tom streng', { kickoff: '' }],
+    ['kickoff: uparsebar tekst', { kickoff: 'i går' }],
+    ['kickoff: råt {_seconds}-objekt fra en backup', { kickoff: { _seconds: 1 } }],
+  ])('råber op om en kamp med %s', (_navn, data) => {
+    expect(strandet(data)).toEqual(['r1-a-b']);
   });
 
-  it('hver kamp begynder inden for minut-synkens tidsrum', () => {
-    const { fra, til } = cronTimer(skema('syncSuperligaResults'));
-    const udenfor = fixtures.filter((f) => dkTime(f.kickoff) < fra || dkTime(f.kickoff) > til);
-    expect(udenfor.map((f) => `${f.home}-${f.away} ${f.kickoff}`)).toEqual([]);
-  });
-
-  // Bagkanten er den asymmetriske: et vindue, der klippes ved midnat, betyder
-  // at kampen først fanges af sweep'et næste dag.
-  it('hvert kampvindue LUKKER også inden for tidsrummet', () => {
-    const { til } = cronTimer(skema('syncSuperligaResults'));
-    const klippet = fixtures.filter((f) => {
-      const slut = new Date(new Date(f.kickoff).getTime() + WINDOW_MS);
-      // Krydser vinduet midnat, er dagens sidste kørsel passeret.
-      return dkTime(slut.toISOString()) > til || dkTime(slut.toISOString()) < dkTime(f.kickoff);
-    });
-    expect(klippet.map((f) => `${f.home}-${f.away} ${f.kickoff}`)).toEqual([]);
-  });
-
-  it('sweep\'et kører efter dagens sidste kampvindue', () => {
-    const senesteSlut = Math.max(...fixtures.map(
-      (f) => dkTime(new Date(new Date(f.kickoff).getTime() + WINDOW_MS).toISOString()),
-    ));
-    const { til } = cronTimer(skema('syncSuperligaSweep'));
-    expect(til).toBeGreaterThanOrEqual(senesteSlut);
+  it('sorterer kun de strandede fra en blandet liste', () => {
+    const kampe = [
+      { id: 'gammel-uden-facit', data: { kickoff: forSiden(5) } },
+      { id: 'gammel-med-facit', data: { kickoff: forSiden(5), result: 'X' } },
+      { id: 'i-gang', data: { kickoff: forSiden(1) } },
+      { id: 'uden-kickoff', data: { round: 3 } },
+    ];
+    expect(strandedMatches(kampe, NU).map((m) => m.id))
+      .toEqual(['gammel-uden-facit', 'uden-kickoff']);
   });
 });
 
@@ -661,5 +633,85 @@ describe('kald mod api.superliga.dk giver op i tide', () => {
     await syncResultsCore(db, FieldValue, { fetchFn });
     await syncResultsCore(db, FieldValue, { fetchFn });
     expect(fetchFn.options[0].signal).not.toBe(fetchFn.options[1].signal);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Skemaet mod kampprogrammet.
+//
+// Cron-udtrykkene er det eneste her, ingen enhedstest normalt rører — og
+// fejlen ville være tavs: en kamp uden for tidsrummet får aldrig sit facit
+// fra minut-synken. Læses som TEKST ud af index.js, fordi filen ikke kan
+// importeres uden firebase-functions.
+// ---------------------------------------------------------------------------
+describe('skemaet dækker kampprogrammet', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const kilde = fs.readFileSync(path.join(__dirname, 'index.js'), 'utf8');
+  const fixtures = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '..', 'scripts', 'superliga-fixtures.json'), 'utf8'),
+  ).fixtures;
+
+  const skema = (navn) => {
+    const m = kilde.match(new RegExp(`exports\\.${navn} = onSchedule\\(\\s*\\{ schedule: '([^']+)'`));
+    if (!m) throw new Error(`fandt ikke skemaet for ${navn} — er funktionen omdøbt?`);
+    return m[1];
+  };
+  /** Alle timer, et cron-timefelt dækker ("12-23", "2,13-23", "*"). */
+  const timer = (udtryk) => {
+    const felt = udtryk.split(' ')[1];
+    if (felt === '*') return Array.from({ length: 24 }, (_, i) => i);
+    return felt.split(',').flatMap((del) => {
+      if (!del.includes('-')) return [Number(del)];
+      const [fra, til] = del.split('-').map(Number);
+      return Array.from({ length: til - fra + 1 }, (_, i) => fra + i);
+    }).sort((a, b) => a - b);
+  };
+  /** Time på døgnet i dansk tid (sommertid marts-oktober). */
+  const dkTime = (iso) => {
+    const t = new Date(iso);
+    const off = t.getUTCMonth() > 2 && t.getUTCMonth() < 10 ? 2 : 1;
+    return new Date(t.getTime() + off * 3600e3).getUTCHours();
+  };
+
+  it('kampprogrammet findes og er komplet', () => {
+    expect(fixtures.length).toBe(132);
+    expect(fixtures.every((f) => f.kickoff)).toBe(true);
+  });
+
+  it('hver kamp begynder inden for minut-synkens tidsrum', () => {
+    const t = timer(skema('syncSuperligaResults'));
+    const udenfor = fixtures.filter((f) => !t.includes(dkTime(f.kickoff)));
+    expect(udenfor.map((f) => `${f.home}-${f.away} ${f.kickoff}`)).toEqual([]);
+  });
+
+  // Bagkanten er den asymmetriske: et vindue, der klippes ved midnat, betyder
+  // at kampen først fanges af sweep'et.
+  it('hvert kampvindue LUKKER også inden for tidsrummet', () => {
+    const t = timer(skema('syncSuperligaResults'));
+    const sidste = Math.max(...t);
+    const klippet = fixtures.filter((f) => {
+      const slut = new Date(new Date(f.kickoff).getTime() + WINDOW_MS).toISOString();
+      return dkTime(slut) > sidste || dkTime(slut) < dkTime(f.kickoff);
+    });
+    expect(klippet.map((f) => `${f.home}-${f.away} ${f.kickoff}`)).toEqual([]);
+  });
+
+  it('sweep\'et kører efter dagens sidste kampvindue', () => {
+    const senesteSlut = Math.max(...fixtures.map(
+      (f) => dkTime(new Date(new Date(f.kickoff).getTime() + WINDOW_MS).toISOString()),
+    ));
+    expect(Math.max(...timer(skema('syncSuperligaSweep')))).toBeGreaterThanOrEqual(senesteSlut);
+  });
+
+  // Nattevagten. Uden en time efter midnat ville en kamp, der bliver færdig
+  // kl. 00.30, vente fra 23.25 til 13.25 — og det er præcis det scenarie,
+  // sweep'et findes for. Måles som det største hul mellem to kørsler.
+  it('der går aldrig mere end 12 timer mellem to sweep', () => {
+    const t = timer(skema('syncSuperligaSweep'));
+    const huller = t.map((time, i) => (i === 0
+      ? time + 24 - t[t.length - 1]   // hullet hen over midnat
+      : time - t[i - 1]));
+    expect(Math.max(...huller)).toBeLessThanOrEqual(12);
   });
 });
