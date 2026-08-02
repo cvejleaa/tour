@@ -107,9 +107,13 @@ def scrape_stage(stage_ref: Any) -> dict[str, Any]:
 # ----------------------------------------------------------------------------
 
 class StageResultsService:
+    # Ikke-finale etaper gen-scrapes højst så ofte pr. instans (høflighed).
+    REFRESH_TTL_S = 240
+
     def __init__(self, cache: JsonFileCache | None = None, year: int = RACE_YEAR) -> None:
         self.cache = cache or JsonFileCache()
         self.year = year
+        self._last_refresh: dict[int, float] = {}
 
     # ---- etapeliste ----
     def stage_list(self, force: bool = False) -> list[dict[str, Any]]:
@@ -138,13 +142,27 @@ class StageResultsService:
         except Exception:
             return False
 
-    def refresh_stage(self, n: int, stage_url: str | None = None) -> dict[str, Any]:
+    def _final_by_succession(self, n: int) -> bool:
+        """letour-payloads har INGEN dato (meta.date=None), så dato-reglen kan
+        aldrig erklære dem finale — hver decideret etape ville gen-scrapes hvert
+        4. minut resten af touren. Men har en SENERE etape resultater, er etape
+        n uigenkaldeligt afgjort → cachen kan serveres uden nyt scrape."""
+        for m in (n + 1, n + 2):
+            later = self.cache.get_stage(self.year, m)
+            if later and later.get("results_present"):
+                return True
+        return False
+
+    def refresh_stage(self, n: int, stage_url: str | None = None, force: bool = False) -> dict[str, Any]:
         """
         Henter (eller genhenter) en etape. Springer over hvis allerede 'final'
         i cachen, så vi aldrig scraper en afsluttet etape to gange.
+        `force=True` scraper ALTID — bruges af serve_stage (ikke-final etape)
+        og af det manuelle POST /api/refresh/{n}, så et forkert frosset
+        payload (fx testdata cachet før løbsstart) altid kan brydes op.
         """
         cached = self.cache.get_stage(self.year, n)
-        if cached and self._is_final(cached):
+        if cached and self._is_final(cached) and not force:
             return cached
 
         if stage_url is None:
@@ -158,6 +176,41 @@ class StageResultsService:
         if data["results_present"]:
             self.cache.set_stage(self.year, n, data)
         return data
+
+    def serve_stage(self, n: int) -> dict[str, Any] | None:
+        """
+        Dét API'et skal servere: final etape → cache; IKKE-final etape →
+        gen-scrape (højst hvert REFRESH_TTL_S sekund pr. instans), så cachen
+        aldrig kan fryse forældede/provisoriske data fast, mens etapen stadig
+        er åben. Fejler skrabningen, serveres den seneste cache i stedet.
+        (Uden dette kunne et payload cachet FØR løbsstart — fx en testkørsel
+        med sidste års data — blive serveret for evigt, fordi GET-stien aldrig
+        scrapede igen.)
+        """
+        import time
+
+        cached = self.cache.get_stage(self.year, n)
+        if cached and self._is_final(cached):
+            return cached
+        # Afgjort via efterfølger-etape (letour har ingen datoer i payloadet).
+        if cached and cached.get("results_present") and self._final_by_succession(n):
+            return cached
+        now = time.monotonic()
+        # TTL gælder OGSÅ uden cache — endpointet er offentligt, og uden
+        # spærren ville hvert eneste request på en ukørt etape udløse et
+        # fuldt letour-scrape. None → API'et svarer 425 uden nyt scrape.
+        if (now - self._last_refresh.get(n, -1e9)) < self.REFRESH_TTL_S:
+            return cached
+        self._last_refresh[n] = now
+        try:
+            fresh = self.refresh_stage(n, force=True)
+        except Exception:
+            return cached
+        # En tom/halv skrabning (letour-hikke) må ALDRIG fortrænge et godt
+        # facit — behold cachen til letour svarer ordentligt igen.
+        if cached and cached.get("results_present") and not fresh.get("results_present"):
+            return cached
+        return fresh
 
     def refresh_latest(self) -> dict[str, Any] | None:
         """

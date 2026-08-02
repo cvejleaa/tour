@@ -22,4 +22,21 @@ describe('EmojiPicker', () => {
     expect(onSelect).toHaveBeenCalledWith('🚴');
     expect(screen.queryByTestId('emoji-grid')).not.toBeInTheDocument();
   });
+
+  it('understøtter et brugerdefineret sæt + egen triggerknap', () => {
+    const onSelect = vi.fn();
+    render(<EmojiPicker onSelect={onSelect} emojis={['🚴', '🐂']} triggerLabel="🚴" label="Vælg avatar" />);
+    fireEvent.click(screen.getByRole('button', { name: /Vælg avatar/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Emoji 🐂' }));
+    expect(onSelect).toHaveBeenCalledWith('🐂');
+  });
+
+  it('understøtter objekt-elementer { value, label, node } (fx tegnet trøje)', () => {
+    const onSelect = vi.fn();
+    const items = [{ value: 'jersey:polka', label: 'Prik-trøje', node: <svg data-testid="polka" /> }];
+    render(<EmojiPicker onSelect={onSelect} emojis={items} label="Vælg avatar" />);
+    fireEvent.click(screen.getByRole('button', { name: /Vælg avatar/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Prik-trøje' }));
+    expect(onSelect).toHaveBeenCalledWith('jersey:polka');
+  });
 });

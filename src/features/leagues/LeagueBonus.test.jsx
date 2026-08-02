@@ -7,6 +7,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import LeagueBonus from './LeagueBonus';
 import { LEAGUE_BONUS_TYPE } from '../../lib/constants';
 
+const mockCopyToAll = vi.fn(() => Promise.resolve({ created: 2, errors: [] }));
 vi.mock('./leagueBonusActions', () => ({
   createLeagueBonus: vi.fn(),
   setLeagueBonusFacit: vi.fn(),
@@ -15,14 +16,15 @@ vi.mock('./leagueBonusActions', () => ({
   updateLeagueBonus: vi.fn(),
   approveLeagueBonusAnswer: vi.fn(),
   removeLeagueBonusAnswer: vi.fn(),
+  copyLeagueBonusToLeagues: (...a) => mockCopyToAll(...a),
 }));
 
 const past = new Date(Date.now() - 3600_000);
 const future = new Date(Date.now() + 3600_000);
 
 const questions = [
-  { id: 'q1', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder den samlede Tour?', deadline: future, facit: null },
-  { id: 'q2', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder?', deadline: past, facit: 'Messi' },
+  { id: 'q1', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder den samlede Tour?', deadline: future, facit: null, points: 3 },
+  { id: 'q2', leagueId: 'L', type: LEAGUE_BONUS_TYPE.TEXT, label: 'Hvem vinder?', deadline: past, facit: 'Messi', points: 3 },
 ];
 
 function renderBonus(props = {}) {
@@ -91,5 +93,35 @@ describe('LeagueBonus', () => {
     });
     // Både åbent (q1) og låst (q2) har afslørings-knap for manager
     expect(screen.getAllByTestId('reveal-league-bonus-answers-btn')).toHaveLength(2);
+  });
+
+  it('NUMBER: den nærmeste i ligaen får point (relativ scoring)', () => {
+    const numQ = [{
+      id: 'qn', leagueId: 'L', type: LEAGUE_BONUS_TYPE.NUMBER,
+      label: 'Hvor mange point vinder grøn trøje med?', deadline: past, facit: '311', points: 3,
+    }];
+    renderBonus({
+      questions: numQ,
+      myAnswers: { qn: '320' }, // jeg tippede 320
+      answersByQid: { qn: [{ uid: 'me', answer: '320' }, { uid: 'u2', answer: '300' }] },
+      usersByUid: { me: { displayName: 'Mig' }, u2: { displayName: 'Uffe' } },
+    });
+    // 311 → 320 er 9 væk, 300 er 11 væk → jeg (me) er nærmest = 3 point.
+    expect(screen.getByText(/\+3 point/)).toBeInTheDocument();
+  });
+
+  it('global admin ser "Kopiér til alle ligaer"-knap', async () => {
+    renderBonus({
+      isManager: true, isAdmin: true,
+      allLeagues: [
+        { id: 'L', status: 'approved' },
+        { id: 'L2', status: 'approved' },
+        { id: 'L3', status: 'approved' },
+      ],
+    });
+    const btns = screen.getAllByTestId('copy-league-bonus-all');
+    expect(btns.length).toBeGreaterThan(0);
+    // 2 andre godkendte ligaer (L udeladt)
+    expect(btns[0].textContent).toMatch(/\(2\)/);
   });
 });

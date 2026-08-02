@@ -1,0 +1,58 @@
+name: Eksportér gamle liga-slutstillinger (Tour + VM → spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+# Læser alle GODKENDTE ligaer i de gamle spil (tour-85928 + vm2026-tip),
+# beregner slutstillingen med spillenes egen scoring-logik og skriver top 5
+# pr. liga til legacyLeagueResults i platformen. Bruges af "Indsæt top 5" i
+# admin → Send mail. Se scripts/export-legacy-league-results.mjs.
+#
+# Bruger de eksisterende repo-secrets fra migreringerne:
+#   FIREBASE_SERVICE_ACCOUNT       — service-account for tour-85928
+#   FIREBASE_SERVICE_ACCOUNT_VM    — service-account for vm2026-tip
+#   FIREBASE_SERVICE_ACCOUNT_SPIL  — service-account for spil-89af9
+#
+# Kør gerne med dryRun=true først og tjek stillingerne i loggen.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Kun vise stillingerne (ingen skrivning)? Slå fra for at gemme dem.'
+        type: boolean
+        default: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      - name: Tjek secrets
+        run: |
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT (tour-85928)."; exit 1; fi
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VM }}' ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_VM (vm2026-tip)."; exit 1; fi
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+
+      - name: Skriv service-accounts
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/tour-sa.json"
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VM }}' > "$RUNNER_TEMP/vm-sa.json"
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Eksportér liga-slutstillinger
+        env:
+          TOUR_SA: ${{ runner.temp }}/tour-sa.json
+          VM_SA: ${{ runner.temp }}/vm-sa.json
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          DRY_RUN: ${{ inputs.dryRun }}
+        run: node scripts/export-legacy-league-results.mjs

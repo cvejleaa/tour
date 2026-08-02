@@ -15,6 +15,10 @@ vi.mock('firebase/firestore', () => ({
 
 vi.mock('../features/stages/useStages', () => ({ useStages: vi.fn() }));
 vi.mock('../features/stages/useActiveSeason', () => ({ useActiveSeason: () => 2026 }));
+// StageAnswers henter bets + auth — mockes; her testes kun HVORNÅR den vises.
+vi.mock('../features/stages/StageAnswers', () => ({
+  default: () => <div data-testid="stage-answers-mock" />,
+}));
 
 import StagePresentationPage from './StagePresentationPage';
 import { useStages } from '../features/stages/useStages';
@@ -47,7 +51,8 @@ describe('StagePresentationPage – nøgletal', () => {
   it('viser rute, distance, starttid og type for en kendt etape', () => {
     useStages.mockReturnValue({ stages: [flatStage()] });
     renderAt(5);
-    expect(screen.getByTestId('route-line')).toHaveTextContent('Bordeaux → Pau');
+    // Rute vises i Hero'ens undertitel.
+    expect(screen.getByText('Bordeaux → Pau')).toBeInTheDocument();
     expect(screen.getByText(/174.2 km/)).toBeInTheDocument();
     expect(screen.getByText(/13:25/)).toBeInTheDocument();
     expect(screen.getAllByText(/Flad/).length).toBeGreaterThan(0);
@@ -108,9 +113,11 @@ describe('StagePresentationPage – aktive spørgsmål', () => {
   it('lister hvilke spørgsmål der stilles (flad = ingen bjergpoint)', () => {
     useStages.mockReturnValue({ stages: [flatStage()] });
     renderAt(5);
-    expect(screen.getByTestId('question-winnerTeam')).toHaveTextContent('✅');
-    expect(screen.getByTestId('question-gcTeam')).toHaveTextContent('✅');
-    expect(screen.getByTestId('question-sprintTeam')).toHaveTextContent('✅');
+    // Aktive spørgsmål markeres med en neutral prik (✅ er reserveret til
+    // "rigtigt gættet" på resultat-visningen).
+    expect(screen.getByTestId('question-winnerTeam')).toHaveTextContent('●');
+    expect(screen.getByTestId('question-gcTeam')).toHaveTextContent('●');
+    expect(screen.getByTestId('question-sprintTeam')).toHaveTextContent('●');
     // Bjergpoint er ikke aktiv på en flad etape → vises med "—".
     const mountain = screen.getByTestId('question-mountainTeam');
     expect(mountain).toHaveTextContent('Bjergpoint');
@@ -123,9 +130,8 @@ describe('StagePresentationPage – fallback og fejl', () => {
     // Tomt DB-resultat → siden skal stadig finde etape 1 i ruten.
     useStages.mockReturnValue({ stages: [] });
     renderAt(1);
-    expect(screen.getByTestId('route-line')).toBeInTheDocument();
-    // Etape 1 i 2026 er Barcelone → Barcelone (fra route2026.json).
-    expect(screen.getByTestId('route-line')).toHaveTextContent('Barcelone → Barcelone');
+    // Etape 1 i 2026 er Barcelone → Barcelone (fra route2026.json) — vises i Hero.
+    expect(screen.getByText('Barcelone → Barcelone')).toBeInTheDocument();
   });
 
   it('viser "Etape ikke fundet" for et ukendt nummer', () => {
@@ -139,5 +145,86 @@ describe('StagePresentationPage – fallback og fejl', () => {
     useStages.mockReturnValue({ stages: [flatStage()] });
     renderAt(5);
     expect(screen.getByTestId('tip-stage-btn')).toHaveAttribute('href', '/etaper');
+  });
+});
+
+describe('StagePresentationPage – frem/tilbage-navigation', () => {
+  it('linker til forrige og næste etape', () => {
+    useStages.mockReturnValue({ stages: [flatStage()] });
+    renderAt(5);
+    expect(screen.getByTestId('stage-nav-prev')).toHaveAttribute('href', '/etape/4');
+    expect(screen.getByTestId('stage-nav-next')).toHaveAttribute('href', '/etape/6');
+    expect(screen.getByTestId('stage-nav')).toHaveTextContent('Etape 5 af 21');
+  });
+
+  it('skjuler "forrige" på etape 1', () => {
+    useStages.mockReturnValue({ stages: [] });
+    renderAt(1);
+    expect(screen.queryByTestId('stage-nav-prev')).toBeNull();
+    expect(screen.getByTestId('stage-nav-next')).toHaveAttribute('href', '/etape/2');
+  });
+
+  it('skjuler "næste" på sidste etape (21)', () => {
+    useStages.mockReturnValue({ stages: [] });
+    renderAt(21);
+    expect(screen.getByTestId('stage-nav-prev')).toHaveAttribute('href', '/etape/20');
+    expect(screen.queryByTestId('stage-nav-next')).toBeNull();
+  });
+});
+
+describe('StagePresentationPage – etapens resultat', () => {
+  it('viser målrækkefølgen (resultRows) for en afgjort etape', () => {
+    useStages.mockReturnValue({ stages: [flatStage({
+      kickoff: '2026-07-01T13:00:00+02:00', // i fortiden
+      result: { winnerTeam: 'Lidl-Trek' },  // → status 'done'
+      resultRows: [
+        { rank: 1, rider: 'VINGEGAARD Jonas', team: 'Team Visma | Lease a Bike', time: "21'47\"" },
+        { rank: 2, rider: 'GANNA Filippo', team: 'Netcompany Ineos', time: "21'55\"" },
+      ],
+    })] });
+    renderAt(5);
+    expect(screen.getByTestId('stage-finish-order')).toBeInTheDocument();
+    expect(screen.getByText(/Etapens resultat/)).toBeInTheDocument();
+    // Fuldt navn (letours forkortelse konverteres) + tid.
+    expect(screen.getByText('Jonas Vingegaard')).toBeInTheDocument();
+  });
+
+  it('vises IKKE på en åben etape eller uden resultRows', () => {
+    useStages.mockReturnValue({ stages: [flatStage({ kickoff: '2999-07-08T13:00:00+02:00' })] });
+    renderAt(5);
+    expect(screen.queryByTestId('stage-finish-order')).toBeNull();
+  });
+});
+
+describe('StagePresentationPage – klassement-resultater pr. etape', () => {
+  it('viser bjerg-, sprint- og hold-blokkene når data findes', () => {
+    useStages.mockReturnValue({ stages: [flatStage({
+      kickoff: '2026-07-01T13:00:00+02:00',
+      result: { winnerTeam: 'Lidl-Trek' },
+      resultRows: [{ rank: 1, rider: 'PEDERSEN Mads', team: 'Lidl-Trek', time: "4h 12' 03\"" }],
+      mountainRows: [{ rank: 1, rider: 'MARTINEZ Lenny', team: 'Bahrain Victorious', points: 5 }],
+      sprintRows: [{ rank: 1, rider: 'PHILIPSEN Jasper', team: 'Alpecin-Premier Tech', points: 50 }],
+      holdRows: [{ rank: 1, rider: 'Team Visma | Lease a Bike', team: 'Team Visma | Lease a Bike', time: "12h 40' 12\"" }],
+    })] });
+    renderAt(5);
+    expect(screen.getByTestId('stage-mountain-result')).toBeInTheDocument();
+    expect(screen.getByTestId('stage-sprint-result')).toBeInTheDocument();
+    expect(screen.getByTestId('stage-team-result')).toBeInTheDocument();
+    expect(screen.getByText('50 p')).toBeInTheDocument();
+  });
+
+  it('skjuler tomme blokke (fx TTT uden bjerg-/sprintpoint)', () => {
+    useStages.mockReturnValue({ stages: [flatStage({
+      kickoff: '2026-07-01T13:00:00+02:00',
+      result: { winnerTeam: 'Lidl-Trek' },
+      resultRows: [{ rank: 1, rider: 'PEDERSEN Mads', team: 'Lidl-Trek', time: "21' 47\"" }],
+      mountainRows: [],
+      sprintRows: [],
+      holdRows: [{ rank: 1, rider: 'Team Visma | Lease a Bike', team: 'Team Visma | Lease a Bike', time: "21' 47\"" }],
+    })] });
+    renderAt(5);
+    expect(screen.queryByTestId('stage-mountain-result')).toBeNull();
+    expect(screen.queryByTestId('stage-sprint-result')).toBeNull();
+    expect(screen.getByTestId('stage-team-result')).toBeInTheDocument();
   });
 });

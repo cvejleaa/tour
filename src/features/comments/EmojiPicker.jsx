@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 
+// Generelt sæt — til kommentarer/beskeder (indsæt emoji i tekst).
 const EMOJIS = [
   // Ansigter & følelser
   '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
@@ -21,8 +22,8 @@ const EMOJIS = [
   '💥', '💯', '✨', '⭐', '🌟', '🔥', '🎉', '🎊',
   // Cykling & sport
   '🚴', '🏆', '🥇', '🥈', '🥉', '🎯', '🚵', '🏔️',
-  '🏁', '🟡', '🟢',
-  '🟥', '🟨', '🚩', '📣', '🍀', '🐐', '👑', '🤞',
+  '🏁', '🟡', '🟢', '🟥', '🟨', '🚩', '📣', '🍀',
+  '🐐', '👑',
   // Dyr (gode til avatar)
   '🦁', '🐯', '🐻', '🦊', '🐶', '🐱', '🐵', '🦅',
   '🐺', '🦄', '🐉', '🦈', '🐝', '🐢', '🐬', '🦓',
@@ -30,7 +31,13 @@ const EMOJIS = [
   '🍺', '🍻', '🥤', '🍕', '🌭', '🎮', '🚀', '💩',
 ];
 
-export default function EmojiPicker({ onSelect }) {
+// Et element er enten en emoji-streng eller et objekt { value, label, node }
+// (fx en tegnet trøje). Disse hjælpere normaliserer begge former.
+const itemValue = (it) => (typeof it === 'string' ? it : it.value);
+const itemLabel = (it) => (typeof it === 'string' ? `Emoji ${it}` : (it.label || `Emoji ${it.value}`));
+const itemNode = (it) => (typeof it === 'string' ? it : (it.node ?? it.value));
+
+export default function EmojiPicker({ onSelect, emojis = EMOJIS, triggerLabel = '😀', label = 'Indsæt emoji' }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -49,12 +56,12 @@ export default function EmojiPicker({ onSelect }) {
       <button
         type="button"
         className="btn btn--ghost btn--sm"
-        aria-label="Indsæt emoji"
+        aria-label={label}
         aria-expanded={open}
-        title="Indsæt emoji"
+        title={label}
         onClick={() => setOpen((v) => !v)}
       >
-        😀
+        {triggerLabel}
       </button>
       {open && (
         <div
@@ -77,21 +84,22 @@ export default function EmojiPicker({ onSelect }) {
             maxWidth: '80vw',
           }}
         >
-          {EMOJIS.map((e) => (
+          {emojis.map((it) => (
             <button
-              key={e}
+              key={itemValue(it)}
               type="button"
               role="menuitem"
-              aria-label={`Emoji ${e}`}
-              onClick={() => { onSelect(e); setOpen(false); }}
+              aria-label={itemLabel(it)}
+              onClick={() => { onSelect(itemValue(it)); setOpen(false); }}
               style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontSize: '1.25rem', lineHeight: 1, padding: '0.2rem', borderRadius: 6,
               }}
               onMouseEnter={(ev) => { ev.currentTarget.style.background = 'var(--c-surface-2, #f0f0f0)'; }}
               onMouseLeave={(ev) => { ev.currentTarget.style.background = 'none'; }}
             >
-              {e}
+              {itemNode(it)}
             </button>
           ))}
         </div>

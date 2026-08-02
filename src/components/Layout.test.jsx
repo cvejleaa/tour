@@ -25,7 +25,8 @@ vi.mock('../features/admin/usePendingApprovals', () => ({
 vi.mock('../features/comments/useUnreadMessages', () => ({
   useUnreadMessages: () => ({ total: 0 }),
 }));
-vi.mock('../firebase', () => ({ auth: {} }));
+vi.mock('../firebase', () => ({ auth: {}, db: {} }));
+vi.mock('../features/presence/usePresenceBeacon', () => ({ usePresenceBeacon: vi.fn() }));
 vi.mock('firebase/auth', () => ({ signOut: vi.fn(async () => {}) }));
 
 function renderLayout() {

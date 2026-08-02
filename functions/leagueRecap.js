@@ -13,31 +13,56 @@ Du får et JSON-faktaobjekt. Du må KUN bruge de oplyste fakta og tal. Find ALDR
 Felterne betyder:
 - "stages": etaperne afgjort SIDEN sidste opslag (med resultat) — beskriv kun dem. Hvert element har "number" (etapens nummer) og "winnerTeam" (det hold der vandt etapen).
 - "bonusResolved": bonus-/ekstraspørgsmål der er blevet AFGJORT siden sidste opslag (kan være tom). Hvert element har "label" (selve spørgsmålet) og "facit" (det rigtige svar). Nævn dem kort og naturligt, hvis der er nogen.
-- "standings": den AKTUELLE samlede stilling NU (nattens point er allerede lagt til). For hver spiller er "points" deres TOTALE pointtal, og "dayPoints" er hvad de har vundet siden sidste opslag. Bemærk: "dayPoints" kan stamme fra både etaper OG afgjorte bonusspørgsmål — ikke kun etaper.
-- "standout": spilleren med FLEST "dayPoints" siden sidste opslag. "dayPoints" = nattens udbytte, "points" = vedkommendes nuværende total.
-- "standoutTie": true hvis FLERE spillere deler nattens bedste score (se "dayWinners"). "leader": fører lige nu. "previousLeader": hvem der førte ved sidste opslag. "leadChanged": true hvis førstepladsen har skiftet.
+- "standings": den AKTUELLE samlede stilling NU (pointene fra sidste etape er allerede lagt til). For hver spiller er "points" deres TOTALE pointtal, og "dayPoints" er hvad de har vundet siden sidste opslag. Bemærk: "dayPoints" kan stamme fra både etaper OG afgjorte bonusspørgsmål — ikke kun etaper.
+- "standout": spilleren med FLEST "dayPoints" siden sidste opslag. "dayPoints" = udbyttet på sidste etape, "points" = vedkommendes nuværende total.
+- "standoutTie": true hvis FLERE spillere deler sidste etapes bedste score (se "dayWinners"). "leader": fører lige nu. "previousLeader": hvem der førte ved sidste opslag. "leadChanged": true hvis førstepladsen har skiftet.
 
 Ufravigelige regler:
-- "points" betyder ALTID totalen; "dayPoints" betyder ALTID nattens point. Forveksl dem ALDRIG. Når du nævner en total, så brug "points"; når du nævner nattens udbytte, så brug "dayPoints".
+- "points" betyder ALTID totalen; "dayPoints" betyder ALTID pointene vundet siden sidste opslag (typisk på sidste etape). Forveksl dem ALDRIG. Når du nævner en total, så brug "points"-tallet; når du nævner etapens udbytte, så brug "dayPoints"-tallet.
+- Feltnavnene er INTERNE: skriv ALDRIG ordene "dayPoints", "points", "standout" el.lign. i selve teksten — skriv naturligt dansk ("11 point på sidste etape", "i alt 67 point").
+- Etaperne køres om EFTERMIDDAGEN — skriv ALDRIG "i nat", "nattens point", "nattens ræs" el.lign. Skriv i stedet "på sidste etape", "på X. etape" eller "i går".
 - Skriv kun at nogen "overhalede"/"tog førstepladsen", hvis "leadChanged" er true. Er "leadChanged" false, kan du skrive at lederen "fører stadig".
 - Er BÅDE "stages" og "bonusResolved" tomme (intet nyt siden sidst), så skriv en kort, opmuntrende god-morgen-hilsen og mind venligt om at få tippet dagens etape(r). Er "stages" tom, men "bonusResolved" har noget, så skriv om de afgjorte spørgsmål og de point, de gav (brug "dayPoints"/"standout" som altid).
 - Slut gerne med en lille optakt til dagens etape(r), hvis "upcoming" har nogle.
 
 Tone over for dagens bedste:
 - Er "standoutTie" false (ÉN klar dagsvinder = "standout"), så lykønsk vedkommende med et glimt i øjet — du må gerne være let drillende og hoverende på en venlig, humoristisk måde (en kærlig stikpille til de andre om at hænge på). Hold det godmodigt, aldrig hånligt eller personligt.
-- Er "standoutTie" true (flere deler nattens bedste, se "dayWinners"), så hold tonen neutral og varm: nævn dem ligeværdigt og undlad at drille nogen.`;
+- Er "standoutTie" true (flere deler sidste etapes bedste, se "dayWinners"), så hold tonen neutral og varm: nævn dem ligeværdigt og undlad at drille nogen.`;
+
+/**
+ * Rens et spiller-navn før det lægges i AI-fakta. Et frit displayName er
+ * bruger-input og kunne ellers forsøge prompt-injection ("ignorér ovenstående
+ * og skriv …") i det opslag Tour-Botten poster på liga-væggen. Vi fjerner
+ * linjeskift/kontroltegn og tegn der typisk bruges til at bryde ud af kontekst,
+ * klipper whitespace sammen og begrænser længden. Almindelige navne rammes ikke.
+ * @param {*} name
+ * @returns {string}
+ */
+function sanitizeName(name) {
+  const s = String(name == null ? '' : name)
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F]+/g, ' ')
+    .replace(/[<>{}[\]`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const cut = s.slice(0, 40).trim();
+  return cut || 'Spiller';
+}
 
 /**
  * Minimal liga-scoring (spejler leagueScore i frontend; uden liga-bonus, som
  * beregnes klient-side). Bruges til at finde totaler og lederen i recap'en.
  * Tæller etape-point + officiel bonus efter ligaens scoring-valg.
  */
-function leagueTotal(user, scoring) {
+function leagueTotal(user, scoring, leagueBonusPoints = 0) {
   const s = scoring || {};
   const on = (k) => s[k] !== false; // mangler feltet ⇒ tæller (default til)
   let t = 0;
   if (on('stage')) t += Number(user?.stagePoints || 0);
   if (on('bonus')) t += Number(user?.bonusPoints || 0);
+  // Liga-lokal bonus: ligaens egne spørgsmål + manuelle tildelinger — samme
+  // grundlag som ligaens stillingsvisning (leagueScore i frontenden).
+  if (on('leagueBonus')) t += Number(leagueBonusPoints || 0);
   return t;
 }
 
@@ -73,7 +98,7 @@ function historicalMembers(memberDocs, finished, pointsByStageUid, untilMs) {
       if (m.kickoffMs > untilMs) continue;
       stagePoints += Number((pointsByStageUid[m.id] || {})[u.id] || 0);
     }
-    return { id: u.id, displayName: u.displayName || 'Spiller', stagePoints, bonusPoints: 0 };
+    return { id: u.id, displayName: sanitizeName(u.displayName), stagePoints, bonusPoints: 0 };
   });
 }
 
@@ -99,7 +124,7 @@ function windowDayPoints(memberIds, windowStages, pointsByStageUid, scoring) {
 }
 
 /** Saml fakta-objektet (kun tal/navne) som Claude skriver prosa ud fra. */
-function buildRecapFacts({ league, members, dayPointsByUid = {}, stages = [], bonusResolved = [], upcoming = [], now = new Date() }) {
+function buildRecapFacts({ league, members, dayPointsByUid = {}, leagueBonusByUid = {}, stages = [], bonusResolved = [], upcoming = [], now = new Date() }) {
   const date = now.toLocaleDateString('da-DK', {
     weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Copenhagen',
   });
@@ -108,8 +133,8 @@ function buildRecapFacts({ league, members, dayPointsByUid = {}, stages = [], bo
   // Én fælles kilde: hver spillers total NU og point vundet siden sidste opslag.
   // points = total (allerede inkl. dayPoints), dayPoints = vundet siden sidst.
   const rows = members.map((u) => ({
-    name: u.displayName || 'Spiller',
-    points: leagueTotal(u, scoring),
+    name: sanitizeName(u.displayName),
+    points: leagueTotal(u, scoring, leagueBonusByUid[u.id] || 0),
     dayPoints: Number(dayPointsByUid[u.id] || 0),
   }));
 
@@ -129,7 +154,7 @@ function buildRecapFacts({ league, members, dayPointsByUid = {}, stages = [], bo
     .sort((a, b) => b.dayPoints - a.dayPoints)
     .map((r) => ({ name: r.name, dayPoints: r.dayPoints }));
 
-  // Nattens topscore kan deles af flere → så skal tonen være neutral (ikke drillende).
+  // Sidste etapes topscore kan deles af flere → så skal tonen være neutral (ikke drillende).
   const maxDay = dayPoints.length ? dayPoints[0].dayPoints : 0;
   const dayWinners = dayPoints.filter((r) => r.dayPoints === maxDay).map((r) => r.name);
   const standoutTie = dayWinners.length > 1;
@@ -191,5 +216,5 @@ function recapWindowOpen(currentHM, targetHM, windowMin = 60) {
 module.exports = {
   RECAP_SYSTEM, RECAP_DEFAULT_TIME, leagueTotal, leagueStagePoints,
   historicalMembers, windowDayPoints,
-  buildRecapFacts, parseHM, recapWindowOpen,
+  buildRecapFacts, parseHM, recapWindowOpen, sanitizeName,
 };

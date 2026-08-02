@@ -1,6 +1,10 @@
 // ---------------------------------------------------------------------------
-// firestore.rules — Sikkerhedsregler for VM 2026 tippekonkurrence.
-// Håndhæver principper fra docs/architecture.md:
+// firestore.rules — Sikkerhedsregler for BEGGE apps (tip.vejleaa.dk og
+// tour.vejleaa.dk deler denne fil; den deployes til hvert projekt for sig).
+//
+// Tre lag: globale users/userContacts, Tour-collections på topniveau, og
+// platformens games/{gameId}/… Se docs/architecture.md.
+// Håndhæver bl.a.:
 //   - Spillere kan kun læse/skrive egne bets/bonusBets, og kun FØR deadline.
 //   - points, role, status, result, facit kan aldrig skrives af spillere.
 //   - Kun globalAdmin/owner skriver matches, result, facit.
@@ -46,10 +50,33 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == docData.ownerUid;
     }
 
-    /** Forsøger klienten at skrive til et beskyttet felt? */
+    /** Forsøger klienten at skrive til et beskyttet felt? Ud over rolle/status
+     *  omfatter det ALLE denormaliserede scoring-felter (skrives kun af serveren),
+     *  så en spiller ikke kan pumpe sin egen rangliste-placering. */
     function writingProtectedUserFields() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['role', 'status', 'approvedViaInvite', 'approvedAt']);
+        .hasAny([
+          'role', 'status', 'approvedViaInvite', 'approvedAt',
+          'totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank',
+          // uid og points var frie her, mens BÅDE create-reglen og admin-reglen
+          // blokerede dem — samme asymmetri som den, admin-reglen lige er rettet
+          // for. uid rammer stillingen, der spreder dokumentet efter doc-id'et.
+          'uid', 'points',
+        ]);
+    }
+
+    /** Opretter klienten en profil MED e-mail? E-mails hører kun hjemme i
+     *  userContacts/{uid} (kun brugeren selv + admin kan læse dem) —
+     *  users/{uid} kan alle godkendte brugere læse. */
+    function creatingWithUserEmail() {
+      return request.resource.data.keys().hasAny(['email']);
+    }
+
+    /** Rører opdateringen e-mail-feltet på den offentlige profil? Måles på
+     *  ÆNDRINGEN, så en profil der stadig har et gammelt felt, godt kan få
+     *  rettet fx sit navn. Serveren (Admin SDK) rydder feltet. */
+    function changingUserEmail() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(['email']);
     }
 
     /** Forsøger klienten at skrive til points-feltet? */
@@ -67,24 +94,53 @@ service cloud.firestore {
       allow read: if isApproved() || (isSignedIn() && request.auth.uid == uid);
 
       // Brugeren opretter selv sin profil ved registrering, men KUN med
-      // role:'player' og status:'pending' (kan ikke selv blive owner/approved)
+      // role:'player' og status:'pending' (kan ikke selv blive owner/approved),
+      // og UDEN at kunne seede scoring-felter (dem sætter kun serveren).
       allow create: if isSignedIn() && request.auth.uid == uid
         && request.resource.data.role == 'player'
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && !creatingWithUserEmail()
+        && !request.resource.data.keys().hasAny(
+            ['totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank', 'points']);
 
       // Brugeren kan opdatere egne ikke-beskyttede felter (f.eks. displayName)
       allow update: if isSignedIn() && request.auth.uid == uid
-        && !writingProtectedUserFields();
+        && !writingProtectedUserFields() && !changingUserEmail();
 
       // Global admin kan godkende/afvise brugere (status m.m.), men IKKE ændre
       // roller — kun ejeren udpeger/fjerner admins.
+      // Heller ikke en admin skriver point. Genberegning sker via callables med
+      // Admin SDK, som omgår reglerne — daglig drift kræver det aldrig herfra.
+      // Bemærk asymmetrien før denne rettelse: games/players blokerede
+      // point-felterne for ALLE, mens users lod en admin sætte sin egen total.
       allow update: if isGlobalAdmin()
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+        && !changingUserEmail()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
+            ['role', 'totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank', 'points']);
 
-      // Ejeren kan ændre alt, inkl. role (udpege/fjerne globale admins)
-      allow update: if isOwner();
+      // Ejeren kan ændre alt, inkl. role (udpege/fjerne globale admins) — men
+      // heller ikke ejeren lægger e-mails på den offentlige profil.
+      allow update: if isOwner() && !changingUserEmail();
 
       // Ingen kan slette brugerprofiler (kun admin via Functions/console)
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------------------
+    // userContacts/{uid} — PRIVAT kontaktinfo (e-mail).
+    // Adskilt fra den offentlige users-profil, så almindelige (godkendte)
+    // spillere ikke kan udtrække alle deltageres e-mailadresser. Kun brugeren
+    // selv og en global admin/owner kan læse; brugeren skriver kun sin egen.
+    // Serveren (Cloud Functions, admin-SDK) omgår disse regler.
+    // -----------------------------------------------------------------------
+    match /userContacts/{uid} {
+      allow read: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == uid);
+
+      // Opret/opdater KUN sit eget dokument, og uid-feltet skal matche.
+      allow create, update: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+
       allow delete: if false;
     }
 
@@ -114,15 +170,25 @@ service cloud.firestore {
         || (isApproved()
             && request.time >= get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.kickoff);
 
-      // Opret bet: kun eget, points-felt må ikke sættes, og kun FØR kickoff
+      // Opret bet: kun eget, doc-id SKAL være uid_matchId (ét tip pr. kamp —
+      // ellers kunne dublet-docs få point talt flere gange), points-felt må
+      // ikke sættes, og kun FØR kickoff
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.uid
+        && betId == request.auth.uid + '_' + request.resource.data.matchId
         && !request.resource.data.keys().hasAny(['points'])
         && request.time < get(/databases/$(database)/documents/matches/$(request.resource.data.matchId)).data.kickoff;
 
-      // Opdater bet: kun eget, points må ikke ændres, og kun FØR kickoff
+      // Opdater bet: kun eget, points må ikke ændres, og kun FØR kickoff.
+      // uid og matchId er uforanderlige — samme hul som i spil-tippene:
+      // uid_matchId-bindingen håndhæves kun ved create, så uden de to linjer
+      // kunne man rette sit tip om til at stå i en andens navn, eller pege det
+      // på en kamp der allerede var i gang (kickoff-tjekket nedenfor læser det
+      // GAMLE matchId).
       allow update: if isSignedIn()
         && request.auth.uid == resource.data.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.matchId == resource.data.matchId
         && !writingPointsField()
         && request.time < get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.kickoff;
 
@@ -164,15 +230,27 @@ service cloud.firestore {
         || (isApproved()
             && request.time >= get(/databases/$(database)/documents/stages/$(resource.data.stageId)).data.kickoff);
 
-      // Opret tip: kun eget, points-felt må ikke sættes, og kun FØR etapestart
+      // Opret tip: kun eget, doc-id SKAL være uid_stageId (præcis ét tip pr.
+      // etape — ellers kunne dublet-docs få point talt flere gange), points-felt
+      // må ikke sættes, og kun FØR etapestart.
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.uid
+        && betId == request.auth.uid + '_' + request.resource.data.stageId
         && !request.resource.data.keys().hasAny(['points'])
         && request.time < get(/databases/$(database)/documents/stages/$(request.resource.data.stageId)).data.kickoff;
 
-      // Opdater tip: kun eget, points må ikke ændres, og kun FØR etapestart
+      // Opdater tip: kun eget, points må ikke ændres, og kun FØR etapestart.
+      //
+      // uid og stageId er UFORANDERLIGE — samme hul som i bets og games/bets.
+      // Uden dem kunne man rette sit eget tip om til at stå i en andens navn
+      // (dagsstillingen grupperer på uid-FELTET, ikke på doc-id'et), eller
+      // pege det på en etape, der allerede var kørt: kickoff-tjekket nedenfor
+      // læser det GAMLE stageId. Sidstnævnte gav oven i købet to dokumenter
+      // på samme etape, og begge blev talt.
       allow update: if isSignedIn()
         && request.auth.uid == resource.data.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.stageId == resource.data.stageId
         && !writingPointsField()
         && request.time < get(/databases/$(database)/documents/stages/$(resource.data.stageId)).data.kickoff;
 
@@ -211,15 +289,23 @@ service cloud.firestore {
         || (isApproved()
             && request.time >= get(/databases/$(database)/documents/bonusQuestions/$(resource.data.questionId)).data.deadline);
 
-      // Opret bonusbet: kun eget, points må ikke sættes, og kun FØR deadline
+      // Opret bonusbet: kun eget, doc-id SKAL være uid_questionId (præcis ét svar
+      // pr. spørgsmål), points må ikke sættes, og kun FØR deadline.
       allow create: if isSignedIn()
         && request.auth.uid == request.resource.data.uid
+        && bonusBetId == request.auth.uid + '_' + request.resource.data.questionId
         && !request.resource.data.keys().hasAny(['points'])
         && request.time < get(/databases/$(database)/documents/bonusQuestions/$(request.resource.data.questionId)).data.deadline;
 
-      // Opdater bonusbet: kun eget, points må ikke ændres, og kun FØR deadline
+      // Opdater bonusbet: kun eget, points må ikke ændres, og kun FØR deadline.
+      //
+      // uid og questionId er UFORANDERLIGE. Deadline-tjekket nedenfor læser det
+      // GAMLE questionId, så uden bindingen kunne man svare på et ÅBENT
+      // spørgsmål og bagefter pege svaret om på et lukket — med facit i hånden.
       allow update: if isSignedIn()
         && request.auth.uid == resource.data.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.questionId == resource.data.questionId
         && !writingPointsField()
         && request.time < get(/databases/$(database)/documents/bonusQuestions/$(resource.data.questionId)).data.deadline;
 
@@ -230,9 +316,12 @@ service cloud.firestore {
     // leagues/{leagueId}
     // -----------------------------------------------------------------------
     match /leagues/{leagueId} {
-      // Godkendte brugere kan læse ligaer (nødvendigt for opslag via join-kode);
-      // admin kan også læse alle.
-      allow read: if isApproved() || isGlobalAdmin();
+      // Ligaer er PRIVATE: kun medlemmer (og admin) kan læse dem. Ellers kunne
+      // enhver godkendt bruger læse alle ligaers join-koder og medlemslister —
+      // og dermed skrive sig ind i fremmede ligaer og læse deres væg.
+      // Opslag via join-kode sker server-side (redeemInviteCode, Admin SDK).
+      allow read: if isGlobalAdmin()
+        || (isApproved() && request.auth.uid in resource.data.memberUids);
 
       // Opret liga: kun for sig selv, og altid som 'pending' (skal godkendes)
       allow create: if isApproved()
@@ -253,11 +342,15 @@ service cloud.firestore {
         && (request.auth.uid in resource.data.get('adminUids', []))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids', 'name']);
 
-      // Tilmeld: godkendt bruger føjer sit eget uid til en GODKENDT liga
+      // Tilmelding sker SERVER-SIDE (redeemInviteCode med Admin SDK), som slår
+      // koden op og rate-limiter gæt. Klienten kan derfor ikke selv skrive sig
+      // ind i en liga — den kan jo alligevel ikke læse fremmede ligaer.
+      //
+      // Forlad ligaen: et medlem må fjerne PRÆCIS sig selv. De øvrige
+      // medlemmer skal være uændrede, så ingen kan smides ud ad den vej.
       allow update: if isApproved()
-        && resource.data.status == 'approved'
-        && !(request.auth.uid in resource.data.memberUids)
-        && request.auth.uid in request.resource.data.memberUids
+        && request.auth.uid in resource.data.memberUids
+        && request.resource.data.memberUids == resource.data.memberUids.removeAll([request.auth.uid])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids']);
 
       // globalAdmin/owner kan godkende/afvise og styre medlemmer — men kun den
@@ -334,8 +427,14 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.participants
         && request.resource.data.participants.size() == 2
         && request.resource.data.to in request.resource.data.participants
-        && request.auth.uid in get(/databases/$(database)/documents/leagues/$(request.resource.data.leagueId)).data.memberUids
-        && request.resource.data.to in get(/databases/$(database)/documents/leagues/$(request.resource.data.leagueId)).data.memberUids;
+        // BEGGE deltagere skal være medlemmer — ikke bare afsenderen og 'to'.
+        // Sætter man to = sig selv, ramte begge de gamle tjek én selv, mens
+        // participants indeholdt en fremmed. Den fremmede kunne læse beskeden
+        // (læsereglen ovenfor bruger participants) og fik den i sin
+        // ulæst-tæller. Nu måles der på participants, som er dét, læsningen
+        // og visningen faktisk bruger.
+        && request.resource.data.participants[0] in get(/databases/$(database)/documents/leagues/$(request.resource.data.leagueId)).data.memberUids
+        && request.resource.data.participants[1] in get(/databases/$(database)/documents/leagues/$(request.resource.data.leagueId)).data.memberUids;
 
       // Beskeder kan ikke redigeres
       allow update: if false;
@@ -399,7 +498,13 @@ service cloud.firestore {
       allow create: if isApproved()
         && request.auth.uid == request.resource.data.createdBy
         && isLeagueManager(request.resource.data.leagueId);
-      allow update: if isLeagueManager(resource.data.leagueId);
+      // leagueId er UFORANDERLIGT. Autorisationen ovenfor læser det GAMLE
+      // leagueId, så uden bindingen kunne man bygge et spørgsmål med vilkårligt
+      // mange point i sin EGEN liga, svare selv, sætte facit — og derefter
+      // flytte spørgsmålet ind i en fremmed ligas stilling. Klienten henter
+      // ligaens spørgsmål med where('leagueId','==',…) og scorer uden filter.
+      allow update: if isLeagueManager(resource.data.leagueId)
+        && request.resource.data.leagueId == resource.data.leagueId;
       allow delete: if isLeagueManager(resource.data.leagueId);
     }
 
@@ -415,14 +520,436 @@ service cloud.firestore {
         || (isApproved()
             && request.time >= get(/databases/$(database)/documents/leagueBonus/$(resource.data.questionId)).data.deadline);
 
-      // Opret/opdater eget svar, som medlem af ligaen, FØR deadline, uden points-felt
+      // Opret/opdater eget svar, som medlem af ligaen, FØR deadline, uden points-felt.
+      // Doc-id SKAL være questionId_uid → man kan hverken lave dublet-svar eller
+      // skrive på en andens svar-dokument.
       allow create, update: if isApproved()
         && request.auth.uid == request.resource.data.uid
+        && ansId == request.resource.data.questionId + '_' + request.auth.uid
         && !request.resource.data.keys().hasAny(['points'])
-        && isMemberOfLeague(request.resource.data.leagueId)
+        // Medlemskabet måles på SPØRGSMÅLETS liga, ikke på et leagueId,
+        // skriveren selv har valgt. Ellers kunne en udenforstående svare på en
+        // fremmed ligas spørgsmål ved at sætte sin egen ligas id på svaret —
+        // scoringen henter alle svar med where('questionId','==',…) uden
+        // liga-filter, så svaret ville tælle med.
+        && isMemberOfLeague(
+             get(/databases/$(database)/documents/leagueBonus/$(request.resource.data.questionId)).data.leagueId)
+        // Svarets eget leagueId skal ALTID være spørgsmålets. Scoringen er
+        // ligeglad (den filtrerer på questionId), men to andre er ikke:
+        // læsereglen ovenfor giver leagueId'ets manager adgang, så et fremmed
+        // id inviterer en fremmed manager ind i sit eget svar. Og
+        // useLeagueBonus filtrerer ens EGNE svar på feltet, så et forkert id
+        // får ens svar til at forsvinde fra ens egen visning.
+        && request.resource.data.leagueId ==
+             get(/databases/$(database)/documents/leagueBonus/$(request.resource.data.questionId)).data.leagueId
         && request.time < get(/databases/$(database)/documents/leagueBonus/$(request.resource.data.questionId)).data.deadline;
 
       allow delete: if false;
+    }
+
+    // -----------------------------------------------------------------------
+    // leagueBonusAwards/{awardId}  (id = leagueId_questionId)
+    // Manuelle liga-point pr. medlem baseret på et FÆLLES bonusspørgsmål:
+    // { leagueId, questionId, label, awards: {uid: points}, updatedBy }.
+    // Tæller kun i den pågældende ligas stilling (under liga-bonus-delen).
+    // -----------------------------------------------------------------------
+    match /leagueBonusAwards/{awardId} {
+      // Medlemmer (og admins) kan læse ligaens tildelinger (transparens +
+      // stillingen beregnes klient-side).
+      allow read: if isMemberOfLeague(resource.data.leagueId) || isGlobalAdmin();
+
+      // Liga-manager ELLER global admin kan oprette/redigere/slette.
+      // Doc-id SKAL være leagueId_questionId → én tildeling pr. spørgsmål
+      // pr. liga, og leagueId kan ikke ændres under et andet id.
+      allow create, update: if (isLeagueManager(request.resource.data.leagueId) || isGlobalAdmin())
+        && awardId == request.resource.data.leagueId + '_' + request.resource.data.questionId;
+      allow delete: if isLeagueManager(resource.data.leagueId) || isGlobalAdmin();
+    }
+
+    // -----------------------------------------------------------------------
+    // presence/{uid} — besøgsstatistik (sidst set, besøg pr. dag, sidetællere).
+    // Brugeren skriver KUN sit eget dokument; kun admin (og brugeren selv) kan
+    // læse — spillere kan ikke overvåge hinandens aktivitet.
+    // -----------------------------------------------------------------------
+    match /presence/{uid} {
+      allow read: if isGlobalAdmin() || (isSignedIn() && request.auth.uid == uid);
+
+      allow create, update: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid;
+
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------------------
+    // games/{gameId} — ét spil i den samlede platform (tip.vejleaa.dk).
+    // Spilleren opretter sig ÉN gang (users/{uid}) og vælger derefter hvilke
+    // spil de vil deltage i ved at oprette games/{gameId}/players/{uid}.
+    // Se docs/samlet-platform.md.
+    // -----------------------------------------------------------------------
+    match /games/{gameId} {
+      // Ligaerne man selv er med i (denormaliseret på ens eget players-doc af
+      // serveren). Tom liste hvis man ikke deltager i spillet. Ligger her —
+      // ikke inde i players/ — fordi både stillingen OG tips-læsningen skal
+      // bruge den. Stien er den samme for alle dokumenter i én forespørgsel,
+      // så opslaget tælles kun én gang mod Firestores grænse.
+      function myLeagueIds() {
+        return isSignedIn()
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          ? get(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid)).data.get('leagueIds', [])
+          : [];
+      }
+
+      // Alle godkendte brugere kan se spiloversigten (metadata er ikke følsom)
+      allow read: if isApproved();
+
+      // Kun globalAdmin/owner opretter og redigerer spil
+      allow create, update: if isGlobalAdmin();
+      allow delete: if false;
+
+      // games/{gameId}/players/{uid} — deltagelse + per-spil-point.
+      // "Deltag i dette spil" = opret sit EGET players-dokument.
+      match /players/{uid} {
+        // Stillingen er jeres indbyrdes opgør: en spillers point kan kun læses
+        // af dem, der deler mindst én liga med spilleren. Man kan altid læse
+        // sit eget medlemskab — også via en collectionGroup-query
+        // (spiloversigten spørger "hvilke spil er JEG med i").
+        allow read: if isGlobalAdmin()
+          || (isSignedIn() && request.auth.uid == uid)
+          || (isApproved() && resource.data.get('leagueIds', []).hasAny(myLeagueIds()));
+
+        // Tilmeld: opret sit eget medlemskab UDEN at kunne seede point-felter
+        // eller liga-medlemskab (dem sætter kun serveren — samme princip som
+        // users-profilen).
+        allow create: if isApproved()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && !request.resource.data.keys().hasAny(
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'leagueIds']);
+
+        // Opdatér eget medlemskab, men aldrig point-/placerings-/liga-felterne.
+        //
+        // uid er UFORANDERLIGT — samme hul som i bets, stageBets og bonusBets.
+        // Create bandt det til doc-id'et; update gjorde ikke. Og feltet vinder
+        // over doc-id'et hos alle tre forbrugere, fordi de spreder dokumentet
+        // EFTER id'et ({ uid: d.id, ...d.data() }): stillingen samler rækker i
+        // en Map på uid (useGameStandings), snapshotRoundRanks skriver
+        // placeringer tilbage i databasen på uid (gameScoring), og opsamlingen
+        // navngiver efter uid (gameRecap). Med et offers uid overtager man
+        // offerets række — med offerets navn og avatar.
+        //
+        // name hører slet ikke hjemme her: visningsnavnet står i users-profilen
+        // og slås op derfra. Stod det på players-dokumentet, ville det vinde
+        // samme sted og give et selvvalgt navn i stilling og opsamling.
+        //
+        // get('uid', uid) og ikke .uid: et players-dokument kan være DANNET
+        // uden uid-felt — afregningen af puljen skriver { bonusPoints } med
+        // merge på en spiller, der ikke har et players-dokument endnu. Krævede
+        // vi feltet, ville den spiller ikke længere kunne gemme sit hold, og
+        // fejlen ville vise sig som en knap, der bare ikke virker.
+        allow update: if isApproved()
+          && request.auth.uid == uid
+          && request.resource.data.get('uid', uid) == uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'leagueIds', 'name']);
+
+        // Man kan fortryde en tilmelding (forlade spillet) SÅ LÆNGE der endnu
+        // ikke er tildelt point — så en placering ikke kan gå tabt ved uheld.
+        // Serveren (Admin SDK) omgår reglen og kan altid rydde op.
+        allow delete: if isSignedIn() && request.auth.uid == uid
+          && (!('totalPoints' in resource.data) || resource.data.totalPoints == 0);
+
+        // games/{gameId}/players/{uid}/detalje/{docId} — spillerens rækker:
+        // hvilke kampe han har tippet, hvad han valgte, og hvad det gav.
+        //
+        // INGEN kickoff-vagt her, modsat bets-reglen. Den er unødvendig, fordi
+        // serveren kun skriver kampe, der ER afgjort OG begyndt (pointOpdeling
+        // filtrerer på begge dele, og det er testdækket). Præmissen er altså
+        // sand ved konstruktion — ikke ved held. Ændrer nogen det filter, er
+        // dette den regel, der holder op med at være rigtig.
+        //
+        // Liga-medlemskabet slås op på players-dokumentet i stedet for at
+        // kopiere leagueIds herned. En kopi ville være tredje udgave af et
+        // felt, der allerede holdes synkront to steder — og en spiller, der
+        // forlod en liga, ville blive ved med at kunne læses, fordi ingen
+        // huskede at rydde op i den tredje.
+        //
+        // Opslaget er forsvarligt HER, men ville ikke være det i bets: dette er
+        // ét dokument på en KENDT sti, så der er 10 opslag til rådighed, og vi
+        // bruger 3. I bets læses der med en forespørgsel, hvor opslaget koster
+        // ét PR. DOKUMENT og sprænger loftet efter 10 kampe — hvorefter hele
+        // forespørgslen afvises, ikke bare de dokumenter man ikke må se.
+        // Klienten må derfor ALDRIG lave en collectionGroup-query over detalje.
+        match /detalje/{docId} {
+          // KUN ens eget dokument indtil videre. Liga-klausulen kommer, når der
+          // findes en skærm, der skal bruge den — ikke før.
+          //
+          // Grunden er en asymmetri, der skal besluttes bevidst: `bets` læses
+          // via leagueIds PÅ TIPPET, altså et øjebliksbillede fra da tippet
+          // blev afgivet, og reglen tillader udtrykkeligt undertal ("man
+          // skjuler kun sig selv"). Et opslag på players-dokumentet ville
+          // derimod bruge det LIVE medlemskab. Melder en spiller sig ind i en
+          // ny liga i runde 20, kan de nye kammerater ikke se hans tips fra
+          // runde 1-19 via bets — men ville kunne læse hele sæsonen her, i ét
+          // opslag. Den forskel skal afgøres sammen med den skærm, der bruger
+          // den, ikke som en bivirkning af en udrulning uden brugerflade.
+          allow read: if isGlobalAdmin()
+            || (isSignedIn() && request.auth.uid == uid);
+
+          // Kun serveren (Admin SDK) skriver rækkerne. De er afledt af bets og
+          // facit; kunne klienten skrive dem, kunne man vise sig selv med
+          // point, man ikke har fået.
+          allow write: if false;
+        }
+      }
+
+      // games/{gameId}/matches/{matchId} — kampe/etaper i ét spil (Fase B).
+      // Spil-scoped modstykke til top-level matches/stages. kickoff = tip-lås.
+      match /matches/{matchId} {
+        allow read: if isApproved();
+        allow create, update: if isGlobalAdmin();
+        allow delete: if false;
+      }
+
+      // games/{gameId}/puljeBets/{uid} — pulje-tip (mesterskabsspil-forudsigelse).
+      // Præcis 6 hold, kun FØR deadline (game.puljeLockAt). points/correct sættes
+      // kun af serveren. Eget tip kan altid læses; andres først EFTER deadline.
+      match /puljeBets/{uid} {
+        function gameLock() {
+          return get(/databases/$(database)/documents/games/$(gameId)).data.puljeLockAt;
+        }
+        function beforeDeadline() {
+          return gameLock() != null && request.time < gameLock();
+        }
+        allow read: if (isSignedIn() && request.auth.uid == uid)
+          || (isApproved() && !beforeDeadline());
+        allow create, update: if isApproved()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && beforeDeadline()
+          && request.resource.data.championship is list
+          && request.resource.data.championship.size() == 6
+          && !request.resource.data.keys().hasAny(['points', 'correct']);
+        allow delete: if false;
+      }
+
+      // games/{gameId}/bets/{betId} (betId = uid_matchId) — tips på en kamp.
+      // Kun eget tip, kun FØR kickoff, og kun hvis man DELTAGER i spillet
+      // (har et players/{uid}-dokument). points sættes kun af serveren.
+      match /bets/{betId} {
+        // Egne tips kan altid læses. ANDRES tips kræver to ting: kampen skal
+        // være i gang (før kickoff ville det være at kigge i kortene), og man
+        // skal dele mindst én liga med spilleren — samme afgrænsning som
+        // stillingen.
+        //
+        // Liga-medlemskabet står PÅ tippet (leagueIds), fordi et opslag pr.
+        // dokument ville sprænge Firestores grænse på antal opslag i én
+        // forespørgsel: 30 liga-kammerater = 30 forskellige stier. Med feltet
+        // på tippet er der kun to opslag — kampens kickoff og mine egne ligaer
+        // — og begge er samme sti for alle dokumenter i forespørgslen.
+        //
+        // VIGTIGT for klienten: en forespørgsel efter andres tips SKAL have
+        // where('leagueIds', 'array-contains-any', mine) med, ellers rammer
+        // den dokumenter, reglen afviser, og hele forespørgslen fejler.
+        allow read: if isGlobalAdmin()
+          || (isSignedIn() && request.auth.uid == resource.data.uid)
+          || (isApproved()
+              && request.time >= get(/databases/$(database)/documents/games/$(gameId)/matches/$(resource.data.matchId)).data.kickoff
+              && resource.data.get('leagueIds', []).hasAny(myLeagueIds()));
+
+        // leagueIds på tippet må kun indeholde ligaer, man FAKTISK er med i —
+        // ellers kunne man skrive en fremmed ligas id på sit tip og dermed
+        // invitere sig selv ind i deres visning. Undertal er tilladt (man
+        // skjuler kun sig selv), overtal er ikke.
+        function claimsOnlyOwnLeagues() {
+          return request.resource.data.get('leagueIds', []).hasOnly(myLeagueIds());
+        }
+
+        // Opret tip: godkendt deltager, eget uid, ingen points, før kickoff.
+        // Doc-id SKAL være uid_matchId — præcis ét tip pr. kamp. Uden det kunne
+        // man skrive 1, X OG 2 på samme kamp i hver sit dokument og få point
+        // for dem alle (serveren lægger alle bets sammen pr. spiller).
+        allow create: if isApproved()
+          && request.auth.uid == request.resource.data.uid
+          && betId == request.auth.uid + '_' + request.resource.data.matchId
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && !request.resource.data.keys().hasAny(['points'])
+          && claimsOnlyOwnLeagues()
+          && request.time < get(/databases/$(database)/documents/games/$(gameId)/matches/$(request.resource.data.matchId)).data.kickoff;
+
+        // Opdatér tip: eget, points uændret, før kickoff.
+        //
+        // uid og matchId er UFORANDERLIGE. Uden de to linjer kunne man rette
+        // sit eget tip om til at pege et andet sted hen:
+        //  - skiftet uid → et opdigtet tip i en andens navn. Doc-id'et er
+        //    stadig ens eget, så offerets rigtige tip består, og serveren
+        //    (som summerer på uid) ville tælle forfalskningen med i DERES
+        //    total. Liga-visningen ville vise det frem som deres tip.
+        //  - skiftet matchId → kickoff-tjekket nedenfor slår op på det GAMLE
+        //    matchId. Man kunne tippe på en kamp, der allerede var i gang, få
+        //    to dokumenter til at pege på samme kamp (dublet-point), eller
+        //    fjerne leagueIds fra et tip EFTER kickoff og dermed skjule sig
+        //    selv, mens man selv så alle andres.
+        // uid_matchId-bindingen håndhæves kun ved create, så den fanger det
+        // ikke: doc-id'et ændrer sig jo ikke ved en opdatering.
+        allow update: if isApproved()
+          && request.auth.uid == resource.data.uid
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.matchId == resource.data.matchId
+          && !writingPointsField()
+          && claimsOnlyOwnLeagues()
+          && request.time < get(/databases/$(database)/documents/games/$(gameId)/matches/$(resource.data.matchId)).data.kickoff;
+
+        allow delete: if false;
+      }
+
+      // games/{gameId}/leagues/{leagueId} — private mini-ligaer.
+      // Kun medlemmer kan læse (privat). Man deltager via en invitationskode,
+      // og selve tilføjelsen sker SERVER-SIDE (Cloud Function redeemGameLeagueCode
+      // med Admin SDK), så man ikke kan læse/tilføje sig til vilkårlige ligaer.
+      match /leagues/{leagueId} {
+        allow read: if isApproved() && request.auth.uid in resource.data.memberUids;
+
+        // Opret: godkendt deltager, ejer = selv, medlemmer = kun selv.
+        allow create: if isApproved()
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.memberUids == [request.auth.uid]
+          && request.resource.data.name is string
+          && request.resource.data.code is string;
+
+        // Opdatér: (a) ejer omdøber (medlemmer uændret), ELLER
+        //          (b) et medlem forlader (fjerner KUN sig selv).
+        // Deltag-i-liga sker server-side (Admin SDK omgår denne regel).
+        allow update: if isApproved() && (
+            (resource.data.ownerUid == request.auth.uid
+              && request.resource.data.memberUids == resource.data.memberUids
+              && request.resource.data.ownerUid == resource.data.ownerUid
+              && request.resource.data.code == resource.data.code)
+            ||
+            // Præcis "fjern mig selv": de øvrige medlemmer skal være uændrede.
+            // Uden den betingelse kunne et medlem skrive en helt ny liste og
+            // dermed smide andre ud eller lukke fremmede ind i ligaen.
+            (request.auth.uid in resource.data.memberUids
+              && request.resource.data.memberUids == resource.data.memberUids.removeAll([request.auth.uid])
+              && request.resource.data.ownerUid == resource.data.ownerUid
+              && request.resource.data.code == resource.data.code
+              && request.resource.data.name == resource.data.name)
+          );
+
+        // Slet: kun ejer.
+        allow delete: if isApproved() && resource.data.ownerUid == request.auth.uid;
+
+        // games/{gameId}/leagues/{leagueId}/messages/{msgId} — liga-væg.
+        // Kun ligaens medlemmer kan læse/skrive; man skriver kun i eget navn.
+        match /messages/{msgId} {
+          function members() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.memberUids;
+          }
+          function ownerUid() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.ownerUid;
+          }
+          allow read: if isApproved() && request.auth.uid in members();
+          allow create: if isApproved()
+            && request.auth.uid in members()
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 280;
+          allow update: if false;
+          // Slet egen besked, eller liga-ejeren kan moderere.
+          allow delete: if isApproved()
+            && (resource.data.uid == request.auth.uid || ownerUid() == request.auth.uid);
+        }
+
+        // games/{gameId}/leagues/{leagueId}/questions/{qId} — liga-ejerens egne
+        // spørgsmål (label/type/point/deadline/facit). Kun medlemmer læser;
+        // kun liga-ejeren opretter/retter/sletter.
+        match /questions/{qId} {
+          function qMembers() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.memberUids;
+          }
+          function qOwner() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.ownerUid;
+          }
+          allow read: if isApproved() && request.auth.uid in qMembers();
+          allow create: if isApproved()
+            && qOwner() == request.auth.uid
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.label is string
+            && request.resource.data.label.size() >= 3
+            && request.resource.data.label.size() <= 120
+            && request.resource.data.points is number
+            && request.resource.data.points > 0
+            && request.resource.data.points <= 100;
+          // Når kortene først er åbnet, må de ikke kunne lukkes igen.
+          //
+          // questionAnswers åbner for LÆSNING og lukker for SKRIVNING ad to
+          // veje: facit sat, eller deadline passeret. Det farlige er ikke at
+          // rulle deadline tilbage — det er enhver vej til at gøre skrivning
+          // mulig IGEN, efter læsning er åbnet. Uden dét kunne liga-ejeren
+          // læse alles svar og derefter selv svare med facit i hånden, til
+          // 100 point, uden at efterlade spor:
+          //
+          //   sæt facit → læs alle svar → fjern facit → svar → sæt facit
+          //   vent på deadline → læs alle svar → fjern deadline → svar → sæt
+          //   vent på deadline → læs alle svar → ryk deadline frem → svar
+          //
+          // Derfor: facit må RETTES, men ikke nulstilles. Deadline må kun
+          // ændres, så længe den GAMLE endnu ikke er passeret — og aldrig
+          // fjernes. (deleteField() ville desuden mure spørgsmålet inde:
+          // svar-reglen tilgår .deadline på et map uden nøglen, hvilket er en
+          // evalueringsfejl og ikke null, så ingen kunne svare eller læse.)
+          //
+          // Point-loftet på 100 gjaldt kun ved oprettelse, så 100.000 kunne
+          // sættes bagefter.
+          allow update: if isApproved()
+            && qOwner() == request.auth.uid
+            && request.resource.data.points is number
+            && request.resource.data.points > 0
+            && request.resource.data.points <= 100
+            && (resource.data.get('facit', null) == null
+                || request.resource.data.get('facit', null) != null)
+            && (request.resource.data.get('deadline', null) == resource.data.get('deadline', null)
+                || resource.data.get('deadline', null) == null
+                || (request.time.toMillis() < resource.data.deadline
+                    && request.resource.data.get('deadline', null) != null
+                    && request.resource.data.deadline >= resource.data.deadline));
+          allow delete: if isApproved() && qOwner() == request.auth.uid;
+        }
+
+        // games/{gameId}/leagues/{leagueId}/questionAnswers/{qId_uid} — medlemmernes
+        // svar (doc-id = qId_uid → ét svar pr. spiller pr. spørgsmål). Svar er
+        // synlige for medlemmerne (som liga-væggen); man skriver kun eget svar,
+        // og kun før spørgsmålets deadline og før facit er sat.
+        match /questionAnswers/{answerId} {
+          function aMembers() {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)).data.memberUids;
+          }
+          function question(qid) {
+            return get(/databases/$(database)/documents/games/$(gameId)/leagues/$(leagueId)/questions/$(qid)).data;
+          }
+          // Eget svar kan altid læses. Andres først når spørgsmålet er lukket
+          // — altså når facit er sat, eller deadline er passeret (SERVERENS ur).
+          // Ellers kunne man kigge de andre i kortene og svare bagefter.
+          allow read: if isApproved()
+            && request.auth.uid in aMembers()
+            && (resource.data.uid == request.auth.uid
+                || question(resource.data.questionId).facit != null
+                || (question(resource.data.questionId).deadline != null
+                    && request.time.toMillis() >= question(resource.data.questionId).deadline));
+
+          allow create, update: if isApproved()
+            && request.auth.uid in aMembers()
+            && request.resource.data.uid == request.auth.uid
+            && answerId == request.resource.data.questionId + '_' + request.auth.uid
+            && question(request.resource.data.questionId).facit == null
+            && (question(request.resource.data.questionId).deadline == null
+                || request.time.toMillis() < question(request.resource.data.questionId).deadline);
+          allow delete: if false;
+        }
+      }
     }
 
     // -----------------------------------------------------------------------
@@ -434,6 +961,16 @@ service cloud.firestore {
 
       // Kun owner kan skrive konfiguration
       allow write: if isOwner();
+    }
+
+    // -----------------------------------------------------------------------
+    // legacyLeagueResults/{id} — top 5 fra de GAMLE spils ligaer (Tour/VM).
+    // Skrives af eksport-workflowet (Admin SDK omgår reglerne); læses kun af
+    // admins til "Indsæt top 5" i Send mail.
+    // -----------------------------------------------------------------------
+    match /legacyLeagueResults/{id} {
+      allow read: if isGlobalAdmin();
+      allow write: if false;
     }
   }
 }

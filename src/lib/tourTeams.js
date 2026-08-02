@@ -24,8 +24,28 @@ export function normalizeTeam(name) {
 }
 
 /**
+ * ALIAS-tabel: samme hold optræder under FORSKELLIGE navne i letours egne
+ * kilder — holdlisten/racecenteret siger fx "Netcompany Ineos", mens
+ * resultat-/rankingtabellerne (timing-leverandøren) skriver "INEOS
+ * GRENADIERS". Normalisering alene kan ikke bygge bro over et sponsorskifte,
+ * så kendte varianter mappes eksplicit til den officielle navne-nøgle.
+ * Nøgler og værdier er normalizeTeam-nøgler. Spejles i functions-udgaven!
+ */
+export const TEAM_ALIASES = {
+  ineosgrenadiers: 'netcompanyineos', // timing-leverandørens gamle navn
+  netcompanyineoscyclingteam: 'netcompanyineos', // racecenterets lange form
+};
+
+/** Kanonisk hold-nøgle: normaliseret navn med kendte aliaser slået sammen. */
+export function canonicalTeamKey(name) {
+  const key = normalizeTeam(name);
+  return TEAM_ALIASES[key] || key;
+}
+
+/**
  * Udleder en stabil hold-nøgle af en PCS-resultatrække. Foretrækker team_url
- * (uden årstal-suffiks), falder tilbage til normaliseret team_name.
+ * (uden årstal-suffiks), falder tilbage til KANONISK team_name-nøgle, så
+ * navnevarianter (alias-tabellen) aldrig giver samme hold to nøgler.
  * "team/uae-team-emirates-xrg-2025" → "uae-team-emirates-xrg".
  */
 export function teamKeyFromRow(row) {
@@ -33,16 +53,16 @@ export function teamKeyFromRow(row) {
   if (url) {
     const slug = String(url).split('/').pop() || '';
     const noYear = slug.replace(/-\d{4}$/, '');
-    if (noYear) return noYear;
+    if (noYear) return TEAM_ALIASES[normalizeTeam(noYear)] || noYear;
   }
   const name = row && row.team_name;
-  return name ? normalizeTeam(name) : null;
+  return name ? canonicalTeamKey(name) : null;
 }
 
-/** True hvis to holdnavne/-nøgler refererer til samme hold (normaliseret). */
+/** True hvis to holdnavne/-nøgler refererer til samme hold (normaliseret + alias). */
 export function sameTeam(a, b) {
   if (a == null || b == null) return false;
-  return normalizeTeam(a) === normalizeTeam(b);
+  return canonicalTeamKey(a) === canonicalTeamKey(b);
 }
 
 /**

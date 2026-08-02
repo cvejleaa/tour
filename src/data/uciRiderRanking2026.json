@@ -1,0 +1,7692 @@
+{
+"date_ms": 1782172810488,
+"riders": [
+{
+"rank": 1,
+"name": "Tadej Pogačar",
+"first": "Tadej",
+"last": [
+"POGAČAR"
+],
+"points": 11593,
+"team": "UEX",
+"nat": "Slovenia",
+"flag": "si",
+"age": 28
+},
+{
+"rank": 2,
+"name": "Jonas Vingegaard Hansen",
+"first": "Jonas",
+"last": [
+"VINGEGAARD",
+"HANSEN"
+],
+"points": 8625,
+"team": "TVL",
+"nat": "Denmark",
+"flag": "dk",
+"age": 30
+},
+{
+"rank": 3,
+"name": "Isaac Del Toro Romero",
+"first": "Isaac",
+"last": [
+"DEL",
+"TORO",
+"ROMERO"
+],
+"points": 5340,
+"team": "UEX",
+"nat": "Mexico",
+"flag": "mx",
+"age": 23
+},
+{
+"rank": 4,
+"name": "Remco Evenepoel",
+"first": "Remco",
+"last": [
+"EVENEPOEL"
+],
+"points": 5278,
+"team": "RBH",
+"nat": "Belgium",
+"flag": "be",
+"age": 26
+},
+{
+"rank": 5,
+"name": "Tom Pidcock",
+"first": "Tom",
+"last": [
+"PIDCOCK"
+],
+"points": 3913,
+"team": "PQT",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 27
+},
+{
+"rank": 6,
+"name": "Felix Gall",
+"first": "Felix",
+"last": [
+"GALL"
+],
+"points": 3663,
+"team": "DCT",
+"nat": "Austria",
+"flag": "at",
+"age": 28
+},
+{
+"rank": 7,
+"name": "Jasper Philipsen",
+"first": "Jasper",
+"last": [
+"PHILIPSEN"
+],
+"points": 3471,
+"team": "APT",
+"nat": "Belgium",
+"flag": "be",
+"age": 28
+},
+{
+"rank": 8,
+"name": "Paul Seixas",
+"first": "Paul",
+"last": [
+"SEIXAS"
+],
+"points": 3404,
+"team": "DCT",
+"nat": "France",
+"flag": "fr",
+"age": 20
+},
+{
+"rank": 9,
+"name": "Mathieu Van Der Poel",
+"first": "Mathieu",
+"last": [
+"VAN",
+"DER",
+"POEL"
+],
+"points": 3290,
+"team": "APT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 31
+},
+{
+"rank": 10,
+"name": "Arnaud De Lie",
+"first": "Arnaud",
+"last": [
+"DE",
+"LIE"
+],
+"points": 3193,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 24
+},
+{
+"rank": 11,
+"name": "Wout Van Aert",
+"first": "Wout",
+"last": [
+"VAN",
+"AERT"
+],
+"points": 3025,
+"team": "TVL",
+"nat": "Belgium",
+"flag": "be",
+"age": 32
+},
+{
+"rank": 12,
+"name": "Florian Lipowitz",
+"first": "Florian",
+"last": [
+"LIPOWITZ"
+],
+"points": 2969,
+"team": "RBH",
+"nat": "Germany",
+"flag": "de",
+"age": 26
+},
+{
+"rank": 13,
+"name": "Mauro Schmid",
+"first": "Mauro",
+"last": [
+"SCHMID"
+],
+"points": 2669,
+"team": "JAY",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 27
+},
+{
+"rank": 14,
+"name": "Paul Magnier",
+"first": "Paul",
+"last": [
+"MAGNIER"
+],
+"points": 2602,
+"team": "SOQ",
+"nat": "France",
+"flag": "fr",
+"age": 22
+},
+{
+"rank": 15,
+"name": "Tobias Lund Andresen",
+"first": "Tobias",
+"last": [
+"LUND",
+"ANDRESEN"
+],
+"points": 2599,
+"team": "DCT",
+"nat": "Denmark",
+"flag": "dk",
+"age": 24
+},
+{
+"rank": 16,
+"name": "Romain Gregoire",
+"first": "Romain",
+"last": [
+"GREGOIRE"
+],
+"points": 2550,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 23
+},
+{
+"rank": 17,
+"name": "Christian Scaroni",
+"first": "Christian",
+"last": [
+"SCARONI"
+],
+"points": 2524,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 29
+},
+{
+"rank": 18,
+"name": "Mads Pedersen",
+"first": "Mads",
+"last": [
+"PEDERSEN"
+],
+"points": 2515,
+"team": "LTK",
+"nat": "Denmark",
+"flag": "dk",
+"age": 31
+},
+{
+"rank": 19,
+"name": "Jai Hindley",
+"first": "Jai",
+"last": [
+"HINDLEY"
+],
+"points": 2514,
+"team": "RBH",
+"nat": "Australia",
+"flag": "au",
+"age": 30
+},
+{
+"rank": 20,
+"name": "Tobias Halland Johannessen",
+"first": "Tobias",
+"last": [
+"JOHANNESSEN"
+],
+"points": 2450,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 27
+},
+{
+"rank": 21,
+"name": "Mattias Skjelmose",
+"first": "Mattias",
+"last": [
+"SKJELMOSE"
+],
+"points": 2353,
+"team": "LTK",
+"nat": "Denmark",
+"flag": "dk",
+"age": 26
+},
+{
+"rank": 22,
+"name": "Giulio Pellizzari",
+"first": "Giulio",
+"last": [
+"PELLIZZARI"
+],
+"points": 2305,
+"team": "RBH",
+"nat": "Italy",
+"flag": "it",
+"age": 23
+},
+{
+"rank": 23,
+"name": "Giulio Ciccone",
+"first": "Giulio",
+"last": [
+"CICCONE"
+],
+"points": 2225,
+"team": "LTK",
+"nat": "Italy",
+"flag": "it",
+"age": 32
+},
+{
+"rank": 24,
+"name": "Lenny Sydney Martinez",
+"first": "Lenny",
+"last": [
+"MARTINEZ"
+],
+"points": 2213,
+"team": "TBV",
+"nat": "France",
+"flag": "fr",
+"age": 23
+},
+{
+"rank": 25,
+"name": "Jay Vine",
+"first": "Jay",
+"last": [
+"VINE"
+],
+"points": 2208,
+"team": "UEX",
+"nat": "Australia",
+"flag": "au",
+"age": 31
+},
+{
+"rank": 26,
+"name": "Thymen Arensman",
+"first": "Thymen",
+"last": [
+"ARENSMAN"
+],
+"points": 2151,
+"team": "NCI",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 27
+},
+{
+"rank": 27,
+"name": "Joao Pedro Gonçalves Almeida",
+"first": "Joao",
+"last": [
+"GONÇALVES",
+"ALMEIDA"
+],
+"points": 2146,
+"team": "UEX",
+"nat": "Portugal",
+"flag": "pt",
+"age": 28
+},
+{
+"rank": 28,
+"name": "Jonathan Milan",
+"first": "Jonathan",
+"last": [
+"MILAN"
+],
+"points": 2059,
+"team": "LTK",
+"nat": "Italy",
+"flag": "it",
+"age": 26
+},
+{
+"rank": 29,
+"name": "Matteo Jorgenson",
+"first": "Matteo",
+"last": [
+"JORGENSON"
+],
+"points": 1999,
+"team": "TVL",
+"nat": "United States",
+"flag": "us",
+"age": 27
+},
+{
+"rank": 30,
+"name": "Brandon Mcnulty",
+"first": "Brandon",
+"last": [
+"MCNULTY"
+],
+"points": 1932,
+"team": "UEX",
+"nat": "United States",
+"flag": "us",
+"age": 28
+},
+{
+"rank": 31,
+"name": "Egan Arley Bernal Gomez",
+"first": "Egan",
+"last": [
+"BERNAL",
+"GOMEZ"
+],
+"points": 1874,
+"team": "NCI",
+"nat": "Colombia",
+"flag": "co",
+"age": 29
+},
+{
+"rank": 32,
+"name": "Michael Storer",
+"first": "Michael",
+"last": [
+"STORER"
+],
+"points": 1852,
+"team": "TUD",
+"nat": "Australia",
+"flag": "au",
+"age": 29
+},
+{
+"rank": 33,
+"name": "Oscar Onley",
+"first": "Oscar",
+"last": [
+"ONLEY"
+],
+"points": 1810,
+"team": "NCI",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 24
+},
+{
+"rank": 34,
+"name": "Ben Healy",
+"first": "Ben",
+"last": [
+"HEALY"
+],
+"points": 1794,
+"team": "EFE",
+"nat": "Ireland",
+"flag": "ie",
+"age": 26
+},
+{
+"rank": 35,
+"name": "Christophe Laporte",
+"first": "Christophe",
+"last": [
+"LAPORTE"
+],
+"points": 1772,
+"team": "TVL",
+"nat": "France",
+"flag": "fr",
+"age": 34
+},
+{
+"rank": 36,
+"name": "Jordi Meeus",
+"first": "Jordi",
+"last": [
+"MEEUS"
+],
+"points": 1751,
+"team": "RBH",
+"nat": "Belgium",
+"flag": "be",
+"age": 28
+},
+{
+"rank": 37,
+"name": "Jasper Stuyven",
+"first": "Jasper",
+"last": [
+"STUYVEN"
+],
+"points": 1745,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 34
+},
+{
+"rank": 39,
+"name": "Benoit Cosnefroy",
+"first": "Benoit",
+"last": [
+"COSNEFROY"
+],
+"points": 1671,
+"team": "UEX",
+"nat": "France",
+"flag": "fr",
+"age": 31
+},
+{
+"rank": 40,
+"name": "Jan Christen",
+"first": "Jan",
+"last": [
+"CHRISTEN"
+],
+"points": 1663,
+"team": "UEX",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 22
+},
+{
+"rank": 41,
+"name": "Biniam Girmay",
+"first": "Biniam",
+"last": [
+"GIRMAY"
+],
+"points": 1659,
+"team": "NSN",
+"nat": "Eritrea",
+"flag": "er",
+"age": 26
+},
+{
+"rank": 42,
+"name": "Ion Izaguirre Insausti",
+"first": "Ion",
+"last": [
+"IZAGUIRRE",
+"INSAUSTI"
+],
+"points": 1612,
+"team": "COF",
+"nat": "Spain",
+"flag": "es",
+"age": 37
+},
+{
+"rank": 43,
+"name": "Primož Roglič",
+"first": "Primož",
+"last": [
+"ROGLIČ"
+],
+"points": 1593,
+"team": "RBH",
+"nat": "Slovenia",
+"flag": "si",
+"age": 37
+},
+{
+"rank": 44,
+"name": "Matthew Riccitello",
+"first": "Matthew",
+"last": [
+"RICCITELLO"
+],
+"points": 1586,
+"team": "DCT",
+"nat": "United States",
+"flag": "us",
+"age": 24
+},
+{
+"rank": 45,
+"name": "Kévin Vauquelin",
+"first": "Kévin",
+"last": [
+"VAUQUELIN"
+],
+"points": 1562,
+"team": "NCI",
+"nat": "France",
+"flag": "fr",
+"age": 25
+},
+{
+"rank": 46,
+"name": "Juan Ayuso Pesquera",
+"first": "Juan",
+"last": [
+"AYUSO",
+"PESQUERA"
+],
+"points": 1545,
+"team": "LTK",
+"nat": "Spain",
+"flag": "es",
+"age": 24
+},
+{
+"rank": 47,
+"name": "Dorian Godon",
+"first": "Dorian",
+"last": [
+"GODON"
+],
+"points": 1477,
+"team": "NCI",
+"nat": "France",
+"flag": "fr",
+"age": 30
+},
+{
+"rank": 48,
+"name": "Corbin John Strong",
+"first": "Corbin",
+"last": [
+"STRONG"
+],
+"points": 1474,
+"team": "NSN",
+"nat": "New Zealand",
+"flag": "nz",
+"age": 26
+},
+{
+"rank": 49,
+"name": "Jhonatan Narvaez",
+"first": "Jhonatan",
+"last": [
+"NARVAEZ"
+],
+"points": 1470,
+"team": "UEX",
+"nat": "Ecuador",
+"flag": "ec",
+"age": 29
+},
+{
+"rank": 50,
+"name": "Lucas Plapp",
+"first": "Lucas",
+"last": [
+"PLAPP"
+],
+"points": 1464,
+"team": "JAY",
+"nat": "Australia",
+"flag": "au",
+"age": 26
+},
+{
+"rank": 51,
+"name": "Laurence Pithie",
+"first": "Laurence",
+"last": [
+"PITHIE"
+],
+"points": 1396,
+"team": "RBH",
+"nat": "New Zealand",
+"flag": "nz",
+"age": 24
+},
+{
+"rank": 52,
+"name": "Guillermo Thomas Silva Coussan",
+"first": "Guillermo",
+"last": [
+"SILVA",
+"COUSSAN"
+],
+"points": 1376,
+"team": "XAT",
+"nat": "Uruguay",
+"flag": "uy",
+"age": 25
+},
+{
+"rank": 53,
+"name": "Antonio Tiberi",
+"first": "Antonio",
+"last": [
+"TIBERI"
+],
+"points": 1368,
+"team": "TBV",
+"nat": "Italy",
+"flag": "it",
+"age": 25
+},
+{
+"rank": 54,
+"name": "Tim Merlier",
+"first": "Tim",
+"last": [
+"MERLIER"
+],
+"points": 1366,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 34
+},
+{
+"rank": 55,
+"name": "Afonso Eulálio",
+"first": "Afonso",
+"last": [
+"EULÁLIO"
+],
+"points": 1353,
+"team": "TBV",
+"nat": "Portugal",
+"flag": "pt",
+"age": 25
+},
+{
+"rank": 56,
+"name": "Quinn Simmons",
+"first": "Quinn",
+"last": [
+"SIMMONS"
+],
+"points": 1342,
+"team": "LTK",
+"nat": "United States",
+"flag": "us",
+"age": 25
+},
+{
+"rank": 57,
+"name": "Adam Richard Yates",
+"first": "Adam",
+"last": [
+"YATES"
+],
+"points": 1334,
+"team": "UEX",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 34
+},
+{
+"rank": 58,
+"name": "Pavel Bittner",
+"first": "Pavel",
+"last": [
+"BITTNER"
+],
+"points": 1305,
+"team": "TPP",
+"nat": "Czechia",
+"flag": "cz",
+"age": 24
+},
+{
+"rank": 60,
+"name": "Matthew Brennan",
+"first": "Matthew",
+"last": [
+"BRENNAN"
+],
+"points": 1275,
+"team": "TVL",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 21
+},
+{
+"rank": 61,
+"name": "Derek Gee",
+"first": "Derek",
+"last": [
+"GEE"
+],
+"points": 1243,
+"team": "LTK",
+"nat": "Canada",
+"flag": "ca",
+"age": 29
+},
+{
+"rank": 62,
+"name": "Alex Aranburu Deva",
+"first": "Alex",
+"last": [
+"ARANBURU",
+"DEVA"
+],
+"points": 1241,
+"team": "COF",
+"nat": "Spain",
+"flag": "es",
+"age": 31
+},
+{
+"rank": 63,
+"name": "Emilien Jeanniere",
+"first": "Emilien",
+"last": [
+"JEANNIERE"
+],
+"points": 1227,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 28
+},
+{
+"rank": 64,
+"name": "Sepp Kuss",
+"first": "Sepp",
+"last": [
+"KUSS"
+],
+"points": 1210,
+"team": "TVL",
+"nat": "United States",
+"flag": "us",
+"age": 32
+},
+{
+"rank": 65,
+"name": "Alex Baudin",
+"first": "Alex",
+"last": [
+"BAUDIN"
+],
+"points": 1203,
+"team": "EFE",
+"nat": "France",
+"flag": "fr",
+"age": 25
+},
+{
+"rank": 66,
+"name": "Matteo Trentin",
+"first": "Matteo",
+"last": [
+"TRENTIN"
+],
+"points": 1201,
+"team": "TUD",
+"nat": "Italy",
+"flag": "it",
+"age": 37
+},
+{
+"rank": 67,
+"name": "Søren Wærenskjold",
+"first": "Søren",
+"last": [
+"WÆRENSKJOLD"
+],
+"points": 1177,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 26
+},
+{
+"rank": 68,
+"name": "Cian Uijtdebroeks",
+"first": "Cian",
+"last": [
+"UIJTDEBROEKS"
+],
+"points": 1175,
+"team": "MOV",
+"nat": "Belgium",
+"flag": "be",
+"age": 23
+},
+{
+"rank": 69,
+"name": "Mathys Rondel",
+"first": "Mathys",
+"last": [
+"RONDEL"
+],
+"points": 1165,
+"team": "TUD",
+"nat": "France",
+"flag": "fr",
+"age": 23
+},
+{
+"rank": 70,
+"name": "Florian Vermeersch",
+"first": "Florian",
+"last": [
+"VERMEERSCH"
+],
+"points": 1144,
+"team": "UEX",
+"nat": "Belgium",
+"flag": "be",
+"age": 27
+},
+{
+"rank": 71,
+"name": "Julian Alaphilippe",
+"first": "Julian",
+"last": [
+"ALAPHILIPPE"
+],
+"points": 1141,
+"team": "TUD",
+"nat": "France",
+"flag": "fr",
+"age": 34
+},
+{
+"rank": 72,
+"name": "Pello Bilbao Lopez De Armentia",
+"first": "Pello",
+"last": [
+"BILBAO",
+"LOPEZ",
+"DE",
+"ARMENTIA"
+],
+"points": 1135,
+"team": "TBV",
+"nat": "Spain",
+"flag": "es",
+"age": 36
+},
+{
+"rank": 73,
+"name": "Davide Piganzoli",
+"first": "Davide",
+"last": [
+"PIGANZOLI"
+],
+"points": 1133,
+"team": "TVL",
+"nat": "Italy",
+"flag": "it",
+"age": 24
+},
+{
+"rank": 74,
+"name": "Ben Tulett",
+"first": "Ben",
+"last": [
+"TULETT"
+],
+"points": 1115,
+"team": "TVL",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 25
+},
+{
+"rank": 75,
+"name": "Andreas Leknessund",
+"first": "Andreas",
+"last": [
+"LEKNESSUND"
+],
+"points": 1087,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 27
+},
+{
+"rank": 76,
+"name": "Ethan Vernon",
+"first": "Ethan",
+"last": [
+"VERNON"
+],
+"points": 1078,
+"team": "NSN",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 26
+},
+{
+"rank": 77,
+"name": "Paul Lapeira",
+"first": "Paul",
+"last": [
+"LAPEIRA"
+],
+"points": 1073,
+"team": "DCT",
+"nat": "France",
+"flag": "fr",
+"age": 26
+},
+{
+"rank": 78,
+"name": "Jonas Abrahamsen",
+"first": "Jonas",
+"last": [
+"ABRAHAMSEN"
+],
+"points": 1065,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 31
+},
+{
+"rank": 79,
+"name": "Filippo Ganna",
+"first": "Filippo",
+"last": [
+"GANNA"
+],
+"points": 1051,
+"team": "NCI",
+"nat": "Italy",
+"flag": "it",
+"age": 30
+},
+{
+"rank": 80,
+"name": "Harold Alfonso Tejada Canacue",
+"first": "Harold",
+"last": [
+"TEJADA",
+"CANACUE"
+],
+"points": 1030,
+"team": "XAT",
+"nat": "Colombia",
+"flag": "co",
+"age": 29
+},
+{
+"rank": 81,
+"name": "António Tomas Morgado",
+"first": "António",
+"last": [
+"TOMAS",
+"MORGADO"
+],
+"points": 1030,
+"team": "UEX",
+"nat": "Portugal",
+"flag": "pt",
+"age": 22
+},
+{
+"rank": 83,
+"name": "Santiago Buitrago Sanchez",
+"first": "Santiago",
+"last": [
+"BUITRAGO",
+"SANCHEZ"
+],
+"points": 1000,
+"team": "TBV",
+"nat": "Colombia",
+"flag": "co",
+"age": 27
+},
+{
+"rank": 84,
+"name": "Natnael Tesfatsion",
+"first": "Natnael",
+"last": [
+"TESFATSION"
+],
+"points": 997,
+"team": "MOV",
+"nat": "Eritrea",
+"flag": "er",
+"age": 27
+},
+{
+"rank": 85,
+"name": "Ben O'Connor",
+"first": "Ben",
+"last": [
+"O'CONNOR"
+],
+"points": 989,
+"team": "JAY",
+"nat": "Australia",
+"flag": "au",
+"age": 31
+},
+{
+"rank": 86,
+"name": "Olav Kooij",
+"first": "Olav",
+"last": [
+"KOOIJ"
+],
+"points": 966,
+"team": "DCT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 25
+},
+{
+"rank": 87,
+"name": "Tim Wellens",
+"first": "Tim",
+"last": [
+"WELLENS"
+],
+"points": 927,
+"team": "UEX",
+"nat": "Belgium",
+"flag": "be",
+"age": 35
+},
+{
+"rank": 88,
+"name": "Toms Skujins",
+"first": "Toms",
+"last": [
+"SKUJINS"
+],
+"points": 926,
+"team": "LTK",
+"nat": "Latvia",
+"flag": "lv",
+"age": 35
+},
+{
+"rank": 89,
+"name": "Filippo Zana",
+"first": "Filippo",
+"last": [
+"ZANA"
+],
+"points": 926,
+"team": "SOQ",
+"nat": "Italy",
+"flag": "it",
+"age": 27
+},
+{
+"rank": 90,
+"name": "Orluis Alberto Aular Sanabria",
+"first": "Orluis",
+"last": [
+"AULAR",
+"SANABRIA"
+],
+"points": 926,
+"team": "MOV",
+"nat": "Venezuela",
+"flag": "ve",
+"age": 30
+},
+{
+"rank": 91,
+"name": "Pavel Sivakov",
+"first": "Pavel",
+"last": [
+"SIVAKOV"
+],
+"points": 902,
+"team": "UEX",
+"nat": "France",
+"flag": "fr",
+"age": 29
+},
+{
+"rank": 92,
+"name": "Alberto Bettiol",
+"first": "Alberto",
+"last": [
+"BETTIOL"
+],
+"points": 896,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 33
+},
+{
+"rank": 93,
+"name": "Richard Carapaz",
+"first": "Richard",
+"last": [
+"CARAPAZ"
+],
+"points": 891,
+"team": "EFE",
+"nat": "Ecuador",
+"flag": "ec",
+"age": 33
+},
+{
+"rank": 94,
+"name": "Jordan Jegat",
+"first": "Jordan",
+"last": [
+"JEGAT"
+],
+"points": 890,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 27
+},
+{
+"rank": 95,
+"name": "Andrea Vendrame",
+"first": "Andrea",
+"last": [
+"VENDRAME"
+],
+"points": 883,
+"team": "JAY",
+"nat": "Italy",
+"flag": "it",
+"age": 32
+},
+{
+"rank": 96,
+"name": "Riley Sheehan",
+"first": "Riley",
+"last": [
+"SHEEHAN"
+],
+"points": 872,
+"team": "NSN",
+"nat": "United States",
+"flag": "us",
+"age": 26
+},
+{
+"rank": 97,
+"name": "Stanisław Aniołkowski",
+"first": "Stanisław",
+"last": [
+"ANIOŁKOWSKI"
+],
+"points": 870,
+"team": "COF",
+"nat": "Poland",
+"flag": "pl",
+"age": 29
+},
+{
+"rank": 98,
+"name": "Alexandre Delettre",
+"first": "Alexandre",
+"last": [
+"DELETTRE"
+],
+"points": 869,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 29
+},
+{
+"rank": 99,
+"name": "Quinten Hermans",
+"first": "Quinten",
+"last": [
+"HERMANS"
+],
+"points": 852,
+"team": "PQT",
+"nat": "Belgium",
+"flag": "be",
+"age": 31
+},
+{
+"rank": 100,
+"name": "Max Kanter",
+"first": "Max",
+"last": [
+"KANTER"
+],
+"points": 850,
+"team": "XAT",
+"nat": "Germany",
+"flag": "de",
+"age": 29
+},
+{
+"rank": 101,
+"name": "Jørgen Nordhagen",
+"first": "Jørgen",
+"last": [
+"NORDHAGEN"
+],
+"points": 844,
+"team": "TVL",
+"nat": "Norway",
+"flag": "no",
+"age": 21
+},
+{
+"rank": 102,
+"name": "Ilan Van Wilder",
+"first": "Ilan",
+"last": [
+"VAN",
+"WILDER"
+],
+"points": 840,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 26
+},
+{
+"rank": 103,
+"name": "Luca Mozzato",
+"first": "Luca",
+"last": [
+"MOZZATO"
+],
+"points": 836,
+"team": "TUD",
+"nat": "Italy",
+"flag": "it",
+"age": 28
+},
+{
+"rank": 104,
+"name": "Ivan Romeo Abad",
+"first": "Ivan",
+"last": [
+"ROMEO",
+"ABAD"
+],
+"points": 835,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 23
+},
+{
+"rank": 105,
+"name": "Jenno Berckmoes",
+"first": "Jenno",
+"last": [
+"BERCKMOES"
+],
+"points": 824,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 25
+},
+{
+"rank": 106,
+"name": "Alec Segaert",
+"first": "Alec",
+"last": [
+"SEGAERT"
+],
+"points": 818,
+"team": "TBV",
+"nat": "Belgium",
+"flag": "be",
+"age": 23
+},
+{
+"rank": 107,
+"name": "Igor Arrieta Lizarraga",
+"first": "Igor",
+"last": [
+"ARRIETA",
+"LIZARRAGA"
+],
+"points": 816,
+"team": "UEX",
+"nat": "Spain",
+"flag": "es",
+"age": 24
+},
+{
+"rank": 108,
+"name": "Anthony Turgis",
+"first": "Anthony",
+"last": [
+"TURGIS"
+],
+"points": 813,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 32
+},
+{
+"rank": 109,
+"name": "Alfred Brockwell Wright",
+"first": "Alfred",
+"last": [
+"WRIGHT"
+],
+"points": 809,
+"team": "PQT",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 27
+},
+{
+"rank": 110,
+"name": "Paul Penhoet",
+"first": "Paul",
+"last": [
+"PENHOET"
+],
+"points": 807,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 25
+},
+{
+"rank": 111,
+"name": "Jakob Söderqvist",
+"first": "Jakob",
+"last": [
+"SÖDERQVIST"
+],
+"points": 806,
+"team": "LTK",
+"nat": "Sweden",
+"flag": "se",
+"age": 23
+},
+{
+"rank": 112,
+"name": "Diego Ulissi",
+"first": "Diego",
+"last": [
+"ULISSI"
+],
+"points": 791,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 37
+},
+{
+"rank": 113,
+"name": "Valentin Paret Peintre",
+"first": "Valentin",
+"last": [
+"PARET",
+"PEINTRE"
+],
+"points": 791,
+"team": "SOQ",
+"nat": "France",
+"flag": "fr",
+"age": 25
+},
+{
+"rank": 115,
+"name": "Yevgeniy Fedorov",
+"first": "Yevgeniy",
+"last": [
+"FEDOROV"
+],
+"points": 787,
+"team": "XAT",
+"nat": "Kazakhstan",
+"flag": "kz",
+"age": 26
+},
+{
+"rank": 116,
+"name": "Thibaud Gruel",
+"first": "Thibaud",
+"last": [
+"GRUEL"
+],
+"points": 783,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 22
+},
+{
+"rank": 117,
+"name": "Mathias Vacek",
+"first": "Mathias",
+"last": [
+"VACEK"
+],
+"points": 782,
+"team": "LTK",
+"nat": "Czechia",
+"flag": "cz",
+"age": 24
+},
+{
+"rank": 118,
+"name": "Anders Foldager",
+"first": "Anders",
+"last": [
+"FOLDAGER"
+],
+"points": 777,
+"team": "JAY",
+"nat": "Denmark",
+"flag": "dk",
+"age": 25
+},
+{
+"rank": 119,
+"name": "Steffen De Schuyteneer",
+"first": "Steffen",
+"last": [
+"DE",
+"SCHUYTENEER"
+],
+"points": 767,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 21
+},
+{
+"rank": 120,
+"name": "Georg Zimmermann",
+"first": "Georg",
+"last": [
+"ZIMMERMANN"
+],
+"points": 766,
+"team": "LOI",
+"nat": "Germany",
+"flag": "de",
+"age": 29
+},
+{
+"rank": 121,
+"name": "Ben Turner",
+"first": "Ben",
+"last": [
+"TURNER"
+],
+"points": 754,
+"team": "NCI",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 27
+},
+{
+"rank": 122,
+"name": "Marc Hirschi",
+"first": "Marc",
+"last": [
+"HIRSCHI"
+],
+"points": 748,
+"team": "TUD",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 28
+},
+{
+"rank": 124,
+"name": "Edoardo Zambanini",
+"first": "Edoardo",
+"last": [
+"ZAMBANINI"
+],
+"points": 728,
+"team": "TBV",
+"nat": "Italy",
+"flag": "it",
+"age": 25
+},
+{
+"rank": 125,
+"name": "Emiel Verstrynge",
+"first": "Emiel",
+"last": [
+"VERSTRYNGE"
+],
+"points": 722,
+"team": "APT",
+"nat": "Belgium",
+"flag": "be",
+"age": 24
+},
+{
+"rank": 126,
+"name": "Michael Matthews",
+"first": "Michael",
+"last": [
+"MATTHEWS"
+],
+"points": 719,
+"team": "JAY",
+"nat": "Australia",
+"flag": "au",
+"age": 36
+},
+{
+"rank": 127,
+"name": "Henok Mulueberhan",
+"first": "Henok",
+"last": [
+"MULUEBERHAN"
+],
+"points": 719,
+"team": "XAT",
+"nat": "Eritrea",
+"flag": "er",
+"age": 27
+},
+{
+"rank": 128,
+"name": "Matej Mohoric",
+"first": "Matej",
+"last": [
+"MOHORIC"
+],
+"points": 708,
+"team": "TBV",
+"nat": "Slovenia",
+"flag": "si",
+"age": 32
+},
+{
+"rank": 129,
+"name": "Albert Philipsen",
+"first": "Albert",
+"last": [
+"PHILIPSEN"
+],
+"points": 698,
+"team": "LTK",
+"nat": "Denmark",
+"flag": "dk",
+"age": 20
+},
+{
+"rank": 130,
+"name": "Davide Ballerini",
+"first": "Davide",
+"last": [
+"BALLERINI"
+],
+"points": 689,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 32
+},
+{
+"rank": 131,
+"name": "Gianni Vermeersch",
+"first": "Gianni",
+"last": [
+"VERMEERSCH"
+],
+"points": 687,
+"team": "RBH",
+"nat": "Belgium",
+"flag": "be",
+"age": 34
+},
+{
+"rank": 132,
+"name": "Aleksandr Vlasov",
+"first": "Aleksandr",
+"last": [
+"VLASOV"
+],
+"points": 686,
+"team": "RBH",
+"nat": "******",
+"flag": "ru",
+"age": 30
+},
+{
+"rank": 133,
+"name": "Clément Champoussin",
+"first": "Clément",
+"last": [
+"CHAMPOUSSIN"
+],
+"points": 678,
+"team": "XAT",
+"nat": "France",
+"flag": "fr",
+"age": 28
+},
+{
+"rank": 134,
+"name": "Matteo Malucelli",
+"first": "Matteo",
+"last": [
+"MALUCELLI"
+],
+"points": 673,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 33
+},
+{
+"rank": 135,
+"name": "Simone Velasco",
+"first": "Simone",
+"last": [
+"VELASCO"
+],
+"points": 664,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 31
+},
+{
+"rank": 136,
+"name": "Junior Lecerf",
+"first": "Junior",
+"last": [
+"LECERF"
+],
+"points": 660,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 24
+},
+{
+"rank": 137,
+"name": "Sergio Andres Higuita Garcia",
+"first": "Sergio",
+"last": [
+"HIGUITA",
+"GARCIA"
+],
+"points": 657,
+"team": "XAT",
+"nat": "Colombia",
+"flag": "co",
+"age": 29
+},
+{
+"rank": 138,
+"name": "Milan Fretin",
+"first": "Milan",
+"last": [
+"FRETIN"
+],
+"points": 654,
+"team": "COF",
+"nat": "Belgium",
+"flag": "be",
+"age": 25
+},
+{
+"rank": 139,
+"name": "Danny Van Poppel",
+"first": "Danny",
+"last": [
+"VAN",
+"POPPEL"
+],
+"points": 653,
+"team": "RBH",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 33
+},
+{
+"rank": 140,
+"name": "Bruno Armirail",
+"first": "Bruno",
+"last": [
+"ARMIRAIL"
+],
+"points": 653,
+"team": "TVL",
+"nat": "France",
+"flag": "fr",
+"age": 32
+},
+{
+"rank": 141,
+"name": "Jon Barrenetxea Golzarri",
+"first": "Jon",
+"last": [
+"BARRENETXEA",
+"GOLZARRI"
+],
+"points": 652,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 26
+},
+{
+"rank": 142,
+"name": "Marco Frigo",
+"first": "Marco",
+"last": [
+"FRIGO"
+],
+"points": 651,
+"team": "NSN",
+"nat": "Italy",
+"flag": "it",
+"age": 26
+},
+{
+"rank": 143,
+"name": "Daniel Felipe Martinez Poveda",
+"first": "Daniel",
+"last": [
+"MARTINEZ",
+"POVEDA"
+],
+"points": 649,
+"team": "RBH",
+"nat": "Colombia",
+"flag": "co",
+"age": 30
+},
+{
+"rank": 144,
+"name": "Luke Tuckwell",
+"first": "Luke",
+"last": [
+"TUCKWELL"
+],
+"points": 647,
+"team": "RBH",
+"nat": "Australia",
+"flag": "au",
+"age": 22
+},
+{
+"rank": 145,
+"name": "Sebastian Berwick",
+"first": "Sebastian",
+"last": [
+"BERWICK"
+],
+"points": 640,
+"team": "CJR",
+"nat": "Australia",
+"flag": "au",
+"age": 27
+},
+{
+"rank": 146,
+"name": "Matteo Sobrero",
+"first": "Matteo",
+"last": [
+"SOBRERO"
+],
+"points": 640,
+"team": "LTK",
+"nat": "Italy",
+"flag": "it",
+"age": 29
+},
+{
+"rank": 147,
+"name": "Léo Bisiaux",
+"first": "Léo",
+"last": [
+"BISIAUX"
+],
+"points": 640,
+"team": "DCT",
+"nat": "France",
+"flag": "fr",
+"age": 21
+},
+{
+"rank": 148,
+"name": "Mike Teunissen",
+"first": "Mike",
+"last": [
+"TEUNISSEN"
+],
+"points": 638,
+"team": "XAT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 34
+},
+{
+"rank": 149,
+"name": "Torstein Træen",
+"first": "Torstein",
+"last": [
+"TRÆEN"
+],
+"points": 630,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 31
+},
+{
+"rank": 150,
+"name": "Bryan Coquard",
+"first": "Bryan",
+"last": [
+"COQUARD"
+],
+"points": 628,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 34
+},
+{
+"rank": 151,
+"name": "Michael Valgren",
+"first": "Michael",
+"last": [
+"VALGREN"
+],
+"points": 628,
+"team": "EFE",
+"nat": "Denmark",
+"flag": "dk",
+"age": 34
+},
+{
+"rank": 152,
+"name": "Paul Double",
+"first": "Paul",
+"last": [
+"DOUBLE"
+],
+"points": 626,
+"team": "JAY",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 30
+},
+{
+"rank": 153,
+"name": "Aime De Gendt",
+"first": "Aime",
+"last": [
+"DE",
+"GENDT"
+],
+"points": 606,
+"team": "PQT",
+"nat": "Belgium",
+"flag": "be",
+"age": 32
+},
+{
+"rank": 154,
+"name": "Marc Soler",
+"first": "Marc",
+"last": [
+"SOLER"
+],
+"points": 600,
+"team": "UEX",
+"nat": "Spain",
+"flag": "es",
+"age": 33
+},
+{
+"rank": 155,
+"name": "Per Strand Hagenes",
+"first": "Per",
+"last": [
+"HAGENES"
+],
+"points": 593,
+"team": "TVL",
+"nat": "Norway",
+"flag": "no",
+"age": 23
+},
+{
+"rank": 156,
+"name": "Nicolya Vinokurov",
+"first": "Nicolya",
+"last": [
+"VINOKUROV"
+],
+"points": 590,
+"team": "XAT",
+"nat": "Kazakhstan",
+"flag": "kz",
+"age": 24
+},
+{
+"rank": 157,
+"name": "Lewis Askey",
+"first": "Lewis",
+"last": [
+"ASKEY"
+],
+"points": 587,
+"team": "NSN",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 25
+},
+{
+"rank": 158,
+"name": "Tim Van Dijke",
+"first": "Tim",
+"last": [
+"VAN",
+"DIJKE"
+],
+"points": 564,
+"team": "RBH",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 26
+},
+{
+"rank": 160,
+"name": "Sandy Dujardin",
+"first": "Sandy",
+"last": [
+"DUJARDIN"
+],
+"points": 563,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 29
+},
+{
+"rank": 161,
+"name": "Lorenzo Fortunato",
+"first": "Lorenzo",
+"last": [
+"FORTUNATO"
+],
+"points": 561,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 30
+},
+{
+"rank": 162,
+"name": "Madis Mihkels",
+"first": "Madis",
+"last": [
+"MIHKELS"
+],
+"points": 559,
+"team": "EFE",
+"nat": "Estonia",
+"flag": "ee",
+"age": 23
+},
+{
+"rank": 163,
+"name": "Yannis Voisard",
+"first": "Yannis",
+"last": [
+"VOISARD"
+],
+"points": 558,
+"team": "TUD",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 28
+},
+{
+"rank": 164,
+"name": "Tibor Del Grosso",
+"first": "Tibor",
+"last": [
+"DEL",
+"GROSSO"
+],
+"points": 556,
+"team": "APT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 23
+},
+{
+"rank": 165,
+"name": "Andrea Raccagni Noviero",
+"first": "Andrea",
+"last": [
+"RACCAGNI",
+"NOVIERO"
+],
+"points": 554,
+"team": "SOQ",
+"nat": "Italy",
+"flag": "it",
+"age": 22
+},
+{
+"rank": 166,
+"name": "Johannes Kulset",
+"first": "Johannes",
+"last": [
+"KULSET"
+],
+"points": 552,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 22
+},
+{
+"rank": 167,
+"name": "Ewen Costiou",
+"first": "Ewen",
+"last": [
+"COSTIOU"
+],
+"points": 550,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 24
+},
+{
+"rank": 168,
+"name": "Axel Laurance",
+"first": "Axel",
+"last": [
+"LAURANCE"
+],
+"points": 547,
+"team": "NCI",
+"nat": "France",
+"flag": "fr",
+"age": 25
+},
+{
+"rank": 170,
+"name": "Carlos Canal Blanco",
+"first": "Carlos",
+"last": [
+"CANAL",
+"BLANCO"
+],
+"points": 535,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 25
+},
+{
+"rank": 171,
+"name": "Andreas Kron",
+"first": "Andreas",
+"last": [
+"KRON"
+],
+"points": 535,
+"team": "UXM",
+"nat": "Denmark",
+"flag": "dk",
+"age": 28
+},
+{
+"rank": 172,
+"name": "Brady Gilmore",
+"first": "Brady",
+"last": [
+"GILMORE"
+],
+"points": 534,
+"team": "NSN",
+"nat": "Australia",
+"flag": "au",
+"age": 25
+},
+{
+"rank": 173,
+"name": "Georg Steinhauser",
+"first": "Georg",
+"last": [
+"STEINHAUSER"
+],
+"points": 533,
+"team": "EFE",
+"nat": "Germany",
+"flag": "de",
+"age": 25
+},
+{
+"rank": 174,
+"name": "Anthon Charmig",
+"first": "Anthon",
+"last": [
+"CHARMIG"
+],
+"points": 533,
+"team": "UXM",
+"nat": "Denmark",
+"flag": "dk",
+"age": 28
+},
+{
+"rank": 175,
+"name": "Neilson Powless",
+"first": "Neilson",
+"last": [
+"POWLESS"
+],
+"points": 530,
+"team": "EFE",
+"nat": "United States",
+"flag": "us",
+"age": 30
+},
+{
+"rank": 176,
+"name": "Felix Grossschartner",
+"first": "Felix",
+"last": [
+"GROSSSCHARTNER"
+],
+"points": 525,
+"team": "UEX",
+"nat": "Austria",
+"flag": "at",
+"age": 33
+},
+{
+"rank": 177,
+"name": "Pierre Gautherat",
+"first": "Pierre",
+"last": [
+"GAUTHERAT"
+],
+"points": 525,
+"team": "DCT",
+"nat": "France",
+"flag": "fr",
+"age": 23
+},
+{
+"rank": 178,
+"name": "Jarno Widar",
+"first": "Jarno",
+"last": [
+"WIDAR"
+],
+"points": 521,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 21
+},
+{
+"rank": 180,
+"name": "Matteo Moschetti",
+"first": "Matteo",
+"last": [
+"MOSCHETTI"
+],
+"points": 506,
+"team": "PQT",
+"nat": "Italy",
+"flag": "it",
+"age": 30
+},
+{
+"rank": 181,
+"name": "Jakob Omrzel",
+"first": "Jakob",
+"last": [
+"OMRZEL"
+],
+"points": 505,
+"team": "TBV",
+"nat": "Slovenia",
+"flag": "si",
+"age": 20
+},
+{
+"rank": 182,
+"name": "Tiesj Benoot",
+"first": "Tiesj",
+"last": [
+"BENOOT"
+],
+"points": 505,
+"team": "DCT",
+"nat": "Belgium",
+"flag": "be",
+"age": 32
+},
+{
+"rank": 183,
+"name": "Javier Romo Oliver",
+"first": "Javier",
+"last": [
+"ROMO",
+"OLIVER"
+],
+"points": 499,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 27
+},
+{
+"rank": 184,
+"name": "Sam Watson",
+"first": "Sam",
+"last": [
+"WATSON"
+],
+"points": 499,
+"team": "NCI",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 25
+},
+{
+"rank": 186,
+"name": "Gerben Thijssen",
+"first": "Gerben",
+"last": [
+"THIJSSEN"
+],
+"points": 498,
+"team": "APT",
+"nat": "Belgium",
+"flag": "be",
+"age": 28
+},
+{
+"rank": 187,
+"name": "Alexis Renard",
+"first": "Alexis",
+"last": [
+"RENARD"
+],
+"points": 497,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 27
+},
+{
+"rank": 188,
+"name": "Damiano Caruso",
+"first": "Damiano",
+"last": [
+"CARUSO"
+],
+"points": 497,
+"team": "TBV",
+"nat": "Italy",
+"flag": "it",
+"age": 39
+},
+{
+"rank": 189,
+"name": "Cristian Rodriguez Martin",
+"first": "Cristian",
+"last": [
+"RODRIGUEZ",
+"MARTIN"
+],
+"points": 490,
+"team": "XAT",
+"nat": "Spain",
+"flag": "es",
+"age": 31
+},
+{
+"rank": 190,
+"name": "Rick Pluimers",
+"first": "Rick",
+"last": [
+"PLUIMERS"
+],
+"points": 489,
+"team": "TUD",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 26
+},
+{
+"rank": 192,
+"name": "Pascal Ackermann",
+"first": "Pascal",
+"last": [
+"ACKERMANN"
+],
+"points": 485,
+"team": "JAY",
+"nat": "Germany",
+"flag": "de",
+"age": 32
+},
+{
+"rank": 193,
+"name": "Arne Marit",
+"first": "Arne",
+"last": [
+"MARIT"
+],
+"points": 484,
+"team": "RBH",
+"nat": "Belgium",
+"flag": "be",
+"age": 27
+},
+{
+"rank": 195,
+"name": "Simone Gualdi",
+"first": "Simone",
+"last": [
+"GUALDI"
+],
+"points": 479,
+"team": "LOI",
+"nat": "Italy",
+"flag": "it",
+"age": 21
+},
+{
+"rank": 196,
+"name": "Jenthe Biermans",
+"first": "Jenthe",
+"last": [
+"BIERMANS"
+],
+"points": 478,
+"team": "COF",
+"nat": "Belgium",
+"flag": "be",
+"age": 31
+},
+{
+"rank": 197,
+"name": "Kevin Vermaerke",
+"first": "Kevin",
+"last": [
+"VERMAERKE"
+],
+"points": 477,
+"team": "UEX",
+"nat": "United States",
+"flag": "us",
+"age": 26
+},
+{
+"rank": 198,
+"name": "Stan Dewulf",
+"first": "Stan",
+"last": [
+"DEWULF"
+],
+"points": 475,
+"team": "DCT",
+"nat": "Belgium",
+"flag": "be",
+"age": 29
+},
+{
+"rank": 200,
+"name": "Rasmus Tiller",
+"first": "Rasmus",
+"last": [
+"TILLER"
+],
+"points": 471,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 30
+},
+{
+"rank": 201,
+"name": "Maxim Van Gils",
+"first": "Maxim",
+"last": [
+"VAN",
+"GILS"
+],
+"points": 469,
+"team": "RBH",
+"nat": "Belgium",
+"flag": "be",
+"age": 27
+},
+{
+"rank": 202,
+"name": "Nicolas Prodhomme",
+"first": "Nicolas",
+"last": [
+"PRODHOMME"
+],
+"points": 468,
+"team": "DCT",
+"nat": "France",
+"flag": "fr",
+"age": 29
+},
+{
+"rank": 203,
+"name": "Matys Grisel",
+"first": "Matys",
+"last": [
+"GRISEL"
+],
+"points": 466,
+"team": "LOI",
+"nat": "France",
+"flag": "fr",
+"age": 21
+},
+{
+"rank": 205,
+"name": "Jason Tesson",
+"first": "Jason",
+"last": [
+"TESSON"
+],
+"points": 458,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 28
+},
+{
+"rank": 206,
+"name": "Andrea Bagioli",
+"first": "Andrea",
+"last": [
+"BAGIOLI"
+],
+"points": 457,
+"team": "LTK",
+"nat": "Italy",
+"flag": "it",
+"age": 27
+},
+{
+"rank": 207,
+"name": "Fredrik Dversnes",
+"first": "Fredrik",
+"last": [
+"DVERSNES"
+],
+"points": 457,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 29
+},
+{
+"rank": 208,
+"name": "Raul Garcia Pierna",
+"first": "Raul",
+"last": [
+"GARCIA",
+"PIERNA"
+],
+"points": 454,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 25
+},
+{
+"rank": 209,
+"name": "Marco Brenner",
+"first": "Marco",
+"last": [
+"BRENNER"
+],
+"points": 453,
+"team": "TUD",
+"nat": "Germany",
+"flag": "de",
+"age": 24
+},
+{
+"rank": 210,
+"name": "Milan Menten",
+"first": "Milan",
+"last": [
+"MENTEN"
+],
+"points": 450,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 30
+},
+{
+"rank": 211,
+"name": "Kaden Alexander Groves",
+"first": "Kaden",
+"last": [
+"GROVES"
+],
+"points": 447,
+"team": "APT",
+"nat": "Australia",
+"flag": "au",
+"age": 28
+},
+{
+"rank": 212,
+"name": "Frits Biesterbos",
+"first": "Frits",
+"last": [
+"BIESTERBOS"
+],
+"points": 446,
+"team": "TPP",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 24
+},
+{
+"rank": 213,
+"name": "Sam Welsford",
+"first": "Sam",
+"last": [
+"WELSFORD"
+],
+"points": 440,
+"team": "NCI",
+"nat": "Australia",
+"flag": "au",
+"age": 30
+},
+{
+"rank": 214,
+"name": "Harrison Sweeny",
+"first": "Harrison",
+"last": [
+"SWEENY"
+],
+"points": 436,
+"team": "EFE",
+"nat": "Australia",
+"flag": "au",
+"age": 28
+},
+{
+"rank": 216,
+"name": "Felix Engelhardt",
+"first": "Felix",
+"last": [
+"ENGELHARDT"
+],
+"points": 433,
+"team": "JAY",
+"nat": "Germany",
+"flag": "de",
+"age": 26
+},
+{
+"rank": 218,
+"name": "Lorenzo Milesi",
+"first": "Lorenzo",
+"last": [
+"MILESI"
+],
+"points": 431,
+"team": "MOV",
+"nat": "Italy",
+"flag": "it",
+"age": 24
+},
+{
+"rank": 219,
+"name": "Alessandro Pinarello",
+"first": "Alessandro",
+"last": [
+"PINARELLO"
+],
+"points": 430,
+"team": "NSN",
+"nat": "Italy",
+"flag": "it",
+"age": 23
+},
+{
+"rank": 222,
+"name": "Mauri Vansevenant",
+"first": "Mauri",
+"last": [
+"VANSEVENANT"
+],
+"points": 428,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 27
+},
+{
+"rank": 223,
+"name": "Antoine L'Hote",
+"first": "Antoine",
+"last": [
+"L'HOTE"
+],
+"points": 426,
+"team": "DCT",
+"nat": "France",
+"flag": "fr",
+"age": 21
+},
+{
+"rank": 224,
+"name": "Phil Bauhaus",
+"first": "Phil",
+"last": [
+"BAUHAUS"
+],
+"points": 418,
+"team": "TBV",
+"nat": "Germany",
+"flag": "de",
+"age": 32
+},
+{
+"rank": 225,
+"name": "Tobias Svendsen Foss",
+"first": "Tobias",
+"last": [
+"FOSS"
+],
+"points": 413,
+"team": "NCI",
+"nat": "Norway",
+"flag": "no",
+"age": 29
+},
+{
+"rank": 226,
+"name": "Luke Lamperti",
+"first": "Luke",
+"last": [
+"LAMPERTI"
+],
+"points": 412,
+"team": "EFE",
+"nat": "United States",
+"flag": "us",
+"age": 24
+},
+{
+"rank": 227,
+"name": "Axel Huens",
+"first": "Axel",
+"last": [
+"HUENS"
+],
+"points": 410,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 25
+},
+{
+"rank": 229,
+"name": "Einer Augusto Rubio Reyes",
+"first": "Einer",
+"last": [
+"RUBIO",
+"REYES"
+],
+"points": 409,
+"team": "MOV",
+"nat": "Colombia",
+"flag": "co",
+"age": 28
+},
+{
+"rank": 230,
+"name": "Noa Isidore",
+"first": "Noa",
+"last": [
+"ISIDORE"
+],
+"points": 406,
+"team": "DCT",
+"nat": "France",
+"flag": "fr",
+"age": 22
+},
+{
+"rank": 231,
+"name": "Benjamin Thomas",
+"first": "Benjamin",
+"last": [
+"THOMAS"
+],
+"points": 405,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 31
+},
+{
+"rank": 232,
+"name": "Artem Shmidt",
+"first": "Artem",
+"last": [
+"SHMIDT"
+],
+"points": 405,
+"team": "NCI",
+"nat": "United States",
+"flag": "us",
+"age": 22
+},
+{
+"rank": 235,
+"name": "David Gaudu",
+"first": "David",
+"last": [
+"GAUDU"
+],
+"points": 403,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 30
+},
+{
+"rank": 236,
+"name": "Fernando Barcelo Aragon",
+"first": "Fernando",
+"last": [
+"BARCELO",
+"ARAGON"
+],
+"points": 400,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 30
+},
+{
+"rank": 237,
+"name": "Anders Halland Johannessen",
+"first": "Anders",
+"last": [
+"JOHANNESSEN"
+],
+"points": 399,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 27
+},
+{
+"rank": 238,
+"name": "Gianmarco Garofoli",
+"first": "Gianmarco",
+"last": [
+"GAROFOLI"
+],
+"points": 399,
+"team": "SOQ",
+"nat": "Italy",
+"flag": "it",
+"age": 24
+},
+{
+"rank": 239,
+"name": "Maxime Decomble",
+"first": "Maxime",
+"last": [
+"DECOMBLE"
+],
+"points": 398,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 21
+},
+{
+"rank": 241,
+"name": "Aurélien Paret Peintre",
+"first": "Aurélien",
+"last": [
+"PARET",
+"PEINTRE"
+],
+"points": 398,
+"team": "DCT",
+"nat": "France",
+"flag": "fr",
+"age": 30
+},
+{
+"rank": 242,
+"name": "Christopher Harper",
+"first": "Christopher",
+"last": [
+"HARPER"
+],
+"points": 397,
+"team": "PQT",
+"nat": "Australia",
+"flag": "au",
+"age": 32
+},
+{
+"rank": 243,
+"name": "Pau Miquel Delgado",
+"first": "Pau",
+"last": [
+"MIQUEL",
+"DELGADO"
+],
+"points": 396,
+"team": "TBV",
+"nat": "Spain",
+"flag": "es",
+"age": 26
+},
+{
+"rank": 244,
+"name": "Maximilian Richard Walscheid",
+"first": "Maximilian",
+"last": [
+"WALSCHEID"
+],
+"points": 396,
+"team": "LTK",
+"nat": "Germany",
+"flag": "de",
+"age": 33
+},
+{
+"rank": 245,
+"name": "David De La Cruz Melgarejo",
+"first": "David",
+"last": [
+"DE",
+"LA",
+"CRUZ",
+"MELGAREJO"
+],
+"points": 393,
+"team": "PQT",
+"nat": "Spain",
+"flag": "es",
+"age": 37
+},
+{
+"rank": 246,
+"name": "Ivo Oliveira",
+"first": "Ivo",
+"last": [
+"OLIVEIRA"
+],
+"points": 393,
+"team": "UEX",
+"nat": "Portugal",
+"flag": "pt",
+"age": 30
+},
+{
+"rank": 247,
+"name": "Lennert Van Eetvelt",
+"first": "Lennert",
+"last": [
+"VAN",
+"EETVELT"
+],
+"points": 393,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 25
+},
+{
+"rank": 248,
+"name": "Fabio Christen",
+"first": "Fabio",
+"last": [
+"CHRISTEN"
+],
+"points": 392,
+"team": "PQT",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 24
+},
+{
+"rank": 249,
+"name": "Joris Delbove",
+"first": "Joris",
+"last": [
+"DELBOVE"
+],
+"points": 392,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 26
+},
+{
+"rank": 250,
+"name": "Guillaume Martin Guyonnet",
+"first": "Guillaume",
+"last": [
+"MARTIN",
+"GUYONNET"
+],
+"points": 392,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 33
+},
+{
+"rank": 251,
+"name": "Jefferson Cepeda",
+"first": "Jefferson",
+"last": [
+"CEPEDA"
+],
+"points": 391,
+"team": "MOV",
+"nat": "Ecuador",
+"flag": "ec",
+"age": 30
+},
+{
+"rank": 252,
+"name": "Mikkel Honoré",
+"first": "Mikkel",
+"last": [
+"HONORÉ"
+],
+"points": 388,
+"team": "EFE",
+"nat": "Denmark",
+"flag": "dk",
+"age": 29
+},
+{
+"rank": 253,
+"name": "Florian Stork",
+"first": "Florian",
+"last": [
+"STORK"
+],
+"points": 386,
+"team": "TUD",
+"nat": "Germany",
+"flag": "de",
+"age": 29
+},
+{
+"rank": 256,
+"name": "Haimar Etxeberria Ansalas",
+"first": "Haimar",
+"last": [
+"ETXEBERRIA",
+"ANSALAS"
+],
+"points": 383,
+"team": "RBH",
+"nat": "Spain",
+"flag": "es",
+"age": 23
+},
+{
+"rank": 257,
+"name": "Nils Politt",
+"first": "Nils",
+"last": [
+"POLITT"
+],
+"points": 383,
+"team": "UEX",
+"nat": "Germany",
+"flag": "de",
+"age": 32
+},
+{
+"rank": 259,
+"name": "Pablo Castrillo Zapater",
+"first": "Pablo",
+"last": [
+"CASTRILLO",
+"ZAPATER"
+],
+"points": 375,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 25
+},
+{
+"rank": 261,
+"name": "Clément Braz Afonso",
+"first": "Clément",
+"last": [
+"BRAZ",
+"AFONSO"
+],
+"points": 372,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 27
+},
+{
+"rank": 263,
+"name": "Mick Van Dijke",
+"first": "Mick",
+"last": [
+"VAN",
+"DIJKE"
+],
+"points": 369,
+"team": "RBH",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 26
+},
+{
+"rank": 264,
+"name": "Tord Gudmestad",
+"first": "Tord",
+"last": [
+"GUDMESTAD"
+],
+"points": 367,
+"team": "DCT",
+"nat": "Norway",
+"flag": "no",
+"age": 25
+},
+{
+"rank": 265,
+"name": "Søren Kragh Andersen",
+"first": "Søren",
+"last": [
+"KRAGH",
+"ANDERSEN"
+],
+"points": 365,
+"team": "LTK",
+"nat": "Denmark",
+"flag": "dk",
+"age": 32
+},
+{
+"rank": 266,
+"name": "Robert Donaldson",
+"first": "Robert",
+"last": [
+"DONALDSON"
+],
+"points": 360,
+"team": "JAY",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 24
+},
+{
+"rank": 267,
+"name": "Oded Kogut",
+"first": "Oded",
+"last": [
+"KOGUT"
+],
+"points": 359,
+"team": "NSN",
+"nat": "Israel",
+"flag": "il",
+"age": 25
+},
+{
+"rank": 271,
+"name": "Valentin Madouas",
+"first": "Valentin",
+"last": [
+"MADOUAS"
+],
+"points": 355,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 30
+},
+{
+"rank": 272,
+"name": "Magnus Sheffield",
+"first": "Magnus",
+"last": [
+"SHEFFIELD"
+],
+"points": 352,
+"team": "NCI",
+"nat": "United States",
+"flag": "us",
+"age": 24
+},
+{
+"rank": 273,
+"name": "Victor Campenaerts",
+"first": "Victor",
+"last": [
+"CAMPENAERTS"
+],
+"points": 350,
+"team": "TVL",
+"nat": "Belgium",
+"flag": "be",
+"age": 35
+},
+{
+"rank": 274,
+"name": "Francesco Busatto",
+"first": "Francesco",
+"last": [
+"BUSATTO"
+],
+"points": 350,
+"team": "APT",
+"nat": "Italy",
+"flag": "it",
+"age": 24
+},
+{
+"rank": 276,
+"name": "Filippo Fiorelli",
+"first": "Filippo",
+"last": [
+"FIORELLI"
+],
+"points": 349,
+"team": "TVL",
+"nat": "Italy",
+"flag": "it",
+"age": 32
+},
+{
+"rank": 278,
+"name": "Bart Lemmen",
+"first": "Bart",
+"last": [
+"LEMMEN"
+],
+"points": 346,
+"team": "TVL",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 31
+},
+{
+"rank": 279,
+"name": "Rudy Molard",
+"first": "Rudy",
+"last": [
+"MOLARD"
+],
+"points": 346,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 37
+},
+{
+"rank": 280,
+"name": "Markel Beloki Fernandez",
+"first": "Markel",
+"last": [
+"BELOKI",
+"FERNANDEZ"
+],
+"points": 343,
+"team": "EFE",
+"nat": "Spain",
+"flag": "es",
+"age": 21
+},
+{
+"rank": 281,
+"name": "Adria Pericas Capdevila",
+"first": "Adria",
+"last": [
+"PERICAS",
+"CAPDEVILA"
+],
+"points": 341,
+"team": "UEX",
+"nat": "Spain",
+"flag": "es",
+"age": 20
+},
+{
+"rank": 284,
+"name": "Brieuc Rolland",
+"first": "Brieuc",
+"last": [
+"ROLLAND"
+],
+"points": 338,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 23
+},
+{
+"rank": 285,
+"name": "Fernando Gaviria Rendon",
+"first": "Fernando",
+"last": [
+"GAVIRIA",
+"RENDON"
+],
+"points": 338,
+"team": "CJR",
+"nat": "Colombia",
+"flag": "co",
+"age": 32
+},
+{
+"rank": 287,
+"name": "Nairo Quintana",
+"first": "Nairo",
+"last": [
+"QUINTANA"
+],
+"points": 336,
+"team": "MOV",
+"nat": "Colombia",
+"flag": "co",
+"age": 36
+},
+{
+"rank": 288,
+"name": "Pau Marti Soriano",
+"first": "Pau",
+"last": [
+"MARTI",
+"SORIANO"
+],
+"points": 336,
+"team": "NSN",
+"nat": "Spain",
+"flag": "es",
+"age": 22
+},
+{
+"rank": 290,
+"name": "Alex Molenaar",
+"first": "Alex",
+"last": [
+"MOLENAAR"
+],
+"points": 334,
+"team": "CJR",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 27
+},
+{
+"rank": 291,
+"name": "Harold Martin Lopez Granizo",
+"first": "Harold",
+"last": [
+"LOPEZ",
+"GRANIZO"
+],
+"points": 334,
+"team": "XAT",
+"nat": "Ecuador",
+"flag": "ec",
+"age": 26
+},
+{
+"rank": 292,
+"name": "Erlend Blikra",
+"first": "Erlend",
+"last": [
+"BLIKRA"
+],
+"points": 334,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 29
+},
+{
+"rank": 293,
+"name": "Eduard Prades Reverter",
+"first": "Eduard",
+"last": [
+"PRADES",
+"REVERTER"
+],
+"points": 333,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 39
+},
+{
+"rank": 294,
+"name": "Kim Alexander Heiduk",
+"first": "Kim",
+"last": [
+"HEIDUK"
+],
+"points": 333,
+"team": "NCI",
+"nat": "Germany",
+"flag": "de",
+"age": 26
+},
+{
+"rank": 295,
+"name": "Ivan Garcia Cortina",
+"first": "Ivan",
+"last": [
+"GARCIA",
+"CORTINA"
+],
+"points": 330,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 31
+},
+{
+"rank": 296,
+"name": "Louis Barre",
+"first": "Louis",
+"last": [
+"BARRE"
+],
+"points": 328,
+"team": "TVL",
+"nat": "France",
+"flag": "fr",
+"age": 26
+},
+{
+"rank": 297,
+"name": "Brent Van Moer",
+"first": "Brent",
+"last": [
+"VAN",
+"MOER"
+],
+"points": 327,
+"team": "PQT",
+"nat": "Belgium",
+"flag": "be",
+"age": 28
+},
+{
+"rank": 298,
+"name": "Stefan Bissegger",
+"first": "Stefan",
+"last": [
+"BISSEGGER"
+],
+"points": 327,
+"team": "DCT",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 28
+},
+{
+"rank": 299,
+"name": "Diego Pescador Castro",
+"first": "Diego",
+"last": [
+"PESCADOR",
+"CASTRO"
+],
+"points": 324,
+"team": "MOV",
+"nat": "Colombia",
+"flag": "co",
+"age": 22
+},
+{
+"rank": 300,
+"name": "Enric Mas Nicolau",
+"first": "Enric",
+"last": [
+"MAS",
+"NICOLAU"
+],
+"points": 323,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 31
+},
+{
+"rank": 302,
+"name": "Jensen Plowright",
+"first": "Jensen",
+"last": [
+"PLOWRIGHT"
+],
+"points": 323,
+"team": "APT",
+"nat": "Australia",
+"flag": "au",
+"age": 26
+},
+{
+"rank": 303,
+"name": "Marius Mayrhofer",
+"first": "Marius",
+"last": [
+"MAYRHOFER"
+],
+"points": 322,
+"team": "TUD",
+"nat": "Germany",
+"flag": "de",
+"age": 26
+},
+{
+"rank": 304,
+"name": "Anton Schiffer",
+"first": "Anton",
+"last": [
+"SCHIFFER"
+],
+"points": 320,
+"team": "TVL",
+"nat": "Germany",
+"flag": "de",
+"age": 27
+},
+{
+"rank": 307,
+"name": "Laurenz Rex",
+"first": "Laurenz",
+"last": [
+"REX"
+],
+"points": 314,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 27
+},
+{
+"rank": 308,
+"name": "Arvid De Kleijn",
+"first": "Arvid",
+"last": [
+"DE",
+"KLEIJN"
+],
+"points": 313,
+"team": "TUD",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 32
+},
+{
+"rank": 309,
+"name": "Toon Aerts",
+"first": "Toon",
+"last": [
+"AERTS"
+],
+"points": 313,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 33
+},
+{
+"rank": 310,
+"name": "Finn Fisher-Black",
+"first": "Finn",
+"last": [
+"FISHER-BLACK"
+],
+"points": 312,
+"team": "RBH",
+"nat": "New Zealand",
+"flag": "nz",
+"age": 25
+},
+{
+"rank": 314,
+"name": "Ramses Debruyne",
+"first": "Ramses",
+"last": [
+"DEBRUYNE"
+],
+"points": 307,
+"team": "APT",
+"nat": "Belgium",
+"flag": "be",
+"age": 24
+},
+{
+"rank": 315,
+"name": "Roger Adria Oliveras",
+"first": "Roger",
+"last": [
+"ADRIA",
+"OLIVERAS"
+],
+"points": 306,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 28
+},
+{
+"rank": 316,
+"name": "Hugo Hofstetter",
+"first": "Hugo",
+"last": [
+"HOFSTETTER"
+],
+"points": 306,
+"team": "NSN",
+"nat": "France",
+"flag": "fr",
+"age": 32
+},
+{
+"rank": 317,
+"name": "Andrew August",
+"first": "Andrew",
+"last": [
+"AUGUST"
+],
+"points": 306,
+"team": "NCI",
+"nat": "United States",
+"flag": "us",
+"age": 21
+},
+{
+"rank": 318,
+"name": "Martin Tjøtta",
+"first": "Martin",
+"last": [
+"TJØTTA"
+],
+"points": 306,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 25
+},
+{
+"rank": 320,
+"name": "Frank Van Den Broek",
+"first": "Frank",
+"last": [
+"VAN",
+"DEN",
+"BROEK"
+],
+"points": 303,
+"team": "TPP",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 26
+},
+{
+"rank": 321,
+"name": "Stefan Küng",
+"first": "Stefan",
+"last": [
+"KÜNG"
+],
+"points": 302,
+"team": "TUD",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 33
+},
+{
+"rank": 323,
+"name": "Dries De Bondt",
+"first": "Dries",
+"last": [
+"DE",
+"BONDT"
+],
+"points": 300,
+"team": "JAY",
+"nat": "Belgium",
+"flag": "be",
+"age": 35
+},
+{
+"rank": 324,
+"name": "Sakarias Koller Løland",
+"first": "Sakarias",
+"last": [
+"LØLAND"
+],
+"points": 300,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 25
+},
+{
+"rank": 327,
+"name": "Liam Slock",
+"first": "Liam",
+"last": [
+"SLOCK"
+],
+"points": 296,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 26
+},
+{
+"rank": 329,
+"name": "Carlos Rodriguez Cano",
+"first": "Carlos",
+"last": [
+"RODRIGUEZ",
+"CANO"
+],
+"points": 295,
+"team": "NCI",
+"nat": "Spain",
+"flag": "es",
+"age": 25
+},
+{
+"rank": 331,
+"name": "Victor Langellotti",
+"first": "Victor",
+"last": [
+"LANGELLOTTI"
+],
+"points": 294,
+"team": "NCI",
+"nat": "Monaco",
+"flag": "mc",
+"age": 31
+},
+{
+"rank": 333,
+"name": "Jose Felix Parra Cuerda",
+"first": "Jose",
+"last": [
+"PARRA",
+"CUERDA"
+],
+"points": 293,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 29
+},
+{
+"rank": 335,
+"name": "Clément Berthet",
+"first": "Clément",
+"last": [
+"BERTHET"
+],
+"points": 291,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 29
+},
+{
+"rank": 336,
+"name": "Xandro Meurisse",
+"first": "Xandro",
+"last": [
+"MEURISSE"
+],
+"points": 291,
+"team": "PQT",
+"nat": "Belgium",
+"flag": "be",
+"age": 34
+},
+{
+"rank": 338,
+"name": "Jamie Meehan",
+"first": "Jamie",
+"last": [
+"MEEHAN"
+],
+"points": 282,
+"team": "COF",
+"nat": "Ireland",
+"flag": "ie",
+"age": 23
+},
+{
+"rank": 339,
+"name": "Abel Balderstone Roumens",
+"first": "Abel",
+"last": [
+"BALDERSTONE",
+"ROUMENS"
+],
+"points": 281,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 26
+},
+{
+"rank": 341,
+"name": "Juan Sebastian Molano Benavides",
+"first": "Juan",
+"last": [
+"MOLANO",
+"BENAVIDES"
+],
+"points": 279,
+"team": "UEX",
+"nat": "Colombia",
+"flag": "co",
+"age": 32
+},
+{
+"rank": 342,
+"name": "Rémi Cavagna",
+"first": "Rémi",
+"last": [
+"CAVAGNA"
+],
+"points": 278,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 31
+},
+{
+"rank": 345,
+"name": "Nicolas Breuillard",
+"first": "Nicolas",
+"last": [
+"BREUILLARD"
+],
+"points": 277,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 26
+},
+{
+"rank": 347,
+"name": "Alberto Dainese",
+"first": "Alberto",
+"last": [
+"DAINESE"
+],
+"points": 275,
+"team": "SOQ",
+"nat": "Italy",
+"flag": "it",
+"age": 28
+},
+{
+"rank": 349,
+"name": "Edward Dunbar",
+"first": "Edward",
+"last": [
+"DUNBAR"
+],
+"points": 273,
+"team": "PQT",
+"nat": "Ireland",
+"flag": "ie",
+"age": 30
+},
+{
+"rank": 351,
+"name": "Mikel Landa Meana",
+"first": "Mikel",
+"last": [
+"LANDA",
+"MEANA"
+],
+"points": 271,
+"team": "SOQ",
+"nat": "Spain",
+"flag": "es",
+"age": 37
+},
+{
+"rank": 355,
+"name": "Daan Hoole",
+"first": "Daan",
+"last": [
+"HOOLE"
+],
+"points": 265,
+"team": "DCT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 27
+},
+{
+"rank": 357,
+"name": "Matevž Govekar",
+"first": "Matevž",
+"last": [
+"GOVEKAR"
+],
+"points": 263,
+"team": "TBV",
+"nat": "Slovenia",
+"flag": "si",
+"age": 26
+},
+{
+"rank": 358,
+"name": "Mark Donovan",
+"first": "Mark",
+"last": [
+"DONOVAN"
+],
+"points": 260,
+"team": "PQT",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 27
+},
+{
+"rank": 360,
+"name": "Clement Izquierdo",
+"first": "Clement",
+"last": [
+"IZQUIERDO"
+],
+"points": 259,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 24
+},
+{
+"rank": 361,
+"name": "Haoyu Su",
+"first": "Haoyu",
+"last": [
+"SU"
+],
+"points": 258,
+"team": "XAT",
+"nat": "China",
+"flag": "cn",
+"age": 26
+},
+{
+"rank": 363,
+"name": "Embret Svestad-Bårdseng",
+"first": "Embret",
+"last": [
+"SVESTAD-BÅRDSENG"
+],
+"points": 258,
+"team": "NCI",
+"nat": "Norway",
+"flag": "no",
+"age": 24
+},
+{
+"rank": 364,
+"name": "Matteo Vercher",
+"first": "Matteo",
+"last": [
+"VERCHER"
+],
+"points": 258,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 25
+},
+{
+"rank": 365,
+"name": "Alexander Kamp",
+"first": "Alexander",
+"last": [
+"KAMP"
+],
+"points": 256,
+"team": "UXM",
+"nat": "Denmark",
+"flag": "dk",
+"age": 33
+},
+{
+"rank": 366,
+"name": "Jan Hirt",
+"first": "Jan",
+"last": [
+"HIRT"
+],
+"points": 256,
+"team": "NSN",
+"nat": "Czechia",
+"flag": "cz",
+"age": 35
+},
+{
+"rank": 367,
+"name": "Žak Eržen",
+"first": "Žak",
+"last": [
+"ERŽEN"
+],
+"points": 254,
+"team": "TBV",
+"nat": "Slovenia",
+"flag": "si",
+"age": 21
+},
+{
+"rank": 374,
+"name": "Giovanni Aleotti",
+"first": "Giovanni",
+"last": [
+"ALEOTTI"
+],
+"points": 249,
+"team": "RBH",
+"nat": "Italy",
+"flag": "it",
+"age": 27
+},
+{
+"rank": 381,
+"name": "Gregor Mühlberger",
+"first": "Gregor",
+"last": [
+"MÜHLBERGER"
+],
+"points": 242,
+"team": "DCT",
+"nat": "Austria",
+"flag": "at",
+"age": 32
+},
+{
+"rank": 382,
+"name": "George Bennett",
+"first": "George",
+"last": [
+"BENNETT"
+],
+"points": 240,
+"team": "NSN",
+"nat": "New Zealand",
+"flag": "nz",
+"age": 36
+},
+{
+"rank": 384,
+"name": "Alan Hatherly",
+"first": "Alan",
+"last": [
+"HATHERLY"
+],
+"points": 239,
+"team": "JAY",
+"nat": "South Africa",
+"flag": "za",
+"age": 30
+},
+{
+"rank": 386,
+"name": "Bauke Mollema",
+"first": "Bauke",
+"last": [
+"MOLLEMA"
+],
+"points": 238,
+"team": "LTK",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 40
+},
+{
+"rank": 387,
+"name": "Dylan Teuns",
+"first": "Dylan",
+"last": [
+"TEUNS"
+],
+"points": 238,
+"team": "COF",
+"nat": "Belgium",
+"flag": "be",
+"age": 34
+},
+{
+"rank": 389,
+"name": "Louis Vervaeke",
+"first": "Louis",
+"last": [
+"VERVAEKE"
+],
+"points": 237,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 33
+},
+{
+"rank": 390,
+"name": "Lukas Nerurkar",
+"first": "Lukas",
+"last": [
+"NERURKAR"
+],
+"points": 236,
+"team": "EFE",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 23
+},
+{
+"rank": 391,
+"name": "Marijn Van Den Berg",
+"first": "Marijn",
+"last": [
+"VAN",
+"DEN",
+"BERG"
+],
+"points": 236,
+"team": "EFE",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 27
+},
+{
+"rank": 394,
+"name": "Alessandro Covi",
+"first": "Alessandro",
+"last": [
+"COVI"
+],
+"points": 233,
+"team": "JAY",
+"nat": "Italy",
+"flag": "it",
+"age": 28
+},
+{
+"rank": 396,
+"name": "Vincenzo Albanese",
+"first": "Vincenzo",
+"last": [
+"ALBANESE"
+],
+"points": 231,
+"team": "EFE",
+"nat": "Italy",
+"flag": "it",
+"age": 30
+},
+{
+"rank": 397,
+"name": "Axel Zingle",
+"first": "Axel",
+"last": [
+"ZINGLE"
+],
+"points": 230,
+"team": "TVL",
+"nat": "France",
+"flag": "fr",
+"age": 28
+},
+{
+"rank": 400,
+"name": "Vito Braet",
+"first": "Vito",
+"last": [
+"BRAET"
+],
+"points": 226,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 26
+},
+{
+"rank": 401,
+"name": "Markus Hoelgaard",
+"first": "Markus",
+"last": [
+"HOELGAARD"
+],
+"points": 226,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 32
+},
+{
+"rank": 404,
+"name": "Iúri Leitão",
+"first": "Iúri",
+"last": [
+"LEITÃO"
+],
+"points": 224,
+"team": "CJR",
+"nat": "Portugal",
+"flag": "pt",
+"age": 28
+},
+{
+"rank": 405,
+"name": "Michael Shea Leonard",
+"first": "Michael",
+"last": [
+"LEONARD"
+],
+"points": 224,
+"team": "EFE",
+"nat": "Canada",
+"flag": "ca",
+"age": 22
+},
+{
+"rank": 406,
+"name": "Lawrence Warbasse",
+"first": "Lawrence",
+"last": [
+"WARBASSE"
+],
+"points": 224,
+"team": "TUD",
+"nat": "United States",
+"flag": "us",
+"age": 36
+},
+{
+"rank": 407,
+"name": "Pascal Eenkhoorn",
+"first": "Pascal",
+"last": [
+"EENKHOORN"
+],
+"points": 224,
+"team": "SOQ",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 29
+},
+{
+"rank": 408,
+"name": "Archie Ryan",
+"first": "Archie",
+"last": [
+"RYAN"
+],
+"points": 223,
+"team": "EFE",
+"nat": "Ireland",
+"flag": "ie",
+"age": 25
+},
+{
+"rank": 409,
+"name": "Tim Torn Teutenberg",
+"first": "Tim",
+"last": [
+"TEUTENBERG"
+],
+"points": 221,
+"team": "LTK",
+"nat": "Germany",
+"flag": "de",
+"age": 24
+},
+{
+"rank": 418,
+"name": "Joshua Tarling",
+"first": "Joshua",
+"last": [
+"TARLING"
+],
+"points": 214,
+"team": "NCI",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 22
+},
+{
+"rank": 423,
+"name": "Floris Van Tricht",
+"first": "Floris",
+"last": [
+"VAN",
+"TRICHT"
+],
+"points": 209,
+"team": "NSN",
+"nat": "Belgium",
+"flag": "be",
+"age": 25
+},
+{
+"rank": 424,
+"name": "Adrien Boichis",
+"first": "Adrien",
+"last": [
+"BOICHIS"
+],
+"points": 209,
+"team": "RBH",
+"nat": "France",
+"flag": "fr",
+"age": 23
+},
+{
+"rank": 425,
+"name": "Sam Maisonobe",
+"first": "Sam",
+"last": [
+"MAISONOBE"
+],
+"points": 209,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 23
+},
+{
+"rank": 426,
+"name": "Marco Schrettl",
+"first": "Marco",
+"last": [
+"SCHRETTL"
+],
+"points": 208,
+"team": "XAT",
+"nat": "Austria",
+"flag": "at",
+"age": 23
+},
+{
+"rank": 427,
+"name": "Jordan Labrosse",
+"first": "Jordan",
+"last": [
+"LABROSSE"
+],
+"points": 208,
+"team": "DCT",
+"nat": "France",
+"flag": "fr",
+"age": 24
+},
+{
+"rank": 429,
+"name": "Finlay Xavier Pickering",
+"first": "Finlay",
+"last": [
+"PICKERING"
+],
+"points": 206,
+"team": "JAY",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 23
+},
+{
+"rank": 430,
+"name": "Alessandro Borgo",
+"first": "Alessandro",
+"last": [
+"BORGO"
+],
+"points": 206,
+"team": "TBV",
+"nat": "Italy",
+"flag": "it",
+"age": 21
+},
+{
+"rank": 434,
+"name": "Noah Hobbs",
+"first": "Noah",
+"last": [
+"HOBBS"
+],
+"points": 205,
+"team": "EFE",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 22
+},
+{
+"rank": 435,
+"name": "Sylvain Moniquet",
+"first": "Sylvain",
+"last": [
+"MONIQUET"
+],
+"points": 205,
+"team": "COF",
+"nat": "Belgium",
+"flag": "be",
+"age": 28
+},
+{
+"rank": 436,
+"name": "Cees Bol",
+"first": "Cees",
+"last": [
+"BOL"
+],
+"points": 204,
+"team": "DCT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 31
+},
+{
+"rank": 438,
+"name": "Jan Castellon Ribalta",
+"first": "Jan",
+"last": [
+"CASTELLON",
+"RIBALTA"
+],
+"points": 204,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 23
+},
+{
+"rank": 445,
+"name": "Ethan Hayter",
+"first": "Ethan",
+"last": [
+"HAYTER"
+],
+"points": 200,
+"team": "SOQ",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 28
+},
+{
+"rank": 446,
+"name": "Stefano Oldani",
+"first": "Stefano",
+"last": [
+"OLDANI"
+],
+"points": 200,
+"team": "CJR",
+"nat": "Italy",
+"flag": "it",
+"age": 28
+},
+{
+"rank": 450,
+"name": "Davide Toneatti",
+"first": "Davide",
+"last": [
+"TONEATTI"
+],
+"points": 198,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 25
+},
+{
+"rank": 451,
+"name": "Gal Glivar",
+"first": "Gal",
+"last": [
+"GLIVAR"
+],
+"points": 198,
+"team": "APT",
+"nat": "Slovenia",
+"flag": "si",
+"age": 24
+},
+{
+"rank": 452,
+"name": "Aaron Gate",
+"first": "Aaron",
+"last": [
+"GATE"
+],
+"points": 198,
+"team": "XAT",
+"nat": "New Zealand",
+"flag": "nz",
+"age": 36
+},
+{
+"rank": 453,
+"name": "Thomas Gloag",
+"first": "Thomas",
+"last": [
+"GLOAG"
+],
+"points": 196,
+"team": "PQT",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 25
+},
+{
+"rank": 454,
+"name": "Oliver Naesen",
+"first": "Oliver",
+"last": [
+"NAESEN"
+],
+"points": 195,
+"team": "DCT",
+"nat": "Belgium",
+"flag": "be",
+"age": 36
+},
+{
+"rank": 459,
+"name": "Kasper Asgreen",
+"first": "Kasper",
+"last": [
+"ASGREEN"
+],
+"points": 191,
+"team": "EFE",
+"nat": "Denmark",
+"flag": "dk",
+"age": 31
+},
+{
+"rank": 463,
+"name": "Jefferson Cepeda",
+"first": "Jefferson",
+"last": [
+"CEPEDA"
+],
+"points": 186,
+"team": "EFE",
+"nat": "Ecuador",
+"flag": "ec",
+"age": 28
+},
+{
+"rank": 464,
+"name": "Louis Rouland",
+"first": "Louis",
+"last": [
+"ROULAND"
+],
+"points": 185,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 24
+},
+{
+"rank": 465,
+"name": "Bjoern Koerdt",
+"first": "Bjoern",
+"last": [
+"KOERDT"
+],
+"points": 183,
+"team": "TPP",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 22
+},
+{
+"rank": 467,
+"name": "Carl-Frederik Bévort",
+"first": "Carl-Frederik",
+"last": [
+"BÉVORT"
+],
+"points": 182,
+"team": "UXM",
+"nat": "Denmark",
+"flag": "dk",
+"age": 23
+},
+{
+"rank": 468,
+"name": "Nadav Raisberg",
+"first": "Nadav",
+"last": [
+"RAISBERG"
+],
+"points": 182,
+"team": "NSN",
+"nat": "Israel",
+"flag": "il",
+"age": 25
+},
+{
+"rank": 469,
+"name": "David Gonzalez Lopez",
+"first": "David",
+"last": [
+"GONZALEZ",
+"LOPEZ"
+],
+"points": 181,
+"team": "PQT",
+"nat": "Spain",
+"flag": "es",
+"age": 30
+},
+{
+"rank": 475,
+"name": "Julien Bernard",
+"first": "Julien",
+"last": [
+"BERNARD"
+],
+"points": 177,
+"team": "LTK",
+"nat": "France",
+"flag": "fr",
+"age": 34
+},
+{
+"rank": 477,
+"name": "Henri Uhlig",
+"first": "Henri",
+"last": [
+"UHLIG"
+],
+"points": 177,
+"team": "APT",
+"nat": "Germany",
+"flag": "de",
+"age": 25
+},
+{
+"rank": 479,
+"name": "Francisco Joel Peñuela Sandoval",
+"first": "Francisco",
+"last": [
+"PEÑUELA",
+"SANDOVAL"
+],
+"points": 175,
+"team": "CJR",
+"nat": "Venezuela",
+"flag": "ve",
+"age": 25
+},
+{
+"rank": 481,
+"name": "Luca Van Boven",
+"first": "Luca",
+"last": [
+"VAN",
+"BOVEN"
+],
+"points": 174,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 26
+},
+{
+"rank": 482,
+"name": "Callum Thornley",
+"first": "Callum",
+"last": [
+"THORNLEY"
+],
+"points": 174,
+"team": "RBH",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 23
+},
+{
+"rank": 485,
+"name": "Edward Planckaert",
+"first": "Edward",
+"last": [
+"PLANCKAERT"
+],
+"points": 173,
+"team": "APT",
+"nat": "Belgium",
+"flag": "be",
+"age": 31
+},
+{
+"rank": 486,
+"name": "Samuel Fernandez Garcia",
+"first": "Samuel",
+"last": [
+"FERNANDEZ",
+"GARCIA"
+],
+"points": 172,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 23
+},
+{
+"rank": 491,
+"name": "Lennart Jasch",
+"first": "Lennart",
+"last": [
+"JASCH"
+],
+"points": 170,
+"team": "TUD",
+"nat": "Germany",
+"flag": "de",
+"age": 26
+},
+{
+"rank": 492,
+"name": "Bob Jungels",
+"first": "Bob",
+"last": [
+"JUNGELS"
+],
+"points": 170,
+"team": "NCI",
+"nat": "Luxembourg",
+"flag": "lu",
+"age": 34
+},
+{
+"rank": 497,
+"name": "Nico Denz",
+"first": "Nico",
+"last": [
+"DENZ"
+],
+"points": 167,
+"team": "RBH",
+"nat": "Germany",
+"flag": "de",
+"age": 32
+},
+{
+"rank": 498,
+"name": "Marcel Camprubi Pijuan",
+"first": "Marcel",
+"last": [
+"CAMPRUBI",
+"PIJUAN"
+],
+"points": 166,
+"team": "PQT",
+"nat": "Spain",
+"flag": "es",
+"age": 25
+},
+{
+"rank": 502,
+"name": "Steff Cras",
+"first": "Steff",
+"last": [
+"CRAS"
+],
+"points": 164,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 30
+},
+{
+"rank": 506,
+"name": "Casper Pedersen",
+"first": "Casper",
+"last": [
+"PEDERSEN"
+],
+"points": 162,
+"team": "SOQ",
+"nat": "Denmark",
+"flag": "dk",
+"age": 30
+},
+{
+"rank": 507,
+"name": "Tijmen Graat",
+"first": "Tijmen",
+"last": [
+"GRAAT"
+],
+"points": 162,
+"team": "TVL",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 23
+},
+{
+"rank": 511,
+"name": "Pablo Torres Arias",
+"first": "Pablo",
+"last": [
+"TORRES",
+"ARIAS"
+],
+"points": 160,
+"team": "UEX",
+"nat": "Spain",
+"flag": "es",
+"age": 21
+},
+{
+"rank": 514,
+"name": "Krists Neilands",
+"first": "Krists",
+"last": [
+"NEILANDS"
+],
+"points": 159,
+"team": "NSN",
+"nat": "Latvia",
+"flag": "lv",
+"age": 32
+},
+{
+"rank": 516,
+"name": "Filip Maciejuk",
+"first": "Filip",
+"last": [
+"MACIEJUK"
+],
+"points": 157,
+"team": "MOV",
+"nat": "Poland",
+"flag": "pl",
+"age": 27
+},
+{
+"rank": 518,
+"name": "Samuel Leroux",
+"first": "Samuel",
+"last": [
+"LEROUX"
+],
+"points": 156,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 32
+},
+{
+"rank": 519,
+"name": "Tom Donnenwirth",
+"first": "Tom",
+"last": [
+"DONNENWIRTH"
+],
+"points": 156,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 28
+},
+{
+"rank": 521,
+"name": "Wilco Kelderman",
+"first": "Wilco",
+"last": [
+"KELDERMAN"
+],
+"points": 155,
+"team": "TVL",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 35
+},
+{
+"rank": 523,
+"name": "William Barta",
+"first": "William",
+"last": [
+"BARTA"
+],
+"points": 155,
+"team": "TUD",
+"nat": "United States",
+"flag": "us",
+"age": 30
+},
+{
+"rank": 526,
+"name": "Mikkel Norsgaard Bjerg",
+"first": "Mikkel",
+"last": [
+"BJERG"
+],
+"points": 154,
+"team": "UEX",
+"nat": "Denmark",
+"flag": "dk",
+"age": 28
+},
+{
+"rank": 531,
+"name": "Moritz Kretschy",
+"first": "Moritz",
+"last": [
+"KRETSCHY"
+],
+"points": 151,
+"team": "NSN",
+"nat": "Germany",
+"flag": "de",
+"age": 24
+},
+{
+"rank": 532,
+"name": "Maximilian Schachmann",
+"first": "Maximilian",
+"last": [
+"SCHACHMANN"
+],
+"points": 151,
+"team": "SOQ",
+"nat": "Germany",
+"flag": "de",
+"age": 32
+},
+{
+"rank": 533,
+"name": "Nils Eekhoff",
+"first": "Nils",
+"last": [
+"EEKHOFF"
+],
+"points": 151,
+"team": "TPP",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 28
+},
+{
+"rank": 539,
+"name": "Marco Haller",
+"first": "Marco",
+"last": [
+"HALLER"
+],
+"points": 148,
+"team": "TUD",
+"nat": "Austria",
+"flag": "at",
+"age": 35
+},
+{
+"rank": 540,
+"name": "Joel Nicolau Beltran",
+"first": "Joel",
+"last": [
+"NICOLAU",
+"BELTRAN"
+],
+"points": 148,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 29
+},
+{
+"rank": 544,
+"name": "Rui Filipe Alves Oliveira",
+"first": "Rui",
+"last": [
+"ALVES",
+"OLIVEIRA"
+],
+"points": 146,
+"team": "UEX",
+"nat": "Portugal",
+"flag": "pt",
+"age": 30
+},
+{
+"rank": 545,
+"name": "Clément Russo",
+"first": "Clément",
+"last": [
+"RUSSO"
+],
+"points": 146,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 31
+},
+{
+"rank": 547,
+"name": "Juan Pedro Lopez Perez",
+"first": "Juan",
+"last": [
+"LOPEZ",
+"PEREZ"
+],
+"points": 145,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 29
+},
+{
+"rank": 548,
+"name": "Mathis Le Berre",
+"first": "Mathis",
+"last": [
+"LE",
+"BERRE"
+],
+"points": 145,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 25
+},
+{
+"rank": 550,
+"name": "Attila Valter",
+"first": "Attila",
+"last": [
+"VALTER"
+],
+"points": 144,
+"team": "TBV",
+"nat": "Hungary",
+"flag": "hu",
+"age": 28
+},
+{
+"rank": 551,
+"name": "Brandon Smith Rivera Vargas",
+"first": "Brandon",
+"last": [
+"RIVERA",
+"VARGAS"
+],
+"points": 144,
+"team": "NCI",
+"nat": "Colombia",
+"flag": "co",
+"age": 30
+},
+{
+"rank": 555,
+"name": "Lorenzo Germani",
+"first": "Lorenzo",
+"last": [
+"GERMANI"
+],
+"points": 143,
+"team": "GFC",
+"nat": "Italy",
+"flag": "it",
+"age": 24
+},
+{
+"rank": 556,
+"name": "Pierre Thierry",
+"first": "Pierre",
+"last": [
+"THIERRY"
+],
+"points": 143,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 23
+},
+{
+"rank": 559,
+"name": "Magnus Nielsen",
+"first": "Magnus",
+"last": [
+"NIELSEN"
+],
+"points": 141,
+"team": "UXM",
+"nat": "Denmark",
+"flag": "dk",
+"age": 33
+},
+{
+"rank": 561,
+"name": "Mathieu Kockelmann",
+"first": "Mathieu",
+"last": [
+"KOCKELMANN"
+],
+"points": 139,
+"team": "LOI",
+"nat": "Luxembourg",
+"flag": "lu",
+"age": 22
+},
+{
+"rank": 563,
+"name": "Itamar Einhorn",
+"first": "Itamar",
+"last": [
+"EINHORN"
+],
+"points": 139,
+"team": "NSN",
+"nat": "Israel",
+"flag": "il",
+"age": 29
+},
+{
+"rank": 564,
+"name": "Dylan Van Baarle",
+"first": "Dylan",
+"last": [
+"VAN",
+"BAARLE"
+],
+"points": 138,
+"team": "SOQ",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 34
+},
+{
+"rank": 567,
+"name": "Walter Calzoni",
+"first": "Walter",
+"last": [
+"CALZONI"
+],
+"points": 137,
+"team": "PQT",
+"nat": "Italy",
+"flag": "it",
+"age": 25
+},
+{
+"rank": 569,
+"name": "Sergi Darder Gari",
+"first": "Sergi",
+"last": [
+"DARDER",
+"GARI"
+],
+"points": 136,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 23
+},
+{
+"rank": 570,
+"name": "Arthur Kluckers",
+"first": "Arthur",
+"last": [
+"KLUCKERS"
+],
+"points": 135,
+"team": "TUD",
+"nat": "Luxembourg",
+"flag": "lu",
+"age": 26
+},
+{
+"rank": 571,
+"name": "Lennard Kämna",
+"first": "Lennard",
+"last": [
+"KÄMNA"
+],
+"points": 135,
+"team": "LTK",
+"nat": "Germany",
+"flag": "de",
+"age": 30
+},
+{
+"rank": 575,
+"name": "Timo Kielich",
+"first": "Timo",
+"last": [
+"KIELICH"
+],
+"points": 133,
+"team": "TVL",
+"nat": "Belgium",
+"flag": "be",
+"age": 27
+},
+{
+"rank": 576,
+"name": "Johannes Staune-Mittet",
+"first": "Johannes",
+"last": [
+"STAUNE-MITTET"
+],
+"points": 133,
+"team": "DCT",
+"nat": "Norway",
+"flag": "no",
+"age": 24
+},
+{
+"rank": 577,
+"name": "Amanuel Ghebreigzabhier",
+"first": "Amanuel",
+"last": [
+"GHEBREIGZABHIER"
+],
+"points": 133,
+"team": "LTK",
+"nat": "Eritrea",
+"flag": "er",
+"age": 32
+},
+{
+"rank": 578,
+"name": "Huub Artz",
+"first": "Huub",
+"last": [
+"ARTZ"
+],
+"points": 132,
+"team": "LOI",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 24
+},
+{
+"rank": 579,
+"name": "Sente Sentjens",
+"first": "Sente",
+"last": [
+"SENTJENS"
+],
+"points": 132,
+"team": "APT",
+"nat": "Belgium",
+"flag": "be",
+"age": 21
+},
+{
+"rank": 581,
+"name": "Davide De Pretto",
+"first": "Davide",
+"last": [
+"DE",
+"PRETTO"
+],
+"points": 132,
+"team": "JAY",
+"nat": "Italy",
+"flag": "it",
+"age": 24
+},
+{
+"rank": 582,
+"name": "Martin Svrček",
+"first": "Martin",
+"last": [
+"SVRČEK"
+],
+"points": 131,
+"team": "SOQ",
+"nat": "Slovakia",
+"flag": "sk",
+"age": 23
+},
+{
+"rank": 584,
+"name": "Senna Remijn",
+"first": "Senna",
+"last": [
+"REMIJN"
+],
+"points": 131,
+"team": "APT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 20
+},
+{
+"rank": 589,
+"name": "Mattia Gaffuri",
+"first": "Mattia",
+"last": [
+"GAFFURI"
+],
+"points": 130,
+"team": "TPP",
+"nat": "Italy",
+"flag": "it",
+"age": 27
+},
+{
+"rank": 590,
+"name": "Quentin Pacher",
+"first": "Quentin",
+"last": [
+"PACHER"
+],
+"points": 130,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 34
+},
+{
+"rank": 591,
+"name": "Matthias Schwarzbacher",
+"first": "Matthias",
+"last": [
+"SCHWARZBACHER"
+],
+"points": 130,
+"team": "EFE",
+"nat": "Slovakia",
+"flag": "sk",
+"age": 21
+},
+{
+"rank": 595,
+"name": "Valentin Ferron",
+"first": "Valentin",
+"last": [
+"FERRON"
+],
+"points": 129,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 28
+},
+{
+"rank": 596,
+"name": "Arjen Livyns",
+"first": "Arjen",
+"last": [
+"LIVYNS"
+],
+"points": 129,
+"team": "XAT",
+"nat": "Belgium",
+"flag": "be",
+"age": 32
+},
+{
+"rank": 597,
+"name": "Mattia Cattaneo",
+"first": "Mattia",
+"last": [
+"CATTANEO"
+],
+"points": 129,
+"team": "RBH",
+"nat": "Italy",
+"flag": "it",
+"age": 36
+},
+{
+"rank": 598,
+"name": "Jonathan Vervenne",
+"first": "Jonathan",
+"last": [
+"VERVENNE"
+],
+"points": 128,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 23
+},
+{
+"rank": 603,
+"name": "Rune Herregodts",
+"first": "Rune",
+"last": [
+"HERREGODTS"
+],
+"points": 128,
+"team": "UEX",
+"nat": "Belgium",
+"flag": "be",
+"age": 28
+},
+{
+"rank": 607,
+"name": "Dries Van Gestel",
+"first": "Dries",
+"last": [
+"VAN",
+"GESTEL"
+],
+"points": 127,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 32
+},
+{
+"rank": 615,
+"name": "Damien Howson",
+"first": "Damien",
+"last": [
+"HOWSON"
+],
+"points": 124,
+"team": "PQT",
+"nat": "Australia",
+"flag": "au",
+"age": 34
+},
+{
+"rank": 617,
+"name": "Vlad Van Mechelen",
+"first": "Vlad",
+"last": [
+"VAN",
+"MECHELEN"
+],
+"points": 124,
+"team": "TBV",
+"nat": "Belgium",
+"flag": "be",
+"age": 22
+},
+{
+"rank": 619,
+"name": "Ben Zwiehoff",
+"first": "Ben",
+"last": [
+"ZWIEHOFF"
+],
+"points": 124,
+"team": "RBH",
+"nat": "Germany",
+"flag": "de",
+"age": 32
+},
+{
+"rank": 620,
+"name": "Chris Hamilton",
+"first": "Chris",
+"last": [
+"HAMILTON"
+],
+"points": 124,
+"team": "TPP",
+"nat": "Australia",
+"flag": "au",
+"age": 31
+},
+{
+"rank": 621,
+"name": "Baptiste Vadic",
+"first": "Baptiste",
+"last": [
+"VADIC"
+],
+"points": 123,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 24
+},
+{
+"rank": 625,
+"name": "Simon Dehairs",
+"first": "Simon",
+"last": [
+"DEHAIRS"
+],
+"points": 123,
+"team": "APT",
+"nat": "Belgium",
+"flag": "be",
+"age": 25
+},
+{
+"rank": 626,
+"name": "Joshua Kench",
+"first": "Joshua",
+"last": [
+"KENCH"
+],
+"points": 123,
+"team": "GFC",
+"nat": "New Zealand",
+"flag": "nz",
+"age": 25
+},
+{
+"rank": 627,
+"name": "Jaume Guardeño Roma",
+"first": "Jaume",
+"last": [
+"GUARDEÑO",
+"ROMA"
+],
+"points": 122,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 23
+},
+{
+"rank": 628,
+"name": "Thomas Bonnet",
+"first": "Thomas",
+"last": [
+"BONNET"
+],
+"points": 122,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 28
+},
+{
+"rank": 629,
+"name": "Edoardo Affini",
+"first": "Edoardo",
+"last": [
+"AFFINI"
+],
+"points": 122,
+"team": "TVL",
+"nat": "Italy",
+"flag": "it",
+"age": 30
+},
+{
+"rank": 630,
+"name": "Rotem Tene",
+"first": "Rotem",
+"last": [
+"TENE"
+],
+"points": 122,
+"team": "NSN",
+"nat": "Israel",
+"flag": "il",
+"age": 25
+},
+{
+"rank": 638,
+"name": "Simon Carr",
+"first": "Simon",
+"last": [
+"CARR"
+],
+"points": 120,
+"team": "COF",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 28
+},
+{
+"rank": 641,
+"name": "Gorka Sorarrain Agirrezabala",
+"first": "Gorka",
+"last": [
+"SORARRAIN",
+"AGIRREZABALA"
+],
+"points": 120,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 30
+},
+{
+"rank": 643,
+"name": "Robin Donzé",
+"first": "Robin",
+"last": [
+"DONZÉ"
+],
+"points": 119,
+"team": "TUD",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 23
+},
+{
+"rank": 645,
+"name": "Ådne Holter",
+"first": "Ådne",
+"last": [
+"HOLTER"
+],
+"points": 119,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 26
+},
+{
+"rank": 646,
+"name": "Aivaras Mikutis",
+"first": "Aivaras",
+"last": [
+"MIKUTIS"
+],
+"points": 118,
+"team": "TUD",
+"nat": "Lithuania",
+"flag": "lt",
+"age": 24
+},
+{
+"rank": 650,
+"name": "Joseph Blackmore",
+"first": "Joseph",
+"last": [
+"BLACKMORE"
+],
+"points": 118,
+"team": "NSN",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 23
+},
+{
+"rank": 651,
+"name": "Sean Quinn",
+"first": "Sean",
+"last": [
+"QUINN"
+],
+"points": 118,
+"team": "EFE",
+"nat": "United States",
+"flag": "us",
+"age": 26
+},
+{
+"rank": 656,
+"name": "Hugo Houle",
+"first": "Hugo",
+"last": [
+"HOULE"
+],
+"points": 116,
+"team": "APT",
+"nat": "Canada",
+"flag": "ca",
+"age": 36
+},
+{
+"rank": 660,
+"name": "Matthew Fox",
+"first": "Matthew",
+"last": [
+"FOX"
+],
+"points": 115,
+"team": "LOI",
+"nat": "Australia",
+"flag": "au",
+"age": 24
+},
+{
+"rank": 662,
+"name": "Emils Liepins",
+"first": "Emils",
+"last": [
+"LIEPINS"
+],
+"points": 115,
+"team": "PQT",
+"nat": "Latvia",
+"flag": "lv",
+"age": 34
+},
+{
+"rank": 663,
+"name": "Stian Fredheim",
+"first": "Stian",
+"last": [
+"FREDHEIM"
+],
+"points": 115,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 23
+},
+{
+"rank": 669,
+"name": "Julius Johansen",
+"first": "Julius",
+"last": [
+"JOHANSEN"
+],
+"points": 114,
+"team": "UEX",
+"nat": "Denmark",
+"flag": "dk",
+"age": 27
+},
+{
+"rank": 670,
+"name": "Sam Oomen",
+"first": "Sam",
+"last": [
+"OOMEN"
+],
+"points": 114,
+"team": "LTK",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 31
+},
+{
+"rank": 671,
+"name": "Michal Kwiatkowski",
+"first": "Michal",
+"last": [
+"KWIATKOWSKI"
+],
+"points": 113,
+"team": "NCI",
+"nat": "Poland",
+"flag": "pl",
+"age": 36
+},
+{
+"rank": 673,
+"name": "Carlos Verona Quintanilla",
+"first": "Carlos",
+"last": [
+"VERONA",
+"QUINTANILLA"
+],
+"points": 112,
+"team": "LTK",
+"nat": "Spain",
+"flag": "es",
+"age": 34
+},
+{
+"rank": 679,
+"name": "Lars Craps",
+"first": "Lars",
+"last": [
+"CRAPS"
+],
+"points": 110,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 25
+},
+{
+"rank": 682,
+"name": "Filippo Conca",
+"first": "Filippo",
+"last": [
+"CONCA"
+],
+"points": 110,
+"team": "JAY",
+"nat": "Italy",
+"flag": "it",
+"age": 28
+},
+{
+"rank": 689,
+"name": "Kamil Małecki",
+"first": "Kamil",
+"last": [
+"MAŁECKI"
+],
+"points": 109,
+"team": "PQT",
+"nat": "Poland",
+"flag": "pl",
+"age": 30
+},
+{
+"rank": 690,
+"name": "Bastien Tronchon",
+"first": "Bastien",
+"last": [
+"TRONCHON"
+],
+"points": 109,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 24
+},
+{
+"rank": 692,
+"name": "Oscar Chamberlain",
+"first": "Oscar",
+"last": [
+"CHAMBERLAIN"
+],
+"points": 108,
+"team": "DCT",
+"nat": "Australia",
+"flag": "au",
+"age": 21
+},
+{
+"rank": 698,
+"name": "Rasmus Pedersen",
+"first": "Rasmus",
+"last": [
+"PEDERSEN"
+],
+"points": 108,
+"team": "DCT",
+"nat": "Denmark",
+"flag": "dk",
+"age": 24
+},
+{
+"rank": 701,
+"name": "Luca Vergallito",
+"first": "Luca",
+"last": [
+"VERGALLITO"
+],
+"points": 107,
+"team": "APT",
+"nat": "Italy",
+"flag": "it",
+"age": 29
+},
+{
+"rank": 702,
+"name": "Jake Stewart",
+"first": "Jake",
+"last": [
+"STEWART"
+],
+"points": 107,
+"team": "NSN",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 27
+},
+{
+"rank": 710,
+"name": "Maikel Zijlaard",
+"first": "Maikel",
+"last": [
+"ZIJLAARD"
+],
+"points": 105,
+"team": "TUD",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 27
+},
+{
+"rank": 711,
+"name": "Ben Swift",
+"first": "Ben",
+"last": [
+"SWIFT"
+],
+"points": 105,
+"team": "NCI",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 39
+},
+{
+"rank": 713,
+"name": "Pier-André Côté",
+"first": "Pier-André",
+"last": [
+"CÔTÉ"
+],
+"points": 105,
+"team": "NSN",
+"nat": "Canada",
+"flag": "ca",
+"age": 29
+},
+{
+"rank": 717,
+"name": "Mathieu Burgaudeau",
+"first": "Mathieu",
+"last": [
+"BURGAUDEAU"
+],
+"points": 104,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 28
+},
+{
+"rank": 718,
+"name": "Robin Froidevaux",
+"first": "Robin",
+"last": [
+"FROIDEVAUX"
+],
+"points": 104,
+"team": "TUD",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 28
+},
+{
+"rank": 728,
+"name": "Thibault Guernalec",
+"first": "Thibault",
+"last": [
+"GUERNALEC"
+],
+"points": 101,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 29
+},
+{
+"rank": 736,
+"name": "Warren Barguil",
+"first": "Warren",
+"last": [
+"BARGUIL"
+],
+"points": 101,
+"team": "TPP",
+"nat": "France",
+"flag": "fr",
+"age": 35
+},
+{
+"rank": 748,
+"name": "Jardi Christiaan Van Der Lee",
+"first": "Jardi",
+"last": [
+"VAN",
+"DER",
+"LEE"
+],
+"points": 99,
+"team": "EFE",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 25
+},
+{
+"rank": 750,
+"name": "Darren Rafferty",
+"first": "Darren",
+"last": [
+"RAFFERTY"
+],
+"points": 99,
+"team": "EFE",
+"nat": "Ireland",
+"flag": "ie",
+"age": 23
+},
+{
+"rank": 753,
+"name": "Henrik Pedersen",
+"first": "Henrik",
+"last": [
+"PEDERSEN"
+],
+"points": 98,
+"team": "UXM",
+"nat": "Denmark",
+"flag": "dk",
+"age": 22
+},
+{
+"rank": 754,
+"name": "James Shaw",
+"first": "James",
+"last": [
+"SHAW"
+],
+"points": 97,
+"team": "EFE",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 30
+},
+{
+"rank": 758,
+"name": "Rayan Boulahoite",
+"first": "Rayan",
+"last": [
+"BOULAHOITE"
+],
+"points": 96,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 22
+},
+{
+"rank": 766,
+"name": "Anton Kuzmin",
+"first": "Anton",
+"last": [
+"KUZMIN"
+],
+"points": 95,
+"team": "XAT",
+"nat": "Kazakhstan",
+"flag": "kz",
+"age": 30
+},
+{
+"rank": 779,
+"name": "Hugo Page",
+"first": "Hugo",
+"last": [
+"PAGE"
+],
+"points": 94,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 25
+},
+{
+"rank": 784,
+"name": "Cyril Barthe",
+"first": "Cyril",
+"last": [
+"BARTHE"
+],
+"points": 93,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 30
+},
+{
+"rank": 785,
+"name": "Davide Formolo",
+"first": "Davide",
+"last": [
+"FORMOLO"
+],
+"points": 93,
+"team": "MOV",
+"nat": "Italy",
+"flag": "it",
+"age": 34
+},
+{
+"rank": 786,
+"name": "Sjoerd Bax",
+"first": "Sjoerd",
+"last": [
+"BAX"
+],
+"points": 93,
+"team": "PQT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 30
+},
+{
+"rank": 787,
+"name": "Alexander Hajek",
+"first": "Alexander",
+"last": [
+"HAJEK"
+],
+"points": 93,
+"team": "RBH",
+"nat": "Austria",
+"flag": "at",
+"age": 23
+},
+{
+"rank": 788,
+"name": "Nickolas Zukowsky",
+"first": "Nickolas",
+"last": [
+"ZUKOWSKY"
+],
+"points": 92,
+"team": "PQT",
+"nat": "Canada",
+"flag": "ca",
+"age": 28
+},
+{
+"rank": 789,
+"name": "Sander De Pestel",
+"first": "Sander",
+"last": [
+"DE",
+"PESTEL"
+],
+"points": 92,
+"team": "DCT",
+"nat": "Belgium",
+"flag": "be",
+"age": 28
+},
+{
+"rank": 790,
+"name": "Callum Scotson",
+"first": "Callum",
+"last": [
+"SCOTSON"
+],
+"points": 92,
+"team": "DCT",
+"nat": "Australia",
+"flag": "au",
+"age": 30
+},
+{
+"rank": 792,
+"name": "Lorenzo Rota",
+"first": "Lorenzo",
+"last": [
+"ROTA"
+],
+"points": 92,
+"team": "LOI",
+"nat": "Italy",
+"flag": "it",
+"age": 31
+},
+{
+"rank": 793,
+"name": "Florian Dauphin",
+"first": "Florian",
+"last": [
+"DAUPHIN"
+],
+"points": 92,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 27
+},
+{
+"rank": 794,
+"name": "Matis Louvel",
+"first": "Matis",
+"last": [
+"LOUVEL"
+],
+"points": 92,
+"team": "NSN",
+"nat": "France",
+"flag": "fr",
+"age": 27
+},
+{
+"rank": 799,
+"name": "Jonas Rutsch",
+"first": "Jonas",
+"last": [
+"RUTSCH"
+],
+"points": 91,
+"team": "LOI",
+"nat": "Germany",
+"flag": "de",
+"age": 28
+},
+{
+"rank": 815,
+"name": "Timo De Jong",
+"first": "Timo",
+"last": [
+"DE",
+"JONG"
+],
+"points": 88,
+"team": "TPP",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 27
+},
+{
+"rank": 820,
+"name": "Thibau Nys",
+"first": "Thibau",
+"last": [
+"NYS"
+],
+"points": 88,
+"team": "LTK",
+"nat": "Belgium",
+"flag": "be",
+"age": 24
+},
+{
+"rank": 821,
+"name": "Amaury Capiot",
+"first": "Amaury",
+"last": [
+"CAPIOT"
+],
+"points": 88,
+"team": "JAY",
+"nat": "Belgium",
+"flag": "be",
+"age": 33
+},
+{
+"rank": 823,
+"name": "Johan Jacobs",
+"first": "Johan",
+"last": [
+"JACOBS"
+],
+"points": 88,
+"team": "GFC",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 29
+},
+{
+"rank": 827,
+"name": "Yves Lampaert",
+"first": "Yves",
+"last": [
+"LAMPAERT"
+],
+"points": 87,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 35
+},
+{
+"rank": 828,
+"name": "Tom Van Asbroeck",
+"first": "Tom",
+"last": [
+"VAN",
+"ASBROECK"
+],
+"points": 87,
+"team": "NSN",
+"nat": "Belgium",
+"flag": "be",
+"age": 36
+},
+{
+"rank": 831,
+"name": "Koen Bouwman",
+"first": "Koen",
+"last": [
+"BOUWMAN"
+],
+"points": 86,
+"team": "JAY",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 33
+},
+{
+"rank": 840,
+"name": "Filippo Baroncini",
+"first": "Filippo",
+"last": [
+"BARONCINI"
+],
+"points": 84,
+"team": "UEX",
+"nat": "Italy",
+"flag": "it",
+"age": 26
+},
+{
+"rank": 854,
+"name": "Peter Hansen",
+"first": "Peter",
+"last": [
+"HANSEN"
+],
+"points": 81,
+"team": "NCI",
+"nat": "Denmark",
+"flag": "dk",
+"age": 21
+},
+{
+"rank": 865,
+"name": "Thomas Gachignard",
+"first": "Thomas",
+"last": [
+"GACHIGNARD"
+],
+"points": 80,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 26
+},
+{
+"rank": 886,
+"name": "Casper Cornelis Van Uden",
+"first": "Casper",
+"last": [
+"VAN",
+"UDEN"
+],
+"points": 77,
+"team": "TPP",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 25
+},
+{
+"rank": 887,
+"name": "Alberto Bruttomesso",
+"first": "Alberto",
+"last": [
+"BRUTTOMESSO"
+],
+"points": 77,
+"team": "TBV",
+"nat": "Italy",
+"flag": "it",
+"age": 23
+},
+{
+"rank": 893,
+"name": "Gleb Syritsa",
+"first": "Gleb",
+"last": [
+"SYRITSA"
+],
+"points": 76,
+"team": "XAT",
+"nat": "******",
+"flag": "ru",
+"age": 26
+},
+{
+"rank": 912,
+"name": "Luc Wirtgen",
+"first": "Luc",
+"last": [
+"WIRTGEN"
+],
+"points": 75,
+"team": "TUD",
+"nat": "Luxembourg",
+"flag": "lu",
+"age": 28
+},
+{
+"rank": 920,
+"name": "Oliver Knight",
+"first": "Oliver",
+"last": [
+"KNIGHT"
+],
+"points": 75,
+"team": "COF",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 25
+},
+{
+"rank": 921,
+"name": "Matthew Dinham",
+"first": "Matthew",
+"last": [
+"DINHAM"
+],
+"points": 75,
+"team": "TPP",
+"nat": "Australia",
+"flag": "au",
+"age": 26
+},
+{
+"rank": 922,
+"name": "Guillaume Boivin",
+"first": "Guillaume",
+"last": [
+"BOIVIN"
+],
+"points": 75,
+"team": "NSN",
+"nat": "Canada",
+"flag": "ca",
+"age": 37
+},
+{
+"rank": 929,
+"name": "Florian Senechal",
+"first": "Florian",
+"last": [
+"SENECHAL"
+],
+"points": 74,
+"team": "APT",
+"nat": "France",
+"flag": "fr",
+"age": 33
+},
+{
+"rank": 930,
+"name": "Joan Bou Company",
+"first": "Joan",
+"last": [
+"BOU",
+"COMPANY"
+],
+"points": 73,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 29
+},
+{
+"rank": 937,
+"name": "John Degenkolb",
+"first": "John",
+"last": [
+"DEGENKOLB"
+],
+"points": 73,
+"team": "TPP",
+"nat": "Germany",
+"flag": "de",
+"age": 37
+},
+{
+"rank": 941,
+"name": "Emanuel Buchmann",
+"first": "Emanuel",
+"last": [
+"BUCHMANN"
+],
+"points": 72,
+"team": "COF",
+"nat": "Germany",
+"flag": "de",
+"age": 34
+},
+{
+"rank": 944,
+"name": "Harm Vanhoucke",
+"first": "Harm",
+"last": [
+"VANHOUCKE"
+],
+"points": 71,
+"team": "PQT",
+"nat": "Belgium",
+"flag": "be",
+"age": 29
+},
+{
+"rank": 946,
+"name": "Henri François Renard Haquin",
+"first": "Henri",
+"last": [
+"RENARD",
+"HAQUIN"
+],
+"points": 71,
+"team": "TPP",
+"nat": "France",
+"flag": "fr",
+"age": 24
+},
+{
+"rank": 960,
+"name": "Geoffrey Bouchard",
+"first": "Geoffrey",
+"last": [
+"BOUCHARD"
+],
+"points": 69,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 34
+},
+{
+"rank": 976,
+"name": "Fabio Van Den Bossche",
+"first": "Fabio",
+"last": [
+"VAN",
+"DEN",
+"BOSSCHE"
+],
+"points": 67,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 26
+},
+{
+"rank": 977,
+"name": "Alex Kirsch",
+"first": "Alex",
+"last": [
+"KIRSCH"
+],
+"points": 67,
+"team": "COF",
+"nat": "Luxembourg",
+"flag": "lu",
+"age": 34
+},
+{
+"rank": 981,
+"name": "Dries De Pooter",
+"first": "Dries",
+"last": [
+"DE",
+"POOTER"
+],
+"points": 66,
+"team": "JAY",
+"nat": "Belgium",
+"flag": "be",
+"age": 24
+},
+{
+"rank": 987,
+"name": "Tobias Bayer",
+"first": "Tobias",
+"last": [
+"BAYER"
+],
+"points": 66,
+"team": "APT",
+"nat": "Austria",
+"flag": "at",
+"age": 27
+},
+{
+"rank": 989,
+"name": "Joe Pidcock",
+"first": "Joe",
+"last": [
+"PIDCOCK"
+],
+"points": 66,
+"team": "PQT",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 24
+},
+{
+"rank": 992,
+"name": "Enzo Paleni",
+"first": "Enzo",
+"last": [
+"PALENI"
+],
+"points": 66,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 24
+},
+{
+"rank": 993,
+"name": "Rémy Rochas",
+"first": "Rémy",
+"last": [
+"ROCHAS"
+],
+"points": 66,
+"team": "GFC",
+"nat": "France",
+"flag": "fr",
+"age": 30
+},
+{
+"rank": 1007,
+"name": "William Levy",
+"first": "William",
+"last": [
+"LEVY"
+],
+"points": 65,
+"team": "UXM",
+"nat": "Denmark",
+"flag": "dk",
+"age": 25
+},
+{
+"rank": 1008,
+"name": "Jack Haig",
+"first": "Jack",
+"last": [
+"HAIG"
+],
+"points": 64,
+"team": "NCI",
+"nat": "Australia",
+"flag": "au",
+"age": 33
+},
+{
+"rank": 1009,
+"name": "Xabier Mikel Azparren Irurzun",
+"first": "Xabier",
+"last": [
+"AZPARREN",
+"IRURZUN"
+],
+"points": 64,
+"team": "PQT",
+"nat": "Spain",
+"flag": "es",
+"age": 27
+},
+{
+"rank": 1012,
+"name": "Pepijn Reinderink",
+"first": "Pepijn",
+"last": [
+"REINDERINK"
+],
+"points": 64,
+"team": "SOQ",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 24
+},
+{
+"rank": 1016,
+"name": "Kelland O’Brien",
+"first": "Kelland",
+"last": [
+"O’BRIEN"
+],
+"points": 63,
+"team": "JAY",
+"nat": "Australia",
+"flag": "au",
+"age": 28
+},
+{
+"rank": 1024,
+"name": "Sven Erik Bystrøm",
+"first": "Sven",
+"last": [
+"BYSTRØM"
+],
+"points": 62,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 34
+},
+{
+"rank": 1025,
+"name": "Tao Geoghegan Hart",
+"first": "Tao",
+"last": [
+"GEOGHEGAN",
+"HART"
+],
+"points": 62,
+"team": "LTK",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 31
+},
+{
+"rank": 1026,
+"name": "Erik Nordsaeter Resell",
+"first": "Erik",
+"last": [
+"RESELL"
+],
+"points": 62,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 30
+},
+{
+"rank": 1039,
+"name": "Gianluca Pollefliet",
+"first": "Gianluca",
+"last": [
+"POLLEFLIET"
+],
+"points": 61,
+"team": "DCT",
+"nat": "Belgium",
+"flag": "be",
+"age": 24
+},
+{
+"rank": 1041,
+"name": "Rudy Porter",
+"first": "Rudy",
+"last": [
+"PORTER"
+],
+"points": 61,
+"team": "JAY",
+"nat": "Australia",
+"flag": "au",
+"age": 26
+},
+{
+"rank": 1042,
+"name": "Jasha Sütterlin",
+"first": "Jasha",
+"last": [
+"SÜTTERLIN"
+],
+"points": 60,
+"team": "JAY",
+"nat": "Germany",
+"flag": "de",
+"age": 34
+},
+{
+"rank": 1079,
+"name": "Loe Van Belle",
+"first": "Loe",
+"last": [
+"VAN",
+"BELLE"
+],
+"points": 59,
+"team": "TVL",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 24
+},
+{
+"rank": 1080,
+"name": "Edward Theuns",
+"first": "Edward",
+"last": [
+"THEUNS"
+],
+"points": 59,
+"team": "LTK",
+"nat": "Belgium",
+"flag": "be",
+"age": 35
+},
+{
+"rank": 1081,
+"name": "Julius Van Den Berg",
+"first": "Julius",
+"last": [
+"VAN",
+"DEN",
+"BERG"
+],
+"points": 59,
+"team": "TPP",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 30
+},
+{
+"rank": 1087,
+"name": "Patrick Konrad",
+"first": "Patrick",
+"last": [
+"KONRAD"
+],
+"points": 58,
+"team": "LTK",
+"nat": "Austria",
+"flag": "at",
+"age": 35
+},
+{
+"rank": 1090,
+"name": "Nicola Conci",
+"first": "Nicola",
+"last": [
+"CONCI"
+],
+"points": 58,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 29
+},
+{
+"rank": 1094,
+"name": "Asbjørn Hellemose",
+"first": "Asbjørn",
+"last": [
+"HELLEMOSE"
+],
+"points": 57,
+"team": "JAY",
+"nat": "Denmark",
+"flag": "dk",
+"age": 27
+},
+{
+"rank": 1095,
+"name": "Jakub Otruba",
+"first": "Jakub",
+"last": [
+"OTRUBA"
+],
+"points": 56,
+"team": "CJR",
+"nat": "Czechia",
+"flag": "cz",
+"age": 28
+},
+{
+"rank": 1102,
+"name": "Anders Skaarseth",
+"first": "Anders",
+"last": [
+"SKAARSETH"
+],
+"points": 56,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 31
+},
+{
+"rank": 1125,
+"name": "Milan Vader",
+"first": "Milan",
+"last": [
+"VADER"
+],
+"points": 54,
+"team": "PQT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 30
+},
+{
+"rank": 1126,
+"name": "Jan Tratnik",
+"first": "Jan",
+"last": [
+"TRATNIK"
+],
+"points": 54,
+"team": "RBH",
+"nat": "Slovenia",
+"flag": "si",
+"age": 36
+},
+{
+"rank": 1143,
+"name": "Menno Huising",
+"first": "Menno",
+"last": [
+"HUISING"
+],
+"points": 52,
+"team": "TVL",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 22
+},
+{
+"rank": 1186,
+"name": "Pavel Novák",
+"first": "Pavel",
+"last": [
+"NOVÁK"
+],
+"points": 50,
+"team": "MOV",
+"nat": "Czechia",
+"flag": "cz",
+"age": 22
+},
+{
+"rank": 1203,
+"name": "Emmanuel Houcou",
+"first": "Emmanuel",
+"last": [
+"HOUCOU"
+],
+"points": 49,
+"team": "PQT",
+"nat": "France",
+"flag": "fr",
+"age": 23
+},
+{
+"rank": 1238,
+"name": "Michael Gogl",
+"first": "Michael",
+"last": [
+"GOGL"
+],
+"points": 46,
+"team": "APT",
+"nat": "Austria",
+"flag": "at",
+"age": 33
+},
+{
+"rank": 1239,
+"name": "Alessandro Romele",
+"first": "Alessandro",
+"last": [
+"ROMELE"
+],
+"points": 46,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 23
+},
+{
+"rank": 1240,
+"name": "Jonas Geens",
+"first": "Jonas",
+"last": [
+"GEENS"
+],
+"points": 46,
+"team": "APT",
+"nat": "Belgium",
+"flag": "be",
+"age": 27
+},
+{
+"rank": 1264,
+"name": "Jelte Krijnsen",
+"first": "Jelte",
+"last": [
+"KRIJNSEN"
+],
+"points": 45,
+"team": "JAY",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 25
+},
+{
+"rank": 1271,
+"name": "Cedric Beullens",
+"first": "Cedric",
+"last": [
+"BEULLENS"
+],
+"points": 45,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 29
+},
+{
+"rank": 1276,
+"name": "Jacopo Mosca",
+"first": "Jacopo",
+"last": [
+"MOSCA"
+],
+"points": 45,
+"team": "LTK",
+"nat": "Italy",
+"flag": "it",
+"age": 33
+},
+{
+"rank": 1283,
+"name": "Nelson Oliveira",
+"first": "Nelson",
+"last": [
+"OLIVEIRA"
+],
+"points": 43,
+"team": "MOV",
+"nat": "Portugal",
+"flag": "pt",
+"age": 37
+},
+{
+"rank": 1287,
+"name": "Patrick Gamper",
+"first": "Patrick",
+"last": [
+"GAMPER"
+],
+"points": 43,
+"team": "JAY",
+"nat": "Austria",
+"flag": "at",
+"age": 29
+},
+{
+"rank": 1297,
+"name": "Baptiste Veistroffer",
+"first": "Baptiste",
+"last": [
+"VEISTROFFER"
+],
+"points": 43,
+"team": "LOI",
+"nat": "France",
+"flag": "fr",
+"age": 26
+},
+{
+"rank": 1299,
+"name": "Colby Simmons",
+"first": "Colby",
+"last": [
+"SIMMONS"
+],
+"points": 43,
+"team": "EFE",
+"nat": "United States",
+"flag": "us",
+"age": 23
+},
+{
+"rank": 1303,
+"name": "Kévin Geniets",
+"first": "Kévin",
+"last": [
+"GENIETS"
+],
+"points": 42,
+"team": "GFC",
+"nat": "Luxembourg",
+"flag": "lu",
+"age": 29
+},
+{
+"rank": 1305,
+"name": "Gijs Leemreize",
+"first": "Gijs",
+"last": [
+"LEEMREIZE"
+],
+"points": 42,
+"team": "TPP",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 27
+},
+{
+"rank": 1306,
+"name": "Sergio Samitier Samitier",
+"first": "Sergio",
+"last": [
+"SAMITIER",
+"SAMITIER"
+],
+"points": 42,
+"team": "COF",
+"nat": "Spain",
+"flag": "es",
+"age": 31
+},
+{
+"rank": 1340,
+"name": "Lewis Bower",
+"first": "Lewis",
+"last": [
+"BOWER"
+],
+"points": 40,
+"team": "GFC",
+"nat": "New Zealand",
+"flag": "nz",
+"age": 22
+},
+{
+"rank": 1349,
+"name": "Nicholas Schultz",
+"first": "Nicholas",
+"last": [
+"SCHULTZ"
+],
+"points": 40,
+"team": "NSN",
+"nat": "Australia",
+"flag": "au",
+"age": 32
+},
+{
+"rank": 1358,
+"name": "Daniel Skerl",
+"first": "Daniel",
+"last": [
+"SKERL"
+],
+"points": 39,
+"team": "TBV",
+"nat": "Italy",
+"flag": "it",
+"age": 23
+},
+{
+"rank": 1360,
+"name": "Fabian Weiss",
+"first": "Fabian",
+"last": [
+"WEISS"
+],
+"points": 38,
+"team": "TUD",
+"nat": "Switzerland",
+"flag": "ch",
+"age": 24
+},
+{
+"rank": 1373,
+"name": "Simon Dalby",
+"first": "Simon",
+"last": [
+"DALBY"
+],
+"points": 38,
+"team": "UXM",
+"nat": "Denmark",
+"flag": "dk",
+"age": 23
+},
+{
+"rank": 1374,
+"name": "Hannes Wilksch",
+"first": "Hannes",
+"last": [
+"WILKSCH"
+],
+"points": 38,
+"team": "TUD",
+"nat": "Germany",
+"flag": "de",
+"age": 25
+},
+{
+"rank": 1375,
+"name": "Florian Samuel Kajamini",
+"first": "Florian",
+"last": [
+"KAJAMINI"
+],
+"points": 38,
+"team": "XAT",
+"nat": "Italy",
+"flag": "it",
+"age": 23
+},
+{
+"rank": 1376,
+"name": "Niklas Märkl",
+"first": "Niklas",
+"last": [
+"MÄRKL"
+],
+"points": 38,
+"team": "TPP",
+"nat": "Germany",
+"flag": "de",
+"age": 27
+},
+{
+"rank": 1381,
+"name": "Steven Kruijswijk",
+"first": "Steven",
+"last": [
+"KRUIJSWIJK"
+],
+"points": 37,
+"team": "TVL",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 39
+},
+{
+"rank": 1387,
+"name": "Ryan Mullen",
+"first": "Ryan",
+"last": [
+"MULLEN"
+],
+"points": 36,
+"team": "NSN",
+"nat": "Ireland",
+"flag": "ie",
+"age": 32
+},
+{
+"rank": 1398,
+"name": "Joshua Giddings",
+"first": "Joshua",
+"last": [
+"GIDDINGS"
+],
+"points": 36,
+"team": "LOI",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 23
+},
+{
+"rank": 1400,
+"name": "Laurens De Plus",
+"first": "Laurens",
+"last": [
+"DE",
+"PLUS"
+],
+"points": 36,
+"team": "NCI",
+"nat": "Belgium",
+"flag": "be",
+"age": 31
+},
+{
+"rank": 1441,
+"name": "Emil Herzog",
+"first": "Emil",
+"last": [
+"HERZOG"
+],
+"points": 35,
+"team": "RBH",
+"nat": "Germany",
+"flag": "de",
+"age": 22
+},
+{
+"rank": 1448,
+"name": "Sebastian Kolze Changizi",
+"first": "Sebastian",
+"last": [
+"KOLZE",
+"CHANGIZI"
+],
+"points": 34,
+"team": "TUD",
+"nat": "Denmark",
+"flag": "dk",
+"age": 26
+},
+{
+"rank": 1449,
+"name": "Frederik Frison",
+"first": "Frederik",
+"last": [
+"FRISON"
+],
+"points": 34,
+"team": "PQT",
+"nat": "Belgium",
+"flag": "be",
+"age": 34
+},
+{
+"rank": 1450,
+"name": "Bert Van Lerberghe",
+"first": "Bert",
+"last": [
+"VAN",
+"LERBERGHE"
+],
+"points": 34,
+"team": "SOQ",
+"nat": "Belgium",
+"flag": "be",
+"age": 34
+},
+{
+"rank": 1461,
+"name": "Fran Miholjević",
+"first": "Fran",
+"last": [
+"MIHOLJEVIĆ"
+],
+"points": 33,
+"team": "TBV",
+"nat": "Croatia",
+"flag": "hr",
+"age": 24
+},
+{
+"rank": 1477,
+"name": "Nicolo' Parisini",
+"first": "Nicolo'",
+"last": [
+"PARISINI"
+],
+"points": 33,
+"team": "PQT",
+"nat": "Italy",
+"flag": "it",
+"age": 26
+},
+{
+"rank": 1480,
+"name": "Robert Stannard",
+"first": "Robert",
+"last": [
+"STANNARD"
+],
+"points": 33,
+"team": "TBV",
+"nat": "Australia",
+"flag": "au",
+"age": 28
+},
+{
+"rank": 1571,
+"name": "Robbe Dhondt",
+"first": "Robbe",
+"last": [
+"DHONDT"
+],
+"points": 30,
+"team": "TPP",
+"nat": "Belgium",
+"flag": "be",
+"age": 22
+},
+{
+"rank": 1573,
+"name": "Fabien Doubey",
+"first": "Fabien",
+"last": [
+"DOUBEY"
+],
+"points": 30,
+"team": "TEN",
+"nat": "France",
+"flag": "fr",
+"age": 33
+},
+{
+"rank": 1574,
+"name": "Gonzalo Serrano Rodriguez",
+"first": "Gonzalo",
+"last": [
+"SERRANO",
+"RODRIGUEZ"
+],
+"points": 30,
+"team": "MOV",
+"nat": "Spain",
+"flag": "es",
+"age": 32
+},
+{
+"rank": 1575,
+"name": "Matteo Milan",
+"first": "Matteo",
+"last": [
+"MILAN"
+],
+"points": 30,
+"team": "GFC",
+"nat": "Italy",
+"flag": "it",
+"age": 23
+},
+{
+"rank": 1576,
+"name": "HEßMANN Michel",
+"first": "HEßMANN",
+"last": [
+"Michel"
+],
+"points": 30,
+"team": "MOV",
+"nat": "Germany",
+"flag": "de",
+"age": 25
+},
+{
+"rank": 1579,
+"name": "Rainer Kepplinger",
+"first": "Rainer",
+"last": [
+"KEPPLINGER"
+],
+"points": 29,
+"team": "TBV",
+"nat": "Austria",
+"flag": "at",
+"age": 29
+},
+{
+"rank": 1581,
+"name": "Darren Van Bekkum",
+"first": "Darren",
+"last": [
+"VAN",
+"BEKKUM"
+],
+"points": 29,
+"team": "XAT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 24
+},
+{
+"rank": 1582,
+"name": "Yael Joalland",
+"first": "Yael",
+"last": [
+"JOALLAND"
+],
+"points": 29,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 26
+},
+{
+"rank": 1608,
+"name": "Reuben Thompson",
+"first": "Reuben",
+"last": [
+"THOMPSON"
+],
+"points": 27,
+"team": "LOI",
+"nat": "New Zealand",
+"flag": "nz",
+"age": 25
+},
+{
+"rank": 1609,
+"name": "Sean Flynn",
+"first": "Sean",
+"last": [
+"FLYNN"
+],
+"points": 27,
+"team": "TPP",
+"nat": "Great Britain",
+"flag": "gb",
+"age": 26
+},
+{
+"rank": 1611,
+"name": "Hamish Mckenzie",
+"first": "Hamish",
+"last": [
+"MCKENZIE"
+],
+"points": 26,
+"team": "JAY",
+"nat": "Australia",
+"flag": "au",
+"age": 22
+},
+{
+"rank": 1630,
+"name": "Edoardo Zamperini",
+"first": "Edoardo",
+"last": [
+"ZAMPERINI"
+],
+"points": 26,
+"team": "COF",
+"nat": "Italy",
+"flag": "it",
+"age": 23
+},
+{
+"rank": 1631,
+"name": "Juan Martinez Huertas",
+"first": "Juan",
+"last": [
+"MARTINEZ",
+"HUERTAS"
+],
+"points": 26,
+"team": "TPP",
+"nat": "Colombia",
+"flag": "co",
+"age": 22
+},
+{
+"rank": 1716,
+"name": "Julen Arriola-Bengoa Beitia",
+"first": "Julen",
+"last": [
+"ARRIOLA-BENGOA",
+"BEITIA"
+],
+"points": 24,
+"team": "CJR",
+"nat": "Spain",
+"flag": "es",
+"age": 25
+},
+{
+"rank": 1738,
+"name": "Johan Price Pejtersen",
+"first": "Johan",
+"last": [
+"PRICE",
+"PEJTERSEN"
+],
+"points": 23,
+"team": "APT",
+"nat": "Denmark",
+"flag": "dk",
+"age": 27
+},
+{
+"rank": 1742,
+"name": "Domen Novak",
+"first": "Domen",
+"last": [
+"NOVAK"
+],
+"points": 22,
+"team": "UEX",
+"nat": "Slovenia",
+"flag": "si",
+"age": 31
+},
+{
+"rank": 1763,
+"name": "Samuele Battistella",
+"first": "Samuele",
+"last": [
+"BATTISTELLA"
+],
+"points": 21,
+"team": "EFE",
+"nat": "Italy",
+"flag": "it",
+"age": 28
+},
+{
+"rank": 1855,
+"name": "Maurice Ballerstedt",
+"first": "Maurice",
+"last": [
+"BALLERSTEDT"
+],
+"points": 20,
+"team": "APT",
+"nat": "Germany",
+"flag": "de",
+"age": 25
+},
+{
+"rank": 1860,
+"name": "Jonas Hem Hvideberg",
+"first": "Jonas",
+"last": [
+"HVIDEBERG"
+],
+"points": 20,
+"team": "UXM",
+"nat": "Norway",
+"flag": "no",
+"age": 27
+},
+{
+"rank": 1861,
+"name": "Alastair Mackellar",
+"first": "Alastair",
+"last": [
+"MACKELLAR"
+],
+"points": 19,
+"team": "EFE",
+"nat": "Australia",
+"flag": "au",
+"age": 24
+},
+{
+"rank": 1905,
+"name": "Damien Touze",
+"first": "Damien",
+"last": [
+"TOUZE"
+],
+"points": 18,
+"team": "COF",
+"nat": "France",
+"flag": "fr",
+"age": 30
+},
+{
+"rank": 1906,
+"name": "Lionel Taminiaux",
+"first": "Lionel",
+"last": [
+"TAMINIAUX"
+],
+"points": 18,
+"team": "LOI",
+"nat": "Belgium",
+"flag": "be",
+"age": 30
+},
+{
+"rank": 1918,
+"name": "Luca Giaimi",
+"first": "Luca",
+"last": [
+"GIAIMI"
+],
+"points": 16,
+"team": "UEX",
+"nat": "Italy",
+"flag": "it",
+"age": 21
+},
+{
+"rank": 1930,
+"name": "Tim Rex",
+"first": "Tim",
+"last": [
+"REX"
+],
+"points": 16,
+"team": "TVL",
+"nat": "Belgium",
+"flag": "be",
+"age": 22
+},
+{
+"rank": 1935,
+"name": "Tim Marsman",
+"first": "Tim",
+"last": [
+"MARSMAN"
+],
+"points": 16,
+"team": "APT",
+"nat": "Netherlands",
+"flag": "nl",
+"age": 26
+}
+]
+}

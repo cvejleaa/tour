@@ -5,6 +5,7 @@
 // Rollebaseret adgang håndhæves her og i ProtectedRoute.
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { PLATFORM_MODE } from '../lib/platform';
 import UsersTab from '../features/admin/UsersTab';
 import TourTab from '../features/admin/TourTab';
 import BonusTab from '../features/admin/BonusTab';
@@ -12,7 +13,13 @@ import LeaguesAdminTab from '../features/admin/LeaguesAdminTab';
 import TestsTab from '../features/admin/TestsTab';
 import RunbookTab from '../features/admin/RunbookTab';
 import EmailLogTab from '../features/admin/EmailLogTab';
+import BroadcastTab from '../features/admin/BroadcastTab';
 import SettingsTab from '../features/admin/SettingsTab';
+import ActivityTab from '../features/admin/ActivityTab';
+import RiderProfilesTab from '../features/admin/RiderProfilesTab';
+import TeamStylesTab from '../features/admin/TeamStylesTab';
+import GameScheduleTab from '../features/admin/GameScheduleTab';
+import GameReminderTab from '../features/admin/GameReminderTab';
 
 // Fane-id'er
 const TAB_USERS   = 'users';
@@ -22,7 +29,13 @@ const TAB_LEAGUES = 'leagues';
 const TAB_TESTS   = 'tests';
 const TAB_RUNBOOK = 'runbook';
 const TAB_MAILS   = 'mails';
+const TAB_BROADCAST = 'broadcast';
 const TAB_SETTINGS = 'settings';
+const TAB_ACTIVITY = 'activity';
+const TAB_RIDERS = 'riders';
+const TAB_TEAMSTYLES = 'teamstyles';
+const TAB_SCHEDULE = 'schedule';
+const TAB_REMINDERS = 'reminders';
 
 export default function AdminPage() {
   const { isOwner, isGlobalAdmin } = useAuth();
@@ -36,14 +49,38 @@ export default function AdminPage() {
     ...(isGlobalAdmin
       ? [{ key: TAB_USERS, label: 'Brugere' }]
       : []),
-    { key: TAB_TOUR,    label: '🚴 Tour' },
-    { key: TAB_BONUS,   label: 'Bonus' },
-    { key: TAB_LEAGUES, label: 'Ligaer' },
+    // Tour-spilspecifikke faner skjules på den samlede platform (Fase B:
+    // de flytter ind under det enkelte spils admin).
+    ...(PLATFORM_MODE ? [] : [
+      { key: TAB_TOUR,    label: '🚴 Tour' },
+      { key: TAB_RIDERS,  label: '🏷️ Ryttertyper' },
+    ]),
+    // Bonus-facit + Ligaer er Tour-spilspecifikke (BonusTab/LeaguesAdminTab);
+    // de flytter ind under det enkelte spils admin i Fase B.
+    ...(PLATFORM_MODE ? [] : [
+      { key: TAB_BONUS,   label: 'Bonus' },
+      { key: TAB_LEAGUES, label: 'Ligaer' },
+    ]),
+    // Samlet platform: spil-tidsplan (start + bonus-deadline) + hold-farver
+    // + per-spil påmindelser.
+    ...(PLATFORM_MODE ? [
+      { key: TAB_SCHEDULE, label: '🗓️ Spil-tidsplan' },
+      { key: TAB_TEAMSTYLES, label: '🎨 Hold-farver' },
+      { key: TAB_REMINDERS, label: '🔔 Påmindelser' },
+    ] : []),
     { key: TAB_TESTS,   label: 'Tests' },
-    { key: TAB_RUNBOOK, label: '📋 Køreplan' },
+    ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
     { key: TAB_MAILS,   label: '✉️ Mail-log' },
-    // Indstillinger skriver til config (kun ejer kan skrive iflg. reglerne)
-    ...(isOwner
+    { key: TAB_ACTIVITY, label: '📈 Aktivitet' },
+    // Send mail (masseudsendelse) + indstillinger — kun ejer.
+    // Skjult på den samlede platform indtil videre: begge afhænger af Cloud
+    // Functions (sendBroadcastEmail / påmindelser / straf / afslutning), der pt.
+    // kun findes i Tour-kodebasen (functions/), ikke i functions-platform. De
+    // spil-specifikke indstillinger skal desuden bygges PR. SPIL (spil-vælger).
+    // Send mail (broadcast) — ejer, i BEGGE tilstande (backend findes nu på
+    // platformen). Indstillinger (recap/straf/afslutning) er stadig Tour-only.
+    ...(isOwner ? [{ key: TAB_BROADCAST, label: '📣 Send mail' }] : []),
+    ...(isOwner && !PLATFORM_MODE
       ? [{ key: TAB_SETTINGS, label: '⚙️ Indstillinger' }]
       : []),
   ];
@@ -101,11 +138,17 @@ export default function AdminPage() {
       <div className="card" style={{ padding: '1.25rem' }}>
         {tab === TAB_USERS   && <UsersTab isOwner={isOwner} isGlobalAdmin={isGlobalAdmin} />}
         {tab === TAB_TOUR    && <TourTab />}
+        {tab === TAB_RIDERS  && <RiderProfilesTab />}
+        {tab === TAB_SCHEDULE && <GameScheduleTab />}
+        {tab === TAB_TEAMSTYLES && <TeamStylesTab />}
+        {tab === TAB_REMINDERS && <GameReminderTab />}
         {tab === TAB_BONUS   && <BonusTab />}
         {tab === TAB_LEAGUES && <LeaguesAdminTab />}
         {tab === TAB_TESTS   && <TestsTab />}
         {tab === TAB_RUNBOOK && <RunbookTab />}
         {tab === TAB_MAILS   && <EmailLogTab />}
+        {tab === TAB_ACTIVITY && <ActivityTab />}
+        {tab === TAB_BROADCAST && <BroadcastTab />}
         {tab === TAB_SETTINGS && <SettingsTab />}
       </div>
     </div>

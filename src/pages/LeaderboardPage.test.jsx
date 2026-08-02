@@ -157,9 +157,10 @@ describe('LeaderboardPage', () => {
     expect(aliceRow).toHaveTextContent('50');
   });
 
-  it('viser kun de to faner (samlet + dagens etape)', () => {
+  it('viser de tre faner (samlet + dagens etape + udspecificeret)', () => {
     render(<LeaderboardPage />);
-    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    expect(screen.getByRole('tab', { name: /udspecificeret/i })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /præcision/i })).not.toBeInTheDocument();
   });
 

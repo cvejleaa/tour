@@ -75,11 +75,26 @@ describe('StandingsTable', () => {
     expect(bobRow).not.toHaveClass('is-me');
   });
 
-  it('viser medalje-emojis for top-3', () => {
+  it('viser medaljer med DELT konkurrence-placering ved pointlighed', () => {
     render(<StandingsTable users={testUsers} />);
-    expect(screen.getByLabelText('Placering 1')).toHaveTextContent('🥇');
-    expect(screen.getByLabelText('Placering 2')).toHaveTextContent('🥈');
+    // Bob og Diana deler 1.-pladsen (50 point) → TO guld, INGEN "Placering 2";
+    // Alice (30) er derfor nr. 3 (bronze), Charlie (20) nr. 4.
+    expect(screen.getAllByLabelText('Placering 1')).toHaveLength(2);
+    expect(screen.queryByLabelText('Placering 2')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Placering 3')).toHaveTextContent('🥉');
+    const charlieRow = screen.getByText('Charlie').closest('tr');
+    expect(charlieRow).toHaveTextContent('4');
+  });
+
+  it('dag 0 (alle på 0 point): delt 1.-plads, INGEN medaljer, venlig besked', () => {
+    const zeroUsers = testUsers.map((u) => ({ ...u, totalPoints: 0 }));
+    render(<StandingsTable users={zeroUsers} />);
+    // Ingen guld/sølv/bronze efter alfabetet før første etape…
+    expect(screen.queryByLabelText('Placering 1')).not.toBeInTheDocument();
+    expect(screen.getByText(/Alle står lige endnu/)).toBeInTheDocument();
+    // …og alle rækker viser den delte placering "1".
+    const rows = screen.getAllByRole('row').slice(1);
+    for (const row of rows) expect(row).toHaveTextContent('1');
   });
 
   it('filtrerer til kun memberUids når angivet', () => {

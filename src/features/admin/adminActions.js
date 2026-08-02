@@ -11,6 +11,7 @@ import {
   Timestamp,
   arrayUnion,
   arrayRemove,
+  writeBatch,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../firebase';
@@ -26,6 +27,99 @@ import { COL, ROLES, BONUS_ANSWER_TYPE_VALUES, DEFAULT_BONUS_ANSWER_TYPE } from 
 export async function setUserStatus(uid, newStatus) {
   const ref = doc(db, COL.USERS, uid);
   await updateDoc(ref, { status: newStatus });
+}
+
+/**
+ * Masse-godkend flere brugere på én gang (fx alle importerede VM-brugere).
+ * Sætter status='approved' på hver. Der sendes INGEN besked ved godkendelse.
+ * @param {string[]} uids
+ * @returns {Promise<{ok:true,count:number}|{ok:false,error:string}>}
+ */
+export async function approveUsers(uids) {
+  const list = [...new Set((uids || []).filter(Boolean))];
+  if (list.length === 0) return { ok: true, count: 0 };
+  try {
+    for (let i = 0; i < list.length; i += 400) {
+      const batch = writeBatch(db);
+      for (const uid of list.slice(i, i + 400)) {
+        batch.set(doc(db, COL.USERS, uid), { status: 'approved' }, { merge: true });
+      }
+      await batch.commit();
+    }
+    return { ok: true, count: list.length };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke godkende brugerne.' };
+  }
+}
+
+/** Hent login-metode (providers) m.m. for alle Auth-brugere (owner/globalAdmin). */
+export async function callAuthUserInfo() {
+  try {
+    const fn = httpsCallable(functions, 'adminAuthUserInfo');
+    const res = await fn();
+    return { ok: true, users: res.data?.users || [] };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke hente login-info.' };
+  }
+}
+
+/**
+ * Genberegn alle spilleres totaler i et spil med den aktuelle start-gate
+ * (game.startAt). Bruges når starttidspunktet lige er sat/ændret, så tidligere
+ * runders point fjernes fra stillingen med det samme.
+ * @param {string} gameId
+ */
+export async function callRecomputeGameScores(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'recomputeGameScores', { timeout: 120000 });
+    const res = await fn({ gameId });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke genberegne point.' };
+  }
+}
+
+/**
+ * Genopbyg players/{uid}.leagueIds ud fra ligaernes medlemmer. Feltet er dét,
+ * security rules bruger til at afgøre, hvem der må se hvis point — så en
+ * genopbygning retter op, hvis noget er drevet fra hinanden.
+ * @param {string} gameId
+ */
+export async function callBackfillPlayerLeagues(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'backfillPlayerLeagues', { timeout: 120000 });
+    const res = await fn({ gameId });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke genopbygge liga-medlemskab.' };
+  }
+}
+
+/**
+ * Skift en brugers e-mail direkte (kun ejer) — Auth-konto + profil + kontakt-mail.
+ * Ingen bekræftelses-mail; skiftet gælder med det samme.
+ * @param {string} uid
+ * @param {string} email
+ */
+export async function callSetUserEmail(uid, email) {
+  try {
+    const fn = httpsCallable(functions, 'adminSetUserEmail');
+    const res = await fn({ uid, email });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke ændre e-mailen.' };
+  }
+}
+
+/** Slet en bruger helt (kun ejer). force=true sletter selv med point. */
+export async function callDeleteUser(uid, force = false) {
+  try {
+    const fn = httpsCallable(functions, 'adminDeleteUser');
+    const res = await fn({ uid, force });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, code: err?.code, error: err?.message || 'Kunne ikke slette brugeren.' };
+  }
 }
 
 /**
@@ -71,13 +165,37 @@ export async function setRecapTime(time) {
 
 /**
  * Sæt straffen for en utippet etape. Gemmes som et positivt tal (antal point der
- * trækkes fra pr. manglende etape) i config/settings.
- * Læses live af stilling-siden og admin-fanen. Kun owner kan skrive iflg. reglerne.
+ * trækkes fra pr. manglende etape) i config/settings under `points.untippedPenalty`
+ * — SAMME felt som serverens scoring (normalizePodium(points)) og Tour-fanens
+ * pointeditor læser. (Tidligere blev et top-niveau-felt skrevet her, som scoringen
+ * aldrig så — så indstillingen var reelt uden effekt.)
+ * Kun owner kan skrive iflg. reglerne.
  * @param {number} penalty  positivt tal, fx 2 (= −2 pr. utippet etape). Decimaler ok.
  */
 export async function setUntippedPenalty(penalty) {
   const ref = doc(db, COL.CONFIG, 'settings');
-  await setDoc(ref, { untippedPenalty: Math.abs(Number(penalty)) || 0 }, { merge: true });
+  // Dyb merge: rører kun points.untippedPenalty, ikke de øvrige points-felter.
+  await setDoc(ref, { points: { untippedPenalty: Math.abs(Number(penalty)) || 0 } }, { merge: true });
+}
+
+/**
+ * Kald Cloud Function 'migrateEmailPrivacy' (kun ejer) — flytter e-mail fra den
+ * offentlige users-profil til den private userContacts-collection og fjerner
+ * e-mail fra users-dokumentet. Idempotent.
+ * @returns {Promise<{ok:boolean, data?:object, error?:string}>}
+ */
+export async function callMigrateEmailPrivacy() {
+  try {
+    const fn = httpsCallable(functions, 'migrateEmailPrivacy', { timeout: 120000 });
+    const res = await fn();
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "migrateEmailPrivacy" er ikke deployet endnu.'
+        : err?.message ?? 'Ukendt fejl ved kald af migrateEmailPrivacy.';
+    return { ok: false, error: msg };
+  }
 }
 
 /**
@@ -130,6 +248,125 @@ export async function callSendTestReminderToMe() {
       err?.code === 'functions/not-found'
         ? 'Cloud Function "sendTestReminderToMe" er ikke deployet endnu.'
         : err?.message ?? 'Ukendt fejl ved kald af sendTestReminderToMe.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Per-spil påmindelser (platform): send de rigtige påmindelser NU for ét spil.
+ * @param {string} gameId
+ */
+export async function callSendGameTipRemindersNow(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'sendGameTipRemindersNow');
+    const result = await fn({ gameId });
+    return { ok: true, data: result.data };
+  } catch (err) {
+    return { ok: false, error: err?.message ?? 'Kunne ikke sende påmindelser.' };
+  }
+}
+
+/**
+ * Pulje-status (platform): hvem har/mangler pulje-tippet i et spil.
+ * remind=true sender samtidig en påmindelses-mail til dem der mangler.
+ * @param {string} gameId
+ * @param {{remind?: boolean}} [opts]
+ */
+export async function callGamePuljeStatus(gameId, { remind = false } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'gamePuljeStatus', { timeout: 120000 });
+    const res = await fn({ gameId, remind });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke hente pulje-status.' };
+  }
+}
+
+/**
+ * Runde-Botten (platform): generér runde-opslaget for et spil. dryRun=true
+ * returnerer kun teksten (forhåndsvisning); dryRun=false poster på alle
+ * spillets liga-vægge. Uden runde vælges den seneste helt afgjorte.
+ * @param {{gameId:string, round?:number|null, dryRun?:boolean}} args
+ */
+export async function callGenerateGameRecapNow({ gameId, round = null, dryRun = true } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'generateGameRecapNow', { timeout: 300000 });
+    const res = await fn({ gameId, round, dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke generere opslaget.' };
+  }
+}
+
+/**
+ * Per-spil påmindelser (platform): send en testmail KUN til admin selv.
+ * @param {string} gameId
+ */
+export async function callSendGameTestReminderToMe(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'sendGameTestReminderToMe');
+    const result = await fn({ gameId });
+    return { ok: true, data: result.data };
+  } catch (err) {
+    return { ok: false, error: err?.message ?? 'Kunne ikke sende testmail.' };
+  }
+}
+
+/**
+ * Kald Cloud Function 'setAutomationPaused' — sæt/ophæv den globale pause for
+ * ALLE skemalagte jobs (resultat-sync, AI-morgenopslag, påmindelses-mails).
+ * Kun owner/global admin. Bruges når løbet er slut.
+ * @param {boolean} paused
+ */
+export async function callSetAutomationPaused(paused) {
+  try {
+    const fn = httpsCallable(functions, 'setAutomationPaused');
+    const result = await fn({ paused });
+    return { ok: true, data: result.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "setAutomationPaused" er ikke deployet endnu.'
+        : err?.message ?? 'Ukendt fejl ved kald af setAutomationPaused.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Kald Cloud Function 'sendThankYouEmails' — afsluttende takke-mail med
+ * løbs-tilbageblik + liga-slutstillinger. dryRun:true sender kun til
+ * admin selv (til gennemsyn); dryRun:false sender til alle. Kun owner/global admin.
+ * @param {{dryRun?: boolean}} [opts]
+ */
+export async function callSendThankYouEmails({ dryRun = true } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'sendThankYouEmails');
+    const result = await fn({ dryRun });
+    return { ok: true, data: result.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "sendThankYouEmails" er ikke deployet endnu.'
+        : err?.message ?? 'Ukendt fejl ved kald af sendThankYouEmails.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Kald Cloud Function 'sendBroadcastEmail' — send en fritekst-besked til en
+ * liste af modtagere (fx invitationer).
+ * @param {{subject:string, body:string, recipients:string[]}} payload
+ */
+export async function callSendBroadcastEmail(payload) {
+  try {
+    const fn = httpsCallable(functions, 'sendBroadcastEmail');
+    const result = await fn(payload);
+    return { ok: true, data: result.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "sendBroadcastEmail" er ikke deployet endnu.'
+        : err?.message ?? 'Ukendt fejl ved kald af sendBroadcastEmail.';
     return { ok: false, error: msg };
   }
 }

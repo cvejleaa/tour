@@ -6,7 +6,7 @@
 // Spillet er HOLD-baseret: pr. etape tipper man på cykelhold, ikke ryttere.
 // Op til fire etape-spørgsmål (Q1–Q4):
 //   Q1 winnerTeam   – hvilket hold kommer etapevinderen fra?
-//   Q2 gcTeam       – hvilket hold har samlet bedste resultat på de XX første ryttere?
+//   Q2 gcTeam       – hvilket hold har den laveste sum af sine XX bedst placerede rytteres placeringer?
 //   Q3 mountainTeam – hvilket hold tager flest bjergpoint på etapen?
 //   Q4 sprintTeam   – hvilket hold tager flest sprintpoint på etapen?
 // XX (top-N til Q2) sættes af admin i config/settings (gcTopN).
@@ -15,7 +15,15 @@
 // Pr. spørgsmål en faldende skala [1.-plads, 2.-plads, 3.-plads]. Alle værdier er
 // admin-redigerbare. Et ramt 1.-plads-tip giver mest; 2./3.-plads giver mindre,
 // så langt flere tips udløser point.
+//
+// VIGTIGT: tip og facit sammenlignes TOLERANT (normaliseret holdnavn via
+// sameTeam), aldrig med rå strenglighed — tip-værdier (seed/letour-liste) og
+// facit-værdier (letour-resultattabeller) kan afvige i store/små bogstaver,
+// tegnsætning eller sponsor-suffiks, og én afvigelse ville ellers lydløst give
+// 0 point til ALLE spillere.
 // ---------------------------------------------------------------------------
+
+import { sameTeam } from './tourTeams';
 
 /**
  * Standard 1.-pladspoint pr. spørgsmål (bagudkompatibel flad tabel — bruges til
@@ -39,8 +47,10 @@ export const DEFAULT_PODIUM = {
 
 export const DEFAULT_UNTIPPED_PENALTY = 1;
 
-/** Top-N ryttere der tæller med i Q2-holdberegningen, hvis admin ikke har sat andet. */
-export const DEFAULT_GC_TOP_N = 10;
+// Top-N ryttere der tæller med i Q2-holdberegningen, hvis admin ikke har sat
+// andet. MAX 8: et Tour-hold starter 8 ryttere, og et hold skal have mindst N i
+// mål for at kvalificere — en større værdi ville gøre Q2 uafgørlig.
+export const DEFAULT_GC_TOP_N = 4;
 
 /** Nøglerne for de fire holdspørgsmål. */
 const QUESTION_KEYS = ['winnerTeam', 'gcTeam', 'mountainTeam', 'sprintTeam'];
@@ -132,16 +142,34 @@ function bestTeam(totals, counts) {
   return r.length ? r[0] : null;
 }
 
-/** {totals, counts} for Q2-holdberegningen (placerings-point på de N første). */
-function gcTotals(finishOrder, topN = DEFAULT_GC_TOP_N) {
+/**
+ * Q2-holdstilling: for HVERT hold summeres dets N bedst placerede rytteres
+ * MÅLPLACERINGER, og LAVEST sum vinder (som holdkonkurrencen — færre/lavere
+ * placeringer er bedre). Kun hold med mindst N ryttere i mål kvalificerer.
+ * Eksempel (N=4): hold med ryttere på 2,3,8,12,… → sum 25; hold på 1,5,7,11,…
+ * → sum 24 → sidstnævnte vinder.
+ * @returns {Array<{team:string, sum:number, riders:Array<{rider:?string, rank:number}>}>}
+ *   bedst (lavest sum) først; tie-break: flere data ⇒ alfabetisk holdnavn.
+ */
+export function gcTeamStanding(finishOrder, topN = DEFAULT_GC_TOP_N) {
   const n = Math.max(1, Math.floor(Number(topN) || DEFAULT_GC_TOP_N));
-  const top = (finishOrder || []).slice(0, n);
-  const counts = new Map();
-  const points = top.map((e, i) => {
-    if (e?.team) counts.set(e.team, (counts.get(e.team) || 0) + 1);
-    return { team: e?.team, value: n - i }; // nr. (i+1) → (n - i) point
+  const byTeam = new Map();
+  (finishOrder || []).forEach((e, i) => {
+    const team = e?.team;
+    if (team == null || team === '') return;
+    const rank = Number.isFinite(Number(e?.rank)) ? Number(e.rank) : i + 1;
+    const arr = byTeam.get(team) || [];
+    arr.push({ rider: e?.rider ?? null, rank });
+    byTeam.set(team, arr);
   });
-  return { totals: sumByTeam(points, (e) => e.value), counts };
+  const rows = [];
+  for (const [team, riders] of byTeam) {
+    if (riders.length < n) continue; // ikke nok ryttere i mål → kvalificerer ikke
+    const best = [...riders].sort((a, b) => a.rank - b.rank).slice(0, n);
+    rows.push({ team, sum: best.reduce((s, r) => s + r.rank, 0), riders: best });
+  }
+  rows.sort((a, b) => (a.sum - b.sum) || (a.team < b.team ? -1 : a.team > b.team ? 1 : 0));
+  return rows;
 }
 
 /** {totals, counts} for en klassement-pointliste (bjerg/sprint). */
@@ -178,12 +206,12 @@ export function stageWinnerTeam(finishOrder) {
 }
 
 /**
- * Q2: holdet med samlet bedste resultat blandt de første N ryttere i mål.
+ * Q2: holdet med den laveste sum af sine N bedst placerede rytteres placeringer.
  * @returns {string|null}
  */
 export function stageGcTeam(finishOrder, topN = DEFAULT_GC_TOP_N) {
-  const { totals, counts } = gcTotals(finishOrder, topN);
-  return bestTeam(totals, counts);
+  const r = gcTeamStanding(finishOrder, topN);
+  return r.length ? r[0].team : null;
 }
 
 /**
@@ -208,12 +236,12 @@ export function topPointsTeam(pointList) {
  */
 export function resolveStageResult(raw = {}) {
   const { finishOrder, mountainPoints, sprintPoints, gcTopN } = raw;
-  const gc = finishOrder && finishOrder.length ? gcTotals(finishOrder, gcTopN) : null;
+  const gcOrder = finishOrder && finishOrder.length ? gcTeamStanding(finishOrder, gcTopN) : [];
   const mt = mountainPoints && mountainPoints.length ? pointsTotals(mountainPoints) : null;
   const sp = sprintPoints && sprintPoints.length ? pointsTotals(sprintPoints) : null;
   const podium = {
     winnerTeam: teamPodiumFromFinish(finishOrder),
-    gcTeam: gc ? rankTeams(gc.totals, gc.counts).slice(0, 3) : [],
+    gcTeam: gcOrder.slice(0, 3).map((r) => r.team),
     mountainTeam: mt ? rankTeams(mt.totals, mt.counts).slice(0, 3) : [],
     sprintTeam: sp ? rankTeams(sp.totals, sp.counts).slice(0, 3) : [],
   };
@@ -291,6 +319,23 @@ export function isUntipped(bet, active) {
   );
 }
 
+/**
+ * Er etapens hold-tip komplet? Dvs. er ALLE de aktive spørgsmål (jf. etapens
+ * type eller et `questions`-override) besvaret? En holdtidskørsel kræver fx kun
+ * "etapevinderens hold". Bruges ens på forsiden, etape-listen og etape-kortet,
+ * så "mangler tip" altid betyder det samme.
+ * @param {object} stage
+ * @param {object|null} bet
+ * @returns {boolean}
+ */
+export function stageTipComplete(stage, bet) {
+  if (!bet || typeof bet !== 'object') return false;
+  const active = activeQuestionsForStage(stage);
+  const activeKeys = STAGE_FIELDS.filter(({ key }) => active[key]);
+  if (activeKeys.length === 0) return true; // ingen spørgsmål → intet at mangle
+  return activeKeys.every(({ key }) => bet[key] != null && bet[key] !== '');
+}
+
 /** Podiet (top-3 hold) for et spørgsmål — fra `result.podium`, ellers blot vinderen. */
 function podiumFor(res, key) {
   if (res.podium && Array.isArray(res.podium[key])) return res.podium[key];
@@ -335,7 +380,7 @@ export function scoreStageBet(bet, result, pointsCfg, stageOrActive) {
     if (!podium.length) continue; // ikke afgjort → ingen point
     const pick = bet && bet[key];
     if (pick == null || pick === '') { breakdown[key] = 0; continue; }
-    const rank = podium.findIndex((t) => t === pick);
+    const rank = podium.findIndex((t) => sameTeam(t, pick));
     const pts = rank >= 0 ? (P[key][rank] || 0) : 0;
     breakdown[key] = pts;
     total += pts;

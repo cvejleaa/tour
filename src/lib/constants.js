@@ -26,12 +26,17 @@ export const LEAGUE_FORMAT = {
   STAGE_ONLY: 'stageOnly',  // kun etape-point
 };
 
-// Typer af individuelle liga-bonusspørgsmål
+// Typer af individuelle liga-bonusspørgsmål. Identiske med de officielle
+// bonus-svartyper (BONUS_ANSWER_TYPES nedenfor), så liga-bonus har samme
+// opsætning som officielle bonusspørgsmål. 'number' afgøres relativt pr. liga
+// (den/de nærmeste på facit vinder).
 export const LEAGUE_BONUS_TYPE = {
-  TEXT: 'text',     // fritekst
-  CHOICE: 'choice', // vælg én af flere
-  TOPLIST: 'toplist', // ordnet liste (fx top 5)
-  YESNO: 'yesno',   // ja/nej
+  TEXT: 'text',       // fritekst
+  TEAM: 'team',       // hold (vælg ét)
+  TEAMS: 'teams',     // hold (vælg flere)
+  NUMBER: 'number',   // tal — den/de nærmeste på facit i ligaen vinder
+  TIME: 'time',       // tidsangivelse
+  BOOLEAN: 'boolean', // ja/nej
 };
 
 // Svartyper for (sæson-)bonusspørgsmål. Bestemmer både admin-facit-input og
@@ -62,6 +67,7 @@ export function bonusAnswerType(question) {
 // Firestore-collections
 export const COL = {
   USERS: 'users',
+  USER_CONTACTS: 'userContacts', // privat kontaktinfo (e-mail) — kun bruger selv + admin kan læse
   MATCHES: 'matches',
   BETS: 'bets',
   STAGES: 'stages', // Tour de France-etaper
@@ -77,8 +83,58 @@ export const COL = {
   LEAGUE_ACTIVITY: 'leagueActivity', // aktivitets-feed pr. liga
   LEAGUE_BONUS: 'leagueBonus', // individuelle bonus-spørgsmål pr. liga
   LEAGUE_BONUS_ANSWERS: 'leagueBonusAnswers', // svar på liga-bonusspørgsmål
+  LEAGUE_BONUS_AWARDS: 'leagueBonusAwards', // manuelle liga-point pr. medlem på FÆLLES bonusspørgsmål
   CONFIG: 'config',
   EMAIL_LOG: 'emailLog', // log over udsendte mails (kun admin-læsning)
+  PRESENCE: 'presence', // besøgsstatistik pr. bruger (selv-skrevet, admin-læst)
+  // --- Samlet platform (tip.vejleaa.dk) ---
+  GAMES: 'games', // ét dokument pr. spil (VM, Tour, Superliga …) — se docs/samlet-platform.md
+  GAME_PLAYERS: 'players', // sub-collection games/{gameId}/players/{uid}: deltagelse + per-spil-point
+  GAME_MATCHES: 'matches', // games/{gameId}/matches/{matchId}: kampe/etaper i ét spil (Fase B)
+  GAME_BETS: 'bets',       // games/{gameId}/bets/{uid_matchId}: tips i ét spil (Fase B)
+  GAME_LEAGUES: 'leagues', // games/{gameId}/leagues/{leagueId}: private mini-ligaer (medlemmer via invitationskode)
+  GAME_PULJE: 'puljeBets', // games/{gameId}/puljeBets/{uid}: pulje-tip (mesterskabs-/nedrykningsspil)
+  GAME_LEAGUE_MSGS: 'messages', // games/{gameId}/leagues/{leagueId}/messages: liga-væg
+  GAME_LEAGUE_QUESTIONS: 'questions', // games/{gameId}/leagues/{leagueId}/questions: liga-ejerens egne spørgsmål
+  GAME_LEAGUE_QUESTION_ANSWERS: 'questionAnswers', // games/{gameId}/leagues/{leagueId}/questionAnswers/{qId_uid}: medlemmernes svar
 };
+
+// --- Samlet platform: spil-begrebet ------------------------------------------
+// Et "spil" er én tippekonkurrence (fx VM 2026, Tour de France 2026,
+// Superligaen 2026/27). Spilleren opretter sig ÉN gang (users/{uid}) og vælger
+// derefter hvilke spil de vil deltage i (games/{gameId}/players/{uid}).
+
+// Spil-type bestemmer hvilket domæne-modul (sider + scoring) spillet bruger.
+export const GAME_TYPE = {
+  FOOTBALL: 'football', // kampe/hold/runder (VM, Superliga)
+  CYCLING: 'cycling',   // etaper/ryttere/klassementer (Tour)
+};
+
+// Spillets livscyklus. Styrer hvad der kan lade sig gøre i oversigten.
+export const GAME_STATUS = {
+  OPEN: 'open',         // åbent for tilmelding + tips (endnu ikke i gang)
+  LIVE: 'live',         // i gang (kan stadig tilmeldes hvis game.joinable)
+  FINISHED: 'finished', // afsluttet (kun visning/historik)
+};
+
+// De gyldige status-værdier — brug denne til at validere admin-input, så en
+// tastefejl ikke lander som en status, ingen visning kender.
+export const GAME_STATUS_VALUES = Object.values(GAME_STATUS);
+
+// Dansk etiket pr. status. Ét sted, så spiloversigten, spil-siden og
+// admin-fanen ikke kan komme til at kalde det samme tre forskellige ting.
+export const GAME_STATUS_LABEL = {
+  [GAME_STATUS.OPEN]: 'Åben',
+  [GAME_STATUS.LIVE]: 'I gang',
+  [GAME_STATUS.FINISHED]: 'Afsluttet',
+};
+
+// Point-felter på games/{gameId}/players/{uid} som KUN serveren må sætte.
+// En spiller kan oprette sit eget players-dokument (= "deltag"), men aldrig
+// seede sin egen pointsum eller placering (samme princip som users-profilen).
+export const PROTECTED_PLAYER_FIELDS = [
+  'totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus',
+  'previousRank', 'rank', 'points', 'opdeling',
+];
 
 export const TIMEZONE = 'Europe/Copenhagen';

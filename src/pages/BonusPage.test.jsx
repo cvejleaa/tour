@@ -285,13 +285,16 @@ describe('BonusPage – sektioner', () => {
 // ---------------------------------------------------------------------------
 describe('BonusPage – sortering', () => {
   it('sorterer spørgsmål efter deadline (tidligst først)', () => {
+    // Fremtids-relative deadlines, så begge spørgsmål er "åbne" uanset kørselsdato
+    // (ellers ville et forbigået deadline låse spørgsmålet og bryde sorteringen).
+    const DAY = 24 * 60 * 60 * 1000;
     const tidlig = {
       id: 'q_tidlig', text: 'Tidligt spørgsmål',
-      deadline: new Date('2026-07-01T10:00:00Z'), facit: null, options: null,
+      deadline: new Date(Date.now() + 10 * DAY), facit: null, options: null,
     };
     const sen = {
       id: 'q_sen', text: 'Sent spørgsmål',
-      deadline: new Date('2026-07-20T10:00:00Z'), facit: null, options: null,
+      deadline: new Date(Date.now() + 30 * DAY), facit: null, options: null,
     };
     // Bevidst forkert rækkefølge: sen, tidlig
     useBonusQuestions.mockReturnValue({ questions: [sen, tidlig], loading: false, error: null });

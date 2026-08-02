@@ -25,7 +25,7 @@ export default function MyStatsCard({ stages, bets, points = {} }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
         <Stat value={s.points} label="point i alt" />
         <Stat value={s.tips} label="tippede etaper" color="var(--c-text)" />
-        <Stat value={`${s.hitPct}%`} label={`rigtige hold (${s.hits})`} color="var(--c-ok)" />
+        <Stat value={`${s.hitPct}%`} label={`podietræf (${s.hits})`} color="var(--c-ok)" />
         <Stat value={s.avgPoints} label="point/etape" color="var(--c-warn)" />
       </div>
     </div>

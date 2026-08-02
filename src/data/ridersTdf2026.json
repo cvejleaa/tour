@@ -1,0 +1,1474 @@
+[
+ {
+  "bib": 1,
+  "first": "Tadej",
+  "last": "POGACAR",
+  "nat": "slo",
+  "team": "UEX",
+  "profile": "leader"
+ },
+ {
+  "bib": 2,
+  "first": "Isaac",
+  "last": "DEL TORO ROMERO",
+  "nat": "mex",
+  "team": "UEX",
+  "profile": "climber"
+ },
+ {
+  "bib": 3,
+  "first": "Felix",
+  "last": "GROSSSCHARTNER",
+  "nat": "aut",
+  "team": "UEX",
+  "profile": "climber"
+ },
+ {
+  "bib": 4,
+  "first": "Brandon",
+  "last": "MCNULTY",
+  "nat": "usa",
+  "team": "UEX",
+  "profile": "climber"
+ },
+ {
+  "bib": 5,
+  "first": "Nils",
+  "last": "POLITT",
+  "nat": "ger",
+  "team": "UEX",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 6,
+  "first": "Florian",
+  "last": "VERMEERSCH",
+  "nat": "bel",
+  "team": "UEX",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 7,
+  "first": "Tim",
+  "last": "WELLENS",
+  "nat": "bel",
+  "team": "UEX",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 8,
+  "first": "Adam",
+  "last": "YATES",
+  "nat": "gbr",
+  "team": "UEX",
+  "profile": "leader"
+ },
+ {
+  "bib": 11,
+  "first": "Jonas",
+  "last": "VINGEGAARD HANSEN",
+  "nat": "den",
+  "team": "TVL",
+  "profile": "leader"
+ },
+ {
+  "bib": 12,
+  "first": "Edoardo",
+  "last": "AFFINI",
+  "nat": "ita",
+  "team": "TVL",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 13,
+  "first": "Bruno",
+  "last": "ARMIRAIL",
+  "nat": "fra",
+  "team": "TVL",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 14,
+  "first": "Victor",
+  "last": "CAMPENAERTS",
+  "nat": "bel",
+  "team": "TVL",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 15,
+  "first": "Per Strand",
+  "last": "HAGENES",
+  "nat": "nor",
+  "team": "TVL",
+  "profile": "climber"
+ },
+ {
+  "bib": 16,
+  "first": "Matteo",
+  "last": "JORGENSON",
+  "nat": "usa",
+  "team": "TVL",
+  "profile": "climber"
+ },
+ {
+  "bib": 17,
+  "first": "Sepp",
+  "last": "KUSS",
+  "nat": "usa",
+  "team": "TVL",
+  "profile": "climber"
+ },
+ {
+  "bib": 18,
+  "first": "Davide",
+  "last": "PIGANZOLI",
+  "nat": "ita",
+  "team": "TVL",
+  "profile": "climber"
+ },
+ {
+  "bib": 21,
+  "first": "Remco",
+  "last": "EVENEPOEL",
+  "nat": "bel",
+  "team": "RBH",
+  "profile": "leader"
+ },
+ {
+  "bib": 22,
+  "first": "Mattia",
+  "last": "CATTANEO",
+  "nat": "ita",
+  "team": "RBH",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 23,
+  "first": "Nico",
+  "last": "DENZ",
+  "nat": "ger",
+  "team": "RBH",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 24,
+  "first": "Jai",
+  "last": "HINDLEY",
+  "nat": "aus",
+  "team": "RBH",
+  "profile": "climber"
+ },
+ {
+  "bib": 25,
+  "first": "Florian",
+  "last": "LIPOWITZ",
+  "nat": "ger",
+  "team": "RBH",
+  "profile": "leader"
+ },
+ {
+  "bib": 26,
+  "first": "Jan",
+  "last": "TRATNIK",
+  "nat": "slo",
+  "team": "RBH",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 27,
+  "first": "Tim",
+  "last": "VAN DIJKE",
+  "nat": "ned",
+  "team": "RBH",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 28,
+  "first": "Maxim",
+  "last": "VAN GILS",
+  "nat": "bel",
+  "team": "RBH",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 31,
+  "first": "Juan",
+  "last": "AYUSO PESQUERA",
+  "nat": "esp",
+  "team": "LTK",
+  "profile": "leader"
+ },
+ {
+  "bib": 32,
+  "first": "Derek James",
+  "last": "GEE",
+  "nat": "can",
+  "team": "LTK",
+  "profile": "leader"
+ },
+ {
+  "bib": 33,
+  "first": "Mads",
+  "last": "PEDERSEN",
+  "nat": "den",
+  "team": "LTK",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 34,
+  "first": "Quinn",
+  "last": "SIMMONS",
+  "nat": "usa",
+  "team": "LTK",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 35,
+  "first": "Mattias",
+  "last": "SKJELMOSE",
+  "nat": "den",
+  "team": "LTK",
+  "profile": "climber"
+ },
+ {
+  "bib": 36,
+  "first": "Toms",
+  "last": "SKUJINS",
+  "nat": "lat",
+  "team": "LTK",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 37,
+  "first": "Mathias",
+  "last": "VACEK",
+  "nat": "cze",
+  "team": "LTK",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 38,
+  "first": "Carlos",
+  "last": "VERONA QUINTANILLA",
+  "nat": "esp",
+  "team": "LTK",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 41,
+  "first": "Richard",
+  "last": "CARAPAZ",
+  "nat": "ecu",
+  "team": "EFE",
+  "profile": "leader"
+ },
+ {
+  "bib": 42,
+  "first": "Kasper",
+  "last": "ASGREEN",
+  "nat": "den",
+  "team": "EFE",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 43,
+  "first": "Alex",
+  "last": "BAUDIN",
+  "nat": "fra",
+  "team": "EFE",
+  "profile": "climber"
+ },
+ {
+  "bib": 44,
+  "first": "Ben",
+  "last": "HEALY",
+  "nat": "irl",
+  "team": "EFE",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 45,
+  "first": "Sean",
+  "last": "QUINN",
+  "nat": "usa",
+  "team": "EFE",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 46,
+  "first": "Georg",
+  "last": "STEINHAUSER",
+  "nat": "ger",
+  "team": "EFE",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 47,
+  "first": "Michael",
+  "last": "VALGREN",
+  "nat": "den",
+  "team": "EFE",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 48,
+  "first": "Max",
+  "last": "WALKER",
+  "nat": "gbr",
+  "team": "EFE",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 51,
+  "first": "Paul",
+  "last": "SEIXAS",
+  "nat": "fra",
+  "team": "DCT",
+  "profile": "leader"
+ },
+ {
+  "bib": 52,
+  "first": "Tiesj",
+  "last": "BENOOT",
+  "nat": "bel",
+  "team": "DCT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 53,
+  "first": "Cees",
+  "last": "BOL",
+  "nat": "ned",
+  "team": "DCT",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 54,
+  "first": "Daan",
+  "last": "HOOLE",
+  "nat": "ned",
+  "team": "DCT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 55,
+  "first": "Olav",
+  "last": "KOOIJ",
+  "nat": "ned",
+  "team": "DCT",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 56,
+  "first": "Aurélien",
+  "last": "PARET PEINTRE",
+  "nat": "fra",
+  "team": "DCT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 57,
+  "first": "Nicolas",
+  "last": "PRODHOMME",
+  "nat": "fra",
+  "team": "DCT",
+  "profile": "climber"
+ },
+ {
+  "bib": 58,
+  "first": "Matthew",
+  "last": "RICCITELLO",
+  "nat": "usa",
+  "team": "DCT",
+  "profile": "climber"
+ },
+ {
+  "bib": 61,
+  "first": "Sergio Andres",
+  "last": "HIGUITA GARCIA",
+  "nat": "col",
+  "team": "XAT",
+  "profile": "climber"
+ },
+ {
+  "bib": 62,
+  "first": "Davide",
+  "last": "BALLERINI",
+  "nat": "ita",
+  "team": "XAT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 63,
+  "first": "Aaron Murray",
+  "last": "GATE",
+  "nat": "nzl",
+  "team": "XAT",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 64,
+  "first": "Max",
+  "last": "KANTER",
+  "nat": "ger",
+  "team": "XAT",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 65,
+  "first": "Harold",
+  "last": "TEJADA CANACUE",
+  "nat": "col",
+  "team": "XAT",
+  "profile": "climber"
+ },
+ {
+  "bib": 66,
+  "first": "Mike",
+  "last": "TEUNISSEN",
+  "nat": "ned",
+  "team": "XAT",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 67,
+  "first": "Simone",
+  "last": "VELASCO",
+  "nat": "ita",
+  "team": "XAT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 68,
+  "first": "Nicolya",
+  "last": "VINOKUROV",
+  "nat": "kaz",
+  "team": "XAT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 71,
+  "first": "Lenny",
+  "last": "MARTINEZ",
+  "nat": "fra",
+  "team": "TBV",
+  "profile": "climber"
+ },
+ {
+  "bib": 72,
+  "first": "Phil",
+  "last": "BAUHAUS",
+  "nat": "ger",
+  "team": "TBV",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 73,
+  "first": "Damiano",
+  "last": "CARUSO",
+  "nat": "ita",
+  "team": "TBV",
+  "profile": "climber"
+ },
+ {
+  "bib": 74,
+  "first": "Kamil",
+  "last": "GRADEK",
+  "nat": "pol",
+  "team": "TBV",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 75,
+  "first": "Matej",
+  "last": "MOHORIC",
+  "nat": "slo",
+  "team": "TBV",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 76,
+  "first": "Robert",
+  "last": "STANNARD",
+  "nat": "aus",
+  "team": "TBV",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 77,
+  "first": "Antonio",
+  "last": "TIBERI",
+  "nat": "ita",
+  "team": "TBV",
+  "profile": "leader"
+ },
+ {
+  "bib": 78,
+  "first": "Vlad",
+  "last": "VAN MECHELEN",
+  "nat": "bel",
+  "team": "TBV",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 81,
+  "first": "Egan",
+  "last": "BERNAL GOMEZ",
+  "nat": "col",
+  "team": "NCI",
+  "profile": "leader"
+ },
+ {
+  "bib": 82,
+  "first": "Thymen",
+  "last": "ARENSMAN",
+  "nat": "ned",
+  "team": "NCI",
+  "profile": "leader"
+ },
+ {
+  "bib": 83,
+  "first": "Tobias Svendsen",
+  "last": "FOSS",
+  "nat": "nor",
+  "team": "NCI",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 84,
+  "first": "Filippo",
+  "last": "GANNA",
+  "nat": "ita",
+  "team": "NCI",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 85,
+  "first": "Dorian",
+  "last": "GODON",
+  "nat": "fra",
+  "team": "NCI",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 86,
+  "first": "Michal",
+  "last": "KWIATKOWSKI",
+  "nat": "pol",
+  "team": "NCI",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 87,
+  "first": "Joshua Michael",
+  "last": "TARLING",
+  "nat": "gbr",
+  "team": "NCI",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 88,
+  "first": "Kévin",
+  "last": "VAUQUELIN",
+  "nat": "fra",
+  "team": "NCI",
+  "profile": "leader"
+ },
+ {
+  "bib": 91,
+  "first": "Tim",
+  "last": "MERLIER",
+  "nat": "bel",
+  "team": "SOQ",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 92,
+  "first": "Pascal",
+  "last": "EENKHOORN",
+  "nat": "ned",
+  "team": "SOQ",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 93,
+  "first": "Valentin",
+  "last": "PARET PEINTRE",
+  "nat": "fra",
+  "team": "SOQ",
+  "profile": "climber"
+ },
+ {
+  "bib": 94,
+  "first": "Jasper",
+  "last": "STUYVEN",
+  "nat": "bel",
+  "team": "SOQ",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 95,
+  "first": "Dylan",
+  "last": "VAN BAARLE",
+  "nat": "ned",
+  "team": "SOQ",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 96,
+  "first": "Bert",
+  "last": "VAN LERBERGHE",
+  "nat": "bel",
+  "team": "SOQ",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 97,
+  "first": "Ilan",
+  "last": "VAN WILDER",
+  "nat": "bel",
+  "team": "SOQ",
+  "profile": "climber"
+ },
+ {
+  "bib": 98,
+  "first": "Louis",
+  "last": "VERVAEKE",
+  "nat": "bel",
+  "team": "SOQ",
+  "profile": "climber"
+ },
+ {
+  "bib": 101,
+  "first": "Mathieu",
+  "last": "VAN DER POEL",
+  "nat": "ned",
+  "team": "APT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 102,
+  "first": "Ramses",
+  "last": "DEBRUYNE",
+  "nat": "bel",
+  "team": "APT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 103,
+  "first": "Silvan",
+  "last": "DILLIER",
+  "nat": "sui",
+  "team": "APT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 104,
+  "first": "Tim",
+  "last": "MARSMAN",
+  "nat": "ned",
+  "team": "APT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 105,
+  "first": "Jasper",
+  "last": "PHILIPSEN",
+  "nat": "bel",
+  "team": "APT",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 106,
+  "first": "Edward",
+  "last": "PLANCKAERT",
+  "nat": "bel",
+  "team": "APT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 107,
+  "first": "Jonas",
+  "last": "RICKAERT",
+  "nat": "bel",
+  "team": "APT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 108,
+  "first": "Emiel",
+  "last": "VERSTRYNGE",
+  "nat": "bel",
+  "team": "APT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 111,
+  "first": "Ben Alexander",
+  "last": "O'CONNOR",
+  "nat": "aus",
+  "team": "JAY",
+  "profile": "leader"
+ },
+ {
+  "bib": 112,
+  "first": "Pascal",
+  "last": "ACKERMANN",
+  "nat": "ger",
+  "team": "JAY",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 113,
+  "first": "Luke",
+  "last": "DURBRIDGE",
+  "nat": "aus",
+  "team": "JAY",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 114,
+  "first": "Felix",
+  "last": "ENGELHARDT",
+  "nat": "ger",
+  "team": "JAY",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 115,
+  "first": "Michael",
+  "last": "MATTHEWS",
+  "nat": "aus",
+  "team": "JAY",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 116,
+  "first": "Kelland",
+  "last": "O’BRIEN",
+  "nat": "aus",
+  "team": "JAY",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 117,
+  "first": "Lucas",
+  "last": "PLAPP",
+  "nat": "aus",
+  "team": "JAY",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 118,
+  "first": "Mauro",
+  "last": "SCHMID",
+  "nat": "sui",
+  "team": "JAY",
+  "profile": "climber"
+ },
+ {
+  "bib": 121,
+  "first": "Tobias Halland",
+  "last": "JOHANNESSEN",
+  "nat": "nor",
+  "team": "UXM",
+  "profile": "leader"
+ },
+ {
+  "bib": 122,
+  "first": "Jonas",
+  "last": "ABRAHAMSEN",
+  "nat": "nor",
+  "team": "UXM",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 123,
+  "first": "Anthon",
+  "last": "CHARMIG",
+  "nat": "den",
+  "team": "UXM",
+  "profile": "climber"
+ },
+ {
+  "bib": 124,
+  "first": "Magnus",
+  "last": "CORT NIELSEN",
+  "nat": "den",
+  "team": "UXM",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 125,
+  "first": "Anders Halland",
+  "last": "JOHANNESSEN",
+  "nat": "nor",
+  "team": "UXM",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 126,
+  "first": "Anders",
+  "last": "SKAARSETH",
+  "nat": "nor",
+  "team": "UXM",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 127,
+  "first": "Torstein",
+  "last": "TRÆEN",
+  "nat": "nor",
+  "team": "UXM",
+  "profile": "climber"
+ },
+ {
+  "bib": 128,
+  "first": "Søren",
+  "last": "WÆRENSKJOLD",
+  "nat": "nor",
+  "team": "UXM",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 131,
+  "first": "Biniam",
+  "last": "GIRMAY",
+  "nat": "eri",
+  "team": "NSN",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 132,
+  "first": "Lewis",
+  "last": "ASKEY",
+  "nat": "gbr",
+  "team": "NSN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 133,
+  "first": "George",
+  "last": "BENNETT",
+  "nat": "nzl",
+  "team": "NSN",
+  "profile": "climber"
+ },
+ {
+  "bib": 134,
+  "first": "Marco",
+  "last": "FRIGO",
+  "nat": "ita",
+  "team": "NSN",
+  "profile": "climber"
+ },
+ {
+  "bib": 135,
+  "first": "Matis",
+  "last": "LOUVEL",
+  "nat": "fra",
+  "team": "NSN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 136,
+  "first": "Krists",
+  "last": "NEILANDS",
+  "nat": "lat",
+  "team": "NSN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 137,
+  "first": "Thomas Jake",
+  "last": "STEWART",
+  "nat": "gbr",
+  "team": "NSN",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 138,
+  "first": "Tom",
+  "last": "VAN ASBROECK",
+  "nat": "bel",
+  "team": "NSN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 141,
+  "first": "Cian",
+  "last": "UIJTDEBROEKS",
+  "nat": "bel",
+  "team": "MOV",
+  "profile": "leader"
+ },
+ {
+  "bib": 142,
+  "first": "Pablo",
+  "last": "CASTRILLO ZAPATER",
+  "nat": "esp",
+  "team": "MOV",
+  "profile": "climber"
+ },
+ {
+  "bib": 143,
+  "first": "Jefferson",
+  "last": "CEPEDA",
+  "nat": "ecu",
+  "team": "MOV",
+  "profile": "climber"
+ },
+ {
+  "bib": 144,
+  "first": "Raul",
+  "last": "GARCIA PIERNA",
+  "nat": "esp",
+  "team": "MOV",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 145,
+  "first": "Michel",
+  "last": "HEßMANN",
+  "nat": "ger",
+  "team": "MOV",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 146,
+  "first": "Nelson",
+  "last": "OLIVEIRA",
+  "nat": "por",
+  "team": "MOV",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 147,
+  "first": "Javier",
+  "last": "ROMO OLIVER",
+  "nat": "esp",
+  "team": "MOV",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 148,
+  "first": "Einer Augusto",
+  "last": "RUBIO REYES",
+  "nat": "col",
+  "team": "MOV",
+  "profile": "climber"
+ },
+ {
+  "bib": 151,
+  "first": "Arnaud",
+  "last": "DE LIE",
+  "nat": "bel",
+  "team": "LOI",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 152,
+  "first": "Huub",
+  "last": "ARTZ",
+  "nat": "ned",
+  "team": "LOI",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 153,
+  "first": "Jenno",
+  "last": "BERCKMOES",
+  "nat": "bel",
+  "team": "LOI",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 154,
+  "first": "Lars",
+  "last": "CRAPS",
+  "nat": "bel",
+  "team": "LOI",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 155,
+  "first": "Liam",
+  "last": "SLOCK",
+  "nat": "bel",
+  "team": "LOI",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 156,
+  "first": "Lennert",
+  "last": "VAN EETVELT",
+  "nat": "bel",
+  "team": "LOI",
+  "profile": "climber"
+ },
+ {
+  "bib": 157,
+  "first": "Baptiste",
+  "last": "VEISTROFFER",
+  "nat": "fra",
+  "team": "LOI",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 158,
+  "first": "Georg",
+  "last": "ZIMMERMANN",
+  "nat": "ger",
+  "team": "LOI",
+  "profile": "climber"
+ },
+ {
+  "bib": 161,
+  "first": "Ion",
+  "last": "IZAGIRRE INSAUSTI",
+  "nat": "esp",
+  "team": "COF",
+  "profile": "climber"
+ },
+ {
+  "bib": 162,
+  "first": "Piet",
+  "last": "ALLEGAERT",
+  "nat": "bel",
+  "team": "COF",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 163,
+  "first": "Alex",
+  "last": "ARANBURU DEVA",
+  "nat": "esp",
+  "team": "COF",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 164,
+  "first": "Jenthe",
+  "last": "BIERMANS",
+  "nat": "bel",
+  "team": "COF",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 165,
+  "first": "Milan",
+  "last": "FRETIN",
+  "nat": "bel",
+  "team": "COF",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 166,
+  "first": "Alex",
+  "last": "KIRSCH",
+  "nat": "lux",
+  "team": "COF",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 167,
+  "first": "Hugo",
+  "last": "PAGE",
+  "nat": "fra",
+  "team": "COF",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 168,
+  "first": "Benjamin",
+  "last": "THOMAS",
+  "nat": "fra",
+  "team": "COF",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 171,
+  "first": "Tom",
+  "last": "PIDCOCK",
+  "nat": "gbr",
+  "team": "PQT",
+  "profile": "leader"
+ },
+ {
+  "bib": 172,
+  "first": "Xabier",
+  "last": "AZPARREN IRURZUN",
+  "nat": "esp",
+  "team": "PQT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 173,
+  "first": "Christopher",
+  "last": "HARPER",
+  "nat": "aus",
+  "team": "PQT",
+  "profile": "climber"
+ },
+ {
+  "bib": 174,
+  "first": "Quinten",
+  "last": "HERMANS",
+  "nat": "bel",
+  "team": "PQT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 175,
+  "first": "Damien Craig",
+  "last": "HOWSON",
+  "nat": "aus",
+  "team": "PQT",
+  "profile": "climber"
+ },
+ {
+  "bib": 176,
+  "first": "Xandro",
+  "last": "MEURISSE",
+  "nat": "bel",
+  "team": "PQT",
+  "profile": "climber"
+ },
+ {
+  "bib": 177,
+  "first": "Brent",
+  "last": "VAN MOER",
+  "nat": "bel",
+  "team": "PQT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 178,
+  "first": "Alfred Brockwell",
+  "last": "WRIGHT",
+  "nat": "gbr",
+  "team": "PQT",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 181,
+  "first": "Romain",
+  "last": "GREGOIRE",
+  "nat": "fra",
+  "team": "GFC",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 182,
+  "first": "Clément",
+  "last": "BERTHET",
+  "nat": "fra",
+  "team": "GFC",
+  "profile": "climber"
+ },
+ {
+  "bib": 183,
+  "first": "Clément",
+  "last": "BRAZ AFONSO",
+  "nat": "fra",
+  "team": "GFC",
+  "profile": "climber"
+ },
+ {
+  "bib": 184,
+  "first": "Ewen",
+  "last": "COSTIOU",
+  "nat": "fra",
+  "team": "GFC",
+  "profile": "climber"
+ },
+ {
+  "bib": 185,
+  "first": "Lorenzo",
+  "last": "GERMANI",
+  "nat": "ita",
+  "team": "GFC",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 186,
+  "first": "Guillaume",
+  "last": "MARTIN GUYONNET",
+  "nat": "fra",
+  "team": "GFC",
+  "profile": "leader"
+ },
+ {
+  "bib": 187,
+  "first": "Quentin",
+  "last": "PACHER",
+  "nat": "fra",
+  "team": "GFC",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 188,
+  "first": "Clément",
+  "last": "RUSSO",
+  "nat": "fra",
+  "team": "GFC",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 191,
+  "first": "Julian",
+  "last": "ALAPHILIPPE",
+  "nat": "fra",
+  "team": "TUD",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 192,
+  "first": "Arvid",
+  "last": "DE KLEIJN",
+  "nat": "ned",
+  "team": "TUD",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 193,
+  "first": "Marco",
+  "last": "HALLER",
+  "nat": "aut",
+  "team": "TUD",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 194,
+  "first": "Marc",
+  "last": "HIRSCHI",
+  "nat": "sui",
+  "team": "TUD",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 195,
+  "first": "Rick",
+  "last": "PLUIMERS",
+  "nat": "ned",
+  "team": "TUD",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 196,
+  "first": "Michael",
+  "last": "STORER",
+  "nat": "aus",
+  "team": "TUD",
+  "profile": "leader"
+ },
+ {
+  "bib": 197,
+  "first": "Matteo",
+  "last": "TRENTIN",
+  "nat": "ita",
+  "team": "TUD",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 198,
+  "first": "Yannis",
+  "last": "VOISARD",
+  "nat": "sui",
+  "team": "TUD",
+  "profile": "climber"
+ },
+ {
+  "bib": 201,
+  "first": "Jordan",
+  "last": "JEGAT",
+  "nat": "fra",
+  "team": "TEN",
+  "profile": "leader"
+ },
+ {
+  "bib": 202,
+  "first": "Nicolas",
+  "last": "BREUILLARD",
+  "nat": "fra",
+  "team": "TEN",
+  "profile": "climber"
+ },
+ {
+  "bib": 203,
+  "first": "Joris",
+  "last": "DELBOVE",
+  "nat": "fra",
+  "team": "TEN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 204,
+  "first": "Alexandre",
+  "last": "DELETTRE",
+  "nat": "fra",
+  "team": "TEN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 205,
+  "first": "Thibault",
+  "last": "GUERNALEC",
+  "nat": "fra",
+  "team": "TEN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 206,
+  "first": "Mathis",
+  "last": "LE BERRE",
+  "nat": "fra",
+  "team": "TEN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 207,
+  "first": "Anthony",
+  "last": "TURGIS",
+  "nat": "fra",
+  "team": "TEN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 208,
+  "first": "Matteo",
+  "last": "VERCHER",
+  "nat": "fra",
+  "team": "TEN",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 211,
+  "first": "Warren",
+  "last": "BARGUIL",
+  "nat": "fra",
+  "team": "TPP",
+  "profile": "climber"
+ },
+ {
+  "bib": 212,
+  "first": "Frits",
+  "last": "BIESTERBOS",
+  "nat": "ned",
+  "team": "TPP",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 213,
+  "first": "Pavel",
+  "last": "BITTNER",
+  "nat": "cze",
+  "team": "TPP",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 214,
+  "first": "John",
+  "last": "DEGENKOLB",
+  "nat": "ger",
+  "team": "TPP",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 215,
+  "first": "Robbe",
+  "last": "DHONDT",
+  "nat": "bel",
+  "team": "TPP",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 216,
+  "first": "Niklas",
+  "last": "MÄRKL",
+  "nat": "ger",
+  "team": "TPP",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 217,
+  "first": "Julius",
+  "last": "VAN DEN BERG",
+  "nat": "ned",
+  "team": "TPP",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 218,
+  "first": "Frank",
+  "last": "VAN DEN BROEK",
+  "nat": "ned",
+  "team": "TPP",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 221,
+  "first": "Fernando",
+  "last": "GAVIRIA RENDON",
+  "nat": "col",
+  "team": "CJR",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 222,
+  "first": "Abel",
+  "last": "BALDERSTONE ROUMENS",
+  "nat": "esp",
+  "team": "CJR",
+  "profile": "leader"
+ },
+ {
+  "bib": 223,
+  "first": "Sebastian",
+  "last": "BERWICK",
+  "nat": "aus",
+  "team": "CJR",
+  "profile": "climber"
+ },
+ {
+  "bib": 224,
+  "first": "Alex",
+  "last": "MOLENAAR",
+  "nat": "ned",
+  "team": "CJR",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 225,
+  "first": "Joel",
+  "last": "NICOLAU BELTRAN",
+  "nat": "esp",
+  "team": "CJR",
+  "profile": "climber"
+ },
+ {
+  "bib": 226,
+  "first": "Stefano",
+  "last": "OLDANI",
+  "nat": "ita",
+  "team": "CJR",
+  "profile": "sprinter"
+ },
+ {
+  "bib": 227,
+  "first": "Jakub",
+  "last": "OTRUBA",
+  "nat": "cze",
+  "team": "CJR",
+  "profile": "polyvalent"
+ },
+ {
+  "bib": 228,
+  "first": "Jose Felix",
+  "last": "PARRA CUERDA",
+  "nat": "esp",
+  "team": "CJR",
+  "profile": "leader"
+ }
+]

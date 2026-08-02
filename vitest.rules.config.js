@@ -7,19 +7,18 @@
 // Eller direkte:
 //   vitest run --config vitest.rules.config.js
 //
-// Scoring/standings-tests kører WITHOUT emulator via:
-//   vitest run functions/scoring.test.js functions/standings.test.js
+// Functions' egne unit-tests kører UDEN emulator via:
+//   npm --prefix functions test  /  npm --prefix functions-platform test
 // ---------------------------------------------------------------------------
 
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // Kun inkluder rules-tests (kræver emulator)
+    // Kun rules-tests (kræver emulator). Hold listen præcis: en entry der ikke
+    // findes, får kørslen til at se grøn ud uden at teste noget.
     include: [
       'functions/rules.test.js',
-      'functions/knockout.integration.test.js',
-      'tests/rules.test.js',
     ],
     // Ekskluder scoring/standings (de har egen config)
     exclude: [

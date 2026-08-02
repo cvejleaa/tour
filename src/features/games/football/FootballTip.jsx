@@ -1,0 +1,682 @@
+/**
+ * FootballTip — tip-flade for et fodbold-spil (fx Superligaen).
+ * Tipper 1X2 pr. kamp i den aktive runde og kan (valgfrit) bruge "Chancen ⚡"
+ * på ÉN kamp: sæt point på spil på dit 1X2-valg til elo-lite fair odds.
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useGameBets } from '../useGameBets';
+import { setBet } from '../betActions';
+import LeagueBets from './LeagueBets';
+import MatchElo from './MatchElo';
+import { eloFormByTeam } from './eloHistory';
+import { playerBank } from '../GameLayout';
+import { useVisibleGameStandings } from '../useVisibleGameStandings';
+import { rankDelta } from '../gameStandings';
+import ClubBadge from '../../../components/ClubBadge';
+import CountUp from '../../../components/CountUp';
+import { superligaTeamInfo, SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
+import { colorsClash } from '../../../lib/contrastText';
+import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
+import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
+import { shareText } from '../../../lib/share';
+import {
+  groupByRound, activeRound, isLocked, toMillis, afterStart, matchScore, liveScore,
+} from './footballRounds';
+import {
+  OUTCOME, OUTCOMES, round1, outcomeReward, roundComboBonus, ROUND_BONUS,
+  chanceMaxStake, canUseChance, CHANCE, settleChance,
+} from '../../../lib/superligaScoring';
+
+const OUTCOME_LABEL = { [OUTCOME.HOME]: '1', [OUTCOME.DRAW]: 'X', [OUTCOME.AWAY]: '2' };
+
+/** Odds for et udfald på en kamp (frosset på kamp-dokumentet). */
+function matchOdds(match, outcome) {
+  const o = match?.odds?.[outcome];
+  return Number.isFinite(o) ? o : null;
+}
+
+const GREY = '#5b6b7a';
+
+/** Klokkeslæt uden dato — "opdateret 20.44". */
+function klokken(ms) {
+  return new Date(ms).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Badge-info for et hold: klub-kortkode + farve + stadion.
+ * variant 'home' | 'away' | 'third'. Admin-override (games/{id}.teamStyles)
+ * vinder over standardfarven; hver variant falder pænt tilbage.
+ */
+function badgeFor(name, styles = {}, variant = 'home') {
+  const info = superligaTeamInfo(name);
+  const ov = styles?.[name] || {};
+  let override;
+  let fallback;
+  if (variant === 'away') {
+    override = ov.awayColor;
+    fallback = info?.awayColor || info?.color || GREY;
+  } else if (variant === 'third') {
+    override = ov.thirdColor;
+    fallback = info?.thirdColor || info?.awayColor || info?.color || GREY;
+  } else {
+    override = ov.color;
+    fallback = info?.color || GREY;
+  }
+  const code = info?.short
+    || String(name || '').replace(/[^A-Za-zÆØÅæøå]/g, '').slice(0, 3).toUpperCase() || '?';
+  return { code, color: override || fallback, venue: info?.venue ?? null };
+}
+
+/**
+ * Farver til et kamp-kort: hjemmeholdet i hjemmefarve, udeholdet i udefarve —
+ * men skift til udeholdets tertiærfarve hvis udefarven clasher med hjemmefarven.
+ */
+function matchBadges(home, away, styles) {
+  const h = badgeFor(home, styles, 'home');
+  let a = badgeFor(away, styles, 'away');
+  if (colorsClash(a.color, h.color)) {
+    const third = badgeFor(away, styles, 'third');
+    // Brug kun tertiær hvis den faktisk er mindre clash end udefarven.
+    if (!colorsClash(third.color, h.color)) a = third;
+  }
+  return { h, a };
+}
+
+export default function FootballTip({ game, me, matches }) {
+  const gameId = game?.id;
+  const { betsByMatch } = useGameBets(gameId);
+  // Facittet måler dig mod dem du deler liga med — samme kreds som ranglisten.
+  const { standings } = useVisibleGameStandings(gameId);
+  const bank = playerBank(me);
+  const nowMs = Date.now();
+
+  // Skjul kampe før spillets starttidspunkt (game.startAt) — så en sæson kan
+  // starte midt i (fx fra runde 2) uden at vise de tidligere runder.
+  const startMs = toMillis(game?.startAt);
+  const shownMatches = useMemo(() => afterStart(matches, startMs), [matches, startMs]);
+  const rounds = useMemo(() => groupByRound(shownMatches), [shownMatches]);
+  const initialRound = useMemo(() => activeRound(rounds, nowMs), [rounds, nowMs]);
+
+  // Runden ligger i URL'en, ikke i komponent-tilstand: så kan man dele et link
+  // til en bestemt runde, bruge browserens tilbage-knap og bogmærke den.
+  // Uden ?runde= vises den aktive runde.
+  const [searchParams, setSearchParams] = useSearchParams();
+  // NaN > 0 er falsk, så både "abc" og manglende parameter giver den aktive
+  // runde. En runde, der ikke findes (fx 99), fanges af opslaget nedenfor —
+  // derfor ingen ekstra validering her: den ville være uobserverbar.
+  const rundeParam = Number(searchParams.get('runde'));
+  const roundNo = rundeParam > 0 ? rundeParam : initialRound;
+  const setRoundNo = (r) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('runde', String(r));
+    // replace, ikke push: at bladre mellem runder er filtrering, ikke
+    // navigation. Uden den ville seks rundeklik kræve seks tryk på
+    // tilbage-knappen for at forlade tip-fladen — før forlod ét tryk siden.
+    setSearchParams(next, { replace: true });
+  };
+  const [busy, setBusy] = useState(null); // matchId der gemmes
+  const [error, setError] = useState('');
+  const [shareMsg, setShareMsg] = useState('');
+
+  const { current, roundMatches, idx } = useMemo(() => {
+    const cur = rounds.find((r) => r.round === roundNo)
+      ?? rounds.find((r) => r.round === initialRound)
+      ?? rounds[0];
+    return {
+      current: cur,
+      roundMatches: cur?.matches ?? [],
+      idx: rounds.findIndex((r) => r.round === cur?.round),
+    };
+  }, [rounds, roundNo, initialRound]);
+
+  // Hvilken kamp i runden har Chancen aktiv (chanceStake > 0)?
+  const chanceMatchId = useMemo(() => {
+    for (const m of roundMatches) {
+      const b = betsByMatch[m.id];
+      if (b && Number(b.chanceStake) > 0) return m.id;
+    }
+    return null;
+  }, [roundMatches, betsByMatch]);
+
+  // Elo-opslaget bygges ÉN gang for hele runden — ikke pr. kampkort. Kilden er
+  // de rundevise snapshots, serveren har lagt på spillet; her regnes intet.
+  const eloByTeam = useMemo(
+    () => eloFormByTeam(
+      Array.isArray(game?.teams) && game.teams.length ? game.teams : SUPERLIGA_TEAMS_2026,
+      game?.eloHistory,
+    ),
+    [game?.teams, game?.eloHistory],
+  );
+
+  // Et eget ur til live-visningen.
+  //
+  // "Opdatering afbrudt" kan kun komme frem, hvis komponenten gentegner. Under
+  // en kamp kommer gentegningerne fra pulsen på spil-dokumentet — men stopper
+  // synken, stopper pulsen med den, og så ville kortet fryse på "DIREKTE" i
+  // præcis det tilfælde, forbeholdet findes for. Uret kører kun, mens der
+  // faktisk er en kamp i gang på skærmen.
+  //
+  // Står OVER den tidlige return nedenfor: hooks skal kaldes i samme
+  // rækkefølge ved hver gentegning.
+  // En kamp, der står som slut, har intet ur at tælle: både tidsstemplet og
+  // forældet-teksten er undertrykt. Uden 'slut'-undtagelsen ville uret køre
+  // resten af vinduet — og for evigt på en kamp, der aldrig får facit — og
+  // gentegne kortet hvert halve minut uden at noget kunne ændre sig.
+  const harLive = roundMatches.some((m) => m.live && m.live.status !== 'slut'
+    && (m.result == null || m.result === ''));
+  const [liveNu, setLiveNu] = useState(() => Date.now());
+  useEffect(() => {
+    if (!harLive) return undefined;
+    const t = setInterval(() => setLiveNu(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, [harLive]);
+
+  if (!rounds.length) {
+    return (
+      <div className="empty-state">
+        <div className="empty-state__icon">📅</div>
+        <div className="empty-state__title">Kampprogrammet er ikke lagt ind endnu.</div>
+        <p style={{ color: 'var(--c-muted)' }}>
+          Så snart runderne er klar, kan du tippe her.
+        </p>
+      </div>
+    );
+  }
+
+  async function pick(match, outcome) {
+    if (isLocked(match, nowMs)) return;
+    setError('');
+    setBusy(match.id);
+    const existing = betsByMatch[match.id];
+    const res = await setBet({
+      uid: me?.uid, gameId, matchId: match.id, pick: outcome,
+      chanceStake: Number(existing?.chanceStake) || 0, bank,
+      leagueIds: me?.leagueIds || [],
+    });
+    if (!res.ok) setError(res.error);
+    setBusy(null);
+  }
+
+  // Runde-header-data: datospænd, næste deadline, hvor mange kampe tippet.
+  const kickoffs = roundMatches.map((m) => toMillis(m.kickoff)).filter((x) => x != null);
+  const rangeFrom = kickoffs.length ? Math.min(...kickoffs) : null;
+  const rangeTo = kickoffs.length ? Math.max(...kickoffs) : null;
+  const upcoming = roundMatches.filter((m) => !isLocked(m, nowMs))
+    .map((m) => toMillis(m.kickoff)).filter((x) => x != null);
+  const nextDeadline = upcoming.length ? Math.min(...upcoming) : null;
+  const deadlineSoon = nextDeadline != null && nextDeadline - nowMs < 2 * 3600 * 1000;
+  const tipped = roundMatches.filter((m) => betsByMatch[m.id]?.pick).length;
+  const total = roundMatches.length;
+
+  // Combi-runde-bonus: tip ALLE kampe i runden, ram dem alle (eller alle på nær
+  // én), og de ramte odds ganges sammen (loftet). Preview mens runden spilles.
+  const tippedAllRound = total > 0 && tipped === total;
+  const roundSettled = total > 0 && roundMatches.every((m) => m.result);
+  const roundHits = tippedAllRound
+    ? roundMatches.filter((m) => m.result && betsByMatch[m.id].pick === m.result)
+    : [];
+  const roundHitOdds = roundHits.map((m) => outcomeReward(m.result, m.odds));
+  const roundBonus = roundSettled && tippedAllRound
+    ? roundComboBonus(roundHitOdds, total) : 0;
+
+  // Rundens facit: point tjent i runden (bet-point + combi-bonus) + placering.
+  const roundHitsAll = roundMatches.filter((m) => m.result && betsByMatch[m.id]?.pick === m.result);
+  const roundBetPoints = roundMatches.reduce((a, m) => a + (Number(betsByMatch[m.id]?.points) || 0), 0);
+  const roundEarned = round1(roundBetPoints + roundBonus);
+  const myIdx = standings.findIndex((r) => r.uid === me?.uid);
+  const myRow = myIdx >= 0 ? standings[myIdx] : null;
+  const rivalAbove = myIdx > 0 ? standings[myIdx - 1] : null;
+  const rivalBelow = myIdx >= 0 && myIdx < standings.length - 1 ? standings[myIdx + 1] : null;
+  const showFacit = roundSettled && tipped > 0;
+  // Bevægelse siden sidste runde (server-snapshot af previousRank).
+  const myPrev = myRow?.previousRank;
+  const myDelta = myRow ? rankDelta(myRow) : null;
+  const overtook = (myRow && myPrev != null)
+    ? standings.filter((r) => r.uid !== me?.uid && r.previousRank != null
+        && r.previousRank < myPrev && r.rank > myRow.rank).map((r) => r.name)
+    : [];
+  const overtakenBy = (myRow && myPrev != null)
+    ? standings.filter((r) => r.uid !== me?.uid && r.previousRank != null
+        && r.previousRank > myPrev && r.rank < myRow.rank).map((r) => r.name)
+    : [];
+
+  function buildFacitShare() {
+    const parts = [`⚽ Superliga R${current?.round}: ${fmtSignedPoints(roundEarned)} point (${roundHitsAll.length}/${total} ramt)`];
+    if (roundBonus > 0) parts.push(`combi +${fmtDec(roundBonus)} ⚡`);
+    if (myRow) parts.push(`nr. ${myRow.rank} af ${standings.length}`);
+    if (overtook.length) parts.push(`overhalede ${overtook.slice(0, 2).join(', ')} 🎉`);
+    return `${parts.join(' · ')}\ntip.vejleaa.dk`;
+  }
+  async function onShareFacit() {
+    const res = await shareText(buildFacitShare());
+    if (res.ok) setShareMsg(res.method === 'copy' ? 'Kopieret — indsæt i chatten!' : 'Delt!');
+    else if (res.error) setShareMsg('Kunne ikke dele.');
+  }
+
+  return (
+    <div>
+      {/* Runde-navigation — bladr let frem/tilbage mellem ALLE runder (som
+          etaperne i Tour): navngivne pile + en "Runde X af Y"-tæller, så det er
+          tydeligt at der er flere runder end den aktuelle. Ved enderne holdes
+          en usynlig pladsholder, så tælleren bliver centreret. */}
+      <nav
+        className="round-nav mb-2"
+        data-testid="round-nav"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}
+      >
+        {idx > 0 ? (
+          <button
+            className="btn btn--ghost btn--sm"
+            data-testid="round-nav-prev"
+            onClick={() => setRoundNo(rounds[idx - 1].round)}
+            aria-label={`Forrige runde (runde ${rounds[idx - 1].round})`}
+          >
+            ← Runde {rounds[idx - 1].round}
+          </button>
+        ) : (
+          <span className="btn btn--ghost btn--sm" aria-hidden="true" style={{ visibility: 'hidden' }}>←</span>
+        )}
+
+        <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          Runde {idx + 1} af {rounds.length}
+        </span>
+
+        {idx < rounds.length - 1 ? (
+          <button
+            className="btn btn--ghost btn--sm"
+            data-testid="round-nav-next"
+            onClick={() => setRoundNo(rounds[idx + 1].round)}
+            aria-label={`Næste runde (runde ${rounds[idx + 1].round})`}
+          >
+            Runde {rounds[idx + 1].round} →
+          </button>
+        ) : (
+          <span className="btn btn--ghost btn--sm" aria-hidden="true" style={{ visibility: 'hidden' }}>→</span>
+        )}
+      </nav>
+
+      {/* Rundens overskrift + datospænd + deadline */}
+      <div className="round-head mb-2" style={{ textAlign: 'center' }}>
+        <div className="round-head__title">
+          {current?.round ? `Runde ${current.round}` : 'Kampe'}
+          {rangeFrom && <span className="round-head__meta" style={{ marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>{formatDateRange(rangeFrom, rangeTo)}</span>}
+        </div>
+        {nextDeadline != null && (
+          <>
+            <div className={`round-head__meta ${deadlineSoon ? 'round-head__deadline--soon' : ''}`}>
+              Deadline {relativeDeadline(nextDeadline, new Date(nowMs))}
+            </div>
+            <div className="round-head__meta" style={{ textTransform: 'none', letterSpacing: 0, opacity: 0.75 }}>
+              Hver kamp låser ved sin egen kampstart
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Rundens facit — vises når hele runden er spillet */}
+      {showFacit && (
+        <div className="card facit mb-2">
+          <div className="facit__top">
+            <span className="facit__title">Runde {current?.round} · facit</span>
+            <span className="facit__earned">
+              <CountUp value={Math.abs(roundEarned)} prefix={roundEarned < 0 ? '−' : '+'}
+                decimals={Number.isInteger(roundEarned) ? 0 : 1} />
+            </span>
+          </div>
+          <div className="facit__sub">
+            <strong>{roundHitsAll.length}/{total}</strong> ramt
+            {roundBonus > 0 && <> · <span className="facit__combi">combi +{fmtDec(roundBonus)} ⚡</span></>}
+          </div>
+          {myRow && (
+            <div className="facit__pos">
+              <div className="facit__rank">
+                Du er nr. <strong>{myRow.rank}</strong> af {standings.length}
+                {myDelta != null && myDelta !== 0 && (
+                  <span className={myDelta > 0 ? 'facit__up' : 'facit__down'}>
+                    {' '}{myDelta > 0 ? `▲${myDelta}` : `▼${-myDelta}`}
+                  </span>
+                )}
+                <span className="facit__total"> · {fmtPoints(myRow.totalPoints)} point</span>
+              </div>
+              {(overtook.length > 0 || overtakenBy.length > 0) && (
+                <div className="facit__moves">
+                  {overtook.length > 0 && (
+                    <span className="facit__up">⬆ Du overhalede {overtook.slice(0, 3).join(', ')}{overtook.length > 3 ? ` +${overtook.length - 3}` : ''}</span>
+                  )}
+                  {overtakenBy.length > 0 && (
+                    <span className="facit__down">⬇ Overhalet af {overtakenBy.slice(0, 3).join(', ')}{overtakenBy.length > 3 ? ` +${overtakenBy.length - 3}` : ''}</span>
+                  )}
+                </div>
+              )}
+              <div className="facit__rivals">
+                {rivalAbove
+                  ? <span>⬆ {fmtPoints(rivalAbove.totalPoints - myRow.totalPoints)} op til {rivalAbove.name}</span>
+                  : <span className="facit__lead">🥇 Du fører!</span>}
+                {rivalBelow && (
+                  <span>⬇ {fmtPoints(myRow.totalPoints - rivalBelow.totalPoints)} foran {rivalBelow.name}</span>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="facit__share">
+            <button className="btn btn--ghost btn--sm" onClick={onShareFacit}>📣 Del i chatten</button>
+            {shareMsg && <span className="facit__sharemsg">{shareMsg}</span>}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-2" style={{ gap: '0.5rem' }}>
+        <span className={`badge ${tipped >= total && total > 0 ? 'badge--green' : 'badge--yellow'}`}>
+          {tipped}/{total} tippet
+        </span>
+        <span style={{ color: 'var(--c-muted)', fontSize: '0.78rem' }}>
+          Point følger oddsene — jo større overraskelse, jo flere point.
+        </span>
+      </div>
+
+      {/* Combi-runde-bonus */}
+      <div className="card mb-2" style={{ borderStyle: 'dashed' }}>
+        <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700 }}>🎯 Runde-bonus</span>
+          {roundSettled && tippedAllRound ? (
+            roundBonus > 0
+              ? <span className="badge badge--green">+{fmtDec(roundBonus)} ({roundHits.length}/{total} ramt)</span>
+              : <span className="badge badge--muted">Ingen ({roundHits.length}/{total} ramt)</span>
+          ) : tippedAllRound ? (
+            <span className="chance-pill">⚡ I spil — {roundHits.length}/{total} ramt indtil videre</span>
+          ) : (
+            <span className="badge badge--yellow">Tip alle {total} kampe for at være med</span>
+          )}
+        </div>
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.78rem', margin: '0.4rem 0 0' }}>
+          Rammer du <strong>alle {total}</strong> (eller alle på nær én), ganges dine ramte odds sammen som en kupon —
+          maks +{ROUND_BONUS.PERFECT_CAP} for hele runden, +{ROUND_BONUS.NEAR_CAP} for én fejl.
+        </p>
+      </div>
+
+      {error && <p className="badge badge--red mb-2">{error}</p>}
+
+      {/* Kampe */}
+      {roundMatches.map((m) => {
+        const bet = betsByMatch[m.id];
+        const locked = isLocked(m, nowMs);
+        const isChance = m.id === chanceMatchId;
+        const { h, a } = matchBadges(m.home, m.away, game?.teamStyles);
+        const hit = m.result && bet?.pick ? bet.pick === m.result : null;
+        const score = matchScore(m);
+        const live = liveScore(m, game?.liveHeartbeatAt, liveNu);
+        return (
+          <div className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`} key={m.id}>
+            <div className="match-card__meta">
+              <span className="match-card__kickoff">{formatKickoff(m.kickoff)}</span>
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0 }}>
+                {h.venue && <span className="match-card__venue">{h.venue}</span>}
+                {m.result ? (
+                  hit === true ? <span className="badge badge--green">Ramt +{fmtDec(outcomeReward(m.result, m.odds))}</span>
+                    : hit === false ? <span className="badge badge--red">Ikke ramt</span>
+                      : <span className="badge">Spillet</span>
+                ) : live ? (
+                  /* Live har forrang over Chancen-pillen: chance-kampen er
+                     netop den, man følger tættest. */
+                  <span className={`live-pill ${live.forældet || live.sluttet ? 'live-pill--doed' : ''}`}>
+                    {/* Eget tegn til slutfløjt. ⏸ er appens "noget er galt"-look
+                        ("Opdatering afbrudt"), og en helt normal afslutning må
+                        ikke ligne en fejl — den rammer jo hver eneste kamp. */}
+                    {live.sluttet ? '🏁'
+                      : live.forældet ? '⏸'
+                        : <span className="live-pill__prik" aria-hidden="true" />}
+                    {/* `sluttet` går FORREST. Er kampen fløjtet af, er "Slut ·
+                        afventer facit" sandt og "Opdatering afbrudt" en løgn —
+                        synken fejler jo ikke, den venter bare på resultatet. */}
+                    {live.sluttet ? 'Slut · afventer facit'
+                      : live.forældet ? 'Opdatering afbrudt'
+                        : live.afbrudt ? 'Afbrudt'
+                          : live.halvleg ? `DIREKTE · ${live.halvleg}` : 'DIREKTE'}
+                  </span>
+                ) : isChance ? (
+                  <span className="chance-pill">⚡ Chancen</span>
+                ) : locked ? (
+                  <span className="badge badge--muted">Låst</span>
+                ) : null}
+              </span>
+            </div>
+
+            <div className="match-card__lineup">
+              <div className="match-card__side">
+                <ClubBadge code={h.code} color={h.color} size={34} title={m.home} />
+                <span className="match-card__side-name">{m.home}</span>
+              </div>
+              {/* Stregen mellem holdene er pladsen, hvor scoren hører hjemme.
+                  Uden den kunne kortet på én gang sige "Ramt +6,0" og vise en
+                  tom streg — vi vidste altså godt, hvordan det gik.
+                  Skærmlæsere får et helt udsagn: tankestregen mellem to tal
+                  oplæses uforudsigeligt. */}
+              {score ? (
+                <div
+                  className="match-card__score"
+                  aria-label={`Slutresultat: ${m.home} ${score.home}, ${m.away} ${score.away}`}
+                >
+                  <span aria-hidden="true">{score.home} – {score.away}</span>
+                </div>
+              ) : live ? (
+                /* Tre uafhængige kanaler skiller en LEVENDE stilling fra en
+                   endelig: pillen øverst, teksten her under tallet, og
+                   oplæsningen. Kun farve ville ikke være nok — på en telefon
+                   står pillen og tallet langt fra hinanden, og det er dér,
+                   forvekslingen sker. */
+                <div
+                  className={`match-card__score match-card__score--live ${live.forældet || live.sluttet ? 'match-card__score--doed' : ''}`}
+                  aria-label={`${live.sluttet ? 'Stillingen ved slutfløjt' : 'Stillingen lige nu'}:`
+                    + ` ${m.home} ${live.home}, ${m.away} ${live.away}.`
+                    + ` ${live.sluttet ? 'Kampen er slut, det officielle resultat er ikke nået frem endnu.'
+                      : live.afbrudt ? 'Kampen er afbrudt.' : live.halvleg ? `Kampen er i gang, ${live.halvleg}.` : 'Kampen er i gang.'}`
+                    // Tidsstemplet hører til opdateringen, ikke til slutfløjtet.
+                    // På en sluttet kamp er "Opdateret 19.52" misvisende: tallet
+                    // står nu stille, fordi kampen er forbi, ikke fordi vi kigger.
+                    + `${live.sluttet ? '' : ` ${live.forældet ? 'Opdateringen er afbrudt' : 'Opdateret'}`
+                      + `${live.setAt ? ` ${klokken(live.setAt)}` : ''}.`}`}
+                >
+                  <span aria-hidden="true">{live.home} – {live.away}</span>
+                  <span className="match-card__score-note" aria-hidden="true">
+                    {live.sluttet ? 'ved slutfløjt'
+                      : `${live.forældet ? 'sidst ' : ''}${live.setAt ? klokken(live.setAt) : 'lige nu'}`}
+                  </span>
+                </div>
+              ) : (
+                <div className="match-card__dash" aria-hidden="true">–</div>
+              )}
+              <div className="match-card__side">
+                <ClubBadge code={a.code} color={a.color} size={34} title={m.away} />
+                <span className="match-card__side-name">{m.away}</span>
+              </div>
+            </div>
+
+            <MatchElo home={m.home} away={m.away} eloByTeam={eloByTeam} />
+
+            <div className="pick-grid">
+              {OUTCOMES.map((o) => {
+                const selected = bet?.pick === o;
+                // Når scoren står ovenover, skal kortet også svare på HVILKEN
+                // knap der så var den rigtige. LeagueBets farver allerede den
+                // vindende udfaldsgruppe; her manglede det samme.
+                const won = m.result === o;
+                const odds = matchOdds(m, o);
+                const pts = odds ? round1(odds) : null;
+                return (
+                  <button
+                    key={o}
+                    className={`pick ${selected ? 'pick--selected' : ''} ${won ? 'pick--won' : ''}`}
+                    disabled={locked || busy === m.id}
+                    onClick={() => pick(m, o)}
+                    title={won
+                      ? `${OUTCOME_LABEL[o]} blev udfaldet`
+                      : pts != null ? `${fmtDec(pts)} point hvis rigtigt (= odds)` : 'Odds mangler endnu'}
+                  >
+                    <span className="pick__label">{OUTCOME_LABEL[o]}</span>
+                    <span className="pick__odds">{pts != null ? fmtDec(pts) : '—'}</span>
+                    <span className="pick__pts">point</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Efter kickoff: hvad tippede de andre i mine ligaer? */}
+            {locked && (
+              <LeagueBets
+                gameId={gameId}
+                match={m}
+                myUid={me?.uid}
+                leagueIds={me?.leagueIds || []}
+              />
+            )}
+          </div>
+        );
+      })}
+
+      {/* Chancen */}
+      <ChancePanel
+        gameId={gameId}
+        me={me}
+        bank={bank}
+        roundMatches={roundMatches}
+        betsByMatch={betsByMatch}
+        chanceMatchId={chanceMatchId}
+        nowMs={nowMs}
+      />
+    </div>
+  );
+}
+
+/** Chancen ⚡: sæt point på spil på ét 1X2-valg i runden. */
+function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchId, nowMs }) {
+  const maxStake = chanceMaxStake(bank);
+  const usable = canUseChance(bank);
+
+  // Kampe man kan chance på: dem man har tippet, og som ikke er låst.
+  const options = roundMatches.filter((m) => betsByMatch[m.id]?.pick && !isLocked(m, nowMs));
+
+  const activeBet = chanceMatchId ? betsByMatch[chanceMatchId] : null;
+  const [selMatchId, setSelMatchId] = useState(chanceMatchId || options[0]?.id || '');
+  const [stake, setStake] = useState(activeBet ? Number(activeBet.chanceStake) : CHANCE.MIN);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  // selMatchId sættes ÉN gang, når panelet monteres. Har man ikke tippet noget
+  // endnu — eller er runden ikke hentet fra Firestore endnu — er `options` tom,
+  // og state bliver ''. Tipper man så sin første kamp, mens panelet står åbent,
+  // fyldes listen, men state følger ikke med.
+  //
+  // <select> med en value, der ikke matcher nogen option, viser den FØRSTE
+  // kamp alligevel. Så ser det ud, som om der er valgt en kamp, mens opslaget
+  // nedenfor ikke finder nogen: boksen påstod "Odds er ikke lagt ind på kampen
+  // endnu" — selv om oddsene stod på knapperne lige ovenover — og knappen var
+  // død, fordi `pick` også blev undefined. Man kunne altså slet ikke sætte
+  // Chancen.
+  useEffect(() => {
+    if (options.some((m) => m.id === selMatchId)) return;
+    setSelMatchId(chanceMatchId || options[0]?.id || '');
+  }, [options, selMatchId, chanceMatchId]);
+
+  const selMatch = roundMatches.find((m) => m.id === selMatchId);
+  const selBet = selMatch ? betsByMatch[selMatch.id] : null;
+  const pick = selBet?.pick;
+  const odds = pick && Number.isFinite(selMatch?.odds?.[pick]) ? selMatch.odds[pick] : null;
+  const clampedStake = Math.max(CHANCE.MIN, Math.min(maxStake, Number(stake) || 0));
+  const win = odds ? settleChance({ correct: true, stake: clampedStake, fairOdds: odds }).delta : null;
+
+  if (!usable) {
+    return (
+      <div className="card">
+        <h3 className="card__title">Chancen ⚡</h3>
+        <p style={{ color: 'var(--c-muted)', marginBottom: 0 }}>
+          Du kan bruge Chancen, når du har mindst {Math.ceil(CHANCE.MIN / CHANCE.CAP_FRACTION)} point.
+          Sæt point på spil på ét tip: rammer du, ganges indsatsen med oddsene — ellers mister du kun indsatsen.
+        </p>
+      </div>
+    );
+  }
+
+  async function save(newStake) {
+    if (!selMatch || !pick) { setError('Vælg først 1, X eller 2 på kampen.'); return; }
+    setError('');
+    setBusy(true);
+    // Én chance pr. runde: nulstil en evt. tidligere chance i runden.
+    if (chanceMatchId && chanceMatchId !== selMatch.id) {
+      const prev = betsByMatch[chanceMatchId];
+      await setBet({
+        uid: me?.uid, gameId, matchId: chanceMatchId, pick: prev.pick, chanceStake: 0, bank,
+        leagueIds: me?.leagueIds || [],
+      });
+    }
+    const res = await setBet({
+      uid: me?.uid, gameId, matchId: selMatch.id, pick, chanceStake: newStake, bank,
+      leagueIds: me?.leagueIds || [],
+    });
+    if (!res.ok) setError(res.error);
+    setBusy(false);
+  }
+
+  return (
+    <div className="card">
+      <h3 className="card__title">Chancen ⚡</h3>
+      <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
+        Sæt point på spil på ét af dine tips i runden. Rammer du, ganges indsatsen
+        med kampens odds. Rammer du ikke, mister du kun indsatsen (du kan aldrig gå i minus).
+      </p>
+
+      {options.length === 0 ? (
+        <p className="badge badge--muted">Tip mindst én kamp i runden først.</p>
+      ) : (
+        <>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+            Kamp:
+            <select
+              value={selMatchId}
+              onChange={(e) => { setSelMatchId(e.target.value); }}
+              style={{ marginLeft: '0.5rem' }}
+            >
+              {options.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.home}–{m.away} (dit valg: {OUTCOME_LABEL[betsByMatch[m.id].pick]})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex items-center" style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <span>Indsats:</span>
+            <button className="btn btn--ghost btn--sm" disabled={clampedStake <= CHANCE.MIN}
+              onClick={() => setStake(Math.max(CHANCE.MIN, clampedStake - 1))}>−</button>
+            <strong style={{ minWidth: 28, textAlign: 'center' }}>{clampedStake}</strong>
+            <button className="btn btn--ghost btn--sm" disabled={clampedStake >= maxStake}
+              onClick={() => setStake(Math.min(maxStake, clampedStake + 1))}>+</button>
+            <span style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>af maks {maxStake}</span>
+          </div>
+
+          <p style={{ margin: '0.25rem 0' }}>
+            {odds ? (
+              <>Rammer du: <strong style={{ color: 'var(--c-pitch)' }}>+{win}</strong>
+                {'  '}· Rammer du ikke: <strong style={{ color: 'var(--c-err)' }}>−{clampedStake}</strong>
+                {'  '}<span style={{ color: 'var(--c-muted)' }}>(odds {fmtDec(odds, 2)})</span></>
+            ) : (
+              <span style={{ color: 'var(--c-muted)' }}>Odds er ikke lagt ind på kampen endnu.</span>
+            )}
+          </p>
+
+          {error && <p className="badge badge--red">{error}</p>}
+
+          <div className="flex items-center" style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
+            <button className="btn btn--sm" disabled={busy || !pick} onClick={() => save(clampedStake)}>
+              {chanceMatchId === selMatchId ? 'Opdatér Chancen' : 'Aktivér Chancen'}
+            </button>
+            {chanceMatchId && (
+              <button className="btn btn--ghost btn--sm" disabled={busy}
+                onClick={() => save(0)}>Fjern</button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

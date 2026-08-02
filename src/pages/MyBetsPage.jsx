@@ -9,9 +9,10 @@ import { useAuth } from '../context/AuthContext';
 import { useStages } from '../features/stages/useStages';
 import { useMyStageBets } from '../features/stages/useMyStageBets';
 import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { useTourSettings } from '../features/stages/useTourSettings';
 import { stageStatus } from '../lib/tourStages';
 import { scoreStageBet, STAGE_FIELDS } from '../lib/tourScoring';
-import { prettyTeam } from '../data/tourTeams2026';
+import { prettyTeamShort } from '../data/tourTeams2026';
 
 /** Hjælper: statuslabel og badge-farve for et etape-tip. */
 function betStatus(status) {
@@ -25,36 +26,42 @@ export default function MyBetsPage() {
   const season = useActiveSeason();
   const { stages, loading: stagesLoading } = useStages(season);
   const { betsByStage, loading: betsLoading } = useMyStageBets(user?.uid ?? null, season);
+  const { points } = useTourSettings();
 
   const isLoading = stagesLoading || betsLoading;
 
-  // Filtrér til kun etaper brugeren har tippet (mindst ét holdvalg)
+  // Filtrér til kun etaper brugeren har tippet (mindst ét holdvalg).
+  // Nyeste etape øverst → sortér faldende på etapenummer.
   const tippedStages = useMemo(
-    () => stages.filter((s) => STAGE_FIELDS.some(({ key }) => betsByStage[s.id]?.[key])),
+    () => stages
+      .filter((s) => STAGE_FIELDS.some(({ key }) => betsByStage[s.id]?.[key]))
+      .sort((a, b) => (b.number ?? 0) - (a.number ?? 0)),
     [stages, betsByStage],
   );
 
-  // Beregn point for afgjorte etaper
-  const pointsPerStage = useMemo(() => {
+  // Beregn point + pr.-spørgsmål-fordeling for afgjorte etaper.
+  // Værdien er null for endnu ikke afgjorte etaper.
+  const scoredPerStage = useMemo(() => {
     const map = new Map();
     for (const s of tippedStages) {
       if (stageStatus(s, Date.now()) !== 'done' || !s.result) {
         map.set(s.id, null);
         continue;
       }
-      map.set(s.id, scoreStageBet(betsByStage[s.id], s.result).points);
+      const { points: pts, breakdown } = scoreStageBet(betsByStage[s.id], s.result, points, s);
+      map.set(s.id, { points: pts, breakdown: breakdown || {} });
     }
     return map;
-  }, [tippedStages, betsByStage]);
+  }, [tippedStages, betsByStage, points]);
 
   // Samlet sum af kendte point
   const totalPoints = useMemo(() => {
     let sum = 0;
-    pointsPerStage.forEach((pts) => {
-      if (pts !== null) sum += pts;
+    scoredPerStage.forEach((sc) => {
+      if (sc !== null) sum += sc.points;
     });
     return sum;
-  }, [pointsPerStage]);
+  }, [scoredPerStage]);
 
   // Antal ulåste etaper der kan redigeres
   const editableCount = tippedStages.filter((s) => stageStatus(s, Date.now()) === 'scheduled').length;
@@ -95,8 +102,10 @@ export default function MyBetsPage() {
           >
             {totalPoints}
           </div>
+          {/* Ærlig etiket: summen her er KUN point fra afgivne tip — evt.
+              -1-straffe for utippede etaper ligger i stillingen, ikke her. */}
           <div style={{ fontSize: '0.78rem', color: 'var(--c-muted)', fontWeight: 600 }}>
-            Point i alt
+            Point fra dine tips
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>
@@ -142,10 +151,12 @@ export default function MyBetsPage() {
               <thead>
                 <tr>
                   <th>Etape</th>
-                  <th>Etapevinder</th>
-                  <th>Bedste hold</th>
-                  <th>Bjerg</th>
-                  <th>Sprint</th>
+                  {/* Emoji-headers (samme sprog som etapekortet) + korte holdnavne
+                      i cellerne → tabellen kan faktisk læses på en telefon. */}
+                  <th title="Etapevinderens hold" aria-label="Etapevinderens hold">🏆</th>
+                  <th title="Bedste hold" aria-label="Bedste hold">⏱️</th>
+                  <th title="Flest bjergpoint" aria-label="Flest bjergpoint">⛰️</th>
+                  <th title="Flest sprintpoint" aria-label="Flest sprintpoint">🚀</th>
                   <th>Point</th>
                   <th>Status</th>
                   <th></th>
@@ -156,16 +167,39 @@ export default function MyBetsPage() {
                   const bet = betsByStage[stage.id];
                   const status = stageStatus(stage, Date.now());
                   const locked = status !== 'scheduled';
-                  const pts = pointsPerStage.get(stage.id);
+                  const scored = scoredPerStage.get(stage.id);
+                  const pts = scored === null ? null : scored.points;
                   const { label: statusLabel, cls: statusCls } = betStatus(status);
+
+                  // Pick-celle: holdnavn + (for afgjorte etaper) hvor mange
+                  // point netop dette tip gav.
+                  const pickCell = (key) => {
+                    const earned = scored ? (scored.breakdown[key] || 0) : null;
+                    return (
+                      <td>
+                        <div>{prettyTeamShort(bet?.[key]) || '–'}</div>
+                        {earned !== null && bet?.[key] && (
+                          <div
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              color: earned > 0 ? 'var(--c-ok)' : 'var(--c-muted)',
+                            }}
+                          >
+                            {earned > 0 ? `+${earned} p` : '0 p'}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  };
 
                   return (
                     <tr key={stage.id}>
                       <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Etape {stage.number}</td>
-                      <td>{prettyTeam(bet?.winnerTeam) || '–'}</td>
-                      <td>{prettyTeam(bet?.gcTeam) || '–'}</td>
-                      <td>{prettyTeam(bet?.mountainTeam) || '–'}</td>
-                      <td>{prettyTeam(bet?.sprintTeam) || '–'}</td>
+                      {pickCell('winnerTeam')}
+                      {pickCell('gcTeam')}
+                      {pickCell('mountainTeam')}
+                      {pickCell('sprintTeam')}
                       <td>
                         {pts !== null ? (
                           <span className={`badge ${pts > 0 ? 'badge--green' : 'badge--muted'}`}>

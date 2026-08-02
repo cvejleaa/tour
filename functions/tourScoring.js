@@ -5,7 +5,13 @@
 //
 // PODIE-POINT: et tip giver point efter holdets PLACERING i spørgsmålets top-3,
 // pr. spørgsmål en faldende skala [1., 2., 3.]. Alle værdier er admin-redigerbare.
+//
+// VIGTIGT: tip og facit sammenlignes TOLERANT (normaliseret holdnavn via
+// sameTeam) — aldrig rå strenglighed. Én stavningsforskel mellem tip-listen og
+// letour-facit ville ellers lydløst give 0 point til alle. Spejlet i src-udgaven.
 // ---------------------------------------------------------------------------
+
+const { sameTeam } = require('./tourTeams');
 
 const DEFAULT_POINTS = {
   winnerTeam: 5,
@@ -23,7 +29,7 @@ const DEFAULT_PODIUM = {
 };
 
 const DEFAULT_UNTIPPED_PENALTY = 1;
-const DEFAULT_GC_TOP_N = 10;
+const DEFAULT_GC_TOP_N = 4; // maks 8 (holdstørrelse); ellers kan Q2 ikke afgøres
 const QUESTION_KEYS = ['winnerTeam', 'gcTeam', 'mountainTeam', 'sprintTeam'];
 
 /**
@@ -99,15 +105,27 @@ function bestTeam(totals, counts) {
   return r.length ? r[0] : null;
 }
 
-function gcTotals(finishOrder, topN = DEFAULT_GC_TOP_N) {
+// Q2-holdstilling: hvert holds N bedst placerede rytteres målplaceringer
+// summeres; LAVEST sum vinder. Kun hold med mindst N ryttere i mål kvalificerer.
+function gcTeamStanding(finishOrder, topN = DEFAULT_GC_TOP_N) {
   const n = Math.max(1, Math.floor(Number(topN) || DEFAULT_GC_TOP_N));
-  const top = (finishOrder || []).slice(0, n);
-  const counts = new Map();
-  const points = top.map((e, i) => {
-    if (e && e.team) counts.set(e.team, (counts.get(e.team) || 0) + 1);
-    return { team: e && e.team, value: n - i };
+  const byTeam = new Map();
+  (finishOrder || []).forEach((e, i) => {
+    const team = e && e.team;
+    if (team == null || team === '') return;
+    const rank = Number.isFinite(Number(e && e.rank)) ? Number(e.rank) : i + 1;
+    const arr = byTeam.get(team) || [];
+    arr.push({ rider: (e && e.rider) || null, rank });
+    byTeam.set(team, arr);
   });
-  return { totals: sumByTeam(points, (e) => e.value), counts };
+  const rows = [];
+  for (const [team, riders] of byTeam) {
+    if (riders.length < n) continue;
+    const best = [...riders].sort((a, b) => a.rank - b.rank).slice(0, n);
+    rows.push({ team, sum: best.reduce((s, r) => s + r.rank, 0), riders: best });
+  }
+  rows.sort((a, b) => (a.sum - b.sum) || (a.team < b.team ? -1 : a.team > b.team ? 1 : 0));
+  return rows;
 }
 
 function pointsTotals(pointList) {
@@ -135,8 +153,8 @@ function stageWinnerTeam(finishOrder) {
 }
 
 function stageGcTeam(finishOrder, topN = DEFAULT_GC_TOP_N) {
-  const { totals, counts } = gcTotals(finishOrder, topN);
-  return bestTeam(totals, counts);
+  const r = gcTeamStanding(finishOrder, topN);
+  return r.length ? r[0].team : null;
 }
 
 function topPointsTeam(pointList) {
@@ -146,12 +164,12 @@ function topPointsTeam(pointList) {
 
 function resolveStageResult(raw = {}) {
   const { finishOrder, mountainPoints, sprintPoints, gcTopN } = raw;
-  const gc = finishOrder && finishOrder.length ? gcTotals(finishOrder, gcTopN) : null;
+  const gcOrder = finishOrder && finishOrder.length ? gcTeamStanding(finishOrder, gcTopN) : [];
   const mt = mountainPoints && mountainPoints.length ? pointsTotals(mountainPoints) : null;
   const sp = sprintPoints && sprintPoints.length ? pointsTotals(sprintPoints) : null;
   const podium = {
     winnerTeam: teamPodiumFromFinish(finishOrder),
-    gcTeam: gc ? rankTeams(gc.totals, gc.counts).slice(0, 3) : [],
+    gcTeam: gcOrder.slice(0, 3).map((r) => r.team),
     mountainTeam: mt ? rankTeams(mt.totals, mt.counts).slice(0, 3) : [],
     sprintTeam: sp ? rankTeams(sp.totals, sp.counts).slice(0, 3) : [],
   };
@@ -208,6 +226,16 @@ function isUntipped(bet, active) {
   );
 }
 
+// Er etapens hold-tip komplet? Dvs. er ALLE de aktive spørgsmål (jf. etapens
+// type eller et questions-override) besvaret? Spejler src/lib/tourScoring.js.
+function stageTipComplete(stage, bet) {
+  if (!bet || typeof bet !== 'object') return false;
+  const active = activeQuestionsForStage(stage);
+  const activeKeys = STAGE_FIELDS.filter(({ key }) => active[key]);
+  if (activeKeys.length === 0) return true;
+  return activeKeys.every(({ key }) => bet[key] != null && bet[key] !== '');
+}
+
 function podiumFor(res, key) {
   if (res.podium && Array.isArray(res.podium[key])) return res.podium[key];
   return res[key] != null && res[key] !== '' ? [res[key]] : [];
@@ -238,7 +266,7 @@ function scoreStageBet(bet, result, pointsCfg, stageOrActive) {
     if (!podium.length) continue;
     const pick = bet && bet[key];
     if (pick == null || pick === '') { breakdown[key] = 0; continue; }
-    const rank = podium.findIndex((t) => t === pick);
+    const rank = podium.findIndex((t) => sameTeam(t, pick));
     const pts = rank >= 0 ? (P[key][rank] || 0) : 0;
     breakdown[key] = pts;
     total += pts;
@@ -255,12 +283,14 @@ module.exports = {
   normalizePodium,
   stageWinnerTeam,
   stageGcTeam,
+  gcTeamStanding,
   topPointsTeam,
   resolveStageResult,
   STAGE_FIELDS,
   QUESTION_DEFAULTS_BY_TYPE,
   activeQuestionsForStage,
   isUntipped,
+  stageTipComplete,
   scoreStageBet,
   bonusNorm,
 };
