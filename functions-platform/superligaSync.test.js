@@ -574,7 +574,7 @@ describe('runScheduledSync', () => {
     });
     const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
     expect(out.updated).toBe(0);
-    expect(out.live).toEqual({ live: 1, skrevet: 1, ryddet: 0 });
+    expect(out.live).toEqual({ live: 1, skrevet: 1, sluttet: 0, sluttede: [] });
   });
 
   it('bruger den tid, den får ind — ikke uret', async () => {
@@ -871,7 +871,7 @@ describe('syncLiveCore', () => {
     const res = await syncLiveCore(db, FieldValue, {
       fetchFn: fetchLive([hændelse({ home: 1, away: 0 })]), only: [kamp], nowMs: NU,
     });
-    expect(res).toEqual({ live: 1, skrevet: 1, ryddet: 0 });
+    expect(res).toEqual({ live: 1, skrevet: 1, sluttet: 0, sluttede: [] });
     expect(db._docs.get('r2-brondbyif-viborgff').live).toEqual({
       home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: NU,
     });
@@ -965,7 +965,7 @@ describe('syncLiveCore', () => {
     const res = await syncLiveCore(db, FieldValue, {
       fetchFn: fetchLive([færdig]), only: [kamp], nowMs: NU,
     });
-    expect(res).toEqual({ live: 0, skrevet: 0, ryddet: 0 });
+    expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0, sluttede: [] });
     expect(db._spil.liveHeartbeatAt).toBeUndefined(); // heller ingen puls
   });
 
@@ -1035,36 +1035,56 @@ describe('syncLiveCore', () => {
     expect(set[0]?.signal).toBeInstanceOf(AbortSignal);
   });
 
-  // Kampen er fløjtet af, men facit er ikke nået frem endnu. Uden rydningen
-  // her stod kortet med en rød, levende stilling på en kamp, der var slut —
-  // og efter 2,5 time slap pendingMatches den, så den aldrig blev rørt igen.
-  describe('rydder live, når kampen ikke er i gang længere', () => {
+  // Kampen er fløjtet af, men facit er ikke nået frem endnu. Uden dette led
+  // stod kortet med en rød, levende stilling på en kamp, der var slut — og
+  // efter 2,5 time slap pendingMatches den, så den aldrig blev rørt igen.
+  //
+  // Vi MARKERER, vi sletter ikke. Første udgave slettede feltet, og det kostede
+  // en ægte fejl i produktion: en kamp, der stadig blev spillet, fik tallet
+  // visket ud, fordi ét enkelt fravær fra kildens liste blev taget som bevis
+  // for slutfløjt.
+  describe('markerer live som slut, når kampen ikke er i gang længere', () => {
     const medLive = {
       id: 'r2-brondbyif-viborgff',
       data: { round: 2, live: { home: 1, away: 0, status: 'anden', statusRaw: '2nd half', at: NU - 60_000 } },
     };
 
-    it('sender en delete, når kampen er væk fra kildens liste', async () => {
+    it('sætter status slut, når kampen er væk fra kildens liste', async () => {
       const db = makeDb([medLive]);
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: fetchLive([]), only: [medLive], nowMs: NU,
       });
-      expect(res.ryddet).toBe(1);
-      expect(db._docs.get('r2-brondbyif-viborgff').live).toBe('@delete');
+      expect(res.sluttet).toBe(1);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ status: 'slut' });
     });
 
-    // Rydningen sker i en kørsel, hvor der ikke skrives noget andet. Committer
-    // vi kun på `skrevet`, ville deleten blive samlet op og aldrig sendt.
+    // DEN VIGTIGSTE TEST I BLOKKEN. Regressionen var, at tallet forsvandt fra
+    // skærmen. Går den her i stykker, er fejlen tilbage — uanset hvad status
+    // siger.
+    it('BEVARER stillingen — sletter aldrig tallet', async () => {
+      const db = makeDb([medLive]);
+      await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [medLive], nowMs: NU });
+      const live = db._docs.get('r2-brondbyif-viborgff').live;
+      expect(live).not.toBe('@delete');
+      expect(live.home).toBe(1);
+      expect(live.away).toBe(0);
+      // `at` er tidspunktet, hvor stillingen sidst flyttede sig. Slutfløjt gør
+      // det ikke mindre sandt, så det skal stå urørt.
+      expect(live.at).toBe(NU - 60_000);
+    });
+
+    // Markeringen sker i en kørsel, hvor der ikke skrives noget andet.
+    // Committer vi kun på `skrevet`, ville den blive samlet op og aldrig sendt.
     it('committer, selv om ingen live-stilling blev skrevet', async () => {
       const db = makeDb([medLive]);
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: fetchLive([]), only: [medLive], nowMs: NU,
       });
       expect(res.skrevet).toBe(0);
-      expect(db._docs.get('r2-brondbyif-viborgff').live).toBe('@delete');
+      expect(db._docs.get('r2-brondbyif-viborgff').live.status).toBe('slut');
     });
 
-    it('rører ALDRIG facit-felterne, når den rydder', async () => {
+    it('rører ALDRIG facit-felterne, når den markerer', async () => {
       const db = makeDb([medLive]);
       await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [medLive], nowMs: NU });
       const dok = db._docs.get('r2-brondbyif-viborgff');
@@ -1074,35 +1094,35 @@ describe('syncLiveCore', () => {
       }
     });
 
-    it('rydder IKKE, mens kampen stadig står i kildens liste', async () => {
+    it('markerer IKKE, mens kampen stadig står i kildens liste', async () => {
       const db = makeDb([medLive]);
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: fetchLive([hændelse({ home: 1, away: 0 }, '2nd half')]), only: [medLive], nowMs: NU,
       });
-      expect(res.ryddet).toBe(0);
-      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0 });
+      expect(res.sluttet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0, status: 'anden' });
     });
 
     // Sættet over "stadig i gang" bygges på den UFILTREREDE liste. Bygges det
     // på `events`, bliver vores eget score-filter til bevis for, at kampen er
-    // slut — og en kamp i gang med en ubrugelig score får ryddet stillingen
+    // slut — og en kamp i gang med en ubrugelig score får markeret sin stilling
     // midt i det hele.
-    it('rydder IKKE en kamp, der er i gang med en ubrugelig score', async () => {
+    it('markerer IKKE en kamp, der er i gang med en ubrugelig score', async () => {
       const db = makeDb([medLive]);
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: fetchLive([hændelse({ home: null, away: 0 })]), only: [medLive], nowMs: NU,
       });
-      expect(res.ryddet).toBe(0);
-      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0 });
+      expect(res.sluttet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0, status: 'anden' });
     });
 
-    it('rydder heller ikke, når kampen slet ikke har nogen score med', async () => {
+    it('markerer heller ikke, når kampen slet ikke har nogen score med', async () => {
       const db = makeDb([medLive]);
       const uden = { statusType: 'inprogress', round: 2, homeName: 'Brøndby IF', awayName: 'Viborg FF' };
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: fetchLive([uden]), only: [medLive], nowMs: NU,
       });
-      expect(res.ryddet).toBe(0);
+      expect(res.sluttet).toBe(0);
     });
 
     // Uden dette led ville hvert stille minut koste en tom skrivning pr. kamp
@@ -1112,34 +1132,61 @@ describe('syncLiveCore', () => {
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: fetchLive([]), only: [kamp], nowMs: NU,
       });
-      expect(res.ryddet).toBe(0);
+      expect(res.sluttet).toBe(0);
       expect(db._docs.get('r2-brondbyif-viborgff').live).toBeUndefined();
     });
 
-    it('rydder kun kampe, vi har spurgt om', async () => {
+    // Uden denne vagt ville en kamp, der er slut, blive skrevet igen HVERT
+    // minut resten af vinduet — op mod halvanden time med én skrivning i
+    // minuttet, og hver af dem en læsning pr. åben browser.
+    it('markerer IKKE igen, når kampen allerede står som slut', async () => {
+      const alleredeSlut = {
+        id: 'r2-brondbyif-viborgff',
+        data: { round: 2, live: { home: 1, away: 0, status: 'slut', statusRaw: '2nd half', at: NU - 60_000 } },
+      };
+      const db = makeDb([alleredeSlut]);
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([]), only: [alleredeSlut], nowMs: NU,
+      });
+      expect(res.sluttet).toBe(0);
+      expect(db._spil.liveHeartbeatAt).toBeUndefined();
+    });
+
+    // Selvhelbredende: flakker kilden — kampen ude ét minut, inde det næste —
+    // skal den levende status skrives tilbage. Ellers ville ét dårligt minut
+    // låse kortet på "Slut", mens der stadig blev spillet.
+    it('skriver den levende status tilbage, hvis kampen dukker op igen', async () => {
+      const alleredeSlut = {
+        id: 'r2-brondbyif-viborgff',
+        data: { round: 2, live: { home: 1, away: 0, status: 'slut', statusRaw: '2nd half', at: NU - 60_000 } },
+      };
+      const db = makeDb([alleredeSlut]);
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([hændelse({ home: 1, away: 0 }, '2nd half')]), only: [alleredeSlut], nowMs: NU,
+      });
+      expect(res.skrevet).toBe(1);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0, status: 'anden' });
+    });
+
+    it('markerer kun kampe, vi har spurgt om', async () => {
       const db = makeDb([medLive]);
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: fetchLive([]), only: [], nowMs: NU,
       });
-      expect(res.ryddet).toBe(0);
-      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0 });
+      expect(res.sluttet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ status: 'anden' });
     });
 
-    it('sætter ingen puls, når den kun rydder', async () => {
+    it('sætter ingen puls, når den kun markerer', async () => {
       const db = makeDb([medLive]);
       await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [medLive], nowMs: NU });
       expect(db._spil.liveHeartbeatAt).toBeUndefined();
     });
 
-    // FLERE KAMPE AD GANGEN. Testene ovenfor giver alle funktionen præcis ÉN
-    // kamp, og med én kamp kan man ikke skelne "ryd den rigtige kamp" fra "ryd
-    // den første kamp". To mutationer overlevede derfor hele suiten: et `break`
-    // efter første rydning, og en rydning der altid ramte `only[0]`.
-    //
-    // Det er ikke teoretisk. En Superliga-runde afvikles med flere kampe med
-    // SAMME kickoff, så de slutter inden for samme minut. Med `break` ville
-    // kamp nummer to blive stående på "DIREKTE" til facit eller nattens sweep
-    // — præcis den fejl, rydningen findes for.
+    // FLERE KAMPE AD GANGEN. Med kun én kamp pr. test kan man ikke skelne
+    // "markér den rigtige kamp" fra "markér den første kamp" — to mutationer
+    // overlevede hele suiten på præcis det. En runde afvikles med flere kampe
+    // med SAMME kickoff, så de slutter inden for samme minut.
     const andenKamp = (id, home, away) => ({
       id,
       data: { round: 2, live: { home: 2, away: 1, status: 'anden', statusRaw: '2nd half', at: NU - 60_000 } },
@@ -1149,39 +1196,36 @@ describe('syncLiveCore', () => {
       },
     });
 
-    it('rydder HVER af flere samtidige kampe — og kun dem, der er væk fra listen', async () => {
+    it('markerer HVER af flere samtidige kampe — og kun dem, der er væk fra listen', async () => {
       const a = andenKamp('r2-silkeborg-horsens', 'Silkeborg', 'Horsens');
       const b = andenKamp('r2-randers-odense', 'Randers', 'Odense');
       const c = andenKamp('r2-aarhus-vejle', 'Aarhus', 'Vejle');
       const only = [a, b, c].map(({ id, data }) => ({ id, data }));
       const db = makeDb(only);
 
-      // Kilden melder KUN c stadig i gang. a og b er fløjtet af.
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: fetchLive([c.hændelse]), only, nowMs: NU,
       });
 
-      expect(res.ryddet).toBe(2);
-      expect(db._docs.get('r2-silkeborg-horsens').live).toBe('@delete');
-      expect(db._docs.get('r2-randers-odense').live).toBe('@delete');
-      // c spiller stadig — dens stilling skal stå urørt.
-      expect(db._docs.get('r2-aarhus-vejle').live).toMatchObject({ home: 2, away: 1 });
+      expect(res.sluttet).toBe(2);
+      expect(db._docs.get('r2-silkeborg-horsens').live).toMatchObject({ home: 2, away: 1, status: 'slut' });
+      expect(db._docs.get('r2-randers-odense').live).toMatchObject({ home: 2, away: 1, status: 'slut' });
+      expect(db._docs.get('r2-aarhus-vejle').live).toMatchObject({ status: 'anden' });
     });
 
-    it('rydder den SIDSTE kamp i listen, ikke kun den første', async () => {
+    it('markerer den SIDSTE kamp i listen, ikke kun den første', async () => {
       const a = andenKamp('r2-silkeborg-horsens', 'Silkeborg', 'Horsens');
       const b = andenKamp('r2-randers-odense', 'Randers', 'Odense');
       const only = [a, b].map(({ id, data }) => ({ id, data }));
       const db = makeDb(only);
 
-      // Kilden melder kun a i gang — så det er b, den sidste, der skal ryddes.
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: fetchLive([a.hændelse]), only, nowMs: NU,
       });
 
-      expect(res.ryddet).toBe(1);
-      expect(db._docs.get('r2-randers-odense').live).toBe('@delete');
-      expect(db._docs.get('r2-silkeborg-horsens').live).toMatchObject({ home: 2, away: 1 });
+      expect(res.sluttet).toBe(1);
+      expect(db._docs.get('r2-randers-odense').live).toMatchObject({ status: 'slut' });
+      expect(db._docs.get('r2-silkeborg-horsens').live).toMatchObject({ status: 'anden' });
     });
 
     it('skriver intet på et stille minut med flere kampe uden live-stilling', async () => {
@@ -1191,16 +1235,113 @@ describe('syncLiveCore', () => {
       ];
       const db = makeDb(only);
       const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only, nowMs: NU });
-      expect(res).toEqual({ live: 0, skrevet: 0, ryddet: 0 });
+      expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0, sluttede: [] });
       expect(db._docs.get('r2-silkeborg-horsens').live).toBeUndefined();
       expect(db._docs.get('r2-randers-odense').live).toBeUndefined();
     });
+
+    // Vagten mod at markere igen må springe DEN ENE kamp over — ikke afbryde
+    // løkken. Med `break` ville en kamp, der allerede står som slut, standse
+    // markeringen af alle efterfølgende: to samtidige kickoffs, A markeret i
+    // minut 1, og B ville aldrig blive markeret, fordi A ligger først i listen.
+    it('markerer kamp nummer to, selv om kamp nummer ét allerede står som slut', async () => {
+      const only = [
+        { id: 'r2-silkeborg-horsens', data: { round: 2, live: { home: 1, away: 1, status: 'slut', at: NU - 60_000 } } },
+        { id: 'r2-randers-odense', data: { round: 2, live: { home: 2, away: 1, status: 'anden', at: NU - 60_000 } } },
+      ];
+      const db = makeDb(only);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only, nowMs: NU });
+      expect(res.sluttet).toBe(1);
+      expect(res.sluttede).toEqual(['r2-randers-odense']);
+      expect(db._docs.get('r2-randers-odense').live).toMatchObject({ home: 2, away: 1, status: 'slut' });
+    });
+
+    // KONTRAKTEN MELLEM SERVER OG KLIENT.
+    //
+    // 'slut' er en magisk streng, der står i to codebases. Omdøbes den ét sted
+    // — en helt almindelig omdøbning, der tager serveren og dens egne tests med
+    // — skriver serveren ét ord, mens klienten spørger på et andet. Så falder
+    // statussen igennem til null, og kortet siger DIREKTE på en afsluttet kamp.
+    // Præcis den fejl, hele rettelsen findes for. Uden denne test er alle 339
+    // tests grønne imens.
+    //
+    // Derfor køres serverens FAKTISKE output gennem klientens FAKTISKE læser.
+    it('skriver den status, klienten læser som sluttet', async () => {
+      const db = makeDb([medLive]);
+      await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [medLive], nowMs: NU });
+      const skrevet = db._docs.get('r2-brondbyif-viborgff');
+
+      const { liveScore } = await import('../src/features/games/football/footballRounds.js');
+      // kickoff skal med: klienten nægter at vise en stilling på et kort, der
+      // stadig tager imod tips.
+      const set = liveScore({ ...skrevet, kickoff: NU - 2 * 60 * 60_000 }, NU, NU);
+
+      expect(set).not.toBeNull();
+      expect(set.sluttet).toBe(true);
+      expect(set.halvleg).toBeNull(); // må ALDRIG kunne læses som "DIREKTE"
+      expect(set.home).toBe(1);
+      expect(set.away).toBe(0);
+    });
   });
 
-  // Fravær af data er et SKRIVE-signal, siden det rydder live. Derfor skal en
-  // tom liste kunne skelnes fra et svar, vi ikke forstod. Uden dette værn ville
-  // et HTTP 200 med en afkortet krop betyde "ingen kampe i gang" og rydde
-  // stillingen på hver eneste kamp, der spillede.
+  // HALVLEGSPAUSEN. Melder kilden en kamp ud af sin liste i pausen, ville
+  // fraværet blive læst som slutfløjt — og hver eneste kamp ville sige "Slut"
+  // midt i kampen.
+  describe('markerer ikke, før kampen overhovedet kan være slut', () => {
+    const medKickoff = (minutterSiden) => ({
+      id: 'r2-brondbyif-viborgff',
+      data: {
+        round: 2,
+        kickoff: new Date(NU - minutterSiden * 60_000),
+        live: { home: 1, away: 0, status: 'pause', statusRaw: 'halftime', at: NU - 60_000 },
+      },
+    });
+
+    it('markerer IKKE en kamp, der er 50 minutter gammel (halvlegspause)', async () => {
+      const m = medKickoff(50);
+      const db = makeDb([m]);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [m], nowMs: NU });
+      expect(res.sluttet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ status: 'pause' });
+    });
+
+    it('markerer, når kampen er gammel nok til at kunne være slut', async () => {
+      const m = medKickoff(100);
+      const db = makeDb([m]);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [m], nowMs: NU });
+      expect(res.sluttet).toBe(1);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0, status: 'slut' });
+    });
+
+    // Uden kickoff kan vi ikke afgøre det. Så markerer vi: markeringen er
+    // ikke-destruktiv, og alternativet var at lade kortet sige DIREKTE.
+    it('markerer, når kickoff ikke kan læses', async () => {
+      const m = { id: 'r2-brondbyif-viborgff', data: { round: 2, kickoff: '', live: { home: 1, away: 0, status: 'anden', at: NU } } };
+      const db = makeDb([m]);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [m], nowMs: NU });
+      expect(res.sluttet).toBe(1);
+    });
+  });
+
+  // En afbrudt kamp er ikke slut, den er afbrudt. Overskrev vi statussen, ville
+  // kortet holde op med at sige "Afbrudt" og begynde at sige "Slut".
+  describe('rører ikke en afbrudt kamp', () => {
+    it('lader en afbrudt kamp beholde sin status', async () => {
+      const m = {
+        id: 'r2-brondbyif-viborgff',
+        data: {
+          round: 2,
+          kickoff: new Date(NU - 120 * 60_000),
+          live: { home: 1, away: 0, status: 'afbrudt', statusRaw: 'abandoned', at: NU - 60_000 },
+        },
+      };
+      const db = makeDb([m]);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [m], nowMs: NU });
+      expect(res.sluttet).toBe(0);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ status: 'afbrudt' });
+    });
+  });
+
   describe('afviser et 200-svar, den ikke forstår', () => {
     const medLive = {
       id: 'r2-brondbyif-viborgff',
@@ -1223,15 +1364,15 @@ describe('syncLiveCore', () => {
       });
     }
 
-    // En ægte tom liste betyder stadig "ingen kampe i gang" og SKAL rydde.
+    // En ægte tom liste betyder stadig "ingen kampe i gang" og SKAL markere.
     // Ellers havde værnet ovenfor slået hele rettelsen ihjel.
-    it('rydder stadig ved en ÆGTE tom liste', async () => {
+    it('markerer stadig ved en ÆGTE tom liste', async () => {
       const db = makeDb([medLive]);
       const res = await syncLiveCore(db, FieldValue, {
         fetchFn: svar({ events: [] }), only: [medLive], nowMs: NU,
       });
-      expect(res.ryddet).toBe(1);
-      expect(db._docs.get('r2-brondbyif-viborgff').live).toBe('@delete');
+      expect(res.sluttet).toBe(1);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0, status: 'slut' });
     });
   });
 });
