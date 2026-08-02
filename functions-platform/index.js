@@ -22,7 +22,7 @@ const { initializeApp } = require('firebase-admin/app');
 
 const { recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals } = require('./gameScoring');
 const { syncResultsCore, syncStandingsCore } = require('./superligaSync');
-const { redeemLeagueCodeCore } = require('./gameLeagues');
+const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
@@ -190,12 +190,7 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION }, async (request) => 
 });
 
 // redeemGameLeagueCode — deltag i en privat mini-liga via invitationskode.
-const LEAGUE_ERR = {
-  unauthenticated: ['unauthenticated', 'Log ind for at deltage.'],
-  'bad-code': ['invalid-argument', 'Indtast en gyldig kode.'],
-  'no-user': ['failed-precondition', 'Opret en bruger først, så tilmelder vi dig ligaen.'],
-  'not-found': ['not-found', 'Ingen liga fundet med den kode.'],
-};
+// Fejltabellen bor i gameLeagues.js, sammen med de throws den oversætter.
 exports.redeemGameLeagueCode = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid;
   const { gameId, code } = request.data || {};

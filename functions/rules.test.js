@@ -29,8 +29,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 const rootDir    = join(__dirname, '..');
 
-// Indlæs Firestore-reglerne
-const rules = readFileSync(join(rootDir, 'firestore.rules'), 'utf8');
+// Indlæs Firestore-reglerne.
+//
+// RULES_FILE peger normalt intetsteds hen. Den findes, så mutationstest kan
+// køre mod en KOPI med én betingelse rullet tilbage: skriver man i selve
+// firestore.rules, opdager emulatorens fil-vagt ændringen og genindlæser
+// reglerne midt i kørslen.
+const rules = readFileSync(process.env.RULES_FILE || join(rootDir, 'firestore.rules'), 'utf8');
 
 let testEnv;
 
@@ -1922,5 +1927,446 @@ describe('games/{gameId}/leagues — sikkerhedsregler', () => {
       getDoc(doc(testEnv.authenticatedContext('outsider').firestore(),
         'games', 'sl', 'leagues', 'lg1', 'questionAnswers', 'q1_own'))
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TESTS: hullerne fundet ved sæsoneftersynet (august 2026).
+//
+// Fælles mønster for de fleste: et felt er BUNDET ved create (via doc-id eller
+// et eksplicit tjek), men frit ved update — og selve autorisationen længere
+// nede læser det GAMLE felt. Derfor er den negative test her altid en update
+// på et dokument, der ER oprettet lovligt.
+//
+// Hver test bruger sine EGNE id'er. Med genbrugte id'er kan klientens cache
+// svare på en læsning, og så beviser en grøn test ingenting.
+// ---------------------------------------------------------------------------
+describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
+  const iMorgen = () => new Date(Date.now() + 3600e3);
+  const iGaar = () => new Date(Date.now() - 3600e3);
+
+  /** Læg et lovligt oprettet dokument ind udenom reglerne. */
+  async function seed(path, data) {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc(path).set(data);
+    });
+  }
+
+  // --- 1) stageBets: uid og stageId er uforanderlige ------------------------
+  describe('stageBets/{id} — update', () => {
+    it('KAN rette sit eget etape-tip (kontrol: reglen spærrer ikke normal brug)', async () => {
+      await createUser('se1a', 'player', 'approved');
+      await createStage('se-st-a', iMorgen());
+      await seed('stageBets/se1a_se-st-a', { uid: 'se1a', stageId: 'se-st-a', winnerTeam: 'UAE' });
+
+      await assertSucceeds(updateDoc(
+        doc(testEnv.authenticatedContext('se1a').firestore(), 'stageBets', 'se1a_se-st-a'),
+        { winnerTeam: 'VIS' },
+      ));
+    });
+
+    it('KAN IKKE skrive sit eget tip om til en andens navn', async () => {
+      await createUser('se1b', 'player', 'approved');
+      await createStage('se-st-b', iMorgen());
+      await seed('stageBets/se1b_se-st-b', { uid: 'se1b', stageId: 'se-st-b', winnerTeam: 'UAE' });
+
+      // Dagsstillingen grupperer på uid-FELTET, ikke på doc-id'et.
+      await assertFails(updateDoc(
+        doc(testEnv.authenticatedContext('se1b').firestore(), 'stageBets', 'se1b_se-st-b'),
+        { uid: 'offer' },
+      ));
+    });
+
+    it('KAN IKKE pege tippet over på en etape, der allerede er kørt', async () => {
+      await createUser('se1c', 'player', 'approved');
+      await createStage('se-st-c', iMorgen());   // åben — kickoff-tjekket læser DENNE
+      await createStage('se-st-c2', iGaar());    // kørt
+      await seed('stageBets/se1c_se-st-c', { uid: 'se1c', stageId: 'se-st-c', winnerTeam: 'UAE' });
+
+      await assertFails(updateDoc(
+        doc(testEnv.authenticatedContext('se1c').firestore(), 'stageBets', 'se1c_se-st-c'),
+        { stageId: 'se-st-c2', winnerTeam: 'POG' },
+      ));
+    });
+  });
+
+  // --- 2) bonusBets: uid og questionId er uforanderlige ---------------------
+  describe('bonusBets/{id} — update', () => {
+    it('KAN rette sit eget bonussvar (kontrol)', async () => {
+      await createUser('se2a', 'player', 'approved');
+      await createBonusQuestion('se-bq-a', iMorgen());
+      await seed('bonusBets/se2a_se-bq-a', { uid: 'se2a', questionId: 'se-bq-a', answer: 'BRA' });
+
+      await assertSucceeds(updateDoc(
+        doc(testEnv.authenticatedContext('se2a').firestore(), 'bonusBets', 'se2a_se-bq-a'),
+        { answer: 'ARG' },
+      ));
+    });
+
+    it('KAN IKKE skrive sit eget bonussvar om til en andens navn', async () => {
+      await createUser('se2b', 'player', 'approved');
+      await createBonusQuestion('se-bq-b', iMorgen());
+      await seed('bonusBets/se2b_se-bq-b', { uid: 'se2b', questionId: 'se-bq-b', answer: 'BRA' });
+
+      await assertFails(updateDoc(
+        doc(testEnv.authenticatedContext('se2b').firestore(), 'bonusBets', 'se2b_se-bq-b'),
+        { uid: 'offer' },
+      ));
+    });
+
+    it('KAN IKKE flytte svaret over på et LUKKET spørgsmål (facit i hånden)', async () => {
+      await createUser('se2c', 'player', 'approved');
+      await createBonusQuestion('se-bq-c', iMorgen());   // åbent — deadline-tjekket læser DENNE
+      await createBonusQuestion('se-bq-c2', iGaar());    // lukket
+      await seed('bonusBets/se2c_se-bq-c', { uid: 'se2c', questionId: 'se-bq-c', answer: 'BRA' });
+
+      await assertFails(updateDoc(
+        doc(testEnv.authenticatedContext('se2c').firestore(), 'bonusBets', 'se2c_se-bq-c'),
+        { questionId: 'se-bq-c2', answer: 'URU' },
+      ));
+    });
+  });
+
+  // --- 3) leagueBonus: leagueId er uforanderligt ---------------------------
+  describe('leagueBonus/{qid} — update', () => {
+    async function toLigaer() {
+      await createUser('se3', 'player', 'approved');
+      await createLeague('se-egen', 'se3', ['se3']);     // min egen liga — jeg er manager
+      await createLeague('se-fremmed', 'anden', ['anden']);
+    }
+
+    it('en manager KAN rette sit eget spørgsmål (kontrol)', async () => {
+      await toLigaer();
+      await seed('leagueBonus/se-q3a', {
+        leagueId: 'se-egen', createdBy: 'se3', type: 'text', label: 'Hvem?',
+        facit: null, deadline: Timestamp.fromDate(iMorgen()),
+      });
+
+      await assertSucceeds(updateDoc(
+        doc(testEnv.authenticatedContext('se3').firestore(), 'leagueBonus', 'se-q3a'),
+        { label: 'Hvem vinder?' },
+      ));
+    });
+
+    it('KAN IKKE flytte sit spørgsmål ind i en FREMMED ligas stilling', async () => {
+      await toLigaer();
+      await seed('leagueBonus/se-q3b', {
+        leagueId: 'se-egen', createdBy: 'se3', type: 'text', label: 'Hvem?',
+        facit: null, deadline: Timestamp.fromDate(iMorgen()),
+      });
+
+      // Autorisationen læser det GAMLE leagueId, hvor jeg ER manager.
+      await assertFails(updateDoc(
+        doc(testEnv.authenticatedContext('se3').firestore(), 'leagueBonus', 'se-q3b'),
+        { leagueId: 'se-fremmed' },
+      ));
+    });
+  });
+
+  // --- 4) leagueBonusAnswers: medlemskab måles på SPØRGSMÅLETS liga --------
+  describe('leagueBonusAnswers/{id} — create', () => {
+    async function toLigaerOgEtSpoergsmaal(qid) {
+      await createUser('se4', 'player', 'approved');
+      await createLeague('se4-egen', 'se4', ['se4']);
+      await createLeague('se4-fremmed', 'vaert', ['vaert']);
+      await seed(`leagueBonus/${qid}`, {
+        leagueId: 'se4-fremmed', createdBy: 'vaert', type: 'text', label: 'Hvem?',
+        facit: null, deadline: Timestamp.fromDate(iMorgen()),
+      });
+    }
+
+    it('et medlem KAN svare på sin EGEN ligas spørgsmål (kontrol)', async () => {
+      await createUser('se4b', 'player', 'approved');
+      await createLeague('se4b-liga', 'vaert', ['vaert', 'se4b']);
+      await seed('leagueBonus/se-q4b', {
+        leagueId: 'se4b-liga', createdBy: 'vaert', type: 'text', label: 'Hvem?',
+        facit: null, deadline: Timestamp.fromDate(iMorgen()),
+      });
+
+      await assertSucceeds(setDoc(
+        doc(testEnv.authenticatedContext('se4b').firestore(), 'leagueBonusAnswers', 'se-q4b_se4b'),
+        { questionId: 'se-q4b', leagueId: 'se4b-liga', uid: 'se4b', answer: 'Messi' },
+      ));
+    });
+
+    it('en udenforstående KAN IKKE svare ved at sætte sin EGEN ligas id på svaret', async () => {
+      await toLigaerOgEtSpoergsmaal('se-q4a');
+
+      // Scoringen henter svar med where('questionId','==',…) UDEN liga-filter,
+      // så et svar med forkert leagueId ville tælle med i den fremmede liga.
+      await assertFails(setDoc(
+        doc(testEnv.authenticatedContext('se4').firestore(), 'leagueBonusAnswers', 'se-q4a_se4'),
+        { questionId: 'se-q4a', leagueId: 'se4-egen', uid: 'se4', answer: 'Messi' },
+      ));
+    });
+
+    it('en udenforstående KAN IKKE svare med det RIGTIGE leagueId heller', async () => {
+      await toLigaerOgEtSpoergsmaal('se-q4c');
+
+      await assertFails(setDoc(
+        doc(testEnv.authenticatedContext('se4').firestore(), 'leagueBonusAnswers', 'se-q4c_se4'),
+        { questionId: 'se-q4c', leagueId: 'se4-fremmed', uid: 'se4', answer: 'Messi' },
+      ));
+    });
+  });
+
+  // --- 5+9) games/…/questions: point-loft, deadline kun fremad, facit ------
+  describe('games/{g}/leagues/{l}/questions/{q} — update', () => {
+    /** Liga med ejer 'se5' + ét spørgsmål. */
+    async function seedSpoergsmaal(leagueId, qid, q = {}) {
+      await createUser('se5', 'player', 'approved');
+      await createGame('se-spil');
+      await seed(`games/se-spil/leagues/${leagueId}`, {
+        name: 'Ligaen', code: 'SE5KOD', ownerUid: 'se5', memberUids: ['se5', 'ven'],
+        createdAt: Timestamp.now(),
+      });
+      await seed(`games/se-spil/leagues/${leagueId}/questions/${qid}`, {
+        label: 'Hvem bliver topscorer?', type: 'text', points: 5,
+        facit: null, deadline: null, createdBy: 'se5', createdAt: Timestamp.now(), ...q,
+      });
+    }
+    const qDoc = (leagueId, qid) => doc(
+      testEnv.authenticatedContext('se5').firestore(),
+      'games', 'se-spil', 'leagues', leagueId, 'questions', qid,
+    );
+
+    it('ejeren KAN rette teksten på sit spørgsmål (kontrol)', async () => {
+      await seedSpoergsmaal('se5-l1', 'se-q5a');
+      await assertSucceeds(updateDoc(qDoc('se5-l1', 'se-q5a'), { label: 'Hvem scorer flest?' }));
+    });
+
+    it('ejeren KAN IKKE hæve pointene over loftet bagefter', async () => {
+      await seedSpoergsmaal('se5-l2', 'se-q5b');
+      // Loftet på 100 gjaldt kun ved oprettelse.
+      await assertFails(updateDoc(qDoc('se5-l2', 'se-q5b'), { points: 100000 }));
+    });
+
+    it('ejeren KAN IKKE sætte pointene til nul eller negativt', async () => {
+      await seedSpoergsmaal('se5-l3', 'se-q5c');
+      await assertFails(updateDoc(qDoc('se5-l3', 'se-q5c'), { points: 0 }));
+    });
+
+    it('ejeren KAN rykke deadline FREMAD (kontrol)', async () => {
+      await seedSpoergsmaal('se5-l4', 'se-q5d', { deadline: Date.now() + 3600e3 });
+      await assertSucceeds(updateDoc(qDoc('se5-l4', 'se-q5d'), { deadline: Date.now() + 7200e3 }));
+    });
+
+    it('ejeren KAN IKKE rulle deadline TILBAGE (åbne kortene og lukke dem igen)', async () => {
+      await seedSpoergsmaal('se5-l5', 'se-q5e', { deadline: Date.now() + 7200e3 });
+      // Rullet tilbage bliver alles svar læsbare — og bagefter kan den rulles frem igen.
+      await assertFails(updateDoc(qDoc('se5-l5', 'se-q5e'), { deadline: Date.now() - 3600e3 }));
+    });
+
+    it('ejeren KAN rette et forkert facit (kontrol)', async () => {
+      await seedSpoergsmaal('se5-l6', 'se-q5f', { facit: 'Isaksen' });
+      await assertSucceeds(updateDoc(qDoc('se5-l6', 'se-q5f'), { facit: 'Cornelius' }));
+    });
+
+    it('ejeren KAN IKKE fjerne facit igen (samme kig-i-kortene ad bagvejen)', async () => {
+      await seedSpoergsmaal('se5-l7', 'se-q5g', { facit: 'Isaksen' });
+      // Sat facit → alles svar er læsbare. Fjernet igen → man må svare igen.
+      await assertFails(updateDoc(qDoc('se5-l7', 'se-q5g'), { facit: null }));
+    });
+
+    it('ejeren KAN IKKE fjerne deadline, efter den er passeret', async () => {
+      await seedSpoergsmaal('se5-l8', 'se-q5h', { deadline: Date.now() - 3600e3 });
+      // Passeret deadline → alles svar er læsbare. Fjernet → man må svare igen,
+      // for svar-reglen åbner ved deadline == null.
+      await assertFails(updateDoc(qDoc('se5-l8', 'se-q5h'), { deadline: null }));
+    });
+
+    it('ejeren KAN IKKE fjerne en ÅBEN deadline', async () => {
+      await seedSpoergsmaal('se5-l15', 'se-q5o', { deadline: Date.now() + 3600e3 });
+      // Ingen har kigget endnu, så der er intet at vinde her og nu — men et
+      // spørgsmål uden deadline kan aldrig lukke af sig selv igen.
+      await assertFails(updateDoc(qDoc('se5-l15', 'se-q5o'), { deadline: null }));
+    });
+
+    it('ejeren KAN IKKE rykke en PASSERET deadline frem igen', async () => {
+      await seedSpoergsmaal('se5-l9', 'se-q5i', { deadline: Date.now() - 3600e3 });
+      // Fremad er kun harmløst, så længe kortene endnu er lukkede.
+      await assertFails(updateDoc(qDoc('se5-l9', 'se-q5i'), { deadline: Date.now() + 3600e3 }));
+    });
+
+    it('ejeren KAN sætte en deadline første gang (kontrol)', async () => {
+      await seedSpoergsmaal('se5-l10', 'se-q5j');   // deadline: null
+      await assertSucceeds(updateDoc(qDoc('se5-l10', 'se-q5j'), { deadline: Date.now() + 3600e3 }));
+    });
+
+    // Klientens ENESTE update-vej (setLeagueQuestionFacit), og den bruges typisk
+    // EFTER deadline. Uden denne kontrol kunne deadline-betingelsen strammes til
+    // noget, der spærrer selve produktionsstien, uden at nogen test blev rød.
+    it('ejeren KAN sætte facit EFTER deadline (kontrol — produktionsstien)', async () => {
+      await seedSpoergsmaal('se5-l11', 'se-q5k', { deadline: Date.now() - 3600e3 });
+      await assertSucceeds(updateDoc(qDoc('se5-l11', 'se-q5k'),
+        { facit: 'Isaksen', acceptedAnswers: [] }));
+    });
+
+    it('præcis 100 point er tilladt ved update (grænsen)', async () => {
+      await seedSpoergsmaal('se5-l12', 'se-q5l', { points: 100 });
+      await assertSucceeds(updateDoc(qDoc('se5-l12', 'se-q5l'), { label: 'Hvem scorer flest?' }));
+    });
+
+    it('point som TEKST afvises (loftet kan ellers omgås med en streng)', async () => {
+      await seedSpoergsmaal('se5-l13', 'se-q5m');
+      await assertFails(updateDoc(qDoc('se5-l13', 'se-q5m'), { points: '9999' }));
+    });
+
+    it('flere felter på én gang redder ikke en ulovlig deadline', async () => {
+      await seedSpoergsmaal('se5-l14', 'se-q5n', { deadline: Date.now() + 7200e3 });
+      await assertFails(updateDoc(qDoc('se5-l14', 'se-q5n'),
+        { label: 'Nyt spørgsmål', points: 10, deadline: Date.now() - 3600e3 }));
+    });
+  });
+
+  // --- 6) messages: BEGGE deltagere skal være medlemmer --------------------
+  describe('messages/{id} — create', () => {
+    it('KAN IKKE lukke en fremmed ind i samtalen ved at sætte to = sig selv', async () => {
+      await createUser('se6', 'player', 'approved');
+      await createUser('se6frem', 'player', 'approved');
+      await createLeague('se6-liga', 'se6', ['se6']);
+
+      // De gamle tjek så på afsenderen og 'to' — begge mig selv. 'se6frem'
+      // stod kun i participants, som er dét, LÆSEREGLEN bruger.
+      await assertFails(setDoc(
+        doc(testEnv.authenticatedContext('se6').firestore(), 'messages', 'se-m6'),
+        {
+          participants: ['se6', 'se6frem'], conversationId: 'se6__se6frem',
+          from: 'se6', to: 'se6', leagueId: 'se6-liga', text: 'Hej',
+          createdAt: Timestamp.now(),
+        },
+      ));
+    });
+
+    // Samme angreb spejlvendt. Uden denne er kun det ene af de to
+    // participants-tjek bevist — og et af dem kunne fjernes ubemærket.
+    it('KAN IKKE lukke en fremmed ind, når den fremmede står FØRST', async () => {
+      await createUser('se6b', 'player', 'approved');
+      await createUser('aafrem', 'player', 'approved');   // sorterer før 'se6b'
+      await createLeague('se6b-liga', 'se6b', ['se6b']);
+
+      await assertFails(setDoc(
+        doc(testEnv.authenticatedContext('se6b').firestore(), 'messages', 'se-m6b'),
+        {
+          participants: ['aafrem', 'se6b'], conversationId: 'aafrem__se6b',
+          from: 'se6b', to: 'se6b', leagueId: 'se6b-liga', text: 'Hej',
+          createdAt: Timestamp.now(),
+        },
+      ));
+    });
+  });
+
+  // --- 7) users: heller ikke en admin skriver point ------------------------
+  describe('users/{uid} — global admin', () => {
+    it('en global admin KAN stadig godkende en bruger (kontrol)', async () => {
+      await createUser('se7adm', 'globalAdmin', 'approved');
+      await createUser('se7ny', 'player', 'pending');
+
+      await assertSucceeds(updateDoc(
+        doc(testEnv.authenticatedContext('se7adm').firestore(), 'users', 'se7ny'),
+        { status: 'approved' },
+      ));
+    });
+
+    it('en global admin KAN IKKE skrive point på nogen — heller ikke sig selv', async () => {
+      await createUser('se7b', 'globalAdmin', 'approved');
+      await createUser('se7off', 'player', 'approved');
+
+      const fs = testEnv.authenticatedContext('se7b').firestore();
+      await assertFails(updateDoc(doc(fs, 'users', 'se7b'), { totalPoints: 99999 }));
+      // Bemærk: reglen måler på ÆNDRINGEN. At skrive den værdi, der allerede
+      // står (0), er ikke en ændring og slipper igennem — derfor 1234 her.
+      await assertFails(updateDoc(doc(fs, 'users', 'se7off'), { totalPoints: 1234 }));
+      await assertFails(updateDoc(doc(fs, 'users', 'se7b'), { stagePoints: 500 }));
+      await assertFails(updateDoc(doc(fs, 'users', 'se7b'), { bonusPoints: 500 }));
+      await assertFails(updateDoc(doc(fs, 'users', 'se7b'), { previousRank: 1 }));
+      await assertFails(updateDoc(doc(fs, 'users', 'se7b'), { seasons: { 2026: { totalPoints: 9999 } } }));
+      await assertFails(updateDoc(doc(fs, 'users', 'se7b'), { points: 500 }));
+    });
+  });
+
+  // --- Fund fra rollernes gennemgang: samme fejltype, andre steder ---------
+  describe('users/{uid} — egen profil', () => {
+    it('KAN rette sit visningsnavn (kontrol)', async () => {
+      await createUser('se8', 'player', 'approved');
+      await assertSucceeds(updateDoc(
+        doc(testEnv.authenticatedContext('se8').firestore(), 'users', 'se8'),
+        { displayName: 'Nyt navn' },
+      ));
+    });
+
+    it('KAN IKKE skrive en andens uid på sin egen profil', async () => {
+      await createUser('se8b', 'player', 'approved');
+      // Ranglisten spreder dokumentet EFTER doc-id'et ({ uid: d.id, ...data }),
+      // så feltet vinder over id'et.
+      await assertFails(updateDoc(
+        doc(testEnv.authenticatedContext('se8b').firestore(), 'users', 'se8b'),
+        { uid: 'offer' },
+      ));
+    });
+
+    it('KAN IKKE skrive points på sin egen profil', async () => {
+      await createUser('se8c', 'player', 'approved');
+      // create-reglen og admin-reglen blokerede begge 'points'; egen-profil-reglen gjorde ikke.
+      await assertFails(updateDoc(
+        doc(testEnv.authenticatedContext('se8c').firestore(), 'users', 'se8c'),
+        { points: 9999 },
+      ));
+    });
+  });
+
+  describe('games/{g}/players/{uid} — update', () => {
+    async function seedDeltager(uid, data) {
+      await createUser(uid, 'player', 'approved');
+      await createGame('se9-spil');
+      await seed(`games/se9-spil/players/${uid}`, data);
+    }
+    const pDoc = (uid) => doc(
+      testEnv.authenticatedContext(uid).firestore(), 'games', 'se9-spil', 'players', uid,
+    );
+
+    it('KAN gemme sit hold (kontrol)', async () => {
+      await seedDeltager('se9', { uid: 'se9', joinedAt: Timestamp.now() });
+      await assertSucceeds(updateDoc(pDoc('se9'), { favoriteTeam: 'AGF' }));
+    });
+
+    it('KAN IKKE skrive en andens uid på sit eget deltager-dokument', async () => {
+      await seedDeltager('se9b', { uid: 'se9b', joinedAt: Timestamp.now() });
+      // Stillingen, runde-placeringerne og opsamlingen læser alle uid-FELTET.
+      await assertFails(updateDoc(pDoc('se9b'), { uid: 'offer' }));
+    });
+
+    it('KAN IKKE give sig selv et navn på deltager-dokumentet', async () => {
+      await seedDeltager('se9c', { uid: 'se9c', joinedAt: Timestamp.now() });
+      // Navnet slås op i users-profilen; her ville det vinde over opslaget.
+      await assertFails(updateDoc(pDoc('se9c'), { name: 'Ejeren' }));
+    });
+
+    it('et deltager-dokument UDEN uid-felt kan stadig opdateres', async () => {
+      // Pulje-afregningen kan danne { bonusPoints } med merge på en spiller
+      // uden players-dokument. Krævede reglen feltet, kunne den spiller aldrig
+      // gemme sit hold igen — og knappen ville bare holde op med at virke.
+      await seedDeltager('se9d', { bonusPoints: 12 });
+      await assertSucceeds(updateDoc(pDoc('se9d'), { favoriteTeam: 'AGF' }));
+    });
+  });
+
+  describe('leagueBonusAnswers/{id} — leagueId bundet til spørgsmålet', () => {
+    it('et medlem KAN IKKE sætte en FREMMED ligas id på sit eget svar', async () => {
+      await createUser('se10', 'player', 'approved');
+      await createLeague('se10-min', 'vaert', ['vaert', 'se10']);
+      await createLeague('se10-anden', 'fremmed', ['fremmed']);
+      await seed('leagueBonus/se-q10', {
+        leagueId: 'se10-min', createdBy: 'vaert', type: 'text', label: 'Hvem?',
+        facit: null, deadline: Timestamp.fromDate(iMorgen()),
+      });
+
+      // Læsereglen giver leagueId'ets manager adgang — et fremmed id inviterer
+      // altså en fremmed manager ind i sit eget svar.
+      await assertFails(setDoc(
+        doc(testEnv.authenticatedContext('se10').firestore(), 'leagueBonusAnswers', 'se-q10_se10'),
+        { questionId: 'se-q10', leagueId: 'se10-anden', uid: 'se10', answer: 'Messi' },
+      ));
+    });
   });
 });
