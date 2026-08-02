@@ -155,7 +155,7 @@ export default function GameStandings({ gameId }) {
         {valgt && (
           <>
             {' '}
-            <GameTabLink fane="ligaer">Åbn ligaen →</GameTabLink>
+            <GameTabLink fane="ligaer" liga={valgt.id}>Åbn ligaen →</GameTabLink>
           </>
         )}
       </p>

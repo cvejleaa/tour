@@ -22,8 +22,15 @@ function Section({ emoji, title, children }) {
 function Tab({ children, fane }) {
   const style = { whiteSpace: 'nowrap', fontWeight: 600 };
   if (!fane) return <span className="badge badge--muted" style={style}>{children}</span>;
+  // Den linkede variant SKAL se anderledes ud end den grå tekst, den erstattede.
+  // Uden farve og understregning er mærkatet pixel-identisk med før, og så
+  // findes funktionen aldrig — slet ikke på mobil, hvor der ingen hover er.
   return (
-    <GameTabLink fane={fane} className="badge badge--muted" style={{ ...style, textDecoration: 'none' }}>
+    <GameTabLink
+      fane={fane}
+      className="badge"
+      style={{ ...style, color: 'var(--c-pitch)', textDecoration: 'underline' }}
+    >
       {children}
     </GameTabLink>
   );

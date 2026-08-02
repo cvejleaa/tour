@@ -152,8 +152,10 @@ describe('GameStandings — liga-filter', () => {
   it('linker til ligaen, når en er valgt', () => {
     setup();
     fireEvent.change(filter(), { target: { value: 'L1' } });
+    // Liga-id'et skal med, ellers lander man på en liste, hvor alt er foldet
+    // sammen — og mærkatet lovede mere, end klikket gav.
     expect(screen.getByRole('link', { name: /Åbn ligaen/ }))
-      .toHaveAttribute('href', '/spil/sl?fane=ligaer');
+      .toHaveAttribute('href', '/spil/sl?fane=ligaer&liga=L1');
   });
 
   it('linker ikke til en liga i den samlede visning', () => {
