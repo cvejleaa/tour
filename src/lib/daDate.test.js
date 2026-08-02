@@ -12,6 +12,8 @@ describe('relativeTime', () => {
     expect(relativeTime(new Date('2026-08-09T17:45:00Z'), now)).toBe('for 15 min siden');
     expect(relativeTime(new Date('2026-08-09T15:00:00Z'), now)).toBe('for 3 t siden');
     expect(relativeTime(new Date('2026-08-07T18:00:00Z'), now)).toBe('for 2 dage siden');
+    // Ental: ikke "for 1 dage siden".
+    expect(relativeTime(new Date('2026-08-08T18:00:00Z'), now)).toBe('for 1 dag siden');
   });
   it('håndterer Firestore-timestamp og tom værdi', () => {
     expect(relativeTime({ seconds: Math.floor(now.getTime() / 1000) - 120 }, now)).toBe('for 2 min siden');
@@ -37,6 +39,9 @@ describe('relativeDeadline', () => {
     expect(relativeDeadline(D('2026-08-09T12:30:00Z'), now)).toBe('om 30 min');
     expect(relativeDeadline(D('2026-08-09T16:00:00Z'), now)).toBe('om 4 t');
     expect(relativeDeadline(D('2026-08-11T12:00:00Z'), now)).toBe('om 2 dage');
+    // Ental: ikke "om 1 dage". Rammer deadline-banneret hver runde i vinduet
+    // 24-36 timer før deadline.
+    expect(relativeDeadline(D('2026-08-10T12:00:00Z'), now)).toBe('om 1 dag');
   });
   it('lukket når passeret', () => {
     expect(relativeDeadline(D('2026-08-09T11:00:00Z'), now)).toBe('lukket');

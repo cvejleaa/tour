@@ -52,8 +52,10 @@ describe('MatchElo', () => {
   });
 
   it('siger til, når sæsonen ikke har givet udviklingspunkter endnu', () => {
-    renderIt({ eloByTeam: { AGF: UDEN(1500), FCK: UDEN(1600) } });
+    const { container } = renderIt({ eloByTeam: { AGF: UDEN(1500), FCK: UDEN(1600) } });
     expect(screen.getByText(/Start-rating/)).toBeInTheDocument();
+    // Og der må ikke stå "seneste 0".
+    expect(container.textContent).not.toContain('seneste');
   });
 
   // Har ét hold spillet runder, er det ikke "start-rating" — så skal beskeden væk.
@@ -64,10 +66,18 @@ describe('MatchElo', () => {
 
   // Med præcis én spillet runde skal teksten ikke sige "de seneste 1 runder".
   it('bøjer teksten rigtigt ved én enkelt runde', () => {
-    const { container } = renderIt({ eloByTeam: { AGF: FCK, FCK } });
+    const énRunde = { ...AGF, form: [punkt(6, 1525, -5)] };
+    const { container } = renderIt({ eloByTeam: { AGF: énRunde, FCK } });
     expect(screen.getAllByLabelText(/udvikling seneste runde/)).toHaveLength(2);
     expect(container.textContent).toContain('seneste runde');
     expect(container.textContent).not.toContain('seneste 1');
+  });
+
+  // …og plural-grenen skal stadig vise antallet. Uden denne kunne teksten
+  // skrives om til ALTID at sige "seneste runde", uden at noget fejlede.
+  it('viser antallet, når flere runder er spillet', () => {
+    const { container } = renderIt();
+    expect(container.textContent).toContain('seneste 5');
   });
 
   it('viser færre punkter, når der er spillet færre runder', () => {

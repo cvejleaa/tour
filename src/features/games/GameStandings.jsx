@@ -133,9 +133,14 @@ export default function GameStandings({ gameId }) {
       )}
 
       <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', margin: '0 0 0.6rem' }}>
-        {valgt
-          ? `Viser de ${standings.length} spillere i ${valgt.name || 'ligaen'}.`
-          : `Viser de ${standings.length} spillere, du deler liga med.`}
+        {(() => {
+          // Ental/flertal: en liga kan sagtens have ét medlem.
+          const n = standings.length;
+          const spillere = n === 1 ? '1 spiller' : `${n} spillere`;
+          return valgt
+            ? `Viser ${spillere} i ${valgt.name || 'ligaen'}.`
+            : `Viser ${spillere}, du deler liga med.`;
+        })()}
       </p>
       {hasPodium && (
         <div className="podium">

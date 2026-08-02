@@ -113,7 +113,14 @@ describe('GameStandings — liga-filter', () => {
   it('fortæller hvilken liga der vises', () => {
     setup();
     fireEvent.change(filter(), { target: { value: 'L1' } });
-    expect(screen.getByText(/Viser de 5 spillere i Kontoret/)).toBeInTheDocument();
+    expect(screen.getByText(/Viser 5 spillere i Kontoret/)).toBeInTheDocument();
+  });
+
+  // En liga kan have ét medlem — så må der ikke stå "1 spillere".
+  it('bøjer teksten rigtigt ved én spiller i ligaen', () => {
+    setup({ leagues: [...LEAGUES, { id: 'L5', name: 'Kun mig', memberUids: ['me'] }] });
+    fireEvent.change(filter(), { target: { value: 'L5' } });
+    expect(screen.getByText('Viser 1 spiller i Kun mig.')).toBeInTheDocument();
   });
 
   it('markerer én selv i tabellen', () => {
