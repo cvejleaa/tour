@@ -4,7 +4,7 @@
 // af 1362 tests sagde fra. Denne fil dækker, at Elo faktisk NÅR ud på hvert
 // kampkort — selve visningen er dækket i MatchElo.test.jsx.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 
 vi.mock('../../../firebase', () => ({ db: {} }));
@@ -282,9 +282,38 @@ describe('FootballTip — kampen er i gang', () => {
     expect(m.getAttribute('aria-label')).toMatch(/Kampen er i gang, 2\. halvleg/);
   });
 
-  it('markerer INTET 1X2-felt, mens kampen kører', () => {
+  // De fire klasser bærer hele den visuelle skelnen mellem levende og endelig.
+  // Uden assertions kunne CSS'en dø ubemærket, og så stod en levende stilling
+  // og lignede et facit.
+  it('bærer sine egne klasser, så stilarten ikke kan dø ubemærket', () => {
     const { container } = setup(frisk, '/spil/sl', kampe(LIVE));
-    expect(container.querySelectorAll('.pick--won')).toHaveLength(0);
+    expect(container.querySelectorAll('.live-pill')).toHaveLength(1);
+    expect(container.querySelectorAll('.live-pill__prik')).toHaveLength(1);
+    expect(container.querySelectorAll('.match-card__score--live')).toHaveLength(1);
+    expect(container.querySelectorAll('.match-card__score--doed')).toHaveLength(0);
+    expect(container.querySelectorAll('.match-card__dash')).toHaveLength(0);
+  });
+
+  it('dæmper BÅDE pillen og tallet, når opdateringen er stoppet', () => {
+    const { container } = setup({ liveHeartbeatAt: NU - 30 * 60000 }, '/spil/sl', kampe(LIVE));
+    expect(container.querySelectorAll('.live-pill--doed')).toHaveLength(1);
+    expect(container.querySelectorAll('.match-card__score--doed')).toHaveLength(1);
+    expect(container.querySelectorAll('.live-pill__prik')).toHaveLength(0); // ingen puls, ingen prik
+  });
+
+  // Klokkeslættet er den tredje kanal. Bundet til sit eget element, ikke til
+  // en løs tekstsøgning, så en tom streng ikke kan snige sig forbi.
+  it('viser klokkeslættet for seneste opdatering under tallet', () => {
+    const { container } = setup({ liveHeartbeatAt: Date.parse('2026-08-02T08:00:00Z') - 60_000 },
+      '/spil/sl', kampe(LIVE));
+    const note = container.querySelector('.match-card__score-note');
+    expect(note).not.toBeNull();
+    expect(note.textContent).toMatch(/^\d{2}[.:]\d{2}$/);   // fx "09.59"
+  });
+
+  it('sætter "sidst" foran klokkeslættet, når opdateringen er stoppet', () => {
+    const { container } = setup({ liveHeartbeatAt: NU - 30 * 60000 }, '/spil/sl', kampe(LIVE));
+    expect(container.querySelector('.match-card__score-note').textContent).toMatch(/^sidst \d{2}[.:]\d{2}$/);
   });
 
   // Live har forrang over Chancen-pillen: chance-kampen er den, man følger tættest.
@@ -312,6 +341,37 @@ describe('FootballTip — kampen er i gang', () => {
     setup({ liveHeartbeatAt: NU - 30 * 60000 }, '/spil/sl', kampe(LIVE));
     expect(screen.getByText(/Opdatering afbrudt/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Stillingen lige nu/)).toHaveTextContent('1 – 0');
+  });
+
+  // Uden et eget ur ville forbeholdet aldrig komme frem: gentegningerne under
+  // en kamp kommer fra pulsen, og stopper synken, stopper pulsen med den.
+  // Kortet ville fryse på "DIREKTE" i præcis det tilfælde, forbeholdet
+  // findes for. Her gives INGEN nye props — kortet skal selv opdage det.
+  it('bliver forældet af sig selv, når pulsen holder op', async () => {
+    setup({ liveHeartbeatAt: NU - 60_000 }, '/spil/sl', kampe(LIVE));
+    expect(screen.getByText(/DIREKTE/)).toBeInTheDocument();
+
+    await act(async () => { vi.advanceTimersByTime(6 * 60_000); });
+
+    expect(screen.getByText(/Opdatering afbrudt/)).toBeInTheDocument();
+    expect(screen.queryByText(/DIREKTE/)).toBeNull();
+  });
+
+  // Uret må kun køre, mens der faktisk er noget at følge — ellers gentegner
+  // hver eneste tip-side hvert halve minut resten af sæsonen.
+  it('sætter kun et ur, når en kamp faktisk er i gang', () => {
+    const { unmount } = setup(frisk, '/spil/sl', kampe(null));
+    expect(vi.getTimerCount()).toBe(0);
+    unmount();
+
+    setup(frisk, '/spil/sl', kampe(LIVE));
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+  });
+
+  it('bliver IKKE forældet, mens pulsen stadig er frisk', async () => {
+    setup({ liveHeartbeatAt: NU - 60_000 }, '/spil/sl', kampe(LIVE));
+    await act(async () => { vi.advanceTimersByTime(2 * 60_000); });
+    expect(screen.getByText(/DIREKTE/)).toBeInTheDocument();
   });
 
   it('viser stregen igen, når kampen hverken er i gang eller spillet', () => {

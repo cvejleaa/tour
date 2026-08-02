@@ -49,7 +49,13 @@ function makeDb(matchDocs, gameData = {}) {
   const gameDoc = {
     collection: () => matchesCol,
     async get() { return { data: () => spil }; },
-    async set(patch) { Object.assign(spil, patch); },
+    async set(patch, opts) {
+      // Uden merge OVERSKRIVER Firestore hele dokumentet. På spil-dokumentet
+      // ville det slette navn, teamStyles, standings … hvert minut, der
+      // spilles. Faken skal derfor mærke det, ikke bare flette alligevel.
+      if (opts?.merge !== true) throw new Error('set() uden { merge: true } ville overskrive spil-dokumentet');
+      Object.assign(spil, patch);
+    },
   };
   return {
     _spil: spil,
@@ -67,7 +73,12 @@ function makeDb(matchDocs, gameData = {}) {
     batch() {
       return {
         _ops: [],
-        set(ref, data) { this._ops.push({ id: ref.__id, data }); },
+        set(ref, data, opts) {
+          // Samme her: uden merge ville en live-skrivning slette kickoff,
+          // odds og holdnavnene på hver kamp i gang.
+          if (opts?.merge !== true) throw new Error('batch.set() uden { merge: true } ville overskrive kampdokumentet');
+          this._ops.push({ id: ref.__id, data });
+        },
         async commit() {
           for (const op of this._ops) docs.set(op.id, { ...(docs.get(op.id) || {}), ...op.data });
         },
@@ -523,6 +534,60 @@ describe('runScheduledSync', () => {
     expect(fetchFn.kald).toEqual({ resultater: 1, live: 1, stilling: 0 });
   });
 
+  // Doc-kommentaren lover, at et fejlende led ikke forhindrer det næste i at
+  // prøve. Det var bevist for resultat-leddet, ikke for live.
+  it('henter stadig live, når resultat-kaldet fejler', async () => {
+    const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang } }]);
+    const fetchFn = async (url) => {
+      const u = String(url);
+      if (u.includes('status=inprogress')) {
+        return { ok: true, status: 200, json: async () => ({ events: [
+          { statusType: 'inprogress', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 1, away: 0 }, statusFull: '1st half' },
+        ] }) };
+      }
+      return { ok: false, status: 503, json: async () => ({}) };
+    };
+    const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
+    expect(out.fejl).toMatch(/resultater/);
+    expect(out.live.skrevet).toBe(1);                       // live kom alligevel igennem
+    expect(db._docs.get('r1-viborgff-ob').live.home).toBe(1);
+  });
+
+  it('melder en live-fejl, uden at vælte kørslen', async () => {
+    const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang } }]);
+    const fetchFn = async (url) => {
+      if (String(url).includes('status=inprogress')) return { ok: false, status: 503, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => ({ events: [] }) };
+    };
+    const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
+    expect(out.fejl).toMatch(/live/);
+    expect(out.live).toBeNull();
+  });
+
+  // out.live er dét, index.js logger — tabes den i det tidlige exit, står der
+  // ingenting i loggen om en kamp, der kører.
+  it('bærer live-tallene med ud, også når intet facit landede', async () => {
+    const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang } }]);
+    const fetchFn = fakeApi({
+      events: [],
+      live: [{ statusType: 'inprogress', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 0, away: 1 }, statusFull: '2nd half' }],
+    });
+    const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
+    expect(out.updated).toBe(0);
+    expect(out.live).toEqual({ live: 1, skrevet: 1 });
+  });
+
+  it('bruger den tid, den får ind — ikke uret', async () => {
+    const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang } }]);
+    const fetchFn = fakeApi({
+      events: [],
+      live: [{ statusType: 'inprogress', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 0, away: 0 }, statusFull: '1st half' }],
+    });
+    await runScheduledSync(db, FieldValue, NU, { fetchFn });
+    expect(db._docs.get('r1-viborgff-ob').live.at).toBe(NU);
+    expect(db._spil.liveHeartbeatAt).toBe(NU);
+  });
+
   it('fejler tavst, når kilden er nede', async () => {
     const db = makeDb([{ id: 'r1-a-b', data: { round: 1, kickoff: iGang } }]);
     const nede = async () => ({ ok: false, status: 503, json: async () => ({}) });
@@ -874,6 +939,53 @@ describe('syncLiveCore', () => {
     });
     expect(res.skrevet).toBe(0);
     expect(db._docs.get(kamp.id).live).toBeUndefined();
+  });
+
+  // Serverens finite-tjek er den ENESTE vagt mod en tom stilling. På fronten
+  // er Number.isFinite(Number(null)) sandt, så en null-score ville blive vist
+  // som et rødt "0 – 0 DIREKTE", der aldrig har eksisteret — præcis den
+  // Number(null)-fælde, som blev lukket i visningen, bare på serversiden.
+  it.each([
+    ['null-mål', { home: null, away: null }],
+    ['tomt score-objekt', {}],
+    ['kun hjemmemål', { home: 1 }],
+    ['mål som tekst', { home: '1', away: '0' }],
+  ])('springer en hændelse med %s over', async (_navn, score) => {
+    const db = makeDb([kamp]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse(score)]), only: [kamp], nowMs: NU,
+    });
+    expect(res.skrevet).toBe(0);
+    expect(db._docs.get(kamp.id).live).toBeUndefined();
+  });
+
+  it('springer en hændelse over, der slet ikke er i gang', async () => {
+    const db = makeDb([kamp]);
+    const færdig = { ...hændelse({ home: 2, away: 1 }), statusType: 'finished' };
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([færdig]), only: [kamp], nowMs: NU,
+    });
+    expect(res).toEqual({ live: 0, skrevet: 0 });
+    expect(db._spil.liveHeartbeatAt).toBeUndefined(); // heller ingen puls
+  });
+
+  it('klipper en overlang statusRaw af', async () => {
+    const db = makeDb([kamp]);
+    await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 0, away: 0 }, 'x'.repeat(500))]),
+      only: [kamp], nowMs: NU,
+    });
+    // Feltet udleveres til alle klienter og renderes ikke i dag — men et
+    // ubegrænset felt fra en fremmed kilde er en fælde for den, der en dag
+    // beslutter at vise det.
+    expect(db._docs.get(kamp.id).live.statusRaw.length).toBeLessThanOrEqual(40);
+  });
+
+  it('fører seasonId med over i kaldet', async () => {
+    const set = [];
+    const fetchFn = async (u) => { set.push(String(u)); return { ok: true, status: 200, json: async () => ({ events: [] }) }; };
+    await syncLiveCore(makeDb([]), FieldValue, { fetchFn, only: [], seasonId: 12345 });
+    expect(set[0]).toContain('seasonId=12345');
   });
 
   it('springer kampe over, den ikke kender', async () => {

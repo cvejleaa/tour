@@ -276,7 +276,10 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
         away: e.score.away,
         status,
         // Kun til fejlsøgning i loggen — må ALDRIG renderes.
-        statusRaw: String(e.statusFull ?? ''),
+        // Klippet: feltet kommer fra en fremmed kilde og udleveres til alle
+        // klienter. Det renderes ikke i dag — og skal ikke kunne blive en
+        // fælde for den, der en dag beslutter at vise det.
+        statusRaw: String(e.statusFull ?? '').slice(0, 40),
         at: nowMs,
       },
     }, { merge: true });
@@ -398,6 +401,7 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
   try {
     live = await syncLiveCore(db, FieldValue, {
       ...opts,
+      nowMs,
       only: venter.filter((m) => !nyFacit.has(m.id)),
     });
   } catch (err) {

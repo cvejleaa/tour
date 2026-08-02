@@ -3,7 +3,7 @@
  * Tipper 1X2 pr. kamp i den aktive runde og kan (valgfrit) bruge "Chancen ⚡"
  * på ÉN kamp: sæt point på spil på dit 1X2-valg til elo-lite fair odds.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useGameBets } from '../useGameBets';
 import { setBet } from '../betActions';
@@ -148,6 +148,24 @@ export default function FootballTip({ game, me, matches }) {
     ),
     [game?.teams, game?.eloHistory],
   );
+
+  // Et eget ur til live-visningen.
+  //
+  // "Opdatering afbrudt" kan kun komme frem, hvis komponenten gentegner. Under
+  // en kamp kommer gentegningerne fra pulsen på spil-dokumentet — men stopper
+  // synken, stopper pulsen med den, og så ville kortet fryse på "DIREKTE" i
+  // præcis det tilfælde, forbeholdet findes for. Uret kører kun, mens der
+  // faktisk er en kamp i gang på skærmen.
+  //
+  // Står OVER den tidlige return nedenfor: hooks skal kaldes i samme
+  // rækkefølge ved hver gentegning.
+  const harLive = roundMatches.some((m) => m.live && (m.result == null || m.result === ''));
+  const [liveNu, setLiveNu] = useState(() => Date.now());
+  useEffect(() => {
+    if (!harLive) return undefined;
+    const t = setInterval(() => setLiveNu(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, [harLive]);
 
   if (!rounds.length) {
     return (
@@ -382,7 +400,7 @@ export default function FootballTip({ game, me, matches }) {
         const { h, a } = matchBadges(m.home, m.away, game?.teamStyles);
         const hit = m.result && bet?.pick ? bet.pick === m.result : null;
         const score = matchScore(m);
-        const live = liveScore(m, game?.liveHeartbeatAt, nowMs);
+        const live = liveScore(m, game?.liveHeartbeatAt, liveNu);
         return (
           <div className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`} key={m.id}>
             <div className="match-card__meta">

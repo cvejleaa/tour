@@ -125,7 +125,12 @@ describe('matchScore', () => {
 // en stilling må aldrig se frisk ud, når synken er holdt op med at kigge.
 describe('liveScore', () => {
   const NU = 1_754_150_000_000;
-  const live = (extra = {}) => ({ live: { home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: NU - 60_000, ...extra } });
+  // kickoff skal med: en stilling hører aldrig til på et kort, der stadig
+  // tager imod tips, så liveScore kræver at kampen ER låst.
+  const live = (extra = {}) => ({
+    kickoff: NU - 40 * 60_000,
+    live: { home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: NU - 60_000, ...extra },
+  });
 
   it('læser stillingen og halvlegen', () => {
     expect(liveScore(live(), NU - 30_000, NU)).toMatchObject({
@@ -144,8 +149,19 @@ describe('liveScore', () => {
 
   it('giver null, når kampen ikke er i gang', () => {
     expect(liveScore({}, NU, NU)).toBeNull();
-    expect(liveScore({ live: {} }, NU, NU)).toBeNull();
+    expect(liveScore({ kickoff: NU - 1000, live: {} }, NU, NU)).toBeNull();
     expect(liveScore(undefined, NU, NU)).toBeNull();
+  });
+
+  // Skrivestien skriver aldrig live før kickoff, men et dokument kan blive
+  // forkert på anden vis — og så må stillingen ikke stå på et åbent kort.
+  it('viser INTET, mens kampen stadig tager imod tips', () => {
+    expect(liveScore({ ...live(), kickoff: NU + 60 * 60_000 }, NU, NU)).toBeNull();
+  });
+
+  it('viser intet på en kamp helt uden kickoff', () => {
+    const udenKickoff = { live: live().live };
+    expect(liveScore(udenKickoff, NU, NU)).toBeNull();
   });
 
   it('oversætter alle halvlegene', () => {
@@ -176,9 +192,29 @@ describe('liveScore', () => {
     expect(liveScore(gammelStilling, NU - 40 * 60_000, NU).forældet).toBe(true);
   });
 
-  it('kalder stillingen forældet, når pulsen er stoppet', () => {
-    expect(liveScore(live(), NU - LIVE_STALE_MS - 1000, NU).forældet).toBe(true);
-    expect(liveScore(live(), NU - LIVE_STALE_MS + 1000, NU).forældet).toBe(false);
+  // ABSOLUTTE tal. Regnede fixturet ud fra konstanten selv, kunne testen
+  // aldrig fejle — en grænse på 20 minutter ville stå lige så grønt, og så
+  // stod kortet og løj i et kvarter. Præcis den fejl blev begået én gang før
+  // i denne fil, med vinduet i synken.
+  it('grænsen for forældelse er fem minutter', () => {
+    expect(LIVE_STALE_MS).toBe(5 * 60 * 1000);
+  });
+
+  it('fire minutter uden puls er stadig frisk', () => {
+    expect(liveScore(live(), NU - 4 * 60_000, NU).forældet).toBe(false);
+  });
+
+  it('seks minutter uden puls er forældet', () => {
+    expect(liveScore(live(), NU - 6 * 60_000, NU).forældet).toBe(true);
+  });
+
+  // Tredje gren: hverken puls eller brugbart live.at.
+  it('kalder stillingen forældet, når der slet ingen tid er', () => {
+    const uden = { kickoff: NU - 40 * 60_000, live: { home: 1, away: 0, status: 'anden' } };
+    const r = liveScore(uden, null, NU);
+    expect(r.forældet).toBe(true);
+    expect(r.setAt).toBeNull();
+    expect(r.home).toBe(1);   // stillingen står der stadig
   });
 
   it('falder tilbage til live.at, hvis pulsen mangler helt', () => {

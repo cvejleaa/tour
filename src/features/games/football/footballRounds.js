@@ -132,6 +132,11 @@ const HALVLEG = {
  */
 export function liveScore(match, friskAt, nowMs) {
   if (match?.result != null && match.result !== '') return null;
+  // Forsvar i dybden: en stilling hører aldrig til på et kort, der stadig
+  // tager imod tips. Skrivestien sikrer det allerede (live skrives kun på
+  // kampe, hvis kickoff er passeret), men så ville et dokument, der bliver
+  // forkert på anden vis, kunne vise stillingen for et åbent tip.
+  if (!isLocked(match, nowMs)) return null;
   const l = match?.live;
   if (!l || !Number.isFinite(Number(l.home)) || !Number.isFinite(Number(l.away))) return null;
   // Number(null) er 0, ikke NaN — uden vagten ville en manglende puls læses
