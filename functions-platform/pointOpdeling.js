@@ -32,9 +32,11 @@ function taeller(info) {
  * point for den kamp. Tavst, indtil en anden kamp tilfældigvis genberegner dem.
  *
  * Her er kravet derimod nødvendigt og skal være STRENGT: rækkerne havner i et
- * dokument, liga-kammerater må læse, og det kommer aldrig forbi kickoff-tjekket
- * i firestore.rules. Et ulæseligt kickoff må derfor betyde "vis ikke", ikke
- * "vis alligevel" — ellers kunne et tip blive udstillet før kampstart.
+ * dokument, som liga-kammerater KOMMER til at måtte læse (klausulen tilføjes
+ * sammen med skærmen), og som aldrig kommer forbi kickoff-tjekket i
+ * firestore.rules. Et ulæseligt kickoff må derfor betyde "vis ikke", ikke "vis
+ * alligevel" — ellers ville et tip blive udstillet før kampstart i samme
+ * øjeblik, adgangen udvides.
  */
 function maaVises(info, nowMs) {
   if (!taeller(info)) return false;

@@ -681,11 +681,20 @@ service cloud.firestore {
         // forespørgslen afvises, ikke bare de dokumenter man ikke må se.
         // Klienten må derfor ALDRIG lave en collectionGroup-query over detalje.
         match /detalje/{docId} {
+          // KUN ens eget dokument indtil videre. Liga-klausulen kommer, når der
+          // findes en skærm, der skal bruge den — ikke før.
+          //
+          // Grunden er en asymmetri, der skal besluttes bevidst: `bets` læses
+          // via leagueIds PÅ TIPPET, altså et øjebliksbillede fra da tippet
+          // blev afgivet, og reglen tillader udtrykkeligt undertal ("man
+          // skjuler kun sig selv"). Et opslag på players-dokumentet ville
+          // derimod bruge det LIVE medlemskab. Melder en spiller sig ind i en
+          // ny liga i runde 20, kan de nye kammerater ikke se hans tips fra
+          // runde 1-19 via bets — men ville kunne læse hele sæsonen her, i ét
+          // opslag. Den forskel skal afgøres sammen med den skærm, der bruger
+          // den, ikke som en bivirkning af en udrulning uden brugerflade.
           allow read: if isGlobalAdmin()
-            || (isSignedIn() && request.auth.uid == uid)
-            || (isApproved()
-                && get(/databases/$(database)/documents/games/$(gameId)/players/$(uid))
-                    .data.get('leagueIds', []).hasAny(myLeagueIds()));
+            || (isSignedIn() && request.auth.uid == uid);
 
           // Kun serveren (Admin SDK) skriver rækkerne. De er afledt af bets og
           // facit; kunne klienten skrive dem, kunne man vise sig selv med

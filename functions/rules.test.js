@@ -1500,14 +1500,18 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     );
   });
 
-  it('man KAN læse en LIGAKAMMERATS detalje', async () => {
+  // Liga-kammerater kan IKKE læse endnu — og det er med vilje. Klausulen
+  // tilføjes sammen med den skærm, der skal bruge den (D6), så asymmetrien
+  // mod bets-reglen bliver en beslutning og ikke en bivirkning. Går denne
+  // test i grønt, er adgangen udvidet, uden at nogen har taget stilling.
+  it('en LIGAKAMMERAT kan endnu IKKE læse detaljen (klausulen kommer i D6)', async () => {
     await createUser('p1', 'player', 'approved');
     await createUser('p2', 'player', 'approved');
     await createGame('vm2026');
     await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
     await seedMembership('vm2026', 'p2', { leagueIds: ['L1'] });
     await seedDetalje('vm2026', 'p2');
-    await assertSucceeds(
+    await assertFails(
       getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
         'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
     );

@@ -203,6 +203,9 @@ async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null, g
   // Rækkerne ligger i et UNDERDOKUMENT, ikke på spilleren selv: stillingen
   // abonnerer live på alle liga-kammeraters players-dokumenter, så en hel
   // sæsons historik dér ville følge med ned ved hver eneste pointændring.
+  //
+  // Læseadgangen er indtil videre KUN spillerens egen (firestore.rules).
+  // Liga-klausulen tilføjes sammen med den skærm, der skal bruge den.
   const detaljeRef = playerRef.collection('detalje').doc('opdeling');
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(betsQ);
