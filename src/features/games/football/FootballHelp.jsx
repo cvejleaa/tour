@@ -59,6 +59,11 @@ export default function FootballHelp() {
             efter.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Når kampen er slut:</strong> Slutresultatet kommer af sig selv og står mellem holdnavnene,
+            med det rigtige 1X2 markeret. Det henter vi fra Superligaens eget system, så der kan gå et par
+            minutter fra slutfløjt — dine point afregnes i samme øjeblik.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
             <strong>Efter runden:</strong> Se dit facit og din træfprocent under <Tab fane="mine">📋 Mine tips</Tab>, og
             hvordan holdenes rating flyttede sig under <Tab fane="elo">📈 Elo</Tab>.
           </li>

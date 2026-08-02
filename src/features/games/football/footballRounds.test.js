@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  toMillis, groupByRound, activeRound, isLocked, afterStart,
+  toMillis, groupByRound, activeRound, isLocked, afterStart, matchScore,
 } from './footballRounds';
 
 const M = (round, kickoffMs, extra = {}) => ({ round, kickoff: kickoffMs, ...extra });
@@ -79,5 +79,43 @@ describe('isLocked', () => {
     expect(isLocked({ kickoff: 100 }, 150)).toBe(true);
     expect(isLocked({ kickoff: 100 }, 50)).toBe(false);
     expect(isLocked({ kickoff: null }, 50)).toBe(false);
+  });
+});
+
+// matchScore — målene har ligget på kampdokumentet hele sæsonen uden nogensinde
+// at blive vist. 0 er den farlige værdi: en sandhedstest ville skjule hver
+// eneste målløse kamp.
+describe('matchScore', () => {
+  it('læser slutresultatet af en spillet kamp', () => {
+    expect(matchScore({ homeGoals: 3, awayGoals: 2 })).toEqual({ home: 3, away: 2 });
+  });
+
+  it('viser 0-0 — ikke ingenting', () => {
+    expect(matchScore({ homeGoals: 0, awayGoals: 0 })).toEqual({ home: 0, away: 0 });
+  });
+
+  it('viser et enkelt nulmål i den ene ende', () => {
+    expect(matchScore({ homeGoals: 0, awayGoals: 1 })).toEqual({ home: 0, away: 1 });
+    expect(matchScore({ homeGoals: 2, awayGoals: 0 })).toEqual({ home: 2, away: 0 });
+  });
+
+  it('giver null på en kamp, der ikke er spillet', () => {
+    expect(matchScore({})).toBeNull();
+    expect(matchScore({ homeGoals: 1 })).toBeNull();
+    expect(matchScore({ homeGoals: null, awayGoals: null })).toBeNull();
+  });
+
+  // Number('') er 0 — uden vagten ville en tom streng blive til et mål.
+  it('tæller en tom streng som "ikke spillet", ikke som nul mål', () => {
+    expect(matchScore({ homeGoals: '', awayGoals: '' })).toBeNull();
+    expect(matchScore({ homeGoals: 2, awayGoals: '' })).toBeNull();
+  });
+
+  it('tåler tal gemt som tekst', () => {
+    expect(matchScore({ homeGoals: '3', awayGoals: '0' })).toEqual({ home: 3, away: 0 });
+  });
+
+  it('tåler at blive kaldt uden kamp', () => {
+    expect(matchScore(undefined)).toBeNull();
   });
 });

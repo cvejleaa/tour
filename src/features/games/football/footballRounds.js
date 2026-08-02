@@ -76,3 +76,24 @@ export function isLocked(match, nowMs) {
   const k = toMillis(match?.kickoff);
   return k != null && k <= nowMs;
 }
+
+/**
+ * Slutresultatet på en kamp, eller null hvis det ikke er kendt.
+ *
+ * Målene skrives af resultat-synken sammen med facit (superligaSync.js), men
+ * har aldrig været VIST nogen steder — kampkortet har haft en hardkodet streg,
+ * hvor scoren skulle stå.
+ *
+ * Number.isFinite og ikke en sandhedstest: 0 er falsy, så `m.homeGoals && …`
+ * ville skjule hver eneste målløse kamp. Tomme strenge tælles heller ikke som
+ * mål — Number('') er 0.
+ *
+ * @param {{homeGoals?:*, awayGoals?:*}} match
+ * @returns {{home:number, away:number}|null}
+ */
+export function matchScore(match) {
+  const tal = (g) => (g == null || g === '' ? NaN : Number(g));
+  const home = tal(match?.homeGoals);
+  const away = tal(match?.awayGoals);
+  return Number.isFinite(home) && Number.isFinite(away) ? { home, away } : null;
+}

@@ -20,6 +20,33 @@ const API_BASE = 'https://api.superliga.dk';
 const ACCESS_TOKEN = '5b6ab6f5eb84c60031bbbd24';
 const APP_NAME = 'dk.releaze.livecenter.spdk';
 
+// Hvor længe efter kickoff vi holder øje med en kamp. En kamp varer ~2 timer;
+// den sidste halve time er luft til forlænget spilletid, afbrydelser og API'ets
+// egen forsinkelse. Vinduet er et LOFT, ikke en fast pris: så snart kampen har
+// facit, holder vi op med at spørge.
+const WINDOW_MS = 2.5 * 60 * 60 * 1000;
+
+/**
+ * Kampe, der er sat i gang inden for vinduet og STADIG mangler facit.
+ *
+ * Det er dette opslag, der gør ét kald i minuttet billigere end det gamle
+ * kvarters-raster: en tom range-forespørgsel koster én enkelt læsning, mod de
+ * 132 dokumenter syncResultsCore ellers henter hver gang. Uden for kampvinduet
+ * er svaret tomt, og så røres hverken API eller resten af databasen.
+ *
+ * @returns {Promise<Array<{id:string, data:object}>>}
+ */
+async function pendingMatches(db, nowMs, opts = {}) {
+  const gameId = opts.gameId || GAME_ID;
+  const snap = await db.collection('games').doc(gameId).collection('matches')
+    .where('kickoff', '>=', new Date(nowMs - WINDOW_MS))
+    .where('kickoff', '<=', new Date(nowMs))
+    .get();
+  return snap.docs
+    .map((d) => ({ id: d.id, data: d.data() }))
+    .filter((m) => m.data.result == null || m.data.result === '');
+}
+
 /** 1X2-udfald af mål (spejler superligaScoring.outcomeFromScore). */
 function outcomeFromScore(h, a) {
   if (h == null || a == null) return null;
@@ -51,7 +78,8 @@ function resultsUrl(seasonId) {
  * Kernen (uden Cloud Functions-wrapper — kan unit-testes med injiceret fetch/db).
  * @param {object} db
  * @param {object} FieldValue
- * @param {{fetchFn?:Function, gameId?:string, seasonId?:number}} [opts]
+ * @param {{fetchFn?:Function, gameId?:string, seasonId?:number,
+ *          only?:Array<{id:string,data:object}>}} [opts]
  * @returns {Promise<{checked:number, updated:number}>}
  */
 async function syncResultsCore(db, FieldValue, opts = {}) {
@@ -66,10 +94,19 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
     && e.score && Number.isFinite(e.score.home) && Number.isFinite(e.score.away));
 
   // Nuværende kamp-dokumenter (så vi kun skriver ændrede facit).
+  //
+  // opts.only er kampene fra pendingMatches — dem der er i gang lige nu. Uden
+  // den henter vi alle 132, og ved ét kald i minuttet ville det alene løbe op
+  // i ~40.000 læsninger på en kampdag. Den manuelle synk sender ingen `only`
+  // og gennemgår derfor stadig hele sæsonen.
   const matchesCol = db.collection('games').doc(gameId).collection('matches');
-  const snap = await matchesCol.get();
   const current = new Map();
-  snap.docs.forEach((d) => current.set(d.id, d.data()));
+  if (opts.only) {
+    opts.only.forEach((m) => current.set(m.id, m.data));
+  } else {
+    const snap = await matchesCol.get();
+    snap.docs.forEach((d) => current.set(d.id, d.data()));
+  }
 
   const batch = db.batch();
   let updated = 0;
@@ -78,7 +115,14 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
     const cur = current.get(id);
     if (!cur) continue; // ukendt kamp (bør ikke ske — samme kilde)
     const result = outcomeFromScore(e.score.home, e.score.away);
-    if (!result || cur.result === result) continue; // uændret
+    if (!result) continue;
+    // Sammenlign på BÅDE facit og mål. Så længe kun facit talte, kunne en
+    // rettet score aldrig komme ind: 2-1 → 3-1 er samme 1X2, så dokumentet
+    // blev sprunget over for altid — også ved manuel synk. Usynligt dengang
+    // målene ikke blev vist; synligt nu, hvor de står på kampkortet.
+    if (cur.result === result
+        && cur.homeGoals === e.score.home
+        && cur.awayGoals === e.score.away) continue;
     batch.set(matchesCol.doc(id), {
       result,
       homeGoals: e.score.home,
@@ -129,17 +173,70 @@ async function syncStandingsCore(db, FieldValue, opts = {}) {
     }))
     .filter((r) => r.teamName)
     .sort((a, b) => a.rank - b.rank);
-  if (rows.length === 0) return { rows: 0 };
+  if (rows.length === 0) return { rows: 0, changed: false };
 
-  await db.collection('games').doc(gameId).set({
+  // Skriv KUN når tabellen faktisk har flyttet sig. Spil-dokumentet lyttes på
+  // af hver eneste åbne browser (useGame), så en skrivning uden ændring koster
+  // én læsning pr. tilsluttet klient — og fik dem alle til at gentegne. Før
+  // skrev vi ved hver kørsel, også midt om eftermiddagen uden en kamp i gang.
+  const gameRef = db.collection('games').doc(gameId);
+  const cur = await gameRef.get();
+  if (JSON.stringify(cur.data()?.standings || null) === JSON.stringify(rows)) {
+    return { rows: rows.length, changed: false };
+  }
+
+  await gameRef.set({
     standings: rows,
     standingsSyncedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
-  return { rows: rows.length };
+  return { rows: rows.length, changed: true };
+}
+
+/**
+ * ÉN skemalagt kørsel. Bor her og ikke i index.js, fordi index.js ikke kan
+ * importeres uden firebase-functions — og så ville det tidlige exit, som er
+ * hele pointen med at køre hvert minut, være udækket af tests.
+ *
+ * Rækkefølgen er selve besparelsen:
+ *   1. Er en kamp overhovedet i gang uden facit? (ét opslag, ofte tomt)
+ *   2. Kun i så fald: spørg API'et om resultater.
+ *   3. Kun hvis et facit rent faktisk landede: hent den officielle stilling.
+ *
+ * Fejler tavst i hvert led, som Tour-synken: en nedbrudt kilde må hverken
+ * vælte funktionen eller forhindre næste led i at prøve.
+ *
+ * @param {number} nowMs
+ * @returns {Promise<{pending:number, updated:number, standings:object|null, fejl:string|null}>}
+ */
+async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
+  let venter;
+  try {
+    venter = await pendingMatches(db, nowMs, opts);
+  } catch (err) {
+    return { pending: 0, updated: 0, standings: null, fejl: `opslag: ${err?.message || err}` };
+  }
+  if (venter.length === 0) return { pending: 0, updated: 0, standings: null, fejl: null };
+
+  let updated = 0;
+  let fejl = null;
+  try {
+    ({ updated } = await syncResultsCore(db, FieldValue, { ...opts, only: venter }));
+  } catch (err) {
+    fejl = `resultater: ${err?.message || err}`;
+  }
+  if (updated === 0) return { pending: venter.length, updated, standings: null, fejl };
+
+  let standings = null;
+  try {
+    standings = await syncStandingsCore(db, FieldValue, opts);
+  } catch (err) {
+    fejl = `${fejl ? `${fejl}; ` : ''}stilling: ${err?.message || err}`;
+  }
+  return { pending: venter.length, updated, standings, fejl };
 }
 
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
-  outcomeFromScore, matchDocId, resultsUrl, syncResultsCore,
-  standingsUrl, syncStandingsCore,
+  outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
+  standingsUrl, syncStandingsCore, runScheduledSync,
 };

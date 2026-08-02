@@ -52,7 +52,7 @@ function UrlProbe() {
   return <output data-testid="url">{search}</output>;
 }
 
-const setup = (game = {}, url = '/spil/sl') => render(
+const setup = (game = {}, url = '/spil/sl', matches = MATCHES) => render(
   <MemoryRouter initialEntries={[url]}>
     <Routes>
       <Route
@@ -61,7 +61,7 @@ const setup = (game = {}, url = '/spil/sl') => render(
           <FootballTip
             game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY, ...game }}
             me={{ uid: 'me', totalPoints: 100 }}
-            matches={MATCHES}
+            matches={matches}
           />
         )}
       />
@@ -160,5 +160,67 @@ describe('FootballTip — Elo på kampkortene', () => {
     setup({ teams: [], eloHistory: undefined });
     expect(screen.getByText('AGF')).toBeInTheDocument();
     expect(screen.getByText('FC Midtjylland')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Slutresultatet på kampkortet.
+//
+// Målene har ligget på kampdokumentet siden sæsonstart, men blev ikke vist
+// nogen steder: pladsen mellem holdnavnene var en hardkodet streg. Kortet
+// kunne altså på én gang sige "Ramt +6,0" og lade som om resultatet var ukendt.
+// ---------------------------------------------------------------------------
+describe('FootballTip — slutresultat på kampkortet', () => {
+  const SPILLET = new Date('2026-08-01T16:00:00Z'); // før den frosne tid
+
+  const spillede = (extra = {}) => ([
+    {
+      id: 'p1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: SPILLET,
+      odds: { 1: 3.4, X: 6, 2: 1.8 }, result: '1', homeGoals: 3, awayGoals: 2, ...extra,
+    },
+  ]);
+
+  it('viser scoren, når kampen er spillet', () => {
+    setup({}, '/spil/sl', spillede());
+    expect(screen.getByLabelText(/Slutresultat/)).toHaveTextContent('3 – 2');
+  });
+
+  it('nævner begge hold ved navn for skærmlæsere', () => {
+    setup({}, '/spil/sl', spillede());
+    // "3 – 2" alene oplæses uforudsigeligt; tallene skal knyttes til holdene.
+    expect(screen.getByLabelText('Slutresultat: AGF 3, F.C. København 2')).toBeInTheDocument();
+  });
+
+  it('viser 0-0 i stedet for at skjule kampen', () => {
+    setup({}, '/spil/sl', spillede({ result: 'X', homeGoals: 0, awayGoals: 0 }));
+    expect(screen.getByLabelText(/Slutresultat/)).toHaveTextContent('0 – 0');
+  });
+
+  it('beholder stregen på en kamp, der ikke er spillet', () => {
+    const { container } = setup();   // MATCHES ligger alle i fremtiden
+    expect(screen.queryByLabelText(/Slutresultat/)).toBeNull();
+    expect(container.querySelectorAll('.match-card__dash').length).toBeGreaterThan(0);
+  });
+
+  it('beholder stregen, når facit er sat men målene mangler', () => {
+    // Kan ikke opstå fremadrettet (synken skriver dem sammen), men et gammelt
+    // dokument må vise en streg frem for "NaN – NaN".
+    setup({}, '/spil/sl', [{
+      id: 'p2', round: 1, home: 'AGF', away: 'F.C. København', kickoff: SPILLET,
+      odds: null, result: '1',
+    }]);
+    expect(screen.queryByLabelText(/Slutresultat/)).toBeNull();
+  });
+
+  it('markerer det udfald, der faktisk blev til noget', () => {
+    const { container } = setup({}, '/spil/sl', spillede());
+    const vundet = container.querySelectorAll('.pick--won');
+    expect(vundet).toHaveLength(1);              // præcis ét udfald pr. kamp
+    expect(vundet[0]).toHaveTextContent('1');    // hjemmesejr 3-2
+  });
+
+  it('markerer intet udfald, før kampen er afgjort', () => {
+    const { container } = setup();
+    expect(container.querySelectorAll('.pick--won')).toHaveLength(0);
   });
 });

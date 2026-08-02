@@ -21,7 +21,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { initializeApp } = require('firebase-admin/app');
 
 const { recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals } = require('./gameScoring');
-const { syncResultsCore, syncStandingsCore } = require('./superligaSync');
+const { syncResultsCore, syncStandingsCore, runScheduledSync } = require('./superligaSync');
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
@@ -152,22 +152,42 @@ exports.recomputeGameScores = onCall({ region: REGION }, async (request) => {
 
 // syncSuperligaResults — hent færdigspillede kampe fra api.superliga.dk og sæt
 // facit på de matchende kampe. At skrive result udløser recomputeGameMatch
-// (afregning + levende Elo). Kører i kamp-vinduet; fail-silent som Tour-synken.
+// (afregning + levende Elo). Fail-silent som Tour-synken.
+//
+// Kører HVERT MINUT i tidsrummet, hvor der overhovedet kan være kampe i gang —
+// men gør intet, med mindre en kamp faktisk er sat i gang og stadig mangler
+// facit. Det tidlige exit er dét, der gør frekvensen billig:
+//
+//   før:  hvert kvarter 14-23, HVER dag året rundt, 132 læsninger pr. kørsel
+//         = 14.600 kørsler og ~1,9 mio. læsninger om året
+//   nu:   ét kald i minuttet, men kun mens der spilles — resten af tiden ét
+//         enkelt (tomt) opslag. En tom range-forespørgsel koster én læsning.
+//
+// Kampprogrammet har ét kickoff kl. 12 og det seneste kl. 20, så 12-23 dækker
+// hele sæsonen med luft i begge ender.
 exports.syncSuperligaResults = onSchedule(
-  { schedule: '*/15 14-23 * * *', timeZone: TZ, region: REGION },
+  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION },
+  async () => {
+    // Selve rækkefølgen — og det tidlige exit — bor i superligaSync, så den
+    // kan unit-testes. Her logges kun resultatet.
+    const out = await runScheduledSync(getFirestore(), FieldValue, Date.now());
+    if (out.fejl) console.error('Superliga-synk (ignoreret):', out.fejl);
+    if (out.pending === 0) return; // stille minut: intet i gang, intet rørt
+    console.log(`Superliga-synk: ${out.pending} kampe uden facit, ${out.updated} nye facit.`
+      + (out.standings ? ` Stilling ${out.standings.changed ? 'opdateret' : 'uændret'}.` : ''));
+  },
+);
+
+// syncSuperligaStandings — sikkerhedsnet for stillingen. API'et opdaterer ofte
+// tabellen et stykke tid EFTER resultatet, så den synk der følger med facit kan
+// nå at hente en tabel, der endnu ikke er talt op. Én gang i timen om aftenen
+// fanger det; skriver kun hvis tabellen rent faktisk har ændret sig.
+exports.syncSuperligaStandings = onSchedule(
+  { schedule: '25 15-23 * * *', timeZone: TZ, region: REGION },
   async () => {
     try {
-      const db = getFirestore();
-      const { checked, updated } = await syncResultsCore(db, FieldValue);
-      console.log(`Superliga-synk: ${checked} færdige kampe, ${updated} nye facit.`);
-    } catch (err) {
-      console.error('Superliga-synk fejlede (ignoreret):', err?.message || err);
-    }
-    // Officiel stilling (autoritativ kilde — vi beregner den ikke selv).
-    try {
-      const db = getFirestore();
-      const { rows } = await syncStandingsCore(db, FieldValue);
-      console.log(`Superliga-stilling synket: ${rows} hold.`);
+      const { rows, changed } = await syncStandingsCore(getFirestore(), FieldValue);
+      console.log(`Superliga-stilling (timesynk): ${rows} hold, ${changed ? 'opdateret' : 'uændret'}.`);
     } catch (err) {
       console.error('Stilling-synk fejlede (ignoreret):', err?.message || err);
     }
