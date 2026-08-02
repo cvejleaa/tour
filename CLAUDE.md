@@ -42,8 +42,13 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
    Ret det, de finder.
 3. Commit → push → opret PR som draft.
 4. Vent på grøn CI (fire jobs). Un-draft → squash-merge.
-5. Deploy efter Release Managers plan.
+5. **Deploy efter Release Managers plan — uden at spørge om lov.** Er CI grøn,
+   og har rollerne ikke blokerende fund, så rul ud. Spørg ikke hver gang.
 6. Verificér i produktion, og fortæl brugeren hvad der er live.
+
+Undtagelserne fra trin 5, hvor der **stadig** spørges først: alt der skriver i
+produktionsdata (bagfyldninger, migreringer, `seedGames`/`seedSuperliga`),
+tilbagerulninger, og udrulninger med et blokerende fund fra en rolle.
 
 ## Sæsoneftersyn
 
