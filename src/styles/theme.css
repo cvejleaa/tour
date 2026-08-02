@@ -695,6 +695,12 @@ a:focus-visible,
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .match-card__dash { text-align: center; color: var(--c-muted); font-weight: 700; font-size: 1.1rem; }
+/* Slutresultatet står samme sted som stregen, så kolonnen flugter med "X"
+   nedenunder — men i tekstfarve og tabeltal, så det ikke læses som en streg. */
+.match-card__score {
+  text-align: center; color: var(--c-text); font-weight: 800; font-size: 1.15rem;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 .match-card--chance {
   border-color: var(--c-accent) !important;
   box-shadow: 0 0 0 1px var(--c-accent), var(--shadow);
@@ -730,6 +736,16 @@ a:focus-visible,
 @supports not (background: color-mix(in srgb, red, blue)) {
   .pick--selected { background: var(--c-surface-alt); }
 }
+/* Det udfald der FAKTISK blev til noget. Markeres med en stiplet ramme, så en
+   ramt kamp (valgt + vundet) stadig kan skelnes fra en tabt: farven siger
+   "mit valg", stiplingen siger "facit". Opacity fra :disabled gælder også her,
+   så den må have kraft nok til at ses gennem den. */
+.pick--won {
+  border-style: dashed; border-color: var(--c-text);
+  box-shadow: inset 0 0 0 1px var(--c-text);
+}
+.pick--won.pick--selected { border-color: var(--c-pitch); box-shadow: 0 0 0 1px var(--c-pitch); }
+.pick--won:disabled { opacity: 0.85; }
 
 /* Rundens facit-skærm */
 .facit { border-left: 4px solid var(--c-pitch); }

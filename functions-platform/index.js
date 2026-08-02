@@ -21,7 +21,9 @@ const { getAuth } = require('firebase-admin/auth');
 const { initializeApp } = require('firebase-admin/app');
 
 const { recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals } = require('./gameScoring');
-const { syncResultsCore, syncStandingsCore } = require('./superligaSync');
+const {
+  syncResultsCore, syncStandingsCore, runScheduledSync, strandedMatches, allMatches,
+} = require('./superligaSync');
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
@@ -152,24 +154,100 @@ exports.recomputeGameScores = onCall({ region: REGION }, async (request) => {
 
 // syncSuperligaResults — hent færdigspillede kampe fra api.superliga.dk og sæt
 // facit på de matchende kampe. At skrive result udløser recomputeGameMatch
-// (afregning + levende Elo). Kører i kamp-vinduet; fail-silent som Tour-synken.
+// (afregning + levende Elo). Fail-silent som Tour-synken.
+//
+// Kører HVERT MINUT i tidsrummet, hvor der overhovedet kan være kampe i gang —
+// men gør intet, med mindre en kamp faktisk er sat i gang og stadig mangler
+// facit. Det tidlige exit er dét, der gør frekvensen billig:
+//
+//   før:  hvert kvarter 14-23, HVER dag året rundt, 132 læsninger pr. kørsel
+//         = 14.600 kørsler og ~1,9 mio. læsninger om året
+//   nu:   ét kald i minuttet, men kun mens der spilles — resten af tiden ét
+//         enkelt (tomt) opslag. En tom range-forespørgsel koster én læsning.
+//
+// Kampprogrammet har ét kickoff kl. 12 og det seneste kl. 20, så 12-23 dækker
+// hele sæsonen. Dækningen er asymmetrisk: fortil beskytter vinduet os (en kamp
+// kl. 11 fanges stadig kl. 12), mens en kamp fra kl. 21.30 og senere ville få
+// sit vindue klippet ved midnat. Nattens fuldsweep tager den slags.
 exports.syncSuperligaResults = onSchedule(
-  { schedule: '*/15 14-23 * * *', timeZone: TZ, region: REGION },
+  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION },
   async () => {
+    // Selve rækkefølgen — og det tidlige exit — bor i superligaSync, så den
+    // kan unit-testes. Her logges kun resultatet.
+    const out = await runScheduledSync(getFirestore(), FieldValue, Date.now());
+    if (out.fejl) console.error('Superliga-synk (ignoreret):', out.fejl);
+    if (out.pending === 0) return; // stille minut: intet i gang, intet rørt
+    console.log(`Superliga-synk: ${out.pending} kampe uden facit, ${out.updated} nye facit.`
+      + (out.standings ? ` Stilling ${out.standings.changed ? 'opdateret' : 'uændret'}.` : ''));
+  },
+);
+
+// syncSuperligaSweep — SIKKERHEDSNETTET.
+//
+// Minut-synken ser kun kampe inden for 2,5 time efter kickoff. Falder en kamp
+// ud af det vindue uden facit, blev den før i tiden alligevel rettet op: den
+// gamle synk skannede hele sæsonen hvert kvarter. Uden et sweep ville en
+// forsinket kamp, et API-udfald i vinduet, en kamp der slutter efter midnat
+// eller et forældet kickoff (ligaen flytter en kamp — vi har kun det seedede
+// tidspunkt) betyde, at point ALDRIG blev afregnet. Tavst. Og puljebonussen
+// kræver, at alle kampe har mål, så én strandet kamp blokerer hele
+// sæsonafregningen.
+//
+// Timen kl. 2 er med, fordi netop dét scenarie — en kamp der bliver færdig
+// efter midnat — ellers skulle vente fra 23.25 til 13.25 næste dag.
+//
+// Sweep'et henter samtidig den officielle stilling. API'et tæller ofte tabellen
+// op et stykke tid EFTER resultatet, så den synk der følger med et nyt facit
+// kan nå at hente en tabel, der endnu ikke er opdateret; timen efter fanger det.
+// De to opgaver deler ét job, fordi de alligevel skal bruge samme fuldskanning.
+//
+// Pris: ÉT opslag af de 132 kampe pr. kørsel, 12 kørsler = ~1.600 læsninger i
+// døgnet — mod de ~5.300, den gamle kvartersynk brugte alene. Alarmen deler
+// opslaget med gen-synken og trækker de netop rettede kampe fra, i stedet for
+// at hente et friskt billede.
+exports.syncSuperligaSweep = onSchedule(
+  { schedule: '25 2,13-23 * * *', timeZone: TZ, region: REGION },
+  async () => {
+    const db = getFirestore();
+    let alle = null;
+    let netopRettet = new Set();
     try {
-      const db = getFirestore();
-      const { checked, updated } = await syncResultsCore(db, FieldValue);
-      console.log(`Superliga-synk: ${checked} færdige kampe, ${updated} nye facit.`);
+      // Ét opslag, to formål: både gen-synken og alarmen bygger på det.
+      alle = await allMatches(db);
+      const { checked, updated, rettede } = await syncResultsCore(db, FieldValue, { only: alle });
+      netopRettet = new Set(rettede);
+      if (updated > 0) {
+        console.warn(`Superliga-sweep: ${updated} facit som minut-synken IKKE nåede — undersøg hvorfor.`);
+      } else {
+        console.log(`Superliga-sweep: ${checked} færdige kampe, intet manglede.`);
+      }
     } catch (err) {
-      console.error('Superliga-synk fejlede (ignoreret):', err?.message || err);
+      console.error('Superliga-sweep fejlede (ignoreret):', err?.message || err);
     }
-    // Officiel stilling (autoritativ kilde — vi beregner den ikke selv).
     try {
-      const db = getFirestore();
-      const { rows } = await syncStandingsCore(db, FieldValue);
-      console.log(`Superliga-stilling synket: ${rows} hold.`);
+      const { rows, changed } = await syncStandingsCore(db, FieldValue);
+      console.log(`Superliga-stilling (sweep): ${rows} hold, ${changed ? 'opdateret' : 'uændret'}.`);
     } catch (err) {
       console.error('Stilling-synk fejlede (ignoreret):', err?.message || err);
+    }
+    // Alarmen: kampe der for længst er begyndt og stadig mangler facit. Uden
+    // den ser "ingen kampe i gang" og "kampen bliver aldrig afregnet" ens ud
+    // i loggen. Bygger på listen ovenfor — den er hentet FØR gen-synken, så
+    // en kamp, sweep'et lige har reddet, ville ellers blive meldt strandet.
+    try {
+      if (alle) {
+        // Kampene, sweep'et lige har reddet, er ikke strandede — de står bare
+        // stadig uden facit i listen fra før gen-synken.
+        const strandede = strandedMatches(
+          alle.filter((m) => !netopRettet.has(m.id)), Date.now(),
+        );
+        if (strandede.length > 0) {
+          console.error('Superliga: kampe UDEN facit længe efter kickoff — point er ikke afregnet:',
+            strandede.map((m) => m.id).join(', '));
+        }
+      }
+    } catch (err) {
+      console.error('Kunne ikke tjekke for strandede kampe (ignoreret):', err?.message || err);
     }
   },
 );

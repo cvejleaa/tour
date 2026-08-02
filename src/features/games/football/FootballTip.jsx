@@ -21,7 +21,7 @@ import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/d
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
 import { shareText } from '../../../lib/share';
 import {
-  groupByRound, activeRound, isLocked, toMillis, afterStart,
+  groupByRound, activeRound, isLocked, toMillis, afterStart, matchScore,
 } from './footballRounds';
 import {
   OUTCOME, OUTCOMES, round1, outcomeReward, roundComboBonus, ROUND_BONUS,
@@ -376,6 +376,7 @@ export default function FootballTip({ game, me, matches }) {
         const isChance = m.id === chanceMatchId;
         const { h, a } = matchBadges(m.home, m.away, game?.teamStyles);
         const hit = m.result && bet?.pick ? bet.pick === m.result : null;
+        const score = matchScore(m);
         return (
           <div className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`} key={m.id}>
             <div className="match-card__meta">
@@ -399,7 +400,21 @@ export default function FootballTip({ game, me, matches }) {
                 <ClubBadge code={h.code} color={h.color} size={34} title={m.home} />
                 <span className="match-card__side-name">{m.home}</span>
               </div>
-              <div className="match-card__dash" aria-hidden="true">–</div>
+              {/* Stregen mellem holdene er pladsen, hvor scoren hører hjemme.
+                  Uden den kunne kortet på én gang sige "Ramt +6,0" og vise en
+                  tom streg — vi vidste altså godt, hvordan det gik.
+                  Skærmlæsere får et helt udsagn: tankestregen mellem to tal
+                  oplæses uforudsigeligt. */}
+              {score ? (
+                <div
+                  className="match-card__score"
+                  aria-label={`Slutresultat: ${m.home} ${score.home}, ${m.away} ${score.away}`}
+                >
+                  <span aria-hidden="true">{score.home} – {score.away}</span>
+                </div>
+              ) : (
+                <div className="match-card__dash" aria-hidden="true">–</div>
+              )}
               <div className="match-card__side">
                 <ClubBadge code={a.code} color={a.color} size={34} title={m.away} />
                 <span className="match-card__side-name">{m.away}</span>
@@ -411,15 +426,21 @@ export default function FootballTip({ game, me, matches }) {
             <div className="pick-grid">
               {OUTCOMES.map((o) => {
                 const selected = bet?.pick === o;
+                // Når scoren står ovenover, skal kortet også svare på HVILKEN
+                // knap der så var den rigtige. LeagueBets farver allerede den
+                // vindende udfaldsgruppe; her manglede det samme.
+                const won = m.result === o;
                 const odds = matchOdds(m, o);
                 const pts = odds ? round1(odds) : null;
                 return (
                   <button
                     key={o}
-                    className={`pick ${selected ? 'pick--selected' : ''}`}
+                    className={`pick ${selected ? 'pick--selected' : ''} ${won ? 'pick--won' : ''}`}
                     disabled={locked || busy === m.id}
                     onClick={() => pick(m, o)}
-                    title={pts != null ? `${fmtDec(pts)} point hvis rigtigt (= odds)` : 'Odds mangler endnu'}
+                    title={won
+                      ? `${OUTCOME_LABEL[o]} blev udfaldet`
+                      : pts != null ? `${fmtDec(pts)} point hvis rigtigt (= odds)` : 'Odds mangler endnu'}
                   >
                     <span className="pick__label">{OUTCOME_LABEL[o]}</span>
                     <span className="pick__odds">{pts != null ? fmtDec(pts) : '—'}</span>
