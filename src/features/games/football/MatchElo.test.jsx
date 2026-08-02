@@ -62,9 +62,17 @@ describe('MatchElo', () => {
     expect(screen.queryByText(/Start-rating/)).not.toBeInTheDocument();
   });
 
+  // Med præcis én spillet runde skal teksten ikke sige "de seneste 1 runder".
+  it('bøjer teksten rigtigt ved én enkelt runde', () => {
+    const { container } = renderIt({ eloByTeam: { AGF: FCK, FCK } });
+    expect(screen.getAllByLabelText(/udvikling seneste runde/)).toHaveLength(2);
+    expect(container.textContent).toContain('seneste runde');
+    expect(container.textContent).not.toContain('seneste 1');
+  });
+
   it('viser færre punkter, når der er spillet færre runder', () => {
     renderIt();
-    expect(screen.getByLabelText(/FCK: udvikling over de seneste 1 runder/).children).toHaveLength(1);
+    expect(screen.getByLabelText(/FCK: udvikling seneste runde/).children).toHaveLength(1);
   });
 
   it('viser intet, når spillet slet ikke har Elo', () => {
