@@ -355,18 +355,31 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   const batches = [batch];
   const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
 
-  const changedUids = new Set();
+  // ALLE, der har tippet på kampen — ikke kun dem, hvis point ændrede sig.
+  //
+  // Rammer en spiller forkert uden at bruge Chancen, går hans point 0 → 0.
+  // Samlede vi kun de ændrede, blev han aldrig genberegnet — og var det
+  // rundens SIDSTE kamp, fik han derfor aldrig sin combi-bonus for én fejl.
+  // Bonussen kræver, at hele runden er spillet, så den kunne kun komme fra
+  // netop denne genberegning. Fejlen var tavs: totalen var jo "rigtig" set fra
+  // hver enkelt kamp.
+  const berorteUids = new Set();
   let rescored = 0;
   for (const d of betsSnap.docs) {
-    const pts = scoreBet(d.data(), result, odds);
-    if (Number(d.data().points) === pts) continue; // uændret → rør ikke
+    const bet = d.data();
+    if (bet.uid) berorteUids.add(bet.uid);
+    const pts = scoreBet(bet, result, odds);
+    if (Number(bet.points) === pts) continue; // uændret → spar skrivningen
     batch.update(d.ref, { points: pts });
     bump();
     rescored += 1;
-    if (d.data().uid) changedUids.add(d.data().uid);
   }
-  if (rescored === 0) return { rescored: 0, players: 0 }; // intet ændret
-  for (const b of batches) await b.commit();
+  // Ingen tidlig exit på rescored === 0. Ud over combi-bonussen hang både
+  // runde-snapshottet og puljeafregningen nedenfor på den: ramte HELE feltet
+  // forkert på en kamp, blev runden aldrig snapshottet, og Runde-Botten fyrede
+  // aldrig. Triggeren (index.js) returnerer allerede, når facit er uændret, så
+  // vi kommer kun herned, når der faktisk er sket noget.
+  if (rescored) for (const b of batches) await b.commit();
 
   // Runde-kontekst til combi-bonussen: hentes kun når vi faktisk skal genberegne.
   const matchesSnap = await db.collection('games').doc(gameId).collection('matches').get();
@@ -375,7 +388,7 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   const gated = gatedIds(allMatches, startMs);
   const roundCtx = buildRoundContext(allMatches.filter((m) => !gated.has(m.id)));
 
-  const uids = [...changedUids];
+  const uids = [...berorteUids];
   const CHUNK = 10;
   for (let i = 0; i < uids.length; i += CHUNK) {
     await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx, gated)));

@@ -126,19 +126,31 @@ describe('recomputeGameMatchCore', () => {
     expect(db._players.C).toBeUndefined();     // ikke berørt
   });
 
-  it('rører ikke bets hvis pointtallet er uændret', async () => {
+  it('skriver ikke på bets hvis pointtallet er uændret', async () => {
     const db = makeDb([
       { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 }, // allerede korrekt
     ]);
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: 'X' });
     expect(res.rescored).toBe(0);
-    expect(Object.keys(db._players)).toHaveLength(0);
   });
 
-  it('rører ikke tips der allerede står på 0 uden facit', async () => {
+  // Spilleren genberegnes ALLIGEVEL. Testen stod før på det modsatte
+  // (`_players` skulle være tom), og dét låste fejlen fast: combi-bonussen
+  // kræver, at hele RUNDEN er spillet, ikke at spillerens egne point rykkede
+  // sig. Var det rundens sidste kamp, kunne bonussen kun komme herfra.
+  it('genberegner spilleren, selv om hans egne point ikke ændrede sig', async () => {
+    const db = makeDb([
+      { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 },
+    ]);
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: 'X' });
+    expect(res.players).toBe(1);
+    expect(db._players.A).toBeDefined();
+  });
+
+  it('skriver ikke på tips der allerede står på 0 uden facit', async () => {
     const db = makeDb([{ uid: 'A', matchId: 'm1', pick: '1', points: 0 }]);
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: null });
-    expect(res).toEqual({ rescored: 0, players: 0 });
+    expect(res.rescored).toBe(0);
   });
 
   it('nulstiller point når et facit FJERNES igen', async () => {
@@ -153,6 +165,33 @@ describe('recomputeGameMatchCore', () => {
     expect(res.rescored).toBe(1);
     expect(db._bets[0].data.points).toBe(0);
     expect(db._players.A.totalPoints).toBe(0);
+  });
+
+  // REGRESSIONEN. Combi-bonussen gives også ved ÉN fejl, og den kan først
+  // beregnes, når hele runden er spillet. Rammer spilleren netop rundens
+  // SIDSTE kamp forkert uden at bruge Chancen, går hans point 0 → 0.
+  //
+  // Før samlede vi kun spillere, hvis point ÆNDREDE sig, og sprang helt fra på
+  // `rescored === 0`. Så blev han aldrig genberegnet, og bonussen for hans ene
+  // fejl kom aldrig — tavst, for hver enkelt kamp var jo scoret rigtigt.
+  it('giver combi-bonus for én fejl, selv når spilleren missede rundens sidste kamp', async () => {
+    const matches = [
+      { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+      { id: 'm2', round: 1, result: '1', odds: { 1: 3.0, X: 4, 2: 4 } },
+    ];
+    const db = makeDb([
+      { uid: 'A', matchId: 'm1', pick: '1', chanceStake: 0, points: 2 }, // ramt, allerede scoret
+      { uid: 'A', matchId: 'm2', pick: 'X', chanceStake: 0, points: 0 }, // MISSER — 0 før og efter
+    ], matches);
+
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm2', {
+      result: '1', odds: { 1: 3.0, X: 4, 2: 4 }, round: 1,
+    });
+
+    expect(res.rescored).toBe(0);        // ingen bet-point rykkede sig
+    expect(res.players).toBe(1);         // men spilleren SKAL genberegnes
+    expect(db._players.A).toBeDefined();
+    expect(db._players.A.roundBonus).toBeGreaterThan(0); // bonussen for én fejl
   });
 
   it('lægger combi-runde-bonus til når hele runden er ramt', async () => {
