@@ -15,6 +15,7 @@
  * "siden forrige runde" på Elo-fanen, og det skal betyde det samme her.
  */
 import EloDelta from './EloDelta';
+import GameTabLink from '../GameTabLink';
 
 /** Én side af kampen: rating + de seneste udviklingspunkter. */
 function Side({ navn, elo, align }) {
@@ -72,7 +73,9 @@ export default function MatchElo({ home, away, eloByTeam }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
         <Side navn={home} elo={h} align="left" />
         <span style={{ fontSize: '0.68rem', color: 'var(--c-muted)', textAlign: 'center', whiteSpace: 'nowrap' }}>
-          📈 Elo
+          {/* Her står man og undrer sig over tallet — så herfra skal man kunne
+              komme videre til hele sæsonen. */}
+          <GameTabLink fane="elo" title="Se hele sæsonens Elo-udvikling">📈 Elo</GameTabLink>
           {spilletRunder > 0 && (
             <>
               <br />

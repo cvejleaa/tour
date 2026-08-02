@@ -5,6 +5,7 @@
 // kampkort — selve visningen er dækket i MatchElo.test.jsx.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('../../../firebase', () => ({ db: {} }));
 
@@ -39,12 +40,23 @@ const TEAMS = [
   { name: 'FC Midtjylland', short: 'FCM', elo: 1440 },
 ];
 
-const setup = (game = {}) => render(
-  <FootballTip
-    game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY, ...game }}
-    me={{ uid: 'me', totalPoints: 100 }}
-    matches={MATCHES}
-  />,
+// Runden ligger i URL'en, så komponenten skal stå i en router. Ruten matcher
+// den rigtige (/spil/:gameId), så GameTabLink kan bygge sine stier.
+const setup = (game = {}, url = '/spil/sl') => render(
+  <MemoryRouter initialEntries={[url]}>
+    <Routes>
+      <Route
+        path="/spil/:gameId"
+        element={(
+          <FootballTip
+            game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY, ...game }}
+            me={{ uid: 'me', totalPoints: 100 }}
+            matches={MATCHES}
+          />
+        )}
+      />
+    </Routes>
+  </MemoryRouter>,
 );
 
 beforeEach(() => vi.clearAllMocks());

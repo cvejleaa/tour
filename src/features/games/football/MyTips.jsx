@@ -9,6 +9,7 @@ import { formatKickoff } from '../../../lib/daDate';
 import { fmtDec, fmtPoints } from '../../../lib/daNum';
 import { groupByRound, afterStart, toMillis } from './footballRounds';
 import { buildTipsHistory } from './tipsHistory';
+import GameTabLink from '../GameTabLink';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
 const shortOf = (name) => superligaTeamInfo(name)?.short || name;
@@ -40,7 +41,10 @@ export default function MyTips({ game, matches }) {
       <div className="empty-state">
         <div className="empty-state__icon">📋</div>
         <div className="empty-state__title">Du har ikke tippet endnu.</div>
-        <p style={{ color: 'var(--c-muted)' }}>Gå til <strong>Tip</strong>-fanen og sæt dine 1X2 for den kommende runde.</p>
+        <p style={{ color: 'var(--c-muted)' }}>Sæt dine 1X2 for den kommende runde.</p>
+        <p style={{ marginTop: '0.6rem' }}>
+          <GameTabLink fane="tip" className="btn btn--sm">Gå til Tip</GameTabLink>
+        </p>
       </div>
     );
   }

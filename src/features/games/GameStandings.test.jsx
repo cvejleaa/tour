@@ -5,6 +5,7 @@
 // man tror, man læser tabellen.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('../../firebase', () => ({ db: {} }));
 
@@ -46,7 +47,15 @@ function setup({ standings = ROWS, leagues = LEAGUES } = {}) {
   mockStandings.mockReturnValue({
     standings, leagues, leagueCount: leagues.length, loading: false, error: null,
   });
-  const r = render(<GameStandings gameId="sl" />);
+  // Skal stå på den rigtige rute: ellers falder GameTabLink tilbage til ren
+  // tekst, og linkene ville være utestede.
+  const r = render(
+    <MemoryRouter initialEntries={['/spil/sl']}>
+      <Routes>
+        <Route path="/spil/:gameId" element={<GameStandings gameId="sl" />} />
+      </Routes>
+    </MemoryRouter>,
+  );
   container = r.container;
   return r;
 }
@@ -139,6 +148,27 @@ describe('GameStandings — liga-filter', () => {
     expect(screen.getByText('Viser 1 spiller i Kun mig.')).toBeInTheDocument();
   });
 
+  // Har man valgt en liga, vil man typisk videre TIL den.
+  it('linker til ligaen, når en er valgt', () => {
+    setup();
+    fireEvent.change(filter(), { target: { value: 'L1' } });
+    expect(screen.getByRole('link', { name: /Åbn ligaen/ }))
+      .toHaveAttribute('href', '/spil/sl?fane=ligaer');
+  });
+
+  it('linker ikke til en liga i den samlede visning', () => {
+    setup();
+    expect(screen.queryByRole('link', { name: /Åbn ligaen/ })).not.toBeInTheDocument();
+  });
+
+  // Kredsen har rækker, men man er ikke i nogen liga: "Du er ikke med i en
+  // liga endnu" — dér skal der være en vej videre.
+  it('sender én uden liga videre til Ligaer-fanen', () => {
+    setup({ leagues: [] });
+    expect(screen.getByRole('link', { name: /Gå til Ligaer/ }))
+      .toHaveAttribute('href', '/spil/sl?fane=ligaer');
+  });
+
   it('markerer én selv i tabellen', () => {
     setup();
     expect(tableRows().some(([, navn]) => navn.includes('(dig)'))).toBe(true);
@@ -158,7 +188,13 @@ describe('GameStandings — liga-filter', () => {
     mockStandings.mockReturnValue({
       standings: ROWS, leagues: [LEAGUES[0]], leagueCount: 1, loading: false, error: null,
     });
-    rerender(<GameStandings gameId="sl" />);
+    rerender(
+      <MemoryRouter initialEntries={['/spil/sl']}>
+        <Routes>
+          <Route path="/spil/:gameId" element={<GameStandings gameId="sl" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
     expect(screen.getByText(/du deler liga med/)).toBeInTheDocument();
   });
 
