@@ -242,7 +242,7 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
  *
  * @param {{fetchFn?:Function, gameId?:string, seasonId?:number, nowMs?:number,
  *          only?:Array<{id:string,data:object}>}} [opts]
- * @returns {Promise<{live:number, skrevet:number}>}
+ * @returns {Promise<{live:number, skrevet:number, ryddet:number}>}
  */
 async function syncLiveCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
@@ -253,8 +253,25 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   const res = await fetchFn(liveUrl(seasonId), hentOpt());
   if (!res.ok) throw new Error(`superliga live HTTP ${res.status}`);
   const data = await res.json();
-  const events = (data.events || []).filter((e) => e.statusType === 'inprogress'
-    && e.score && Number.isFinite(e.score.home) && Number.isFinite(e.score.away));
+  // Fravær af data er nu et SKRIVE-signal (det rydder live), og derfor skal en
+  // tom liste kunne skelnes fra et svar, vi ikke forstod. Uden dette led ville
+  // et HTTP 200 med `{}` — afkortet krop, ændret format, fejl pakket som
+  // succes — betyde "ingen kampe i gang" og rydde stillingen på hver eneste
+  // kamp, der spillede. Ved at kaste følger vi samme fail-silent-vej som en
+  // HTTP-fejl: intet skrives, og næste minut prøver igen.
+  //
+  // Bemærk, at syncResultsCore med vilje beholder sin `|| []`: dér betyder et
+  // manglende felt bare "intet facit fundet", og det er harmløst.
+  if (!data || !Array.isArray(data.events)) throw new Error('superliga live: svar uden events-liste');
+  const iGang = data.events.filter((e) => e.statusType === 'inprogress');
+  const events = iGang.filter((e) => e.score
+    && Number.isFinite(e.score.home) && Number.isFinite(e.score.away));
+
+  // Hvilke kampe kilden STADIG kalder i gang. Bygget på den UFILTREREDE liste:
+  // bruger vi `events`, ville vores eget score-filter blive brugt som bevis på,
+  // at kampen er slut, og en kamp i gang med en ubrugelig score ville få ryddet
+  // sin live-stilling midt i det hele.
+  const stadigIGang = new Set(iGang.map((e) => matchDocId(e.round, e.homeName, e.awayName)));
 
   const current = new Map((opts.only || []).map((m) => [m.id, m.data]));
   const matchesCol = db.collection('games').doc(gameId).collection('matches');
@@ -285,7 +302,29 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
     }, { merge: true });
     skrevet += 1;
   }
-  if (skrevet) await batch.commit();
+
+  // Er kampen forsvundet fra kildens liste, er den ikke i gang længere — og så
+  // skal "DIREKTE" væk med det samme.
+  //
+  // Uden dette led kunne live KUN ryddes af facit. Kilden flytter ikke en kamp
+  // fra 'inprogress' til 'finished' i samme øjeblik, så i hullet imellem stod
+  // kortet med en rød, levende stilling på en kamp, der var fløjtet af. Værre:
+  // pendingMatches slipper kampen 2,5 time efter kickoff, så landede facit
+  // ikke inden da, rørte minut-synken den aldrig igen, og stillingen blev
+  // stående til nattens sweep.
+  //
+  // Kun kampe, vi har spurgt om (opts.only), og kun dem der faktisk HAR en
+  // live-stilling: ellers ville hvert minut uden kampe koste en tom skrivning
+  // pr. kamp i vinduet.
+  let ryddet = 0;
+  for (const m of (opts.only || [])) {
+    if (m.data.live == null) continue;
+    if (stadigIGang.has(m.id)) continue;
+    batch.set(matchesCol.doc(m.id), { live: FieldValue.delete() }, { merge: true });
+    ryddet += 1;
+  }
+
+  if (skrevet || ryddet) await batch.commit();
 
   // Pulsen. Uden den ville et 0-0, der står stille i 40 minutter, give et
   // live.at fra kampens start — og kortet ville se dødt ud, selv om synken
@@ -295,7 +334,7 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   if (events.length > 0) {
     await db.collection('games').doc(gameId).set({ liveHeartbeatAt: nowMs }, { merge: true });
   }
-  return { live: events.length, skrevet };
+  return { live: events.length, skrevet, ryddet };
 }
 
 /** URL til den OFFICIELLE stilling (grundspil-stage), med form (last5). */
