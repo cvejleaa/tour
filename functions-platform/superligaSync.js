@@ -253,7 +253,17 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   const res = await fetchFn(liveUrl(seasonId), hentOpt());
   if (!res.ok) throw new Error(`superliga live HTTP ${res.status}`);
   const data = await res.json();
-  const iGang = (data.events || []).filter((e) => e.statusType === 'inprogress');
+  // Fravær af data er nu et SKRIVE-signal (det rydder live), og derfor skal en
+  // tom liste kunne skelnes fra et svar, vi ikke forstod. Uden dette led ville
+  // et HTTP 200 med `{}` — afkortet krop, ændret format, fejl pakket som
+  // succes — betyde "ingen kampe i gang" og rydde stillingen på hver eneste
+  // kamp, der spillede. Ved at kaste følger vi samme fail-silent-vej som en
+  // HTTP-fejl: intet skrives, og næste minut prøver igen.
+  //
+  // Bemærk, at syncResultsCore med vilje beholder sin `|| []`: dér betyder et
+  // manglende felt bare "intet facit fundet", og det er harmløst.
+  if (!data || !Array.isArray(data.events)) throw new Error('superliga live: svar uden events-liste');
+  const iGang = data.events.filter((e) => e.statusType === 'inprogress');
   const events = iGang.filter((e) => e.score
     && Number.isFinite(e.score.home) && Number.isFinite(e.score.away));
 

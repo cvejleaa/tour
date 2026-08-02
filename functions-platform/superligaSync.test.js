@@ -1130,6 +1130,109 @@ describe('syncLiveCore', () => {
       await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only: [medLive], nowMs: NU });
       expect(db._spil.liveHeartbeatAt).toBeUndefined();
     });
+
+    // FLERE KAMPE AD GANGEN. Testene ovenfor giver alle funktionen præcis ÉN
+    // kamp, og med én kamp kan man ikke skelne "ryd den rigtige kamp" fra "ryd
+    // den første kamp". To mutationer overlevede derfor hele suiten: et `break`
+    // efter første rydning, og en rydning der altid ramte `only[0]`.
+    //
+    // Det er ikke teoretisk. En Superliga-runde afvikles med flere kampe med
+    // SAMME kickoff, så de slutter inden for samme minut. Med `break` ville
+    // kamp nummer to blive stående på "DIREKTE" til facit eller nattens sweep
+    // — præcis den fejl, rydningen findes for.
+    const andenKamp = (id, home, away) => ({
+      id,
+      data: { round: 2, live: { home: 2, away: 1, status: 'anden', statusRaw: '2nd half', at: NU - 60_000 } },
+      hændelse: {
+        statusType: 'inprogress', round: 2, homeName: home, awayName: away,
+        score: { home: 2, away: 1 }, statusFull: '2nd half',
+      },
+    });
+
+    it('rydder HVER af flere samtidige kampe — og kun dem, der er væk fra listen', async () => {
+      const a = andenKamp('r2-silkeborg-horsens', 'Silkeborg', 'Horsens');
+      const b = andenKamp('r2-randers-odense', 'Randers', 'Odense');
+      const c = andenKamp('r2-aarhus-vejle', 'Aarhus', 'Vejle');
+      const only = [a, b, c].map(({ id, data }) => ({ id, data }));
+      const db = makeDb(only);
+
+      // Kilden melder KUN c stadig i gang. a og b er fløjtet af.
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([c.hændelse]), only, nowMs: NU,
+      });
+
+      expect(res.ryddet).toBe(2);
+      expect(db._docs.get('r2-silkeborg-horsens').live).toBe('@delete');
+      expect(db._docs.get('r2-randers-odense').live).toBe('@delete');
+      // c spiller stadig — dens stilling skal stå urørt.
+      expect(db._docs.get('r2-aarhus-vejle').live).toMatchObject({ home: 2, away: 1 });
+    });
+
+    it('rydder den SIDSTE kamp i listen, ikke kun den første', async () => {
+      const a = andenKamp('r2-silkeborg-horsens', 'Silkeborg', 'Horsens');
+      const b = andenKamp('r2-randers-odense', 'Randers', 'Odense');
+      const only = [a, b].map(({ id, data }) => ({ id, data }));
+      const db = makeDb(only);
+
+      // Kilden melder kun a i gang — så det er b, den sidste, der skal ryddes.
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: fetchLive([a.hændelse]), only, nowMs: NU,
+      });
+
+      expect(res.ryddet).toBe(1);
+      expect(db._docs.get('r2-randers-odense').live).toBe('@delete');
+      expect(db._docs.get('r2-silkeborg-horsens').live).toMatchObject({ home: 2, away: 1 });
+    });
+
+    it('skriver intet på et stille minut med flere kampe uden live-stilling', async () => {
+      const only = [
+        { id: 'r2-silkeborg-horsens', data: { round: 2 } },
+        { id: 'r2-randers-odense', data: { round: 2 } },
+      ];
+      const db = makeDb(only);
+      const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only, nowMs: NU });
+      expect(res).toEqual({ live: 0, skrevet: 0, ryddet: 0 });
+      expect(db._docs.get('r2-silkeborg-horsens').live).toBeUndefined();
+      expect(db._docs.get('r2-randers-odense').live).toBeUndefined();
+    });
+  });
+
+  // Fravær af data er et SKRIVE-signal, siden det rydder live. Derfor skal en
+  // tom liste kunne skelnes fra et svar, vi ikke forstod. Uden dette værn ville
+  // et HTTP 200 med en afkortet krop betyde "ingen kampe i gang" og rydde
+  // stillingen på hver eneste kamp, der spillede.
+  describe('afviser et 200-svar, den ikke forstår', () => {
+    const medLive = {
+      id: 'r2-brondbyif-viborgff',
+      data: { round: 2, live: { home: 1, away: 0, status: 'anden', statusRaw: '2nd half', at: NU - 60_000 } },
+    };
+    const svar = (krop) => async () => ({ ok: true, status: 200, json: async () => krop });
+
+    for (const [navn, krop] of [
+      ['tom krop uden events-nøgle', {}],
+      ['events er null', { events: null }],
+      ['events er et objekt', { events: {} }],
+      ['kroppen er null', null],
+    ]) {
+      it(`kaster ved ${navn} — og rydder INTET`, async () => {
+        const db = makeDb([medLive]);
+        await expect(syncLiveCore(db, FieldValue, {
+          fetchFn: svar(krop), only: [medLive], nowMs: NU,
+        })).rejects.toThrow(/uden events-liste/);
+        expect(db._docs.get('r2-brondbyif-viborgff').live).toMatchObject({ home: 1, away: 0 });
+      });
+    }
+
+    // En ægte tom liste betyder stadig "ingen kampe i gang" og SKAL rydde.
+    // Ellers havde værnet ovenfor slået hele rettelsen ihjel.
+    it('rydder stadig ved en ÆGTE tom liste', async () => {
+      const db = makeDb([medLive]);
+      const res = await syncLiveCore(db, FieldValue, {
+        fetchFn: svar({ events: [] }), only: [medLive], nowMs: NU,
+      });
+      expect(res.ryddet).toBe(1);
+      expect(db._docs.get('r2-brondbyif-viborgff').live).toBe('@delete');
+    });
   });
 });
 
