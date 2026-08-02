@@ -175,6 +175,24 @@ describe('opdelPoint', () => {
     expect(medPulje.total - udenPulje.total).toBe(10);
   });
 
+  // Gulvet er en FEATURE (saldoen går aldrig i minus), men det gør, at
+  // rubrikkerne kan summe til noget helt andet end totalen. Fladen skal kunne
+  // forklare det, og derfor leveres den rå sum ved siden af.
+  it('leverer den rå sum ved siden af den gulvede total', () => {
+    const roundCtx = ctx([{ id: 'm1', round: 1, result: 'X', odds: { 1: 2.0, X: 4, 2: 4 } }]);
+    const res = opdelPoint({
+      bets: [{ matchId: 'm1', pick: '1', points: -20 }], roundCtx, puljeBonus: 8.5, nowMs: NU,
+    });
+    expect(res.total).toBe(0);          // saldoen kan ikke gå i minus
+    expect(res.raaTotal).toBe(-11.5);   // men regnestykket bag er synligt
+  });
+
+  it('lader rå sum og total være ens, når gulvet ikke rammer', () => {
+    const roundCtx = ctx([{ id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 } }]);
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 2.5 }], roundCtx, nowMs: NU });
+    expect(res.raaTotal).toBe(res.total);
+  });
+
   it('gulver totalen ved 0 og runder én gang', () => {
     const roundCtx = ctx([
       { id: 'm1', round: 1, result: '1', odds: { 1: 1.1, X: 4, 2: 4 } },

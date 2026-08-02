@@ -129,6 +129,12 @@ function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs = Date.n
     // raw, ikke p1x2 + chance: identisk med den gamle formel i
     // recalcPlayerTotal, så stillingen ikke kan flytte sig af denne ændring.
     total: Math.max(0, round1(raw + combi + pulje)),
+    // Samme sum UDEN gulvet. Fladen har brug for begge tal: gulvet kan gøre
+    // forskellen mellem rubrikkerne og totalen enorm — 11 + (−44,8) + 8,5 giver
+    // en total på 0 — og uden det rå tal kan skærmen ikke forklare, hvorfor de
+    // fire tal ikke summer til det femte. Saldoen går aldrig i minus, men det
+    // skal siges, ikke skjules.
+    raaTotal: round1(raw + combi + pulje),
     kampe,
   };
 }
