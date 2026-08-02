@@ -9,6 +9,7 @@ export default defineConfig({
   test: {
     include: [
       'gameScoring.test.js',
+      'pointOpdeling.test.js',
       'superligaScoring.test.js',
       'superligaSync.test.js',
       'gameLeagues.test.js',

@@ -1,0 +1,106 @@
+// ---------------------------------------------------------------------------
+// functions-platform/pointOpdeling.js — hvor en spillers point KOMMER FRA.
+//
+// SPEJL af src/lib/pointOpdeling.js. De to filer skal følges ad (CLAUDE.md),
+// og pariteten er testdækket i pointOpdeling.test.js.
+//
+// Serveren er eneste autoritet: den regner tallene og gemmer dem. Klienten
+// bruger samme modul, så en spillers egen historik kan tegnes uden en
+// server-tur — og så de to aldrig kan blive uenige om regnestykket.
+// ---------------------------------------------------------------------------
+
+const { outcomePoints, outcomeReward, roundComboBonus, round1 } = require('./superligaScoring');
+
+/**
+ * Tæller kampen med i opdelingen?
+ *
+ * Kickoff-kravet er SIKKERHED, ikke pynt. Opdelingen gemmes i et dokument, som
+ * liga-kammerater må læse, og det dokument kommer aldrig forbi kickoff-tjekket
+ * i firestore.rules. Uden denne linje ville en admin-tastefejl på en fremtidig
+ * kamp — et facit sat for tidligt — lække spillerens tip, før kampen er spillet.
+ */
+function taeller(info, nowMs) {
+  if (!info || !info.result) return false;
+  if (info.kickoff != null && info.kickoff > nowMs) return false;
+  return true;
+}
+
+/**
+ * Combi-bonus for én spillers bets. Gives kun når HELE runden er spillet, og
+ * spilleren har tippet alle kampe i den — med 0 eller 1 fejl.
+ *
+ * @param {Array<{matchId:string, pick:string}>} bets
+ * @param {{byMatch:object, rounds:object}|null} roundCtx
+ */
+function combiBonus(bets, roundCtx) {
+  if (!roundCtx) return 0;
+  const byRound = new Map();
+  for (const b of bets) {
+    const info = roundCtx.byMatch[b.matchId];
+    if (!info) continue;
+    if (!byRound.has(info.round)) byRound.set(info.round, []);
+    byRound.get(info.round).push(b);
+  }
+  let bonus = 0;
+  for (const [round, pbs] of byRound) {
+    const rc = roundCtx.rounds[round];
+    if (!rc || rc.count < 2) continue;
+    if (rc.settledCount !== rc.count) continue; // runden ikke helt afgjort
+    if (pbs.length !== rc.count) continue;      // tippede ikke alle kampe
+    const hitOdds = [];
+    for (const pb of pbs) {
+      const info = roundCtx.byMatch[pb.matchId];
+      if (info.result && pb.pick === info.result) hitOdds.push(outcomeReward(info.result, info.odds));
+    }
+    bonus += roundComboBonus(hitOdds, rc.count);
+  }
+  return bonus;
+}
+
+/**
+ * Del en spillers point op i de fire kilder, spillet har.
+ *
+ * `bets` skal ALLEREDE være renset for gatede kampe (kampe før game.startAt) —
+ * samme kontrakt som recalcPlayerTotal har i dag. Filteret for "afgjort og
+ * begyndt" bor derimod HER, så de to flader ikke kan blive uenige om, hvilke
+ * kampe der tæller.
+ *
+ * Chancen UDLEDES som (gemte point − 1X2-point). Den må aldrig genberegnes:
+ * scoreBet kaldes UDEN bank-loft, så clampStake klipper anderledes, og en
+ * genberegning ville give et andet tal end det, der står på tippet.
+ *
+ * @returns {{p1x2:number, chance:number, combi:number, pulje:number,
+ *            total:number, kampe:Array}}
+ */
+function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs = Date.now() } = {}) {
+  const byMatch = (roundCtx && roundCtx.byMatch) || {};
+  const kampe = [];
+  let p1x2 = 0;
+  let chance = 0;
+
+  for (const b of bets) {
+    const info = byMatch[b.matchId];
+    if (!taeller(info, nowMs)) continue;
+    const tip = outcomePoints(b.pick, info.result, info.odds);
+    p1x2 += tip;
+    chance += (Number(b.points) || 0) - tip;
+    kampe.push(b);
+  }
+
+  const combi = combiBonus(kampe, roundCtx);
+  const pulje = Number(puljeBonus) || 0;
+
+  // Totalen afrundes ÉN gang og gulves ÉN gang — nøjagtig som recalcPlayerTotal.
+  // Rubrikkerne afrundes hver for sig, fordi de skal vises. De to ting kan
+  // derfor afvige nogle tiendedele; totalen er den autoritative.
+  return {
+    p1x2: round1(p1x2),
+    chance: round1(chance),
+    combi: round1(combi),
+    pulje: round1(pulje),
+    total: Math.max(0, round1(p1x2 + chance + combi + pulje)),
+    kampe,
+  };
+}
+
+module.exports = { opdelPoint, combiBonus };
