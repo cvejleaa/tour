@@ -52,12 +52,22 @@ export default function SpillerDetalje({ game, matches, spiller, onLuk }) {
             history={history}
             opdeling={spiller?.opdeling ?? null}
             total={spiller?.totalPoints}
+            // Rækkerne her er KUN afgjorte-og-begyndte kampe, så optællingen
+            // skal hedde noget andet end på "Mine tips".
+            kunAfgjorte
             tom={(
               <p style={{ color: 'var(--c-muted)', margin: 0 }}>
                 Ingen afgjorte kampe endnu.
               </p>
             )}
           />
+          {/* En "Luk" også i bunden: efter 22 runder er knappen i toppen langt
+              væk, og der er ingen anden vej ud af panelet. */}
+          {onLuk && (
+            <p style={{ marginTop: '0.6rem' }}>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={onLuk}>Luk</button>
+            </p>
+          )}
         </div>
       )}
     </div>

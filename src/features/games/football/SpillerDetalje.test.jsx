@@ -57,8 +57,43 @@ describe('SpillerDetalje', () => {
   it('viser serverens opdeling, ikke sin egen udregning', () => {
     setup();
     expect(screen.getByText('31')).toBeInTheDocument();
-    expect(screen.getByText('12,5')).toBeInTheDocument();
+    expect(screen.getByText('+12,5')).toBeInTheDocument();
     expect(screen.getByText('60')).toBeInTheDocument(); // totalen fra serveren
+  });
+
+  // Kampe FØR spillets starttidspunkt hører ikke med — hverken her eller på
+  // tip-fladen. Uden filteret ville en spiller, der kom med i runde 5, få
+  // runde 1-4 tegnet ind som "ikke tippet".
+  it('skjuler kampe fra før spillet startede', () => {
+    mockOpdeling.mockReturnValue({
+      kampe: { m1: { pick: '1', points: 2.5, chanceStake: 0 } }, loading: false, error: null,
+    });
+    setup({ game: { ...GAME, startAt: new Date('2026-08-02T00:00:00Z') } });
+    expect(screen.queryByText(/Runde 1/)).toBeNull();
+  });
+
+  // Rækkerne her er KUN afgjorte-og-begyndte kampe. Stod der "tips afgivet",
+  // ville ens egen detalje vise et lavere tal end Mine tips-fanen for den
+  // samme person — under den samme mærkat.
+  it('siger, at optællingen kun dækker afgjorte kampe', () => {
+    mockOpdeling.mockReturnValue({
+      kampe: { m1: { pick: '1', points: 2.5, chanceStake: 0 } }, loading: false, error: null,
+    });
+    setup();
+    expect(screen.getByText('tips på afgjorte kampe')).toBeInTheDocument();
+    expect(screen.queryByText('tips afgivet')).toBeNull();
+  });
+
+  // Puljebonussen står allerede i spillerens gemte total, så den må IKKE også
+  // lægges til historikken. Det kan kun ses, når serverens total mangler og
+  // historikkens tal træder til — ellers er fejlen skjult bag totalPoints.
+  it('lægger ikke puljebonussen til historikkens egen total', () => {
+    mockOpdeling.mockReturnValue({
+      kampe: { m1: { pick: '1', points: 2.5, chanceStake: 0 } }, loading: false, error: null,
+    });
+    setup({ spiller: { uid: 'u1', name: 'Anne', bonusPoints: 25 } });
+    expect(screen.getByText('2,5')).toBeInTheDocument();
+    expect(screen.queryByText('27,5')).toBeNull();
   });
 
   // En afvist læsning er den forventede fejl: man deler ikke længere liga.

@@ -6,6 +6,10 @@
 import { Link } from 'react-router-dom';
 import GameTabLink from '../GameTabLink';
 import { CHANCE, ROUND_BONUS, PULJE, ELO } from '../../../lib/superligaScoring';
+// Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
+// hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
+// denne fils formål er at undgå.
+import { RUBRIKKER } from './PointOpdeling';
 
 function Section({ emoji, title, children }) {
   return (
@@ -55,8 +59,10 @@ export default function FootballHelp() {
             <strong>Mens der spilles:</strong> Følg den officielle <Tab fane="tabel">⚽ Tabel</Tab> og jeres indbyrdes
             {' '}<Tab fane="stilling">🏆 Stilling</Tab>. Når en kamp er <strong>gået i gang</strong>, kan du folde
             {' '}<em>Se ligaens tips</em> ud under kampen på <Tab fane="tip">Tip</Tab> og se, hvad de andre i dine
-            ligaer valgte — og de kan se dit. Før kampstart er alles tips skjult, så ingen kan kigge
-            efter.
+            ligaer valgte — og de kan se dit. Du kan også klikke på et navn i
+            {' '}<Tab fane="stilling">🏆 Stilling</Tab> og se den spillers tip på <strong>alle</strong> afgjorte
+            kampe — og de kan se dine på samme måde. Før kampstart er alles tips skjult, så ingen kan
+            kigge efter.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Mens kampen spilles:</strong> Stillingen står mellem holdnavnene med et rødt
@@ -129,7 +135,13 @@ export default function FootballHelp() {
 
       <Section emoji="📋" title="Mine tips">
         <Tab fane="mine">📋 Mine tips</Tab> samler alle dine tips runde for runde med facit, point pr. kamp og din
-        combi-bonus — plus en opsummering med samlet point og din træfprocent.
+        combi-bonus — plus din træfprocent og øverst en opdeling af, hvor pointene kommer fra:
+        {' '}{RUBRIKKER.map(({ ikon, navn }, i) => (
+          <span key={navn}>
+            {i > 0 && ' · '}<strong>{ikon} {navn}</strong>
+          </span>
+        ))} og i alt. Det er de <strong>samme fire tal</strong> som i stillingen — de kommer fra
+        serveren, ikke fra to forskellige regnestykker.
       </Section>
 
       <Section emoji="🏆" title="Stilling & tabel">
@@ -137,7 +149,25 @@ export default function FootballHelp() {
         {' '}<strong>deler liga med</strong>. Er du ikke med i en liga endnu, er der ingen at måle dig
         mod: opret eller tilmeld dig én under <Tab fane="ligaer">👥 Ligaer</Tab>. Er du med i <strong>flere
         ligaer</strong>, kan du vælge én ad gangen øverst — så tælles placeringerne forfra inden
-        for den liga. Bemærk, at den viser <strong>spillets point</strong>; eventuelle
+        for den liga.
+        <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>🧮 Hvor kommer pointene fra?</strong> — knappen bytter listen ud med et regnskab, hvor
+            hver spillers point er delt i {RUBRIKKER.map(({ ikon, navn, hjaelp }, i) => (
+              <span key={navn}>
+                {i > 0 && (i === RUBRIKKER.length - 1 ? ' og ' : ', ')}
+                <strong>{ikon} {navn}</strong> ({hjaelp.replace(/\.$/, '').toLowerCase()})
+              </span>
+            ))}. Summen kan afvige lidt fra totalen — så står forklaringen under tabellen, og totalen
+            er den rigtige.
+          </li>
+          <li>
+            <strong>Klik på et navn</strong> — så folder du den spillers tips ud runde for runde, med facit
+            og udbytte, for alle kampe der er <strong>afgjort og gået i gang</strong>. Det virker begge
+            veje: de andre i dine ligaer kan se dine på samme måde.
+          </li>
+        </ul>
+        Bemærk, at stillingen viser <strong>spillets point</strong>; eventuelle
         {' '}<strong>liga-spørgsmål</strong> lægges kun oveni på ligaens egen side under
         {' '}<Tab fane="ligaer">👥 Ligaer</Tab>, så rækkefølgen dér kan være en anden. <Tab fane="tabel">⚽ Tabel</Tab>
         {' '}viser den <strong>officielle Superliga-stilling</strong> (hentet direkte fra ligaen), delt op i

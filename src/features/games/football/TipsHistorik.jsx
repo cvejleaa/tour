@@ -9,7 +9,7 @@
 import { superligaTeamInfo } from '../../../data/superligaTeams2026';
 import { formatKickoff } from '../../../lib/daDate';
 import { fmtDec } from '../../../lib/daNum';
-import PointOpdeling from './PointOpdeling';
+import PointOpdeling, { RUBRIKKER } from './PointOpdeling';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
 const shortOf = (name) => superligaTeamInfo(name)?.short || name;
@@ -24,12 +24,17 @@ function ResultCell({ row }) {
 
 /**
  * @param {{history: object, opdeling?: object|null, total?: number,
- *          raaTotal?: number|null, tom?: import('react').ReactNode}} props
+ *          kunAfgjorte?: boolean, tom?: import('react').ReactNode}} props
  */
-export default function TipsHistorik({ history, opdeling = null, total, raaTotal = null, tom = null }) {
+export default function TipsHistorik({ history, opdeling = null, total, kunAfgjorte = false, tom = null }) {
   const played = history.rounds.filter((r) => r.tippedCount > 0);
   const { totals } = history;
-  const harPoint = Number(total) > 0 || !!opdeling;
+  // Fire nuller er ikke "point". En spiller, der ikke har tippet, har en
+  // opdeling med lutter nuller, så snart serveren har været forbi ham — og
+  // uden dette tjek fik han et pointkort med nuller OVENOVER "du har ikke
+  // tippet endnu".
+  const harTal = !!opdeling && RUBRIKKER.some(({ key }) => (Number(opdeling[key]) || 0) !== 0);
+  const harPoint = Number(total) > 0 || harTal;
 
   // Ingen rækker OG ingen point: der er intet at bryde op, så vis kun den tomme
   // tilstand.
@@ -48,7 +53,6 @@ export default function TipsHistorik({ history, opdeling = null, total, raaTotal
         <PointOpdeling
           opdeling={opdeling}
           total={total != null ? total : totals.points}
-          raaTotal={raaTotal}
           kompakt
         />
       </div>
@@ -56,7 +60,13 @@ export default function TipsHistorik({ history, opdeling = null, total, raaTotal
       {played.length > 0 ? (
         <div className="card mb-2 mytips__summary">
           <div><b className="mytips__big">{totals.hits}/{totals.settled}</b><span>ramt ({fmtDec(totals.hitRate)}%)</span></div>
-          <div><b className="mytips__big">{totals.tipped}</b><span>tips afgivet</span></div>
+          {/* Mærkaten skal sige, HVAD der tælles. I spillerdetaljen rummer
+              rækkerne kun afgjorte-og-begyndte kampe, så "tips afgivet" ville
+              stå med et lavere tal end på Mine tips for den samme person. */}
+          <div>
+            <b className="mytips__big">{totals.tipped}</b>
+            <span>{kunAfgjorte ? 'tips på afgjorte kampe' : 'tips afgivet'}</span>
+          </div>
         </div>
       ) : tom}
 

@@ -241,25 +241,68 @@ describe('GameStandings — pointopdeling', () => {
 
   it('er slået FRA som udgangspunkt', () => {
     setup();
-    expect(screen.queryByText('Chancen')).toBeNull();
-    expect(screen.getByRole('button', { name: /Udspecificér/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Chancen/)).toBeNull();
+    expect(screen.getByRole('button', { name: /Hvor kommer pointene fra/ })).toBeInTheDocument();
   });
 
   it('viser rubrikkerne, når man folder den ud', () => {
     setup({ standings: MED });
-    fireEvent.click(screen.getByRole('button', { name: /Udspecificér/ }));
-    expect(screen.getByText(/Chancen/)).toBeInTheDocument();
-    expect(screen.getByText(/Combi/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    expect(screen.getAllByText(/Chancen/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Combi/).length).toBeGreaterThan(0);
     expect(screen.getByText('31')).toBeInTheDocument();
-    expect(screen.getByText('12,5')).toBeInTheDocument();
+    // Chancen er den eneste rubrik, der kan gå i minus, og vises derfor med
+    // fortegn. Uden det ligner et tab en gevinst.
+    expect(screen.getByText('+12,5')).toBeInTheDocument();
     expect(screen.getByText('9,5')).toBeInTheDocument();
+  });
+
+  // title-teksten på kolonneoverskriften findes ikke på en telefon — der er
+  // ingen mus at holde stille. Uden en skreven forklaring står spilleren med
+  // fire ord, han aldrig har set før.
+  it('forklarer rubrikkerne i tekst, ikke kun som tooltip', () => {
+    setup({ standings: MED });
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    expect(screen.getByText(/Bonus for en hel runde med højst én fejl/)).toBeInTheDocument();
+  });
+
+  // Knappen lover, at regnskabet går op. Gør det ikke — gulvet, eller en kamp
+  // opdelingen ikke kunne læse — skal det siges, ikke skjules.
+  it('markerer rækker, hvor delene ikke summer til totalen', () => {
+    const skæv = [{ ...ROWS[0], opdeling: { p1x2: 11, chance: -44.8, combi: 0, pulje: 8.5 }, totalPoints: 0 },
+      ...ROWS.slice(1)];
+    setup({ standings: skæv });
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    expect(screen.getByText(/Delene summer ikke til totalen/)).toBeInTheDocument();
+  });
+
+  it('markerer ingenting, når delene stemmer', () => {
+    setup({ standings: MED });
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    expect(screen.queryByText(/Delene summer ikke til totalen/)).toBeNull();
+  });
+
+  // Noten om, at opdelingen ikke er bygget endnu, gælder KUN når ingen har
+  // den. Har én spiller tallene, er de andre bare ikke nået frem endnu, og så
+  // ville sætningen modsige de tal, der står lige ovenover.
+  it('siger ikke "opdelingen bygges", når nogen allerede har den', () => {
+    setup({ standings: MED });
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    expect(screen.queryByText(/Opdelingen bygges/)).toBeNull();
+  });
+
+  // Din egen række skal kunne findes i et felt på 22 med seks talkolonner.
+  it('mærker din egen række i opdelingen', () => {
+    setup({ standings: MED });
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    expect(screen.getByText(/\(dig\)/)).toBeInTheDocument();
   });
 
   // Podiet har plads til ét tal, og stillingen skal svare på "hvem fører".
   it('rører ikke podiet, når opdelingen er slået til', () => {
     setup({ standings: MED });
     const foer = container.querySelectorAll('.podium__spot').length;
-    fireEvent.click(screen.getByRole('button', { name: /Udspecificér/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
     expect(container.querySelectorAll('.podium__spot')).toHaveLength(foer);
   });
 
@@ -268,15 +311,15 @@ describe('GameStandings — pointopdeling', () => {
   // point har fået, mens totalen ved siden af siger noget andet.
   it('viser en streg, ikke nuller, for spillere uden opdeling endnu', () => {
     setup({ standings: ROWS });
-    fireEvent.click(screen.getByRole('button', { name: /Udspecificér/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
     expect(screen.getByText(/Opdelingen bygges, næste gang en kamp afgøres/)).toBeInTheDocument();
     expect(screen.getAllByText('–').length).toBeGreaterThan(0);
   });
 
   it('kan foldes sammen igen', () => {
     setup({ standings: MED });
-    fireEvent.click(screen.getByRole('button', { name: /Udspecificér/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Vis stillingen/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Tilbage til listen/ }));
     expect(screen.queryByText(/Chancen/)).toBeNull();
   });
 });
@@ -306,5 +349,35 @@ describe('GameStandings — spillerdetalje', () => {
     // L2 = Familien: me, u1, u5 — Dorte er ikke med.
     fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L2' } });
     expect(screen.queryByTestId('detalje')).toBeNull();
+  });
+
+  // Nummer ét er præcis den spiller, man vil kigge efter i sømmene. Var kun
+  // tabellen klikbar, kunne top 3 aldrig foldes ud — de står på podiet.
+  it('kan åbne en spiller fra podiet', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Anne' }));
+    expect(screen.getByTestId('detalje')).toHaveTextContent('Anne');
+  });
+
+  // Slår man opdelingen til, byttes tabellen ud. Var navnene dér ikke
+  // klikbare, forsvandt den eneste indgang til detaljen med den.
+  it('kan åbne en spiller fra opdelingstabellen', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dorte' }));
+    expect(screen.getByTestId('detalje')).toHaveTextContent('Dorte');
+  });
+
+  // En liga med PRÆCIS 3 spillere fylder podiet og har en tom liste. Lå
+  // knappen og panelet inde i "listen har rækker", forsvandt begge features
+  // for hele den gruppe — og knappen forsvandt for øjnene af en, der skiftede
+  // filter fra "alle mine ligaer" til den lille liga.
+  it('viser knap og spillerdetalje i en liga med præcis 3 spillere', () => {
+    setup();
+    fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L2' } });
+    expect(container.querySelector('table')).toBeNull(); // ingen liste, kun podie
+    expect(screen.getByRole('button', { name: /Hvor kommer pointene fra/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Erik' }));
+    expect(screen.getByTestId('detalje')).toHaveTextContent('Erik');
   });
 });

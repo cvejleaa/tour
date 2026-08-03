@@ -22,7 +22,8 @@ import { readFileSync }            from 'fs';
 import { fileURLToPath }           from 'url';
 import { dirname, join }           from 'path';
 import {
-  setDoc, doc, updateDoc, getDoc, getDocs, deleteDoc, collection, query, where, Timestamp,
+  setDoc, doc, updateDoc, getDoc, getDocs, deleteDoc, collection, collectionGroup,
+  query, where, Timestamp,
 } from 'firebase/firestore';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1552,6 +1553,70 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     await assertFails(
       getDoc(doc(testEnv.authenticatedContext('pend').firestore(),
         'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
+  // Standardværdien i `.get('leagueIds', [])` er den, der gør reglen lukket,
+  // når feltet slet ikke findes — og et players-dokument UDEN leagueIds er
+  // ikke hypotetisk: puljeafregningen skriver { bonusPoints } med merge på
+  // spillere, der ikke har et dokument i forvejen. Sættes standarden til noget
+  // sandt, åbner detaljen for enhver godkendt bruger, og hele den øvrige suite
+  // bliver stående grøn.
+  it('man KAN IKKE læse detaljen for en spiller UDEN leagueIds-felt', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await seedMembership('vm2026', 'p2');
+    await seedDetalje('vm2026', 'p2');
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+        'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
+  // Forlader man ligaen, ryger leagueIds af players-dokumentet, og adgangen
+  // skal falde bort MED DET SAMME. `[].hasAny([...])` er den gren, der sikrer
+  // det — og den var utestet, selv om reglens kommentar lover netop dette.
+  it('man KAN IKKE læse detaljen for en, der har FORLADT ligaen', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await seedMembership('vm2026', 'p2', { leagueIds: [] });
+    await seedDetalje('vm2026', 'p2');
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+        'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
+  // Og forlader LÆSEREN sin sidste liga, mister han adgangen til alle andres.
+  it('en uden ligaer KAN IKKE læse en andens detalje', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: [] });
+    await seedMembership('vm2026', 'p2', { leagueIds: ['L1'] });
+    await seedDetalje('vm2026', 'p2');
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext('p1').firestore(),
+        'games', 'vm2026', 'players', 'p2', 'detalje', 'opdeling'))
+    );
+  });
+
+  // Klienten må ALDRIG lave en collectionGroup-query over detalje: reglen
+  // slår kampen op pr. dokument, og loftet på 10 opslag rammer efter få
+  // dokumenter — hvorefter HELE forespørgslen afvises, ikke bare de
+  // dokumenter man ikke må se. Kommentaren i useSpillerOpdeling bygger på, at
+  // reglen afviser den; her er beviset.
+  it('en collectionGroup-query over detalje afvises', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { leagueIds: ['L1'] });
+    await seedDetalje('vm2026', 'p1');
+    await assertFails(
+      getDocs(collectionGroup(testEnv.authenticatedContext('p1').firestore(), 'detalje'))
     );
   });
 

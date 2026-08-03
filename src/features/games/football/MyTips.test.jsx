@@ -18,6 +18,17 @@ const MATCHES = [
   },
 ];
 
+// En AFGJORT kamp. De tre tests nedenfor kan kun bevise noget med rækker på
+// skærmen — med et tomt tip-sæt renderes den ikke-tomme visning aldrig, og så
+// stod hele fladen udækket, mens filen så dækket ud.
+const AFGJORT = [
+  {
+    id: 'm9', round: 1, home: 'Brøndby IF', away: 'AaB',
+    kickoff: new Date('2026-08-01T17:00:00Z'), result: '1', odds: { 1: 2.5, X: 4, 2: 4 },
+  },
+];
+const TIPPET = { m9: { pick: '1', points: 2.5, chanceStake: 0 } };
+
 const setup = (props = {}) => render(
   <MemoryRouter initialEntries={['/spil/sl?fane=mine']}>
     <Routes>
@@ -51,5 +62,42 @@ describe('MyTips', () => {
     mockBets.mockReturnValue({ betsByMatch: {}, loading: true });
     setup();
     expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  // Serverens tal og ikke fladens egne: stillingen viser præcis de samme, og
+  // to veje til ét tal driver fra hinanden. Det var netop dét, der skete med
+  // "point i alt", som blev regnet to steder og allerede var uenige.
+  it('viser serverens opdeling og total, ikke sin egen udregning', () => {
+    mockBets.mockReturnValue({ betsByMatch: TIPPET, loading: false });
+    setup({
+      matches: AFGJORT,
+      me: { totalPoints: 60, opdeling: { p1x2: 31, chance: 12.5, combi: 9.5, pulje: 7 } },
+    });
+    expect(screen.getByText('60')).toBeInTheDocument();
+    expect(screen.getByText('31')).toBeInTheDocument();
+    expect(screen.getByText('+12,5')).toBeInTheDocument();
+    // 2,5 er kampens egne point — historikkens sum må ikke stå som totalen.
+    expect(screen.queryByText('2,5')).toBeNull();
+  });
+
+  // DEN OPRINDELIGE FEJL: puljebonussen stod på spilleren og manglede i Mine
+  // tips, så fanen sagde et andet tal end stillingen for den samme person.
+  // Kan kun ses, når serverens total mangler og historikkens tal træder til.
+  it('lægger puljebonussen til, når serverens total mangler', () => {
+    mockBets.mockReturnValue({ betsByMatch: TIPPET, loading: false });
+    setup({ matches: AFGJORT, me: { bonusPoints: 25 } });
+    expect(screen.getByText('27,5')).toBeInTheDocument();
+    expect(screen.queryByText('2,5')).toBeNull();
+  });
+
+  // Kampe før spillets starttidspunkt hører ikke med — som på tip-fladen.
+  it('skjuler kampe fra før spillet startede', () => {
+    mockBets.mockReturnValue({ betsByMatch: TIPPET, loading: false });
+    setup({
+      matches: AFGJORT,
+      game: { id: 'sl', type: 'football', startAt: new Date('2026-08-02T00:00:00Z') },
+      me: { totalPoints: 60 },
+    });
+    expect(screen.queryByText(/Runde 1/)).toBeNull();
   });
 });

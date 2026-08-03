@@ -3,14 +3,15 @@
  * navn) og point, med en lille pil for placerings-ændring. Fremhæver den
  * indloggede spiller.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useVisibleGameStandings } from './useVisibleGameStandings';
 import { rankDelta, subsetRanking } from './gameStandings';
 import GameTabLink from './GameTabLink';
 import { formatPoints } from './GameLayout';
-import { RUBRIKKER } from './football/PointOpdeling';
+import { fmtSignedPoints } from '../../lib/daNum';
+import { RUBRIKKER, opdelingsAfvigelse, afvigelsesTekst } from './football/PointOpdeling';
 import SpillerDetalje from './football/SpillerDetalje';
 
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
@@ -18,12 +19,37 @@ import SpillerDetalje from './football/SpillerDetalje';
 const ALLE = '__alle__';
 
 /**
+ * Navnet som knap. ÉT sted, fordi navne står tre steder — på podiet, i listen
+ * og i opdelingstabellen — og alle tre skal åbne det samme panel. Var podiet
+ * ikke klikbart, kunne man ikke åbne detaljen på nummer ét: præcis den
+ * spiller, man vil kigge efter i sømmene.
+ *
+ * Navnet er klikbart, fordi rækken KOM fra en liga-filtreret kilde:
+ * useVisibleGameStandings viser kun folk, man deler liga med (plus sig selv),
+ * og det er nøjagtig samme afgrænsning som reglen på detalje-dokumentet.
+ * Vises navne et andet sted uden den garanti, må de ikke gøres klikbare — så
+ * ville linket åbne et panel med en tilladelses-fejl.
+ */
+function SpillerNavn({ r, aaben, onToggle, className = 'link-btn' }) {
+  return (
+    <button type="button" className={className} onClick={() => onToggle(r.uid)} aria-expanded={aaben}>
+      {r.name}
+    </button>
+  );
+}
+
+/**
  * Opdelingen for hele feltet. Kolonnerne bygges af SAMME RUBRIKKER-liste som
  * kort-visningen — ét sted at ændre rækkefølge og ord. Ellers hedder det
  * "Chancen" det ene sted og noget andet det andet om et halvt år.
  */
-function OpdelingsTabel({ rows, meUid }) {
+function OpdelingsTabel({ rows, meUid, aabenUid, onToggle }) {
   const harNogen = rows.some((r) => r.opdeling);
+  // Afvigelserne regnes med SAMME funktion som kortet, så noten siger det
+  // samme begge steder. I en tabel med 22 rækker kan sætningen ikke stå ved
+  // hver række — derfor en stjerne på totalen og forklaringen under tabellen.
+  const afvigelser = rows.map((r) => opdelingsAfvigelse(r.opdeling, r.totalPoints));
+  const foersteAfvigelse = afvigelser.find(Boolean) || null;
   return (
     <div className="table-wrap">
       <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -39,21 +65,53 @@ function OpdelingsTabel({ rows, meUid }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.uid} className={r.uid === meUid ? 'row--me' : undefined}>
-              <td>{r.rank}. {r.name}</td>
-              {RUBRIKKER.map(({ key }) => (
-                <td key={key} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                  {/* En streg og ikke et nul: findes opdelingen ikke endnu, har
-                      vi ikke tallet — vi ved ikke, at det er nul. */}
-                  {r.opdeling ? formatPoints(r.opdeling[key] ?? 0) : '–'}
+          {rows.map((r, i) => {
+            const isMe = r.uid === meUid;
+            return (
+              <tr
+                key={r.uid}
+                // Fremhævningen skrives her og ikke som en klasse: `.row--me`
+                // fandtes ikke i noget stylesheet, så din egen række så ud som
+                // alle andre — i et felt på 22 med seks talkolonner kunne man
+                // ikke finde sig selv.
+                style={{ background: isMe ? 'var(--c-surface-alt)' : undefined, fontWeight: isMe ? 700 : 400 }}
+              >
+                <td>
+                  {r.rank}.{' '}
+                  <SpillerNavn r={r} aaben={aabenUid === r.uid} onToggle={onToggle} />
+                  {isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
                 </td>
-              ))}
-              <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatPoints(r.totalPoints)}</td>
-            </tr>
-          ))}
+                {RUBRIKKER.map(({ key }) => (
+                  <td key={key} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                    {/* En streg og ikke et nul: findes opdelingen ikke endnu, har
+                        vi ikke tallet — vi ved ikke, at det er nul. */}
+                    {r.opdeling
+                      ? (key === 'chance'
+                        ? fmtSignedPoints(r.opdeling[key] ?? 0)
+                        : formatPoints(r.opdeling[key] ?? 0))
+                      : '–'}
+                  </td>
+                ))}
+                <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                  {formatPoints(r.totalPoints)}
+                  {afvigelser[i] && <span title={afvigelsesTekst(afvigelser[i])}>*</span>}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
+      {/* Kolonneoverskrifternes title-tekst findes ikke på en telefon — der er
+          ingen mus at holde stille. Derfor står forklaringen også som tekst. */}
+      <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', marginTop: '0.4rem' }}>
+        {RUBRIKKER.map(({ ikon, navn, hjaelp }) => `${ikon} ${navn}: ${hjaelp}`).join(' ')}
+      </p>
+      {foersteAfvigelse && (
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', marginTop: '0.4rem' }}>
+          * Delene summer ikke til totalen. Totalen er den rigtige — enten fordi saldoen
+          ikke kan gå i minus, eller fordi en kamp ikke kunne læses i opdelingen.
+        </p>
+      )}
       {!harNogen && (
         <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', marginTop: '0.4rem' }}>
           Opdelingen bygges, næste gang en kamp afgøres. Totalen er der allerede.
@@ -89,6 +147,19 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // Hvilken spiller er foldet ud? Kun én ad gangen — to paneler side om side
   // ville hver hente sit dokument og fylde skærmen.
   const [aabenUid, setAabenUid] = useState(null);
+  const panelRef = useRef(null);
+
+  // Rul til panelet, når det åbnes. Uden det ser et klik på en spiller langt
+  // nede i listen ud, som om der ikke skete noget. Hooken står før de tidlige
+  // returneringer, fordi hooks ikke må springes over.
+  useEffect(() => {
+    if (!aabenUid) return;
+    const el = panelRef.current;
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [aabenUid]);
+
   // Er ligaen forsvundet under fødderne på en (forladt, slettet), falder vi
   // tilbage til alle — hellere end en tom tabel uden forklaring.
   const valgt = leagues.find((l) => l.id === leagueId) || null;
@@ -130,6 +201,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   }
 
   const meUid = user?.uid;
+  const toggleUid = (uid) => setAabenUid((u) => (u === uid ? null : uid));
   const hasPodium = standings.length >= 3;
   const podium = hasPodium ? standings.slice(0, 3) : [];
   const listRows = hasPodium ? standings.slice(3) : standings;
@@ -153,20 +225,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         <td style={{ padding: '0.45rem 0.5rem' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
             <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={26} />
-            {/* Navnet er klikbart, fordi rækken KOM fra en liga-filtreret kilde:
-                useVisibleGameStandings viser kun folk, man deler liga med (plus
-                sig selv), og det er nøjagtig samme afgrænsning som reglen på
-                detalje-dokumentet. Vises navne et andet sted uden den garanti,
-                må de ikke gøres klikbare — så ville linket åbne et panel med en
-                tilladelses-fejl. */}
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() => setAabenUid((u) => (u === r.uid ? null : r.uid))}
-              aria-expanded={aabenUid === r.uid}
-            >
-              {r.name}
-            </button>
+            <SpillerNavn r={r} aaben={aabenUid === r.uid} onToggle={toggleUid} />
             {isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
           </span>
         </td>
@@ -243,7 +302,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             <div key={r.uid} className={`podium__spot podium__spot--${r.rank}`}>
               <span className="podium__medal">{MEDAL[r.rank - 1] || `#${r.rank}`}</span>
               <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={r.rank === 1 ? 40 : 32} />
-              <span className="podium__name">{r.name}</span>
+              <SpillerNavn r={r} aaben={aabenUid === r.uid} onToggle={toggleUid} className="link-btn podium__name" />
               <span className="podium__pts">{formatPoints(r.totalPoints)} p</span>
             </div>
           ))}
@@ -256,7 +315,12 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         </p>
       )}
 
-      {listRows.length > 0 && (
+      {/* Betingelsen er `standings`, IKKE `listRows`. En liga med præcis tre
+          spillere fylder podiet og har en tom liste — og så forsvandt både
+          knappen og spillerdetaljen for hele den gruppe. Værre: knappen fandtes
+          under "Alle mine ligaer" og forsvandt, når man valgte den lille liga i
+          filteret. En knap, der forsvinder af sig selv. */}
+      {standings.length > 0 && (
         <>
           {/* Opdelingen er en EGEN visning, ikke en udvidelse af stillingen.
               Seks tal pr. række ville drukne en liste, der har tre kolonner på
@@ -269,30 +333,43 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             onClick={() => setVisOpdeling((v) => !v)}
             style={{ marginBottom: '0.5rem' }}
           >
-            {visOpdeling ? '🏆 Vis stillingen' : '🧮 Udspecificér pointene'}
+            {/* "Tilbage til listen" og ikke "vis stillingen": man ER i
+                stillingen, og podiet står uændret ovenover hele tiden. */}
+            {visOpdeling ? '← Tilbage til listen' : '🧮 Hvor kommer pointene fra?'}
           </button>
 
           {visOpdeling ? (
-            <OpdelingsTabel rows={alleRaekker} meUid={meUid} />
+            <OpdelingsTabel
+              rows={alleRaekker}
+              meUid={meUid}
+              aabenUid={aabenUid}
+              onToggle={toggleUid}
+            />
           ) : (
-            <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                {listRows.map((r) => <Row key={r.uid} r={r} />)}
-                {meInList && meRow && !listRows.some((r) => r.uid === meUid) && (
-                  <Row r={meRow} sticky />
-                )}
-              </tbody>
-            </table>
+            listRows.length > 0 && (
+              <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  {listRows.map((r) => <Row key={r.uid} r={r} />)}
+                  {meInList && meRow && !listRows.some((r) => r.uid === meUid) && (
+                    <Row r={meRow} sticky />
+                  )}
+                </tbody>
+              </table>
+            )
           )}
 
-          {aabenRow && (
-            <SpillerDetalje
-              game={game}
-              matches={matches}
-              spiller={aabenRow}
-              onLuk={() => setAabenUid(null)}
-            />
-          )}
+          {/* Panelet står under HELE tabellen. Klikkede man på nr. 12 af 22,
+              skete der tilsyneladende ingenting — derfor rulles der derhen. */}
+          <div ref={panelRef}>
+            {aabenRow && (
+              <SpillerDetalje
+                game={game}
+                matches={matches}
+                spiller={aabenRow}
+                onLuk={() => setAabenUid(null)}
+              />
+            )}
+          </div>
         </>
       )}
     </div>

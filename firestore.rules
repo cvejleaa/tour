@@ -684,14 +684,19 @@ service cloud.firestore {
           // Eget dokument, eller en man deler liga med — samme afgrænsning som
           // stillingen selv (useVisibleGameStandings viser præcis den kreds).
           //
-          // Der ER en asymmetri mod bets-reglen, og den er valgt bevidst: `bets`
-          // læses via leagueIds PÅ TIPPET, altså et øjebliksbillede fra da
-          // tippet blev afgivet, mens opslaget her bruger det LIVE medlemskab.
-          // Melder en spiller sig ind i en ny liga sent på sæsonen, kan de nye
-          // kammerater derfor se hele hans historik her, men ikke hans gamle
-          // tips på kampkortene. Til gengæld mister en, der FORLADER ligaen,
-          // adgangen med det samme — hvor et øjebliksbillede ville lade ham
-          // blive ved med at læse.
+          // Kredsen er den samme som bets-reglens, ad to forskellige veje:
+          // `bets` læses via leagueIds PÅ TIPPET, mens opslaget her bruger det
+          // LIVE medlemskab på players-dokumentet. De to følges ad, fordi
+          // applyBetLeagueDelta kører arrayUnion/arrayRemove ned på ALLE den
+          // tilmeldtes tips, hver gang leagues/{id}.memberUids ændrer sig —
+          // tippets liste er altså ikke et øjebliksbillede. Melder en spiller
+          // sig ind i en ny liga sent på sæsonen, kan de nye kammerater se hele
+          // hans historik BEGGE steder, og forlader han ligaen, mister de
+          // adgangen begge steder.
+          //
+          // Bemærk dog, at driver de to felter fra hinanden (fx fordi en
+          // bagfyldning fejler), er det denne regel, der afgør adgangen — ikke
+          // tippets liste.
           //
           // Dokumentet indeholder kun kampe, der er afgjort OG begyndt
           // (pointOpdeling filtrerer på begge dele, testdækket), så der er
