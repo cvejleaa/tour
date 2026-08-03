@@ -22,14 +22,20 @@ function ResultCell({ row }) {
     : <span className="badge badge--red">✗</span>;
 }
 
-export default function MyTips({ game, matches }) {
+export default function MyTips({ game, matches, me }) {
   const gameId = game?.id;
   const { betsByMatch, loading } = useGameBets(gameId);
   // Skjul kampe før spillets starttidspunkt (som i tip-fladen).
   const startMs = toMillis(game?.startAt);
   const shownMatches = useMemo(() => afterStart(matches, startMs), [matches, startMs]);
   const rounds = useMemo(() => groupByRound(shownMatches), [shownMatches]);
-  const history = useMemo(() => buildTipsHistory(rounds, betsByMatch), [rounds, betsByMatch]);
+  // Puljebonussen står på spilleren og skal med i totalen — ellers siger Mine
+  // tips et andet tal end Stilling for samme spiller.
+  const puljeBonus = Number(me?.bonusPoints) || 0;
+  const history = useMemo(
+    () => buildTipsHistory(rounds, betsByMatch, puljeBonus),
+    [rounds, betsByMatch, puljeBonus],
+  );
 
   if (loading) return <div className="spinner" role="status" aria-label="Indlæser" />;
 

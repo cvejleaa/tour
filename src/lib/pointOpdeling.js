@@ -10,7 +10,55 @@
 // med. To formler for "point i alt" driver fra hinanden ved næste ændring.
 // ---------------------------------------------------------------------------
 
-import { outcomePoints, outcomeReward, roundComboBonus, round1 } from './superligaScoring';
+import {
+  outcomePoints, outcomeReward, roundComboBonus, round1, isOutcome, outcomeFromScore,
+} from './superligaScoring';
+
+/** Millisekunder fra et Firestore-Timestamp | Date | tal | ISO-streng. */
+function kickoffMs(m) {
+  const k = m && m.kickoff;
+  if (k == null) return null;
+  if (typeof k === 'number') return k;
+  if (typeof k === 'string') { const n = Date.parse(k); return Number.isNaN(n) ? null : n; }
+  if (typeof k.toMillis === 'function') return k.toMillis();
+  if (typeof k.getTime === 'function') { const n = k.getTime(); return Number.isNaN(n) ? null : n; }
+  if (k.seconds != null) return k.seconds * 1000;
+  return null;
+}
+
+/** Kampens 1X2-facit: brug result-feltet, ellers udled af mål. */
+function matchOutcome(m) {
+  if (isOutcome(m && m.result)) return m.result;
+  return outcomeFromScore(m && m.homeGoals, m && m.awayGoals);
+}
+
+/**
+ * Runde-kontekst: opslag pr. kamp-id (runde, facit, frosne odds, kickoff) plus
+ * pr. runde (antal kampe + antal afgjorte).
+ *
+ * Bor HER og ikke i gameScoring, fordi klienten skal bruge nøjagtig samme form
+ * for at kunne kalde opdelPoint. Byggede fladen sin egen, ville der være en
+ * TREDJE rundetælling i appen — og modulet blev netop lavet for at fjerne den
+ * anden.
+ */
+export function buildRoundContext(matches) {
+  const byMatch = {};
+  const rounds = {};
+  for (const m of matches || []) {
+    const round = m.round;
+    const result = matchOutcome(m); // '1'|'X'|'2'|null
+    // ALLE kampe med i byMatch — også dem uden runde. Opslaget bruges også til
+    // pointopdelingen, og en kamp uden rundenummer ville ellers stille miste
+    // sine point i totalen. Rundetællingen springer den fortsat over, så
+    // combi-bonussen er upåvirket: den kræver et rundenummer.
+    byMatch[m.id] = { round, result, odds: m.odds || null, kickoff: kickoffMs(m) };
+    if (round == null) continue;
+    if (!rounds[round]) rounds[round] = { count: 0, settledCount: 0 };
+    rounds[round].count += 1;
+    if (result) rounds[round].settledCount += 1;
+  }
+  return { byMatch, rounds };
+}
 
 /**
  * Tæller kampens point med i TOTALEN? Kun ét krav: kampen skal være afgjort.

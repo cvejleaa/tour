@@ -37,6 +37,26 @@ describe('buildTipsHistory', () => {
     expect(h.totals.points).toBe(11);
   });
 
+  // DEN FEJL, DER ALLEREDE FANDTES. "Point i alt" blev regnet her UDEN
+  // puljebonussen og i stillingen MED den. Fra det øjeblik puljen afregnes,
+  // viste Mine tips et lavere tal end Stilling for samme spiller — to formler
+  // for det samme, én fane imellem.
+  it('tæller puljebonussen med i totalen, ligesom stillingen gør', () => {
+    const bets = {
+      r1a: { matchId: 'r1a', pick: '1', points: 2, chanceStake: 0 },
+      r1b: { matchId: 'r1b', pick: 'X', points: 3, chanceStake: 0 },
+    };
+    const uden = buildTipsHistory(rounds, bets);
+    const med = buildTipsHistory(rounds, bets, 24);
+    expect(med.totals.points - uden.totals.points).toBe(24);
+  });
+
+  it('behandler en manglende puljebonus som nul', () => {
+    const bets = { r1a: { matchId: 'r1a', pick: '1', points: 2, chanceStake: 0 } };
+    expect(buildTipsHistory(rounds, bets, undefined).totals.points)
+      .toBe(buildTipsHistory(rounds, bets, 0).totals.points);
+  });
+
   it('markerer afventende og ikke-ramte korrekt', () => {
     const bets = {
       r1a: { matchId: 'r1a', pick: '2', points: 0, chanceStake: 0 }, // forkert

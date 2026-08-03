@@ -7,12 +7,13 @@ import { outcomeReward, roundComboBonus, round1 } from '../../../lib/superligaSc
 /**
  * @param {Array<{round:number, matches:Array<object>}>} rounds  – fra groupByRound
  * @param {Record<string, object>} betsByMatch                    – matchId → tip
+ * @param {number} puljeBonus – spillerens bonusPoints (mesterskabsspillet)
  * @returns {{
  *   rounds: Array<object>,
  *   totals: { tipped:number, settled:number, hits:number, hitRate:number, points:number, roundBonus:number }
  * }}
  */
-export function buildTipsHistory(rounds, betsByMatch = {}) {
+export function buildTipsHistory(rounds, betsByMatch = {}, puljeBonus = 0) {
   let tipped = 0;
   let settledTips = 0;
   let hits = 0;
@@ -61,7 +62,11 @@ export function buildTipsHistory(rounds, betsByMatch = {}) {
       settled: settledTips,
       hits,
       hitRate: settledTips > 0 ? Math.round((hits / settledTips) * 1000) / 10 : 0,
-      points: Math.max(0, round1(betPointsSum + bonusSum)),
+      // Puljebonussen SKAL med. Uden den viste Mine tips et lavere tal end
+      // Stilling for samme spiller, fra det øjeblik puljen blev afregnet — to
+      // formler for "point i alt", der allerede var uenige. Serveren regner den
+      // samme vej (opdelPoint), og den er den autoritative.
+      points: Math.max(0, round1(betPointsSum + bonusSum + (Number(puljeBonus) || 0))),
       roundBonus: round1(bonusSum),
     },
   };

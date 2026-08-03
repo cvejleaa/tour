@@ -9,27 +9,16 @@
 // ---------------------------------------------------------------------------
 
 const {
-  scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeFromScore, outcomeOdds, isOutcome,
+  scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeOdds,
   roundComboBonus, outcomeReward, championshipTeams, puljeScore,
 } = require('./superligaScoring');
-const { opdelPoint } = require('./pointOpdeling');
-
-/** Millisekunder fra et Firestore-Timestamp | tal | ISO-streng. */
-function kickoffMs(m) {
-  const k = m?.kickoff;
-  if (k == null) return null;
-  if (typeof k === 'number') return k;
-  if (typeof k === 'string') { const n = Date.parse(k); return Number.isNaN(n) ? null : n; }
-  if (typeof k.toMillis === 'function') return k.toMillis();
-  if (k.seconds != null) return k.seconds * 1000;
-  return null;
-}
-
-/** Kampens 1X2-facit: brug result-feltet, ellers udled af mål. */
-function matchOutcome(m) {
-  if (isOutcome(m?.result)) return m.result;
-  return outcomeFromScore(m?.homeGoals, m?.awayGoals);
-}
+// kickoffMs, matchOutcome og buildRoundContext bor i pointOpdeling, fordi
+// KLIENTEN skal bruge samme runde-kontekst for at kunne kalde opdelPoint.
+// Ét sted, ikke to — ellers driver serverens og fladens forestilling om
+// 'hvornår er en kamp afgjort' fra hinanden.
+const {
+  opdelPoint, buildRoundContext, kickoffMs, matchOutcome,
+} = require('./pointOpdeling');
 
 /** Er to odds-objekter ens (afrundet)? */
 function oddsEqual(a, b) {
@@ -128,33 +117,6 @@ function gatedIds(matches, startMs) {
     if (k != null && k < startMs) s.add(m.id);
   }
   return s;
-}
-
-/**
- * Byg en runde-kontekst ud fra alle kampe i spillet: opslag pr. kamp-id
- * (runde, facit-udfald, frosne odds) + pr. runde (antal kampe + antal afgjorte).
- * Bruges til combi-runde-bonussen, som kræver at hele runden er spillet.
- */
-function buildRoundContext(matches) {
-  const byMatch = {};
-  const rounds = {};
-  for (const m of matches) {
-    const round = m.round;
-    const result = matchOutcome(m); // '1'|'X'|'2'|null
-    // ALLE kampe med i byMatch — også dem uden runde. Opslaget bruges nu også
-    // til pointopdelingen, og en kamp uden rundenummer ville ellers stille
-    // miste sine point i totalen. Rundetællingen nedenfor springer den fortsat
-    // over, så combi-bonussen er upåvirket: den kræver et rundenummer.
-    //
-    // kickoff med: opdelPoint bruger det til at holde en kamp, der ikke er
-    // begyndt, ude af opdelingen — også hvis den ved en fejl har fået facit.
-    byMatch[m.id] = { round, result, odds: m.odds || null, kickoff: kickoffMs(m) };
-    if (round == null) continue;
-    if (!rounds[round]) rounds[round] = { count: 0, settledCount: 0 };
-    rounds[round].count += 1;
-    if (result) rounds[round].settledCount += 1;
-  }
-  return { byMatch, rounds };
 }
 
 /**

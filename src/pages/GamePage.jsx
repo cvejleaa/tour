@@ -122,7 +122,7 @@ export default function GamePage() {
           ) : tab === 'hjaelp' && game.type === GAME_TYPE.FOOTBALL ? (
             <FootballHelp />
           ) : tab === 'mine' && game.type === GAME_TYPE.FOOTBALL ? (
-            <MyTips game={game} matches={matches} />
+            <MyTips game={game} matches={matches} me={me} />
           ) : tab === 'pulje' && game.type === GAME_TYPE.FOOTBALL ? (
             <PuljeTip game={game} matches={matches} />
           ) : tab === 'elo' && game.type === GAME_TYPE.FOOTBALL ? (
