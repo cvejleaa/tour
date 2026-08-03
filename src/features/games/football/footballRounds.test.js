@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  toMillis, groupByRound, activeRound, isLocked, afterStart, matchScore,
+  toMillis, groupByRound, activeRound, RUNDE_SLIP_MS, isLocked, afterStart, matchScore,
   liveScore, LIVE_STALE_MS,
 } from './footballRounds';
 
@@ -62,13 +62,36 @@ describe('groupByRound', () => {
 
 describe('activeRound', () => {
   const rounds = groupByRound([M(1, 100), M(1, 200), M(2, 1000), M(3, 2000)]);
+  /** Samme kampe, men runde 1 er afgjort. */
+  const afgjort = groupByRound([
+    { ...M(1, 100), result: '1' }, { ...M(1, 200), result: 'X' }, M(2, 1000), M(3, 2000),
+  ]);
+
   it('vælger tidligste runde med en kamp der ikke er begyndt', () => {
     expect(activeRound(rounds, 50)).toBe(1);   // intet begyndt
     expect(activeRound(rounds, 150)).toBe(1);  // runde 1 har stadig en kamp kl. 200
-    expect(activeRound(rounds, 250)).toBe(2);  // runde 1 helt låst → runde 2
   });
+
+  // DETTE er hele pointen: fladen må ikke springe videre, i samme sekund som
+  // rundens sidste kamp fløjtes i gang. Man sad og så kampen, trykkede
+  // opdatér, og var pludselig i næste runde.
+  it('bliver i runden, mens dens sidste kamp spilles', () => {
+    expect(activeRound(rounds, 250)).toBe(1);
+  });
+
+  it('går videre, når rundens kampe er afgjort', () => {
+    expect(activeRound(afgjort, 250)).toBe(2);
+  });
+
+  // Én kamp uden facit må ikke binde fladen til en gammel runde for evigt —
+  // kilden kan svigte, og en kamp kan blive afbrudt.
+  it('slipper en runde, hvis facit aldrig kommer', () => {
+    expect(activeRound(rounds, 200 + RUNDE_SLIP_MS)).toBe(2);
+    expect(activeRound(rounds, 200 + RUNDE_SLIP_MS - 1)).toBe(1);
+  });
+
   it('vælger sidste runde når alt er begyndt', () => {
-    expect(activeRound(rounds, 9999)).toBe(3);
+    expect(activeRound(rounds, 9999999999)).toBe(3);
   });
   it('returnerer null uden runder', () => {
     expect(activeRound([], 0)).toBeNull();

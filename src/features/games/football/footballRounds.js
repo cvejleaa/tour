@@ -52,9 +52,27 @@ export function groupByRound(matches) {
 }
 
 /**
- * Vælg den "aktive" runde ud fra tidspunktet nu:
- * den tidligste runde der stadig har mindst én kamp, hvis kickoff ikke er
- * passeret. Hvis alle kampe er begyndt, vælges den sidste runde.
+ * Hvor længe en kamp uden facit må regnes for "i gang". Kilden kan være
+ * flere minutter om at levere slutresultatet, og en kamp kan i sjældne
+ * tilfælde aldrig få et. Uden en øvre grænse ville ÉN manglende facit binde
+ * tip-fladen til en gammel runde for evigt.
+ */
+export const RUNDE_SLIP_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Vælg den "aktive" runde ud fra tidspunktet nu: den tidligste runde, der
+ * ikke er færdig. En runde er færdig, når hver eneste kamp i den enten har
+ * facit eller er sluppet (se RUNDE_SLIP_MS).
+ *
+ * KICKOFF er IKKE længere nok. Før skiftede fladen til næste runde i samme
+ * sekund, som rundens sidste kamp begyndte — man sad og så kampen, trykkede
+ * opdatér, og var pludselig i runde 3 uden at have bedt om det. Kampen, man
+ * kiggede på, var væk fra skærmen.
+ *
+ * Det koster, at man ikke automatisk føres videre til den runde, man KAN
+ * tippe i, mens rundens sidste kamp spilles. Til gengæld flytter fladen sig
+ * ikke under fødderne på en, der følger med — og runde-vælgeren står lige der.
+ *
  * @param {Array<{round:number, matches:Array<object>}>} rounds
  * @param {number} nowMs
  * @returns {number|null} runde-nummeret, eller null hvis ingen runder
@@ -62,11 +80,13 @@ export function groupByRound(matches) {
 export function activeRound(rounds, nowMs) {
   if (!rounds || rounds.length === 0) return null;
   for (const { round, matches } of rounds) {
-    const hasUpcoming = matches.some((m) => {
+    const ikkeFaerdig = matches.some((m) => {
       const k = toMillis(m.kickoff);
-      return k == null || k > nowMs;
+      if (k == null || k > nowMs) return true;               // ikke begyndt endnu
+      if (m.result != null && m.result !== '') return false; // afgjort
+      return nowMs - k < RUNDE_SLIP_MS;                      // spilles lige nu
     });
-    if (hasUpcoming) return round;
+    if (ikkeFaerdig) return round;
   }
   return rounds[rounds.length - 1].round;
 }
