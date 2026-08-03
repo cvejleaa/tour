@@ -114,7 +114,7 @@ export default function GamePage() {
           </div>
 
           {tab === 'stilling' ? (
-            <GameStandings gameId={gameId} />
+            <GameStandings gameId={gameId} game={game} matches={matches} />
           ) : tab === 'ligaer' ? (
             <GameLeagues gameId={gameId} />
           ) : tab === 'profil' ? (

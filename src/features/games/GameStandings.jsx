@@ -11,6 +11,7 @@ import { rankDelta, subsetRanking } from './gameStandings';
 import GameTabLink from './GameTabLink';
 import { formatPoints } from './GameLayout';
 import { RUBRIKKER } from './football/PointOpdeling';
+import SpillerDetalje from './football/SpillerDetalje';
 
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
 // et manglende valg.
@@ -76,7 +77,7 @@ function DeltaArrow({ row }) {
   );
 }
 
-export default function GameStandings({ gameId }) {
+export default function GameStandings({ gameId, game = null, matches = [] }) {
   const { user } = useAuth();
   const { standings: alleMine, leagues, leagueCount, loading, error } = useVisibleGameStandings(gameId);
 
@@ -85,6 +86,9 @@ export default function GameStandings({ gameId }) {
   // Slået fra som udgangspunkt: stillingen skal svare på "hvem fører", ikke
   // stille et regnskab op.
   const [visOpdeling, setVisOpdeling] = useState(false);
+  // Hvilken spiller er foldet ud? Kun én ad gangen — to paneler side om side
+  // ville hver hente sit dokument og fylde skærmen.
+  const [aabenUid, setAabenUid] = useState(null);
   // Er ligaen forsvundet under fødderne på en (forladt, slettet), falder vi
   // tilbage til alle — hellere end en tom tabel uden forklaring.
   const valgt = leagues.find((l) => l.id === leagueId) || null;
@@ -149,7 +153,21 @@ export default function GameStandings({ gameId }) {
         <td style={{ padding: '0.45rem 0.5rem' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
             <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={26} />
-            {r.name}{isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
+            {/* Navnet er klikbart, fordi rækken KOM fra en liga-filtreret kilde:
+                useVisibleGameStandings viser kun folk, man deler liga med (plus
+                sig selv), og det er nøjagtig samme afgrænsning som reglen på
+                detalje-dokumentet. Vises navne et andet sted uden den garanti,
+                må de ikke gøres klikbare — så ville linket åbne et panel med en
+                tilladelses-fejl. */}
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => setAabenUid((u) => (u === r.uid ? null : r.uid))}
+              aria-expanded={aabenUid === r.uid}
+            >
+              {r.name}
+            </button>
+            {isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
           </span>
         </td>
         <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
@@ -175,6 +193,11 @@ export default function GameStandings({ gameId }) {
   // listRows, ville regnskabet mangle netop de spillere, man helst vil se
   // tallene bag.
   const alleRaekker = standings;
+
+  // Slå den åbne spiller op i de SYNLIGE rækker. Forsvinder han (liga skiftet,
+  // filter ændret), lukker panelet af sig selv i stedet for at hænge med data,
+  // man ikke længere må se.
+  const aabenRow = aabenUid ? standings.find((r) => r.uid === aabenUid) : null;
 
   const MEDAL = ['🥇', '🥈', '🥉'];
   // Podie-rækkefølge: 2. plads, 1. plads (løftet), 3. plads.
@@ -260,6 +283,15 @@ export default function GameStandings({ gameId }) {
                 )}
               </tbody>
             </table>
+          )}
+
+          {aabenRow && (
+            <SpillerDetalje
+              game={game}
+              matches={matches}
+              spiller={aabenRow}
+              onLuk={() => setAabenUid(null)}
+            />
           )}
         </>
       )}

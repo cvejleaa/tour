@@ -29,14 +29,23 @@ export const RUBRIKKER = [
  *          total?: number, raaTotal?: number|null, kompakt?: boolean}} props
  */
 export default function PointOpdeling({ opdeling, total, raaTotal = null, kompakt = false }) {
-  // Serveren skriver opdelingen ved næste genberegning. Indtil da findes feltet
-  // ikke — og fire nuller ville være en påstand om, at spilleren ingen point
-  // har fået. Sig hellere, at tallet ikke er klar.
+  // Serveren skriver rubrikkerne ved næste genberegning. Indtil da findes
+  // feltet ikke — og fire nuller ville påstå, at spilleren ingen point har
+  // fået. TOTALEN kender vi derimod altid, og den skal blive stående: uden den
+  // ville "point i alt" forsvinde fra skærmen, indtil serveren når rundt.
   if (!opdeling) {
     return (
-      <p className="badge badge--muted" style={{ margin: 0 }}>
-        Opdelingen er ikke klar endnu — den bygges, næste gang en kamp afgøres.
-      </p>
+      <div className="pointopdeling">
+        <dl className="pointopdeling__liste">
+          <div className="pointopdeling__rubrik pointopdeling__rubrik--total">
+            <dt>I alt</dt>
+            <dd>{formatPoints(total ?? 0)}</dd>
+          </div>
+        </dl>
+        <p className="pointopdeling__note">
+          Opdelingen er ikke klar endnu — den bygges, næste gang en kamp afgøres.
+        </p>
+      </div>
     );
   }
 

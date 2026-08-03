@@ -681,20 +681,27 @@ service cloud.firestore {
         // forespørgslen afvises, ikke bare de dokumenter man ikke må se.
         // Klienten må derfor ALDRIG lave en collectionGroup-query over detalje.
         match /detalje/{docId} {
-          // KUN ens eget dokument indtil videre. Liga-klausulen kommer, når der
-          // findes en skærm, der skal bruge den — ikke før.
+          // Eget dokument, eller en man deler liga med — samme afgrænsning som
+          // stillingen selv (useVisibleGameStandings viser præcis den kreds).
           //
-          // Grunden er en asymmetri, der skal besluttes bevidst: `bets` læses
-          // via leagueIds PÅ TIPPET, altså et øjebliksbillede fra da tippet
-          // blev afgivet, og reglen tillader udtrykkeligt undertal ("man
-          // skjuler kun sig selv"). Et opslag på players-dokumentet ville
-          // derimod bruge det LIVE medlemskab. Melder en spiller sig ind i en
-          // ny liga i runde 20, kan de nye kammerater ikke se hans tips fra
-          // runde 1-19 via bets — men ville kunne læse hele sæsonen her, i ét
-          // opslag. Den forskel skal afgøres sammen med den skærm, der bruger
-          // den, ikke som en bivirkning af en udrulning uden brugerflade.
+          // Der ER en asymmetri mod bets-reglen, og den er valgt bevidst: `bets`
+          // læses via leagueIds PÅ TIPPET, altså et øjebliksbillede fra da
+          // tippet blev afgivet, mens opslaget her bruger det LIVE medlemskab.
+          // Melder en spiller sig ind i en ny liga sent på sæsonen, kan de nye
+          // kammerater derfor se hele hans historik her, men ikke hans gamle
+          // tips på kampkortene. Til gengæld mister en, der FORLADER ligaen,
+          // adgangen med det samme — hvor et øjebliksbillede ville lade ham
+          // blive ved med at læse.
+          //
+          // Dokumentet indeholder kun kampe, der er afgjort OG begyndt
+          // (pointOpdeling filtrerer på begge dele, testdækket), så der er
+          // ingen vej til at kigge i andres kort før kickoff. Derfor er der
+          // ingen kickoff-vagt her, modsat bets-reglen.
           allow read: if isGlobalAdmin()
-            || (isSignedIn() && request.auth.uid == uid);
+            || (isSignedIn() && request.auth.uid == uid)
+            || (isApproved()
+                && get(/databases/$(database)/documents/games/$(gameId)/players/$(uid))
+                    .data.get('leagueIds', []).hasAny(myLeagueIds()));
 
           // Kun serveren (Admin SDK) skriver rækkerne. De er afledt af bets og
           // facit; kunne klienten skrive dem, kunne man vise sig selv med

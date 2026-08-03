@@ -43,6 +43,13 @@ describe('PointOpdeling', () => {
     expect(screen.queryByText('0')).toBeNull();
   });
 
+  // Rubrikkerne kan mangle; totalen kan ikke. Uden den ville "point i alt"
+  // forsvinde fra Mine tips, indtil serveren nåede rundt til spilleren.
+  it('viser totalen, også når rubrikkerne mangler', () => {
+    render(<PointOpdeling opdeling={null} total={42} />);
+    expect(screen.getByText('42')).toBeInTheDocument();
+  });
+
   // Gulvet er en feature (saldoen går aldrig i minus), men det gør, at
   // rubrikkerne kan summe til noget helt andet end totalen. Uden forklaringen
   // ser regnestykket forkert ud.

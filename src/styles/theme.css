@@ -935,3 +935,16 @@ a:focus-visible,
   font-size: 0.78rem;
   color: var(--c-muted);
 }
+
+/* Navnet i stillingen er en knap (åbner spillerdetaljen), men skal se ud som
+   tekst — ikke som en knap i en tabelrække. */
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.link-btn:hover, .link-btn:focus-visible { text-decoration: underline; }

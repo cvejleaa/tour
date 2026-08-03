@@ -24,6 +24,10 @@ vi.mock('../../components/Avatar', () => ({
   default: () => <span data-testid="avatar" />,
 }));
 
+vi.mock('./football/SpillerDetalje', () => ({
+  default: ({ spiller }) => <div data-testid="detalje">{spiller.name}</div>,
+}));
+
 import GameStandings from './GameStandings';
 
 // Hele kredsen, rangeret som useVisibleGameStandings ville levere den.
@@ -274,5 +278,33 @@ describe('GameStandings — pointopdeling', () => {
     fireEvent.click(screen.getByRole('button', { name: /Udspecificér/ }));
     fireEvent.click(screen.getByRole('button', { name: /Vis stillingen/ }));
     expect(screen.queryByText(/Chancen/)).toBeNull();
+  });
+});
+
+describe('GameStandings — spillerdetalje', () => {
+  it('åbner panelet, når man klikker på et navn', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Dorte' }));
+    expect(screen.getByTestId('detalje')).toHaveTextContent('Dorte');
+  });
+
+  it('lukker igen ved et nyt klik på samme navn', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Dorte' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dorte' }));
+    expect(screen.queryByTestId('detalje')).toBeNull();
+  });
+
+  // Panelet må ikke blive stående med data fra en spiller, man ikke længere
+  // ser. Skifter man liga, forsvinder han fra kredsen — og adgangen til hans
+  // detalje følger med.
+  it('lukker af sig selv, når spilleren forsvinder fra den valgte liga', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Dorte' }));
+    expect(screen.getByTestId('detalje')).toBeInTheDocument();
+
+    // L2 = Familien: me, u1, u5 — Dorte er ikke med.
+    fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L2' } });
+    expect(screen.queryByTestId('detalje')).toBeNull();
   });
 });
