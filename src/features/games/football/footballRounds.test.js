@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  toMillis, groupByRound, activeRound, isLocked, afterStart, matchScore,
+  toMillis, groupByRound, activeRound, RUNDE_SLIP_MS, isLocked, afterStart, matchScore,
   liveScore, LIVE_STALE_MS,
 } from './footballRounds';
 
@@ -61,15 +61,115 @@ describe('groupByRound', () => {
 });
 
 describe('activeRound', () => {
-  const rounds = groupByRound([M(1, 100), M(1, 200), M(2, 1000), M(3, 2000)]);
-  it('vælger tidligste runde med en kamp der ikke er begyndt', () => {
-    expect(activeRound(rounds, 50)).toBe(1);   // intet begyndt
-    expect(activeRound(rounds, 150)).toBe(1);  // runde 1 har stadig en kamp kl. 200
-    expect(activeRound(rounds, 250)).toBe(2);  // runde 1 helt låst → runde 2
+  // Absolutte tidspunkter, ikke offsets fra RUNDE_SLIP_MS: regner fixturet ud
+  // fra konstanten, flytter det sig MED en mutation af den, og suiten kan
+  // aldrig fortælle, at grænsen er forkert. Samme fælde som LIVE_STALE_MS
+  // allerede har en absolut pin imod.
+  const T = 1_754_150_000_000;       // rundens sidste kickoff
+  const MIN = 60_000;
+  const rounds = groupByRound([M(1, T - 60 * MIN), M(1, T), M(2, T + 5 * 24 * 60 * MIN)]);
+  const afgjort = groupByRound([
+    { ...M(1, T - 60 * MIN), result: '1' }, { ...M(1, T), result: 'X' },
+    M(2, T + 5 * 24 * 60 * MIN),
+  ]);
+
+  it('grænsen for at slippe en runde er tre timer', () => {
+    expect(RUNDE_SLIP_MS).toBe(3 * 60 * 60 * 1000);
   });
-  it('vælger sidste runde når alt er begyndt', () => {
-    expect(activeRound(rounds, 9999)).toBe(3);
+
+  it('vælger runden med den næste kamp, før noget er begyndt', () => {
+    expect(activeRound(rounds, T - 120 * MIN)).toBe(1);
+    expect(activeRound(rounds, T - 30 * MIN)).toBe(1); // én kamp er i gang, én venter
   });
+
+  // DETTE er hele pointen: fladen må ikke springe videre, i samme sekund som
+  // rundens sidste kamp fløjtes i gang. Man sad og så kampen, trykkede
+  // opdatér, og var pludselig i næste runde.
+  it('bliver i runden, mens dens sidste kamp spilles', () => {
+    expect(activeRound(rounds, T + 30 * MIN)).toBe(1);
+    expect(activeRound(rounds, T + 100 * MIN)).toBe(1);
+  });
+
+  it('går videre, når rundens kampe er afgjort', () => {
+    expect(activeRound(afgjort, T + 30 * MIN)).toBe(2);
+  });
+
+  // Én kamp uden facit må ikke binde fladen til en gammel runde for evigt —
+  // kilden kan svigte, og en kamp kan blive afbrudt. Tallene er absolutte, så
+  // en ændring af grænsen får testen til at fejle.
+  it('slipper en runde efter tre timer, hvis facit aldrig kommer', () => {
+    expect(activeRound(rounds, T + 179 * MIN)).toBe(1);
+    expect(activeRound(rounds, T + 181 * MIN)).toBe(2);
+  });
+
+  // Number('') er 0 og '' er falsk-agtig: uden det udtrykkelige tjek ville en
+  // tom streng tælle som facit, og runden se afgjort ud. Samme fælde som
+  // matchScore allerede er faldet i.
+  it('regner en tom streng som IKKE afgjort', () => {
+    const tom = groupByRound([
+      { ...M(1, T - 60 * MIN), result: '' }, { ...M(1, T), result: '' },
+      M(2, T + 5 * 24 * 60 * MIN),
+    ]);
+    expect(activeRound(tom, T + 30 * MIN)).toBe(1);
+  });
+
+  it('kalder ikke en runde færdig, hvis bare ét facit mangler', () => {
+    const halvt = groupByRound([
+      { ...M(1, T - 60 * MIN), result: '1' }, M(1, T),
+      M(2, T + 5 * 24 * 60 * MIN),
+    ]);
+    expect(activeRound(halvt, T + 30 * MIN)).toBe(1);
+  });
+
+  // DEN UDSKUDTE KAMP. Runde 3 i 2026/27 har en kamp den 3. september, mens
+  // runde 4-6 spilles i august. Valgte fladen "tidligste runde, der mangler
+  // noget", stod den på runde 3 i tre uger, og ingen blev ført til de runder,
+  // de faktisk kunne tippe i.
+  it('springer en runde med en udskudt kamp over til fordel for den næste kamp', () => {
+    const udskudt = groupByRound([
+      { ...M(3, T - 30 * 24 * 60 * MIN), result: '1' },
+      M(3, T + 30 * 24 * 60 * MIN),   // udskudt: langt ude i fremtiden
+      M(4, T + 7 * 24 * 60 * MIN),    // næste rigtige kamp
+      M(5, T + 14 * 24 * 60 * MIN),
+    ]);
+    expect(activeRound(udskudt, T)).toBe(4);
+  });
+
+  // ...men en kamp, der er i GANG, slår altid den næste kamp. Ellers ville
+  // rettelsen ovenfor genindføre den fejl, hele ændringen findes for.
+  it('lader en kamp i gang slå den næste kamp i en anden runde', () => {
+    const samtidig = groupByRound([
+      M(3, T - 30 * MIN),             // spilles lige nu
+      M(4, T + 10 * MIN),             // starter om lidt
+    ]);
+    expect(activeRound(samtidig, T)).toBe(3);
+  });
+
+  // En kamp uden kickoff kan ikke være "den næste" — den har ingen dato. Men
+  // den må heller ikke forsvinde: findes der ingen kamp med en dato foran os,
+  // er dens runde den, der stadig mangler noget.
+  it('binder ikke fladen til en kamp uden kickoff, når andre kampe har en dato', () => {
+    const udenTid = groupByRound([
+      { round: 1, kickoff: null }, M(2, T + 5 * 24 * 60 * MIN),
+    ]);
+    expect(activeRound(udenTid, T)).toBe(2);
+  });
+
+  it('finder runden med en kamp uden kickoff, når intet andet venter', () => {
+    const udenTid = groupByRound([
+      { ...M(1, T - 10 * 24 * 60 * MIN), result: '1' }, { round: 2, kickoff: null },
+    ]);
+    expect(activeRound(udenTid, T)).toBe(2);
+  });
+
+  it('vælger sidste runde, når hele sæsonen er afgjort', () => {
+    const slut = groupByRound([
+      { ...M(1, T - 20 * 24 * 60 * MIN), result: '1' },
+      { ...M(2, T - 10 * 24 * 60 * MIN), result: 'X' },
+    ]);
+    expect(activeRound(slut, T)).toBe(2);
+  });
+
   it('returnerer null uden runder', () => {
     expect(activeRound([], 0)).toBeNull();
   });

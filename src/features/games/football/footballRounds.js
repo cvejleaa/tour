@@ -52,22 +52,77 @@ export function groupByRound(matches) {
 }
 
 /**
- * Vælg den "aktive" runde ud fra tidspunktet nu:
- * den tidligste runde der stadig har mindst én kamp, hvis kickoff ikke er
- * passeret. Hvis alle kampe er begyndt, vælges den sidste runde.
+ * Hvor længe en kamp uden facit må regnes for "i gang". Kilden kan være
+ * flere minutter om at levere slutresultatet, og en kamp kan i sjældne
+ * tilfælde aldrig få et. Uden en øvre grænse ville ÉN manglende facit binde
+ * tip-fladen til en gammel runde for evigt.
+ *
+ * SKAL VÆRE STØRRE END `WINDOW_MS` i functions-platform/superligaSync.js
+ * (2,5 t), som er, hvor længe serveren stadig LEDER efter facit. Slap fladen
+ * videre først, ville runden flytte sig, mens resultatet endnu kunne komme —
+ * og så igen bagefter. I hullet mellem de to fanger `strandedMatches` kampen
+ * og alarmerer, altså FØR brugeren slippes videre. Hæves WINDOW_MS, skal
+ * dette tal med.
+ */
+export const RUNDE_SLIP_MS = 3 * 60 * 60 * 1000;
+
+/** Har kampen fået sit facit? '' tæller IKKE — samme fælde som i matchScore. */
+const erAfgjort = (m) => m?.result != null && m.result !== '';
+
+/** Spilles kampen lige nu? Begyndt, uden facit, og ikke sluppet endnu. */
+function spillesNu(m, nowMs) {
+  const k = toMillis(m?.kickoff);
+  if (k == null || k > nowMs) return false;
+  if (erAfgjort(m)) return false;
+  return nowMs - k < RUNDE_SLIP_MS;
+}
+
+/**
+ * Vælg den "aktive" runde ud fra tidspunktet nu. Tre spørgsmål i rækkefølge:
+ *
+ *  1. Er der en kamp I GANG? Så er det dén runde. Før valgte fladen på
+ *     KICKOFF alene, og i samme sekund som rundens sidste kamp fløjtede i
+ *     gang, var runden "helt låst" og fladen sprang videre — man sad og så
+ *     kampen, trykkede opdatér, og var pludselig i næste runde. Kampen, man
+ *     kiggede på, var væk fra skærmen.
+ *
+ *  2. Ellers: hvor ligger den NÆSTE kamp? Ikke "den tidligste runde med en
+ *     kamp, der mangler". Runde 3 i 2026/27 har en udskudt kamp den 3.
+ *     september, mens runde 4, 5 og 6 spilles i august — med det gamle valg
+ *     stod tip-fladen på runde 3 fra 10. august til 3. september, og ingen
+ *     blev ført til de tre runder, de faktisk kunne tippe i.
+ *
+ *  3. Ellers: den tidligste runde, der stadig mangler et facit — fx en kamp
+ *     uden kickoff, som ingen dato kan udpege. En sådan kamp må gerne kunne
+ *     findes, men den må ikke binde fladen, mens der er kampe med en dato.
+ *
+ * Falder alt igennem, er sæsonen slut, og vi viser den sidste runde.
+ *
  * @param {Array<{round:number, matches:Array<object>}>} rounds
  * @param {number} nowMs
  * @returns {number|null} runde-nummeret, eller null hvis ingen runder
  */
 export function activeRound(rounds, nowMs) {
   if (!rounds || rounds.length === 0) return null;
+
+  const iGang = rounds.find(({ matches }) => matches.some((m) => spillesNu(m, nowMs)));
+  if (iGang) return iGang.round;
+
+  let naeste = null;
   for (const { round, matches } of rounds) {
-    const hasUpcoming = matches.some((m) => {
+    for (const m of matches) {
       const k = toMillis(m.kickoff);
-      return k == null || k > nowMs;
-    });
-    if (hasUpcoming) return round;
+      // Uden kickoff kan kampen ikke være "den næste" — den har ingen dato at
+      // sammenligne på. Den fanges af spørgsmål 3 nedenfor.
+      if (k == null || k <= nowMs) continue;
+      if (naeste == null || k < naeste.k) naeste = { k, round };
+    }
   }
+  if (naeste) return naeste.round;
+
+  const mangler = rounds.find(({ matches }) => matches.some((m) => !erAfgjort(m)));
+  if (mangler) return mangler.round;
+
   return rounds[rounds.length - 1].round;
 }
 
