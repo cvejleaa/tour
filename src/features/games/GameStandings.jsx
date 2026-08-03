@@ -148,6 +148,18 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // ville hver hente sit dokument og fylde skærmen.
   const [aabenUid, setAabenUid] = useState(null);
   const panelRef = useRef(null);
+  const tabelRef = useRef(null);
+
+  // Knappen står øverst, men tabellen, den bytter ud, står under podiet — godt
+  // 200 px længere nede. Uden dette er den eneste tilbagemelding på klikket, at
+  // knappens egen tekst skifter. Samme greb som til spillerdetaljen nedenfor.
+  useEffect(() => {
+    if (!visOpdeling) return;
+    const el = tabelRef.current;
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [visOpdeling]);
 
   // Rul til panelet, når det åbnes. Uden det ser et klik på en spiller langt
   // nede i listen ud, som om der ikke skete noget. Hooken står før de tidlige
@@ -259,8 +271,16 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   const aabenRow = aabenUid ? standings.find((r) => r.uid === aabenUid) : null;
 
   const MEDAL = ['🥇', '🥈', '🥉'];
-  // Podie-rækkefølge: 2. plads, 1. plads (løftet), 3. plads.
-  const podiumOrder = podium.length === 3 ? [podium[1], podium[0], podium[2]] : podium;
+  // Ombytningen 2 · 1 · 3 findes ALENE for at sætte vinderen i midten. Er der
+  // ingen enkelt vinder, gør den kun to ting, der begge er forkerte: den
+  // sætter en tilfældig af de delende i den brede midterplads — ved lige point
+  // er rækkefølgen alfabetisk — og den får podiet til at læse i én rækkefølge,
+  // mens tabellen 40 px længere nede læser i en anden.
+  //
+  // Højden holdt allerede op med at lyve; bredden gjorde ikke. Uden en enkelt
+  // vinder står de tre derfor i deres egen rækkefølge og i samme bredde.
+  const enVinder = podium.length === 3 && podium[0].rank < podium[1].rank;
+  const podiumOrder = enVinder ? [podium[1], podium[0], podium[2]] : podium;
 
   return (
     <div>
@@ -308,7 +328,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
 
             Betingelsen er `standings`, IKKE `listRows`. En liga med præcis tre
             spillere fylder podiet og har en tom liste — og så forsvandt både
-            knappen og spillerdetaljen for hele den gruppe. */}
+            knappen og spillerdetaljen for hele den gruppe. Værre: knappen
+            fandtes under "Alle mine ligaer" og forsvandt, når man valgte den
+            lille liga i filteret. En knap, der forsvinder af sig selv. */}
         {standings.length > 0 && (
           <button
             type="button"
@@ -324,7 +346,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
       </div>
 
       {hasPodium && (
-        <div className="podium">
+        <div className={`podium${enVinder ? '' : ' podium--lige'}`}>
           {podiumOrder.map((r) => (
             <div key={r.uid} className="podium__spot">
               <span className="podium__medal">{MEDAL[r.rank - 1] || `#${r.rank}`}</span>
@@ -334,7 +356,11 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
               {/* Selve trinnet. Højden følger PLACERINGEN og ikke pladsen i
                   rækken: står tre spillere lige, har de alle rang 1 og skal
                   stå i samme højde. Et podie, der løfter én af tre lige
-                  spillere, ville lyve om stillingen. */}
+                  spillere, ville lyve om stillingen. DÉT er testdækket.
+
+                  Loftet på 3 er derimod et defensivt værn mod en tilstand,
+                  rangeringen ikke kan producere — rang på indeks 2 er altid
+                  højst 3 — og er derfor ikke dækket af nogen test. */}
               <div className={`podium__trin podium__trin--${Math.min(r.rank, 3)}`}>
                 <span className="podium__plads">{r.rank}</span>
               </div>
@@ -353,7 +379,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           spillere fylder podiet og har en tom liste — og så forsvandt både
           opdelingen og spillerdetaljen for hele den gruppe. */}
       {standings.length > 0 && (
-        <>
+        <div ref={tabelRef}>
           {visOpdeling ? (
             <OpdelingsTabel
               rows={alleRaekker}
@@ -386,7 +412,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
               />
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

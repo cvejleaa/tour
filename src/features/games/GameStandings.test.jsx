@@ -140,6 +140,65 @@ describe('GameStandings — liga-filter', () => {
     expect(podiumTrin(3)).toBe('podium__trin--3');
   });
 
+  // KNAPPENS PLACERING var halvdelen af ændringen, og den kunne skrives om
+  // ubemærket: knappen kunne flyttes tilbage til præcis den kritiserede plads
+  // mellem podiet og listen, uden at én test faldt.
+  it('lægger knappen i værktøjslinjen OVER podiet', () => {
+    setup();
+    const bar = container.querySelector('.standings__bar');
+    expect(bar).toContainElement(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    // Dokumentrækkefølgen: baren skal komme FØR podiet. querySelectorAll
+    // leverer altid i dokumentrækkefølge, så den første af de to er den
+    // øverste på skærmen.
+    const raekkefoelge = [...container.querySelectorAll('.standings__bar, .podium')]
+      .map((e) => e.className);
+    expect(raekkefoelge).toEqual(['standings__bar', 'podium']);
+  });
+
+  // Medaljen er det mest iøjnefaldende på podiet og var utestet — også før.
+  it('viser en medalje pr. plads i podiets rækkefølge', () => {
+    setup();
+    expect([...container.querySelectorAll('.podium__medal')].map((e) => e.textContent))
+      .toEqual(['🥈', '🥇', '🥉']);
+  });
+
+  // Deling af TO om førstepladsen er det næste, der opstår: rang 1, 1, 3.
+  // En "tæt" rangering (1, 1, 2) ville slippe forbi tre-vejs-testen.
+  // Ombytningen 2 · 1 · 3 findes ALENE for at sætte vinderen i midten. Uden en
+  // enkelt vinder udpegede den en tilfældig af de delende — ved lige point den
+  // alfabetisk første — til den brede midterplads, og fik podiet til at læse i
+  // én rækkefølge, mens tabellen lige nedenunder læste i en anden.
+  it('bytter ikke om og bruger lige bredder, når ingen står alene forrest', () => {
+    const lige = [
+      { uid: 'u1', name: 'Anne', totalPoints: 12.8, rank: 1 },
+      { uid: 'u2', name: 'Bo', totalPoints: 12.8, rank: 1 },
+      { uid: 'u3', name: 'Carl', totalPoints: 12.8, rank: 1 },
+      { uid: 'me', name: 'Mig', totalPoints: 5, rank: 4 },
+    ];
+    setup({ standings: lige, leagues: [{ id: 'L1', name: 'Kontoret', memberUids: ['me', 'u1', 'u2', 'u3'] }] });
+    expect(podiumOrder()).toEqual(['Anne', 'Bo', 'Carl']);
+    expect(container.querySelector('.podium').className).toContain('podium--lige');
+  });
+
+  it('bytter om og løfter midten, når der ER en enkelt vinder', () => {
+    setup();
+    expect(podiumOrder()).toEqual(['Bo', 'Anne', 'Carl']);
+    expect(container.querySelector('.podium').className).not.toContain('podium--lige');
+  });
+
+  it('giver to i deling samme trin — og bronzen sit eget', () => {
+    const lige = [
+      { uid: 'u1', name: 'Anne', totalPoints: 12.8, rank: 1 },
+      { uid: 'u2', name: 'Bo', totalPoints: 12.8, rank: 1 },
+      { uid: 'u3', name: 'Carl', totalPoints: 9, rank: 3 },
+      { uid: 'me', name: 'Mig', totalPoints: 5, rank: 4 },
+    ];
+    setup({ standings: lige, leagues: [{ id: 'L1', name: 'Kontoret', memberUids: ['me', 'u1', 'u2', 'u3'] }] });
+    const trin = [...container.querySelectorAll('.podium__trin')]
+      .map((t) => [...t.classList].find((c) => /--\d$/.test(c)));
+    expect(trin).toEqual(['podium__trin--1', 'podium__trin--1', 'podium__trin--3']);
+  });
+
   // Står tre spillere lige, har de ALLE rang 1. Så skal de stå i samme højde
   // — et podie, der løfter én af tre lige spillere, lyver om stillingen.
   it('giver tre spillere i deling samme trin', () => {
