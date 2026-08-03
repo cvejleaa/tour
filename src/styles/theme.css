@@ -879,17 +879,59 @@ a:focus-visible,
 .wall__time { font-size: 0.72rem; color: var(--c-muted); }
 .wall__text { font-size: 0.9rem; white-space: pre-wrap; word-break: break-word; }
 
-/* Stilling: top-3 podie */
-.podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 0.5rem; align-items: end; margin-bottom: 1rem; }
-.podium__spot {
-  display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
-  padding: 0.7rem 0.4rem; border-radius: var(--radius-sm);
-  background: var(--c-surface-alt); border: 1px solid var(--c-border); text-align: center;
+/* Stilling: top-3 podie.
+   Et RIGTIGT podie: tre trin i forskellig højde med vinderen i midten. Før
+   stod de tre som tre ens kasser på række, og nummer ét var løftet otte pixel
+   — for lidt til at læses som en førsteplads, og nok til at se ud som en fejl.
+   align-items: end holder trinnene på samme gulv, så højdeforskellen ligger
+   i selve trinnet og ikke i luften over det. */
+.podium {
+  display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 0.4rem; align-items: end;
+  /* Gulvet. Uden det svæver tre næsten usynlige omrids over en lys side —
+     gradienten ender i hvidt, og siden er næsten hvid. */
+  border-bottom: 2px solid var(--c-border); margin-bottom: 1rem;
 }
-.podium__spot--1 { transform: translateY(-8px); box-shadow: var(--shadow); }
+/* Ingen enkelt vinder: den brede midterplads ville udpege en tilfældig af de
+   delende som vinder. Højden holdt op med at lyve; bredden skal også. */
+.podium--lige { grid-template-columns: 1fr 1fr 1fr; }
+.podium__spot { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; text-align: center; min-width: 0; }
 .podium__medal { font-size: 1.3rem; line-height: 1; }
-.podium__name { font-size: 0.82rem; font-weight: 700; color: var(--c-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.podium__pts { font-size: 0.78rem; font-weight: 700; color: var(--c-pitch); font-variant-numeric: tabular-nums; }
+/* Navnet er en knap. Med kortbaggrunden væk står det frit, og en understregning
+   først på hover findes ikke på en telefon — derfor en stiplet linje hele
+   tiden, og polstring nok til at ramme med en finger. */
+.podium__name {
+  font-size: 0.82rem; font-weight: 700; color: var(--c-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+  padding: 0.25rem 0.4rem; text-decoration: underline dotted; text-underline-offset: 3px;
+}
+.podium__pts { font-size: 0.78rem; font-weight: 700; color: var(--c-pitch); font-variant-numeric: tabular-nums; margin-bottom: 0.35rem; }
+
+/* Selve trinnet. Højden følger placeringen, ikke pladsen i rækken: står tre
+   spillere lige, har de alle rang 1 og skal stå i samme højde. */
+.podium__trin {
+  width: 100%; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--c-border); border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: linear-gradient(180deg, var(--c-surface-alt), var(--c-surface));
+}
+.podium__trin--1 { height: 62px; box-shadow: var(--shadow); }
+.podium__trin--2 { height: 44px; }
+.podium__trin--3 { height: 30px; }
+/* Ingen opacity: tallet er INFORMATION, ikke pynt — ved deling er tre 1-taller
+   netop det, der fortæller, at der ER deling. Nedtonet til 0,55 havde det
+   2,1:1 i kontrast, under WCAG's 3:1 for stor fed tekst. */
+.podium__plads { font-size: 1.35rem; font-weight: 800; color: var(--c-muted); line-height: 1; }
+.podium__trin--1 .podium__plads { font-size: 1.7rem; }
+
+/* Overskriftslinje over stillingen: hvem vises (venstre) og hvordan (højre). */
+.standings__bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; flex-wrap: wrap; margin: 0 0 0.9rem;
+}
+/* På en telefon brydes linjen altid. Uden dette lander knappen venstrestillet
+   og tættere på podiet end på sin egen sætning — og læses så som en overskrift
+   for podiet, den ene ting den ikke ændrer. */
+.standings__bar > .btn { margin-left: auto; }
 
 /* Sticky egen-række i stillingen */
 .rank-row--me { position: sticky; bottom: 0; background: var(--c-surface-alt); box-shadow: 0 -2px 8px rgba(0,0,0,.06); }
