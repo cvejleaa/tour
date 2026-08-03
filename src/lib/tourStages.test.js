@@ -3,6 +3,7 @@ import {
   stageId,
   classifyStageType,
   deriveKickoff,
+  kickoffFromStartTime,
   normalizeStageList,
   stageStatus,
   isTipOpen,
@@ -34,6 +35,18 @@ describe('deriveKickoff', () => {
   it('null for ugyldig dato', () => {
     expect(deriveKickoff('ikke-en-dato')).toBeNull();
     expect(deriveKickoff(null)).toBeNull();
+  });
+});
+
+describe('kickoffFromStartTime', () => {
+  it('bruger den præcise starttid (HH:MM) som lås-tidspunkt', () => {
+    expect(kickoffFromStartTime('2026-07-04', '17:05')).toBe('2026-07-04T17:05:00+02:00');
+    expect(kickoffFromStartTime('2026-07-25', '11:30')).toBe('2026-07-25T11:30:00+02:00');
+  });
+  it('falder tilbage til standard-låstimen uden gyldig starttid', () => {
+    expect(kickoffFromStartTime('2026-07-04', null))
+      .toBe(`2026-07-04T${String(DEFAULT_LOCK_HOUR).padStart(2, '0')}:00:00+02:00`);
+    expect(kickoffFromStartTime('2026-07-04', 'noget')).toBe('2026-07-04T12:00:00+02:00');
   });
 });
 
@@ -80,5 +93,13 @@ describe('stageStatus & isTipOpen', () => {
   });
   it('uden kickoff → scheduled', () => {
     expect(stageStatus({ kickoff: null }, '2026-07-05T18:00:00+02:00')).toBe('scheduled');
+  });
+  it('håndterer en Firestore-Timestamp-kickoff (toDate)', () => {
+    // Seedede etaper gemmer kickoff som Timestamp; new Date(Timestamp) er Invalid,
+    // så stageStatus SKAL bruge .toDate(). Regressionstest for låse-bug.
+    const ts = { toDate: () => new Date('2026-07-05T12:00:00+02:00') };
+    const tsStage = { kickoff: ts, hasResults: false };
+    expect(stageStatus(tsStage, '2026-07-05T09:00:00+02:00')).toBe('scheduled');
+    expect(stageStatus(tsStage, '2026-07-05T13:00:00+02:00')).toBe('locked');
   });
 });

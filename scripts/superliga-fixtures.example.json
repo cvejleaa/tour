@@ -1,0 +1,9 @@
+{
+  "_note": "SKABELON — erstat med det OFFICIELLE Superliga-program (eller lad proxyens Flashscore-synk fylde det ud). Kopiér til scripts/superliga-fixtures.json og ret hold/tider. Holdnavne skal matche src/data/superligaTeams2026.js. kickoff = ISO 8601 i UTC (dansk sommertid = +02:00, så 19:00 dansk = 17:00Z).",
+  "_bekraeftet": "Sæsonstart fredag 24/7-2026; åbningskampen er Viborg FF hjemme kl. 19:00 dansk tid (modstander bekræftes mod officielt program).",
+  "fixtures": [
+    { "round": 1, "home": "Viborg FF", "away": "Sønderjyske", "kickoff": "2026-07-24T17:00:00Z" },
+    { "round": 1, "home": "FC København", "away": "Vejle BK", "kickoff": "2026-07-25T15:00:00Z" },
+    { "round": 1, "home": "Brøndby IF", "away": "Randers FC", "kickoff": "2026-07-26T14:00:00Z" }
+  ]
+}

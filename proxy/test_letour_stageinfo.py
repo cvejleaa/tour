@@ -31,6 +31,11 @@ def _load_sample() -> str:
         if os.path.exists(p):
             with open(p, encoding="utf-8", errors="replace") as f:
                 return f.read()
+    # Under pytest: skip (sample-HTML'en er ikke i repoet og findes ikke i alle
+    # miljøer) i stedet for at fejle hele suiten. Standalone: fejl som før.
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        import pytest
+        pytest.skip("stage5_doc.html ikke tilgængelig i dette miljø")
     raise FileNotFoundError(
         "stage5_doc.html ikke fundet i nogen kendt placering: " + ", ".join(_CANDIDATES)
     )

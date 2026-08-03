@@ -1,12 +1,24 @@
 // Hook: læser straffen for en utippet etape fra config/settings.
-// Værdien gemmes som et positivt tal (antal point der trækkes fra). Default 2.
-// Owner sætter den under Admin → ⚙️ Indstillinger; alle godkendte kan læse den.
+// Værdien gemmes under `points.untippedPenalty` — SAMME felt som serverens
+// scoring (normalizePodium) bruger. Et ældre top-niveau `untippedPenalty` læses
+// stadig som fallback for gamle dokumenter. Owner sætter den under Admin;
+// alle godkendte kan læse den.
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
+import { DEFAULT_UNTIPPED_PENALTY } from '../../lib/tourScoring';
 
-export const DEFAULT_UNTIPPED_PENALTY = 2;
+// Re-eksporter den kanoniske standard (fra scoringen), så UI og server matcher.
+export { DEFAULT_UNTIPPED_PENALTY };
+
+/** Læs straffen fra et settings-dokument (nested først, ellers gammelt top-felt). */
+export function readUntippedPenalty(d) {
+  const raw = d && d.points && d.points.untippedPenalty != null
+    ? d.points.untippedPenalty
+    : (d ? d.untippedPenalty : undefined);
+  return Number.isFinite(Number(raw)) ? Math.abs(Number(raw)) : DEFAULT_UNTIPPED_PENALTY;
+}
 
 export function useUntippedPenalty() {
   const [penalty, setPenalty] = useState(DEFAULT_UNTIPPED_PENALTY);
@@ -18,8 +30,7 @@ export function useUntippedPenalty() {
       ref,
       (snap) => {
         const d = snap && typeof snap.exists === 'function' && snap.exists() ? snap.data() : null;
-        const v = d && Number.isFinite(Number(d.untippedPenalty)) ? Math.abs(Number(d.untippedPenalty)) : DEFAULT_UNTIPPED_PENALTY;
-        setPenalty(v);
+        setPenalty(readUntippedPenalty(d));
         setLoaded(true);
       },
       () => setLoaded(true),

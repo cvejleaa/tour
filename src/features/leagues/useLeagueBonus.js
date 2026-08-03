@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
-import { scoreLeagueBonus } from './leagueBonusScoring';
+import { scoreLeagueBonusAll } from './leagueBonusScoring';
 
 function toMillis(ts) {
   if (!ts) return 0;
@@ -94,8 +94,10 @@ export function useLeagueBonus(leagueId, meUid, isManager = false) {
     for (const [qid, answers] of Object.entries(othersByQid)) {
       const q = qById[qid];
       if (!q || q.facit == null || q.facit === '') continue;
-      for (const a of answers) {
-        totals[a.uid] = (totals[a.uid] || 0) + scoreLeagueBonus(q, a.answer);
+      // scoreLeagueBonusAll håndterer både individuelle og relative (NUMBER) typer.
+      const perUid = scoreLeagueBonusAll(q, answers);
+      for (const [uid, pts] of Object.entries(perUid)) {
+        totals[uid] = (totals[uid] || 0) + pts;
       }
     }
     return totals;

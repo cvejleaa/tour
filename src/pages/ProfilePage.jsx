@@ -3,12 +3,16 @@
  */
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { updateProfile } from '../features/profile/profileActions';
+import { updateProfile, updateDisplayName } from '../features/profile/profileActions';
+import AccountSection from '../features/profile/AccountSection';
 import Avatar from '../components/Avatar';
 import EmojiPicker from '../features/comments/EmojiPicker';
+import { AVATAR_SET, NEUTRAL_AVATAR_SET } from '../data/avatarSet';
+import { isJerseyToken, JERSEY_BY_TOKEN, JerseyIcon } from '../data/jerseyAvatars';
 import ThemeToggle from '../features/leaderboard/ThemeToggle';
 import TeamThemePicker from '../features/profile/TeamThemePicker';
 import { TOUR_TEAMS, prettyTeam } from '../data/tourTeams2026';
+import { PLATFORM_MODE } from '../lib/platform';
 
 const teamOptions = [...TOUR_TEAMS].sort((a, b) =>
   prettyTeam(a).localeCompare(prettyTeam(b), 'da'));
@@ -17,6 +21,7 @@ export default function ProfilePage() {
   const { user, profile } = useAuth();
   const uid = user?.uid;
 
+  const [name, setName] = useState('');
   const [emoji, setEmoji] = useState(null);
   const [team, setTeam] = useState('');
   const [optOut, setOptOut] = useState(false);
@@ -27,6 +32,7 @@ export default function ProfilePage() {
   // Synk fra profil når den loader
   useEffect(() => {
     if (!profile) return;
+    setName(profile.displayName ?? '');
     setEmoji(profile.avatarEmoji ?? null);
     setTeam(profile.favoriteTeam ?? '');
     setOptOut(!!profile.emailOptOut);
@@ -36,10 +42,18 @@ export default function ProfilePage() {
     e.preventDefault();
     setBusy(true); setMsg(''); setErr('');
     try {
+      const cleanName = name.trim();
+      if (cleanName && cleanName !== (profile?.displayName ?? '')) {
+        await updateDisplayName(uid, cleanName);
+      }
       await updateProfile(uid, {
         avatarEmoji: emoji,
-        favoriteTeam: team || null,
         emailOptOut: optOut,
+        // Yndlingshold hører til ét spil ad gangen på platformen (vælges under
+        // "Mit hold" inde i spillet), så feltet vises ikke her — og må derfor
+        // heller ikke sendes med. Ellers ville en gemt profil forsøge at skrive
+        // en værdi, brugeren hverken kan se eller ændre.
+        ...(PLATFORM_MODE ? {} : { favoriteTeam: team || null }),
       });
       setMsg('Profilen er gemt ✔');
     } catch (e2) {
@@ -64,12 +78,39 @@ export default function ProfilePage() {
         </div>
 
         <form onSubmit={handleSave}>
+          {/* Visningsnavn */}
+          <div className="form-group">
+            <label className="form-label" htmlFor="display-name">Navn</label>
+            <input
+              id="display-name"
+              className="input"
+              type="text"
+              value={name}
+              maxLength={40}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Dit navn"
+              style={{ maxWidth: 280 }}
+              data-testid="profile-name"
+            />
+          </div>
+
           {/* Avatar-emoji */}
           <div className="form-group">
             <label className="form-label">Avatar-emoji</label>
             <div className="flex gap-1" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
-              <EmojiPicker onSelect={(e) => setEmoji(e)} />
-              <span style={{ fontSize: '1.5rem' }}>{emoji || '—'}</span>
+              <EmojiPicker
+                onSelect={(e) => setEmoji(e)}
+                emojis={PLATFORM_MODE ? NEUTRAL_AVATAR_SET : AVATAR_SET}
+                triggerLabel={PLATFORM_MODE ? '😀' : '🚴'}
+                label="Vælg avatar"
+              />
+              <span style={{ fontSize: '1.5rem', display: 'inline-flex', alignItems: 'center' }}>
+                {emoji
+                  ? (isJerseyToken(emoji)
+                    ? <JerseyIcon kind={JERSEY_BY_TOKEN[emoji]?.kind} size={28} title={JERSEY_BY_TOKEN[emoji]?.label} />
+                    : emoji)
+                  : '—'}
+              </span>
               {emoji && (
                 <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEmoji(null)}>
                   Ryd
@@ -81,22 +122,24 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Yndlingshold */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="fav-team">Yndlingshold</label>
-            <select
-              id="fav-team"
-              className="select"
-              value={team}
-              onChange={(e) => setTeam(e.target.value)}
-              style={{ maxWidth: 280 }}
-            >
-              <option value="">– Intet valgt –</option>
-              {teamOptions.map((name) => (
-                <option key={name} value={name}>{prettyTeam(name)}</option>
-              ))}
-            </select>
-          </div>
+          {/* Yndlingshold — Tour-hold-specifikt, skjules på den samlede platform */}
+          {!PLATFORM_MODE && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="fav-team">Yndlingshold</label>
+              <select
+                id="fav-team"
+                className="select"
+                value={team}
+                onChange={(e) => setTeam(e.target.value)}
+                style={{ maxWidth: 280 }}
+              >
+                <option value="">– Intet valgt –</option>
+                {teamOptions.map((name) => (
+                  <option key={name} value={name}>{prettyTeam(name)}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* E-mail-præferencer */}
           <div className="form-group">
@@ -107,7 +150,9 @@ export default function ProfilePage() {
                 checked={!optOut}
                 onChange={(e) => setOptOut(!e.target.checked)}
               />
-              Send mig e-mail-påmindelser om etaper jeg mangler at tippe på
+              {PLATFORM_MODE
+                ? 'Send mig e-mail-påmindelser om spil jeg mangler at tippe på'
+                : 'Send mig e-mail-påmindelser om etaper jeg mangler at tippe på'}
             </label>
           </div>
 
@@ -129,12 +174,20 @@ export default function ProfilePage() {
             </span>
           </div>
 
-          <label className="form-label mt-2" htmlFor="team-theme">Holdfarve</label>
-          <TeamThemePicker />
-          <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-            Giver appen dit yndlingsholds accentfarve
-          </span>
+          {/* Holdfarve — Tour-hold-tema, skjules på den samlede platform */}
+          {!PLATFORM_MODE && (
+            <>
+              <label className="form-label mt-2" htmlFor="team-theme">Holdfarve</label>
+              <TeamThemePicker />
+              <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+                Giver appen dit yndlingsholds accentfarve
+              </span>
+            </>
+          )}
         </div>
+
+        {/* Konto & login: skift kontakt-/login-mail og tilkobl Google-login. */}
+        <AccountSection user={user} uid={uid} />
       </div>
     </div>
   );

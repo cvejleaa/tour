@@ -7,6 +7,9 @@ import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { USER_STATUS } from '../lib/constants';
 import { redeemInviteCode } from '../features/auth/inviteActions';
+import { joinLeagueByCode } from '../features/games/gameLeagueActions';
+import { getPendingJoinCode, getPendingJoinGameId, clearPendingJoinCode } from '../features/leagues/joinLink';
+import { APP_NAME, PLATFORM_MODE } from '../lib/platform';
 
 export default function PendingPage() {
   const { user, status, loading } = useAuth();
@@ -18,23 +21,52 @@ export default function PendingPage() {
   const [redeemError, setRedeemError] = useState('');
   const [redeemOk, setRedeemOk] = useState('');
 
-  async function handleRedeem(e) {
-    e.preventDefault();
+  async function redeem(rawCode) {
     setRedeemError('');
     setRedeemOk('');
     setRedeeming(true);
     try {
-      const { leagueName } = await redeemInviteCode(code);
+      let leagueName;
+      let dest = '/';
+      if (PLATFORM_MODE) {
+        // Platform: spil-ligaer kræver et spil-id. Det kommer fra invitationslinket
+        // (gemt sammen med koden); en manuelt tastet kode uden spil kan ikke bruges.
+        const gameId = getPendingJoinGameId();
+        if (!gameId) throw new Error('Brug invitationslinket fra din mail — en kode alene er ikke nok her.');
+        const res = await joinLeagueByCode({ gameId, code: rawCode });
+        if (!res.ok) throw new Error(res.error || 'Kunne ikke indløse koden.');
+        leagueName = res.name;
+        dest = `/spil/${gameId}`;
+      } else {
+        ({ leagueName } = await redeemInviteCode(rawCode));
+      }
+      clearPendingJoinCode();
       setRedeemOk(`Godkendt! Du er tilmeldt "${leagueName}". Sender dig videre…`);
       // Statusskiftet (pending→approved) opdaterer automatisk via AuthContext,
       // men vi navigerer også eksplicit for en hurtig oplevelse.
-      setTimeout(() => navigate('/', { replace: true }), 1200);
+      setTimeout(() => navigate(dest, { replace: true }), 1200);
     } catch (err) {
       setRedeemError(err?.message || 'Kunne ikke indløse koden. Prøv igen.');
     } finally {
       setRedeeming(false);
     }
   }
+
+  async function handleRedeem(e) {
+    e.preventDefault();
+    await redeem(code);
+  }
+
+  // Kom brugeren via et invitationslink (/tilmeld?kode=…), ligger koden gemt:
+  // udfyld feltet og indløs den AUTOMATISK — modtageren skal ikke taste noget.
+  useEffect(() => {
+    if (loading || !user || status !== USER_STATUS.PENDING) return;
+    const stored = getPendingJoinCode();
+    if (!stored || redeeming || redeemOk) return;
+    setCode(stored);
+    redeem(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user, status]);
 
   // Redirect til forsiden hvis brugeren allerede er godkendt
   useEffect(() => {
@@ -85,7 +117,7 @@ export default function PendingPage() {
           </h1>
 
           <p style={{ color: 'var(--c-muted)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-            Din adgang til Tour de France Tip er desværre blevet afvist af en administrator.
+            Din adgang til {APP_NAME} er desværre blevet afvist af en administrator.
             Hvis du mener, det er en fejl, bedes du kontakte turneringsarrangøren.
           </p>
 
@@ -140,7 +172,7 @@ export default function PendingPage() {
 
         <p style={{ color: 'var(--c-muted)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
           Din konto er oprettet, men du mangler at blive godkendt af en administrator,
-          inden du kan deltage i Tour de France Tip.
+          inden du kan deltage i {APP_NAME}.
         </p>
 
         <div

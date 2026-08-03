@@ -5,6 +5,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // ─── Mock Firebase ────────────────────────────────────────────────────────────
 vi.mock('../../firebase', () => ({
   db: {},
+  auth: { currentUser: null },
+  functions: {},
+}));
+
+// UsersTab henter login-metode via en callable ved mount — no-op i tests.
+vi.mock('firebase/functions', () => ({
+  httpsCallable: () => () => Promise.resolve({ data: { users: [] } }),
 }));
 
 const mockOnSnapshot = vi.fn();
@@ -122,7 +129,7 @@ describe('UsersTab', () => {
       { id: 'u1', displayName: 'Bent', email: 'b@test.dk', status: 'pending', role: 'player' },
     ]);
     render(<UsersTab isOwner={true} isGlobalAdmin={true} />);
-    expect(screen.getByRole('button', { name: /Godkend/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Godkend' })).toBeInTheDocument();
   });
 
   it('viser Afvis-knap for pending bruger', () => {
@@ -158,7 +165,7 @@ describe('UsersTab', () => {
     ]);
     render(<UsersTab isOwner={true} isGlobalAdmin={true} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Godkend/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Godkend' }));
 
     await waitFor(() => {
       expect(updateDoc).toHaveBeenCalledWith(
@@ -196,7 +203,7 @@ describe('UsersTab', () => {
     ]);
     render(<UsersTab isOwner={true} isGlobalAdmin={true} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Godkend/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Godkend' }));
 
     await waitFor(() => {
       expect(updateDoc).not.toHaveBeenCalled();
@@ -240,14 +247,24 @@ describe('UsersTab', () => {
     });
   });
 
-  it('viser IKKE handlingsknapper for owner-bruger (rollen er beskyttet)', () => {
+  it('viser IKKE godkend/rolle-knapper for owner-bruger (rollen er beskyttet)', () => {
     setupSnapshot([
       { id: 'u1', displayName: 'Ejer Person', email: 'ejer@test.dk', status: 'approved', role: 'owner' },
     ]);
     render(<UsersTab isOwner={true} isGlobalAdmin={true} />);
-    // Owner-bruger skal have EJER-badge men ingen handlingsknapper
+    // Owner-bruger skal have EJER-badge men ingen godkend/afvis/rolle-knapper
     expect(screen.queryByRole('button', { name: /Godkend/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Til global admin/i })).not.toBeInTheDocument();
+  });
+
+  it('ejeren KAN slette en dublet-ejer-række (ikke sig selv)', () => {
+    // Auth-mock har currentUser: null → isSelf=false → slet-knappen skal vises,
+    // også når rækkens rolle er owner (to ejer-konti på samme mail).
+    setupSnapshot([
+      { id: 'dup', displayName: 'Bibamus', email: 'ejer@test.dk', status: 'approved', role: 'owner' },
+    ]);
+    render(<UsersTab isOwner={true} isGlobalAdmin={true} />);
+    expect(screen.getByRole('button', { name: /Slet bruger/i })).toBeInTheDocument();
   });
 
   // ─── Global admin (ikke ejer) ─────────────────────────────────────────────
@@ -257,7 +274,7 @@ describe('UsersTab', () => {
       { id: 'u1', displayName: 'Bent', email: 'b@test.dk', status: 'pending', role: 'player' },
     ]);
     render(<UsersTab isOwner={false} isGlobalAdmin={true} />);
-    expect(screen.getByRole('button', { name: /Godkend/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Godkend' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Til global admin/i })).not.toBeInTheDocument();
   });
 

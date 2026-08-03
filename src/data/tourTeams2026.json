@@ -1,209 +1,209 @@
 [
- {
-  "code": "APT",
-  "name": "Alpecin-Premier Tech",
-  "nameShort": "Alpecin-Premier Tech",
-  "nationality": "bel",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/apt/70993/0:0,400:400-0-0-70/04313",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/apt/69915/0:0,400:400-0-0-70/662be",
-  "color": "#000000"
- },
- {
-  "code": "TBV",
-  "name": "Bahrain Victorious",
-  "nameShort": "Bahrain Victorious",
-  "nationality": "brn",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/tbv/69898/0:0,400:400-0-0-70/8c8d8",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/tbv/69911/0:0,400:400-0-0-70/82343",
-  "color": "#000000"
- },
- {
-  "code": "CJR",
-  "name": "Caja Rural-Seguros RGA",
-  "nameShort": "Caja Rural-Seguros RGA",
-  "nationality": "esp",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/cjr/69904/0:0,400:400-0-0-70/a05fe",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/cjr/69920/0:0,400:400-0-0-70/58a88",
-  "color": "#000000"
- },
- {
-  "code": "COF",
-  "name": "Cofidis",
-  "nameShort": "Cofidis",
-  "nationality": "fra",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/cof/70176/0:0,400:400-0-0-70/b1a04",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/cof/70177/0:0,284:284-0-0-70/12750",
-  "color": "#000000"
- },
- {
-  "code": "DCT",
-  "name": "Decathlon CMA CGM Team",
-  "nameShort": "de",
-  "nationality": "fra",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/dct/70992/0:0,400:400-0-0-70/4fa2b",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/dct/69918/0:0,400:400-0-0-70/cc44e",
-  "color": "#000000"
- },
- {
-  "code": "EFE",
-  "name": "EF Education - Easypost",
-  "nameShort": "EF Education - Easypost",
-  "nationality": "usa",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/efe/69907/0:0,400:400-0-0-70/14870",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/efe/69923/0:0,400:400-0-0-70/f9784",
-  "color": "#000000"
- },
- {
-  "code": "GFC",
-  "name": "Groupama-FDJ United",
-  "nameShort": "Groupama-FDJ United",
-  "nationality": "fra",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/gfc/69909/0:0,400:400-0-0-70/ee7f0",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/gfc/69930/0:0,400:400-0-0-70/fcd28",
-  "color": "#000000"
- },
- {
-  "code": "LTK",
-  "name": "Lidl-Trek",
-  "nameShort": "Lidl-Trek",
-  "nationality": "ger",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/ltk/69892/0:0,400:400-0-0-70/acb56",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/ltk/69922/0:0,400:400-0-0-70/9c67a",
-  "color": "#000000"
- },
- {
-  "code": "LOI",
-  "name": "Lotto Intermarché",
-  "nameShort": "Lotto Intermarché",
-  "nationality": "bel",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/loi/69893/0:0,400:400-0-0-70/bc6dd",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/loi/69929/0:0,400:400-0-0-70/9ccd6",
-  "color": "#000000"
- },
- {
-  "code": "MOV",
-  "name": "Movistar Team",
-  "nameShort": "Movistar Team",
-  "nationality": "esp",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/mov/69890/0:0,400:400-0-0-70/e4049",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/mov/69931/0:0,400:400-0-0-70/c5193",
-  "color": "#000000"
- },
- {
-  "code": "NSN",
-  "name": "NSN Cycling Team",
-  "nameShort": "NSN Cycling Team",
-  "nationality": "sui",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/nsn/69894/0:0,400:400-0-0-70/c9ded",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/nsn/69924/0:0,400:400-0-0-70/d18c2",
-  "color": "#000000"
- },
- {
-  "code": "NCI",
-  "name": "Netcompany Ineos",
-  "nameShort": "Netcompany Ineos",
-  "nationality": "gbr",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/nci/70958/0:0,400:400-0-0-70/22f8e",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-jpg/nci/71196/0:0,400:400-0-0-70/85e75",
-  "color": "#000000"
- },
- {
-  "code": "PQT",
-  "name": "Pinarello-Q.36.5 Pro Cycling Team",
-  "nameShort": "Pinarello-Q.36.5 Pro Cycling Team",
-  "nationality": "sui",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/pqt/69888/0:0,400:400-0-0-70/130ce",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/pqt/69914/0:0,400:400-0-0-70/1607f",
-  "color": "#000000"
- },
- {
-  "code": "RBH",
-  "name": "Red Bull - BORA - hansgrohe",
-  "nameShort": "Red Bull - BORA - hansgrohe",
-  "nationality": "ger",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/rbh/69897/0:0,400:400-0-0-70/9f2f4",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/rbh/69925/0:0,400:400-0-0-70/36dcc",
-  "color": "#000000"
- },
- {
-  "code": "SOQ",
-  "name": "Soudal Quick-Step",
-  "nameShort": "Soudal Quick-Step",
-  "nationality": "bel",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/soq/69902/0:0,400:400-0-0-70/8c02b",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/soq/69913/0:0,400:400-0-0-70/81104",
-  "color": "#000000"
- },
- {
-  "code": "JAY",
-  "name": "Team Jayco AlUla",
-  "nameShort": "Team Jayco AlUla",
-  "nationality": "aus",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/jay/69891/0:0,400:400-0-0-70/61327",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/jay/69926/0:0,400:400-0-0-70/e311c",
-  "color": "#000000"
- },
- {
-  "code": "TPP",
-  "name": "Team Picnic PostNL",
-  "nameShort": "Team Picnic PostNL",
-  "nationality": "ned",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/tpp/69899/0:0,400:400-0-0-70/5418d",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/tpp/69935/0:0,350:152-0-0-70/eb7b9",
-  "color": "#000000"
- },
- {
-  "code": "TVL",
-  "name": "Team Visma | Lease a Bike",
-  "nameShort": "Team Visma | Lease a Bike",
-  "nationality": "ned",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/tvl/70994/0:0,400:400-0-0-70/b3c03",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/tvl/69921/0:0,400:400-0-0-70/1af89",
-  "color": "#000000"
- },
- {
-  "code": "TEN",
-  "name": "TotalEnergies",
-  "nameShort": "TotalEnergies",
-  "nationality": "fra",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/ten/69896/0:0,400:400-0-0-70/c4db9",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/ten/69932/0:0,706:692-0-0-70/7b507",
-  "color": "#000000"
- },
- {
-  "code": "TUD",
-  "name": "Tudor Pro Cycling Team",
-  "nameShort": "Tudor Pro Cycling Team",
-  "nationality": "sui",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/tud/69895/0:0,400:400-0-0-70/52d8a",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/tud/69934/0:0,225:225-0-0-70/80ac3",
-  "color": "#000000"
- },
- {
-  "code": "UEX",
-  "name": "UAE Team Emirates XRG",
-  "nameShort": "UAE Team Emirates XRG",
-  "nationality": "uae",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/uad/69903/0:0,400:400-0-0-70/0a2b6",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/uad/69916/0:0,400:400-0-0-70/e01b6",
-  "color": "#000000"
- },
- {
-  "code": "UXM",
-  "name": "Uno-X Mobility",
-  "nameShort": "Uno-X Mobility",
-  "nationality": "nor",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/uxm/70812/0:0,400:400-0-0-70/3779a",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/uxm/69917/0:0,400:400-0-0-70/58d8e",
-  "color": "#000000"
- },
- {
-  "code": "XAT",
-  "name": "XDS Astana Team",
-  "nameShort": "XDS Astana Team",
-  "nationality": "kaz",
-  "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/xat/69901/0:0,400:400-0-0-70/c63d1",
-  "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/xat/69912/0:0,400:400-0-0-70/739e8",
-  "color": "#000000"
- }
+  {
+    "code": "APT",
+    "name": "Alpecin-Premier Tech",
+    "nameShort": "Alpecin-PT",
+    "nationality": "bel",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/apt/70993/0:0,400:400-0-0-70/04313",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/apt/69915/0:0,400:400-0-0-70/662be",
+    "color": "#000000"
+  },
+  {
+    "code": "TBV",
+    "name": "Bahrain Victorious",
+    "nameShort": "Bahrain",
+    "nationality": "brn",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/tbv/69898/0:0,400:400-0-0-70/8c8d8",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/tbv/69911/0:0,400:400-0-0-70/82343",
+    "color": "#000000"
+  },
+  {
+    "code": "CJR",
+    "name": "Caja Rural-Seguros RGA",
+    "nameShort": "Caja Rural",
+    "nationality": "esp",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/cjr/69904/0:0,400:400-0-0-70/a05fe",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/cjr/69920/0:0,400:400-0-0-70/58a88",
+    "color": "#000000"
+  },
+  {
+    "code": "COF",
+    "name": "Cofidis",
+    "nameShort": "Cofidis",
+    "nationality": "fra",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/cof/70176/0:0,400:400-0-0-70/b1a04",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/cof/70177/0:0,284:284-0-0-70/12750",
+    "color": "#000000"
+  },
+  {
+    "code": "DCT",
+    "name": "Decathlon CMA CGM Team",
+    "nameShort": "Decathlon",
+    "nationality": "fra",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/dct/70992/0:0,400:400-0-0-70/4fa2b",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/dct/69918/0:0,400:400-0-0-70/cc44e",
+    "color": "#000000"
+  },
+  {
+    "code": "EFE",
+    "name": "EF Education - Easypost",
+    "nameShort": "EF Education",
+    "nationality": "usa",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/efe/69907/0:0,400:400-0-0-70/14870",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/efe/69923/0:0,400:400-0-0-70/f9784",
+    "color": "#000000"
+  },
+  {
+    "code": "GFC",
+    "name": "Groupama-FDJ United",
+    "nameShort": "Groupama-FDJ",
+    "nationality": "fra",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/gfc/69909/0:0,400:400-0-0-70/ee7f0",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/gfc/69930/0:0,400:400-0-0-70/fcd28",
+    "color": "#000000"
+  },
+  {
+    "code": "LTK",
+    "name": "Lidl-Trek",
+    "nameShort": "Lidl-Trek",
+    "nationality": "ger",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/ltk/69892/0:0,400:400-0-0-70/acb56",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/ltk/69922/0:0,400:400-0-0-70/9c67a",
+    "color": "#000000"
+  },
+  {
+    "code": "LOI",
+    "name": "Lotto Intermarché",
+    "nameShort": "Lotto Interm.",
+    "nationality": "bel",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/loi/69893/0:0,400:400-0-0-70/bc6dd",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/loi/69929/0:0,400:400-0-0-70/9ccd6",
+    "color": "#000000"
+  },
+  {
+    "code": "MOV",
+    "name": "Movistar Team",
+    "nameShort": "Movistar",
+    "nationality": "esp",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/mov/69890/0:0,400:400-0-0-70/e4049",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/mov/69931/0:0,400:400-0-0-70/c5193",
+    "color": "#000000"
+  },
+  {
+    "code": "NSN",
+    "name": "NSN Cycling Team",
+    "nameShort": "NSN",
+    "nationality": "sui",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/nsn/69894/0:0,400:400-0-0-70/c9ded",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/nsn/69924/0:0,400:400-0-0-70/d18c2",
+    "color": "#000000"
+  },
+  {
+    "code": "NCI",
+    "name": "Netcompany Ineos",
+    "nameShort": "Ineos",
+    "nationality": "gbr",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/nci/70958/0:0,400:400-0-0-70/22f8e",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-jpg/nci/71196/0:0,400:400-0-0-70/85e75",
+    "color": "#000000"
+  },
+  {
+    "code": "PQT",
+    "name": "Pinarello-Q.36.5 Pro Cycling Team",
+    "nameShort": "Pinarello-Q36.5",
+    "nationality": "sui",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/pqt/69888/0:0,400:400-0-0-70/130ce",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/pqt/69914/0:0,400:400-0-0-70/1607f",
+    "color": "#000000"
+  },
+  {
+    "code": "RBH",
+    "name": "Red Bull - BORA - hansgrohe",
+    "nameShort": "Red Bull-BORA",
+    "nationality": "ger",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/rbh/69897/0:0,400:400-0-0-70/9f2f4",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/rbh/69925/0:0,400:400-0-0-70/36dcc",
+    "color": "#000000"
+  },
+  {
+    "code": "SOQ",
+    "name": "Soudal Quick-Step",
+    "nameShort": "Soudal-QS",
+    "nationality": "bel",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/soq/69902/0:0,400:400-0-0-70/8c02b",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/soq/69913/0:0,400:400-0-0-70/81104",
+    "color": "#000000"
+  },
+  {
+    "code": "JAY",
+    "name": "Team Jayco AlUla",
+    "nameShort": "Jayco AlUla",
+    "nationality": "aus",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/jay/69891/0:0,400:400-0-0-70/61327",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/jay/69926/0:0,400:400-0-0-70/e311c",
+    "color": "#000000"
+  },
+  {
+    "code": "TPP",
+    "name": "Team Picnic PostNL",
+    "nameShort": "Picnic PostNL",
+    "nationality": "ned",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/tpp/69899/0:0,400:400-0-0-70/5418d",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/tpp/69935/0:0,350:152-0-0-70/eb7b9",
+    "color": "#000000"
+  },
+  {
+    "code": "TVL",
+    "name": "Team Visma | Lease a Bike",
+    "nameShort": "Visma-LaB",
+    "nationality": "ned",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/tvl/70994/0:0,400:400-0-0-70/b3c03",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/tvl/69921/0:0,400:400-0-0-70/1af89",
+    "color": "#000000"
+  },
+  {
+    "code": "TEN",
+    "name": "TotalEnergies",
+    "nameShort": "TotalEnergies",
+    "nationality": "fra",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/ten/69896/0:0,400:400-0-0-70/c4db9",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/ten/69932/0:0,706:692-0-0-70/7b507",
+    "color": "#000000"
+  },
+  {
+    "code": "TUD",
+    "name": "Tudor Pro Cycling Team",
+    "nameShort": "Tudor",
+    "nationality": "sui",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/tud/69895/0:0,400:400-0-0-70/52d8a",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/tud/69934/0:0,225:225-0-0-70/80ac3",
+    "color": "#000000"
+  },
+  {
+    "code": "UEX",
+    "name": "UAE Team Emirates XRG",
+    "nameShort": "UAE Emirates",
+    "nationality": "uae",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/uad/69903/0:0,400:400-0-0-70/0a2b6",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/uad/69916/0:0,400:400-0-0-70/e01b6",
+    "color": "#000000"
+  },
+  {
+    "code": "UXM",
+    "name": "Uno-X Mobility",
+    "nameShort": "Uno-X",
+    "nationality": "nor",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/uxm/70812/0:0,400:400-0-0-70/3779a",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/uxm/69917/0:0,400:400-0-0-70/58d8e",
+    "color": "#000000"
+  },
+  {
+    "code": "XAT",
+    "name": "XDS Astana Team",
+    "nameShort": "XDS Astana",
+    "nationality": "kaz",
+    "jersey": "https://img.aso.fr/core_app/img-cycling-tdf-png/xat/69901/0:0,400:400-0-0-70/c63d1",
+    "logo": "https://img.aso.fr/core_app/img-cycling-tdf-png/xat/69912/0:0,400:400-0-0-70/739e8",
+    "color": "#000000"
+  }
 ]

@@ -1,0 +1,97 @@
+name: Migrér brugere (tour-85928 → spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+# Migrerer eksisterende Tour-spilleres KONTI (med bevarede kodeord) og GLOBALE
+# profiler til platformen, så de kan logge ind på tip.vejleaa.dk.
+# Tour-SPILDATA (tips/point) migreres separat efter Touren (games/tour2026).
+# Kan køres igen for at re-synkronisere (idempotent).
+#
+# Engangsopsætning — tilføj disse repo-secrets (Settings → Secrets → Actions):
+#   FIREBASE_SERVICE_ACCOUNT       (findes) — service-account for tour-85928
+#   FIREBASE_SERVICE_ACCOUNT_SPIL  (findes) — service-account for spil-89af9
+#   TOUR_HASH_CONFIG               (NY) — HELE "Password hash parameters"-blokken
+#     fra tour-85928 (Firebase Console → Authentication → Users → ⋮ →
+#     Password hash parameters). Bevarer spillernes kodeord ved import.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Kun tælle/vise (ingen skrivning)? Slå fra for at migrere rigtigt.'
+        type: boolean
+        default: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder + Firebase CLI
+        run: |
+          npm ci
+          npm install -g firebase-tools
+
+      - name: Tjek secrets
+        run: |
+          for s in FIREBASE_SERVICE_ACCOUNT FIREBASE_SERVICE_ACCOUNT_SPIL TOUR_HASH_CONFIG; do :; done
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT (tour-85928)."; exit 1; fi
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+          if [ -z '${{ secrets.TOUR_HASH_CONFIG }}' ]; then echo "::error::Mangler TOUR_HASH_CONFIG (Password hash parameters fra tour-85928)."; exit 1; fi
+
+      - name: Skriv service-accounts
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/tour-sa.json"
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Eksportér Auth-brugere fra tour-85928
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/tour-sa.json
+        run: |
+          firebase auth:export "$RUNNER_TEMP/tour-users.json" --format=json --project tour-85928
+          COUNT=$(node -e "console.log((require('$RUNNER_TEMP/tour-users.json').users||[]).length)")
+          echo "Eksporterede $COUNT konti fra tour-85928."
+
+      - name: Importér Auth-brugere til spil-89af9 (bevarer kodeord)
+        if: ${{ !inputs.dryRun }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/spil-sa.json
+          TOUR_HASH_CONFIG: ${{ secrets.TOUR_HASH_CONFIG }}
+        run: |
+          # Udtræk hash-parametrene fra den indsatte blok.
+          KEY=$(printf '%s' "$TOUR_HASH_CONFIG"  | grep -oP 'base64_signer_key["'"'"'\s:=]+\K[^,"'"'"'\s]+' | head -1)
+          SALT=$(printf '%s' "$TOUR_HASH_CONFIG" | grep -oP 'base64_salt_separator["'"'"'\s:=]+\K[^,"'"'"'\s]+' | head -1)
+          ROUNDS=$(printf '%s' "$TOUR_HASH_CONFIG" | grep -oP 'rounds["'"'"'\s:=]+\K[0-9]+' | head -1)
+          MEM=$(printf '%s' "$TOUR_HASH_CONFIG"  | grep -oP 'mem_cost["'"'"'\s:=]+\K[0-9]+' | head -1)
+          if [ -z "$KEY" ] || [ -z "$SALT" ] || [ -z "$ROUNDS" ] || [ -z "$MEM" ]; then
+            echo "::error::Kunne ikke udtrække hash-parametre fra TOUR_HASH_CONFIG (signer_key/salt_separator/rounds/mem_cost). Tjek at hele blokken er indsat."
+            exit 1
+          fi
+          echo "Hash-parametre fundet (rounds=$ROUNDS, mem_cost=$MEM). Importerer…"
+          firebase auth:import "$RUNNER_TEMP/tour-users.json" \
+            --hash-algo=SCRYPT --hash-key="$KEY" --salt-separator="$SALT" \
+            --rounds="$ROUNDS" --mem-cost="$MEM" \
+            --project spil-89af9
+          echo "Auth-import færdig — spillerne kan nu logge ind med deres nuværende kodeord."
+
+      - name: Migrér Firestore-profiler (users + userContacts)
+        env:
+          TOUR_SA: ${{ runner.temp }}/tour-sa.json
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          DRY_RUN: ${{ inputs.dryRun }}
+        run: node scripts/migrate-users.mjs
+
+      - name: Opsummering
+        run: |
+          if [ "${{ inputs.dryRun }}" = "true" ]; then
+            echo "::notice::DRY-RUN gennemført — intet blev skrevet. Kør igen med dryRun=false for at migrere rigtigt."
+          else
+            echo "::notice::Migrering gennemført. Eksisterende Tour-spillere kan nu logge ind på tip.vejleaa.dk."
+          fi

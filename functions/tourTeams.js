@@ -11,20 +11,36 @@ function normalizeTeam(name) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+// ALIAS-tabel: samme hold under FORSKELLIGE navne i letours egne kilder
+// (holdliste: "Netcompany Ineos"; resultattabeller: "INEOS GRENADIERS").
+// Normalisering kan ikke bygge bro over et sponsorskifte — kendte varianter
+// mappes eksplicit. Nøgler/værdier er normalizeTeam-nøgler. Spejl af src!
+const TEAM_ALIASES = {
+  ineosgrenadiers: 'netcompanyineos',
+  netcompanyineoscyclingteam: 'netcompanyineos',
+};
+
+function canonicalTeamKey(name) {
+  const key = normalizeTeam(name);
+  return TEAM_ALIASES[key] || key;
+}
+
 function teamKeyFromRow(row) {
   const url = row && row.team_url;
   if (url) {
     const slug = String(url).split('/').pop() || '';
     const noYear = slug.replace(/-\d{4}$/, '');
-    if (noYear) return noYear;
+    // Alias-opslag også på slug'en, så et hold aldrig får to nøgler
+    // fordi kilderne bruger forskellige navne/slugs.
+    if (noYear) return TEAM_ALIASES[normalizeTeam(noYear)] || noYear;
   }
   const name = row && row.team_name;
-  return name ? normalizeTeam(name) : null;
+  return name ? canonicalTeamKey(name) : null;
 }
 
 function sameTeam(a, b) {
   if (a == null || b == null) return false;
-  return normalizeTeam(a) === normalizeTeam(b);
+  return canonicalTeamKey(a) === canonicalTeamKey(b);
 }
 
 function findKnownTeam(name, known) {
@@ -48,6 +64,8 @@ function teamsFromRows(rows) {
 
 module.exports = {
   normalizeTeam,
+  canonicalTeamKey,
+  TEAM_ALIASES,
   teamKeyFromRow,
   sameTeam,
   findKnownTeam,

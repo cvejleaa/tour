@@ -17,13 +17,20 @@ export function translateFirebaseError(code) {
     'auth/too-many-requests':        'For mange forsøg. Prøv igen om lidt.',
     'auth/network-request-failed':   'Netværksfejl – tjek din internetforbindelse.',
     'auth/popup-closed-by-user':     'Login-vinduet blev lukket. Prøv igen.',
+    'auth/cancelled-popup-request':  'Login-vinduet blev afbrudt. Prøv igen.',
+    'auth/account-exists-with-different-credential': 'Der findes allerede en konto med den e-mail via en anden login-metode.',
     'auth/requires-recent-login':    'Log ind igen for at udføre denne handling.',
     'auth/operation-not-allowed':    'Denne login-metode er ikke aktiveret.',
     'auth/missing-password':         'Angiv venligst en adgangskode.',
     'auth/missing-email':            'Angiv venligst en e-mailadresse.',
+    'auth/configuration-not-found':  'Login-metoden er ikke sat op i Firebase (er e-mail/adgangskode og Google aktiveret?).',
+    'auth/unauthorized-domain':      'Dette domæne er ikke godkendt i Firebase Authentication → Authorized domains.',
+    'auth/popup-blocked':            'Browseren blokerede login-vinduet. Tillad pop op-vinduer og prøv igen.',
   };
 
-  return errors[code] ?? 'Der opstod en ukendt fejl. Prøv igen.';
+  // Ukendte koder vises med selve koden i parentes, så en fejl kan diagnosticeres
+  // uden at åbne udviklerkonsollen.
+  return errors[code] ?? `Der opstod en ukendt fejl${code ? ` (${code})` : ''}. Prøv igen.`;
 }
 
 /**

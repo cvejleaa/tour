@@ -8,12 +8,14 @@ import {
   normalizePoints,
   stageWinnerTeam,
   stageGcTeam,
+  gcTeamStanding,
   topPointsTeam,
   resolveStageResult,
   isUntipped,
   scoreStageBet,
   QUESTION_DEFAULTS_BY_TYPE,
   activeQuestionsForStage,
+  stageTipComplete,
 } from './tourScoring.js';
 
 // Lille hjælper: byg en målrækkefølge fra [team, team, ...].
@@ -46,39 +48,43 @@ describe('Q1 – stageWinnerTeam', () => {
   });
 });
 
-describe('Q2 – stageGcTeam (samlet bedste på de XX første ryttere)', () => {
-  it('belønner flere ryttere højt oppe frem for én enkelt vinder', () => {
-    // top-4: VLA på nr.1, men SOQ har nr.2,3,4.
-    // Placerings-point (N=4): nr1=4, nr2=3, nr3=2, nr4=1.
-    // VLA=4, SOQ=3+2+1=6 → SOQ vinder.
-    const fo = order('VLA', 'SOQ', 'SOQ', 'SOQ');
-    expect(stageGcTeam(fo, 4)).toBe('SOQ');
+describe('Q2 – stageGcTeam (holdets N bedste rytteres placeringssum, lavest vinder)', () => {
+  it('summerer holdets N bedste placeringer; lavest sum vinder', () => {
+    // N=3. AAA på 1,4,5 (sum 10); BBB på 2,3,6 (sum 11) → AAA vinder.
+    expect(stageGcTeam(order('AAA', 'BBB', 'BBB', 'AAA', 'AAA', 'BBB'), 3)).toBe('AAA');
   });
 
-  it('én topplacering slår spredte lave placeringer', () => {
-    // top-5: UAD nr.1 (5p). Resten ét hold hver lavt.
-    const fo = order('UAD', 'A', 'B', 'C', 'D');
-    expect(stageGcTeam(fo, 5)).toBe('UAD');
+  it('kun de N bedste placeringer tæller (dårlige ignoreres)', () => {
+    // N=2. AAA på 1,2,(5); BBB på 3,4 → AAA sum 3 < BBB sum 7.
+    expect(stageGcTeam(order('AAA', 'AAA', 'BBB', 'BBB', 'AAA'), 2)).toBe('AAA');
   });
 
-  it('respekterer topN-grænsen (ryttere udenfor tæller ikke)', () => {
-    // Kun top-2 tæller: nr1 UAD(2p), nr2 VLA(1p) → UAD. SOQ udenfor.
-    const fo = order('UAD', 'VLA', 'SOQ', 'SOQ', 'SOQ');
-    expect(stageGcTeam(fo, 2)).toBe('UAD');
+  it('hold med færre end N ryttere i mål kvalificerer ikke', () => {
+    // N=3. AAA har 3 (1,2,3); BBB har kun 2 (4,5) → kun AAA kvalificerer.
+    expect(stageGcTeam(order('AAA', 'AAA', 'AAA', 'BBB', 'BBB'), 3)).toBe('AAA');
+  });
+
+  it('null når intet hold har N ryttere i mål', () => {
+    expect(stageGcTeam(order('AAA', 'BBB'), 3)).toBeNull();
   });
 
   it('bruger default top-N når intet er angivet', () => {
-    const fo = order(...Array(DEFAULT_GC_TOP_N + 5).fill('UAD'));
-    expect(stageGcTeam(fo)).toBe('UAD');
+    const fo = order(...Array(DEFAULT_GC_TOP_N).fill('UAD'), ...Array(DEFAULT_GC_TOP_N).fill('VLA'));
+    expect(stageGcTeam(fo)).toBe('UAD'); // UAD har de N første pladser (lavest sum)
   });
 
   it('er deterministisk ved lige sum (alfabetisk tie-break)', () => {
-    // top-2: nr1 'BBB'(2p), nr2 'AAA'(1p) → BBB højest. Byt om:
-    expect(stageGcTeam(order('BBB', 'AAA'), 2)).toBe('BBB');
-    // To hold med præcis samme samlede point og antal → alfabetisk først.
-    // nr1 'ZZZ', nr2 'AAA', nr3 'AAA', nr4 'ZZZ' (N=4):
-    // ZZZ=4+1=5, AAA=3+2=5, begge 2 ryttere → 'AAA' vinder (alfabetisk).
-    expect(stageGcTeam(order('ZZZ', 'AAA', 'AAA', 'ZZZ'), 4)).toBe('AAA');
+    // N=2. ZZZ på 1,4 (sum 5); AAA på 2,3 (sum 5) → lige → 'AAA' først.
+    expect(stageGcTeam(order('ZZZ', 'AAA', 'AAA', 'ZZZ'), 2)).toBe('AAA');
+  });
+});
+
+describe('gcTeamStanding – fuld Q2-holdstilling med rytter-detaljer', () => {
+  it('sorterer hold efter laveste sum og angiver de tællende ryttere', () => {
+    const rows = gcTeamStanding(order('AAA', 'BBB', 'BBB', 'AAA', 'AAA', 'BBB'), 3);
+    expect(rows.map((r) => r.team)).toEqual(['AAA', 'BBB']);
+    expect(rows[0]).toMatchObject({ team: 'AAA', sum: 10 });
+    expect(rows[0].riders.map((r) => r.rank)).toEqual([1, 4, 5]);
   });
 });
 
@@ -106,14 +112,14 @@ describe('Q3/Q4 – topPointsTeam (bjerg-/sprintpoint)', () => {
 describe('resolveStageResult – fuldt facit fra rå etapedata', () => {
   it('afgør alle fire spørgsmål når data findes', () => {
     const raw = {
-      finishOrder: order('UAD', 'VLA', 'UAD', 'SOQ'),
+      finishOrder: order('UAD', 'UAD', 'VLA', 'SOQ', 'VLA'),
       mountainPoints: [{ team: 'COF', points: 12 }, { team: 'UAD', points: 5 }],
       sprintPoints: [{ team: 'SOQ', points: 20 }, { team: 'UAD', points: 8 }],
-      gcTopN: 4,
+      gcTopN: 2,
     };
     const res = resolveStageResult(raw);
     expect(res.winnerTeam).toBe('UAD'); // nr.1
-    // top-4: UAD nr1+nr3 = 4+2 = 6, VLA nr2 = 3, SOQ nr4 = 1 → UAD
+    // N=2: UAD nr1+nr2 = 3 (lavest); VLA nr3+nr5 = 8; SOQ kun 1 rytter → udgår → UAD
     expect(res.gcTeam).toBe('UAD');
     expect(res.mountainTeam).toBe('COF');
     expect(res.sprintTeam).toBe('SOQ');
@@ -178,6 +184,31 @@ describe('scoreStageBet', () => {
     expect(points).toBe(DEFAULT_POINTS.winnerTeam);
     expect(breakdown).toEqual({ winnerTeam: 5 });
   });
+
+  it('matcher holdnavne TOLERANT (case/tegnsætning/whitespace må afvige)', () => {
+    // Tip gemt med seed-navnet; facit kommer fra letour-resultattabellen med
+    // anden kapitalisering og tegnsætning. Skal stadig give fuld gevinst.
+    const bet = { winnerTeam: 'Alpecin-Premier Tech', gcTeam: 'Team Visma | Lease a Bike' };
+    const res = { winnerTeam: 'ALPECIN PREMIER TECH', gcTeam: 'TEAM VISMA-LEASE A BIKE' };
+    const { points, breakdown } = scoreStageBet(bet, res);
+    expect(breakdown.winnerTeam).toBe(DEFAULT_POINTS.winnerTeam);
+    expect(breakdown.gcTeam).toBe(DEFAULT_POINTS.gcTeam);
+    expect(points).toBe(DEFAULT_POINTS.winnerTeam + DEFAULT_POINTS.gcTeam);
+  });
+
+  it('tolerant match gælder også podie-pladserne (2./3.)', () => {
+    const res = { podium: { winnerTeam: ['UAE TEAM EMIRATES XRG', 'SOUDAL QUICK-STEP', 'COFIDIS'] } };
+    const { breakdown } = scoreStageBet({ winnerTeam: 'Soudal Quick-Step' }, res);
+    expect(breakdown.winnerTeam).toBe(3); // 2.-pladsen i standard-skalaen [5,3,1]
+  });
+
+  it('ALIAS-match: tip på "Netcompany Ineos" scorer mod facit "INEOS GRENADIERS"', () => {
+    // Timing-leverandøren bruger holdets gamle navn i resultattabellerne —
+    // et sponsorskifte må ALDRIG koste spillerne point.
+    const res = { winnerTeam: 'INEOS GRENADIERS' };
+    const { breakdown } = scoreStageBet({ winnerTeam: 'Netcompany Ineos' }, res);
+    expect(breakdown.winnerTeam).toBe(DEFAULT_POINTS.winnerTeam);
+  });
 });
 
 describe('activeQuestionsForStage', () => {
@@ -221,6 +252,26 @@ describe('activeQuestionsForStage', () => {
   it('ignorerer et ufuldstændigt questions-felt og falder tilbage til typen', () => {
     expect(activeQuestionsForStage({ type: 'ttt', questions: { winnerTeam: true } }))
       .toEqual(QUESTION_DEFAULTS_BY_TYPE.ttt);
+  });
+});
+
+describe('stageTipComplete (komplet = alle aktive spørgsmål besvaret)', () => {
+  it('holdtidskørsel: kun vinder-hold kræves', () => {
+    expect(stageTipComplete({ type: 'ttt' }, { winnerTeam: 'UAD' })).toBe(true);
+    expect(stageTipComplete({ type: 'ttt' }, {})).toBe(false);
+  });
+  it('flad etape: vinder + bedste hold + sprint kræves (ikke bjerg)', () => {
+    const flat = { type: 'flat' };
+    expect(stageTipComplete(flat, { winnerTeam: 'A', gcTeam: 'B', sprintTeam: 'C' })).toBe(true);
+    expect(stageTipComplete(flat, { winnerTeam: 'A', gcTeam: 'B' })).toBe(false);
+  });
+  it('questions-override styrer hvad der kræves', () => {
+    const stage = { type: 'mountain', questions: { winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false } };
+    expect(stageTipComplete(stage, { winnerTeam: 'A' })).toBe(true);
+    expect(stageTipComplete(stage, {})).toBe(false);
+  });
+  it('intet tip → ikke komplet', () => {
+    expect(stageTipComplete({ type: 'flat' }, null)).toBe(false);
   });
 });
 

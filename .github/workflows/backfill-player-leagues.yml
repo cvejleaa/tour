@@ -1,0 +1,51 @@
+name: Backfill liga-adgang til stillingen (spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+# Skriver liga-medlemskabet ned på games/{gameId}/players/{uid}.leagueIds, som
+# security rules bruger til at afgøre, hvem der må se hvis point.
+# Kør den FØR de strammede regler går live, så stillingen ikke står tom.
+# Se scripts/backfill-player-leagues.mjs.
+#
+# Bruger repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+    inputs:
+      gameId:
+        description: 'Kun ét spil (tomt = alle spil)'
+        type: string
+        default: ''
+      dryRun:
+        description: 'Kun vise hvad der ville blive skrevet?'
+        type: boolean
+        default: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      - name: Tjek secret
+        run: |
+          if [ -z '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+
+      - name: Skriv service-account
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}' > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Backfill liga-medlemskab
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          GAME_ID: ${{ inputs.gameId }}
+          DRY_RUN: ${{ inputs.dryRun }}
+        run: node scripts/backfill-player-leagues.mjs

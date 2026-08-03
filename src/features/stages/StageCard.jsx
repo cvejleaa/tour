@@ -6,11 +6,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { COL } from '../../lib/constants';
-import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, DEFAULT_PODIUM } from '../../lib/tourScoring';
+import { COL, TIMEZONE } from '../../lib/constants';
+import { scoreStageBet, STAGE_FIELDS, activeQuestionsForStage, stageTipComplete, DEFAULT_PODIUM, DEFAULT_GC_TOP_N } from '../../lib/tourScoring';
 import { stageStatus } from '../../lib/tourStages';
+import { canonicalTeamKey } from '../../lib/tourTeams';
 import { prettyTeam } from '../../data/tourTeams2026';
 import TeamBadge from '../../components/TeamBadge';
+import StageAnswers from './StageAnswers';
 
 const STAGE_TYPE_LABEL = {
   flat: '🟢 Flad', hilly: '🟡 Kuperet', mountain: '🔴 Bjerg',
@@ -33,8 +35,21 @@ function formatDate(kickoff) {
   return d.toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+// Tip-frist (lås-tidspunkt) med dato + klokkeslæt i dansk tid — uafhængigt af
+// brugerens egen tidszone, så fristen altid vises i Tour-tid (CEST).
+function formatDeadline(kickoff) {
+  if (!kickoff) return '';
+  const d = kickoff?.toDate ? kickoff.toDate() : new Date(kickoff);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('da-DK', {
+    timeZone: TIMEZONE,
+    weekday: 'short', day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit',
+  }).format(d);
+}
+
 export default function StageCard({
-  stage, uid, bet, teams = [], points = {}, gcTopN = 10,
+  stage, uid, bet, teams = [], points = {}, gcTopN = DEFAULT_GC_TOP_N,
   previousPicks = null, similarStages = [], onApplyToOpenStages = null,
 }) {
   const status = stageStatus(stage, Date.now());
@@ -56,6 +71,7 @@ export default function StageCard({
   const [error, setError] = useState('');
   const [applying, setApplying] = useState(false);
   const [applyMsg, setApplyMsg] = useState('');
+  const [showAnswers, setShowAnswers] = useState(false);
 
   useEffect(() => {
     setPicks({
@@ -66,7 +82,9 @@ export default function StageCard({
     });
   }, [bet?.winnerTeam, bet?.gcTeam, bet?.mountainTeam, bet?.sprintTeam]);
 
-  const hasBet = STAGE_FIELDS.some(({ key }) => bet?.[key]);
+  // "Tippet" = alle AKTIVE spørgsmål for etapen er besvaret (samme definition
+  // som forsiden og etape-listen, så badges og opgavetæller altid stemmer).
+  const hasBet = stageTipComplete(stage, bet);
   const result = isDone ? stage.result : null;
   const scored = result ? scoreStageBet(bet, result, points, active) : null;
 
@@ -94,6 +112,17 @@ export default function StageCard({
     const next = { ...picks, [key]: value };
     setPicks(next);
     save(next);
+  }
+
+  // Et <select> viser kun valget når værdien matcher en option PRÆCIST.
+  // Gemte tips kan stamme fra en anden navnevariant af samme hold (resultat-
+  // tabellernes ALL-CAPS, alias som "Ineos Grenadiers") — slå derfor op via
+  // kanonisk hold-nøgle, så tippet altid vises. Gemmes der igen, normaliseres
+  // værdien automatisk til listens navn.
+  function selectValue(val) {
+    if (!val || teams.includes(val)) return val;
+    const k = canonicalTeamKey(val);
+    return teams.find((t) => canonicalTeamKey(t) === k) ?? val;
   }
 
   // Sæt alle fire felter til et givet sæt holdvalg og gem. Bruges af både
@@ -166,6 +195,13 @@ export default function StageCard({
         </div>
       </div>
 
+      {/* Tip-frist — kun mens etapen er åben. Tippet låses ved etapestart. */}
+      {!locked && stage.kickoff && (
+        <div data-testid="stage-deadline" style={{ fontSize: '0.8rem', color: 'var(--c-muted)', marginBottom: '0.5rem' }}>
+          ⏳ Tip lukker <strong style={{ color: 'var(--c-text)' }}>{formatDeadline(stage.kickoff)}</strong>
+        </div>
+      )}
+
       {/* Optjente point */}
       {scored && (
         <div style={{ marginBottom: '0.5rem' }}>
@@ -182,10 +218,24 @@ export default function StageCard({
           const podium = result?.podium?.[key] || (facit ? [facit] : []);
           const earned = scored?.breakdown?.[key] || 0;
           const MEDAL = ['🥇', '🥈', '🥉'];
+          // Pointskalaen for spørgsmålet (fx 5·2·1) vises direkte på etapen,
+          // så man ikke skal forbi hjælpesiden for at se hvad et tip er værd.
+          const scale = (Array.isArray(points[key]) ? points[key] : DEFAULT_PODIUM[key]) || [];
+          const scaleShown = scale.filter((p) => Number(p) > 0);
           return (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 600, minWidth: 200 }}>
                 {icon} {label(gcTopN)}
+                {!locked && scaleShown.length > 0 && (
+                  <span
+                    className="badge badge--muted"
+                    data-testid={`scale-${key}`}
+                    title={`Point hvis dit hold ender som nr. 1/2/3: ${scaleShown.map((p, i) => `${i + 1}. plads ${p} point`).join(', ')}`}
+                    style={{ fontSize: '0.64rem', marginLeft: '0.4rem', verticalAlign: 'middle', fontWeight: 700 }}
+                  >
+                    {scaleShown.join('·')} p
+                  </span>
+                )}
               </span>
               {locked ? (
                 <span style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
@@ -212,7 +262,7 @@ export default function StageCard({
                 </span>
               ) : (
                 <select
-                  value={picks[key]}
+                  value={selectValue(picks[key])}
                   disabled={saving}
                   onChange={(e) => onPick(key, e.target.value)}
                   data-testid={`pick-${key}`}
@@ -226,6 +276,23 @@ export default function StageCard({
           );
         })}
       </div>
+
+      {/* Alles svar + etapens top – kun når etapen er afgjort. Lazy: data
+          hentes først når man folder ud (så etape-listen forbliver let). */}
+      {isDone && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => setShowAnswers((v) => !v)}
+            aria-expanded={showAnswers}
+            data-testid="reveal-stage-answers"
+          >
+            {showAnswers ? 'Skjul alles svar' : '👀 Se alles svar'}
+          </button>
+          {showAnswers && <StageAnswers stage={stage} points={points} gcTopN={gcTopN} />}
+        </div>
+      )}
 
       {/* Genvejs-handlinger – kun når etapen er åben (redigerbar) */}
       {!locked && (
@@ -288,7 +355,7 @@ export default function StageCard({
             if (!active[key]) return sum;
             const scale = Array.isArray(points[pk]) ? points[pk] : DEFAULT_PODIUM[pk];
             return sum + (scale[0] ?? DEFAULT_PODIUM[pk][0]);
-          }, 0)} point · faldende point for 1./2./3.-plads · gemmes automatisk · låses ved etapestart
+          }, 0)} point · tallene ved hvert spørgsmål er point for 1./2./3.-plads · gemmes automatisk · låses ved etapestart
         </p>
       )}
       {/* Detaljer om etapen ligger på præsentationssiden (📖 Læs om etapen). */}

@@ -14,8 +14,8 @@ jobs:
     name: Frontend – lint, unit-tests, build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -34,24 +34,32 @@ jobs:
           EOF
       - run: npm run lint
       - run: npm run test:coverage
-      - run: npm run build
+      # Repoet bygger TO apps fra samme kode (VITE_PLATFORM_MODE). Begge skal
+      # bygges her — ellers kan platformen (tip.vejleaa.dk) gå i stykker, uden
+      # at CI opdager det.
+      - name: Byg Tour-udgaven
+        run: npm run build
+      - name: Byg platform-udgaven
+        run: VITE_PLATFORM_MODE=true npm run build
 
   functions:
     name: Functions – scoring & standings tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
       - run: cd functions && npm ci && npm test
+      - run: cd functions-platform && npm ci && npm test
 
   rules:
     name: Firestore Security Rules (emulator)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -69,8 +77,8 @@ jobs:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm

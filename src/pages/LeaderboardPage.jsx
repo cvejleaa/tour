@@ -12,12 +12,19 @@ import { useDailyStandings } from '../features/leaderboard/useDailyStandings';
 import { useLeagues } from '../features/leagues/useLeagues';
 import { collectVisibleUids } from '../features/leaderboard/standingsUtils';
 import StandingsTable from '../features/leaderboard/StandingsTable';
+import BreakdownTable from '../features/leaderboard/BreakdownTable';
+import { useStandingsBreakdown } from '../features/leaderboard/useStandingsBreakdown';
+import { useStages } from '../features/stages/useStages';
+import { useActiveSeason } from '../features/stages/useActiveSeason';
+import { useTourSettings } from '../features/stages/useTourSettings';
 import { leagueScore, scoringLabel, normalizeScoring, isFullScoring } from '../features/leagues/leagueFormat';
 import { useLeagueBonus } from '../features/leagues/useLeagueBonus';
+import { useLeagueAwards } from '../features/leagues/useLeagueAwards';
 
 // ── Fane-konstanter ──────────────────────────────────────────────────────────
 const TAB_OVERALL = 'overall';
 const TAB_DAILY = 'daily';
+const TAB_BREAKDOWN = 'breakdown';
 
 export default function LeaderboardPage() {
   const { user } = useAuth();
@@ -28,6 +35,14 @@ export default function LeaderboardPage() {
   const { standings, loading: loadingStandings, error: errorStandings } = useStandings();
   const { pointsByUid, todayStr, loading: loadingDaily, error: errorDaily } = useDailyStandings();
   const { leagues } = useLeagues(user?.uid);
+
+  // Udspecificeret: point pr. spørgsmål — hentes/beregnes først når fanen åbnes.
+  const season = useActiveSeason();
+  const { points: stagePointsCfg } = useTourSettings();
+  const { stages } = useStages(season);
+  const { byUid: breakdownByUid, loading: loadingBreakdown } = useStandingsBreakdown(
+    stages, stagePointsCfg, activeTab === TAB_BREAKDOWN,
+  );
 
   // Find de valgte ligamedlemmer (til filter)
   const selectedLeague = leagues.find((l) => l.id === selectedLeagueId) ?? null;
@@ -50,9 +65,15 @@ export default function LeaderboardPage() {
   // så forsidens filter matcher ligaens egen side præcist.
   const leagueScoring = normalizeScoring(selectedLeague);
   const { pointsByUid: leagueBonusByUid } = useLeagueBonus(selectedLeagueId || null, user?.uid);
+  // Manuelle liga-point på fælles bonusspørgsmål tæller sammen med liga-bonus.
+  const { awardsByUid: leagueAwardsByUid } = useLeagueAwards(selectedLeagueId || null);
   const getLeaguePoints = useCallback(
-    (uid) => leagueScore(standings.find((u) => u.uid === uid), leagueScoring, leagueBonusByUid[uid] || 0),
-    [standings, leagueScoring, leagueBonusByUid],
+    (uid) => leagueScore(
+      standings.find((u) => u.uid === uid),
+      leagueScoring,
+      (leagueBonusByUid[uid] || 0) + (leagueAwardsByUid[uid] || 0),
+    ),
+    [standings, leagueScoring, leagueBonusByUid, leagueAwardsByUid],
   );
   // Brug liga-scoring når en liga er valgt (også ved fuld scoring, så liga-bonus tæller med)
   const useLeagueScoring = !!selectedLeagueId;
@@ -111,6 +132,14 @@ export default function LeaderboardPage() {
           onClick={() => setActiveTab(TAB_DAILY)}
         >
           📅 Dagens etape
+        </button>
+        <button
+          role="tab"
+          className={`tab${activeTab === TAB_BREAKDOWN ? ' tab--active' : ''}`}
+          aria-selected={activeTab === TAB_BREAKDOWN}
+          onClick={() => setActiveTab(TAB_BREAKDOWN)}
+        >
+          🧮 Udspecificeret
         </button>
       </div>
 
@@ -178,6 +207,29 @@ export default function LeaderboardPage() {
             getPoints={getDailyPoints}
             loading={loadingDaily || loadingStandings}
             emptyMsg="Ingen point fra dagens etape endnu."
+          />
+        </div>
+      )}
+
+      {/* ── Udspecificeret (Q1-4 + bonus + total) ─────────────────────── */}
+      {activeTab === TAB_BREAKDOWN && (
+        <div className="card card--flat">
+          <div className="card__header">
+            <h2 className="card__title">
+              {selectedLeague ? `${selectedLeague.name} – udspecificeret` : 'Udspecificeret stilling'}
+            </h2>
+          </div>
+          <p className="text-sm mb-2" style={{ color: 'var(--c-muted)', fontSize: '0.82rem' }}>
+            Point pr. spørgsmål på tværs af alle afgjorte etaper:
+            🏆 etapevinderens hold · ⏱️ bedste hold · ⛰️ flest bjergpoint · 🚀 flest sprintpoint
+            · 🎁 bonusspørgsmål. Rød parentes i Total = straf for utippede etaper.
+          </p>
+          <BreakdownTable
+            users={standings}
+            byUid={breakdownByUid}
+            meUid={user?.uid}
+            memberUids={memberUids}
+            loading={loadingBreakdown || loadingStandings}
           />
         </div>
       )}

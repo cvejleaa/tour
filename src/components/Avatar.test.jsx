@@ -37,4 +37,14 @@ describe('Avatar', () => {
     const { container } = render(<Avatar uid="u1" name="Carsten" favoriteTeam="BRA" />);
     expect(container.querySelector('img')).not.toBeInTheDocument();
   });
+
+  it('tegner en trøje-avatar for en jersey-token (fx prik-trøjen)', () => {
+    const { container } = render(<Avatar uid="u1" name="Carsten" emoji="jersey:polka" />);
+    const svg = container.querySelector('svg');
+    expect(svg).toBeInTheDocument();
+    // Prik-trøjen har røde prikker (circle-elementer)
+    expect(svg.querySelectorAll('circle').length).toBeGreaterThan(0);
+    // Initialerne vises IKKE når en trøje er valgt
+    expect(screen.queryByText('C')).not.toBeInTheDocument();
+  });
 });

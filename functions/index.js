@@ -30,6 +30,9 @@ const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD');
 // Anthropic API-nøgle til AI-morgenopslag. Sættes med:
 //   firebase functions:secrets:set ANTHROPIC_API_KEY
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
+// Proxyens refresh-token (samme secret som proxy/deploy.sh binder) — bruges
+// af syncTourNow({stage}) til at bryde en frosset proxy-cache op før gen-synk.
+const TDF_REFRESH_TOKEN = defineSecret('TDF_REFRESH_TOKEN');
 const SMTP_HOST = 'send.one.com';
 const SMTP_PORT = 465; // implicit TLS
 const SMTP_USER = 'tour@vejleaa.dk';
@@ -37,19 +40,42 @@ const EMAIL_FROM = 'Tour de France Tip <tour@vejleaa.dk>';
 const APP_URL = 'https://tour.vejleaa.dk';
 const TZ = 'Europe/Copenhagen';
 
-const { scoreStageBet, normalizePodium, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage } = require('./tourScoring');
+const { scoreStageBet, normalizePodium, DEFAULT_GC_TOP_N, bonusNorm, activeQuestionsForStage, stageTipComplete } = require('./tourScoring');
 const { buildStageUpdate, syncStageInfoCore } = require('./tourSync');
+const { classificationStandings, stageResultRows, needsPrevForPoints } = require('./pcsMapping');
 const { syncStartlistCore } = require('./startlistSync');
 const { redeemInviteCodeCore } = require('./invites');
 const Anthropic = require('@anthropic-ai/sdk');
 const { RECAP_SYSTEM, RECAP_DEFAULT_TIME, buildRecapFacts, recapWindowOpen, leagueStagePoints, historicalMembers, windowDayPoints } = require('./leagueRecap');
+const { leagueBonusTotalsByUid } = require('./leagueBonus');
+const { salesPitchHtml } = require('./salesPitch');
+const { fetchLiveTickerCore, mapPosts, postStats, feedUrl, FEED_HEADERS } = require('./liveTicker');
+const { fetchLiveMapCore } = require('./liveMap');
 const { runGenerateStageTips } = require('./stageTip');
+const { runEnrichRiderTags } = require('./riderTags');
+const { syncStageTimesCore } = require('./stageTimes');
+const tourSummary = require('./tourSummary');
+const { leagueStandings, renderThankYouEmail } = require('./thankYouEmail');
 
 // Initialiser Firebase Admin (singleton)
 initializeApp();
 
 // Region for alle funktioner
 const REGION = 'europe-west1';
+
+// Global "automatik på pause"-kontakt: når config/automation.paused === true,
+// springer alle skemalagte jobs over (resultat-sync, AI-morgenopslag, tip-
+// påmindelsesmails m.fl.). Reversibelt via setAutomationPaused. Fejler sikkert
+// til "ikke på pause", så en læsefejl ikke utilsigtet standser alt.
+async function automationPaused(db) {
+  try {
+    const snap = await db.collection('config').doc('automation').get();
+    return snap.exists && snap.data().paused === true;
+  } catch (e) {
+    console.error('automationPaused: kunne ikke læse config/automation', e?.message || e);
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // recomputeBonus — beregner point for alle bonusBets når facit sættes
@@ -87,6 +113,14 @@ exports.recomputeBonus = onDocumentWritten(
     // hvis sat (endeligt tal), ellers standard 3.
     const norm = bonusNorm;
     const facitNorm = norm(facit);
+    // Admin kan manuelt godkende (fejlstavede) svar som korrekte via
+    // acceptedAnswers. Byg mængden af normaliserede korrekte svar = facit +
+    // alle godkendte alternativer, så et godkendt svar rent faktisk giver point.
+    const correctNorms = new Set([facitNorm]);
+    for (const a of Array.isArray(after.acceptedAnswers) ? after.acceptedAnswers : []) {
+      const an = norm(a);
+      if (an !== '') correctNorms.add(an);
+    }
     const correctPoints = Number.isFinite(Number(after.points)) ? Number(after.points) : 3;
 
     // Hent alle bonusBets for dette spørgsmål
@@ -106,7 +140,7 @@ exports.recomputeBonus = onDocumentWritten(
     for (const betDoc of betsSnap.docs) {
       const bet = betDoc.data();
       const answerNorm = norm(bet.answer);
-      const pts = answerNorm !== '' && answerNorm === facitNorm ? correctPoints : 0;
+      const pts = answerNorm !== '' && correctNorms.has(answerNorm) ? correctPoints : 0;
 
       batch.update(betDoc.ref, { points: pts });
       opsInBatch++;
@@ -137,6 +171,14 @@ exports.recomputeBonus = onDocumentWritten(
 
 const DEFAULT_TOUR_PROXY = 'https://tdf-results-poi2efmbfa-ew.a.run.app';
 
+// Alle kald til PCS-proxyen får en hård timeout, så en hængende proxy ikke
+// blokerer funktionen indtil platformens maks-timeout (og brænder invocation-tid
+// / rammer sync-loopet). Kastes som en AbortError, som kalderne allerede fanger.
+const PROXY_TIMEOUT_MS = 20000;
+function fetchWithTimeout(url, opts = {}) {
+  return fetch(url, { ...opts, signal: AbortSignal.timeout(PROXY_TIMEOUT_MS) });
+}
+
 // Admin-redigerbar config: point-tabel, top-N til Q2, proxy-URL.
 const DEFAULT_SEASON = 2026;
 
@@ -157,17 +199,35 @@ async function tourSettings(db) {
 // gemmes pr. sæson i users.seasons.{år}; de flade felter (totalPoints m.fl.)
 // afspejler den aktive sæson, så den eksisterende stilling viser indeværende år.
 async function recalcTourTotal(db, uid, season, activeSeason) {
-  const [stageSnap, bonusSnap] = await Promise.all([
-    db.collection('stageBets').where('uid', '==', uid).where('season', '==', season).get(),
-    db.collection('bonusBets').where('uid', '==', uid).where('season', '==', season).get(),
-  ]);
-  const stagePoints = stageSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
-  const bonusPts = bonusSnap.docs.reduce((a, d) => a + (Number(d.data().points) || 0), 0);
-  const totals = { stagePoints, bonusPoints: bonusPts, totalPoints: stagePoints + bonusPts };
-
-  const update = { [`seasons.${season}`]: totals };
-  if (season === activeSeason) Object.assign(update, totals); // flade felter = aktiv sæson
-  await db.collection('users').doc(uid).set(update, { merge: true });
+  // Filtrér IKKE på et `season`-felt: nogle tips (gemt tidligt af klienten med
+  // `season: stage.season ?? null`) mangler feltet, og en `where('season','==')`
+  // ville så udelade dem fra totalen — så stillingen blev for lav, selv om det
+  // gemte etapepoint er korrekt. `stageId`/`questionId` bærer altid sæsonen
+  // (`2026-stage-N`), så vi henter alle brugerens tips og afgør sæson-tilhør
+  // ud fra id'et (med season-feltet som fallback).
+  const prefix = `${season}-`;
+  const stageQ = db.collection('stageBets').where('uid', '==', uid);
+  const bonusQ = db.collection('bonusBets').where('uid', '==', uid);
+  const inSeason = (data, idField) => {
+    if (Number(data.season) === season) return true;
+    return String(data[idField] || '').startsWith(prefix);
+  };
+  // Læs-sammenlæg-skriv i en TRANSAKTION: to etaper der afgøres tæt på
+  // hinanden udløser hver sin recomputeStage, som begge genberegner denne
+  // brugers total parallelt. Uden transaktionen kunne den langsomste skrive
+  // et forældet sum oveni det friske (last-writer-wins). Transaktionen
+  // serialiserer læsning + skrivning, så resultatet altid afspejler alle bets.
+  await db.runTransaction(async (tx) => {
+    const [stageSnap, bonusSnap] = await Promise.all([tx.get(stageQ), tx.get(bonusQ)]);
+    const stagePoints = stageSnap.docs.reduce(
+      (a, d) => (inSeason(d.data(), 'stageId') ? a + (Number(d.data().points) || 0) : a), 0);
+    const bonusPts = bonusSnap.docs.reduce(
+      (a, d) => (inSeason(d.data(), 'questionId') ? a + (Number(d.data().points) || 0) : a), 0);
+    const totals = { stagePoints, bonusPoints: bonusPts, totalPoints: stagePoints + bonusPts };
+    const update = { [`seasons.${season}`]: totals };
+    if (season === activeSeason) Object.assign(update, totals); // flade felter = aktiv sæson
+    tx.set(db.collection('users').doc(uid), update, { merge: true });
+  });
 }
 
 // recomputeStage — point for alle etape-tip når et etaperesultat sættes.
@@ -184,7 +244,6 @@ exports.recomputeStage = onDocumentWritten(
     const { points, activeSeason } = await tourSettings(db);
     const season = after.season || activeSeason;
     const betsSnap = await db.collection('stageBets').where('stageId', '==', stageId).get();
-    if (betsSnap.empty) return;
 
     // Kun de spørgsmål der faktisk stilles på etapen scorer/straffer
     // (override i stage.questions, ellers type-standard).
@@ -194,41 +253,182 @@ exports.recomputeStage = onDocumentWritten(
     let batch = db.batch();
     let ops = 0;
     const batches = [batch];
+    const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+    const changedUids = new Set();
     for (const d of betsSnap.docs) {
       const { points: pts } = scoreStageBet(d.data(), after.result, points, active);
+      // Skriv (og genberegn) kun når pointtallet faktisk ændrer sig — jury-
+      // vinduets gen-syncs rører ellers hvert eneste bet-doc hvert 5. minut.
+      if (Number(d.data().points) === pts) continue;
       batch.update(d.ref, { points: pts });
-      if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; }
+      bump();
+      changedUids.add(d.data().uid);
+    }
+
+    // HÅNDHÆV utippet-straffen ens for ALLE: en godkendt spiller helt UDEN
+    // bet-dokument skal have samme straf som en, der gemte et tomt tip
+    // (PointRules lover "-1 pr. utippet etape"). Vi opretter et tomt bet-doc
+    // med straffens point (scoreStageBet({}) = -straf når facit findes, ellers
+    // 0 — så oprettes intet). Doc-id uid_stageId matcher klientens skema, og
+    // ved senere facit-ændringer genscorer løkken ovenfor dokumentet korrekt.
+    // SCOPING: straffen gælder kun den AKTIVE sæson (et historisk facit må
+    // aldrig strafe nuværende spillere), og kun spillere der var oprettet før
+    // etapestart — man får ikke -1 for etaper kørt før man meldte sig til.
+    const betUids = new Set(betsSnap.docs.map((d) => d.data().uid));
+    const { points: penaltyPts } = scoreStageBet({}, after.result, points, active);
+    if (penaltyPts !== 0 && season === activeSeason) {
+      const kickoffMs = after.kickoff?.toDate ? after.kickoff.toDate().getTime() : null;
+      const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
+      for (const u of usersSnap.docs) {
+        if (betUids.has(u.id)) continue;
+        const createdMs = u.data().createdAt?.toDate ? u.data().createdAt.toDate().getTime() : null;
+        if (kickoffMs && createdMs && createdMs > kickoffMs) continue; // tilmeldt efter etapen
+        batch.set(db.collection('stageBets').doc(`${u.id}_${stageId}`), {
+          uid: u.id, stageId, season,
+          points: penaltyPts,
+          autoPenalty: true, // markør: oprettet af serveren, intet aktivt tip
+          createdAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+        bump();
+        changedUids.add(u.id);
+      }
     }
     for (const b of batches) await b.commit();
 
-    const uids = [...new Set(betsSnap.docs.map((d) => d.data().uid))];
-    for (const uid of uids) await recalcTourTotal(db, uid, season, activeSeason);
+    // Kun spillere med ÆNDREDE point genberegnes — parallelt i små bidder.
+    const uids = [...changedUids];
+    const CHUNK = 10;
+    for (let i = 0; i < uids.length; i += CHUNK) {
+      await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcTourTotal(db, uid, season, activeSeason)));
+    }
   },
 );
 
+// recomputeGameMatch (den samlede platforms spil-afregning) bor i sin EGEN
+// codebase, functions-platform/ — den deployes til spil-89af9 og må ikke
+// blandes med Tour-motorens secrets/projekt. Se functions-platform/index.js.
+
 // Kernen i resultat-sync: hent fra proxyen, map, skriv etape-facit + hold.
-async function syncTourCore(db, { dryRun = false } = {}) {
+async function syncTourCore(db, { dryRun = false, forceStage = null } = {}) {
   const { gcTopN, proxyUrl, activeSeason } = await tourSettings(db);
   const season = activeSeason;
-  const listRes = await fetch(`${proxyUrl}/api/stages`);
+  const listRes = await fetchWithTimeout(`${proxyUrl}/api/stages`);
   if (!listRes.ok) throw new Error(`proxy /api/stages: HTTP ${listRes.status}`);
   const list = await listRes.json();
   const stages = list.stages || [];
   let checked = 0;
   let updated = 0;
   const allTeams = new Map();
+  let latest = null; // seneste afgjorte etape (til de fulde klassement-stillinger)
+
+  // Pointliste (rytter/hold/point) → visningsrækker til etapesiden, sorteret
+  // efter point (flest først). ALLE med point gemmes (typisk 10-40 ryttere) —
+  // spillerne bruger listen som form-data til at tippe de næste etaper.
+  const toPointRows = (list) => (list || [])
+    .slice()
+    .sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0))
+    .map((e, i) => ({ rank: i + 1, rider: e.rider ?? null, team: e.team ?? null, points: Number(e.points) || 0 }));
+
+  // Version af etapesidens visningsfelter — bump'es når felterne udvides, så
+  // allerede-backfillede (frosne) etaper selv-opheler til den nye form.
+  // v3: hele målrækkefølgen gemmes (ikke kun top 30), så "bedste hold" kan
+  // udregnes korrekt på etapesiden (kræver hvert holds N bedste ryttere).
+  const PRESENTATION_V = 3;
+  // Nok rækker til at ALLE hold har mindst gcTopN ryttere med (fuldt felt).
+  const RESULT_ROWS_MAX = 220;
+
+  // En 'done'-etape gen-synces stadig i timerne efter etapestart: letour kan
+  // vise provisoriske rækker mens etapen kører, og juryen ændrer jævnligt
+  // spurt-/bjergpoint og placeringer 30-60 min efter målgang (deklasseringer).
+  // Uden dette vindue ville det FØRSTE hentede facit fryse for evigt.
+  // recomputeStage genberegner kun når result-JSON faktisk ændrer sig.
+  const RESULT_REFRESH_MS = 8 * 3600 * 1000; // frys 8 timer efter etapestart
 
   for (const s of stages) {
     const n = s.number;
     const docId = `${season}-stage-${n}`;
     const existing = await db.collection('stages').doc(docId).get();
-    if (existing.exists && existing.data().status === 'done') continue; // allerede afgjort
+    const exData = existing.exists ? existing.data() : null;
+    // SPÆRRE: en etape kan ikke have et ægte resultat før den er startet. Uden
+    // dette ville synken (indtil 2026-løbet køres) skrive sidste års resultater
+    // fra proxyen ind på fremtidige etaper og afgøre hele turneringen for tidligt.
+    // En etape uden kendt starttid kan ikke bekræftes som startet → spring over
+    // (ellers ville proxyens sidste-års-resultat kunne skrives ind på den).
+    const kickoffMs = exData?.kickoff?.toDate ? exData.kickoff.toDate().getTime() : null;
+    if (!kickoffMs || kickoffMs > Date.now()) continue; // ingen starttid el. endnu ikke startet
+    // Allerede afgjort OG uden for jury-vinduet → frosset for altid.
+    // forceStage (admin gen-synk) omgår frysningen for ÉN udpeget etape —
+    // fx en sen jury-rettelse eller et facit skrevet med en senere rettet bug.
+    if (exData?.status === 'done' && (Date.now() - kickoffMs) > RESULT_REFRESH_MS && n !== forceStage) {
+      // Selv-opheling: mangler etapens visningsresultater (målrækkefølge,
+      // bjerg-/sprintpoint på etapen, holdkonkurrencen — felterne kom til
+      // senere end de første etaper), hentes og gemmes KUN de — facit
+      // (result) røres aldrig på en frosset etape.
+      if (!dryRun && (!Array.isArray(exData.resultRows) || !Array.isArray(exData.holdRows)
+        || exData.presentationV !== PRESENTATION_V)) {
+        try {
+          const rr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
+          if (rr.ok) {
+            const p = await rr.json();
+            let prev = null;
+            let prevMissing = false;
+            if (needsPrevForPoints(p)) {
+              const pr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n - 1}`);
+              if (pr.ok) prev = await pr.json();
+              // Kan n-1 ikke hentes, ville delta mod ingenting skrive HELE det
+              // kumulative klassement som etapens bjerg-/sprintpoint (samme
+              // værn som hovedstien) — spring healen over; næste kørsel prøver igen.
+              prevMissing = !prev;
+            }
+            const rows = stageResultRows(p, RESULT_ROWS_MAX);
+            const lists = buildStageUpdate(p, gcTopN, prev).pointsLists;
+            if (rows.length && !prevMissing) {
+              await db.collection('stages').doc(docId).set({
+                resultRows: rows,
+                mountainRows: toPointRows(lists.mountain),
+                sprintRows: toPointRows(lists.sprint),
+                holdRows: classificationStandings(p, 10).hold,
+                presentationV: PRESENTATION_V,
+              }, { merge: true });
+            }
+          }
+        } catch { /* næste kørsel prøver igen */ }
+      }
+      continue;
+    }
     checked++;
-    const r = await fetch(`${proxyUrl}/api/stages/${n}`);
+    const r = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
     if (r.status === 425 || !r.ok) continue; // resultat ikke klar
     const payload = await r.json();
-    const upd = buildStageUpdate(payload, gcTopN);
+    // 2026-stakken: mangler per-etape sprint-/bjergpoint (ipe/ime), regnes
+    // Q3/Q4 som delta af de kumulative klassementer — hent forrige etape.
+    // Kan n-1 ikke hentes, springes etapen over (delta mod ingenting ville
+    // give hele den kumulative stilling som etape-facit); næste 5-min-kørsel
+    // prøver igen.
+    let prevPayload = null;
+    if (needsPrevForPoints(payload)) {
+      try {
+        const pr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n - 1}`);
+        if (pr.ok) prevPayload = await pr.json();
+      } catch { /* håndteres af null-tjekket herunder */ }
+      if (!prevPayload) continue;
+    }
+    const upd = buildStageUpdate(payload, gcTopN, prevPayload);
     if (!upd.resultsPresent) continue;
+
+    // KVALITETSGATE i jury-vinduet: et allerede afgjort facit må kun
+    // overskrives af et MINDST lige så komplet et. Får letour et hikke
+    // (halvtom tabel midt i en gen-scrape), ville sidste sync-cyklus ellers
+    // kunne fryse et forkrøblet facit fast for altid. Jury-rettelser ændrer
+    // point/placeringer — ikke antallet af rækker (±enkelte udgåede ryttere),
+    // så 80 % af det hidtidige antal er en sikker undergrænse.
+    const rowCount = (payload?.classifications?.etape?.rows || []).length;
+    const prevCount = Number(exData?.resultRowCount) || 0;
+    if (exData?.status === 'done' && prevCount > 0 && rowCount < prevCount * 0.8) {
+      continue; // beskadiget/ufuldstændig tabel — behold det gamle facit
+    }
+
+    if (!latest || n > latest.number) latest = { number: n, payload, jerseys: upd.jerseys, pointsLists: upd.pointsLists };
     upd.teams.forEach((t) => allTeams.set(t.key, t.name));
     if (!dryRun) {
       await db.collection('stages').doc(docId).set({
@@ -240,6 +440,15 @@ async function syncTourCore(db, { dryRun = false } = {}) {
         startCity: upd.meta.startCity,
         finishCity: upd.meta.finishCity,
         km: upd.meta.km,
+        resultRowCount: rowCount,
+        // Etapens visningsresultater — vises på etapens egen side:
+        // HELE målrækkefølgen (så "bedste hold" kan udregnes), bjerg-/
+        // sprintpoint PÅ etapen og holdkonkurrencens stilling efter etapen.
+        resultRows: stageResultRows(payload, RESULT_ROWS_MAX),
+        mountainRows: toPointRows(upd.pointsLists.mountain),
+        sprintRows: toPointRows(upd.pointsLists.sprint),
+        holdRows: classificationStandings(payload, 10).hold,
+        presentationV: PRESENTATION_V,
         resultUpdatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     }
@@ -253,7 +462,61 @@ async function syncTourCore(db, { dryRun = false } = {}) {
     }
     await batch.commit();
   }
-  return { season, checked, updated, teams: allTeams.size };
+
+  // Fulde stillinger pr. konkurrence efter seneste afgjorte etape → config/classifications
+  // (læses af Tour-siden). Skrives kun når en (ny) etape er blevet afgjort.
+  const writeClassifications = async (afterStage, payload, jerseys, previousYear, pointsLists) => {
+    const toRows = (list) => (list || [])
+      .filter((e) => e && e.team && Number(e.points) > 0)
+      .map((e) => ({ rider: e.rider ?? null, team: e.team, points: Number(e.points) || 0 }));
+    await db.collection('config').doc('classifications').set({
+      season,
+      afterStage,
+      previousYear,
+      standings: classificationStandings(payload),
+      stageResult: stageResultRows(payload),
+      // Bjerg-/sprintpoint PÅ seneste etape (ikke kumulativt) — så "Spillets
+      // konkurrencer" viser det man faktisk tipper: etapens point, som
+      // etapevinder-/bedste-hold-kortene også gør.
+      stagePoints: {
+        bjerg: toRows(pointsLists?.mountain),
+        sprint: toRows(pointsLists?.sprint),
+      },
+      jerseys,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: false });
+  };
+
+  let previousYear = false;
+  if (!dryRun) {
+    if (latest) {
+      // Værn: en gen-synk af en GAMMEL etape (forceStage) må ikke rulle
+      // klassements-visningen tilbage — skriv kun hvis denne kørsels seneste
+      // etape er mindst lige så ny som den der allerede vises.
+      const curCls = await db.collection('config').doc('classifications').get();
+      const curAfter = curCls.exists && curCls.data()?.previousYear !== true
+        ? Number(curCls.data()?.afterStage) || 0 : 0;
+      if (latest.number >= curAfter) {
+        // Årets data (mindst én 2026-etape afgjort) → overskriver evt. sidste-års-preview.
+        await writeClassifications(latest.number, latest.payload, latest.jerseys, false, latest.pointsLists);
+      }
+    } else {
+      // Ingen NY etape afgjort i denne kørsel. Sidste-års-previewet (skrevet
+      // før løbsstart) er UDTJENT nu hvor løbet er i gang: står der stadig et
+      // preview (previousYear:true), ryddes det, så Tour-siden viser den rene
+      // "Afventer..."-fallback indtil første 2026-resultat lander. Ægte
+      // 2026-data (previousYear:false) røres aldrig. Preview-genskrivningen
+      // er fjernet med vilje — den hørte tiden FØR løbsstart til.
+      const cur = await db.collection('config').doc('classifications').get();
+      if (cur.exists && cur.data()?.previousYear === true) {
+        await cur.ref.delete();
+      }
+    }
+  }
+  return {
+    season, checked, updated, teams: allTeams.size,
+    classementsAfter: latest ? latest.number : null, previousYear,
+  };
 }
 
 // Planlagt sync: hvert 5. minut mellem 17 og 22 (dansk tid) på etapedage.
@@ -261,6 +524,7 @@ exports.syncTourResults = onSchedule(
   { schedule: '*/5 17-22 * * *', timeZone: TZ, region: REGION },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('syncTourResults: automatik på pause — springer over.'); return; }
     const statusRef = db.collection('config').doc('tourSyncStatus');
     try {
       const res = await syncTourCore(db, {});
@@ -282,11 +546,92 @@ exports.syncTourResults = onSchedule(
   },
 );
 
-// "Kør nu"-knap (admin): henter resultater med det samme.
-exports.syncTourNow = onCall({ region: REGION }, async (request) => {
+// "Kør nu"-knap (admin): henter resultater med det samme. Med { stage: n }
+// omgås 8-timers-frysningen for netop den etape (sen jury-rettelse/bugfix):
+// først bedes PROXYEN gen-scrape etapen (force-refresh — dens egen cache
+// fryser også færdige etaper), dernæst gen-synces facit + visningsdata.
+// recomputeStage genberegner automatisk alle tips hvis facittet ændrer sig.
+exports.syncTourNow = onCall(
+  { region: REGION, secrets: [TDF_REFRESH_TOKEN] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const forceStage = Number.isInteger(Number(request.data?.stage)) && request.data?.stage != null
+      ? Number(request.data.stage) : null;
+
+    // Bryd proxyens frosne cache op for den udpegede etape. Tolerant: fejler
+    // refresh (manglende token/proxy nede), fortsætter synken mod cachen —
+    // status rapporteres til admin i svaret.
+    let proxyRefresh = null;
+    if (forceStage != null) {
+      const token = TDF_REFRESH_TOKEN.value();
+      if (!token) {
+        proxyRefresh = 'springes over: TDF_REFRESH_TOKEN er ikke sat';
+      } else {
+        try {
+          const { proxyUrl } = await tourSettings(db);
+          const res = await fetchWithTimeout(`${proxyUrl}/api/refresh/${forceStage}`, {
+            method: 'POST',
+            headers: { 'x-refresh-token': token },
+          });
+          proxyRefresh = res.ok ? 'ok (gen-scrapet)' : `http-${res.status}`;
+        } catch (e) {
+          proxyRefresh = `fejl: ${String(e?.message || e)}`;
+        }
+      }
+    }
+
+    const result = await syncTourCore(db, { dryRun: request.data?.dryRun === true, forceStage });
+    return proxyRefresh != null ? { proxyRefresh, ...result } : result;
+  },
+);
+
+// Nulstil resultater (admin): fjerner facit/trøjer fra etaperne, sætter dem
+// tilbage til 'scheduled', nulstiller etape-tip-point og genberegner stillingen.
+// Bruges fx hvis synken nåede at skrive sidste års resultater ind.
+exports.resetTourResults = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   await requireAdmin(db, request);
-  return syncTourCore(db, { dryRun: request.data?.dryRun === true });
+  const { activeSeason } = await tourSettings(db);
+  const season = Number(request.data?.season) || activeSeason;
+
+  // 1) Nulstil etaper (fjern resultat/trøjer, status → scheduled)
+  const stagesSnap = await db.collection('stages').where('season', '==', season).get();
+  let stagesReset = 0;
+  {
+    let batch = db.batch(); let ops = 0; const batches = [batch];
+    for (const d of stagesSnap.docs) {
+      const data = d.data();
+      if (data.status !== 'done' && data.result == null && data.jerseys == null) continue;
+      batch.set(d.ref, {
+        status: 'scheduled',
+        result: FieldValue.delete(),
+        jerseys: FieldValue.delete(),
+        resultUpdatedAt: FieldValue.delete(),
+      }, { merge: true });
+      stagesReset++;
+      if (++ops >= 400) { batch = db.batch(); batches.push(batch); ops = 0; }
+    }
+    for (const b of batches) await b.commit();
+  }
+
+  // 2) Nulstil etape-tip-point
+  const betsSnap = await db.collection('stageBets').where('season', '==', season).get();
+  {
+    let batch = db.batch(); let ops = 0; const batches = [batch];
+    for (const d of betsSnap.docs) {
+      if (d.data().points == null) continue;
+      batch.update(d.ref, { points: FieldValue.delete() });
+      if (++ops >= 400) { batch = db.batch(); batches.push(batch); ops = 0; }
+    }
+    for (const b of batches) await b.commit();
+  }
+
+  // 3) Genberegn stillingen for berørte spillere
+  const uids = [...new Set(betsSnap.docs.map((d) => d.data().uid))];
+  for (const uid of uids) await recalcTourTotal(db, uid, season, activeSeason);
+
+  return { season, stagesReset, betsReset: betsSnap.size, users: uids.length };
 });
 
 // "Hent etape-info"-knap (admin): per-etape højdemeter (D+) + hvilke
@@ -301,7 +646,7 @@ exports.syncStageInfo = onCall({ region: REGION }, async (request) => {
     db,
     proxyUrl,
     season: activeSeason,
-    fetchImpl: fetch,
+    fetchImpl: fetchWithTimeout,
     serverTimestamp: () => FieldValue.serverTimestamp(),
     dryRun: request.data?.dryRun === true,
   });
@@ -317,10 +662,11 @@ exports.syncStartlist = onSchedule(
   { schedule: '17 */2 * * *', timeZone: TZ, region: REGION },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('syncStartlist: automatik på pause — springer over.'); return; }
     const { proxyUrl, activeSeason } = await tourSettings(db);
     try {
       const res = await syncStartlistCore({
-        db, proxyUrl, season: activeSeason, fetchImpl: fetch,
+        db, proxyUrl, season: activeSeason, fetchImpl: fetchWithTimeout,
         serverTimestamp: () => FieldValue.serverTimestamp(),
       });
       console.log(`syncStartlist: ${res.announced}/${res.total} hold har udtaget.`);
@@ -336,7 +682,7 @@ exports.syncStartlistNow = onCall({ region: REGION }, async (request) => {
   await requireAdmin(db, request);
   const { proxyUrl, activeSeason } = await tourSettings(db);
   return syncStartlistCore({
-    db, proxyUrl, season: activeSeason, fetchImpl: fetch,
+    db, proxyUrl, season: activeSeason, fetchImpl: fetchWithTimeout,
     serverTimestamp: () => FieldValue.serverTimestamp(),
   });
 });
@@ -415,6 +761,11 @@ exports.redeemInviteCode = onCall({ region: REGION }, async (request) => {
     saveAttempt: (u, state) =>
       db.collection('inviteAttempts').doc(u).set(state, { merge: true }),
 
+    getUserStatus: async (u) => {
+      const snap = await db.collection('users').doc(u).get();
+      return snap.exists ? snap.data()?.status : null;
+    },
+
     findApprovedLeagueByCode: async (code) => {
       const snap = await db.collection('leagues')
         .where('joinCode', '==', code)
@@ -458,22 +809,33 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
     throw new HttpsError('permission-denied', 'Kun owner/global admin kan køre backfill.');
   }
 
-  // Saml uids pr. stageId fra alle stageBets
+  // Hent alle etaper, så vi kan afgøre KOMPLETHED pr. etape (aktive spørgsmål).
+  const stagesSnap = await db.collection('stages').get();
+  const stageById = new Map();
+  for (const d of stagesSnap.docs) stageById.set(d.id, d.data());
+
+  // Saml uids pr. stageId fra alle stageBets — kun KOMPLETTE tip tæller med,
+  // så backfill matcher den løbende syncTipParticipation og forsiden.
   const betsSnap = await db.collection('stageBets').get();
   const byStage = new Map();
   for (const d of betsSnap.docs) {
-    const { stageId, uid } = d.data();
+    const bet = d.data();
+    const { stageId, uid } = bet;
     if (!stageId || !uid) continue;
+    if (!stageTipComplete(stageById.get(stageId), bet)) continue;
     if (!byStage.has(stageId)) byStage.set(stageId, new Set());
     byStage.get(stageId).add(uid);
   }
 
-  // Skriv tipParticipation-dokumenter i batches (doc-id = stageId)
+  // Skriv tipParticipation for ALLE etaper (doc-id = stageId) — også dem uden
+  // komplette tip, så tidligere (delvise) deltagere ryddes væk og tælleren
+  // matcher den nye komplet-definition.
   const BATCH_SIZE = 400;
   let batch = db.batch();
   let ops = 0;
   const batches = [batch];
-  for (const [stageId, uidSet] of byStage.entries()) {
+  for (const stageId of stageById.keys()) {
+    const uidSet = byStage.get(stageId) ?? new Set();
     const ref = db.collection('tipParticipation').doc(stageId);
     batch.set(ref, { stageId, uids: [...uidSet] }, { merge: true });
     ops++;
@@ -483,10 +845,295 @@ exports.backfillTipParticipation = onCall({ region: REGION }, async (request) =>
 
   return {
     success: true,
-    stages: byStage.size,
+    stages: stageById.size,
     bets: betsSnap.size,
-    message: `Backfill færdig: ${byStage.size} etaper opdateret ud fra ${betsSnap.size} tips.`,
+    message: `Backfill færdig: ${stageById.size} etaper opdateret ud fra ${betsSnap.size} tips.`,
   };
+});
+
+// ---------------------------------------------------------------------------
+// recalcAllTotals — admin-værktøj: GENSCORE hver afgjort etape med det
+// nuværende facit + den nuværende pointopsætning, og genberegn derefter ALLE
+// godkendte spilleres totaler. recomputeStage genberegner kun når FACIT
+// ændrer sig — ikke når pointopsætningen justeres — så en ændret pointtabel
+// efterlader ellers serverens totaler forældede (klienten viser de nye tal,
+// stillingen de gamle). Denne reparation bringer dem i sync. Idempotent.
+// ---------------------------------------------------------------------------
+exports.recalcAllTotals = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+  const userDoc = await db.collection('users').doc(request.auth.uid).get();
+  const role = userDoc.data()?.role;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun owner/global admin kan genberegne totaler.');
+  }
+  const { points, activeSeason } = await tourSettings(db);
+
+  // 1) Genscore hver afgjort etapes tips med nuværende facit + pointopsætning.
+  const stagesSnap = await db.collection('stages').get();
+  let rescored = 0;
+  for (const sdoc of stagesSnap.docs) {
+    const stage = sdoc.data();
+    if (!stage || !stage.result) continue;
+    const active = activeQuestionsForStage(stage);
+    const betsSnap = await db.collection('stageBets').where('stageId', '==', sdoc.id).get();
+    const BATCH_SIZE = 400;
+    let batch = db.batch();
+    let pending = 0;
+    let ops = 0;
+    const commits = [];
+    for (const d of betsSnap.docs) {
+      const { points: pts } = scoreStageBet(d.data(), stage.result, points, active);
+      if (Number(d.data().points) === pts) continue; // uændret → spring over
+      batch.update(d.ref, { points: pts });
+      rescored++;
+      pending++;
+      if (++ops >= BATCH_SIZE) { commits.push(batch.commit()); batch = db.batch(); pending = 0; ops = 0; }
+    }
+    if (pending > 0) commits.push(batch.commit());
+    await Promise.all(commits);
+  }
+
+  // 2) Genberegn alle godkendte spilleres totaler fra de (nu friske) point.
+  const usersSnap = await db.collection('users').where('status', '==', 'approved').get();
+  const uids = usersSnap.docs.map((d) => d.id);
+  const CHUNK = 10;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcTourTotal(db, uid, activeSeason, activeSeason)));
+  }
+  return { recalculated: uids.length, rescored };
+});
+
+// ---------------------------------------------------------------------------
+// debugUserPoints — admin-diagnose: dump ALLE en spillers stageBets/bonusBets
+// med point, så vi kan se præcis hvor totalen afviger fra summen af etaperne.
+// Input: { displayName } eller { uid }.
+// ---------------------------------------------------------------------------
+exports.debugUserPoints = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+  const me = await db.collection('users').doc(request.auth.uid).get();
+  const role = me.data()?.role;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun owner/global admin.');
+  }
+  let uid = request.data?.uid;
+  const displayName = request.data?.displayName;
+  if (!uid && displayName) {
+    const q = await db.collection('users').where('displayName', '==', displayName).limit(1).get();
+    if (q.empty) throw new HttpsError('not-found', `Ingen spiller med navnet "${displayName}".`);
+    uid = q.docs[0].id;
+  }
+  if (!uid) throw new HttpsError('invalid-argument', 'Angiv uid eller displayName.');
+
+  const userDoc = await db.collection('users').doc(uid).get();
+  const u = userDoc.data() || {};
+  const [stageSnap, bonusSnap] = await Promise.all([
+    db.collection('stageBets').where('uid', '==', uid).get(),
+    db.collection('bonusBets').where('uid', '==', uid).get(),
+  ]);
+  const FIELDS = ['winnerTeam', 'gcTeam', 'mountainTeam', 'sprintTeam'];
+  const stageBets = stageSnap.docs.map((d) => {
+    const b = d.data();
+    return {
+      id: d.id, stageId: b.stageId ?? null, season: b.season ?? null,
+      points: Number(b.points) || 0, autoPenalty: !!b.autoPenalty,
+      picks: FIELDS.filter((f) => b[f]).map((f) => `${f}=${b[f]}`).join(',') || '(tomt)',
+    };
+  }).sort((a, b) => String(a.stageId).localeCompare(String(b.stageId)));
+  const bonusBets = bonusSnap.docs.map((d) => {
+    const b = d.data();
+    return { id: d.id, questionId: b.questionId ?? null, season: b.season ?? null, points: Number(b.points) || 0 };
+  });
+  const stageSum = stageBets.reduce((a, b) => a + b.points, 0);
+  const bonusSum = bonusBets.reduce((a, b) => a + b.points, 0);
+
+  // Pr. etape: det gemte facit (podie) + server-breakdown for spillerens tip,
+  // så vi kan se PRÆCIS hvilket felt/podie der giver forskellen mod klienten.
+  const { points } = await tourSettings(db);
+  const perStage = [];
+  for (const sb of stageBets) {
+    const sdoc = await db.collection('stages').doc(sb.stageId).get();
+    const stage = sdoc.data() || {};
+    const betDoc = stageSnap.docs.find((d) => d.id === sb.id);
+    const active = activeQuestionsForStage(stage);
+    const scored = scoreStageBet(betDoc.data(), stage.result, points, active);
+    const podium = (stage.result && stage.result.podium) || {};
+    perStage.push({
+      stageId: sb.stageId,
+      type: stage.type ?? null,
+      active,
+      serverScore: scored.points,
+      breakdown: scored.breakdown,
+      resultUpdatedAt: stage.resultUpdatedAt ? String(stage.resultUpdatedAt.toDate?.() ?? stage.resultUpdatedAt) : null,
+      podium: {
+        winnerTeam: podium.winnerTeam || null,
+        gcTeam: podium.gcTeam || null,
+        mountainTeam: podium.mountainTeam || null,
+        sprintTeam: podium.sprintTeam || null,
+      },
+    });
+  }
+
+  return {
+    uid, displayName: u.displayName ?? null,
+    stored: { totalPoints: u.totalPoints ?? null, stagePoints: u.stagePoints ?? null, bonusPoints: u.bonusPoints ?? null },
+    computed: { stageSum, bonusSum, total: stageSum + bonusSum },
+    stageBetsCount: stageBets.length,
+    stageBets, bonusBets, perStage,
+  };
+});
+
+// ---------------------------------------------------------------------------
+// remapTeamName — admin-værktøj: omdøb ét (forældet) holdnavn til det
+// officielle 2026-navn på tværs af ALLE etape-tip — eller RYD det helt
+// (clear: true), når holdet er nedlagt uden efterfølger (fx "ARKEA-B&B
+// HOTELS"): felterne tømmes, så tippet fremstår uspillet og kan gen-tippes
+// på åbne etaper. Tips gemt fra en gammel holdliste matcher hverken
+// dropdown, logoer eller facit — og reglerne tillader ikke admin at rette
+// andres bets fra klienten, så rewritet sker her (admin-SDK). Point
+// genberegnes for afgjorte etaper, og spillernes totaler opdateres.
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// debugStageSync — callable (owner/global admin): diagnose for ÉN etape.
+// Viser side om side hvad der er GEMT (etape-dokumentets mountainRows/
+// sprintRows + facit-podiet og classifications.stagePoints) og hvad letour
+// leverer LIGE NU (frisk delta-beregning via proxyen). Bruges når forside og
+// etapeside viser forskellige bjerg-/sprintresultater.
+// ---------------------------------------------------------------------------
+exports.debugStageSync = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const n = Number(request.data?.stage);
+  if (!Number.isInteger(n) || n < 1 || n > 21) {
+    throw new HttpsError('invalid-argument', 'Angiv etape 1-21.');
+  }
+  const { gcTopN, proxyUrl, activeSeason } = await tourSettings(db);
+  const cap = (rows) => (Array.isArray(rows) ? { count: rows.length, rows: rows.slice(0, 10) } : null);
+
+  // 1) Gemt på etape-dokumentet
+  const stageSnap = await db.collection('stages').doc(`${activeSeason}-stage-${n}`).get();
+  const s = stageSnap.exists ? stageSnap.data() : null;
+  const stored = s ? {
+    status: s.status ?? null,
+    presentationV: s.presentationV ?? null,
+    resultRowCount: s.resultRowCount ?? null,
+    resultUpdatedAt: s.resultUpdatedAt ? String(s.resultUpdatedAt.toDate?.() ?? s.resultUpdatedAt) : null,
+    podium: (s.result && s.result.podium) || null,
+    mountainRows: cap(s.mountainRows),
+    sprintRows: cap(s.sprintRows),
+  } : null;
+
+  // 2) Gemt i config/classifications (forsiden/Tour-sidens "Spillets konkurrencer")
+  const clsSnap = await db.collection('config').doc('classifications').get();
+  const c = clsSnap.exists ? clsSnap.data() : null;
+  const classifications = c ? {
+    afterStage: c.afterStage ?? null,
+    updatedAt: c.updatedAt ? String(c.updatedAt.toDate?.() ?? c.updatedAt) : null,
+    stagePointsBjerg: cap(c.stagePoints?.bjerg),
+    stagePointsSprint: cap(c.stagePoints?.sprint),
+    cumulativeBjergTop: cap((c.standings?.bjerg || []).slice(0, 5)),
+  } : null;
+
+  // 3) Frisk beregning fra proxyen (hvad synken VILLE skrive nu)
+  let live = null;
+  try {
+    const r = await fetchWithTimeout(`${proxyUrl}/api/stages/${n}`);
+    if (!r.ok) {
+      live = { error: `proxy http-${r.status}` };
+    } else {
+      const payload = await r.json();
+      const needsPrev = needsPrevForPoints(payload);
+      let prevPayload = null;
+      let prevStatus = 'ikke nødvendig';
+      if (needsPrev) {
+        try {
+          const pr = await fetchWithTimeout(`${proxyUrl}/api/stages/${n - 1}`);
+          prevStatus = pr.ok ? 'ok' : `http-${pr.status}`;
+          if (pr.ok) prevPayload = await pr.json();
+        } catch (e) { prevStatus = `fejl: ${e?.message || e}`; }
+      }
+      const upd = buildStageUpdate(payload, gcTopN, prevPayload);
+      live = {
+        resultsPresent: upd.resultsPresent,
+        needsPrev,
+        prevStatus,
+        // Delta-beregnede etape-point som synken ville gemme dem NU. Hvis
+        // needsPrev && prev mangler, ville hovedstien springe over (værn).
+        mountain: cap(upd.pointsLists?.mountain),
+        sprint: cap(upd.pointsLists?.sprint),
+        podium: (upd.result && upd.result.podium) || null,
+      };
+    }
+  } catch (e) {
+    live = { error: String(e?.message || e) };
+  }
+
+  return { stage: n, season: activeSeason, stored, classifications, live };
+});
+
+exports.remapTeamName = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+  const userDoc = await db.collection('users').doc(request.auth.uid).get();
+  const role = userDoc.data()?.role;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun owner/global admin kan omdøbe hold.');
+  }
+  const from = String(request.data?.from || '').trim();
+  const clear = request.data?.clear === true;
+  const to = clear ? '' : String(request.data?.to || '').trim();
+  if (!from || (!clear && (!to || from === to))) {
+    throw new HttpsError('invalid-argument', 'Angiv gammelt navn og enten nyt navn eller clear:true.');
+  }
+
+  const { points, activeSeason } = await tourSettings(db);
+  const stagesSnap = await db.collection('stages').get();
+  const stageById = new Map(stagesSnap.docs.map((d) => [d.id, d.data()]));
+
+  const FIELDS = ['winnerTeam', 'gcTeam', 'mountainTeam', 'sprintTeam'];
+  const betsSnap = await db.collection('stageBets').get();
+  const BATCH_SIZE = 400;
+  let batch = db.batch();
+  let ops = 0;
+  const batches = [batch];
+  const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+  let changed = 0;
+  const touchedUids = new Set();
+  for (const d of betsSnap.docs) {
+    const bet = d.data();
+    const upd = {};
+    for (const f of FIELDS) if (bet[f] === from) upd[f] = to;
+    if (Object.keys(upd).length === 0) continue;
+    // Afgjort etape → genberegn dokumentets point med det nye navn med det
+    // samme (recomputeStage trigges kun af facit-ændringer, ikke af bets).
+    const stage = stageById.get(bet.stageId);
+    if (stage && stage.result) {
+      const active = activeQuestionsForStage(stage);
+      upd.points = scoreStageBet({ ...bet, ...upd }, stage.result, points, active).points;
+    }
+    batch.update(d.ref, upd);
+    bump();
+    changed++;
+    if (bet.uid) touchedUids.add(bet.uid);
+  }
+
+  // Ryd teams-docs med det gamle navn (dubletter i dropdown-kollektionen).
+  const teamsSnap = await db.collection('teams').where('name', '==', from).get();
+  let removedTeams = 0;
+  for (const d of teamsSnap.docs) {
+    batch.delete(d.ref);
+    bump();
+    removedTeams++;
+  }
+  for (const b of batches) await b.commit();
+
+  const uids = [...touchedUids];
+  const CHUNK = 10;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    await Promise.all(uids.slice(i, i + CHUNK).map((uid) => recalcTourTotal(db, uid, activeSeason, activeSeason)));
+  }
+  return { changed, removedTeams, players: uids.length };
 });
 
 // ---------------------------------------------------------------------------
@@ -508,19 +1155,25 @@ exports.syncTipParticipation = onDocumentWritten(
 
     const ref = db.collection('tipParticipation').doc(stageId);
 
+    // "Har tippet" = etapens hold-tip er KOMPLET: alle de aktive spørgsmål for
+    // etapen (admins opsætning / type-standard) er besvaret. Et delvist tip
+    // tæller IKKE, så "X har tippet" og "hvem mangler" matcher forsiden og
+    // etape-listen. Inaktive spørgsmål kræves ikke.
+    let complete = false;
     if (after) {
-      // StageBet oprettet eller opdateret → uid har tippet på etapen
-      await ref.set(
-        { stageId, uids: FieldValue.arrayUnion(uid) },
-        { merge: true },
-      );
-    } else {
-      // StageBet slettet → fjern uid (sker normalt ikke fra klienten)
-      await ref.set(
-        { stageId, uids: FieldValue.arrayRemove(uid) },
-        { merge: true },
-      );
+      const stageSnap = await db.collection('stages').doc(stageId).get();
+      const stage = stageSnap.exists ? stageSnap.data() : null;
+      complete = stageTipComplete(stage, after);
     }
+
+    await ref.set(
+      {
+        stageId,
+        // Komplet → tilføj; ufuldstændigt eller slettet → fjern igen.
+        uids: complete ? FieldValue.arrayUnion(uid) : FieldValue.arrayRemove(uid),
+      },
+      { merge: true },
+    );
   }
 );
 
@@ -533,6 +1186,7 @@ exports.snapshotRanks = onSchedule(
   { schedule: '5 4 * * *', timeZone: TZ, region: REGION },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('snapshotRanks: automatik på pause — springer over.'); return; }
     const snap = await db
       .collection('users')
       .where('status', '==', 'approved')
@@ -545,8 +1199,15 @@ exports.snapshotRanks = onSchedule(
     let batch = db.batch();
     let ops = 0;
     const batches = [batch];
+    // DELT konkurrence-placering (samme princip som frontendens tabeller):
+    // pointlighed = samme placering. Ellers ville en ren tie-omrokering give
+    // falske ▲/▼-pile i stillingen — fx alle på 0 point før første etape.
     users.forEach((u, idx) => {
-      batch.update(db.collection('users').doc(u.id), { previousRank: idx + 1 });
+      const rank = idx > 0 && users[idx - 1].total === u.total
+        ? users[idx - 1].rank
+        : idx + 1;
+      u.rank = rank;
+      batch.update(db.collection('users').doc(u.id), { previousRank: rank });
       if (++ops >= 400) { batch = db.batch(); batches.push(batch); ops = 0; }
     });
     for (const b of batches) await b.commit();
@@ -596,6 +1257,19 @@ async function sendEmail(db, transporter, { to, subject, html, type }) {
   }
 }
 
+// Byg et opslag uid → e-mail fra den private userContacts-collection. E-mail
+// bor der (ikke længere på den offentlige users-profil), så almindelige spillere
+// ikke kan udtrække alle deltageres adresser. Admin-SDK'en omgår reglerne.
+async function emailByUidMap(db) {
+  const snap = await db.collection('userContacts').get();
+  const map = new Map();
+  for (const d of snap.docs) {
+    const email = d.data()?.email;
+    if (email) map.set(d.id, email);
+  }
+  return map;
+}
+
 // Kerne-logik: send påmindelser om dagens utippede etaper. Returnerer antal sendte.
 async function runTipReminders(db, transporter) {
   if (!transporter) { console.log('tipReminders: ingen SMTP_PASSWORD — springer over.'); return { sent: 0, reason: 'no-smtp-password' }; }
@@ -631,10 +1305,15 @@ async function runTipReminders(db, transporter) {
     .where('status', '==', 'approved')
     .get();
 
+  // E-mail hentes fra userContacts (privat); fald tilbage til en evt. gammel
+  // e-mail på users-dokumentet for endnu ikke migrerede profiler.
+  const emails = await emailByUidMap(db);
+
   let sent = 0;
   for (const userDoc of usersSnap.docs) {
     const u = userDoc.data();
-    if (u.emailOptOut || !u.email) continue;
+    const email = emails.get(userDoc.id) || u.email;
+    if (u.emailOptOut || !email) continue;
 
     const missing = upcomingStages.filter((s) => !tippedByStage[s.id].has(userDoc.id));
     if (missing.length === 0) continue;
@@ -643,7 +1322,7 @@ async function runTipReminders(db, transporter) {
       .map((s) => `<li>${s.number ? `Etape ${s.number}` : 'Etape'}${s.name ? ` – ${s.name}` : ''}</li>`)
       .join('');
     const html = `
-      <p>Hej ${u.displayName || 'spiller'} 👋</p>
+      <p>Hej ${escapeHtml(u.displayName || 'spiller')} 👋</p>
       <p>Du mangler at tippe på <strong>${missing.length}</strong> etape${missing.length === 1 ? '' : 'r'} det næste døgn:</p>
       <ul>${list}</ul>
       <p><a href="${APP_URL}">Afgiv dine tips på tour.vejleaa.dk</a> inden etapestart.</p>
@@ -651,14 +1330,14 @@ async function runTipReminders(db, transporter) {
 
     try {
       await sendEmail(db, transporter, {
-        to: u.email,
+        to: email,
         subject: `Du mangler at tippe på ${missing.length} etape${missing.length === 1 ? '' : 'r'} det næste døgn`,
         html,
         type: 'reminder',
       });
       sent++;
     } catch (e) {
-      console.error(`tipReminders: kunne ikke sende til ${u.email}:`, e.message);
+      console.error(`tipReminders: kunne ikke sende til ${email}:`, e.message);
     }
   }
   console.log(`tipReminders: sendte ${sent} påmindelser.`);
@@ -667,7 +1346,11 @@ async function runTipReminders(db, transporter) {
 
 exports.tipReminders = onSchedule(
   { schedule: '0 9 * * *', timeZone: TZ, region: REGION, secrets: [SMTP_PASSWORD] },
-  async () => { await runTipReminders(getFirestore(), buildTransport(SMTP_PASSWORD.value())); }
+  async () => {
+    const db = getFirestore();
+    if (await automationPaused(db)) { console.log('tipReminders: automatik på pause — springer over.'); return; }
+    await runTipReminders(db, buildTransport(SMTP_PASSWORD.value()));
+  }
 );
 
 // Callable: admin kan udløse påmindelserne manuelt (til test).
@@ -700,7 +1383,11 @@ exports.sendTestReminderToMe = onCall(
     if (!u || (u.role !== 'owner' && u.role !== 'globalAdmin')) {
       throw new HttpsError('permission-denied', 'Kun owner/global admin kan sende testmail.');
     }
-    if (!u.email) throw new HttpsError('failed-precondition', 'Din profil har ingen e-mailadresse.');
+    // Kalderens egen e-mail: fra Auth-tokenet (kilde til sandhed), ellers den
+    // private userContacts-post, ellers en gammel e-mail på users-dokumentet.
+    const contactSnap = await db.collection('userContacts').doc(request.auth.uid).get();
+    const email = request.auth.token?.email || contactSnap.data()?.email || u.email;
+    if (!email) throw new HttpsError('failed-precondition', 'Din profil har ingen e-mailadresse.');
 
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
@@ -731,7 +1418,7 @@ exports.sendTestReminderToMe = onCall(
     const timeLabel = (d) => new Intl.DateTimeFormat('da-DK', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(d);
 
     let total = 0;
-    let html = `<p>Hej ${u.displayName || 'spiller'} 👋</p><p>Testmail — etaperne for de første 3 etapedage:</p>`;
+    let html = `<p>Hej ${escapeHtml(u.displayName || 'spiller')} 👋</p><p>Testmail — etaperne for de første 3 etapedage:</p>`;
     for (const day of days) {
       const ss = byDay.get(day);
       total += ss.length;
@@ -745,14 +1432,162 @@ exports.sendTestReminderToMe = onCall(
       <p style="color:#888;font-size:12px">Dette er en testmail sendt kun til dig.</p>`;
 
     await sendEmail(db, transporter, {
-      to: u.email,
+      to: email,
       subject: '🧪 Testmail: etaper for de første 3 etapedage',
       html,
       type: 'test-reminder',
     });
 
-    return { success: true, sentTo: u.email, days: days.length, stages: total };
+    return { success: true, sentTo: email, days: days.length, stages: total };
   }
+);
+
+// ---------------------------------------------------------------------------
+// setAutomationPaused — owner/global admin sætter/ophæver global pause for ALLE
+// skemalagte jobs (config/automation.paused). Bruges når løbet er slut.
+// ---------------------------------------------------------------------------
+exports.setAutomationPaused = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+  const role = (await db.collection('users').doc(request.auth.uid).get()).data()?.role;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun owner/global admin kan styre automatikken.');
+  }
+  const paused = request.data?.paused === true;
+  await db.collection('config').doc('automation').set(
+    { paused, updatedAt: FieldValue.serverTimestamp(), updatedBy: request.auth.uid },
+    { merge: true },
+  );
+  console.log(`setAutomationPaused: paused=${paused} af ${request.auth.uid}`);
+  return { success: true, paused };
+});
+
+// ---------------------------------------------------------------------------
+// sendThankYouEmails — afsluttende takke-mail med løbs-tilbageblik (Tour-
+// vinderen, trøjerne, etapesejre og fakta) + hver spillers liga-slutstillinger.
+// dryRun:true (default) sender KUN til admin selv til gennemsyn; dryRun:false
+// sender til alle godkendte spillere med en registreret mailadresse (respekterer
+// emailOptOut — samme fravalg som tip-påmindelserne).
+// ---------------------------------------------------------------------------
+async function buildThankYouContext(db) {
+  const stagesSnap = await db.collection('stages').get();
+  const stages = stagesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const clsSnap = await db.collection('config').doc('classifications').get();
+  const classifications = clsSnap.exists ? clsSnap.data() : null;
+  const gcPodium = tourSummary.computeGcPodium(classifications, stages);
+  const jerseys = tourSummary.computeJerseyWinners(stages);
+  const facts = tourSummary.computeFacts(stages);
+  const stageWins = tourSummary.computeStageWins(stages);
+
+  const usersSnap = await db.collection('users').get();
+  const membersById = {};
+  const recipientUids = [];
+  const optOutUids = new Set();
+  const legacyEmailByUid = {}; // fallback for endnu ikke migrerede profiler
+  usersSnap.docs.forEach((d) => {
+    const u = d.data();
+    membersById[d.id] = {
+      displayName: u.displayName,
+      stagePoints: u.stagePoints, bonusPoints: u.bonusPoints,
+    };
+    if (u.status === 'approved') recipientUids.push(d.id);
+    if (u.emailOptOut) optOutUids.add(d.id);
+    if (u.email) legacyEmailByUid[d.id] = u.email;
+  });
+
+  // Liga-lokal bonus (ligaens egne spørgsmål + manuelle tildelinger) → point
+  // pr. uid pr. liga, så slutstillingen matcher ligaens stillingsvisning —
+  // samme grundlag som AI-morgenopslaget (leagueBonusTotalsByUid).
+  const [lbQSnap, lbASnap, lbAwardSnap] = await Promise.all([
+    db.collection('leagueBonus').get(),
+    db.collection('leagueBonusAnswers').get(),
+    db.collection('leagueBonusAwards').get(),
+  ]);
+  const lbQByLeague = {};
+  lbQSnap.docs.forEach((d) => {
+    const q = { id: d.id, ...d.data() };
+    if (!q.leagueId) return;
+    (lbQByLeague[q.leagueId] = lbQByLeague[q.leagueId] || []).push(q);
+  });
+  const lbAnsByQid = {};
+  lbASnap.docs.forEach((d) => {
+    const a = d.data();
+    if (!a.questionId) return;
+    (lbAnsByQid[a.questionId] = lbAnsByQid[a.questionId] || []).push({ uid: a.uid, answer: a.answer });
+  });
+  const lbAwardsByLeague = {};
+  lbAwardSnap.docs.forEach((d) => {
+    const a = d.data();
+    if (!a.leagueId) return;
+    (lbAwardsByLeague[a.leagueId] = lbAwardsByLeague[a.leagueId] || []).push(a);
+  });
+
+  const leaguesSnap = await db.collection('leagues').where('status', '==', 'approved').get();
+  const standings = leaguesSnap.docs.map((d) => {
+    const lg = { id: d.id, ...d.data() };
+    const lbByUid = leagueBonusTotalsByUid(
+      lbQByLeague[lg.id] || [], lbAnsByQid, lbAwardsByLeague[lg.id] || [],
+    );
+    return { memberUids: Array.isArray(lg.memberUids) ? lg.memberUids : [], std: leagueStandings(lg, membersById, lbByUid) };
+  });
+  const leaguesForUid = (uid) => standings.filter((x) => x.memberUids.includes(uid)).map((x) => x.std);
+
+  return { gcPodium, jerseys, facts, stageWins, membersById, recipientUids, optOutUids, legacyEmailByUid, leaguesForUid };
+}
+
+exports.sendThankYouEmails = onCall(
+  { region: REGION, timeoutSeconds: 300, memory: '512MiB', secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    const me = (await db.collection('users').doc(request.auth.uid).get()).data();
+    if (!me || (me.role !== 'owner' && me.role !== 'globalAdmin')) {
+      throw new HttpsError('permission-denied', 'Kun owner/global admin kan sende takke-mailen.');
+    }
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
+
+    const dryRun = request.data?.dryRun !== false; // default: kun til mig
+    const ctx = await buildThankYouContext(db);
+    const subject = '🚴 Tak for Tour de France 2026 — dit tilbageblik på løbet';
+    const renderFor = (uid, name) => renderThankYouEmail({
+      displayName: name, youUid: uid, gcPodium: ctx.gcPodium, jerseys: ctx.jerseys,
+      facts: ctx.facts, stageWins: ctx.stageWins, leagues: ctx.leaguesForUid(uid),
+      appUrl: APP_URL,
+    });
+
+    if (dryRun) {
+      // Kalderens egen e-mail: Auth-tokenet (kilde til sandhed), ellers den
+      // private userContacts-post, ellers en gammel e-mail på users-dokumentet.
+      const contactSnap = await db.collection('userContacts').doc(request.auth.uid).get();
+      const email = request.auth.token?.email || contactSnap.data()?.email || me.email;
+      if (!email) throw new HttpsError('failed-precondition', 'Din profil har ingen e-mailadresse.');
+      const html = renderFor(request.auth.uid, me.displayName || 'spiller');
+      await sendEmail(db, transporter, { to: email, subject: `[UDKAST] ${subject}`, html, type: 'thankyou-dryrun' });
+      return { success: true, dryRun: true, sentTo: email };
+    }
+
+    // Rigtig udsendelse: alle godkendte spillere med en mailadresse i den
+    // private userContacts-collection (fravalgte springes over; gamle e-mails
+    // på users-dokumentet bruges som fallback — samme regel som tipReminders).
+    const emails = await emailByUidMap(db);
+    let sent = 0; let failed = 0; let noEmail = 0;
+    for (const uid of ctx.recipientUids) {
+      if (ctx.optOutUids.has(uid)) continue;
+      const email = emails.get(uid) || ctx.legacyEmailByUid[uid];
+      if (!email) { noEmail += 1; continue; }
+      const name = (ctx.membersById[uid] && ctx.membersById[uid].displayName) || 'spiller';
+      try {
+        await sendEmail(db, transporter, { to: email, subject, html: renderFor(uid, name), type: 'thankyou' });
+        sent += 1;
+      } catch (e) {
+        failed += 1;
+        console.error(`sendThankYouEmails: fejl til ${email}:`, e?.message || e);
+      }
+    }
+    console.log(`sendThankYouEmails: sendt=${sent}, fejlet=${failed}, uden-mail=${noEmail}`);
+    return { success: true, dryRun: false, sent, failed, noEmail, recipients: ctx.recipientUids.length };
+  },
 );
 
 // ---------------------------------------------------------------------------
@@ -767,6 +1602,86 @@ async function requireAdmin(db, request) {
     throw new HttpsError('permission-denied', 'Kun owner/global admin har adgang.');
   }
 }
+
+// ---------------------------------------------------------------------------
+// sendBroadcastEmail — callable (admin): send en fritekst-besked (emne + tekst)
+// til en liste af modtagere, fx invitationer. Logges som type 'broadcast'.
+// ---------------------------------------------------------------------------
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function broadcastHtml(body) {
+  const safe = escapeHtml(body).replace(/\r\n|\r|\n/g, '<br>');
+  // Gør rå URL'er klikbare (efter escaping, så kun ægte links rammes) —
+  // vigtigt for liga-invitationslinket, som skal kunne klikkes direkte i mailen.
+  const linked = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+  return `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222">${linked}`
+    + `<hr style="border:none;border-top:1px solid #eee;margin:18px 0">`
+    + `<p style="color:#888;font-size:12px">Sendt fra Tour de France Tip · <a href="${APP_URL}">${APP_URL}</a></p></div>`;
+}
+
+exports.sendBroadcastEmail = onCall(
+  { region: REGION, secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+
+    const subject = String(request.data?.subject || '').trim();
+    const body = String(request.data?.body || '').trim();
+    const rawRecipients = Array.isArray(request.data?.recipients) ? request.data.recipients : [];
+    if (!subject) throw new HttpsError('invalid-argument', 'Emne mangler.');
+    if (!body) throw new HttpsError('invalid-argument', 'Beskeden er tom.');
+
+    // Valgfri flot skabelon: 'salespitch' = salgstalen med skærmbilleder + gul
+    // tilmeldingsblok. joinLink SKAL i så fald pege på vores egen /tilmeld-side
+    // (aldrig et vilkårligt eksternt link i en mail vi afsender).
+    const template = request.data?.template === 'salespitch' ? 'salespitch' : null;
+    const joinLink = String(request.data?.joinLink || '').trim();
+    const leagueName = String(request.data?.leagueName || '').trim();
+    if (joinLink && !joinLink.startsWith(`${APP_URL}/tilmeld?kode=`)) {
+      throw new HttpsError('invalid-argument', 'Ugyldigt tilmeldingslink.');
+    }
+    if (template && !joinLink) {
+      throw new HttpsError('invalid-argument', 'Salgstale-skabelonen kræver et liga-tilmeldingslink.');
+    }
+
+    // Valider + dedupliker modtagere (uafhængigt af store/små bogstaver).
+    const seen = new Set();
+    const valid = [];
+    const invalid = [];
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const r of rawRecipients) {
+      const e = String(r || '').trim();
+      if (!e) continue;
+      const key = e.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (re.test(e)) valid.push(e); else invalid.push(e);
+    }
+    if (valid.length === 0) throw new HttpsError('invalid-argument', 'Ingen gyldige modtagere.');
+    if (valid.length > 300) throw new HttpsError('invalid-argument', 'For mange modtagere (max 300).');
+
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
+
+    const html = template === 'salespitch'
+      ? salesPitchHtml({ intro: body, joinLink, leagueName, appUrl: APP_URL })
+      : broadcastHtml(body);
+    let sent = 0;
+    const failed = [];
+    for (const to of valid) {
+      try {
+        await sendEmail(db, transporter, { to, subject, html, type: 'broadcast' });
+        sent += 1;
+      } catch (e) {
+        failed.push(to);
+        console.error('broadcast: kunne ikke sende til', to, e.message);
+      }
+    }
+    return { sent, failed, invalid, total: valid.length };
+  }
+);
 
 // ---------------------------------------------------------------------------
 // AI-morgenopslag (Tour-Botten) — genererer hver morgen kl. 07:00 et kort dansk
@@ -923,6 +1838,34 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
   const usersSnap = await db.collection('users').get();
   const usersById = new Map(usersSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]));
 
+  // Liga-lokal bonus (ligaens egne spørgsmål + manuelle tildelinger), så
+  // bottens stilling matcher ligaens stillingsvisning — grupperet pr. liga.
+  const [lbQSnap, lbASnap, lbAwardSnap] = await Promise.all([
+    db.collection('leagueBonus').get(),
+    db.collection('leagueBonusAnswers').get(),
+    db.collection('leagueBonusAwards').get(),
+  ]);
+  const lbQByLeague = new Map(); // leagueId → [spørgsmål]
+  for (const d of lbQSnap.docs) {
+    const q = { id: d.id, ...d.data() };
+    if (!q.leagueId) continue;
+    if (!lbQByLeague.has(q.leagueId)) lbQByLeague.set(q.leagueId, []);
+    lbQByLeague.get(q.leagueId).push(q);
+  }
+  const lbAnsByQid = {}; // qid → [{uid, answer}]
+  for (const d of lbASnap.docs) {
+    const a = d.data();
+    if (!a.questionId) continue;
+    (lbAnsByQid[a.questionId] = lbAnsByQid[a.questionId] || []).push({ uid: a.uid, answer: a.answer });
+  }
+  const lbAwardsByLeague = new Map(); // leagueId → [award-docs]
+  for (const d of lbAwardSnap.docs) {
+    const a = d.data();
+    if (!a.leagueId) continue;
+    if (!lbAwardsByLeague.has(a.leagueId)) lbAwardsByLeague.set(a.leagueId, []);
+    lbAwardsByLeague.get(a.leagueId).push(a);
+  }
+
   const leaguesSnap = await db.collection('leagues').where('status', '==', 'approved').get();
   const results = [];
   for (const ld of leaguesSnap.docs) {
@@ -937,7 +1880,10 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
     const { dayPointsByUid, stages, bonusResolved } = recapWindowForLeague({
       league, finished, pointsByStageUid, resolvedBonus, bonusPtsByQ, now,
     });
-    const facts = buildRecapFacts({ league, members, dayPointsByUid, stages, bonusResolved, upcoming, now });
+    const leagueBonusByUid = leagueBonusTotalsByUid(
+      lbQByLeague.get(league.id) || [], lbAnsByQid, lbAwardsByLeague.get(league.id) || [],
+    );
+    const facts = buildRecapFacts({ league, members, dayPointsByUid, leagueBonusByUid, stages, bonusResolved, upcoming, now });
     let text;
     try {
       text = await generateRecapText(anthropic, facts);
@@ -975,6 +1921,7 @@ exports.generateLeagueRecaps = onSchedule(
   { schedule: '*/5 * * * *', timeZone: TZ, region: REGION, secrets: [ANTHROPIC_API_KEY] },
   async () => {
     const db = getFirestore();
+    if (await automationPaused(db)) { console.log('generateLeagueRecaps: automatik på pause — springer over.'); return; }
     const apiKey = ANTHROPIC_API_KEY.value();
     if (!apiKey) { console.log('generateLeagueRecaps: ANTHROPIC_API_KEY ikke sat — springer over.'); return; }
 
@@ -1256,7 +2203,7 @@ exports.adminSendPasswordReset = onCall(
     const transporter = buildTransport(SMTP_PASSWORD.value());
     let sent = false;
     if (transporter) {
-      const name = userRecord.displayName || 'spiller';
+      const name = escapeHtml(userRecord.displayName || 'spiller');
       const html = `
         <p>Hej ${name},</p>
         <p>Du (eller en administrator) har bedt om at nulstille din adgangskode til
@@ -1271,5 +2218,271 @@ exports.adminSendPasswordReset = onCall(
     }
 
     return { ok: true, email, sent, link };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// migrateEmailPrivacy — KUN ejeren: engangs-migrering der flytter e-mail fra den
+// OFFENTLIGE users-profil til den PRIVATE userContacts-collection og fjerner
+// e-mail-feltet fra users-dokumentet. Idempotent: kør den igen uden skade.
+// Kør den én gang efter deploy for at lukke hullet, hvor alle godkendte spillere
+// kunne læse alle e-mailadresser.
+// ---------------------------------------------------------------------------
+exports.migrateEmailPrivacy = onCall(
+  { region: REGION },
+  async (request) => {
+    const db = getFirestore();
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    const callerSnap = await db.collection('users').doc(request.auth.uid).get();
+    if (callerSnap.data()?.role !== 'owner') {
+      throw new HttpsError('permission-denied', 'Kun ejeren kan køre migreringen.');
+    }
+
+    const usersSnap = await db.collection('users').get();
+    let moved = 0;
+    let alreadyClean = 0;
+
+    const BATCH_SIZE = 400;
+    let batch = db.batch();
+    let ops = 0;
+    const batches = [batch];
+    const commit = () => { if (ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+
+    for (const d of usersSnap.docs) {
+      const email = d.data()?.email;
+      if (!email) { alreadyClean++; continue; }
+      // Skriv den private kontaktpost (uden at overskrive en eksisterende e-mail).
+      batch.set(db.collection('userContacts').doc(d.id), { uid: d.id, email }, { merge: true });
+      ops++; commit();
+      // Fjern e-mailen fra den offentlige profil.
+      batch.update(d.ref, { email: FieldValue.delete() });
+      ops++; commit();
+      moved++;
+    }
+
+    for (const b of batches) await b.commit();
+    return { ok: true, moved, alreadyClean, totalUsers: usersSnap.size };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// getLiveTicker — callable: dansk live-ticker fra letour racecenter under
+// etapen. Browser kan ikke hente den selv (ingen CORS), så den går her
+// igennem med et 45 sek. server-cache-vindue — uanset hvor mange spillere
+// der følger med, rammer vi letour højst ~1 gang i minuttet pr. etape.
+// ---------------------------------------------------------------------------
+// Letours danske redaktion går ofte i stå før finalen (etape 17: sidste
+// danske opslag 17.10, målgang 17.18). Kernen falder da tilbage på det
+// engelske feed, og opslagene AI-oversættes til dansk her. Hvert opslag
+// oversættes kun ÉN gang og gemmes i config/tickerXlat-{sæson}-{etape},
+// så hverken genstartede instanser eller nye pollere koster nye AI-kald.
+const TICKER_XLAT_SYSTEM = 'Du oversætter live-opslag fra Tour de France (letour.fr racecenter) til dansk for en dansk tipsside. '
+  + 'Naturligt, kort dansk cykelsprog i nutid. Bevar rytter- og holdnavne, tal, tider, afstande og placeringer PRÆCIST; bevar linjeskift. '
+  + 'Svar KUN med et JSON-array på formen [{"id":"...","title":"...","text":"..."}] med samme id\'er som input — ingen forklaring, intet andet.';
+
+async function translateTickerPosts(db, anthropic, season, stage, posts) {
+  const ref = db.collection('config').doc(`tickerXlat-${season}-${stage}`);
+  const snap = await ref.get();
+  const cached = (snap.exists && snap.data().posts) || {};
+  const missing = posts.filter((p) => p.id != null && !cached[String(p.id)]);
+  if (missing.length) {
+    // Højst 20 pr. kald (finalen er typisk <15 opslag); resten tager næste poll.
+    const payload = missing.slice(0, 20).map((p) => ({ id: String(p.id), title: p.title, text: p.text }));
+    const res = await anthropic.messages.create({
+      model: 'claude-opus-4-8',
+      max_tokens: 3000,
+      system: TICKER_XLAT_SYSTEM,
+      messages: [{ role: 'user', content: JSON.stringify(payload) }],
+    });
+    const raw = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const m = raw.match(/\[[\s\S]*\]/);
+    const arr = m ? JSON.parse(m[0]) : [];
+    for (const t of arr) {
+      if (t && t.id != null && (t.title || t.text)) {
+        cached[String(t.id)] = { title: String(t.title || ''), text: String(t.text || '') };
+      }
+    }
+    await ref.set({ posts: cached, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  }
+  return posts.map((p) => {
+    const t = p.id != null ? cached[String(p.id)] : null;
+    return t ? { ...p, title: t.title || p.title, text: t.text || p.text, translated: true } : p;
+  });
+}
+
+const liveTickerCache = new Map();
+exports.getLiveTicker = onCall(
+  { region: REGION, secrets: [ANTHROPIC_API_KEY] },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    const db = getFirestore();
+    const apiKey = ANTHROPIC_API_KEY.value();
+    // Uden nøgle: fallback-opslag vises uoversat (kernen tåler translateImpl=null).
+    const translateImpl = apiKey
+      ? (posts) => translateTickerPosts(db, new Anthropic({ apiKey }), DEFAULT_SEASON, Number(request.data?.stage), posts)
+      : null;
+    return fetchLiveTickerCore({
+      stageNumber: request.data?.stage,
+      fetchImpl: fetchWithTimeout,
+      cache: liveTickerCache,
+      translateImpl,
+    });
+  }
+);
+
+// ---------------------------------------------------------------------------
+// debugLiveTicker — callable (owner/global admin): diagnose når tickeren
+// "stopper for tidligt". Henter publication-feedet HELT frisk (uden cache,
+// med cache-buster) og viser rå statistik: antal opslag, nyeste/ældste
+// tidsstempel, offset-varianter (Z vs +02:00) og de 5 nyeste opslag som de
+// bliver mappet. Sammenlign newestAt med letour.fr for at se, om vi får et
+// forældet CDN-svar eller om sortering/limit skar noget af.
+// ---------------------------------------------------------------------------
+exports.debugLiveTicker = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const n = Number(request.data?.stage);
+  if (!Number.isInteger(n) || n < 1 || n > 21) {
+    throw new HttpsError('invalid-argument', 'Angiv etape 1-21.');
+  }
+  const season = 2026;
+  const feeds = {};
+  let daJson = null;
+  for (const lang of ['da', 'en', '']) {
+    const label = lang || 'base';
+    try {
+      const res = await fetchWithTimeout(feedUrl(season, n, lang, Date.now()), { headers: FEED_HEADERS });
+      if (!res.ok) { feeds[label] = { httpStatus: res.status }; continue; }
+      const json = await res.json();
+      if (lang === 'da') daJson = json;
+      feeds[label] = { httpStatus: res.status, stats: postStats(json) };
+    } catch (e) {
+      feeds[label] = { error: String((e && e.message) || e) };
+    }
+  }
+  const posts = mapPosts(daJson || [], 5).map((p) => ({
+    publicationAt: p.publicationAt, pinned: p.pinned, picto: p.picto, title: p.title,
+  }));
+  return { ok: true, feeds, newestMappedDa: posts };
+});
+
+// getLiveMap — callable: live-kortets data (rute + grupper på vejen) fra
+// letour racecenter. Samme CORS-/cache-rationale som getLiveTicker; ruten
+// caches længe (statisk pr. etape), telemetrien 45 sek.
+const liveMapCache = new Map();
+const liveMapRouteCache = new Map();
+exports.getLiveMap = onCall(
+  { region: REGION },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    return fetchLiveMapCore({
+      stageNumber: request.data?.stage,
+      fetchImpl: fetchWithTimeout,
+      cache: liveMapCache,
+      routeCache: liveMapRouteCache,
+    });
+  }
+);
+
+// ---------------------------------------------------------------------------
+// enrichRiderTags — AI-udledte rytter-karakteristika fra live-tickeren.
+// Auto (onSchedule): én gang i døgnet (efter etaperne) beriges nyligt afgjorte
+// etaper, der endnu ikke er behandlet. Manuel (enrichRiderTagsNow, admin):
+// kør nu — evt. for én bestemt etape og/eller med force. Skriver AI-tags
+// (kilde 'ai') på config/riderProfiles; frontenden slår navn → startnummer op.
+// ---------------------------------------------------------------------------
+const enrichTickerCache = new Map();
+const fetchTickerForEnrich = ({ stageNumber, season }) =>
+  fetchLiveTickerCore({ stageNumber, season, fetchImpl: fetchWithTimeout, cache: enrichTickerCache });
+
+// Berig alle afgjorte etaper (evt. kun én) i sæsonen. runEnrichRiderTags
+// springer selv allerede-berigede etaper over, medmindre force er sat.
+async function enrichDecidedStages(db, anthropic, { season, force = false, onlyStage = null } = {}) {
+  const snap = await db.collection('stages').where('season', '==', Number(season)).get();
+  const numbers = snap.docs
+    .map((d) => d.data())
+    .filter((s) => s && s.status === 'done' && Array.isArray(s.resultRows) && s.resultRows.length)
+    .map((s) => Number(s.number))
+    .filter((n) => Number.isInteger(n) && (onlyStage == null || n === onlyStage))
+    .sort((a, b) => a - b);
+  const results = [];
+  for (const n of numbers) {
+    try {
+      results.push(await runEnrichRiderTags(db, anthropic, {
+        stageNumber: n, season, fetchTicker: fetchTickerForEnrich,
+        serverTimestamp: FieldValue.serverTimestamp(), force,
+      }));
+    } catch (err) {
+      results.push({ ok: false, stage: n, added: 0, reason: (err && err.message) || String(err) });
+    }
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// syncStageTimes — officielle starttider fra racecenter (api/stage-{år}).
+// Letour justerer tidsplanen løbende (fx etape 10: 13:25 → 13:15), og kickoff
+// styrer tip-låsen — så tiderne tjekkes hver time og rettes automatisk.
+// Manuel (syncStageTimesNow, admin): kør nu, evt. dryRun for kun at se diffen.
+// ---------------------------------------------------------------------------
+async function runSyncStageTimes(db, { dryRun = false } = {}) {
+  const { activeSeason } = await tourSettings(db);
+  return syncStageTimesCore(db, {
+    season: activeSeason,
+    fetchImpl: fetchWithTimeout,
+    toTimestamp: (iso) => Timestamp.fromDate(new Date(iso)),
+    serverTimestamp: FieldValue.serverTimestamp(),
+    dryRun,
+  });
+}
+
+exports.syncStageTimes = onSchedule(
+  { schedule: '7 * * * *', timeZone: TZ, region: REGION },
+  async () => {
+    const db = getFirestore();
+    if (await automationPaused(db)) { console.log('syncStageTimes: automatik på pause — springer over.'); return; }
+    const res = await runSyncStageTimes(db, {});
+    if (!res.ok) { console.log(`syncStageTimes: ${res.reason}`); return; }
+    if (res.applied > 0) {
+      const desc = res.changes.map((c) => `etape ${c.number}: ${c.from.startTime ?? '?'} → ${c.to.startTime}`).join(', ');
+      console.log(`syncStageTimes: rettede ${res.applied} etape(r) — ${desc}`);
+    }
+  }
+);
+
+exports.syncStageTimesNow = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  return runSyncStageTimes(db, { dryRun: request.data?.dryRun === true });
+});
+
+exports.enrichRiderTags = onSchedule(
+  { schedule: '30 22 * * *', timeZone: TZ, region: REGION, secrets: [ANTHROPIC_API_KEY] },
+  async () => {
+    const db = getFirestore();
+    if (await automationPaused(db)) { console.log('enrichRiderTags: automatik på pause — springer over.'); return; }
+    const apiKey = ANTHROPIC_API_KEY.value();
+    if (!apiKey) { console.log('enrichRiderTags: ANTHROPIC_API_KEY ikke sat — springer over.'); return; }
+    const { activeSeason } = await tourSettings(db);
+    const anthropic = new Anthropic({ apiKey });
+    const results = await enrichDecidedStages(db, anthropic, { season: activeSeason });
+    const withTags = results.filter((r) => r.ok && r.added > 0);
+    console.log(`enrichRiderTags: behandlede ${results.length} etaper, ${withTags.length} med nye tags.`);
+  }
+);
+
+exports.enrichRiderTagsNow = onCall(
+  { region: REGION, secrets: [ANTHROPIC_API_KEY] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const apiKey = ANTHROPIC_API_KEY.value();
+    if (!apiKey) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
+    const { activeSeason } = await tourSettings(db);
+    const anthropic = new Anthropic({ apiKey });
+    const onlyStage = Number.isInteger(Number(request.data?.stage)) ? Number(request.data.stage) : null;
+    const force = request.data?.force === true;
+    const results = await enrichDecidedStages(db, anthropic, { season: activeSeason, force, onlyStage });
+    return { results };
   }
 );

@@ -1,0 +1,797 @@
+{
+ "_note": "Officielt 3F Superliga 2026/2027-program, udtrukket fra api.superliga.dk (events-v2) via bruger-HAR 21/7-2026. 132 kampe, 22 runder.",
+ "fixtures": [
+  {
+   "round": 1,
+   "home": "Viborg FF",
+   "away": "OB",
+   "kickoff": "2026-07-24T17:00:00.000Z"
+  },
+  {
+   "round": 1,
+   "home": "AGF",
+   "away": "Brøndby IF",
+   "kickoff": "2026-07-25T16:00:00.000Z"
+  },
+  {
+   "round": 1,
+   "home": "Sønderjyske Fodbold",
+   "away": "FC Midtjylland",
+   "kickoff": "2026-07-26T12:00:00.000Z"
+  },
+  {
+   "round": 1,
+   "home": "F.C. København",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2026-07-26T14:00:00.000Z"
+  },
+  {
+   "round": 1,
+   "home": "AC Horsens",
+   "away": "FC Nordsjælland",
+   "kickoff": "2026-07-26T16:00:00.000Z"
+  },
+  {
+   "round": 1,
+   "home": "Randers FC",
+   "away": "Silkeborg IF",
+   "kickoff": "2026-07-27T17:00:00.000Z"
+  },
+  {
+   "round": 2,
+   "home": "Lyngby Boldklub",
+   "away": "AGF",
+   "kickoff": "2026-08-01T16:00:00.000Z"
+  },
+  {
+   "round": 2,
+   "home": "FC Nordsjælland",
+   "away": "Randers FC",
+   "kickoff": "2026-08-02T12:00:00.000Z"
+  },
+  {
+   "round": 2,
+   "home": "FC Midtjylland",
+   "away": "AC Horsens",
+   "kickoff": "2026-08-02T12:00:00.000Z"
+  },
+  {
+   "round": 2,
+   "home": "Brøndby IF",
+   "away": "Viborg FF",
+   "kickoff": "2026-08-02T14:00:00.000Z"
+  },
+  {
+   "round": 2,
+   "home": "Silkeborg IF",
+   "away": "F.C. København",
+   "kickoff": "2026-08-02T16:00:00.000Z"
+  },
+  {
+   "round": 2,
+   "home": "OB",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2026-08-03T17:00:00.000Z"
+  },
+  {
+   "round": 3,
+   "home": "Sønderjyske Fodbold",
+   "away": "Viborg FF",
+   "kickoff": "2026-08-07T17:00:00.000Z"
+  },
+  {
+   "round": 3,
+   "home": "Randers FC",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2026-08-09T14:00:00.000Z"
+  },
+  {
+   "round": 3,
+   "home": "AC Horsens",
+   "away": "Brøndby IF",
+   "kickoff": "2026-08-09T16:00:00.000Z"
+  },
+  {
+   "round": 3,
+   "home": "Silkeborg IF",
+   "away": "OB",
+   "kickoff": "2026-08-10T17:00:00.000Z"
+  },
+  {
+   "round": 3,
+   "home": "AGF",
+   "away": "FC Midtjylland",
+   "kickoff": "2026-09-02T18:00:00.000Z"
+  },
+  {
+   "round": 3,
+   "home": "F.C. København",
+   "away": "FC Nordsjælland",
+   "kickoff": "2026-09-03T18:00:00.000Z"
+  },
+  {
+   "round": 4,
+   "home": "Viborg FF",
+   "away": "AGF",
+   "kickoff": "2026-08-14T17:00:00.000Z"
+  },
+  {
+   "round": 4,
+   "home": "OB",
+   "away": "AC Horsens",
+   "kickoff": "2026-08-16T12:00:00.000Z"
+  },
+  {
+   "round": 4,
+   "home": "FC Nordsjælland",
+   "away": "Silkeborg IF",
+   "kickoff": "2026-08-16T12:00:00.000Z"
+  },
+  {
+   "round": 4,
+   "home": "Lyngby Boldklub",
+   "away": "FC Midtjylland",
+   "kickoff": "2026-08-16T14:00:00.000Z"
+  },
+  {
+   "round": 4,
+   "home": "Randers FC",
+   "away": "F.C. København",
+   "kickoff": "2026-08-16T16:00:00.000Z"
+  },
+  {
+   "round": 4,
+   "home": "Brøndby IF",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2026-08-17T17:00:00.000Z"
+  },
+  {
+   "round": 5,
+   "home": "AGF",
+   "away": "OB",
+   "kickoff": "2026-08-21T17:00:00.000Z"
+  },
+  {
+   "round": 5,
+   "home": "Sønderjyske Fodbold",
+   "away": "FC Nordsjælland",
+   "kickoff": "2026-08-23T10:00:00.000Z"
+  },
+  {
+   "round": 5,
+   "home": "FC Midtjylland",
+   "away": "Randers FC",
+   "kickoff": "2026-08-23T12:00:00.000Z"
+  },
+  {
+   "round": 5,
+   "home": "AC Horsens",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2026-08-23T14:00:00.000Z"
+  },
+  {
+   "round": 5,
+   "home": "Viborg FF",
+   "away": "F.C. København",
+   "kickoff": "2026-08-23T16:00:00.000Z"
+  },
+  {
+   "round": 5,
+   "home": "Brøndby IF",
+   "away": "Silkeborg IF",
+   "kickoff": "2026-08-24T17:00:00.000Z"
+  },
+  {
+   "round": 6,
+   "home": "AC Horsens",
+   "away": "Viborg FF",
+   "kickoff": "2026-08-28T17:00:00.000Z"
+  },
+  {
+   "round": 6,
+   "home": "Lyngby Boldklub",
+   "away": "OB",
+   "kickoff": "2026-08-30T12:00:00.000Z"
+  },
+  {
+   "round": 6,
+   "home": "Silkeborg IF",
+   "away": "FC Midtjylland",
+   "kickoff": "2026-08-30T12:00:00.000Z"
+  },
+  {
+   "round": 6,
+   "home": "Randers FC",
+   "away": "AGF",
+   "kickoff": "2026-08-30T14:00:00.000Z"
+  },
+  {
+   "round": 6,
+   "home": "FC Nordsjælland",
+   "away": "Brøndby IF",
+   "kickoff": "2026-08-30T16:00:00.000Z"
+  },
+  {
+   "round": 6,
+   "home": "F.C. København",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2026-08-31T17:00:00.000Z"
+  },
+  {
+   "round": 7,
+   "home": "Viborg FF",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2026-09-04T17:00:00.000Z"
+  },
+  {
+   "round": 7,
+   "home": "AGF",
+   "away": "Silkeborg IF",
+   "kickoff": "2026-09-05T16:00:00.000Z"
+  },
+  {
+   "round": 7,
+   "home": "Sønderjyske Fodbold",
+   "away": "AC Horsens",
+   "kickoff": "2026-09-06T12:00:00.000Z"
+  },
+  {
+   "round": 7,
+   "home": "OB",
+   "away": "F.C. København",
+   "kickoff": "2026-09-06T14:00:00.000Z"
+  },
+  {
+   "round": 7,
+   "home": "Brøndby IF",
+   "away": "Randers FC",
+   "kickoff": "2026-09-06T16:00:00.000Z"
+  },
+  {
+   "round": 7,
+   "home": "FC Midtjylland",
+   "away": "FC Nordsjælland",
+   "kickoff": "2026-09-07T17:00:00.000Z"
+  },
+  {
+   "round": 8,
+   "home": "FC Midtjylland",
+   "away": "Brøndby IF",
+   "kickoff": "2026-09-13T14:00:00.000Z"
+  },
+  {
+   "round": 8,
+   "home": "Silkeborg IF",
+   "away": "Viborg FF",
+   "kickoff": "2026-09-13T14:00:00.000Z"
+  },
+  {
+   "round": 8,
+   "home": "Randers FC",
+   "away": "OB",
+   "kickoff": "2026-09-13T14:00:00.000Z"
+  },
+  {
+   "round": 8,
+   "home": "Lyngby Boldklub",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2026-09-13T14:00:00.000Z"
+  },
+  {
+   "round": 8,
+   "home": "F.C. København",
+   "away": "AC Horsens",
+   "kickoff": "2026-09-13T14:00:00.000Z"
+  },
+  {
+   "round": 8,
+   "home": "FC Nordsjælland",
+   "away": "AGF",
+   "kickoff": "2026-09-13T14:00:00.000Z"
+  },
+  {
+   "round": 9,
+   "home": "Brøndby IF",
+   "away": "F.C. København",
+   "kickoff": "2026-09-20T14:00:00.000Z"
+  },
+  {
+   "round": 9,
+   "home": "OB",
+   "away": "FC Midtjylland",
+   "kickoff": "2026-09-20T14:00:00.000Z"
+  },
+  {
+   "round": 9,
+   "home": "Lyngby Boldklub",
+   "away": "Silkeborg IF",
+   "kickoff": "2026-09-20T14:00:00.000Z"
+  },
+  {
+   "round": 9,
+   "home": "Sønderjyske Fodbold",
+   "away": "Randers FC",
+   "kickoff": "2026-09-20T14:00:00.000Z"
+  },
+  {
+   "round": 9,
+   "home": "AC Horsens",
+   "away": "AGF",
+   "kickoff": "2026-09-20T14:00:00.000Z"
+  },
+  {
+   "round": 9,
+   "home": "Viborg FF",
+   "away": "FC Nordsjælland",
+   "kickoff": "2026-09-20T14:00:00.000Z"
+  },
+  {
+   "round": 10,
+   "home": "FC Midtjylland",
+   "away": "F.C. København",
+   "kickoff": "2026-10-11T14:00:00.000Z"
+  },
+  {
+   "round": 10,
+   "home": "Randers FC",
+   "away": "Viborg FF",
+   "kickoff": "2026-10-11T14:00:00.000Z"
+  },
+  {
+   "round": 10,
+   "home": "AGF",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2026-10-11T14:00:00.000Z"
+  },
+  {
+   "round": 10,
+   "home": "Brøndby IF",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2026-10-11T14:00:00.000Z"
+  },
+  {
+   "round": 10,
+   "home": "FC Nordsjælland",
+   "away": "OB",
+   "kickoff": "2026-10-11T14:00:00.000Z"
+  },
+  {
+   "round": 10,
+   "home": "Silkeborg IF",
+   "away": "AC Horsens",
+   "kickoff": "2026-10-11T14:00:00.000Z"
+  },
+  {
+   "round": 11,
+   "home": "OB",
+   "away": "Brøndby IF",
+   "kickoff": "2026-10-18T14:00:00.000Z"
+  },
+  {
+   "round": 11,
+   "home": "Viborg FF",
+   "away": "FC Midtjylland",
+   "kickoff": "2026-10-18T14:00:00.000Z"
+  },
+  {
+   "round": 11,
+   "home": "Sønderjyske Fodbold",
+   "away": "Silkeborg IF",
+   "kickoff": "2026-10-18T14:00:00.000Z"
+  },
+  {
+   "round": 11,
+   "home": "AC Horsens",
+   "away": "Randers FC",
+   "kickoff": "2026-10-18T14:00:00.000Z"
+  },
+  {
+   "round": 11,
+   "home": "F.C. København",
+   "away": "AGF",
+   "kickoff": "2026-10-18T14:00:00.000Z"
+  },
+  {
+   "round": 11,
+   "home": "Lyngby Boldklub",
+   "away": "FC Nordsjælland",
+   "kickoff": "2026-10-18T14:00:00.000Z"
+  },
+  {
+   "round": 12,
+   "home": "F.C. København",
+   "away": "OB",
+   "kickoff": "2026-10-25T15:00:00.000Z"
+  },
+  {
+   "round": 12,
+   "home": "Silkeborg IF",
+   "away": "FC Nordsjælland",
+   "kickoff": "2026-10-25T15:00:00.000Z"
+  },
+  {
+   "round": 12,
+   "home": "FC Midtjylland",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2026-10-25T15:00:00.000Z"
+  },
+  {
+   "round": 12,
+   "home": "Randers FC",
+   "away": "Brøndby IF",
+   "kickoff": "2026-10-25T15:00:00.000Z"
+  },
+  {
+   "round": 12,
+   "home": "AC Horsens",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2026-10-25T15:00:00.000Z"
+  },
+  {
+   "round": 12,
+   "home": "AGF",
+   "away": "Viborg FF",
+   "kickoff": "2026-10-25T15:00:00.000Z"
+  },
+  {
+   "round": 13,
+   "home": "FC Nordsjælland",
+   "away": "FC Midtjylland",
+   "kickoff": "2026-11-01T15:00:00.000Z"
+  },
+  {
+   "round": 13,
+   "home": "Brøndby IF",
+   "away": "AGF",
+   "kickoff": "2026-11-01T15:00:00.000Z"
+  },
+  {
+   "round": 13,
+   "home": "Lyngby Boldklub",
+   "away": "Randers FC",
+   "kickoff": "2026-11-01T15:00:00.000Z"
+  },
+  {
+   "round": 13,
+   "home": "Viborg FF",
+   "away": "AC Horsens",
+   "kickoff": "2026-11-01T15:00:00.000Z"
+  },
+  {
+   "round": 13,
+   "home": "OB",
+   "away": "Silkeborg IF",
+   "kickoff": "2026-11-01T15:00:00.000Z"
+  },
+  {
+   "round": 13,
+   "home": "Sønderjyske Fodbold",
+   "away": "F.C. København",
+   "kickoff": "2026-11-01T15:00:00.000Z"
+  },
+  {
+   "round": 14,
+   "home": "Silkeborg IF",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2026-11-08T15:00:00.000Z"
+  },
+  {
+   "round": 14,
+   "home": "F.C. København",
+   "away": "Brøndby IF",
+   "kickoff": "2026-11-08T15:00:00.000Z"
+  },
+  {
+   "round": 14,
+   "home": "OB",
+   "away": "Viborg FF",
+   "kickoff": "2026-11-08T15:00:00.000Z"
+  },
+  {
+   "round": 14,
+   "home": "AGF",
+   "away": "AC Horsens",
+   "kickoff": "2026-11-08T15:00:00.000Z"
+  },
+  {
+   "round": 14,
+   "home": "FC Midtjylland",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2026-11-08T15:00:00.000Z"
+  },
+  {
+   "round": 14,
+   "home": "Randers FC",
+   "away": "FC Nordsjælland",
+   "kickoff": "2026-11-08T15:00:00.000Z"
+  },
+  {
+   "round": 15,
+   "home": "FC Nordsjælland",
+   "away": "F.C. København",
+   "kickoff": "2026-11-22T15:00:00.000Z"
+  },
+  {
+   "round": 15,
+   "home": "AC Horsens",
+   "away": "Silkeborg IF",
+   "kickoff": "2026-11-22T15:00:00.000Z"
+  },
+  {
+   "round": 15,
+   "home": "AGF",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2026-11-22T15:00:00.000Z"
+  },
+  {
+   "round": 15,
+   "home": "Viborg FF",
+   "away": "Randers FC",
+   "kickoff": "2026-11-22T15:00:00.000Z"
+  },
+  {
+   "round": 15,
+   "home": "Brøndby IF",
+   "away": "FC Midtjylland",
+   "kickoff": "2026-11-22T15:00:00.000Z"
+  },
+  {
+   "round": 15,
+   "home": "Sønderjyske Fodbold",
+   "away": "OB",
+   "kickoff": "2026-11-22T15:00:00.000Z"
+  },
+  {
+   "round": 16,
+   "home": "Lyngby Boldklub",
+   "away": "Viborg FF",
+   "kickoff": "2026-11-29T15:00:00.000Z"
+  },
+  {
+   "round": 16,
+   "home": "Randers FC",
+   "away": "AC Horsens",
+   "kickoff": "2026-11-29T15:00:00.000Z"
+  },
+  {
+   "round": 16,
+   "home": "F.C. København",
+   "away": "FC Midtjylland",
+   "kickoff": "2026-11-29T15:00:00.000Z"
+  },
+  {
+   "round": 16,
+   "home": "OB",
+   "away": "FC Nordsjælland",
+   "kickoff": "2026-11-29T15:00:00.000Z"
+  },
+  {
+   "round": 16,
+   "home": "Silkeborg IF",
+   "away": "AGF",
+   "kickoff": "2026-11-29T15:00:00.000Z"
+  },
+  {
+   "round": 16,
+   "home": "Sønderjyske Fodbold",
+   "away": "Brøndby IF",
+   "kickoff": "2026-11-29T15:00:00.000Z"
+  },
+  {
+   "round": 17,
+   "home": "FC Nordsjælland",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2026-12-06T15:00:00.000Z"
+  },
+  {
+   "round": 17,
+   "home": "Brøndby IF",
+   "away": "OB",
+   "kickoff": "2026-12-06T15:00:00.000Z"
+  },
+  {
+   "round": 17,
+   "home": "FC Midtjylland",
+   "away": "Silkeborg IF",
+   "kickoff": "2026-12-06T15:00:00.000Z"
+  },
+  {
+   "round": 17,
+   "home": "AC Horsens",
+   "away": "F.C. København",
+   "kickoff": "2026-12-06T15:00:00.000Z"
+  },
+  {
+   "round": 17,
+   "home": "AGF",
+   "away": "Randers FC",
+   "kickoff": "2026-12-06T15:00:00.000Z"
+  },
+  {
+   "round": 17,
+   "home": "Viborg FF",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2026-12-06T15:00:00.000Z"
+  },
+  {
+   "round": 18,
+   "home": "Silkeborg IF",
+   "away": "Randers FC",
+   "kickoff": "2027-02-21T15:00:00.000Z"
+  },
+  {
+   "round": 18,
+   "home": "FC Nordsjælland",
+   "away": "AC Horsens",
+   "kickoff": "2027-02-21T15:00:00.000Z"
+  },
+  {
+   "round": 18,
+   "home": "FC Midtjylland",
+   "away": "OB",
+   "kickoff": "2027-02-21T15:00:00.000Z"
+  },
+  {
+   "round": 18,
+   "home": "Lyngby Boldklub",
+   "away": "Brøndby IF",
+   "kickoff": "2027-02-21T15:00:00.000Z"
+  },
+  {
+   "round": 18,
+   "home": "F.C. København",
+   "away": "Viborg FF",
+   "kickoff": "2027-02-21T15:00:00.000Z"
+  },
+  {
+   "round": 18,
+   "home": "Sønderjyske Fodbold",
+   "away": "AGF",
+   "kickoff": "2027-02-21T15:00:00.000Z"
+  },
+  {
+   "round": 19,
+   "home": "AC Horsens",
+   "away": "FC Midtjylland",
+   "kickoff": "2027-02-28T15:00:00.000Z"
+  },
+  {
+   "round": 19,
+   "home": "AGF",
+   "away": "F.C. København",
+   "kickoff": "2027-02-28T15:00:00.000Z"
+  },
+  {
+   "round": 19,
+   "home": "Randers FC",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2027-02-28T15:00:00.000Z"
+  },
+  {
+   "round": 19,
+   "home": "Brøndby IF",
+   "away": "FC Nordsjælland",
+   "kickoff": "2027-02-28T15:00:00.000Z"
+  },
+  {
+   "round": 19,
+   "home": "Viborg FF",
+   "away": "Silkeborg IF",
+   "kickoff": "2027-02-28T15:00:00.000Z"
+  },
+  {
+   "round": 19,
+   "home": "OB",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2027-02-28T15:00:00.000Z"
+  },
+  {
+   "round": 20,
+   "home": "FC Nordsjælland",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2027-03-07T15:00:00.000Z"
+  },
+  {
+   "round": 20,
+   "home": "FC Midtjylland",
+   "away": "Viborg FF",
+   "kickoff": "2027-03-07T15:00:00.000Z"
+  },
+  {
+   "round": 20,
+   "home": "Lyngby Boldklub",
+   "away": "AC Horsens",
+   "kickoff": "2027-03-07T15:00:00.000Z"
+  },
+  {
+   "round": 20,
+   "home": "Silkeborg IF",
+   "away": "Brøndby IF",
+   "kickoff": "2027-03-07T15:00:00.000Z"
+  },
+  {
+   "round": 20,
+   "home": "F.C. København",
+   "away": "Randers FC",
+   "kickoff": "2027-03-07T15:00:00.000Z"
+  },
+  {
+   "round": 20,
+   "home": "OB",
+   "away": "AGF",
+   "kickoff": "2027-03-07T15:00:00.000Z"
+  },
+  {
+   "round": 21,
+   "home": "AC Horsens",
+   "away": "OB",
+   "kickoff": "2027-03-14T15:00:00.000Z"
+  },
+  {
+   "round": 21,
+   "home": "AGF",
+   "away": "FC Nordsjælland",
+   "kickoff": "2027-03-14T15:00:00.000Z"
+  },
+  {
+   "round": 21,
+   "home": "Viborg FF",
+   "away": "Brøndby IF",
+   "kickoff": "2027-03-14T15:00:00.000Z"
+  },
+  {
+   "round": 21,
+   "home": "Randers FC",
+   "away": "FC Midtjylland",
+   "kickoff": "2027-03-14T15:00:00.000Z"
+  },
+  {
+   "round": 21,
+   "home": "F.C. København",
+   "away": "Silkeborg IF",
+   "kickoff": "2027-03-14T15:00:00.000Z"
+  },
+  {
+   "round": 21,
+   "home": "Sønderjyske Fodbold",
+   "away": "Lyngby Boldklub",
+   "kickoff": "2027-03-14T15:00:00.000Z"
+  },
+  {
+   "round": 22,
+   "home": "FC Nordsjælland",
+   "away": "Viborg FF",
+   "kickoff": "2027-03-21T15:00:00.000Z"
+  },
+  {
+   "round": 22,
+   "home": "Silkeborg IF",
+   "away": "Sønderjyske Fodbold",
+   "kickoff": "2027-03-21T15:00:00.000Z"
+  },
+  {
+   "round": 22,
+   "home": "Brøndby IF",
+   "away": "AC Horsens",
+   "kickoff": "2027-03-21T15:00:00.000Z"
+  },
+  {
+   "round": 22,
+   "home": "Lyngby Boldklub",
+   "away": "F.C. København",
+   "kickoff": "2027-03-21T15:00:00.000Z"
+  },
+  {
+   "round": 22,
+   "home": "FC Midtjylland",
+   "away": "AGF",
+   "kickoff": "2027-03-21T15:00:00.000Z"
+  },
+  {
+   "round": 22,
+   "home": "OB",
+   "away": "Randers FC",
+   "kickoff": "2027-03-21T15:00:00.000Z"
+  }
+ ]
+}

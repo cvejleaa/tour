@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const {
   DEFAULT_POINTS, normalizePoints, stageWinnerTeam, stageGcTeam,
   topPointsTeam, resolveStageResult, isUntipped, scoreStageBet, bonusNorm,
-  QUESTION_DEFAULTS_BY_TYPE, activeQuestionsForStage,
+  QUESTION_DEFAULTS_BY_TYPE, activeQuestionsForStage, stageTipComplete,
 } = require('./tourScoring.js');
 
 const order = (...teams) => teams.map((team, i) => ({ rider: `r${i + 1}`, team, rank: i + 1 }));
@@ -25,11 +25,13 @@ describe('Q1/Q2', () => {
   it('stageWinnerTeam = nr.1', () => {
     expect(stageWinnerTeam(order('UAD', 'VLA'))).toBe('UAD');
   });
-  it('stageGcTeam belønner flere ryttere oppe', () => {
-    expect(stageGcTeam(order('VLA', 'SOQ', 'SOQ', 'SOQ'), 4)).toBe('SOQ');
+  it('stageGcTeam: laveste sum af N bedste placeringer vinder', () => {
+    // N=3. AAA på 1,4,5 (10) < BBB på 2,3,6 (11).
+    expect(stageGcTeam(order('AAA', 'BBB', 'BBB', 'AAA', 'AAA', 'BBB'), 3)).toBe('AAA');
   });
-  it('stageGcTeam respekterer topN', () => {
-    expect(stageGcTeam(order('UAD', 'VLA', 'SOQ', 'SOQ', 'SOQ'), 2)).toBe('UAD');
+  it('stageGcTeam: hold med færre end N i mål kvalificerer ikke', () => {
+    // N=3. AAA har 3 (1,2,3); BBB kun 2 (4,5) → AAA.
+    expect(stageGcTeam(order('AAA', 'AAA', 'AAA', 'BBB', 'BBB'), 3)).toBe('AAA');
   });
 });
 
@@ -64,10 +66,10 @@ describe('resolveStageResult + scoreStageBet', () => {
   });
   it('resolveStageResult fra rå data', () => {
     const res = resolveStageResult({
-      finishOrder: order('UAD', 'VLA', 'UAD', 'SOQ'),
+      finishOrder: order('UAD', 'UAD', 'VLA', 'SOQ', 'VLA'),
       mountainPoints: [{ team: 'COF', points: 12 }, { team: 'UAD', points: 5 }],
       sprintPoints: [{ team: 'SOQ', points: 20 }],
-      gcTopN: 4,
+      gcTopN: 2,
     });
     expect(res).toMatchObject({ winnerTeam: 'UAD', gcTeam: 'UAD', mountainTeam: 'COF', sprintTeam: 'SOQ' });
     // Podiet: distinkte hold i målrækkefølge (UAD så VLA så SOQ).
@@ -86,6 +88,19 @@ describe('resolveStageResult + scoreStageBet', () => {
     expect(scoreStageBet({ winnerTeam: 'VLA' }, result, undefined, active).points).toBe(3);
     expect(scoreStageBet({ winnerTeam: 'SOQ' }, result, undefined, active).points).toBe(1);
     expect(scoreStageBet({ winnerTeam: 'COF' }, result, undefined, active).points).toBe(0);
+  });
+
+  it('matcher holdnavne TOLERANT (case/tegnsætning må afvige mellem tip og facit)', () => {
+    const bet = { winnerTeam: 'Alpecin-Premier Tech', gcTeam: 'Team Visma | Lease a Bike' };
+    const res = { winnerTeam: 'ALPECIN PREMIER TECH', gcTeam: 'TEAM VISMA-LEASE A BIKE' };
+    const r = scoreStageBet(bet, res);
+    expect(r.breakdown.winnerTeam).toBe(5);
+    expect(r.breakdown.gcTeam).toBe(4);
+  });
+
+  it('ALIAS-match: tip på "Netcompany Ineos" scorer mod facit "INEOS GRENADIERS"', () => {
+    const r = scoreStageBet({ winnerTeam: 'Netcompany Ineos' }, { winnerTeam: 'INEOS GRENADIERS' });
+    expect(r.breakdown.winnerTeam).toBe(5);
   });
 });
 
@@ -115,6 +130,25 @@ describe('activeQuestionsForStage + scoreStageBet (aktive spørgsmål)', () => {
 
   it('uændret når alle fire aktive', () => {
     expect(scoreStageBet(facit, facit).points).toBe(15);
+  });
+});
+
+describe('stageTipComplete (komplet = alle aktive spørgsmål besvaret)', () => {
+  it('holdtidskørsel: kun vinder-hold kræves', () => {
+    expect(stageTipComplete({ type: 'ttt' }, { winnerTeam: 'UAD' })).toBe(true);
+    expect(stageTipComplete({ type: 'ttt' }, {})).toBe(false);
+  });
+  it('flad etape: vinder + bedste hold + sprint kræves (ikke bjerg)', () => {
+    const flat = { type: 'flat' };
+    expect(stageTipComplete(flat, { winnerTeam: 'A', gcTeam: 'B', sprintTeam: 'C' })).toBe(true);
+    expect(stageTipComplete(flat, { winnerTeam: 'A', gcTeam: 'B' })).toBe(false);
+  });
+  it('questions-override styrer hvad der kræves', () => {
+    const stage = { type: 'mountain', questions: { winnerTeam: true, gcTeam: false, mountainTeam: false, sprintTeam: false } };
+    expect(stageTipComplete(stage, { winnerTeam: 'A' })).toBe(true);
+  });
+  it('intet tip → ikke komplet', () => {
+    expect(stageTipComplete({ type: 'flat' }, null)).toBe(false);
   });
 });
 
@@ -148,5 +182,49 @@ describe('bonusNorm (bonus-svar normalisering)', () => {
 
   it('skalar og array giver forskellige normaliseringer', () => {
     expect(bonusNorm('a')).not.toBe(bonusNorm(['a', 'b']));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Paritet: server-spejlet SKAL opføre sig som src/lib/tourScoring.js.
+// De to filer er ESM og CommonJS og kan ikke dele kode, så det eneste der
+// holder dem ens, er disciplin — og denne test. En stavefejl i holdmatchningen
+// giver 0 point til alle, uden at nogen ser det.
+// ---------------------------------------------------------------------------
+describe('tourScoring — paritet med src-udgaven', () => {
+  const FINISH = ['Rytter A', 'Rytter B', 'Rytter C', 'Rytter D', 'Rytter E'];
+
+  it('samme point, samme klassement, samme facit-udledning', async () => {
+    const src = await import('../src/lib/tourScoring.js');
+
+    expect(DEFAULT_POINTS).toEqual(src.DEFAULT_POINTS);
+    expect(QUESTION_DEFAULTS_BY_TYPE).toEqual(src.QUESTION_DEFAULTS_BY_TYPE);
+    expect(normalizePoints({})).toEqual(src.normalizePoints({}));
+    expect(normalizePoints({ q1: 9 })).toEqual(src.normalizePoints({ q1: 9 }));
+
+    expect(stageWinnerTeam(FINISH)).toBe(src.stageWinnerTeam(FINISH));
+    expect(stageGcTeam(FINISH)).toEqual(src.stageGcTeam(FINISH));
+    expect(topPointsTeam([{ rider: 'Rytter B', points: 30 }, { rider: 'Rytter A', points: 30 }]))
+      .toEqual(src.topPointsTeam([{ rider: 'Rytter B', points: 30 }, { rider: 'Rytter A', points: 30 }]));
+
+    const raw = { winnerTeam: 'Rytter A', gcTeam: 'Rytter B', mountainTeam: 'Rytter C' };
+    expect(resolveStageResult(raw)).toEqual(src.resolveStageResult(raw));
+
+    const stage = { number: 5, type: 'mountain' };
+    expect(activeQuestionsForStage(stage)).toEqual(src.activeQuestionsForStage(stage));
+
+    const bet = { winnerTeam: 'Rytter A', gcTeam: 'Rytter X' };
+    expect(isUntipped(bet, activeQuestionsForStage(stage)))
+      .toBe(src.isUntipped(bet, src.activeQuestionsForStage(stage)));
+    expect(stageTipComplete(stage, bet)).toBe(src.stageTipComplete(stage, bet));
+    expect(scoreStageBet(bet, raw, null, stage)).toEqual(src.scoreStageBet(bet, raw, null, stage));
+  });
+
+  it('bonusNorm er server-only og hører ikke til spejlet', async () => {
+    // Dokumenterer med vilje: normaliseringen bruges kun ved facit-matchning på
+    // serveren. Dukker den op i src, skal den med i paritets-tjekket ovenfor.
+    const src = await import('../src/lib/tourScoring.js');
+    expect(typeof bonusNorm).toBe('function');
+    expect(src.bonusNorm).toBeUndefined();
   });
 });

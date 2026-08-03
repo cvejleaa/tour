@@ -57,6 +57,20 @@ describe('redeemInviteCodeCore', () => {
     expect(deps.findApprovedLeagueByCode).not.toHaveBeenCalled();
   });
 
+  it('afviser en AFVIST bruger (kan ikke gen-godkende sig selv)', async () => {
+    const deps = makeDeps({ getUserStatus: vi.fn().mockResolvedValue('rejected') });
+    const res = await redeemInviteCodeCore(deps);
+    expect(res).toMatchObject({ ok: false, error: 'permission-denied' });
+    expect(deps.findApprovedLeagueByCode).not.toHaveBeenCalled();
+    expect(deps.approveUserAndJoin).not.toHaveBeenCalled();
+  });
+
+  it('tillader en pending bruger (getUserStatus=pending)', async () => {
+    const deps = makeDeps({ getUserStatus: vi.fn().mockResolvedValue('pending') });
+    const res = await redeemInviteCodeCore(deps);
+    expect(res).toEqual({ ok: true, leagueId: 'lg1', leagueName: 'Vennernes liga' });
+  });
+
   it('godkender + tilmelder ved gyldig kode og nulstiller forsøg', async () => {
     const deps = makeDeps();
     const res = await redeemInviteCodeCore(deps);

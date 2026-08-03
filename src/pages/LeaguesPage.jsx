@@ -29,6 +29,9 @@ import {
   normalizeScoring, scoringLabel, isFullScoring, SCORING_COMPONENTS, DEFAULT_SCORING, leagueScore, leagueBreakdown,
 } from '../features/leagues/leagueFormat';
 import { useLeagueBonus } from '../features/leagues/useLeagueBonus';
+import { useLeagueAwards } from '../features/leagues/useLeagueAwards';
+import LeagueAwards from '../features/leagues/LeagueAwards';
+import { useAllLeagues } from '../features/leagues/useAllLeagues';
 import LeagueBonus from '../features/leagues/LeagueBonus';
 import { filterUsersByLeague } from '../features/leagues/leagueUtils';
 import { sortByPoints } from '../features/leaderboard/standingsUtils';
@@ -37,6 +40,7 @@ import LeagueWall from '../features/comments/LeagueWall';
 import LeagueTipCounter from '../features/leagues/LeagueTipCounter';
 import LeagueActivity from '../features/leagues/LeagueActivity';
 import { tryLogActivity, ACTIVITY } from '../features/leagues/activityActions';
+import { joinLinkFor } from '../features/leagues/joinLink';
 
 // ── Liga-kort (listevisning) ─────────────────────────────────────────────────
 function LeagueCard({ league, standings, meUid, onOpen }) {
@@ -127,6 +131,21 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
     finally { setRegenerating(false); }
   }
 
+  // Kopiér et delbart invitationslink (/tilmeld?kode=…) — modtageren tilmeldes
+  // automatisk, også selv om vedkommende først skal oprette en bruger.
+  const [copyMsg, setCopyMsg] = useState('');
+  async function handleCopyLink() {
+    const link = joinLinkFor(league.joinCode);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyMsg('Link kopieret! Send det til dem, du vil invitere.');
+    } catch {
+      // Clipboard kan være blokeret (http/ældre browser) — vis linket i stedet.
+      setCopyMsg(link);
+    }
+    setTimeout(() => setCopyMsg(''), 6000);
+  }
+
   const isOwner = league.ownerUid === meUid;
   const leagueAdminUids = league.adminUids ?? [];
   const isLeagueAdmin = leagueAdminUids.includes(meUid);
@@ -143,10 +162,17 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
     questions: bonusQuestions, myAnswers: bonusAnswers,
     pointsByUid: bonusPointsByUid, answersByQid: bonusAnswersByQid,
   } = useLeagueBonus(league.id, meUid, isManager);
+  // Manuelle liga-point på fælles bonusspørgsmål — tæller sammen med
+  // liga-bonus i denne ligas stilling.
+  const { awards: leagueAwards, awardsByUid } = useLeagueAwards(league.id);
+  const lbPointsOf = (uid) => (bonusPointsByUid[uid] || 0) + (awardsByUid[uid] || 0);
   const usersByUid = useMemo(
     () => Object.fromEntries((standings || []).map((u) => [u.uid, u])),
     [standings],
   );
+  // Global admin kan kopiere et liga-bonusspørgsmål til alle ligaer på én gang.
+  // Kun globalAdmin/owner må læse alle ligaer (Security Rules) — derfor enabled=isAdmin.
+  const { leagues: allLeagues } = useAllLeagues(isAdmin);
 
   async function handleScoringToggle(nextScoring) {
     setSavingFormat(true); setActionError('');
@@ -261,6 +287,15 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
             <span className="badge badge--muted">
               Kode: <strong>{league.joinCode}</strong>
             </span>
+            <button
+              className="btn--icon" title="Kopiér invitationslink"
+              aria-label="Kopiér invitationslink"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '0.9rem' }}
+              onClick={handleCopyLink}
+              data-testid="copy-join-link"
+            >
+              🔗
+            </button>
             {isOwner && (
               <button
                 className="btn--icon" title="Generér ny invitationskode"
@@ -276,6 +311,11 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
             <span className="badge badge--muted" title="Liga-format">⚙️ {scoringLabel(scoring)}</span>
             {isLeagueAdmin && !isOwner && <span className="badge badge--green">du er liga-admin</span>}
           </div>
+          {copyMsg && (
+            <p className="text-muted" style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', wordBreak: 'break-all' }} data-testid="copy-join-link-msg">
+              {copyMsg}
+            </p>
+          )}
         </div>
 
         {/* Format-valg (kun liga-ejer / global admin) — kombinerbare dele */}
@@ -364,9 +404,9 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
           users={standings}
           meUid={meUid}
           memberUids={league.memberUids}
-          getPoints={(uid) => leagueScore(standings.find((u) => u.uid === uid), scoring, bonusPointsByUid[uid] || 0)}
+          getPoints={(uid) => leagueScore(standings.find((u) => u.uid === uid), scoring, lbPointsOf(uid))}
           showBreakdown
-          getBreakdown={(u) => leagueBreakdown(u, scoring, bonusPointsByUid[u.uid] || 0)}
+          getBreakdown={(u) => leagueBreakdown(u, scoring, lbPointsOf(u.uid))}
           emptyMsg="Ingen spillere i ligaen."
         />
       </div>
@@ -376,10 +416,21 @@ function LeagueDetail({ league, standings, meUid, meName, meEmoji = null, meTeam
         leagueId={league.id}
         meUid={meUid}
         isManager={isManager}
+        isAdmin={isAdmin}
+        allLeagues={allLeagues}
         questions={bonusQuestions}
         myAnswers={bonusAnswers}
         answersByQid={bonusAnswersByQid}
         usersByUid={usersByUid}
+      />
+
+      {/* Individuelle point på fælles bonusspørgsmål (manager/global admin) */}
+      <LeagueAwards
+        leagueId={league.id}
+        meUid={meUid}
+        isManager={isManager}
+        members={members}
+        awards={leagueAwards}
       />
 
       {/* Hvem har tippet på de kommende etaper */}
@@ -540,7 +591,7 @@ function JoinLeagueForm({ uid, meName }) {
     setSuccess('');
     setLoading(true);
     try {
-      const { id, name } = await joinLeague(code, uid);
+      const { id, name } = await joinLeague(code);
       tryLogActivity({ leagueId: id, type: ACTIVITY.JOIN, actorUid: uid, actorName: meName, text: 'tilmeldte sig ligaen' });
       setSuccess(`Du er nu med i "${name}"! 🎉`);
       setCode('');

@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router-dom';
 vi.mock('../firebase', () => ({ db: {}, auth: {} }));
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn(),
+  doc: vi.fn(),
   onSnapshot: vi.fn(),
   query: vi.fn(),
   orderBy: vi.fn(),
@@ -85,7 +86,9 @@ describe('MyBetsPage – tippede etaper', () => {
     });
     renderPage();
     expect(screen.getByText('Etape')).toBeInTheDocument();
-    expect(screen.getByText('Etapevinder')).toBeInTheDocument();
+    // Emoji-headers (mobilvenlige) med fuldt navn som title/aria-label.
+    expect(screen.getByTitle('Etapevinderens hold')).toBeInTheDocument();
+    expect(screen.getByTitle('Flest bjergpoint')).toBeInTheDocument();
     expect(screen.getByText('Point')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
   });
@@ -123,6 +126,47 @@ describe('MyBetsPage – point-beregning', () => {
     renderPage();
     const dashes = screen.getAllByText('–');
     expect(dashes.length).toBeGreaterThan(0);
+  });
+});
+
+describe('MyBetsPage – rækkefølge og pr.-tip point', () => {
+  it('viser nyeste etape øverst (faldende etapenummer)', () => {
+    useStages.mockReturnValue({ stages: mockStages, loading: false });
+    useMyStageBets.mockReturnValue({
+      betsByStage: {
+        '2026-stage-1': { winnerTeam: 'A' },
+        '2026-stage-2': { winnerTeam: 'A' },
+      },
+      loading: false,
+    });
+    renderPage();
+    const cells = screen.getAllByText(/^Etape \d+$/);
+    expect(cells[0]).toHaveTextContent('Etape 2');
+    expect(cells[1]).toHaveTextContent('Etape 1');
+  });
+
+  it('viser hvor mange point hvert enkelt tip gav på en afgjort etape', () => {
+    useStages.mockReturnValue({ stages: mockStages, loading: false });
+    useMyStageBets.mockReturnValue({
+      betsByStage: { '2026-stage-1': { winnerTeam: 'A', gcTeam: 'A', mountainTeam: 'B', sprintTeam: 'C' } },
+      loading: false,
+    });
+    renderPage();
+    // Etapevinder rigtig = +5 p, bedste hold rigtig = +4 p.
+    expect(screen.getByText('+5 p')).toBeInTheDocument();
+    expect(screen.getByText('+4 p')).toBeInTheDocument();
+  });
+
+  it('viser "0 p" for et forkert tip på en afgjort etape', () => {
+    useStages.mockReturnValue({ stages: mockStages, loading: false });
+    useMyStageBets.mockReturnValue({
+      betsByStage: { '2026-stage-1': { winnerTeam: 'Z', gcTeam: 'A' } },
+      loading: false,
+    });
+    renderPage();
+    // winnerTeam 'Z' er forkert → 0 p; gcTeam 'A' rigtig → +4 p.
+    expect(screen.getByText('0 p')).toBeInTheDocument();
+    expect(screen.getByText('+4 p')).toBeInTheDocument();
   });
 });
 

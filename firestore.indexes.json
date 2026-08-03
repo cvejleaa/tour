@@ -111,7 +111,29 @@
         { "fieldPath": "uid",    "order": "ASCENDING" },
         { "fieldPath": "season", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "players",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "matchId",   "order": "ASCENDING" },
+        { "fieldPath": "leagueIds", "arrayConfig": "CONTAINS" }
+      ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "detalje",
+      "fieldPath": "kampe",
+      "ttl": false,
+      "indexes": []
+    }
+  ]
 }

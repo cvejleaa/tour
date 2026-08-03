@@ -9,6 +9,11 @@
   --c-accent-2: #ee4266; /* pink/rød */
   --c-bg: #f7f9fb;
   --c-surface: #ffffff;
+  /* Sekundære flader (fremhævede tabelrækker, beskedbobler, kommentarer).
+     SKAL være defineret i BEGGE temaer — komponenter bruger dem med lyse
+     fallbacks, som ellers giver lys-på-lys i mørkt tema. */
+  --c-surface-alt: #f6faf8;
+  --c-surface-2: #f0f2f5;
   --c-text: #14181f;
   --c-muted: #6b7682;
   --c-border: #e2e8ee;
@@ -27,12 +32,17 @@
 [data-theme='dark'] {
   --c-bg: #0e1419;
   --c-surface: #161e26;
+  --c-surface-alt: #1c2630;
+  --c-surface-2: #202a34;
   --c-text: #eef3f7;
   --c-muted: #9aa7b2;
   --c-border: #26323d;
   --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
+
+/* Vigtigste badge ("Mangler tip") skal også kunne læses i mørkt tema. */
+[data-theme='dark'] .badge--yellow { color: var(--c-accent); }
 
 * { box-sizing: border-box; }
 
@@ -167,6 +177,29 @@ button {
   line-height: 1;
 }
 
+/* ═══════════════════════ TOP-NAVIGATION ═══════════════════════ */
+
+/* Wrap på desktop; VANDRET SCROLL på mobil — 12 links i flex-wrap åd ellers
+   4-5 rækker (~40 % af skærmen) på små telefoner. Samme mønster som .tabs. */
+.topnav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .topnav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .topnav::-webkit-scrollbar { display: none; }
+  .topnav > * { flex: 0 0 auto; }
+  .topnav a, .topnav .btn { white-space: nowrap; }
+}
+
 /* ═══════════════════════ TABS ═══════════════════════ */
 
 .tabs {
@@ -184,9 +217,9 @@ button {
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 0.7rem;
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   color: var(--c-muted);
   cursor: pointer;
   white-space: nowrap;
@@ -277,7 +310,7 @@ button {
   border: 1px solid var(--c-border);
 }
 
-/* Generelt badge */
+/* Generelt badge — neutral standard, så en bar .badge aldrig ser "nøgen" ud */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -288,6 +321,9 @@ button {
   font-weight: 600;
   letter-spacing: 0.03em;
   line-height: 1.4;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .badge--green  { background: rgba(31, 157, 85, 0.12); color: var(--c-ok); }
@@ -295,6 +331,34 @@ button {
 .badge--red    { background: rgba(214, 69, 69, 0.12); color: var(--c-err); }
 .badge--blue   { background: rgba(11, 110, 79, 0.1);  color: var(--c-pitch); }
 .badge--muted  { background: var(--c-bg); color: var(--c-muted); border: 1px solid var(--c-border); }
+
+/* ── Tilgængeligt fokus på alt klikbart (tastatur/switch) ── */
+.btn:focus-visible,
+.tab:focus-visible,
+.pick:focus-visible,
+.pulje-team:focus-visible,
+.pulje-team__name:focus-visible,
+a:focus-visible,
+.card--link:focus-visible {
+  outline: 2px solid var(--c-pitch);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Interaktivt kort (klikbar flade) — løft ved hover, snap ved tryk ── */
+.card--link {
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.card--link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow, 0 6px 20px rgba(0, 0, 0, 0.12));
+}
+.card--link:active { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card--link { transition: none; }
+  .card--link:hover { transform: none; }
+}
 
 /* ═══════════════════════ FORM ELEMENTER ═══════════════════════ */
 
@@ -588,3 +652,299 @@ button {
 [data-team='uae']        { --c-pitch: #E4002B; --c-pitch-dark: #b10021; --c-on-pitch: #fff; }
 [data-team='unox']       { --c-pitch: #ED1C45; --c-pitch-dark: #c01334; --c-on-pitch: #fff; }
 [data-team='astana']     { --c-pitch: #009DDC; --c-pitch-dark: #0079aa; --c-on-pitch: #111; }
+
+/* ============================================================================
+   Superliga / fodbold-tip — kamp-kort, 1X2-valg, Chancen, podie (Fase B)
+   Bygger på de eksisterende tokens. Virker i lyst + mørkt tema.
+   ========================================================================= */
+
+/* Runde-header */
+.round-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.5rem; flex-wrap: wrap; margin: 0.25rem 0 0.75rem;
+}
+.round-head__title {
+  font-size: 0.8rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--c-pitch);
+}
+.round-head__meta { font-size: 0.75rem; color: var(--c-muted); }
+.round-head__deadline--soon { color: var(--c-err); font-weight: 700; }
+@media (prefers-reduced-motion: no-preference) {
+  .round-head__deadline--soon { animation: soonpulse 1.6s ease-in-out infinite; }
+  @keyframes soonpulse { 50% { opacity: 0.5; } }
+}
+
+/* Kamp-kort */
+.match-card { padding: 0.85rem; }
+.match-card__meta {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.5rem; margin-bottom: 0.7rem;
+}
+.match-card__kickoff { font-size: 0.95rem; font-weight: 700; color: var(--c-text); }
+.match-card__venue { font-size: 0.82rem; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Holdopstilling i 3 kolonner der flugter med 1X2-knapperne:
+   hjemmehold over "1", bindestreg over "X", udehold over "2". */
+.match-card__lineup {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;
+  align-items: center; margin-bottom: 0.1rem;
+}
+.match-card__side { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+.match-card__side-name {
+  font-size: 0.92rem; font-weight: 700; color: var(--c-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.match-card__dash { text-align: center; color: var(--c-muted); font-weight: 700; font-size: 1.1rem; }
+/* Slutresultatet står samme sted som stregen, så kolonnen flugter med "X"
+   nedenunder — men i tekstfarve og tabeltal, så det ikke læses som en streg. */
+.match-card__score {
+  text-align: center; color: var(--c-text); font-weight: 800; font-size: 1.15rem;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.match-card--chance {
+  border-color: var(--c-accent) !important;
+  box-shadow: 0 0 0 1px var(--c-accent), var(--shadow);
+}
+
+/* Live-pille: kampen er i gang lige nu. Rød og pulserende, så den ikke kan
+   forveksles med "Spillet". Dæmpet variant når opdateringen er stoppet — vi
+   fjerner aldrig stillingen, vi siger bare hvornår den sidst blev set. */
+.live-pill {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: var(--c-err); color: #fff;
+  font-size: 0.66rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 0.15rem 0.5rem; border-radius: 99px;
+  white-space: nowrap;
+}
+.live-pill__prik {
+  width: 0.42rem; height: 0.42rem; border-radius: 50%;
+  background: #fff; animation: live-puls 1.6s ease-in-out infinite;
+}
+@keyframes live-puls { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .live-pill__prik { animation: none; }
+}
+.live-pill--doed { background: var(--c-surface-alt); color: var(--c-muted); }
+
+/* Den levende stilling står samme sted som slutresultatet, men med tekst
+   under tallet — badge og tal står langt fra hinanden på en telefon. */
+.match-card__score--live { color: var(--c-err); }
+.match-card__score-note {
+  display: block; font-size: 0.6rem; font-weight: 600;
+  color: var(--c-muted); text-transform: none; letter-spacing: 0;
+}
+.match-card__score--doed { color: var(--c-muted); }
+
+/* Chancen-pille */
+.chance-pill {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  background: var(--c-accent); color: var(--c-pitch-dark);
+  font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 0.15rem 0.5rem; border-radius: 99px;
+}
+
+/* 1X2-valgknapper */
+.pick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.85rem; }
+.pick {
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  padding: 0.7rem 0.4rem; min-height: 64px;
+  background: var(--c-surface); border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+.pick:active { transform: scale(0.97); }
+.pick:disabled { cursor: default; opacity: 0.6; }
+.pick__label { font-size: 1.15rem; font-weight: 800; color: var(--c-text); line-height: 1; }
+.pick__odds { font-size: 0.8rem; font-weight: 600; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.pick__pts { font-size: 0.68rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.pick--selected {
+  background: color-mix(in srgb, var(--c-pitch) 12%, var(--c-surface));
+  border-color: var(--c-pitch); box-shadow: 0 0 0 1px var(--c-pitch);
+}
+.pick--selected .pick__label { color: var(--c-pitch); }
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .pick--selected { background: var(--c-surface-alt); }
+}
+/* Det udfald der FAKTISK blev til noget. Markeres med en stiplet ramme, så en
+   ramt kamp (valgt + vundet) stadig kan skelnes fra en tabt: farven siger
+   "mit valg", stiplingen siger "facit". Opacity fra :disabled gælder også her,
+   så den må have kraft nok til at ses gennem den. */
+.pick--won {
+  border-style: dashed; border-color: var(--c-text);
+  box-shadow: inset 0 0 0 1px var(--c-text);
+}
+.pick--won.pick--selected { border-color: var(--c-pitch); box-shadow: 0 0 0 1px var(--c-pitch); }
+.pick--won:disabled { opacity: 0.85; }
+
+/* Rundens facit-skærm */
+.facit { border-left: 4px solid var(--c-pitch); }
+.facit__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.facit__title { font-weight: 800; font-size: 1.05rem; letter-spacing: -0.01em; }
+.facit__earned { font-weight: 800; font-size: 1.5rem; color: var(--c-pitch); font-variant-numeric: tabular-nums; line-height: 1; }
+.facit__sub { color: var(--c-muted); font-size: 0.9rem; margin-top: 0.15rem; }
+.facit__combi { color: var(--c-pitch); font-weight: 700; }
+.facit__pos { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--c-border); }
+.facit__rank { font-size: 0.95rem; }
+.facit__total { color: var(--c-muted); font-variant-numeric: tabular-nums; }
+.facit__rivals { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin-top: 0.3rem; font-size: 0.82rem; color: var(--c-muted); font-variant-numeric: tabular-nums; }
+.facit__lead { color: var(--c-pitch); font-weight: 700; }
+.facit__moves { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; margin-top: 0.35rem; font-size: 0.85rem; font-weight: 600; }
+.facit__up { color: var(--c-pitch, #2e7d32); }
+.facit__down { color: var(--c-err); }
+.facit__share { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px solid var(--c-border); }
+.facit__sharemsg { font-size: 0.8rem; color: var(--c-pitch); font-weight: 600; }
+@media (prefers-reduced-motion: no-preference) {
+  .facit__moves .facit__up { animation: facitpop 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+}
+@keyframes facitpop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* Mine tips */
+.mytips__summary { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
+.mytips__summary > div { display: flex; flex-direction: column; }
+.mytips__big { font-family: var(--font-mono, ui-monospace, monospace); font-size: 1.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.mytips__summary span { font-size: 0.72rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.15rem; }
+.mytips__head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.mytips__round { font-weight: 800; }
+.mytips__meta { font-size: 0.8rem; color: var(--c-muted); }
+.mytips__bonus { color: var(--c-pitch); font-weight: 700; }
+.mytips__rows { display: flex; flex-direction: column; gap: 0.15rem; }
+.mytips__row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.5rem; padding: 0.35rem 0.2rem; border-top: 1px solid var(--c-border); font-size: 0.88rem; }
+.mytips__row--chance { background: color-mix(in srgb, var(--c-accent, #f5b301) 8%, transparent); border-radius: var(--radius-sm); }
+.mytips__kick { font-size: 0.7rem; color: var(--c-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mytips__match { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mytips__dash { color: var(--c-muted); margin: 0 0.25rem; }
+.mytips__pick { font-weight: 800; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 0.15rem; }
+.mytips__chance { font-size: 0.8rem; }
+.mytips__res { text-align: right; font-variant-numeric: tabular-nums; }
+.mytips__none, .mytips__pending { color: var(--c-muted); font-size: 0.8rem; }
+
+/* Pulje-tip */
+.pulje-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+@media (min-width: 620px) { .pulje-grid { grid-template-columns: repeat(3, 1fr); } }
+.pulje-team { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.7rem; text-align: left;
+  background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: var(--radius-sm); position: relative; }
+.pulje-team:disabled { cursor: default; opacity: 0.55; }
+.pulje-team__name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pulje-team--chosen { border-color: var(--c-pitch); background: color-mix(in srgb, var(--c-pitch) 12%, var(--c-surface)); box-shadow: 0 0 0 1px var(--c-pitch); }
+.pulje-team__check { margin-left: auto; color: var(--c-pitch); font-weight: 800; }
+.pulje-team__actual { position: absolute; top: 4px; right: 6px; font-size: 0.8rem; }
+.pulje-team--hit { border-color: var(--c-ok); box-shadow: 0 0 0 1px var(--c-ok); }
+.pulje-team--miss { border-color: var(--c-err); }
+@supports not (background: color-mix(in srgb, red, blue)) {
+  .pulje-team--chosen { background: var(--c-surface-alt); }
+}
+
+/* Elo-tabel (rating gennem sæsonen) */
+.elo-wrap { overflow-x: auto; border: 1px solid var(--c-border); border-radius: var(--radius-sm); }
+.elo-table { border-collapse: collapse; font-size: 0.82rem; min-width: 100%; }
+.elo-table th, .elo-table td { padding: 0.4rem 0.6rem; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--c-border); }
+.elo-table thead th { position: sticky; top: 0; background: var(--c-surface); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--c-muted); }
+.elo-table tbody tr:last-child td { border-bottom: none; }
+.elo-team-col { position: sticky; left: 0; z-index: 1; background: var(--c-surface); text-align: left !important; box-shadow: 1px 0 0 var(--c-border); }
+.elo-start-col { color: var(--c-muted); }
+.elo-team { display: inline-flex; align-items: center; gap: 0.4rem; }
+.elo-team__name { font-weight: 700; }
+.elo-cell__rating { font-variant-numeric: tabular-nums; font-weight: 600; }
+.elo-cell { min-width: 62px; }
+.elo__up { color: var(--c-ok); font-size: 0.7rem; margin-left: 0.25rem; }
+.elo__down { color: var(--c-err); font-size: 0.7rem; margin-left: 0.25rem; }
+.elo__flat { color: var(--c-muted); font-size: 0.7rem; margin-left: 0.25rem; }
+
+/* Superliga-tabel (officiel stilling) */
+.sltab-wrap { overflow-x: auto; border: 1px solid var(--c-border); border-radius: var(--radius-sm); }
+.sltab { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.sltab th, .sltab td { padding: 0.45rem 0.5rem; text-align: center; white-space: nowrap; }
+.sltab thead th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--c-muted); border-bottom: 2px solid var(--c-border); }
+.sltab tbody td { border-bottom: 1px solid var(--c-border); font-variant-numeric: tabular-nums; }
+.sltab__rank { width: 1.8rem; color: var(--c-muted); }
+.sltab__team { text-align: left !important; }
+.sltab__teamcell { display: inline-flex; align-items: center; gap: 0.45rem; }
+.sltab__name { font-weight: 600; }
+.sltab__pts { font-weight: 800; }
+.sltab__divider td { text-align: left; font-weight: 700; font-size: 0.78rem; padding: 0.4rem 0.5rem; background: var(--c-surface-2); }
+.sltab__divider--champ td { color: var(--c-pitch); box-shadow: inset 3px 0 0 var(--c-pitch); }
+.sltab__divider--releg td { color: var(--c-err); box-shadow: inset 3px 0 0 var(--c-err); }
+@media (max-width: 480px) { .sltab__hide-sm { display: none; } }
+
+/* Liga-væg */
+.wall { margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--c-border); }
+.wall__title { font-weight: 700; font-size: 0.9rem; margin-bottom: 0.5rem; }
+.wall__form { display: flex; gap: 0.4rem; }
+.wall__form input { flex: 1; min-width: 0; }
+.wall__list { list-style: none; padding: 0; margin: 0.6rem 0 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.wall__msg { display: flex; gap: 0.5rem; align-items: flex-start; }
+.wall__body { min-width: 0; }
+.wall__meta { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.wall__meta strong { font-size: 0.85rem; }
+.wall__time { font-size: 0.72rem; color: var(--c-muted); }
+.wall__text { font-size: 0.9rem; white-space: pre-wrap; word-break: break-word; }
+
+/* Stilling: top-3 podie */
+.podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 0.5rem; align-items: end; margin-bottom: 1rem; }
+.podium__spot {
+  display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+  padding: 0.7rem 0.4rem; border-radius: var(--radius-sm);
+  background: var(--c-surface-alt); border: 1px solid var(--c-border); text-align: center;
+}
+.podium__spot--1 { transform: translateY(-8px); box-shadow: var(--shadow); }
+.podium__medal { font-size: 1.3rem; line-height: 1; }
+.podium__name { font-size: 0.82rem; font-weight: 700; color: var(--c-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.podium__pts { font-size: 0.78rem; font-weight: 700; color: var(--c-pitch); font-variant-numeric: tabular-nums; }
+
+/* Sticky egen-række i stillingen */
+.rank-row--me { position: sticky; bottom: 0; background: var(--c-surface-alt); box-shadow: 0 -2px 8px rgba(0,0,0,.06); }
+
+/* --- Pointopdeling: hvor en spillers point kommer fra ---------------------
+   Bruges tre steder (stilling, spillerdetalje, egne tips) og skal se ens ud
+   alle tre — derfor ét regelsæt her og ikke inline i komponenterne. */
+.pointopdeling__liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+}
+.pointopdeling__rubrik {
+  background: var(--c-surface, #fff);
+  border: 1px solid var(--c-line, #e3e8ee);
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+  text-align: center;
+}
+.pointopdeling__rubrik dt {
+  font-size: 0.72rem;
+  color: var(--c-muted);
+  white-space: nowrap;
+}
+.pointopdeling__rubrik dd {
+  margin: 0.15rem 0 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+/* Totalen er den autoritative — den skal skille sig ud fra delene. */
+.pointopdeling__rubrik--total {
+  border-color: var(--c-pitch, #0b6b3a);
+  background: var(--c-pitch-weak, #eef7f1);
+}
+.pointopdeling__rubrik--total dd { color: var(--c-pitch, #0b6b3a); }
+
+.pointopdeling__liste--kompakt .pointopdeling__rubrik { padding: 0.3rem 0.4rem; }
+.pointopdeling__liste--kompakt .pointopdeling__rubrik dt { font-size: 0.66rem; }
+
+.pointopdeling__note {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: var(--c-muted);
+}
+
+/* Navnet i stillingen er en knap (åbner spillerdetaljen), men skal se ud som
+   tekst — ikke som en knap i en tabelrække. */
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.link-btn:hover, .link-btn:focus-visible { text-decoration: underline; }

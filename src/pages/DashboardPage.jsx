@@ -3,7 +3,7 @@
  * personlig velkomst, "Mine opgaver", næste etape at tippe, seneste resultater
  * og placering. Selve etapelisten bor på sin egen side (/etaper).
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useStandings } from '../features/leaderboard/useStandings';
@@ -18,6 +18,10 @@ import { stageStatus } from '../lib/tourStages';
 import { placeholderRoute2026 } from '../data/route2026';
 import Hero from '../components/Hero';
 import StageCard from '../features/stages/StageCard';
+import StageAnswers from '../features/stages/StageAnswers';
+import LiveTicker from '../features/live/LiveTicker';
+import LiveMapCard from '../features/live/LiveMapCard';
+import { isTodayInCopenhagen } from '../features/live/liveTickerUtils';
 import MyStatsCard from '../features/dashboard/MyStatsCard';
 import MiniStandings from '../features/dashboard/MiniStandings';
 import RecentResultsCard from '../features/dashboard/RecentResultsCard';
@@ -29,7 +33,10 @@ export default function DashboardPage() {
   const { standings } = useStandings();
   const { leagues, loading: leaguesLoading } = useLeagues(user?.uid);
   const season = useActiveSeason();
-  const { points: stagePoints } = useTourSettings();
+  const { points: stagePoints, gcTopN } = useTourSettings();
+  // Fold-ud af "alles tips" på forsiden — indholdet renderes (og bets hentes)
+  // først når man faktisk åbner den.
+  const [answersOpen, setAnswersOpen] = useState(false);
   const { stages: dbStages, loading: stagesLoading } = useStages(season);
   const { teams } = useTeams(season);
   const { betsByStage } = useMyStageBets(user?.uid ?? null, season);
@@ -39,13 +46,36 @@ export default function DashboardPage() {
   // Brug rigtige etaper hvis de findes, ellers placeholder-ruten for sæsonen.
   const stages = dbStages.length ? dbStages : placeholderRoute2026(season);
 
-  // Næste etape at tippe: første åbne etape uden komplet hold-tip (ellers første åbne).
+  // Minut-puls: "næste etape"/"live etape" afhænger af klokken (kickoff,
+  // målgang, midnat). Uden pulsen genberegnes memo'erne kun når etape-listen
+  // ændrer sig — siden skulle så genindlæses for at skifte kort/tekst.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Næste etape = den KRONOLOGISK næste åbne etape (den der starter først og
+  // stadig kan tippes) — ikke den næste utippede. Så "Næste etape" matcher det
+  // man forventer (fx etape 1 før løbet er gået i gang), uanset hvor mange man
+  // allerede har tippet. Nudget til at tippe ligger i "Mine opgaver" ovenfor.
   const nextStage = useMemo(() => {
     const open = stages
-      .filter((s) => stageStatus(s, Date.now()) === 'scheduled')
+      .filter((s) => stageStatus(s, now) === 'scheduled')
       .sort((a, b) => a.number - b.number);
-    return open.find((s) => !betsByStage[s.id]?.winnerTeam) || open[0] || null;
-  }, [stages, betsByStage]);
+    return open[0] || null;
+  }, [stages, now]);
+
+  // Dagens LIVE etape: startet i dag (dansk tid) — tickeren følger med hele
+  // aftenen (også efter målgang, hvor mål-opslagene lander). `done` styrer
+  // fold-ud-kortets tekst ("i gang" vs. "afgjort").
+  const { liveStage, liveStageDone } = useMemo(() => {
+    const s = stages.find((st) => {
+      const status = stageStatus(st, now);
+      return (status === 'locked' || status === 'done') && isTodayInCopenhagen(st.kickoff);
+    }) || null;
+    return { liveStage: s, liveStageDone: s ? stageStatus(s, now) === 'done' : false };
+  }, [stages, now]);
 
   // Forsidens stilling viser kun de spillere, man deler en liga med (plus én selv) —
   // samme afgrænsning som Stilling-siden bruger som standard.
@@ -81,6 +111,37 @@ export default function DashboardPage() {
 
       <OnboardingChecklist uid={user?.uid} />
 
+      {/* Live-kort (rute + udbrud/hovedfelt) — kun mens etapen KØRER */}
+      <LiveMapCard stage={liveStage} enabled={!!liveStage && !liveStageDone} />
+
+      {/* Dansk live-dækning fra letour.fr, mens etapen kører */}
+      <LiveTicker stage={liveStage} enabled={!!liveStage} />
+
+      {/* Alles tips DIREKTE på forsiden fra etapestart — fold ud, færdig.
+          (Reglerne åbner læsning af andres tips ved kickoff.) */}
+      {liveStage && (
+        <details
+          className="card"
+          style={{ marginBottom: '1rem' }}
+          data-testid="live-answers"
+          onToggle={(e) => setAnswersOpen(e.currentTarget.open)}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span>
+              {liveStageDone
+                ? `🏁 Etape ${liveStage.number} er afgjort — se resultatet og alles tips`
+                : `👀 Etape ${liveStage.number} er i gang — se hvad de andre har tippet`}
+            </span>
+            <span className="badge badge--blue">{answersOpen ? 'fold sammen' : 'fold ud'}</span>
+          </summary>
+          {answersOpen && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <StageAnswers stage={liveStage} points={stagePoints} gcTopN={gcTopN} />
+            </div>
+          )}
+        </details>
+      )}
+
       <TodoCard />
 
       {/* Næste etape at tippe */}
@@ -93,6 +154,7 @@ export default function DashboardPage() {
             bet={betsByStage[nextStage.id] || null}
             teams={teams}
             points={stagePoints}
+            gcTopN={gcTopN}
           />
         </div>
       )}
@@ -101,8 +163,8 @@ export default function DashboardPage() {
 
       {!stagesLoading && (
         <div className="dashboard-stats-grid" style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-          <MyStatsCard stages={stages} bets={betsByStage} />
-          <RecentResultsCard stages={stages} bets={betsByStage} />
+          <MyStatsCard stages={stages} bets={betsByStage} points={stagePoints} />
+          <RecentResultsCard stages={stages} bets={betsByStage} points={stagePoints} />
         </div>
       )}
 

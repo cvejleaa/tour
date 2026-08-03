@@ -8,6 +8,9 @@ import {
   pcsToStageInput,
   jerseyHolders,
   stageMetaFromPcs,
+  classificationStandings,
+  stageResultRows,
+  needsPrevForPoints,
 } from './pcsMapping.js';
 import { resolveStageResult, scoreStageBet } from './tourScoring.js';
 
@@ -86,10 +89,10 @@ describe('deltaPointsList (ægte point på etapen)', () => {
 
 describe('pcsToStageInput → resolveStageResult (hele kæden)', () => {
   it('afgør Q1–Q4 korrekt fra et payload (kumulativ)', () => {
-    const input = pcsToStageInput(payloadN, { gcTopN: 4 });
+    const input = pcsToStageInput(payloadN, { gcTopN: 2 });
     const res = resolveStageResult(input);
     expect(res.winnerTeam).toBe('UAE Team Emirates'); // Q1: rytter nr.1
-    // Q2 top-4: UAE nr1+nr3 = 4+2 = 6 → UAE
+    // Q2 (N=2): UAE har nr.1+nr.3 = 4 og er eneste hold med 2 i mål → UAE
     expect(res.gcTeam).toBe('UAE Team Emirates');
     // Q3 bjerg kumulativ: Bahrain 12 > UAE 8 → Bahrain
     expect(res.mountainTeam).toBe('Bahrain Victorious');
@@ -98,7 +101,7 @@ describe('pcsToStageInput → resolveStageResult (hele kæden)', () => {
   });
 
   it('en spiller kan scores ende-til-ende mod payload-facit', () => {
-    const facit = resolveStageResult(pcsToStageInput(payloadN, { gcTopN: 4 }));
+    const facit = resolveStageResult(pcsToStageInput(payloadN, { gcTopN: 2 }));
     const bet = { winnerTeam: 'UAE Team Emirates', gcTeam: 'UAE Team Emirates', mountainTeam: 'Soudal Quick-Step', sprintTeam: 'Visma | Lease a Bike' };
     const { points } = scoreStageBet(bet, facit); // 5 + 4 + 0 + 3 = 12
     expect(points).toBe(12);
@@ -120,5 +123,81 @@ describe('jerseyHolders & stageMetaFromPcs', () => {
       number: 2, date: '2026-07-05', startCity: 'Lille', finishCity: 'Boulogne',
       km: 209, type: 'Hilly', profileIcon: 'p2',
     });
+  });
+});
+
+describe('classificationStandings & stageResultRows', () => {
+  it('normaliserer alle fem konkurrencer med rank/rytter/hold/tid/point', () => {
+    const s = classificationStandings(payloadN);
+    expect(Object.keys(s)).toEqual(['samlet', 'sprint', 'bjerg', 'ungdom', 'hold']);
+    expect(s.samlet[0]).toEqual({ rank: 1, rider: 'Tadej Pogačar', team: 'UAE Team Emirates', time: '0:00', points: null });
+    expect(s.sprint).toHaveLength(2);
+    expect(s.sprint[0]).toMatchObject({ rank: 1, rider: 'Jonas Vingegaard', points: 30, time: null });
+    expect(s.hold[0]).toMatchObject({ rank: 1, team: 'UAE Team Emirates' });
+  });
+
+  it('respekterer topN', () => {
+    expect(classificationStandings(payloadN, 1).sprint).toHaveLength(1);
+  });
+
+  it('stageResultRows giver målrækkefølgen', () => {
+    const rows = stageResultRows(payloadN);
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toMatchObject({ rank: 1, rider: 'Tadej Pogačar', team: 'UAE Team Emirates' });
+  });
+
+  it('tåler manglende klassementer', () => {
+    const empty = classificationStandings({});
+    expect(empty.samlet).toEqual([]);
+    expect(stageResultRows({})).toEqual([]);
+  });
+});
+
+// 2026-stakken: ipe/ime mangler — kun de KUMULATIVE ipg/img findes
+// (sprintKlass/bjergKlass). Spejl af functions/pcsMapping.test.js-blokken.
+const payloadCum = (n, sprintRows, bjergRows) => ({
+  number: n,
+  results_present: true,
+  classifications: {
+    etape: { rows: [{ rank: 1, rider_name: 'Pogačar', team_name: 'UAE' }] },
+    samlet: { rows: [{ rank: 1, rider_name: 'Pogačar', team_name: 'UAE' }] },
+    sprint: { rows: [] },
+    bjerg: { rows: [] },
+    ungdom: { rows: [] },
+    hold: { rows: [] },
+    sprintKlass: { rows: sprintRows },
+    bjergKlass: { rows: bjergRows },
+  },
+});
+
+describe('kumulative klassementer (2026: ipe/ime mangler)', () => {
+  const prev = payloadCum(1,
+    [{ rank: 1, rider_name: 'Girmay', rider_url: 'r/gir', team_name: 'Intermarché', points: 20 }],
+    [{ rank: 1, rider_name: 'Martinez', rider_url: 'r/mar', team_name: 'Bahrain', points: 5 }]);
+  const cur = payloadCum(2,
+    [
+      { rank: 1, rider_name: 'Girmay', rider_url: 'r/gir', team_name: 'Intermarché', points: 25 },
+      { rank: 2, rider_name: 'Philipsen', rider_url: 'r/phi', team_name: 'Alpecin', points: 22 },
+    ],
+    [{ rank: 1, rider_name: 'Martinez', rider_url: 'r/mar', team_name: 'Bahrain', points: 5 }]);
+
+  it('needsPrevForPoints kun for etape 2+ uden per-etape-lister', () => {
+    expect(needsPrevForPoints(cur)).toBe(true);
+    expect(needsPrevForPoints(prev)).toBe(false);
+    expect(needsPrevForPoints(payloadN)).toBe(false);
+  });
+
+  it('Q3/Q4 = delta af kumulativ (etape 2 minus etape 1)', () => {
+    const input = pcsToStageInput(cur, { gcTopN: 2, prevCumulative: prev });
+    expect(input.sprintPoints).toContainEqual({ rider: 'Philipsen', team: 'Alpecin', points: 22 });
+    expect(input.sprintPoints).toContainEqual({ rider: 'Girmay', team: 'Intermarché', points: 5 });
+    expect(input.mountainPoints).toEqual([]); // uændret kumulativt → intet bjergfacit
+  });
+
+  it('jerseyHolders + classificationStandings foretrækker kumulativ', () => {
+    expect(jerseyHolders(cur).green).toBe('Girmay');
+    const s = classificationStandings(cur);
+    expect(s.sprint[0]).toMatchObject({ rider: 'Girmay', points: 25 });
+    expect(s.bjerg[0]).toMatchObject({ rider: 'Martinez', points: 5 });
   });
 });

@@ -30,6 +30,8 @@ export default function MiniStandings({ standings, uid }) {
       points: u.totalPoints ?? 0,
       idx: i,
     }));
+    // Deterministisk top-3: placering, så navn — aldrig tilfældig dok-rækkefølge.
+    list.sort((a, b) => (a.pos - b.pos) || a.name.localeCompare(b.name, 'da'));
     const top = list.slice(0, 3);
     const me = list.find((r) => r.uid === uid);
     if (me && !top.some((r) => r.uid === uid)) top.push(me);
@@ -38,15 +40,25 @@ export default function MiniStandings({ standings, uid }) {
 
   if (rows.length === 0) return null;
 
+  // Før første etape står alle på 0 — tre "guldvindere" i vilkårlig rækkefølge
+  // ville ligne en fejl. Vis en venlig besked i stedet.
+  const allZero = (standings ?? []).length > 0 && standings.every((u) => !((u.totalPoints ?? 0) > 0) && !((u.totalPoints ?? 0) < 0));
+
   return (
     <div className="card" data-testid="mini-standings" style={{ marginBottom: '1rem' }}>
       <div className="flex items-center justify-between" style={{ marginBottom: '0.5rem' }}>
         <h2 className="card__title" style={{ margin: 0 }}>Stilling</h2>
         <Link to="/stilling" className="badge badge--blue" style={{ textDecoration: 'none' }}>Hele stillingen →</Link>
       </div>
-      {rows.map((r) => (
-        <Row key={r.uid} pos={r.pos} name={r.name} points={r.points} highlight={r.uid === uid} />
-      ))}
+      {allZero ? (
+        <p className="text-muted" style={{ margin: 0, fontSize: '0.88rem' }}>
+          Alle {standings.length} spillere står lige på 0 point — stillingen afgøres fra første etape 🚴
+        </p>
+      ) : (
+        rows.map((r) => (
+          <Row key={r.uid} pos={r.pos} name={r.name} points={r.points} highlight={r.uid === uid} />
+        ))
+      )}
     </div>
   );
 }

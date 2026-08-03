@@ -3,7 +3,7 @@
 // start/mål-by, billede og bymotekst). Bruges som fallback/seed så etape-siden
 // kan vises FØR sync'en har seedet etaperne i Firestore — og som kilde til den
 // rigtige seed via admin (TourTab → seedTourRoute).
-import { stageId, deriveKickoff } from '../lib/tourStages';
+import { stageId, kickoffFromStartTime } from '../lib/tourStages';
 import { activeQuestionsForStage } from '../lib/tourScoring';
 import ROUTE_2026 from './route2026.json';
 
@@ -20,7 +20,8 @@ export function placeholderRoute2026(season = 2026) {
     season,
     number: s.number,
     date: s.date,
-    kickoff: deriveKickoff(s.date, 12),
+    // Frist = etapens reelle start (fra startTime); fallback kl. 12 hvis ukendt.
+    kickoff: kickoffFromStartTime(s.date, s.startTime),
     type: s.type,
     typeCode: s.typeCode,
     km: s.km,

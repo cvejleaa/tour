@@ -32,6 +32,16 @@ vi.mock('../features/stages/useActiveSeason', () => ({
 vi.mock('../context/TasksContext', () => ({
   useTasks: () => ({ stageCount: 1, bonusCount: 0, leagueBonus: { total: 0, byLeague: [] }, total: 1 }),
 }));
+// Live-tickeren poller en Cloud Function — stub'et her (ingen etaper i
+// fixturen er live, så komponenten renderer alligevel null).
+vi.mock('../features/live/useLiveTicker', () => ({
+  useLiveTicker: () => ({ posts: [], updatedAt: null, failed: false }),
+}));
+// StageAnswers henter bets fra Firestore — stub'et (fold-ud'en renderes kun
+// for en live etape, og fixturen har ingen).
+vi.mock('../features/stages/StageAnswers', () => ({
+  default: () => <div data-testid="stage-answers-mock" />,
+}));
 
 function renderPage() {
   return render(<MemoryRouter><DashboardPage /></MemoryRouter>);

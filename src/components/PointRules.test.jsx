@@ -3,7 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import PointRules from './PointRules';
 import { DEFAULT_POINTS, DEFAULT_PODIUM } from '../lib/tourScoring';
-import { POINTS } from '../lib/scoring';
 
 describe('PointRules – grundlæggende rendering', () => {
   it('renderer uden fejl', () => {
@@ -33,9 +32,11 @@ describe('PointRules – pointværdier', () => {
     expect(screen.getByText(`${DEFAULT_PODIUM.winnerTeam.join(' / ')} p`)).toBeInTheDocument();
   });
 
-  it('viser podie-skalaen for "Bedste hold" (4 / 2 / 1)', () => {
+  it('viser podie-skalaen for "Bedste hold" (4 / 2 / 1) med N-regel', () => {
     render(<PointRules />);
-    expect(screen.getByText(/Bedste hold blandt de første ryttere/)).toBeInTheDocument();
+    expect(screen.getByText(/Bedste hold \(holdets \d+ bedste ryttere\)/)).toBeInTheDocument();
+    // Q2-reglen forklares: laveste sum + kvalifikationskravet.
+    expect(screen.getByText(/laveste sum vinder/)).toBeInTheDocument();
     expect(screen.getByText(`${DEFAULT_PODIUM.gcTeam.join(' / ')} p`)).toBeInTheDocument();
   });
 
@@ -49,9 +50,15 @@ describe('PointRules – pointværdier', () => {
     expect(screen.getByText(/Flest sprintpoint/)).toBeInTheDocument();
   });
 
-  it(`viser ${POINTS.BONUS} point for korrekt bonus-svar`, () => {
+  it('bonus giver spørgsmålets egne point — IKKE et fast tal (regression: gammel "10 point"-tekst)', () => {
     const { container } = render(<PointRules />);
-    expect(container.textContent).toContain(`${POINTS.BONUS} point`);
+    expect(container.textContent).toContain('de point, der står ved spørgsmålet');
+    expect(container.textContent).not.toContain('10 point');
+  });
+
+  it('forklarer at ikke alle spørgsmål stilles på alle etaper', () => {
+    render(<PointRules />);
+    expect(screen.getByText(/Ikke alle spørgsmål på alle etaper:/)).toBeInTheDocument();
   });
 
   it('nævner "Bonus" i ekstra info', () => {
@@ -114,9 +121,5 @@ describe('PointRules – konsistens med pointkonstanter', () => {
 
   it('DEFAULT_POINTS.gcTeam er 4', () => {
     expect(DEFAULT_POINTS.gcTeam).toBe(4);
-  });
-
-  it('POINTS.BONUS er 10', () => {
-    expect(POINTS.BONUS).toBe(10);
   });
 });

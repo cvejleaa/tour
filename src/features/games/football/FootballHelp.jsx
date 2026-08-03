@@ -1,0 +1,256 @@
+/**
+ * FootballHelp — hjælp der hører til ÉT fodbold-spil (fx Superligaen). Vises som
+ * en fane inde i spillet, så den generelle samleside-hjælp kan handle om
+ * platformen. Tallene hentes fra scoring-libbet, så de altid stemmer.
+ */
+import { Link } from 'react-router-dom';
+import GameTabLink from '../GameTabLink';
+import { CHANCE, ROUND_BONUS, PULJE, ELO } from '../../../lib/superligaScoring';
+// Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
+// hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
+// denne fils formål er at undgå.
+import { RUBRIKKER } from './PointOpdeling';
+
+function Section({ emoji, title, children }) {
+  return (
+    <div className="card" style={{ marginBottom: '1rem' }}>
+      <h3 className="card__title" style={{ marginTop: 0 }}>{emoji} {title}</h3>
+      <div style={{ color: 'var(--c-text)', fontSize: '0.92rem', lineHeight: 1.7 }}>{children}</div>
+    </div>
+  );
+}
+
+// Fane-henvisning. Har den et fane-id, bliver mærkatet et rigtigt link — så
+// guiden kan FØLGES i stedet for bare at anvise vejen. Uden id (fx faner der
+// ikke findes i dette spil) står den som før.
+function Tab({ children, fane }) {
+  const style = { whiteSpace: 'nowrap', fontWeight: 600 };
+  if (!fane) return <span className="badge badge--muted" style={style}>{children}</span>;
+  // Den linkede variant SKAL se anderledes ud end den grå tekst, den erstattede.
+  // Uden farve og understregning er mærkatet pixel-identisk med før, og så
+  // findes funktionen aldrig — slet ikke på mobil, hvor der ingen hover er.
+  return (
+    <GameTabLink
+      fane={fane}
+      className="badge"
+      style={{ ...style, color: 'var(--c-pitch)', textDecoration: 'underline' }}
+    >
+      {children}
+    </GameTabLink>
+  );
+}
+
+export default function FootballHelp() {
+  return (
+    <div>
+      <p style={{ color: 'var(--c-muted)', margin: '0 0 1rem', fontSize: '0.95rem' }}>
+        Alt om at tippe her — fra dit ugentlige flow til point, bonus, Elo og mini-ligaer.
+      </p>
+
+      {/* Det daglige/ugentlige flow først — så resten er detaljerne. */}
+      <Section emoji="🗓️" title="Sådan forløber en runde">
+        <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Før kampene:</strong> På <Tab fane="tip">Tip</Tab> sætter du 1X2 på rundens kampe — du kan rette
+            frit indtil hver kampstart. Tip gerne <strong>hele runden</strong> (combi-bonus), og brug evt.
+            {' '}<strong>Chancen</strong> på den kamp, du har bedst fornemmelse for.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Mens der spilles:</strong> Følg den officielle <Tab fane="tabel">⚽ Tabel</Tab> og jeres indbyrdes
+            {' '}<Tab fane="stilling">🏆 Stilling</Tab>. Når en kamp er <strong>gået i gang</strong>, kan du folde
+            {' '}<em>Se ligaens tips</em> ud under kampen på <Tab fane="tip">Tip</Tab> og se, hvad de andre i dine
+            ligaer valgte — og de kan se dit. Du kan også klikke på et navn i
+            {' '}<Tab fane="stilling">🏆 Stilling</Tab> og se den spillers tip på <strong>alle</strong> afgjorte
+            kampe — og de kan se dine på samme måde. Før kampstart er alles tips skjult, så ingen kan
+            kigge efter.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Mens kampen spilles:</strong> Stillingen står mellem holdnavnene med et rødt
+            {' '}<em>DIREKTE</em> og halvlegen, og den opdaterer sig selv hvert minut — du behøver ikke
+            hente siden igen. Under tallet står klokkeslættet for seneste opdatering; holder den op med at
+            komme, siger kortet det i stedet for at lade som ingenting.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Når kampen er slut:</strong> Ved slutfløjt bliver stillingen stående, og kortet
+            skifter til <em>Slut · afventer facit</em> — tallet forsvinder ikke. Så lander slutresultatet,
+            det rigtige 1X2 markeres, og dine point afregnes i samme øjeblik. Alt kommer fra Superligaens
+            eget system, så der kan gå et minut eller to, hvor kampen er slut, uden at resultatet er nået frem.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Efter runden:</strong> Se dit facit og din træfprocent under <Tab fane="mine">📋 Mine tips</Tab>, og
+            hvordan holdenes rating flyttede sig under <Tab fane="elo">📈 Elo</Tab>.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Løbende:</strong> Afgiv dit <Tab fane="pulje">🎖️ Pulje</Tab>-tip før deadline (én gang), dyst i
+            {' '}<Tab fane="ligaer">👥 Ligaer</Tab> med vennerne, og vælg dit hold under <Tab fane="profil">🙂 Mit hold</Tab>.
+          </li>
+          <li>
+            <strong>Spillet kan starte midt i sæsonen.</strong> Kampe, der er spillet <em>før</em> spillets
+            startdato, vises ikke og giver ingen point — så alle er med fra samme runde. Derfor kan runde 1
+            mangle, hvis spillet først begynder ved runde 2.
+          </li>
+        </ul>
+      </Section>
+
+      <Section emoji="⚽" title="Tip kampene (1X2)">
+        På <Tab fane="tip">Tip</Tab> gætter du udfaldet af hver kamp i runden: <strong>1</strong> (hjemmesejr),
+        {' '}<strong>X</strong> (uafgjort) eller <strong>2</strong> (udesejr). Du kan rette dit tip helt
+        indtil <strong>kampstart</strong> — derefter låses netop den kamp. Du behøver ikke tippe hele runden
+        på én gang, men jo flere kampe du rammer, jo mere kan du hente på combi-bonussen.
+      </Section>
+
+      <Section emoji="🎯" title="Point følger oddsene">
+        Du får point <strong>svarende til oddsene</strong> på det udfald, du rammer — afrundet til én
+        decimal. Rammer du en storfavorit til odds 1,3, giver det <strong>1,3 point</strong>; rammer du en
+        overraskelse til odds 4,5, giver det <strong>4,5 point</strong>. Forkert tip giver 0. Så det betaler
+        sig at turde satse på outsidere — men de sikre kampe holder dig stabil.
+      </Section>
+
+      <Section emoji="⚡" title="Chancen">
+        På én kamp pr. runde kan du bruge <strong>Chancen</strong>: sæt et lille antal point i spil på dit
+        1X2-valg. Rammer du, vinder du <strong>indsats × (odds − 1)</strong> oveni; rammer du forkert,
+        mister du kun indsatsen. Indsatsen er mellem <strong>{CHANCE.MIN}</strong> og{' '}
+        <strong>{CHANCE.MAX_ABS}</strong> point og kan aldrig være mere end{' '}
+        {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus. Indsatsen
+        tages fra dine <strong>optjente point</strong>, så du kan først bruge Chancen, når du har samlet
+        nogle point.
+      </Section>
+
+      <Section emoji="🎰" title="Combi-runde-bonus">
+        Tipper du <strong>alle</strong> kampe i en runde, får du en bonus oveni — som en tæmmet
+        bookmaker-kupon. <strong>Sådan beregnes den:</strong> de odds, du <strong>rammer</strong>, ganges
+        sammen, og resultatet lægges til som bonus-point (oveni de almindelige point pr. kamp).
+        <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem' }}>
+          <li><strong>Alle kampe ramt</strong> → alle de ramte odds ganges, med et loft på <strong>{ROUND_BONUS.PERFECT_CAP}</strong> point.</li>
+          <li><strong>Alle på nær én</strong> → de ramte odds (den forkerte tælder ikke med) ganges, med et loft på <strong>{ROUND_BONUS.NEAR_CAP}</strong> point.</li>
+          <li><strong>To eller flere fejl</strong> → ingen combi-bonus.</li>
+        </ul>
+        <p style={{ margin: '0.5rem 0 0' }}>
+          <em>Eksempel:</em> rammer du en hel runde med odds 1,5 · 2,0 · 3,0, giver combi’en
+          {' '}1,5 × 2,0 × 3,0 = <strong>9,0 point</strong> oveni. Ryger produktet over loftet, skæres det til
+          {' '}{ROUND_BONUS.PERFECT_CAP} — så én heldig runde ikke afgør hele sæsonen. Det belønner at turde
+          tippe hele runden.
+        </p>
+      </Section>
+
+      <Section emoji="📋" title="Mine tips">
+        <Tab fane="mine">📋 Mine tips</Tab> samler alle dine tips runde for runde med facit, point pr. kamp og din
+        combi-bonus — plus din træfprocent og øverst en opdeling af, hvor pointene kommer fra:
+        {' '}{RUBRIKKER.map(({ ikon, navn }, i) => (
+          <span key={navn}>
+            {i > 0 && ' · '}<strong>{ikon} {navn}</strong>
+          </span>
+        ))} og i alt. Det er de <strong>samme fire tal</strong> som i stillingen — de kommer fra
+        serveren, ikke fra to forskellige regnestykker.
+      </Section>
+
+      <Section emoji="🏆" title="Stilling & tabel">
+        <Tab fane="stilling">🏆 Stilling</Tab> viser jeres indbyrdes kamp — de samlede point for de spillere, du
+        {' '}<strong>deler liga med</strong>. Er du ikke med i en liga endnu, er der ingen at måle dig
+        mod: opret eller tilmeld dig én under <Tab fane="ligaer">👥 Ligaer</Tab>. Er du med i <strong>flere
+        ligaer</strong>, kan du vælge én ad gangen øverst — så tælles placeringerne forfra inden
+        for den liga.
+        <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>🧮 Hvor kommer pointene fra?</strong> — knappen bytter listen ud med et regnskab, hvor
+            hver spillers point er delt i {RUBRIKKER.map(({ ikon, navn, hjaelp }, i) => (
+              <span key={navn}>
+                {i > 0 && (i === RUBRIKKER.length - 1 ? ' og ' : ', ')}
+                <strong>{ikon} {navn}</strong> ({hjaelp.replace(/\.$/, '').toLowerCase()})
+              </span>
+            ))}. Summen kan afvige lidt fra totalen — så står forklaringen under tabellen, og totalen
+            er den rigtige.
+          </li>
+          <li>
+            <strong>Klik på et navn</strong> — så folder du den spillers tips ud runde for runde, med facit
+            og udbytte, for alle kampe der er <strong>afgjort og gået i gang</strong>. Det virker begge
+            veje: de andre i dine ligaer kan se dine på samme måde.
+          </li>
+        </ul>
+        Bemærk, at stillingen viser <strong>spillets point</strong>; eventuelle
+        {' '}<strong>liga-spørgsmål</strong> lægges kun oveni på ligaens egen side under
+        {' '}<Tab fane="ligaer">👥 Ligaer</Tab>, så rækkefølgen dér kan være en anden. <Tab fane="tabel">⚽ Tabel</Tab>
+        {' '}viser den <strong>officielle Superliga-stilling</strong> (hentet direkte fra ligaen), delt op i
+        mesterskabsspil (top 6) og nedrykningsspil (bund 6). Det er den, pulje-tippet afgøres på.
+      </Section>
+
+      <Section emoji="📈" title="Elo på kampkortet">
+        På <Tab fane="tip">Tip</Tab> står begge holds <strong>styrke-rating</strong> under kampen sammen med de
+        seneste op til fem runders udvikling (▲/▼ pr. runde — samme betydning som i Elo-tabellen).
+        Ratingen er holdets styrke <strong>efter seneste hele runde</strong> — den er ikke et bud på
+        netop denne kamp. Hvem der er favorit, kan du læse direkte på 1X2-knapperne: der står, hvor
+        mange point hvert udfald giver. De tal er ikke bare forskellen i rating — hjemmebanen tæller
+        også med.
+      </Section>
+
+      <Section emoji="📈" title="Elo-tabellen">
+        På <Tab fane="elo">📈 Elo</Tab> kan du følge holdenes <strong>styrke-rating</strong> hele sæsonen. Efter hver
+        færdigspillet runde kommer der en ny kolonne forrest med den nye rating og en pil, der viser
+        udviklingen. Elo-ratingen er også det, <strong>oddsene bygger på</strong>.
+        <p style={{ margin: '0.5rem 0 0' }}><strong>Sådan beregnes Elo:</strong></p>
+        <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.2rem' }}>
+          <li><strong>Holdene starter ikke alle på {ELO.START}.</strong> {ELO.START} er blot det neutrale
+            nulpunkt. Hvert hold får en <strong>start-rating</strong>, vi har beregnet ud fra de
+            <strong> sidste 3 års resultater</strong> plus en vurdering af holdets aktuelle styrke — så en
+            storklub starter <em>over</em> {ELO.START} og et oprykker-/svagt hold <em>under</em>. Derfor
+            er favoritter og outsidere forskellige allerede fra første kamp.</li>
+          <li>Før en kamp regnes en <strong>forventning</strong> til hjemmeholdet ud fra forskellen i rating
+            {' '}plus en <strong>hjemmebanefordel på ~{ELO.HFA}</strong> point. To hold med samme rating er altså
+            ikke 50/50 — hjemmeholdet forventes at tage omkring 59 % takket være hjemmebanen.</li>
+          <li>Efter kampen flyttes rating mod resultatet: <em>ny rating = gammel + {ELO.K} ×
+            (resultat − forventning)</em>, hvor resultat er 1 (sejr), ½ (uafgjort) eller 0 (nederlag).
+            Vinderens point lægges til, taberens trækkes fra — lige meget begge veje.</li>
+          <li>Jo mere <strong>overraskende</strong> resultatet er, jo større er udsvinget (slår en outsider
+            en favorit, rykker det meget; vinder favoritten som ventet, rykker det lidt).</li>
+        </ul>
+        <p style={{ margin: '0.5rem 0 0' }}>
+          <em>Eksempel 1 — jævnbyrdige:</em> to lige stærke hold (forventning 50 %). Vinder hjemmeholdet,
+          får det {ELO.K} × (1 − 0,5) = <strong>+{Math.round(ELO.K * 0.5)}</strong> point, og udeholdet
+          {' '}−{Math.round(ELO.K * 0.5)}.
+        </p>
+        <p style={{ margin: '0.35rem 0 0' }}>
+          <em>Eksempel 2 — outsider slår favorit:</em> favoritten er ventet til at vinde med 80 %, outsideren
+          har altså kun 20 % forventning. Vinder outsideren alligevel, får den {ELO.K} × (1 − 0,2) =
+          {' '}<strong>+{Math.round(ELO.K * 0.8)}</strong> point, og favoritten
+          {' '}<strong>−{Math.round(ELO.K * 0.8)}</strong> — et langt større udsving end mellem jævnbyrdige
+          hold, netop fordi resultatet var overraskende.
+        </p>
+      </Section>
+
+      <Section emoji="🎖️" title="Bonus: pulje-tip">
+        På <Tab fane="pulje">🎖️ Pulje</Tab> forudsiger du, hvilke <strong>{PULJE.POOL_SIZE} hold</strong> der ender i
+        <strong> mesterskabsspillet</strong> efter grundspillet (de øvrige 6 ryger i nedrykningsspillet).
+        Hvert rigtigt hold giver <strong>+{PULJE.PER_TEAM} point</strong>, og rammer du alle{' '}
+        {PULJE.POOL_SIZE}, får du <strong>+{PULJE.PERFECT_BONUS}</strong> i bonus. Deadline sættes af
+        arrangøren og vises på fanen.
+      </Section>
+
+      <Section emoji="👥" title="Mini-ligaer">
+        På <Tab fane="ligaer">👥 Ligaer</Tab> kan du oprette en privat liga (du får en <strong>invitationskode</strong>)
+        eller deltage med en kode fra en ven. I ligaen dyster I på jeres egen stilling, og hver liga har en
+        {' '}<strong>væg</strong>, hvor I kan skrive sammen undervejs.
+        <p style={{ margin: '0.5rem 0 0' }}>
+          <strong>Liga-spørgsmål:</strong> den, der oprettede ligaen, kan stille jeres egne spørgsmål
+          (&quot;hvem bliver topscorer?&quot;) med deadline og pointværdi. Andres svar er skjult, indtil
+          spørgsmålet lukker — så ingen kan skrive af. Point fra spørgsmål tæller <em>kun</em> i den liga og
+          vises som <strong>(+X❓)</strong> i liga-stillingen.
+        </p>
+        <p style={{ margin: '0.5rem 0 0' }}>
+          <strong>Runde-Botten 🤖:</strong> efter rundens sidste kamp skriver en bot et kort resumé på jeres
+          væg — hvem der løb med runden, hvem der brændte den, og hvordan stillingen ser ud.
+        </p>
+      </Section>
+
+      <Section emoji="🙂" title="Dit hold">
+        Under <Tab fane="profil">🙂 Mit hold</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>. Det giver din
+        avatar holdets farve i stillingen og i dine ligaer. Holdet gælder kun her — andre spil har deres
+        egne hold.
+      </Section>
+
+      <p style={{ color: 'var(--c-muted)', fontSize: '0.88rem', marginTop: '1rem' }}>
+        Vil du vide, hvordan hele platformen hænger sammen — og hvilke andre spil du kan være med i med den
+        samme bruger? Se den generelle <Link to="/hjaelp">hjælp</Link>.
+      </p>
+    </div>
+  );
+}

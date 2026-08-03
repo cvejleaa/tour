@@ -15,6 +15,7 @@ vi.mock('../data/tourTeams2026', () => {
   return {
     teamMeta: (c) => META[c] || null,
     prettyTeam: (n) => n,
+    countryName: (code) => ({ uae: 'De Forenede Arabiske Emirater', ned: 'Holland' }[code] || String(code).toUpperCase()),
   };
 });
 
@@ -25,6 +26,7 @@ vi.mock('../data/startlist2026', () => {
       { name: 'Rytter Én', country: 'Danmark' },
       { name: 'Jonas Vingegaard', country: 'Danmark' }, // hovednavn → ⭐
       { name: 'Rider Two', country: 'USA' },
+      { name: 'Ben Healy (Irland)' }, // live-synk-format: land bagt ind i navnet
     ] },
   };
   return { staticStartlist: (c) => SL[c] || null };
@@ -61,6 +63,14 @@ describe('TeamPage', () => {
     expect(screen.queryByTestId('riders-pending')).toBeNull();
   });
 
+  it('normaliserer "Navn (Land)"-format så navn og land vises adskilt', () => {
+    renderAt('TVL');
+    // Navnet vises uden parentesen, og landet vises som separat tekst.
+    expect(screen.getByText('Ben Healy')).toBeInTheDocument();
+    expect(screen.queryByText('Ben Healy (Irland)')).toBeNull();
+    expect(screen.getByText('· Irland')).toBeInTheDocument();
+  });
+
   it('viser holdets profil, hovednavne og mål (TVL = Visma)', () => {
     renderAt('TVL');
     expect(screen.getByTestId('team-profile')).toBeInTheDocument();
@@ -74,6 +84,17 @@ describe('TeamPage', () => {
     renderAt('TVL');
     // Vingegaard er hovednavn → får et ⭐-mærke i rytterlisten.
     expect(screen.getByTitle('Hovednavn')).toBeInTheDocument();
+  });
+
+  it('viser skemaet med en kolonne pr. indbygget Tour-konkurrence', () => {
+    renderAt('TVL');
+    // Tabel-layout med sorterbare kolonner for samlet/sprint/bjerg/ungdom.
+    for (const k of ['samlet', 'sprint', 'bjerg', 'ungdom']) {
+      expect(screen.getByTestId(`sort-${k}`)).toBeInTheDocument();
+    }
+    // Uden klassement-data endnu: cellerne viser '–' og en forklaring.
+    expect(screen.getAllByText('–').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Klassement-kolonnerne udfyldes automatisk/)).toBeInTheDocument();
   });
 
   it('viser "Hold ikke fundet" for en ukendt kode', () => {

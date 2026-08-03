@@ -47,19 +47,14 @@ vi.mock('firebase/firestore', () => ({
   serverTimestamp: () => mockServerTimestamp(),
 }));
 
-vi.mock('../../firebase', () => ({ db: {} }));
+const mockCallable = vi.fn();
+vi.mock('firebase/functions', () => ({
+  httpsCallable: (...args) => { mockHttpsCallable(...args); return (data) => mockCallable(data); },
+}));
+const mockHttpsCallable = vi.fn();
 
-// ── Hjælpefunktion til at lave et falsk snapshot ──────────────────────────────
-function makeSnap(docs) {
-  return {
-    empty: docs.length === 0,
-    docs: docs.map((d) => ({
-      id: d.id,
-      ref: { _id: d.id },
-      data: () => d.data,
-    })),
-  };
-}
+vi.mock('../../firebase', () => ({ db: {}, functions: {} }));
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -124,81 +119,39 @@ describe('createLeague', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('joinLeague', () => {
-  beforeEach(() => {
-    mockUpdateDoc.mockResolvedValue(undefined);
-  });
-
+  // Tilmelding sker server-side (redeemInviteCode): klienten kan hverken læse
+  // fremmede ligaer eller skrive sig ind i dem.
   it('kaster fejl ved manglende kode', async () => {
-    await expect(joinLeague('', 'uid-1')).rejects.toThrow('Angiv en gyldig kode.');
+    await expect(joinLeague('')).rejects.toThrow('Angiv en gyldig kode.');
+    expect(mockCallable).not.toHaveBeenCalled();
   });
 
   it('kaster fejl ved null kode', async () => {
-    await expect(joinLeague(null, 'uid-1')).rejects.toThrow('Angiv en gyldig kode.');
+    await expect(joinLeague(null)).rejects.toThrow('Angiv en gyldig kode.');
   });
 
-  it('kaster fejl ved manglende uid', async () => {
-    await expect(joinLeague('ABC123', '')).rejects.toThrow('Mangler brugerId.');
-  });
-
-  it('kaster fejl hvis ingen liga fundet', async () => {
-    mockGetDocs.mockResolvedValue(makeSnap([]));
-    await expect(joinLeague('UGYLDIG', 'uid-1')).rejects.toThrow('Ingen liga fundet med den kode.');
-  });
-
-  it('kaster fejl hvis liga ikke er godkendt (pending)', async () => {
-    mockGetDocs.mockResolvedValue(
-      makeSnap([{ id: 'liga-1', data: { status: 'pending', memberUids: [], name: 'Test' } }]),
-    );
-    await expect(joinLeague('ABC123', 'uid-1')).rejects.toThrow(
-      'Ligaen er endnu ikke godkendt af admin.',
-    );
-  });
-
-  it('kaster fejl hvis liga er afvist (rejected)', async () => {
-    mockGetDocs.mockResolvedValue(
-      makeSnap([{ id: 'liga-1', data: { status: 'rejected', memberUids: [], name: 'Test' } }]),
-    );
-    await expect(joinLeague('ABC123', 'uid-1')).rejects.toThrow(
-      'Ligaen er endnu ikke godkendt af admin.',
-    );
-  });
-
-  it('kaster fejl hvis bruger allerede er medlem', async () => {
-    mockGetDocs.mockResolvedValue(
-      makeSnap([
-        { id: 'liga-1', data: { status: 'approved', memberUids: ['uid-1'], name: 'Test' } },
-      ]),
-    );
-    await expect(joinLeague('ABC123', 'uid-1')).rejects.toThrow(
-      'Du er allerede medlem af denne liga.',
-    );
-  });
-
-  it('kalder updateDoc med arrayUnion ved success', async () => {
-    mockGetDocs.mockResolvedValue(
-      makeSnap([{ id: 'liga-1', data: { status: 'approved', memberUids: [], name: 'TestLiga' } }]),
-    );
-    mockArrayUnion.mockReturnValue({ _arrayUnion: ['uid-1'] });
-    await joinLeague('ABC123', 'uid-1');
-    expect(mockUpdateDoc).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ memberUids: expect.anything() }),
-    );
-    expect(mockArrayUnion).toHaveBeenCalledWith('uid-1');
+  it('kalder redeemInviteCode med koden', async () => {
+    mockCallable.mockResolvedValue({ data: { leagueId: 'liga-1', leagueName: 'TestLiga' } });
+    await joinLeague(' abc123 ');
+    expect(mockHttpsCallable).toHaveBeenCalledWith({}, 'redeemInviteCode');
+    expect(mockCallable).toHaveBeenCalledWith({ code: 'abc123' });
   });
 
   it('returnerer id og name ved success', async () => {
-    mockGetDocs.mockResolvedValue(
-      makeSnap([{ id: 'liga-1', data: { status: 'approved', memberUids: [], name: 'TestLiga' } }]),
-    );
-    const result = await joinLeague('ABC123', 'uid-1');
-    expect(result).toEqual({ id: 'liga-1', name: 'TestLiga' });
+    mockCallable.mockResolvedValue({ data: { leagueId: 'liga-1', leagueName: 'TestLiga' } });
+    expect(await joinLeague('ABC123')).toEqual({ id: 'liga-1', name: 'TestLiga' });
   });
 
-  it('søger med uppercase-trimmet kode', async () => {
-    mockGetDocs.mockResolvedValue(makeSnap([]));
-    await expect(joinLeague(' abc123 ', 'uid-1')).rejects.toThrow();
-    expect(mockWhere).toHaveBeenCalledWith('joinCode', '==', 'ABC123');
+  it('skriver ALDRIG direkte i ligaen fra klienten', async () => {
+    mockCallable.mockResolvedValue({ data: { leagueId: 'liga-1', leagueName: 'TestLiga' } });
+    await joinLeague('ABC123');
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+    expect(mockGetDocs).not.toHaveBeenCalled();
+  });
+
+  it('videregiver serverens fejlbesked (fx ugyldig kode)', async () => {
+    mockCallable.mockRejectedValue(new Error('Ugyldig invitationskode — tjek den og prøv igen.'));
+    await expect(joinLeague('FORKERT')).rejects.toThrow('Ugyldig invitationskode');
   });
 });
 

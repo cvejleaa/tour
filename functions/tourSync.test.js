@@ -25,10 +25,11 @@ const payload = {
 
 describe('buildStageUpdate', () => {
   it('udleder facit, trøjer, meta og hold', () => {
-    const upd = buildStageUpdate(payload, 3);
+    const upd = buildStageUpdate(payload, 2);
     expect(upd.resultsPresent).toBe(true);
     expect(upd.result.winnerTeam).toBe('ALPECIN-DECEUNINCK'); // Q1
-    expect(upd.result.gcTeam).toBe('ALPECIN-DECEUNINCK'); // Q2 top-3: 3+1 vs Lidl 2
+    // Q2 (N=2): Alpecin har nr.1+nr.3 = 4 og er eneste hold med 2 i mål → Alpecin
+    expect(upd.result.gcTeam).toBe('ALPECIN-DECEUNINCK');
     expect(upd.result.sprintTeam).toBe('XDS ASTANA TEAM'); // Q4
     expect(upd.result.mountainTeam).toBe('INTERMARCHÉ - WANTY'); // Q3
     expect(upd.jerseys.yellow).toBe('Pogacar');

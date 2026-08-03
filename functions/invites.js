@@ -44,6 +44,7 @@ function checkRateLimit(attempt, now, { max = MAX_ATTEMPTS, windowMs = WINDOW_MS
  *   now                       : Date.now()
  *   getAttempt(uid)           : → {count, windowStart} | null
  *   saveAttempt(uid, state)   : gem forsøgs-tilstand
+ *   getUserStatus(uid)        : → brugerens nuværende status ('pending'|'approved'|'rejected'|…)
  *   findApprovedLeagueByCode(code) : → {id, name} | null (KUN godkendte ligaer)
  *   approveUserAndJoin({uid, leagueId}) : godkend bruger + tilmeld liga
  *
@@ -52,12 +53,21 @@ function checkRateLimit(attempt, now, { max = MAX_ATTEMPTS, windowMs = WINDOW_MS
 async function redeemInviteCodeCore(deps) {
   const {
     uid, rawCode, now,
-    getAttempt, saveAttempt, findApprovedLeagueByCode, approveUserAndJoin,
+    getAttempt, saveAttempt, getUserStatus, findApprovedLeagueByCode, approveUserAndJoin,
   } = deps;
 
   const code = normalizeInviteCode(rawCode);
   if (code.length < 4) {
     return { ok: false, error: 'invalid-argument', message: 'Angiv en gyldig invitationskode.' };
+  }
+
+  // En AFVIST bruger må ikke kunne gen-godkende sig selv via en delt kode
+  // (ellers omgås moderering). Kun ikke-afviste må indløse.
+  if (getUserStatus) {
+    const status = await getUserStatus(uid);
+    if (status === 'rejected') {
+      return { ok: false, error: 'permission-denied', message: 'Din adgang er afvist. Kontakt en administrator.' };
+    }
   }
 
   // Rate-limiting: bloker ved for mange mislykkede forsøg.

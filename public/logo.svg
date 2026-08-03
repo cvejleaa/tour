@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Vejleaa Tip">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e7a58"/>
+      <stop offset="1" stop-color="#075038"/>
+    </linearGradient>
+    <linearGradient id="check" x1="0.15" y1="0.8" x2="0.85" y2="0.2">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f5b301"/>
+    </linearGradient>
+  </defs>
+
+  <!-- App-ikon-baggrund (samme grønne familie som spil-ikonerne) -->
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#bg)"/>
+  <ellipse cx="256" cy="474" rx="236" ry="72" fill="#ffffff" opacity="0.06"/>
+
+  <!-- Fluebenet = "tip / ramt". Opstrøg går fra hvid til guld (stigende, ramt). -->
+  <path d="M132 270 L226 360 L386 156"
+        fill="none" stroke="url(#check)" stroke-width="70"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- lille guld-glimt for øverste spids -->
+  <circle cx="386" cy="156" r="20" fill="#ffd34d"/>
+</svg>
