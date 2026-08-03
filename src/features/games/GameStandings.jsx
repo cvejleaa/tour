@@ -285,25 +285,59 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         </label>
       )}
 
-      <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', margin: '0 0 0.6rem' }}>
-        {opsummering}
-        {/* Har man valgt en liga, står man typisk og vil videre TIL den —
-            væggen, spørgsmålene, medlemmerne. */}
-        {valgt && (
-          <>
-            {' '}
-            <GameTabLink fane="ligaer" liga={valgt.id}>Åbn ligaen →</GameTabLink>
-          </>
+      {/* Overskriftslinjen er en VÆRKTØJSLINJE: hvem vises, og hvordan.
+          Knappen til opdelingen stod før mellem podiet og listen, hvor den
+          delte stillingen i to og lignede en overskrift for den nederste
+          halvdel. Den skifter visning for hele fanen og hører derfor øverst. */}
+      <div className="standings__bar">
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', margin: 0 }}>
+          {opsummering}
+          {/* Har man valgt en liga, står man typisk og vil videre TIL den —
+              væggen, spørgsmålene, medlemmerne. */}
+          {valgt && (
+            <>
+              {' '}
+              <GameTabLink fane="ligaer" liga={valgt.id}>Åbn ligaen →</GameTabLink>
+            </>
+          )}
+        </p>
+        {/* Opdelingen er en EGEN visning, ikke en udvidelse af stillingen.
+            Seks tal pr. række ville drukne en liste, der har tre kolonner på
+            mobil — og podiet har plads til nøjagtig ét tal. Derfor en knap,
+            der bytter tabellen ud, og som er slået fra som udgangspunkt.
+
+            Betingelsen er `standings`, IKKE `listRows`. En liga med præcis tre
+            spillere fylder podiet og har en tom liste — og så forsvandt både
+            knappen og spillerdetaljen for hele den gruppe. */}
+        {standings.length > 0 && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            aria-pressed={visOpdeling}
+            onClick={() => setVisOpdeling((v) => !v)}
+          >
+            {/* "Tilbage til listen" og ikke "vis stillingen": man ER i
+                stillingen, og podiet står uændret ovenover hele tiden. */}
+            {visOpdeling ? '← Tilbage til listen' : '🧮 Hvor kommer pointene fra?'}
+          </button>
         )}
-      </p>
+      </div>
+
       {hasPodium && (
         <div className="podium">
           {podiumOrder.map((r) => (
-            <div key={r.uid} className={`podium__spot podium__spot--${r.rank}`}>
+            <div key={r.uid} className="podium__spot">
               <span className="podium__medal">{MEDAL[r.rank - 1] || `#${r.rank}`}</span>
-              <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={r.rank === 1 ? 40 : 32} />
+              <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={r.rank === 1 ? 44 : 34} />
               <SpillerNavn r={r} aaben={aabenUid === r.uid} onToggle={toggleUid} className="link-btn podium__name" />
               <span className="podium__pts">{formatPoints(r.totalPoints)} p</span>
+              {/* Selve trinnet. Højden følger PLACERINGEN og ikke pladsen i
+                  rækken: står tre spillere lige, har de alle rang 1 og skal
+                  stå i samme højde. Et podie, der løfter én af tre lige
+                  spillere, ville lyve om stillingen. */}
+              <div className={`podium__trin podium__trin--${Math.min(r.rank, 3)}`}>
+                <span className="podium__plads">{r.rank}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -317,27 +351,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
 
       {/* Betingelsen er `standings`, IKKE `listRows`. En liga med præcis tre
           spillere fylder podiet og har en tom liste — og så forsvandt både
-          knappen og spillerdetaljen for hele den gruppe. Værre: knappen fandtes
-          under "Alle mine ligaer" og forsvandt, når man valgte den lille liga i
-          filteret. En knap, der forsvinder af sig selv. */}
+          opdelingen og spillerdetaljen for hele den gruppe. */}
       {standings.length > 0 && (
         <>
-          {/* Opdelingen er en EGEN visning, ikke en udvidelse af stillingen.
-              Seks tal pr. række ville drukne en liste, der har tre kolonner på
-              mobil — og podiet har plads til nøjagtig ét tal. Derfor en knap,
-              der bytter tabellen ud, og som er slået fra som udgangspunkt. */}
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            aria-pressed={visOpdeling}
-            onClick={() => setVisOpdeling((v) => !v)}
-            style={{ marginBottom: '0.5rem' }}
-          >
-            {/* "Tilbage til listen" og ikke "vis stillingen": man ER i
-                stillingen, og podiet står uændret ovenover hele tiden. */}
-            {visOpdeling ? '← Tilbage til listen' : '🧮 Hvor kommer pointene fra?'}
-          </button>
-
           {visOpdeling ? (
             <OpdelingsTabel
               rows={alleRaekker}
