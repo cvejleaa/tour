@@ -20,6 +20,13 @@ export function rankStandings(players, usersById = {}) {
       favoriteTeam: p.favoriteTeam ?? u.favoriteTeam ?? null,
       totalPoints: Number(p.totalPoints) || 0,
       previousRank: p.previousRank ?? null,
+      // Rubrikkerne (1X2, Chancen, Combi, Pulje) kommer FÆRDIGE fra serveren.
+      // Uden dem her ville opdelings-fanen skulle hente spillerne en gang til —
+      // stillingen abonnerer allerede på præcis de dokumenter.
+      //
+      // null og ikke fire nuller: findes feltet ikke endnu, skal fladen kunne
+      // sige "ikke klar" i stedet for at påstå, at spilleren ingen point har.
+      opdeling: p.opdeling ?? null,
     };
   });
 

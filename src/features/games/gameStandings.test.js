@@ -10,6 +10,23 @@ const users = {
 };
 
 describe('rankStandings', () => {
+  // Opdelingen kommer FÆRDIG fra serveren og skal med igennem her, ellers når
+  // rubrikkerne aldrig fladen. GameStandings-testene mocker hooken og springer
+  // derfor denne funktion over — uden testen her kunne feltet fjernes, og
+  // opdelings-fanen ville vise streger for alle uden at nogen test faldt.
+  it('fører opdelingen med ud til fladen', () => {
+    const opdeling = { p1x2: 31, chance: 12.5, combi: 9.5, pulje: 7 };
+    const [row] = rankStandings([{ uid: 'a', totalPoints: 60, opdeling }], users);
+    expect(row.opdeling).toEqual(opdeling);
+  });
+
+  // null og ikke {} eller fire nuller: fladen skal kunne skelne "ikke skrevet
+  // endnu" fra "spilleren har ingen point fået".
+  it('giver null, når serveren endnu ikke har skrevet opdelingen', () => {
+    const [row] = rankStandings([{ uid: 'a', totalPoints: 12 }], users);
+    expect(row.opdeling).toBeNull();
+  });
+
   it('sorterer faldende efter point og tildeler placering', () => {
     const rows = rankStandings([
       { uid: 'a', totalPoints: 5 },

@@ -222,3 +222,57 @@ describe('GameStandings — liga-filter', () => {
     expect(tableRows()).toEqual([['1', 'Anne'], ['2', 'Mig (dig)']]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Opdelingen: hvor pointene kommer fra. En EGEN visning, ikke en udvidelse af
+// stillingen — seks tal pr. række ville drukne en liste med tre kolonner på
+// mobil, og podiet har plads til nøjagtig ét tal.
+// ---------------------------------------------------------------------------
+describe('GameStandings — pointopdeling', () => {
+  // Tal, der ikke kolliderer med nogen totals i ROWS — ellers kan testen ikke
+  // skelne en rubrik fra en total. 31 + 12,5 + 9,5 + 7 = 60, Annes total.
+  const MED = ROWS.map((r, i) => (i === 0
+    ? { ...r, opdeling: { p1x2: 31, chance: 12.5, combi: 9.5, pulje: 7 } }
+    : r));
+
+  it('er slået FRA som udgangspunkt', () => {
+    setup();
+    expect(screen.queryByText('Chancen')).toBeNull();
+    expect(screen.getByRole('button', { name: /Udspecificér/ })).toBeInTheDocument();
+  });
+
+  it('viser rubrikkerne, når man folder den ud', () => {
+    setup({ standings: MED });
+    fireEvent.click(screen.getByRole('button', { name: /Udspecificér/ }));
+    expect(screen.getByText(/Chancen/)).toBeInTheDocument();
+    expect(screen.getByText(/Combi/)).toBeInTheDocument();
+    expect(screen.getByText('31')).toBeInTheDocument();
+    expect(screen.getByText('12,5')).toBeInTheDocument();
+    expect(screen.getByText('9,5')).toBeInTheDocument();
+  });
+
+  // Podiet har plads til ét tal, og stillingen skal svare på "hvem fører".
+  it('rører ikke podiet, når opdelingen er slået til', () => {
+    setup({ standings: MED });
+    const foer = container.querySelectorAll('.podium__spot').length;
+    fireEvent.click(screen.getByRole('button', { name: /Udspecificér/ }));
+    expect(container.querySelectorAll('.podium__spot')).toHaveLength(foer);
+  });
+
+  // En streg og ikke et nul. Findes opdelingen ikke endnu, HAR vi ikke tallet
+  // — vi ved ikke, at det er nul. Fire nuller ville påstå, at spilleren ingen
+  // point har fået, mens totalen ved siden af siger noget andet.
+  it('viser en streg, ikke nuller, for spillere uden opdeling endnu', () => {
+    setup({ standings: ROWS });
+    fireEvent.click(screen.getByRole('button', { name: /Udspecificér/ }));
+    expect(screen.getByText(/Opdelingen bygges, næste gang en kamp afgøres/)).toBeInTheDocument();
+    expect(screen.getAllByText('–').length).toBeGreaterThan(0);
+  });
+
+  it('kan foldes sammen igen', () => {
+    setup({ standings: MED });
+    fireEvent.click(screen.getByRole('button', { name: /Udspecificér/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Vis stillingen/ }));
+    expect(screen.queryByText(/Chancen/)).toBeNull();
+  });
+});

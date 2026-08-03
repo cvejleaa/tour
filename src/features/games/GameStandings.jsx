@@ -10,10 +10,57 @@ import { useVisibleGameStandings } from './useVisibleGameStandings';
 import { rankDelta, subsetRanking } from './gameStandings';
 import GameTabLink from './GameTabLink';
 import { formatPoints } from './GameLayout';
+import { RUBRIKKER } from './football/PointOpdeling';
 
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
 // et manglende valg.
 const ALLE = '__alle__';
+
+/**
+ * Opdelingen for hele feltet. Kolonnerne bygges af SAMME RUBRIKKER-liste som
+ * kort-visningen — ét sted at ændre rækkefølge og ord. Ellers hedder det
+ * "Chancen" det ene sted og noget andet det andet om et halvt år.
+ */
+function OpdelingsTabel({ rows, meUid }) {
+  const harNogen = rows.some((r) => r.opdeling);
+  return (
+    <div className="table-wrap">
+      <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign: 'left' }}>Spiller</th>
+            {RUBRIKKER.map(({ key, ikon, navn, hjaelp }) => (
+              <th key={key} title={hjaelp} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                <span aria-hidden="true">{ikon}</span> {navn}
+              </th>
+            ))}
+            <th style={{ textAlign: 'right' }}>I alt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.uid} className={r.uid === meUid ? 'row--me' : undefined}>
+              <td>{r.rank}. {r.name}</td>
+              {RUBRIKKER.map(({ key }) => (
+                <td key={key} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {/* En streg og ikke et nul: findes opdelingen ikke endnu, har
+                      vi ikke tallet — vi ved ikke, at det er nul. */}
+                  {r.opdeling ? formatPoints(r.opdeling[key] ?? 0) : '–'}
+                </td>
+              ))}
+              <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatPoints(r.totalPoints)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!harNogen && (
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', marginTop: '0.4rem' }}>
+          Opdelingen bygges, næste gang en kamp afgøres. Totalen er der allerede.
+        </p>
+      )}
+    </div>
+  );
+}
 
 function DeltaArrow({ row }) {
   const d = rankDelta(row);
@@ -35,6 +82,9 @@ export default function GameStandings({ gameId }) {
 
   // Filter: hele kredsen (alle mine ligaer samlet) eller én enkelt liga.
   const [leagueId, setLeagueId] = useState(ALLE);
+  // Slået fra som udgangspunkt: stillingen skal svare på "hvem fører", ikke
+  // stille et regnskab op.
+  const [visOpdeling, setVisOpdeling] = useState(false);
   // Er ligaen forsvundet under fødderne på en (forladt, slettet), falder vi
   // tilbage til alle — hellere end en tom tabel uden forklaring.
   const valgt = leagues.find((l) => l.id === leagueId) || null;
@@ -121,6 +171,11 @@ export default function GameStandings({ gameId }) {
       ? 'Viser kun dig selv — ingen andre i dine ligaer er med endnu.'
       : `Viser de ${antal} spillere, du deler liga med.`);
 
+  // Opdelingen viser HELE feltet — også de tre på podiet. Byggede den på
+  // listRows, ville regnskabet mangle netop de spillere, man helst vil se
+  // tallene bag.
+  const alleRaekker = standings;
+
   const MEDAL = ['🥇', '🥈', '🥉'];
   // Podie-rækkefølge: 2. plads, 1. plads (løftet), 3. plads.
   const podiumOrder = podium.length === 3 ? [podium[1], podium[0], podium[2]] : podium;
@@ -179,14 +234,34 @@ export default function GameStandings({ gameId }) {
       )}
 
       {listRows.length > 0 && (
-        <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <tbody>
-            {listRows.map((r) => <Row key={r.uid} r={r} />)}
-            {meInList && meRow && !listRows.some((r) => r.uid === meUid) && (
-              <Row r={meRow} sticky />
-            )}
-          </tbody>
-        </table>
+        <>
+          {/* Opdelingen er en EGEN visning, ikke en udvidelse af stillingen.
+              Seks tal pr. række ville drukne en liste, der har tre kolonner på
+              mobil — og podiet har plads til nøjagtig ét tal. Derfor en knap,
+              der bytter tabellen ud, og som er slået fra som udgangspunkt. */}
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            aria-pressed={visOpdeling}
+            onClick={() => setVisOpdeling((v) => !v)}
+            style={{ marginBottom: '0.5rem' }}
+          >
+            {visOpdeling ? '🏆 Vis stillingen' : '🧮 Udspecificér pointene'}
+          </button>
+
+          {visOpdeling ? (
+            <OpdelingsTabel rows={alleRaekker} meUid={meUid} />
+          ) : (
+            <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {listRows.map((r) => <Row key={r.uid} r={r} />)}
+                {meInList && meRow && !listRows.some((r) => r.uid === meUid) && (
+                  <Row r={meRow} sticky />
+                )}
+              </tbody>
+            </table>
+          )}
+        </>
       )}
     </div>
   );
