@@ -81,6 +81,12 @@ export default function FootballHelp() {
             hvordan holdenes rating flyttede sig under <Tab fane="elo">📈 Elo</Tab>.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
+            <strong>Hvilken runde lander du på?</strong> <Tab fane="tip">Tip</Tab> bliver stående på den runde, der
+            har en kamp <strong>i gang</strong> — så forsvinder kampen, du sidder og ser, ikke fra skærmen. Ellers
+            viser den runden med den <strong>næste kamp</strong>. Vil du videre før tid, bruger du
+            {' '}<strong>Runde X →</strong> øverst; du kan tippe frit i enhver runde, der ikke er begyndt.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
             <strong>Løbende:</strong> Afgiv dit <Tab fane="pulje">🎖️ Pulje</Tab>-tip før deadline (én gang), dyst i
             {' '}<Tab fane="ligaer">👥 Ligaer</Tab> med vennerne, og vælg dit hold under <Tab fane="profil">🙂 Mit hold</Tab>.
           </li>

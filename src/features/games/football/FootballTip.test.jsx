@@ -130,6 +130,31 @@ describe('FootballTip — Elo på kampkortene', () => {
     expect(screen.getByText(/Runde 1 af/)).toBeInTheDocument();
   });
 
+  // Fixturet ovenfor har ALLE kampe i fremtiden, så gammelt og nyt rundevalg
+  // giver samme svar — testene ovenfor består også, hvis man erstatter kaldet
+  // til activeRound med "altid første runde". De to nedenfor er de eneste, der
+  // beviser, at fladen faktisk bruger det rigtige valg.
+
+  // Man sad og så rundens sidste kamp, trykkede opdatér, og var pludselig i
+  // næste runde. Kampen, man kiggede på, var væk fra skærmen.
+  it('bliver i runden, mens dens sidste kamp spilles', () => {
+    const iGang = [
+      { id: 'm1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: new Date('2026-08-02T07:30:00Z'), odds: null, result: null },
+      { id: 'm3', round: 2, home: 'F.C. København', away: 'Brøndby IF', kickoff: KICKOFF2, odds: null, result: null },
+    ];
+    setup({}, '/spil/sl', iGang);
+    expect(screen.getByText(/Runde 1 af/)).toBeInTheDocument();
+  });
+
+  it('går videre til næste runde, når den forrige er afgjort', () => {
+    const afgjort = [
+      { id: 'm1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: new Date('2026-08-02T07:30:00Z'), odds: null, result: '1' },
+      { id: 'm3', round: 2, home: 'F.C. København', away: 'Brøndby IF', kickoff: KICKOFF2, odds: null, result: null },
+    ];
+    setup({}, '/spil/sl', afgjort);
+    expect(screen.getByText(/Runde 2 af/)).toBeInTheDocument();
+  });
+
   // En delt eller redigeret URL må ikke give en tom side.
   it('falder tilbage til den aktive runde ved en runde, der ikke findes', () => {
     setup({}, '/spil/sl?runde=99');
