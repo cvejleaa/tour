@@ -50,31 +50,14 @@ function outcomePoints(pick, result, odds) {
 
 // Runde-bonus (combi): de ramte odds ganget sammen, loftet. Kaldes kun når
 // spilleren har tippet ALLE kampe i runden. 0 fejl → PERFECT_CAP, 1 fejl → NEAR_CAP.
-// Loftet som funktion af kuponens størrelse. Stigen halverer (næsten) for hver
-// kamp, kuponen mangler: det er langt lettere at feje fire kampe end seks, så
-// uden stigen ville en afkortet uge blive sæsonens mest værdifulde.
-// SPEJLET: src/lib/superligaScoring.js skal følges ad (CLAUDE.md).
-const COMBI_LOFT = {
-  6: 25, 5: 12, 4: 6, 3: 3, 2: 1.5,
-};
-
-/** Loftet for en kupon med n kampe. Ukendt/for lille → 0. */
-function combiLoft(n) {
-  if (!Number.isFinite(n)) return 0;
-  if (n > 6) return COMBI_LOFT[6];
-  return COMBI_LOFT[n] ?? 0;
-}
-
-/** Bagudkompatibelt opslag for en hel runde på seks kampe. */
-const ROUND_BONUS = { PERFECT_CAP: COMBI_LOFT[6], NEAR_CAP: COMBI_LOFT[5] };
+const ROUND_BONUS = { PERFECT_CAP: 25, NEAR_CAP: 12 };
 
 function roundComboBonus(hitOdds, matchCount) {
   if (!Array.isArray(hitOdds) || !Number.isFinite(matchCount) || matchCount < 2) return 0;
   const misses = matchCount - hitOdds.length;
   if (misses < 0 || misses > 1) return 0;
   const product = hitOdds.reduce((a, b) => a * (Number(b) || 0), 1);
-  // matchCount er kuponens kampe, ikke rundens: en udsat kamp er ikke med.
-  const cap = combiLoft(misses === 0 ? matchCount : matchCount - 1);
+  const cap = misses === 0 ? ROUND_BONUS.PERFECT_CAP : ROUND_BONUS.NEAR_CAP;
   return round1(Math.min(product, cap));
 }
 
@@ -236,7 +219,7 @@ function puljeScore(championshipPick, actualTop6) {
 
 module.exports = {
   PULJE, leagueTable, championshipTeams, puljeScore,
-  OUTCOME, OUTCOMES, DEFAULT_POINTS, ROUND_BONUS, COMBI_LOFT, combiLoft, ELO, ODDS, CHANCE,
+  OUTCOME, OUTCOMES, DEFAULT_POINTS, ROUND_BONUS, ELO, ODDS, CHANCE,
   isOutcome, outcomeFromScore, round1, outcomeReward, outcomePoints, roundComboBonus,
   settleChance, scoreBet, chanceMaxStake, clampStake,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
