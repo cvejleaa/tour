@@ -26,7 +26,7 @@ import { formatPoints } from '../GameLayout';
 export const RUBRIKKER = [
   { key: 'p1x2', ikon: '🎯', navn: 'Tippoint', hjaelp: 'Point for rigtige tip. Følger kampens odds.' },
   { key: 'chance', ikon: '⚡', navn: 'Chancen', hjaelp: 'Gevinst og tab på de tip, du satte point på spil på.' },
-  { key: 'combi', ikon: '🔗', navn: 'Combi', hjaelp: 'Bonus for en hel runde med højst én fejl.' },
+  { key: 'combi', ikon: '🔗', navn: 'Combi', hjaelp: 'Kupon-bonus for en runde, du har tippet fuldt ud.' },
   { key: 'pulje', ikon: '🎖️', navn: 'Pulje', hjaelp: 'Point for dit mesterskabsspil-tip.' },
 ];
 

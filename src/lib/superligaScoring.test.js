@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, ROUND_BONUS,
+  OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, COMBI,
   isOutcome, outcomeFromScore, outcomePoints,
   eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
   chanceMaxStake, canUseChance, isValidStake, settleChance,
@@ -86,7 +86,7 @@ describe('roundComboBonus (combi-bonus)', () => {
   it('lofter ved 25, men først over favorit-niveau', () => {
     expect(roundComboBonus([2.1, 2.1, 2.1, 2.1, 2.1, 2.1], 6)).toBe(18.5); // favoritter
     expect(roundComboBonus([4, 4, 4, 4, 4, 4], 6)).toBe(25);               // outsidere → loft
-    expect(ROUND_BONUS.PERFECT_CAP).toBe(25);
+    expect(COMBI.LOFT).toBe(25);
   });
 
   it('kræver mindst to ramte — én kamp er ingen kupon', () => {

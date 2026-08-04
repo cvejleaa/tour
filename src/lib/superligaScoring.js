@@ -8,9 +8,10 @@
 //   - 1X2-point: point FØLGER oddsene — et ramt udfald giver kampens frosne
 //     odds afrundet til 1 decimal (fx 3.1 / 4.3 / 2.3). Så en favorit-tip
 //     giver få point og et overraskende udfald giver mange, i takt med oddsene.
-//   - RUNDE-BONUS (combi): tipper man ALLE kampe i en runde og rammer dem alle
-//     (eller alle på nær én), får man en bonus = de ramte odds GANGET sammen,
-//     med et loft — som en tæmmet bookmaker-kupon. Belønner "hele runden".
+//   - RUNDE-BONUS (combi): tipper man ALLE kampe på rundens KUPON, får man en
+//     bonus = 2 × kvadratroden af de ramte odds ganget sammen, med et loft på
+//     25 — som en tæmmet bookmaker-kupon. Hver ramt kamp tæller. Kuponen er
+//     rundens kampe i samme uge; en udsat kamp giver point, men står udenfor.
 //   - Chancen: indsats mellem MIN og MAX, hvor MAX cappes til 15 % af saldo.
 //   - Gevinst = indsats × (fair odds − 1). Tab = kun indsatsen (ingen bøde).
 //   - Saldoen kan aldrig gå i minus (garanteret af 15 %-cappet).
@@ -92,8 +93,6 @@ export function outcomePoints(pick, result, odds) {
  */
 export const COMBI = { FAKTOR: 2, LOFT: 25 };
 
-/** Bagudkompatibelt opslag: det højeste, en kupon kan give. */
-export const ROUND_BONUS = { PERFECT_CAP: COMBI.LOFT, NEAR_CAP: COMBI.LOFT };
 
 /**
  * Combi-bonus for én spillers kupon: **2 × kvadratroden af de ramte odds

@@ -95,3 +95,35 @@ describe('TipsHistorik', () => {
     expect(screen.getByText('tips på afgjorte kampe')).toBeInTheDocument();
   });
 });
+
+// --- Splittet runde ---------------------------------------------------------
+//
+// Uden denne linje ser spilleren "6/6 tippet · 4 ramt" uden combi og tror,
+// bonussen er forsvundet — i stedet for at to kampe aldrig var på kuponen.
+describe('TipsHistorik — splittet runde', () => {
+  const SPLIT = [
+    { id: 'a1', round: 3, home: 'AGF', away: 'OB', kickoff: new Date('2026-08-07T17:00:00Z'), result: '1', odds: { 1: 2, X: 4, 2: 4 } },
+    { id: 'a2', round: 3, home: 'Brøndby IF', away: 'AaB', kickoff: new Date('2026-08-08T15:00:00Z'), result: 'X', odds: { 1: 3, X: 3, 2: 3 } },
+    { id: 'a3', round: 3, home: 'FCK', away: 'FCM', kickoff: new Date('2026-09-02T17:00:00Z'), result: null, odds: { 1: 2, X: 4, 2: 4 } },
+  ];
+  const B = {
+    a1: { pick: '1', points: 2 },
+    a2: { pick: 'X', points: 3 },
+    a3: { pick: '1', points: 0 },
+  };
+
+  it('siger hvor stor kuponen var, og hvor mange der stod udenfor', () => {
+    render(<TipsHistorik history={buildTipsHistory(groupByRound(SPLIT), B, 0)} total={5} />);
+    const note = screen.getByTestId('udenfor-3');
+    expect(note).toHaveTextContent('kupon 2 kampe');
+    expect(note).toHaveTextContent('1 udsat udenfor');
+  });
+
+  // Er runden hel, må linjen ikke stå der. Ellers står den på hver eneste
+  // runde hele sæsonen og betyder ingenting.
+  it('siger intet, når runden er hel', () => {
+    render(<TipsHistorik history={hist()} total={5.9} />);
+    expect(screen.queryByTestId('udenfor-1')).toBeNull();
+    expect(screen.queryByTestId('udenfor-2')).toBeNull();
+  });
+});

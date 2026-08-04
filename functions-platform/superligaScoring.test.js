@@ -3,7 +3,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const {
-  DEFAULT_POINTS, ROUND_BONUS, round1, outcomeReward, roundComboBonus,
+  DEFAULT_POINTS, COMBI, round1, outcomeReward, roundComboBonus,
   isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet, clampStake, CHANCE,
   PULJE, ELO,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
@@ -38,7 +38,7 @@ describe('superligaScoring (server-spejl)', () => {
   it('roundComboBonus: 2 × kvadratroden, loft 25, hver ramt kamp tæller (spejl)', () => {
     expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(6.8);  // 2·√11,4
     expect(roundComboBonus([2.1, 2.1, 2.1, 2.1, 2.1, 2.1], 6)).toBe(18.5); // favoritter, under loft
-    expect(roundComboBonus([4, 4, 4, 4, 4, 4], 6)).toBe(ROUND_BONUS.PERFECT_CAP); // outsidere → 25
+    expect(roundComboBonus([4, 4, 4, 4, 4, 4], 6)).toBe(COMBI.LOFT); // outsidere → 25
     expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(8);   // to fejl betaler nu
     expect(roundComboBonus([2, 2, 2], 6)).toBe(5.7);    // tre fejl også
     expect(roundComboBonus([2.1], 6)).toBe(0);          // én ramt er ingen kupon
@@ -165,7 +165,7 @@ describe('superligaScoring (server-spejl)', () => {
 
     // Konstanterne skal også være ens — et loft der kun ændres ét sted er
     // præcis den slags drift, ingen opdager før pointene er forkerte.
-    expect(ROUND_BONUS).toEqual(src.ROUND_BONUS);
+    expect(COMBI).toEqual(src.COMBI);
     expect(CHANCE).toEqual(src.CHANCE);
     expect(PULJE).toEqual(src.PULJE);
     expect(ELO).toEqual(src.ELO);

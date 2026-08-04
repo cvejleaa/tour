@@ -196,8 +196,9 @@ function maaVises(info, nowMs) {
 }
 
 /**
- * Combi-bonus for én spillers bets. Gives kun når HELE runden er spillet, og
- * spilleren har tippet alle kampe i den — med 0 eller 1 fejl.
+ * Combi-bonus for én spillers bets. Gives kun når hele KUPONEN er spillet, og
+ * spilleren har tippet alle kampe på den. Hver ramt kamp tæller med i
+ * produktet; de forkerte tæller hverken for eller imod.
  *
  * @param {Array<{matchId:string, pick:string}>} bets
  * @param {{byMatch:object, rounds:object}|null} roundCtx

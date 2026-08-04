@@ -58,8 +58,6 @@ function outcomePoints(pick, result, odds) {
 // SPEJLET: src/lib/superligaScoring.js skal følges ad (CLAUDE.md).
 const COMBI = { FAKTOR: 2, LOFT: 25 };
 
-/** Bagudkompatibelt opslag: det højeste, en kupon kan give. */
-const ROUND_BONUS = { PERFECT_CAP: COMBI.LOFT, NEAR_CAP: COMBI.LOFT };
 
 function roundComboBonus(hitOdds, matchCount) {
   if (!Array.isArray(hitOdds) || !Number.isFinite(matchCount) || matchCount < 2) return 0;
@@ -228,7 +226,7 @@ function puljeScore(championshipPick, actualTop6) {
 
 module.exports = {
   PULJE, leagueTable, championshipTeams, puljeScore,
-  OUTCOME, OUTCOMES, DEFAULT_POINTS, ROUND_BONUS, COMBI, ELO, ODDS, CHANCE,
+  OUTCOME, OUTCOMES, DEFAULT_POINTS, COMBI, ELO, ODDS, CHANCE,
   isOutcome, outcomeFromScore, round1, outcomeReward, outcomePoints, roundComboBonus,
   settleChance, scoreBet, chanceMaxStake, clampStake,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,

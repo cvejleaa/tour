@@ -5,11 +5,24 @@
  */
 import { Link } from 'react-router-dom';
 import GameTabLink from '../GameTabLink';
-import { CHANCE, ROUND_BONUS, PULJE, ELO } from '../../../lib/superligaScoring';
+import { CHANCE, COMBI, PULJE, ELO, roundComboBonus } from '../../../lib/superligaScoring';
+import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
 // denne fils formål er at undgå.
 import { RUBRIKKER } from './PointOpdeling';
+
+// Udbetalingstabellen REGNES af den rigtige formel, den skrives ikke af.
+// En håndskrevet tabel er en anden udgave af reglen, og to udgaver driver fra
+// hinanden ved næste ændring — så ville hjælpesiden love noget, serveren ikke
+// udbetalte. `1` er et neutralt led i produktet: [p, 1] har produktet p og de
+// to led, roundComboBonus kræver.
+function bonusAfProdukt(produkt) {
+  return roundComboBonus([produkt, 1], 2);
+}
+
+// Rækkerne i tabellen: fra "to sikre rammer" til over loftet.
+const PRODUKTER = [4, 9, 16, 25, 50, 100, 156.25, 300];
 
 function Section({ emoji, title, children }) {
   return (
@@ -52,7 +65,7 @@ export default function FootballHelp() {
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Før kampene:</strong> På <Tab fane="tip">Tip</Tab> sætter du 1X2 på rundens kampe — du kan rette
-            frit indtil hver kampstart. Tip gerne <strong>hele runden</strong> (combi-bonus), og brug evt.
+            frit indtil hver kampstart. Tip gerne <strong>hele kuponen</strong> (combi-bonus), og brug evt.
             {' '}<strong>Chancen</strong> på den kamp, du har bedst fornemmelse for.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
@@ -102,7 +115,7 @@ export default function FootballHelp() {
         På <Tab fane="tip">Tip</Tab> gætter du udfaldet af hver kamp i runden: <strong>1</strong> (hjemmesejr),
         {' '}<strong>X</strong> (uafgjort) eller <strong>2</strong> (udesejr). Du kan rette dit tip helt
         indtil <strong>kampstart</strong> — derefter låses netop den kamp. Du behøver ikke tippe hele runden
-        på én gang, men jo flere kampe du rammer, jo mere kan du hente på combi-bonussen.
+        på én gang, men tipper du <strong>alle kampe på kuponen</strong>, er du med i combi-bonussen.
       </Section>
 
       <Section emoji="🎯" title="Point følger oddsene">
@@ -123,20 +136,62 @@ export default function FootballHelp() {
       </Section>
 
       <Section emoji="🎰" title="Combi-runde-bonus">
-        Tipper du <strong>alle</strong> kampe i en runde, får du en bonus oveni — som en tæmmet
+        Tipper du <strong>alle kampe på rundens kupon</strong>, får du en bonus oveni — som en tæmmet
         bookmaker-kupon. <strong>Sådan beregnes den:</strong> de odds, du <strong>rammer</strong>, ganges
-        sammen, og resultatet lægges til som bonus-point (oveni de almindelige point pr. kamp).
+        sammen, og bonussen er <strong>{COMBI.FAKTOR} × kvadratroden</strong> af det produkt, med et loft
+        på <strong>{COMBI.LOFT}</strong> point.
         <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem' }}>
-          <li><strong>Alle kampe ramt</strong> → alle de ramte odds ganges, med et loft på <strong>{ROUND_BONUS.PERFECT_CAP}</strong> point.</li>
-          <li><strong>Alle på nær én</strong> → de ramte odds (den forkerte tælder ikke med) ganges, med et loft på <strong>{ROUND_BONUS.NEAR_CAP}</strong> point.</li>
-          <li><strong>To eller flere fejl</strong> → ingen combi-bonus.</li>
+          <li><strong>Hver ramt kamp tæller.</strong> Du behøver ikke ramme dem alle — to rigtige giver også bonus.</li>
+          <li><strong>Men du skal tippe hele kuponen.</strong> Mangler ét tip, er du ikke med.</li>
+          <li><strong>De forkerte tæller ikke med</strong> i produktet — de trækker heller ikke fra.</li>
         </ul>
         <p style={{ margin: '0.5rem 0 0' }}>
-          <em>Eksempel:</em> rammer du en hel runde med odds 1,5 · 2,0 · 3,0, giver combi’en
-          {' '}1,5 × 2,0 × 3,0 = <strong>9,0 point</strong> oveni. Ryger produktet over loftet, skæres det til
-          {' '}{ROUND_BONUS.PERFECT_CAP} — så én heldig runde ikke afgør hele sæsonen. Det belønner at turde
-          tippe hele runden.
+          <em>Eksempel:</em> rammer du odds 1,5 · 2,0 · 3,0, er produktet 9,0, og combi’en giver
+          {' '}{COMBI.FAKTOR} × √9,0 = <strong>{fmtDec(bonusAfProdukt(9))} point</strong> oveni.
         </p>
+        <p style={{ margin: '0.5rem 0 0' }}>
+          Kvadratroden er ikke pynt. Uden den var bonussen så stor, at én heldig runde afgjorde
+          sæsonen — og så lidt værd ved 4-5 rigtige, at det bedste træk var at tippe favoritter og håbe
+          på en perfekt runde. Nu vokser den <em>jævnt</em>: det kan betale sig at turde en outsider,
+          også når man ved, at man ikke rammer alle seks.
+        </p>
+
+        <h4 style={{ margin: '0.9rem 0 0.3rem', fontSize: '0.92rem' }}>Udbetalingstabel</h4>
+        <p style={{ margin: '0 0 0.4rem', color: 'var(--c-muted)', fontSize: '0.86rem' }}>
+          Tallene her er <strong>regnet ud af selve formlen</strong>, ikke skrevet af — de kan derfor
+          ikke komme til at sige noget andet end det, serveren gør.
+        </p>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="table" style={{ fontSize: '0.88rem' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>Produkt af de ramte odds</th>
+                <th style={{ textAlign: 'right' }}>Bonus</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PRODUKTER.map((p) => (
+                <tr key={p}>
+                  <td>{fmtDec(p)}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700 }}>
+                    +{fmtDec(bonusAfProdukt(p))}{bonusAfProdukt(p) >= COMBI.LOFT ? ' (loft)' : ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      <Section emoji="🕒" title="Når en kamp bliver udsat">
+        En runde kan blive splittet: fire kampe spilles i weekenden, to bliver rykket en måned. Så ville
+        rundens bonus først falde, længe efter alle havde glemt runden.
+        <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem' }}>
+          <li><strong>Kuponen er rundens kampe i samme uge</strong> — ugen fra tirsdag til mandag, hvor de fleste af rundens kampe ligger.</li>
+          <li><strong>De udsatte kampe står uden for kuponen.</strong> De giver 1X2-point og Chancen præcis som altid, men tæller hverken med i combi’en her eller i en senere runde.</li>
+          <li><strong>Du kan se det på kampen.</strong> Er runden splittet, står der <em>🎯 På kuponen</em> eller <em>🕒 Uden for kuponen</em> på hvert kort, og øverst på <Tab fane="tip">Tip</Tab> står hvilke kampe der er rykket hvorhen.</li>
+          <li><strong>Kuponen bliver mindre — bonussen bliver ikke mindre.</strong> Formlen er den samme; med fire kampe er produktet bare typisk lavere.</li>
+        </ul>
       </Section>
 
       <Section emoji="📋" title="Mine tips">

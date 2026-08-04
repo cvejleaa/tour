@@ -505,3 +505,101 @@ describe('FootballTip — kampen er i gang', () => {
     expect(screen.queryByText(/DIREKTE/)).toBeNull();
   });
 });
+
+// --- Splittet runde: hvad ser spilleren, når en kamp er udsat? ---------------
+//
+// Skærmen er dét, der møder spillerne fredag kl. 19. Reglen selv er dækket i
+// pointOpdeling.test.js; her handler det om, at man kan SE hvilke kampe der
+// tæller i combi'en — uden at læse hjælpesiden.
+describe('FootballTip — kuponen i en splittet runde', () => {
+  const UGE = new Date('2026-08-07T17:00:00Z');   // fredag i rundens uge
+  const UGE2 = new Date('2026-08-09T15:00:00Z');  // søndag, samme uge
+  const SENT = new Date('2026-09-02T17:00:00Z');  // udsat ~4 uger
+
+  // Fire kampe i ugen + to udsatte: præcis formen på runde 3 i 2026/27.
+  const splittet = [
+    { id: 's1', round: 3, home: 'AGF', away: 'F.C. København', kickoff: UGE, odds: null, result: null },
+    { id: 's2', round: 3, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: UGE, odds: null, result: null },
+    { id: 's3', round: 3, home: 'F.C. København', away: 'Brøndby IF', kickoff: UGE2, odds: null, result: null },
+    { id: 's4', round: 3, home: 'FC Midtjylland', away: 'AGF', kickoff: UGE2, odds: null, result: null },
+    { id: 's5', round: 3, home: 'AGF', away: 'FC Midtjylland', kickoff: SENT, odds: null, result: null },
+    { id: 's6', round: 3, home: 'F.C. København', away: 'AGF', kickoff: SENT, odds: null, result: null },
+  ];
+  // Samme runde UDEN udsættelser — kontrolgruppen.
+  const samlet = splittet.slice(0, 4);
+
+  it('mærker hver kamp med om den er på kuponen', () => {
+    setup({}, '/spil/sl?runde=3', splittet);
+    expect(screen.getAllByTestId('kupon-med')).toHaveLength(4);
+    expect(screen.getAllByTestId('kupon-uden')).toHaveLength(2);
+  });
+
+  // Mærket skal betyde noget. Står det på hvert kort i hver runde, holder man
+  // op med at se det — og så virker det ikke den ene gang, det gælder.
+  it('mærker INTET, når hele runden ligger i samme uge', () => {
+    setup({}, '/spil/sl?runde=3', samlet);
+    expect(screen.queryByTestId('kupon-med')).toBeNull();
+    expect(screen.queryByTestId('kupon-uden')).toBeNull();
+  });
+
+  it('siger øverst hvilke kampe der er rykket, og hvornår', () => {
+    setup({}, '/spil/sl?runde=3', splittet);
+    const note = screen.getByTestId('combi-udenfor');
+    expect(note).toHaveTextContent('2 kampe er udsat');
+    expect(note).toHaveTextContent('AGF–FC Midtjylland');
+    expect(note).toHaveTextContent('F.C. København–AGF');
+    expect(note).toHaveTextContent(/sep/);
+  });
+
+  it('viser ingen udsat-note, når runden er hel', () => {
+    setup({}, '/spil/sl?runde=3', samlet);
+    expect(screen.queryByTestId('combi-udenfor')).toBeNull();
+  });
+
+  // Kravet er kuponens fire kampe — ikke rundens seks. Stod der "tip alle 6",
+  // ville spilleren jagte to kampe, der slet ikke kan tippes endnu.
+  it('kræver kuponens kampe tippet, ikke rundens', () => {
+    setup({}, '/spil/sl?runde=3', splittet);
+    expect(screen.getByTestId('combi-kort')).toHaveTextContent('Tip alle 4 kuponkampe');
+  });
+
+  // Combi'en er I SPIL, så snart de fire på kuponen er tippet — også selv om
+  // de to udsatte står urørte. Ventede kortet på dem, ville det sige "du er
+  // ikke med" til en spiller, der ER med.
+  it('er i spil, når kuponens fire er tippet — uanset de udsatte', () => {
+    mockBets.mockReturnValue({
+      betsByMatch: {
+        s1: { pick: '1' }, s2: { pick: 'X' }, s3: { pick: '2' }, s4: { pick: '1' },
+      },
+      loading: false,
+    });
+    setup({}, '/spil/sl?runde=3', splittet);
+    expect(screen.getByTestId('combi-kort')).toHaveTextContent(/I spil/);
+    expect(screen.getByTestId('combi-kort')).not.toHaveTextContent(/Tip alle/);
+  });
+
+  // Den, der tipper ALLE seks, skal også være med. Tælles der på rundens kampe
+  // i stedet for kuponens, får den grundigste spiller besked om, at han ikke er
+  // med — mens den, der kun tippede de fire, er.
+  it('er i spil, også når man har tippet de udsatte oveni', () => {
+    mockBets.mockReturnValue({
+      betsByMatch: {
+        s1: { pick: '1' }, s2: { pick: 'X' }, s3: { pick: '2' }, s4: { pick: '1' },
+        s5: { pick: '1' }, s6: { pick: 'X' },
+      },
+      loading: false,
+    });
+    setup({}, '/spil/sl?runde=3', splittet);
+    expect(screen.getByTestId('combi-kort')).toHaveTextContent(/I spil/);
+    expect(screen.getByTestId('combi-kort')).not.toHaveTextContent(/Tip alle/);
+  });
+
+  // Datospændet i headeren følger kuponen. Før stod der "7. aug. – 2. sep." om
+  // en runde, der gøres op den 9.
+  it('viser kuponens datospænd i headeren, ikke de udsattes', () => {
+    const { container } = setup({}, '/spil/sl?runde=3', splittet);
+    const head = container.querySelector('.round-head__title');
+    expect(head).toHaveTextContent('Runde 3');
+    expect(head).not.toHaveTextContent(/sep/);
+  });
+});

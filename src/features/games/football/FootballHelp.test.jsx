@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import FootballHelp from './FootballHelp';
 import { RUBRIKKER } from './PointOpdeling';
+import { COMBI } from '../../../lib/superligaScoring';
 
 describe('FootballHelp (spil-intern hjælp)', () => {
   it('viser Superliga-mekanikken inkl. hvordan combi-bonus beregnes', () => {
@@ -19,7 +20,7 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     expect(screen.getByRole('heading', { name: /Chancen/ })).toBeInTheDocument();
     // Combi-beregningen forklares konkret (ganges sammen + eksempel).
     expect(screen.getByText(/Sådan beregnes den/)).toBeInTheDocument();
-    expect(screen.getByText(/1,5 × 2,0 × 3,0/)).toBeInTheDocument();
+    expect(screen.getByText(/1,5 · 2,0 · 3,0/)).toBeInTheDocument();
     // Elo-beregningen forklares også — inkl. hvorfor holdene ikke starter ens
     // og et outsider-slår-favorit-eksempel.
     expect(screen.getByRole('heading', { name: /Elo-tabellen/ })).toBeInTheDocument();
@@ -71,6 +72,60 @@ describe('FootballHelp (spil-intern hjælp)', () => {
   it('siger, at de andre kan se ens egne tips på samme måde', () => {
     render(<MemoryRouter><FootballHelp /></MemoryRouter>);
     expect(screen.getByText(/de kan se dine på samme måde/)).toBeInTheDocument();
+  });
+
+  // Udbetalingstabellen er hele pointen med "et link til en tabel": spilleren
+  // skal kunne se, hvad en kupon giver, uden at regne kvadratrødder i hovedet.
+  // Tallene REGNES af formlen — testen tjekker dem derfor mod formlen, ikke mod
+  // en afskrift. Ændres faktoren, skal tabellen følge med af sig selv.
+  it('viser en udbetalingstabel, der er regnet af den rigtige formel', () => {
+    render(
+      <MemoryRouter initialEntries={['/spil/sl?fane=hjaelp']}>
+        <Routes>
+          <Route path="/spil/:gameId" element={<FootballHelp />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: /Udbetalingstabel/ })).toBeInTheDocument();
+    // Produkt 100 → 2 × √100 = 20,0. Produkt 300 er over loftet → 25.
+    const raekke = (tekst) => screen.getByText(tekst).closest('tr');
+    expect(raekke('100,0')).toHaveTextContent('+20,0');
+    expect(raekke('300,0')).toHaveTextContent(`+${COMBI.LOFT}`);
+    expect(raekke('300,0')).toHaveTextContent('loft');
+    // Og et lille produkt må IKKE give loftet — ellers er tabellen bare pynt.
+    expect(raekke('4,0')).toHaveTextContent('+4,0');
+    expect(raekke('4,0')).not.toHaveTextContent('loft');
+  });
+
+  // Udsatte kampe er den ændring, spillerne bliver spurgt om. Kan hjælpesiden
+  // ikke svare, ender spørgsmålet i chatten.
+  it('forklarer, hvad der sker med en udsat kamp', () => {
+    render(
+      <MemoryRouter initialEntries={['/spil/sl?fane=hjaelp']}>
+        <Routes>
+          <Route path="/spil/:gameId" element={<FootballHelp />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('heading', { name: /Når en kamp bliver udsat/ })).toBeInTheDocument();
+    expect(screen.getByText(/rundens kampe i samme uge/)).toBeInTheDocument();
+    // Det vigtigste for spilleren: point går ikke tabt, kun combi'en venter ikke.
+    expect(screen.getByText(/1X2-point og Chancen præcis som altid/)).toBeInTheDocument();
+  });
+
+  // Den gamle regel ("alle på nær én, ellers ingenting") stod fem steder. Står
+  // den stadig ét sted, lover hjælpesiden noget, serveren ikke udbetaler.
+  it('lover ikke længere den gamle 0-eller-1-fejl-regel', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/spil/sl?fane=hjaelp']}>
+        <Routes>
+          <Route path="/spil/:gameId" element={<FootballHelp />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(container.textContent).not.toMatch(/på nær én/);
+    expect(container.textContent).not.toMatch(/To eller flere fejl/);
+    expect(container.textContent).toMatch(/Hver ramt kamp tæller/);
   });
 
   it('gør fane-henvisningerne til rigtige links', () => {
