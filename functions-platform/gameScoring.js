@@ -10,7 +10,7 @@
 
 const {
   scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeOdds,
-  roundComboBonus, outcomeReward, championshipTeams, puljeScore,
+  championshipTeams, puljeScore,
 } = require('./superligaScoring');
 // kickoffMs, matchOutcome og buildRoundContext bor i pointOpdeling, fordi
 // KLIENTEN skal bruge samme runde-kontekst for at kunne kalde opdelPoint.
@@ -117,39 +117,6 @@ function gatedIds(matches, startMs) {
     if (k != null && k < startMs) s.add(m.id);
   }
   return s;
-}
-
-/**
- * Samlet combi-runde-bonus for én spillers bets. For hver runde hvor (a) alle
- * kampe er afgjort, og (b) spilleren har tippet ALLE kampe i runden: gang de
- * ramte odds sammen (loftet) hvis 0 eller 1 fejl. Ren funktion → let at teste.
- * @param {Array<{matchId:string, pick:string}>} bets
- * @param {ReturnType<buildRoundContext>|null} roundCtx
- * @returns {number}
- */
-function playerRoundBonus(bets, roundCtx) {
-  if (!roundCtx) return 0;
-  const byRound = new Map();
-  for (const b of bets) {
-    const info = roundCtx.byMatch[b.matchId];
-    if (!info) continue;
-    if (!byRound.has(info.round)) byRound.set(info.round, []);
-    byRound.get(info.round).push(b);
-  }
-  let bonus = 0;
-  for (const [round, pbs] of byRound) {
-    const rc = roundCtx.rounds[round];
-    if (!rc || rc.count < 2) continue;
-    if (rc.settledCount !== rc.count) continue; // runden ikke helt afgjort endnu
-    if (pbs.length !== rc.count) continue;      // spilleren tippede ikke alle kampe
-    const hitOdds = [];
-    for (const pb of pbs) {
-      const info = roundCtx.byMatch[pb.matchId];
-      if (info.result && pb.pick === info.result) hitOdds.push(outcomeReward(info.result, info.odds));
-    }
-    bonus += roundComboBonus(hitOdds, rc.count);
-  }
-  return bonus;
 }
 
 /**
@@ -305,7 +272,7 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   }
   await batch.commit();
 
-  // VIGTIGT: send runde-konteksten med. Uden den giver playerRoundBonus 0, og
+  // VIGTIGT: send runde-konteksten med. Uden den giver combiBonus 0, og
   // spillerne ville miste hele deres opsparede combi-bonus i samme øjeblik
   // puljen blev afregnet — altså præcis ved sæsonafslutningen.
   const roundCtx = buildRoundContext(matches);
@@ -441,6 +408,6 @@ async function recomputeAllPlayerTotals(db, FieldValue, gameId) {
 
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo,
-  buildRoundContext, playerRoundBonus, computeRanks, snapshotRoundRanks,
+  computeRanks, snapshotRoundRanks,
   settlePuljeBets, officialTop6, gatedIds, recomputeAllPlayerTotals,
 };

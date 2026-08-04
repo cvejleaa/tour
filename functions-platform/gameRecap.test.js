@@ -5,6 +5,8 @@ const require = createRequire(import.meta.url);
 const {
   sanitizeName, isSurprise, buildRoundRecapFacts, runGameRoundRecap,
 } = require('./gameRecap');
+// Stillingens egen vej til combi. Botten og stillingen SKAL sige samme tal.
+const { opdelPoint, buildRoundContext } = require('./pointOpdeling');
 
 const FieldValue = {
   arrayUnion: (v) => ({ __arrayUnion: [v] }),
@@ -137,6 +139,49 @@ function makeDb({ game = {}, matches = [], players = {}, users = {}, bets = [], 
 
 const fakeAnthropic = (text = 'Sikke en runde! 🎉') => ({
   messages: { create: async () => ({ content: [{ type: 'text', text }] }) },
+});
+
+// ---------------------------------------------------------------------------
+// Botten og stillingen skal sige SAMME combi-tal.
+//
+// De to flader regnede før hver sit sted: gameRecap kaldte en dublet i
+// gameScoring, stillingen kaldte pointOpdeling. Dubletten er væk, men en ny kan
+// snige sig ind. Denne test er uafhængig af HVILKEN funktion de kalder — den
+// fodrer begge veje med samme runde og kræver samme tal. Begge tal låses
+// desuden til en konkret værdi, så en fælles nul-fejl ikke består "parvis".
+// ---------------------------------------------------------------------------
+describe('combi: botten og stillingen', () => {
+  const kampe = [
+    { id: 'm1', round: 2, home: 'FCK', away: 'Vejle', homeGoals: 2, awayGoals: 1, result: '1', odds: { 1: 1.6, X: 3.6, 2: 6.0 } },
+    { id: 'm2', round: 2, home: 'AGF', away: 'Brøndby', homeGoals: 0, awayGoals: 0, result: 'X', odds: { 1: 2.4, X: 3.7, 2: 2.6 } },
+  ];
+  const tilfaelde = [
+    ['alle ramt', { picks: { m1: '1', m2: 'X' }, forventet: 5.9 }],
+    // ÉN fejl: kun m1 tæller med i produktet → 1.6, ikke 1.6×3.7.
+    ['én fejl', { picks: { m1: '1', m2: '1' }, forventet: 1.6 }],
+    // To fejl i en to-kamps runde → ingen bonus overhovedet.
+    ['to fejl', { picks: { m1: '2', m2: '1' }, forventet: 0 }],
+  ];
+  for (const [navn, { picks, forventet }] of tilfaelde) {
+    it(`regner ens: ${navn}`, () => {
+      const bets = kampe.map((m) => ({
+        matchId: m.id, pick: picks[m.id], points: picks[m.id] === m.result ? m.odds[m.result] : 0,
+      }));
+      const fakta = buildRoundRecapFacts({
+        round: 2,
+        roundMatches: kampe,
+        players: [{ uid: 'A', name: 'Anna', totalPoints: 10, rank: 1 }],
+        betsByUid: new Map([['A', bets]]),
+      });
+      const botten = (fakta.combi.find((c) => c.name === 'Anna') || { bonus: 0 }).bonus;
+      const stillingen = opdelPoint({
+        bets, roundCtx: buildRoundContext(kampe), nowMs: 0,
+      }).combi;
+      expect(botten).toBe(forventet);
+      expect(stillingen).toBe(forventet);
+      expect(botten).toBe(stillingen);
+    });
+  }
 });
 
 const twoMatches = [

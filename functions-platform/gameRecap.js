@@ -6,7 +6,11 @@
 // fakta-opbygningen og system-prompten er rene og testbare.
 // ---------------------------------------------------------------------------
 
-const { buildRoundContext, playerRoundBonus } = require('./gameScoring');
+// Combi-reglen findes ÉT sted. Den lå før i en dublet i gameScoring, som kun
+// denne fil brugte — og en dublet, der driver botten, mens originalen driver
+// stillingen, betyder, at ligavæggen kan komme til at sige et andet tal end
+// stillingen, uden at én test falder.
+const { buildRoundContext, combiBonus } = require('./pointOpdeling');
 
 // 'in' tager højst 30 værdier pr. forespørgsel.
 const IN_CHUNK = 30;
@@ -85,7 +89,7 @@ function buildRoundRecapFacts({ round, roundMatches, players, betsByUid, nextRou
     const bets = betsByUid.get(p.uid) || [];
     const roundBets = bets.filter((b) => roundIds.has(b.matchId));
     const betPts = roundBets.reduce((a, b) => a + (Number(b.points) || 0), 0);
-    const combi = playerRoundBonus(roundBets, roundCtx);
+    const combi = combiBonus(roundBets, roundCtx);
     const roundPoints = Math.round((betPts + combi) * 10) / 10;
     return {
       name: sanitizeName(p.name),
