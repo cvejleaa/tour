@@ -27,6 +27,10 @@ on:
         description: 'Loft for combi (default 25)'
         type: string
         default: '25'
+      traef:
+        description: 'Traef-bonus pr. ramt kamp (default 1, 0 = som foer)'
+        type: string
+        default: '1'
 
 permissions:
   contents: read
@@ -60,4 +64,5 @@ jobs:
           GAME_ID: ${{ inputs.gameId }}
           FAKTOR: ${{ inputs.faktor }}
           LOFT: ${{ inputs.loft }}
+          TRAEF: ${{ inputs.traef }}
         run: node scripts/combi-sammenligning.mjs
