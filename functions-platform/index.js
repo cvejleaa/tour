@@ -20,7 +20,7 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { initializeApp } = require('firebase-admin/app');
 
-const { recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals } = require('./gameScoring');
+const { recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSync, strandedMatches, allMatches,
 } = require('./superligaSync');
@@ -150,6 +150,25 @@ exports.recomputeGameScores = onCall({ region: REGION }, async (request) => {
   const gameId = String(request.data?.gameId || '').trim();
   if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
   return recomputeAllPlayerTotals(db, FieldValue, gameId);
+});
+
+// rescoreGameBets — genscor ALLE bets mod deres kamps facit.
+//
+// Kun nødvendig når selve POINTREGLEN har ændret sig. Den almindelige trigger
+// skriver kun bet-point, når en kamps facit ændrer sig, så en regelændring
+// efterlader alle gamle bets med deres gamle tal — og `chance`, der udledes som
+// (gemte point − 1X2-point), ville gå i minus.
+//
+// dryRun er DEFAULT SAND. Den her rører hver eneste spillers point, og
+// CLAUDE.md kræver tør-kørsel først på alt, der skriver i produktionsdata.
+exports.rescoreGameBets = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const gameId = String(request.data?.gameId || '').trim();
+  if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+  // Kun et EKSPLICIT dryRun: false skriver. Udelades feltet, tørkøres der.
+  const dryRun = request.data?.dryRun !== false;
+  return rescoreAllBets(db, FieldValue, gameId, { dryRun });
 });
 
 // syncSuperligaResults — hent færdigspillede kampe fra api.superliga.dk og sæt

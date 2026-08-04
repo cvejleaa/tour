@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 const {
   recomputeGameMatchCore, recomputeSeasonElo,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officialTop6,
-  gatedIds, recomputeAllPlayerTotals,
+  gatedIds, recomputeAllPlayerTotals, rescoreAllBets,
 } = require('./gameScoring');
 // Combi-reglen har ét hjem. Testen henter den DERFRA, så en fremtidig dublet
 // ikke kan snige sig ind bag en grøn suite.
@@ -23,6 +23,7 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
   for (const [uid, d] of Object.entries(puljeSeed)) pulje[uid] = { uid, ...d };
   const game = { ...gameData };
 
+  const alleBetDocs = () => bets.map((b) => ({ ref: b.ref, data: () => b.data }));
   const betsCollection = {
     where: (field, _op, val) => ({
       get: async () => ({
@@ -31,6 +32,8 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
           .map((b) => ({ ref: b.ref, data: () => b.data })),
       }),
     }),
+    // rescoreAllBets henter ALLE bets på én gang — ikke pr. kamp.
+    get: async () => ({ docs: alleBetDocs(), size: bets.length }),
   };
   const matchesCollection = {
     get: async () => ({ docs: matchList.map((m) => ({ id: m.id, data: () => m })) }),
@@ -365,6 +368,91 @@ describe('recomputeGameMatchCore — start-gate (game.startAt)', () => {
     });
     expect(res.rescored).toBe(1);
     expect(db._players.A.totalPoints).toBe(4); // kun m2; m1's point gated væk
+  });
+});
+
+// Bagfyldningen af bet-point. Den skriver i hver eneste spillers point, så den
+// skal være bevist — ikke bare grøn.
+describe('rescoreAllBets — genscoring efter en REGELÆNDRING', () => {
+  // odds X = 3 → 3 + træf-bonus 1 = 4. De gemte 3 er fra den gamle regel.
+  const kampe = [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: 1 }];
+
+  it('tør-kørsel skriver INTET, men siger hvad der ville ske', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }], kampe);
+    const res = await rescoreAllBets(db, FieldValue, 'g1', { dryRun: true });
+    expect(res.dryRun).toBe(true);
+    expect(res.aendrede).toBe(1);
+    expect(res.delta).toBe(1);
+    expect(res.eksempler[0]).toMatchObject({ uid: 'A', foer: 3, efter: 4 });
+    // Intet skrevet — hverken på bettet eller på spilleren.
+    expect(db._bets[0].data.points).toBe(3);
+    expect(db._players.A).toBeUndefined();
+  });
+
+  // Default SKAL være tør. Kaldes den uden argument fra en admin-knap, må den
+  // ikke nå at skrive noget.
+  it('tørkører som default, når dryRun udelades', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }], kampe);
+    const res = await rescoreAllBets(db, FieldValue, 'g1');
+    expect(res.dryRun).toBe(true);
+    expect(db._bets[0].data.points).toBe(3);
+  });
+
+  it('skriver de nye point OG genberegner totalen, når dryRun er falsk', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }], kampe,
+      {}, { A: { totalPoints: 3 } });
+    const res = await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
+    expect(res.dryRun).toBe(false);
+    expect(res.aendrede).toBe(1);
+    expect(db._bets[0].data.points).toBe(4);
+    // Totalen SKAL med i samme kald — ellers står stillingen på det gamle tal,
+    // indtil noget andet tilfældigvis udløser en genberegning.
+    expect(db._players.A.totalPoints).toBe(4);
+    // …og rubrikken må ikke gå i minus. Det var hele grunden til bagfyldningen.
+    expect(db._players.A.opdeling.chance).toBe(0);
+  });
+
+  // Uden bagfyldningen udledes chance som (gemte point − 1X2-point), og en
+  // spiller uden Chancen ville se −1 pr. træffer.
+  it('efterlader ikke Chancen i minus for en spiller, der aldrig har brugt den', async () => {
+    const flere = [
+      { id: 'm1', round: 1, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: 1 },
+      { id: 'm2', round: 1, result: '1', odds: { 1: 2, X: 4, 2: 4 }, kickoff: 1 },
+    ];
+    const db = makeDb([
+      { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }, // gammel regel
+      { uid: 'A', matchId: 'm2', pick: '1', chanceStake: 0, points: 2 }, // gammel regel
+    ], flere, {}, { A: { totalPoints: 5 } });
+    await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
+    expect(db._players.A.opdeling.chance).toBe(0);
+    expect(db._players.A.opdeling.p1x2).toBe(7); // (3+1) + (2+1)
+  });
+
+  it('rører ikke bets på en kamp før spillets start', async () => {
+    const db = makeDb(
+      [{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }],
+      [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: 100 }],
+      { startAt: 500 },
+    );
+    const res = await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
+    expect(res.aendrede).toBe(0);
+    expect(db._bets[0].data.points).toBe(3);
+  });
+
+  // Et bet uden kampdokument har intet facit at scores mod. At nulstille det
+  // ville tage point fra spilleren, uden at nogen kunne se hvorfor.
+  it('rører ikke et bet, hvis kamp er slettet', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'vaek', pick: 'X', chanceStake: 0, points: 9 }], kampe);
+    const res = await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
+    expect(res.aendrede).toBe(0);
+    expect(db._bets[0].data.points).toBe(9);
+  });
+
+  it('springer de bets over, der allerede står rigtigt', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 }], kampe,
+      {}, { A: { totalPoints: 4 } });
+    const res = await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
+    expect(res.aendrede).toBe(0);
   });
 });
 

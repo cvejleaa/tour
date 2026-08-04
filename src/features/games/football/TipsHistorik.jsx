@@ -86,7 +86,7 @@ export default function TipsHistorik({ history, opdeling = null, total, kunAfgjo
               {r.udenfor?.length > 0 && (
                 <span className="mytips__udenfor" data-testid={`udenfor-${r.round}`}>
                   {' '}· kupon {r.kupon} kampe
-                  {' '}({r.udenfor.length === 1 ? '1 udsat' : `${r.udenfor.length} udsatte`} udenfor)
+                  {' '}({r.udenfor.length} uden for ugen)
                 </span>
               )}
             </span>

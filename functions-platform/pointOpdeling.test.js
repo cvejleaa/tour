@@ -242,7 +242,7 @@ describe('combiBonus', () => {
     expect(combiBonus(bets, runde)).toBeGreaterThan(0);
   });
 
-  it('giver ingen bonus, når spilleren ikke tippede hele runden', () => {
+  it('giver ingen bonus ved kun én ramt kamp — der er ingen kupon at gange', () => {
     expect(combiBonus([{ matchId: 'm1', pick: '1' }], runde)).toBe(0);
   });
 

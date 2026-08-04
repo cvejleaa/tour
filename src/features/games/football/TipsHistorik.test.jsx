@@ -116,7 +116,7 @@ describe('TipsHistorik — splittet runde', () => {
     render(<TipsHistorik history={buildTipsHistory(groupByRound(SPLIT), B, 0)} total={5} />);
     const note = screen.getByTestId('udenfor-3');
     expect(note).toHaveTextContent('kupon 2 kampe');
-    expect(note).toHaveTextContent('1 udsat udenfor');
+    expect(note).toHaveTextContent('1 uden for ugen');
   });
 
   // Er runden hel, må linjen ikke stå der. Ellers står den på hver eneste

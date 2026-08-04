@@ -360,7 +360,7 @@ export default function FootballTip({ game, me, matches }) {
             {roundBonus > 0 && <> · <span className="facit__combi">combi +{fmtDec(roundBonus)} ⚡</span></>}
             {manglerIRunden > 0 && (
               <> · <span className="facit__mangler">
-                {manglerIRunden === 1 ? '1 udsat kamp mangler' : `${manglerIRunden} udsatte kampe mangler`}
+                {manglerIRunden === 1 ? '1 kamp mangler endnu' : `${manglerIRunden} kampe mangler endnu`}
               </span></>
             )}
           </div>
@@ -498,7 +498,7 @@ export default function FootballTip({ game, me, matches }) {
                     data-testid={paaKupon ? 'kupon-med' : 'kupon-uden'}
                     title={paaKupon
                       ? 'Tæller med i runde-bonussen'
-                      : 'Udsat — giver point, men tæller ikke i runde-bonussen'}
+                      : 'Uden for rundens uge — giver point, men tæller ikke i runde-bonussen'}
                   >
                     {paaKupon ? '🎯 På kuponen' : '🕒 Uden for kuponen'}
                   </span>
