@@ -31,10 +31,10 @@ describe('buildTipsHistory', () => {
     expect(h.totals.settled).toBe(2);       // kun runde 1 er spillet
     expect(h.totals.hits).toBe(2);
     expect(h.totals.hitRate).toBe(100);
-    // Runde 1: begge ramt (tippet alle) → combi-bonus = 2.0×3.0 = 6.
-    expect(h.rounds[0].roundBonus).toBe(6);
-    // Point = bet-point (2+3+0) + bonus (6) = 11.
-    expect(h.totals.points).toBe(11);
+    // Runde 1: begge ramt (tippet hele kuponen) → combi = 2·√(2,0×3,0) = 4,9.
+    expect(h.rounds[0].roundBonus).toBe(4.9);
+    // Point = bet-point (2+3+0) + combi (4,9) = 9,9.
+    expect(h.totals.points).toBe(9.9);
   });
 
   // DEN FEJL, DER ALLEREDE FANDTES. "Point i alt" blev regnet her UDEN

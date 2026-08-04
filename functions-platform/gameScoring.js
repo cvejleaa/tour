@@ -361,7 +361,10 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   const round = roundCtx.byMatch[matchId]?.round;
   const rc = round != null ? roundCtx.rounds[round] : null;
   let roundCompleted = null; // sat første gang en runde bliver HELT afgjort
-  if (rc && rc.settledCount === rc.count) {
+  // KUPONENS kampe, ikke rundens. En runde med en udsat kamp gøres op, når
+  // ugens kampe er afgjort — ellers ville snapshottet og Runde-Botten hænge en
+  // måned og først fyre, når alle havde glemt runden.
+  if (rc && rc.combiCount > 0 && rc.combiSettled === rc.combiCount) {
     const gRef = db.collection('games').doc(gameId);
     const gsnap = await gRef.get();
     const done = (gsnap.exists && Array.isArray(gsnap.data().snapshottedRounds))

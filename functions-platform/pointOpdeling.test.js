@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { opdelPoint, combiBonus } from './pointOpdeling.js';
+import { opdelPoint, combiBonus, buildRoundContext } from './pointOpdeling.js';
 
 // Ét regnestykke for "hvor kommer pointene fra". Det fandtes før to steder ad
 // hver sin vej — og de var allerede uenige om puljebonussen.
@@ -7,22 +7,22 @@ import { opdelPoint, combiBonus } from './pointOpdeling.js';
 const NU = Date.parse('2026-08-02T18:00:00Z');
 const foer = NU - 60 * 60_000;
 
-/** Runde-kontekst som buildRoundContext bygger den, men med kickoff. */
+/**
+ * Runde-kontekst bygget af den ÆGTE buildRoundContext, ikke i hånden.
+ *
+ * En håndbygget kontekst kender ikke de felter, funktionen udleder — fx om en
+ * kamp står på combi-kuponen — og så består testen uden at røre den kode, den
+ * påstår at teste. Den fejl har filen været i før.
+ *
+ * Kampe uden eksplicit kickoff får ét fælles tidspunkt, så de havner i samme
+ * uge og dermed på samme kupon. Vil man teste en splittet runde, sætter man
+ * kickoff selv.
+ */
 function ctx(matches) {
-  const byMatch = {};
-  const rounds = {};
-  for (const m of matches) {
-    // 'kickoff' in m og ikke ??: et EKSPLICIT null skal nå igennem, ellers
-    // testede fixturen aldrig den vagt, den var skrevet for at teste.
-    byMatch[m.id] = {
-      round: m.round, result: m.result, odds: m.odds || null,
-      kickoff: 'kickoff' in m ? m.kickoff : foer,
-    };
-    if (!rounds[m.round]) rounds[m.round] = { count: 0, settledCount: 0 };
-    rounds[m.round].count += 1;
-    if (m.result) rounds[m.round].settledCount += 1;
-  }
-  return { byMatch, rounds };
+  return buildRoundContext(matches.map((m) => ({
+    ...m,
+    kickoff: 'kickoff' in m ? m.kickoff : foer,
+  })));
 }
 
 describe('opdelPoint', () => {
@@ -267,14 +267,23 @@ describe('combiBonus', () => {
       { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
       { matchId: 'm3', pick: '1' }, { matchId: 'm4', pick: '2' },
     ];
-    expect(combiBonus(bets, toRunder)).toBe(9); // 2.0×3.0 + 1.5×2.0
+    // 2·√(2,0×3,0) + 2·√(1,5×2,0) = 4,9 + 3,5
+    expect(combiBonus(bets, toRunder)).toBe(8.4);
   });
 
-  // Præcis tal, ikke bare "mere end 0": ÉN fejl må kun gange de RAMTE odds.
+  // ÉN fejl må kun gange de RAMTE odds med. Seks kampe, fordi en to-kamps
+  // runde med én fejl kun har ét ramt tip — og ét tip er ingen kupon.
   it('ganger kun de ramte odds ved én fejl', () => {
-    expect(combiBonus([{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: '1' }], runde)).toBe(2);
-    // to fejl i en to-kamps runde → ingen bonus
-    expect(combiBonus([{ matchId: 'm1', pick: 'X' }, { matchId: 'm2', pick: '1' }], runde)).toBe(0);
+    const kampe = [0, 1, 2, 3, 4, 5].map((i) => ({
+      id: `k${i}`, round: 9, result: '1', odds: { 1: 1.5, X: 4, 2: 4 },
+    }));
+    const seks = ctx(kampe);
+    const tip = (forkerte) => kampe.map((m, i) => ({
+      matchId: m.id, pick: i < forkerte ? 'X' : '1',
+    }));
+    expect(combiBonus(tip(0), seks)).toBe(6.8); // 2·√(1,5^6)
+    expect(combiBonus(tip(1), seks)).toBe(5.5); // 2·√(1,5^5)
+    expect(combiBonus(tip(4), seks)).toBe(3);   // 2·√(1,5^2) — hver ramt tæller
   });
 
   // Et tip på en SLETTET kamp må ikke smugles ind i en runde. Gør det det,
@@ -284,7 +293,7 @@ describe('combiBonus', () => {
       { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
       { matchId: 'slettet', pick: '1' },
     ];
-    expect(combiBonus(bets, runde)).toBe(6); // 2.0×3.0 — den slettede tæller ikke
+    expect(combiBonus(bets, runde)).toBe(4.9); // 2·√(2,0×3,0) — den slettede tæller ikke
   });
 
   // Kampe UDEN rundenummer må aldrig give combi. Jeg påstod i en commit, at

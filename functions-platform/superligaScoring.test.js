@@ -33,11 +33,16 @@ describe('superligaScoring (server-spejl)', () => {
     expect(isOutcome('3')).toBe(false);
   });
 
-  it('roundComboBonus: odds ganget, loftet; 0/1 fejl giver bonus, ≥2 giver 0', () => {
-    expect(roundComboBonus([2, 2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.PERFECT_CAP); // 64 → loft 25
-    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(round1(1.5 ** 6));
-    expect(roundComboBonus([2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.NEAR_CAP);        // 1 fejl, 32 → loft 12
-    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(0);                              // 2 fejl
+  // Spejlet skal give NØJAGTIG samme tal som src/lib — ellers siger stillingen
+  // ét og fladen et andet. Samme tilfælde som i klientens testfil.
+  it('roundComboBonus: 2 × kvadratroden, loft 25, hver ramt kamp tæller (spejl)', () => {
+    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(6.8);  // 2·√11,4
+    expect(roundComboBonus([2.1, 2.1, 2.1, 2.1, 2.1, 2.1], 6)).toBe(18.5); // favoritter, under loft
+    expect(roundComboBonus([4, 4, 4, 4, 4, 4], 6)).toBe(ROUND_BONUS.PERFECT_CAP); // outsidere → 25
+    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(8);   // to fejl betaler nu
+    expect(roundComboBonus([2, 2, 2], 6)).toBe(5.7);    // tre fejl også
+    expect(roundComboBonus([2.1], 6)).toBe(0);          // én ramt er ingen kupon
+    expect(round1(2.25)).toBe(2.3);                     // round1 er uændret
   });
 
   it('pulje-tip: slutstilling + score (spejl)', () => {

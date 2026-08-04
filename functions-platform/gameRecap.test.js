@@ -59,8 +59,9 @@ describe('buildRoundRecapFacts', () => {
     // Anna tippede hele runden og ramte alt → combi = 1.6×3.7 = 5.9 (afrundet).
     const anna = f.standings.find((r) => r.name === 'Anna');
     expect(anna.points).toBe(10);
-    expect(anna.roundPoints).toBe(Math.round((1.6 + 3.7 + 1.6 * 3.7) * 10) / 10);
-    expect(f.combi).toEqual([{ name: 'Anna', bonus: Math.round(1.6 * 3.7 * 10) / 10 }]);
+    // 1,6 + 3,7 i 1X2, plus combi = 2·√(1,6×3,7)
+    expect(anna.roundPoints).toBe(Math.round((1.6 + 3.7 + 2 * Math.sqrt(1.6 * 3.7)) * 10) / 10);
+    expect(f.combi).toEqual([{ name: 'Anna', bonus: Math.round(2 * Math.sqrt(1.6 * 3.7) * 10) / 10 }]);
     expect(f.standout).toBe('Anna');
     expect(f.standoutTie).toBe(false);
     expect(f.leader).toBe('Anna');
@@ -156,10 +157,11 @@ describe('combi: botten og stillingen', () => {
     { id: 'm2', round: 2, home: 'AGF', away: 'Brøndby', homeGoals: 0, awayGoals: 0, result: 'X', odds: { 1: 2.4, X: 3.7, 2: 2.6 } },
   ];
   const tilfaelde = [
-    ['alle ramt', { picks: { m1: '1', m2: 'X' }, forventet: 5.9 }],
-    // ÉN fejl: kun m1 tæller med i produktet → 1.6, ikke 1.6×3.7.
-    ['én fejl', { picks: { m1: '1', m2: '1' }, forventet: 1.6 }],
-    // To fejl i en to-kamps runde → ingen bonus overhovedet.
+    // 2·√(1,6×3,7) = 4,9
+    ['alle ramt', { picks: { m1: '1', m2: 'X' }, forventet: 4.9 }],
+    // ÉN fejl i en to-kamps runde efterlader ét ramt tip — og ét tip er ingen
+    // kupon at gange. Derfor 0, ikke 1,6.
+    ['én fejl', { picks: { m1: '1', m2: '1' }, forventet: 0 }],
     ['to fejl', { picks: { m1: '2', m2: '1' }, forventet: 0 }],
   ];
   for (const [navn, { picks, forventet }] of tilfaelde) {

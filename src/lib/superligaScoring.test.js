@@ -63,25 +63,41 @@ describe('outcomeReward + round1', () => {
   });
 });
 
-describe('roundComboBonus (combi-runde-bonus)', () => {
-  it('alle 6 ramt → odds ganget, loftet ved PERFECT_CAP', () => {
-    // 1.5^6 ≈ 11.4 < 25 → ikke loftet
-    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(round1(1.5 ** 6));
-    // store odds → loft rammer
-    expect(roundComboBonus([2, 2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.PERFECT_CAP);
+describe('roundComboBonus (combi-bonus)', () => {
+  // Formlen: 2 × kvadratroden af de ramte odds ganget sammen, loft 25.
+  const forvent = (odds) => round1(Math.min(2 * Math.sqrt(odds.reduce((a, b) => a * b, 1)), 25));
+
+  it('ganger de ramte odds og tager kvadratroden', () => {
+    // 1,5^6 = 11,4 → 2·√11,4 = 6,8. Under loftet, så formlen er synlig.
+    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(6.8);
+    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(forvent([1.5, 1.5, 1.5, 1.5, 1.5, 1.5]));
   });
-  it('alle på nær én (5 af 6) → 5 odds ganget, loftet ved NEAR_CAP', () => {
-    expect(roundComboBonus([1.4, 1.4, 1.4, 1.4, 1.4], 6)).toBe(round1(1.4 ** 5)); // ≈5.4
-    expect(roundComboBonus([2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.NEAR_CAP);        // 32 → loft 12
+
+  // HVER ramt kamp tæller. Den gamle regel gav nul ved to fejl, og det var
+  // netop dét, der straffede modige tip: sandsynligheden for at feje en runde
+  // falder hurtigere med mod, end oddsene stiger.
+  it('betaler også ved to og tre fejl', () => {
+    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(8);   // 2 fejl → 2·√16
+    expect(roundComboBonus([2, 2, 2], 6)).toBe(5.7);    // 3 fejl → 2·√8
   });
-  it('to eller flere fejl → ingen bonus', () => {
-    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(0);
+
+  // Loftet binder først et godt stykke over en ren favorit-runde (2·√86 ≈ 18,5),
+  // så en modig fejlfri runde er stadig mere værd end en forsigtig.
+  it('lofter ved 25, men først over favorit-niveau', () => {
+    expect(roundComboBonus([2.1, 2.1, 2.1, 2.1, 2.1, 2.1], 6)).toBe(18.5); // favoritter
+    expect(roundComboBonus([4, 4, 4, 4, 4, 4], 6)).toBe(25);               // outsidere → loft
+    expect(ROUND_BONUS.PERFECT_CAP).toBe(25);
+  });
+
+  it('kræver mindst to ramte — én kamp er ingen kupon', () => {
+    expect(roundComboBonus([2.1], 6)).toBe(0);
     expect(roundComboBonus([], 6)).toBe(0);
   });
+
   it('robust mod ugyldigt input', () => {
     expect(roundComboBonus(null, 6)).toBe(0);
-    expect(roundComboBonus([2, 2], 1)).toBe(0);
-    expect(roundComboBonus([1.5, 1.5], 2)).toBe(round1(2.25)); // 2-kamps runde, alle ramt
+    expect(roundComboBonus([2, 2], 1)).toBe(0);   // kupon på under to kampe
+    expect(roundComboBonus([1.5, 1.5], 2)).toBe(3); // 2·√2,25
   });
 });
 

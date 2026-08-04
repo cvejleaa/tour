@@ -2,7 +2,8 @@
  * Ren hjælper til "Mine tips"-historikken: sammenstil spillerens tips med
  * kampenes facit + point pr. runde. Ingen Firebase-afhængigheder (testbar).
  */
-import { outcomeReward, roundComboBonus, round1 } from '../../../lib/superligaScoring';
+import { round1 } from '../../../lib/superligaScoring';
+import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
 
 /**
  * @param {Array<{round:number, matches:Array<object>}>} rounds  – fra groupByRound
@@ -14,6 +15,9 @@ import { outcomeReward, roundComboBonus, round1 } from '../../../lib/superligaSc
  * }}
  */
 export function buildTipsHistory(rounds, betsByMatch = {}, puljeBonus = 0) {
+  // ÉN kontekst for hele historikken — samme funktion som serveren afregner
+  // efter, så fladen og stillingen ikke kan blive uenige om combi.
+  const roundCtx = buildRoundContext((rounds || []).flatMap((r) => r.matches));
   let tipped = 0;
   let settledTips = 0;
   let hits = 0;
@@ -41,17 +45,31 @@ export function buildTipsHistory(rounds, betsByMatch = {}, puljeBonus = 0) {
     const total = matches.length;
     const tippedCount = rows.filter((r) => r.pick).length;
     const hitCount = rows.filter((r) => r.hit === true).length;
-    const roundSettled = total > 0 && matches.every((m) => m.result != null && m.result !== '');
-    const tippedAll = total > 0 && matches.every((m) => betsByMatch[m.id]?.pick);
-    const hitOdds = tippedAll
-      ? matches.filter((m) => m.result && betsByMatch[m.id].pick === m.result)
-        .map((m) => outcomeReward(m.result, m.odds))
-      : [];
-    const roundBonus = roundSettled && tippedAll ? roundComboBonus(hitOdds, total) : 0;
+
+    // Combi regnes IKKE her. Fladen havde sin egen udgave af reglen, og den
+    // var allerede uenig med serverens: groupByRound samler kampe uden
+    // rundenummer i en pseudo-runde 0 og udbetalte bonus for kampe, der ikke
+    // hører sammen — noget serveren har afvist hele tiden.
+    //
+    // Nu spørger begge samme funktion. Kuponen er rundens kampe i samme uge,
+    // så en udsat kamp hverken venter vi på eller kræver tippet.
+    const rc = roundCtx.rounds[round] || null;
+    const kupon = rc ? rc.combiCount : 0;
+    const roundSettled = !!rc && kupon > 0 && rc.combiSettled === kupon;
+    const iKupon = matches.filter((m) => roundCtx.byMatch[m.id]?.iVindue);
+    const tippedAll = kupon > 0 && iKupon.every((m) => betsByMatch[m.id]?.pick);
+    const roundBonus = combiBonus(
+      iKupon.filter((m) => betsByMatch[m.id]?.pick)
+        .map((m) => ({ matchId: m.id, pick: betsByMatch[m.id].pick })),
+      roundCtx,
+    );
     bonusSum += roundBonus;
 
     return {
       round, rows, total, tippedCount, hitCount, roundSettled, tippedAll, roundBonus,
+      // Til skærmen: hvor mange af rundens kampe står på kuponen, og hvilke
+      // gør ikke. Uden det kan fladen ikke forklare "4 af 6".
+      kupon, udenfor: matches.filter((m) => !roundCtx.byMatch[m.id]?.iVindue),
     };
   });
 

@@ -184,15 +184,23 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     if (!byRound.has(m.round)) byRound.set(m.round, []);
     byRound.get(m.round).push(m);
   }
-  const settledRounds = [...byRound.entries()]
-    .filter(([, ms]) => ms.length > 0 && ms.every((m) => m.result))
-    .map(([r]) => r).sort((a, b) => a - b);
+  // "Afgjort" måles på KUPONEN, ikke på hele runden — samme kriterium som
+  // afregningen og combi-bonussen bruger. Havde botten sin egen definition,
+  // ville gameScoring snapshotte runden 10. august og brænde
+  // snapshottedRounds, mens botten svarede "round-not-settled" og tav. Runden
+  // ville aldrig få sit opslag, og ingen ville opdage det.
+  const ctx = buildRoundContext(all);
+  const kuponAfgjort = (r) => {
+    const rc = ctx.rounds[r];
+    return !!rc && rc.combiCount > 0 && rc.combiSettled === rc.combiCount;
+  };
+  const settledRounds = [...byRound.keys()].filter(kuponAfgjort).sort((a, b) => a - b);
   const round = roundNo != null ? roundNo : (settledRounds[settledRounds.length - 1] ?? null);
   if (round == null) return { posted: 0, reason: 'no-settled-round' };
-  const roundMatches = byRound.get(round) || [];
-  if (roundMatches.length === 0 || !roundMatches.every((m) => m.result)) {
-    return { posted: 0, reason: 'round-not-settled', round };
-  }
+  if (!kuponAfgjort(round)) return { posted: 0, reason: 'round-not-settled', round };
+  // Botten får KUN kuponens kampe. Serverede vi de udsatte med, ville den få
+  // to kampe uden resultat uden en forklaring — og digte en.
+  const roundMatches = (byRound.get(round) || []).filter((m) => ctx.byMatch[m.id]?.iVindue);
 
   const done = Array.isArray(game.recappedRounds) ? game.recappedRounds : [];
   if (!dryRun && done.includes(round)) return { posted: 0, reason: 'already', round };
