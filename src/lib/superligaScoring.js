@@ -150,11 +150,12 @@ export function roundComboBonus(hitOdds, matchCount) {
   // Under to ramte er der ingen kupon at gange — én ramt kamp har allerede
   // fået sine 1X2-point.
   if (hitOdds.length < 2) return 0;
-  const product = hitOdds.reduce((a, b) => a * (Number(b) || 0), 1);
-  // Eksplicit i stedet for tilfældigt reddet af round1: et LIGE antal negative
-  // odds giver et positivt produkt og dermed bonus. Kræver at en admin skriver
-  // negative odds, men reglen skal ikke hvile på, at ingen gør det.
-  if (!(product > 0)) return 0;
+  // Vagten skal stå på HVERT ODDS, ikke på produktet: to negative odds ganger
+  // op til et POSITIVT produkt og ville slippe igennem en produkt-vagt. Kræver
+  // at en admin skriver negative odds, men reglen skal ikke hvile på, at ingen
+  // gør det. Fanger samtidig 0, NaN og manglende værdier.
+  if (hitOdds.some((o) => !(Number(o) > 0))) return 0;
+  const product = hitOdds.reduce((a, b) => a * Number(b), 1);
   return round1(Math.min(COMBI.FAKTOR * Math.sqrt(product), COMBI.LOFT));
 }
 

@@ -104,6 +104,15 @@ describe('roundComboBonus (combi-bonus)', () => {
     expect(roundComboBonus([], 6)).toBe(0);
   });
 
+  // Et LIGE antal negative odds giver et positivt produkt og dermed bonus.
+  // Kræver at en admin skriver negative odds — men reglen skal ikke hvile på,
+  // at ingen gør det.
+  it('giver 0 ved negative odds, ikke bonus for et positivt produkt', () => {
+    expect(roundComboBonus([-2, -3], 2)).toBe(0);
+    expect(roundComboBonus([-2, 3], 2)).toBe(0);
+    expect(roundComboBonus([0, 3], 2)).toBe(0);
+  });
+
   it('robust mod ugyldigt input', () => {
     expect(roundComboBonus(null, 6)).toBe(0);
     expect(roundComboBonus([2, 2], 1)).toBe(0);   // kupon på under to kampe

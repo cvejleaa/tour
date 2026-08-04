@@ -44,6 +44,11 @@ describe('superligaScoring (server-spejl)', () => {
     expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(8);   // to fejl betaler nu
     expect(roundComboBonus([2, 2, 2], 6)).toBe(5.7);    // tre fejl også
     expect(roundComboBonus([2.1], 6)).toBe(0);          // én ramt er ingen kupon
+    // Et LIGE antal negative odds giver et POSITIVT produkt og ville slippe
+    // igennem en vagt, der stod på produktet. Vagten står på hvert odds.
+    expect(roundComboBonus([-2, -3], 2)).toBe(0);
+    expect(roundComboBonus([-2, 3], 2)).toBe(0);
+    expect(roundComboBonus([0, 3], 2)).toBe(0);
     expect(round1(2.25)).toBe(2.3);                     // round1 er uændret
   });
 

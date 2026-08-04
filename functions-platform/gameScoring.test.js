@@ -373,6 +373,54 @@ describe('recomputeGameMatchCore — start-gate (game.startAt)', () => {
 
 // Bagfyldningen af bet-point. Den skriver i hver eneste spillers point, så den
 // skal være bevist — ikke bare grøn.
+// Porten foran rang-snapshottet OG Runde-Botten. Uden den fyrer botten efter
+// rundens FØRSTE afgjorte kamp, og snapshottet — som er ÉNGANGS og
+// uigenkaldeligt — tages på en halv runde.
+describe('snapshot-porten: hele KUPONEN skal være afgjort', () => {
+  const ug = (iso) => Date.parse(iso);
+  // Runde 3 som den ser ud: fire kampe i ugen, to udsat til september.
+  const runde3 = (facit) => [
+    { id: 'a', round: 3, result: facit.a ?? null, odds: { 1: 2, X: 4, 2: 4 }, kickoff: ug('2026-08-07T17:00:00Z') },
+    { id: 'b', round: 3, result: facit.b ?? null, odds: { 1: 2, X: 3, 2: 4 }, kickoff: ug('2026-08-07T19:00:00Z') },
+    { id: 'c', round: 3, result: facit.c ?? null, odds: { 1: 2, X: 4, 2: 3 }, kickoff: ug('2026-08-09T15:00:00Z') },
+    { id: 'd', round: 3, result: facit.d ?? null, odds: { 1: 2, X: 4, 2: 4 }, kickoff: ug('2026-08-09T17:45:00Z') },
+    { id: 'e', round: 3, result: null, odds: { 1: 2, X: 4, 2: 4 }, kickoff: ug('2026-09-02T17:00:00Z') },
+    { id: 'f', round: 3, result: null, odds: { 1: 2, X: 4, 2: 4 }, kickoff: ug('2026-09-03T17:00:00Z') },
+  ];
+  const bets = () => ['a', 'b', 'c', 'd'].map((id) => ({ uid: 'A', matchId: id, pick: '1', chanceStake: 0, points: 0 }));
+
+  it('snapshotter IKKE efter rundens første facit', async () => {
+    const kampe = runde3({ a: '1' });
+    const db = makeDb(bets(), kampe);
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'a', {
+      result: '1', odds: { 1: 2, X: 4, 2: 4 }, round: 3, kickoff: ug('2026-08-07T17:00:00Z'),
+    });
+    expect(res.roundCompleted).toBeNull();
+    expect(db._game.snapshottedRounds).toBeUndefined();
+  });
+
+  // …og den venter IKKE på de to udsatte. Gjorde den det, ville runde 3's
+  // facit, delta-pile og botopslag først falde 3. september.
+  it('snapshotter når ugens fire er afgjort — uden at vente på de udsatte', async () => {
+    const kampe = runde3({ a: '1', b: '1', c: '1', d: '1' });
+    const db = makeDb(bets(), kampe);
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'd', {
+      result: '1', odds: { 1: 2, X: 4, 2: 4 }, round: 3, kickoff: ug('2026-08-09T17:45:00Z'),
+    });
+    expect(res.roundCompleted).toBe(3);
+    expect(db._game.snapshottedRounds).toContain(3);
+  });
+
+  it('snapshotter kun ÉN gang pr. runde', async () => {
+    const kampe = runde3({ a: '1', b: '1', c: '1', d: '1' });
+    const db = makeDb(bets(), kampe, { snapshottedRounds: [3] });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'd', {
+      result: '1', odds: { 1: 2, X: 4, 2: 4 }, round: 3, kickoff: ug('2026-08-09T17:45:00Z'),
+    });
+    expect(res.roundCompleted).toBeNull();
+  });
+});
+
 describe('rescoreAllBets — genscoring efter en REGELÆNDRING', () => {
   // odds X = 3 → 3 + træf-bonus 1 = 4. De gemte 3 er fra den gamle regel.
   const kampe = [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: 1 }];

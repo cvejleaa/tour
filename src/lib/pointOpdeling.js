@@ -84,6 +84,15 @@ export function ugeNoegle(ms) {
   // Hvor mange dage er der gået, siden ugen begyndte (tirsdag = 0)?
   const siden = (dagNr - 2 + 7) % 7;
   const d = new Date(`${dele.year}-${dele.month}-${dele.day}T12:00:00Z`);
+  // Et årstal på fem cifre eller mere kan ikke skrives i den USIGNEREDE
+  // ISO-form, new Date() får ind — så bliver d til Invalid Date, og
+  // toISOString() nedenfor KASTER. Grænsen er ca. 2,5e14, altså langt under
+  // Date-områdets 8,64e15, som vagten øverst dækker.
+  //
+  // Den realistiske vej hertil er ikke sekunder (harmløst små tal) men
+  // MIKROsekunder: et kickoff gemt som µs bliver til år 58000 og vælter
+  // afregningen for HELE spillet, tavst og gentaget i det uendelige.
+  if (Number.isNaN(d.getTime())) return null;
   d.setUTCDate(d.getUTCDate() - siden - (foerSnit ? 1 : 0));
   return d.toISOString().slice(0, 10);
 }
