@@ -29,6 +29,11 @@ initializeApp({ credential: cert(sa), projectId: sa.project_id });
 const db = getFirestore();
 
 const GAME_ID = process.env.GAME_ID || 'superliga2627';
+// Faktoren foran kvadratroden. Den afgoer, hvor meget combi fylder — og om
+// den, der fejede runden, gaar op eller ned. Kan saettes uden en ny commit,
+// saa man kan proeve sig frem paa RIGTIGE tal i stedet for simulerede.
+const FAKTOR = Number(process.env.FAKTOR || 2);
+const LOFT = Number(process.env.LOFT || 25);
 
 const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
 const kickoffMs = (m) => {
@@ -61,11 +66,11 @@ function nuvaerende(hitOdds, n) {
   const produkt = hitOdds.reduce((a, b) => a * b, 1);
   return round1(Math.min(produkt, fejl === 0 ? 25 : 12));
 }
-/** Forslaget: 2 × kvadratroden af produktet, loft 25, alle ramte tæller. */
+/** Forslaget: FAKTOR × kvadratroden af produktet, med loft. Alle ramte tæller. */
 function foreslaaet(hitOdds) {
   if (hitOdds.length < 2) return 0;
   const produkt = hitOdds.reduce((a, b) => a * b, 1);
-  return round1(Math.min(2 * Math.sqrt(produkt), 25));
+  return round1(Math.min(FAKTOR * Math.sqrt(produkt), LOFT));
 }
 
 // --- hent data -------------------------------------------------------------
@@ -89,8 +94,12 @@ for (const d of matchesSnap.docs) {
   kampe.set(d.id, m);
 }
 
+// Navnet bor på users/{uid}.displayName — players-dokumentet har det ikke.
+// Samme opslag som Runde-Botten bruger (gameRecap.js).
 const navn = new Map();
-for (const d of playersSnap.docs) navn.set(d.id, d.data().name || d.id);
+const brugere = await db.getAll(...playersSnap.docs.map((d) => db.collection('users').doc(d.id)));
+for (const d of brugere) if (d.exists) navn.set(d.id, d.data().displayName);
+for (const d of playersSnap.docs) if (!navn.get(d.id)) navn.set(d.id, d.data().name || d.id);
 
 // runder, der er HELT afgjort — det er dem, combi er udbetalt for
 const runder = new Map();
@@ -138,7 +147,7 @@ rækker.sort((a, b) => b.ny - a.ny || b.nu - a.nu);
 console.log(`\nCOMBI-SAMMENLIGNING · ${GAME_ID}`);
 console.log(`Afgjorte runder: ${afgjorte.map(([r]) => r).join(', ') || '(ingen)'}`);
 console.log('I dag = alle ramt → loft 25, én fejl → loft 12, ellers 0');
-console.log('Forslag = 2 × √produkt, loft 25, alle ramte tæller\n');
+console.log(`Forslag = ${FAKTOR} × √produkt, loft ${LOFT}, alle ramte tæller\n`);
 const b = (s, n) => String(s).padEnd(n);
 const h = (s, n) => String(s).padStart(n);
 console.log(`${b('spiller', 26)}${h('i dag', 8)}${h('forslag', 9)}${h('forskel', 9)}   detaljer`);

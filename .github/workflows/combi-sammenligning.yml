@@ -19,6 +19,14 @@ on:
         description: 'Spil-id (default superliga2627)'
         type: string
         default: 'superliga2627'
+      faktor:
+        description: 'Faktor foran kvadratroden (default 2)'
+        type: string
+        default: '2'
+      loft:
+        description: 'Loft for combi (default 25)'
+        type: string
+        default: '25'
 
 permissions:
   contents: read
@@ -50,4 +58,6 @@ jobs:
         env:
           SPIL_SA: ${{ runner.temp }}/spil-sa.json
           GAME_ID: ${{ inputs.gameId }}
+          FAKTOR: ${{ inputs.faktor }}
+          LOFT: ${{ inputs.loft }}
         run: node scripts/combi-sammenligning.mjs
