@@ -7,6 +7,9 @@ const {
 } = require('./gameRecap');
 // Stillingens egen vej til combi. Botten og stillingen SKAL sige samme tal.
 const { opdelPoint, buildRoundContext } = require('./pointOpdeling');
+// Loftet afhænger nu af kuponens størrelse — hent det frem for at skrive et
+// tal af, så testen følger stigen i stedet for at fryse ét trin.
+const { combiLoft } = require('./superligaScoring');
 
 const FieldValue = {
   arrayUnion: (v) => ({ __arrayUnion: [v] }),
@@ -59,8 +62,11 @@ describe('buildRoundRecapFacts', () => {
     // Anna tippede hele runden og ramte alt → combi = 1.6×3.7 = 5.9 (afrundet).
     const anna = f.standings.find((r) => r.name === 'Anna');
     expect(anna.points).toBe(10);
-    expect(anna.roundPoints).toBe(Math.round((1.6 + 3.7 + 1.6 * 3.7) * 10) / 10);
-    expect(f.combi).toEqual([{ name: 'Anna', bonus: Math.round(1.6 * 3.7 * 10) / 10 }]);
+    // 1,6 + 3,7 i tip-point, plus combi. Kuponen er på TO kampe, og 1,6×3,7
+    // = 5,9 ligger over loftet for en to-kamps kupon — så combien loftes.
+    expect(anna.roundPoints).toBe(Math.round((1.6 + 3.7 + combiLoft(2)) * 10) / 10);
+    // 1,6×3,7 = 5,9, men kuponen er på to kampe og loftes.
+    expect(f.combi).toEqual([{ name: 'Anna', bonus: combiLoft(2) }]);
     expect(f.standout).toBe('Anna');
     expect(f.standoutTie).toBe(false);
     expect(f.leader).toBe('Anna');
@@ -151,21 +157,24 @@ const fakeAnthropic = (text = 'Sikke en runde! 🎉') => ({
 // desuden til en konkret værdi, så en fælles nul-fejl ikke består "parvis".
 // ---------------------------------------------------------------------------
 describe('combi: botten og stillingen', () => {
-  const kampe = [
-    { id: 'm1', round: 2, home: 'FCK', away: 'Vejle', homeGoals: 2, awayGoals: 1, result: '1', odds: { 1: 1.6, X: 3.6, 2: 6.0 } },
-    { id: 'm2', round: 2, home: 'AGF', away: 'Brøndby', homeGoals: 0, awayGoals: 0, result: 'X', odds: { 1: 2.4, X: 3.7, 2: 2.6 } },
-  ];
+  // SEKS kampe, som i virkeligheden. Med to kampe binder loftet (1,5 for en
+  // to-kamps kupon), og testen ville kun bevise, at begge sider lofter ens —
+  // ikke at de ganger ens.
+  const kampe = [0, 1, 2, 3, 4, 5].map((i) => ({
+    id: `m${i}`, round: 2, home: `H${i}`, away: `U${i}`,
+    homeGoals: 1, awayGoals: 0, result: '1', odds: { 1: 1.5, X: 4.0, 2: 6.0 },
+  }));
   const tilfaelde = [
-    ['alle ramt', { picks: { m1: '1', m2: 'X' }, forventet: 5.9 }],
-    // ÉN fejl: kun m1 tæller med i produktet → 1.6, ikke 1.6×3.7.
-    ['én fejl', { picks: { m1: '1', m2: '1' }, forventet: 1.6 }],
-    // To fejl i en to-kamps runde → ingen bonus overhovedet.
-    ['to fejl', { picks: { m1: '2', m2: '1' }, forventet: 0 }],
+    // 1,5^6 = 11,4 — under loftet på 25, så produktet er synligt.
+    ['alle ramt', { forkerte: 0, forventet: 11.4 }],
+    // 1,5^5 = 7,6 — under loftet på 12 for én fejl.
+    ['én fejl', { forkerte: 1, forventet: 7.6 }],
+    ['to fejl', { forkerte: 2, forventet: 0 }],
   ];
-  for (const [navn, { picks, forventet }] of tilfaelde) {
+  for (const [navn, { forkerte, forventet }] of tilfaelde) {
     it(`regner ens: ${navn}`, () => {
-      const bets = kampe.map((m) => ({
-        matchId: m.id, pick: picks[m.id], points: picks[m.id] === m.result ? m.odds[m.result] : 0,
+      const bets = kampe.map((m, i) => ({
+        matchId: m.id, pick: i < forkerte ? 'X' : '1', points: i < forkerte ? 0 : 1.5,
       }));
       const fakta = buildRoundRecapFacts({
         round: 2,
