@@ -84,45 +84,19 @@ export function outcomePoints(pick, result, odds) {
 // --- Runde-bonus (combi/kupon) -----------------------------------------------
 
 /**
- * Loftet for combi-bonussen, som funktion af hvor mange kampe kuponen har.
- * Bonussen = de ramte odds ganget sammen, men aldrig mere end loftet — så en
- * enkelt heldig runde ikke ødelægger stillingen.
- *
- * STIGEN halverer (næsten) for hver kamp, kuponen mangler. Grunden er, at det
- * er LANGT lettere at feje fire kampe end seks: med sæsonens egne odds rammer
- * man ≤1 fejl i 27 % af tilfældene på fire kampe mod 17 % på seks. Uden en
- * stige ville en afkortet uge blive sæsonens mest værdifulde.
- *
- * Et vindue kan ikke være større end runden (seks kampe), så 6 er toppen.
+ * Lofter for runde-bonussen. Bonussen = de ramte odds ganget sammen, men aldrig
+ * mere end loftet — så en enkelt heldig runde ikke ødelægger stillingen.
+ *   PERFECT = alle kampe ramt · NEAR = alle på nær én.
  */
-export const COMBI_LOFT = {
-  6: 25, 5: 12, 4: 6, 3: 3, 2: 1.5,
-};
-
-/** Loftet for en kupon med n kampe. Ukendt/for lille → 0. */
-export function combiLoft(n) {
-  if (!Number.isFinite(n)) return 0;
-  if (n > 6) return COMBI_LOFT[6];
-  return COMBI_LOFT[n] ?? 0;
-}
+export const ROUND_BONUS = { PERFECT_CAP: 25, NEAR_CAP: 12 };
 
 /**
- * Bagudkompatibelt opslag for en HEL runde på seks kampe. Hjælpesiden og de
- * ældre tests taler om ét tal; det er stadig sandt for en normal uge.
- */
-export const ROUND_BONUS = { PERFECT_CAP: COMBI_LOFT[6], NEAR_CAP: COMBI_LOFT[5] };
-
-/**
- * Combi-bonus for én spillers kupon. FORUDSÆTTER at spilleren har tippet ALLE
- * kuponens kampe (kaldes kun så) — `hitOdds` er de (1-decimals) odds for de
- * kampe, spilleren RAMTE, og `matchCount` er antal kampe PÅ KUPONEN, ikke
- * nødvendigvis i runden: en udsat kamp er ikke med.
- *   0 fejl  → de ramte odds ganget, loftet ved combiLoft(n).
- *   1 fejl  → de ramte odds ganget, loftet ved combiLoft(n − 1).
+ * Runde-bonus for én spillers runde. FORUDSÆTTER at spilleren har tippet ALLE
+ * kampe i runden (kaldes kun så) — `hitOdds` er de (1-decimals) odds for de
+ * kampe, spilleren RAMTE, og `matchCount` er antal kampe i runden.
+ *   0 fejl  → de ramte odds ganget, loftet ved PERFECT_CAP.
+ *   1 fejl  → de ramte odds ganget, loftet ved NEAR_CAP.
  *   ≥2 fejl → 0.
- *
- * "Én fejl" koster altså ét trin på stigen, uanset kuponens størrelse — samme
- * regel som altid, bare målt mod kuponen i stedet for runden.
  * @param {number[]} hitOdds
  * @param {number} matchCount
  * @returns {number} bonus (1 decimal)
@@ -132,7 +106,7 @@ export function roundComboBonus(hitOdds, matchCount) {
   const misses = matchCount - hitOdds.length;
   if (misses < 0 || misses > 1) return 0;
   const product = hitOdds.reduce((a, b) => a * (Number(b) || 0), 1);
-  const cap = combiLoft(misses === 0 ? matchCount : matchCount - 1);
+  const cap = misses === 0 ? ROUND_BONUS.PERFECT_CAP : ROUND_BONUS.NEAR_CAP;
   return round1(Math.min(product, cap));
 }
 

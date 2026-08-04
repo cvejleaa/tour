@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { buildTipsHistory } from './tipsHistory';
-// Loftet følger kuponens størrelse — hent det frem for at skrive et tal af.
-import { combiLoft } from '../../../lib/superligaScoring';
 
 // To runder à to kampe. Runde 1 spillet, runde 2 kun tippet.
 const rounds = [
@@ -34,11 +32,9 @@ describe('buildTipsHistory', () => {
     expect(h.totals.hits).toBe(2);
     expect(h.totals.hitRate).toBe(100);
     // Runde 1: begge ramt (tippet alle) → combi-bonus = 2.0×3.0 = 6.
-    // 2,0×3,0 = 6, men kuponen er på to kampe og loftes.
-    expect(h.rounds[0].roundBonus).toBe(combiLoft(2));
+    expect(h.rounds[0].roundBonus).toBe(6);
     // Point = bet-point (2+3+0) + bonus (6) = 11.
-    // 5 i tip-point plus den loftede combi for en to-kamps kupon.
-    expect(h.totals.points).toBe(5 + combiLoft(2));
+    expect(h.totals.points).toBe(11);
   });
 
   // DEN FEJL, DER ALLEREDE FANDTES. "Point i alt" blev regnet her UDEN
