@@ -3,10 +3,13 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const {
-  recomputeGameMatchCore, recomputeSeasonElo, buildRoundContext, playerRoundBonus,
+  recomputeGameMatchCore, recomputeSeasonElo, buildRoundContext,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officialTop6,
   gatedIds, recomputeAllPlayerTotals,
 } = require('./gameScoring');
+// Combi-reglen har ét hjem. Testen henter den DERFRA, så en fremtidig dublet
+// ikke kan snige sig ind bag en grøn suite.
+const { combiBonus } = require('./pointOpdeling');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
 // Understøtter: games/{g}/bets (where uid==, where matchId==), games/{g}/matches
@@ -397,11 +400,11 @@ describe('buildRoundContext — kampe uden rundenummer', () => {
     const ctx = buildRoundContext(uden);
     expect(Object.keys(ctx.rounds)).toHaveLength(0);
     const bets = [{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }];
-    expect(playerRoundBonus(bets, ctx)).toBe(0);
+    expect(combiBonus(bets, ctx)).toBe(0);
   });
 });
 
-describe('buildRoundContext + playerRoundBonus', () => {
+describe('buildRoundContext + combiBonus', () => {
   const matches = [
     { id: 'r1-a', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
     { id: 'r1-b', round: 1, result: 'X', odds: { 1: 2, X: 3.0, 2: 4 } },
@@ -415,11 +418,11 @@ describe('buildRoundContext + playerRoundBonus', () => {
   it('kræver at HELE runden er afgjort + at spilleren tippede alle kampe', () => {
     const ctx = buildRoundContext(matches);
     // tippede kun 2 af 3 → ingen bonus
-    expect(playerRoundBonus([
+    expect(combiBonus([
       { matchId: 'r1-a', pick: '1' }, { matchId: 'r1-b', pick: 'X' },
     ], ctx)).toBe(0);
     // tippede alle 3, ramte alle → 2.0×3.0×2.5 = 15
-    expect(playerRoundBonus([
+    expect(combiBonus([
       { matchId: 'r1-a', pick: '1' }, { matchId: 'r1-b', pick: 'X' }, { matchId: 'r1-c', pick: '2' },
     ], ctx)).toBe(15);
   });
@@ -430,12 +433,12 @@ describe('buildRoundContext + playerRoundBonus', () => {
     ];
     const ctx = buildRoundContext(partial);
     expect(ctx.rounds[1].settledCount).toBe(1);
-    expect(playerRoundBonus([
+    expect(combiBonus([
       { matchId: 'r1-a', pick: '1' }, { matchId: 'r1-b', pick: 'X' },
     ], ctx)).toBe(0);
   });
   it('uden roundCtx gives 0', () => {
-    expect(playerRoundBonus([{ matchId: 'x', pick: '1' }], null)).toBe(0);
+    expect(combiBonus([{ matchId: 'x', pick: '1' }], null)).toBe(0);
   });
 });
 

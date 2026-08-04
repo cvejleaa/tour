@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { opdelPoint, combiBonus } from './pointOpdeling.js';
-import { playerRoundBonus } from './gameScoring.js';
 
 // Ét regnestykke for "hvor kommer pointene fra". Det fandtes før to steder ad
 // hver sin vej — og de var allerede uenige om puljebonussen.
@@ -255,12 +254,6 @@ describe('combiBonus', () => {
     expect(combiBonus([{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }], halv)).toBe(0);
   });
 
-  // Samme regnestykke som serveren allerede brugte. Driver de to fra hinanden,
-  // ændrer stillingen sig uden at nogen har rørt combi-reglerne.
-  it('giver samme tal som playerRoundBonus i gameScoring', () => {
-    const bets = [{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }];
-    expect(combiBonus(bets, runde)).toBe(playerRoundBonus(bets, runde));
-  });
 
   // Kampe UDEN rundenummer må aldrig give combi. Jeg påstod i en commit, at
   // det fulgte af sig selv — det gjorde det ikke. Uden vagten i
