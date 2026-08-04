@@ -119,7 +119,6 @@ function gatedIds(matches, startMs) {
   return s;
 }
 
-
 /**
  * Genberegn én spillers total i et spil = summen af alle vedkommendes bet-point
  * PLUS combi-runde-bonusser, gulvet ved 0. Kør i transaktion, så to kampe der
@@ -409,6 +408,6 @@ async function recomputeAllPlayerTotals(db, FieldValue, gameId) {
 
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo,
-  buildRoundContext, computeRanks, snapshotRoundRanks,
+  computeRanks, snapshotRoundRanks,
   settlePuljeBets, officialTop6, gatedIds, recomputeAllPlayerTotals,
 };

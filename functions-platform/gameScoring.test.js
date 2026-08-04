@@ -3,13 +3,13 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const {
-  recomputeGameMatchCore, recomputeSeasonElo, buildRoundContext,
+  recomputeGameMatchCore, recomputeSeasonElo,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officialTop6,
   gatedIds, recomputeAllPlayerTotals,
 } = require('./gameScoring');
 // Combi-reglen har ét hjem. Testen henter den DERFRA, så en fremtidig dublet
 // ikke kan snige sig ind bag en grøn suite.
-const { combiBonus } = require('./pointOpdeling');
+const { combiBonus, buildRoundContext } = require('./pointOpdeling');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
 // Understøtter: games/{g}/bets (where uid==, where matchId==), games/{g}/matches
@@ -292,7 +292,10 @@ describe('recomputeGameMatchCore', () => {
     expect(res.rescored).toBe(0);        // ingen bet-point rykkede sig
     expect(res.players).toBe(1);         // men spilleren SKAL genberegnes
     expect(db._players.A).toBeDefined();
-    expect(db._players.A.roundBonus).toBeGreaterThan(0); // bonussen for én fejl
+    // PRÆCIS tallet, ikke bare "mere end 0": ved én fejl må KUN den ramte kamps
+    // odds gange med. Med >0 kunne forbieren tælles med som ramt (2.0×3.0 = 6),
+    // og testen stod stadig grøn.
+    expect(db._players.A.roundBonus).toBe(2); // 2.0 fra m1, m2 er forbi
   });
 
   it('lægger combi-runde-bonus til når hele runden er ramt', async () => {

@@ -254,6 +254,38 @@ describe('combiBonus', () => {
     expect(combiBonus([{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }], halv)).toBe(0);
   });
 
+  // To afgjorte runder skal LÆGGES SAMMEN. Med kun ét runde-fixture kunne
+  // summen erstattes af "sidste runde vinder", uden at én test faldt.
+  it('lægger bonus sammen på tværs af flere afgjorte runder', () => {
+    const toRunder = ctx([
+      { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+      { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+      { id: 'm3', round: 2, result: '1', odds: { 1: 1.5, X: 4, 2: 4 } },
+      { id: 'm4', round: 2, result: '2', odds: { 1: 4, X: 4, 2: 2.0 } },
+    ]);
+    const bets = [
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+      { matchId: 'm3', pick: '1' }, { matchId: 'm4', pick: '2' },
+    ];
+    expect(combiBonus(bets, toRunder)).toBe(9); // 2.0×3.0 + 1.5×2.0
+  });
+
+  // Præcis tal, ikke bare "mere end 0": ÉN fejl må kun gange de RAMTE odds.
+  it('ganger kun de ramte odds ved én fejl', () => {
+    expect(combiBonus([{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: '1' }], runde)).toBe(2);
+    // to fejl i en to-kamps runde → ingen bonus
+    expect(combiBonus([{ matchId: 'm1', pick: 'X' }, { matchId: 'm2', pick: '1' }], runde)).toBe(0);
+  });
+
+  // Et tip på en SLETTET kamp må ikke smugles ind i en runde. Gør det det,
+  // passer antallet ikke længere, og spilleren mister hele rundens bonus.
+  it('ser bort fra tips på kampe, konteksten ikke kender', () => {
+    const bets = [
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+      { matchId: 'slettet', pick: '1' },
+    ];
+    expect(combiBonus(bets, runde)).toBe(6); // 2.0×3.0 — den slettede tæller ikke
+  });
 
   // Kampe UDEN rundenummer må aldrig give combi. Jeg påstod i en commit, at
   // det fulgte af sig selv — det gjorde det ikke. Uden vagten i
@@ -316,6 +348,41 @@ describe('spejling mod src/lib', () => {
     ['ukendt kamp', {
       matches: [{ id: 'm1', round: 1, result: '1', odds: { 1: 2, X: 4, 2: 4 } }],
       bets: [{ matchId: 'ukendt', pick: '1', points: 5 }],
+    }],
+    // Combi-grenene, tabellen manglede: én fejl, flere runder og et tip på en
+    // kamp, konteksten ikke kender. Uden dem kunne src-udgaven begynde at tælle
+    // forbiere med som ramte, uden at spejlingen sagde et ord.
+    ['runde med én fejl', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.17, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.33, 2: 4 } },
+      ],
+      bets: [
+        { matchId: 'm1', pick: '1', points: 2.17 },
+        { matchId: 'm2', pick: '1', points: 0 },
+      ],
+    }],
+    ['to afgjorte runder', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+        { id: 'm3', round: 2, result: '1', odds: { 1: 1.5, X: 4, 2: 4 } },
+        { id: 'm4', round: 2, result: '2', odds: { 1: 4, X: 4, 2: 2.0 } },
+      ],
+      bets: [
+        { matchId: 'm1', pick: '1', points: 2 }, { matchId: 'm2', pick: 'X', points: 3 },
+        { matchId: 'm3', pick: '1', points: 1.5 }, { matchId: 'm4', pick: '2', points: 2 },
+      ],
+    }],
+    ['slettet kamp oveni en fuld runde', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+      ],
+      bets: [
+        { matchId: 'm1', pick: '1', points: 2 }, { matchId: 'm2', pick: 'X', points: 3 },
+        { matchId: 'slettet', pick: '1', points: 4 },
+      ],
     }],
     ['kamp uden facit', {
       matches: [{ id: 'm1', round: 1, result: null, odds: { 1: 2, X: 4, 2: 4 } }],
