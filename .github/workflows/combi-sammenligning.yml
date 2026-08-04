@@ -1,0 +1,53 @@
+name: Sammenlign combi-regler (spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+#
+# LÆS-ONLY. Viser hvad hver spiller ville have fået i combi-bonus under den
+# nuværende regel og under den foreslåede, på de runder der allerede er
+# afgjort. Skriver ALDRIG i basen.
+#
+# Kør den FØR en ændring af combi-formlen. Simuleringer siger noget om
+# gennemsnittet; det her siger, hvad der sker for de mennesker, der rent
+# faktisk spiller.
+#
+# Bruger repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+    inputs:
+      gameId:
+        description: 'Spil-id (default superliga2627)'
+        type: string
+        default: 'superliga2627'
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  sammenlign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      - name: Skriv service-account
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Sammenlign combi-regler
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          GAME_ID: ${{ inputs.gameId }}
+        run: node scripts/combi-sammenligning.mjs

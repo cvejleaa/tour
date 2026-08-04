@@ -81,7 +81,32 @@ describe('roundComboBonus (combi-runde-bonus)', () => {
   it('robust mod ugyldigt input', () => {
     expect(roundComboBonus(null, 6)).toBe(0);
     expect(roundComboBonus([2, 2], 1)).toBe(0);
-    expect(roundComboBonus([1.5, 1.5], 2)).toBe(round1(2.25)); // 2-kamps runde, alle ramt
+    // 1,5×1,5 = 2,25, men en to-kamps kupon har loft 1,5.
+    expect(roundComboBonus([1.5, 1.5], 2)).toBe(1.5);
+  });
+
+  // STIGEN: loftet følger kuponens størrelse, ikke rundens. Uden den ville en
+  // afkortet uge blive sæsonens mest værdifulde — det er langt lettere at feje
+  // fire kampe end seks.
+  it('lofter efter kuponens størrelse', () => {
+    const store = [9, 9, 9, 9, 9, 9]; // produkt langt over ethvert loft
+    expect(roundComboBonus(store, 6)).toBe(25);
+    expect(roundComboBonus(store.slice(0, 5), 5)).toBe(12);
+    expect(roundComboBonus(store.slice(0, 4), 4)).toBe(6);
+    expect(roundComboBonus(store.slice(0, 3), 3)).toBe(3);
+  });
+
+  // Én fejl koster ét trin på stigen — uanset kuponens størrelse.
+  it('koster ét trin ved én fejl', () => {
+    const store = [9, 9, 9, 9, 9];
+    expect(roundComboBonus(store, 6)).toBe(12);            // 5 af 6
+    expect(roundComboBonus(store.slice(0, 3), 4)).toBe(3); // 3 af 4
+    expect(roundComboBonus(store.slice(0, 2), 3)).toBe(1.5); // 2 af 3
+  });
+
+  it('giver ingenting ved to fejl, uanset størrelse', () => {
+    expect(roundComboBonus([9, 9, 9, 9], 6)).toBe(0);
+    expect(roundComboBonus([9, 9], 4)).toBe(0);
   });
 });
 

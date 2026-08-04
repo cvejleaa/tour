@@ -257,24 +257,31 @@ describe('combiBonus', () => {
   // To afgjorte runder skal LÆGGES SAMMEN. Med kun ét runde-fixture kunne
   // summen erstattes af "sidste runde vinder", uden at én test faldt.
   it('lægger bonus sammen på tværs af flere afgjorte runder', () => {
-    const toRunder = ctx([
-      { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
-      { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
-      { id: 'm3', round: 2, result: '1', odds: { 1: 1.5, X: 4, 2: 4 } },
-      { id: 'm4', round: 2, result: '2', odds: { 1: 4, X: 4, 2: 2.0 } },
-    ]);
-    const bets = [
-      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
-      { matchId: 'm3', pick: '1' }, { matchId: 'm4', pick: '2' },
-    ];
-    expect(combiBonus(bets, toRunder)).toBe(9); // 2.0×3.0 + 1.5×2.0
+    // SEKS kampe pr. runde, som i virkeligheden. Med to kampe binder loftet
+    // (1,5 for en to-kamps kupon), og testen ville ikke længere bevise, at der
+    // ganges — kun at der loftes.
+    const seks = (r, base) => [0, 1, 2, 3, 4, 5].map((i) => ({
+      id: `${base}${i}`, round: r, result: '1', odds: { 1: 1.5, X: 4, 2: 4 },
+    }));
+    const toRunder = ctx([...seks(1, 'a'), ...seks(2, 'b')]);
+    const alle = (base) => [0, 1, 2, 3, 4, 5].map((i) => ({ matchId: `${base}${i}`, pick: '1' }));
+    // 1,5^6 = 11,4 pr. runde, under loftet på 25 → summen er 22,8, ikke 11,4.
+    expect(combiBonus([...alle('a'), ...alle('b')], toRunder)).toBe(22.8);
   });
 
   // Præcis tal, ikke bare "mere end 0": ÉN fejl må kun gange de RAMTE odds.
+  // Seks kampe, så loftet ikke skjuler regnestykket.
   it('ganger kun de ramte odds ved én fejl', () => {
-    expect(combiBonus([{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: '1' }], runde)).toBe(2);
-    // to fejl i en to-kamps runde → ingen bonus
-    expect(combiBonus([{ matchId: 'm1', pick: 'X' }, { matchId: 'm2', pick: '1' }], runde)).toBe(0);
+    const kampe = [0, 1, 2, 3, 4, 5].map((i) => ({
+      id: `k${i}`, round: 9, result: '1', odds: { 1: 1.5, X: 4, 2: 4 },
+    }));
+    const seksRunde = ctx(kampe);
+    const tip = (forkerte) => kampe.map((m, i) => ({
+      matchId: m.id, pick: i < forkerte ? 'X' : '1',
+    }));
+    expect(combiBonus(tip(0), seksRunde)).toBe(11.4); // 1,5^6, under loft 25
+    expect(combiBonus(tip(1), seksRunde)).toBe(7.6);  // 1,5^5, loft 12 binder ikke
+    expect(combiBonus(tip(2), seksRunde)).toBe(0);    // to fejl → ingenting
   });
 
   // Et tip på en SLETTET kamp må ikke smugles ind i en runde. Gør det det,
@@ -284,7 +291,9 @@ describe('combiBonus', () => {
       { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
       { matchId: 'slettet', pick: '1' },
     ];
-    expect(combiBonus(bets, runde)).toBe(6); // 2.0×3.0 — den slettede tæller ikke
+    // 2,0×3,0 = 6, men en to-kamps kupon har loft 1,5. Pointen er, at den
+    // slettede kamp ikke vælter rundens tælling — ikke selve produktet.
+    expect(combiBonus(bets, runde)).toBe(1.5);
   });
 
   // Kampe UDEN rundenummer må aldrig give combi. Jeg påstod i en commit, at
