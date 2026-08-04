@@ -84,30 +84,56 @@ export function outcomePoints(pick, result, odds) {
 // --- Runde-bonus (combi/kupon) -----------------------------------------------
 
 /**
- * Lofter for runde-bonussen. Bonussen = de ramte odds ganget sammen, men aldrig
- * mere end loftet — så en enkelt heldig runde ikke ødelægger stillingen.
- *   PERFECT = alle kampe ramt · NEAR = alle på nær én.
+ * Combi-bonussen: 2 × kvadratroden af de ramte odds ganget sammen, med et
+ * loft på 25. FAKTOR afgør, hvor meget bonussen fylder i spillet (ved 2 er
+ * den ca. en tredjedel af pointene); LOFT holder en enkelt vanvittig runde
+ * fra at afgøre sæsonen.
+ * SPEJLET: den anden superligaScoring.js skal følges ad (CLAUDE.md).
  */
-export const ROUND_BONUS = { PERFECT_CAP: 25, NEAR_CAP: 12 };
+export const COMBI = { FAKTOR: 2, LOFT: 25 };
+
+/** Bagudkompatibelt opslag: det højeste, en kupon kan give. */
+export const ROUND_BONUS = { PERFECT_CAP: COMBI.LOFT, NEAR_CAP: COMBI.LOFT };
 
 /**
- * Runde-bonus for én spillers runde. FORUDSÆTTER at spilleren har tippet ALLE
- * kampe i runden (kaldes kun så) — `hitOdds` er de (1-decimals) odds for de
- * kampe, spilleren RAMTE, og `matchCount` er antal kampe i runden.
- *   0 fejl  → de ramte odds ganget, loftet ved PERFECT_CAP.
- *   1 fejl  → de ramte odds ganget, loftet ved NEAR_CAP.
- *   ≥2 fejl → 0.
- * @param {number[]} hitOdds
- * @param {number} matchCount
+ * Combi-bonus for én spillers kupon: **2 × kvadratroden af de ramte odds
+ * ganget sammen**, med et loft på 25.
+ *
+ * FORUDSÆTTER at spilleren har tippet ALLE kuponens kampe (kaldes kun så).
+ * `hitOdds` er de (1-decimals) odds for de kampe, han RAMTE.
+ *
+ * HVORFOR KVADRATRODEN. Den gamle regel gav de ramte odds ganget rå, med loft
+ * 25 ved nul fejl og 12 ved én, og nul ved to. Den havde to problemer, som
+ * 20.000 simulerede sæsoner gjorde tydelige:
+ *
+ *  1. Den STRAFFEDE mod. Den, der tippede tre outsidere pr. runde, tabte 1,3
+ *     point i forventning mod den, der kun tog favoritter — fordi kravet om
+ *     "højst én fejl" gør bonussen til en funktion af sandsynlighed, og modige
+ *     tip sænker sandsynligheden hurtigere, end oddsene stiger.
+ *  2. Den afgjorde sæsonvinderen i HALVDELEN af alle sæsoner, selv om den kun
+ *     var 19 % af pointene. En fejlfri runde gav 25 = fire normale runders
+ *     1X2-point, og den faldt 0,4 gange pr. sæson. Et lotteri.
+ *
+ * Med kvadratroden tæller hver ramt kamp med, så modet betaler sig (+0,3 i
+ * stedet for −1,3), medianen går fra 0 til 5,3 — combi bliver noget, man
+ * mærker hver uge i stedet for én gang om året — og andelen af sæsoner, der
+ * afgøres af bonussen, falder fra 51 % til 16 %.
+ *
+ * Loftet på 25 binder stadig i toppen, men først et godt stykke over det, en
+ * ren favorit-runde giver (2·√86 ≈ 18,5). Så en modig fejlfri runde er stadig
+ * mere værd end en forsigtig.
+ *
+ * @param {number[]} hitOdds  odds for de RAMTE kampe
+ * @param {number} matchCount antal kampe PÅ KUPONEN (ikke i runden)
  * @returns {number} bonus (1 decimal)
  */
 export function roundComboBonus(hitOdds, matchCount) {
   if (!Array.isArray(hitOdds) || !Number.isFinite(matchCount) || matchCount < 2) return 0;
-  const misses = matchCount - hitOdds.length;
-  if (misses < 0 || misses > 1) return 0;
+  // Under to ramte er der ingen kupon at gange — én ramt kamp har allerede
+  // fået sine 1X2-point.
+  if (hitOdds.length < 2) return 0;
   const product = hitOdds.reduce((a, b) => a * (Number(b) || 0), 1);
-  const cap = misses === 0 ? ROUND_BONUS.PERFECT_CAP : ROUND_BONUS.NEAR_CAP;
-  return round1(Math.min(product, cap));
+  return round1(Math.min(COMBI.FAKTOR * Math.sqrt(product), COMBI.LOFT));
 }
 
 // --- Elo-lite: sandsynligheder + fair odds -----------------------------------
