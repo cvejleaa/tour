@@ -545,7 +545,7 @@ describe('FootballTip — kuponen i en splittet runde', () => {
   it('siger øverst hvilke kampe der er rykket, og hvornår', () => {
     setup({}, '/spil/sl?runde=3', splittet);
     const note = screen.getByTestId('combi-udenfor');
-    expect(note).toHaveTextContent('2 kampe er udsat');
+    expect(note).toHaveTextContent('2 kampe i runden ligger uden for rundens uge');
     expect(note).toHaveTextContent('AGF–FC Midtjylland');
     expect(note).toHaveTextContent('F.C. København–AGF');
     expect(note).toHaveTextContent(/sep/);
@@ -556,11 +556,31 @@ describe('FootballTip — kuponen i en splittet runde', () => {
     expect(screen.queryByTestId('combi-udenfor')).toBeNull();
   });
 
-  // Kravet er kuponens fire kampe — ikke rundens seks. Stod der "tip alle 6",
-  // ville spilleren jagte to kampe, der slet ikke kan tippes endnu.
-  it('kræver kuponens kampe tippet, ikke rundens', () => {
+  // Der er INTET kuponkrav. Kortet må aldrig sige "for at være med" — man ER
+  // med, også med ét tip. Sagde det noget andet, ville spilleren tro, at en
+  // glemt kamp havde kostet ham hele bonussen.
+  it('stiller ikke krav om at have tippet hele kuponen', () => {
     setup({}, '/spil/sl?runde=3', splittet);
-    expect(screen.getByTestId('combi-kort')).toHaveTextContent('Tip alle 4 kuponkampe');
+    const kort = screen.getByTestId('combi-kort');
+    expect(kort).not.toHaveTextContent(/for at være med/);
+    expect(kort).toHaveTextContent(/I spil/);
+    expect(kort).toHaveTextContent(/koster dig ikke bonussen/);
+  });
+
+  // Men opfordringen skal stå der: hver ekstra ramt kamp ganger bonussen op.
+  it('siger hvor mange af kuponens kampe der mangler', () => {
+    mockBets.mockReturnValue({ betsByMatch: { s1: { pick: '1' }, s2: { pick: 'X' } }, loading: false });
+    setup({}, '/spil/sl?runde=3', splittet);
+    expect(screen.getByTestId('combi-mangler')).toHaveTextContent('Du mangler 2 af kuponens 4 kampe');
+  });
+
+  it('siger intet om manglende tips, når kuponen er fuldt tippet', () => {
+    mockBets.mockReturnValue({
+      betsByMatch: { s1: { pick: '1' }, s2: { pick: 'X' }, s3: { pick: '2' }, s4: { pick: '1' } },
+      loading: false,
+    });
+    setup({}, '/spil/sl?runde=3', splittet);
+    expect(screen.queryByTestId('combi-mangler')).toBeNull();
   });
 
   // Combi'en er I SPIL, så snart de fire på kuponen er tippet — også selv om

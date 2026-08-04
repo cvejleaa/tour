@@ -24,7 +24,7 @@ import {
   groupByRound, activeRound, isLocked, toMillis, afterStart, matchScore, liveScore,
 } from './footballRounds';
 import {
-  OUTCOME, OUTCOMES, round1, outcomeReward, COMBI,
+  OUTCOME, OUTCOMES, round1, hitPoints, TRAEF_BONUS, COMBI,
   chanceMaxStake, canUseChance, CHANCE, settleChance,
 } from '../../../lib/superligaScoring';
 // Combi-reglen bor ÉT sted, spejlet med serveren. Fladen regnede den før selv.
@@ -407,43 +407,65 @@ export default function FootballTip({ game, me, matches }) {
           {tipped}/{total} tippet
         </span>
         <span style={{ color: 'var(--c-muted)', fontSize: '0.78rem' }}>
-          Point følger oddsene — jo større overraskelse, jo flere point.
+          Point følger oddsene, plus {TRAEF_BONUS} for hver kamp du rammer.
         </span>
       </div>
 
-      {/* Combi-runde-bonus */}
+      {/* Combi-runde-bonus. Kortet vises kun, når der ER en kupon: uden
+          rundenummer kender vi ikke runden, og kortet ville sige "Tip alle 0
+          kuponkampe" og mærke hver kamp som udsat. */}
+      {kupon > 0 && (
       <div className="card mb-2" style={{ borderStyle: 'dashed' }} data-testid="combi-kort">
         <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 700 }}>🎯 Runde-bonus</span>
-          {roundSettled && tippedAllRound ? (
+          {/* Der er INTET krav om at have tippet hele kuponen. Kortet må derfor
+              aldrig sige "for at være med" — man ER med, også med ét tip.
+              Mangler der tips, er det en opfordring, ikke en spærring. */}
+          {roundSettled ? (
             roundBonus > 0
               ? <span className="badge badge--green">+{fmtDec(roundBonus)} ({roundHits.length}/{kupon} ramt)</span>
               : <span className="badge badge--muted">Ingen ({roundHits.length}/{kupon} ramt)</span>
-          ) : tippedAllRound ? (
-            <span className="chance-pill">⚡ I spil — {roundHits.length}/{kupon} ramt indtil videre</span>
           ) : (
-            <span className="badge badge--yellow">Tip alle {kupon} kuponkampe for at være med</span>
+            <span className="chance-pill">⚡ I spil — {roundHits.length}/{kupon} ramt indtil videre</span>
           )}
         </div>
         <p style={{ color: 'var(--c-muted)', fontSize: '0.78rem', margin: '0.4rem 0 0' }}>
-          Tipper du <strong>alle {kupon}</strong> kampe på kuponen, ganges oddsene på dem, du rammer, sammen.
-          Bonussen er {COMBI.FAKTOR} × kvadratroden af produktet — maks +{COMBI.LOFT}.
-          Hver ramt kamp tæller; du behøver ikke ramme dem alle.
+          Oddsene på de kampe, du rammer, ganges sammen. Bonussen er
+          {' '}{COMBI.FAKTOR} × kvadratroden af produktet — maks +{COMBI.LOFT}.
+          {/* Gulvet SKAL stå her. Uden det siger kortet "hver ramt kamp tæller"
+              lige over et "Ingen (1/4 ramt)" — og så er teksten en løgn i
+              præcis det øjeblik, spilleren læser den efter. */}
+          {' '}Det tæller fra <strong>to rigtige</strong> og opefter. Har du glemt en kamp, tæller
+          den bare ikke med — den koster dig ikke bonussen.
         </p>
+        {!tippedAllRound && !roundSettled && (
+          <p
+            className="combi-mangler"
+            data-testid="combi-mangler"
+            style={{ color: 'var(--c-muted)', fontSize: '0.78rem', margin: '0.4rem 0 0' }}
+          >
+            Du mangler <strong>{kupon - tippetKupon}</strong> af kuponens {kupon} kampe.
+            Hver ekstra kamp, du rammer, ganger bonussen op.
+          </p>
+        )}
         {udenforKupon.length > 0 && (
           <p
             className="combi-udenfor"
             data-testid="combi-udenfor"
             style={{ color: 'var(--c-muted)', fontSize: '0.78rem', margin: '0.4rem 0 0' }}
           >
-            🕒 {udenforKupon.length === 1 ? 'Én kamp er' : `${udenforKupon.length} kampe er`} udsat til
-            {' '}{formatDateRange(udenforFra, udenforTil)} og {udenforKupon.length === 1 ? 'står' : 'står'} uden
-            for kuponen: {udenforKupon.map((m) => `${m.home}–${m.away}`).join(', ')}.
+            {/* "Uden for rundens uge", ikke "udsat": en kamp kan være programsat
+                i næste uge helt legitimt, og så er "udsat" en påstand, vi ikke
+                kan bakke op. Det første holder altid. */}
+            🕒 {udenforKupon.length === 1 ? 'Én kamp i runden ligger' : `${udenforKupon.length} kampe i runden ligger`}
+            {' '}uden for rundens uge ({formatDateRange(udenforFra, udenforTil)}) og står derfor uden for
+            kuponen: {udenforKupon.map((m) => `${m.home}–${m.away}`).join(', ')}.
             {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point og Chancen som altid — men runde-bonussen
             venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}.
           </p>
         )}
       </div>
+      )}
 
       {error && <p className="badge badge--red mb-2">{error}</p>}
 
@@ -460,7 +482,7 @@ export default function FootballTip({ game, me, matches }) {
         // runde er alle seks kampe med, og seks ens mærker er støj — mærket
         // skal betyde noget, den dag der står ét anderledes.
         const paaKupon = iKupon(m);
-        const visMaerke = udenforKupon.length > 0;
+        const visMaerke = kupon > 0 && udenforKupon.length > 0;
         return (
           <div
             className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`
@@ -485,7 +507,7 @@ export default function FootballTip({ game, me, matches }) {
               <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0 }}>
                 {h.venue && <span className="match-card__venue">{h.venue}</span>}
                 {m.result ? (
-                  hit === true ? <span className="badge badge--green">Ramt +{fmtDec(outcomeReward(m.result, m.odds))}</span>
+                  hit === true ? <span className="badge badge--green">Ramt +{fmtDec(hitPoints(m.result, m.odds))}</span>
                     : hit === false ? <span className="badge badge--red">Ikke ramt</span>
                       : <span className="badge">Spillet</span>
                 ) : live ? (
@@ -574,7 +596,10 @@ export default function FootballTip({ game, me, matches }) {
                 // vindende udfaldsgruppe; her manglede det samme.
                 const won = m.result === o;
                 const odds = matchOdds(m, o);
-                const pts = odds ? round1(odds) : null;
+                // Tallet på knappen SKAL være det, man faktisk får — altså
+                // oddsene plus træf-bonussen. Stod oddsene alene, ville kortet
+                // love 3,1 og udbetale 4,1.
+                const pts = odds ? hitPoints(o, m.odds) : null;
                 return (
                   <button
                     key={o}
@@ -583,7 +608,9 @@ export default function FootballTip({ game, me, matches }) {
                     onClick={() => pick(m, o)}
                     title={won
                       ? `${OUTCOME_LABEL[o]} blev udfaldet`
-                      : pts != null ? `${fmtDec(pts)} point hvis rigtigt (= odds)` : 'Odds mangler endnu'}
+                      : pts != null
+                        ? `${fmtDec(pts)} point hvis rigtigt (odds ${fmtDec(round1(odds))} + ${TRAEF_BONUS} for at ramme)`
+                        : 'Odds mangler endnu'}
                   >
                     <span className="pick__label">{OUTCOME_LABEL[o]}</span>
                     <span className="pick__odds">{pts != null ? fmtDec(pts) : '—'}</span>

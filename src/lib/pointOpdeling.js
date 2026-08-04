@@ -66,7 +66,13 @@ const DK = new Intl.DateTimeFormat('en-CA', {
  * @returns {string|null} fx '2026-08-04'
  */
 export function ugeNoegle(ms) {
-  if (!Number.isFinite(ms)) return null;
+  // Ikke bare isFinite: et endeligt tal uden for JS' tidsområde (|ms| > 8,64e15)
+  // får formatToParts til at KASTE. Den kaldes over alle spillets kampe, så én
+  // dårlig værdi ville stoppe afregningen for hele spillet — tavst, og prøvet
+  // igen i det uendelige. Fx sekunder gemt i stedet for millisekunder.
+  // Null her betyder "ulæseligt kickoff", og en sådan kamp bliver INDE på
+  // kuponen: hellere en combi, der venter, end en der udbetales for tidligt.
+  if (!Number.isFinite(ms) || Math.abs(ms) > 8.64e15) return null;
   const dele = {};
   for (const p of DK.formatToParts(ms)) dele[p.type] = p.value;
   const ugedag = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }[dele.weekday];
@@ -224,10 +230,22 @@ export function combiBonus(bets, roundCtx) {
     // KUPONENS kampe, ikke rundens: en udsat kamp venter vi ikke på, og den
     // tæller ikke med i "tippede du dem alle".
     if (rc.combiSettled !== rc.combiCount) continue;
-    if (pbs.length !== rc.combiCount) continue;
+    // INTET kuponkrav. Har man glemt et tip, tæller den kamp bare ikke med i
+    // produktet — den udelukker ikke. Kravet kostede den glemsomme HELE
+    // rundens bonus (−58 % mod −19 % nu), og det ramte netop den, der havde
+    // mindst med spillet at gøre i forvejen.
     const hitOdds = [];
+    // Ét bet pr. kamp. uid_matchId-bindingen i firestore.rules forhindrer
+    // dubletter i dag, men uden antalskravet er der ikke længere noget, der
+    // fanger dem her: to bets på samme kamp ville gange oddsene ind to gange.
+    const set = new Set();
     for (const pb of pbs) {
+      if (set.has(pb.matchId)) continue;
+      set.add(pb.matchId);
       const info = roundCtx.byMatch[pb.matchId];
+      // Combi ganger de RENE odds — uden træf-bonussen. Ellers ville det ene
+      // point blive lagt til og ganget med, og bonussen sagde noget andet end
+      // oddsene på skærmen.
       if (info.result && pb.pick === info.result) hitOdds.push(outcomeReward(info.result, info.odds));
     }
     bonus += roundComboBonus(hitOdds, rc.combiCount);

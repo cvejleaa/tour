@@ -28,10 +28,10 @@ function ctx(matches) {
 describe('opdelPoint', () => {
   it('deler point op i 1X2 og Chancen', () => {
     const roundCtx = ctx([{ id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 } }]);
-    // 2,5 for 1X2 + 3,0 fra Chancen = 5,5 gemt på tippet.
+    // 3,5 for 1X2 (odds 2,5 + træf-bonus 1) + 2,0 fra Chancen = 5,5 på tippet.
     const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 5.5 }], roundCtx, nowMs: NU });
-    expect(res.p1x2).toBe(2.5);
-    expect(res.chance).toBe(3);
+    expect(res.p1x2).toBe(3.5);
+    expect(res.chance).toBe(2);
     expect(res.total).toBe(5.5);
   });
 
@@ -44,8 +44,8 @@ describe('opdelPoint', () => {
     const res = opdelPoint({
       bets: [{ matchId: 'm1', pick: '1', points: 9.9, chanceStake: 999 }], roundCtx, nowMs: NU,
     });
-    expect(res.p1x2).toBe(2);
-    expect(res.chance).toBe(7.9);
+    expect(res.p1x2).toBe(3);    // odds 2,0 + træf-bonus 1
+    expect(res.chance).toBe(6.9);
     expect(res.total).toBe(9.9);
   });
 
@@ -72,10 +72,10 @@ describe('opdelPoint', () => {
     const roundCtx = ctx([{
       id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 }, kickoff: NU + 60 * 60_000,
     }]);
-    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 2.5 }], roundCtx, nowMs: NU });
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 3.5 }], roundCtx, nowMs: NU });
     expect(res.kampe).toHaveLength(0); // ikke synlig for andre
-    expect(res.p1x2).toBe(2.5);        // men pointene er der
-    expect(res.total).toBe(2.5);
+    expect(res.p1x2).toBe(3.5);        // men pointene er der (odds 2,5 + 1)
+    expect(res.total).toBe(3.5);
   });
 
   // Et ulæseligt kickoff skal betyde "vis ikke", ikke "vis alligevel".
@@ -137,22 +137,22 @@ describe('opdelPoint', () => {
     ]);
     const res = opdelPoint({
       bets: [
-        { matchId: 'm1', pick: '1', points: 1.1 },
-        { matchId: 'm2', pick: '1', points: 1.1 },
-        { matchId: 'm3', pick: '1', points: 1.1 },
+        { matchId: 'm1', pick: '1', points: 2.1 },
+        { matchId: 'm2', pick: '1', points: 2.1 },
+        { matchId: 'm3', pick: '1', points: 2.1 },
       ],
       roundCtx,
       nowMs: NU,
     });
-    expect(res.p1x2).toBe(3.3); // ikke 3.3000000000000003
+    expect(res.p1x2).toBe(6.3); // 3 × (1,1 + 1) — ikke 6.300000000000001
   });
 
   it('afrunder Chancen, som er en forskel mellem to tal', () => {
-    // odds 3.33 → 1X2-point afrundes til 3,3; points 3.33 gemt på tippet.
+    // odds 3.33 → 1X2-point afrundes til 3,3 og får træf-bonus → 4,3.
     const roundCtx = ctx([{ id: 'm1', round: 1, result: 'X', odds: { 1: 4, X: 3.33, 2: 4 } }]);
-    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: 'X', points: 3.33 }], roundCtx, nowMs: NU });
-    expect(res.p1x2).toBe(3.3);
-    expect(res.chance).toBe(0);  // 3.33 − 3.3 = 0.03 → afrundet 0
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: 'X', points: 4.33 }], roundCtx, nowMs: NU });
+    expect(res.p1x2).toBe(4.3);
+    expect(res.chance).toBe(0);  // 4.33 − 4.3 = 0.03 → afrundet 0
   });
 
   it('lægger puljebonussen med i totalen', () => {
@@ -323,6 +323,66 @@ describe('combiBonus', () => {
   });
 });
 
+// Hovedreglen efter august 2026: der er INTET kuponkrav. Den stod før kun
+// prøvet ét sted, og en regel, der kun én test holder fast i, er en regel på
+// vej ud igen.
+describe('combiBonus — uden kuponkrav', () => {
+  const runde = [
+    { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+    { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+    { id: 'm3', round: 1, result: '2', odds: { 1: 4, X: 4, 2: 2.5 } },
+  ];
+  const c = () => ctx(runde);
+
+  it('betaler for to ramte, selv om tredje kamp aldrig blev tippet', () => {
+    // 2·√(2,0×3,0) = 4,9. Den glemte kamp koster ingenting.
+    expect(combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c())).toBe(4.9);
+  });
+
+  it('giver præcis det samme, som hvis den tredje var tippet forkert', () => {
+    const glemt = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c());
+    const forbi = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }, { matchId: 'm3', pick: '1' },
+    ], c());
+    expect(glemt).toBe(forbi);
+  });
+
+  it('vokser, når man tipper og rammer flere', () => {
+    const to = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c());
+    const tre = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }, { matchId: 'm3', pick: '2' },
+    ], c());
+    expect(tre).toBeGreaterThan(to);
+  });
+
+  it('tæller et dublet-bet én gang', () => {
+    const en = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c());
+    const dublet = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c());
+    expect(dublet).toBe(en);
+  });
+
+  it('venter stadig på, at hele kuponen er afgjort', () => {
+    const halv = ctx([
+      { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+      { id: 'm2', round: 1, result: null, odds: { 1: 4, X: 3.0, 2: 4 } },
+      { id: 'm3', round: 1, result: '2', odds: { 1: 4, X: 4, 2: 2.5 } },
+    ]);
+    expect(combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm3', pick: '2' },
+    ], halv)).toBe(0);
+  });
+});
+
 describe('spejling mod src/lib', () => {
   // EN TABEL, ikke ét lykkeligt tilfælde. Med kun ét fixture — begge kampe
   // afgjorte, i fortiden, positiv total — kunne både kickoff-vagten og gulvet
@@ -396,6 +456,38 @@ describe('spejling mod src/lib', () => {
     ['kamp uden facit', {
       matches: [{ id: 'm1', round: 1, result: null, odds: { 1: 2, X: 4, 2: 4 } }],
       bets: [{ matchId: 'm1', pick: '1', points: 0 }],
+    }],
+    // Den nye gren: INTET kuponkrav. Uden dette tilfælde kunne den ene fil
+    // begynde at kræve fuld kupon igen, mens den anden ikke gjorde — og
+    // spilleren ville se ét tal på skærmen og et andet i stillingen.
+    ['delvist tippet runde — kuponkravet findes ikke', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+        { id: 'm3', round: 1, result: '2', odds: { 1: 4, X: 4, 2: 2.5 } },
+      ],
+      bets: [
+        { matchId: 'm1', pick: '1', points: 3 },
+        { matchId: 'm2', pick: 'X', points: 4 },
+      ],
+    }],
+    ['kun ét tip i en afgjort runde — ingen kupon at gange', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+      ],
+      bets: [{ matchId: 'm1', pick: '1', points: 3 }],
+    }],
+    ['dublet-bet på samme kamp', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+      ],
+      bets: [
+        { matchId: 'm1', pick: '1', points: 3 },
+        { matchId: 'm1', pick: '1', points: 3 },
+        { matchId: 'm2', pick: 'X', points: 4 },
+      ],
     }],
   ];
 

@@ -5,7 +5,7 @@
  */
 import { Link } from 'react-router-dom';
 import GameTabLink from '../GameTabLink';
-import { CHANCE, COMBI, PULJE, ELO, roundComboBonus } from '../../../lib/superligaScoring';
+import { CHANCE, COMBI, PULJE, ELO, roundComboBonus, TRAEF_BONUS } from '../../../lib/superligaScoring';
 import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
@@ -65,7 +65,7 @@ export default function FootballHelp() {
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Før kampene:</strong> På <Tab fane="tip">Tip</Tab> sætter du 1X2 på rundens kampe — du kan rette
-            frit indtil hver kampstart. Tip gerne <strong>hele kuponen</strong> (combi-bonus), og brug evt.
+            frit indtil hver kampstart. Jo flere kampe du tipper, jo større kan combi-bonussen blive. Brug evt.
             {' '}<strong>Chancen</strong> på den kamp, du har bedst fornemmelse for.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
@@ -114,15 +114,25 @@ export default function FootballHelp() {
       <Section emoji="⚽" title="Tip kampene (1X2)">
         På <Tab fane="tip">Tip</Tab> gætter du udfaldet af hver kamp i runden: <strong>1</strong> (hjemmesejr),
         {' '}<strong>X</strong> (uafgjort) eller <strong>2</strong> (udesejr). Du kan rette dit tip helt
-        indtil <strong>kampstart</strong> — derefter låses netop den kamp. Du behøver ikke tippe hele runden
-        på én gang, men tipper du <strong>alle kampe på kuponen</strong>, er du med i combi-bonussen.
+        indtil <strong>kampstart</strong> — derefter låses netop den kamp. Du behøver ikke tippe hele
+        runden, og en glemt kamp koster dig ikke combi-bonussen — men hver kamp, du rammer, ganger den op.
       </Section>
 
       <Section emoji="🎯" title="Point følger oddsene">
         Du får point <strong>svarende til oddsene</strong> på det udfald, du rammer — afrundet til én
-        decimal. Rammer du en storfavorit til odds 1,3, giver det <strong>1,3 point</strong>; rammer du en
-        overraskelse til odds 4,5, giver det <strong>4,5 point</strong>. Forkert tip giver 0. Så det betaler
-        sig at turde satse på outsidere — men de sikre kampe holder dig stabil.
+        decimal — <strong>plus {TRAEF_BONUS} point for at have ramt</strong>. Rammer du en storfavorit til
+        odds 1,3, giver det <strong>2,3 point</strong>; rammer du en overraskelse til odds 4,5, giver det
+        {' '}<strong>5,5 point</strong>. Forkert tip giver 0.
+        <p style={{ margin: '0.5rem 0 0' }}>
+          Det ene point er ikke pynt. Uden det er oddsene præcis 1 delt med sandsynligheden, og så er
+          <em>enhver</em> strategi lige god i det lange løb — den, der rammer flest, men rammer favoritter,
+          kan simpelthen ikke vinde. 20.000 simulerede sæsoner gav ham 4 % chance. Med bonussen er et tip
+          værd mere, jo oftere man har ret, og ingen spillertype ligger under 8 % eller over 21 %.
+        </p>
+        <p style={{ margin: '0.5rem 0 0' }}>
+          Combi-bonussen nedenfor ganger derimod de <strong>rene odds</strong>. Ellers ville det ene point
+          blive ganget med i stedet for lagt til.
+        </p>
       </Section>
 
       <Section emoji="⚡" title="Chancen">
@@ -136,13 +146,13 @@ export default function FootballHelp() {
       </Section>
 
       <Section emoji="🎰" title="Combi-runde-bonus">
-        Tipper du <strong>alle kampe på rundens kupon</strong>, får du en bonus oveni — som en tæmmet
+        Oveni pointene pr. kamp får du en <strong>combi-bonus</strong> — som en tæmmet
         bookmaker-kupon. <strong>Sådan beregnes den:</strong> de odds, du <strong>rammer</strong>, ganges
         sammen, og bonussen er <strong>{COMBI.FAKTOR} × kvadratroden</strong> af det produkt, med et loft
         på <strong>{COMBI.LOFT}</strong> point.
         <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem' }}>
-          <li><strong>Hver ramt kamp tæller.</strong> Du behøver ikke ramme dem alle — to rigtige giver også bonus.</li>
-          <li><strong>Men du skal tippe hele kuponen.</strong> Mangler ét tip, er du ikke med.</li>
+          <li><strong>Hver ramt kamp tæller — fra to rigtige og opefter.</strong> Du behøver ikke ramme dem alle. Rammer du kun én, er der ingen kupon at gange; den kamp har allerede fået sine point.</li>
+          <li><strong>Du behøver ikke tippe hele runden.</strong> Har du glemt en kamp, tæller den bare ikke med — den koster dig ikke bonussen. Men hver kamp, du tipper og rammer, ganger den op.</li>
           <li><strong>De forkerte tæller ikke med</strong> i produktet — de trækker heller ikke fra.</li>
         </ul>
         <p style={{ margin: '0.5rem 0 0' }}>
@@ -190,7 +200,7 @@ export default function FootballHelp() {
           <li><strong>Kuponen er rundens kampe i samme uge</strong> — ugen fra tirsdag til mandag, hvor de fleste af rundens kampe ligger.</li>
           <li><strong>De udsatte kampe står uden for kuponen.</strong> De giver 1X2-point og Chancen præcis som altid, men tæller hverken med i combi’en her eller i en senere runde.</li>
           <li><strong>Du kan se det på kampen.</strong> Er runden splittet, står der <em>🎯 På kuponen</em> eller <em>🕒 Uden for kuponen</em> på hvert kort, og øverst på <Tab fane="tip">Tip</Tab> står hvilke kampe der er rykket hvorhen.</li>
-          <li><strong>Kuponen bliver mindre — bonussen bliver ikke mindre.</strong> Formlen er den samme; med fire kampe er produktet bare typisk lavere.</li>
+          <li><strong>Kuponen bliver mindre — men du mister ingenting.</strong> Formlen er den samme, og de udsatte kampe giver stadig deres egne point, når de spilles.</li>
         </ul>
       </Section>
 

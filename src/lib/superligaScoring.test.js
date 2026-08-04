@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, COMBI,
+  OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, COMBI, hitPoints, TRAEF_BONUS,
   isOutcome, outcomeFromScore, outcomePoints,
   eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
   chanceMaxStake, canUseChance, isValidStake, settleChance,
@@ -27,12 +27,22 @@ describe('1X2-udfald', () => {
   });
 });
 
-describe('outcomePoints (point = odds, 1 decimal)', () => {
+describe('outcomePoints (point = odds + træf-bonus)', () => {
   const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
-  it('ramt udfald giver kampens odds afrundet til 1 decimal', () => {
-    expect(outcomePoints('1', '1', odds)).toBe(3.1);
-    expect(outcomePoints('X', 'X', odds)).toBe(4.3);
-    expect(outcomePoints('2', '2', odds)).toBe(2.3);
+  // Oddsene afrundet til 1 decimal, PLUS træf-bonussen på 1. Bonussen findes,
+  // fordi rene fair odds gør alle strategier lige gode — se hitPoints.
+  it('ramt udfald giver kampens odds (1 decimal) plus træf-bonussen', () => {
+    expect(outcomePoints('1', '1', odds)).toBe(4.1);
+    expect(outcomePoints('X', 'X', odds)).toBe(5.3);
+    expect(outcomePoints('2', '2', odds)).toBe(3.3);
+  });
+  // Combi'en må IKKE se bonussen — den ganger de rene odds. Ryger de to
+  // sammen, ville det ene point blive ganget med i stedet for lagt til.
+  it('holder træf-bonussen ude af outcomeReward, som combien bruger', () => {
+    expect(outcomeReward('1', odds)).toBe(3.1);
+    expect(hitPoints('1', odds)).toBe(4.1);
+    // toBeCloseTo: 4,1 − 3,1 giver 0,9999999999999996 i binær flydende komma.
+    expect(hitPoints('1', odds) - outcomeReward('1', odds)).toBeCloseTo(TRAEF_BONUS, 10);
   });
   it('forkert tip = 0', () => {
     expect(outcomePoints('1', 'X', odds)).toBe(0);
@@ -43,9 +53,9 @@ describe('outcomePoints (point = odds, 1 decimal)', () => {
     expect(outcomePoints(undefined, '1', odds)).toBe(0);
   });
   it('falder tilbage til DEFAULT_POINTS uden gyldige odds', () => {
-    expect(outcomePoints('1', '1')).toBe(DEFAULT_POINTS['1']);
-    expect(outcomePoints('X', 'X', {})).toBe(DEFAULT_POINTS.X);
-    expect(outcomePoints('2', '2', { '2': 'x' })).toBe(DEFAULT_POINTS['2']);
+    expect(outcomePoints('1', '1')).toBe(DEFAULT_POINTS['1'] + TRAEF_BONUS);
+    expect(outcomePoints('X', 'X', {})).toBe(DEFAULT_POINTS.X + TRAEF_BONUS);
+    expect(outcomePoints('2', '2', { '2': 'x' })).toBe(DEFAULT_POINTS['2'] + TRAEF_BONUS);
   });
 });
 

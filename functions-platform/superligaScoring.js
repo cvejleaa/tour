@@ -43,9 +43,28 @@ function outcomeFromScore(homeGoals, awayGoals) {
   return OUTCOME.DRAW;
 }
 
+const TRAEF_BONUS = 1;
+
+/**
+ * Point for ÉN ramt kamp: kampens frosne odds PLUS træf-bonussen.
+ *
+ * Bonussen findes, fordi rene fair odds gør alle strategier lige gode: er
+ * odds = 1/sandsynlighed, er ethvert tip værd præcis 1 point i forventning.
+ * Så afgøres sæsonen af udsving alene, og den, der rammer flest — men rammer
+ * favoritter — kan ikke vinde. 20.000 simulerede sæsoner gav ham 4 %.
+ * Med +1 pr. træffer bliver et tip værd 1 + p, altså mere jo oftere man har
+ * ret, og feltet samler sig: ingen spillertype under 8 % eller over 21 %.
+ *
+ * SKAL holdes ude af combi'en — den ganger de RENE odds. Derfor er dette en
+ * egen funktion og ikke et tillæg inde i outcomeReward.
+ */
+function hitPoints(result, odds) {
+  return round1(outcomeReward(result, odds) + TRAEF_BONUS);
+}
+
 function outcomePoints(pick, result, odds) {
   if (!isOutcome(pick) || !isOutcome(result)) return 0;
-  return pick === result ? outcomeReward(result, odds) : 0;
+  return pick === result ? hitPoints(result, odds) : 0;
 }
 
 // Combi-bonus: 2 × kvadratroden af de ramte odds ganget sammen, med loft.
@@ -65,6 +84,10 @@ function roundComboBonus(hitOdds, matchCount) {
   // fået sine 1X2-point.
   if (hitOdds.length < 2) return 0;
   const product = hitOdds.reduce((a, b) => a * (Number(b) || 0), 1);
+  // Eksplicit i stedet for tilfældigt reddet af round1: et LIGE antal negative
+  // odds giver et positivt produkt og dermed bonus. Kræver at en admin skriver
+  // negative odds, men reglen skal ikke hvile på, at ingen gør det.
+  if (!(product > 0)) return 0;
   return round1(Math.min(COMBI.FAKTOR * Math.sqrt(product), COMBI.LOFT));
 }
 
@@ -228,6 +251,7 @@ module.exports = {
   PULJE, leagueTable, championshipTeams, puljeScore,
   OUTCOME, OUTCOMES, DEFAULT_POINTS, COMBI, ELO, ODDS, CHANCE,
   isOutcome, outcomeFromScore, round1, outcomeReward, outcomePoints, roundComboBonus,
+  hitPoints, TRAEF_BONUS,
   settleChance, scoreBet, chanceMaxStake, clampStake,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
