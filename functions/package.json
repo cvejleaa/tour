@@ -20,6 +20,6 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.10"
   }
 }
