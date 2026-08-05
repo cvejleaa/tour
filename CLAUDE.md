@@ -46,6 +46,14 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
 0. Tilføjer ændringen **ny brugerflade eller nye tal på skærmen**, så kør
    Quality Control på *planen* først. To minutter dér sparer en omskrivning:
    de dyreste fund har været designfejl, ikke kodefejl.
+0b. Får ændringen en **knap eller en fane**, så afgør FØRST hvor den hører
+   hjemme — og vælg det sted, en administrator ville lede efter den, ikke det
+   sted der er nemmest at bygge. Spørg: *hvad ville jeg selv klikke på, hvis
+   jeg ikke havde skrevet koden?* En funktion, der sender mails, hører under
+   **Send mail**, også selv om dens modtagerbegreb er et andet end fanens.
+   En pointopdaterings-mail blev lagt under Spil-planlægning, fordi den delte
+   data med den fane — og så kunne ejeren ikke finde den. Intern konsistens
+   taber til genfindelighed.
 1. Skriv ændringen. Kør lokalt: `npm run lint`, relevante tests, `npm run build`.
    **Kontrollér, at hver ændring faktisk landede** — en tekst-erstatning, der
    ikke matcher, fejler tavst, og så står testfilen grøn uden at dække noget.
@@ -81,6 +89,8 @@ Aldrig midt i en aktiv runde. Kommandoen ligger i
 - **Regler er ikke filtre** — strammer du en læseregel, skal klientens query
   matche præcist, ellers ser brugeren en tom liste uden fejlbesked.
 - **Tør-kørsel først** på alt, der skriver i produktionsdata (`docs/drift.md`).
+- **Placering er en beslutning, ikke en detalje.** Nye admin-funktioner lægges,
+  hvor de kan findes — se trin 0b.
 
 ## Test-kommandoer
 

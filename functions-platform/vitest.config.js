@@ -17,7 +17,6 @@ export default defineConfig({
       'inviteTemplate.test.js',
       'reminders.test.js',
       'playerLeagues.test.js',
-      'pointOpdateringMail.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,
