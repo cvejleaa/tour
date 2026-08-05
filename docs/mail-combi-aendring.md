@@ -90,7 +90,9 @@ Vi ses fredag kl. 19.
 
 ## Blokke — én pr. spiller
 
-*(Tallene er runde 2. "1X2" er pointene pr. kamp, "combi" er rundebonussen.)*
+*(Tallene er runde 2. "1X2" er pointene pr. kamp, "combi" er rundebonussen.
+**Chancen indgår ikke** — den er uændret og ligger oveni. Har du brugt den, står
+der derfor et lidt højere tal i stillingen end her.)*
 
 ### No1.
 
@@ -102,14 +104,15 @@ så var det dén runde, der afgjorde sæsonen — ikke de tyve andre. Det er pr�
 det, vi har villet til livs.
 
 Men dine 1X2-point går samtidig fra 15 til 21, fordi du fik seks træffere og
-dermed seks ekstra point. **Samlet går du fra 40 til 41,7** — altså op, ikke ned.
+dermed seks ekstra point. **Fra kampe og combi går du fra 40 til 41,7** — altså op, ikke ned.
 
 Du har stadig rundens højeste combi og er stadig den eneste med seks rigtige.
 
 ### Bibamus
 
 Du ramte fem af seks i runde 2. Dine 1X2-point går fra 13,2 til 18,2, og din
-combi fra 12 til 15,5. **Samlet fra 25,2 til 33,7** — 8,5 point mere.
+combi fra 12 til 15,5. **Fra kampe og combi: 25,2 → 33,7** — 8,5 point mere.
+Dertil dit ene point fra Chancen, så stillingen viser **34,7**.
 
 De 15,5 kommer af, at du havde de rigtige odds med: bonussen belønner nu, *hvad*
 du ramte, ikke bare at du ramte nok.
@@ -117,7 +120,8 @@ du ramte, ikke bare at du ramte nok.
 ### Forza Bif
 
 Du ramte fem af seks i runde 2. Dine 1X2-point går fra 13,2 til 18,2, og din
-combi fra 12 til 15,5. **Samlet fra 25,2 til 33,7** — 8,5 point mere.
+combi fra 12 til 15,5. **Fra kampe og combi: 25,2 → 33,7** — 8,5 point mere.
+Dertil dit ene point fra Chancen, så stillingen viser **34,7**.
 
 De 15,5 kommer af, at du havde de rigtige odds med: bonussen belønner nu, *hvad*
 du ramte, ikke bare at du ramte nok.
@@ -125,7 +129,7 @@ du ramte, ikke bare at du ramte nok.
 ### Ole
 
 Du ramte fem af seks i runde 2. Dine 1X2-point går fra 12,8 til 17,8, og din
-combi fra 12 til 14. **Samlet fra 24,8 til 31,8** — 7 point mere.
+combi fra 12 til 14. **Fra kampe og combi: 24,8 → 31,8** — 7 point mere.
 
 Den store forskel kommer de runder, hvor du lander på fire rigtige — dem, der før
 gav nul i bonus.
@@ -133,7 +137,7 @@ gav nul i bonus.
 ### Cut 'N' Move
 
 Du ramte fem af seks i runde 2. Dine 1X2-point går fra 12,8 til 17,8, og din
-combi fra 12 til 14. **Samlet fra 24,8 til 31,8** — 7 point mere.
+combi fra 12 til 14. **Fra kampe og combi: 24,8 → 31,8** — 7 point mere.
 
 Den store forskel kommer de runder, hvor du lander på fire rigtige — dem, der før
 gav nul i bonus.
@@ -142,7 +146,7 @@ gav nul i bonus.
 
 Du ramte fire af seks i runde 2 og fik **nul** i combi. Nu får du **10,1** — den
 største enkeltgevinst i hele feltet. Dine 1X2-point går fra 10,9 til 14,9.
-**Samlet fra 10,9 til 25** — du mere end fordobler.
+**Fra kampe og combi: 10,9 → 25** — du mere end fordobler.
 
 Grunden er, at du havde de dristige tip med. To fejl slettede før alt, hvad du
 havde ramt, uanset hvor svære de fire var. Nu tæller de.
@@ -150,28 +154,28 @@ havde ramt, uanset hvor svære de fire var. Nu tæller de.
 ### Joe
 
 Du ramte fire af seks i runde 2 og fik **nul** i combi. Nu får du **6,3**. Dine
-1X2-point går fra 7,2 til 11,2. **Samlet fra 7,2 til 17,5.**
+1X2-point går fra 7,2 til 11,2. **Fra kampe og combi: 7,2 → 17,5.**
 
 Fire rigtige er en god runde. Den gamle regel sagde nul; det gør den ikke længere.
 
 ### Better
 
 Du ramte fire af seks i runde 2 og fik **nul** i combi. Nu får du **6,1**. Dine
-1X2-point går fra 7,1 til 11,1. **Samlet fra 7,1 til 17,2.**
+1X2-point går fra 7,1 til 11,1. **Fra kampe og combi: 7,1 → 17,2.**
 
 Fire rigtige er en god runde. Den gamle regel sagde nul; det gør den ikke længere.
 
 ### Team Sharkey ⚽️
 
 Du ramte fire af seks i runde 2 og fik **nul** i combi. Nu får du **5,7**. Dine
-1X2-point går fra 6,8 til 10,8. **Samlet fra 6,8 til 16,5.**
+1X2-point går fra 6,8 til 10,8. **Fra kampe og combi: 6,8 → 16,5.**
 
 Fire rigtige er en god runde. Den gamle regel sagde nul; det gør den ikke længere.
 
 ### Oldefar
 
 Du ramte tre af seks i runde 2 og fik **nul** i combi. Nu får du **4,4**. Dine
-1X2-point går fra 5,1 til 8,1. **Samlet fra 5,1 til 12,5** — du mere end fordobler.
+1X2-point går fra 5,1 til 8,1. **Fra kampe og combi: 5,1 → 12,5** — du mere end fordobler.
 
 Tre rigtige lå før milevidt fra bonussen. Nu er der ikke længere en tærskel at
 komme over.
@@ -179,7 +183,7 @@ komme over.
 ### Sonja
 
 Du ramte tre af seks i runde 2 og fik **nul** i combi. Nu får du **4,3**. Dine
-1X2-point går fra 5 til 8. **Samlet fra 5 til 12,3** — du mere end fordobler.
+1X2-point går fra 5 til 8. **Fra kampe og combi: 5 → 12,3** — du mere end fordobler.
 
 Tre rigtige lå før milevidt fra bonussen. Nu er der ikke længere en tærskel at
 komme over.
@@ -219,8 +223,13 @@ rammer, for sig — og i runde 3 er kuponen kun **fire kampe**.
 løfter ham netto op.
 
 Kilde: `scripts/combi-sammenligning.mjs` mod `spil-89af9`, kørt 4. august 2026
-med faktor 2, loft 25 og træf-bonus 1. Læs-only. Chancen indgår ikke i tallene —
-den afregnes til de rene odds og er uændret.
+med faktor 2, loft 25 og træf-bonus 1. Læs-only.
+
+**Chancen indgår ikke i tabellen.** Den afregnes til de rene odds og er uændret,
+men den ligger oveni i stillingen. Bibamus og Forza Bif har hver 1 point fra
+Chancen, så de står på **34,7** i stillingen, ikke 33,7 — og totalen er **275,7**,
+ikke 273,7. Efterprøvet med `scripts/verificer-totaler.mjs` efter genscoringen:
+alle tolv spilleres rubrikker summer til deres total.
 
 **Send først, når tallene faktisk er live** — altså efter deploy OG efter
 `rescoreGameBets` er kørt med `dryRun: false`. Kører man kun deployet, står de
