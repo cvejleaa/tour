@@ -80,6 +80,15 @@ jobs:
           GENDAN: ${{ inputs.gendan }}
         run: node scripts/rescore-bets.mjs
 
+      # Kontrollen kører ALTID til sidst: rubrikkerne skal summe til totalen, og
+      # Chancen må kun være negativ for den, der faktisk har tabt en indsats.
+      - name: Verificér totaler (læs-only)
+        if: ${{ !inputs.gendan }}
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          GAME_ID: ${{ inputs.gameId }}
+        run: node scripts/verificer-totaler.mjs
+
       # Backup'en gemmes ALTID — også ved tør-kørsel. Uden den er der ingen vej
       # tilbage, og den koster ingenting at have liggende.
       - name: Gem backup som artefakt
