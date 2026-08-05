@@ -357,29 +357,51 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
  * indhold kan ikke genskabes troværdigt — men det kan siges ærligt, hvad der
  * gik galt. Og fordi teksten er fast, viser forhåndsvisningen præcis det, der
  * bliver skrevet.
+ *
+ * Den lover ikke et omskrevet referat: opslaget bliver TAGET NED, ikke skrevet
+ * om. Og den henviser til `Tip` — ikke til en "⚽ Kampe"-fane, der ikke findes.
+ * Rundens kampe og resultater står under Tip; ⚽ Tabel er Superligaens egen.
  */
-const RETTET_TEKST = 'Det her opslag er skrevet om. 🤖\n\n'
-  + 'Den oprindelige tekst blev bygget af ALLE spillere i spillet — ikke kun jer '
-  + 'i ligaen — så den nævnte navne og point fra folk, I ikke deler liga med. '
-  + 'Det var en fejl i mig, og den er rettet: fra nu af handler mine opslag kun '
-  + 'om jeres egen liga.\n\n'
-  + 'Rundens resultater og den rigtige stilling står som altid under ⚽ Kampe og '
-  + '🏆 Stilling.';
+const RETTET_TEKST = 'Her stod et runde-opslag, som jeg har taget ned. 🤖\n\n'
+  + 'Jeg kom til at skrive om spillere fra andre ligaer end jeres. Det er min '
+  + 'fejl, og den er rettet — fremover handler mine opslag kun om jer, der er i '
+  + 'ligaen her.\n\n'
+  + 'Rundens resultater finder I under Tip, og stillingen under 🏆 Stilling.';
+
+/**
+ * Bot-opslag skrevet FØR dette tidspunkt blev bygget af hele spillets felt.
+ *
+ * Det oplagte greb — "opslag uden `round`-felt er de forkerte" — er FORKERT.
+ * Rundenummeret kom ikke med rettelsen af botten (#110, `478c031`); det kom
+ * først i denne branch. Mellem de to udrulninger poster botten altså opslag,
+ * der er KORREKTE pr. liga, men stadig mangler `round` — og de ville blive
+ * overskrevet med en undskyldning, der påstod noget usandt om dem.
+ *
+ * Tidspunktet er starten på den udrulning, der første gang bar #110 i
+ * produktion (deploy-platform-kørslen 5. august 2026, 15:16:12Z). Der rundes
+ * NED med vilje: rammer vi for tidligt, står et forkert opslag tilbage, og det
+ * ser man i forhåndsvisningens antal. Rammer vi for sent, ødelægger vi et
+ * rigtigt referat, og originalen er kun gemt ét sted.
+ */
+const FEJL_FOER_MS = Date.parse('2026-08-05T15:16:00Z');
 
 /**
  * Ret Runde-Bottens ALLEREDE POSTEDE opslag, så intet på ligavæggen længere
  * handler om spillere uden for ligaen.
  *
- * **Hvilke opslag rammes:** bot-opslag UDEN `round`-felt. Feltet kom til
- * sammen med rettelsen af botten, så "intet rundenummer" er præcis lig med
- * "postet før rettelsen". Det er en egenskab ved dokumentet selv — ingen
- * matchning på rækkefølge, som ville gætte forkert, hvis nogen havde slettet
- * et opslag, eller hvis en liga blev oprettet efter runde 1.
+ * **Hvilke opslag rammes:** bot-opslag postet før `FEJL_FOER_MS` — se der for
+ * hvorfor tidspunktet, og ikke det manglende `round`-felt, er det afgørende.
+ * Det er en egenskab ved dokumentet selv; ingen matchning på rækkefølge, som
+ * ville gætte forkert, hvis nogen havde slettet et opslag, eller hvis en liga
+ * blev oprettet efter runde 1.
  *
- * Den oprindelige tekst gemmes i `oprindeligTekst`, så rettelsen kan rulles
- * tilbage. Væggen er ellers tænkt uforanderlig (`firestore.rules`: `allow
- * update: if false`) — kun Admin SDK'en kommer uden om det, og derfor er
- * dryRun default sand.
+ * Et opslag UDEN brugbar `createdAt` røres ikke — det kan ikke placeres i
+ * forhold til udrulningen. Det kommer med i udkastet med en grund, så det ikke
+ * forsvinder i tavshed.
+ *
+ * Den oprindelige tekst gemmes i `oprindeligTekst`. Væggen er ellers tænkt
+ * uforanderlig (`firestore.rules`: `allow update: if false`) — kun Admin SDK'en
+ * kommer uden om det, og derfor er dryRun default sand.
  *
  * @param {{dryRun?: boolean}} [opts] dryRun (DEFAULT SAND) skriver intet.
  */
@@ -394,20 +416,37 @@ async function opdaterGamleRundeOpslag(db, FieldValue, gameId, { dryRun = true }
   for (const ld of leaguesSnap.docs) {
     const navn = ld.data().name || ld.id;
     const beskedSnap = await ld.ref.collection('messages').where('uid', '==', 'runde-bot').get();
-    const gamle = beskedSnap.docs
+    const botOpslag = beskedSnap.docs
       .map((d) => ({ id: d.id, ref: d.ref, ...d.data() }))
-      // `round == null` fanger både manglende felt og null. `oprindeligTekst`
-      // udelukker et opslag, der ALLEREDE er rettet — så en gentagen kørsel
-      // ikke overskriver sikkerhedskopien af den oprindelige tekst med
-      // rettelsesteksten.
-      .filter((m) => m.round == null && !m.oprindeligTekst)
+      // `oprindeligTekst` udelukker et opslag, der ALLEREDE er rettet — så en
+      // gentagen kørsel ikke overskriver sikkerhedskopien af den oprindelige
+      // tekst med rettelsesteksten. `!== undefined` og ikke `!`: var den
+      // oprindelige tekst tom, ville en falsy-test tage opslaget igen og gemme
+      // rettelsesteksten som "original".
+      .filter((m) => m.oprindeligTekst === undefined)
       .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
 
-    for (const gammel of gamle) {
+    for (const gammel of botOpslag) {
+      // Uden en tekst at gemme ville `oprindeligTekst: undefined` få Admin
+      // SDK'en til at kaste MIDT i løkken — og de foregående ligaer ville
+      // allerede være erstattet, uden at nogen kunne se hvor langt den nåede.
+      if (typeof gammel.text !== 'string' || !gammel.text) {
+        udkast.push({ leagueId: ld.id, navn, messageId: gammel.id, reason: 'uden tekst — rørt ikke' });
+        continue;
+      }
+      const ms = gammel.createdAt?.toMillis?.();
+      if (!Number.isFinite(ms)) {
+        // Kan ikke placeres i forhold til udrulningen — så røres den ikke. Men
+        // den skal ses, ikke overspringes i stilhed.
+        udkast.push({ leagueId: ld.id, navn, messageId: gammel.id, reason: 'uden tidsstempel — rørt ikke' });
+        continue;
+      }
+      if (ms >= FEJL_FOER_MS) continue; // postet efter rettelsen: allerede korrekt
       udkast.push({
         leagueId: ld.id,
         navn,
         messageId: gammel.id,
+        createdAtMs: ms,
         gammelTekst: gammel.text,
         nyTekst: RETTET_TEKST,
       });
@@ -427,5 +466,5 @@ async function opdaterGamleRundeOpslag(db, FieldValue, gameId, { dryRun = true }
 
 module.exports = {
   RECAP_SYSTEM, sanitizeName, isSurprise, buildRoundRecapFacts, generateRecapText, runGameRoundRecap,
-  opdaterGamleRundeOpslag, RETTET_TEKST,
+  opdaterGamleRundeOpslag, RETTET_TEKST, FEJL_FOER_MS,
 };
