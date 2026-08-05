@@ -1,4 +1,13 @@
-# Færdige mails — klar til at sende
+# ARKIV: mails sendt 5. august 2026
+
+**Dette er ikke en opgave, men en optegnelse.** Mailene herunder blev sendt til
+spillerne den 5. august 2026 om ændringen af pointreglen. Filen bliver liggende,
+så vi kan svare præcist, hvis nogen spørger, hvad de fik at vide.
+
+Selve admin-funktionen, der kunne sende dem, er fjernet igen — den var lavet til
+netop denne ene udmelding og lå desuden under Spil-planlægning, hvor ingen ville
+lede efter en mail-funktion. Se CLAUDE.md trin 0b.
+
 
 Tolv mails, hver med sin egen tekst. Intet at flette: kopiér én blok pr. person.
 Genereret af `docs/mail-combi-aendring.md`s tal, som er verificeret mod produktionen.
