@@ -12,7 +12,9 @@ import { describe, it, expect } from 'vitest';
 import { PREMIER_LEAGUE_TEAMS_2026 as TEAMS } from './premierLeagueTeams2026.js';
 import { teamElo } from '../lib/superligaSeed.js';
 import { ELO } from '../lib/superligaScoring.js';
-import fixtures from '../../scripts/premier-league-fixtures-2627.json';
+import program from '../../scripts/premier-league-fixtures-2627.json';
+
+const fixtures = program.fixtures;
 
 const iProgrammet = [...new Set(fixtures.flatMap((f) => [f.home, f.away]))];
 
@@ -57,12 +59,11 @@ describe('Elo-startværdierne', () => {
     expect(Math.round(snit)).toBe(ELO.START);
   });
 
-  // Spredningen er bevaret fra kilden, IKKE klemt ned til Superligaens. Var den
-  // klemt, ville forskellen på top og bund forsvinde ud af oddsene.
-  it('bevarer en spredning, der er bredere end Superligaens', () => {
-    const v = TEAMS.map((t) => t.elo);
-    expect(Math.max(...v) - Math.min(...v)).toBeGreaterThan(400);
-  });
+  // Spredningen er bevaret fra kilden og IKKE klemt ned til Superligaens — se
+  // begrundelsen i filhovedet. Den påstand hører i en kommentar, ikke i en
+  // assertion mod et tilfældigt tal: en grænse på "mere end 400" ville kun
+  // kunne fejle, hvis nogen skrev dataen om, og så ville den fejle uden at
+  // forklare hvorfor netop 400.
 
   // De tre oprykkere må ikke ligge på 1500 — dét ville være at give dem
   // præcis den værdi, et UKENDT hold får, og så er fælden tilbage i praksis.
@@ -89,9 +90,39 @@ describe('kampprogrammet', () => {
     for (const f of fixtures) expect(f.id).toMatch(/^r\d{1,2}-\d+$/);
   });
 
+  // FILEN SER FÆRDIG UD, OG DET ER DEN IKKE. Premier League udgiver programmet
+  // før TV-udvælgelsen: alt lægges i standard-slottet, og kampene flyttes
+  // derefter. Kun runde 1–5 har rigtige, spredte tidspunkter — i runde 6–38
+  // står alle ti kampe på samme sekund.
+  //
+  // Det er ikke en detalje, for kickoff ER tip-deadlinen (firestore.rules), og
+  // `pendingMatches` i synken leder kun efter kampe i et vindue omkring det
+  // tidspunkt. Står tiden forkert, lander facit aldrig — uden fejlbesked.
+  // Derfor kræver vi, at filen selv siger det højt.
+  it('advarer i sit eget _note om, at 33 runders tider er pladsholdere', () => {
+    expect(program._note).toBeTruthy();
+    expect(program._note).toMatch(/pulselive/i);
+    expect(program._note).toMatch(/pladsholder|flytte sig/i);
+    expect(program._note).toMatch(/deadline/i);
+  });
+
+  it('har stadig kun standard-slot i runde 6–38 — gensynkronisering mangler', () => {
+    const tiderPr = new Map();
+    for (const f of fixtures) {
+      if (!tiderPr.has(f.round)) tiderPr.set(f.round, new Set());
+      tiderPr.get(f.round).add(f.kickoff);
+    }
+    const spredte = [...tiderPr.entries()].filter(([, s]) => s.size > 1).map(([r]) => r);
+    // Runde 1–5 er TV-fastlagte. Vokser listen, er programmet blevet
+    // opdateret fra API'et — så er det denne test, der skal rettes, ikke data.
+    expect(spredte.sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
+  });
+
   // Kickoff ER tip-deadlinen (firestore.rules), så tidszonen må ikke smutte.
   // Kilden skriver London-tid; august er BST (UTC+1), december er GMT (UTC+0).
   // Konverteres der med en fast forskydning, rammer den ene af de to forkert.
+  // Bemærk: vinter-eksemplet er hentet fra en pladsholder-runde — selve
+  // konverteringen er stadig bevist, men tidspunktet vil ændre sig.
   it('har kickoff i UTC med sommertid håndteret', () => {
     for (const f of fixtures) expect(f.kickoff).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
     const aabning = fixtures.find((f) => f.id === 'r1-2645195');
@@ -100,18 +131,27 @@ describe('kampprogrammet', () => {
     expect(vinter.kickoff.endsWith('20:00:00Z')).toBe(true); // 20.00 GMT
   });
 
-  // Snittet ved nytår afgør, hvad der er spil 1 og hvad der er spil 2. Ligger
-  // en runde på tværs, skal kupon og combi-bonus deles midt i en runde.
-  it('deler sig rent ved nytår: runde 1–18 i 2026, 19–38 i 2027', () => {
-    const i2026 = fixtures.filter((f) => f.kickoff < '2027-01-01');
-    const i2027 = fixtures.filter((f) => f.kickoff >= '2027-01-01');
-    expect(i2026).toHaveLength(180);
-    expect(i2027).toHaveLength(200);
-    expect(Math.max(...i2026.map((f) => f.round))).toBe(18);
-    expect(Math.min(...i2027.map((f) => f.round))).toBe(19);
-    const paaTvaers = [...new Set(i2026.map((f) => f.round))]
-      .filter((r) => i2027.some((f) => f.round === r));
-    expect(paaTvaers).toEqual([]);
+  // DELINGEN MELLEM DE TO SPIL ER PÅ RUNDENUMMER, IKKE PÅ DATO. En udsat
+  // runde 18-kamp, der spilles i januar, hører stadig til spil 1 — ellers
+  // ville en kamp skifte spil, efter folk har tippet på den.
+  //
+  // Datoen var kun dét, der afgjorde HVOR vi skar. Den påstand hører derfor
+  // ikke i en assertion: det er en påstand om virkeligheden, og virkeligheden
+  // vinder. Første udsatte decemberkamp ville gøre den rød på korrekt data.
+  it('deler sig i to spil på rundenummer: 180 kampe i runde 1–18, 200 i 19–38', () => {
+    const spil1 = fixtures.filter((f) => f.round <= 18);
+    const spil2 = fixtures.filter((f) => f.round >= 19);
+    expect(spil1).toHaveLength(180);
+    expect(spil2).toHaveLength(200);
+    expect(spil1.length + spil2.length).toBe(fixtures.length);
+  });
+
+  // Som programmet så ud ved seeding, faldt snittet rent sammen med nytår.
+  // Testen dokumenterer det snapshot — den er IKKE et krav til fremtiden.
+  it('faldt ved seeding sammen med nytår', () => {
+    const senesteI2026 = fixtures.filter((f) => f.round <= 18)
+      .reduce((s, f) => (f.kickoff > s ? f.kickoff : s), '');
+    expect(senesteI2026 < '2027-01-01').toBe(true);
   });
 
   it('lader hvert hold spille 38 kampe — 19 hjemme og 19 ude', () => {

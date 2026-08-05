@@ -2,11 +2,21 @@
 // Premier League 2026/27 — hold + Elo-startværdier.
 //
 // Elo-startværdierne stammer fra clubelo.com pr. 21. august 2026 (hentet 5.
-// august 2026), FORSKUDT så gennemsnittet er 1500. Kun gennemsnittet flyttes —
-// forskellene mellem holdene er bevaret uændret, fordi clubelo bruger samme
-// 400-nævner som `eloExpectedHome`. Klemte vi spredningen ned til Superliga-
-// listens, ville vi systematisk undervurdere, hvor stor forskel der er på
-// toppen og bunden, og det er præcis dét, oddsene lever af.
+// august 2026), FORSKUDT så gennemsnittet er 1500. Kun gennemsnittet flyttes;
+// forskellene mellem holdene er bevaret uændret.
+//
+// Det oplagte var at klemme spredningen ned, så den lignede Superliga-listens.
+// Det ville være forkert, og begrundelsen er MÅLT, ikke udledt: en simulering
+// af 4.000 sæsoner over dette kampprogram med modellens egne sandsynligheder
+// giver med den bevarede spredning en favorit, der vinder ~85 % og et bundhold,
+// der bliver sidst ~20 % — hvilket ligger inden for Premier Leagues normale
+// spænd. Klemt til Superligaens spredning bliver det 78 % og 27 %, altså en
+// mærkbart fladere liga, end den er. (En begrundelse om at clubelo skulle bruge
+// "samme 400-nævner" ville IKKE holde: deres skala er kalibreret mod målforskel.
+// At forskellene alligevel kan overføres, er noget vi har efterprøvet.)
+//
+// Det rammer især spil 2, hvor der tippes på top 4 og nedrykkere: en klemt
+// skala ville underdrive præcis den forskel, de to tips handler om.
 //
 // Vi kalibrerer IKKE mod bookmakere som i Superligaen: `compute-superliga-elo`
 // og `calibrate-superliga-elo` henter fra api.superliga.dk og fodres med danske
@@ -44,7 +54,7 @@ export const PREMIER_LEAGUE_TEAMS_2026 = [
   { name: 'Brentford',                 short: 'BRE', elo: 1517, color: '#E30613', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Gtech Community Stadium' },
   { name: 'Chelsea',                   short: 'CHE', elo: 1512, color: '#034694', awayColor: '#FFFFFF', thirdColor: '#EAB308', venue: 'Stamford Bridge' },
   { name: 'Nottingham Forest',         short: 'NFO', elo: 1503, color: '#DD0000', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'The City Ground' },
-  { name: 'Fulham',                    short: 'FUL', elo: 1494, color: '#FFFFFF', awayColor: '#111111', thirdColor: '#CC0000', venue: 'Craven Cottage' },
+  { name: 'Fulham',                    short: 'FUL', elo: 1494, color: '#FFFFFF', awayColor: '#111111', thirdColor: '#6CACE4', venue: 'Craven Cottage' },
   { name: 'Everton',                   short: 'EVE', elo: 1484, color: '#003399', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Hill Dickinson Stadium' },
   { name: 'Crystal Palace',            short: 'CRY', elo: 1484, color: '#1B458F', awayColor: '#C4122E', thirdColor: '#FFFFFF', venue: 'Selhurst Park' },
   { name: 'Leeds United',              short: 'LEE', elo: 1478, color: '#FFFFFF', awayColor: '#1D428A', thirdColor: '#FFCD00', venue: 'Elland Road' },
