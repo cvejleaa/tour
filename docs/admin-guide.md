@@ -18,7 +18,7 @@ Liga-admin følger med at have oprettet ligaen.
 
 **Begge apps:** Brugere · Tests · ✉️ Mail-log · 📈 Aktivitet · 📣 Send mail (ejer)
 
-**Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver · 🔔 Påmindelser
+**Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver · 🔔 Påmindelser · 🤖 Runde-Botten
 
 **Kun Tour:** 🚴 Tour · 🏷️ Ryttertyper · Bonus · Ligaer · 📋 Køreplan · ⚙️ Indstillinger
 
@@ -69,8 +69,23 @@ Liga-admin følger med at have oprettet ligaen.
 - **🎖️ Pulje-status** viser, hvem der mangler at afgive pulje-tip, og
   **📣 Ryk dem der mangler** sender en mail til netop dem. Knappen forsvinder,
   når puljen er låst.
-- **🤖 Runde-Botten** kan køres manuelt med tør-kørsel, så du kan se teksten,
-  før den postes. Normalt kører den selv efter rundens sidste kamp.
+## Runde-Botten (platformen)
+
+Botten skriver et opslag på hver **ligavæg**, når rundens sidste kamp er
+afregnet. Den lå før under Påmindelser, men en påmindelse tikker ind til dig,
+mens botten skriver et sted, alle kan læse — derfor sin egen fane.
+
+- **🧪 Forhåndsvis runde-opslag** genererer teksten uden at poste. Du får ét
+  kort **pr. liga**: hver liga hører kun om sine egne medlemmer.
+- **Post runde-opslag nu** lægger den på alle liga-vægge — kun én gang pr.
+  runde. Normalt kører den selv efter rundens sidste kamp.
+- **✍️ Ret de gamle opslag** er en engangsreparation. De allerførste opslag
+  blev bygget af hele spillets felt og nævnte derfor spillere fra andre ligaer.
+  De tages ned og erstattes af en fast tekst — ikke af et nyt referat, for
+  stillingen har flyttet sig siden. Forhåndsvis altid først, og kontrollér
+  antal, tidspunkt og at der faktisk står fremmede navne i den gamle tekst.
+  Den oprindelige tekst gemmes i `oprindeligTekst`; gendannelse sker i hånden,
+  se [drift.md](drift.md). **Panelet fjernes igen, når det har kørt.**
 
 ## Send mail (ejer)
 

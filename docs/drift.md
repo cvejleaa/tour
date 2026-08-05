@@ -150,6 +150,34 @@ der, hvis workflowet ikke kan bruges, men **workflowet er den normale vej**: det
 tager backup, har tripwiren indbygget, og efterlader et spor. `dryRun` er default
 sand, og kun boolean `false` skriver.
 
+## Gendan et rettet bot-opslag
+
+**✍️ Ret de gamle opslag** (Admin → 🤖 Runde-Botten) skriver i noget, spillerne
+allerede har læst, og der er **ingen fortryd-knap**. Gør derfor to ting, før du
+trykker:
+
+1. Forhåndsvis, og gem svaret. DevTools → Network → kaldet til
+   `retGamleRundeOpslag` → **Copy response** → gem filen. Den indeholder
+   `gammelTekst` for hvert eneste opslag og er din rigtige backup — der
+   dannes ingen artefakt, som `rescore-bets`-workflowet ellers gør.
+2. Kontrollér i forhåndsvisningen, at antallet passer, at tidspunkterne ligger
+   før rettelsen blev rullet ud, og at der faktisk står **fremmede navne** i
+   hver gammel tekst. Sidder tallene ikke lige, så skriv ikke.
+
+**Gendannelse** sker i hånden i Firestore-konsollen — det er typisk under ti
+dokumenter. For hver besked under `games/{gameId}/leagues/{leagueId}/messages`
+med `uid == 'runde-bot'` og feltet `oprindeligTekst`:
+
+1. Kopiér `oprindeligTekst` ind i `text`.
+2. **Slet** `oprindeligTekst` og `rettetAt`.
+
+Trin 2 er ikke pynt. Bliver `oprindeligTekst` stående, springer en senere kørsel
+beskeden over — og står den med den *rettede* tekst, er originalen væk for
+altid. Væggen er live, så spillerne ser ændringen med det samme.
+
+Rør ikke `createdAt`: væggen henter beskeder med `orderBy('createdAt')`, og et
+opslag uden det felt forsvinder helt fra tråden.
+
 ## Secrets pr. projekt
 
 Cloud Functions-secrets sættes **pr. Firebase-projekt** — de skal altså sættes

@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   sanitizeName, isSurprise, buildRoundRecapFacts, runGameRoundRecap,
+  opdaterGamleRundeOpslag, RETTET_TEKST, FEJL_FOER_MS,
 } = require('./gameRecap');
 // Stillingens egen vej til combi. Botten og stillingen SKAL sige samme tal.
 const { opdelPoint, buildRoundContext } = require('./pointOpdeling');
@@ -121,14 +122,50 @@ describe('buildRoundRecapFacts', () => {
 });
 
 // ── runGameRoundRecap: fake db + fake anthropic ─────────────────────────────
-function makeDb({ game = {}, matches = [], players = {}, users = {}, bets = [], leagues = [] } = {}) {
+function makeDb({
+  game = {}, matches = [], players = {}, users = {}, bets = [], leagues = [], messages = {},
+} = {}) {
   const posted = []; // beskeder postet på liga-vægge
   const g = { ...game };
-  const leagueDocs = leagues.map((l, i) => ({
-    id: `L${i}`,
-    data: () => l,
-    ref: { collection: () => ({ add: async (doc) => { posted.push(doc); } }) },
-  }));
+  // Beskeder, der ALLEREDE står på væggene, pr. liga-id. De skrives i, når
+  // gamle bot-opslag rettes, så testen kan se hvad der landede på dokumentet.
+  const vaegge = {};
+  const leagueDocs = leagues.map((l, i) => {
+    const id = `L${i}`;
+    vaegge[id] = (messages[id] || []).map((m) => ({ ...m }));
+    const docs = vaegge[id].map((m) => ({
+      id: m.id,
+      data: () => m,
+      ref: {
+        // MERGE ER IKKE PYNT. Uden `{ merge: true }` erstattes hele
+        // dokumentet, og `createdAt` forsvinder — væggen henter beskeder med
+        // orderBy('createdAt'), så opslaget ryger helt ud af listen. En attrap,
+        // der kaster andet argument væk, kan ikke se forskel på de to.
+        set: async (data, opts) => {
+          if (!opts?.merge) throw new Error('set() uden { merge: true } ville slette createdAt og afsender');
+          if (Object.values(data).some((v) => v === undefined)) {
+            throw new Error('Cannot use undefined as a Firestore value');
+          }
+          Object.assign(m, data);
+        },
+      },
+    }));
+    return {
+      id,
+      data: () => l,
+      ref: {
+        collection: (name) => {
+          if (name !== 'messages') throw new Error(`uventet subcollection ${name}`);
+          return {
+            add: async (doc) => { posted.push(doc); },
+            where: (field, op, val) => ({
+              get: async () => ({ docs: docs.filter((d) => op === '==' && d.data()[field] === val) }),
+            }),
+          };
+        },
+      },
+    };
+  });
   const gameDoc = {
     get: async () => ({ exists: true, data: () => g }),
     set: async (data) => {
@@ -159,8 +196,13 @@ function makeDb({ game = {}, matches = [], players = {}, users = {}, bets = [], 
   return {
     _posted: posted,
     _game: g,
+    _vaegge: vaegge,
     collection: (name) => {
-      if (name === 'games') return { doc: () => gameDoc };
+      // Dokument-id'et skal RAMME. Ignorerede attrappen det, kunne koden rette
+      // i et helt andet spil uden at én test blev rød.
+      if (name === 'games') {
+        return { doc: (id) => { if (id !== 'g1') throw new Error(`ukendt spil ${id}`); return gameDoc; } };
+      }
       if (name === 'users') {
         return {
           get: async () => ({ docs: Object.entries(users).map(([uid, d]) => ({ id: uid, data: () => d })) }),
@@ -341,6 +383,9 @@ describe('runGameRoundRecap', () => {
     expect(out.posted).toBe(1); // kun ligaen med 2 medlemmer
     expect(db._posted[0]).toMatchObject({
       uid: 'runde-bot', displayName: 'Runde-Botten', system: true, text: 'Sikke en runde! 🎉',
+      // Rundenummeret SKAL med. Uden det kan opslaget ikke findes igen, og en
+      // senere rettelse må gætte sig frem på rækkefølge.
+      round: 1,
     });
     expect(db._game.recappedRounds).toEqual([1]);
   });
@@ -385,3 +430,172 @@ describe('runGameRoundRecap', () => {
     expect(out).toMatchObject({ posted: 0, reason: 'disabled' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// At rette de ALLEREDE POSTEDE opslag.
+//
+// Vi skriver i noget, tolv mennesker har læst. Tre ting skal derfor holde:
+// forhåndsvisningen skal vise PRÆCIS det, der bliver skrevet (ellers godkender
+// man tekst A og væggen får tekst B); der må ikke gættes på, hvilket opslag der
+// rammes; og den oprindelige tekst skal kunne findes frem igen.
+// ---------------------------------------------------------------------------
+describe('opdaterGamleRundeOpslag', () => {
+  const FOER = FEJL_FOER_MS - 60_000; // postet før udrulningen af #110 → forkert
+  const EFTER = FEJL_FOER_MS + 60_000; // postet efter → allerede korrekt pr. liga
+  const bot = (id, ms = FOER, extra = {}) => ({
+    id, uid: 'runde-bot', text: `gammelt ${id}`, createdAt: { toMillis: () => ms }, ...extra,
+  });
+  const opsaetning = {
+    leagues: [{ name: 'Familien', memberUids: ['A', 'B'] }, { name: 'Kollegerne', memberUids: ['C', 'D'] }],
+    messages: { L0: [bot('m2', FOER + 2), bot('m1', FOER + 1)], L1: [bot('m3')] },
+  };
+
+  it('dryRun rører intet og viser den tekst, der VIL blive skrevet', async () => {
+    const db = makeDb(opsaetning);
+    const out = await opdaterGamleRundeOpslag(db, FieldValue, 'g1');
+    expect(out).toMatchObject({ dryRun: true, rettede: 0 });
+    expect(out.udkast).toHaveLength(3);
+    // Forhåndsvisningen er bindende: samme faste tekst i udkast og på væggen.
+    for (const u of out.udkast) expect(u.nyTekst).toBe(RETTET_TEKST);
+    for (const m of [...db._vaegge.L0, ...db._vaegge.L1]) expect(m.text).toMatch(/^gammelt/);
+
+    const skrevet = await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    expect(skrevet.rettede).toBe(3);
+    for (const m of [...db._vaegge.L0, ...db._vaegge.L1]) expect(m.text).toBe(RETTET_TEKST);
+  });
+
+  it('gemmer den oprindelige tekst, så rettelsen kan rulles tilbage', async () => {
+    const db = makeDb(opsaetning);
+    await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    expect(db._vaegge.L0.map((m) => m.oprindeligTekst).sort()).toEqual(['gammelt m1', 'gammelt m2']);
+    expect(db._vaegge.L0.every((m) => m.rettetAt)).toBe(true);
+  });
+
+  // Beskeden skal FLETTES, ikke erstattes. Uden `createdAt` falder opslaget ud
+  // af væggens `orderBy('createdAt')` og forsvinder helt for spillerne — og så
+  // står den eneste kopi af originalen i et felt, ingen flade viser.
+  it('beholder afsender og tidsstempel på det rettede opslag', async () => {
+    const db = makeDb(opsaetning);
+    await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    for (const m of [...db._vaegge.L0, ...db._vaegge.L1]) {
+      expect(m.uid).toBe('runde-bot');
+      expect(m.createdAt).toBeTruthy();
+    }
+  });
+
+  // Forhåndsvisningen er kun et værn, hvis den viser den tekst, der forsvinder.
+  it('viser den gamle tekst i udkastet, så den kan læses før den erstattes', async () => {
+    const db = makeDb(opsaetning);
+    const out = await opdaterGamleRundeOpslag(db, FieldValue, 'g1');
+    expect(out.udkast.map((u) => u.gammelTekst).sort()).toEqual(['gammelt m1', 'gammelt m2', 'gammelt m3']);
+    expect(out.udkast.every((u) => u.createdAtMs > 0)).toBe(true);
+  });
+
+  // Et opslag uden tekst ville give `oprindeligTekst: undefined`, som Admin
+  // SDK'en afviser — MIDT i løkken, efter at andre ligaer er erstattet.
+  it('springer et opslag uden tekst over i stedet for at vælte midt i løkken', async () => {
+    const db = makeDb({
+      ...opsaetning,
+      messages: { L0: [bot('m1'), { id: 'm2', uid: 'runde-bot', createdAt: { toMillis: () => FOER } }], L1: [] },
+    });
+    const out = await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    expect(out.rettede).toBe(1);
+    expect(out.udkast.find((u) => u.messageId === 'm2')).toMatchObject({ reason: expect.stringContaining('tekst') });
+  });
+
+  // Var den oprindelige tekst tom, må en falsy-test ikke tage opslaget igen og
+  // gemme rettelsesteksten som "original".
+  it('regner en tom oprindeligTekst som allerede rettet', async () => {
+    const db = makeDb({
+      ...opsaetning,
+      messages: { L0: [bot('m1', FOER, { oprindeligTekst: '' })], L1: [] },
+    });
+    const out = await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    expect(out).toMatchObject({ reason: 'ingen-gamle-opslag', rettede: 0 });
+  });
+
+  // DET FARLIGE TILFÆLDE. Det oplagte greb — "opslag uden `round`-felt er de
+  // forkerte" — er forkert: rundenummeret kom først i DENNE branch, ikke i
+  // rettelsen af botten (#110). Mellem de to udrulninger poster botten opslag,
+  // der er korrekte pr. liga OG mangler `round`. Overskrives et af dem, mister
+  // ligaen et rigtigt referat og får en undskyldning, der lyver om det.
+  it('rører ikke et korrekt opslag postet efter #110, selv om det mangler rundenummer', async () => {
+    const db = makeDb({
+      ...opsaetning,
+      messages: {
+        L0: [bot('m1'), bot('m9', EFTER, { text: 'rigtigt referat, intet rundenummer' })],
+        L1: [bot('m8', EFTER, { round: 4, text: 'rigtigt referat med rundenummer' })],
+      },
+    });
+    const out = await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    expect(out.rettede).toBe(1);
+    expect(db._vaegge.L0.find((m) => m.id === 'm9').text).toBe('rigtigt referat, intet rundenummer');
+    expect(db._vaegge.L1.find((m) => m.id === 'm8').text).toBe('rigtigt referat med rundenummer');
+    expect(db._vaegge.L0.find((m) => m.id === 'm1').text).toBe(RETTET_TEKST);
+  });
+
+  // Et opslag uden brugbart tidsstempel kan ikke placeres i forhold til
+  // udrulningen. Så lad være — men lad det ses.
+  it('rører ikke et opslag uden tidsstempel, men melder det', async () => {
+    const db = makeDb({
+      ...opsaetning,
+      messages: { L0: [{ id: 'm1', uid: 'runde-bot', text: 'uden tid' }], L1: [] },
+    });
+    const out = await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    expect(out.rettede).toBe(0);
+    expect(out.udkast).toHaveLength(1);
+    expect(out.udkast[0]).toMatchObject({ messageId: 'm1', reason: expect.stringContaining('tidsstempel') });
+    expect(db._vaegge.L0[0].text).toBe('uden tid');
+  });
+
+  // Kører man to gange, må anden kørsel ikke gemme RETTET_TEKST som
+  // "oprindelig" — så var sikkerhedskopien væk.
+  it('er idempotent: anden kørsel overskriver ikke sikkerhedskopien', async () => {
+    const db = makeDb(opsaetning);
+    await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    const igen = await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    expect(igen).toMatchObject({ reason: 'ingen-gamle-opslag', rettede: 0 });
+    for (const m of db._vaegge.L0) expect(m.oprindeligTekst).toMatch(/^gammelt/);
+  });
+
+  it('rører kun bot-opslag, ikke spillernes egne', async () => {
+    const db = makeDb({
+      ...opsaetning,
+      messages: { L0: [{ id: 'p1', uid: 'A', text: 'min egen besked', createdAt: { toMillis: () => FOER } }], L1: [] },
+    });
+    const out = await opdaterGamleRundeOpslag(db, FieldValue, 'g1', { dryRun: false });
+    expect(out).toMatchObject({ reason: 'ingen-gamle-opslag', rettede: 0 });
+    expect(db._vaegge.L0[0].text).toBe('min egen besked');
+  });
+
+  it('siger fra på et ukendt spil', async () => {
+    const db = makeDb(opsaetning);
+    db.collection = (name) => (name === 'games' ? { doc: () => ({ get: async () => ({ exists: false }) }) } : null);
+    expect(await opdaterGamleRundeOpslag(db, FieldValue, 'nix')).toMatchObject({ reason: 'no-game', rettede: 0 });
+  });
+});
+
+describe('RETTET_TEKST', () => {
+  // Vi skriver ikke om på fortiden i det skjulte — og teksten må ikke selv
+  // indeholde tal eller en optakt, der er blevet forkert siden.
+  it('siger hvad der gik galt, uden at påstå noget om stillingen', () => {
+    expect(RETTET_TEKST).toContain('taget ned');
+    expect(RETTET_TEKST).toContain('andre ligaer');
+    expect(RETTET_TEKST).not.toMatch(/\d+ point/);
+  });
+
+  // Teksten skal ikke love et omskrevet referat, den ikke leverer.
+  it('lover ikke et referat, den ikke giver', () => {
+    expect(RETTET_TEKST).not.toContain('skrevet om');
+  });
+
+  // Samme fejlklasse som "Åbn ligaen →": en tekst, der peger på et klik, der
+  // ikke findes. Spillets faner er Tip · 📋 Mine tips · 🏆 Stilling · 🎖️ Pulje
+  // · ⚽ Tabel · 📈 Elo · 👥 Ligaer · 🙂 Mit hold · ❓ Guide — ingen "Kampe".
+  it('henviser kun til faner, der findes', () => {
+    expect(RETTET_TEKST).not.toContain('Kampe');
+    expect(RETTET_TEKST).toContain('under Tip');
+    expect(RETTET_TEKST).toContain('🏆 Stilling');
+  });
+});
+

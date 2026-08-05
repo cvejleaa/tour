@@ -7,8 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useGames } from '../games/useGames';
 import {
-  callSendGameTipRemindersNow, callSendGameTestReminderToMe, callGenerateGameRecapNow,
-  callGamePuljeStatus,
+  callSendGameTipRemindersNow, callSendGameTestReminderToMe, callGamePuljeStatus,
 } from './adminActions';
 import { formatKickoff } from '../../lib/daDate';
 import { GAME_STATUS } from '../../lib/constants';
@@ -26,7 +25,7 @@ export default function GameReminderTab() {
     if (eligible.length && !eligible.some((g) => g.id === gameId)) setGameId(eligible[0].id);
   }, [eligible, gameId]);
 
-  const [busy, setBusy] = useState(null); // 'test' | 'now' | 'bot-preview' | 'bot-post' | 'pulje' | 'pulje-remind' | null
+  const [busy, setBusy] = useState(null); // 'test' | 'now' | 'pulje' | 'pulje-remind' | null
   const [msg, setMsg] = useState(null);   // { kind, text }
   const [pulje, setPulje] = useState(null);     // resultat fra gamePuljeStatus
   const [puljeMsg, setPuljeMsg] = useState(null); // { kind, text }
@@ -43,36 +42,6 @@ export default function GameReminderTab() {
     }
     setBusy(null);
   }
-  const [botMsg, setBotMsg] = useState(null);   // { kind, text }
-  const [preview, setPreview] = useState(null); // { round, text }
-
-  async function runBot(dryRun) {
-    if (!dryRun && !window.confirm('Post runde-opslaget på ALLE liga-vægge i spillet nu?')) return;
-    setBusy(dryRun ? 'bot-preview' : 'bot-post'); setBotMsg(null);
-    if (dryRun) setPreview(null);
-    const res = await callGenerateGameRecapNow({ gameId, dryRun });
-    if (!res.ok) {
-      setBotMsg({ kind: 'err', text: res.error });
-    } else if (res.data?.text && res.data?.dryRun) {
-      setPreview({ round: res.data.round, text: res.data.text });
-      setBotMsg({ kind: 'ok', text: 'Forhåndsvisning klar — intet er postet.' });
-    } else if (res.data?.posted > 0) {
-      setPreview(null);
-      setBotMsg({ kind: 'ok', text: `Postet på ${res.data.posted} liga-væg${res.data.posted === 1 ? '' : 'ge'} (runde ${res.data.round}).` });
-    } else {
-      const why = {
-        'no-settled-round': 'Ingen runde er helt afgjort endnu.',
-        'round-not-settled': 'Runden er ikke helt afgjort endnu.',
-        already: `Runde ${res.data?.round} har allerede fået sit opslag.`,
-        'too-few-players': 'For få deltagere i spillet.',
-        disabled: 'Botten er slået fra for dette spil.',
-        'empty-text': 'AI-teksten kom tom tilbage — prøv igen.',
-      }[res.data?.reason] || `Intet postet (${res.data?.reason || 'ukendt årsag'}).`;
-      setBotMsg({ kind: 'err', text: why });
-    }
-    setBusy(null);
-  }
-
   async function sendTest() {
     setBusy('test'); setMsg(null);
     const res = await callSendGameTestReminderToMe(gameId);
@@ -178,40 +147,6 @@ export default function GameReminderTab() {
               {busy === 'pulje-remind' ? 'Sender…' : `📣 Ryk dem der mangler (${pulje.missing.length})`}
             </button>
           )}
-        </div>
-      </div>
-
-      {/* ── Runde-Botten ─────────────────────────────────────────────────── */}
-      <div style={{ borderTop: '1px solid var(--c-border)', marginTop: '1.25rem', paddingTop: '1rem' }}>
-        <h3 style={{ marginTop: 0 }}>🤖 Runde-Botten</h3>
-        <p style={{ color: 'var(--c-muted)' }}>
-          Poster automatisk et AI-opslag på spillets liga-vægge, når <strong>sidste kamp i en
-          runde</strong> er afregnet: rundens resultater, stillingen og en kærlig stikpille til
-          rundens bedste. <strong>Forhåndsvis</strong> genererer teksten uden at poste;
-          <strong> Post nu</strong> lægger den på alle liga-vægge (kun én gang pr. runde).
-        </p>
-
-        {botMsg && (
-          <p className={`badge ${botMsg.kind === 'ok' ? 'badge--green' : 'badge--red'} mb-2`} style={{ display: 'block' }}>
-            {botMsg.text}
-          </p>
-        )}
-        {preview && (
-          <div className="card mb-2" style={{ padding: '0.75rem 1rem' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', marginBottom: 4 }}>
-              🤖 Runde-Botten · forhåndsvisning (runde {preview.round})
-            </div>
-            <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.92rem', lineHeight: 1.5 }}>{preview.text}</div>
-          </div>
-        )}
-
-        <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
-          <button className="btn btn--ghost" disabled={!gameId || busy} onClick={() => runBot(true)}>
-            {busy === 'bot-preview' ? 'Genererer…' : '🧪 Forhåndsvis runde-opslag'}
-          </button>
-          <button className="btn" disabled={!gameId || busy} onClick={() => runBot(false)}>
-            {busy === 'bot-post' ? 'Poster…' : 'Post runde-opslag nu'}
-          </button>
         </div>
       </div>
     </div>
