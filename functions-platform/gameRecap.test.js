@@ -236,6 +236,103 @@ const base = {
   leagues: [{ memberUids: ['A', 'B'] }, { memberUids: ['A'] }], // kun den første postes
 };
 
+// ---------------------------------------------------------------------------
+// EN LIGA MÅ KUN HØRE OM SINE EGNE MEDLEMMER.
+//
+// Fejlen, det her fanger: botten byggede fakta af HELE spillets spillere,
+// kaldte modellen ÉN gang og sendte samme tekst til hver ligavæg. På
+// "Familien"s væg — syv medlemmer — stod der derfor navne og point fra fire
+// spillere, dens medlemmer ikke deler liga med, og en påstand om at én førte
+// med 40 point, mens ligaens egen stilling viste en anden i spidsen.
+//
+// Det brød hele spillets synlighedsmodel. Testen fanger, hvilke NAVNE der
+// overhovedet når frem til modellen, ikke hvad den svarer.
+// ---------------------------------------------------------------------------
+describe('runGameRoundRecap — én liga må kun høre om sine egne', () => {
+  const kampe = [
+    { id: 'm1', round: 1, home: 'FCK', away: 'Vejle', kickoff: 100, result: '1', homeGoals: 2, awayGoals: 0, odds: { 1: 1.6, X: 3.6, 2: 6 } },
+    { id: 'm2', round: 1, home: 'AGF', away: 'OB', kickoff: 200, result: 'X', homeGoals: 1, awayGoals: 1, odds: { 1: 2.4, X: 3.4, 2: 2.6 } },
+  ];
+  // To ligaer UDEN fælles medlemmer.
+  const opsaetning = {
+    matches: kampe,
+    players: {
+      A: { totalPoints: 40, rank: 1, previousRank: 1 },
+      B: { totalPoints: 30, rank: 2, previousRank: 2 },
+      C: { totalPoints: 20, rank: 3, previousRank: 3 },
+      D: { totalPoints: 10, rank: 4, previousRank: 4 },
+    },
+    users: {
+      A: { displayName: 'Anna' }, B: { displayName: 'Bo' },
+      C: { displayName: 'Cecilie' }, D: { displayName: 'David' },
+    },
+    bets: [
+      { uid: 'A', matchId: 'm1', pick: '1', points: 2.6 },
+      { uid: 'C', matchId: 'm1', pick: '1', points: 2.6 },
+    ],
+    leagues: [
+      { name: 'Familien', memberUids: ['A', 'B'] },
+      { name: 'Kollegerne', memberUids: ['C', 'D'] },
+    ],
+  };
+
+  /** Fanger den JSON, der faktisk sendes til modellen — ét kald pr. liga. */
+  const optagende = () => {
+    const kald = [];
+    return {
+      kald,
+      messages: {
+        create: async ({ messages }) => {
+          kald.push(JSON.parse(messages[0].content));
+          return { content: [{ type: 'text', text: 'ok' }] };
+        },
+      },
+    };
+  };
+
+  it('kalder modellen én gang PR. LIGA, ikke én gang for spillet', async () => {
+    const db = makeDb(opsaetning);
+    const a = optagende();
+    await runGameRoundRecap(db, FieldValue, a, 'g1', 1);
+    expect(a.kald).toHaveLength(2);
+    expect(db._posted).toHaveLength(2);
+  });
+
+  it('sender ALDRIG en fremmed spillers navn med til modellen', async () => {
+    const db = makeDb(opsaetning);
+    const a = optagende();
+    await runGameRoundRecap(db, FieldValue, a, 'g1', 1);
+    const navne = a.kald.map((f) => f.standings.map((r) => r.name).sort());
+    expect(navne).toContainEqual(['Anna', 'Bo']);
+    expect(navne).toContainEqual(['Cecilie', 'David']);
+    // Ingen af de to opslag må kende alle fire.
+    for (const n of navne) expect(n).toHaveLength(2);
+  });
+
+  it('regner placeringen INDEN FOR ligaen, ikke i hele spillet', async () => {
+    const db = makeDb(opsaetning);
+    const a = optagende();
+    await runGameRoundRecap(db, FieldValue, a, 'g1', 1);
+    // Cecilie er nr. 3 i spillet, men nr. 1 blandt Kollegerne — og det er
+    // dét, hendes egen liga kan se på skærmen.
+    const kolleger = a.kald.find((f) => f.standings.some((r) => r.name === 'Cecilie'));
+    expect(kolleger.standings.map((r) => [r.name, r.rank]))
+      .toEqual([['Cecilie', 1], ['David', 2]]);
+    expect(kolleger.leader).toBe('Cecilie');
+  });
+
+  it('springer en liga over, hvis under to af dens medlemmer er spillere', async () => {
+    const db = makeDb({
+      ...opsaetning,
+      leagues: [{ name: 'Alene', memberUids: ['A', 'ukendt-uid'] }],
+    });
+    const a = optagende();
+    const out = await runGameRoundRecap(db, FieldValue, a, 'g1', 1);
+    expect(a.kald).toHaveLength(0);
+    expect(out.posted).toBe(0);
+  });
+});
+
 describe('runGameRoundRecap', () => {
   it('poster på liga-vægge med ≥2 medlemmer og markerer runden', async () => {
     const db = makeDb(base);
@@ -248,10 +345,15 @@ describe('runGameRoundRecap', () => {
     expect(db._game.recappedRounds).toEqual([1]);
   });
 
-  it('dryRun returnerer teksten uden at poste', async () => {
+  it('dryRun returnerer ét udkast PR. LIGA uden at poste', async () => {
     const db = makeDb(base);
     const out = await runGameRoundRecap(db, FieldValue, fakeAnthropic('preview'), 'g1', null, { dryRun: true });
-    expect(out).toMatchObject({ dryRun: true, round: 1, text: 'preview', posted: 0 });
+    expect(out).toMatchObject({ dryRun: true, round: 1, posted: 0 });
+    // Teksten er ikke længere ÉN — hver liga har sin egen, fordi hver liga
+    // kun må høre om sine egne medlemmer.
+    expect(out.udkast.length).toBeGreaterThan(0);
+    expect(out.udkast[0]).toMatchObject({ text: 'preview' });
+    expect(out.udkast[0].leagueId).toBeTruthy();
     expect(db._posted).toHaveLength(0);
     expect(db._game.recappedRounds).toBeUndefined();
   });

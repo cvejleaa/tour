@@ -15,6 +15,45 @@ const { buildRoundContext, combiBonus } = require('./pointOpdeling');
 // 'in' tager højst 30 værdier pr. forespørgsel.
 const IN_CHUNK = 30;
 
+/**
+ * Placeringer INDEN FOR en liga, ikke i hele spillet.
+ *
+ * `players/{uid}.rank` er spil-globalt (og oveni et rundesnapshot). Brugte
+ * botten det tal i en liga på syv, ville den skrive "nr. 1, nr. 4, nr. 7" og
+ * kalde en mand fører, som ligaens egne medlemmer ikke engang kan se. Rangen
+ * skal regnes af PRÆCIS de spillere, opslaget handler om.
+ *
+ * previousRank udledes af den indbyrdes RÆKKEFØLGE af medlemmernes globale
+ * previousRank — den er stadig rigtig relativt, selv om tallet ikke er det.
+ * Spillere uden tidligere placering ryger bagerst og får null.
+ */
+function lokaleRanger(medlemmer) {
+  const efterPoint = [...medlemmer].sort((a, b) => (
+    (Number(b.totalPoints) || 0) - (Number(a.totalPoints) || 0)
+    || String(a.uid).localeCompare(String(b.uid))
+  ));
+  const rang = new Map();
+  let r = 0;
+  let sidst = null;
+  efterPoint.forEach((p, i) => {
+    const pts = Number(p.totalPoints) || 0;
+    if (pts !== sidst) { r = i + 1; sidst = pts; }
+    rang.set(p.uid, r);
+  });
+
+  const medTidligere = medlemmer.filter((p) => Number.isFinite(p.previousRank));
+  medTidligere.sort((a, b) => a.previousRank - b.previousRank
+    || String(a.uid).localeCompare(String(b.uid)));
+  const foer = new Map();
+  medTidligere.forEach((p, i) => foer.set(p.uid, i + 1));
+
+  return medlemmer.map((p) => ({
+    ...p,
+    rank: rang.get(p.uid) ?? null,
+    previousRank: foer.has(p.uid) ? foer.get(p.uid) : null,
+  }));
+}
+
 /** Del en liste i grupper af højst `size`. */
 function chunk(list, size) {
   const out = [];
@@ -252,19 +291,42 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     ? ([...byRound.keys()].sort((a, b) => a - b).find((r) => r > round) ?? null)
     : null;
 
-  const facts = buildRoundRecapFacts({
-    round, roundMatches, players, betsByUid, nextRound, udsatte,
-  });
-  const text = await generateRecapText(anthropic, facts);
-  if (!text) return { posted: 0, reason: 'empty-text', round };
-
-  if (dryRun) return { posted: 0, dryRun: true, round, text };
-
+  // ÉT OPSLAG PR. LIGA — ikke ét pr. spil.
+  //
+  // Før byggede vi fakta af HELE spillets spillere, kaldte modellen én gang og
+  // sendte samme tekst til hver ligavæg. Så stod der navne og point på
+  // "Familien"s væg fra folk, dens syv medlemmer ikke deler liga med — og
+  // opslaget påstod, at én førte med 40 point, mens ligaens egen stilling
+  // viste en anden i spidsen. Det brød hele spillets synlighedsmodel: du ser
+  // dem, du deler liga med, og intet andet.
   const leaguesSnap = await gameRef.collection('leagues').get();
+  const perUid = new Map(players.map((p) => [p.uid, p]));
+  const udkast = [];
   let posted = 0;
   for (const ld of leaguesSnap.docs) {
     const memberUids = Array.isArray(ld.data().memberUids) ? ld.data().memberUids : [];
-    if (memberUids.length < 2) continue;
+    // Ligaens medlemmer, der FAKTISK er spillere i spillet. Et medlem uden
+    // spiller-dokument har ingen point at skrive om.
+    const medlemmer = memberUids.map((uid) => perUid.get(uid)).filter(Boolean);
+    if (medlemmer.length < 2) continue;
+
+    const facts = buildRoundRecapFacts({
+      round,
+      roundMatches,
+      // Rangen regnes INDEN FOR ligaen. players/{uid}.rank er spil-globalt og
+      // ville give "nr. 1, nr. 4, nr. 7" i en liga på syv.
+      players: lokaleRanger(medlemmer),
+      betsByUid,
+      nextRound,
+      udsatte,
+    });
+    const text = await generateRecapText(anthropic, facts);
+    if (!text) continue;
+
+    if (dryRun) {
+      udkast.push({ leagueId: ld.id, navn: ld.data().name || ld.id, medlemmer: medlemmer.length, text });
+      continue;
+    }
     await ld.ref.collection('messages').add({
       uid: 'runde-bot',
       displayName: 'Runde-Botten',
@@ -275,8 +337,9 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     });
     posted += 1;
   }
+  if (dryRun) return { posted: 0, dryRun: true, round, udkast };
   await gameRef.set({ recappedRounds: FieldValue.arrayUnion(round) }, { merge: true });
-  return { posted, round, text };
+  return { posted, round };
 }
 
 module.exports = {
