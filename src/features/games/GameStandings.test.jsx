@@ -360,7 +360,7 @@ describe('GameStandings — pointopdeling', () => {
   it('forklarer rubrikkerne i tekst, ikke kun som tooltip', () => {
     setup({ standings: MED });
     fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
-    expect(screen.getByText(/Bonus for en hel runde med højst én fejl/)).toBeInTheDocument();
+    expect(screen.getByText(/Kupon-bonus: de ramte odds ganget sammen/)).toBeInTheDocument();
   });
 
   // Knappen lover, at regnskabet går op. Gør det ikke — gulvet, eller en kamp

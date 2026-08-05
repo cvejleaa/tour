@@ -66,12 +66,17 @@ function nuvaerende(hitOdds, n) {
   const produkt = hitOdds.reduce((a, b) => a * b, 1);
   return round1(Math.min(produkt, fejl === 0 ? 25 : 12));
 }
-/** Forslaget: FAKTOR × kvadratroden af produktet, med loft. Alle ramte tæller. */
+/**
+ * Forslaget: FAKTOR × kvadratroden af produktet, med loft. Alle ramte tæller,
+ * og der er INTET kuponkrav — en glemt kamp tæller bare ikke med.
+ */
 function foreslaaet(hitOdds) {
   if (hitOdds.length < 2) return 0;
   const produkt = hitOdds.reduce((a, b) => a * b, 1);
   return round1(Math.min(FAKTOR * Math.sqrt(produkt), LOFT));
 }
+/** Træf-bonus pr. ramt kamp i forslaget (0 = som i dag). */
+const TRAEF = Number(process.env.TRAEF ?? 1);
 
 // --- hent data -------------------------------------------------------------
 const gameRef = db.collection('games').doc(GAME_ID);
@@ -124,43 +129,70 @@ for (const d of betsSnap.docs) {
 // --- regn ------------------------------------------------------------------
 const rækker = [];
 for (const [uid, mine] of tips) {
-  let nu = 0; let ny = 0;
+  let nuC = 0; let nyC = 0; let nu1 = 0; let ny1 = 0;
   const detaljer = [];
   for (const [runde, ms] of afgjorte) {
     const tippet = ms.filter((m) => mine.get(m.id)?.pick);
-    if (tippet.length !== ms.length) continue;      // tippede ikke hele runden
+    // Ramte odds — kun for de kampe, spilleren FAKTISK tippede.
     const hitOdds = [];
-    for (const m of ms) {
+    for (const m of tippet) {
       const f = facit(m);
       if (mine.get(m.id).pick === f) hitOdds.push(reward(f, m.odds));
     }
-    const a = nuvaerende(hitOdds, ms.length);
+    // 1X2: i dag oddsene, i forslaget oddsene + træf-bonus pr. ramt kamp.
+    const sum1x2 = round1(hitOdds.reduce((a, b) => a + b, 0));
+    nu1 += sum1x2;
+    ny1 += round1(sum1x2 + TRAEF * hitOdds.length);
+    // Combi: den GAMLE regel krævede hele runden tippet. Den nye gør ikke.
+    const a = tippet.length === ms.length ? nuvaerende(hitOdds, ms.length) : 0;
     const b = foreslaaet(hitOdds);
-    nu += a; ny += b;
-    detaljer.push({ runde, ramt: hitOdds.length, af: ms.length, nu: a, ny: b });
+    nuC += a; nyC += b;
+    if (tippet.length) {
+      detaljer.push({
+        runde, ramt: hitOdds.length, tippet: tippet.length, af: ms.length, nu: a, ny: b,
+      });
+    }
   }
-  rækker.push({ uid, navn: navn.get(uid) || uid, nu: round1(nu), ny: round1(ny), detaljer });
+  rækker.push({
+    uid,
+    navn: navn.get(uid) || uid,
+    nu: round1(nu1 + nuC),
+    ny: round1(ny1 + nyC),
+    nuC: round1(nuC),
+    nyC: round1(nyC),
+    nu1: round1(nu1),
+    ny1: round1(ny1),
+    detaljer,
+  });
 }
 rækker.sort((a, b) => b.ny - a.ny || b.nu - a.nu);
 
 // --- udskriv ---------------------------------------------------------------
 console.log(`\nCOMBI-SAMMENLIGNING · ${GAME_ID}`);
 console.log(`Afgjorte runder: ${afgjorte.map(([r]) => r).join(', ') || '(ingen)'}`);
-console.log('I dag = alle ramt → loft 25, én fejl → loft 12, ellers 0');
-console.log(`Forslag = ${FAKTOR} × √produkt, loft ${LOFT}, alle ramte tæller\n`);
+console.log('I DAG    = 1X2 (odds) + combi: alle ramt → loft 25, én fejl → 12, ellers 0');
+console.log('           …og combi kræver, at man tippede HELE runden.');
+console.log(`FORSLAG  = 1X2 (odds + ${TRAEF} pr. ramt) + combi: ${FAKTOR} × √produkt, loft ${LOFT}`);
+console.log('           …intet kuponkrav — en glemt kamp tæller bare ikke med.\n');
 const b = (s, n) => String(s).padEnd(n);
 const h = (s, n) => String(s).padStart(n);
-console.log(`${b('spiller', 26)}${h('i dag', 8)}${h('forslag', 9)}${h('forskel', 9)}   detaljer`);
-console.log('-'.repeat(80));
+console.log(`${b('spiller', 26)}${h('1X2 nu', 8)}${h('1X2 ny', 8)}${h('combi nu', 9)}${h('combi ny', 9)}${h('I ALT nu', 9)}${h('I ALT ny', 9)}${h('forskel', 9)}`);
+console.log('-'.repeat(88));
 for (const r of rækker) {
   const d = round1(r.ny - r.nu);
-  const detalje = r.detaljer.map((x) => `r${x.runde}: ${x.ramt}/${x.af} ${x.nu}→${x.ny}`).join('  ');
-  console.log(`${b(r.navn.slice(0, 25), 26)}${h(r.nu, 8)}${h(r.ny, 9)}${h((d >= 0 ? '+' : '') + d, 9)}   ${detalje}`);
+  console.log(`${b(r.navn.slice(0, 25), 26)}${h(r.nu1, 8)}${h(r.ny1, 8)}${h(r.nuC, 9)}${h(r.nyC, 9)}${h(r.nu, 9)}${h(r.ny, 9)}${h((d >= 0 ? '+' : '') + d, 9)}`);
 }
-if (!rækker.length) console.log('(ingen spillere har tippet en hel afgjort runde endnu)');
+console.log('');
+for (const r of rækker) {
+  const detalje = r.detaljer
+    .map((x) => `r${x.runde}: ${x.ramt} ramt af ${x.tippet} tippet (runden har ${x.af}) · combi ${x.nu}→${x.ny}`)
+    .join('\n' + ' '.repeat(28));
+  console.log(`${b(r.navn.slice(0, 25), 26)}  ${detalje || '(ingen tips i en afgjort runde)'}`);
+}
+if (!rækker.length) console.log('(ingen spillere har tippet i en afgjort runde endnu)');
 
 const sum = (f) => round1(rækker.reduce((a, x) => a + f(x), 0));
-console.log('-'.repeat(80));
-console.log(`${b('I ALT', 26)}${h(sum((x) => x.nu), 8)}${h(sum((x) => x.ny), 9)}${h((sum((x) => x.ny - x.nu) >= 0 ? '+' : '') + sum((x) => x.ny - x.nu), 9)}`);
+console.log('-'.repeat(88));
+console.log(`${b('I ALT', 26)}${h(sum((x) => x.nu1), 8)}${h(sum((x) => x.ny1), 8)}${h(sum((x) => x.nuC), 9)}${h(sum((x) => x.nyC), 9)}${h(sum((x) => x.nu), 9)}${h(sum((x) => x.ny), 9)}${h((sum((x) => x.ny - x.nu) >= 0 ? '+' : '') + sum((x) => x.ny - x.nu), 9)}`);
 console.log(`\nSpillere der GÅR NED: ${rækker.filter((x) => x.ny < x.nu).length} af ${rækker.length}`);
 console.log('LÆS-ONLY — der er ikke skrevet noget som helst.\n');

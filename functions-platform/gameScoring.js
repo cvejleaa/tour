@@ -10,7 +10,7 @@
 
 const {
   scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeOdds,
-  championshipTeams, puljeScore,
+  championshipTeams, puljeScore, round1,
 } = require('./superligaScoring');
 // kickoffMs, matchOutcome og buildRoundContext bor i pointOpdeling, fordi
 // KLIENTEN skal bruge samme runde-kontekst for at kunne kalde opdelPoint.
@@ -361,7 +361,10 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   const round = roundCtx.byMatch[matchId]?.round;
   const rc = round != null ? roundCtx.rounds[round] : null;
   let roundCompleted = null; // sat første gang en runde bliver HELT afgjort
-  if (rc && rc.settledCount === rc.count) {
+  // KUPONENS kampe, ikke rundens. En runde med en udsat kamp gøres op, når
+  // ugens kampe er afgjort — ellers ville snapshottet og Runde-Botten hænge en
+  // måned og først fyre, når alle havde glemt runden.
+  if (rc && rc.combiCount > 0 && rc.combiSettled === rc.combiCount) {
     const gRef = db.collection('games').doc(gameId);
     const gsnap = await gRef.get();
     const done = (gsnap.exists && Array.isArray(gsnap.data().snapshottedRounds))
@@ -406,8 +409,83 @@ async function recomputeAllPlayerTotals(db, FieldValue, gameId) {
   return { players: uids.length, gatedMatches: gated.size };
 }
 
+/**
+ * Genscorer ALLE bets mod deres kamps facit — og genberegner derefter totalerne.
+ *
+ * Findes, fordi `bets/{id}.points` kun skrives af recomputeGameMatchCore, som
+ * kun kaldes når en kamps `result` ÆNDRER sig. Ændrer vi selve pointreglen —
+ * som med træf-bonussen i august 2026 — bliver hvert eksisterende bet stående
+ * med sit gamle tal, og recomputeAllPlayerTotals hjælper ikke: den aggregerer
+ * kun, den scorer ikke om.
+ *
+ * Uden den ville skærmene modsige hinanden UDEN en fejlbesked: Tip-fladen
+ * regner "Ramt +X" live af den nye regel, mens Mine tips viser det gemte tal,
+ * og `chance` — som udledes som (gemte point − 1X2-point) — ville gå i minus
+ * med ét point pr. træffer. En spiller, der aldrig har brugt Chancen, ville se
+ * "⚡ Chancen: −10,0".
+ *
+ * Gatede kampe (før game.startAt) springes over, præcis som
+ * recomputeGameMatchCore gør — de scores aldrig, og deres point tæller ikke.
+ *
+ * @param {boolean} [dryRun=true] TÆL hvad der ville ændre sig, skriv INTET.
+ *   Default er tør-kørsel med vilje: den her rører hver eneste spillers point.
+ * @returns {{bets:number, aendrede:number, delta:number, dryRun:boolean,
+ *            eksempler:Array, players?:number}}
+ */
+async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
+  const gameRef = db.collection('games').doc(gameId);
+  const [gameSnap, matchesSnap, betsSnap] = await Promise.all([
+    gameRef.get(),
+    gameRef.collection('matches').get(),
+    gameRef.collection('bets').get(),
+  ]);
+  const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const startMs = gameSnap.exists ? kickoffMs({ kickoff: gameSnap.data().startAt }) : null;
+  const gated = gatedIds(allMatches, startMs);
+  const byId = new Map(allMatches.map((m) => [m.id, m]));
+
+  const BATCH_SIZE = 400;
+  let batch = db.batch();
+  let ops = 0;
+  const batches = [batch];
+  const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+
+  let aendrede = 0;
+  let delta = 0;
+  const eksempler = [];
+  for (const d of betsSnap.docs) {
+    const bet = d.data();
+    const m = byId.get(bet.matchId);
+    // Ukendt kamp: rør den ikke. Et bet uden kampdokument har ingen facit at
+    // scores mod, og at nulstille det ville tage point fra spilleren.
+    if (!m || gated.has(bet.matchId)) continue;
+    const pts = scoreBet(bet, m.result || null, m.odds || null);
+    const foer = Number(bet.points) || 0;
+    if (foer === pts) continue;
+    aendrede += 1;
+    delta = round1(delta + (pts - foer));
+    if (eksempler.length < 5) eksempler.push({ matchId: bet.matchId, uid: bet.uid, foer, efter: pts });
+    // lastUpdateTime er ikke pynt: uden den læser vi bettet, regner, og skriver
+    // vores forældede tal ovenpå, hvis noget rørte kampen imens. Konkret set i
+    // emulatoren: fjernes et facit midt i kørslen, beholder spilleren sine
+    // point for den kamp — og tallet bliver stående, til noget andet rører den.
+    // Preconditionen fejler HELE batchen ved konflikt; det er den rigtige
+    // reaktion, for kørslen er idempotent og kan bare gentages.
+    if (!dryRun) { batch.update(d.ref, { points: pts }, { lastUpdateTime: d.updateTime }); bump(); }
+  }
+  if (dryRun) {
+    return { bets: betsSnap.size, aendrede, delta, dryRun: true, eksempler };
+  }
+  if (aendrede) for (const b of batches) await b.commit();
+  // Totalerne SKAL med i samme kald. Kørte man kun genscoringen, ville
+  // players.totalPoints stå på den gamle sum, indtil noget andet tilfældigvis
+  // udløste en genberegning — og stillingen ville være forkert imens.
+  const { players } = await recomputeAllPlayerTotals(db, FieldValue, gameId);
+  return { bets: betsSnap.size, aendrede, delta, dryRun: false, eksempler, players };
+}
+
 module.exports = {
-  recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo,
+  recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo, rescoreAllBets,
   computeRanks, snapshotRoundRanks,
   settlePuljeBets, officialTop6, gatedIds, recomputeAllPlayerTotals,
 };

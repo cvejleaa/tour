@@ -22,17 +22,18 @@ function chunk(list, size) {
   return out;
 }
 
-const RECAP_SYSTEM = `Du er "Runde-Botten", som skriver ét kort, varmt opslag på dansk til en privat fodbold-tippeliga, lige efter en Superliga-runde er færdigspillet.
+const RECAP_SYSTEM = `Du er "Runde-Botten", som skriver ét kort, varmt opslag på dansk til en privat fodbold-tippeliga, lige efter kampene i en Superliga-rundes egen uge er spillet.
 Skriv 70-150 ord i naturlig, sammenhængende prosa (ikke punktopstilling, ingen overskrift, ingen anførselstegn). Brug 1-2 emojis.
 
 Du får et JSON-faktaobjekt. Du må KUN bruge de oplyste fakta og tal. Find ALDRIG på navne, kampe, resultater, point eller placeringer, og lav ALDRIG dine egne udregninger.
 
 Felterne betyder:
 - "round": rundens nummer — opslaget handler om denne runde.
-- "matches": rundens kampe. Hvert element har "home", "away", "score" (fx "2-1") og "surprise": true hvis udfaldet var en stor overraskelse (høje odds). Nævn 1-2 kampe naturligt — helst en overraskelse, hvis der er en.
+- "matches": rundens kampe PÅ KUPONEN — dem der blev spillet i rundens egen uge. Hvert element har "home", "away", "score" (fx "2-1") og "surprise": true hvis udfaldet var en stor overraskelse (høje odds). Nævn 1-2 kampe naturligt — helst en overraskelse, hvis der er en.
+- "udsatte": kampe i runden, der ligger uden for rundens uge og endnu ikke er spillet. Er listen IKKE tom, er runden ikke færdigspillet — skriv da aldrig at den er det, og nævn i ÉN sætning, at runden gøres op på ugens kampe, og at de nævnte kampe spilles senere og giver point til den tid.
 - "standings": den AKTUELLE samlede stilling NU (rundens point er allerede lagt til). For hver spiller er "points" deres TOTALE pointtal, og "roundPoints" hvad de vandt i DENNE runde (inkl. evt. combi-bonus).
 - "standout": spilleren med FLEST "roundPoints" i runden. "standoutTie": true hvis flere deler rundens bedste (se "roundWinners").
-- "combi": spillere der ramte combi-bonussen (tippede hele runden og fik næsten alt rigtigt) med deres bonus. Nævn det gerne — det er en bedrift.
+- "combi": spillere der fik combi-bonus, med beløbet. Bonussen falder for de FLESTE hver runde — den er hverken sjælden eller en bedrift. Nævn den KUN, hvis et beløb skiller sig ud (fx rundens klart højeste). Skriv ALDRIG at nogen "ramte hele runden", "tippede alle kampe" eller "fik næsten alt rigtigt": bonussen kræver ingen af delene.
 - "leader": fører lige nu. "leadChanged": true hvis førstepladsen har skiftet i denne runde.
 - "nextRound": næste rundes nummer (kan mangle, hvis sæsonen er slut).
 
@@ -81,7 +82,9 @@ function isSurprise(m) {
  * Byg AI-fakta for en færdigspillet runde. Ren funktion (testbar).
  * @param {{round:number, roundMatches:Array<object>, players:Array<{uid:string,name:string,totalPoints:number,rank?:number,previousRank?:number}>, betsByUid:Map<string,Array<object>>, nextRound:number|null}} args
  */
-function buildRoundRecapFacts({ round, roundMatches, players, betsByUid, nextRound = null }) {
+function buildRoundRecapFacts({
+  round, roundMatches, players, betsByUid, nextRound = null, udsatte = [],
+}) {
   const roundIds = new Set(roundMatches.map((m) => m.id));
   const roundCtx = buildRoundContext(roundMatches);
 
@@ -114,6 +117,15 @@ function buildRoundRecapFacts({ round, roundMatches, players, betsByUid, nextRou
       score: (m.homeGoals != null && m.awayGoals != null) ? `${m.homeGoals}-${m.awayGoals}` : null,
       surprise: isSurprise(m),
     })),
+    // De udsatte kampe SKAL med som eget felt. Uden dem får botten fire kampe,
+    // tror det er hele runden, og skriver at den er færdigspillet — mens
+    // Tip-fladen tre klik væk siger, at to kampe mangler.
+    //
+    // Filtreringen på !result bor HER og ikke i kaldstedet: en kamp rykket
+    // FREM til ugen før ligger også uden for rundens uge, men den ER spillet,
+    // og prompten fortæller modellen, at kampene i feltet mangler. Reglen
+    // hører til det sted, der kan prøves af uden en database.
+    udsatte: udsatte.filter((m) => !m.result).map((m) => ({ home: m.home, away: m.away })),
     standings: rows.map(({ name, points, roundPoints, rank }) => ({ name, points, roundPoints, rank })),
     standout: roundWinners.length === 1 ? roundWinners[0] : null,
     standoutTie: roundWinners.length > 1,
@@ -184,15 +196,28 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     if (!byRound.has(m.round)) byRound.set(m.round, []);
     byRound.get(m.round).push(m);
   }
-  const settledRounds = [...byRound.entries()]
-    .filter(([, ms]) => ms.length > 0 && ms.every((m) => m.result))
-    .map(([r]) => r).sort((a, b) => a - b);
+  // "Afgjort" måles på KUPONEN, ikke på hele runden — samme kriterium som
+  // afregningen og combi-bonussen bruger. Havde botten sin egen definition,
+  // ville gameScoring snapshotte runden 10. august og brænde
+  // snapshottedRounds, mens botten svarede "round-not-settled" og tav. Runden
+  // ville aldrig få sit opslag, og ingen ville opdage det.
+  const ctx = buildRoundContext(all);
+  const kuponAfgjort = (r) => {
+    const rc = ctx.rounds[r];
+    return !!rc && rc.combiCount > 0 && rc.combiSettled === rc.combiCount;
+  };
+  const settledRounds = [...byRound.keys()].filter(kuponAfgjort).sort((a, b) => a - b);
   const round = roundNo != null ? roundNo : (settledRounds[settledRounds.length - 1] ?? null);
   if (round == null) return { posted: 0, reason: 'no-settled-round' };
-  const roundMatches = byRound.get(round) || [];
-  if (roundMatches.length === 0 || !roundMatches.every((m) => m.result)) {
-    return { posted: 0, reason: 'round-not-settled', round };
-  }
+  if (!kuponAfgjort(round)) return { posted: 0, reason: 'round-not-settled', round };
+  // Botten får KUN kuponens kampe. Serverede vi de udsatte med, ville den få
+  // to kampe uden resultat uden en forklaring — og digte en.
+  const alleIRunden = byRound.get(round) || [];
+  const roundMatches = alleIRunden.filter((m) => ctx.byMatch[m.id]?.iVindue);
+  // Dem, der IKKE er på kuponen — botten skal kunne sige, at de mangler.
+  // Dem, der IKKE er på kuponen. buildRoundRecapFacts frasorterer selv dem,
+  // der allerede er spillet.
+  const udsatte = alleIRunden.filter((m) => !ctx.byMatch[m.id]?.iVindue);
 
   const done = Array.isArray(game.recappedRounds) ? game.recappedRounds : [];
   if (!dryRun && done.includes(round)) return { posted: 0, reason: 'already', round };
@@ -227,7 +252,9 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     ? ([...byRound.keys()].sort((a, b) => a - b).find((r) => r > round) ?? null)
     : null;
 
-  const facts = buildRoundRecapFacts({ round, roundMatches, players, betsByUid, nextRound });
+  const facts = buildRoundRecapFacts({
+    round, roundMatches, players, betsByUid, nextRound, udsatte,
+  });
   const text = await generateRecapText(anthropic, facts);
   if (!text) return { posted: 0, reason: 'empty-text', round };
 

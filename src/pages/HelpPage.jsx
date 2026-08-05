@@ -53,7 +53,7 @@ function PlatformHelp() {
       <Section emoji="🏟️" title="Spillene lige nu">
         <GameBlurb emoji="⚽" name="Superligaen 2026/27" status="åben">
           Tip fodboldkampene runde for runde (1X2). Point <strong>følger oddsene</strong>, og der er bonus
-          for at ramme hele runden (combi), et lille væddemål (Chancen) og et pulje-tip om, hvem der når
+          for at ramme rundens kupon (combi), et lille væddemål (Chancen) og et pulje-tip om, hvem der når
           mesterskabsspillet. Følg holdenes Elo og dyst i mini-ligaer. Fuld guide inde i spillet under
           {' '}<strong>❓ Guide</strong>.
         </GameBlurb>

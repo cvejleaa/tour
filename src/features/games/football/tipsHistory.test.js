@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildTipsHistory } from './tipsHistory';
+import { groupByRound } from './footballRounds';
 
 // To runder à to kampe. Runde 1 spillet, runde 2 kun tippet.
 const rounds = [
@@ -31,10 +32,10 @@ describe('buildTipsHistory', () => {
     expect(h.totals.settled).toBe(2);       // kun runde 1 er spillet
     expect(h.totals.hits).toBe(2);
     expect(h.totals.hitRate).toBe(100);
-    // Runde 1: begge ramt (tippet alle) → combi-bonus = 2.0×3.0 = 6.
-    expect(h.rounds[0].roundBonus).toBe(6);
-    // Point = bet-point (2+3+0) + bonus (6) = 11.
-    expect(h.totals.points).toBe(11);
+    // Runde 1: begge ramt (tippet hele kuponen) → combi = 2·√(2,0×3,0) = 4,9.
+    expect(h.rounds[0].roundBonus).toBe(4.9);
+    // Point = bet-point (2+3+0) + combi (4,9) = 9,9.
+    expect(h.totals.points).toBe(9.9);
   });
 
   // DEN FEJL, DER ALLEREDE FANDTES. "Point i alt" blev regnet her UDEN
@@ -77,3 +78,34 @@ describe('buildTipsHistory', () => {
     expect(h.totals).toMatchObject({ tipped: 0, settled: 0, hits: 0, points: 0 });
   });
 });
+
+// roundSettled styrer, hvad "Mine tips" skriver om runden — og den var
+// udækket: porten kunne gøres altid-sand uden en rød test.
+describe('buildTipsHistory — roundSettled på KUPONEN, ikke runden', () => {
+  const ug = (iso) => Date.parse(iso);
+  const runde3 = (dFacit) => [
+    { id: 'a', round: 3, home: 'AGF', away: 'OB', result: '1', odds: { 1: 2, X: 4, 2: 4 }, kickoff: ug('2026-08-07T17:00:00Z') },
+    { id: 'b', round: 3, home: 'BIF', away: 'AaB', result: 'X', odds: { 1: 4, X: 3, 2: 4 }, kickoff: ug('2026-08-07T19:00:00Z') },
+    { id: 'c', round: 3, home: 'FCK', away: 'FCM', result: '2', odds: { 1: 4, X: 4, 2: 3 }, kickoff: ug('2026-08-09T15:00:00Z') },
+    { id: 'd', round: 3, home: 'SIF', away: 'VFF', result: dFacit, odds: { 1: 2, X: 4, 2: 4 }, kickoff: ug('2026-08-09T17:45:00Z') },
+    // Udsat til september — uden for kuponen.
+    { id: 'e', round: 3, home: 'OB', away: 'AGF', result: null, odds: { 1: 2, X: 4, 2: 4 }, kickoff: ug('2026-09-02T17:00:00Z') },
+  ];
+  const bets = { a: { pick: '1' }, b: { pick: 'X' }, c: { pick: '2' }, d: { pick: '1' } };
+
+  it('er ikke afgjort, mens en af kuponens kampe mangler facit', () => {
+    const h = buildTipsHistory(groupByRound(runde3(null)), bets);
+    expect(h.rounds[0].roundSettled).toBe(false);
+    expect(h.rounds[0].roundBonus).toBe(0);
+  });
+
+  // …men den venter IKKE på den udsatte kamp.
+  it('er afgjort, når kuponens fire er afgjort — den udsatte tæller ikke med', () => {
+    const h = buildTipsHistory(groupByRound(runde3('1')), bets);
+    expect(h.rounds[0].roundSettled).toBe(true);
+    expect(h.rounds[0].kupon).toBe(4);
+    expect(h.rounds[0].udenfor).toHaveLength(1);
+    expect(h.rounds[0].roundBonus).toBeGreaterThan(0);
+  });
+});
+

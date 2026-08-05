@@ -3,8 +3,8 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const {
-  DEFAULT_POINTS, ROUND_BONUS, round1, outcomeReward, roundComboBonus,
-  isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet, clampStake, CHANCE,
+  DEFAULT_POINTS, COMBI, round1, outcomeReward, roundComboBonus,
+  isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet, clampStake, CHANCE, TRAEF_BONUS,
   PULJE, ELO,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
   leagueTable, championshipTeams, puljeScore,
@@ -13,9 +13,11 @@ const {
 describe('superligaScoring (server-spejl)', () => {
   it('1X2-point følger kampens odds (1 decimal)', () => {
     const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
-    expect(outcomePoints('1', '1', odds)).toBe(3.1);
-    expect(outcomePoints('X', 'X', odds)).toBe(4.3);
-    expect(outcomePoints('2', '2', odds)).toBe(2.3);
+    // Odds PLUS træf-bonussen på 1. Bonussen findes, fordi rene fair odds
+    // gør alle strategier lige gode — se hitPoints i superligaScoring.js.
+    expect(outcomePoints('1', '1', odds)).toBe(4.1);
+    expect(outcomePoints('X', 'X', odds)).toBe(5.3);
+    expect(outcomePoints('2', '2', odds)).toBe(3.3);
     expect(outcomePoints('1', 'X', odds)).toBe(0);
     expect(round1(4.27)).toBe(4.3);
     expect(outcomeReward('X', null)).toBe(DEFAULT_POINTS.X);
@@ -33,11 +35,21 @@ describe('superligaScoring (server-spejl)', () => {
     expect(isOutcome('3')).toBe(false);
   });
 
-  it('roundComboBonus: odds ganget, loftet; 0/1 fejl giver bonus, ≥2 giver 0', () => {
-    expect(roundComboBonus([2, 2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.PERFECT_CAP); // 64 → loft 25
-    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(round1(1.5 ** 6));
-    expect(roundComboBonus([2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.NEAR_CAP);        // 1 fejl, 32 → loft 12
-    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(0);                              // 2 fejl
+  // Spejlet skal give NØJAGTIG samme tal som src/lib — ellers siger stillingen
+  // ét og fladen et andet. Samme tilfælde som i klientens testfil.
+  it('roundComboBonus: 2 × kvadratroden, loft 25, hver ramt kamp tæller (spejl)', () => {
+    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(6.8);  // 2·√11,4
+    expect(roundComboBonus([2.1, 2.1, 2.1, 2.1, 2.1, 2.1], 6)).toBe(18.5); // favoritter, under loft
+    expect(roundComboBonus([4, 4, 4, 4, 4, 4], 6)).toBe(COMBI.LOFT); // outsidere → 25
+    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(8);   // to fejl betaler nu
+    expect(roundComboBonus([2, 2, 2], 6)).toBe(5.7);    // tre fejl også
+    expect(roundComboBonus([2.1], 6)).toBe(0);          // én ramt er ingen kupon
+    // Et LIGE antal negative odds giver et POSITIVT produkt og ville slippe
+    // igennem en vagt, der stod på produktet. Vagten står på hvert odds.
+    expect(roundComboBonus([-2, -3], 2)).toBe(0);
+    expect(roundComboBonus([-2, 3], 2)).toBe(0);
+    expect(roundComboBonus([0, 3], 2)).toBe(0);
+    expect(round1(2.25)).toBe(2.3);                     // round1 er uændret
   });
 
   it('pulje-tip: slutstilling + score (spejl)', () => {
@@ -81,27 +93,28 @@ describe('superligaScoring (server-spejl)', () => {
 
   it('scoreBet: en forfalsket indsats kan ikke give absurd mange point', () => {
     const pts = scoreBet({ pick: '1', chanceStake: 1000000 }, '1', { '1': 3 });
-    expect(pts).toBe(3 + CHANCE.MAX_ABS * 2); // 1X2-point + loftet gevinst
+    expect(pts).toBe(3 + TRAEF_BONUS + CHANCE.MAX_ABS * 2); // 1X2-point + loftet gevinst
   });
 
   describe('scoreBet (1X2 + Chancen samlet)', () => {
     it('uden chance = kun 1X2-point (= odds, 1 decimal)', () => {
-      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X', { X: 4.27 })).toBe(4.3);
+      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X', { X: 4.27 })).toBe(5.3);
       expect(scoreBet({ pick: '1', chanceStake: 0 }, '2', { '1': 2.5 })).toBe(0);
     });
     it('uden odds falder base tilbage til standard', () => {
-      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X')).toBe(DEFAULT_POINTS.X);
+      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X')).toBe(DEFAULT_POINTS.X + TRAEF_BONUS);
     });
     it('med chance og ramt: base(odds) + gevinst', () => {
-      // pick X rammer med odds 3: base 3 + 8×(3−1)=16 → 19
-      expect(scoreBet({ pick: 'X', chanceStake: 8 }, 'X', { X: 3 })).toBe(19);
+      // pick X rammer med odds 3: base (3+1) + 8×(3−1)=16 → 20.
+      // Chancen afregnes til de RENE odds — træf-bonussen ganges ikke med.
+      expect(scoreBet({ pick: 'X', chanceStake: 8 }, 'X', { X: 3 })).toBe(20);
     });
     it('med chance og forbi: 0 base − indsats', () => {
       expect(scoreBet({ pick: '1', chanceStake: 5 }, '2', { 1: 2 })).toBe(-5);
     });
     it('uden gyldige odds afregnes chancen ikke (kun fallback-base)', () => {
-      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', null)).toBe(DEFAULT_POINTS['1']);
-      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', {})).toBe(DEFAULT_POINTS['1']);
+      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', null)).toBe(DEFAULT_POINTS['1'] + TRAEF_BONUS);
+      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', {})).toBe(DEFAULT_POINTS['1'] + TRAEF_BONUS);
     });
   });
 
@@ -160,7 +173,7 @@ describe('superligaScoring (server-spejl)', () => {
 
     // Konstanterne skal også være ens — et loft der kun ændres ét sted er
     // præcis den slags drift, ingen opdager før pointene er forkerte.
-    expect(ROUND_BONUS).toEqual(src.ROUND_BONUS);
+    expect(COMBI).toEqual(src.COMBI);
     expect(CHANCE).toEqual(src.CHANCE);
     expect(PULJE).toEqual(src.PULJE);
     expect(ELO).toEqual(src.ELO);

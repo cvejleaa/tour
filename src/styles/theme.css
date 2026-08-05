@@ -683,6 +683,19 @@ a:focus-visible,
 .match-card__kickoff { font-size: 0.95rem; font-weight: 700; color: var(--c-text); }
 .match-card__venue { font-size: 0.82rem; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Kuponmærket: står kampen med i runde-bonussen?
+   Vises kun i en splittet runde — se FootballTip. Den udsatte kamp får en
+   stiplet venstrekant, så den kan ses uden at læse mærket. */
+.kupon-maerke {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em;
+  padding: 0.1rem 0.4rem; border-radius: 999px; white-space: nowrap;
+}
+.kupon-maerke--med { color: var(--c-ok); background: color-mix(in srgb, var(--c-ok) 12%, transparent); }
+.kupon-maerke--uden { color: var(--c-muted); background: color-mix(in srgb, var(--c-muted) 14%, transparent); }
+.match-card--udenfor { border-left: 3px dashed var(--c-muted); }
+.combi-udenfor { border-top: 1px solid var(--c-border); padding-top: 0.4rem; }
+.facit__mangler { color: var(--c-muted); }
+
 /* Holdopstilling i 3 kolonner der flugter med 1X2-knapperne:
    hjemmehold over "1", bindestreg over "X", udehold over "2". */
 .match-card__lineup {
@@ -807,6 +820,7 @@ a:focus-visible,
 .mytips__round { font-weight: 800; }
 .mytips__meta { font-size: 0.8rem; color: var(--c-muted); }
 .mytips__bonus { color: var(--c-pitch); font-weight: 700; }
+.mytips__udenfor { color: var(--c-muted); }
 .mytips__rows { display: flex; flex-direction: column; gap: 0.15rem; }
 .mytips__row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.5rem; padding: 0.35rem 0.2rem; border-top: 1px solid var(--c-border); font-size: 0.88rem; }
 .mytips__row--chance { background: color-mix(in srgb, var(--c-accent, #f5b301) 8%, transparent); border-radius: var(--radius-sm); }

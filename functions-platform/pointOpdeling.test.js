@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { opdelPoint, combiBonus } from './pointOpdeling.js';
+import {
+  opdelPoint, combiBonus, buildRoundContext, ugeNoegle, rundensUge,
+} from './pointOpdeling.js';
 
 // Ét regnestykke for "hvor kommer pointene fra". Det fandtes før to steder ad
 // hver sin vej — og de var allerede uenige om puljebonussen.
@@ -7,31 +9,31 @@ import { opdelPoint, combiBonus } from './pointOpdeling.js';
 const NU = Date.parse('2026-08-02T18:00:00Z');
 const foer = NU - 60 * 60_000;
 
-/** Runde-kontekst som buildRoundContext bygger den, men med kickoff. */
+/**
+ * Runde-kontekst bygget af den ÆGTE buildRoundContext, ikke i hånden.
+ *
+ * En håndbygget kontekst kender ikke de felter, funktionen udleder — fx om en
+ * kamp står på combi-kuponen — og så består testen uden at røre den kode, den
+ * påstår at teste. Den fejl har filen været i før.
+ *
+ * Kampe uden eksplicit kickoff får ét fælles tidspunkt, så de havner i samme
+ * uge og dermed på samme kupon. Vil man teste en splittet runde, sætter man
+ * kickoff selv.
+ */
 function ctx(matches) {
-  const byMatch = {};
-  const rounds = {};
-  for (const m of matches) {
-    // 'kickoff' in m og ikke ??: et EKSPLICIT null skal nå igennem, ellers
-    // testede fixturen aldrig den vagt, den var skrevet for at teste.
-    byMatch[m.id] = {
-      round: m.round, result: m.result, odds: m.odds || null,
-      kickoff: 'kickoff' in m ? m.kickoff : foer,
-    };
-    if (!rounds[m.round]) rounds[m.round] = { count: 0, settledCount: 0 };
-    rounds[m.round].count += 1;
-    if (m.result) rounds[m.round].settledCount += 1;
-  }
-  return { byMatch, rounds };
+  return buildRoundContext(matches.map((m) => ({
+    ...m,
+    kickoff: 'kickoff' in m ? m.kickoff : foer,
+  })));
 }
 
 describe('opdelPoint', () => {
   it('deler point op i 1X2 og Chancen', () => {
     const roundCtx = ctx([{ id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 } }]);
-    // 2,5 for 1X2 + 3,0 fra Chancen = 5,5 gemt på tippet.
+    // 3,5 for 1X2 (odds 2,5 + træf-bonus 1) + 2,0 fra Chancen = 5,5 på tippet.
     const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 5.5 }], roundCtx, nowMs: NU });
-    expect(res.p1x2).toBe(2.5);
-    expect(res.chance).toBe(3);
+    expect(res.p1x2).toBe(3.5);
+    expect(res.chance).toBe(2);
     expect(res.total).toBe(5.5);
   });
 
@@ -44,8 +46,8 @@ describe('opdelPoint', () => {
     const res = opdelPoint({
       bets: [{ matchId: 'm1', pick: '1', points: 9.9, chanceStake: 999 }], roundCtx, nowMs: NU,
     });
-    expect(res.p1x2).toBe(2);
-    expect(res.chance).toBe(7.9);
+    expect(res.p1x2).toBe(3);    // odds 2,0 + træf-bonus 1
+    expect(res.chance).toBe(6.9);
     expect(res.total).toBe(9.9);
   });
 
@@ -72,10 +74,10 @@ describe('opdelPoint', () => {
     const roundCtx = ctx([{
       id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 }, kickoff: NU + 60 * 60_000,
     }]);
-    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 2.5 }], roundCtx, nowMs: NU });
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 3.5 }], roundCtx, nowMs: NU });
     expect(res.kampe).toHaveLength(0); // ikke synlig for andre
-    expect(res.p1x2).toBe(2.5);        // men pointene er der
-    expect(res.total).toBe(2.5);
+    expect(res.p1x2).toBe(3.5);        // men pointene er der (odds 2,5 + 1)
+    expect(res.total).toBe(3.5);
   });
 
   // Et ulæseligt kickoff skal betyde "vis ikke", ikke "vis alligevel".
@@ -137,22 +139,22 @@ describe('opdelPoint', () => {
     ]);
     const res = opdelPoint({
       bets: [
-        { matchId: 'm1', pick: '1', points: 1.1 },
-        { matchId: 'm2', pick: '1', points: 1.1 },
-        { matchId: 'm3', pick: '1', points: 1.1 },
+        { matchId: 'm1', pick: '1', points: 2.1 },
+        { matchId: 'm2', pick: '1', points: 2.1 },
+        { matchId: 'm3', pick: '1', points: 2.1 },
       ],
       roundCtx,
       nowMs: NU,
     });
-    expect(res.p1x2).toBe(3.3); // ikke 3.3000000000000003
+    expect(res.p1x2).toBe(6.3); // 3 × (1,1 + 1) — ikke 6.300000000000001
   });
 
   it('afrunder Chancen, som er en forskel mellem to tal', () => {
-    // odds 3.33 → 1X2-point afrundes til 3,3; points 3.33 gemt på tippet.
+    // odds 3.33 → 1X2-point afrundes til 3,3 og får træf-bonus → 4,3.
     const roundCtx = ctx([{ id: 'm1', round: 1, result: 'X', odds: { 1: 4, X: 3.33, 2: 4 } }]);
-    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: 'X', points: 3.33 }], roundCtx, nowMs: NU });
-    expect(res.p1x2).toBe(3.3);
-    expect(res.chance).toBe(0);  // 3.33 − 3.3 = 0.03 → afrundet 0
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: 'X', points: 4.33 }], roundCtx, nowMs: NU });
+    expect(res.p1x2).toBe(4.3);
+    expect(res.chance).toBe(0);  // 4.33 − 4.3 = 0.03 → afrundet 0
   });
 
   it('lægger puljebonussen med i totalen', () => {
@@ -242,7 +244,7 @@ describe('combiBonus', () => {
     expect(combiBonus(bets, runde)).toBeGreaterThan(0);
   });
 
-  it('giver ingen bonus, når spilleren ikke tippede hele runden', () => {
+  it('giver ingen bonus ved kun én ramt kamp — der er ingen kupon at gange', () => {
     expect(combiBonus([{ matchId: 'm1', pick: '1' }], runde)).toBe(0);
   });
 
@@ -267,14 +269,23 @@ describe('combiBonus', () => {
       { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
       { matchId: 'm3', pick: '1' }, { matchId: 'm4', pick: '2' },
     ];
-    expect(combiBonus(bets, toRunder)).toBe(9); // 2.0×3.0 + 1.5×2.0
+    // 2·√(2,0×3,0) + 2·√(1,5×2,0) = 4,9 + 3,5
+    expect(combiBonus(bets, toRunder)).toBe(8.4);
   });
 
-  // Præcis tal, ikke bare "mere end 0": ÉN fejl må kun gange de RAMTE odds.
+  // ÉN fejl må kun gange de RAMTE odds med. Seks kampe, fordi en to-kamps
+  // runde med én fejl kun har ét ramt tip — og ét tip er ingen kupon.
   it('ganger kun de ramte odds ved én fejl', () => {
-    expect(combiBonus([{ matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: '1' }], runde)).toBe(2);
-    // to fejl i en to-kamps runde → ingen bonus
-    expect(combiBonus([{ matchId: 'm1', pick: 'X' }, { matchId: 'm2', pick: '1' }], runde)).toBe(0);
+    const kampe = [0, 1, 2, 3, 4, 5].map((i) => ({
+      id: `k${i}`, round: 9, result: '1', odds: { 1: 1.5, X: 4, 2: 4 },
+    }));
+    const seks = ctx(kampe);
+    const tip = (forkerte) => kampe.map((m, i) => ({
+      matchId: m.id, pick: i < forkerte ? 'X' : '1',
+    }));
+    expect(combiBonus(tip(0), seks)).toBe(6.8); // 2·√(1,5^6)
+    expect(combiBonus(tip(1), seks)).toBe(5.5); // 2·√(1,5^5)
+    expect(combiBonus(tip(4), seks)).toBe(3);   // 2·√(1,5^2) — hver ramt tæller
   });
 
   // Et tip på en SLETTET kamp må ikke smugles ind i en runde. Gør det det,
@@ -284,7 +295,7 @@ describe('combiBonus', () => {
       { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
       { matchId: 'slettet', pick: '1' },
     ];
-    expect(combiBonus(bets, runde)).toBe(6); // 2.0×3.0 — den slettede tæller ikke
+    expect(combiBonus(bets, runde)).toBe(4.9); // 2·√(2,0×3,0) — den slettede tæller ikke
   });
 
   // Kampe UDEN rundenummer må aldrig give combi. Jeg påstod i en commit, at
@@ -311,6 +322,211 @@ describe('combiBonus', () => {
     });
     expect(res.combi).toBe(0);
     expect(res.total).toBe(6);
+  });
+});
+
+// Hovedreglen efter august 2026: der er INTET kuponkrav. Den stod før kun
+// prøvet ét sted, og en regel, der kun én test holder fast i, er en regel på
+// vej ud igen.
+// Ugenøglen er hele fundamentet under kuponen, og den var HELT udækket:
+// UGE_SNIT_TIME, ankerdagen og tidszonen kunne alle skrives om uden en rød
+// test. Tabellen herunder er skrevet fra virkeligheden — runde 3 i august og
+// sommertidsskiftet 25. oktober, som ligger midt i runde 12.
+describe('ugeNoegle — spilleugen går fra tirsdag kl. 04 dansk tid', () => {
+  const t = (iso) => Date.parse(iso);
+  const raekker = [
+    // Runde 3: fredag til mandag hører til SAMME uge.
+    ['fre 7/8 19:00', '2026-08-07T17:00:00Z', '2026-08-04'],
+    ['søn 9/8 19:45', '2026-08-09T17:45:00Z', '2026-08-04'],
+    // Mandagsaftenkampen er HELE grunden til, at snittet ligger tirsdag kl. 04.
+    ['MAN 10/8 19:00', '2026-08-10T17:00:00Z', '2026-08-04'],
+    ['tir 11/8 03:59', '2026-08-11T01:59:00Z', '2026-08-04'],
+    ['tir 11/8 04:00', '2026-08-11T02:00:00Z', '2026-08-11'],
+    // Sommertidsskiftet 25. oktober ligger midt i runde 12. Nøglen er en
+    // datostreng i dansk tid, så offset-skiftet må ikke kunne flytte noget.
+    ['søn 25/10 16:00 CET', '2026-10-25T15:00:00Z', '2026-10-20'],
+    ['man 26/10 19:00 CET', '2026-10-26T18:00:00Z', '2026-10-20'],
+    ['tir 27/10 03:59 CET', '2026-10-27T02:59:00Z', '2026-10-20'],
+    ['tir 27/10 04:00 CET', '2026-10-27T03:00:00Z', '2026-10-27'],
+    // Forårsskiftet den anden vej.
+    ['søn 29/3 12:00 CEST', '2026-03-29T10:00:00Z', '2026-03-24'],
+  ];
+  for (const [navn, iso, forventet] of raekker) {
+    it(`${navn} → uge ${forventet}`, () => {
+      expect(ugeNoegle(t(iso))).toBe(forventet);
+    });
+  }
+
+  it('returnerer null i stedet for at kaste på et ulæseligt tidspunkt', () => {
+    expect(ugeNoegle(null)).toBeNull();
+    expect(ugeNoegle(NaN)).toBeNull();
+    expect(ugeNoegle(Infinity)).toBeNull();
+  });
+
+  // Et kickoff gemt i MIKROsekunder bliver til år 58000. Før denne vagt kastede
+  // toISOString() en RangeError, og da buildRoundContext kaldes over ALLE
+  // spillets kampe, stoppede én dårlig værdi afregningen for hele spillet —
+  // tavst, og prøvet igen i det uendelige.
+  it('returnerer null i stedet for at kaste, når kickoff er gemt i mikrosekunder', () => {
+    const mikro = Date.parse('2026-08-09T17:45:00Z') * 1000;
+    expect(() => ugeNoegle(mikro)).not.toThrow();
+    expect(ugeNoegle(mikro)).toBeNull();
+    // Grænsetilfældene omkring den reelle grænse (~2,5e14) og Date-områdets.
+    expect(ugeNoegle(2.5e14)).toBe('9892-03-08');
+    expect(ugeNoegle(2.6e14)).toBeNull();
+    expect(ugeNoegle(8.64e15)).toBeNull();
+  });
+
+  it('vælter ikke buildRoundContext for HELE spillet', () => {
+    const mikro = Date.parse('2026-08-09T17:45:00Z') * 1000;
+    let ctxRes;
+    expect(() => {
+      ctxRes = buildRoundContext([
+        { id: 'ok', round: 3, result: '1', odds: { 1: 2, X: 4, 2: 4 }, kickoff: Date.parse('2026-08-07T17:00:00Z') },
+        { id: 'daarlig', round: 3, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: mikro },
+      ]);
+    }).not.toThrow();
+    // Ulæseligt kickoff bliver INDE i kuponen — hellere en combi der venter,
+    // end en der udbetales på en ufuldstændig kupon.
+    expect(ctxRes.byMatch.daarlig.iVindue).toBe(true);
+    expect(ctxRes.rounds[3].combiCount).toBe(2);
+  });
+});
+
+// "Rundens uge" er den med FLEST kampe — ikke den med den første kamp. Begge
+// grene var udækket.
+describe('rundensUge', () => {
+  const k = (id, iso) => ({ id, round: 3, kickoff: Date.parse(iso) });
+
+  it('vælger ugen med flest kampe, ikke ugen med den første kamp', () => {
+    // Én kamp rykket FREM til mandagen før. Uden "flest" ville dén ene kamp
+    // blive hele kuponen, og de fem andre falde udenfor.
+    const kampe = [
+      k('frem', '2026-08-03T17:00:00Z'),   // man 3/8 → uge 2026-07-28
+      k('a', '2026-08-07T17:00:00Z'), k('b', '2026-08-07T19:00:00Z'),
+      k('c', '2026-08-08T15:00:00Z'), k('d', '2026-08-09T15:00:00Z'),
+      k('e', '2026-08-09T17:45:00Z'),
+    ];
+    expect(rundensUge(kampe)).toBe('2026-08-04'); // 5 mod 1
+  });
+
+  it('vælger den TIDLIGSTE uge, når det står lige', () => {
+    const kampe = [
+      k('a', '2026-08-07T17:00:00Z'), k('b', '2026-08-08T15:00:00Z'), k('c', '2026-08-09T15:00:00Z'),
+      k('d', '2026-08-14T17:00:00Z'), k('e', '2026-08-15T15:00:00Z'), k('f', '2026-08-16T15:00:00Z'),
+    ];
+    expect(rundensUge(kampe)).toBe('2026-08-04'); // 3 mod 3 → tidligste
+  });
+
+  it('giver null, når ingen kamp har et læseligt tidspunkt', () => {
+    expect(rundensUge([{ id: 'x', round: 3, kickoff: null }])).toBeNull();
+  });
+});
+
+// Serveren havde INGEN test med en splittet runde. Alle fixtures gav kampene
+// samme kickoff, så ingen kamp havde nogensinde ligget uden for kuponen —
+// og hele vindues-logikken kunne slettes server-side med grøn suite.
+describe('splittet runde — runde 3 som den faktisk ser ud', () => {
+  const RUNDE3 = [
+    { id: 'a', round: 3, result: '1', odds: { 1: 2.0, X: 4, 2: 4 }, kickoff: Date.parse('2026-08-07T17:00:00Z') },
+    { id: 'b', round: 3, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 }, kickoff: Date.parse('2026-08-07T19:00:00Z') },
+    { id: 'c', round: 3, result: '2', odds: { 1: 4, X: 4, 2: 2.5 }, kickoff: Date.parse('2026-08-09T15:00:00Z') },
+    { id: 'd', round: 3, result: '1', odds: { 1: 1.5, X: 4, 2: 4 }, kickoff: Date.parse('2026-08-09T17:45:00Z') },
+    // Udsat til september — uden for rundens uge.
+    { id: 'e', round: 3, result: null, odds: { 1: 2, X: 4, 2: 4 }, kickoff: Date.parse('2026-09-02T17:00:00Z') },
+    { id: 'f', round: 3, result: null, odds: { 1: 2, X: 4, 2: 4 }, kickoff: Date.parse('2026-09-03T17:00:00Z') },
+  ];
+
+  it('tæller kun ugens kampe på kuponen — combiCount 4, count 6', () => {
+    const c = buildRoundContext(RUNDE3);
+    expect(c.rounds[3].count).toBe(6);
+    expect(c.rounds[3].combiCount).toBe(4);
+    expect(c.rounds[3].combiSettled).toBe(4);
+    expect(c.byMatch.e.iVindue).toBe(false);
+    expect(c.byMatch.f.iVindue).toBe(false);
+  });
+
+  it('udbetaler combi, når ugens fire er afgjort — uden at vente på de udsatte', () => {
+    const c = buildRoundContext(RUNDE3);
+    // 2·√(2,0×3,0×2,5×1,5) = 2·√22,5 = 9,5
+    expect(combiBonus([
+      { matchId: 'a', pick: '1' }, { matchId: 'b', pick: 'X' },
+      { matchId: 'c', pick: '2' }, { matchId: 'd', pick: '1' },
+    ], c)).toBe(9.5);
+  });
+
+  it('ganger ikke en udsat kamps odds ind i produktet', () => {
+    // Samme fire ramte, men den udsatte har fået facit og er tippet rigtigt.
+    const medFacit = RUNDE3.map((m) => (m.id === 'e' ? { ...m, result: '1' } : m));
+    const c = buildRoundContext(medFacit);
+    const uden = combiBonus([
+      { matchId: 'a', pick: '1' }, { matchId: 'b', pick: 'X' },
+      { matchId: 'c', pick: '2' }, { matchId: 'd', pick: '1' },
+    ], c);
+    const med = combiBonus([
+      { matchId: 'a', pick: '1' }, { matchId: 'b', pick: 'X' },
+      { matchId: 'c', pick: '2' }, { matchId: 'd', pick: '1' },
+      { matchId: 'e', pick: '1' },
+    ], c);
+    expect(med).toBe(uden);
+    expect(c.rounds[3].combiCount).toBe(4); // stadig kun ugens fire
+  });
+});
+
+describe('combiBonus — uden kuponkrav', () => {
+  const runde = [
+    { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+    { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+    { id: 'm3', round: 1, result: '2', odds: { 1: 4, X: 4, 2: 2.5 } },
+  ];
+  const c = () => ctx(runde);
+
+  it('betaler for to ramte, selv om tredje kamp aldrig blev tippet', () => {
+    // 2·√(2,0×3,0) = 4,9. Den glemte kamp koster ingenting.
+    expect(combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c())).toBe(4.9);
+  });
+
+  it('giver præcis det samme, som hvis den tredje var tippet forkert', () => {
+    const glemt = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c());
+    const forbi = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }, { matchId: 'm3', pick: '1' },
+    ], c());
+    expect(glemt).toBe(forbi);
+  });
+
+  it('vokser, når man tipper og rammer flere', () => {
+    const to = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c());
+    const tre = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' }, { matchId: 'm3', pick: '2' },
+    ], c());
+    expect(tre).toBeGreaterThan(to);
+  });
+
+  it('tæller et dublet-bet én gang', () => {
+    const en = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c());
+    const dublet = combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm1', pick: '1' }, { matchId: 'm2', pick: 'X' },
+    ], c());
+    expect(dublet).toBe(en);
+  });
+
+  it('venter stadig på, at hele kuponen er afgjort', () => {
+    const halv = ctx([
+      { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+      { id: 'm2', round: 1, result: null, odds: { 1: 4, X: 3.0, 2: 4 } },
+      { id: 'm3', round: 1, result: '2', odds: { 1: 4, X: 4, 2: 2.5 } },
+    ]);
+    expect(combiBonus([
+      { matchId: 'm1', pick: '1' }, { matchId: 'm3', pick: '2' },
+    ], halv)).toBe(0);
   });
 });
 
@@ -387,6 +603,38 @@ describe('spejling mod src/lib', () => {
     ['kamp uden facit', {
       matches: [{ id: 'm1', round: 1, result: null, odds: { 1: 2, X: 4, 2: 4 } }],
       bets: [{ matchId: 'm1', pick: '1', points: 0 }],
+    }],
+    // Den nye gren: INTET kuponkrav. Uden dette tilfælde kunne den ene fil
+    // begynde at kræve fuld kupon igen, mens den anden ikke gjorde — og
+    // spilleren ville se ét tal på skærmen og et andet i stillingen.
+    ['delvist tippet runde — kuponkravet findes ikke', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+        { id: 'm3', round: 1, result: '2', odds: { 1: 4, X: 4, 2: 2.5 } },
+      ],
+      bets: [
+        { matchId: 'm1', pick: '1', points: 3 },
+        { matchId: 'm2', pick: 'X', points: 4 },
+      ],
+    }],
+    ['kun ét tip i en afgjort runde — ingen kupon at gange', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+      ],
+      bets: [{ matchId: 'm1', pick: '1', points: 3 }],
+    }],
+    ['dublet-bet på samme kamp', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: 'X', odds: { 1: 4, X: 3.0, 2: 4 } },
+      ],
+      bets: [
+        { matchId: 'm1', pick: '1', points: 3 },
+        { matchId: 'm1', pick: '1', points: 3 },
+        { matchId: 'm2', pick: 'X', points: 4 },
+      ],
     }],
   ];
 

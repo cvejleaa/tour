@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, ROUND_BONUS,
+  OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, COMBI, hitPoints, TRAEF_BONUS,
   isOutcome, outcomeFromScore, outcomePoints,
   eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
   chanceMaxStake, canUseChance, isValidStake, settleChance,
@@ -27,12 +27,22 @@ describe('1X2-udfald', () => {
   });
 });
 
-describe('outcomePoints (point = odds, 1 decimal)', () => {
+describe('outcomePoints (point = odds + træf-bonus)', () => {
   const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
-  it('ramt udfald giver kampens odds afrundet til 1 decimal', () => {
-    expect(outcomePoints('1', '1', odds)).toBe(3.1);
-    expect(outcomePoints('X', 'X', odds)).toBe(4.3);
-    expect(outcomePoints('2', '2', odds)).toBe(2.3);
+  // Oddsene afrundet til 1 decimal, PLUS træf-bonussen på 1. Bonussen findes,
+  // fordi rene fair odds gør alle strategier lige gode — se hitPoints.
+  it('ramt udfald giver kampens odds (1 decimal) plus træf-bonussen', () => {
+    expect(outcomePoints('1', '1', odds)).toBe(4.1);
+    expect(outcomePoints('X', 'X', odds)).toBe(5.3);
+    expect(outcomePoints('2', '2', odds)).toBe(3.3);
+  });
+  // Combi'en må IKKE se bonussen — den ganger de rene odds. Ryger de to
+  // sammen, ville det ene point blive ganget med i stedet for lagt til.
+  it('holder træf-bonussen ude af outcomeReward, som combien bruger', () => {
+    expect(outcomeReward('1', odds)).toBe(3.1);
+    expect(hitPoints('1', odds)).toBe(4.1);
+    // toBeCloseTo: 4,1 − 3,1 giver 0,9999999999999996 i binær flydende komma.
+    expect(hitPoints('1', odds) - outcomeReward('1', odds)).toBeCloseTo(TRAEF_BONUS, 10);
   });
   it('forkert tip = 0', () => {
     expect(outcomePoints('1', 'X', odds)).toBe(0);
@@ -43,9 +53,9 @@ describe('outcomePoints (point = odds, 1 decimal)', () => {
     expect(outcomePoints(undefined, '1', odds)).toBe(0);
   });
   it('falder tilbage til DEFAULT_POINTS uden gyldige odds', () => {
-    expect(outcomePoints('1', '1')).toBe(DEFAULT_POINTS['1']);
-    expect(outcomePoints('X', 'X', {})).toBe(DEFAULT_POINTS.X);
-    expect(outcomePoints('2', '2', { '2': 'x' })).toBe(DEFAULT_POINTS['2']);
+    expect(outcomePoints('1', '1')).toBe(DEFAULT_POINTS['1'] + TRAEF_BONUS);
+    expect(outcomePoints('X', 'X', {})).toBe(DEFAULT_POINTS.X + TRAEF_BONUS);
+    expect(outcomePoints('2', '2', { '2': 'x' })).toBe(DEFAULT_POINTS['2'] + TRAEF_BONUS);
   });
 });
 
@@ -63,25 +73,50 @@ describe('outcomeReward + round1', () => {
   });
 });
 
-describe('roundComboBonus (combi-runde-bonus)', () => {
-  it('alle 6 ramt → odds ganget, loftet ved PERFECT_CAP', () => {
-    // 1.5^6 ≈ 11.4 < 25 → ikke loftet
-    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(round1(1.5 ** 6));
-    // store odds → loft rammer
-    expect(roundComboBonus([2, 2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.PERFECT_CAP);
+describe('roundComboBonus (combi-bonus)', () => {
+  // Formlen: 2 × kvadratroden af de ramte odds ganget sammen, loft 25.
+  const forvent = (odds) => round1(Math.min(2 * Math.sqrt(odds.reduce((a, b) => a * b, 1)), 25));
+
+  it('ganger de ramte odds og tager kvadratroden', () => {
+    // 1,5^6 = 11,4 → 2·√11,4 = 6,8. Under loftet, så formlen er synlig.
+    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(6.8);
+    expect(roundComboBonus([1.5, 1.5, 1.5, 1.5, 1.5, 1.5], 6)).toBe(forvent([1.5, 1.5, 1.5, 1.5, 1.5, 1.5]));
   });
-  it('alle på nær én (5 af 6) → 5 odds ganget, loftet ved NEAR_CAP', () => {
-    expect(roundComboBonus([1.4, 1.4, 1.4, 1.4, 1.4], 6)).toBe(round1(1.4 ** 5)); // ≈5.4
-    expect(roundComboBonus([2, 2, 2, 2, 2], 6)).toBe(ROUND_BONUS.NEAR_CAP);        // 32 → loft 12
+
+  // HVER ramt kamp tæller. Den gamle regel gav nul ved to fejl, og det var
+  // netop dét, der straffede modige tip: sandsynligheden for at feje en runde
+  // falder hurtigere med mod, end oddsene stiger.
+  it('betaler også ved to og tre fejl', () => {
+    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(8);   // 2 fejl → 2·√16
+    expect(roundComboBonus([2, 2, 2], 6)).toBe(5.7);    // 3 fejl → 2·√8
   });
-  it('to eller flere fejl → ingen bonus', () => {
-    expect(roundComboBonus([2, 2, 2, 2], 6)).toBe(0);
+
+  // Loftet binder først et godt stykke over en ren favorit-runde (2·√86 ≈ 18,5),
+  // så en modig fejlfri runde er stadig mere værd end en forsigtig.
+  it('lofter ved 25, men først over favorit-niveau', () => {
+    expect(roundComboBonus([2.1, 2.1, 2.1, 2.1, 2.1, 2.1], 6)).toBe(18.5); // favoritter
+    expect(roundComboBonus([4, 4, 4, 4, 4, 4], 6)).toBe(25);               // outsidere → loft
+    expect(COMBI.LOFT).toBe(25);
+  });
+
+  it('kræver mindst to ramte — én kamp er ingen kupon', () => {
+    expect(roundComboBonus([2.1], 6)).toBe(0);
     expect(roundComboBonus([], 6)).toBe(0);
   });
+
+  // Et LIGE antal negative odds giver et positivt produkt og dermed bonus.
+  // Kræver at en admin skriver negative odds — men reglen skal ikke hvile på,
+  // at ingen gør det.
+  it('giver 0 ved negative odds, ikke bonus for et positivt produkt', () => {
+    expect(roundComboBonus([-2, -3], 2)).toBe(0);
+    expect(roundComboBonus([-2, 3], 2)).toBe(0);
+    expect(roundComboBonus([0, 3], 2)).toBe(0);
+  });
+
   it('robust mod ugyldigt input', () => {
     expect(roundComboBonus(null, 6)).toBe(0);
-    expect(roundComboBonus([2, 2], 1)).toBe(0);
-    expect(roundComboBonus([1.5, 1.5], 2)).toBe(round1(2.25)); // 2-kamps runde, alle ramt
+    expect(roundComboBonus([2, 2], 1)).toBe(0);   // kupon på under to kampe
+    expect(roundComboBonus([1.5, 1.5], 2)).toBe(3); // 2·√2,25
   });
 });
 

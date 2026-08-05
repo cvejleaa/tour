@@ -80,6 +80,15 @@ export default function TipsHistorik({ history, opdeling = null, total, kunAfgjo
               {/* 🔗 og ikke ⚡: ⚡ er Chancen, og den står på rækkerne nedenfor.
                   Samme tegn til to ting på samme skærm er forvirring. */}
               {r.roundBonus > 0 && <span className="mytips__bonus"> · combi +{fmtDec(r.roundBonus)} 🔗</span>}
+              {/* Var runden splittet, skal det stå HER. Ellers ser en spiller
+                  "6/6 tippet · 4 ramt" uden combi og tror, bonussen er væk —
+                  i stedet for at to af kampene aldrig var på kuponen. */}
+              {r.udenfor?.length > 0 && (
+                <span className="mytips__udenfor" data-testid={`udenfor-${r.round}`}>
+                  {' '}· kupon {r.kupon} kampe
+                  {' '}({r.udenfor.length} uden for ugen)
+                </span>
+              )}
             </span>
           </div>
           <div className="mytips__rows">

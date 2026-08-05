@@ -74,8 +74,81 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 | Stillingen viser kun dig selv | Du er ikke med i en liga endnu — det er den forventede visning |
 | Runde 1 mangler i spillet | `game.startAt` ligger efter runde 1. Det er tilsigtet; ryd feltet for at vise alt |
 | Point mangler for tidlige runder | Samme gate. Efter et skift i `startAt`: tryk 🔄 **Genberegn point** |
+| Point er forkerte efter en ændring af selve POINTREGLEN | 🔄 **Genberegn point** hjælper IKKE — se afsnittet nedenfor |
 | Ingen påmindelser sendt | Kampene ligger før `startAt`, eller `SMTP_PASSWORD` mangler i `spil-89af9` |
 | Runde-Botten poster ikke | `ANTHROPIC_API_KEY` mangler, ligaen har under 2 medlemmer, eller runden er allerede recappet (`game.recappedRounds`) |
+
+## To slags genberegning — de retter IKKE det samme
+
+Den vigtigste skillelinje i drift, og den nemmeste at falde i: de to knapper
+ligner hinanden, men den ene kan ikke rette det, den anden retter.
+
+| Hvad er ændret | Værktøj | Hvorfor |
+|---|---|---|
+| `game.startAt` (gaten), en liga, en puljeafregning | 🔄 **Genberegn point** (`recomputeGameScores`) | `bets.points` er allerede rigtige; kun totalerne skal lægges sammen forfra |
+| **Selve pointreglen** i `superligaScoring.js` — fx træf-bonussen eller combi-formlen | **`rescoreGameBets`** | `bets.points` er kilden til totalen, og de står med det GAMLE tal |
+
+`bets/{id}.points` skrives kun af `recomputeGameMatchCore`, som kun kaldes, når
+en kamps **facit ændrer sig**. Ændrer man pointreglen, rører den derfor ikke et
+eneste eksisterende bet.
+
+**Fælden:** `recomputeGameScores` er ren aggregering. Efter en regelændring
+returnerer den et pænt `{players, gatedMatches}` og ser ud, som om den virkede —
+men den retter ingenting, fordi den lægger de gamle bet-point sammen. Symptomet
+er, at skærmene modsiger hinanden uden en fejlbesked: Tip-fladen regner den nye
+regel live, Mine tips viser det gemte tal, og ⚡ Chancen — som udledes som
+(gemte point − 1X2-point) — går i **minus** for alle, der har ramt noget.
+
+### Sådan køres bagfyldningen
+
+**GitHub → Actions → "Genscor bets efter regelændring (spil-89af9)".**
+
+| Felt | Tør-kørsel | Skrivning | Gendan |
+|---|---|---|---|
+| `gameId` | `superliga2627` | `superliga2627` | `superliga2627` |
+| `skriv` | **tom** | præcis `SKRIV` | tom |
+| `gendan` | tom | tom | filnavnet fra en backup-artefakt |
+
+`skriv` er en tekst og ikke et flueben med vilje: et flueben er for nemt at
+komme til. Alt andet end præcis `SKRIV` tørkører.
+
+**Backup tages ALTID** — også ved tør-kørsel — og lægges op som artefakt på
+kørslen (`bets-backup-<gameId>-<run_id>`, gemt i 90 dage). Den indeholder hvert
+bets `points` FØR kørslen. De gamle værdier findes ikke i noget andet felt og
+ingen historik, så filen er den eneste vej tilbage uden PITR.
+
+**Læs tør-kørslen, før du skriver.** Ved en ren træf-bonus-ændring skal `delta`
+være nøjagtig lig antal ændrede — hvert ændret bet flytter sig præcis +1, fordi
+combi-formlen ikke rører `bets.points`, og Chancen afregnes uændret til de rene
+odds. Scriptet siger det selv med ✓ eller ⚠️. Er de ikke ens, har noget andet
+flyttet sig: **stop og find ud af hvad**.
+
+**Kør den ikke, mens en kamp er i gang, eller mens du retter et facit.**
+Bagfyldningen læser alle bets, regner, og skriver bagefter. Ændrer et facit sig
+imens, ville den skrive sit forældede tal ovenpå — derfor skriver den med en
+`lastUpdateTime`-precondition, så et rørt bet får hele batchen til at fejle med
+`FAILED_PRECONDITION`. Det er den rigtige reaktion: kørslen er idempotent, så
+kør den bare igen, når kampen er afgjort.
+
+Den kalder selv `recomputeAllPlayerTotals` til sidst — **tryk ikke på
+🔄 Genberegn point bagefter**, det er allerede gjort.
+
+### Hvis noget skal fortrydes
+
+Hent backup-artefakten fra kørslen, læg filen i repoet, og kør samme workflow
+med `gendan` udfyldt. Den skriver hvert bets gamle `points` tilbage og
+genberegner totalerne.
+
+Skal selve **reglen** rulles tilbage, er det ikke nok at gendanne: både
+functions og hosting skal vendes, ellers regner skærmene stadig den nye regel
+mod gamle tal. Rækkefølgen er den samme som frem — kode først, så data.
+
+### Der findes også en callable
+
+`rescoreGameBets` (samme funktion, kaldt over HTTPS med et owner-token). Den er
+der, hvis workflowet ikke kan bruges, men **workflowet er den normale vej**: det
+tager backup, har tripwiren indbygget, og efterlader et spor. `dryRun` er default
+sand, og kun boolean `false` skriver.
 
 ## Secrets pr. projekt
 

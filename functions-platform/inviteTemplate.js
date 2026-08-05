@@ -96,7 +96,7 @@ function superligaInviteHtml({ intro, joinLink, leagueName, appUrl = 'https://ti
     kicker: '&#127919; Flere veje til point',
     title: 'Combi-bonus, Chancen og s&aelig;sonens pulje',
     rows: [
-      featureRow({ n: 1, title: 'Combi-bonus &#127920;', text: 'Tip hele runden: rammer du alle (eller alle p&aring; n&aelig;r &eacute;n), ganges dine ramte odds sammen som en kupon og l&aelig;gges til som bonus-point.' }),
+      featureRow({ n: 1, title: 'Combi-bonus &#127920;', text: 'Oddsene p&aring; de kampe, du rammer, ganges sammen, og du f&aring;r 2 &times; kvadratroden af produktet i bonus &mdash; h&oslash;jst 25 point. Det t&aelig;ller fra to rigtige og opefter, og en glemt kamp koster dig ikke bonussen.' }),
       featureRow({ n: 2, title: 'Chancen &#9889;', text: 'N&aring;r du er HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af rundens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.' }),
       featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: 'S&aelig;sonens store bonuspot: udpeg de <b>6 hold</b>, du tror ender i mesterskabsspillet. <b>+4 point</b> pr. rigtigt hold og <b>+10 bonus</b> for alle 6 &mdash; afgjort til allersidst, s&aring; det kan vende hele stillingen.', last: true }),
     ].join(''),
