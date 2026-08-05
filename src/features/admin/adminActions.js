@@ -80,14 +80,15 @@ export async function callRecomputeGameScores(gameId) {
 }
 
 /**
- * Ret Runde-Bottens ALLEREDE POSTEDE opslag, så hvert af dem kun handler om
- * den liga, det står i. dryRun (default sand) skriver intet.
- * @param {{gameId: string, round?: number|null, dryRun?: boolean}} arg
+ * Erstat Runde-Bottens ALLEREDE POSTEDE opslag — dem uden rundenummer, som blev
+ * bygget af hele spillets felt — med en fast rettelsestekst. dryRun (default
+ * sand) skriver intet.
+ * @param {{gameId: string, dryRun?: boolean}} arg
  */
-export async function callRetGamleRundeOpslag({ gameId, round = null, dryRun = true }) {
+export async function callRetGamleRundeOpslag({ gameId, dryRun = true }) {
   try {
     const fn = httpsCallable(functions, 'retGamleRundeOpslag', { timeout: 540000 });
-    const res = await fn({ gameId, round, dryRun });
+    const res = await fn({ gameId, dryRun });
     return { ok: true, data: res.data };
   } catch (err) {
     return { ok: false, error: err?.message || 'Kunne ikke rette opslagene.' };

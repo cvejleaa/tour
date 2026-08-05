@@ -20,6 +20,7 @@ import RiderProfilesTab from '../features/admin/RiderProfilesTab';
 import TeamStylesTab from '../features/admin/TeamStylesTab';
 import GameScheduleTab from '../features/admin/GameScheduleTab';
 import GameReminderTab from '../features/admin/GameReminderTab';
+import GameRecapBotTab from '../features/admin/GameRecapBotTab';
 
 // Fane-id'er
 const TAB_USERS   = 'users';
@@ -36,6 +37,7 @@ const TAB_RIDERS = 'riders';
 const TAB_TEAMSTYLES = 'teamstyles';
 const TAB_SCHEDULE = 'schedule';
 const TAB_REMINDERS = 'reminders';
+const TAB_RECAPBOT = 'recapbot';
 
 export default function AdminPage() {
   const { isOwner, isGlobalAdmin } = useAuth();
@@ -67,6 +69,7 @@ export default function AdminPage() {
       { key: TAB_SCHEDULE, label: '🗓️ Spil-tidsplan' },
       { key: TAB_TEAMSTYLES, label: '🎨 Hold-farver' },
       { key: TAB_REMINDERS, label: '🔔 Påmindelser' },
+      { key: TAB_RECAPBOT, label: '🤖 Runde-Botten' },
     ] : []),
     { key: TAB_TESTS,   label: 'Tests' },
     ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
@@ -142,6 +145,7 @@ export default function AdminPage() {
         {tab === TAB_SCHEDULE && <GameScheduleTab />}
         {tab === TAB_TEAMSTYLES && <TeamStylesTab />}
         {tab === TAB_REMINDERS && <GameReminderTab />}
+        {tab === TAB_RECAPBOT && <GameRecapBotTab />}
         {tab === TAB_BONUS   && <BonusTab />}
         {tab === TAB_LEAGUES && <LeaguesAdminTab />}
         {tab === TAB_TESTS   && <TestsTab />}

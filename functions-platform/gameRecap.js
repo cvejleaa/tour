@@ -347,97 +347,85 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
 }
 
 /**
- * Find det opslag, Runde-Botten postede for en bestemt runde i en liga.
+ * Teksten, der træder i stedet for et forkert opslag.
  *
- * Nye opslag bærer selv `round`. De ældste gør ikke — de blev postet, før
- * feltet fandtes — og må derfor matches på RÆKKEFØLGE: botten poster højst én
- * gang pr. runde pr. liga, så det n'te bot-opslag hører til den n'te
- * recappede runde. Det holder kun, så længe ingen har slettet et opslag, og
- * derfor skal en rettelse altid forhåndsvises, før den skrives.
- *
- * @param {Array} beskeder bot-opslag i ligaen, ældst først
- * @param {number} round
- * @param {number[]} recappedRounds spillets recappede runder, sorteret
+ * Den er skrevet i hånden og er ENS hver gang — med vilje. Det oplagte var at
+ * lade botten skrive runden om pr. liga, men et genskrevet runde 2-opslag ville
+ * blive forkert på en ny måde: stillingen hentes fra spillernes NUVÆRENDE
+ * totaler (runde 3 er spillet, og pointreglen er lavet om siden), og optakten
+ * ville bede folk tippe en runde, hvis deadline er passeret. To dage gammelt
+ * indhold kan ikke genskabes troværdigt — men det kan siges ærligt, hvad der
+ * gik galt. Og fordi teksten er fast, viser forhåndsvisningen præcis det, der
+ * bliver skrevet.
  */
-function findOpslag(beskeder, round, recappedRounds) {
-  const medFelt = beskeder.find((m) => m.round === round);
-  if (medFelt) return { ...medFelt, sikker: true };
-  // Fald tilbage på rækkefølge — kun blandt dem UDEN rundenummer, så et
-  // allerede rettet opslag ikke tælles med og forskyder resten.
-  const uden = beskeder.filter((m) => m.round == null);
-  const rundeUden = recappedRounds.filter((r) => !beskeder.some((m) => m.round === r));
-  const i = rundeUden.indexOf(round);
-  if (i < 0 || i >= uden.length) return null;
-  return { ...uden[i], sikker: false };
-}
-
-/** Foden under et rettet opslag. Vi skriver ikke om på fortiden i det skjulte. */
-const RETTET_NOTE = '\n\n(Rettet: det oprindelige opslag nævnte ved en fejl spillere '
-  + 'fra andre ligaer. Teksten her handler kun om jeres egen liga.)';
+const RETTET_TEKST = 'Det her opslag er skrevet om. 🤖\n\n'
+  + 'Den oprindelige tekst blev bygget af ALLE spillere i spillet — ikke kun jer '
+  + 'i ligaen — så den nævnte navne og point fra folk, I ikke deler liga med. '
+  + 'Det var en fejl i mig, og den er rettet: fra nu af handler mine opslag kun '
+  + 'om jeres egen liga.\n\n'
+  + 'Rundens resultater og den rigtige stilling står som altid under ⚽ Kampe og '
+  + '🏆 Stilling.';
 
 /**
- * Ret Runde-Bottens ALLEREDE POSTEDE opslag, så hvert af dem kun handler om
- * den liga, det står i.
+ * Ret Runde-Bottens ALLEREDE POSTEDE opslag, så intet på ligavæggen længere
+ * handler om spillere uden for ligaen.
  *
- * De første opslag blev bygget af hele spillets spillere og sendt til alle
- * vægge. Her genskrives de pr. liga — men teksten erstattes ikke i det
- * skjulte: der sættes en synlig fod under, der siger, at opslaget er rettet.
+ * **Hvilke opslag rammes:** bot-opslag UDEN `round`-felt. Feltet kom til
+ * sammen med rettelsen af botten, så "intet rundenummer" er præcis lig med
+ * "postet før rettelsen". Det er en egenskab ved dokumentet selv — ingen
+ * matchning på rækkefølge, som ville gætte forkert, hvis nogen havde slettet
+ * et opslag, eller hvis en liga blev oprettet efter runde 1.
+ *
+ * Den oprindelige tekst gemmes i `oprindeligTekst`, så rettelsen kan rulles
+ * tilbage. Væggen er ellers tænkt uforanderlig (`firestore.rules`: `allow
+ * update: if false`) — kun Admin SDK'en kommer uden om det, og derfor er
+ * dryRun default sand.
  *
  * @param {{dryRun?: boolean}} [opts] dryRun (DEFAULT SAND) skriver intet.
  */
-async function opdaterGamleRundeOpslag(db, FieldValue, anthropic, gameId, roundNo, { dryRun = true } = {}) {
+async function opdaterGamleRundeOpslag(db, FieldValue, gameId, { dryRun = true } = {}) {
   const gameRef = db.collection('games').doc(gameId);
   const gameSnap = await gameRef.get();
-  if (!gameSnap.exists) return { reason: 'no-game', rettede: 0, udkast: [] };
-  const recapped = (Array.isArray(gameSnap.data().recappedRounds)
-    ? gameSnap.data().recappedRounds : []).slice().sort((a, b) => a - b);
-  const runder = roundNo != null ? [roundNo] : recapped;
-  if (!runder.length) return { reason: 'no-recapped-rounds', rettede: 0, udkast: [] };
+  if (!gameSnap.exists) return { reason: 'no-game', dryRun, rettede: 0, udkast: [] };
 
+  const leaguesSnap = await gameRef.collection('leagues').get();
   const udkast = [];
   let rettede = 0;
-  for (const round of runder) {
-    // Genbrug HELE den rigtige vej: samme fakta, samme prompt, samme model som
-    // et nyt opslag. En egen gengivelse her ville være en anden bot.
-    const nye = await runGameRoundRecap(db, FieldValue, anthropic, gameId, round, { dryRun: true });
-    if (!nye.udkast?.length) {
-      udkast.push({ round, reason: nye.reason || 'ingen-udkast' });
-      continue;
-    }
-    for (const u of nye.udkast) {
-      const beskedSnap = await gameRef.collection('leagues').doc(u.leagueId)
-        .collection('messages').where('uid', '==', 'runde-bot').get();
-      const beskeder = beskedSnap.docs
-        .map((d) => ({ id: d.id, ref: d.ref, ...d.data() }))
-        .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
-      const gammel = findOpslag(beskeder, round, recapped);
-      if (!gammel) {
-        udkast.push({ round, leagueId: u.leagueId, navn: u.navn, reason: 'intet opslag fundet' });
-        continue;
-      }
+  for (const ld of leaguesSnap.docs) {
+    const navn = ld.data().name || ld.id;
+    const beskedSnap = await ld.ref.collection('messages').where('uid', '==', 'runde-bot').get();
+    const gamle = beskedSnap.docs
+      .map((d) => ({ id: d.id, ref: d.ref, ...d.data() }))
+      // `round == null` fanger både manglende felt og null. `oprindeligTekst`
+      // udelukker et opslag, der ALLEREDE er rettet — så en gentagen kørsel
+      // ikke overskriver sikkerhedskopien af den oprindelige tekst med
+      // rettelsesteksten.
+      .filter((m) => m.round == null && !m.oprindeligTekst)
+      .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+
+    for (const gammel of gamle) {
       udkast.push({
-        round,
-        leagueId: u.leagueId,
-        navn: u.navn,
+        leagueId: ld.id,
+        navn,
         messageId: gammel.id,
-        sikker: gammel.sikker,
         gammelTekst: gammel.text,
-        nyTekst: u.text + RETTET_NOTE,
+        nyTekst: RETTET_TEKST,
       });
       if (!dryRun) {
         await gammel.ref.set({
-          text: u.text + RETTET_NOTE,
-          round,
+          text: RETTET_TEKST,
+          oprindeligTekst: gammel.text,
           rettetAt: FieldValue.serverTimestamp(),
         }, { merge: true });
         rettede += 1;
       }
     }
   }
+  if (!udkast.length) return { reason: 'ingen-gamle-opslag', dryRun, rettede: 0, udkast: [] };
   return { dryRun, rettede, udkast };
 }
 
 module.exports = {
   RECAP_SYSTEM, sanitizeName, isSurprise, buildRoundRecapFacts, generateRecapText, runGameRoundRecap,
-  findOpslag, opdaterGamleRundeOpslag, RETTET_NOTE,
+  opdaterGamleRundeOpslag, RETTET_TEKST,
 };

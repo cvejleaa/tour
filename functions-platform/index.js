@@ -118,26 +118,23 @@ exports.generateGameRecapNow = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// opdaterGamleRundeOpslag — ret Runde-Bottens ALLEREDE POSTEDE opslag, så hvert
-// af dem kun handler om den liga, det står i. De første opslag blev bygget af
-// hele spillets spillere og sendt til alle vægge.
+// opdaterGamleRundeOpslag — erstat Runde-Bottens ALLEREDE POSTEDE opslag, som
+// blev bygget af hele spillets spillere og sendt til alle vægge, med en fast
+// rettelsestekst. Ingen AI: teksten er skrevet i hånden, så forhåndsvisningen
+// viser præcis det, der bliver skrevet.
 //
 // dryRun er DEFAULT SAND: den skriver i noget, spillerne allerede har læst.
 // ---------------------------------------------------------------------------
 exports.retGamleRundeOpslag = onCall(
-  { region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 540 },
+  { region: REGION, timeoutSeconds: 540 },
   async (request) => {
     const db = getFirestore();
     await requireAdmin(db, request);
     const gameId = String(request.data?.gameId || '').trim();
     if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
-    const anthropic = anthropicClient();
-    if (!anthropic) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
-    const roundNo = Number.isFinite(Number(request.data?.round)) && request.data?.round !== null && request.data?.round !== ''
-      ? Number(request.data.round) : null;
     const dryRun = request.data?.dryRun !== false;
     try {
-      return await opdaterGamleRundeOpslag(db, FieldValue, anthropic, gameId, roundNo, { dryRun });
+      return await opdaterGamleRundeOpslag(db, FieldValue, gameId, { dryRun });
     } catch (e) {
       console.error('retGamleRundeOpslag:', e && e.message);
       throw new HttpsError('internal', 'Kunne ikke rette opslagene: ' + (e && e.message));
