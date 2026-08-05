@@ -10,12 +10,25 @@
 import { useEffect, useState } from 'react';
 import { useGames } from '../games/useGames';
 import { setGameSchedule, setGameStatus } from '../games/gameActions';
-import { callRecomputeGameScores, callBackfillPlayerLeagues } from './adminActions';
+import {
+  callRecomputeGameScores, callBackfillPlayerLeagues, callSendPointOpdatering,
+} from './adminActions';
 import { formatKickoff } from '../../lib/daDate';
+import { fmtPoints } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
 
 // Hvad hver status betyder i praksis — vises under vælgeren, så konsekvensen
 // af "Afsluttet" ikke først opdages, når spillet er væk fra oversigten.
+// Hvilken slags mail spilleren får. Grenene er ikke pynt: standardteksten
+// siger "du har fået point tilbage", og den er direkte usand for den, der ikke
+// rykkede sig, og modsiger sit eget tal hos den, hvis combi FALDT.
+const GREN_TEKST = {
+  op: 'Gik op',
+  franul: 'Fik combi, hvor der før var nul',
+  combiNed: '⚠️ Combi FALDT — teksten siger det lige ud',
+  urort: '⚠️ Rykkede sig ikke — egen tekst uden "point tilbage"',
+};
+
 const STATUS_HELP = {
   [GAME_STATUS.OPEN]: 'Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er joinable. Spillerne kan forlade spillet igen — og et forladt spil tager point og liga-medlemskab med sig.',
   [GAME_STATUS.LIVE]: 'I gang. Påmindelser sendes, og Forlad-knappen er væk.',
@@ -101,6 +114,42 @@ function GameRow({ game }) {
       : { kind: 'err', text: res.error });
     setRecalcBusy(false);
   }
+
+  // Pointopdaterings-mailen. Udkastet hentes FØRST — man kan ikke sende, før
+  // man har set, hvad der bliver sendt, og hvem der springes over.
+  const [mailBusy, setMailBusy] = useState(false);
+  const [mailMsg, setMailMsg] = useState(null);
+  const [udkast, setUdkast] = useState(null);   // null = ikke hentet endnu
+  const [valgte, setValgte] = useState(() => new Set());
+
+  async function hentUdkast() {
+    setMailBusy(true); setMailMsg(null);
+    const res = await callSendPointOpdatering(game.id, { dryRun: true });
+    if (res.ok) {
+      setUdkast(res.data);
+      setValgte(new Set((res.data.modtagere || []).map((m) => m.uid)));
+      setMailMsg({ kind: 'ok', text: `Udkast sendt til dig selv — ${res.data.modtagere?.length ?? 0} mails, ${res.data.sprunget?.length ?? 0} sprunget over.` });
+    } else {
+      setMailMsg({ kind: 'err', text: res.error });
+    }
+    setMailBusy(false);
+  }
+
+  async function sendRigtigt() {
+    if (!valgte.size) return;
+    setMailBusy(true); setMailMsg(null);
+    const res = await callSendPointOpdatering(game.id, { dryRun: false, uids: [...valgte] });
+    setMailMsg(res.ok
+      ? { kind: 'ok', text: `Sendt til ${res.data?.sendt ?? 0} af ${res.data?.ialt ?? 0}.${res.data?.fejlede?.length ? ` Fejlede: ${res.data.fejlede.map((f) => f.navn).join(', ')}.` : ''}` }
+      : { kind: 'err', text: res.error });
+    setMailBusy(false);
+  }
+
+  const skift = (uid) => setValgte((s) => {
+    const n = new Set(s);
+    if (n.has(uid)) n.delete(uid); else n.add(uid);
+    return n;
+  });
 
   async function syncLeagues() {
     setSyncBusy(true); setSyncMsg(null);
@@ -193,6 +242,78 @@ function GameRow({ game }) {
             <span className={`badge ${recalcMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
               {recalcMsg.text}
             </span>
+          )}
+        </div>
+      )}
+
+      {/* Personlig mail om en pointregel-ændring. Serveren fletter hver
+          spillers egne før/efter-tal — der er intet at skrive eller klippe. */}
+      {isFootball && (
+        <div style={{ marginTop: '0.9rem', borderTop: '1px solid var(--c-border)', paddingTop: '0.7rem' }}>
+          <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button className="btn btn--ghost btn--sm" onClick={hentUdkast} disabled={mailBusy}>
+              {mailBusy ? 'Arbejder…' : '✉️ Hent udkast til pointopdaterings-mail'}
+            </button>
+            {mailMsg && (
+              <span className={`badge ${mailMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
+                {mailMsg.text}
+              </span>
+            )}
+          </div>
+          <p style={{ color: 'var(--c-muted)', fontSize: '0.78rem', margin: '0.35rem 0 0' }}>
+            Udkastet sendes til dig selv med ALLE tolv tekster, så du kan læse dem igennem.
+            Der sendes ikke til nogen, før du trykker på den grønne knap nedenfor.
+          </p>
+
+          {udkast && (
+            <div style={{ marginTop: '0.7rem' }}>
+              {udkast.sprunget?.length > 0 && (
+                <p className="badge badge--yellow" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                  Springes over: {udkast.sprunget.map((x) => `${x.navn} (${x.grund})`).join(' · ')}
+                </p>
+              )}
+              <table className="table" style={{ fontSize: '0.82rem' }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: '2rem' }}>Send</th>
+                    <th style={{ textAlign: 'left' }}>Spiller</th>
+                    <th style={{ textAlign: 'right' }}>Før</th>
+                    <th style={{ textAlign: 'right' }}>Nu</th>
+                    <th style={{ textAlign: 'left' }}>Tekst</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(udkast.modtagere || []).map((m) => (
+                    <tr key={m.uid}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={valgte.has(m.uid)}
+                          onChange={() => skift(m.uid)}
+                          aria-label={`Send til ${m.navn}`}
+                        />
+                      </td>
+                      <td>{m.navn}</td>
+                      <td style={{ textAlign: 'right' }}>{fmtPoints(m.foer?.total)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700 }}>{fmtPoints(m.efter?.total)}</td>
+                      <td>{GREN_TEKST[m.gren] || m.gren}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn--sm"
+                  onClick={sendRigtigt}
+                  disabled={mailBusy || valgte.size === 0}
+                >
+                  {mailBusy ? 'Sender…' : `📨 Send til ${valgte.size} valgte`}
+                </button>
+                <span style={{ color: 'var(--c-muted)', fontSize: '0.78rem' }}>
+                  Sender rigtige mails til spillerne. Kan ikke fortrydes.
+                </span>
+              </div>
+            </div>
           )}
         </div>
       )}

@@ -20,12 +20,18 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { initializeApp } = require('firebase-admin/app');
 
-const { recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets } = require('./gameScoring');
+const {
+  recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets, gatedIds,
+} = require('./gameScoring');
+const { buildRoundContext, kickoffMs } = require('./pointOpdeling');
+const { udledFoer, byggMail } = require('./pointOpdateringMail');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSync, strandedMatches, allMatches,
 } = require('./superligaSync');
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
-const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
+const {
+  buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL, emailByUidMap,
+} = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
@@ -170,6 +176,122 @@ exports.rescoreGameBets = onCall({ region: REGION }, async (request) => {
   const dryRun = request.data?.dryRun !== false;
   return rescoreAllBets(db, FieldValue, gameId, { dryRun });
 });
+
+// ---------------------------------------------------------------------------
+// sendPointOpdateringMails — personlig mail til hver spiller om en ændring af
+// POINTREGLEN, med hans egne før/efter-tal flettet på serveren.
+//
+// dryRun (DEFAULT SAND) sender ÉN samlet mail til admin med alle modtageres
+// færdige tekster — så han kan læse dem igennem i stedet for at skrive dem.
+// Først et eksplicit dryRun:false sender til spillerne.
+//
+// `uids` vælger modtagerne. Udelades den, er det alle spillere med en mailadresse.
+// ---------------------------------------------------------------------------
+exports.sendPointOpdateringMails = onCall(
+  { region: REGION, timeoutSeconds: 300, memory: '512MiB', secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    const me = await requireAdmin(db, request);
+    const gameId = String(request.data?.gameId || '').trim();
+    if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    const dryRun = request.data?.dryRun !== false;
+    const valgte = Array.isArray(request.data?.uids) ? new Set(request.data.uids) : null;
+
+    const transporter = buildTransport(SMTP_PASSWORD.value());
+    if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
+
+    const gameRef = db.collection('games').doc(gameId);
+    const [gameSnap, matchesSnap, playersSnap, betsSnap] = await Promise.all([
+      gameRef.get(),
+      gameRef.collection('matches').get(),
+      gameRef.collection('players').get(),
+      gameRef.collection('bets').get(),
+    ]);
+    if (!gameSnap.exists) throw new HttpsError('not-found', 'Spillet findes ikke.');
+
+    // Samme gate som afregningen: kampe før spillets start tæller ikke.
+    const alleKampe = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const startMs = kickoffMs({ kickoff: gameSnap.data().startAt });
+    const gated = gatedIds(alleKampe, startMs);
+    const roundCtx = buildRoundContext(alleKampe.filter((m) => !gated.has(m.id)));
+
+    const betsPerUid = new Map();
+    for (const d of betsSnap.docs) {
+      const b = d.data();
+      if (!b.uid || gated.has(b.matchId)) continue;
+      if (!betsPerUid.has(b.uid)) betsPerUid.set(b.uid, []);
+      betsPerUid.get(b.uid).push(b);
+    }
+
+    const uids = playersSnap.docs.map((d) => d.id);
+    const [userDocs, mailPrUid] = await Promise.all([
+      uids.length ? db.getAll(...uids.map((u) => db.collection('users').doc(u))) : [],
+      emailByUidMap(db),
+    ]);
+    const bruger = new Map(userDocs.filter((d) => d.exists).map((d) => [d.id, d.data()]));
+
+    const klar = [];
+    const sprunget = [];
+    for (const d of playersSnap.docs) {
+      const uid = d.id;
+      const u = bruger.get(uid) || {};
+      const navn = u.displayName || 'Spiller';
+      if (valgte && !valgte.has(uid)) continue;
+      const efter = d.data().opdeling;
+      // Mangler opdelingen, kan vi ikke sige noget sandt om hans tal. At lade
+      // den blive til nul ville sige "du gik fra 0 til 12,5" — en opdigtet
+      // gave, der ser præcis ud som den gode nyhed, mailen handler om.
+      if (!efter) { sprunget.push({ uid, navn, grund: 'mangler opdeling' }); continue; }
+      const mail = u.email || mailPrUid.get(uid) || null;
+      if (!mail) { sprunget.push({ uid, navn, grund: 'ingen mailadresse' }); continue; }
+      if (u.emailOptOut) { sprunget.push({ uid, navn, grund: 'har fravalgt mails' }); continue; }
+
+      const foer = udledFoer(d.data(), betsPerUid.get(uid) || [], roundCtx);
+      const efterTal = {
+        p1x2: Number(efter.p1x2) || 0,
+        chance: Number(efter.chance) || 0,
+        combi: Number(efter.combi) || 0,
+        pulje: Number(efter.pulje) || 0,
+        total: Number(d.data().totalPoints) || 0,
+      };
+      klar.push({ uid, navn, mail, ...byggMail({ navn, foer, efter: efterTal, appUrl: APP_URL, gameId }) });
+    }
+
+    if (dryRun) {
+      // ALLE tekster i ÉN mail til admin. Ét dry run, der kun viser ens egen
+      // mail, beviser at SMTP virker — ikke at grenvalget landede rigtigt.
+      const minMail = request.auth?.token?.email || me.email || mailPrUid.get(request.auth.uid);
+      if (!minMail) throw new HttpsError('failed-precondition', 'Din egen mailadresse mangler.');
+      const dele = klar.map((k) => `<hr><p><b>${escapeHtml(k.navn)}</b> &lt;${escapeHtml(k.mail)}&gt;`
+        + ` — gren: <code>${escapeHtml(k.gren)}</code><br><i>${escapeHtml(k.emne)}</i></p>`
+        + `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(k.tekst)}</pre>`);
+      const oversprunget = sprunget.length
+        ? `<hr><p><b>Springes over:</b><br>${sprunget.map((x) => `${escapeHtml(x.navn)} — ${escapeHtml(x.grund)}`).join('<br>')}</p>`
+        : '<hr><p>Ingen springes over.</p>';
+      await sendEmail(db, transporter, {
+        to: minMail,
+        subject: `[UDKAST] ${klar.length} personlige mails — ${gameId}`,
+        html: `<p>Udkast. Der er <b>ikke</b> sendt til nogen.</p>${oversprunget}${dele.join('')}`,
+        type: 'pointopdatering-udkast',
+      });
+      return {
+        dryRun: true,
+        modtagere: klar.map(({ uid, navn, gren, foer, efter }) => ({ uid, navn, gren, foer, efter })),
+        sprunget,
+      };
+    }
+
+    let sendt = 0;
+    const fejlede = [];
+    for (const k of klar) {
+      const ok = await sendEmail(db, transporter, {
+        to: k.mail, subject: k.emne, html: broadcastHtml(k.tekst), type: 'pointopdatering',
+      });
+      if (ok) sendt += 1; else fejlede.push({ uid: k.uid, navn: k.navn });
+    }
+    return { dryRun: false, sendt, ialt: klar.length, fejlede, sprunget };
+  },
+);
 
 // syncSuperligaResults — hent færdigspillede kampe fra api.superliga.dk og sæt
 // facit på de matchende kampe. At skrive result udløser recomputeGameMatch
