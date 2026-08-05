@@ -31,6 +31,44 @@ describe('isSurprise', () => {
   });
 });
 
+// Botten skal kunne sige, at runden IKKE er færdigspillet — men kun når det
+// passer. En kamp rykket FREM til ugen før ligger også uden for rundens uge,
+// og den er spillet; havner den i "udsatte", skriver botten det modsatte af,
+// hvad der står på skærmen.
+describe('buildRoundRecapFacts — udsatte kampe', () => {
+  const spillere = [{ uid: 'A', name: 'Anna', totalPoints: 10, rank: 1 }];
+  const facts = (udsatte) => buildRoundRecapFacts({
+    round: 3,
+    roundMatches: [{ id: 'a', round: 3, home: 'AGF', away: 'OB', homeGoals: 1, awayGoals: 0, result: '1', odds: { 1: 2, X: 4, 2: 4 } }],
+    players: spillere,
+    betsByUid: new Map([['A', [{ matchId: 'a', pick: '1', points: 3 }]]]),
+    udsatte,
+  });
+
+  it('tager de uspillede kampe med, så botten ved at runden mangler', () => {
+    const f = facts([{ id: 'e', home: 'FCK', away: 'FCM', result: null }]);
+    expect(f.udsatte).toEqual([{ home: 'FCK', away: 'FCM' }]);
+  });
+
+  it('sender kun hold-navne — ingen uid, stilling eller resultat', () => {
+    const f = facts([{ id: 'e', home: 'FCK', away: 'FCM', result: null, uid: 'hemmelig' }]);
+    expect(Object.keys(f.udsatte[0])).toEqual(['home', 'away']);
+  });
+
+  it('er tom, når hele runden ligger i sin egen uge', () => {
+    expect(facts([]).udsatte).toEqual([]);
+  });
+
+  // En kamp rykket FREM er også uden for rundens uge — men den er spillet.
+  it('tager IKKE en kamp med, der ligger udenfor men allerede er spillet', () => {
+    const f = facts([
+      { id: 'frem', home: 'SIF', away: 'VFF', result: '1' },
+      { id: 'e', home: 'FCK', away: 'FCM', result: null },
+    ]);
+    expect(f.udsatte).toEqual([{ home: 'FCK', away: 'FCM' }]);
+  });
+});
+
 describe('buildRoundRecapFacts', () => {
   const roundMatches = [
     { id: 'm1', round: 2, home: 'FCK', away: 'Vejle', homeGoals: 2, awayGoals: 1, result: '1', odds: { 1: 1.6, X: 3.6, 2: 6.0 } },

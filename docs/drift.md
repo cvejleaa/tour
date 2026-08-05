@@ -124,6 +124,13 @@ Kun et eksplicit `dryRun: false` skriver; alt andet tørkører. Den committer i
 batches og kalder selv `recomputeAllPlayerTotals` til sidst — **tryk ikke på
 🔄 Genberegn point bagefter**, det er allerede gjort.
 
+**Kør den ikke, mens en kamp er i gang, eller mens du retter et facit.**
+Bagfyldningen læser alle bets, regner, og skriver bagefter. Ændrer et facit sig
+imens, ville den skrive sit forældede tal ovenpå — derfor skriver den med en
+`lastUpdateTime`-precondition, så et rørt bet får hele batchen til at fejle med
+`FAILED_PRECONDITION`. Det er den rigtige reaktion: kørslen er idempotent, så
+kør den bare igen, når kampen er afgjort.
+
 **Der er ingen vej tilbage i data.** De gamle `bets.points` findes ikke i noget
 felt og ingen historik. Tag en `gcloud firestore export` af
 `games/{id}/bets` eller bekræft, at PITR er slået til, FØR du kører med

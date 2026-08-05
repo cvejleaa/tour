@@ -465,7 +465,13 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
     aendrede += 1;
     delta = round1(delta + (pts - foer));
     if (eksempler.length < 5) eksempler.push({ matchId: bet.matchId, uid: bet.uid, foer, efter: pts });
-    if (!dryRun) { batch.update(d.ref, { points: pts }); bump(); }
+    // lastUpdateTime er ikke pynt: uden den læser vi bettet, regner, og skriver
+    // vores forældede tal ovenpå, hvis noget rørte kampen imens. Konkret set i
+    // emulatoren: fjernes et facit midt i kørslen, beholder spilleren sine
+    // point for den kamp — og tallet bliver stående, til noget andet rører den.
+    // Preconditionen fejler HELE batchen ved konflikt; det er den rigtige
+    // reaktion, for kørslen er idempotent og kan bare gentages.
+    if (!dryRun) { batch.update(d.ref, { points: pts }, { lastUpdateTime: d.updateTime }); bump(); }
   }
   if (dryRun) {
     return { bets: betsSnap.size, aendrede, delta, dryRun: true, eksempler };

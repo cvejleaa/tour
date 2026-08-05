@@ -23,7 +23,11 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
   for (const [uid, d] of Object.entries(puljeSeed)) pulje[uid] = { uid, ...d };
   const game = { ...gameData };
 
-  const alleBetDocs = () => bets.map((b) => ({ ref: b.ref, data: () => b.data }));
+  const preconditions = [];
+  // updateTime er det, rescoreAllBets skal give videre som precondition.
+  const alleBetDocs = () => bets.map((b, i) => ({
+    ref: b.ref, data: () => b.data, updateTime: `t${i}`,
+  }));
   const betsCollection = {
     where: (field, _op, val) => ({
       get: async () => ({
@@ -111,9 +115,14 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
     },
     batch: () => ({
       _ops: [],
-      update(ref, data) { this._ops.push({ ref, data }); },
+      update(ref, data, precondition) { this._ops.push({ ref, data, precondition }); },
       set(ref, data, opts) { this._ops.push({ ref, data, opts }); },
-      async commit() { for (const op of this._ops) applyOp(op.ref, op.data, op.opts); },
+      async commit() {
+        for (const op of this._ops) {
+          if (op.precondition) preconditions.push(op.precondition);
+          applyOp(op.ref, op.data, op.opts);
+        }
+      },
     }),
     async runTransaction(fn) {
       await fn({
@@ -125,6 +134,7 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
     _detalje: detalje,
     _detaljeStier: stier,
     _bets: bets,
+    _preconditions: preconditions,
     _game: game,
     _pulje: pulje,
   };
@@ -474,6 +484,18 @@ describe('rescoreAllBets — genscoring efter en REGELÆNDRING', () => {
     await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
     expect(db._players.A.opdeling.chance).toBe(0);
     expect(db._players.A.opdeling.p1x2).toBe(7); // (3+1) + (2+1)
+  });
+
+  // Uden preconditionen skriver rescoren sin foraeldede vaerdi ovenpaa, hvis
+  // noget roerte kampen mellem laesning og commit — fx en admin, der fjerner et
+  // facit midt i koerslen. Fake'en kan ikke simulere konflikten, men den kan
+  // bevise, at preconditionen faktisk sendes med.
+  it('skriver med lastUpdateTime som precondition', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }], kampe,
+      {}, { A: { totalPoints: 3 } });
+    await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
+    expect(db._preconditions).toHaveLength(1);
+    expect(db._preconditions[0]).toEqual({ lastUpdateTime: 't0' });
   });
 
   it('rører ikke bets på en kamp før spillets start', async () => {

@@ -120,7 +120,12 @@ function buildRoundRecapFacts({
     // De udsatte kampe SKAL med som eget felt. Uden dem får botten fire kampe,
     // tror det er hele runden, og skriver at den er færdigspillet — mens
     // Tip-fladen tre klik væk siger, at to kampe mangler.
-    udsatte: udsatte.map((m) => ({ home: m.home, away: m.away })),
+    //
+    // Filtreringen på !result bor HER og ikke i kaldstedet: en kamp rykket
+    // FREM til ugen før ligger også uden for rundens uge, men den ER spillet,
+    // og prompten fortæller modellen, at kampene i feltet mangler. Reglen
+    // hører til det sted, der kan prøves af uden en database.
+    udsatte: udsatte.filter((m) => !m.result).map((m) => ({ home: m.home, away: m.away })),
     standings: rows.map(({ name, points, roundPoints, rank }) => ({ name, points, roundPoints, rank })),
     standout: roundWinners.length === 1 ? roundWinners[0] : null,
     standoutTie: roundWinners.length > 1,
@@ -210,6 +215,8 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
   const alleIRunden = byRound.get(round) || [];
   const roundMatches = alleIRunden.filter((m) => ctx.byMatch[m.id]?.iVindue);
   // Dem, der IKKE er på kuponen — botten skal kunne sige, at de mangler.
+  // Dem, der IKKE er på kuponen. buildRoundRecapFacts frasorterer selv dem,
+  // der allerede er spillet.
   const udsatte = alleIRunden.filter((m) => !ctx.byMatch[m.id]?.iVindue);
 
   const done = Array.isArray(game.recappedRounds) ? game.recappedRounds : [];
