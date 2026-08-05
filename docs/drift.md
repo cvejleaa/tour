@@ -74,8 +74,62 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 | Stillingen viser kun dig selv | Du er ikke med i en liga endnu — det er den forventede visning |
 | Runde 1 mangler i spillet | `game.startAt` ligger efter runde 1. Det er tilsigtet; ryd feltet for at vise alt |
 | Point mangler for tidlige runder | Samme gate. Efter et skift i `startAt`: tryk 🔄 **Genberegn point** |
+| Point er forkerte efter en ændring af selve POINTREGLEN | 🔄 **Genberegn point** hjælper IKKE — se afsnittet nedenfor |
 | Ingen påmindelser sendt | Kampene ligger før `startAt`, eller `SMTP_PASSWORD` mangler i `spil-89af9` |
 | Runde-Botten poster ikke | `ANTHROPIC_API_KEY` mangler, ligaen har under 2 medlemmer, eller runden er allerede recappet (`game.recappedRounds`) |
+
+## To slags genberegning — de retter IKKE det samme
+
+Den vigtigste skillelinje i drift, og den nemmeste at falde i: de to knapper
+ligner hinanden, men den ene kan ikke rette det, den anden retter.
+
+| Hvad er ændret | Værktøj | Hvorfor |
+|---|---|---|
+| `game.startAt` (gaten), en liga, en puljeafregning | 🔄 **Genberegn point** (`recomputeGameScores`) | `bets.points` er allerede rigtige; kun totalerne skal lægges sammen forfra |
+| **Selve pointreglen** i `superligaScoring.js` — fx træf-bonussen eller combi-formlen | **`rescoreGameBets`** | `bets.points` er kilden til totalen, og de står med det GAMLE tal |
+
+`bets/{id}.points` skrives kun af `recomputeGameMatchCore`, som kun kaldes, når
+en kamps **facit ændrer sig**. Ændrer man pointreglen, rører den derfor ikke et
+eneste eksisterende bet.
+
+**Fælden:** `recomputeGameScores` er ren aggregering. Efter en regelændring
+returnerer den et pænt `{players, gatedMatches}` og ser ud, som om den virkede —
+men den retter ingenting, fordi den lægger de gamle bet-point sammen. Symptomet
+er, at skærmene modsiger hinanden uden en fejlbesked: Tip-fladen regner den nye
+regel live, Mine tips viser det gemte tal, og ⚡ Chancen — som udledes som
+(gemte point − 1X2-point) — går i **minus** for alle, der har ramt noget.
+
+### Sådan køres `rescoreGameBets`
+
+Der er ingen admin-knap. Kald den direkte med et owner-ID-token:
+
+```bash
+# TØR-KØRSEL (default — skriver intet)
+curl -sS -X POST https://europe-west1-spil-89af9.cloudfunctions.net/rescoreGameBets \
+  -H "Authorization: Bearer $ID_TOKEN" -H "Content-Type: application/json" \
+  -d '{"data":{"gameId":"superliga2627"}}'
+```
+
+**Læs svaret, før du skriver.** Ved en ren træf-bonus-ændring skal `delta` være
+nøjagtig lig `aendrede` — hver ændring er præcis +1,0. Er de ikke ens, har noget
+andet end bonussen flyttet sig: **stop**. `eksempler` viser fem konkrete bets med
+før/efter.
+
+```bash
+# SKRIVNINGEN — kun efter ejerens ja
+  -d '{"data":{"gameId":"superliga2627","dryRun":false}}'
+```
+
+Kun et eksplicit `dryRun: false` skriver; alt andet tørkører. Den committer i
+batches og kalder selv `recomputeAllPlayerTotals` til sidst — **tryk ikke på
+🔄 Genberegn point bagefter**, det er allerede gjort.
+
+**Der er ingen vej tilbage i data.** De gamle `bets.points` findes ikke i noget
+felt og ingen historik. Tag en `gcloud firestore export` af
+`games/{id}/bets` eller bekræft, at PITR er slået til, FØR du kører med
+`dryRun: false`. Den praktiske vej tilbage er ikke en restore, men at rulle
+koden tilbage og køre `rescoreGameBets` igen — den scorer altid mod den kode,
+der er live, og er idempotent.
 
 ## Secrets pr. projekt
 
