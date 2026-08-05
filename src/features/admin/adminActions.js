@@ -80,6 +80,25 @@ export async function callRecomputeGameScores(gameId) {
 }
 
 /**
+ * Send den personlige pointopdaterings-mail. Serveren fletter hver spillers
+ * egne før/efter-tal — der er intet at skrive eller klippe.
+ *
+ * dryRun (default sand) sender ÉN samlet mail til dig selv med alle
+ * modtageres færdige tekster, så du kan læse dem igennem først.
+ * @param {string} gameId
+ * @param {{dryRun?: boolean, uids?: string[]}} [opts]
+ */
+export async function callSendPointOpdatering(gameId, { dryRun = true, uids } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'sendPointOpdateringMails', { timeout: 300000 });
+    const res = await fn({ gameId, dryRun, ...(uids ? { uids } : {}) });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke sende mailen.' };
+  }
+}
+
+/**
  * Genopbyg players/{uid}.leagueIds ud fra ligaernes medlemmer. Feltet er dét,
  * security rules bruger til at afgøre, hvem der må se hvis point — så en
  * genopbygning retter op, hvis noget er drevet fra hinanden.
