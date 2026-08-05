@@ -29,7 +29,7 @@ const {
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
-const { runGameRoundRecap } = require('./gameRecap');
+const { runGameRoundRecap, opdaterGamleRundeOpslag } = require('./gameRecap');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { superligaInviteHtml } = require('./inviteTemplate');
 
@@ -113,6 +113,34 @@ exports.generateGameRecapNow = onCall(
     } catch (e) {
       console.error('generateGameRecapNow:', e && e.message);
       throw new HttpsError('internal', 'Kunne ikke generere opslaget: ' + (e && e.message));
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// opdaterGamleRundeOpslag — ret Runde-Bottens ALLEREDE POSTEDE opslag, så hvert
+// af dem kun handler om den liga, det står i. De første opslag blev bygget af
+// hele spillets spillere og sendt til alle vægge.
+//
+// dryRun er DEFAULT SAND: den skriver i noget, spillerne allerede har læst.
+// ---------------------------------------------------------------------------
+exports.retGamleRundeOpslag = onCall(
+  { region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 540 },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const gameId = String(request.data?.gameId || '').trim();
+    if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    const anthropic = anthropicClient();
+    if (!anthropic) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
+    const roundNo = Number.isFinite(Number(request.data?.round)) && request.data?.round !== null && request.data?.round !== ''
+      ? Number(request.data.round) : null;
+    const dryRun = request.data?.dryRun !== false;
+    try {
+      return await opdaterGamleRundeOpslag(db, FieldValue, anthropic, gameId, roundNo, { dryRun });
+    } catch (e) {
+      console.error('retGamleRundeOpslag:', e && e.message);
+      throw new HttpsError('internal', 'Kunne ikke rette opslagene: ' + (e && e.message));
     }
   },
 );

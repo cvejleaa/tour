@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   sanitizeName, isSurprise, buildRoundRecapFacts, runGameRoundRecap,
+  findOpslag, RETTET_NOTE,
 } = require('./gameRecap');
 // Stillingens egen vej til combi. Botten og stillingen SKAL sige samme tal.
 const { opdelPoint, buildRoundContext } = require('./pointOpdeling');
@@ -341,6 +342,9 @@ describe('runGameRoundRecap', () => {
     expect(out.posted).toBe(1); // kun ligaen med 2 medlemmer
     expect(db._posted[0]).toMatchObject({
       uid: 'runde-bot', displayName: 'Runde-Botten', system: true, text: 'Sikke en runde! 🎉',
+      // Rundenummeret SKAL med. Uden det kan opslaget ikke findes igen, og en
+      // senere rettelse må gætte sig frem på rækkefølge.
+      round: 1,
     });
     expect(db._game.recappedRounds).toEqual([1]);
   });
@@ -385,3 +389,46 @@ describe('runGameRoundRecap', () => {
     expect(out).toMatchObject({ posted: 0, reason: 'disabled' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// At finde et ALLEREDE POSTET opslag igen.
+//
+// De første opslag bærer intet rundenummer — feltet fandtes ikke, da de blev
+// skrevet — så de må matches på rækkefølge. Det holder kun, så længe ingen har
+// slettet noget, og derfor SKAL en rettelse kunne forhåndsvises: `sikker`
+// siger, om matchet er sikkert eller gættet.
+// ---------------------------------------------------------------------------
+describe('findOpslag', () => {
+  const b = (id, round, text) => ({ id, round, text });
+
+  it('bruger rundenummeret, når beskeden har et', () => {
+    const fundet = findOpslag([b('m1', 1, 'runde 1'), b('m2', 2, 'runde 2')], 2, [1, 2]);
+    expect(fundet).toMatchObject({ id: 'm2', sikker: true });
+  });
+
+  it('falder tilbage på rækkefølge for de gamle uden rundenummer', () => {
+    const fundet = findOpslag([b('m1', null, 'ældst'), b('m2', null, 'nyest')], 2, [1, 2]);
+    expect(fundet).toMatchObject({ id: 'm2', sikker: false });
+  });
+
+  // Er ét opslag allerede rettet (og har fået sit rundenummer), må det ikke
+  // tælles med og forskyde de øvrige — ellers rammer anden kørsel forkert.
+  it('forskyder ikke, når et opslag allerede er rettet', () => {
+    const fundet = findOpslag([b('m1', 1, 'rettet'), b('m2', null, 'ikke rettet')], 2, [1, 2]);
+    expect(fundet).toMatchObject({ id: 'm2', sikker: false });
+  });
+
+  it('giver null, når der ikke er noget at matche', () => {
+    expect(findOpslag([], 2, [1, 2])).toBeNull();
+    expect(findOpslag([b('m1', null, 'x')], 5, [1, 2])).toBeNull();
+  });
+});
+
+describe('RETTET_NOTE', () => {
+  // Vi skriver ikke om på fortiden i det skjulte.
+  it('siger, at opslaget er rettet, og hvorfor', () => {
+    expect(RETTET_NOTE).toContain('Rettet');
+    expect(RETTET_NOTE).toContain('andre ligaer');
+  });
+});
+

@@ -80,6 +80,21 @@ export async function callRecomputeGameScores(gameId) {
 }
 
 /**
+ * Ret Runde-Bottens ALLEREDE POSTEDE opslag, så hvert af dem kun handler om
+ * den liga, det står i. dryRun (default sand) skriver intet.
+ * @param {{gameId: string, round?: number|null, dryRun?: boolean}} arg
+ */
+export async function callRetGamleRundeOpslag({ gameId, round = null, dryRun = true }) {
+  try {
+    const fn = httpsCallable(functions, 'retGamleRundeOpslag', { timeout: 540000 });
+    const res = await fn({ gameId, round, dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke rette opslagene.' };
+  }
+}
+
+/**
  * Genopbyg players/{uid}.leagueIds ud fra ligaernes medlemmer. Feltet er dét,
  * security rules bruger til at afgøre, hvem der må se hvis point — så en
  * genopbygning retter op, hvis noget er drevet fra hinanden.

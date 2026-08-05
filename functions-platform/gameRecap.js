@@ -332,6 +332,10 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
       displayName: 'Runde-Botten',
       avatarEmoji: '🤖',
       system: true,
+      // Rundenummeret PÅ beskeden. Uden det kan et opslag ikke findes igen —
+      // og da de første opslag skulle rettes, måtte de matches på rækkefølge,
+      // hvilket kun holder, så længe ingen har slettet noget.
+      round,
       text,
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -342,6 +346,98 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
   return { posted, round };
 }
 
+/**
+ * Find det opslag, Runde-Botten postede for en bestemt runde i en liga.
+ *
+ * Nye opslag bærer selv `round`. De ældste gør ikke — de blev postet, før
+ * feltet fandtes — og må derfor matches på RÆKKEFØLGE: botten poster højst én
+ * gang pr. runde pr. liga, så det n'te bot-opslag hører til den n'te
+ * recappede runde. Det holder kun, så længe ingen har slettet et opslag, og
+ * derfor skal en rettelse altid forhåndsvises, før den skrives.
+ *
+ * @param {Array} beskeder bot-opslag i ligaen, ældst først
+ * @param {number} round
+ * @param {number[]} recappedRounds spillets recappede runder, sorteret
+ */
+function findOpslag(beskeder, round, recappedRounds) {
+  const medFelt = beskeder.find((m) => m.round === round);
+  if (medFelt) return { ...medFelt, sikker: true };
+  // Fald tilbage på rækkefølge — kun blandt dem UDEN rundenummer, så et
+  // allerede rettet opslag ikke tælles med og forskyder resten.
+  const uden = beskeder.filter((m) => m.round == null);
+  const rundeUden = recappedRounds.filter((r) => !beskeder.some((m) => m.round === r));
+  const i = rundeUden.indexOf(round);
+  if (i < 0 || i >= uden.length) return null;
+  return { ...uden[i], sikker: false };
+}
+
+/** Foden under et rettet opslag. Vi skriver ikke om på fortiden i det skjulte. */
+const RETTET_NOTE = '\n\n(Rettet: det oprindelige opslag nævnte ved en fejl spillere '
+  + 'fra andre ligaer. Teksten her handler kun om jeres egen liga.)';
+
+/**
+ * Ret Runde-Bottens ALLEREDE POSTEDE opslag, så hvert af dem kun handler om
+ * den liga, det står i.
+ *
+ * De første opslag blev bygget af hele spillets spillere og sendt til alle
+ * vægge. Her genskrives de pr. liga — men teksten erstattes ikke i det
+ * skjulte: der sættes en synlig fod under, der siger, at opslaget er rettet.
+ *
+ * @param {{dryRun?: boolean}} [opts] dryRun (DEFAULT SAND) skriver intet.
+ */
+async function opdaterGamleRundeOpslag(db, FieldValue, anthropic, gameId, roundNo, { dryRun = true } = {}) {
+  const gameRef = db.collection('games').doc(gameId);
+  const gameSnap = await gameRef.get();
+  if (!gameSnap.exists) return { reason: 'no-game', rettede: 0, udkast: [] };
+  const recapped = (Array.isArray(gameSnap.data().recappedRounds)
+    ? gameSnap.data().recappedRounds : []).slice().sort((a, b) => a - b);
+  const runder = roundNo != null ? [roundNo] : recapped;
+  if (!runder.length) return { reason: 'no-recapped-rounds', rettede: 0, udkast: [] };
+
+  const udkast = [];
+  let rettede = 0;
+  for (const round of runder) {
+    // Genbrug HELE den rigtige vej: samme fakta, samme prompt, samme model som
+    // et nyt opslag. En egen gengivelse her ville være en anden bot.
+    const nye = await runGameRoundRecap(db, FieldValue, anthropic, gameId, round, { dryRun: true });
+    if (!nye.udkast?.length) {
+      udkast.push({ round, reason: nye.reason || 'ingen-udkast' });
+      continue;
+    }
+    for (const u of nye.udkast) {
+      const beskedSnap = await gameRef.collection('leagues').doc(u.leagueId)
+        .collection('messages').where('uid', '==', 'runde-bot').get();
+      const beskeder = beskedSnap.docs
+        .map((d) => ({ id: d.id, ref: d.ref, ...d.data() }))
+        .sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+      const gammel = findOpslag(beskeder, round, recapped);
+      if (!gammel) {
+        udkast.push({ round, leagueId: u.leagueId, navn: u.navn, reason: 'intet opslag fundet' });
+        continue;
+      }
+      udkast.push({
+        round,
+        leagueId: u.leagueId,
+        navn: u.navn,
+        messageId: gammel.id,
+        sikker: gammel.sikker,
+        gammelTekst: gammel.text,
+        nyTekst: u.text + RETTET_NOTE,
+      });
+      if (!dryRun) {
+        await gammel.ref.set({
+          text: u.text + RETTET_NOTE,
+          round,
+          rettetAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+        rettede += 1;
+      }
+    }
+  }
+  return { dryRun, rettede, udkast };
+}
+
 module.exports = {
   RECAP_SYSTEM, sanitizeName, isSurprise, buildRoundRecapFacts, generateRecapText, runGameRoundRecap,
+  findOpslag, opdaterGamleRundeOpslag, RETTET_NOTE,
 };
