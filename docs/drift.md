@@ -99,30 +99,29 @@ er, at skærmene modsiger hinanden uden en fejlbesked: Tip-fladen regner den nye
 regel live, Mine tips viser det gemte tal, og ⚡ Chancen — som udledes som
 (gemte point − 1X2-point) — går i **minus** for alle, der har ramt noget.
 
-### Sådan køres `rescoreGameBets`
+### Sådan køres bagfyldningen
 
-Der er ingen admin-knap. Kald den direkte med et owner-ID-token:
+**GitHub → Actions → "Genscor bets efter regelændring (spil-89af9)".**
 
-```bash
-# TØR-KØRSEL (default — skriver intet)
-curl -sS -X POST https://europe-west1-spil-89af9.cloudfunctions.net/rescoreGameBets \
-  -H "Authorization: Bearer $ID_TOKEN" -H "Content-Type: application/json" \
-  -d '{"data":{"gameId":"superliga2627"}}'
-```
+| Felt | Tør-kørsel | Skrivning | Gendan |
+|---|---|---|---|
+| `gameId` | `superliga2627` | `superliga2627` | `superliga2627` |
+| `skriv` | **tom** | præcis `SKRIV` | tom |
+| `gendan` | tom | tom | filnavnet fra en backup-artefakt |
 
-**Læs svaret, før du skriver.** Ved en ren træf-bonus-ændring skal `delta` være
-nøjagtig lig `aendrede` — hver ændring er præcis +1,0. Er de ikke ens, har noget
-andet end bonussen flyttet sig: **stop**. `eksempler` viser fem konkrete bets med
-før/efter.
+`skriv` er en tekst og ikke et flueben med vilje: et flueben er for nemt at
+komme til. Alt andet end præcis `SKRIV` tørkører.
 
-```bash
-# SKRIVNINGEN — kun efter ejerens ja
-  -d '{"data":{"gameId":"superliga2627","dryRun":false}}'
-```
+**Backup tages ALTID** — også ved tør-kørsel — og lægges op som artefakt på
+kørslen (`bets-backup-<gameId>-<run_id>`, gemt i 90 dage). Den indeholder hvert
+bets `points` FØR kørslen. De gamle værdier findes ikke i noget andet felt og
+ingen historik, så filen er den eneste vej tilbage uden PITR.
 
-Kun et eksplicit `dryRun: false` skriver; alt andet tørkører. Den committer i
-batches og kalder selv `recomputeAllPlayerTotals` til sidst — **tryk ikke på
-🔄 Genberegn point bagefter**, det er allerede gjort.
+**Læs tør-kørslen, før du skriver.** Ved en ren træf-bonus-ændring skal `delta`
+være nøjagtig lig antal ændrede — hvert ændret bet flytter sig præcis +1, fordi
+combi-formlen ikke rører `bets.points`, og Chancen afregnes uændret til de rene
+odds. Scriptet siger det selv med ✓ eller ⚠️. Er de ikke ens, har noget andet
+flyttet sig: **stop og find ud af hvad**.
 
 **Kør den ikke, mens en kamp er i gang, eller mens du retter et facit.**
 Bagfyldningen læser alle bets, regner, og skriver bagefter. Ændrer et facit sig
@@ -131,12 +130,25 @@ imens, ville den skrive sit forældede tal ovenpå — derfor skriver den med en
 `FAILED_PRECONDITION`. Det er den rigtige reaktion: kørslen er idempotent, så
 kør den bare igen, når kampen er afgjort.
 
-**Der er ingen vej tilbage i data.** De gamle `bets.points` findes ikke i noget
-felt og ingen historik. Tag en `gcloud firestore export` af
-`games/{id}/bets` eller bekræft, at PITR er slået til, FØR du kører med
-`dryRun: false`. Den praktiske vej tilbage er ikke en restore, men at rulle
-koden tilbage og køre `rescoreGameBets` igen — den scorer altid mod den kode,
-der er live, og er idempotent.
+Den kalder selv `recomputeAllPlayerTotals` til sidst — **tryk ikke på
+🔄 Genberegn point bagefter**, det er allerede gjort.
+
+### Hvis noget skal fortrydes
+
+Hent backup-artefakten fra kørslen, læg filen i repoet, og kør samme workflow
+med `gendan` udfyldt. Den skriver hvert bets gamle `points` tilbage og
+genberegner totalerne.
+
+Skal selve **reglen** rulles tilbage, er det ikke nok at gendanne: både
+functions og hosting skal vendes, ellers regner skærmene stadig den nye regel
+mod gamle tal. Rækkefølgen er den samme som frem — kode først, så data.
+
+### Der findes også en callable
+
+`rescoreGameBets` (samme funktion, kaldt over HTTPS med et owner-token). Den er
+der, hvis workflowet ikke kan bruges, men **workflowet er den normale vej**: det
+tager backup, har tripwiren indbygget, og efterlader et spor. `dryRun` er default
+sand, og kun boolean `false` skriver.
 
 ## Secrets pr. projekt
 

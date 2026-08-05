@@ -1,0 +1,92 @@
+name: Genscor bets efter regelændring (spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+#
+# Kun nødvendig når selve POINTREGLEN har ændret sig. Se docs/drift.md,
+# afsnittet "To slags genberegning".
+#
+# TØR-KØRSEL ER DEFAULT. Feltet `skriv` skal sættes til præcis "SKRIV" for at
+# der røres noget — et flueben er for nemt at komme til.
+#
+# Uanset tilstand gemmes en FULD BACKUP af hvert bets nuværende point som
+# artefakt. De gamle værdier findes ikke i noget andet felt og ingen historik,
+# så filen er den eneste vej tilbage uden PITR.
+#
+# Bruger repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+    inputs:
+      gameId:
+        description: 'Spil-id (default superliga2627)'
+        type: string
+        default: 'superliga2627'
+      skriv:
+        description: 'Skriv i produktionsdata? Skriv præcis SKRIV. Alt andet tørkører.'
+        type: string
+        default: ''
+      gendan:
+        description: 'GENDAN: navn på en tidligere backup-artefakt-fil. Udfyldt = rul tilbage.'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  genscor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      - name: Skriv service-account
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/spil-sa.json"
+
+      # Oversæt det menneskelige "SKRIV" til scriptets DRY_RUN. Kun den præcise
+      # streng skriver; alt andet — inkl. tom, "ja", "true" — tørkører.
+      - name: Afgør tilstand
+        id: tilstand
+        env:
+          SKRIV: ${{ inputs.skriv }}
+        run: |
+          if [ "$SKRIV" = "SKRIV" ]; then
+            echo "dry=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SKRIVER i produktionsdata for ${{ inputs.gameId }}."
+          else
+            echo "dry=true" >> "$GITHUB_OUTPUT"
+            echo "Tør-kørsel — der skrives intet."
+          fi
+
+      - name: Genscor bets
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          GAME_ID: ${{ inputs.gameId }}
+          DRY_RUN: ${{ steps.tilstand.outputs.dry }}
+          BACKUP: bets-backup-${{ inputs.gameId }}.json
+          GENDAN: ${{ inputs.gendan }}
+        run: node scripts/rescore-bets.mjs
+
+      # Backup'en gemmes ALTID — også ved tør-kørsel. Uden den er der ingen vej
+      # tilbage, og den koster ingenting at have liggende.
+      - name: Gem backup som artefakt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bets-backup-${{ inputs.gameId }}-${{ github.run_id }}
+          path: bets-backup-*.json
+          retention-days: 90
+          if-no-files-found: warn
