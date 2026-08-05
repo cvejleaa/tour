@@ -97,6 +97,37 @@ describe('forhåndsvisning af runde-opslaget', () => {
     expect(screen.queryByText(/ukendt årsag/)).not.toBeInTheDocument();
   });
 
+  // SAMME FEJLKLASSE SOM #110, blot i den anden gren: et vellykket post må
+  // aldrig ende på "Intet postet". Læses `posted` forkert, står der en fejl
+  // på skærmen, mens tolv mennesker netop har fået opslaget på væggen.
+  it('kvitterer for et vellykket post i stedet for at melde fejl', async () => {
+    mockRecapNow.mockResolvedValue({ ok: true, data: { posted: 2, round: 5 } });
+    render(<GameRecapBotTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Post runde-opslag nu/ }));
+
+    expect(await screen.findByText(/Postet på 2 liga-vægge \(runde 5\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Intet postet/)).not.toBeInTheDocument();
+  });
+
+  it('viser serverens fejl i stedet for "ukendt årsag"', async () => {
+    mockRecapNow.mockResolvedValue({ ok: false, error: 'ANTHROPIC_API_KEY er ikke sat.' });
+    render(<GameRecapBotTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis runde-opslag/ }));
+
+    expect(await screen.findByText('ANTHROPIC_API_KEY er ikke sat.')).toBeInTheDocument();
+    expect(screen.queryByText(/ukendt årsag/)).not.toBeInTheDocument();
+  });
+
+  // Bekræftelsen er det eneste, der står mellem et fejlklik og tolv ligavægge.
+  it('poster ikke, når bekræftelsen afvises', async () => {
+    window.confirm = vi.fn(() => false);
+    render(<GameRecapBotTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Post runde-opslag nu/ }));
+
+    await waitFor(() => expect(window.confirm).toHaveBeenCalled());
+    expect(mockRecapNow).not.toHaveBeenCalled();
+  });
+
   it('oversætter serverens grund til dansk', async () => {
     mockRecapNow.mockResolvedValue({ ok: true, data: { posted: 0, reason: 'already', round: 2 } });
     render(<GameRecapBotTab />);

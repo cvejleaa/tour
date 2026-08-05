@@ -332,9 +332,11 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
       displayName: 'Runde-Botten',
       avatarEmoji: '🤖',
       system: true,
-      // Rundenummeret PÅ beskeden. Uden det kan et opslag ikke findes igen —
-      // og da de første opslag skulle rettes, måtte de matches på rækkefølge,
-      // hvilket kun holder, så længe ingen har slettet noget.
+      // Rundenummeret PÅ beskeden. Uden det kan et opslag ikke findes igen.
+      // Da de allerførste opslag skulle tages ned, fandtes feltet ikke, og de
+      // måtte afgrænses på `createdAt` mod tidspunktet for en udrulning — et
+      // groft snit, der ikke kan skelne to opslag fra samme dag. Med feltet
+      // her kan en fremtidig nedtagning ramme præcist på runde.
       round,
       text,
       createdAt: FieldValue.serverTimestamp(),

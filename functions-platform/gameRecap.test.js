@@ -124,21 +124,33 @@ describe('buildRoundRecapFacts', () => {
 function makeDb({ game = {}, matches = [], players = {}, users = {}, bets = [], leagues = [] } = {}) {
   const posted = []; // beskeder postet på liga-vægge
   const g = { ...game };
-  const leagueDocs = leagues.map((l, i) => ({
-    id: `L${i}`,
-    data: () => l,
-    ref: {
-      // Navnet skal RAMME. Ignorerede attrappen det, kunne botten poste i en
-      // helt anden subcollection uden at én test blev rød.
-      collection: (name) => {
-        if (name !== 'messages') throw new Error(`uventet subcollection ${name}`);
-        return { add: async (doc) => { posted.push(doc); } };
+  const leagueDocs = leagues.map((l, i) => {
+    const id = `L${i}`;
+    return {
+      id,
+      data: () => l,
+      ref: {
+        // Navnet skal RAMME. Ignorerede attrappen det, kunne botten poste i en
+        // helt anden subcollection uden at én test blev rød.
+        collection: (name) => {
+          if (name !== 'messages') throw new Error(`uventet subcollection ${name}`);
+          // HVILKEN vægs beskeden landede på skal med. Uden `leagueId` kan alle
+          // opslag sendes til den første ligas væg uden en rød test — samme
+          // påstand som den oprindelige fejl, blot i skrive-enden.
+          return { add: async (doc) => { posted.push({ leagueId: id, ...doc }); } };
+        },
       },
-    },
-  }));
+    };
+  });
   const gameDoc = {
     get: async () => ({ exists: true, data: () => g }),
-    set: async (data) => {
+    // MERGE ER IKKE PYNT. Botten skriver kun ét felt på spil-dokumentet
+    // (`recappedRounds`). Uden `{ merge: true }` reduceres HELE dokumentet til
+    // netop det felt — væk er `startAt`, invarianten der gater både visning,
+    // pointgivning og påmindelser, plus `status`, `aiRecaps` og `name`. En
+    // attrap, der kaster andet argument væk, kan ikke se forskel på de to.
+    set: async (data, opts) => {
+      if (!opts?.merge) throw new Error('set() uden { merge: true } ville nulstille spillets øvrige felter (bl.a. startAt)');
       for (const [k, v] of Object.entries(data)) {
         if (v && v.__arrayUnion) g[k] = [...(g[k] || []), ...v.__arrayUnion];
         else g[k] = v;
@@ -332,6 +344,28 @@ describe('runGameRoundRecap — én liga må kun høre om sine egne', () => {
     expect(kolleger.leader).toBe('Cecilie');
   });
 
+  // Modellen kan få de rigtige navne og teksten alligevel havne det forkerte
+  // sted. Fejlen var, at ÉN tekst gik ud til alle vægge — den påstand skal
+  // også holdes i skrive-enden, ikke kun i det, der sendes til modellen.
+  it('lægger hver ligas egen tekst på dens egen væg', async () => {
+    const db = makeDb(opsaetning);
+    const a = {
+      messages: {
+        create: async ({ messages }) => {
+          const f = JSON.parse(messages[0].content);
+          // Teksten navngiver ligaens egen fører, så den kan spores til væggen.
+          return { content: [{ type: 'text', text: `Opslag om ${f.leader}` }] };
+        },
+      },
+    };
+    await runGameRoundRecap(db, FieldValue, a, 'g1', 1);
+    const perVaeg = Object.fromEntries(db._posted.map((p) => [p.leagueId, p.text]));
+    // Familien = A+B (Anna fører), Kollegerne = C+D (Cecilie fører).
+    expect(Object.values(perVaeg).sort()).toEqual(['Opslag om Anna', 'Opslag om Cecilie']);
+    // …og de to tekster må ikke ligge på samme væg.
+    expect(Object.keys(perVaeg)).toHaveLength(2);
+  });
+
   it('springer en liga over, hvis under to af dens medlemmer er spillere', async () => {
     const db = makeDb({
       ...opsaetning,
@@ -353,7 +387,8 @@ describe('runGameRoundRecap', () => {
     expect(db._posted[0]).toMatchObject({
       uid: 'runde-bot', displayName: 'Runde-Botten', system: true, text: 'Sikke en runde! 🎉',
       // Rundenummeret SKAL med. Uden det kan opslaget ikke findes igen, og en
-      // senere rettelse må gætte sig frem på rækkefølge.
+      // senere nedtagning må afgrænse groft på tidspunkt i stedet for at ramme
+      // præcist på runde.
       round: 1,
     });
     expect(db._game.recappedRounds).toEqual([1]);
