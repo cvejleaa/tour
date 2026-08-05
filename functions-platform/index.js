@@ -29,7 +29,7 @@ const {
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
-const { runGameRoundRecap, opdaterGamleRundeOpslag } = require('./gameRecap');
+const { runGameRoundRecap } = require('./gameRecap');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { superligaInviteHtml } = require('./inviteTemplate');
 
@@ -113,31 +113,6 @@ exports.generateGameRecapNow = onCall(
     } catch (e) {
       console.error('generateGameRecapNow:', e && e.message);
       throw new HttpsError('internal', 'Kunne ikke generere opslaget: ' + (e && e.message));
-    }
-  },
-);
-
-// ---------------------------------------------------------------------------
-// opdaterGamleRundeOpslag — erstat Runde-Bottens ALLEREDE POSTEDE opslag, som
-// blev bygget af hele spillets spillere og sendt til alle vægge, med en fast
-// rettelsestekst. Ingen AI: teksten er skrevet i hånden, så forhåndsvisningen
-// viser præcis det, der bliver skrevet.
-//
-// dryRun er DEFAULT SAND: den skriver i noget, spillerne allerede har læst.
-// ---------------------------------------------------------------------------
-exports.retGamleRundeOpslag = onCall(
-  { region: REGION, timeoutSeconds: 540 },
-  async (request) => {
-    const db = getFirestore();
-    await requireAdmin(db, request);
-    const gameId = String(request.data?.gameId || '').trim();
-    if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
-    const dryRun = request.data?.dryRun !== false;
-    try {
-      return await opdaterGamleRundeOpslag(db, FieldValue, gameId, { dryRun });
-    } catch (e) {
-      console.error('retGamleRundeOpslag:', e && e.message);
-      throw new HttpsError('internal', 'Kunne ikke rette opslagene: ' + (e && e.message));
     }
   },
 );

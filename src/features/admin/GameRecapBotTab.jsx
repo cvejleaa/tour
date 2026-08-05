@@ -8,8 +8,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useGames } from '../games/useGames';
-import { callGenerateGameRecapNow, callRetGamleRundeOpslag } from './adminActions';
-import { formatKickoff } from '../../lib/daDate';
+import { callGenerateGameRecapNow } from './adminActions';
 import { GAME_STATUS } from '../../lib/constants';
 
 export default function GameRecapBotTab() {
@@ -23,40 +22,13 @@ export default function GameRecapBotTab() {
     if (eligible.length && !eligible.some((g) => g.id === gameId)) setGameId(eligible[0].id);
   }, [eligible, gameId]);
 
-  const [busy, setBusy] = useState(null); // 'bot-preview' | 'bot-post' | 'ret-preview' | 'ret-skriv'
+  const [busy, setBusy] = useState(null); // 'bot-preview' | 'bot-post'
   const [botMsg, setBotMsg] = useState(null);   // { kind, text }
-  const [preview, setPreview] = useState(null); // { round, text }
-
-  const [rettelser, setRettelser] = useState(null);
-  // Ret-panelet har sin EGEN besked. Delte de to paneler én, dukkede svaret på
-  // et klik nederst op langt oppe i fanen — måske uden for skærmen.
-  const [retMsg, setRetMsg] = useState(null);
+  const [preview, setPreview] = useState(null); // { round, udkast }
 
   // Et udkast hører til ét spil. Skifter man spil i vælgeren uden at rydde det,
-  // står forhåndsvisningen for spil A tilbage, mens knappen nu skriver i spil B.
-  useEffect(() => {
-    setPreview(null); setRettelser(null); setBotMsg(null); setRetMsg(null);
-  }, [gameId]);
-
-  async function retOpslag(dryRun) {
-    if (!dryRun && !window.confirm('Tag de gamle opslag ned på liga-væggene og erstat dem? Spillerne har allerede læst dem.')) return;
-    setBusy(dryRun ? 'ret-preview' : 'ret-skriv'); setRetMsg(null);
-    const res = await callRetGamleRundeOpslag({ gameId, dryRun });
-    if (!res.ok) setRetMsg({ kind: 'err', text: res.error });
-    else if (res.data?.reason === 'ingen-gamle-opslag') {
-      setRettelser(null);
-      setRetMsg({ kind: 'ok', text: 'Ingen gamle opslag tilbage — alt på væggene er postet efter rettelsen.' });
-    } else if (dryRun) {
-      setRettelser(res.data);
-      const n = res.data.udkast?.length ?? 0;
-      const rammes = res.data.udkast?.filter((u) => u.nyTekst).length ?? 0;
-      setRetMsg({ kind: 'ok', text: `${n} opslag fundet, ${rammes} bliver erstattet — intet er skrevet endnu. Kontrollér antal og tidspunkter, før du skriver.` });
-    } else {
-      setRettelser(null);
-      setRetMsg({ kind: 'ok', text: `Erstattede ${res.data.rettede} opslag. Den oprindelige tekst er gemt i oprindeligTekst på hver besked.` });
-    }
-    setBusy(null);
-  }
+  // står forhåndsvisningen for spil A tilbage, mens knappen nu poster i spil B.
+  useEffect(() => { setPreview(null); setBotMsg(null); }, [gameId]);
 
   async function runBot(dryRun) {
     if (!dryRun && !window.confirm('Post runde-opslaget på ALLE liga-vægge i spillet nu?')) return;
@@ -140,69 +112,6 @@ export default function GameRecapBotTab() {
           <button className="btn" disabled={!gameId || busy} onClick={() => runBot(false)}>
             {busy === 'bot-post' ? 'Poster…' : 'Post runde-opslag nu'}
           </button>
-        </div>
-
-        {/* De opslag, der ALLEREDE står på væggene, blev bygget af hele spillets
-            spillere. De kan ikke genskrives troværdigt to dage efter — point og
-            optakt ville blive nye tal på et gammelt opslag — så de erstattes af
-            én fast tekst, der siger hvad der gik galt. */}
-        <div style={{ borderTop: '1px dashed var(--c-border)', marginTop: '1.4rem', paddingTop: '0.8rem' }}>
-          <h3 style={{ marginTop: 0 }}>✍️ Ret de gamle opslag</h3>
-          <p style={{ color: 'var(--c-muted)', fontSize: '0.86rem', marginTop: 0 }}>
-            De første opslag nævnte spillere fra andre ligaer, fordi botten byggede dem af hele
-            spillets felt. De <strong>tages ned</strong> og erstattes af en fast tekst — ikke af et
-            nyt runde-referat, for stillingen har flyttet sig siden. Kun opslag fra før rettelsen
-            blev rullet ud rammes; <strong>læs tidspunktet på hvert enkelt</strong>, og kontrollér i
-            den gamle tekst, at der faktisk står fremmede navne. Den oprindelige tekst gemmes i
-            feltet <code>oprindeligTekst</code> på beskeden — der er ingen fortryd-knap, så
-            gendannelse sker i Firestore-konsollen (se <code>docs/drift.md</code>).
-          </p>
-
-          {retMsg && (
-            <p className={`badge ${retMsg.kind === 'ok' ? 'badge--green' : 'badge--red'} mb-2`} style={{ display: 'block' }}>
-              {retMsg.text}
-            </p>
-          )}
-          {rettelser && (
-            <div className="card mb-2" style={{ padding: '0.75rem 1rem' }}>
-              {rettelser.udkast.map((u) => (
-                <div key={u.messageId} style={{ marginBottom: '0.9rem' }}>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-                    <strong>{u.navn || u.leagueId || '—'}</strong>
-                    {u.createdAtMs != null && <> · postet {formatKickoff(u.createdAtMs)}</>}
-                    {u.reason && <span className="badge badge--yellow" style={{ marginLeft: 6 }}>{u.reason}</span>}
-                  </div>
-                  {u.gammelTekst && (
-                    <details style={{ marginTop: 4 }}>
-                      <summary style={{ cursor: 'pointer', fontSize: '0.82rem' }}>Vis det gamle opslag</summary>
-                      <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.86rem', opacity: 0.7, marginTop: 4 }}>
-                        {u.gammelTekst}
-                      </div>
-                    </details>
-                  )}
-                  {u.nyTekst && (
-                    <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.92rem', lineHeight: 1.5, marginTop: 6 }}>
-                      {u.nyTekst}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
-            <button className="btn btn--ghost" disabled={!gameId || busy} onClick={() => retOpslag(true)}>
-              {busy === 'ret-preview' ? 'Henter…' : '🧪 Forhåndsvis rettelse af gamle opslag'}
-            </button>
-            <button
-              className="btn"
-              // `.some(nyTekst)` og ikke `.length`: et udkast kan være en post,
-              // der netop IKKE skal røres (uden tidsstempel, uden tekst).
-              disabled={!gameId || busy || !rettelser?.udkast?.some((u) => u.nyTekst)}
-              onClick={() => retOpslag(false)}
-            >
-              {busy === 'ret-skriv' ? 'Erstatter…' : '✍️ Erstat de gamle opslag'}
-            </button>
-          </div>
         </div>
       </div>
     </div>

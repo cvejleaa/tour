@@ -18,10 +18,8 @@ const mockGames = vi.fn();
 vi.mock('../games/useGames', () => ({ useGames: () => mockGames() }));
 
 const mockRecapNow = vi.fn();
-const mockRetOpslag = vi.fn();
 vi.mock('./adminActions', () => ({
   callGenerateGameRecapNow: (...a) => mockRecapNow(...a),
-  callRetGamleRundeOpslag: (...a) => mockRetOpslag(...a),
 }));
 
 import GameRecapBotTab from './GameRecapBotTab';
@@ -104,78 +102,6 @@ describe('forhåndsvisning af runde-opslaget', () => {
     render(<GameRecapBotTab />);
     fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis runde-opslag/ }));
     expect(await screen.findByText('Runde 2 har allerede fået sit opslag.')).toBeInTheDocument();
-  });
-});
-
-describe('rettelse af de gamle opslag', () => {
-  const RETTELSE = {
-    dryRun: true,
-    rettede: 0,
-    udkast: [
-      {
-        leagueId: 'L1', navn: 'Familien', messageId: 'm1', createdAtMs: 1754000000000,
-        gammelTekst: 'Anna fører med 40 point', nyTekst: 'Her stod et runde-opslag…',
-      },
-      { leagueId: 'L2', navn: 'Kollegerne', messageId: 'm9', reason: 'uden tidsstempel — rørt ikke' },
-    ],
-  };
-
-  // Forhåndsvisningen er hele værnet: den skal vise den tekst, der forsvinder.
-  it('viser den gamle tekst, der bliver erstattet', async () => {
-    mockRetOpslag.mockResolvedValue({ ok: true, data: RETTELSE });
-    render(<GameRecapBotTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis rettelse/ }));
-
-    expect(await screen.findByText('Anna fører med 40 point')).toBeInTheDocument();
-    expect(screen.getByText('Her stod et runde-opslag…')).toBeInTheDocument();
-    // Og grunden til, at ét opslag IKKE røres, skal kunne ses.
-    expect(screen.getByText(/uden tidsstempel/)).toBeInTheDocument();
-  });
-
-  it('forhåndsviser med dryRun, og skriver først på det andet klik', async () => {
-    mockRetOpslag.mockResolvedValue({ ok: true, data: RETTELSE });
-    render(<GameRecapBotTab />);
-
-    fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis rettelse/ }));
-    await waitFor(() => expect(mockRetOpslag).toHaveBeenCalled());
-    expect(mockRetOpslag.mock.calls[0][0]).toMatchObject({ dryRun: true });
-
-    mockRetOpslag.mockResolvedValue({ ok: true, data: { dryRun: false, rettede: 1, udkast: [] } });
-    fireEvent.click(await screen.findByRole('button', { name: /Erstat de gamle opslag/ }));
-    await waitFor(() => expect(mockRetOpslag).toHaveBeenCalledTimes(2));
-    expect(mockRetOpslag.mock.calls[1][0]).toMatchObject({ dryRun: false });
-    expect(window.confirm).toHaveBeenCalled();
-  });
-
-  // Man skal ikke kunne skrive i noget, tolv mennesker har læst, uden først at
-  // have set hvad der forsvinder.
-  it('spærrer skriv-knappen indtil en forhåndsvisning har fundet noget at rette', async () => {
-    mockRetOpslag.mockResolvedValue({ ok: true, data: RETTELSE });
-    render(<GameRecapBotTab />);
-    expect(screen.getByRole('button', { name: /Erstat de gamle opslag/ })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis rettelse/ }));
-    await waitFor(() => expect(screen.getByRole('button', { name: /Erstat de gamle opslag/ })).toBeEnabled());
-  });
-
-  // Findes der KUN poster, der ikke skal røres, er der intet at skrive.
-  it('holder skriv-knappen spærret, når intet udkast har en ny tekst', async () => {
-    mockRetOpslag.mockResolvedValue({
-      ok: true,
-      data: { dryRun: true, rettede: 0, udkast: [{ leagueId: 'L2', navn: 'Kollegerne', messageId: 'm9', reason: 'uden tekst — rørt ikke' }] },
-    });
-    render(<GameRecapBotTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis rettelse/ }));
-
-    await screen.findByText(/uden tekst/);
-    expect(screen.getByRole('button', { name: /Erstat de gamle opslag/ })).toBeDisabled();
-  });
-
-  it('siger til, når der ikke er flere gamle opslag', async () => {
-    mockRetOpslag.mockResolvedValue({ ok: true, data: { reason: 'ingen-gamle-opslag', rettede: 0, udkast: [] } });
-    render(<GameRecapBotTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis rettelse/ }));
-    expect(await screen.findByText(/Ingen gamle opslag tilbage/)).toBeInTheDocument();
   });
 });
 
