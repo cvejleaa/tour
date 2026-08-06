@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import FootballHelp from './FootballHelp';
 import { RUBRIKKER } from './PointOpdeling';
-import { COMBI } from '../../../lib/superligaScoring';
+import { COMBI, ODDS, TRAEF_BONUS } from '../../../lib/superligaScoring';
 
 describe('FootballHelp (spil-intern hjælp)', () => {
   it('viser Superliga-mekanikken inkl. hvordan combi-bonus beregnes', () => {
@@ -143,5 +143,31 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     // "Mit hold" hedder profil som fane-nøgle — nem at ramme forkert.
     expect(screen.getAllByRole('link', { name: '🙂 Mit hold' })[0])
       .toHaveAttribute('href', '/spil/sl?fane=profil');
+  });
+
+  // GUIDEN ER SPILLERNES REGELBOG, og den har nu tre gange på tre dage sagt
+  // noget andet end koden. Eksempeltallene bindes derfor til FORMLEN, ikke til
+  // en afskrift: hardkodes de tilbage til de gamle 2,3/5,5, skal denne test
+  // falde. Og teksten må aldrig kunne skrive "plus 0 point", når skruen er nul.
+  it('regner eksemplerne af træf-bonussen — og skriver aldrig "plus 0 point"', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/spil/sl?fane=hjaelp']}>
+        <Routes>
+          <Route path="/spil/:gameId" element={<FootballHelp />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const komma = (n) => n.toFixed(1).replace('.', ',');
+    expect(container.textContent).toContain(`${komma(1.3 + TRAEF_BONUS)} point`);
+    expect(container.textContent).toContain(`${komma(4.5 + TRAEF_BONUS)} point`);
+    // Regex, ikke toContain: "plus 0 point" findes også inde i "plus 0,5 point".
+    expect(container.textContent).not.toMatch(/plus 0 point/);
+    // Loftet SKAL nævnes ved sit navn. Uden det lover teksten ren fairness
+    // netop dér, hvor spillet betaler mindre end fair — på de mest
+    // usandsynlige udfald. En løsere regex på "6,0" ville ramme et hvilket
+    // som helst andet tal i teksten og lyse grønt uden at bevise noget.
+    // Bindes til konstanten, ikke til et tal i teksten: hæves ODDS.MAX for et
+    // spil, skal guiden følge med af sig selv.
+    expect(container.textContent).toContain(`højst ${ODDS.MAX.toFixed(1).replace('.', ',')}`);
   });
 });

@@ -29,6 +29,10 @@ on:
         description: 'GENDAN: navn på en tidligere backup-artefakt-fil. Udfyldt = rul tilbage.'
         type: string
         default: ''
+      forventetPrBet:
+        description: 'Forventet ændring pr. ramt tip = (ny bonus − gammel bonus). Fx -1. Tom = ingen kontrol.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -78,6 +82,7 @@ jobs:
           DRY_RUN: ${{ steps.tilstand.outputs.dry }}
           BACKUP: bets-backup-${{ inputs.gameId }}.json
           GENDAN: ${{ inputs.gendan }}
+          FORVENTET_PR_BET: ${{ inputs.forventetPrBet }}
         run: node scripts/rescore-bets.mjs
 
       # Backup'en gemmes ALTID — også ved tør-kørsel. Uden den er der ingen vej

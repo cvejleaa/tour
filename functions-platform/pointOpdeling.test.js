@@ -30,10 +30,10 @@ function ctx(matches) {
 describe('opdelPoint', () => {
   it('deler point op i 1X2 og Chancen', () => {
     const roundCtx = ctx([{ id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 } }]);
-    // 3,5 for 1X2 (odds 2,5 + træf-bonus 1) + 2,0 fra Chancen = 5,5 på tippet.
+    // 2,5 for 1X2 (kampens odds) + 3,0 fra Chancen = 5,5 på tippet.
     const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 5.5 }], roundCtx, nowMs: NU });
-    expect(res.p1x2).toBe(3.5);
-    expect(res.chance).toBe(2);
+    expect(res.p1x2).toBe(2.5);
+    expect(res.chance).toBe(3);
     expect(res.total).toBe(5.5);
   });
 
@@ -46,8 +46,8 @@ describe('opdelPoint', () => {
     const res = opdelPoint({
       bets: [{ matchId: 'm1', pick: '1', points: 9.9, chanceStake: 999 }], roundCtx, nowMs: NU,
     });
-    expect(res.p1x2).toBe(3);    // odds 2,0 + træf-bonus 1
-    expect(res.chance).toBe(6.9);
+    expect(res.p1x2).toBe(2);    // kampens odds
+    expect(res.chance).toBe(7.9);
     expect(res.total).toBe(9.9);
   });
 
@@ -74,10 +74,10 @@ describe('opdelPoint', () => {
     const roundCtx = ctx([{
       id: 'm1', round: 1, result: '1', odds: { 1: 2.5, X: 4, 2: 4 }, kickoff: NU + 60 * 60_000,
     }]);
-    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 3.5 }], roundCtx, nowMs: NU });
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 2.5 }], roundCtx, nowMs: NU });
     expect(res.kampe).toHaveLength(0); // ikke synlig for andre
-    expect(res.p1x2).toBe(3.5);        // men pointene er der (odds 2,5 + 1)
-    expect(res.total).toBe(3.5);
+    expect(res.p1x2).toBe(2.5);        // men pointene er der (kampens odds)
+    expect(res.total).toBe(2.5);
   });
 
   // Et ulæseligt kickoff skal betyde "vis ikke", ikke "vis alligevel".
@@ -139,22 +139,22 @@ describe('opdelPoint', () => {
     ]);
     const res = opdelPoint({
       bets: [
-        { matchId: 'm1', pick: '1', points: 2.1 },
-        { matchId: 'm2', pick: '1', points: 2.1 },
-        { matchId: 'm3', pick: '1', points: 2.1 },
+        { matchId: 'm1', pick: '1', points: 1.1 },
+        { matchId: 'm2', pick: '1', points: 1.1 },
+        { matchId: 'm3', pick: '1', points: 1.1 },
       ],
       roundCtx,
       nowMs: NU,
     });
-    expect(res.p1x2).toBe(6.3); // 3 × (1,1 + 1) — ikke 6.300000000000001
+    expect(res.p1x2).toBe(3.3); // 3 × 1,1 — ikke 3.3000000000000003
   });
 
   it('afrunder Chancen, som er en forskel mellem to tal', () => {
-    // odds 3.33 → 1X2-point afrundes til 3,3 og får træf-bonus → 4,3.
+    // odds 3.33 → 1X2-point afrundes til 3,3.
     const roundCtx = ctx([{ id: 'm1', round: 1, result: 'X', odds: { 1: 4, X: 3.33, 2: 4 } }]);
-    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: 'X', points: 4.33 }], roundCtx, nowMs: NU });
-    expect(res.p1x2).toBe(4.3);
-    expect(res.chance).toBe(0);  // 4.33 − 4.3 = 0.03 → afrundet 0
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: 'X', points: 3.33 }], roundCtx, nowMs: NU });
+    expect(res.p1x2).toBe(3.3);
+    expect(res.chance).toBe(0);  // 3.33 − 3.3 = 0.03 → afrundet 0
   });
 
   it('lægger puljebonussen med i totalen', () => {

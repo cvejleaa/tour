@@ -5,7 +5,7 @@
  */
 import { Link } from 'react-router-dom';
 import GameTabLink from '../GameTabLink';
-import { CHANCE, COMBI, PULJE, ELO, roundComboBonus, TRAEF_BONUS } from '../../../lib/superligaScoring';
+import { CHANCE, COMBI, PULJE, ELO, ODDS, roundComboBonus, TRAEF_BONUS } from '../../../lib/superligaScoring';
 import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
@@ -120,18 +120,29 @@ export default function FootballHelp() {
 
       <Section emoji="🎯" title="Point følger oddsene">
         Du får point <strong>svarende til oddsene</strong> på det udfald, du rammer — afrundet til én
-        decimal — <strong>plus {TRAEF_BONUS} point for at have ramt</strong>. Rammer du en storfavorit til
-        odds 1,3, giver det <strong>2,3 point</strong>; rammer du en overraskelse til odds 4,5, giver det
-        {' '}<strong>5,5 point</strong>. Forkert tip giver 0.
+        decimal{TRAEF_BONUS > 0 ? <> — <strong>plus {TRAEF_BONUS} point for at have ramt</strong></> : null}.
+        Rammer du en storfavorit til odds 1,3, giver det{' '}
+        <strong>{(1.3 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>; rammer du en
+        overraskelse til odds 4,5, giver det{' '}
+        <strong>{(4.5 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>. Forkert tip giver 0.
         <p style={{ margin: '0.5rem 0 0' }}>
-          Det ene point er ikke pynt. Uden det er oddsene præcis 1 delt med sandsynligheden, og så er
-          <em>enhver</em> strategi lige god i det lange løb — den, der rammer flest, men rammer favoritter,
-          kan simpelthen ikke vinde. 20.000 simulerede sæsoner gav ham 4 % chance. Med bonussen er et tip
-          værd mere, jo oftere man har ret, og ingen spillertype ligger under 8 % eller over 21 %.
+          Oddsene er <strong>1 delt med sandsynligheden</strong> — dog altid mellem{' '}
+          <strong>{fmtDec(ODDS.MIN)}</strong> og <strong>{fmtDec(ODDS.MAX)}</strong>. Det betyder, at ethvert
+          enkelt tip er lige meget værd i det lange løb: en sikker favorit giver få point ofte, en
+          overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre valg altså
+          lige gode.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
-          Combi-bonussen nedenfor ganger derimod de <strong>rene odds</strong>. Ellers ville det ene point
-          blive ganget med i stedet for lagt til.
+          Er et udfald endnu mere usandsynligt end{' '}
+          <strong>højst {fmtDec(ODDS.MAX)}</strong> svarer til, betaler det stadig kun {fmtDec(ODDS.MAX)}.
+          Derfor er de allervildeste langskud lidt underbetalte.
+        </p>
+        <p style={{ margin: '0.5rem 0 0' }}>
+          Forskellen kommer i <strong>combi-bonussen</strong>, som ganger de <strong>rene odds</strong>{' '}
+          sammen: rammer du to overraskelser til odds 4,5, giver den{' '}
+          <strong>{fmtDec(roundComboBonus([4.5, 4.5], 2))}</strong>; rammer du fem favoritter til odds 1,6,
+          giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>. Dét er stedet,
+          hvor mod betaler sig.
         </p>
       </Section>
 

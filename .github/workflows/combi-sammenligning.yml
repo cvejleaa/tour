@@ -30,7 +30,7 @@ on:
       traef:
         description: 'Traef-bonus pr. ramt kamp (default 1, 0 = som foer)'
         type: string
-        default: '1'
+        default: '0'
 
 permissions:
   contents: read

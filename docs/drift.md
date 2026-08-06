@@ -117,11 +117,31 @@ kørslen (`bets-backup-<gameId>-<run_id>`, gemt i 90 dage). Den indeholder hvert
 bets `points` FØR kørslen. De gamle værdier findes ikke i noget andet felt og
 ingen historik, så filen er den eneste vej tilbage uden PITR.
 
-**Læs tør-kørslen, før du skriver.** Ved en ren træf-bonus-ændring skal `delta`
-være nøjagtig lig antal ændrede — hvert ændret bet flytter sig præcis +1, fordi
-combi-formlen ikke rører `bets.points`, og Chancen afregnes uændret til de rene
-odds. Scriptet siger det selv med ✓ eller ⚠️. Er de ikke ens, har noget andet
-flyttet sig: **stop og find ud af hvad**.
+**Læs tør-kørslen, før du skriver.** Ved en ren træf-bonus-ændring flytter hvert
+ændret bet sig præcis lige meget, fordi combi-formlen ikke rører `bets.points`,
+og Chancen afregnes uændret til de rene odds. Sæt derfor `forventetPrBet` til
+**(ny bonus − gammel bonus)** — `+1` da den gik 0→1, `-1` da den gik 1→0 — og
+kontrollér, at `delta` er `antal ændrede × forventetPrBet`. Scriptet siger det
+selv med ✓ eller ⚠️. Passer det ikke, har noget andet flyttet sig: **stop og
+find ud af hvad**.
+
+Lades feltet tomt, lyser ✓ aldrig. Det er med vilje: den første udgave af
+kontrollen sammenlignede uden fortegn, fordi bonussen dengang gik op. Da den gik
+ned igen dagen efter, advarede den på en helt korrekt kørsel — og ✓ kunne kun
+lyse, hvis pointene bevægede sig opad. Vi gætter ikke på retningen.
+
+**Tripwiren ser kun på summen.** Havde halvdelen af tippene flyttet sig −2 og
+den anden halvdel 0, ville totalen stadig se rigtig ud. Brug derfor
+`combi-sammenligning`-workflowet som forkontrol — det er læs-only og giver et
+facit **pr. spiller**. Bemærk, at dens "i dag"-kolonne modellerer combi-reglen
+fra før 5. august 2026 og er forældet: læs kun "ny"-kolonnen.
+
+**Kørsler indtil nu** — tallene gør den næste kørsel kontrollerbar:
+
+| Dato | Ændring | Ændrede | Delta |
+|---|---|---|---|
+| 5. aug. 2026 | træf-bonus 0 → 1 | 48 | +48,0 |
+| 6. aug. 2026 | træf-bonus 1 → 0 | 48 | −48,0 |
 
 **Kør den ikke, mens en kamp er i gang, eller mens du retter et facit.**
 Bagfyldningen læser alle bets, regner, og skriver bagefter. Ændrer et facit sig

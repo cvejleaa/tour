@@ -76,7 +76,7 @@ function foreslaaet(hitOdds) {
   return round1(Math.min(FAKTOR * Math.sqrt(produkt), LOFT));
 }
 /** Træf-bonus pr. ramt kamp i forslaget (0 = som i dag). */
-const TRAEF = Number(process.env.TRAEF ?? 1);
+const TRAEF = Number(process.env.TRAEF ?? 0);
 
 // --- hent data -------------------------------------------------------------
 const gameRef = db.collection('games').doc(GAME_ID);

@@ -43,23 +43,45 @@ function outcomeFromScore(homeGoals, awayGoals) {
   return OUTCOME.DRAW;
 }
 
-const TRAEF_BONUS = 1;
+const TRAEF_BONUS = 0;
 
 /**
- * Point for ÉN ramt kamp: kampens frosne odds PLUS træf-bonussen.
+ * Point for ÉN ramt kamp: kampens frosne odds, plus træf-bonussen hvis den er
+ * sat. Bonussen er nu **0** — se nedenfor.
  *
- * Bonussen findes, fordi rene fair odds gør alle strategier lige gode: er
- * odds = 1/sandsynlighed, er ethvert tip værd præcis 1 point i forventning.
- * Så afgøres sæsonen af udsving alene, og den, der rammer flest — men rammer
- * favoritter — kan ikke vinde. 20.000 simulerede sæsoner gav ham 4 %.
- * Med +1 pr. træffer bliver et tip værd 1 + p, altså mere jo oftere man har
- * ret, og feltet samler sig: ingen spillertype under 8 % eller over 21 %.
+ * Bonussen blev indført på 1 point, fordi rene fair odds gør alle strategier
+ * lige gode i forventning: er odds = 1/sandsynlighed, er ethvert tip værd
+ * præcis 1 point. Tanken var, at den der oftest har ret, skulle belønnes.
+ *
+ * Målingen bagefter viste, at den gjorde det for hårdt. Et tip bliver værd
+ * 1 + p, altså mest for den, der spiller favoritter — og bonussen er den
+ * samme uanset odds, så den vejer relativt tungest på det sandsynlige.
+ * Over 6.000 simulerede sæsoner på Superligaens eget program:
+ *
+ *     bonus  favorit-spiller  outsider-spiller
+ *       0          30 %             27 %
+ *       0,5        34 %             23 %
+ *       1          41 %             18 %
+ *
+ * Sat til 0 er forventningen igen praktisk talt ens: analytisk 132,8 for
+ * favorit-spilleren mod 132,1 for outsideren over en sæson — UDEN odds-loft.
+ * MED loftet på 6,00 er outsiderens forventning 128,3, fordi loftet binder på
+ * 36 af Superligaens 132 kampe og betaler ham mindre end fair.
+ *
+ * De 4,5 points forskel er nu favorittens eneste forspring, og det er en AKTIV
+ * modvægt: uden loftet vinder den modige oftest, fordi lige forventning og
+ * højere spredning slår igennem i et vinderen-tager-alt-spil. Hæves eller
+ * fjernes ODDS.MAX, skal balancen derfor måles igen — det er ikke oprydning.
+ *
+ * Konstanten bliver stående i stedet for at blive fjernet: det er en
+ * justeringsskrue med en målt historik, og næste gang nogen overvejer at
+ * skrue på den, skal tallene ovenfor være der.
  *
  * SKAL holdes ude af combi'en — den ganger de RENE odds. Derfor er dette en
  * egen funktion og ikke et tillæg inde i outcomeReward.
  */
-function hitPoints(result, odds) {
-  return round1(outcomeReward(result, odds) + TRAEF_BONUS);
+function hitPoints(result, odds, bonus = TRAEF_BONUS) {
+  return round1(outcomeReward(result, odds) + bonus);
 }
 
 function outcomePoints(pick, result, odds) {

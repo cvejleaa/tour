@@ -407,7 +407,7 @@ export default function FootballTip({ game, me, matches }) {
           {tipped}/{total} tippet
         </span>
         <span style={{ color: 'var(--c-muted)', fontSize: '0.78rem' }}>
-          Point følger oddsene, plus {TRAEF_BONUS} for hver kamp du rammer.
+          Point følger oddsene{TRAEF_BONUS > 0 ? `, plus ${TRAEF_BONUS} for hver kamp du rammer` : ''}.
         </span>
       </div>
 
@@ -609,7 +609,7 @@ export default function FootballTip({ game, me, matches }) {
                     title={won
                       ? `${OUTCOME_LABEL[o]} blev udfaldet`
                       : pts != null
-                        ? `${fmtDec(pts)} point hvis rigtigt (odds ${fmtDec(round1(odds))} + ${TRAEF_BONUS} for at ramme)`
+                        ? `${fmtDec(pts)} point hvis rigtigt${TRAEF_BONUS > 0 ? ` (odds ${fmtDec(round1(odds))} + ${TRAEF_BONUS} for at ramme)` : ` (kampens odds ${fmtDec(round1(odds))})`}`
                         : 'Odds mangler endnu'}
                   >
                     <span className="pick__label">{OUTCOME_LABEL[o]}</span>
