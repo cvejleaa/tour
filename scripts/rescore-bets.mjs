@@ -112,16 +112,34 @@ if (res.eksempler?.length) {
 }
 
 // TRIPWIREN. Ved en ren træf-bonus-ændring flytter hvert ændret bet sig præcis
-// +1 — combi-formlen rører ikke bets.points, og Chancen afregnes uændret til de
-// rene odds. Er de to tal ikke ens, har noget ANDET flyttet sig, og så skal en
-// skrivning ikke ske, før man ved hvad.
-const forventet = res.aendrede;
-if (Math.abs(res.delta - forventet) > 0.05) {
-  console.log(`  ⚠️  delta (${res.delta}) er IKKE lig antal ændrede (${forventet}).`);
-  console.log('     Ved en ren træf-bonus skal hvert ændret bet flytte sig præcis +1.');
-  console.log('     Undersøg det, før du skriver.\n');
+// lige meget — combi-formlen rører ikke bets.points, og Chancen afregnes
+// uændret til de rene odds. Er de to tal ikke ens, har noget ANDET flyttet sig,
+// og så skal en skrivning ikke ske, før man ved hvad.
+//
+// FORTEGNET SKAL MED. Den første udgave sammenlignede `delta` med `aendrede`
+// uden fortegn, fordi bonussen dengang gik OP. Da den gik ned igen dagen efter,
+// fyrede advarslen på en helt korrekt kørsel (−48 mod 48) — og værre: ✓ kunne
+// kun lyse, hvis pointene bevægede sig opad. Kontrollen var vendt om.
+//
+// Sæt FORVENTET_PR_BET til (ny bonus − gammel bonus): +1 da den gik 0→1, −1 da
+// den gik 1→0. Er den ikke sat, lyser ✓ ALDRIG — vi gætter ikke på retningen.
+const FORVENTET_PR_BET = process.env.FORVENTET_PR_BET === undefined || process.env.FORVENTET_PR_BET === ''
+  ? null
+  : Number(process.env.FORVENTET_PR_BET);
+
+if (FORVENTET_PR_BET === null || !Number.isFinite(FORVENTET_PR_BET)) {
+  console.log(`  ⚠️  FORVENTET_PR_BET er ikke sat — ingen kontrol af, om ${res.aendrede} bets`);
+  console.log(`     flyttede sig som forventet (målt delta: ${res.delta}).`);
+  console.log('     Sæt den til (ny bonus − gammel bonus), fx -1, og kør igen.\n');
 } else {
-  console.log(`  ✓ delta = antal ændrede (${forventet}) — hvert bet flyttede sig præcis +1.\n`);
+  const forventetDelta = res.aendrede * FORVENTET_PR_BET;
+  if (Math.abs(res.delta - forventetDelta) > 0.05) {
+    console.log(`  ⚠️  delta (${res.delta}) er IKKE ${forventetDelta} som ventet`);
+    console.log(`     (${res.aendrede} ændrede × ${FORVENTET_PR_BET} pr. bet).`);
+    console.log('     Noget ANDET end træf-bonussen har flyttet sig. Undersøg det, før du skriver.\n');
+  } else {
+    console.log(`  ✓ delta = ${res.delta} — hvert af de ${res.aendrede} bets flyttede sig præcis ${FORVENTET_PR_BET}.\n`);
+  }
 }
 
 if (DRY_RUN) {

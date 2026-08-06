@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 const {
   DEFAULT_POINTS, COMBI, round1, outcomeReward, roundComboBonus,
   isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet, clampStake, CHANCE, TRAEF_BONUS,
+  hitPoints,
   PULJE, ELO,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
   leagueTable, championshipTeams, puljeScore,
@@ -13,11 +14,23 @@ const {
 describe('superligaScoring (server-spejl)', () => {
   it('1X2-point følger kampens odds (1 decimal)', () => {
     const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
-    // Odds PLUS træf-bonussen på 1. Bonussen findes, fordi rene fair odds
+    // Point = kampens odds (træf-bonussen er 0). Bonussen findes, fordi rene fair odds
     // gør alle strategier lige gode — se hitPoints i superligaScoring.js.
     expect(outcomePoints('1', '1', odds)).toBe(3.1);
     expect(outcomePoints('X', 'X', odds)).toBe(4.3);
     expect(outcomePoints('2', '2', odds)).toBe(2.3);
+  });
+
+  // Samme værn som i klientens testfil: med bonussen på 0 er hitPoints og
+  // outcomeReward ENS, så `+ bonus` kunne fjernes helt fra serveren uden at
+  // én test blev rød — og så ville combi'en og 1X2-pointene være samme
+  // funktion, næste gang skruen sættes. Injicér en værdi ≠ 0 og bind skellet.
+  it('lægger en injiceret bonus til, mens outcomeReward står stille', () => {
+    const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
+    expect(hitPoints('1', odds)).toBe(3.1);
+    expect(hitPoints('1', odds, 1)).toBe(4.1);
+    expect(hitPoints('1', odds, 0.5)).toBe(3.6);
+    expect(outcomeReward('1', odds)).toBe(3.1);
     expect(outcomePoints('1', 'X', odds)).toBe(0);
     expect(round1(4.27)).toBe(4.3);
     expect(outcomeReward('X', null)).toBe(DEFAULT_POINTS.X);
@@ -93,7 +106,7 @@ describe('superligaScoring (server-spejl)', () => {
 
   it('scoreBet: en forfalsket indsats kan ikke give absurd mange point', () => {
     const pts = scoreBet({ pick: '1', chanceStake: 1000000 }, '1', { '1': 3 });
-    expect(pts).toBe(3 + TRAEF_BONUS + CHANCE.MAX_ABS * 2); // 1X2-point + loftet gevinst
+    expect(pts).toBe(3 + TRAEF_BONUS + CHANCE.MAX_ABS * 2); // 1X2-point (odds) + loftet gevinst
   });
 
   describe('scoreBet (1X2 + Chancen samlet)', () => {
@@ -102,10 +115,10 @@ describe('superligaScoring (server-spejl)', () => {
       expect(scoreBet({ pick: '1', chanceStake: 0 }, '2', { '1': 2.5 })).toBe(0);
     });
     it('uden odds falder base tilbage til standard', () => {
-      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X')).toBe(DEFAULT_POINTS.X + TRAEF_BONUS);
+      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X')).toBe(4);
     });
     it('med chance og ramt: base(odds) + gevinst', () => {
-      // pick X rammer med odds 3: base (3+1) + 8×(3−1)=16 → 20.
+      // pick X rammer med odds 3: base (odds 3,0) + 8×(3−1)=16 → 20.
       // Chancen afregnes til de RENE odds — træf-bonussen ganges ikke med.
       expect(scoreBet({ pick: 'X', chanceStake: 8 }, 'X', { X: 3 })).toBe(19);
     });
@@ -113,8 +126,8 @@ describe('superligaScoring (server-spejl)', () => {
       expect(scoreBet({ pick: '1', chanceStake: 5 }, '2', { 1: 2 })).toBe(-5);
     });
     it('uden gyldige odds afregnes chancen ikke (kun fallback-base)', () => {
-      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', null)).toBe(DEFAULT_POINTS['1'] + TRAEF_BONUS);
-      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', {})).toBe(DEFAULT_POINTS['1'] + TRAEF_BONUS);
+      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', null)).toBe(2);
+      expect(scoreBet({ pick: '1', chanceStake: 5 }, '1', {})).toBe(2);
     });
   });
 
@@ -177,5 +190,10 @@ describe('superligaScoring (server-spejl)', () => {
     expect(CHANCE).toEqual(src.CHANCE);
     expect(PULJE).toEqual(src.PULJE);
     expect(ELO).toEqual(src.ELO);
+    // TRAEF_BONUS og DEFAULT_POINTS er de to, der afgør point pr. RAMT kamp.
+    // Drifter de mellem spejlene, viser stillingen ét tal og tip-fladen et
+    // andet — og ingen af de øvrige assertions ville sige fra.
+    expect(TRAEF_BONUS).toBe(src.TRAEF_BONUS);
+    expect(DEFAULT_POINTS).toEqual(src.DEFAULT_POINTS);
   });
 });

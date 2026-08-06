@@ -51,7 +51,14 @@ describe('outcomePoints (point = odds + træf-bonus)', () => {
   // gælder også nu, hvor bonussen er 0: sættes den igen, skal skellet holde.
   it('holder træf-bonussen ude af outcomeReward, som combien bruger', () => {
     expect(outcomeReward('1', odds)).toBe(3.1);
-    expect(hitPoints('1', odds) - outcomeReward('1', odds)).toBeCloseTo(TRAEF_BONUS, 10);
+    expect(hitPoints('1', odds)).toBe(3.1);
+    // Bonussen er 0, så de to er lige nu ENS. Skellet kan derfor ikke bevises
+    // med den aktuelle værdi — men det kan bevises med en injiceret: sender vi
+    // 1 ind, SKAL hitPoints lægge den til, mens outcomeReward står stille.
+    // Uden dette kunne `+ bonus` fjernes helt uden at én test blev rød.
+    expect(hitPoints('1', odds, 1)).toBe(4.1);
+    expect(outcomeReward('1', odds)).toBe(3.1);
+    expect(hitPoints('1', odds, 0.5)).toBe(3.6);
   });
   it('forkert tip = 0', () => {
     expect(outcomePoints('1', 'X', odds)).toBe(0);
@@ -62,9 +69,11 @@ describe('outcomePoints (point = odds + træf-bonus)', () => {
     expect(outcomePoints(undefined, '1', odds)).toBe(0);
   });
   it('falder tilbage til DEFAULT_POINTS uden gyldige odds', () => {
-    expect(outcomePoints('1', '1')).toBe(DEFAULT_POINTS['1'] + TRAEF_BONUS);
-    expect(outcomePoints('X', 'X', {})).toBe(DEFAULT_POINTS.X + TRAEF_BONUS);
-    expect(outcomePoints('2', '2', { '2': 'x' })).toBe(DEFAULT_POINTS['2'] + TRAEF_BONUS);
+    // Tallene skrives ud. Regnede vi dem af DEFAULT_POINTS, ville testen bestå,
+    // selv om nogen ændrede standardværdierne — begge sider kom fra modulet.
+    expect(outcomePoints('1', '1')).toBe(2);
+    expect(outcomePoints('X', 'X', {})).toBe(4);
+    expect(outcomePoints('2', '2', { '2': 'x' })).toBe(3);
   });
 });
 

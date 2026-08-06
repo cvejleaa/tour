@@ -24,7 +24,7 @@ import { formatPoints } from '../GameLayout';
 // ⚡ er Chancen overalt i appen. Combi må derfor IKKE også få ⚡, selv om
 // rundeoverskriften i Mine tips gør det i dag.
 export const RUBRIKKER = [
-  { key: 'p1x2', ikon: '🎯', navn: 'Tippoint', hjaelp: 'Point for rigtige tip: kampens odds plus 1 for at ramme.' },
+  { key: 'p1x2', ikon: '🎯', navn: 'Tippoint', hjaelp: 'Point for rigtige tip: kampens odds.' },
   { key: 'chance', ikon: '⚡', navn: 'Chancen', hjaelp: 'Gevinst og tab på de tip, du satte point på spil på.' },
   { key: 'combi', ikon: '🔗', navn: 'Combi', hjaelp: 'Kupon-bonus: de ramte odds ganget sammen.' },
   { key: 'pulje', ikon: '🎖️', navn: 'Pulje', hjaelp: 'Point for dit mesterskabsspil-tip.' },

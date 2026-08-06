@@ -518,6 +518,19 @@ describe('rescoreAllBets — genscoring efter en REGELÆNDRING', () => {
     expect(db._bets[0].data.points).toBe(9);
   });
 
+  // BEGGE RETNINGER. Efter at bonussen gik ned, skulle intet bet længere OP —
+  // og så kunne `if (foer <= pts) continue` overleve. rescoreAllBets bruges
+  // også, når en admin retter odds eller et facit, hvor point kan gå begge
+  // veje, så asymmetrien lukkes her.
+  it('skriver også de bets, der skal OP', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 1 }], kampe,
+      {}, { A: { totalPoints: 1 } });
+    const res = await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
+    expect(res.aendrede).toBe(1);
+    expect(res.delta).toBe(2);
+    expect(db._bets[0].data.points).toBe(3);
+  });
+
   it('springer de bets over, der allerede står rigtigt', async () => {
     // 3 = odds X. Står tippet allerede på den nye regels værdi, er der intet
     // at skrive — og en gentagen bagfyldning må ikke røre databasen.

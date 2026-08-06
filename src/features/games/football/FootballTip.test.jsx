@@ -18,6 +18,7 @@ vi.mock('../betActions', () => ({ setBet: vi.fn().mockResolvedValue({ ok: true }
 vi.mock('./LeagueBets', () => ({ default: () => <div data-testid="liga-tips" /> }));
 vi.mock('../../../components/ClubBadge', () => ({ default: () => <span /> }));
 
+import { TRAEF_BONUS } from '../../../lib/superligaScoring';
 import FootballTip from './FootballTip';
 
 const KICKOFF = new Date('2026-09-01T18:00:00Z');
@@ -261,6 +262,13 @@ describe('FootballTip — slutresultat på kampkortet', () => {
     // De to tabende udfald beholder deres odds-tekst; kun vinderen skifter.
     expect(screen.getAllByTitle(/point hvis rigtigt/)).toHaveLength(2);
     expect(vinder.title).not.toMatch(/hvis rigtigt/);
+    // TEKSTEN SKAL BINDES, ikke bare tælles. Med træf-bonussen på 0 må der
+    // ikke stå "+ 0 for at ramme" — og sættes skruen igen, skal tooltip'et
+    // følge med. En ren optælling ville lyse grønt i begge tilfælde.
+    for (const el of screen.getAllByTitle(/point hvis rigtigt/)) {
+      expect(el.title).not.toMatch(/\+ 0 for at ramme/);
+      expect(el.title).toMatch(TRAEF_BONUS > 0 ? /\+ \d/ : /kampens odds/);
+    }
   });
 
   it('markerer intet udfald, før kampen er afgjort', () => {

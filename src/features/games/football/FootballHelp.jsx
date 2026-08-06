@@ -5,7 +5,7 @@
  */
 import { Link } from 'react-router-dom';
 import GameTabLink from '../GameTabLink';
-import { CHANCE, COMBI, PULJE, ELO, roundComboBonus, TRAEF_BONUS } from '../../../lib/superligaScoring';
+import { CHANCE, COMBI, PULJE, ELO, ODDS, roundComboBonus, TRAEF_BONUS } from '../../../lib/superligaScoring';
 import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
@@ -126,13 +126,23 @@ export default function FootballHelp() {
         overraskelse til odds 4,5, giver det{' '}
         <strong>{(4.5 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>. Forkert tip giver 0.
         <p style={{ margin: '0.5rem 0 0' }}>
-          Oddsene er <strong>1 delt med sandsynligheden</strong>. Det betyder, at ethvert enkelt tip er
-          lige meget værd i det lange løb: en sikker favorit giver få point ofte, en overraskelse giver
-          mange point sjældent. Så det er ikke <em>hvilke</em> udfald du vælger, der afgør sæsonen — det
-          er <em>hvornår</em> du tør tage risikoen, og hvordan du bygger din combi.
+          Oddsene er <strong>1 delt med sandsynligheden</strong> — dog altid mellem{' '}
+          <strong>{fmtDec(ODDS.MIN)}</strong> og <strong>{fmtDec(ODDS.MAX)}</strong>. Det betyder, at ethvert
+          enkelt tip er lige meget værd i det lange løb: en sikker favorit giver få point ofte, en
+          overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre valg altså
+          lige gode.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
-          Combi-bonussen nedenfor ganger de <strong>rene odds</strong> sammen.
+          Er et udfald endnu mere usandsynligt end{' '}
+          <strong>højst {fmtDec(ODDS.MAX)}</strong> svarer til, betaler det stadig kun {fmtDec(ODDS.MAX)}.
+          Derfor er de allervildeste langskud lidt underbetalte.
+        </p>
+        <p style={{ margin: '0.5rem 0 0' }}>
+          Forskellen kommer i <strong>combi-bonussen</strong>, som ganger de <strong>rene odds</strong>{' '}
+          sammen: rammer du to overraskelser til odds 4,5, giver den{' '}
+          <strong>{fmtDec(roundComboBonus([4.5, 4.5], 2))}</strong>; rammer du fem favoritter til odds 1,6,
+          giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>. Dét er stedet,
+          hvor mod betaler sig.
         </p>
       </Section>
 

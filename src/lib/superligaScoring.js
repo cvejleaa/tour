@@ -97,9 +97,15 @@ export const TRAEF_BONUS = 0;
  *       0,5        34 %             23 %
  *       1          41 %             18 %
  *
- * Sat til 0 er forventningen igen ens for alle (analytisk: 132,8 mod 132,1
- * point over en sæson uden odds-loft), og sæsonen afgøres af, hvor man vælger
- * at tage sin risiko — ikke af at spille favorit hver gang.
+ * Sat til 0 er forventningen igen praktisk talt ens: analytisk 132,8 for
+ * favorit-spilleren mod 132,1 for outsideren over en sæson — UDEN odds-loft.
+ * MED loftet på 6,00 er outsiderens forventning 128,3, fordi loftet binder på
+ * 36 af Superligaens 132 kampe og betaler ham mindre end fair.
+ *
+ * De 4,5 points forskel er nu favorittens eneste forspring, og det er en AKTIV
+ * modvægt: uden loftet vinder den modige oftest, fordi lige forventning og
+ * højere spredning slår igennem i et vinderen-tager-alt-spil. Hæves eller
+ * fjernes ODDS.MAX, skal balancen derfor måles igen — det er ikke oprydning.
  *
  * Konstanten bliver stående i stedet for at blive fjernet: det er en
  * justeringsskrue med en målt historik, og næste gang nogen overvejer at
@@ -108,8 +114,8 @@ export const TRAEF_BONUS = 0;
  * SKAL holdes ude af combi'en — den ganger de RENE odds. Derfor er dette en
  * egen funktion og ikke et tillæg inde i outcomeReward.
  */
-export function hitPoints(result, odds) {
-  return round1(outcomeReward(result, odds) + TRAEF_BONUS);
+export function hitPoints(result, odds, bonus = TRAEF_BONUS) {
+  return round1(outcomeReward(result, odds) + bonus);
 }
 
 export function outcomePoints(pick, result, odds) {
