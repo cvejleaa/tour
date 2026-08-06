@@ -8,7 +8,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { useAuth } from '../../../context/AuthContext';
 import { COL } from '../../../lib/constants';
-import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
+import { teamsOf } from './teamInfo';
 import { PULJE } from '../../../lib/superligaScoring';
 import { setPuljeBet } from '../gameActions';
 import { toMillis } from './footballRounds';
@@ -73,7 +73,10 @@ export default function PuljeTip({ game, matches }) {
   if (bet === undefined) return <div className="spinner" role="status" aria-label="Indlæser" />;
 
   const chosen = new Set(picks);
-  const teams = SUPERLIGA_TEAMS_2026;
+  // Spillets egne hold. Det var det ENESTE sted, der ikke allerede faldt
+  // tilbage på game.teams — så et engelsk spil ville have vist tolv danske
+  // klubber i vælgeren.
+  const teams = teamsOf(game);
 
   return (
     <div>

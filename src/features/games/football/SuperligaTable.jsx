@@ -3,13 +3,13 @@
  * (games/{gameId}.standings, synket af serveren). Vi beregner den ikke selv.
  * Viser mesterskabsspil (top 6) og nedrykningsspil (bund 6) adskilt.
  */
-import { superligaTeamInfo } from '../../../data/superligaTeams2026';
+import { teamsOf, teamInfo } from './teamInfo';
 import ClubBadge from '../../../components/ClubBadge';
 
 const POOL_SIZE = 6;
 
-function Row({ r }) {
-  const info = superligaTeamInfo(r.teamName);
+function Row({ r, teams }) {
+  const info = teamInfo(teams, r.teamName);
   const gd = (Number(r.gf) || 0) - (Number(r.ga) || 0);
   return (
     <tr>
@@ -32,6 +32,9 @@ function Row({ r }) {
 }
 
 export default function SuperligaTable({ game }) {
+  // Spillets egne hold — ellers får engelske klubber hverken farve eller
+  // kortkode, fordi opslaget lå fast i den danske liste.
+  const hold = teamsOf(game);
   const standings = Array.isArray(game?.standings) ? [...game.standings].sort((a, b) => a.rank - b.rank) : [];
 
   if (standings.length === 0) {
@@ -54,7 +57,7 @@ export default function SuperligaTable({ game }) {
       <tr className={`sltab__divider sltab__divider--${tone}`}>
         <td colSpan={9}>{title}</td>
       </tr>
-      {rows.map((r) => <Row key={r.teamName} r={r} />)}
+      {rows.map((r) => <Row key={r.teamName} r={r} teams={hold} />)}
     </>
   );
 

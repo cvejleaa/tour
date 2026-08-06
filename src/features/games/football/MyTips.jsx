@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import { useGameBets } from '../useGameBets';
 import { groupByRound, afterStart, toMillis } from './footballRounds';
+import { teamsOf } from './teamInfo';
 import { buildTipsHistory } from './tipsHistory';
 import TipsHistorik from './TipsHistorik';
 import GameTabLink from '../GameTabLink';
@@ -33,6 +34,9 @@ export default function MyTips({ game, matches, me }) {
   return (
     <TipsHistorik
       history={history}
+      // Holdene kommer fra SPILLET. Uden dem faldt kortkoderne tilbage på den
+      // danske liste, og et engelsk spil ville vise fulde holdnavne.
+      teams={teamsOf(game)}
       // Serverens tal, ikke historikkens: stillingen viser det samme, og to
       // veje til ét tal driver fra hinanden.
       opdeling={me?.opdeling ?? null}
