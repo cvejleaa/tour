@@ -1,8 +1,96 @@
 import { describe, it, expect } from 'vitest';
 import {
-  docId, parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold,
+  docId, kickoffMs, tjekDubletter, parseArgs,
+  parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold,
 } from './seedFootball';
-import { matchId } from './superligaSeed';
+import { matchId, buildMatch } from './superligaSeed';
+
+// ---------------------------------------------------------------------------
+// ARGUMENTERNE. De to måder at stave galt på fejler i hver sin retning, og det
+// er kun den ene, der er farlig:
+//   --skriv → --skrive             tørkører. Man opdager det med det samme.
+//   --kickoffs-only → --kickoff-only   flaget forsvinder — og fordi --teams står
+//     med i den dokumenterede kommando, passerer argument-tjekket, så der køres
+//     et FULDT SEED med skrivning, hvor der skulle have været rettet en tid.
+// ---------------------------------------------------------------------------
+describe('parseArgs', () => {
+  it('læser de kendte argumenter og flag', () => {
+    const a = parseArgs(['--game', 'pl2627-efteraar', '--runder', '1-18', '--kickoffs-only', '--skriv']);
+    expect(a.game).toBe('pl2627-efteraar');
+    expect(a.runder).toBe('1-18');
+    expect(a.flags.has('kickoffs-only')).toBe(true);
+    expect(a.flags.has('skriv')).toBe(true);
+  });
+
+  it('siger fra ved en typo i --kickoffs-only — den må ALDRIG blive til et fuldt seed', () => {
+    expect(() => parseArgs(['--game', 'x', '--kickoff-only', '--skriv'])).toThrow(/ukendt argument --kickoff-only/);
+  });
+
+  it('siger fra ved --rounds, som ellers ville seede alle 38 runder', () => {
+    expect(() => parseArgs(['--game', 'x', '--rounds', '1-18'])).toThrow(/ukendt argument --rounds/);
+  });
+
+  it('siger fra ved --runder uden værdi — ikke stiltiende "alle runder"', () => {
+    expect(() => parseArgs(['--game', 'x', '--runder'])).toThrow(/--runder mangler en værdi/);
+  });
+
+  it('siger fra, når et flag får en værdi med', () => {
+    expect(() => parseArgs(['--skriv', 'ja'])).toThrow(/tager ikke en værdi/);
+  });
+
+  it('siger fra ved løsrevne ord', () => {
+    expect(() => parseArgs(['seed'])).toThrow(/forstod ikke/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// KICKOFF SOM TAL. Kickoff ER tip-deadlinen, og filen gensynkroniseres løbende
+// fra API'et — et formatskift i kilden rammer præcis her.
+// ---------------------------------------------------------------------------
+describe('kickoffMs', () => {
+  it('læser en ISO-tid med zone', () => {
+    expect(kickoffMs('2026-08-22T14:00:00Z')).toBe(Date.UTC(2026, 7, 22, 14));
+    expect(kickoffMs('2026-08-22T16:00:00+02:00')).toBe(Date.UTC(2026, 7, 22, 14));
+  });
+
+  it('ingen tid er ingen tid', () => {
+    expect(kickoffMs(null)).toBeNull();
+    expect(kickoffMs('')).toBeNull();
+  });
+
+  // Uden zone læses strengen i maskinens egen zone: 12:00Z på en dansk laptop,
+  // 14:00Z i CI. Så ville deadlinen afhænge af, hvor scriptet blev kørt.
+  it('afviser en tid uden tidszone', () => {
+    expect(() => kickoffMs('2026-08-22T14:00:00')).toThrow(/tidszone/);
+  });
+
+  // NaN er hverken lig null eller sig selv: kampen ville blive skrevet med en
+  // ugyldig tid OG rapporteret som "ændret" ved hver eneste kørsel herefter.
+  it('afviser noget, der ikke kan læses som en dato', () => {
+    // Har en zone, så den slipper forbi tjekket ovenfor — og er stadig vrøvl.
+    expect(() => kickoffMs('24-08-2026 19:00Z')).toThrow(/kunne ikke læses/);
+    expect(() => kickoffMs('senere+02:00')).toThrow(/kunne ikke læses/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dubletter: to rækker med samme dokument-id giver to skrivninger på det samme
+// dokument — sidste vinder, uden et ord.
+// ---------------------------------------------------------------------------
+describe('tjekDubletter', () => {
+  it('siger fra ved to kampe med samme id', () => {
+    expect(() => tjekDubletter([{ id: 'a' }, { id: 'b' }, { id: 'a' }])).toThrow(/dubletter: a/);
+  });
+
+  it('fanger også dubletter, der først opstår efter udledning af id', () => {
+    const fx = [{ round: 1, home: 'OB', away: 'AGF' }, { round: 1, home: 'OB', away: 'AGF' }];
+    expect(() => tjekDubletter(fx)).toThrow(/dubletter/);
+  });
+
+  it('er tilfreds med et rigtigt kampprogram', () => {
+    expect(() => tjekDubletter([{ id: 'a' }, { id: 'b' }])).not.toThrow();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Premier League-programmet har id'er med fra pulselive. Superligaens
@@ -23,6 +111,21 @@ describe('docId', () => {
   it('siger fra, når kampen hverken har id eller runde+hold', () => {
     expect(() => docId({ home: 'Arsenal', away: 'Chelsea' })).toThrow(/genfindes/);
     expect(() => docId({ round: 1, home: 'Arsenal' })).toThrow(/genfindes/);
+  });
+
+  // docId og buildMatch koder den SAMME regel to steder. Denne ene linje er
+  // det, der binder dem sammen — uden den kan de drive fra hinanden i tavshed.
+  it('er altid enig med det id, buildMatch skriver dokumentet under', () => {
+    const medId = { id: 'r1-124821', round: 1, home: 'Arsenal', away: 'Chelsea' };
+    const udenId = { round: 1, home: 'Viborg FF', away: 'OB' };
+    expect(docId(medId)).toBe(buildMatch(medId, []).id);
+    expect(docId(udenId)).toBe(buildMatch(udenId, []).id);
+  });
+
+  // Firestores dokument-id'er er strenge. En kilde med tal-id'er ville ellers
+  // give et opslag, der aldrig rammer — og en ubeskyttet kamp i tavshed.
+  it('gør et tal-id til en streng, så opslaget rammer', () => {
+    expect(docId({ id: 2645195, round: 1, home: 'A', away: 'B' })).toBe('2645195');
   });
 });
 
@@ -89,22 +192,35 @@ describe('kickoffPlan', () => {
     expect(p.sprunget).toBe(1);
   });
 
+  // superligaSync.js behandler fire steder result === '' som "intet facit
+  // endnu". Rammer vi ikke samme konvention, ville en kamp med ryddet facit
+  // aldrig kunne få rettet sit tidspunkt igen.
+  it('behandler ryddet facit ("") som ikke spillet — samme regel som synken', () => {
+    const fx = [{ id: 'r1-1', kickoff: '2026-09-01T19:00:00Z' }];
+    const nu = new Map([['r1-1', { kickoffMs: T('2026-08-22T19:00:00Z'), result: '' }]]);
+    expect(kickoffPlan(fx, nu).aendringer).toHaveLength(1);
+  });
+
   it('rører ikke en kamp, der slet ikke er seedet endnu', () => {
     const p = kickoffPlan([{ id: 'findes-ikke', kickoff: '2026-08-22T19:00:00Z' }], new Map());
     expect(p.aendringer).toEqual([]);
     expect(p.sprunget).toBe(1);
   });
 
-  // En udsat kamp kan miste sin dato helt, og en TBD-kamp kan få én.
-  it('håndterer begge veje: tid fjernet og tid tilføjet', () => {
-    const fx = [{ id: 'a', kickoff: null }, { id: 'b', kickoff: '2026-12-26T15:00:00Z' }];
-    const nu = new Map([
-      ['a', { kickoffMs: T('2026-12-26T15:00:00Z') }],
-      ['b', { kickoffMs: null }],
-    ]);
+  // En TBD-kamp, der endelig får et tidspunkt, er den ene retning vi TILLADER.
+  // Den modsatte vej — at fjerne en tid, der står — afvises; se testen nedenfor.
+  it('giver en kamp uden tid dens første tidspunkt', () => {
+    const fx = [{ id: 'b', kickoff: '2026-12-26T15:00:00Z' }];
+    const nu = new Map([['b', { kickoffMs: null }]]);
     const p = kickoffPlan(fx, nu);
-    expect(p.aendringer.find((x) => x.id === 'a').tilMs).toBeNull();
-    expect(p.aendringer.find((x) => x.id === 'b').fraMs).toBeNull();
+    expect(p.aendringer).toEqual([
+      { id: 'b', fraMs: null, tilMs: T('2026-12-26T15:00:00Z') },
+    ]);
+  });
+
+  it('lader en kamp uden tid i BEGGE ender være i fred', () => {
+    const p = kickoffPlan([{ id: 'a', kickoff: null }], new Map([['a', { kickoffMs: null }]]));
+    expect(p.aendringer).toEqual([]);
   });
 
   // Superligaens program har ingen id'er. Uden udledning ville opslaget ramme
@@ -116,6 +232,30 @@ describe('kickoffPlan', () => {
     expect(p.aendringer).toHaveLength(1);
     expect(p.aendringer[0].id).toBe(matchId(fx[0]));
     expect(p.sprunget).toBe(0);
+  });
+
+  // Valideringen skal sidde i PLANEN, ikke kun i hjælpefunktionen — ellers kan
+  // kaldet skiftes ud med new Date() igen uden en eneste rød test.
+  it('afviser en ulæselig eller zone-løs tid i selve planen', () => {
+    const nu = new Map([['r1-1', { kickoffMs: 0 }]]);
+    expect(() => kickoffPlan([{ id: 'r1-1', kickoff: '2026-08-22T14:00:00' }], nu)).toThrow(/tidszone/);
+    expect(() => kickoffPlan([{ id: 'r1-1', kickoff: '24-08-2026 19:00Z' }], nu)).toThrow(/kunne ikke læses/);
+  });
+
+  // At rydde en tid, der står, er ikke en tidsrettelse: tippet afvises af
+  // reglerne, knapperne står alligevel åbne, og påmindelsen udebliver.
+  it('nægter at fjerne en tid, der allerede står', () => {
+    const nu = new Map([['r1-1', { kickoffMs: T('2026-08-22T19:00:00Z') }]]);
+    expect(() => kickoffPlan([{ id: 'r1-1', kickoff: null }], nu)).toThrow(/Ryd den bevidst/);
+  });
+
+  it('tæller "ikke seedet" og "allerede spillet" hver for sig', () => {
+    const fx = [{ id: 'mangler' }, { id: 'spillet', kickoff: '2026-08-22T19:00:00Z' }];
+    const nu = new Map([['spillet', { kickoffMs: 0, result: '1' }]]);
+    const p = kickoffPlan(fx, nu);
+    expect(p.mangler).toEqual(['mangler']);
+    expect(p.spillet).toBe(1);
+    expect(p.sprunget).toBe(2);
   });
 
   it('kræver noget at genfinde kampen på', () => {

@@ -24,11 +24,106 @@ import { matchId } from './superligaSeed.js';
  * `kickoffPlan` stå og se rigtige ud uden at beskytte en eneste kamp.
  */
 export function docId(fx) {
+  // String() er ikke pynt: `eksisterende`-map'et har STRENG-nøgler (Firestores
+  // dokument-id'er). En kilde med tal-id'er ville ellers give et opslag, der
+  // aldrig rammer — og en kamp, der ser ubeskyttet ny ud, i tavshed.
   if (fx?.id) return String(fx.id);
   if (fx?.round == null || !fx?.home || !fx?.away) {
     throw new Error('kampen mangler både id og runde+hold — den kan ikke genfindes');
   }
   return matchId(fx);
+}
+
+/**
+ * Kickoff som millisekunder — eller null, hvis kampen ingen tid har.
+ *
+ * To ting afvises højlydt, fordi kickoff ER tip-deadlinen:
+ *
+ *  - En streng, der ikke kan læses som en dato, giver `NaN`. NaN er hverken
+ *    lig null eller sig selv, så kampen ville blive skrevet med en ugyldig tid
+ *    OG rapporteret som "ændret" ved hver eneste kørsel herefter.
+ *  - En streng UDEN tidszone læses i maskinens egen zone. Den samme fil ville
+ *    give 12:00Z på en dansk laptop og 14:00Z i CI — altså to forskellige
+ *    deadlines afhængigt af hvor scriptet blev kørt.
+ *
+ * Kampprogrammet gensynkroniseres løbende fra API'et, så et formatskift i
+ * kilden er præcis den fejl, der rammer her.
+ */
+export function kickoffMs(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date || typeof v === 'number') {
+    const t = new Date(v).getTime();
+    if (Number.isNaN(t)) throw new Error(`kickoff kunne ikke læses som en dato: ${String(v)}`);
+    return t;
+  }
+  const s = String(v).trim();
+  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(s)) {
+    throw new Error(`kickoff mangler tidszone: "${s}" — ellers afhænger deadlinen af, hvor scriptet køres`);
+  }
+  const t = new Date(s).getTime();
+  if (Number.isNaN(t)) throw new Error(`kickoff kunne ikke læses som en dato: "${s}"`);
+  return t;
+}
+
+/**
+ * To rækker med samme dokument-id ville give to skrivninger på det samme
+ * dokument — sidste vinder, uden et ord. Filen genskrives fra API'et, så den
+ * dublet er ikke utænkelig.
+ */
+export function tjekDubletter(fixtures) {
+  const set = new Set();
+  const dub = new Set();
+  for (const fx of fixtures || []) {
+    const id = docId(fx);
+    if (set.has(id)) dub.add(id);
+    set.add(id);
+  }
+  if (dub.size) throw new Error(`kampprogrammet har dubletter: ${[...dub].sort().join(', ')}`);
+}
+
+/**
+ * Argumenterne fra kommandolinjen.
+ *
+ * DEN VIGTIGE DEL ER HVIDLISTEN. Uden den sluges et ukendt flag i tavshed, og
+ * de to måder at stave galt på fejler i hver sin retning:
+ *
+ *   --skriv → --skrive        harmløst: der tørkøres, og man opdager det straks
+ *   --kickoffs-only → --kickoff-only   FARLIGT: flaget forsvinder, og fordi
+ *     --teams står med i den dokumenterede kommando, passerer argument-tjekket
+ *     — så kører der et FULDT SEED med skrivning, hvor der skulle have været
+ *     rettet et tidspunkt.
+ *
+ * Samme klasse: `--rounds 1-18` i stedet for `--runder` ville seede alle 38
+ * runder ind i efterårsspillet. Derfor er et ukendt navn en fejl, ikke en
+ * ignoreret detalje.
+ */
+export const KENDTE_ARGS = ['game', 'teams', 'fixtures', 'runder'];
+export const KENDTE_FLAG = ['kickoffs-only', 'skriv'];
+
+export function parseArgs(argv) {
+  const out = { flags: new Set() };
+  const liste = argv || [];
+  for (let i = 0; i < liste.length; i += 1) {
+    const a = liste[i];
+    if (!String(a).startsWith('--')) throw new Error(`forstod ikke "${a}" — argumenter skal starte med --`);
+    const key = String(a).slice(2);
+    const next = liste[i + 1];
+    const harVaerdi = next !== undefined && !String(next).startsWith('--');
+
+    if (KENDTE_ARGS.includes(key)) {
+      // `--runder` til sidst uden værdi må ikke stille og roligt blive til et
+      // flag — så ville alle runder komme med, og det er ikke det, der blev bedt om.
+      if (!harVaerdi) throw new Error(`--${key} mangler en værdi`);
+      out[key] = next;
+      i += 1;
+    } else if (KENDTE_FLAG.includes(key)) {
+      if (harVaerdi) throw new Error(`--${key} tager ikke en værdi (fik "${next}")`);
+      out.flags.add(key);
+    } else {
+      throw new Error(`ukendt argument --${key}. Kendte: ${[...KENDTE_ARGS, ...KENDTE_FLAG].map((k) => `--${k}`).join(', ')}`);
+    }
+  }
+  return out;
 }
 
 /**
@@ -59,34 +154,54 @@ export function iInterval(fixtures, interval) {
  *  - kampen har et RESULTAT → tidspunktet er historie, ikke en deadline
  *  - tidspunktet er uændret → spar skrivningen
  *
+ * Bemærk `if (nu.result)`: en TOM streng tæller som "intet facit endnu", ikke
+ * som spillet. Det er samme konvention som `superligaSync.js` bruger fire
+ * steder, og en ryddet kamp skal kunne få rettet sit tidspunkt igen.
+ *
  * @param {Array<{id:string, kickoff:string}>} fixtures
  * @param {Map<string, {result?:*, kickoffMs?:number|null}>} nuvaerende
  * @returns {{aendringer: Array<{id:string, fraMs:number|null, tilMs:number|null}>, sprunget:number}}
  */
 export function kickoffPlan(fixtures, nuvaerende) {
   const aendringer = [];
-  let sprunget = 0;
+  // De to grunde til at springe over tælles HVER FOR SIG. "Findes ikke" aftenen
+  // før en runde betyder, at kampen aldrig blev seedet — det er en alarm, og
+  // den må ikke gemme sig i samme tal som de færdigspillede.
+  const mangler = [];
+  let spillet = 0;
   for (const fx of fixtures || []) {
     const id = docId(fx);
     const nu = nuvaerende?.get?.(id);
-    if (!nu) { sprunget += 1; continue; }
-    if (nu.result) { sprunget += 1; continue; }
-    const tilMs = fx.kickoff ? new Date(fx.kickoff).getTime() : null;
+    if (!nu) { mangler.push(id); continue; }
+    if (nu.result) { spillet += 1; continue; }
+    const tilMs = kickoffMs(fx.kickoff);
     const fraMs = nu.kickoffMs ?? null;
     if (tilMs === fraMs) continue;
+    // At RYDDE en tid, der står, er ikke en tidsrettelse — det er tre ting på
+    // én gang, og ingen af dem er synlige: firestore.rules sammenligner
+    // request.time mod null og afviser hvert tip, `isLocked` returnerer false
+    // så knapperne står åbne alligevel, og påmindelsen springer kampen over.
+    // Loggen ville kun sige "→ —". En udsat kamp uden ny dato skal håndteres
+    // bevidst, ikke som en bivirkning af en rutinekørsel.
+    if (tilMs == null && fraMs != null) {
+      throw new Error(`${id}: kampprogrammet har ingen tid, men kampen har en. Ryd den bevidst — ikke via en rutinekørsel.`);
+    }
     aendringer.push({ id, fraMs, tilMs });
   }
-  return { aendringer, sprunget };
+  return { aendringer, mangler, spillet, sprunget: mangler.length + spillet };
 }
 
 /**
  * Hvilke kampe skal seedes?
  *
- * En kamp, der ALLEREDE har odds, springes over. Det var fælden i det gamle
- * script: det skrev odds ubetinget med merge, så en gen-kørsel midt i sæsonen
- * ville have overskrevet de frosne odds på kampe, folk havde tippet og fået
- * point for. Skal odds genberegnes, gør `recomputeSeasonElo` det — og kun på
- * kampe, der ikke er låst endnu.
+ * En kamp, der ALLEREDE har odds, springes over — og begrundelsen er vigtigere
+ * end reglen. Odds friskes op efter hvert resultat helt frem til kickoff og
+ * låses dér; det er `recomputeSeasonElo`, der ejer dem fra seedet og frem.
+ * Et gen-seed ville skrive dem tilbage til Elo, som den så ud den dag,
+ * programmet blev lagt ind — altså rulle sæsonens egen læring tilbage, og på
+ * en spillet kamp ændre den pris, folk allerede har fået point efter.
+ *
+ * Det var fælden i det gamle script: det skrev odds ubetinget med merge.
  *
  * @param {Array<{id:string}>} fixtures
  * @param {Map<string, {odds?:object}>} nuvaerende

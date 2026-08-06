@@ -22,7 +22,20 @@ on:
         # databasen. Slå den kun til, når spil-dokumenterne faktisk skal ind.
         default: false
       seedSuperliga:
-        description: 'Seed Superliga-kampprogrammet (132 kampe + odds fra scripts/superliga-fixtures.json)?'
+        # Labelen er det ENESTE, operatøren ser i klik-øjeblikket — YAML-
+        # kommentarer er usynlige i Actions-UI'et. Derfor står forbeholdet her.
+        description: 'Seed Superliga-kampprogrammet (kampe, der allerede har odds, springes over — skriver intet på en igangværende sæson). Skal tidspunkter rettes, så brug seedKickoffs.'
+        type: boolean
+        default: false
+      seedKickoffs:
+        description: 'Ret KUN kickoff-tider fra kampprogram-filen (rører hverken odds, Elo eller resultater)?'
+        type: boolean
+        default: false
+      seedKickoffsSkriv:
+        # Default FALSE = tør-kørsel. drift.md åbner med "kør altid tør-kørslen
+        # først og læs loggen", og kickoff ER tip-deadlinen — så forhåndsvisningen
+        # skal være det, man får, når man ikke har taget stilling.
+        description: 'seedKickoffs: SKRIV i databasen? Uden dette flueben tørkøres der, og ændringerne vises kun.'
         type: boolean
         default: false
       deployFunctions:
@@ -125,15 +138,33 @@ jobs:
         # Samme skrivninger som det tidligere seed-superliga.mjs — bevist felt
         # for felt på et tomt spil (133 identiske skrivninger). ÉN forskel, og
         # den er med vilje: kampe, der ALLEREDE har odds, springes nu over i
-        # stedet for at få dem overskrevet. Tikker nogen af her midt i sæsonen,
-        # rører kørslen ikke de odds, folk har tippet og fået point efter.
-        # `--skriv` står her, fordi tør-kørsel er default i scriptet.
+        # stedet for at få dem overskrevet.
+        #
+        # Bemærk at spil-dokumentet (teams, eloCurrent) skrives ubetinget, også
+        # når nul kampe skrives. Kørslen er altså ikke en ren no-op midt i en
+        # sæson — men eloCurrent genberegnes af recomputeSeasonElo ved næste
+        # resultat. `--skriv` står her, fordi tør-kørsel er default i scriptet.
         run: |
           node scripts/seed-football.mjs \
             --game superliga2627 \
             --teams src/data/superligaTeams2026.js \
             --fixtures scripts/superliga-fixtures.json \
             --skriv
+
+      - name: Ret kickoff-tider (valgfrit)
+        if: ${{ inputs.seedKickoffs }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        # Kickoff ER tip-deadlinen. Efter at seedSuperliga springer kampe med
+        # odds over, kan den ikke længere rette et tidspunkt midt i sæsonen —
+        # og alternativet ville være en produktionsnøgle på en bærbar.
+        # Skriver KUN kickoff + updatedAt, og lader kampe med facit være.
+        run: |
+          node scripts/seed-football.mjs \
+            --game superliga2627 \
+            --fixtures scripts/superliga-fixtures.json \
+            --kickoffs-only \
+            ${{ inputs.seedKickoffsSkriv && '--skriv' || '' }}
 
       - name: Deploy Cloud Function (afregning + levende Elo)
         if: ${{ inputs.deployFunctions }}

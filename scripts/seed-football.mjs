@@ -38,24 +38,19 @@ const { buildMatches } = await import('../src/lib/superligaSeed.js');
 // Beslutningerne (hvad springes over, hvad ændres) bor i et testet modul.
 // To udgaver af "hvornår må vi skrive odds" er to steder at lave fejlen.
 const {
-  parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold,
+  parseArgs, parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold, tjekDubletter,
+  kickoffMs,
 } = await import('../src/lib/seedFootball.js');
 
 // --- argumenter ------------------------------------------------------------
 
-function parseArgs(argv) {
-  const out = { flags: new Set() };
-  for (let i = 0; i < argv.length; i += 1) {
-    const a = argv[i];
-    if (!a.startsWith('--')) continue;
-    const key = a.slice(2);
-    const next = argv[i + 1];
-    if (next && !next.startsWith('--')) { out[key] = next; i += 1; } else out.flags.add(key);
-  }
-  return out;
+let args;
+try {
+  args = parseArgs(process.argv.slice(2));
+} catch (err) {
+  console.error(`\n⚠️  ${err.message}\n`);
+  process.exit(1);
 }
-
-const args = parseArgs(process.argv.slice(2));
 const GAME_ID = args.game;
 const TEAMS_PATH = args.teams;
 const FIXTURES_PATH = args.fixtures;
@@ -116,6 +111,7 @@ const { FieldValue, Timestamp } = admin.firestore;
 async function run() {
   const interval = parseRunder(RUNDER);
   let fixtures = loadFixtures(FIXTURES_PATH);
+  tjekDubletter(fixtures);
   fixtures = iInterval(fixtures, interval);
   if (interval) console.log(`Runde ${interval.fra}-${interval.til}: ${fixtures.length} kampe.`);
   if (!fixtures.length) throw new Error('Ingen kampe at seede — tjek --fixtures og --runder.');
@@ -142,10 +138,16 @@ async function kickoffsOnly(fixtures, matchesRef, eksisterende) {
   const nuvaerende = new Map(
     [...eksisterende].map(([id, d]) => [id, { result: d.result, kickoffMs: d.kickoff?.toMillis?.() ?? null }]),
   );
-  const { aendringer, sprunget } = kickoffPlan(fixtures, nuvaerende);
+  const { aendringer, mangler, spillet } = kickoffPlan(fixtures, nuvaerende);
 
-  const vis = (ms) => (ms == null ? '—' : new Date(ms).toISOString().replace('T', ' ').slice(0, 16));
-  const eksempler = aendringer.slice(0, 8).map((a) => `  ${a.id}: ${vis(a.fraMs)} → ${vis(a.tilMs)}`);
+  // DANSK TID med mærke. Den, der kl. 23 sammenligner med det officielle
+  // program, skal ikke selv lægge to timer til på hver eneste linje.
+  const vis = (ms) => (ms == null ? '—' : `${new Intl.DateTimeFormat('da-DK', {
+    timeZone: 'Europe/Copenhagen', dateStyle: 'short', timeStyle: 'short',
+  }).format(new Date(ms))}`);
+  // ALLE ændringer vises. Tør-kørslens eneste formål er, at de kan læses
+  // igennem — et loft på 8 ville bede operatøren tro på resten.
+  const linjer = aendringer.map((a) => `  ${a.id}: ${vis(a.fraMs)} → ${vis(a.tilMs)}`);
   const aendrede = aendringer.length;
 
   const batch = db.batch();
@@ -159,10 +161,17 @@ async function kickoffsOnly(fixtures, matchesRef, eksisterende) {
   }
 
   console.log(`\nKUN KICKOFF — odds, elo og resultater røres ikke.`);
-  console.log(`  kampe i filen : ${fixtures.length}`);
-  console.log(`  sprunget over : ${sprunget} (findes ikke, eller allerede spillet)`);
-  console.log(`  ændrede tider : ${aendrede}`);
-  if (eksempler.length) console.log(`\n  eksempler:\n${eksempler.join('\n')}`);
+  console.log(`  kampe i filen    : ${fixtures.length}`);
+  console.log(`  allerede spillet : ${spillet} (tidspunktet er historie)`);
+  console.log(`  IKKE SEEDET      : ${mangler.length}`);
+  console.log(`  ændrede tider    : ${aendrede}  (tider vist i dansk tid)`);
+  if (mangler.length) {
+    // Det her er ikke en detalje. En kamp, der ikke er seedet aftenen før en
+    // runde, får ingen deadline og kan ikke tippes.
+    console.log(`\n⚠️  ${mangler.length} kampe i filen findes IKKE i spillet — de er aldrig blevet seedet:`);
+    console.log(`   ${mangler.slice(0, 20).join(', ')}${mangler.length > 20 ? ` … (+${mangler.length - 20})` : ''}`);
+  }
+  if (linjer.length) console.log(`\n  ændringer:\n${linjer.join('\n')}`);
 
   if (!SKRIV) { console.log('\nTør-kørsel — der er IKKE skrevet noget. Kør igen med --skriv.\n'); return; }
   if (aendrede) await batch.commit();
@@ -205,7 +214,10 @@ async function fuldtSeed(fixtures, gameRef, matchesRef, eksisterende) {
         round: m.round,
         home: m.home,
         away: m.away,
-        kickoff: m.kickoff ? Timestamp.fromDate(new Date(m.kickoff)) : null,
+        // kickoffMs — IKKE new Date(). Det fulde seed SKABER deadlines, så en
+        // tidszone-løs streng her ville give tre forskellige tip-deadliner
+        // afhængigt af, hvor scriptet blev kørt (UTC, dansk laptop, CI).
+        kickoff: kickoffMs(m.kickoff) == null ? null : Timestamp.fromMillis(kickoffMs(m.kickoff)),
         eloHome: m.eloHome,
         eloAway: m.eloAway,
         odds: m.odds,
