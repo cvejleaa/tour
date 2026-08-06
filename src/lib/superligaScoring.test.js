@@ -29,19 +29,28 @@ describe('1X2-udfald', () => {
 
 describe('outcomePoints (point = odds + træf-bonus)', () => {
   const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
-  // Oddsene afrundet til 1 decimal, PLUS træf-bonussen på 1. Bonussen findes,
-  // fordi rene fair odds gør alle strategier lige gode — se hitPoints.
-  it('ramt udfald giver kampens odds (1 decimal) plus træf-bonussen', () => {
-    expect(outcomePoints('1', '1', odds)).toBe(4.1);
-    expect(outcomePoints('X', 'X', odds)).toBe(5.3);
-    expect(outcomePoints('2', '2', odds)).toBe(3.3);
+
+  // Bonussen er en JUSTERINGSSKRUE PÅ SPILLETS BALANCE, ikke en konstant man
+  // retter i forbifarten: den var 1, og målingen viste, at den løftede
+  // favorit-spilleren fra 30 % til 41 % af sæsonerne. Derfor låses værdien
+  // her, så en ændring kræver, at man også retter denne test — og dermed ser,
+  // at den koster en genberegning af ALLE point i produktion.
+  it('er sat til 0 — se hitPoints for målingerne bag', () => {
+    expect(TRAEF_BONUS).toBe(0);
   });
+
+  // Med bonus 0 er point præcis kampens odds, afrundet til 1 decimal.
+  it('ramt udfald giver kampens odds (1 decimal) plus træf-bonussen', () => {
+    expect(outcomePoints('1', '1', odds)).toBe(3.1);
+    expect(outcomePoints('X', 'X', odds)).toBe(4.3);
+    expect(outcomePoints('2', '2', odds)).toBe(2.3);
+  });
+
   // Combi'en må IKKE se bonussen — den ganger de rene odds. Ryger de to
-  // sammen, ville det ene point blive ganget med i stedet for lagt til.
+  // sammen, ville et tillæg blive ganget med i stedet for lagt til. Det
+  // gælder også nu, hvor bonussen er 0: sættes den igen, skal skellet holde.
   it('holder træf-bonussen ude af outcomeReward, som combien bruger', () => {
     expect(outcomeReward('1', odds)).toBe(3.1);
-    expect(hitPoints('1', odds)).toBe(4.1);
-    // toBeCloseTo: 4,1 − 3,1 giver 0,9999999999999996 i binær flydende komma.
     expect(hitPoints('1', odds) - outcomeReward('1', odds)).toBeCloseTo(TRAEF_BONUS, 10);
   });
   it('forkert tip = 0', () => {

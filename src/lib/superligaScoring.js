@@ -77,17 +77,33 @@ export function outcomeFromScore(homeGoals, awayGoals) {
  * @param {object} [odds] – kampens frosne odds { '1','X','2' }
  * @returns {number} point (0 hvis forkert eller ugyldigt)
  */
-export const TRAEF_BONUS = 1;
+export const TRAEF_BONUS = 0;
 
 /**
- * Point for ÉN ramt kamp: kampens frosne odds PLUS træf-bonussen.
+ * Point for ÉN ramt kamp: kampens frosne odds, plus træf-bonussen hvis den er
+ * sat. Bonussen er nu **0** — se nedenfor.
  *
- * Bonussen findes, fordi rene fair odds gør alle strategier lige gode: er
- * odds = 1/sandsynlighed, er ethvert tip værd præcis 1 point i forventning.
- * Så afgøres sæsonen af udsving alene, og den, der rammer flest — men rammer
- * favoritter — kan ikke vinde. 20.000 simulerede sæsoner gav ham 4 %.
- * Med +1 pr. træffer bliver et tip værd 1 + p, altså mere jo oftere man har
- * ret, og feltet samler sig: ingen spillertype under 8 % eller over 21 %.
+ * Bonussen blev indført på 1 point, fordi rene fair odds gør alle strategier
+ * lige gode i forventning: er odds = 1/sandsynlighed, er ethvert tip værd
+ * præcis 1 point. Tanken var, at den der oftest har ret, skulle belønnes.
+ *
+ * Målingen bagefter viste, at den gjorde det for hårdt. Et tip bliver værd
+ * 1 + p, altså mest for den, der spiller favoritter — og bonussen er den
+ * samme uanset odds, så den vejer relativt tungest på det sandsynlige.
+ * Over 6.000 simulerede sæsoner på Superligaens eget program:
+ *
+ *     bonus  favorit-spiller  outsider-spiller
+ *       0          30 %             27 %
+ *       0,5        34 %             23 %
+ *       1          41 %             18 %
+ *
+ * Sat til 0 er forventningen igen ens for alle (analytisk: 132,8 mod 132,1
+ * point over en sæson uden odds-loft), og sæsonen afgøres af, hvor man vælger
+ * at tage sin risiko — ikke af at spille favorit hver gang.
+ *
+ * Konstanten bliver stående i stedet for at blive fjernet: det er en
+ * justeringsskrue med en målt historik, og næste gang nogen overvejer at
+ * skrue på den, skal tallene ovenfor være der.
  *
  * SKAL holdes ude af combi'en — den ganger de RENE odds. Derfor er dette en
  * egen funktion og ikke et tillæg inde i outcomeReward.

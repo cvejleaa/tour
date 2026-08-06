@@ -15,9 +15,9 @@ describe('superligaScoring (server-spejl)', () => {
     const odds = { '1': 3.12, X: 4.27, '2': 2.25 };
     // Odds PLUS træf-bonussen på 1. Bonussen findes, fordi rene fair odds
     // gør alle strategier lige gode — se hitPoints i superligaScoring.js.
-    expect(outcomePoints('1', '1', odds)).toBe(4.1);
-    expect(outcomePoints('X', 'X', odds)).toBe(5.3);
-    expect(outcomePoints('2', '2', odds)).toBe(3.3);
+    expect(outcomePoints('1', '1', odds)).toBe(3.1);
+    expect(outcomePoints('X', 'X', odds)).toBe(4.3);
+    expect(outcomePoints('2', '2', odds)).toBe(2.3);
     expect(outcomePoints('1', 'X', odds)).toBe(0);
     expect(round1(4.27)).toBe(4.3);
     expect(outcomeReward('X', null)).toBe(DEFAULT_POINTS.X);
@@ -98,7 +98,7 @@ describe('superligaScoring (server-spejl)', () => {
 
   describe('scoreBet (1X2 + Chancen samlet)', () => {
     it('uden chance = kun 1X2-point (= odds, 1 decimal)', () => {
-      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X', { X: 4.27 })).toBe(5.3);
+      expect(scoreBet({ pick: 'X', chanceStake: 0 }, 'X', { X: 4.27 })).toBe(4.3);
       expect(scoreBet({ pick: '1', chanceStake: 0 }, '2', { '1': 2.5 })).toBe(0);
     });
     it('uden odds falder base tilbage til standard', () => {
@@ -107,7 +107,7 @@ describe('superligaScoring (server-spejl)', () => {
     it('med chance og ramt: base(odds) + gevinst', () => {
       // pick X rammer med odds 3: base (3+1) + 8×(3−1)=16 → 20.
       // Chancen afregnes til de RENE odds — træf-bonussen ganges ikke med.
-      expect(scoreBet({ pick: 'X', chanceStake: 8 }, 'X', { X: 3 })).toBe(20);
+      expect(scoreBet({ pick: 'X', chanceStake: 8 }, 'X', { X: 3 })).toBe(19);
     });
     it('med chance og forbi: 0 base − indsats', () => {
       expect(scoreBet({ pick: '1', chanceStake: 5 }, '2', { 1: 2 })).toBe(-5);

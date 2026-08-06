@@ -148,9 +148,8 @@ const FieldValue = {
 
 describe('recomputeGameMatchCore', () => {
   it('scorer bets og gulver spillerens total (ingen negativ saldo)', async () => {
-    // Point følger oddsene PLUS træf-bonussen på 1.
-    // A: pick X rammer facit X → 3.0 (odds X) + 1 = 4 base, + chance 8@3.0 = +16 → 20.
-    // Chancen afregnes til de RENE odds — bonussen ganges ikke med.
+    // Point følger kampens odds (træf-bonussen er 0).
+    // A: pick X rammer facit X → 3.0 (odds X) base, + chance 8@3.0 = +16 → 19.
     // B: pick 1, facit X → 0, chance 5@2.0 forbi → −5 (skal gulves til 0 i total)
     const db = makeDb([
       { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 8, points: 0 },
@@ -162,15 +161,15 @@ describe('recomputeGameMatchCore', () => {
     });
     expect(res.rescored).toBe(2);
     expect(res.players).toBe(2);
-    expect(db._players.A.totalPoints).toBe(20);
+    expect(db._players.A.totalPoints).toBe(19);
     expect(db._players.B.totalPoints).toBe(0); // −5 gulvet til 0
     expect(db._players.C).toBeUndefined();     // ikke berørt
   });
 
   it('skriver ikke på bets hvis pointtallet er uændret', async () => {
     const db = makeDb([
-      // DEFAULT_POINTS.X (4) + træf-bonus 1 — kampen har ingen odds i denne db.
-      { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 5 }, // allerede korrekt
+      // DEFAULT_POINTS.X (4) — kampen har ingen odds i denne db, bonus er 0.
+      { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 }, // allerede korrekt
     ]);
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: 'X' });
     expect(res.rescored).toBe(0);
@@ -182,7 +181,7 @@ describe('recomputeGameMatchCore', () => {
   // sig. Var det rundens sidste kamp, kunne bonussen kun komme herfra.
   it('genberegner spilleren, selv om hans egne point ikke ændrede sig', async () => {
     const db = makeDb([
-      { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 5 },
+      { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 },
     ]);
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: 'X' });
     expect(res.players).toBe(1);
@@ -215,8 +214,8 @@ describe('recomputeGameMatchCore', () => {
     await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', {
       result: 'X', odds: { 1: 2, X: 3, 2: 4 }, round: 1,
     });
-    expect(db._players.A.opdeling).toEqual({ p1x2: 4, chance: 0, combi: 0, pulje: 0 });
-    expect(db._players.A.totalPoints).toBe(4);
+    expect(db._players.A.opdeling).toEqual({ p1x2: 3, chance: 0, combi: 0, pulje: 0 });
+    expect(db._players.A.totalPoints).toBe(3);
   });
 
   it('skriver spillerens rækker i detalje-dokumentet', async () => {
@@ -229,7 +228,7 @@ describe('recomputeGameMatchCore', () => {
     // `points` SKAL påstås. Uden det kunne serveren skrive 0 på hver eneste
     // kamp, uden at noget fejlede — og det er netop det tal, hele rækken
     // findes for.
-    expect(db._detalje.A.kampe.m1).toEqual({ pick: 'X', points: 8, chanceStake: 2 });
+    expect(db._detalje.A.kampe.m1).toEqual({ pick: 'X', points: 7, chanceStake: 2 });
   });
 
   // Stien er en kontrakt mellem serveren, firestore.rules og klienten. Er den
@@ -280,7 +279,7 @@ describe('recomputeGameMatchCore', () => {
     expect(db._detalje.A.kampe.m1).toBeUndefined();
     // …men pointene tæller. De to filtre er adskilte: kickoff afgør kun, hvad
     // andre må SE, aldrig hvad spilleren har fået.
-    expect(db._players.A.totalPoints).toBe(4);
+    expect(db._players.A.totalPoints).toBe(3);
   });
 
   // REGRESSIONEN. Combi-bonussen gives også ved ÉN fejl, og den kan først
@@ -296,7 +295,7 @@ describe('recomputeGameMatchCore', () => {
       { id: 'm2', round: 1, result: '1', odds: { 1: 3.0, X: 4, 2: 4 } },
     ];
     const db = makeDb([
-      { uid: 'A', matchId: 'm1', pick: '1', chanceStake: 0, points: 3 }, // ramt (2,0+1), allerede scoret
+      { uid: 'A', matchId: 'm1', pick: '1', chanceStake: 0, points: 2 }, // ramt (odds 2,0), allerede scoret
       { uid: 'A', matchId: 'm2', pick: 'X', chanceStake: 0, points: 0 }, // MISSER — 0 før og efter
     ], matches);
 
@@ -323,16 +322,16 @@ describe('recomputeGameMatchCore', () => {
       { id: 'm2', round: 1, result: 'X', odds: { 1: 2, X: 3.0, 2: 4 } },
     ];
     const db = makeDb([
-      { uid: 'A', matchId: 'm1', pick: '1', chanceStake: 0, points: 3 }, // allerede scoret (2,0+1)
+      { uid: 'A', matchId: 'm1', pick: '1', chanceStake: 0, points: 2 }, // allerede scoret (odds 2,0)
       { uid: 'A', matchId: 'm2', pick: 'X', chanceStake: 0, points: 0 }, // scores nu
-      { uid: 'B', matchId: 'm1', pick: '1', chanceStake: 0, points: 3 },
+      { uid: 'B', matchId: 'm1', pick: '1', chanceStake: 0, points: 2 },
     ], matches);
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm2', {
       result: 'X', odds: { 1: 2, X: 3.0, 2: 4 }, round: 1,
     });
     expect(res.rescored).toBe(1);              // kun A's m2-bet ændrede sig
-    // A: 3 (m1 = 2,0+1) + 4 (m2 = 3,0+1) + 4,9 (combi = 2·√(2,0×3,0)) = 11,9
-    expect(db._players.A.totalPoints).toBe(11.9);
+    // A: 2 (m1 = odds 2,0) + 3 (m2 = odds 3,0) + 4,9 (combi = 2·√(2,0×3,0)) = 9,9
+    expect(db._players.A.totalPoints).toBe(9.9);
     expect(db._players.A.roundBonus).toBe(4.9);
     // B rørt ikke (ingen bet på m2) → ingen genberegning
     expect(db._players.B).toBeUndefined();
@@ -377,7 +376,7 @@ describe('recomputeGameMatchCore — start-gate (game.startAt)', () => {
       result: 'X', odds: { 1: 2, X: 3, 2: 4 }, round: 2, kickoff: 900,
     });
     expect(res.rescored).toBe(1);
-    expect(db._players.A.totalPoints).toBe(4); // kun m2; m1's point gated væk
+    expect(db._players.A.totalPoints).toBe(3); // kun m2; m1's point gated væk
   });
 });
 
@@ -432,40 +431,41 @@ describe('snapshot-porten: hele KUPONEN skal være afgjort', () => {
 });
 
 describe('rescoreAllBets — genscoring efter en REGELÆNDRING', () => {
-  // odds X = 3 → 3 + træf-bonus 1 = 4. De gemte 3 er fra den gamle regel.
+  // odds X = 3 → 3 point. De gemte 4 er fra den gamle regel, hvor hver ramt
+  // kamp gav +1 oveni. Genberegningen skal trække dem NED igen.
   const kampe = [{ id: 'm1', round: 1, result: 'X', odds: { 1: 2, X: 3, 2: 4 }, kickoff: 1 }];
 
   it('tør-kørsel skriver INTET, men siger hvad der ville ske', async () => {
-    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }], kampe);
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 }], kampe);
     const res = await rescoreAllBets(db, FieldValue, 'g1', { dryRun: true });
     expect(res.dryRun).toBe(true);
     expect(res.aendrede).toBe(1);
-    expect(res.delta).toBe(1);
-    expect(res.eksempler[0]).toMatchObject({ uid: 'A', foer: 3, efter: 4 });
+    expect(res.delta).toBe(-1);
+    expect(res.eksempler[0]).toMatchObject({ uid: 'A', foer: 4, efter: 3 });
     // Intet skrevet — hverken på bettet eller på spilleren.
-    expect(db._bets[0].data.points).toBe(3);
+    expect(db._bets[0].data.points).toBe(4);
     expect(db._players.A).toBeUndefined();
   });
 
   // Default SKAL være tør. Kaldes den uden argument fra en admin-knap, må den
   // ikke nå at skrive noget.
   it('tørkører som default, når dryRun udelades', async () => {
-    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }], kampe);
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 }], kampe);
     const res = await rescoreAllBets(db, FieldValue, 'g1');
     expect(res.dryRun).toBe(true);
-    expect(db._bets[0].data.points).toBe(3);
+    expect(db._bets[0].data.points).toBe(4);
   });
 
   it('skriver de nye point OG genberegner totalen, når dryRun er falsk', async () => {
-    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }], kampe,
-      {}, { A: { totalPoints: 3 } });
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 }], kampe,
+      {}, { A: { totalPoints: 4 } });
     const res = await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
     expect(res.dryRun).toBe(false);
     expect(res.aendrede).toBe(1);
-    expect(db._bets[0].data.points).toBe(4);
+    expect(db._bets[0].data.points).toBe(3);
     // Totalen SKAL med i samme kald — ellers står stillingen på det gamle tal,
     // indtil noget andet tilfældigvis udløser en genberegning.
-    expect(db._players.A.totalPoints).toBe(4);
+    expect(db._players.A.totalPoints).toBe(3);
     // …og rubrikken må ikke gå i minus. Det var hele grunden til bagfyldningen.
     expect(db._players.A.opdeling.chance).toBe(0);
   });
@@ -478,12 +478,12 @@ describe('rescoreAllBets — genscoring efter en REGELÆNDRING', () => {
       { id: 'm2', round: 1, result: '1', odds: { 1: 2, X: 4, 2: 4 }, kickoff: 1 },
     ];
     const db = makeDb([
-      { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }, // gammel regel
-      { uid: 'A', matchId: 'm2', pick: '1', chanceStake: 0, points: 2 }, // gammel regel
-    ], flere, {}, { A: { totalPoints: 5 } });
+      { uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 }, // gammel regel (3+1)
+      { uid: 'A', matchId: 'm2', pick: '1', chanceStake: 0, points: 3 }, // gammel regel (2+1)
+    ], flere, {}, { A: { totalPoints: 7 } });
     await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
     expect(db._players.A.opdeling.chance).toBe(0);
-    expect(db._players.A.opdeling.p1x2).toBe(7); // (3+1) + (2+1)
+    expect(db._players.A.opdeling.p1x2).toBe(5); // 3 + 2, uden bonus
   });
 
   // Uden preconditionen skriver rescoren sin foraeldede vaerdi ovenpaa, hvis
@@ -491,8 +491,8 @@ describe('rescoreAllBets — genscoring efter en REGELÆNDRING', () => {
   // facit midt i koerslen. Fake'en kan ikke simulere konflikten, men den kan
   // bevise, at preconditionen faktisk sendes med.
   it('skriver med lastUpdateTime som precondition', async () => {
-    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }], kampe,
-      {}, { A: { totalPoints: 3 } });
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 }], kampe,
+      {}, { A: { totalPoints: 4 } });
     await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
     expect(db._preconditions).toHaveLength(1);
     expect(db._preconditions[0]).toEqual({ lastUpdateTime: 't0' });
@@ -519,8 +519,10 @@ describe('rescoreAllBets — genscoring efter en REGELÆNDRING', () => {
   });
 
   it('springer de bets over, der allerede står rigtigt', async () => {
-    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 4 }], kampe,
-      {}, { A: { totalPoints: 4 } });
+    // 3 = odds X. Står tippet allerede på den nye regels værdi, er der intet
+    // at skrive — og en gentagen bagfyldning må ikke røre databasen.
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 3 }], kampe,
+      {}, { A: { totalPoints: 3 } });
     const res = await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
     expect(res.aendrede).toBe(0);
   });
