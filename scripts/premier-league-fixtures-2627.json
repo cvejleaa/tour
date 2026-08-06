@@ -1,0 +1,2665 @@
+{
+ "_note": "Premier League 2026/27, hentet fra pulselive (api/v2/matches?competition=8&season=2026) 5/8-2026. 380 kampe, 38 runder. `id` = r{runde}-{pulselives matchId}; `kickoff` er UTC (kilden opgiver Europe/London, så sommertid skifter undervejs). ADVARSEL: kun runde 1–5 har TV-fastlagte tidspunkter — runde 6–38 står alle ti kampe i samme standard-slot og VIL flytte sig. kickoff ER tip-deadline (firestore.rules), så programmet skal gensynkroniseres løbende fra API'et; denne fil er kun udgangspunktet for seeding. Læses KUN af scripts — aldrig importeret i klienten.",
+ "fixtures": [
+  {
+   "id": "r1-2645195",
+   "round": 1,
+   "home": "Arsenal",
+   "away": "Coventry City",
+   "kickoff": "2026-08-21T19:00:00Z"
+  },
+  {
+   "id": "r1-2645198",
+   "round": 1,
+   "home": "Hull City",
+   "away": "Manchester United",
+   "kickoff": "2026-08-22T11:30:00Z"
+  },
+  {
+   "id": "r1-2645197",
+   "round": 1,
+   "home": "Everton",
+   "away": "Crystal Palace",
+   "kickoff": "2026-08-22T14:00:00Z"
+  },
+  {
+   "id": "r1-2645199",
+   "round": 1,
+   "home": "Ipswich Town",
+   "away": "Sunderland",
+   "kickoff": "2026-08-22T14:00:00Z"
+  },
+  {
+   "id": "r1-2645200",
+   "round": 1,
+   "home": "Nottingham Forest",
+   "away": "Leeds United",
+   "kickoff": "2026-08-22T14:00:00Z"
+  },
+  {
+   "id": "r1-2645196",
+   "round": 1,
+   "home": "Brentford",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2026-08-22T16:30:00Z"
+  },
+  {
+   "id": "r1-2645201",
+   "round": 1,
+   "home": "Brighton and Hove Albion",
+   "away": "Aston Villa",
+   "kickoff": "2026-08-23T13:00:00Z"
+  },
+  {
+   "id": "r1-2645202",
+   "round": 1,
+   "home": "Manchester City",
+   "away": "Bournemouth",
+   "kickoff": "2026-08-23T13:00:00Z"
+  },
+  {
+   "id": "r1-2645203",
+   "round": 1,
+   "home": "Newcastle United",
+   "away": "Liverpool",
+   "kickoff": "2026-08-23T15:30:00Z"
+  },
+  {
+   "id": "r1-2645204",
+   "round": 1,
+   "home": "Fulham",
+   "away": "Chelsea",
+   "kickoff": "2026-08-24T19:00:00Z"
+  },
+  {
+   "id": "r2-2645209",
+   "round": 2,
+   "home": "Crystal Palace",
+   "away": "Manchester City",
+   "kickoff": "2026-08-28T19:00:00Z"
+  },
+  {
+   "id": "r2-2645211",
+   "round": 2,
+   "home": "Liverpool",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-08-29T11:30:00Z"
+  },
+  {
+   "id": "r2-2645205",
+   "round": 2,
+   "home": "Bournemouth",
+   "away": "Everton",
+   "kickoff": "2026-08-29T14:00:00Z"
+  },
+  {
+   "id": "r2-2645208",
+   "round": 2,
+   "home": "Coventry City",
+   "away": "Hull City",
+   "kickoff": "2026-08-29T14:00:00Z"
+  },
+  {
+   "id": "r2-2645214",
+   "round": 2,
+   "home": "Tottenham Hotspur",
+   "away": "Newcastle United",
+   "kickoff": "2026-08-29T16:30:00Z"
+  },
+  {
+   "id": "r2-2645207",
+   "round": 2,
+   "home": "Chelsea",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-08-30T13:00:00Z"
+  },
+  {
+   "id": "r2-2645210",
+   "round": 2,
+   "home": "Leeds United",
+   "away": "Brentford",
+   "kickoff": "2026-08-30T13:00:00Z"
+  },
+  {
+   "id": "r2-2645213",
+   "round": 2,
+   "home": "Sunderland",
+   "away": "Fulham",
+   "kickoff": "2026-08-30T13:00:00Z"
+  },
+  {
+   "id": "r2-2645212",
+   "round": 2,
+   "home": "Manchester United",
+   "away": "Ipswich Town",
+   "kickoff": "2026-08-30T15:30:00Z"
+  },
+  {
+   "id": "r2-2645206",
+   "round": 2,
+   "home": "Aston Villa",
+   "away": "Arsenal",
+   "kickoff": "2026-08-31T19:00:00Z"
+  },
+  {
+   "id": "r3-2645221",
+   "round": 3,
+   "home": "Ipswich Town",
+   "away": "Liverpool",
+   "kickoff": "2026-09-04T19:00:00Z"
+  },
+  {
+   "id": "r3-2645223",
+   "round": 3,
+   "home": "Newcastle United",
+   "away": "Bournemouth",
+   "kickoff": "2026-09-05T11:30:00Z"
+  },
+  {
+   "id": "r3-2645216",
+   "round": 3,
+   "home": "Brentford",
+   "away": "Sunderland",
+   "kickoff": "2026-09-05T14:00:00Z"
+  },
+  {
+   "id": "r3-2645217",
+   "round": 3,
+   "home": "Brighton and Hove Albion",
+   "away": "Leeds United",
+   "kickoff": "2026-09-05T14:00:00Z"
+  },
+  {
+   "id": "r3-2645219",
+   "round": 3,
+   "home": "Fulham",
+   "away": "Crystal Palace",
+   "kickoff": "2026-09-05T14:00:00Z"
+  },
+  {
+   "id": "r3-2645222",
+   "round": 3,
+   "home": "Manchester City",
+   "away": "Coventry City",
+   "kickoff": "2026-09-05T14:00:00Z"
+  },
+  {
+   "id": "r3-2645224",
+   "round": 3,
+   "home": "Nottingham Forest",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2026-09-05T14:00:00Z"
+  },
+  {
+   "id": "r3-2645220",
+   "round": 3,
+   "home": "Hull City",
+   "away": "Aston Villa",
+   "kickoff": "2026-09-05T16:30:00Z"
+  },
+  {
+   "id": "r3-2645218",
+   "round": 3,
+   "home": "Everton",
+   "away": "Manchester United",
+   "kickoff": "2026-09-06T13:00:00Z"
+  },
+  {
+   "id": "r3-2645215",
+   "round": 3,
+   "home": "Arsenal",
+   "away": "Chelsea",
+   "kickoff": "2026-09-06T15:30:00Z"
+  },
+  {
+   "id": "r4-2645225",
+   "round": 4,
+   "home": "Bournemouth",
+   "away": "Brentford",
+   "kickoff": "2026-09-12T14:00:00Z"
+  },
+  {
+   "id": "r4-2645226",
+   "round": 4,
+   "home": "Aston Villa",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-09-12T14:00:00Z"
+  },
+  {
+   "id": "r4-2645227",
+   "round": 4,
+   "home": "Chelsea",
+   "away": "Hull City",
+   "kickoff": "2026-09-12T14:00:00Z"
+  },
+  {
+   "id": "r4-2645229",
+   "round": 4,
+   "home": "Crystal Palace",
+   "away": "Ipswich Town",
+   "kickoff": "2026-09-12T14:00:00Z"
+  },
+  {
+   "id": "r4-2645231",
+   "round": 4,
+   "home": "Liverpool",
+   "away": "Fulham",
+   "kickoff": "2026-09-12T14:00:00Z"
+  },
+  {
+   "id": "r4-2645234",
+   "round": 4,
+   "home": "Tottenham Hotspur",
+   "away": "Everton",
+   "kickoff": "2026-09-12T16:30:00Z"
+  },
+  {
+   "id": "r4-2645233",
+   "round": 4,
+   "home": "Sunderland",
+   "away": "Arsenal",
+   "kickoff": "2026-09-12T19:00:00Z"
+  },
+  {
+   "id": "r4-2645228",
+   "round": 4,
+   "home": "Coventry City",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-09-13T13:00:00Z"
+  },
+  {
+   "id": "r4-2645232",
+   "round": 4,
+   "home": "Manchester United",
+   "away": "Manchester City",
+   "kickoff": "2026-09-13T15:30:00Z"
+  },
+  {
+   "id": "r4-2645230",
+   "round": 4,
+   "home": "Leeds United",
+   "away": "Newcastle United",
+   "kickoff": "2026-09-14T19:00:00Z"
+  },
+  {
+   "id": "r5-2645236",
+   "round": 5,
+   "home": "Brentford",
+   "away": "Chelsea",
+   "kickoff": "2026-09-18T19:00:00Z"
+  },
+  {
+   "id": "r5-2645244",
+   "round": 5,
+   "home": "Tottenham Hotspur",
+   "away": "Aston Villa",
+   "kickoff": "2026-09-19T11:30:00Z"
+  },
+  {
+   "id": "r5-2645237",
+   "round": 5,
+   "home": "Brighton and Hove Albion",
+   "away": "Arsenal",
+   "kickoff": "2026-09-19T14:00:00Z"
+  },
+  {
+   "id": "r5-2645238",
+   "round": 5,
+   "home": "Everton",
+   "away": "Ipswich Town",
+   "kickoff": "2026-09-19T14:00:00Z"
+  },
+  {
+   "id": "r5-2645240",
+   "round": 5,
+   "home": "Leeds United",
+   "away": "Crystal Palace",
+   "kickoff": "2026-09-19T14:00:00Z"
+  },
+  {
+   "id": "r5-2645241",
+   "round": 5,
+   "home": "Manchester City",
+   "away": "Sunderland",
+   "kickoff": "2026-09-19T14:00:00Z"
+  },
+  {
+   "id": "r5-2645242",
+   "round": 5,
+   "home": "Newcastle United",
+   "away": "Hull City",
+   "kickoff": "2026-09-19T14:00:00Z"
+  },
+  {
+   "id": "r5-2645243",
+   "round": 5,
+   "home": "Nottingham Forest",
+   "away": "Coventry City",
+   "kickoff": "2026-09-19T16:30:00Z"
+  },
+  {
+   "id": "r5-2645235",
+   "round": 5,
+   "home": "Bournemouth",
+   "away": "Liverpool",
+   "kickoff": "2026-09-20T13:00:00Z"
+  },
+  {
+   "id": "r5-2645239",
+   "round": 5,
+   "home": "Fulham",
+   "away": "Manchester United",
+   "kickoff": "2026-09-20T15:30:00Z"
+  },
+  {
+   "id": "r6-2645245",
+   "round": 6,
+   "home": "Arsenal",
+   "away": "Leeds United",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r6-2645246",
+   "round": 6,
+   "home": "Aston Villa",
+   "away": "Brentford",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r6-2645247",
+   "round": 6,
+   "home": "Chelsea",
+   "away": "Bournemouth",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r6-2645248",
+   "round": 6,
+   "home": "Coventry City",
+   "away": "Newcastle United",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r6-2645249",
+   "round": 6,
+   "home": "Crystal Palace",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r6-2645250",
+   "round": 6,
+   "home": "Hull City",
+   "away": "Everton",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r6-2645251",
+   "round": 6,
+   "home": "Ipswich Town",
+   "away": "Fulham",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r6-2645252",
+   "round": 6,
+   "home": "Liverpool",
+   "away": "Manchester City",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r6-2645253",
+   "round": 6,
+   "home": "Manchester United",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r6-2645254",
+   "round": 6,
+   "home": "Sunderland",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-10-10T14:00:00Z"
+  },
+  {
+   "id": "r7-2645255",
+   "round": 7,
+   "home": "Bournemouth",
+   "away": "Sunderland",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r7-2645256",
+   "round": 7,
+   "home": "Brentford",
+   "away": "Liverpool",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r7-2645257",
+   "round": 7,
+   "home": "Brighton and Hove Albion",
+   "away": "Crystal Palace",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r7-2645258",
+   "round": 7,
+   "home": "Everton",
+   "away": "Chelsea",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r7-2645259",
+   "round": 7,
+   "home": "Fulham",
+   "away": "Hull City",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r7-2645260",
+   "round": 7,
+   "home": "Leeds United",
+   "away": "Manchester United",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r7-2645261",
+   "round": 7,
+   "home": "Manchester City",
+   "away": "Ipswich Town",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r7-2645262",
+   "round": 7,
+   "home": "Newcastle United",
+   "away": "Aston Villa",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r7-2645263",
+   "round": 7,
+   "home": "Nottingham Forest",
+   "away": "Arsenal",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r7-2645264",
+   "round": 7,
+   "home": "Tottenham Hotspur",
+   "away": "Coventry City",
+   "kickoff": "2026-10-17T14:00:00Z"
+  },
+  {
+   "id": "r8-2645265",
+   "round": 8,
+   "home": "Arsenal",
+   "away": "Everton",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r8-2645266",
+   "round": 8,
+   "home": "Aston Villa",
+   "away": "Manchester City",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r8-2645267",
+   "round": 8,
+   "home": "Chelsea",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r8-2645268",
+   "round": 8,
+   "home": "Coventry City",
+   "away": "Fulham",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r8-2645269",
+   "round": 8,
+   "home": "Crystal Palace",
+   "away": "Newcastle United",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r8-2645270",
+   "round": 8,
+   "home": "Hull City",
+   "away": "Brentford",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r8-2645271",
+   "round": 8,
+   "home": "Ipswich Town",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r8-2645272",
+   "round": 8,
+   "home": "Liverpool",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r8-2645273",
+   "round": 8,
+   "home": "Manchester United",
+   "away": "Bournemouth",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r8-2645274",
+   "round": 8,
+   "home": "Sunderland",
+   "away": "Leeds United",
+   "kickoff": "2026-10-24T14:00:00Z"
+  },
+  {
+   "id": "r9-2645275",
+   "round": 9,
+   "home": "Bournemouth",
+   "away": "Leeds United",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r9-2645276",
+   "round": 9,
+   "home": "Aston Villa",
+   "away": "Fulham",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r9-2645277",
+   "round": 9,
+   "home": "Brentford",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r9-2645278",
+   "round": 9,
+   "home": "Chelsea",
+   "away": "Manchester United",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r9-2645279",
+   "round": 9,
+   "home": "Coventry City",
+   "away": "Sunderland",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r9-2645280",
+   "round": 9,
+   "home": "Hull City",
+   "away": "Ipswich Town",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r9-2645281",
+   "round": 9,
+   "home": "Liverpool",
+   "away": "Arsenal",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r9-2645282",
+   "round": 9,
+   "home": "Manchester City",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r9-2645283",
+   "round": 9,
+   "home": "Newcastle United",
+   "away": "Everton",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r9-2645284",
+   "round": 9,
+   "home": "Tottenham Hotspur",
+   "away": "Crystal Palace",
+   "kickoff": "2026-10-31T15:00:00Z"
+  },
+  {
+   "id": "r10-2645285",
+   "round": 10,
+   "home": "Arsenal",
+   "away": "Hull City",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r10-2645286",
+   "round": 10,
+   "home": "Brighton and Hove Albion",
+   "away": "Brentford",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r10-2645287",
+   "round": 10,
+   "home": "Crystal Palace",
+   "away": "Liverpool",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r10-2645288",
+   "round": 10,
+   "home": "Everton",
+   "away": "Coventry City",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r10-2645289",
+   "round": 10,
+   "home": "Fulham",
+   "away": "Newcastle United",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r10-2645290",
+   "round": 10,
+   "home": "Ipswich Town",
+   "away": "Bournemouth",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r10-2645291",
+   "round": 10,
+   "home": "Leeds United",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r10-2645292",
+   "round": 10,
+   "home": "Manchester United",
+   "away": "Aston Villa",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r10-2645293",
+   "round": 10,
+   "home": "Nottingham Forest",
+   "away": "Manchester City",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r10-2645294",
+   "round": 10,
+   "home": "Sunderland",
+   "away": "Chelsea",
+   "kickoff": "2026-11-07T15:00:00Z"
+  },
+  {
+   "id": "r11-2645295",
+   "round": 11,
+   "home": "Bournemouth",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r11-2645296",
+   "round": 11,
+   "home": "Aston Villa",
+   "away": "Sunderland",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r11-2645297",
+   "round": 11,
+   "home": "Brentford",
+   "away": "Everton",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r11-2645298",
+   "round": 11,
+   "home": "Chelsea",
+   "away": "Leeds United",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r11-2645299",
+   "round": 11,
+   "home": "Coventry City",
+   "away": "Crystal Palace",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r11-2645300",
+   "round": 11,
+   "home": "Hull City",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r11-2645301",
+   "round": 11,
+   "home": "Liverpool",
+   "away": "Manchester United",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r11-2645302",
+   "round": 11,
+   "home": "Manchester City",
+   "away": "Fulham",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r11-2645303",
+   "round": 11,
+   "home": "Newcastle United",
+   "away": "Arsenal",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r11-2645304",
+   "round": 11,
+   "home": "Tottenham Hotspur",
+   "away": "Ipswich Town",
+   "kickoff": "2026-11-21T15:00:00Z"
+  },
+  {
+   "id": "r12-2645305",
+   "round": 12,
+   "home": "Arsenal",
+   "away": "Manchester City",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r12-2645306",
+   "round": 12,
+   "home": "Brighton and Hove Albion",
+   "away": "Newcastle United",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r12-2645307",
+   "round": 12,
+   "home": "Crystal Palace",
+   "away": "Hull City",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r12-2645308",
+   "round": 12,
+   "home": "Everton",
+   "away": "Liverpool",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r12-2645309",
+   "round": 12,
+   "home": "Fulham",
+   "away": "Bournemouth",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r12-2645310",
+   "round": 12,
+   "home": "Ipswich Town",
+   "away": "Aston Villa",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r12-2645311",
+   "round": 12,
+   "home": "Leeds United",
+   "away": "Coventry City",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r12-2645312",
+   "round": 12,
+   "home": "Manchester United",
+   "away": "Brentford",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r12-2645313",
+   "round": 12,
+   "home": "Nottingham Forest",
+   "away": "Chelsea",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r12-2645314",
+   "round": 12,
+   "home": "Sunderland",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2026-11-28T15:00:00Z"
+  },
+  {
+   "id": "r13-2645315",
+   "round": 13,
+   "home": "Bournemouth",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r13-2645316",
+   "round": 13,
+   "home": "Aston Villa",
+   "away": "Everton",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r13-2645317",
+   "round": 13,
+   "home": "Brentford",
+   "away": "Arsenal",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r13-2645318",
+   "round": 13,
+   "home": "Chelsea",
+   "away": "Crystal Palace",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r13-2645319",
+   "round": 13,
+   "home": "Coventry City",
+   "away": "Ipswich Town",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r13-2645320",
+   "round": 13,
+   "home": "Hull City",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r13-2645321",
+   "round": 13,
+   "home": "Liverpool",
+   "away": "Sunderland",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r13-2645322",
+   "round": 13,
+   "home": "Manchester City",
+   "away": "Leeds United",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r13-2645323",
+   "round": 13,
+   "home": "Newcastle United",
+   "away": "Manchester United",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r13-2645324",
+   "round": 13,
+   "home": "Tottenham Hotspur",
+   "away": "Fulham",
+   "kickoff": "2026-12-02T20:00:00Z"
+  },
+  {
+   "id": "r14-2645325",
+   "round": 14,
+   "home": "Bournemouth",
+   "away": "Hull City",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r14-2645326",
+   "round": 14,
+   "home": "Aston Villa",
+   "away": "Crystal Palace",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r14-2645327",
+   "round": 14,
+   "home": "Brentford",
+   "away": "Manchester City",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r14-2645328",
+   "round": 14,
+   "home": "Chelsea",
+   "away": "Liverpool",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r14-2645329",
+   "round": 14,
+   "home": "Everton",
+   "away": "Fulham",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r14-2645330",
+   "round": 14,
+   "home": "Leeds United",
+   "away": "Ipswich Town",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r14-2645331",
+   "round": 14,
+   "home": "Manchester United",
+   "away": "Coventry City",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r14-2645332",
+   "round": 14,
+   "home": "Newcastle United",
+   "away": "Sunderland",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r14-2645333",
+   "round": 14,
+   "home": "Nottingham Forest",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r14-2645334",
+   "round": 14,
+   "home": "Tottenham Hotspur",
+   "away": "Arsenal",
+   "kickoff": "2026-12-05T15:00:00Z"
+  },
+  {
+   "id": "r15-2645335",
+   "round": 15,
+   "home": "Arsenal",
+   "away": "Bournemouth",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r15-2645336",
+   "round": 15,
+   "home": "Brighton and Hove Albion",
+   "away": "Everton",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r15-2645337",
+   "round": 15,
+   "home": "Coventry City",
+   "away": "Aston Villa",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r15-2645338",
+   "round": 15,
+   "home": "Crystal Palace",
+   "away": "Manchester United",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r15-2645339",
+   "round": 15,
+   "home": "Fulham",
+   "away": "Brentford",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r15-2645340",
+   "round": 15,
+   "home": "Hull City",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r15-2645341",
+   "round": 15,
+   "home": "Ipswich Town",
+   "away": "Newcastle United",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r15-2645342",
+   "round": 15,
+   "home": "Liverpool",
+   "away": "Leeds United",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r15-2645343",
+   "round": 15,
+   "home": "Manchester City",
+   "away": "Chelsea",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r15-2645344",
+   "round": 15,
+   "home": "Sunderland",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-12-12T15:00:00Z"
+  },
+  {
+   "id": "r16-2645345",
+   "round": 16,
+   "home": "Bournemouth",
+   "away": "Coventry City",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r16-2645346",
+   "round": 16,
+   "home": "Arsenal",
+   "away": "Manchester United",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r16-2645347",
+   "round": 16,
+   "home": "Brentford",
+   "away": "Newcastle United",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r16-2645348",
+   "round": 16,
+   "home": "Brighton and Hove Albion",
+   "away": "Ipswich Town",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r16-2645349",
+   "round": 16,
+   "home": "Chelsea",
+   "away": "Aston Villa",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r16-2645350",
+   "round": 16,
+   "home": "Leeds United",
+   "away": "Fulham",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r16-2645351",
+   "round": 16,
+   "home": "Liverpool",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r16-2645352",
+   "round": 16,
+   "home": "Manchester City",
+   "away": "Hull City",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r16-2645353",
+   "round": 16,
+   "home": "Nottingham Forest",
+   "away": "Everton",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r16-2645354",
+   "round": 16,
+   "home": "Sunderland",
+   "away": "Crystal Palace",
+   "kickoff": "2026-12-19T15:00:00Z"
+  },
+  {
+   "id": "r17-2645355",
+   "round": 17,
+   "home": "Aston Villa",
+   "away": "Leeds United",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r17-2645356",
+   "round": 17,
+   "home": "Coventry City",
+   "away": "Chelsea",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r17-2645357",
+   "round": 17,
+   "home": "Crystal Palace",
+   "away": "Arsenal",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r17-2645358",
+   "round": 17,
+   "home": "Everton",
+   "away": "Sunderland",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r17-2645359",
+   "round": 17,
+   "home": "Fulham",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r17-2645360",
+   "round": 17,
+   "home": "Hull City",
+   "away": "Liverpool",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r17-2645361",
+   "round": 17,
+   "home": "Ipswich Town",
+   "away": "Brentford",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r17-2645362",
+   "round": 17,
+   "home": "Manchester United",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r17-2645363",
+   "round": 17,
+   "home": "Newcastle United",
+   "away": "Manchester City",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r17-2645364",
+   "round": 17,
+   "home": "Tottenham Hotspur",
+   "away": "Bournemouth",
+   "kickoff": "2026-12-26T15:00:00Z"
+  },
+  {
+   "id": "r18-2645365",
+   "round": 18,
+   "home": "Aston Villa",
+   "away": "Liverpool",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r18-2645366",
+   "round": 18,
+   "home": "Coventry City",
+   "away": "Brentford",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r18-2645367",
+   "round": 18,
+   "home": "Crystal Palace",
+   "away": "Bournemouth",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r18-2645368",
+   "round": 18,
+   "home": "Everton",
+   "away": "Manchester City",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r18-2645369",
+   "round": 18,
+   "home": "Fulham",
+   "away": "Arsenal",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r18-2645370",
+   "round": 18,
+   "home": "Hull City",
+   "away": "Leeds United",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r18-2645371",
+   "round": 18,
+   "home": "Ipswich Town",
+   "away": "Chelsea",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r18-2645372",
+   "round": 18,
+   "home": "Manchester United",
+   "away": "Sunderland",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r18-2645373",
+   "round": 18,
+   "home": "Newcastle United",
+   "away": "Nottingham Forest",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r18-2645374",
+   "round": 18,
+   "home": "Tottenham Hotspur",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2026-12-30T20:00:00Z"
+  },
+  {
+   "id": "r19-2645375",
+   "round": 19,
+   "home": "Bournemouth",
+   "away": "Aston Villa",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r19-2645376",
+   "round": 19,
+   "home": "Arsenal",
+   "away": "Ipswich Town",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r19-2645377",
+   "round": 19,
+   "home": "Brentford",
+   "away": "Crystal Palace",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r19-2645378",
+   "round": 19,
+   "home": "Brighton and Hove Albion",
+   "away": "Manchester United",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r19-2645379",
+   "round": 19,
+   "home": "Chelsea",
+   "away": "Newcastle United",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r19-2645380",
+   "round": 19,
+   "home": "Leeds United",
+   "away": "Everton",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r19-2645381",
+   "round": 19,
+   "home": "Liverpool",
+   "away": "Coventry City",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r19-2645382",
+   "round": 19,
+   "home": "Manchester City",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r19-2645383",
+   "round": 19,
+   "home": "Nottingham Forest",
+   "away": "Fulham",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r19-2645384",
+   "round": 19,
+   "home": "Sunderland",
+   "away": "Hull City",
+   "kickoff": "2027-01-02T15:00:00Z"
+  },
+  {
+   "id": "r20-2645385",
+   "round": 20,
+   "home": "Arsenal",
+   "away": "Brentford",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r20-2645386",
+   "round": 20,
+   "home": "Brighton and Hove Albion",
+   "away": "Bournemouth",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r20-2645387",
+   "round": 20,
+   "home": "Crystal Palace",
+   "away": "Chelsea",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r20-2645388",
+   "round": 20,
+   "home": "Everton",
+   "away": "Aston Villa",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r20-2645389",
+   "round": 20,
+   "home": "Fulham",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r20-2645390",
+   "round": 20,
+   "home": "Ipswich Town",
+   "away": "Coventry City",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r20-2645391",
+   "round": 20,
+   "home": "Leeds United",
+   "away": "Manchester City",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r20-2645392",
+   "round": 20,
+   "home": "Manchester United",
+   "away": "Newcastle United",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r20-2645393",
+   "round": 20,
+   "home": "Nottingham Forest",
+   "away": "Hull City",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r20-2645394",
+   "round": 20,
+   "home": "Sunderland",
+   "away": "Liverpool",
+   "kickoff": "2027-01-06T20:00:00Z"
+  },
+  {
+   "id": "r21-2645395",
+   "round": 21,
+   "home": "Bournemouth",
+   "away": "Ipswich Town",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r21-2645396",
+   "round": 21,
+   "home": "Aston Villa",
+   "away": "Manchester United",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r21-2645397",
+   "round": 21,
+   "home": "Brentford",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r21-2645398",
+   "round": 21,
+   "home": "Chelsea",
+   "away": "Sunderland",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r21-2645399",
+   "round": 21,
+   "home": "Coventry City",
+   "away": "Everton",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r21-2645400",
+   "round": 21,
+   "home": "Hull City",
+   "away": "Arsenal",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r21-2645401",
+   "round": 21,
+   "home": "Liverpool",
+   "away": "Crystal Palace",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r21-2645402",
+   "round": 21,
+   "home": "Manchester City",
+   "away": "Nottingham Forest",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r21-2645403",
+   "round": 21,
+   "home": "Newcastle United",
+   "away": "Fulham",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r21-2645404",
+   "round": 21,
+   "home": "Tottenham Hotspur",
+   "away": "Leeds United",
+   "kickoff": "2027-01-16T15:00:00Z"
+  },
+  {
+   "id": "r22-2645405",
+   "round": 22,
+   "home": "Arsenal",
+   "away": "Newcastle United",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r22-2645406",
+   "round": 22,
+   "home": "Brighton and Hove Albion",
+   "away": "Manchester City",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r22-2645407",
+   "round": 22,
+   "home": "Crystal Palace",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r22-2645408",
+   "round": 22,
+   "home": "Everton",
+   "away": "Brentford",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r22-2645409",
+   "round": 22,
+   "home": "Fulham",
+   "away": "Aston Villa",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r22-2645410",
+   "round": 22,
+   "home": "Ipswich Town",
+   "away": "Hull City",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r22-2645411",
+   "round": 22,
+   "home": "Leeds United",
+   "away": "Chelsea",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r22-2645412",
+   "round": 22,
+   "home": "Manchester United",
+   "away": "Liverpool",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r22-2645413",
+   "round": 22,
+   "home": "Nottingham Forest",
+   "away": "Bournemouth",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r22-2645414",
+   "round": 22,
+   "home": "Sunderland",
+   "away": "Coventry City",
+   "kickoff": "2027-01-23T15:00:00Z"
+  },
+  {
+   "id": "r23-2645415",
+   "round": 23,
+   "home": "Bournemouth",
+   "away": "Fulham",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r23-2645416",
+   "round": 23,
+   "home": "Aston Villa",
+   "away": "Ipswich Town",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r23-2645417",
+   "round": 23,
+   "home": "Brentford",
+   "away": "Manchester United",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r23-2645418",
+   "round": 23,
+   "home": "Chelsea",
+   "away": "Nottingham Forest",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r23-2645419",
+   "round": 23,
+   "home": "Coventry City",
+   "away": "Leeds United",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r23-2645420",
+   "round": 23,
+   "home": "Hull City",
+   "away": "Crystal Palace",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r23-2645421",
+   "round": 23,
+   "home": "Liverpool",
+   "away": "Everton",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r23-2645422",
+   "round": 23,
+   "home": "Manchester City",
+   "away": "Arsenal",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r23-2645423",
+   "round": 23,
+   "home": "Newcastle United",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r23-2645424",
+   "round": 23,
+   "home": "Tottenham Hotspur",
+   "away": "Sunderland",
+   "kickoff": "2027-01-30T15:00:00Z"
+  },
+  {
+   "id": "r24-2645425",
+   "round": 24,
+   "home": "Arsenal",
+   "away": "Liverpool",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r24-2645426",
+   "round": 24,
+   "home": "Brighton and Hove Albion",
+   "away": "Hull City",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r24-2645427",
+   "round": 24,
+   "home": "Crystal Palace",
+   "away": "Coventry City",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r24-2645428",
+   "round": 24,
+   "home": "Everton",
+   "away": "Newcastle United",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r24-2645429",
+   "round": 24,
+   "home": "Fulham",
+   "away": "Manchester City",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r24-2645430",
+   "round": 24,
+   "home": "Ipswich Town",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r24-2645431",
+   "round": 24,
+   "home": "Leeds United",
+   "away": "Bournemouth",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r24-2645432",
+   "round": 24,
+   "home": "Manchester United",
+   "away": "Chelsea",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r24-2645433",
+   "round": 24,
+   "home": "Nottingham Forest",
+   "away": "Brentford",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r24-2645434",
+   "round": 24,
+   "home": "Sunderland",
+   "away": "Aston Villa",
+   "kickoff": "2027-02-06T15:00:00Z"
+  },
+  {
+   "id": "r25-2645435",
+   "round": 25,
+   "home": "Aston Villa",
+   "away": "Bournemouth",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r25-2645436",
+   "round": 25,
+   "home": "Coventry City",
+   "away": "Liverpool",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r25-2645437",
+   "round": 25,
+   "home": "Crystal Palace",
+   "away": "Brentford",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r25-2645438",
+   "round": 25,
+   "home": "Everton",
+   "away": "Leeds United",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r25-2645439",
+   "round": 25,
+   "home": "Fulham",
+   "away": "Nottingham Forest",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r25-2645440",
+   "round": 25,
+   "home": "Hull City",
+   "away": "Sunderland",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r25-2645441",
+   "round": 25,
+   "home": "Ipswich Town",
+   "away": "Arsenal",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r25-2645442",
+   "round": 25,
+   "home": "Manchester United",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r25-2645443",
+   "round": 25,
+   "home": "Newcastle United",
+   "away": "Chelsea",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r25-2645444",
+   "round": 25,
+   "home": "Tottenham Hotspur",
+   "away": "Manchester City",
+   "kickoff": "2027-02-10T20:00:00Z"
+  },
+  {
+   "id": "r26-2645445",
+   "round": 26,
+   "home": "Bournemouth",
+   "away": "Crystal Palace",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r26-2645446",
+   "round": 26,
+   "home": "Arsenal",
+   "away": "Fulham",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r26-2645447",
+   "round": 26,
+   "home": "Brentford",
+   "away": "Coventry City",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r26-2645448",
+   "round": 26,
+   "home": "Brighton and Hove Albion",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r26-2645449",
+   "round": 26,
+   "home": "Chelsea",
+   "away": "Ipswich Town",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r26-2645450",
+   "round": 26,
+   "home": "Leeds United",
+   "away": "Aston Villa",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r26-2645451",
+   "round": 26,
+   "home": "Liverpool",
+   "away": "Hull City",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r26-2645452",
+   "round": 26,
+   "home": "Manchester City",
+   "away": "Newcastle United",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r26-2645453",
+   "round": 26,
+   "home": "Nottingham Forest",
+   "away": "Manchester United",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r26-2645454",
+   "round": 26,
+   "home": "Sunderland",
+   "away": "Everton",
+   "kickoff": "2027-02-20T15:00:00Z"
+  },
+  {
+   "id": "r27-2645455",
+   "round": 27,
+   "home": "Aston Villa",
+   "away": "Chelsea",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r27-2645456",
+   "round": 27,
+   "home": "Coventry City",
+   "away": "Bournemouth",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r27-2645457",
+   "round": 27,
+   "home": "Crystal Palace",
+   "away": "Sunderland",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r27-2645458",
+   "round": 27,
+   "home": "Everton",
+   "away": "Nottingham Forest",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r27-2645459",
+   "round": 27,
+   "home": "Fulham",
+   "away": "Leeds United",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r27-2645460",
+   "round": 27,
+   "home": "Hull City",
+   "away": "Manchester City",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r27-2645461",
+   "round": 27,
+   "home": "Ipswich Town",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r27-2645462",
+   "round": 27,
+   "home": "Manchester United",
+   "away": "Arsenal",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r27-2645463",
+   "round": 27,
+   "home": "Newcastle United",
+   "away": "Brentford",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r27-2645464",
+   "round": 27,
+   "home": "Tottenham Hotspur",
+   "away": "Liverpool",
+   "kickoff": "2027-02-27T15:00:00Z"
+  },
+  {
+   "id": "r28-2645465",
+   "round": 28,
+   "home": "Bournemouth",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r28-2645466",
+   "round": 28,
+   "home": "Arsenal",
+   "away": "Crystal Palace",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r28-2645467",
+   "round": 28,
+   "home": "Brentford",
+   "away": "Ipswich Town",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r28-2645468",
+   "round": 28,
+   "home": "Brighton and Hove Albion",
+   "away": "Fulham",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r28-2645469",
+   "round": 28,
+   "home": "Chelsea",
+   "away": "Coventry City",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r28-2645470",
+   "round": 28,
+   "home": "Leeds United",
+   "away": "Hull City",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r28-2645471",
+   "round": 28,
+   "home": "Liverpool",
+   "away": "Aston Villa",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r28-2645472",
+   "round": 28,
+   "home": "Manchester City",
+   "away": "Everton",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r28-2645473",
+   "round": 28,
+   "home": "Nottingham Forest",
+   "away": "Newcastle United",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r28-2645474",
+   "round": 28,
+   "home": "Sunderland",
+   "away": "Manchester United",
+   "kickoff": "2027-03-03T20:00:00Z"
+  },
+  {
+   "id": "r29-2645475",
+   "round": 29,
+   "home": "Bournemouth",
+   "away": "Newcastle United",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r29-2645476",
+   "round": 29,
+   "home": "Aston Villa",
+   "away": "Hull City",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r29-2645477",
+   "round": 29,
+   "home": "Chelsea",
+   "away": "Arsenal",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r29-2645478",
+   "round": 29,
+   "home": "Coventry City",
+   "away": "Manchester City",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r29-2645479",
+   "round": 29,
+   "home": "Crystal Palace",
+   "away": "Fulham",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r29-2645480",
+   "round": 29,
+   "home": "Leeds United",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r29-2645481",
+   "round": 29,
+   "home": "Liverpool",
+   "away": "Ipswich Town",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r29-2645482",
+   "round": 29,
+   "home": "Manchester United",
+   "away": "Everton",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r29-2645483",
+   "round": 29,
+   "home": "Sunderland",
+   "away": "Brentford",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r29-2645484",
+   "round": 29,
+   "home": "Tottenham Hotspur",
+   "away": "Nottingham Forest",
+   "kickoff": "2027-03-13T15:00:00Z"
+  },
+  {
+   "id": "r30-2645485",
+   "round": 30,
+   "home": "Arsenal",
+   "away": "Sunderland",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r30-2645486",
+   "round": 30,
+   "home": "Brentford",
+   "away": "Bournemouth",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r30-2645487",
+   "round": 30,
+   "home": "Brighton and Hove Albion",
+   "away": "Coventry City",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r30-2645488",
+   "round": 30,
+   "home": "Everton",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r30-2645489",
+   "round": 30,
+   "home": "Fulham",
+   "away": "Liverpool",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r30-2645490",
+   "round": 30,
+   "home": "Hull City",
+   "away": "Chelsea",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r30-2645491",
+   "round": 30,
+   "home": "Ipswich Town",
+   "away": "Crystal Palace",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r30-2645492",
+   "round": 30,
+   "home": "Manchester City",
+   "away": "Manchester United",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r30-2645493",
+   "round": 30,
+   "home": "Newcastle United",
+   "away": "Leeds United",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r30-2645494",
+   "round": 30,
+   "home": "Nottingham Forest",
+   "away": "Aston Villa",
+   "kickoff": "2027-03-20T15:00:00Z"
+  },
+  {
+   "id": "r31-2645495",
+   "round": 31,
+   "home": "Bournemouth",
+   "away": "Manchester City",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r31-2645496",
+   "round": 31,
+   "home": "Aston Villa",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r31-2645497",
+   "round": 31,
+   "home": "Chelsea",
+   "away": "Fulham",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r31-2645498",
+   "round": 31,
+   "home": "Coventry City",
+   "away": "Arsenal",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r31-2645499",
+   "round": 31,
+   "home": "Crystal Palace",
+   "away": "Everton",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r31-2645500",
+   "round": 31,
+   "home": "Leeds United",
+   "away": "Nottingham Forest",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r31-2645501",
+   "round": 31,
+   "home": "Liverpool",
+   "away": "Newcastle United",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r31-2645502",
+   "round": 31,
+   "home": "Manchester United",
+   "away": "Hull City",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r31-2645503",
+   "round": 31,
+   "home": "Sunderland",
+   "away": "Ipswich Town",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r31-2645504",
+   "round": 31,
+   "home": "Tottenham Hotspur",
+   "away": "Brentford",
+   "kickoff": "2027-04-10T14:00:00Z"
+  },
+  {
+   "id": "r32-2645505",
+   "round": 32,
+   "home": "Arsenal",
+   "away": "Aston Villa",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r32-2645506",
+   "round": 32,
+   "home": "Brentford",
+   "away": "Leeds United",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r32-2645507",
+   "round": 32,
+   "home": "Brighton and Hove Albion",
+   "away": "Chelsea",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r32-2645508",
+   "round": 32,
+   "home": "Everton",
+   "away": "Bournemouth",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r32-2645509",
+   "round": 32,
+   "home": "Fulham",
+   "away": "Sunderland",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r32-2645510",
+   "round": 32,
+   "home": "Hull City",
+   "away": "Coventry City",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r32-2645511",
+   "round": 32,
+   "home": "Ipswich Town",
+   "away": "Manchester United",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r32-2645512",
+   "round": 32,
+   "home": "Manchester City",
+   "away": "Crystal Palace",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r32-2645513",
+   "round": 32,
+   "home": "Newcastle United",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r32-2645514",
+   "round": 32,
+   "home": "Nottingham Forest",
+   "away": "Liverpool",
+   "kickoff": "2027-04-17T14:00:00Z"
+  },
+  {
+   "id": "r33-2645515",
+   "round": 33,
+   "home": "Bournemouth",
+   "away": "Arsenal",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r33-2645516",
+   "round": 33,
+   "home": "Aston Villa",
+   "away": "Coventry City",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r33-2645517",
+   "round": 33,
+   "home": "Brentford",
+   "away": "Fulham",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r33-2645518",
+   "round": 33,
+   "home": "Chelsea",
+   "away": "Manchester City",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r33-2645519",
+   "round": 33,
+   "home": "Everton",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r33-2645520",
+   "round": 33,
+   "home": "Leeds United",
+   "away": "Liverpool",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r33-2645521",
+   "round": 33,
+   "home": "Manchester United",
+   "away": "Crystal Palace",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r33-2645522",
+   "round": 33,
+   "home": "Newcastle United",
+   "away": "Ipswich Town",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r33-2645523",
+   "round": 33,
+   "home": "Nottingham Forest",
+   "away": "Sunderland",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r33-2645524",
+   "round": 33,
+   "home": "Tottenham Hotspur",
+   "away": "Hull City",
+   "kickoff": "2027-04-24T14:00:00Z"
+  },
+  {
+   "id": "r34-2645525",
+   "round": 34,
+   "home": "Arsenal",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r34-2645526",
+   "round": 34,
+   "home": "Brighton and Hove Albion",
+   "away": "Nottingham Forest",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r34-2645527",
+   "round": 34,
+   "home": "Coventry City",
+   "away": "Manchester United",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r34-2645528",
+   "round": 34,
+   "home": "Crystal Palace",
+   "away": "Aston Villa",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r34-2645529",
+   "round": 34,
+   "home": "Fulham",
+   "away": "Everton",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r34-2645530",
+   "round": 34,
+   "home": "Hull City",
+   "away": "Bournemouth",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r34-2645531",
+   "round": 34,
+   "home": "Ipswich Town",
+   "away": "Leeds United",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r34-2645532",
+   "round": 34,
+   "home": "Liverpool",
+   "away": "Chelsea",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r34-2645533",
+   "round": 34,
+   "home": "Manchester City",
+   "away": "Brentford",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r34-2645534",
+   "round": 34,
+   "home": "Sunderland",
+   "away": "Newcastle United",
+   "kickoff": "2027-05-01T14:00:00Z"
+  },
+  {
+   "id": "r35-2645535",
+   "round": 35,
+   "home": "Bournemouth",
+   "away": "Manchester United",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r35-2645536",
+   "round": 35,
+   "home": "Brentford",
+   "away": "Aston Villa",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r35-2645537",
+   "round": 35,
+   "home": "Brighton and Hove Albion",
+   "away": "Sunderland",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r35-2645538",
+   "round": 35,
+   "home": "Everton",
+   "away": "Hull City",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r35-2645539",
+   "round": 35,
+   "home": "Fulham",
+   "away": "Ipswich Town",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r35-2645540",
+   "round": 35,
+   "home": "Leeds United",
+   "away": "Arsenal",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r35-2645541",
+   "round": 35,
+   "home": "Manchester City",
+   "away": "Liverpool",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r35-2645542",
+   "round": 35,
+   "home": "Newcastle United",
+   "away": "Coventry City",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r35-2645543",
+   "round": 35,
+   "home": "Nottingham Forest",
+   "away": "Crystal Palace",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r35-2645544",
+   "round": 35,
+   "home": "Tottenham Hotspur",
+   "away": "Chelsea",
+   "kickoff": "2027-05-08T14:00:00Z"
+  },
+  {
+   "id": "r36-2645545",
+   "round": 36,
+   "home": "Arsenal",
+   "away": "Nottingham Forest",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r36-2645546",
+   "round": 36,
+   "home": "Aston Villa",
+   "away": "Newcastle United",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r36-2645547",
+   "round": 36,
+   "home": "Chelsea",
+   "away": "Everton",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r36-2645548",
+   "round": 36,
+   "home": "Coventry City",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r36-2645549",
+   "round": 36,
+   "home": "Crystal Palace",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r36-2645550",
+   "round": 36,
+   "home": "Hull City",
+   "away": "Fulham",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r36-2645551",
+   "round": 36,
+   "home": "Ipswich Town",
+   "away": "Manchester City",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r36-2645552",
+   "round": 36,
+   "home": "Liverpool",
+   "away": "Brentford",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r36-2645553",
+   "round": 36,
+   "home": "Manchester United",
+   "away": "Leeds United",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r36-2645554",
+   "round": 36,
+   "home": "Sunderland",
+   "away": "Bournemouth",
+   "kickoff": "2027-05-15T14:00:00Z"
+  },
+  {
+   "id": "r37-2645555",
+   "round": 37,
+   "home": "Bournemouth",
+   "away": "Chelsea",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r37-2645556",
+   "round": 37,
+   "home": "Brentford",
+   "away": "Hull City",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r37-2645557",
+   "round": 37,
+   "home": "Brighton and Hove Albion",
+   "away": "Liverpool",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r37-2645558",
+   "round": 37,
+   "home": "Everton",
+   "away": "Arsenal",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r37-2645559",
+   "round": 37,
+   "home": "Fulham",
+   "away": "Coventry City",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r37-2645560",
+   "round": 37,
+   "home": "Leeds United",
+   "away": "Sunderland",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r37-2645561",
+   "round": 37,
+   "home": "Manchester City",
+   "away": "Aston Villa",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r37-2645562",
+   "round": 37,
+   "home": "Newcastle United",
+   "away": "Crystal Palace",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r37-2645563",
+   "round": 37,
+   "home": "Nottingham Forest",
+   "away": "Ipswich Town",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r37-2645564",
+   "round": 37,
+   "home": "Tottenham Hotspur",
+   "away": "Manchester United",
+   "kickoff": "2027-05-23T14:00:00Z"
+  },
+  {
+   "id": "r38-2645565",
+   "round": 38,
+   "home": "Arsenal",
+   "away": "Brighton and Hove Albion",
+   "kickoff": "2027-05-30T15:00:00Z"
+  },
+  {
+   "id": "r38-2645566",
+   "round": 38,
+   "home": "Aston Villa",
+   "away": "Tottenham Hotspur",
+   "kickoff": "2027-05-30T15:00:00Z"
+  },
+  {
+   "id": "r38-2645567",
+   "round": 38,
+   "home": "Chelsea",
+   "away": "Brentford",
+   "kickoff": "2027-05-30T15:00:00Z"
+  },
+  {
+   "id": "r38-2645568",
+   "round": 38,
+   "home": "Coventry City",
+   "away": "Nottingham Forest",
+   "kickoff": "2027-05-30T15:00:00Z"
+  },
+  {
+   "id": "r38-2645569",
+   "round": 38,
+   "home": "Crystal Palace",
+   "away": "Leeds United",
+   "kickoff": "2027-05-30T15:00:00Z"
+  },
+  {
+   "id": "r38-2645570",
+   "round": 38,
+   "home": "Hull City",
+   "away": "Newcastle United",
+   "kickoff": "2027-05-30T15:00:00Z"
+  },
+  {
+   "id": "r38-2645571",
+   "round": 38,
+   "home": "Ipswich Town",
+   "away": "Everton",
+   "kickoff": "2027-05-30T15:00:00Z"
+  },
+  {
+   "id": "r38-2645572",
+   "round": 38,
+   "home": "Liverpool",
+   "away": "Bournemouth",
+   "kickoff": "2027-05-30T15:00:00Z"
+  },
+  {
+   "id": "r38-2645573",
+   "round": 38,
+   "home": "Manchester United",
+   "away": "Fulham",
+   "kickoff": "2027-05-30T15:00:00Z"
+  },
+  {
+   "id": "r38-2645574",
+   "round": 38,
+   "home": "Sunderland",
+   "away": "Manchester City",
+   "kickoff": "2027-05-30T15:00:00Z"
+  }
+ ]
+}
