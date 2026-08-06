@@ -122,7 +122,18 @@ jobs:
         if: ${{ inputs.seedSuperliga }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-        run: node scripts/seed-superliga.mjs scripts/superliga-fixtures.json
+        # Samme skrivninger som det tidligere seed-superliga.mjs — bevist felt
+        # for felt på et tomt spil (133 identiske skrivninger). ÉN forskel, og
+        # den er med vilje: kampe, der ALLEREDE har odds, springes nu over i
+        # stedet for at få dem overskrevet. Tikker nogen af her midt i sæsonen,
+        # rører kørslen ikke de odds, folk har tippet og fået point efter.
+        # `--skriv` står her, fordi tør-kørsel er default i scriptet.
+        run: |
+          node scripts/seed-football.mjs \
+            --game superliga2627 \
+            --teams src/data/superligaTeams2026.js \
+            --fixtures scripts/superliga-fixtures.json \
+            --skriv
 
       - name: Deploy Cloud Function (afregning + levende Elo)
         if: ${{ inputs.deployFunctions }}

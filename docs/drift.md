@@ -38,6 +38,32 @@ bevarede kodeord.
 5. **Backfill liga-adgang** — kun nødvendig hvis liga-medlemskaber er kommet ind
    uden om appen (dataimport). Triggeren holder det ellers selv opdateret.
 
+## Kickoff-tider, der flytter sig (Premier League)
+
+Premier League udgiver programmet **før** TV-udvælgelsen. Kun runde 1–5 har
+fastlagte tidspunkter; runde 6–38 står med alle ti kampe i samme standard-slot
+og bliver flyttet hen over sæsonen — typisk 5–6 uger før kampen.
+
+Det er ikke kosmetik. **Kickoff er tip-deadlinen** (`firestore.rules`), så en
+forkert tid lukker kuponen på det forkerte tidspunkt. Og resultat-synken leder
+kun efter kampe i et vindue omkring tidspunktet, så et facit ville aldrig lande.
+
+Tør-kørsel først — den skriver intet og viser hver enkelt ændring:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
+  --game pl2627-efteraar \
+  --fixtures scripts/premier-league-fixtures-2627.json \
+  --kickoffs-only
+```
+
+Ser listen rigtig ud, køres den igen med `--skriv`.
+
+`--kickoffs-only` skriver **kun** `kickoff` og `updatedAt`. Den rører aldrig
+odds, Elo eller resultat, og den lader en kamp med facit helt være — dens
+tidspunkt er historie, ikke en deadline. Den bruger `update`, ikke `set`, så
+den kan heller ikke oprette en kamp, der ikke er seedet endnu.
+
 ## Rækkefølge ved ændringer i security rules
 
 Reglerne deployes **sammen med hosting**. Strammer man en regel, der kræver et
@@ -62,7 +88,11 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   end virkeligheden. Uden den undtagelse ville en seed-kørsel stille rulle et
   spil fra "Afsluttet" tilbage til "I gang" — den skriver med merge, så det
   hverken fejler eller efterlader spor.
-- `seedSuperliga` (default false) — skriver hele kampprogrammet.
+- `seedSuperliga` (default false) — skriver hele kampprogrammet. Kører
+  `scripts/seed-football.mjs` (som afløste `seed-superliga.mjs`, der var
+  hårdkodet til Superligaen). Kampe, der **allerede har odds**, springes over:
+  odds fryses ved seedet og er det, folk har tippet efter. Skal de genberegnes,
+  gør `recomputeSeasonElo` det — og kun på kampe, der ikke er låst endnu.
 
 ## Hvis noget ser tomt ud
 
