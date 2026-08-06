@@ -169,5 +169,10 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     // Bindes til konstanten, ikke til et tal i teksten: hæves ODDS.MAX for et
     // spil, skal guiden følge med af sig selv.
     expect(container.textContent).toContain(`højst ${ODDS.MAX.toFixed(1).replace('.', ',')}`);
+    // HVORNÅR oddsene låser er det, en spiller bliver overrasket over: man
+    // låser IKKE en kurs ved at tippe tidligt. Uden den sætning fremgår det
+    // ingen steder — hverken i guiden eller på tip-fladen.
+    expect(container.textContent).toMatch(/låser ikke en kurs|låser altså ikke en kurs/);
+    expect(container.textContent).toMatch(/ved kampstart, der gælder/);
   });
 });
