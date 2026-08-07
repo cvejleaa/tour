@@ -30,6 +30,18 @@ forkert. Derfor er mutationstest ikke en ekstra grundighed, men den eneste
 måde at vide, om noget er dækket. Alt, der er sluppet igennem her, er sluppet
 igennem med en grøn suite.
 
+To former, den slipper igennem på, er værd at kende ved navn:
+
+- **Et bånd, der rummer både før og efter, måler ingenting.** En test krævede
+  uafgjort mellem 13 og 20 % — den gamle værdi gav 13,7 %, den nye 16,1 %.
+  Testen bestod altså med præcis den værdi, den var skrevet for at fange.
+  Skriv båndet, så det bliver rødt af den gamle værdi, og skriv i kommentaren
+  hvad begge tal er.
+- **En test, der kun tjekker at noget blev VIST, beviser ikke hvad der stod.**
+  Hele advarselsteksten i en bekræftelsesdialog kunne erstattes med "OK?" med
+  grøn suite, og en hjælpetekst kunne modsige sig selv i to nabosætninger.
+  Assertér på indholdet — og på det, der IKKE må stå.
+
 De er ikke en formalitet. Hver rolle har blokeret noget ægte:
 en grøn test, der ikke kunne fange fejlen; en rettelse, der kun lukkede
 symptomet; og en regel-udrulning, der ville have vist alle en tom stilling.
@@ -57,8 +69,13 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
 1. Skriv ændringen. Kør lokalt: `npm run lint`, relevante tests, `npm run build`.
    **Kontrollér, at hver ændring faktisk landede** — en tekst-erstatning, der
    ikke matcher, fejler tavst, og så står testfilen grøn uden at dække noget.
-2. **Kør de tre roller** — plus Security Reviewer, hvis ændringen rører adgang.
-   Ret det, de finder.
+2. **Commit FØRST, kør så de tre roller** — plus Security Reviewer, hvis
+   ændringen rører adgang. Ret det, de finder.
+   **Rollerne muterer koden i arbejdstræet.** Committer du midt i en
+   mutationstest, lander deres mutation i din commit; retter du en fil, de
+   netop har gendannet fra HEAD, forsvinder din rettelse. Begge dele er sket.
+   Skal du arbejde videre, mens de kører, så gør det i et `git worktree` —
+   og husk, at symlinkede `node_modules` ikke må committes med.
 3. Commit → push → opret PR som draft.
 4. Vent på grøn CI (fire jobs). Un-draft → squash-merge.
 5. **Deploy efter Release Managers plan — uden at spørge om lov.** Er CI grøn,
@@ -91,6 +108,30 @@ Aldrig midt i en aktiv runde. Kommandoen ligger i
 - **Tør-kørsel først** på alt, der skriver i produktionsdata (`docs/drift.md`).
 - **Placering er en beslutning, ikke en detalje.** Nye admin-funktioner lægges,
   hvor de kan findes — se trin 0b.
+- **Et tal uden kode er en påstand.** Måler du noget, der begrunder en ændring,
+  så læg harnesset i `scripts/` og henvis til det præcise script. Tabellen, der
+  afgjorde at odds-loftet skulle væk, stod i koden med en henvisning til et
+  script, der ikke indeholdt målingen — den lå i `/tmp` og blev aldrig
+  committet. Alle de tal, der *kunne* efterprøves, viste sig at passe, og netop
+  derfor stak det ud, at det afgørende ikke kunne.
+- **Efterprøv begrundelsen på dét, den rammer — ikke på gennemsnittet.** "Loftet
+  har taget point fra spillerne" var sandt for sæsonen og **omvendt** for den
+  runde, der skulle omprises: dér bandt loftet næsten ikke, mens den nye
+  uafgjort-model gjorde X billigere. En rettelse, der er rigtig i snit, kan
+  gøre skade lokalt. Samme fælde som `DRAW_BASE` selv: et gennemsnit kan ikke
+  se, om kurven har rigtig form.
+- **Én vagt pr. sikkerhedsregel.** To `if (!dryRun)` om samme skrivning betød,
+  at den inderste kunne fjernes med hele suiten grøn — den yderste reddede
+  den. Saml beslutningen ét sted, så en mutation af den bliver rød.
+- **En funktion, der kun kan startes af en tilfældig hændelse, er ikke færdig.**
+  `recomputeSeasonElo` kunne kun udløses af, at et resultat ændrede sig, så
+  enhver model-ændring lå død, indtil en vilkårlig kamp blev afgjort. Det gjorde
+  hver eneste rettelse til en timing-øvelse. Svaret var ikke bedre timing, men
+  en knap. Spørg ved nyt maskineri: *hvordan starter jeg det her med vilje?*
+- **"Alle" er sjældent den rigtige modtagerkreds.** Send mail kunne kun indsætte
+  alle godkendte brugere — der fandtes intet spil-begreb overhovedet, så et brev
+  om Superligaens regler gik også til dem, der aldrig havde været med. Rører en
+  udsendelse ét spil, så vælg deltagerne i dét spil.
 
 ## Test-kommandoer
 
