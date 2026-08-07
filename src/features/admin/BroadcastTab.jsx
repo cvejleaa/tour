@@ -11,6 +11,7 @@ import { useUsers } from './useUsers';
 import { useAllLeagues } from '../leagues/useAllLeagues';
 import { useGames } from '../games/useGames';
 import { useGameLeagues } from '../games/useGameLeagues';
+import { useGamePlayerUids } from '../games/useGamePlayerUids';
 import { joinLinkFor, gameJoinLinkFor } from '../leagues/joinLink';
 import { LEAGUE_STATUS } from '../../lib/constants';
 import { PLATFORM_MODE } from '../../lib/platform';
@@ -110,6 +111,19 @@ export default function BroadcastTab() {
   const { leagues: gameLeagues } = useGameLeagues(PLATFORM_MODE ? gameId : null);
   const [leagueId, setLeagueId] = useState('');
 
+  // Deltagerne i det valgte spil, oversat til mails via brugerlisten.
+  // Spil-dokumenterne bærer kun uid'er; e-mail bor i userContacts og flettes
+  // ind af useUsers. Kun godkendte tages med — samme regel som knappen for
+  // alle, så en spærret bruger ikke pludselig får post gennem den nye vej.
+  const { uids: gamePlayerUids, error: gamePlayersError } = useGamePlayerUids(gameId || null);
+  const gamePlayerEmails = useMemo(() => {
+    const iSpillet = new Set(gamePlayerUids);
+    return users
+      .filter((u) => iSpillet.has(u.id) && u.status === 'approved' && u.email)
+      .map((u) => u.email);
+  }, [users, gamePlayerUids]);
+  const valgtSpil = useMemo(() => (games ?? []).find((g) => g.id === gameId), [games, gameId]);
+
   // Nulstil ligavalget når spillet skifter.
   const onGameChange = (id) => { setGameId(id); setLeagueId(''); };
 
@@ -154,13 +168,22 @@ export default function BroadcastTab() {
   const { valid, invalid } = useMemo(() => parseRecipients(recipientsText), [recipientsText]);
   const canSend = subject.trim() && body.trim() && valid.length > 0 && !busy && !needsLeague;
 
-  // Tilføj godkendte spilleres mails til listen (uden dubletter, behold det skrevne).
-  function addApproved() {
+  /** Læg mails til listen uden dubletter — og uden at røre det, der står. */
+  function addEmails(mails) {
     const existing = String(recipientsText).split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
     const seen = new Set(existing.map((e) => e.toLowerCase()));
-    const additions = approvedEmails.filter((e) => !seen.has(e.toLowerCase()));
+    const additions = mails.filter((e) => !seen.has(e.toLowerCase()));
     setRecipientsText([...existing, ...additions].join('\n'));
   }
+
+  // Alle godkendte brugere — uanset hvilke spil de deltager i.
+  function addApproved() { addEmails(approvedEmails); }
+
+  // Kun DELTAGERNE i det valgte spil. Et brev om Superligaens regler skal ikke
+  // til dem, der aldrig har været med i Superligaen: en mail, der ikke
+  // vedkommer én, er den hurtigste måde at lære folk at lade være med at læse
+  // dem. Knappen ovenfor tog alle godkendte, og det var den eneste, der fandtes.
+  function addGamePlayers() { addEmails(gamePlayerEmails); }
 
   async function handleSend() {
     if (!canSend) return;
@@ -347,15 +370,34 @@ export default function BroadcastTab() {
           />
         </label>
 
-        <div>
+        <div className="flex items-center" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* SPIL-KNAPPEN STÅR FØRST, fordi den næsten altid er den rigtige.
+              Et brev handler som regel om ét spils regler, stilling eller
+              runde — og så skal det ikke til dem, der ikke er med. */}
+          {PLATFORM_MODE && (
+            <button
+              type="button" className="btn btn--ghost btn--sm"
+              onClick={addGamePlayers} disabled={!gameId || gamePlayerEmails.length === 0}
+              data-testid="broadcast-add-game-players"
+            >
+              {gameId
+                ? `🎯 Indsæt deltagerne i ${valgtSpil?.name ?? 'spillet'} (${gamePlayerEmails.length})`
+                : '🎯 Indsæt deltagerne i ét spil — vælg spil ovenfor'}
+            </button>
+          )}
           <button
             type="button" className="btn btn--ghost btn--sm"
             onClick={addApproved} disabled={approvedEmails.length === 0}
             data-testid="broadcast-add-approved"
           >
-            ➕ Indsæt godkendte spilleres mails ({approvedEmails.length})
+            ➕ Indsæt ALLE godkendte ({approvedEmails.length})
           </button>
         </div>
+        {gamePlayersError && (
+          <div className="badge badge--red" data-testid="broadcast-game-players-error">
+            {gamePlayersError}
+          </div>
+        )}
 
         <div style={{ fontSize: '0.82rem', color: 'var(--c-muted)' }} data-testid="broadcast-count">
           {valid.length} gyldige modtager{valid.length === 1 ? '' : 'e'}
