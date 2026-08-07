@@ -153,10 +153,11 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   **Bemærk:** spil-dokumentet (`teams`, `eloCurrent`) skrives altid, også når
   nul kampe skrives. Kørslen er altså ikke en ren no-op midt i en sæson.
   `eloCurrent` sættes tilbage til sæsonstart-værdierne og genberegnes først, når
-  `recomputeSeasonElo` kører — og den kører **kun**, når en kamps resultat
-  ændrer sig. Under en landskampspause kan Elo-tabellen derfor vise
-  sæsonstart-værdier i op mod to uger, mens grafen (`eloHistory`, som ikke røres)
-  viser det rigtige forløb. Holdfarver redigeret i admin ligger i `teamStyles`
+  `recomputeSeasonElo` kører. Den kører af sig selv **kun**, når en kamps
+  resultat ændrer sig — men kan nu også startes manuelt med 💰 **Ompris
+  kampene** i Spil-planlægning. Uden den knap kunne Elo-tabellen under en
+  landskampspause vise sæsonstart-værdier i op mod to uger, mens grafen
+  (`eloHistory`, som ikke røres) viste det rigtige forløb. Holdfarver redigeret i admin ligger i `teamStyles`
   og røres ikke.
 - `seedKickoffs` (default false) — retter **kun** kickoff-tider. Skriver
   hverken odds, Elo eller resultat, og lader kampe med facit være. Findes,
@@ -187,6 +188,7 @@ ligner hinanden, men den ene kan ikke rette det, den anden retter.
 |---|---|---|
 | `game.startAt` (gaten), en liga, en puljeafregning | 🔄 **Genberegn point** (`recomputeGameScores`) | `bets.points` er allerede rigtige; kun totalerne skal lægges sammen forfra |
 | **Selve pointreglen** i `superligaScoring.js` — fx træf-bonussen eller combi-formlen | **`rescoreGameBets`** | `bets.points` er kilden til totalen, og de står med det GAMLE tal |
+| **Odds-modellen** — `ELO.DRAW_BASE`, `DRAW_DECAY`, `ODDS.MIN`, seed-Elo | 💰 **Ompris kampene** (`repriceGameOdds`) | Odds er frosne på kamp-dokumentet. Hverken de to andre knapper eller et deploy rører dem — se nedenfor |
 
 `bets/{id}.points` skrives kun af `recomputeGameMatchCore`, som kun kaldes, når
 en kamps **facit ændrer sig**. Ændrer man pointreglen, rører den derfor ikke et

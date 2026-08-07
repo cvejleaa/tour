@@ -59,6 +59,15 @@ Liga-admin følger med at have oprettet ligaen.
   Statussen findes kun på platformen; tour.vejleaa.dk ser uændret ud.
 - **🔄 Genberegn point efter start-ændring** — kør den, når du har flyttet
   starttidspunktet, så tidligere runders point forsvinder fra totalerne straks.
+- **💰 Ompris kampene** — kør den, når **odds-modellen** er ændret (uafgjort,
+  Elo, gulv/loft). Odds er frosne på hver kamp og skrives normalt kun om, når
+  et resultat lander; uden knappen ligger en model-rettelse død, indtil en
+  tilfældig kamp bliver afgjort. Den viser **altid en tør-kørsel først** med
+  før/efter for hver kamp — skrive-knappen dukker først op, når du har set
+  listen. Låste og spillede kampe røres ikke.
+  **Vigtigt:** allerede afgivne tips på de omprisede kampe afregnes til de
+  NYE odds, også Chancen. Ompriser du midt i en runde, så sig det til
+  spillerne, mens de stadig kan nå at rette deres tip.
 - **🔐 Genopbyg liga-adgang til stillingen** — kun nødvendig, hvis stillingen
   står tom. Se [drift.md](drift.md).
 

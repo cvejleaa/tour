@@ -22,6 +22,7 @@ const { initializeApp } = require('firebase-admin/app');
 
 const {
   recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets,
+  dryRunFraKald,
 } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSync, strandedMatches, allMatches,
@@ -171,6 +172,48 @@ exports.rescoreGameBets = onCall({ region: REGION }, async (request) => {
   // Kun et EKSPLICIT dryRun: false skriver. Udelades feltet, tørkøres der.
   const dryRun = request.data?.dryRun !== false;
   return rescoreAllBets(db, FieldValue, gameId, { dryRun });
+});
+
+// repriceGameOdds — genberegn Elo og skriv friske odds på alle IKKE-LÅSTE kampe.
+//
+// HVORFOR DEN FINDES. recomputeSeasonElo kunne indtil nu KUN startes af, at en
+// kamps facit ændrede sig. En ændring i odds-modellen lå derfor død i koden,
+// indtil en tilfældig kamp blev afgjort — og den kamp var som regel selv låst
+// på det tidspunkt. Det gjorde enhver model-ændring til en timing-øvelse: man
+// skulle gætte, hvilket resultat der ville udløse omprisningen, og håbe det
+// faldt i det rigtige vindue. Da odds-loftet blev fjernet, var vinduet under
+// et døgn bredt, og det er ikke en holdbar måde at rette en fejl på.
+//
+// HVAD DEN IKKE GØR. Den rører ikke låste eller spillede kampe (samme to
+// filtre som altid), den ændrer ingen point, og den scorer ingen bets om.
+// Odds på en kamp, der er gået i gang, er frosne — det er hele grunden til at
+// fryse dem, og en knap må ikke kunne omgå det.
+//
+// dryRun er DEFAULT SAND, som rescoreGameBets. Den skriver i produktionsdata
+// på hver eneste ikke-låst kamp, og der er ingen oddsHistory at rulle tilbage
+// til. `aendringer` er derfor den eneste kvittering, der findes — gem den.
+exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const gameId = String(request.data?.gameId || '').trim();
+  if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+  // Et ukendt spil-id gav før tavst {updated: 0}, og fladen meldte så "oddsene
+  // er allerede i takt med modellen" om et spil, der slet ikke findes.
+  const snap = await db.collection('games').doc(gameId).get();
+  if (!snap.exists) throw new HttpsError('not-found', `Spillet "${gameId}" findes ikke.`);
+  // Reglen bor i gameScoring, hvor den er unit-testet — ikke som en
+  // sammenligning her, der kunne vendes uden at nogen test sagde fra.
+  const dryRun = dryRunFraKald(request.data);
+  const out = await recomputeSeasonElo(db, FieldValue, gameId, Date.now(), { dryRun });
+  console.log(`repriceGameOdds(${gameId}, dryRun=${dryRun}): ${out.updated} kampe`);
+  // HELE listen logges ved en rigtig skrivning, ikke bare antallet. Der er
+  // ingen oddsHistory, og browserens tabel forsvinder, når fanen lukkes — så
+  // Cloud-loggen ER kvitteringen. Uden den findes de gamle odds ingen steder
+  // det sekund, klikket er sket.
+  if (!dryRun && out.updated) {
+    console.log(`repriceGameOdds ændringer(${gameId}):`, JSON.stringify(out.aendringer));
+  }
+  return { ...out, dryRun };
 });
 
 // syncSuperligaResults — hent færdigspillede kampe fra api.superliga.dk og sæt

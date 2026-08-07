@@ -10,8 +10,9 @@
 import { useEffect, useState } from 'react';
 import { useGames } from '../games/useGames';
 import { setGameSchedule, setGameStatus } from '../games/gameActions';
-import { callRecomputeGameScores, callBackfillPlayerLeagues } from './adminActions';
+import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds } from './adminActions';
 import { formatKickoff } from '../../lib/daDate';
+import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
 
 // Hvad hver status betyder i praksis — vises under vælgeren, så konsekvensen
@@ -51,6 +52,14 @@ function GameRow({ game }) {
   const [recalcMsg, setRecalcMsg] = useState(null); // { kind, text }
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState(null); // { kind, text }
+  const [prisBusy, setPrisBusy] = useState(false);
+  const [prisMsg, setPrisMsg] = useState(null); // { kind, text }
+  // Tør-kørslens resultat. Først når det ligger her, må skrive-knappen vises:
+  // man skal have SET ændringerne, før man kan udføre dem.
+  const [prisPlan, setPrisPlan] = useState(null); // { updated, aendringer }
+  // Er planen skrevet? Så bliver tabellen stående som kvittering, men
+  // skrive-knappen forsvinder.
+  const [prisSkrevet, setPrisSkrevet] = useState(false);
 
   // Synk felterne når spillet (gen)indlæses. Deps er bevidst PRIMITIVER:
   // game.startAt/puljeLockAt er Timestamp-objekter, som useGames laver forfra
@@ -100,6 +109,50 @@ function GameRow({ game }) {
       ? { kind: 'ok', text: `Genberegnet for ${res.data?.players ?? '?'} spillere (${res.data?.gatedMatches ?? 0} kampe før start udeladt).` }
       : { kind: 'err', text: res.error });
     setRecalcBusy(false);
+  }
+
+  // Tør-kørsel: hent hvad der VILLE ændre sig, og vis det. Skriver intet.
+  async function omprisToer() {
+    setPrisBusy(true); setPrisMsg(null); setPrisPlan(null); setPrisSkrevet(false);
+    const res = await callRepriceGameOdds({ gameId: game.id, dryRun: true });
+    if (!res.ok) { setPrisMsg({ kind: 'err', text: res.error }); setPrisBusy(false); return; }
+    setPrisPlan(res.data);
+    setPrisMsg(res.data.updated === 0
+      ? { kind: 'ok', text: 'Ingen kampe ville ændre sig — oddsene er allerede i takt med modellen.' }
+      : { kind: 'ok', text: `Tør-kørsel: ${res.data.updated} kampe ville få nye odds. Se listen nedenfor.` });
+    setPrisBusy(false);
+  }
+
+  // Skriv for alvor. Kræver en tør-kørsel først — knappen findes ikke før.
+  async function omprisSkriv() {
+    const n = prisPlan?.updated ?? 0;
+    // TEKSTEN SAGDE FØR "Point ændres ikke". Det er forkert, og det er præcis
+    // dét, beslutningen handler om: point afregnes af kampens FROSNE odds på
+    // kamp-dokumentet, ikke af tippet. Ompriser man en ikke-låst kamp, ændrer
+    // man derfor værdien af tips, der ALLEREDE er afgivet — både 1X2-træffet
+    // og Chancens udbetaling. Den eneste tekst, en admin læser før et
+    // uigenkaldeligt klik, må ikke love det modsatte af, hvad der sker.
+    if (!window.confirm(
+      `Skriv nye odds på ${n} kampe i "${game.name}"?\n\n`
+      + 'Allerede afgivne tips på de kampe afregnes til de NYE odds — også Chancen. '
+      + 'Point, der allerede er tildelt for spillede kampe, ændres ikke.\n\n'
+      + 'Låste og spillede kampe røres ikke.\n\n'
+      + 'Der findes INGEN oddsHistory — det kan ikke fortrydes.',
+    )) return;
+    setPrisBusy(true); setPrisMsg(null);
+    const res = await callRepriceGameOdds({ gameId: game.id, dryRun: false });
+    if (!res.ok) { setPrisMsg({ kind: 'err', text: res.error }); setPrisBusy(false); return; }
+    // `updated` tælles ens i tør og våd tilstand, så tallet alene kan ikke
+    // skelne. Svaret bærer sit eget dryRun — brug DET, ellers kunne admin få
+    // "2 kampe har fået nye odds" om en kørsel, der intet skrev.
+    setPrisMsg(res.data?.dryRun === false
+      ? { kind: 'ok', text: `${res.data.updated} kampe har fået nye odds. Listen nedenfor er kvitteringen — gem den.` }
+      : { kind: 'err', text: 'Serveren tørkørte og skrev INTET. Prøv igen.' });
+    // Tabellen bliver stående. Den er det eneste spor af, hvad før-oddsene var
+    // — der er ingen oddsHistory, og loggen ligger i Cloud Console. Ryddes kun
+    // skrive-knappen, så man ikke kan trykke to gange på et forældet grundlag.
+    if (res.data?.dryRun === false) setPrisSkrevet(true);
+    setPrisBusy(false);
   }
 
   async function syncLeagues() {
@@ -193,6 +246,66 @@ function GameRow({ game }) {
             <span className={`badge ${recalcMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
               {recalcMsg.text}
             </span>
+          )}
+        </div>
+      )}
+
+      {/* Ompris kampene med den nuværende odds-model.
+
+          Odds skrives normalt KUN om, når en kamps facit ændrer sig. En ændring
+          i modellen ligger derfor død, indtil en tilfældig kamp bliver afgjort
+          — og den kamp er som regel selv låst til den tid. Uden denne knap er
+          enhver model-rettelse en timing-øvelse. */}
+      {isFootball && (
+        <div style={{ marginTop: '0.6rem' }}>
+          <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button className="btn btn--ghost btn--sm" onClick={omprisToer} disabled={prisBusy}>
+              {prisBusy ? 'Regner…' : '💰 Ompris kampene — vis hvad der ændrer sig'}
+            </button>
+            {prisPlan && prisPlan.updated > 0 && !prisSkrevet && (
+              <button className="btn btn--sm" onClick={omprisSkriv} disabled={prisBusy}>
+                Skriv de {prisPlan.updated} ændringer
+              </button>
+            )}
+            {prisMsg && (
+              <span className={`badge ${prisMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
+                {prisMsg.text}
+              </span>
+            )}
+          </div>
+          {prisPlan && prisPlan.updated > 0 && (
+            <div style={{ marginTop: '0.5rem', maxHeight: '18rem', overflowY: 'auto', fontSize: '0.85rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', color: 'var(--c-muted)' }}>
+                    <th style={{ padding: '0.15rem 0.4rem' }}>Rd</th>
+                    <th style={{ padding: '0.15rem 0.4rem' }}>Kamp</th>
+                    {/* Kickoff er det, beslutningen hænger på: er kampen i
+                        aften med på listen eller ej? Dataen lå der i forvejen. */}
+                    <th style={{ padding: '0.15rem 0.4rem' }}>Spilles</th>
+                    <th style={{ padding: '0.15rem 0.4rem' }}>Før (1/X/2)</th>
+                    <th style={{ padding: '0.15rem 0.4rem' }}>Efter (1/X/2)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {prisPlan.aendringer.map((a) => (
+                    <tr key={a.id} style={{ borderTop: '1px solid var(--c-border, #eee)' }}>
+                      <td style={{ padding: '0.15rem 0.4rem' }}>{a.round ?? '—'}</td>
+                      <td style={{ padding: '0.15rem 0.4rem' }}>{a.home} – {a.away}</td>
+                      <td style={{ padding: '0.15rem 0.4rem', color: 'var(--c-muted)' }}>
+                        {a.kickoff ? formatKickoff(a.kickoff) : '—'}
+                      </td>
+                      <td style={{ padding: '0.15rem 0.4rem', color: 'var(--c-muted)' }}>
+                        {a.foer ? `${fmtDec(a.foer['1'], 2)} / ${fmtDec(a.foer.X, 2)} / ${fmtDec(a.foer['2'], 2)}` : '—'}
+                      </td>
+                      <td style={{ padding: '0.15rem 0.4rem' }}>
+                        <strong>{fmtDec(a.efter['1'], 2)} / {fmtDec(a.efter.X, 2)} / {fmtDec(a.efter['2'], 2)}</strong>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

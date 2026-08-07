@@ -20,9 +20,11 @@ vi.mock('../games/gameActions', () => ({
   setGameStatus: (...a) => mockSetGameStatus(...a),
 }));
 
+const mockReprice = vi.fn();
 vi.mock('./adminActions', () => ({
   callRecomputeGameScores: vi.fn().mockResolvedValue({ ok: true, data: {} }),
   callBackfillPlayerLeagues: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+  callRepriceGameOdds: (...a) => mockReprice(...a),
 }));
 
 import GameScheduleTab from './GameScheduleTab';
@@ -142,5 +144,181 @@ describe('GameScheduleTab — status', () => {
     render(<GameScheduleTab />);
     expect(statusSelect().value).toBe('');
     expect(screen.getByRole('option', { name: '— ikke sat —' })).toBeInTheDocument();
+  });
+});
+
+// --- Ompris kampene -------------------------------------------------------
+//
+// Knappen skriver i produktionsdata på hver eneste ikke-låste kamps
+// pointværdi, og der er ingen oddsHistory at rulle tilbage til. CLAUDE.md
+// kræver tør-kørsel først, og den regel skal håndhæves af FLADEN — ikke kun
+// af en default i callablen, som en fremtidig ændring kan vende.
+describe('ompris kampene', () => {
+  const SL = { id: 'sl2627', name: 'Superligaen', emoji: '⚽', type: 'football', status: 'live' };
+  const PLAN = {
+    ok: true,
+    data: {
+      updated: 2,
+      dryRun: true,
+      aendringer: [
+        { id: 'a', round: 4, home: 'Lyngby', away: 'FCM', kickoff: Date.UTC(2026, 7, 16, 14, 0), foer: { 1: 4.48, X: 6, 2: 1.55 }, efter: { 1: 4.61, X: 6.38, 2: 1.6 } },
+        { id: 'b', round: 4, home: 'Randers', away: 'FCK', kickoff: Date.UTC(2026, 7, 16, 16, 0), foer: { 1: 3.6, X: 6, 2: 1.75 }, efter: { 1: 3.72, X: 5.6, 2: 1.81 } },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    mockGames.mockReturnValue({ games: [SL], loading: false });
+    mockReprice.mockResolvedValue(PLAN);
+  });
+
+  const toerKnap = () => screen.getByRole('button', { name: /Ompris kampene/i });
+
+  // Odds og Elo findes kun i fodboldspillene. Blev knappen vist på Touren,
+  // ville den kalde en callable, der intet har at ompris — og en admin ville
+  // tro, den bare ikke virkede.
+  it('vises kun for fodboldspil', () => {
+    const { unmount } = render(<GameScheduleTab />);
+    expect(toerKnap()).toBeInTheDocument();
+    unmount();
+    mockGames.mockReturnValue({ games: [TOUR], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Ompris kampene/i })).not.toBeInTheDocument();
+  });
+
+  it('tørkører FØRST — og skrive-knappen findes ikke før man har set planen', async () => {
+    render(<GameScheduleTab />);
+    // Før tør-kørslen er der intet at skrive.
+    expect(screen.queryByRole('button', { name: /Skriv de/i })).not.toBeInTheDocument();
+    fireEvent.click(toerKnap());
+    await waitFor(() => expect(mockReprice).toHaveBeenCalled());
+    // Det FØRSTE kald SKAL være en tør-kørsel.
+    expect(mockReprice).toHaveBeenCalledWith({ gameId: 'sl2627', dryRun: true });
+    // Nu — og først nu — findes skrive-knappen.
+    await waitFor(() => expect(screen.getByRole('button', { name: /Skriv de 2 ændringer/i })).toBeInTheDocument());
+  });
+
+  // Testen hed før det samme, men asserterede KUN efter-værdier — før-kolonnen
+  // blev aldrig efterprøvet, og holdnavnene kunne byttes om, uden at noget
+  // blev rødt. Nu bindes før OG efter til den RÆKKE, de hører til.
+  it('viser før og efter i samme række, så ændringen kan ses inden den skrives', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => expect(screen.getByText(/Lyngby/)).toBeInTheDocument());
+    const raekke = (navn) => screen.getAllByRole('row').find((r) => r.textContent.includes(navn));
+
+    // Lyngby: uafgjort STIGER over 6 — beviser at loftet er væk.
+    const lyngby = raekke('Lyngby');
+    expect(lyngby.textContent).toMatch(/4,48 \/ 6,00 \/ 1,55/);   // før
+    expect(lyngby.textContent).toMatch(/4,61 \/ 6,38 \/ 1,60/);   // efter
+    expect(lyngby.textContent).toMatch(/Lyngby – FCM/);           // rækkefølgen hjemme–ude
+
+    // Randers: uafgjort FALDER under 6 — kan kun komme fra uafgjort-modellen,
+    // for et loft kan kun trække ned TIL 6, aldrig under.
+    const randers = raekke('Randers');
+    expect(randers.textContent).toMatch(/3,60 \/ 6,00 \/ 1,75/);
+    expect(randers.textContent).toMatch(/3,72 \/ 5,60 \/ 1,81/);
+    expect(randers.textContent).toMatch(/Randers – FCK/);
+  });
+
+  // Kickoff er det, beslutningen hænger på: er kampen i aften med på listen?
+  it('viser hvornår hver kamp spilles', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => expect(screen.getByText(/Lyngby/)).toBeInTheDocument());
+    const lyngby = screen.getAllByRole('row').find((r) => r.textContent.includes('Lyngby'));
+    // Uden datoen kan admin ikke se, om aftenens kamp er med på listen.
+    // Kolonnen viste '—' i første udgave, fordi kickoff aldrig blev sendt med.
+    expect(lyngby.textContent).toMatch(/16\.|aug/i);
+    expect(lyngby.textContent).not.toMatch(/Spilles—/);
+  });
+
+  it('skriver ikke uden bekræftelse — og advarslen siger det, den skal', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => screen.getByRole('button', { name: /Skriv de 2/i }));
+    mockReprice.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: /Skriv de 2/i }));
+    await waitFor(() => expect(bekraeft).toHaveBeenCalled());
+    expect(mockReprice).not.toHaveBeenCalled();
+
+    // Testen beviste før KUN at confirm blev konsulteret, ikke hvad den sagde
+    // — hele teksten kunne erstattes med 'OK?' med grøn suite. De tre ting,
+    // der SKAL stå, før nogen trykker på noget uigenkaldeligt:
+    const tekst = bekraeft.mock.calls[0][0];
+    expect(tekst).toMatch(/2 kampe/);                         // omfanget
+    expect(tekst).toMatch(/afregnes til de NYE odds/);        // konsekvensen
+    expect(tekst).toMatch(/oddsHistory/);                     // uigenkaldeligheden
+    // Og den må IKKE påstå, at point er upåvirkede — det var den forkerte
+    // sætning, der stod her: allerede afgivne tips afregnes til de nye odds.
+    expect(tekst).not.toMatch(/Point ændres ikke\./);
+    bekraeft.mockRestore();
+  });
+
+  // En fejlet skrivning må ikke se ud som en succes. Mutant: fjern res.ok-grenen
+  // → admin ser "2 kampe har fået nye odds", planen forsvinder, og der er
+  // ingen oddsHistory at tjekke imod.
+  it('viser fejlen når skrivningen fejler — og beholder planen', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => screen.getByRole('button', { name: /Skriv de 2/i }));
+    mockReprice.mockResolvedValue({ ok: false, error: 'Du har ikke adgang til denne handling.' });
+    fireEvent.click(screen.getByRole('button', { name: /Skriv de 2/i }));
+    await waitFor(() => expect(screen.getByText(/ikke adgang/i)).toBeInTheDocument());
+    // Planen SKAL blive stående — ellers har admin hverken skrevet noget eller
+    // fået lov at beholde det, han lige har set.
+    expect(screen.getByRole('button', { name: /Skriv de 2/i })).toBeInTheDocument();
+    bekraeft.mockRestore();
+  });
+
+  it('viser fejlen når tør-kørslen fejler', async () => {
+    mockReprice.mockResolvedValue({ ok: false, error: 'Spillet "xx" findes ikke.' });
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => expect(screen.getByText(/findes ikke/i)).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Skriv de/i })).not.toBeInTheDocument();
+  });
+
+  // updated tælles ENS i tør og våd tilstand. Svarer serveren dryRun: true på
+  // et skrive-kald, er der intet skrevet — og admin må ikke få at vide, at der
+  // er.
+  it('melder FEJL, hvis serveren tørkørte på et skrive-kald', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => screen.getByRole('button', { name: /Skriv de 2/i }));
+    mockReprice.mockResolvedValue({ ok: true, data: { updated: 2, dryRun: true, aendringer: [] } });
+    fireEvent.click(screen.getByRole('button', { name: /Skriv de 2/i }));
+    await waitFor(() => expect(screen.getByText(/skrev INTET/i)).toBeInTheDocument());
+    bekraeft.mockRestore();
+  });
+
+  it('sender dryRun: false, når man bekræfter', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => screen.getByRole('button', { name: /Skriv de 2/i }));
+    mockReprice.mockResolvedValue({ ok: true, data: { updated: 2, dryRun: false, aendringer: [] } });
+    fireEvent.click(screen.getByRole('button', { name: /Skriv de 2/i }));
+    await waitFor(() => expect(mockReprice).toHaveBeenLastCalledWith({ gameId: 'sl2627', dryRun: false }));
+    // Skrive-knappen forsvinder, så man ikke kan trykke to gange på et nu
+    // forældet grundlag …
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Skriv de/i })).not.toBeInTheDocument());
+    // … men TABELLEN bliver stående. Den er det eneste spor af, hvad
+    // før-oddsene var: der er ingen oddsHistory, og lukker admin fanen, findes
+    // de gamle priser kun i Cloud-loggen.
+    expect(screen.getByText(/Lyngby/)).toBeInTheDocument();
+    expect(screen.getByText(/kvitteringen/i)).toBeInTheDocument();
+    bekraeft.mockRestore();
+  });
+
+  it('siger det tydeligt, når intet ville ændre sig', async () => {
+    mockReprice.mockResolvedValue({ ok: true, data: { updated: 0, dryRun: true, aendringer: [] } });
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => expect(screen.getByText(/allerede i takt med modellen/i)).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Skriv de/i })).not.toBeInTheDocument();
   });
 });

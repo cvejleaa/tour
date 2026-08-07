@@ -20,6 +20,51 @@ const {
   opdelPoint, buildRoundContext, kickoffMs, matchOutcome,
 } = require('./pointOpdeling');
 
+/**
+ * Firestore tager højst 500 operationer pr. batch. 400 giver luft til, at en
+ * skrivning vokser med et felt eller to, uden at grænsen rykker sig.
+ * Stod tidligere som tre separate lokale konstanter i samme fil.
+ */
+const BATCH_MAKS = 400;
+
+/**
+ * Sikkerhedsmargen foran kickoff, i millisekunder.
+ *
+ * `nowMs` fanges, når kaldet starter. Derefter LÆSES alle kampe, og batchen
+ * committer sekunder senere. Uden margen kunne en kamp med kickoff 19:00:00
+ * bestå låse-tjekket ved et klik 18:59:58 og få skrevet nye odds, EFTER at
+ * tippene var låst — altså ændre pointværdien af tips, der allerede var
+ * afgivet og ikke længere kunne rettes. Det er præcis dét, frysningen findes
+ * for at forhindre.
+ *
+ * Prisen er, at en kamp i sit sidste minut før kickoff beholder lidt ældre
+ * odds. Det er den rigtige vej at fejle: en pris, der er et minut gammel, er
+ * bedre end en pris, der ændrer sig efter lukketid.
+ */
+const LAAS_MARGIN_MS = 60_000;
+
+/**
+ * Callable-lagets dryRun-regel: **kun et eksplicit `false` skriver.**
+ *
+ * BEMÆRK ASYMMETRIEN — den er med vilje, og den er nem at ødelægge:
+ *
+ *   recomputeSeasonElo(…, opts)   default = SKRIV     (maskinen kalder)
+ *   dryRunFraKald(request.data)   default = TØRKØR    (et menneske kalder)
+ *
+ * Triggeren på facit-ændring kalder uden opts og SKAL skrive — ellers holder
+ * odds tavst op med at blive opdateret. Et menneske, der trykker på en knap,
+ * skal derimod se hvad der sker, før det sker (CLAUDE.md: tør-kørsel først).
+ *
+ * Reglen ligger her og ikke inde i callablen, fordi index.js ikke er
+ * unit-testet: skrevet som `!== false` inde i handleren kunne den vendes til
+ * `=== true` uden at én test sagde fra, og så ville forhåndsvisnings-knappen
+ * skrive i produktionsdata ved første klik.
+ * @param {object} [data] request.data fra callablen
+ */
+function dryRunFraKald(data) {
+  return data?.dryRun !== false;
+}
+
 /** Er to odds-objekter ens (afrundet)? */
 function oddsEqual(a, b) {
   if (!a || !b) return false;
@@ -32,13 +77,24 @@ function oddsEqual(a, b) {
  * og opdatér odds for FREMTIDIGE, ikke-låste kampe (kickoff i fremtiden, intet
  * facit). Låste/spillede kampe beholder deres frosne odds. Genberegnes fra bunden
  * hver gang (idempotent — et rettet resultat giver korrekt Elo uden dobbelt-tælling).
- * @returns {Promise<{updated:number}>} antal kampe med opdaterede odds
+ *
+ * dryRun REGNER ALT IGENNEM, MEN SKRIVER INTET. Den findes, fordi funktionen
+ * indtil nu kun kunne startes af en facit-ændring: en model-ændring lå død i
+ * koden, indtil en tilfældig kamp blev afgjort. Skal den kunne startes med en
+ * knap, skal man kunne se hvad den ville gøre FØRST — CLAUDE.md kræver
+ * tør-kørsel på alt, der skriver i produktionsdata, og det her rører hver
+ * eneste ikke-låst kamps pointværdi.
+ *
+ * @param {{dryRun?: boolean}} [opts]
+ * @returns {Promise<{updated:number, aendringer:Array}>} antal kampe med
+ *   opdaterede odds + hvad der (ville) ændre sig, kamp for kamp
  */
-async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
+async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
+  const dryRun = opts.dryRun === true;
   const gameRef = db.collection('games').doc(gameId);
   const gameSnap = await gameRef.get();
   const seedTeams = gameSnap.exists ? gameSnap.data().teams : null;
-  if (!Array.isArray(seedTeams) || seedTeams.length === 0) return { updated: 0 };
+  if (!Array.isArray(seedTeams) || seedTeams.length === 0) return { updated: 0, aendringer: [] };
 
   const elo = new Map(seedTeams.map((t) => [t.name, Number(t.elo) || ELO.START]));
   const get = (n) => (elo.has(n) ? elo.get(n) : ELO.START);
@@ -80,25 +136,78 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
   // Gem aktuel Elo + rundevis historik på spillet (til Elo-tabellen).
   const eloCurrent = {};
   for (const [n, r] of elo) eloCurrent[n] = Math.round(r);
-  await gameRef.set({ eloCurrent, eloHistory, eloUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  if (!dryRun) {
+    await gameRef.set({ eloCurrent, eloHistory, eloUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  }
 
   // Friske odds på fremtidige, ikke-låste kampe — kun hvis de reelt ændrer sig.
-  let batch = db.batch();
+  //
+  // BATCHEN SKAL DELES. Firestore tager højst 500 operationer pr. batch, og før
+  // denne funktion kunne startes med en knap, var grænsen teoretisk: odds blev
+  // frisket op kamp for kamp, efterhånden som resultater faldt, så der var
+  // sjældent mange ændringer ad gangen. En manuel omprisning af en HEL sæson,
+  // hvor ingen kampe er spillet endnu, rammer 380 kampe i Premier League på én
+  // gang. Det er stadig under 500, men margenen er 120 kampe — og en liga med
+  // flere hold ville vælte den tavst, midt i en skrivning.
+  // ÉN dryRun-vagt, ikke to. Her stod før en `if (!dryRun)` inde i løkken OG
+  // en foran den afsluttende commit. Fjernede man den inderste alene, var hele
+  // suiten grøn — skrivningen reddede sig kun på den yderste. To uafhængige
+  // betingelser om samme sikkerhedsregel driver fra hinanden. Nu findes
+  // ændringerne først, og skrivningen er ét blok bagefter.
   let updated = 0;
+  const aendringer = [];
   for (const m of matches) {
     if (matchOutcome(m)) continue;                 // spillet
     const k = kickoffMs(m);
-    if (k != null && k <= nowMs) continue;         // låst (kickoff passeret)
+    // FAIL CLOSED. Stod før som `k != null && k <= nowMs`, altså: en kamp UDEN
+    // brugbart kickoff (manglende felt, tom streng, uparsbar tekst) blev
+    // omprist. Den kan ganske vist ikke tippes — reglerne afviser et tip uden
+    // kickoff — men en vagt mod at røre låste kampe skal ikke hvile på, at en
+    // anden regel tilfældigvis fanger hullet. Kender vi ikke tidspunktet, ved
+    // vi heller ikke, om kampen er låst.
+    //
+    // Number.isFinite, ikke `k == null`: kickoffMs sender et NaN-kickoff
+    // uændret videre (typeof NaN === 'number'), og `NaN <= x` er falsk — så en
+    // null-test alene ville lade netop den slippe igennem.
+    if (!Number.isFinite(k) || k <= nowMs + LAAS_MARGIN_MS) continue;
     const odds = outcomeOdds({ eloHome: get(m.home), eloAway: get(m.away) });
     if (oddsEqual(odds, m.odds)) continue;         // uændret
-    batch.update(m.ref, {
-      odds, eloHome: get(m.home), eloAway: get(m.away),
-      oddsUpdatedAt: FieldValue.serverTimestamp(),
+    // Før/efter opsamles ALTID, ikke kun ved dryRun: den, der trykker på
+    // knappen for alvor, skal kunne se bagefter hvad der faktisk skete — og
+    // det er den eneste kvittering, der findes. Der er ingen oddsHistory.
+    aendringer.push({
+      id: m.id, ref: m.ref, round: m.round ?? null, home: m.home, away: m.away,
+      kickoff: k, foer: m.odds || null, efter: odds,
+      eloHome: get(m.home), eloAway: get(m.away),
     });
     updated += 1;
   }
-  if (updated) await batch.commit();
-  return { updated };
+
+  if (!dryRun && aendringer.length) {
+    let batch = db.batch();
+    let iBatch = 0;
+    for (const a of aendringer) {
+      batch.update(a.ref, {
+        odds: a.efter, eloHome: a.eloHome, eloAway: a.eloAway,
+        oddsUpdatedAt: FieldValue.serverTimestamp(),
+      });
+      iBatch += 1;
+      if (iBatch >= BATCH_MAKS) { await batch.commit(); batch = db.batch(); iBatch = 0; }
+    }
+    if (iBatch > 0) await batch.commit();
+  }
+
+  // `ref` er en Firestore-reference og kan ikke serialiseres til klienten;
+  // eloHome/eloAway er kun til skrivningen. Plukkes eksplicit i stedet for at
+  // destrukturere dem væk — et ubrugt navn er en lint-fejl, og en @ts-ignore
+  // eller en eslint-disable ville skjule den næste, der kom til.
+  return {
+    updated,
+    aendringer: aendringer.map((a) => ({
+      id: a.id, round: a.round, home: a.home, away: a.away,
+      kickoff: a.kickoff, foer: a.foer, efter: a.efter,
+    })),
+  };
 }
 
 /**
@@ -311,11 +420,10 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
     .collection('games').doc(gameId).collection('bets')
     .where('matchId', '==', matchId).get();
 
-  const BATCH_SIZE = 400;
   let batch = db.batch();
   let ops = 0;
   const batches = [batch];
-  const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+  const bump = () => { if (++ops >= BATCH_MAKS) { batch = db.batch(); batches.push(batch); ops = 0; } };
 
   // ALLE, der har tippet på kampen — ikke kun dem, hvis point ændrede sig.
   //
@@ -444,11 +552,10 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
   const gated = gatedIds(allMatches, startMs);
   const byId = new Map(allMatches.map((m) => [m.id, m]));
 
-  const BATCH_SIZE = 400;
   let batch = db.batch();
   let ops = 0;
   const batches = [batch];
-  const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+  const bump = () => { if (++ops >= BATCH_MAKS) { batch = db.batch(); batches.push(batch); ops = 0; } };
 
   let aendrede = 0;
   let delta = 0;
@@ -486,6 +593,7 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
 
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo, rescoreAllBets,
+  dryRunFraKald,
   computeRanks, snapshotRoundRanks,
   settlePuljeBets, officialTop6, gatedIds, recomputeAllPlayerTotals,
 };

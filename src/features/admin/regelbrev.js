@@ -19,11 +19,14 @@
 // de køres igen. Her stod før, at INTET blev skrevet af; det var for stærkt
 // sagt og inviterede til falsk tryghed.
 //
-// TIMING: brevet gælder fra RUNDE 4. Runde 3's kupon blev spillet under det
-// gamle loft, og oddsene skrives først om, når rundens sidste resultat lander
-// (recomputeSeasonElo kaldes kun ved facit-ændring). Send derfor først brevet,
-// når du har set en kamp med odds over 6,00 på skærmen — ellers lover det
-// noget, spillerne ikke kan se.
+// TIMING: brevet gælder fra RUNDE 3 og skal sendes FØR rundens første kickoff.
+// Rækkefølgen er: tryk "Ompris kampene" i Spil-planlægning → verificér på
+// skærmen at oddsene har flyttet sig → send brevet. Sendes det før
+// omprisningen, beskriver det priser, spillerne ikke kan se; sendes det efter
+// kickoff, har de ikke længere mulighed for at rette deres tip.
+//
+// Her stod før, at brevet gjaldt fra runde 4, fordi odds kun blev skrevet om,
+// når et resultat landede. Den begrænsning er ophævet af knappen.
 // ---------------------------------------------------------------------------
 
 import { TRAEF_BONUS } from '../../lib/superligaScoring';
@@ -34,7 +37,7 @@ export const TIDSLINJE = {
   bonusIndfoert: 'onsdag den 5. august om formiddagen',
   foersteMail: 'onsdag eftermiddag',
   bonusRullet: 'torsdag den 6. august sidst på eftermiddagen',
-  loftFjernet: 'efter runde 3',
+  loftFjernet: 'fredag den 7. august, inden runde 3',
 };
 
 /** Hvad bagfyldningen faktisk gjorde — verificeret i kørsel 31134849406. */
@@ -50,7 +53,7 @@ export const NUVAERENDE_REGEL = TRAEF_BONUS === 0
   ? 'Rammer du en kamp, får du kampens odds i point. Hverken mere eller mindre.'
   : `Rammer du en kamp, får du kampens odds plus ${fmtDec(TRAEF_BONUS)} i point.`;
 
-export const REGELBREV_EMNE = 'Undskyld rodet — her er de endelige regler, og de gælder fra runde 4';
+export const REGELBREV_EMNE = 'Undskyld rodet — her er de endelige regler, og de gælder fra i aften';
 
 export const REGELBREV_TEKST = `Kære alle
 
@@ -92,11 +95,21 @@ UAFGJORT VAR FORKERT PRISSAT. Modellen regnede for få uafgjorte, og fejlen voks
 
 Det betyder, at uafgjort bliver lidt billigere end før — omkring 3,3 i stedet for 3,9 i en jævnbyrdig kamp — mens hjemme- og udesejr bliver lidt dyrere. Det er den ærlige pris; den gamle var det ikke.
 
-HVORNÅR DET GÆLDER FRA
+HVORNÅR DET GÆLDER FRA — OG HVAD DET BETYDER FOR I AFTEN
 
-Begge dele gælder fra RUNDE 4. Runde 3's kupon — Sønderjyske–Viborg, Randers–Lyngby, Horsens–Brøndby og Silkeborg–OB — blev spillet under de gamle odds, og de er ikke rørt. Ingen point er ændret bagud.
+Det gælder fra RUNDE 3. Altså fra i aften. Jeg havde først tænkt at vente til runde 4, men så ville I spille en hel runde på priser, jeg allerede vidste var forkerte.
 
-To kampe kræver en særlig bemærkning: AGF–FCM den 2. september og FCK–FCN den 3. september hører til runde 3, men spilles først om en måned. De er altså ikke spillet endnu, og derfor får de de nye priser. Har du allerede tippet dem, er uafgjort blevet lidt billigere og hjemme/ude lidt dyrere. De er ikke med på runde 3's combi-kupon, så kuponen er upåvirket.
+Det har en konsekvens, I skal kende, og den er ikke kun til jeres fordel:
+
+UAFGJORT ER BLEVET BILLIGERE — OGSÅ I AFTENENS KAMP. Sønderjyske–Viborg gik fra omkring 4,1 til omkring 3,5 på uafgjort. Hjemme- og udesejr er til gengæld gået lidt op. Har du allerede tippet X i aften, er dit tip altså blevet mindre værd, end da du afgav det. Det samme gælder Randers–Lyngby, Horsens–Brøndby og Silkeborg–OB.
+
+Det er ikke for at snyde nogen: den gamle uafgjort-pris var målbart for høj. Men det er en ændring midt i en runde, og derfor siger jeg det nu i stedet for bagefter.
+
+I KAN NÅ AT RETTE JERES TIP. Tips kan ændres helt frem til kampstart, og de nye priser står på kuponen nu. Er du utilfreds med at have tippet X til en pris, der siden er faldet, så ret det — der er tid.
+
+Færdigspillede runder er ikke rørt. Ingen point er ændret bagud, og runde 1 og 2 står, som de gjorde.
+
+To kampe kræver en særlig bemærkning: AGF–FCM den 2. september og FCK–FCN den 3. september hører til runde 3, men spilles først om en måned. De har også fået de nye priser. De er ikke med på runde 3's combi-kupon, så kuponen er upåvirket.
 
 Og for en god ordens skyld: det retter ikke alt. Combi-bonussen belønner stadig den, der rammer mange kampe, mere end den, der rammer få og svære. Det er en anden diskussion, og jeg tager den ikke nu.
 
@@ -112,7 +125,7 @@ HVAD JEG TAGER MED MIG
 
 Jeg skulle have regnet efter, før jeg lagde ændringen ud — ikke bagefter. Og jeg skulle have skrevet ud én gang med det rigtige frem for to gange med hver sin version. Undskyld for forvirringen.
 
-Runde 4 er den første, der kører fuldt på reglerne her. Runde 3 er afsluttet på de gamle.
+Runde 3 kører på reglerne her. Nå at kigge din kupon igennem inden kl. 19.
 
 God fornøjelse`;
 
