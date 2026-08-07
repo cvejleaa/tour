@@ -276,8 +276,9 @@ export function outcomeProbabilities({
  * ville 26 kampe stadig have to udfald til nøjagtig samme pris. Loftet bør
  * derfor gøres pr. spil, når PL seedes; se opgaven om odds-loftet.
  *
- * Måles med scripts/maal-odds-loft.mjs. Ændres MAX, skal balancen måles igen
- * — det er ikke oprydning.
+ * Måles med scripts/maal-odds-loft.mjs; hele billedet — seks arketyper, begge
+ * ligaer, med og uden combi — står i docs/spilbalance.md. Ændres MAX, skal
+ * balancen måles igen, og dokumentet opdateres. Det er ikke oprydning.
  */
 export const ODDS = { MIN: 1.1, MAX: 8.0 };
 

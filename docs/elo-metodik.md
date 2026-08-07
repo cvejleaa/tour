@@ -91,6 +91,14 @@ måles `skew` på den **hjemmebane-frie** forventning, og `DRAW_BASE` er sat til
 
 (Superligaens historiske basis: ca. 43–45 % / 25–27 % / 28–30 %.)
 
+## Odds-loftet hører ikke til her
+
+`ODDS.MAX` ligner en Elo-parameter, men er det ikke: den rører ikke modellen,
+kun hvad et udfald *betaler*. Loftet er en balanceskrue på pointreglen, og hvad
+det gør ved de forskellige spillertyper, er målt i
+[docs/spilbalance.md](spilbalance.md). Skal du skrue på det, så læs dét først —
+der står også, hvorfor Superligaen er på 8,00 og Premier League på 12,00.
+
 ## Dom
 Vores "elo-lite" er **fagligt forsvarlig — faktisk mere end det**. Kernen er ikke
 en tilnærmelse af eloratings.net; det **er** samme formel, med to bevidste,

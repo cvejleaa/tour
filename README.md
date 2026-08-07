@@ -81,6 +81,7 @@ paritetstest, der sammenligner de to udgaver.
 - [Admin-vejledning](docs/admin-guide.md)
 - [Deploy af platformen](docs/platform-deploy.md)
 - [Elo-metodik](docs/elo-metodik.md)
+- [Spilbalance — hvem vinder, og hvorfor](docs/spilbalance.md)
 - [Testplan](docs/testing.md)
 - [Vedligeholdelse & afhængigheder](docs/maintenance.md)
 
