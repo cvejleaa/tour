@@ -265,7 +265,7 @@ export function outcomeProbabilities({
  * Måles med scripts/maal-odds-loft.mjs. Ændres MAX, skal balancen måles igen
  * — det er ikke oprydning.
  */
-export const ODDS = { MIN: 1.1, MAX: 8.0 };
+export const ODDS = { MIN: 1.1, MAX: 7.5 };
 
 /**
  * Fair (EV-neutral) decimal-odds for en sandsynlighed, klippet til [MIN,MAX].

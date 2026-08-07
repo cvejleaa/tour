@@ -14,6 +14,7 @@ import { useGameLeagues } from '../games/useGameLeagues';
 import { joinLinkFor, gameJoinLinkFor } from '../leagues/joinLink';
 import { LEAGUE_STATUS } from '../../lib/constants';
 import { PLATFORM_MODE } from '../../lib/platform';
+import { REGELBREV } from './regelbrev';
 
 /** Markør i brødteksten der erstattes med den valgte ligas tilmeldingslink. */
 const LINK_TOKEN = '[LINK]';
@@ -70,6 +71,18 @@ export default function BroadcastTab() {
   const [recipientsText, setRecipientsText] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+
+  /**
+   * Indsæt regelbrevet. Slår OGSÅ invitations-skabelonen fra: den bygger en
+   * hero med gul tilmeldingsknap, og et brev om pointreglen til folk, der
+   * allerede er med, må ikke lande som en invitation.
+   */
+  function insertRegelbrev() {
+    setUseTemplate(false);
+    setSubject(REGELBREV.emne);
+    setBody(REGELBREV.tekst);
+    setMsg('Regelbrevet er sat ind — vælg modtagere og send.');
+  }
 
   function toggleTemplate() {
     const next = !useTemplate;
@@ -206,6 +219,27 @@ export default function BroadcastTab() {
             ? '📸 Brug invitations-skabelonen (pulje-skærmbillede + gul tilmeldingsknap)'
             : '📸 Brug salgstale-skabelonen (skærmbilleder + gul tilmeldingsblok)'}
         </label>
+
+        {/* ENGANGS: regelbrevet om træf-bonussen og odds-loftet, august 2026.
+            Fjern knappen OG src/features/admin/regelbrev.js, når brevet er
+            sendt — sidst blev en engangs-mailfunktion liggende og forældedes,
+            uden at nogen opdagede det (#112). Den ligger her og ikke under
+            Spil-planlægning, fordi en funktion, der sender mails, hører under
+            Send mail — det var netop lektien fra dengang. */}
+        {PLATFORM_MODE && (
+          <div className="flex" style={{ gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button" className="btn btn--ghost btn--sm"
+              onClick={insertRegelbrev} data-testid="broadcast-regelbrev"
+            >
+              ✉️ Indsæt regelbrevet (træf-bonus + odds-loft)
+            </button>
+            <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)' }}>
+              Udfylder emne og besked. Tallene hentes fra pointreglen, så brevet
+              ikke kan sige noget andet end spillet gør.
+            </span>
+          </div>
+        )}
 
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
           Emne
