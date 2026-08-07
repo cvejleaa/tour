@@ -79,17 +79,49 @@ pDraw  = DRAW_BASE · e^(−DRAW_DECAY · skew · 2)
 
 **Rettelse (P1 fra ekspertvurderingen):** tidligere blev `skew` målt på `e`
 (inkl. hjemmebane), så uafgjort toppede når udeholdet var ~60 point stærkere —
-ikke ved reelt lige hold — og det generelle niveau blev for lavt (~23 %). Nu
-måles `skew` på den **hjemmebane-frie** forventning, og `DRAW_BASE` er sat til
-**0,26**. Resultatet matcher Superligaens historiske rater:
+ikke ved reelt lige hold. Nu måles `skew` på den **hjemmebane-frie**
+forventning.
 
-| Kamp | 1 | X | 2 |
-|---|---|---|---|
-| Lige hold (1500–1500) | 43,3 % | **26,0 %** | 30,7 % |
-| Let hjemmefavorit (1550–1450) | 57,9 % | 19,1 % | 23,0 % |
-| Storfavorit hjemme (1900–1300) | 88,8 % | 9,3 % | 2,0 % |
+### DRAW_BASE: 0,26 → 0,305 (august 2026)
 
-(Superligaens historiske basis: ca. 43–45 % / 25–27 % / 28–30 %.)
+Den første kalibrering satte `DRAW_BASE` til 0,26, så modellen ramte
+Superligaens **gennemsnitlige** uafgjort-rate på ~26 %. Det var det forkerte
+mål, og fejlen var usynlig af netop den grund: modellen ramte gennemsnittet ved
+at være **for høj i de jævnbyrdige kampe og for lav i de skæve**, og et
+gennemsnit kan ikke se forskel på det og en rigtig kurve.
+
+Målt på **6.143 spillede kampe** — 13 sæsoner af Superligaen og 10 af Premier
+League, hvert holdpar vurderet med de ratings, de havde *før* kampen:
+
+| model | forventede uafgjorte | faktiske |
+|---|---|---|
+| 0,260 / 0,550 | 1.362 | 1.493 → **9 % for få** |
+| **0,305 / 0,550** | 1.493 | 1.493 → rammer |
+
+**`DRAW_DECAY` er efterprøvet og uændret.** 95 %-intervallet over alle 6.143
+kampe er 0,35–0,63, og 0,55 ligger midt i det. Låser man decay og fitter kun
+base, fanger man næsten hele forbedringen (log-likelihood 3407,1 → 3384,1 mod
+3383,7 for et frit fit af begge) — én parameter er nok.
+
+Kurven passer nu i begge ender:
+
+| skew | Δelo | kampe | faktisk | model |
+|---|---|---|---|---|
+| ~0,05 | 16 | 614 | 28–31 % | 29,0 % |
+| ~0,18 | 62 | 614 | 24–26 % | 25,0 % |
+| ~0,58 | 230 | 285 | 16,5 % | 16,1 % |
+| ~0,67 | 280 | 118 | 11,9 % | 14,6 % |
+
+Måles med `scripts/maal-uafgjort.mjs` (headeren har curl-kommandoerne til at
+hente sæsonerne). Se også [spilbalance.md](spilbalance.md).
+
+**En blindgyde, der er værd at kende.** Undervejs blev `DRAW_DECAY` foreslået
+sænket til 0,25, fittet mod 14 bookmakerpriser. Det var forkert af to grunde:
+Superligaen har **ingen** kampe over skew 0,50, så dens historik kan slet ikke
+måle henfaldet — og en naiv de-vigning, der fordeler bookmakerens margin
+proportionalt over de tre udfald, **overdriver langskuddene systematisk**.
+Markedet så fladt ud, fordi metoden gjorde det fladt. 0,25 ville have overprist
+uafgjort i de skæve kampe med 49 %. Brug facit, ikke priser.
 
 ## Odds-loftet hører ikke til her
 

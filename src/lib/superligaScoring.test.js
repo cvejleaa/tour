@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, COMBI, hitPoints, TRAEF_BONUS,
   isOutcome, outcomeFromScore, outcomePoints,
-  eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
+  eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds, ELO,
   chanceMaxStake, canUseChance, isValidStake, settleChance, CHANCE,
   updateElo, actualHomeFromOutcome,
   leagueTable, championshipTeams, puljeScore, PULJE,
@@ -159,10 +159,37 @@ describe('elo-lite sandsynligheder', () => {
     expect(strong['1']).toBeGreaterThan(even['1']);
     expect(strong.X).toBeLessThan(even.X); // uafgjort falder med styrkeforskel
   });
-  it('uafgjort ved lige hold er kalibreret mod Superligaens ~26 %', () => {
+  // Den gamle udgave af denne test krævede 24-28 % og hed "kalibreret mod
+  // Superligaens ~26 %". Den var netop grunden til, at fejlen kunne stå i to
+  // år: den målte modellen mod ét GENNEMSNIT. Modellen ramte snittet ved at
+  // være for høj i de jævnbyrdige kampe og for lav i de skæve, og det kan et
+  // gennemsnit ikke se. Nu låses den målte værdi i stedet.
+  it('uafgjort ved lige hold står på den MÅLTE værdi, ikke på et snit', () => {
     const p = outcomeProbabilities({ eloHome: 1500, eloAway: 1500 });
-    expect(p.X).toBeGreaterThan(0.24);
-    expect(p.X).toBeLessThan(0.28);
+    // Ved lige hold er skew 0, så pDraw = DRAW_BASE præcis.
+    expect(p.X).toBeCloseTo(ELO.DRAW_BASE, 10);
+    expect(ELO.DRAW_BASE).toBe(0.305);
+  });
+
+  // DRAW_DECAY er den parameter, der kun kan måles i skæve kampe — og netop
+  // dér tog vi fejl én gang, fordi Superligaen ikke HAR skæve kampe. Låst her,
+  // så den ikke kan ændres i forbifarten sammen med noget andet.
+  it('uafgjort-henfaldet står på den efterprøvede værdi', () => {
+    expect(ELO.DRAW_DECAY).toBe(0.55);
+  });
+
+  // Formen, ikke kun niveauet: modellen skal ramme den faktiske frekvens i
+  // BEGGE ender. Tallene er målt på 6.143 spillede kampe, se
+  // scripts/maal-uafgjort.mjs og docs/spilbalance.md.
+  it('rammer den faktiske uafgjort-frekvens i både jævnbyrdige og skæve kampe', () => {
+    // Jævnbyrdigt (skew ≈ 0,03): målt 28-30 % over 254+360 kampe.
+    const jaevn = outcomeProbabilities({ eloHome: 1500, eloAway: 1490 }).X;
+    expect(jaevn).toBeGreaterThan(0.27);
+    expect(jaevn).toBeLessThan(0.32);
+    // Skævt (skew ≈ 0,55, altså ~230 Elo-point): målt 16,5 % over 285 kampe.
+    const skaevt = outcomeProbabilities({ eloHome: 1620, eloAway: 1390 }).X;
+    expect(skaevt).toBeGreaterThan(0.13);
+    expect(skaevt).toBeLessThan(0.20);
   });
   it('uafgjort topper ved REELT lige hold (måles uden hjemmebane)', () => {
     const even = outcomeProbabilities({ eloHome: 1500, eloAway: 1500 }).X;
