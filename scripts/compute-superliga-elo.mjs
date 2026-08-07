@@ -49,6 +49,11 @@ const get = (n) => (elo.has(n) ? elo.get(n) : MEAN);
  * nogen opdagede det.
  */
 const maal = (v) => {
+  // null og '' SKAL afvises FØR Number(): begge giver 0, og så bliver en
+  // færdigspillet kamp uden resultat til 0-0 — altså en uafgjort ud af
+  // ingenting, lagt til præcis det tal DRAW_BASE er fittet mod. Rettelsen mod
+  // at TABE kampe må ikke blive til en, der OPFINDER dem.
+  if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };

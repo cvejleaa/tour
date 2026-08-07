@@ -11,11 +11,11 @@
 // Det er ikke pedanteri. Vi undskylder i netop dette brev for at have sendt to
 // forskellige forklaringer på den samme regel ud på to dage. Et brev med
 // håndskrevne tal kan sige noget andet end koden, og så ville vi gøre det igen.
-// Ændres TRAEF_BONUS eller ODDS.MAX, ændrer brevet sig med — eller testen
+// Ændres TRAEF_BONUS eller ODDS, ændrer brevet sig med — eller testen
 // fejler.
 // ---------------------------------------------------------------------------
 
-import { TRAEF_BONUS, ODDS } from '../../lib/superligaScoring';
+import { TRAEF_BONUS } from '../../lib/superligaScoring';
 import { fmtDec } from '../../lib/daNum';
 
 /** Tidslinjen, som den faktisk var. Ikke "to gange i dag". */
@@ -69,11 +69,17 @@ Chancen er uændret. Samme indsatsgrænser, samme afregning.
 
 ÉN TING MERE, OG SÅ ER DER RO
 
-Da jeg regnede efter, opdagede jeg noget andet. Der har hele tiden været et loft over, hvor mange point ét udfald kan give. Det stod på ${fmtDec(6)}, og det ramte kun de høje odds — altså kun jer, der tipper outsidere. Det gjorde spillet skævt til fordel for den forsigtige, og det var ikke meningen.
+Da jeg regnede efter, faldt to andre ting ud. Begge har været der fra begyndelsen, og begge trak i samme retning: mod den forsigtige.
 
-Loftet er hævet til ${fmtDec(ODDS.MAX)}. Med det tal er der ikke længere kampe, hvor to vidt forskellige gæt betaler præcis det samme — det skete i 10 af sæsonens 132 kampe med det gamle loft. I FCK–Lyngby var både uafgjort og udesejr sat til 6,00, selv om de var 7,49 og 7,80 værd.
+LOFTET ER VÆK. Der har hele tiden været et loft på ${fmtDec(6)} over, hvor mange point ét udfald kan give. Det ramte kun de høje odds — altså kun jer, der tipper outsidere. Værst var det for Chancen: loftet skar gevinsten, men aldrig indsatsen, så et modigt bud var i praksis et tab. Jeg har regnet på 3.000 sæsoner, og den, der brugte Chancen modigt, tabte i snit 34 point om året på det. Den, der slet ikke brugte den, klarede sig bedre. Sådan var det ikke tænkt.
 
-Det slår igennem på kampe, der endnu ikke er spillet, efterhånden som oddsene opdateres. Det kan kun trække odds OP, aldrig ned, så ingen bliver dårligere stillet af det. Færdigspillede runder er ikke rørt.
+Nu er der intet loft. Rammer du et udfald til odds 20, får du 20 point. Og to forskellige gæt kan aldrig igen stå til nøjagtig samme pris — det skete i 10 af sæsonens 132 kampe, blandt andet i FCK–Lyngby, hvor både uafgjort og udesejr var sat til 6,00.
+
+UAFGJORT VAR FORKERT PRISSAT. Modellen regnede for få uafgjorte, og fejlen voksede jo mere forskellige holdene var. Jeg har målt den mod 6.143 spillede kampe fra 13 sæsoner i Superligaen og 10 i Premier League. Den er rettet nu.
+
+Det betyder, at uafgjort bliver lidt billigere end før — omkring 3,3 i stedet for 3,9 i en jævnbyrdig kamp — mens hjemme- og udesejr bliver lidt dyrere. Det er den ærlige pris; den gamle var det ikke.
+
+Begge dele slår igennem på kampe, der endnu ikke er spillet, efterhånden som oddsene opdateres. Færdigspillede runder er ikke rørt, og ingen point er ændret bagud.
 
 Og for en god ordens skyld: det retter ikke alt. Combi-bonussen belønner stadig den, der rammer mange kampe, mere end den, der rammer få og svære. Det er en anden diskussion, og jeg tager den ikke nu.
 

@@ -209,8 +209,17 @@ describe('superligaScoring (server-spejl)', () => {
     // Så stort et mismatch, at udesejren ryger i loftet ved ethvert realistisk
     // loft. Findes ikke i Superligaen (højeste fair odds dér er 7,80) — og det
     // er netop pointen: loftet er et værn mod det ekstreme.
-    const ekstremt = { eloHome: 1900, eloAway: 1200 };
-    expect(outcomeOdds(ekstremt)['2']).toBe(ODDS.MAX);
-    expect(outcomeOdds(ekstremt)).toEqual(src.outcomeOdds(ekstremt));
+    // ET UDEFAVORIT-PAR ER OBLIGATORISK. Alle tidligere sammenligninger brugte
+    // hjemmefavoritter, hvor `Math.abs` i skew-udregningen er en no-op — så
+    // kunne den fjernes på serveren uden at én af 317 tests sagde fra, mens
+    // hver eneste udefavorit fik uafgjort prissat til 58 % i stedet for 16 %.
+    for (const par of [
+      { eloHome: 1900, eloAway: 1200 },   // ekstrem hjemmefavorit
+      { eloHome: 1390, eloAway: 1620 },   // UDEFAVORIT — den, der fangede hullet
+      { eloHome: 1500, eloAway: 1500 },   // lige hold
+    ]) {
+      expect(outcomeOdds(par)).toEqual(src.outcomeOdds(par));
+      expect(outcomeProbabilities(par)).toEqual(src.outcomeProbabilities(par));
+    }
   });
 });

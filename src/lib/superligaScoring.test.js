@@ -181,15 +181,21 @@ describe('elo-lite sandsynligheder', () => {
   // Formen, ikke kun niveauet: modellen skal ramme den faktiske frekvens i
   // BEGGE ender. Tallene er målt på 6.143 spillede kampe, se
   // scripts/maal-uafgjort.mjs og docs/spilbalance.md.
+  // BÅNDENE ER MED VILJE SMALLE. Første udgave tillod 13-20 % i det skæve ben,
+  // og den gamle base (0,26) giver 13,7 % dér — altså bestod testen med præcis
+  // den værdi, den skulle fange. Et bånd, der rummer både før og efter, måler
+  // ingenting. Begge ben fejler nu med 0,26.
   it('rammer den faktiske uafgjort-frekvens i både jævnbyrdige og skæve kampe', () => {
     // Jævnbyrdigt (skew ≈ 0,03): målt 28-30 % over 254+360 kampe.
+    // Model: 29,6 %. Med gammel base: 25,2 % → under gulvet.
     const jaevn = outcomeProbabilities({ eloHome: 1500, eloAway: 1490 }).X;
-    expect(jaevn).toBeGreaterThan(0.27);
-    expect(jaevn).toBeLessThan(0.32);
-    // Skævt (skew ≈ 0,55, altså ~230 Elo-point): målt 16,5 % over 285 kampe.
+    expect(jaevn).toBeGreaterThan(0.28);
+    expect(jaevn).toBeLessThan(0.31);
+    // Skævt (skew ≈ 0,58, altså 230 Elo-point): målt 16,5 % over 285 kampe.
+    // Model: 16,1 %. Med gammel base: 13,7 % → under gulvet.
     const skaevt = outcomeProbabilities({ eloHome: 1620, eloAway: 1390 }).X;
-    expect(skaevt).toBeGreaterThan(0.13);
-    expect(skaevt).toBeLessThan(0.20);
+    expect(skaevt).toBeGreaterThan(0.15);
+    expect(skaevt).toBeLessThan(0.18);
   });
   it('uafgjort topper ved REELT lige hold (måles uden hjemmebane)', () => {
     const even = outcomeProbabilities({ eloHome: 1500, eloAway: 1500 }).X;
@@ -209,45 +215,28 @@ describe('fair odds', () => {
     expect(fairOdds(0.5)).toBe(2);
     expect(fairOdds(0.25)).toBe(4);
   });
-  it('klippes til [MIN, MAX]', () => {
-    expect(fairOdds(0.99)).toBe(ODDS.MIN);   // 1,01 → 1,1
-    expect(fairOdds(0.01)).toBe(ODDS.MAX);   // 100 → loftet
-    expect(fairOdds(0)).toBe(ODDS.MAX);
+  it('har et gulv, men INTET loft', () => {
+    expect(fairOdds(0.99)).toBe(ODDS.MIN);      // 1,01 → 1,1
+    // Det her er hele ændringen: før blev alt over loftet skåret ned.
+    expect(fairOdds(0.05)).toBe(20);            // 1/0,05 = 20, urørt
+    expect(fairOdds(0.01)).toBe(100);           // 1/0,01 = 100, urørt
+    expect(ODDS.MAX).toBeUndefined();
   });
 
-  // Loftet er en justeringsskrue på selve pointreglen, så værdien låses her.
-  // Ændres den, skal balancen måles igen med scripts/maal-odds-loft.mjs —
-  // en rød test her er meningen, ikke en irritation.
-  it('loftet står på den målte værdi', () => {
-    expect(ODDS.MAX).toBe(8.0);
+  // Et umuligt udfald har ingen fair pris. Før faldt det tilbage på loftet;
+  // nu findes der ikke et, så tallet skal være valgt bevidst — ikke Infinity,
+  // som ville forplante sig ind i pointsummer og combi-produkter.
+  it('giver et endeligt tal for et ugyldigt udfald', () => {
+    expect(fairOdds(0)).toBe(ODDS.UGYLDIG);
+    expect(fairOdds(-1)).toBe(ODDS.UGYLDIG);
+    expect(fairOdds('x')).toBe(ODDS.UGYLDIG);
+    expect(Number.isFinite(ODDS.UGYLDIG)).toBe(true);
   });
 
-  // DET er grunden til 8,0: ved 6,0 blev to udfald i 10 af Superligaens 132
-  // kampe klippet ned til nøjagtig samme pris, så to vidt forskellige gæt
-  // betalte det samme.
-  //
-  // Men den egenskab er den SVAGE: den kræver at TO udfald klippes, og er
-  // derfor grøn helt ned til 7,8. Ved 7,5 klippes fire udfald, uden at testen
-  // siger fra — det fandt en mutationstest. Derfor står den stærke først.
-  it('loftet klipper INGEN udfald i Superligaens program', () => {
-    let hoejesteRaa = 0;
-    for (const hjemme of SUPERLIGA_TEAMS_2026) {
-      for (const ude of SUPERLIGA_TEAMS_2026) {
-        if (hjemme === ude) continue;
-        const p = outcomeProbabilities({ eloHome: hjemme.elo, eloAway: ude.elo });
-        for (const k of ['1', 'X', '2']) hoejesteRaa = Math.max(hoejesteRaa, 1 / p[k]);
-      }
-    }
-    // Er denne rød, er det næsten altid Elo-SPÆNDET, der er vokset — ikke
-    // koden. Tabellens spænd er 244 point, og rå odds passerer 8,00 ved ~250.
-    // Med K=20 kan én kamp flytte et hold 10 point, så marginen er lille.
-    // Bemærk desuden, at testen kun ser SEED-Elo; produktionen ompriser
-    // fremtidige kampe fra live-Elo, så påstanden kan blive falsk i drift,
-    // mens testen bliver ved med at være grøn.
-    expect(hoejesteRaa).toBeLessThan(ODDS.MAX);
-  });
-
-  it('ingen kamp i Superligaen har to udfald til nøjagtig samme pris', () => {
+  // Grunden til at loftet forsvandt: to vidt forskellige gæt kunne stå til
+  // nøjagtig samme pris, så et informeret modigt valg var umuligt. Det kan
+  // ikke ske uden et loft — men testen skal stå, hvis nogen genindfører et.
+  it('to udfald i samme kamp kan aldrig betale nøjagtig det samme', () => {
     let ens = 0;
     for (const hjemme of SUPERLIGA_TEAMS_2026) {
       for (const ude of SUPERLIGA_TEAMS_2026) {
@@ -259,12 +248,16 @@ describe('fair odds', () => {
     expect(ens).toBe(0);
   });
 
-  // Chancen ganger indsatsen med (odds − 1), så loftet sætter også taget for
-  // en enkelt runde. Det gik fra 8 × (6,0−1) = 40 til 8 × (8,0−1) = 56 point.
-  // Bindes det ikke til konstanten, vokser det ubemærket næste gang.
-  it('Chancens største enkeltgevinst følger loftet', () => {
-    const maks = settleChance({ correct: true, stake: CHANCE.MAX_ABS, fairOdds: ODDS.MAX });
-    expect(maks.profit).toBe(CHANCE.MAX_ABS * (ODDS.MAX - 1));
+  // Chancen er nu ubegrænset opad, og det er et bevidst valg — ikke et
+  // overset hjørne. Et loft klipper kun gevinsten, aldrig indsatsen, så en
+  // Chance på høje odds fik negativ forventning: målt over 3.000 sæsoner tabte
+  // den modige 34 point om året ved loft 6, og den, der slet ikke brugte
+  // Chancen, vandt oftere end ham.
+  it('Chancen betaler den fulde odds — ingen klipning af gevinsten', () => {
+    const stor = settleChance({ correct: true, stake: CHANCE.MAX_ABS, fairOdds: 24.39 });
+    expect(stor.profit).toBe(Math.round(CHANCE.MAX_ABS * 23.39));
+    // Indsatsen er stadig begrænset — det er dér risikoen styres.
+    expect(CHANCE.MAX_ABS).toBe(8);
   });
   it('favorit giver lav odds, outsider høj', () => {
     const o = outcomeOdds({ eloHome: 1900, eloAway: 1300 });

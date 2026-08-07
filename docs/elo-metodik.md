@@ -103,17 +103,31 @@ kampe er 0,35–0,63, og 0,55 ligger midt i det. Låser man decay og fitter kun
 base, fanger man næsten hele forbedringen (log-likelihood 3407,1 → 3384,1 mod
 3383,7 for et frit fit af begge) — én parameter er nok.
 
-Kurven passer nu i begge ender:
+Kurven passer nu hele vejen. Begge ligaer samlet, otte lige store bånd efter
+styrkeforskel:
 
 | skew | Δelo | kampe | faktisk | model |
 |---|---|---|---|---|
-| ~0,05 | 16 | 614 | 28–31 % | 29,0 % |
-| ~0,18 | 62 | 614 | 24–26 % | 25,0 % |
-| ~0,58 | 230 | 285 | 16,5 % | 16,1 % |
-| ~0,67 | 280 | 118 | 11,9 % | 14,6 % |
+| 0,00–0,04 | 7 | 767 | 27,6 % ±3,2 | 29,8 % |
+| 0,04–0,09 | 22 | 767 | 25,3 % ±3,1 | 28,4 % |
+| 0,09–0,13 | 38 | 767 | 28,3 % ±3,2 | 27,1 % |
+| 0,13–0,18 | 55 | 767 | 26,1 % ±3,1 | 25,6 % |
+| 0,18–0,25 | 76 | 767 | 26,6 % ±3,1 | 24,1 % |
+| 0,25–0,33 | 103 | 767 | 22,7 % ±3,0 | 22,2 % |
+| 0,33–0,43 | 138 | 767 | 21,0 % ±2,9 | 20,1 % |
+| 0,43–0,82 | 207 | 774 | 16,9 % ±2,6 | 17,0 % |
+
+Modellen ligger inden for usikkerheden i alle otte bånd. Går man længere ud i
+halen, hvor der er få kampe, ligger den lidt **højt** — over skew 0,5 forventer
+den 69 uafgjorte mod 62 faktiske (+12 %) fordelt på 429 kampe. Det er den pris,
+der betales for at ramme rigtigt i de øvrige 5.700, og den ligger inden for
+støjen på de bånd (±4–7 procentpoint).
 
 Måles med `scripts/maal-uafgjort.mjs` (headeren har curl-kommandoerne til at
-hente sæsonerne). Se også [spilbalance.md](spilbalance.md).
+hente sæsonerne). Grundlaget sæson for sæson — så de 6.143 og 1.493 kan
+efterprøves uden at hente rådata ned igen — står i
+[uafgjort-grundlag.md](uafgjort-grundlag.md). Se også
+[spilbalance.md](spilbalance.md).
 
 **En blindgyde, der er værd at kende.** Undervejs blev `DRAW_DECAY` foreslået
 sænket til 0,25, fittet mod 14 bookmakerpriser. Det var forkert af to grunde:

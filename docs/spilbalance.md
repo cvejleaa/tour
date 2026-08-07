@@ -6,8 +6,8 @@ rigtige strategi frem for ved at gætte bedre?**
 Tallene her er målt, ikke udledt. De reproduceres med
 
 ```bash
-node scripts/maal-odds-loft.mjs                  # begge ligaer
-node scripts/maal-odds-loft.mjs --liga superliga
+node scripts/maal-spilbalance.mjs                  # begge ligaer
+node scripts/maal-spilbalance.mjs --liga superliga
 ```
 
 Vi har taget fejl af det her tre gange, og hver gang var fejlen i *målingen*,
@@ -78,79 +78,110 @@ lægge sammen. Læs den første tabel, hvis du vil vide, hvem der vinder.
 
 ## Superligaen — én blandet liga, to spillere pr. arketype
 
-Retfærdig andel pr. arketype er 2 af 12 = **16,7 %**. Kun 1X2-benet, som er det,
-odds-loftet rammer:
+Retfærdig andel pr. arketype er 2 af 12 = **16,7 %**. Kun 1X2-benet:
 
 | loft | favoritten | underhunden | uafgjort | hjemmebanen | værdijægeren | fornemmelsen |
 |---|---|---|---|---|---|---|
-| 4 | **25,9 %** | 15,9 % | **2,9 %** | 20,5 % | 15,7 % | 19,0 % |
-| 5 | 17,4 % | 17,8 % | 11,2 % | 14,9 % | 19,7 % | 19,1 % |
-| **6** *(gammelt)* | 16,0 % | 18,5 % | 18,3 % | 12,2 % | 15,9 % | 19,0 % |
-| 7 | 14,5 % | 18,5 % | 21,6 % | 11,4 % | 15,0 % | 19,0 % |
-| **8** *(nu)* | 13,9 % | 19,0 % | 22,2 % | 11,7 % | 14,7 % | 18,5 % |
-| 10 | 14,8 % | 19,3 % | 22,5 % | 11,3 % | 14,4 % | 17,8 % |
-| intet | 13,9 % | 18,9 % | 22,3 % | 12,3 % | 13,7 % | 19,0 % |
+| 4 | **22,5 %** | 10,9 % | **10,2 %** | 19,3 % | 16,9 % | 20,2 % |
+| 6 *(det gamle)* | 14,1 % | 16,4 % | 21,6 % | 13,2 % | 16,1 % | 18,6 % |
+| 8 | 14,6 % | 18,1 % | 21,4 % | 12,2 % | 14,4 % | 19,3 % |
+| **intet** *(nu)* | 14,0 % | 17,6 % | 22,1 % | 12,7 % | 14,9 % | 18,8 % |
 
-Tre ting er værd at hæfte sig ved:
+Læg mærke til, hvor lidt loftet flytter fra 6 og opefter. Det er ikke, fordi
+loftet er harmløst — det er, fordi **uafgjort-modellen blev rettet samtidig**.
+Med den gamle `DRAW_BASE` på 0,26 kostede loft 6 uafgjort-spilleren 4
+procentpoint; med den rigtige model på 0,305 falder uafgjort-oddsene under 6 i
+de skæve kampe af sig selv, og loftet får næsten intet at klippe i. Antallet af
+kampe, hvor to udfald stod til nøjagtig samme pris, gik fra 10 til 4 alene af
+den grund. (Kalibreringen er beskrevet i [elo-metodik.md](elo-metodik.md); de
+6.143 kampe bag den er opgjort sæson for sæson i
+[uafgjort-grundlag.md](uafgjort-grundlag.md).)
 
-1. **Ved loft 8 er tallene praktisk talt identiske med "intet loft".** Det er
-   den præcise betydning af, at loftet ikke længere forvrider. Det er derfor
-   Superligaen står på 8: det laveste tal, hvor kurven er fladet ud.
-2. **Et lavt loft er et favorit-tilskud.** Ved loft 4 vinder favoritten 25,9 %
-   mod uafgjort-spillerens 2,9 %. Loftet klipper kun høje odds, og høje odds er
-   uafgjort- og underhund-spillerens hele indtægt.
-3. **`hjemmebanen` er svagest (11,7 %)**, og det er ikke fordi strategien er
-   dårlig. Den vælger det samme som `favoritten` i 67 % af kampene, så de to er
-   delvis korrelerede — og fordelen i spillet er netop at være ukorreleret.
-
-Ved loft 6 var der desuden **10 af 132 kampe**, hvor to udfald blev klippet ned
-til nøjagtig samme pris — altså hvor to vidt forskellige gæt betalte det samme.
-I FCK–Lyngby var både uafgjort og udesejr sat til 6,00, selv om de var 7,49 og
-7,80 værd. Ved loft 8 sker det i nul kampe.
+Ved loft 4 ses det tydeligt, hvad et stramt loft gør: favoritten vinder 22,5 %
+mod uafgjort-spillerens 10,2 %. Loftet klipper kun høje odds, og høje odds er
+uafgjort- og underhund-spillerens hele indtægt.
 
 ## Premier League — samme opstilling
 
 | loft | favoritten | underhunden | uafgjort | hjemmebanen | værdijægeren | fornemmelsen |
 |---|---|---|---|---|---|---|
-| 4 | **40,5 %** | 4,0 % | **0,1 %** | 18,7 % | 20,7 % | 15,9 % |
-| 6 | 19,4 % | 11,7 % | 11,8 % | 14,3 % | 21,3 % | 21,4 % |
-| 8 | 14,3 % | 14,4 % | 23,8 % | 12,1 % | 15,3 % | 20,0 % |
-| 10 | 13,8 % | 17,7 % | 25,3 % | 11,7 % | 13,2 % | 18,4 % |
-| **12** | 13,5 % | 18,5 % | 25,0 % | 12,2 % | 13,4 % | 17,5 % |
-| intet | 12,6 % | 20,7 % | 24,0 % | 11,1 % | 14,0 % | 17,7 % |
+| 4 | **36,4 %** | 1,8 % | **2,2 %** | 16,9 % | 23,9 % | 18,8 % |
+| 6 | 17,4 % | 9,6 % | 18,6 % | 13,7 % | 20,3 % | 20,4 % |
+| 8 | 15,0 % | 12,8 % | 24,1 % | 13,7 % | 15,3 % | 19,1 % |
+| 12 | 13,0 % | 18,3 % | 23,2 % | 12,7 % | 14,5 % | 18,3 % |
+| **intet** *(nu)* | 12,9 % | 19,3 % | 22,8 % | 12,7 % | 14,3 % | 17,9 % |
 
-Premier League har et langt bredere felt, så loftet binder meget oftere og
-hårdere. Ved 6 vinder favoritten 19,4 % mod underhundens 11,7 %; ved 12 er det
-vendt til 13,5 % mod 18,5 %, hvilket ligger tæt på "intet loft". Kurven flader
-ud omkring 10–12, og **det er begrundelsen for 12** — ikke at det er et pænere
-tal end 8.
+Premier League har et langt bredere felt, så loftet bider meget hårdere. Ved 6
+vinder favoritten 17,4 % mod underhundens 9,6 %; uden loft er det vendt til
+12,9 % mod 19,3 %. Det er grunden til, at ét fælles loft ikke kunne fungere:
+et tal, der var mildt i Superligaen, halverede underhundens chance i England.
 
-Bemærk kontrasten til Superligaen: dér er 8 nok, fordi holdene ligger tættere.
-Samme loft i begge ligaer ville betyde, at Premier League blev spillet med en
-tommelfingerregel, der er indstillet efter dansk fodbold.
+## Det, der afgjorde at loftet skulle helt væk: Chancen
 
-## Combi-bonussen ændrer billedet — og loftet rører den ikke
+Ovenstående er 1X2-benet. Den virkelige skade lå i **Chancen**, som ganger
+indsatsen med `odds − 1`. Et loft klipper kun **gevinsten**, aldrig indsatsen —
+så en Chance på høje odds havde ikke bare lavere gevinst, den havde **negativ
+forventning**. Oddsene er fair, så en Chance skal give nul; klippes
+udbetalingen, betaler man for at satse.
+
+Målt over 3.000 simulerede Premier League-sæsoner med tolv spillere, tre pr.
+Chancen-strategi (retfærdig andel 25 %):
+
+| loft | ingen Chance | sikker | moderat | modig | modiges udbytte pr. sæson |
+|---|---|---|---|---|---|
+| 6 | 27,6 % | 41,5 % | 15,5 % | **15,5 %** | **−34 point** |
+| 8 | 11,7 % | 26,5 % | 39,1 % | 22,7 % | −47 point |
+| 12 | 9,3 % | 27,0 % | 33,3 % | 30,3 % | −27 point |
+| **intet** | 8,6 % | 24,8 % | 30,6 % | **36,1 %** | **−2 point** |
+
+Ved loft 6 vandt den, der **slet ikke brugte Chancen**, oftere (27,6 %) end den,
+der brugte den modigt (15,5 %). Loftet gjorde altså funktionen uklog at bruge —
+det stik modsatte af, hvad den er til for.
+
+Dertil kom, at 46 udfald i Premier League lå på nøjagtig 6,00. Kortet viste
+samme pris for et udfald med 17 % chance og et med 4 %, så den, der ville satse
+modigt, valgte i blinde og ramte systematisk det dårligste.
+
+**Prisen er bevidst valgt.** Højeste odds i Premier League er 24,39
+(Arsenal–Hull ude), så én Chance kan give op til 187 point. Det sker 4,1 % af
+gangene, og de øvrige 95,9 % koster indsatsen. Simuleringen siger, at det ikke
+gør sæsonen til et lotteri: den modige vinder 36 %, ikke 80 %.
+
+**En forkastet idé, værd at kende.** At skalere INDSATSEN med oddsene
+(`maxStake = min(8, 15 % bank, gulv(40/(odds−1)))`) lyder som en pæn
+mellemvej. Den er det ikke: med heltalsindsatser giver odds 6,00 så maks 40
+point, mens odds 24,39 kun giver 23,4. Langskuddet ville blive **dårligere** end
+den sikre kamp — det modsatte af hensigten.
+
+## Combi-bonussen ændrer billedet
 
 Combi ganger de **rene** odds og er omtrent halvdelen af pointene. Måler man kun
-1X2, ser loftet ud til at gøre mere, end det gør.
+1X2, ser man kun det ene ben.
 
 Superligaen, hele pointreglen:
 
 | loft | favoritten | underhunden | uafgjort | hjemmebanen | værdijægeren | fornemmelsen |
 |---|---|---|---|---|---|---|
-| 6 | 14,9 % | 20,4 % | 11,4 % | 14,3 % | 16,9 % | 22,1 % |
-| 8 | 13,7 % | 20,9 % | 13,5 % | 14,7 % | 15,7 % | 21,6 % |
-| intet | 14,0 % | 20,5 % | 13,4 % | 14,9 % | 15,4 % | 21,8 % |
+| 6 | 14,2 % | 16,0 % | 16,9 % | 15,5 % | 15,4 % | 22,0 % |
+| **intet** | 13,6 % | 17,0 % | 16,2 % | 15,8 % | 15,4 % | **22,0 %** |
 
-Uafgjort-spilleren falder fra 22,2 % til 13,5 %, når combi'en tælles med. Combi
-belønner den, der rammer **mange** kampe i samme runde, og det gør han sjældent.
-Underhunden er stort set upåvirket, og `fornemmelsen` bliver den stærkeste.
+Premier League:
 
-I Premier League trækker combi den anden vej for underhunden: fra 14,4 % (kun
-1X2) til 21,5 % ved loft 8, fordi de større odds giver en større combi.
+| loft | favoritten | underhunden | uafgjort | hjemmebanen | værdijægeren | fornemmelsen |
+|---|---|---|---|---|---|---|
+| 6 | 15,1 % | 11,9 % | 13,7 % | 18,4 % | 17,5 % | 23,3 % |
+| **intet** | 12,1 % | **18,5 %** | 16,6 % | 17,0 % | 14,3 % | 21,5 % |
 
-**Konklusion:** loftet retter det ene ben. Combi'en har sin egen skævhed, og den
-er ikke målt færdig. Det er en åben opgave — se nedenfor.
+To ting springer i øjnene. **`fornemmelsen` er stærkest i begge ligaer** når
+combi'en tælles med — den, der tipper uden system, rammer et spredt sæt kampe
+og får derfor en combi, der ikke ligner nogen andens. Og uafgjort-spilleren
+taber på combi'en (22,1 % → 16,2 % i Superligaen), fordi combi belønner den,
+der rammer **mange** kampe i samme runde, og det gør han sjældent.
+
+**Konklusion:** uden loft ligger alle seks arketyper mellem 12 % og 22 % mod en
+retfærdig andel på 16,7 %. Det er ikke perfekt balance, og det bliver det
+aldrig — se hovedresultatet øverst. Men ingen strategi bliver længere straffet
+af en teknisk detalje.
 
 ## Fælder, vi er faldet i
 
@@ -184,14 +215,18 @@ Forskelle under ~1,5 pp skal ikke tolkes.
 
 ## Hvad der stadig er åbent
 
-- **Combi-skævheden.** Loftet er justeret færdigt; combi'en er ikke undersøgt
-  som en balanceskrue. `COMBI.LOFT` på 25 rammer desuden oftere for
-  underhund-spilleren end for favoritten, hvilket spiser en del af den gevinst,
-  et højere odds-loft giver.
+- **Combi-skævheden.** Odds-loftet er væk; combi'en er ikke undersøgt som en
+  balanceskrue. `COMBI.LOFT` på 25 er nu det **eneste** loft tilbage i
+  pointreglen, og det rammer oftere for underhund-spilleren end for favoritten
+  — altså spiser det en del af den gevinst, fjernelsen af odds-loftet gav. Det
+  er den næste, der bør måles.
 - **Live-Elo.** Alle tal her er regnet på **seed-Elo**. Produktionen ompriser
-  fremtidige kampe fra den løbende Elo, og Superligaens margen til loftet er kun
-  ~6 Elo-point. "Loftet binder på nul udfald" kan altså holde op med at være
-  sandt midt i sæsonen, uden at nogen test bliver rød.
+  fremtidige kampe fra den løbende Elo, så de højeste odds kan blive større end
+  de 24,39, der står ovenfor: et hold, der taber ti i træk, får en lavere rating
+  end nogen seedning gav det. Uden loft er der ikke længere en grænse, der kan
+  overskrides i stilhed — men der er heller ikke længere noget, der fanger et
+  ekstremt odds, hvis Elo skulle løbe løbsk. Det er en bevidst afvejning, ikke
+  et overset hjørne.
 - **Feltet er en model.** Elleve ens spillere plus én afvigende er ikke ligaen.
   Rigtige spillere ligner hinanden mindre, så fordelen ved at stå alene er
   formentlig mindre end 2-4× i praksis. Retningen og sammenligningen mellem

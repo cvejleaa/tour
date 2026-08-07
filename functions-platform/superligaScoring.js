@@ -183,10 +183,13 @@ function scoreBet(bet, result, odds, bank) {
 // spillede kampe (13 Superliga-sæsoner + 10 Premier League-sæsoner). Fejlen sad
 // i niveauet, ikke i formen — DRAW_DECAY er efterprøvet og står stille.
 const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.305, DRAW_DECAY: 0.55 };
-// MAX gik 6,0 → 8,0. Loftet udlignede ikke, som den gamle kommentar påstod —
-// det SKABTE en skævhed mod favorit-spilleren, fordi det kun rammer høje odds.
-// Fuld begrundelse for begge i src/lib/superligaScoring.js.
-const ODDS = { MIN: 1.1, MAX: 8.0 };
+// INTET LOFT længere — kun et gulv. Loftet udlignede ikke, som den gamle
+// kommentar påstod; det SKABTE en skævhed mod favorit-spilleren, fordi det kun
+// rammer høje odds. Et loft klipper desuden kun gevinsten, aldrig
+// indsatsen, så en Chance på høje odds fik negativ forventning: den modige
+// tabte 27-47 point pr. sæson på at turde. Fuld begrundelse og måling i
+// src/lib/superligaScoring.js.
+const ODDS = { MIN: 1.1, UGYLDIG: 100 };
 
 function eloExpectedHome(eloHome, eloAway, hfa = ELO.HFA) {
   const dr = (Number(eloHome) + hfa) - Number(eloAway);
@@ -209,8 +212,8 @@ function outcomeProbabilities({
 
 function fairOdds(p) {
   const prob = Number(p);
-  if (!Number.isFinite(prob) || prob <= 0) return ODDS.MAX;
-  const clamped = Math.min(ODDS.MAX, Math.max(ODDS.MIN, 1 / prob));
+  if (!Number.isFinite(prob) || prob <= 0) return ODDS.UGYLDIG;
+  const clamped = Math.max(ODDS.MIN, 1 / prob);
   return Math.round(clamped * 100) / 100;
 }
 

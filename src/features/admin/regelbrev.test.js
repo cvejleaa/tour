@@ -21,9 +21,18 @@ describe('regelbrevet', () => {
     }
   });
 
-  it('nævner det loft, der faktisk gælder', () => {
-    const somTekst = ODDS.MAX.toFixed(1).replace('.', ',');
-    expect(REGELBREV.tekst).toContain(`hævet til ${somTekst}`);
+  // Brevet skal sige, at loftet er VÆK — ikke at det er hævet. De to
+  // formuleringer betyder noget forskelligt for den, der tipper outsidere.
+  it('siger at loftet er fjernet, ikke hævet', () => {
+    expect(REGELBREV.tekst).toContain('Nu er der intet loft');
+    expect(REGELBREV.tekst).not.toMatch(/loftet er hævet/i);
+    expect(ODDS.MAX).toBeUndefined();
+  });
+
+  // Uafgjort bliver BILLIGERE af denne ændring. Brevet må ikke lade som om
+  // alting bliver bedre for alle — det var netop den slags, der skabte rodet.
+  it('siger rent ud, at uafgjort bliver billigere', () => {
+    expect(REGELBREV.tekst).toMatch(/uafgjort bliver lidt billigere/i);
   });
 
   // Det var netop et forkert tal i en mail, der startede hele forvirringen.
@@ -49,7 +58,9 @@ describe('regelbrevet', () => {
   it('lover ikke en bestemt runde, men siger at spillede kampe er urørte', () => {
     expect(REGELBREV.tekst).toContain('Færdigspillede runder er ikke rørt');
     expect(REGELBREV.tekst).not.toMatch(/gælder fra runde/i);
-    expect(REGELBREV.tekst).toContain('kun trække odds OP');
+    // Tidligere stod her "kan kun trække odds OP". Det holdt for loftet alene,
+    // men uafgjort-rettelsen trækker NED. Brevet må ikke love det modsatte.
+    expect(REGELBREV.tekst).not.toMatch(/kun trække odds OP/i);
   });
 
   // Målingen med combi viste, at loftet IKKE gør spillet balanceret. Brevet må

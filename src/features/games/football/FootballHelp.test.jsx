@@ -166,9 +166,10 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     // netop dér, hvor spillet betaler mindre end fair — på de mest
     // usandsynlige udfald. En løsere regex på "6,0" ville ramme et hvilket
     // som helst andet tal i teksten og lyse grønt uden at bevise noget.
-    // Bindes til konstanten, ikke til et tal i teksten: hæves ODDS.MAX for et
-    // spil, skal guiden følge med af sig selv.
-    expect(container.textContent).toContain(`højst ${ODDS.MAX.toFixed(1).replace('.', ',')}`);
+    // Loftet er fjernet, så teksten skal sige DET — ikke et tal. Bindes til
+    // konstanten: genindføres et loft, skal hjælpen skrives om igen.
+    expect(ODDS.MAX).toBeUndefined();
+    expect(container.textContent).toContain('ikke længere et loft over oddsene');
     // HVORNÅR oddsene låser er det, en spiller bliver overrasket over: man
     // låser IKKE en kurs ved at tippe tidligt. Uden den sætning fremgår det
     // ingen steder — hverken i guiden eller på tip-fladen.

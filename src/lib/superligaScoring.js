@@ -210,12 +210,21 @@ export function roundComboBonus(hitOdds, matchCount) {
  * kamp, så begge dele afsløres.
  *
  * DECAY ER EFTERPRØVET og skal ikke røres uden nye tal. 95 %-intervallet over
- * alle 6.143 kampe er 0,35-0,63; 0,55 ligger midt i det. I de skæve kampe,
- * hvor parameteren overhovedet kan måles, rammer den næsten præcist:
+ * alle 6.143 kampe er 0,35-0,63; 0,55 ligger midt i det. Sådan ser modellen ud
+ * i de skæve kampe, hvor parameteren overhovedet kan måles — kolonnerne er
+ * NUVÆRENDE model (0,305/0,55) og det forkastede forslag (0,287/0,248):
  *
- *     skew        kampe   faktisk   0,55     0,25
- *     0,5-0,6      285     16,5 %   14,3 %   21,9 %
- *     0,6-0,7      118     11,9 %   12,9 %   20,9 %
+ *     skew        kampe   faktisk   nu       forkastet
+ *     0,5-0,6      285     16,5 %   16,8 %   21,9 %
+ *     0,6-0,7      118     11,9 %   15,1 %   20,9 %
+ *     0,7-1,0       26      3,8 %   13,5 %   19,9 %
+ *
+ * Vær ærlig om, hvad det viser: modellen ligger nu en anelse HØJT i de skæve
+ * kampe (+12 % over skew 0,5, 69 forventede mod 62 faktiske), hvor den før lå
+ * lavt. Det er ikke gratis, men det er inden for støjen — usikkerheden på de
+ * bånd er ±4-7 procentpoint, og det øverste bånd er 26 kampe i alt. Prisen for
+ * at ramme dér ville være at ramme skævt i de 5.700 andre kampe. Det forkastede
+ * forslag ligger 49 % for højt i netop de samme kampe.
  *
  * (0,25 stod som forslag undervejs, fittet mod 14 bookmakerpriser. Det var
  * forkert af to grunde, som er værd at huske: Superligaen har INGEN kampe over
@@ -272,53 +281,53 @@ export function outcomeProbabilities({
 }
 
 /**
- * Grænser for odds, så en enkelt kamp ikke bliver ekstrem.
+ * Grænser for odds. Der er ikke længere et LOFT — kun et gulv.
  *
- * MAX gik fra 6,0 til 8,0, og begrundelsen er en MÅLT rettelse af det, der
- * stod her før. Den gamle tekst sagde, at loftet var en "aktiv modvægt", fordi
- * den modige ellers ville vinde for ofte i et vinderen-tager-alt-spil. Første
- * halvdel passer: i et felt på 12, hvor én spiller tipper outsidere og elleve
- * tipper favoritter, vinder outsideren ~33 % uden loft — fire gange sin
- * retfærdige andel på 8,3 %.
+ * MAX var 6,0, blev foreslået hævet til 8,0, og er nu fjernet. Begrundelsen er
+ * målt, og den er skarpere end de to tidligere forsøg:
  *
- * Men vendes feltet om — elleve outsider-spillere og ÉN favorit-spiller —
- * vinder favoritten 34 %. Præcis det samme. Effekten er altså ikke spredning;
- * den er, at man er den eneste, hvis point ikke er korreleret med de andres.
- * Hvem der end står alene, vinder ~4× sin andel, uanset strategi.
+ * ET LOFT KLIPPER KUN GEVINSTEN, aldrig indsatsen. Oddsene er fair, så en
+ * Chance har forventning nul — men klippes udbetalingen, bliver forventningen
+ * NEGATIV. Den, der satser modigt, spiller altså til dårligere end fair pris.
+ * Målt over 3.000 sæsoner af Premier League med tolv spillere, tre pr.
+ * Chancen-strategi (retfærdig andel 25 %):
  *
- * Og så udligner loftet ikke — det SKABER en skævhed, fordi det kun rammer
- * høje odds, og høje odds er outsiderens hele indtægt:
+ *     loft    ingen   sikker  moderat   modig   modiges udbytte af Chancen
+ *      6      27,6 %  41,5 %   15,5 %   15,5 %      −34 point pr. sæson
+ *      8      11,7 %  26,5 %   39,1 %   22,7 %      −47 point
+ *     12       9,3 %  27,0 %   33,3 %   30,3 %      −27 point
+ *    intet     8,6 %  24,8 %   30,6 %   36,1 %       −2 point
  *
- *     Superligaen        outsider alene   favorit alene
- *       loft 6, kun 1X2      28 %             38 %
- *       loft 8, kun 1X2      33 %             34 %
- *       loft 6, HELE reglen  20 %             48 %
- *       loft 8, HELE reglen  22 %             45 %
+ * Ved loft 6 vandt den, der SLET IKKE brugte Chancen, oftere (27,6 %) end den,
+ * der brugte den modigt (15,5 %). Loftet gjorde altså funktionen uklog at
+ * bruge — det stik modsatte af, hvad den er til for.
  *
- * LÆS BEGGE RÆKKEPAR. På 1X2-benet udligner 8 præcis, som det skal. Men med
- * combi-bonussen — som er omtrent halvdelen af pointene og ganger de RENE
- * odds, så loftet slet ikke rører den — står favorit-spilleren stadig dobbelt
- * så godt. Hævelsen fjerner altså den straf, loftet lagde på outsideren; den
- * gør IKKE spillet balanceret. Det er en åben opgave for sig, og den ligger i
- * combi'en, ikke i loftet.
+ * Dertil et fund, der ikke kræver simulering: ved loft 6 lå 46 udfald i
+ * Premier League på nøjagtig 6,00. Kortet viste samme pris for et udfald med
+ * 17 % chance og et med 4 %, så den, der ville satse modigt, valgte i blinde og
+ * ramte systematisk det dårligste. Uden loft kan to udfald aldrig betale ens.
  *
- * (Første måling udelod combi og konkluderede "de to er næsten lige". Det var
- * forkert, og det er derfor scriptet nu regner begge ben.)
+ * PRISEN, som er bevidst valgt: højeste odds i Premier League er 24,39
+ * (Arsenal–Hull ude), så én Chance kan give op til 187 point. Det sker 4,1 % af
+ * gangene, og de øvrige 95,9 % koster indsatsen. Simuleringen siger, at det
+ * ikke gør sæsonen til et lotteri — den modige vinder 36 %, ikke 80 %.
  *
- * Loftet binder samtidig på nul udfald i Superligaens program (højeste fair
- * odds er 7,80), så det er reelt kun et værn mod et ekstremt hold-mismatch.
- * Margenen er dog kun ~6 Elo-point, og produktionen ompriser fremtidige kampe
- * fra LIVE-Elo, så det kan holde op med at være sandt i løbet af sæsonen.
+ * En tidligere idé om at skalere INDSATSEN med oddsene blev forkastet: med
+ * heltalsindsatser og et gevinstloft på 40 ville odds 6,00 give maks 40 point
+ * og odds 24,39 kun 23,4. Langskuddet ville altså blive dårligere end den
+ * sikre kamp — det modsatte af hensigten.
  *
- * Premier League har et meget bredere felt og skal have et HØJERE loft — ved 8
- * ville 26 kampe stadig have to udfald til nøjagtig samme pris. Loftet bør
- * derfor gøres pr. spil, når PL seedes; se opgaven om odds-loftet.
+ * MIN bliver stående: et udfald skal betale mere end indsatsen tilbage.
  *
- * Måles med scripts/maal-odds-loft.mjs; hele billedet — seks arketyper, begge
- * ligaer, med og uden combi — står i docs/spilbalance.md. Ændres MAX, skal
- * balancen måles igen, og dokumentet opdateres. Det er ikke oprydning.
+ * Måles med scripts/maal-spilbalance.mjs. Se docs/spilbalance.md.
  */
-export const ODDS = { MIN: 1.1, MAX: 8.0 };
+export const ODDS = {
+  MIN: 1.1,
+  // Kun for et udfald, modellen har givet sandsynligheden 0 eller noget
+  // ugyldigt. Det kan ikke ske med rigtige Elo-tal, men scoringen må ikke
+  // returnere Infinity, hvis det alligevel sker.
+  UGYLDIG: 100,
+};
 
 /**
  * Fair (EV-neutral) decimal-odds for en sandsynlighed, klippet til [MIN,MAX].
@@ -326,10 +335,12 @@ export const ODDS = { MIN: 1.1, MAX: 8.0 };
  */
 export function fairOdds(p) {
   const prob = Number(p);
-  if (!Number.isFinite(prob) || prob <= 0) return ODDS.MAX;
-  const raw = 1 / prob;
-  const clamped = Math.min(ODDS.MAX, Math.max(ODDS.MIN, raw));
-  return Math.round(clamped * 100) / 100;
+  // Et umuligt eller ugyldigt udfald har ingen fair pris. Før faldt det
+  // tilbage på loftet; nu findes der ikke et. UGYLDIG er derfor et bevidst
+  // valgt tal, ikke en grænse for rigtige odds — modellen giver aldrig p ≤ 0.
+  if (!Number.isFinite(prob) || prob <= 0) return ODDS.UGYLDIG;
+  const raw = Math.max(ODDS.MIN, 1 / prob);
+  return Math.round(raw * 100) / 100;
 }
 
 /** Fair odds for hvert 1X2-udfald ud fra Elo-ratings. */

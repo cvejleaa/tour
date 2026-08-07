@@ -126,16 +126,18 @@ export default function FootballHelp() {
         overraskelse til odds 4,5, giver det{' '}
         <strong>{(4.5 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>. Forkert tip giver 0.
         <p style={{ margin: '0.5rem 0 0' }}>
-          Oddsene er <strong>1 delt med sandsynligheden</strong> — dog altid mellem{' '}
-          <strong>{fmtDec(ODDS.MIN)}</strong> og <strong>{fmtDec(ODDS.MAX)}</strong>. Det betyder, at ethvert
+          Oddsene er <strong>1 delt med sandsynligheden</strong> — mindst{' '}
+          <strong>{fmtDec(ODDS.MIN)}</strong>, og ellers uden loft. Det betyder, at ethvert
           enkelt tip er lige meget værd i det lange løb: en sikker favorit giver få point ofte, en
           overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre valg altså
           lige gode.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
-          Er et udfald endnu mere usandsynligt end{' '}
-          <strong>højst {fmtDec(ODDS.MAX)}</strong> svarer til, betaler det stadig kun {fmtDec(ODDS.MAX)}.
-          Derfor er de allervildeste langskud lidt underbetalte.
+          <strong>Der er ikke længere et loft over oddsene.</strong> Tidligere blev alt over 6,00
+          skåret ned til 6,00, og det gjorde tre ting: de vildeste langskud var underbetalte, to
+          vidt forskellige udfald kunne stå til nøjagtig samme pris, og en Chance på høje odds var
+          i praksis et tab. Nu betaler et udfald altid, hvad det er værd — også når det er 20 eller
+          mere.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
           <strong>Oddsene kan nå at flytte sig, indtil kampen går i gang.</strong> Efter hvert

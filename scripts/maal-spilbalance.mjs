@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// scripts/maal-odds-loft.mjs — måler, hvad odds-loftet gør ved balancen.
+// scripts/maal-spilbalance.mjs — måler, hvem der vinder sæsonen og hvorfor.
 //
 // Loftet er en justeringsskrue på selve pointreglen, og påstandene om det har
 // været forkerte før. Kommentaren i superligaScoring.js sagde, at loftet var en
@@ -7,8 +7,8 @@
 // målingen her, så tallene kan køres efter i stedet for at blive troet på.
 //
 // BRUG:
-//   node scripts/maal-odds-loft.mjs                 # begge ligaer
-//   node scripts/maal-odds-loft.mjs --liga superliga
+//   node scripts/maal-spilbalance.mjs                 # begge ligaer
+//   node scripts/maal-spilbalance.mjs --liga superliga
 //
 // FIRE FÆLDER, der hver har kostet et forkert tal én gang:
 //
@@ -38,7 +38,10 @@ import { outcomeProbabilities, roundComboBonus } from '../src/lib/superligaScori
 
 const OUT = ['1', 'X', '2'];
 const MIN = 1.1;
-const LOFTER = [4, 5, 6, 7, 8, 9, 10, 12, Infinity];
+// Lofterne står tilbage som HISTORIK: 6 var det gamle, og kolonnerne viser,
+// hvad det kostede. Der er ikke længere et loft i spillet — ODDS.MAX findes
+// ikke — så 'intet' er den række, der beskriver virkeligheden.
+const LOFTER = [4, 6, 8, 12, Infinity];
 const SÆSONER = 8000;
 const FELT = 12;   // ligaen har 12 spillere
 const STOEJ = 0.10; // andel kampe, hver spiller tipper tilfældigt
