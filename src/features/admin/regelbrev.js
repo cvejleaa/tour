@@ -71,9 +71,11 @@ Chancen er uændret. Samme indsatsgrænser, samme afregning.
 
 Da jeg regnede efter, opdagede jeg noget andet. Der har hele tiden været et loft over, hvor mange point ét udfald kan give. Det stod på ${fmtDec(6)}, og det ramte kun de høje odds — altså kun jer, der tipper outsidere. Det gjorde spillet skævt til fordel for den forsigtige, og det var ikke meningen.
 
-Loftet er ${TIDSLINJE.loftHaevet} hævet til ${fmtDec(ODDS.MAX)}. Med det tal rammer det ingen kampe i denne sæsons program overhovedet — det er nu kun et værn mod en helt ekstrem kamp. Til gengæld er der ikke længere kampe, hvor to forskellige gæt betaler præcis det samme.
+Loftet er hævet til ${fmtDec(ODDS.MAX)}. Med det tal er der ikke længere kampe, hvor to vidt forskellige gæt betaler præcis det samme — det skete i 10 af sæsonens 132 kampe med det gamle loft. I FCK–Lyngby var både uafgjort og udesejr sat til 6,00, selv om de var 7,49 og 7,80 værd.
 
-Det gælder fra runde 3. Runde 1 og 2 er ikke rørt.
+Det slår igennem på kampe, der endnu ikke er spillet, efterhånden som oddsene opdateres. Det kan kun trække odds OP, aldrig ned, så ingen bliver dårligere stillet af det. Færdigspillede runder er ikke rørt.
+
+Og for en god ordens skyld: det retter ikke alt. Combi-bonussen belønner stadig den, der rammer mange kampe, mere end den, der rammer få og svære. Det er en anden diskussion, og jeg tager den ikke nu.
 
 JERES POINT ER RETTET
 

@@ -42,8 +42,21 @@ describe('regelbrevet', () => {
     expect(REGELBREV.tekst).not.toMatch(/to gange i dag/i);
   });
 
-  it('siger klart, at runde 1 og 2 ikke er rørt af loft-ændringen', () => {
-    expect(REGELBREV.tekst).toContain('Runde 1 og 2 er ikke rørt');
+  // Brevet må IKKE love, at loftet gælder fra en bestemt runde. Odds skrives
+  // om af serveren, når et facit ændrer sig — så fredagskampen låser med det
+  // gamle loft, uanset hvornår vi udruller. Første udkast lovede "fra runde 3",
+  // og det ville have været fjerde gang, teksten og virkeligheden ikke passede.
+  it('lover ikke en bestemt runde, men siger at spillede kampe er urørte', () => {
+    expect(REGELBREV.tekst).toContain('Færdigspillede runder er ikke rørt');
+    expect(REGELBREV.tekst).not.toMatch(/gælder fra runde/i);
+    expect(REGELBREV.tekst).toContain('kun trække odds OP');
+  });
+
+  // Målingen med combi viste, at loftet IKKE gør spillet balanceret. Brevet må
+  // ikke påstå mere, end vi har målt — det var netop fejlen første gang.
+  it('lover ikke, at spillet nu er i balance', () => {
+    expect(REGELBREV.tekst).toContain('det retter ikke alt');
+    expect(REGELBREV.tekst).not.toMatch(/nu er (spillet )?i balance/i);
   });
 
   // En undskyldning, der ikke undskylder, er en pressemeddelelse.

@@ -99,8 +99,9 @@ export const TRAEF_BONUS = 0;
  *
  * Sat til 0 er forventningen igen praktisk talt ens: analytisk 132,8 for
  * favorit-spilleren mod 132,1 for outsideren over en sæson — UDEN odds-loft.
- * MED loftet på 6,00 er outsiderens forventning 128,3, fordi loftet binder på
- * 36 af Superligaens 132 kampe og betaler ham mindre end fair.
+ * MED det gamle loft på 6,00 var outsiderens forventning 128,3, fordi loftet
+ * band på 36 af Superligaens 132 kampe og betalte ham mindre end fair. Loftet
+ * er siden hævet til 8,0, og så binder det på ingen af dem.
  *
  * RETTET: her stod, at de 4,5 point var en AKTIV modvægt, fordi den modige
  * ellers ville vinde oftest på højere spredning. Det holdt ikke ved en måling.
@@ -250,13 +251,26 @@ export function outcomeProbabilities({
  * Og så udligner loftet ikke — det SKABER en skævhed, fordi det kun rammer
  * høje odds, og høje odds er outsiderens hele indtægt:
  *
- *     Superligaen   outsider alene   favorit alene
- *       loft 6          29 %             39 %
- *       loft 8          33 %             34 %
+ *     Superligaen        outsider alene   favorit alene
+ *       loft 6, kun 1X2      28 %             38 %
+ *       loft 8, kun 1X2      33 %             34 %
+ *       loft 6, HELE reglen  20 %             48 %
+ *       loft 8, HELE reglen  22 %             45 %
  *
- * Ved 8 er de to næsten lige. Loftet binder samtidig på nul udfald i
- * Superligaens program (højeste fair odds er 7,80), så det er reelt kun et
- * værn mod et ekstremt hold-mismatch, ikke en løbende justeringsskrue.
+ * LÆS BEGGE RÆKKEPAR. På 1X2-benet udligner 8 præcis, som det skal. Men med
+ * combi-bonussen — som er omtrent halvdelen af pointene og ganger de RENE
+ * odds, så loftet slet ikke rører den — står favorit-spilleren stadig dobbelt
+ * så godt. Hævelsen fjerner altså den straf, loftet lagde på outsideren; den
+ * gør IKKE spillet balanceret. Det er en åben opgave for sig, og den ligger i
+ * combi'en, ikke i loftet.
+ *
+ * (Første måling udelod combi og konkluderede "de to er næsten lige". Det var
+ * forkert, og det er derfor scriptet nu regner begge ben.)
+ *
+ * Loftet binder samtidig på nul udfald i Superligaens program (højeste fair
+ * odds er 7,80), så det er reelt kun et værn mod et ekstremt hold-mismatch.
+ * Margenen er dog kun ~6 Elo-point, og produktionen ompriser fremtidige kampe
+ * fra LIVE-Elo, så det kan holde op med at være sandt i løbet af sæsonen.
  *
  * Premier League har et meget bredere felt og skal have et HØJERE loft — ved 8
  * ville 26 kampe stadig have to udfald til nøjagtig samme pris. Loftet bør
@@ -265,7 +279,7 @@ export function outcomeProbabilities({
  * Måles med scripts/maal-odds-loft.mjs. Ændres MAX, skal balancen måles igen
  * — det er ikke oprydning.
  */
-export const ODDS = { MIN: 1.1, MAX: 7.5 };
+export const ODDS = { MIN: 1.1, MAX: 8.0 };
 
 /**
  * Fair (EV-neutral) decimal-odds for en sandsynlighed, klippet til [MIN,MAX].

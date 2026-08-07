@@ -6,7 +6,7 @@ const {
   DEFAULT_POINTS, COMBI, round1, outcomeReward, roundComboBonus,
   isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet, clampStake, CHANCE, TRAEF_BONUS,
   hitPoints,
-  PULJE, ELO,
+  PULJE, ELO, ODDS,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
   leagueTable, championshipTeams, puljeScore,
 } = require('./superligaScoring');
@@ -195,5 +195,22 @@ describe('superligaScoring (server-spejl)', () => {
     // andet — og ingen af de øvrige assertions ville sige fra.
     expect(TRAEF_BONUS).toBe(src.TRAEF_BONUS);
     expect(DEFAULT_POINTS).toEqual(src.DEFAULT_POINTS);
+    // ODDS manglede på listen ovenfor, selv om kommentaren nævner netop "et
+    // loft". Blindvinklen var reel: med src på 100,0 og serveren på 8,0 kørte
+    // hele suiten grøn, fordi odds-sammenligningen nedenfor bruger et
+    // jævnbyrdigt opgør, hvor loftet aldrig binder.
+    expect(ODDS).toEqual(src.ODDS);
+  });
+
+  // Sammenligningen SKAL ramme klippet. Et jævnbyrdigt opgør beviser kun, at
+  // de to spejle kan dividere ens — ikke at de klipper ens.
+  it('server-spejlet klipper ved samme loft som src', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    // Så stort et mismatch, at udesejren ryger i loftet ved ethvert realistisk
+    // loft. Findes ikke i Superligaen (højeste fair odds dér er 7,80) — og det
+    // er netop pointen: loftet er et værn mod det ekstreme.
+    const ekstremt = { eloHome: 1900, eloAway: 1200 };
+    expect(outcomeOdds(ekstremt)['2']).toBe(ODDS.MAX);
+    expect(outcomeOdds(ekstremt)).toEqual(src.outcomeOdds(ekstremt));
   });
 });

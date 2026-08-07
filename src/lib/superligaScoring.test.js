@@ -3,7 +3,7 @@ import {
   OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, COMBI, hitPoints, TRAEF_BONUS,
   isOutcome, outcomeFromScore, outcomePoints,
   eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
-  chanceMaxStake, canUseChance, isValidStake, settleChance,
+  chanceMaxStake, canUseChance, isValidStake, settleChance, CHANCE,
   updateElo, actualHomeFromOutcome,
   leagueTable, championshipTeams, puljeScore, PULJE,
 } from './superligaScoring';
@@ -197,7 +197,29 @@ describe('fair odds', () => {
 
   // DET er grunden til 8,0: ved 6,0 blev to udfald i 10 af Superligaens 132
   // kampe klippet ned til nøjagtig samme pris, så to vidt forskellige gæt
-  // betalte det samme. Ved 8,0 sker det i nul kampe.
+  // betalte det samme.
+  //
+  // Men den egenskab er den SVAGE: den kræver at TO udfald klippes, og er
+  // derfor grøn helt ned til 7,8. Ved 7,5 klippes fire udfald, uden at testen
+  // siger fra — det fandt en mutationstest. Derfor står den stærke først.
+  it('loftet klipper INGEN udfald i Superligaens program', () => {
+    let hoejesteRaa = 0;
+    for (const hjemme of SUPERLIGA_TEAMS_2026) {
+      for (const ude of SUPERLIGA_TEAMS_2026) {
+        if (hjemme === ude) continue;
+        const p = outcomeProbabilities({ eloHome: hjemme.elo, eloAway: ude.elo });
+        for (const k of ['1', 'X', '2']) hoejesteRaa = Math.max(hoejesteRaa, 1 / p[k]);
+      }
+    }
+    // Er denne rød, er det næsten altid Elo-SPÆNDET, der er vokset — ikke
+    // koden. Tabellens spænd er 244 point, og rå odds passerer 8,00 ved ~250.
+    // Med K=20 kan én kamp flytte et hold 10 point, så marginen er lille.
+    // Bemærk desuden, at testen kun ser SEED-Elo; produktionen ompriser
+    // fremtidige kampe fra live-Elo, så påstanden kan blive falsk i drift,
+    // mens testen bliver ved med at være grøn.
+    expect(hoejesteRaa).toBeLessThan(ODDS.MAX);
+  });
+
   it('ingen kamp i Superligaen har to udfald til nøjagtig samme pris', () => {
     let ens = 0;
     for (const hjemme of SUPERLIGA_TEAMS_2026) {
@@ -208,6 +230,14 @@ describe('fair odds', () => {
       }
     }
     expect(ens).toBe(0);
+  });
+
+  // Chancen ganger indsatsen med (odds − 1), så loftet sætter også taget for
+  // en enkelt runde. Det gik fra 8 × (6,0−1) = 40 til 8 × (8,0−1) = 56 point.
+  // Bindes det ikke til konstanten, vokser det ubemærket næste gang.
+  it('Chancens største enkeltgevinst følger loftet', () => {
+    const maks = settleChance({ correct: true, stake: CHANCE.MAX_ABS, fairOdds: ODDS.MAX });
+    expect(maks.profit).toBe(CHANCE.MAX_ABS * (ODDS.MAX - 1));
   });
   it('favorit giver lav odds, outsider høj', () => {
     const o = outcomeOdds({ eloHome: 1900, eloAway: 1300 });
