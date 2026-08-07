@@ -20,11 +20,15 @@ du stoler på et nyt tal.
 tippe anderledes end de andre.**
 
 En spiller, der tipper favoritter i et felt, hvor alle tipper favoritter, vinder
-sæsonen 8,3 % af gangene — præcis sin retfærdige andel af tolv. Enhver anden
-strategi lander på 20–35 %, altså to til fire gange så meget. Ikke fordi de
-strategier er bedre: deres forventede pointsum er den samme. Men i et
-vinderen-tager-alt-spil er det en fordel i sig selv, at ens point ikke svinger i
-takt med flokkens.
+sæsonen 8,3 % af gangene — præcis sin retfærdige andel af tolv. Sætter man i
+stedet én afvigende spiller ind i den samme flok, vinder han 20–35 %, altså to
+til fire gange så meget. Ikke fordi den strategi er bedre: forventningen er den
+samme for alle, når oddsene er fair. Men i et vinderen-tager-alt-spil er det en
+fordel i sig selv, at ens point ikke svinger i takt med flokkens.
+
+Det ses også i den blandede liga: `hjemmebanen` er den svageste af de seks, og
+det er ikke fordi hjemmesejr er et dårligt gæt. Den vælger bare det samme som
+`favoritten` i to ud af tre kampe.
 
 Det betyder, at spillet **ikke kan gøres "retfærdigt" med en odds-justering**.
 Så længe man kan vælge at tippe anderledes end flertallet, er der en gevinst ved
@@ -57,70 +61,93 @@ to arketyper vælger det samme i over 80 % af kampene. Højeste reelle overlap e
 `favoritten`/`hjemmebanen` på 65-67 %, hvilket er som forventet: hjemmeholdet
 *er* som regel favoritten.
 
-## Superligaen — 132 kampe, felt på 12
+## To målinger, der svarer på hvert sit
 
-Hver arketype **alene** mod elleve favorit-spillere. Kun 1X2-benet, som er det,
+Scriptet laver to tabeller, og de må ikke forveksles:
+
+| Tabel | Spørgsmål | Summer til |
+|---|---|---|
+| **Én blandet liga** | hvem vinder, hvis vi alle spiller forskelligt? | **100 %** |
+| **Seks separate ligaer** | hvor meget hjælper det at skille sig ud fra flokken? | ingenting |
+
+Den anden er let at misforstå. Hver søjle dér er sin **egen** simulering: én
+spiller med den strategi mod elleve favorit-spillere. Inden for hver søjle giver
+det 100 % — men de elleve andre er ikke vist, så summen på tværs af søjlerne
+lander omkring 150 %. Det er ikke en fejl, men det er et tal, man ikke skal
+lægge sammen. Læs den første tabel, hvis du vil vide, hvem der vinder.
+
+## Superligaen — én blandet liga, to spillere pr. arketype
+
+Retfærdig andel pr. arketype er 2 af 12 = **16,7 %**. Kun 1X2-benet, som er det,
 odds-loftet rammer:
 
 | loft | favoritten | underhunden | uafgjort | hjemmebanen | værdijægeren | fornemmelsen |
 |---|---|---|---|---|---|---|
-| 4 | 8,5 % | 22,9 % | 6,7 % | 23,4 % | 21,7 % | 18,0 % |
-| 5 | 8,7 % | 27,3 % | 21,2 % | 22,5 % | 32,1 % | 23,2 % |
-| **6** *(gammelt)* | 8,3 % | 30,6 % | **28,2 %** | 22,5 % | 31,1 % | 25,6 % |
-| 7 | 7,6 % | 31,1 % | 31,2 % | 20,8 % | 31,1 % | 26,2 % |
-| **8** *(nu)* | 7,7 % | 31,3 % | **33,1 %** | 21,8 % | 30,9 % | 26,2 % |
-| 10 | 8,5 % | 30,6 % | 33,2 % | 20,9 % | 32,8 % | 26,7 % |
-| intet | 8,0 % | 31,8 % | 33,4 % | 20,8 % | 30,7 % | 26,4 % |
+| 4 | **25,9 %** | 15,9 % | **2,9 %** | 20,5 % | 15,7 % | 19,0 % |
+| 5 | 17,4 % | 17,8 % | 11,2 % | 14,9 % | 19,7 % | 19,1 % |
+| **6** *(gammelt)* | 16,0 % | 18,5 % | 18,3 % | 12,2 % | 15,9 % | 19,0 % |
+| 7 | 14,5 % | 18,5 % | 21,6 % | 11,4 % | 15,0 % | 19,0 % |
+| **8** *(nu)* | 13,9 % | 19,0 % | 22,2 % | 11,7 % | 14,7 % | 18,5 % |
+| 10 | 14,8 % | 19,3 % | 22,5 % | 11,3 % | 14,4 % | 17,8 % |
+| intet | 13,9 % | 18,9 % | 22,3 % | 12,3 % | 13,7 % | 19,0 % |
 
-Læg mærke til tre ting:
+Tre ting er værd at hæfte sig ved:
 
-1. **`favoritten` ligger på 8,3 % hele vejen ned.** Det er kontrollen. Ligger
-   den ikke der, er der noget galt med målingen, ikke med spillet.
-2. **Loftet ramte uafgjort-spilleren hårdest.** Ved loft 4 var han nede på 6,7 %
-   — under sin retfærdige andel. Det er ikke et designvalg, det er en bivirkning
-   af, at loftet kun klipper høje odds, og at høje odds er hans hele indtægt.
-3. **Kurven er flad fra 8 og opefter.** Derfra flytter et højere loft ingenting.
-   Det er grunden til, at Superligaen står på 8: det er det laveste tal, hvor
-   loftet holder op med at forvride.
+1. **Ved loft 8 er tallene praktisk talt identiske med "intet loft".** Det er
+   den præcise betydning af, at loftet ikke længere forvrider. Det er derfor
+   Superligaen står på 8: det laveste tal, hvor kurven er fladet ud.
+2. **Et lavt loft er et favorit-tilskud.** Ved loft 4 vinder favoritten 25,9 %
+   mod uafgjort-spillerens 2,9 %. Loftet klipper kun høje odds, og høje odds er
+   uafgjort- og underhund-spillerens hele indtægt.
+3. **`hjemmebanen` er svagest (11,7 %)**, og det er ikke fordi strategien er
+   dårlig. Den vælger det samme som `favoritten` i 67 % af kampene, så de to er
+   delvis korrelerede — og fordelen i spillet er netop at være ukorreleret.
 
 Ved loft 6 var der desuden **10 af 132 kampe**, hvor to udfald blev klippet ned
 til nøjagtig samme pris — altså hvor to vidt forskellige gæt betalte det samme.
 I FCK–Lyngby var både uafgjort og udesejr sat til 6,00, selv om de var 7,49 og
 7,80 værd. Ved loft 8 sker det i nul kampe.
 
-## Premier League — 380 kampe, felt på 12
+## Premier League — samme opstilling
 
 | loft | favoritten | underhunden | uafgjort | hjemmebanen | værdijægeren | fornemmelsen |
 |---|---|---|---|---|---|---|
-| 6 | 8,2 % | 19,6 % | 18,7 % | 20,3 % | 29,8 % | 22,4 % |
-| 8 | 8,4 % | 24,4 % | 30,6 % | 21,9 % | 29,9 % | 24,9 % |
-| 10 | 8,0 % | 29,1 % | 33,2 % | 22,6 % | 29,3 % | 25,6 % |
-| **12** | 8,5 % | 29,6 % | 33,4 % | 22,4 % | 29,3 % | 25,7 % |
-| intet | 8,3 % | 31,8 % | 32,4 % | 22,0 % | 29,3 % | 26,0 % |
+| 4 | **40,5 %** | 4,0 % | **0,1 %** | 18,7 % | 20,7 % | 15,9 % |
+| 6 | 19,4 % | 11,7 % | 11,8 % | 14,3 % | 21,3 % | 21,4 % |
+| 8 | 14,3 % | 14,4 % | 23,8 % | 12,1 % | 15,3 % | 20,0 % |
+| 10 | 13,8 % | 17,7 % | 25,3 % | 11,7 % | 13,2 % | 18,4 % |
+| **12** | 13,5 % | 18,5 % | 25,0 % | 12,2 % | 13,4 % | 17,5 % |
+| intet | 12,6 % | 20,7 % | 24,0 % | 11,1 % | 14,0 % | 17,7 % |
 
-Premier League har et langt bredere felt, så loftet binder meget oftere. Ved 6
-ville det halvere underhund-spillerens chance (19,6 % mod 31,8 % uden loft) —
-derfor 12 og ikke 8. Kurven er stort set flad fra 10.
+Premier League har et langt bredere felt, så loftet binder meget oftere og
+hårdere. Ved 6 vinder favoritten 19,4 % mod underhundens 11,7 %; ved 12 er det
+vendt til 13,5 % mod 18,5 %, hvilket ligger tæt på "intet loft". Kurven flader
+ud omkring 10–12, og **det er begrundelsen for 12** — ikke at det er et pænere
+tal end 8.
+
+Bemærk kontrasten til Superligaen: dér er 8 nok, fordi holdene ligger tættere.
+Samme loft i begge ligaer ville betyde, at Premier League blev spillet med en
+tommelfingerregel, der er indstillet efter dansk fodbold.
 
 ## Combi-bonussen ændrer billedet — og loftet rører den ikke
 
 Combi ganger de **rene** odds og er omtrent halvdelen af pointene. Måler man kun
-1X2, ser loftet ud til at udligne spillet. Det gør det ikke.
+1X2, ser loftet ud til at gøre mere, end det gør.
 
 Superligaen, hele pointreglen:
 
 | loft | favoritten | underhunden | uafgjort | hjemmebanen | værdijægeren | fornemmelsen |
 |---|---|---|---|---|---|---|
-| 6 | 8,2 % | 30,5 % | 20,0 % | 25,5 % | 30,1 % | 26,6 % |
-| 8 | 8,2 % | 31,3 % | 21,7 % | 25,2 % | 29,7 % | 27,8 % |
-| intet | 8,6 % | 31,7 % | 21,6 % | 24,7 % | 28,8 % | 27,7 % |
+| 6 | 14,9 % | 20,4 % | 11,4 % | 14,3 % | 16,9 % | 22,1 % |
+| 8 | 13,7 % | 20,9 % | 13,5 % | 14,7 % | 15,7 % | 21,6 % |
+| intet | 14,0 % | 20,5 % | 13,4 % | 14,9 % | 15,4 % | 21,8 % |
 
-Uafgjort-spilleren falder fra 33,1 % til 21,7 %, når combi'en tælles med. Combi
+Uafgjort-spilleren falder fra 22,2 % til 13,5 %, når combi'en tælles med. Combi
 belønner den, der rammer **mange** kampe i samme runde, og det gør han sjældent.
-Underhund-spilleren er derimod stort set upåvirket.
+Underhunden er stort set upåvirket, og `fornemmelsen` bliver den stærkeste.
 
-I Premier League trækker combi den anden vej: underhunden går fra 24,4 % (kun
-1X2) til 35,0 % ved loft 8, fordi de større odds giver en større combi.
+I Premier League trækker combi den anden vej for underhunden: fra 14,4 % (kun
+1X2) til 21,5 % ved loft 8, fordi de større odds giver en større combi.
 
 **Konklusion:** loftet retter det ene ben. Combi'en har sin egen skævhed, og den
 er ikke målt færdig. Det er en åben opgave — se nedenfor.
@@ -141,6 +168,11 @@ Alle fire har kostet et forkert tal, som nåede at blive skrevet ned som sandhed
    Scriptet kører nu den kontrol **først** og nægter at rapportere, hvis den
    fejler.
 4. **Combi var ikke med i modellen.** Se ovenfor.
+5. **Tabellen så ud som en fordeling uden at være det.** Første udgave viste kun
+   "hver type alene mod elleve favorit-spillere" — seks separate simuleringer,
+   hvis søjler summer til ca. 150 %. Enhver, der lægger dem sammen, opdager
+   straks, at noget er galt, og har ret. Den blandede liga er tilføjet netop
+   derfor: den svarer på spørgsmålet, man faktisk stiller, og summer til 100 %.
 
 Dertil to tekniske: tilfældighedsgeneratoren var en klassisk LCG, hvis lave bit
 er stærkt korrelerede — og det var netop dem, `Math.floor(rnd() * 3)` trak på.

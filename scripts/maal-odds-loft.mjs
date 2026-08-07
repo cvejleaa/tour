@@ -199,6 +199,62 @@ function alenevinder(P, loft, alene, flok, medCombi, runder) {
   return 100 * vundet / SÆSONER;
 }
 
+/**
+ * ÉN blandet liga: alle seks arketyper spiller mod hinanden, to af hver.
+ *
+ * Det er det spørgsmål, folk faktisk stiller — og det eneste af de to, hvor
+ * tallene SUMMER TIL 100 %. `alenevinder` måler noget andet: seks separate
+ * ligaer, hver med én afviger mod elleve favorit-spillere. De tal kan ikke
+ * lægges sammen, for de kommer fra hver sin simulering, og en læser, der
+ * summerer dem, får 151 % og tror med rette, at noget er galt.
+ *
+ * De to tabeller svarer på hver sit:
+ *   alenevinder → "hvor meget hjælper det at skille sig ud fra flokken?"
+ *   blandetfelt → "hvem vinder, hvis vi alle spiller forskelligt?"
+ */
+function blandetfelt(P, loft, medCombi, runder) {
+  const navne = Object.keys(ARKETYPER);
+  const odds = P.map((p) => oddsFor(p, loft));
+  const pr = FELT / navne.length; // 12 / 6 = 2 spillere pr. arketype
+  if (!Number.isInteger(pr)) throw new Error(`${FELT} spillere kan ikke deles på ${navne.length} arketyper`);
+  const ejer = [];
+  for (const n of navne) for (let k = 0; k < pr; k += 1) ejer.push(n);
+
+  const fast = Object.fromEntries(navne.map((n) => [n, n === 'fornemmelsen' ? null : P.map(ARKETYPER[n])]));
+  const vundet = Object.fromEntries(navne.map((n) => [n, 0]));
+
+  for (let s = 0; s < SÆSONER; s += 1) {
+    const point = new Array(FELT).fill(0);
+    const ramt = medCombi ? point.map(() => new Map()) : null;
+    for (let i = 0; i < P.length; i += 1) {
+      const p = P[i];
+      const r = rnd();
+      const facit = r < p['1'] ? '1' : (r < p['1'] + p.X ? 'X' : '2');
+      for (let j = 0; j < FELT; j += 1) {
+        const f = fast[ejer[j]];
+        const grund = f ? f[i] : ARKETYPER[ejer[j]](p);
+        const eget = rnd() < STOEJ ? OUT[Math.floor(rnd() * 3)] : grund;
+        if (eget !== facit) continue;
+        point[j] += odds[i][facit];
+        if (ramt) {
+          const rd = runder[i];
+          if (!ramt[j].has(rd)) ramt[j].set(rd, []);
+          ramt[j].get(rd).push(odds[i][facit]);
+        }
+      }
+    }
+    if (ramt) {
+      for (let j = 0; j < FELT; j += 1) {
+        for (const [rd, o] of ramt[j]) point[j] += roundComboBonus(o, antalIRunde.get(rd));
+      }
+    }
+    const bedst = Math.max(...point);
+    const ledere = point.filter((x) => x === bedst).length;
+    for (let j = 0; j < FELT; j += 1) if (point[j] === bedst) vundet[ejer[j]] += 1 / ledere;
+  }
+  return Object.fromEntries(navne.map((n) => [n, 100 * vundet[n] / SÆSONER]));
+}
+
 let antalIRunde = new Map();
 
 const valgt = arg('liga');
@@ -244,11 +300,24 @@ for (const [nøgle, [navn, teamsFil, fixFil]] of Object.entries(LIGAER)) {
   console.log(`\n  KONTROL (to ens arketyper, skal give ${(100 / FELT).toFixed(1)} %): ${k1.toFixed(1)} % / ${k2.toFixed(1)} %  ${ok ? '✓' : '❌ HARNESSEN ER SKÆV — tallene nedenfor betyder intet'}`);
   if (!ok) process.exitCode = 1;
 
-  // Hver arketype ALENE mod elleve favorit-spillere. Favoritten er flokken,
-  // fordi det er den, folk faktisk klumper sig om — og fordelen ved at stå
-  // alene måles netop mod den flok, man skiller sig ud fra.
+  // TABEL 1: ÉN LIGA, alle seks mod hinanden. Summen ER 100 %.
   for (const medCombi of [false, true]) {
-    console.log(`\n  ${medCombi ? 'HELE pointreglen (1X2 + combi)' : 'KUN 1X2 — det ben loftet rammer'}: hver type alene mod elleve favorit-spillere`);
+    console.log(`\n  ÉN BLANDET LIGA — to spillere pr. arketype${medCombi ? ', HELE pointreglen' : ', kun 1X2'}. Summen er 100 %.`);
+    console.log('  loft   ' + navne.map((n) => n.padStart(15)).join('') + '        sum');
+    for (const loft of (medCombi ? [6, 8, 12, Infinity] : LOFTER)) {
+      const r = blandetfelt(P, loft, medCombi, runder);
+      const sum = navne.reduce((a, n) => a + r[n], 0);
+      const navnLoft = loft === Infinity ? 'intet' : String(loft);
+      console.log(`  ${navnLoft.padStart(5)}   ` + navne.map((n) => `${r[n].toFixed(1)} %`.padStart(15)).join('') + `${sum.toFixed(0).padStart(10)} %`);
+    }
+  }
+
+  // TABEL 2: hver arketype ALENE mod elleve favorit-spillere. SEKS SEPARATE
+  // ligaer — tallene må IKKE lægges sammen, de kommer fra hver sin simulering.
+  // Den svarer på et andet spørgsmål: hvor meget hjælper det at skille sig ud?
+  for (const medCombi of [false, true]) {
+    console.log(`\n  SEKS SEPARATE LIGAER — hver type ALENE mod elleve favorit-spillere${medCombi ? ', HELE pointreglen' : ', kun 1X2'}.`);
+    console.log('  (tallene kommer fra hver sin simulering og må IKKE lægges sammen)');
     console.log('  loft   ' + navne.map((n) => n.padStart(15)).join(''));
     for (const loft of (medCombi ? [6, 8, 12, Infinity] : LOFTER)) {
       const rk = navne.map((n) => alenevinder(P, loft, type[n], type.favoritten, medCombi, runder));
