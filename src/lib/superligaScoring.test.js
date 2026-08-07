@@ -7,6 +7,7 @@ import {
   updateElo, actualHomeFromOutcome,
   leagueTable, championshipTeams, puljeScore, PULJE,
 } from './superligaScoring';
+import { SUPERLIGA_TEAMS_2026 } from '../data/superligaTeams2026';
 
 describe('1X2-udfald', () => {
   it('udleder udfald af mål', () => {
@@ -182,9 +183,31 @@ describe('fair odds', () => {
     expect(fairOdds(0.25)).toBe(4);
   });
   it('klippes til [MIN, MAX]', () => {
-    expect(fairOdds(0.99)).toBe(ODDS.MIN);   // 1.01 → 1.1
-    expect(fairOdds(0.01)).toBe(ODDS.MAX);   // 100 → 6.0
+    expect(fairOdds(0.99)).toBe(ODDS.MIN);   // 1,01 → 1,1
+    expect(fairOdds(0.01)).toBe(ODDS.MAX);   // 100 → loftet
     expect(fairOdds(0)).toBe(ODDS.MAX);
+  });
+
+  // Loftet er en justeringsskrue på selve pointreglen, så værdien låses her.
+  // Ændres den, skal balancen måles igen med scripts/maal-odds-loft.mjs —
+  // en rød test her er meningen, ikke en irritation.
+  it('loftet står på den målte værdi', () => {
+    expect(ODDS.MAX).toBe(8.0);
+  });
+
+  // DET er grunden til 8,0: ved 6,0 blev to udfald i 10 af Superligaens 132
+  // kampe klippet ned til nøjagtig samme pris, så to vidt forskellige gæt
+  // betalte det samme. Ved 8,0 sker det i nul kampe.
+  it('ingen kamp i Superligaen har to udfald til nøjagtig samme pris', () => {
+    let ens = 0;
+    for (const hjemme of SUPERLIGA_TEAMS_2026) {
+      for (const ude of SUPERLIGA_TEAMS_2026) {
+        if (hjemme === ude) continue;
+        const o = outcomeOdds({ eloHome: hjemme.elo, eloAway: ude.elo });
+        if (o['1'] === o.X || o.X === o['2'] || o['1'] === o['2']) ens += 1;
+      }
+    }
+    expect(ens).toBe(0);
   });
   it('favorit giver lav odds, outsider høj', () => {
     const o = outcomeOdds({ eloHome: 1900, eloAway: 1300 });

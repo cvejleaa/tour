@@ -102,10 +102,13 @@ export const TRAEF_BONUS = 0;
  * MED loftet på 6,00 er outsiderens forventning 128,3, fordi loftet binder på
  * 36 af Superligaens 132 kampe og betaler ham mindre end fair.
  *
- * De 4,5 points forskel er nu favorittens eneste forspring, og det er en AKTIV
- * modvægt: uden loftet vinder den modige oftest, fordi lige forventning og
- * højere spredning slår igennem i et vinderen-tager-alt-spil. Hæves eller
- * fjernes ODDS.MAX, skal balancen derfor måles igen — det er ikke oprydning.
+ * RETTET: her stod, at de 4,5 point var en AKTIV modvægt, fordi den modige
+ * ellers ville vinde oftest på højere spredning. Det holdt ikke ved en måling.
+ * Fordelen ved at stå alene er den samme, uanset om man står alene med
+ * outsidere eller med favoritter (~4× sin andel begge veje), så loftet
+ * udlignede ikke noget — det straffede kun den ene af de to. Loftet er derfor
+ * hævet til 8,0, hvor det binder på nul udfald i Superligaens program. Se
+ * kommentaren ved ODDS længere nede.
  *
  * Konstanten bliver stående i stedet for at blive fjernet: det er en
  * justeringsskrue med en målt historik, og næste gang nogen overvejer at
@@ -229,8 +232,40 @@ export function outcomeProbabilities({
   };
 }
 
-/** Grænser for Chancen-odds, så en enkelt kamp ikke bliver ekstrem. */
-export const ODDS = { MIN: 1.1, MAX: 6.0 };
+/**
+ * Grænser for odds, så en enkelt kamp ikke bliver ekstrem.
+ *
+ * MAX gik fra 6,0 til 8,0, og begrundelsen er en MÅLT rettelse af det, der
+ * stod her før. Den gamle tekst sagde, at loftet var en "aktiv modvægt", fordi
+ * den modige ellers ville vinde for ofte i et vinderen-tager-alt-spil. Første
+ * halvdel passer: i et felt på 12, hvor én spiller tipper outsidere og elleve
+ * tipper favoritter, vinder outsideren ~33 % uden loft — fire gange sin
+ * retfærdige andel på 8,3 %.
+ *
+ * Men vendes feltet om — elleve outsider-spillere og ÉN favorit-spiller —
+ * vinder favoritten 34 %. Præcis det samme. Effekten er altså ikke spredning;
+ * den er, at man er den eneste, hvis point ikke er korreleret med de andres.
+ * Hvem der end står alene, vinder ~4× sin andel, uanset strategi.
+ *
+ * Og så udligner loftet ikke — det SKABER en skævhed, fordi det kun rammer
+ * høje odds, og høje odds er outsiderens hele indtægt:
+ *
+ *     Superligaen   outsider alene   favorit alene
+ *       loft 6          29 %             39 %
+ *       loft 8          33 %             34 %
+ *
+ * Ved 8 er de to næsten lige. Loftet binder samtidig på nul udfald i
+ * Superligaens program (højeste fair odds er 7,80), så det er reelt kun et
+ * værn mod et ekstremt hold-mismatch, ikke en løbende justeringsskrue.
+ *
+ * Premier League har et meget bredere felt og skal have et HØJERE loft — ved 8
+ * ville 26 kampe stadig have to udfald til nøjagtig samme pris. Loftet bør
+ * derfor gøres pr. spil, når PL seedes; se opgaven om odds-loftet.
+ *
+ * Måles med scripts/maal-odds-loft.mjs. Ændres MAX, skal balancen måles igen
+ * — det er ikke oprydning.
+ */
+export const ODDS = { MIN: 1.1, MAX: 8.0 };
 
 /**
  * Fair (EV-neutral) decimal-odds for en sandsynlighed, klippet til [MIN,MAX].

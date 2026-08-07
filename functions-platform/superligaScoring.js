@@ -65,13 +65,15 @@ const TRAEF_BONUS = 0;
  *
  * Sat til 0 er forventningen igen praktisk talt ens: analytisk 132,8 for
  * favorit-spilleren mod 132,1 for outsideren over en sæson — UDEN odds-loft.
- * MED loftet på 6,00 er outsiderens forventning 128,3, fordi loftet binder på
- * 36 af Superligaens 132 kampe og betaler ham mindre end fair.
+ * MED det gamle loft på 6,00 var outsiderens forventning 128,3, fordi loftet
+ * band på 36 af Superligaens 132 kampe og betalte ham mindre end fair.
  *
- * De 4,5 points forskel er nu favorittens eneste forspring, og det er en AKTIV
- * modvægt: uden loftet vinder den modige oftest, fordi lige forventning og
- * højere spredning slår igennem i et vinderen-tager-alt-spil. Hæves eller
- * fjernes ODDS.MAX, skal balancen derfor måles igen — det er ikke oprydning.
+ * RETTET: her stod, at de 4,5 point var en AKTIV modvægt, fordi den modige
+ * ellers ville vinde oftest på højere spredning. Det holdt ikke ved en måling.
+ * Fordelen ved at stå alene er den samme, uanset om man står alene med
+ * outsidere eller med favoritter (~4× sin andel begge veje), så loftet
+ * udlignede ikke noget — det straffede kun den ene af de to. Loftet er derfor
+ * hævet til 8,0, hvor det binder på nul udfald i Superligaens program.
  *
  * Konstanten bliver stående i stedet for at blive fjernet: det er en
  * justeringsskrue med en målt historik, og næste gang nogen overvejer at
@@ -178,7 +180,11 @@ function scoreBet(bet, result, odds, bank) {
 // --- Elo-lite: sandsynligheder, odds + vedligeholdelse (spejl af src) --------
 
 const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.26, DRAW_DECAY: 0.55 };
-const ODDS = { MIN: 1.1, MAX: 6.0 };
+// MAX gik 6,0 → 8,0. Loftet udlignede ikke, som den gamle kommentar påstod —
+// det SKABTE en skævhed mod favorit-spilleren, fordi det kun rammer høje odds.
+// Målt i et felt på 12: outsider alene 29 % mod favorit alene 39 % ved loft 6;
+// 33 % mod 34 % ved loft 8. Se den fulde begrundelse i src/lib/superligaScoring.js.
+const ODDS = { MIN: 1.1, MAX: 8.0 };
 
 function eloExpectedHome(eloHome, eloAway, hfa = ELO.HFA) {
   const dr = (Number(eloHome) + hfa) - Number(eloAway);
