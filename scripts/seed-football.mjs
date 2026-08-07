@@ -32,8 +32,15 @@
 // ---------------------------------------------------------------------------
 
 const admin = (await import('firebase-admin')).default;
-const { readFileSync } = await import('fs');
+const { readFileSync, existsSync } = await import('fs');
 const { pathToFileURL } = await import('url');
+const { resolve, isAbsolute } = await import('path');
+
+// Stier opløses mod REPOETS ROD, ikke mod den mappe, man tilfældigvis står i.
+// Uden det fejler `--teams src/data/…` for alle, der ikke står i roden — og
+// fejlbeskeden ("Cannot find module") peger på Node, ikke på det, der er galt.
+const ROD = new URL('..', import.meta.url).pathname;
+const sti = (p) => (isAbsolute(p) ? p : resolve(ROD, p));
 const { buildMatches } = await import('../src/lib/superligaSeed.js');
 // Beslutningerne (hvad springes over, hvad ændres) bor i et testet modul.
 // To udgaver af "hvornår må vi skrive odds" er to steder at lave fejlen.
@@ -75,7 +82,9 @@ Mangler argumenter.
 
 /** Kampprogrammet. Understøtter både en bar liste og { _note, fixtures }. */
 function loadFixtures(path) {
-  const data = JSON.parse(readFileSync(path, 'utf8'));
+  const fuld = sti(path);
+  if (!existsSync(fuld)) throw new Error(`fandt ikke kampprogrammet: ${path}\n   (ledte i ${fuld})`);
+  const data = JSON.parse(readFileSync(fuld, 'utf8'));
   const list = Array.isArray(data) ? data : data.fixtures;
   if (!Array.isArray(list)) throw new Error('fixtures skal være en liste (eller {fixtures:[...]}).');
   if (!Array.isArray(data) && data._note) console.log(`\nNote fra ${path}:\n  ${data._note}\n`);
@@ -84,7 +93,9 @@ function loadFixtures(path) {
 
 /** Holdlisten. Tager den FØRSTE eksporterede liste med navngivne hold. */
 async function loadTeams(path) {
-  const mod = await import(pathToFileURL(path).href);
+  const fuld = sti(path);
+  if (!existsSync(fuld)) throw new Error(`fandt ikke holdlisten: ${path}\n   (ledte i ${fuld})`);
+  const mod = await import(pathToFileURL(fuld).href);
   for (const v of Object.values(mod)) {
     if (Array.isArray(v) && v.length && typeof v[0]?.name === 'string') return v;
   }
@@ -98,7 +109,17 @@ if (process.env.FIRESTORE_EMULATOR_HOST) {
   console.log(`Emulator: ${process.env.FIRESTORE_EMULATOR_HOST}`);
   app = admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'spil-89af9' });
 } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-  const sa = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8'));
+  const nøgle = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  // `/sti/sa.json` er pladsholderen fra drift.md. Den slipper gennem alle
+  // argument-tjek og fejler først dybt nede i Firebase-SDK'et med en besked,
+  // der ikke nævner den. Sig det med det samme i stedet.
+  if (!existsSync(nøgle)) {
+    console.error(`\n⚠️  Fandt ingen service-account-nøgle på "${nøgle}".`);
+    if (/^\/sti\//.test(nøgle)) console.error('   Det ser ud som pladsholderen fra docs/drift.md — sæt den rigtige sti ind.');
+    console.error('');
+    process.exit(1);
+  }
+  const sa = JSON.parse(readFileSync(nøgle, 'utf8'));
   app = admin.initializeApp({ credential: admin.credential.cert(sa) });
 } else {
   app = admin.initializeApp();

@@ -55,7 +55,16 @@ GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
 ```
 
 Tør-kørsel er default. Ser tallene rigtige ud, køres den igen med `--skriv`.
-Kør fra repo-roden — `--teams` opløses mod den mappe, du står i.
+
+`--teams` og `--fixtures` opløses mod **repoets rod**, ikke mod den mappe du står
+i, så kommandoen virker uanset hvorfra den køres. Men **selve scriptet** skal
+findes: står du et andet sted, så skriv den fulde sti til
+`scripts/seed-football.mjs`, ellers svarer Node med `Cannot find module` — en
+fejl, der ligner en mangel i repoet og ikke er det.
+
+`/sti/sa.json` ovenfor er en **pladsholder**. Sæt din egen sti til
+service-account-nøglen ind; scriptet siger fra med det samme, hvis filen ikke
+findes.
 
 Scriptet nægter at skrive, hvis et holdnavn i kampprogrammet ikke findes i
 holdlisten. Det er med vilje: `teamElo()` giver **tavst 1500** for et ukendt
