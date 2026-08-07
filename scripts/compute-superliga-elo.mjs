@@ -38,13 +38,47 @@ const canon = (n) => CANON[n] || n;
 const elo = new Map(); // holdnavn -> rating
 const get = (n) => (elo.has(n) ? elo.get(n) : MEAN);
 
+/**
+ * Mål som TAL — uanset om API'et sender 1 eller "1".
+ *
+ * api.superliga.dk skifter type undervejs i historikken: sæsoner til og med
+ * 2021/22 leverer score som TEKST ("0", "4"), 2022/23 og frem som tal. Det
+ * gamle filter brugte `Number.isFinite(e.score.home)`, som afviser tekst — så
+ * kørt på en ældre sæson smed scriptet HVER ENESTE kamp væk og beregnede Elo
+ * på et tomt datasæt. Uden fejl, uden advarsel. Det kostede syv sæsoner, før
+ * nogen opdagede det.
+ */
+const maal = (v) => {
+  // null og '' SKAL afvises FØR Number(): begge giver 0, og så bliver en
+  // færdigspillet kamp uden resultat til 0-0 — altså en uafgjort ud af
+  // ingenting, lagt til præcis det tal DRAW_BASE er fittet mod. Rettelsen mod
+  // at TABE kampe må ikke blive til en, der OPFINDER dem.
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
 function loadFinished(path) {
   const d = JSON.parse(readFileSync(path, 'utf8'));
-  return (d.events || [])
-    .filter((e) => e.statusType === 'finished' && e.score
-      && Number.isFinite(e.score.home) && Number.isFinite(e.score.away))
-    .map((e) => ({ ...e, homeName: canon(e.homeName), awayName: canon(e.awayName) }))
+  const alle = (d.events || []).filter((e) => e.statusType === 'finished');
+  const brugbare = alle
+    .map((e) => ({
+      ...e,
+      homeName: canon(e.homeName),
+      awayName: canon(e.awayName),
+      score: { home: maal(e.score?.home), away: maal(e.score?.away) },
+    }))
+    .filter((e) => e.score.home !== null && e.score.away !== null)
     .sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+  // Sig det HØJT, hvis en fil taber kampe. Et tomt datasæt gav før et pænt
+  // resultat, hvor alle hold stod på 1500 — og det ligner en gyldig tabel.
+  if (brugbare.length < alle.length) {
+    const tabt = alle.length - brugbare.length;
+    console.error(`⚠️  ${path}: ${tabt} af ${alle.length} færdigspillede kampe mangler brugbart resultat.`);
+  }
+  if (alle.length === 0) console.error(`⚠️  ${path}: ingen færdigspillede kampe overhovedet.`);
+  return brugbare;
 }
 
 let processed = 0;

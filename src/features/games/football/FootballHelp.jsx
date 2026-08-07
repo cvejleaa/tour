@@ -126,16 +126,18 @@ export default function FootballHelp() {
         overraskelse til odds 4,5, giver det{' '}
         <strong>{(4.5 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>. Forkert tip giver 0.
         <p style={{ margin: '0.5rem 0 0' }}>
-          Oddsene er <strong>1 delt med sandsynligheden</strong> — dog altid mellem{' '}
-          <strong>{fmtDec(ODDS.MIN)}</strong> og <strong>{fmtDec(ODDS.MAX)}</strong>. Det betyder, at ethvert
+          Oddsene er <strong>1 delt med sandsynligheden</strong> — mindst{' '}
+          <strong>{fmtDec(ODDS.MIN)}</strong>, og ellers uden loft. Det betyder, at ethvert
           enkelt tip er lige meget værd i det lange løb: en sikker favorit giver få point ofte, en
           overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre valg altså
           lige gode.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
-          Er et udfald endnu mere usandsynligt end{' '}
-          <strong>højst {fmtDec(ODDS.MAX)}</strong> svarer til, betaler det stadig kun {fmtDec(ODDS.MAX)}.
-          Derfor er de allervildeste langskud lidt underbetalte.
+          <strong>Der er ikke længere et loft over oddsene.</strong> Tidligere blev alt over 6,00
+          skåret ned til 6,00, og det gjorde tre ting: de vildeste langskud var underbetalte, to
+          vidt forskellige udfald kunne stå til nøjagtig samme pris, og en Chance på høje odds var
+          i praksis et tab. Nu betaler et udfald altid, hvad det er værd — i Superligaen op til
+          omkring 8, i Premier League helt op til 24.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
           <strong>Oddsene kan nå at flytte sig, indtil kampen går i gang.</strong> Efter hvert
@@ -145,11 +147,12 @@ export default function FootballHelp() {
           man har tippet. Så ingen kan hente en fordel ved at komme først.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
-          Forskellen kommer i <strong>combi-bonussen</strong>, som ganger de <strong>rene odds</strong>{' '}
-          sammen: rammer du to overraskelser til odds 4,5, giver den{' '}
+          <strong>Combi-bonussen</strong> ganger de <strong>rene odds</strong> sammen: rammer du
+          to overraskelser til odds 4,5, giver den{' '}
           <strong>{fmtDec(roundComboBonus([4.5, 4.5], 2))}</strong>; rammer du fem favoritter til odds 1,6,
-          giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>. Dét er stedet,
-          hvor mod betaler sig.
+          giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>. Den er
+          nu det eneste sted i spillet, der stadig har et loft — på{' '}
+          <strong>{COMBI.LOFT}</strong>.
         </p>
       </Section>
 
@@ -161,6 +164,12 @@ export default function FootballHelp() {
         {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus. Indsatsen
         tages fra dine <strong>optjente point</strong>, så du kan først bruge Chancen, når du har samlet
         nogle point.
+        <p style={{ margin: '0.5rem 0 0' }}>
+          Fordi oddsene ikke længere har et loft, er det her, ændringen mærkes mest. Fuld indsats
+          på et udfald til odds 8 giver <strong>56 point</strong>; i Premier League kan en enkelt
+          Chance til odds 24 give <strong>187</strong>. Det sker sjældent — og de gange du ikke
+          rammer, koster det stadig kun indsatsen.
+        </p>
       </Section>
 
       <Section emoji="🎰" title="Combi-runde-bonus">

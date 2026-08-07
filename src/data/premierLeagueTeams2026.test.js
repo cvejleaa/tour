@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { PREMIER_LEAGUE_TEAMS_2026 as TEAMS } from './premierLeagueTeams2026.js';
 import { teamElo } from '../lib/superligaSeed.js';
-import { ELO } from '../lib/superligaScoring.js';
+import { ELO, outcomeProbabilities } from '../lib/superligaScoring.js';
 import program from '../../scripts/premier-league-fixtures-2627.json';
 
 const fixtures = program.fixtures;
@@ -59,11 +59,11 @@ describe('Elo-startværdierne', () => {
     expect(Math.round(snit)).toBe(ELO.START);
   });
 
-  // Spredningen er bevaret fra kilden og IKKE klemt ned til Superligaens — se
-  // begrundelsen i filhovedet. Den påstand hører i en kommentar, ikke i en
-  // assertion mod et tilfældigt tal: en grænse på "mere end 400" ville kun
-  // kunne fejle, hvis nogen skrev dataen om, og så ville den fejle uden at
-  // forklare hvorfor netop 400.
+  // Her stod: "Spredningen er bevaret fra kilden og IKKE klemt ned." Det er
+  // ikke længere sandt — ratings er siden kalibreret mod markedet, netop fordi
+  // clubelos spredning gav favoritten 78 % chance for titlen mod markedets
+  // 33 %. Se blokken "Elo er kalibreret mod markedet" nederst i filen, som
+  // binder den nye påstand.
 
   // De tre oprykkere må ikke ligge på 1500 — dét ville være at give dem
   // præcis den værdi, et UKENDT hold får, og så er fælden tilbage i praksis.
@@ -73,6 +73,83 @@ describe('Elo-startværdierne', () => {
       expect(t, navn).toBeTruthy();
       expect(t.elo, navn).toBeLessThan(ELO.START);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// KALIBRERINGEN MOD MARKEDET
+//
+// Hele denne blok fandtes ikke, og det var det største hul i ændringen: man
+// kunne rulle filen HELT tilbage til de rå clubelo-tal, og alle 1653 tests
+// blev grønne. Den eneste vagt var "har gennemsnit på ELO.START", som per
+// konstruktion overlever enhver middelværdi-bevarende ændring — og en
+// kalibrering ER middelværdi-bevarende.
+//
+// Det er data, der sætter odds, som sætter point. Påstanden i filhovedet skal
+// derfor bindes af noget, der kan blive rødt.
+// ---------------------------------------------------------------------------
+describe('Elo er kalibreret mod markedet, ikke kopieret fra clubelo', () => {
+  // Fast frø: to kørsler skal give samme tal, ellers er en test, der måler en
+  // simulering, bare støj med en assertion på.
+  function titelchancer(hold, sæsoner = 1000) {
+    const elo = Object.fromEntries(hold.map((t) => [t.name, t.elo]));
+    let frø = 424242;
+    const rnd = () => {
+      frø |= 0; frø = (frø + 0x6D2B79F5) | 0;
+      let t = Math.imul(frø ^ (frø >>> 15), 1 | frø);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const P = fixtures.map((m) => outcomeProbabilities({ eloHome: elo[m.home], eloAway: elo[m.away] }));
+    const vundet = {};
+    for (let s = 0; s < sæsoner; s += 1) {
+      const point = Object.fromEntries(hold.map((t) => [t.name, 0]));
+      fixtures.forEach((m, i) => {
+        const p = P[i]; const r = rnd();
+        if (r < p['1']) point[m.home] += 3;
+        else if (r < p['1'] + p.X) { point[m.home] += 1; point[m.away] += 1; }
+        else point[m.away] += 3;
+      });
+      const bedst = Math.max(...Object.values(point));
+      const ledere = Object.keys(point).filter((k) => point[k] === bedst);
+      for (const l of ledere) vundet[l] = (vundet[l] || 0) + 1 / ledere.length;
+    }
+    return Object.fromEntries(Object.entries(vundet).map(([k, v]) => [k, v / sæsoner]));
+  }
+
+  // KERNEPÅSTANDEN. Rå clubelo gav Arsenal 77,9 % chance for titlen; markedet
+  // (Danske Spil og bet365) siger ~33 %. Båndet her er bevidst bredt — det
+  // skal fange en tilbagerulning, ikke en finjustering — men det udelukker
+  // netop den værdi, kalibreringen findes for at rette.
+  it('giver favoritten en titelchance nær markedets ~33 %, ikke clubelos ~78 %', () => {
+    const chance = titelchancer(TEAMS);
+    const favorit = Object.entries(chance).sort((a, b) => b[1] - a[1])[0];
+    expect(favorit[0]).toBe('Arsenal');
+    expect(favorit[1]).toBeGreaterThan(0.25);
+    expect(favorit[1]).toBeLessThan(0.45);
+  });
+
+  // Kalibreringen flyttede rangordenen, ikke bare niveauet. Disse tre par var
+  // VENDT i rå clubelo, og de er hele grunden til, at markedet blev brugt:
+  // clubelo måler seneste form, markedet måler forventning for sæsonen.
+  it('følger markedets rangorden, hvor clubelo var uenig', () => {
+    const elo = Object.fromEntries(TEAMS.map((t) => [t.name, t.elo]));
+    // Tottenham var 1458 (nr. 15) i clubelo, men markedet prisede dem i toppen.
+    expect(elo['Tottenham Hotspur']).toBeGreaterThan(elo['Newcastle United']);
+    expect(elo['Tottenham Hotspur']).toBeGreaterThan(elo.Brentford);
+    // Chelsea var 1512, under Aston Villas 1602. Markedet vender det om.
+    expect(elo.Chelsea).toBeGreaterThan(elo['Aston Villa']);
+    // Liverpool skal ligge i toppen — de lå nr. 5 i clubelo.
+    expect(elo.Liverpool).toBeGreaterThan(elo.Bournemouth);
+  });
+
+  // Spidsheden er det, der driver titelchancen. Clubelo gav favoritten 93
+  // points forspring til nr. 2 og 142 til nr. 3; efter kalibreringen er det 19
+  // og 40. Uden denne vagt kunne man hæve toppen igen uden at noget blev rødt.
+  it('har ikke et hold, der stikker af fra feltet', () => {
+    const sorteret = [...TEAMS].sort((a, b) => b.elo - a.elo);
+    expect(sorteret[0].elo - sorteret[1].elo).toBeLessThan(50);
+    expect(sorteret[0].elo - sorteret[2].elo).toBeLessThan(80);
   });
 });
 

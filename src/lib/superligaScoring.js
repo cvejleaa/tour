@@ -99,13 +99,17 @@ export const TRAEF_BONUS = 0;
  *
  * Sat til 0 er forventningen igen praktisk talt ens: analytisk 132,8 for
  * favorit-spilleren mod 132,1 for outsideren over en sæson — UDEN odds-loft.
- * MED loftet på 6,00 er outsiderens forventning 128,3, fordi loftet binder på
- * 36 af Superligaens 132 kampe og betaler ham mindre end fair.
+ * MED det gamle loft på 6,00 var outsiderens forventning 128,3, fordi loftet
+ * band på 36 af Superligaens 132 kampe og betalte ham mindre end fair.
  *
- * De 4,5 points forskel er nu favorittens eneste forspring, og det er en AKTIV
- * modvægt: uden loftet vinder den modige oftest, fordi lige forventning og
- * højere spredning slår igennem i et vinderen-tager-alt-spil. Hæves eller
- * fjernes ODDS.MAX, skal balancen derfor måles igen — det er ikke oprydning.
+ * RETTET: her stod, at de 4,5 point var en AKTIV modvægt, fordi den modige
+ * ellers ville vinde oftest på højere spredning. Det holdt ikke ved en måling.
+ * Fordelen ved at stå alene er den samme, uanset om man står alene med
+ * outsidere eller med favoritter (~4× sin andel begge veje), så loftet
+ * udlignede ikke noget — det straffede kun den ene af de to. Loftet er derfor
+ * FJERNET helt. (Undervejs stod her, at det var hævet til 8,0; det var et
+ * mellemtrin, som målingen af Chancen siden væltede.) Se kommentaren ved ODDS
+ * længere nede.
  *
  * Konstanten bliver stående i stedet for at blive fjernet: det er en
  * justeringsskrue med en målt historik, og næste gang nogen overvejer at
@@ -183,13 +187,60 @@ export function roundComboBonus(hitOdds, matchCount) {
 
 // --- Elo-lite: sandsynligheder + fair odds -----------------------------------
 
-/** Standard Elo-parametre for Superligaen. */
+/**
+ * Standard Elo-parametre.
+ *
+ * DRAW_BASE gik fra 0,26 til 0,305, og DRAW_DECAY står med vilje stille.
+ * Målt på 6.143 spillede kampe — 13 sæsoner af Superligaen og 10 af Premier
+ * League, hvert holdpar vurderet med de ratings, de havde FØR kampen:
+ *
+ *     model                 forventede uafgjorte   faktiske
+ *     0,260 / 0,550               1.362             1.493   (9 % for få)
+ *     0,305 / 0,550               1.493             1.493   (rammer)
+ *
+ * Fejlen sad altså i NIVEAUET, ikke i formen. Låser man DECAY på 0,55 og
+ * fitter kun BASE, fanger man næsten hele forbedringen (log-likelihood 3407,1
+ * → 3384,1 mod 3383,7 for et frit fit af begge). Én parameter er nok.
+ *
+ * DET, DER GJORDE DEN GAMLE VÆRDI FORKERT, var kalibreringsmålet: 0,26 blev
+ * valgt, så modellen ramte Superligaens GENNEMSNITLIGE uafgjort-rate. Et
+ * gennemsnit kan ikke se, om kurven har rigtig form — og modellen ramte
+ * gennemsnittet ved at være for høj i de jævnbyrdige kampe og for lav i de
+ * skæve. Målingen her grupperer efter styrkeforskel og fitter mod hver enkelt
+ * kamp, så begge dele afsløres.
+ *
+ * DECAY ER EFTERPRØVET og skal ikke røres uden nye tal. 95 %-intervallet over
+ * alle 6.143 kampe er 0,35-0,63; 0,55 ligger midt i det. Sådan ser modellen ud
+ * i de skæve kampe, hvor parameteren overhovedet kan måles — kolonnerne er
+ * NUVÆRENDE model (0,305/0,55) og det forkastede forslag (0,287/0,248):
+ *
+ *     skew        kampe   faktisk   nu       forkastet
+ *     0,5-0,6      285     16,5 %   16,8 %   21,9 %
+ *     0,6-0,7      118     11,9 %   15,1 %   20,9 %
+ *     0,7-1,0       26      3,8 %   13,5 %   19,9 %
+ *
+ * Vær ærlig om, hvad det viser: modellen ligger nu en anelse HØJT i de skæve
+ * kampe (+12 % over skew 0,5, 69 forventede mod 62 faktiske), hvor den før lå
+ * lavt. Det er ikke gratis, men det er inden for støjen — usikkerheden på de
+ * bånd er ±4-7 procentpoint, og det øverste bånd er 26 kampe i alt. Prisen for
+ * at ramme dér ville være at ramme skævt i de 5.700 andre kampe. Det forkastede
+ * forslag ligger 49 % for højt i netop de samme kampe.
+ *
+ * (0,25 stod som forslag undervejs, fittet mod 14 bookmakerpriser. Det var
+ * forkert af to grunde, som er værd at huske: Superligaen har INGEN kampe over
+ * skew 0,50, så dens historik kan slet ikke måle henfaldet — og en naiv
+ * de-vigning, der fordeler bookmakerens margin proportionalt over de tre
+ * udfald, overdriver langskuddene systematisk. Markedet så fladt ud, fordi
+ * metoden gjorde det fladt.)
+ *
+ * Måles med scripts/maal-uafgjort.mjs. Se docs/spilbalance.md.
+ */
 export const ELO = {
-  START: 1500,      // rating for et nyt/ukendt hold
-  HFA: 60,          // hjemmebane-fordel i Elo-point (~0.09 forventning)
-  K: 20,            // opdateringshastighed pr. kamp
-  DRAW_BASE: 0.26,  // uafgjort-sandsynlighed når holdene er LIGE stærke (~Superligaens rate)
-  DRAW_DECAY: 0.55, // hvor hurtigt uafgjort-chancen falder med styrkeforskel
+  START: 1500,       // rating for et nyt/ukendt hold
+  HFA: 60,           // hjemmebane-fordel i Elo-point (~0.09 forventning)
+  K: 20,             // opdateringshastighed pr. kamp
+  DRAW_BASE: 0.305,  // uafgjort-sandsynlighed når holdene er LIGE stærke
+  DRAW_DECAY: 0.55,  // hvor hurtigt uafgjort-chancen falder med styrkeforskel
 };
 
 /**
@@ -229,19 +280,87 @@ export function outcomeProbabilities({
   };
 }
 
-/** Grænser for Chancen-odds, så en enkelt kamp ikke bliver ekstrem. */
-export const ODDS = { MIN: 1.1, MAX: 6.0 };
+/**
+ * Grænser for odds. Der er ikke længere et LOFT — kun et gulv.
+ *
+ * MAX var 6,0, blev foreslået hævet til 8,0, og er nu fjernet. Begrundelsen er
+ * målt, og den er skarpere end de to tidligere forsøg:
+ *
+ * ET LOFT KLIPPER KUN GEVINSTEN, aldrig indsatsen. Oddsene er fair, så en
+ * Chance har forventning nul — men klippes udbetalingen, bliver forventningen
+ * NEGATIV. Den, der satser modigt, spiller altså til dårligere end fair pris.
+ * Målt over 3.000 sæsoner af Premier League med tolv spillere, tre pr.
+ * Chancen-strategi (retfærdig andel 25 %):
+ *
+ *     loft    ingen   sikker  moderat   modig   modiges udbytte af Chancen
+ *      6      27,6 %  41,5 %   15,5 %   15,5 %      −34 point pr. sæson
+ *      8      11,7 %  26,5 %   39,1 %   22,7 %      −47 point
+ *     12       9,3 %  27,0 %   33,3 %   30,3 %      −27 point
+ *    intet     8,6 %  24,8 %   30,6 %   36,1 %       −2 point
+ *
+ * Ved loft 6 vandt den, der SLET IKKE brugte Chancen, oftere (27,6 %) end den,
+ * der brugte den modigt (15,5 %). Loftet gjorde altså funktionen uklog at
+ * bruge — det stik modsatte af, hvad den er til for.
+ *
+ * Dertil et fund, der ikke kræver simulering: loftet klippede 46 udfald i
+ * Superligaen og 197 i Premier League ned til nøjagtig 6,00 — i 10 henholdsvis
+ * 62 kampe stod TO udfald til samme pris. Kortet viste altså samme pris for et
+ * udfald med 17 % chance og et med 4 %, så den, der ville satse modigt, valgte
+ * i blinde og ramte systematisk det dårligste.
+ * (RETTET: her stod "46 udfald i Premier League". 46 er SUPERLIGAENS tal; PL's
+ * er over fire gange så stort. Begge er målt under den GAMLE uafgjort-model,
+ * altså det, spillerne faktisk så.)
+ *
+ * HER STOD OGSÅ "uden loft kan to udfald aldrig betale ens". Det er FORKERT,
+ * og det er værd at forstå hvorfor. Er udeholdet præcis HFA (60 point)
+ * stærkere end hjemmeholdet, er de to hold reelt lige, og så er p1 og p2
+ * MATEMATISK identiske — ikke et afrundingssammenfald. Superligaen har intet
+ * par med præcis 60 points forskel; Premier League har ét (Brentford 1503 mod
+ * Aston Villa 1563 → 1 og 2 begge 2,68), og det spilles to gange. Loftet var
+ * problemet, fordi det ramte 46 + 197 udfald; HFA-sammenfaldet rammer to
+ * kampe i to ligaer og er en egenskab ved modellen, ikke en fejl. Lov derfor
+ * ikke spillerne, at det aldrig sker.
+ *
+ * PRISEN, som er bevidst valgt: højeste odds i Premier League er 24,39
+ * (Arsenal–Hull ude), så én Chance kan give op til 187 point. Det sker 4,1 % af
+ * gangene, og de øvrige 95,9 % koster indsatsen. Simuleringen siger, at det
+ * ikke gør sæsonen til et lotteri — den modige vinder 36 %, ikke 80 %.
+ *
+ * En tidligere idé om at skalere INDSATSEN med oddsene blev forkastet: med
+ * heltalsindsatser og et gevinstloft på 40 ville odds 6,00 give maks 40 point
+ * og odds 24,39 kun 23,4. Langskuddet ville altså blive dårligere end den
+ * sikre kamp — det modsatte af hensigten.
+ *
+ * MIN bliver stående: et udfald skal betale mere end indsatsen tilbage. Vær
+ * dog klar over, at det er et VÆRN, ikke en aktiv grænse: efter DRAW_BASE gik
+ * til 0,305, er den højeste sandsynlighed modellen overhovedet kan give
+ * 0,8958 — altså laveste odds 1,116. Gulvet kan derfor aldrig binde gennem
+ * outcomeOdds, som er den eneste vej i produktion. Det binder kun, hvis nogen
+ * kalder fairOdds direkte med en sandsynlighed over 0,909.
+ *
+ * Måles med scripts/maal-chancen.mjs (tabellen ovenfor) og
+ * scripts/maal-spilbalance.mjs (1X2 og combi). Se docs/spilbalance.md.
+ */
+export const ODDS = {
+  MIN: 1.1,
+  // Kun for et udfald, modellen har givet sandsynligheden 0 eller noget
+  // ugyldigt. Det kan ikke ske med rigtige Elo-tal, men scoringen må ikke
+  // returnere Infinity, hvis det alligevel sker.
+  UGYLDIG: 100,
+};
 
 /**
- * Fair (EV-neutral) decimal-odds for en sandsynlighed, klippet til [MIN,MAX].
- * Afrundes til 2 decimaler. p ≤ 0 giver MAX.
+ * Fair (EV-neutral) decimal-odds for en sandsynlighed. Kun et GULV (MIN) —
+ * intet loft. Afrundes til 2 decimaler. p ≤ 0 eller ugyldigt giver UGYLDIG.
  */
 export function fairOdds(p) {
   const prob = Number(p);
-  if (!Number.isFinite(prob) || prob <= 0) return ODDS.MAX;
-  const raw = 1 / prob;
-  const clamped = Math.min(ODDS.MAX, Math.max(ODDS.MIN, raw));
-  return Math.round(clamped * 100) / 100;
+  // Et umuligt eller ugyldigt udfald har ingen fair pris. Før faldt det
+  // tilbage på loftet; nu findes der ikke et. UGYLDIG er derfor et bevidst
+  // valgt tal, ikke en grænse for rigtige odds — modellen giver aldrig p ≤ 0.
+  if (!Number.isFinite(prob) || prob <= 0) return ODDS.UGYLDIG;
+  const raw = Math.max(ODDS.MIN, 1 / prob);
+  return Math.round(raw * 100) / 100;
 }
 
 /** Fair odds for hvert 1X2-udfald ud fra Elo-ratings. */

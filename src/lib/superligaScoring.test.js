@@ -2,11 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
   OUTCOME, DEFAULT_POINTS, round1, outcomeReward, roundComboBonus, COMBI, hitPoints, TRAEF_BONUS,
   isOutcome, outcomeFromScore, outcomePoints,
-  eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds,
-  chanceMaxStake, canUseChance, isValidStake, settleChance,
+  eloExpectedHome, outcomeProbabilities, fairOdds, ODDS, outcomeOdds, ELO,
+  chanceMaxStake, canUseChance, isValidStake, settleChance, CHANCE,
   updateElo, actualHomeFromOutcome,
   leagueTable, championshipTeams, puljeScore, PULJE,
 } from './superligaScoring';
+import { SUPERLIGA_TEAMS_2026 } from '../data/superligaTeams2026';
+import { PREMIER_LEAGUE_TEAMS_2026 } from '../data/premierLeagueTeams2026';
 
 describe('1X2-udfald', () => {
   it('udleder udfald af mål', () => {
@@ -158,10 +160,43 @@ describe('elo-lite sandsynligheder', () => {
     expect(strong['1']).toBeGreaterThan(even['1']);
     expect(strong.X).toBeLessThan(even.X); // uafgjort falder med styrkeforskel
   });
-  it('uafgjort ved lige hold er kalibreret mod Superligaens ~26 %', () => {
+  // Den gamle udgave af denne test krævede 24-28 % og hed "kalibreret mod
+  // Superligaens ~26 %". Den var netop grunden til, at fejlen kunne stå i to
+  // år: den målte modellen mod ét GENNEMSNIT. Modellen ramte snittet ved at
+  // være for høj i de jævnbyrdige kampe og for lav i de skæve, og det kan et
+  // gennemsnit ikke se. Nu låses den målte værdi i stedet.
+  it('uafgjort ved lige hold står på den MÅLTE værdi, ikke på et snit', () => {
     const p = outcomeProbabilities({ eloHome: 1500, eloAway: 1500 });
-    expect(p.X).toBeGreaterThan(0.24);
-    expect(p.X).toBeLessThan(0.28);
+    // Ved lige hold er skew 0, så pDraw = DRAW_BASE præcis.
+    expect(p.X).toBeCloseTo(ELO.DRAW_BASE, 10);
+    expect(ELO.DRAW_BASE).toBe(0.305);
+  });
+
+  // DRAW_DECAY er den parameter, der kun kan måles i skæve kampe — og netop
+  // dér tog vi fejl én gang, fordi Superligaen ikke HAR skæve kampe. Låst her,
+  // så den ikke kan ændres i forbifarten sammen med noget andet.
+  it('uafgjort-henfaldet står på den efterprøvede værdi', () => {
+    expect(ELO.DRAW_DECAY).toBe(0.55);
+  });
+
+  // Formen, ikke kun niveauet: modellen skal ramme den faktiske frekvens i
+  // BEGGE ender. Tallene er målt på 6.143 spillede kampe, se
+  // scripts/maal-uafgjort.mjs og docs/spilbalance.md.
+  // BÅNDENE ER MED VILJE SMALLE. Første udgave tillod 13-20 % i det skæve ben,
+  // og den gamle base (0,26) giver 13,7 % dér — altså bestod testen med præcis
+  // den værdi, den skulle fange. Et bånd, der rummer både før og efter, måler
+  // ingenting. Begge ben fejler nu med 0,26.
+  it('rammer den faktiske uafgjort-frekvens i både jævnbyrdige og skæve kampe', () => {
+    // Jævnbyrdigt (skew ≈ 0,03): målt 28-30 % over 254+360 kampe.
+    // Model: 29,6 %. Med gammel base: 25,2 % → under gulvet.
+    const jaevn = outcomeProbabilities({ eloHome: 1500, eloAway: 1490 }).X;
+    expect(jaevn).toBeGreaterThan(0.28);
+    expect(jaevn).toBeLessThan(0.31);
+    // Skævt (skew ≈ 0,58, altså 230 Elo-point): målt 16,5 % over 285 kampe.
+    // Model: 16,1 %. Med gammel base: 13,7 % → under gulvet.
+    const skaevt = outcomeProbabilities({ eloHome: 1620, eloAway: 1390 }).X;
+    expect(skaevt).toBeGreaterThan(0.15);
+    expect(skaevt).toBeLessThan(0.18);
   });
   it('uafgjort topper ved REELT lige hold (måles uden hjemmebane)', () => {
     const even = outcomeProbabilities({ eloHome: 1500, eloAway: 1500 }).X;
@@ -181,10 +216,84 @@ describe('fair odds', () => {
     expect(fairOdds(0.5)).toBe(2);
     expect(fairOdds(0.25)).toBe(4);
   });
-  it('klippes til [MIN, MAX]', () => {
-    expect(fairOdds(0.99)).toBe(ODDS.MIN);   // 1.01 → 1.1
-    expect(fairOdds(0.01)).toBe(ODDS.MAX);   // 100 → 6.0
-    expect(fairOdds(0)).toBe(ODDS.MAX);
+  it('har et gulv, men INTET loft', () => {
+    // Gulvet låses med en LITERAL, ikke med konstanten. Bandt man kun til
+    // ODDS.MIN, kunne gulvet hæves til 1,5 med hele suiten grøn — og så ville
+    // hver favorit over 66 % blive overbetalt, uden at noget blev rødt.
+    expect(ODDS.MIN).toBe(1.1);
+    expect(fairOdds(0.99)).toBe(1.1);           // 1,01 → 1,1
+    // Det her er hele ændringen: før blev alt over loftet skåret ned.
+    expect(fairOdds(0.05)).toBe(20);            // 1/0,05 = 20, urørt
+    expect(fairOdds(0.01)).toBe(100);           // 1/0,01 = 100, urørt
+    expect(ODDS.MAX).toBeUndefined();
+  });
+
+  // Et umuligt udfald har ingen fair pris. Før faldt det tilbage på loftet;
+  // nu findes der ikke et, så tallet skal være valgt bevidst — ikke Infinity,
+  // som ville forplante sig ind i pointsummer og combi-produkter.
+  it('giver et endeligt tal for et ugyldigt udfald', () => {
+    expect(fairOdds(0)).toBe(ODDS.UGYLDIG);
+    expect(fairOdds(-1)).toBe(ODDS.UGYLDIG);
+    expect(fairOdds('x')).toBe(ODDS.UGYLDIG);
+    expect(Number.isFinite(ODDS.UGYLDIG)).toBe(true);
+  });
+
+  // Grunden til at loftet forsvandt: to vidt forskellige gæt stod til nøjagtig
+  // samme pris (46 udfald i Superligaen, 197 i Premier League), så et
+  // informeret modigt valg var umuligt.
+  //
+  // MEN PÅSTANDEN "det kan aldrig ske uden loft" ER FALSK, og den stod både
+  // her, i kodekommentaren og i brevet til spillerne. Er udeholdet PRÆCIS HFA
+  // (60 point) stærkere, er holdene reelt lige, og så er p1 og p2 matematisk
+  // identiske. Den gamle test løb kun over Superligaen, som tilfældigvis ikke
+  // har et sådant par — Premier League har ét, og det spilles to gange.
+  //
+  // Testen kører derfor over BEGGE ligaer og siger, hvad der faktisk gælder:
+  // uafgjort kan aldrig koste det samme som en sejr, og de eneste 1-mod-2
+  // sammenfald er dem, HFA selv skaber.
+  it.each([
+    ['Superligaen', SUPERLIGA_TEAMS_2026],
+    ['Premier League', PREMIER_LEAGUE_TEAMS_2026],
+  ])('kun HFA kan give to udfald samme pris (%s)', (_navn, hold) => {
+    const uventet = [];
+    for (const hjemme of hold) {
+      for (const ude of hold) {
+        if (hjemme === ude) continue;
+        const o = outcomeOdds({ eloHome: hjemme.elo, eloAway: ude.elo });
+        // Uafgjort må ALDRIG koste det samme som en sejr. Det var loftets
+        // skade, og den er væk.
+        if (o['1'] === o.X || o.X === o['2']) uventet.push(`X-sammenfald: ${hjemme.name}-${ude.name}`);
+        // 1 mod 2 må kun falde sammen ved præcis HFA — alt andet er en fejl.
+        if (o['1'] === o['2'] && ude.elo - hjemme.elo !== ELO.HFA) {
+          uventet.push(`1/2-sammenfald uden HFA: ${hjemme.name}-${ude.name}`);
+        }
+      }
+    }
+    expect(uventet).toEqual([]);
+  });
+
+  // Og den kendte undtagelse låses eksplicit, så den ikke kan forsvinde ud af
+  // dokumentationen igen: sker det, SKAL det være HFA, der gør det.
+  it('ved præcis HFA points forskel betaler 1 og 2 ens — det er modellen, ikke en fejl', () => {
+    const o = outcomeOdds({ eloHome: 1500, eloAway: 1500 + ELO.HFA });
+    expect(o['1']).toBe(o['2']);
+    expect(o.X).not.toBe(o['1']);
+    // Konkret i Premier League 2026/27: Brentford mod Aston Villa.
+    const brentford = PREMIER_LEAGUE_TEAMS_2026.find((t) => t.name === 'Brentford');
+    const villa = PREMIER_LEAGUE_TEAMS_2026.find((t) => t.name === 'Aston Villa');
+    expect(villa.elo - brentford.elo).toBe(ELO.HFA);
+  });
+
+  // Chancen er nu ubegrænset opad, og det er et bevidst valg — ikke et
+  // overset hjørne. Et loft klipper kun gevinsten, aldrig indsatsen, så en
+  // Chance på høje odds fik negativ forventning: målt over 3.000 sæsoner tabte
+  // den modige 34 point om året ved loft 6, og den, der slet ikke brugte
+  // Chancen, vandt oftere end ham.
+  it('Chancen betaler den fulde odds — ingen klipning af gevinsten', () => {
+    const stor = settleChance({ correct: true, stake: CHANCE.MAX_ABS, fairOdds: 24.39 });
+    expect(stor.profit).toBe(Math.round(CHANCE.MAX_ABS * 23.39));
+    // Indsatsen er stadig begrænset — det er dér risikoen styres.
+    expect(CHANCE.MAX_ABS).toBe(8);
   });
   it('favorit giver lav odds, outsider høj', () => {
     const o = outcomeOdds({ eloHome: 1900, eloAway: 1300 });
