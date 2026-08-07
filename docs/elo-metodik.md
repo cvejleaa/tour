@@ -56,9 +56,15 @@ FiveThirtyEights klub-Elo.
 
 ### Målforskel-vægtning bevidst udeladt
 eloratings øger K med målforskellen (+50 % ved 2 mål osv.). Det ville kun gøre
-**Elo-tabellen** en anelse mere retvisende gennem sæsonen — det rører **ikke**
-ved point/fairness, fordi **oddsene er frosset ved seeding**. Effekten er altså
-kosmetisk for vores kerneformål, og vi fører kun 1X2-udfald ind i opdateringen.
+**Elo-tabellen** en anelse mere retvisende gennem sæsonen. Effekten er altså
+i praksis kosmetisk for vores kerneformål, og vi fører kun 1X2-udfald ind i
+opdateringen.
+
+(Her stod tidligere, at det ikke rørte ved point, "fordi oddsene er frosset ved
+seeding". Det er forkert og modsiger afsnittet ovenfor: oddsene friskes op
+efter hvert resultat, helt frem til kampen låser. En ændring i Elo-modellen
+ville derfor godt kunne flytte oddsene — bare ikke på kampe, der er gået i
+gang.)
 
 ## Uafgjort-modellen og kalibreringen (juli 2026)
 eloratings har ingen uafgjort-model; vi tilføjer én for at kunne lave 1X2-odds:

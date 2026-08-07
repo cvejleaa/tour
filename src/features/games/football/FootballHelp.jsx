@@ -138,6 +138,13 @@ export default function FootballHelp() {
           Derfor er de allervildeste langskud lidt underbetalte.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
+          <strong>Oddsene kan nå at flytte sig, indtil kampen går i gang.</strong> Efter hvert
+          resultat opdateres holdenes styrke, og så friskes oddsene på alle kampe, der ikke er
+          begyndt endnu. Ved kampstart låser de. Du <em>låser altså ikke en kurs</em> ved at tippe
+          tidligt: det er kampens odds ved kampstart, der gælder — de samme for alle, uanset hvornår
+          man har tippet. Så ingen kan hente en fordel ved at komme først.
+        </p>
+        <p style={{ margin: '0.5rem 0 0' }}>
           Forskellen kommer i <strong>combi-bonussen</strong>, som ganger de <strong>rene odds</strong>{' '}
           sammen: rammer du to overraskelser til odds 4,5, giver den{' '}
           <strong>{fmtDec(roundComboBonus([4.5, 4.5], 2))}</strong>; rammer du fem favoritter til odds 1,6,
