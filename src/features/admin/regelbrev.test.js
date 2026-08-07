@@ -51,30 +51,49 @@ describe('regelbrevet', () => {
     expect(REGELBREV.tekst).not.toMatch(/to gange i dag/i);
   });
 
-  // RUNDE 4, ikke runde 3. Her stod før, at brevet slet ikke måtte nævne en
-  // runde, fordi odds kun skrives om, når et facit ændrer sig, og vi derfor
-  // ikke kunne styre hvornår. Det er nu vendt om: udrulningen er bevidst timet
-  // til vinduet mellem runde 3's sidste weekendkamp og dens sidste resultat,
-  // så runde 4 ER den første fulde runde. Løftet er altså sandt — men kun
-  // fordi timingen holder, og derfor står betingelsen i filhovedet.
+  // RUNDE 3, ikke runde 4. Her har formuleringen skiftet to gange, og begge
+  // skift var rigtige på deres tidspunkt:
   //
-  // Første udkast lovede "runde 3 starter i aften og kører på reglerne her".
-  // Det var direkte forkert: runde 3's kupon blev spillet under det gamle loft.
-  it('gælder fra runde 4 og siger, at spillede kampe er urørte', () => {
-    expect(REGELBREV.tekst).toMatch(/gælder fra RUNDE 4/);
+  //   1. udkast: "runde 3 starter i aften og kører på reglerne her" — FORKERT,
+  //      runde 3's kupon var prissat under det gamle loft.
+  //   2. udkast: "gælder fra RUNDE 4" — rigtigt, SÅ LÆNGE odds kun kunne
+  //      skrives om, når et resultat landede.
+  //   nu:       "gælder fra RUNDE 3" — fordi omprisningen nu kan startes med
+  //      en knap, og ejeren har valgt at gøre det før rundens første kickoff.
+  //
+  // Præmissen bag udkast 2 er altså væk, ikke overtrådt. Testen følger med.
+  it('gælder fra runde 3 og siger, at spillede runder er urørte', () => {
+    expect(REGELBREV.tekst).toMatch(/gælder fra RUNDE 3/);
     expect(REGELBREV.tekst).toMatch(/ingen point er ændret bagud/i);
-    // Runde 3 må ikke fremstilles som om den kørte på de nye regler.
-    expect(REGELBREV.tekst).not.toMatch(/[Rr]unde 3 starter i aften/);
-    expect(REGELBREV.emne).not.toMatch(/før runde 3/i);
+    expect(REGELBREV.tekst).not.toMatch(/gælder fra RUNDE 4/);
+    // Runde 3 må ikke fremstilles som om den kørte på de gamle regler.
+    expect(REGELBREV.tekst).not.toMatch(/blev spillet under de gamle odds/);
     // Tidligere stod her "kan kun trække odds OP". Det holdt for loftet alene,
     // men uafgjort-rettelsen trækker NED. Brevet må ikke love det modsatte.
     expect(REGELBREV.tekst).not.toMatch(/kun trække odds OP/i);
   });
 
-  // De to septemberkampe er runde 3, men spilles først om en måned — de FÅR
-  // altså de nye priser, mens resten af runde 3 ikke gør. Brevet fortav dem,
-  // og en spiller, der allerede har tippet dem, ville opdage det selv.
-  it('nævner de to runde 3-kampe i september, som alligevel omprises', () => {
+  // DEN UBEHAGELIGE SANDHED SKAL STÅ DER. Omprisningen af runde 3 gør
+  // uafgjort BILLIGERE — også i aftenens kamp — så den, der har tippet X,
+  // taber værdi på et tip, han allerede har afgivet. Et brev, der kun nævner
+  // det, der er til spillernes fordel, er ikke en undskyldning.
+  it('siger ligeud, at et X-tip i aftenens kamp er blevet mindre værd', () => {
+    expect(REGELBREV.tekst).toMatch(/Sønderjyske–Viborg/);
+    expect(REGELBREV.tekst).toMatch(/mindre værd/i);
+    expect(REGELBREV.tekst).toMatch(/ikke kun til jeres fordel/i);
+  });
+
+  // Den eneste handling, spilleren HAR: tips kan rettes indtil kickoff. Uden
+  // den sætning fratager brevet ham reaktionen ved at fortælle ham for sent.
+  it('fortæller, at tips kan rettes indtil kampstart', () => {
+    expect(REGELBREV.tekst).toMatch(/kan (ændres|rettes) .{0,30}kampstart/i);
+    expect(REGELBREV.tekst).toMatch(/der er tid/i);
+  });
+
+  // De to septemberkampe er runde 3, men spilles først om en måned. De er
+  // nemme at glemme, netop fordi de ikke ligger i rundens uge — og en spiller,
+  // der allerede har tippet dem, ville ellers opdage prisskiftet selv.
+  it('nævner de to runde 3-kampe i september', () => {
     expect(REGELBREV.tekst).toMatch(/AGF–FCM/);
     expect(REGELBREV.tekst).toMatch(/FCK–FCN/);
     expect(REGELBREV.tekst).toMatch(/september/i);

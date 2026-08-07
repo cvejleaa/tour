@@ -41,6 +41,7 @@ import {
   setGlobalAdminRole,
   sendAdminPasswordReset,
   callGenerateLeagueRecapNow,
+  callRepriceGameOdds,
   callGenerateStageTip,
   saveStageTip,
   callSendTipRemindersNow,
@@ -144,6 +145,36 @@ describe('adminActions', () => {
       expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'generateLeagueRecapNow');
       expect(mockFn).toHaveBeenCalledWith({ leagueId: 'lg1', dryRun: true });
       expect(res).toEqual({ ok: true, data: { leagues: 1, results: [{ text: 'God morgen!' }] } });
+    });
+  });
+
+  // Den eneste callable, der skriver UIGENKALDELIGT i produktionsdata, var den
+  // eneste uden test. GameScheduleTab-testen mocker hele modulet væk, så den
+  // dækker det ikke: default'en `dryRun = true` kunne vendes til false, og
+  // hele kroppen kunne udskiftes, uden at én test sagde fra.
+  describe('callRepriceGameOdds', () => {
+    it('kalder repriceGameOdds og sender dryRun med', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { updated: 3, dryRun: false, aendringer: [] } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const res = await callRepriceGameOdds({ gameId: 'sl2627', dryRun: false });
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'repriceGameOdds', expect.anything());
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'sl2627', dryRun: false });
+      expect(res).toEqual({ ok: true, data: { updated: 3, dryRun: false, aendringer: [] } });
+    });
+
+    // Default'en er hele sikkerheden: et kald uden flag må ALDRIG skrive.
+    it('tørkører som standard, når dryRun udelades', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { updated: 0, dryRun: true, aendringer: [] } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      await callRepriceGameOdds({ gameId: 'sl2627' });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'sl2627', dryRun: true });
+    });
+
+    it('giver fejlen videre i stedet for at kaste', async () => {
+      mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('Du har ikke adgang.')));
+      const res = await callRepriceGameOdds({ gameId: 'sl2627', dryRun: false });
+      expect(res.ok).toBe(false);
+      expect(res.error).toMatch(/ikke adgang/);
     });
   });
 

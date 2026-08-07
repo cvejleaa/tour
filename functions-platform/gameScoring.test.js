@@ -986,6 +986,70 @@ describe('recomputeSeasonElo (levende Elo)', () => {
     }
   });
 
+  // oddsEqual-vagten. Uden den lister tør-kørslen HVER ikke-låst kamp (120 i
+  // Superligaen, 380 i PL), `updated` bliver antallet af ÅBNE kampe i stedet
+  // for antallet af ÆNDRINGER — og det tal er det eneste, admin bedømmer på,
+  // både i knappen og i bekræftelsesdialogen. Fanges kun af en anden kørsel:
+  // intet fixture havde en kamp, hvis odds allerede VAR korrekte.
+  it('anden kørsel finder intet at ændre — idempotent', async () => {
+    const db = makeEloDb({ teams }, [
+      { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'm2', home: 'A', away: 'B', kickoff: future, odds: { 1: 9, X: 9, 2: 9 } },
+    ]);
+    const foerste = await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000, { dryRun: false });
+    expect(foerste.updated).toBe(1);
+    const anden = await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000, { dryRun: true });
+    expect(anden.updated).toBe(0);
+    expect(anden.aendringer).toEqual([]);
+  });
+
+  // Kickoff-filteret skal fejle LUKKET. Stod før som `k != null && k <= nowMs`,
+  // så en kamp uden brugbart kickoff blev omprist. Kender vi ikke tidspunktet,
+  // ved vi heller ikke, om kampen er låst.
+  it('rører ikke en kamp uden brugbart kickoff', async () => {
+    for (const kickoff of [undefined, null, '', 'i morgen kl. 19', NaN]) {
+      const db = makeEloDb({ teams }, [
+        { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+        { id: 'ukendt', home: 'A', away: 'B', kickoff, odds: { 1: 9, X: 9, 2: 9 } },
+      ]);
+      const res = await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000, { dryRun: false });
+      expect(res.updated, String(kickoff)).toBe(0);
+      expect(db._matches.find((m) => m.data.id === 'ukendt').data.odds).toEqual({ 1: 9, X: 9, 2: 9 });
+    }
+  });
+
+  // KAPLØBET. nowMs fanges ved kaldets start; kampene læses derefter, og
+  // batchen committer sekunder senere. Uden margen kunne et klik 18:59:58
+  // skrive nye odds på en kamp med kickoff 19:00:00 — altså ændre værdien af
+  // tips, der allerede var låst og ikke længere kunne rettes.
+  it('holder en margen foran kickoff, så en kamp lige før start ikke omprises', async () => {
+    const nu = 2_000_000_000_000;
+    const db = makeEloDb({ teams }, [
+      { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'straks', home: 'A', away: 'B', kickoff: nu + 2_000, odds: { 1: 9, X: 9, 2: 9 } },
+      { id: 'senere', home: 'A', away: 'B', kickoff: nu + 3_600_000, odds: { 1: 9, X: 9, 2: 9 } },
+    ]);
+    const res = await recomputeSeasonElo(db, FieldValue, 'g1', nu, { dryRun: false });
+    expect(res.aendringer.map((a) => a.id)).toEqual(['senere']);
+    expect(db._matches.find((m) => m.data.id === 'straks').data.odds).toEqual({ 1: 9, X: 9, 2: 9 });
+  });
+
+  // Forhåndsvisningens kontrakt. Tør-kørslens hele værdi er, at et menneske
+  // SER ændringen — så felterne skal faktisk være der og være rigtige.
+  it('rapporterer runde, holdnavne, kickoff og FØR-odds', async () => {
+    const nu = 2_000_000_000_000;
+    const db = makeEloDb({ teams }, [
+      { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'm2', round: 7, home: 'A', away: 'B', kickoff: nu + 3_600_000, odds: { 1: 9, X: 9, 2: 9 } },
+    ]);
+    const res = await recomputeSeasonElo(db, FieldValue, 'g1', nu, { dryRun: true });
+    expect(res.aendringer[0]).toMatchObject({
+      id: 'm2', round: 7, home: 'A', away: 'B', kickoff: nu + 3_600_000, foer: { 1: 9, X: 9, 2: 9 },
+    });
+    // Firestore-referencen må IKKE med ud — den kan ikke serialiseres.
+    expect(res.aendringer[0].ref).toBeUndefined();
+  });
+
   // Låsningen må IKKE kunne omgås af knappen. Det er hele grunden til at fryse
   // odds: din pointværdi må ikke ændre sig, efter kampen er gået i gang.
   it('rører ikke låste kampe, heller ikke ved manuel omprisning', async () => {

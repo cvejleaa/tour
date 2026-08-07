@@ -192,16 +192,27 @@ exports.rescoreGameBets = onCall({ region: REGION }, async (request) => {
 // dryRun er DEFAULT SAND, som rescoreGameBets. Den skriver i produktionsdata
 // på hver eneste ikke-låst kamp, og der er ingen oddsHistory at rulle tilbage
 // til. `aendringer` er derfor den eneste kvittering, der findes — gem den.
-exports.repriceGameOdds = onCall({ region: REGION }, async (request) => {
+exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async (request) => {
   const db = getFirestore();
   await requireAdmin(db, request);
   const gameId = String(request.data?.gameId || '').trim();
   if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+  // Et ukendt spil-id gav før tavst {updated: 0}, og fladen meldte så "oddsene
+  // er allerede i takt med modellen" om et spil, der slet ikke findes.
+  const snap = await db.collection('games').doc(gameId).get();
+  if (!snap.exists) throw new HttpsError('not-found', `Spillet "${gameId}" findes ikke.`);
   // Reglen bor i gameScoring, hvor den er unit-testet — ikke som en
   // sammenligning her, der kunne vendes uden at nogen test sagde fra.
   const dryRun = dryRunFraKald(request.data);
   const out = await recomputeSeasonElo(db, FieldValue, gameId, Date.now(), { dryRun });
   console.log(`repriceGameOdds(${gameId}, dryRun=${dryRun}): ${out.updated} kampe`);
+  // HELE listen logges ved en rigtig skrivning, ikke bare antallet. Der er
+  // ingen oddsHistory, og browserens tabel forsvinder, når fanen lukkes — så
+  // Cloud-loggen ER kvitteringen. Uden den findes de gamle odds ingen steder
+  // det sekund, klikket er sket.
+  if (!dryRun && out.updated) {
+    console.log(`repriceGameOdds ændringer(${gameId}):`, JSON.stringify(out.aendringer));
+  }
   return { ...out, dryRun };
 });
 
