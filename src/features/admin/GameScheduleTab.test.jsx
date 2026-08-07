@@ -20,9 +20,11 @@ vi.mock('../games/gameActions', () => ({
   setGameStatus: (...a) => mockSetGameStatus(...a),
 }));
 
+const mockReprice = vi.fn();
 vi.mock('./adminActions', () => ({
   callRecomputeGameScores: vi.fn().mockResolvedValue({ ok: true, data: {} }),
   callBackfillPlayerLeagues: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+  callRepriceGameOdds: (...a) => mockReprice(...a),
 }));
 
 import GameScheduleTab from './GameScheduleTab';
@@ -142,5 +144,101 @@ describe('GameScheduleTab — status', () => {
     render(<GameScheduleTab />);
     expect(statusSelect().value).toBe('');
     expect(screen.getByRole('option', { name: '— ikke sat —' })).toBeInTheDocument();
+  });
+});
+
+// --- Ompris kampene -------------------------------------------------------
+//
+// Knappen skriver i produktionsdata på hver eneste ikke-låste kamps
+// pointværdi, og der er ingen oddsHistory at rulle tilbage til. CLAUDE.md
+// kræver tør-kørsel først, og den regel skal håndhæves af FLADEN — ikke kun
+// af en default i callablen, som en fremtidig ændring kan vende.
+describe('ompris kampene', () => {
+  const SL = { id: 'sl2627', name: 'Superligaen', emoji: '⚽', type: 'football', status: 'live' };
+  const PLAN = {
+    ok: true,
+    data: {
+      updated: 2,
+      dryRun: true,
+      aendringer: [
+        { id: 'a', round: 4, home: 'Lyngby', away: 'FCM', foer: { 1: 4.48, X: 6, 2: 1.55 }, efter: { 1: 4.61, X: 6.38, 2: 1.6 } },
+        { id: 'b', round: 4, home: 'Randers', away: 'FCK', foer: { 1: 3.6, X: 6, 2: 1.75 }, efter: { 1: 3.72, X: 5.6, 2: 1.81 } },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    mockGames.mockReturnValue({ games: [SL], loading: false });
+    mockReprice.mockResolvedValue(PLAN);
+  });
+
+  const toerKnap = () => screen.getByRole('button', { name: /Ompris kampene/i });
+
+  // Odds og Elo findes kun i fodboldspillene. Blev knappen vist på Touren,
+  // ville den kalde en callable, der intet har at ompris — og en admin ville
+  // tro, den bare ikke virkede.
+  it('vises kun for fodboldspil', () => {
+    const { unmount } = render(<GameScheduleTab />);
+    expect(toerKnap()).toBeInTheDocument();
+    unmount();
+    mockGames.mockReturnValue({ games: [TOUR], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Ompris kampene/i })).not.toBeInTheDocument();
+  });
+
+  it('tørkører FØRST — og skrive-knappen findes ikke før man har set planen', async () => {
+    render(<GameScheduleTab />);
+    // Før tør-kørslen er der intet at skrive.
+    expect(screen.queryByRole('button', { name: /Skriv de/i })).not.toBeInTheDocument();
+    fireEvent.click(toerKnap());
+    await waitFor(() => expect(mockReprice).toHaveBeenCalled());
+    // Det FØRSTE kald SKAL være en tør-kørsel.
+    expect(mockReprice).toHaveBeenCalledWith({ gameId: 'sl2627', dryRun: true });
+    // Nu — og først nu — findes skrive-knappen.
+    await waitFor(() => expect(screen.getByRole('button', { name: /Skriv de 2 ændringer/i })).toBeInTheDocument());
+  });
+
+  it('viser før og efter for hver kamp, så ændringen kan ses inden den skrives', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => expect(screen.getByText(/Lyngby/)).toBeInTheDocument());
+    // Netop de to tal, der beviser at begge halvdele af modellen er ude:
+    // en X der stiger OVER 6 (loftet væk) og en der falder UNDER (draw-modellen).
+    expect(screen.getByText(/4\.61 \/ 6\.38 \/ 1\.6/)).toBeInTheDocument();
+    expect(screen.getByText(/3\.72 \/ 5\.6 \/ 1\.81/)).toBeInTheDocument();
+  });
+
+  it('skriver ikke uden bekræftelse', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => screen.getByRole('button', { name: /Skriv de 2/i }));
+    mockReprice.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: /Skriv de 2/i }));
+    await waitFor(() => expect(bekraeft).toHaveBeenCalled());
+    expect(mockReprice).not.toHaveBeenCalled();
+    bekraeft.mockRestore();
+  });
+
+  it('sender dryRun: false, når man bekræfter', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => screen.getByRole('button', { name: /Skriv de 2/i }));
+    mockReprice.mockResolvedValue({ ok: true, data: { updated: 2, dryRun: false, aendringer: [] } });
+    fireEvent.click(screen.getByRole('button', { name: /Skriv de 2/i }));
+    await waitFor(() => expect(mockReprice).toHaveBeenLastCalledWith({ gameId: 'sl2627', dryRun: false }));
+    // Planen ryddes bagefter, så man ikke kan trykke skriv to gange i træk på
+    // et nu forældet grundlag.
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Skriv de/i })).not.toBeInTheDocument());
+    bekraeft.mockRestore();
+  });
+
+  it('siger det tydeligt, når intet ville ændre sig', async () => {
+    mockReprice.mockResolvedValue({ ok: true, data: { updated: 0, dryRun: true, aendringer: [] } });
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    await waitFor(() => expect(screen.getByText(/allerede i takt med modellen/i)).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /Skriv de/i })).not.toBeInTheDocument();
   });
 });

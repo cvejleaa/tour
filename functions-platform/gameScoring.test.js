@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 const {
   recomputeGameMatchCore, recomputeSeasonElo,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officialTop6,
-  gatedIds, recomputeAllPlayerTotals, rescoreAllBets,
+  gatedIds, recomputeAllPlayerTotals, rescoreAllBets, dryRunFraKald,
 } = require('./gameScoring');
 // Combi-reglen har ét hjem. Testen henter den DERFRA, så en fremtidig dublet
 // ikke kan snige sig ind bag en grøn suite.
@@ -860,6 +860,32 @@ function makeEloDb(gameData, matchList) {
   };
 }
 
+// dryRun-reglen for KNAP-kald. Den er trukket ud af index.js netop for at
+// kunne stå her: index.js har ingen tests, så skrevet som `!== false` inde i
+// handleren kunne den vendes til `=== true` med hele suiten grøn — og så ville
+// forhåndsvisnings-knappen skrive i produktionsdata ved første klik.
+describe('dryRunFraKald (hvad en KNAP gør som standard)', () => {
+  it('tørkører som standard — også ved tom eller manglende data', () => {
+    expect(dryRunFraKald(undefined)).toBe(true);
+    expect(dryRunFraKald(null)).toBe(true);
+    expect(dryRunFraKald({})).toBe(true);
+    expect(dryRunFraKald({ gameId: 'sl' })).toBe(true);
+  });
+
+  it('skriver KUN ved et eksplicit false', () => {
+    expect(dryRunFraKald({ dryRun: false })).toBe(false);
+  });
+
+  // Alt andet end et rigtigt `false` skal tørkøre. Et felt, der kommer skævt
+  // gennem callable-laget (streng i stedet for boolean), må ikke blive til en
+  // skrivning, admin ikke bad om.
+  it('behandler alt andet som tør-kørsel', () => {
+    for (const v of ['false', 0, '', null, undefined, 'nej', NaN]) {
+      expect(dryRunFraKald({ dryRun: v }), String(v)).toBe(true);
+    }
+  });
+});
+
 describe('recomputeSeasonElo (levende Elo)', () => {
   const teams = [{ name: 'A', elo: 1500 }, { name: 'B', elo: 1500 }];
   const future = 5_000_000_000_000; // langt ude i fremtiden
@@ -894,7 +920,106 @@ describe('recomputeSeasonElo (levende Elo)', () => {
   it('gør intet uden seed-hold', async () => {
     const db = makeEloDb({}, [{ id: 'm1', home: 'A', away: 'B', kickoff: future }]);
     const res = await recomputeSeasonElo(db, FieldValue, 'g1', 1_000_000);
-    expect(res).toEqual({ updated: 0 });
+    expect(res).toEqual({ updated: 0, aendringer: [] });
+  });
+
+  // --- dryRun ---------------------------------------------------------------
+  //
+  // Knappen i Spil-planlægning viser tør-kørslen FØRST, og hele værdien af den
+  // står og falder med, at den ikke skriver. En dryRun, der alligevel skrev,
+  // ville se ud som en forhåndsvisning og være en udførelse.
+  it('dryRun rører HVERKEN odds, Elo eller historik', async () => {
+    const db = makeEloDb({ teams }, [
+      { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'm2', home: 'A', away: 'B', kickoff: future, odds: { 1: 9, X: 9, 2: 9 } },
+    ]);
+    const res = await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000, { dryRun: true });
+    // Den RAPPORTERER ændringen …
+    expect(res.updated).toBe(1);
+    expect(res.aendringer).toHaveLength(1);
+    expect(res.aendringer[0].id).toBe('m2');
+    expect(res.aendringer[0].foer).toEqual({ 1: 9, X: 9, 2: 9 });
+    expect(res.aendringer[0].efter['1']).not.toBe(9);
+    // … men skriver ingenting. Hverken på kampen …
+    expect(db._matches.find((m) => m.data.id === 'm2').data.odds).toEqual({ 1: 9, X: 9, 2: 9 });
+    // … eller på spil-dokumentet. eloCurrent er dét, Elo-tabellen viser, og en
+    // tør-kørsel må ikke flytte den.
+    expect(db._game.eloCurrent).toBeUndefined();
+    expect(db._game.eloHistory).toBeUndefined();
+  });
+
+  it('uden dryRun skriver den — samme kald, modsat resultat', async () => {
+    const db = makeEloDb({ teams }, [
+      { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'm2', home: 'A', away: 'B', kickoff: future, odds: { 1: 9, X: 9, 2: 9 } },
+    ]);
+    const res = await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000, { dryRun: false });
+    expect(res.updated).toBe(1);
+    expect(db._matches.find((m) => m.data.id === 'm2').data.odds['1']).not.toBe(9);
+    expect(db._game.eloCurrent).toBeDefined();
+  });
+
+  // Standardværdien afgør, hvad et kald UDEN flag gør. Triggeren kalder uden
+  // opts, og den SKAL skrive — ellers holder odds op med at blive opdateret,
+  // uden at nogen test siger fra.
+  it('skriver som standard, når opts helt udelades', async () => {
+    const db = makeEloDb({ teams }, [
+      { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'm2', home: 'A', away: 'B', kickoff: future, odds: { 1: 9, X: 9, 2: 9 } },
+    ]);
+    await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+    expect(db._matches.find((m) => m.data.id === 'm2').data.odds['1']).not.toBe(9);
+    expect(db._game.eloCurrent).toBeDefined();
+  });
+
+  // Kun et EKSPLICIT true tørkører. Ellers ville `{ dryRun: 'nej' }` eller et
+  // felt, der kom forkert gennem callable-laget, tavst gøre skrivningen til en
+  // forhåndsvisning — og admin ville tro, ændringen var landet.
+  it('tørkører kun ved eksplicit true', async () => {
+    for (const flag of [false, 'true', 1, null, undefined]) {
+      const db = makeEloDb({ teams }, [
+        { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+        { id: 'm2', home: 'A', away: 'B', kickoff: future, odds: { 1: 9, X: 9, 2: 9 } },
+      ]);
+      await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000, { dryRun: flag });
+      expect(db._matches.find((m) => m.data.id === 'm2').data.odds['1'], String(flag)).not.toBe(9);
+    }
+  });
+
+  // Låsningen må IKKE kunne omgås af knappen. Det er hele grunden til at fryse
+  // odds: din pointværdi må ikke ændre sig, efter kampen er gået i gang.
+  it('rører ikke låste kampe, heller ikke ved manuel omprisning', async () => {
+    const db = makeEloDb({ teams }, [
+      { id: 'm1', home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'laast', home: 'B', away: 'A', kickoff: past, odds: { 1: 9, X: 9, 2: 9 } },
+      { id: 'aaben', home: 'A', away: 'B', kickoff: future, odds: { 1: 9, X: 9, 2: 9 } },
+    ]);
+    const res = await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000, { dryRun: false });
+    expect(res.updated).toBe(1);
+    expect(res.aendringer.map((a) => a.id)).toEqual(['aaben']);
+    expect(db._matches.find((m) => m.data.id === 'laast').data.odds).toEqual({ 1: 9, X: 9, 2: 9 });
+  });
+
+  // Firestore tager højst 500 operationer pr. batch. Før knappen fandtes, blev
+  // odds frisket op få ad gangen, efterhånden som resultater faldt — nu kan en
+  // hel sæson omprises på ét klik. En liga med mange kampe ville vælte den
+  // tavst, midt i en skrivning.
+  it('deler skrivningen i flere batches over 400 kampe', async () => {
+    const mange = [{ id: 'spillet', home: 'A', away: 'B', kickoff: past, result: '1' }];
+    for (let i = 0; i < 950; i += 1) {
+      mange.push({ id: `f${i}`, home: 'A', away: 'B', kickoff: future, odds: { 1: 9, X: 9, 2: 9 } });
+    }
+    const db = makeEloDb({ teams }, mange);
+    const commits = [];
+    const rigtigBatch = db.batch;
+    db.batch = () => { const b = rigtigBatch(); commits.push(b); return b; };
+    const res = await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000, { dryRun: false });
+    expect(res.updated).toBe(950);
+    // Ingen enkelt batch må overskride grænsen …
+    for (const b of commits) expect(b._ops.length).toBeLessThanOrEqual(400);
+    // … og alle 950 skal være skrevet, ikke bare de første 400.
+    expect(commits.reduce((s, b) => s + b._ops.length, 0)).toBe(950);
+    expect(db._matches.filter((m) => m.data.odds?.['1'] === 9)).toHaveLength(0);
   });
 
   it('gemmer Elo-historik pr. HELT spillet runde', async () => {

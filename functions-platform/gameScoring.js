@@ -20,6 +20,35 @@ const {
   opdelPoint, buildRoundContext, kickoffMs, matchOutcome,
 } = require('./pointOpdeling');
 
+/**
+ * Firestore tager højst 500 operationer pr. batch. 400 giver luft til, at en
+ * skrivning vokser med et felt eller to, uden at grænsen rykker sig.
+ * Stod tidligere som tre separate lokale konstanter i samme fil.
+ */
+const BATCH_MAKS = 400;
+
+/**
+ * Callable-lagets dryRun-regel: **kun et eksplicit `false` skriver.**
+ *
+ * BEMÆRK ASYMMETRIEN — den er med vilje, og den er nem at ødelægge:
+ *
+ *   recomputeSeasonElo(…, opts)   default = SKRIV     (maskinen kalder)
+ *   dryRunFraKald(request.data)   default = TØRKØR    (et menneske kalder)
+ *
+ * Triggeren på facit-ændring kalder uden opts og SKAL skrive — ellers holder
+ * odds tavst op med at blive opdateret. Et menneske, der trykker på en knap,
+ * skal derimod se hvad der sker, før det sker (CLAUDE.md: tør-kørsel først).
+ *
+ * Reglen ligger her og ikke inde i callablen, fordi index.js ikke er
+ * unit-testet: skrevet som `!== false` inde i handleren kunne den vendes til
+ * `=== true` uden at én test sagde fra, og så ville forhåndsvisnings-knappen
+ * skrive i produktionsdata ved første klik.
+ * @param {object} [data] request.data fra callablen
+ */
+function dryRunFraKald(data) {
+  return data?.dryRun !== false;
+}
+
 /** Er to odds-objekter ens (afrundet)? */
 function oddsEqual(a, b) {
   if (!a || !b) return false;
@@ -32,13 +61,24 @@ function oddsEqual(a, b) {
  * og opdatér odds for FREMTIDIGE, ikke-låste kampe (kickoff i fremtiden, intet
  * facit). Låste/spillede kampe beholder deres frosne odds. Genberegnes fra bunden
  * hver gang (idempotent — et rettet resultat giver korrekt Elo uden dobbelt-tælling).
- * @returns {Promise<{updated:number}>} antal kampe med opdaterede odds
+ *
+ * dryRun REGNER ALT IGENNEM, MEN SKRIVER INTET. Den findes, fordi funktionen
+ * indtil nu kun kunne startes af en facit-ændring: en model-ændring lå død i
+ * koden, indtil en tilfældig kamp blev afgjort. Skal den kunne startes med en
+ * knap, skal man kunne se hvad den ville gøre FØRST — CLAUDE.md kræver
+ * tør-kørsel på alt, der skriver i produktionsdata, og det her rører hver
+ * eneste ikke-låst kamps pointværdi.
+ *
+ * @param {{dryRun?: boolean}} [opts]
+ * @returns {Promise<{updated:number, aendringer:Array}>} antal kampe med
+ *   opdaterede odds + hvad der (ville) ændre sig, kamp for kamp
  */
-async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
+async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
+  const dryRun = opts.dryRun === true;
   const gameRef = db.collection('games').doc(gameId);
   const gameSnap = await gameRef.get();
   const seedTeams = gameSnap.exists ? gameSnap.data().teams : null;
-  if (!Array.isArray(seedTeams) || seedTeams.length === 0) return { updated: 0 };
+  if (!Array.isArray(seedTeams) || seedTeams.length === 0) return { updated: 0, aendringer: [] };
 
   const elo = new Map(seedTeams.map((t) => [t.name, Number(t.elo) || ELO.START]));
   const get = (n) => (elo.has(n) ? elo.get(n) : ELO.START);
@@ -80,25 +120,48 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs) {
   // Gem aktuel Elo + rundevis historik på spillet (til Elo-tabellen).
   const eloCurrent = {};
   for (const [n, r] of elo) eloCurrent[n] = Math.round(r);
-  await gameRef.set({ eloCurrent, eloHistory, eloUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  if (!dryRun) {
+    await gameRef.set({ eloCurrent, eloHistory, eloUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  }
 
   // Friske odds på fremtidige, ikke-låste kampe — kun hvis de reelt ændrer sig.
+  //
+  // BATCHEN SKAL DELES. Firestore tager højst 500 operationer pr. batch, og før
+  // denne funktion kunne startes med en knap, var grænsen teoretisk: odds blev
+  // frisket op kamp for kamp, efterhånden som resultater faldt, så der var
+  // sjældent mange ændringer ad gangen. En manuel omprisning af en HEL sæson,
+  // hvor ingen kampe er spillet endnu, rammer 380 kampe i Premier League på én
+  // gang. Det er stadig under 500, men margenen er 120 kampe — og en liga med
+  // flere hold ville vælte den tavst, midt i en skrivning.
   let batch = db.batch();
+  let iBatch = 0;
   let updated = 0;
+  const aendringer = [];
   for (const m of matches) {
     if (matchOutcome(m)) continue;                 // spillet
     const k = kickoffMs(m);
     if (k != null && k <= nowMs) continue;         // låst (kickoff passeret)
     const odds = outcomeOdds({ eloHome: get(m.home), eloAway: get(m.away) });
     if (oddsEqual(odds, m.odds)) continue;         // uændret
-    batch.update(m.ref, {
-      odds, eloHome: get(m.home), eloAway: get(m.away),
-      oddsUpdatedAt: FieldValue.serverTimestamp(),
+    // Før/efter opsamles ALTID, ikke kun ved dryRun: den, der trykker på
+    // knappen for alvor, skal kunne se bagefter hvad der faktisk skete — og
+    // det er den eneste kvittering, der findes. Der er ingen oddsHistory.
+    aendringer.push({
+      id: m.id, round: m.round ?? null, home: m.home, away: m.away,
+      kickoff: k ?? null, foer: m.odds || null, efter: odds,
     });
+    if (!dryRun) {
+      batch.update(m.ref, {
+        odds, eloHome: get(m.home), eloAway: get(m.away),
+        oddsUpdatedAt: FieldValue.serverTimestamp(),
+      });
+      iBatch += 1;
+      if (iBatch >= BATCH_MAKS) { await batch.commit(); batch = db.batch(); iBatch = 0; }
+    }
     updated += 1;
   }
-  if (updated) await batch.commit();
-  return { updated };
+  if (iBatch > 0 && !dryRun) await batch.commit();
+  return { updated, aendringer };
 }
 
 /**
@@ -311,11 +374,10 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
     .collection('games').doc(gameId).collection('bets')
     .where('matchId', '==', matchId).get();
 
-  const BATCH_SIZE = 400;
   let batch = db.batch();
   let ops = 0;
   const batches = [batch];
-  const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+  const bump = () => { if (++ops >= BATCH_MAKS) { batch = db.batch(); batches.push(batch); ops = 0; } };
 
   // ALLE, der har tippet på kampen — ikke kun dem, hvis point ændrede sig.
   //
@@ -444,11 +506,10 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
   const gated = gatedIds(allMatches, startMs);
   const byId = new Map(allMatches.map((m) => [m.id, m]));
 
-  const BATCH_SIZE = 400;
   let batch = db.batch();
   let ops = 0;
   const batches = [batch];
-  const bump = () => { if (++ops >= BATCH_SIZE) { batch = db.batch(); batches.push(batch); ops = 0; } };
+  const bump = () => { if (++ops >= BATCH_MAKS) { batch = db.batch(); batches.push(batch); ops = 0; } };
 
   let aendrede = 0;
   let delta = 0;
@@ -486,6 +547,7 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
 
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo, rescoreAllBets,
+  dryRunFraKald,
   computeRanks, snapshotRoundRanks,
   settlePuljeBets, officialTop6, gatedIds, recomputeAllPlayerTotals,
 };

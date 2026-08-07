@@ -80,6 +80,28 @@ export async function callRecomputeGameScores(gameId) {
 }
 
 /**
+ * Ompris alle IKKE-LÅSTE kampe med den nuværende odds-model.
+ *
+ * Odds skrives normalt kun om, når en kamps facit ændrer sig. En ændring i
+ * modellen ligger derfor død, indtil en tilfældig kamp bliver afgjort — og
+ * den kamp er som regel selv låst til den tid. Denne knap starter det samme
+ * arbejde manuelt.
+ *
+ * dryRun er DEFAULT SAND. Kaldet rører hver eneste ikke-låste kamps
+ * pointværdi, og der er ingen oddsHistory at rulle tilbage til.
+ * @param {{gameId: string, dryRun?: boolean}} o
+ */
+export async function callRepriceGameOdds({ gameId, dryRun = true } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'repriceGameOdds', { timeout: 300000 });
+    const res = await fn({ gameId, dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke ompris kampene.' };
+  }
+}
+
+/**
  * Genopbyg players/{uid}.leagueIds ud fra ligaernes medlemmer. Feltet er dét,
  * security rules bruger til at afgøre, hvem der må se hvis point — så en
  * genopbygning retter op, hvis noget er drevet fra hinanden.
