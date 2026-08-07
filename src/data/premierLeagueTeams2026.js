@@ -1,28 +1,47 @@
 // ---------------------------------------------------------------------------
 // Premier League 2026/27 — hold + Elo-startværdier.
 //
-// Elo-startværdierne stammer fra clubelo.com pr. 21. august 2026 (hentet 5.
-// august 2026), FORSKUDT så gennemsnittet er 1500. Kun gennemsnittet flyttes;
-// forskellene mellem holdene er bevaret uændret.
+// Elo-startværdierne er (1) hentet fra clubelo.com pr. 21. august 2026, og
+// derefter (2) KALIBRERET mod bookmakernes vinder-odds (Danske Spil + bet365,
+// 7. august 2026) via scripts/calibrate-premier-league-elo.mjs. Gennemsnittet
+// er 1500; kun forskellene mellem holdene bærer information.
 //
-// Det oplagte var at klemme spredningen ned, så den lignede Superliga-listens.
-// Det ville være forkert, og begrundelsen er MÅLT, ikke udledt: en simulering
-// af 4.000 sæsoner over dette kampprogram med modellens egne sandsynligheder
-// giver med den bevarede spredning en favorit, der vinder ~85 % og et bundhold,
-// der bliver sidst ~20 % — hvilket ligger inden for Premier Leagues normale
-// spænd. Klemt til Superligaens spredning bliver det 78 % og 27 %, altså en
-// mærkbart fladere liga, end den er. (En begrundelse om at clubelo skulle bruge
-// "samme 400-nævner" ville IKKE holde: deres skala er kalibreret mod målforskel.
-// At forskellene alligevel kan overføres, er noget vi har efterprøvet.)
+// HER STOD FØR NOGET FORKERT, og det er værd at vide hvorfor. Begrundelsen
+// lød, at clubelos spredning skulle bevares uændret, fordi en simulering gav
+// "en favorit, der vinder ~85 %, hvilket ligger inden for Premier Leagues
+// normale spænd". Det tal blev aldrig holdt op mod et marked. Da det blev det,
+// sagde begge bookmakere 33 % — Arsenal står i 2,50 hos dem begge. Rå clubelo
+// giver 77,7 %. Vi overdrev altså favoritten med en faktor 2,3, og
+// argumentet om at "en klemt skala ville gøre ligaen fladere, end den er" var
+// vendt på hovedet: den var i forvejen alt for spids.
 //
-// Det rammer især spil 2, hvor der tippes på top 4 og nedrykkere: en klemt
-// skala ville underdrive præcis den forskel, de to tips handler om.
+// Det rammer især spil 2, hvor der tippes på top 4 og nedrykkere — netop dér,
+// hvor en forkert spredning slår hårdest igennem.
 //
-// Vi kalibrerer IKKE mod bookmakere som i Superligaen: `compute-superliga-elo`
-// og `calibrate-superliga-elo` henter fra api.superliga.dk og fodres med danske
-// vinderodds. Elo selv-korrigerer i løbet af sæsonen (den levende opdatering
-// genberegner ratings + odds efter hvert resultat), så en startværdi, der er
-// lidt skæv i august, er rettet inden for få runder.
+// TO PORTE afgør, hvem markedet må flytte. Den anden er den vigtige: Danske
+// Spil giver ALLE outsidere 250, mens bet365 spreder fra 251 til 3001. I
+// bunden er gennemsnittet af de to derfor et tal uden indhold, og uden porten
+// trak det Hull +160, Ipswich +138 og Coventry +118 op mod midterfeltet — stik
+// imod grunden til, at vi overhovedet bruger clubelo. Markedet bruges derfor
+// kun, hvor de to bøger er enige inden for en faktor 3. Ni hold kalibreres;
+// elleve beholder clubelo.
+//
+// Den største rettelse er Tottenham: clubelo har dem som nr. 16 (1458), mens
+// BEGGE bookmakere sætter dem i 21,00 — sjettefavorit. De står nu på 1579.
+// Chelsea +97, Arsenal −80.
+//
+// Superligaen bruger samme fremgangsmåde, men med `pSim` som port. Det ville
+// IKKE virke her: Tottenham ville starte under grænsen og aldrig komme over
+// den — uændret for evigt, netop fordi de var undervurderede.
+//
+// GRUNDLAGET er stadig clubelo og ikke historiske PL-resultater. Coventry har
+// ikke spillet i Premier League siden 2001 og Hull ikke siden 2016/17; en
+// beregning fra PL-resultater ville give dem præcis 1500 — et midterhold —
+// hvilket er nøjagtig den tavse fælde, `teamElo()` har.
+//
+// Elo selv-korrigerer i løbet af sæsonen (den levende opdatering genberegner
+// ratings + odds efter hvert resultat), så en startværdi, der er lidt skæv i
+// august, er rettet inden for få runder.
 //
 // De tre oprykkere — Coventry City, Hull City og Ipswich Town — har med vilje
 // IKKE fået 1500. Et nyt hold på 1500 ville stå som et midterhold, og
@@ -43,23 +62,23 @@
 // ---------------------------------------------------------------------------
 
 export const PREMIER_LEAGUE_TEAMS_2026 = [
-  { name: 'Arsenal',                   short: 'ARS', elo: 1744, color: '#EF0107', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Emirates Stadium' },
-  { name: 'Manchester City',           short: 'MCI', elo: 1651, color: '#6CABDD', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'Etihad Stadium' },
-  { name: 'Aston Villa',               short: 'AVL', elo: 1602, color: '#670E36', awayColor: '#95BFE5', thirdColor: '#FFFFFF', venue: 'Villa Park' },
-  { name: 'Manchester United',         short: 'MUN', elo: 1596, color: '#DA291C', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Old Trafford' },
-  { name: 'Liverpool',                 short: 'LIV', elo: 1591, color: '#C8102E', awayColor: '#FFFFFF', thirdColor: '#00B2A9', venue: 'Anfield' },
-  { name: 'Bournemouth',               short: 'BOU', elo: 1553, color: '#DA291C', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'Vitality Stadium' },
-  { name: 'Brighton and Hove Albion',  short: 'BHA', elo: 1523, color: '#0057B8', awayColor: '#FFFFFF', thirdColor: '#FDB913', venue: 'American Express Stadium' },
-  { name: 'Newcastle United',          short: 'NEW', elo: 1518, color: '#241F20', awayColor: '#FFFFFF', thirdColor: '#41B6E6', venue: "St. James' Park" },
-  { name: 'Brentford',                 short: 'BRE', elo: 1517, color: '#E30613', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Gtech Community Stadium' },
-  { name: 'Chelsea',                   short: 'CHE', elo: 1512, color: '#034694', awayColor: '#FFFFFF', thirdColor: '#EAB308', venue: 'Stamford Bridge' },
-  { name: 'Nottingham Forest',         short: 'NFO', elo: 1503, color: '#DD0000', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'The City Ground' },
-  { name: 'Fulham',                    short: 'FUL', elo: 1494, color: '#FFFFFF', awayColor: '#111111', thirdColor: '#6CACE4', venue: 'Craven Cottage' },
-  { name: 'Everton',                   short: 'EVE', elo: 1484, color: '#003399', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Hill Dickinson Stadium' },
-  { name: 'Crystal Palace',            short: 'CRY', elo: 1484, color: '#1B458F', awayColor: '#C4122E', thirdColor: '#FFFFFF', venue: 'Selhurst Park' },
-  { name: 'Leeds United',              short: 'LEE', elo: 1478, color: '#FFFFFF', awayColor: '#1D428A', thirdColor: '#FFCD00', venue: 'Elland Road' },
-  { name: 'Tottenham Hotspur',         short: 'TOT', elo: 1458, color: '#132257', awayColor: '#FFFFFF', thirdColor: '#1D428A', venue: 'Tottenham Hotspur Stadium' },
-  { name: 'Sunderland',                short: 'SUN', elo: 1417, color: '#EB172B', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Stadium of Light' },
-  { name: 'Coventry City',             short: 'COV', elo: 1342, color: '#78D0F3', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'Coventry Building Society Arena' },
-  { name: 'Ipswich Town',              short: 'IPS', elo: 1321, color: '#0044A9', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Portman Road' },
-  { name: 'Hull City',                 short: 'HUL', elo: 1213, color: '#F5A12D', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'MKM Stadium' },];
+  { name: 'Arsenal',                   short: 'ARS', elo: 1664, color: '#EF0107', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Emirates Stadium' },
+  { name: 'Manchester City',           short: 'MCI', elo: 1645, color: '#6CABDD', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'Etihad Stadium' },
+  { name: 'Aston Villa',               short: 'AVL', elo: 1563, color: '#670E36', awayColor: '#95BFE5', thirdColor: '#FFFFFF', venue: 'Villa Park' },
+  { name: 'Manchester United',         short: 'MUN', elo: 1617, color: '#DA291C', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Old Trafford' },
+  { name: 'Liverpool',                 short: 'LIV', elo: 1624, color: '#C8102E', awayColor: '#FFFFFF', thirdColor: '#00B2A9', venue: 'Anfield' },
+  { name: 'Bournemouth',               short: 'BOU', elo: 1539, color: '#DA291C', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'Vitality Stadium' },
+  { name: 'Brighton and Hove Albion',  short: 'BHA', elo: 1522, color: '#0057B8', awayColor: '#FFFFFF', thirdColor: '#FDB913', venue: 'American Express Stadium' },
+  { name: 'Newcastle United',          short: 'NEW', elo: 1522, color: '#241F20', awayColor: '#FFFFFF', thirdColor: '#41B6E6', venue: "St. James' Park" },
+  { name: 'Brentford',                 short: 'BRE', elo: 1503, color: '#E30613', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Gtech Community Stadium' },
+  { name: 'Chelsea',                   short: 'CHE', elo: 1610, color: '#034694', awayColor: '#FFFFFF', thirdColor: '#EAB308', venue: 'Stamford Bridge' },
+  { name: 'Nottingham Forest',         short: 'NFO', elo: 1489, color: '#DD0000', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'The City Ground' },
+  { name: 'Fulham',                    short: 'FUL', elo: 1480, color: '#FFFFFF', awayColor: '#111111', thirdColor: '#6CACE4', venue: 'Craven Cottage' },
+  { name: 'Everton',                   short: 'EVE', elo: 1470, color: '#003399', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Hill Dickinson Stadium' },
+  { name: 'Crystal Palace',            short: 'CRY', elo: 1470, color: '#1B458F', awayColor: '#C4122E', thirdColor: '#FFFFFF', venue: 'Selhurst Park' },
+  { name: 'Leeds United',              short: 'LEE', elo: 1464, color: '#FFFFFF', awayColor: '#1D428A', thirdColor: '#FFCD00', venue: 'Elland Road' },
+  { name: 'Tottenham Hotspur',         short: 'TOT', elo: 1579, color: '#132257', awayColor: '#FFFFFF', thirdColor: '#1D428A', venue: 'Tottenham Hotspur Stadium' },
+  { name: 'Sunderland',                short: 'SUN', elo: 1403, color: '#EB172B', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Stadium of Light' },
+  { name: 'Coventry City',             short: 'COV', elo: 1328, color: '#78D0F3', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'Coventry Building Society Arena' },
+  { name: 'Ipswich Town',              short: 'IPS', elo: 1307, color: '#0044A9', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Portman Road' },
+  { name: 'Hull City',                 short: 'HUL', elo: 1199, color: '#F5A12D', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'MKM Stadium' },];
