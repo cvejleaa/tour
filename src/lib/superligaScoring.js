@@ -183,13 +183,51 @@ export function roundComboBonus(hitOdds, matchCount) {
 
 // --- Elo-lite: sandsynligheder + fair odds -----------------------------------
 
-/** Standard Elo-parametre for Superligaen. */
+/**
+ * Standard Elo-parametre.
+ *
+ * DRAW_BASE gik fra 0,26 til 0,305, og DRAW_DECAY står med vilje stille.
+ * Målt på 6.143 spillede kampe — 13 sæsoner af Superligaen og 10 af Premier
+ * League, hvert holdpar vurderet med de ratings, de havde FØR kampen:
+ *
+ *     model                 forventede uafgjorte   faktiske
+ *     0,260 / 0,550               1.362             1.493   (9 % for få)
+ *     0,305 / 0,550               1.493             1.493   (rammer)
+ *
+ * Fejlen sad altså i NIVEAUET, ikke i formen. Låser man DECAY på 0,55 og
+ * fitter kun BASE, fanger man næsten hele forbedringen (log-likelihood 3407,1
+ * → 3384,1 mod 3383,7 for et frit fit af begge). Én parameter er nok.
+ *
+ * DET, DER GJORDE DEN GAMLE VÆRDI FORKERT, var kalibreringsmålet: 0,26 blev
+ * valgt, så modellen ramte Superligaens GENNEMSNITLIGE uafgjort-rate. Et
+ * gennemsnit kan ikke se, om kurven har rigtig form — og modellen ramte
+ * gennemsnittet ved at være for høj i de jævnbyrdige kampe og for lav i de
+ * skæve. Målingen her grupperer efter styrkeforskel og fitter mod hver enkelt
+ * kamp, så begge dele afsløres.
+ *
+ * DECAY ER EFTERPRØVET og skal ikke røres uden nye tal. 95 %-intervallet over
+ * alle 6.143 kampe er 0,35-0,63; 0,55 ligger midt i det. I de skæve kampe,
+ * hvor parameteren overhovedet kan måles, rammer den næsten præcist:
+ *
+ *     skew        kampe   faktisk   0,55     0,25
+ *     0,5-0,6      285     16,5 %   14,3 %   21,9 %
+ *     0,6-0,7      118     11,9 %   12,9 %   20,9 %
+ *
+ * (0,25 stod som forslag undervejs, fittet mod 14 bookmakerpriser. Det var
+ * forkert af to grunde, som er værd at huske: Superligaen har INGEN kampe over
+ * skew 0,50, så dens historik kan slet ikke måle henfaldet — og en naiv
+ * de-vigning, der fordeler bookmakerens margin proportionalt over de tre
+ * udfald, overdriver langskuddene systematisk. Markedet så fladt ud, fordi
+ * metoden gjorde det fladt.)
+ *
+ * Måles med scripts/maal-uafgjort.mjs. Se docs/spilbalance.md.
+ */
 export const ELO = {
-  START: 1500,      // rating for et nyt/ukendt hold
-  HFA: 60,          // hjemmebane-fordel i Elo-point (~0.09 forventning)
-  K: 20,            // opdateringshastighed pr. kamp
-  DRAW_BASE: 0.26,  // uafgjort-sandsynlighed når holdene er LIGE stærke (~Superligaens rate)
-  DRAW_DECAY: 0.55, // hvor hurtigt uafgjort-chancen falder med styrkeforskel
+  START: 1500,       // rating for et nyt/ukendt hold
+  HFA: 60,           // hjemmebane-fordel i Elo-point (~0.09 forventning)
+  K: 20,             // opdateringshastighed pr. kamp
+  DRAW_BASE: 0.305,  // uafgjort-sandsynlighed når holdene er LIGE stærke
+  DRAW_DECAY: 0.55,  // hvor hurtigt uafgjort-chancen falder med styrkeforskel
 };
 
 /**

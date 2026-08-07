@@ -177,7 +177,11 @@ function scoreBet(bet, result, odds, bank) {
 
 // --- Elo-lite: sandsynligheder, odds + vedligeholdelse (spejl af src) --------
 
-const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.26, DRAW_DECAY: 0.55 };
+// DRAW_BASE gik 0,26 → 0,305. Modellen gav 9 % for få uafgjorte målt på 6.143
+// spillede kampe (13 Superliga-sæsoner + 10 Premier League-sæsoner). Fejlen sad
+// i niveauet, ikke i formen — DRAW_DECAY er efterprøvet og står stille.
+// Fuld begrundelse i src/lib/superligaScoring.js.
+const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.305, DRAW_DECAY: 0.55 };
 const ODDS = { MIN: 1.1, MAX: 6.0 };
 
 function eloExpectedHome(eloHome, eloAway, hfa = ELO.HFA) {
