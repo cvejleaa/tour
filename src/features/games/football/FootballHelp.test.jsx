@@ -170,6 +170,18 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     // konstanten: genindføres et loft, skal hjælpen skrives om igen.
     expect(ODDS.MAX).toBeUndefined();
     expect(container.textContent).toContain('ikke længere et loft over oddsene');
+    // EN POSITIV ASSERTION ER IKKE NOK. Mutationstesten viste, at man kunne
+    // ændre "og ellers uden loft" til "og højst 6,00" — teksten ville så
+    // modsige sig selv i to nabosætninger, og alle tests blev grønne, fordi de
+    // kun tjekkede, at ÉN sætning var til stede. Nu skal teksten heller ikke
+    // sige det modsatte noget sted. (Undtagen om FORTIDEN: "alt over 6,00 blev
+    // skåret ned" er hele forklaringen og skal stå.)
+    expect(container.textContent).toMatch(/og ellers uden loft/);
+    expect(container.textContent).not.toMatch(/og højst \d/);
+    expect(container.textContent).not.toMatch(/loft over oddsene på \d/);
+    // Combi-loftet er nu det eneste tilbage, og det skal siges — ellers tror
+    // en spiller, at intet er begrænset længere.
+    expect(container.textContent).toMatch(/eneste sted i spillet, der stadig har et loft/);
     // HVORNÅR oddsene låser er det, en spiller bliver overrasket over: man
     // låser IKKE en kurs ved at tippe tidligt. Uden den sætning fremgår det
     // ingen steder — hverken i guiden eller på tip-fladen.

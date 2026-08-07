@@ -100,16 +100,16 @@ export const TRAEF_BONUS = 0;
  * Sat til 0 er forventningen igen praktisk talt ens: analytisk 132,8 for
  * favorit-spilleren mod 132,1 for outsideren over en sæson — UDEN odds-loft.
  * MED det gamle loft på 6,00 var outsiderens forventning 128,3, fordi loftet
- * band på 36 af Superligaens 132 kampe og betalte ham mindre end fair. Loftet
- * er siden hævet til 8,0, og så binder det på ingen af dem.
+ * band på 36 af Superligaens 132 kampe og betalte ham mindre end fair.
  *
  * RETTET: her stod, at de 4,5 point var en AKTIV modvægt, fordi den modige
  * ellers ville vinde oftest på højere spredning. Det holdt ikke ved en måling.
  * Fordelen ved at stå alene er den samme, uanset om man står alene med
  * outsidere eller med favoritter (~4× sin andel begge veje), så loftet
  * udlignede ikke noget — det straffede kun den ene af de to. Loftet er derfor
- * hævet til 8,0, hvor det binder på nul udfald i Superligaens program. Se
- * kommentaren ved ODDS længere nede.
+ * FJERNET helt. (Undervejs stod her, at det var hævet til 8,0; det var et
+ * mellemtrin, som målingen af Chancen siden væltede.) Se kommentaren ved ODDS
+ * længere nede.
  *
  * Konstanten bliver stående i stedet for at blive fjernet: det er en
  * justeringsskrue med en målt historik, og næste gang nogen overvejer at
@@ -302,10 +302,24 @@ export function outcomeProbabilities({
  * der brugte den modigt (15,5 %). Loftet gjorde altså funktionen uklog at
  * bruge — det stik modsatte af, hvad den er til for.
  *
- * Dertil et fund, der ikke kræver simulering: ved loft 6 lå 46 udfald i
- * Premier League på nøjagtig 6,00. Kortet viste samme pris for et udfald med
- * 17 % chance og et med 4 %, så den, der ville satse modigt, valgte i blinde og
- * ramte systematisk det dårligste. Uden loft kan to udfald aldrig betale ens.
+ * Dertil et fund, der ikke kræver simulering: loftet klippede 46 udfald i
+ * Superligaen og 197 i Premier League ned til nøjagtig 6,00 — i 10 henholdsvis
+ * 62 kampe stod TO udfald til samme pris. Kortet viste altså samme pris for et
+ * udfald med 17 % chance og et med 4 %, så den, der ville satse modigt, valgte
+ * i blinde og ramte systematisk det dårligste.
+ * (RETTET: her stod "46 udfald i Premier League". 46 er SUPERLIGAENS tal; PL's
+ * er over fire gange så stort. Begge er målt under den GAMLE uafgjort-model,
+ * altså det, spillerne faktisk så.)
+ *
+ * HER STOD OGSÅ "uden loft kan to udfald aldrig betale ens". Det er FORKERT,
+ * og det er værd at forstå hvorfor. Er udeholdet præcis HFA (60 point)
+ * stærkere end hjemmeholdet, er de to hold reelt lige, og så er p1 og p2
+ * MATEMATISK identiske — ikke et afrundingssammenfald. Superligaen har intet
+ * par med præcis 60 points forskel; Premier League har ét (Brentford 1503 mod
+ * Aston Villa 1563 → 1 og 2 begge 2,68), og det spilles to gange. Loftet var
+ * problemet, fordi det ramte 46 + 197 udfald; HFA-sammenfaldet rammer to
+ * kampe i to ligaer og er en egenskab ved modellen, ikke en fejl. Lov derfor
+ * ikke spillerne, at det aldrig sker.
  *
  * PRISEN, som er bevidst valgt: højeste odds i Premier League er 24,39
  * (Arsenal–Hull ude), så én Chance kan give op til 187 point. Det sker 4,1 % af
@@ -317,9 +331,15 @@ export function outcomeProbabilities({
  * og odds 24,39 kun 23,4. Langskuddet ville altså blive dårligere end den
  * sikre kamp — det modsatte af hensigten.
  *
- * MIN bliver stående: et udfald skal betale mere end indsatsen tilbage.
+ * MIN bliver stående: et udfald skal betale mere end indsatsen tilbage. Vær
+ * dog klar over, at det er et VÆRN, ikke en aktiv grænse: efter DRAW_BASE gik
+ * til 0,305, er den højeste sandsynlighed modellen overhovedet kan give
+ * 0,8958 — altså laveste odds 1,116. Gulvet kan derfor aldrig binde gennem
+ * outcomeOdds, som er den eneste vej i produktion. Det binder kun, hvis nogen
+ * kalder fairOdds direkte med en sandsynlighed over 0,909.
  *
- * Måles med scripts/maal-spilbalance.mjs. Se docs/spilbalance.md.
+ * Måles med scripts/maal-chancen.mjs (tabellen ovenfor) og
+ * scripts/maal-spilbalance.mjs (1X2 og combi). Se docs/spilbalance.md.
  */
 export const ODDS = {
   MIN: 1.1,
@@ -330,8 +350,8 @@ export const ODDS = {
 };
 
 /**
- * Fair (EV-neutral) decimal-odds for en sandsynlighed, klippet til [MIN,MAX].
- * Afrundes til 2 decimaler. p ≤ 0 giver MAX.
+ * Fair (EV-neutral) decimal-odds for en sandsynlighed. Kun et GULV (MIN) —
+ * intet loft. Afrundes til 2 decimaler. p ≤ 0 eller ugyldigt giver UGYLDIG.
  */
 export function fairOdds(p) {
   const prob = Number(p);

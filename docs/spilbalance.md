@@ -6,8 +6,9 @@ rigtige strategi frem for ved at gætte bedre?**
 Tallene her er målt, ikke udledt. De reproduceres med
 
 ```bash
-node scripts/maal-spilbalance.mjs                  # begge ligaer
+node scripts/maal-spilbalance.mjs                  # 1X2 + combi, begge ligaer
 node scripts/maal-spilbalance.mjs --liga superliga
+node scripts/maal-chancen.mjs                      # Chancen-tabellen
 ```
 
 Vi har taget fejl af det her tre gange, og hver gang var fejlen i *målingen*,
@@ -124,8 +125,10 @@ så en Chance på høje odds havde ikke bare lavere gevinst, den havde **negativ
 forventning**. Oddsene er fair, så en Chance skal give nul; klippes
 udbetalingen, betaler man for at satse.
 
-Målt over 3.000 simulerede Premier League-sæsoner med tolv spillere, tre pr.
-Chancen-strategi (retfærdig andel 25 %):
+Målt med `scripts/maal-chancen.mjs` over 3.000 simulerede Premier
+League-sæsoner med tolv spillere, tre pr. Chancen-strategi (retfærdig andel
+25 %). Alle tolv tipper favorit på 1X2 og bruger den samme combi-regel — de
+adskiller sig **kun** i Chancen, så forskellen kan ikke komme andre steder fra:
 
 | loft | ingen Chance | sikker | moderat | modig | modiges udbytte pr. sæson |
 |---|---|---|---|---|---|
@@ -138,9 +141,18 @@ Ved loft 6 vandt den, der **slet ikke brugte Chancen**, oftere (27,6 %) end den,
 der brugte den modigt (15,5 %). Loftet gjorde altså funktionen uklog at bruge —
 det stik modsatte af, hvad den er til for.
 
-Dertil kom, at 46 udfald i Premier League lå på nøjagtig 6,00. Kortet viste
-samme pris for et udfald med 17 % chance og et med 4 %, så den, der ville satse
-modigt, valgte i blinde og ramte systematisk det dårligste.
+Dertil kom, hvor meget loftet faktisk klippede. Målt under den model,
+spillerne rent faktisk så (gammel `DRAW_BASE`):
+
+| | udfald klippet til 6,00 | i så mange kampe | kampe med TO udfald til samme pris |
+|---|---|---|---|
+| Superligaen | 46 | 36 af 132 | 10 |
+| Premier League | 197 | 136 af 380 | 62 |
+
+Kortet viste altså samme pris for et udfald med 17 % chance og et med 4 %, så
+den, der ville satse modigt, valgte i blinde og ramte systematisk det
+dårligste. (Her stod tidligere "46 udfald i Premier League". 46 er
+Superligaens tal — Premier Leagues er over fire gange så stort.)
 
 **Prisen er bevidst valgt.** Højeste odds i Premier League er 24,39
 (Arsenal–Hull ude), så én Chance kan give op til 187 point. Det sker 4,1 % af
@@ -185,7 +197,7 @@ af en teknisk detalje.
 
 ## Fælder, vi er faldet i
 
-Alle fire har kostet et forkert tal, som nåede at blive skrevet ned som sandhed.
+Alle seks har kostet et forkert tal, som nåede at blive skrevet ned som sandhed.
 
 1. **`outcomeReward` tager et odds-objekt, ikke et tal.** Sender man et tal,
    falder den tavst tilbage på `DEFAULT_POINTS` (2/4/3). Alle tal bliver
@@ -204,6 +216,13 @@ Alle fire har kostet et forkert tal, som nåede at blive skrevet ned som sandhed
    hvis søjler summer til ca. 150 %. Enhver, der lægger dem sammen, opdager
    straks, at noget er galt, og har ret. Den blandede liga er tilføjet netop
    derfor: den svarer på spørgsmålet, man faktisk stiller, og summer til 100 %.
+6. **Den afgørende måling blev citeret fra et script, der ikke indeholdt den.**
+   Chancen-tabellen ovenfor stod i både koden og her med henvisningen "måles
+   med `maal-spilbalance.mjs`" — men det script har ingen indsats og kalder
+   aldrig `settleChance`. Målingen var kørt, harnesset lå bare i `/tmp` og blev
+   aldrig lagt med. Alle de tal, der *kunne* efterprøves, viste sig at passe,
+   og netop derfor stak det ud, at det vigtigste ikke kunne. Ligger nu som
+   `scripts/maal-chancen.mjs`. **Et tal uden kode er en påstand.**
 
 Dertil to tekniske: tilfældighedsgeneratoren var en klassisk LCG, hvis lave bit
 er stærkt korrelerede — og det var netop dem, `Math.floor(rnd() * 3)` trak på.
@@ -215,11 +234,15 @@ Forskelle under ~1,5 pp skal ikke tolkes.
 
 ## Hvad der stadig er åbent
 
-- **Combi-skævheden.** Odds-loftet er væk; combi'en er ikke undersøgt som en
-  balanceskrue. `COMBI.LOFT` på 25 er nu det **eneste** loft tilbage i
-  pointreglen, og det rammer oftere for underhund-spilleren end for favoritten
-  — altså spiser det en del af den gevinst, fjernelsen af odds-loftet gav. Det
-  er den næste, der bør måles.
+- **Combi-skævheden.** `COMBI.LOFT` på 25 er nu det **eneste** loft tilbage i
+  pointreglen. Det binder oftere for underhund-spilleren (17,3 % af runderne i
+  Premier League) end for favoritten (4,8 %), så skævheden er reel — men den
+  **fandtes allerede**, og fjernelsen af odds-loftet flyttede den knap nok:
+  16,9 % → 17,3 %, combi pr. runde 11,02 → 11,12. I Superligaen ~2,7 % begge
+  veje. (Her stod først, at combi-loftet "spiser en del af den gevinst,
+  fjernelsen af odds-loftet gav". Det er målt efter, og det er for stærkt
+  sagt.) Combi'en bør stadig undersøges som balanceskrue — bare ikke som en
+  følge af denne ændring.
 - **Live-Elo.** Alle tal her er regnet på **seed-Elo**. Produktionen ompriser
   fremtidige kampe fra den løbende Elo, så de højeste odds kan blive større end
   de 24,39, der står ovenfor: et hold, der taber ti i træk, får en lavere rating

@@ -7,7 +7,7 @@ const {
   isOutcome, outcomeFromScore, outcomePoints, settleChance, scoreBet, clampStake, CHANCE, TRAEF_BONUS,
   hitPoints,
   PULJE, ELO, ODDS,
-  outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities,
+  outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities, fairOdds,
   leagueTable, championshipTeams, puljeScore,
 } = require('./superligaScoring');
 
@@ -221,5 +221,24 @@ describe('superligaScoring (server-spejl)', () => {
       expect(outcomeOdds(par)).toEqual(src.outcomeOdds(par));
       expect(outcomeProbabilities(par)).toEqual(src.outcomeProbabilities(par));
     }
+  });
+
+  // fairOdds SKAL sammenlignes på RÅ input, ikke kun gennem Elo-par. Elo kan
+  // ikke producere p ≤ 0 og heller ikke p over 0,896 — så hverken vagten mod
+  // ugyldige værdier eller gulvet bliver nogensinde rørt ad den vej. Målt:
+  // `prob <= 0` kunne svækkes til `prob < 0` på serveren alene, og gulvet
+  // kunne fjernes, med alle 318 tests grønne. Mutanten returnerede Infinity
+  // for fairOdds(0) — præcis det, UGYLDIG findes for at forhindre.
+  it('server-spejlets fairOdds er identisk med src på rå input', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    for (const p of [0, -1, -0.5, 'x', NaN, null, undefined, 0.999, 0.99, 0.95, 0.5, 0.25, 0.05, 0.01, 0.001]) {
+      expect(fairOdds(p)).toBe(src.fairOdds(p));
+      expect(Number.isFinite(fairOdds(p))).toBe(true);
+    }
+    // Og gulvet skal faktisk gribe — med literaler, så det ikke kan hæves
+    // sammen med konstanten uden at noget bliver rødt.
+    expect(fairOdds(0.99)).toBe(1.1);
+    expect(ODDS.MIN).toBe(1.1);
+    expect(fairOdds(0)).toBe(ODDS.UGYLDIG);
   });
 });

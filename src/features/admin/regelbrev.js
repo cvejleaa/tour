@@ -7,12 +7,23 @@
 // nås fra fladen, er dødt maskineri, og teksten forældes, uden at nogen
 // opdager det.
 //
-// TALLENE SKRIVES IKKE AF — de udledes af konstanterne i superligaScoring.js.
+// REGLERNE udledes af konstanterne i superligaScoring.js — ikke af hukommelsen.
 // Det er ikke pedanteri. Vi undskylder i netop dette brev for at have sendt to
 // forskellige forklaringer på den samme regel ud på to dage. Et brev med
-// håndskrevne tal kan sige noget andet end koden, og så ville vi gøre det igen.
-// Ændres TRAEF_BONUS eller ODDS, ændrer brevet sig med — eller testen
-// fejler.
+// håndskrevne regler kan sige noget andet end koden, og så ville vi gøre det
+// igen. Ændres TRAEF_BONUS, ændrer brevet sig med — eller testen fejler.
+//
+// MEN VÆR ÆRLIG OM GRÆNSEN: de MÅLTE tal (34 point, 46 udfald, "3,3 i stedet
+// for 3,9") er håndskrevne og kan ikke udledes af en konstant — de kommer fra
+// scripts/maal-chancen.mjs og scripts/maal-uafgjort.mjs. Ændres modellen, skal
+// de køres igen. Her stod før, at INTET blev skrevet af; det var for stærkt
+// sagt og inviterede til falsk tryghed.
+//
+// TIMING: brevet gælder fra RUNDE 4. Runde 3's kupon blev spillet under det
+// gamle loft, og oddsene skrives først om, når rundens sidste resultat lander
+// (recomputeSeasonElo kaldes kun ved facit-ændring). Send derfor først brevet,
+// når du har set en kamp med odds over 6,00 på skærmen — ellers lover det
+// noget, spillerne ikke kan se.
 // ---------------------------------------------------------------------------
 
 import { TRAEF_BONUS } from '../../lib/superligaScoring';
@@ -23,7 +34,7 @@ export const TIDSLINJE = {
   bonusIndfoert: 'onsdag den 5. august om formiddagen',
   foersteMail: 'onsdag eftermiddag',
   bonusRullet: 'torsdag den 6. august sidst på eftermiddagen',
-  loftHaevet: 'i dag',
+  loftFjernet: 'efter runde 3',
 };
 
 /** Hvad bagfyldningen faktisk gjorde — verificeret i kørsel 31134849406. */
@@ -39,7 +50,7 @@ export const NUVAERENDE_REGEL = TRAEF_BONUS === 0
   ? 'Rammer du en kamp, får du kampens odds i point. Hverken mere eller mindre.'
   : `Rammer du en kamp, får du kampens odds plus ${fmtDec(TRAEF_BONUS)} i point.`;
 
-export const REGELBREV_EMNE = 'Undskyld rodet — her er de endelige regler før runde 3';
+export const REGELBREV_EMNE = 'Undskyld rodet — her er de endelige regler, og de gælder fra runde 4';
 
 export const REGELBREV_TEKST = `Kære alle
 
@@ -65,7 +76,7 @@ Det er hele 1X2-reglen. Ingen bonus for at ramme, ingen tillæg.
 
 Combi-bonussen er uændret. Den ganger de rene odds på de kampe, du rammer i samme runde, og den har aldrig indeholdt den +1, der nu er væk.
 
-Chancen er uændret. Samme indsatsgrænser, samme afregning.
+Chancens REGLER er uændrede. Samme indsatsgrænser, samme afregning. Men den kan give mere end før — se nedenfor.
 
 ÉN TING MERE, OG SÅ ER DER RO
 
@@ -73,13 +84,19 @@ Da jeg regnede efter, faldt to andre ting ud. Begge har været der fra begyndels
 
 LOFTET ER VÆK. Der har hele tiden været et loft på ${fmtDec(6)} over, hvor mange point ét udfald kan give. Det ramte kun de høje odds — altså kun jer, der tipper outsidere. Værst var det for Chancen: loftet skar gevinsten, men aldrig indsatsen, så et modigt bud var i praksis et tab. Jeg har regnet på 3.000 sæsoner, og den, der brugte Chancen modigt, tabte i snit 34 point om året på det. Den, der slet ikke brugte den, klarede sig bedre. Sådan var det ikke tænkt.
 
-Nu er der intet loft. Rammer du et udfald til odds 20, får du 20 point. Og to forskellige gæt kan aldrig igen stå til nøjagtig samme pris — det skete i 10 af sæsonens 132 kampe, blandt andet i FCK–Lyngby, hvor både uafgjort og udesejr var sat til 6,00.
+Nu er der intet loft. Rammer du et udfald til odds 8, får du 8 point. Loftet klippede 46 udfald i denne sæsons program, og i 10 af de 132 kampe stod TO udfald til nøjagtig samme pris — blandt andet FCK–Lyngby, hvor både uafgjort og udesejr var sat til 6,00. Det sker ikke mere.
+
+Det betyder også, at Chancen kan give mere: en fuld indsats på 8 point til odds 8,01 giver 56 point i stedet for de 40, loftet tillod. Risikoen er den samme — rammer du ikke, koster det indsatsen.
 
 UAFGJORT VAR FORKERT PRISSAT. Modellen regnede for få uafgjorte, og fejlen voksede jo mere forskellige holdene var. Jeg har målt den mod 6.143 spillede kampe fra 13 sæsoner i Superligaen og 10 i Premier League. Den er rettet nu.
 
 Det betyder, at uafgjort bliver lidt billigere end før — omkring 3,3 i stedet for 3,9 i en jævnbyrdig kamp — mens hjemme- og udesejr bliver lidt dyrere. Det er den ærlige pris; den gamle var det ikke.
 
-Begge dele slår igennem på kampe, der endnu ikke er spillet, efterhånden som oddsene opdateres. Færdigspillede runder er ikke rørt, og ingen point er ændret bagud.
+HVORNÅR DET GÆLDER FRA
+
+Begge dele gælder fra RUNDE 4. Runde 3's kupon — Sønderjyske–Viborg, Randers–Lyngby, Horsens–Brøndby og Silkeborg–OB — blev spillet under de gamle odds, og de er ikke rørt. Ingen point er ændret bagud.
+
+To kampe kræver en særlig bemærkning: AGF–FCM den 2. september og FCK–FCN den 3. september hører til runde 3, men spilles først om en måned. De er altså ikke spillet endnu, og derfor får de de nye priser. Har du allerede tippet dem, er uafgjort blevet lidt billigere og hjemme/ude lidt dyrere. De er ikke med på runde 3's combi-kupon, så kuponen er upåvirket.
 
 Og for en god ordens skyld: det retter ikke alt. Combi-bonussen belønner stadig den, der rammer mange kampe, mere end den, der rammer få og svære. Det er en anden diskussion, og jeg tager den ikke nu.
 
@@ -95,7 +112,7 @@ HVAD JEG TAGER MED MIG
 
 Jeg skulle have regnet efter, før jeg lagde ændringen ud — ikke bagefter. Og jeg skulle have skrevet ud én gang med det rigtige frem for to gange med hver sin version. Undskyld for forvirringen.
 
-Runde 3 starter i aften kl. 19, og den kører på de regler, der står her.
+Runde 4 er den første, der kører fuldt på reglerne her. Runde 3 er afsluttet på de gamle.
 
 God fornøjelse`;
 

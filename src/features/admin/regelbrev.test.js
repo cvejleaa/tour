@@ -51,16 +51,67 @@ describe('regelbrevet', () => {
     expect(REGELBREV.tekst).not.toMatch(/to gange i dag/i);
   });
 
-  // Brevet må IKKE love, at loftet gælder fra en bestemt runde. Odds skrives
-  // om af serveren, når et facit ændrer sig — så fredagskampen låser med det
-  // gamle loft, uanset hvornår vi udruller. Første udkast lovede "fra runde 3",
-  // og det ville have været fjerde gang, teksten og virkeligheden ikke passede.
-  it('lover ikke en bestemt runde, men siger at spillede kampe er urørte', () => {
-    expect(REGELBREV.tekst).toContain('Færdigspillede runder er ikke rørt');
-    expect(REGELBREV.tekst).not.toMatch(/gælder fra runde/i);
+  // RUNDE 4, ikke runde 3. Her stod før, at brevet slet ikke måtte nævne en
+  // runde, fordi odds kun skrives om, når et facit ændrer sig, og vi derfor
+  // ikke kunne styre hvornår. Det er nu vendt om: udrulningen er bevidst timet
+  // til vinduet mellem runde 3's sidste weekendkamp og dens sidste resultat,
+  // så runde 4 ER den første fulde runde. Løftet er altså sandt — men kun
+  // fordi timingen holder, og derfor står betingelsen i filhovedet.
+  //
+  // Første udkast lovede "runde 3 starter i aften og kører på reglerne her".
+  // Det var direkte forkert: runde 3's kupon blev spillet under det gamle loft.
+  it('gælder fra runde 4 og siger, at spillede kampe er urørte', () => {
+    expect(REGELBREV.tekst).toMatch(/gælder fra RUNDE 4/);
+    expect(REGELBREV.tekst).toMatch(/ingen point er ændret bagud/i);
+    // Runde 3 må ikke fremstilles som om den kørte på de nye regler.
+    expect(REGELBREV.tekst).not.toMatch(/[Rr]unde 3 starter i aften/);
+    expect(REGELBREV.emne).not.toMatch(/før runde 3/i);
     // Tidligere stod her "kan kun trække odds OP". Det holdt for loftet alene,
     // men uafgjort-rettelsen trækker NED. Brevet må ikke love det modsatte.
     expect(REGELBREV.tekst).not.toMatch(/kun trække odds OP/i);
+  });
+
+  // De to septemberkampe er runde 3, men spilles først om en måned — de FÅR
+  // altså de nye priser, mens resten af runde 3 ikke gør. Brevet fortav dem,
+  // og en spiller, der allerede har tippet dem, ville opdage det selv.
+  it('nævner de to runde 3-kampe i september, som alligevel omprises', () => {
+    expect(REGELBREV.tekst).toMatch(/AGF–FCM/);
+    expect(REGELBREV.tekst).toMatch(/FCK–FCN/);
+    expect(REGELBREV.tekst).toMatch(/september/i);
+  });
+
+  // PÅSTANDEN, DER VAR FALSK. Brevet lovede, at to gæt "aldrig igen" kan stå
+  // til samme pris. Er udeholdet præcis HFA (60 point) stærkere, er 1 og 2
+  // matematisk identiske — det sker i Premier League (Brentford mod Aston
+  // Villa) to gange på en sæson. Loftet var problemet; HFA-sammenfaldet er en
+  // egenskab ved modellen. Lov det ikke.
+  it('lover ikke, at to udfald aldrig kan stå til samme pris', () => {
+    expect(REGELBREV.tekst).not.toMatch(/aldrig igen (kan )?stå til nøjagtig samme pris/i);
+    expect(REGELBREV.tekst).not.toMatch(/kan aldrig .{0,30}samme pris/i);
+  });
+
+  // Chancens REGLER er uændrede, men dens maksimale udbetaling er det ikke.
+  // "Chancen er uændret" fortav den største praktiske konsekvens.
+  it('siger, at Chancen kan give mere end før', () => {
+    expect(REGELBREV.tekst).toMatch(/Chancens REGLER er uændrede/);
+    expect(REGELBREV.tekst).toMatch(/56 point/);
+  });
+
+  // Brevet må ikke genindføre et loft i teksten. Mutationstesten viste, at man
+  // kunne indsætte "Nu er der et loft på 8,00 i stedet." uden at noget blev
+  // rødt, fordi testene kun tjekkede for TILSTEDEVÆRELSE af én sætning.
+  //
+  // Bemærk, at brevet GODT må beskrive det gamle loft ("der har hele tiden
+  // været et loft på 6,00") — det er fortid og hele forklaringen. Det, der
+  // ikke må stå, er et loft i nutid. Et bredt forbud mod "loft på \d" fangede
+  // den historiske sætning og ville have tvunget forklaringen ud af brevet.
+  it('nævner ikke noget loft, der gælder NU', () => {
+    expect(REGELBREV.tekst).not.toMatch(/[Nn]u er der et loft/);
+    expect(REGELBREV.tekst).not.toMatch(/nyt loft/i);
+    expect(REGELBREV.tekst).not.toMatch(/loftet er (nu |sat |hævet )?til \d/i);
+    expect(REGELBREV.tekst).not.toMatch(/højst \d+[,.]\d+ point/);
+    // Og det gamle loft skal stadig forklares — ellers giver resten ikke mening.
+    expect(REGELBREV.tekst).toMatch(/har hele tiden været et loft på 6,0/);
   });
 
   // Målingen med combi viste, at loftet IKKE gør spillet balanceret. Brevet må

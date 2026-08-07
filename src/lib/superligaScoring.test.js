@@ -8,6 +8,7 @@ import {
   leagueTable, championshipTeams, puljeScore, PULJE,
 } from './superligaScoring';
 import { SUPERLIGA_TEAMS_2026 } from '../data/superligaTeams2026';
+import { PREMIER_LEAGUE_TEAMS_2026 } from '../data/premierLeagueTeams2026';
 
 describe('1X2-udfald', () => {
   it('udleder udfald af mål', () => {
@@ -216,7 +217,11 @@ describe('fair odds', () => {
     expect(fairOdds(0.25)).toBe(4);
   });
   it('har et gulv, men INTET loft', () => {
-    expect(fairOdds(0.99)).toBe(ODDS.MIN);      // 1,01 → 1,1
+    // Gulvet låses med en LITERAL, ikke med konstanten. Bandt man kun til
+    // ODDS.MIN, kunne gulvet hæves til 1,5 med hele suiten grøn — og så ville
+    // hver favorit over 66 % blive overbetalt, uden at noget blev rødt.
+    expect(ODDS.MIN).toBe(1.1);
+    expect(fairOdds(0.99)).toBe(1.1);           // 1,01 → 1,1
     // Det her er hele ændringen: før blev alt over loftet skåret ned.
     expect(fairOdds(0.05)).toBe(20);            // 1/0,05 = 20, urørt
     expect(fairOdds(0.01)).toBe(100);           // 1/0,01 = 100, urørt
@@ -233,19 +238,50 @@ describe('fair odds', () => {
     expect(Number.isFinite(ODDS.UGYLDIG)).toBe(true);
   });
 
-  // Grunden til at loftet forsvandt: to vidt forskellige gæt kunne stå til
-  // nøjagtig samme pris, så et informeret modigt valg var umuligt. Det kan
-  // ikke ske uden et loft — men testen skal stå, hvis nogen genindfører et.
-  it('to udfald i samme kamp kan aldrig betale nøjagtig det samme', () => {
-    let ens = 0;
-    for (const hjemme of SUPERLIGA_TEAMS_2026) {
-      for (const ude of SUPERLIGA_TEAMS_2026) {
+  // Grunden til at loftet forsvandt: to vidt forskellige gæt stod til nøjagtig
+  // samme pris (46 udfald i Superligaen, 197 i Premier League), så et
+  // informeret modigt valg var umuligt.
+  //
+  // MEN PÅSTANDEN "det kan aldrig ske uden loft" ER FALSK, og den stod både
+  // her, i kodekommentaren og i brevet til spillerne. Er udeholdet PRÆCIS HFA
+  // (60 point) stærkere, er holdene reelt lige, og så er p1 og p2 matematisk
+  // identiske. Den gamle test løb kun over Superligaen, som tilfældigvis ikke
+  // har et sådant par — Premier League har ét, og det spilles to gange.
+  //
+  // Testen kører derfor over BEGGE ligaer og siger, hvad der faktisk gælder:
+  // uafgjort kan aldrig koste det samme som en sejr, og de eneste 1-mod-2
+  // sammenfald er dem, HFA selv skaber.
+  it.each([
+    ['Superligaen', SUPERLIGA_TEAMS_2026],
+    ['Premier League', PREMIER_LEAGUE_TEAMS_2026],
+  ])('kun HFA kan give to udfald samme pris (%s)', (_navn, hold) => {
+    const uventet = [];
+    for (const hjemme of hold) {
+      for (const ude of hold) {
         if (hjemme === ude) continue;
         const o = outcomeOdds({ eloHome: hjemme.elo, eloAway: ude.elo });
-        if (o['1'] === o.X || o.X === o['2'] || o['1'] === o['2']) ens += 1;
+        // Uafgjort må ALDRIG koste det samme som en sejr. Det var loftets
+        // skade, og den er væk.
+        if (o['1'] === o.X || o.X === o['2']) uventet.push(`X-sammenfald: ${hjemme.name}-${ude.name}`);
+        // 1 mod 2 må kun falde sammen ved præcis HFA — alt andet er en fejl.
+        if (o['1'] === o['2'] && ude.elo - hjemme.elo !== ELO.HFA) {
+          uventet.push(`1/2-sammenfald uden HFA: ${hjemme.name}-${ude.name}`);
+        }
       }
     }
-    expect(ens).toBe(0);
+    expect(uventet).toEqual([]);
+  });
+
+  // Og den kendte undtagelse låses eksplicit, så den ikke kan forsvinde ud af
+  // dokumentationen igen: sker det, SKAL det være HFA, der gør det.
+  it('ved præcis HFA points forskel betaler 1 og 2 ens — det er modellen, ikke en fejl', () => {
+    const o = outcomeOdds({ eloHome: 1500, eloAway: 1500 + ELO.HFA });
+    expect(o['1']).toBe(o['2']);
+    expect(o.X).not.toBe(o['1']);
+    // Konkret i Premier League 2026/27: Brentford mod Aston Villa.
+    const brentford = PREMIER_LEAGUE_TEAMS_2026.find((t) => t.name === 'Brentford');
+    const villa = PREMIER_LEAGUE_TEAMS_2026.find((t) => t.name === 'Aston Villa');
+    expect(villa.elo - brentford.elo).toBe(ELO.HFA);
   });
 
   // Chancen er nu ubegrænset opad, og det er et bevidst valg — ikke et

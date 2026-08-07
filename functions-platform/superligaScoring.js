@@ -73,7 +73,8 @@ const TRAEF_BONUS = 0;
  * Fordelen ved at stå alene er den samme, uanset om man står alene med
  * outsidere eller med favoritter (~4× sin andel begge veje), så loftet
  * udlignede ikke noget — det straffede kun den ene af de to. Loftet er derfor
- * hævet til 8,0, hvor det binder på nul udfald i Superligaens program.
+ * FJERNET helt. (Undervejs stod her, at det var hævet til 8,0; det var et
+ * mellemtrin, som målingen af Chancen siden væltede.)
  *
  * Konstanten bliver stående i stedet for at blive fjernet: det er en
  * justeringsskrue med en målt historik, og næste gang nogen overvejer at

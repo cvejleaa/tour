@@ -129,6 +129,25 @@ efterprøves uden at hente rådata ned igen — står i
 [uafgjort-grundlag.md](uafgjort-grundlag.md). Se også
 [spilbalance.md](spilbalance.md).
 
+### Og hvad med 1 og 2?
+
+`DRAW_BASE` blev fittet mod **uafgjort**. Den flytter 4,5 procentpoint ud af 1
+og 2 proportionalt, og `HFA: 60` blev oprindeligt sat under det gamle
+uafgjort-niveau — så det er et rimeligt spørgsmål, om hjemme/ude-splittet
+stadig passer bagefter. Det gør det. Samme 6.143 kampe, hver kamp vurderet med
+de ratings, holdene havde før den:
+
+| | Superligaen (2.543) | | Premier League (3.600) | |
+|---|---|---|---|---|
+| | faktisk | model | faktisk | model |
+| **1** | 43,4 % | 43,6 % | 44,4 % | 44,1 % |
+| **X** | 25,8 % | 25,1 % | 23,3 % | 23,7 % |
+| **2** | 30,9 % | 31,3 % | 32,3 % | 32,2 % |
+
+Alle seks afvigelser ligger under ét standardafvig (|z| ≤ 0,77), største er 17
+kampe ud af 2.543. Hjemmebanefordelen på 60 er altså stadig rigtig efter
+uafgjort-rettelsen, og der er ikke noget at skrue på.
+
 **En blindgyde, der er værd at kende.** Undervejs blev `DRAW_DECAY` foreslået
 sænket til 0,25, fittet mod 14 bookmakerpriser. Det var forkert af to grunde:
 Superligaen har **ingen** kampe over skew 0,50, så dens historik kan slet ikke
@@ -137,13 +156,20 @@ proportionalt over de tre udfald, **overdriver langskuddene systematisk**.
 Markedet så fladt ud, fordi metoden gjorde det fladt. 0,25 ville have overprist
 uafgjort i de skæve kampe med 49 %. Brug facit, ikke priser.
 
-## Odds-loftet hører ikke til her
+## Odds-loftet hørte ikke til her — og findes ikke længere
 
-`ODDS.MAX` ligner en Elo-parameter, men er det ikke: den rører ikke modellen,
-kun hvad et udfald *betaler*. Loftet er en balanceskrue på pointreglen, og hvad
-det gør ved de forskellige spillertyper, er målt i
-[docs/spilbalance.md](spilbalance.md). Skal du skrue på det, så læs dét først —
-der står også, hvorfor Superligaen er på 8,00 og Premier League på 12,00.
+`ODDS.MAX` lignede en Elo-parameter, men var det ikke: den rørte ikke modellen,
+kun hvad et udfald *betalte*. Loftet var en balanceskrue på pointreglen, og
+skruen er nu fjernet helt — der er kun et **gulv** tilbage (`ODDS.MIN` = 1,10),
+så et udfald altid betaler mere end indsatsen.
+
+Kort sagt hvorfor: et loft klipper kun gevinsten, aldrig indsatsen, så en
+Chance på høje odds fik negativ forventning. Den fulde måling står i
+[docs/spilbalance.md](spilbalance.md).
+
+Det rører **ikke** ved Elo-modellen. Højeste odds er nu 8,01 i Superligaen og
+24,39 i Premier League, og de tal falder ud af `DRAW_BASE`/`DRAW_DECAY` og
+ratingspredningen — ikke af en grænse.
 
 ## Dom
 Vores "elo-lite" er **fagligt forsvarlig — faktisk mere end det**. Kernen er ikke

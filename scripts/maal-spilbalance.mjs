@@ -359,6 +359,12 @@ sig selv, uanset om man er modig eller forsigtig.
 Loftet skal derfor ikke aflæses som "gør det spillet retfærdigt". Det kan det
 ikke. Det skal aflæses som: rammer loftet én bestemt strategi hårdere end de
 andre? Ved et lavt loft gør det — det klipper kun høje odds, og det er
-uafgjort- og underhund-spillerens hele indtægt. Ved 8 (Superligaen) og 12
-(Premier League) er kurven flad: derfra flytter et højere loft ingenting.
+uafgjort- og underhund-spillerens hele indtægt.
+
+I 1X2-benet flader kurven ud omkring 8 (Superligaen) og 12 (Premier League),
+og derfra flytter et højere loft ingenting. Det var netop dét, der gjorde "hæv
+loftet" til et rimeligt svar en overgang. Men 1X2 er kun det halve billede:
+Chancen ganger INDSATSEN med odds−1, og dér er et loft aldrig harmløst, uanset
+hvor højt det ligger — se scripts/maal-chancen.mjs. Loftet er derfor fjernet
+helt, og loft-søjlerne her står tilbage som historik.
 `);
