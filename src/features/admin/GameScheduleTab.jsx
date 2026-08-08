@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useGames } from '../games/useGames';
-import { setGameSchedule, setGameStatus } from '../games/gameActions';
+import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameActions';
 import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds } from './adminActions';
 import { formatKickoff } from '../../lib/daDate';
 import { fmtDec } from '../../lib/daNum';
@@ -18,7 +18,7 @@ import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/co
 // Hvad hver status betyder i praksis — vises under vælgeren, så konsekvensen
 // af "Afsluttet" ikke først opdages, når spillet er væk fra oversigten.
 const STATUS_HELP = {
-  [GAME_STATUS.OPEN]: 'Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er joinable. Spillerne kan forlade spillet igen — og et forladt spil tager point og liga-medlemskab med sig.',
+  [GAME_STATUS.OPEN]: 'Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er sat til Synligt nedenfor. Spillerne kan forlade spillet igen — og et forladt spil tager point og liga-medlemskab med sig.',
   [GAME_STATUS.LIVE]: 'I gang. Påmindelser sendes, og Forlad-knappen er væk.',
   [GAME_STATUS.FINISHED]: 'Afsluttet: forsvinder fra "Åbne spil — deltag", og der sendes ikke flere påmindelser. Stilling og historik kan stadig ses.',
 };
@@ -50,6 +50,8 @@ function GameRow({ game }) {
   const [saveMsg, setSaveMsg] = useState(null); // 'saved' | 'error' | dansk fejltekst
   const [recalcBusy, setRecalcBusy] = useState(false);
   const [recalcMsg, setRecalcMsg] = useState(null); // { kind, text }
+  const [synligBusy, setSynligBusy] = useState(false);
+  const [synligFejl, setSynligFejl] = useState(null);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState(null); // { kind, text }
   const [prisBusy, setPrisBusy] = useState(false);
@@ -82,6 +84,11 @@ function GameRow({ game }) {
   // et mesterskabsspil. Feltets tilstedeværelse på spillet er signalet.
   const harPulje = Boolean(game.pulje);
   const statusChanged = gameStatus && gameStatus !== game.status;
+  // Synlighed læses direkte af spillet — ikke af en lokal kopi. Knappen
+  // skriver med det samme, og etiketten vender, når snapshottet kommer
+  // tilbage; det ER kvitteringen. Et felt, man skulle huske at gemme, ville
+  // gøre "afslør spillet" til to handlinger, hvor den ene er usynlig.
+  const synlig = game.joinable === true;
 
   async function save() {
     setBusy(true); setSaveMsg(null);
@@ -105,6 +112,13 @@ function GameRow({ game }) {
     const failed = !res.ok ? res : (!statusRes.ok ? statusRes : null);
     setSaveMsg(failed ? (failed.error || 'error') : 'saved');
     setBusy(false);
+  }
+
+  async function skiftSynlighed() {
+    setSynligBusy(true); setSynligFejl(null);
+    const res = await setGameJoinable(game.id, !synlig);
+    if (!res.ok) setSynligFejl(res.error || 'Kunne ikke ændre spillets synlighed.');
+    setSynligBusy(false);
   }
 
   async function recalc() {
@@ -227,6 +241,37 @@ function GameRow({ game }) {
       <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
         {STATUS_HELP[gameStatus] ?? 'Vælg spillets tilstand.'}
       </p>
+
+      {/* Synlighed. Et nyt spil bliver til i samme sekund, som det kan ses —
+          med mindre der findes en måde at holde det tilbage på. Uden knappen
+          var den eneste udvej at markere spillet "Afsluttet", og det er
+          usandt: påmindelser stopper, og oversigten skriver Afsluttet på et
+          spil, der ikke er begyndt. */}
+      <div style={{ marginTop: '0.75rem' }}>
+        <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn--ghost btn--sm"
+            onClick={skiftSynlighed}
+            disabled={synligBusy}
+          >
+            {synligBusy ? 'Ændrer…' : (synlig ? '🙈 Skjul spillet' : '👁️ Vis spillet')}
+          </button>
+          <span className={`badge ${synlig ? 'badge--green' : ''}`}>
+            {synlig ? 'Synligt for spillerne' : 'Skjult'}
+          </span>
+          {synligFejl && <span className="badge badge--red">{synligFejl}</span>}
+        </div>
+        <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+          {synlig
+            ? 'Spillet står under "Åbne spil — deltag" og kan tilmeldes.'
+            : 'Skjult: spillet står ikke under "Åbne spil — deltag", så ingen falder over det, mens du gennemgår det. Du kan selv åbne det på /spil/' + game.id + '.'}
+          {' '}
+          Skjult er ikke hemmeligt — enhver godkendt bruger med linket kan se
+          spillet og kampene. Spillere, der allerede er tilmeldt, beholder det
+          under &quot;Mine spil&quot;. Knappen virker med det samme; Gem rører
+          den ikke.
+        </p>
+      </div>
 
       <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
         <button className="btn btn--sm" onClick={save} disabled={busy}>

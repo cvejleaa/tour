@@ -54,6 +54,16 @@ Liga-admin følger med at have oprettet ligaen.
   | **I gang** | Forlad-knappen er væk. Påmindelser sendes. |
   | **Afsluttet** | Ude af "Åbne spil — deltag" og af 🔔 Påmindelser-fanen, og det daglige påmindelses-job springer spillet over. Stilling og historik kan stadig ses, og du kan stadig rette facit og genberegne. |
 
+- **👁️ Vis spillet / 🙈 Skjul spillet** styrer, om spillet står under "Åbne
+  spil — deltag". Et nyt spil oprettes **skjult**, så du kan gennemgå
+  holdnavne, kickoff-tider og odds, før nogen ser det — gå selv ind på
+  `/spil/{spil-id}`. Knappen virker **med det samme**; Gem rører den ikke, og
+  den ændrer ikke status.
+  **Skjult er ikke hemmeligt:** enhver godkendt bruger med linket kan åbne
+  spillet og se kampene. Og spillere, der allerede er tilmeldt, beholder
+  spillet under "Mine spil" — skjul fjerner det kun fra tilbuddet til dem, der
+  ikke er med endnu.
+
   Et **eksternt** spil (fx Touren, der kører i sin egen app) bliver stående på
   oversigten som link-ud, også når det er afsluttet — bare med grå etiket.
   Statussen findes kun på platformen; tour.vejleaa.dk ser uændret ud.

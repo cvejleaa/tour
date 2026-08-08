@@ -142,6 +142,43 @@ export async function setGameStatus(gameId, status) {
 }
 
 /**
+ * Vis eller skjul spillet på spiloversigten (games/{gameId}.joinable — kun
+ * admin/owner; håndhæves af security rules: games/{gameId} write =
+ * isGlobalAdmin).
+ *
+ * SKJULT BETYDER ÉN TING: spillet står ikke under "Åbne spil — deltag", så
+ * ingen falder over det og tilmelder sig, mens det bliver gennemgået. Det er
+ * IKKE en adgangsspærring — firestore.rules lader enhver godkendt bruger læse
+ * både spil-dokumentet og kampene, så den der har linket, kan stadig åbne
+ * spillet. Skjult = ikke annonceret, ikke hemmeligt.
+ *
+ * Og det gælder kun dem, der IKKE er med endnu: splitGames filtrerer kun
+ * "åbne" på joinable, så en spiller, der allerede er tilmeldt, beholder
+ * spillet under "Mine spil".
+ *
+ * Værdien skal være en ægte boolean. Uden det tjek ville en streng som
+ * 'false' — sandt i JavaScript — gøre spillet synligt af netop det klik, der
+ * skulle skjule det.
+ * @param {string} gameId
+ * @param {boolean} joinable – true = vises under "Åbne spil", false = skjult
+ * @returns {Promise<{ok:true}|{ok:false,error:string}>}
+ */
+export async function setGameJoinable(gameId, joinable) {
+  if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
+  if (typeof joinable !== 'boolean') return { ok: false, error: 'Synlighed skal være til eller fra.' };
+  try {
+    await setDoc(
+      doc(db, COL.GAMES, gameId),
+      { joinable, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke ændre spillets synlighed.') };
+  }
+}
+
+/**
  * Gem et pulje-tip: spillerens 6 valgte mesterskabs-hold (games/{gameId}/
  * puljeBets/{uid}). De øvrige 6 hold = nedrykningsspillet. Point sættes af
  * serveren ved grundspillets slut. Deadline håndhæves af security rules.

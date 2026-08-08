@@ -3,7 +3,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  joinGame, leaveGame, setGameSchedule, setGameStatus, setPlayerFavoriteTeam,
+  joinGame, leaveGame, setGameSchedule, setGameStatus, setGameJoinable,
+  setPlayerFavoriteTeam,
 } from './gameActions';
 
 // ── Mock firebase/firestore ───────────────────────────────────────────────────
@@ -184,6 +185,50 @@ describe('setGameStatus', () => {
   it('returnerer dansk fejl når skrivningen afvises', async () => {
     mockSetDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
     const res = await setGameStatus('tour2026', 'finished');
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/adgang/i);
+  });
+});
+
+describe('setGameJoinable', () => {
+  it('returnerer fejl uden gameId', async () => {
+    const res = await setGameJoinable('', false);
+    expect(res.ok).toBe(false);
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it('skjuler spillet ved at skrive joinable: false (merge), og rører intet andet', async () => {
+    const res = await setGameJoinable('pl2627-efteraar', false);
+    expect(res).toEqual({ ok: true });
+    expect(mockDoc).toHaveBeenCalledWith({}, 'games', 'pl2627-efteraar');
+    const [, patch, opts] = mockSetDoc.mock.calls[0];
+    expect(patch.joinable).toBe(false);
+    // Status må IKKE følge med: et skjult spil er stadig "Åbent" — det er
+    // netop forskellen på at skjule og at markere spillet afsluttet.
+    expect(Object.keys(patch).sort()).toEqual(['joinable', 'updatedAt']);
+    expect(opts).toEqual({ merge: true });
+  });
+
+  it('viser spillet ved at skrive joinable: true', async () => {
+    expect((await setGameJoinable('pl2627-efteraar', true)).ok).toBe(true);
+    const [, patch] = mockSetDoc.mock.calls[0];
+    expect(patch.joinable).toBe(true);
+  });
+
+  // 'false' er en SAND streng i JavaScript. Uden boolean-tjekket ville netop
+  // det klik, der skulle skjule spillet, gøre det synligt.
+  it('afviser ikke-booleans uden at skrive', async () => {
+    for (const v of ['false', 'true', 0, 1, null, undefined]) {
+      const res = await setGameJoinable('g', v);
+      expect(res.ok, String(v)).toBe(false);
+      expect(res.error).toMatch(/til eller fra/i);
+    }
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it('returnerer dansk fejl når skrivningen afvises', async () => {
+    mockSetDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+    const res = await setGameJoinable('pl2627-efteraar', true);
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/adgang/i);
   });

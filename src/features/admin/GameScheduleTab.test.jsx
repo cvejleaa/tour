@@ -15,9 +15,11 @@ vi.mock('../games/useGames', () => ({
 
 const mockSetGameSchedule = vi.fn();
 const mockSetGameStatus = vi.fn();
+const mockSetGameJoinable = vi.fn();
 vi.mock('../games/gameActions', () => ({
   setGameSchedule: (...a) => mockSetGameSchedule(...a),
   setGameStatus: (...a) => mockSetGameStatus(...a),
+  setGameJoinable: (...a) => mockSetGameJoinable(...a),
 }));
 
 const mockReprice = vi.fn();
@@ -38,6 +40,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockSetGameSchedule.mockResolvedValue({ ok: true });
   mockSetGameStatus.mockResolvedValue({ ok: true });
+  mockSetGameJoinable.mockResolvedValue({ ok: true });
   mockGames.mockReturnValue({ games: [TOUR], loading: false });
 });
 
@@ -144,6 +147,95 @@ describe('GameScheduleTab — status', () => {
     render(<GameScheduleTab />);
     expect(statusSelect().value).toBe('');
     expect(screen.getByRole('option', { name: '— ikke sat —' })).toBeInTheDocument();
+  });
+});
+
+// --- Synlighed ------------------------------------------------------------
+//
+// Uden knappen bliver et nyt spil til i samme sekund, som alle kan se det:
+// seed-scriptet skriver spillet, og står `joinable` til true, ligger det på
+// forsiden, før nogen har set holdnavne, kickoff-tider og odds efter. Den
+// eneste udvej var at markere spillet "Afsluttet" — usandt, og det stopper
+// påmindelserne.
+describe('synlighed', () => {
+  // TOUR har intet joinable-felt → skjult. Det er den rigtige default at teste
+  // imod: sådan ser et spil ud, seedet lige har oprettet med joinable: false.
+  const visKnap = () => screen.getByRole('button', { name: /Vis spillet/ });
+  const skjulKnap = () => screen.getByRole('button', { name: /Skjul spillet/ });
+
+  it('viser at et skjult spil er skjult, og tilbyder at vise det', () => {
+    render(<GameScheduleTab />);
+    expect(screen.getByText('Skjult')).toBeInTheDocument();
+    expect(visKnap()).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Skjul spillet/ })).not.toBeInTheDocument();
+  });
+
+  it('viser spillet med ét klik — joinable: true, intet andet', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(visKnap());
+    await waitFor(() => expect(mockSetGameJoinable).toHaveBeenCalledWith('tour2026', true));
+    // Synlighed er IKKE status. Skrev knappen også status, ville "vis spillet"
+    // kunne genåbne et afsluttet spil — og "skjul" markere et spil afsluttet,
+    // som aldrig er begyndt.
+    expect(mockSetGameStatus).not.toHaveBeenCalled();
+    expect(mockSetGameSchedule).not.toHaveBeenCalled();
+  });
+
+  it('skjuler et synligt spil igen', async () => {
+    mockGames.mockReturnValue({ games: [{ ...TOUR, joinable: true }], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.getByText('Synligt for spillerne')).toBeInTheDocument();
+    fireEvent.click(skjulKnap());
+    await waitFor(() => expect(mockSetGameJoinable).toHaveBeenCalledWith('tour2026', false));
+  });
+
+  // Knappen skriver med det samme. Gem må derfor ikke også røre feltet —
+  // ellers ville et gem af en dato kunne rulle synligheden tilbage til det,
+  // fladen havde i hovedet.
+  it('rører ikke synligheden når man gemmer tidsplanen', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.change(screen.getByLabelText(/Spil-start/), { target: { value: '2026-07-04T12:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
+    expect(mockSetGameJoinable).not.toHaveBeenCalled();
+  });
+
+  // Etiketten er den eneste kvittering. Følger den et lokalt valg i stedet for
+  // spillet, ville en afvist skrivning se ud som om den var gået igennem.
+  it('følger spillet, ikke klikket — etiketten vender først med snapshottet', async () => {
+    const { rerender } = render(<GameScheduleTab />);
+    fireEvent.click(visKnap());
+    await waitFor(() => expect(mockSetGameJoinable).toHaveBeenCalled());
+    expect(screen.getByText('Skjult')).toBeInTheDocument();
+    mockGames.mockReturnValue({ games: [{ ...TOUR, joinable: true }], loading: false });
+    rerender(<GameScheduleTab />);
+    expect(screen.getByText('Synligt for spillerne')).toBeInTheDocument();
+  });
+
+  it('viser serverens fejl, hvis synligheden ikke kunne ændres', async () => {
+    mockSetGameJoinable.mockResolvedValue({ ok: false, error: 'Du har ikke adgang til denne handling.' });
+    render(<GameScheduleTab />);
+    fireEvent.click(visKnap());
+    expect(await screen.findByText(/ikke adgang/i)).toBeInTheDocument();
+    expect(screen.getByText('Skjult')).toBeInTheDocument();
+  });
+
+  // HJÆLPETEKSTEN SKAL VÆRE SAND. firestore.rules giver enhver godkendt bruger
+  // læseadgang til både spil-dokumentet og kampene (matches: read =
+  // isApproved()), så "skjult" betyder kun "ikke annonceret". Lovede teksten
+  // hemmeligholdelse, ville den være en usandhed om adgang — og adgang er
+  // netop dét, man ikke opdager er forkert, før nogen har set noget.
+  it('lover ikke hemmeligholdelse, den ikke kan holde', () => {
+    render(<GameScheduleTab />);
+    const tekst = screen.getByText(/Skjult er ikke hemmeligt/i);
+    expect(tekst).toHaveTextContent(/med linket kan se/i);
+    expect(tekst).toHaveTextContent(/allerede er tilmeldt, beholder det/i);
+    expect(tekst.textContent).not.toMatch(/kun du kan se|ingen andre kan|utilgængelig/i);
+  });
+
+  it('siger hvor spillet selv kan gennemgås, mens det er skjult', () => {
+    render(<GameScheduleTab />);
+    expect(screen.getByText(/\/spil\/tour2026/)).toBeInTheDocument();
   });
 });
 

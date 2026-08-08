@@ -75,6 +75,21 @@ describe('spil-listen', () => {
     }
   });
 
+  // Premier League oprettes SKJULT. Seedet skriver spillet og 180 kampe i én
+  // kørsel; står joinable til true, ligger spillet under "Åbne spil — deltag"
+  // i samme sekund — før nogen har set holdnavne, kickoff-tider og odds efter.
+  // joinable er ADMIN_OWNED, så listen bestemmer kun ved oprettelsen: knappen
+  // i Spil-tidsplan slår synligheden til bagefter, og en senere seed-kørsel
+  // skjuler ikke spillet igen.
+  it('opretter Premier League skjult, så det kan gennemgås før afsløringen', () => {
+    const pl = GAMES.find((g) => g.id === 'pl2627-efteraar');
+    expect(pl.joinable).toBe(false);
+    // Men ÅBENT: skjult er ikke det samme som afsluttet. Stod status til
+    // 'finished', ville påmindelserne aldrig starte, og spillet ville bære en
+    // usand etiket.
+    expect(pl.status).toBe('open');
+  });
+
   it('peger kun på logoer, der findes', () => {
     for (const g of GAMES.filter((x) => x.logo)) {
       // process.cwd() er projektroden i vitest. `import.meta.url` duer ikke:
