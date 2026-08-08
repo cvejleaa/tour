@@ -659,15 +659,29 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
   // Kampe man kan chance på: dem man har tippet, og som ikke er låst.
   const options = roundMatches.filter((m) => betsByMatch[m.id]?.pick && !isLocked(m, nowMs));
   const alleLaast = roundMatches.length > 0 && roundMatches.every((m) => isLocked(m, nowMs));
-
   // RUNDENS AKTIVE CHANCE — sandheden, uafhængigt af hvad der er valgt i
   // dropdownen, og uafhængigt af om kampen er låst. chanceMatchId filtrerer
   // ikke på lås, så den bærer hele runden igennem; `options` gør ikke.
   const activeBet = chanceMatchId ? betsByMatch[chanceMatchId] : null;
   const gemtIndsats = Number(activeBet?.chanceStake) || 0;
   const chanceMatch = chanceMatchId ? roundMatches.find((m) => m.id === chanceMatchId) : null;
+
+  // ER RUNDENS CHANCE LÅST FAST? Så er den brugt, og der er intet at vælge.
+  //
+  // Uden denne gate stod panelet med en dropdown, der pegede på en ANDEN,
+  // åben kamp, og en knap, der sagde "Aktivér Chancen". Et klik nulstillede
+  // først den låste kamp — hvilket reglerne afviser — og skrev derefter den
+  // nye. Resultatet var TO bets med chanceStake > 0 i samme runde, som
+  // serveren afregner hver for sig; den har ingen dedup pr. runde. Og
+  // ⚡-pillen blev siddende på den første kamp, så den anden var usynlig.
+  // "Fjern" var død på samme måde: to kald, begge uden virkning, ingen besked.
+  const chanceLaast = Boolean(chanceMatch) && isLocked(chanceMatch, nowMs);
   const [selMatchId, setSelMatchId] = useState(chanceMatchId || options[0]?.id || '');
-  const [stake, setStake] = useState(gemtIndsats || CHANCE.MIN);
+  // CHANCE.MIN og intet andet: effekten nedenfor sætter den gemte værdi i
+  // samme flush, også når chance-kampen er låst. Læste initialiseringen ALTSÅ
+  // også gemtIndsats, ville der stå to vagter om samme regel, og den ene kunne
+  // fjernes med grøn suite.
+  const [stake, setStake] = useState(CHANCE.MIN);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -683,14 +697,14 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
   // død, fordi `pick` også blev undefined. Man kunne altså slet ikke sætte
   // Chancen.
   //
-  // Fallbacken må IKKE pege på chance-kampen, hvis den er låst: en <select>
-  // med en value uden matchende option viser den første kamp, mens knappen
-  // nedenunder sagde "Opdatér Chancen" om den låste. Dropdownen påstod altså
-  // én kamp og knappen en anden.
+  // Fallbacken peger stadig på chance-kampen. Den ENESTE måde, den kan ligge
+  // uden for `options`, er ved at være låst — en åben, tippet kamp er altid
+  // med — og den tilstand fanges af `chanceLaast` ovenfor, hvor hverken
+  // dropdown eller knapper vises. En ekstra lås-kontrol her ville være en
+  // anden vagt om samme regel, og den kunne fjernes uden at noget blev rødt.
   useEffect(() => {
     if (options.some((m) => m.id === selMatchId)) return;
-    const chanceKanVaelges = options.some((m) => m.id === chanceMatchId);
-    setSelMatchId(chanceKanVaelges ? chanceMatchId : (options[0]?.id || ''));
+    setSelMatchId(chanceMatchId || options[0]?.id || '');
   }, [options, selMatchId, chanceMatchId]);
 
   // Tips hentes asynkront, og fladen venter kun på KAMPENE (se den tidlige
@@ -729,9 +743,16 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
   // saldo, så et point tabt fredag kan sænke loftet fra 8 til 7, mens der
   // stadig ligger 8 gemt på søndagskampen. Klampede linjen, ville den vise 7
   // og dermed lyve om præcis det tal, den findes for at vise.
+  //
+  // "På spil nu" — ikke "Gemt indsats". Appens faste vending for netop dette
+  // tal er "point på spil" (panelets egen intro, LeagueBets, PointOpdeling),
+  // og "Gemt" bruges overalt ellers som kvittering for en handling ("Gemt ✓").
+  // Værst: etiketten "Indsats:" står ti pixels nedenunder med et ANDET tal i
+  // tre af tilstandene — to næsten enslydende navne på to forskellige begreber
+  // er præcis den forveksling, ⚡-pillen blev omskrevet for at undgå.
   const gemtLinje = gemtIndsats > 0 && chanceMatch ? (
     <p style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>
-      Gemt indsats: <strong>{gemtIndsats} point</strong> på {chanceMatch.home}–{chanceMatch.away}
+      På spil nu: <strong>{gemtIndsats} point</strong> på {chanceMatch.home}–{chanceMatch.away}
       {activeBet?.pick ? ` (${OUTCOME_LABEL[activeBet.pick]})` : ''}
     </p>
   ) : null;
@@ -742,7 +763,11 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
         <h3 className="card__title">Chancen ⚡</h3>
         {gemtLinje}
         <p style={{ color: 'var(--c-muted)', marginBottom: 0 }}>
-          Du kan bruge Chancen, når du har mindst {Math.ceil(CHANCE.MIN / CHANCE.CAP_FRACTION)} point.
+          {/* Uden denne sætning stod der "På spil nu: 4 point" umiddelbart
+              efterfulgt af "Du kan bruge Chancen, når du har mindst 7" — og så
+              er det uklart, om de 4 point stadig gælder. Det gør de. */}
+          {gemtIndsats > 0 && 'Din aktive chance afregnes som normalt. '}
+          Du kan sætte en NY chance, når du har mindst {Math.ceil(CHANCE.MIN / CHANCE.CAP_FRACTION)} point.
           Sæt point på spil på ét tip: rammer du, ganges indsatsen med oddsene — ellers mister du kun indsatsen.
         </p>
       </div>
@@ -754,12 +779,23 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
     setError('');
     setBusy(true);
     // Én chance pr. runde: nulstil en evt. tidligere chance i runden.
+    //
+    // Og LYKKES den nulstilling ikke, må den nye chance ikke skrives. Ellers
+    // står der to bets med chanceStake > 0 i samme runde, og serveren afregner
+    // dem begge — den har ingen dedup. Returværdien blev før smidt væk, så en
+    // afvist nulstilling (fx fordi kampen er låst) blev til en tavs ekstra
+    // indsats i stedet for en fejlbesked.
     if (chanceMatchId && chanceMatchId !== selMatch.id) {
       const prev = betsByMatch[chanceMatchId];
-      await setBet({
+      const nulstil = await setBet({
         uid: me?.uid, gameId, matchId: chanceMatchId, pick: prev.pick, chanceStake: 0, bank,
         leagueIds: me?.leagueIds || [],
       });
+      if (!nulstil.ok) {
+        setError(nulstil.error || 'Kunne ikke flytte Chancen fra den anden kamp. Prøv igen.');
+        setBusy(false);
+        return;
+      }
     }
     const res = await setBet({
       uid: me?.uid, gameId, matchId: selMatch.id, pick, chanceStake: newStake, bank,
@@ -779,7 +815,14 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
 
       {gemtLinje}
 
-      {options.length === 0 ? (
+      {chanceLaast ? (
+        // Rundens chance er brugt og kan ikke flyttes. Vis kendsgerningen i
+        // stedet for et valg, der ikke findes.
+        <p className="badge badge--muted">
+          Chancen er brugt i denne runde — kampen er låst, så den kan hverken
+          flyttes eller fjernes.
+        </p>
+      ) : options.length === 0 ? (
         // To vidt forskellige grunde til, at der ikke er noget at vælge —
         // og den ene tekst dækkede begge. "Tip mindst én kamp i runden
         // først" er forkert, når runden er låst: så HAR man tippet, og man
@@ -826,11 +869,27 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
             )}
           </p>
 
+          {/* Loftet følger den LEVENDE saldo, så et tabt point kan sænke maks
+              under det, der allerede er gemt. Så står "På spil nu: 8 point"
+              over en tæller, der viser 3 — og et klik ville sætte de 8 ned til
+              3. Sig det, i stedet for at lade de to tal modsige hinanden. */}
+          {chanceMatchId === selMatchId && gemtIndsats > clampedStake && (
+            <p className="badge badge--muted" style={{ marginTop: '0.25rem' }}>
+              Dit maksimum er nu {maxStake}. Opdaterer du, sættes indsatsen ned
+              fra {gemtIndsats} til {clampedStake}.
+            </p>
+          )}
+
           {error && <p className="badge badge--red">{error}</p>}
 
           <div className="flex items-center" style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
             <button className="btn btn--sm" disabled={busy || !pick} onClick={() => save(clampedStake)}>
-              {chanceMatchId === selMatchId ? 'Opdatér Chancen' : 'Aktivér Chancen'}
+              {/* "Flyt Chancen hertil" siger med to ord dét, intet før sagde:
+                  at et klik FJERNER chancen fra den anden kamp. Statuslinjen
+                  gør nu den anden kamp nærværende, så tavsheden ville stikke
+                  endnu mere i øjnene. */}
+              {chanceMatchId === selMatchId ? 'Opdatér Chancen'
+                : chanceMatchId ? 'Flyt Chancen hertil' : 'Aktivér Chancen'}
             </button>
             {chanceMatchId && (
               <button className="btn btn--ghost btn--sm" disabled={busy}

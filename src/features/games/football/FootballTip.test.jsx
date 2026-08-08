@@ -15,6 +15,7 @@ vi.mock('../useVisibleGameStandings', () => ({
   useVisibleGameStandings: () => ({ standings: [], leagues: [], leagueCount: 0, loading: false, error: null }),
 }));
 vi.mock('../betActions', () => ({ setBet: vi.fn().mockResolvedValue({ ok: true }) }));
+import { setBet } from '../betActions';
 vi.mock('./LeagueBets', () => ({ default: () => <div data-testid="liga-tips" /> }));
 vi.mock('../../../components/ClubBadge', () => ({ default: () => <span /> }));
 
@@ -680,12 +681,24 @@ describe('Chancen — den gemte indsats', () => {
     expect(linje).not.toHaveTextContent('−1');
   });
 
-  it('skriver den gemte indsats med kamp og valg', () => {
-    render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
-    const linje = screen.getByText(/Gemt indsats:/);
+  // Chancen ligger med vilje på rundens ANDEN kamp: lå den på den første i
+  // hver eneste test, kunne opslaget erstattes med roundMatches[0], uden at
+  // noget fejlede — og så beviser linjen ikke, at det er den rigtige kamp,
+  // der navngives.
+  it('navngiver den kamp, chancen faktisk står på', () => {
+    render(tegn({ m2: { pick: '2', chanceStake: 4 } }));
+    const linje = screen.getByText(/På spil nu:/);
     expect(linje).toHaveTextContent('4 point');
-    expect(linje).toHaveTextContent('AGF–F.C. København');
-    expect(linje).toHaveTextContent('(1)');
+    expect(linje).toHaveTextContent('Brøndby IF–FC Midtjylland');
+    expect(linje).toHaveTextContent('(2)');
+    expect(linje).not.toHaveTextContent('AGF');
+  });
+
+  // OUTCOME_LABEL-opslaget: 'X' er den, der let falder igennem, fordi den
+  // hverken er 1 eller 2.
+  it('skriver X som valg, når chancen står på uafgjort', () => {
+    render(tegn({ m1: { pick: 'X', chanceStake: 2 } }));
+    expect(screen.getByText(/På spil nu:/)).toHaveTextContent('(X)');
   });
 
   // TRE TILSTANDE, hvor tallet var usynligt, mens der var point i spil. Alle
@@ -697,20 +710,30 @@ describe('Chancen — den gemte indsats', () => {
   it('viser den gemte indsats, også når hele runden er låst', () => {
     vi.setSystemTime(new Date('2026-09-02T08:00:00Z')); // efter runde 1s kickoff
     render(tegn({ m1: { pick: '1', chanceStake: 4 } }, { url: '/spil/sl?runde=1' }));
-    const linje = screen.getByText(/Gemt indsats:/);
+    const linje = screen.getByText(/På spil nu:/);
     expect(linje).toHaveTextContent('4 point');
     // "Tip mindst én kamp i runden først" er usandt her: man HAR tippet, og
     // man kan under ingen omstændigheder nå at gøre det, sætningen beder om.
     expect(screen.queryByText(/Tip mindst én kamp i runden først/)).not.toBeInTheDocument();
+    // Med en aktiv chance på en låst kamp er den præcise besked den rigtige.
+    expect(screen.getByText(/Chancen er brugt i denne runde/)).toBeInTheDocument();
+  });
+
+  // Uden en aktiv chance er det runden — ikke chancen — der er låst.
+  it('siger at RUNDEN er låst, når der ingen chance er sat', () => {
+    vi.setSystemTime(new Date('2026-09-02T08:00:00Z'));
+    render(tegn({ m1: { pick: '1', chanceStake: 0 } }, { url: '/spil/sl?runde=1' }));
     expect(screen.getByText(/Runden er låst/)).toBeInTheDocument();
+    expect(screen.queryByText(/Tip mindst én kamp i runden først/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Chancen er brugt/)).not.toBeInTheDocument();
   });
 
   // 2) Saldoen er faldet under grænsen for at BRUGE Chancen — men den aktive
   //    chance forsvinder ikke af den grund.
   it('viser den gemte indsats, selv når saldoen er for lav til at sætte en ny', () => {
     render(tegn({ m1: { pick: '1', chanceStake: 4 } }, { me: { uid: 'me', totalPoints: 5 } }));
-    expect(screen.getByText(/Du kan bruge Chancen, når du har mindst/)).toBeInTheDocument();
-    expect(screen.getByText(/Gemt indsats:/)).toHaveTextContent('4 point');
+    expect(screen.getByText(/Du kan sætte en NY chance, når du har mindst/)).toBeInTheDocument();
+    expect(screen.getByText(/På spil nu:/)).toHaveTextContent('4 point');
   });
 
   // 3) maxStake følger den LEVENDE saldo. Et point tabt fredag kan sænke
@@ -720,7 +743,7 @@ describe('Chancen — den gemte indsats', () => {
   it('viser den RÅ gemte indsats, også når loftet er faldet under den', () => {
     // totalPoints 20 → maks = min(8, floor(0,15 × 20)) = 3. Gemt: 8.
     render(tegn({ m1: { pick: '1', chanceStake: 8 } }, { me: { uid: 'me', totalPoints: 20 } }));
-    expect(screen.getByText(/Gemt indsats:/)).toHaveTextContent('8 point');
+    expect(screen.getByText(/På spil nu:/)).toHaveTextContent('8 point');
     expect(screen.getByText(/af maks 3/)).toBeInTheDocument();
   });
 
@@ -738,15 +761,53 @@ describe('Chancen — den gemte indsats', () => {
   it('sætter ikke indsatsen ned, når man vælger en anden kamp', () => {
     render(tegn({ m1: { pick: '1', chanceStake: 4 }, m2: { pick: 'X', chanceStake: 0 } }));
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'm2' } });
-    expect(screen.getByRole('button', { name: /Aktivér Chancen/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Flyt Chancen hertil/ })).toBeInTheDocument();
     expect(screen.getByText(/Rammer du ikke:/)).toHaveTextContent('−4');
   });
 
-  // Dropdownen løj: <select> med en value uden matchende option viser den
-  // FØRSTE kamp, mens knappen nedenunder sagde "Opdatér Chancen" om den låste.
-  it('vælger ikke chance-kampen i dropdownen, når den er låst', () => {
+  // SKRIVNINGEN, ikke kun skærmen. save(clampedStake) kunne skiftes til
+  // save(CHANCE.MIN) med hele suiten grøn: setBet er mocket og blev aldrig
+  // assertet. Det er det symptom, der KOSTER POINT — panelet skrev 1 ned oven
+  // i en indsats på 4.
+  it('gemmer den viste indsats — ikke MIN', async () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    setBet.mockClear();
+    // Tiden er frossen i denne fil, og waitFor hænger under fake timers —
+    // act tømmer i stedet mikrotask-køen efter den mockede skrivning.
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Opdatér Chancen/ })); });
+    expect(setBet).toHaveBeenCalled();
+    expect(setBet.mock.calls[0][0]).toMatchObject({ matchId: 'm1', chanceStake: 4 });
+  });
+
+  it('gemmer den værdi, man har skruet op til', async () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    fireEvent.click(screen.getByRole('button', { name: '+' }));
+    setBet.mockClear();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Opdatér Chancen/ })); });
+    expect(setBet).toHaveBeenCalled();
+    expect(setBet.mock.calls[0][0]).toMatchObject({ chanceStake: 5 });
+  });
+
+  // DEPEN SKAL VÆRE ET TAL. Med bet-OBJEKTET i deps ville en ugemt ændring
+  // blive nulstillet, hver gang serveren rørte dokumentet — objektet er nyt
+  // ved hvert snapshot, også når tallet er uændret. Begrundelsen stod i
+  // kommentaren, men var ubevist.
+  it('beholder en ugemt ændring, når et nyt snapshot lander med samme tal', () => {
+    const { rerender } = render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    fireEvent.click(screen.getByRole('button', { name: '+' }));
+    expect(screen.getByText(/Rammer du ikke:/)).toHaveTextContent('−5');
+    // Nyt objekt, samme tal — præcis som et Firestore-snapshot.
+    rerender(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    expect(screen.getByText(/Rammer du ikke:/)).toHaveTextContent('−5');
+  });
+
+  // QC's fund: med chancen på en LÅST kamp pegede dropdownen på en anden,
+  // åben kamp, og knappen sagde "Aktivér Chancen". Klikket nulstillede først
+  // den låste (afvist af reglerne), men skrev derefter den nye — to bets med
+  // chanceStake > 0 i samme runde, som serveren afregner hver for sig.
+  it('tilbyder ikke at sætte en ny chance, når rundens chance er låst fast', () => {
     const LAAST = [
-      { ...MED_ODDS[0], kickoff: new Date('2026-08-01T18:00:00Z') }, // låst
+      { ...MED_ODDS[0], kickoff: new Date('2026-08-01T18:00:00Z') },
       MED_ODDS[1],
       ...MED_ODDS.slice(2),
     ];
@@ -754,10 +815,55 @@ describe('Chancen — den gemte indsats', () => {
       { m1: { pick: '1', chanceStake: 4 }, m2: { pick: 'X', chanceStake: 0 } },
       { matches: LAAST, url: '/spil/sl?runde=1' },
     ));
-    expect(screen.getByRole('combobox').value).toBe('m2');
-    // … og knappen taler så om m2, ikke om den låste m1.
-    expect(screen.getByRole('button', { name: /Aktivér Chancen/ })).toBeInTheDocument();
-    // Den gemte indsats står der stadig — den er ikke væk, fordi kampen er låst.
-    expect(screen.getByText(/Gemt indsats:/)).toHaveTextContent('4 point');
+    expect(screen.getByText(/Chancen er brugt i denne runde/)).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Chancen/ })).not.toBeInTheDocument();
+    // "Fjern" var lige så død — to kald uden virkning og ingen fejlbesked.
+    expect(screen.queryByRole('button', { name: 'Fjern' })).not.toBeInTheDocument();
+    // Men tallet står der stadig: chancen er jo i spil.
+    expect(screen.getByText(/På spil nu:/)).toHaveTextContent('4 point');
+  });
+
+  // Slår nulstillingen af den gamle kamp fejl, må den nye IKKE skrives.
+  it('skriver ikke den nye chance, hvis den gamle ikke kunne nulstilles', async () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 }, m2: { pick: 'X', chanceStake: 0 } }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'm2' } });
+    setBet.mockClear();
+    setBet.mockResolvedValueOnce({ ok: false, error: 'Tippet kunne ikke gemmes (deadline passeret eller ingen adgang).' });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Flyt Chancen hertil/ })); });
+    expect(screen.getByText(/deadline passeret/)).toBeInTheDocument();
+    // Præcis ét kald: nulstillingen. Den nye chance blev ikke skrevet.
+    expect(setBet).toHaveBeenCalledTimes(1);
+    expect(setBet.mock.calls[0][0]).toMatchObject({ matchId: 'm1', chanceStake: 0 });
+  });
+
+  // Knappen skal sige, at chancen FLYTTES — intet sagde før, at et klik
+  // fjerner den fra den anden kamp.
+  it('siger at chancen flyttes, når man vælger en anden kamp', () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 }, m2: { pick: 'X', chanceStake: 0 } }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'm2' } });
+    expect(screen.getByRole('button', { name: 'Flyt Chancen hertil' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Aktivér Chancen' })).not.toBeInTheDocument();
+  });
+
+  // Loftet kan falde under det gemte. Så modsagde fladen sig selv: "På spil
+  // nu: 8 point" over en tæller på 3, og et klik satte de 8 ned uden varsel.
+  it('siger det, når en opdatering ville sætte indsatsen ned', () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 8 } }, { me: { uid: 'me', totalPoints: 20 } }));
+    const advarsel = screen.getByText(/sættes indsatsen ned/);
+    expect(advarsel).toHaveTextContent('fra 8 til 3');
+    expect(advarsel).toHaveTextContent('maksimum er nu 3');
+  });
+
+  it('siger ikke noget om nedsættelse, når loftet rummer den gemte indsats', () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    expect(screen.queryByText(/sættes indsatsen ned/)).not.toBeInTheDocument();
+  });
+
+  // "På spil nu: 4 point" efterfulgt af "du skal have mindst 7" er tvetydigt,
+  // hvis der ikke står, at de 4 stadig gælder.
+  it('siger at en aktiv chance afregnes, selv når man ikke kan sætte en ny', () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }, { me: { uid: 'me', totalPoints: 5 } }));
+    expect(screen.getByText(/afregnes som normalt/)).toBeInTheDocument();
   });
 });
