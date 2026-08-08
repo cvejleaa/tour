@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// scripts/games.js — DE SPIL, PLATFORMEN KENDER. Ét sted, importeret to steder.
+// scripts/games.mjs — DE SPIL, PLATFORMEN KENDER. Ét sted, importeret to steder.
 //
 // Ligger i sin egen fil, fordi listen skal kunne TESTES. seed-games.mjs
 // initialiserer firebase-admin på øverste niveau og kan derfor ikke importeres
@@ -7,9 +7,14 @@
 // beskriver præcis de felter, en fejl er dyrest i (sync-provider, pulje).
 // ---------------------------------------------------------------------------
 
-// De spil platformen kender. status/joinable afspejler virkeligheden 20/7-2026:
-// VM er afsluttet, Touren kører, Superligaen åbner 24/7. gameId'erne matcher
-// migreringens data-stier (games/vm2026/…, games/tour2026/…).
+// De spil platformen kender. gameId'erne matcher migreringens data-stier
+// (games/vm2026/…, games/tour2026/…) og kan IKKE ændres bagefter: players,
+// bets, leagues og matches hænger alle under games/{gameId}/.
+//
+// `status` og `joinable` i listen gælder kun, når spillet OPRETTES — derefter
+// ejer admin dem (ADMIN_OWNED nedenfor). Her stod tidligere en datostemplet
+// beskrivelse af, hvilke spil der kørte; den var forældet inden for en måned
+// og modsagde posterne længere nede.
 //
 // TO FELTER BÆRER LIGAENS FORM, og de er med vilje skrevet HER frem for i en
 // tabel i koden — så en ny liga er en post i denne liste, ikke et deploy af
@@ -27,9 +32,14 @@
 //          feltet, har spillet ingen pulje. Superligaens top-6 er en egenskab
 //          ved den liga — ikke ved fodbold, og ikke ved platformen.
 //
-// Et spil UDEN `sync` synkes ikke. Den tavshed fanges af den eksisterende
-// strandede-alarm (superligaSync.strandedMatches), som råber op om kampe uden
-// facit længe efter kickoff.
+// ET SPIL UDEN `sync` SYNKES IKKE — OG INGEN OPDAGER DET.
+// Her stod, at den eksisterende strandede-alarm fangede tavsheden. Det er
+// forkert: `strandedMatches` kaldes kun fra sweep'et uden gameId, og
+// defaulten er superliga2627 (superligaSync.js). Kampe i ethvert andet spil
+// kan stå uden facit i det uendelige, uden at nogen får besked.
+// Alarmen skal gøres spil-agnostisk i opgave #7, samtidig med at
+// provider-opslaget bygges. Indtil da er det et menneske, der skal huske at
+// kigge.
 export const GAMES = [
   {
     id: 'vm2026',

@@ -722,14 +722,43 @@ describe('recomputeGameMatchCore — placerings-snapshot ved rundeafslutning', (
 });
 
 describe('settlePuljeBets', () => {
+  // Et spil MED pulje. Fixturerne sendte før et tomt spil-dokument, og
+  // afregningen kiggede aldrig på feltet — så testene beviste, at puljen blev
+  // afregnet i et spil, der slet ikke havde en.
+  const PULJE_SPIL = { pulje: { poolSize: 6 } };
+
   // 3 hold spillet færdigt: A > B > C. top-6 (slice) = [A, B, C].
   const matches = [
     { id: 'm1', home: 'A', away: 'B', homeGoals: 2, awayGoals: 0 },
     { id: 'm2', home: 'A', away: 'C', homeGoals: 1, awayGoals: 0 },
     { id: 'm3', home: 'B', away: 'C', homeGoals: 3, awayGoals: 1 },
   ];
+  // PORTEN. Uden den var FLADEN eneste vagt — og fladen er ikke en vagt.
+  // Sætter en admin `puljeLockAt` på et spil uden pulje (feltet blev vist for
+  // alle fodboldspil), accepterer firestore.rules puljetips, og de blev
+  // afregnet her mod en top-6 af Premier Leagues tabel. Bonuspoint i en liga,
+  // der ikke har en pulje, én tastefejl væk.
+  it('afregner IKKE i et spil uden pulje — heller ikke hvis der ligger tips', async () => {
+    const db = makeDb([], matches, {}, { P1: {} }, { P1: { championship: ['A', 'B', 'C'] } });
+    const res = await settlePuljeBets(db, FieldValue, 'g1', matches);
+    expect(res.settled).toBe(0);
+    expect(res.ingenPulje).toBe(true);
+    // Tippet står urørt — hverken point eller correct er skrevet …
+    expect(db._pulje.P1.points).toBeUndefined();
+    expect(db._pulje.P1.correct).toBeUndefined();
+    // … og spilleren har ingen bonuspoint fået.
+    expect(db._players.P1?.bonusPoints).toBeUndefined();
+  });
+
+  // Et spil, der slet ikke findes, må heller ikke afregne.
+  it('afregner ikke, når spil-dokumentet mangler', async () => {
+    const db = makeDb([], matches, {}, { P1: {} }, { P1: { championship: ['A'] } });
+    const res = await settlePuljeBets(db, FieldValue, 'g1', matches);
+    expect(res.settled).toBe(0);
+  });
+
   it('scorer pulje-tip og lægger bonusPoints i spillerens total', async () => {
-    const db = makeDb([], matches, {}, { P1: {}, P2: {} }, {
+    const db = makeDb([], matches, PULJE_SPIL, { P1: {}, P2: {} }, {
       P1: { championship: ['A', 'B', 'C'] }, // alle 3 i top → 3×4 = 12
       P2: { championship: ['A', 'X', 'Y'] }, // 1 rigtig → 4
     });
@@ -764,7 +793,7 @@ describe('settlePuljeBets', () => {
         { uid: 'P1', matchId: 'g1m', pick: '1', points: 2 },  // efter start
       ],
       [foerStart, efterStart],
-      { startAt: 500 },
+      { ...PULJE_SPIL, startAt: 500 },
       { P1: {} },
       { P1: { championship: ['A', 'B', 'C'] } },
     );
@@ -787,7 +816,7 @@ describe('settlePuljeBets', () => {
     const db = makeDb([
       { uid: 'P1', matchId: 'm1', pick: '1', points: 2 },
       { uid: 'P1', matchId: 'm2', pick: '1', points: 3 },
-    ], roundMatches, {}, { P1: {} }, { P1: { championship: ['A'] } });
+    ], roundMatches, PULJE_SPIL, { P1: {} }, { P1: { championship: ['A'] } });
 
     const res = await settlePuljeBets(db, FieldValue, 'g1', roundMatches);
     expect(res.settled).toBe(1);
@@ -811,7 +840,7 @@ describe('settlePuljeBets', () => {
     const standings = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
       .map((name, i) => ({ rank: i + 1, teamName: name, played: 1 }));
     const dummy = [{ id: 'm1', home: 'Y', away: 'Z', homeGoals: 1, awayGoals: 0 }];
-    const db = makeDb([], dummy, { standings }, { P1: {}, P2: {} }, {
+    const db = makeDb([], dummy, { ...PULJE_SPIL, standings }, { P1: {}, P2: {} }, {
       P1: { championship: ['A', 'B', 'C', 'D', 'E', 'F'] }, // alle 6 rigtige → 34
       P2: { championship: ['A', 'B', 'C', 'D', 'E', 'X'] }, // 5 rigtige → 20
     });

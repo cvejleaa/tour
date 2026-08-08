@@ -34,7 +34,8 @@ const { GAMES } = await import('./games.mjs');
 // Felter, admin styrer fra Spil-tidsplan-fanen. På et spil, der allerede
 // findes, er virkeligheden i Firestore mere rigtig end listen heroppe: seedet
 // ville ellers stille rulle en "Afsluttet"-markering tilbage ved næste kørsel —
-// uden fejl og uden spor, fordi det skriver med merge.
+// uden fejl og uden spor, fordi det skriver med merge. (Listen bor i
+// scripts/games.mjs.)
 const ADMIN_OWNED = ['status', 'joinable'];
 
 async function seedGames() {

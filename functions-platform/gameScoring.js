@@ -362,11 +362,23 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   const puljeSnap = await gameRef.collection('puljeBets').get();
   if (puljeSnap.empty) return { settled: 0 };
 
+  // SPILLET SKAL HAVE EN PULJE. Puljen er et tip om, hvem der ender i
+  // mesterskabsspillet, og det findes kun i ligaer, der HAR et mesterskabsspil.
+  //
+  // Uden denne port var fladen eneste vagt — og fladen er ikke en vagt.
+  // Sætter en admin `puljeLockAt` på et spil uden pulje (feltet vises i
+  // Spil-tidsplan), accepterer firestore.rules puljetips, og de blev afregnet
+  // her mod en top-6 af Premier Leagues tabel. Bonuspoint i en liga uden
+  // pulje, én tastefejl væk. CLAUDE.md: serveren er eneste autoritet.
+  const gameSnap = await gameRef.get();
+  if (!gameSnap.exists || !gameSnap.data().pulje) {
+    console.log(`settlePuljeBets(${gameId}): spillet har ingen pulje — ${puljeSnap.size} tip afregnes IKKE.`);
+    return { settled: 0, ingenPulje: true };
+  }
   // Top-6 fra den OFFICIELLE stilling (autoritativ); beregnet tabel kun som
   // fallback, hvis stillingen ikke er synket helt igennem grundspillet.
-  const gameSnap = await gameRef.get();
-  const standings = gameSnap.exists ? gameSnap.data().standings : null;
-  const startMs = gameSnap.exists ? kickoffMs({ kickoff: gameSnap.data().startAt }) : null;
+  const standings = gameSnap.data().standings;
+  const startMs = kickoffMs({ kickoff: gameSnap.data().startAt });
   const gated = gatedIds(matches, startMs);
   const expectedPlayed = matches.length % 6 === 0 ? matches.length / 6 : null;
   const top6 = new Set(officialTop6(standings, expectedPlayed) || championshipTeams(matches));
