@@ -15,9 +15,11 @@ vi.mock('../games/useGames', () => ({
 
 const mockSetGameSchedule = vi.fn();
 const mockSetGameStatus = vi.fn();
+const mockSetGameJoinable = vi.fn();
 vi.mock('../games/gameActions', () => ({
   setGameSchedule: (...a) => mockSetGameSchedule(...a),
   setGameStatus: (...a) => mockSetGameStatus(...a),
+  setGameJoinable: (...a) => mockSetGameJoinable(...a),
 }));
 
 const mockReprice = vi.fn();
@@ -34,10 +36,18 @@ const TOUR = {
   type: 'cycling', status: 'live', season: '2026',
 };
 
+// Det spil, synligheds-knappen er bygget til: et nyt fodboldspil, der er
+// oprettet skjult og skal gennemgås, før det afsløres.
+const PL = {
+  id: 'pl2627-efteraar', name: 'Premier League 2026/27 — efterår', emoji: '⚽',
+  type: 'football', status: 'open', season: '2026-27',
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockSetGameSchedule.mockResolvedValue({ ok: true });
   mockSetGameStatus.mockResolvedValue({ ok: true });
+  mockSetGameJoinable.mockResolvedValue({ ok: true });
   mockGames.mockReturnValue({ games: [TOUR], loading: false });
 });
 
@@ -97,6 +107,15 @@ describe('GameScheduleTab — status', () => {
     expect(screen.getByText(/ikke flere påmindelser/i)).toBeInTheDocument();
   });
 
+  // "Åbent" alene sætter ikke spillet på oversigten — synligheden gør. Sagde
+  // hjælpen bare "Vises under Åbne spil — deltag", ville admin tro, at et
+  // åbent spil er afsløret, og springe knappen over.
+  it('siger ved "Åbent", at synligheden afgør om spillet vises', () => {
+    render(<GameScheduleTab />);
+    fireEvent.change(statusSelect(), { target: { value: 'open' } });
+    expect(screen.getByText(/sat til Synligt/)).toBeInTheDocument();
+  });
+
   it('viser fejlen fra serveren, hvis status ikke kunne gemmes', async () => {
     mockSetGameStatus.mockResolvedValue({ ok: false, error: 'Du har ikke adgang til denne handling.' });
     render(<GameScheduleTab />);
@@ -144,6 +163,148 @@ describe('GameScheduleTab — status', () => {
     render(<GameScheduleTab />);
     expect(statusSelect().value).toBe('');
     expect(screen.getByRole('option', { name: '— ikke sat —' })).toBeInTheDocument();
+  });
+});
+
+// --- Synlighed ------------------------------------------------------------
+//
+// Uden knappen bliver et nyt spil til i samme sekund, som alle kan se det:
+// seed-scriptet skriver spillet, og står `joinable` til true, ligger det på
+// forsiden, før nogen har set holdnavne, kickoff-tider og odds efter. Den
+// eneste udvej var at markere spillet "Afsluttet" — usandt, og det stopper
+// påmindelserne.
+describe('synlighed', () => {
+  // PL har intet joinable-felt → skjult. Sådan ser et spil ud, seedet lige har
+  // oprettet med joinable: false.
+  beforeEach(() => {
+    mockGames.mockReturnValue({ games: [PL], loading: false });
+  });
+
+  const visKnap = () => screen.getByRole('button', { name: /Vis spillet/ });
+  const skjulKnap = () => screen.getByRole('button', { name: /Skjul spillet/ });
+
+  it('viser at et skjult spil er skjult, og tilbyder at vise det', () => {
+    render(<GameScheduleTab />);
+    expect(screen.getByText('Skjult')).toBeInTheDocument();
+    expect(visKnap()).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Skjul spillet/ })).not.toBeInTheDocument();
+  });
+
+  it('viser spillet med ét klik — joinable: true, intet andet', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(visKnap());
+    await waitFor(() => expect(mockSetGameJoinable).toHaveBeenCalledWith('pl2627-efteraar', true));
+    // Synlighed er IKKE status. Skrev knappen også status, ville "vis spillet"
+    // kunne genåbne et afsluttet spil — og "skjul" markere et spil afsluttet,
+    // som aldrig er begyndt.
+    expect(mockSetGameStatus).not.toHaveBeenCalled();
+    expect(mockSetGameSchedule).not.toHaveBeenCalled();
+  });
+
+  it('skjuler et synligt spil igen — og siger hvad synligt betyder', async () => {
+    mockGames.mockReturnValue({ games: [{ ...PL, joinable: true }], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.getByText('Synligt for spillerne')).toBeInTheDocument();
+    // Den SYNLIGE gren af hjælpeteksten skal dræbes for sig. Uden denne
+    // assertion kunne hele sætningen erstattes med en tom streng med grøn suite.
+    expect(screen.getByText(/Åbne spil — deltag" og kan tilmeldes/)).toBeInTheDocument();
+    fireEvent.click(skjulKnap());
+    await waitFor(() => expect(mockSetGameJoinable).toHaveBeenCalledWith('pl2627-efteraar', false));
+  });
+
+  // Knappen skriver med det samme. Gem må derfor ikke også røre feltet —
+  // ellers ville et gem af en dato kunne rulle synligheden tilbage til det,
+  // fladen havde i hovedet.
+  it('rører ikke synligheden når man gemmer tidsplanen', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.change(screen.getByLabelText(/Spil-start/), { target: { value: '2026-08-21T20:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
+    expect(mockSetGameJoinable).not.toHaveBeenCalled();
+  });
+
+  // Etiketten er den eneste kvittering. Følger den et lokalt valg i stedet for
+  // spillet, ville en afvist skrivning se ud som om den var gået igennem.
+  it('følger spillet, ikke klikket — etiketten vender først med snapshottet', async () => {
+    const { rerender } = render(<GameScheduleTab />);
+    fireEvent.click(visKnap());
+    await waitFor(() => expect(mockSetGameJoinable).toHaveBeenCalled());
+    expect(screen.getByText('Skjult')).toBeInTheDocument();
+    mockGames.mockReturnValue({ games: [{ ...PL, joinable: true }], loading: false });
+    rerender(<GameScheduleTab />);
+    expect(screen.getByText('Synligt for spillerne')).toBeInTheDocument();
+  });
+
+  it('viser serverens fejl, hvis synligheden ikke kunne ændres', async () => {
+    mockSetGameJoinable.mockResolvedValue({ ok: false, error: 'Du har ikke adgang til denne handling.' });
+    render(<GameScheduleTab />);
+    fireEvent.click(visKnap());
+    expect(await screen.findByText(/ikke adgang/i)).toBeInTheDocument();
+    expect(screen.getByText('Skjult')).toBeInTheDocument();
+  });
+
+  // HJÆLPETEKSTEN SKAL VÆRE SAND. Security Reviewer efterprøvede den mod
+  // emulatoren: enhver godkendt bruger kan læse spil-dokumentet
+  // (firestore.rules:604) og kampene (:721), useGames abonnerer på HELE
+  // games-kollektionen, så der skal ikke engang et link til — og joinable
+  // findes ikke ét sted i reglerne eller i functions, så den der åbner
+  // /spil/{id} kan faktisk tilmelde sig. Lovede teksten mere, ville den være
+  // en usandhed om adgang.
+  it('lover ikke hemmeligholdelse, den ikke kan holde', () => {
+    render(<GameScheduleTab />);
+    const tekst = screen.getByText(/Skjult betyder KUN/);
+    // HVEM der kan se det, er hele pointet. Uden dette kunne "enhver godkendt
+    // bruger" laves om til "kun andre admins" med grøn suite.
+    expect(tekst).toHaveTextContent(/enhver godkendt brugers spil-liste/);
+    expect(tekst).toHaveTextContent(/kampene kan læses af alle godkendte/);
+    expect(tekst).toHaveTextContent(/kender adressen kan tilmelde sig/);
+    expect(tekst.textContent).not.toMatch(/kun du kan se|kun andre admins|ingen andre kan|utilgængelig/i);
+  });
+
+  // Linket alene rækker ikke: GamePage viser en ikke-tilmeldt KUN et
+  // Deltag-kort — alle faner ligger i isMember-grenen. Teksten skal sige det,
+  // ellers står ejeren med en Deltag-knap og tror, noget er gået galt.
+  it('siger at gennemgangen kræver, at man tilmelder sig', () => {
+    render(<GameScheduleTab />);
+    const tekst = screen.getByText(/Skjult betyder KUN/);
+    expect(tekst).toHaveTextContent(/\/spil\/pl2627-efteraar/);
+    expect(tekst).toHaveTextContent(/tilmeld dig/);
+    expect(tekst).toHaveTextContent(/ikke-tilmeldt ser kun et Deltag-kort/);
+  });
+});
+
+// --- Synlighed: hvor knappen IKKE hører hjemme ----------------------------
+//
+// joinable læses kun af "åbne spil"-filteret i splitGames. På et eksternt og
+// på et afsluttet spil gør feltet ingenting — og en knap, der lover en
+// virkning, den ikke har, er værre end ingen knap: etiketten ville sige
+// "Synligt for spillerne" om et spil, status-hjælpen to linjer længere oppe
+// erklærer ude af oversigten.
+describe('synlighed — spil hvor feltet intet gør', () => {
+  const EKSTERN = { ...TOUR, status: 'live', externalUrl: 'https://tour.vejleaa.dk' };
+  const AFSLUTTET = { ...PL, status: 'finished' };
+
+  it('tilbyder ikke at skjule et eksternt spil', () => {
+    mockGames.mockReturnValue({ games: [EKSTERN], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Vis spillet|Skjul spillet/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Skjult')).not.toBeInTheDocument();
+    expect(screen.getByText(/eksternt spil vises altid/i)).toBeInTheDocument();
+  });
+
+  it('tilbyder ikke at vise et afsluttet spil', () => {
+    mockGames.mockReturnValue({ games: [AFSLUTTET], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Vis spillet|Skjul spillet/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/afsluttet spil er altid ude af/i)).toBeInTheDocument();
+  });
+
+  // Et eksternt spil, der ER joinable, må stadig ikke få etiketten "Synligt
+  // for spillerne" — det ville være sandt om feltet og falsk om oversigten.
+  it('påstår ikke noget om et eksternt spil, der er joinable', () => {
+    mockGames.mockReturnValue({ games: [{ ...EKSTERN, joinable: true }], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByText('Synligt for spillerne')).not.toBeInTheDocument();
   });
 });
 

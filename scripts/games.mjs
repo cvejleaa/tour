@@ -77,7 +77,13 @@ export const GAMES = [
     // tomt, usynligt spil i fem måneder køber ingenting.
     id: 'pl2627-efteraar',
     name: 'Premier League 2026/27 — efterår', shortName: 'PL efterår', emoji: '⚽',
-    type: 'football', status: 'open', joinable: true,
+    // OPRETTES SKJULT. Seedet skriver spillet og de 180 kampe, og uden
+    // joinable: false ville spillet stå under "Åbne spil — deltag" i samme
+    // sekund — før nogen havde set holdnavne, kickoff-tider og odds efter.
+    // Synligheden slås til fra Spil-tidsplan, når gennemgangen er færdig;
+    // derefter ejer admin feltet (ADMIN_OWNED i seed-games.mjs), så en senere
+    // seed-kørsel ikke skjuler spillet igen.
+    type: 'football', status: 'open', joinable: false,
     season: '2026-27', order: 4,
     sync: { provider: 'pulselive', competitionId: 8, season: 2026 },
     // INTET pulje-felt. Premier League har ingen mesterskabs-/nedrykningsspil,

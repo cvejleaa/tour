@@ -30,13 +30,10 @@ const db = admin.firestore();
 const now = admin.firestore.FieldValue.serverTimestamp();
 
 const { GAMES } = await import('./games.mjs');
-
-// Felter, admin styrer fra Spil-tidsplan-fanen. På et spil, der allerede
-// findes, er virkeligheden i Firestore mere rigtig end listen heroppe: seedet
-// ville ellers stille rulle en "Afsluttet"-markering tilbage ved næste kørsel —
-// uden fejl og uden spor, fordi det skriver med merge. (Listen bor i
-// scripts/games.mjs.)
-const ADMIN_OWNED = ['status', 'joinable'];
+// Hvilke felter seedet må skrive — og hvilke admin ejer. Bor i sin egen fil,
+// så den kan testes: denne fil kan ikke importeres fra en test (firebase-admin
+// initialiseres på øverste niveau).
+const { seedPayload } = await import('./seed-payload.mjs');
 
 async function seedGames() {
   console.log(`\nSeeder ${GAMES.length} spil i games-collection'en...`);
@@ -44,12 +41,7 @@ async function seedGames() {
   for (const { id, ...data } of GAMES) {
     const ref = db.collection('games').doc(id);
     const exists = (await ref.get()).exists;
-    const payload = { ...data, updatedAt: now };
-    if (exists) {
-      for (const f of ADMIN_OWNED) delete payload[f];
-    } else {
-      payload.createdAt = now;
-    }
+    const payload = seedPayload(data, { exists, now });
     batch.set(ref, payload, { merge: true });
     console.log(exists
       ? `  • ${id} — ${data.name} (findes; status/joinable urørt)`

@@ -57,6 +57,30 @@ Liga-admin følger med at have oprettet ligaen.
   Et **eksternt** spil (fx Touren, der kører i sin egen app) bliver stående på
   oversigten som link-ud, også når det er afsluttet — bare med grå etiket.
   Statussen findes kun på platformen; tour.vejleaa.dk ser uændret ud.
+- **👁️ Vis spillet / 🙈 Skjul spillet** styrer, om spillet står under "Åbne
+  spil — deltag". Knappen virker **med det samme** — Gem rører den ikke, og
+  den ændrer ikke status. Den vises kun på spil, hvor synligheden betyder
+  noget: et **eksternt** spil vises altid som link-ud, og et **afsluttet** spil
+  er altid ude af oversigten, uanset hvad feltet står til.
+
+  **Skjul et nyt spil, før det seedes.** Det gøres i `scripts/games.mjs` med
+  `joinable: false` på spillets række — Premier League-spillet er oprettet
+  sådan. Feltet er admin-ejet, så listen bestemmer **kun** ved oprettelsen: har
+  du først afsløret spillet, skjuler en senere seed-kørsel det ikke igen. Der
+  er ingen automatik, der gør det for dig; opretter du et nyt spil uden
+  `joinable: false`, ligger det på forsiden i samme sekund, det seedes.
+
+  **Skjult betyder kun "ikke annonceret" — ikke hemmeligt.** Spillet ligger i
+  enhver godkendt brugers spil-liste (appen henter hele listen), kampene kan
+  læses af alle godkendte, og den der kender adressen kan **tilmelde sig**.
+  `joinable` findes ikke i sikkerhedsreglerne og er ikke en spærring. Spillere,
+  der allerede er tilmeldt, beholder desuden spillet under "Mine spil" — skjul
+  fjerner det kun fra tilbuddet til dem, der ikke er med endnu.
+
+  **Gennemgang kræver, at du tilmelder dig.** En ikke-tilmeldt ser kun et
+  Deltag-kort på `/spil/{spil-id}` — alle faner (Tip, Tabel, Elo, Guide) ligger
+  bag tilmeldingen. Meld dig selv til det skjulte spil, gennemgå kampene, og
+  klik derefter **👁️ Vis spillet**.
 - **🔄 Genberegn point efter start-ændring** — kør den, når du har flyttet
   starttidspunktet, så tidligere runders point forsvinder fra totalerne straks.
 - **💰 Ompris kampene** — kør den, når **odds-modellen** er ændret (uafgjort,
