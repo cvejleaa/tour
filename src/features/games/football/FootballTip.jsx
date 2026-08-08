@@ -526,7 +526,14 @@ export default function FootballTip({ game, me, matches }) {
                           : live.halvleg ? `DIREKTE · ${live.halvleg}` : 'DIREKTE'}
                   </span>
                 ) : isChance ? (
-                  <span className="chance-pill">⚡ Chancen</span>
+                  // "indsats 4" — IKKE "4 point". Ti pixels nedenunder står
+                  // pick-knapperne med et tal og ordet POINT i en helt anden
+                  // betydning: dét er udbetalingen ved rigtigt tip. Et kort,
+                  // der på én gang sagde "4 point" og "3,90 POINT", inviterer
+                  // til netop den forveksling.
+                  <span className="chance-pill" title={`Chancen: ${Number(bet?.chanceStake) || 0} point på spil`}>
+                    ⚡ Chancen · indsats {Number(bet?.chanceStake) || 0}
+                  </span>
                 ) : locked ? (
                   <span className="badge badge--muted">Låst</span>
                 ) : null}
@@ -651,10 +658,16 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
 
   // Kampe man kan chance på: dem man har tippet, og som ikke er låst.
   const options = roundMatches.filter((m) => betsByMatch[m.id]?.pick && !isLocked(m, nowMs));
+  const alleLaast = roundMatches.length > 0 && roundMatches.every((m) => isLocked(m, nowMs));
 
+  // RUNDENS AKTIVE CHANCE — sandheden, uafhængigt af hvad der er valgt i
+  // dropdownen, og uafhængigt af om kampen er låst. chanceMatchId filtrerer
+  // ikke på lås, så den bærer hele runden igennem; `options` gør ikke.
   const activeBet = chanceMatchId ? betsByMatch[chanceMatchId] : null;
+  const gemtIndsats = Number(activeBet?.chanceStake) || 0;
+  const chanceMatch = chanceMatchId ? roundMatches.find((m) => m.id === chanceMatchId) : null;
   const [selMatchId, setSelMatchId] = useState(chanceMatchId || options[0]?.id || '');
-  const [stake, setStake] = useState(activeBet ? Number(activeBet.chanceStake) : CHANCE.MIN);
+  const [stake, setStake] = useState(gemtIndsats || CHANCE.MIN);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -669,10 +682,33 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
   // endnu" — selv om oddsene stod på knapperne lige ovenover — og knappen var
   // død, fordi `pick` også blev undefined. Man kunne altså slet ikke sætte
   // Chancen.
+  //
+  // Fallbacken må IKKE pege på chance-kampen, hvis den er låst: en <select>
+  // med en value uden matchende option viser den første kamp, mens knappen
+  // nedenunder sagde "Opdatér Chancen" om den låste. Dropdownen påstod altså
+  // én kamp og knappen en anden.
   useEffect(() => {
     if (options.some((m) => m.id === selMatchId)) return;
-    setSelMatchId(chanceMatchId || options[0]?.id || '');
+    const chanceKanVaelges = options.some((m) => m.id === chanceMatchId);
+    setSelMatchId(chanceKanVaelges ? chanceMatchId : (options[0]?.id || ''));
   }, [options, selMatchId, chanceMatchId]);
+
+  // Tips hentes asynkront, og fladen venter kun på KAMPENE (se den tidlige
+  // return på !rounds.length). Panelet monteres derfor med betsByMatch = {},
+  // stake bliver CHANCE.MIN — og uden denne effekt stod tælleren på 1, uanset
+  // hvad der var gemt. Så viste "Rammer du"-linjen tallene for et væddemål,
+  // man ikke havde indgået, og "Opdatér Chancen" skrev 1 oven i en indsats
+  // på 4.
+  //
+  // Kun OPAD fra en gemt indsats: en nulstilling til MIN ville betyde, at man
+  // ikke kunne flytte sin chance til en anden kamp uden samtidig at sætte den
+  // ned. Og depen er TALLET, ikke bettet — betsByMatch[id] er et nyt objekt
+  // ved hvert snapshot, så med objektet i deps ville en ugemt ændring blive
+  // nulstillet, hver gang serveren rørte dokumentet.
+  const gemtForValgt = Number(betsByMatch[selMatchId]?.chanceStake) || 0;
+  useEffect(() => {
+    if (gemtForValgt > 0) setStake(gemtForValgt);
+  }, [selMatchId, gemtForValgt]);
 
   const selMatch = roundMatches.find((m) => m.id === selMatchId);
   const selBet = selMatch ? betsByMatch[selMatch.id] : null;
@@ -681,10 +717,30 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
   const clampedStake = Math.max(CHANCE.MIN, Math.min(maxStake, Number(stake) || 0));
   const win = odds ? settleChance({ correct: true, stake: clampedStake, fairOdds: odds }).delta : null;
 
+  // DEN GEMTE INDSATS. Står over ALLE panelets forgreninger, fordi der er tre
+  // helt almindelige tilstande, hvor tallet ellers er usynligt, mens der er
+  // point i spil: hele runden låst (så `options` er tom, og panelet skrev
+  // "Tip mindst én kamp i runden først" — usandt, når man har 4 point på
+  // spil), chance-kampen i gang eller spillet (live-pillen og "Ramt" fortrænger
+  // ⚡-pillen på kortet), og en saldo, der er faldet under grænsen for at
+  // BRUGE Chancen, uden at den aktive chance forsvinder.
+  //
+  // Læser den RÅ gemte værdi — ikke clampedStake. maxStake følger den levende
+  // saldo, så et point tabt fredag kan sænke loftet fra 8 til 7, mens der
+  // stadig ligger 8 gemt på søndagskampen. Klampede linjen, ville den vise 7
+  // og dermed lyve om præcis det tal, den findes for at vise.
+  const gemtLinje = gemtIndsats > 0 && chanceMatch ? (
+    <p style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>
+      Gemt indsats: <strong>{gemtIndsats} point</strong> på {chanceMatch.home}–{chanceMatch.away}
+      {activeBet?.pick ? ` (${OUTCOME_LABEL[activeBet.pick]})` : ''}
+    </p>
+  ) : null;
+
   if (!usable) {
     return (
       <div className="card">
         <h3 className="card__title">Chancen ⚡</h3>
+        {gemtLinje}
         <p style={{ color: 'var(--c-muted)', marginBottom: 0 }}>
           Du kan bruge Chancen, når du har mindst {Math.ceil(CHANCE.MIN / CHANCE.CAP_FRACTION)} point.
           Sæt point på spil på ét tip: rammer du, ganges indsatsen med oddsene — ellers mister du kun indsatsen.
@@ -721,8 +777,18 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
         med kampens odds. Rammer du ikke, mister du kun indsatsen (du kan aldrig gå i minus).
       </p>
 
+      {gemtLinje}
+
       {options.length === 0 ? (
-        <p className="badge badge--muted">Tip mindst én kamp i runden først.</p>
+        // To vidt forskellige grunde til, at der ikke er noget at vælge —
+        // og den ene tekst dækkede begge. "Tip mindst én kamp i runden
+        // først" er forkert, når runden er låst: så HAR man tippet, og man
+        // kan under ingen omstændigheder gøre det, sætningen beder om.
+        <p className="badge badge--muted">
+          {alleLaast
+            ? 'Runden er låst — Chancen kan ikke ændres nu.'
+            : 'Tip mindst én kamp i runden først.'}
+        </p>
       ) : (
         <>
           <label style={{ display: 'block', marginBottom: '0.5rem' }}>

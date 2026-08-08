@@ -631,3 +631,133 @@ describe('FootballTip — kuponen i en splittet runde', () => {
     expect(head).not.toHaveTextContent(/sep/);
   });
 });
+
+// --- Chancen: den gemte indsats -------------------------------------------
+//
+// Brugerens ord: "man kan ikke se hvor meget man har satset i chancen".
+// Det viste sig at være mere end en manglende visning. `stake` blev sat ÉN
+// gang ved montering, og tips hentes asynkront — fladen venter kun på
+// KAMPENE. Panelet monteredes derfor med betsByMatch = {}, tælleren stod på
+// CHANCE.MIN, "Rammer du"-linjen viste tallene for et væddemål, man ikke havde
+// indgået, og "Opdatér Chancen" skrev 1 oven i en indsats på 4.
+describe('Chancen — den gemte indsats', () => {
+  // Kampen skal have odds, ellers viser panelet "Odds er ikke lagt ind" i
+  // stedet for den linje, indsatsen kan aflæses på.
+  const MED_ODDS = MATCHES.map((m) => (
+    m.id === 'm1' ? { ...m, odds: { 1: 3.9, X: 3.5, 2: 2.0 } }
+      : m.id === 'm2' ? { ...m, odds: { 1: 2.2, X: 3.4, 2: 3.1 } } : m
+  ));
+
+  const tegn = (bets, { matches = MED_ODDS, me = { uid: 'me', totalPoints: 100 }, url = '/spil/sl' } = {}) => {
+    mockBets.mockReturnValue({ betsByMatch: bets, loading: false });
+    return (
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                me={me}
+                matches={matches}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+  };
+
+  it('viser den gemte indsats, når tippene lander EFTER første render', () => {
+    const { rerender } = render(tegn({}));
+    rerender(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+
+    expect(screen.getByRole('button', { name: /Opdatér Chancen/ })).toBeInTheDocument();
+    // Med odds 3,90 og indsats 4: +11,6 → +12 ved gevinst, −4 ved tab.
+    // Med den forkerte indsats 1 stod der +3 og −1.
+    const linje = screen.getByText(/Rammer du:/);
+    expect(linje).toHaveTextContent('−4');
+    expect(linje).not.toHaveTextContent('−1');
+  });
+
+  it('skriver den gemte indsats med kamp og valg', () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    const linje = screen.getByText(/Gemt indsats:/);
+    expect(linje).toHaveTextContent('4 point');
+    expect(linje).toHaveTextContent('AGF–F.C. København');
+    expect(linje).toHaveTextContent('(1)');
+  });
+
+  // TRE TILSTANDE, hvor tallet var usynligt, mens der var point i spil. Alle
+  // tre er helt almindelige — ikke kanttilfælde.
+
+  // 1) Hele runden er låst: det meste af ugen. `options` filtrerer låste kampe
+  //    fra, så panelet faldt i "Tip mindst én kamp i runden først" — en direkte
+  //    usand sætning, når man har 4 point på spil.
+  it('viser den gemte indsats, også når hele runden er låst', () => {
+    vi.setSystemTime(new Date('2026-09-02T08:00:00Z')); // efter runde 1s kickoff
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }, { url: '/spil/sl?runde=1' }));
+    const linje = screen.getByText(/Gemt indsats:/);
+    expect(linje).toHaveTextContent('4 point');
+    // "Tip mindst én kamp i runden først" er usandt her: man HAR tippet, og
+    // man kan under ingen omstændigheder nå at gøre det, sætningen beder om.
+    expect(screen.queryByText(/Tip mindst én kamp i runden først/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Runden er låst/)).toBeInTheDocument();
+  });
+
+  // 2) Saldoen er faldet under grænsen for at BRUGE Chancen — men den aktive
+  //    chance forsvinder ikke af den grund.
+  it('viser den gemte indsats, selv når saldoen er for lav til at sætte en ny', () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }, { me: { uid: 'me', totalPoints: 5 } }));
+    expect(screen.getByText(/Du kan bruge Chancen, når du har mindst/)).toBeInTheDocument();
+    expect(screen.getByText(/Gemt indsats:/)).toHaveTextContent('4 point');
+  });
+
+  // 3) maxStake følger den LEVENDE saldo. Et point tabt fredag kan sænke
+  //    loftet, mens der stadig ligger mere gemt på søndagskampen. Linjen skal
+  //    læse den rå gemte værdi — klampede den, ville den lyve om præcis det
+  //    tal, den findes for at vise.
+  it('viser den RÅ gemte indsats, også når loftet er faldet under den', () => {
+    // totalPoints 20 → maks = min(8, floor(0,15 × 20)) = 3. Gemt: 8.
+    render(tegn({ m1: { pick: '1', chanceStake: 8 } }, { me: { uid: 'me', totalPoints: 20 } }));
+    expect(screen.getByText(/Gemt indsats:/)).toHaveTextContent('8 point');
+    expect(screen.getByText(/af maks 3/)).toBeInTheDocument();
+  });
+
+  it('skriver indsatsen på ⚡-pillen — som "indsats", ikke som "point"', () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    const pille = screen.getByText(/⚡ Chancen/);
+    expect(pille).toHaveTextContent('indsats 4');
+    // "4 point" på kortet ville kollidere med pick-knappernes POINT lige
+    // nedenunder — dér betyder tallet udbetaling ved rigtigt tip.
+    expect(pille.textContent).not.toMatch(/point/i);
+  });
+
+  // Synkronisér kun OPAD. Faldt tælleren til 1, når man valgte en anden kamp,
+  // kunne man ikke flytte sin chance uden samtidig at sætte den ned.
+  it('sætter ikke indsatsen ned, når man vælger en anden kamp', () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 }, m2: { pick: 'X', chanceStake: 0 } }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'm2' } });
+    expect(screen.getByRole('button', { name: /Aktivér Chancen/ })).toBeInTheDocument();
+    expect(screen.getByText(/Rammer du ikke:/)).toHaveTextContent('−4');
+  });
+
+  // Dropdownen løj: <select> med en value uden matchende option viser den
+  // FØRSTE kamp, mens knappen nedenunder sagde "Opdatér Chancen" om den låste.
+  it('vælger ikke chance-kampen i dropdownen, når den er låst', () => {
+    const LAAST = [
+      { ...MED_ODDS[0], kickoff: new Date('2026-08-01T18:00:00Z') }, // låst
+      MED_ODDS[1],
+      ...MED_ODDS.slice(2),
+    ];
+    render(tegn(
+      { m1: { pick: '1', chanceStake: 4 }, m2: { pick: 'X', chanceStake: 0 } },
+      { matches: LAAST, url: '/spil/sl?runde=1' },
+    ));
+    expect(screen.getByRole('combobox').value).toBe('m2');
+    // … og knappen taler så om m2, ikke om den låste m1.
+    expect(screen.getByRole('button', { name: /Aktivér Chancen/ })).toBeInTheDocument();
+    // Den gemte indsats står der stadig — den er ikke væk, fordi kampen er låst.
+    expect(screen.getByText(/Gemt indsats:/)).toHaveTextContent('4 point');
+  });
+});
