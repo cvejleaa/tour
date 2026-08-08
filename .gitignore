@@ -1,6 +1,12 @@
 # Dependencies
-node_modules/
-functions/node_modules/
+#
+# UDEN SKRÅSTREG med vilje. `node_modules/` matcher kun MAPPER, og en symlink
+# er en fil for git — så et `git add -A` i et git worktree, hvor node_modules
+# er symlinket til hovedtræet, committede symlinken. Det skete to gange på to
+# dage, og begge gange skulle den fjernes i en opfølgende commit.
+node_modules
+functions/node_modules
+functions-platform/node_modules
 
 # Build output
 dist/

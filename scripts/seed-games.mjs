@@ -29,42 +29,13 @@ if (process.env.FIRESTORE_EMULATOR_HOST) {
 const db = admin.firestore();
 const now = admin.firestore.FieldValue.serverTimestamp();
 
-// De spil platformen kender. status/joinable afspejler virkeligheden 20/7-2026:
-// VM er afsluttet, Touren kører, Superligaen åbner 24/7. gameId'erne matcher
-// migreringens data-stier (games/vm2026/…, games/tour2026/…).
-const GAMES = [
-  {
-    id: 'vm2026',
-    name: 'VM 2026', shortName: 'VM', emoji: '⚽',
-    type: 'football', status: 'finished', joinable: false,
-    season: '2026', order: 1,
-  },
-  {
-    id: 'tour2026',
-    name: 'Tour de France 2026', shortName: 'Tour', emoji: '🚴',
-    // Kører i sin egen app; forsiden linker UD hertil indtil spillet migreres
-    // ind i platformen. joinable: false → intet Deltag, kun link.
-    // Touren 2026 er kørt færdig. Står den som 'live' her, sætter en senere
-    // seed-kørsel (deploy-platform.yml med seedGames: true) den stille tilbage
-    // til "I gang" — merge-skrivningen giver hverken fejl eller spor.
-    type: 'cycling', status: 'finished', joinable: false,
-    externalUrl: 'https://tour.vejleaa.dk',
-    season: '2026', order: 2,
-  },
-  {
-    id: 'superliga2627',
-    name: 'Superligaen 2026/27', shortName: 'Superliga', emoji: '⚽',
-    // Spil-specifikt logo (fodbold-mærket) — platform-logoet er neutralt.
-    logo: '/logo-superliga.svg',
-    type: 'football', status: 'open', joinable: true,
-    season: '2026-27', order: 3,
-  },
-];
+const { GAMES } = await import('./games.mjs');
 
 // Felter, admin styrer fra Spil-tidsplan-fanen. På et spil, der allerede
 // findes, er virkeligheden i Firestore mere rigtig end listen heroppe: seedet
 // ville ellers stille rulle en "Afsluttet"-markering tilbage ved næste kørsel —
-// uden fejl og uden spor, fordi det skriver med merge.
+// uden fejl og uden spor, fordi det skriver med merge. (Listen bor i
+// scripts/games.mjs.)
 const ADMIN_OWNED = ['status', 'joinable'];
 
 async function seedGames() {

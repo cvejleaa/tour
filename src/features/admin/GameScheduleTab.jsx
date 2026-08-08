@@ -76,6 +76,11 @@ function GameRow({ game }) {
   }, [startMs, puljeMs, game.status]);
 
   const isFootball = game.type === 'football';
+  // Pulje-deadlinen hører til spil MED en pulje. Uden gaten kunne ejeren i god
+  // tro sætte en deadline på Premier League — og så ville et puljetip faktisk
+  // blive gemt og senere afregnet mod PL-stillingen, selv om ligaen ikke har
+  // et mesterskabsspil. Feltets tilstedeværelse på spillet er signalet.
+  const harPulje = Boolean(game.pulje);
   const statusChanged = gameStatus && gameStatus !== game.status;
 
   async function save() {
@@ -88,7 +93,7 @@ function GameRow({ game }) {
     if (startAt !== toLocalInput(toMs(game.startAt))) {
       patch.startAt = startAt ? new Date(startAt).getTime() : null;
     }
-    if (isFootball && puljeLockAt !== toLocalInput(toMs(game.puljeLockAt))) {
+    if (harPulje && puljeLockAt !== toLocalInput(toMs(game.puljeLockAt))) {
       patch.puljeLockAt = puljeLockAt ? new Date(puljeLockAt).getTime() : null;
     }
     const res = Object.keys(patch).length ? await setGameSchedule(game.id, patch) : { ok: true };
@@ -186,7 +191,7 @@ function GameRow({ game }) {
           />
         </label>
 
-        {isFootball && (
+        {harPulje && (
           <label style={{ display: 'block' }}>
             <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--c-muted)', marginBottom: '0.25rem' }}>
               🎖️ Bonus-/pulje-deadline
@@ -230,7 +235,7 @@ function GameRow({ game }) {
         {saveMsg === 'saved' && <span className="badge badge--green">Gemt ✓</span>}
         {saveMsg && saveMsg !== 'saved' && <span className="badge badge--red">{saveMsg === 'error' ? 'Kunne ikke gemme.' : saveMsg}</span>}
         <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-          Tomt felt = ingen {isFootball ? 'deadline/start' : 'fast start'}.
+          Tomt felt = ingen {harPulje ? 'deadline/start' : 'fast start'}.
           {isFootball && puljeLockAt && ` Deadline: ${formatKickoff(new Date(puljeLockAt).getTime())}.`}
         </span>
       </div>

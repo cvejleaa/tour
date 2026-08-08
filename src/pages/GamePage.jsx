@@ -30,13 +30,27 @@ const GAME_TABS = [
   { key: 'tip', label: 'Tip' },
   { key: 'mine', label: '📋 Mine tips', football: true },
   { key: 'stilling', label: '🏆 Stilling' },
-  { key: 'pulje', label: '🎖️ Pulje', football: true },
+  // KRÆVER `game.pulje`. Puljen er et tip om, hvem der ender i
+  // mesterskabsspillet — og det findes kun i Superligaen. Uden gaten fik en
+  // Premier League-spiller en fane med tolv DANSKE hold og en Gem-knap, der
+  // altid fejler: firestore.rules kræver en puljeLockAt, som aldrig er sat på
+  // et spil uden pulje. En fane, der inviterer til noget umuligt.
+  { key: 'pulje', label: '🎖️ Pulje', football: true, kraever: 'pulje' },
   { key: 'tabel', label: '⚽ Tabel', football: true },
   { key: 'elo', label: '📈 Elo', football: true },
   { key: 'ligaer', label: '👥 Ligaer' },
   { key: 'profil', label: '🙂 Mit hold' },
   { key: 'hjaelp', label: '❓ Guide', football: true },
 ];
+
+/** Skal fanen vises for dette spil? */
+export function faneVises(t, game) {
+  if (t.football && game?.type !== GAME_TYPE.FOOTBALL) return false;
+  // `kraever` peger på et felt, spillet skal HAVE. Tilstedeværelsen er
+  // signalet — ikke en boolean, man kan glemme at sætte til false.
+  if (t.kraever && !game?.[t.kraever]) return false;
+  return true;
+}
 
 export default function GamePage() {
   const { gameId } = useParams();
@@ -99,7 +113,7 @@ export default function GamePage() {
               Sekundære faner scroller væk på mobil i stedet for at wrappe. */}
           <div className="tabs" role="tablist">
             {GAME_TABS
-              .filter((t) => !t.football || game.type === GAME_TYPE.FOOTBALL)
+              .filter((t) => faneVises(t, game))
               .map((t) => (
                 <button
                   key={t.key}
@@ -123,7 +137,7 @@ export default function GamePage() {
             <FootballHelp />
           ) : tab === 'mine' && game.type === GAME_TYPE.FOOTBALL ? (
             <MyTips game={game} matches={matches} me={me} />
-          ) : tab === 'pulje' && game.type === GAME_TYPE.FOOTBALL ? (
+          ) : tab === 'pulje' && game.pulje && game.type === GAME_TYPE.FOOTBALL ? (
             <PuljeTip game={game} matches={matches} />
           ) : tab === 'elo' && game.type === GAME_TYPE.FOOTBALL ? (
             <EloTable game={game} />
