@@ -4,7 +4,7 @@
  * rating og en markering af udviklingen (▲/▼ siden forrige runde).
  */
 import { useMemo } from 'react';
-import { SUPERLIGA_TEAMS_2026, superligaTeamInfo } from '../../../data/superligaTeams2026';
+import { teamsOf, teamInfo } from './teamInfo';
 import { eloRows } from './eloHistory';
 import ClubBadge from '../../../components/ClubBadge';
 // Delt med kampkortet, så ▲/▼ betyder det samme begge steder.
@@ -12,7 +12,7 @@ import Delta from './EloDelta';
 
 export default function EloTable({ game }) {
   // Elo BEREGNES på serveren; her vises kun game.eloHistory (rundevis snapshots).
-  const teams = Array.isArray(game?.teams) && game.teams.length ? game.teams : SUPERLIGA_TEAMS_2026;
+  const teams = teamsOf(game);
   const { rows, rounds: cols } = useMemo(
     () => eloRows(teams, game?.eloHistory), [teams, game?.eloHistory],
   );
@@ -46,7 +46,7 @@ export default function EloTable({ game }) {
           </thead>
           <tbody>
             {rows.map((row) => {
-              const info = superligaTeamInfo(row.name);
+              const info = teamInfo(teams, row.name);
               const cellsDesc = [...row.cells].reverse();
               return (
                 <tr key={row.name}>
