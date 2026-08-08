@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/Avatar';
 import ClubBadge from '../../components/ClubBadge';
 import { setPlayerFavoriteTeam } from './gameActions';
-import { SUPERLIGA_TEAMS_2026 } from '../../data/superligaTeams2026';
+import { teamsOf } from './football/teamInfo';
 
 export default function GameProfile({ game, me }) {
   const gameId = game?.id;
@@ -18,7 +18,7 @@ export default function GameProfile({ game, me }) {
 
   // Spillets hold (fra spil-dokumentet), ellers Superliga-holdene som fallback.
   const teams = useMemo(() => {
-    const t = Array.isArray(game?.teams) && game.teams.length ? game.teams : SUPERLIGA_TEAMS_2026;
+    const t = teamsOf(game);
     return [...t].sort((a, b) => a.name.localeCompare(b.name, 'da'));
   }, [game]);
 

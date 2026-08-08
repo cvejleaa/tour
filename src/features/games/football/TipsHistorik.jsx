@@ -6,13 +6,12 @@
  * har appen to sandheder om de samme data, og de driver fra hinanden ved næste
  * ændring — præcis som de to formler for "point i alt" gjorde.
  */
-import { superligaTeamInfo } from '../../../data/superligaTeams2026';
+import { shortOf } from './teamInfo';
 import { formatKickoff } from '../../../lib/daDate';
 import { fmtDec } from '../../../lib/daNum';
 import PointOpdeling, { RUBRIKKER } from './PointOpdeling';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
-const shortOf = (name) => superligaTeamInfo(name)?.short || name;
 
 function ResultCell({ row }) {
   if (!row.pick) return <span className="mytips__none">—</span>;
@@ -26,7 +25,9 @@ function ResultCell({ row }) {
  * @param {{history: object, opdeling?: object|null, total?: number,
  *          kunAfgjorte?: boolean, tom?: import('react').ReactNode}} props
  */
-export default function TipsHistorik({ history, opdeling = null, total, kunAfgjorte = false, tom = null }) {
+export default function TipsHistorik({
+  history, opdeling = null, total, kunAfgjorte = false, tom = null, teams = null,
+}) {
   const played = history.rounds.filter((r) => r.tippedCount > 0);
   const { totals } = history;
   // Fire nuller er ikke "point". En spiller, der ikke har tippet, har en
@@ -96,7 +97,7 @@ export default function TipsHistorik({ history, opdeling = null, total, kunAfgjo
               <div className={`mytips__row ${row.isChance ? 'mytips__row--chance' : ''}`} key={row.id}>
                 <span className="mytips__kick">{formatKickoff(row.kickoff)}</span>
                 <span className="mytips__match">
-                  {shortOf(row.home)}<span className="mytips__dash">–</span>{shortOf(row.away)}
+                  {shortOf(teams, row.home)}<span className="mytips__dash">–</span>{shortOf(teams, row.away)}
                 </span>
                 <span className="mytips__pick">
                   {row.pick ? OUTCOME_LABEL[row.pick] : '–'}

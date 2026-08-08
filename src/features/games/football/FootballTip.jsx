@@ -15,7 +15,7 @@ import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
-import { superligaTeamInfo, SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
+import { teamsOf, teamInfo } from './teamInfo';
 import { colorsClash } from '../../../lib/contrastText';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
@@ -50,8 +50,8 @@ function klokken(ms) {
  * variant 'home' | 'away' | 'third'. Admin-override (games/{id}.teamStyles)
  * vinder over standardfarven; hver variant falder pænt tilbage.
  */
-function badgeFor(name, styles = {}, variant = 'home') {
-  const info = superligaTeamInfo(name);
+function badgeFor(teams, name, styles = {}, variant = 'home') {
+  const info = teamInfo(teams, name);
   const ov = styles?.[name] || {};
   let override;
   let fallback;
@@ -74,11 +74,11 @@ function badgeFor(name, styles = {}, variant = 'home') {
  * Farver til et kamp-kort: hjemmeholdet i hjemmefarve, udeholdet i udefarve —
  * men skift til udeholdets tertiærfarve hvis udefarven clasher med hjemmefarven.
  */
-function matchBadges(home, away, styles) {
-  const h = badgeFor(home, styles, 'home');
-  let a = badgeFor(away, styles, 'away');
+function matchBadges(teams, home, away, styles) {
+  const h = badgeFor(teams, home, styles, 'home');
+  let a = badgeFor(teams, away, styles, 'away');
   if (colorsClash(a.color, h.color)) {
-    const third = badgeFor(away, styles, 'third');
+    const third = badgeFor(teams, away, styles, 'third');
     // Brug kun tertiær hvis den faktisk er mindre clash end udefarven.
     if (!colorsClash(third.color, h.color)) a = third;
   }
@@ -153,13 +153,10 @@ export default function FootballTip({ game, me, matches }) {
 
   // Elo-opslaget bygges ÉN gang for hele runden — ikke pr. kampkort. Kilden er
   // de rundevise snapshots, serveren har lagt på spillet; her regnes intet.
-  const eloByTeam = useMemo(
-    () => eloFormByTeam(
-      Array.isArray(game?.teams) && game.teams.length ? game.teams : SUPERLIGA_TEAMS_2026,
-      game?.eloHistory,
-    ),
-    [game?.teams, game?.eloHistory],
-  );
+  // Spillets egne hold. Bruges både til Elo-opslaget og til kampkortenes
+  // badges — før slog badgen altid op i den danske liste, uanset spil.
+  const hold = useMemo(() => teamsOf(game), [game]);
+  const eloByTeam = useMemo(() => eloFormByTeam(hold, game?.eloHistory), [hold, game?.eloHistory]);
 
   // Et eget ur til live-visningen.
   //
@@ -474,7 +471,7 @@ export default function FootballTip({ game, me, matches }) {
         const bet = betsByMatch[m.id];
         const locked = isLocked(m, nowMs);
         const isChance = m.id === chanceMatchId;
-        const { h, a } = matchBadges(m.home, m.away, game?.teamStyles);
+        const { h, a } = matchBadges(hold, m.home, m.away, game?.teamStyles);
         const hit = m.result && bet?.pick ? bet.pick === m.result : null;
         const score = matchScore(m);
         const live = liveScore(m, game?.liveHeartbeatAt, liveNu);
