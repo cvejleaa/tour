@@ -89,6 +89,13 @@ function GameRow({ game }) {
   // tilbage; det ER kvitteringen. Et felt, man skulle huske at gemme, ville
   // gøre "afslør spillet" til to handlinger, hvor den ene er usynlig.
   const synlig = game.joinable === true;
+  // joinable læses KUN af "åbne spil"-filteret i splitGames. Et eksternt spil
+  // vises altid som link-ud, og et afsluttet spil er altid ude af de åbne — på
+  // dem gør feltet ingenting. Uden gaten kunne man klikke "Vis spillet" på et
+  // afsluttet spil og få etiketten "Synligt for spillerne", mens status-hjælpen
+  // to linjer længere oppe sagde "forsvinder fra Åbne spil — deltag". To
+  // nabosætninger, der modsiger hinanden.
+  const synlighedStyres = !game.externalUrl && game.status !== GAME_STATUS.FINISHED;
 
   async function save() {
     setBusy(true); setSaveMsg(null);
@@ -248,29 +255,42 @@ function GameRow({ game }) {
           usandt: påmindelser stopper, og oversigten skriver Afsluttet på et
           spil, der ikke er begyndt. */}
       <div style={{ marginTop: '0.75rem' }}>
-        <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
-          <button
-            className="btn btn--ghost btn--sm"
-            onClick={skiftSynlighed}
-            disabled={synligBusy}
-          >
-            {synligBusy ? 'Ændrer…' : (synlig ? '🙈 Skjul spillet' : '👁️ Vis spillet')}
-          </button>
-          <span className={`badge ${synlig ? 'badge--green' : ''}`}>
-            {synlig ? 'Synligt for spillerne' : 'Skjult'}
-          </span>
-          {synligFejl && <span className="badge badge--red">{synligFejl}</span>}
-        </div>
-        <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-          {synlig
-            ? 'Spillet står under "Åbne spil — deltag" og kan tilmeldes.'
-            : 'Skjult: spillet står ikke under "Åbne spil — deltag", så ingen falder over det, mens du gennemgår det. Du kan selv åbne det på /spil/' + game.id + '.'}
-          {' '}
-          Skjult er ikke hemmeligt — enhver godkendt bruger med linket kan se
-          spillet og kampene. Spillere, der allerede er tilmeldt, beholder det
-          under &quot;Mine spil&quot;. Knappen virker med det samme; Gem rører
-          den ikke.
-        </p>
+        {synlighedStyres ? (
+          <>
+            <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn--ghost btn--sm"
+                onClick={skiftSynlighed}
+                disabled={synligBusy}
+              >
+                {synligBusy ? 'Ændrer…' : (synlig ? '🙈 Skjul spillet' : '👁️ Vis spillet')}
+              </button>
+              <span className={`badge ${synlig ? 'badge--green' : ''}`}>
+                {synlig ? 'Synligt for spillerne' : 'Skjult'}
+              </span>
+              {synligFejl && <span className="badge badge--red">{synligFejl}</span>}
+            </div>
+            <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+              {synlig
+                ? 'Spillet står under "Åbne spil — deltag" og kan tilmeldes.'
+                : 'Skjult: spillet står ikke under "Åbne spil — deltag", så ingen bliver budt ind, mens du gennemgår det.'}
+              {' '}
+              Skjult betyder KUN &quot;ikke annonceret&quot;: spillet ligger i
+              enhver godkendt brugers spil-liste, kampene kan læses af alle
+              godkendte, og den der kender adressen kan tilmelde sig. Vil du
+              selv gennemgå kampene, så åbn /spil/{game.id} og tilmeld dig —
+              en ikke-tilmeldt ser kun et Deltag-kort. Spillere, der allerede
+              er tilmeldt, beholder spillet under &quot;Mine spil&quot;.
+              Knappen virker med det samme; Gem rører den ikke.
+            </p>
+          </>
+        ) : (
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+            {game.externalUrl
+              ? 'Synlighed styres ikke her: et eksternt spil vises altid på oversigten som link-ud.'
+              : 'Synlighed styres ikke her: et afsluttet spil er altid ude af "Åbne spil — deltag".'}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>

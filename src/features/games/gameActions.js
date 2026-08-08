@@ -147,10 +147,17 @@ export async function setGameStatus(gameId, status) {
  * isGlobalAdmin).
  *
  * SKJULT BETYDER ÉN TING: spillet står ikke under "Åbne spil — deltag", så
- * ingen falder over det og tilmelder sig, mens det bliver gennemgået. Det er
- * IKKE en adgangsspærring — firestore.rules lader enhver godkendt bruger læse
- * både spil-dokumentet og kampene, så den der har linket, kan stadig åbne
- * spillet. Skjult = ikke annonceret, ikke hemmeligt.
+ * ingen bliver budt ind, mens det bliver gennemgået. Det er IKKE en
+ * adgangsspærring, og det er værd at være præcis om hvor lidt det er:
+ *   - useGames abonnerer på HELE games-kollektionen, så det skjulte spils
+ *     navn, emoji og id ligger allerede i enhver godkendt brugers browser.
+ *     Skjulningen er en .filter() i splitGames — der skal ikke noget link til.
+ *   - firestore.rules lader enhver godkendt bruger læse både spil-dokumentet
+ *     (:604) og kampene (:721).
+ *   - joinable findes ikke ét sted i firestore.rules og ikke i nogen af
+ *     functions-mapperne — den, der åbner /spil/{id}, får en Deltag-knap, der
+ *     virker. Bekræftet mod emulatoren.
+ * Skjult = ikke annonceret. Hverken mere eller mindre.
  *
  * Og det gælder kun dem, der IKKE er med endnu: splitGames filtrerer kun
  * "åbne" på joinable, så en spiller, der allerede er tilmeldt, beholder

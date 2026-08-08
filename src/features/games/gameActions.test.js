@@ -209,10 +209,14 @@ describe('setGameJoinable', () => {
     expect(opts).toEqual({ merge: true });
   });
 
-  it('viser spillet ved at skrive joinable: true', async () => {
+  // Samme felt-assertion som i false-grenen, og den hører især til HER: det er
+  // true-grenen, der kunne genåbne et afsluttet spil, hvis den også skrev
+  // status. Med assertionen kun i false-testen overlevede netop den mutation.
+  it('viser spillet ved at skrive joinable: true — og intet andet', async () => {
     expect((await setGameJoinable('pl2627-efteraar', true)).ok).toBe(true);
     const [, patch] = mockSetDoc.mock.calls[0];
     expect(patch.joinable).toBe(true);
+    expect(Object.keys(patch).sort()).toEqual(['joinable', 'updatedAt']);
   });
 
   // 'false' er en SAND streng i JavaScript. Uden boolean-tjekket ville netop
