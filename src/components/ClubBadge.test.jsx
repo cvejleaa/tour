@@ -130,4 +130,20 @@ describe('ClubBadge — mønstre', () => {
     const ider = [...container.querySelectorAll('clipPath')].map((c) => c.id);
     expect(new Set(ider).size).toBe(2);
   });
+  // Fulhams udetrøje er ternet. Aflæsningen kaldte den bøjler, fordi tern
+  // skifter farve BÅDE vandret og lodret, og målingen valgte den ene akse.
+  // Rettet i hånden efter klubbens butik.
+  it('tegner tern som fire felter, ikke som bånd', () => {
+    const { container } = render(
+      <ClubBadge
+        variant="troeje" code="FUL" color="#FF0000" color2="#000000"
+        moenster="ternet" title="Fulham"
+      />,
+    );
+    const r = [...container.querySelectorAll('rect')];
+    expect(r.length).toBe(2);
+    // Felterne må ikke stå på samme højde — så var det bånd og ikke tern.
+    expect(r[0].getAttribute('y')).not.toBe(r[1].getAttribute('y'));
+    expect(r[0].getAttribute('x')).not.toBe(r[1].getAttribute('x'));
+  });
 });

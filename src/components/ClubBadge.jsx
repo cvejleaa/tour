@@ -46,6 +46,15 @@ function baand(moenster, farve) {
       <rect key="b" x="6.5" y="14" width="11" height="2.6" fill={farve} />,
     ];
   }
+  if (moenster === 'ternet') {
+    // Fire felter i et 2×2 — ikke et rigtigt skakbræt. Fulhams udetrøje har
+    // snesevis af tern; ved 22 px ville de blive til en rødsort tåge, og så
+    // var vi tilbage ved det farvegennemsnit, hele øvelsen skulle undgå.
+    return [
+      <rect key="a" x="7" y="2.5" width="5" height="9.5" fill={farve} />,
+      <rect key="b" x="12" y="12" width="5.5" height="9.5" fill={farve} />,
+    ];
+  }
   if (moenster === 'halveret') {
     return [<rect key="a" x="12" y="2.5" width="6" height="19" fill={farve} />];
   }

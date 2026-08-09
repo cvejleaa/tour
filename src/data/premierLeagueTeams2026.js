@@ -82,6 +82,15 @@
 //
 // Leeds' tredjetrøje er sort ifølge klubbutikken, men står stadig med sit
 // gamle skøn: Wikipedia har feltet tomt. Den skal sættes i admin.
+//
+// FULHAM er rettet i hånden på to punkter efter klubbens butik, og begge er
+// grænser for, hvad hentningen kan:
+//   ærmer   Hjemmetrøjen har SORTE ærmer på hvid krop. leftarm1 står som
+//           FFFFFF, og forskellen på hvid krop og hvidt ærme er nul, så feltet
+//           blev filtreret væk som støj. Kilden har den ikke.
+//   tern    Udetrøjen er rød/sort i tern. Mønster-målingen tæller skift langs
+//           hver akse, og tern skifter langs BEGGE — så den valgte den ene og
+//           kaldte trøjen bøjlet.
 // ---------------------------------------------------------------------------
 
 export const PREMIER_LEAGUE_TEAMS_2026 = [
@@ -96,7 +105,7 @@ export const PREMIER_LEAGUE_TEAMS_2026 = [
   { name: 'Brentford',                 short: 'BRE', elo: 1503, color: '#FF0000', awayColor: '#000040', thirdColor: '#FFFF00', troejer: { hjemme: { sekundaer: '#FFFFFF', moenster: 'striber', aerme: '#FFFFFF' }, ude: { aerme: '#000080' }, tredje: { aerme: '#FFED29' } }, venue: 'Gtech Community Stadium' },
   { name: 'Chelsea',                   short: 'CHE', elo: 1610, color: '#1B379B', awayColor: '#000000', thirdColor: '#EAB308', venue: 'Stamford Bridge' },
   { name: 'Nottingham Forest',         short: 'NFO', elo: 1489, color: '#F30310', awayColor: '#153428', thirdColor: '#111111', troejer: { hjemme: { sekundaer: '#D70926', moenster: 'boejler', aerme: '#D70926' } }, venue: 'The City Ground' },
-  { name: 'Fulham',                    short: 'FUL', elo: 1480, color: '#FAFAFA', awayColor: '#FF0000', thirdColor: '#6CACE4', troejer: { ude: { sekundaer: '#000000', moenster: 'boejler' } }, venue: 'Craven Cottage' },
+  { name: 'Fulham',                    short: 'FUL', elo: 1480, color: '#FAFAFA', awayColor: '#FF0000', thirdColor: '#6CACE4', troejer: { hjemme: { aerme: '#111111' }, ude: { sekundaer: '#000000', moenster: 'ternet' } }, venue: 'Craven Cottage' },
   { name: 'Everton',                   short: 'EVE', elo: 1470, color: '#00019E', awayColor: '#FFFFFF', thirdColor: '#111111', troejer: { hjemme: { aerme: '#0000FF' } }, venue: 'Hill Dickinson Stadium' },
   { name: 'Crystal Palace',            short: 'CRY', elo: 1470, color: '#FEFEFE', awayColor: '#1B1B1B', thirdColor: '#FFFFFF', troejer: { ude: { aerme: '#000000' } }, venue: 'Selhurst Park' },
   { name: 'Leeds United',              short: 'LEE', elo: 1464, color: '#FFFFFF', awayColor: '#FFFB00', thirdColor: '#FFCD00', venue: 'Elland Road' },
