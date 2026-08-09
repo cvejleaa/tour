@@ -238,3 +238,75 @@ describe('kampprogrammet', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// TRØJERNE, DER ER SAT I HÅNDEN
+//
+// Det er DENNE fil, der når skærmen — ikke scriptet. En mutationstest rullede
+// Bournemouth tilbage til ensfarvet sort og slettede Fulhams tern, og hele
+// suiten forblev grøn: `premierLeagueTeams2026.test.js` tjekkede kun, at hex
+// havde det rigtige FORMAT, og `ClubBadge.test.jsx` sender sine farver som
+// hardcodede props uden at røre datafilen.
+//
+// Værdierne herunder kommer fra klubbernes egne butikker, ikke fra Wikipedia.
+// Bliver de rettet, skal det være en bevidst handling med en ny kilde.
+// ---------------------------------------------------------------------------
+describe('trøjer sat i hånden efter klubbernes butikker', () => {
+  const hold = (navn) => TEAMS.find((t) => t.name === navn);
+
+  // Wikipedias grafik har den røde delt over tre nuancer af kantudjævning, så
+  // sort vinder og trøjen bliver ensfarvet. Se scripts/holdfarver-taerskel.mjs.
+  it('Bournemouth er RØD med sorte striber — ikke ensfarvet sort', () => {
+    const b = hold('Bournemouth');
+    expect(b.color).toBe('#FD1616');
+    expect(b.color).not.toBe('#000000');
+    expect(b.troejer.hjemme.moenster).toBe('striber');
+    expect(b.troejer.hjemme.sekundaer).toBe('#010101');
+  });
+
+  // leftarm1 står som FFFFFF ligesom body1, så forskellen på hvid krop og
+  // sort ærme er nul i kilden. Ærmerne er sorte ifølge fulhamfc.com.
+  it('Fulham har sorte ærmer på den hvide hjemmetrøje', () => {
+    expect(hold('Fulham').troejer.hjemme.aerme).toBe('#111111');
+  });
+
+  // Mønster-målingen tæller farveskift langs hver akse, og tern skifter langs
+  // BEGGE — så den valgte den ene og kaldte trøjen bøjlet.
+  it('Fulhams udetrøje er TERNET, ikke bøjlet', () => {
+    expect(hold('Fulham').troejer.ude.moenster).toBe('ternet');
+    expect(hold('Fulham').troejer.ude.moenster).not.toBe('boejler');
+  });
+
+  // Begge står tomme i Wikipedias infoboks.
+  it('Aston Villas udetrøje er grålig sort fra klubbens butik', () => {
+    expect(hold('Aston Villa').awayColor).toBe('#262626');
+  });
+
+  it('Leeds har stadig sit gamle skøn som tredjefarve — kilden er tom', () => {
+    expect(hold('Leeds United').thirdColor).toBe('#FFCD00');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TRØJER, KILDEN LÆSER RIGTIGT — og som en tærskel-ændring har ødelagt før.
+// ---------------------------------------------------------------------------
+describe('trøjer, en tærskel-ændring har brudt', () => {
+  const hold = (navn) => TEAMS.find((t) => t.name === navn);
+
+  // Forests to designrøde ligger kun 56 fra hinanden. Da tærsklen blev hævet
+  // til 100 for at redde Bournemouth, smeltede de sammen til #E3061D — en rød,
+  // der ikke findes på trøjen — og bøjlerne forsvandt.
+  it('Nottingham Forest har bøjler i to røde', () => {
+    const f = hold('Nottingham Forest');
+    expect(f.color).toBe('#F30310');
+    expect(f.troejer.hjemme.moenster).toBe('boejler');
+    expect(f.troejer.hjemme.sekundaer).toBe('#D70926');
+  });
+
+  // Den modsatte fejl fra samme ændring: City FIK et mønster, den ikke har.
+  it('Manchester City er ENSFARVET himmelblå — uden bøjler', () => {
+    const c = hold('Manchester City');
+    expect(c.color).toBe('#A2CFF2');
+    expect(c.troejer?.hjemme?.moenster).toBeUndefined();
+  });
+});

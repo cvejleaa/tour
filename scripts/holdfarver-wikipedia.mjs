@@ -143,7 +143,7 @@ function afkodPng(buf) {
 const hex = (r, g, b) => `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 
 /** Alle synlige pixels som {x,y,r,g,b}. Gennemsigtigt tæller ikke med. */
-function pixels(buf) {
+export function pixels(buf) {
   const {
     ihdr, ud, kanaler, plte, trns,
   } = afkodPng(buf);
@@ -170,16 +170,42 @@ function pixels(buf) {
  * ville #FFFFFF (26,6 %) slå #101010 (11,2 %) — og en sort/hvid-stribet trøje
  * ville stå som hvid, fordi sort var delt over tre nuancer.
  */
-// AFSTANDEN VAR 40, OG DET VAR FOR STRAMT. Bournemouths røde er delt over tre
-// nuancer (#FF2C2C 13,7 %, #FF0000 9,0 %, #F30000 5,1 %), og afstanden mellem
-// de to første er 88. De blev aldrig lagt sammen, så sort vandt med 53,6 %,
-// ingen anden flade nåede halvdelen, og en rød/sort stribet trøje blev erklæret
-// ensfarvet sort. Præcis samme fælde som Newcastles sorte, bare med rød.
+// AFSTANDEN ER 40, OG DEN ER MÅLT — ikke valgt. Jeg hævede den engang til 100
+// for at redde Bournemouth, hvis røde er delt over tre nuancer (#FF2C2C 13,7 %,
+// #FF0000 9,0 %, #F30000 5,1 %) med 88 mellem de to største, så sort vandt med
+// 53,6 % og en rød/sort stribet trøje blev erklæret ensfarvet sort.
 //
-// 100 lægger nuancer af samme farve sammen uden at blande farver: rød mod sort
-// er 255, himmelblå mod hvid 363, og Leeds' bleggule pinstriber mod hvid 129 —
-// alle langt over.
-function flader(px, afstand = 100) {
+// DET GJORDE DET SAMLET SET VÆRRE. `scripts/holdfarver-taerskel.mjs` kører
+// tærsklen igennem ti trøjer med kendt facit:
+//
+//     40  → 9/10   kun Bournemouth forkert
+//     56  → 8/10   Forest mister sine bøjler
+//     88  → 8/10   Bournemouth reddet, men Forest OG Man City forkerte
+//     100 → 8/10   samme
+//     120 → 8/10   samme
+//
+// Ingen tærskel når 10/10, og det er ikke et uheld: Bournemouth kræver ≥ 88 for
+// at lægge sin røde sammen, mens Forests to designrøde (#D70926 og #F30310)
+// kun ligger 56 fra hinanden og skal holdes adskilt. 88 > 56 — kravene
+// modsiger hinanden. Man City vipper ved 103.
+//
+// Argumentet, jeg brugte for 100, var også den forkerte slags: jeg målte
+// afstanden mellem hver trøjes TO VALGTE farver (rød mod sort 255, himmelblå
+// mod hvid 363). Tærsklen skal separere ALLE par af klynger i grafikken, også
+// de tonale nuancer, der aldrig blev det valgte par — og det er præcis dér,
+// Forest og City bor. Klyngingen er desuden grådig med et glidende
+// tyngdepunkt, så to færdige klynger kan stå tættere på hinanden end tærsklen.
+// Man kan altså slet ikke slutte fra outputfarverne, hvad der vil smelte
+// sammen. Mål det i stedet.
+//
+// Kant-erosion (kast pixels på farvegrænser væk, klyng så stramt) blev prøvet
+// og forkastet: 6/10. Tyndstribede trøjer er næsten udelukkende kant —
+// Coventry mister 70 % af sine pixels, Leeds 84 % — så den ødelægger netop de
+// trøjer, øvelsen handler om.
+//
+// Bournemouth står derfor i HAANDSAT i stedet. Én trøje sat i hånden med en
+// målt begrundelse er ærligere end en tærskel, der er trimmet til den.
+export function flader(px, afstand = 40) {
   const klynger = [];
   for (const { r, g, b } of px) {
     let fundet = null;
@@ -305,7 +331,7 @@ function aermefarve(felter, n) {
   return nulstil(felter[`leftarm${n}`]);
 }
 
-function troejefarver(felter, n, moenstret) {
+export function troejefarver(felter, n, moenstret) {
   const bund = nulstil(felter[`body${n}`]) || nulstil(felter[`leftarm${n}`]);
   if (!moenstret || !moenstret.flader || moenstret.flader.length === 0) {
     return {
@@ -375,6 +401,9 @@ function troejefarver(felter, n, moenstret) {
 //
 // Nøglen er trøjenummeret: 1 = hjemme/color, 2 = ude/awayColor, 3 = tredje.
 const HAANDSAT = {
+  Bournemouth: {
+    1: 'rød delt over tre nuancer af kantudjævning, så sort vandt — se tærskel-målingen over flader()',
+  },
   'Aston Villa': {
     2: 'udetrøjen står tom i infoboksen; 2025-26 ført videre fra avfc.co.uk, til den nye lander',
   },
@@ -387,84 +416,28 @@ const HAANDSAT = {
   },
 };
 
-const haandsat = (navn, n) => HAANDSAT[navn]?.[n] || null;
+export const haandsat = (navn, n) => HAANDSAT[navn]?.[n] || null;
+export { HAANDSAT };
 
 // --- kørsel ----------------------------------------------------------------
+//
+// Kørslen ligger i en funktion og starter kun, når filen er KALDT som script.
+// Lå den på topniveau, kunne en test ikke importere de rene funktioner uden at
+// udløse netværkskald mod Wikimedia og en skrivning i holdfilen.
+const KOERES_SOM_SCRIPT = process.argv[1] === fileURLToPath(import.meta.url);
 
-const args = process.argv.slice(2);
-const skriv = args.includes('--skriv');
-const kunHold = args.includes('--hold') ? args[args.indexOf('--hold') + 1] : null;
-
-const kilde = readFileSync(HOLDFIL, 'utf8');
-const navne = [...kilde.matchAll(/\{ name: '([^']+)'/g)].map((m) => m[1]);
-const hold = kunHold ? navne.filter((n) => n === kunHold) : navne;
-if (hold.length === 0) throw new Error(`kender ikke holdet "${kunHold}"`);
-
-console.log(`\nHenter trøjefarver for ${hold.length} hold fra Wikipedia...\n`);
-const fund = [];
-for (const navn of hold) {
-  const titel = ARTIKEL[navn];
-  if (!titel) throw new Error(`ingen Wikipedia-titel for "${navn}" — tilføj den i ARTIKEL`);
-  const felter = await infoboks(titel);
-  await sov(PAUSE_MS);
-
-  const troejer = {};
-  for (const n of [1, 2, 3]) {
-    const m = felter[`pattern_b${n}`];
-    let flad = null;
-    if (m) { flad = await moensterFarver(m, 'body'); await sov(PAUSE_MS); }
-    const t = troejefarver(felter, n, flad);
-
-    t.aerme = aermefarve(felter, n);
-    troejer[n] = t;
-  }
-  fund.push({ navn, troejer });
-
-  const h = troejer[1];
-  const striber = h.sekundaer ? `  ${h.moenster}(${h.baand}) ${h.primaer}/${h.sekundaer}` : '';
-  const aerme = h.aerme && h.aerme !== h.primaer ? `  ærmer ${h.aerme}` : '';
-  console.log(`  ${navn.padEnd(28)} hjemme ${String(h.primaer).padEnd(8)} ude ${String(troejer[2].primaer).padEnd(8)} 3. ${String(troejer[3].primaer).padEnd(8)}${striber}${aerme}`);
-}
-
-// Sammenlign med det, der står i filen i dag.
-console.log('\nForskelle fra holdfilen:\n');
-let aendringer = 0;
-let sprunget = 0;
-for (const { navn, troejer } of fund) {
-  const raekke = kilde.split('\n').find((l) => l.includes(`name: '${navn}'`));
-  const nu = {
-    color: raekke?.match(/ color: '(#[0-9A-F]{6})'/)?.[1],
-    awayColor: raekke?.match(/ awayColor: '(#[0-9A-F]{6})'/)?.[1],
-    thirdColor: raekke?.match(/ thirdColor: '(#[0-9A-F]{6})'/)?.[1],
-  };
-  const ny = { color: troejer[1].primaer, awayColor: troejer[2].primaer, thirdColor: troejer[3].primaer };
-  const nummer = { color: 1, awayColor: 2, thirdColor: 3 };
-  for (const felt of ['color', 'awayColor', 'thirdColor']) {
-    const grund = haandsat(navn, nummer[felt]);
-    if (grund) {
-      // Skal STÅ i rapporten. En håndsat trøje, der bare mangler, ligner en
-      // trøje uden forskel — og så tror man, kilden er enig med hånden.
-      console.log(`  ${navn.padEnd(28)} ${felt.padEnd(11)} håndsat, springes over — ${grund}`);
-      sprunget += 1;
-      continue;
-    }
-    if (ny[felt] && nu[felt] && ny[felt] !== nu[felt]) {
-      console.log(`  ${navn.padEnd(28)} ${felt.padEnd(11)} ${nu[felt]} → ${ny[felt]}`);
-      aendringer += 1;
-    }
-  }
-}
-console.log(`\n${aendringer} farver ville ændre sig, ${sprunget} står håndsat.`);
-
-if (!skriv) {
-  console.log('\nTør-kørsel — holdfilen er IKKE rørt. Kør igen med --skriv.\n');
-  process.exit(0);
-}
-
-let ud = kilde;
-for (const { navn, troejer } of fund) {
-  const linje = ud.split('\n').find((l) => l.includes(`name: '${navn}'`));
-  if (!linje) throw new Error(`fandt ikke linjen for "${navn}" i holdfilen`);
+/**
+ * Byg holdfilens linje for ét hold ud fra det, kilden gav. REN funktion — ingen
+ * fil, intet netværk — så både skrivningen og tør-kørslen kan bruge den, og en
+ * test kan efterprøve den.
+ *
+ * Den lå før inde i skrive-løkken, og det gjorde tør-kørslen HALVBLIND: den
+ * sammenlignede kun color/awayColor/thirdColor, mens `troejer` aldrig blev
+ * nævnt. Man City ville have fået bøjler, den ikke har, uden en eneste linje i
+ * rapporten. Nu diffes hele linjen, så alt hvad skrivningen ville gøre, står i
+ * tør-kørslen først.
+ */
+export function opdaterRaekke(linje, navn, troejer) {
   let ny = linje;
   const saet = (felt, vaerdi) => {
     if (!vaerdi) return;
@@ -504,16 +477,20 @@ for (const { navn, troejer } of fund) {
     if (langtFra(t.aerme, t.primaer)) d.aerme = t.aerme;
     return Object.keys(d).length ? d : null;
   };
-  const troejeDele = { hjemme: del(troejer[1]), ude: del(troejer[2]), tredje: del(troejer[3]) };
-  const brugte = Object.entries(troejeDele).filter(([, v]) => v);
   // ÉN HÅNDSAT TRØJE FREDER HELE `troejer`-FELTET for det hold. Feltet skrives
   // som én tekst, så en delvis opdatering ville skulle flette hånd og kilde
   // inde i strengen — og en flettefejl dér ser ud som en trøje, der bare
   // mistede sit mønster. Fulham har både sorte ærmer (hjemme) og tern (ude);
   // begge dele skal overleve, at tredjetrøjen en dag får en kant.
-  if (HAANDSAT[navn]) {
-    console.log(`  ${navn}: trøjeformen står håndsat — feltet røres ikke.`);
-  } else if (brugte.length) {
+  //
+  // ASYMMETRIEN ER MED VILJE, og den skal kendes: for color/awayColor/
+  // thirdColor freder HAANDSAT pr. TRØJE, for `troejer` pr. HOLD. En læser af
+  // `Fulham: { 1, 2 }` vil tro, tredjetrøjens form står åben. Det gør den ikke.
+  if (HAANDSAT[navn]) return ny;
+
+  const troejeDele = { hjemme: del(troejer[1]), ude: del(troejer[2]), tredje: del(troejer[3]) };
+  const brugte = Object.entries(troejeDele).filter(([, v]) => v);
+  if (brugte.length) {
     const tekst = brugte
       .map(([k, v]) => `${k}: { ${Object.entries(v).map(([f, w]) => `${f}: '${w}'`).join(', ')} }`)
       .join(', ');
@@ -527,7 +504,83 @@ for (const { navn, troejer } of fund) {
       throw new Error(`${navn}: hverken troejer- eller venue-felt at sætte trøjeformen ved`);
     }
   }
-  ud = ud.replace(linje, ny);
+  return ny;
 }
-writeFileSync(HOLDFIL, ud);
-console.log(`\n✅ ${HOLDFIL} opdateret. Se ændringerne med git diff.\n`);
+
+async function koer() {
+  const args = process.argv.slice(2);
+  const skriv = args.includes('--skriv');
+  const kunHold = args.includes('--hold') ? args[args.indexOf('--hold') + 1] : null;
+
+  const kilde = readFileSync(HOLDFIL, 'utf8');
+  const navne = [...kilde.matchAll(/\{ name: '([^']+)'/g)].map((m) => m[1]);
+  const hold = kunHold ? navne.filter((n) => n === kunHold) : navne;
+  if (hold.length === 0) throw new Error(`kender ikke holdet "${kunHold}"`);
+
+  console.log(`\nHenter trøjefarver for ${hold.length} hold fra Wikipedia...\n`);
+  const fund = [];
+  for (const navn of hold) {
+    const titel = ARTIKEL[navn];
+    if (!titel) throw new Error(`ingen Wikipedia-titel for "${navn}" — tilføj den i ARTIKEL`);
+    const felter = await infoboks(titel);
+    await sov(PAUSE_MS);
+
+    const troejer = {};
+    for (const n of [1, 2, 3]) {
+      const m = felter[`pattern_b${n}`];
+      let flad = null;
+      if (m) { flad = await moensterFarver(m, 'body'); await sov(PAUSE_MS); }
+      const t = troejefarver(felter, n, flad);
+      t.aerme = aermefarve(felter, n);
+      troejer[n] = t;
+    }
+    fund.push({ navn, troejer });
+
+    const h = troejer[1];
+    const striber = h.sekundaer ? `  ${h.moenster}(${h.baand}) ${h.primaer}/${h.sekundaer}` : '';
+    const aerme = h.aerme && h.aerme !== h.primaer ? `  ærmer ${h.aerme}` : '';
+    console.log(`  ${navn.padEnd(28)} hjemme ${String(h.primaer).padEnd(8)} ude ${String(troejer[2].primaer).padEnd(8)} 3. ${String(troejer[3].primaer).padEnd(8)}${striber}${aerme}`);
+  }
+
+  // HELE LINJEN diffes — ikke kun de tre farvefelter. Tør-kørslen viser altså
+  // præcis det, --skriv ville gøre, inklusive trøjeformen.
+  console.log('\nForskelle fra holdfilen:\n');
+  let aendringer = 0;
+  const linjer = kilde.split('\n');
+  let ud = kilde;
+  for (const { navn, troejer } of fund) {
+    const linje = linjer.find((l) => l.includes(`name: '${navn}'`));
+    if (!linje) throw new Error(`fandt ikke linjen for "${navn}" i holdfilen`);
+
+    for (const [n, felt] of [[1, 'color'], [2, 'awayColor'], [3, 'thirdColor']]) {
+      const grund = haandsat(navn, n);
+      // Skal STÅ i rapporten — også i tør-kørslen. En håndsat trøje, der bare
+      // mangler, ligner en trøje uden forskel, og så tror man, kilden er enig
+      // med hånden. Kildens eget bud skrives ved siden af, så man kan se, hvis
+      // den en dag bliver enig og posten kan pensioneres.
+      if (grund) {
+        console.log(`  ${navn.padEnd(28)} ${felt.padEnd(11)} HÅNDSAT — kilden siger ${troejer[n].primaer || '(tom)'} — ${grund}`);
+      }
+    }
+
+    const ny = opdaterRaekke(linje, navn, troejer);
+    if (ny !== linje) {
+      console.log(`  ${navn}`);
+      console.log(`    før:  ${linje.trim()}`);
+      console.log(`    nu:   ${ny.trim()}`);
+      aendringer += 1;
+    }
+    if (HAANDSAT[navn]) console.log(`  ${navn.padEnd(28)} trøjeformen står håndsat — feltet røres ikke.`);
+    ud = ud.replace(linje, ny);
+  }
+  console.log(`\n${aendringer} rækker ville ændre sig.`);
+
+  if (!skriv) {
+    console.log('\nTør-kørsel — holdfilen er IKKE rørt. Kør igen med --skriv.\n');
+    return;
+  }
+  writeFileSync(HOLDFIL, ud);
+  console.log(`\n✅ ${HOLDFIL} opdateret. Se ændringerne med git diff.\n`);
+}
+
+if (KOERES_SOM_SCRIPT) await koer();
