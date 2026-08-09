@@ -142,7 +142,7 @@ function afkodPng(buf) {
 
 const hex = (r, g, b) => `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 
-/** Alle synlige pixels som {r,g,b}. Gennemsigtigt tæller ikke med. */
+/** Alle synlige pixels som {x,y,r,g,b}. Gennemsigtigt tæller ikke med. */
 function pixels(buf) {
   const {
     ihdr, ud, kanaler, plte, trns,
@@ -157,9 +157,9 @@ function pixels(buf) {
       if (trns && idx < trns.length) a = trns[idx];
     } else { r = ud[o]; g = r; b = r; if (kanaler === 2) a = ud[o + 1]; }
     if (a < 200) continue;
-    ud2.push({ r, g, b });
+    ud2.push({ x: i % ihdr.w, y: Math.floor(i / ihdr.w), r, g, b });
   }
-  return ud2;
+  return { px: ud2, bredde: ihdr.w, hoejde: ihdr.h };
 }
 
 /**
@@ -194,6 +194,56 @@ function flader(px, afstand = 40) {
     .map((k) => ({ hex: hex(k.r, k.g, k.b), andel: k.n / ialt }));
 }
 
+/**
+ * HVILKET MØNSTER er det — striber, bøjler eller halvering?
+ *
+ * Mønsterets NAVN siger det ikke: Commons kalder filen `_newcastle2627h`, ikke
+ * `_stripes`. Uden denne måling ville en tegnet stribe være en påstand, og
+ * Crystal Palace og Aston Villa — der har bøjler — ville stå stribede.
+ *
+ * Grafikken ved det derimod. Lodrette striber skifter farve hen ad x og er
+ * konstante ned ad y; bøjler er omvendt; en halvering skifter én gang.
+ * Vi tæller altså skift langs hver akse mellem de to hovedfarver.
+ */
+function moenstertype(px, a, b) {
+  const naer = (p, hexfarve) => {
+    const r = parseInt(hexfarve.slice(1, 3), 16);
+    const g = parseInt(hexfarve.slice(3, 5), 16);
+    const bl = parseInt(hexfarve.slice(5, 7), 16);
+    return Math.abs(p.r - r) + Math.abs(p.g - g) + Math.abs(p.b - bl);
+  };
+  const dominerende = (gruppe) => {
+    let na = 0; let nb = 0;
+    for (const p of gruppe) { if (naer(p, a) <= naer(p, b)) na += 1; else nb += 1; }
+    // Blandede kolonner (kanter, mærker) tæller ikke som en farve.
+    if (na + nb < 3) return null;
+    return na > nb * 1.5 ? 'a' : (nb > na * 1.5 ? 'b' : null);
+  };
+  const skift = (akse) => {
+    const grupper = new Map();
+    for (const p of px) {
+      const k = p[akse];
+      if (!grupper.has(k)) grupper.set(k, []);
+      grupper.get(k).push(p);
+    }
+    const raekke = [...grupper.keys()].sort((u, v) => u - v).map((k) => dominerende(grupper.get(k)));
+    let n = 0; let sidste = null;
+    for (const v of raekke) {
+      if (v == null) continue;
+      if (sidste != null && v !== sidste) n += 1;
+      sidste = v;
+    }
+    return n;
+  };
+  const vandret = skift('x');
+  const lodret = skift('y');
+  if (vandret >= 3 && vandret > lodret) return { type: 'striber', baand: vandret + 1 };
+  if (lodret >= 3 && lodret > vandret) return { type: 'boejler', baand: lodret + 1 };
+  if (vandret === 1 && lodret === 0) return { type: 'halveret', baand: 2 };
+  if (lodret === 1 && vandret === 0) return { type: 'vandret-delt', baand: 2 };
+  return { type: 'ukendt', baand: 0, vandret, lodret };
+}
+
 // --- Wikipedia -------------------------------------------------------------
 
 async function infoboks(titel) {
@@ -218,7 +268,8 @@ async function moensterFarver(moenster, del = 'body') {
   const billede = side?.imageinfo?.[0]?.url;
   if (!billede) return null; // mønstret findes ikke som fil — falder tilbage på body
   const buf = Buffer.from(await (await hent(billede)).arrayBuffer());
-  return flader(pixels(buf));
+  const { px } = pixels(buf);
+  return { flader: flader(px), px };
 }
 
 const nulstil = (v) => (v && /^[0-9A-Fa-f]{6}$/.test(v) ? `#${v.toUpperCase()}` : null);
@@ -247,11 +298,17 @@ function aermefarve(felter, n) {
 
 function troejefarver(felter, n, moenstret) {
   const bund = nulstil(felter[`body${n}`]) || nulstil(felter[`leftarm${n}`]);
-  if (!moenstret || moenstret.length === 0) {
-    return { primaer: bund, sekundaer: null, striber: false, kilde: 'body' };
+  if (!moenstret || !moenstret.flader || moenstret.flader.length === 0) {
+    return {
+      primaer: bund, sekundaer: null, moenster: 'ensfarvet', baand: 0, kilde: 'body',
+    };
   }
-  const store = moenstret.filter((f) => f.andel >= 0.12);
-  if (store.length === 0) return { primaer: bund, sekundaer: null, striber: false, kilde: 'body (mønster uden flader)' };
+  const store = moenstret.flader.filter((f) => f.andel >= 0.12);
+  if (store.length === 0) {
+    return {
+      primaer: bund, sekundaer: null, moenster: 'ensfarvet', baand: 0, kilde: 'body (mønster uden flader)',
+    };
+  }
 
   // DEN STØRSTE FLADE ER IKKE KLUBBENS FARVE. Første udgave valgte den, og
   // resultatet var forkert på fire hold: Coventry (himmelblå) blev HVID,
@@ -277,10 +334,20 @@ function troejefarver(felter, n, moenstret) {
   // trøje — striber, halve eller bøjler — og ikke en ensfarvet med et mærke.
   const anden = store.find((f) => f !== primaerFlade);
   const tofarvet = !!anden && anden.andel >= primaerFlade.andel * 0.5;
+  if (!tofarvet) {
+    return {
+      primaer: primaerFlade.hex, sekundaer: null, moenster: 'ensfarvet', baand: 0, kilde: 'mønster',
+    };
+  }
+  // HVILKET mønster det er, måles på grafikken — se moenstertype. Uden den
+  // ville en tegnet stribe være en påstand: Crystal Palace og Aston Villa har
+  // bøjler, ikke striber, og mønsterets navn på Commons røber det ikke.
+  const m = moenstertype(moenstret.px, primaerFlade.hex, anden.hex);
   return {
     primaer: primaerFlade.hex,
-    sekundaer: tofarvet ? anden.hex : null,
-    striber: tofarvet,
+    sekundaer: anden.hex,
+    moenster: m.type,
+    baand: m.baand,
     kilde: 'mønster',
   };
 }
@@ -317,7 +384,7 @@ for (const navn of hold) {
   fund.push({ navn, troejer });
 
   const h = troejer[1];
-  const striber = h.striber ? `  striber ${h.primaer}/${h.sekundaer}` : '';
+  const striber = h.sekundaer ? `  ${h.moenster}(${h.baand}) ${h.primaer}/${h.sekundaer}` : '';
   const aerme = h.aerme && h.aerme !== h.primaer ? `  ærmer ${h.aerme}` : '';
   console.log(`  ${navn.padEnd(28)} hjemme ${String(h.primaer).padEnd(8)} ude ${String(troejer[2].primaer).padEnd(8)} 3. ${String(troejer[3].primaer).padEnd(8)}${striber}${aerme}`);
 }
