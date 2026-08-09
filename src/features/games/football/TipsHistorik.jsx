@@ -7,8 +7,9 @@
  * ændring — præcis som de to formler for "point i alt" gjorde.
  */
 import { shortOf } from './teamInfo';
+import { round1 } from '../../../lib/superligaScoring';
 import { formatKickoff } from '../../../lib/daDate';
-import { fmtDec } from '../../../lib/daNum';
+import { fmtDec, fmtPoints, fmtSignedPoints } from '../../../lib/daNum';
 import PointOpdeling, { RUBRIKKER } from './PointOpdeling';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
@@ -16,9 +17,50 @@ const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
 function ResultCell({ row }) {
   if (!row.pick) return <span className="mytips__none">—</span>;
   if (!row.settled) return <span className="mytips__pending">afventer</span>;
-  return row.hit
-    ? <span className="badge badge--green">✓ +{fmtDec(row.points)}</span>
-    : <span className="badge badge--red">✗</span>;
+
+  // Chancen er ikke afregnet (kampen har ingen odds). Så findes tallet ikke —
+  // hverken −4, som ville være løgn, eller 0, som ville være et gæt.
+  if (row.isChance && !row.chanceAfregnet) {
+    return (
+      <span className="badge" title="Kampen har ingen odds, så Chancen er hverken vundet eller tabt.">
+        {row.hit ? '✓' : '✗'} · Chancen ikke afregnet
+      </span>
+    );
+  }
+
+  // TABT TIP. Uden chance er der intet tal at vise — 0 point er ikke en
+  // oplysning. MED chance er tabet hele historien, og det stod ingen steder:
+  // serveren gemmer kun summen, og ved et forkert tip ER summen chance-tabet
+  // (outcomePoints giver 0, når man tipper forkert).
+  //
+  // Ingen ⚡ her: rækken bærer allerede to — klassen mytips__row--chance og
+  // ⚡'et ved siden af tippet. Et tredje ville være støj, og det røde
+  // fortegnstal siger det selv.
+  if (!row.hit) {
+    return row.isChance
+      ? (
+        <span className="badge badge--red" title={`Chancen tabt: ${fmtPoints(row.chanceStake)} point`}>
+          ✗ {fmtSignedPoints(row.chanceDelta)}
+        </span>
+      )
+      : <span className="badge badge--red">✗</span>;
+  }
+
+  // RAMT. Tallet rummer både tippet og en evt. chance-gevinst, og uden en
+  // forklaring kunne man ikke se, hvorfor en kamp til odds 3,0 gav 19 point.
+  // Fordelingen ligger i title'en frem for i cellen: to tegn i en tabelcelle
+  // presser kolonnen, og ⚡ står allerede på rækken.
+  const tipDel = round1(row.points - row.chanceDelta);
+  return (
+    <span
+      className="badge badge--green"
+      title={row.isChance
+        ? `${fmtPoints(tipDel)} for tippet + ${fmtPoints(row.chanceDelta)} fra Chancen`
+        : undefined}
+    >
+      ✓ {fmtSignedPoints(row.points)}
+    </span>
+  );
 }
 
 /**

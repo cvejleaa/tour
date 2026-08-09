@@ -867,3 +867,102 @@ describe('Chancen — den gemte indsats', () => {
     expect(screen.getByText(/afregnes som normalt/)).toBeInTheDocument();
   });
 });
+
+// --- Chancens udfald på kampkortet ----------------------------------------
+//
+// DET STØRSTE HUL. ⚡-pillen lå i grenen EFTER m.result, så den forsvandt helt,
+// så snart facit kom — på præcis den skærm, man står på lige efter runden.
+// Rundens facit-kort trak de fire point fra uden at sige hvor.
+describe('kampkortet — hvad chancen kostede', () => {
+  const SPILLET = [
+    { id: 'p1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF,
+      odds: { 1: 3.9, X: 3.5, 2: 2 }, result: '1' },
+    { id: 'p2', round: 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: KICKOFF,
+      odds: { 1: 2.2, X: 3.4, 2: 3.1 }, result: 'X' },
+  ];
+  const tegn = (bets, matches = SPILLET) => {
+    mockBets.mockReturnValue({ betsByMatch: bets, loading: false });
+    return render(
+      <MemoryRouter initialEntries={['/spil/sl?runde=1']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                me={{ uid: 'me', totalPoints: 100 }}
+                matches={matches}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+  };
+
+  it('viser tabet på kortet, når chancen er tabt', () => {
+    tegn({ p1: { pick: '2', points: -4, chanceStake: 4 } });
+    const maerke = screen.getByText(/⚡ −4/);
+    expect(maerke).toHaveAttribute('title', 'Chancen tabt: 4 point');
+    // Og 1X2-mærket står stadig ved siden af: de to tal lægges sammen.
+    expect(screen.getByText('Ikke ramt')).toBeInTheDocument();
+  });
+
+  it('viser gevinsten på kortet, når chancen er vundet', () => {
+    tegn({ p1: { pick: '1', points: 15.9, chanceStake: 4 } });
+    expect(screen.getByText(/⚡ \+12/)).toBeInTheDocument();
+    // "Ramt +3,9" er 1X2 ALENE og skal blive stående — erstattede vi det med
+    // summen, ville kortet vise ét tal og Mine tips et andet for samme kamp.
+    expect(screen.getByText(/Ramt \+3,9/)).toBeInTheDocument();
+  });
+
+  it('gætter ikke et tal, når kampen mangler odds', () => {
+    const udenOdds = [{ ...SPILLET[0], odds: null }, SPILLET[1]];
+    tegn({ p1: { pick: '2', points: 0, chanceStake: 4 } }, udenOdds);
+    expect(screen.getByText(/⚡ ikke afregnet/)).toBeInTheDocument();
+    expect(screen.queryByText(/⚡ −4/)).not.toBeInTheDocument();
+  });
+
+  it('sætter ikke et chance-mærke på en kamp uden chance', () => {
+    tegn({ p1: { pick: '1', points: 3.9, chanceStake: 0 } });
+    // Panelets overskrift hedder "Chancen ⚡", så der SKAL søges på mærket —
+    // ikke på tegnet alene.
+    expect(screen.queryByText(/⚡ [−+]/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/⚡ ikke afregnet/)).not.toBeInTheDocument();
+  });
+});
+
+// ⚡ ER CHANCEN OVERALT I APPEN — PointOpdeling siger det eksplicit, og
+// TipsHistorik bruger 🔗 til combi af netop den grund. Facit-kortet og
+// delingsteksten skrev stadig "combi +N ⚡", så samme tegn stod for to ting på
+// samme skærm.
+describe('combi-mærket', () => {
+  it('bruger 🔗 til combi, ikke ⚡', () => {
+    const alle = [
+      { id: 'k1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF, odds: { 1: 2, X: 3, 2: 4 }, result: '1' },
+      { id: 'k2', round: 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: KICKOFF, odds: { 1: 2, X: 3, 2: 4 }, result: '1' },
+    ];
+    mockBets.mockReturnValue({
+      betsByMatch: { k1: { pick: '1', points: 2 }, k2: { pick: '1', points: 2 } }, loading: false,
+    });
+    render(
+      <MemoryRouter initialEntries={['/spil/sl?runde=1']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                me={{ uid: 'me', totalPoints: 100 }}
+                matches={alle}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const combi = screen.getByText(/combi \+/);
+    expect(combi).toHaveTextContent('🔗');
+    expect(combi.textContent).not.toMatch(/⚡/);
+  });
+});

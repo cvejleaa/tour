@@ -127,3 +127,65 @@ describe('TipsHistorik — splittet runde', () => {
     expect(screen.queryByTestId('udenfor-2')).toBeNull();
   });
 });
+
+// --- Hvad chancen kostede --------------------------------------------------
+//
+// Brugerens ord, efter at han tabte en chance: "det vi skal have gjort noget
+// ved er visningen". Et forkert tip stod som et bart rødt ✗ — man kunne se, at
+// man tabte, men ikke at det kostede fire point. Tallet lå allerede i
+// bet.points; det blev bare smidt væk.
+describe('TipsHistorik — chancens udfald pr. kamp', () => {
+  const CH = [
+    { id: 'c1', round: 1, home: 'AGF', away: 'OB', kickoff: new Date('2026-08-01T17:00:00Z'), result: '1', odds: { 1: 3.9, X: 3.5, 2: 2 } },
+  ];
+  const tegn = (bets, matches = CH) => render(
+    <TipsHistorik history={buildTipsHistory(groupByRound(matches), bets)} total={0} />,
+  );
+
+  it('viser hvad en TABT chance kostede', () => {
+    tegn({ c1: { pick: '2', points: -4, chanceStake: 4 } });
+    const celle = screen.getByText(/✗/);
+    expect(celle).toHaveTextContent('−4');
+    expect(celle).toHaveAttribute('title', 'Chancen tabt: 4 point');
+  });
+
+  // Et forkert tip UDEN chance har intet tal at vise: 0 point er ikke en
+  // oplysning, og et "−0" ville se ud som om noget var trukket fra.
+  it('sætter ikke et tal på et forkert tip uden chance', () => {
+    tegn({ c1: { pick: '2', points: 0, chanceStake: 0 } });
+    const celle = screen.getByText(/✗/);
+    expect(celle.textContent.trim()).toBe('✗');
+  });
+
+  // Uden gyldige odds har serveren ikke afregnet chancen. Så må der hverken
+  // stå −4 (løgn) eller 0 (gæt).
+  it('skriver "ikke afregnet" i stedet for at gætte et tal', () => {
+    const udenOdds = [{ ...CH[0], odds: null }];
+    tegn({ c1: { pick: '2', points: 0, chanceStake: 4 } }, udenOdds);
+    const celle = screen.getByText(/ikke afregnet/);
+    expect(celle.textContent).not.toMatch(/−4|-4/);
+    expect(celle.textContent).not.toMatch(/−0|\b0\b/);
+  });
+
+  // En vundet chance: tallet rummer både tippet og gevinsten, og uden
+  // forklaringen kunne man ikke se, hvorfor en kamp til odds 3,9 gav 15,9.
+  it('forklarer fordelingen, når en chance er vundet', () => {
+    tegn({ c1: { pick: '1', points: 15.9, chanceStake: 4 } });
+    const celle = screen.getByText(/✓/);
+    expect(celle).toHaveTextContent('+15,9');
+    expect(celle).toHaveAttribute('title', '3,9 for tippet + 12 fra Chancen');
+  });
+
+  // Et træf uden chance skal IKKE have en forklaring — der er intet at dele op.
+  it('forklarer ikke noget på et træf uden chance', () => {
+    tegn({ c1: { pick: '1', points: 3.9, chanceStake: 0 } });
+    expect(screen.getByText(/✓/)).not.toHaveAttribute('title');
+  });
+
+  // Point er heltal eller én decimal — ikke "+19,0".
+  it('skriver hele point uden en meningsløs decimal', () => {
+    tegn({ c1: { pick: '1', points: 16, chanceStake: 4 } });
+    expect(screen.getByText(/✓/)).toHaveTextContent('+16');
+    expect(screen.getByText(/✓/).textContent).not.toMatch(/16,0/);
+  });
+});

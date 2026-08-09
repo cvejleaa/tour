@@ -2,8 +2,45 @@
  * Ren hjælper til "Mine tips"-historikken: sammenstil spillerens tips med
  * kampenes facit + point pr. runde. Ingen Firebase-afhængigheder (testbar).
  */
-import { round1 } from '../../../lib/superligaScoring';
+import { round1, outcomePoints } from '../../../lib/superligaScoring';
 import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
+
+/**
+ * HVAD CHANCEN KOSTEDE ELLER GAV på ét tip.
+ *
+ * Serveren gemmer kun SUMMEN på bettet — scoreBet returnerer 1X2-point plus
+ * chance-delta — så deltaet skal regnes tilbage. Det sker her og kun her:
+ * både kampkortet på tip-fladen, "Mine tips" og spillerdetaljen viser tallet,
+ * og tre udgaver af formlen ville drive fra hinanden ved næste ændring. Samme
+ * udledning som opdelPoint bruger til ⚡ Chancen-rubrikken, så kampens linje og
+ * rubrikken over den ikke kan blive uenige.
+ *
+ * ODDS TAGES FRA KAMPEN, ikke fra bettet. Spillerdetaljens dokument gemmer kun
+ * { pick, points, chanceStake } og har ingen odds — læste vi dem fra bettet,
+ * ville tallet være rigtigt i Mine tips og forkert i spillerdetaljen for
+ * præcis det samme tip.
+ *
+ * @param {object} bet    – { pick, points, chanceStake }
+ * @param {object} match  – kampen (result + frosne odds)
+ * @returns {{afregnet: boolean, delta: number}|null} null = ingen chance i spil
+ */
+export function chanceUdfald(bet, match) {
+  const stake = Number(bet?.chanceStake) || 0;
+  const pick = bet?.pick ?? null;
+  const result = match?.result ?? null;
+  if (stake <= 0 || !pick || result == null || result === '') return null;
+  // Uden gyldige odds afregner serveren IKKE chancen (scoreBet returnerer sin
+  // base, når oddsene mangler). Så er der hverken tab eller gevinst at vise,
+  // og et fortegnstal ville være et gæt.
+  //
+  // Bemærk, at delta = 0 også kan være en ÆGTE afregning: en gevinst på
+  // indsats 1 til odds 1,1 giver Math.round(0,1) = 0. Derfor afgør oddsene,
+  // om chancen er afregnet — ikke om deltaet tilfældigvis blev nul.
+  const oddsForPick = Number.isFinite(match?.odds?.[pick]) ? Number(match.odds[pick]) : null;
+  if (oddsForPick == null) return { afregnet: false, delta: 0 };
+  const points = Number(bet?.points) || 0;
+  return { afregnet: true, delta: round1(points - outcomePoints(pick, result, match.odds)) };
+}
 
 /**
  * @param {Array<{round:number, matches:Array<object>}>} rounds  – fra groupByRound
@@ -36,9 +73,15 @@ export function buildTipsHistory(rounds, betsByMatch = {}, puljeBonus = 0) {
       if (pick) tipped += 1;
       if (pick && settled) { settledTips += 1; if (hit) hits += 1; }
       betPointsSum += points;
+
+      const udfald = chanceUdfald(bet, m);
+      const chanceAfregnet = !!udfald?.afregnet;
+      const chanceDelta = udfald?.delta ?? 0;
+
       return {
         id: m.id, home: m.home, away: m.away, kickoff: m.kickoff, odds: m.odds,
         pick, result, settled, hit, points, chanceStake, isChance: chanceStake > 0,
+        chanceAfregnet, chanceDelta,
       };
     });
 
