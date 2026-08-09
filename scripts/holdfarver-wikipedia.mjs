@@ -431,6 +431,49 @@ for (const { navn, troejer } of fund) {
   saet('color', troejer[1].primaer);
   saet('awayColor', troejer[2].primaer);
   saet('thirdColor', troejer[3].primaer);
+
+  // TRØJENS FORM som ét nested felt frem for tolv nye kolonner. De tre
+  // color-felter bliver stående som de er, så alt der læser dem i dag virker
+  // uændret; `troejer` er additivt og kan mangle på et hold uden at noget går
+  // i stykker.
+  //
+  // Kun det, der ADSKILLER sig, skrives: en ensfarvet trøje uden egen
+  // ærmefarve fylder ingenting. Ellers ville tyve rækker vokse med data, der
+  // bare gentager primærfarven.
+  // "Forskellig" skal betyde SYNLIGT forskellig. Man Citys ærme står som
+  // #98C6EB mod kroppens #A2CFF2 — samme himmelblå, anden afrunding — og et
+  // rent !==-tjek gjorde det til en oplysning. Samme afstand som farve-
+  // klyngerne bruger: 40 i summeret kanalforskel.
+  const langtFra = (x, y) => {
+    if (!x || !y) return !!x;
+    const kanal = (h, i) => parseInt(h.slice(i, i + 2), 16);
+    return Math.abs(kanal(x, 1) - kanal(y, 1))
+      + Math.abs(kanal(x, 3) - kanal(y, 3))
+      + Math.abs(kanal(x, 5) - kanal(y, 5)) > 40;
+  };
+  const del = (t) => {
+    const d = {};
+    if (langtFra(t.sekundaer, t.primaer)) d.sekundaer = t.sekundaer;
+    if (t.moenster && t.moenster !== 'ensfarvet') d.moenster = t.moenster;
+    if (langtFra(t.aerme, t.primaer)) d.aerme = t.aerme;
+    return Object.keys(d).length ? d : null;
+  };
+  const troejeDele = { hjemme: del(troejer[1]), ude: del(troejer[2]), tredje: del(troejer[3]) };
+  const brugte = Object.entries(troejeDele).filter(([, v]) => v);
+  if (brugte.length) {
+    const tekst = brugte
+      .map(([k, v]) => `${k}: { ${Object.entries(v).map(([f, w]) => `${f}: '${w}'`).join(', ')} }`)
+      .join(', ');
+    const felt = ` troejer: { ${tekst} },`;
+    // Erstat et eksisterende troejer-felt, ellers indsæt før venue.
+    if (/ troejer: \{[^}]*(\{[^}]*\}[^}]*)*\},/.test(ny)) {
+      ny = ny.replace(/ troejer: \{.*\},(?= venue:)/, felt);
+    } else if (ny.includes(' venue:')) {
+      ny = ny.replace(' venue:', `${felt} venue:`);
+    } else {
+      throw new Error(`${navn}: hverken troejer- eller venue-felt at sætte trøjeformen ved`);
+    }
+  }
   ud = ud.replace(linje, ny);
 }
 writeFileSync(HOLDFIL, ud);
