@@ -207,6 +207,40 @@ describe('opdaterRaekke — den håndsatte værdi overlever kilden', () => {
     expect(ny).not.toBe(arsenal);
   });
 
+  // M4-TESTEN. Uden den overlevede en mutation, der fjerner
+  // `if (HAANDSAT[navn]) return ny;` — og den overlevede af NØJAGTIG samme
+  // grund, som fredningen blev skrevet for: feltet røres kun, når kilden har
+  // noget at lægge i det. Med et `kilde`, der ikke producerer noget, er
+  // vagten uden virkning, og testen beviser ingenting.
+  //
+  // Her GIVER kilden noget — tredjetrøjen har en afvigende ærmefarve — så
+  // `troejer`-feltet ville blive skrevet om, hvis vagten var væk. Og så ryger
+  // både Fulhams sorte ærmer og deres tern.
+  it('freder troejer-feltet, også når kilden HAR noget at skrive i det', () => {
+    const medIndhold = {
+      1: { primaer: '#FAFAFA', sekundaer: null, moenster: 'ensfarvet', aerme: '#FAFAFA' },
+      2: { primaer: '#FF0000', sekundaer: null, moenster: 'ensfarvet', aerme: '#FF0000' },
+      3: { primaer: '#6CACE4', sekundaer: '#001F5B', moenster: 'striber', aerme: '#001F5B' },
+    };
+    const ny = opdaterRaekke(LINJE, 'Fulham', medIndhold);
+    expect(ny).toContain("moenster: 'ternet'");
+    expect(ny).toContain("aerme: '#111111'");
+    expect(ny).not.toContain('tredje:');
+    expect(ny).not.toContain('#001F5B');
+  });
+
+  // Kontrollen: uden fredning bliver det samme felt FAKTISK skrevet om — så
+  // testen ovenfor måler vagten og ikke bare, at funktionen er passiv.
+  it('skriver trøjeformen for et hold, der ikke er fredet', () => {
+    const arsenal = "  { name: 'Arsenal', short: 'ARS', elo: 1664, color: '#EC0000', awayColor: '#062967', thirdColor: '#F8F6BB', troejer: { hjemme: { aerme: '#FFFFFF' } }, venue: 'Emirates Stadium' },";
+    const medIndhold = {
+      1: { primaer: '#EC0000', sekundaer: null, moenster: 'ensfarvet', aerme: '#EC0000' },
+      2: { primaer: '#062967', sekundaer: null, moenster: 'ensfarvet', aerme: '#062967' },
+      3: { primaer: '#F8F6BB', sekundaer: '#001F5B', moenster: 'striber', aerme: '#001F5B' },
+    };
+    expect(opdaterRaekke(arsenal, 'Arsenal', medIndhold)).toContain('tredje:');
+  });
+
   // En erstatning, der ikke matcher, fejlede før TAVST.
   it('kaster, hvis et farvefelt mangler i linjen', () => {
     expect(() => opdaterRaekke("  { name: 'X', short: 'X' },", 'X', kilde)).toThrow(/color/);
