@@ -71,17 +71,23 @@
 // tomme i infoboksen (`pattern_b2`/`body2` henholdsvis `pattern_b3`/`body3`).
 // Scriptet springer tomme værdier over, så de to felter skrives ikke af det.
 //
-// Villas udetrøje er sat til sort i hånden efter footyheadlines' billeder.
-// DEN ER SVAGERE END DE ANDRE: siden markerer den som LEAK og angiver selv 75 %
-// sikkerhed (hjemmetrøjen 90 %). De øvrige nitten kommer fra Wikipedia og er
-// ikke gæt. Leeds' tredjetrøje er sort ifølge klubbutikken, men står stadig med
-// sit gamle skøn — den skal sættes i admin.
+// Villas udetrøje er sat i hånden til grålig sort. Klubbens officielle butik
+// har stadig kun 2025-26-udetrøjen, fordi 2026/27 ikke er udkommet — så den
+// gamle føres videre, indtil den nye lander. Det er en bedre kilde end det
+// leak, feltet først blev sat efter, men det er stadig den ENESTE af de tyve,
+// der ikke er hentet.
+//
+// Villas hjemme- og tredjetrøje er derimod bekræftet mod avfc.co.uk: bordeaux
+// hjemme, lyseblå med bordeaux-kanter som tredje — begge som hentet.
+//
+// Leeds' tredjetrøje er sort ifølge klubbutikken, men står stadig med sit
+// gamle skøn: Wikipedia har feltet tomt. Den skal sættes i admin.
 // ---------------------------------------------------------------------------
 
 export const PREMIER_LEAGUE_TEAMS_2026 = [
   { name: 'Arsenal',                   short: 'ARS', elo: 1664, color: '#EC0000', awayColor: '#062967', thirdColor: '#F8F6BB', troejer: { hjemme: { aerme: '#FFFFFF' } }, venue: 'Emirates Stadium' },
   { name: 'Manchester City',           short: 'MCI', elo: 1645, color: '#A2CFF2', awayColor: '#030303', thirdColor: '#FFFFFF', venue: 'Etihad Stadium' },
-  { name: 'Aston Villa',               short: 'AVL', elo: 1563, color: '#67081B', awayColor: '#111111', thirdColor: '#C5D8EE', venue: 'Villa Park' },
+  { name: 'Aston Villa',               short: 'AVL', elo: 1563, color: '#67081B', awayColor: '#262626', thirdColor: '#C5D8EE', venue: 'Villa Park' },
   { name: 'Manchester United',         short: 'MUN', elo: 1617, color: '#FC0000', awayColor: '#0001E7', thirdColor: '#111111', venue: 'Old Trafford' },
   { name: 'Liverpool',                 short: 'LIV', elo: 1624, color: '#DA0000', awayColor: '#FCFCFC', thirdColor: '#0BB4BB', troejer: { hjemme: { aerme: '#8F1E32' } }, venue: 'Anfield' },
   { name: 'Bournemouth',               short: 'BOU', elo: 1539, color: '#000000', awayColor: '#6051BA', thirdColor: '#FFFFFF', troejer: { ude: { sekundaer: '#AAA6DF', moenster: 'boejler' } }, venue: 'Vitality Stadium' },
