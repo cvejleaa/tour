@@ -69,7 +69,20 @@ function badgeFor(teams, name, styles = {}, variant = 'home') {
   }
   const code = info?.short
     || String(name || '').replace(/[^A-Za-zÆØÅæøå]/g, '').slice(0, 3).toUpperCase() || '?';
-  return { code, color: override || fallback, venue: info?.venue ?? null };
+  // Trøjens FORM — sekundærfarve, mønster og ærme. Ligger som ét nested felt
+  // på holdet, så de tre color-felter kunne blive stående uændrede. Mangler
+  // det, tegnes trøjen ensfarvet; hele Superligaen står sådan, indtil den får
+  // sin egen hentning.
+  const nøgle = { home: 'hjemme', away: 'ude', third: 'tredje' }[variant];
+  const form = info?.troejer?.[nøgle] || {};
+  return {
+    code,
+    color: override || fallback,
+    venue: info?.venue ?? null,
+    color2: form.sekundaer ?? null,
+    moenster: form.moenster ?? null,
+    aerme: form.aerme ?? null,
+  };
 }
 
 /**
@@ -589,7 +602,16 @@ export default function FootballTip({ game, me, matches }) {
 
             <div className="match-card__lineup">
               <div className="match-card__side">
-                <ClubBadge code={h.code} color={h.color} size={34} title={m.home} />
+                <ClubBadge
+                  variant="troeje" code={h.code} color={h.color} size={34}
+                  color2={h.color2} moenster={h.moenster} aerme={h.aerme}
+                  title={m.home}
+                />
+                {/* KODEN SKAL STÅ HER. Trøjen kan ikke bære den — kroppen er
+                    for smal — og navnet klippes med ellipsis på en telefon, hvor
+                    "Manchester City" og "Manchester United" bliver identiske.
+                    Badgen var den eneste forskel; nu er teksten det. */}
+                <span className="match-card__side-code">{h.code}</span>
                 <span className="match-card__side-name">{m.home}</span>
               </div>
               {/* Stregen mellem holdene er pladsen, hvor scoren hører hjemme.
@@ -632,7 +654,16 @@ export default function FootballTip({ game, me, matches }) {
                 <div className="match-card__dash" aria-hidden="true">–</div>
               )}
               <div className="match-card__side">
-                <ClubBadge code={a.code} color={a.color} size={34} title={m.away} />
+                <ClubBadge
+                  variant="troeje" code={a.code} color={a.color} size={34}
+                  color2={a.color2} moenster={a.moenster} aerme={a.aerme}
+                  title={m.away}
+                />
+                {/* KODEN SKAL STÅ HER. Trøjen kan ikke bære den — kroppen er
+                    for smal — og navnet klippes med ellipsis på en telefon, hvor
+                    "Manchester City" og "Manchester United" bliver identiske.
+                    Badgen var den eneste forskel; nu er teksten det. */}
+                <span className="match-card__side-code">{a.code}</span>
                 <span className="match-card__side-name">{m.away}</span>
               </div>
             </div>

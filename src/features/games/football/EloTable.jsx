@@ -52,7 +52,11 @@ export default function EloTable({ game }) {
                 <tr key={row.name}>
                   <td className="elo-team-col">
                     <span className="elo-team">
-                      <ClubBadge code={row.short || info?.short} color={row.color || info?.color} size={22} title={row.name} />
+                      <ClubBadge
+                        variant="troeje" code={row.short || info?.short} color={row.color || info?.color} size={22}
+                        color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
+                        aerme={info?.troejer?.hjemme?.aerme} title={row.name}
+                      />
                       <span className="elo-team__name">{row.short || info?.short || row.name}</span>
                     </span>
                   </td>

@@ -127,7 +127,11 @@ export default function PuljeTip({ game, matches }) {
               onClick={() => toggle(t.name)}
               aria-pressed={isChosen}
             >
-              <ClubBadge code={t.short} color={t.color} size={26} title={t.name} />
+              <ClubBadge
+                variant="troeje" code={t.short} color={t.color} size={26}
+                color2={t.troejer?.hjemme?.sekundaer} moenster={t.troejer?.hjemme?.moenster}
+                aerme={t.troejer?.hjemme?.aerme} title={t.name}
+              />
               <span className="pulje-team__name">{t.name}</span>
               {isChosen && <span className="pulje-team__check">✓</span>}
               {inActual === true && <span className="pulje-team__actual" title="Kom i mesterskabsspillet">🏆</span>}
