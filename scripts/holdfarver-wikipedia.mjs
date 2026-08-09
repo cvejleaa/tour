@@ -310,38 +310,39 @@ function troejefarver(felter, n, moenstret) {
     };
   }
 
-  // DEN STØRSTE FLADE ER IKKE KLUBBENS FARVE. Første udgave valgte den, og
-  // resultatet var forkert på fire hold: Coventry (himmelblå) blev HVID,
-  // ligesom Crystal Palace, Sunderland og Newcastle. På en stribet trøje er de
-  // to farver næsten lige store, så et par pixels afgjorde valget — og hvide
-  // ærmer eller felter vandt over klubbens egen farve.
+  // HVILKEN AF DE TO FLADER ER KLUBBENS FARVE?
   //
-  // Blandt de STORE flader vælges derfor den mest mættede: himmelblå slår
-  // hvid, rød slår hvid. Er ingen af dem mættet — en ægte sort/hvid trøje som
-  // Newcastles — falder vi tilbage på den største, og så bærer `striber` og
-  // sekundærfarven resten af sandheden.
-  // KROMINANS, ikke HSL-mætning. Mætningen har en lillebitte nævner tæt på
-  // hvid, så #F7FCFF — praktisk talt hvid — får mætning 0,97 og slog Man Citys
-  // himmelblå. Krominans (maks − min) skelner rent: hvid 0,03, himmelblå 0,31.
+  // Rækkefølgen er afgørende, og jeg fik den forkert to gange:
+  //
+  //  1. "Største flade" gjorde Coventry HVID. På en stribet trøje er de to
+  //     farver næsten lige store, så et par pixels afgjorde det.
+  //  2. "Mest mættede flade" gjorde Leeds BLEGGUL. Deres hjemmetrøje er hvid
+  //     med meget tynde gule tværstriber, og en accent slog selve trøjen.
+  //
+  // Løsningen er at spørge i den rigtige orden: er trøjen overhovedet
+  // TOFARVET? Leeds' pinstriber er så tynde, at de ikke når over tærsklen —
+  // trøjen er ensfarvet, og så vinder den største flade. Coventrys himmelblå
+  // fylder derimod nok til at være en af to trøjefarver, og først DÉR vælger
+  // krominans mellem dem: himmelblå slår hvid, rød slår hvid.
+  //
+  // Er ingen af de to mættet — en ægte sort/hvid trøje som Newcastles —
+  // falder vi tilbage på den største, og mønsteret bærer resten af sandheden.
   const krominans = (h) => {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
     return Math.max(r, g, b) - Math.min(r, g, b);
   };
-  const sorteret = [...store].sort((x, y) => krominans(y.hex) - krominans(x.hex));
-  const primaerFlade = krominans(sorteret[0].hex) >= 0.15 ? sorteret[0] : store[0];
-  // Sekundær = den største flade, der IKKE er den primære. To store flader,
-  // hvor den mindste fylder mindst halvdelen af den største, betyder tofarvet
-  // trøje — striber, halve eller bøjler — og ikke en ensfarvet med et mærke.
-  const anden = store.find((f) => f !== primaerFlade);
-  const tofarvet = !!anden && anden.andel >= primaerFlade.andel * 0.5;
+  // Tofarvet = to store flader, hvor den mindste fylder mindst halvdelen af
+  // den største. Ellers er det en ensfarvet trøje med et mærke eller en kant.
+  const tofarvet = store.length >= 2 && store[1].andel >= store[0].andel * 0.5;
   if (!tofarvet) {
     return {
-      primaer: primaerFlade.hex, sekundaer: null, moenster: 'ensfarvet', baand: 0, kilde: 'mønster',
+      primaer: store[0].hex, sekundaer: null, moenster: 'ensfarvet', baand: 0, kilde: 'mønster',
     };
   }
-  // HVILKET mønster det er, måles på grafikken — se moenstertype. Uden den
-  // ville en tegnet stribe være en påstand: Crystal Palace og Aston Villa har
-  // bøjler, ikke striber, og mønsterets navn på Commons røber det ikke.
+  const [x, y] = [store[0], store[1]];
+  const primaerFlade = krominans(y.hex) >= 0.15 && krominans(y.hex) > krominans(x.hex) ? y : x;
+  const anden = primaerFlade === x ? y : x;
+
   const m = moenstertype(moenstret.px, primaerFlade.hex, anden.hex);
   return {
     primaer: primaerFlade.hex,
