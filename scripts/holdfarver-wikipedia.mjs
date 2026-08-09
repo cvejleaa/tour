@@ -204,14 +204,14 @@ async function infoboks(titel) {
   if (!w) throw new Error(`ingen wikitekst for "${titel}"`);
   const felter = {};
   for (const linje of w.split('\n')) {
-    const m = linje.match(/^\s*\|\s*(pattern_b[123]|body[123]|leftarm[123])\s*=\s*(\S*)\s*$/);
+    const m = linje.match(/^\s*\|\s*(pattern_b[123]|pattern_la[123]|body[123]|leftarm[123])\s*=\s*(\S*)\s*$/);
     if (m) felter[m[1]] = m[2];
   }
   return felter;
 }
 
-async function moensterFarver(moenster) {
-  const fil = `File:Kit_body_${moenster.replace(/^_/, '')}.png`;
+async function moensterFarver(moenster, del = 'body') {
+  const fil = `File:Kit_${del}_${moenster.replace(/^_/, '')}.png`;
   const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(fil)}&prop=imageinfo&iiprop=url&format=json&formatversion=2`;
   const j = await (await hent(url)).json();
   const side = j.query?.pages?.[0];
@@ -230,6 +230,21 @@ const nulstil = (v) => (v && /^[0-9A-Fa-f]{6}$/.test(v) ? `#${v.toUpperCase()}` 
  * dækker striber, halve og bøjler under ét. Vi skelner dem ikke: badgen har
  * 22 pixels at gøre det i, og forskellen ville ikke kunne ses.
  */
+function aermefarve(felter, n) {
+  // ÆRMET LÆSES AF FELTET, ikke af grafikken — modsat kroppen.
+  //
+  // Det er den spejlvendte fælde: kroppens mønster-PNG maler HELE trøjen, så
+  // body1 er bundfarven og ubrugelig på en stribet trøje. Ærmets mønster-PNG
+  // maler derimod kun kanter og mærker, mens ærmets egen farve kommer fra
+  // leftarm — så en aflæsning af grafikken gav HVIDE ærmer på alle tyve hold,
+  // også Chelsea og Everton.
+  //
+  // Kontrollen er Arsenal: leftarm1 = FFFFFF, body1 = F00000. Feltet giver
+  // altså røde trøjer med hvide ærmer, som det skal være, og Chelsea får
+  // leftarm1 = 14349B — blå.
+  return nulstil(felter[`leftarm${n}`]);
+}
+
 function troejefarver(felter, n, moenstret) {
   const bund = nulstil(felter[`body${n}`]) || nulstil(felter[`leftarm${n}`]);
   if (!moenstret || moenstret.length === 0) {
@@ -293,14 +308,18 @@ for (const navn of hold) {
   for (const n of [1, 2, 3]) {
     const m = felter[`pattern_b${n}`];
     let flad = null;
-    if (m) { flad = await moensterFarver(m); await sov(PAUSE_MS); }
-    troejer[n] = troejefarver(felter, n, flad);
+    if (m) { flad = await moensterFarver(m, 'body'); await sov(PAUSE_MS); }
+    const t = troejefarver(felter, n, flad);
+
+    t.aerme = aermefarve(felter, n);
+    troejer[n] = t;
   }
   fund.push({ navn, troejer });
 
   const h = troejer[1];
   const striber = h.striber ? `  striber ${h.primaer}/${h.sekundaer}` : '';
-  console.log(`  ${navn.padEnd(28)} hjemme ${String(h.primaer).padEnd(8)} ude ${String(troejer[2].primaer).padEnd(8)} 3. ${String(troejer[3].primaer).padEnd(8)}${striber}`);
+  const aerme = h.aerme && h.aerme !== h.primaer ? `  ærmer ${h.aerme}` : '';
+  console.log(`  ${navn.padEnd(28)} hjemme ${String(h.primaer).padEnd(8)} ude ${String(troejer[2].primaer).padEnd(8)} 3. ${String(troejer[3].primaer).padEnd(8)}${striber}${aerme}`);
 }
 
 // Sammenlign med det, der står i filen i dag.
