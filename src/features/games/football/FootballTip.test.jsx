@@ -18,6 +18,10 @@ vi.mock('../betActions', () => ({ setBet: vi.fn().mockResolvedValue({ ok: true }
 import { setBet } from '../betActions';
 vi.mock('./LeagueBets', () => ({ default: () => <div data-testid="liga-tips" /> }));
 vi.mock('../../../components/ClubBadge', () => ({ default: () => <span /> }));
+// Delingsteksten var slet ikke testet, så combi-tegnet havde to grene og kun
+// den ene var dækket.
+const mockShare = vi.fn().mockResolvedValue({ ok: true, mode: 'clipboard' });
+vi.mock('../../../lib/share', () => ({ shareText: (...a) => mockShare(...a) }));
 
 import { TRAEF_BONUS } from '../../../lib/superligaScoring';
 import FootballTip from './FootballTip';
@@ -904,23 +908,36 @@ describe('kampkortet — hvad chancen kostede', () => {
     tegn({ p1: { pick: '2', points: -4, chanceStake: 4 } });
     const maerke = screen.getByText(/⚡ −4/);
     expect(maerke).toHaveAttribute('title', 'Chancen tabt: 4 point');
+    expect(maerke).toHaveClass('badge--red');
     // Og 1X2-mærket står stadig ved siden af: de to tal lægges sammen.
     expect(screen.getByText('Ikke ramt')).toBeInTheDocument();
   });
 
   it('viser gevinsten på kortet, når chancen er vundet', () => {
     tegn({ p1: { pick: '1', points: 15.9, chanceStake: 4 } });
-    expect(screen.getByText(/⚡ \+12/)).toBeInTheDocument();
+    const maerke = screen.getByText(/⚡ \+12/);
+    expect(maerke).toBeInTheDocument();
+    // Farven og teksten skal følge fortegnet: et tab må ikke kunne blive grønt.
+    expect(maerke).toHaveClass('badge--green');
+    expect(maerke).toHaveAttribute('title', 'Chancen vundet: 12 point oveni');
     // "Ramt +3,9" er 1X2 ALENE og skal blive stående — erstattede vi det med
     // summen, ville kortet vise ét tal og Mine tips et andet for samme kamp.
     expect(screen.getByText(/Ramt \+3,9/)).toBeInTheDocument();
   });
 
-  it('gætter ikke et tal, når kampen mangler odds', () => {
+  it('siger hvorfor, når kampen mangler odds — og gætter ikke et tal', () => {
     const udenOdds = [{ ...SPILLET[0], odds: null }, SPILLET[1]];
     tegn({ p1: { pick: '2', points: 0, chanceStake: 4 } }, udenOdds);
-    expect(screen.getByText(/⚡ ikke afregnet/)).toBeInTheDocument();
+    expect(screen.getByText(/⚡ ingen odds/)).toHaveTextContent('hverken vundet eller tabt');
     expect(screen.queryByText(/⚡ −4/)).not.toBeInTheDocument();
+  });
+
+  // Facit står på kampen, før triggeren har scoret bettet. Uden en egen
+  // tilstand viste kortet dér det modsatte af sandheden.
+  it('siger "afregnes om lidt", mens bettet venter på serveren', () => {
+    tegn({ p1: { pick: '2', chanceStake: 4 } }); // intet points-felt
+    expect(screen.getByText(/⚡ afregnes om lidt/)).toBeInTheDocument();
+    expect(screen.queryByText(/⚡ [−+]/)).not.toBeInTheDocument();
   });
 
   it('sætter ikke et chance-mærke på en kamp uden chance', () => {
@@ -964,5 +981,35 @@ describe('combi-mærket', () => {
     const combi = screen.getByText(/combi \+/);
     expect(combi).toHaveTextContent('🔗');
     expect(combi.textContent).not.toMatch(/⚡/);
+  });
+
+  it('deler combi med 🔗, ikke ⚡', async () => {
+    const alle = [
+      { id: 'k1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF, odds: { 1: 2, X: 3, 2: 4 }, result: '1' },
+      { id: 'k2', round: 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: KICKOFF, odds: { 1: 2, X: 3, 2: 4 }, result: '1' },
+    ];
+    mockBets.mockReturnValue({
+      betsByMatch: { k1: { pick: '1', points: 2 }, k2: { pick: '1', points: 2 } }, loading: false,
+    });
+    render(
+      <MemoryRouter initialEntries={['/spil/sl?runde=1']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                me={{ uid: 'me', totalPoints: 100 }}
+                matches={alle}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Del i chatten/ })); });
+    const tekst = mockShare.mock.calls[0][0];
+    expect(tekst).toMatch(/combi \+.*🔗/);
+    expect(tekst).not.toMatch(/⚡/);
   });
 });

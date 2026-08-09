@@ -21,8 +21,8 @@ import { formatPoints } from '../GameLayout';
 // så gav et tal i Chancen ved siden af ingen mening. 🎯 er samme tegn, som
 // hjælpesiden bruger om "Point følger oddsene".
 //
-// ⚡ er Chancen overalt i appen. Combi må derfor IKKE også få ⚡, selv om
-// rundeoverskriften i Mine tips gør det i dag.
+// ⚡ er Chancen overalt i appen. Combi må derfor IKKE også få ⚡ — og de sidste
+// to steder, der gjorde det (facit-kortet og delingsteksten), er rettet til 🔗.
 export const RUBRIKKER = [
   { key: 'p1x2', ikon: '🎯', navn: 'Tippoint', hjaelp: 'Point for rigtige tip: kampens odds.' },
   { key: 'chance', ikon: '⚡', navn: 'Chancen', hjaelp: 'Gevinst og tab på de tip, du satte point på spil på.' },

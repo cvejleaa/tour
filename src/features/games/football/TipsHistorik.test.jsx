@@ -159,12 +159,34 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
 
   // Uden gyldige odds har serveren ikke afregnet chancen. Så må der hverken
   // stå −4 (løgn) eller 0 (gæt).
-  it('skriver "ikke afregnet" i stedet for at gætte et tal', () => {
+  // Teksten skal BÆRE SIG SELV: en title findes ikke på en telefon, og
+  // "ikke afregnet" alene læses som "vent, den kommer" — hvad den aldrig gør,
+  // når kampen mangler odds.
+  it('siger hvorfor, når odds mangler — og gætter ikke et tal', () => {
     const udenOdds = [{ ...CH[0], odds: null }];
     tegn({ c1: { pick: '2', points: 0, chanceStake: 4 } }, udenOdds);
-    const celle = screen.getByText(/ikke afregnet/);
+    const celle = screen.getByText(/ingen odds/);
+    expect(celle).toHaveTextContent('hverken vundet eller tabt');
     expect(celle.textContent).not.toMatch(/−4|-4/);
-    expect(celle.textContent).not.toMatch(/−0|\b0\b/);
+    expect(celle.textContent).not.toMatch(/afregnes om lidt/);
+  });
+
+  // SCORINGSVINDUET: facit er på kampen, men bettet er ikke scoret endnu.
+  // Uden den egen tilstand stod der et grønt "✓ +0 · Chancen vundet" på et
+  // tip, spilleren netop havde tabt fire point på.
+  it('siger "afregnes om lidt", mens bettet venter på serveren', () => {
+    tegn({ c1: { pick: '2', chanceStake: 4 } }); // intet points-felt
+    const celle = screen.getByText(/afregnes om lidt/);
+    expect(celle.textContent).not.toMatch(/[−+]4/);
+    expect(celle.textContent).not.toMatch(/ingen odds/);
+  });
+
+  // Et RAMT tip uden odds gav faktisk point (DEFAULT_POINTS). Den tidligere
+  // udgave returnerede før træf-grenen og slugte tallet.
+  it('beholder tippets point på et træf uden odds', () => {
+    const udenOdds = [{ ...CH[0], odds: null }];
+    tegn({ c1: { pick: '1', points: 4, chanceStake: 4 } }, udenOdds);
+    expect(screen.getByText(/ingen odds/)).toHaveTextContent('✓ +4');
   });
 
   // En vundet chance: tallet rummer både tippet og gevinsten, og uden
@@ -187,5 +209,28 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
     tegn({ c1: { pick: '1', points: 16, chanceStake: 4 } });
     expect(screen.getByText(/✓/)).toHaveTextContent('+16');
     expect(screen.getByText(/✓/).textContent).not.toMatch(/16,0/);
+  });
+
+  // RÆKKEFØLGEN i ResultCell. Bytter man om på "afventer" og chance-grenen,
+  // får en chance på en kamp UDEN facit et rødt kryds og en besked om odds —
+  // på en kamp, der ikke er spillet endnu. Intet bandt rækkefølgen.
+  it('siger "afventer" på en chance, hvis kampen ikke er spillet endnu', () => {
+    const ikkeSpillet = [{ ...CH[0], result: null }];
+    tegn({ c1: { pick: '1', chanceStake: 4 } }, ikkeSpillet);
+    expect(screen.getByText('afventer')).toBeInTheDocument();
+    expect(screen.queryByText(/ingen odds/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/afregnes om lidt/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/✗/)).not.toBeInTheDocument();
+  });
+
+  // En gevinst kan lovligt være 0: indsats 1 til odds under 1,50 giver
+  // Math.round(profit) = 0. Det er en AFREGNET chance, og valget om at vise
+  // den som en gevinst skal stå fast.
+  it('viser en gevinst på nul point som en gevinst — ikke som uafgjort', () => {
+    const lav = [{ ...CH[0], odds: { 1: 1.1, X: 3, 2: 3 } }];
+    tegn({ c1: { pick: '1', points: 1.1, chanceStake: 1 } }, lav);
+    const celle = screen.getByText(/✓/);
+    expect(celle).toHaveClass('badge--green');
+    expect(celle).toHaveAttribute('title', '1,1 for tippet + 0 fra Chancen');
   });
 });

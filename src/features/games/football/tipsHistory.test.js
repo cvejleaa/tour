@@ -131,7 +131,7 @@ describe('chanceUdfald', () => {
   // Forkert tip: base er 0, så bettets points ER chance-tabet.
   it('regner tabet ud som −indsats', () => {
     const u = chanceUdfald({ pick: '2', points: -4, chanceStake: 4 }, kamp());
-    expect(u).toEqual({ afregnet: true, delta: -4 });
+    expect(u).toMatchObject({ afregnet: true, delta: -4 });
   });
 
   // Rigtigt tip: points rummer BÅDE 1X2 og gevinsten, og kun deltaet må vises
@@ -146,7 +146,7 @@ describe('chanceUdfald', () => {
   // og et fortegnstal ville være et gæt — hverken −4 (løgn) eller 0.
   it('melder "ikke afregnet", når kampen mangler odds', () => {
     const u = chanceUdfald({ pick: '2', points: 0, chanceStake: 4 }, kamp({ odds: null }));
-    expect(u).toEqual({ afregnet: false, delta: 0 });
+    expect(u).toMatchObject({ afregnet: false, grund: 'ingen-odds', delta: 0 });
   });
 
   it('melder "ikke afregnet", når netop DET valgte udfald mangler odds', () => {
@@ -159,7 +159,7 @@ describe('chanceUdfald', () => {
   // stedet for på oddsene, ville den række påstå, at chancen ikke var afgjort.
   it('kalder en gevinst på nul point afregnet', () => {
     const u = chanceUdfald({ pick: '1', points: 1.1, chanceStake: 1 }, kamp({ odds: { 1: 1.1, X: 3, 2: 3 } }));
-    expect(u).toEqual({ afregnet: true, delta: 0 });
+    expect(u).toMatchObject({ afregnet: true, delta: 0 });
   });
 
   // Spillerdetaljens dokument gemmer kun { pick, points, chanceStake } og har
@@ -186,5 +186,43 @@ describe('buildTipsHistory — chance-felterne på rækken', () => {
     const uden = [{ ...m[0], odds: null }];
     const h = buildTipsHistory(groupByRound(uden), { m1: { pick: '2', points: 0, chanceStake: 4 } });
     expect(h.rounds[0].rows[0].chanceAfregnet).toBe(false);
+  });
+});
+
+// SCORINGSVINDUET. Facit står på KAMPEN, mens points skrives på BETTET af en
+// trigger — så der går sekunder, hvor kampen er afgjort og bettet ikke er
+// scoret. Uden en egen tilstand viste visningen dér det MODSATTE af sandheden.
+describe('chanceUdfald — facit før pointene', () => {
+  const kamp = { id: 'm', result: '1', odds: { 1: 3.9, X: 3.5, 2: 2 } };
+
+  it('melder "afventer", når bettet endnu ikke er scoret', () => {
+    const u = chanceUdfald({ pick: '2', chanceStake: 4 }, kamp); // intet points-felt
+    expect(u).toEqual({ afregnet: false, grund: 'afventer', delta: 0 });
+  });
+
+  // Et forkert tip ville ellers give 0 − 0 = 0 → grønt "vundet", selv om
+  // spilleren lige havde tabt fire point.
+  it('påstår ikke, at en tabt chance blev vundet, mens den afventer', () => {
+    const u = chanceUdfald({ pick: '2', chanceStake: 4 }, kamp);
+    expect(u.afregnet).toBe(false);
+    expect(u.delta).toBe(0);
+  });
+
+  // Og et rigtigt tip ville give 0 − 3,9 = −3,9 → rødt "tabt", selv om
+  // spilleren lige havde vundet tolv.
+  it('påstår ikke, at en vundet chance blev tabt, mens den afventer', () => {
+    expect(chanceUdfald({ pick: '1', chanceStake: 4 }, kamp).delta).toBe(0);
+  });
+
+  // points: 0 er et RIGTIGT tal fra serveren — den skriver altid et, når den
+  // har scoret. Kun null/undefined betyder "ikke scoret endnu".
+  it('behandler et gemt nul som afregnet', () => {
+    const u = chanceUdfald({ pick: '2', points: 0, chanceStake: 4 }, { ...kamp, result: '2', odds: { 1: 2, X: 3, 2: 1.2 } });
+    expect(u.afregnet).toBe(true);
+  });
+
+  it('skelner de to grunde fra hinanden', () => {
+    expect(chanceUdfald({ pick: '2', chanceStake: 4 }, kamp).grund).toBe('afventer');
+    expect(chanceUdfald({ pick: '2', points: 0, chanceStake: 4 }, { ...kamp, odds: null }).grund).toBe('ingen-odds');
   });
 });

@@ -29,17 +29,33 @@ export function chanceUdfald(bet, match) {
   const pick = bet?.pick ?? null;
   const result = match?.result ?? null;
   if (stake <= 0 || !pick || result == null || result === '') return null;
+
+  // FACIT KOMMER FØR POINTENE. Resultatet står på KAMPEN, mens points skrives
+  // på BETTET af en Firestore-trigger — så der går sekunder, hvor kampen er
+  // afgjort og bettet endnu ikke er scoret. Regnede vi deltaet dér, ville
+  // points være 0, og visningen ville sige det MODSATTE af sandheden: et
+  // forkert tip blev til et grønt "⚡ +0 · Chancen vundet", og et rigtigt tip
+  // til et rødt "⚡ −3,9 · Chancen tabt" — på præcis den skærm, man står på
+  // lige efter kampen.
+  //
+  // `points == null` er et pålideligt "ikke scoret endnu": serveren skriver
+  // ALTID et tal, når den har scoret — også 0.
+  if (bet?.points == null) return { afregnet: false, grund: 'afventer', delta: 0 };
+
   // Uden gyldige odds afregner serveren IKKE chancen (scoreBet returnerer sin
   // base, når oddsene mangler). Så er der hverken tab eller gevinst at vise,
   // og et fortegnstal ville være et gæt.
   //
   // Bemærk, at delta = 0 også kan være en ÆGTE afregning: en gevinst på
-  // indsats 1 til odds 1,1 giver Math.round(0,1) = 0. Derfor afgør oddsene,
-  // om chancen er afregnet — ikke om deltaet tilfældigvis blev nul.
+  // indsats 1 til odds 1,1 giver Math.round(0,1) = 0 — og med indsats 1 gør
+  // ethvert odds under 1,50 det samme, så det er helt almindeligt for en ny
+  // spiller. Derfor afgør oddsene, om chancen er afregnet — ikke om deltaet
+  // tilfældigvis blev nul.
   const oddsForPick = Number.isFinite(match?.odds?.[pick]) ? Number(match.odds[pick]) : null;
-  if (oddsForPick == null) return { afregnet: false, delta: 0 };
-  const points = Number(bet?.points) || 0;
-  return { afregnet: true, delta: round1(points - outcomePoints(pick, result, match.odds)) };
+  if (oddsForPick == null) return { afregnet: false, grund: 'ingen-odds', delta: 0 };
+
+  const points = Number(bet.points) || 0;
+  return { afregnet: true, grund: null, delta: round1(points - outcomePoints(pick, result, match.odds)) };
 }
 
 /**
@@ -77,11 +93,14 @@ export function buildTipsHistory(rounds, betsByMatch = {}, puljeBonus = 0) {
       const udfald = chanceUdfald(bet, m);
       const chanceAfregnet = !!udfald?.afregnet;
       const chanceDelta = udfald?.delta ?? 0;
+      // Tippets egen andel — så visningen ikke selv skal regne. Den er "ren
+      // visning" og skal ikke kende scoringsreglerne.
+      const tipPoints = round1(points - chanceDelta);
 
       return {
         id: m.id, home: m.home, away: m.away, kickoff: m.kickoff, odds: m.odds,
         pick, result, settled, hit, points, chanceStake, isChance: chanceStake > 0,
-        chanceAfregnet, chanceDelta,
+        chanceAfregnet, chanceDelta, chanceGrund: udfald?.grund ?? null, tipPoints,
       };
     });
 

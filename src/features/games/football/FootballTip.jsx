@@ -529,16 +529,28 @@ export default function FootballTip({ game, me, matches }) {
                     {chanceUdfaldVises && (
                       <span
                         className={`badge ${chanceUdfaldVises.delta < 0 ? 'badge--red' : 'badge--green'}`}
+                        /* Tabet udledes af DELTAET, ikke af chanceStake:
+                           reglerne validerer ikke feltet, og serveren scorer
+                           uden bank-loft, så clampStake klipper ved 8. En
+                           forfalsket indsats på 100 ville give mærket −8 og en
+                           tekst om 100 point. */
                         title={chanceUdfaldVises.delta < 0
-                          ? `Chancen tabt: ${fmtPoints(bet?.chanceStake)} point`
-                          : `Chancen vundet på en indsats på ${fmtPoints(bet?.chanceStake)} point`}
+                          ? `Chancen tabt: ${fmtPoints(Math.abs(chanceUdfaldVises.delta))} point`
+                          : `Chancen vundet: ${fmtPoints(chanceUdfaldVises.delta)} point oveni`}
                       >
                         ⚡ {fmtSignedPoints(chanceUdfaldVises.delta)}
                       </span>
                     )}
                     {chanceUikkeAfregnet && (
-                      <span className="badge" title="Kampen har ingen odds, så Chancen er hverken vundet eller tabt.">
-                        ⚡ ikke afregnet
+                      /* Teksten bærer sig selv. "ikke afregnet" læses som
+                         "vent, den kommer" — og for den ene af de to grunde er
+                         det direkte forkert: kampen manglede odds, så den
+                         kommer aldrig. En title duer ikke som forklaring; den
+                         findes ikke på en telefon. */
+                      <span className="badge">
+                        {udfald.grund === 'afventer'
+                          ? '⚡ afregnes om lidt'
+                          : '⚡ ingen odds · hverken vundet eller tabt'}
                       </span>
                     )}
                   </>
