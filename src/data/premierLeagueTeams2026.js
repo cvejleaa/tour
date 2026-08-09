@@ -83,6 +83,17 @@
 // Leeds' tredjetrøje er sort ifølge klubbutikken, men står stadig med sit
 // gamle skøn: Wikipedia har feltet tomt. Den skal sættes i admin.
 //
+// TOTTENHAMS TREDJETRØJE FINDES IKKE ENDNU. shop.tottenhamhotspur.com har kun
+// Home, Away og Goalkeeper for 2026/27, og Wikipedias `body3` er tom. Vores
+// #1D428A er altså et skøn uden kilde — som Leeds', bare uden en butik at
+// rette efter. Den skal sættes i admin, når trøjen udkommer.
+//
+// Spurs' HJEMMEÆRMER er derimod bekræftet hvide: ærmet har sin egen
+// mønster-grafik (`pattern_la1`), og den måler 95,9 % hvid. De mørke ærmer på
+// butikkens forsidefoto er modellens jakke. Det er værd at holde fast i —
+// Fulhams sorte ærmer forsvandt netop, fordi feltet ikke kunne se dem, og
+// derfor er fristelsen at rette hvert ærme efter et pressefoto.
+//
 // FULHAM er rettet i hånden på to punkter efter klubbens butik, og begge er
 // grænser for, hvad hentningen kan:
 //   ærmer   Hjemmetrøjen har SORTE ærmer på hvid krop. leftarm1 står som
@@ -99,7 +110,7 @@ export const PREMIER_LEAGUE_TEAMS_2026 = [
   { name: 'Aston Villa',               short: 'AVL', elo: 1563, color: '#67081B', awayColor: '#262626', thirdColor: '#C5D8EE', venue: 'Villa Park' },
   { name: 'Manchester United',         short: 'MUN', elo: 1617, color: '#FC0000', awayColor: '#0001E7', thirdColor: '#111111', venue: 'Old Trafford' },
   { name: 'Liverpool',                 short: 'LIV', elo: 1624, color: '#DA0000', awayColor: '#FCFCFC', thirdColor: '#0BB4BB', troejer: { hjemme: { aerme: '#8F1E32' } }, venue: 'Anfield' },
-  { name: 'Bournemouth',               short: 'BOU', elo: 1539, color: '#000000', awayColor: '#6051BA', thirdColor: '#FFFFFF', troejer: { ude: { sekundaer: '#AAA6DF', moenster: 'boejler' } }, venue: 'Vitality Stadium' },
+  { name: 'Bournemouth',               short: 'BOU', elo: 1539, color: '#FD1616', awayColor: '#6153BA', thirdColor: '#FFFFFF', troejer: { hjemme: { sekundaer: '#010101', moenster: 'striber', aerme: '#000000' }, ude: { sekundaer: '#A09BDA', moenster: 'boejler' } }, venue: 'Vitality Stadium' },
   { name: 'Brighton and Hove Albion',  short: 'BHA', elo: 1522, color: '#004898', awayColor: '#FFFFFF', thirdColor: '#004654', venue: 'American Express Stadium' },
   { name: 'Newcastle United',          short: 'NEW', elo: 1522, color: '#FDFDFD', awayColor: '#101F35', thirdColor: '#41B6E6', troejer: { hjemme: { sekundaer: '#0A0A0A', moenster: 'striber' } }, venue: "St. James' Park" },
   { name: 'Brentford',                 short: 'BRE', elo: 1503, color: '#FF0000', awayColor: '#000040', thirdColor: '#FFFF00', troejer: { hjemme: { sekundaer: '#FFFFFF', moenster: 'striber', aerme: '#FFFFFF' }, ude: { aerme: '#000080' }, tredje: { aerme: '#FFED29' } }, venue: 'Gtech Community Stadium' },

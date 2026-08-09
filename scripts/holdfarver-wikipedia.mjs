@@ -170,7 +170,16 @@ function pixels(buf) {
  * ville #FFFFFF (26,6 %) slå #101010 (11,2 %) — og en sort/hvid-stribet trøje
  * ville stå som hvid, fordi sort var delt over tre nuancer.
  */
-function flader(px, afstand = 40) {
+// AFSTANDEN VAR 40, OG DET VAR FOR STRAMT. Bournemouths røde er delt over tre
+// nuancer (#FF2C2C 13,7 %, #FF0000 9,0 %, #F30000 5,1 %), og afstanden mellem
+// de to første er 88. De blev aldrig lagt sammen, så sort vandt med 53,6 %,
+// ingen anden flade nåede halvdelen, og en rød/sort stribet trøje blev erklæret
+// ensfarvet sort. Præcis samme fælde som Newcastles sorte, bare med rød.
+//
+// 100 lægger nuancer af samme farve sammen uden at blande farver: rød mod sort
+// er 255, himmelblå mod hvid 363, og Leeds' bleggule pinstriber mod hvid 129 —
+// alle langt over.
+function flader(px, afstand = 100) {
   const klynger = [];
   for (const { r, g, b } of px) {
     let fundet = null;
@@ -353,6 +362,33 @@ function troejefarver(felter, n, moenstret) {
   };
 }
 
+// --- trøjer, kilden ikke kan ------------------------------------------------
+//
+// Fire trøjer er sat i hånden, fordi Wikipedia enten mangler dem eller giver
+// et forkert svar. De skal IKKE overskrives af en ny kørsel.
+//
+// I dag overlever de kun ved et TILFÆLDE: skrivningen rører kun `troejer`, når
+// den har noget nyt at lægge i feltet, så Fulhams tern står urørt, fordi
+// hjemmetrøjens ærme filtreres væk som støj. Ændrer én pixel i ærmet det, får
+// Fulham et nyt `troejer`-felt uden tern — uden en fejl og uden en linje i
+// rapporten. Derfor står de her ved navn i stedet.
+//
+// Nøglen er trøjenummeret: 1 = hjemme/color, 2 = ude/awayColor, 3 = tredje.
+const HAANDSAT = {
+  'Aston Villa': {
+    2: 'udetrøjen står tom i infoboksen; 2025-26 ført videre fra avfc.co.uk, til den nye lander',
+  },
+  'Leeds United': {
+    3: 'tredjetrøjen står tom i infoboksen; sort ifølge klubbutikken, sættes i admin',
+  },
+  Fulham: {
+    1: 'sorte ærmer på hvid krop — leftarm1 er FFFFFF som body1, så ærmet blev filtreret væk som støj',
+    2: 'rød/sort ternet — mønster-målingen tæller skift langs én akse og kaldte trøjen bøjlet',
+  },
+};
+
+const haandsat = (navn, n) => HAANDSAT[navn]?.[n] || null;
+
 // --- kørsel ----------------------------------------------------------------
 
 const args = process.argv.slice(2);
@@ -393,6 +429,7 @@ for (const navn of hold) {
 // Sammenlign med det, der står i filen i dag.
 console.log('\nForskelle fra holdfilen:\n');
 let aendringer = 0;
+let sprunget = 0;
 for (const { navn, troejer } of fund) {
   const raekke = kilde.split('\n').find((l) => l.includes(`name: '${navn}'`));
   const nu = {
@@ -401,14 +438,23 @@ for (const { navn, troejer } of fund) {
     thirdColor: raekke?.match(/ thirdColor: '(#[0-9A-F]{6})'/)?.[1],
   };
   const ny = { color: troejer[1].primaer, awayColor: troejer[2].primaer, thirdColor: troejer[3].primaer };
+  const nummer = { color: 1, awayColor: 2, thirdColor: 3 };
   for (const felt of ['color', 'awayColor', 'thirdColor']) {
+    const grund = haandsat(navn, nummer[felt]);
+    if (grund) {
+      // Skal STÅ i rapporten. En håndsat trøje, der bare mangler, ligner en
+      // trøje uden forskel — og så tror man, kilden er enig med hånden.
+      console.log(`  ${navn.padEnd(28)} ${felt.padEnd(11)} håndsat, springes over — ${grund}`);
+      sprunget += 1;
+      continue;
+    }
     if (ny[felt] && nu[felt] && ny[felt] !== nu[felt]) {
       console.log(`  ${navn.padEnd(28)} ${felt.padEnd(11)} ${nu[felt]} → ${ny[felt]}`);
       aendringer += 1;
     }
   }
 }
-console.log(`\n${aendringer} farver ville ændre sig.`);
+console.log(`\n${aendringer} farver ville ændre sig, ${sprunget} står håndsat.`);
 
 if (!skriv) {
   console.log('\nTør-kørsel — holdfilen er IKKE rørt. Kør igen med --skriv.\n');
@@ -428,9 +474,9 @@ for (const { navn, troejer } of fund) {
     if (!re.test(ny)) throw new Error(`${navn}: fandt ikke feltet ${felt}`);
     ny = ny.replace(re, `$1${vaerdi}$3`);
   };
-  saet('color', troejer[1].primaer);
-  saet('awayColor', troejer[2].primaer);
-  saet('thirdColor', troejer[3].primaer);
+  if (!haandsat(navn, 1)) saet('color', troejer[1].primaer);
+  if (!haandsat(navn, 2)) saet('awayColor', troejer[2].primaer);
+  if (!haandsat(navn, 3)) saet('thirdColor', troejer[3].primaer);
 
   // TRØJENS FORM som ét nested felt frem for tolv nye kolonner. De tre
   // color-felter bliver stående som de er, så alt der læser dem i dag virker
@@ -460,7 +506,14 @@ for (const { navn, troejer } of fund) {
   };
   const troejeDele = { hjemme: del(troejer[1]), ude: del(troejer[2]), tredje: del(troejer[3]) };
   const brugte = Object.entries(troejeDele).filter(([, v]) => v);
-  if (brugte.length) {
+  // ÉN HÅNDSAT TRØJE FREDER HELE `troejer`-FELTET for det hold. Feltet skrives
+  // som én tekst, så en delvis opdatering ville skulle flette hånd og kilde
+  // inde i strengen — og en flettefejl dér ser ud som en trøje, der bare
+  // mistede sit mønster. Fulham har både sorte ærmer (hjemme) og tern (ude);
+  // begge dele skal overleve, at tredjetrøjen en dag får en kant.
+  if (HAANDSAT[navn]) {
+    console.log(`  ${navn}: trøjeformen står håndsat — feltet røres ikke.`);
+  } else if (brugte.length) {
     const tekst = brugte
       .map(([k, v]) => `${k}: { ${Object.entries(v).map(([f, w]) => `${f}: '${w}'`).join(', ')} }`)
       .join(', ');
