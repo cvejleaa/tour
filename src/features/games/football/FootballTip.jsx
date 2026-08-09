@@ -29,6 +29,8 @@ import {
 } from '../../../lib/superligaScoring';
 // Combi-reglen bor ÉT sted, spejlet med serveren. Fladen regnede den før selv.
 import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
+// Chance-deltaet udledes ÉT sted — se chanceUdfald.
+import { chanceUdfald } from './tipsHistory';
 
 const OUTCOME_LABEL = { [OUTCOME.HOME]: '1', [OUTCOME.DRAW]: 'X', [OUTCOME.AWAY]: '2' };
 
@@ -271,7 +273,9 @@ export default function FootballTip({ game, me, matches }) {
 
   function buildFacitShare() {
     const parts = [`⚽ Superliga R${current?.round}: ${fmtSignedPoints(roundEarned)} point (${roundHitsAll.length}/${spilledeIRunden} ramt)`];
-    if (roundBonus > 0) parts.push(`combi +${fmtDec(roundBonus)} ⚡`);
+    // 🔗 og ikke ⚡: ⚡ er Chancen overalt i appen (PointOpdeling siger det
+    // eksplicit), og delingsteksten stod med begge betydninger på samme linje.
+    if (roundBonus > 0) parts.push(`combi +${fmtDec(roundBonus)} 🔗`);
     if (myRow) parts.push(`nr. ${myRow.rank} af ${standings.length}`);
     if (overtook.length) parts.push(`overhalede ${overtook.slice(0, 2).join(', ')} 🎉`);
     return `${parts.join(' · ')}\ntip.vejleaa.dk`;
@@ -354,7 +358,7 @@ export default function FootballTip({ game, me, matches }) {
           </div>
           <div className="facit__sub">
             <strong>{roundHitsAll.length}/{spilledeIRunden}</strong> ramt
-            {roundBonus > 0 && <> · <span className="facit__combi">combi +{fmtDec(roundBonus)} ⚡</span></>}
+            {roundBonus > 0 && <> · <span className="facit__combi">combi +{fmtDec(roundBonus)} 🔗</span></>}
             {manglerIRunden > 0 && (
               <> · <span className="facit__mangler">
                 {manglerIRunden === 1 ? '1 kamp mangler endnu' : `${manglerIRunden} kampe mangler endnu`}
@@ -478,6 +482,10 @@ export default function FootballTip({ game, me, matches }) {
         // Kuponmærket vises KUN, når runden faktisk er splittet. I en normal
         // runde er alle seks kampe med, og seks ens mærker er støj — mærket
         // skal betyde noget, den dag der står ét anderledes.
+        // Hvad chancen kostede eller gav på DENNE kamp. null = ingen chance.
+        const udfald = chanceUdfald(bet, m);
+        const chanceUdfaldVises = udfald?.afregnet ? udfald : null;
+        const chanceUikkeAfregnet = !!udfald && !udfald.afregnet;
         const paaKupon = iKupon(m);
         const visMaerke = kupon > 0 && udenforKupon.length > 0;
         return (
@@ -504,9 +512,48 @@ export default function FootballTip({ game, me, matches }) {
               <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0 }}>
                 {h.venue && <span className="match-card__venue">{h.venue}</span>}
                 {m.result ? (
-                  hit === true ? <span className="badge badge--green">Ramt +{fmtDec(hitPoints(m.result, m.odds))}</span>
-                    : hit === false ? <span className="badge badge--red">Ikke ramt</span>
-                      : <span className="badge">Spillet</span>
+                  <>
+                    {hit === true ? <span className="badge badge--green">Ramt +{fmtDec(hitPoints(m.result, m.odds))}</span>
+                      : hit === false ? <span className="badge badge--red">Ikke ramt</span>
+                        : <span className="badge">Spillet</span>}
+                    {/* CHANCEN FORSVANDT HELT, når facit kom. Pillen ligger i
+                        grenen NEDENFOR `m.result`, så et tab på fire point var
+                        usynligt på præcis den skærm, man står på lige efter
+                        runden — og rundens facit-kort trak dem fra uden at
+                        sige hvor.
+
+                        Tallet står ved siden af "Ramt +3,0", ikke i stedet
+                        for: dét er 1X2-point alene, og de to lægges sammen.
+                        Erstattede vi det med summen, ville kortet vise ét tal
+                        og Mine tips et andet for samme kamp. */}
+                    {chanceUdfaldVises && (
+                      <span
+                        className={`badge ${chanceUdfaldVises.delta < 0 ? 'badge--red' : 'badge--green'}`}
+                        /* Tabet udledes af DELTAET, ikke af chanceStake:
+                           reglerne validerer ikke feltet, og serveren scorer
+                           uden bank-loft, så clampStake klipper ved 8. En
+                           forfalsket indsats på 100 ville give mærket −8 og en
+                           tekst om 100 point. */
+                        title={chanceUdfaldVises.delta < 0
+                          ? `Chancen tabt: ${fmtPoints(Math.abs(chanceUdfaldVises.delta))} point`
+                          : `Chancen vundet: ${fmtPoints(chanceUdfaldVises.delta)} point oveni`}
+                      >
+                        ⚡ {fmtSignedPoints(chanceUdfaldVises.delta)}
+                      </span>
+                    )}
+                    {chanceUikkeAfregnet && (
+                      /* Teksten bærer sig selv. "ikke afregnet" læses som
+                         "vent, den kommer" — og for den ene af de to grunde er
+                         det direkte forkert: kampen manglede odds, så den
+                         kommer aldrig. En title duer ikke som forklaring; den
+                         findes ikke på en telefon. */
+                      <span className="badge">
+                        {udfald.grund === 'afventer'
+                          ? '⚡ afregnes om lidt'
+                          : '⚡ ingen odds · hverken vundet eller tabt'}
+                      </span>
+                    )}
+                  </>
                 ) : live ? (
                   /* Live har forrang over Chancen-pillen: chance-kampen er
                      netop den, man følger tættest. */

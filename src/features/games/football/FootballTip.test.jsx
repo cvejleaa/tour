@@ -18,6 +18,10 @@ vi.mock('../betActions', () => ({ setBet: vi.fn().mockResolvedValue({ ok: true }
 import { setBet } from '../betActions';
 vi.mock('./LeagueBets', () => ({ default: () => <div data-testid="liga-tips" /> }));
 vi.mock('../../../components/ClubBadge', () => ({ default: () => <span /> }));
+// Delingsteksten var slet ikke testet, så combi-tegnet havde to grene og kun
+// den ene var dækket.
+const mockShare = vi.fn().mockResolvedValue({ ok: true, mode: 'clipboard' });
+vi.mock('../../../lib/share', () => ({ shareText: (...a) => mockShare(...a) }));
 
 import { TRAEF_BONUS } from '../../../lib/superligaScoring';
 import FootballTip from './FootballTip';
@@ -865,5 +869,147 @@ describe('Chancen — den gemte indsats', () => {
   it('siger at en aktiv chance afregnes, selv når man ikke kan sætte en ny', () => {
     render(tegn({ m1: { pick: '1', chanceStake: 4 } }, { me: { uid: 'me', totalPoints: 5 } }));
     expect(screen.getByText(/afregnes som normalt/)).toBeInTheDocument();
+  });
+});
+
+// --- Chancens udfald på kampkortet ----------------------------------------
+//
+// DET STØRSTE HUL. ⚡-pillen lå i grenen EFTER m.result, så den forsvandt helt,
+// så snart facit kom — på præcis den skærm, man står på lige efter runden.
+// Rundens facit-kort trak de fire point fra uden at sige hvor.
+describe('kampkortet — hvad chancen kostede', () => {
+  const SPILLET = [
+    { id: 'p1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF,
+      odds: { 1: 3.9, X: 3.5, 2: 2 }, result: '1' },
+    { id: 'p2', round: 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: KICKOFF,
+      odds: { 1: 2.2, X: 3.4, 2: 3.1 }, result: 'X' },
+  ];
+  const tegn = (bets, matches = SPILLET) => {
+    mockBets.mockReturnValue({ betsByMatch: bets, loading: false });
+    return render(
+      <MemoryRouter initialEntries={['/spil/sl?runde=1']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                me={{ uid: 'me', totalPoints: 100 }}
+                matches={matches}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+  };
+
+  it('viser tabet på kortet, når chancen er tabt', () => {
+    tegn({ p1: { pick: '2', points: -4, chanceStake: 4 } });
+    const maerke = screen.getByText(/⚡ −4/);
+    expect(maerke).toHaveAttribute('title', 'Chancen tabt: 4 point');
+    expect(maerke).toHaveClass('badge--red');
+    // Og 1X2-mærket står stadig ved siden af: de to tal lægges sammen.
+    expect(screen.getByText('Ikke ramt')).toBeInTheDocument();
+  });
+
+  it('viser gevinsten på kortet, når chancen er vundet', () => {
+    tegn({ p1: { pick: '1', points: 15.9, chanceStake: 4 } });
+    const maerke = screen.getByText(/⚡ \+12/);
+    expect(maerke).toBeInTheDocument();
+    // Farven og teksten skal følge fortegnet: et tab må ikke kunne blive grønt.
+    expect(maerke).toHaveClass('badge--green');
+    expect(maerke).toHaveAttribute('title', 'Chancen vundet: 12 point oveni');
+    // "Ramt +3,9" er 1X2 ALENE og skal blive stående — erstattede vi det med
+    // summen, ville kortet vise ét tal og Mine tips et andet for samme kamp.
+    expect(screen.getByText(/Ramt \+3,9/)).toBeInTheDocument();
+  });
+
+  it('siger hvorfor, når kampen mangler odds — og gætter ikke et tal', () => {
+    const udenOdds = [{ ...SPILLET[0], odds: null }, SPILLET[1]];
+    tegn({ p1: { pick: '2', points: 0, chanceStake: 4 } }, udenOdds);
+    expect(screen.getByText(/⚡ ingen odds/)).toHaveTextContent('hverken vundet eller tabt');
+    expect(screen.queryByText(/⚡ −4/)).not.toBeInTheDocument();
+  });
+
+  // Facit står på kampen, før triggeren har scoret bettet. Uden en egen
+  // tilstand viste kortet dér det modsatte af sandheden.
+  it('siger "afregnes om lidt", mens bettet venter på serveren', () => {
+    tegn({ p1: { pick: '2', chanceStake: 4 } }); // intet points-felt
+    expect(screen.getByText(/⚡ afregnes om lidt/)).toBeInTheDocument();
+    expect(screen.queryByText(/⚡ [−+]/)).not.toBeInTheDocument();
+  });
+
+  it('sætter ikke et chance-mærke på en kamp uden chance', () => {
+    tegn({ p1: { pick: '1', points: 3.9, chanceStake: 0 } });
+    // Panelets overskrift hedder "Chancen ⚡", så der SKAL søges på mærket —
+    // ikke på tegnet alene.
+    expect(screen.queryByText(/⚡ [−+]/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/⚡ ikke afregnet/)).not.toBeInTheDocument();
+  });
+});
+
+// ⚡ ER CHANCEN OVERALT I APPEN — PointOpdeling siger det eksplicit, og
+// TipsHistorik bruger 🔗 til combi af netop den grund. Facit-kortet og
+// delingsteksten skrev stadig "combi +N ⚡", så samme tegn stod for to ting på
+// samme skærm.
+describe('combi-mærket', () => {
+  it('bruger 🔗 til combi, ikke ⚡', () => {
+    const alle = [
+      { id: 'k1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF, odds: { 1: 2, X: 3, 2: 4 }, result: '1' },
+      { id: 'k2', round: 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: KICKOFF, odds: { 1: 2, X: 3, 2: 4 }, result: '1' },
+    ];
+    mockBets.mockReturnValue({
+      betsByMatch: { k1: { pick: '1', points: 2 }, k2: { pick: '1', points: 2 } }, loading: false,
+    });
+    render(
+      <MemoryRouter initialEntries={['/spil/sl?runde=1']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                me={{ uid: 'me', totalPoints: 100 }}
+                matches={alle}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const combi = screen.getByText(/combi \+/);
+    expect(combi).toHaveTextContent('🔗');
+    expect(combi.textContent).not.toMatch(/⚡/);
+  });
+
+  it('deler combi med 🔗, ikke ⚡', async () => {
+    const alle = [
+      { id: 'k1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF, odds: { 1: 2, X: 3, 2: 4 }, result: '1' },
+      { id: 'k2', round: 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: KICKOFF, odds: { 1: 2, X: 3, 2: 4 }, result: '1' },
+    ];
+    mockBets.mockReturnValue({
+      betsByMatch: { k1: { pick: '1', points: 2 }, k2: { pick: '1', points: 2 } }, loading: false,
+    });
+    render(
+      <MemoryRouter initialEntries={['/spil/sl?runde=1']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                me={{ uid: 'me', totalPoints: 100 }}
+                matches={alle}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Del i chatten/ })); });
+    const tekst = mockShare.mock.calls[0][0];
+    expect(tekst).toMatch(/combi \+.*🔗/);
+    expect(tekst).not.toMatch(/⚡/);
   });
 });

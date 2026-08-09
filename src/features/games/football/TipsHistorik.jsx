@@ -8,7 +8,7 @@
  */
 import { shortOf } from './teamInfo';
 import { formatKickoff } from '../../../lib/daDate';
-import { fmtDec } from '../../../lib/daNum';
+import { fmtDec, fmtPoints, fmtSignedPoints } from '../../../lib/daNum';
 import PointOpdeling, { RUBRIKKER } from './PointOpdeling';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
@@ -16,9 +16,65 @@ const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
 function ResultCell({ row }) {
   if (!row.pick) return <span className="mytips__none">—</span>;
   if (!row.settled) return <span className="mytips__pending">afventer</span>;
-  return row.hit
-    ? <span className="badge badge--green">✓ +{fmtDec(row.points)}</span>
-    : <span className="badge badge--red">✗</span>;
+
+  // Chancen er ikke afregnet. Så findes tallet ikke — hverken −4, som ville
+  // være løgn, eller 0, som ville være et gæt.
+  //
+  // TEKSTEN BÆRER SIG SELV. "Chancen ikke afregnet" læses som "vent, den
+  // kommer" — og for den ene af de to grunde er det direkte forkert: kampen
+  // manglede odds, så den kommer aldrig. Forklaringen lå i en `title`, og
+  // title findes ikke på en telefon, som er den flade, spillet bruges på.
+  //
+  // Og tippets egne point skal STADIG stå der: outcomeReward falder tilbage på
+  // DEFAULT_POINTS, så et ramt tip uden odds gav faktisk point. Uden dem gik
+  // "✓ +4" tabt og blev til en ren fejlbesked om noget helt andet.
+  if (row.isChance && !row.chanceAfregnet) {
+    return (
+      <span className="badge">
+        {row.hit ? `✓ ${fmtSignedPoints(row.points)}` : '✗'}
+        {row.chanceGrund === 'afventer'
+          ? ' · ⚡ afregnes om lidt'
+          : ' · ⚡ ingen odds, hverken vundet eller tabt'}
+      </span>
+    );
+  }
+
+  // TABT TIP. Uden chance er der intet tal at vise — 0 point er ikke en
+  // oplysning. MED chance er tabet hele historien, og det stod ingen steder:
+  // serveren gemmer kun summen, og ved et forkert tip ER summen chance-tabet
+  // (outcomePoints giver 0, når man tipper forkert).
+  //
+  // Ingen ⚡ her: rækken bærer allerede to — klassen mytips__row--chance og
+  // ⚡'et ved siden af tippet. Et tredje ville være støj, og det røde
+  // fortegnstal siger det selv.
+  //
+  // Teksten udledes af DELTAET, ikke af chanceStake. Reglerne validerer ikke
+  // feltet, og serveren scorer uden bank-loft, så clampStake klipper ved 8: en
+  // forfalsket indsats på 100 ville give mærket −8 og en tekst om 100 point.
+  if (!row.hit) {
+    return row.isChance
+      ? (
+        <span className="badge badge--red" title={`Chancen tabt: ${fmtPoints(Math.abs(row.chanceDelta))} point`}>
+          ✗ {fmtSignedPoints(row.chanceDelta)}
+        </span>
+      )
+      : <span className="badge badge--red">✗</span>;
+  }
+
+  // RAMT. Tallet rummer både tippet og en evt. chance-gevinst, og uden en
+  // forklaring kunne man ikke se, hvorfor en kamp til odds 3,0 gav 19 point.
+  // Fordelingen ligger i title'en frem for i cellen: to tegn i en tabelcelle
+  // presser kolonnen, og ⚡ står allerede på rækken.
+  return (
+    <span
+      className="badge badge--green"
+      title={row.isChance
+        ? `${fmtPoints(row.tipPoints)} for tippet + ${fmtPoints(row.chanceDelta)} fra Chancen`
+        : undefined}
+    >
+      ✓ {fmtSignedPoints(row.points)}
+    </span>
+  );
 }
 
 /**
