@@ -71,8 +71,9 @@ function badgeFor(teams, name, styles = {}, variant = 'home') {
     || String(name || '').replace(/[^A-Za-zÆØÅæøå]/g, '').slice(0, 3).toUpperCase() || '?';
   // Trøjens FORM — sekundærfarve, mønster og ærme. Ligger som ét nested felt
   // på holdet, så de tre color-felter kunne blive stående uændrede. Mangler
-  // det, tegnes trøjen ensfarvet; hele Superligaen står sådan, indtil den får
-  // sin egen hentning.
+  // det, tegnes trøjen ensfarvet — og det gør de fleste: kun tre af
+  // Superligaens tolv og under halvdelen af Premier Leagues tyve har et
+  // mønster, fordi en stribe skal fylde noget for at kunne ses ved 22 px.
   const nøgle = { home: 'hjemme', away: 'ude', third: 'tredje' }[variant];
   const form = info?.troejer?.[nøgle] || {};
   return {

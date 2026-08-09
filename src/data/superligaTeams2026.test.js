@@ -49,12 +49,13 @@ describe('Superligaen — listens form', () => {
 // ubemærket.
 // ---------------------------------------------------------------------------
 describe('hjemmefarver rettet efter fotos af 2026/27-trøjerne', () => {
-  it('FCM er SORT med røde pinstriber — ikke ensfarvet rød', () => {
+  // Pinstriberne måler 9,7 % — under 12 %-gulvet — og deres røde kunne slet
+  // ikke måles rent. Trøjen står derfor ensfarvet sort, uden en opfundet rød.
+  it('FCM er SORT og ensfarvet — ikke rød', () => {
     const t = hold('FC Midtjylland');
     expect(t.color).toBe('#0B0807');
     expect(t.color).not.toBe('#E4002B');            // den gamle, forkerte
-    expect(t.troejer.hjemme.moenster).toBe('striber');
-    expect(t.troejer.hjemme.sekundaer).toBe('#E4002B');
+    expect(t.troejer).toBeUndefined();
   });
 
   it('FCK er HVID — marineblå er deres anden farve, ikke trøjen', () => {
@@ -65,12 +66,14 @@ describe('hjemmefarver rettet efter fotos af 2026/27-trøjerne', () => {
     expect(t.awayColor).toBe('#0A2240');
   });
 
-  it('FCN er RØD med gule bøjler — ikke ensfarvet gul', () => {
+  // Bøjlerne er tynde — 1,4 % på fotoet, 6,9 % i den flade grafik. BEGGE
+  // kilder er enige, så trøjen står ensfarvet efter samme test, der gjorde
+  // Leeds' pinstriber til en hvid trøje.
+  it('FCN er RØD og ensfarvet — ikke gul', () => {
     const t = hold('FC Nordsjælland');
     expect(t.color).toBe('#B80112');
     expect(t.color).not.toBe('#FFD200');
-    expect(t.troejer.hjemme.moenster).toBe('boejler');
-    expect(t.troejer.hjemme.sekundaer).toBe('#FDDF16');
+    expect(t.troejer).toBeUndefined();
   });
 
   it('Randers er LYSEBLÅ — ikke marineblå', () => {
@@ -86,6 +89,8 @@ describe('hjemmefarver rettet efter fotos af 2026/27-trøjerne', () => {
     expect(t.color).toBe('#B3D6E9');
     expect(t.color).not.toBe('#1B3A6B');
     expect(t.troejer.hjemme.moenster).toBe('striber');
+    // Den HVIDE stribe var utestet: #FFFFFF → #000000 gav 1863 grønne.
+    expect(t.troejer.hjemme.sekundaer).toBe('#FFFFFF');
     expect(t.awayColor).toBe('#1B3A6B');
   });
 
@@ -100,7 +105,6 @@ describe('hjemmefarver rettet efter fotos af 2026/27-trøjerne', () => {
 
 describe('mønstre, der var rigtige i farven men manglede formen', () => {
   it.each([
-    ['AGF', '#1E1E23'],            // hvid med marineblå pinstriber
     ['OB', '#FFFFFF'],             // blå/hvid lodret stribet
     ['AC Horsens', '#292724'],     // gul/sort lodret stribet
   ])('%s er stribet', (navn, sekundaer) => {
@@ -110,18 +114,42 @@ describe('mønstre, der var rigtige i farven men manglede formen', () => {
   });
 
   // Og modsat: de fire ensfarvede må IKKE have fået et mønster på.
-  it.each(['Brøndby IF', 'Viborg FF', 'Lyngby Boldklub', 'F.C. København'])(
+  it.each(['Brøndby IF', 'Viborg FF', 'Lyngby Boldklub', 'F.C. København',
+    'AGF', 'FC Midtjylland', 'FC Nordsjælland', 'Randers FC', 'Silkeborg IF'])(
     '%s står ensfarvet', (navn) => {
       expect(hold(navn).troejer?.hjemme?.moenster).toBeUndefined();
     },
   );
+
+  // PRÆCIS TRE trøjer bærer mønster. Tallet er en målt beslutning, ikke en
+  // æstetisk: får en fjerde et mønster, uden at målingen siger det, skal den
+  // her være rød.
+  it('har præcis tre mønstrede trøjer', () => {
+    const medMoenster = SUPERLIGA_TEAMS_2026.filter((t) => t.troejer?.hjemme?.moenster);
+    expect(medMoenster.map((t) => t.name).sort())
+      .toEqual(['AC Horsens', 'OB', 'Sønderjyske Fodbold']);
+  });
 });
 
 describe('opslagsfunktionerne', () => {
-  it('giver Elo for hvert hold', () => {
-    const map = superligaEloMap();
-    expect(Object.keys(map)).toHaveLength(12);
-    expect(map['FC Midtjylland']).toBe(1657);
+  // HELE tabellen, ikke kun antallet og ét hold. Mutationen Viborg
+  // 1486 → 1000 gav 1863 grønne, og Elo er forretningskritisk: den går via
+  // seeding til eloHome/eloAway, videre til odds og dermed til point.
+  it('gengiver hvert holds Elo', () => {
+    expect(superligaEloMap()).toEqual({
+      'FC Midtjylland': 1657,
+      'F.C. København': 1657,
+      'Brøndby IF': 1581,
+      AGF: 1578,
+      'FC Nordsjælland': 1537,
+      'Viborg FF': 1486,
+      OB: 1486,
+      'Randers FC': 1472,
+      'Sønderjyske Fodbold': 1465,
+      'Silkeborg IF': 1453,
+      'AC Horsens': 1420,
+      'Lyngby Boldklub': 1413,
+    });
   });
 
   // Et ukendt navn skal give null, ikke et tilfældigt hold. Fallbacken til
