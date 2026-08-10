@@ -706,11 +706,12 @@ a:focus-visible,
   align-items: center; margin-bottom: 0.1rem;
 }
 .match-card__side { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
-/* Kortkoden. Trøjen kan ikke bære den — kroppen er for smal ved alle
-   størrelser — og navnet ved siden af klippes med ellipsis på en telefon,
-   hvor "Manchester City" og "Manchester United" bliver til det samme. Badgen
-   var den eneste forskel; nu er koden det, og den må aldrig klippes. */
+/* KODEN OG NAVNET VISES ALDRIG SAMTIDIG. De stod begge på kortet et stykke
+   tid ("ARS Arsenal", "COV Coventry City"), og det er ren dobbelthed: koden er
+   en forkortelse af navnet, der står lige ved siden af.
+   Begge findes stadig i DOM'en — hvilken der vises, afgøres af pladsen. */
 .match-card__side-code {
+  display: none;
   font-size: 0.78rem; font-weight: 800; letter-spacing: -0.01em;
   color: var(--c-text); white-space: nowrap; flex: 0 0 auto;
   font-variant-numeric: tabular-nums;
@@ -719,11 +720,24 @@ a:focus-visible,
   font-size: 0.92rem; font-weight: 700; color: var(--c-text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* På smal skærm er der ikke plads til både trøje, kode og navn. Koden vinder:
-   den er entydig, navnet er allerede klippet til ukendelighed. */
-@media (max-width: 420px) {
+/* KNÆKPUNKTET ER 600 PX, OG DET ER MÅLT — `node scripts/navnbredde.mjs`.
+   Det stod først på 420, og det var forkert på en måde, der gjorde skade:
+   fra 421 til 585 px stod BÅDE Manchester City og Manchester United som
+   "Manch…", mens kortkoden — den eneste ting, der kunne skille dem — var
+   skjult af netop denne media query. 428 og 430 px er de to mest udbredte
+   store iPhone-bredder, så knækpunktet lå lige under dem.
+
+   Målt kræver kortet 586 px, før de to kan skelnes. 600 giver margin.
+
+   KORTET SKIFTER SENERE END TIPS-RÆKKEN (600 mod 480), og det er den modsatte
+   rækkefølge af, hvad jeg først skrev. Kortet er det STRAMME sted:
+   `repeat(3, 1fr)` giver hver side præcis en tredjedel uanset navnelængde, og
+   trøje + gap spiser ~40 px af den. Tips-rækkens `1fr` deles derimod af begge
+   navne, så et kort udehold forærer plads til et langt hjemmehold. Målt på
+   samme kamp kræver kortet 80-230 px mere viewport end rækken. */
+@media (max-width: 600px) {
   .match-card__side-name { display: none; }
-  .match-card__side-code { font-size: 0.85rem; }
+  .match-card__side-code { display: inline; font-size: 0.85rem; }
 }
 .match-card__dash { text-align: center; color: var(--c-muted); font-weight: 700; font-size: 1.1rem; }
 /* Slutresultatet står samme sted som stregen, så kolonnen flugter med "X"
@@ -848,6 +862,26 @@ a:focus-visible,
 .mytips__row--chance { background: color-mix(in srgb, var(--c-accent, #f5b301) 8%, transparent); border-radius: var(--radius-sm); }
 .mytips__kick { font-size: 0.7rem; color: var(--c-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mytips__match { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Fulde holdnavne som standard — kortkoderne alene ("SJF–VFF") krævede, at man
+   kunne tolvte-dels-alfabetet udenad for at læse sin egen tipshistorik.
+
+   SAMME KNÆKPUNKT SOM KAMPKORTET (600 px), og det er et VALG, ikke et krav.
+   Målt kunne rækken klare sig med 379: dens `1fr`-kolonne deles af begge navne,
+   så den har mere plads end kortets faste tredjedel, og Manchester-parret kan
+   skelnes langt tidligere her (`node scripts/navnbredde.mjs`).
+
+   Men to forskellige grænser gav et bånd — 481 til 600 px — hvor kampkortet
+   viste kortkoder, mens tipshistorikken viste fulde navne. Samme app, samme
+   hold, to formsprog på to faner, og ingen bruger kan se hvorfor. Sammenhæng
+   vejer tungere end de ekstra 120 px navn, en tablet i portræt ville få.
+
+   Prisen står her, så den er kendt: mellem 480 og 600 px viser tipshistorikken
+   nu koder, hvor den kunne have vist navne. */
+.mytips__hold-kort { display: none; }
+@media (max-width: 600px) {
+  .mytips__hold { display: none; }
+  .mytips__hold-kort { display: inline; }
+}
 .mytips__dash { color: var(--c-muted); margin: 0 0.25rem; }
 .mytips__pick { font-weight: 800; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 0.15rem; }
 .mytips__chance { font-size: 0.8rem; }

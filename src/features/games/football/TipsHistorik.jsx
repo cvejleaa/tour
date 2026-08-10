@@ -152,8 +152,16 @@ export default function TipsHistorik({
             {r.rows.map((row) => (
               <div className={`mytips__row ${row.isChance ? 'mytips__row--chance' : ''}`} key={row.id}>
                 <span className="mytips__kick">{formatKickoff(row.kickoff)}</span>
+                {/* FULDT NAVN på almindelig skærm, kortkode på en smal.
+                    Aldrig begge — koden er en forkortelse af navnet ved siden
+                    af, og der er intet at vinde ved at skrive det to gange.
+                    Begge står i DOM'en; CSS afgør hvilken der vises. */}
                 <span className="mytips__match">
-                  {shortOf(teams, row.home)}<span className="mytips__dash">–</span>{shortOf(teams, row.away)}
+                  <span className="mytips__hold">{row.home}</span>
+                  <span className="mytips__hold-kort">{shortOf(teams, row.home)}</span>
+                  <span className="mytips__dash">–</span>
+                  <span className="mytips__hold">{row.away}</span>
+                  <span className="mytips__hold-kort">{shortOf(teams, row.away)}</span>
                 </span>
                 <span className="mytips__pick">
                   {row.pick ? OUTCOME_LABEL[row.pick] : '–'}
