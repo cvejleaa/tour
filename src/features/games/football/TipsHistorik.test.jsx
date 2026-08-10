@@ -234,3 +234,61 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
     expect(celle).toHaveAttribute('title', '1,1 for tippet + 0 fra Chancen');
   });
 });
+
+// ---------------------------------------------------------------------------
+// HOLDNAVNET
+//
+// Listen viste kun kortkoder ("SJF–VFF"), og det krævede, at man kunne
+// tolvte-dels-alfabetet udenad for at læse sin egen tipshistorik. Spillerpanelet
+// viste til gengæld fulde navne — men KUN fordi det glemte at sende `teams`
+// med, så `shortOf` faldt tilbage på navnet. To flader, to visninger, ingen
+// beslutning bag nogen af dem.
+//
+// Nu er det fulde navn standarden begge steder, og kortkoden overtager på en
+// smal skærm. Begge står i DOM'en; CSS afgør hvilken der vises, så testene her
+// kan kun binde INDHOLDET — at begge findes, og at de er hver sin ting.
+// ---------------------------------------------------------------------------
+describe('TipsHistorik — holdnavn og kortkode', () => {
+  const HOLD = [
+    { name: 'AGF', short: 'AGF' },
+    { name: 'OB', short: 'OB' },
+    { name: 'Brøndby IF', short: 'BIF' },
+    { name: 'AaB', short: 'AAB' },
+  ];
+
+  it('viser det fulde holdnavn', () => {
+    const { container } = render(<TipsHistorik history={hist()} teams={HOLD} total={5.9} />);
+    const navne = [...container.querySelectorAll('.mytips__hold')].map((e) => e.textContent);
+    expect(navne).toContain('Brøndby IF');
+    expect(navne).toContain('AaB');
+  });
+
+  // Kortkoden skal stadig stå i DOM'en — den er det, en telefon viser.
+  it('bærer kortkoden ved siden af, til den smalle skærm', () => {
+    const { container } = render(<TipsHistorik history={hist()} teams={HOLD} total={5.9} />);
+    const koder = [...container.querySelectorAll('.mytips__hold-kort')].map((e) => e.textContent);
+    expect(koder).toContain('BIF');
+    expect(koder).toContain('AAB');
+  });
+
+  // DEN BÆRENDE: de to må ikke være det samme. Var kortkoden bare navnet igen,
+  // ville hele rettelsen være uden virkning — og det er nøjagtig det, der sker,
+  // når `teams` ikke sendes med.
+  it('gør kortkoden FORSKELLIG fra navnet — ellers virker den smalle skærm ikke', () => {
+    const { container } = render(<TipsHistorik history={hist()} teams={HOLD} total={5.9} />);
+    const raekke = container.querySelector('.mytips__match');
+    expect(raekke.querySelector('.mytips__hold').textContent).toBe('Brøndby IF');
+    expect(raekke.querySelector('.mytips__hold-kort').textContent).toBe('BIF');
+  });
+
+  // Uden holdliste falder kortkoden tilbage på navnet. Det er ikke en fejl —
+  // det er fallbacken i shortOf — men det betyder, at en manglende `teams`-prop
+  // gør den smalle skærm virkningsløs, og DET er værd at kunne se.
+  it('falder tilbage på navnet som kortkode, når holdlisten mangler', () => {
+    const { container } = render(<TipsHistorik history={hist()} total={5.9} />);
+    // Nyeste runde står øverst, så første række er runde 2.
+    const raekke = container.querySelector('.mytips__match');
+    expect(raekke.querySelector('.mytips__hold').textContent).toBe('Brøndby IF');
+    expect(raekke.querySelector('.mytips__hold-kort').textContent).toBe('Brøndby IF');
+  });
+});

@@ -191,9 +191,10 @@ describe('FootballTip — Elo på kampkortene', () => {
   // Elo må ikke vælte tip-fladen for et spil, der slet ikke har ratings.
   it('viser stadig kampene, når spillet slet ingen Elo har', () => {
     const { container } = setup({ teams: [], eloHistory: undefined });
-    // "AGF" står nu to steder på kortet: som kortkode og som holdnavn. Det er
-    // meningen — koden må ikke klippes væk, når navnet gør. Testen skal derfor
-    // pege på NAVNET, ikke bare på teksten.
+    // "AGF" står to steder i DOM'en: som kortkode og som holdnavn. Kun ÉN af
+    // dem vises ad gangen — CSS vælger efter pladsen, se navnVisning.test.js —
+    // men begge er i markuppen, så testen skal pege på NAVNET og ikke bare på
+    // teksten.
     const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
     expect(navne).toContain('AGF');
     expect(navne).toContain('FC Midtjylland');

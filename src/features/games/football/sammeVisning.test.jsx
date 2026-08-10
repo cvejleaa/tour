@@ -93,4 +93,30 @@ describe('Mine tips og spillerdetaljen', () => {
     expect(andens.opdeling).toEqual(mine.opdeling);
     expect(andens.total).toBe(mine.total);
   });
+
+  // TEAMS SKAL MED BEGGE STEDER. Spillerdetaljen sendte den ikke, og så faldt
+  // kortkoden tilbage på det fulde navn — panelet viste altså fulde navne på en
+  // telefon, hvor "Mine tips" viste kortkoder. Forskellen kom af en glemt prop,
+  // ikke af en beslutning, og den er præcis den drift, filen her findes for.
+  it('sender holdlisten med fra BEGGE flader', () => {
+    render(
+      <MemoryRouter initialEntries={['/spil/sl']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={<MyTips game={GAME} matches={MATCHES} me={{ totalPoints: 60, opdeling: OPDELING }} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    render(
+      <SpillerDetalje
+        game={GAME}
+        matches={MATCHES}
+        spiller={{ uid: 'u1', name: 'Anne', totalPoints: 60, opdeling: OPDELING }}
+      />,
+    );
+    expect(kald.length).toBeGreaterThanOrEqual(2);
+    for (const props of kald) expect(Array.isArray(props.teams)).toBe(true);
+  });
 });
