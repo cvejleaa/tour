@@ -94,6 +94,29 @@ describe('Elo-tabellen', () => {
     expect(navne).not.toContain('FCN');
     expect(navne).not.toContain('BIF');
   });
+
+  // ET HOLD UDEN FORSLAG OG UDEN OVERRIDE beholder sit eget navn. Det er den
+  // gren, der ER levende her — `eloRows` bygger rækkerne af `teams`, så et
+  // hold uden for listen findes ikke, og `|| row.name`-fallbacken kan ikke nås
+  // udefra (se kommentaren i EloTable.jsx).
+  it('lader et hold uden visningsnavn beholde sit eget', () => {
+    const { container } = render(<EloTable game={{
+      ...SPIL,
+      teams: [...TEAMS, { name: 'Hvidovre IF', short: 'HIF', elo: 1400 }],
+    }} />);
+    const navne = [...container.querySelectorAll('.elo-team__name')].map((e) => e.textContent);
+    expect(navne).toContain('Hvidovre IF');
+    expect(navne).not.toContain('');
+  });
+
+  // Det EKSAKTE navn skal stadig kunne læses: kolonnen er sticky og klippes med
+  // ellipsis under 600 px, og tre af de 32 navne rammer loftet.
+  it('lægger det eksakte navn i title', () => {
+    const { container } = render(<EloTable game={SPIL} />);
+    const titler = [...container.querySelectorAll('.elo-team__name')].map((e) => e.getAttribute('title'));
+    expect(titler).toContain('FC Nordsjælland');
+    expect(titler).toContain('Brøndby IF');
+  });
 });
 
 describe('Superliga-stillingen', () => {

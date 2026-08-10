@@ -51,11 +51,13 @@ export default function SpillerDetalje({ game, matches, spiller, onLuk }) {
         <div style={{ marginTop: '0.6rem' }}>
           <TipsHistorik
             history={history}
-            // HOLDENE SKAL MED. Uden dem falder `shortOf` tilbage på det fulde
-            // navn, og så viser panelet fulde navne på en telefon, hvor "Mine
-            // tips" viser kortkoder. Forskellen var utilsigtet — den kom af en
-            // manglende prop, ikke af en beslutning — og den er præcis den
-            // slags drift, sammeVisning-testen findes for at fange.
+            // HOLDENE SKAL MED. Uden dem falder `visOf` tilbage på det rå navn,
+            // og så viser panelet "Brighton and Hove Albion", hvor "Mine tips"
+            // ved siden af siger "Brighton". Proppen manglede engang helt, og
+            // dengang gjaldt det kortkoden i stedet — begrundelsen skiftede,
+            // behovet gjorde ikke. Forskellen kom af en manglende prop, ikke af
+            // en beslutning, og det er præcis den slags drift,
+            // sammeVisning-testen findes for at fange.
             teams={teamsOf(game)}
             opdeling={spiller?.opdeling ?? null}
             total={spiller?.totalPoints}

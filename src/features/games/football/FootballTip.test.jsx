@@ -644,6 +644,23 @@ describe('FootballTip — kuponen i en splittet runde', () => {
     expect(note).toHaveTextContent(/sep/);
   });
 
+  // VISNINGSNAVNET I NOTEN. Fixturets fire hold har alle `vis` === `name`, så
+  // testen ovenfor består både med og uden `visOf` — den beviser altså ikke, at
+  // noten bruger det. Overriden gør forskellen målbar, og navnene er valgt, så
+  // ingen af dem er delstreng af det rå navn.
+  it('bruger visningsnavnet i udsat-noten', () => {
+    setup(
+      { teamStyles: { 'FC Midtjylland': { visningsnavn: 'Ulvene' }, 'F.C. København': { visningsnavn: 'Løverne' } } },
+      '/spil/sl?runde=3',
+      splittet,
+    );
+    const note = screen.getByTestId('combi-udenfor');
+    expect(note).toHaveTextContent('AGF–Ulvene');
+    expect(note).toHaveTextContent('Løverne–AGF');
+    expect(note).not.toHaveTextContent('FC Midtjylland');
+    expect(note).not.toHaveTextContent('F.C. København');
+  });
+
   it('viser ingen udsat-note, når runden er hel', () => {
     setup({}, '/spil/sl?runde=3', samlet);
     expect(screen.queryByTestId('combi-udenfor')).toBeNull();
@@ -733,7 +750,9 @@ describe('Chancen — den gemte indsats', () => {
       : m.id === 'm2' ? { ...m, odds: { 1: 2.2, X: 3.4, 2: 3.1 } } : m
   ));
 
-  const tegn = (bets, { matches = MED_ODDS, me = { uid: 'me', totalPoints: 100 }, url = '/spil/sl' } = {}) => {
+  const tegn = (bets, {
+    matches = MED_ODDS, me = { uid: 'me', totalPoints: 100 }, url = '/spil/sl', spil = {},
+  } = {}) => {
     mockBets.mockReturnValue({ betsByMatch: bets, loading: false });
     return (
       <MemoryRouter initialEntries={[url]}>
@@ -742,7 +761,7 @@ describe('Chancen — den gemte indsats', () => {
             path="/spil/:gameId"
             element={(
               <FootballTip
-                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY, ...spil }}
                 me={me}
                 matches={matches}
               />
@@ -776,6 +795,33 @@ describe('Chancen — den gemte indsats', () => {
     expect(linje).toHaveTextContent('Brøndby IF–FC Midtjylland');
     expect(linje).toHaveTextContent('(2)');
     expect(linje).not.toHaveTextContent('AGF');
+  });
+
+  // VISNINGSNAVNET GÆLDER OGSÅ HER. Panelet er en egen komponent, og `teams`
+  // skulle sendes ned som prop for at nå den — glemmes den, falder hele
+  // Chancen tilbage til rå navne, mens kampkortet lige ovenover viser de korte.
+  //
+  // Fixturets fire hold har alle `vis` === `name`, så en assertion på dem ville
+  // bestå med og uden `visOf`. Overriden herunder er dét, der gør testen til
+  // et bevis. Navnene er valgt, så ingen af dem er delstreng af det rå navn.
+  it('bruger visningsnavnet i "På spil nu"-linjen', () => {
+    render(tegn({ m2: { pick: '2', chanceStake: 4 } }, {
+      spil: { teamStyles: { 'Brøndby IF': { visningsnavn: 'Vestegnen' }, 'FC Midtjylland': { visningsnavn: 'Ulvene' } } },
+    }));
+    const linje = screen.getByText(/På spil nu:/);
+    expect(linje).toHaveTextContent('Vestegnen–Ulvene');
+    expect(linje).not.toHaveTextContent('Brøndby IF');
+    expect(linje).not.toHaveTextContent('FC Midtjylland');
+  });
+
+  // Og i kampvælgeren, som er en anden gren i samme komponent.
+  it('bruger visningsnavnet i Chancens kampvælger', () => {
+    render(tegn({ m1: { pick: '1' }, m2: { pick: '2' } }, {
+      spil: { teamStyles: { 'F.C. København': { visningsnavn: 'Løverne' } } },
+    }));
+    const valg = [...screen.getByRole('combobox').options].map((o) => o.textContent);
+    expect(valg.join(' ')).toContain('AGF–Løverne');
+    expect(valg.join(' ')).not.toContain('F.C. København');
   });
 
   // OUTCOME_LABEL-opslaget: 'X' er den, der let falder igennem, fordi den

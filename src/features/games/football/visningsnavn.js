@@ -34,6 +34,22 @@ export const VISNINGSNAVN = {
   'FC Nordsjælland': 'Nordsjælland',
 };
 
+/**
+ * Længste visningsnavn, der kommer på skærmen.
+ *
+ * Tallet er `maxLength` på admin-feltet, men LOFTET HØRER HJEMME HER, ikke i
+ * inputtet: `firestore.rules` gav længe `isGlobalAdmin()` fri skriveadgang til
+ * hele spil-dokumentet uden at kigge på indholdet, så et navn på 10 000 tegn
+ * kunne skrives direkte fra konsollen. Reglen håndhæver det nu også, men
+ * klienten må ikke stole på, at den gør — og et loft ét sted her gælder ALLE
+ * flader, også dem, der bliver skrevet i morgen.
+ *
+ * Det var nødvendigt: `.mytips__match` og `.sltab__name` har ingen klipning i
+ * CSS, så én række i tipshistorikken eller stillingen kunne vokse til
+ * hundredvis af linjer for alle i spillet.
+ */
+export const MAKS_VISNINGSNAVN = 40;
+
 /** Husets forslag for ét hold — eller navnet selv, hvis der ikke er et. */
 export function standardVisningsnavn(navn) {
   return VISNINGSNAVN[navn] || navn;
@@ -46,10 +62,17 @@ export function standardVisningsnavn(navn) {
  * En tom eller blank override tæller IKKE som en override — ellers kunne et
  * hold ende med at hedde ingenting, fordi nogen ryddede feltet i stedet for at
  * trykke nulstil.
+ *
+ * `typeof o === 'string'` er ikke pedanteri. Firestore gemmer, hvad der bliver
+ * skrevet, og et OBJEKT i feltet giver "Objects are not valid as a React child"
+ * — altså hvidt skærmbillede for alle i spillet, ikke bare et grimt navn.
+ *
+ * Det RÅ navn klippes bevidst ikke: det kommer fra vores egen holdliste, og et
+ * afkortet "Brighton and Hove Alb" ville være værre end det, der står.
  */
 export function visningsnavn(teamStyles, navn) {
   const o = teamStyles?.[navn]?.visningsnavn;
-  if (typeof o === 'string' && o.trim()) return o.trim();
+  if (typeof o === 'string' && o.trim()) return o.trim().slice(0, MAKS_VISNINGSNAVN);
   return standardVisningsnavn(navn);
 }
 

@@ -603,8 +603,32 @@ service cloud.firestore {
       // Alle godkendte brugere kan se spiloversigten (metadata er ikke følsom)
       allow read: if isApproved();
 
+      // teamStyles — admins hold-overrides: farve + visningsnavn pr. holdnavn.
+      //
+      // HVORFOR EN GRÆNSE PÅ NOGET, KUN ADMIN KAN SKRIVE. Feltet læses af
+      // ENHVER godkendt bruger (`allow read` ovenfor), og klienten abonnerer på
+      // hele games-kollektionen — så et opblæst spil-dokument skubbes til
+      // samtlige brugere ved hvert snapshot. Emulatoren accepterede før et
+      // `teamStyles` med 3 000 ukendte holdnøgler, og som ren streng.
+      // `maxLength={40}` i admin-fladen er browservalidering, og
+      // browservalidering kan omgås: her er serveren eneste autoritet.
+      //
+      // HVAD REGLEN IKKE KAN. Rules-sproget har ingen "for alle"-operator over
+      // en liste, så LÆNGDEN af hvert enkelt `visningsnavn` kan ikke tjekkes
+      // her. Derfor sidder det loft i `visningsnavn()` på læsesiden, hvor det
+      // gælder alle flader på én gang — se MAKS_VISNINGSNAVN. To vagter om det
+      // samme ville i øvrigt bryde husreglen om én vagt pr. sikkerhedsregel.
+      // Det, reglen KAN, er formen og antallet, og det lukker den vej ind.
+      //
+      // 64 er rundt og rigeligt: Premier League har 20 hold, Superligaen 12.
+      function gyldigtTeamStyles() {
+        return !request.resource.data.keys().hasAny(['teamStyles'])
+          || (request.resource.data.teamStyles is map
+              && request.resource.data.teamStyles.size() <= 64);
+      }
+
       // Kun globalAdmin/owner opretter og redigerer spil
-      allow create, update: if isGlobalAdmin();
+      allow create, update: if isGlobalAdmin() && gyldigtTeamStyles();
       allow delete: if false;
 
       // games/{gameId}/players/{uid} — deltagelse + per-spil-point.

@@ -84,9 +84,7 @@ const tipsraekke = (h, a, iKort) => {
     <div class="mytips__rows"><div class="mytips__row">
       <span class="mytips__kick">man 10. aug. · 19.00</span>
       <span class="mytips__match">
-        <span class="mytips__hold">${h}</span>
-        <span class="mytips__dash">–</span>
-        <span class="mytips__hold">${a}</span>
+        ${h}<span class="mytips__dash">–</span>${a}
       </span>
       <span class="mytips__pick">1</span>
       <span class="mytips__res">+2,1</span>
@@ -326,5 +324,58 @@ if (args.includes('--ordbrud')) {
     }
   }
   await browser3.close();
+  console.log();
+}
+
+// ---------------------------------------------------------------------------
+// --elotabel — HVOR MANGE NAVNE KLIPPES I ELO-TABELLENS LÅSTE KOLONNE?
+//
+// Kolonnen er `position: sticky` og cellerne `white-space: nowrap`. Da den gik
+// fra kortkoden (3 tegn) til det fulde navn, kunne ét langt navn skubbe alle
+// rating-kolonnerne ud af skærmen: tabellen scroller vandret, men den låste
+// kolonne følger med og æder pladsen. Loftet er `max-width: 14ch` under 600 px.
+//
+// `ch` er bredden af cifret "0", ikke et gennemsnitstegn, så 14ch rummer mere
+// end 14 bogstaver. Præcis hvor mange kan kun måles — kommentaren i theme.css
+// påstod før, at "14 tegn rummer Lyngby Boldklub", som er 15 tegn.
+// ---------------------------------------------------------------------------
+if (args.includes('--elotabel')) {
+  const { PREMIER_LEAGUE_TEAMS_2026: PL2 } = await import('../src/data/premierLeagueTeams2026.js');
+  const { SUPERLIGA_TEAMS_2026: SL2 } = await import('../src/data/superligaTeams2026.js');
+  const { standardVisningsnavn: forslag2 } = await import('../src/features/games/football/visningsnavn.js');
+
+  // Markuppen spejler EloTable.jsx: sticky kolonne, badge, navn.
+  const elotabel = (navn) => `
+    <div class="container"><div class="elo-wrap"><table class="elo-table"><tbody>
+      <tr>
+        <td class="elo-team-col"><span class="elo-team">
+          <svg width="22" height="22" viewBox="0 0 24 24" style="flex:0 0 auto;display:block"></svg>
+          <span class="elo-team__name">${navn}</span>
+        </span></td>
+        <td class="elo-cell">1657</td><td class="elo-cell">1640</td>
+        <td class="elo-start-col elo-cell">1600</td>
+      </tr>
+    </tbody></table></div></div>`;
+
+  const browser5 = await chromium.launch();
+  const s5 = await browser5.newPage();
+  console.log('\n--elotabel — navne, der klippes af `max-width: 14ch`:\n');
+  for (const w of [320, 360, 390, 414, 600, 768]) {
+    const klippede = [];
+    for (const t of [...PL2, ...SL2]) {
+      const n = forslag2(t.name);
+      await s5.setViewportSize({ width: w, height: 900 });
+      await s5.setContent(`<style>${css}</style>${elotabel(n)}`);
+      /* eslint-disable no-undef */
+      const klip = await s5.evaluate(() => {
+        const el = document.querySelector('.elo-team__name');
+        return el.scrollWidth > el.clientWidth + 0.5;
+      });
+      /* eslint-enable no-undef */
+      if (klip) klippede.push(n);
+    }
+    console.log(`  ${String(w).padStart(4)} px   ${klippede.length === 0 ? 'ingen klippet' : `${klippede.length} klippet — ${klippede.join(', ')}`}`);
+  }
+  await browser5.close();
   console.log();
 }

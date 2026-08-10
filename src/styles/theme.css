@@ -904,9 +904,14 @@ a:focus-visible,
    (3 tegn) til det fulde navn, kunne "Brighton and Hove Albion" derfor skubbe
    rating-kolonnerne ud af skærmen på en telefon — tabellen scroller vandret,
    men den låste kolonne følger med og æder pladsen.
-   Loftet er sat i ch, så det følger skriftstørrelsen: 14 tegn rummer
-   "Nordsjælland" og "Lyngby Boldklub"; længere navne klippes med ellipsis og
-   kan læses i `title`. På bredere skærme er der ingen grænse. */
+   Loftet er sat i ch, så det følger skriftstørrelsen. `ch` er bredden af
+   cifret "0", ikke et gennemsnitstegn, så 14ch rummer mere end 14 bogstaver:
+   målt med `node scripts/navnbredde.mjs --elotabel` klippes kun tre af de 32
+   navne, og de samme tre på hele spannet 320-600 px: Manchester United,
+   Newcastle United og Nottingham Forest. Ingen af dem kan forveksles med
+   hinanden på det, der er tilbage.
+   De klippede får ellipsis, og det eksakte navn står i `title` på selve
+   navnet (EloTable.jsx). På bredere skærme er der ingen grænse. */
 .elo-team-col { position: sticky; left: 0; z-index: 1; background: var(--c-surface); text-align: left !important; box-shadow: 1px 0 0 var(--c-border); }
 @media (max-width: 600px) {
   .elo-team__name { display: inline-block; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }

@@ -42,6 +42,14 @@ function danishError(err, fallback) {
   if (code === 'unavailable') {
     return 'Kunne ikke få forbindelse. Prøv igen.';
   }
+  // `updateDoc` mod et dokument, der ikke findes, giver `not-found` — og
+  // Firestores egen besked er rå engelsk fejlsøgningstekst med hele stien i:
+  // `5 NOT_FOUND: no entity to update: app: "dev~projekt" path < Element …`.
+  // Den stod før direkte i admin-fladen, fordi fallbacken returnerer
+  // `err.message` for ukendte koder.
+  if (code === 'not-found') {
+    return 'Findes ikke længere — prøv at genindlæse siden.';
+  }
   return err?.message || fallback;
 }
 

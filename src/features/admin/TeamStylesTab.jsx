@@ -11,8 +11,8 @@ import { COL } from '../../lib/constants';
 import { useGames } from '../games/useGames';
 import { setTeamStyles } from '../games/gameActions';
 import ClubBadge from '../../components/ClubBadge';
-import { standardVisningsnavn } from '../games/football/visningsnavn';
-import { byggOverrides, dubletter } from './teamStylesOverrides';
+import { standardVisningsnavn, MAKS_VISNINGSNAVN } from '../games/football/visningsnavn';
+import { byggOverrides, dubletter, ugyldigeFarver } from './teamStylesOverrides';
 
 const isHex6 = (s) => /^#[0-9a-fA-F]{6}$/.test(s);
 const eq = (a, b) => String(a).toUpperCase() === String(b).toUpperCase();
@@ -44,6 +44,7 @@ export default function TeamStylesTab() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+  const [indlaesFejl, setIndlaesFejl] = useState(false);
 
   // Indlæs det VALGTE spils gemte overrides (flettet med holdenes standardfarver).
   useEffect(() => {
@@ -65,8 +66,20 @@ export default function TeamStylesTab() {
         };
       }
       setStyles(merged);
+      setIndlaesFejl(false);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => {
+      if (!alive) return;
+      // FEJLEDE INDLÆSNINGEN, MÅ DER IKKE GEMMES. Formularen ville da stå med
+      // lutter standardværdier, `byggOverrides` ville bygge et tomt objekt, og
+      // `updateDoc` ville ERSTATTE — altså slette alle admins gemte farver og
+      // navne, uden at nogen havde rørt et felt. Før `updateDoc` var det også
+      // galt, bare tavst: `setDoc(merge)` med et tomt map slettede lige så
+      // meget. Vinduet har været åbent hele tiden.
+      setIndlaesFejl(true);
+      setErr('Kunne ikke hente spillets gemte farver og navne. Prøv at genindlæse siden — der gemmes ikke, før de er hentet, så intet er gået tabt.');
+      setLoading(false);
+    });
     return () => { alive = false; };
   }, [gameId, teams]);
 
@@ -81,13 +94,39 @@ export default function TeamStylesTab() {
   // gange først på kampkortet, er den allerede live for alle.
   const dobbelte = useMemo(() => dubletter(teams, styles), [teams, styles]);
 
+  // Halvskrevne farvekoder. I MODSÆTNING til dubletter spærrer de for at gemme:
+  // en dublet er et valg, admin må træffe, mens en ugyldig hex ikke er et valg
+  // om noget — den ville bare slette holdets gemte farve uden at sige det.
+  const ugyldige = useMemo(() => ugyldigeFarver(teams, styles), [teams, styles]);
+
+  const kanGemme = !busy && !indlaesFejl && ugyldige.length === 0;
+
   async function handleSave() {
+    if (!kanGemme) return;
     setBusy(true); setMsg(''); setErr('');
     const res = await setTeamStyles(gameId, byggOverrides(teams, styles));
-    if (res.ok) setMsg(`Hold-farver og navne for ${game?.name} er gemt. De slår igennem med det samme.`);
+    if (res.ok) setMsg(`Hold-farver og navne for ${game?.name} er gemt. De slår igennem i appen med det samme.`);
     else setErr(res.error);
     setBusy(false);
   }
+
+  /**
+   * Dublet-advarslen. Står BÅDE over listen og ved Gem-knappen, så `id` skal
+   * skille dem ad — to elementer med samme testid er ikke til at skrive en test
+   * imod, og for en skærmlæser er det to gange den samme besked uden kontekst.
+   */
+  const dubletAdvarsel = (id) => dobbelte.length > 0 && (
+    <p className="badge badge--yellow mb-2" data-testid={id} style={{ display: 'block' }}>
+      {/* "To hold" var hårdkodet. Tre hold på samme navn — eller to par — gjorde
+          sætningen forkert, og en advarsel, der tæller forkert, er svær at tro
+          på. Tælleren er HOLD, ikke grupper: én gruppe kan rumme tre. */}
+      ⚠️ {dobbelte.reduce((n, d) => n + d.hold.length, 0) === 2
+        ? 'To hold ville hedde det samme på skærmen'
+        : 'Flere hold ville hedde det samme på skærmen'}:
+      {' '}{dobbelte.map((d) => `"${d.navn}" (${d.hold.join(' og ')})`).join('; ')}.
+      {' '}På kampkortet kan de så ikke skelnes fra hinanden. Du kan godt gemme alligevel.
+    </p>
+  );
 
   const Picker = ({ name, field, label }) => {
     const val = styles[name]?.[field] || '#888888';
@@ -101,8 +140,13 @@ export default function TeamStylesTab() {
         <input type="color" value={isHex6(val) ? val : '#888888'}
           onChange={(e) => setField(name, field, e.target.value)} aria-label={`${label}farve for ${name}`}
           style={{ width: 34, height: 28, padding: 0, border: '1px solid var(--c-border)', borderRadius: 6, cursor: 'pointer' }} />
+        {/* Tekstfeltet er DÉT, der kan komme til at stå med en halv hex —
+            farvevælgeren ved siden af retter selv en ugyldig værdi til sort.
+            Egen etiket, så det kan skelnes fra vælgeren; uden den var feltet
+            heller ikke til at finde for en skærmlæser. */}
         <input type="text" value={val} maxLength={7}
           onChange={(e) => setField(name, field, e.target.value)}
+          aria-label={`${label}farve for ${name} som kode`}
           style={{ width: 78, fontFamily: 'monospace', textTransform: 'uppercase' }} />
         {changed && (
           <button className="btn btn--ghost btn--sm" title="Nulstil"
@@ -140,20 +184,28 @@ export default function TeamStylesTab() {
           {' '}Under <strong>Vises som</strong> kan du give klubben et kortere navn til skærmen —
           {' '}fx <em>Brighton</em> i stedet for <em>Brighton and Hove Albion</em>. Klubbens rigtige navn
           {' '}står som overskrift og kan ikke ændres: det er nøglen, resultater og Elo matches på.
-          Ændringer slår igennem for alle med det samme.
+          {' '}<strong>Ryd feltet for at bruge forslaget igen.</strong>
+          {/* "for alle med det samme" var for bredt: serverens påmindelsesmails
+              bruger stadig det eksakte navn, fordi visningsnavnet bevidst ikke
+              er spejlet til functions-platform/. */}
+          {' '}Ændringer slår igennem i appen for alle med det samme — påmindelses-mails
+          bruger fortsat klubbens rigtige navn.
         </p>
       )}
 
       {msg && <p className="badge badge--green mb-2" style={{ display: 'block' }}>{msg}</p>}
       {err && <p className="badge badge--red mb-2">{err}</p>}
 
-      {dobbelte.length > 0 && (
-        <p className="badge badge--yellow mb-2" data-testid="dublet-advarsel" style={{ display: 'block' }}>
-          ⚠️ To hold ville hedde det samme på skærmen:
-          {' '}{dobbelte.map((d) => `"${d.navn}" (${d.hold.join(' og ')})`).join('; ')}.
-          {' '}På kampkortet kan de så ikke skelnes fra hinanden. Du kan godt gemme alligevel.
+      {ugyldige.length > 0 && (
+        <p className="badge badge--red mb-2" data-testid="hex-fejl" style={{ display: 'block' }}>
+          🛑 Der gemmes ikke, før farvekoderne er hele.
+          {' '}{ugyldige.map((u) => `${u.hold} → ${u.felt}: "${u.vaerdi}"`).join('; ')}.
+          {' '}En farvekode skal være seks tegn efter tegnet #, fx <code>#B80112</code>.
+          {' '}Ryd feltet for at bruge holdets standardfarve.
         </p>
       )}
+
+      {dubletAdvarsel('dublet-advarsel')}
 
       {loading ? (
         <div className="spinner" role="status" aria-label="Indlæser" />
@@ -171,7 +223,7 @@ export default function TeamStylesTab() {
                   <input
                     type="text"
                     value={styles[t.name]?.visningsnavn ?? ''}
-                    maxLength={40}
+                    maxLength={MAKS_VISNINGSNAVN}
                     onChange={(e) => setField(t.name, 'visningsnavn', e.target.value)}
                     aria-label={`Visningsnavn for ${t.name}`}
                     style={{ width: 220 }}
@@ -194,8 +246,20 @@ export default function TeamStylesTab() {
             ))}
           </div>
 
+          {/* ADVARSLERNE GENTAGES HER. Med 12-20 hold laver man dubletten
+              nederst i listen og trykker Gem nederst — advarslen i toppen er
+              da for længst scrollet ud af skærmen. En advarsel, man ikke kan se
+              i det øjeblik, man handler, er ingen advarsel. */}
           <div style={{ marginTop: '1rem' }}>
-            <button className="btn" disabled={busy} onClick={handleSave}>
+            {ugyldige.length > 0 && (
+              <p className="badge badge--red mb-2" data-testid="hex-fejl-gem" style={{ display: 'block' }}>
+                🛑 {ugyldige.length === 1 ? 'Én farvekode er ikke hel' : `${ugyldige.length} farvekoder er ikke hele`}:
+                {' '}{ugyldige.map((u) => `${u.hold} → ${u.felt}`).join('; ')}.
+                {' '}Ret {ugyldige.length === 1 ? 'den' : 'dem'} for at kunne gemme.
+              </p>
+            )}
+            {dubletAdvarsel('dublet-advarsel-gem')}
+            <button className="btn" disabled={!kanGemme} onClick={handleSave}>
               {busy ? 'Gemmer…' : `Gem farver og navne for ${game.name}`}
             </button>
           </div>

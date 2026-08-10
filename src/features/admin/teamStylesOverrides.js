@@ -40,6 +40,47 @@ export function byggOverrides(teams, styles) {
   return out;
 }
 
+/** Farvefelterne, i den rækkefølge de står i fanen, med deres etiket. */
+export const FARVEFELTER = [
+  ['color', 'Hjemme'],
+  ['awayColor', 'Ude'],
+  ['thirdColor', '3. farve'],
+];
+
+/**
+ * Farvefelter, der er UDFYLDT, men ikke er en gyldig 6-cifret hex.
+ *
+ * DET HER VAR EN TAVS SLETNING. `byggOverrides` springer et ugyldigt felt over,
+ * og det var harmløst, dengang `setTeamStyles` brugte `setDoc(merge: true)` —
+ * så blev den gamle værdi bare stående. Nu ERSTATTER `updateDoc` hele mappet,
+ * så en halvskrevet hex som `#12345` sletter holdets gemte farve i Firestore,
+ * mens fladen kvitterer med "gemt. De slår igennem med det samme".
+ *
+ * En tavs no-op blev altså til et tavst tab. Derfor navngives feltet i stedet,
+ * og der gemmes ikke.
+ *
+ * @returns {Array<{hold:string, felt:string, vaerdi:string}>} tomt, hvis alt er gyldigt
+ */
+export function ugyldigeFarver(teams, styles) {
+  const ud = [];
+  for (const t of teams || []) {
+    const s = (styles || {})[t.name] || {};
+    for (const [key, etiket] of FARVEFELTER) {
+      const v = String(s[key] ?? '').trim();
+      // Et TOMT felt er ikke en fejl — det betyder "brug holdets standardfarve",
+      // præcis som et tomt navnefelt betyder "brug forslaget".
+      if (v && !isHex6(v)) ud.push({ hold: t.name, felt: etiket, vaerdi: v });
+    }
+  }
+  return ud;
+}
+
+/**
+ * Usynlige tegn, der ellers ville snige to identiske navne forbi dublet-tjekket.
+ * Zero-width space/non-joiner/joiner, BOM og de fem retnings-styretegn.
+ */
+const USYNLIGE = /[\u200B-\u200F\u202A-\u202E\uFEFF]/g;
+
 /**
  * De VISTE navne, som to eller flere hold ville dele.
  *
@@ -48,8 +89,12 @@ export function byggOverrides(teams, styles) {
  * to forskellige kampe pludselig ser ens ud. Præcis den forveksling, kortkoden
  * i sin tid blev indført for at undgå.
  *
- * Sammenlignes uden hensyn til store/små bogstaver og omkringstående mellemrum:
- * "brighton" og "Brighton " er samme navn på skærmen.
+ * Sammenlignes på det, ØJET ser: uden hensyn til store/små bogstaver, uden
+ * omkringstående mellemrum, og uden usynlige tegn. Uden det sidste ville det
+ * samme navn med et zero-width-tegn klistret bagpå tælle som et ANDET navn og
+ * slippe forbi advarslen, selv om de to er umulige at skelne på skærmen.
+ * NFKC først, så fx en halvbreddeform ikke tæller som noget andet end sin
+ * almindelige form.
  *
  * @returns {Array<{navn:string, hold:string[]}>} tomt array, hvis alt er unikt
  */
@@ -58,7 +103,7 @@ export function dubletter(teams, styles) {
   for (const t of teams || []) {
     const s = (styles || {})[t.name] || {};
     const vn = String(s.visningsnavn || '').trim() || standardVisningsnavn(t.name);
-    const noegle = vn.toLocaleLowerCase('da');
+    const noegle = vn.normalize('NFKC').replace(USYNLIGE, '').trim().toLocaleLowerCase('da');
     if (!set.has(noegle)) set.set(noegle, { navn: vn, hold: [] });
     set.get(noegle).hold.push(t.name);
   }

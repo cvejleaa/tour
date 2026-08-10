@@ -133,7 +133,9 @@ export default function PuljeTip({ game, matches }) {
                 aerme={t.troejer?.hjemme?.aerme} title={t.name}
               />
               {/* Visningsnavnet — `teamsOf` har lagt `vis` på. Knappen er smal,
-                  og det er netop her, "FC Nordsjælland" koster en linje. Det
+                  og `.pulje-team__name` er `nowrap` med ellipsis, så et for
+                  langt navn bliver KLIPPET, ikke ombrudt. (Målt: intet af de 32
+                  navne klippes i dag, hverken ved 320, 360 eller 390 px.) Det
                   EKSAKTE navn står stadig i badgens title og i `key`/`toggle`,
                   som er dem, der matcher data. */}
               <span className="pulje-team__name">{t.vis || t.name}</span>

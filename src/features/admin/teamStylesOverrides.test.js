@@ -62,10 +62,16 @@ describe('byggOverrides', () => {
   });
 
   // Farverne følger samme regel — og kun den ændrede farve gemmes, ikke alle tre.
-  it('gemmer kun den farve, der er ændret', () => {
+  // ALLE TRE FELTER prøves, hver for sig: `thirdColor` kunne fjernes helt fra
+  // funktionen, mens de to andre var dækket.
+  it.each([
+    ['color', { color: '#123456' }],
+    ['awayColor', { awayColor: '#123456' }],
+    ['thirdColor', { thirdColor: '#123456' }],
+  ])('gemmer kun %s, når det er den ene, der er ændret', (felt, forventet) => {
     const styles = uaendret(TEAMS, { 'FC Nordsjælland': 'Nordsjælland' });
-    styles['Silkeborg IF'].awayColor = '#123456';
-    expect(byggOverrides(TEAMS, styles)).toEqual({ 'Silkeborg IF': { awayColor: '#123456' } });
+    styles['Silkeborg IF'][felt] = '#123456';
+    expect(byggOverrides(TEAMS, styles)).toEqual({ 'Silkeborg IF': forventet });
   });
 
   // Store og små bogstaver er samme farve. Uden det ville browserens egen
@@ -129,12 +135,25 @@ describe('dubletter', () => {
   // Advarslen skal også gælde husets EGNE forslag — de er ikke fredet.
   // Sætter admin ét hold til "Nordsjælland", mens FC Nordsjælland allerede
   // hedder det af sig selv, er kollisionen lige så reel.
+  //
+  // BEMÆRK, HVAD DER IKKE ER I `styles`. Testen sendte før `uaendret()` ind,
+  // som lægger et EKSPLICIT visningsnavn på hvert hold — så blev
+  // `|| standardVisningsnavn(t.name)`-grenen aldrig kørt, og den kunne skæres
+  // ned til `|| t.name` med grøn suite. Her har FC Nordsjælland ingen post, så
+  // dens navn KAN kun komme fra husets forslag.
   it('fanger en kollision med husets eget forslag', () => {
-    const styles = uaendret(TEAMS, { 'FC Nordsjælland': 'Nordsjælland' });
-    styles['Silkeborg IF'].visningsnavn = 'Nordsjælland';
-    expect(dubletter(TEAMS, styles)).toEqual([
+    expect(dubletter(TEAMS, { 'Silkeborg IF': { visningsnavn: 'Nordsjælland' } })).toEqual([
       { navn: 'Nordsjælland', hold: ['FC Nordsjælland', 'Silkeborg IF'] },
     ]);
+  });
+
+  // Usynlige tegn må ikke kunne snige to identiske navne forbi. De ser ens ud
+  // på skærmen, og det er dét, advarslen handler om.
+  it('ser bort fra et usynligt tegn i enden af navnet', () => {
+    const styles = uaendret(TEAMS);
+    styles['Brøndby IF'].visningsnavn = 'Brøndby';
+    styles['Silkeborg IF'].visningsnavn = 'Brøndby​';
+    expect(dubletter(TEAMS, styles).map((d) => d.hold)).toEqual([['Brøndby IF', 'Silkeborg IF']]);
   });
 
   // To uafhængige kollisioner skal begge med — ikke kun den første fundne.

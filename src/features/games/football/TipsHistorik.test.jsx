@@ -275,17 +275,22 @@ describe('TipsHistorik — holdnavn', () => {
 
   // VISNINGSNAVNET slår igennem her som alle andre steder — det er hele
   // grunden til, at det lægges på i teamsOf() og ikke på hvert brugssted.
-  it('bruger visningsnavnet, når holdet har et', () => {
+  // BEGGE SIDER AF KAMPEN. Kun hjemmeholdet havde et afvigende `vis`, så
+  // `{visOf(teams, row.away)}` → `{row.away}` overlevede: to grene, én dækket.
+  // Kampen er "Brøndby IF–AaB", så hjemme og ude prøves i samme række.
+  it('bruger visningsnavnet, når holdet har et — på BEGGE sider', () => {
     const medVis = [
       { name: 'AGF', short: 'AGF' },
       { name: 'OB', short: 'OB' },
       { name: 'Brøndby IF', short: 'BIF', vis: 'Brøndby' },
-      { name: 'AaB', short: 'AAB' },
+      { name: 'AaB', short: 'AAB', vis: 'Aalborg' },
     ];
     const { container } = render(<TipsHistorik history={hist()} teams={medVis} total={5.9} />);
     const kampe = [...container.querySelectorAll('.mytips__match')].map((e) => e.textContent).join(' ');
     expect(kampe).toContain('Brøndby');
+    expect(kampe).toContain('Aalborg');
     expect(kampe).not.toContain('Brøndby IF');
+    expect(kampe).not.toContain('AaB');
   });
 
   // Uden holdliste skal navnet stadig stå — bare uden visningsnavn.
