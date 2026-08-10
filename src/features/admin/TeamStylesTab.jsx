@@ -12,6 +12,7 @@ import { useGames } from '../games/useGames';
 import { setTeamStyles } from '../games/gameActions';
 import ClubBadge from '../../components/ClubBadge';
 import { standardVisningsnavn } from '../games/football/visningsnavn';
+import { byggOverrides, dubletter } from './teamStylesOverrides';
 
 const isHex6 = (s) => /^#[0-9a-fA-F]{6}$/.test(s);
 const eq = (a, b) => String(a).toUpperCase() === String(b).toUpperCase();
@@ -74,24 +75,15 @@ export default function TeamStylesTab() {
     setMsg(''); setErr('');
   }
 
+  // Viste navne, to hold ville dele. En ADVARSEL, ikke en spærring: der findes
+  // ligaer med to klubber, man dagligt kalder det samme, og admin må selv
+  // afgøre det. Men den skal stå der, FØR der gemmes — opdages "Manchester" to
+  // gange først på kampkortet, er den allerede live for alle.
+  const dobbelte = useMemo(() => dubletter(teams, styles), [teams, styles]);
+
   async function handleSave() {
     setBusy(true); setMsg(''); setErr('');
-    const out = {};
-    for (const t of teams) {
-      const s = styles[t.name] || {};
-      const o = {};
-      if (isHex6(s.color) && !eq(s.color, t.color)) o.color = s.color;
-      if (isHex6(s.awayColor) && !eq(s.awayColor, t.awayColor)) o.awayColor = s.awayColor;
-      if (isHex6(s.thirdColor) && !eq(s.thirdColor, t.thirdColor)) o.thirdColor = s.thirdColor;
-      // Visningsnavnet gemmes KUN, hvis det afviger fra husets forslag — så
-      // en fremtidig ændring af forslaget slår igennem for alle spil, der ikke
-      // har taget stilling. Et tomt felt betyder "brug forslaget", ikke "intet
-      // navn"; ellers kunne et hold komme til at hedde ingenting.
-      const vn = String(s.visningsnavn || '').trim();
-      if (vn && vn !== standardVisningsnavn(t.name)) o.visningsnavn = vn;
-      if (Object.keys(o).length) out[t.name] = o;
-    }
-    const res = await setTeamStyles(gameId, out);
+    const res = await setTeamStyles(gameId, byggOverrides(teams, styles));
     if (res.ok) setMsg(`Hold-farver og navne for ${game?.name} er gemt. De slår igennem med det samme.`);
     else setErr(res.error);
     setBusy(false);
@@ -154,6 +146,14 @@ export default function TeamStylesTab() {
 
       {msg && <p className="badge badge--green mb-2" style={{ display: 'block' }}>{msg}</p>}
       {err && <p className="badge badge--red mb-2">{err}</p>}
+
+      {dobbelte.length > 0 && (
+        <p className="badge badge--yellow mb-2" data-testid="dublet-advarsel" style={{ display: 'block' }}>
+          ⚠️ To hold ville hedde det samme på skærmen:
+          {' '}{dobbelte.map((d) => `"${d.navn}" (${d.hold.join(' og ')})`).join('; ')}.
+          {' '}På kampkortet kan de så ikke skelnes fra hinanden. Du kan godt gemme alligevel.
+        </p>
+      )}
 
       {loading ? (
         <div className="spinner" role="status" aria-label="Indlæser" />

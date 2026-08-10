@@ -15,7 +15,7 @@ import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
-import { teamsOf, teamInfo } from './teamInfo';
+import { teamsOf, teamInfo, visOf } from './teamInfo';
 import { colorsClash } from '../../../lib/contrastText';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
@@ -476,7 +476,7 @@ export default function FootballTip({ game, me, matches }) {
                 kan bakke op. Det første holder altid. */}
             🕒 {udenforKupon.length === 1 ? 'Én kamp i runden ligger' : `${udenforKupon.length} kampe i runden ligger`}
             {' '}uden for rundens uge ({formatDateRange(udenforFra, udenforTil)}) og står derfor uden for
-            kuponen: {udenforKupon.map((m) => `${m.home}–${m.away}`).join(', ')}.
+            kuponen: {udenforKupon.map((m) => `${visOf(hold, m.home)}–${visOf(hold, m.away)}`).join(', ')}.
             {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point og Chancen som altid — men runde-bonussen
             venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}.
           </p>
@@ -725,13 +725,16 @@ export default function FootballTip({ game, me, matches }) {
         betsByMatch={betsByMatch}
         chanceMatchId={chanceMatchId}
         nowMs={nowMs}
+        teams={hold}
       />
     </div>
   );
 }
 
 /** Chancen ⚡: sæt point på spil på ét 1X2-valg i runden. */
-function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchId, nowMs }) {
+function ChancePanel({
+  gameId, me, bank, roundMatches, betsByMatch, chanceMatchId, nowMs, teams = null,
+}) {
   const maxStake = chanceMaxStake(bank);
   const usable = canUseChance(bank);
 
@@ -831,7 +834,7 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
   // er præcis den forveksling, ⚡-pillen blev omskrevet for at undgå.
   const gemtLinje = gemtIndsats > 0 && chanceMatch ? (
     <p style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>
-      På spil nu: <strong>{gemtIndsats} point</strong> på {chanceMatch.home}–{chanceMatch.away}
+      På spil nu: <strong>{gemtIndsats} point</strong> på {visOf(teams, chanceMatch.home)}–{visOf(teams, chanceMatch.away)}
       {activeBet?.pick ? ` (${OUTCOME_LABEL[activeBet.pick]})` : ''}
     </p>
   ) : null;
@@ -922,7 +925,7 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
             >
               {options.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.home}–{m.away} (dit valg: {OUTCOME_LABEL[betsByMatch[m.id].pick]})
+                  {visOf(teams, m.home)}–{visOf(teams, m.away)} (dit valg: {OUTCOME_LABEL[betsByMatch[m.id].pick]})
                 </option>
               ))}
             </select>

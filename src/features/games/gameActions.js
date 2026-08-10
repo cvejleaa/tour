@@ -12,7 +12,7 @@
  *   { ok: false, error: 'dansk fejlbesked' }  ved fejl
  */
 import {
-  doc, setDoc, deleteDoc, deleteField, serverTimestamp, Timestamp,
+  doc, setDoc, updateDoc, deleteDoc, deleteField, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL, GAME_STATUS_VALUES } from '../../lib/constants';
@@ -74,10 +74,19 @@ export async function joinGame(uid, gameId) {
 export async function setTeamStyles(gameId, teamStyles) {
   if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
   try {
-    await setDoc(
+    // `updateDoc`, IKKE `setDoc(..., { merge: true })`. Merge DYBDE-fletter
+    // nested maps, så et hold, der udelades af `teamStyles`, beholdt sin gamle
+    // værdi i Firestore. Admin-fladen sender kun det, der AFVIGER fra
+    // standarden — og så kunne en nulstilling ikke gemmes: ↺ ryddede feltet i
+    // formularen, payloaden udelod det, og merge lod det gamle stå. Knappen
+    // lovede altså noget, den ikke kunne holde.
+    //
+    // Formularen er den fulde sandhed om spillets overrides, så feltet skal
+    // ERSTATTES. Det gælder også farverne, som har haft samme fejl, siden de
+    // blev indført — de kunne heller ikke nulstilles.
+    await updateDoc(
       doc(db, COL.GAMES, gameId),
       { teamStyles, updatedAt: serverTimestamp() },
-      { merge: true },
     );
     return { ok: true };
   } catch (err) {

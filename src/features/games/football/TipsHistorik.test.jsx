@@ -244,11 +244,11 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
 // med, så `shortOf` faldt tilbage på navnet. To flader, to visninger, ingen
 // beslutning bag nogen af dem.
 //
-// Nu er det fulde navn standarden begge steder, og kortkoden overtager på en
-// smal skærm. Begge står i DOM'en; CSS afgør hvilken der vises, så testene her
-// kan kun binde INDHOLDET — at begge findes, og at de er hver sin ting.
+// Nu står det fulde VISNINGSNAVN begge steder og på alle skærmbredder. En
+// mellemløsning med kortkode på telefon blev prøvet og forkastet: kampkortet
+// sagde "Sønderjyske", mens historikken ved siden af sagde "SJF".
 // ---------------------------------------------------------------------------
-describe('TipsHistorik — holdnavn og kortkode', () => {
+describe('TipsHistorik — holdnavn', () => {
   const HOLD = [
     { name: 'AGF', short: 'AGF' },
     { name: 'OB', short: 'OB' },
@@ -258,37 +258,40 @@ describe('TipsHistorik — holdnavn og kortkode', () => {
 
   it('viser det fulde holdnavn', () => {
     const { container } = render(<TipsHistorik history={hist()} teams={HOLD} total={5.9} />);
-    const navne = [...container.querySelectorAll('.mytips__hold')].map((e) => e.textContent);
-    expect(navne).toContain('Brøndby IF');
-    expect(navne).toContain('AaB');
+    const kampe = [...container.querySelectorAll('.mytips__match')].map((e) => e.textContent);
+    expect(kampe.join(' ')).toContain('Brøndby IF');
+    expect(kampe.join(' ')).toContain('AaB');
   });
 
-  // Kortkoden skal stadig stå i DOM'en — den er det, en telefon viser.
-  it('bærer kortkoden ved siden af, til den smalle skærm', () => {
+  // BÆRENDE: kortkoden må IKKE stå der. Den var der før, og den var
+  // ulæselig for spillerne.
+  it('viser ikke kortkoden', () => {
     const { container } = render(<TipsHistorik history={hist()} teams={HOLD} total={5.9} />);
-    const koder = [...container.querySelectorAll('.mytips__hold-kort')].map((e) => e.textContent);
-    expect(koder).toContain('BIF');
-    expect(koder).toContain('AAB');
+    expect(container.querySelectorAll('.mytips__hold-kort')).toHaveLength(0);
+    const kampe = [...container.querySelectorAll('.mytips__match')].map((e) => e.textContent).join(' ');
+    expect(kampe).not.toContain('BIF');
+    expect(kampe).not.toContain('AAB');
   });
 
-  // DEN BÆRENDE: de to må ikke være det samme. Var kortkoden bare navnet igen,
-  // ville hele rettelsen være uden virkning — og det er nøjagtig det, der sker,
-  // når `teams` ikke sendes med.
-  it('gør kortkoden FORSKELLIG fra navnet — ellers virker den smalle skærm ikke', () => {
-    const { container } = render(<TipsHistorik history={hist()} teams={HOLD} total={5.9} />);
-    const raekke = container.querySelector('.mytips__match');
-    expect(raekke.querySelector('.mytips__hold').textContent).toBe('Brøndby IF');
-    expect(raekke.querySelector('.mytips__hold-kort').textContent).toBe('BIF');
+  // VISNINGSNAVNET slår igennem her som alle andre steder — det er hele
+  // grunden til, at det lægges på i teamsOf() og ikke på hvert brugssted.
+  it('bruger visningsnavnet, når holdet har et', () => {
+    const medVis = [
+      { name: 'AGF', short: 'AGF' },
+      { name: 'OB', short: 'OB' },
+      { name: 'Brøndby IF', short: 'BIF', vis: 'Brøndby' },
+      { name: 'AaB', short: 'AAB' },
+    ];
+    const { container } = render(<TipsHistorik history={hist()} teams={medVis} total={5.9} />);
+    const kampe = [...container.querySelectorAll('.mytips__match')].map((e) => e.textContent).join(' ');
+    expect(kampe).toContain('Brøndby');
+    expect(kampe).not.toContain('Brøndby IF');
   });
 
-  // Uden holdliste falder kortkoden tilbage på navnet. Det er ikke en fejl —
-  // det er fallbacken i shortOf — men det betyder, at en manglende `teams`-prop
-  // gør den smalle skærm virkningsløs, og DET er værd at kunne se.
-  it('falder tilbage på navnet som kortkode, når holdlisten mangler', () => {
+  // Uden holdliste skal navnet stadig stå — bare uden visningsnavn.
+  it('falder tilbage på kampens eget navn, når holdlisten mangler', () => {
     const { container } = render(<TipsHistorik history={hist()} total={5.9} />);
-    // Nyeste runde står øverst, så første række er runde 2.
-    const raekke = container.querySelector('.mytips__match');
-    expect(raekke.querySelector('.mytips__hold').textContent).toBe('Brøndby IF');
-    expect(raekke.querySelector('.mytips__hold-kort').textContent).toBe('Brøndby IF');
+    const kampe = [...container.querySelectorAll('.mytips__match')].map((e) => e.textContent).join(' ');
+    expect(kampe).toContain('Brøndby IF');
   });
 });

@@ -699,14 +699,13 @@ a:focus-visible,
 .combi-udenfor { border-top: 1px solid var(--c-border); padding-top: 0.4rem; }
 .facit__mangler { color: var(--c-muted); }
 
-/* Holdopstilling i 3 kolonner der flugter med 1X2-knapperne:
-   hjemmehold over "1", bindestreg over "X", udehold over "2". */
 /* TANKESTREGEN FÅR `auto`, IKKE EN TREDJEDEL. Kolonnerne flugtede før med
    1X2-knapperne nedenunder (hjemme over "1", streg over "X", ude over "2"), og
    det var pænt — men det gav ét tegn en tredjedel af kortet, mens holdnavnene
    sultede. Målt med `node scripts/navnbredde.mjs --ombryd`: med tre lige
-   kolonner er selv "Nottingham Forest" klippet på ENHVER telefonbredde, også
-   med tre linjer til rådighed. Med `auto` passer alle navne fra 360 px og op.
+   kolonner er "Nottingham Forest" klippet op til og med 360 px og bruger tre
+   linjer helt op til 430 px, og "Brighton and Hove Albion" er klippet på hele
+   spannet 320–430 px. Med `auto` passer alle navne fra 360 px og op.
    Justeringen var en detalje; læselige holdnavne er det, spillerne bad om. */
 .match-card__lineup {
   display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.5rem;
@@ -720,13 +719,23 @@ a:focus-visible,
    "VFF" er ikke almenviden, og de fleste tipper fra telefonen.
 
    Kortet har højde nok til flere linjer, så navnet ombrydes i stedet.
-   Tre linjer er målt som det, der skal til: `Wolverhampton Wanderers` og
-   `Brighton and Hove Albion` bruger alle tre på en smal telefon, mens de
-   fleste navne klarer sig med to. Ved 320 px — en iPhone SE af første slags —
-   klippes de to længste stadig; det er prisen, og den er kendt.
+   Tre linjer er målt som det, der skal til — `node scripts/navnbredde.mjs
+   --ombryd`: fra 360 px står ALLE 32 holdnavne uklippet, de fleste på to
+   linjer, "FC Nordsjælland" og "Brighton and Hove Albion" på tre.
 
-   `overflow-wrap: anywhere` er nødvendig: uden den bryder browseren ikke
-   `Wolverhampton`, og ét langt ord ville skubbe kortet ud i vandret scroll. */
+   ÉT NAVN PASSER IKKE VED 320 px (iPhone SE af første slags): "Brighton and
+   Hove Albion" er klippet dér og først hel fra 330 px. Det er grunden til, at
+   visningsnavnet findes — klubben vises som "Brighton", og så er den nede på
+   én linje overalt. Prisen ved 320 px uden visningsnavn er kendt og accepteret.
+
+   `overflow-wrap: anywhere` er nødvendig, men IKKE af den grund, der før stod
+   her. Den gamle begrundelse var, at ét langt ord ellers ville skubbe kortet ud
+   i vandret scroll — det gør det ikke, `overflow: hidden` klipper i stedet — og
+   den nævnte `Wolverhampton`, som ikke spiller i nogen af de to ligaer.
+   Den ægte grund er målt med `node scripts/navnbredde.mjs --ordbrud`: uden
+   reglen bliver "Nordsjælland", "Bournemouth" og "Sønderjyske" stående på ÉN
+   linje og klippet ved 320 og 360 px i stedet for at bruge de tre linjer, der
+   er plads til. */
 .match-card__side-name {
   font-size: 0.92rem; font-weight: 700; color: var(--c-text);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
@@ -854,27 +863,15 @@ a:focus-visible,
 .mytips__row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.5rem; padding: 0.35rem 0.2rem; border-top: 1px solid var(--c-border); font-size: 0.88rem; }
 .mytips__row--chance { background: color-mix(in srgb, var(--c-accent, #f5b301) 8%, transparent); border-radius: var(--radius-sm); }
 .mytips__kick { font-size: 0.7rem; color: var(--c-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mytips__match { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Fulde holdnavne som standard — kortkoderne alene ("SJF–VFF") krævede, at man
-   kunne tolvte-dels-alfabetet udenad for at læse sin egen tipshistorik.
+/* FULDE NAVNE, ALTID. Rækken viste kortkoden under 600 px, og det var samme
+   fejl som på kampkortet: spillerne kan ikke tyde forkortelserne. Værre var,
+   at kampkortet efter ombrydningen sagde "Sønderjyske", mens historikken lige
+   ved siden af sagde "SJF" på den samme telefon.
 
-   SAMME KNÆKPUNKT SOM KAMPKORTET (600 px), og det er et VALG, ikke et krav.
-   Målt kunne rækken klare sig med 379: dens `1fr`-kolonne deles af begge navne,
-   så den har mere plads end kortets faste tredjedel, og Manchester-parret kan
-   skelnes langt tidligere her (`node scripts/navnbredde.mjs`).
-
-   Men to forskellige grænser gav et bånd — 481 til 600 px — hvor kampkortet
-   viste kortkoder, mens tipshistorikken viste fulde navne. Samme app, samme
-   hold, to formsprog på to faner, og ingen bruger kan se hvorfor. Sammenhæng
-   vejer tungere end de ekstra 120 px navn, en tablet i portræt ville få.
-
-   Prisen står her, så den er kendt: mellem 480 og 600 px viser tipshistorikken
-   nu koder, hvor den kunne have vist navne. */
-.mytips__hold-kort { display: none; }
-@media (max-width: 600px) {
-  .mytips__hold { display: none; }
-  .mytips__hold-kort { display: inline; }
-}
+   Navnet ombrydes i stedet. Rækken er et gitter, så den vokser i højden — og
+   med visningsnavnene ("Nordsjælland", "Sønderjyske") er de fleste kampe nede
+   på én linje igen. */
+.mytips__match { font-weight: 600; overflow-wrap: anywhere; }
 .mytips__dash { color: var(--c-muted); margin: 0 0.25rem; }
 .mytips__pick { font-weight: 800; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 0.15rem; }
 .mytips__chance { font-size: 0.8rem; }
@@ -903,7 +900,17 @@ a:focus-visible,
 .elo-table th, .elo-table td { padding: 0.4rem 0.6rem; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--c-border); }
 .elo-table thead th { position: sticky; top: 0; background: var(--c-surface); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--c-muted); }
 .elo-table tbody tr:last-child td { border-bottom: none; }
+/* HOLDKOLONNEN ER STICKY, og cellerne er `nowrap`. Da den gik fra kortkoden
+   (3 tegn) til det fulde navn, kunne "Brighton and Hove Albion" derfor skubbe
+   rating-kolonnerne ud af skærmen på en telefon — tabellen scroller vandret,
+   men den låste kolonne følger med og æder pladsen.
+   Loftet er sat i ch, så det følger skriftstørrelsen: 14 tegn rummer
+   "Nordsjælland" og "Lyngby Boldklub"; længere navne klippes med ellipsis og
+   kan læses i `title`. På bredere skærme er der ingen grænse. */
 .elo-team-col { position: sticky; left: 0; z-index: 1; background: var(--c-surface); text-align: left !important; box-shadow: 1px 0 0 var(--c-border); }
+@media (max-width: 600px) {
+  .elo-team__name { display: inline-block; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+}
 .elo-start-col { color: var(--c-muted); }
 .elo-team { display: inline-flex; align-items: center; gap: 0.4rem; }
 .elo-team__name { font-weight: 700; }

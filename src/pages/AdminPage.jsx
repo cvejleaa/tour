@@ -67,7 +67,7 @@ export default function AdminPage() {
     // + per-spil påmindelser.
     ...(PLATFORM_MODE ? [
       { key: TAB_SCHEDULE, label: '🗓️ Spil-tidsplan' },
-      { key: TAB_TEAMSTYLES, label: '🎨 Hold-farver' },
+      { key: TAB_TEAMSTYLES, label: '🎨 Hold-farver og navne' },
       { key: TAB_REMINDERS, label: '🔔 Påmindelser' },
       { key: TAB_RECAPBOT, label: '🤖 Runde-Botten' },
     ] : []),

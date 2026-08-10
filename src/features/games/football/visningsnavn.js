@@ -6,9 +6,10 @@
  * `teamElo()` falder TAVST tilbage til 1500 for et navn, den ikke kender. Den
  * må derfor aldrig røres for at få noget til at se pænere ud.
  *
- * Skærmen har et andet behov. "Brighton and Hove Albion" er det eneste af de
- * 32 holdnavne, der stadig klippes på en telefon — målt med
- * `node scripts/navnbredde.mjs` — og "Tottenham Hotspur" og "Sønderjyske
+ * Skærmen har et andet behov. Målt med `node scripts/navnbredde.mjs`:
+ * "Brighton and Hove Albion" er det eneste af de 32 holdnavne, der stadig
+ * klippes på en telefon i portræt — det er helt først fra 330 px, altså ikke på
+ * en iPhone SE af første slags. Og "Tottenham Hotspur" og "Sønderjyske
  * Fodbold" fylder to linjer, hvor ingen siger andet end "Tottenham" og
  * "Sønderjyske" i daglig tale.
  *
@@ -18,7 +19,7 @@
  * end en kode — "Brighton" skal ikke slås op.
  *
  * Standardnavnene herunder er forslag. De kan overskrives pr. spil i
- * Admin → 🎨 Hold-farver, som er stedet, man går hen for at justere, hvordan
+ * Admin → 🎨 Hold-farver og navne, som er stedet, man går hen for at justere, hvordan
  * et hold ser ud.
  */
 

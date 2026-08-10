@@ -237,6 +237,27 @@ describe('FootballTip — Elo på kampkortene', () => {
     expect(navne).not.toContain('Brighton');
   });
 
+  // ET HOLD, DER IKKE STÅR I LISTEN, SKAL STADIG HAVE SIT NAVN PÅ KORTET.
+  //
+  // Før visningsnavnet stod `{m.home}` direkte i JSX'en og kunne slet ikke
+  // blive tom. Nu står der `info?.vis || name`, og uden fallbacken renderer
+  // kortet en TOM streng for et hold, opslaget ikke kender. Mutationen
+  // `navn: info?.vis` overlevede hele suiten.
+  //
+  // Det er ikke en hypotetisk gren: navne driver mellem pulselive og seedet —
+  // det er hele grunden til, at `teamNameAudit.js` findes.
+  it('viser det rå navn for et hold, der ikke står i holdlisten', () => {
+    const { container } = setup({
+      // Kun ÉT af kampens to hold er i listen. Så beviser testen også, at det
+      // ikke bare er hele kortet, der er tomt.
+      teams: [{ name: 'Arsenal', short: 'ARS', elo: 1664 }],
+    }, '/spil/sl', [{ ...MATCHES[0], id: 'm-ukendt', home: 'Hvidovre IF', away: 'Arsenal' }]);
+    const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
+    expect(navne).toContain('Hvidovre IF');
+    expect(navne).toContain('Arsenal');
+    expect(navne).not.toContain('');
+  });
+
   // HOLDNAVNET SKAL STÅ FULDT UD — ikke som en forkortelse. Det var hele
   // grunden til at fjerne kortkoden: spillerne kunne ikke tyde den.
   it('viser holdets fulde navn på begge sider af kortet', () => {

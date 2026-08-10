@@ -141,22 +141,47 @@ describe('kampkortet — holdnavnet ombrydes i stedet for at blive klippet', () 
   });
 });
 
-describe('tipshistorikken — fuldt navn, kortkode på smal skærm', () => {
-  it('skjuler kortkoden på almindelig skærm', () => {
-    expect(regel(udenforMedie(), '.mytips__hold-kort')).toContain('display:none');
+describe('tipshistorikken — fuldt navn, også på telefon', () => {
+  // KORTKODEN ER VÆK HERFRA OGSÅ. Rækken viste den under 600 px, og så sagde
+  // kampkortet "Sønderjyske", mens historikken lige ved siden af sagde "SJF"
+  // på den samme skærm. Samme fejl, samme begrundelse: spillerne kan ikke tyde
+  // forkortelserne.
+  it('har ingen kortkode-regel tilbage', () => {
+    expect(regel(udenforMedie(), '.mytips__hold-kort')).toBeNull();
+    expect(regel(iMedie(600), '.mytips__hold-kort')).toBeNull();
+    expect(regel(iMedie(600), '.mytips__hold')).toBeNull();
   });
 
-  it('bytter dem om under 600 px — samme grænse som kampkortet', () => {
-    const smal = iMedie(600);
-    expect(smal, 'ingen 600px-blok i theme.css').not.toBe('');
-    expect(regel(smal, '.mytips__hold')).toContain('display:none');
-    expect(regel(smal, '.mytips__hold-kort')).toContain('display:inline');
+  // Navnet ombrydes i stedet for at blive klippet. Uden `overflow-wrap` ville
+  // et langt navn skubbe rækken ud i vandret scroll.
+  it('ombryder navnet i stedet for at klippe det', () => {
+    const r = regel(udenforMedie(), '.mytips__match');
+    expect(r).not.toBeNull();
+    expect(r).toContain('overflow-wrap:anywhere');
+    expect(r).not.toContain('white-space:nowrap');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ELO-TABELLENS HOLDKOLONNE
+//
+// Den er `position: sticky` og cellerne er `nowrap`. Kolonnen gik fra
+// kortkoden (3 tegn) til det fulde navn, og uden et loft kunne "Brighton and
+// Hove Albion" skubbe rating-kolonnerne ud af skærmen på en telefon: tabellen
+// scroller vandret, men den låste kolonne følger med og æder pladsen.
+// ---------------------------------------------------------------------------
+describe('Elo-tabellen — holdkolonnen har et loft på telefon', () => {
+  it('begrænser navnets bredde under 600 px', () => {
+    const r = regel(iMedie(600), '.elo-team__name');
+    expect(r, 'ingen bredde-grænse på Elo-tabellens holdnavn').not.toBeNull();
+    expect(r).toContain('max-width');
+    expect(r).toContain('text-overflow:ellipsis');
   });
 
-  // Den gamle, lavere grænse må ikke snige sig tilbage og skille de to flader
-  // ad igen — det var dén, der gav båndet 481-600 px, hvor kampkortet viste
-  // koder og tipshistorikken navne.
-  it('skifter IKKE ved 480 px', () => {
-    expect(regel(iMedie(480), '.mytips__hold')).toBeNull();
+  // …og IKKE på en bred skærm, hvor der er plads til hele navnet.
+  it('har intet loft på almindelig skærm', () => {
+    const r = regel(udenforMedie(), '.elo-team__name');
+    expect(r).not.toBeNull();
+    expect(r).not.toContain('max-width');
   });
 });
