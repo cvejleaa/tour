@@ -864,13 +864,21 @@ a:focus-visible,
 .mytips__match { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Fulde holdnavne som standard — kortkoderne alene ("SJF–VFF") krævede, at man
    kunne tolvte-dels-alfabetet udenad for at læse sin egen tipshistorik.
-   Knækpunktet er 480 px, altså LAVERE end kampkortets 600: rækkens `1fr`-
-   kolonne deles af begge navne, så den har MERE plads end kortets faste
-   tredjedel. Målt kan Manchester-parret skelnes her helt ned til 379 px
-   (`node scripts/navnbredde.mjs`); 480 giver rigelig margin og holder samtidig
-   de lange danske navne hele på en tablet. */
+
+   SAMME KNÆKPUNKT SOM KAMPKORTET (600 px), og det er et VALG, ikke et krav.
+   Målt kunne rækken klare sig med 379: dens `1fr`-kolonne deles af begge navne,
+   så den har mere plads end kortets faste tredjedel, og Manchester-parret kan
+   skelnes langt tidligere her (`node scripts/navnbredde.mjs`).
+
+   Men to forskellige grænser gav et bånd — 481 til 600 px — hvor kampkortet
+   viste kortkoder, mens tipshistorikken viste fulde navne. Samme app, samme
+   hold, to formsprog på to faner, og ingen bruger kan se hvorfor. Sammenhæng
+   vejer tungere end de ekstra 120 px navn, en tablet i portræt ville få.
+
+   Prisen står her, så den er kendt: mellem 480 og 600 px viser tipshistorikken
+   nu koder, hvor den kunne have vist navne. */
 .mytips__hold-kort { display: none; }
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .mytips__hold { display: none; }
   .mytips__hold-kort { display: inline; }
 }

@@ -130,26 +130,42 @@ describe('tipshistorikken — fuldt navn, kortkode på smal skærm', () => {
     expect(regel(udenforMedie(), '.mytips__hold-kort')).toContain('display:none');
   });
 
-  it('bytter dem om under 480 px', () => {
-    const smal = iMedie(480);
-    expect(smal, 'ingen 480px-blok i theme.css').not.toBe('');
+  it('bytter dem om under 600 px — samme grænse som kampkortet', () => {
+    const smal = iMedie(600);
+    expect(smal, 'ingen 600px-blok i theme.css').not.toBe('');
     expect(regel(smal, '.mytips__hold')).toContain('display:none');
     expect(regel(smal, '.mytips__hold-kort')).toContain('display:inline');
+  });
+
+  // Den gamle, lavere grænse må ikke snige sig tilbage og skille de to flader
+  // ad igen — det var dén, der gav båndet 481-600 px, hvor kampkortet viste
+  // koder og tipshistorikken navne.
+  it('skifter IKKE ved 480 px', () => {
+    expect(regel(iMedie(480), '.mytips__hold')).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// RÆKKEFØLGEN MELLEM DE TO, og den er den modsatte af, hvad jeg først skrev.
+// DE TO FLADER SKIFTER SAMTIDIG.
 //
-// Jeg satte kortet til at skifte FØR rækken med den begrundelse, at rækken har
-// mindre plads. Målingen siger det modsatte: kortet kræver 80-230 px MERE
-// viewport end rækken for det samme hold, fordi `repeat(3, 1fr)` giver hver
-// side en fast tredjedel, mens rækkens `1fr` deles af begge navne.
+// Først satte jeg kortet til 420 og rækken til 480 med den begrundelse, at
+// rækken har mindst plads. Målingen viste det modsatte — kortet kræver 80-230
+// px MERE viewport, fordi `repeat(3, 1fr)` giver hver side en fast tredjedel,
+// mens rækkens `1fr` deles af begge navne.
 //
-// Testen her låser retningen, ikke de præcise tal — så knækpunkterne kan
-// justeres, uden at den skal skrives om, men de kan ikke bytte plads igen.
+// Rettet blev de til 600 og 480, og dét gav en NY skævhed: mellem 481 og 600 px
+// viste kampkortet koder, mens tipshistorikken viste navne. Samme app, samme
+// hold, to formsprog på to faner.
+//
+// Begge står nu på 600. Rækken kunne have klaret sig med 379, men sammenhæng
+// vejer tungere end de ekstra navne, en tablet i portræt ville få — og prisen
+// er skrevet ned i theme.css, så den er kendt.
+//
+// Testen låser LIGHEDEN og det målte minimum, ikke tallet 600. Knækpunktet kan
+// hæves uden at skrive testen om; det kan ikke sænkes under 586, og de to kan
+// ikke drive fra hinanden igen.
 // ---------------------------------------------------------------------------
-describe('kampkortet skifter SENERE end tips-rækken', () => {
+describe('kampkortet og tips-rækken skifter ved samme bredde', () => {
   const graense = (selektor) => {
     for (const px of [320, 360, 380, 400, 420, 440, 460, 480, 500, 540, 560, 600, 640, 700, 720, 768]) {
       if (regel(iMedie(px), selektor) !== null) return px;
@@ -157,17 +173,18 @@ describe('kampkortet skifter SENERE end tips-rækken', () => {
     return null;
   };
 
-  it('kortet ved en HØJERE bredde end rækken', () => {
+  it('bruger det samme knækpunkt til begge', () => {
     const kort = graense('.match-card__side-name');
     const raekke = graense('.mytips__hold');
     expect(kort, 'kampkortet har ingen media query').not.toBeNull();
     expect(raekke, 'tips-rækken har ingen media query').not.toBeNull();
-    expect(kort).toBeGreaterThan(raekke);
+    expect(kort).toBe(raekke);
   });
 
-  // Og konkret, så en fremtidig ændring ikke kan sænke kortet under det målte
-  // minimum på 586 px uden at nogen tager stilling.
-  it('kortet skifter ved mindst 586 px — det målte minimum for Manchester-parret', () => {
+  // Kampkortet er det stramme sted, og 586 px er dets målte minimum for at
+  // kunne skelne Manchester City fra Manchester United. Under det er de to
+  // igen "Manch…" og "Manch…".
+  it('skifter ved mindst 586 px — kampkortets målte minimum', () => {
     expect(graense('.match-card__side-name')).toBeGreaterThanOrEqual(586);
   });
 });
