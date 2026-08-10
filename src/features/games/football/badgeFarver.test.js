@@ -12,11 +12,11 @@
 // med to fuldstændig ens hvide badges. Afstand 0. Ingen af de 2000 tests sagde
 // fra, fordi ingen af dem kørte parrene igennem reglen.
 //
-// Testen bruger den ÆGTE `matchBadges` fra FootballTip, ikke en kopi. En kopi
+// Testen bruger den ÆGTE `matchBadges` fra `badges.js`, ikke en kopi. En kopi
 // ville drive fra originalen, og så ville den bevise noget om sig selv.
 // ---------------------------------------------------------------------------
 import { describe, it, expect } from 'vitest';
-import { matchBadges } from './FootballTip';
+import { matchBadges } from './badges';
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
 import { PREMIER_LEAGUE_TEAMS_2026 } from '../../../data/premierLeagueTeams2026';
 import { colorDistance } from '../../../lib/contrastText';

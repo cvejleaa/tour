@@ -13,6 +13,7 @@ import { formatPoints } from './GameLayout';
 import { fmtSignedPoints } from '../../lib/daNum';
 import { RUBRIKKER, opdelingsAfvigelse, afvigelsesTekst } from './football/PointOpdeling';
 import SpillerDetalje from './football/SpillerDetalje';
+import { useKlubFarver } from './football/useKlubFarver';
 
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
 // et manglende valg.
@@ -137,6 +138,8 @@ function DeltaArrow({ row }) {
 
 export default function GameStandings({ gameId, game = null, matches = [] }) {
   const { user } = useAuth();
+  // Yndlingsholdets farver som ring om avataren — se useKlubFarver.
+  const klubFarver = useKlubFarver(game);
   const { standings: alleMine, leagues, leagueCount, loading, error } = useVisibleGameStandings(gameId);
 
   // Filter: hele kredsen (alle mine ligaer samlet) eller én enkelt liga.
@@ -236,7 +239,10 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         </td>
         <td style={{ padding: '0.45rem 0.5rem' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={26} />
+            <Avatar
+              uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam}
+              klubFarver={klubFarver(r.favoriteTeam)} size={26}
+            />
             <SpillerNavn r={r} aaben={aabenUid === r.uid} onToggle={toggleUid} />
             {isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
           </span>
@@ -350,7 +356,10 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           {podiumOrder.map((r) => (
             <div key={r.uid} className="podium__spot">
               <span className="podium__medal">{MEDAL[r.rank - 1] || `#${r.rank}`}</span>
-              <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={r.rank === 1 ? 44 : 34} />
+              <Avatar
+                uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam}
+                klubFarver={klubFarver(r.favoriteTeam)} size={r.rank === 1 ? 44 : 34}
+              />
               <SpillerNavn r={r} aaben={aabenUid === r.uid} onToggle={toggleUid} className="link-btn podium__name" />
               <span className="podium__pts">{formatPoints(r.totalPoints)} p</span>
               {/* Selve trinnet. Højden følger PLACERINGEN og ikke pladsen i

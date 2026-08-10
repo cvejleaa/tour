@@ -10,6 +10,8 @@ import Avatar from '../../components/Avatar';
 import ClubBadge from '../../components/ClubBadge';
 import { setPlayerFavoriteTeam } from './gameActions';
 import { teamsOf } from './football/teamInfo';
+import { badgeFor } from './football/badges';
+import { useKlubFarver } from './football/useKlubFarver';
 
 export default function GameProfile({ game, me }) {
   const gameId = game?.id;
@@ -28,6 +30,9 @@ export default function GameProfile({ game, me }) {
     return [...t].sort((a, b) => (a.vis || a.name).localeCompare(b.vis || b.name, 'da'));
   }, [game]);
 
+  // Ringen om avataren — se useKlubFarver. Følger det VALGTE hold i vælgeren,
+  // ikke det gemte, så man kan se farven, før man trykker Gem.
+  const klubFarver = useKlubFarver(game);
   const [team, setTeam] = useState(me?.favoriteTeam ?? '');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null); // 'saved' | string | null
@@ -35,6 +40,11 @@ export default function GameProfile({ game, me }) {
   useEffect(() => { setTeam(me?.favoriteTeam ?? ''); }, [me?.favoriteTeam]);
 
   const chosen = teams.find((t) => t.name === team) || null;
+  // Trøjen som kampkortet ville tegne den — inkl. admin-overrides.
+  const valgtBadge = useMemo(
+    () => (chosen ? badgeFor(teams, chosen.name, game?.teamStyles, 'home') : null),
+    [teams, chosen, game?.teamStyles],
+  );
 
   async function save() {
     setBusy(true); setStatus(null);
@@ -46,9 +56,15 @@ export default function GameProfile({ game, me }) {
   return (
     <div className="card">
       <h3 className="card__title" style={{ marginTop: 0 }}>🙂 Din profil i {game?.name || 'spillet'}</h3>
+      {/* TEKSTEN VAR FALSK, INDTIL RINGEN KOM. Her stod ordret, at valget
+          "giver din avatar holdets farve i stillingen og i dine ligaer" — men
+          `Avatar` brugte kun `favoriteTeam` til et Tour-cykelholds trøjebillede,
+          og den kode er slået fra på platformen. Yndlingsholdet gjorde altså
+          INTET synligt uden for det her kort. Nu passer sætningen, og den siger
+          RING frem for "farve", fordi fyldet stadig er den personlige farve. */}
       <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
-        Vælg dit <strong>yndlingshold</strong> i dette spil. Det giver din avatar holdets farve i stillingen
-        og i dine ligaer. Holdet gælder kun her — andre spil har deres egne hold.
+        Vælg dit <strong>yndlingshold</strong> i dette spil. Din avatar får holdets farve som ring
+        om sig i stillingen og i dine ligaer. Holdet gælder kun her — andre spil har deres egne hold.
       </p>
 
       <div className="flex items-center" style={{ gap: '0.75rem', margin: '0.5rem 0 1rem' }}>
@@ -61,19 +77,28 @@ export default function GameProfile({ game, me }) {
             hash-farvet cirkel for hver eneste spiller, og en valgt avatar-emoji
             dukkede aldrig op. Ens egen profil var det ene sted i spillet, hvor
             man ikke kunne se sig selv. */}
+        {/* `favoriteTeam` sendes IKKE med. Den prop betyder et CYKELHOLD i
+            Tour-appen, og `team` her er et fodboldhold — i Tour-tilstand ville
+            "Viborg FF" blive slået op i cykelholdene. Klubfarverne har deres
+            egen prop netop derfor. */}
         <Avatar
           uid={uid}
           name={profile?.displayName || user?.displayName}
           emoji={profile?.avatarEmoji}
-          favoriteTeam={team || null}
+          klubFarver={klubFarver(team)}
           size={48}
         />
         <div>
           <div style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+            {/* TRØJEN VIA `badgeFor`, ikke via rådata. Her stod
+                `chosen.troejer?.hjemme?.…` direkte, og så slog en admin-rettet
+                farve (games/{id}.teamStyles) IKKE igennem — holdet kunne stå i
+                én farve på kampkortet og en anden her. `badgeFor` er det ene
+                sted, overrides læses. */}
             {chosen && <ClubBadge
-              variant="troeje" code={chosen.short} color={chosen.color} size={22}
-              color2={chosen.troejer?.hjemme?.sekundaer} moenster={chosen.troejer?.hjemme?.moenster}
-              aerme={chosen.troejer?.hjemme?.aerme} title={chosen.name}
+              variant="troeje" code={valgtBadge.code} color={valgtBadge.color} size={22}
+              color2={valgtBadge.color2} moenster={valgtBadge.moenster}
+              aerme={valgtBadge.aerme} title={chosen.name}
             />}
             {chosen ? (chosen.vis || chosen.name) : 'Intet hold valgt'}
           </div>

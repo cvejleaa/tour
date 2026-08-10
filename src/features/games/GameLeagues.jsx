@@ -13,13 +13,14 @@ import { useLeagueQuestions } from './useLeagueQuestions';
 import { leagueQuestionPointsByUid, leagueRankingWithQuestions } from './leagueQuestionScoring';
 import LeagueQuestions from './LeagueQuestions';
 import { formatPoints } from './GameLayout';
+import { useKlubFarver } from './football/useKlubFarver';
 import { relativeTime } from '../../lib/daDate';
 import {
   createLeague, joinLeagueByCode, leaveLeague, renameLeague, deleteLeague,
   postLeagueMessage, LEAGUE_MSG_MAX,
 } from './gameLeagueActions';
 
-function LeagueTable({ rows, meUid }) {
+function LeagueTable({ rows, meUid, klubFarver }) {
   if (rows.length === 0) {
     return <p style={{ color: 'var(--c-muted)', margin: '0.5rem 0' }}>Ingen medlemmer med point endnu.</p>;
   }
@@ -31,7 +32,10 @@ function LeagueTable({ rows, meUid }) {
             <td style={{ padding: '0.35rem 0.4rem', width: 32, fontVariantNumeric: 'tabular-nums' }}>{r.rank}</td>
             <td style={{ padding: '0.35rem 0.4rem' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Avatar uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam} size={22} />
+                <Avatar
+                  uid={r.uid} name={r.name} emoji={r.emoji} favoriteTeam={r.favoriteTeam}
+                  klubFarver={klubFarver(r.favoriteTeam)} size={22}
+                />
                 {r.name}{r.uid === meUid && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
               </span>
             </td>
@@ -49,7 +53,7 @@ function LeagueTable({ rows, meUid }) {
 }
 
 /** Liga-væg: seneste beskeder + skrivefelt. */
-function LeagueWall({ gameId, leagueId, meUid, byUid }) {
+function LeagueWall({ gameId, leagueId, meUid, byUid, klubFarver }) {
   const { messages, loading } = useLeagueMessages(gameId, leagueId);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -89,7 +93,10 @@ function LeagueWall({ gameId, leagueId, meUid, byUid }) {
             const u = byUid[m.uid] || { name: m.displayName, emoji: m.avatarEmoji };
             return (
               <li key={m.id} className="wall__msg">
-                <Avatar uid={m.uid} name={u.name} emoji={u.emoji} favoriteTeam={u.favoriteTeam} size={22} />
+                <Avatar
+                  uid={m.uid} name={u.name} emoji={u.emoji} favoriteTeam={u.favoriteTeam}
+                  klubFarver={klubFarver(u.favoriteTeam)} size={22}
+                />
                 <div className="wall__body">
                   <div className="wall__meta">
                     <strong>{u.name || 'Spiller'}{m.uid === meUid ? ' (dig)' : ''}</strong>
@@ -106,7 +113,7 @@ function LeagueWall({ gameId, leagueId, meUid, byUid }) {
   );
 }
 
-function LeagueCard({ league, standings, byUid, meUid, gameId, forvalgt }) {
+function LeagueCard({ league, standings, byUid, meUid, gameId, forvalgt, klubFarver }) {
   // Kommer man fra "Åbn ligaen →" i stillingen, skal DEN liga stå åben. Ellers
   // lander man på en liste, hvor alt er foldet sammen — og linket lovede mere,
   // end klikket gav.
@@ -171,7 +178,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, forvalgt }) {
 
       {open && (
         <>
-          <LeagueTable rows={rows} meUid={meUid} />
+          <LeagueTable rows={rows} meUid={meUid} klubFarver={klubFarver} />
 
           <div className="flex items-center justify-between" style={{ gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--c-muted)' }}>
@@ -195,14 +202,17 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, forvalgt }) {
             questions={questions} answersByQid={answersByQid} byUid={byUid}
           />
 
-          <LeagueWall gameId={gameId} leagueId={league.id} meUid={meUid} byUid={byUid} />
+          <LeagueWall
+            gameId={gameId} leagueId={league.id} meUid={meUid} byUid={byUid}
+            klubFarver={klubFarver}
+          />
         </>
       )}
     </div>
   );
 }
 
-export default function GameLeagues({ gameId }) {
+export default function GameLeagues({ gameId, game = null }) {
   // ?liga=<id> forvælger ét kort — sat af "Åbn ligaen →" i stillingen.
   const [ligaParams] = useSearchParams();
   const valgtLigaId = ligaParams.get('liga');
@@ -210,6 +220,8 @@ export default function GameLeagues({ gameId }) {
   const meUid = user?.uid;
   const { leagues, loading, error } = useGameLeagues(gameId);
   const { standings } = useGameStandings(gameId);
+  // Yndlingsholdets farver som ring om avataren — se useKlubFarver.
+  const klubFarver = useKlubFarver(game);
 
   const byUid = useMemo(() => {
     const m = {};
@@ -266,6 +278,7 @@ export default function GameLeagues({ gameId }) {
             meUid={meUid}
             gameId={gameId}
             forvalgt={l.id === valgtLigaId}
+            klubFarver={klubFarver}
           />
         ))
       )}
