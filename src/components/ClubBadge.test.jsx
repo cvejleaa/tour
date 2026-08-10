@@ -123,6 +123,20 @@ describe('ClubBadge — mønstre', () => {
   // de tydeligt har et mønster — og alternativet var værre: et enkelt brystbånd
   // tegnet som `boejler` bliver til TO bånd, altså en anden trøje.
   // ---------------------------------------------------------------------------
+  // MØNSTERETS FORM, uden klipstiens id. `svg.innerHTML` duer IKKE til
+  // sammenligning: `idTaeller` tælles op ved hver render, så to renders af
+  // SAMME mønster giver to forskellige strenge. Testen "alle otte er
+  // forskellige" var derfor strukturelt umulig at gøre rød — `vandret-delt`
+  // kunne gøres pixel-identisk med `halveret` med grøn suite.
+  const form = (m) => [...tegn(m).querySelectorAll('g rect, g polygon')]
+    .map((e) => e.outerHTML).join('|');
+
+  // Vagten mod at defekten sniger sig tilbage: samme mønster, to renders,
+  // samme form. Falder den, sammenligner vi id'er igen i stedet for figurer.
+  it('giver samme form ved to renders af samme mønster', () => {
+    expect(form('striber')).toBe(form('striber'));
+  });
+
   it('tegner ét skråbånd som en polygon, ikke et rektangel', () => {
     const c = tegn('skraabaand');
     expect(c.querySelectorAll('polygon').length).toBe(1);
@@ -130,14 +144,34 @@ describe('ClubBadge — mønstre', () => {
     expect(c.querySelectorAll('rect').length).toBe(0);
   });
 
-  // BÆRENDE for skråbåndet: det skal FALDE. Et polygon med samme y i begge
-  // ender ville tegne et vandret bånd og bestå testen ovenfor.
-  it('lader skråbåndet falde fra venstre mod højre', () => {
-    const p = tegn('skraabaand').querySelector('polygon').getAttribute('points');
-    const punkter = p.trim().split(/\s+/).map((par) => par.split(',').map(Number));
-    const venstre = Math.min(...punkter.map(([, y]) => y));
-    const hoejre = Math.max(...punkter.map(([, y]) => y));
-    expect(hoejre - venstre).toBeGreaterThan(5);
+  /** Polygonens punkter som [x, y]-par. */
+  const punkter = () => tegn('skraabaand').querySelector('polygon')
+    .getAttribute('points').trim().split(/\s+/)
+    .map((par) => par.split(',').map(Number));
+
+  // BÆRENDE for skråbåndet: det skal FALDE MOD HØJRE. Første udgave målte kun
+  // polygonens samlede lodrette udstrækning, og så bestod BÅDE et bånd der
+  // stiger, en lodret stribe og en polygon, der malede hele kroppen.
+  it('lader skråbåndet falde mod højre — venstre ende ligger højere', () => {
+    const p = punkter();
+    const xMin = Math.min(...p.map(([x]) => x));
+    const xMaks = Math.max(...p.map(([x]) => x));
+    const venstreY = p.filter(([x]) => x === xMin).map(([, y]) => y);
+    const hoejreY = p.filter(([x]) => x === xMaks).map(([, y]) => y);
+    const midt = (ys) => (Math.min(...ys) + Math.max(...ys)) / 2;
+    expect(midt(hoejreY)).toBeGreaterThan(midt(venstreY) + 4);
+  });
+
+  // …og det må ikke sluge trøjen. En polygon fra top til bund over hele
+  // bredden bestod den gamle test og malede kroppen ensfarvet marineblå.
+  it('lader skråbåndet dække under halvdelen af kroppens højde', () => {
+    const p = punkter();
+    const xMin = Math.min(...p.map(([x]) => x));
+    const venstreY = p.filter(([x]) => x === xMin).map(([, y]) => y);
+    const tykkelse = Math.max(...venstreY) - Math.min(...venstreY);
+    // Kroppen er 19 enheder høj (y 2,5-21,5). Båndet er målt til 21 % af trøjen.
+    expect(tykkelse).toBeGreaterThan(2);
+    expect(tykkelse).toBeLessThan(19 / 2);
   });
 
   it('tegner ÉT bånd ved baand — ikke to som boejler', () => {
@@ -150,8 +184,20 @@ describe('ClubBadge — mønstre', () => {
     const r = tegn('baand').querySelector('rect');
     const y = Number(r.getAttribute('y'));
     const h = Number(r.getAttribute('height'));
-    expect(y).toBeGreaterThan(6);
+    expect(y).toBeGreaterThan(9);
     expect(y + h).toBeLessThan(17);
+  });
+
+  // OG DET SKAL KUNNE SES. Et bånd på 0,3 enheder bestod den gamle test — det
+  // er 0,27 px på en 22 px badge, altså tyndere end Lyngbys bånd, som blev
+  // FRAVALGT netop på den grund (0,61 px). Kroppen er 11 enheder bred og 19 høj.
+  it('gør baandet bredt nok til at ses ved 22 px', () => {
+    const r = tegn('baand').querySelector('rect');
+    const h = Number(r.getAttribute('height'));
+    const w = Number(r.getAttribute('width'));
+    expect(w).toBeGreaterThanOrEqual(10);
+    // 2 enheder af 24 er 1,8 px ved størrelse 22 — tre gange Lyngbys 0,61.
+    expect(h).toBeGreaterThanOrEqual(2);
   });
 
   // `firkanter` er et EGENTLIGT bræt; `ternet` er to modstående kvadranter.
@@ -160,7 +206,23 @@ describe('ClubBadge — mønstre', () => {
   it('tegner firkanter som et bræt, ternet som to kvadranter', () => {
     expect(tegn('ternet').querySelectorAll('rect').length).toBe(2);
     expect(tegn('firkanter').querySelectorAll('rect').length).toBeGreaterThan(4);
-    expect(tegn('firkanter').innerHTML).not.toBe(tegn('ternet').innerHTML);
+    expect(form('firkanter')).not.toBe(form('ternet'));
+  });
+
+  // BRÆTTET SKAL DÆKKE KROPPEN. Testene talte kun felter, så `bredde = 1,
+  // hoejde = 1` (en lillebitte klynge i hjørnet) og `bredde = 0` (seks
+  // usynlige rektangler) var begge grønne.
+  it('spænder firkanterne over hele kroppen', () => {
+    const r = [...tegn('firkanter').querySelectorAll('rect')]
+      .map((e) => ['x', 'y', 'width', 'height'].map((a) => Number(e.getAttribute(a))));
+    const venstre = Math.min(...r.map(([x]) => x));
+    const hoejre = Math.max(...r.map(([x, , w]) => x + w));
+    const top = Math.min(...r.map(([, y]) => y));
+    const bund = Math.max(...r.map(([, y, , h]) => y + h));
+    expect(hoejre - venstre).toBeGreaterThanOrEqual(10);   // kroppen er 11 bred
+    expect(bund - top).toBeGreaterThanOrEqual(18);         // og 19 høj
+    // Og hvert felt skal have areal — seks nulstore rektangler er ikke et bræt.
+    for (const [, , w, h] of r) expect(w * h).toBeGreaterThan(2);
   });
 
   // Men ikke for mange: kroppen er 6,9 px bred ved størrelse 22, så fire
@@ -173,8 +235,8 @@ describe('ClubBadge — mønstre', () => {
   // vokabularet, ikke i dataen — og den ville først blive opdaget på skærmen.
   it('tegner alle otte mønstre forskelligt', () => {
     const alle = ['striber', 'boejler', 'ternet', 'halveret', 'vandret-delt', 'skraabaand', 'baand', 'firkanter'];
-    const billeder = alle.map((m) => tegn(m).querySelector('svg').innerHTML);
-    expect(new Set(billeder).size).toBe(alle.length);
+    const former = alle.map(form);
+    expect(new Set(former).size).toBe(alle.length);
   });
 
   // Et ukendt mønsternavn må tegne INTET — ikke falde tilbage på striber.

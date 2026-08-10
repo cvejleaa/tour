@@ -41,6 +41,8 @@ import { chromium } from '@playwright/test';
 // mens datafilen sagde noget helt andet. Netop den slags påstand, harnesset
 // findes for at forhindre.
 import { SUPERLIGA_TEAMS_2026 } from '../src/data/superligaTeams2026.js';
+// Selve dommen bor i sit eget modul, så den kan testes uden at starte Chromium.
+import { bestaarTofarvet } from './troejeMoenster.mjs';
 
 /**
  * FILTRE. Kører i browseren pr. pixel; `true` = tæl den med.
@@ -364,21 +366,17 @@ if (process.argv.includes('--moenster')) {
     const a = median(kun1); const b = median(nr2);
     const [L1, L2] = [lum(a), lum(b)].sort((x, y) => y - x);
     const kontrast = (L1 + 0.05) / (L2 + 0.05);
-    const overGulv = pct2 > 12;
-    const halvdel = antal2 >= antal1 / 2;
-    // TO TESTER, ikke én. "Mindst halvdelen af nr. 1" giver kun mening for
-    // STRIBER, hvor to farver skiftevis dækker trøjen. Én figur — et brystbånd,
-    // et skråbånd, et skakbræt — fylder i sagens natur 15-30 % og ville aldrig
-    // bestå. For dem er kravet i stedet, at figuren er stor nok til at tegnes
-    // OG har kontrast nok til at ses. Uden den skelnen ville Brøndbys bånd og
-    // Randers' skråbånd stå ensfarvede, selv om begge er tydelige på trøjen.
     const enkelt = mo.slags === 'enkeltfigur';
-    const bestaar = enkelt ? (overGulv && kontrast >= 2) : (overGulv && halvdel);
+    const dom = bestaarTofarvet({
+      slags: enkelt ? 'enkeltfigur' : 'striber',
+      pct2,
+      kontrast,
+      andel2: antal2 / antal1,
+    });
     console.log(`  ${m.hold} · ${mo.navn}`);
     console.log(`    nr. 1 ${hex(a)} ${(100 - pct2).toFixed(1)} %   nr. 2 ${hex(b)} ${pct2.toFixed(1)} %`);
-    console.log(`    ${enkelt ? 'ENKELTFIGUR — krav: over 12 % og kontrast mindst 2:1' : 'STRIBER — krav: over 12 % og mindst halvdelen af nr. 1'}`);
-    console.log(`    over 12 %: ${overGulv ? 'JA' : 'NEJ'}   ${enkelt ? `kontrast ${kontrast.toFixed(2)}:1` : `mindst halvdelen: ${halvdel ? 'JA' : 'NEJ'}   kontrast ${kontrast.toFixed(2)}:1`}`);
-    console.log(`    → ${bestaar ? 'BESTÅR testen' : 'falder på testen'}`);
+    console.log(`    ${enkelt ? 'ENKELTFIGUR' : 'STRIBER'} — kontrast ${kontrast.toFixed(2)}:1`);
+    console.log(`    → ${dom.bestaar ? 'BESTÅR' : 'falder'}: ${dom.grund}`);
     if (mo.baand) {
       // Båndbredde er GEOMETRI, ikke areal: et enkelt bredt bånd kan falde på
       // arealtesten og alligevel være tydeligt synligt. Begge tal hører til.
