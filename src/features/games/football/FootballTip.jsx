@@ -671,7 +671,10 @@ export default function FootballTip({ game, me, matches }) {
               ) : (
                 <div className="match-card__dash" aria-hidden="true">–</div>
               )}
-              <div className="match-card__side">
+              {/* SPEJLVENDT — se `.match-card__side--ude`. Trøjen står yderst
+                  til højre, så de to hold flugter med kortets to kanter i
+                  stedet for at klumpe sig om stregen i midten. */}
+              <div className="match-card__side match-card__side--ude">
                 <ClubBadge
                   variant="troeje" code={a.code} color={a.color} size={34}
                   color2={a.color2} moenster={a.moenster} aerme={a.aerme}

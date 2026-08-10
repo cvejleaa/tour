@@ -6,6 +6,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 vi.mock('../../../firebase', () => ({ db: {} }));
 
@@ -206,6 +209,38 @@ describe('FootballTip — Elo på kampkortene', () => {
   const BHA_KAMP = [{
     ...MATCHES[0], id: 'm-bha', home: 'Brighton and Hove Albion', away: 'Arsenal',
   }];
+
+  // UDEHOLDET SPEJLVENDES, så de to trøjer står i hver sin ende af kortet.
+  //
+  // Begge sider var ens — trøje-så-navn, venstrestillet i hver sin 1fr-kolonne
+  // — så udeholdets trøje klæbede til stregen i midten med et tomt felt ude til
+  // højre. Det var teknisk uændret siden kortet blev lavet, men først synligt,
+  // da #132 lod det fulde holdnavn stå i stedet for kortkoden.
+  //
+  // JSDOM ANVENDER INGEN CSS, så markuppen alene beviser ingenting: klassen
+  // kunne stå på div'en, uden at der fandtes en regel for den. Derfor læser
+  // testen også `theme.css`. Det er ikke pedanteri — hele grunden til, at
+  // fejlen kunne overleve, er at layoutet lever i CSS og ikke i komponenten.
+  it('spejlvender kun udeholdets side', () => {
+    const { container } = setup();
+    const sider = [...container.querySelectorAll('.match-card__side')];
+    expect(sider.length).toBeGreaterThanOrEqual(2);
+    // Præcis hver anden — hjemme, ude, hjemme, ude …
+    const ude = sider.map((e) => e.classList.contains('match-card__side--ude'));
+    expect(ude).toEqual(sider.map((_, i) => i % 2 === 1));
+  });
+
+  it('har en CSS-regel, der faktisk vender udesiden om', () => {
+    const her = dirname(fileURLToPath(import.meta.url));
+    const css = readFileSync(resolve(her, '../../../styles/theme.css'), 'utf8');
+    const regel = css.match(/\.match-card__side--ude\s*\{([^}]*)\}/);
+    expect(regel).not.toBeNull();
+    // `row-reverse` og ikke `justify-content: flex-end`: med flex-end ville
+    // rækkefølgen stadig være trøje-så-navn, og de to trøjer ville stå ved
+    // siden af hinanden om stregen i stedet for i hver sin ende.
+    expect(regel[1]).toMatch(/flex-direction:\s*row-reverse/);
+    expect(regel[1]).toMatch(/text-align:\s*right/);
+  });
 
   // VISNINGSNAVNET NÅR HELE VEJEN UD. Kæden er lang — holdlisten → teamsOf →
   // badgeFor → kampkortet — og hvert led kunne tabe den uden at noget andet
