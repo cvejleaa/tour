@@ -180,7 +180,16 @@ export default function TeamStylesTab() {
         <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
           Sæt hver klubs <strong>hjemme-</strong>, <strong>ude-</strong> og <strong>3. farve</strong> for
           {' '}<strong>{game.name}</strong>. I en kamp vises hjemmeholdet i hjemmefarve og udeholdet i
-          udefarve — men skifter automatisk til 3. farve, hvis udefarven er for tæt på hjemmeholdets farve.
+          udefarve — men skifter til 3. farve, HVIS den ligger længere fra hjemmeholdets farve.
+          {/* "skifter automatisk, hvis udefarven er for tæt på" var et over-løfte, og
+              det er værst netop her, hvor man sidder og retter farverne: `matchBadges`
+              vælger den FJERNESTE af ude og 3. Sætter ejeren en tredjefarve, der ligger
+              tættere på end udefarven, sker der ingenting — og så ser funktionen ud til
+              at være i stykker. Samme rettelse er lavet på spillerfladen; de to skærme
+              skal beskrive den samme regel ens. */}
+          {' '}Ligger ingen af dem langt nok væk, bliver udefarven stående, og de to badges ligner
+          {' '}stadig hinanden — spilleren kan se hvilke hold det gælder under
+          {' '}<strong>🙂 Mit hold</strong>.
           {' '}Under <strong>Vises som</strong> kan du give klubben et kortere navn til skærmen —
           {' '}fx <em>Brighton</em> i stedet for <em>Brighton and Hove Albion</em>. Klubbens rigtige navn
           {' '}står som overskrift og kan ikke ændres: det er nøglen, resultater og Elo matches på.

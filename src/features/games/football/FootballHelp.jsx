@@ -348,6 +348,11 @@ export default function FootballHelp() {
         Under <Tab fane="profil">🙂 Mit hold</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>. Din
         avatar får holdets farve som ring om sig i stillingen og i dine ligaer. Holdet gælder kun
         her — andre spil har deres egne hold.
+        {/* EN HENVISNING, IKKE EN KOPI. Reglen for tredjetrøjen er formuleret ÉT sted
+            (trøjeoversigten nederst på fanen). Skrev vi den af her, ville de to kunne
+            drive fra hinanden — nøjagtig det, kommentaren ovenfor handler om. */}
+        {' '}Nederst på fanen står alle holdenes tre trøjer, og hvordan kampkortet vælger
+        {' '}mellem dem.
       </Section>
 
       <p style={{ color: 'var(--c-muted)', fontSize: '0.88rem', marginTop: '1rem' }}>

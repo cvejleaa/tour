@@ -32,6 +32,9 @@ const { default: GameProfile } = await import('./GameProfile');
 const SPIL = {
   id: 'superliga2627',
   name: 'Superligaen',
+  // `type` SKAL stå: trøjeoversigten nedenfor er gated på fodbold, og uden
+  // feltet ville testen bevise, at den er væk — af den forkerte grund.
+  type: 'football',
   teams: [
     { name: 'Lyngby Boldklub', short: 'LBK', elo: 1413, color: '#022592' },
     { name: 'Brøndby IF', short: 'BIF', elo: 1581, color: '#E5B905' },
@@ -86,5 +89,29 @@ describe('avataren på spilprofilen', () => {
     auth.profile = { displayName: 'Bo Bibamus' };
     render(<GameProfile game={SPIL} me={{ favoriteTeam: 'Lyngby Boldklub' }} />);
     expect(screen.getByLabelText('Lyngby Boldklub')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TRØJEOVERSIGTEN STÅR PÅ SKÆRMEN.
+//
+// Uden den her test kunne <TroejeOversigt /> fjernes helt fra GameProfile med
+// alle 2155 tests grønne. Komponentens egne 33 tests renderer den DIREKTE og
+// beviser derfor intet om, hvorvidt den er koblet på nogen flade — præcis den
+// fejl, `recomputeSeasonElo` havde: maskineri, ingen kunne komme til.
+// ---------------------------------------------------------------------------
+describe('trøjeoversigten på Mit hold', () => {
+  it('står på kortet', () => {
+    auth.profile = { displayName: 'Bo Bibamus' };
+    const { container } = render(<GameProfile game={SPIL} me={{}} />);
+    expect(container.querySelector('.troejer')).not.toBeNull();
+    // …og den viser spillets hold, ikke bare en tom ramme.
+    expect(container.querySelectorAll('.troejer__hold')).toHaveLength(SPIL.teams.length);
+  });
+
+  it('står IKKE på et spil uden fodbold', () => {
+    auth.profile = { displayName: 'Bo Bibamus' };
+    const { container } = render(<GameProfile game={{ ...SPIL, type: 'tour' }} me={{}} />);
+    expect(container.querySelector('.troejer')).toBeNull();
   });
 });
