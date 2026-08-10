@@ -149,17 +149,26 @@ describe('ClubBadge — mønstre', () => {
     .getAttribute('points').trim().split(/\s+/)
     .map((par) => par.split(',').map(Number));
 
-  // BÆRENDE for skråbåndet: det skal FALDE MOD HØJRE. Første udgave målte kun
-  // polygonens samlede lodrette udstrækning, og så bestod BÅDE et bånd der
-  // stiger, en lodret stribe og en polygon, der malede hele kroppen.
-  it('lader skråbåndet falde mod højre — venstre ende ligger højere', () => {
+  // BÆRENDE for skråbåndet: RETNINGEN. Trøjens bånd går fra ØVERST TIL HØJRE
+  // ned mod nederst til venstre — målt række for række på klubbens foto, hvor
+  // båndets midte flytter sig fra x=805 ved y=200 til x=351 ved y=800.
+  //
+  // Den første udgave af BÅDE formen og den her test havde den spejlvendt, og
+  // testen bestod. Beskrivelsen "fra venstre skulder" er sand i bærerens
+  // koordinater og falsk i beskuerens — og badgen tegnes i beskuerens.
+  //
+  // Den gamle test målte kun polygonens samlede lodrette udstrækning, og så
+  // bestod BÅDE et bånd der vender forkert, en lodret stribe og en polygon,
+  // der malede hele kroppen.
+  it('lader skråbåndet gå fra øverst til højre mod nederst til venstre', () => {
     const p = punkter();
     const xMin = Math.min(...p.map(([x]) => x));
     const xMaks = Math.max(...p.map(([x]) => x));
     const venstreY = p.filter(([x]) => x === xMin).map(([, y]) => y);
     const hoejreY = p.filter(([x]) => x === xMaks).map(([, y]) => y);
     const midt = (ys) => (Math.min(...ys) + Math.max(...ys)) / 2;
-    expect(midt(hoejreY)).toBeGreaterThan(midt(venstreY) + 4);
+    // Højre ende ligger HØJERE oppe, altså med mindre y.
+    expect(midt(hoejreY)).toBeLessThan(midt(venstreY) - 4);
   });
 
   // …og det må ikke sluge trøjen. En polygon fra top til bund over hele
@@ -180,12 +189,16 @@ describe('ClubBadge — mønstre', () => {
   });
 
   // Båndet skal ligge over maven, ikke i toppen eller bunden.
-  it('lægger baand omkring midten af kroppen', () => {
+  // Båndet sidder på BRYSTET — midten i 38 % af trøjens højde, målt på fotoet.
+  // Første udgave lagde det i taljen (49 %).
+  it('lægger baand på brystet, ikke i kraven eller taljen', () => {
     const r = tegn('baand').querySelector('rect');
     const y = Number(r.getAttribute('y'));
     const h = Number(r.getAttribute('height'));
-    expect(y).toBeGreaterThan(9);
-    expect(y + h).toBeLessThan(17);
+    // Kroppen går fra y=2,5 til y=21,5. 38 % svarer til y≈9,7 for midten.
+    const midte = (y + h / 2 - 2.5) / 19;
+    expect(midte).toBeGreaterThan(0.28);
+    expect(midte).toBeLessThan(0.48);
   });
 
   // OG DET SKAL KUNNE SES. Et bånd på 0,3 enheder bestod den gamle test — det
@@ -203,6 +216,19 @@ describe('ClubBadge — mønstre', () => {
   // `firkanter` er et EGENTLIGT bræt; `ternet` er to modstående kvadranter.
   // Tegnes de ens, er den ene form overflødig — og OB ville få kvarterer, hvor
   // trøjen har et skakbræt.
+  // SET FORFRA. Randers' tredjetrøje har ORANGE øverst til venstre; orange er
+  // primærfarven, så sekundærfarven skal ligge øverst til HØJRE. Den lå
+  // omvendt, og trøjen var spejlvendt — samme fejl som skråbåndet, samme grund.
+  it('lægger ternets sekundærfarve øverst til højre', () => {
+    const r = [...tegn('ternet').querySelectorAll('rect')]
+      .map((e) => ({ x: Number(e.getAttribute('x')), y: Number(e.getAttribute('y')) }));
+    const oeverst = r.reduce((a, b) => (a.y <= b.y ? a : b));
+    const nederst = r.reduce((a, b) => (a.y > b.y ? a : b));
+    // Kroppens midte ligger ved x=12.
+    expect(oeverst.x).toBeGreaterThanOrEqual(12);
+    expect(nederst.x).toBeLessThan(12);
+  });
+
   it('tegner firkanter som et bræt, ternet som to kvadranter', () => {
     expect(tegn('ternet').querySelectorAll('rect').length).toBe(2);
     expect(tegn('firkanter').querySelectorAll('rect').length).toBeGreaterThan(4);

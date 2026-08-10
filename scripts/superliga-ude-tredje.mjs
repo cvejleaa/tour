@@ -65,7 +65,9 @@ const FILTRE = {
   moerkLyseroed: 'p => p[0]>=60 && p[0]<228',
   // Grundfilter til --moenster: væk med det hvide studiebaggrundsfelt.
   ikkeHvid: 'p => !(p[0]>238 && p[1]>238 && p[2]>238)',
-  moerkBlaa: 'p => (p[0]+p[1]+p[2]) < 330 && !(p[0]>200 && p[1]>200 && p[2]>200)',
+  // Andet led er udeladt med vilje: (r+g+b) < 330 udelukker i forvejen alt,
+  // hvor alle tre kanaler er over 200, så et ekstra hvid-filter var dødt.
+  moerkBlaa: 'p => (p[0]+p[1]+p[2]) < 330',
 };
 
 /**
@@ -160,7 +162,7 @@ const MAALINGER = [
     // 1,12:1 i kontrast. Ternet tegnes ikke; medianen af hele fladen er farven.
     stof: [[300, 500, 620, 800]],
     filter: 'ikkeBaggrund',
-    moenster: { navn: 'tern i to lyserøde', slags: 'enkeltfigur', flade: [300, 500, 620, 800], grund: 'ikkeBaggrund', anden: 'moerkLyseroed' },
+    moenster: { navn: 'tern i to lyserøde', flade: [300, 500, 620, 800], grund: 'ikkeBaggrund', anden: 'moerkLyseroed' },
   },
   {
     hold: 'Randers FC',
@@ -350,7 +352,7 @@ if (process.argv.includes('--moenster')) {
     const f = (v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : (((v / 255) + 0.055) / 1.055) ** 2.4);
     return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
   };
-  console.log('\nMØNSTRE — husets tofarvet-test (over 12 %, og mindst halvdelen af nr. 1)\n');
+  console.log('\nMØNSTRE — husets tofarvet-test. Repeterende: over 12 % OG mindst\nhalvdelen af nr. 1. Én figur: over 12 % OG kontrast nok til at ses.\n');
   for (const m of MAALINGER.filter((x) => x.moenster)) {
     const mo = m.moenster;
     // GRUNDFILTERET er mønstertestens eget — ikke målingens. For Randers ude er

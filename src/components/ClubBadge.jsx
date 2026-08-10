@@ -34,6 +34,13 @@ const AERME_H = 'M16.6 4.2 L20 6 L21 10.5 L17.8 11.5 L16.6 8.4 Z';
  * giver 1,4 px hver og bliver til grød på en 1×-skærm. En rigtig stribet trøje
  * har 12-14 striber — badgen er en genkendelse, ikke en gengivelse.
  *
+ * SET FORFRA — badgens venstre er BESKUERENS venstre.
+ *
+ * Det lyder selvindlysende og var det ikke: både `skraabaand` og `ternet` blev
+ * tegnet spejlvendt, fordi de blev beskrevet i BÆRERENS koordinater ("fra
+ * venstre skulder"), som er modsat. To former, samme fejl, ingen test der
+ * fangede det. Beskriv altid en form ved, hvor den ligger på FOTOET.
+ *
  * OTTE FORMER. De fem første kom med badgen; `skraabaand`, `baand` og
  * `firkanter` kom til, fordi tre danske trøjer ellers måtte stå ensfarvede,
  * selv om de tydeligt har et mønster. Formen skal matche trøjen PRÆCIST — et
@@ -68,9 +75,13 @@ function baand(moenster, farve) {
     // Fire felter i et 2×2 — ikke et rigtigt skakbræt. Fulhams udetrøje har
     // snesevis af tern; ved 22 px ville de blive til en rødsort tåge, og så
     // var vi tilbage ved det farvegennemsnit, hele øvelsen skulle undgå.
+    //
+    // SEKUNDÆRFARVEN LIGGER ØVERST TIL HØJRE. Den lå øverst til venstre, og så
+    // var Randers' tredjetrøje spejlvendt: den har orange øverst til venstre,
+    // og orange er primærfarven. Se SET FORFRA ovenfor.
     return [
-      <rect key="a" x="7" y="2.5" width="5" height="9.5" fill={farve} />,
-      <rect key="b" x="12" y="12" width="5.5" height="9.5" fill={farve} />,
+      <rect key="a" x="12" y="2.5" width="5.5" height="9.5" fill={farve} />,
+      <rect key="b" x="7" y="12" width="5" height="9.5" fill={farve} />,
     ];
   }
   if (moenster === 'halveret') {
@@ -80,20 +91,37 @@ function baand(moenster, farve) {
     return [<rect key="a" x="6.5" y="12" width="11" height="9.5" fill={farve} />];
   }
   if (moenster === 'skraabaand') {
-    // ÉT skråbånd fra venstre skulder ned mod højre hofte — Randers' hjemmetrøje.
+    // ÉT skråbånd fra ØVERST TIL HØJRE ned mod nederst til venstre — Randers'
+    // hjemmetrøje. Retningen er målt række for række på klubbens eget foto:
+    // båndets midte flytter sig fra x=805 ved y=200 til x=351 ved y=800.
+    //
+    // Den var spejlvendt i første udgave, fordi kommentaren sagde "fra venstre
+    // skulder" — sandt i BÆRERENS koordinater og falsk i beskuerens. Badgen
+    // tegnes i beskuerens. Se SET FORFRA ovenfor.
+    //
     // Bredden er valgt, så båndet fylder omtrent det samme af kroppen som på
-    // trøjen selv (målt: 22 %). Et smallere bånd forsvinder ved 22 px; et
-    // bredere ville dele trøjen i to og ligne `halveret`.
-    return [<polygon key="a" points="6,6.8 6,11.6 18,18.6 18,13.8" fill={farve} />];
+    // trøjen selv (målt: 21,3 %, renderet: 21,9 %). Et smallere bånd forsvinder
+    // ved 22 px; et bredere ville dele trøjen i to og ligne `halveret`.
+    return [<polygon key="a" points="6,18.6 6,13.8 18,6.8 18,11.6" fill={farve} />];
   }
   if (moenster === 'baand') {
-    // ÉT vandret bånd over maven — Brøndbys udetrøje. Adskilt fra `boejler`,
-    // som tegner TO: et enkelt bånd tegnet som to bånd er en anden trøje, og
-    // det var netop derfor Brøndby stod ensfarvet, indtil formen kom til.
-    return [<rect key="a" x="6.5" y="10.2" width="11" height="3.4" fill={farve} />];
+    // ÉT vandret BRYSTbånd — Brøndbys udetrøje. Adskilt fra `boejler`, som
+    // tegner TO: et enkelt bånd tegnet som to bånd er en anden trøje, og det
+    // var netop derfor Brøndby stod ensfarvet, indtil formen kom til.
+    //
+    // Højden er målt: båndets midte sidder i 38 % af trøjens højde, altså på
+    // brystet lige under mærket — ikke i taljen, hvor første udgave lagde det.
+    // 2,5 + 0,38 × 19 = 9,7, minus den halve båndhøjde.
+    return [<rect key="a" x="6.5" y="8" width="11" height="3.4" fill={farve} />];
   }
   if (moenster === 'firkanter') {
-    // STORE FIRKANTER i et 3×4-skakbræt — OB's tredjetrøje. Forskellen til
+    // STORE FIRKANTER i et 3×4-skakbræt. INGEN TRØJE BRUGER DEN ENDNU: den blev
+    // lavet til OB's tredjetrøje, hvis tern faldt på tofarvet-testen (de to
+    // lyserøde er 28,2 % mod 71,8 %). Formen er efterprøvet med en mørk
+    // sekundærfarve og er skarp ved 22 px — det er farverne, ikke figuren, der
+    // ikke duer. Den står her, til en trøje har brug for den.
+    //
+    // Forskellen til
     // `ternet` er antallet: `ternet` er to modstående kvadranter (en kvarteret
     // trøje), det her er et egentligt bræt. Tre kolonner og ikke fire: kroppen
     // er 6,9 px bred ved størrelse 22, så fire kolonner giver 1,7 px hver.

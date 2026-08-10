@@ -18,7 +18,9 @@ const MAALT = {
   'Randers skråbånd': { slags: 'enkeltfigur', pct2: 21.3, kontrast: 6.18, andel2: 21.3 / 78.7 },
   'Randers kvarterer': { slags: 'enkeltfigur', pct2: 47.1, kontrast: 5.49, andel2: 47.1 / 52.9 },
   'Brøndby brystbånd': { slags: 'enkeltfigur', pct2: 15.9, kontrast: 8.32, andel2: 15.9 / 84.1 },
-  'OB tern': { slags: 'enkeltfigur', pct2: 28.2, kontrast: 1.12, andel2: 28.2 / 71.8 },
+  // Et SKAKBRÆT gentager sig ud over kroppen og dømmes derfor på areal —
+  // ikke på kontrast. Den lå som `enkeltfigur`, indtil reglen blev skrevet ned.
+  'OB tern': { slags: 'striber', pct2: 28.2, kontrast: 1.12, andel2: 28.2 / 71.8 },
   'Lyngby bånd': { slags: 'enkeltfigur', pct2: 2.8, kontrast: 9.0, andel2: 2.8 / 97.2 },
   'Brøndby bronze': { slags: 'striber', pct2: 1.9, kontrast: 1.70, andel2: 1.9 / 98.1 },
   'Randers gitter': { slags: 'striber', pct2: 16.5, kontrast: 3.17, andel2: 16.5 / 83.5 },
@@ -40,7 +42,7 @@ describe('tofarvet-testen på de syv målte trøjer', () => {
   // HVER SKAL FALDE PÅ DEN RIGTIGE GRUND. Uden det ville en test, der bare
   // tæller tre beståede, bestå selv om Lyngby faldt på kontrast og OB på areal.
   it.each([
-    ['OB tern', /kontrast/],
+    ['OB tern', /50 %/],
     ['Lyngby bånd', /gulvet/],
     ['Brøndby bronze', /gulvet/],
     ['Randers gitter', /50 %/],
@@ -50,13 +52,16 @@ describe('tofarvet-testen på de syv målte trøjer', () => {
 });
 
 describe('tærsklerne selv', () => {
-  // BÆRENDE. Sættes kontrast-kravet til 1, ville OB's tern bestå — og badgen
-  // ville tegne lyserødt på lyserødt. Sættes det over 5,49, falder Randers'
-  // kvarterer, som tydeligt kan ses. Testen binder begge ender.
-  it('afviser OB ved den gældende tærskel og accepterer ved en lavere', () => {
-    const ob = MAALT['OB tern'];
-    expect(bestaarTofarvet(ob).bestaar).toBe(false);
-    expect(KONTRAST_ENKELTFIGUR).toBeGreaterThan(ob.kontrast);
+  // INGEN MÅLT TRØJE FALDER PÅ KONTRASTEN. OB's tern er et skakbræt og falder
+  // på areal. Kontrastkravet er en vagt mod en FREMTIDIG enkeltfigur i to
+  // næsten ens farver — og den skal stadig virke, så den prøves med OB's tal
+  // sat til `enkeltfigur`. Det er den ene syntetiske case i filen, og den er
+  // det, fordi virkeligheden ikke har leveret en endnu.
+  it('ville afvise en enkeltfigur med OB-farvernes kontrast', () => {
+    const somEnkeltfigur = { ...MAALT['OB tern'], slags: 'enkeltfigur' };
+    expect(bestaarTofarvet(somEnkeltfigur).bestaar).toBe(false);
+    expect(bestaarTofarvet(somEnkeltfigur).grund).toMatch(/kontrast/);
+    expect(KONTRAST_ENKELTFIGUR).toBeGreaterThan(MAALT['OB tern'].kontrast);
   });
 
   it('ligger under den laveste enkeltfigur, der SKAL bestå', () => {
@@ -74,7 +79,8 @@ describe('tærsklerne selv', () => {
     expect(GULV_PCT).toBeLessThan(MAALT['Brøndby brystbånd'].pct2);
   });
 
-  // SLAGSEN AFGØR UDFALDET. Samme tal, to slags: Brøndbys brystbånd består som
+  // SLAGSEN AFGØR UDFALDET, og derfor skal reglen for den stå skrevet i
+  // troejeMoenster.mjs. Samme tal, to slags: Brøndbys brystbånd består som
   // enkeltfigur og ville FALDE som striber. Det er hele grunden til, at testen
   // blev delt i to — uden skelnen stod trøjen ensfarvet.
   it('giver forskelligt svar for samme tal, alt efter slags', () => {

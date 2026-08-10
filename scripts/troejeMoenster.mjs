@@ -25,10 +25,15 @@ export const GULV_PCT = 12;
  *
  * 2:1 er valgt, fordi det ligger mellem de to yderpunkter, vi FAKTISK har målt,
  * og ikke tæt på nogen af dem: den laveste, der skal bestå, er Randers'
- * skråbånd på 5,49:1, og den højeste, der skal falde, er OB's 1,12:1. Enhver
- * tærskel mellem 1,2 og 5,4 ville give samme svar på de syv målte trøjer — 2:1
- * er det runde tal i midten af det spænd. Kommer der en trøje imellem, skal
- * tallet begrundes om, ikke bare flyttes.
+ * kvarterer på 5,49:1, og den laveste målte overhovedet er OB's 1,12:1. Enhver
+ * tærskel mellem 1,2 og 5,4 giver samme svar på alle tolv trøjer — en faktor
+ * 4,9 i spillerum, så tallet er ikke skruet efter et ønsket resultat.
+ *
+ * INGEN TRØJE FALDER PÅ DEN I DAG. OB's tern er et skakbræt, altså repeterende,
+ * og falder på halvdel-testen (28,2 % mod 71,8 %). Kontrastkravet er derfor en
+ * vagt mod en FREMTIDIG enkeltfigur i to næsten ens farver — ikke en beslutning,
+ * der er truffet her. Det skal stå, så ingen tror, tallet er efterprøvet i
+ * begge retninger på ægte data.
  */
 export const KONTRAST_ENKELTFIGUR = 2;
 
@@ -40,6 +45,21 @@ export const KONTRAST_ENKELTFIGUR = 2;
  * trøjen. Én figur — et brystbånd, et skråbånd, et skakbræt — fylder i sagens
  * natur 15-30 % og kunne aldrig bestå. Uden den skelnen stod Brøndbys bånd og
  * Randers' skråbånd ensfarvede, selv om begge er umulige at overse på trøjen.
+ *
+ * HVORNÅR ER NOGET HVAD? Reglen skal stå skrevet, ellers sættes `slags` i
+ * hånden pr. trøje, og så er den knap, der i virkeligheden afgør udfaldet.
+ *
+ *   REPETERENDE (`striber`)   figuren gentages ud over kroppen — striber,
+ *                             bøjler, gitter, skakbræt. To farver dækker
+ *                             skiftevis, så halvdel-testen er den rigtige.
+ *   ÉN FIGUR (`enkeltfigur`)  én form på en ensfarvet bund — et brystbånd, et
+ *                             skråbånd, en deling i kvarterer. Den fylder i
+ *                             sagens natur 15-30 % og ville aldrig bestå
+ *                             halvdel-testen, så den dømmes på synlighed.
+ *
+ * Badgens egne former falder rent i de to: `striber`, `boejler` og `firkanter`
+ * gentager sig; `baand`, `skraabaand`, `ternet`, `halveret` og `vandret-delt`
+ * sidder én gang.
  *
  * @param {'striber'|'enkeltfigur'} slags
  * @param {number} pct2      – farve nr. 2's andel af fladen, i procent
