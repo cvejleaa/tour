@@ -157,8 +157,8 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   resultat ændrer sig — men kan nu også startes manuelt med 💰 **Ompris
   kampene** i Spil-planlægning. Uden den knap kunne Elo-tabellen under en
   landskampspause vise sæsonstart-værdier i op mod to uger, mens grafen
-  (`eloHistory`, som ikke røres) viste det rigtige forløb. Holdfarver redigeret i admin ligger i `teamStyles`
-  og røres ikke.
+  (`eloHistory`, som ikke røres) viste det rigtige forløb. Holdfarver **og
+  visningsnavne** redigeret i admin ligger begge i `teamStyles` og røres ikke.
 - `seedKickoffs` (default false) — retter **kun** kickoff-tider. Skriver
   hverken odds, Elo eller resultat, og lader kampe med facit være. Findes,
   fordi `seedSuperliga` efter ovenstående ikke længere kan rette et tidspunkt

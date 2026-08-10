@@ -1408,6 +1408,92 @@ describe('games/{gameId} — sikkerhedsregler', () => {
       })
     );
   });
+
+  // -------------------------------------------------------------------------
+  // teamStyles — admins hold-overrides (farve + visningsnavn pr. holdnavn).
+  //
+  // Feltet læses af ENHVER godkendt bruger, og klienten abonnerer på hele
+  // games-kollektionen: et opblæst spil-dokument skubbes derfor til samtlige
+  // brugere ved hvert snapshot. Admin-fladens `maxLength={40}` er
+  // browservalidering og kan omgås — reglen er den eneste rigtige vagt.
+  // -------------------------------------------------------------------------
+  describe('teamStyles', () => {
+    const somAdmin = async () => {
+      await createUser('admin1', 'globalAdmin', 'approved');
+      await createGame('sl2627');
+      return doc(testEnv.authenticatedContext('admin1').firestore(), 'games', 'sl2627');
+    };
+
+    // KONTROLTESTEN. Uden den ville alle assertFails nedenfor også bestå, hvis
+    // reglen afviste ALT — og så beviste de ingenting.
+    it('global admin KAN gemme et almindeligt teamStyles', async () => {
+      const ref = await somAdmin();
+      await assertSucceeds(updateDoc(ref, {
+        teamStyles: {
+          'FC Nordsjælland': { visningsnavn: 'Nordsjælland', color: '#B80112' },
+          'Brøndby IF': { color: '#003DA5' },
+        },
+      }));
+    });
+
+    it('global admin KAN gemme et tomt teamStyles — det er sådan man nulstiller', async () => {
+      const ref = await somAdmin();
+      await assertSucceeds(updateDoc(ref, { teamStyles: {} }));
+    });
+
+    // Skrivninger UDEN feltet må ikke rammes af den nye vagt. Uden den her
+    // kunne betingelsen være vendt om og spærre for alt andet på dokumentet.
+    it('en skrivning uden teamStyles er upåvirket', async () => {
+      const ref = await somAdmin();
+      await assertSucceeds(updateDoc(ref, { status: 'live' }));
+    });
+
+    it('teamStyles KAN IKKE være en streng i stedet for et map', async () => {
+      const ref = await somAdmin();
+      await assertFails(updateDoc(ref, { teamStyles: 'hejsa' }));
+    });
+
+    it('teamStyles KAN IKKE være en liste', async () => {
+      const ref = await somAdmin();
+      await assertFails(updateDoc(ref, { teamStyles: [{ visningsnavn: 'X' }] }));
+    });
+
+    // Grænsen er 64. To tests om den, så en mutation af selve TALLET bliver
+    // rød — ikke kun en mutation, der fjerner tjekket.
+    it('teamStyles KAN have 64 hold', async () => {
+      const ref = await somAdmin();
+      const stort = {};
+      for (let i = 0; i < 64; i += 1) stort[`hold${i}`] = { color: '#123456' };
+      await assertSucceeds(updateDoc(ref, { teamStyles: stort }));
+    });
+
+    it('teamStyles KAN IKKE have 65 hold', async () => {
+      const ref = await somAdmin();
+      const stort = {};
+      for (let i = 0; i < 65; i += 1) stort[`hold${i}`] = { color: '#123456' };
+      await assertFails(updateDoc(ref, { teamStyles: stort }));
+    });
+
+    // 3 000 ukendte nøgler var det, emulatoren accepterede før vagten — det er
+    // vejen til at skubbe et megabyte-dokument ud til alle brugere.
+    it('teamStyles KAN IKKE fyldes med tusindvis af ukendte holdnavne', async () => {
+      const ref = await somAdmin();
+      const stort = {};
+      for (let i = 0; i < 3000; i += 1) stort[`spøgelse${i}`] = { color: '#123456' };
+      await assertFails(updateDoc(ref, { teamStyles: stort }));
+    });
+
+    // Og en spiller kommer stadig ingen vegne — vagten er et TILLÆG til
+    // admin-kravet, ikke en erstatning for det.
+    it('en spiller KAN IKKE skrive teamStyles, heller ikke et gyldigt et', async () => {
+      await createUser('p1', 'player', 'approved');
+      await createGame('sl2627');
+      await assertFails(updateDoc(
+        doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl2627'),
+        { teamStyles: { 'Brøndby IF': { visningsnavn: 'Brøndby' } } },
+      ));
+    });
+  });
 });
 
 describe('games/{gameId}/players/{uid} — deltagelse', () => {

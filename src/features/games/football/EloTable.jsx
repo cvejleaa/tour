@@ -57,7 +57,24 @@ export default function EloTable({ game }) {
                         color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
                         aerme={info?.troejer?.hjemme?.aerme} title={row.name}
                       />
-                      <span className="elo-team__name">{row.short || info?.short || row.name}</span>
+                      {/* `title` med det EKSAKTE navn: kolonnen er sticky og
+                          klippes med ellipsis under 600 px, og tre navne rammer
+                          loftet dér. På en telefon findes title ganske vist
+                          ikke som interaktion — men kommentaren i theme.css
+                          lovede den, og et løfte skal enten indfries eller
+                          slettes. Her er den billig og hjælper på desktop.
+
+                          `|| row.name` er en invariant-vagt, ikke en levende
+                          gren: `eloRows` bygger rækkerne AF `teams`, og
+                          `teamInfo` slår op med `===` i den samme liste, så
+                          `info` kan ikke være null her. Derfor findes der ingen
+                          test for fallbacken — den kan ikke nås udefra. Den
+                          bliver stående, fordi et tomt holdnavn ville være en
+                          grim måde at opdage, at invarianten var brudt.
+                          Superliga-stillingens tilsvarende fallback ER levende
+                          (rækkerne kommer fra API'et, ikke fra holdlisten) og
+                          er dækket i visningsnavnFlader.test.jsx. */}
+                      <span className="elo-team__name" title={row.name}>{info?.vis || row.name}</span>
                     </span>
                   </td>
                   {cellsDesc.map((c) => (

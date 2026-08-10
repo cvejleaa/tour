@@ -17,9 +17,15 @@ export default function GameProfile({ game, me }) {
   const uid = user?.uid ?? null;
 
   // Spillets hold (fra spil-dokumentet), ellers Superliga-holdene som fallback.
+  //
+  // SORTERET PÅ DET VISTE NAVN, ikke på `name`. Listen vises med visningsnavnet
+  // ("Nordsjælland"), og sorterede vi på `name` ("FC Nordsjælland"), stod den
+  // under F og dermed et tilfældigt sted i en liste, brugeren læser som
+  // alfabetisk. Værdien i `<option>` er stadig `name` — det er den, der gemmes
+  // i `favoriteTeam` og matches på.
   const teams = useMemo(() => {
     const t = teamsOf(game);
-    return [...t].sort((a, b) => a.name.localeCompare(b.name, 'da'));
+    return [...t].sort((a, b) => (a.vis || a.name).localeCompare(b.vis || b.name, 'da'));
   }, [game]);
 
   const [team, setTeam] = useState(me?.favoriteTeam ?? '');
@@ -54,7 +60,7 @@ export default function GameProfile({ game, me }) {
               color2={chosen.troejer?.hjemme?.sekundaer} moenster={chosen.troejer?.hjemme?.moenster}
               aerme={chosen.troejer?.hjemme?.aerme} title={chosen.name}
             />}
-            {chosen ? chosen.name : 'Intet hold valgt'}
+            {chosen ? (chosen.vis || chosen.name) : 'Intet hold valgt'}
           </div>
         </div>
       </div>
@@ -67,7 +73,7 @@ export default function GameProfile({ game, me }) {
           style={{ maxWidth: 280 }}
         >
           <option value="">– Intet valgt –</option>
-          {teams.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+          {teams.map((t) => <option key={t.name} value={t.name}>{t.vis || t.name}</option>)}
         </select>
       </div>
 

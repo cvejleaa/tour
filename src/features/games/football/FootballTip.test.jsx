@@ -191,46 +191,88 @@ describe('FootballTip — Elo på kampkortene', () => {
   // Elo må ikke vælte tip-fladen for et spil, der slet ikke har ratings.
   it('viser stadig kampene, når spillet slet ingen Elo har', () => {
     const { container } = setup({ teams: [], eloHistory: undefined });
-    // "AGF" står to steder i DOM'en: som kortkode og som holdnavn. Kun ÉN af
-    // dem vises ad gangen — CSS vælger efter pladsen, se navnVisning.test.js —
-    // men begge er i markuppen, så testen skal pege på NAVNET og ikke bare på
-    // teksten.
     const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
     expect(navne).toContain('AGF');
     expect(navne).toContain('FC Midtjylland');
-    // Kortkoden skal stå i DOM'en, så CSS kan vise den under 600 px, hvor de
-    // to Manchester-hold ellers begge ville stå som "Manch…". At den faktisk
-    // BLIVER vist dér, kan kun stylesheetet afgøre — se navnVisning.test.js;
-    // jsdom anvender ingen CSS, så den her ser kun markuppen.
-    const koder = [...container.querySelectorAll('.match-card__side-code')].map((e) => e.textContent);
-    expect(koder).toContain('AGF');
+    // KORTKODEN ER VÆK FRA KAMPKORTET. Den blev vist på smal skærm, indtil det
+    // viste sig, at spillerne ikke ved hvad forkortelserne betyder. Navnet
+    // ombrydes i stedet — se navnVisning.test.js for selve ombrydningen; jsdom
+    // anvender ingen CSS, så den her kan kun se markuppen.
+    expect(container.querySelectorAll('.match-card__side-code')).toHaveLength(0);
   });
 
-  // KODENS INDHOLD VAR UBUNDET. `{h.code}` kunne erstattes af `{m.home}` med
-  // hele suiten grøn — og så viser den smalle skærm det fulde navn igen, altså
-  // præcis dét, koden er der for at undgå. Testen kræver derfor, at koden er
-  // FORSKELLIG fra navnet for et hold, hvor de to afviger.
-  it('viser kortkoden — ikke holdnavnet — i kode-spanet', () => {
-    // BEGGE hold får en kortkode, der afviger fra navnet. AGF's rigtige kode
-    // ER "AGF", og med den kan testen ikke se forskel på en kode og et navn —
-    // så mutationen "vis navnet i kode-spanet" ville overleve for netop det hold.
+  // Samme runde og kickoff som fixturens egne kampe, så den frosne tid
+  // stadig peger på den aktive runde.
+  const BHA_KAMP = [{
+    ...MATCHES[0], id: 'm-bha', home: 'Brighton and Hove Albion', away: 'Arsenal',
+  }];
+
+  // VISNINGSNAVNET NÅR HELE VEJEN UD. Kæden er lang — holdlisten → teamsOf →
+  // badgeFor → kampkortet — og hvert led kunne tabe den uden at noget andet
+  // brød sammen. Brighton er det eneste navn, der ellers klippes på en telefon.
+  it('viser Brighton, ikke Brighton and Hove Albion', () => {
+    const { container } = setup({
+      teams: [
+        { name: 'Brighton and Hove Albion', short: 'BHA', elo: 1522 },
+        { name: 'Arsenal', short: 'ARS', elo: 1664 },
+      ],
+    }, '/spil/sl', BHA_KAMP);
+    const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
+    expect(navne).toContain('Brighton');
+    expect(navne).not.toContain('Brighton and Hove Albion');
+  });
+
+  // Og spillets egen override slår husets forslag. Uden den her kunne
+  // `teamStyles` tabes på vejen, og admin-feltet ville være uden virkning.
+  it('lader spillets eget visningsnavn vinde over forslaget', () => {
+    const { container } = setup({
+      teams: [
+        { name: 'Brighton and Hove Albion', short: 'BHA', elo: 1522 },
+        { name: 'Arsenal', short: 'ARS', elo: 1664 },
+      ],
+      teamStyles: { 'Brighton and Hove Albion': { visningsnavn: 'Seagulls' } },
+    }, '/spil/sl', BHA_KAMP);
+    const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
+    expect(navne).toContain('Seagulls');
+    expect(navne).not.toContain('Brighton');
+  });
+
+  // ET HOLD, DER IKKE STÅR I LISTEN, SKAL STADIG HAVE SIT NAVN PÅ KORTET.
+  //
+  // Før visningsnavnet stod `{m.home}` direkte i JSX'en og kunne slet ikke
+  // blive tom. Nu står der `info?.vis || name`, og uden fallbacken renderer
+  // kortet en TOM streng for et hold, opslaget ikke kender. Mutationen
+  // `navn: info?.vis` overlevede hele suiten.
+  //
+  // Det er ikke en hypotetisk gren: navne driver mellem pulselive og seedet —
+  // det er hele grunden til, at `teamNameAudit.js` findes.
+  it('viser det rå navn for et hold, der ikke står i holdlisten', () => {
+    const { container } = setup({
+      // Kun ÉT af kampens to hold er i listen. Så beviser testen også, at det
+      // ikke bare er hele kortet, der er tomt.
+      teams: [{ name: 'Arsenal', short: 'ARS', elo: 1664 }],
+    }, '/spil/sl', [{ ...MATCHES[0], id: 'm-ukendt', home: 'Hvidovre IF', away: 'Arsenal' }]);
+    const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
+    expect(navne).toContain('Hvidovre IF');
+    expect(navne).toContain('Arsenal');
+    expect(navne).not.toContain('');
+  });
+
+  // HOLDNAVNET SKAL STÅ FULDT UD — ikke som en forkortelse. Det var hele
+  // grunden til at fjerne kortkoden: spillerne kunne ikke tyde den.
+  it('viser holdets fulde navn på begge sider af kortet', () => {
     const { container } = setup({
       teams: [
         { name: 'FC Midtjylland', short: 'FCM', elo: 1657 },
         { name: 'AGF', short: 'ÅRH', elo: 1578 },
       ],
     });
-    // BEGGE SIDER. Hjemme- og udeholdet tegnes af hver sin blok i JSX'en, så en
-    // fejl kan sidde i den ene alene — første udgave af testen kiggede kun på
-    // udeholdet, og en mutation af hjemmeholdets span overlevede.
-    const sider = [...container.querySelectorAll('.match-card__side')];
-    expect(sider.length).toBeGreaterThanOrEqual(2);
-    for (const side of sider) {
-      const navn = side.querySelector('.match-card__side-name').textContent;
-      const kode = side.querySelector('.match-card__side-code').textContent;
-      expect(kode, `koden for ${navn}`).not.toBe(navn);
-      expect(kode.length, `koden for ${navn} er ikke en forkortelse`).toBeLessThanOrEqual(4);
-    }
+    const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
+    expect(navne).toContain('FC Midtjylland');
+    expect(navne).toContain('AGF');
+    // Og ingen af dem må være kortkoden.
+    expect(navne).not.toContain('FCM');
+    expect(navne).not.toContain('ÅRH');
   });
 });
 
@@ -602,6 +644,23 @@ describe('FootballTip — kuponen i en splittet runde', () => {
     expect(note).toHaveTextContent(/sep/);
   });
 
+  // VISNINGSNAVNET I NOTEN. Fixturets fire hold har alle `vis` === `name`, så
+  // testen ovenfor består både med og uden `visOf` — den beviser altså ikke, at
+  // noten bruger det. Overriden gør forskellen målbar, og navnene er valgt, så
+  // ingen af dem er delstreng af det rå navn.
+  it('bruger visningsnavnet i udsat-noten', () => {
+    setup(
+      { teamStyles: { 'FC Midtjylland': { visningsnavn: 'Ulvene' }, 'F.C. København': { visningsnavn: 'Løverne' } } },
+      '/spil/sl?runde=3',
+      splittet,
+    );
+    const note = screen.getByTestId('combi-udenfor');
+    expect(note).toHaveTextContent('AGF–Ulvene');
+    expect(note).toHaveTextContent('Løverne–AGF');
+    expect(note).not.toHaveTextContent('FC Midtjylland');
+    expect(note).not.toHaveTextContent('F.C. København');
+  });
+
   it('viser ingen udsat-note, når runden er hel', () => {
     setup({}, '/spil/sl?runde=3', samlet);
     expect(screen.queryByTestId('combi-udenfor')).toBeNull();
@@ -691,7 +750,9 @@ describe('Chancen — den gemte indsats', () => {
       : m.id === 'm2' ? { ...m, odds: { 1: 2.2, X: 3.4, 2: 3.1 } } : m
   ));
 
-  const tegn = (bets, { matches = MED_ODDS, me = { uid: 'me', totalPoints: 100 }, url = '/spil/sl' } = {}) => {
+  const tegn = (bets, {
+    matches = MED_ODDS, me = { uid: 'me', totalPoints: 100 }, url = '/spil/sl', spil = {},
+  } = {}) => {
     mockBets.mockReturnValue({ betsByMatch: bets, loading: false });
     return (
       <MemoryRouter initialEntries={[url]}>
@@ -700,7 +761,7 @@ describe('Chancen — den gemte indsats', () => {
             path="/spil/:gameId"
             element={(
               <FootballTip
-                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }}
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY, ...spil }}
                 me={me}
                 matches={matches}
               />
@@ -734,6 +795,33 @@ describe('Chancen — den gemte indsats', () => {
     expect(linje).toHaveTextContent('Brøndby IF–FC Midtjylland');
     expect(linje).toHaveTextContent('(2)');
     expect(linje).not.toHaveTextContent('AGF');
+  });
+
+  // VISNINGSNAVNET GÆLDER OGSÅ HER. Panelet er en egen komponent, og `teams`
+  // skulle sendes ned som prop for at nå den — glemmes den, falder hele
+  // Chancen tilbage til rå navne, mens kampkortet lige ovenover viser de korte.
+  //
+  // Fixturets fire hold har alle `vis` === `name`, så en assertion på dem ville
+  // bestå med og uden `visOf`. Overriden herunder er dét, der gør testen til
+  // et bevis. Navnene er valgt, så ingen af dem er delstreng af det rå navn.
+  it('bruger visningsnavnet i "På spil nu"-linjen', () => {
+    render(tegn({ m2: { pick: '2', chanceStake: 4 } }, {
+      spil: { teamStyles: { 'Brøndby IF': { visningsnavn: 'Vestegnen' }, 'FC Midtjylland': { visningsnavn: 'Ulvene' } } },
+    }));
+    const linje = screen.getByText(/På spil nu:/);
+    expect(linje).toHaveTextContent('Vestegnen–Ulvene');
+    expect(linje).not.toHaveTextContent('Brøndby IF');
+    expect(linje).not.toHaveTextContent('FC Midtjylland');
+  });
+
+  // Og i kampvælgeren, som er en anden gren i samme komponent.
+  it('bruger visningsnavnet i Chancens kampvælger', () => {
+    render(tegn({ m1: { pick: '1' }, m2: { pick: '2' } }, {
+      spil: { teamStyles: { 'F.C. København': { visningsnavn: 'Løverne' } } },
+    }));
+    const valg = [...screen.getByRole('combobox').options].map((o) => o.textContent);
+    expect(valg.join(' ')).toContain('AGF–Løverne');
+    expect(valg.join(' ')).not.toContain('F.C. København');
   });
 
   // OUTCOME_LABEL-opslaget: 'X' er den, der let falder igennem, fordi den

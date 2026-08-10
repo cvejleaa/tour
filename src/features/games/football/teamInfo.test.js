@@ -13,16 +13,29 @@ import { PREMIER_LEAGUE_TEAMS_2026 } from '../../../data/premierLeagueTeams2026'
 
 describe('teamsOf', () => {
   it('bruger spillets egne hold', () => {
-    expect(teamsOf({ teams: PREMIER_LEAGUE_TEAMS_2026 })).toBe(PREMIER_LEAGUE_TEAMS_2026);
+    // IKKE `toBe` mere: listen får `vis` lagt på, så det er en ny liste.
+    // Til gengæld skal ALLE felter overleve — det var dét, identitets-
+    // assertionen beskyttede — og opslaget skal cache, så to kald giver samme
+    // objekt og ikke sender hver useMemo i gang forfra.
+    const spil = { teams: PREMIER_LEAGUE_TEAMS_2026 };
+    const ud = teamsOf(spil);
+    expect(ud).toHaveLength(PREMIER_LEAGUE_TEAMS_2026.length);
+    for (const [i, t] of PREMIER_LEAGUE_TEAMS_2026.entries()) {
+      expect(ud[i]).toMatchObject(t);
+    }
+    expect(teamsOf(spil)).toBe(ud);
   });
 
   // Fallbacken er der for et spil, der endnu ikke er seedet. Den bevarer den
   // adfærd, fladen havde før — men den må ALDRIG vinde over spillets egne.
   it('falder tilbage på Superligaen, når spillet ingen hold har', () => {
-    expect(teamsOf({})).toBe(SUPERLIGA_TEAMS_2026);
-    expect(teamsOf(null)).toBe(SUPERLIGA_TEAMS_2026);
-    expect(teamsOf({ teams: [] })).toBe(SUPERLIGA_TEAMS_2026);
-    expect(teamsOf({ teams: 'ikke en liste' })).toBe(SUPERLIGA_TEAMS_2026);
+    // Fallbacken får ogsaa `vis` lagt på, så den kan ikke sammenlignes med
+    // `toBe`. Det, der betyder noget, er at det ER Superligaens hold.
+    for (const spil of [{}, null, { teams: [] }, { teams: 'ikke en liste' }]) {
+      const ud = teamsOf(spil);
+      expect(ud.map((t) => t.name)).toEqual(SUPERLIGA_TEAMS_2026.map((t) => t.name));
+      expect(ud[0]).toMatchObject(SUPERLIGA_TEAMS_2026[0]);
+    }
   });
 });
 

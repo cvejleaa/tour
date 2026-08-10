@@ -12,7 +12,7 @@
  *   { ok: false, error: 'dansk fejlbesked' }  ved fejl
  */
 import {
-  doc, setDoc, deleteDoc, deleteField, serverTimestamp, Timestamp,
+  doc, setDoc, updateDoc, deleteDoc, deleteField, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL, GAME_STATUS_VALUES } from '../../lib/constants';
@@ -41,6 +41,14 @@ function danishError(err, fallback) {
   }
   if (code === 'unavailable') {
     return 'Kunne ikke få forbindelse. Prøv igen.';
+  }
+  // `updateDoc` mod et dokument, der ikke findes, giver `not-found` — og
+  // Firestores egen besked er rå engelsk fejlsøgningstekst med hele stien i:
+  // `5 NOT_FOUND: no entity to update: app: "dev~projekt" path < Element …`.
+  // Den stod før direkte i admin-fladen, fordi fallbacken returnerer
+  // `err.message` for ukendte koder.
+  if (code === 'not-found') {
+    return 'Findes ikke længere — prøv at genindlæse siden.';
   }
   return err?.message || fallback;
 }
@@ -74,10 +82,19 @@ export async function joinGame(uid, gameId) {
 export async function setTeamStyles(gameId, teamStyles) {
   if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
   try {
-    await setDoc(
+    // `updateDoc`, IKKE `setDoc(..., { merge: true })`. Merge DYBDE-fletter
+    // nested maps, så et hold, der udelades af `teamStyles`, beholdt sin gamle
+    // værdi i Firestore. Admin-fladen sender kun det, der AFVIGER fra
+    // standarden — og så kunne en nulstilling ikke gemmes: ↺ ryddede feltet i
+    // formularen, payloaden udelod det, og merge lod det gamle stå. Knappen
+    // lovede altså noget, den ikke kunne holde.
+    //
+    // Formularen er den fulde sandhed om spillets overrides, så feltet skal
+    // ERSTATTES. Det gælder også farverne, som har haft samme fejl, siden de
+    // blev indført — de kunne heller ikke nulstilles.
+    await updateDoc(
       doc(db, COL.GAMES, gameId),
       { teamStyles, updatedAt: serverTimestamp() },
-      { merge: true },
     );
     return { ok: true };
   } catch (err) {

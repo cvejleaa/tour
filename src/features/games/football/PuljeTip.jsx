@@ -132,7 +132,13 @@ export default function PuljeTip({ game, matches }) {
                 color2={t.troejer?.hjemme?.sekundaer} moenster={t.troejer?.hjemme?.moenster}
                 aerme={t.troejer?.hjemme?.aerme} title={t.name}
               />
-              <span className="pulje-team__name">{t.name}</span>
+              {/* Visningsnavnet — `teamsOf` har lagt `vis` på. Knappen er smal,
+                  og `.pulje-team__name` er `nowrap` med ellipsis, så et for
+                  langt navn bliver KLIPPET, ikke ombrudt. (Målt: intet af de 32
+                  navne klippes i dag, hverken ved 320, 360 eller 390 px.) Det
+                  EKSAKTE navn står stadig i badgens title og i `key`/`toggle`,
+                  som er dem, der matcher data. */}
+              <span className="pulje-team__name">{t.vis || t.name}</span>
               {isChosen && <span className="pulje-team__check">✓</span>}
               {inActual === true && <span className="pulje-team__actual" title="Kom i mesterskabsspillet">🏆</span>}
             </button>

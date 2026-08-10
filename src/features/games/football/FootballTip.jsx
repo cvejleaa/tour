@@ -15,7 +15,7 @@ import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
-import { teamsOf, teamInfo } from './teamInfo';
+import { teamsOf, teamInfo, visOf } from './teamInfo';
 import { colorsClash } from '../../../lib/contrastText';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
@@ -78,6 +78,8 @@ function badgeFor(teams, name, styles = {}, variant = 'home') {
   const form = info?.troejer?.[nøgle] || {};
   return {
     code,
+    // Visningsnavnet — "Brighton" frem for "Brighton and Hove Albion".
+    navn: info?.vis || name,
     color: override || fallback,
     venue: info?.venue ?? null,
     color2: form.sekundaer ?? null,
@@ -474,7 +476,7 @@ export default function FootballTip({ game, me, matches }) {
                 kan bakke op. Det første holder altid. */}
             🕒 {udenforKupon.length === 1 ? 'Én kamp i runden ligger' : `${udenforKupon.length} kampe i runden ligger`}
             {' '}uden for rundens uge ({formatDateRange(udenforFra, udenforTil)}) og står derfor uden for
-            kuponen: {udenforKupon.map((m) => `${m.home}–${m.away}`).join(', ')}.
+            kuponen: {udenforKupon.map((m) => `${visOf(hold, m.home)}–${visOf(hold, m.away)}`).join(', ')}.
             {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point og Chancen som altid — men runde-bonussen
             venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}.
           </p>
@@ -608,13 +610,11 @@ export default function FootballTip({ game, me, matches }) {
                   color2={h.color2} moenster={h.moenster} aerme={h.aerme}
                   title={m.home}
                 />
-                {/* KODEN OG NAVNET STÅR BEGGE HER, MEN VISES ALDRIG SAMTIDIG.
-                    CSS vælger efter pladsen: navnet over 600 px, koden under.
-                    Grænsen er målt (`scripts/navnbredde.mjs`) og ikke valgt —
-                    under 586 px bliver "Manchester City" og "Manchester United"
-                    begge til "Manch…", og så er koden den eneste forskel. */}
-                <span className="match-card__side-code">{h.code}</span>
-                <span className="match-card__side-name">{m.home}</span>
+                {/* KUN NAVNET. Kortet viste før kortkoden på smal skærm, men
+                    spillerne ved ikke, hvad forkortelserne betyder — "SJF" og
+                    "VFF" er ikke almenviden, og de fleste tipper fra telefonen.
+                    Navnet ombrydes i stedet; kortet har højde nok. */}
+                <span className="match-card__side-name">{h.navn}</span>
               </div>
               {/* Stregen mellem holdene er pladsen, hvor scoren hører hjemme.
                   Uden den kunne kortet på én gang sige "Ramt +6,0" og vise en
@@ -661,13 +661,11 @@ export default function FootballTip({ game, me, matches }) {
                   color2={a.color2} moenster={a.moenster} aerme={a.aerme}
                   title={m.away}
                 />
-                {/* KODEN OG NAVNET STÅR BEGGE HER, MEN VISES ALDRIG SAMTIDIG.
-                    CSS vælger efter pladsen: navnet over 600 px, koden under.
-                    Grænsen er målt (`scripts/navnbredde.mjs`) og ikke valgt —
-                    under 586 px bliver "Manchester City" og "Manchester United"
-                    begge til "Manch…", og så er koden den eneste forskel. */}
-                <span className="match-card__side-code">{a.code}</span>
-                <span className="match-card__side-name">{m.away}</span>
+                {/* KUN NAVNET. Kortet viste før kortkoden på smal skærm, men
+                    spillerne ved ikke, hvad forkortelserne betyder — "SJF" og
+                    "VFF" er ikke almenviden, og de fleste tipper fra telefonen.
+                    Navnet ombrydes i stedet; kortet har højde nok. */}
+                <span className="match-card__side-name">{a.navn}</span>
               </div>
             </div>
 
@@ -727,13 +725,16 @@ export default function FootballTip({ game, me, matches }) {
         betsByMatch={betsByMatch}
         chanceMatchId={chanceMatchId}
         nowMs={nowMs}
+        teams={hold}
       />
     </div>
   );
 }
 
 /** Chancen ⚡: sæt point på spil på ét 1X2-valg i runden. */
-function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchId, nowMs }) {
+function ChancePanel({
+  gameId, me, bank, roundMatches, betsByMatch, chanceMatchId, nowMs, teams = null,
+}) {
   const maxStake = chanceMaxStake(bank);
   const usable = canUseChance(bank);
 
@@ -833,7 +834,7 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
   // er præcis den forveksling, ⚡-pillen blev omskrevet for at undgå.
   const gemtLinje = gemtIndsats > 0 && chanceMatch ? (
     <p style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>
-      På spil nu: <strong>{gemtIndsats} point</strong> på {chanceMatch.home}–{chanceMatch.away}
+      På spil nu: <strong>{gemtIndsats} point</strong> på {visOf(teams, chanceMatch.home)}–{visOf(teams, chanceMatch.away)}
       {activeBet?.pick ? ` (${OUTCOME_LABEL[activeBet.pick]})` : ''}
     </p>
   ) : null;
@@ -924,7 +925,7 @@ function ChancePanel({ gameId, me, bank, roundMatches, betsByMatch, chanceMatchI
             >
               {options.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.home}–{m.away} (dit valg: {OUTCOME_LABEL[betsByMatch[m.id].pick]})
+                  {visOf(teams, m.home)}–{visOf(teams, m.away)} (dit valg: {OUTCOME_LABEL[betsByMatch[m.id].pick]})
                 </option>
               ))}
             </select>

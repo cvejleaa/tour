@@ -5,10 +5,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   joinGame, leaveGame, setGameSchedule, setGameStatus, setGameJoinable,
   setPlayerFavoriteTeam,
+  setTeamStyles,
 } from './gameActions';
 
 // ── Mock firebase/firestore ───────────────────────────────────────────────────
 const mockSetDoc = vi.fn();
+const mockUpdateDoc = vi.fn();
 const mockDeleteDoc = vi.fn();
 const mockDoc = vi.fn((db, ...path) => ({ _path: path }));
 const mockServerTimestamp = vi.fn(() => ({ _serverTimestamp: true }));
@@ -16,6 +18,7 @@ const mockServerTimestamp = vi.fn(() => ({ _serverTimestamp: true }));
 beforeEach(() => {
   vi.clearAllMocks();
   mockSetDoc.mockResolvedValue(undefined);
+  mockUpdateDoc.mockResolvedValue(undefined);
   mockDeleteDoc.mockResolvedValue(undefined);
   mockServerTimestamp.mockReturnValue({ _serverTimestamp: true });
 });
@@ -23,6 +26,7 @@ beforeEach(() => {
 vi.mock('firebase/firestore', () => ({
   doc: (...args) => mockDoc(...args),
   setDoc: (...args) => mockSetDoc(...args),
+  updateDoc: (...args) => mockUpdateDoc(...args),
   deleteDoc: (...args) => mockDeleteDoc(...args),
   serverTimestamp: () => mockServerTimestamp(),
   deleteField: () => ({ _deleteField: true }),
@@ -258,5 +262,48 @@ describe('setPlayerFavoriteTeam', () => {
     await setPlayerFavoriteTeam('uid-1', 'superliga2627', '');
     const [, data] = mockSetDoc.mock.calls[0];
     expect(data.favoriteTeam).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setTeamStyles — hold-farver og visningsnavne.
+//
+// Funktionen var HELT UTESTET. Den blev skrevet om fra `setDoc(..., { merge:
+// true })` til `updateDoc` uden at ét eneste tegn blev rødt — mocken
+// eksporterede ikke engang `updateDoc`, så et kald ville have kastet.
+// ---------------------------------------------------------------------------
+describe('setTeamStyles', () => {
+  it('afviser uden spil-id', async () => {
+    const res = await setTeamStyles('', {});
+    expect(res.ok).toBe(false);
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  // BÆRENDE: feltet skal ERSTATTES, ikke flettes. `setDoc(..., { merge: true })`
+  // dybde-fletter nested maps, så et hold, der udelades, beholdt sin gamle
+  // værdi — og så kunne admin-fladens nulstil-knap ikke gemme en nulstilling.
+  it('ERSTATTER teamStyles i stedet for at flette', async () => {
+    const styles = { AGF: { color: '#123456' } };
+    const res = await setTeamStyles('sl', styles);
+    expect(res.ok).toBe(true);
+    expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
+    // Ingen merge-option — updateDoc tager kun to argumenter.
+    expect(mockUpdateDoc.mock.calls[0]).toHaveLength(2);
+    expect(mockUpdateDoc.mock.calls[0][1]).toMatchObject({ teamStyles: styles });
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  // Et TOMT map skal kunne gemmes — det er dét, "nulstil alt" betyder.
+  // Med merge ville det have været en no-op.
+  it('kan gemme et tomt map, så alle overrides fjernes', async () => {
+    await setTeamStyles('sl', {});
+    expect(mockUpdateDoc.mock.calls[0][1].teamStyles).toEqual({});
+  });
+
+  it('giver en dansk fejlbesked, når skrivningen afvises', async () => {
+    mockUpdateDoc.mockRejectedValueOnce(new Error('permission-denied'));
+    const res = await setTeamStyles('sl', {});
+    expect(res.ok).toBe(false);
+    expect(res.error).toBeTruthy();
   });
 });

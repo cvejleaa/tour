@@ -6,7 +6,7 @@
  * har appen to sandheder om de samme data, og de driver fra hinanden ved næste
  * ændring — præcis som de to formler for "point i alt" gjorde.
  */
-import { shortOf } from './teamInfo';
+import { visOf } from './teamInfo';
 import { formatKickoff } from '../../../lib/daDate';
 import { fmtDec, fmtPoints, fmtSignedPoints } from '../../../lib/daNum';
 import PointOpdeling, { RUBRIKKER } from './PointOpdeling';
@@ -152,16 +152,15 @@ export default function TipsHistorik({
             {r.rows.map((row) => (
               <div className={`mytips__row ${row.isChance ? 'mytips__row--chance' : ''}`} key={row.id}>
                 <span className="mytips__kick">{formatKickoff(row.kickoff)}</span>
-                {/* FULDT NAVN på almindelig skærm, kortkode på en smal.
-                    Aldrig begge — koden er en forkortelse af navnet ved siden
-                    af, og der er intet at vinde ved at skrive det to gange.
-                    Begge står i DOM'en; CSS afgør hvilken der vises. */}
+                {/* FULDT NAVN, OGSÅ PÅ TELEFON. Rækken viste kortkoden under
+                    600 px, indtil det viste sig, at spillerne ikke kan tyde
+                    forkortelserne. Værre: kampkortet sagde "Sønderjyske", mens
+                    historikken ved siden af sagde "SJF" på samme skærm.
+                    Navnet ombrydes i stedet — rækken må gerne blive højere. */}
                 <span className="mytips__match">
-                  <span className="mytips__hold">{row.home}</span>
-                  <span className="mytips__hold-kort">{shortOf(teams, row.home)}</span>
+                  {visOf(teams, row.home)}
                   <span className="mytips__dash">–</span>
-                  <span className="mytips__hold">{row.away}</span>
-                  <span className="mytips__hold-kort">{shortOf(teams, row.away)}</span>
+                  {visOf(teams, row.away)}
                 </span>
                 <span className="mytips__pick">
                   {row.pick ? OUTCOME_LABEL[row.pick] : '–'}

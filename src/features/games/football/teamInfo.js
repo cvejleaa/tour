@@ -13,6 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
+import { medVisningsnavn } from './visningsnavn';
 
 /**
  * Spillets holdliste. Falder tilbage på Superligaens, hvis spillet ikke har
@@ -23,7 +24,22 @@ import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
  */
 export function teamsOf(game) {
   const t = game?.teams;
-  return Array.isArray(t) && t.length ? t : SUPERLIGA_TEAMS_2026;
+  const liste = Array.isArray(t) && t.length ? t : SUPERLIGA_TEAMS_2026;
+  // `vis` lægges på HER, ikke på hvert brugssted — modsat farve-overrides, der
+  // kun slår igennem på tip-fladen, fordi hver flade selv skulle huske at slå
+  // dem op. medVisningsnavn cacher, så samme spil giver samme array-objekt igen.
+  //
+  // Men feltet skal stadig LÆSES af hver flade, og det er ikke gjort af sig
+  // selv: `vis` var lagt på her, mens pulje-tippet og spilprofilen blev ved med
+  // at skrive `t.name`. Så viste kampkortet "Brighton", mens knappen ved siden
+  // af sagde "Brighton and Hove Albion". `visningsnavnFlader.test.jsx` holder
+  // listen over flader, der skal læse det.
+  return medVisningsnavn(liste, game?.teamStyles);
+}
+
+/** Navnet som det skal på skærmen. Falder tilbage på det eksakte navn. */
+export function visOf(teams, name) {
+  return teamInfo(teams, name)?.vis || name;
 }
 
 /**
