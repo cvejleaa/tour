@@ -10,25 +10,30 @@
  * havde rettet en farve i hånden.
  *
  * HVAD SIDEN IKKE PÅSTÅR. Den siger ikke, at hver farve er efterprøvet. De
- * danske hjemmetrøjer og elleve ude-/tredjefelter er målt på klubbernes egne
- * fotos (`scripts/superliga-ude-tredje.mjs`); resten er hentet fra en kilde,
- * men ikke målt. Det, siden DERIMOD kan se, er når et holds trøjer har samme
- * farve — så er den ene ikke en trøje, men en pladsholder. Hull City har
- * #FFFFFF som både ude og tredje, Coventry to næsten ens hvide, og Crystal
- * Palace hjemme og tredje inden for 2 i afstand. Dét siges højt.
+ * danske HJEMMEtrøjer er målt på bold.dk (`scripts/superliga-troejefarver.mjs`)
+ * og elleve ude-/tredjefelter på klubbernes egne fotos
+ * (`scripts/superliga-ude-tredje.mjs`); resten har en kilde, men er ikke målt.
+ *
+ * DET, SIDEN DERIMOD KAN AFGØRE, er om en 3. trøje nogensinde bliver BRUGT.
+ * Det spørgsmål har et præcist svar: kør hele ligaen igennem `matchBadges` og
+ * se, om holdets tredjefarve nogensinde bliver valgt. Bliver den aldrig det, er
+ * feltet dødvægt — enten fordi det er magen til udetrøjen, eller fordi det
+ * aldrig ligger længere fra en modstander.
+ *
+ * FØRSTE UDGAVE BRUGTE EN TÆRSKEL PÅ 20 I FARVEAFSTAND, og den var både for
+ * grov og for fin. Den markerede Coventry (18,6 fra sin udetrøje) og Crystal
+ * Palace (1,7 fra sin HJEMMEtrøje) — men begge holds 3. trøjer bliver faktisk
+ * brugt, og `matchBadges` sammenligner aldrig et holds tredjefarve med dets
+ * egen hjemmefarve. Samtidig overså den Leeds United, hvis to gule (#FFFB00 og
+ * #FFCD00) er 27 fra hinanden og dermed slap under radaren, selv om
+ * tredjetrøjen aldrig vinder mod nogen modstander. Et tal, jeg selv havde
+ * fundet på, gav altså to falske og ét overset. Reglen spørger nu koden.
  */
 import { useMemo } from 'react';
 import ClubBadge from '../../../components/ClubBadge';
 import { badgeFor, matchBadges } from './badges';
 import { teamsOf } from './teamInfo';
 import { colorDistance } from '../../../lib/contrastText';
-
-/**
- * To trøjer er "den samme", når farverne ikke kan skelnes. Tærsklen er den
- * samme, `badgeFarver.test.js` bruger til at kalde Hull og Coventry
- * pladsholdere — ét tal, ét sted, så de to ikke kan drive fra hinanden.
- */
-export const SAMME_FARVE = 20;
 
 const SLOTS = [
   { key: 'home', navn: 'Hjemme' },
@@ -74,15 +79,22 @@ export function findEksempel(teams, styles) {
   return bedst;
 }
 
-/** Trøjer, hvis farve ikke kan skelnes fra en anden af holdets egne. */
-function dubletter(troejer) {
-  const ud = {};
-  for (let i = 0; i < troejer.length; i += 1) {
-    for (let j = 0; j < i; j += 1) {
-      if (colorDistance(troejer[i].b.color, troejer[j].b.color) < SAMME_FARVE) {
-        ud[troejer[i].key] = troejer[j].navn;
-      }
-    }
+/**
+ * Hold, hvis 3. trøje ALDRIG bliver valgt af `matchBadges` i hele ligaen.
+ *
+ * Ingen tærskel, ingen skønsmæssig farveafstand: spørgsmålet stilles til den
+ * regel, der rent faktisk afgør det. Bliver farven aldrig valgt, er feltet
+ * dødvægt — og så skal ejeren rette det, ikke gætte på hvorfor.
+ */
+export function ubrugteTredjetroejer(teams, styles) {
+  const ud = new Set();
+  for (const a of teams) {
+    const tredje = badgeFor(teams, a.name, styles, 'third').color;
+    const ude = badgeFor(teams, a.name, styles, 'away').color;
+    // Er de ens, KAN skiftet aldrig ses — så tæller det ikke som "brugt".
+    const brugt = tredje !== ude && teams.some((h) => h.name !== a.name
+      && matchBadges(teams, h.name, a.name, styles).a.color === tredje);
+    if (!brugt) ud.add(a.name);
   }
   return ud;
 }
@@ -98,6 +110,10 @@ export default function TroejeOversigt({ game }) {
     () => (hold.length ? findEksempel(hold, styles) : null),
     [hold, styles],
   );
+  const ubrugte = useMemo(
+    () => (hold.length ? ubrugteTredjetroejer(hold, styles) : new Set()),
+    [hold, styles],
+  );
 
   // Gaten er på SPILTYPEN, ikke på holdlisten: `teamsOf` falder tilbage på
   // Superligaens tolv, og det er nøjagtig den liste, holdvælgeren lige over
@@ -106,15 +122,25 @@ export default function TroejeOversigt({ game }) {
 
   return (
     <div className="troejer">
-      <h4 className="troejer__titel">👕 Alle trøjer i {game?.name || 'spillet'}</h4>
+      {/* OVERSKRIFTEN SIGER, HVAD DET ER — ikke "Alle trøjer". Farverne er dem,
+          badgen tegnes i, og over halvdelen af ude-/tredjefelterne er ikke målt
+          på en trøje. "Alle trøjer" ville læses som et facit. Spilnavnet står
+          heller ikke her: i et fodboldspil uden egen holdliste ville
+          overskriften påstå "…i Premier League" over Superligaens tolv. */}
+      <h4 className="troejer__titel">👕 Sådan tegnes holdene</h4>
 
       {/* TEKSTEN HANDLER OM BADGEN, IKKE OM TRØJEN PÅ BANEN. Skrev vi "holdet
           spiller i", modsagde vi tv-billedet: reglen afgør kun, hvilken farve
           KORTET tegner udeholdet i. */}
       <p className="troejer__hjaelp">
-        Sådan tegnes holdene på kampkortet. Udeholdet vises i sin udetrøje —
-        men skifter til 3. trøje, når udefarven ligger for tæt på hjemmeholdets,
-        så de to badges kan skelnes.
+        {/* REGLEN LOVER IKKE, AT DE KAN SKELNES. Her stod "…så de to badges kan
+            skelnes" — men `matchBadges` skifter kun, HVIS tredjefarven ligger
+            længere væk. Hjælper ingen af dem, bliver udetrøjen stående, og de to
+            badges ligner stadig hinanden. Modbeviset stod tre rækker længere
+            nede på samme skærm. */}
+        På kampkortet vises udeholdet i sin udetrøje — men skifter til 3. trøje,
+        hvis den ligger længere fra hjemmeholdets farve. Har holdet ingen 3.
+        trøje, der hjælper, bliver udetrøjen stående.
         {eksempel && (
           <>
             {' '}Fx <strong>{eksempel.hjemme}–{eksempel.ude}</strong>: dér tegnes{' '}
@@ -126,7 +152,7 @@ export default function TroejeOversigt({ game }) {
       <ul className="troejer__liste">
         {hold.map((t) => {
           const troejer = SLOTS.map((s) => ({ ...s, b: badgeFor(hold, t.name, styles, s.key) }));
-          const ens = dubletter(troejer);
+          const doedTredje = ubrugte.has(t.name);
           return (
             <li key={t.name} className="troejer__hold">
               <span className="troejer__navn">{t.vis || t.name}</span>
@@ -140,12 +166,12 @@ export default function TroejeOversigt({ game }) {
                   />
                   <span className="troejer__mrk">
                     {navn}
-                    {/* EN TRØJE, DER ER MAGEN TIL EN ANDEN, ER IKKE EN TRØJE.
-                        Hull City har #FFFFFF som både ude og 3.; uden den her
-                        linje ville siden vise to ens badges og påstå, at klubben
-                        har to hvide trøjer. */}
-                    {ens[key] && (
-                      <span className="troejer__mangler"> · mangler, viser {ens[key].toLowerCase()}</span>
+                    {/* EN 3. TRØJE, DER ALDRIG BLIVER VALGT, ER DØDVÆGT — og
+                        det er en observation om VORES data, ikke en påstand om
+                        klubben. Hull City HAR en tredjetrøje i virkeligheden;
+                        det er vores farve, der er den samme som udetrøjens. */}
+                    {key === 'third' && doedTredje && (
+                      <span className="troejer__mangler"> · bruges aldrig</span>
                     )}
                   </span>
                 </span>
