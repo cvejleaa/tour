@@ -3,9 +3,11 @@
 //
 // To gates afgør det, og begge er der af en grund, der HAR gjort skade før:
 //
-//  1. `teamsOf` falder tilbage på Superligaens tolv hold, når spillet ikke har
-//     nogen. Det giver mening på tip-fladen i et endnu ikke seedet fodboldspil,
-//     men her ville det give en Tour-spiller en ring i Brøndby-gul.
+//  1. SPILLET SKAL VÆRE ET FODBOLDSPIL. `teamsOf` falder tilbage på
+//     Superligaens tolv hold, når spillet ikke har nogen — uden gaten ville en
+//     Tour-spiller kunne få en ring i Brøndby-gul. Gaten kræver derimod IKKE,
+//     at spillet har sin egen liste: ringen bruger nøjagtig den liste,
+//     holdvælgeren viser, så de to ikke kan sige forskellige ting.
 //  2. `gameStandings.js` falder tilbage på brugerens GLOBALE yndlingshold
 //     (`p.favoriteTeam ?? u.favoriteTeam`), og for en migreret Tour-bruger står
 //     der et CYKELHOLD dér — "Visma", "UAE". Uden et opslag i spillets holdliste
@@ -76,10 +78,22 @@ describe('useKlubFarver — de to gates', () => {
     expect(kald(game, 'Brøndby IF')).toBeNull();
   });
 
-  // …og for et fodboldspil, der ikke er seedet endnu. Fallbacken i `teamsOf`
-  // hører til tip-fladen, ikke her.
-  it.each([undefined, [], null])('giver null, når spillet ingen holdliste har (%p)', (teams) => {
-    expect(kald({ id: 'sl', type: 'football', teams }, 'Brøndby IF')).toBeNull();
+  // ET FODBOLDSPIL UDEN EGEN HOLDLISTE bruger `teamsOf`s fallback — NØJAGTIG
+  // som holdvælgeren på samme kort gør.
+  //
+  // Gaten krævede før også en ikke-tom `teams`, og så opstod der en ny udgave
+  // af netop den fejl, hele ændringen retter: `games/{id}.teams` skrives kun af
+  // `seed-football.mjs`, og profil-fanen er ikke gated på fodbold. I et
+  // fodboldspil uden liste viste vælgeren derfor Superligaens tolv hold, mens
+  // ringen udeblev — og hjælpeteksten lige over lovede en ring. Falsk igen, i
+  // det samme kort.
+  it.each([undefined, [], null])('bruger fallback-listen, når spillet ingen har (%p)', (teams) => {
+    expect(kald({ id: 'sl', type: 'football', teams }, 'Brøndby IF').primaer).toBe('#E5B905');
+  });
+
+  // …men gaten på spiltype holder stadig, og det er DEN, der beskytter Tour.
+  it('giver stadig null for et tour-spil uden holdliste', () => {
+    expect(kald({ id: 't', type: 'tour', teams: undefined }, 'Brøndby IF')).toBeNull();
   });
 
   // GATE 2, gennem hook'en: navnet skal findes i SPILLETS liste.

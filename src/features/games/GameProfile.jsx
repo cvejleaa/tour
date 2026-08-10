@@ -1,8 +1,13 @@
 /**
  * GameProfile — din profil I DETTE spil. Pt. dit yndlingshold, som er
  * spil-specifikt (holdene er forskellige fra spil til spil). Vælget gemmes på
- * games/{gameId}/players/{uid}.favoriteTeam og giver din avatar holdets farve/
- * badge i spillets stilling og ligaer.
+ * games/{gameId}/players/{uid}.favoriteTeam og giver din avatar en RING i
+ * holdets farve i spillets stilling og ligaer — se `football/useKlubFarver.js`.
+ *
+ * Ringen og ikke fyldet: fyldet er `avatarColor(uid)`, og det er dét, der
+ * skiller spillerne fra hinanden. Indtil videre gjorde valget i øvrigt slet
+ * intet uden for det her kort — den her linje beskrev en funktion, der ikke
+ * fandtes.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';

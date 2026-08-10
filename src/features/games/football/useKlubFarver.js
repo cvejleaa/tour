@@ -19,10 +19,17 @@ const INTET = () => null;
  *
  * TO GATES, og begge er nødvendige:
  *
- *  1. KUN FODBOLDSPIL. `teamsOf` falder tilbage på Superligaens tolv hold, når
- *     spillet ikke har nogen — en fallback, der giver mening på tip-fladen i et
- *     endnu ikke seedet fodboldspil, men som her ville give en Tour-spiller en
- *     ring i Brøndby-gul, fordi hans cykelhold tilfældigvis hed noget.
+ *  1. KUN FODBOLDSPIL. Uden den ville en Tour-spiller kunne få en ring i
+ *     Brøndby-gul, fordi `teamsOf` falder tilbage på Superligaens tolv hold og
+ *     hans cykelhold tilfældigvis hed noget.
+ *
+ *     GATEN KRÆVER IKKE, AT SPILLET SELV HAR EN HOLDLISTE, og det gjorde den
+ *     først. Men `games/{id}.teams` skrives kun af `seed-football.mjs`, og
+ *     profil-fanen er ikke gated på fodbold: i et fodboldspil uden liste viste
+ *     VÆLGEREN Superligaens tolv hold via samme fallback, mens ringen udeblev
+ *     — og hjælpeteksten lige over lovede en ring. Så var den falsk igen, i
+ *     det samme kort. Ringen bruger nu nøjagtig den liste, vælgeren viser, så
+ *     de to ikke kan sige forskellige ting.
  *  2. KUN NAVNE, SPILLET KENDER. `gameStandings.js` falder tilbage på brugerens
  *     GLOBALE yndlingshold (`p.favoriteTeam ?? u.favoriteTeam`), og for en
  *     migreret Tour-bruger står der et CYKELHOLD dér. `klubFarverAf` slår op i
@@ -35,7 +42,6 @@ const INTET = () => null;
 export function useKlubFarver(game) {
   return useMemo(() => {
     if (game?.type !== 'football') return INTET;
-    if (!Array.isArray(game?.teams) || game.teams.length === 0) return INTET;
     const teams = teamsOf(game);
     const styles = game?.teamStyles;
     const cache = new Map();

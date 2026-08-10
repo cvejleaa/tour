@@ -48,13 +48,24 @@ export default function Avatar({
   const badgeSrc = meta?.jersey || meta?.logo || null;
   const badgeAlt = badgeSrc ? prettyTeam(favoriteTeam) : '';
 
-  // KLUBRINGEN. Bygget af box-shadow frem for en border, fordi skyggerne
-  // stables UDEN FOR cirklen og derfor ikke æder af fladen til initialerne —
-  // ved 22 px er der ikke plads at give af. Til gengæld skal selve cirklen
-  // krympe tilsvarende, ellers ville ringen vokse ud over `size` og skubbe til
-  // rækken. Bredden er 8 % af størrelsen, dog mindst 2 px: 1 px forsvinder på
-  // en 1×-skærm, og det er præcis de små størrelser (22 px i stillingen), hvor
-  // ringen skal bære sin besked.
+  // KLUBRINGEN TEGNES INDAD, og det er en rettelse af den første udgave.
+  //
+  // Dér lå ringen UDEN FOR cirklen, og cirklen krympede tilsvarende, så
+  // avataren holdt sin plads i rækken. Prisen var målt og for høj: ved 22 px
+  // (ligatabellen og liga-væggen) gik cirklen fra 22 til 16 px og initialerne
+  // fra 9,2 til 6,7 px — 5,9 px med en sekundærfarve, og en emoji fra 12,8 til
+  // 8,1 px. En spiller, der TOG funktionen i brug, blev altså sværere at kende
+  // end en, der lod være. Og "man kan skelne spillerne" var netop grunden til
+  // ring frem for fyld.
+  //
+  // Med `inset` lægger ringen sig i cirklens yderste bånd i stedet. Initialerne
+  // står midt i og fylder omtrent 42 % af diameteren, så de rører den ikke:
+  // ved 22 px når teksten ~4,6 px ud fra midten, og ringens inderkant ligger
+  // ved 8 px. Kun hårlinjen ligger udenpå og koster 1 px.
+  //
+  // Bredden er 8 % af størrelsen, dog mindst 2 px: 1 px forsvinder på en
+  // 1×-skærm, og det er præcis de små størrelser, hvor ringen skal bære sin
+  // besked.
   //
   // HÅRLINJEN YDERST er ikke pynt, og den skal VENDE MODSAT AF RINGEN.
   // Første udgave var altid mørk, hvilket løser den ene halvdel af problemet:
@@ -68,22 +79,23 @@ export default function Avatar({
   // mørk ring en lys. Samme problem, ClubBadge løser med sin kontur.
   const ringBredde = klubFarver ? Math.max(2, Math.round(size * 0.08)) : 0;
   const harSekundaer = Boolean(klubFarver?.sekundaer);
-  // Lagene indefra og ud: sekundærfarve (1 px), primærfarve, hårlinje (1 px).
-  // Hver skygge måles fra cirklens kant, så tallene skal lægges sammen.
-  const indre = harSekundaer ? 1 : 0;
-  // Uden klubfarver er der INGEN ring, og så må cirklen ikke krympe. Den gren
-  // skal stå eksplicit: `indre + ringBredde + 1` giver 1 selv uden ring, og så
-  // ville hver avatar i hele appen blive to pixels mindre.
-  const ialt = klubFarver ? indre + ringBredde + 1 : 0;
-  const diameter = size - 2 * ialt;
-  const fontSize = shownEmoji ? diameter * 0.58 : diameter * 0.42;
+  // KUN HÅRLINJEN ligger uden på cirklen, så ringen koster netop 1 px i radius.
+  // Uden klubfarver koster den ingenting, og den gren skal stå eksplicit —
+  // ellers ville hver avatar i hele appen blive mindre.
+  const diameter = klubFarver ? size - 2 : size;
+  // Skriftstørrelsen følger `size`, ikke cirklen. Det er hele pointen med den
+  // indadgående ring: initialerne er lige så store med ring som uden.
+  const fontSize = shownEmoji ? size * 0.58 : size * 0.42;
   const haarlinje = klubFarver && textOn(klubFarver.primaer) === '#ffffff'
     ? 'rgba(255,255,255,.5)'
     : 'rgba(0,0,0,.3)';
+  // Rækkefølgen er MALERÆKKEFØLGEN: den første skygge ligger øverst.
+  // Primærringen står derfor før sekundærringen, så sekundærfarven kun ses i
+  // det 1 px brede bånd, primærringen ikke dækker.
   const ringe = klubFarver ? [
-    harSekundaer ? `0 0 0 ${indre}px ${klubFarver.sekundaer}` : null,
-    `0 0 0 ${indre + ringBredde}px ${klubFarver.primaer}`,
-    `0 0 0 ${ialt}px ${haarlinje}`,
+    `inset 0 0 0 ${ringBredde}px ${klubFarver.primaer}`,
+    harSekundaer ? `inset 0 0 0 ${ringBredde + 1}px ${klubFarver.sekundaer}` : null,
+    `0 0 0 1px ${haarlinje}`,
   ].filter(Boolean).join(', ') : undefined;
 
   return (

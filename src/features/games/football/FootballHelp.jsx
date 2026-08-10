@@ -340,9 +340,14 @@ export default function FootballHelp() {
       </Section>
 
       <Section emoji="🙂" title="Dit hold">
-        Under <Tab fane="profil">🙂 Mit hold</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>. Det giver din
-        avatar holdets farve i stillingen og i dine ligaer. Holdet gælder kun her — andre spil har deres
-        egne hold.
+        {/* SAMME ORDLYD SOM GameProfile. De to tekster beskriver den samme
+            funktion, og stod der forskelligt, ville den ene være forkert —
+            præcis den fælde, CLAUDE.md navngiver. Begge sagde "holdets farve",
+            mens yndlingsholdet slet ikke rørte avataren; da GameProfile blev
+            rettet, blev den her stående og sagde så noget andet. */}
+        Under <Tab fane="profil">🙂 Mit hold</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>. Din
+        avatar får holdets farve som ring om sig i stillingen og i dine ligaer. Holdet gælder kun
+        her — andre spil har deres egne hold.
       </Section>
 
       <p style={{ color: 'var(--c-muted)', fontSize: '0.88rem', marginTop: '1rem' }}>

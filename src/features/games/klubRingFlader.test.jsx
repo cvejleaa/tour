@@ -18,6 +18,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 vi.mock('../../firebase', () => ({ db: {} }));
 vi.mock('firebase/firestore', () => ({
@@ -167,8 +170,23 @@ describe('spilprofilens hjælpetekst', () => {
   it('siger RING og ikke bare "farve", for fyldet er stadig det personlige', () => {
     const { container } = render(<GameProfile game={SPIL} me={{}} />);
     const t = container.textContent;
-    expect(t).toMatch(/ring/i);
+    expect(t).toMatch(/ring om sig/i);
     expect(t).toMatch(/stillingen/);
     expect(t).toMatch(/ligaer/);
+    // …og den må IKKE love, at holdet farver avataren uden videre. Det var
+    // netop den formulering, der var falsk.
+    expect(t).not.toMatch(/Det giver din\s+avatar holdets farve/);
+  });
+
+  // DE TO TEKSTER SKAL VÆRE ENS. Guiden og spilprofilen beskriver den samme
+  // funktion, og stod der forskelligt, ville den ene være forkert. Begge sagde
+  // "holdets farve", mens yndlingsholdet slet ikke rørte avataren; da
+  // spilprofilen blev rettet, blev guiden stående og sagde så noget andet.
+  it('står ordret det samme i Guiden', () => {
+    const her = dirname(fileURLToPath(import.meta.url));
+    const kilde = (f) => readFileSync(resolve(her, f), 'utf8').replace(/\s+/g, ' ');
+    const SAETNING = 'avatar får holdets farve som ring om sig i stillingen og i dine ligaer';
+    expect(kilde('./GameProfile.jsx')).toContain(SAETNING);
+    expect(kilde('./football/FootballHelp.jsx')).toContain(SAETNING);
   });
 });
