@@ -191,46 +191,31 @@ describe('FootballTip — Elo på kampkortene', () => {
   // Elo må ikke vælte tip-fladen for et spil, der slet ikke har ratings.
   it('viser stadig kampene, når spillet slet ingen Elo har', () => {
     const { container } = setup({ teams: [], eloHistory: undefined });
-    // "AGF" står to steder i DOM'en: som kortkode og som holdnavn. Kun ÉN af
-    // dem vises ad gangen — CSS vælger efter pladsen, se navnVisning.test.js —
-    // men begge er i markuppen, så testen skal pege på NAVNET og ikke bare på
-    // teksten.
     const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
     expect(navne).toContain('AGF');
     expect(navne).toContain('FC Midtjylland');
-    // Kortkoden skal stå i DOM'en, så CSS kan vise den under 600 px, hvor de
-    // to Manchester-hold ellers begge ville stå som "Manch…". At den faktisk
-    // BLIVER vist dér, kan kun stylesheetet afgøre — se navnVisning.test.js;
-    // jsdom anvender ingen CSS, så den her ser kun markuppen.
-    const koder = [...container.querySelectorAll('.match-card__side-code')].map((e) => e.textContent);
-    expect(koder).toContain('AGF');
+    // KORTKODEN ER VÆK FRA KAMPKORTET. Den blev vist på smal skærm, indtil det
+    // viste sig, at spillerne ikke ved hvad forkortelserne betyder. Navnet
+    // ombrydes i stedet — se navnVisning.test.js for selve ombrydningen; jsdom
+    // anvender ingen CSS, så den her kan kun se markuppen.
+    expect(container.querySelectorAll('.match-card__side-code')).toHaveLength(0);
   });
 
-  // KODENS INDHOLD VAR UBUNDET. `{h.code}` kunne erstattes af `{m.home}` med
-  // hele suiten grøn — og så viser den smalle skærm det fulde navn igen, altså
-  // præcis dét, koden er der for at undgå. Testen kræver derfor, at koden er
-  // FORSKELLIG fra navnet for et hold, hvor de to afviger.
-  it('viser kortkoden — ikke holdnavnet — i kode-spanet', () => {
-    // BEGGE hold får en kortkode, der afviger fra navnet. AGF's rigtige kode
-    // ER "AGF", og med den kan testen ikke se forskel på en kode og et navn —
-    // så mutationen "vis navnet i kode-spanet" ville overleve for netop det hold.
+  // HOLDNAVNET SKAL STÅ FULDT UD — ikke som en forkortelse. Det var hele
+  // grunden til at fjerne kortkoden: spillerne kunne ikke tyde den.
+  it('viser holdets fulde navn på begge sider af kortet', () => {
     const { container } = setup({
       teams: [
         { name: 'FC Midtjylland', short: 'FCM', elo: 1657 },
         { name: 'AGF', short: 'ÅRH', elo: 1578 },
       ],
     });
-    // BEGGE SIDER. Hjemme- og udeholdet tegnes af hver sin blok i JSX'en, så en
-    // fejl kan sidde i den ene alene — første udgave af testen kiggede kun på
-    // udeholdet, og en mutation af hjemmeholdets span overlevede.
-    const sider = [...container.querySelectorAll('.match-card__side')];
-    expect(sider.length).toBeGreaterThanOrEqual(2);
-    for (const side of sider) {
-      const navn = side.querySelector('.match-card__side-name').textContent;
-      const kode = side.querySelector('.match-card__side-code').textContent;
-      expect(kode, `koden for ${navn}`).not.toBe(navn);
-      expect(kode.length, `koden for ${navn} er ikke en forkortelse`).toBeLessThanOrEqual(4);
-    }
+    const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
+    expect(navne).toContain('FC Midtjylland');
+    expect(navne).toContain('AGF');
+    // Og ingen af dem må være kortkoden.
+    expect(navne).not.toContain('FCM');
+    expect(navne).not.toContain('ÅRH');
   });
 });
 

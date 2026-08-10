@@ -701,43 +701,36 @@ a:focus-visible,
 
 /* Holdopstilling i 3 kolonner der flugter med 1X2-knapperne:
    hjemmehold over "1", bindestreg over "X", udehold over "2". */
+/* TANKESTREGEN FÅR `auto`, IKKE EN TREDJEDEL. Kolonnerne flugtede før med
+   1X2-knapperne nedenunder (hjemme over "1", streg over "X", ude over "2"), og
+   det var pænt — men det gav ét tegn en tredjedel af kortet, mens holdnavnene
+   sultede. Målt med `node scripts/navnbredde.mjs --ombryd`: med tre lige
+   kolonner er selv "Nottingham Forest" klippet på ENHVER telefonbredde, også
+   med tre linjer til rådighed. Med `auto` passer alle navne fra 360 px og op.
+   Justeringen var en detalje; læselige holdnavne er det, spillerne bad om. */
 .match-card__lineup {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.5rem;
   align-items: center; margin-bottom: 0.1rem;
 }
 .match-card__side { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
-/* KODEN OG NAVNET VISES ALDRIG SAMTIDIG. De stod begge på kortet et stykke
-   tid ("ARS Arsenal", "COV Coventry City"), og det er ren dobbelthed: koden er
-   en forkortelse af navnet, der står lige ved siden af.
-   Begge findes stadig i DOM'en — hvilken der vises, afgøres af pladsen. */
-.match-card__side-code {
-  display: none;
-  font-size: 0.78rem; font-weight: 800; letter-spacing: -0.01em;
-  color: var(--c-text); white-space: nowrap; flex: 0 0 auto;
-  font-variant-numeric: tabular-nums;
-}
+/* HOLDNAVNET OMBRYDES — det klippes ikke længere, og kortkoden er væk.
+   Kortet viste et stykke tid "ARS Arsenal" (dobbelt), så kun navnet, og under
+   600 px kun kortkoden. Det sidste var forkert af en grund, der ikke stod i
+   nogen måling: SPILLERNE VED IKKE, HVAD FORKORTELSERNE BETYDER. "SJF" og
+   "VFF" er ikke almenviden, og de fleste tipper fra telefonen.
+
+   Kortet har højde nok til flere linjer, så navnet ombrydes i stedet.
+   Tre linjer er målt som det, der skal til: `Wolverhampton Wanderers` og
+   `Brighton and Hove Albion` bruger alle tre på en smal telefon, mens de
+   fleste navne klarer sig med to. Ved 320 px — en iPhone SE af første slags —
+   klippes de to længste stadig; det er prisen, og den er kendt.
+
+   `overflow-wrap: anywhere` er nødvendig: uden den bryder browseren ikke
+   `Wolverhampton`, og ét langt ord ville skubbe kortet ud i vandret scroll. */
 .match-card__side-name {
   font-size: 0.92rem; font-weight: 700; color: var(--c-text);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* KNÆKPUNKTET ER 600 PX, OG DET ER MÅLT — `node scripts/navnbredde.mjs`.
-   Det stod først på 420, og det var forkert på en måde, der gjorde skade:
-   fra 421 til 585 px stod BÅDE Manchester City og Manchester United som
-   "Manch…", mens kortkoden — den eneste ting, der kunne skille dem — var
-   skjult af netop denne media query. 428 og 430 px er de to mest udbredte
-   store iPhone-bredder, så knækpunktet lå lige under dem.
-
-   Målt kræver kortet 586 px, før de to kan skelnes. 600 giver margin.
-
-   KORTET SKIFTER SENERE END TIPS-RÆKKEN (600 mod 480), og det er den modsatte
-   rækkefølge af, hvad jeg først skrev. Kortet er det STRAMME sted:
-   `repeat(3, 1fr)` giver hver side præcis en tredjedel uanset navnelængde, og
-   trøje + gap spiser ~40 px af den. Tips-rækkens `1fr` deles derimod af begge
-   navne, så et kort udehold forærer plads til et langt hjemmehold. Målt på
-   samme kamp kræver kortet 80-230 px mere viewport end rækken. */
-@media (max-width: 600px) {
-  .match-card__side-name { display: none; }
-  .match-card__side-code { display: inline; font-size: 0.85rem; }
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere; line-height: 1.15;
 }
 .match-card__dash { text-align: center; color: var(--c-muted); font-weight: 700; font-size: 1.1rem; }
 /* Slutresultatet står samme sted som stregen, så kolonnen flugter med "X"

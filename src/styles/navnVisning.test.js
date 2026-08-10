@@ -97,31 +97,47 @@ function regel(kilde, selektor) {
   return kilde.slice(i + selektor.length + 1, kilde.indexOf('}', i));
 }
 
-describe('kampkortet — kode og navn er gensidigt udelukkende', () => {
-  it('skjuler kortkoden på almindelig skærm', () => {
-    expect(regel(udenforMedie(), '.match-card__side-code')).toContain('display:none');
+describe('kampkortet — holdnavnet ombrydes i stedet for at blive klippet', () => {
+  // KORTKODEN ER VÆK FRA KAMPKORTET. Den blev vist under 600 px, indtil det
+  // viste sig, at spillerne ikke ved hvad forkortelserne betyder — "SJF" og
+  // "VFF" er ikke almenviden, og de fleste tipper fra telefonen.
+  it('har ingen kortkode-regel tilbage', () => {
+    expect(regel(udenforMedie(), '.match-card__side-code')).toBeNull();
+    expect(regel(iMedie(600), '.match-card__side-code')).toBeNull();
   });
 
-  // KNÆKPUNKTET ER 600 PX OG ER MÅLT — se scripts/navnbredde.mjs.
-  // Det stod på 420, og fra 421 til 585 px stod BÅDE Manchester City og
-  // Manchester United som "Manch…" med koden skjult. 428 og 430 px er de mest
-  // udbredte store iPhone-bredder, så fejlen ramte netop dem.
-  it('viser navnet i grundtilstanden', () => {
+  // Og navnet må ALDRIG skjules igen — det var netop dét, der gjorde koden
+  // nødvendig.
+  it('skjuler aldrig holdnavnet', () => {
     const grund = regel(udenforMedie(), '.match-card__side-name');
     expect(grund).not.toBeNull();
     expect(grund).not.toContain('display:none');
+    expect(regel(iMedie(600), '.match-card__side-name')).toBeNull();
   });
 
-  it('bytter dem om under 600 px', () => {
-    const smal = iMedie(600);
-    expect(smal, 'ingen 600px-blok i theme.css').not.toBe('');
-    expect(regel(smal, '.match-card__side-name')).toContain('display:none');
-    expect(regel(smal, '.match-card__side-code')).toContain('display:inline');
+  // OMBRYDNINGEN er hele rettelsen. Uden line-clamp og box-orient falder
+  // -webkit-box tilbage til én linje, og navnet er klippet igen.
+  it('ombryder navnet over tre linjer', () => {
+    const r = regel(udenforMedie(), '.match-card__side-name');
+    expect(r).toContain('-webkit-line-clamp:3');
+    expect(r).toContain('-webkit-box-orient:vertical');
+    expect(r).not.toContain('white-space:nowrap');
   });
 
-  // Den gamle grænse må ikke snige sig tilbage.
-  it('skifter IKKE ved 420 px — dér var Manchester-holdene ikke til at skelne', () => {
-    expect(regel(iMedie(420), '.match-card__side-name')).toBeNull();
+  // Uden den her skubber ét langt ord som "Wolverhampton" kortet ud i vandret
+  // scroll i stedet for at brydes.
+  it('bryder også ord, der er længere end kolonnen', () => {
+    expect(regel(udenforMedie(), '.match-card__side-name')).toContain('overflow-wrap:anywhere');
+  });
+
+  // DET AFGØRENDE MÅL. Med tre lige kolonner får tankestregen en tredjedel af
+  // kortet til ét tegn, og målingen viste, at selv "Nottingham Forest" så var
+  // klippet på ENHVER telefonbredde — også med tre linjer.
+  // `node scripts/navnbredde.mjs`
+  it('giver tankestregen `auto`, ikke en hel tredjedel', () => {
+    const r = regel(udenforMedie(), '.match-card__lineup');
+    expect(r).toContain('grid-template-columns:1frauto1fr');
+    expect(r).not.toContain('repeat(3,1fr)');
   });
 });
 
@@ -142,49 +158,5 @@ describe('tipshistorikken — fuldt navn, kortkode på smal skærm', () => {
   // koder og tipshistorikken navne.
   it('skifter IKKE ved 480 px', () => {
     expect(regel(iMedie(480), '.mytips__hold')).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// DE TO FLADER SKIFTER SAMTIDIG.
-//
-// Først satte jeg kortet til 420 og rækken til 480 med den begrundelse, at
-// rækken har mindst plads. Målingen viste det modsatte — kortet kræver 80-230
-// px MERE viewport, fordi `repeat(3, 1fr)` giver hver side en fast tredjedel,
-// mens rækkens `1fr` deles af begge navne.
-//
-// Rettet blev de til 600 og 480, og dét gav en NY skævhed: mellem 481 og 600 px
-// viste kampkortet koder, mens tipshistorikken viste navne. Samme app, samme
-// hold, to formsprog på to faner.
-//
-// Begge står nu på 600. Rækken kunne have klaret sig med 379, men sammenhæng
-// vejer tungere end de ekstra navne, en tablet i portræt ville få — og prisen
-// er skrevet ned i theme.css, så den er kendt.
-//
-// Testen låser LIGHEDEN og det målte minimum, ikke tallet 600. Knækpunktet kan
-// hæves uden at skrive testen om; det kan ikke sænkes under 586, og de to kan
-// ikke drive fra hinanden igen.
-// ---------------------------------------------------------------------------
-describe('kampkortet og tips-rækken skifter ved samme bredde', () => {
-  const graense = (selektor) => {
-    for (const px of [320, 360, 380, 400, 420, 440, 460, 480, 500, 540, 560, 600, 640, 700, 720, 768]) {
-      if (regel(iMedie(px), selektor) !== null) return px;
-    }
-    return null;
-  };
-
-  it('bruger det samme knækpunkt til begge', () => {
-    const kort = graense('.match-card__side-name');
-    const raekke = graense('.mytips__hold');
-    expect(kort, 'kampkortet har ingen media query').not.toBeNull();
-    expect(raekke, 'tips-rækken har ingen media query').not.toBeNull();
-    expect(kort).toBe(raekke);
-  });
-
-  // Kampkortet er det stramme sted, og 586 px er dets målte minimum for at
-  // kunne skelne Manchester City fra Manchester United. Under det er de to
-  // igen "Manch…" og "Manch…".
-  it('skifter ved mindst 586 px — kampkortets målte minimum', () => {
-    expect(graense('.match-card__side-name')).toBeGreaterThanOrEqual(586);
   });
 });
