@@ -10,9 +10,9 @@
 // farve lå under 20 i afstand fra en anden af holdets egne — et tal, jeg selv
 // havde fundet på. Det gav to FALSKE (Coventry på 18,6 og Crystal Palace på
 // 1,7 fra sin HJEMMEfarve, som `matchBadges` aldrig sammenligner med) og
-// oversete ét ÆGTE (Leeds' to gule, 27 fra hinanden, hvor 3. trøjen alligevel
-// aldrig vinder). Reglen spørger nu koden i stedet: bliver farven nogensinde
-// valgt af `matchBadges` i hele ligaen?
+// oversete ét ÆGTE (Leeds' to gule, 46,0 fra hinanden, hvor 3. trøjen
+// alligevel aldrig vinder). Reglen spørger nu koden i stedet: bliver farven
+// nogensinde valgt af `matchBadges` i hele ligaen?
 // ---------------------------------------------------------------------------
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
@@ -33,11 +33,14 @@ const raekke = (c, navn) => [...c.querySelectorAll('.troejer__hold')]
 
 describe('trøjeoversigten', () => {
   it('siger i overskriften, hvad det er — ikke "alle trøjer"', () => {
-    // "Alle trøjer" ville læses som et facit på klubbernes spilledragter, og
-    // over halvdelen af ude-/tredjefelterne er ikke målt på en trøje.
+    // "Alle trøjer" ville læses som et facit på klubbernes spilledragter. Af
+    // de 64 ude-/tredjefelter er 11 målt på klubbernes fotos, 37 udledt af
+    // Wikipedias kit-grafik og 16 uden måling — altså en fjerdedel uden kilde,
+    // ikke "over halvdelen", som her stod. Overskriften skal sige, hvad den er,
+    // uanset hvad forholdet er.
     const { container } = render(<TroejeOversigt game={SPIL(SUPERLIGA_TEAMS_2026)} />);
     const h = container.querySelector('.troejer__titel').textContent;
-    expect(h).toMatch(/Sådan tegnes holdene/);
+    expect(h).toMatch(/Sådan tegnes trøjerne på kampkortet/);
     expect(h).not.toMatch(/Alle trøjer/);
     // …og spilnavnet står IKKE der: et fodboldspil uden egen holdliste ville
     // ellers påstå "…i Premier League" over Superligaens tolv.
@@ -163,14 +166,16 @@ describe('3. trøjer, der aldrig bliver brugt', () => {
     expect(r.textContent).toMatch(/3\. trøje · bruges aldrig/);
   });
 
-  // LEEDS ER DEN, DEN GAMLE REGEL OVERSÅ. Deres to gule ligger 27 fra hinanden
-  // — over den gamle tærskel på 20 — men tredjetrøjen vinder aldrig mod nogen
-  // modstander, og feltet er derfor lige så dødt som Hulls.
+  // LEEDS ER DEN, DEN GAMLE REGEL OVERSÅ. Deres to gule ligger 46,0 fra
+  // hinanden — mere end det DOBBELTE af den gamle tærskel på 20 — men
+  // tredjetrøjen vinder aldrig mod nogen modstander, og feltet er lige så dødt
+  // som Hulls. Repoet ved det i forvejen: farven står i `HAANDSAT` i
+  // `holdfarver-wikipedia.mjs` som en pladsholder, der skal sættes i admin.
   it('markerer Leeds, som en farvetærskel ville have overset', () => {
     const { container } = render(<TroejeOversigt game={SPIL(PREMIER_LEAGUE_TEAMS_2026, 'PL')} />);
     expect(raekke(container, 'Leeds United').textContent).toMatch(/bruges aldrig/);
     const leeds = PREMIER_LEAGUE_TEAMS_2026.find((t) => t.name === 'Leeds United');
-    expect(colorDistance(leeds.awayColor, leeds.thirdColor)).toBeGreaterThan(20);
+    expect(colorDistance(leeds.awayColor, leeds.thirdColor)).toBeCloseTo(46, 0);
   });
 
   // …OG DE TO, DEN GAMLE REGEL MARKEREDE FALSKT. Coventrys og Palaces
@@ -195,9 +200,60 @@ describe('3. trøjer, der aldrig bliver brugt', () => {
     expect(markeret).toEqual(['Hull City', 'Leeds United']);
   });
 
+  // KOMPONENTENS KALDESTED SKAL BRUGE teamStyles. Modprøven længere nede kalder
+  // `ubrugteTredjetroejer` DIREKTE, så `ubrugteTredjetroejer(hold, {})` i
+  // komponenten var grøn — og så fik en ejer, der selv gør en tredjefarve død,
+  // ingen advarsel. Samme fejl som eksemplet havde; den måles derfor på den
+  // RENDREDE tekst.
+  it('markerer en 3. trøje, ejeren selv har gjort død i admin', () => {
+    const randers = SUPERLIGA_TEAMS_2026.find((t) => t.name === 'Randers FC');
+    const spil = {
+      ...SPIL(SUPERLIGA_TEAMS_2026),
+      teamStyles: { 'Randers FC': { thirdColor: randers.awayColor } },
+    };
+    const { container } = render(<TroejeOversigt game={spil} />);
+    expect(raekke(container, 'Randers FC').textContent).toMatch(/3\. trøje · bruges aldrig/);
+    // …og uden overriden er der ingen markering overhovedet.
+    const { container: rent } = render(<TroejeOversigt game={SPIL(SUPERLIGA_TEAMS_2026)} />);
+    expect(rent.textContent).not.toMatch(/bruges aldrig/);
+  });
+
+  // OPSLAGET SKER PÅ DET EKSAKTE NAVN, ikke på visningsnavnet. Hverken Hull
+  // eller Leeds har et afvigende visningsnavn i rådata, så `ubrugte.has(t.vis
+  // || t.name)` var grøn — og markeringen ville forsvinde tavst for ethvert
+  // hold, ejeren omdøber. Omdøbning er en funktion, spillet allerede har.
+  it('beholder markeringen, når holdet er omdøbt i admin', () => {
+    const spil = {
+      ...SPIL(PREMIER_LEAGUE_TEAMS_2026, 'PL'),
+      teamStyles: { 'Hull City': { visningsnavn: 'Hull' } },
+    };
+    const { container } = render(<TroejeOversigt game={spil} />);
+    const markeret = [...container.querySelectorAll('.troejer__hold')]
+      .filter((e) => e.textContent.includes('bruges aldrig'))
+      .map((e) => e.querySelector('.troejer__navn').textContent)
+      .sort();
+    expect(markeret).toEqual(['Hull', 'Leeds United']);
+  });
+
   it('markerer ingen i Superligaen', () => {
     const { container } = render(<TroejeOversigt game={SPIL(SUPERLIGA_TEAMS_2026)} />);
     expect(container.textContent).not.toMatch(/bruges aldrig/);
+  });
+
+  // ET HOLD MÅ IKKE REDDE SIN EGEN TREDJETRØJE. Uden `h.name !== a.name` ville
+  // holdet blive spurgt mod SIG SELV, og en tredjefarve, der clasher med
+  // holdets egen hjemmefarve, ville tælle som "brugt".
+  //
+  // Vagten er inert på begge ligaers data i dag, så den skal prøves på et
+  // opdigtet sæt — ellers er den udækket, uanset hvor mange rigtige hold man
+  // kører igennem. To hold rækker: Hvid har en sort tredjetrøje, som kun ville
+  // blive valgt i en kamp mod Hvid selv.
+  it('lader ikke et hold redde sin egen 3. trøje', () => {
+    const HOLD = [
+      { name: 'Hvid', short: 'HVI', color: '#FFFFFF', awayColor: '#EEEEEE', thirdColor: '#000000' },
+      { name: 'Sort', short: 'SOR', color: '#000000', awayColor: '#111111', thirdColor: '#222222' },
+    ];
+    expect([...ubrugteTredjetroejer(HOLD, {})].sort()).toEqual(['Hvid', 'Sort']);
   });
 
   // MODPRØVEN PÅ SELVE REGLEN: den skal svare det samme som at spørge
@@ -340,7 +396,10 @@ describe('forklaringen', () => {
     const basis = css.match(/\.troejer__hold\s*\{([^}]*)\}/);
     expect(basis).not.toBeNull();
     // Under brydepunktet: én kolonne, altså navnet på egen linje.
-    expect(basis[1]).toMatch(/grid-template-columns:\s*1fr/);
+    // `\s*1fr` matchede også `1fr 1fr` — altså PRÆCIS den to-kolonne-ombrydning,
+    // kommentaren i theme.css bruger ti linjer på at begrunde væk. Semikolonet
+    // binder, at der kun er ÉN kolonne.
+    expect(basis[1]).toMatch(/grid-template-columns:\s*1fr\s*;/);
     // …og fra 620 px en navnekolonne ved siden af trøjerne.
     const bred = css.match(/@media \(min-width: 620px\) \{\s*\.troejer__hold\s*\{([^}]*)\}/);
     expect(bred).not.toBeNull();

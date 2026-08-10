@@ -122,12 +122,12 @@ export default function TroejeOversigt({ game }) {
 
   return (
     <div className="troejer">
-      {/* OVERSKRIFTEN SIGER, HVAD DET ER — ikke "Alle trøjer". Farverne er dem,
-          badgen tegnes i, og over halvdelen af ude-/tredjefelterne er ikke målt
-          på en trøje. "Alle trøjer" ville læses som et facit. Spilnavnet står
-          heller ikke her: i et fodboldspil uden egen holdliste ville
-          overskriften påstå "…i Premier League" over Superligaens tolv. */}
-      <h4 className="troejer__titel">👕 Sådan tegnes holdene</h4>
+      {/* OVERSKRIFTEN SIGER PRÆCIS, HVAD BLOKKEN ER — ikke "Alle trøjer", som
+          ville læses som et facit på klubbernes spilledragter. Den nævner både
+          trøjen og kampkortet, altså rækkevidden af påstanden. Spilnavnet står
+          ikke her: i et fodboldspil uden egen holdliste ville overskriften
+          påstå "…i Premier League" over Superligaens tolv. */}
+      <h4 className="troejer__titel">👕 Sådan tegnes trøjerne på kampkortet</h4>
 
       {/* TEKSTEN HANDLER OM BADGEN, IKKE OM TRØJEN PÅ BANEN. Skrev vi "holdet
           spiller i", modsagde vi tv-billedet: reglen afgør kun, hvilken farve
@@ -171,7 +171,7 @@ export default function TroejeOversigt({ game }) {
                         klubben. Hull City HAR en tredjetrøje i virkeligheden;
                         det er vores farve, der er den samme som udetrøjens. */}
                     {key === 'third' && doedTredje && (
-                      <span className="troejer__mangler"> · bruges aldrig</span>
+                      <span className="troejer__doed"> · bruges aldrig</span>
                     )}
                   </span>
                 </span>

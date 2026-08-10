@@ -1106,4 +1106,5 @@ a:focus-visible,
 .troejer__saet { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; align-items: center; }
 .troejer__et { display: inline-flex; align-items: center; gap: 0.35rem; }
 .troejer__mrk { font-size: 0.78rem; color: var(--c-muted); }
-.troejer__mangler { font-style: italic; }
+/* En 3. trøje, kampkortet aldrig vælger — se TroejeOversigt. */
+.troejer__doed { font-style: italic; }
