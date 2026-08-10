@@ -78,6 +78,8 @@ function badgeFor(teams, name, styles = {}, variant = 'home') {
   const form = info?.troejer?.[nøgle] || {};
   return {
     code,
+    // Visningsnavnet — "Brighton" frem for "Brighton and Hove Albion".
+    navn: info?.vis || name,
     color: override || fallback,
     venue: info?.venue ?? null,
     color2: form.sekundaer ?? null,
@@ -612,7 +614,7 @@ export default function FootballTip({ game, me, matches }) {
                     spillerne ved ikke, hvad forkortelserne betyder — "SJF" og
                     "VFF" er ikke almenviden, og de fleste tipper fra telefonen.
                     Navnet ombrydes i stedet; kortet har højde nok. */}
-                <span className="match-card__side-name">{m.home}</span>
+                <span className="match-card__side-name">{h.navn}</span>
               </div>
               {/* Stregen mellem holdene er pladsen, hvor scoren hører hjemme.
                   Uden den kunne kortet på én gang sige "Ramt +6,0" og vise en
@@ -663,7 +665,7 @@ export default function FootballTip({ game, me, matches }) {
                     spillerne ved ikke, hvad forkortelserne betyder — "SJF" og
                     "VFF" er ikke almenviden, og de fleste tipper fra telefonen.
                     Navnet ombrydes i stedet; kortet har højde nok. */}
-                <span className="match-card__side-name">{m.away}</span>
+                <span className="match-card__side-name">{a.navn}</span>
               </div>
             </div>
 

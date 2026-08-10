@@ -201,6 +201,42 @@ describe('FootballTip — Elo på kampkortene', () => {
     expect(container.querySelectorAll('.match-card__side-code')).toHaveLength(0);
   });
 
+  // Samme runde og kickoff som fixturens egne kampe, så den frosne tid
+  // stadig peger på den aktive runde.
+  const BHA_KAMP = [{
+    ...MATCHES[0], id: 'm-bha', home: 'Brighton and Hove Albion', away: 'Arsenal',
+  }];
+
+  // VISNINGSNAVNET NÅR HELE VEJEN UD. Kæden er lang — holdlisten → teamsOf →
+  // badgeFor → kampkortet — og hvert led kunne tabe den uden at noget andet
+  // brød sammen. Brighton er det eneste navn, der ellers klippes på en telefon.
+  it('viser Brighton, ikke Brighton and Hove Albion', () => {
+    const { container } = setup({
+      teams: [
+        { name: 'Brighton and Hove Albion', short: 'BHA', elo: 1522 },
+        { name: 'Arsenal', short: 'ARS', elo: 1664 },
+      ],
+    }, '/spil/sl', BHA_KAMP);
+    const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
+    expect(navne).toContain('Brighton');
+    expect(navne).not.toContain('Brighton and Hove Albion');
+  });
+
+  // Og spillets egen override slår husets forslag. Uden den her kunne
+  // `teamStyles` tabes på vejen, og admin-feltet ville være uden virkning.
+  it('lader spillets eget visningsnavn vinde over forslaget', () => {
+    const { container } = setup({
+      teams: [
+        { name: 'Brighton and Hove Albion', short: 'BHA', elo: 1522 },
+        { name: 'Arsenal', short: 'ARS', elo: 1664 },
+      ],
+      teamStyles: { 'Brighton and Hove Albion': { visningsnavn: 'Seagulls' } },
+    }, '/spil/sl', BHA_KAMP);
+    const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
+    expect(navne).toContain('Seagulls');
+    expect(navne).not.toContain('Brighton');
+  });
+
   // HOLDNAVNET SKAL STÅ FULDT UD — ikke som en forkortelse. Det var hele
   // grunden til at fjerne kortkoden: spillerne kunne ikke tyde den.
   it('viser holdets fulde navn på begge sider af kortet', () => {

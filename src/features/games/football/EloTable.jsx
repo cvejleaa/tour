@@ -57,7 +57,7 @@ export default function EloTable({ game }) {
                         color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
                         aerme={info?.troejer?.hjemme?.aerme} title={row.name}
                       />
-                      <span className="elo-team__name">{row.short || info?.short || row.name}</span>
+                      <span className="elo-team__name">{info?.vis || row.name}</span>
                     </span>
                   </td>
                   {cellsDesc.map((c) => (

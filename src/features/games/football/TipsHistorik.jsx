@@ -6,7 +6,7 @@
  * har appen to sandheder om de samme data, og de driver fra hinanden ved næste
  * ændring — præcis som de to formler for "point i alt" gjorde.
  */
-import { shortOf } from './teamInfo';
+import { shortOf, visOf } from './teamInfo';
 import { formatKickoff } from '../../../lib/daDate';
 import { fmtDec, fmtPoints, fmtSignedPoints } from '../../../lib/daNum';
 import PointOpdeling, { RUBRIKKER } from './PointOpdeling';
@@ -157,10 +157,10 @@ export default function TipsHistorik({
                     af, og der er intet at vinde ved at skrive det to gange.
                     Begge står i DOM'en; CSS afgør hvilken der vises. */}
                 <span className="mytips__match">
-                  <span className="mytips__hold">{row.home}</span>
+                  <span className="mytips__hold">{visOf(teams, row.home)}</span>
                   <span className="mytips__hold-kort">{shortOf(teams, row.home)}</span>
                   <span className="mytips__dash">–</span>
-                  <span className="mytips__hold">{row.away}</span>
+                  <span className="mytips__hold">{visOf(teams, row.away)}</span>
                   <span className="mytips__hold-kort">{shortOf(teams, row.away)}</span>
                 </span>
                 <span className="mytips__pick">

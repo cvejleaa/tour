@@ -21,7 +21,7 @@ function Row({ r, teams }) {
             color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
             aerme={info?.troejer?.hjemme?.aerme} title={r.teamName}
           />
-          <span className="sltab__name">{r.teamName}</span>
+          <span className="sltab__name">{info?.vis || r.teamName}</span>
         </span>
       </td>
       <td>{r.played}</td>

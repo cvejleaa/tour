@@ -11,6 +11,7 @@ import { COL } from '../../lib/constants';
 import { useGames } from '../games/useGames';
 import { setTeamStyles } from '../games/gameActions';
 import ClubBadge from '../../components/ClubBadge';
+import { standardVisningsnavn } from '../games/football/visningsnavn';
 
 const isHex6 = (s) => /^#[0-9a-fA-F]{6}$/.test(s);
 const eq = (a, b) => String(a).toUpperCase() === String(b).toUpperCase();
@@ -33,7 +34,7 @@ export default function TeamStylesTab() {
 
   const defaults = useMemo(() => {
     const m = {};
-    for (const t of teams) m[t.name] = { color: t.color, awayColor: t.awayColor, thirdColor: t.thirdColor };
+    for (const t of teams) m[t.name] = { color: t.color, awayColor: t.awayColor, thirdColor: t.thirdColor, visningsnavn: standardVisningsnavn(t.name) };
     return m;
   }, [teams]);
 
@@ -55,6 +56,8 @@ export default function TeamStylesTab() {
       for (const t of teams) {
         const o = ov[t.name] || {};
         merged[t.name] = {
+          visningsnavn: (typeof o.visningsnavn === 'string' && o.visningsnavn.trim())
+            ? o.visningsnavn.trim() : standardVisningsnavn(t.name),
           color: isHex6(o.color) ? o.color : t.color,
           awayColor: isHex6(o.awayColor) ? o.awayColor : t.awayColor,
           thirdColor: isHex6(o.thirdColor) ? o.thirdColor : t.thirdColor,
@@ -80,10 +83,16 @@ export default function TeamStylesTab() {
       if (isHex6(s.color) && !eq(s.color, t.color)) o.color = s.color;
       if (isHex6(s.awayColor) && !eq(s.awayColor, t.awayColor)) o.awayColor = s.awayColor;
       if (isHex6(s.thirdColor) && !eq(s.thirdColor, t.thirdColor)) o.thirdColor = s.thirdColor;
+      // Visningsnavnet gemmes KUN, hvis det afviger fra husets forslag — så
+      // en fremtidig ændring af forslaget slår igennem for alle spil, der ikke
+      // har taget stilling. Et tomt felt betyder "brug forslaget", ikke "intet
+      // navn"; ellers kunne et hold komme til at hedde ingenting.
+      const vn = String(s.visningsnavn || '').trim();
+      if (vn && vn !== standardVisningsnavn(t.name)) o.visningsnavn = vn;
       if (Object.keys(o).length) out[t.name] = o;
     }
     const res = await setTeamStyles(gameId, out);
-    if (res.ok) setMsg(`Hold-farverne for ${game?.name} er gemt. De slår igennem i tip-fladen med det samme.`);
+    if (res.ok) setMsg(`Hold-farver og navne for ${game?.name} er gemt. De slår igennem med det samme.`);
     else setErr(res.error);
     setBusy(false);
   }
@@ -113,7 +122,7 @@ export default function TeamStylesTab() {
 
   return (
     <div>
-      <h3 style={{ marginTop: 0 }}>🎨 Hold-farver</h3>
+      <h3 style={{ marginTop: 0 }}>🎨 Hold-farver og navne</h3>
 
       {/* Vælg FØRST spillet — funktionen kan gælde flere spil. */}
       <div className="form-group" style={{ maxWidth: 340 }}>
@@ -136,6 +145,9 @@ export default function TeamStylesTab() {
           Sæt hver klubs <strong>hjemme-</strong>, <strong>ude-</strong> og <strong>3. farve</strong> for
           {' '}<strong>{game.name}</strong>. I en kamp vises hjemmeholdet i hjemmefarve og udeholdet i
           udefarve — men skifter automatisk til 3. farve, hvis udefarven er for tæt på hjemmeholdets farve.
+          {' '}Under <strong>Vises som</strong> kan du give klubben et kortere navn til skærmen —
+          {' '}fx <em>Brighton</em> i stedet for <em>Brighton and Hove Albion</em>. Klubbens rigtige navn
+          {' '}står som overskrift og kan ikke ændres: det er nøglen, resultater og Elo matches på.
           Ændringer slår igennem for alle med det samme.
         </p>
       )}
@@ -151,6 +163,28 @@ export default function TeamStylesTab() {
             {teams.map((t) => (
               <div key={t.name} style={{ borderTop: '1px solid var(--c-border)', paddingTop: '0.5rem' }}>
                 <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>{t.name}</div>
+                {/* VISNINGSNAVNET, ikke holdets navn. `t.name` er den eksakte
+                    streng fra pulselive/api.superliga.dk og er nøglen, alt
+                    matches på — den står som overskrift og kan ikke rettes. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.4rem' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--c-muted)', width: 52 }}>Vises som</span>
+                  <input
+                    type="text"
+                    value={styles[t.name]?.visningsnavn ?? ''}
+                    maxLength={40}
+                    onChange={(e) => setField(t.name, 'visningsnavn', e.target.value)}
+                    aria-label={`Visningsnavn for ${t.name}`}
+                    style={{ width: 220 }}
+                  />
+                  {String(styles[t.name]?.visningsnavn || '').trim() !== standardVisningsnavn(t.name) && (
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      title={`Nulstil til "${standardVisningsnavn(t.name)}"`}
+                      onClick={() => setField(t.name, 'visningsnavn', standardVisningsnavn(t.name))}
+                    >↺</button>
+                  )}
+                </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.25rem' }}>
                   <Picker name={t.name} field="color" label="Hjemme" />
                   <Picker name={t.name} field="awayColor" label="Ude" />
@@ -162,7 +196,7 @@ export default function TeamStylesTab() {
 
           <div style={{ marginTop: '1rem' }}>
             <button className="btn" disabled={busy} onClick={handleSave}>
-              {busy ? 'Gemmer…' : `Gem farver for ${game.name}`}
+              {busy ? 'Gemmer…' : `Gem farver og navne for ${game.name}`}
             </button>
           </div>
         </>
