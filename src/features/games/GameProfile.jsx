@@ -17,6 +17,7 @@ import { setPlayerFavoriteTeam } from './gameActions';
 import { teamsOf } from './football/teamInfo';
 import { badgeFor } from './football/badges';
 import { useKlubFarver } from './football/useKlubFarver';
+import TroejeOversigt from './football/TroejeOversigt';
 
 export default function GameProfile({ game, me }) {
   const gameId = game?.id;
@@ -127,6 +128,10 @@ export default function GameProfile({ game, me }) {
         {status === 'saved' && <span className="badge badge--green">Gemt ✓</span>}
         {status && status !== 'saved' && <span className="badge badge--red">{status === 'error' ? 'Kunne ikke gemme.' : status}</span>}
       </div>
+
+      {/* OVERSIGTEN LIGGER HER, fordi man netop her skal vælge et hold — den er
+          den hjælp, valget mangler, ikke et katalog for sig selv. */}
+      <TroejeOversigt game={game} />
     </div>
   );
 }
