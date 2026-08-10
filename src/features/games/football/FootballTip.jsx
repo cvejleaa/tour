@@ -15,8 +15,8 @@ import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
-import { teamsOf, teamInfo, visOf } from './teamInfo';
-import { colorsClash, colorDistance } from '../../../lib/contrastText';
+import { teamsOf, visOf } from './teamInfo';
+import { matchBadges } from './badges';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
 import { shareText } from '../../../lib/share';
@@ -40,83 +40,9 @@ function matchOdds(match, outcome) {
   return Number.isFinite(o) ? o : null;
 }
 
-const GREY = '#5b6b7a';
-
 /** Klokkeslæt uden dato — "opdateret 20.44". */
 function klokken(ms) {
   return new Date(ms).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
-}
-
-/**
- * Badge-info for et hold: klub-kortkode + farve + stadion.
- * variant 'home' | 'away' | 'third'. Admin-override (games/{id}.teamStyles)
- * vinder over standardfarven; hver variant falder pænt tilbage.
- */
-function badgeFor(teams, name, styles = {}, variant = 'home') {
-  const info = teamInfo(teams, name);
-  const ov = styles?.[name] || {};
-  let override;
-  let fallback;
-  if (variant === 'away') {
-    override = ov.awayColor;
-    fallback = info?.awayColor || info?.color || GREY;
-  } else if (variant === 'third') {
-    override = ov.thirdColor;
-    fallback = info?.thirdColor || info?.awayColor || info?.color || GREY;
-  } else {
-    override = ov.color;
-    fallback = info?.color || GREY;
-  }
-  const code = info?.short
-    || String(name || '').replace(/[^A-Za-zÆØÅæøå]/g, '').slice(0, 3).toUpperCase() || '?';
-  // Trøjens FORM — sekundærfarve, mønster og ærme. Ligger som ét nested felt
-  // på holdet, så de tre color-felter kunne blive stående uændrede. Mangler
-  // det, tegnes trøjen ensfarvet — og det gør de fleste: kun tre af
-  // Superligaens tolv og under halvdelen af Premier Leagues tyve har et
-  // mønster, fordi en stribe skal fylde noget for at kunne ses ved 22 px.
-  const nøgle = { home: 'hjemme', away: 'ude', third: 'tredje' }[variant];
-  const form = info?.troejer?.[nøgle] || {};
-  return {
-    code,
-    // Visningsnavnet — "Brighton" frem for "Brighton and Hove Albion".
-    navn: info?.vis || name,
-    color: override || fallback,
-    venue: info?.venue ?? null,
-    color2: form.sekundaer ?? null,
-    moenster: form.moenster ?? null,
-    aerme: form.aerme ?? null,
-  };
-}
-
-/**
- * Farver til et kamp-kort: hjemmeholdet i hjemmefarve, udeholdet i udefarve —
- * men skift til udeholdets tertiærfarve hvis udefarven clasher med hjemmefarven.
- *
- * VÆLGER DEN FJERNESTE, ikke "den første der er god nok". Reglen var før
- * `if (!colorsClash(third, hjemme)) brug third` — altså: brug KUN tredjefarven,
- * hvis den slet ikke clasher. Clashede begge, faldt kortet tilbage på udefarven,
- * som man netop havde konstateret var for tæt på.
- *
- * Kommentaren her sagde allerede "brug kun tertiær hvis den faktisk er mindre
- * clash end udefarven". Koden gjorde noget andet, og forskellen var usynlig,
- * indtil Silkeborgs tredjefarve blev målt: den gik fra blå til lyserød, og så
- * stod FCK–Silkeborg og AGF–Silkeborg med TO ENS HVIDE badges, fordi
- * Silkeborgs udetrøje også er hvid. Uløste par gik fra 2 til 9 af 132.
- *
- * At vælge den fjerneste er strengt bedre: er tredjefarven ren, vinder den som
- * før; er ingen af dem rene, tages den mindst dårlige i stedet for den, der
- * beviseligt er værst. Der findes stadig par, hvor begge er tætte — se
- * `superligaTeams2026.test.js`, som holder listen over dem.
- */
-export function matchBadges(teams, home, away, styles) {
-  const h = badgeFor(teams, home, styles, 'home');
-  const a = badgeFor(teams, away, styles, 'away');
-  if (!colorsClash(a.color, h.color)) return { h, a };
-  const third = badgeFor(teams, away, styles, 'third');
-  return {
-    h,
-    a: colorDistance(third.color, h.color) > colorDistance(a.color, h.color) ? third : a,
-  };
 }
 
 export default function FootballTip({ game, me, matches }) {
@@ -671,7 +597,10 @@ export default function FootballTip({ game, me, matches }) {
               ) : (
                 <div className="match-card__dash" aria-hidden="true">–</div>
               )}
-              <div className="match-card__side">
+              {/* SPEJLVENDT — se `.match-card__side--ude`. Trøjen står yderst
+                  til højre, så de to hold flugter med kortets to kanter i
+                  stedet for at klumpe sig om stregen i midten. */}
+              <div className="match-card__side match-card__side--ude">
                 <ClubBadge
                   variant="troeje" code={a.code} color={a.color} size={34}
                   color2={a.color2} moenster={a.moenster} aerme={a.aerme}

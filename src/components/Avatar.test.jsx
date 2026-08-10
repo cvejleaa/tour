@@ -47,4 +47,17 @@ describe('Avatar', () => {
     // Initialerne vises IKKE når en trøje er valgt
     expect(screen.queryByText('C')).not.toBeInTheDocument();
   });
+
+  // TRØJEN SKAL SKALERE MED AVATAREN. Kun dens EKSISTENS var dækket, så
+  // `size={Math.round(size * 0.74)}` kunne erstattes med en konstant, og
+  // trøjen ville stå i samme størrelse på et 22 px-podie og en 48 px-profil.
+  // Det er ikke teoretisk: cirklen er nu `size - 2`, når der er en klubring, og
+  // `/spil/:gameId` er ikke gated i Tour-builden, så de to kan mødes.
+  it.each([22, 34, 48])('skalerer trøje-avataren med størrelsen (%i)', (size) => {
+    const { container } = render(
+      <Avatar uid="u1" name="Carsten" emoji="jersey:polka" size={size} />,
+    );
+    const svg = container.querySelector('svg');
+    expect(Number(svg.getAttribute('width'))).toBe(Math.round(size * 0.74));
+  });
 });

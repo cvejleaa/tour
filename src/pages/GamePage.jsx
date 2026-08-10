@@ -130,7 +130,7 @@ export default function GamePage() {
           {tab === 'stilling' ? (
             <GameStandings gameId={gameId} game={game} matches={matches} />
           ) : tab === 'ligaer' ? (
-            <GameLeagues gameId={gameId} />
+            <GameLeagues gameId={gameId} game={game} />
           ) : tab === 'profil' ? (
             <GameProfile game={game} me={me} />
           ) : tab === 'hjaelp' && game.type === GAME_TYPE.FOOTBALL ? (

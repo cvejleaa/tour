@@ -712,6 +712,20 @@ a:focus-visible,
   align-items: center; margin-bottom: 0.1rem;
 }
 .match-card__side { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+/* UDESIDEN SPEJLVENDES: navn, så trøje — så badgen står yderst til højre,
+   symmetrisk med hjemmeholdets yderst til venstre.
+
+   Begge sider var før ens, altså trøje-så-navn og venstrestillet i hver sin
+   1fr-kolonne. Det var teknisk uændret siden kortet blev lavet, men usynligt
+   så længe navnet var skjult under 600 px og ellers kort. Da #132 lod det
+   FULDE navn stå og ombryde, blev skævheden tydelig: udeholdets trøje klæbede
+   til stregen i midten, og der stod et tomt felt ude til højre.
+
+   `row-reverse` frem for `justify-content: flex-end`, fordi det er trøjerne,
+   der skal spejles om midten. Med flex-end ville rækkefølgen stadig være
+   trøje-så-navn, og de to trøjer ville stå ved siden af hinanden om stregen
+   i stedet for i hver sin ende. */
+.match-card__side--ude { flex-direction: row-reverse; text-align: right; }
 /* HOLDNAVNET OMBRYDES — det klippes ikke længere, og kortkoden er væk.
    Kortet viste et stykke tid "ARS Arsenal" (dobbelt), så kun navnet, og under
    600 px kun kortkoden. Det sidste var forkert af en grund, der ikke stod i
