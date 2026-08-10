@@ -232,7 +232,43 @@ if (args.includes('--ombryd')) {
       console.log(`  ${String(w).padStart(4)} px ` + celler.join(''));
     }
   }
-  await browser2.close();
+  // ALLE 32 NAVNE, IKKE KUN DE SEKS HÅNDPLUKKEDE. Tabellen i PR #132 påstår,
+  // hvor mange navne der bruger én, to og tre linjer — og en påstand om alle
+  // 32 kan ikke efterprøves på et udvalg, jeg selv har valgt, fordi jeg vidste,
+  // de var de længste.
+  const { PREMIER_LEAGUE_TEAMS_2026: PL } = await import('../src/data/premierLeagueTeams2026.js');
+  const { SUPERLIGA_TEAMS_2026: SL } = await import('../src/data/superligaTeams2026.js');
+  const { standardVisningsnavn: forslag } = await import('../src/features/games/football/visningsnavn.js');
+
+  const browser4 = await chromium.launch();
+  const s4 = await browser4.newPage();
+  for (const [maerkat, brug] of [['med visningsnavn', true], ['med det RÅ navn', false]]) {
+    for (const w of [320, 360, 390]) {
+      const talt = { 1: [], 2: [], 3: [], KLIPPET: [] };
+      for (const t of [...PL, ...SL]) {
+        const n = brug ? forslag(t.name) : t.name;
+        await s4.setViewportSize({ width: w, height: 900 });
+        await s4.setContent(`<style>${css}</style>${kampkort(n, 'Arsenal')}`);
+        /* eslint-disable no-undef */
+        const r = await s4.evaluate(() => {
+          const el = document.querySelector('.match-card__side-name');
+          const lh = parseFloat(getComputedStyle(el).lineHeight) || 1;
+          return { l: Math.round(el.clientHeight / lh), klip: el.scrollHeight > el.clientHeight + 1 };
+        });
+        /* eslint-enable no-undef */
+        talt[r.klip ? 'KLIPPET' : r.l].push(n);
+      }
+      console.log(`\n  Alle 32 navne ${maerkat} ved ${w} px:`);
+      for (const [k, v] of Object.entries(talt)) {
+        if (!v.length) continue;
+        // Ved 1 og 2 linjer er listen for lang til at være læselig; ved 3 og
+        // KLIPPET er det netop navnene, der er interessante.
+        const vis = v.length > 6 ? `${v.length} stk.` : `${v.length} stk. — ${v.join(', ')}`;
+        console.log(`    ${String(k).padEnd(8)} ${vis}`);
+      }
+    }
+  }
+  await browser4.close();
   console.log();
 }
 
