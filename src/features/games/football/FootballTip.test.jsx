@@ -211,17 +211,26 @@ describe('FootballTip — Elo på kampkortene', () => {
   // præcis dét, koden er der for at undgå. Testen kræver derfor, at koden er
   // FORSKELLIG fra navnet for et hold, hvor de to afviger.
   it('viser kortkoden — ikke holdnavnet — i kode-spanet', () => {
+    // BEGGE hold får en kortkode, der afviger fra navnet. AGF's rigtige kode
+    // ER "AGF", og med den kan testen ikke se forskel på en kode og et navn —
+    // så mutationen "vis navnet i kode-spanet" ville overleve for netop det hold.
     const { container } = setup({
       teams: [
         { name: 'FC Midtjylland', short: 'FCM', elo: 1657 },
-        { name: 'AGF', short: 'AGF', elo: 1578 },
+        { name: 'AGF', short: 'ÅRH', elo: 1578 },
       ],
     });
+    // BEGGE SIDER. Hjemme- og udeholdet tegnes af hver sin blok i JSX'en, så en
+    // fejl kan sidde i den ene alene — første udgave af testen kiggede kun på
+    // udeholdet, og en mutation af hjemmeholdets span overlevede.
     const sider = [...container.querySelectorAll('.match-card__side')];
-    const fcm = sider.find((e) => e.querySelector('.match-card__side-name')?.textContent === 'FC Midtjylland');
-    expect(fcm, 'fandt ikke FC Midtjyllands side på kortet').toBeTruthy();
-    expect(fcm.querySelector('.match-card__side-code').textContent).toBe('FCM');
-    expect(fcm.querySelector('.match-card__side-code').textContent).not.toBe('FC Midtjylland');
+    expect(sider.length).toBeGreaterThanOrEqual(2);
+    for (const side of sider) {
+      const navn = side.querySelector('.match-card__side-name').textContent;
+      const kode = side.querySelector('.match-card__side-code').textContent;
+      expect(kode, `koden for ${navn}`).not.toBe(navn);
+      expect(kode.length, `koden for ${navn} er ikke en forkortelse`).toBeLessThanOrEqual(4);
+    }
   });
 });
 
