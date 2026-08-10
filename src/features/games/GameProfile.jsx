@@ -13,7 +13,7 @@ import { teamsOf } from './football/teamInfo';
 
 export default function GameProfile({ game, me }) {
   const gameId = game?.id;
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const uid = user?.uid ?? null;
 
   // Spillets hold (fra spil-dokumentet), ellers Superliga-holdene som fallback.
@@ -52,7 +52,22 @@ export default function GameProfile({ game, me }) {
       </p>
 
       <div className="flex items-center" style={{ gap: '0.75rem', margin: '0.5rem 0 1rem' }}>
-        <Avatar uid={uid} name={me?.displayName} emoji={me?.avatarEmoji} favoriteTeam={team || null} size={48} />
+        {/* NAVN OG EMOJI KOMMER FRA users/{uid}, IKKE FRA SPILLER-DOKUMENTET.
+            Her stod `me?.displayName` og `me?.avatarEmoji`. `me` er
+            games/{id}/players/{uid}, som kun har `favoriteTeam` — intet i
+            koden skriver et navn dertil, og `gameStandings.js` henter da også
+            navnene fra en separat users-opslagstabel. Begge felter var derfor
+            ALTID undefined, så kortet viste `initials('')` = "?" på en
+            hash-farvet cirkel for hver eneste spiller, og en valgt avatar-emoji
+            dukkede aldrig op. Ens egen profil var det ene sted i spillet, hvor
+            man ikke kunne se sig selv. */}
+        <Avatar
+          uid={uid}
+          name={profile?.displayName || user?.displayName}
+          emoji={profile?.avatarEmoji}
+          favoriteTeam={team || null}
+          size={48}
+        />
         <div>
           <div style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
             {chosen && <ClubBadge

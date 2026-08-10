@@ -80,8 +80,9 @@ describe('hjemmefarver rettet efter fotos af 2026/27-trøjerne', () => {
     const t = hold('Randers FC');
     expect(t.color).toBe('#78C5ED');
     expect(t.color).not.toBe('#003C7E');
-    // Skråbåndet kan badgen ikke tegne, så trøjen står med vilje ensfarvet.
-    expect(t.troejer).toBeUndefined();
+    // Skråbåndet KAN nu tegnes — `skraabaand` kom til, netop fordi trøjen
+    // ellers måtte stå ensfarvet. Se mønster-blokken nedenfor.
+    expect(t.troejer.hjemme.moenster).toBe('skraabaand');
   });
 
   it('Sønderjyske er LYSEBLÅ med hvide striber — ikke marineblå', () => {
@@ -91,15 +92,102 @@ describe('hjemmefarver rettet efter fotos af 2026/27-trøjerne', () => {
     expect(t.troejer.hjemme.moenster).toBe('striber');
     // Den HVIDE stribe var utestet: #FFFFFF → #000000 gav 1863 grønne.
     expect(t.troejer.hjemme.sekundaer).toBe('#FFFFFF');
-    expect(t.awayColor).toBe('#1B3A6B');
+    // Udefarven var den gamle primærfarve, flyttet hertil for ikke at stå hvid
+    // mod hvid. Den begrundelse er afløst af en MÅLING på den rigtige trøje.
+    // Låsen står HER og ikke kun i blokken nedenfor: `not.toBe` alene tillader
+    // hvad som helst undtagen én værdi, og så er assertionen dekoration.
+    expect(t.awayColor).toBe('#682844');
   });
 
   it('Silkeborg er RØD — ikke blå', () => {
     const t = hold('Silkeborg IF');
     expect(t.color).toBe('#CA202C');
     expect(t.color).not.toBe('#003DA5');
-    // Den blå er klubbens anden farve og hører hjemme som tredjefarve.
-    expect(t.thirdColor).toBe('#003DA5');
+    // Den blå var klubbens anden farve, parkeret som tredjefarve. Også den er
+    // nu målt på den rigtige trøje.
+    expect(t.thirdColor).toBe('#FCB2B9');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UDE- OG TREDJEFARVER, MÅLT PÅ KLUBBERNES EGNE BUTIKKER.
+//
+// Elleve af dem var skrevet på fornemmelse, og fire var direkte forkerte: OB og
+// Randers stod begge med HVID udebane, hvor de spiller i sort og mørk blågrå.
+//
+// Tallene her er de samme, som `scripts/superliga-ude-tredje.mjs` måler. Den
+// test kan ikke køre i CI (den henter fra seks butikkers CDN'er), så den her
+// låser resultatet fast: ændrer nogen et tal i datafilen uden at måle om,
+// bliver det rødt her.
+// ---------------------------------------------------------------------------
+describe('ude- og tredjefarver målt på klubbernes trøjer', () => {
+  it.each([
+    ['Sønderjyske Fodbold', 'awayColor', '#682844', 'bordeaux'],
+    ['Lyngby Boldklub', 'thirdColor', '#25336D', 'marineblå'],
+    ['F.C. København', 'thirdColor', '#76CABF', 'mintgrøn'],
+    ['Brøndby IF', 'awayColor', '#122859', 'marineblå'],
+    ['Brøndby IF', 'thirdColor', '#2E2926', 'meget mørk brun'],
+    ['FC Nordsjælland', 'awayColor', '#111B34', 'mørk marineblå'],
+    ['OB', 'awayColor', '#1E2121', 'sort'],
+    ['OB', 'thirdColor', '#E5C6CB', 'lyserød'],
+    ['Randers FC', 'awayColor', '#33384F', 'mørk blågrå'],
+    ['Randers FC', 'thirdColor', '#FC8033', 'orange'],
+    ['Silkeborg IF', 'thirdColor', '#FCB2B9', 'lyserød'],
+  ])('%s %s er %s (%s)', (navn, felt, vaerdi) => {
+    expect(hold(navn)[felt]).toBe(vaerdi);
+  });
+
+  // MODPRØVEN. De fire, der var direkte forkerte, må ikke snige sig tilbage.
+  // Uden den her ville en test på "OB har en udefarve" bestå med hvid igen.
+  it.each([
+    ['OB', 'awayColor', '#FFFFFF'],
+    ['OB', 'thirdColor', '#F26419'],
+    ['Randers FC', 'awayColor', '#FFFFFF'],
+    ['Randers FC', 'thirdColor', '#003C7E'],
+  ])('%s %s er IKKE den gamle %s', (navn, felt, gammel) => {
+    expect(hold(navn)[felt]).not.toBe(gammel);
+  });
+
+  // MØNSTRE, DER ER TJEKKET OG FRAVALGT. Listen matcher kommentaren i
+  // datafilen — hverken mere eller mindre. Første udgave havde FC Nordsjælland
+  // med (som ikke har noget fravalgt mønster) og UDELOD OB, hvis ternede
+  // tredjetrøje er den eneste af dem, badgen faktisk kan tegne. Netop den
+  // kunne altså sniges ind med grøn suite.
+  it.each([
+    ['OB', 'tredje', 'tern i to lyserøde med kun 1,12:1 i kontrast'],
+    ['OB', 'ude', 'én lodret stribe — ingen form passer, og under 12 %'],
+    ['Lyngby Boldklub', 'ude', 'bånd på 0,61 px ved 22 px'],
+    ['Brøndby IF', 'tredje', 'bronzemønster på 1,9 %'],
+    ['Randers FC', 'ude', 'lyserødt gitter på 16,5 %'],
+  ])('%s har intet mønster på %s-trøjen (%s)', (navn, variant) => {
+    expect(hold(navn).troejer?.[variant]).toBeUndefined();
+  });
+
+  // MODPRØVEN. De tre, der BESTOD testen, skal have deres mønster — og med den
+  // rigtige form. Uden dem ville testen ovenfor bestå, selv hvis alle mønstre
+  // var fjernet, og det var netop tilstanden før de tre nye former kom til.
+  it.each([
+    ['Randers FC', 'hjemme', 'skraabaand', '#30374F'],
+    ['Randers FC', 'tredje', 'ternet', '#292A3F'],
+    ['Brøndby IF', 'ude', 'baand', '#EBBF4D'],
+  ])('%s %s-trøjen er %s', (navn, variant, moenster, sekundaer) => {
+    const t = hold(navn).troejer[variant];
+    expect(t.moenster).toBe(moenster);
+    expect(t.sekundaer).toBe(sekundaer);
+  });
+
+  // FORMEN SKAL VÆRE DEN RIGTIGE, ikke bare en form. Brøndbys ene brystbånd
+  // tegnet som `boejler` bliver til to bånd — en anden trøje end den, klubben
+  // spiller i. Det var hele grunden til, at den stod ensfarvet før.
+  it('bruger baand og ikke boejler til Brøndbys ene brystbånd', () => {
+    expect(hold('Brøndby IF').troejer.ude.moenster).not.toBe('boejler');
+  });
+
+  // Og Randers' to trøjer må ikke få samme form: den ene er et skråbånd, den
+  // anden kvarterer.
+  it('giver Randers to FORSKELLIGE former', () => {
+    const t = hold('Randers FC').troejer;
+    expect(t.hjemme.moenster).not.toBe(t.tredje.moenster);
   });
 });
 
@@ -113,21 +201,42 @@ describe('mønstre, der var rigtige i farven men manglede formen', () => {
     expect(t.troejer.hjemme.sekundaer).toBe(sekundaer);
   });
 
-  // Og modsat: de fire ensfarvede må IKKE have fået et mønster på.
+  // Og modsat: de ensfarvede HJEMMEtrøjer må IKKE have fået et mønster på.
+  // Randers er ude af listen — deres skråbånd blev målt til 21,3 % og 6,18:1
+  // og kan nu tegnes, fordi `skraabaand` kom til.
   it.each(['Brøndby IF', 'Viborg FF', 'Lyngby Boldklub', 'F.C. København',
-    'AGF', 'FC Midtjylland', 'FC Nordsjælland', 'Randers FC', 'Silkeborg IF'])(
+    'AGF', 'FC Midtjylland', 'FC Nordsjælland', 'Silkeborg IF'])(
     '%s står ensfarvet', (navn) => {
       expect(hold(navn).troejer?.hjemme?.moenster).toBeUndefined();
     },
   );
 
-  // PRÆCIS TRE trøjer bærer mønster. Tallet er en målt beslutning, ikke en
-  // æstetisk: får en fjerde et mønster, uden at målingen siger det, skal den
-  // her være rød.
-  it('har præcis tre mønstrede trøjer', () => {
+  // PRÆCIS FIRE hjemmetrøjer bærer mønster. Tallet er en målt beslutning, ikke
+  // en æstetisk: får en femte et mønster, uden at målingen siger det, skal den
+  // her være rød. Randers kom til, da `skraabaand` gjorde formen tegnelig.
+  it('har præcis fire mønstrede hjemmetrøjer', () => {
     const medMoenster = SUPERLIGA_TEAMS_2026.filter((t) => t.troejer?.hjemme?.moenster);
     expect(medMoenster.map((t) => t.name).sort())
-      .toEqual(['AC Horsens', 'OB', 'Sønderjyske Fodbold']);
+      .toEqual(['AC Horsens', 'OB', 'Randers FC', 'Sønderjyske Fodbold']);
+  });
+
+  // OG PÅ TVÆRS AF ALLE TRE VARIANTER. Hjemmetrøjerne var dækket; ude og tredje
+  // var det ikke, og det var netop dér, de tre nye former landede.
+  it('har præcis seks mønstrede trøjer i alt', () => {
+    const alle = [];
+    for (const t of SUPERLIGA_TEAMS_2026) {
+      for (const v of ['hjemme', 'ude', 'tredje']) {
+        if (t.troejer?.[v]?.moenster) alle.push(`${t.name} ${v}`);
+      }
+    }
+    expect(alle.sort()).toEqual([
+      'AC Horsens hjemme',
+      'Brøndby IF ude',
+      'OB hjemme',
+      'Randers FC hjemme',
+      'Randers FC tredje',
+      'Sønderjyske Fodbold hjemme',
+    ]);
   });
 });
 

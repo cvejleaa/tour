@@ -36,6 +36,7 @@ import { inflateSync } from 'zlib';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { erTofarvet, GULV_PCT } from './troejeMoenster.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const HOLDFIL = resolve(REPO, 'src/data/premierLeagueTeams2026.js');
@@ -338,7 +339,9 @@ export function troejefarver(felter, n, moenstret) {
       primaer: bund, sekundaer: null, moenster: 'ensfarvet', baand: 0, kilde: 'body',
     };
   }
-  const store = moenstret.flader.filter((f) => f.andel >= 0.12);
+  // Gulvet og halvdel-kravet bor i `troejeMoenster.mjs`. De stod her som bare
+  // tal (`0.12`, `0.5`) i ét af tre eksemplarer af samme beslutning.
+  const store = moenstret.flader.filter((f) => f.andel * 100 >= GULV_PCT);
   if (store.length === 0) {
     return {
       primaer: bund, sekundaer: null, moenster: 'ensfarvet', baand: 0, kilde: 'body (mønster uden flader)',
@@ -368,7 +371,7 @@ export function troejefarver(felter, n, moenstret) {
   };
   // Tofarvet = to store flader, hvor den mindste fylder mindst halvdelen af
   // den største. Ellers er det en ensfarvet trøje med et mærke eller en kant.
-  const tofarvet = store.length >= 2 && store[1].andel >= store[0].andel * 0.5;
+  const tofarvet = erTofarvet(moenstret.flader);
   if (!tofarvet) {
     return {
       primaer: store[0].hex, sekundaer: null, moenster: 'ensfarvet', baand: 0, kilde: 'mønster',

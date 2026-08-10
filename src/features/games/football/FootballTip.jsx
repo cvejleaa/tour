@@ -16,7 +16,7 @@ import { rankDelta } from '../gameStandings';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
 import { teamsOf, teamInfo, visOf } from './teamInfo';
-import { colorsClash } from '../../../lib/contrastText';
+import { colorsClash, colorDistance } from '../../../lib/contrastText';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
 import { shareText } from '../../../lib/share';
@@ -91,16 +91,32 @@ function badgeFor(teams, name, styles = {}, variant = 'home') {
 /**
  * Farver til et kamp-kort: hjemmeholdet i hjemmefarve, udeholdet i udefarve —
  * men skift til udeholdets tertiærfarve hvis udefarven clasher med hjemmefarven.
+ *
+ * VÆLGER DEN FJERNESTE, ikke "den første der er god nok". Reglen var før
+ * `if (!colorsClash(third, hjemme)) brug third` — altså: brug KUN tredjefarven,
+ * hvis den slet ikke clasher. Clashede begge, faldt kortet tilbage på udefarven,
+ * som man netop havde konstateret var for tæt på.
+ *
+ * Kommentaren her sagde allerede "brug kun tertiær hvis den faktisk er mindre
+ * clash end udefarven". Koden gjorde noget andet, og forskellen var usynlig,
+ * indtil Silkeborgs tredjefarve blev målt: den gik fra blå til lyserød, og så
+ * stod FCK–Silkeborg og AGF–Silkeborg med TO ENS HVIDE badges, fordi
+ * Silkeborgs udetrøje også er hvid. Uløste par gik fra 2 til 9 af 132.
+ *
+ * At vælge den fjerneste er strengt bedre: er tredjefarven ren, vinder den som
+ * før; er ingen af dem rene, tages den mindst dårlige i stedet for den, der
+ * beviseligt er værst. Der findes stadig par, hvor begge er tætte — se
+ * `superligaTeams2026.test.js`, som holder listen over dem.
  */
-function matchBadges(teams, home, away, styles) {
+export function matchBadges(teams, home, away, styles) {
   const h = badgeFor(teams, home, styles, 'home');
-  let a = badgeFor(teams, away, styles, 'away');
-  if (colorsClash(a.color, h.color)) {
-    const third = badgeFor(teams, away, styles, 'third');
-    // Brug kun tertiær hvis den faktisk er mindre clash end udefarven.
-    if (!colorsClash(third.color, h.color)) a = third;
-  }
-  return { h, a };
+  const a = badgeFor(teams, away, styles, 'away');
+  if (!colorsClash(a.color, h.color)) return { h, a };
+  const third = badgeFor(teams, away, styles, 'third');
+  return {
+    h,
+    a: colorDistance(third.color, h.color) > colorDistance(a.color, h.color) ? third : a,
+  };
 }
 
 export default function FootballTip({ game, me, matches }) {
