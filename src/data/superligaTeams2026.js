@@ -89,17 +89,17 @@
 //
 // TO PAR LIGGER TÆT, og det skal stå her frem for at blive opdaget på skærmen:
 // Randers #78C5ED mod Sønderjyske #B3D6E9 er 1,23:1, og FCN #B80112 mod
-// Silkeborg #CA202C er 1,23:1. De er ikke til at skelne på farve.
+// Silkeborg #CA202C er 1,23:1. De er ikke til at skelne på farve. Sønderjyskes
+// hvide striber er desuden 1,55:1 mod deres egen lyseblå, altså nærmest
+// usynlige ved 22 px; mønsteret er beholdt, fordi det er sandt, ikke fordi det
+// kan ses.
 //
-// Begrundelsen her har SKIFTET, og det er værd at vide hvorfor. Der stod, at
-// "kortkoden står ved siden af badgen på alle fem brugssteder, så identifikation
-// aldrig hviler på farven alene". Kortkoden er væk (#132): spillerne kunne ikke
-// tyde forkortelserne. Argumentet holder alligevel — bedre end før — fordi det,
-// der erstattede koden, er selve HOLDNAVNET, skrevet fuldt ud. Men det er nu
-// navnet, der bærer identifikationen, ikke koden.
-// Sønderjyskes hvide striber er desuden 1,55:1 mod
-// deres egen lyseblå, altså nærmest usynlige ved 22 px; mønsteret er beholdt,
-// fordi det er sandt, ikke fordi det kan ses.
+// Begrundelsen for at leve med det har SKIFTET, og det er værd at vide hvorfor.
+// Der stod, at "kortkoden står ved siden af badgen på alle fem brugssteder, så
+// identifikation aldrig hviler på farven alene". Kortkoden er væk (#132):
+// spillerne kunne ikke tyde forkortelserne. Argumentet holder alligevel — bedre
+// end før — fordi det, der erstattede koden, er selve HOLDNAVNET, skrevet fuldt
+// ud. Men det er nu navnet, der bærer identifikationen, ikke koden.
 //
 // FCM'S RØDE PINSTRIBER kunne slet ikke måles rent — hver måling gav en
 // blanding med sort. Trøjen står derfor ensfarvet sort, og der er ingen
@@ -116,10 +116,17 @@
 // — FCK og Sønderjyske ville ellers have stået hvid mod hvid — og hvor den gamle
 // primærfarve var klubbens ægte anden farve og derfor hørte hjemme som tredje.
 //
-// ELLEVE ER NU MÅLT på klubbernes EGNE butikker og lanceringssider med
-// `node scripts/superliga-ude-tredje.mjs`. Scriptet LÆSER denne fil og fejler,
-// hvis et tal her ikke længere stemmer — så en trøjeskift-sæson bliver opdaget
-// af en kørsel og ikke af en spiller:
+// ELLEVE ER NU MÅLT (august 2026) med `node scripts/superliga-ude-tredje.mjs`.
+// Kilderne er otte klubbutikker, én lanceringsside og én forhandler
+// (unisport.dk for FCN — klubben sælger ikke selv trøjen).
+//
+// HVAD SCRIPTET FANGER, OG HVAD DET IKKE GØR. Det LÆSER denne fil og fejler,
+// hvis nogen ændrer et tal her uden at måle om. Det opdager IKKE, at en klub har
+// skiftet trøje: `billede`-felterne er faste URL'er til bestemte varenumre, og
+// en ny trøje får et nyt varenummer. Den gamle URL leverer glad sidste sæsons
+// foto videre, og kørslen bliver ved med at sige ✓. Her stod før, at "kommer der
+// nye, siger scriptet fra" — det gør det ikke. Skal man vide det, må man kigge
+// på klubbens kollektionsside. Læg det på sæsoneftersynet.
 //
 //   Sønderjyske ude    #1B3A6B marine       →  #682844 bordeaux
 //   Lyngby 3. trøje    #111111 næsten sort  →  #25336D marineblå
@@ -151,29 +158,49 @@
 // og de er under alle omstændigheder rigtigere end de farver, der stod her og
 // ikke svarede til nogen trøje. Kommer der nye, siger scriptet fra.
 //
-// FIRE MØNSTRE ER TJEKKET OG FRAVALGT. To faldt på størrelsen, to på formen:
+// ÉT MØNSTER TILFØJET, FEM FRAVALGT. Tallene kommer fra
+// `node scripts/superliga-ude-tredje.mjs --moenster`, som kører husets
+// tofarvet-test på de samme udsnit som farvemålingen.
 //
+//   Randers 3.     TILFØJET. Orange 52,9 % mod navy 47,1 % — består begge krav,
+//                  og formen er kvarterer, som `ternet` tegner præcist.
 //   Lyngby ude     hvid med marineblå bånd. Båndene er 2,8 % af trøjehøjden
 //                  = 0,61 px på en 22 px badge. Samme grænse, der gjorde AGF's
 //                  og FCN's striber til ensfarvet stof.
 //   Brøndby 3.     bronzemønster på 1,9 % af fladen — under 12 %-gulvet.
-//   Brøndby ude    ét bredt gult brystbånd. Båndet er 12,8 % af højden = 2,8 px
-//                  ved 22 px, altså 4,6 gange bredere end Lyngbys og tydeligt
-//                  SYNLIGT. Her er det ikke størrelsen, der fravælger det: gul
-//                  fylder 16,8 % af arealet mod navys 83,2 %, så tofarvet-
-//                  testens andet krav (mindst halvdelen af nr. 1) fejler.
-//   Randers 3.     orange 52,4 % mod navy 47,6 % — den består BEGGE krav.
+//   Randers ude    lyserødt gitter, 16,5 % mod bundens 83,5 %. Over gulvet,
+//                  men langt under halvdelen.
+//   Brøndby ude    ét bredt gult brystbånd, 12,6 % af højden = 2,78 px ved
+//                  22 px, altså 4,5 gange bredere end Lyngbys og tydeligt
+//                  SYNLIGT. Falder alligevel: gul fylder 15,9 % af arealet mod
+//                  navys 84,1 %, så testens andet krav fejler.
+//   OB 3.          ternet i to lyserøde, 28,2 % mod 71,8 % og kun 1,12:1 i
+//                  kontrast — falder på begge det andet krav og synligheden.
 //
-// Randers er derfor den interessante: testen siger mønster, men formen er
-// KVARTERER, og badge-sproget kan kun `striber`, `boejler` og `ternet`. Det
-// samme gælder Brøndbys ene brystbånd og OB's ene lodrette stribe: `boejler`
-// ville tegne FLERE bånd, altså en anden trøje end den, klubben spiller i.
-// Et mønster, vi ikke kan tegne rigtigt, er værre end intet mønster. Vælger man
-// senere at udvide sproget, er de tre kandidaterne.
+// JEG TOG FEJL OM BADGE-SPROGET, og det er værd at skrive, fordi fejlen næsten
+// kostede Randers sit mønster. Her stod, at sproget "kun kan `striber`,
+// `boejler` og `ternet`", og at kvarterer derfor ikke kunne tegnes. `ClubBadge`
+// har FEM former — også `halveret` og `vandret-delt` — og `ternet` ER
+// kvarterer: den tegner to modstående kvadranter, ikke et skakbræt. Det står i
+// komponentens egen kommentar. Randers' trøje kan altså tegnes præcis som den
+// er, og gør det nu.
 //
-// OB's 3. trøje er ternet — den form KAN tegnes — men de to lyserøde nuancer
-// har 1,12:1 i kontrast, endnu lavere end Sønderjyskes 1,55:1. Den står
-// ensfarvet, fordi ternet ikke ville kunne ses.
+// Tilbage står to, hvor "ingen passende form" FAKTISK holder: Brøndbys ene
+// brystbånd (`boejler` ville tegne to) og OB's ene lodrette stribe (`halveret`
+// fylder en hel halvdel). Begge falder i forvejen på tofarvet-testen.
+//
+// TO PRINCIPPER MØDES HER, og grænsen mellem dem skal stå: Sønderjyskes hvide
+// striber på 1,55:1 BEHOLDES, fordi de er en del af trøjens form, som klubben
+// selv beskriver den. OB's tern på 1,12:1 FRAVÆLGES. Forskellen er ikke
+// kontrasten alene, men hvad man mister: uden striber ligner Sønderjyske et
+// ensfarvet lyseblåt hold, som de ikke er, mens OB's tern ved 22 px ville blive
+// to lyserøde felter i samme lyserøde — altså intet.
+//
+// DE UMÅLTE. Elleve felter er målt; tretten er ikke. Værd at kende ved navn,
+// fordi de kan skjule en fejl: FCM ude+3., FCK ude, AGF ude+3., FCN 3.,
+// Viborg ude+3., OB 3. (målt), Sønderjyske 3., SILKEBORG UDE, Horsens ude+3.,
+// Lyngby ude. Silkeborgs hvide udetrøje er den vigtigste af dem — se
+// `badgeFarver.test.js`, hvor den er grunden til to af de tætte par.
 // ---------------------------------------------------------------------------
 
 export const SUPERLIGA_TEAMS_2026 = [
@@ -184,7 +211,7 @@ export const SUPERLIGA_TEAMS_2026 = [
   { name: 'FC Nordsjælland',     short: 'FCN', elo: 1537, color: '#B80112', awayColor: '#111B34', thirdColor: '#FFD200', venue: 'Right To Dream Park' },
   { name: 'Viborg FF',           short: 'VFF', elo: 1486, color: '#026B41', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Energi Viborg Arena' },
   { name: 'OB',                  short: 'OB',  elo: 1486, color: '#0A4AA5', awayColor: '#1E2121', thirdColor: '#E5C6CB', troejer: { hjemme: { sekundaer: '#FFFFFF', moenster: 'striber' } }, venue: 'Nature Energy Park' },
-  { name: 'Randers FC',          short: 'RFC', elo: 1472, color: '#78C5ED', awayColor: '#33384F', thirdColor: '#FC8033', venue: 'Cepheus Park Randers' },
+  { name: 'Randers FC',          short: 'RFC', elo: 1472, color: '#78C5ED', awayColor: '#33384F', thirdColor: '#FC8033', troejer: { tredje: { sekundaer: '#292A3F', moenster: 'ternet' } }, venue: 'Cepheus Park Randers' },
   { name: 'Sønderjyske Fodbold', short: 'SJF', elo: 1465, color: '#B3D6E9', awayColor: '#682844', thirdColor: '#B0122E', troejer: { hjemme: { sekundaer: '#FFFFFF', moenster: 'striber' } }, venue: 'Sydbank Park' },
   { name: 'Silkeborg IF',        short: 'SIF', elo: 1453, color: '#CA202C', awayColor: '#FFFFFF', thirdColor: '#FCB2B9', venue: 'JYSK Park' },
   { name: 'AC Horsens',          short: 'ACH', elo: 1420, color: '#E8C45C', awayColor: '#111111', thirdColor: '#E4002B', troejer: { hjemme: { sekundaer: '#292724', moenster: 'striber' } }, venue: 'Hybel Arena' },

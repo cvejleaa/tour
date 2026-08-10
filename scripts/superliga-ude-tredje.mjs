@@ -55,6 +55,14 @@ const FILTRE = {
   kunOrange: 'p => p[0]>140 && p[0]>p[2]+50',
   // Sort trøje på sort baggrund: baggrunden er ren #000000, stoffet lysere.
   ikkeBaggrund: 'p => p[0]>12 || p[1]>12 || p[2]>12',
+  // DELEFILTRE til --moenster: sand = pixlen hører til MØNSTERET (farve nr. 2).
+  gul: 'p => p[0]>140 && p[1]>110 && p[2]<110',
+  bronze: 'p => p[0]>90 && p[0]>p[2]+35',
+  gitter: 'p => p[0] > p[2] - 10 && p[0] > 70',
+  ikkeOrange: 'p => !(p[0]>140 && p[0]>p[2]+50) && p[2]>=p[0]',
+  moerkLyseroed: 'p => p[0]>=60 && p[0]<228',
+  // Grundfilter til --moenster: væk med det hvide studiebaggrundsfelt.
+  ikkeHvid: 'p => !(p[0]>238 && p[1]>238 && p[2]>238)',
 };
 
 /**
@@ -104,6 +112,9 @@ const MAALINGER = [
     // Udgaven UDEN sponsortryk, så den gule tekst ikke forurener. To felter,
     // over og under båndet: studiet lyser oppefra, så medianen af begge bruges.
     stof: [[300, 480, 500, 640], [300, 150, 420, 230]],
+    // MØNSTER-VURDERING: gult brystbånd. `flade` er hele trøjen, `anden` det
+    // gule; `baand` scanner lodret gennem torsoen og måler båndets bredde.
+    moenster: { navn: 'gult brystbånd', flade: [40, 60, 760, 799], grund: 'ikkeHvid', anden: 'gul', baand: [398, 0, 799] },
   },
   {
     hold: 'Brøndby IF',
@@ -113,6 +124,7 @@ const MAALINGER = [
     billede: 'https://shoppen.brondby.com/cdn/shop/files/3.TroejeL_Svoksen.jpg?width=800',
     // Bronzemønsteret er 1,9 % af fladen og trækker ikke medianen.
     stof: [[150, 380, 650, 700]],
+    moenster: { navn: 'bronzemønster', flade: [150, 380, 650, 700], anden: 'bronze' },
   },
   {
     hold: 'FC Nordsjælland',
@@ -145,6 +157,7 @@ const MAALINGER = [
     // 1,12:1 i kontrast. Ternet tegnes ikke; medianen af hele fladen er farven.
     stof: [[300, 500, 620, 800]],
     filter: 'ikkeBaggrund',
+    moenster: { navn: 'tern i to lyserøde', flade: [300, 500, 620, 800], grund: 'ikkeBaggrund', anden: 'moerkLyseroed' },
   },
   {
     hold: 'Randers FC',
@@ -155,6 +168,7 @@ const MAALINGER = [
     // Det lyserøde gitter fylder 16,5 % og filtreres fra, så bunden står ren.
     stof: [[430, 600, 780, 900]],
     filter: 'udenGitter',
+    moenster: { navn: 'lyserødt gitter', flade: [430, 600, 780, 900], anden: 'gitter' },
   },
   {
     hold: 'Randers FC',
@@ -166,6 +180,7 @@ const MAALINGER = [
     // adskiller trøjen fra klubbens udebane, som også er mørk.
     stof: [[420, 560, 800, 900]],
     filter: 'kunOrange',
+    moenster: { navn: 'orange/navy kvarterer', flade: [420, 560, 800, 900], grund: 'ikkeHvid', anden: 'ikkeOrange' },
   },
   {
     hold: 'Silkeborg IF',
@@ -297,8 +312,65 @@ for (const m of MAALINGER) {
   }
 }
 
-await browser.close();
 console.log(alleOk
   ? `Alle ${MAALINGER.length} målinger stemmer med superligaTeams2026.js.\n`
   : 'MINDST ÉN MÅLING AFVIGER fra superligaTeams2026.js — se ovenfor.\n');
+// ---------------------------------------------------------------------------
+// --moenster — HUSETS TOFARVET-TEST PÅ UDE- OG TREDJETRØJERNE.
+//
+// `superliga-troejefarver.mjs` har den samme test, men kører kun på bold.dk's
+// HJEMMEtrøjer. Fem fravalg i superligaTeams2026.js hvilede derfor på tal, intet
+// committet script kunne producere — ordret den fælde, CLAUDE.md navngiver.
+//
+// TESTEN: farve nr. 2 skal fylde over 12 % af fladen OG mindst halvdelen af
+// farve nr. 1. Det er den, der gjorde Leeds' pinstriber til en ensfarvet trøje.
+// Dertil kontrasten mellem de to: en flade kan bestå på areal og alligevel være
+// usynlig ved 22 px, hvilket er præcis OB's tern.
+// ---------------------------------------------------------------------------
+if (process.argv.includes('--moenster')) {
+  const lum = (c) => {
+    const f = (v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : (((v / 255) + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  };
+  console.log('\nMØNSTRE — husets tofarvet-test (over 12 %, og mindst halvdelen af nr. 1)\n');
+  for (const m of MAALINGER.filter((x) => x.moenster)) {
+    const mo = m.moenster;
+    // GRUNDFILTERET er mønstertestens eget — ikke målingens. For Randers ude er
+    // målingens filter `udenGitter`, som fjerner præcis de pixels, testen skal
+    // tælle; første udgave fik derfor nul og styrtede.
+    const g = mo.grund ? `(${FILTRE[mo.grund]})(p)` : 'true';
+    const { pixels: alle } = await pixels(m.billede, [mo.flade], mo.grund ? FILTRE[mo.grund] : null);
+    const { pixels: nr2 } = await pixels(m.billede, [mo.flade], `p => (${FILTRE[mo.anden]})(p) && ${g}`);
+    const antal2 = nr2.length;
+    const antal1 = alle.length - antal2;
+    const pct2 = (100 * antal2) / (antal1 + antal2);
+    const { pixels: kun1 } = await pixels(m.billede, [mo.flade], `p => !(${FILTRE[mo.anden]})(p) && ${g}`);
+    const a = median(kun1); const b = median(nr2);
+    const [L1, L2] = [lum(a), lum(b)].sort((x, y) => y - x);
+    const kontrast = (L1 + 0.05) / (L2 + 0.05);
+    const overGulv = pct2 > 12;
+    const halvdel = antal2 >= antal1 / 2;
+    console.log(`  ${m.hold} · ${mo.navn}`);
+    console.log(`    nr. 1 ${hex(a)} ${(100 - pct2).toFixed(1)} %   nr. 2 ${hex(b)} ${pct2.toFixed(1)} %`);
+    console.log(`    over 12 %: ${overGulv ? 'JA' : 'NEJ'}   mindst halvdelen: ${halvdel ? 'JA' : 'NEJ'}   kontrast ${kontrast.toFixed(2)}:1`);
+    console.log(`    → ${overGulv && halvdel ? 'BESTÅR testen' : 'falder på testen'}`);
+    if (mo.baand) {
+      // Båndbredde er GEOMETRI, ikke areal: et enkelt bredt bånd kan falde på
+      // arealtesten og alligevel være tydeligt synligt. Begge tal hører til.
+      const [bx, by0, by1] = mo.baand;
+      const { pixels: kol } = await pixels(m.billede, [[bx, by0, bx + 1, by1]], null);
+      const erNr2 = new Function(`return (${FILTRE[mo.anden]})`)();
+      const baand = []; let i = 0;
+      while (i < kol.length) {
+        if (erNr2(kol[i])) { let j = i; while (j < kol.length && erNr2(kol[j])) j += 1; if (j - i >= 2) baand.push(j - i); i = j; } else i += 1;
+      }
+      const H = by1 - by0;
+      const bredest = Math.max(...baand, 0);
+      console.log(`    bredeste bånd i lodret snit: ${bredest} px = ${(100 * bredest / H).toFixed(1)} % af højden → ${(22 * bredest / H).toFixed(2)} px på en 22 px badge`);
+    }
+    console.log();
+  }
+}
+
+await browser.close();
 process.exit(alleOk ? 0 : 1);
