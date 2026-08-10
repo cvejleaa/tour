@@ -63,6 +63,7 @@ const FILTRE = {
   moerkLyseroed: 'p => p[0]>=60 && p[0]<228',
   // Grundfilter til --moenster: væk med det hvide studiebaggrundsfelt.
   ikkeHvid: 'p => !(p[0]>238 && p[1]>238 && p[2]>238)',
+  moerkBlaa: 'p => (p[0]+p[1]+p[2]) < 330 && !(p[0]>200 && p[1]>200 && p[2]>200)',
 };
 
 /**
@@ -114,7 +115,7 @@ const MAALINGER = [
     stof: [[300, 480, 500, 640], [300, 150, 420, 230]],
     // MØNSTER-VURDERING: gult brystbånd. `flade` er hele trøjen, `anden` det
     // gule; `baand` scanner lodret gennem torsoen og måler båndets bredde.
-    moenster: { navn: 'gult brystbånd', flade: [40, 60, 760, 799], grund: 'ikkeHvid', anden: 'gul', baand: [398, 0, 799] },
+    moenster: { navn: 'gult brystbånd', slags: 'enkeltfigur', flade: [40, 60, 760, 799], grund: 'ikkeHvid', anden: 'gul', baand: [398, 0, 799] },
   },
   {
     hold: 'Brøndby IF',
@@ -157,7 +158,7 @@ const MAALINGER = [
     // 1,12:1 i kontrast. Ternet tegnes ikke; medianen af hele fladen er farven.
     stof: [[300, 500, 620, 800]],
     filter: 'ikkeBaggrund',
-    moenster: { navn: 'tern i to lyserøde', flade: [300, 500, 620, 800], grund: 'ikkeBaggrund', anden: 'moerkLyseroed' },
+    moenster: { navn: 'tern i to lyserøde', slags: 'enkeltfigur', flade: [300, 500, 620, 800], grund: 'ikkeBaggrund', anden: 'moerkLyseroed' },
   },
   {
     hold: 'Randers FC',
@@ -180,7 +181,22 @@ const MAALINGER = [
     // adskiller trøjen fra klubbens udebane, som også er mørk.
     stof: [[420, 560, 800, 900]],
     filter: 'kunOrange',
-    moenster: { navn: 'orange/navy kvarterer', flade: [420, 560, 800, 900], grund: 'ikkeHvid', anden: 'ikkeOrange' },
+    moenster: { navn: 'orange/navy kvarterer', slags: 'enkeltfigur', flade: [420, 560, 800, 900], grund: 'ikkeHvid', anden: 'ikkeOrange' },
+  },
+  {
+    hold: 'Randers FC',
+    felt: 'troejer.hjemme.sekundaer',
+    hvad: 'hjemmebane 26/27 — det marineblå skråbånd',
+    kilde: 'https://sport24.dk/kategori/randers-fc-shop/spillertoj/',
+    billede: 'https://d9k6g0fi21yil.cloudfront.net/13-607853-RFC_01_01.jpg',
+    // BEMÆRK VARENUMMERET. Butikken har også `13-605831`, en lyseblå trøje med
+    // et tonet hesteprint og INTET skråbånd. Jeg målte den først og fik en
+    // hjemmefarve, der lignede den rigtige — men trøjen er en anden. Det er
+    // derfor `--kasser` findes.
+    // Kun båndet. Hjemmefarven #78C5ED ejes af superliga-troejefarver.mjs.
+    stof: [[135, 120, 1065, 1160]],
+    filter: 'moerkBlaa',
+    moenster: { navn: 'marineblåt skråbånd', slags: 'enkeltfigur', flade: [135, 120, 1065, 1160], grund: 'ikkeHvid', anden: 'moerkBlaa' },
   },
   {
     hold: 'Silkeborg IF',
@@ -280,7 +296,7 @@ for (const m of MAALINGER) {
     note = `hvidbalanceret mod ${hex(href)} (×${(255 / href[0]).toFixed(2)}/${(255 / href[1]).toFixed(2)}/${(255 / href[2]).toFixed(2)})`;
   }
 
-  const iData = SUPERLIGA_TEAMS_2026.find((t) => t.name === m.hold)?.[m.felt];
+  const iData = m.felt.split('.').reduce((o, k) => o?.[k], SUPERLIGA_TEAMS_2026.find((t) => t.name === m.hold));
   if (!iData) throw new Error(`${m.hold} har intet ${m.felt} i superligaTeams2026.js`);
   const ok = hex(endelig) === iData.toUpperCase();
   if (!ok) alleOk = false;
@@ -350,10 +366,19 @@ if (process.argv.includes('--moenster')) {
     const kontrast = (L1 + 0.05) / (L2 + 0.05);
     const overGulv = pct2 > 12;
     const halvdel = antal2 >= antal1 / 2;
+    // TO TESTER, ikke én. "Mindst halvdelen af nr. 1" giver kun mening for
+    // STRIBER, hvor to farver skiftevis dækker trøjen. Én figur — et brystbånd,
+    // et skråbånd, et skakbræt — fylder i sagens natur 15-30 % og ville aldrig
+    // bestå. For dem er kravet i stedet, at figuren er stor nok til at tegnes
+    // OG har kontrast nok til at ses. Uden den skelnen ville Brøndbys bånd og
+    // Randers' skråbånd stå ensfarvede, selv om begge er tydelige på trøjen.
+    const enkelt = mo.slags === 'enkeltfigur';
+    const bestaar = enkelt ? (overGulv && kontrast >= 2) : (overGulv && halvdel);
     console.log(`  ${m.hold} · ${mo.navn}`);
     console.log(`    nr. 1 ${hex(a)} ${(100 - pct2).toFixed(1)} %   nr. 2 ${hex(b)} ${pct2.toFixed(1)} %`);
-    console.log(`    over 12 %: ${overGulv ? 'JA' : 'NEJ'}   mindst halvdelen: ${halvdel ? 'JA' : 'NEJ'}   kontrast ${kontrast.toFixed(2)}:1`);
-    console.log(`    → ${overGulv && halvdel ? 'BESTÅR testen' : 'falder på testen'}`);
+    console.log(`    ${enkelt ? 'ENKELTFIGUR — krav: over 12 % og kontrast mindst 2:1' : 'STRIBER — krav: over 12 % og mindst halvdelen af nr. 1'}`);
+    console.log(`    over 12 %: ${overGulv ? 'JA' : 'NEJ'}   ${enkelt ? `kontrast ${kontrast.toFixed(2)}:1` : `mindst halvdelen: ${halvdel ? 'JA' : 'NEJ'}   kontrast ${kontrast.toFixed(2)}:1`}`);
+    console.log(`    → ${bestaar ? 'BESTÅR testen' : 'falder på testen'}`);
     if (mo.baand) {
       // Båndbredde er GEOMETRI, ikke areal: et enkelt bredt bånd kan falde på
       // arealtesten og alligevel være tydeligt synligt. Begge tal hører til.

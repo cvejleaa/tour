@@ -27,10 +27,28 @@ const AERME_V = 'M7.4 4.2 L4 6 L3 10.5 L6.2 11.5 L7.4 8.4 Z';
 const AERME_H = 'M16.6 4.2 L20 6 L21 10.5 L17.8 11.5 L16.6 8.4 Z';
 
 /**
- * Båndene i mønsteret. TRE bånd og ikke flere: kroppen er 6,9 px bred ved
- * størrelse 22, så fire bånd giver 1,4 px hver og bliver til grød på en
- * 1×-skærm. En rigtig stribet trøje har 12-14 striber — badgen er en
- * genkendelse, ikke en gengivelse.
+ * Mønsteret oven på kroppen. Alt herinde klippes til trøjens silhuet, så både
+ * rektangler og polygoner kan bruges.
+ *
+ * TRE bånd og ikke flere: kroppen er 6,9 px bred ved størrelse 22, så fire bånd
+ * giver 1,4 px hver og bliver til grød på en 1×-skærm. En rigtig stribet trøje
+ * har 12-14 striber — badgen er en genkendelse, ikke en gengivelse.
+ *
+ * OTTE FORMER. De fem første kom med badgen; `skraabaand`, `baand` og
+ * `firkanter` kom til, fordi tre danske trøjer ellers måtte stå ensfarvede,
+ * selv om de tydeligt har et mønster. Formen skal matche trøjen PRÆCIST — et
+ * enkelt brystbånd tegnet som `boejler` bliver til to bånd, altså en anden
+ * trøje end den, klubben spiller i. Det var grunden til, at Brøndby og Randers
+ * stod uden mønster, indtil de her tre kom til.
+ *
+ *   striber       lodrette, to bånd
+ *   boejler       vandrette, to bånd
+ *   ternet        to modstående kvadranter — en KVARTERET trøje
+ *   halveret      højre halvdel
+ *   vandret-delt  nederste halvdel
+ *   skraabaand    ét diagonalt bånd
+ *   baand         ét vandret bånd over maven
+ *   firkanter     3×4-skakbræt — et egentligt bræt, modsat `ternet`
  */
 function baand(moenster, farve) {
   if (moenster === 'striber') {
@@ -60,6 +78,42 @@ function baand(moenster, farve) {
   }
   if (moenster === 'vandret-delt') {
     return [<rect key="a" x="6.5" y="12" width="11" height="9.5" fill={farve} />];
+  }
+  if (moenster === 'skraabaand') {
+    // ÉT skråbånd fra venstre skulder ned mod højre hofte — Randers' hjemmetrøje.
+    // Bredden er valgt, så båndet fylder omtrent det samme af kroppen som på
+    // trøjen selv (målt: 22 %). Et smallere bånd forsvinder ved 22 px; et
+    // bredere ville dele trøjen i to og ligne `halveret`.
+    return [<polygon key="a" points="6,6.8 6,11.6 18,18.6 18,13.8" fill={farve} />];
+  }
+  if (moenster === 'baand') {
+    // ÉT vandret bånd over maven — Brøndbys udetrøje. Adskilt fra `boejler`,
+    // som tegner TO: et enkelt bånd tegnet som to bånd er en anden trøje, og
+    // det var netop derfor Brøndby stod ensfarvet, indtil formen kom til.
+    return [<rect key="a" x="6.5" y="10.2" width="11" height="3.4" fill={farve} />];
+  }
+  if (moenster === 'firkanter') {
+    // STORE FIRKANTER i et 3×4-skakbræt — OB's tredjetrøje. Forskellen til
+    // `ternet` er antallet: `ternet` er to modstående kvadranter (en kvarteret
+    // trøje), det her er et egentligt bræt. Tre kolonner og ikke fire: kroppen
+    // er 6,9 px bred ved størrelse 22, så fire kolonner giver 1,7 px hver.
+    const felter = [];
+    const bredde = 11 / 3;
+    const hoejde = 19 / 4;
+    for (let r = 0; r < 4; r += 1) {
+      for (let c = 0; c < 3; c += 1) {
+        if ((r + c) % 2 !== 0) continue;
+        felter.push(<rect
+          key={`${r}-${c}`}
+          x={6.5 + c * bredde}
+          y={2.5 + r * hoejde}
+          width={bredde}
+          height={hoejde}
+          fill={farve}
+        />);
+      }
+    }
+    return felter;
   }
   return [];
 }

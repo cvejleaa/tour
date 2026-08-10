@@ -118,6 +118,71 @@ describe('ClubBadge — mønstre', () => {
     expect([...tegn('striber').querySelectorAll('rect')].length).toBeLessThanOrEqual(3);
   });
 
+  // ---------------------------------------------------------------------------
+  // DE TRE NYE FORMER. Uden dem måtte tre danske trøjer stå ensfarvede, selv om
+  // de tydeligt har et mønster — og alternativet var værre: et enkelt brystbånd
+  // tegnet som `boejler` bliver til TO bånd, altså en anden trøje.
+  // ---------------------------------------------------------------------------
+  it('tegner ét skråbånd som en polygon, ikke et rektangel', () => {
+    const c = tegn('skraabaand');
+    expect(c.querySelectorAll('polygon').length).toBe(1);
+    // Et rektangel ville være et vandret bånd — altså `baand`, ikke et skråbånd.
+    expect(c.querySelectorAll('rect').length).toBe(0);
+  });
+
+  // BÆRENDE for skråbåndet: det skal FALDE. Et polygon med samme y i begge
+  // ender ville tegne et vandret bånd og bestå testen ovenfor.
+  it('lader skråbåndet falde fra venstre mod højre', () => {
+    const p = tegn('skraabaand').querySelector('polygon').getAttribute('points');
+    const punkter = p.trim().split(/\s+/).map((par) => par.split(',').map(Number));
+    const venstre = Math.min(...punkter.map(([, y]) => y));
+    const hoejre = Math.max(...punkter.map(([, y]) => y));
+    expect(hoejre - venstre).toBeGreaterThan(5);
+  });
+
+  it('tegner ÉT bånd ved baand — ikke to som boejler', () => {
+    expect(tegn('baand').querySelectorAll('rect').length).toBe(1);
+    expect(tegn('boejler').querySelectorAll('rect').length).toBe(2);
+  });
+
+  // Båndet skal ligge over maven, ikke i toppen eller bunden.
+  it('lægger baand omkring midten af kroppen', () => {
+    const r = tegn('baand').querySelector('rect');
+    const y = Number(r.getAttribute('y'));
+    const h = Number(r.getAttribute('height'));
+    expect(y).toBeGreaterThan(6);
+    expect(y + h).toBeLessThan(17);
+  });
+
+  // `firkanter` er et EGENTLIGT bræt; `ternet` er to modstående kvadranter.
+  // Tegnes de ens, er den ene form overflødig — og OB ville få kvarterer, hvor
+  // trøjen har et skakbræt.
+  it('tegner firkanter som et bræt, ternet som to kvadranter', () => {
+    expect(tegn('ternet').querySelectorAll('rect').length).toBe(2);
+    expect(tegn('firkanter').querySelectorAll('rect').length).toBeGreaterThan(4);
+    expect(tegn('firkanter').innerHTML).not.toBe(tegn('ternet').innerHTML);
+  });
+
+  // Men ikke for mange: kroppen er 6,9 px bred ved størrelse 22, så fire
+  // kolonner giver 1,7 px hver og bliver til grød.
+  it('holder antallet af firkanter nede', () => {
+    expect(tegn('firkanter').querySelectorAll('rect').length).toBeLessThanOrEqual(6);
+  });
+
+  // Alle otte former skal give hver sit billede. To ens former er en fejl i
+  // vokabularet, ikke i dataen — og den ville først blive opdaget på skærmen.
+  it('tegner alle otte mønstre forskelligt', () => {
+    const alle = ['striber', 'boejler', 'ternet', 'halveret', 'vandret-delt', 'skraabaand', 'baand', 'firkanter'];
+    const billeder = alle.map((m) => tegn(m).querySelector('svg').innerHTML);
+    expect(new Set(billeder).size).toBe(alle.length);
+  });
+
+  // Et ukendt mønsternavn må tegne INTET — ikke falde tilbage på striber.
+  // Ellers ville en stavefejl i dataen give en trøje et mønster, den ikke har.
+  it('tegner intet ved et ukendt mønsternavn', () => {
+    expect(tegn('skakbraet').querySelectorAll('rect,polygon').length).toBe(0);
+  });
+
   // To trøjer på samme kampkort må ikke dele klipsti — så ville den ene miste
   // sit mønster.
   it('giver hver trøje sin egen klipsti', () => {
