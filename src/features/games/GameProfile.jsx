@@ -49,7 +49,11 @@ export default function GameProfile({ game, me }) {
         <Avatar uid={uid} name={me?.displayName} emoji={me?.avatarEmoji} favoriteTeam={team || null} size={48} />
         <div>
           <div style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-            {chosen && <ClubBadge code={chosen.short} color={chosen.color} size={22} title={chosen.name} />}
+            {chosen && <ClubBadge
+              variant="troeje" code={chosen.short} color={chosen.color} size={22}
+              color2={chosen.troejer?.hjemme?.sekundaer} moenster={chosen.troejer?.hjemme?.moenster}
+              aerme={chosen.troejer?.hjemme?.aerme} title={chosen.name}
+            />}
             {chosen ? chosen.name : 'Intet hold valgt'}
           </div>
         </div>

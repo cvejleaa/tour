@@ -16,7 +16,11 @@ function Row({ r, teams }) {
       <td className="sltab__rank">{r.rank}</td>
       <td className="sltab__team">
         <span className="sltab__teamcell">
-          <ClubBadge code={r.teamShortName || info?.short} color={info?.color} size={22} title={r.teamName} />
+          <ClubBadge
+            variant="troeje" code={r.teamShortName || info?.short} color={info?.color} size={22}
+            color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
+            aerme={info?.troejer?.hjemme?.aerme} title={r.teamName}
+          />
           <span className="sltab__name">{r.teamName}</span>
         </span>
       </td>

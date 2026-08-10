@@ -59,26 +59,69 @@
 // hjemmeholdets hjemmefarve (trøje-clash). Selvstændige hold-badges — vi
 // hotlinker IKKE officielle logoer. `venue` = hjemmestadion (pulselive).
 // Alle farver er redigerbare i admin.
+//
+// FARVERNE HAR NU EN KILDE. De var før skrevet fra hukommelsen om klubbernes
+// spilledragter — påstande ved siden af Elo-værdier, der havde både kilde,
+// kalibrering og et script. De hentes nu fra {{Infobox football club}} på
+// engelsk Wikipedia med `node scripts/holdfarver-wikipedia.mjs`, som læser
+// selve mønster-grafikken fra Commons; skabelonens farvefelt er kun
+// BUNDfarven og giver hvid for en stribet trøje.
+//
+// TO TRØJER MANGLER I KILDEN: Aston Villas udetrøje og Leeds' tredjetrøje står
+// tomme i infoboksen (`pattern_b2`/`body2` henholdsvis `pattern_b3`/`body3`).
+// Scriptet springer tomme værdier over, så de to felter skrives ikke af det.
+//
+// Villas udetrøje er sat i hånden til grålig sort. Klubbens officielle butik
+// har stadig kun 2025-26-udetrøjen, fordi 2026/27 ikke er udkommet — så den
+// gamle føres videre, indtil den nye lander. Det er en bedre kilde end det
+// leak, feltet først blev sat efter, men det er stadig den ENESTE af de tyve,
+// der ikke er hentet.
+//
+// Villas hjemme- og tredjetrøje er derimod bekræftet mod avfc.co.uk: bordeaux
+// hjemme, lyseblå med bordeaux-kanter som tredje — begge som hentet.
+//
+// Leeds' tredjetrøje er sort ifølge klubbutikken, men står stadig med sit
+// gamle skøn: Wikipedia har feltet tomt. Den skal sættes i admin.
+//
+// TOTTENHAMS TREDJETRØJE FINDES IKKE ENDNU. shop.tottenhamhotspur.com har kun
+// Home, Away og Goalkeeper for 2026/27, og Wikipedias `body3` er tom. Vores
+// #1D428A er altså et skøn uden kilde — som Leeds', bare uden en butik at
+// rette efter. Den skal sættes i admin, når trøjen udkommer.
+//
+// Spurs' HJEMMEÆRMER er derimod bekræftet hvide: ærmet har sin egen
+// mønster-grafik (`pattern_la1`), og den måler 95,9 % hvid. De mørke ærmer på
+// butikkens forsidefoto er modellens jakke. Det er værd at holde fast i —
+// Fulhams sorte ærmer forsvandt netop, fordi feltet ikke kunne se dem, og
+// derfor er fristelsen at rette hvert ærme efter et pressefoto.
+//
+// FULHAM er rettet i hånden på to punkter efter klubbens butik, og begge er
+// grænser for, hvad hentningen kan:
+//   ærmer   Hjemmetrøjen har SORTE ærmer på hvid krop. leftarm1 står som
+//           FFFFFF, og forskellen på hvid krop og hvidt ærme er nul, så feltet
+//           blev filtreret væk som støj. Kilden har den ikke.
+//   tern    Udetrøjen er rød/sort i tern. Mønster-målingen tæller skift langs
+//           hver akse, og tern skifter langs BEGGE — så den valgte den ene og
+//           kaldte trøjen bøjlet.
 // ---------------------------------------------------------------------------
 
 export const PREMIER_LEAGUE_TEAMS_2026 = [
-  { name: 'Arsenal',                   short: 'ARS', elo: 1664, color: '#EF0107', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Emirates Stadium' },
-  { name: 'Manchester City',           short: 'MCI', elo: 1645, color: '#6CABDD', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'Etihad Stadium' },
-  { name: 'Aston Villa',               short: 'AVL', elo: 1563, color: '#670E36', awayColor: '#95BFE5', thirdColor: '#FFFFFF', venue: 'Villa Park' },
-  { name: 'Manchester United',         short: 'MUN', elo: 1617, color: '#DA291C', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Old Trafford' },
-  { name: 'Liverpool',                 short: 'LIV', elo: 1624, color: '#C8102E', awayColor: '#FFFFFF', thirdColor: '#00B2A9', venue: 'Anfield' },
-  { name: 'Bournemouth',               short: 'BOU', elo: 1539, color: '#DA291C', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'Vitality Stadium' },
-  { name: 'Brighton and Hove Albion',  short: 'BHA', elo: 1522, color: '#0057B8', awayColor: '#FFFFFF', thirdColor: '#FDB913', venue: 'American Express Stadium' },
-  { name: 'Newcastle United',          short: 'NEW', elo: 1522, color: '#241F20', awayColor: '#FFFFFF', thirdColor: '#41B6E6', venue: "St. James' Park" },
-  { name: 'Brentford',                 short: 'BRE', elo: 1503, color: '#E30613', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Gtech Community Stadium' },
-  { name: 'Chelsea',                   short: 'CHE', elo: 1610, color: '#034694', awayColor: '#FFFFFF', thirdColor: '#EAB308', venue: 'Stamford Bridge' },
-  { name: 'Nottingham Forest',         short: 'NFO', elo: 1489, color: '#DD0000', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'The City Ground' },
-  { name: 'Fulham',                    short: 'FUL', elo: 1480, color: '#FFFFFF', awayColor: '#111111', thirdColor: '#6CACE4', venue: 'Craven Cottage' },
-  { name: 'Everton',                   short: 'EVE', elo: 1470, color: '#003399', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Hill Dickinson Stadium' },
-  { name: 'Crystal Palace',            short: 'CRY', elo: 1470, color: '#1B458F', awayColor: '#C4122E', thirdColor: '#FFFFFF', venue: 'Selhurst Park' },
-  { name: 'Leeds United',              short: 'LEE', elo: 1464, color: '#FFFFFF', awayColor: '#1D428A', thirdColor: '#FFCD00', venue: 'Elland Road' },
-  { name: 'Tottenham Hotspur',         short: 'TOT', elo: 1579, color: '#132257', awayColor: '#FFFFFF', thirdColor: '#1D428A', venue: 'Tottenham Hotspur Stadium' },
-  { name: 'Sunderland',                short: 'SUN', elo: 1403, color: '#EB172B', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Stadium of Light' },
-  { name: 'Coventry City',             short: 'COV', elo: 1328, color: '#78D0F3', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'Coventry Building Society Arena' },
-  { name: 'Ipswich Town',              short: 'IPS', elo: 1307, color: '#0044A9', awayColor: '#FFFFFF', thirdColor: '#111111', venue: 'Portman Road' },
-  { name: 'Hull City',                 short: 'HUL', elo: 1199, color: '#F5A12D', awayColor: '#111111', thirdColor: '#FFFFFF', venue: 'MKM Stadium' },];
+  { name: 'Arsenal',                   short: 'ARS', elo: 1664, color: '#EC0000', awayColor: '#062967', thirdColor: '#F8F6BB', troejer: { hjemme: { aerme: '#FFFFFF' } }, venue: 'Emirates Stadium' },
+  { name: 'Manchester City',           short: 'MCI', elo: 1645, color: '#A2CFF2', awayColor: '#030303', thirdColor: '#FFFFFF', venue: 'Etihad Stadium' },
+  { name: 'Aston Villa',               short: 'AVL', elo: 1563, color: '#67081B', awayColor: '#262626', thirdColor: '#C5D8EE', venue: 'Villa Park' },
+  { name: 'Manchester United',         short: 'MUN', elo: 1617, color: '#FC0000', awayColor: '#0001E7', thirdColor: '#111111', venue: 'Old Trafford' },
+  { name: 'Liverpool',                 short: 'LIV', elo: 1624, color: '#DA0000', awayColor: '#FCFCFC', thirdColor: '#0BB4BB', troejer: { hjemme: { aerme: '#8F1E32' } }, venue: 'Anfield' },
+  { name: 'Bournemouth',               short: 'BOU', elo: 1539, color: '#FD1616', awayColor: '#6051BA', thirdColor: '#FFFFFF', troejer: { hjemme: { sekundaer: '#010101', moenster: 'striber', aerme: '#000000' }, ude: { sekundaer: '#A09BDA', moenster: 'boejler' } }, venue: 'Vitality Stadium' },
+  { name: 'Brighton and Hove Albion',  short: 'BHA', elo: 1522, color: '#004898', awayColor: '#FFFFFF', thirdColor: '#004654', venue: 'American Express Stadium' },
+  { name: 'Newcastle United',          short: 'NEW', elo: 1522, color: '#FDFDFD', awayColor: '#101F35', thirdColor: '#41B6E6', troejer: { hjemme: { sekundaer: '#0A0A0A', moenster: 'striber' } }, venue: "St. James' Park" },
+  { name: 'Brentford',                 short: 'BRE', elo: 1503, color: '#FF0000', awayColor: '#000040', thirdColor: '#FFFF00', troejer: { hjemme: { sekundaer: '#FFFFFF', moenster: 'striber', aerme: '#FFFFFF' }, ude: { aerme: '#000080' }, tredje: { aerme: '#FFED29' } }, venue: 'Gtech Community Stadium' },
+  { name: 'Chelsea',                   short: 'CHE', elo: 1610, color: '#1B379B', awayColor: '#000000', thirdColor: '#EAB308', venue: 'Stamford Bridge' },
+  { name: 'Nottingham Forest',         short: 'NFO', elo: 1489, color: '#F30310', awayColor: '#153428', thirdColor: '#111111', troejer: { hjemme: { sekundaer: '#D70926', moenster: 'boejler', aerme: '#D70926' } }, venue: 'The City Ground' },
+  { name: 'Fulham',                    short: 'FUL', elo: 1480, color: '#FAFAFA', awayColor: '#FF0000', thirdColor: '#6CACE4', troejer: { hjemme: { aerme: '#111111' }, ude: { sekundaer: '#000000', moenster: 'ternet' } }, venue: 'Craven Cottage' },
+  { name: 'Everton',                   short: 'EVE', elo: 1470, color: '#00019E', awayColor: '#FFFFFF', thirdColor: '#111111', troejer: { hjemme: { aerme: '#0000FF' } }, venue: 'Hill Dickinson Stadium' },
+  { name: 'Crystal Palace',            short: 'CRY', elo: 1470, color: '#FEFEFE', awayColor: '#1B1B1B', thirdColor: '#FFFFFF', troejer: { ude: { aerme: '#000000' } }, venue: 'Selhurst Park' },
+  { name: 'Leeds United',              short: 'LEE', elo: 1464, color: '#FFFFFF', awayColor: '#FFFB00', thirdColor: '#FFCD00', venue: 'Elland Road' },
+  { name: 'Tottenham Hotspur',         short: 'TOT', elo: 1579, color: '#FDFDFD', awayColor: '#000E4B', thirdColor: '#1D428A', troejer: { ude: { aerme: '#000000' } }, venue: 'Tottenham Hotspur Stadium' },
+  { name: 'Sunderland',                short: 'SUN', elo: 1403, color: '#FA0000', awayColor: '#FB9CBC', thirdColor: '#111111', troejer: { hjemme: { sekundaer: '#FBFBFB', moenster: 'striber' } }, venue: 'Stadium of Light' },
+  { name: 'Coventry City',             short: 'COV', elo: 1328, color: '#2C94D2', awayColor: '#F6F4F3', thirdColor: '#FFFFFF', troejer: { hjemme: { sekundaer: '#FFFFFF', moenster: 'striber', aerme: '#62B5E5' } }, venue: 'Coventry Building Society Arena' },
+  { name: 'Ipswich Town',              short: 'IPS', elo: 1307, color: '#1439A1', awayColor: '#F7EBC8', thirdColor: '#111111', venue: 'Portman Road' },
+  { name: 'Hull City',                 short: 'HUL', elo: 1199, color: '#FE8F00', awayColor: '#FFFFFF', thirdColor: '#FFFFFF', troejer: { hjemme: { sekundaer: '#000000', moenster: 'striber', aerme: '#000000' } }, venue: 'MKM Stadium' },];

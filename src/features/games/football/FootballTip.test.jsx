@@ -190,9 +190,17 @@ describe('FootballTip — Elo på kampkortene', () => {
 
   // Elo må ikke vælte tip-fladen for et spil, der slet ikke har ratings.
   it('viser stadig kampene, når spillet slet ingen Elo har', () => {
-    setup({ teams: [], eloHistory: undefined });
-    expect(screen.getByText('AGF')).toBeInTheDocument();
-    expect(screen.getByText('FC Midtjylland')).toBeInTheDocument();
+    const { container } = setup({ teams: [], eloHistory: undefined });
+    // "AGF" står nu to steder på kortet: som kortkode og som holdnavn. Det er
+    // meningen — koden må ikke klippes væk, når navnet gør. Testen skal derfor
+    // pege på NAVNET, ikke bare på teksten.
+    const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
+    expect(navne).toContain('AGF');
+    expect(navne).toContain('FC Midtjylland');
+    // Og kortkoden skal være der ved siden af, så de to Manchester-hold kan
+    // skelnes, når navnet klippes.
+    const koder = [...container.querySelectorAll('.match-card__side-code')].map((e) => e.textContent);
+    expect(koder.length).toBeGreaterThan(0);
   });
 });
 
