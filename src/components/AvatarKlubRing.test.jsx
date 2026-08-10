@@ -150,6 +150,50 @@ describe('avatar med klubfarver', () => {
     expect(lag(cirkel)).toHaveLength(2);
   });
 
+  // EMOJI + RING. Emoji-testen sammenlignede kun skriftstørrelsen med og uden
+  // ring, så `boxShadow: shownEmoji ? undefined : ringe` var grønt — altså
+  // kunne enhver spiller med en valgt emoji miste sin holdring i tavshed.
+  it('tegner stadig ringen om en emoji-avatar', () => {
+    const { cirkel } = dele(
+      render(<Avatar uid="a" name="Bo" emoji="🦊" klubFarver={BROENDBY} size={26} />).container,
+    );
+    expect(lag(cirkel).length).toBeGreaterThan(0);
+    expect(lag(cirkel).map((x) => x.farve.toLowerCase()).join(' '))
+      .toMatch(/229, 185, 5|e5b905/);
+  });
+
+  // RINGEN HAR ET LOFT. Uden det kunne bredden sættes til 30 % af størrelsen,
+  // og så ligger initialerne OVEN PÅ ringen — nøjagtig den fejl, omlægningen fra
+  // udadgående til indadgående blev lavet for at undgå. Kravet er geometrisk:
+  // skriftens halve højde skal være inden for ringens inderkant.
+  it.each([22, 26, 34, 44, 48])('lader initialerne stå fri af ringen ved %i', (size) => {
+    const { cirkel } = dele(
+      render(<Avatar uid="a" name="Bo Bibamus" klubFarver={RANDERS} size={size} />).container,
+    );
+    const bredest = Math.max(...indad(lag(cirkel)).map((x) => x.spredning));
+    const indreRadius = tal(cirkel.style.width) / 2 - bredest;
+    const halvSkrift = tal(cirkel.style.fontSize) / 2;
+    expect(halvSkrift).toBeLessThan(indreRadius);
+  });
+
+  // SEKUNDÆRBÅNDET ER 1 PX, som kommentaren lover. Uden det kunne det sættes
+  // til 8 px og æde primærringen — kun rækkefølgen var testet.
+  it('gør sekundærbåndet præcis 1 px bredt', () => {
+    const { cirkel } = dele(
+      render(<Avatar uid="a" name="Bo" klubFarver={RANDERS} size={44} />).container,
+    );
+    const i = indad(lag(cirkel));
+    expect(i[1].spredning - i[0].spredning).toBe(1);
+  });
+
+  // SKRIFTEN MÅLES ABSOLUT, ikke kun mod sig selv. Sammenligningen "med ring =
+  // uden ring" bestod også, hvis faktoren blev sat fra 0,42 til 0,20 — altså en
+  // global skrumpning af alle initialer i hele appen.
+  it.each([22, 26, 34, 44, 48])('holder initialerne på 42 %% af størrelsen ved %i', (size) => {
+    const { cirkel } = dele(render(<Avatar uid="a" name="Bo" size={size} />).container);
+    expect(tal(cirkel.style.fontSize)).toBeCloseTo(size * 0.42, 5);
+  });
+
   it('navngiver holdet, så man kan se hvad ringen betyder', () => {
     const { ydre } = dele(
       render(<Avatar uid="a" name="Bo" klubFarver={RANDERS} size={26} />).container,
