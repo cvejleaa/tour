@@ -178,8 +178,14 @@ describe('ClubBadge — mønstre', () => {
     const xMin = Math.min(...p.map(([x]) => x));
     const venstreY = p.filter(([x]) => x === xMin).map(([, y]) => y);
     const tykkelse = Math.max(...venstreY) - Math.min(...venstreY);
-    // Kroppen er 19 enheder høj (y 2,5-21,5). Båndet er målt til 21 % af trøjen.
-    expect(tykkelse).toBeGreaterThan(2);
+    // Kroppen er 19 enheder høj (y 2,5-21,5). Båndet er målt til 21,3 % af
+    // trøjen og tegnet 4,8 enheder tykt.
+    //
+    // NEDRE GRÆNSE PÅ 4 OG IKKE 2. Med `> 2` bestod et bånd på 2,1 enheder —
+    // vinkelret ca. 1 px ved 22 px, altså i samme område som Lyngbys 0,61 px,
+    // der blev FRAVALGT netop på synlighed. Så ville testen have tilladt
+    // præcis det, hele udvælgelsen bygger på at afvise.
+    expect(tykkelse).toBeGreaterThan(4);
     expect(tykkelse).toBeLessThan(19 / 2);
   });
 
@@ -196,9 +202,12 @@ describe('ClubBadge — mønstre', () => {
     const y = Number(r.getAttribute('y'));
     const h = Number(r.getAttribute('height'));
     // Kroppen går fra y=2,5 til y=21,5. 38 % svarer til y≈9,7 for midten.
+    // Målt: 38 %. Den gamle, forkerte placering: 49,5 %. Loftet er 45 og ikke
+    // 48, fordi 48 kun lå 1,6 procentpoint fra den værdi, testen skal fange —
+    // et bånd på y=9,9 (47,9 %) var stadig grønt.
     const midte = (y + h / 2 - 2.5) / 19;
     expect(midte).toBeGreaterThan(0.28);
-    expect(midte).toBeLessThan(0.48);
+    expect(midte).toBeLessThan(0.45);
   });
 
   // OG DET SKAL KUNNE SES. Et bånd på 0,3 enheder bestod den gamle test — det
@@ -208,7 +217,9 @@ describe('ClubBadge — mønstre', () => {
     const r = tegn('baand').querySelector('rect');
     const h = Number(r.getAttribute('height'));
     const w = Number(r.getAttribute('width'));
-    expect(w).toBeGreaterThanOrEqual(10);
+    // Hele kroppens bredde, ikke 10 af 11: en enheds primærfarve i højre kant
+    // ville se ud som en fejl, og `>= 10` tillod netop det.
+    expect(w).toBeGreaterThanOrEqual(11);
     // 2 enheder af 24 er 1,8 px ved størrelse 22 — tre gange Lyngbys 0,61.
     expect(h).toBeGreaterThanOrEqual(2);
   });
@@ -227,6 +238,22 @@ describe('ClubBadge — mønstre', () => {
     // Kroppens midte ligger ved x=12.
     expect(oeverst.x).toBeGreaterThanOrEqual(12);
     expect(nederst.x).toBeLessThan(12);
+  });
+
+  // OG SAMME KRAV TIL SKAKBRÆTTET. `(r + c) % 2` kunne vendes om med hele
+  // suiten grøn: antallet af felter er det samme, formen er den komplementære,
+  // og ingen test så forskel. Det er nøjagtig den fejl, der ramte `skraabaand`
+  // og `ternet` — to spejlvendinger, som først et menneskeøje opdagede.
+  // `firkanter` bruges ikke af nogen trøje endnu, og derfor er der ikke et
+  // foto at falde tilbage på: så meget desto mere skal orienteringen låses,
+  // før den første trøje tages i brug.
+  it('lægger firkanternes øverste venstre felt i sekundærfarven', () => {
+    const felter = [...tegn('firkanter').querySelectorAll('rect')]
+      .map((e) => ({ x: Number(e.getAttribute('x')), y: Number(e.getAttribute('y')) }));
+    // Kroppen begynder ved x=6,5 og y=2,5, og felterne er 11/3 × 19/4 store.
+    expect(felter).toContainEqual({ x: 6.5, y: 2.5 });
+    // …og nabofeltet til højre skal så IKKE være der.
+    expect(felter.some((f) => f.y === 2.5 && f.x > 6.5 && f.x < 6.5 + 11 / 3 + 0.01)).toBe(false);
   });
 
   it('tegner firkanter som et bræt, ternet som to kvadranter', () => {
