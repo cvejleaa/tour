@@ -69,6 +69,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { erTofarvet, GULV_PCT, HALVDEL } from './troejeMoenster.mjs';
 
 const HER = dirname(fileURLToPath(import.meta.url));
 const CACHE = resolve(HER, '.kit-cache');
@@ -354,18 +355,28 @@ for (const [fil, navn] of Object.entries(TROEJER)) {
 }
 
 if (tilstand === 'krop') {
-  // TOFARVET-TESTEN, samme som troejefarver() i holdfarver-wikipedia.mjs:
-  // en flade tæller kun med over 12 %, og nr. 2 skal fylde mindst halvdelen
-  // af nr. 1. Det er dén test, der gjorde Leeds ensfarvet — og som AGF og FCM
-  // også falder for. Uden den her linje ville de to have fået et mønster,
-  // Leeds ikke fik, af data der er svagere end Leeds'.
-  console.log('\nTofarvet-testen (>= 12 %, og nr. 2 >= halvdelen af nr. 1):\n');
+  // TOFARVET-TESTEN. Den stod her som to bare tal (`0.12` og `0.5`) i en
+  // kopi af `troejefarver()` i holdfarver-wikipedia.mjs — tre eksemplarer af
+  // samme beslutning, hvoraf kun det ene var testet. Den bor nu i
+  // `troejeMoenster.mjs`, så en ændring af gulvet rammer alle tre steder.
+  //
+  // Det er dén test, der gjorde Leeds ensfarvet — og som AGF og FCM også
+  // falder for. Uden den ville de to have fået et mønster, Leeds ikke fik, af
+  // data der er svagere end Leeds'.
+  //
+  // BEMÆRK, at det er den UDELTE test: den kender ikke `slags` og har intet
+  // kontrastkrav. Kørte man den på Randers' skråbånd, ville den sige
+  // "ensfarvet" — trøjen bærer kun sit bånd, fordi den blev målt af
+  // `superliga-ude-tredje.mjs`, som bruger den delte. HJEMMEtrøjerne her er
+  // altså dømt efter en snævrere regel end ude- og tredjetrøjerne, og en
+  // hjemmetrøje med en enkeltfigur ville stadig slippe igennem som ensfarvet.
+  console.log(`\nTofarvet-testen (>= ${GULV_PCT} %, og nr. 2 >= halvdelen af nr. 1):\n`);
   for (const [navn, fl] of maalt) {
-    const store = fl.filter((f) => f.andel >= 0.12);
-    const to = store.length >= 2 && store[1].andel >= store[0].andel * 0.5;
+    const store = fl.filter((f) => f.andel * 100 >= GULV_PCT);
+    const to = erTofarvet(fl);
     const tal = store.length >= 2
-      ? `${(store[1].andel * 100).toFixed(1)} % mod krav ${(store[0].andel * 50).toFixed(1)} %`
-      : 'kun én flade over 12 %';
+      ? `${(store[1].andel * 100).toFixed(1)} % mod krav ${(store[0].andel * 100 * HALVDEL).toFixed(1)} %`
+      : `kun én flade over ${GULV_PCT} %`;
     console.log(`  ${navn.padEnd(22)} ${to ? 'MØNSTRET ' : 'ensfarvet'}  ${tal}`);
   }
 }
@@ -385,7 +396,12 @@ if (tilstand === 'kontrast') {
   }
   naere.sort((a, b) => a[2] - b[2]);
   for (const [a, b, k] of naere) console.log(`  ${k.toFixed(2)}:1   ${a} / ${b}`);
-  console.log('\n  Kortkoden står ved siden af badgen på alle fem brugssteder,');
-  console.log('  så identifikation hviler aldrig på farven alene.');
+  // Her stod, at "kortkoden står ved siden af badgen på alle fem brugssteder,
+  // så identifikation hviler aldrig på farven alene". Kortkoden er væk (#132):
+  // spillerne kunne ikke tyde forkortelserne. Argumentet holder alligevel —
+  // bedre end før — fordi det, der erstattede koden, er selve HOLDNAVNET
+  // skrevet fuldt ud. Men det er nu navnet, ikke koden, der bærer det.
+  console.log('\n  Holdnavnet står ved siden af badgen, så identifikation');
+  console.log('  hviler aldrig på farven alene. (Kortkoden forsvandt i #132.)');
 }
 console.log();

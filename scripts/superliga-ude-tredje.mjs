@@ -129,7 +129,7 @@ const MAALINGER = [
     billede: 'https://shoppen.brondby.com/cdn/shop/files/3.TroejeL_Svoksen.jpg?width=800',
     // Bronzemønsteret er 1,9 % af fladen og trækker ikke medianen.
     stof: [[150, 380, 650, 700]],
-    moenster: { navn: 'bronzemønster', flade: [150, 380, 650, 700], anden: 'bronze' },
+    moenster: { navn: 'bronzemønster', slags: 'striber', flade: [150, 380, 650, 700], anden: 'bronze' },
   },
   {
     hold: 'FC Nordsjælland',
@@ -162,7 +162,7 @@ const MAALINGER = [
     // 1,12:1 i kontrast. Ternet tegnes ikke; medianen af hele fladen er farven.
     stof: [[300, 500, 620, 800]],
     filter: 'ikkeBaggrund',
-    moenster: { navn: 'tern i to lyserøde', flade: [300, 500, 620, 800], grund: 'ikkeBaggrund', anden: 'moerkLyseroed' },
+    moenster: { navn: 'tern i to lyserøde', slags: 'striber', flade: [300, 500, 620, 800], grund: 'ikkeBaggrund', anden: 'moerkLyseroed' },
   },
   {
     hold: 'Randers FC',
@@ -173,7 +173,7 @@ const MAALINGER = [
     // Det lyserøde gitter fylder 16,5 % og filtreres fra, så bunden står ren.
     stof: [[430, 600, 780, 900]],
     filter: 'udenGitter',
-    moenster: { navn: 'lyserødt gitter', flade: [430, 600, 780, 900], anden: 'gitter' },
+    moenster: { navn: 'lyserødt gitter', slags: 'striber', flade: [430, 600, 780, 900], anden: 'gitter' },
   },
   {
     hold: 'Randers FC',
@@ -277,6 +277,46 @@ async function pixels(url, felter, filterKode) {
   /* eslint-enable no-undef */
 }
 
+/**
+ * RÆKKEPROFIL: for hver vandret række i fladen, hvor mange pixels hører til
+ * mønsteret, og hvor ligger deres midte i x.
+ *
+ * Det er dét, der afgør, hvordan formen TEGNES — hældningen viser, hvilken vej
+ * et skråbånd falder, og tyngdepunktet, om et bånd sidder på brystet eller i
+ * taljen. Begge tal begrundede en rettelse af badgen og kunne ikke udskrives
+ * af noget script; de var aflæst i hånden. Én evaluate for hele fladen, så
+ * billedet kun hentes én gang.
+ */
+async function raekkeprofil(url, flade, filterKode, grundKode) {
+  const d = await dataUrl(url);
+  /* eslint-disable no-undef */
+  return side.evaluate(async ([u, f, fk, gk]) => {
+    const img = new Image();
+    await new Promise((ok, fejl) => { img.onload = ok; img.onerror = fejl; img.src = u; });
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    const [x0, y0, x1, y1] = f;
+    const erNr2 = new Function(`return (${fk})`)();
+    const erGrund = gk ? new Function(`return (${gk})`)() : null;
+    const d2 = g.getImageData(x0, y0, x1 - x0, y1 - y0).data;
+    const bredde = x1 - x0;
+    const ud = [];
+    for (let r = 0; r < y1 - y0; r += 1) {
+      let n = 0; let sum = 0;
+      for (let k = 0; k < bredde; k += 1) {
+        const i = (r * bredde + k) * 4;
+        const p = [d2[i], d2[i + 1], d2[i + 2]];
+        if (erNr2(p) && (!erGrund || erGrund(p))) { n += 1; sum += x0 + k; }
+      }
+      ud.push({ y: y0 + r, n, x: n ? sum / n : null });
+    }
+    return ud;
+  }, [d, flade, filterKode, grundKode || null]);
+  /* eslint-enable no-undef */
+}
+
 /** Median pr. kanal — robust over for skygger, folder og enkelte fremmedpixels. */
 function median(px) {
   const kanal = (i) => px.map((p) => p[i]).sort((a, b) => a - b)[Math.floor(px.length / 2)];
@@ -342,10 +382,15 @@ console.log(alleOk
 // HJEMMEtrøjer. Fem fravalg i superligaTeams2026.js hvilede derfor på tal, intet
 // committet script kunne producere — ordret den fælde, CLAUDE.md navngiver.
 //
-// TESTEN: farve nr. 2 skal fylde over 12 % af fladen OG mindst halvdelen af
-// farve nr. 1. Det er den, der gjorde Leeds' pinstriber til en ensfarvet trøje.
-// Dertil kontrasten mellem de to: en flade kan bestå på areal og alligevel være
-// usynlig ved 22 px, hvilket er præcis OB's tern.
+// TESTEN ER DELT I TO, se `troejeMoenster.mjs`. Er mønsteret REPETERENDE, skal
+// farve nr. 2 fylde over 12 % af fladen OG mindst halvdelen af farve nr. 1 —
+// det er den, der gjorde Leeds' pinstriber til en ensfarvet trøje. Er det ÉN
+// FIGUR, kan den aldrig nå halvdelen, og så dømmes den på kontrast i stedet.
+//
+// Her stod, at kontrasten er "præcis OB's tern". Det passer ikke: OB's tern er
+// et skakbræt, altså repeterende, og falder på AREALET (28,2 % mod 71,8 %).
+// Ingen målt trøje falder på kontrasten — den er en vagt mod en fremtidig
+// enkeltfigur i to næsten ens farver.
 // ---------------------------------------------------------------------------
 if (process.argv.includes('--moenster')) {
   const lum = (c) => {
@@ -368,13 +413,15 @@ if (process.argv.includes('--moenster')) {
     const a = median(kun1); const b = median(nr2);
     const [L1, L2] = [lum(a), lum(b)].sort((x, y) => y - x);
     const kontrast = (L1 + 0.05) / (L2 + 0.05);
-    const enkelt = mo.slags === 'enkeltfigur';
+    // `slags` sendes VIDERE SOM DEN STÅR. Her stod
+    // `slags: mo.slags === 'enkeltfigur' ? 'enkeltfigur' : 'striber'`, altså
+    // et stiltiende fald tilbage til striber: et glemt felt eller en tastefejl
+    // (`enkelfigur`) gav det modsatte svar uden en lyd. `bestaarTofarvet`
+    // kaster nu i stedet, og målingerne bærer hver sin eksplicitte `slags`.
     const dom = bestaarTofarvet({
-      slags: enkelt ? 'enkeltfigur' : 'striber',
-      pct2,
-      kontrast,
-      andel2: antal2 / antal1,
+      slags: mo.slags, pct2, kontrast, andel2: antal2 / antal1,
     });
+    const enkelt = mo.slags === 'enkeltfigur';
     console.log(`  ${m.hold} · ${mo.navn}`);
     console.log(`    nr. 1 ${hex(a)} ${(100 - pct2).toFixed(1)} %   nr. 2 ${hex(b)} ${pct2.toFixed(1)} %`);
     console.log(`    ${enkelt ? 'ENKELTFIGUR' : 'STRIBER'} — kontrast ${kontrast.toFixed(2)}:1`);
@@ -387,11 +434,68 @@ if (process.argv.includes('--moenster')) {
       const erNr2 = new Function(`return (${FILTRE[mo.anden]})`)();
       const baand = []; let i = 0;
       while (i < kol.length) {
-        if (erNr2(kol[i])) { let j = i; while (j < kol.length && erNr2(kol[j])) j += 1; if (j - i >= 2) baand.push(j - i); i = j; } else i += 1;
+        if (erNr2(kol[i])) { let j = i; while (j < kol.length && erNr2(kol[j])) j += 1; if (j - i >= 2) baand.push({ start: by0 + i, hoejde: j - i }); i = j; } else i += 1;
       }
       const H = by1 - by0;
-      const bredest = Math.max(...baand, 0);
-      console.log(`    bredeste bånd i lodret snit: ${bredest} px = ${(100 * bredest / H).toFixed(1)} % af højden → ${(22 * bredest / H).toFixed(2)} px på en 22 px badge`);
+      const bredest = baand.reduce((a, b) => (b.hoejde > (a?.hoejde ?? 0) ? b : a), null);
+      const px = bredest?.hoejde ?? 0;
+      console.log(`    bredeste bånd i lodret snit: ${px} px = ${(100 * px / H).toFixed(1)} % af højden → ${(22 * px / H).toFixed(2)} px på en 22 px badge`);
+      // …OG HVOR DET SIDDER. Tyngdepunktet nedenfor tæller ALLE pixels i
+      // mønsterfarven, og for Brøndby fanger `gul` også kraven og trykket —
+      // det gav 32 %, som hverken er båndets midte eller noget andet
+      // meningsfuldt. Den bredeste sammenhængende stribe i snittet ER båndet,
+      // og dens midte er dét, badgen skal tegne efter.
+      if (bredest && mo.flade) {
+        const [, sy0, , sy1] = mo.flade;
+        const midte = bredest.start + bredest.hoejde / 2;
+        console.log(`    båndets egen midte: y=${Math.round(midte)} = ${(100 * (midte - sy0) / (sy1 - sy0)).toFixed(0)} % af trøjens højde`);
+      }
+    }
+
+    // --- GEOMETRIEN, der afgør HVORDAN formen tegnes -----------------------
+    //
+    // To tal begrundede rettelsen af `skraabaand` og `baand` i badgen:
+    // båndets midte pr. række (som viser, hvilken vej skråbåndet falder) og
+    // figurens tyngdepunkt som andel af trøjens højde (38 % for Brøndbys
+    // bånd). Ingen af dem kunne udskrives af noget committet script — de var
+    // aflæst i hånden. Alle de ANDRE tal i filerne kunne efterprøves, og
+    // netop derfor stak de to ud. Nu kan de også.
+    //
+    // Det er ikke pedanteri: skråbåndet var tegnet SPEJLVENDT, og den test,
+    // der skulle fange det, cementerede fejlen. Et tal, man kan køre efter,
+    // er den eneste vagt, der ikke deler forudsætning med koden.
+    // HVER RÆKKE, ikke stikprøver. Første udgave tog fem jævnt fordelte snit,
+    // og for Brøndbys bånd på 101 px ramte kun to af dem båndet overhovedet —
+    // tyngdepunktet blev 32 % af to tilfældige rækker frem for af hele figuren.
+    // En måling, der afhænger af, hvor stikprøven tilfældigt faldt, er ikke en
+    // måling.
+    const [, fy0, , fy1] = mo.flade;
+    const profil = await raekkeprofil(m.billede, mo.flade, FILTRE[mo.anden], mo.grund ? FILTRE[mo.grund] : null);
+    const medX = profil.filter((s) => s.n > 0);
+    if (medX.length >= 2) {
+      // Fire snit spredt ud over figurens egen udstrækning — nok til at se
+      // hældningen, få nok til at kunne læses.
+      const vis = [0, 1, 2, 3].map((i) => medX[Math.round((i * (medX.length - 1)) / 3)]);
+      console.log(`    snit (y → mønsterets midte i x): ${vis.map((s) => `${s.y}→${Math.round(s.x)}`).join('  ')}`);
+      // Hældningen regnes på HELE profilen ved mindste kvadraters metode, ikke
+      // på to endepunkter: et enkelt udfald i den øverste række ville ellers
+      // kunne vende svaret.
+      const n = medX.length;
+      const mY = medX.reduce((s, v) => s + v.y, 0) / n;
+      const mX = medX.reduce((s, v) => s + v.x, 0) / n;
+      const haeld = medX.reduce((s, v) => s + (v.y - mY) * (v.x - mX), 0)
+        / medX.reduce((s, v) => s + (v.y - mY) ** 2, 0);
+      const retning = haeld < -0.15 ? 'ØVERST TIL HØJRE → nederst til venstre'
+        : haeld > 0.15 ? 'øverst til venstre → NEDERST TIL HØJRE'
+          : 'lodret / uden hældning';
+      console.log(`    retning: ${retning} (hældning ${haeld.toFixed(2)} px x pr. px y)`);
+    }
+    // Tyngdepunktet lodret — dét, der placerer et brystbånd frem for et
+    // taljebånd. Under 40 % er brystet; omkring 50 % er taljen.
+    if (medX.length) {
+      const sum = medX.reduce((s, v) => s + v.n, 0);
+      const tyngde = medX.reduce((s, v) => s + v.y * v.n, 0) / sum;
+      console.log(`    tyngdepunkt: y=${Math.round(tyngde)} = ${(100 * (tyngde - fy0) / (fy1 - fy0)).toFixed(0)} % af trøjens højde`);
     }
     console.log();
   }

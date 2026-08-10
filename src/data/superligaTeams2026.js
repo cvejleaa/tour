@@ -56,11 +56,19 @@
 // at klubber sjældent skifter grundfarve mellem sæsoner — ikke at kilden er
 // aktuel. Fotoene er 2026/27 hele vejen rundt.
 //
-// TRE TRØJER BÆRER MØNSTER: OB, Horsens og Sønderjyske. Ikke flere, og det er
-// en MÅLT beslutning, ikke en æstetisk. Samme test som i PL-scriptet — en flade
-// tæller kun over 12 %, og nr. 2 skal fylde mindst halvdelen af nr. 1 — er den,
-// der gjorde Leeds' pinstriber til en ensfarvet hvid trøje. Den samme test
-// rammer tre danske hold:
+// FIRE HJEMMETRØJER BÆRER MØNSTER: OB, Horsens, Sønderjyske og Randers — plus
+// Randers' tredje og Brøndbys ude, altså SEKS i alt. (Her stod "tre trøjer:
+// OB, Horsens og Sønderjyske", skrevet før ude- og tredjetrøjerne blev målt.
+// `superligaTeams2026.test.js` asserterer de fire og de seks, så tallene her
+// sagde noget andet end testen i samme repo.)
+//
+// Det er en MÅLT beslutning, ikke en æstetisk. Grundtesten — en flade tæller
+// kun over 12 %, og nr. 2 skal fylde mindst halvdelen af nr. 1 — er den, der
+// gjorde Leeds' pinstriber til en ensfarvet hvid trøje. Den er siden DELT I TO,
+// se afsnittet længere nede og `scripts/troejeMoenster.mjs`: halvdel-kravet
+// gælder kun repeterende mønstre, mens én figur dømmes på kontrast.
+//
+// De tre hjemmetrøjer, grundtesten ramte:
 //
 //   AGF   pinstriber   foto 14,3 % mod krav 33,7 %   grafik: marine 1,7 %
 //   FCN   bøjler       foto  1,4 %                   grafik: gul    6,9 %
@@ -93,6 +101,15 @@
 // hvide striber er desuden 1,55:1 mod deres egen lyseblå, altså nærmest
 // usynlige ved 22 px; mønsteret er beholdt, fordi det er sandt, ikke fordi det
 // kan ses.
+//
+// DET FØRSTE PAR ER SIDEN BLEVET LØST, og af noget andet end striberne: Randers
+// har fået et marineblåt skråbånd i 6,18:1 mod deres egen lyseblå. De to hold
+// står side om side i STILLINGSTABELLEN, hvor alle tolv hjemmetrøjer tegnes ved
+// 22 px, og dér er det båndet, der skiller dem. På kampkortet mødtes de i
+// forvejen ikke i lyseblå — Sønderjyske spiller ude i bordeaux.
+//
+// FCN mod Silkeborg står stadig som beskrevet: to røde, ingen af dem med
+// mønster. Det er det eneste tætte par tilbage i tabellen.
 //
 // Begrundelsen for at leve med det har SKIFTET, og det er værd at vide hvorfor.
 // Der stod, at "kortkoden står ved siden af badgen på alle fem brugssteder, så
@@ -163,24 +180,41 @@
 //
 //   Randers hjemme TILFØJET  skråbånd, navy 21,3 %, kontrast 6,18:1
 //   Randers 3.     TILFØJET  kvarterer, orange 52,9 % mod navy 47,1 %, 5,49:1
+//                            (Farve-målingen bruger et andet filter og siger
+//                            52,4/47,6 — samme deling, to udsnit. Tallene her
+//                            er mønstertestens, som er dem, dommen bygger på.)
 //   Brøndby ude    TILFØJET  ét brystbånd, gul 15,9 %, kontrast 8,32:1
-//   Lyngby ude     fravalgt  bånd på 2,8 % af højden = 0,61 px ved 22 px
+//   Lyngby ude     fravalgt  bånd på 2,8 % af HØJDEN = 0,61 px ved 22 px.
+//                            AFLÆST I HÅNDEN — trøjen har ingen post i
+//                            harnessets mønsterliste, og tallet er en
+//                            båndbredde, ikke en andel af fladen. Det stod
+//                            en overgang i `troejeMoenster.test.mjs` som om
+//                            det var et arealtal og bandt gulvet nedadtil.
 //   Brøndby 3.     fravalgt  bronzemønster på 1,9 % — under 12 %-gulvet
 //   Randers ude    fravalgt  lyserødt gitter, 16,5 % mod bundens 83,5 %
-//   OB 3.          fravalgt  tern i to lyserøde, 28,2 %, men kun 1,12:1
+//   OB 3.          fravalgt  tern i to lyserøde, 28,2 % mod 71,8 % — under
+//                            halvdelen. (Se nedenfor: den falder på AREALET,
+//                            ikke på kontrasten på 1,12:1.)
 //
 // TESTEN ER DELT I TO, og det er dét, der gjorde de tre mulige. Kravet
-// "nr. 2 skal fylde mindst halvdelen af nr. 1" giver kun mening for STRIBER,
-// hvor to farver skiftevis dækker trøjen. Én figur — et brystbånd, et skråbånd,
-// et skakbræt — fylder i sagens natur 15-30 % og kunne aldrig bestå. For dem er
-// kravet i stedet: over 12 % af fladen OG mindst 2:1 i kontrast. Uden den
-// skelnen stod Brøndbys bånd og Randers' skråbånd ensfarvede, selv om begge er
-// umulige at overse på trøjen.
+// "nr. 2 skal fylde mindst halvdelen af nr. 1" giver kun mening for REPETERENDE
+// mønstre, hvor to farver skiftevis dækker trøjen. Én figur — et brystbånd, et
+// skråbånd, en deling i kvarterer — fylder i sagens natur 15-50 % og kunne
+// aldrig bestå. For dem er kravet i stedet: over 12 % af fladen OG mindst 2:1
+// i kontrast. Uden den skelnen stod Brøndbys bånd og Randers' skråbånd
+// ensfarvede, selv om begge er umulige at overse på trøjen.
 //
-// OB'S TERN FALDER PÅ NETOP KONTRASTEN: 1,12:1 mellem de to lyserøde. Formen
-// findes nu (`firkanter`), men ved 22 px ville brættet blive lyserødt på
-// lyserødt — altså intet. Det er den eneste af de syv, hvor formen kan tegnes,
-// men trøjen ikke kan ses.
+// Reglen for HVILKEN slags noget er, står i `scripts/troejeMoenster.mjs`.
+//
+// OB'S TERN FALDER PÅ AREALET, IKKE PÅ KONTRASTEN. Her stod det modsatte —
+// "falder på netop kontrasten: 1,12:1" — og den påstand overlevede fem steder
+// i repoet, efter at reglen var skrevet ned. Et skakbræt er repeterende, og
+// derfor dømmes det på areal: de to lyserøde er 28,2 % mod 71,8 %, altså under
+// halvdelen. Kontrasten på 1,12:1 er sand og siger det samme om synligheden,
+// men det er ikke DEN, der fravælger trøjen.
+//
+// Ingen af de seks målte mønstre falder på kontrasten. Kravet er en vagt mod en
+// fremtidig enkeltfigur i to næsten ens farver — se `troejeMoenster.mjs`.
 //
 // JEG TOG FEJL OM BADGE-SPROGET, og det er værd at skrive, fordi fejlen næsten
 // kostede Randers begge sine mønstre. Her stod, at sproget "kun kan `striber`,
@@ -193,12 +227,21 @@
 // har ÉN lodret stribe ned ad midten, og `halveret` fylder en hel halvdel.
 // Den falder i forvejen på 12 %-gulvet.
 //
-// TO PRINCIPPER MØDES HER, og grænsen mellem dem skal stå: Sønderjyskes hvide
-// striber på 1,55:1 BEHOLDES, fordi de er en del af trøjens form, som klubben
-// selv beskriver den. OB's tern på 1,12:1 FRAVÆLGES. Forskellen er ikke
-// kontrasten alene, men hvad man mister: uden striber ligner Sønderjyske et
-// ensfarvet lyseblåt hold, som de ikke er, mens OB's tern ved 22 px ville blive
-// to lyserøde felter i samme lyserøde — altså intet.
+// SØNDERJYSKES STRIBER PÅ 1,55:1 BEHOLDES — og grunden er en anden, end der
+// stod. Her stod, at "to principper mødes": at Sønderjyske beholdes og OB
+// fravælges, selv om begge har lav kontrast, fordi det er forskelligt, hvad man
+// mister. Med den nedskrevne regel findes den konflikt ikke: begge er
+// repeterende og dømmes begge på areal. Sønderjyske består (striberne fylder
+// nok), OB falder (28,2 % mod 71,8 %). Ingen af dem afgøres af kontrasten.
+//
+// Tilbage står den ægte afvejning: striber på 1,55:1 er nærmest usynlige ved
+// 22 px, og de beholdes alligevel, fordi de er sande — uden dem ligner
+// Sønderjyske et ensfarvet lyseblåt hold, som de ikke er.
+//
+// Det koster mindre, end det gjorde. Parret, der bekymrede, var Randers mod
+// Sønderjyske: to lyseblå på 1,23:1, som står side om side i stillingstabellen.
+// Randers har nu et marineblåt skråbånd i 6,18:1, så det er DÉT, der skiller
+// dem — ikke Sønderjyskes striber. Se afsnittet om de to lyseblå ovenfor.
 //
 // DE UMÅLTE. Elleve felter er målt; tretten er ikke. Værd at kende ved navn,
 // fordi de kan skjule en fejl: FCM ude+3., FCK ude, AGF ude+3., FCN 3.,

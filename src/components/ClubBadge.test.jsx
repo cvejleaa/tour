@@ -194,20 +194,22 @@ describe('ClubBadge — mønstre', () => {
     expect(tegn('boejler').querySelectorAll('rect').length).toBe(2);
   });
 
-  // Båndet skal ligge over maven, ikke i toppen eller bunden.
-  // Båndet sidder på BRYSTET — midten i 38 % af trøjens højde, målt på fotoet.
-  // Første udgave lagde det i taljen (49 %).
+  // Båndet sidder på BRYSTET — midten i 34 % af trøjens højde. Tallet kommer
+  // fra `--moenster`-linjen "båndets egen midte", som måler den bredeste
+  // sammenhængende stribe i et lodret snit. To forkerte værdier er passeret
+  // her: 49 % (taljen) og 38 % (tyngdepunktet af alle gule pixels, hvor `gul`
+  // også fanger krave og tryk).
   it('lægger baand på brystet, ikke i kraven eller taljen', () => {
     const r = tegn('baand').querySelector('rect');
     const y = Number(r.getAttribute('y'));
     const h = Number(r.getAttribute('height'));
     // Kroppen går fra y=2,5 til y=21,5. 38 % svarer til y≈9,7 for midten.
-    // Målt: 38 %. Den gamle, forkerte placering: 49,5 %. Loftet er 45 og ikke
-    // 48, fordi 48 kun lå 1,6 procentpoint fra den værdi, testen skal fange —
-    // et bånd på y=9,9 (47,9 %) var stadig grønt.
+    // Målt: 34 %. Båndet er 15,9 % af fladen, så et bånd, der sidder rigtigt,
+    // kan ikke ligge langt fra. Båndet [0,30; 0,40] gør BEGGE de forkerte
+    // værdier røde: 49,5 % (taljen) og 37,9 % (tyngdepunkt-fejlen).
     const midte = (y + h / 2 - 2.5) / 19;
-    expect(midte).toBeGreaterThan(0.28);
-    expect(midte).toBeLessThan(0.45);
+    expect(midte).toBeGreaterThan(0.30);
+    expect(midte).toBeLessThan(0.40);
   });
 
   // OG DET SKAL KUNNE SES. Et bånd på 0,3 enheder bestod den gamle test — det
@@ -254,6 +256,23 @@ describe('ClubBadge — mønstre', () => {
     expect(felter).toContainEqual({ x: 6.5, y: 2.5 });
     // …og nabofeltet til højre skal så IKKE være der.
     expect(felter.some((f) => f.y === 2.5 && f.x > 6.5 && f.x < 6.5 + 11 / 3 + 0.01)).toBe(false);
+  });
+
+  // `halveret` er den sidste form uden retningstest, og den er navngivet efter
+  // en retning ("højre halvdel"). Ingen trøje bruger den i dag — men det gjaldt
+  // også `firkanter`, og både `skraabaand` og `ternet` var spejlvendt. Én linje
+  // nu er billigere end at opdage det på den første trøje, der tager den i brug.
+  it('lægger halveret på beskuerens højre halvdel', () => {
+    const r = tegn('halveret').querySelector('rect');
+    // Kroppen går fra x=6,5 til x=17,5, altså med midten ved x=12.
+    expect(Number(r.getAttribute('x'))).toBeGreaterThanOrEqual(12);
+  });
+
+  // …og `vandret-delt` på den nederste. Samme grund.
+  it('lægger vandret-delt på den nederste halvdel', () => {
+    const r = tegn('vandret-delt').querySelector('rect');
+    // Kroppen går fra y=2,5 til y=21,5, altså med midten ved y=12.
+    expect(Number(r.getAttribute('y'))).toBeGreaterThanOrEqual(12);
   });
 
   it('tegner firkanter som et bræt, ternet som to kvadranter', () => {
