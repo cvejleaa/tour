@@ -91,16 +91,71 @@ describe('hjemmefarver rettet efter fotos af 2026/27-trøjerne', () => {
     expect(t.troejer.hjemme.moenster).toBe('striber');
     // Den HVIDE stribe var utestet: #FFFFFF → #000000 gav 1863 grønne.
     expect(t.troejer.hjemme.sekundaer).toBe('#FFFFFF');
-    expect(t.awayColor).toBe('#1B3A6B');
+    // Udefarven var den gamle primærfarve, flyttet hertil for ikke at stå hvid
+    // mod hvid. Den begrundelse er afløst af en MÅLING — se blokken nedenfor.
+    expect(t.awayColor).not.toBe('#1B3A6B');
   });
 
   it('Silkeborg er RØD — ikke blå', () => {
     const t = hold('Silkeborg IF');
     expect(t.color).toBe('#CA202C');
     expect(t.color).not.toBe('#003DA5');
-    // Den blå er klubbens anden farve og hører hjemme som tredjefarve.
-    expect(t.thirdColor).toBe('#003DA5');
+    // Den blå var klubbens anden farve, parkeret som tredjefarve. Også den er
+    // nu målt på den rigtige trøje — se blokken nedenfor.
+    expect(t.thirdColor).not.toBe('#003DA5');
   });
+});
+
+// ---------------------------------------------------------------------------
+// UDE- OG TREDJEFARVER, MÅLT PÅ KLUBBERNES EGNE BUTIKKER.
+//
+// Elleve af dem var skrevet på fornemmelse, og fire var direkte forkerte: OB og
+// Randers stod begge med HVID udebane, hvor de spiller i sort og mørk blågrå.
+//
+// Tallene her er de samme, som `scripts/superliga-ude-tredje.mjs` måler. Den
+// test kan ikke køre i CI (den henter fra seks butikkers CDN'er), så den her
+// låser resultatet fast: ændrer nogen et tal i datafilen uden at måle om,
+// bliver det rødt her.
+// ---------------------------------------------------------------------------
+describe('ude- og tredjefarver målt på klubbernes trøjer', () => {
+  it.each([
+    ['Sønderjyske Fodbold', 'awayColor', '#682844', 'bordeaux'],
+    ['Lyngby Boldklub', 'thirdColor', '#25336D', 'marineblå'],
+    ['F.C. København', 'thirdColor', '#76CABF', 'mintgrøn'],
+    ['Brøndby IF', 'awayColor', '#122859', 'marineblå'],
+    ['Brøndby IF', 'thirdColor', '#2E2926', 'meget mørk brun'],
+    ['FC Nordsjælland', 'awayColor', '#111B34', 'mørk marineblå'],
+    ['OB', 'awayColor', '#1E2121', 'sort'],
+    ['OB', 'thirdColor', '#E5C6CB', 'lyserød'],
+    ['Randers FC', 'awayColor', '#33384F', 'mørk blågrå'],
+    ['Randers FC', 'thirdColor', '#FC8033', 'orange'],
+    ['Silkeborg IF', 'thirdColor', '#FCB2B9', 'lyserød'],
+  ])('%s %s er %s (%s)', (navn, felt, vaerdi) => {
+    expect(hold(navn)[felt]).toBe(vaerdi);
+  });
+
+  // MODPRØVEN. De fire, der var direkte forkerte, må ikke snige sig tilbage.
+  // Uden den her ville en test på "OB har en udefarve" bestå med hvid igen.
+  it.each([
+    ['OB', 'awayColor', '#FFFFFF'],
+    ['OB', 'thirdColor', '#F26419'],
+    ['Randers FC', 'awayColor', '#FFFFFF'],
+    ['Randers FC', 'thirdColor', '#003C7E'],
+  ])('%s %s er IKKE den gamle %s', (navn, felt, gammel) => {
+    expect(hold(navn)[felt]).not.toBe(gammel);
+  });
+
+  // De fire mønstre, der blev tjekket og fravalgt, skal blive ved med at være
+  // fravalgt — badge-sproget kan ikke tegne kvarterer, ét brystbånd eller én
+  // lodret stribe, og et mønster, vi tegner forkert, er værre end intet.
+  it.each(['Randers FC', 'Lyngby Boldklub', 'Brøndby IF', 'FC Nordsjælland'])(
+    '%s har intet mønster på ude- eller tredjetrøjen',
+    (navn) => {
+      const t = hold(navn);
+      expect(t.troejer?.ude).toBeUndefined();
+      expect(t.troejer?.tredje).toBeUndefined();
+    },
+  );
 });
 
 describe('mønstre, der var rigtige i farven men manglede formen', () => {
