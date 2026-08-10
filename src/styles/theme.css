@@ -720,10 +720,22 @@ a:focus-visible,
   font-size: 0.92rem; font-weight: 700; color: var(--c-text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* På smal skærm bytter de plads. Navnet klippes med ellipsis på en telefon,
-   hvor "Manchester City" og "Manchester United" bliver til det samme —
-   koden er entydig og må aldrig klippes. */
-@media (max-width: 420px) {
+/* KNÆKPUNKTET ER 600 PX, OG DET ER MÅLT — `node scripts/navnbredde.mjs`.
+   Det stod først på 420, og det var forkert på en måde, der gjorde skade:
+   fra 421 til 585 px stod BÅDE Manchester City og Manchester United som
+   "Manch…", mens kortkoden — den eneste ting, der kunne skille dem — var
+   skjult af netop denne media query. 428 og 430 px er de to mest udbredte
+   store iPhone-bredder, så knækpunktet lå lige under dem.
+
+   Målt kræver kortet 586 px, før de to kan skelnes. 600 giver margin.
+
+   KORTET SKIFTER SENERE END TIPS-RÆKKEN (600 mod 480), og det er den modsatte
+   rækkefølge af, hvad jeg først skrev. Kortet er det STRAMME sted:
+   `repeat(3, 1fr)` giver hver side præcis en tredjedel uanset navnelængde, og
+   trøje + gap spiser ~40 px af den. Tips-rækkens `1fr` deles derimod af begge
+   navne, så et kort udehold forærer plads til et langt hjemmehold. Målt på
+   samme kamp kræver kortet 80-230 px mere viewport end rækken. */
+@media (max-width: 600px) {
   .match-card__side-name { display: none; }
   .match-card__side-code { display: inline; font-size: 0.85rem; }
 }
@@ -852,9 +864,11 @@ a:focus-visible,
 .mytips__match { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Fulde holdnavne som standard — kortkoderne alene ("SJF–VFF") krævede, at man
    kunne tolvte-dels-alfabetet udenad for at læse sin egen tipshistorik.
-   Knækpunktet er 480 px, altså FØR kampkortets 420: rækken er et gitter med
-   kickoff, kamp, tip og resultat, så navnet har mindre plads her end på kortet,
-   og "Sønderjyske Fodbold – Viborg FF" skal skifte til kode tidligere. */
+   Knækpunktet er 480 px, altså LAVERE end kampkortets 600: rækkens `1fr`-
+   kolonne deles af begge navne, så den har MERE plads end kortets faste
+   tredjedel. Målt kan Manchester-parret skelnes her helt ned til 379 px
+   (`node scripts/navnbredde.mjs`); 480 giver rigelig margin og holder samtidig
+   de lange danske navne hele på en tablet. */
 .mytips__hold-kort { display: none; }
 @media (max-width: 480px) {
   .mytips__hold { display: none; }

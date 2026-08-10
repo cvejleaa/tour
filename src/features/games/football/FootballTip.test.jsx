@@ -198,10 +198,30 @@ describe('FootballTip — Elo på kampkortene', () => {
     const navne = [...container.querySelectorAll('.match-card__side-name')].map((e) => e.textContent);
     expect(navne).toContain('AGF');
     expect(navne).toContain('FC Midtjylland');
-    // Og kortkoden skal være der ved siden af, så de to Manchester-hold kan
-    // skelnes, når navnet klippes.
+    // Kortkoden skal stå i DOM'en, så CSS kan vise den under 600 px, hvor de
+    // to Manchester-hold ellers begge ville stå som "Manch…". At den faktisk
+    // BLIVER vist dér, kan kun stylesheetet afgøre — se navnVisning.test.js;
+    // jsdom anvender ingen CSS, så den her ser kun markuppen.
     const koder = [...container.querySelectorAll('.match-card__side-code')].map((e) => e.textContent);
-    expect(koder.length).toBeGreaterThan(0);
+    expect(koder).toContain('AGF');
+  });
+
+  // KODENS INDHOLD VAR UBUNDET. `{h.code}` kunne erstattes af `{m.home}` med
+  // hele suiten grøn — og så viser den smalle skærm det fulde navn igen, altså
+  // præcis dét, koden er der for at undgå. Testen kræver derfor, at koden er
+  // FORSKELLIG fra navnet for et hold, hvor de to afviger.
+  it('viser kortkoden — ikke holdnavnet — i kode-spanet', () => {
+    const { container } = setup({
+      teams: [
+        { name: 'FC Midtjylland', short: 'FCM', elo: 1657 },
+        { name: 'AGF', short: 'AGF', elo: 1578 },
+      ],
+    });
+    const sider = [...container.querySelectorAll('.match-card__side')];
+    const fcm = sider.find((e) => e.querySelector('.match-card__side-name')?.textContent === 'FC Midtjylland');
+    expect(fcm, 'fandt ikke FC Midtjyllands side på kortet').toBeTruthy();
+    expect(fcm.querySelector('.match-card__side-code').textContent).toBe('FCM');
+    expect(fcm.querySelector('.match-card__side-code').textContent).not.toBe('FC Midtjylland');
   });
 });
 

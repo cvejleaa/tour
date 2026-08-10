@@ -608,10 +608,11 @@ export default function FootballTip({ game, me, matches }) {
                   color2={h.color2} moenster={h.moenster} aerme={h.aerme}
                   title={m.home}
                 />
-                {/* KODEN SKAL STÅ HER. Trøjen kan ikke bære den — kroppen er
-                    for smal — og navnet klippes med ellipsis på en telefon, hvor
-                    "Manchester City" og "Manchester United" bliver identiske.
-                    Badgen var den eneste forskel; nu er teksten det. */}
+                {/* KODEN OG NAVNET STÅR BEGGE HER, MEN VISES ALDRIG SAMTIDIG.
+                    CSS vælger efter pladsen: navnet over 600 px, koden under.
+                    Grænsen er målt (`scripts/navnbredde.mjs`) og ikke valgt —
+                    under 586 px bliver "Manchester City" og "Manchester United"
+                    begge til "Manch…", og så er koden den eneste forskel. */}
                 <span className="match-card__side-code">{h.code}</span>
                 <span className="match-card__side-name">{m.home}</span>
               </div>
@@ -660,10 +661,11 @@ export default function FootballTip({ game, me, matches }) {
                   color2={a.color2} moenster={a.moenster} aerme={a.aerme}
                   title={m.away}
                 />
-                {/* KODEN SKAL STÅ HER. Trøjen kan ikke bære den — kroppen er
-                    for smal — og navnet klippes med ellipsis på en telefon, hvor
-                    "Manchester City" og "Manchester United" bliver identiske.
-                    Badgen var den eneste forskel; nu er teksten det. */}
+                {/* KODEN OG NAVNET STÅR BEGGE HER, MEN VISES ALDRIG SAMTIDIG.
+                    CSS vælger efter pladsen: navnet over 600 px, koden under.
+                    Grænsen er målt (`scripts/navnbredde.mjs`) og ikke valgt —
+                    under 586 px bliver "Manchester City" og "Manchester United"
+                    begge til "Manch…", og så er koden den eneste forskel. */}
                 <span className="match-card__side-code">{a.code}</span>
                 <span className="match-card__side-name">{m.away}</span>
               </div>
