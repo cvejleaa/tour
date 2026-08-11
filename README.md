@@ -66,9 +66,13 @@ paritetstest, der sammenligner de to udgaver.
 | **Spiller** | Tippe, se stilling, oprette/tilmelde ligaer |
 
 ## To invarianter, der er værd at kende
-1. **`game.startAt`** gater både visning og pointgivning: kampe før spillets
-   starttidspunkt vises ikke, giver ingen point og udløser ingen påmindelser.
-   Så en sæson kan starte midt i (fx fra runde 2).
+1. **`game.startRound`** gater både visning og pointgivning: kampe i runder
+   FØR spillets startrunde vises ikke, giver ingen point og udløser ingen
+   påmindelser. Så en sæson kan starte midt i (fx fra runde 2). En RUNDE og
+   ikke en dato: en runde kan ligge spredt over en måned, og en dato midt i
+   spændet ville tage rundens sene kampe med og lade de tidlige ligge.
+   `game.startAt` er kun et fald-tilbage for spil uden startrunde — se
+   `src/lib/startGate.js`.
 2. **`players/{uid}.leagueIds`** afgør, hvem der må se hvis point — stillingen
    viser kun spillere, man deler liga med. Feltet skrives kun af serveren
    (`syncPlayerLeagues`-triggeren). Driver det fra ligaernes `memberUids`,

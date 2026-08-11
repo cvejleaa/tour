@@ -118,6 +118,58 @@ describe('leaveGame', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// STARTRUNDEN — DET FELT, DER GATER.
+//
+// Test Manager slettede HELE `if (startRound !== undefined)`-blokken i
+// setGameSchedule med 2260 tests grønne: feltet ville aldrig nå Firestore.
+// `GameScheduleTab.test.jsx` mocker netop denne funktion væk, så fanens tests
+// beviser intet om, hvad der skrives. Det gør de her.
+// ---------------------------------------------------------------------------
+describe('setGameSchedule — startRound', () => {
+  const patch = () => mockSetDoc.mock.calls[0][1];
+
+  it('skriver runden som et TAL', async () => {
+    const res = await setGameSchedule('sl', { startRound: 3 });
+    expect(res.ok).toBe(true);
+    expect(patch().startRound).toBe(3);
+    expect(typeof patch().startRound).toBe('number');
+  });
+
+  it('tager imod en streng fra et input-felt og gemmer den som tal', async () => {
+    await setGameSchedule('sl', { startRound: '3' });
+    // BÆRENDE: '3' i basen ville blive sammenlignet med `m.round` (et tal) og
+    // aldrig matche — gaten ville stille holde op med at virke.
+    expect(patch().startRound).toBe(3);
+  });
+
+  it('rydder runden med null', async () => {
+    await setGameSchedule('sl', { startRound: null });
+    expect(patch().startRound).toBeNull();
+    expect('startRound' in patch()).toBe(true);
+  });
+
+  it('behandler 0 som en gyldig runde — ikke som tomt', async () => {
+    await setGameSchedule('sl', { startRound: 0 });
+    expect(patch().startRound).toBe(0);
+  });
+
+  it('AFVISER et decimaltal og et negativt tal — uden at skrive', async () => {
+    for (const ugyldig of [3.5, -1, 'tre']) {
+      mockSetDoc.mockClear();
+      const res = await setGameSchedule('sl', { startRound: ugyldig });
+      expect(res.ok, String(ugyldig)).toBe(false);
+      expect(res.error).toMatch(/helt tal/);
+      expect(mockSetDoc, String(ugyldig)).not.toHaveBeenCalled();
+    }
+  });
+
+  it('rører ikke feltet, når det ikke er sendt med', async () => {
+    await setGameSchedule('sl', { startAt: 1000 });
+    expect('startRound' in patch()).toBe(false);
+  });
+});
+
 describe('setGameSchedule', () => {
   it('returnerer fejl uden gameId', async () => {
     const res = await setGameSchedule('', { startAt: Date.now() });

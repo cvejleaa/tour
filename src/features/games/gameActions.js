@@ -105,17 +105,32 @@ export async function setTeamStyles(gameId, teamStyles) {
 /**
  * Sæt spillets tidsplan (kun admin/owner — håndhæves af security rules:
  * games/{gameId} write = isGlobalAdmin). Felterne styres uafhængigt:
- *   - startAt     : hvornår selve spillet går i gang (informativt/gate).
+ *   - startRound  : DEN, DER GATER. Runder før den giver ingen point og vises
+ *                   ikke. En runde og ikke en dato, fordi en runde kan ligge
+ *                   spredt over en måned — se src/lib/startGate.js.
+ *   - startAt     : hvornår spillet går i gang. Er nu kun et fald-tilbage for
+ *                   spil uden startRound, plus en oplysning på skærmen.
  *   - puljeLockAt : deadline for bonus-/pulje-tippet.
  * Udelad et felt (undefined) for at lade det være urørt; giv null/'' for at
  * rydde det. Så kan admin fx åbne for bonus-tip længere end til runde 1.
  * @param {string} gameId
- * @param {{startAt?: Date|number|string|null, puljeLockAt?: Date|number|string|null}} schedule
+ * @param {{startRound?: number|null, startAt?: Date|number|string|null, puljeLockAt?: Date|number|string|null}} schedule
  * @returns {Promise<{ok:true}|{ok:false,error:string}>}
  */
-export async function setGameSchedule(gameId, { startAt, puljeLockAt } = {}) {
+export async function setGameSchedule(gameId, { startRound, startAt, puljeLockAt } = {}) {
   if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
   const patch = { updatedAt: serverTimestamp() };
+  if (startRound !== undefined) {
+    // Kun et helt, positivt tal — eller null for "ingen runde-gate". En streng
+    // fra et input-felt eller et decimaltal ville stå i basen og blive
+    // sammenlignet med `m.round` uden nogensinde at matche.
+    const r = startRound === null || startRound === '' ? null : Number(startRound);
+    if (r !== null && (!Number.isInteger(r) || r < 0)) {
+      // 0 ER gyldigt og betyder "ingen runder gates" — derfor ikke "positivt".
+      return { ok: false, error: 'Startrunden skal være et helt tal på 0 eller derover.' };
+    }
+    patch.startRound = r;
+  }
   if (startAt !== undefined) patch.startAt = toScheduleValue(startAt);
   if (puljeLockAt !== undefined) patch.puljeLockAt = toScheduleValue(puljeLockAt);
   try {

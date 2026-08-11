@@ -1174,3 +1174,39 @@ describe('combi-mærket', () => {
     expect(tekst).not.toMatch(/⚡/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// TIP-FLADEN SKAL RESPEKTERE STARTRUNDEN.
+//
+// Test Manager erstattede `fraStartRunde(matches, startRunde)` med bare
+// `matches` her — og alle 2260 tests blev grønne. Tip-siden måtte altså vise
+// runder, spillet ikke giver point for, uden at nogen sagde fra. `MyTips` og
+// `SpillerDetalje` var dækket; netop den flade, man tipper på, var ikke.
+// ---------------------------------------------------------------------------
+describe('FootballTip — startrunden', () => {
+  // "Runde N af M" er sidevælgerens PLADS, ikke rundenummeret — overskriften
+  // ved siden af er runden selv. De to skal holdes adskilt, ellers måler man
+  // det forkerte: med kun runde 2 tilbage står der "Runde 1 af 1 · Runde 2".
+  const runder = () => screen.getByText(/Runde \d+ af \d+/).textContent;
+
+  it('skjuler runder FØR startrunden', () => {
+    setup({ startRound: 2 }, '/spil/sl?runde=1');
+    expect(runder()).toMatch(/af 1$/);            // kun én runde tilbage
+    expect(screen.getByText('Runde 2')).toBeInTheDocument();
+    expect(screen.queryByText('Runde 1')).toBeNull();
+  });
+
+  it('viser dem, når startrunden er 1', () => {
+    setup({ startRound: 1 }, '/spil/sl?runde=1');
+    expect(runder()).toMatch(/af 2$/);
+    expect(screen.getByText('Runde 1')).toBeInTheDocument();
+  });
+
+  // …og gaten skal virke gennem det gamle startAt også, så et ikke-migreret
+  // spil ikke pludselig viser runder, det ikke giver point for.
+  it('skjuler runder via et gammelt startAt', () => {
+    setup({ startAt: KICKOFF2 }, '/spil/sl?runde=1');
+    expect(runder()).toMatch(/af 1$/);
+    expect(screen.queryByText('Runde 1')).toBeNull();
+  });
+});

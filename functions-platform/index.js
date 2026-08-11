@@ -119,7 +119,7 @@ exports.generateGameRecapNow = onCall(
 );
 
 // recomputeGameScores — admin: genberegn ALLE spilleres totaler i et spil med
-// den aktuelle start-gate (game.startAt). Bruges efter at have sat/ændret
+// den aktuelle start-gate (game.startRound). Bruges efter at have sat/ændret
 // starttidspunktet, så tidligere runders point fjernes fra stillingen straks.
 // syncPlayerLeagues — hold games/{gameId}/players/{uid}.leagueIds i sync med
 // ligaernes memberUids. Feltet er dét, security rules bruger til at afgøre,

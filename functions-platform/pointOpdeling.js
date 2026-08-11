@@ -264,7 +264,7 @@ function combiBonus(bets, roundCtx) {
 /**
  * Del en spillers point op i de fire kilder, spillet har.
  *
- * `bets` skal ALLEREDE være renset for gatede kampe (kampe før game.startAt) —
+ * `bets` skal ALLEREDE være renset for gatede kampe (runder før spillets start) —
  * samme kontrakt som recalcPlayerTotal har i dag. Filteret for "afgjort og
  * begyndt" bor derimod HER, så de to flader ikke kan blive uenige om, hvilke
  * kampe der tæller.

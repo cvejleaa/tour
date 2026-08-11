@@ -21,8 +21,9 @@ import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/d
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
 import { shareText } from '../../../lib/share';
 import {
-  groupByRound, activeRound, isLocked, toMillis, afterStart, matchScore, liveScore,
+  groupByRound, activeRound, isLocked, toMillis, matchScore, liveScore,
 } from './footballRounds';
+import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 import {
   OUTCOME, OUTCOMES, round1, hitPoints, TRAEF_BONUS, COMBI,
   chanceMaxStake, canUseChance, CHANCE, settleChance,
@@ -53,10 +54,11 @@ export default function FootballTip({ game, me, matches }) {
   const bank = playerBank(me);
   const nowMs = Date.now();
 
-  // Skjul kampe før spillets starttidspunkt (game.startAt) — så en sæson kan
-  // starte midt i (fx fra runde 2) uden at vise de tidligere runder.
-  const startMs = toMillis(game?.startAt);
-  const shownMatches = useMemo(() => afterStart(matches, startMs), [matches, startMs]);
+  // Skjul kampe før spillets STARTRUNDE — så en sæson kan starte midt i.
+  // Runder, ikke datoer: en runde kan ligge spredt over en måned, og en
+  // dato-gate ville vise dens sene kampe og skjule dens tidlige.
+  const startRunde = useMemo(() => startRundeFor(game, matches), [game, matches]);
+  const shownMatches = useMemo(() => fraStartRunde(matches, startRunde), [matches, startRunde]);
   const rounds = useMemo(() => groupByRound(shownMatches), [shownMatches]);
   const initialRound = useMemo(() => activeRound(rounds, nowMs), [rounds, nowMs]);
 

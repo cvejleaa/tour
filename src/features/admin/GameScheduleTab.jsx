@@ -9,9 +9,11 @@
  */
 import { useEffect, useState } from 'react';
 import { useGames } from '../games/useGames';
+import { useGameRounds } from './useGameRounds';
+import { startRundeFor } from '../../lib/startGate';
 import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameActions';
 import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds } from './adminActions';
-import { formatKickoff } from '../../lib/daDate';
+import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
 
@@ -42,8 +44,62 @@ function toMs(v) {
   return Number.isNaN(t) ? null : t;
 }
 
+/**
+ * Vælg spillets startrunde. Viser runderne MED datointerval, fordi det er
+ * dét, ejeren tænker i ("vi starter efter sommerferien"), og fordi en runde
+ * kan ligge spredt: Superligaens runde 3 spilles 7.-10. august bortset fra to
+ * kampe den 2.-3. september. Står spændet på skærmen, kan man SE, at runden
+ * ikke er en uge — og hvorfor gaten derfor tæller runder og ikke dage.
+ */
+/** Rundens spænd som "1. aug – 3. sep". `groupByRound` har allerede sorteret
+ *  kampene på kickoff, så første og sidste er yderpunkterne. */
+function rundeSpaend(matches) {
+  const tider = matches.map((m) => toMs(m.kickoff)).filter((t) => t != null);
+  if (!tider.length) return 'uden dato';
+  return formatDateRange(Math.min(...tider), Math.max(...tider));
+}
+
+function StartRundeVaelger({ game, vaerdi, onVaelg }) {
+  const { runder, henter, fejl } = useGameRounds(game.id);
+  if (fejl) return <span className="badge badge--red">{fejl}</span>;
+  if (henter) return <span style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>Henter kampene…</span>;
+  if (!runder.length) return <span style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>Spillet har ingen kampe med rundenummer.</span>;
+
+  // Hvad gaten gør LIGE NU. Uden runde i feltet udledes den af den gamle
+  // startdato — og så skal ejeren kunne se hvilken runde det bliver, i stedet
+  // for at skulle regne den ud af en dato.
+  const udledt = startRundeFor({ startAt: game.startAt }, runder.flatMap((r) => r.matches));
+
+  return (
+    <>
+      <select
+        className="select" aria-label={`Startrunde for ${game.name}`}
+        value={vaerdi} style={{ width: '100%' }}
+        onChange={(e) => onVaelg(e.target.value)}
+      >
+        <option value="">
+          {udledt == null ? '– Ingen gate (alle runder tæller) –' : `– Udled af startdatoen (runde ${udledt}) –`}
+        </option>
+        {runder.map(({ round, matches }) => (
+          <option key={round} value={String(round)}>
+            {`Runde ${round} · ${rundeSpaend(matches)}`}
+          </option>
+        ))}
+      </select>
+      <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--c-muted)', marginTop: '0.25rem' }}>
+        Runder FØR den valgte giver ingen point og vises ikke. Efter en ændring
+        skal point genberegnes — knappen står nedenfor.
+      </span>
+    </>
+  );
+}
+
 function GameRow({ game }) {
   const [startAt, setStartAt] = useState('');
+  // Startrunden. Kamplisten hentes FØRST når ejeren beder om at vælge en —
+  // se useGameRounds.
+  const [vaelgRunde, setVaelgRunde] = useState(false);
+  const [startRound, setStartRound] = useState('');
   const [puljeLockAt, setPuljeLockAt] = useState('');
   const [gameStatus, setGameStatusField] = useState('');
   const [busy, setBusy] = useState(false);
@@ -75,7 +131,8 @@ function GameRow({ game }) {
     setStartAt(toLocalInput(startMs));
     setPuljeLockAt(toLocalInput(puljeMs));
     setGameStatusField(game.status || '');
-  }, [startMs, puljeMs, game.status]);
+    setStartRound(Number.isFinite(game.startRound) ? String(game.startRound) : '');
+  }, [startMs, puljeMs, game.status, game.startRound]);
 
   const isFootball = game.type === 'football';
   // Pulje-deadlinen hører til spil MED en pulje. Uden gaten kunne ejeren i god
@@ -106,6 +163,10 @@ function GameRow({ game }) {
     const patch = {};
     if (startAt !== toLocalInput(toMs(game.startAt))) {
       patch.startAt = startAt ? new Date(startAt).getTime() : null;
+    }
+    const gemtRunde = Number.isFinite(game.startRound) ? String(game.startRound) : '';
+    if (startRound !== gemtRunde) {
+      patch.startRound = startRound === '' ? null : Number(startRound);
     }
     if (harPulje && puljeLockAt !== toLocalInput(toMs(game.puljeLockAt))) {
       patch.puljeLockAt = puljeLockAt ? new Date(puljeLockAt).getTime() : null;
@@ -203,7 +264,11 @@ function GameRow({ game }) {
       <div className="grid-2" style={{ gap: '0.75rem', marginTop: '0.75rem' }}>
         <label style={{ display: 'block' }}>
           <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--c-muted)', marginBottom: '0.25rem' }}>
-            🚦 Spil-start
+            {/* GATER IKKE LÆNGERE. Feltet står stadig, fordi det bruges som
+                fald-tilbage for spil uden startrunde — men står runden, er
+                datoen ren oplysning. Uden den tilføjelse ville ejeren tro, at
+                han flyttede spillets start ved at flytte datoen. */}
+            🚦 Spil-start {Number.isFinite(game.startRound) ? '(kun oplysning)' : '(bruges til at udlede runden)'}
           </span>
           <input
             type="datetime-local" value={startAt}
@@ -211,6 +276,36 @@ function GameRow({ game }) {
             style={{ width: '100%' }}
           />
         </label>
+
+        {/* STARTRUNDEN ER DEN, DER GATER. Datoen ovenfor er kun et fald-tilbage
+            for spil, der ikke har fået en runde endnu — en dato kan skære en
+            runde midt over, og så bygges combi-kuponen af resten. Feltet står
+            HER, ved siden af datoen, fordi det er den samme beslutning. */}
+        {/* IKKE ET <label>. Et <button> er et labelable element, så et
+            omsluttende <label> bliver knappens tilgængelige navn — en
+            skærmlæser ville sige "Startrunde" om en knap, der hedder "Vælg
+            runde". Overskriften står derfor som ren tekst, og vælgeren har sin
+            egen aria-label. */}
+        <div>
+          <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--c-muted)', marginBottom: '0.25rem' }}>
+            🔢 Startrunde
+          </span>
+          {vaelgRunde ? (
+            <StartRundeVaelger
+              game={game}
+              vaerdi={startRound}
+              onVaelg={(v) => { setStartRound(v); setSaveMsg(null); }}
+            />
+          ) : (
+            <button
+              type="button" className="btn btn--ghost btn--sm"
+              onClick={() => setVaelgRunde(true)}
+              style={{ width: '100%' }}
+            >
+              {startRound === '' ? 'Udledes af datoen — vælg runde…' : `Runde ${startRound} — skift`}
+            </button>
+          )}
+        </div>
 
         {harPulje && (
           <label style={{ display: 'block' }}>
