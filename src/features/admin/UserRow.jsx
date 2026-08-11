@@ -179,7 +179,8 @@ export default function UserRow({ user, authInfo, currentUserIsOwner, currentUse
                   marginLeft: 6,
                   fontSize: '0.7rem',
                   background: 'var(--c-pitch)',
-                  color: '#fff',
+                  // IKKE '#fff'. Blækket skal følge fladen — se Layout.jsx.
+                  color: 'var(--c-on-pitch)',
                   borderRadius: 4,
                   padding: '1px 5px',
                 }}

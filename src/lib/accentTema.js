@@ -9,8 +9,10 @@
 //
 // Hvad den kontrol ikke så, og hvad den her fil derfor gør noget ved:
 //
-//  · --c-pitch er langt overvejende BLÆK. 23 regler i theme.css skriver
-//    `color: var(--c-pitch)`, kun tre bruger den som fyldt flade. Blækket står
+//  · --c-pitch er langt overvejende BLÆK. 16 regler i theme.css skriver
+//    `color: var(--c-pitch)` og seks en border-farve; kun tre bruger den som
+//    fyldt flade. (Der stod 23 her, fordi jeg havde talt border-farverne med
+//    som blæk — de har et andet krav.) Blækket står
 //    på et kort (--c-surface), ikke på sidebaggrunden — og egen-rækken i
 //    stillingen er endnu lysere. Måler man mod --c-bg, som jeg først gjorde,
 //    lander en farve justeret til 4,5:1 på 3,75-3,84 dér, hvor den faktisk står.
@@ -21,8 +23,14 @@
 //    Brøndby 1,86, Randers 1,91. Blækket regnes nu ud af fladen.
 //
 //  · --c-pitch-weak og --c-pitch-tint stod ALDRIG defineret nogen steder. Begge
-//    blev brugt med fallbacken #eef7f1 — næsten hvid — som i mørkt tema gav
-//    1,40-1,70:1. De defineres her, sammen med resten.
+//    blev brugt med fallbacken #eef7f1 — næsten hvid. Hvad der faktisk var i
+//    stykker på den: ETIKETTEN i pointopdelingens total (--c-muted i mørkt tema,
+//    2,25:1) og teksten i egne beskedbobler (--c-text i mørkt tema, 1,02:1).
+//    Selve totalens tal var derimod læseligt (5,72:1) — jeg skrev først 1,40-
+//    1,70:1 og tilskrev det tallet, men de tal hører til en anden situation:
+//    en LYS KLUBFARVE som blæk på den næsten hvide fallback, altså noget, der
+//    først ville være opstået MED den her ændring. De defineres her, sammen
+//    med resten, og fallbacken er fjernet fra begge brugssteder.
 //
 // Hele udregningen er ren og ligger ét sted, så `scripts/accent-tema.mjs` kan
 // køre den over alle hold i begge temaer og vise tallene.

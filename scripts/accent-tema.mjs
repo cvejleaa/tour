@@ -18,6 +18,7 @@
 //   node scripts/accent-tema.mjs            # tabel + samlet dom
 //   node scripts/accent-tema.mjs --foer     # samme tal for de GAMLE, håndholdte
 //                                           # temaer, så forskellen kan ses
+//   node scripts/accent-tema.mjs --kuloer   # kulør pr. trøje + hvilken der vælges
 // ---------------------------------------------------------------------------
 
 import { SUPERLIGA_TEAMS_2026 } from '../src/data/superligaTeams2026.js';
@@ -27,13 +28,42 @@ import { accentTema, temaFund, SIDEFLADER, KULOER_GULV } from '../src/lib/accent
 import { kontrast, kuloer } from '../src/lib/contrastText.js';
 
 const foer = process.argv.includes('--foer');
+const kunKuloer = process.argv.includes('--kuloer');
 
-/** Klubfarven for et hold: første kulørte i rækken hjemme → ude → tredje. */
+/**
+ * Klubfarven for et hold: første kulørte i rækken hjemme → ude → tredje.
+ * Samme regel som `klubAccentAf`; den bor dér, fordi den skal læse overrides.
+ */
 function klubfarve(t) {
   for (const f of [t.color, t.awayColor, t.thirdColor]) {
     if (f && kuloer(f) >= KULOER_GULV) return f;
   }
   return null;
+}
+
+/**
+ * KULØR-TABELLEN. Uden den stod gulvet 0,1 som en påstand: kommentaren i
+ * badges.js siger, at FC Midtjyllands #0B0807 ligger på 0,016 og Newcastles
+ * #101F35 på 0,145 "netop over gulvet" — to tal, ingen kunne regne efter.
+ * `--kuloer` printer alle tre trøjer for hvert hold og markerer, hvilken der
+ * blev valgt, så gulvets placering kan ses og ikke bare tros.
+ */
+function kuloerTabel() {
+  console.log(`\nKULØR PR. TRØJE — gulvet er ${KULOER_GULV}. ✓ = den valgte.\n`);
+  console.log(`${'hold'.padEnd(26)}${'hjemme'.padEnd(20)}${'ude'.padEnd(20)}tredje`);
+  for (const t of [...SUPERLIGA_TEAMS_2026, ...PREMIER_LEAGUE_TEAMS_2026]) {
+    const valgt = klubfarve(t);
+    let taget = false;
+    const felt = (f) => {
+      if (!f) return ''.padEnd(20);
+      const k = kuloer(f);
+      const brugt = !taget && f === valgt && k >= KULOER_GULV;
+      if (brugt) taget = true;
+      return `${f} ${k.toFixed(3)}${brugt ? ' ✓' : '  '}`.padEnd(20);
+    };
+    console.log(`${String(t.name).padEnd(26)}${felt(t.color)}${felt(t.awayColor)}${felt(t.thirdColor)}`
+      + (valgt ? '' : '   ← ingen kulør'));
+  }
 }
 
 /**
@@ -102,7 +132,20 @@ function maal(gruppe, navn, farve, gammel) {
   }
 }
 
-maal('app', 'Standard (grøn)', '#0b6e4f', null);
+// APPENS EGEN GRØNNE MED I `--foer`. Den blev først kørt gennem den NYE
+// funktion i begge tilstande, og så kunne scriptet ikke vise det ene tal, der
+// begrunder at ændre basistemaet for alle brugere: 2,33:1 som tekst i mørkt
+// tema. Et tal, harnesset ikke kan regne ud, er en påstand.
+const GAMMEL_APP = {
+  pitch: '#0b6e4f', pitchDark: '#074b36', onPitch: '#ffffff',
+  pitchWeak: '#eef7f1', pitchTint: '#eef7f1',
+};
+if (kunKuloer) {
+  kuloerTabel();
+  process.exit(0);
+}
+
+maal('app', 'Standard (grøn)', '#0b6e4f', foer ? GAMMEL_APP : null);
 for (const t of TEAM_THEMES) {
   maal('tour', t.label, t.primary, foer ? gammeltTema(t.key) : null);
 }

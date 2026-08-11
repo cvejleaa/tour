@@ -47,7 +47,7 @@ export default function StandingsTable({
               style={{
                 display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem',
                 padding: '0.3rem 0.4rem', borderRadius: 8,
-                background: tipped ? 'rgba(11,110,79,0.10)'
+                background: tipped ? 'color-mix(in srgb, var(--c-pitch) 10%, transparent)'
                   : danish ? 'rgba(198,12,48,0.07)'
                     : (isTop ? 'var(--c-surface-alt, #f6faf8)' : 'transparent'),
                 borderLeft: tipped ? '3px solid var(--c-pitch)'

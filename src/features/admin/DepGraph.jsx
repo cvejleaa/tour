@@ -18,7 +18,9 @@ function colorFor(id, layer) {
   if (id === 'components') return { fill: '#e6fbf6', stroke: '#0d9488', text: '#0f766e' };
   if (id === 'pages') return { fill: '#fff7e0', stroke: '#d6a700', text: '#7a5a00' };
   if (id === 'app-skal') return { fill: '#eef2f6', stroke: '#475569', text: '#334155' };
-  if (layer === 2) return { fill: 'rgba(11,110,79,0.10)', stroke: '#0b6e4f', text: '#074b36' }; // features
+  // Afhængighedsgrafen tegner sine egne lag-farver og skal IKKE følge et
+  // holdtema: den er et diagram, ikke en flade i spillet.
+  if (layer === 2) return { fill: 'rgba(11,110,79,.1)', stroke: '#0b6e4f', text: '#074b36' }; // features
   return { fill: 'var(--c-bg)', stroke: 'var(--c-border)', text: 'var(--c-text)' };
 }
 

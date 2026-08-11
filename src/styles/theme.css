@@ -43,10 +43,12 @@
 
 [data-theme='dark'] {
   /* Accenten i mørkt tema er den SAMME grønne, kørt igennem `accentTema` med
-     de mørke flader. Den var før #0b6e4f uændret, altså 2,54:1 som tekst på
+     de mørke flader. Den var før #0b6e4f uændret, altså 2,33:1 som tekst på
      --c-surface-2 — hver eneste link og hvert eneste pointtal i mørkt tema lå
-     under halvdelen af kravet. Blækket oven på fladen bliver dermed mørkt, som
-     det er kutyme i mørke temaer. */
+     under halvdelen af kravet. (Tallet stod først som 2,54, som jeg aldrig
+     havde kørt igennem koden. `scripts/accent-tema.mjs --foer` viser 2,33.)
+     Blækket oven på fladen bliver dermed mørkt, som det er kutyme i mørke
+     temaer. */
   --c-pitch: #11a677;
   --c-pitch-dark: #17e1a2;
   --c-on-pitch: #10151b;
@@ -142,7 +144,7 @@ button {
 
 .btn:hover:not(:disabled) {
   background: var(--c-pitch-dark);
-  box-shadow: 0 3px 10px rgba(11, 110, 79, 0.3);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--c-pitch) 30%, transparent);
   transform: translateY(-1px);
 }
 
@@ -293,18 +295,23 @@ button {
   border-bottom: none;
 }
 
+/* TONEN FØLGER ACCENTEN. Her stod appens grønne skrevet ud i decimaltal som en
+   rgba-værdi. Med et holdtema betød det en grøn hover-række midt i et rødt
+   spil. Andelene er de samme som før (4/7/11 %), kun kilden er en anden.
+   `blaekPaaAccent.test.js` forbyder skrivemåden, så den ikke kan liste sig ind
+   igen — heller ikke i en kommentar som den her. */
 .table tr:hover td {
-  background: rgba(11, 110, 79, 0.04);
+  background: color-mix(in srgb, var(--c-pitch) 4%, transparent);
 }
 
 /* Fremhæv den indloggede spillers række */
 .table tr.is-me td {
-  background: rgba(11, 110, 79, 0.07);
+  background: color-mix(in srgb, var(--c-pitch) 7%, transparent);
   font-weight: 600;
 }
 
 .table tr.is-me:hover td {
-  background: rgba(11, 110, 79, 0.11);
+  background: color-mix(in srgb, var(--c-pitch) 11%, transparent);
 }
 
 /* ═══════════════════════ MEDAL / BADGE ═══════════════════════ */
@@ -399,7 +406,9 @@ a:focus-visible,
 
 .input:focus, .select:focus {
   border-color: var(--c-pitch);
-  box-shadow: 0 0 0 3px rgba(11, 110, 79, 0.15);
+  /* Rammen fulgte temaet, glorien gjorde ikke — en holdfarvet ramme med grøn
+     glorie omkring. Det ses på selveste Yndlingshold-vælgeren på Mit hold. */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-pitch) 15%, transparent);
 }
 
 .input::placeholder { color: var(--c-muted); }
@@ -829,7 +838,12 @@ a:focus-visible,
 .pick__odds { font-size: 0.8rem; font-weight: 600; color: var(--c-text); font-variant-numeric: tabular-nums; }
 .pick__pts { font-size: 0.68rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .pick--selected {
-  background: color-mix(in srgb, var(--c-pitch) 12%, var(--c-surface));
+  /* --c-pitch-weak, IKKE et fast 12 %-blandingsforhold. De 12 % var valgt i
+     øjemål og aldrig målt: med Nottingham Forests rød lå .pick__label på
+     3,66:1 og .pick__pts på 3,57:1 i lyst tema — under kravet, på det element
+     der klikkes mest på i hele spillet. `svagFlade` finder i stedet den
+     kraftigste tone, blækket kan bære, og trapper ned hvor den skal. */
+  background: var(--c-pitch-weak);
   border-color: var(--c-pitch); box-shadow: 0 0 0 1px var(--c-pitch);
 }
 .pick--selected .pick__label { color: var(--c-pitch); }
@@ -905,7 +919,7 @@ a:focus-visible,
   background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: var(--radius-sm); position: relative; }
 .pulje-team:disabled { cursor: default; opacity: 0.55; }
 .pulje-team__name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pulje-team--chosen { border-color: var(--c-pitch); background: color-mix(in srgb, var(--c-pitch) 12%, var(--c-surface)); box-shadow: 0 0 0 1px var(--c-pitch); }
+.pulje-team--chosen { border-color: var(--c-pitch); background: var(--c-pitch-weak); box-shadow: 0 0 0 1px var(--c-pitch); }
 .pulje-team__check { margin-left: auto; color: var(--c-pitch); font-weight: 800; }
 .pulje-team__actual { position: absolute; top: 4px; right: 6px; font-size: 0.8rem; }
 .pulje-team--hit { border-color: var(--c-ok); box-shadow: 0 0 0 1px var(--c-ok); }
@@ -1061,9 +1075,12 @@ a:focus-visible,
 .pointopdeling__rubrik--total {
   border-color: var(--c-pitch, #0b6b3a);
   /* INGEN FALLBACK. Der stod en næsten hvid en, og variablen var aldrig
-     defineret nogen steder — så det var fallbacken, der blev brugt, og i mørkt
-     tema stod totalens tal på 1,40-1,70:1 mod den. Er variablen væk igen, skal
-     det være synligt, ikke pænt. (theme.test.js forbyder hex-værdien her.) */
+     defineret nogen steder — så det var fallbacken, der blev brugt. Det, der
+     FAKTISK var i stykker, var ikke tallet herunder: --c-pitch på den gav
+     5,72:1, det mest læselige på rubrikken. Det var ETIKETTEN — --c-muted i
+     mørkt tema gav 2,25:1 — og beskedboblen ved siden af, hvor --c-text lå på
+     1,02:1. Er variablen væk igen, skal det være synligt, ikke pænt.
+     (theme.test.js forbyder hex-værdien her.) */
   background: var(--c-pitch-weak);
 }
 .pointopdeling__rubrik--total dd { color: var(--c-pitch, #0b6b3a); }

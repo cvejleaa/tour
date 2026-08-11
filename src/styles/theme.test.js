@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { accentTema, TEMA_VARIABLE } from '../lib/accentTema';
+import { kontrast } from '../lib/contrastText';
 
 const CSS = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), './theme.css'), 'utf8');
 
@@ -41,9 +42,14 @@ describe('theme.css: appens egen accent', () => {
     for (const [felt, navn] of Object.entries(TEMA_VARIABLE)) {
       expect(variabel("[data-theme='dark'] {", navn), navn).toBe(tema[felt]);
     }
-    // BÆRENDE: den var #0b6e4f UÆNDRET i mørkt tema, altså 2,54:1 som tekst på
+    // BÆRENDE: den var #0b6e4f UÆNDRET i mørkt tema, altså 2,33:1 som tekst på
     // --c-surface-2. Står den værdi her igen, er hele rettelsen rullet tilbage.
+    // (Tallet stod først som 2,54 — et skøn, jeg aldrig havde regnet efter.
+    //  Testen nedenfor MÅLER det nu, så påstanden ikke kan drive igen.)
     expect(variabel("[data-theme='dark'] {", '--c-pitch')).not.toBe('#0b6e4f');
+    expect(kontrast('#0b6e4f', '#202a34')).toBeCloseTo(2.33, 2);
+    expect(kontrast(variabel("[data-theme='dark'] {", '--c-pitch'), '#202a34'))
+      .toBeGreaterThanOrEqual(4.5);
   });
 
   it('definerer weak og tint i BEGGE temaer', () => {

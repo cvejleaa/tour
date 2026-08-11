@@ -25,6 +25,9 @@ import { laesFarveMode, lytTilFarveMode } from '../../lib/farveMode';
 import { klubAccentAf } from './football/badges';
 import { teamsOf } from './football/teamInfo';
 
+/** Intet tema. Samme konstant-greb som `useKlubFarver`, så identiteten er stabil. */
+const INTET = () => null;
+
 /** Basistemaet lige nu, holdt opdateret hvis brugeren slår om undervejs. */
 export function useFarveMode() {
   const [mode, setMode] = useState(laesFarveMode);
@@ -36,20 +39,43 @@ export function useFarveMode() {
 }
 
 /**
+ * Slå temaet op for et VILKÅRLIGT holdnavn i spillet. Samme form som
+ * `useKlubFarver`, fordi den bruges samme sted: holdvælgeren på Mit hold skal
+ * kunne vise farven for det hold, man PEGER på, ikke kun for det gemte.
+ *
+ * @returns {(holdnavn: string|null) => {navn, farve, tema}|null}
+ */
+export function useKlubTema(game) {
+  const mode = useFarveMode();
+  return useMemo(() => {
+    // SAMME GATE SOM RINGEN OM AVATAREN (`useKlubFarver`), og af samme grund:
+    // `teamsOf` falder tilbage på Superligaens tolv hold, så uden den ville en
+    // Tour-spiller med et cykelhold i feltet kunne få Brøndby-gult tema.
+    if (game?.type !== 'football') return INTET;
+    const teams = teamsOf(game);
+    const styles = game?.teamStyles;
+    const cache = new Map();
+    return (holdnavn) => {
+      if (!holdnavn) return null;
+      if (!cache.has(holdnavn)) {
+        const farve = klubAccentAf(teams, styles, holdnavn);
+        cache.set(holdnavn, farve ? { navn: holdnavn, farve, tema: accentTema(farve, mode) } : null);
+      }
+      return cache.get(holdnavn);
+    };
+  }, [game, mode]);
+}
+
+/**
  * @returns {{navn: string, farve: string, stil: object}|null} null når spillet
  * ikke er et fodboldspil, spilleren ikke har valgt et hold, holdet ikke findes
  * i spillets liste, eller ingen af holdets tre trøjer har kulør nok.
  */
 export function useSpilTema(game, me) {
-  const mode = useFarveMode();
-  const holdnavn = me?.favoriteTeam ?? null;
-  return useMemo(() => {
-    // SAMME GATE SOM RINGEN OM AVATAREN (`useKlubFarver`), og af samme grund:
-    // `teamsOf` falder tilbage på Superligaens tolv hold, så uden den ville en
-    // Tour-spiller med et cykelhold i feltet kunne få Brøndby-gult tema.
-    if (game?.type !== 'football') return null;
-    const farve = klubAccentAf(teamsOf(game), game?.teamStyles, holdnavn);
-    if (!farve) return null;
-    return { navn: holdnavn, farve, stil: temaStil(accentTema(farve, mode)) };
-  }, [game, holdnavn, mode]);
+  const klubTema = useKlubTema(game);
+  const valgt = klubTema(me?.favoriteTeam ?? null);
+  return useMemo(
+    () => (valgt ? { navn: valgt.navn, farve: valgt.farve, stil: temaStil(valgt.tema) } : null),
+    [valgt],
+  );
 }

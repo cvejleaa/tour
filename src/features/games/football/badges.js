@@ -127,7 +127,10 @@ export function klubFarverAf(teams, styles, holdnavn) {
  * med `kuloer` mod `KULOER_GULV`. Rækkefølgen hjemme → ude → tredje er ikke
  * vilkårlig: den følger, hvor tæt trøjen ligger på klubbens identitet.
  *
- * Hvad det giver i praksis, målt med `scripts/accent-tema.mjs`:
+ * Hvad det giver i praksis. Tallene kommer fra `scripts/accent-tema.mjs --kuloer`,
+ * som printer kulør for alle tre trøjer og markerer den valgte — gulvet stod
+ * ellers som en påstand, og det kunne flyttes til både 0,01 og 0,20 med hele
+ * suiten grøn (se `spilTemaFlader.test.jsx`, som binder begge sider af det):
  *   FC Midtjylland  #0B0807 (kulør 0,016) → hvid (0) → #E4002B fra tredjetrøjen
  *   F.C. København   hvid → #0A2240 fra udetrøjen
  *   AGF              hvid → #004C9B fra udetrøjen

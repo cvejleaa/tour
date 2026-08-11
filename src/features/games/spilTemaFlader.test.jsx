@@ -14,6 +14,8 @@ import { render, cleanup, renderHook, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { accentTema } from '../../lib/accentTema';
 import { klubAccentAf } from './football/badges';
+import { kuloer } from '../../lib/contrastText';
+import { KULOER_GULV } from '../../lib/accentTema';
 import { useSpilTema } from './useSpilTema';
 import GameLayout from './GameLayout';
 
@@ -53,6 +55,39 @@ describe('klubAccentAf', () => {
 
   it('giver null, når ingen af de tre trøjer bærer kulør', () => {
     expect(klubAccentAf(HOLD, {}, 'Gråt BK')).toBeNull();
+  });
+
+  // GULVET SKAL BINDES I BEGGE RETNINGER. Test Manager flyttede KULOER_GULV
+  // fra 0,1 til både 0,01 og 0,20 med hele suiten grøn. Et gulv, der kan gå
+  // begge veje uden en rød test, er ikke et gulv — det er en kommentar.
+  //
+  // Sænkes det til 0,01: FC Midtjyllands næsten sorte hjemmetrøje slipper
+  // igennem, og temaet bliver #ad8a7e i mørkt tema — en beige, der hverken er
+  // klubbens farve eller til at se er en fejl.
+  // Hæves det til 0,20: Newcastle mister sin marineblå og får himmelblå fra en
+  // anden trøje, altså en anden klubidentitet.
+  it('afviser lige UNDER gulvet og accepterer lige OVER', () => {
+    const graense = [
+      // FC Midtjylland, kulør 0,016 — under. Skal springes over til den røde.
+      { name: 'Midt', short: 'FCM', color: '#0B0807', awayColor: '#FFFFFF', thirdColor: '#E4002B' },
+      // Newcastle, kulør 0,145 — over. Marineblå skal bruges, som den er.
+      { name: 'Newcastle', short: 'NEW', color: '#FDFDFD', awayColor: '#101F35', thirdColor: '#41B6E6' },
+    ];
+    expect(kuloer('#0B0807')).toBeCloseTo(0.016, 3);
+    expect(kuloer('#101F35')).toBeCloseTo(0.145, 3);
+    expect(KULOER_GULV).toBe(0.1);
+    expect(klubAccentAf(graense, {}, 'Midt')).toBe('#E4002B');
+    expect(klubAccentAf(graense, {}, 'Newcastle')).toBe('#101F35');
+  });
+
+  // EN UGYLDIG FARVE FRA EN OVERRIDE ER OGSÅ "UDEN KULØR". `teamStyles` skrives
+  // i hånden i admin, og `accentTema` ville tage imod hvad som helst: `toTal`
+  // giver null, `hexTilHsl` giver [0,0,0], og resultatet er et sort tema uden
+  // en eneste fejlmeddelelse. Gaten fanger den, før det sker.
+  it('springer en ugyldig override over i stedet for at lave et sort tema', () => {
+    expect(kuloer('#abc')).toBe(0);
+    const styles = { 'Brøndby IF': { color: '#abc' } };
+    expect(klubAccentAf(HOLD, styles, 'Brøndby IF')).toBe('#122859'); // udetrøjen
   });
 
   it('giver null for et navn, spillet ikke kender', () => {
@@ -202,8 +237,9 @@ vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'A'
 const { default: GameProfile } = await import('./GameProfile');
 
 describe('teksten på Mit hold', () => {
-  const brød = () => render(<GameProfile game={SPIL} me={{}} />)
-    .container.querySelector('.card > p').textContent.replace(/\s+/g, ' ');
+  const tegnProfil = (me) => render(<GameProfile game={SPIL} me={me ?? {}} />);
+  const brød = () => tegnProfil().container.querySelector('.card > p')
+    .textContent.replace(/\s+/g, ' ');
 
   it('nævner BÅDE ringen og tonen på siden', () => {
     const t = brød();
@@ -215,7 +251,10 @@ describe('teksten på Mit hold', () => {
     // Temaet sidder på spillets container netop for ikke at følge med ud.
     // Lovede teksten noget andet, ville valget se ud som om det ikke virkede.
     expect(brød()).toMatch(/kun her/);
-    expect(brød()).toMatch(/resten af siden bliver grøn/);
+    // "resten af SIDEN" kunne læses som at en del af DENNE side forbliver
+    // grøn. Det er appen udenom, der gør — topbjælken og de andre spil.
+    expect(brød()).toMatch(/resten af appen bliver grøn/);
+    expect(brød()).not.toMatch(/resten af siden/);
   });
 
   it('lover ikke længere, at RINGEN er klubbens farve', () => {
@@ -224,3 +263,60 @@ describe('teksten på Mit hold', () => {
     expect(brød()).not.toMatch(/holdets farve som ring/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// …OG DER SKAL VÆRE NOGET AT HOLDE DET OP IMOD.
+//
+// To farver af samme hold på samme skærm, hvor den ene er hvid, ser ud som en
+// fejl — medmindre man kan SE dem ved siden af hinanden. Og et hold uden kulør
+// i nogen af sine tre trøjer får intet tema overhovedet; sker det uden et ord,
+// tror spilleren, valget ikke virkede.
+// ---------------------------------------------------------------------------
+describe('farveprøven på Mit hold', () => {
+  const proeve = (me) => render(<GameProfile game={SPIL} me={me} />)
+    .container.querySelector('[data-testid="temafarve"]');
+  // jsdom normaliserer en hex-baggrund til rgb(). Sammenligningen skal derfor
+  // ske i samme form — ellers består testen kun ved et tilfælde.
+  const somRgb = (hex) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+
+  it('viser spillets faktiske farve for det valgte hold', () => {
+    const el = proeve({ favoriteTeam: 'Brøndby IF' });
+    expect(el).not.toBeNull();
+    // Den DERIVEREDE farve, ikke den rå — ellers ville prøven vise noget
+    // andet end siden, den skal forklare.
+    expect(el.style.background).toBe(somRgb(accentTema('#E5B905', 'lyst').pitch));
+    expect(el.style.background).toBe(somRgb('#8b7003'));
+  });
+
+  it('viser klubfarven for et hold i hvid trøje — ikke trøjens hvide', () => {
+    // FCK: ringen er hvid, temaet er marineblåt. Det er hele pointen.
+    const el = proeve({ favoriteTeam: 'F.C. København' });
+    expect(el.style.background).toBe(somRgb(accentTema('#0A2240', 'lyst').pitch));
+    expect(el.style.background).not.toBe(somRgb('#ffffff'));
+  });
+
+  it('mangler ikke sin forklaring', () => {
+    const t = render(<GameProfile game={SPIL} me={{ favoriteTeam: 'Brøndby IF' }} />)
+      .container.textContent.replace(/\s+/g, ' ');
+    expect(t).toMatch(/Ringen om din avatar er trøjen/);
+    expect(t).toMatch(/ikke altid den samme farve/);
+  });
+
+  it('siger fra — med holdets navn — når ingen trøje har kulør', () => {
+    const { container } = render(<GameProfile game={SPIL} me={{ favoriteTeam: 'Gråt BK' }} />);
+    const t = container.textContent.replace(/\s+/g, ' ');
+    expect(container.querySelector('[data-testid="temafarve"]')).toBeNull();
+    expect(t).toMatch(/Gråt BK/);
+    expect(t).toMatch(/bliver stående i appens grønne/);
+    // …og den lover ikke ringen væk. Den virker stadig.
+    expect(t).toMatch(/Ringen om din avatar får trøjens farve som ellers/);
+  });
+
+  it('siger ingenting, når der ikke er valgt et hold', () => {
+    const { container } = render(<GameProfile game={SPIL} me={{}} />);
+    const t = container.textContent.replace(/\s+/g, ' ');
+    expect(container.querySelector('[data-testid="temafarve"]')).toBeNull();
+    expect(t).not.toMatch(/bliver stående i appens grønne/);
+  });
+});
+

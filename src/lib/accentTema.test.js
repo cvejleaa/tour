@@ -157,12 +157,55 @@ describe('accentTema', () => {
         expect(kontrast(f.tekst, tema.pitchTint), `${t.name}/${mode}`).toBeGreaterThanOrEqual(4.5);
       }
     }
-    // FALLBACKEN, DER BLEV BRUGT FØR: #eef7f1 er næsten hvid, og i mørkt tema
-    // stod --c-pitch-blækket på 1,40-1,70:1 mod den. Tallene for Sønderjyske,
-    // Horsens og Brøndby, som QC fandt dem:
+    // FALLBACKEN, DER BLEV BRUGT FØR: #eef7f1, næsten hvid. To slags skade,
+    // og de skal holdes adskilt — jeg blandede dem sammen første gang.
+    //
+    // 1) DEN, DER ALLEREDE VAR SKET. Etiketten i pointopdelingens total og
+    //    teksten i egne beskedbobler stod på den i MØRKT tema:
+    expect(kontrast('#9aa7b2', '#eef7f1')).toBeCloseTo(2.25, 1); // --c-muted
+    expect(kontrast('#eef3f7', '#eef7f1')).toBeCloseTo(1.02, 1); // --c-text
+    //    …mens selve TALLET var fint. Det var dét, jeg først tilskrev tallene
+    //    nedenfor, og den påstand var forkert:
+    expect(kontrast('#0b6e4f', '#eef7f1')).toBeCloseTo(5.72, 1);
+    //
+    // 2) DEN, DER FØRST VILLE OPSTÅ MED DEN HER ÆNDRING: en lys klubfarve som
+    //    blæk på den næsten hvide fallback. Sønderjyske, Horsens, Brøndby:
     expect(kontrast('#B3D6E9', '#eef7f1')).toBeCloseTo(1.40, 1);
     expect(kontrast('#E8C45C', '#eef7f1')).toBeCloseTo(1.54, 1);
     expect(kontrast('#E5B905', '#eef7f1')).toBeCloseTo(1.70, 1);
+  });
+
+  // HVOR TIT SKER DET SÅ? Prisen skal være talt, ikke anet. `temaFund` måler
+  // LÆSBARHED, ikke SYNLIGHED, så den siger god for et tema, hvis svage flade
+  // er forsvundet helt — og så ville 15 hold stille miste fyldet i
+  // pointopdelingens total og i .badge--blue, uden at noget blev rødt.
+  //
+  // Listen står her, så den ikke kan vokse i tavshed. Vokser den, er der truffet
+  // en beslutning, og så skal nogen se den.
+  it('mister tonen for præcis 15 af 55 farver — og kun i lyst tema', () => {
+    const HOLD = [
+      ...TEAM_THEMES.map((t) => [t.label, t.primary]),
+      ...[...SUPERLIGA_TEAMS_2026, ...PREMIER_LEAGUE_TEAMS_2026].flatMap((t) => {
+        const f = [t.color, t.awayColor, t.thirdColor].find((c) => c && kuloer(c) >= 0.1);
+        return f ? [[t.name, f]] : [];
+      }),
+      ['App', '#0b6e4f'],
+    ];
+    expect(HOLD).toHaveLength(55);
+    const uden = (mode) => HOLD
+      .filter(([, f]) => accentTema(f, mode).pitchWeak === SIDEFLADER[mode].kort)
+      .map(([navn]) => navn);
+    expect(uden('lyst')).toEqual([
+      'EF Education - Easypost', 'Pinarello-Q.36.5 Pro Cycling Team',
+      'Team Visma | Lease a Bike', 'Uno-X Mobility',
+      'Sønderjyske Fodbold', 'AC Horsens',
+      'Arsenal', 'Manchester City', 'Manchester United', 'Bournemouth',
+      'Brentford', 'Nottingham Forest', 'Fulham', 'Sunderland', 'Coventry City',
+    ]);
+    // I MØRKT TEMA SKER DET ALDRIG: dér er accenten den lyse klubfarve, og en
+    // mørk flade under den har rigelig plads. Det er kun kombinationen "lys
+    // klubfarve som blæk på hvidt papir", der ikke har luft til en tone.
+    expect(uden('moerkt')).toEqual([]);
   });
 
   it('dropper tonen helt, hvis den ikke kan bæres', () => {
