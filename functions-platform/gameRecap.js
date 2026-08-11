@@ -310,17 +310,42 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     if (ligaStart != null && round < ligaStart) continue;
     // Totalen på ligaens skala: summen af runde-vektoren fra ligaens start,
     // med puljen efter dens egen regel — samme modul som fladen bruger.
-    const medlemmer = ligaStart == null ? rawMedlemmer : rawMedlemmer.map((p) => ({
-      ...p,
-      totalPoints: harRundeVektor(p.perRound)
-        ? ligaPoint(p.perRound, ligaStart, p.bonusPoints || 0)
-        : 0,
-      // Spillets previousRank er en anden skala — se lokaleRanger. Uden
-      // vektor-grundlag er en pil misvisende, så den droppes.
-      previousRank: harRundeVektor(p.perRound) && Number.isFinite(p.previousRank)
-        ? p.previousRank
-        : null,
-    }));
+    // Pilene ("overtog føringen") skal regnes på LIGAENS skala — spillets
+    // previousRank er en anden. Før-stillingen er ligaens total UDEN den
+    // aktuelle runde, af samme vektor: nøjagtig det greb, fladen bruger
+    // (`ligaRanking`/`fjernRunde`), bare her.
+    const foerTotal = (p) => {
+      if (!harRundeVektor(p.perRound)) return null;
+      const uden = {};
+      for (const [k, v] of Object.entries(p.perRound)) {
+        if (Number(k) === round) continue;
+        uden[k] = v;
+      }
+      return ligaPoint(uden, ligaStart, p.bonusPoints || 0);
+    };
+    let medlemmer = rawMedlemmer;
+    if (ligaStart != null) {
+      const omregnede = rawMedlemmer.map((p) => ({
+        ...p,
+        totalPoints: harRundeVektor(p.perRound)
+          ? ligaPoint(p.perRound, ligaStart, p.bonusPoints || 0)
+          : 0,
+        _foer: foerTotal(p),
+      }));
+      // Før-rang på ligaens skala. Spillere uden vektor får ingen pil.
+      const medFoer = omregnede.filter((p) => p._foer != null)
+        .sort((a, b) => (b._foer - a._foer) || String(a.uid).localeCompare(String(b.uid)));
+      const foerRang = new Map();
+      let r = 0;
+      let sidst = null;
+      medFoer.forEach((p, i) => {
+        if (p._foer !== sidst) { r = i + 1; sidst = p._foer; }
+        foerRang.set(p.uid, r);
+      });
+      medlemmer = omregnede.map((p) => ({
+        ...p, previousRank: foerRang.get(p.uid) ?? null, _foer: undefined,
+      }));
+    }
 
     const facts = buildRoundRecapFacts({
       round,

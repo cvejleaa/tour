@@ -439,6 +439,26 @@ describe('runGameRoundRecap — ligaens startrunde', () => {
     expect(fakta).not.toContain('"points":24');
   });
 
+  // Puljebonussen kan ikke skelnes fra 0 i fixturerne ovenfor — alle spillere
+  // har bonusPoints: 0, så omregningen kunne droppe den med grøn suite. Her
+  // HAR Bo puljen, og ligaen (startrunde 2 ≤ grænsen på 3) skal tælle den med.
+  it('tager puljebonussen med, når ligaens startrunde tillader den', async () => {
+    const ai = optager();
+    const db = makeDb({
+      matches: KAMPE, users: USERS,
+      players: { ...SPILLERE, B: { ...SPILLERE.B, bonusPoints: 34 } },
+      bets: [{ uid: 'A', matchId: 'm1', pick: '1', points: 1.6 }],
+      leagues: [{ name: 'Kontoret', memberUids: ['A', 'B'], startRound: 2 }],
+    });
+    const out = await runGameRoundRecap(db, FieldValue, ai, 'g1', 2);
+    expect(out.posted).toBe(1);
+    const fakta = ai.set.join(' ');
+    // Bo: runde 2 (22) + pulje (34) = 56. Uden bonussen stod der 22 — og et
+    // ligamedlem med pulje ville mangle den i Runde-Bottens opslag.
+    expect(fakta).toContain('"points":56');
+    expect(fakta).not.toContain('"points":22');
+  });
+
   it('poster som hidtil for en liga uden startrunde', async () => {
     const db = makeDb({
       matches: KAMPE, players: SPILLERE, users: USERS,

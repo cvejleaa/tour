@@ -282,7 +282,14 @@ async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null, g
       // ikke kan komme til at stamme fra hver sin kørsel.
       opdeling: { p1x2: o.p1x2, chance: o.chance, combi: o.combi, pulje: o.pulje },
       updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
+      // mergeFields, IKKE merge:true. merge:true DEEP-merger maps: en
+      // rundenøgle, der forsvinder fra den nye vektor — et facit fjernes, en
+      // kamp omscores til 0 eller flytter runde — ville blive STÅENDE, og
+      // ligaens total ville tavst indeholde point, spillet ikke længere har.
+      // mergeFields erstatter hvert felt HELT og bevarer, at dokumentet kan
+      // mangle. Samme beslutning som `kampe`-dokumentet nedenfor ("FULD
+      // ERSTATNING — bevidst ingen merge").
+    }, { mergeFields: ['totalPoints', 'roundBonus', 'perRound', 'opdeling', 'updatedAt'] });
 
     // FULD ERSTATNING — bevidst ingen merge.
     //

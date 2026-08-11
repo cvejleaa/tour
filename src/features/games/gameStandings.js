@@ -96,6 +96,12 @@ export function ligaRanking(rows, league, regn, harVektor) {
 
   const talte = medlemmer.map((r) => ({
     ...r,
+    // Spillets total FØR omregningen. Pointopdelingen og spillerdetaljen
+    // viser spillets regnskab (rubrikkerne er spil-globale), og de skal have
+    // spillets tal at stemme mod — ellers står rubrikker på én skala mod en
+    // total på en anden, og afvigelses-noten forklarer det med to grunde, der
+    // begge er forkerte.
+    spilTotal: r.totalPoints,
     klar: harVektor(r.perRound),
     totalPoints: harVektor(r.perRound) ? regn(r.perRound, startRunde, r.bonusPoints || 0) : 0,
     // Total FØR den seneste runde — grundlaget for pilen. Regnet af samme

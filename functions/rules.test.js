@@ -2137,6 +2137,25 @@ describe('games/{gameId}/leagues — sikkerhedsregler', () => {
     await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR2'), { startRound: -1 }));
   });
 
+  it('en liga kan ikke OPRETTES med en ugyldig startrunde', async () => {
+    await createUser('own2', 'player', 'approved');
+    await createGame('sl');
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('games').doc('sl')
+        .collection('players').doc('own2').set({ uid: 'own2' });
+    });
+    const fs = testEnv.authenticatedContext('own2').firestore();
+    const nyLiga = (id, ekstra) => setDoc(doc(fs, 'games', 'sl', 'leagues', id), {
+      name: 'Ny liga', code: 'KODE99', ownerUid: 'own2', memberUids: ['own2'],
+      createdAt: Timestamp.now(), ...ekstra,
+    });
+    await assertFails(nyLiga('lgC1', { startRound: '3' }));
+    await assertFails(nyLiga('lgC2', { startRound: 0 }));
+    // …og en gyldig går igennem — valideringen må ikke lukke oprettelsen.
+    await assertSucceeds(nyLiga('lgC3', { startRound: 3 }));
+    await assertSucceeds(nyLiga('lgC4', {}));
+  });
+
   it('et MEDLEM kan ikke sætte startrunden', async () => {
     await createUser('vic', 'player', 'approved');
     await createGame('sl');
@@ -2659,6 +2678,28 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await seedDeltager('se9c', { uid: 'se9c', joinedAt: Timestamp.now() });
       // Navnet slås op i users-profilen; her ville det vinde over opslaget.
       await assertFails(updateDoc(pDoc('se9c'), { name: 'Ejeren' }));
+    });
+
+    // FUNDET AF SECURITY REVIEWER: `perRound` er grundlaget for LIGAENS
+    // stilling (fladen OG Runde-Botten regner af den), og feltet manglede på
+    // denylisten. Et medlem kunne skrive { perRound: { '20': 1000000 } } og
+    // toppe enhver liga med en startrunde — mens spil-stillingen så normal ud,
+    // fordi totalPoints var urørt. Og fordi serveren merger perRound, ville en
+    // bogus rundenøgle OVERLEVE næste genberegning.
+    it('KAN IKKE skrive sit eget perRound (ligaens grundlag)', async () => {
+      await seedDeltager('se9e', { uid: 'se9e', joinedAt: Timestamp.now() });
+      await assertFails(updateDoc(pDoc('se9e'), { perRound: { 20: 1000000 } }));
+      // …heller ikke sammen med en lovlig skrivning.
+      await assertFails(updateDoc(pDoc('se9e'), { favoriteTeam: 'AGF', perRound: { 1: 5 } }));
+    });
+
+    it('KAN IKKE seede perRound ved tilmelding', async () => {
+      await createUser('se9f', 'player', 'approved');
+      await createGame('se9-spil');
+      await assertFails(setDoc(
+        doc(testEnv.authenticatedContext('se9f').firestore(), 'games', 'se9-spil', 'players', 'se9f'),
+        { uid: 'se9f', joinedAt: Timestamp.now(), perRound: { 1: 999 } },
+      ));
     });
 
     it('et deltager-dokument UDEN uid-felt kan stadig opdateres', async () => {

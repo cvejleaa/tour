@@ -27,6 +27,23 @@ describe('rankStandings', () => {
     expect(row.opdeling).toBeNull();
   });
 
+  // Samme fælde som opdelingen, men for ligaernes runde-vektor: dette er den
+  // ENESTE datavej fra Firestore til `ligaRanking`. UI-testene mocker hookene
+  // og leverer rækker, der allerede bærer perRound — fjernes felterne her,
+  // viser alle ligaer med startrunde samtlige spillere som "ikke klar".
+  it('bevarer perRound og bonusPoints på rækken', () => {
+    const perRound = { 1: 12.4, uden: 2 };
+    const [row] = rankStandings([{ uid: 'a', totalPoints: 14.4, perRound, bonusPoints: 7 }], users);
+    expect(row.perRound).toEqual(perRound);
+    expect(row.bonusPoints).toBe(7);
+  });
+
+  it('giver null-vektor og 0 i pulje, når serveren ikke har skrevet dem', () => {
+    const [row] = rankStandings([{ uid: 'a', totalPoints: 12 }], users);
+    expect(row.perRound).toBeNull();
+    expect(row.bonusPoints).toBe(0);
+  });
+
   it('sorterer faldende efter point og tildeler placering', () => {
     const rows = rankStandings([
       { uid: 'a', totalPoints: 5 },

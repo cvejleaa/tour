@@ -8,7 +8,7 @@ import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useVisibleGameStandings } from './useVisibleGameStandings';
 import { rankDelta, ligaRanking } from './gameStandings';
-import { ligaPoint, harRundeVektor } from '../../lib/ligaPoint';
+import { ligaPoint, harRundeVektor, puljenTaeller } from '../../lib/ligaPoint';
 import GameTabLink from './GameTabLink';
 import { formatPoints } from './GameLayout';
 import { fmtSignedPoints } from '../../lib/daNum';
@@ -50,7 +50,10 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle }) {
   // Afvigelserne regnes med SAMME funktion som kortet, så noten siger det
   // samme begge steder. I en tabel med 22 rækker kan sætningen ikke stå ved
   // hver række — derfor en stjerne på totalen og forklaringen under tabellen.
-  const afvigelser = rows.map((r) => opdelingsAfvigelse(r.opdeling, r.totalPoints));
+  // MOD SPILLETS TOTAL, ikke ligaens. Rubrikkerne (1X2, Chancen, combi, pulje)
+  // er spillets regnskab; under et liga-filter med startrunde er totalPoints
+  // ligaens tal, og de to må ikke stemmes mod hinanden.
+  const afvigelser = rows.map((r) => opdelingsAfvigelse(r.opdeling, r.spilTotal ?? r.totalPoints));
   const foersteAfvigelse = afvigelser.find(Boolean) || null;
   return (
     <div className="table-wrap">
@@ -95,7 +98,7 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle }) {
                   </td>
                 ))}
                 <td style={{ textAlign: 'right', fontWeight: 700 }}>
-                  {formatPoints(r.totalPoints)}
+                  {formatPoints(r.spilTotal ?? r.totalPoints)}
                   {afvigelser[i] && <span title={afvigelsesTekst(afvigelser[i])}>*</span>}
                 </td>
               </tr>
@@ -220,7 +223,11 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
 
   const meUid = user?.uid;
   const toggleUid = (uid) => setAabenUid((u) => (u === uid ? null : uid));
-  const hasPodium = standings.length >= 3;
+  // En klar:false-spiller har rank null og hører ikke på et podie — medaljens
+  // fallback ville vise "#null". Er nogen i top tre ikke klar, vises ALLE som
+  // liste; et podie med huller ville ligne en færdig stilling.
+  const podieKlar = standings.slice(0, 3).every((r) => r.klar !== false);
+  const hasPodium = standings.length >= 3 && podieKlar;
   const podium = hasPodium ? standings.slice(0, 3) : [];
   const listRows = hasPodium ? standings.slice(3) : standings;
   const meRow = standings.find((r) => r.uid === meUid);
@@ -238,7 +245,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         }}
       >
         <td style={{ padding: '0.45rem 0.5rem', fontVariantNumeric: 'tabular-nums', width: 52 }}>
-          {r.rank}<DeltaArrow row={r} />
+          {r.klar === false ? '–' : <>{r.rank}<DeltaArrow row={r} /></>}
         </td>
         <td style={{ padding: '0.45rem 0.5rem' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -251,7 +258,13 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           </span>
         </td>
         <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-          {formatPoints(r.totalPoints)}
+          {/* "IKKE KLAR" OG IKKE NUL. En spiller uden runde-vektor er ikke
+              genberegnet endnu — at vise 0 ville påstå, at han ingen point
+              har. Det var præcis QC's fund: klar-flaget blev beregnet, men
+              ingen flade læste det. */}
+          {r.klar === false
+            ? <span className="badge badge--muted" title="Spillerens point pr. runde er ikke beregnet endnu — bed admin køre 🔄 Genberegn point">ikke klar</span>
+            : formatPoints(r.totalPoints)}
         </td>
       </tr>
     );
@@ -261,13 +274,18 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // spillere" siger korrekt, at det er dem alle. Ved ÉN spiller er det én selv
   // — man deler ikke liga med sig selv, så den sætning skal skrives om.
   const antal = standings.length;
-  const opsummering = valgt
+  // Skalaskiftet skal stå HER, hvor tallene ses — forklaringen på Ligaer-fanen
+  // er én fane væk, og en title-attribut findes ikke på en telefon.
+  const ligaGate = valgt && Number.isFinite(valgt.startRound)
+    ? ` Tæller fra runde ${valgt.startRound}${puljenTaeller(valgt.startRound) ? '' : ' — puljen tæller ikke'}.`
+    : '';
+  const opsummering = (valgt
     ? (antal === 1
       ? `Viser 1 spiller i ${valgt.name || 'ligaen'}.`
       : `Viser de ${antal} spillere i ${valgt.name || 'ligaen'}.`)
     : (antal === 1
       ? 'Viser kun dig selv — ingen andre i dine ligaer er med endnu.'
-      : `Viser de ${antal} spillere, du deler liga med.`);
+      : `Viser de ${antal} spillere, du deler liga med.`)) + ligaGate;
 
   // Opdelingen viser HELE feltet — også de tre på podiet. Byggede den på
   // listRows, ville regnskabet mangle netop de spillere, man helst vil se
@@ -393,12 +411,22 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
       {standings.length > 0 && (
         <div ref={tabelRef}>
           {visOpdeling ? (
-            <OpdelingsTabel
-              rows={alleRaekker}
-              meUid={meUid}
-              aabenUid={aabenUid}
-              onToggle={toggleUid}
-            />
+            <>
+              {/* Under et liga-filter med startrunde er tabellen ovenfor på
+                  LIGAENS skala; regnskabet her er spillets. Uden sætningen
+                  ville de to tal ligne en fejl. */}
+              {ligaGate && (
+                <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
+                  Regnskabet viser spillets samlede point.{ligaGate}
+                </p>
+              )}
+              <OpdelingsTabel
+                rows={alleRaekker}
+                meUid={meUid}
+                aabenUid={aabenUid}
+                onToggle={toggleUid}
+              />
+            </>
           ) : (
             listRows.length > 0 && (
               <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -419,7 +447,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
               <SpillerDetalje
                 game={game}
                 matches={matches}
-                spiller={aabenRow}
+                // Spillets total: detaljen lister runder fra SPILLETS start,
+                // og dens sum skal ramme det tal, den selv viser.
+                spiller={{ ...aabenRow, totalPoints: aabenRow.spilTotal ?? aabenRow.totalPoints }}
                 onLuk={() => setAabenUid(null)}
               />
             )}

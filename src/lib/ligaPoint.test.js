@@ -79,7 +79,12 @@ describe('puljen', () => {
   // Superligaens `puljeLockAt` er 1. august 15:59 UTC, altså LIGE FØR runde 2
   // (første kamp 16:00 UTC). Strengt taget kunne kun en liga fra runde 2 have
   // haft alle medlemmer inde før deadline. Ejeren har valgt 3, altså ét rundes
-  // slæk. Ændres grænsen, skal tallet her ændres bevidst — ikke opdages.
+  // slæk.
+  //
+  // TESTEN DOKUMENTERER — DEN BINDER IKKE. `puljeLockAt` er admin-sat
+  // produktionsdata; flyttes deadlinen i admin, bliver intet her rødt. Datoen
+  // herunder er en afskrift af, hvad der stod, da grænsen blev valgt, så
+  // regnestykket bag slækket kan efterprøves — ikke en vagt mod ændringer.
   it('giver præcis ét rundes slæk i forhold til puljens deadline', () => {
     const PULJE_LUKKER = Date.parse('2026-08-01T15:59:00Z');
     const RUNDE_2_START = Date.parse('2026-08-01T16:00:00Z');
@@ -162,5 +167,26 @@ describe('runde-vektoren summer til spillets total', () => {
     // BÆRENDE: combien må ikke havne i runde 2 — så ville en liga fra runde 2
     // arve en bonus, den ikke var med til at vinde.
     expect(o.perRunde['2']).toBeLessThan(o.perRunde['1']);
+  });
+
+  // SPEJLBILLEDET af testen ovenfor — og den er ikke pynt. Fixturet ovenfor
+  // vinder kun combi i runde 1, så mutationen "læg AL combi i runde 1" bestod
+  // med grøn suite: der var ingen combi andre steder at flytte. Her vindes den
+  // i runde 2, og BEGGE runder er sømmet fast med præcise tal.
+  it('lægger combien i runde 2, når den vindes DÉR — og runde 1 får intet', () => {
+    const bets = [
+      { matchId: 'm1', pick: '1', points: 5.42 }, // ramt
+      { matchId: 'm2', pick: '1', points: 0 },    // forbi → ingen combi i runde 1
+      { matchId: 'm3', pick: '2', points: 3.5 },  // ramt
+      { matchId: 'm4', pick: '1', points: 2.9 },  // ramt → combi i runde 2
+    ];
+    const o = opdelPoint({ bets, roundCtx: buildRoundContext(KAMPE), puljeBonus: 0, nowMs: NU });
+    // Runde 1: KUN de rå point — 5,4. Får den så meget som en tiendedel combi,
+    // er bonussen havnet i en runde, den ikke blev vundet i.
+    expect(o.perRunde['1']).toBe(5.4);
+    // Runde 2: rå 3,5 + 2,9 = 6,4 PLUS combi — altså skarpt over 6,4.
+    expect(o.perRunde['2']).toBeGreaterThan(6.4);
+    // …og en liga fra runde 2 får hele sin combi med.
+    expect(ligaPoint(o.perRunde, 2, 0)).toBe(o.perRunde['2']);
   });
 });

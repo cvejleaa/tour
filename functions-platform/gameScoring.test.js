@@ -96,7 +96,33 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
   // beskytte noget.
   const applyOp = (ref, data, opts) => {
     if (ref.__bet) { Object.assign(ref.__bet.data, data); return; }
-    if (ref.__player) { players[ref.__player] = { ...(players[ref.__player] || {}), ...data }; return; }
+    if (ref.__player) {
+      const cur = players[ref.__player] || {};
+      // FAKEN SKAL SKELNE FIRESTORES TRE SKRIVE-SEMANTIKKER, ellers er QC's
+      // fund (forældede rundenøgler i perRound) utestbart:
+      //   merge:true    → maps DEEP-merges (en gammel nøgle overlever)
+      //   mergeFields   → hvert nævnt felt erstattes HELT
+      //   update        → som mergeFields over alle data-nøgler
+      //   set uden opts → hele dokumentet erstattes
+      if (opts && opts.merge) {
+        const ud = { ...cur };
+        for (const [k, v] of Object.entries(data)) {
+          ud[k] = (v && typeof v === 'object' && !Array.isArray(v) && cur[k] && typeof cur[k] === 'object')
+            ? { ...cur[k], ...v }
+            : v;
+        }
+        players[ref.__player] = ud;
+      } else if (opts && opts.mergeFields) {
+        const ud = { ...cur };
+        for (const felt of opts.mergeFields) {
+          if (felt in data) ud[felt] = data[felt];
+        }
+        players[ref.__player] = ud;
+      } else {
+        players[ref.__player] = { ...data };
+      }
+      return;
+    }
     // FULD ERSTATNING, ikke merge — spejler set() uden { merge: true }. Faken
     // skal opføre sig som Firestore her, ellers kan testene ikke se forskel på
     // "rækken er væk" og "rækken blev bare ikke skrevet igen".
@@ -122,7 +148,11 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
     },
     batch: () => ({
       _ops: [],
-      update(ref, data, precondition) { this._ops.push({ ref, data, precondition }); },
+      // update rører KUN de angivne felter — i faken udtrykt som mergeFields
+      // over dem alle. Uden det ville rank-snapshotten slette spillerens total.
+      update(ref, data, precondition) {
+        this._ops.push({ ref, data, precondition, opts: { mergeFields: Object.keys(data) } });
+      },
       set(ref, data, opts) { this._ops.push({ ref, data, opts }); },
       async commit() {
         for (const op of this._ops) {
@@ -223,6 +253,10 @@ describe('recomputeGameMatchCore', () => {
       result: 'X', odds: { 1: 2, X: 3, 2: 4 }, round: 1,
     });
     expect(db._players.A.opdeling).toEqual({ p1x2: 3, chance: 0, combi: 0, pulje: 0 });
+    // Runde-vektoren er LIGAERNES eneste grundlag. Uden denne assertion kunne
+    // `perRound` fjernes fra skrivningen med hele suiten grøn — og enhver liga
+    // med startrunde ville stå som "ikke klar" for alle, tavst.
+    expect(db._players.A.perRound).toEqual({ 1: 3 });
     expect(db._players.A.totalPoints).toBe(3);
   });
 
@@ -485,6 +519,42 @@ describe('startRound gater på serveren — uden nogen startdato', () => {
 // den påstand var utestet: gaten kunne erstattes med et tomt sæt med hele
 // suiten grøn, og så ville en bagfyldning give point for runder, spillet ikke
 // tæller.
+// ---------------------------------------------------------------------------
+// FORÆLDEDE RUNDENØGLER MÅ IKKE OVERLEVE.
+//
+// QC's fund: perRound blev skrevet med merge:true, som DEEP-merger maps. En
+// rundenøgle, der forsvandt fra den nye vektor — et facit fjernet, en kamp
+// omscoret til 0 — blev stående, og ligaens total indeholdt tavst point,
+// spillet ikke længere havde. QC målte det i miniature: spillets total 0,
+// ligaens 3,5. Derfor mergeFields, og derfor denne test.
+// ---------------------------------------------------------------------------
+describe('recalcPlayerTotal — perRound erstattes helt', () => {
+  it('fjerner en rundenøgle, der ikke længere har point bag sig', async () => {
+    const KAMPE = [
+      // Runde 3's kamp har MISTET sit facit (understøttet sti); runde 4 står.
+      { id: 'r3', round: 3, kickoff: 100, result: null, odds: { 1: 2, X: 3, 2: 4 } },
+      { id: 'r4', round: 4, kickoff: 200, result: '1', odds: { 1: 2, X: 3, 2: 4 } },
+    ];
+    const db = makeDb(
+      [
+        { uid: 'A', matchId: 'r3', pick: '1', chanceStake: 0, points: 0 },
+        { uid: 'A', matchId: 'r4', pick: '1', chanceStake: 0, points: 2 },
+      ],
+      KAMPE,
+      {},
+      // Den GAMLE vektor fra dengang runde 3 havde facit.
+      { A: { totalPoints: 5.5, perRound: { 3: 3.5, 4: 2 } } },
+    );
+    await recomputeAllPlayerTotals(db, FieldValue, 'g1');
+    // Nøglen '3' skal være VÆK — ikke stå tilbage med 3,5. Med merge:true
+    // ville den overleve, og en liga fra runde 3 ville tælle den med.
+    expect(db._players.A.perRound['3']).toBeUndefined();
+    expect(db._players.A.perRound[3]).toBeUndefined();
+    expect(Number(db._players.A.perRound['4'] ?? db._players.A.perRound[4])).toBe(2);
+    expect(db._players.A.totalPoints).toBe(2);
+  });
+});
+
 describe('rescoreAllBets — gaten', () => {
   const KAMPE = [
     { id: 'r1a', round: 1, kickoff: 100, result: '1', odds: { 1: 2, X: 3, 2: 4 } },

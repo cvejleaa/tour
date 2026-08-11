@@ -146,12 +146,10 @@ vi.mock('./gameLeagueActions', async (orig) => ({
   deleteLeague: vi.fn(),
   setLeagueStartRound: (...a) => mockSetStartRound(...a),
 }));
+// Foranderlig, så badge-testene kan prøve BEGGE sider af puljegrænsen.
+let mockLigaer = [];
 vi.mock('./useGameLeagues', () => ({
-  useGameLeagues: () => ({
-    leagues: [{ id: 'kon', name: 'Kontoret', code: 'KODE12', ownerUid: 'A', memberUids: ['A', 'B'], startRound: 20 }],
-    loading: false,
-    error: null,
-  }),
+  useGameLeagues: () => ({ leagues: mockLigaer, loading: false, error: null }),
 }));
 vi.mock('./useGameStandings', () => ({ useGameStandings: () => ({ standings: RÆKKER }) }));
 vi.mock('./useLeagueMessages', () => ({ useLeagueMessages: () => ({ messages: [], loading: false, error: null }) }));
@@ -163,6 +161,7 @@ describe('liga-kortet', () => {
   beforeEach(() => {
     cleanup();
     mockSetStartRound.mockResolvedValue({ ok: true });
+    mockLigaer = [{ id: 'kon', name: 'Kontoret', code: 'KODE12', ownerUid: 'A', memberUids: ['A', 'B'], startRound: 20 }];
   });
 
   const tegn = () => render(
@@ -178,6 +177,17 @@ describe('liga-kortet', () => {
     // Startrunde 20 > grænsen på 3: puljereglen skal stå på kortet, ikke
     // opdages i stillingen ved sæsonslut.
     expect(badge.textContent).toContain('puljen tæller ikke');
+  });
+
+  // DEN ANDEN SIDE AF GRÆNSEN. Uden denne test kunne "· puljen tæller ikke"
+  // vises UBETINGET med grøn suite — og en liga fra runde 2, hvis stilling
+  // faktisk tæller puljen med, ville have en badge, der modsagde dens egne tal.
+  it('nævner IKKE puljen for en liga inden for grænsen', () => {
+    mockLigaer = [{ id: 'kon', name: 'Kontoret', code: 'KODE12', ownerUid: 'A', memberUids: ['A', 'B'], startRound: 2 }];
+    tegn();
+    const badge = screen.getByTestId('liga-startrunde');
+    expect(badge.textContent).toContain('Tæller fra runde 2');
+    expect(badge.textContent).not.toContain('puljen tæller ikke');
   });
 
   it('ejeren kan sætte runden, og den gemmes som TAL', async () => {

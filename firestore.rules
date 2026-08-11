@@ -649,7 +649,7 @@ service cloud.firestore {
           && request.auth.uid == uid
           && request.resource.data.uid == uid
           && !request.resource.data.keys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'leagueIds']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds']);
 
         // Opdatér eget medlemskab, men aldrig point-/placerings-/liga-felterne.
         //
@@ -674,8 +674,13 @@ service cloud.firestore {
         allow update: if isApproved()
           && request.auth.uid == uid
           && request.resource.data.get('uid', uid) == uid
+          // `perRound` STÅR PÅ LISTEN AF SAMME GRUND SOM totalPoints: ligaens
+          // stilling regnes af den, både i fladen og af Runde-Botten. Uden den
+          // her kunne et medlem skrive { perRound: { '20': 1000000 } } og toppe
+          // enhver liga med en startrunde — mens spil-stillingen så normal ud,
+          // fordi totalPoints var urørt. Fundet af Security Reviewer.
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'leagueIds', 'name']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds', 'name']);
 
         // Man kan fortryde en tilmelding (forlade spillet) SÅ LÆNGE der endnu
         // ikke er tildelt point — så en placering ikke kan gå tabt ved uheld.
@@ -847,26 +852,27 @@ service cloud.firestore {
       match /leagues/{leagueId} {
         allow read: if isApproved() && request.auth.uid in resource.data.memberUids;
 
-        // Opret: godkendt deltager, ejer = selv, medlemmer = kun selv.
-        allow create: if isApproved()
-          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
-          && request.resource.data.ownerUid == request.auth.uid
-          && request.resource.data.memberUids == [request.auth.uid]
-          && request.resource.data.name is string
-          && request.resource.data.code is string;
-
         // startRound afgør, hvilke RUNDER der tæller i ligaens stilling —
-        // den må derfor kun være et helt tal >= 1 (eller slet ikke sat).
-        // Uden vagten kunne en ejer skrive en streng eller et decimaltal fra
-        // browseren, og gaten ville tavst holde op med at matche `m.round`.
-        // "Serveren er eneste autoritet" — men feltet SKRIVES af ejeren, så
-        // valideringen skal stå her, hvor skrivningen sker.
+        // kun et helt tal >= 1, eller slet ikke sat/null. Valideres BÅDE ved
+        // create og update: en streng eller et decimaltal ville stå i basen
+        // og aldrig matche `m.round`, og gaten ville tavst holde op med at
+        // virke. (Klienterne er defensive med Number.isFinite, men reglen er
+        // vagten — ikke klienten.)
         function startRoundGyldig() {
           return !('startRound' in request.resource.data)
             || request.resource.data.startRound == null
             || (request.resource.data.startRound is int
               && request.resource.data.startRound >= 1);
         }
+
+        // Opret: godkendt deltager, ejer = selv, medlemmer = kun selv.
+        allow create: if isApproved()
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.memberUids == [request.auth.uid]
+          && request.resource.data.name is string
+          && request.resource.data.code is string
+          && startRoundGyldig();
 
         // Opdatér: (a) ejer omdøber/sætter startrunde (medlemmer uændret), ELLER
         //          (b) et medlem forlader (fjerner KUN sig selv).
