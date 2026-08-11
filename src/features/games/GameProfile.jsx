@@ -68,9 +68,14 @@ export default function GameProfile({ game, me }) {
           og den kode er slået fra på platformen. Yndlingsholdet gjorde altså
           INTET synligt uden for det her kort. Nu passer sætningen, og den siger
           RING frem for "farve", fordi fyldet stadig er den personlige farve. */}
+      {/* TO VIRKNINGER, TO FARVER — og de er med vilje forskellige. Ringen er
+          TRØJEN (FCK hvid), temaet er KLUBFARVEN (FCK marineblå). Nævnes kun
+          den ene, ser den anden ud som en fejl. Se `klubFarverAf` og
+          `klubAccentAf` i football/badges.js. */}
       <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
-        Vælg dit <strong>yndlingshold</strong> i dette spil. Din avatar får holdets farve som ring
-        om sig i stillingen og i dine ligaer. Holdet gælder kun her — andre spil har deres egne hold.
+        Vælg dit <strong>yndlingshold</strong> i dette spil. Din avatar får trøjens farve som ring
+        om sig i stillingen og i dine ligaer, og hele spillet toner over i klubbens farve.
+        Holdet gælder kun her — andre spil har deres egne hold, og resten af siden bliver grøn.
       </p>
 
       <div className="flex items-center" style={{ gap: '0.75rem', margin: '0.5rem 0 1rem' }}>

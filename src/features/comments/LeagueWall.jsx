@@ -93,7 +93,7 @@ export default function LeagueWall({ leagueId, meUid, myName, myEmoji = null, my
                 key={c.id}
                 data-testid="league-comment"
                 style={{
-                  background: mine ? 'var(--c-pitch-tint, rgba(0,128,0,0.06))' : 'var(--c-surface-2, #f7f7f7)',
+                  background: mine ? 'var(--c-pitch-tint)' : 'var(--c-surface-2)',
                   borderRadius: 10,
                   padding: '0.55rem 0.7rem',
                 }}
