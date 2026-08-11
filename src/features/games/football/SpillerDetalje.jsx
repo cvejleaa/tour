@@ -9,7 +9,8 @@
  * der afgør det (pointOpdeling), ikke denne flade.
  */
 import { useMemo } from 'react';
-import { groupByRound, afterStart, toMillis } from './footballRounds';
+import { groupByRound } from './footballRounds';
+import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 import { teamsOf } from './teamInfo';
 import { buildTipsHistory } from './tipsHistory';
 import { useSpillerOpdeling } from './useSpillerOpdeling';
@@ -22,8 +23,8 @@ import TipsHistorik from './TipsHistorik';
 export default function SpillerDetalje({ game, matches, spiller, onLuk }) {
   const { kampe, loading, error } = useSpillerOpdeling(game?.id, spiller?.uid);
 
-  const startMs = toMillis(game?.startAt);
-  const shownMatches = useMemo(() => afterStart(matches, startMs), [matches, startMs]);
+  const startRunde = useMemo(() => startRundeFor(game, matches), [game, matches]);
+  const shownMatches = useMemo(() => fraStartRunde(matches, startRunde), [matches, startRunde]);
   const rounds = useMemo(() => groupByRound(shownMatches), [shownMatches]);
   const history = useMemo(
     // Puljebonussen er allerede med i spillerens gemte total; her ville den

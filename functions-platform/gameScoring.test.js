@@ -338,13 +338,75 @@ describe('recomputeGameMatchCore', () => {
   });
 });
 
-describe('gatedIds (kampe før spillets start)', () => {
-  it('uden startAt: tom mængde', () => {
-    expect(gatedIds([{ id: 'm1', kickoff: 100 }], null).size).toBe(0);
+describe('gatedIds (kampe før spillets startrunde)', () => {
+  it('uden gate: tom mængde', () => {
+    expect(gatedIds([{ id: 'm1', round: 1, kickoff: 100 }], null).size).toBe(0);
+    expect(gatedIds([{ id: 'm1', round: 1, kickoff: 100 }], {}).size).toBe(0);
   });
-  it('markerer kun kampe med kickoff FØR start', () => {
-    const g = gatedIds([{ id: 'm1', kickoff: 100 }, { id: 'm2', kickoff: 500 }, { id: 'm3', kickoff: 900 }], 500);
-    expect([...g]).toEqual(['m1']); // 500 er PÅ start → tæller med
+
+  it('gater HELE runder under startrunden', () => {
+    const kampe = [
+      { id: 'm1', round: 1, kickoff: 100 },
+      { id: 'm2', round: 2, kickoff: 500 },
+      { id: 'm3', round: 2, kickoff: 900 },
+      { id: 'm4', round: 3, kickoff: 1300 },
+    ];
+    expect([...gatedIds(kampe, { startRound: 2 })]).toEqual(['m1']);
+    expect([...gatedIds(kampe, { startRound: 3 })]).toEqual(['m1', 'm2', 'm3']);
+  });
+
+  // BÆRENDE — HELE GRUNDEN TIL, AT GATEN BLEV LAVET OM.
+  //
+  // Superligaens runde 3 spilles 7.-10. august bortset fra to kampe, der
+  // ligger 2.-3. september — altså efter hele runde 4, 5 og 6. Formen her er
+  // afskrevet derfra. Med den GAMLE dato-gate midt i spændet blev runden
+  // skåret over: de to sene kampe talte, de fire tidlige gjorde ikke, og
+  // combi-kuponen blev bygget af de to. `roundComboBonus` er uafhængig af
+  // kuponens størrelse, så der ville blive udbetalt en helt normal
+  // to-kamps-combi på en halv runde.
+  it('kan ikke skære en runde over, uanset hvornår kampene ligger', () => {
+    const spredt = [
+      { id: 'r3a', round: 3, kickoff: 700 }, { id: 'r3b', round: 3, kickoff: 710 },
+      { id: 'r3c', round: 3, kickoff: 720 }, { id: 'r3d', round: 3, kickoff: 730 },
+      { id: 'r3e', round: 3, kickoff: 9000 }, { id: 'r3f', round: 3, kickoff: 9100 },
+      { id: 'r4a', round: 4, kickoff: 1400 }, { id: 'r4b', round: 4, kickoff: 1410 },
+    ];
+    // Uanset hvilken startrunde man vælger, er runde 3 enten HELT med…
+    expect([...gatedIds(spredt, { startRound: 3 })]).toEqual([]);
+    // …eller HELT ude. Aldrig fire ude og to med.
+    const uden3 = [...gatedIds(spredt, { startRound: 4 })];
+    expect(uden3).toEqual(['r3a', 'r3b', 'r3c', 'r3d', 'r3e', 'r3f']);
+    expect(uden3).toHaveLength(6);
+  });
+
+  // OVERGANGEN. Spil, der endnu ikke har fået et `startRound`, skal gate
+  // præcis som før — ellers ville en udrulning lukke runde 1 op for point.
+  it('falder tilbage på det gamle startAt og oversætter det til en runde', () => {
+    const kampe = [
+      { id: 'm1', round: 1, kickoff: 100 },
+      { id: 'm2', round: 2, kickoff: 500 },
+      { id: 'm3', round: 2, kickoff: 900 },
+    ];
+    // 500 er PÅ runde 2's første kamp → runde 2 er startrunden, runde 1 gates.
+    expect([...gatedIds(kampe, { startAt: 500 })]).toEqual(['m1']);
+    // Et sekund senere peger på runde 2 ENDNU, fordi runden ikke kan skæres
+    // over — hele runde 2 ryger ud først ved en dato efter dens sidste kamp.
+    expect([...gatedIds(kampe, { startAt: 501 })]).toEqual(['m1', 'm2', 'm3']);
+  });
+
+  it('lader startRound vinde over et gammelt startAt', () => {
+    const kampe = [{ id: 'm1', round: 1, kickoff: 100 }, { id: 'm2', round: 2, kickoff: 500 }];
+    expect([...gatedIds(kampe, { startAt: 500, startRound: 1 })]).toEqual([]);
+  });
+
+  // En kamp uden rundenummer gates ALDRIG. `null < 2` er sandt i JavaScript og
+  // `undefined < 2` er falsk — to forskellige svar på det samme spørgsmål.
+  it('rører aldrig en kamp uden rundenummer', () => {
+    const kampe = [
+      { id: 'ingen', kickoff: 10 }, { id: 'null', round: null, kickoff: 20 },
+      { id: 'm2', round: 2, kickoff: 500 },
+    ];
+    expect([...gatedIds(kampe, { startRound: 5 })]).toEqual(['m2']);
   });
 });
 

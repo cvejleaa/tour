@@ -11,6 +11,7 @@
 // stillingen, betyder, at ligavæggen kan komme til at sige et andet tal end
 // stillingen, uden at én test falder.
 const { buildRoundContext, combiBonus } = require('./pointOpdeling');
+const { gatedeKampe, startRundeFor } = require('./startGate');
 
 // 'in' tager højst 30 værdier pr. forespørgsel.
 const IN_CHUNK = 30;
@@ -101,15 +102,6 @@ function sanitizeName(name) {
   return cut || 'Spiller';
 }
 
-/** ms fra Firestore-Timestamp | tal | ISO. */
-function toMs(k) {
-  if (k == null) return null;
-  if (typeof k === 'number') return k;
-  if (typeof k === 'string') { const n = Date.parse(k); return Number.isNaN(n) ? null : n; }
-  if (typeof k.toMillis === 'function') return k.toMillis();
-  if (k.seconds != null) return k.seconds * 1000;
-  return null;
-}
 
 /** Er kampens udfald en "stor overraskelse"? (udfaldets odds ≥ 3.5) */
 function isSurprise(m) {
@@ -219,14 +211,13 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
   if (!gameSnap.exists) return { posted: 0, reason: 'no-game' };
   const game = gameSnap.data();
   if (game.aiRecaps === false) return { posted: 0, reason: 'disabled' };
-  const startMs = toMs(game.startAt);
-
   const matchesSnap = await gameRef.collection('matches').get();
-  const all = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    .filter((m) => {
-      const k = toMs(m.kickoff);
-      return startMs == null || k == null || k >= startMs; // start-gate
-    });
+  const alleKampe = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  // START-GATE. Samme sæt som pointgivningen bruger — botten må ikke skrive om
+  // en runde, spillet ikke tæller. Den var før en dato-sammenligning her, og
+  // kunne dermed komme til at referere en HALV runde.
+  const gatede = gatedeKampe(alleKampe, startRundeFor(game, alleKampe));
+  const all = alleKampe.filter((m) => !gatede.has(m.id));
 
   // Find runden: angivet, ellers den SENESTE runde hvor alle kampe har facit.
   const byRound = new Map();

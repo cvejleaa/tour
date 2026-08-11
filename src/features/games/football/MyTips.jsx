@@ -8,7 +8,8 @@
  */
 import { useMemo } from 'react';
 import { useGameBets } from '../useGameBets';
-import { groupByRound, afterStart, toMillis } from './footballRounds';
+import { groupByRound } from './footballRounds';
+import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 import { teamsOf } from './teamInfo';
 import { buildTipsHistory } from './tipsHistory';
 import TipsHistorik from './TipsHistorik';
@@ -18,8 +19,8 @@ export default function MyTips({ game, matches, me }) {
   const gameId = game?.id;
   const { betsByMatch, loading } = useGameBets(gameId);
   // Skjul kampe før spillets starttidspunkt (som i tip-fladen).
-  const startMs = toMillis(game?.startAt);
-  const shownMatches = useMemo(() => afterStart(matches, startMs), [matches, startMs]);
+  const startRunde = useMemo(() => startRundeFor(game, matches), [game, matches]);
+  const shownMatches = useMemo(() => fraStartRunde(matches, startRunde), [matches, startRunde]);
   const rounds = useMemo(() => groupByRound(shownMatches), [shownMatches]);
   // Puljebonussen står på spilleren og skal med i totalen — ellers siger Mine
   // tips et andet tal end Stilling for samme spiller.

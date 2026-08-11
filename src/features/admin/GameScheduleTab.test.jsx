@@ -29,6 +29,14 @@ vi.mock('./adminActions', () => ({
   callRepriceGameOdds: (...a) => mockReprice(...a),
 }));
 
+// Kamplisten til rundevælgeren hentes med getDocs — den hentes FØRST når
+// ejeren beder om at vælge en runde, og attrappen skal kunne bevise begge dele.
+const mockGetDocs = vi.fn();
+vi.mock('firebase/firestore', () => ({
+  collection: (...a) => ({ __sti: a.slice(1) }),
+  getDocs: (...a) => mockGetDocs(...a),
+}));
+
 import GameScheduleTab from './GameScheduleTab';
 
 const TOUR = {
@@ -481,5 +489,98 @@ describe('ompris kampene', () => {
     fireEvent.click(toerKnap());
     await waitFor(() => expect(screen.getByText(/allerede i takt med modellen/i)).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /Skriv de/i })).not.toBeInTheDocument();
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// STARTRUNDEN — DEN, DER GATER.
+//
+// Gaten var en dato, og en dato kan skære en runde midt over: Superligaens
+// runde 3 spilles 7.-10. august bortset fra to kampe den 2.-3. september.
+// Feltet her er det eneste sted, en ejer kan sætte runden — uden det ville
+// `startRound` være maskineri, ingen kunne komme til.
+// ---------------------------------------------------------------------------
+describe('startrunde-vælgeren', () => {
+  const SPIL = {
+    id: 'sl', name: 'Superligaen', emoji: '⚽', type: 'football', status: 'live',
+    startAt: Date.parse('2026-08-01T15:59:00Z'),
+  };
+  const KAMPE = [
+    { id: 'r1a', round: 1, kickoff: Date.parse('2026-07-24T17:00:00Z') },
+    { id: 'r2a', round: 2, kickoff: Date.parse('2026-08-01T16:00:00Z') },
+    { id: 'r3a', round: 3, kickoff: Date.parse('2026-08-07T17:00:00Z') },
+    // Den udsatte — runde 3 rækker helt ind i september.
+    { id: 'r3f', round: 3, kickoff: Date.parse('2026-09-03T16:00:00Z') },
+  ];
+
+  beforeEach(() => {
+    mockGames.mockReturnValue({ games: [SPIL], loading: false });
+    mockSetGameSchedule.mockResolvedValue({ ok: true });
+    mockSetGameStatus.mockResolvedValue({ ok: true });
+    mockGetDocs.mockResolvedValue({ docs: KAMPE.map((m) => ({ id: m.id, data: () => m })) });
+  });
+
+  // BÆRENDE. Fanen viser alle spil på én gang, og Superligaen alene har 132
+  // kampe. Hentedes listen ved render, ville et besøg for at skifte en status
+  // koste hundredvis af læsninger.
+  it('henter IKKE kampene, før nogen vil vælge en runde', () => {
+    render(<GameScheduleTab />);
+    expect(mockGetDocs).not.toHaveBeenCalled();
+  });
+
+  it('viser spillets runder med deres spænd, når man åbner vælgeren', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Vælg runde/ }));
+    expect(mockGetDocs).toHaveBeenCalledTimes(1);
+    // Runde 3 spænder over mere end en uge — og det SKAL kunne ses, for det er
+    // hele grunden til, at gaten tæller runder og ikke dage.
+    const r3 = await screen.findByRole('option', { name: /Runde 3/ });
+    expect(r3.textContent).toMatch(/aug/);
+    expect(r3.textContent).toMatch(/sep/);
+  });
+
+  it('viser hvilken runde den gamle startdato svarer til', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Vælg runde/ }));
+    // startAt 15:59 UTC, runde 2 begynder 16:00 UTC — ét minut efter.
+    const standard = await screen.findByRole('option', { name: /Udled af startdatoen/ });
+    expect(standard.textContent).toMatch(/runde 2/);
+  });
+
+  it('gemmer den valgte runde som et TAL', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Vælg runde/ }));
+    const vaelger = await screen.findByLabelText('Startrunde for Superligaen');
+    fireEvent.change(vaelger, { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
+    const [id, patch] = mockSetGameSchedule.mock.calls[0];
+    expect(id).toBe('sl');
+    // Et TAL, ikke strengen '3'. `m.round` er et tal, og en streng ville
+    // aldrig matche — gaten ville stille holde op med at virke.
+    expect(patch.startRound).toBe(3);
+    expect(typeof patch.startRound).toBe('number');
+  });
+
+  it('rører ikke runden, når man kun kom for at skifte status', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameStatus.mock.calls.length + mockSetGameSchedule.mock.calls.length)
+      .toBeGreaterThanOrEqual(0));
+    for (const [, patch] of mockSetGameSchedule.mock.calls) {
+      expect(patch).not.toHaveProperty('startRound');
+    }
+  });
+
+  it('kan rydde runden igen', async () => {
+    mockGames.mockReturnValue({ games: [{ ...SPIL, startRound: 3 }], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Runde 3 — skift/ }));
+    const vaelger = await screen.findByLabelText('Startrunde for Superligaen');
+    fireEvent.change(vaelger, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
+    expect(mockSetGameSchedule.mock.calls[0][1].startRound).toBeNull();
   });
 });

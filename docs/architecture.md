@@ -71,11 +71,26 @@ uforanderlige efter oprettelsen.
 
 ## To invarianter
 
-**1. `game.startAt` gater alt.** Kampe med kickoff før spillets starttidspunkt
-vises ikke (`footballRounds.afterStart`), giver ingen point (`gameScoring.gatedIds`)
-og udløser ingen påmindelser (`reminders.upcomingMatches`). Så en sæson kan
-starte midt i. Efter et skift i `startAt` skal totalerne genberegnes — knappen
-🔄 **Genberegn point** i Admin → Spil-planlægning.
+**1. `game.startRound` gater alt.** Kampe i runder før spillets startrunde
+vises ikke (`startGate.fraStartRunde`), giver ingen point
+(`gameScoring.gatedIds`), udløser ingen påmindelser
+(`reminders.upcomingMatches`) og nævnes ikke af Runde-Botten
+(`gameRecap.runGameRoundRecap`). Så en sæson kan starte midt i. Efter et skift
+i `startRound` skal totalerne genberegnes — knappen 🔄 **Genberegn point** i
+Admin → Spil-tidsplan.
+
+Beslutningen ligger ÉT sted: `src/lib/startGate.js`, spejlet til
+`functions-platform/startGate.js`. Den lå før som en dato-sammenligning ni
+steder, og en dato kan skære en runde midt over: Superligaens runde 3 spilles
+7.-10. august bortset fra to kampe den 2.-3. september. Med en dato i det spænd
+gav de to sene kampe point, mens de fire tidlige ikke gjorde — og combi-kuponen
+blev bygget af de to, hvorefter runden talte som afgjort og Runde-Botten skrev
+om den. Med runder kan det ikke ske: en runde er enten helt med eller helt ude.
+
+`game.startAt` findes stadig som **fald-tilbage** for spil, der endnu ikke har
+fået en `startRound`, og oversættes da med `rundeForTidspunkt` til den første
+runde, der begynder på eller efter tidspunktet. Feltet forsvinder, når alle spil
+har en startrunde.
 
 **2. `leagueIds` styrer, hvem der ser hvad.** Både stillingen og andres tips er
 jeres indbyrdes opgør: man ser kun spillere, man deler mindst én liga med.

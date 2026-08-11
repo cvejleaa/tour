@@ -17,6 +17,7 @@ export default defineConfig({
       'inviteTemplate.test.js',
       'reminders.test.js',
       'playerLeagues.test.js',
+      'startGate.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

@@ -35,7 +35,9 @@ bevarede kodeord.
    For **Premier League** findes der intet workflow-step — begge steps er
    hårdkodet til `superliga2627`. Første seed køres derfor lokalt; se
    "Seed et nyt fodbold-spil" nedenfor.
-3. Sæt **startAt** og **puljeLockAt** i Admin → Spil-planlægning.
+3. Sæt **startrunde** og **puljeLockAt** i Admin → Spil-tidsplan. Startrunden
+   vælges fra en liste over spillets runder med datointerval; vælger man
+   ingen, udledes den af den gamle startdato.
 4. Inviter spillere. Ligaer oprettes af spillerne selv; koden i invitationslinket
    tilmelder dem i ét klik.
 5. **Backfill liga-adgang** — kun nødvendig hvis liga-medlemskaber er kommet ind
@@ -173,10 +175,11 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 | "Ingen tips at vise fra dine ligaer" på en spillet kamp | `bets.leagueIds` mangler (tip skrevet før feltet fandtes) → samme backfill |
 | "Kunne ikke hente ligaens tips" | Composite-indexet `bets` (matchId + leagueIds) er ikke bygget færdigt → tjek Firestore → Indexes |
 | Stillingen viser kun dig selv | Du er ikke med i en liga endnu — det er den forventede visning |
-| Runde 1 mangler i spillet | `game.startAt` ligger efter runde 1. Det er tilsigtet; ryd feltet for at vise alt |
-| Point mangler for tidlige runder | Samme gate. Efter et skift i `startAt`: tryk 🔄 **Genberegn point** |
+| Runde 1 mangler i spillet | `game.startRound` er 2 eller højere. Det er tilsigtet; vælg "ingen gate" for at vise alt |
+| Point mangler for tidlige runder | Samme gate. Efter et skift i `startRound`: tryk 🔄 **Genberegn point** |
+| En runde vises halvt | Kan ikke ske længere — gaten tæller hele runder. Sker det, er `m.round` ikke sat på nogle af kampene |
 | Point er forkerte efter en ændring af selve POINTREGLEN | 🔄 **Genberegn point** hjælper IKKE — se afsnittet nedenfor |
-| Ingen påmindelser sendt | Kampene ligger før `startAt`, eller `SMTP_PASSWORD` mangler i `spil-89af9` |
+| Ingen påmindelser sendt | Kampene ligger i en runde før `startRound`, eller `SMTP_PASSWORD` mangler i `spil-89af9` |
 | Runde-Botten poster ikke | `ANTHROPIC_API_KEY` mangler, ligaen har under 2 medlemmer, eller runden er allerede recappet (`game.recappedRounds`) |
 
 ## To slags genberegning — de retter IKKE det samme
@@ -186,7 +189,7 @@ ligner hinanden, men den ene kan ikke rette det, den anden retter.
 
 | Hvad er ændret | Værktøj | Hvorfor |
 |---|---|---|
-| `game.startAt` (gaten), en liga, en puljeafregning | 🔄 **Genberegn point** (`recomputeGameScores`) | `bets.points` er allerede rigtige; kun totalerne skal lægges sammen forfra |
+| `game.startRound` (gaten), en liga, en puljeafregning | 🔄 **Genberegn point** (`recomputeGameScores`) | `bets.points` er allerede rigtige; kun totalerne skal lægges sammen forfra |
 | **Selve pointreglen** i `superligaScoring.js` — fx træf-bonussen eller combi-formlen | **`rescoreGameBets`** | `bets.points` er kilden til totalen, og de står med det GAMLE tal |
 | **Odds-modellen** — `ELO.DRAW_BASE`, `DRAW_DECAY`, `ODDS.MIN`, seed-Elo | 💰 **Ompris kampene** (`repriceGameOdds`) | Odds er frosne på kamp-dokumentet. Hverken de to andre knapper eller et deploy rører dem — se nedenfor |
 

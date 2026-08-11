@@ -104,9 +104,10 @@ export default function FootballHelp() {
             {' '}<Tab fane="ligaer">👥 Ligaer</Tab> med vennerne, og vælg dit hold under <Tab fane="profil">🙂 Mit hold</Tab>.
           </li>
           <li>
-            <strong>Spillet kan starte midt i sæsonen.</strong> Kampe, der er spillet <em>før</em> spillets
-            startdato, vises ikke og giver ingen point — så alle er med fra samme runde. Derfor kan runde 1
-            mangle, hvis spillet først begynder ved runde 2.
+            <strong>Spillet kan starte midt i sæsonen.</strong> Runder <em>før</em> spillets startrunde
+            vises ikke og giver ingen point — så alle er med fra samme runde. Derfor kan runde 1 mangle,
+            hvis spillet først begynder ved runde 2. Det er hele runder, aldrig halve: en runde kan ligge
+            spredt over flere uger, hvis en kamp er udsat, og så følger de udsatte kampe deres egen runde.
           </li>
         </ul>
       </Section>

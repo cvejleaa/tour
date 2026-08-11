@@ -14,8 +14,15 @@ import {
   outcomePoints, outcomeReward, roundComboBonus, round1, isOutcome, outcomeFromScore,
 } from './superligaScoring';
 
-/** Millisekunder fra et Firestore-Timestamp | Date | tal | ISO-streng. */
-function kickoffMs(m) {
+/**
+ * Millisekunder fra et Firestore-Timestamp | Date | tal | ISO-streng.
+ *
+ * EKSPORTERET, fordi server-spejlet allerede eksporterede den. Så længe den kun
+ * var lokal her, kunne klienten ikke bruge den — og `startGate` ville have
+ * skullet skrive en fjerde kopi af den samme fem linjer. Præcis den drift,
+ * spejlingen findes for at forhindre.
+ */
+export function kickoffMs(m) {
   const k = m && m.kickoff;
   if (k == null) return null;
   if (typeof k === 'number') return k;
@@ -265,7 +272,7 @@ export function combiBonus(bets, roundCtx) {
 /**
  * Del en spillers point op i de fire kilder, spillet har.
  *
- * `bets` skal ALLEREDE være renset for gatede kampe (kampe før game.startAt) —
+ * `bets` skal ALLEREDE være renset for gatede kampe (runder før spillets start) —
  * samme kontrakt som recalcPlayerTotal har i dag. Filteret for "afgjort og
  * begyndt" bor derimod HER, så de to flader ikke kan blive uenige om, hvilke
  * kampe der tæller.

@@ -14,22 +14,11 @@ export function toMillis(t) {
   return null;
 }
 
-/**
- * Skjul kampe der ligger FØR spillets starttidspunkt (game.startAt). Bruges når
- * spillet først går i gang midt i sæsonen — så tæller/vises kun runder fra
- * starttidspunktet og frem. Uden starttidspunkt vises alle kampe.
- * Kampe uden kickoff bevares (kan ikke afgøres som "før start").
- * @param {Array<object>} matches
- * @param {number|null} startMs  millisekunder (fra toMillis(game.startAt))
- * @returns {Array<object>}
- */
-export function afterStart(matches, startMs) {
-  if (startMs == null) return matches || [];
-  return (matches || []).filter((m) => {
-    const k = toMillis(m.kickoff);
-    return k == null || k >= startMs;
-  });
-}
+// `afterStart(matches, startMs)` STOD HER. Den skjulte kampe med kickoff før
+// spillets startdato — og kunne dermed skjule fire kampe i en runde og vise de
+// to sidste, hvis runden lå spredt. Visningen og pointgivningen havde hver sin
+// kopi af den regel; nu har de den samme, og den tæller runder.
+// Se `fraStartRunde` i src/lib/startGate.js.
 
 /**
  * Grupper kampe i runder. Kampe uden runde-nummer samles i runde 0.

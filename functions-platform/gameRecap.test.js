@@ -420,12 +420,33 @@ describe('runGameRoundRecap', () => {
     expect(out).toMatchObject({ posted: 0, reason: 'round-not-settled', round: 2 });
   });
 
-  it('respekterer start-gaten: runde før startAt findes ikke for botten', async () => {
-    const db = makeDb({ ...base, game: { startAt: 150 } }); // m1 (kickoff 100) gated væk
+  // DEN HER TEST BESKREV FØR FEJLEN SOM ØNSKET ADFÆRD. Der stod ordret:
+  // "Runde 1 består nu kun af m2 (kickoff 200) — stadig afgjort, så den
+  // recappes", og den forventede `round: 1, posted: 1`. Altså: botten skrev et
+  // opslag om en runde, den havde set HALVDELEN af, fordi startAt lå mellem
+  // dens to kampe. Det er ikke en kant — det er hele grunden til, at gaten nu
+  // følger runder.
+  it('gater HELE runden, når det gamle startAt lå midt i den', async () => {
+    const db = makeDb({ ...base, game: { startAt: 150 } }); // midt i runde 1
     const out = await runGameRoundRecap(db, FieldValue, fakeAnthropic(), 'g1', null);
-    // Runde 1 består nu kun af m2 (kickoff 200) — stadig afgjort, så den recappes.
+    expect(out.posted).toBe(0);
+    expect(out.round).toBeUndefined();
+  });
+
+  // …og ligger datoen FØR runden, er hele runden med. Gaten runder altid OP til
+  // en hel runde: en kamp, der blev spillet før spillet fandtes, må aldrig give
+  // point, for ingen kunne have tippet den.
+  it('tager hele runden med, når startAt ligger før dens første kamp', async () => {
+    const db = makeDb({ ...base, game: { startAt: 50 } });
+    const out = await runGameRoundRecap(db, FieldValue, fakeAnthropic(), 'g1', null);
     expect(out.round).toBe(1);
     expect(out.posted).toBe(1);
+  });
+
+  it('respekterer en startrunde direkte', async () => {
+    const db = makeDb({ ...base, game: { startRound: 2 } });
+    const out = await runGameRoundRecap(db, FieldValue, fakeAnthropic(), 'g1', null);
+    expect(out.posted).toBe(0);
   });
 
   it('springer over når aiRecaps er slået fra', async () => {

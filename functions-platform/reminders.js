@@ -4,6 +4,9 @@
 // tippelige), og mail de deltagere der mangler at tippe på dem.
 // ---------------------------------------------------------------------------
 const { escapeHtml, sendEmail, emailByUidMap, APP_URL } = require('./mailer');
+// Samme gate som pointgivningen — en spiller må aldrig rykkes for en kamp,
+// der ikke giver point.
+const { gatedeKampe, startRundeFor } = require('./startGate');
 
 const DAY_MS = 24 * 3600 * 1000;
 // 'in' tager højst 30 værdier pr. forespørgsel.
@@ -29,18 +32,22 @@ function toMillis(v) {
 
 /**
  * Kampe i (now, now+24h) der stadig kan tippes (kickoff i fremtiden).
- * Kampe FØR spillets starttidspunkt (game.startAt) tælles ikke med — de vises
- * ikke i appen og giver ingen point, så der skal heller ikke rykkes for dem.
+ * Kampe FØR spillets startrunde tælles ikke med — de vises ikke i appen og
+ * giver ingen point, så der skal heller ikke rykkes for dem.
+ *
+ * `gatede` er et sæt af match-id'er, ikke et tidspunkt. Gaten er den samme som
+ * pointgivningens (`startGate`), så en spiller aldrig kan blive rykket for en
+ * kamp, der ikke giver point.
  * @param {Array<object>} matches
  * @param {Date} now
  * @param {Date} windowEnd
- * @param {number|null} [startMs] spillets starttidspunkt i ms
+ * @param {Set<string>|null} [gatede]
  */
-function upcomingMatches(matches, now, windowEnd, startMs = null) {
+function upcomingMatches(matches, now, windowEnd, gatede = null) {
   return matches.filter((m) => {
     const k = toMillis(m.kickoff);
     if (k == null) return false;
-    if (startMs != null && k < startMs) return false;
+    if (gatede && gatede.has(m.id)) return false;
     return k > now.getTime() && k < windowEnd.getTime();
   });
 }
@@ -54,13 +61,14 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
   const windowEnd = new Date(now.getTime() + DAY_MS);
   const gameRef = db.collection('games').doc(gameId);
 
-  // Spillets starttidspunkt afgør hvad der overhovedet er i spil.
-  const gameSnap = await gameRef.get();
-  const startMs = gameSnap.exists ? toMillis(gameSnap.data().startAt) : null;
-
-  const matchesSnap = await gameRef.collection('matches').get();
+  // Spillets startrunde afgør hvad der overhovedet er i spil.
+  const [gameSnap, matchesSnap] = await Promise.all([
+    gameRef.get(),
+    gameRef.collection('matches').get(),
+  ]);
   const matches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const upcoming = upcomingMatches(matches, now, windowEnd, startMs);
+  const gatede = gatedeKampe(matches, startRundeFor(gameSnap.exists ? gameSnap.data() : null, matches));
+  const upcoming = upcomingMatches(matches, now, windowEnd, gatede);
   if (upcoming.length === 0) return { sent: 0, reason: 'no-matches' };
   const upcomingIds = new Set(upcoming.map((m) => m.id));
 
@@ -123,13 +131,16 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
 /** Send en test-påmindelse KUN til admin selv med spillets næste kampe. */
 async function sendGameTestReminder(db, transporter, gameId, toEmail, displayName) {
   const gameRef = db.collection('games').doc(gameId);
-  const gameSnap = await gameRef.get();
-  const startMs = gameSnap.exists ? toMillis(gameSnap.data().startAt) : null;
-  const matchesSnap = await gameRef.collection('matches').get();
+  const [gameSnap, matchesSnap] = await Promise.all([
+    gameRef.get(),
+    gameRef.collection('matches').get(),
+  ]);
+  const alle = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const gatede = gatedeKampe(alle, startRundeFor(gameSnap.exists ? gameSnap.data() : null, alle));
   const nowMs = Date.now();
-  const next = matchesSnap.docs
-    .map((d) => ({ id: d.id, ...d.data(), _ms: toMillis(d.data().kickoff) }))
-    .filter((m) => m._ms != null && m._ms > nowMs && (startMs == null || m._ms >= startMs))
+  const next = alle
+    .map((m) => ({ ...m, _ms: toMillis(m.kickoff) }))
+    .filter((m) => m._ms != null && m._ms > nowMs && !gatede.has(m.id))
     .sort((a, b) => a._ms - b._ms)
     .slice(0, 6);
   const gameName = (gameSnap.exists && gameSnap.data().name) || 'spillet';

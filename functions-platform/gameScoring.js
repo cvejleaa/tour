@@ -12,6 +12,9 @@ const {
   scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeOdds,
   championshipTeams, puljeScore, round1,
 } = require('./superligaScoring');
+// Gaten — hvor spillet begynder. Ét modul, spejlet til klienten, fordi den
+// beslutning før lå fem steder i DEN HER fil alene.
+const { gatedeKampe, startRundeFor } = require('./startGate');
 // kickoffMs, matchOutcome og buildRoundContext bor i pointOpdeling, fordi
 // KLIENTEN skal bruge samme runde-kontekst for at kunne kalde opdelPoint.
 // Ét sted, ikke to — ellers driver serverens og fladens forestilling om
@@ -211,21 +214,21 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
 }
 
 /**
- * Match-id'er for kampe FØR spillets starttidspunkt (game.startAt). De tæller
- * IKKE med i pointgivningen — så en sæson kan starte midt i (fx fra runde 2)
- * uden at tidligere runders tips giver point. Uden starttidspunkt: tom mængde.
- * @param {Array<object>} matches
- * @param {number|null} startMs
+ * Match-id'er for kampe FØR spillets startrunde. De tæller IKKE med i
+ * pointgivningen — så en sæson kan starte midt i uden at tidligere runders
+ * tips giver point.
+ *
+ * REGNESTYKKET LIGGER I `startGate`, ikke her. Det stod før som en
+ * dato-sammenligning på dette sted og fem andre — og en dato kan skære en
+ * runde midt over, hvorefter combi-kuponen bygges af resten. Se startGate.js.
+ *
+ * @param {Array<object>} matches  HELE kamplisten (bruges til at oversætte et
+ *   gammelt `startAt` til en runde — en delmængde ville give et andet svar)
+ * @param {object|null} game       spil-dokumentet
  * @returns {Set<string>}
  */
-function gatedIds(matches, startMs) {
-  const s = new Set();
-  if (startMs == null) return s;
-  for (const m of matches) {
-    const k = kickoffMs(m);
-    if (k != null && k < startMs) s.add(m.id);
-  }
-  return s;
+function gatedIds(matches, game) {
+  return gatedeKampe(matches, startRundeFor(game, matches));
 }
 
 /**
@@ -378,8 +381,7 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   // Top-6 fra den OFFICIELLE stilling (autoritativ); beregnet tabel kun som
   // fallback, hvis stillingen ikke er synket helt igennem grundspillet.
   const standings = gameSnap.data().standings;
-  const startMs = kickoffMs({ kickoff: gameSnap.data().startAt });
-  const gated = gatedIds(matches, startMs);
+  const gated = gatedIds(matches, gameSnap.data());
   const expectedPlayed = matches.length % 6 === 0 ? matches.length / 6 : null;
   const top6 = new Set(officialTop6(standings, expectedPlayed) || championshipTeams(matches));
   const batch = db.batch();
@@ -418,15 +420,21 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   const result = matchData?.result || null;
   const odds = matchData?.odds || null;
 
-  // Spillets starttidspunkt (game.startAt): kampe før det tæller ikke med. Er
-  // DENNE kamp før start, scorer vi den slet ikke.
+  // Spillets startrunde: kampe før den tæller ikke med. Er DENNE kamp før
+  // start, scorer vi den slet ikke.
+  //
+  // HELE kamplisten hentes her og ikke længere nede, fordi gaten skal kunne
+  // oversætte et gammelt `startAt` til en runde — og det kan man ikke ud fra
+  // én kamp. Listen blev alligevel hentet til runde-konteksten; nu hentes den
+  // én gang i stedet for to.
   const gameRef = db.collection('games').doc(gameId);
-  const gameSnap = await gameRef.get();
-  const startMs = gameSnap.exists ? kickoffMs({ kickoff: gameSnap.data().startAt }) : null;
-  if (startMs != null) {
-    const thisKickoff = kickoffMs(matchData);
-    if (thisKickoff != null && thisKickoff < startMs) return { rescored: 0, players: 0, gated: true };
-  }
+  const [gameSnap, alleSnap] = await Promise.all([
+    gameRef.get(),
+    gameRef.collection('matches').get(),
+  ]);
+  const allMatches = alleSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const gated = gatedIds(allMatches, gameSnap.exists ? gameSnap.data() : null);
+  if (gated.has(matchId)) return { rescored: 0, players: 0, gated: true };
 
   const betsSnap = await db
     .collection('games').doc(gameId).collection('bets')
@@ -463,11 +471,8 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   // vi kommer kun herned, når der faktisk er sket noget.
   if (rescored) for (const b of batches) await b.commit();
 
-  // Runde-kontekst til combi-bonussen: hentes kun når vi faktisk skal genberegne.
-  const matchesSnap = await db.collection('games').doc(gameId).collection('matches').get();
-  const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  // Kampe før spillets start udelukkes fra både combi-kontekst og totalen.
-  const gated = gatedIds(allMatches, startMs);
+  // Runde-kontekst til combi-bonussen. Kampe før spillets start udelukkes fra
+  // både konteksten og totalen — listen og gaten er hentet øverst.
   const roundCtx = buildRoundContext(allMatches.filter((m) => !gated.has(m.id)));
 
   const uids = [...berorteUids];
@@ -504,7 +509,7 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
 }
 
 /**
- * Genberegn ALLE spilleres totaler i et spil med den aktuelle gate (game.startAt).
+ * Genberegn ALLE spilleres totaler i et spil med den aktuelle gate (startrunden).
  * Bruges når admin lige har sat/ændret starttidspunktet, så tidligere runders
  * point fjernes fra stillingen med det samme (triggeren rører kun berørte
  * spillere, når en kamp skrives). Ren aggregering — ændrer ikke bet-point.
@@ -518,8 +523,7 @@ async function recomputeAllPlayerTotals(db, FieldValue, gameId) {
     gameRef.collection('players').get(),
   ]);
   const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const startMs = gameSnap.exists ? kickoffMs({ kickoff: gameSnap.data().startAt }) : null;
-  const gated = gatedIds(allMatches, startMs);
+  const gated = gatedIds(allMatches, gameSnap.exists ? gameSnap.data() : null);
   const roundCtx = buildRoundContext(allMatches.filter((m) => !gated.has(m.id)));
   const uids = playersSnap.docs.map((d) => d.id);
   const CHUNK = 10;
@@ -544,7 +548,7 @@ async function recomputeAllPlayerTotals(db, FieldValue, gameId) {
  * med ét point pr. træffer. En spiller, der aldrig har brugt Chancen, ville se
  * "⚡ Chancen: −10,0".
  *
- * Gatede kampe (før game.startAt) springes over, præcis som
+ * Gatede kampe (før startrunden) springes over, præcis som
  * recomputeGameMatchCore gør — de scores aldrig, og deres point tæller ikke.
  *
  * @param {boolean} [dryRun=true] TÆL hvad der ville ændre sig, skriv INTET.
@@ -560,8 +564,7 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
     gameRef.collection('bets').get(),
   ]);
   const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const startMs = gameSnap.exists ? kickoffMs({ kickoff: gameSnap.data().startAt }) : null;
-  const gated = gatedIds(allMatches, startMs);
+  const gated = gatedIds(allMatches, gameSnap.exists ? gameSnap.data() : null);
   const byId = new Map(allMatches.map((m) => [m.id, m]));
 
   let batch = db.batch();

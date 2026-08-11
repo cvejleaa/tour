@@ -65,7 +65,7 @@ export async function callAuthUserInfo() {
 
 /**
  * Genberegn alle spilleres totaler i et spil med den aktuelle start-gate
- * (game.startAt). Bruges når starttidspunktet lige er sat/ændret, så tidligere
+ * (game.startRound). Bruges når startrunden lige er sat/ændret, så tidligere
  * runders point fjernes fra stillingen med det samme.
  * @param {string} gameId
  */

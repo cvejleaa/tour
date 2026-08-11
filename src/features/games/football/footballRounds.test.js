@@ -1,39 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
-  toMillis, groupByRound, activeRound, RUNDE_SLIP_MS, isLocked, afterStart, matchScore,
+  toMillis, groupByRound, activeRound, RUNDE_SLIP_MS, isLocked, matchScore,
   liveScore, LIVE_STALE_MS,
 } from './footballRounds';
 
 const M = (round, kickoffMs, extra = {}) => ({ round, kickoff: kickoffMs, ...extra });
 
-describe('afterStart', () => {
-  const ms = [M(1, 100), M(1, 150), M(2, 500), M(3, 900)];
-
-  it('uden starttidspunkt vises alle kampe', () => {
-    expect(afterStart(ms, null)).toHaveLength(4);
-  });
-
-  it('skjuler kampe FØR starttidspunktet (fx runde 1)', () => {
-    // start = 1 ms før runde 2's kickoff → runde 1 forsvinder, runde 2+ bliver.
-    const out = afterStart(ms, 499);
-    expect(out.map((m) => m.round)).toEqual([2, 3]);
-  });
-
-  it('inkluderer kampe præcis PÅ starttidspunktet', () => {
-    expect(afterStart(ms, 500).map((m) => m.kickoff)).toEqual([500, 900]);
-  });
-
-  it('beholder kampe uden kickoff (kan ikke afgøres som før start)', () => {
-    const withNull = [M(1, 100), { round: 2, kickoff: null }];
-    expect(afterStart(withNull, 500)).toHaveLength(1);
-    expect(afterStart(withNull, 500)[0].round).toBe(2);
-  });
-
-  it('groupByRound på filtreret liste giver kun runder fra start og frem', () => {
-    const rounds = groupByRound(afterStart(ms, 499));
-    expect(rounds.map((r) => r.round)).toEqual([2, 3]);
-  });
-});
+// `afterStart` ER VÆK. Den skjulte kampe med kickoff før spillets startdato og
+// kunne dermed skjule fire kampe i en runde og vise de to sidste, hvis runden
+// lå spredt — Superligaens runde 3 spilles 7.-10. august bortset fra to kampe
+// den 2.-3. september. Visningen og pointgivningen havde hver sin kopi af den
+// regel. Nu har de den samme, den tæller runder, og den ligger i
+// src/lib/startGate.js med sine egne tests.
 
 describe('toMillis', () => {
   it('håndterer tal, ISO, Date, Firestore-Timestamp', () => {
