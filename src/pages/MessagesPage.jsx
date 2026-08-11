@@ -66,8 +66,10 @@ function Thread({ meUid, otherUid, nameOf, otherUser, messages, loading, leagueI
                 <div
                   style={{
                     maxWidth: '80%',
-                    background: mine ? 'var(--c-pitch)' : 'var(--c-surface-2, #f0f0f0)',
-                    color: mine ? '#fff' : 'inherit',
+                    background: mine ? 'var(--c-pitch)' : 'var(--c-surface-2)',
+                    // Blækket følger fladen — se Layout.jsx. Med '#fff' faldt
+                    // egne bobler til 3,11:1 i mørkt tema, da accenten blev målt.
+                    color: mine ? 'var(--c-on-pitch)' : 'inherit',
                     borderRadius: 12,
                     padding: '0.45rem 0.7rem',
                   }}
@@ -212,7 +214,7 @@ export default function MessagesPage() {
                       style={{
                         width: '100%', textAlign: 'left', cursor: 'pointer',
                         background: active ? 'var(--c-pitch)' : 'transparent',
-                        color: active ? '#fff' : 'inherit',
+                        color: active ? 'var(--c-on-pitch)' : 'inherit',
                         border: '1px solid var(--c-border)', borderRadius: 8, padding: '0.45rem 0.6rem',
                       }}
                     >

@@ -6,6 +6,7 @@
 import { Link } from 'react-router-dom';
 import { GAME_STATUS_LABEL as STATUS_LABEL } from '../../lib/constants';
 import { fmtPoints } from '../../lib/daNum';
+import { useSpilTema } from './useSpilTema';
 
 /** Spillerens saldo (bank) ud fra players-dokumentet. */
 export function playerBank(me) {
@@ -18,8 +19,12 @@ export const formatPoints = fmtPoints;
 
 export default function GameLayout({ game, me, children }) {
   const bank = playerBank(me);
+  // Yndlingsholdets klubfarve som accent for ALT inde i spillet. Variablerne
+  // nedarves, så hver eneste var(--c-pitch) herunder følger med — uden at et
+  // eneste af de ~60 brugssteder skal kende til holdtemaer.
+  const tema = useSpilTema(game, me);
   return (
-    <div>
+    <div style={tema?.stil} data-klubtema={tema?.navn ?? undefined}>
       <p style={{ marginTop: 0 }}>
         <Link to="/spil" style={{ color: 'var(--c-pitch)' }}>← Alle spil</Link>
       </p>

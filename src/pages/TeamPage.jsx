@@ -13,6 +13,7 @@ import { staticStartlist } from '../data/startlist2026';
 import { useStartlist } from '../features/teams/useStartlist';
 import { teamWorldRank, riderWorldRank } from '../data/uciRanking2026';
 import { splitRiderName } from '../features/teams/riderName';
+import { textOn } from '../lib/contrastText';
 import { riderInfo, profileLabel } from '../data/ridersTdf2026';
 import { useClassifications } from '../features/tour/useClassifications';
 import { STAT_COMPS, buildRiderStats, riderRowComparator } from '../features/teams/riderTypeStats';
@@ -177,7 +178,13 @@ export default function TeamPage() {
     );
   }
 
-  const accent = meta.color && meta.color !== '#000000' ? meta.color : 'var(--c-pitch)';
+  // `accent` er enten HOLDETS egen farve eller app-accenten. Blækket ovenpå
+  // skal derfor udledes to forskellige steder fra: `textOn` måler en konkret
+  // hex, mens --c-on-pitch er det blæk, temaet selv har regnet ud. '#fff' stod
+  // her før og gjaldt begge — og ramte forkert i begge.
+  const egenFarve = meta.color && meta.color !== '#000000';
+  const accent = egenFarve ? meta.color : 'var(--c-pitch)';
+  const paaAccent = egenFarve ? textOn(meta.color) : 'var(--c-on-pitch)';
   const profile = teamProfile(meta.code);
   const starNames = new Set((profile?.stars || []).map((s) => normRiderName(s.name)));
   const teamRank = teamWorldRank(meta.code);
@@ -205,7 +212,9 @@ export default function TeamPage() {
                 <span
                   className="badge" data-testid="team-world-rank"
                   title={`UCI verdensrang · ${teamRank.points.toLocaleString('da-DK')} point`}
-                  style={{ fontSize: '0.74rem', background: 'var(--c-pitch)', color: '#fff' }}
+                  // Blækket følger fladen. Med '#fff' lå mærket på 1,28:1 i
+                  // et visma-tema — samme fejl som topbjælkens.
+                  style={{ fontSize: '0.74rem', background: 'var(--c-pitch)', color: 'var(--c-on-pitch)' }}
                 >
                   🌍 Verdensrang #{teamRank.rank}
                 </span>
@@ -219,7 +228,7 @@ export default function TeamPage() {
           <section data-testid="team-profile" style={{ marginBottom: '1.25rem' }}>
             <h3 style={{ marginBottom: '0.4rem' }}>Profil</h3>
             <p style={{ margin: '0 0 0.6rem' }}>
-              <span className="badge" style={{ background: accent, color: '#fff', fontSize: '0.8rem' }}>
+              <span className="badge" style={{ background: accent, color: paaAccent, fontSize: '0.8rem' }}>
                 {profile.profile}
               </span>
             </p>

@@ -32,7 +32,11 @@ const linkStyle = ({ isActive }) => ({
   padding: '0.5rem 0.75rem',
   borderRadius: 8,
   textDecoration: 'none',
-  color: isActive ? '#fff' : 'var(--c-text)',
+  // '#fff' stod hardkodet her, mens baggrunden nedenunder skiftede med
+  // holdtemaet. Det gav hvid på gul i Tour: visma 1,28:1, pinarello 2,45,
+  // jayco 2,65, astana 3,06 — det aktive link var det sværest læselige på
+  // siden. Blækket skal følge fladen, og --c-on-pitch ER fladens blæk.
+  color: isActive ? 'var(--c-on-pitch)' : 'var(--c-text)',
   background: isActive ? 'var(--c-pitch)' : 'transparent',
   fontWeight: 600,
 });

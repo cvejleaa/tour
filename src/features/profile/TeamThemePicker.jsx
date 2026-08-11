@@ -8,6 +8,8 @@
  */
 import { useState, useEffect } from 'react';
 import { TEAM_THEMES, teamThemeByKey } from '../../data/teamThemes';
+import { accentTema, temaStil, TEMA_VARIABLE } from '../../lib/accentTema';
+import { laesFarveMode } from '../../lib/farveMode';
 
 const STORAGE_KEY = 'teamTheme';
 
@@ -17,14 +19,30 @@ export function getInitialTeamTheme() {
   return saved && teamThemeByKey(saved) ? saved : '';
 }
 
-/** Anvend et holdtema på <html> (eller fjern for tom key). Bruges også ved opstart. */
+/**
+ * Anvend et holdtema på <html> (eller fjern for tom key).
+ *
+ * FARVERNE STOD FØR I THEME.CSS — 23 rækker `[data-team='…']`, som var en
+ * håndskrevet kopi af `teamThemes.js` uden en test til at holde de to filer i
+ * takt. `scripts/accent-tema.mjs --foer` måler dem: 36 af de 46 kombinationer
+ * (23 hold × lyst/mørkt) faldt på mindst ét kontrastkrav, værst Movistar i
+ * mørkt tema med 1,37:1 som tekst. Nu regnes de ud af `accentTema`, som ved
+ * hvilket basistema vi står i.
+ *
+ * Attributten bliver stående: den bruges ikke længere til at vælge farver, men
+ * den fortæller, HVILKET hold der er valgt — til tests og til fejlsøgning.
+ */
 export function applyTeamTheme(key) {
   const root = document.documentElement;
-  if (key && teamThemeByKey(key)) {
-    root.setAttribute('data-team', key);
-  } else {
+  const tema = key ? teamThemeByKey(key) : null;
+  if (!tema) {
     root.removeAttribute('data-team');
+    for (const variabel of Object.values(TEMA_VARIABLE)) root.style.removeProperty(variabel);
+    return;
   }
+  root.setAttribute('data-team', key);
+  const stil = temaStil(accentTema(tema.primary, laesFarveMode()));
+  for (const [variabel, vaerdi] of Object.entries(stil)) root.style.setProperty(variabel, vaerdi);
 }
 
 export default function TeamThemePicker() {

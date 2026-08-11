@@ -265,7 +265,11 @@ describe('spilprofilens hjælpetekst', () => {
   it('står ordret det samme i Guiden', () => {
     const her = dirname(fileURLToPath(import.meta.url));
     const kilde = (f) => readFileSync(resolve(her, f), 'utf8').replace(/\s+/g, ' ');
-    const SAETNING = 'avatar får holdets farve som ring om sig i stillingen og i dine ligaer';
+    // TRØJENS farve, ikke holdets: ringen tager hjemmetrøjen (FCK hvid), mens
+    // spillets tema tager klubfarven (FCK marineblå). Begge virkninger skal
+    // nævnes begge steder, ellers ligner den ene af dem en fejl.
+    const SAETNING = 'avatar får trøjens farve som ring om sig i stillingen og i dine ligaer,'
+      + ' og hele spillet toner over i klubbens farve';
     expect(kilde('./GameProfile.jsx')).toContain(SAETNING);
     expect(kilde('./football/FootballHelp.jsx')).toContain(SAETNING);
   });
@@ -282,9 +286,12 @@ describe('spilprofilens hjælpetekst', () => {
       </MemoryRouter>,
     );
     const t = container.textContent.replace(/\s+/g, ' ');
-    expect(t).toContain('avatar får holdets farve som ring om sig i stillingen og i dine ligaer');
-    // Og det, der IKKE må stå: den gamle, falske formulering.
+    expect(t).toContain('avatar får trøjens farve som ring om sig i stillingen og i dine ligaer,'
+      + ' og hele spillet toner over i klubbens farve');
+    // Og det, der IKKE må stå: den gamle, falske formulering — plus den, der
+    // gjorde ringens og temaets farve til den samme.
     expect(t).not.toMatch(/Det giver din avatar holdets farve/);
+    expect(t).not.toMatch(/holdets farve som ring/);
   });
 });
 

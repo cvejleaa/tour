@@ -13,7 +13,8 @@
 // ---------------------------------------------------------------------------
 
 import { teamInfo } from './teamInfo';
-import { colorsClash, colorDistance } from '../../../lib/contrastText';
+import { colorsClash, colorDistance, kuloer } from '../../../lib/contrastText';
+import { KULOER_GULV } from '../../../lib/accentTema';
 
 /** Farven for et hold, vi intet ved om. Ikke sort: sort er en ægte trøjefarve. */
 export const GREY = '#5b6b7a';
@@ -110,4 +111,43 @@ export function klubFarverAf(teams, styles, holdnavn) {
   if (!teamInfo(teams, holdnavn)) return null;
   const b = badgeFor(teams, holdnavn, styles, 'home');
   return { primaer: b.color, sekundaer: b.color2, navn: b.navn };
+}
+
+/**
+ * KLUBFARVEN — den ene farve, en hel side kan tones med.
+ *
+ * DEN ER IKKE DEN SAMME SOM TRØJEFARVEN OVENFOR, og det er hele pointen med at
+ * de to funktioner står ved siden af hinanden. `klubFarverAf` svarer på "hvilken
+ * trøje spiller de i" og skal derfor sige HVID om FCK, for det er trøjen. Et
+ * tema kan ikke bruge hvid til noget: den er ikke en farve, man kan skrive med
+ * eller fylde en knap med, og lysnet eller mørknet bliver den bare grå.
+ *
+ * Derfor spørger den her funktion om noget andet: hvilken KULØR har klubben?
+ * Svaret er den første af de tre trøjer, der overhovedet bærer en kulør — målt
+ * med `kuloer` mod `KULOER_GULV`. Rækkefølgen hjemme → ude → tredje er ikke
+ * vilkårlig: den følger, hvor tæt trøjen ligger på klubbens identitet.
+ *
+ * Hvad det giver i praksis. Tallene kommer fra `scripts/accent-tema.mjs --kuloer`,
+ * som printer kulør for alle tre trøjer og markerer den valgte — gulvet stod
+ * ellers som en påstand, og det kunne flyttes til både 0,01 og 0,20 med hele
+ * suiten grøn (se `spilTemaFlader.test.jsx`, som binder begge sider af det):
+ *   FC Midtjylland  #0B0807 (kulør 0,016) → hvid (0) → #E4002B fra tredjetrøjen
+ *   F.C. København   hvid → #0A2240 fra udetrøjen
+ *   AGF              hvid → #004C9B fra udetrøjen
+ *   Newcastle       hvid → #101F35 (kulør 0,145) — marineblå, netop over gulvet
+ *
+ * Og `null`, når INGEN af de tre bærer kulør. Det sker: Crystal Palace står i
+ * datafilen med hvid, næsten sort og hvid igen. Så beholder spillet app-grøn —
+ * hellere ingen tone end en grå, der ligner en fejl.
+ *
+ * @returns {string|null} hex
+ */
+export function klubAccentAf(teams, styles, holdnavn) {
+  if (!holdnavn) return null;
+  if (!teamInfo(teams, holdnavn)) return null;
+  for (const variant of ['home', 'away', 'third']) {
+    const farve = badgeFor(teams, holdnavn, styles, variant).color;
+    if (kuloer(farve) >= KULOER_GULV) return farve;
+  }
+  return null;
 }

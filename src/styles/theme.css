@@ -2,10 +2,22 @@
    Design-agenten kan udvide dette; hold variabelnavne stabile.
    Udvidet med badge, tabs, table, medal, input, select og dark-mode-klasser. */
 :root {
+  /* ACCENTEN. De fem --c-pitch*-variabler hører sammen og udledes af ÉN farve
+     med `accentTema` i src/lib/accentTema.js. Tallene her er den appgrønne
+     #0b6e4f kørt igennem samme funktion — `theme.test.js` regner efter, så
+     denne blok ikke kan glide fra funktionen, sådan som [data-team]-blokken
+     gjorde fra teamThemes.js. Et holdtema overskriver alle fem under ét. */
   --c-pitch: #0b6e4f; /* græsgrøn — primær accent */
-  --c-pitch-dark: #074b36;
-  --c-on-pitch: #ffffff; /* læsbar tekst oven på --c-pitch (kan overskrives af holdtema) */
+  --c-pitch-dark: #084d37; /* hover-flade og gradient-ende */
+  --c-on-pitch: #ffffff; /* læsbart blæk oven på --c-pitch */
+  --c-pitch-weak: #e7f1ed; /* svag flade UNDER --c-pitch-blæk (pointopdelingens total) */
+  --c-pitch-tint: #e7f1ed; /* svag flade under almindelig tekst (egne beskedbobler) */
   --c-accent: #ffd23f; /* gul */
+  /* Blækket på den gule accent. Stod før som var(--c-pitch-dark), hvilket kun
+     virkede, så længe den variabel var mørk i BEGGE temaer. Den er nu en flade,
+     der følger accentfarven — og i mørkt tema er den lys. Gul er gul i begge
+     temaer, så dens blæk er en konstant. */
+  --c-on-accent: #14181f;
   --c-accent-2: #ee4266; /* pink/rød */
   --c-bg: #f7f9fb;
   --c-surface: #ffffff;
@@ -30,6 +42,18 @@
 }
 
 [data-theme='dark'] {
+  /* Accenten i mørkt tema er den SAMME grønne, kørt igennem `accentTema` med
+     de mørke flader. Den var før #0b6e4f uændret, altså 2,33:1 som tekst på
+     --c-surface-2 — hver eneste link og hvert eneste pointtal i mørkt tema lå
+     under halvdelen af kravet. (Tallet stod først som 2,54, som jeg aldrig
+     havde kørt igennem koden. `scripts/accent-tema.mjs --foer` viser 2,33.)
+     Blækket oven på fladen bliver dermed mørkt, som det er kutyme i mørke
+     temaer. */
+  --c-pitch: #11a677;
+  --c-pitch-dark: #17e1a2;
+  --c-on-pitch: #10151b;
+  --c-pitch-weak: #162c2e;
+  --c-pitch-tint: #162c2e;
   --c-bg: #0e1419;
   --c-surface: #161e26;
   --c-surface-alt: #1c2630;
@@ -120,7 +144,7 @@ button {
 
 .btn:hover:not(:disabled) {
   background: var(--c-pitch-dark);
-  box-shadow: 0 3px 10px rgba(11, 110, 79, 0.3);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--c-pitch) 30%, transparent);
   transform: translateY(-1px);
 }
 
@@ -147,7 +171,7 @@ button {
 
 .btn--accent {
   background: var(--c-accent);
-  color: var(--c-pitch-dark);
+  color: var(--c-on-accent);
 }
 
 .btn--accent:hover:not(:disabled) {
@@ -271,18 +295,23 @@ button {
   border-bottom: none;
 }
 
+/* TONEN FØLGER ACCENTEN. Her stod appens grønne skrevet ud i decimaltal som en
+   rgba-værdi. Med et holdtema betød det en grøn hover-række midt i et rødt
+   spil. Andelene er de samme som før (4/7/11 %), kun kilden er en anden.
+   `blaekPaaAccent.test.js` forbyder skrivemåden, så den ikke kan liste sig ind
+   igen — heller ikke i en kommentar som den her. */
 .table tr:hover td {
-  background: rgba(11, 110, 79, 0.04);
+  background: color-mix(in srgb, var(--c-pitch) 4%, transparent);
 }
 
 /* Fremhæv den indloggede spillers række */
 .table tr.is-me td {
-  background: rgba(11, 110, 79, 0.07);
+  background: color-mix(in srgb, var(--c-pitch) 7%, transparent);
   font-weight: 600;
 }
 
 .table tr.is-me:hover td {
-  background: rgba(11, 110, 79, 0.11);
+  background: color-mix(in srgb, var(--c-pitch) 11%, transparent);
 }
 
 /* ═══════════════════════ MEDAL / BADGE ═══════════════════════ */
@@ -329,7 +358,7 @@ button {
 .badge--green  { background: rgba(31, 157, 85, 0.12); color: var(--c-ok); }
 .badge--yellow { background: rgba(232, 163, 23, 0.15); color: #9a6a00; }
 .badge--red    { background: rgba(214, 69, 69, 0.12); color: var(--c-err); }
-.badge--blue   { background: rgba(11, 110, 79, 0.1);  color: var(--c-pitch); }
+.badge--blue   { background: var(--c-pitch-weak);  color: var(--c-pitch); }
 .badge--muted  { background: var(--c-bg); color: var(--c-muted); border: 1px solid var(--c-border); }
 
 /* ── Tilgængeligt fokus på alt klikbart (tastatur/switch) ── */
@@ -377,7 +406,9 @@ a:focus-visible,
 
 .input:focus, .select:focus {
   border-color: var(--c-pitch);
-  box-shadow: 0 0 0 3px rgba(11, 110, 79, 0.15);
+  /* Rammen fulgte temaet, glorien gjorde ikke — en holdfarvet ramme med grøn
+     glorie omkring. Det ses på selveste Yndlingshold-vælgeren på Mit hold. */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-pitch) 15%, transparent);
 }
 
 .input::placeholder { color: var(--c-muted); }
@@ -624,34 +655,18 @@ a:focus-visible,
 }
 
 /* ═══════════════════════ HOLDFARVE-TEMAER ═══════════════════════
-   Valgbart accent-tema pr. cykelhold. Sættes via data-team på <html> og
-   lægger sig oven på BÅDE lyst og mørkt basistema — kun accenten recolores
-   (--c-pitch / --c-pitch-dark / --c-on-pitch), ikke baggrund/tekst.
-   Holdes synkroniseret med src/data/teamThemes.js (key → primary). */
+   Her stod 23 rækker `[data-team='alpecin'] { --c-pitch: …; }` — en håndskrevet
+   kopi af `src/data/teamThemes.js`, som intet holdt i takt med kilden, og som
+   satte --c-on-pitch efter øjemål ('#fff' eller '#111'). `scripts/accent-tema.mjs
+   --foer` måler den blok: 36 af 46 kombinationer faldt på mindst ét
+   kontrastkrav, og de lyse hold var værst — Movistar 1,37:1 som tekst i mørkt
+   tema, visma hvid-på-gul 1,28:1 i topbjælken.
 
-[data-team='alpecin']    { --c-pitch: #C8102E; --c-pitch-dark: #9c0c23; --c-on-pitch: #fff; }
-[data-team='bahrain']    { --c-pitch: #E30613; --c-pitch-dark: #b1040f; --c-on-pitch: #fff; }
-[data-team='cajarural']  { --c-pitch: #009639; --c-pitch-dark: #00702b; --c-on-pitch: #fff; }
-[data-team='cofidis']    { --c-pitch: #E2001A; --c-pitch-dark: #b10014; --c-on-pitch: #fff; }
-[data-team='decathlon']  { --c-pitch: #0082C3; --c-pitch-dark: #006497; --c-on-pitch: #fff; }
-[data-team='ef']         { --c-pitch: #FF0098; --c-pitch-dark: #c40076; --c-on-pitch: #fff; }
-[data-team='groupama']   { --c-pitch: #003DA5; --c-pitch-dark: #002d7a; --c-on-pitch: #fff; }
-[data-team='jayco']      { --c-pitch: #00B0B9; --c-pitch-dark: #008990; --c-on-pitch: #111; }
-[data-team='lotto']      { --c-pitch: #E30613; --c-pitch-dark: #b1040f; --c-on-pitch: #fff; }
-[data-team='lidltrek']   { --c-pitch: #0050AA; --c-pitch-dark: #003c80; --c-on-pitch: #fff; }
-[data-team='movistar']   { --c-pitch: #0033A0; --c-pitch-dark: #002677; --c-on-pitch: #fff; }
-[data-team='netcompany'] { --c-pitch: #DA291C; --c-pitch-dark: #a91f15; --c-on-pitch: #fff; }
-[data-team='nsn']        { --c-pitch: #2B3A67; --c-pitch-dark: #1f2b4d; --c-on-pitch: #fff; }
-[data-team='pinarello']  { --c-pitch: #00B7C4; --c-pitch-dark: #008f99; --c-on-pitch: #111; }
-[data-team='redbull']    { --c-pitch: #122E5C; --c-pitch-dark: #0c2042; --c-on-pitch: #fff; }
-[data-team='soudal']     { --c-pitch: #0E1A7B; --c-pitch-dark: #0a1259; --c-on-pitch: #fff; }
-[data-team='total']      { --c-pitch: #ED1C24; --c-pitch-dark: #bd141b; --c-on-pitch: #fff; }
-[data-team='picnic']     { --c-pitch: #E2001A; --c-pitch-dark: #b10014; --c-on-pitch: #fff; }
-[data-team='tudor']      { --c-pitch: #1A1A1A; --c-pitch-dark: #000000; --c-on-pitch: #fff; }
-[data-team='visma']      { --c-pitch: #FFE500; --c-pitch-dark: #d6c000; --c-on-pitch: #111; }
-[data-team='uae']        { --c-pitch: #E4002B; --c-pitch-dark: #b10021; --c-on-pitch: #fff; }
-[data-team='unox']       { --c-pitch: #ED1C45; --c-pitch-dark: #c01334; --c-on-pitch: #fff; }
-[data-team='astana']     { --c-pitch: #009DDC; --c-pitch-dark: #0079aa; --c-on-pitch: #111; }
+   Farverne udledes nu af `accentTema` og sættes som inline-variabler på <html>
+   (Tour, se TeamThemePicker) eller på spillets container (platformen, se
+   GameLayout). Attributten `data-team` bliver stående som markør for HVILKET
+   hold der er valgt — den vælger bare ikke længere farverne. */
+
 
 /* ============================================================================
    Superliga / fodbold-tip — kamp-kort, 1X2-valg, Chancen, podie (Fase B)
@@ -799,7 +814,7 @@ a:focus-visible,
 /* Chancen-pille */
 .chance-pill {
   display: inline-flex; align-items: center; gap: 0.2rem;
-  background: var(--c-accent); color: var(--c-pitch-dark);
+  background: var(--c-accent); color: var(--c-on-accent);
   font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.04em; padding: 0.15rem 0.5rem; border-radius: 99px;
   /* Teksten blev omtrent dobbelt så lang, da indsatsen kom med ("⚡ Chancen ·
@@ -823,7 +838,12 @@ a:focus-visible,
 .pick__odds { font-size: 0.8rem; font-weight: 600; color: var(--c-text); font-variant-numeric: tabular-nums; }
 .pick__pts { font-size: 0.68rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .pick--selected {
-  background: color-mix(in srgb, var(--c-pitch) 12%, var(--c-surface));
+  /* --c-pitch-weak, IKKE et fast 12 %-blandingsforhold. De 12 % var valgt i
+     øjemål og aldrig målt: med Nottingham Forests rød lå .pick__label på
+     3,66:1 og .pick__pts på 3,57:1 i lyst tema — under kravet, på det element
+     der klikkes mest på i hele spillet. `svagFlade` finder i stedet den
+     kraftigste tone, blækket kan bære, og trapper ned hvor den skal. */
+  background: var(--c-pitch-weak);
   border-color: var(--c-pitch); box-shadow: 0 0 0 1px var(--c-pitch);
 }
 .pick--selected .pick__label { color: var(--c-pitch); }
@@ -899,7 +919,7 @@ a:focus-visible,
   background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: var(--radius-sm); position: relative; }
 .pulje-team:disabled { cursor: default; opacity: 0.55; }
 .pulje-team__name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pulje-team--chosen { border-color: var(--c-pitch); background: color-mix(in srgb, var(--c-pitch) 12%, var(--c-surface)); box-shadow: 0 0 0 1px var(--c-pitch); }
+.pulje-team--chosen { border-color: var(--c-pitch); background: var(--c-pitch-weak); box-shadow: 0 0 0 1px var(--c-pitch); }
 .pulje-team__check { margin-left: auto; color: var(--c-pitch); font-weight: 800; }
 .pulje-team__actual { position: absolute; top: 4px; right: 6px; font-size: 0.8rem; }
 .pulje-team--hit { border-color: var(--c-ok); box-shadow: 0 0 0 1px var(--c-ok); }
@@ -1054,7 +1074,14 @@ a:focus-visible,
 /* Totalen er den autoritative — den skal skille sig ud fra delene. */
 .pointopdeling__rubrik--total {
   border-color: var(--c-pitch, #0b6b3a);
-  background: var(--c-pitch-weak, #eef7f1);
+  /* INGEN FALLBACK. Der stod en næsten hvid en, og variablen var aldrig
+     defineret nogen steder — så det var fallbacken, der blev brugt. Det, der
+     FAKTISK var i stykker, var ikke tallet herunder: --c-pitch på den gav
+     5,72:1, det mest læselige på rubrikken. Det var ETIKETTEN — --c-muted i
+     mørkt tema gav 2,25:1 — og beskedboblen ved siden af, hvor --c-text lå på
+     1,02:1. Er variablen væk igen, skal det være synligt, ikke pænt.
+     (theme.test.js forbyder hex-værdien her.) */
+  background: var(--c-pitch-weak);
 }
 .pointopdeling__rubrik--total dd { color: var(--c-pitch, #0b6b3a); }
 

@@ -62,7 +62,9 @@ export default function GameCompetitions({ data, gcTopN = DEFAULT_GC_TOP_N, high
                       data-tipped={tipped ? 'true' : undefined}
                       style={{
                         padding: '0.35rem 0.45rem', borderRadius: 8,
-                        background: tipped ? 'rgba(11,110,79,0.10)' : (i === 0 ? 'var(--c-surface-alt, #f6faf8)' : 'transparent'),
+                        background: tipped
+                          ? 'color-mix(in srgb, var(--c-pitch) 10%, transparent)'
+                          : (i === 0 ? 'var(--c-surface-alt)' : 'transparent'),
                         borderLeft: tipped ? '3px solid var(--c-pitch)' : (i === 0 ? '3px solid var(--c-pitch)' : '3px solid transparent'),
                       }}
                     >

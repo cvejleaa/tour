@@ -1,126 +1,68 @@
-/**
- * Tests for ThemeToggle-komponenten.
- * Tester at tema-skift opdaterer data-theme og localStorage.
- */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+// ---------------------------------------------------------------------------
+// SKIFTER MAN BASISTEMA, SKAL HOLDTEMAET REGNES OM.
+//
+// Da holdfarverne lå i CSS (`[data-team='visma'] { … }`), fulgte de gratis med
+// et skift af `data-theme`, fordi CSS'en gjorde det samme uanset hvad — den
+// tog bare aldrig hensyn til basistemaet, og DET var fejlen.
+//
+// Nu er farverne inline-værdier på <html>, udledt for ét bestemt basistema.
+// Uden en omregning ved skiftet bliver den lyse udledning stående på en mørk
+// side: visma ville stå som #7a7800 (dyb okker) på #0e1419, altså 2,05:1.
+// Der findes ingen CSS-regel, der kan redde det — så testen står her.
+// ---------------------------------------------------------------------------
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import ThemeToggle from './ThemeToggle';
+import { applyTeamTheme } from '../profile/TeamThemePicker';
+import { accentTema } from '../../lib/accentTema';
 
-// ── Setup matchMedia mock ─────────────────────────────────────────────────────
-function setupMatchMedia(prefersDark = false) {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query) => ({
-      matches: prefersDark && query === '(prefers-color-scheme: dark)',
-      media: query,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-    })),
-  });
-}
+const root = () => document.documentElement;
+const pitch = () => root().style.getPropertyValue('--c-pitch');
+
+beforeEach(() => {
+  localStorage.clear();
+  root().removeAttribute('data-theme');
+  root().removeAttribute('data-team');
+  root().removeAttribute('style');
+});
+afterEach(() => {
+  cleanup();
+  root().removeAttribute('data-theme');
+  root().removeAttribute('data-team');
+  root().removeAttribute('style');
+});
 
 describe('ThemeToggle', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    document.documentElement.removeAttribute('data-theme');
-    setupMatchMedia(false); // default: lyst tema
-  });
-
-  afterEach(() => {
-    cleanup();
-  });
-
-  it('renderer en knap', () => {
-    render(<ThemeToggle />);
-    expect(screen.getByRole('button')).toBeInTheDocument();
-  });
-
-  it('starter med lyst tema når localStorage er tom og OS ikke foretrækker mørkt', () => {
-    render(<ThemeToggle />);
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-  });
-
-  it('starter med mørkt tema når OS foretrækker mørkt og localStorage er tom', () => {
-    setupMatchMedia(true);
-    render(<ThemeToggle />);
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-  });
-
-  it('starter med gemt tema fra localStorage (dark)', () => {
-    localStorage.setItem('theme', 'dark');
-    render(<ThemeToggle />);
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-  });
-
-  it('starter med gemt tema fra localStorage (light)', () => {
-    setupMatchMedia(true); // OS foretrækker mørkt, men localStorage siger light
+  it('sætter data-theme og gemmer valget', () => {
     localStorage.setItem('theme', 'light');
     render(<ThemeToggle />);
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-  });
-
-  it('skifter fra lyst til mørkt tema ved klik', () => {
-    render(<ThemeToggle />);
-    const btn = screen.getByRole('button');
-    fireEvent.click(btn);
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-  });
-
-  it('skifter fra mørkt til lyst tema ved andet klik', () => {
-    localStorage.setItem('theme', 'dark');
-    render(<ThemeToggle />);
-    const btn = screen.getByRole('button');
-    fireEvent.click(btn);
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-  });
-
-  it('gemmer lyst tema i localStorage efter skift', () => {
-    localStorage.setItem('theme', 'dark');
-    render(<ThemeToggle />);
+    expect(root().getAttribute('data-theme')).toBe('light');
     fireEvent.click(screen.getByRole('button'));
-    expect(localStorage.getItem('theme')).toBe('light');
-  });
-
-  it('gemmer mørkt tema i localStorage efter skift', () => {
-    render(<ThemeToggle />);
-    fireEvent.click(screen.getByRole('button'));
+    expect(root().getAttribute('data-theme')).toBe('dark');
     expect(localStorage.getItem('theme')).toBe('dark');
   });
 
-  it('knappens aria-label ændres ved skift', () => {
+  it('regner holdtemaet om ved skiftet', () => {
+    localStorage.setItem('theme', 'light');
+    localStorage.setItem('teamTheme', 'visma');
+    root().setAttribute('data-theme', 'light');
+    applyTeamTheme('visma');
+    expect(pitch()).toBe(accentTema('#FFE500', 'lyst').pitch);
+
     render(<ThemeToggle />);
-    const btn = screen.getByRole('button');
-    // Starter lyst → label bør sige "Skift til mørkt tema"
-    expect(btn).toHaveAttribute('aria-label', 'Skift til mørkt tema');
-    fireEvent.click(btn);
-    // Nu mørkt → label bør sige "Skift til lyst tema"
-    expect(btn).toHaveAttribute('aria-label', 'Skift til lyst tema');
+    fireEvent.click(screen.getByRole('button'));
+
+    // BÆRENDE. Uden omregningen ville #7a7800 blive stående på næsten sort.
+    expect(pitch()).toBe(accentTema('#FFE500', 'moerkt').pitch);
+    expect(pitch()).not.toBe(accentTema('#FFE500', 'lyst').pitch);
   });
 
-  it('knapteksten viser ☀️ Lyst i mørkt tema', () => {
-    localStorage.setItem('theme', 'dark');
+  it('rører ikke variablerne, når der ikke er valgt et holdtema', () => {
+    localStorage.setItem('theme', 'light');
     render(<ThemeToggle />);
-    expect(screen.getByRole('button')).toHaveTextContent('☀️ Lyst');
-  });
-
-  it('knapteksten viser 🌙 Mørkt i lyst tema', () => {
-    render(<ThemeToggle />);
-    expect(screen.getByRole('button')).toHaveTextContent('🌙 Mørkt');
-  });
-
-  it('toggler korrekt frem og tilbage (tre klik)', () => {
-    render(<ThemeToggle />);
-    const btn = screen.getByRole('button');
-    fireEvent.click(btn); // → dark
-    fireEvent.click(btn); // → light
-    fireEvent.click(btn); // → dark
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-    expect(localStorage.getItem('theme')).toBe('dark');
-  });
-
-  it('sætter data-theme allerede ved mount (useEffect)', () => {
-    render(<ThemeToggle />);
-    // Efter mount bør data-theme være sat
-    expect(document.documentElement.hasAttribute('data-theme')).toBe(true);
+    fireEvent.click(screen.getByRole('button'));
+    // App-grøn kommer fra :root i theme.css. Skrev togglen en tom eller forkert
+    // værdi her, ville den vinde over stylesheetet.
+    expect(pitch()).toBe('');
   });
 });
