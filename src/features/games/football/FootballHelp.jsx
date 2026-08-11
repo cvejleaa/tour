@@ -107,7 +107,8 @@ export default function FootballHelp() {
             <strong>Spillet kan starte midt i sæsonen.</strong> Runder <em>før</em> spillets startrunde
             vises ikke og giver ingen point — så alle er med fra samme runde. Derfor kan runde 1 mangle,
             hvis spillet først begynder ved runde 2. Det er hele runder, aldrig halve: en runde kan ligge
-            spredt over flere uger, hvis en kamp er udsat, og så følger de udsatte kampe deres egen runde.
+            spredt over flere uger, hvis en kamp er udsat, og de udsatte kampe følger stadig deres runde,
+            når spillet afgør, hvad der tæller med.
           </li>
         </ul>
       </Section>

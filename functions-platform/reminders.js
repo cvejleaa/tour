@@ -7,6 +7,7 @@ const { escapeHtml, sendEmail, emailByUidMap, APP_URL } = require('./mailer');
 // Samme gate som pointgivningen — en spiller må aldrig rykkes for en kamp,
 // der ikke giver point.
 const { gatedeKampe, startRundeFor } = require('./startGate');
+const { kickoffMs } = require('./pointOpdeling');
 
 const DAY_MS = 24 * 3600 * 1000;
 // 'in' tager højst 30 værdier pr. forespørgsel.
@@ -20,15 +21,8 @@ function chunk(list, size) {
 }
 
 /** Millisekunder fra et Firestore-Timestamp | tal | ISO-streng. */
-function toMillis(v) {
-  if (v == null) return null;
-  if (typeof v === 'number') return v;
-  if (typeof v === 'string') { const n = Date.parse(v); return Number.isNaN(n) ? null : n; }
-  if (typeof v.toMillis === 'function') return v.toMillis();
-  if (typeof v.toDate === 'function') return v.toDate().getTime();
-  if (v.seconds != null) return v.seconds * 1000;
-  return null;
-}
+// `toMillis` stod her som en fjerde håndskrevet kopi. Begge brugssteder
+// spurgte om en KAMPS kickoff, og det er præcis, hvad `kickoffMs` svarer på.
 
 /**
  * Kampe i (now, now+24h) der stadig kan tippes (kickoff i fremtiden).
@@ -45,7 +39,7 @@ function toMillis(v) {
  */
 function upcomingMatches(matches, now, windowEnd, gatede = null) {
   return matches.filter((m) => {
-    const k = toMillis(m.kickoff);
+    const k = kickoffMs(m);
     if (k == null) return false;
     if (gatede && gatede.has(m.id)) return false;
     return k > now.getTime() && k < windowEnd.getTime();
@@ -139,7 +133,7 @@ async function sendGameTestReminder(db, transporter, gameId, toEmail, displayNam
   const gatede = gatedeKampe(alle, startRundeFor(gameSnap.exists ? gameSnap.data() : null, alle));
   const nowMs = Date.now();
   const next = alle
-    .map((m) => ({ ...m, _ms: toMillis(m.kickoff) }))
+    .map((m) => ({ ...m, _ms: kickoffMs(m) }))
     .filter((m) => m._ms != null && m._ms > nowMs && !gatede.has(m.id))
     .sort((a, b) => a._ms - b._ms)
     .slice(0, 6);

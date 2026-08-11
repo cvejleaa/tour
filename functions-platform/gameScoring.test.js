@@ -39,8 +39,15 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
     // rescoreAllBets henter ALLE bets på én gang — ikke pr. kamp.
     get: async () => ({ docs: alleBetDocs(), size: bets.length }),
   };
+  // TÆLLER hentninger. Uden tælleren kunne genvejen for en gatet kamp fjernes,
+  // og hver skrivning på en gatet kamp ville koste 132 læsninger for
+  // Superligaen — uden at én test blev rød.
   const matchesCollection = {
-    get: async () => ({ docs: matchList.map((m) => ({ id: m.id, data: () => m })) }),
+    hentninger: 0,
+    get: async () => {
+      matchesCollection.hentninger += 1;
+      return { docs: matchList.map((m) => ({ id: m.id, data: () => m })) };
+    },
   };
   const detalje = {};
   const stier = {}; // uid -> 'collection/dokument' for detalje-skrivningen
@@ -131,6 +138,7 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
       });
     },
     _players: players,
+    _kampHentninger: () => matchesCollection.hentninger,
     _detalje: detalje,
     _detaljeStier: stier,
     _bets: bets,
@@ -407,6 +415,118 @@ describe('gatedIds (kampe før spillets startrunde)', () => {
       { id: 'm2', round: 2, kickoff: 500 },
     ];
     expect([...gatedIds(kampe, { startRound: 5 })]).toEqual(['m2']);
+  });
+});
+
+// GENVEJEN FOR EN GATET KAMP. Står `startRound` på spillet, kan spørgsmålet
+// besvares af kampens eget rundenummer — uden at læse hele kamplisten. Uden
+// den ville hver skrivning på en gatet kamp koste ét opslag over ALLE spillets
+// kampe (132 for Superligaen), hvor den før kostede nul.
+// ---------------------------------------------------------------------------
+// SELVE DET NYE FELT VAR ALDRIG SAT I EN SERVER-FIXTURE.
+//
+// Test Manager fik alle tre server-stier til at IGNORERE `game.startRound`
+// fuldstændigt — `{ ...gameSnap.data(), startRound: undefined }` — med alle 351
+// tests grønne. Grunden: hver eneste gate-fixture herunder brugte
+// `{ startAt: 500 }`, altså kun fald-tilbage-stien. Feltet, hele ændringen
+// findes for, blev aldrig sat på et spil-dokument på serveren.
+//
+// Fixturerne her sætter `startRound` DIREKTE og har ingen `startAt`, så de kun
+// kan bestå, hvis feltet rent faktisk læses.
+// ---------------------------------------------------------------------------
+describe('startRound gater på serveren — uden nogen startdato', () => {
+  const KAMPE = [
+    { id: 'r1a', round: 1, kickoff: 100, result: '1', odds: { 1: 2, X: 3, 2: 4 } },
+    { id: 'r1b', round: 1, kickoff: 150, result: 'X', odds: { 1: 2, X: 3, 2: 4 } },
+    { id: 'r2a', round: 2, kickoff: 500, result: '1', odds: { 1: 2, X: 3, 2: 4 } },
+  ];
+  const BETS = [
+    { uid: 'A', matchId: 'r1a', pick: '1', chanceStake: 0, points: 2 },
+    { uid: 'A', matchId: 'r1b', pick: 'X', chanceStake: 0, points: 3 },
+    { uid: 'A', matchId: 'r2a', pick: '1', chanceStake: 0, points: 2 },
+  ];
+
+  it('trigger-stien scorer ikke en kamp i en gatet runde', async () => {
+    const db = makeDb(BETS, KAMPE, { startRound: 2 });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'r1a', KAMPE[0]);
+    expect(res.gated).toBe(true);
+    expect(res.rescored).toBe(0);
+    expect(Object.keys(db._players)).toHaveLength(0);
+  });
+
+  it('trigger-stien scorer en kamp FRA startrunden', async () => {
+    const db = makeDb(BETS, KAMPE, { startRound: 2 });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'r2a', KAMPE[2]);
+    expect(res.gated).toBeUndefined();
+    // Kun runde 2's bet tæller: 2 point. Ignoreredes startRound, ville
+    // runde 1's fem point komme med, og totalen blive 7.
+    expect(db._players.A.totalPoints).toBe(2);
+  });
+
+  it('recomputeAllPlayerTotals holder de gatede runders point ude', async () => {
+    const db = makeDb(BETS, KAMPE, { startRound: 2 }, { A: { totalPoints: 7 } });
+    const ud = await recomputeAllPlayerTotals(db, FieldValue, 'g1');
+    expect(ud.gatedMatches).toBe(2);
+    expect(db._players.A.totalPoints).toBe(2);
+  });
+
+  it('…og tager dem MED, når startrunden er 1', async () => {
+    const db = makeDb(BETS, KAMPE, { startRound: 1 }, { A: { totalPoints: 0 } });
+    const ud = await recomputeAllPlayerTotals(db, FieldValue, 'g1');
+    expect(ud.gatedMatches).toBe(0);
+    // 2 + 3 + 2 = 7, plus combi for runde 1 (begge ramt). Det afgørende er, at
+    // tallet er STØRRE end de 2, gaten ved runde 2 gav.
+    expect(db._players.A.totalPoints).toBeGreaterThan(2);
+  });
+});
+
+// `rescoreAllBets` skriver point i HVER spillers bets. Docblokken påstår, at
+// gatede kampe "springes over, præcis som recomputeGameMatchCore gør" — men
+// den påstand var utestet: gaten kunne erstattes med et tomt sæt med hele
+// suiten grøn, og så ville en bagfyldning give point for runder, spillet ikke
+// tæller.
+describe('rescoreAllBets — gaten', () => {
+  const KAMPE = [
+    { id: 'r1a', round: 1, kickoff: 100, result: '1', odds: { 1: 2, X: 3, 2: 4 } },
+    { id: 'r2a', round: 2, kickoff: 500, result: '1', odds: { 1: 2, X: 3, 2: 4 } },
+  ];
+  const BETS = [
+    { uid: 'A', matchId: 'r1a', pick: '1', chanceStake: 0, points: 0 },
+    { uid: 'A', matchId: 'r2a', pick: '1', chanceStake: 0, points: 0 },
+  ];
+
+  it('skriver ikke point på en kamp i en gatet runde', async () => {
+    const db = makeDb(BETS, KAMPE, { startRound: 2 });
+    await rescoreAllBets(db, FieldValue, 'g1', { dryRun: false });
+    const r1 = db._bets.find((b) => b.data.matchId === 'r1a');
+    const r2 = db._bets.find((b) => b.data.matchId === 'r2a');
+    expect(r1.data.points).toBe(0);
+    expect(r2.data.points).toBeGreaterThan(0);
+  });
+});
+
+describe('recomputeGameMatchCore — læser ikke kamplisten unødigt', () => {
+  const KAMPE = [
+    { id: 'm1', round: 1, kickoff: 100, result: 'X', odds: { 1: 2, X: 3, 2: 4 } },
+    { id: 'm2', round: 2, kickoff: 500, result: null, odds: { 1: 2, X: 3, 2: 4 } },
+  ];
+
+  it('springer kamplisten over, når startRound gater kampen', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 0 }],
+      KAMPE, { startRound: 2 });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', KAMPE[0]);
+    expect(res.gated).toBe(true);
+    expect(db._kampHentninger()).toBe(0);
+  });
+
+  // …men det GAMLE startAt kan ikke oversættes til en runde ud fra én kamp,
+  // så dér SKAL listen hentes. Genvejen må ikke snige sig ind dér.
+  it('henter kamplisten, når gaten kun er en gammel dato', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: 'X', chanceStake: 0, points: 0 }],
+      KAMPE, { startAt: 500 });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', KAMPE[0]);
+    expect(res.gated).toBe(true);
+    expect(db._kampHentninger()).toBeGreaterThan(0);
   });
 });
 

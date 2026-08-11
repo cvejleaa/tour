@@ -60,7 +60,7 @@ function rundeSpaend(matches) {
 }
 
 function StartRundeVaelger({ game, vaerdi, onVaelg }) {
-  const { runder, henter, fejl } = useGameRounds(game.id, true);
+  const { runder, henter, fejl } = useGameRounds(game.id);
   if (fejl) return <span className="badge badge--red">{fejl}</span>;
   if (henter) return <span style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>Henter kampene…</span>;
   if (!runder.length) return <span style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>Spillet har ingen kampe med rundenummer.</span>;
@@ -264,7 +264,11 @@ function GameRow({ game }) {
       <div className="grid-2" style={{ gap: '0.75rem', marginTop: '0.75rem' }}>
         <label style={{ display: 'block' }}>
           <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--c-muted)', marginBottom: '0.25rem' }}>
-            🚦 Spil-start
+            {/* GATER IKKE LÆNGERE. Feltet står stadig, fordi det bruges som
+                fald-tilbage for spil uden startrunde — men står runden, er
+                datoen ren oplysning. Uden den tilføjelse ville ejeren tro, at
+                han flyttede spillets start ved at flytte datoen. */}
+            🚦 Spil-start {Number.isFinite(game.startRound) ? '(kun oplysning)' : '(bruges til at udlede runden)'}
           </span>
           <input
             type="datetime-local" value={startAt}
@@ -298,7 +302,7 @@ function GameRow({ game }) {
               onClick={() => setVaelgRunde(true)}
               style={{ width: '100%' }}
             >
-              {startRound === '' ? 'Vælg runde…' : `Runde ${startRound} — skift`}
+              {startRound === '' ? 'Udledes af datoen — vælg runde…' : `Runde ${startRound} — skift`}
             </button>
           )}
         </div>

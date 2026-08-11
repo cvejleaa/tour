@@ -43,8 +43,9 @@ læse. Adskilt netop for at ingen kan trække alle deltageres adresser ud.
 ### Platformen: `games/{gameId}/…`
 
 **`games/{gameId}`** — `name`, `type` (`football` \| `cycling`), `status`,
-`season`, `order`, `startAt`, `puljeLockAt`, `standings` (officiel tabel),
-`teamStyles`, `recappedRounds`, `snapshottedRounds`.
+`season`, `order`, `startRound` (gaten — se invariant 1), `startAt` (kun
+fald-tilbage for spil uden `startRound`), `puljeLockAt`, `standings` (officiel
+tabel), `teamStyles`, `recappedRounds`, `snapshottedRounds`.
 
 | Subcollection | Doc-id | Indhold |
 |---|---|---|

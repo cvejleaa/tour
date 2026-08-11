@@ -4,11 +4,16 @@
 // Startrunden sættes i Spil-tidsplan, og for at kunne vælge den skal ejeren se,
 // hvilke runder spillet har, og hvornår de ligger. Det kræver kamplisten.
 //
-// DEN HENTES IKKE VED RENDER. Fanen viser alle spil på én gang, og Superligaen
-// alene har 132 kampe; et opslag pr. spil ved hver indlæsning ville koste
-// hundredvis af læsninger, hver gang nogen åbnede fanen for at skifte en status.
-// Derfor `aktiv`: listen hentes én gang, når ejeren rent faktisk beder om at
-// vælge en runde.
+// DEN HENTES IKKE VED RENDER AF FANEN. Fanen viser alle spil på én gang, og
+// Superligaen alene har 132 kampe; et opslag pr. spil ved hver indlæsning ville
+// koste hundredvis af læsninger, hver gang nogen åbnede fanen for at skifte en
+// status.
+//
+// DOVENSKABEN LIGGER I KALDESTEDET, ikke her. Hooken havde først en
+// `aktiv`-parameter, men det eneste kaldested sendte altid `true` — vagten var
+// den betingede render af `StartRundeVaelger`, ikke parameteren. En vagt, der
+// altid er sand, er ikke en vagt; den er en kommentar, der ligner kode. Den er
+// derfor væk, og komponenten monteres først, når ejeren beder om at vælge.
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
@@ -18,15 +23,14 @@ import { groupByRound } from '../games/football/footballRounds';
 
 /**
  * @param {string|null} gameId
- * @param {boolean} aktiv  hent først når den er sand
  * @returns {{runder: Array<{round:number, matches:Array<object>}>, kampe: Array<object>, henter: boolean, fejl: string|null}}
  */
-export function useGameRounds(gameId, aktiv) {
+export function useGameRounds(gameId) {
   const [kampe, setKampe] = useState(null);
   const [fejl, setFejl] = useState(null);
 
   useEffect(() => {
-    if (!aktiv || !gameId || kampe) return undefined;
+    if (!gameId || kampe) return undefined;
     let afbrudt = false;
     (async () => {
       try {
@@ -37,7 +41,7 @@ export function useGameRounds(gameId, aktiv) {
       }
     })();
     return () => { afbrudt = true; };
-  }, [gameId, aktiv, kampe]);
+  }, [gameId, kampe]);
 
   return {
     kampe: kampe || [],
@@ -45,7 +49,7 @@ export function useGameRounds(gameId, aktiv) {
     // vælges som startrunde — gaten rører dem aldrig — så de hører ikke i
     // vælgeren.
     runder: (kampe ? groupByRound(kampe) : []).filter((r) => r.round > 0),
-    henter: Boolean(aktiv && gameId && !kampe && !fejl),
+    henter: Boolean(gameId && !kampe && !fejl),
     fejl,
   };
 }

@@ -126,7 +126,8 @@ export async function setGameSchedule(gameId, { startRound, startAt, puljeLockAt
     // sammenlignet med `m.round` uden nogensinde at matche.
     const r = startRound === null || startRound === '' ? null : Number(startRound);
     if (r !== null && (!Number.isInteger(r) || r < 0)) {
-      return { ok: false, error: 'Startrunden skal være et helt, positivt tal.' };
+      // 0 ER gyldigt og betyder "ingen runder gates" — derfor ikke "positivt".
+      return { ok: false, error: 'Startrunden skal være et helt tal på 0 eller derover.' };
     }
     patch.startRound = r;
   }

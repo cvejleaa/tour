@@ -531,7 +531,7 @@ describe('startrunde-vælgeren', () => {
 
   it('viser spillets runder med deres spænd, når man åbner vælgeren', async () => {
     render(<GameScheduleTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Vælg runde/ }));
+    fireEvent.click(screen.getByRole('button', { name: /vælg runde/i }));
     expect(mockGetDocs).toHaveBeenCalledTimes(1);
     // Runde 3 spænder over mere end en uge — og det SKAL kunne ses, for det er
     // hele grunden til, at gaten tæller runder og ikke dage.
@@ -542,7 +542,7 @@ describe('startrunde-vælgeren', () => {
 
   it('viser hvilken runde den gamle startdato svarer til', async () => {
     render(<GameScheduleTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Vælg runde/ }));
+    fireEvent.click(screen.getByRole('button', { name: /vælg runde/i }));
     // startAt 15:59 UTC, runde 2 begynder 16:00 UTC — ét minut efter.
     const standard = await screen.findByRole('option', { name: /Udled af startdatoen/ });
     expect(standard.textContent).toMatch(/runde 2/);
@@ -550,7 +550,7 @@ describe('startrunde-vælgeren', () => {
 
   it('gemmer den valgte runde som et TAL', async () => {
     render(<GameScheduleTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Vælg runde/ }));
+    fireEvent.click(screen.getByRole('button', { name: /vælg runde/i }));
     const vaelger = await screen.findByLabelText('Startrunde for Superligaen');
     fireEvent.change(vaelger, { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
@@ -571,6 +571,29 @@ describe('startrunde-vælgeren', () => {
     for (const [, patch] of mockSetGameSchedule.mock.calls) {
       expect(patch).not.toHaveProperty('startRound');
     }
+  });
+
+  // RUNDE 0 ER `groupByRound`s POSE til kampe UDEN rundenummer. Gaten rører
+  // dem aldrig (`foerStart` gater kun kampe med et tal), så "Runde 0" i
+  // vælgeren ville være et valg, der ikke gør noget.
+  it('tilbyder ikke runde 0 — posen for kampe uden rundenummer', async () => {
+    mockGetDocs.mockResolvedValue({
+      docs: [...KAMPE, { id: 'x', kickoff: Date.parse('2026-08-05T17:00:00Z') }]
+        .map((m) => ({ id: m.id, data: () => m })),
+    });
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: /vælg runde/i }));
+    await screen.findByRole('option', { name: /Runde 1/ });
+    expect(screen.queryByRole('option', { name: /Runde 0/ })).toBeNull();
+  });
+
+  // FORTRYDELSE ER IKKE NEUTRAL. Rydder ejeren runden, falder spillet tilbage
+  // på dato-gaten — netop den, der kan skære en runde over. Knappen skal sige
+  // det, ikke bare stå tom.
+  it('siger at datoen overtager, når runden ikke er sat', () => {
+    render(<GameScheduleTab />);
+    const knap = screen.getByRole('button', { name: /vælg runde/i });
+    expect(knap.textContent).toMatch(/Udledes af datoen/);
   });
 
   it('kan rydde runden igen', async () => {

@@ -21,9 +21,9 @@
 // om udsatte kampe INDEN FOR en hel runde og forudsætter, at runden er hel.
 //
 // En rundegate fjerner alle tre ved konstruktion: hele runder holdes eller
-// fjernes, aldrig halve. Beslutningen ligger her, ét sted, fordi den før lå ni
-// steder — fire i gameScoring, to i reminders, én i gameRecap, én i
-// footballRounds og én i admin-fladen.
+// fjernes, aldrig halve. Beslutningen ligger her, ét sted, fordi den før lå ti
+// steder — fem i gameScoring, to i reminders, én i gameRecap, én i
+// footballRounds og én i måleharnesset scripts/combi-sammenligning.mjs.
 //
 // DET ER IKKE EN HASTESAG. Superligaen står i dag med startAt 15:59 UTC den
 // 1. august, og første kamp i runde 2 er 16:00 UTC — ét minut efter. Ingen

@@ -14,7 +14,7 @@ const {
 } = require('./superligaScoring');
 // Gaten — hvor spillet begynder. Ét modul, spejlet til klienten, fordi den
 // beslutning før lå fem steder i DEN HER fil alene.
-const { gatedeKampe, startRundeFor } = require('./startGate');
+const { gatedeKampe, startRundeFor, foerStart } = require('./startGate');
 // kickoffMs, matchOutcome og buildRoundContext bor i pointOpdeling, fordi
 // KLIENTEN skal bruge samme runde-kontekst for at kunne kalde opdelPoint.
 // Ét sted, ikke to — ellers driver serverens og fladens forestilling om
@@ -228,6 +228,14 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
  * @returns {Set<string>}
  */
 function gatedIds(matches, game) {
+  // ANDEN PARAMETER SKIFTEDE BETYDNING: den var før `startMs` (et tal), nu er
+  // det spil-dokumentet. Et overset kald med et tal ville give
+  // `Number.isFinite(undefined)` → falsk og `kickoffMs({kickoff: undefined})`
+  // → null, altså en gate, der falder ÅBEN — alle runder tæller, tavst. En
+  // gate, der fejler åbent, skal larme.
+  if (typeof game === 'number') {
+    throw new TypeError('gatedIds(matches, game): anden parameter er spil-dokumentet, ikke et tidspunkt.');
+  }
   return gatedeKampe(matches, startRundeFor(game, matches));
 }
 
@@ -423,17 +431,22 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   // Spillets startrunde: kampe før den tæller ikke med. Er DENNE kamp før
   // start, scorer vi den slet ikke.
   //
-  // HELE kamplisten hentes her og ikke længere nede, fordi gaten skal kunne
-  // oversætte et gammelt `startAt` til en runde — og det kan man ikke ud fra
-  // én kamp. Listen blev alligevel hentet til runde-konteksten; nu hentes den
-  // én gang i stedet for to.
+  // GENVEJEN ER IKKE PYNT. Står `startRound` på spillet, kan spørgsmålet
+  // besvares af kampens eget rundenummer, og så slipper vi for at læse hele
+  // kamplisten. Uden den ville hver skrivning på en GATET kamp koste 132
+  // læsninger for Superligaen, hvor den før kostede nul — en regression, jeg
+  // selv indførte ved at flytte hentningen op. Kun det gamle `startAt` kræver
+  // listen, fordi en dato ikke kan oversættes til en runde ud fra én kamp.
   const gameRef = db.collection('games').doc(gameId);
-  const [gameSnap, alleSnap] = await Promise.all([
-    gameRef.get(),
-    gameRef.collection('matches').get(),
-  ]);
+  const gameSnap = await gameRef.get();
+  const game = gameSnap.exists ? gameSnap.data() : null;
+  if (Number.isFinite(game?.startRound) && foerStart(matchData, game.startRound)) {
+    return { rescored: 0, players: 0, gated: true };
+  }
+
+  const alleSnap = await gameRef.collection('matches').get();
   const allMatches = alleSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const gated = gatedIds(allMatches, gameSnap.exists ? gameSnap.data() : null);
+  const gated = gatedIds(allMatches, game);
   if (gated.has(matchId)) return { rescored: 0, players: 0, gated: true };
 
   const betsSnap = await db

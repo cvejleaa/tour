@@ -49,6 +49,17 @@ describe('spejling mod src/lib', () => {
     });
   }
 
+  // PARITETEN KAN IKKE SE SYMMETRISK DRIFT. Ændres BEGGE spejle ens — fx
+  // `Number.isFinite(game?.startRound)` til et truthy-tjek — bliver de ved med
+  // at være enige, og sammenligningen ovenfor forbliver grøn. Derfor måler den
+  // her serverudgaven mod en HÅNDSKREVET forventning i stedet for mod src.
+  it('serverudgaven behandler startRound 0 som en rigtig værdi', () => {
+    // Et truthy-tjek ville lade 0 falde igennem til datoen — og datoen her
+    // gater ALT. 0 betyder "ingen runder gates".
+    expect(server.startRundeFor({ startRound: 0, startAt: 9e12 }, SPREDT_RUNDE)).toBe(0);
+    expect(server.gatedeKampe(SPREDT_RUNDE, 0).size).toBe(0);
+  });
+
   it('server-spejlet matcher src-udgaven på kampe uden runde', async () => {
     const src = await import('../src/lib/startGate.js');
     for (const kamp of [{ round: null }, {}, { round: undefined }, { round: 1 }]) {

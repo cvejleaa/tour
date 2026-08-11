@@ -10,9 +10,13 @@
 // med. To formler for "point i alt" driver fra hinanden ved næste ændring.
 // ---------------------------------------------------------------------------
 
+// Endelsen SKAL med: `scripts/*.mjs` importerer kæden herfra direkte i node,
+// hvor Vites udvidelsesløse opslag ikke findes. Uden den kunne et måleharness
+// ikke bruge spillets egne regler og måtte skrive sin egen kopi — og præcis
+// dét var, hvorfor `combi-sammenligning.mjs` havde sin egen start-gate.
 import {
   outcomePoints, outcomeReward, roundComboBonus, round1, isOutcome, outcomeFromScore,
-} from './superligaScoring';
+} from './superligaScoring.js';
 
 /**
  * Millisekunder fra et Firestore-Timestamp | Date | tal | ISO-streng.

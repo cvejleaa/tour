@@ -18,6 +18,10 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+// SPILLETS EGNE REGLER, ikke harnessets kopier. `kickoffMs` og start-gaten lå
+// før som lokale genskrivninger her — og en kopi kan drive fra originalen uden
+// at nogen opdager det.
+import { gatedeKampe, startRundeFor } from '../src/lib/startGate.js';
 
 const saPath = process.env.SPIL_SA;
 if (!saPath) {
@@ -36,14 +40,6 @@ const FAKTOR = Number(process.env.FAKTOR || 2);
 const LOFT = Number(process.env.LOFT || 25);
 
 const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
-const kickoffMs = (m) => {
-  const k = m?.kickoff;
-  if (k == null) return null;
-  if (typeof k.toMillis === 'function') return k.toMillis();
-  if (typeof k === 'number') return k;
-  const t = Date.parse(k);
-  return Number.isNaN(t) ? null : t;
-};
 const facit = (m) => {
   if (m.result != null && m.result !== '') return m.result;
   const h = Number(m.homeGoals); const a = Number(m.awayGoals);
@@ -82,21 +78,23 @@ const TRAEF = Number(process.env.TRAEF ?? 0);
 const gameRef = db.collection('games').doc(GAME_ID);
 const gameSnap = await gameRef.get();
 if (!gameSnap.exists) { console.error(`Spillet ${GAME_ID} findes ikke.`); process.exit(1); }
-const startMs = kickoffMs({ kickoff: gameSnap.data().startAt });
-
 const [matchesSnap, betsSnap, playersSnap] = await Promise.all([
   gameRef.collection('matches').get(),
   gameRef.collection('bets').get(),
   gameRef.collection('players').get(),
 ]);
 
+// SAMME GATE SOM SPILLET, ikke en kopi. Harnesset havde sin egen
+// dato-sammenligning — den tiende af slagsen — og et harness, der analyserer et
+// andet kampsæt end spillet bruger, måler noget andet end det, det påstår.
+// Netop dette harness har afgjort combi- og odds-ændringer.
+const alleKampe = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+const gatede = gatedeKampe(alleKampe, startRundeFor(gameSnap.data(), alleKampe));
+
 const kampe = new Map();
-for (const d of matchesSnap.docs) {
-  const m = { id: d.id, ...d.data() };
-  const ko = kickoffMs(m);
-  // Kampe FØR spillets start giver ingen point og hører ikke til nogen runde.
-  if (startMs != null && ko != null && ko < startMs) continue;
-  kampe.set(d.id, m);
+for (const m of alleKampe) {
+  if (gatede.has(m.id)) continue;
+  kampe.set(m.id, m);
 }
 
 // Navnet bor på users/{uid}.displayName — players-dokumentet har det ikke.
