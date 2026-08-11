@@ -18,6 +18,7 @@ export default defineConfig({
       'reminders.test.js',
       'playerLeagues.test.js',
       'startGate.test.js',
+      'ligaPoint.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

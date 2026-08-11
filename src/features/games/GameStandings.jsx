@@ -7,7 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useVisibleGameStandings } from './useVisibleGameStandings';
-import { rankDelta, subsetRanking } from './gameStandings';
+import { rankDelta, ligaRanking } from './gameStandings';
+import { ligaPoint, harRundeVektor } from '../../lib/ligaPoint';
 import GameTabLink from './GameTabLink';
 import { formatPoints } from './GameLayout';
 import { fmtSignedPoints } from '../../lib/daNum';
@@ -178,8 +179,10 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // Er ligaen forsvundet under fødderne på en (forladt, slettet), falder vi
   // tilbage til alle — hellere end en tom tabel uden forklaring.
   const valgt = leagues.find((l) => l.id === leagueId) || null;
+  // En liga med egen startrunde får sin total regnet FORFRA af runde-vektoren
+  // (ligaRanking); uden er den bare en delmængde af spillet (subsetRanking).
   const standings = useMemo(
-    () => (valgt ? subsetRanking(alleMine, valgt.memberUids) : alleMine),
+    () => (valgt ? ligaRanking(alleMine, valgt, ligaPoint, harRundeVektor) : alleMine),
     [alleMine, valgt],
   );
 

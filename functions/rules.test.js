@@ -2108,6 +2108,60 @@ describe('games/{gameId}/leagues — sikkerhedsregler', () => {
     });
   }
 
+  // -------------------------------------------------------------------------
+  // startRound — feltet, der afgør hvilke RUNDER der tæller i ligaens
+  // stilling. Ejeren skriver det fra browseren, så valideringen SKAL stå i
+  // reglen: uden den kunne en streng eller et decimaltal lande i basen og
+  // aldrig matche `m.round` — gaten ville tavst holde op med at virke.
+  // -------------------------------------------------------------------------
+  it('ejeren KAN sætte en gyldig startrunde', async () => {
+    await createUser('own', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lgR1', { ownerUid: 'own', memberUids: ['own'] });
+    const fs = testEnv.authenticatedContext('own').firestore();
+    await assertSucceeds(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR1'), { startRound: 3 }));
+    await assertSucceeds(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR1'), { startRound: null }));
+  });
+
+  it('ejeren KAN IKKE skrive en ugyldig startrunde', async () => {
+    await createUser('own', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lgR2', { ownerUid: 'own', memberUids: ['own'] });
+    const fs = testEnv.authenticatedContext('own').firestore();
+    // Streng, decimaltal, nul og negativ: de to første ville stå i basen og
+    // aldrig matche kampens rundenummer; nul og negativ er meningsløse for en
+    // liga — "ingen gate" udtrykkes med null, ikke 0.
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR2'), { startRound: '3' }));
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR2'), { startRound: 3.5 }));
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR2'), { startRound: 0 }));
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR2'), { startRound: -1 }));
+  });
+
+  it('et MEDLEM kan ikke sætte startrunden', async () => {
+    await createUser('vic', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lgR3', { ownerUid: 'own', memberUids: ['own', 'vic'] });
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('vic').firestore(), 'games', 'sl', 'leagues', 'lgR3'),
+        { startRound: 3 })
+    );
+  });
+
+  it('et medlem, der forlader, kan ikke SAMTIDIG flytte gaten', async () => {
+    await createUser('vic', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lgR4', { ownerUid: 'own', memberUids: ['own', 'vic'], startRound: 2 });
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('vic').firestore(), 'games', 'sl', 'leagues', 'lgR4'),
+        { memberUids: ['own'], startRound: 9 })
+    );
+    // …men at forlade UDEN at røre gaten virker stadig.
+    await assertSucceeds(
+      updateDoc(doc(testEnv.authenticatedContext('vic').firestore(), 'games', 'sl', 'leagues', 'lgR4'),
+        { memberUids: ['own'] })
+    );
+  });
+
   it('et medlem KAN forlade ligaen (fjerner KUN sig selv)', async () => {
     await createUser('vic', 'player', 'approved');
     await createGame('sl');

@@ -119,6 +119,30 @@ export async function renameLeague({ gameId, leagueId, name }) {
 }
 
 /**
+ * Sæt ligaens startrunde (kun ejeren — håndhæves af security rules, som også
+ * afviser alt andet end et helt tal >= 1 eller null).
+ *
+ * Runder FØR startrunden tæller ikke i ligaens stilling. En RUNDE og ikke en
+ * dato: en runde kan ligge spredt over en måned, og en dato midt i spændet
+ * ville tage rundens sene kampe med og lade de tidlige ligge.
+ *
+ * @param {{gameId:string, leagueId:string, startRound:number|null}} o
+ */
+export async function setLeagueStartRound({ gameId, leagueId, startRound }) {
+  if (!gameId || !leagueId) return { ok: false, error: 'Mangler oplysninger.' };
+  const r = startRound === null || startRound === '' ? null : Number(startRound);
+  if (r !== null && (!Number.isInteger(r) || r < 1)) {
+    return { ok: false, error: 'Startrunden skal være et helt tal på 1 eller derover.' };
+  }
+  try {
+    await updateDoc(doc(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId), { startRound: r });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke gemme startrunden.') };
+  }
+}
+
+/**
  * Slet en liga (kun ejeren). Bruges også til at rydde tomme ligaer op.
  * @param {{gameId:string, leagueId:string}} o
  */

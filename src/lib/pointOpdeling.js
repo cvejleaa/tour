@@ -231,7 +231,25 @@ function maaVises(info, nowMs) {
  * @param {{byMatch:object, rounds:object}|null} roundCtx
  */
 export function combiBonus(bets, roundCtx) {
-  if (!roundCtx) return 0;
+  let sum = 0;
+  for (const b of combiPerRunde(bets, roundCtx).values()) sum += b;
+  return sum;
+}
+
+/**
+ * Combi-bonussen SPLITTET PR. RUNDE. Samme regnestykke som `combiBonus` — den
+ * er nu bare summen af den her.
+ *
+ * Findes, fordi en liga kan starte ved en anden runde end spillet: dens total
+ * er summen af runderne fra dens egen startrunde og frem, og combi hører til
+ * den runde, den blev vundet i. Uden opdelingen kunne en liga, der starter ved
+ * runde 20, arve en combi fra runde 3.
+ *
+ * @returns {Map<number, number>} runde → bonus
+ */
+export function combiPerRunde(bets, roundCtx) {
+  const ud = new Map();
+  if (!roundCtx) return ud;
   const byRound = new Map();
   for (const b of bets) {
     const info = roundCtx.byMatch[b.matchId];
@@ -243,7 +261,6 @@ export function combiBonus(bets, roundCtx) {
     if (!byRound.has(info.round)) byRound.set(info.round, []);
     byRound.get(info.round).push(b);
   }
-  let bonus = 0;
   for (const [round, pbs] of byRound) {
     const rc = roundCtx.rounds[round];
     if (!rc || rc.combiCount < 2) continue;
@@ -268,9 +285,10 @@ export function combiBonus(bets, roundCtx) {
       // oddsene på skærmen.
       if (info.result && pb.pick === info.result) hitOdds.push(outcomeReward(info.result, info.odds));
     }
-    bonus += roundComboBonus(hitOdds, rc.combiCount);
+    const b = roundComboBonus(hitOdds, rc.combiCount);
+    if (b) ud.set(round, (ud.get(round) || 0) + b);
   }
-  return bonus;
+  return ud;
 }
 
 /**
@@ -319,6 +337,29 @@ export function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs =
   const combi = combiBonus(afgjorte, roundCtx);
   const pulje = Number(puljeBonus) || 0;
 
+  // POINT PR. RUNDE — grundlaget for, at en liga kan starte ved runde N.
+  //
+  // Hver værdi er rundens rå bet-point PLUS rundens combi. Puljen står
+  // udenfor: den tippes før sæsonen og har sin egen regel (se ligaPoint.js).
+  //
+  // KAMPE UDEN RUNDENUMMER kommer under `uden` og tæller ALTID med, uanset
+  // hvilken runde en liga starter ved. Det er samme beslutning som gatens:
+  // `foerStart` rører aldrig en kamp uden runde, for `null < n` og
+  // `undefined < n` svarer ikke ens, og en kamp må ikke miste sine point på
+  // en tvetydighed.
+  const perRunde = {};
+  const laegTil = (noegle, v) => {
+    if (!v) return;
+    perRunde[noegle] = (perRunde[noegle] || 0) + v;
+  };
+  for (const b of bets) {
+    const r = byMatch[b.matchId]?.round;
+    laegTil(Number.isFinite(r) ? String(r) : 'uden', Number(b.points) || 0);
+  }
+  for (const [r, v] of combiPerRunde(afgjorte, roundCtx)) laegTil(String(r), v);
+  for (const k of Object.keys(perRunde)) perRunde[k] = round1(perRunde[k]);
+
+
   // Totalen afrundes ÉN gang og gulves ÉN gang — nøjagtig som recalcPlayerTotal.
   // Rubrikkerne afrundes hver for sig, fordi de skal vises. De to ting kan
   // derfor afvige nogle tiendedele; totalen er den autoritative.
@@ -327,6 +368,7 @@ export function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs =
     chance: round1(chance),
     combi: round1(combi),
     pulje: round1(pulje),
+    perRunde,
     // raw, ikke p1x2 + chance: identisk med den gamle formel i
     // recalcPlayerTotal, så stillingen ikke kan flytte sig af denne ændring.
     total: Math.max(0, round1(raw + combi + pulje)),

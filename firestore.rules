@@ -855,10 +855,23 @@ service cloud.firestore {
           && request.resource.data.name is string
           && request.resource.data.code is string;
 
-        // Opdatér: (a) ejer omdøber (medlemmer uændret), ELLER
+        // startRound afgør, hvilke RUNDER der tæller i ligaens stilling —
+        // den må derfor kun være et helt tal >= 1 (eller slet ikke sat).
+        // Uden vagten kunne en ejer skrive en streng eller et decimaltal fra
+        // browseren, og gaten ville tavst holde op med at matche `m.round`.
+        // "Serveren er eneste autoritet" — men feltet SKRIVES af ejeren, så
+        // valideringen skal stå her, hvor skrivningen sker.
+        function startRoundGyldig() {
+          return !('startRound' in request.resource.data)
+            || request.resource.data.startRound == null
+            || (request.resource.data.startRound is int
+              && request.resource.data.startRound >= 1);
+        }
+
+        // Opdatér: (a) ejer omdøber/sætter startrunde (medlemmer uændret), ELLER
         //          (b) et medlem forlader (fjerner KUN sig selv).
         // Deltag-i-liga sker server-side (Admin SDK omgår denne regel).
-        allow update: if isApproved() && (
+        allow update: if isApproved() && startRoundGyldig() && (
             (resource.data.ownerUid == request.auth.uid
               && request.resource.data.memberUids == resource.data.memberUids
               && request.resource.data.ownerUid == resource.data.ownerUid
@@ -871,7 +884,9 @@ service cloud.firestore {
               && request.resource.data.memberUids == resource.data.memberUids.removeAll([request.auth.uid])
               && request.resource.data.ownerUid == resource.data.ownerUid
               && request.resource.data.code == resource.data.code
-              && request.resource.data.name == resource.data.name)
+              && request.resource.data.name == resource.data.name
+              // Et medlem, der forlader, må ikke SAMTIDIG flytte ligaens gate.
+              && request.resource.data.get('startRound', null) == resource.data.get('startRound', null))
           );
 
         // Slet: kun ejer.

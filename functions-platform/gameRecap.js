@@ -12,6 +12,7 @@
 // stillingen, uden at én test falder.
 const { buildRoundContext, combiBonus } = require('./pointOpdeling');
 const { gatedeKampe, startRundeFor } = require('./startGate');
+const { ligaPoint, harRundeVektor } = require('./ligaPoint');
 
 // 'in' tager højst 30 værdier pr. forespørgsel.
 const IN_CHUNK = 30;
@@ -298,8 +299,28 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     const memberUids = Array.isArray(ld.data().memberUids) ? ld.data().memberUids : [];
     // Ligaens medlemmer, der FAKTISK er spillere i spillet. Et medlem uden
     // spiller-dokument har ingen point at skrive om.
-    const medlemmer = memberUids.map((uid) => perUid.get(uid)).filter(Boolean);
-    if (medlemmer.length < 2) continue;
+    const rawMedlemmer = memberUids.map((uid) => perUid.get(uid)).filter(Boolean);
+    if (rawMedlemmer.length < 2) continue;
+
+    // LIGAENS EGEN STARTRUNDE. En runde før den findes ikke for ligaen:
+    // botten må hverken skrive om den eller regne dens point med. Uden
+    // vagten ville "Kontoret" (fra runde 20) få et opslag om runde 3 med
+    // point, ligaens stilling ikke indeholder.
+    const ligaStart = Number.isFinite(ld.data().startRound) ? ld.data().startRound : null;
+    if (ligaStart != null && round < ligaStart) continue;
+    // Totalen på ligaens skala: summen af runde-vektoren fra ligaens start,
+    // med puljen efter dens egen regel — samme modul som fladen bruger.
+    const medlemmer = ligaStart == null ? rawMedlemmer : rawMedlemmer.map((p) => ({
+      ...p,
+      totalPoints: harRundeVektor(p.perRound)
+        ? ligaPoint(p.perRound, ligaStart, p.bonusPoints || 0)
+        : 0,
+      // Spillets previousRank er en anden skala — se lokaleRanger. Uden
+      // vektor-grundlag er en pil misvisende, så den droppes.
+      previousRank: harRundeVektor(p.perRound) && Number.isFinite(p.previousRank)
+        ? p.previousRank
+        : null,
+    }));
 
     const facts = buildRoundRecapFacts({
       round,
