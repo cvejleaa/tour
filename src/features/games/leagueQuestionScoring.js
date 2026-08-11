@@ -90,12 +90,21 @@ export function leagueRankingWithQuestions(standings, memberUids, lqByUid = {}) 
       lqPoints: Math.round((Number(lqByUid[r.uid]) || 0) * 10) / 10,
       totalPoints: Math.round(((Number(r.totalPoints) || 0) + (Number(lqByUid[r.uid]) || 0)) * 10) / 10,
     }))
-    .sort((a, b) => b.totalPoints - a.totalPoints
+    // klar:false sidst — en spiller uden runde-vektor har ingen total at
+    // sortere på, og en plads midt i listen ville ligne en rigtig placering.
+    .sort((a, b) => ((a.klar === false) - (b.klar === false))
+      || b.totalPoints - a.totalPoints
       || String(a.name || '').localeCompare(String(b.name || ''), 'da'));
   let rank = 0;
   let prev = null;
-  return rows.map((r, i) => {
-    if (r.totalPoints !== prev) { rank = i + 1; prev = r.totalPoints; }
+  let talte = 0;
+  return rows.map((r) => {
+    // INGEN RANG OG INGEN SPØRGSMÅLS-SUM til en spiller, der ikke er beregnet.
+    // At lægge 5 spørgsmålspoint oven på en 0-base ville vise "5 point, nr. 3"
+    // for en spiller, hvis rigtige tal ingen kender endnu — QC's fund.
+    if (r.klar === false) return { ...r, rank: null, totalPoints: null };
+    talte += 1;
+    if (r.totalPoints !== prev) { rank = talte; prev = r.totalPoints; }
     return { ...r, rank };
   });
 }

@@ -39,7 +39,12 @@ export default function GameLayout({ game, me, children }) {
           {game?.name}
         </h1>
         {me && (
-          <span className="badge" title="Din saldo i dette spil">
+          // SALDOEN KAN IKKE BLIVE LIGA-LOKAL. Der er ét bet pr. kamp, delt af
+          // alle ens ligaer, så der findes kun én pengekasse — og Chancens
+          // maks-indsats (15 % af saldoen) klippes på serveren mod netop den.
+          // En liga med egen startrunde viser andre totaler; titlen her skal
+          // sige, hvad tallet ER, så de to ikke ligner en modsigelse.
+          <span className="badge" title="Spillets samlede saldo — den, Chancen må satse af. Ligaer med egen startrunde viser deres egne tal.">
             💰 {formatPoints(bank)} point
           </span>
         )}

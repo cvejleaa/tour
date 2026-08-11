@@ -27,6 +27,10 @@ export function rankStandings(players, usersById = {}) {
       // null og ikke fire nuller: findes feltet ikke endnu, skal fladen kunne
       // sige "ikke klar" i stedet for at påstå, at spilleren ingen point har.
       opdeling: p.opdeling ?? null,
+      // Runde-vektoren og puljebonussen — grundlaget for en ligas EGEN total,
+      // når den starter ved en senere runde (se ligaRanking/ligaPoint).
+      perRound: p.perRound ?? null,
+      bonusPoints: Number(p.bonusPoints) || 0,
     };
   });
 
@@ -51,9 +55,105 @@ export function rankDelta(row) {
 }
 
 /**
+ * Liga-stilling for en liga MED egen startrunde: totalerne regnes FORFRA af
+ * spillernes runde-vektor, og placeringer + pile gen-tildeles efter de nye
+ * tal.
+ *
+ * HVORFOR IKKE BARE `subsetRanking`: dens rækker bærer spillets totaler, og en
+ * liga fra runde 20 har sine egne. Og previousRank fra serveren er spillets
+ * skala — sorteres ligaens nye orden mod den gamle globale, får alle en grøn
+ * pil (to-skala-fejlen, som subsetRankings egen kommentar beskriver). Pilene
+ * her regnes i stedet af SAMME vektor: rangen før den seneste afgjorte runde
+ * er ligaens orden uden dens sidste bidrag.
+ *
+ * En spiller uden `perRound` (ikke genberegnet endnu) vises med `klar: false`
+ * og ingen total — fladen skal sige "ikke klar", ikke påstå nul. Samme mønster
+ * som `opdeling`.
+ *
+ * @param {Array<object>} rows      – rangeret spil-stilling (fra rankStandings)
+ * @param {{memberUids?:Array<string>, startRound?:number|null}} league
+ * @param {(perRound: object|null, startRunde: number|null, pulje: number) => number} regn  – ligaPoint
+ * @param {(perRound: object|null) => boolean} harVektor  – harRundeVektor
+ */
+export function ligaRanking(rows, league, regn, harVektor) {
+  const set = new Set(league?.memberUids || []);
+  const startRunde = Number.isFinite(league?.startRound) ? league.startRound : null;
+  // Uden startrunde er ligaen bare en delmængde af spillet — samme tal.
+  if (startRunde == null) return subsetRanking(rows, set);
+
+  const medlemmer = (rows || []).filter((r) => set.has(r.uid));
+
+  // Sidste runde, NOGEN i ligaen har point fra — pilene sammenligner mod
+  // stillingen uden den. Kun runder fra ligaens egen start tæller med her.
+  let sidste = null;
+  for (const r of medlemmer) {
+    for (const noegle of Object.keys(r.perRound || {})) {
+      const n = Number(noegle);
+      if (!Number.isFinite(n) || n < startRunde) continue;
+      if (sidste == null || n > sidste) sidste = n;
+    }
+  }
+
+  const talte = medlemmer.map((r) => ({
+    ...r,
+    // Spillets total FØR omregningen. Pointopdelingen og spillerdetaljen
+    // viser spillets regnskab (rubrikkerne er spil-globale), og de skal have
+    // spillets tal at stemme mod — ellers står rubrikker på én skala mod en
+    // total på en anden, og afvigelses-noten forklarer det med to grunde, der
+    // begge er forkerte.
+    spilTotal: r.totalPoints,
+    klar: harVektor(r.perRound),
+    totalPoints: harVektor(r.perRound) ? regn(r.perRound, startRunde, r.bonusPoints || 0) : 0,
+    // Total FØR den seneste runde — grundlaget for pilen. Regnet af samme
+    // vektor, så begge tal er på ligaens skala.
+    _foer: harVektor(r.perRound) && sidste != null
+      ? regn(fjernRunde(r.perRound, sidste), startRunde, r.bonusPoints || 0)
+      : null,
+  }));
+
+  // Rang nu og rang før — begge på ligaens egen skala.
+  const rangér = (liste, felt) => {
+    const sorteret = [...liste].sort((a, b) => (b[felt] - a[felt])
+      || a.name.localeCompare(b.name, 'da'));
+    const rang = new Map();
+    let r = 0;
+    let prev = null;
+    sorteret.forEach((x, i) => {
+      if (x[felt] !== prev) { r = i + 1; prev = x[felt]; }
+      rang.set(x.uid, r);
+    });
+    return rang;
+  };
+  const nu = rangér(talte.filter((t) => t.klar), 'totalPoints');
+  const foerRang = sidste != null ? rangér(talte.filter((t) => t._foer != null), '_foer') : new Map();
+
+  return talte
+    .sort((a, b) => (b.totalPoints - a.totalPoints) || a.name.localeCompare(b.name, 'da'))
+    .map((r) => ({
+      ...r,
+      rank: nu.get(r.uid) ?? null,
+      previousRank: foerRang.get(r.uid) ?? null,
+      _foer: undefined,
+    }));
+}
+
+/** Vektoren uden én bestemt runde — til "stillingen før sidste runde". */
+function fjernRunde(perRound, runde) {
+  const ud = {};
+  for (const [k, v] of Object.entries(perRound || {})) {
+    if (Number(k) === runde) continue;
+    ud[k] = v;
+  }
+  return ud;
+}
+
+/**
  * Liga-stilling: filtrér en allerede rangeret liste (fra rankStandings) til
  * ligaens medlemmer og gen-tildel placeringer INDEN FOR ligaen. Bevarer den
  * eksisterende point-sortering.
+ *
+ * BRUGES KUN, når ligaen ikke har sin egen startrunde — ellers `ligaRanking`,
+ * som regner totalerne forfra af runde-vektoren.
  * @param {Array<object>} rows       – rangeret spil-stilling
  * @param {Array<string>|Set<string>} memberUids
  */

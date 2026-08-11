@@ -271,11 +271,25 @@ async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null, g
     tx.set(playerRef, {
       totalPoints: o.total,
       roundBonus: o.combi,
+      // POINT PR. RUNDE — grundlaget for, at en liga kan starte ved runde N.
+      // Det står på spilleren og ikke i en samling pr. liga, fordi en spiller
+      // så ville have ét dokument pr. liga: `recalcPlayerTotal` læser ALLE
+      // hans bets pr. kald (~200), og en ganget scoring ville koste 43.000
+      // læsninger på en kampdag ved tre ligaer. Ligaens sum lægges i stedet af
+      // `ligaPoint` — samme modul på server og flade.
+      perRound: o.perRunde,
       // Ét felt og ikke fire løse: rubrikkerne skrives altid sammen, så de
       // ikke kan komme til at stamme fra hver sin kørsel.
       opdeling: { p1x2: o.p1x2, chance: o.chance, combi: o.combi, pulje: o.pulje },
       updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
+      // mergeFields, IKKE merge:true. merge:true DEEP-merger maps: en
+      // rundenøgle, der forsvinder fra den nye vektor — et facit fjernes, en
+      // kamp omscores til 0 eller flytter runde — ville blive STÅENDE, og
+      // ligaens total ville tavst indeholde point, spillet ikke længere har.
+      // mergeFields erstatter hvert felt HELT og bevarer, at dokumentet kan
+      // mangle. Samme beslutning som `kampe`-dokumentet nedenfor ("FULD
+      // ERSTATNING — bevidst ingen merge").
+    }, { mergeFields: ['totalPoints', 'roundBonus', 'perRound', 'opdeling', 'updatedAt'] });
 
     // FULD ERSTATNING — bevidst ingen merge.
     //

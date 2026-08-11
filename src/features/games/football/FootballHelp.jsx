@@ -6,6 +6,7 @@
 import { Link } from 'react-router-dom';
 import GameTabLink from '../GameTabLink';
 import { CHANCE, COMBI, PULJE, ELO, ODDS, roundComboBonus, TRAEF_BONUS } from '../../../lib/superligaScoring';
+import { PULJE_MAKS_STARTRUNDE } from '../../../lib/ligaPoint';
 import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
@@ -249,7 +250,12 @@ export default function FootballHelp() {
         {' '}<strong>deler liga med</strong>. Er du ikke med i en liga endnu, er der ingen at måle dig
         mod: opret eller tilmeld dig én under <Tab fane="ligaer">👥 Ligaer</Tab>. Er du med i <strong>flere
         ligaer</strong>, kan du vælge én ad gangen øverst — så tælles placeringerne forfra inden
-        for den liga.
+        for den liga. En liga kan desuden have sin egen <strong>startrunde</strong>: så tæller kun
+        runder fra den og frem i ligaens stilling — hele runder, aldrig halve, så en udsat kamp
+        følger sin runde. Ligaens ejer sætter den under <Tab fane="ligaer">👥 Ligaer</Tab>, og den
+        står på liga-kortet. Starter ligaen efter runde {PULJE_MAKS_STARTRUNDE}, tæller
+        puljebonussen ikke med — den blev tippet før sæsonen, så nye medlemmer kunne ikke være med.
+        Din <strong>saldo</strong> øverst er altid spillets samlede — det er den, Chancen må satse af.
         <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>🧮 Hvor kommer pointene fra?</strong> — knappen bytter listen ud med et regnskab, hvor

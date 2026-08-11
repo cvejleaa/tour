@@ -14,7 +14,7 @@ vi.mock('firebase/functions', () => ({
   httpsCallable: () => (...args) => mockKald(...args),
 }));
 
-import { joinLeagueByCode } from './gameLeagueActions';
+import { joinLeagueByCode, setLeagueStartRound } from './gameLeagueActions';
 
 /** Fejl som Cloud Functions-SDK'et kaster dem: kode med 'functions/'-præfiks. */
 function callableFejl(code, message) {
@@ -61,5 +61,18 @@ describe('joinLeagueByCode — fejlbeskeder', () => {
     const res = await joinLeagueByCode({ gameId: 'sl', code: 'ab' });
     expect(res).toEqual({ ok: false, error: 'Indtast en gyldig kode.' });
     expect(mockKald).not.toHaveBeenCalled();
+  });
+});
+
+// Rules er autoriteten og afviser det samme (rules.test.js). Det, DENNE test
+// beviser, er den danske fejlbesked: uden valideringen fik ejeren Firebase-
+// SDK'ets engelske "permission denied" i stedet for at få at vide hvorfor.
+describe('setLeagueStartRound — klientens validering', () => {
+  it('afviser decimaler, nul og vrøvl med dansk besked — uden at røre serveren', async () => {
+    for (const ugyldig of [2.5, 0, -3, 'abc']) {
+      const res = await setLeagueStartRound({ gameId: 'sl', leagueId: 'l1', startRound: ugyldig });
+      expect(res.ok).toBe(false);
+      expect(res.error).toContain('helt tal');
+    }
   });
 });

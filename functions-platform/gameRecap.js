@@ -12,6 +12,7 @@
 // stillingen, uden at én test falder.
 const { buildRoundContext, combiBonus } = require('./pointOpdeling');
 const { gatedeKampe, startRundeFor } = require('./startGate');
+const { ligaPoint, harRundeVektor } = require('./ligaPoint');
 
 // 'in' tager højst 30 værdier pr. forespørgsel.
 const IN_CHUNK = 30;
@@ -298,8 +299,53 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     const memberUids = Array.isArray(ld.data().memberUids) ? ld.data().memberUids : [];
     // Ligaens medlemmer, der FAKTISK er spillere i spillet. Et medlem uden
     // spiller-dokument har ingen point at skrive om.
-    const medlemmer = memberUids.map((uid) => perUid.get(uid)).filter(Boolean);
-    if (medlemmer.length < 2) continue;
+    const rawMedlemmer = memberUids.map((uid) => perUid.get(uid)).filter(Boolean);
+    if (rawMedlemmer.length < 2) continue;
+
+    // LIGAENS EGEN STARTRUNDE. En runde før den findes ikke for ligaen:
+    // botten må hverken skrive om den eller regne dens point med. Uden
+    // vagten ville "Kontoret" (fra runde 20) få et opslag om runde 3 med
+    // point, ligaens stilling ikke indeholder.
+    const ligaStart = Number.isFinite(ld.data().startRound) ? ld.data().startRound : null;
+    if (ligaStart != null && round < ligaStart) continue;
+    // Totalen på ligaens skala: summen af runde-vektoren fra ligaens start,
+    // med puljen efter dens egen regel — samme modul som fladen bruger.
+    // Pilene ("overtog føringen") skal regnes på LIGAENS skala — spillets
+    // previousRank er en anden. Før-stillingen er ligaens total UDEN den
+    // aktuelle runde, af samme vektor: nøjagtig det greb, fladen bruger
+    // (`ligaRanking`/`fjernRunde`), bare her.
+    const foerTotal = (p) => {
+      if (!harRundeVektor(p.perRound)) return null;
+      const uden = {};
+      for (const [k, v] of Object.entries(p.perRound)) {
+        if (Number(k) === round) continue;
+        uden[k] = v;
+      }
+      return ligaPoint(uden, ligaStart, p.bonusPoints || 0);
+    };
+    let medlemmer = rawMedlemmer;
+    if (ligaStart != null) {
+      const omregnede = rawMedlemmer.map((p) => ({
+        ...p,
+        totalPoints: harRundeVektor(p.perRound)
+          ? ligaPoint(p.perRound, ligaStart, p.bonusPoints || 0)
+          : 0,
+        _foer: foerTotal(p),
+      }));
+      // Før-rang på ligaens skala. Spillere uden vektor får ingen pil.
+      const medFoer = omregnede.filter((p) => p._foer != null)
+        .sort((a, b) => (b._foer - a._foer) || String(a.uid).localeCompare(String(b.uid)));
+      const foerRang = new Map();
+      let r = 0;
+      let sidst = null;
+      medFoer.forEach((p, i) => {
+        if (p._foer !== sidst) { r = i + 1; sidst = p._foer; }
+        foerRang.set(p.uid, r);
+      });
+      medlemmer = omregnede.map((p) => ({
+        ...p, previousRank: foerRang.get(p.uid) ?? null, _foer: undefined,
+      }));
+    }
 
     const facts = buildRoundRecapFacts({
       round,

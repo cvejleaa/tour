@@ -191,6 +191,7 @@ ligner hinanden, men den ene kan ikke rette det, den anden retter.
 |---|---|---|
 | `game.startRound` STRAMMET (fx 2 → 3), en liga, en puljeafregning | 🔄 **Genberegn point** (`recomputeGameScores`) | `bets.points` er allerede rigtige; kun totalerne skal lægges sammen forfra |
 | `game.startRound` LØSNET (fx 3 → 2) | **`rescoreGameBets`** — ikke Genberegn point | Kampe, hvis facit faldt, MENS de var gatet, står med `points: 0`. `recomputeGameMatchCore` returnerer tidligt for en gatet kamp og skriver aldrig et point på den, så der er intet at lægge sammen. Stillingen ville vise for lave tal uden en eneste fejlbesked |
+| En LIGAS `startRound` (sat/ændret af ejeren) | Ingenting | Ligaens total regnes i fladen af `players.perRound` — der er intet server-tal at genberegne. MEN: spillere, der aldrig er genberegnet efter udrulningen af `perRound`, mangler vektoren og vises som "ikke klar" — kør 🔄 **Genberegn point** for spillet én gang efter udrulning |
 | **Selve pointreglen** i `superligaScoring.js` — fx træf-bonussen eller combi-formlen | **`rescoreGameBets`** | `bets.points` er kilden til totalen, og de står med det GAMLE tal |
 | **Odds-modellen** — `ELO.DRAW_BASE`, `DRAW_DECAY`, `ODDS.MIN`, seed-Elo | 💰 **Ompris kampene** (`repriceGameOdds`) | Odds er frosne på kamp-dokumentet. Hverken de to andre knapper eller et deploy rører dem — se nedenfor |
 

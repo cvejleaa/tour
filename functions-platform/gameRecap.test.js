@@ -378,6 +378,98 @@ describe('runGameRoundRecap — én liga må kun høre om sine egne', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// LIGAENS STARTRUNDE HOS BOTTEN.
+//
+// En liga fra runde 20 har ingen runde 3: botten må hverken skrive et opslag
+// om den eller regne dens point med. Og totalerne i opslaget skal være
+// LIGAENS — regnet af runde-vektoren med `ligaPoint`, samme modul som fladen.
+// ---------------------------------------------------------------------------
+describe('runGameRoundRecap — ligaens startrunde', () => {
+  const KAMPE = [
+    { id: 'm1', round: 2, home: 'FCK', away: 'Vejle', kickoff: 100, result: '1', homeGoals: 2, awayGoals: 0, odds: { 1: 1.6, X: 3.6, 2: 6 } },
+    { id: 'm2', round: 2, home: 'AGF', away: 'OB', kickoff: 200, result: 'X', homeGoals: 1, awayGoals: 1, odds: { 1: 2.4, X: 3.4, 2: 2.6 } },
+  ];
+  const SPILLERE = {
+    A: { totalPoints: 30, rank: 1, perRound: { 1: 20, 2: 10 }, bonusPoints: 0 },
+    B: { totalPoints: 24, rank: 2, perRound: { 1: 2, 2: 22 }, bonusPoints: 0 },
+  };
+  const USERS = { A: { displayName: 'Anna' }, B: { displayName: 'Bo' } };
+
+  /** fakeAnthropic, der OPTAGER fakta-beskeden, modellen får.
+   *  Selve user-beskeden, IKKE JSON.stringify af hele kaldet — det ville
+   *  escape fakta-strengens citationstegn, og assertions på '"points":22'
+   *  ville aldrig matche, selv når tallet står der. */
+  const optager = () => {
+    const set = [];
+    return {
+      set,
+      messages: {
+        create: async (arg) => {
+          set.push(arg.messages.map((m) => m.content).join(' '));
+          return { content: [{ type: 'text', text: 'Opslag! 🎉' }] };
+        },
+      },
+    };
+  };
+
+  it('springer en liga over, hvis runden ligger før dens start', async () => {
+    const db = makeDb({
+      matches: KAMPE, players: SPILLERE, users: USERS, bets: [],
+      leagues: [{ name: 'Kontoret', memberUids: ['A', 'B'], startRound: 3 }],
+    });
+    const out = await runGameRoundRecap(db, FieldValue, fakeAnthropic(), 'g1', 2);
+    expect(out.posted).toBe(0);
+  });
+
+  it('bruger LIGAENS totaler i fakta — ikke spillets', async () => {
+    const ai = optager();
+    const db = makeDb({
+      matches: KAMPE, players: SPILLERE, users: USERS,
+      bets: [{ uid: 'A', matchId: 'm1', pick: '1', points: 1.6 }],
+      leagues: [{ name: 'Kontoret', memberUids: ['A', 'B'], startRound: 2 }],
+    });
+    const out = await runGameRoundRecap(db, FieldValue, ai, 'g1', 2);
+    expect(out.posted).toBe(1);
+    const fakta = ai.set.join(' ');
+    // Ligaens skala: Anna 10, Bo 22 — Bo fører. Spillets 30/24 må IKKE optræde.
+    expect(fakta).toContain('"points":22');
+    expect(fakta).toContain('"points":10');
+    expect(fakta).not.toContain('"points":30');
+    expect(fakta).not.toContain('"points":24');
+  });
+
+  // Puljebonussen kan ikke skelnes fra 0 i fixturerne ovenfor — alle spillere
+  // har bonusPoints: 0, så omregningen kunne droppe den med grøn suite. Her
+  // HAR Bo puljen, og ligaen (startrunde 2 ≤ grænsen på 3) skal tælle den med.
+  it('tager puljebonussen med, når ligaens startrunde tillader den', async () => {
+    const ai = optager();
+    const db = makeDb({
+      matches: KAMPE, users: USERS,
+      players: { ...SPILLERE, B: { ...SPILLERE.B, bonusPoints: 34 } },
+      bets: [{ uid: 'A', matchId: 'm1', pick: '1', points: 1.6 }],
+      leagues: [{ name: 'Kontoret', memberUids: ['A', 'B'], startRound: 2 }],
+    });
+    const out = await runGameRoundRecap(db, FieldValue, ai, 'g1', 2);
+    expect(out.posted).toBe(1);
+    const fakta = ai.set.join(' ');
+    // Bo: runde 2 (22) + pulje (34) = 56. Uden bonussen stod der 22 — og et
+    // ligamedlem med pulje ville mangle den i Runde-Bottens opslag.
+    expect(fakta).toContain('"points":56');
+    expect(fakta).not.toContain('"points":22');
+  });
+
+  it('poster som hidtil for en liga uden startrunde', async () => {
+    const db = makeDb({
+      matches: KAMPE, players: SPILLERE, users: USERS,
+      bets: [{ uid: 'A', matchId: 'm1', pick: '1', points: 1.6 }],
+      leagues: [{ name: 'Familien', memberUids: ['A', 'B'] }],
+    });
+    const out = await runGameRoundRecap(db, FieldValue, fakeAnthropic(), 'g1', 2);
+    expect(out.posted).toBe(1);
+  });
+});
+
 describe('runGameRoundRecap', () => {
   it('poster på liga-vægge med ≥2 medlemmer og markerer runden', async () => {
     const db = makeDb(base);

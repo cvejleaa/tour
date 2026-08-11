@@ -2,6 +2,8 @@
  * GameLeagues — private mini-ligaer i ét spil: se dine ligaer + intern stilling,
  * opret/deltag, omdøb (ejer), slet/forlad, og en liga-væg med beskeder.
  */
+import { ligaRanking } from './gameStandings';
+import { ligaPoint, harRundeVektor, puljenTaeller, PULJE_MAKS_STARTRUNDE } from '../../lib/ligaPoint';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Avatar from '../../components/Avatar';
@@ -17,6 +19,7 @@ import { useKlubFarver } from './football/useKlubFarver';
 import { relativeTime } from '../../lib/daDate';
 import {
   createLeague, joinLeagueByCode, leaveLeague, renameLeague, deleteLeague,
+  setLeagueStartRound,
   postLeagueMessage, LEAGUE_MSG_MAX,
 } from './gameLeagueActions';
 
@@ -127,11 +130,35 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, forvalgt, klubFar
   // Liga-spørgsmål (kun når kortet er åbent — null skipper lytterne).
   const { questions, answersByQid } = useLeagueQuestions(gameId, open ? league.id : null);
   const lqByUid = useMemo(() => leagueQuestionPointsByUid(questions, answersByQid), [questions, answersByQid]);
-  // Intern stilling = spillets point + liga-spørgsmåls-point (kun i ligaen).
+  // Intern stilling = ligaens point + liga-spørgsmåls-point (kun i ligaen).
+  //
+  // BASEN ER LIGAENS EGEN. Har ligaen en startrunde, regnes hver spillers
+  // total forfra af runde-vektoren (ligaRanking → ligaPoint) — runder før
+  // starten tæller ikke, og puljen følger sin egen regel. Uden startrunde er
+  // basen spillets tal, som altid.
   const rows = useMemo(
-    () => leagueRankingWithQuestions(standings, league.memberUids, lqByUid),
-    [standings, league.memberUids, lqByUid],
+    () => leagueRankingWithQuestions(
+      ligaRanking(standings, league, ligaPoint, harRundeVektor),
+      league.memberUids,
+      lqByUid,
+    ),
+    [standings, league, lqByUid],
   );
+
+  const [vaelgerRunde, setVaelgerRunde] = useState(false);
+  const [rundeDraft, setRundeDraft] = useState(
+    Number.isFinite(league.startRound) ? String(league.startRound) : '',
+  );
+
+  async function gemStartRunde() {
+    setBusy(true); setErr('');
+    const res = await setLeagueStartRound({
+      gameId, leagueId: league.id, startRound: rundeDraft === '' ? null : Number(rundeDraft),
+    });
+    if (res.ok) setVaelgerRunde(false);
+    else setErr(res.error);
+    setBusy(false);
+  }
 
   async function handleLeave() {
     if (!window.confirm(`Forlad "${league.name}"?`)) return;
@@ -185,10 +212,50 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, forvalgt, klubFar
               Invitationskode: <strong style={{ letterSpacing: '1px', color: 'var(--c-text, inherit)' }}>{league.code}</strong>
               {isOwner && ' (del den med vennerne)'}
             </span>
+            {/* STARTRUNDEN SKAL STÅ PÅ KORTET, IKKE KUN I EN DIALOG. En liga,
+                der tæller fra runde 20, viser andre tal end spillet — står det
+                ikke her, ligner ligaens stilling en fejl. Og puljereglen skal
+                siges DÉR, hvor den rammer: medlemmer efter runde 3 kunne ikke
+                have tippet puljen, så den tæller ikke med. */}
+            {Number.isFinite(league.startRound) && (
+              <span className="badge badge--muted" data-testid="liga-startrunde">
+                Tæller fra runde {league.startRound}
+                {!puljenTaeller(league.startRound) && ' · puljen tæller ikke'}
+              </span>
+            )}
+          </div>
+
+          {vaelgerRunde && isOwner && (
+            <div className="flex items-center" style={{ gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+              <label htmlFor={`liga-runde-${league.id}`} style={{ fontSize: '0.85rem', color: 'var(--c-muted)' }}>
+                Ligaen tæller fra runde
+              </label>
+              <input
+                id={`liga-runde-${league.id}`} type="number" min={1} step={1}
+                value={rundeDraft} placeholder="alle"
+                onChange={(e) => setRundeDraft(e.target.value)}
+                style={{ width: 90 }}
+              />
+              <button className="btn btn--sm" disabled={busy} onClick={gemStartRunde}>Gem</button>
+              <button className="btn btn--ghost btn--sm" onClick={() => setVaelgerRunde(false)}>Fortryd</button>
+              {/* Konsekvensen skal stå VED valget, ikke opdages i stillingen:
+                  runder før tæller ikke, og puljen har sin egen grænse. */}
+              <span style={{ flexBasis: '100%', fontSize: '0.78rem', color: 'var(--c-muted)' }}>
+                Runder før den valgte tæller ikke i ligaens stilling. Tomt felt = hele spillet.
+                Starter ligaen efter runde {PULJE_MAKS_STARTRUNDE}, tæller puljebonussen ikke med
+                — den blev tippet før sæsonen.
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between" style={{ gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
             <span style={{ display: 'inline-flex', gap: '0.4rem' }}>
               {isOwner ? (
                 <>
                   {!editing && <button className="btn btn--ghost btn--sm" onClick={() => setEditing(true)}>Omdøb</button>}
+                  <button className="btn btn--ghost btn--sm" disabled={busy} onClick={() => setVaelgerRunde((v) => !v)}>
+                    Startrunde…
+                  </button>
                   <button className="btn btn--ghost btn--sm" disabled={busy} onClick={handleDelete}>Slet liga</button>
                 </>
               ) : (
