@@ -9,7 +9,7 @@
 //
 // Testen her findes for, at feltet bærer sin egen begrundelse.
 import { describe, it, expect } from 'vitest';
-import { faneVises } from './GamePage.jsx';
+import { faneVises, GAME_TABS } from './GamePage.jsx';
 
 const FODBOLD_MED_PULJE = { type: 'football', pulje: { poolSize: 6 } };
 const FODBOLD_UDEN_PULJE = { type: 'football' };
@@ -52,5 +52,27 @@ describe('faneVises', () => {
   it('viser ingen spil-specifik fane uden et spil', () => {
     expect(faneVises(pulje, null)).toBe(false);
     expect(faneVises(tabel, undefined)).toBe(false);
+  });
+
+  // Tabel-fanen kræver, at serveren HAR skrevet en stilling. Uden gaten viste
+  // Premier League-spillet (ingen synk endnu) en fane, der lovede en tabel og
+  // leverede en tom side. Testes mod de RIGTIGE fane-definitioner — en lokal
+  // kopi ville forblive grøn, hvis `kraever: 'standings'` blev fjernet.
+  describe('tabel-fanen gates på standings', () => {
+    const rigtigTabel = GAME_TABS.find((t) => t.key === 'tabel');
+
+    it('skjules i et fodboldspil uden standings', () => {
+      expect(faneVises(rigtigTabel, { type: 'football' })).toBe(false);
+    });
+
+    it('vises, når serveren har skrevet standings', () => {
+      expect(faneVises(rigtigTabel, { type: 'football', standings: [{ rank: 1 }] })).toBe(true);
+    });
+
+    // Og pulje-gaten skal stå i den RIGTIGE konfiguration, ikke kun i denne
+    // fils lokale kopi.
+    it('pulje-fanens kraever står i konfigurationen', () => {
+      expect(GAME_TABS.find((t) => t.key === 'pulje')?.kraever).toBe('pulje');
+    });
   });
 });

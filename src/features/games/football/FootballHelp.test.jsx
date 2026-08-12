@@ -5,6 +5,40 @@ import FootballHelp from './FootballHelp';
 import { RUBRIKKER } from './PointOpdeling';
 import { COMBI, ODDS, TRAEF_BONUS } from '../../../lib/superligaScoring';
 
+// Guiden får SPILLET og må kun beskrive de faner, spillet har. Uden gaten
+// forklarede den pulje-tippet og Superligaens tabel-deling i Premier
+// League-spillet.
+describe('FootballHelp følger spillet', () => {
+  const medSpil = (game) => render(
+    <MemoryRouter initialEntries={['/spil/x?fane=hjaelp']}>
+      <Routes>
+        <Route path="/spil/:gameId" element={<FootballHelp game={game} />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  it('forklarer pulje-tippet og tabel-delingen i et spil MED pulje', () => {
+    const { container } = medSpil({ pulje: { poolSize: 6 } });
+    expect(container.textContent).toContain('Bonus: pulje-tip');
+    expect(container.textContent).toContain('officielle Superliga-stilling');
+    expect(container.textContent).toContain('mesterskabsspil (top 6)');
+    expect(container.textContent).toContain('puljebonussen');
+  });
+
+  // Kernen: guiden i et spil UDEN pulje må ikke indeholde ét pulje-begreb
+  // eller Superliga-delingen. Positiv OG negativ assertion — kun den nye
+  // tekst at tjekke fanger ikke en halv rettelse.
+  it('nævner hverken pulje-fanen eller Superliga-delingen i et spil uden pulje', () => {
+    const { container } = medSpil({});
+    expect(container.textContent).toContain('officielle stilling');
+    expect(container.textContent).not.toContain('Bonus: pulje-tip');
+    expect(container.textContent).not.toContain('Superliga-stilling');
+    expect(container.textContent).not.toContain('mesterskabsspil (top 6)');
+    expect(container.textContent).not.toContain('puljebonussen');
+    expect(container.textContent).not.toContain('Pulje-tip');
+  });
+});
+
 describe('FootballHelp (spil-intern hjælp)', () => {
   it('viser Superliga-mekanikken inkl. hvordan combi-bonus beregnes', () => {
     render(

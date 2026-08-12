@@ -232,7 +232,9 @@ export default function FootballTip({ game, me, matches }) {
     : [];
 
   function buildFacitShare() {
-    const parts = [`⚽ Superliga R${current?.round}: ${fmtSignedPoints(roundEarned)} point (${roundHitsAll.length}/${spilledeIRunden} ramt)`];
+    // Spillets eget navn — "Superliga R5" i en Premier League-deling ville
+    // sende venner til den forkerte liga.
+    const parts = [`⚽ ${game?.shortName || game?.name || 'Runde'} R${current?.round}: ${fmtSignedPoints(roundEarned)} point (${roundHitsAll.length}/${spilledeIRunden} ramt)`];
     // 🔗 og ikke ⚡: ⚡ er Chancen overalt i appen (PointOpdeling siger det
     // eksplicit), og delingsteksten stod med begge betydninger på samme linje.
     if (roundBonus > 0) parts.push(`combi +${fmtDec(roundBonus)} 🔗`);
