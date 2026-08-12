@@ -226,16 +226,23 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   // Provideren SKAL kaste på et svar uden liste (se kontrakten): fravær af
   // data er et SKRIVE-signal her (det markerer kampe slut), så et svar, vi
   // ikke forstod, må aldrig ligne "ingen kampe i gang".
+  //
+  // stadigIGang === null betyder "kilden kan ikke levere live" (kontrakten):
+  // så ved vi INTET om, hvem der stadig spiller, og slut-markeringen springes
+  // over. En tom Set ville betyde det modsatte — alle kampe væk fra listen —
+  // og give hver spillende kamp et falsk "Slut".
   const { events, stadigIGang } = await provider.hentLive(sync, fetchFn);
 
   const current = new Map((opts.only || []).map((m) => [m.id, m.data]));
   // Én opløsning for BÅDE stillings-events og stadig-i-gang-nøglerne, så
   // slut-løkken nedenfor kan sammenligne på dokument-id'er.
   const resolved = provider.resolveDocs(
-    [...new Set([...events.map((e) => e.sourceKey), ...stadigIGang])],
+    [...new Set([...events.map((e) => e.sourceKey), ...(stadigIGang || [])])],
     current.keys(),
   );
-  const stadigDocs = new Set([...stadigIGang].map((k) => resolved.get(k)).filter((v) => v != null));
+  const stadigDocs = stadigIGang == null
+    ? null
+    : new Set([...stadigIGang].map((k) => resolved.get(k)).filter((v) => v != null));
 
   const matchesCol = db.collection('games').doc(gameId).collection('matches');
   const batch = db.batch();
@@ -298,7 +305,9 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   // minut uden kampe koste en tom skrivning pr. kamp i vinduet.
   let sluttet = 0;
   const sluttede = [];
-  for (const m of (opts.only || [])) {
+  // stadigDocs === null: kilden kan ikke fortælle, hvem der stadig spiller —
+  // så er der intet fraværs-signal at markere slut på (se kontrakten).
+  for (const m of (stadigDocs == null ? [] : (opts.only || []))) {
     const f = m.data.live;
     if (f == null) continue;
     // Facit slår live — samme vagt som skriveløkken har. Lander resultatet i

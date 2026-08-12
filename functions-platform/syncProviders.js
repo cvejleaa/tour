@@ -16,7 +16,11 @@
 //       stadigIGang: Set af sourceKeys, kilden stadig kalder i gang — bygget
 //       på den UFILTREREDE liste, så en kamp med ubrugelig score ikke læses
 //       som slutfløjt. SKAL kaste på et svar uden liste (fravær er et
-//       skrive-signal i kernen — se syncLiveCore).
+//       skrive-signal i kernen — se syncLiveCore). En kilde, der (endnu) ikke
+//       kan levere live, returnerer { events: [], stadigIGang: null } — null
+//       er "jeg ved det ikke", og kernen markerer så ALDRIG slut på det
+//       signal. En tom Set ville betyde det modsatte: "alle kampe er væk fra
+//       listen", og så fik hver spillende kamp et falsk "Slut".
 //   hentStandings(sync, fetchFn) → rækker i FootballTable-formen
 //       ({rank, teamName, teamShortName, points, played, won, draw, lost,
 //         gf, ga, rankType}).
@@ -201,12 +205,120 @@ const superliga = {
   },
 };
 
+// --- Premier League (pulselive) ---------------------------------------------
+//
+// Ét API, to versioner — shapes dokumenteret i testdata/pulselive-*.json
+// (hentet med scripts/probe-pulselive.mjs) og bekræftet mod HAR-optagelser af
+// premierleague.com selv (docs/PL_*.har):
+//   Kampe/facit: v2/matches — samme kilde som kampprogrammet blev seedet fra,
+//     så matchId'et står allerede som suffiks i dokument-id'erne
+//     (r{runde}-{matchId}).
+//   Stilling: v5/…/standings — det endpoint, sitet selv bruger (fra HAR'en).
+//     Rækkerne kommer USORTERET (alfabetisk), så rank-sorteringen er byrde,
+//     ikke pynt.
+// Ingen nøgle; begge kræver kun en browser-agtig Origin/Referer.
+
+const SDP_API = 'https://sdp-prem-prod.premier-league-prod.pulselive.com/api';
+const SDP_BASE = `${SDP_API}/v2`;
+const PL_HEADERS = {
+  Origin: 'https://www.premierleague.com',
+  Referer: 'https://www.premierleague.com/',
+};
+const plOpt = () => ({ ...hentOpt(), headers: PL_HEADERS });
+
+/** Alle kampe i en sæson via _next-paginering (~4 sider à 100). */
+async function plAlleKampe(sync, fetchFn) {
+  const kampe = [];
+  let next = '';
+  // Sidetallet er et LOFT, ikke en forventning: 380 kampe er 4 sider. Løber
+  // vi forbi 10, følger vi en cursor i ring — kast, så fejlen ses i loggen,
+  // i stedet for at levere et halvt facit-billede.
+  for (let side = 0; ; side += 1) {
+    if (side >= 10) throw new Error('pulselive: mere end 10 sider — cursor i ring?');
+    const url = `${SDP_BASE}/matches?competition=${sync.competitionId}&season=${sync.season}`
+      + `&_limit=100${next ? `&_next=${encodeURIComponent(next)}` : ''}`;
+    const res = await fetchFn(url, plOpt());
+    if (!res.ok) throw new Error(`pulselive matches HTTP ${res.status}`);
+    const data = await res.json();
+    kampe.push(...(data.data || []));
+    next = data.pagination?._next || '';
+    if (!next) break;
+  }
+  return kampe;
+}
+
+const pulselive = {
+  async hentFaerdige(sync, fetchFn) {
+    return (await plAlleKampe(sync, fetchFn))
+      .filter((m) => m.period === 'FullTime'
+        && Number.isFinite(m.homeTeam?.score) && Number.isFinite(m.awayTeam?.score))
+      .map((m) => ({
+        sourceKey: String(m.matchId),
+        homeGoals: m.homeTeam.score,
+        awayGoals: m.awayTeam.score,
+      }));
+  },
+
+  // Live er endnu ikke implementeret for pulselive: period-værdierne for en
+  // kamp I GANG kan først observeres på en kampdag (fixtures har kun PreMatch
+  // og FullTime). null er kontraktens "jeg ved det ikke" — kernen skriver
+  // ingen live-stilling og markerer ALDRIG slut på det. Kaste må den ikke:
+  // det ville fylde loggen hvert minut i hele kampvinduet.
+  async hentLive() {
+    return { events: [], stadigIGang: null };
+  },
+
+  async hentStandings(sync, fetchFn) {
+    // live=false: den OPGJORTE tabel, ikke en, der flytter sig midt i en kamp
+    // — samme princip som at facit slår live.
+    const res = await fetchFn(`${SDP_API}/v5/competitions/${sync.competitionId}/seasons/${sync.season}/standings?live=false`, plOpt());
+    if (!res.ok) throw new Error(`pulselive standings HTTP ${res.status}`);
+    const data = await res.json();
+    return ((data.tables?.[0]?.entries) || [])
+      .map((e) => ({
+        rank: Number(e.overall?.position) || 0,
+        // team.name er samme navneform som sdp-kampene og spillets holdliste
+        // (efterprøvet i fixtures) — så teamInfo-opslaget i FootballTable
+        // rammer farver og trøjer direkte.
+        teamName: e.team?.name,
+        teamShortName: e.team?.abbr || null,
+        points: Number(e.overall?.points) || 0,
+        played: Number(e.overall?.played) || 0,
+        won: Number(e.overall?.won) || 0,
+        draw: Number(e.overall?.drawn) || 0,
+        lost: Number(e.overall?.lost) || 0,
+        gf: Number(e.overall?.goalsFor) || 0,
+        ga: Number(e.overall?.goalsAgainst) || 0,
+        rankType: null,
+      }))
+      .filter((r) => r.teamName)
+      .sort((a, b) => a.rank - b.rank);
+  },
+
+  // Dokument-id'erne er r{runde}-{pulseliveMatchId} (seedFootball.docId), så
+  // kilde-id'et genfindes som suffiks. Runden regnes ALDRIG ud af API'ets
+  // matchWeek: spillene er skåret på VORES rundenummer ved seed-tidspunktet,
+  // og en flyttet kamp følger sin runde (#25) — melder kilden en ny uge,
+  // ignoreres den, og kampen genfindes på sit id.
+  resolveDocs(sourceKeys, docIds) {
+    const efterSuffiks = new Map();
+    // docIds kan være en engangs-iterator — læses ÉN gang (se kontrakten).
+    for (const id of docIds) {
+      const i = String(id).lastIndexOf('-');
+      if (i >= 0) efterSuffiks.set(String(id).slice(i + 1), id);
+    }
+    const map = new Map();
+    for (const k of sourceKeys) {
+      const id = efterSuffiks.get(String(k));
+      if (id != null) map.set(k, id);
+    }
+    return map;
+  },
+};
+
 // --- Registret --------------------------------------------------------------
 
-// pulselive (Premier League) tilføjes som næste delopgave — kontrakten oven-
-// for er skåret efter begge kilder (sourceKey er pulselives matchId, som
-// allerede står som suffiks i dokument-id'erne r{runde}-{matchId}).
-const PROVIDERS = { superliga };
+const PROVIDERS = { superliga, pulselive };
 
 // Spillene, den skemalagte synk kører for. STATISK af tre grunde: nul
 // Firestore-opslag pr. minut, et produktionsdokument uden sync-felt kan ikke
@@ -219,6 +331,11 @@ const SYNCED_GAMES = [
     gameId: 'superliga2627',
     provider: 'superliga',
     sync: { seasonId: SEASON_ID, tournamentId: TOURNAMENT_ID, stageId: STAGE_ID },
+  },
+  {
+    gameId: 'pl2627-efteraar',
+    provider: 'pulselive',
+    sync: { competitionId: 8, season: 2026 },
   },
 ];
 

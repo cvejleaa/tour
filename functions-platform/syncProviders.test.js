@@ -167,6 +167,118 @@ describe('SYNCED_GAMES ⇄ scripts/games.mjs', () => {
   });
 });
 
+// --- pulselive (Premier League) — mod de RÅ fixtures fra probe-scriptet ----
+
+const fxMatches = require('./testdata/pulselive-matches.json');
+const fxStandings = require('./testdata/pulselive-standings.json');
+
+/** fetch-fake, der svarer pr. URL-mønster og logger kaldene. */
+function fetchRuter(ruter) {
+  const kald = [];
+  const fn = async (url, opt) => {
+    kald.push({ url, opt });
+    const match = ruter.find(([moenster]) => url.includes(moenster));
+    if (!match) throw new Error(`uventet URL: ${url}`);
+    return { ok: true, status: 200, json: async () => match[1](url) };
+  };
+  fn.kald = kald;
+  return fn;
+}
+
+describe('pulselive-provideren', () => {
+  const sync = { competitionId: 8, season: 2026 };
+  const fuldtid = fxMatches.perPeriod.FullTime[0]; // ægte shape fra API'et
+  const foerKamp = fxMatches.perPeriod.PreMatch[0];
+
+  it('henter færdige kampe over ALLE sider og filtrerer ufærdige/ubrugelige fra', async () => {
+    const udenScore = { ...fuldtid, matchId: '999', homeTeam: { ...fuldtid.homeTeam, score: null } };
+    // DEN FARLIGE: en kamp I GANG har mål på tavlen (finite scorer), men
+    // period ≠ FullTime. Blev den til facit, ville pointafregningen fyre midt
+    // i kampen — score-filtret alene kan ikke skelne den fra en færdig kamp,
+    // KUN period-grenen kan. Mutationen "fjern period-tjekket" overlevede
+    // hele suiten, netop fordi ingen fixture-kamp havde den kombination.
+    const iGangMedMaal = { ...fuldtid, matchId: '888', period: 'FirstHalf' };
+    const fetchFn = fetchRuter([
+      ['_next=', () => ({ pagination: { _next: null }, data: [{ ...fuldtid, matchId: '777' }, udenScore, iGangMedMaal] })],
+      ['/matches', () => ({ pagination: { _next: 'side2' }, data: [fuldtid, foerKamp] })],
+    ]);
+    const ud = await PROVIDERS.pulselive.hentFaerdige(sync, fetchFn);
+    // Begge sider læst; PreMatch, null-score OG kampen i gang udeladt.
+    expect(ud).toEqual([
+      { sourceKey: String(fuldtid.matchId), homeGoals: fuldtid.homeTeam.score, awayGoals: fuldtid.awayTeam.score },
+      { sourceKey: '777', homeGoals: fuldtid.homeTeam.score, awayGoals: fuldtid.awayTeam.score },
+    ]);
+    expect(ud.map((e) => e.sourceKey)).not.toContain('888');
+    expect(fetchFn.kald.length).toBe(2);
+    // Origin-headeren er adgangsbilletten — uden den svarer API'et 403.
+    expect(fetchFn.kald[0].opt.headers.Origin).toBe('https://www.premierleague.com');
+  });
+
+  it('en cursor i ring afbrydes af side-loftet — aldrig et halvt facit-billede', async () => {
+    const fetchFn = fetchRuter([
+      ['/matches', () => ({ pagination: { _next: 'rundt-i-ring' }, data: [] })],
+    ]);
+    await expect(PROVIDERS.pulselive.hentFaerdige(sync, fetchFn)).rejects.toThrow(/10 sider/);
+    expect(fetchFn.kald.length).toBe(10);
+  });
+
+  it('henter tabellen fra v5 (sitets eget endpoint) og normaliserer felterne', async () => {
+    // Fixturets rækker er præ-sæson (lutter nuller) — dér er en ombytning af
+    // won/lost eller en glemt Number() usynlig. Den syntetiske række har et
+    // FORSKELLIGT, ikke-nul tal i hvert felt, så enhver forveksling bliver rød.
+    const talrig = {
+      overall: { position: 5, played: 6, won: 3, drawn: 2, lost: 1, goalsFor: 9, goalsAgainst: 4, points: 11 },
+      team: { name: 'Testholdet', abbr: 'TST', id: '99' },
+    };
+    const fetchFn = fetchRuter([
+      ['/standings', () => ({ matchweek: 1, tables: [{ entries: [...fxStandings.entries, talrig] }] })],
+    ]);
+    const rows = await PROVIDERS.pulselive.hentStandings(sync, fetchFn);
+    expect(fetchFn.kald[0].url).toContain('/v5/competitions/8/seasons/2026/standings');
+    expect(rows.find((r) => r.teamName === 'Testholdet')).toEqual({
+      rank: 5, teamName: 'Testholdet', teamShortName: 'TST',
+      points: 11, played: 6, won: 3, draw: 2, lost: 1, gf: 9, ga: 4, rankType: null,
+    });
+    expect(rows.length).toBe(fxStandings.entries.length + 1);
+    // v5 leverer rækkerne USORTERET (fixturet er råt og beviser det) —
+    // output SKAL være i rank-orden, ellers deler FootballTable forkert.
+    expect(rows.map((r) => r.rank)).toEqual([...rows.map((r) => r.rank)].sort((a, b) => a - b));
+    expect(rows.map((r) => r.rank)).not.toEqual(fxStandings.entries.map((e) => e.overall.position).concat(5));
+  });
+
+  it('hentLive melder "kan ikke levere": tomme events og stadigIGang null — aldrig en tom Set', async () => {
+    const ud = await PROVIDERS.pulselive.hentLive(sync, async () => { throw new Error('må ikke hente'); });
+    expect(ud.events).toEqual([]);
+    expect(ud.stadigIGang).toBeNull();
+  });
+
+  it('resolveDocs genfinder kilde-id som suffiks — og læser docIds som engangs-iterator', () => {
+    // En generator kan kun løbes igennem ÉN gang — to gennemløb ville give
+    // tom anden runde og et tavst tab af alle opslag (kontrakt-kravet).
+    function* docIds() { yield 'r1-101'; yield 'r14-2645195'; }
+    const map = PROVIDERS.pulselive.resolveDocs(['2645195', '101', '999'], docIds());
+    expect([...map.entries()].sort()).toEqual([['101', 'r1-101'], ['2645195', 'r14-2645195']]);
+  });
+});
+
+describe('syncLiveCore når kilden ikke kan levere live (stadigIGang null)', () => {
+  it('markerer ALDRIG slut — en kamp uden livssignal beholder sin stilling', async () => {
+    const toTimerSiden = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const kamp = { kickoff: toTimerSiden, live: { home: 1, away: 0, status: 'anden', at: 1 } };
+    const db = fakeDb({ 'r1-101': kamp });
+    const ud = await syncLiveCore(db, FieldValue, {
+      gameId: 'pl-test',
+      provider: PROVIDERS.pulselive,
+      sync: {},
+      fetchFn: async () => { throw new Error('må ikke hente'); },
+      nowMs: Date.now(),
+      only: [{ id: 'r1-101', data: kamp }],
+    });
+    expect(ud.sluttet).toBe(0);
+    expect(db._docs.get('r1-101').live.status).toBe('anden'); // urørt
+  });
+});
+
 describe('provider-kontrakten (superliga)', () => {
   it('resolveDocs udelader nøgler uden dokument — kernen skal kunne springe dem over', () => {
     const map = PROVIDERS.superliga.resolveDocs(['r1-a-b', 'r1-x-y'], ['r1-a-b', 'r1-c-d']);

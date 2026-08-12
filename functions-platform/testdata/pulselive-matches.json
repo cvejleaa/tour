@@ -1,5 +1,5 @@
 {
-  "hentet": "2026-08-12T07:21:15.020Z",
+  "hentet": "2026-08-12T08:38:31.132Z",
   "kilde": "https://sdp-prem-prod.premier-league-prod.pulselive.com/api/v2/matches?competition=8&season=…",
   "bemaerk": "Én-to RÅ kampe pr. observeret period-værdi. kickoff er tidszone-løs; kickoffTimezoneString angiver zonen (Europe/London — BST om sommeren, GMT om vinteren).",
   "perPeriod": {
