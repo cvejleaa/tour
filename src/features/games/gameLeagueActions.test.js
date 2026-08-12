@@ -14,7 +14,19 @@ vi.mock('firebase/functions', () => ({
   httpsCallable: () => (...args) => mockKald(...args),
 }));
 
-import { joinLeagueByCode, setLeagueStartRound } from './gameLeagueActions';
+const mockAddDoc = vi.fn().mockResolvedValue({ id: 'q1' });
+vi.mock('firebase/firestore', () => ({
+  collection: vi.fn(() => ({})),
+  doc: vi.fn(() => ({})),
+  setDoc: vi.fn(),
+  updateDoc: vi.fn(),
+  deleteDoc: vi.fn(),
+  addDoc: (...a) => mockAddDoc(...a),
+  arrayRemove: vi.fn(),
+  serverTimestamp: () => ({ __ts: true }),
+}));
+
+import { joinLeagueByCode, setLeagueStartRound, createLeagueQuestion } from './gameLeagueActions';
 
 /** Fejl som Cloud Functions-SDK'et kaster dem: kode med 'functions/'-præfiks. */
 function callableFejl(code, message) {
@@ -74,5 +86,19 @@ describe('setLeagueStartRound — klientens validering', () => {
       expect(res.ok).toBe(false);
       expect(res.error).toContain('helt tal');
     }
+  });
+});
+
+// Whitelisten IMPORTERER LQ_TYPES — men at listen er rigtig, beviser ikke, at
+// den BRUGES. Mutationen "sæt den gamle literal uden 'team' tilbage" overlevede
+// hele suiten, fordi actions-modulet er mocket i UI-testene: et hold-spørgsmål
+// ville tavst blive oprettet som fritekst, og formularen så ud til at virke.
+describe('createLeagueQuestion — typen når databasen', () => {
+  it("gemmer 'team' som 'team' — og en ukendt type falder til 'text'", async () => {
+    const fælles = { uid: 'me', gameId: 'pl', leagueId: 'l1', label: 'Hvem vinder ligaen?', points: 10 };
+    await createLeagueQuestion({ ...fælles, type: 'team' });
+    expect(mockAddDoc).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ type: 'team' }));
+    await createLeagueQuestion({ ...fælles, type: 'findes-ikke' });
+    expect(mockAddDoc).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ type: 'text' }));
   });
 });

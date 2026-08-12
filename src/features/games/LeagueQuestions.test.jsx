@@ -37,6 +37,9 @@ const PL_GAME = {
   teamStyles: { 'Wolverhampton Wanderers': { visningsnavn: 'Wolves' } },
 };
 const CYKELSPIL = { id: 'tour' }; // ingen teams — og må ALDRIG arve Superligaens
+// TOM liste er den anden halvdel af fælden: et useedet spil HAR teams-nøglen,
+// og netop dér falder teamsOf tilbage på Superligaens 12 klubber.
+const USEEDET = { id: 'nyt', teams: [] };
 
 const BASE = {
   gameId: 'pl', leagueId: 'L1', meUid: 'me', byUid: { me: { name: 'Mig' }, andet: { name: 'Anden' } },
@@ -58,17 +61,23 @@ describe('LeagueQuestions — typen "Hold" i opret-formularen', () => {
   });
 
   it('tilbydes IKKE i et spil uden hold — og arver aldrig Superligaens liste', () => {
-    renderQ({ game: CYKELSPIL, isOwner: true });
-    fireEvent.click(screen.getByText('+ Nyt spørgsmål'));
-    expect(screen.queryByRole('option', { name: 'Hold (vælg fra listen)' })).toBeNull();
-    // Fallback-fælden: ingen dansk klub må sive ind fra teamsOf's default.
-    expect(screen.queryByRole('option', { name: /Brøndby|København/ })).toBeNull();
+    for (const game of [CYKELSPIL, USEEDET]) {
+      const { unmount } = renderQ({ game, isOwner: true });
+      fireEvent.click(screen.getByText('+ Nyt spørgsmål'));
+      expect(screen.queryByRole('option', { name: 'Hold (vælg fra listen)' })).toBeNull();
+      // Fallback-fælden: ingen dansk klub må sive ind fra teamsOf's default.
+      expect(screen.queryByRole('option', { name: /Brøndby|København/ })).toBeNull();
+      unmount();
+    }
   });
 });
 
 describe('LeagueQuestions — svar på et hold-spørgsmål', () => {
   it('svaret vælges i en dropdown: visningsnavn som label, kanonisk navn som værdi', () => {
     renderQ({ questions: [teamQ()] });
+    // Badge-etiketten skal sige typens navn — '10 point · Tekst' på et
+    // hold-spørgsmål ville være ||-fallbacken, der lyver.
+    expect(screen.getByText('10 point · Hold')).toBeInTheDocument();
     const select = screen.getByLabelText('Dit svar');
     const labels = [...select.querySelectorAll('option')].map((o) => o.textContent);
     expect(labels).toContain('Wolves'); // teamStyles-visningsnavnet, IKKE det lange
@@ -94,6 +103,17 @@ describe('LeagueQuestions — svar på et hold-spørgsmål', () => {
     renderQ({ game: CYKELSPIL, questions: [teamQ()] });
     expect(screen.getByPlaceholderText('Dit svar')).toBeInTheDocument();
     expect(screen.queryByLabelText('Dit svar')).toBeNull(); // ingen select
+  });
+
+  it('EGET gemte svar vises med visningsnavn i den åbne periode', () => {
+    // "Dit svar: …"-linjen er sit eget visningssted — mutationen "vis rå
+    // værdi netop dér" overlevede, fordi kun badges og facit var dækket.
+    renderQ({
+      questions: [teamQ()],
+      answersByQid: { q1: [{ uid: 'me', answer: 'Wolverhampton Wanderers' }] },
+    });
+    expect(screen.getByText(/Dit svar: Wolves/)).toBeInTheDocument();
+    expect(screen.queryByText(/Dit svar: Wolverhampton/)).toBeNull();
   });
 });
 

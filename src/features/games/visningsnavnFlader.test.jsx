@@ -11,8 +11,9 @@
 // SuperligaTable: begge mutationer overlevede en grøn suite på 1913 tests.
 //
 // FILEN HER ER LISTEN. Tilføjes en flade, der viser holdnavne, hører den til
-// herinde. Kampkortet er dækket i `FootballTip.test.jsx` og tipshistorikken i
-// `TipsHistorik.test.jsx`, hvor resten af de to flader også står.
+// herinde. Kampkortet er dækket i `FootballTip.test.jsx`, tipshistorikken i
+// `TipsHistorik.test.jsx` og liga-spørgsmålenes hold-svar i
+// `LeagueQuestions.test.jsx`, hvor resten af de flader også står.
 //
 // HVER TEST BRUGER ET NAVN, DER FAKTISK ÆNDRER SIG. En assertion på et hold,
 // hvis visningsnavn er lig dets navn, består også, når `vis` er tabt — præcis
