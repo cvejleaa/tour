@@ -9,16 +9,38 @@ import {
   saveLeagueQuestionAnswer, LEAGUE_Q_LABEL_MAX,
 } from './gameLeagueActions';
 import { scoreLeagueQuestion, lqSettled, lqPoints } from './leagueQuestionScoring';
+import { teamsOf, visOf } from './football/teamInfo';
 import { formatKickoff } from '../../lib/daDate';
 
-const TYPE_LABEL = { text: 'Tekst', yesno: 'Ja/Nej', number: 'Tal (nærmest vinder)' };
+const TYPE_LABEL = { text: 'Tekst', yesno: 'Ja/Nej', number: 'Tal (nærmest vinder)', team: 'Hold' };
 
 function deadlinePassed(q, nowMs) {
   return q.deadline != null && Number(q.deadline) <= nowMs;
 }
 
+// Spillets EGNE hold. GATEN tjekker rå game.teams — med vilje ikke
+// teamsOf(game), som falder tilbage på Superligaens holdliste, så et cykel-
+// eller useedet spil ville få 12 danske klubber i dropdown'en. Men LISTEN
+// hentes gennem teamsOf, for det er dér `vis` (visningsnavnet) lægges på.
+// Ingen hold = typen findes ikke i det spil.
+function holdAf(game) {
+  return Array.isArray(game?.teams) && game.teams.length > 0 ? teamsOf(game) : null;
+}
+
+/** Select over spillets hold — kanonisk navn som værdi, visningsnavn som label. */
+function HoldSelect({ hold, value, onChange, ariaLabel }) {
+  return (
+    <select className="select" value={value} onChange={onChange} aria-label={ariaLabel} style={{ maxWidth: 220 }}>
+      <option value="">– vælg hold –</option>
+      {hold.map((t) => (
+        <option key={t.name} value={t.name}>{visOf(hold, t.name)}</option>
+      ))}
+    </select>
+  );
+}
+
 /** Ét spørgsmål: svar-input (før deadline), status og facit/vindere (efter). */
-function QuestionRow({ q, gameId, leagueId, meUid, isOwner, answers, byUid }) {
+function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid }) {
   const nowMs = Date.now();
   const locked = deadlinePassed(q, nowMs);
   const settled = lqSettled(q);
@@ -56,6 +78,14 @@ function QuestionRow({ q, gameId, leagueId, meUid, isOwner, answers, byUid }) {
   const per = settled ? scoreLeagueQuestion(q, answers) : {};
   const winners = Object.keys(per);
 
+  // Hold-spørgsmål gemmer det KANONISKE holdnavn — men fladen skal vise
+  // visningsnavnet, ellers siger dropdown'en "Brighton" og badgen ved siden
+  // af "Brighton and Hove Albion" (samme regel som visningsnavnFlader.test).
+  // Mangler holdlisten (typen oprettet, holdene senere fjernet), falder alt
+  // tilbage til rå tekst — aldrig en tom dropdown.
+  const hold = q.type === 'team' ? holdAf(game) : null;
+  const visSvar = (s) => (hold ? visOf(hold, s) : s);
+
   return (
     <li style={{ borderTop: '1px solid var(--c-border)', padding: '0.6rem 0' }}>
       <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -92,6 +122,8 @@ function QuestionRow({ q, gameId, leagueId, meUid, isOwner, answers, byUid }) {
               <option value="ja">Ja</option>
               <option value="nej">Nej</option>
             </select>
+          ) : hold ? (
+            <HoldSelect hold={hold} value={draft} onChange={(e) => setDraft(e.target.value)} ariaLabel="Dit svar" />
           ) : (
             <input
               type={q.type === 'number' ? 'text' : 'text'} inputMode={q.type === 'number' ? 'decimal' : undefined}
@@ -102,7 +134,7 @@ function QuestionRow({ q, gameId, leagueId, meUid, isOwner, answers, byUid }) {
           <button className="btn btn--sm" type="submit" disabled={busy || !String(draft).trim()}>
             {mine ? 'Ret svar' : 'Svar'}
           </button>
-          {mine && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)', alignSelf: 'center' }}>Dit svar: {mine.answer}</span>}
+          {mine && <span style={{ fontSize: '0.78rem', color: 'var(--c-muted)', alignSelf: 'center' }}>Dit svar: {visSvar(mine.answer)}</span>}
         </form>
       )}
 
@@ -111,14 +143,14 @@ function QuestionRow({ q, gameId, leagueId, meUid, isOwner, answers, byUid }) {
         <div style={{ marginTop: '0.4rem', fontSize: '0.85rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
           {answers.map((a) => (
             <span key={a.uid} className={`badge ${settled && per[a.uid] ? 'badge--green' : 'badge--muted'}`}>
-              {(byUid[a.uid]?.name) || 'Spiller'}: {a.answer}{settled && per[a.uid] ? ` (+${per[a.uid]})` : ''}
+              {(byUid[a.uid]?.name) || 'Spiller'}: {visSvar(a.answer)}{settled && per[a.uid] ? ` (+${per[a.uid]})` : ''}
             </span>
           ))}
         </div>
       )}
       {settled && (
         <div style={{ marginTop: '0.35rem', fontSize: '0.85rem' }}>
-          Facit: <strong>{q.facit}</strong>
+          Facit: <strong>{visSvar(q.facit)}</strong>
           {winners.length === 0 && <span style={{ color: 'var(--c-muted)' }}> · ingen ramte rigtigt</span>}
         </div>
       )}
@@ -126,10 +158,14 @@ function QuestionRow({ q, gameId, leagueId, meUid, isOwner, answers, byUid }) {
       {/* Ejer: sæt facit når deadline er passeret (eller når som helst uden deadline). */}
       {isOwner && !settled && (locked || q.deadline == null) && (
         <form onSubmit={saveFacit} className="flex" style={{ gap: '0.4rem', marginTop: '0.45rem', flexWrap: 'wrap' }}>
-          <input
-            type="text" value={facitDraft} onChange={(e) => setFacitDraft(e.target.value)}
-            placeholder="Facit" style={{ maxWidth: 180 }}
-          />
+          {hold ? (
+            <HoldSelect hold={hold} value={facitDraft} onChange={(e) => setFacitDraft(e.target.value)} ariaLabel="Facit" />
+          ) : (
+            <input
+              type="text" value={facitDraft} onChange={(e) => setFacitDraft(e.target.value)}
+              placeholder="Facit" style={{ maxWidth: 180 }}
+            />
+          )}
           {q.type === 'text' && (
             <input
               type="text" value={accepted} onChange={(e) => setAccepted(e.target.value)}
@@ -143,7 +179,7 @@ function QuestionRow({ q, gameId, leagueId, meUid, isOwner, answers, byUid }) {
   );
 }
 
-export default function LeagueQuestions({ gameId, leagueId, meUid, isOwner, questions, answersByQid, byUid }) {
+export default function LeagueQuestions({ gameId, game, leagueId, meUid, isOwner, questions, answersByQid, byUid }) {
   const [showForm, setShowForm] = useState(false);
   const [label, setLabel] = useState('');
   const [type, setType] = useState('text');
@@ -191,6 +227,9 @@ export default function LeagueQuestions({ gameId, leagueId, meUid, isOwner, ques
               <option value="text">Tekst</option>
               <option value="yesno">Ja/Nej</option>
               <option value="number">Tal (nærmest vinder)</option>
+              {/* Kun i spil med egne hold — se holdAf. "Hvem vinder ligaen?"
+                  skal vælges, ikke staves. */}
+              {holdAf(game) && <option value="team">Hold (vælg fra listen)</option>}
             </select>
             <input
               type="number" min={1} max={100} value={points}
@@ -213,7 +252,7 @@ export default function LeagueQuestions({ gameId, leagueId, meUid, isOwner, ques
         <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
           {questions.map((q) => (
             <QuestionRow
-              key={q.id} q={q} gameId={gameId} leagueId={leagueId} meUid={meUid}
+              key={q.id} q={q} gameId={gameId} game={game} leagueId={leagueId} meUid={meUid}
               isOwner={isOwner} answers={answersByQid[q.id] || []} byUid={byUid}
             />
           ))}

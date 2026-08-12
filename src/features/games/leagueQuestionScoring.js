@@ -4,11 +4,14 @@
  *
  * Typer: 'text' (normaliseret match mod facit + acceptedAnswers),
  *        'yesno' ('ja'/'nej'), 'number' (nærmeste svar vinder — alle der deler
- *        den mindste afstand får FULDE point).
+ *        den mindste afstand får FULDE point),
+ *        'team' (vælges blandt SPILLETS hold — kanonisk holdnavn som værdi,
+ *        scorer via samme eksakt-match som tekst; acceptedAnswers er
+ *        overflødige, når svaret ikke kan staves forkert).
  * Et spørgsmål uden facit giver 0 (endnu ikke afgjort).
  */
 
-export const LQ_TYPES = ['text', 'yesno', 'number'];
+export const LQ_TYPES = ['text', 'yesno', 'number', 'team'];
 export const DEFAULT_LQ_POINTS = 5;
 
 /** Normalisér et tekstsvar til sammenligning. */
