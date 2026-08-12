@@ -45,6 +45,23 @@ Start med `git diff --stat` mod base-branchen og afgør, hvad der er rørt:
 
 Tør-kørsel først på alt, der skriver i produktionsdata. Se `docs/drift.md`.
 
+## Driftsikkerhed — for alt nyt maskineri
+
+Tilføjer eller ændrer ændringen scheduled functions, triggers, mails eller
+eksterne feeds, så skal planen svare på fire spørgsmål. Mangler et svar, så
+sig det — svaret skal findes i planen, ikke opfindes ved deployet:
+
+1. **Hvordan opdages fejl?** En funktion, der fejler tavst, er ikke i drift —
+   den er bare deployet. Peg på loggen, alarmen eller admin-siden, hvor fejlen
+   ville stå.
+2. **Hvad sker der, når den køres igen?** Retries og gen-kørsler skal være
+   idempotente — en mail må ikke sendes to gange, point ikke tælles dobbelt.
+3. **Hvad sker der, når tredjeparten svigter?** Resultat-feed nede, mail-kvote
+   opbrugt, timeout: degraderer spillet pænt, eller står brugerne med en tom
+   stilling uden fejlbesked?
+4. **Rammer det kvoten?** Nye reads/writes pr. bruger pr. runde, ganget op med
+   en kampaften. Sig tallet — ikke "det burde være fint".
+
 ## Efter deploy
 
 Sig konkret, hvad der skal verificeres — ikke "tjek at det virker":
@@ -57,5 +74,7 @@ rulle tilbage, eller er data ændret undervejs?
 ## Din udmelding
 
 Kort, på dansk: en nummereret udrulningsplan med de præcise workflow-inputs,
-hvad der skal tjekkes bagefter, og hvilken risiko der er tilbage. Er der intet
+hvad der skal tjekkes bagefter, og hvilken risiko der er tilbage. Rører
+ændringen nyt maskineri, så medtag svarene på de fire driftsspørgsmål — eller
+hvilke af dem der mangler. Er der intet
 at deploye (kun docs eller tests), så sig dét klart — det er også et svar.
