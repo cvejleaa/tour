@@ -167,6 +167,105 @@ describe('SYNCED_GAMES ⇄ scripts/games.mjs', () => {
   });
 });
 
+// --- pulselive (Premier League) — mod de RÅ fixtures fra probe-scriptet ----
+
+const fxMatches = require('./testdata/pulselive-matches.json');
+const fxCompseasons = require('./testdata/pulselive-compseasons.json');
+const fxStandings = require('./testdata/pulselive-standings.json');
+
+/** fetch-fake, der svarer pr. URL-mønster og logger kaldene. */
+function fetchRuter(ruter) {
+  const kald = [];
+  const fn = async (url, opt) => {
+    kald.push({ url, opt });
+    const match = ruter.find(([moenster]) => url.includes(moenster));
+    if (!match) throw new Error(`uventet URL: ${url}`);
+    return { ok: true, status: 200, json: async () => match[1](url) };
+  };
+  fn.kald = kald;
+  return fn;
+}
+
+describe('pulselive-provideren', () => {
+  const sync = { competitionId: 8, season: 2026 };
+  const fuldtid = fxMatches.perPeriod.FullTime[0]; // ægte shape fra API'et
+  const foerKamp = fxMatches.perPeriod.PreMatch[0];
+
+  it('henter færdige kampe over ALLE sider og filtrerer ufærdige/ubrugelige fra', async () => {
+    const udenScore = { ...fuldtid, matchId: '999', homeTeam: { ...fuldtid.homeTeam, score: null } };
+    const fetchFn = fetchRuter([
+      ['_next=', () => ({ pagination: { _next: null }, data: [{ ...fuldtid, matchId: '777' }, udenScore] })],
+      ['/matches', () => ({ pagination: { _next: 'side2' }, data: [fuldtid, foerKamp] })],
+    ]);
+    const ud = await PROVIDERS.pulselive.hentFaerdige(sync, fetchFn);
+    // Begge sider læst; PreMatch og null-score udeladt; sourceKey er en streng.
+    expect(ud).toEqual([
+      { sourceKey: String(fuldtid.matchId), homeGoals: fuldtid.homeTeam.score, awayGoals: fuldtid.awayTeam.score },
+      { sourceKey: '777', homeGoals: fuldtid.homeTeam.score, awayGoals: fuldtid.awayTeam.score },
+    ]);
+    expect(fetchFn.kald.length).toBe(2);
+    // Origin-headeren er adgangsbilletten — uden den svarer API'et 403.
+    expect(fetchFn.kald[0].opt.headers.Origin).toBe('https://www.premierleague.com');
+  });
+
+  it('slår compSeason op efter ÅRSTAL i labelen og normaliserer tabellen', async () => {
+    const fetchFn = fetchRuter([
+      ['/compseasons', () => ({ content: fxCompseasons.content })],
+      ['/standings', () => ({ tables: [{ gameWeek: 0, entries: fxStandings.entries }] })],
+    ]);
+    const rows = await PROVIDERS.pulselive.hentStandings(sync, fetchFn);
+    // 2026 skal ramme "English Premier League Season 2026/2027" (id 841) —
+    // IKKE "2025/26". Begge label-former findes i den rå compseasons-liste.
+    expect(fetchFn.kald[1].url).toContain('compSeasons=841');
+    expect(rows[0]).toEqual({
+      rank: 1, teamName: 'Arsenal', teamShortName: 'ARS',
+      points: 0, played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, rankType: null,
+    });
+    expect(rows.length).toBe(fxStandings.entries.length);
+  });
+
+  it('matcher også de KORTE labels ("25/26"-formen) på årstal', async () => {
+    const fetchFn = fetchRuter([
+      ['/compseasons', () => ({ content: fxCompseasons.content })],
+      ['/standings', () => ({ tables: [{ entries: [] }] })],
+    ]);
+    await PROVIDERS.pulselive.hentStandings({ ...sync, season: 2025 }, fetchFn);
+    expect(fetchFn.kald[1].url).toContain('compSeasons=777');
+  });
+
+  it('hentLive melder "kan ikke levere": tomme events og stadigIGang null — aldrig en tom Set', async () => {
+    const ud = await PROVIDERS.pulselive.hentLive(sync, async () => { throw new Error('må ikke hente'); });
+    expect(ud.events).toEqual([]);
+    expect(ud.stadigIGang).toBeNull();
+  });
+
+  it('resolveDocs genfinder kilde-id som suffiks — og læser docIds som engangs-iterator', () => {
+    // En generator kan kun løbes igennem ÉN gang — to gennemløb ville give
+    // tom anden runde og et tavst tab af alle opslag (kontrakt-kravet).
+    function* docIds() { yield 'r1-101'; yield 'r14-2645195'; }
+    const map = PROVIDERS.pulselive.resolveDocs(['2645195', '101', '999'], docIds());
+    expect([...map.entries()].sort()).toEqual([['101', 'r1-101'], ['2645195', 'r14-2645195']]);
+  });
+});
+
+describe('syncLiveCore når kilden ikke kan levere live (stadigIGang null)', () => {
+  it('markerer ALDRIG slut — en kamp uden livssignal beholder sin stilling', async () => {
+    const toTimerSiden = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const kamp = { kickoff: toTimerSiden, live: { home: 1, away: 0, status: 'anden', at: 1 } };
+    const db = fakeDb({ 'r1-101': kamp });
+    const ud = await syncLiveCore(db, FieldValue, {
+      gameId: 'pl-test',
+      provider: PROVIDERS.pulselive,
+      sync: {},
+      fetchFn: async () => { throw new Error('må ikke hente'); },
+      nowMs: Date.now(),
+      only: [{ id: 'r1-101', data: kamp }],
+    });
+    expect(ud.sluttet).toBe(0);
+    expect(db._docs.get('r1-101').live.status).toBe('anden'); // urørt
+  });
+});
+
 describe('provider-kontrakten (superliga)', () => {
   it('resolveDocs udelader nøgler uden dokument — kernen skal kunne springe dem over', () => {
     const map = PROVIDERS.superliga.resolveDocs(['r1-a-b', 'r1-x-y'], ['r1-a-b', 'r1-c-d']);
