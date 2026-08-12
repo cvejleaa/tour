@@ -22,7 +22,9 @@
 //         gf, ga, rankType}).
 //   resolveDocs(sourceKeys, docIds) → Map<sourceKey, docId>
 //       Hvordan en API-kamp genfinder sit dokument. Ukendte nøgler udelades —
-//       kernen springer dem over, som den altid har gjort.
+//       kernen springer dem over, som den altid har gjort. BEMÆRK: docIds kan
+//       være en engangs-iterator (kernen sender current.keys()) — læs den ÉN
+//       gang ind i et Set, aldrig to gennemløb.
 //
 // `sync` er spillets synk-konfiguration. Den STÅR OGSÅ på game-dokumentet
 // (seedet fra scripts/games.mjs — klienten bruger provider-navnet til
@@ -108,8 +110,11 @@ function liveUrl(seasonId = SEASON_ID) {
 }
 
 /** URL til den OFFICIELLE stilling (grundspil-stage), med form (last5). */
-function standingsUrl(seasonId = SEASON_ID, stageId = STAGE_ID) {
-  return `${API_BASE}/tournaments/${TOURNAMENT_ID}/standings?appName=superligadk&access_token=${ACCESS_TOKEN}`
+function standingsUrl(seasonId = SEASON_ID, stageId = STAGE_ID, tournamentId = TOURNAMENT_ID) {
+  // tournamentId SKAL komme fra sync-posten, når den kaldes af provideren —
+  // ellers er feltet i SYNCED_GAMES dekorativt, og en rettelse dér ændrer
+  // ingenting (QC-fund på den første udgave).
+  return `${API_BASE}/tournaments/${tournamentId}/standings?appName=superligadk&access_token=${ACCESS_TOKEN}`
     + `&env=production&locale=da&addResults=true&resultsLimit=6&form=last5&seasonId=${seasonId}&stageId=${stageId}`;
 }
 
@@ -164,7 +169,7 @@ const superliga = {
   },
 
   async hentStandings(sync, fetchFn) {
-    const res = await fetchFn(standingsUrl(sync.seasonId, sync.stageId), hentOpt());
+    const res = await fetchFn(standingsUrl(sync.seasonId, sync.stageId, sync.tournamentId), hentOpt());
     if (!res.ok) throw new Error(`superliga standings HTTP ${res.status}`);
     const data = await res.json();
     return (Array.isArray(data) ? data : [])

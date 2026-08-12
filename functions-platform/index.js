@@ -287,7 +287,9 @@ exports.syncSuperligaSweep = onSchedule(
     // minut-synken. Før dækkede alarmen kun Superligaen, så en strandet
     // PL-kamp ville have stået uafregnet uden en lyd.
     for (const g of SYNCED_GAMES) {
-      const provider = PROVIDERS[g.provider];
+      // Object.hasOwn: se vagten i runScheduledSyncAll — et rått opslag kan
+      // ramme Object.prototype.
+      const provider = Object.hasOwn(PROVIDERS, g.provider) ? PROVIDERS[g.provider] : null;
       if (!provider) continue; // logget af minut-synken — sweep'et gentager ikke
       const opts = { gameId: g.gameId, provider, sync: g.sync };
       let alle = null;
@@ -353,7 +355,9 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION }, async (request) => 
   // Kun spil fra den statiske liste: et frit gameId ville ellers kunne rette
   // et vilkårligt spils kampe mod den forkerte kilde.
   const g = SYNCED_GAMES.find((x) => x.gameId === gameId);
-  if (!g || !PROVIDERS[g.provider]) {
+  // Object.hasOwn: se vagten i runScheduledSyncAll — et rått opslag kan
+  // ramme Object.prototype.
+  if (!g || !Object.hasOwn(PROVIDERS, g.provider)) {
     throw new HttpsError('invalid-argument', `Ingen synk-provider for "${gameId}".`);
   }
   const opts = { gameId: g.gameId, provider: PROVIDERS[g.provider], sync: g.sync };

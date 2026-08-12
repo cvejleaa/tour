@@ -446,7 +446,10 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
 async function runScheduledSyncAll(db, FieldValue, nowMs, opts = {}) {
   const ud = [];
   for (const g of (opts.games || SYNCED_GAMES)) {
-    const provider = PROVIDERS[g.provider];
+    // Object.hasOwn og ikke et rått opslag: PROVIDERS['constructor'] er
+    // truthy (Object-konstruktøren), så en fejlskrevet statisk post ville
+    // slippe forbi en !-vagt — samme fælde som LIVE_STATUS dokumenterer.
+    const provider = Object.hasOwn(PROVIDERS, g.provider) ? PROVIDERS[g.provider] : null;
     if (!provider) {
       console.error(`synk: ukendt provider "${g.provider}" for ${g.gameId} — springes over.`);
       continue;

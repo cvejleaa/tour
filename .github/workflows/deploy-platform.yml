@@ -39,7 +39,7 @@ on:
         type: boolean
         default: false
       deployFunctions:
-        description: 'Deploy Cloud Function recomputeGameMatch (afregning + levende Elo) til spil-89af9?'
+        description: 'Deploy ALLE platform-functions (functions-platform/: afregning, Elo, synk, bot, mails) til spil-89af9?'
         type: boolean
         default: false
       bootstrapOwnerEmail:

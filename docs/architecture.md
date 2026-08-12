@@ -150,7 +150,7 @@ omgås, så den skal altid have en pendant på serveren.
 |---|---|
 | `recomputeGameMatch` | skrivning til `games/{g}/matches/{m}` med nyt `result` → afregning + levende Elo + Runde-Botten |
 | `syncPlayerLeagues` | skrivning til `games/{g}/leagues/{l}` → opdaterer `leagueIds` |
-| `syncSuperligaResults` | tidsplan `*/15 14-23` → henter facit fra `api.superliga.dk` |
+| `syncSuperligaResults` | tidsplan `* 12-23` → henter facit for alle spil i `SYNCED_GAMES` via deres synk-provider (`syncProviders.js`) |
 | `gameTipReminders` | daglig tidsplan → mailer dem, der mangler at tippe |
 
 Runde-Botten (`gameRecap.js`) kalder Claude, når rundens sidste kamp er afregnet,
