@@ -25,17 +25,18 @@ const UD = join(ROD, 'functions-platform', 'testdata');
 const GEM = process.argv.includes('--gem');
 
 // Samme kilder og headere som seed-data og maal-uafgjort.mjs. Ingen nøgle —
-// men uden Origin/Referer svarer sdp-API'et 403.
-const SDP = 'https://sdp-prem-prod.premier-league-prod.pulselive.com/api/v2';
-const FOOTBALLAPI = 'https://footballapi.pulselive.com/football';
+// men uden Origin/Referer svarer sdp-API'et 403. Standings ligger på v5 af
+// SAMME API — det endpoint, premierleague.com selv bruger (fra HAR-optagelsen
+// docs/PL_tabel.har).
+const SDP_API = 'https://sdp-prem-prod.premier-league-prod.pulselive.com/api';
+const SDP = `${SDP_API}/v2`;
 const HEADERS = {
   Origin: 'https://www.premierleague.com',
   Referer: 'https://www.premierleague.com/',
 };
 
-const COMPETITION = Number(process.env.COMPETITION || 8); // sdp: Premier League
+const COMPETITION = Number(process.env.COMPETITION || 8); // Premier League
 const SEASON = Number(process.env.SEASON || 2026);
-const LEGACY_COMP = Number(process.env.LEGACY_COMP || 1); // footballapi: Premier League
 
 async function hent(url) {
   const res = await fetch(url, { headers: HEADERS });
@@ -54,25 +55,6 @@ async function alleKampe(season) {
     next = side.pagination?._next || '';
   } while (next);
   return kampe;
-}
-
-/**
- * Find footballapi's compSeason-id for et sæsons-ÅR. Labels er ikke ens på
- * tværs af årgange ("English Premier League Season 2026/2027" vs "2025/26"),
- * så vi matcher på det FØRSTE årstal i labelen — 2-cifret normaliseres.
- * Provideren skal bruge samme opslag, så id'et aldrig hardcodes i et
- * game-dokument, der overlever sæsonskiftet.
- */
-async function compSeasonFor(year) {
-  const d = await hent(`${FOOTBALLAPI}/competitions/${LEGACY_COMP}/compseasons?page=0&pageSize=100`);
-  const match = (d.content || []).find((c) => {
-    const m = String(c.label).match(/\d{4}|\d{2}/);
-    if (!m) return false;
-    const y = m[0].length === 2 ? 2000 + Number(m[0]) : Number(m[0]);
-    return y === year;
-  });
-  if (!match) throw new Error(`Ingen compSeason for ${year} i: ${(d.content || []).slice(0, 5).map((c) => c.label).join(', ')}`);
-  return { id: Math.trunc(match.id), label: match.label, raw: d };
 }
 
 function skriv(navn, data) {
@@ -113,30 +95,20 @@ skriv('pulselive-matches.json', {
   perPeriod: Object.fromEntries(perioder),
 });
 
-// --- standings (footballapi) ------------------------------------------------
-const cs = await compSeasonFor(SEASON);
-console.log(`\ncompSeason for ${SEASON}: id ${cs.id} ("${cs.label}")`);
-const tabel = await hent(`${FOOTBALLAPI}/standings?compSeasons=${cs.id}`);
+// --- standings (v5 — sitets eget endpoint) ----------------------------------
+const tabel = await hent(`${SDP_API}/v5/competitions/${COMPETITION}/seasons/${SEASON}/standings?live=false`);
 const entries = tabel.tables?.[0]?.entries || [];
-console.log(`tabelrækker : ${entries.length} (gameWeek ${tabel.tables?.[0]?.gameWeek})`);
+console.log(`\ntabelrækker : ${entries.length} (matchweek ${tabel.matchweek})`);
 if (entries.length) {
   const e = entries[0];
-  console.log(`række-felter: position=${e.position}, team.name=${e.team?.name}, overall={played:${e.overall?.played}, won:${e.overall?.won}, drawn:${e.overall?.drawn}, lost:${e.overall?.lost}, goalsFor:${e.overall?.goalsFor}, goalsAgainst:${e.overall?.goalsAgainst}, points:${e.overall?.points}}`);
+  console.log(`række-felter: overall.position=${e.overall?.position}, team.name=${e.team?.name}, abbr=${e.team?.abbr}, overall={played:${e.overall?.played}, won:${e.overall?.won}, drawn:${e.overall?.drawn}, lost:${e.overall?.lost}, goalsFor:${e.overall?.goalsFor}, goalsAgainst:${e.overall?.goalsAgainst}, points:${e.overall?.points}}`);
 }
 
-skriv('pulselive-compseasons.json', {
-  hentet: new Date().toISOString(),
-  kilde: `${FOOTBALLAPI}/competitions/${LEGACY_COMP}/compseasons`,
-  bemaerk: 'Labels er IKKE ens på tværs af årgange — opslaget matcher på første årstal.',
-  content: (cs.raw.content || []).slice(0, 5),
-});
 skriv('pulselive-standings.json', {
   hentet: new Date().toISOString(),
-  kilde: `${FOOTBALLAPI}/standings?compSeasons=${cs.id}`,
-  bemaerk: 'Beskåret til 3 rækker — shapen, ikke sæsonen. team.name har samme navneform som sdp-kampene og spillets holdliste.',
-  compSeason: { id: cs.id, label: cs.label },
-  live: tabel.live,
-  gameWeek: tabel.tables?.[0]?.gameWeek,
+  kilde: `${SDP_API}/v5/competitions/${COMPETITION}/seasons/${SEASON}/standings?live=false`,
+  bemaerk: 'Beskåret til 3 rækker — shapen, ikke sæsonen. RÆKKERNE KOMMER USORTERET (alfabetisk, ikke efter position) — sorteringen er providerens ansvar. team.name har samme navneform som sdp-kampene og spillets holdliste.',
+  matchweek: tabel.matchweek,
   entries: entries.slice(0, 3),
 });
 

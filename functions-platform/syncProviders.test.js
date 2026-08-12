@@ -170,7 +170,6 @@ describe('SYNCED_GAMES ⇄ scripts/games.mjs', () => {
 // --- pulselive (Premier League) — mod de RÅ fixtures fra probe-scriptet ----
 
 const fxMatches = require('./testdata/pulselive-matches.json');
-const fxCompseasons = require('./testdata/pulselive-compseasons.json');
 const fxStandings = require('./testdata/pulselive-standings.json');
 
 /** fetch-fake, der svarer pr. URL-mønster og logger kaldene. */
@@ -193,44 +192,58 @@ describe('pulselive-provideren', () => {
 
   it('henter færdige kampe over ALLE sider og filtrerer ufærdige/ubrugelige fra', async () => {
     const udenScore = { ...fuldtid, matchId: '999', homeTeam: { ...fuldtid.homeTeam, score: null } };
+    // DEN FARLIGE: en kamp I GANG har mål på tavlen (finite scorer), men
+    // period ≠ FullTime. Blev den til facit, ville pointafregningen fyre midt
+    // i kampen — score-filtret alene kan ikke skelne den fra en færdig kamp,
+    // KUN period-grenen kan. Mutationen "fjern period-tjekket" overlevede
+    // hele suiten, netop fordi ingen fixture-kamp havde den kombination.
+    const iGangMedMaal = { ...fuldtid, matchId: '888', period: 'FirstHalf' };
     const fetchFn = fetchRuter([
-      ['_next=', () => ({ pagination: { _next: null }, data: [{ ...fuldtid, matchId: '777' }, udenScore] })],
+      ['_next=', () => ({ pagination: { _next: null }, data: [{ ...fuldtid, matchId: '777' }, udenScore, iGangMedMaal] })],
       ['/matches', () => ({ pagination: { _next: 'side2' }, data: [fuldtid, foerKamp] })],
     ]);
     const ud = await PROVIDERS.pulselive.hentFaerdige(sync, fetchFn);
-    // Begge sider læst; PreMatch og null-score udeladt; sourceKey er en streng.
+    // Begge sider læst; PreMatch, null-score OG kampen i gang udeladt.
     expect(ud).toEqual([
       { sourceKey: String(fuldtid.matchId), homeGoals: fuldtid.homeTeam.score, awayGoals: fuldtid.awayTeam.score },
       { sourceKey: '777', homeGoals: fuldtid.homeTeam.score, awayGoals: fuldtid.awayTeam.score },
     ]);
+    expect(ud.map((e) => e.sourceKey)).not.toContain('888');
     expect(fetchFn.kald.length).toBe(2);
     // Origin-headeren er adgangsbilletten — uden den svarer API'et 403.
     expect(fetchFn.kald[0].opt.headers.Origin).toBe('https://www.premierleague.com');
   });
 
-  it('slår compSeason op efter ÅRSTAL i labelen og normaliserer tabellen', async () => {
+  it('en cursor i ring afbrydes af side-loftet — aldrig et halvt facit-billede', async () => {
     const fetchFn = fetchRuter([
-      ['/compseasons', () => ({ content: fxCompseasons.content })],
-      ['/standings', () => ({ tables: [{ gameWeek: 0, entries: fxStandings.entries }] })],
+      ['/matches', () => ({ pagination: { _next: 'rundt-i-ring' }, data: [] })],
     ]);
-    const rows = await PROVIDERS.pulselive.hentStandings(sync, fetchFn);
-    // 2026 skal ramme "English Premier League Season 2026/2027" (id 841) —
-    // IKKE "2025/26". Begge label-former findes i den rå compseasons-liste.
-    expect(fetchFn.kald[1].url).toContain('compSeasons=841');
-    expect(rows[0]).toEqual({
-      rank: 1, teamName: 'Arsenal', teamShortName: 'ARS',
-      points: 0, played: 0, won: 0, draw: 0, lost: 0, gf: 0, ga: 0, rankType: null,
-    });
-    expect(rows.length).toBe(fxStandings.entries.length);
+    await expect(PROVIDERS.pulselive.hentFaerdige(sync, fetchFn)).rejects.toThrow(/10 sider/);
+    expect(fetchFn.kald.length).toBe(10);
   });
 
-  it('matcher også de KORTE labels ("25/26"-formen) på årstal', async () => {
+  it('henter tabellen fra v5 (sitets eget endpoint) og normaliserer felterne', async () => {
+    // Fixturets rækker er præ-sæson (lutter nuller) — dér er en ombytning af
+    // won/lost eller en glemt Number() usynlig. Den syntetiske række har et
+    // FORSKELLIGT, ikke-nul tal i hvert felt, så enhver forveksling bliver rød.
+    const talrig = {
+      overall: { position: 5, played: 6, won: 3, drawn: 2, lost: 1, goalsFor: 9, goalsAgainst: 4, points: 11 },
+      team: { name: 'Testholdet', abbr: 'TST', id: '99' },
+    };
     const fetchFn = fetchRuter([
-      ['/compseasons', () => ({ content: fxCompseasons.content })],
-      ['/standings', () => ({ tables: [{ entries: [] }] })],
+      ['/standings', () => ({ matchweek: 1, tables: [{ entries: [...fxStandings.entries, talrig] }] })],
     ]);
-    await PROVIDERS.pulselive.hentStandings({ ...sync, season: 2025 }, fetchFn);
-    expect(fetchFn.kald[1].url).toContain('compSeasons=777');
+    const rows = await PROVIDERS.pulselive.hentStandings(sync, fetchFn);
+    expect(fetchFn.kald[0].url).toContain('/v5/competitions/8/seasons/2026/standings');
+    expect(rows.find((r) => r.teamName === 'Testholdet')).toEqual({
+      rank: 5, teamName: 'Testholdet', teamShortName: 'TST',
+      points: 11, played: 6, won: 3, draw: 2, lost: 1, gf: 9, ga: 4, rankType: null,
+    });
+    expect(rows.length).toBe(fxStandings.entries.length + 1);
+    // v5 leverer rækkerne USORTERET (fixturet er råt og beviser det) —
+    // output SKAL være i rank-orden, ellers deler FootballTable forkert.
+    expect(rows.map((r) => r.rank)).toEqual([...rows.map((r) => r.rank)].sort((a, b) => a - b));
+    expect(rows.map((r) => r.rank)).not.toEqual(fxStandings.entries.map((e) => e.overall.position).concat(5));
   });
 
   it('hentLive melder "kan ikke levere": tomme events og stadigIGang null — aldrig en tom Set', async () => {

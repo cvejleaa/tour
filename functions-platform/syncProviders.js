@@ -207,17 +207,19 @@ const superliga = {
 
 // --- Premier League (pulselive) ---------------------------------------------
 //
-// To API'er, samme udbyder — shapes dokumenteret i testdata/pulselive-*.json
-// (hentet med scripts/probe-pulselive.mjs):
-//   Kampe/facit: sdp-prem-prod (v2/matches) — samme kilde som kampprogrammet
-//     blev seedet fra, så matchId'et står allerede som suffiks i dokument-
-//     id'erne (r{runde}-{matchId}).
-//   Stilling: det ældre footballapi (standings?compSeasons=…) — det nye API
-//     har ikke et standings-endpoint (probet 12/8-2026).
+// Ét API, to versioner — shapes dokumenteret i testdata/pulselive-*.json
+// (hentet med scripts/probe-pulselive.mjs) og bekræftet mod HAR-optagelser af
+// premierleague.com selv (docs/PL_*.har):
+//   Kampe/facit: v2/matches — samme kilde som kampprogrammet blev seedet fra,
+//     så matchId'et står allerede som suffiks i dokument-id'erne
+//     (r{runde}-{matchId}).
+//   Stilling: v5/…/standings — det endpoint, sitet selv bruger (fra HAR'en).
+//     Rækkerne kommer USORTERET (alfabetisk), så rank-sorteringen er byrde,
+//     ikke pynt.
 // Ingen nøgle; begge kræver kun en browser-agtig Origin/Referer.
 
-const SDP_BASE = 'https://sdp-prem-prod.premier-league-prod.pulselive.com/api/v2';
-const FOOTBALLAPI_BASE = 'https://footballapi.pulselive.com/football';
+const SDP_API = 'https://sdp-prem-prod.premier-league-prod.pulselive.com/api';
+const SDP_BASE = `${SDP_API}/v2`;
 const PL_HEADERS = {
   Origin: 'https://www.premierleague.com',
   Referer: 'https://www.premierleague.com/',
@@ -245,32 +247,6 @@ async function plAlleKampe(sync, fetchFn) {
   return kampe;
 }
 
-/**
- * footballapi's compSeason-id for et sæsons-ÅR. Labels er ikke ens på tværs
- * af årgange ("English Premier League Season 2026/2027" vs "2025/26"), så vi
- * matcher på det FØRSTE årstal i labelen (2-cifret normaliseres). Slås op pr.
- * kørsel i stedet for at stå i SYNCED_GAMES: id'et er en intern footballapi-
- * detalje, og en hardcodet værdi ville overleve et sæsonskifte i stilhed.
- */
-// footballapi's eget id for Premier League (≠ sdp-API'ets competition=8).
-// En provider-intern detalje som compSeason — hører til her, ikke i
-// SYNCED_GAMES, som spejler games.mjs' sync-felt nøgle for nøgle.
-const FOOTBALLAPI_COMPETITION_ID = 1;
-
-async function plCompSeason(sync, fetchFn) {
-  const res = await fetchFn(`${FOOTBALLAPI_BASE}/competitions/${FOOTBALLAPI_COMPETITION_ID}/compseasons?page=0&pageSize=100`, plOpt());
-  if (!res.ok) throw new Error(`pulselive compseasons HTTP ${res.status}`);
-  const data = await res.json();
-  const fund = (data.content || []).find((c) => {
-    const m = String(c.label).match(/\d{4}|\d{2}/);
-    if (!m) return false;
-    const y = m[0].length === 2 ? 2000 + Number(m[0]) : Number(m[0]);
-    return y === sync.season;
-  });
-  if (!fund) throw new Error(`pulselive: ingen compSeason for ${sync.season}`);
-  return Math.trunc(fund.id);
-}
-
 const pulselive = {
   async hentFaerdige(sync, fetchFn) {
     return (await plAlleKampe(sync, fetchFn))
@@ -293,18 +269,19 @@ const pulselive = {
   },
 
   async hentStandings(sync, fetchFn) {
-    const compSeason = await plCompSeason(sync, fetchFn);
-    const res = await fetchFn(`${FOOTBALLAPI_BASE}/standings?compSeasons=${compSeason}`, plOpt());
+    // live=false: den OPGJORTE tabel, ikke en, der flytter sig midt i en kamp
+    // — samme princip som at facit slår live.
+    const res = await fetchFn(`${SDP_API}/v5/competitions/${sync.competitionId}/seasons/${sync.season}/standings?live=false`, plOpt());
     if (!res.ok) throw new Error(`pulselive standings HTTP ${res.status}`);
     const data = await res.json();
     return ((data.tables?.[0]?.entries) || [])
       .map((e) => ({
-        rank: Number(e.position) || 0,
+        rank: Number(e.overall?.position) || 0,
         // team.name er samme navneform som sdp-kampene og spillets holdliste
         // (efterprøvet i fixtures) — så teamInfo-opslaget i FootballTable
         // rammer farver og trøjer direkte.
         teamName: e.team?.name,
-        teamShortName: e.team?.club?.abbr || null,
+        teamShortName: e.team?.abbr || null,
         points: Number(e.overall?.points) || 0,
         played: Number(e.overall?.played) || 0,
         won: Number(e.overall?.won) || 0,

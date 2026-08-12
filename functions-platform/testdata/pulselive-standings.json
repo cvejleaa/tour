@@ -1,198 +1,124 @@
 {
-  "hentet": "2026-08-12T07:21:16.532Z",
-  "kilde": "https://footballapi.pulselive.com/football/standings?compSeasons=841",
-  "bemaerk": "Beskåret til 3 rækker — shapen, ikke sæsonen. team.name har samme navneform som sdp-kampene og spillets holdliste.",
-  "compSeason": {
-    "id": 841,
-    "label": "English Premier League Season 2026/2027"
-  },
-  "live": false,
-  "gameWeek": 0,
+  "hentet": "2026-08-12T08:38:31.156Z",
+  "kilde": "https://sdp-prem-prod.premier-league-prod.pulselive.com/api/v5/competitions/8/seasons/2026/standings?live=false",
+  "bemaerk": "Beskåret til 3 rækker — shapen, ikke sæsonen. RÆKKERNE KOMMER USORTERET (alfabetisk, ikke efter position) — sorteringen er providerens ansvar. team.name har samme navneform som sdp-kampene og spillets holdliste.",
+  "matchweek": 1,
   "entries": [
     {
+      "away": {
+        "goalsFor": 0,
+        "lost": 0,
+        "won": 0,
+        "position": 1,
+        "drawn": 0,
+        "goalsAgainst": 0,
+        "played": 0,
+        "points": 0
+      },
+      "overall": {
+        "goalsFor": 0,
+        "lost": 0,
+        "won": 0,
+        "position": 1,
+        "drawn": 0,
+        "goalsAgainst": 0,
+        "startingPosition": 0,
+        "played": 0,
+        "points": 0
+      },
       "team": {
         "name": "Arsenal",
-        "club": {
-          "name": "Arsenal",
-          "shortName": "Arsenal",
-          "abbr": "ARS",
-          "id": 1
-        },
-        "teamType": "FIRST",
+        "id": "3",
         "shortName": "Arsenal",
-        "id": 1
-      },
-      "position": 1,
-      "overall": {
-        "played": 0,
-        "won": 0,
-        "drawn": 0,
-        "lost": 0,
-        "goalsFor": 0,
-        "goalsAgainst": 0,
-        "goalsDifference": 0,
-        "points": 0
+        "abbr": "ARS"
       },
       "home": {
-        "played": 0,
-        "won": 0,
-        "drawn": 0,
-        "lost": 0,
         "goalsFor": 0,
-        "goalsAgainst": 0,
-        "goalsDifference": 0,
-        "points": 0
-      },
-      "away": {
-        "played": 0,
-        "won": 0,
-        "drawn": 0,
         "lost": 0,
-        "goalsFor": 0,
+        "won": 0,
+        "position": 1,
+        "drawn": 0,
         "goalsAgainst": 0,
-        "goalsDifference": 0,
+        "played": 0,
         "points": 0
-      },
-      "annotations": [
-        {
-          "type": "Q",
-          "destination": "EU_CL"
-        }
-      ],
-      "ground": {
-        "name": "Emirates Stadium",
-        "city": "London",
-        "capacity": 60704,
-        "location": {
-          "latitude": 51.5548,
-          "longitude": -0.108533
-        },
-        "source": "OPTA",
-        "id": 9523
       }
     },
     {
-      "team": {
-        "name": "Aston Villa",
-        "club": {
-          "name": "Aston Villa",
-          "shortName": "Aston Villa",
-          "abbr": "AVL",
-          "id": 2
-        },
-        "teamType": "FIRST",
-        "shortName": "Aston Villa",
-        "id": 2
-      },
-      "position": 2,
-      "overall": {
-        "played": 0,
-        "won": 0,
-        "drawn": 0,
-        "lost": 0,
+      "away": {
         "goalsFor": 0,
+        "lost": 0,
+        "won": 0,
+        "position": 15,
+        "drawn": 0,
         "goalsAgainst": 0,
-        "goalsDifference": 0,
+        "played": 0,
         "points": 0
+      },
+      "overall": {
+        "goalsFor": 0,
+        "lost": 0,
+        "won": 0,
+        "position": 15,
+        "drawn": 0,
+        "goalsAgainst": 0,
+        "startingPosition": 0,
+        "played": 0,
+        "points": 0
+      },
+      "team": {
+        "name": "Manchester City",
+        "id": "43",
+        "shortName": "Man City",
+        "abbr": "MCI"
       },
       "home": {
-        "played": 0,
-        "won": 0,
-        "drawn": 0,
-        "lost": 0,
         "goalsFor": 0,
-        "goalsAgainst": 0,
-        "goalsDifference": 0,
-        "points": 0
-      },
-      "away": {
-        "played": 0,
-        "won": 0,
-        "drawn": 0,
         "lost": 0,
-        "goalsFor": 0,
+        "won": 0,
+        "position": 15,
+        "drawn": 0,
         "goalsAgainst": 0,
-        "goalsDifference": 0,
+        "played": 0,
         "points": 0
-      },
-      "annotations": [
-        {
-          "type": "Q",
-          "destination": "EU_CL"
-        }
-      ],
-      "ground": {
-        "name": "Villa Park",
-        "city": "Birmingham",
-        "capacity": 37000,
-        "location": {
-          "latitude": 52.5085,
-          "longitude": -1.88495
-        },
-        "source": "OPTA",
-        "id": 9518
       }
     },
     {
-      "team": {
-        "name": "Bournemouth",
-        "club": {
-          "name": "Bournemouth",
-          "shortName": "Bournemouth",
-          "abbr": "BOU",
-          "id": 127
-        },
-        "teamType": "FIRST",
-        "shortName": "Bournemouth",
-        "id": 127
-      },
-      "position": 3,
-      "overall": {
-        "played": 0,
-        "won": 0,
-        "drawn": 0,
-        "lost": 0,
+      "away": {
         "goalsFor": 0,
+        "lost": 0,
+        "won": 0,
+        "position": 16,
+        "drawn": 0,
         "goalsAgainst": 0,
-        "goalsDifference": 0,
+        "played": 0,
         "points": 0
+      },
+      "overall": {
+        "goalsFor": 0,
+        "lost": 0,
+        "won": 0,
+        "position": 16,
+        "drawn": 0,
+        "goalsAgainst": 0,
+        "startingPosition": 0,
+        "played": 0,
+        "points": 0
+      },
+      "team": {
+        "name": "Manchester United",
+        "id": "1",
+        "shortName": "Man Utd",
+        "abbr": "MUN"
       },
       "home": {
-        "played": 0,
-        "won": 0,
-        "drawn": 0,
-        "lost": 0,
         "goalsFor": 0,
-        "goalsAgainst": 0,
-        "goalsDifference": 0,
-        "points": 0
-      },
-      "away": {
-        "played": 0,
-        "won": 0,
-        "drawn": 0,
         "lost": 0,
-        "goalsFor": 0,
+        "won": 0,
+        "position": 16,
+        "drawn": 0,
         "goalsAgainst": 0,
-        "goalsDifference": 0,
+        "played": 0,
         "points": 0
-      },
-      "annotations": [
-        {
-          "type": "Q",
-          "destination": "EU_CL"
-        }
-      ],
-      "ground": {
-        "name": "Vitality Stadium",
-        "city": "Bournemouth",
-        "capacity": 11307,
-        "location": {
-          "latitude": 50.7349,
-          "longitude": -1.83899
-        },
-        "source": "OPTA",
-        "id": 9522
       }
     }
   ]
