@@ -30,7 +30,7 @@ vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'A'
 vi.mock('./gameActions', () => ({ setPuljeBet: vi.fn(), setPlayerFavoriteTeam: vi.fn() }));
 
 import EloTable from './football/EloTable';
-import SuperligaTable from './football/SuperligaTable';
+import FootballTable from './football/FootballTable';
 import PuljeTip from './football/PuljeTip';
 import GameProfile from './GameProfile';
 import { visOf, teamsOf } from './football/teamInfo';
@@ -129,7 +129,7 @@ describe('Superliga-stillingen', () => {
   };
 
   it('viser visningsnavnet i tabellen', () => {
-    const { container } = render(<SuperligaTable game={medStilling} />);
+    const { container } = render(<FootballTable game={medStilling} />);
     const navne = [...container.querySelectorAll('.sltab__name')].map((e) => e.textContent);
     expect(navne).toEqual(['Nordsjælland', 'Brøndby']);
   });
@@ -138,7 +138,7 @@ describe('Superliga-stillingen', () => {
   // falder tilbage på. Et hold, seedet under et andet navn end API'ets, må
   // stadig kunne læses.
   it('falder tilbage på API-navnet for et hold uden for listen', () => {
-    const { container } = render(<SuperligaTable game={{
+    const { container } = render(<FootballTable game={{
       ...SPIL,
       standings: [{ rank: 1, teamName: 'Hvidovre IF', played: 1, won: 1, draw: 0, lost: 0, gf: 2, ga: 0, points: 3 }],
     }} />);

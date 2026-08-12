@@ -18,7 +18,7 @@ import FootballTip from '../features/games/football/FootballTip';
 import MyTips from '../features/games/football/MyTips';
 import PuljeTip from '../features/games/football/PuljeTip';
 import EloTable from '../features/games/football/EloTable';
-import SuperligaTable from '../features/games/football/SuperligaTable';
+import FootballTable from '../features/games/football/FootballTable';
 import FootballHelp from '../features/games/football/FootballHelp';
 import { GAME_TYPE } from '../lib/constants';
 import { withTab } from '../features/games/GameTabLink';
@@ -26,7 +26,9 @@ import { withTab } from '../features/games/GameTabLink';
 // Faner i spillet. football: true = kun for fodbold-spil. Rækkefølgen er
 // visnings-rækkefølgen; navnene er valgt så de ikke kolliderer med top-nav
 // ("Mit hold" vs. global Profil, "Guide" vs. platform-Hjælp).
-const GAME_TABS = [
+// Eksporteret, så testene kan gate-teste de RIGTIGE fane-definitioner — en
+// lokal kopi i testen ville forblive grøn, når en `kraever` fjernes her.
+export const GAME_TABS = [
   { key: 'tip', label: 'Tip' },
   { key: 'mine', label: '📋 Mine tips', football: true },
   { key: 'stilling', label: '🏆 Stilling' },
@@ -36,7 +38,12 @@ const GAME_TABS = [
   // altid fejler: firestore.rules kræver en puljeLockAt, som aldrig er sat på
   // et spil uden pulje. En fane, der inviterer til noget umuligt.
   { key: 'pulje', label: '🎖️ Pulje', football: true, kraever: 'pulje' },
-  { key: 'tabel', label: '⚽ Tabel', football: true },
+  // KRÆVER `game.standings`. Kun Superligaen har en synk, der skriver
+  // stillingen; i et spil uden (Premier League, indtil dens synk findes)
+  // ville fanen love en tabel og vise en tom side. Gaten er DATA, ikke en
+  // provider-liste: den dag en synk skriver standings, dukker fanen op af
+  // sig selv — der er ingen klient-tilstand at huske at flippe.
+  { key: 'tabel', label: '⚽ Tabel', football: true, kraever: 'standings' },
   { key: 'elo', label: '📈 Elo', football: true },
   { key: 'ligaer', label: '👥 Ligaer' },
   { key: 'profil', label: '🙂 Mit hold' },
@@ -134,7 +141,7 @@ export default function GamePage() {
           ) : tab === 'profil' ? (
             <GameProfile game={game} me={me} />
           ) : tab === 'hjaelp' && game.type === GAME_TYPE.FOOTBALL ? (
-            <FootballHelp />
+            <FootballHelp game={game} />
           ) : tab === 'mine' && game.type === GAME_TYPE.FOOTBALL ? (
             <MyTips game={game} matches={matches} me={me} />
           ) : tab === 'pulje' && game.pulje && game.type === GAME_TYPE.FOOTBALL ? (
@@ -142,7 +149,7 @@ export default function GamePage() {
           ) : tab === 'elo' && game.type === GAME_TYPE.FOOTBALL ? (
             <EloTable game={game} />
           ) : tab === 'tabel' && game.type === GAME_TYPE.FOOTBALL ? (
-            <SuperligaTable game={game} />
+            <FootballTable game={game} />
           ) : game.type === GAME_TYPE.FOOTBALL ? (
             <FootballTip game={game} me={me} matches={matches} />
           ) : (
