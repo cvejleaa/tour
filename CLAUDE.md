@@ -15,14 +15,20 @@ De er defineret som agenter i `.claude/agents/` og køres parallelt, når
 | **Quality Control Manager** | Løser den det rigtige problem — og hvad rører den ellers ved? | at lande med en halv rettelse |
 | **Release Manager** | Hvad skal deployes, i hvilken rækkefølge, og hvad tjekkes bagefter? | en forkert udrulning |
 
-Dertil én rolle, der **kun** køres når ændringen kalder på det:
+Dertil to roller, der **kun** køres når ændringen kalder på det:
 
 | Rolle | Køres når ændringen rører |
 |---|---|
 | **Security Reviewer** | `firestore.rules`, `functions*/`, auth, invitationer, liga-tilmelding — eller noget andet, der afgør hvem der ser hvad |
+| **Spilfører** | spilmekanik, scoring, ranglister, hvem-ser-hvad-hvornår, notifikationer/mails eller sociale features — og kun på **planen**, før koden skrives |
 
-Den er med vilje ikke fast. En sikkerhedsgennemgang af en tekstrettelse lærer
+De er med vilje ikke faste. En sikkerhedsgennemgang af en tekstrettelse lærer
 ingen noget, og en rolle, der altid siger "ser fint ud", holder man op med at læse.
+
+**Spilfører er rådgivende, ikke blokerende.** Dens spørgsmål er, om ændringen
+gør spillet sjovere eller kedeligere. Et "gør spillet kedeligere" skal
+**besvares** i planen — ikke nødvendigvis adlydes. Kedeligt er en dom, ejeren
+selv fælder.
 
 Rollerne kører på hver sin model (sat i deres frontmatter — de hyppige på
 billigere modeller, de sjældne på de stærkeste), og flere af dem fører en
@@ -64,6 +70,9 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
    Quality Control på *planen* først — og kør den på opus (sig det ved
    invokationen; den kører ellers på sonnet). To minutter dér sparer en
    omskrivning: de dyreste fund har været designfejl, ikke kodefejl.
+   Rører planen **spilmekanik, scoring, synlighed eller sociale features**,
+   så kør Spilfører på planen samtidig — en kedelig feature, der først
+   opdages færdigbygget, koster det samme som en designfejl.
 0b. Får ændringen en **knap eller en fane**, så afgør FØRST hvor den hører
    hjemme — og vælg det sted, en administrator ville lede efter den, ikke det
    sted der er nemmest at bygge. Spørg: *hvad ville jeg selv klikke på, hvis
@@ -98,7 +107,9 @@ tilbagerulninger, og udrulninger med et blokerende fund fra en rolle.
 
 Rollerne kigger på én ændring ad gangen. Det, der vokser stille **mellem**
 ændringerne — forbrug, bundle, forældede afhængigheder, dokumentation der er
-drevet fra virkeligheden — ser ingen af dem.
+drevet fra virkeligheden — ser ingen af dem. Det gælder også driften:
+kvoteforbrug over sæsonen, fejllogs ingen har kigget i, scheduled functions
+der er holdt op med at køre — og alarmerne selv: virker de stadig?
 
 Kør derfor `/saesoneftersyn` før hver ny sæson, eller ca. hver anden måned.
 Aldrig midt i en aktiv runde. Kommandoen ligger i
@@ -136,6 +147,11 @@ Aldrig midt i en aktiv runde. Kommandoen ligger i
   enhver model-ændring lå død, indtil en vilkårlig kamp blev afgjort. Det gjorde
   hver eneste rettelse til en timing-øvelse. Svaret var ikke bedre timing, men
   en knap. Spørg ved nyt maskineri: *hvordan starter jeg det her med vilje?*
+- **En funktion, der kun kan fejle tavst, er heller ikke færdig.** Nyt maskineri
+  (scheduled functions, triggers, mails, feeds) skal kunne opdages, når det
+  fejler — peg på loggen, alarmen eller admin-siden, hvor fejlen ville stå.
+  Release Manager spørger efter det; svaret skal findes i planen, ikke opfindes
+  ved deployet.
 - **"Alle" er sjældent den rigtige modtagerkreds.** Send mail kunne kun indsætte
   alle godkendte brugere — der fandtes intet spil-begreb overhovedet, så et brev
   om Superligaens regler gik også til dem, der aldrig havde været med. Rører en
