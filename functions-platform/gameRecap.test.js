@@ -3,7 +3,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const {
-  sanitizeName, isSurprise, buildRoundRecapFacts, runGameRoundRecap,
+  sanitizeName, isSurprise, buildRoundRecapFacts, runGameRoundRecap, RECAP_SYSTEM,
 } = require('./gameRecap');
 // Stillingens egen vej til combi. Botten og stillingen SKAL sige samme tal.
 const { opdelPoint, buildRoundContext } = require('./pointOpdeling');
@@ -20,6 +20,18 @@ describe('sanitizeName', () => {
     expect(sanitizeName('x'.repeat(60))).toHaveLength(40);
     expect(sanitizeName('')).toBe('Spiller');
     expect(sanitizeName(null)).toBe('Spiller');
+  });
+});
+
+// Botten skriver for ALLE fodbold-spil — prompten må ikke binde sig til én
+// liga. "en Superliga-rundes egen uge" ville få den til at kalde en Premier
+// League-runde noget forkert. Indholds-assertion, ikke visnings-assertion.
+describe('RECAP_SYSTEM — liga-neutral', () => {
+  it('nævner ingen konkret liga', () => {
+    expect(RECAP_SYSTEM).not.toContain('Superliga');
+    expect(RECAP_SYSTEM).not.toContain('Premier League');
+    // Kernen i formuleringen, der ERSTATTEDE liga-navnet, skal stå der.
+    expect(RECAP_SYSTEM).toContain('en rundes egen uge');
   });
 });
 

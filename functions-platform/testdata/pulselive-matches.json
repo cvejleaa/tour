@@ -1,0 +1,129 @@
+{
+  "hentet": "2026-08-12T07:21:15.020Z",
+  "kilde": "https://sdp-prem-prod.premier-league-prod.pulselive.com/api/v2/matches?competition=8&season=…",
+  "bemaerk": "Én-to RÅ kampe pr. observeret period-værdi. kickoff er tidszone-løs; kickoffTimezoneString angiver zonen (Europe/London — BST om sommeren, GMT om vinteren).",
+  "perPeriod": {
+    "PreMatch": [
+      {
+        "phase": "1",
+        "kickoffTimezone": "BST",
+        "competitionId": "8",
+        "period": "PreMatch",
+        "matchWeek": 1,
+        "kickoff": "2026-08-21 20:00:00",
+        "awayTeam": {
+          "name": "Coventry City",
+          "id": "9",
+          "shortName": "Coventry",
+          "abbr": "COV"
+        },
+        "competition": "Premier League",
+        "kickoffTimezoneString": "Europe/London",
+        "homeTeam": {
+          "name": "Arsenal",
+          "id": "3",
+          "shortName": "Arsenal",
+          "abbr": "ARS"
+        },
+        "season": "2026",
+        "ground": "Emirates Stadium, London",
+        "matchId": "2645195"
+      },
+      {
+        "phase": "1",
+        "kickoffTimezone": "BST",
+        "competitionId": "8",
+        "period": "PreMatch",
+        "matchWeek": 1,
+        "kickoff": "2026-08-22 12:30:00",
+        "awayTeam": {
+          "name": "Manchester United",
+          "id": "1",
+          "shortName": "Man Utd",
+          "abbr": "MUN"
+        },
+        "competition": "Premier League",
+        "kickoffTimezoneString": "Europe/London",
+        "homeTeam": {
+          "name": "Hull City",
+          "id": "88",
+          "shortName": "Hull",
+          "abbr": "HUL"
+        },
+        "season": "2026",
+        "ground": "MKM Stadium, Hull",
+        "matchId": "2645198"
+      }
+    ],
+    "FullTime": [
+      {
+        "phase": "1",
+        "kickoffTimezone": "BST",
+        "competitionId": "8",
+        "period": "FullTime",
+        "matchWeek": 1,
+        "kickoff": "2025-08-15 20:00:00",
+        "awayTeam": {
+          "score": 2,
+          "name": "Bournemouth",
+          "id": "91",
+          "halfTimeScore": 0,
+          "shortName": "Bournemouth",
+          "abbr": "BOU",
+          "redCards": 0
+        },
+        "competition": "Premier League",
+        "clock": "97",
+        "kickoffTimezoneString": "Europe/London",
+        "homeTeam": {
+          "score": 4,
+          "name": "Liverpool",
+          "id": "14",
+          "halfTimeScore": 1,
+          "shortName": "Liverpool",
+          "abbr": "LIV",
+          "redCards": 0
+        },
+        "season": "2025",
+        "ground": "Anfield, Liverpool",
+        "resultType": "NormalResult",
+        "matchId": "2561895",
+        "attendance": 60315
+      },
+      {
+        "phase": "1",
+        "kickoffTimezone": "BST",
+        "competitionId": "8",
+        "period": "FullTime",
+        "matchWeek": 1,
+        "kickoff": "2025-08-16 12:30:00",
+        "awayTeam": {
+          "score": 0,
+          "name": "Newcastle United",
+          "id": "4",
+          "halfTimeScore": 0,
+          "shortName": "Newcastle",
+          "abbr": "NEW",
+          "redCards": 0
+        },
+        "competition": "Premier League",
+        "clock": "97",
+        "kickoffTimezoneString": "Europe/London",
+        "homeTeam": {
+          "score": 0,
+          "name": "Aston Villa",
+          "id": "7",
+          "halfTimeScore": 0,
+          "shortName": "Aston Villa",
+          "abbr": "AVL",
+          "redCards": 1
+        },
+        "season": "2025",
+        "ground": "Villa Park, Birmingham",
+        "resultType": "NormalResult",
+        "matchId": "2561896",
+        "attendance": 42526
+      }
+    ]
+  }
+}

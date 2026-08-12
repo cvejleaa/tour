@@ -1,0 +1,27 @@
+{
+  "hentet": "2026-08-12T07:21:16.532Z",
+  "kilde": "https://footballapi.pulselive.com/football/competitions/1/compseasons",
+  "bemaerk": "Labels er IKKE ens på tværs af årgange — opslaget matcher på første årstal.",
+  "content": [
+    {
+      "label": "English Premier League Season 2026/2027",
+      "id": 841
+    },
+    {
+      "label": "2025/26",
+      "id": 777
+    },
+    {
+      "label": "2024/25",
+      "id": 719
+    },
+    {
+      "label": "2023/24",
+      "id": 578
+    },
+    {
+      "label": "2022/23",
+      "id": 489
+    }
+  ]
+}
