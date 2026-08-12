@@ -1,5 +1,5 @@
 ---
-description: Sæsoneftersyn — periodisk gennemgang af sikkerhed, forbrug, afhængigheder, dokumentation og testsuite. Køres før en ny sæson eller ca. hver anden måned.
+description: Sæsoneftersyn — periodisk gennemgang af sikkerhed, forbrug, drift, afhængigheder, dokumentation, testsuite, spilglæde og rollernes hukommelse. Køres før en ny sæson eller ca. hver anden måned.
 ---
 
 # Sæsoneftersyn
@@ -7,6 +7,7 @@ description: Sæsoneftersyn — periodisk gennemgang af sikkerhed, forbrug, afh�
 De tre faste roller kigger på **én ændring ad gangen**. Der findes en anden slags
 problemer, som ingen af dem nogensinde ser: dem der vokser stille frem mellem
 ændringerne. Et forbrug der er tredoblet. En afhængighed to majors bagud. En
+scheduled function, der stille er holdt op med at køre. En
 dokumentation der beskriver en app, vi ikke har mere.
 
 Det er dét, dette eftersyn er til. Kør det **før en ny sæson starter**, eller
@@ -15,7 +16,7 @@ inviterer til ændringer, og en spilaften er det forkerte tidspunkt.
 
 ## Sådan kører du det
 
-Gennemgå de syv punkter herunder. Undersøg reelt — gæt ikke. Slut med **én
+Gennemgå de ti punkter herunder. Undersøg reelt — gæt ikke. Slut med **én
 prioriteret liste** til brugeren: hvad haster, hvad kan vente til efter sæsonen,
 og hvad vi bevidst lever med.
 
@@ -33,7 +34,22 @@ læsninger — ikke gennem data. Led efter:
 Regn på det største fund: hvor mange læsninger pr. runde, gange antal spillere.
 Et tal er mere overbevisende end en bekymring.
 
-### 2. Bundle og indlæsningstid
+### 2. Driften mellem deployene
+
+Release Manager ser deployet — ikke ugerne efter. Undersøg:
+
+- **Fejllogs**: åbn Cloud Functions-loggene for begge projekter og led efter
+  fejl, ingen har set. En fejl, der har stået der i to måneder, er et hul i
+  alarmeringen, ikke kun i koden.
+- **Scheduled functions**: kører de stadig? Sammenhold seneste kørsel med den
+  forventede kadence — en function, der stille er holdt op, opdages ellers
+  først, når påmindelserne udebliver midt i en runde.
+- **Mails**: sendes de, og kommer de frem? Kvoteforbrug og bounces.
+- **Alarmerne selv**: en alarm, der aldrig har fyret, er enten et sundhedstegn
+  eller død. Afgør hvilken — fremprovokér en testfejl, hvis det er den eneste
+  måde at vide det på.
+
+### 3. Bundle og indlæsningstid
 
 ```bash
 npm run build && VITE_PLATFORM_MODE=true npm run build
@@ -43,7 +59,7 @@ Kig på chunk-størrelserne. Er noget tungt havnet i hovedbundtet igen, eller er
 en side, der burde være `React.lazy`, blevet importeret direkte et sted? Sig
 hvad der er vokset siden sidst, ikke bare hvad der er stort.
 
-### 3. Afhængigheder
+### 4. Afhængigheder
 
 ```bash
 npm run deps:check
@@ -54,7 +70,7 @@ Se også, om der ligger åbne Dependabot-PR'er og samler støv. Skil reelle
 sårbarheder fra støj: en advarsel i et build-værktøj rammer ikke spillerne.
 Se `docs/maintenance.md` — majors tages én ad gangen.
 
-### 4. Dokumentations-drift
+### 5. Dokumentations-drift
 
 Den farligste form for forældet dokumentation er den, der ser rigtig ud.
 Stikprøv: passer `README.md` og `docs/architecture.md` stadig på datamodellen?
@@ -64,7 +80,7 @@ Beskriver `docs/admin-guide.md` de faner, der faktisk findes? Henter
 Historiske dokumenter (statusrapporter, gamle reviews) skal være **mærket som
 historiske**, ikke rettet — de er et referat af et tidspunkt.
 
-### 5. Fuld sikkerhedsgennemgang
+### 6. Fuld sikkerhedsgennemgang
 
 Kør **Security Reviewer**-agenten på hele overfladen, ikke kun på en diff:
 `firestore.rules`, alle callables i begge functions-kodebaser, invitations- og
@@ -75,7 +91,7 @@ Tjek også de rigtige data: er der spillere med roller, de ikke skal have
 længere? Invitationskoder der aldrig blev brugt op? Konti fra sidste sæson, som
 stadig er `approved`?
 
-### 6. Testsuitens sundhed
+### 7. Testsuitens sundhed
 
 ```bash
 npx vitest run
@@ -92,7 +108,26 @@ Alle fire skal køre. Spørg derudover:
 - Er der kode, der er blevet forretningskritisk siden sidst, uden at dækningen
   fulgte med?
 
-### 7. Backlogget
+### 8. Spilglæden
+
+Kør **Spilfører**-agenten retrospektivt på sæsonen i stedet for på en plan:
+hvilke features blev brugt, hvilke gav snak på liga-væggen, og hvilke faldt
+døde? Hvor i tabellen faldt aktiviteten — holdt bunden op med at logge ind,
+og hvornår i sæsonen? Fodr agentens hukommelse med svarene; det er dét, der
+gør dens næste plan-vurdering bedre end et gæt.
+
+Ét konkret forslag til næste sæson er nok — ti er støj.
+
+### 9. Rollernes hukommelse
+
+Agenterne fører selv deres viden i `.claude/agent-memory/`. Stikprøv den:
+
+- Står der faldgruber, der ikke findes længere — rettet kode, fjernede filer,
+  lukkede huller? Bed den relevante agent selv rydde op; ret ikke i hånden.
+- Er noget vokset til støj, så kernen drukner i enkeltobservationer?
+- Er mapperne committet, så viden følger repoet?
+
+### 10. Backlogget
 
 Gennemgå det, vi bevidst har udskudt, og spørg for hvert punkt: er det stadig
 det rigtige valg? Nogle ting bliver billigere at rette, når appen alligevel er
