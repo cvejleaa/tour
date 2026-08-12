@@ -32,14 +32,14 @@
 //          feltet, har spillet ingen pulje. Superligaens top-6 er en egenskab
 //          ved den liga — ikke ved fodbold, og ikke ved platformen.
 //
-// ET SPIL UDEN `sync` SYNKES IKKE — OG INGEN OPDAGER DET.
-// Her stod, at den eksisterende strandede-alarm fangede tavsheden. Det er
-// forkert: `strandedMatches` kaldes kun fra sweep'et uden gameId, og
-// defaulten er superliga2627 (superligaSync.js). Kampe i ethvert andet spil
-// kan stå uden facit i det uendelige, uden at nogen får besked.
-// Alarmen skal gøres spil-agnostisk i opgave #7, samtidig med at
-// provider-opslaget bygges. Indtil da er det et menneske, der skal huske at
-// kigge.
+// ET SPIL UDEN IMPLEMENTERET PROVIDER SYNKES IKKE — OG INGEN OPDAGER DET.
+// Synk, sweep og strandede-alarm løber over SYNCED_GAMES i functions-
+// platform/syncProviders.js (spejlet af `sync`-feltet her — paritetstesten i
+// syncProviders.test.js holder dem i trit). Men et spil kommer først med i
+// den liste, når dets provider er IMPLEMENTERET: står der en provider her,
+// som ikke findes i PROVIDERS (pt. pulselive), er spillet tavst — kampe kan
+// stå uden facit i det uendelige, uden at nogen får besked. Indtil provideren
+// er bygget, er det et menneske, der skal huske at kigge.
 export const GAMES = [
   {
     id: 'vm2026',

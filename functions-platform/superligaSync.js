@@ -1,24 +1,23 @@
 // ---------------------------------------------------------------------------
-// functions-platform/superligaSync.js — automatisk resultat-synk for Superligaen.
+// functions-platform/superligaSync.js — resultat-synkens KERNER.
 //
-// Henter færdigspillede kampe fra api.superliga.dk (samme officielle API som
-// programmet blev seedet fra — rent JSON, ingen signatur) og sætter kampens
-// facit (result = 1X2) på det matchende dokument i games/superliga2627/matches.
-// At skrive result udløser recomputeGameMatch (afregning + levende Elo).
+// Henter færdigspillede kampe fra spillets kilde (via provideren i
+// syncProviders.js) og sætter kampens facit (result = 1X2) på det matchende
+// dokument i games/{gameId}/matches. At skrive result udløser
+// recomputeGameMatch (afregning + levende Elo).
 //
-// Matcher API-kampe til vores dokumenter ved at genskabe seed-id'et
-// (r{runde}-{slug(hjemme)}-{slug(ude)}) — begge stammer fra SAMME API, så
-// holdnavnene er identiske. Kun ændrede facit skrives (idempotent).
+// Alt kilde-specifikt — URL'er, parsing, status-oversættelse og hvordan en
+// API-kamp genfinder sit dokument — bor i syncProviders.js. Herinde bor det,
+// der er ens for alle ligaer: vagterne, batchingen, rækkefølgen og de tidlige
+// exits. Kun ændrede facit skrives (idempotent).
 // ---------------------------------------------------------------------------
 
+const {
+  PROVIDERS, SYNCED_GAMES, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
+  matchDocId, liveStatus, resultsUrl, liveUrl, standingsUrl,
+} = require('./syncProviders');
+
 const GAME_ID = 'superliga2627';
-const SEASON_ID = 35802; // 3F Superliga 2026/2027 (fra tournament_by_season)
-const TOURNAMENT_ID = 46; // 3F Superliga (template)
-const STAGE_ID = 935487; // grundspillet 2026/27 (fra tournament_by_season.stages)
-const API_BASE = 'https://api.superliga.dk';
-// Offentligt app-token (ligger i superliga.dk's offentlige app — ikke en secret).
-const ACCESS_TOKEN = '5b6ab6f5eb84c60031bbbd24';
-const APP_NAME = 'dk.releaze.livecenter.spdk';
 
 // Hvor længe efter kickoff vi holder øje med en kamp. En kamp varer ~2 timer;
 // den sidste halve time er luft til forlænget spilletid, afbrydelser og API'ets
@@ -43,14 +42,6 @@ function kickoffMs(k) {
   const ms = typeof k.toMillis === 'function' ? k.toMillis() : new Date(k).getTime();
   return Number.isFinite(ms) ? ms : NaN;
 }
-
-// Et hængende kald holder funktionen kørende, til dens egen timeout løber ud —
-// og vi ringer nu 15 gange så ofte.
-//
-// Funktion og ikke en konstant: AbortSignal.timeout() starter uret med det
-// samme, så et delt signal ville udløbe 10 sekunder efter modulet blev
-// indlæst og derefter afbryde hvert eneste kald.
-const hentOpt = () => ({ signal: AbortSignal.timeout(10000) });
 
 /**
  * Kampe, der er sat i gang inden for vinduet og STADIG mangler facit.
@@ -118,63 +109,19 @@ function outcomeFromScore(h, a) {
   return 'X';
 }
 
-// API'ets statusFull er engelsk fritekst. Oversæt til et LUKKET sæt server-side,
-// så der aldrig kan slippe engelsk ud på skærmen — og så en værdi, vi ikke har
-// set før, ikke vælter noget.
-//
-// 'afbrudt' er den vigtige: en afbrudt kamp har stadig statusType 'inprogress',
-// og at kalde den "DIREKTE" ville være en løgn.
-const LIVE_STATUS = {
-  '1st half': 'foerste',
-  'halftime': 'pause',
-  'half time': 'pause',
-  'ht': 'pause',
-  '2nd half': 'anden',
-  'extra time': 'forlaenget',
-  '1st extra': 'forlaenget',
-  '2nd extra': 'forlaenget',
-  'awaiting extra time': 'forlaenget',
-  'penalties': 'straffe',
-  'penalty shootout': 'straffe',
-  'interrupted': 'afbrudt',
-  'abandoned': 'afbrudt',
-  'postponed': 'afbrudt',
-};
-
-/** statusFull → vores lukkede sæt. Ukendt bliver 'ukendt' og logges. */
-function liveStatus(raw) {
-  const n = String(raw ?? '').trim().toLowerCase();
-  // hasOwnProperty og ikke et almindeligt opslag: `LIVE_STATUS['constructor']`
-  // rammer Object.prototype og giver en FUNKTION tilbage. Den kan Admin SDK
-  // ikke serialisere, så hele synken ville kaste hvert minut — tavst, fordi
-  // runScheduledSync fanger fejlen — og hverken live eller slut blev skrevet
-  // for nogen kamp. '__proto__' giver tilsvarende et objekt, som skrive-vagten
-  // aldrig kan sammenligne sig ud af, så hver kørsel ville skrive igen.
-  const kendt = Object.prototype.hasOwnProperty.call(LIVE_STATUS, n) ? LIVE_STATUS[n] : null;
-  if (!kendt && n) console.warn(`superliga: ukendt live-status "${raw}" — vises som blot "direkte".`);
-  return kendt || 'ukendt';
-}
-
-/** Dokument-id: r{runde}-{slug(hjemme)}-{slug(ude)} (spejler superligaSeed.matchId). */
-function matchDocId(round, home, away) {
-  const slug = (s) => String(s ?? '')
-    .toLowerCase()
-    .replace(/ø/g, 'o').replace(/å/g, 'a').replace(/æ/g, 'ae')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]/g, '');
-  return `r${round}-${slug(home)}-${slug(away)}`;
-}
-
-/** URL til færdigspillede kampe i en sæson. */
-function resultsUrl(seasonId) {
-  return `${API_BASE}/events-v2?appName=${APP_NAME}&access_token=${ACCESS_TOKEN}`
-    + `&env=production&locale=da&seasonId=${seasonId}&status=finished`;
-}
-
-/** URL til kampe, der er I GANG lige nu. */
-function liveUrl(seasonId) {
-  return `${API_BASE}/events-v2?appName=${APP_NAME}&access_token=${ACCESS_TOKEN}`
-    + `&env=production&locale=da&seasonId=${seasonId}&status=inprogress`;
+/**
+ * Spillets provider + synk-konfiguration ud af opts — med Superligaen som
+ * default, så alle eksisterende kaldeveje (og den manuelle synk uden
+ * argumenter) opfører sig som før. opts.seasonId/stageId respekteres stadig
+ * som enkeltfelts-overrides, fordi den manuelle synk og testene bruger dem.
+ */
+function providerAfOpts(opts) {
+  const provider = opts.provider || PROVIDERS.superliga;
+  const sync = opts.sync || {
+    seasonId: opts.seasonId || SEASON_ID,
+    stageId: opts.stageId || STAGE_ID,
+  };
+  return { provider, sync };
 }
 
 /**
@@ -182,19 +129,16 @@ function liveUrl(seasonId) {
  * @param {object} db
  * @param {object} FieldValue
  * @param {{fetchFn?:Function, gameId?:string, seasonId?:number,
+ *          provider?:object, sync?:object,
  *          only?:Array<{id:string,data:object}>}} [opts]
  * @returns {Promise<{checked:number, updated:number, rettede:string[]}>}
  */
 async function syncResultsCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
-  const seasonId = opts.seasonId || SEASON_ID;
   const fetchFn = opts.fetchFn || fetch;
+  const { provider, sync } = providerAfOpts(opts);
 
-  const res = await fetchFn(resultsUrl(seasonId), hentOpt());
-  if (!res.ok) throw new Error(`superliga API HTTP ${res.status}`);
-  const data = await res.json();
-  const events = (data.events || []).filter((e) => e.statusType === 'finished'
-    && e.score && Number.isFinite(e.score.home) && Number.isFinite(e.score.away));
+  const events = await provider.hentFaerdige(sync, fetchFn);
 
   // Nuværende kamp-dokumenter (så vi kun skriver ændrede facit).
   //
@@ -211,13 +155,18 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
     snap.docs.forEach((d) => current.set(d.id, d.data()));
   }
 
+  // Hvordan en API-kamp genfinder sit dokument, er providerens viden — SL
+  // genskaber seed-id'et af runde+holdnavne, PL slår kilde-id'et op som
+  // suffiks. Ukendte nøgler er udeladt af mappet og springes over som altid.
+  const resolved = provider.resolveDocs(events.map((e) => e.sourceKey), current.keys());
+
   const batch = db.batch();
   const rettede = [];
   for (const e of events) {
-    const id = matchDocId(e.round, e.homeName, e.awayName);
-    const cur = current.get(id);
-    if (!cur) continue; // ukendt kamp (bør ikke ske — samme kilde)
-    const result = outcomeFromScore(e.score.home, e.score.away);
+    const id = resolved.get(e.sourceKey);
+    const cur = id == null ? null : current.get(id);
+    if (!cur) continue; // ukendt kamp (bør ikke ske — samme kilde som seedet)
+    const result = outcomeFromScore(e.homeGoals, e.awayGoals);
     if (!result) continue;
     // Sammenlign på BÅDE facit og mål. Så længe kun facit talte, kunne en
     // rettet score aldrig komme ind: 2-1 → 3-1 er samme 1X2, så dokumentet
@@ -227,13 +176,13 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
     // det sidste led kunne en kamp, hvor facit og den sidste live-skrivning
     // landede i samme kørsel, stå med BÅDE slutresultat og "DIREKTE" for evigt.
     if (cur.result === result
-        && cur.homeGoals === e.score.home
-        && cur.awayGoals === e.score.away
+        && cur.homeGoals === e.homeGoals
+        && cur.awayGoals === e.awayGoals
         && cur.live == null) continue;
     batch.set(matchesCol.doc(id), {
       result,
-      homeGoals: e.score.home,
-      awayGoals: e.score.away,
+      homeGoals: e.homeGoals,
+      awayGoals: e.awayGoals,
       status: 'finished',
       resultSyncedAt: FieldValue.serverTimestamp(),
       // Facit slår live. Rydningen ligger HER og ikke i live-stien, fordi
@@ -270,57 +219,47 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
  */
 async function syncLiveCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
-  const seasonId = opts.seasonId || SEASON_ID;
   const fetchFn = opts.fetchFn || fetch;
   const nowMs = opts.nowMs ?? Date.now();
+  const { provider, sync } = providerAfOpts(opts);
 
-  const res = await fetchFn(liveUrl(seasonId), hentOpt());
-  if (!res.ok) throw new Error(`superliga live HTTP ${res.status}`);
-  const data = await res.json();
-  // Fravær af data er nu et SKRIVE-signal (det rydder live), og derfor skal en
-  // tom liste kunne skelnes fra et svar, vi ikke forstod. Uden dette led ville
-  // et HTTP 200 med `{}` — afkortet krop, ændret format, fejl pakket som
-  // succes — betyde "ingen kampe i gang" og rydde stillingen på hver eneste
-  // kamp, der spillede. Ved at kaste følger vi samme fail-silent-vej som en
-  // HTTP-fejl: intet skrives, og næste minut prøver igen.
-  //
-  // Bemærk, at syncResultsCore med vilje beholder sin `|| []`: dér betyder et
-  // manglende felt bare "intet facit fundet", og det er harmløst.
-  if (!data || !Array.isArray(data.events)) throw new Error('superliga live: svar uden events-liste');
-  const iGang = data.events.filter((e) => e.statusType === 'inprogress');
-  const events = iGang.filter((e) => e.score
-    && Number.isFinite(e.score.home) && Number.isFinite(e.score.away));
-
-  // Hvilke kampe kilden STADIG kalder i gang. Bygget på den UFILTREREDE liste:
-  // bruger vi `events`, ville vores eget score-filter blive brugt som bevis på,
-  // at kampen er slut, og en kamp i gang med en ubrugelig score ville få ryddet
-  // sin live-stilling midt i det hele.
-  const stadigIGang = new Set(iGang.map((e) => matchDocId(e.round, e.homeName, e.awayName)));
+  // Provideren SKAL kaste på et svar uden liste (se kontrakten): fravær af
+  // data er et SKRIVE-signal her (det markerer kampe slut), så et svar, vi
+  // ikke forstod, må aldrig ligne "ingen kampe i gang".
+  const { events, stadigIGang } = await provider.hentLive(sync, fetchFn);
 
   const current = new Map((opts.only || []).map((m) => [m.id, m.data]));
+  // Én opløsning for BÅDE stillings-events og stadig-i-gang-nøglerne, så
+  // slut-løkken nedenfor kan sammenligne på dokument-id'er.
+  const resolved = provider.resolveDocs(
+    [...new Set([...events.map((e) => e.sourceKey), ...stadigIGang])],
+    current.keys(),
+  );
+  const stadigDocs = new Set([...stadigIGang].map((k) => resolved.get(k)).filter((v) => v != null));
+
   const matchesCol = db.collection('games').doc(gameId).collection('matches');
   const batch = db.batch();
   let skrevet = 0;
   for (const e of events) {
-    const cur = current.get(matchDocId(e.round, e.homeName, e.awayName));
+    const id = resolved.get(e.sourceKey);
+    const cur = id == null ? null : current.get(id);
     if (!cur) continue;
     if (cur.result != null && cur.result !== '') continue; // facit slår live
-    const status = liveStatus(e.statusFull);
     const f = cur.live;
     // Skriv KUN når stillingen eller halvlegen faktisk har flyttet sig. Hvert
     // kampdokument lyttes på af hver åben browser, så en skrivning uden
     // ændring koster én læsning pr. klient — og under en kamp sidder folk der.
-    if (f && f.home === e.score.home && f.away === e.score.away && f.status === status) continue;
-    batch.set(matchesCol.doc(matchDocId(e.round, e.homeName, e.awayName)), {
+    if (f && f.home === e.home && f.away === e.away && f.status === e.status) continue;
+    batch.set(matchesCol.doc(id), {
       live: {
-        home: e.score.home,
-        away: e.score.away,
-        status,
-        // Kun til fejlsøgning i loggen — må ALDRIG renderes.
-        // Klippet: feltet kommer fra en fremmed kilde og udleveres til alle
-        // klienter. Det renderes ikke i dag — og skal ikke kunne blive en
-        // fælde for den, der en dag beslutter at vise det.
-        statusRaw: String(e.statusFull ?? '').slice(0, 40),
+        home: e.home,
+        away: e.away,
+        status: e.status,
+        // Kun til fejlsøgning i loggen — må ALDRIG renderes. Klippet af
+        // provideren: feltet kommer fra en fremmed kilde og udleveres til
+        // alle klienter. Det renderes ikke i dag — og skal ikke kunne blive
+        // en fælde for den, der en dag beslutter at vise det.
+        statusRaw: e.statusRaw,
         at: nowMs,
       },
     }, { merge: true });
@@ -366,7 +305,7 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
     // vinduet mellem pendingMatches og denne løkke, ville vi ellers hæfte en
     // live-stilling tilbage på en kamp, der lige er afgjort.
     if (m.data.result != null && m.data.result !== '') continue;
-    if (stadigIGang.has(m.id)) continue;
+    if (stadigDocs.has(m.id)) continue;
     if (f.status === 'slut') continue;
     // En afbrudt kamp er ikke slut, den er afbrudt. Overskrev vi statussen her,
     // ville kortet holde op med at sige "Afbrudt" og begynde at sige "Slut",
@@ -397,43 +336,19 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   return { live: events.length, skrevet, sluttet, sluttede };
 }
 
-/** URL til den OFFICIELLE stilling (grundspil-stage), med form (last5). */
-function standingsUrl(seasonId = SEASON_ID, stageId = STAGE_ID) {
-  return `${API_BASE}/tournaments/${TOURNAMENT_ID}/standings?appName=superligadk&access_token=${ACCESS_TOKEN}`
-    + `&env=production&locale=da&addResults=true&resultsLimit=6&form=last5&seasonId=${seasonId}&stageId=${stageId}`;
-}
-
 /**
- * Synk den OFFICIELLE stilling fra api.superliga.dk til spil-dokumentet
+ * Synk den OFFICIELLE stilling fra spillets kilde til spil-dokumentet
  * (games/{gameId}.standings). Vi BEREGNER ikke selv tabellen — den hentes som
- * autoritativ kilde (samme princip som resultaterne).
+ * autoritativ kilde (samme princip som resultaterne). Provideren normaliserer
+ * til FootballTable-formen, så klienten aldrig ser kildens egne feltnavne.
  * @returns {Promise<{rows:number}>}
  */
 async function syncStandingsCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
-  const seasonId = opts.seasonId || SEASON_ID;
-  const stageId = opts.stageId || STAGE_ID;
   const fetchFn = opts.fetchFn || fetch;
+  const { provider, sync } = providerAfOpts(opts);
 
-  const res = await fetchFn(standingsUrl(seasonId, stageId), hentOpt());
-  if (!res.ok) throw new Error(`superliga standings HTTP ${res.status}`);
-  const data = await res.json();
-  const rows = (Array.isArray(data) ? data : [])
-    .map((r) => ({
-      rank: Number(r.rank) || 0,
-      teamName: r.teamName,
-      teamShortName: r.teamShortName || null,
-      points: Number(r.points) || 0,
-      played: Number(r.matchesPlayed) || 0,
-      won: Number(r.matchesWon) || 0,
-      draw: Number(r.matchesDraw) || 0,
-      lost: Number(r.matchesLost) || 0,
-      gf: Number(r.goalsScored) || 0,
-      ga: Number(r.goalsConceded) || 0,
-      rankType: r.rankType || null,
-    }))
-    .filter((r) => r.teamName)
-    .sort((a, b) => a.rank - b.rank);
+  const rows = await provider.hentStandings(sync, fetchFn);
   if (rows.length === 0) return { rows: 0, changed: false };
 
   // Skriv KUN når tabellen faktisk har flyttet sig. Spil-dokumentet lyttes på
@@ -518,9 +433,39 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
   return { pending: venter.length, updated, live, standings, fejl };
 }
 
+/**
+ * Den skemalagte kørsel for ALLE synkede spil — én ad gangen, i listens
+ * rækkefølge. Et spil, hvis provider mangler i registret, logges og springes
+ * over; det må aldrig kunne vælte de andre spils synk. Sekventielt og ikke
+ * parallelt: kørslen er billig (tidligt exit pr. spil), og så kan to spils
+ * batches aldrig kappes om samme kvote i samme øjeblik.
+ *
+ * @returns {Promise<Array<{gameId:string, pending:number, updated:number,
+ *          live:object|null, standings:object|null, fejl:string|null}>>}
+ */
+async function runScheduledSyncAll(db, FieldValue, nowMs, opts = {}) {
+  const ud = [];
+  for (const g of (opts.games || SYNCED_GAMES)) {
+    // Object.hasOwn og ikke et rått opslag: PROVIDERS['constructor'] er
+    // truthy (Object-konstruktøren), så en fejlskrevet statisk post ville
+    // slippe forbi en !-vagt — samme fælde som LIVE_STATUS dokumenterer.
+    const provider = Object.hasOwn(PROVIDERS, g.provider) ? PROVIDERS[g.provider] : null;
+    if (!provider) {
+      console.error(`synk: ukendt provider "${g.provider}" for ${g.gameId} — springes over.`);
+      continue;
+    }
+    const r = await runScheduledSync(db, FieldValue, nowMs, {
+      ...opts, gameId: g.gameId, provider, sync: g.sync,
+    });
+    ud.push({ gameId: g.gameId, ...r });
+  }
+  return ud;
+}
+
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
   liveUrl, liveStatus, syncLiveCore,
-  standingsUrl, syncStandingsCore, runScheduledSync, strandedMatches, allMatches,
+  standingsUrl, syncStandingsCore, runScheduledSync, runScheduledSyncAll,
+  strandedMatches, allMatches,
 };

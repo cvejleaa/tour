@@ -25,8 +25,9 @@ const {
   dryRunFraKald,
 } = require('./gameScoring');
 const {
-  syncResultsCore, syncStandingsCore, runScheduledSync, strandedMatches, allMatches,
+  syncResultsCore, syncStandingsCore, runScheduledSyncAll, strandedMatches, allMatches,
 } = require('./superligaSync');
+const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
@@ -235,18 +236,23 @@ exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async 
 // hele sæsonen. Dækningen er asymmetrisk: fortil beskytter vinduet os (en kamp
 // kl. 11 fanges stadig kl. 12), mens en kamp fra kl. 21.30 og senere ville få
 // sit vindue klippet ved midnat. Nattens fuldsweep tager den slags.
+// Funktionsnavnet er historisk (deployet under det) — kørslen dækker ALLE
+// spil i SYNCED_GAMES, ét ad gangen. Det tidlige exit gælder pr. spil, så et
+// stille minut koster ét tomt opslag pr. synket spil.
 exports.syncSuperligaResults = onSchedule(
   { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION },
   async () => {
     // Selve rækkefølgen — og det tidlige exit — bor i superligaSync, så den
     // kan unit-testes. Her logges kun resultatet.
-    const out = await runScheduledSync(getFirestore(), FieldValue, Date.now());
-    if (out.fejl) console.error('Superliga-synk (ignoreret):', out.fejl);
-    if (out.pending === 0) return; // stille minut: intet i gang, intet rørt
-    console.log(`Superliga-synk: ${out.pending} kampe uden facit, ${out.updated} nye facit.`
-      + (out.live ? ` ${out.live.live} i gang, ${out.live.skrevet} live-opdateringer`
-        + `${out.live.sluttet ? `, slut: ${out.live.sluttede.join(', ')}` : ''}.` : '')
-      + (out.standings ? ` Stilling ${out.standings.changed ? 'opdateret' : 'uændret'}.` : ''));
+    const alle = await runScheduledSyncAll(getFirestore(), FieldValue, Date.now());
+    for (const out of alle) {
+      if (out.fejl) console.error(`Synk ${out.gameId} (ignoreret):`, out.fejl);
+      if (out.pending === 0) continue; // stille minut: intet i gang, intet rørt
+      console.log(`Synk ${out.gameId}: ${out.pending} kampe uden facit, ${out.updated} nye facit.`
+        + (out.live ? ` ${out.live.live} i gang, ${out.live.skrevet} live-opdateringer`
+          + `${out.live.sluttet ? `, slut: ${out.live.sluttede.join(', ')}` : ''}.` : '')
+        + (out.standings ? ` Stilling ${out.standings.changed ? 'opdateret' : 'uændret'}.` : ''));
+    }
   },
 );
 
@@ -277,50 +283,65 @@ exports.syncSuperligaSweep = onSchedule(
   { schedule: '25 2,13-23 * * *', timeZone: TZ, region: REGION },
   async () => {
     const db = getFirestore();
-    let alle = null;
-    let netopRettet = new Set();
-    try {
-      // Ét opslag, to formål: både gen-synken og alarmen bygger på det.
-      alle = await allMatches(db);
-      const { checked, updated, rettede } = await syncResultsCore(db, FieldValue, { only: alle });
-      netopRettet = new Set(rettede);
-      if (updated > 0) {
-        console.warn(`Superliga-sweep: ${updated} facit som minut-synken IKKE nåede — undersøg hvorfor.`);
-      } else {
-        console.log(`Superliga-sweep: ${checked} færdige kampe, intet manglede.`);
-      }
-    } catch (err) {
-      console.error('Superliga-sweep fejlede (ignoreret):', err?.message || err);
-    }
-    try {
-      const { rows, changed } = await syncStandingsCore(db, FieldValue);
-      console.log(`Superliga-stilling (sweep): ${rows} hold, ${changed ? 'opdateret' : 'uændret'}.`);
-    } catch (err) {
-      console.error('Stilling-synk fejlede (ignoreret):', err?.message || err);
-    }
-    // Alarmen: kampe der for længst er begyndt og stadig mangler facit. Uden
-    // den ser "ingen kampe i gang" og "kampen bliver aldrig afregnet" ens ud
-    // i loggen. Bygger på listen ovenfor — den er hentet FØR gen-synken, så
-    // en kamp, sweep'et lige har reddet, ville ellers blive meldt strandet.
-    try {
-      if (alle) {
-        // Kampene, sweep'et lige har reddet, er ikke strandede — de står bare
-        // stadig uden facit i listen fra før gen-synken.
-        const strandede = strandedMatches(
-          alle.filter((m) => !netopRettet.has(m.id)), Date.now(),
-        );
-        if (strandede.length > 0) {
-          console.error('Superliga: kampe UDEN facit længe efter kickoff — point er ikke afregnet:',
-            strandede.map((m) => m.id).join(', '));
+    // Sweep'et — og strandede-alarmen — løber over SAMME spil-liste som
+    // minut-synken. Før dækkede alarmen kun Superligaen, så en strandet
+    // PL-kamp ville have stået uafregnet uden en lyd.
+    for (const g of SYNCED_GAMES) {
+      // Object.hasOwn: se vagten i runScheduledSyncAll — et rått opslag kan
+      // ramme Object.prototype.
+      const provider = Object.hasOwn(PROVIDERS, g.provider) ? PROVIDERS[g.provider] : null;
+      if (!provider) continue; // logget af minut-synken — sweep'et gentager ikke
+      const opts = { gameId: g.gameId, provider, sync: g.sync };
+      let alle = null;
+      let netopRettet = new Set();
+      try {
+        // Ét opslag, to formål: både gen-synken og alarmen bygger på det.
+        alle = await allMatches(db, opts);
+        const { checked, updated, rettede } = await syncResultsCore(db, FieldValue, { ...opts, only: alle });
+        netopRettet = new Set(rettede);
+        if (updated > 0) {
+          console.warn(`Sweep ${g.gameId}: ${updated} facit som minut-synken IKKE nåede — undersøg hvorfor.`);
+        } else {
+          console.log(`Sweep ${g.gameId}: ${checked} færdige kampe, intet manglede.`);
         }
+      } catch (err) {
+        console.error(`Sweep ${g.gameId} fejlede (ignoreret):`, err?.message || err);
       }
-    } catch (err) {
-      console.error('Kunne ikke tjekke for strandede kampe (ignoreret):', err?.message || err);
+      try {
+        const { rows, changed } = await syncStandingsCore(db, FieldValue, opts);
+        console.log(`Stilling ${g.gameId} (sweep): ${rows} hold, ${changed ? 'opdateret' : 'uændret'}.`);
+      } catch (err) {
+        console.error(`Stilling-synk ${g.gameId} fejlede (ignoreret):`, err?.message || err);
+      }
+      // Alarmen: kampe der for længst er begyndt og stadig mangler facit. Uden
+      // den ser "ingen kampe i gang" og "kampen bliver aldrig afregnet" ens ud
+      // i loggen. Bygger på listen ovenfor — den er hentet FØR gen-synken, så
+      // en kamp, sweep'et lige har reddet, ville ellers blive meldt strandet.
+      try {
+        if (alle) {
+          // Kampene, sweep'et lige har reddet, er ikke strandede — de står bare
+          // stadig uden facit i listen fra før gen-synken.
+          const strandede = strandedMatches(
+            alle.filter((m) => !netopRettet.has(m.id)), Date.now(),
+          );
+          if (strandede.length > 0) {
+            console.error(`${g.gameId}: kampe UDEN facit længe efter kickoff — point er ikke afregnet:`,
+              strandede.map((m) => m.id).join(', '));
+          }
+        }
+      } catch (err) {
+        console.error(`Kunne ikke tjekke for strandede kampe i ${g.gameId} (ignoreret):`, err?.message || err);
+      }
     }
   },
 );
 
-// syncSuperligaResultsNow — manuel udløsning (admin/owner). Til test/tvungen synk.
+// syncSuperligaResultsNow — manuel udløsning (admin/owner). Til test/tvungen
+// synk. Navnet er historisk (deployet under det); den synker et VALGFRIT spil
+// fra SYNCED_GAMES — uden gameId Superligaen, som den altid har gjort.
+// Gennemgår hele sæsonen (ingen `only`), så den også fanger rettede facit på
+// gamle kampe. Det er den "start med vilje"-vej, reglen om nyt maskineri
+// kræver — også for et spil, hvis første kamp endnu ikke er spillet.
 exports.syncSuperligaResultsNow = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Log ind.');
@@ -330,9 +351,19 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION }, async (request) => 
   if (role !== 'owner' && role !== 'globalAdmin') {
     throw new HttpsError('permission-denied', 'Kun admin kan synke resultater.');
   }
-  const results = await syncResultsCore(db, FieldValue);
-  const standings = await syncStandingsCore(db, FieldValue).catch((e) => ({ error: e?.message }));
-  return { ...results, standings };
+  const gameId = request.data?.gameId || 'superliga2627';
+  // Kun spil fra den statiske liste: et frit gameId ville ellers kunne rette
+  // et vilkårligt spils kampe mod den forkerte kilde.
+  const g = SYNCED_GAMES.find((x) => x.gameId === gameId);
+  // Object.hasOwn: se vagten i runScheduledSyncAll — et rått opslag kan
+  // ramme Object.prototype.
+  if (!g || !Object.hasOwn(PROVIDERS, g.provider)) {
+    throw new HttpsError('invalid-argument', `Ingen synk-provider for "${gameId}".`);
+  }
+  const opts = { gameId: g.gameId, provider: PROVIDERS[g.provider], sync: g.sync };
+  const results = await syncResultsCore(db, FieldValue, opts);
+  const standings = await syncStandingsCore(db, FieldValue, opts).catch((e) => ({ error: e?.message }));
+  return { gameId: g.gameId, ...results, standings };
 });
 
 // redeemGameLeagueCode — deltag i en privat mini-liga via invitationskode.

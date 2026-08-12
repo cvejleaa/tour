@@ -12,6 +12,7 @@ export default defineConfig({
       'pointOpdeling.test.js',
       'superligaScoring.test.js',
       'superligaSync.test.js',
+      'syncProviders.test.js',
       'gameLeagues.test.js',
       'gameRecap.test.js',
       'inviteTemplate.test.js',

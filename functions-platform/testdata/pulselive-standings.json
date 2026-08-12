@@ -1,0 +1,199 @@
+{
+  "hentet": "2026-08-12T07:21:16.532Z",
+  "kilde": "https://footballapi.pulselive.com/football/standings?compSeasons=841",
+  "bemaerk": "Beskåret til 3 rækker — shapen, ikke sæsonen. team.name har samme navneform som sdp-kampene og spillets holdliste.",
+  "compSeason": {
+    "id": 841,
+    "label": "English Premier League Season 2026/2027"
+  },
+  "live": false,
+  "gameWeek": 0,
+  "entries": [
+    {
+      "team": {
+        "name": "Arsenal",
+        "club": {
+          "name": "Arsenal",
+          "shortName": "Arsenal",
+          "abbr": "ARS",
+          "id": 1
+        },
+        "teamType": "FIRST",
+        "shortName": "Arsenal",
+        "id": 1
+      },
+      "position": 1,
+      "overall": {
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goalsFor": 0,
+        "goalsAgainst": 0,
+        "goalsDifference": 0,
+        "points": 0
+      },
+      "home": {
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goalsFor": 0,
+        "goalsAgainst": 0,
+        "goalsDifference": 0,
+        "points": 0
+      },
+      "away": {
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goalsFor": 0,
+        "goalsAgainst": 0,
+        "goalsDifference": 0,
+        "points": 0
+      },
+      "annotations": [
+        {
+          "type": "Q",
+          "destination": "EU_CL"
+        }
+      ],
+      "ground": {
+        "name": "Emirates Stadium",
+        "city": "London",
+        "capacity": 60704,
+        "location": {
+          "latitude": 51.5548,
+          "longitude": -0.108533
+        },
+        "source": "OPTA",
+        "id": 9523
+      }
+    },
+    {
+      "team": {
+        "name": "Aston Villa",
+        "club": {
+          "name": "Aston Villa",
+          "shortName": "Aston Villa",
+          "abbr": "AVL",
+          "id": 2
+        },
+        "teamType": "FIRST",
+        "shortName": "Aston Villa",
+        "id": 2
+      },
+      "position": 2,
+      "overall": {
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goalsFor": 0,
+        "goalsAgainst": 0,
+        "goalsDifference": 0,
+        "points": 0
+      },
+      "home": {
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goalsFor": 0,
+        "goalsAgainst": 0,
+        "goalsDifference": 0,
+        "points": 0
+      },
+      "away": {
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goalsFor": 0,
+        "goalsAgainst": 0,
+        "goalsDifference": 0,
+        "points": 0
+      },
+      "annotations": [
+        {
+          "type": "Q",
+          "destination": "EU_CL"
+        }
+      ],
+      "ground": {
+        "name": "Villa Park",
+        "city": "Birmingham",
+        "capacity": 37000,
+        "location": {
+          "latitude": 52.5085,
+          "longitude": -1.88495
+        },
+        "source": "OPTA",
+        "id": 9518
+      }
+    },
+    {
+      "team": {
+        "name": "Bournemouth",
+        "club": {
+          "name": "Bournemouth",
+          "shortName": "Bournemouth",
+          "abbr": "BOU",
+          "id": 127
+        },
+        "teamType": "FIRST",
+        "shortName": "Bournemouth",
+        "id": 127
+      },
+      "position": 3,
+      "overall": {
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goalsFor": 0,
+        "goalsAgainst": 0,
+        "goalsDifference": 0,
+        "points": 0
+      },
+      "home": {
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goalsFor": 0,
+        "goalsAgainst": 0,
+        "goalsDifference": 0,
+        "points": 0
+      },
+      "away": {
+        "played": 0,
+        "won": 0,
+        "drawn": 0,
+        "lost": 0,
+        "goalsFor": 0,
+        "goalsAgainst": 0,
+        "goalsDifference": 0,
+        "points": 0
+      },
+      "annotations": [
+        {
+          "type": "Q",
+          "destination": "EU_CL"
+        }
+      ],
+      "ground": {
+        "name": "Vitality Stadium",
+        "city": "Bournemouth",
+        "capacity": 11307,
+        "location": {
+          "latitude": 50.7349,
+          "longitude": -1.83899
+        },
+        "source": "OPTA",
+        "id": 9522
+      }
+    }
+  ]
+}
