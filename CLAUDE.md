@@ -24,6 +24,11 @@ Dertil én rolle, der **kun** køres når ændringen kalder på det:
 Den er med vilje ikke fast. En sikkerhedsgennemgang af en tekstrettelse lærer
 ingen noget, og en rolle, der altid siger "ser fint ud", holder man op med at læse.
 
+Rollerne kører på hver sin model (sat i deres frontmatter — de hyppige på
+billigere modeller, de sjældne på de stærkeste), og flere af dem fører en
+varig hukommelse i `.claude/agent-memory/`, som committes med. Ret aldrig i
+deres hukommelsesfiler i hånden midt i en gennemgang — de vedligeholder dem selv.
+
 **Antag, at dine egne tests bekræfter sig selv.** Koden og testene skrives af
 den samme i samme åndedrag og indkoder samme forståelse — også når den er
 forkert. Derfor er mutationstest ikke en ekstra grundighed, men den eneste
@@ -56,8 +61,9 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
 ## Rækkefølgen i praksis
 
 0. Tilføjer ændringen **ny brugerflade eller nye tal på skærmen**, så kør
-   Quality Control på *planen* først. To minutter dér sparer en omskrivning:
-   de dyreste fund har været designfejl, ikke kodefejl.
+   Quality Control på *planen* først — og kør den på opus (sig det ved
+   invokationen; den kører ellers på sonnet). To minutter dér sparer en
+   omskrivning: de dyreste fund har været designfejl, ikke kodefejl.
 0b. Får ændringen en **knap eller en fane**, så afgør FØRST hvor den hører
    hjemme — og vælg det sted, en administrator ville lede efter den, ikke det
    sted der er nemmest at bygge. Spørg: *hvad ville jeg selv klikke på, hvis
@@ -69,13 +75,15 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
 1. Skriv ændringen. Kør lokalt: `npm run lint`, relevante tests, `npm run build`.
    **Kontrollér, at hver ændring faktisk landede** — en tekst-erstatning, der
    ikke matcher, fejler tavst, og så står testfilen grøn uden at dække noget.
-2. **Commit FØRST, kør så de tre roller** — plus Security Reviewer, hvis
-   ændringen rører adgang. Ret det, de finder.
-   **Rollerne muterer koden i arbejdstræet.** Committer du midt i en
-   mutationstest, lander deres mutation i din commit; retter du en fil, de
-   netop har gendannet fra HEAD, forsvinder din rettelse. Begge dele er sket.
-   Skal du arbejde videre, mens de kører, så gør det i et `git worktree` —
-   og husk, at symlinkede `node_modules` ikke må committes med.
+2. **Commit FØRST, kør så Test Manager og Quality Control parallelt** — plus
+   Security Reviewer, hvis ændringen rører adgang. Ret det, de finder.
+   Test Manager muterer i sin **egen worktree**, ikke i dit arbejdstræ — men
+   commit-først-reglen består, for worktree'en ser kun det committede: en
+   ukommittet ændring bliver aldrig gennemgået. Nævn branchen, når rollerne
+   startes, så de gennemgår den rigtige kode.
+2b. **Når de er grønne, kør Release Manager** for udrulningsplanen. Den kommer
+   sidst, fordi planen afhænger af, hvad der faktisk lander — inklusive de
+   rettelser, de andre roller afkrævede.
 3. Commit → push → opret PR som draft.
 4. Vent på grøn CI (fire jobs). Un-draft → squash-merge.
 5. **Deploy efter Release Managers plan — uden at spørge om lov.** Er CI grøn,
