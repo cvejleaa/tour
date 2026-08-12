@@ -15,6 +15,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../firebase';
 import { COL } from '../../lib/constants';
 import { generateJoinCode } from '../leagues/leagueUtils';
+import { LQ_TYPES } from './leagueQuestionScoring';
 
 /** Maks. længde på en liga-væg-besked. */
 export const LEAGUE_MSG_MAX = 280;
@@ -183,7 +184,7 @@ export const LEAGUE_Q_LABEL_MAX = 120;
 
 /**
  * Opret et liga-spørgsmål (kun liga-ejeren iflg. reglerne).
- * @param {{uid:string, gameId:string, leagueId:string, label:string, type?:'text'|'yesno'|'number', points?:number, deadline?:string|null}} o
+ * @param {{uid:string, gameId:string, leagueId:string, label:string, type?:'text'|'yesno'|'number'|'team', points?:number, deadline?:string|null}} o
  */
 export async function createLeagueQuestion({ uid, gameId, leagueId, label, type = 'text', points = 5, deadline = null }) {
   const clean = String(label || '').trim();
@@ -195,7 +196,11 @@ export async function createLeagueQuestion({ uid, gameId, leagueId, label, type 
   try {
     await addDoc(collection(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId, COL.GAME_LEAGUE_QUESTIONS), {
       label: clean,
-      type: ['text', 'yesno', 'number'].includes(type) ? type : 'text',
+      // LQ_TYPES og ikke en lokal literal: to lister ville drive fra hinanden,
+      // og en ikke-whitelisted type bliver TAVST til 'text' — så en ny type,
+      // der kun tilføjes i scoring-filen, ville se ud til at virke i formularen
+      // og alligevel oprette tekst-spørgsmål.
+      type: LQ_TYPES.includes(type) ? type : 'text',
       points: p,
       deadline: deadline ? new Date(deadline).getTime() : null,
       facit: null,

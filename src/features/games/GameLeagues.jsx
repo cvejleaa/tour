@@ -116,7 +116,7 @@ function LeagueWall({ gameId, leagueId, meUid, byUid, klubFarver }) {
   );
 }
 
-function LeagueCard({ league, standings, byUid, meUid, gameId, forvalgt, klubFarver }) {
+function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, klubFarver }) {
   // Kommer man fra "Åbn ligaen →" i stillingen, skal DEN liga stå åben. Ellers
   // lander man på en liste, hvor alt er foldet sammen — og linket lovede mere,
   // end klikket gav.
@@ -265,7 +265,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, forvalgt, klubFar
           </div>
 
           <LeagueQuestions
-            gameId={gameId} leagueId={league.id} meUid={meUid} isOwner={isOwner}
+            gameId={gameId} game={game} leagueId={league.id} meUid={meUid} isOwner={isOwner}
             questions={questions} answersByQid={answersByQid} byUid={byUid}
           />
 
@@ -344,6 +344,7 @@ export default function GameLeagues({ gameId, game = null }) {
             byUid={byUid}
             meUid={meUid}
             gameId={gameId}
+            game={game}
             forvalgt={l.id === valgtLigaId}
             klubFarver={klubFarver}
           />

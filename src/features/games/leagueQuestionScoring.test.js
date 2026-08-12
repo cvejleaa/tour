@@ -1,8 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
   lqNorm, lqPoints, lqSettled, scoreLeagueQuestion, leagueQuestionPointsByUid,
-  leagueRankingWithQuestions,
+  leagueRankingWithQuestions, LQ_TYPES,
 } from './leagueQuestionScoring';
+
+// Whitelisten i createLeagueQuestion IMPORTERER LQ_TYPES — én liste, ikke to.
+// En type, der mangler her, bliver TAVST til 'text' ved oprettelse, så
+// formularen ser ud til at virke, mens spørgsmålet opretter sig som fritekst.
+describe('LQ_TYPES', () => {
+  it('rummer alle fire typer — også hold', () => {
+    expect(LQ_TYPES).toEqual(['text', 'yesno', 'number', 'team']);
+  });
+});
 
 describe('lqNorm/lqPoints/lqSettled', () => {
   it('normaliserer, defaulter point og genkender afgjorte spørgsmål', () => {
@@ -30,6 +39,17 @@ describe('scoreLeagueQuestion', () => {
   it('yesno scorer som tekst', () => {
     const q = { type: 'yesno', points: 2, facit: 'ja' };
     expect(scoreLeagueQuestion(q, [{ uid: 'a', answer: 'Ja' }, { uid: 'b', answer: 'nej' }])).toEqual({ a: 2 });
+  });
+
+  it('hold: eksakt kanonisk match — et andet hold scorer ikke', () => {
+    // Svar og facit kommer begge fra spillets holdliste (dropdown), så der er
+    // intet acceptedAnswers-sikkerhedsnet — matchet SKAL være eksakt.
+    const q = { type: 'team', points: 10, facit: 'Arsenal' };
+    const per = scoreLeagueQuestion(q, [
+      { uid: 'a', answer: 'Arsenal' },
+      { uid: 'b', answer: 'Aston Villa' },
+    ]);
+    expect(per).toEqual({ a: 10 });
   });
 
   it('number: nærmeste vinder — ALLE med mindste afstand får fulde point', () => {
