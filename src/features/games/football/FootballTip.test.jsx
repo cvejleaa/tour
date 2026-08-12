@@ -1173,6 +1173,36 @@ describe('combi-mærket', () => {
     expect(tekst).toMatch(/combi \+.*🔗/);
     expect(tekst).not.toMatch(/⚡/);
   });
+
+  // Delingsteksten skal bære SPILLETS navn. Hardcodet "Superliga R5" i en
+  // Premier League-deling sender venner til den forkerte liga — og mutationen
+  // "sæt den tilbage" overlevede hele suiten, fordi ingen test læste teksten.
+  it('delingsteksten bærer spillets shortName — ikke Superliga', async () => {
+    const alle = [
+      { id: 'k1', round: 1, home: 'AGF', away: 'F.C. København', kickoff: KICKOFF, odds: { 1: 2, X: 3, 2: 4 }, result: '1' },
+    ];
+    mockBets.mockReturnValue({ betsByMatch: { k1: { pick: '1', points: 2 } }, loading: false });
+    render(
+      <MemoryRouter initialEntries={['/spil/pl?runde=1']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'pl', type: 'football', shortName: 'PL efterår', teams: TEAMS, eloHistory: HISTORY }}
+                me={{ uid: 'me', totalPoints: 100 }}
+                matches={alle}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Del i chatten/ })); });
+    const tekst = mockShare.mock.calls[0][0];
+    expect(tekst).toContain('⚽ PL efterår R1');
+    expect(tekst).not.toContain('Superliga');
+  });
 });
 
 // ---------------------------------------------------------------------------

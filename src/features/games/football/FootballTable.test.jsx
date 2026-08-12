@@ -128,6 +128,17 @@ describe('FootballTable — visningen følger spillet', () => {
     expect(rows.length).toBe(21); // 20 hold + stregen
   });
 
+  // MODPRØVEN på "regnet fra bunden": med 20 hold er `length - 3` og et
+  // hardcodet 17 uskelnelige — mutationen overlevede netop derfor. 10 hold
+  // skiller dem: stregen skal stå efter nr. 7, aldrig ved 17.
+  it('regner stregen fra bunden, ikke fra rank 17 — 10 hold får stregen efter nr. 7', () => {
+    const ti = { ...plSpil, standings: plSpil.standings.slice(0, 10) };
+    const { container } = render(<FootballTable game={ti} />);
+    const rows = [...container.querySelectorAll('tbody tr')];
+    expect(rows.findIndex((r) => r.textContent.includes('Nedrykning'))).toBe(7);
+    expect(rows.length).toBe(11); // 10 hold + stregen
+  });
+
   // En halv-synket tabel må ikke vise alle hold som nedrykkere.
   it('tegner ingen nedrykningsstreg, når tabellen har 3 hold eller færre', () => {
     const lille = { ...plSpil, standings: plSpil.standings.slice(0, 2) };

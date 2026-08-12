@@ -73,7 +73,11 @@ export default function FootballHelp({ game }) {
             {' '}<strong>Chancen</strong> på den kamp, du har bedst fornemmelse for.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
-            <strong>Mens der spilles:</strong> Følg den officielle <Tab fane="tabel">⚽ Tabel</Tab> og jeres indbyrdes
+            <strong>Mens der spilles:</strong> Følg {game?.standings ? (
+              <>den officielle <Tab fane="tabel">⚽ Tabel</Tab> og jeres indbyrdes</>
+            ) : (
+              <>jeres indbyrdes</>
+            )}
             {' '}<Tab fane="stilling">🏆 Stilling</Tab>. Når en kamp er <strong>gået i gang</strong>, kan du folde
             {' '}<em>Se ligaens tips</em> ud under kampen på <Tab fane="tip">Tip</Tab> og se, hvad de andre i dine
             ligaer valgte — og de kan se dit. Du kan også klikke på et navn i
@@ -280,15 +284,23 @@ export default function FootballHelp({ game }) {
         </ul>
         Bemærk, at stillingen viser <strong>spillets point</strong>; eventuelle
         {' '}<strong>liga-spørgsmål</strong> lægges kun oveni på ligaens egen side under
-        {' '}<Tab fane="ligaer">👥 Ligaer</Tab>, så rækkefølgen dér kan være en anden. <Tab fane="tabel">⚽ Tabel</Tab>
-        {game?.pulje ? (
+        {' '}<Tab fane="ligaer">👥 Ligaer</Tab>, så rækkefølgen dér kan være en anden.
+        {/* Samme gate som selve fanen (standings, ikke pulje): guiden må ikke
+            beskrive og linke en fane, spilleren ikke har — "hentet direkte fra
+            ligaen" ville være usandt i et spil uden synk. */}
+        {game?.standings && (
           <>
-            {' '}viser den <strong>officielle Superliga-stilling</strong> (hentet direkte fra ligaen), delt op i
-            mesterskabsspil (top 6) og nedrykningsspil (bund 6). Det er den, pulje-tippet afgøres på.
-          </>
-        ) : (
-          <>
-            {' '}viser ligaens <strong>officielle stilling</strong> (hentet direkte fra ligaen).
+            {' '}<Tab fane="tabel">⚽ Tabel</Tab>
+            {game?.pulje ? (
+              <>
+                {' '}viser den <strong>officielle Superliga-stilling</strong> (hentet direkte fra ligaen), delt op i
+                mesterskabsspil (top 6) og nedrykningsspil (bund 6). Det er den, pulje-tippet afgøres på.
+              </>
+            ) : (
+              <>
+                {' '}viser ligaens <strong>officielle stilling</strong> (hentet direkte fra ligaen).
+              </>
+            )}
           </>
         )}
       </Section>

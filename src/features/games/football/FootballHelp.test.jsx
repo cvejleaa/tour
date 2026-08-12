@@ -18,24 +18,43 @@ describe('FootballHelp følger spillet', () => {
   );
 
   it('forklarer pulje-tippet og tabel-delingen i et spil MED pulje', () => {
-    const { container } = medSpil({ pulje: { poolSize: 6 } });
+    const { container } = medSpil({ pulje: { poolSize: 6 }, standings: [{ rank: 1 }] });
     expect(container.textContent).toContain('Bonus: pulje-tip');
+    // Rundeforløbets pulje-linje skal OGSÅ bevises positivt — mutationen
+    // "gaten altid false" overlevede, da kun den negative retning var dækket.
+    expect(container.textContent).toContain('Afgiv dit');
     expect(container.textContent).toContain('officielle Superliga-stilling');
     expect(container.textContent).toContain('mesterskabsspil (top 6)');
     expect(container.textContent).toContain('puljebonussen');
+    expect(container.textContent).toContain('Følg den officielle');
   });
 
-  // Kernen: guiden i et spil UDEN pulje må ikke indeholde ét pulje-begreb
-  // eller Superliga-delingen. Positiv OG negativ assertion — kun den nye
-  // tekst at tjekke fanger ikke en halv rettelse.
-  it('nævner hverken pulje-fanen eller Superliga-delingen i et spil uden pulje', () => {
+  // Kernen: guiden i et spil UDEN pulje og UDEN standings (PL i dag) må
+  // hverken indeholde ét pulje-begreb eller beskrive/linke Tabel-fanen —
+  // fanen er skjult (gated på standings), og "hentet direkte fra ligaen"
+  // ville være usandt uden en synk. Positiv OG negativ assertion — kun den
+  // nye tekst at tjekke fanger ikke en halv rettelse.
+  it('nævner hverken pulje, Superliga-delingen eller Tabel-fanen i et spil uden begge', () => {
     const { container } = medSpil({});
-    expect(container.textContent).toContain('officielle stilling');
+    expect(container.textContent).toContain('Dyst i');
     expect(container.textContent).not.toContain('Bonus: pulje-tip');
     expect(container.textContent).not.toContain('Superliga-stilling');
     expect(container.textContent).not.toContain('mesterskabsspil (top 6)');
     expect(container.textContent).not.toContain('puljebonussen');
     expect(container.textContent).not.toContain('Pulje-tip');
+    expect(container.textContent).not.toContain('⚽ Tabel');
+    expect(container.textContent).not.toContain('hentet direkte fra ligaen');
+  });
+
+  // Fremtidens PL: standings uden pulje → Tabel-fanen findes, og guiden
+  // beskriver den — men uden Superliga-delingen.
+  it('beskriver Tabel-fanen uden Superliga-deling, når spillet har standings men ingen pulje', () => {
+    const { container } = medSpil({ standings: [{ rank: 1 }] });
+    expect(container.textContent).toContain('⚽ Tabel');
+    expect(container.textContent).toContain('officielle stilling');
+    expect(container.textContent).toContain('Følg den officielle');
+    expect(container.textContent).not.toContain('Superliga-stilling');
+    expect(container.textContent).not.toContain('mesterskabsspil (top 6)');
   });
 });
 
