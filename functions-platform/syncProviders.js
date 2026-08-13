@@ -24,10 +24,13 @@
 //   hentStandings(sync, fetchFn) → rækker i FootballTable-formen
 //       ({rank, teamName, teamShortName, points, played, won, draw, lost,
 //         gf, ga, rankType}).
-//   hentKickoffs(sync, fetchFn) → [{ sourceKey, kickoff: ISO-UTC|null }]
+//   hentKickoffs(sync, fetchFn, runder) → [{ sourceKey, kickoff: ISO-UTC|null }]
 //       VALGFRI: kilder, hvis kamptider flytter sig løbende (PL: tv-aftaler).
 //       Mangler metoden, springer kickoff-synken spillet over — Superligaens
-//       tider rettes ad seedKickoffs-vejen (drift.md).
+//       tider rettes ad seedKickoffs-vejen (drift.md). `runder` er SPILLETS
+//       runde-sæt: kilde-kampe uden for det skal droppes FØR tolkning —
+//       ellers drukner mangler-alarmen i forårskampe, spillet ikke har, og
+//       én ulæselig tid i en irrelevant kamp vælter hele dagens kørsel.
 //   resolveDocs(sourceKeys, docIds) → Map<sourceKey, docId>
 //       Hvordan en API-kamp genfinder sit dokument. Ukendte nøgler udelades —
 //       kernen springer dem over, som den altid har gjort. BEMÆRK: docIds kan
@@ -265,18 +268,22 @@ const pulselive = {
       }));
   },
 
-  async hentKickoffs(sync, fetchFn) {
-    return (await plAlleKampe(sync, fetchFn)).map((m) => {
+  async hentKickoffs(sync, fetchFn, runder) {
+    return (await plAlleKampe(sync, fetchFn))
+      // Uden for spillets runder: drop FØR tolkning (se kontrakten) — PL-
+      // efterårsspillet har runde 1-18, kilden leverer alle 38.
+      .filter((m) => !runder || runder.has(m.matchWeek))
+      .map((m) => {
       // Antagelsen "tiden er London-tid" er bærende for deadlinen — skifter
       // kilden zone-felt, skal det ses som en fejl, ikke som en times skred.
       if (m.kickoffTimezoneString && m.kickoffTimezoneString !== 'Europe/London') {
         throw new Error(`pulselive: uventet tidszone "${m.kickoffTimezoneString}" for kamp ${m.matchId}`);
       }
-      return {
-        sourceKey: String(m.matchId),
-        kickoff: m.kickoff ? new Date(londonTilUtcMs(m.kickoff)).toISOString() : null,
-      };
-    });
+        return {
+          sourceKey: String(m.matchId),
+          kickoff: m.kickoff ? new Date(londonTilUtcMs(m.kickoff)).toISOString() : null,
+        };
+      });
   },
 
   // Live er endnu ikke implementeret for pulselive: period-værdierne for en

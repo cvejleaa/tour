@@ -475,8 +475,13 @@ async function syncKickoffsCore(db, FieldValue, opts = {}) {
   // springes over uden støj.
   if (typeof provider.hentKickoffs !== 'function') return { understoettet: false };
 
-  const fixtures = await provider.hentKickoffs(sync, fetchFn);
   const alle = await allMatches(db, { gameId });
+  // Kun kilde-kampe i SPILLETS runder tolkes (se kontrakten): ellers står
+  // mangler-alarmen med 200 forårskampe hver morgen, og den ene ægte
+  // manglende kamp bliver usynlig — og én ulæselig tid i en kamp, spillet
+  // ikke har, kunne vælte hele dagens kørsel.
+  const runder = new Set(alle.map((m) => m.data.round).filter((r) => r != null));
+  const fixtures = await provider.hentKickoffs(sync, fetchFn, runder);
   const resolved = provider.resolveDocs(fixtures.map((f) => f.sourceKey), alle.map((m) => m.id));
   const nuvaerende = new Map(alle.map((m) => {
     const ms = kickoffMs(m.data.kickoff);
@@ -492,20 +497,34 @@ async function syncKickoffsCore(db, FieldValue, opts = {}) {
   // runde betyder det "aldrig seedet", og det må ikke drukne i de spillede.
   const mangler = [...plan.mangler, ...fixtures.filter((f) => !resolved.has(f.sourceKey)).map((f) => f.sourceKey)];
 
+  // GENÅBNINGS-FORBUDDET (Security-fund, bevist mod regel-emulatoren): en
+  // kickoff i FORTIDEN, der flyttes til fremtiden, gør `request.time <
+  // kickoff` sand igen — og så kan tips OPRETTES på en kamp, der er i gang
+  // eller spillet, EFTER at alles tips har været synlige. Samme klasse af
+  // usynlig beslutning som at rydde en tid: rutinekørslen nægter, fejlen står
+  // i loggen, og en ægte genopsat kamp rettes bevidst ad seed-vejen.
+  const genaabninger = plan.aendringer
+    .filter((a) => a.fraMs != null && a.fraMs <= nowMs && a.tilMs != null && a.tilMs > nowMs)
+    .map((a) => a.id);
+  for (const id of genaabninger) {
+    console.error(`kickoff-synk ${gameId}: ${id} ville flytte en PASSERET kickoff til fremtiden og GENÅBNE tips på en lukket kamp — afvist. Er kampen ægte genopsat, så ret den ad seed-vejen (drift.md).`);
+  }
+  const skrives = plan.aendringer.filter((a) => !genaabninger.includes(a.id));
+
   // Rules validerer tips mod deadlinen i skriveøjeblikket, så tips afgivet før
   // en FREMRYKNING var lovlige og kan ikke maskinelt annulleres. Vagten er et
   // menneske: en ny tid i fortiden eller mindre end 48 timer ude skal SES.
-  const snart = plan.aendringer
+  const snart = skrives
     .filter((a) => a.tilMs != null && a.tilMs - nowMs < 48 * 60 * 60 * 1000)
     .map((a) => a.id);
   for (const id of snart) {
     console.error(`kickoff-synk ${gameId}: ${id} flyttes til et tidspunkt under 48 timer ude (eller i fortiden) — tjek om nogen har tippet med facit i hånden.`);
   }
 
-  if (!dryRun && plan.aendringer.length) {
+  if (!dryRun && skrives.length) {
     const matchesCol = db.collection('games').doc(gameId).collection('matches');
     const batch = db.batch();
-    for (const a of plan.aendringer) {
+    for (const a of skrives) {
       // update, aldrig set: kan ikke oprette kampe — og rører PRÆCIS to felter.
       batch.update(matchesCol.doc(a.id), {
         kickoff: new Date(a.tilMs),
@@ -514,7 +533,7 @@ async function syncKickoffsCore(db, FieldValue, opts = {}) {
     }
     await batch.commit();
   }
-  return { understoettet: true, dryRun, aendringer: plan.aendringer, mangler, spillet: plan.spillet, snart };
+  return { understoettet: true, dryRun, aendringer: skrives, mangler, spillet: plan.spillet, snart, genaabninger };
 }
 
 /**

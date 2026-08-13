@@ -108,6 +108,13 @@ RYDDES af en rutinekørsel, og en kilde-kamp uden dokument er en alarm.
   (eller i fortiden), gennemføres ændringen, men der logges en ERROR — et
   menneske skal vurdere, om nogen har nået at tippe med facit i hånden.
   Rules kan ikke annullere tips, der var lovlige under den gamle deadline.
+- **Genåbnings-forbuddet:** en PASSERET kickoff flyttes ALDRIG til fremtiden
+  af automatikken — det ville genåbne tips på en kamp i gang, efter at alles
+  tips har været synlige. Ændringen afvises med ERROR i loggen; en ægte
+  genopsat kamp rettes bevidst ad seed-vejen nedenfor.
+- **Kun spillets runder tolkes:** kilden leverer hele sæsonen (380 kampe),
+  spillet har sine (efterår: 180). Resten droppes før tolkning, så
+  MANGLER-alarmen kun kan indeholde ægte fund.
 - **Fejlmodellen:** melder kilden en kamp UDEN tid, mens dokumentet har en,
   stopper HELE det spils kørsel den dag (fejlen står som
   "Kickoff-synk … fejlede (ignoreret)" i functions-loggen) — ingen delvis
