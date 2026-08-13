@@ -340,8 +340,11 @@ const pulselive = {
   // filtreret: kilden KAN omdøbe en kamps matchWeek (resolveDocs-invarianten:
   // vores runde står fast, kampen genfindes på sit id), og en kamp, der
   // faldt uden for et matchweek-filter, ville mangle i stadigIGang og få et
-  // falsk "Slut" midt i spillet. Fire sider i minuttet, kun i kampvinduer
-  // (runScheduledSync exiter tidligt uden ventende kampe), er prisen værd.
+  // falsk "Slut" midt i spillet. Prisen, ærligt talt: i et kampvindue henter
+  // minuttets kørsel sæson-listen TO gange (hentFaerdige + hentLive deler
+  // ikke svar), altså ~8 sider i minuttet — kun i kampvinduer
+  // (runScheduledSync exiter tidligt uden ventende kampe). Det er prisen
+  // værd; en cache på tværs af de to kald er et sæsoneftersyns-emne.
   async hentLive(sync, fetchFn) {
     const alle = await plAlleKampe(sync, fetchFn);
     const iGang = alle.filter(plIGang);

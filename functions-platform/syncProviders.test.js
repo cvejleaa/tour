@@ -278,6 +278,11 @@ describe('pulselive-provideren', () => {
           // I gang, men uden brugbar stilling: UDE af events, MED i
           // stadigIGang — vores eget score-filter må ikke ligne slutfløjt.
           iGangAf('SecondHalf', '805', { homeTeam: { ...fuldtid.homeTeam, score: null } }),
+          // NUMERISK matchId: kilden leverer strenge i praksis, men
+          // String()-coercionen er selve garantien for, at Set-nøglen og
+          // resolveDocs-opslaget aldrig kan skille ad på typen. Uden denne
+          // kamp var mutationen "drop String()" grøn i hele suiten.
+          iGangAf('FirstHalf', 806),
         ],
       })],
     ]);
@@ -287,8 +292,10 @@ describe('pulselive-provideren', () => {
       { sourceKey: '802', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'pause', statusRaw: 'HalfTime' },
       { sourceKey: '803', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'anden', statusRaw: 'SecondHalf' },
       { sourceKey: '804', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'ukendt', statusRaw: 'Constructor' },
+      { sourceKey: '806', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'foerste', statusRaw: 'FirstHalf' },
     ]);
-    expect([...ud.stadigIGang].sort()).toEqual(['801', '802', '803', '804', '805']);
+    expect([...ud.stadigIGang].sort()).toEqual(['801', '802', '803', '804', '805', '806']);
+    expect(ud.stadigIGang.has(806)).toBe(false); // strengen, aldrig tallet
     expect(ud.stadigIGang.has(String(fuldtid.matchId))).toBe(false);
     expect(ud.stadigIGang.has(String(foerKamp.matchId))).toBe(false);
   });
