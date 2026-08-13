@@ -1318,6 +1318,48 @@ describe('emailLog — sikkerhedsregler', () => {
 });
 
 // ---------------------------------------------------------------------------
+// TESTS: driftlog + driftAlarmer (emailLog-mønstret: kun admin-læsning, ingen
+// klient-skrivning — kvittering går gennem callablen, aldrig en skrive-regel)
+// ---------------------------------------------------------------------------
+describe('driftlog + driftAlarmer — sikkerhedsregler', () => {
+  async function seedDrift() {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('driftlog').doc('sweep-sl').set({
+        type: 'sweep', gameId: 'sl', niveau: 'ok', besked: 'x', koertAt: 1,
+      });
+      await ctx.firestore().collection('driftAlarmer').doc('a1').set({
+        type: 'strandet', gameId: 'sl', kampId: 'r1-a-b', besked: 'x', loestAt: null,
+      });
+    });
+  }
+
+  it('en global admin KAN læse status og alarmer', async () => {
+    await createUser('admin1', 'globalAdmin', 'approved');
+    await seedDrift();
+    const fs = testEnv.authenticatedContext('admin1').firestore();
+    await assertSucceeds(getDoc(doc(fs, 'driftlog', 'sweep-sl')));
+    await assertSucceeds(getDoc(doc(fs, 'driftAlarmer', 'a1')));
+  });
+
+  it('en almindelig spiller KAN IKKE læse nogen af delene', async () => {
+    await createUser('p1', 'player', 'approved');
+    await seedDrift();
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertFails(getDoc(doc(fs, 'driftlog', 'sweep-sl')));
+    await assertFails(getDoc(doc(fs, 'driftAlarmer', 'a1')));
+  });
+
+  it('selv en admin KAN IKKE skrive — heller ikke kvittere — fra klienten', async () => {
+    await createUser('admin1', 'globalAdmin', 'approved');
+    await seedDrift();
+    const fs = testEnv.authenticatedContext('admin1').firestore();
+    await assertFails(setDoc(doc(fs, 'driftlog', 'sweep-sl'), { niveau: 'ok' }, { merge: true }));
+    // Kvittering udenom callablen ville omgå "serveren er eneste autoritet".
+    await assertFails(setDoc(doc(fs, 'driftAlarmer', 'a1'), { kvitteretAt: 1 }, { merge: true }));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // TESTS: games/{gameId} + games/{gameId}/players/{uid} (samlet platform)
 // ---------------------------------------------------------------------------
 

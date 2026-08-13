@@ -86,6 +86,8 @@ export const COL = {
   LEAGUE_BONUS_AWARDS: 'leagueBonusAwards', // manuelle liga-point pr. medlem på FÆLLES bonusspørgsmål
   CONFIG: 'config',
   EMAIL_LOG: 'emailLog', // log over udsendte mails (kun admin-læsning)
+  DRIFT_LOG: 'driftlog', // synk-maskineriets seneste status (kun admin-læsning)
+  DRIFT_ALARMER: 'driftAlarmer', // hændelser der kræver et menneske (kun admin-læsning)
   PRESENCE: 'presence', // besøgsstatistik pr. bruger (selv-skrevet, admin-læst)
   // --- Samlet platform (tip.vejleaa.dk) ---
   GAMES: 'games', // ét dokument pr. spil (VM, Tour, Superliga …) — se docs/samlet-platform.md

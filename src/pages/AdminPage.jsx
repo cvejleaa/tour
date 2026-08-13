@@ -21,6 +21,7 @@ import TeamStylesTab from '../features/admin/TeamStylesTab';
 import GameScheduleTab from '../features/admin/GameScheduleTab';
 import GameReminderTab from '../features/admin/GameReminderTab';
 import GameRecapBotTab from '../features/admin/GameRecapBotTab';
+import DriftTab from '../features/admin/DriftTab';
 
 // Fane-id'er
 const TAB_USERS   = 'users';
@@ -38,6 +39,7 @@ const TAB_TEAMSTYLES = 'teamstyles';
 const TAB_SCHEDULE = 'schedule';
 const TAB_REMINDERS = 'reminders';
 const TAB_RECAPBOT = 'recapbot';
+const TAB_DRIFT = 'drift';
 
 export default function AdminPage() {
   const { isOwner, isGlobalAdmin } = useAuth();
@@ -73,6 +75,9 @@ export default function AdminPage() {
     ] : []),
     { key: TAB_TESTS,   label: 'Tests' },
     ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
+    // Overvågningsklyngen: "virker det / hvad blev sendt / hvad gjorde folk".
+    // Driftstatus kun på platformen — det er dens synk-maskineri, den viser.
+    ...(PLATFORM_MODE ? [{ key: TAB_DRIFT, label: '🩺 Driftstatus' }] : []),
     { key: TAB_MAILS,   label: '✉️ Mail-log' },
     { key: TAB_ACTIVITY, label: '📈 Aktivitet' },
     // Send mail (masseudsendelse) + indstillinger — kun ejer.
@@ -150,6 +155,7 @@ export default function AdminPage() {
         {tab === TAB_LEAGUES && <LeaguesAdminTab />}
         {tab === TAB_TESTS   && <TestsTab />}
         {tab === TAB_RUNBOOK && <RunbookTab />}
+        {tab === TAB_DRIFT   && <DriftTab />}
         {tab === TAB_MAILS   && <EmailLogTab />}
         {tab === TAB_ACTIVITY && <ActivityTab />}
         {tab === TAB_BROADCAST && <BroadcastTab />}

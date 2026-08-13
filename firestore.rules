@@ -375,6 +375,21 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
+    // driftlog/{id} + driftAlarmer/{id} — synk-maskineriets status og alarmer,
+    // vist under Admin → Driftstatus. Skrives KUN af Cloud Functions (admin
+    // SDK); kvittering af en alarm går gennem callablen kvitterDriftAlarm —
+    // aldrig en klient-skrivning (serveren er eneste autoritet).
+    // -----------------------------------------------------------------------
+    match /driftlog/{id} {
+      allow read: if isGlobalAdmin();
+      allow write: if false;
+    }
+    match /driftAlarmer/{id} {
+      allow read: if isGlobalAdmin();
+      allow write: if false;
+    }
+
+    // -----------------------------------------------------------------------
     // inviteAttempts/{uid} — rate-limit-tæller for indløsning af invitationskoder.
     // Skrives og læses KUN af Cloud Functions (admin SDK). Ingen klientadgang,
     // så brugere ikke kan nulstille deres egen forsøgstæller.

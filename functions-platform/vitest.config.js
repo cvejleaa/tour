@@ -14,6 +14,7 @@ export default defineConfig({
       'superligaSync.test.js',
       'syncProviders.test.js',
       'seedFootball.test.js',
+      'driftlog.test.js',
       'gameLeagues.test.js',
       'gameRecap.test.js',
       'inviteTemplate.test.js',

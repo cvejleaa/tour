@@ -16,7 +16,7 @@ Liga-admin følger med at have oprettet ligaen.
 
 ## Faner
 
-**Begge apps:** Brugere · Tests · ✉️ Mail-log · 📈 Aktivitet · 📣 Send mail (ejer)
+**Begge apps:** Brugere · Tests · 🩺 Driftstatus · ✉️ Mail-log · 📈 Aktivitet · 📣 Send mail (ejer)
 
 **Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver og navne · 🔔 Påmindelser · 🤖 Runde-Botten
 

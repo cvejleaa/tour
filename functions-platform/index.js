@@ -29,6 +29,31 @@ const {
   strandedMatches, allMatches,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
+const { statusSamler, meldAlarm, loesDriftAlarmer } = require('./driftlog');
+
+// Driftstatus-skrivningen må ALDRIG vælte den kørsel, den beskriver —
+// konsollen er bagstopperen, fladen er kun NU-billedet.
+async function skrivDriftStatus(st, db, opts) {
+  try {
+    await st.skriv(db, FieldValue, opts);
+  } catch (err) {
+    console.error('driftlog-skrivning fejlede (ignoreret):', err?.message || err);
+  }
+}
+
+// Næste sweep: cron '25 2,13-23 * * *' Europe/Copenhagen — SERVEREN skriver
+// forventningen, så klienten aldrig gætter kadencen (det normale nathul er 11
+// timer; en klient-tærskel ville lyse rødt hver nat). SKAL følges ad med
+// cron-udtrykket på syncSuperligaSweep. +45 min slæk til selve kørslen.
+function naesteSweepFoerMs(nowMs) {
+  const d = new Date(nowMs);
+  const dk = new Date(d.toLocaleString('en-US', { timeZone: TZ }));
+  const timer = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+  const t = dk.getHours() + (dk.getMinutes() >= 25 ? 1 : 0);
+  const naeste = timer.find((x) => x >= t);
+  const timerFrem = naeste != null ? naeste - dk.getHours() : (24 - dk.getHours()) + 2;
+  return nowMs + timerFrem * 3600 * 1000 + (25 + 45) * 60 * 1000;
+}
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
@@ -245,9 +270,19 @@ exports.syncSuperligaResults = onSchedule(
   async () => {
     // Selve rækkefølgen — og det tidlige exit — bor i superligaSync, så den
     // kan unit-testes. Her logges kun resultatet.
-    const alle = await runScheduledSyncAll(getFirestore(), FieldValue, Date.now());
+    const db = getFirestore();
+    const alle = await runScheduledSyncAll(db, FieldValue, Date.now());
     for (const out of alle) {
       if (out.fejl) console.error(`Synk ${out.gameId} (ignoreret):`, out.fejl);
+      // Driftstatus KUN ved aktivitet eller fejl: 720 stille minutter i døgnet
+      // må ikke koste 720 skrivninger — og sweep'et ER minut-synkens alarm
+      // ("N facit som minut-synken IKKE nåede"), så et hjerteslag behøves ikke.
+      if (out.fejl || out.pending > 0) {
+        const st = statusSamler({ type: 'minut', gameId: out.gameId });
+        if (out.fejl) st.fejl(out.fejl);
+        else st.ok(`${out.pending} kampe i vinduet, ${out.updated} nye facit.`, { pending: out.pending, updated: out.updated });
+        await skrivDriftStatus(st, db, { naesteForventetFoerMs: null });
+      }
       if (out.pending === 0) continue; // stille minut: intet i gang, intet rørt
       console.log(`Synk ${out.gameId}: ${out.pending} kampe uden facit, ${out.updated} nye facit.`
         + (out.live ? ` ${out.live.live} i gang, ${out.live.skrevet} live-opdateringer`
@@ -293,6 +328,10 @@ exports.syncSuperligaSweep = onSchedule(
       const provider = Object.hasOwn(PROVIDERS, g.provider) ? PROVIDERS[g.provider] : null;
       if (!provider) continue; // logget af minut-synken — sweep'et gentager ikke
       const opts = { gameId: g.gameId, provider, sync: g.sync };
+      // ÉN samlet status pr. kørsel: sweep'et har tre uafhængige led, og
+      // skrev hvert led sit eget niveau, ville det sidste (grønne) overskrive
+      // det første (røde) — kortet stod grønt på en fejlet kørsel.
+      const st = statusSamler({ type: 'sweep', gameId: g.gameId });
       let alle = null;
       let netopRettet = new Set();
       try {
@@ -302,17 +341,22 @@ exports.syncSuperligaSweep = onSchedule(
         netopRettet = new Set(rettede);
         if (updated > 0) {
           console.warn(`Sweep ${g.gameId}: ${updated} facit som minut-synken IKKE nåede — undersøg hvorfor.`);
+          st.advarsel(`${updated} facit, som minut-synken ikke nåede — undersøg hvorfor.`);
         } else {
           console.log(`Sweep ${g.gameId}: ${checked} færdige kampe, intet manglede.`);
+          st.ok(`${checked} færdige kampe, intet manglede.`, { checked, updated });
         }
       } catch (err) {
         console.error(`Sweep ${g.gameId} fejlede (ignoreret):`, err?.message || err);
+        st.fejl(`Resultat-synken fejlede: ${err?.message || err}`);
       }
       try {
         const { rows, changed } = await syncStandingsCore(db, FieldValue, opts);
         console.log(`Stilling ${g.gameId} (sweep): ${rows} hold, ${changed ? 'opdateret' : 'uændret'}.`);
+        st.ok(`Tabellen: ${rows} hold, ${changed ? 'opdateret' : 'uændret'}.`, { rows });
       } catch (err) {
         console.error(`Stilling-synk ${g.gameId} fejlede (ignoreret):`, err?.message || err);
+        st.fejl(`Tabel-synken fejlede: ${err?.message || err}`);
       }
       // Alarmen: kampe der for længst er begyndt og stadig mangler facit. Uden
       // den ser "ingen kampe i gang" og "kampen bliver aldrig afregnet" ens ud
@@ -328,11 +372,26 @@ exports.syncSuperligaSweep = onSchedule(
           if (strandede.length > 0) {
             console.error(`${g.gameId}: kampe UDEN facit længe efter kickoff — point er ikke afregnet:`,
               strandede.map((m) => m.id).join(', '));
+            st.fejl(`${strandede.length} kampe uden facit længe efter kickoff — point er ikke afregnet.`);
+            for (const m of strandede) {
+              await meldAlarm(db, FieldValue, {
+                type: 'strandet', gameId: g.gameId, kampId: m.id,
+                besked: `Kampen ${m.id} mangler facit længe efter kickoff — point er ikke afregnet.`,
+              });
+            }
           }
+          // Auto-luk: en strandet kamp, der siden fik facit, er løst — ellers
+          // hober døde røde kort sig op, og ejeren lærer at ignorere fladen.
+          await loesDriftAlarmer(db, FieldValue, {
+            type: 'strandet', gameId: g.gameId,
+            aktuelleKampIds: strandede.map((m) => m.id),
+          });
         }
       } catch (err) {
         console.error(`Kunne ikke tjekke for strandede kampe i ${g.gameId} (ignoreret):`, err?.message || err);
+        st.fejl(`Strandede-tjekket fejlede: ${err?.message || err}`);
       }
+      await skrivDriftStatus(st, db, { naesteForventetFoerMs: naesteSweepFoerMs(Date.now()) });
     }
   },
 );
@@ -350,17 +409,49 @@ exports.syncGameKickoffs = onSchedule(
     for (const g of SYNCED_GAMES) {
       const provider = Object.hasOwn(PROVIDERS, g.provider) ? PROVIDERS[g.provider] : null;
       if (!provider) continue;
+      if (typeof provider.hentKickoffs !== 'function') continue; // SL: seedKickoffs-vejen
+      const st = statusSamler({ type: 'kickoff', gameId: g.gameId });
       try {
         const ud = await syncKickoffsCore(db, FieldValue, {
           gameId: g.gameId, provider, sync: g.sync, dryRun: false,
         });
-        if (!ud.understoettet) continue;
         console.log(`Kickoff-synk ${g.gameId}: ${ud.aendringer.length} rettet, ${ud.spillet} spillede urørt`
           + (ud.mangler.length ? `, MANGLER dokument: ${ud.mangler.join(', ')}` : '')
+          + (ud.genaabninger.length ? `, GENÅBNING afvist: ${ud.genaabninger.join(', ')}` : '')
           + (ud.snart.length ? `, <48t-alarm: ${ud.snart.join(', ')}` : '') + '.');
+        st.ok(`${ud.aendringer.length} kamptider rettet, ${ud.spillet} spillede urørt.`,
+          { rettet: ud.aendringer.length, spillet: ud.spillet });
+        if (ud.mangler.length) st.fejl(`${ud.mangler.length} kilde-kampe uden dokument: ${ud.mangler.join(', ')}`);
+        // Alarmer, der kræver et menneske. Genåbning/<48t løser ALDRIG sig
+        // selv — de bliver stående til ejerens kvittering. Mangler auto-lukkes,
+        // når kampen dukker op (eller kilden holder op med at melde den).
+        for (const id of ud.genaabninger) {
+          await meldAlarm(db, FieldValue, {
+            type: 'genaabning', gameId: g.gameId, kampId: id, kraeverKvittering: true,
+            besked: `Kilden ville flytte en PASSERET kickoff til fremtiden på ${id} — afvist. Ægte genopsat kamp rettes ad seed-vejen (drift.md).`,
+          });
+        }
+        for (const id of ud.snart) {
+          await meldAlarm(db, FieldValue, {
+            type: 'kickoff48t', gameId: g.gameId, kampId: id, kraeverKvittering: true,
+            besked: `${id} er flyttet til under 48 timer ude — tjek om nogen har tippet med facit i hånden.`,
+          });
+        }
+        for (const id of ud.mangler) {
+          await meldAlarm(db, FieldValue, {
+            type: 'mangler', gameId: g.gameId, kampId: String(id),
+            besked: `Kilden melder en kamp (${id}) i spillets runder, som ikke findes som dokument — er den aldrig seedet?`,
+          });
+        }
+        await loesDriftAlarmer(db, FieldValue, {
+          type: 'mangler', gameId: g.gameId, aktuelleKampIds: ud.mangler.map(String),
+        });
       } catch (err) {
         console.error(`Kickoff-synk ${g.gameId} fejlede (ignoreret):`, err?.message || err);
+        st.fejl(`Kørslen fejlede: ${err?.message || err}`);
       }
+      // Dagligt skema kl. 6.10 → næste kørsel inden 26 timer.
+      await skrivDriftStatus(st, db, { naesteForventetFoerMs: Date.now() + 26 * 3600 * 1000 });
     }
   },
 );
@@ -390,6 +481,32 @@ exports.syncGameKickoffsNow = onCall({ region: REGION }, async (request) => {
     throw new HttpsError('failed-precondition', `${gameId}s kilde kan ikke levere kamptider — brug seedKickoffs-vejen.`);
   }
   return { gameId: g.gameId, ...ud };
+});
+
+// kvitterDriftAlarm — ejeren kvitterer en alarm, der ikke kan løse sig selv
+// (genåbning, <48t-flytning). Kvittering går gennem en callable og ikke en
+// skrive-regel: "serveren er eneste autoritet", og en snæver regel på
+// kvitteretAt ville være endnu en vagt at holde styr på. Badget i Admin-
+// navigationen drives af UKVITTEREDE alarmer — kvitteringen er den eneste
+// måde at slukke det på, så en alarm aldrig forsvinder, før et menneske SÅ den.
+exports.kvitterDriftAlarm = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Log ind.');
+  const db = getFirestore();
+  const userSnap = await db.collection('users').doc(uid).get();
+  const role = userSnap.exists ? userSnap.data().role : null;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun admin kan kvittere driftalarmer.');
+  }
+  const alarmId = String(request.data?.alarmId || '');
+  if (!alarmId || alarmId.includes('/')) {
+    throw new HttpsError('invalid-argument', 'Ugyldigt alarm-id.');
+  }
+  const ref = db.collection('driftAlarmer').doc(alarmId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Alarmen findes ikke.');
+  await ref.set({ kvitteretAt: Date.now(), kvitteretAf: uid }, { merge: true });
+  return { ok: true };
 });
 
 // syncSuperligaResultsNow — manuel udløsning (admin/owner). Til test/tvungen
