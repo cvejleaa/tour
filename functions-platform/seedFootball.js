@@ -72,7 +72,11 @@ function kickoffPlan(fixtures, nuvaerende) {
  * i oktober/marts) — en fast offset ville flytte hver vinterkamps deadline en
  * time. Ingen tz-bibliotek i functions: offsetten findes med Intl ved at
  * formatere et UTC-gæt i London og korrigere med differensen. Andet gennemløb
- * fanger selve skiftedøgnet, hvor første gæt kan lande på den forkerte side.
+ * er et værn i selve spring-timerne (01-02 ved forårs-skiftet, hvor det
+ * lokale klokkeslæt ikke findes) — alle EKSISTERENDE klokkeslæt, inkl. begge
+ * sider af skiftedøgnet, rammes korrekt allerede af første gennemløb
+ * (mutationstestet: testene kan ikke skelne). Det beholdes, fordi det er
+ * gratis og gør funktionen total i stedet for næsten-total.
  */
 function londonTilUtcMs(s) {
   const m = String(s ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);

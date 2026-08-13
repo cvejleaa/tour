@@ -27,6 +27,7 @@ const FieldValue = {
 function fakeDb(matchDocs) {
   const docs = new Map(Object.entries(matchDocs));
   const spil = {};
+  const metoder = []; // hvilken skrive-metode hver batch-operation brugte
   const matchesCol = {
     async get() { return { docs: [...docs.entries()].map(([id, data]) => ({ id, data: () => data })) }; },
     doc: (id) => ({ __id: id }),
@@ -34,6 +35,7 @@ function fakeDb(matchDocs) {
   return {
     _docs: docs,
     _spil: spil,
+    _metoder: metoder,
     collection: () => ({
       doc: () => ({
         collection: () => matchesCol,
@@ -49,16 +51,19 @@ function fakeDb(matchDocs) {
         _ops: [],
         set(ref, data, opts) {
           if (opts?.merge !== true) throw new Error('batch.set() uden merge');
-          this._ops.push({ id: ref.__id, data });
+          this._ops.push({ id: ref.__id, data, metode: 'set' });
         },
         update(ref, data) {
           // Som Firestore: update på et dokument, der ikke findes, fejler —
           // kickoff-synken må aldrig kunne OPRETTE kampe.
           if (!docs.has(ref.__id)) throw new Error(`update på ukendt dokument ${ref.__id}`);
-          this._ops.push({ id: ref.__id, data });
+          this._ops.push({ id: ref.__id, data, metode: 'update' });
         },
         async commit() {
-          for (const op of this._ops) docs.set(op.id, { ...(docs.get(op.id) || {}), ...op.data });
+          for (const op of this._ops) {
+            metoder.push(op.metode);
+            docs.set(op.id, { ...(docs.get(op.id) || {}), ...op.data });
+          }
         },
       };
     },
@@ -285,6 +290,30 @@ describe('syncLiveCore når kilden ikke kan levere live (stadigIGang null)', () 
   });
 });
 
+describe('pulselive.hentKickoffs — den ÆGTE metode, mod de rå fixtures', () => {
+  it('konverterer London-tid til UTC og lader manglende tid være null', async () => {
+    const foerKamp = fxMatches.perPeriod.PreMatch[0]; // kickoff "2026-08-21 20:00:00" (BST)
+    const udenTid = { ...foerKamp, matchId: '555', kickoff: null };
+    const fetchFn = fetchRuter([
+      ['/matches', () => ({ pagination: { _next: null }, data: [foerKamp, udenTid] })],
+    ]);
+    const ud = await PROVIDERS.pulselive.hentKickoffs({ competitionId: 8, season: 2026 }, fetchFn);
+    expect(ud).toEqual([
+      { sourceKey: String(foerKamp.matchId), kickoff: '2026-08-21T19:00:00.000Z' },
+      { sourceKey: '555', kickoff: null },
+    ]);
+  });
+
+  it('en uventet tidszone fra kilden KASTER — en times stille skred er værre end en rød log', async () => {
+    const fremmed = { ...fxMatches.perPeriod.PreMatch[0], kickoffTimezoneString: 'America/New_York' };
+    const fetchFn = fetchRuter([
+      ['/matches', () => ({ pagination: { _next: null }, data: [fremmed] })],
+    ]);
+    await expect(PROVIDERS.pulselive.hentKickoffs({ competitionId: 8, season: 2026 }, fetchFn))
+      .rejects.toThrow(/uventet tidszone/);
+  });
+});
+
 describe('syncKickoffsCore', () => {
   const NU = Date.parse('2026-08-01T12:00:00Z');
   const langtUde = '2026-08-21T19:00:00Z'; // 20 dage ude — ingen alarm
@@ -318,6 +347,10 @@ describe('syncKickoffsCore', () => {
     const skrevet = db._docs.get('r1-101');
     expect(skrevet.kickoff.getTime()).toBe(Date.parse(langtUde));
     expect(Object.keys(skrevet).sort()).toEqual(['kickoff', 'kickoffSyncedAt']);
+    // …og med UPDATE, aldrig set: set kan oprette kampe, update kan ikke.
+    // fakeDb'ens eksistens-vagt fanger det kun for MANGLENDE dokumenter —
+    // metode-sporet fanger det også, når alle dokumenter findes.
+    expect(db._metoder).toEqual(['update']);
     // Den spillede kamp står urørt.
     expect(db._docs.get('r1-103').kickoff.getTime()).toBe(Date.parse('2026-08-01T10:00:00Z'));
   });
