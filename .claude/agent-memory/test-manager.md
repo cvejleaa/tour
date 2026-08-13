@@ -46,6 +46,22 @@
   test, der kalder PROVIDERS.<navn>.<metode> direkte — ikke kun kernen med
   en stub der omgår den?
 
+- **`String(m.matchId)` overlever, hvis alle fixtures allerede leverer
+  matchId som streng.** `functions-platform/syncProviders.js`, pulselive
+  `hentLive` (commit 690829a): både `sourceKey: String(m.matchId)` i
+  events-mapningen OG `stadigIGang: new Set(iGang.map((m) => String(m.matchId)))`
+  kan hver for sig droppes ned til `m.matchId` uden at en eneste test fejler
+  — 470/470 grønne. Årsagen: `testdata/pulselive-matches.json` gemmer
+  matchId som JSON-STRENG (`"matchId": "2645195"`), og alle håndskrevne
+  test-fixtures (`iGangAf('FirstHalf', '801')`, `matchId: '901'`) følger
+  samme vane. `String()` på en streng er en no-op, så coercion-formålet
+  ("rå tal/objekt fra kilden må ikke blive en anden Set/Map-nøgle end den
+  tilsvarende streng-baserede docId-opslagsnøgle") er reelt ubevist.
+  `hentFaerdige` og `hentKickoffs` har samme mønster, samme ubeviste status.
+  Tjek næste gang en `String(felt)`-coercion tilføjes: findes der ÉT fixture
+  (rå JSON eller håndskrevet), hvor feltet rent faktisk IKKE allerede er en
+  streng?
+
 ## Mønster at genkende
 
 Alle tre fund ovenfor deler samme form: en test, der ser ud til at dække en
