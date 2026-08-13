@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTasks } from '../context/TasksContext';
 import { usePendingApprovals } from '../features/admin/usePendingApprovals';
+import { useDriftAlarmCount } from '../features/admin/useDriftStatus';
 import { useUnreadMessages } from '../features/comments/useUnreadMessages';
 import { usePresenceBeacon } from '../features/presence/usePresenceBeacon';
 import { PLATFORM_MODE, HOME_PATH } from '../lib/platform';
@@ -46,6 +47,7 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   // Antal ventende godkendelser (brugere + ligaer for alle globale admins)
   const { total: pendingCount } = usePendingApprovals({ enabled: isGlobalAdmin, includeUsers: isGlobalAdmin });
+  const driftAlarmCount = useDriftAlarmCount({ enabled: isGlobalAdmin && PLATFORM_MODE });
   // Ulæste private beskeder (badge på Beskeder)
   const { total: unreadCount } = useUnreadMessages(isApproved ? user?.uid : null);
   // Samlede udestående opgaver (badge på Forside)
@@ -99,6 +101,18 @@ export default function Layout({ children }) {
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                     Admin
                     <CountBadge count={pendingCount} title={`${pendingCount} venter på godkendelse`} testid="admin-pending-count" />
+                    {/* Driftmarkøren er IKKE godkendelses-badget: den betyder
+                        "noget er i stykker", ikke "der er noget at gøre" —
+                        egen form, egen title, eget testid. */}
+                    {driftAlarmCount > 0 && (
+                      <span
+                        title={`${driftAlarmCount} driftalarm${driftAlarmCount === 1 ? '' : 'er'} venter — se Driftstatus`}
+                        data-testid="admin-drift-alarm"
+                        style={{ color: 'var(--c-err)', fontWeight: 700 }}
+                      >
+                        ⚠
+                      </span>
+                    )}
                   </span>
                 </NavLink>
               )}

@@ -89,6 +89,15 @@ Premier League udgiver programmet **før** TV-udvælgelsen. Kun runde 1–5 har
 fastlagte tidspunkter; runde 6–38 står med alle ti kampe i samme standard-slot
 og bliver flyttet hen over sæsonen — typisk 5–6 uger før kampen.
 
+### Driftstatus i Admin — loggen, ejeren faktisk kan finde
+
+Alle alarmer i dette afsnit står OGSÅ under **Admin → 🩺 Driftstatus**:
+seneste status pr. kørsel (sweep, kickoff-synk, minut-synk på kampdage) og
+åbne alarmer (strandede kampe, genåbnings-afvisninger, <48t-flytninger,
+manglende kampdokumenter). Alarmer, der ikke kan løse sig selv, kræver en
+kvittering i fladen — ⚠-markøren på Admin-knappen står, til de er set.
+Functions-loggen er stadig sandheden for historik; fladen viser NU-billedet.
+
 ### Den daglige automatik (primærvejen)
 
 `syncGameKickoffs` retter tiderne **hver morgen kl. 6.10** for de spil, hvis
