@@ -13,6 +13,7 @@ export default defineConfig({
       'superligaScoring.test.js',
       'superligaSync.test.js',
       'syncProviders.test.js',
+      'seedFootball.test.js',
       'gameLeagues.test.js',
       'gameRecap.test.js',
       'inviteTemplate.test.js',

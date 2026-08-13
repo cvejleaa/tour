@@ -12,7 +12,7 @@ import { GAMES } from '../scripts/games.mjs';
 
 const require = createRequire(import.meta.url);
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
-const { runScheduledSyncAll, syncResultsCore, syncLiveCore } = require('./superligaSync');
+const { runScheduledSyncAll, syncResultsCore, syncLiveCore, syncKickoffsCore } = require('./superligaSync');
 
 const FieldValue = {
   serverTimestamp: () => ({ __ts: true }),
@@ -27,6 +27,7 @@ const FieldValue = {
 function fakeDb(matchDocs) {
   const docs = new Map(Object.entries(matchDocs));
   const spil = {};
+  const metoder = []; // hvilken skrive-metode hver batch-operation brugte
   const matchesCol = {
     async get() { return { docs: [...docs.entries()].map(([id, data]) => ({ id, data: () => data })) }; },
     doc: (id) => ({ __id: id }),
@@ -34,6 +35,7 @@ function fakeDb(matchDocs) {
   return {
     _docs: docs,
     _spil: spil,
+    _metoder: metoder,
     collection: () => ({
       doc: () => ({
         collection: () => matchesCol,
@@ -49,10 +51,19 @@ function fakeDb(matchDocs) {
         _ops: [],
         set(ref, data, opts) {
           if (opts?.merge !== true) throw new Error('batch.set() uden merge');
-          this._ops.push({ id: ref.__id, data });
+          this._ops.push({ id: ref.__id, data, metode: 'set' });
+        },
+        update(ref, data) {
+          // Som Firestore: update på et dokument, der ikke findes, fejler —
+          // kickoff-synken må aldrig kunne OPRETTE kampe.
+          if (!docs.has(ref.__id)) throw new Error(`update på ukendt dokument ${ref.__id}`);
+          this._ops.push({ id: ref.__id, data, metode: 'update' });
         },
         async commit() {
-          for (const op of this._ops) docs.set(op.id, { ...(docs.get(op.id) || {}), ...op.data });
+          for (const op of this._ops) {
+            metoder.push(op.metode);
+            docs.set(op.id, { ...(docs.get(op.id) || {}), ...op.data });
+          }
         },
       };
     },
@@ -276,6 +287,155 @@ describe('syncLiveCore når kilden ikke kan levere live (stadigIGang null)', () 
     });
     expect(ud.sluttet).toBe(0);
     expect(db._docs.get('r1-101').live.status).toBe('anden'); // urørt
+  });
+});
+
+describe('pulselive.hentKickoffs — den ÆGTE metode, mod de rå fixtures', () => {
+  it('konverterer London-tid til UTC og lader manglende tid være null', async () => {
+    const foerKamp = fxMatches.perPeriod.PreMatch[0]; // kickoff "2026-08-21 20:00:00" (BST)
+    const udenTid = { ...foerKamp, matchId: '555', kickoff: null };
+    const fetchFn = fetchRuter([
+      ['/matches', () => ({ pagination: { _next: null }, data: [foerKamp, udenTid] })],
+    ]);
+    const ud = await PROVIDERS.pulselive.hentKickoffs({ competitionId: 8, season: 2026 }, fetchFn);
+    expect(ud).toEqual([
+      { sourceKey: String(foerKamp.matchId), kickoff: '2026-08-21T19:00:00.000Z' },
+      { sourceKey: '555', kickoff: null },
+    ]);
+  });
+
+  it('en uventet tidszone fra kilden KASTER — en times stille skred er værre end en rød log', async () => {
+    const fremmed = { ...fxMatches.perPeriod.PreMatch[0], kickoffTimezoneString: 'America/New_York' };
+    const fetchFn = fetchRuter([
+      ['/matches', () => ({ pagination: { _next: null }, data: [fremmed] })],
+    ]);
+    await expect(PROVIDERS.pulselive.hentKickoffs({ competitionId: 8, season: 2026 }, fetchFn))
+      .rejects.toThrow(/uventet tidszone/);
+  });
+
+  it('kampe uden for spillets runder droppes FØR tolkning — også når de er ulæselige', async () => {
+    // En forårskamp (runde 19+) med skrald i tidsfeltet må ikke kunne vælte
+    // efterårsspillets daglige kørsel — den er ikke vores at tolke.
+    const vores = fxMatches.perPeriod.PreMatch[0]; // matchWeek 1
+    const fremmedOgUlaeselig = {
+      ...vores, matchId: '777', matchWeek: 19, kickoffTimezoneString: 'America/New_York', kickoff: 'skrald',
+    };
+    const fetchFn = fetchRuter([
+      ['/matches', () => ({ pagination: { _next: null }, data: [vores, fremmedOgUlaeselig] })],
+    ]);
+    const ud = await PROVIDERS.pulselive.hentKickoffs({ competitionId: 8, season: 2026 }, fetchFn, new Set([1]));
+    expect(ud.map((f) => f.sourceKey)).toEqual([String(vores.matchId)]);
+  });
+});
+
+describe('syncKickoffsCore', () => {
+  const NU = Date.parse('2026-08-01T12:00:00Z');
+  const langtUde = '2026-08-21T19:00:00Z'; // 20 dage ude — ingen alarm
+  const provider = (fixtures) => ({
+    resolveDocs: PROVIDERS.pulselive.resolveDocs, // det ægte suffiks-opslag
+    async hentKickoffs() { return fixtures; },
+  });
+  const kamp = (ms, result) => ({ kickoff: new Date(ms), ...(result ? { result } : {}) });
+
+  it('retter KUN kickoff (+stempel) på ændrede, urørte kampe — aldrig round eller andet', async () => {
+    const db = fakeDb({
+      'r1-101': kamp(Date.parse('2026-08-21T18:00:00Z')), // flyttes
+      'r1-102': kamp(Date.parse(langtUde)), // uændret
+      'r1-103': kamp(Date.parse('2026-08-01T10:00:00Z'), '1'), // spillet
+    });
+    const ud = await syncKickoffsCore(db, FieldValue, {
+      gameId: 'pl-test',
+      provider: provider([
+        { sourceKey: '101', kickoff: langtUde },
+        { sourceKey: '102', kickoff: langtUde },
+        { sourceKey: '103', kickoff: '2026-08-01T11:00:00Z' },
+        { sourceKey: '999', kickoff: langtUde }, // aldrig seedet → alarm
+      ]),
+      sync: {}, fetchFn: fetchEksploderer, nowMs: NU, dryRun: false,
+    });
+    expect(ud.aendringer.map((a) => a.id)).toEqual(['r1-101']);
+    expect(ud.spillet).toBe(1);
+    expect(ud.mangler).toEqual(['999']);
+    expect(ud.snart).toEqual([]);
+    // INVARIANTEN: skrivningen rører PRÆCIS kickoff + stempel — aldrig round.
+    const skrevet = db._docs.get('r1-101');
+    expect(skrevet.kickoff.getTime()).toBe(Date.parse(langtUde));
+    expect(Object.keys(skrevet).sort()).toEqual(['kickoff', 'kickoffSyncedAt']);
+    // …og med UPDATE, aldrig set: set kan oprette kampe, update kan ikke.
+    // fakeDb'ens eksistens-vagt fanger det kun for MANGLENDE dokumenter —
+    // metode-sporet fanger det også, når alle dokumenter findes.
+    expect(db._metoder).toEqual(['update']);
+    // Den spillede kamp står urørt.
+    expect(db._docs.get('r1-103').kickoff.getTime()).toBe(Date.parse('2026-08-01T10:00:00Z'));
+  });
+
+  it('TØR-KØRSEL er default og fejler lukket: kun eksplicit false skriver', async () => {
+    const foer = Date.parse('2026-08-21T18:00:00Z');
+    const db = fakeDb({ 'r1-101': kamp(foer) });
+    const ud = await syncKickoffsCore(db, FieldValue, {
+      gameId: 'pl-test', provider: provider([{ sourceKey: '101', kickoff: langtUde }]),
+      sync: {}, fetchFn: fetchEksploderer, nowMs: NU, dryRun: 'nej-tak', // tastefejl → tørkører
+    });
+    expect(ud.dryRun).toBe(true);
+    expect(ud.aendringer.length).toBe(1); // planen VISES…
+    expect(db._docs.get('r1-101').kickoff.getTime()).toBe(foer); // …men intet skrives
+  });
+
+  it('en ny tid under 48 timer ude udløser alarmen — ændringen gennemføres stadig', async () => {
+    const omEtDoegn = '2026-08-02T12:00:00Z';
+    const db = fakeDb({ 'r1-101': kamp(Date.parse('2026-08-03T12:00:00Z')) });
+    const ud = await syncKickoffsCore(db, FieldValue, {
+      gameId: 'pl-test', provider: provider([{ sourceKey: '101', kickoff: omEtDoegn }]),
+      sync: {}, fetchFn: fetchEksploderer, nowMs: NU, dryRun: false,
+    });
+    expect(ud.snart).toEqual(['r1-101']);
+    expect(db._docs.get('r1-101').kickoff.getTime()).toBe(Date.parse(omEtDoegn));
+  });
+
+  it('GENÅBNER ALDRIG en lukket kamp: passeret kickoff → fremtid afvises og logges', async () => {
+    // Security-fund bevist mod regel-emulatoren: request.time < kickoff ville
+    // blive sand igen, og tips kunne OPRETTES på en kamp i gang — efter at
+    // alles tips har været synlige. Rutinekørslen skal nægte.
+    const passeret = Date.parse('2026-08-01T10:00:00Z'); // 2 timer FØR nowMs
+    const db = fakeDb({
+      'r1-101': kamp(passeret), // i gang, intet facit endnu
+      'r1-102': kamp(Date.parse('2026-08-21T18:00:00Z')), // almindelig flytning
+    });
+    const ud = await syncKickoffsCore(db, FieldValue, {
+      gameId: 'pl-test',
+      provider: provider([
+        { sourceKey: '101', kickoff: '2026-08-12T19:00:00Z' }, // genåbning!
+        { sourceKey: '102', kickoff: langtUde },
+      ]),
+      sync: {}, fetchFn: fetchEksploderer, nowMs: NU, dryRun: false,
+    });
+    expect(ud.genaabninger).toEqual(['r1-101']);
+    expect(ud.aendringer.map((a) => a.id)).toEqual(['r1-102']); // den uskyldige skrives
+    expect(db._docs.get('r1-101').kickoff.getTime()).toBe(passeret); // urørt
+    expect(db._docs.get('r1-102').kickoff.getTime()).toBe(Date.parse(langtUde));
+  });
+
+  it('sender SPILLETS runder til provideren, så kilden filtreres før tolkning', async () => {
+    // Uden filteret drukner mangler-alarmen i 200 forårskampe, spillet ikke
+    // har — og den ene ægte manglende kamp bliver usynlig.
+    let modtagetRunder = null;
+    const db = fakeDb({ 'r1-101': { kickoff: new Date(langtUde), round: 1 }, 'r2-102': { kickoff: new Date(langtUde), round: 2 } });
+    await syncKickoffsCore(db, FieldValue, {
+      gameId: 'pl-test',
+      provider: {
+        resolveDocs: PROVIDERS.pulselive.resolveDocs,
+        async hentKickoffs(sync, fetchFn, runder) { modtagetRunder = runder; return []; },
+      },
+      sync: {}, fetchFn: fetchEksploderer, nowMs: NU,
+    });
+    expect([...modtagetRunder].sort()).toEqual([1, 2]);
+  });
+
+  it('en kilde uden hentKickoffs springes over (Superligaen — seedKickoffs-vejen)', async () => {
+    const ud = await syncKickoffsCore(fakeDb({}), FieldValue, {
+      gameId: 'sl', provider: PROVIDERS.superliga, sync: {}, fetchFn: fetchEksploderer,
+    });
+    expect(ud).toEqual({ understoettet: false });
   });
 });
 

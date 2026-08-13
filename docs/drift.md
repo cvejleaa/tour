@@ -89,6 +89,41 @@ Premier League udgiver programmet **før** TV-udvælgelsen. Kun runde 1–5 har
 fastlagte tidspunkter; runde 6–38 står med alle ti kampe i samme standard-slot
 og bliver flyttet hen over sæsonen — typisk 5–6 uger før kampen.
 
+### Den daglige automatik (primærvejen)
+
+`syncGameKickoffs` retter tiderne **hver morgen kl. 6.10** for de spil, hvis
+provider kan levere dem (pt. kun pulselive/PL — Superligaen bruger stadig
+workflow-vejen nedenfor). Beslutningerne er SPEJLET fra `--kickoffs-only`
+(paritetstestet i `functions-platform/seedFootball.test.js`), så de to veje
+giver samme svar: spillede kampe røres aldrig, en tid der står kan aldrig
+RYDDES af en rutinekørsel, og en kilde-kamp uden dokument er en alarm.
+
+- **Manuel udløsning:** callablen `syncGameKickoffsNow` (admin) — tør-kørsel
+  er default; kun `{ dryRun: false }` skriver. Det er forhåndsvisningen.
+- **Stempelfelter:** automatikken skriver `kickoff` + `kickoffSyncedAt`; den
+  manuelle seed-vej skriver `kickoff` + `updatedAt`. To felter med vilje —
+  så man i Firestore kan se, OM en tid sidst blev rørt af automatik eller
+  af et menneske.
+- **<48-timers-alarmen:** flyttes en kamp til et tidspunkt under 48 timer ude
+  (eller i fortiden), gennemføres ændringen, men der logges en ERROR — et
+  menneske skal vurdere, om nogen har nået at tippe med facit i hånden.
+  Rules kan ikke annullere tips, der var lovlige under den gamle deadline.
+- **Genåbnings-forbuddet:** en PASSERET kickoff flyttes ALDRIG til fremtiden
+  af automatikken — det ville genåbne tips på en kamp i gang, efter at alles
+  tips har været synlige. Ændringen afvises med ERROR i loggen; en ægte
+  genopsat kamp rettes bevidst ad seed-vejen nedenfor.
+- **Kun spillets runder tolkes:** kilden leverer hele sæsonen (380 kampe),
+  spillet har sine (efterår: 180). Resten droppes før tolkning, så
+  MANGLER-alarmen kun kan indeholde ægte fund.
+- **Fejlmodellen:** melder kilden en kamp UDEN tid, mens dokumentet har en,
+  stopper HELE det spils kørsel den dag (fejlen står som
+  "Kickoff-synk … fejlede (ignoreret)" i functions-loggen) — ingen delvis
+  plan skrives. De andre spil fortsætter. Den ene kamp skal håndteres
+  bevidst (udsat kamp uden ny dato), før spillets synk kører igen.
+- **Spillerne får ingen "kampen er flyttet"-notits** — deadline følger bare
+  med, og tip-påmindelsen samler kampe op, der flytter ind i dens vindue.
+  Det er en bevidst beslutning, ikke en glemt feature.
+
 Det er ikke kosmetik. **Kickoff er tip-deadlinen** (`firestore.rules`), så en
 forkert tid lukker kuponen på det forkerte tidspunkt. Og resultat-synken leder
 kun efter kampe i et vindue omkring tidspunktet, så et facit ville aldrig lande.
