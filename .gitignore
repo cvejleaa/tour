@@ -44,3 +44,6 @@ __pycache__/
 proxy/data/
 .venv/
 scripts/.kit-cache/
+
+# Rollernes midlertidige mutations-worktrees (test-manager m.fl.) — aldrig committes
+.claude/worktrees/
