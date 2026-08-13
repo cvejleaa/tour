@@ -91,10 +91,38 @@ describe('statusSamler', () => {
   });
 });
 
+describe('naesteKoerselFoerMs — kadencen, "forsinket"-dommen hviler på', () => {
+  const { naesteKoerselFoerMs } = require('./driftlog');
+  const SWEEP = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+  const dk = (s) => Date.parse(s); // ISO med eksplicit offset
+
+  it('almindelig eftermiddag: 13:30 DK → næste 14:25 + 45 min slæk = 15:10', () => {
+    const ud = naesteKoerselFoerMs(dk('2026-08-14T13:30:00+02:00'), { timer: SWEEP });
+    expect(Math.abs(ud - dk('2026-08-14T15:10:00+02:00'))).toBeLessThan(90 * 1000);
+  });
+
+  it('nathullet: 23:30 DK → næste er 02:25 NÆSTE dag (+45) — ikke en tærskel, der lyser rødt hele natten', () => {
+    const ud = naesteKoerselFoerMs(dk('2026-08-14T23:30:00+02:00'), { timer: SWEEP });
+    expect(Math.abs(ud - dk('2026-08-15T03:10:00+02:00'))).toBeLessThan(90 * 1000);
+  });
+
+  it('efterårs-tilbagefald (25/10-2026, 02 findes to gange): rammer den FØRSTE 02:25 — sommertidens', () => {
+    // Fra 00:30 DK (sommertid, +02): første vægur-02:25 er 02:25 CEST = 00:25Z.
+    const ud = naesteKoerselFoerMs(dk('2026-10-25T00:30:00+02:00'), { timer: SWEEP });
+    expect(Math.abs(ud - (Date.parse('2026-10-25T00:25:00Z') + 45 * 60000))).toBeLessThan(90 * 1000);
+  });
+
+  it('forårs-spring (28/3-2027, 02 findes ikke): forventningen hopper til 13:25 — som cron også gør', () => {
+    const ud = naesteKoerselFoerMs(dk('2027-03-28T00:30:00+01:00'), { timer: SWEEP });
+    expect(Math.abs(ud - dk('2027-03-28T14:10:00+02:00'))).toBeLessThan(90 * 1000);
+  });
+});
+
 describe('meldAlarm + loesDriftAlarmer', () => {
   it('samme hændelse bliver til ÉT dokument med antal — og genåbner efter løsning', async () => {
     const db = fakeDb();
-    const a = { type: 'strandet', gameId: 'pl', kampId: 'r1-101', besked: 'Kampen mangler facit.' };
+    // daempMs: 0 her — dæmpningen har sin egen test nedenfor.
+    const a = { type: 'strandet', gameId: 'pl', kampId: 'r1-101', besked: 'Kampen mangler facit.', daempMs: 0 };
     await meldAlarm(db, FieldValue, { ...a, nowMs: 1 });
     await meldAlarm(db, FieldValue, { ...a, nowMs: 2 });
     const id = 'pl_r1-101_strandet';
@@ -107,6 +135,19 @@ describe('meldAlarm + loesDriftAlarmer', () => {
     await meldAlarm(db, FieldValue, { ...a, nowMs: 4 });
     expect(db._docs.get(`driftAlarmer/${id}`).loestAt).toBeNull();
     expect(db._docs.get(`driftAlarmer/${id}`).antal).toBe(3);
+  });
+
+  it('dæmper genskrivning af en NYLIGT set åben alarm — men aldrig en genåbning', async () => {
+    const db = fakeDb();
+    const a = { type: 'strandet', gameId: 'pl', kampId: 'r1-101', besked: 'x' };
+    await meldAlarm(db, FieldValue, { ...a, nowMs: 0 });
+    // Set igen efter 1 time (< 6t-dæmpningen): ingen skrivning, antal står.
+    await meldAlarm(db, FieldValue, { ...a, nowMs: 3600 * 1000 });
+    expect(db._docs.get('driftAlarmer/pl_r1-101_strandet').antal).toBe(1);
+    // Løst — og set igen kort efter: genåbningen må ALDRIG dæmpes.
+    await loesDriftAlarmer(db, FieldValue, { type: 'strandet', gameId: 'pl', aktuelleKampIds: [], nowMs: 2 * 3600 * 1000 });
+    await meldAlarm(db, FieldValue, { ...a, nowMs: 3 * 3600 * 1000 });
+    expect(db._docs.get('driftAlarmer/pl_r1-101_strandet').loestAt).toBeNull();
   });
 
   it('lukker IKKE en alarm, hvis hændelse stadig ses', async () => {

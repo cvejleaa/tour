@@ -36,7 +36,9 @@ function StatusKort({ forventet, doc }) {
   return (
     <div className="card" style={{ marginBottom: '0.6rem', borderLeft: `4px solid ${farve}` }}>
       <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-        <strong>{TYPE_NAVN[forventet.type] || forventet.type} · {doc?.gameNavn || forventet.gameNavn}</strong>
+        {/* Klientens eget navn foretrækkes: serveren kender kun gameId, og
+            efter første kørsel må titlen ikke flippe fra navn til råt id. */}
+        <strong>{TYPE_NAVN[forventet.type] || forventet.type} · {forventet.gameNavn || doc?.gameNavn}</strong>
         <span className="badge badge--muted" style={{ color: farve, fontWeight: 700 }}>
           {niveau === 'afventer' ? 'afventer første kørsel'
             : forsinket ? 'HAR IKKE KØRT til tiden'
@@ -48,7 +50,6 @@ function StatusKort({ forventet, doc }) {
           <p style={{ whiteSpace: 'pre-line', margin: '0.35rem 0 0', fontSize: '0.9rem' }}>{doc.besked}</p>
           <p style={{ margin: '0.3rem 0 0', color: 'var(--c-muted)', fontSize: '0.78rem' }}>
             {doc.koertAt ? `Sidst kørt (skema): ${formatKickoff(doc.koertAt)}` : 'Skemaet har endnu ikke kørt'}
-            {doc.senesteKilde === 'manuel' ? ' · senest rørt manuelt' : ''}
           </p>
         </>
       ) : (
@@ -129,11 +130,15 @@ export default function DriftTab() {
           {forventede.map((f) => (
             <StatusKort key={`${f.type}-${f.gameId}`} forventet={f} doc={docAf.get(`${f.type}-${f.gameId}`)} />
           ))}
-          {/* Minut-synken vises kun, når den HAR skrevet (kampdage) — et
-              fraværende minut-dokument er normalt, ikke en fejl. */}
-          {status.filter((d) => d.type === 'minut').map((d) => (
-            <StatusKort key={d.id} forventet={{ type: 'minut', gameId: d.gameId, gameNavn: d.gameNavn }} doc={d} />
-          ))}
+          {/* ALLE status-dokumenter uden et forventet kort vises også — ikke
+              kun minut-synkens. Driver klientens afledte liste fra serverens
+              SYNCED_GAMES (QC-fund), må et rødt dokument aldrig kunne gemme
+              sig i hullet: fladen viser hellere et kort for meget end et
+              fejl-kort for lidt. Et fraværende minut-dokument er normalt. */}
+          {status.filter((d) => !forventede.some((f) => `${f.type}-${f.gameId}` === `${d.type}-${d.gameId}`))
+            .map((d) => (
+              <StatusKort key={d.id} forventet={{ type: d.type, gameId: d.gameId, gameNavn: d.gameNavn }} doc={d} />
+            ))}
         </>
       )}
     </div>

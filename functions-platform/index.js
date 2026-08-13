@@ -29,30 +29,24 @@ const {
   strandedMatches, allMatches,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
-const { statusSamler, meldAlarm, loesDriftAlarmer } = require('./driftlog');
+const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs } = require('./driftlog');
+
+// Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
+const SWEEP_TIMER = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 // Driftstatus-skrivningen må ALDRIG vælte den kørsel, den beskriver —
-// konsollen er bagstopperen, fladen er kun NU-billedet.
+// konsollen er bagstopperen, fladen er kun NU-billedet. naesteForventetFoerMs
+// kan være en FUNKTION: så evalueres kadence-beregningen også inde i try'et
+// (et argument evalueres FØR kaldet — en kastende beregning uden for ville
+// vælte resten af kørslen, Security-fund).
 async function skrivDriftStatus(st, db, opts) {
   try {
-    await st.skriv(db, FieldValue, opts);
+    const o = { ...opts };
+    if (typeof o.naesteForventetFoerMs === 'function') o.naesteForventetFoerMs = o.naesteForventetFoerMs();
+    await st.skriv(db, FieldValue, o);
   } catch (err) {
     console.error('driftlog-skrivning fejlede (ignoreret):', err?.message || err);
   }
-}
-
-// Næste sweep: cron '25 2,13-23 * * *' Europe/Copenhagen — SERVEREN skriver
-// forventningen, så klienten aldrig gætter kadencen (det normale nathul er 11
-// timer; en klient-tærskel ville lyse rødt hver nat). SKAL følges ad med
-// cron-udtrykket på syncSuperligaSweep. +45 min slæk til selve kørslen.
-function naesteSweepFoerMs(nowMs) {
-  const d = new Date(nowMs);
-  const dk = new Date(d.toLocaleString('en-US', { timeZone: TZ }));
-  const timer = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
-  const t = dk.getHours() + (dk.getMinutes() >= 25 ? 1 : 0);
-  const naeste = timer.find((x) => x >= t);
-  const timerFrem = naeste != null ? naeste - dk.getHours() : (24 - dk.getHours()) + 2;
-  return nowMs + timerFrem * 3600 * 1000 + (25 + 45) * 60 * 1000;
 }
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
@@ -391,7 +385,9 @@ exports.syncSuperligaSweep = onSchedule(
         console.error(`Kunne ikke tjekke for strandede kampe i ${g.gameId} (ignoreret):`, err?.message || err);
         st.fejl(`Strandede-tjekket fejlede: ${err?.message || err}`);
       }
-      await skrivDriftStatus(st, db, { naesteForventetFoerMs: naesteSweepFoerMs(Date.now()) });
+      await skrivDriftStatus(st, db, {
+        naesteForventetFoerMs: () => naesteKoerselFoerMs(Date.now(), { timer: SWEEP_TIMER }),
+      });
     }
   },
 );
@@ -498,8 +494,10 @@ exports.kvitterDriftAlarm = onCall({ region: REGION }, async (request) => {
   if (role !== 'owner' && role !== 'globalAdmin') {
     throw new HttpsError('permission-denied', 'Kun admin kan kvittere driftalarmer.');
   }
+  // Whitelist, ikke blacklist (Security-anbefaling): '.'/'..'/'__proto__'
+  // slap forbi et rent '/'-tjek og gav en rå SDK-fejl i stedet for en dansk.
   const alarmId = String(request.data?.alarmId || '');
-  if (!alarmId || alarmId.includes('/')) {
+  if (!/^[A-Za-z0-9_-]{1,200}$/.test(alarmId)) {
     throw new HttpsError('invalid-argument', 'Ugyldigt alarm-id.');
   }
   const ref = db.collection('driftAlarmer').doc(alarmId);

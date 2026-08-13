@@ -61,3 +61,45 @@
   er ikke det samme som "maskineriet er stoppet".
 - **Dokumentation der skal følge med:** `docs/admin-guide.md` (linje ~19 lister
   fanerne), `docs/drift.md` (alarmerne beskrives som "står i loggen").
+
+## Driftstatus-fladen (c19dca7): implementering mod plan — konkrete fund
+
+- **Et felt, serveren defaulter, men aldrig rent faktisk sender, er en fælde
+  for klienten.** `driftlog.js`s `statusSamler` sætter `gameNavn: gameNavn ||
+  gameId`, men `functions-platform/index.js` sender ALDRIG `gameNavn` ved
+  nogen af de tre kald (minut/sweep/kickoff) — så `doc.gameNavn` er altid
+  `gameId` (fx `pl2627-efteraar`). `DriftTab.jsx` skriver
+  `doc?.gameNavn || forventet.gameNavn`, dvs. FØR første kørsel vises det
+  pæne navn (fra `games`-kollektionen), og EFTER første kørsel skifter titlen
+  til det rå id. Spørg altid: virker fallback-kæden ens før og efter
+  dokumentet findes, eller flipper den? Ret er at klienten altid foretrækker
+  sit EGET kendte navn (`forventet.gameNavn`) over et serverfelt, den ved kan
+  mangle.
+- **Efterprøv "±N minutters slæk" med tal, ikke øjemål.** `naesteSweepFoerMs`
+  i `functions-platform/index.js` er dokumenteret som "+45 min slæk", men
+  giver reelt ~70 min (kørt for 13:25/23:25/02:25 dk-tid: deadline lander
+  25 min senere end kommentaren lover). Fejlretningen er ufarlig (mere slæk,
+  ikke mindre — under-alarmerer, alarmerer ikke falsk), men er et konkret,
+  betalt eftersynsemne: ingen test dækker funktionen overhovedet (den
+  eksporteres ikke, findes ingen `.test.js` for den).
+- **To uafhængige kilder til "hvilke spil synkes" er en ny spejlet-fil-fælde,
+  udenfor den kendte liste:** `functions-platform/syncProviders.js`s
+  `SYNCED_GAMES` (server-sandhed, styrer HVAD der rent faktisk synkes og
+  skriver driftlog) vs. `games/{id}.sync.provider` i Firestore (sat af
+  `scripts/games.mjs`, klient-sandhed, styrer HVILKE kort `DriftTab.jsx`
+  tegner). `DriftTab.jsx` tegner sweep/kickoff-kort UDELUKKENDE fra
+  `forventede` (afledt af games-feltet) — aldrig direkte fra `status`-listen.
+  Driver de to fra hinanden (spil i SYNCED_GAMES uden matchende sync-felt),
+  bliver et RIGTIGT `niveau: 'fejl'`-dokument aldrig vist — den "hul i
+  listen"-fælde, fladen selv er bygget for at undgå, genopstået én lags
+  dybere. Samme mønster for kickoff-typen: klienten hardkoder
+  `provider === 'pulselive'`, serveren tjekker
+  `typeof provider.hentKickoffs === 'function'` — konsistent i dag, men endnu
+  et sted der skal følges ad i hånden.
+- **`docs/admin-guide.md`s "Faner"-liste skal efterprøves mod den faktiske
+  `PLATFORM_MODE`-gating i `AdminPage.jsx`, linje for linje — ikke bare
+  "nævnt et sted".** c19dca7 satte "🩺 Driftstatus" under "**Begge apps:**" i
+  admin-guide.md, men koden gater fanen strengt til `PLATFORM_MODE` (og
+  commit-beskeden siger det selv: "Driftstatus kun på platformen"). Enhver
+  ny/flyttet admin-fane skal tjekkes op mod BÅDE tab-listen og teksten der
+  beskriver den.

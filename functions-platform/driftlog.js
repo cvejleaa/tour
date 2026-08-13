@@ -99,11 +99,16 @@ function statusSamler({ type, gameId = null, gameNavn = null }) {
  * @param {{type:string, gameId:string, kampId?:string|null, besked:string,
  *          kraeverKvittering?:boolean, nowMs?:number}} a
  */
-async function meldAlarm(db, FieldValue, { type, gameId, kampId = null, besked, kraeverKvittering = false, nowMs = Date.now() }) {
+async function meldAlarm(db, FieldValue, { type, gameId, kampId = null, besked, kraeverKvittering = false, nowMs = Date.now(), daempMs = 6 * 3600 * 1000 }) {
   const id = [gameId, kampId, type].filter(Boolean).join('_');
   const ref = db.collection('driftAlarmer').doc(id);
   const cur = await ref.get();
   const d = cur.exists ? cur.data() : null;
+  // Dæmpning: en ÅBEN alarm, der er set for nylig, genskrives ikke — ved et
+  // langvarigt kilde-nedbrud ville 180 strandede kampe ellers koste ~4.300
+  // operationer i døgnet (Security-målt). antal bliver "mindst", ikke
+  // eksakt; genåbning (loestAt sat) dæmpes ALDRIG.
+  if (d && d.loestAt == null && nowMs - (d.sidstSetAt || 0) < daempMs) return;
   await ref.set({
     type,
     gameId,
@@ -144,4 +149,31 @@ async function loesDriftAlarmer(db, FieldValue, { type, gameId, aktuelleKampIds,
   return { lukket };
 }
 
-module.exports = { statusSamler, meldAlarm, loesDriftAlarmer, vaerste };
+/**
+ * Hvornår skal næste skemalagte kørsel SENEST have skrevet status?
+ * Finder første vægur-tidspunkt hh:{minut} i {tz}, hvor hh er i `timer`,
+ * og lægger slækket oven i. Minut-for-minut-skanning med Intl: DST håndteres
+ * af tidszonedatabasen, ikke af vores aritmetik — ved forårs-springet findes
+ * kl. 02 ikke (og cron'en fyrer heller ikke), ved efterårs-tilbagefaldet
+ * rammes den FØRSTE af de to 02:25-forekomster (deterministisk; cron'en
+ * fyrer også kun én af dem). Bor her og ikke i index.js, fordi kadencen er
+ * dét, "forsinket"-dommen hviler på — den skal kunne bevises med tests.
+ * SKAL følges ad med cron-udtrykket på den kørsel, den beskriver.
+ */
+function naesteKoerselFoerMs(nowMs, { timer, minut = 25, slaekMin = 45, tz = 'Europe/Copenhagen' } = {}) {
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit',
+  });
+  for (let m = 1; m <= 36 * 60; m += 1) {
+    const t = nowMs + m * 60000;
+    const p = Object.fromEntries(fmt.formatToParts(t).map((x) => [x.type, x.value]));
+    if (Number(p.minute) === minut && timer.includes(Number(p.hour) % 24)) {
+      return t + slaekMin * 60000;
+    }
+  }
+  // Kan ikke ske med en ikke-tom timer-liste — men et bundet fallback er
+  // bedre end en evig løkke i en scheduled function.
+  return nowMs + 36 * 3600 * 1000;
+}
+
+module.exports = { statusSamler, meldAlarm, loesDriftAlarmer, vaerste, naesteKoerselFoerMs };
