@@ -103,3 +103,36 @@
   commit-beskeden siger det selv: "Driftstatus kun på platformen"). Enhver
   ny/flyttet admin-fane skal tjekkes op mod BÅDE tab-listen og teksten der
   beskriver den.
+
+## PL-live (690829a): pulselive-provideren — konkrete fund
+
+- **`plAlleKampe` har INGEN cache — to kaldere i samme minut-tick betaler
+  hver deres fulde sæson-paginering.** `runScheduledSync` kalder ALTID
+  `syncResultsCore` (→ `hentFaerdige` → `plAlleKampe`, ~4 sider) og derefter
+  `syncLiveCore` (→ `hentLive` → `plAlleKampe` IGEN, ~4 sider til) i samme
+  tick, uden at dele resultatet. Kode-kommentaren i `syncProviders.js`
+  ("Fire sider i minuttet ... er prisen værd") beskriver kun `hentLive`s EGEN
+  marginale pris — den samlede pris pr. minut i et kampvindue er **otte**
+  paginerede kald til pulselive, ikke fire. Ikke opdaget af nogen test (ingen
+  test kører `runScheduledSync` med den ÆGTE `PROVIDERS.pulselive` og tæller
+  fetch-kald). Ikke blokerende (samme gating, samme loft på 10 sider), men
+  værd at nævne næste gang nogen måler forbrug eller overvejer at cache
+  `plAlleKampe` inden for én tick.
+- **Et generisk hjælpetekst-løfte kan være ufuldbyrdet for ÉT spil uden at
+  det ses noget sted.** `FootballHelp.jsx`s "Mens kampen spilles: ... DIREKTE
+  og halvlegen, og den opdaterer sig selv hvert minut" er skrevet generisk
+  (spil-agnostisk, commit 26d0d6c) længe FØR Premier League fik rigtig live
+  (denne commit). Teksten var altså allerede vist til PL-brugere og loven
+  noget, koden ikke leverede, indtil 690829a. God ting at tjekke ved en
+  ny liga/nyt spil: findes der allerede en generisk hjælpetekst, der
+  forudsætter en egenskab (live, tabel, kickoff-synk), det nye spil endnu
+  ikke har?
+- **Ukendte kilde-tokens i en period/status-oversættelse er sikre HVIS
+  "i gang"-afgørelsen er UAFHÆNGIG af oversættelses-tabellen.** `plIGang()`
+  spørger direkte på det rå `period`-felt (kun `prematch`/`fulltime` er
+  hvile), mens `plLiveStatus()` (opslaget i `PL_PERIOD_STATUS`) kun styrer
+  DANSK TEKST. Et nyt, ukendt token kan derfor aldrig give et falsk "Slut" —
+  det giver højst en kamp uden halvlegs-tekst ("DIREKTE" uden ekstra ord).
+  Spørg ved lignende oversættelser: er "er kampen i gang" afgjort af SAMME
+  lukkede liste som viser teksten, eller af en bredere/uafhængig test? Det
+  første er en fælde (nyt ord → falder ud af listen → regnes som hvile).

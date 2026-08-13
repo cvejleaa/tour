@@ -164,3 +164,66 @@
 - **Nyt: doc-id fra bruger-input skal whitelistes, ikke blacklistes.** `'/'`
   lukker sti-flugt, men `.`/`..`/`__x__` er reserverede og giver en ubehandlet
   SDK-fejl. Et ankret regex er ét udtryk mod tre fælder.
+
+## PL-live (690829a) — angrebsflade: FREMMED KILDE → felter alle kan læse
+
+PoC-mønster der virker og kan genbruges (ingen emulator nødvendig):
+ÆGTE provider + ÆGTE `syncLiveCore` + fake db (kopiér `fakeDb` fra
+`functions-platform/syncProviders.test.js` L27-70) + `fetchFn` der returnerer
+et FJENDTLIGT JSON-svar. Kør fra scratchpad, kræver ingen node_modules.
+
+**Afprøvet og RENT (bekræftet, gentag ikke):**
+- Fjendtlige EKSTRA felter i API-svaret (`result`, `homeGoals`, `status`,
+  `kickoff`, `points`) når ALDRIG dokumentet. `syncLiveCore` (superligaSync.js
+  L262-274) bygger objektet felt for felt — kun `live`. Kilden kan ikke røre
+  point.
+- Skrivningen er bundet i to led: `resolveDocs` fodres med `current.keys()`
+  (= `opts.only` = `pendingMatches`, kickoff inden for 2,5 t BAGUD), og
+  `if (!cur) continue` (L255). Et matchId uden for `only` skriver intet.
+  Live kan derfor aldrig stå på et kort, der stadig tager tips.
+- **Suffiks-forveksling findes ikke.** `resolveDocs` (syncProviders.js L399-412)
+  bygger et Map på det EKSAKTE suffiks efter sidste `-` og slår op med `get()`,
+  ikke `endsWith`. `'101'` rammer ikke `r1-9101`. (Kollision KAN opstå, hvis to
+  doc-id'er deler samme suffiks — sidste vinder — men PL-id'erne er
+  `r{runde}-{matchId}` med unikke matchIds.)
+- Prototype-fælden i `plLiveStatus` er lukket: `constructor`, `__proto__`,
+  `toString`, `hasOwnProperty`, `valueOf`, `prototype` giver alle `'ukendt'`
+  (streng). Kontrol: `FirstHalf`/`FIRSTHALF`/` firsthalf ` → `foerste`.
+- `status` er ALTID fra det lukkede sæt → intet kilde-ord når skærmen ad den
+  vej. `statusRaw` er altid `String(...).slice(0,40)` og renderes ingen steder
+  (kun `live.status`/`home`/`away` læses i footballRounds.js L192-210).
+- `Number.isFinite` filtrerer `'5'`, `{}`, `true`, `null` væk. **Men** `1e308`,
+  `-7` og `1.5` slipper igennem til `live.home/away` (kosmetisk; rører ikke point).
+- 200 uden `data`-liste kaster i BÅDE hentLive og hentFaerdige; dokumentet
+  urørt. Kontroltests grønne: tom liste → `slut`-markering (ikke sletning),
+  og facit slår live.
+
+**Nye angrebsveje/observationer (ikke-blokerende, kend dem):**
+- `{"period":{"toString":null}}` er JSON-nåbart og får `String(m.period)` til at
+  kaste `TypeError: Cannot convert object to primitive value` i `plIGang`
+  (syncProviders.js L305) — ÉN dårlig post dræber hele minuttets live-synk for
+  spillet. Fejler lukket (fanget i `runScheduledSync` L432), men blast radius er
+  hele listen.
+- `console.warn` logger `raw` UKLIPPET (L291) — modsat `statusRaw`. 5000 tegn
+  pr. kamp pr. minut, hvis kilden sender skrald.
+- `kampe.push(...data.data)` (L258) kaster RangeError ved ~300k elementer
+  (målt). Fejler lukket.
+- **Dobbelt hentning:** `hentFaerdige` OG `hentLive` kalder hver sin
+  `plAlleKampe` = 4+4 sider pr. minut pr. kampvindue. Værste tilfælde med
+  `AbortSignal.timeout(10000)`: 40 s + 40 s + superligaens 20 s = 100 s > de
+  60 s, `onSchedule` har som DEFAULT (ingen `timeoutSeconds` i
+  functions-platform/index.js L262). Rate-limit fra pulselive rammer FACIT-vejen,
+  ikke kun live. Afbødning: memoiser `plAlleKampe` pr. kørsel.
+- `hentFaerdige` matcher `m.period === 'FullTime'` CASE-FØLSOMT (L312), mens
+  `plIGang`/`plLiveStatus` lowercase-normaliserer. Ændrer kilden kun bogstavering,
+  bliver kampen stille i BEGGE ender (ingen live, intet facit) — kun sweep-alarmen
+  fanger det. Én normaliseret prædikat ville være "én vagt pr. regel".
+- `liveHeartbeatAt` bumpes af `events.length > 0` (superligaSync.js L344) — og
+  PL's `hentLive` er med vilje IKKE matchweek-filtreret, så en kamp UDEN FOR
+  spillets runder kan holde pulsen frisk for et spil, den ikke tilhører →
+  `forældet` bliver falsk-frisk. Kun relevant i overlappende runde-weekender.
+
+**Faldgrube til listen:** *en fremmed kilde skal ikke bare valideres pr. felt,
+men pr. POST — én giftig post må ikke kunne vælte hele partiet.* `String()` på
+et rå JSON-objekt kan kaste; læg `String()`-konverteringen i en try eller filtrer
+posten fra, hvis den ikke er en streng.
