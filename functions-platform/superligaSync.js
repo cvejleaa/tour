@@ -17,6 +17,8 @@ const {
   matchDocId, liveStatus, resultsUrl, liveUrl, standingsUrl,
 } = require('./syncProviders');
 
+const { kickoffPlan } = require('./seedFootball');
+
 const GAME_ID = 'superliga2627';
 
 // Hvor længe efter kickoff vi holder øje med en kamp. En kamp varer ~2 timer;
@@ -443,6 +445,79 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
 }
 
 /**
+ * Daglig kickoff-synk: ret kamptider fra kilden — og INTET andet.
+ *
+ * PL flytter kampe løbende (tv-aftaler), og kickoff ER tip-deadlinen, så en
+ * forældet tid er en forkert deadline. Beslutningerne (spring spillede over,
+ * ryd aldrig en tid, alarm ved useedede kampe) er SPEJLET fra seed-vejens
+ * kickoffPlan — samme svar ad begge veje, paritetstestet.
+ *
+ * INVARIANTEN, sagt højt: en kickoff-ændring rører ALDRIG round eller
+ * dokument-id. Spillene er skåret på VORES rundenummer; en runde 18-kamp
+ * flyttet til januar er stadig efterårets. Skrivningen er derfor update af
+ * PRÆCIS to felter — kan hverken oprette kampe eller ændre andet.
+ *
+ * Tør-kørsel er default og fejler lukket: kun eksplicit dryRun === false
+ * skriver — dét er den ENE vagt om skrivningen ("én vagt pr. sikkerhedsregel").
+ *
+ * @returns {Promise<{understoettet:boolean, dryRun?:boolean,
+ *   aendringer?:Array<{id:string, fraMs:number|null, tilMs:number|null}>,
+ *   mangler?:string[], spillet?:number, snart?:string[]}>}
+ */
+async function syncKickoffsCore(db, FieldValue, opts = {}) {
+  const gameId = opts.gameId || GAME_ID;
+  const fetchFn = opts.fetchFn || fetch;
+  const nowMs = opts.nowMs ?? Date.now();
+  const { provider, sync } = providerAfOpts(opts);
+  const dryRun = opts.dryRun !== false;
+
+  // En kilde uden flytbare tider (Superligaen — rettes ad seedKickoffs-vejen)
+  // springes over uden støj.
+  if (typeof provider.hentKickoffs !== 'function') return { understoettet: false };
+
+  const fixtures = await provider.hentKickoffs(sync, fetchFn);
+  const alle = await allMatches(db, { gameId });
+  const resolved = provider.resolveDocs(fixtures.map((f) => f.sourceKey), alle.map((m) => m.id));
+  const nuvaerende = new Map(alle.map((m) => {
+    const ms = kickoffMs(m.data.kickoff);
+    return [m.id, { result: m.data.result, kickoffMs: Number.isFinite(ms) ? ms : null }];
+  }));
+
+  const plan = kickoffPlan(
+    fixtures.filter((f) => resolved.has(f.sourceKey))
+      .map((f) => ({ id: resolved.get(f.sourceKey), kickoff: f.kickoff })),
+    nuvaerende,
+  );
+  // Kilde-kampe uden dokument er samme alarm som plan.mangler: aftenen før en
+  // runde betyder det "aldrig seedet", og det må ikke drukne i de spillede.
+  const mangler = [...plan.mangler, ...fixtures.filter((f) => !resolved.has(f.sourceKey)).map((f) => f.sourceKey)];
+
+  // Rules validerer tips mod deadlinen i skriveøjeblikket, så tips afgivet før
+  // en FREMRYKNING var lovlige og kan ikke maskinelt annulleres. Vagten er et
+  // menneske: en ny tid i fortiden eller mindre end 48 timer ude skal SES.
+  const snart = plan.aendringer
+    .filter((a) => a.tilMs != null && a.tilMs - nowMs < 48 * 60 * 60 * 1000)
+    .map((a) => a.id);
+  for (const id of snart) {
+    console.error(`kickoff-synk ${gameId}: ${id} flyttes til et tidspunkt under 48 timer ude (eller i fortiden) — tjek om nogen har tippet med facit i hånden.`);
+  }
+
+  if (!dryRun && plan.aendringer.length) {
+    const matchesCol = db.collection('games').doc(gameId).collection('matches');
+    const batch = db.batch();
+    for (const a of plan.aendringer) {
+      // update, aldrig set: kan ikke oprette kampe — og rører PRÆCIS to felter.
+      batch.update(matchesCol.doc(a.id), {
+        kickoff: new Date(a.tilMs),
+        kickoffSyncedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+  return { understoettet: true, dryRun, aendringer: plan.aendringer, mangler, spillet: plan.spillet, snart };
+}
+
+/**
  * Den skemalagte kørsel for ALLE synkede spil — én ad gangen, i listens
  * rækkefølge. Et spil, hvis provider mangler i registret, logges og springes
  * over; det må aldrig kunne vælte de andre spils synk. Sekventielt og ikke
@@ -476,5 +551,5 @@ module.exports = {
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
   liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, runScheduledSyncAll,
-  strandedMatches, allMatches,
+  syncKickoffsCore, strandedMatches, allMatches,
 };

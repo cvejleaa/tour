@@ -25,7 +25,8 @@ const {
   dryRunFraKald,
 } = require('./gameScoring');
 const {
-  syncResultsCore, syncStandingsCore, runScheduledSyncAll, strandedMatches, allMatches,
+  syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore,
+  strandedMatches, allMatches,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
@@ -335,6 +336,61 @@ exports.syncSuperligaSweep = onSchedule(
     }
   },
 );
+
+// syncGameKickoffs — DAGLIG rettelse af kamptider fra kilden (kun spil, hvis
+// provider kan levere dem — pt. Premier League). PL flytter kampe uger forud
+// (tv-aftaler), og kickoff ER tip-deadlinen. Én gang i døgnet er nok: minut-
+// kadence ville være spild på ændringer, der meldes 5-6 uger før kampdag.
+// Kl. 6.10 dansk tid: før dagens første tips, efter nattens API-opdateringer.
+// Fejler et spil, fortsætter de andre — og fejlen står i loggen.
+exports.syncGameKickoffs = onSchedule(
+  { schedule: '10 6 * * *', timeZone: TZ, region: REGION },
+  async () => {
+    const db = getFirestore();
+    for (const g of SYNCED_GAMES) {
+      const provider = Object.hasOwn(PROVIDERS, g.provider) ? PROVIDERS[g.provider] : null;
+      if (!provider) continue;
+      try {
+        const ud = await syncKickoffsCore(db, FieldValue, {
+          gameId: g.gameId, provider, sync: g.sync, dryRun: false,
+        });
+        if (!ud.understoettet) continue;
+        console.log(`Kickoff-synk ${g.gameId}: ${ud.aendringer.length} rettet, ${ud.spillet} spillede urørt`
+          + (ud.mangler.length ? `, MANGLER dokument: ${ud.mangler.join(', ')}` : '')
+          + (ud.snart.length ? `, <48t-alarm: ${ud.snart.join(', ')}` : '') + '.');
+      } catch (err) {
+        console.error(`Kickoff-synk ${g.gameId} fejlede (ignoreret):`, err?.message || err);
+      }
+    }
+  },
+);
+
+// syncGameKickoffsNow — manuel udløsning (admin/owner) med TØR-KØRSEL som
+// default: kun { dryRun: false } skriver. Det er "start med vilje"-vejen —
+// og forhåndsvisningen, som drift.md kræver før produktionsskrivninger.
+exports.syncGameKickoffsNow = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Log ind.');
+  const db = getFirestore();
+  const userSnap = await db.collection('users').doc(uid).get();
+  const role = userSnap.exists ? userSnap.data().role : null;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun admin kan rette kamptider.');
+  }
+  const gameId = request.data?.gameId || 'pl2627-efteraar';
+  const g = SYNCED_GAMES.find((x) => x.gameId === gameId);
+  if (!g || !Object.hasOwn(PROVIDERS, g.provider)) {
+    throw new HttpsError('invalid-argument', `Ingen synk-provider for "${gameId}".`);
+  }
+  const ud = await syncKickoffsCore(db, FieldValue, {
+    gameId: g.gameId, provider: PROVIDERS[g.provider], sync: g.sync,
+    dryRun: dryRunFraKald(request.data),
+  });
+  if (!ud.understoettet) {
+    throw new HttpsError('failed-precondition', `${gameId}s kilde kan ikke levere kamptider — brug seedKickoffs-vejen.`);
+  }
+  return { gameId: g.gameId, ...ud };
+});
 
 // syncSuperligaResultsNow — manuel udløsning (admin/owner). Til test/tvungen
 // synk. Navnet er historisk (deployet under det); den synker et VALGFRIT spil

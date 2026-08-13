@@ -24,6 +24,10 @@
 //   hentStandings(sync, fetchFn) → rækker i FootballTable-formen
 //       ({rank, teamName, teamShortName, points, played, won, draw, lost,
 //         gf, ga, rankType}).
+//   hentKickoffs(sync, fetchFn) → [{ sourceKey, kickoff: ISO-UTC|null }]
+//       VALGFRI: kilder, hvis kamptider flytter sig løbende (PL: tv-aftaler).
+//       Mangler metoden, springer kickoff-synken spillet over — Superligaens
+//       tider rettes ad seedKickoffs-vejen (drift.md).
 //   resolveDocs(sourceKeys, docIds) → Map<sourceKey, docId>
 //       Hvordan en API-kamp genfinder sit dokument. Ukendte nøgler udelades —
 //       kernen springer dem over, som den altid har gjort. BEMÆRK: docIds kan
@@ -36,6 +40,8 @@
 // opslag pr. minut og kan ikke miste et spil, fordi et felt mangler i
 // produktionen. Paritetstesten mod scripts/games.mjs holder de to i trit.
 // ---------------------------------------------------------------------------
+
+const { londonTilUtcMs } = require('./seedFootball');
 
 // --- Superligaen (api.superliga.dk) ----------------------------------------
 
@@ -257,6 +263,20 @@ const pulselive = {
         homeGoals: m.homeTeam.score,
         awayGoals: m.awayTeam.score,
       }));
+  },
+
+  async hentKickoffs(sync, fetchFn) {
+    return (await plAlleKampe(sync, fetchFn)).map((m) => {
+      // Antagelsen "tiden er London-tid" er bærende for deadlinen — skifter
+      // kilden zone-felt, skal det ses som en fejl, ikke som en times skred.
+      if (m.kickoffTimezoneString && m.kickoffTimezoneString !== 'Europe/London') {
+        throw new Error(`pulselive: uventet tidszone "${m.kickoffTimezoneString}" for kamp ${m.matchId}`);
+      }
+      return {
+        sourceKey: String(m.matchId),
+        kickoff: m.kickoff ? new Date(londonTilUtcMs(m.kickoff)).toISOString() : null,
+      };
+    });
   },
 
   // Live er endnu ikke implementeret for pulselive: period-værdierne for en

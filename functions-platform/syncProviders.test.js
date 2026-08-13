@@ -12,7 +12,7 @@ import { GAMES } from '../scripts/games.mjs';
 
 const require = createRequire(import.meta.url);
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
-const { runScheduledSyncAll, syncResultsCore, syncLiveCore } = require('./superligaSync');
+const { runScheduledSyncAll, syncResultsCore, syncLiveCore, syncKickoffsCore } = require('./superligaSync');
 
 const FieldValue = {
   serverTimestamp: () => ({ __ts: true }),
@@ -49,6 +49,12 @@ function fakeDb(matchDocs) {
         _ops: [],
         set(ref, data, opts) {
           if (opts?.merge !== true) throw new Error('batch.set() uden merge');
+          this._ops.push({ id: ref.__id, data });
+        },
+        update(ref, data) {
+          // Som Firestore: update på et dokument, der ikke findes, fejler —
+          // kickoff-synken må aldrig kunne OPRETTE kampe.
+          if (!docs.has(ref.__id)) throw new Error(`update på ukendt dokument ${ref.__id}`);
           this._ops.push({ id: ref.__id, data });
         },
         async commit() {
@@ -276,6 +282,74 @@ describe('syncLiveCore når kilden ikke kan levere live (stadigIGang null)', () 
     });
     expect(ud.sluttet).toBe(0);
     expect(db._docs.get('r1-101').live.status).toBe('anden'); // urørt
+  });
+});
+
+describe('syncKickoffsCore', () => {
+  const NU = Date.parse('2026-08-01T12:00:00Z');
+  const langtUde = '2026-08-21T19:00:00Z'; // 20 dage ude — ingen alarm
+  const provider = (fixtures) => ({
+    resolveDocs: PROVIDERS.pulselive.resolveDocs, // det ægte suffiks-opslag
+    async hentKickoffs() { return fixtures; },
+  });
+  const kamp = (ms, result) => ({ kickoff: new Date(ms), ...(result ? { result } : {}) });
+
+  it('retter KUN kickoff (+stempel) på ændrede, urørte kampe — aldrig round eller andet', async () => {
+    const db = fakeDb({
+      'r1-101': kamp(Date.parse('2026-08-21T18:00:00Z')), // flyttes
+      'r1-102': kamp(Date.parse(langtUde)), // uændret
+      'r1-103': kamp(Date.parse('2026-08-01T10:00:00Z'), '1'), // spillet
+    });
+    const ud = await syncKickoffsCore(db, FieldValue, {
+      gameId: 'pl-test',
+      provider: provider([
+        { sourceKey: '101', kickoff: langtUde },
+        { sourceKey: '102', kickoff: langtUde },
+        { sourceKey: '103', kickoff: '2026-08-01T11:00:00Z' },
+        { sourceKey: '999', kickoff: langtUde }, // aldrig seedet → alarm
+      ]),
+      sync: {}, fetchFn: fetchEksploderer, nowMs: NU, dryRun: false,
+    });
+    expect(ud.aendringer.map((a) => a.id)).toEqual(['r1-101']);
+    expect(ud.spillet).toBe(1);
+    expect(ud.mangler).toEqual(['999']);
+    expect(ud.snart).toEqual([]);
+    // INVARIANTEN: skrivningen rører PRÆCIS kickoff + stempel — aldrig round.
+    const skrevet = db._docs.get('r1-101');
+    expect(skrevet.kickoff.getTime()).toBe(Date.parse(langtUde));
+    expect(Object.keys(skrevet).sort()).toEqual(['kickoff', 'kickoffSyncedAt']);
+    // Den spillede kamp står urørt.
+    expect(db._docs.get('r1-103').kickoff.getTime()).toBe(Date.parse('2026-08-01T10:00:00Z'));
+  });
+
+  it('TØR-KØRSEL er default og fejler lukket: kun eksplicit false skriver', async () => {
+    const foer = Date.parse('2026-08-21T18:00:00Z');
+    const db = fakeDb({ 'r1-101': kamp(foer) });
+    const ud = await syncKickoffsCore(db, FieldValue, {
+      gameId: 'pl-test', provider: provider([{ sourceKey: '101', kickoff: langtUde }]),
+      sync: {}, fetchFn: fetchEksploderer, nowMs: NU, dryRun: 'nej-tak', // tastefejl → tørkører
+    });
+    expect(ud.dryRun).toBe(true);
+    expect(ud.aendringer.length).toBe(1); // planen VISES…
+    expect(db._docs.get('r1-101').kickoff.getTime()).toBe(foer); // …men intet skrives
+  });
+
+  it('en ny tid under 48 timer ude udløser alarmen — ændringen gennemføres stadig', async () => {
+    const omEtDoegn = '2026-08-02T12:00:00Z';
+    const db = fakeDb({ 'r1-101': kamp(Date.parse('2026-08-03T12:00:00Z')) });
+    const ud = await syncKickoffsCore(db, FieldValue, {
+      gameId: 'pl-test', provider: provider([{ sourceKey: '101', kickoff: omEtDoegn }]),
+      sync: {}, fetchFn: fetchEksploderer, nowMs: NU, dryRun: false,
+    });
+    expect(ud.snart).toEqual(['r1-101']);
+    expect(db._docs.get('r1-101').kickoff.getTime()).toBe(Date.parse(omEtDoegn));
+  });
+
+  it('en kilde uden hentKickoffs springes over (Superligaen — seedKickoffs-vejen)', async () => {
+    const ud = await syncKickoffsCore(fakeDb({}), FieldValue, {
+      gameId: 'sl', provider: PROVIDERS.superliga, sync: {}, fetchFn: fetchEksploderer,
+    });
+    expect(ud).toEqual({ understoettet: false });
   });
 });
 
