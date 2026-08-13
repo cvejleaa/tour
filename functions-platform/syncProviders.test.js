@@ -209,8 +209,12 @@ describe('pulselive-provideren', () => {
     // KUN period-grenen kan. Mutationen "fjern period-tjekket" overlevede
     // hele suiten, netop fordi ingen fixture-kamp havde den kombination.
     const iGangMedMaal = { ...fuldtid, matchId: '888', period: 'FirstHalf' };
+    // Kun ANDEN bogstavering: facit-vagten deler normalisering med live-vejen
+    // (plPeriodNorm), så en ren stavemåde-ændring fra kilden ikke kan gøre
+    // kampen stum i begge ender på én gang.
+    const stavemaade = { ...fuldtid, matchId: '666', period: 'FULLTIME' };
     const fetchFn = fetchRuter([
-      ['_next=', () => ({ pagination: { _next: null }, data: [{ ...fuldtid, matchId: '777' }, udenScore, iGangMedMaal] })],
+      ['_next=', () => ({ pagination: { _next: null }, data: [{ ...fuldtid, matchId: '777' }, udenScore, iGangMedMaal, stavemaade] })],
       ['/matches', () => ({ pagination: { _next: 'side2' }, data: [fuldtid, foerKamp] })],
     ]);
     const ud = await PROVIDERS.pulselive.hentFaerdige(sync, fetchFn);
@@ -218,6 +222,7 @@ describe('pulselive-provideren', () => {
     expect(ud).toEqual([
       { sourceKey: String(fuldtid.matchId), homeGoals: fuldtid.homeTeam.score, awayGoals: fuldtid.awayTeam.score },
       { sourceKey: '777', homeGoals: fuldtid.homeTeam.score, awayGoals: fuldtid.awayTeam.score },
+      { sourceKey: '666', homeGoals: fuldtid.homeTeam.score, awayGoals: fuldtid.awayTeam.score },
     ]);
     expect(ud.map((e) => e.sourceKey)).not.toContain('888');
     expect(fetchFn.kald.length).toBe(2);
@@ -283,6 +288,11 @@ describe('pulselive-provideren', () => {
           // resolveDocs-opslaget aldrig kan skille ad på typen. Uden denne
           // kamp var mutationen "drop String()" grøn i hele suiten.
           iGangAf('FirstHalf', 806),
+          // GIFTIG period: {toString: null} er JSON-nåbart og fik String()
+          // til at KASTE — én skæv kamp væltede hele minuttets kørsel for
+          // spillet (Security-fund). Skal regnes i gang (aldrig falsk Slut)
+          // og vises som 'ukendt', mens de raske kampe kører videre.
+          iGangAf({ toString: null }, '807'),
         ],
       })],
     ]);
@@ -293,8 +303,9 @@ describe('pulselive-provideren', () => {
       { sourceKey: '803', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'anden', statusRaw: 'SecondHalf' },
       { sourceKey: '804', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'ukendt', statusRaw: 'Constructor' },
       { sourceKey: '806', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'foerste', statusRaw: 'FirstHalf' },
+      { sourceKey: '807', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'ukendt', statusRaw: 'ikke-streng' },
     ]);
-    expect([...ud.stadigIGang].sort()).toEqual(['801', '802', '803', '804', '805', '806']);
+    expect([...ud.stadigIGang].sort()).toEqual(['801', '802', '803', '804', '805', '806', '807']);
     expect(ud.stadigIGang.has(806)).toBe(false); // strengen, aldrig tallet
     expect(ud.stadigIGang.has(String(fuldtid.matchId))).toBe(false);
     expect(ud.stadigIGang.has(String(foerKamp.matchId))).toBe(false);
@@ -364,6 +375,42 @@ describe('PL-live hele vejen igennem kernen — den ÆGTE provider, r{runde}-{ma
     expect(ud.sluttede).toEqual(['r1-902']);
     expect(db._docs.get('r1-901').live).toMatchObject({ home: 2, away: 0, status: 'foerste' });
     expect(db._docs.get('r1-902').live.status).toBe('slut');
+    // Skrivningen rører PRÆCIS live-feltet, og live-objektet har PRÆCIS de
+    // fem kendte nøgler — et API-svar med result/homeGoals/status i sig må
+    // aldrig kunne smugle andet ind (Security-PoC ophøjet til regression:
+    // matchOutcome() udleder facit FRA MÅLENE, så en smuglet homeGoals
+    // ville flytte Elo på en halvlegsstilling).
+    expect(Object.keys(db._docs.get('r1-901')).sort()).toEqual(['kickoff', 'live']);
+    expect(Object.keys(db._docs.get('r1-901').live).sort()).toEqual(['at', 'away', 'home', 'status', 'statusRaw']);
+    // Pulsen slog: mindst én hændelse hørte til spillet.
+    expect(db._spil.liveHeartbeatAt).toBeTypeOf('number');
+  });
+
+  it('en fremmed kamp (uden dokument i spillet) holder ALDRIG pulsen i live', async () => {
+    // Kildens liste er hele ligaen. En kamp fra en anden rundes weekend må
+    // ikke kunne holde liveHeartbeatAt falsk-frisk for DETTE spil — så slog
+    // klientens "forældet"-dæmpning aldrig til på en strandet stilling.
+    const fuldtid = fxMatches.perPeriod.FullTime[0];
+    const omToTimer = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const ikkeStartet = { kickoff: omToTimer };
+    const db = fakeDb({ 'r1-901': ikkeStartet });
+    const fetchFn = fetchRuter([
+      ['/matches', () => ({
+        pagination: { _next: null },
+        data: [{ ...fuldtid, matchId: '999999', period: 'SecondHalf' }], // findes ikke i spillet
+      })],
+    ]);
+    const ud = await syncLiveCore(db, FieldValue, {
+      gameId: 'pl-test',
+      provider: PROVIDERS.pulselive,
+      sync: { competitionId: 8, season: 2026 },
+      fetchFn,
+      nowMs: Date.now(),
+      only: [{ id: 'r1-901', data: ikkeStartet }],
+    });
+    expect(ud.live).toBe(1); // hændelsen SES…
+    expect(ud.skrevet).toBe(0); // …men intet dokument rammes…
+    expect(db._spil.liveHeartbeatAt).toBeUndefined(); // …og pulsen står stille
   });
 });
 

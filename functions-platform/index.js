@@ -259,8 +259,11 @@ exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async 
 // Funktionsnavnet er historisk (deployet under det) — kørslen dækker ALLE
 // spil i SYNCED_GAMES, ét ad gangen. Det tidlige exit gælder pr. spil, så et
 // stille minut koster ét tomt opslag pr. synket spil.
+// timeoutSeconds: værste tilfælde er nu to spil × fuld sæson-liste × to veje
+// (facit + live à 10 s pr. side) — default 60 s kunne klippe kørslen midt i
+// et langsomt kampvindue (Security-fund). 120 s dækker med god margin.
 exports.syncSuperligaResults = onSchedule(
-  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION },
+  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION, timeoutSeconds: 120 },
   async () => {
     // Selve rækkefølgen — og det tidlige exit — bor i superligaSync, så den
     // kan unit-testes. Her logges kun resultatet.

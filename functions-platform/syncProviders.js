@@ -281,6 +281,24 @@ const PL_PERIOD_STATUS = {
   suspended: 'afbrudt',
 };
 
+/**
+ * Kamp-niveauets period som UFARLIG streng. Feltet kommer fra en fremmed
+ * kilde og kan være hvad som helst — også et objekt, som String() KASTER på
+ * ({toString: null} er JSON-nåbart), og så ville ÉN giftig kamp vælte hele
+ * minuttets kørsel for spillet (Security-fund). Ikke-strenge bliver
+ * 'ikke-streng': regnes i gang (fail-sikkert — aldrig et falsk "Slut") og
+ * vises som blot DIREKTE, mens de raske kampe kører videre.
+ */
+function plPeriodStr(p) {
+  if (typeof p === 'string') return p;
+  return p == null ? '' : 'ikke-streng';
+}
+
+/** Normaliseret period til sammenligning — ÉN stavemåde-vagt for alle veje. */
+function plPeriodNorm(m) {
+  return plPeriodStr(m.period).trim().toLowerCase();
+}
+
 /** period → vores lukkede sæt. Ukendt bliver 'ukendt' og logges. */
 function plLiveStatus(raw) {
   const n = String(raw ?? '').trim().toLowerCase();
@@ -288,7 +306,9 @@ function plLiveStatus(raw) {
   // 'constructor' rammer Object.prototype og giver en funktion, Admin SDK
   // ikke kan serialisere — og så ville hele minut-synken kaste tavst.
   const kendt = Object.prototype.hasOwnProperty.call(PL_PERIOD_STATUS, n) ? PL_PERIOD_STATUS[n] : null;
-  if (!kendt && n) console.warn(`pulselive: ukendt live-period "${raw}" — vises som blot "direkte".`);
+  // Klippet i loggen som i statusRaw — et fjendtligt token skal ikke kunne
+  // fylde loggen med vilkårlig længde.
+  if (!kendt && n) console.warn(`pulselive: ukendt live-period "${n.slice(0, 40)}" — vises som blot "direkte".`);
   return kendt || 'ukendt';
 }
 
@@ -302,14 +322,18 @@ function plLiveStatus(raw) {
  * (det fanger data-liste-vagten i plAlleKampe).
  */
 function plIGang(m) {
-  const p = String(m.period ?? '').trim().toLowerCase();
+  const p = plPeriodNorm(m);
   return p !== '' && p !== 'prematch' && p !== 'fulltime';
 }
 
 const pulselive = {
   async hentFaerdige(sync, fetchFn) {
+    // Samme normaliserede period-vagt som live-vejen (plPeriodNorm): matcher
+    // vi 'FullTime' case-følsomt her og case-løst dér, kan en ren
+    // stavemåde-ændring fra kilden gøre kampen stum i BEGGE ender — intet
+    // facit OG ingen live — og kun sweep-alarmen fanger det timer senere.
     return (await plAlleKampe(sync, fetchFn))
-      .filter((m) => m.period === 'FullTime'
+      .filter((m) => plPeriodNorm(m) === 'fulltime'
         && Number.isFinite(m.homeTeam?.score) && Number.isFinite(m.awayTeam?.score))
       .map((m) => ({
         sourceKey: String(m.matchId),
@@ -355,10 +379,10 @@ const pulselive = {
           sourceKey: String(m.matchId),
           home: m.homeTeam.score,
           away: m.awayTeam.score,
-          status: plLiveStatus(m.period),
+          status: plLiveStatus(plPeriodStr(m.period)),
           // Kun til fejlsøgning i loggen — må ALDRIG renderes (samme klip og
           // samme grund som superligaens statusRaw).
-          statusRaw: String(m.period ?? '').slice(0, 40),
+          statusRaw: plPeriodStr(m.period).slice(0, 40),
         })),
       // Bygget på den UFILTREREDE i-gang-liste (kontrakten): vores eget
       // score-filter må ikke kunne læses som slutfløjt for en kamp i gang
