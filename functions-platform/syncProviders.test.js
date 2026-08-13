@@ -257,10 +257,49 @@ describe('pulselive-provideren', () => {
     expect(rows.map((r) => r.rank)).not.toEqual(fxStandings.entries.map((e) => e.overall.position).concat(5));
   });
 
-  it('hentLive melder "kan ikke levere": tomme events og stadigIGang null — aldrig en tom Set', async () => {
-    const ud = await PROVIDERS.pulselive.hentLive(sync, async () => { throw new Error('må ikke hente'); });
-    expect(ud.events).toEqual([]);
-    expect(ud.stadigIGang).toBeNull();
+  it('hentLive: period afgør i-gang, oversættes til det lukkede sæt — og hviletilstande holdes helt ude', async () => {
+    const iGangAf = (period, matchId, ekstra = {}) => ({
+      ...fuldtid, matchId, period, ...ekstra,
+    });
+    const fetchFn = fetchRuter([
+      ['/matches', () => ({
+        pagination: { _next: null },
+        data: [
+          foerKamp, // PreMatch → hverken event eller stadigIGang
+          fuldtid, // FullTime → samme (facit-vejen ejer den)
+          iGangAf('FirstHalf', '801'),
+          iGangAf('HalfTime', '802'),
+          iGangAf('SecondHalf', '803'),
+          // Ukendt token: SKAL regnes i gang ('ukendt' → blot "DIREKTE") —
+          // et nyt ord fra kilden må aldrig kunne blive et falsk slutfløjt.
+          // 'Constructor' rammer samtidig prototype-fælden fra superligaens
+          // liveStatus: et alm. opslag gav en FUNKTION, ikke null.
+          iGangAf('Constructor', '804'),
+          // I gang, men uden brugbar stilling: UDE af events, MED i
+          // stadigIGang — vores eget score-filter må ikke ligne slutfløjt.
+          iGangAf('SecondHalf', '805', { homeTeam: { ...fuldtid.homeTeam, score: null } }),
+        ],
+      })],
+    ]);
+    const ud = await PROVIDERS.pulselive.hentLive(sync, fetchFn);
+    expect(ud.events).toEqual([
+      { sourceKey: '801', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'foerste', statusRaw: 'FirstHalf' },
+      { sourceKey: '802', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'pause', statusRaw: 'HalfTime' },
+      { sourceKey: '803', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'anden', statusRaw: 'SecondHalf' },
+      { sourceKey: '804', home: fuldtid.homeTeam.score, away: fuldtid.awayTeam.score, status: 'ukendt', statusRaw: 'Constructor' },
+    ]);
+    expect([...ud.stadigIGang].sort()).toEqual(['801', '802', '803', '804', '805']);
+    expect(ud.stadigIGang.has(String(fuldtid.matchId))).toBe(false);
+    expect(ud.stadigIGang.has(String(foerKamp.matchId))).toBe(false);
+  });
+
+  it('hentLive KASTER på et 200 uden data-liste — fravær er et skrive-signal, ikke "ingen kampe"', async () => {
+    // `data.data || []` ville her betyde: hver spillende kamp markeres slut,
+    // fordi et afkortet/ændret svar lignede en tom liste. Guarden i
+    // plAlleKampe dækker også facit og kickoffs (halvt billede → rød log).
+    const fetchFn = fetchRuter([['/matches', () => ({})]]);
+    await expect(PROVIDERS.pulselive.hentLive(sync, fetchFn)).rejects.toThrow(/uden data-liste/);
+    await expect(PROVIDERS.pulselive.hentFaerdige(sync, fetchFn)).rejects.toThrow(/uden data-liste/);
   });
 
   it('resolveDocs genfinder kilde-id som suffiks — og læser docIds som engangs-iterator', () => {
@@ -273,13 +312,15 @@ describe('pulselive-provideren', () => {
 });
 
 describe('syncLiveCore når kilden ikke kan levere live (stadigIGang null)', () => {
+  // Kontraktens null-gren er stadig en gren, en fremtidig kilde kan bruge —
+  // pulselive leverer nu selv, så grenen bevises med en fake-provider.
   it('markerer ALDRIG slut — en kamp uden livssignal beholder sin stilling', async () => {
     const toTimerSiden = new Date(Date.now() - 2 * 60 * 60 * 1000);
     const kamp = { kickoff: toTimerSiden, live: { home: 1, away: 0, status: 'anden', at: 1 } };
     const db = fakeDb({ 'r1-101': kamp });
     const ud = await syncLiveCore(db, FieldValue, {
       gameId: 'pl-test',
-      provider: PROVIDERS.pulselive,
+      provider: { ...oversaetter, async hentLive() { return { events: [], stadigIGang: null }; } },
       sync: {},
       fetchFn: async () => { throw new Error('må ikke hente'); },
       nowMs: Date.now(),
@@ -287,6 +328,35 @@ describe('syncLiveCore når kilden ikke kan levere live (stadigIGang null)', () 
     });
     expect(ud.sluttet).toBe(0);
     expect(db._docs.get('r1-101').live.status).toBe('anden'); // urørt
+  });
+});
+
+describe('PL-live hele vejen igennem kernen — den ÆGTE provider, r{runde}-{matchId}-opløsning', () => {
+  it('skriver live på det oversatte dokument og markerer den forsvundne kamp slut', async () => {
+    const toTimerSiden = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const fuldtid = fxMatches.perPeriod.FullTime[0];
+    const spiller = { kickoff: toTimerSiden };
+    const forsvundet = { kickoff: toTimerSiden, live: { home: 1, away: 1, status: 'anden', at: 1 } };
+    const db = fakeDb({ 'r1-901': spiller, 'r1-902': forsvundet });
+    const fetchFn = fetchRuter([
+      ['/matches', () => ({
+        pagination: { _next: null },
+        // 901 spiller (2-0 i første halvleg); 902 er VÆK fra kildens liste.
+        data: [{ ...fuldtid, matchId: '901', period: 'FirstHalf', homeTeam: { ...fuldtid.homeTeam, score: 2 }, awayTeam: { ...fuldtid.awayTeam, score: 0 } }],
+      })],
+    ]);
+    const ud = await syncLiveCore(db, FieldValue, {
+      gameId: 'pl-test',
+      provider: PROVIDERS.pulselive,
+      sync: { competitionId: 8, season: 2026 },
+      fetchFn,
+      nowMs: Date.now(),
+      only: [{ id: 'r1-901', data: spiller }, { id: 'r1-902', data: forsvundet }],
+    });
+    expect(ud.skrevet).toBe(1);
+    expect(ud.sluttede).toEqual(['r1-902']);
+    expect(db._docs.get('r1-901').live).toMatchObject({ home: 2, away: 0, status: 'foerste' });
+    expect(db._docs.get('r1-902').live.status).toBe('slut');
   });
 });
 

@@ -166,6 +166,19 @@ odds, Elo eller resultat, og den lader en kamp med facit helt være — dens
 tidspunkt er historie, ikke en deadline. Den bruger `update`, ikke `set`, så
 den kan heller ikke oprette en kamp, der ikke er seedet endnu.
 
+## Live-stilling på kampkortene (minut-synken)
+
+Begge ligaer leverer nu live: minut-synken skriver stilling + halvleg til
+kampens `live`-felt på kampdage, og facit rydder det. For **Premier League**
+er kamp-niveauets `period` kun observeret i hvile (`PreMatch`/`FullTime`) —
+oversættelsen af live-værdierne (`FirstHalf` → 1. halvleg osv.) bygger på
+API'ets egen navngivning på hændelses-niveau (`docs/PL_match_liv_bou.har`).
+Et token, vi ikke kender, fejler SIKKERT: kampen vises som blot "DIREKTE",
+regnes stadig som i gang (aldrig et falsk "Slut"), og der logges en warn med
+ordet — **tjek functions-loggen efter første PL-kampaften** (21/8) for
+`pulselive: ukendt live-period` og tilføj evt. manglende tokens i
+`PL_PERIOD_STATUS` (`functions-platform/syncProviders.js`).
+
 ## Rækkefølge ved ændringer i security rules
 
 Reglerne deployes **sammen med hosting**. Strammer man en regel, der kræver et
