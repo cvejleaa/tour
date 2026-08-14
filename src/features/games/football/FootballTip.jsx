@@ -298,8 +298,13 @@ export default function FootballTip({ game, me, matches }) {
         </div>
         {nextDeadline != null && (
           <>
+            {/* "Næste kamp låser", ikke "Deadline": runden HAR ingen samlet
+                deadline — hver kamp låser for sig (reglen står i linjen
+                nedenunder), og tælleren her ruller videre til næste ulåste
+                kamp, når en kamp går i gang. Ordet "Deadline" fik det til at
+                ligne én frist for hele kuponen. */}
             <div className={`round-head__meta ${deadlineSoon ? 'round-head__deadline--soon' : ''}`}>
-              Deadline {relativeDeadline(nextDeadline, new Date(nowMs))}
+              Næste kamp låser {relativeDeadline(nextDeadline, new Date(nowMs))}
             </div>
             <div className="round-head__meta" style={{ textTransform: 'none', letterSpacing: 0, opacity: 0.75 }}>
               Hver kamp låser ved sin egen kampstart

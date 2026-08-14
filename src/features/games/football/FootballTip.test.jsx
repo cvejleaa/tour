@@ -1240,3 +1240,30 @@ describe('FootballTip — startrunden', () => {
     expect(screen.queryByText('Runde 1')).toBeNull();
   });
 });
+
+// Rundens header lovede én "Deadline" for hele runden — men runden HAR ingen
+// samlet deadline: hver kamp låser for sig, og tælleren viser blot den næste
+// ulåste kamps kickoff. Etiketten skal sige dét — og det gamle ord må ikke
+// stå der (indholds-asserten, ikke kun "noget blev vist").
+describe('FootballTip — rundens header: næste kamp låser, ikke "Deadline"', () => {
+  it('kalder tælleren "Næste kamp låser" og nævner aldrig en runde-deadline', () => {
+    setup();
+    expect(screen.getByText(/^Næste kamp låser om/)).toBeInTheDocument();
+    expect(screen.getByText('Hver kamp låser ved sin egen kampstart')).toBeInTheDocument();
+    // 'deadline passeret' i en gem-fejl er en anden streng — her tjekkes
+    // headeren: intet element må starte med det gamle "Deadline …".
+    expect(screen.queryByText(/^Deadline\b/)).toBeNull();
+  });
+
+  it('ruller videre til NÆSTE ulåste kamp, når den første er gået i gang', () => {
+    // 10:00: kamp A (09:00) er låst, kamp B (12:00) er næste → "om 2 t".
+    // Stod tælleren stille på rundens FØRSTE kickoff, ville den sige "lukket".
+    vi.setSystemTime(new Date('2026-08-02T10:00:00Z'));
+    const staggered = [
+      { id: 'a', round: 1, home: 'AGF', away: 'F.C. København', kickoff: new Date('2026-08-02T09:00:00Z'), odds: null, result: null },
+      { id: 'b', round: 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: new Date('2026-08-02T12:00:00Z'), odds: null, result: null },
+    ];
+    setup({}, '/spil/sl', staggered);
+    expect(screen.getByText('Næste kamp låser om 2 t')).toBeInTheDocument();
+  });
+});
