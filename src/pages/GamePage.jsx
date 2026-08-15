@@ -11,6 +11,7 @@ import { useGame } from '../features/games/useGame';
 import { useAuth } from '../context/AuthContext';
 import { joinGame } from '../features/games/gameActions';
 import GameLayout from '../features/games/GameLayout';
+import ScrollRaekke from '../components/ScrollRaekke';
 import GameStandings from '../features/games/GameStandings';
 import GameLeagues from '../features/games/GameLeagues';
 import GameProfile from '../features/games/GameProfile';
@@ -116,9 +117,10 @@ export default function GamePage() {
         </div>
       ) : (
         <>
-          {/* Faner — vandret-scrollende underline-system (samme som andre steder).
-              Sekundære faner scroller væk på mobil i stedet for at wrappe. */}
-          <div className="tabs" role="tablist">
+          {/* Faner — wrap på desktop, scroll på mobil MED synligt hint
+              (ScrollRaekke). aktivNoegle: et dybt link (?fane=elo) skal lande
+              med den aktive fane i syne, ikke ude bag kanten. */}
+          <ScrollRaekke className="tabs" role="tablist" aktivNoegle={tab}>
             {GAME_TABS
               .filter((t) => faneVises(t, game))
               .map((t) => (
@@ -132,7 +134,7 @@ export default function GamePage() {
                   {t.label}
                 </button>
               ))}
-          </div>
+          </ScrollRaekke>
 
           {tab === 'stilling' ? (
             <GameStandings gameId={gameId} game={game} matches={matches} />

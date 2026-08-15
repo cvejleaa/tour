@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTasks } from '../context/TasksContext';
+import ScrollRaekke from './ScrollRaekke';
 import { usePendingApprovals } from '../features/admin/usePendingApprovals';
 import { useDriftAlarmCount } from '../features/admin/useDriftStatus';
 import { useUnreadMessages } from '../features/comments/useUnreadMessages';
@@ -58,7 +59,11 @@ export default function Layout({ children }) {
   return (
     <div>
       <header style={{ borderBottom: '1px solid var(--c-border)', background: 'var(--c-surface)' }}>
-        <nav className="container topnav">
+        {/* Naven scroller vandret på mobil (skjult scrollbar) — ScrollRaekke
+            viser en fade i den kant, der gemmer links (Safari-rapporten om
+            "usynlige faner" gjaldt samme mønster). På desktop wrapper den som
+            før, og hintet er så aldrig synligt. */}
+        <ScrollRaekke as="nav" className="container topnav">
           <span style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
             <span aria-hidden>{PLATFORM_MODE ? '🏆' : '🚴'}</span>
             <strong style={{ color: 'var(--c-pitch)' }}>{PLATFORM_MODE ? 'Vejleaa Tip' : 'Tour de France Tip'}</strong>
@@ -136,7 +141,7 @@ export default function Layout({ children }) {
             <NavLink to="/login" style={linkStyle}>Log ind</NavLink>
           )}
           {isOwner && <span title="Ejer" style={{ fontSize: 12, color: 'var(--c-muted)' }}>ejer</span>}
-        </nav>
+        </ScrollRaekke>
       </header>
       <main className="container">{children}</main>
     </div>
