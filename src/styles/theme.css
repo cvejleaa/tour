@@ -232,9 +232,10 @@ button {
    containeren giver højst 832 — så én linje klipper den sidste fane SELV på
    bred desktop, og på telefon (375-414 px) var kun 3 af 9 synlige, med
    skjult scrollbar og ingen markering ("fanerne kommer ikke frem",
-   Safari-rapporten). Wrap koster 2 rækker på desktop og viser alt; på mobil
-   ville den koste 3+, så dér scroller rækken — med .scrollx-hintet som
-   markering. */
+   Safari-rapporten). Wrap viser alt: spillets 9 faner koster 2 rækker ved
+   720-1024 px; admin-fanerne (10, bredere etiketter) 3 rækker ved 720 og 2
+   fra 848 (begge målt). På mobil ville wrap koste endnu flere, så dér
+   scroller rækken — med .scrollx-hintet som markering. */
 .tabs {
   display: flex;
   gap: 0.25rem;

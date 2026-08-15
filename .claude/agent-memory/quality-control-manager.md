@@ -136,3 +136,65 @@
   Spørg ved lignende oversættelser: er "er kampen i gang" afgjort af SAMME
   lukkede liste som viser teksten, eller af en bredere/uafhængig test? Det
   første er en fælde (nyt ord → falder ud af listen → regnes som hvile).
+
+## Vandret-scrollende faner (6dfe150): implementering mod planens 7 fund
+
+Alle 7 rettelser fra plan-gennemgangen blev fulgt. Konkrete efterprøvninger:
+
+- **Skygge-til-transparent slår behovet for "variabel pr. baggrund" ihjel.**
+  Planens bekymring (variabel pr. kontekst pga. to baggrunde × to temaer) var
+  rettet mod Lea Verou-tricket (solid COVER, der skal matche baggrunden
+  eksakt). Implementeringen bruger i stedet `linear-gradient(…, var(--scrollx-
+  blaek), transparent)` — en halvgennemsigtig skygge, ikke et dækkende lag.
+  Den slags kræver kun ÉN variabel PR TEMA (ikke pr. baggrund), fordi den
+  aldrig skal matche noget eksakt — kun være synlig oven på det. Bekræftet: alle
+  fire brugssteder (side-bg, card-bg, topnav-surface, begge temaer) er dækket
+  af to variabler. God løsning at pege på næste gang "fade mod baggrund" dukker
+  op — skygge-til-transparent slår altid variabel-pr-kontekst-problemet, en
+  solid cover gør det aldrig.
+- **`aktivNoegle` (scroll-aktiv-fane-i-syne) er KUN kablet på GamePage.**
+  `AdminPage.jsx` og `Layout.jsx`s brug af `ScrollRaekke` sender ikke
+  `aktivNoegle` — ingen effekt, ingen scroll. Harmløst i dag: AdminPage har
+  ingen URL-deep-link til en fane (kun `useState`), så den aktive fane er
+  altid den, brugeren lige klikkede, og dermed allerede i syne. Spørg igen,
+  hvis AdminPage nogensinde får `?tab=`-deep-linking.
+- **`LeaderboardPage.jsx` og `TestsTab.jsx` er bevidst UDEN `ScrollRaekke`**
+  (bruger stadig bar `<div className="tabs">`), og de RAMMES af den nye
+  `.tabs`-CSS (wrap ≥720px, scroll <720px) uden fade-hint. Efterprøvet:
+  begge har kun 3 korte faner ("📊 Samlet stilling" / "📅 Dagens etape" /
+  "🧮 Udspecificeret" hhv. "📊 Oversigt" / "🕸️ Afhængigheder" / "📋 Detaljer") —
+  overflower aldrig, uanset bredde. Harmløst, men IKKE målt af
+  `scripts/fanebredde.mjs` (den dækker kun GAME_TABS og ADMIN_FANER) — hvis en
+  af disse to sider nogensinde får flere/længere faner, er der ingen automatisk
+  advarsel.
+- **Hul c2 (`.table-wrap`/`.elo-wrap`/`.sltab-wrap`/`TeamPage.jsx`) er stadig
+  helt urørt** efter 6dfe150 — bekræftet uændret i theme.css. Forsvarlig
+  scope-beslutning (tabeller er et andet mønster, elo-table har allerede en
+  sticky holdkolonne som delvis affordance), MEN intet sted — hverken
+  kode-kommentar, commit-besked eller doc — markerer det som en bevidst,
+  udskudt beslutning frem for en overset rest. Sig det højt igen, hvis nogen
+  rapporterer "kan ikke se hele tabellen på mobil".
+- **Min egen note "12 faner i PLATFORM_MODE" (Faste steder at kigge) var
+  FORÆLDET.** Talt efter i `AdminPage.jsx` (linje ~52-93, aug. 2026): en ejer
+  i PLATFORM_MODE ser præcis **10** faner (Brugere, Spil-tidsplan,
+  Hold-farver, Påmindelser, Runde-Botten, Tests, Driftstatus, Mail-log,
+  Aktivitet, Send mail) — matcher `scripts/fanebredde.mjs`s `ADMIN_FANER`
+  eksakt, kørt og bekræftet (2/10 synlige @390px scroll, 5/3/2 rækker ved
+  hhv. 390/720/848px wrap). 12-tallet var enten forældet eller talte
+  Tour-mode-fanerne (11, andet sæt) med. Ret fremtidige noter til 10.
+- **theme.css's kommentar "Wrap koster 2 rækker på desktop" er kun bevist for
+  GAME_TABS (9 faner)** — bekræftet 2 rækker ved 720/848/1024px. For
+  ADMIN_FANER (10) giver samme wrap-CSS 3 rækker ved 720px og først 2 fra
+  848px (målt med scriptet). Ikke en fejl (alt er stadig synligt, bare i 3
+  rækker i et smalt bånd), men kommentaren generaliserer et tal, der er
+  specifikt for spil-fanerne — værd at præcisere, hvis nogen citerer "2
+  rækker" som en generel garanti.
+- **AdminPage mistede en reel, ikke nævnt visuel forskel ved konverteringen
+  til `.tab`:** den aktive fane var FØR fed (`fontWeight: 700` vs. 500); nu er
+  `.tab` ensartet 600, og `.tab--active` ændrer kun farve/kant — ingen
+  vægt-forskel længere. Padding faldt også (0.6rem/1.2rem → 0.55rem/0.7rem,
+  nødvendigt for at 10 faner kan være med i wrap). Ingen test dækker
+  font-weight/padding, så intet blev rødt. Acceptabel konsekvens af at dele
+  systemet, men var ikke nævnt i commit-beskeden — værd at spørge om næste
+  gang en håndrullet stil lægges over på et fælles system: "hvilken visuel
+  egenskab forsvinder, og er den nævnt?"
