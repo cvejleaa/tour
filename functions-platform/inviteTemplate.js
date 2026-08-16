@@ -113,7 +113,9 @@ function ligaProfil(game) {
       chip3: efteraar ? '&#128197; 18 runder &mdash; afgjort til jul' : '&#127942; Kun &aelig;re p&aring; spil',
       harPulje,
       poolSize,
-      rundeImg: null,
+      // Ægte PL-screenshot (ejerens, runde 1 med Arsenal-Coventry) —
+      // committet i public/salgstale/, ellers måtte stien ikke stå her.
+      rundeImg: 'salgstale/runde-pl.png',
       puljeImg: null,
     };
   }
