@@ -199,4 +199,12 @@ describe('invitationsHtml — linket escapes i href (Security-fund F2)', () => {
   it('et giftigt navnefelt ({toString:null}) vælter ikke profilen', () => {
     expect(() => ligaProfil({ name: { toString: null }, sync: { provider: 'pulselive' } })).not.toThrow();
   });
+
+  it('…og heller ikke et giftigt shortName — den gren har sin EGEN vagt', () => {
+    // TM-fund: name-vagten var bevist, shortName-vagten kunne fjernes med
+    // grøn suite. Ukendt-provider-grenen er den eneste, der læser shortName.
+    expect(() => ligaProfil({ shortName: { toString: null }, sync: { provider: 'ukendt' } })).not.toThrow();
+    const l = ligaProfil({ shortName: { toString: null }, name: 'Ligaen X', sync: { provider: 'ukendt' } });
+    expect(l.navn).toBe('Ligaen X'); // falder til name, ikke til et objekt
+  });
 });
