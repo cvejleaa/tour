@@ -92,7 +92,7 @@ describe('ligaProfil — profilen afledes af SPIL-DOKUMENTET', () => {
     expect(l.periode).not.toContain('s&aelig;son');
     expect(l.chip3).toContain('18 runder');
     expect(l.harPulje).toBe(false);
-    expect(l.rundeImg).toBe('salgstale/runde-pl.png'); // PL's EGET screenshot
+    expect(l.rundeImg).toBe('salgstale/runde-pl-kampkort.png'); // PL's EGET screenshot
     expect(l.puljeImg).toBeNull();
   });
 
@@ -133,7 +133,7 @@ describe('invitationsHtml — Premier League-invitationen', () => {
 
   it('siger ALDRIG Superligaen — og viser KUN PL-spillets eget skærmbillede', () => {
     expect(html).not.toContain('Superliga');
-    expect(html).toContain('salgstale/runde-pl.png');
+    expect(html).toContain('salgstale/runde-pl-kampkort.png');
     expect(html).not.toContain('salgstale/runde.png');  // SL-billedet
     expect(html).not.toContain('salgstale/pulje.png');  // SL-puljen
     expect(html).not.toContain('mesterskabsspillet');
