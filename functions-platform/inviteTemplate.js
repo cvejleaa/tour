@@ -174,10 +174,10 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
     <div style="font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#f7d417;">&#9917; ${esc(l.navn)} skal tippes &middot; ${l.periode}</div>
     <div style="font-family:${FONT};font-size:30px;line-height:34px;font-weight:bold;color:#ffffff;padding:10px 0 8px 0;">${l.overskrift}</div>
     <div style="font-family:${FONT};font-size:16px;line-height:23px;color:#eaf5ef;">Runde for runde tipper du 1, X eller 2. Point f&oslash;lger oddsene, bonusserne bel&oslash;nner de modige, og mini-ligaen med vennerne holder gryden i kog hele s&aelig;sonen. Alle starter p&aring; nul, og det kr&aelig;ver nul fodboldforstand.</div>
-    <div style="font-family:${FONT};font-size:13px;font-weight:bold;color:#0b3f2c;padding:16px 0 0 0;">
-      <span style="background:#ffffff;padding:6px 12px;border-radius:20px;">&#9201; ~2 min pr. runde</span>&nbsp;
-      <span style="background:#ffffff;padding:6px 12px;border-radius:20px;">&#129504; Ren mavefornemmelse</span>&nbsp;
-      <span style="background:#f7d417;padding:6px 12px;border-radius:20px;">${l.chip3}</span>
+    <div style="font-family:${FONT};font-size:13px;font-weight:bold;color:#0b3f2c;padding:10px 0 0 0;">
+      <span style="display:inline-block;white-space:nowrap;background:#ffffff;padding:6px 12px;border-radius:20px;margin:6px 6px 0 0;">&#9201; ~2 min pr. runde</span>
+      <span style="display:inline-block;white-space:nowrap;background:#ffffff;padding:6px 12px;border-radius:20px;margin:6px 6px 0 0;">&#129504; Ren mavefornemmelse</span>
+      <span style="display:inline-block;white-space:nowrap;background:#f7d417;padding:6px 12px;border-radius:20px;margin:6px 0 0 0;">${l.chip3}</span>
     </div>
   </td></tr>
 
@@ -194,10 +194,10 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
 
   ${card({
     kicker: '&#127919; Flere veje til point',
-    title: l.harPulje ? 'Combi-bonus, Chancen og s&aelig;sonens pulje' : 'Combi-bonus, Chancen og liga-sp&oslash;rgsm&aring;l',
+    title: l.harPulje ? 'Runde-bonus, Chancen og s&aelig;sonens pulje' : 'Runde-bonus, Chancen og liga-sp&oslash;rgsm&aring;l',
     rows: [
-      featureRow({ n: 1, title: 'Combi-bonus &#127920;', text: 'Oddsene p&aring; de kampe, du rammer, ganges sammen, og du f&aring;r 2 &times; kvadratroden af produktet i bonus &mdash; h&oslash;jst 25 point. Det t&aelig;ller fra to rigtige og opefter, og en glemt kamp koster dig ikke bonussen.' }),
-      featureRow({ n: 2, title: 'Chancen &#9889;', text: 'N&aring;r du er HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af rundens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.' }),
+      featureRow({ n: 1, title: 'Runde-bonus &#127920;', text: 'Oddsene p&aring; de kampe, du rammer, ganges sammen, og du f&aring;r 2 &times; kvadratroden af produktet i bonus &mdash; h&oslash;jst 25 point. Det t&aelig;ller fra to rigtige og opefter, og en glemt kamp koster dig ikke bonussen.' }),
+      featureRow({ n: 2, title: 'Chancen &#9889;', text: 'Hvis du f&oslash;ler dig HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af rundens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.' }),
       l.harPulje
         ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `S&aelig;sonens store bonuspot: udpeg de <b>${l.poolSize} hold</b>, du tror ender i mesterskabsspillet. <b>+4 point</b> pr. rigtigt hold og <b>+10 bonus</b> for alle ${l.poolSize} &mdash; afgjort til allersidst, s&aring; det kan vende hele stillingen.`, last: true })
         : featureRow({ n: 3, title: 'Liga-sp&oslash;rgsm&aring;l &#127942;', text: 'Ligaens egen joker: liga-admin stiller sp&oslash;rgsm&aring;l (&quot;hvem bliver topscorer?&quot;), I svarer f&oslash;r deadline &mdash; og pointene falder, n&aring;r facit kendes, s&aring; de kan vende stillingen sent.', last: true }),

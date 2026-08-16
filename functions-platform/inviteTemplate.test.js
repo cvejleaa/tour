@@ -38,7 +38,7 @@ describe('invitationsHtml — Superligaen (default, bagudkompatibel)', () => {
 
   it('præsenterer hele spillet, ikke kun puljen', () => {
     const html = superligaInviteHtml(base);
-    for (const s of ['1, X eller 2', 'Combi-bonus', 'Chancen', 'Pulje-tippet', 'mini-liga', 'Runde-Botten', 'Elo']) {
+    for (const s of ['1, X eller 2', 'Runde-bonus', 'Chancen', 'Pulje-tippet', 'mini-liga', 'Runde-Botten', 'Elo']) {
       expect(html).toContain(s);
     }
     // Runde-tippet skal stå før puljen i mailen.
@@ -147,8 +147,27 @@ describe('invitationsHtml — Premier League-invitationen', () => {
     expect(html.split('liga-admin').length).toBe(2); // nævnes præcis én gang
   });
 
+  it('bonussen omtales under ÉT navn og kun én gang — og Chancen starter med ejerens ordlyd', () => {
+    // Testmail-fund (ejeren): 'Runde-bonus' i billedet og 'Combi-bonus' i
+    // teksten var to navne for samme regel — og den var omtalt to gange.
+    expect(html).not.toContain('Combi-bonus');
+    // Kort-overskriften opremser + rækken forklarer = to navne-forekomster,
+    // men FORKLARINGEN (kvadratrods-reglen) må kun stå én gang.
+    expect(html.split('Runde-bonus').length).toBe(3);
+    expect(html.split('kvadratroden').length).toBe(2);
+    expect(html).toContain('Hvis du f&oslash;ler dig HELT sikker');
+    expect(html).not.toContain('N&aring;r du er HELT sikker');
+  });
+
+  it('hero-chips ombrydes som hele piller — aldrig midt i teksten', () => {
+    // Overløbet i testmailen: chip-teksten knækkede midt i pillen.
+    const chips = html.match(/<span style="[^"]*border-radius:20px[^"]*"/g) || [];
+    expect(chips.length).toBe(3);
+    for (const c of chips) expect(c).toContain('white-space:nowrap');
+  });
+
   it('kernen består: 1X2, combi, chancen, Runde-Botten og den gule CTA', () => {
-    for (const t of ['1, X eller 2', 'Combi-bonus', 'Chancen', 'Runde-Botten', 'Buddy ligaen', 'kode=4GGR99']) {
+    for (const t of ['1, X eller 2', 'Runde-bonus', 'Chancen', 'Runde-Botten', 'Buddy ligaen', 'kode=4GGR99']) {
       expect(html).toContain(t);
     }
   });
