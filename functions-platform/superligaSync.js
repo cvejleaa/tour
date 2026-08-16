@@ -341,7 +341,13 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   // kørte fint. Ét felt på SPIL-dokumentet i stedet for på hver kamp: det
   // koster én læsning pr. klient i minuttet frem for én pr. kamp, og useGame
   // lytter på dokumentet i forvejen. Ingen trigger hænger på games/{id}.
-  if (events.length > 0) {
+  //
+  // KUN når mindst én live-hændelse hører til SPILLET (Security-fund):
+  // kildernes lister er hele ligaen, så en fremmed kamp — en anden rundes
+  // weekend, en playoff-kamp uden dokument — må ikke kunne holde pulsen
+  // falsk-frisk; så slog klientens "forældet"-dæmpning aldrig til på en
+  // strandet stilling. resolved indeholder netop kun nøgler med dokument.
+  if (events.some((e) => resolved.get(e.sourceKey) != null)) {
     await db.collection('games').doc(gameId).set({ liveHeartbeatAt: nowMs }, { merge: true });
   }
   return { live: events.length, skrevet, sluttet, sluttede };

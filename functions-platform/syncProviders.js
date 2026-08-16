@@ -249,17 +249,91 @@ async function plAlleKampe(sync, fetchFn) {
     const res = await fetchFn(url, plOpt());
     if (!res.ok) throw new Error(`pulselive matches HTTP ${res.status}`);
     const data = await res.json();
-    kampe.push(...(data.data || []));
+    // Et 200 uden data-liste SKAL kaste — samme grund som superligaens
+    // hentLive: for live-kernen er fravær et SKRIVE-signal (kampe væk fra
+    // listen markeres slut), så en afkortet krop eller et ændret format må
+    // aldrig kunne ligne "ingen kampe". For facit og kickoffs er et halvt
+    // billede tilsvarende værre end en rød log.
+    if (!data || !Array.isArray(data.data)) throw new Error('pulselive: svar uden data-liste');
+    kampe.push(...data.data);
     next = data.pagination?._next || '';
     if (!next) break;
   }
   return kampe;
 }
 
+// Kamp-niveauets period → vores lukkede statussæt (samme sæt som Superligaen,
+// så klienten aldrig ser kildens egne ord). I fixtures er period kun
+// OBSERVERET som PreMatch/FullTime — live-værdierne herunder er API'ets egen
+// navngivning fra hændelses-niveauet i docs/PL_match_liv_bou.har (mål, kort
+// og udskiftninger bærer period "FirstHalf"/"SecondHalf"), plus de gængse
+// naboer i samme familie. En værdi, vi ikke kender, bliver 'ukendt' (vises
+// som blot "DIREKTE") og logges — første kampaften 21/8 afslører så evt.
+// tokens, vi mangler, uden at noget vælter.
+const PL_PERIOD_STATUS = {
+  firsthalf: 'foerste',
+  halftime: 'pause',
+  secondhalf: 'anden',
+  extratime: 'forlaenget',
+  shootout: 'straffe',
+  abandoned: 'afbrudt',
+  postponed: 'afbrudt',
+  suspended: 'afbrudt',
+};
+
+/**
+ * Kamp-niveauets period som UFARLIG streng. Feltet kommer fra en fremmed
+ * kilde og kan være hvad som helst — også et objekt, som String() KASTER på
+ * ({toString: null} er JSON-nåbart), og så ville ÉN giftig kamp vælte hele
+ * minuttets kørsel for spillet (Security-fund). Ikke-strenge bliver
+ * 'ikke-streng': regnes i gang (fail-sikkert — aldrig et falsk "Slut") og
+ * vises som blot DIREKTE, mens de raske kampe kører videre.
+ */
+function plPeriodStr(p) {
+  if (typeof p === 'string') return p;
+  return p == null ? '' : 'ikke-streng';
+}
+
+/** Normaliseret period til sammenligning — ÉN stavemåde-vagt for alle veje. */
+function plPeriodNorm(m) {
+  return plPeriodStr(m.period).trim().toLowerCase();
+}
+
+/** period → vores lukkede sæt. Ukendt bliver 'ukendt' og logges. */
+function plLiveStatus(raw) {
+  const n = String(raw ?? '').trim().toLowerCase();
+  // hasOwnProperty af samme grund som superligaens liveStatus: et opslag på
+  // 'constructor' rammer Object.prototype og giver en funktion, Admin SDK
+  // ikke kan serialisere — og så ville hele minut-synken kaste tavst.
+  const kendt = Object.prototype.hasOwnProperty.call(PL_PERIOD_STATUS, n) ? PL_PERIOD_STATUS[n] : null;
+  // Klippet i loggen som i statusRaw — et fjendtligt token skal ikke kunne
+  // fylde loggen med vilkårlig længde.
+  if (!kendt && n) console.warn(`pulselive: ukendt live-period "${n.slice(0, 40)}" — vises som blot "direkte".`);
+  return kendt || 'ukendt';
+}
+
+/**
+ * Er kampen i gang, set fra kilden? PreMatch og FullTime er de eneste
+ * HVILE-tilstande, vi har observeret — alt andet (kendt som ukendt) regnes
+ * som i gang. Den vej fejler et nyt token SIKKERT: kampen bliver i
+ * stadigIGang og kan aldrig få et falsk "Slut" af, at vi ikke kendte ordet.
+ * Manglende period regnes som HVILE — feltet står på hver eneste kamp i
+ * fixtures, så et hul er en enkelt kamps datafejl, ikke et formatskifte
+ * (det fanger data-liste-vagten i plAlleKampe).
+ */
+function plIGang(m) {
+  const p = plPeriodNorm(m);
+  return p !== '' && p !== 'prematch' && p !== 'fulltime';
+}
+
 const pulselive = {
   async hentFaerdige(sync, fetchFn) {
+    // Samme normaliserede period-vagt som live-vejen (plPeriodNorm): matcher
+    // vi 'FullTime' case-følsomt her og case-løst dér, kan en ren
+    // stavemåde-ændring fra kilden gøre kampen stum i BEGGE ender — intet
+    // facit OG ingen live — og kun sweep-alarmen fanger det timer senere.
     return (await plAlleKampe(sync, fetchFn))
-      .filter((m) => m.period === 'FullTime'
+      .filter((m) => plPeriodNorm(m) === 'fulltime'
         && Number.isFinite(m.homeTeam?.score) && Number.isFinite(m.awayTeam?.score))
       .map((m) => ({
         sourceKey: String(m.matchId),
@@ -286,13 +360,35 @@ const pulselive = {
       });
   },
 
-  // Live er endnu ikke implementeret for pulselive: period-værdierne for en
-  // kamp I GANG kan først observeres på en kampdag (fixtures har kun PreMatch
-  // og FullTime). null er kontraktens "jeg ved det ikke" — kernen skriver
-  // ingen live-stilling og markerer ALDRIG slut på det. Kaste må den ikke:
-  // det ville fylde loggen hvert minut i hele kampvinduet.
-  async hentLive() {
-    return { events: [], stadigIGang: null };
+  // Samme sæson-liste som facit og kickoffs — med vilje IKKE matchweek-
+  // filtreret: kilden KAN omdøbe en kamps matchWeek (resolveDocs-invarianten:
+  // vores runde står fast, kampen genfindes på sit id), og en kamp, der
+  // faldt uden for et matchweek-filter, ville mangle i stadigIGang og få et
+  // falsk "Slut" midt i spillet. Prisen, ærligt talt: i et kampvindue henter
+  // minuttets kørsel sæson-listen TO gange (hentFaerdige + hentLive deler
+  // ikke svar), altså ~8 sider i minuttet — kun i kampvinduer
+  // (runScheduledSync exiter tidligt uden ventende kampe). Det er prisen
+  // værd; en cache på tværs af de to kald er et sæsoneftersyns-emne.
+  async hentLive(sync, fetchFn) {
+    const alle = await plAlleKampe(sync, fetchFn);
+    const iGang = alle.filter(plIGang);
+    return {
+      events: iGang
+        .filter((m) => Number.isFinite(m.homeTeam?.score) && Number.isFinite(m.awayTeam?.score))
+        .map((m) => ({
+          sourceKey: String(m.matchId),
+          home: m.homeTeam.score,
+          away: m.awayTeam.score,
+          status: plLiveStatus(plPeriodStr(m.period)),
+          // Kun til fejlsøgning i loggen — må ALDRIG renderes (samme klip og
+          // samme grund som superligaens statusRaw).
+          statusRaw: plPeriodStr(m.period).slice(0, 40),
+        })),
+      // Bygget på den UFILTREREDE i-gang-liste (kontrakten): vores eget
+      // score-filter må ikke kunne læses som slutfløjt for en kamp i gang
+      // med en (endnu) ubrugelig stilling.
+      stadigIGang: new Set(iGang.map((m) => String(m.matchId))),
+    };
   },
 
   async hentStandings(sync, fetchFn) {
@@ -370,4 +466,5 @@ module.exports = {
   PROVIDERS, SYNCED_GAMES,
   SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   matchDocId, liveStatus, LIVE_STATUS, resultsUrl, liveUrl, standingsUrl, hentOpt,
+  plLiveStatus, PL_PERIOD_STATUS,
 };

@@ -195,10 +195,14 @@ export default function BroadcastTab() {
       subject: subject.trim(),
       body: finalBody.trim(),
       recipients: valid,
-      // Salgstale-skabelon: serveren bygger HTML'en med skærmbilleder + gul
+      // Salgstale-skabelon: serveren bygger HTML'en med salgstale + gul
       // tilmeldingsblok; teksten ovenfor bliver mailens personlige intro.
+      // gameId sendes med, så skabelonen følger SPILLET (liganavn, pulje-
+      // kapitel, billeder) — uden det fik PL-invitationen Superligaens mail.
       ...(useTemplate
-        ? { template: PLATFORM_MODE ? 'superliga' : 'salespitch', joinLink, leagueName: selectedLeague?.name }
+        ? (PLATFORM_MODE
+          ? { template: 'invitation', gameId, joinLink, leagueName: selectedLeague?.name }
+          : { template: 'salespitch', joinLink, leagueName: selectedLeague?.name })
         : {}),
     });
     setBusy(false);
@@ -239,7 +243,7 @@ export default function BroadcastTab() {
             data-testid="broadcast-template"
           />
           {PLATFORM_MODE
-            ? '📸 Brug invitations-skabelonen (pulje-skærmbillede + gul tilmeldingsknap)'
+            ? '📸 Brug invitations-skabelonen (salgstale for det valgte spil + gul tilmeldingsknap)'
             : '📸 Brug salgstale-skabelonen (skærmbilleder + gul tilmeldingsblok)'}
         </label>
 

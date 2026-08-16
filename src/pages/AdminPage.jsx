@@ -22,6 +22,7 @@ import GameScheduleTab from '../features/admin/GameScheduleTab';
 import GameReminderTab from '../features/admin/GameReminderTab';
 import GameRecapBotTab from '../features/admin/GameRecapBotTab';
 import DriftTab from '../features/admin/DriftTab';
+import ScrollRaekke from '../components/ScrollRaekke';
 
 // Fane-id'er
 const TAB_USERS   = 'users';
@@ -107,40 +108,25 @@ export default function AdminPage() {
         </p>
       </div>
 
-      {/* Fane-bjælke */}
-      <div
-        style={{
-          display: 'flex',
-          borderBottom: '2px solid var(--c-border)',
-          marginBottom: '1.5rem',
-          gap: 4,
-        }}
-      >
+      {/* Fane-bjælke — .tabs-systemet i stedet for den håndrullede kopi:
+          rækken havde hverken wrap eller scroll, så på en telefon lå de
+          fleste af de 10 faner usynlige uden markering (fanebredde.mjs:
+          2/10 synlige ved 390 px). Nu wrap på desktop, scroll + hint på
+          mobil — som spillets faner. */}
+      <ScrollRaekke className="tabs" role="tablist">
         {visibleTabs.map(({ key, label }) => (
           <button
             key={key}
+            role="tab"
+            aria-selected={tab === key}
             onClick={() => setTab(key)}
             data-testid={`tab-${key}`}
-            style={{
-              padding: '0.6rem 1.2rem',
-              background: 'transparent',
-              border: 'none',
-              borderBottom:
-                tab === key
-                  ? '3px solid var(--c-pitch)'
-                  : '3px solid transparent',
-              color: tab === key ? 'var(--c-pitch)' : 'var(--c-muted)',
-              fontWeight: tab === key ? 700 : 500,
-              cursor: 'pointer',
-              fontSize: '0.95rem',
-              marginBottom: -2, // dækker border-bottom på containeren
-              transition: 'color 0.15s',
-            }}
+            className={tab === key ? 'tab tab--active' : 'tab'}
           >
             {label}
           </button>
         ))}
-      </div>
+      </ScrollRaekke>
 
       {/* Fane-indhold */}
       <div className="card" style={{ padding: '1.25rem' }}>

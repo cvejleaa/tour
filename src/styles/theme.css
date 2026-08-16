@@ -216,7 +216,8 @@ button {
   .topnav {
     flex-wrap: nowrap;
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    /* -webkit-overflow-scrolling: touch er væk: no-op siden iOS 13, og den
+       tvang scrolleren på eget kompositionslag (QC-fund). */
     scrollbar-width: none;
   }
   .topnav::-webkit-scrollbar { display: none; }
@@ -226,16 +227,70 @@ button {
 
 /* ═══════════════════════ TABS ═══════════════════════ */
 
+/* WRAP på desktop, SCROLL på mobil — samme snit som .topnav, og målt med
+   scripts/fanebredde.mjs (aug. 2026): Superligaens 9 faner fylder 847 px,
+   containeren giver højst 832 — så én linje klipper den sidste fane SELV på
+   bred desktop, og på telefon (375-414 px) var kun 3 af 9 synlige, med
+   skjult scrollbar og ingen markering ("fanerne kommer ikke frem",
+   Safari-rapporten). Wrap viser alt: spillets 9 faner koster 2 rækker ved
+   720-1024 px; admin-fanerne (10, bredere etiketter) 3 rækker ved 720 og 2
+   fra 848 (begge målt). På mobil ville wrap koste endnu flere, så dér
+   scroller rækken — med .scrollx-hintet som markering. */
 .tabs {
   display: flex;
   gap: 0.25rem;
   border-bottom: 2px solid var(--c-border);
   margin-bottom: 1.25rem;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-wrap: wrap;
 }
 
-.tabs::-webkit-scrollbar { display: none; }
+@media (max-width: 720px) {
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+}
+
+/* ═══════════════ SCROLL-HINT (ScrollRaekke.jsx) ═══════════════ */
+
+/* Faden fortæller "der er mere den vej" — klasserne sættes af
+   IntersectionObserver-vagterne i ScrollRaekke.jsx, aldrig af CSS alene.
+   Blækket er tema-afhængigt: en mørk fade drukner på mørk baggrund. */
+:root { --scrollx-blaek: rgba(15, 26, 34, 0.28); }
+[data-theme='dark'] { --scrollx-blaek: rgba(255, 255, 255, 0.2); }
+
+.scrollx { position: relative; }
+
+.scrollx::before,
+.scrollx::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 26px;
+  opacity: 0;
+  transition: opacity var(--transition);
+  /* Uden denne æder overlægget klik på den yderste fane. */
+  pointer-events: none;
+  z-index: 2;
+}
+
+.scrollx::before {
+  left: 0;
+  background: linear-gradient(to right, var(--scrollx-blaek), transparent);
+}
+
+.scrollx::after {
+  right: 0;
+  background: linear-gradient(to left, var(--scrollx-blaek), transparent);
+}
+
+.scrollx--venstre::before { opacity: 1; }
+.scrollx--hoejre::after { opacity: 1; }
+
+.scrollx__vagt { flex: 0 0 1px; width: 1px; }
 
 .tab {
   background: none;

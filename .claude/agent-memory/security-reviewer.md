@@ -164,3 +164,125 @@
 - **Nyt: doc-id fra bruger-input skal whitelistes, ikke blacklistes.** `'/'`
   lukker sti-flugt, men `.`/`..`/`__x__` er reserverede og giver en ubehandlet
   SDK-fejl. Et ankret regex er ét udtryk mod tre fælder.
+
+## PL-live (690829a) — angrebsflade: FREMMED KILDE → felter alle kan læse
+
+PoC-mønster der virker og kan genbruges (ingen emulator nødvendig):
+ÆGTE provider + ÆGTE `syncLiveCore` + fake db (kopiér `fakeDb` fra
+`functions-platform/syncProviders.test.js` L27-70) + `fetchFn` der returnerer
+et FJENDTLIGT JSON-svar. Kør fra scratchpad, kræver ingen node_modules.
+
+**Afprøvet og RENT (bekræftet, gentag ikke):**
+- Fjendtlige EKSTRA felter i API-svaret (`result`, `homeGoals`, `status`,
+  `kickoff`, `points`) når ALDRIG dokumentet. `syncLiveCore` (superligaSync.js
+  L262-274) bygger objektet felt for felt — kun `live`. Kilden kan ikke røre
+  point.
+- Skrivningen er bundet i to led: `resolveDocs` fodres med `current.keys()`
+  (= `opts.only` = `pendingMatches`, kickoff inden for 2,5 t BAGUD), og
+  `if (!cur) continue` (L255). Et matchId uden for `only` skriver intet.
+  Live kan derfor aldrig stå på et kort, der stadig tager tips.
+- **Suffiks-forveksling findes ikke.** `resolveDocs` (syncProviders.js L399-412)
+  bygger et Map på det EKSAKTE suffiks efter sidste `-` og slår op med `get()`,
+  ikke `endsWith`. `'101'` rammer ikke `r1-9101`. (Kollision KAN opstå, hvis to
+  doc-id'er deler samme suffiks — sidste vinder — men PL-id'erne er
+  `r{runde}-{matchId}` med unikke matchIds.)
+- Prototype-fælden i `plLiveStatus` er lukket: `constructor`, `__proto__`,
+  `toString`, `hasOwnProperty`, `valueOf`, `prototype` giver alle `'ukendt'`
+  (streng). Kontrol: `FirstHalf`/`FIRSTHALF`/` firsthalf ` → `foerste`.
+- `status` er ALTID fra det lukkede sæt → intet kilde-ord når skærmen ad den
+  vej. `statusRaw` er altid `String(...).slice(0,40)` og renderes ingen steder
+  (kun `live.status`/`home`/`away` læses i footballRounds.js L192-210).
+- `Number.isFinite` filtrerer `'5'`, `{}`, `true`, `null` væk. **Men** `1e308`,
+  `-7` og `1.5` slipper igennem til `live.home/away` (kosmetisk; rører ikke point).
+- 200 uden `data`-liste kaster i BÅDE hentLive og hentFaerdige; dokumentet
+  urørt. Kontroltests grønne: tom liste → `slut`-markering (ikke sletning),
+  og facit slår live.
+
+**Nye angrebsveje/observationer (ikke-blokerende, kend dem):**
+- `{"period":{"toString":null}}` er JSON-nåbart og får `String(m.period)` til at
+  kaste `TypeError: Cannot convert object to primitive value` i `plIGang`
+  (syncProviders.js L305) — ÉN dårlig post dræber hele minuttets live-synk for
+  spillet. Fejler lukket (fanget i `runScheduledSync` L432), men blast radius er
+  hele listen.
+- `console.warn` logger `raw` UKLIPPET (L291) — modsat `statusRaw`. 5000 tegn
+  pr. kamp pr. minut, hvis kilden sender skrald.
+- `kampe.push(...data.data)` (L258) kaster RangeError ved ~300k elementer
+  (målt). Fejler lukket.
+- **Dobbelt hentning:** `hentFaerdige` OG `hentLive` kalder hver sin
+  `plAlleKampe` = 4+4 sider pr. minut pr. kampvindue. Værste tilfælde med
+  `AbortSignal.timeout(10000)`: 40 s + 40 s + superligaens 20 s = 100 s > de
+  60 s, `onSchedule` har som DEFAULT (ingen `timeoutSeconds` i
+  functions-platform/index.js L262). Rate-limit fra pulselive rammer FACIT-vejen,
+  ikke kun live. Afbødning: memoiser `plAlleKampe` pr. kørsel.
+- `hentFaerdige` matcher `m.period === 'FullTime'` CASE-FØLSOMT (L312), mens
+  `plIGang`/`plLiveStatus` lowercase-normaliserer. Ændrer kilden kun bogstavering,
+  bliver kampen stille i BEGGE ender (ingen live, intet facit) — kun sweep-alarmen
+  fanger det. Én normaliseret prædikat ville være "én vagt pr. regel".
+- `liveHeartbeatAt` bumpes af `events.length > 0` (superligaSync.js L344) — og
+  PL's `hentLive` er med vilje IKKE matchweek-filtreret, så en kamp UDEN FOR
+  spillets runder kan holde pulsen frisk for et spil, den ikke tilhører →
+  `forældet` bliver falsk-frisk. Kun relevant i overlappende runde-weekender.
+
+**Faldgrube til listen:** *en fremmed kilde skal ikke bare valideres pr. felt,
+men pr. POST — én giftig post må ikke kunne vælte hele partiet.* `String()` på
+et rå JSON-objekt kan kaste; læg `String()`-konverteringen i en try eller filtrer
+posten fra, hvis den ikke er en streng.
+
+## Invitations-mailen (eaa7836) — angrebsflade: ADMIN-INPUT → HTML i 300 mails
+
+PoC-mønster (ingen emulator, ingen node_modules): `inviteTemplate.js` er rene
+funktioner — `require()` dem direkte fra en scratchpad-fil og kald
+`ligaProfil(fjendtligtSpilDok)` + `invitationsHtml({...})`. Doc-path-adfærd kan
+testes offline: `cd functions-platform && node -e "...initializeApp({projectId:'demo-x'})..."`
+— `db.collection(c).doc(id)` validerer stien UDEN netværk.
+
+**BEKRÆFTEDE svagheder (pre-existing, admin-gated, ikke lukket):**
+- `joinLink.startsWith(APP_URL)` (index.js L664, APP_URL = `'https://tip.vejleaa.dk'`
+  UDEN skråstreg, mailer.js L14) slipper `https://tip.vejleaa.dk.evil.dk/…` OG
+  `https://tip.vejleaa.dk@evil.dk/` igennem. Vagtens erklærede formål ("knappen
+  kan aldrig pege ud af huset") holder ikke. Fix: `startsWith(APP_URL + '/')`.
+- `<a href="${cta}">` (inviteTemplate.js L189) flettes RÅT — `esc()` bruges kun
+  til den synlige kopi af linket (L192). `https://tip.vejleaa.dk/x" style="…` er
+  attribut-breakout, og `…/"></a></td></tr></table><a href="https://phish/">…`
+  er fuld HTML-injektion i mailen. Begge kørt, begge virker.
+  Sammen: en globalAdmin (= en af vennerne) kan sende en officiel
+  tip@vejleaa.dk-mail til 300 med en phishing-knap. Fix: `href="${esc(cta)}"`.
+- `gameId` fra klienten er ikke valideret som doc-id: `'a/b/c'` bliver til
+  `games/a/b/c` (subcollection-dok). `'.'`/`'..'` accepteres ved konstruktion.
+  Ingen lækage (kalderen er admin), men samme mønster som kvitterDriftAlarm →
+  ankret regex `/^[A-Za-z0-9_-]{1,200}$/`.
+
+**Afprøvet og RENT (gentag ikke):**
+- `requireAdmin` (index.js L607-615) er FØRSTE linje i sendBroadcastEmail →
+  ingen pending/menig når hverken gameId-opslaget eller SMTP.
+- `esc()` på `shortName || name` i ukendt-provider-grenen virker
+  (`<img src=x onerror=…>` → entiteter). Kontroltest kørt: PoC'en ville have
+  set den rå værdi, hvis den var der.
+- `poolSize = Number(x) || 6` kan ALDRIG blive en streng → ingen injektion.
+  `'<img …>'`→6, `{}`→6, `true`→1, `'1e400'`→Infinity (kosmetisk i mailen).
+- `intro` (admins fritekst) escapes; alle andre profilfelter (overskrift,
+  periode, chip3, navn i PL/SL-grenene) er faste konstanter i koden.
+- `broadcastHtml` (ikke-skabelon-grenen, mailer.js L55-57) er sikker: den
+  auto-linkende regex kører EFTER `escapeHtml`, så `"` er allerede `&quot;`
+  → ingen attribut-breakout. Modsat invitations-grenen.
+- `games/{id}: allow read: if isApproved()` (firestore.rules L619) → gameId-
+  opslaget kan ikke lække noget, en admin ikke måtte se. `allow create,update:
+  if isGlobalAdmin()` (L646) → spil-dokumentets indhold er admin→admin.
+- Omkostning: ét ekstra `get()` pr. kald, bag admin-porten, max 300 modtagere.
+
+**Observationer:**
+- `String(game.name)` kaster TypeError på `{name: {toString: null}}` (et lovligt
+  Firestore-map) → callable svarer `internal`. Admin→admin, kosmetisk.
+- Serveren falder TAVST tilbage til Superliga-profilen, hvis `gameId` mangler
+  (`if (gameId)`, index.js L668) → forkert mail, ikke ingen mail. Klienten kan
+  ikke ramme det (`canSend` kræver liga, liga kræver gameId), men en håndlavet
+  payload med `template:'invitation'` uden gameId sender SL-salgstalen om PL.
+  Kræv gameId ved `'invitation'`; behold `'superliga'` som den gamle vej.
+- `navn` har intet længdeloft (modsat `leagueName`, der `.slice(0,60)`).
+  50 000 tegns `shortName` → 111 KB HTML × 300 mails (målt).
+
+**Faldgrube til listen:** *escaping, der bor hos PRODUCENTEN i stedet for hos
+forbrugeren, er en tidsindstillet bombe.* `ligaProfil` returnerer et FÆRDIG-
+ESCAPET `navn`, mens `invitationsHtml` fletter `l.navn` råt ind. Kontrakten står
+kun i en kommentar. Næste profil-gren, nogen tilføjer uden `esc()`, er en
+injektion — og suiten bliver grøn. Escap ved indsættelsen, ikke ved dannelsen.

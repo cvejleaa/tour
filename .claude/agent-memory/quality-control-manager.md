@@ -103,3 +103,140 @@
   commit-beskeden siger det selv: "Driftstatus kun på platformen"). Enhver
   ny/flyttet admin-fane skal tjekkes op mod BÅDE tab-listen og teksten der
   beskriver den.
+
+## PL-live (690829a): pulselive-provideren — konkrete fund
+
+- **`plAlleKampe` har INGEN cache — to kaldere i samme minut-tick betaler
+  hver deres fulde sæson-paginering.** `runScheduledSync` kalder ALTID
+  `syncResultsCore` (→ `hentFaerdige` → `plAlleKampe`, ~4 sider) og derefter
+  `syncLiveCore` (→ `hentLive` → `plAlleKampe` IGEN, ~4 sider til) i samme
+  tick, uden at dele resultatet. Kode-kommentaren i `syncProviders.js`
+  ("Fire sider i minuttet ... er prisen værd") beskriver kun `hentLive`s EGEN
+  marginale pris — den samlede pris pr. minut i et kampvindue er **otte**
+  paginerede kald til pulselive, ikke fire. Ikke opdaget af nogen test (ingen
+  test kører `runScheduledSync` med den ÆGTE `PROVIDERS.pulselive` og tæller
+  fetch-kald). Ikke blokerende (samme gating, samme loft på 10 sider), men
+  værd at nævne næste gang nogen måler forbrug eller overvejer at cache
+  `plAlleKampe` inden for én tick.
+- **Et generisk hjælpetekst-løfte kan være ufuldbyrdet for ÉT spil uden at
+  det ses noget sted.** `FootballHelp.jsx`s "Mens kampen spilles: ... DIREKTE
+  og halvlegen, og den opdaterer sig selv hvert minut" er skrevet generisk
+  (spil-agnostisk, commit 26d0d6c) længe FØR Premier League fik rigtig live
+  (denne commit). Teksten var altså allerede vist til PL-brugere og loven
+  noget, koden ikke leverede, indtil 690829a. God ting at tjekke ved en
+  ny liga/nyt spil: findes der allerede en generisk hjælpetekst, der
+  forudsætter en egenskab (live, tabel, kickoff-synk), det nye spil endnu
+  ikke har?
+- **Ukendte kilde-tokens i en period/status-oversættelse er sikre HVIS
+  "i gang"-afgørelsen er UAFHÆNGIG af oversættelses-tabellen.** `plIGang()`
+  spørger direkte på det rå `period`-felt (kun `prematch`/`fulltime` er
+  hvile), mens `plLiveStatus()` (opslaget i `PL_PERIOD_STATUS`) kun styrer
+  DANSK TEKST. Et nyt, ukendt token kan derfor aldrig give et falsk "Slut" —
+  det giver højst en kamp uden halvlegs-tekst ("DIREKTE" uden ekstra ord).
+  Spørg ved lignende oversættelser: er "er kampen i gang" afgjort af SAMME
+  lukkede liste som viser teksten, eller af en bredere/uafhængig test? Det
+  første er en fælde (nyt ord → falder ud af listen → regnes som hvile).
+
+## Vandret-scrollende faner (6dfe150): implementering mod planens 7 fund
+
+Alle 7 rettelser fra plan-gennemgangen blev fulgt. Konkrete efterprøvninger:
+
+- **Skygge-til-transparent slår behovet for "variabel pr. baggrund" ihjel.**
+  Planens bekymring (variabel pr. kontekst pga. to baggrunde × to temaer) var
+  rettet mod Lea Verou-tricket (solid COVER, der skal matche baggrunden
+  eksakt). Implementeringen bruger i stedet `linear-gradient(…, var(--scrollx-
+  blaek), transparent)` — en halvgennemsigtig skygge, ikke et dækkende lag.
+  Den slags kræver kun ÉN variabel PR TEMA (ikke pr. baggrund), fordi den
+  aldrig skal matche noget eksakt — kun være synlig oven på det. Bekræftet: alle
+  fire brugssteder (side-bg, card-bg, topnav-surface, begge temaer) er dækket
+  af to variabler. God løsning at pege på næste gang "fade mod baggrund" dukker
+  op — skygge-til-transparent slår altid variabel-pr-kontekst-problemet, en
+  solid cover gør det aldrig.
+- **`aktivNoegle` (scroll-aktiv-fane-i-syne) er KUN kablet på GamePage.**
+  `AdminPage.jsx` og `Layout.jsx`s brug af `ScrollRaekke` sender ikke
+  `aktivNoegle` — ingen effekt, ingen scroll. Harmløst i dag: AdminPage har
+  ingen URL-deep-link til en fane (kun `useState`), så den aktive fane er
+  altid den, brugeren lige klikkede, og dermed allerede i syne. Spørg igen,
+  hvis AdminPage nogensinde får `?tab=`-deep-linking.
+- **`LeaderboardPage.jsx` og `TestsTab.jsx` er bevidst UDEN `ScrollRaekke`**
+  (bruger stadig bar `<div className="tabs">`), og de RAMMES af den nye
+  `.tabs`-CSS (wrap ≥720px, scroll <720px) uden fade-hint. Efterprøvet:
+  begge har kun 3 korte faner ("📊 Samlet stilling" / "📅 Dagens etape" /
+  "🧮 Udspecificeret" hhv. "📊 Oversigt" / "🕸️ Afhængigheder" / "📋 Detaljer") —
+  overflower aldrig, uanset bredde. Harmløst, men IKKE målt af
+  `scripts/fanebredde.mjs` (den dækker kun GAME_TABS og ADMIN_FANER) — hvis en
+  af disse to sider nogensinde får flere/længere faner, er der ingen automatisk
+  advarsel.
+- **Hul c2 (`.table-wrap`/`.elo-wrap`/`.sltab-wrap`/`TeamPage.jsx`) er stadig
+  helt urørt** efter 6dfe150 — bekræftet uændret i theme.css. Forsvarlig
+  scope-beslutning (tabeller er et andet mønster, elo-table har allerede en
+  sticky holdkolonne som delvis affordance), MEN intet sted — hverken
+  kode-kommentar, commit-besked eller doc — markerer det som en bevidst,
+  udskudt beslutning frem for en overset rest. Sig det højt igen, hvis nogen
+  rapporterer "kan ikke se hele tabellen på mobil".
+- **Min egen note "12 faner i PLATFORM_MODE" (Faste steder at kigge) var
+  FORÆLDET.** Talt efter i `AdminPage.jsx` (linje ~52-93, aug. 2026): en ejer
+  i PLATFORM_MODE ser præcis **10** faner (Brugere, Spil-tidsplan,
+  Hold-farver, Påmindelser, Runde-Botten, Tests, Driftstatus, Mail-log,
+  Aktivitet, Send mail) — matcher `scripts/fanebredde.mjs`s `ADMIN_FANER`
+  eksakt, kørt og bekræftet (2/10 synlige @390px scroll, 5/3/2 rækker ved
+  hhv. 390/720/848px wrap). 12-tallet var enten forældet eller talte
+  Tour-mode-fanerne (11, andet sæt) med. Ret fremtidige noter til 10.
+- **theme.css's kommentar "Wrap koster 2 rækker på desktop" er kun bevist for
+  GAME_TABS (9 faner)** — bekræftet 2 rækker ved 720/848/1024px. For
+  ADMIN_FANER (10) giver samme wrap-CSS 3 rækker ved 720px og først 2 fra
+  848px (målt med scriptet). Ikke en fejl (alt er stadig synligt, bare i 3
+  rækker i et smalt bånd), men kommentaren generaliserer et tal, der er
+  specifikt for spil-fanerne — værd at præcisere, hvis nogen citerer "2
+  rækker" som en generel garanti.
+- **AdminPage mistede en reel, ikke nævnt visuel forskel ved konverteringen
+  til `.tab`:** den aktive fane var FØR fed (`fontWeight: 700` vs. 500); nu er
+  `.tab` ensartet 600, og `.tab--active` ændrer kun farve/kant — ingen
+  vægt-forskel længere. Padding faldt også (0.6rem/1.2rem → 0.55rem/0.7rem,
+  nødvendigt for at 10 faner kan være med i wrap). Ingen test dækker
+  font-weight/padding, så intet blev rødt. Acceptabel konsekvens af at dele
+  systemet, men var ikke nævnt i commit-beskeden — værd at spørge om næste
+  gang en håndrullet stil lægges over på et fælles system: "hvilken visuel
+  egenskab forsvinder, og er den nævnt?"
+
+## Invitations-mailen følger spillet (eaa7836): et ægte split-deploy-hul
+
+- **`deploy-platform.yml` deployer HOSTING på hver kørsel, men functions kun
+  bag et opt-in flueben (`deployFunctions`, default FALSE).** En klient-
+  ændring, der begynder at sende en NY streng i et felt et `if (x === '...')`
+  matcher på server-siden (her: `template: 'invitation'` i stedet for det
+  gamle `'superliga'`), er derfor IKKE bagudkompatibel i praksis, selvom
+  server-KODEN i denne commit håndterer begge — for produktion kører den
+  GAMLE server, indtil nogen selv har tikket `deployFunctions` af. Gammel
+  server + ny klient: `if (template === 'superliga')` matcher ikke
+  `'invitation'`, falder til `else { html = broadcastHtml(body) }` — en
+  BAR e-mail uden hero, uden feature-kort og uden gul CTA-knap, OG uden
+  tilmeldingslink overhovedet (linket sidder normalt i knappen, ikke i
+  brødteksten). Ingen fejlbesked nogen steder — mailen sender "succesfuldt".
+  **Spørg fremover ved enhver ændring, der tilføjer en ny værdi til et felt,
+  serveren matcher strengt på:** kan klienten og serveren deployes hver for
+  sig (de kan her — hosting og functions er to forskellige deploy-trin/dage)?
+  Hvis ja, er "gammel server + ny klient" en reel, ikke kun teoretisk,
+  tilstand — test den eksplicit, og sig det til Release Manager: funktioner
+  og hosting for denne slags ændring skal i SAMME kørsel med
+  `deployFunctions: true`, ikke spredt over dage. Den sikre rækkefølge er
+  også omvendt af hvad workflowet gør i dag (hosting FØR functions i samme
+  run) — ideelt deployes functions før hosting, så en ny klient aldrig kan nå
+  at møde en gammel server.
+- **En regex på spillets NAVN til at style en salgstekst er en fælde, der kun
+  viser sig ved GENBRUG.** `ligaProfil()`s `efter[åa]r`-regex styrer kun
+  `periode`/`chip3`; `overskrift: 'Ny liga, blanke tavler'` er UBETINGET for
+  enhver `sync.provider === 'pulselive'`-profil. Testet direkte: et
+  fremtidigt forårs-spil (`pl2627-foraar`, en videreførelse af EFTERÅRETS
+  stilling, jf. kommentar i `scripts/games.mjs`) ville stadig få "Ny liga,
+  blanke tavler" — faktuelt forkert for en fortsættelse. Ikke en fejl i DAG
+  (spillet findes ikke endnu), men værd at genoprette denne note, når
+  forårsspillet oprettes: overskriften bør afgøres af SAMME regex/felt som
+  periode, ikke stå fast for hele provideren.
+- **God parathed ellers:** liga-spørgsmål (`LeagueQuestions.jsx` +
+  `leagueQuestionScoring.js`) er allerede fuldt spil-agnostiske (ingen
+  superliga-gating i `GameLeagues.jsx`), og Combi-bonus/Chancen bor i
+  `src/lib/superligaScoring.js` — et vildledende filnavn, for filen ER den
+  generiske fodbold-scoring-motor (bruges af `FootballTip`, `PuljeTip`,
+  `betActions.js` for alle fodboldspil, ikke kun Superligaen). Så PL-mailens
+  løfter om disse to var allerede sande uden ændring.

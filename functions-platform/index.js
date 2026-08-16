@@ -53,7 +53,7 @@ const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = requir
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
-const { superligaInviteHtml } = require('./inviteTemplate');
+const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
 
 initializeApp();
 
@@ -259,8 +259,11 @@ exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async 
 // Funktionsnavnet er historisk (deployet under det) — kørslen dækker ALLE
 // spil i SYNCED_GAMES, ét ad gangen. Det tidlige exit gælder pr. spil, så et
 // stille minut koster ét tomt opslag pr. synket spil.
+// timeoutSeconds: værste tilfælde er nu to spil × fuld sæson-liste × to veje
+// (facit + live à 10 s pr. side) — default 60 s kunne klippe kørslen midt i
+// et langsomt kampvindue (Security-fund). 120 s dækker med god margin.
 exports.syncSuperligaResults = onSchedule(
-  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION },
+  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION, timeoutSeconds: 120 },
   async () => {
     // Selve rækkefølgen — og det tidlige exit — bor i superligaSync, så den
     // kan unit-testes. Her logges kun resultatet.
@@ -645,16 +648,30 @@ exports.sendBroadcastEmail = onCall(
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
 
-    // Invitations-skabelon (grøn hero + pulje-skærmbillede + gul tilmeldings-
-    // knap). Kræver et joinLink på vores eget domæne, så knappen aldrig kan
-    // pege ud af huset.
+    // Invitations-skabelon (grøn hero + salgstale + gul tilmeldingsknap).
+    // Kræver et joinLink på vores eget domæne, så knappen aldrig kan pege ud
+    // af huset. SKABELONEN FØLGER SPILLET: klienten sender gameId, og profilen
+    // (liganavn, pulje-kapitel, billeder) afledes af spil-dokumentet — den
+    // første udgave var hardcodet til Superligaen, så PL-invitationen lovede
+    // et pulje-tip, spillet ikke har. 'superliga' accepteres stadig som
+    // skabelon-navn: en åben, gammel klient sender den uden gameId og skal
+    // blive ved med at få den gamle mail.
     let html;
-    if (request.data?.template === 'superliga') {
+    const template = request.data?.template;
+    if (template === 'invitation' || template === 'superliga') {
       const joinLink = String(request.data?.joinLink || '').trim();
-      if (!joinLink.startsWith(APP_URL)) {
-        throw new HttpsError('invalid-argument', 'Skabelonen kræver et tilmeldingslink på tip.vejleaa.dk.');
+      const gameId = String(request.data?.gameId || '').trim();
+      // Én vagt, ét sted: ren funktion i inviteTemplate.js, mutationstestet.
+      const fejl = invitationsFejl({ template, joinLink, gameId, appUrl: APP_URL });
+      if (fejl) throw new HttpsError('invalid-argument', fejl);
+      let game = null;
+      if (gameId) {
+        const snap = await db.collection('games').doc(gameId).get();
+        if (!snap.exists) throw new HttpsError('invalid-argument', 'Ukendt spil til invitationen.');
+        game = snap.data();
       }
-      html = superligaInviteHtml({
+      html = invitationsHtml({
+        liga: ligaProfil(game),
         intro: body, joinLink,
         leagueName: String(request.data?.leagueName || '').slice(0, 60),
         appUrl: APP_URL,
