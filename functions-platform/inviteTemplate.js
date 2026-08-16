@@ -1,12 +1,20 @@
 'use strict';
 // ---------------------------------------------------------------------------
-// inviteTemplate.js — HTML-skabelon for Superliga-invitationen (Send mail).
+// inviteTemplate.js — HTML-skabelon for spil-invitationen (Send mail).
 // Spejler Tour-salgstalens design: grøn hero, hvide kort, skærmbilleder fra
 // sitet (public/salgstale/*.png) og en gul tilmeldingsblok med ligaens
 // ét-kliks-link. Admins egen tekst (inkl. tilbageblik/top 5) står øverst.
 // Mailen skal præsentere HELE spillet: runde-tippet er hovedretten, mens
 // bonusserne, puljen, ligaen og ranglisten står som sidestillede kapitler.
-// Ren funktion — testbar uden Firebase.
+//
+// SKABELONEN FØLGER SPILLET (aug. 2026): den første udgave var hardcodet til
+// Superligaen, så PL-launch-mailen lovede et pulje-tip, spillet ikke har, og
+// viste Brøndby-kampe under en Premier League-overskrift. ligaProfil() afleder
+// alt af SPIL-DOKUMENTET (pulje er data, ikke en liga-liste) plus en lille
+// provider-profil for navn/overskrift/billeder. Et billede fra den forkerte
+// liga er værre end intet billede: stierne står KUN i profilen for de ligaer,
+// hvis skærmbilleder faktisk ligger i public/salgstale/.
+// Rene funktioner — testbare uden Firebase.
 // ---------------------------------------------------------------------------
 
 const FONT = "Arial,Helvetica,'Segoe UI',sans-serif";
@@ -50,34 +58,88 @@ function card({ kicker, title, body, rows, img, imgAlt, imgWidth = 430 }) {
 }
 
 /**
- * Byg hele Superliga-invitationen.
+ * Afled invitations-profilen af et SPIL-dokument. null/udeladt → Superligaens
+ * profil (bagudkompatibelt: gamle klienter sender intet gameId).
+ *
+ * Pulje-kapitlet følger game.pulje (data), aldrig provideren: den dag et spil
+ * uden pulje får én, følger mailen med af sig selv. Billedstier står kun for
+ * ligaer med committede skærmbilleder i public/salgstale/ — en død <img> i en
+ * mail er værre end et kort uden billede.
+ */
+function ligaProfil(game) {
+  const harPulje = !!game?.pulje;
+  const poolSize = Number(game?.pulje?.poolSize) || 6;
+  if (game?.sync?.provider === 'pulselive') {
+    // Efterårs-spillet er 18 runder — sig det som en FORDEL (lavt commitment,
+    // afgjort til jul), ikke som et forbehold. Spilfører-råd på planen.
+    const efteraar = /efter[åa]r/i.test(String(game?.name || ''));
+    return {
+      navn: 'Premier League',
+      overskrift: 'Ny liga, blanke tavler',
+      periode: efteraar ? 'hele efter&aring;ret' : 'hele s&aelig;sonen',
+      chip3: efteraar ? '&#128197; 18 runder &mdash; afgjort til jul' : '&#127942; Kun &aelig;re p&aring; spil',
+      harPulje,
+      poolSize,
+      rundeImg: null,
+      puljeImg: null,
+    };
+  }
+  if (game && game?.sync?.provider !== 'superliga') {
+    // Ukendt/fremtidig liga: neutral profil uden SL-påstande og uden billeder.
+    return {
+      navn: esc(game.shortName || game.name || 'ligaen'),
+      overskrift: 'Klar til kamp?',
+      periode: 'hele s&aelig;sonen',
+      chip3: '&#127942; Kun &aelig;re p&aring; spil',
+      harPulje,
+      poolSize,
+      rundeImg: null,
+      puljeImg: null,
+    };
+  }
+  return {
+    navn: 'Superligaen',
+    overskrift: 'Klar til revanche?',
+    periode: 'hele s&aelig;sonen',
+    chip3: '&#127942; Kun &aelig;re p&aring; spil',
+    harPulje: game ? harPulje : true,
+    poolSize,
+    rundeImg: 'salgstale/runde.png',
+    puljeImg: 'salgstale/pulje.png',
+  };
+}
+
+/**
+ * Byg hele invitationen for et spil.
  * @param {object} opts
+ * @param {object} [opts.liga]     Profil fra ligaProfil() — udeladt = Superligaen
  * @param {string} opts.intro      Admins egen tekst (ren tekst; escapes — typisk med tilbageblik/top 5)
  * @param {string} opts.joinLink   Ligaens /tilmeld-link (knappen i den gule blok)
  * @param {string} [opts.leagueName]  Ligaens navn (nævnes i den gule blok)
  * @param {string} [opts.appUrl]   Basis-URL (default tip.vejleaa.dk) — også til skærmbillederne
  * @returns {string} komplet HTML-dokument til e-mail
  */
-function superligaInviteHtml({ intro, joinLink, leagueName, appUrl = 'https://tip.vejleaa.dk' } = {}) {
+function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://tip.vejleaa.dk' } = {}) {
+  const l = liga || ligaProfil(null);
   const cta = joinLink || appUrl;
   const league = leagueName ? esc(leagueName) : 'vores liga';
   const introHtml = esc(intro || '').replace(/\r\n|\r|\n/g, '<br>');
 
   return `<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Superligaen skal tippes</title></head>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${l.navn} skal tippes</title></head>
 <body style="margin:0;padding:0;background:#f4f7f5;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f7f5" style="background:#f4f7f5;">
 <tr><td align="center" style="padding:0 10px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
 
   <tr><td bgcolor="#0b6e4f" style="background:#0b6e4f;padding:34px 30px 30px 30px;">
-    <div style="font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#f7d417;">&#9917; Superligaen skal tippes &middot; hele s&aelig;sonen</div>
-    <div style="font-family:${FONT};font-size:30px;line-height:34px;font-weight:bold;color:#ffffff;padding:10px 0 8px 0;">Klar til revanche?</div>
+    <div style="font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#f7d417;">&#9917; ${l.navn} skal tippes &middot; ${l.periode}</div>
+    <div style="font-family:${FONT};font-size:30px;line-height:34px;font-weight:bold;color:#ffffff;padding:10px 0 8px 0;">${l.overskrift}</div>
     <div style="font-family:${FONT};font-size:16px;line-height:23px;color:#eaf5ef;">Runde for runde tipper du 1, X eller 2. Point f&oslash;lger oddsene, bonusserne bel&oslash;nner de modige, og mini-ligaen med vennerne holder gryden i kog hele s&aelig;sonen. Alle starter p&aring; nul, og det kr&aelig;ver nul fodboldforstand.</div>
     <div style="font-family:${FONT};font-size:13px;font-weight:bold;color:#0b3f2c;padding:16px 0 0 0;">
       <span style="background:#ffffff;padding:6px 12px;border-radius:20px;">&#9201; ~2 min pr. runde</span>&nbsp;
       <span style="background:#ffffff;padding:6px 12px;border-radius:20px;">&#129504; Ren mavefornemmelse</span>&nbsp;
-      <span style="background:#f7d417;padding:6px 12px;border-radius:20px;">&#127942; Kun &aelig;re p&aring; spil</span>
+      <span style="background:#f7d417;padding:6px 12px;border-radius:20px;">${l.chip3}</span>
     </div>
   </td></tr>
 
@@ -88,20 +150,22 @@ function superligaInviteHtml({ intro, joinLink, leagueName, appUrl = 'https://ti
     kicker: '&#9917; Spillets hjerte',
     title: 'Tip rundens kampe &mdash; 1, X eller 2',
     body: 'Hver runde sætter du hjemmesejr, uafgjort eller udesejr p&aring; kampene. Du f&aring;r <b>point svarende til oddsene</b>: rammer du storfavoritten, giver det lidt &mdash; rammer du overraskelsen, giver det stort. Du kan rette frit, indtil den enkelte kamp starter, og du kan bladre frem og tilbage mellem alle sæsonens runder.',
-    img: `${appUrl}/salgstale/runde.png`,
+    img: l.rundeImg ? `${appUrl}/${l.rundeImg}` : null,
     imgAlt: 'Tip-fladen: rundens kampe med 1X2-knapper',
   })}
 
   ${card({
     kicker: '&#127919; Flere veje til point',
-    title: 'Combi-bonus, Chancen og s&aelig;sonens pulje',
+    title: l.harPulje ? 'Combi-bonus, Chancen og s&aelig;sonens pulje' : 'Combi-bonus, Chancen og liga-sp&oslash;rgsm&aring;l',
     rows: [
       featureRow({ n: 1, title: 'Combi-bonus &#127920;', text: 'Oddsene p&aring; de kampe, du rammer, ganges sammen, og du f&aring;r 2 &times; kvadratroden af produktet i bonus &mdash; h&oslash;jst 25 point. Det t&aelig;ller fra to rigtige og opefter, og en glemt kamp koster dig ikke bonussen.' }),
       featureRow({ n: 2, title: 'Chancen &#9889;', text: 'N&aring;r du er HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af rundens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.' }),
-      featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: 'S&aelig;sonens store bonuspot: udpeg de <b>6 hold</b>, du tror ender i mesterskabsspillet. <b>+4 point</b> pr. rigtigt hold og <b>+10 bonus</b> for alle 6 &mdash; afgjort til allersidst, s&aring; det kan vende hele stillingen.', last: true }),
+      l.harPulje
+        ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `S&aelig;sonens store bonuspot: udpeg de <b>${l.poolSize} hold</b>, du tror ender i mesterskabsspillet. <b>+4 point</b> pr. rigtigt hold og <b>+10 bonus</b> for alle ${l.poolSize} &mdash; afgjort til allersidst, s&aring; det kan vende hele stillingen.`, last: true })
+        : featureRow({ n: 3, title: 'Liga-sp&oslash;rgsm&aring;l &#127942;', text: 'Ligaens egen joker: liga-admin stiller sp&oslash;rgsm&aring;l (&quot;hvem bliver topscorer?&quot;), I svarer f&oslash;r deadline &mdash; og pointene falder, n&aring;r facit kendes, s&aring; de kan vende stillingen sent.', last: true }),
     ].join(''),
-    img: `${appUrl}/salgstale/pulje.png`,
-    imgAlt: 'Pulje-tippet: v&aelig;lg de 6 mesterskabshold',
+    img: l.harPulje && l.puljeImg ? `${appUrl}/${l.puljeImg}` : null,
+    imgAlt: 'Pulje-tippet: v&aelig;lg mesterskabsholdene',
     imgWidth: 340,
   })}
 
@@ -109,7 +173,9 @@ function superligaInviteHtml({ intro, joinLink, leagueName, appUrl = 'https://ti
     kicker: '&#128101; Og s&aring; er der de andre',
     title: 'Din liga, ranglisten og Runde-Botten',
     rows: [
-      featureRow({ n: 1, title: 'Jeres egen mini-liga', text: 'Intern stilling, en liga-v&aelig;g til drillerier &mdash; og liga-sp&oslash;rgsm&aring;l, som liga-admin selv finder p&aring; (&quot;hvem bliver topscorer?&quot;) og giver point for.' }),
+      featureRow({ n: 1, title: 'Jeres egen mini-liga', text: l.harPulje
+        ? 'Intern stilling, en liga-v&aelig;g til drillerier &mdash; og liga-sp&oslash;rgsm&aring;l, som liga-admin selv finder p&aring; (&quot;hvem bliver topscorer?&quot;) og giver point for.'
+        : 'Intern stilling og en liga-v&aelig;g til drillerier &mdash; s&aelig;sonen igennem.' }),
       featureRow({ n: 2, title: 'Runde-Botten &#129302;', text: 'Efter rundens sidste kamp skriver botten et resum&eacute; p&aring; jeres v&aelig;g &mdash; med k&aelig;rlige stikpiller til rundens bedste og v&aelig;rste.' }),
       featureRow({ n: 3, title: 'Facit, rangliste og statistik', text: 'Efter hver runde ser du dit facit, hvem du overhalede, din tr&aelig;fprocent under &quot;Mine tips&quot;, den officielle tabel og holdenes Elo-udvikling.', last: true }),
     ].join(''),
@@ -136,4 +202,4 @@ function superligaInviteHtml({ intro, joinLink, leagueName, appUrl = 'https://ti
 </body></html>`;
 }
 
-module.exports = { superligaInviteHtml };
+module.exports = { invitationsHtml, ligaProfil };

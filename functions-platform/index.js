@@ -53,7 +53,7 @@ const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = requir
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
-const { superligaInviteHtml } = require('./inviteTemplate');
+const { invitationsHtml, ligaProfil } = require('./inviteTemplate');
 
 initializeApp();
 
@@ -648,16 +648,30 @@ exports.sendBroadcastEmail = onCall(
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
 
-    // Invitations-skabelon (grøn hero + pulje-skærmbillede + gul tilmeldings-
-    // knap). Kræver et joinLink på vores eget domæne, så knappen aldrig kan
-    // pege ud af huset.
+    // Invitations-skabelon (grøn hero + salgstale + gul tilmeldingsknap).
+    // Kræver et joinLink på vores eget domæne, så knappen aldrig kan pege ud
+    // af huset. SKABELONEN FØLGER SPILLET: klienten sender gameId, og profilen
+    // (liganavn, pulje-kapitel, billeder) afledes af spil-dokumentet — den
+    // første udgave var hardcodet til Superligaen, så PL-invitationen lovede
+    // et pulje-tip, spillet ikke har. 'superliga' accepteres stadig som
+    // skabelon-navn: en åben, gammel klient sender den uden gameId og skal
+    // blive ved med at få den gamle mail.
     let html;
-    if (request.data?.template === 'superliga') {
+    const template = request.data?.template;
+    if (template === 'invitation' || template === 'superliga') {
       const joinLink = String(request.data?.joinLink || '').trim();
       if (!joinLink.startsWith(APP_URL)) {
         throw new HttpsError('invalid-argument', 'Skabelonen kræver et tilmeldingslink på tip.vejleaa.dk.');
       }
-      html = superligaInviteHtml({
+      const gameId = String(request.data?.gameId || '').trim();
+      let game = null;
+      if (gameId) {
+        const snap = await db.collection('games').doc(gameId).get();
+        if (!snap.exists) throw new HttpsError('invalid-argument', 'Ukendt spil til invitationen.');
+        game = snap.data();
+      }
+      html = invitationsHtml({
+        liga: ligaProfil(game),
         intro: body, joinLink,
         leagueName: String(request.data?.leagueName || '').slice(0, 60),
         appUrl: APP_URL,
