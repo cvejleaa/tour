@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { invitationsHtml, ligaProfil } = require('./inviteTemplate.js');
+const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate.js');
 
 // Bagudkompatibilitet: uden liga-profil er mailen Superligaens (gamle
 // klienter sender intet gameId).
@@ -149,5 +149,54 @@ describe('invitationsHtml — Premier League-invitationen', () => {
     for (const t of ['1, X eller 2', 'Combi-bonus', 'Chancen', 'Runde-Botten', 'Buddy ligaen', 'kode=4GGR99']) {
       expect(html).toContain(t);
     }
+  });
+});
+
+describe('invitationsFejl — vagten er én ren funktion (Security-fund F1+F3)', () => {
+  const ok = { template: 'invitation', joinLink: 'https://tip.vejleaa.dk/tilmeld?spil=pl&kode=X', gameId: 'pl2627-efteraar' };
+
+  it('godkender det ægte kald — og kræver domænet MED skråstreg', () => {
+    expect(invitationsFejl(ok)).toBeNull();
+    // Bekræftede omgåelser af startsWith(APP_URL) uden skråstreg:
+    expect(invitationsFejl({ ...ok, joinLink: 'https://tip.vejleaa.dk.evil.dk/tilmeld/X' })).toMatch(/tilmeldingslink/);
+    expect(invitationsFejl({ ...ok, joinLink: 'https://tip.vejleaa.dk@evil.dk/tilmeld' })).toMatch(/tilmeldingslink/);
+    expect(invitationsFejl({ ...ok, joinLink: '' })).toMatch(/tilmeldingslink/);
+  });
+
+  it("'invitation' KRÆVER gameId — tavs Superliga-mail om et andet spil var fejlen", () => {
+    expect(invitationsFejl({ ...ok, gameId: '' })).toMatch(/valgt spil/);
+    // ...men 'superliga' er den bagudkompatible vej UDEN gameId.
+    expect(invitationsFejl({ template: 'superliga', joinLink: ok.joinLink, gameId: '' })).toBeNull();
+  });
+
+  it('gameId skal ligne et dokument-id — stier og punktummer afvises', () => {
+    for (const slem of ['a/b/c', '.', '..', 'x'.repeat(201)]) {
+      expect(invitationsFejl({ ...ok, gameId: slem })).toMatch(/spil-id/);
+    }
+  });
+});
+
+describe('invitationsHtml — linket escapes i href (Security-fund F2)', () => {
+  it('et fjendtligt joinLink kan hverken bryde ud af attributten eller plante et fremmed link', () => {
+    const html = invitationsHtml({
+      intro: 'x',
+      joinLink: 'https://tip.vejleaa.dk/"><a href="https://evil.dk/phish">Log ind',
+    });
+    expect(html).not.toContain('href="https://evil.dk');
+    expect(html).toContain('href="https://tip.vejleaa.dk/&quot;&gt;');
+  });
+
+  it('ligaProfil leverer RÅT navn — og hero escaper det ved indsættelsen', () => {
+    // Escap ved flet, ikke ved dannelse: en ny profil-gren uden esc() må
+    // ikke kunne blive en injektion med grøn suite (Security-designnote).
+    const l = ligaProfil({ name: 'X', shortName: '<b>Liga</b>', sync: { provider: 'ukendt' } });
+    expect(l.navn).toBe('<b>Liga</b>'); // råt i profilen…
+    const html = invitationsHtml({ liga: l, intro: 'x', joinLink: 'https://tip.vejleaa.dk/t' });
+    expect(html).not.toContain('<b>Liga</b> skal tippes'); // …aldrig råt i HTML
+    expect(html).toContain('&lt;b&gt;Liga&lt;/b&gt; skal tippes');
+  });
+
+  it('et giftigt navnefelt ({toString:null}) vælter ikke profilen', () => {
+    expect(() => ligaProfil({ name: { toString: null }, sync: { provider: 'pulselive' } })).not.toThrow();
   });
 });

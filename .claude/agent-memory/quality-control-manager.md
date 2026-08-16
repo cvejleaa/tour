@@ -198,3 +198,45 @@ Alle 7 rettelser fra plan-gennemgangen blev fulgt. Konkrete efterprøvninger:
   systemet, men var ikke nævnt i commit-beskeden — værd at spørge om næste
   gang en håndrullet stil lægges over på et fælles system: "hvilken visuel
   egenskab forsvinder, og er den nævnt?"
+
+## Invitations-mailen følger spillet (eaa7836): et ægte split-deploy-hul
+
+- **`deploy-platform.yml` deployer HOSTING på hver kørsel, men functions kun
+  bag et opt-in flueben (`deployFunctions`, default FALSE).** En klient-
+  ændring, der begynder at sende en NY streng i et felt et `if (x === '...')`
+  matcher på server-siden (her: `template: 'invitation'` i stedet for det
+  gamle `'superliga'`), er derfor IKKE bagudkompatibel i praksis, selvom
+  server-KODEN i denne commit håndterer begge — for produktion kører den
+  GAMLE server, indtil nogen selv har tikket `deployFunctions` af. Gammel
+  server + ny klient: `if (template === 'superliga')` matcher ikke
+  `'invitation'`, falder til `else { html = broadcastHtml(body) }` — en
+  BAR e-mail uden hero, uden feature-kort og uden gul CTA-knap, OG uden
+  tilmeldingslink overhovedet (linket sidder normalt i knappen, ikke i
+  brødteksten). Ingen fejlbesked nogen steder — mailen sender "succesfuldt".
+  **Spørg fremover ved enhver ændring, der tilføjer en ny værdi til et felt,
+  serveren matcher strengt på:** kan klienten og serveren deployes hver for
+  sig (de kan her — hosting og functions er to forskellige deploy-trin/dage)?
+  Hvis ja, er "gammel server + ny klient" en reel, ikke kun teoretisk,
+  tilstand — test den eksplicit, og sig det til Release Manager: funktioner
+  og hosting for denne slags ændring skal i SAMME kørsel med
+  `deployFunctions: true`, ikke spredt over dage. Den sikre rækkefølge er
+  også omvendt af hvad workflowet gør i dag (hosting FØR functions i samme
+  run) — ideelt deployes functions før hosting, så en ny klient aldrig kan nå
+  at møde en gammel server.
+- **En regex på spillets NAVN til at style en salgstekst er en fælde, der kun
+  viser sig ved GENBRUG.** `ligaProfil()`s `efter[åa]r`-regex styrer kun
+  `periode`/`chip3`; `overskrift: 'Ny liga, blanke tavler'` er UBETINGET for
+  enhver `sync.provider === 'pulselive'`-profil. Testet direkte: et
+  fremtidigt forårs-spil (`pl2627-foraar`, en videreførelse af EFTERÅRETS
+  stilling, jf. kommentar i `scripts/games.mjs`) ville stadig få "Ny liga,
+  blanke tavler" — faktuelt forkert for en fortsættelse. Ikke en fejl i DAG
+  (spillet findes ikke endnu), men værd at genoprette denne note, når
+  forårsspillet oprettes: overskriften bør afgøres af SAMME regex/felt som
+  periode, ikke stå fast for hele provideren.
+- **God parathed ellers:** liga-spørgsmål (`LeagueQuestions.jsx` +
+  `leagueQuestionScoring.js`) er allerede fuldt spil-agnostiske (ingen
+  superliga-gating i `GameLeagues.jsx`), og Combi-bonus/Chancen bor i
+  `src/lib/superligaScoring.js` — et vildledende filnavn, for filen ER den
+  generiske fodbold-scoring-motor (bruges af `FootballTip`, `PuljeTip`,
+  `betActions.js` for alle fodboldspil, ikke kun Superligaen). Så PL-mailens
+  løfter om disse to var allerede sande uden ændring.

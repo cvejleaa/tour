@@ -58,6 +58,34 @@ function card({ kicker, title, body, rows, img, imgAlt, imgWidth = 430 }) {
 }
 
 /**
+ * Er invitations-kaldet gyldigt? Returnerer en dansk fejltekst eller null.
+ *
+ * REN funktion, så vagterne kan mutationstestes — i index.js var de kun
+ * ledning, og en ledningsvagt kan fjernes med grøn suite (Security-fund):
+ * - joinLink SKAL ligge under vores eget domæne. startsWith(APP_URL) alene
+ *   slap 'https://tip.vejleaa.dk.evil.dk/…' og '…dk@evil.dk' igennem
+ *   (bekræftet PoC) — kravet er domænet MED skråstreg.
+ * - 'invitation' KRÆVER gameId (ellers faldt den tavst tilbage til
+ *   Superligaens mail — om et hvilket som helst spil). 'superliga' er den
+ *   bagudkompatible vej uden gameId (gamle, åbne klienter).
+ * - gameId skal ligne et dokument-id: 'a/b/c' rammer en subcollection, og
+ *   '.'/'..' vælter Firestore-SDK'et med en ubehandlet fejl.
+ */
+const GAME_ID_RE = /^[A-Za-z0-9_-]{1,200}$/;
+function invitationsFejl({ template, joinLink, gameId, appUrl = 'https://tip.vejleaa.dk' } = {}) {
+  if (!String(joinLink || '').startsWith(`${appUrl}/`)) {
+    return 'Skabelonen kræver et tilmeldingslink på tip.vejleaa.dk.';
+  }
+  if (template === 'invitation' && !gameId) {
+    return 'Invitationen kræver et valgt spil (gameId).';
+  }
+  if (gameId && !GAME_ID_RE.test(String(gameId))) {
+    return 'Ugyldigt spil-id til invitationen.';
+  }
+  return null;
+}
+
+/**
  * Afled invitations-profilen af et SPIL-dokument. null/udeladt → Superligaens
  * profil (bagudkompatibelt: gamle klienter sender intet gameId).
  *
@@ -69,12 +97,17 @@ function card({ kicker, title, body, rows, img, imgAlt, imgWidth = 430 }) {
 function ligaProfil(game) {
   const harPulje = !!game?.pulje;
   const poolSize = Number(game?.pulje?.poolSize) || 6;
+  // typeof-vagter, ikke String(...): et lovligt Firestore-map {toString:null}
+  // ville få String() til at kaste (Security-PoC). Loftet spejler leagueName.
+  const spilNavn = typeof game?.name === 'string' ? game.name.slice(0, 60) : '';
   if (game?.sync?.provider === 'pulselive') {
     // Efterårs-spillet er 18 runder — sig det som en FORDEL (lavt commitment,
     // afgjort til jul), ikke som et forbehold. Spilfører-råd på planen.
-    const efteraar = /efter[åa]r/i.test(String(game?.name || ''));
+    const efteraar = /efter[åa]r/i.test(spilNavn);
     return {
       navn: 'Premier League',
+      // OBS (QC): når forårsspillet oprettes, er 'blanke tavler' forkert for
+      // en fortsættelse — giv foråret sin egen overskrift dér, ikke her.
       overskrift: 'Ny liga, blanke tavler',
       periode: efteraar ? 'hele efter&aring;ret' : 'hele s&aelig;sonen',
       chip3: efteraar ? '&#128197; 18 runder &mdash; afgjort til jul' : '&#127942; Kun &aelig;re p&aring; spil',
@@ -87,7 +120,10 @@ function ligaProfil(game) {
   if (game && game?.sync?.provider !== 'superliga') {
     // Ukendt/fremtidig liga: neutral profil uden SL-påstande og uden billeder.
     return {
-      navn: esc(game.shortName || game.name || 'ligaen'),
+      // RÅT navn — invitationsHtml escaper ved indsættelsen. Escapede vi
+      // her, ville næste gren, nogen glemmer, være en injektion med grøn
+      // suite (Security-designnote: escap dér hvor der flettes).
+      navn: (typeof game.shortName === 'string' && game.shortName.slice(0, 60)) || spilNavn || 'ligaen',
       overskrift: 'Klar til kamp?',
       periode: 'hele s&aelig;sonen',
       chip3: '&#127942; Kun &aelig;re p&aring; spil',
@@ -126,14 +162,14 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
   const introHtml = esc(intro || '').replace(/\r\n|\r|\n/g, '<br>');
 
   return `<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${l.navn} skal tippes</title></head>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(l.navn)} skal tippes</title></head>
 <body style="margin:0;padding:0;background:#f4f7f5;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f7f5" style="background:#f4f7f5;">
 <tr><td align="center" style="padding:0 10px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
 
   <tr><td bgcolor="#0b6e4f" style="background:#0b6e4f;padding:34px 30px 30px 30px;">
-    <div style="font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#f7d417;">&#9917; ${l.navn} skal tippes &middot; ${l.periode}</div>
+    <div style="font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#f7d417;">&#9917; ${esc(l.navn)} skal tippes &middot; ${l.periode}</div>
     <div style="font-family:${FONT};font-size:30px;line-height:34px;font-weight:bold;color:#ffffff;padding:10px 0 8px 0;">${l.overskrift}</div>
     <div style="font-family:${FONT};font-size:16px;line-height:23px;color:#eaf5ef;">Runde for runde tipper du 1, X eller 2. Point f&oslash;lger oddsene, bonusserne bel&oslash;nner de modige, og mini-ligaen med vennerne holder gryden i kog hele s&aelig;sonen. Alle starter p&aring; nul, og det kr&aelig;ver nul fodboldforstand.</div>
     <div style="font-family:${FONT};font-size:13px;font-weight:bold;color:#0b3f2c;padding:16px 0 0 0;">
@@ -186,7 +222,7 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
     <div style="font-family:${FONT};font-size:15px;line-height:22px;color:#3a3200;font-weight:bold;padding:8px 0 18px 0;">Knappen opretter dig, godkender dig og melder dig ind i <b>${league}</b> automatisk. Intet at taste, ingen ventetid.</div>
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
       <td bgcolor="#0b6e4f" style="background:#0b6e4f;border-radius:10px;">
-        <a href="${cta}" style="font-family:${FONT};display:inline-block;padding:14px 30px;color:#ffffff;font-size:17px;font-weight:bold;text-decoration:none;">V&aelig;r med nu &rarr;</a>
+        <a href="${esc(cta)}" style="font-family:${FONT};display:inline-block;padding:14px 30px;color:#ffffff;font-size:17px;font-weight:bold;text-decoration:none;">V&aelig;r med nu &rarr;</a>
       </td>
     </tr></table>
     <div style="font-family:${FONT};font-size:12px;color:#5a4b00;padding:12px 0 0 0;word-break:break-all;">Virker knappen ikke? Kopi&eacute;r linket: ${esc(cta)}</div>
@@ -202,4 +238,4 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
 </body></html>`;
 }
 
-module.exports = { invitationsHtml, ligaProfil };
+module.exports = { invitationsHtml, ligaProfil, invitationsFejl };

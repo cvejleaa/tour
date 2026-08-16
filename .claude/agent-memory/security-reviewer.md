@@ -227,3 +227,62 @@ et FJENDTLIGT JSON-svar. Kør fra scratchpad, kræver ingen node_modules.
 men pr. POST — én giftig post må ikke kunne vælte hele partiet.* `String()` på
 et rå JSON-objekt kan kaste; læg `String()`-konverteringen i en try eller filtrer
 posten fra, hvis den ikke er en streng.
+
+## Invitations-mailen (eaa7836) — angrebsflade: ADMIN-INPUT → HTML i 300 mails
+
+PoC-mønster (ingen emulator, ingen node_modules): `inviteTemplate.js` er rene
+funktioner — `require()` dem direkte fra en scratchpad-fil og kald
+`ligaProfil(fjendtligtSpilDok)` + `invitationsHtml({...})`. Doc-path-adfærd kan
+testes offline: `cd functions-platform && node -e "...initializeApp({projectId:'demo-x'})..."`
+— `db.collection(c).doc(id)` validerer stien UDEN netværk.
+
+**BEKRÆFTEDE svagheder (pre-existing, admin-gated, ikke lukket):**
+- `joinLink.startsWith(APP_URL)` (index.js L664, APP_URL = `'https://tip.vejleaa.dk'`
+  UDEN skråstreg, mailer.js L14) slipper `https://tip.vejleaa.dk.evil.dk/…` OG
+  `https://tip.vejleaa.dk@evil.dk/` igennem. Vagtens erklærede formål ("knappen
+  kan aldrig pege ud af huset") holder ikke. Fix: `startsWith(APP_URL + '/')`.
+- `<a href="${cta}">` (inviteTemplate.js L189) flettes RÅT — `esc()` bruges kun
+  til den synlige kopi af linket (L192). `https://tip.vejleaa.dk/x" style="…` er
+  attribut-breakout, og `…/"></a></td></tr></table><a href="https://phish/">…`
+  er fuld HTML-injektion i mailen. Begge kørt, begge virker.
+  Sammen: en globalAdmin (= en af vennerne) kan sende en officiel
+  tip@vejleaa.dk-mail til 300 med en phishing-knap. Fix: `href="${esc(cta)}"`.
+- `gameId` fra klienten er ikke valideret som doc-id: `'a/b/c'` bliver til
+  `games/a/b/c` (subcollection-dok). `'.'`/`'..'` accepteres ved konstruktion.
+  Ingen lækage (kalderen er admin), men samme mønster som kvitterDriftAlarm →
+  ankret regex `/^[A-Za-z0-9_-]{1,200}$/`.
+
+**Afprøvet og RENT (gentag ikke):**
+- `requireAdmin` (index.js L607-615) er FØRSTE linje i sendBroadcastEmail →
+  ingen pending/menig når hverken gameId-opslaget eller SMTP.
+- `esc()` på `shortName || name` i ukendt-provider-grenen virker
+  (`<img src=x onerror=…>` → entiteter). Kontroltest kørt: PoC'en ville have
+  set den rå værdi, hvis den var der.
+- `poolSize = Number(x) || 6` kan ALDRIG blive en streng → ingen injektion.
+  `'<img …>'`→6, `{}`→6, `true`→1, `'1e400'`→Infinity (kosmetisk i mailen).
+- `intro` (admins fritekst) escapes; alle andre profilfelter (overskrift,
+  periode, chip3, navn i PL/SL-grenene) er faste konstanter i koden.
+- `broadcastHtml` (ikke-skabelon-grenen, mailer.js L55-57) er sikker: den
+  auto-linkende regex kører EFTER `escapeHtml`, så `"` er allerede `&quot;`
+  → ingen attribut-breakout. Modsat invitations-grenen.
+- `games/{id}: allow read: if isApproved()` (firestore.rules L619) → gameId-
+  opslaget kan ikke lække noget, en admin ikke måtte se. `allow create,update:
+  if isGlobalAdmin()` (L646) → spil-dokumentets indhold er admin→admin.
+- Omkostning: ét ekstra `get()` pr. kald, bag admin-porten, max 300 modtagere.
+
+**Observationer:**
+- `String(game.name)` kaster TypeError på `{name: {toString: null}}` (et lovligt
+  Firestore-map) → callable svarer `internal`. Admin→admin, kosmetisk.
+- Serveren falder TAVST tilbage til Superliga-profilen, hvis `gameId` mangler
+  (`if (gameId)`, index.js L668) → forkert mail, ikke ingen mail. Klienten kan
+  ikke ramme det (`canSend` kræver liga, liga kræver gameId), men en håndlavet
+  payload med `template:'invitation'` uden gameId sender SL-salgstalen om PL.
+  Kræv gameId ved `'invitation'`; behold `'superliga'` som den gamle vej.
+- `navn` har intet længdeloft (modsat `leagueName`, der `.slice(0,60)`).
+  50 000 tegns `shortName` → 111 KB HTML × 300 mails (målt).
+
+**Faldgrube til listen:** *escaping, der bor hos PRODUCENTEN i stedet for hos
+forbrugeren, er en tidsindstillet bombe.* `ligaProfil` returnerer et FÆRDIG-
+ESCAPET `navn`, mens `invitationsHtml` fletter `l.navn` råt ind. Kontrakten står
+kun i en kommentar. Næste profil-gren, nogen tilføjer uden `esc()`, er en
+injektion — og suiten bliver grøn. Escap ved indsættelsen, ikke ved dannelsen.

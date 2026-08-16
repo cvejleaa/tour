@@ -53,7 +53,7 @@ const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = requir
 const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
-const { invitationsHtml, ligaProfil } = require('./inviteTemplate');
+const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
 
 initializeApp();
 
@@ -660,10 +660,10 @@ exports.sendBroadcastEmail = onCall(
     const template = request.data?.template;
     if (template === 'invitation' || template === 'superliga') {
       const joinLink = String(request.data?.joinLink || '').trim();
-      if (!joinLink.startsWith(APP_URL)) {
-        throw new HttpsError('invalid-argument', 'Skabelonen kræver et tilmeldingslink på tip.vejleaa.dk.');
-      }
       const gameId = String(request.data?.gameId || '').trim();
+      // Én vagt, ét sted: ren funktion i inviteTemplate.js, mutationstestet.
+      const fejl = invitationsFejl({ template, joinLink, gameId, appUrl: APP_URL });
+      if (fejl) throw new HttpsError('invalid-argument', fejl);
       let game = null;
       if (gameId) {
         const snap = await db.collection('games').doc(gameId).get();
