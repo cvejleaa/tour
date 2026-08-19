@@ -372,7 +372,7 @@ export default function FootballHelp({ game }) {
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
           <strong>Runde-Botten 🤖:</strong> efter rundens sidste kamp skriver en bot et kort resumé på jeres
-          væg — hvem der løb med runden, hvem der brændte den, og hvordan stillingen ser ud.
+          væg — hvem der løb med runden, hvem der brændte den, hvem der turde bruge Chancen, og hvordan stillingen ser ud.
         </p>
       </Section>
 

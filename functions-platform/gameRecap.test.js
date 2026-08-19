@@ -592,6 +592,22 @@ describe('buildRoundRecapFacts — Chancen', () => {
     expect(f.ingenChancer).toBe(false);
   });
 
+  it('ramt afspejler 1X2-tippet, ikke det samlede netto', () => {
+    // TM-fund: mutationen 'ramt: netto > 0' overlevede, fordi tip og netto
+    // havde samme fortegn i alle fixtures. Virkelighedens kant: indsats 1 på
+    // odds 1.3 rammer, men gevinsten runder til 0 — chancen ER ramt, netto 0.
+    const kanter = [
+      { id: 'm9', round: 2, home: 'OB', away: 'Silkeborg', homeGoals: 1, awayGoals: 0, result: '1', odds: { 1: 1.3, X: 4.0, 2: 8.0 } },
+    ];
+    const lavOdds = new Map([['A', [{ matchId: 'm9', pick: '1', points: 1.3, chanceStake: 1 }]]]);
+    const f = buildRoundRecapFacts({
+      round: 2, roundMatches: [...roundMatches, ...kanter], players, betsByUid: lavOdds,
+    });
+    const c = f.chancer.find((x) => x.name === 'Anna');
+    expect(c.netto).toBe(0);
+    expect(c.ramt).toBe(true); // tippet RAMTE — nettoen er bare rund(1×0.3)=0
+  });
+
   it('siger SAMME netto som PointOpdeling — bottens tal er fladens tal', () => {
     const ctx = buildRoundContext(roundMatches);
     const f = buildRoundRecapFacts({ round: 2, roundMatches, players, betsByUid });

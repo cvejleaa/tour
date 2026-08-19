@@ -105,7 +105,8 @@ Liga-admin følger med at have oprettet ligaen.
 ## Runde-Botten (platformen)
 
 Botten skriver et opslag på hver **ligavæg**, når rundens sidste kamp er
-afregnet. Den lå før under Påmindelser, men en påmindelse tikker ind til dig,
+afregnet — resultater, stillingen og Chancens gevinster og tab (den driller
+kærligt, men må aldrig håne en lille indsats eller hænge nogen ud for et tab). Den lå før under Påmindelser, men en påmindelse tikker ind til dig,
 mens botten skriver et sted, alle kan læse — derfor sin egen fane.
 
 - **🧪 Forhåndsvis runde-opslag** genererer teksten uden at poste. Du får ét
