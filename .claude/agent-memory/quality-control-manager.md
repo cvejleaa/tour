@@ -340,3 +340,59 @@ Alle 7 rettelser fra plan-gennemgangen blev fulgt. Konkrete efterprøvninger:
   af dem lover noget, koden ikke giver), men ufuldstændig — en admin, der
   forhåndsviser og ser en chance-kommentar første gang, har ingen tekst der
   forklarer det. Værd at rette ved næste tekstpas på nogen af de tre steder.
+
+## Tip-status-fladen (26e9dea): implementering mod planens 7 krav — konkrete fund
+
+Alle 7 rettelser fra plan-gennemgangen (se afsnittet ovenfor) er implementeret
+og bevist, ikke kun læst i en kommentar: `byggTipStatus` genbruger bogstaveligt
+`gatedeKampe`/`startRundeFor`/`upcomingMatches` fra samme modul som
+`runGameTipReminders`, med en direkte test der viser `rammesAfKnappenNu`
+afviger fra `kampeIRunden` (Bo mangler kun en kamp 30 t ude — knappen springer
+ham over). Ingen ny per-person ryk-knap. `naaedeDetIkke`/`kanRykkes` er begge
+UI- og server-testet. Klienten kalder `groupByRound`/`activeRound`/
+`fraStartRunde`/`startRundeFor` — de SAMME importerede funktioner Tip-fanen
+bruger, ingen server-dublet af "aktiv runde" (serveren tager blot imod
+`round` og validerer `1–99`).
+
+- **`emailByUidMap(db)` scanner HELE `userContacts`-kollektionen — også fra
+  den nye `hentTipStatus`.** Kommentaren over `hentTipStatus` siger "kun
+  deltagernes profiler læses (db.getAll), aldrig hele brugerkartoteket", hvad
+  der er sandt for `users` (scoped via `db.getAll(...memberUids)`) men IKKE
+  for e-mails: `emailByUidMap` gør `db.collection('userContacts').get()` —
+  samme fulde scan som `gamePuljeStatus` kritiseres for at gøre på `users`
+  OG `userContacts`. Ikke en regression i denne commit (mønstret er arvet fra
+  det allerede eksisterende `runGameTipReminders`/`sendGameTestReminder`, som
+  begge allerede kaldte `emailByUidMap`), og stadig bag en knap (accepteret
+  efter reglen "kun så længe det sidder bag en KNAP"). Men kommentarens
+  påstand "aldrig hele brugerkartoteket" er præcist forkert for e-mail-delen.
+  Spørg næste gang nogen skriver "kun deltagernes data læses" ved siden af et
+  kald til `emailByUidMap`: gælder påstanden ALT i funktionen, eller kun
+  profilerne? Præcisér kommentaren, eller — hvis det nogensinde bliver dyrt —
+  lav en `db.getAll`-variant af e-mail-opslaget.
+- **To defensive fejl-veje er kodet rigtigt, men ikke testdækket:** "spillet
+  har ingen runder" (tom `groupByRound`-liste → `activeRound` returnerer
+  `null` → dansk fejlbesked, ikke et crash) og runde-0-fallback'en i
+  `groupByRound` (kampe uden `round`-felt). Læst efter i koden: begge er
+  korrekte, men INGEN test i `GameReminderTab.test.jsx` eller
+  `reminders.test.js` dækker "ingen runder"-stien. Lavt reelt risiko, fordi
+  `scripts/seed-football.mjs` linje 91 filtrerer `round == null` fra FØR
+  skrivning, og `superligaSync.js`s invariant siger eksplicit at
+  kickoff-synken ALDRIG rører `round` — så en kamp uden runde-nummer er en
+  defensiv fallback for korrupt data, ikke en nåbar tilstand i normal drift.
+  Server-loftet `round > 99` er af samme grund uskadeligt: ægte runde-tal for
+  fodbold topper omkring 38-46, langt under loftet — vælgeren kan aldrig
+  producere et tal, callablen afviser.
+- **En "runde uden kampe efter gate" kan ikke vælges via UI'et overhovedet:**
+  `tipRunder` bygges af `groupByRound(fraStartRunde(...))`, så en runde, hvor
+  ALLE kampe er gatet væk, optræder aldrig som et `<option>` — kun
+  `byggTipStatus` kaldt direkte (som i testen "gaten: runder før spillets
+  startrunde har ingen kampe at mangle") kan producere `kampeIRunden: 0`.
+  Ingen mismatch mellem hvad vælgeren viser og hvad serveren accepterer.
+- **Ordvalget matcher Pulje-status-sektionen i samme fane** (samme
+  "🔎 Tjek X-status"-knapmønster, samme "Alle har tippet ... 🎉"-badge). Den
+  strukturelle forskel (ét aggregeret tal i Pulje-status vs. én række pr.
+  spiller i Tip-status) er begrundet i datens form, ikke en tilfældig
+  afvigelse — ikke et fund.
+- **Testtal:** `npm --prefix functions-platform test` → 501/501 grønne
+  (`reminders.test.js` 11 af dem, inkl. `byggTipStatus`). `npx vitest run
+  src/features/admin` → 289/289 grønne (`GameReminderTab.test.jsx` 4 af dem).
