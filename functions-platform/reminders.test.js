@@ -174,3 +174,63 @@ describe('byggTipStatus — hvem mangler at tippe', () => {
     expect(JSON.stringify(ud)).not.toMatch(/"pick"|"valg"|"1"\s*:\s*"[1X2]"/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// hentTipStatus — LÆSEREN er selve sikkerhedsgrænsen (Security-fund): bets
+// har picks i databasen, men kun matchId må komme ind i processen. Mutationen
+// 'add(b) i stedet for add(b.matchId)' var grøn i hele suiten, fordi alle
+// tests kørte byggTipStatus, hvis input pr. konstruktion allerede var rene.
+// Denne test kører den ÆGTE læser mod en fake db med fjendtlige bets.
+// ---------------------------------------------------------------------------
+describe('hentTipStatus — picks findes i databasen, men aldrig i svaret', () => {
+  const { hentTipStatus } = require('./reminders.js');
+
+  function fakeDb() {
+    const bets = [
+      { uid: 'a', matchId: 'k1', pick: '1', points: 7.7, hemmelig: 'x' },
+      { uid: 'c', matchId: 'k2', pick: 'X', points: 0 },
+    ];
+    const matches = [
+      { id: 'k1', round: 4, home: 'FCK', away: 'AGF', kickoff: ts(NOW + 3 * H) },
+      { id: 'k2', round: 4, home: 'OB', away: 'Vejle', kickoff: ts(NOW + 30 * H) },
+    ];
+    const docsAf = (liste) => liste.map((d) => ({ id: d.id ?? d.uid, exists: true, data: () => d }));
+    const gameRef = {
+      get: async () => ({ exists: true, data: () => ({ name: 'Testspillet' }) }),
+      collection: (navn) => ({
+        get: async () => ({
+          docs: navn === 'matches' ? docsAf(matches)
+            : navn === 'players' ? [{ id: 'a', data: () => ({}) }, { id: 'c', data: () => ({}) }]
+              : [],
+        }),
+        where: () => ({
+          get: async () => ({ docs: bets.map((b) => ({ data: () => b })) }),
+        }),
+      }),
+    };
+    return {
+      collection: (navn) => ({
+        doc: (id) => (navn === 'games' ? gameRef : {
+          __id: id,
+          get: async () => ({ exists: true, data: () => ({ displayName: `Navn-${id}` }) }),
+        }),
+        get: async () => ({ docs: [{ id: 'a', data: () => ({ email: 'a@x.dk' }) }] }), // userContacts
+      }),
+      getAll: async (...refs) => refs.map((r) => ({
+        id: r.__id, exists: true, data: () => ({ displayName: `Navn-${r.__id}` }),
+      })),
+    };
+  }
+
+  it('svaret indeholder hverken pick, points eller ukendte bet-felter', async () => {
+    const svar = await hentTipStatus(fakeDb(), 'spil', 4, now);
+    expect(svar.gameNavn).toBe('Testspillet');
+    // a har tippet k1 (1/2) — c har tippet k2 (1/2): dækningen kom igennem…
+    expect(svar.spillere.find((s) => s.uid === 'a').tippet).toBe(1);
+    // …men intet af bettenes indhold gjorde:
+    const raa = JSON.stringify(svar);
+    expect(raa).not.toContain('"pick"');
+    expect(raa).not.toContain('7.7');
+    expect(raa).not.toContain('hemmelig');
+  });
+});

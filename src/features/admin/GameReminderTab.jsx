@@ -50,7 +50,9 @@ export default function GameReminderTab() {
   const tipRunder = useMemo(() => {
     if (!tipMatches) return [];
     const synlige = fraStartRunde(tipMatches, startRundeFor(valgtSpil, tipMatches));
-    return groupByRound(synlige);
+    // Kampe uden rundenummer samles af groupByRound som "runde 0" — den kan
+    // serveren ikke svare på, så den skal heller ikke kunne vælges.
+    return groupByRound(synlige).filter((r) => r.round >= 1);
   }, [tipMatches, valgtSpil]);
 
   async function tjekTipStatus(runde) {

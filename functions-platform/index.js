@@ -725,7 +725,10 @@ exports.gameTipStatus = onCall(
     const db = getFirestore();
     await requireAdmin(db, request);
     const gameId = String(request.data?.gameId || '').trim();
-    if (!/^[A-Za-z0-9_-]{1,200}$/.test(gameId)) {
+    // Regexen alene slap '__proto__' igennem — Firestore reserverer __x__-
+    // formen og kaster først ved get() som en ubehandlet 'internal'
+    // (Security-fund, emulator-bekræftet).
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(gameId) || /^__.*__$/.test(gameId)) {
       throw new HttpsError('invalid-argument', 'Ugyldigt spil-id.');
     }
     const round = Number(request.data?.round);
