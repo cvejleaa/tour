@@ -178,7 +178,7 @@ describe('redeemLeagueCodeCore', () => {
 // Hvem mangler at svare? (opgave #38) — "åbent" er SKRIVEREGLEN, eks-medlem
 // kan ikke tælle med, og svar-data forlader aldrig databasen.
 // ---------------------------------------------------------------------------
-const { byggSpoergsmaalStatus, hentSpoergsmaalStatus } = require('./gameLeagues.js');
+const { byggSpoergsmaalStatus, hentSpoergsmaalStatus, tjekSvarStatusAdgang } = require('./gameLeagues.js');
 
 describe('byggSpoergsmaalStatus', () => {
   const NU = 1_000_000;
@@ -191,10 +191,10 @@ describe('byggSpoergsmaalStatus', () => {
   it('åbent følger skrivereglen: facit lukker, passeret deadline lukker — uden deadline er åbent', () => {
     const ud = byggSpoergsmaalStatus({
       spoergsmaal: [
-        { id: 'q1', label: 'Topscorer?', deadline: NU + 100 },      // åbent
-        { id: 'q2', label: 'Lukket af facit', facit: 'Haaland' },   // lukket
-        { id: 'q3', label: 'Deadline passeret', deadline: NU - 1 }, // lukket
-        { id: 'q4', label: 'Uden deadline' },                        // åbent, sidst
+        { id: 'q1', label: 'Topscorer?', facit: null, deadline: NU + 100 },      // åbent
+        { id: 'q2', label: 'Lukket af facit', facit: 'Haaland', deadline: null }, // lukket
+        { id: 'q3', label: 'Deadline passeret', facit: null, deadline: NU - 1 },  // lukket
+        { id: 'q4', label: 'Uden deadline', facit: null, deadline: null },        // åbent, sidst
       ],
       memberUids: ['a', 'b'],
       harSvaret: new Map([['q1', new Set(['a'])]]),
@@ -209,7 +209,7 @@ describe('byggSpoergsmaalStatus', () => {
 
   it('kun NUVÆRENDE medlemmer tæller — et eks-medlems svar kan ikke give "5 af 4"', () => {
     const ud = byggSpoergsmaalStatus({
-      spoergsmaal: [{ id: 'q1', label: 'x', deadline: NU + 100 }],
+      spoergsmaal: [{ id: 'q1', label: 'x', facit: null, deadline: NU + 100 }],
       memberUids: ['a', 'b'],
       // 'vaek' har et gammelt svar — men er ikke medlem og må hverken tælle
       // i besvaret eller optræde i mangler.
@@ -221,11 +221,104 @@ describe('byggSpoergsmaalStatus', () => {
     expect(ud[0].ialt).toBe(2);
     expect(ud[0].mangler.map((m) => m.uid)).toEqual(['b']);
   });
+
+  // TM-fund: skellet til lqSettled var kun bevist for yderpunkterne. Skrivereglen
+  // spørger om facit er SAT (facit == null), ikke om den er sand — så et facit
+  // på tom streng LUKKER spørgsmålet, selv om lqSettled ville kalde det åbent.
+  it('facit sat til tom streng lukker spørgsmålet (skrivereglen, ikke lqSettled)', () => {
+    const ud = byggSpoergsmaalStatus({
+      spoergsmaal: [
+        { id: 'q1', label: 'åbent', facit: null, deadline: NU + 100 },
+        { id: 'q2', label: 'tomt facit', facit: '', deadline: NU + 100 },
+      ],
+      memberUids: ['a'],
+      harSvaret: new Map(),
+      brugere,
+      nowMs: NU,
+    });
+    expect(ud.map((q) => q.id)).toEqual(['q1']); // q2 er lukket — '' er et sat facit
+  });
+
+  // Security-fund: i rules fejler et opslag på en MANGLENDE nøgle lukket, så
+  // et håndskrevet spørgsmål uden facit-nøgle kan INGEN svare på — det må
+  // aldrig liste nogen som "mangler". Kun facit: null (som createLeagueQuestion
+  // altid skriver) er åbent.
+  it('manglende facit- eller deadline-nøgle er LUKKET — som rules, ikke som "== null"', () => {
+    const ud = byggSpoergsmaalStatus({
+      spoergsmaal: [
+        { id: 'q1', label: 'uden facit-nøgle', deadline: NU + 100 },
+        { id: 'q2', label: 'uden deadline-nøgle', facit: null },
+        { id: 'q3', label: 'ægte åbent', facit: null, deadline: null },
+      ],
+      memberUids: ['a'],
+      harSvaret: new Map(),
+      brugere,
+      nowMs: NU,
+    });
+    expect(ud.map((q) => q.id)).toEqual(['q3']);
+  });
+
+  it('et ikke-streng displayName vælter ikke kortet — der sorteres og vises "Spiller"', () => {
+    const ud = byggSpoergsmaalStatus({
+      spoergsmaal: [{ id: 'q1', label: 'x', facit: null, deadline: NU + 100 }],
+      memberUids: ['a', 'tal'],
+      harSvaret: new Map(),
+      // users-reglen type-tjekker ikke displayName — en spiller kan skrive 42
+      // på sig selv, og localeCompare på et tal kaster (Security-fund).
+      brugere: new Map([['a', { displayName: 'Anna' }], ['tal', { displayName: 42 }]]),
+      nowMs: NU,
+    });
+    expect(ud[0].mangler).toEqual([{ uid: 'a', navn: 'Anna' }, { uid: 'tal', navn: 'Spiller' }]);
+  });
+});
+
+// Dørmanden — Security-fund: en BORTVIST spiller beholdt adgang, fordi
+// callablen kun krævede login + medlemskab. Rules kræver isApproved() på hver
+// leagues-gren; serveren må ikke være mere gavmild end browseren.
+describe('tjekSvarStatusAdgang', () => {
+  const medlemmer = ['a', 'b'];
+
+  it('afvist bruger stoppes — OGSÅ selv om hen stadig står i memberUids', () => {
+    expect(() => tjekSvarStatusAdgang({
+      uid: 'a', bruger: { status: 'rejected' }, memberUids: medlemmer, ligaFindes: true,
+    })).toThrow('not-approved');
+  });
+
+  it('ikke-godkendt må heller ikke kunne sondere, OM ligaen findes', () => {
+    // ligaFindes: false — svaret skal STADIG være not-approved, ikke not-found.
+    expect(() => tjekSvarStatusAdgang({
+      uid: 'x', bruger: { status: 'pending' }, memberUids: [], ligaFindes: false,
+    })).toThrow('not-approved');
+    expect(() => tjekSvarStatusAdgang({
+      uid: 'x', bruger: null, memberUids: [], ligaFindes: false,
+    })).toThrow('not-approved');
+  });
+
+  it('godkendt ikke-medlem uden admin-rolle: not-member', () => {
+    expect(() => tjekSvarStatusAdgang({
+      uid: 'x', bruger: { status: 'approved' }, memberUids: medlemmer, ligaFindes: true,
+    })).toThrow('not-member');
+  });
+
+  it('godkendt medlem, owner og globalAdmin slipper ind', () => {
+    expect(() => tjekSvarStatusAdgang({
+      uid: 'a', bruger: { status: 'approved' }, memberUids: medlemmer, ligaFindes: true,
+    })).not.toThrow();
+    for (const role of ['owner', 'globalAdmin']) {
+      expect(() => tjekSvarStatusAdgang({
+        uid: 'x', bruger: { status: 'approved', role }, memberUids: medlemmer, ligaFindes: true,
+      })).not.toThrow();
+    }
+  });
 });
 
 describe('hentSpoergsmaalStatus — svar-data forlader ALDRIG databasen', () => {
-  function fakeDb() {
+  function fakeDb({ callerStatus = 'approved' } = {}) {
     const kaldteData = [];
+    // Tæller de DYRE læsninger (spørgsmål + svar-opslag), så en test kan
+    // bevise, at en afvist kalder stoppes FØR dem (Security-fund: en afvisning
+    // kostede før op mod tusindvis af læsninger).
+    const dyreLaesninger = { questions: 0, svar: 0 };
     const svarDoc = (id) => ({
       exists: id === 'q1_a', // kun Anna har svaret
       data: () => { kaldteData.push(id); return { answer: 'HEMMELIGT SVAR' }; },
@@ -233,30 +326,47 @@ describe('hentSpoergsmaalStatus — svar-data forlader ALDRIG databasen', () => 
     const leagueRef = {
       get: async () => ({ exists: true, data: () => ({ name: 'Buddy', memberUids: ['a', 'b'] }) }),
       collection: (navn) => ({
-        get: async () => ({
-          docs: navn === 'questions'
-            ? [{ id: 'q1', data: () => ({ label: 'Topscorer?', deadline: 9999999 }) }]
-            : [],
-        }),
+        get: async () => {
+          if (navn === 'questions') dyreLaesninger.questions += 1;
+          return {
+            docs: navn === 'questions'
+              ? [{ id: 'q1', data: () => ({ label: 'Topscorer?', facit: null, deadline: 9999999 }) }]
+              : [],
+          };
+        },
         doc: (id) => ({ __svarId: id }),
       }),
     };
     return {
       _kaldteData: kaldteData,
+      _dyreLaesninger: dyreLaesninger,
       collection: (navn) => ({
         doc: (id) => (navn === 'users'
-          ? { get: async () => ({ id, exists: true, data: () => ({ displayName: `Navn-${id}` }) }), __uid: id }
+          ? {
+            get: async () => ({
+              id,
+              exists: true,
+              data: () => ({ displayName: `Navn-${id}`, status: id === 'a' ? callerStatus : 'approved' }),
+            }),
+            __uid: id,
+          }
           : { ...leagueRef, collection: () => ({ doc: () => leagueRef }) }),
       }),
       getAll: async (...args) => {
+        // Opts genkendes POSITIVT på fieldMask-nøglen — ikke på fravær af
+        // ref-felter. TM-fund: den gamle form ("sidste ligner ikke en ref")
+        // lod mutationen "fjern hele options-objektet" bestå grønt, fordi
+        // assertionen så bare blev sprunget over.
         const sidste = args[args.length - 1];
-        const harOpts = sidste && !sidste.__svarId && !sidste.__uid && !sidste.get;
+        const harOpts = !!sidste && Object.prototype.hasOwnProperty.call(sidste, 'fieldMask');
         const refs = harOpts ? args.slice(0, -1) : args;
-        if (harOpts) {
-          // fieldMask SKAL være tom på svar-opslagene — garantien for, at
-          // felterne aldrig hentes fra databasen.
+        if (refs.some((r) => r.__svarId)) {
+          // Svar-opslag SKAL bære { fieldMask: [] } — garantien for, at
+          // felterne aldrig hentes fra databasen. Mangler objektet, er det rødt.
+          expect(harOpts).toBe(true);
           expect(sidste.fieldMask).toEqual([]);
         }
+        if (refs.some((r) => r.__svarId)) dyreLaesninger.svar += refs.length;
         return Promise.all(refs.map(async (r) => (r.__svarId ? svarDoc(r.__svarId) : r.get())));
       },
     };
@@ -264,10 +374,17 @@ describe('hentSpoergsmaalStatus — svar-data forlader ALDRIG databasen', () => 
 
   it('eksistens afgør besvaret — .data() kaldes aldrig på et svar', async () => {
     const db = fakeDb();
-    const ud = await hentSpoergsmaalStatus(db, { gameId: 'g', leagueId: 'l', nowMs: 1000 });
+    const ud = await hentSpoergsmaalStatus(db, { gameId: 'g', leagueId: 'l', uid: 'a', nowMs: 1000 });
     expect(ud.spoergsmaal[0]).toMatchObject({ besvaret: 1, ialt: 2 });
     expect(ud.spoergsmaal[0].mangler.map((m) => m.uid)).toEqual(['b']);
     expect(JSON.stringify(ud)).not.toContain('HEMMELIGT');
     expect(db._kaldteData).toEqual([]); // ingen svar-data rørt
+  });
+
+  it('en afvist kalder stoppes FØR spørgsmål og svar overhovedet læses', async () => {
+    const db = fakeDb({ callerStatus: 'rejected' });
+    await expect(hentSpoergsmaalStatus(db, { gameId: 'g', leagueId: 'l', uid: 'a', nowMs: 1000 }))
+      .rejects.toThrow('not-approved');
+    expect(db._dyreLaesninger).toEqual({ questions: 0, svar: 0 });
   });
 });

@@ -732,15 +732,18 @@ exports.leagueQuestionStatus = onCall(
       || !ID_RE.test(leagueId) || /^__.*__$/.test(leagueId)) {
       throw new HttpsError('invalid-argument', 'Ugyldigt spil- eller liga-id.');
     }
-    const status = await hentSpoergsmaalStatus(db, { gameId, leagueId });
-    if (!status) throw new HttpsError('not-found', 'Ligaen findes ikke.');
-    if (!status.memberUids.includes(request.auth.uid)) {
-      const caller = await db.collection('users').doc(request.auth.uid).get();
-      const role = caller.data()?.role;
-      if (role !== 'owner' && role !== 'globalAdmin') {
-        throw new HttpsError('permission-denied', 'Kun ligaens medlemmer kan se svar-status.');
-      }
+    // Dørmanden bor i hentSpoergsmaalStatus (tjekSvarStatusAdgang, gameLeagues.js)
+    // og løber FØR de dyre læsninger: godkendt bruger OG (medlem ELLER
+    // owner/globalAdmin) — samme krav som rules stiller i browseren. Her
+    // oversættes kun fejlkoderne.
+    let status;
+    try {
+      status = await hentSpoergsmaalStatus(db, { gameId, leagueId, uid: request.auth.uid });
+    } catch (err) {
+      const [httpCode, msg] = LEAGUE_ERR[err.message] || ['internal', 'Kunne ikke hente svar-status.'];
+      throw new HttpsError(httpCode, msg);
     }
+    if (!status) throw new HttpsError('not-found', 'Ligaen findes ikke.');
     // memberUids er intern (adgangstjekket ovenfor) — ud af svaret.
     return { success: true, leagueName: status.leagueName, spoergsmaal: status.spoergsmaal };
   },

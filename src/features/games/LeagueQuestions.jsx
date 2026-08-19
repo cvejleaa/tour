@@ -6,12 +6,12 @@
 import { useState } from 'react';
 import {
   createLeagueQuestion, setLeagueQuestionFacit, deleteLeagueQuestion,
-  saveLeagueQuestionAnswer, LEAGUE_Q_LABEL_MAX,
+  saveLeagueQuestionAnswer, callLeagueQuestionStatus, LEAGUE_Q_LABEL_MAX,
 } from './gameLeagueActions';
 import { scoreLeagueQuestion, lqSettled, lqPoints } from './leagueQuestionScoring';
-import { callLeagueQuestionStatus } from './gameLeagueActions';
 import { teamsOf, visOf } from './football/teamInfo';
 import { formatKickoff } from '../../lib/daDate';
+import { shareText } from '../../lib/share';
 
 const TYPE_LABEL = { text: 'Tekst', yesno: 'Ja/Nej', number: 'Tal (nærmest vinder)', team: 'Hold' };
 
@@ -123,10 +123,17 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
           {status.mangler.length > 0 && (
             <>
               {' '}· mangler: {status.mangler.map((m) => (m.uid === meUid ? 'dig' : m.navn)).join(', ')}
+              {/* shareText: del-dialog på mobil (direkte til chatten), ellers
+                  kopiering — og ALTID en synlig kvittering: en kopiering, der
+                  fejler tavst på http/gammel browser, var QC-fundet. */}
               <button
-                type="button" className="btn--icon" title="Kopiér navnene (til at rykke i chatten)"
+                type="button" className="btn--icon" title="Del eller kopiér navnene (til at rykke i chatten)"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0.25rem' }}
-                onClick={() => navigator.clipboard?.writeText(status.mangler.map((m) => m.navn).join(', '))}
+                onClick={async () => {
+                  const res = await shareText(status.mangler.map((m) => m.navn).join(', '));
+                  if (res.ok) setMsg({ kind: 'ok', text: res.method === 'copy' ? 'Navne kopieret — sæt dem ind i chatten.' : 'Delt!' });
+                  else if (res.error || res.method === 'none') setMsg({ kind: 'err', text: 'Kunne ikke kopiere navnene.' });
+                }}
               >
                 📋
               </button>
