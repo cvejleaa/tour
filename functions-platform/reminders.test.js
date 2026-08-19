@@ -71,3 +71,166 @@ describe('påmindelser bruger spillets startrunde', () => {
     expect(upcomingMatches(kampe, now, windowEnd, gatede).map((m) => m.id)).toEqual(['r1', 'r2']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// byggTipStatus (opgave #37) — kortet må ALDRIG modsige 'Send påmindelser
+// nu'-knappen lige under det: "haster" og rammesAfKnappenNu bruger knappens
+// EGET vindue (upcomingMatches, 24 t). Og grænsen: output kender kun OM der
+// er tippet — aldrig valget.
+// ---------------------------------------------------------------------------
+describe('byggTipStatus — hvem mangler at tippe', () => {
+  const { byggTipStatus } = require('./reminders.js');
+  const matches = [
+    { id: 'k3', round: 4, home: 'BIF', away: 'FCM', kickoff: ts(NOW - 2 * H) },  // spillet
+    { id: 'k1', round: 4, home: 'FCK', away: 'AGF', kickoff: ts(NOW + 3 * H) },  // haster (24t)
+    { id: 'k2', round: 4, home: 'OB', away: 'Vejle', kickoff: ts(NOW + 30 * H) },// senere i runden
+    { id: 'k5', round: 5, home: 'SIF', away: 'VFF', kickoff: ts(NOW + 5 * H) },  // ANDEN runde, men i 24t-vinduet
+  ];
+  const emails = new Map([['a', 'a@x.dk'], ['b', 'b@x.dk'], ['c', 'c@x.dk']]);
+  const brugere = new Map([
+    ['a', { displayName: 'Anna' }],
+    ['b', { displayName: 'Bo', emailOptOut: true }],
+    ['c', { displayName: 'Carla' }],
+  ]);
+  const byg = (betByUid) => byggTipStatus({
+    game: {}, matches, memberUids: ['a', 'b', 'c'], betByUid, brugere, emails, round: 4, now,
+  });
+  const bets = new Map([
+    ['a', new Set(['k1', 'k2', 'k3'])], // alt tippet
+    ['b', new Set(['k1'])],             // mangler k2 (senere) + k3 (spillet)
+    // c: intet tippet
+  ]);
+
+  it('dækning pr. spiller — flest ÅBNE mangler først, og spillede kampe er "nåede det ikke"', () => {
+    const ud = byg(bets);
+    expect(ud.kampeIRunden).toBe(3); // k5 er runde 5 — usynlig her, selv om den er i 24t-vinduet
+    expect(ud.spillere.map((s) => s.navn)).toEqual(['Carla', 'Bo', 'Anna']);
+    const carla = ud.spillere[0];
+    expect(carla.tippet).toBe(0);
+    expect(carla.ialt).toBe(3);
+    // Manglende følger kickoff-orden: spillet kamp først, så haster, så senere.
+    expect(carla.manglende).toEqual([
+      { id: 'k3', kamp: 'BIF – FCM', kickoff: NOW - 2 * H, naaedeDetIkke: true, haster: false },
+      { id: 'k1', kamp: 'FCK – AGF', kickoff: NOW + 3 * H, naaedeDetIkke: false, haster: true },
+      { id: 'k2', kamp: 'OB – Vejle', kickoff: NOW + 30 * H, naaedeDetIkke: false, haster: false },
+    ]);
+    const anna = ud.spillere.find((s) => s.navn === 'Anna');
+    expect(anna.tippet).toBe(3);
+    expect(anna.manglende).toEqual([]);
+    // Bo kan ikke nås af knappen (emailOptOut) — det skal fladen kunne vise.
+    expect(ud.spillere.find((s) => s.navn === 'Bo').kanRykkes).toBe(false);
+    expect(carla.kanRykkes).toBe(true);
+  });
+
+  it('rammesAfKnappenNu er PRÆCIS knappens modtagerkreds — ikke rundens mangler-tal', () => {
+    const ud = byg(bets);
+    // Carla mangler k1 (24t-vinduet) og kan nås → tælles. Bo mangler kun k2
+    // (30 t ude — uden for knappens vindue), så knappen ville springe ham
+    // over UANSET optOut. Anna mangler intet. Kortet må aldrig love flere.
+    expect(ud.rammesAfKnappenNu).toBe(1);
+  });
+
+  it('en NÅBAR spiller, der kun mangler kampe UDEN FOR døgnet, tælles ikke af knappen', () => {
+    // TM-fund: mutationen 'tæl alle med manglende' overlevede, fordi enhver
+    // nåbar spiller i fixtures også manglede en hastende kamp. Ditte kan nås
+    // og mangler k2 (30 t ude) — men knappen ville springe hende over, så
+    // kortet må ikke tælle hende. UI-teksten lover præcis dét skel.
+    const ud = byggTipStatus({
+      game: {},
+      matches,
+      memberUids: ['a', 'c', 'd'],
+      betByUid: new Map([
+        ['a', new Set(['k1', 'k2', 'k3'])],
+        ['d', new Set(['k1', 'k3'])], // mangler KUN k2 — uden for vinduet
+        // c mangler alt, herunder k1 (haster)
+      ]),
+      brugere: new Map([...brugere, ['d', { displayName: 'Ditte' }]]),
+      emails: new Map([...emails, ['d', 'd@x.dk']]),
+      round: 4,
+      now,
+    });
+    expect(ud.spillere.find((s2) => s2.navn === 'Ditte').manglende.map((m) => m.id)).toEqual(['k2']);
+    expect(ud.rammesAfKnappenNu).toBe(1); // kun Carla — IKKE Ditte
+  });
+
+  it('optOut fjerner en spiller fra knappens tal, selv når han mangler i vinduet', () => {
+    const ud = byg(new Map()); // ingen har tippet noget
+    // Anna + Carla mangler k1 og kan nås; Bo mangler k1 men er opt-out.
+    expect(ud.rammesAfKnappenNu).toBe(2);
+  });
+
+  it('gaten: runder før spillets startrunde har ingen kampe at mangle', () => {
+    const ud = byggTipStatus({
+      game: { startRound: 4 },
+      matches: [{ id: 'g1', round: 3, home: 'A', away: 'B', kickoff: ts(NOW + 3 * H) }, ...matches],
+      memberUids: ['a'], betByUid: new Map(), brugere, emails, round: 3, now,
+    });
+    expect(ud.kampeIRunden).toBe(0);
+    expect(ud.spillere[0].manglende).toEqual([]);
+  });
+
+  it('grænsen står i selve datastrukturen: intet pick/valg kan optræde i svaret', () => {
+    const ud = byg(bets);
+    expect(JSON.stringify(ud)).not.toMatch(/"pick"|"valg"|"1"\s*:\s*"[1X2]"/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hentTipStatus — LÆSEREN er selve sikkerhedsgrænsen (Security-fund): bets
+// har picks i databasen, men kun matchId må komme ind i processen. Mutationen
+// 'add(b) i stedet for add(b.matchId)' var grøn i hele suiten, fordi alle
+// tests kørte byggTipStatus, hvis input pr. konstruktion allerede var rene.
+// Denne test kører den ÆGTE læser mod en fake db med fjendtlige bets.
+// ---------------------------------------------------------------------------
+describe('hentTipStatus — picks findes i databasen, men aldrig i svaret', () => {
+  const { hentTipStatus } = require('./reminders.js');
+
+  function fakeDb() {
+    const bets = [
+      { uid: 'a', matchId: 'k1', pick: '1', points: 7.7, hemmelig: 'x' },
+      { uid: 'c', matchId: 'k2', pick: 'X', points: 0 },
+    ];
+    const matches = [
+      { id: 'k1', round: 4, home: 'FCK', away: 'AGF', kickoff: ts(NOW + 3 * H) },
+      { id: 'k2', round: 4, home: 'OB', away: 'Vejle', kickoff: ts(NOW + 30 * H) },
+    ];
+    const docsAf = (liste) => liste.map((d) => ({ id: d.id ?? d.uid, exists: true, data: () => d }));
+    const gameRef = {
+      get: async () => ({ exists: true, data: () => ({ name: 'Testspillet' }) }),
+      collection: (navn) => ({
+        get: async () => ({
+          docs: navn === 'matches' ? docsAf(matches)
+            : navn === 'players' ? [{ id: 'a', data: () => ({}) }, { id: 'c', data: () => ({}) }]
+              : [],
+        }),
+        where: () => ({
+          get: async () => ({ docs: bets.map((b) => ({ data: () => b })) }),
+        }),
+      }),
+    };
+    return {
+      collection: (navn) => ({
+        doc: (id) => (navn === 'games' ? gameRef : {
+          __id: id,
+          get: async () => ({ exists: true, data: () => ({ displayName: `Navn-${id}` }) }),
+        }),
+        get: async () => ({ docs: [{ id: 'a', data: () => ({ email: 'a@x.dk' }) }] }), // userContacts
+      }),
+      getAll: async (...refs) => refs.map((r) => ({
+        id: r.__id, exists: true, data: () => ({ displayName: `Navn-${r.__id}` }),
+      })),
+    };
+  }
+
+  it('svaret indeholder hverken pick, points eller ukendte bet-felter', async () => {
+    const svar = await hentTipStatus(fakeDb(), 'spil', 4, now);
+    expect(svar.gameNavn).toBe('Testspillet');
+    // a har tippet k1 (1/2) — c har tippet k2 (1/2): dækningen kom igennem…
+    expect(svar.spillere.find((s) => s.uid === 'a').tippet).toBe(1);
+    // …men intet af bettenes indhold gjorde:
+    const raa = JSON.stringify(svar);
+    expect(raa).not.toContain('"pick"');
+    expect(raa).not.toContain('7.7');
+    expect(raa).not.toContain('hemmelig');
+  });
+});

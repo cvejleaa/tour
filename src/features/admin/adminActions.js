@@ -305,6 +305,25 @@ export async function callGamePuljeStatus(gameId, { remind = false } = {}) {
 }
 
 /**
+ * Tip-status for én runde (platform, admin): hvem mangler at tippe hvilke
+ * kampe — aldrig HVAD der er tippet (serveren læser kun matchId af hvert bet).
+ * Beskeden ved not-found matcher de øvrige: klient og functions skal deployes
+ * i samme kørsel, og en gammel server skal fejle forståeligt.
+ */
+export async function callGameTipStatus(gameId, round) {
+  try {
+    const fn = httpsCallable(functions, 'gameTipStatus', { timeout: 120000 });
+    const res = await fn({ gameId, round });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg = err?.code === 'functions/not-found'
+      ? 'Cloud Function "gameTipStatus" er ikke deployet endnu.'
+      : err?.message || 'Kunne ikke hente tip-status.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
  * Runde-Botten (platform): generér runde-opslaget for et spil. dryRun=true
  * returnerer kun teksten (forhåndsvisning); dryRun=false poster på alle
  * spillets liga-vægge. Uden runde vælges den seneste helt afgjorte.

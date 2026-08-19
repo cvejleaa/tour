@@ -50,7 +50,7 @@ async function skrivDriftStatus(st, db, opts) {
 }
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
-const { runGameTipReminders, sendGameTestReminder } = require('./reminders');
+const { runGameTipReminders, sendGameTestReminder, hentTipStatus } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
@@ -708,6 +708,36 @@ exports.sendGameTipRemindersNow = onCall(
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
     const result = await runGameTipReminders(db, transporter, gameId);
     return { success: true, ...result };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// gameTipStatus — admin: hvem mangler at tippe i én runde? (opgave #37)
+//
+// Callable og IKKE en klient-query, selvom firestore.rules faktisk TILLADER
+// admin at læse alle bets: pointen er, at andres 1X2-valg aldrig skal ned i
+// admins browser (admin spiller selv med). Serveren læser kun matchId af
+// hvert bet — se hentTipStatus. "Forenkl" den derfor aldrig til en query.
+// ---------------------------------------------------------------------------
+exports.gameTipStatus = onCall(
+  { region: REGION },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const gameId = String(request.data?.gameId || '').trim();
+    // Regexen alene slap '__proto__' igennem — Firestore reserverer __x__-
+    // formen og kaster først ved get() som en ubehandlet 'internal'
+    // (Security-fund, emulator-bekræftet).
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(gameId) || /^__.*__$/.test(gameId)) {
+      throw new HttpsError('invalid-argument', 'Ugyldigt spil-id.');
+    }
+    const round = Number(request.data?.round);
+    if (!Number.isInteger(round) || round < 1 || round > 99) {
+      throw new HttpsError('invalid-argument', 'Ugyldig runde.');
+    }
+    const status = await hentTipStatus(db, gameId, round);
+    if (!status) throw new HttpsError('not-found', 'Spillet findes ikke.');
+    return { success: true, ...status };
   },
 );
 

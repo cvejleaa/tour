@@ -86,8 +86,8 @@ export default function GameRecapBotTab() {
         <h3 style={{ marginTop: 0 }}>🤖 Runde-Botten</h3>
         <p style={{ color: 'var(--c-muted)' }}>
           Poster automatisk et AI-opslag på spillets liga-vægge, når <strong>sidste kamp i en
-          runde</strong> er afregnet: rundens resultater, stillingen og en kærlig stikpille til
-          rundens bedste. <strong>Forhåndsvis</strong> genererer teksten uden at poste;
+          runde</strong> er afregnet: rundens resultater, stillingen, Chancens helte og ofre
+          og en kærlig stikpille til rundens bedste. <strong>Forhåndsvis</strong> genererer teksten uden at poste;
           <strong> Post nu</strong> lægger den på alle liga-vægge (kun én gang pr. runde).
         </p>
 

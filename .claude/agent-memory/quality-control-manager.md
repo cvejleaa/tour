@@ -240,3 +240,159 @@ Alle 7 rettelser fra plan-gennemgangen blev fulgt. Konkrete efterprøvninger:
   generiske fodbold-scoring-motor (bruges af `FootballTip`, `PuljeTip`,
   `betActions.js` for alle fodboldspil, ikke kun Superligaen). Så PL-mailens
   løfter om disse to var allerede sande uden ændring.
+
+## Tip-status-fladen (#37, plan-gennemgang): hvem-ser-hvad + "knappen ved siden af"
+
+- **"Send påmindelser nu" er et 24-TIMERS VINDUE, ikke en runde.**
+  `functions-platform/reminders.js` `upcomingMatches(matches, now, now+24h,
+  gatede)` — enhver ny status-visning PR RUNDE, der lægges i samme fane, viser
+  et andet sæt navne, end knappen lige ovenover rammer (begge veje: en runde,
+  der spilles fre–man, har mangler tirsdag, hvor knappen sender 0). Skal et tal
+  stå ved siden af en handling, så beregn det med handlingens EGEN funktion.
+  Mail-udsendelsen springer desuden `emailOptOut` og folk uden adresse over —
+  en mangler-liste, der ikke markerer dem, forklarer ikke "Sendte 5 / Mangler 8".
+- **En global admin kan ALLEREDE læse alt fra klienten.**
+  `firestore.rules`: `games/{g}/bets/{b}` og `players/{uid}/detalje/{d}` starter
+  begge med `allow read: if isGlobalAdmin()` (og `owner` tæller med, linje ~41).
+  Begrundelsen "reglerne tillader ikke klienten at læse andres bets" er derfor
+  FALSK for admin. En admin-callable er stadig rigtig — men fordi vi ikke vil
+  have andres picks ned i admins browser, ikke fordi reglen forbyder det. Skriv
+  den rigtige grund, ellers "forenkler" en senere ændring den til en klient-query.
+- **"Alle kan alligevel se tips efter kampstart" er kun sandt for
+  LIGA-KAMMERATER.** `useMatchLeagueBets` kræver
+  `where('leagueIds','array-contains-any', mine)`, og
+  `useVisibleGameStandings`/`leagueMateStandings` viser kun league mates — UDEN
+  admin-undtagelse i klienten. Ejeren kan altså have deltagere, han slet ikke
+  kan se i spil-fladen. Enhver admin-oversigt over ALLE deltagere er dermed
+  ikke dobbeltarbejde, men første sted de navne overhovedet vises.
+- **`activeRound`/`groupByRound` findes KUN i klienten**
+  (`src/features/games/football/footballRounds.js`, ingen server-pendant). Et
+  server-beregnet "aktiv runde" ville være en ny, uspejlet dublet, der kan pege
+  et andet sted end Tip-fanen. Lad klienten vælge runden og sende `round` med.
+- **`gamePuljeStatus` (index.js ~736) læser HELE `users` OG hele `userContacts`.**
+  Kopiér ikke det mønster — `reminders.js` gør det rigtigt med
+  `db.getAll(...memberUids)`. Prisen pr. klik for en runde-status er ellers
+  ~350–600 reads (Superliga) / ~600–900 (PL); hele bets-kollektionen på én gang
+  er ~2.600 hhv. ~7.600. Alt sammen billigt — MEN kun så længe det sidder bag
+  en KNAP. Auto-hent ved fanens mount ville koste ved hvert besøg i den fane,
+  der også rummer Send-knapperne.
+- **`players/{uid}/detalje/opdeling` er den billige vej til sæson-totaler:**
+  ét serverskrevet dokument pr. spiller med alle afgjorte+begyndte kampe
+  (1 read pr. spiller i stedet for spillere×kampe). Kun afgjorte kampe, så det
+  kan ikke bruges til "mangler nu".
+- **`GameReminderTab.jsx` filtrerer `GAME_STATUS.FINISHED` fra** (linje ~19) —
+  alt, der lægges i den fane, er utilgængeligt for et afsluttet spil. Rigtigt
+  for ryk, men lukker historik-vejen helt.
+- **Ny callable + klientkode = split-deploy-risiko** (se invitations-afsnittet):
+  `functions/not-found` indtil `deployFunctions` er tikket af. Brug
+  adminActions' eksisterende "…er ikke deployet endnu"-besked og sig det til
+  Release Manager.
+
+## Runde-Botten kender Chancen (a889bb1): plan mod implementering — konkrete fund
+
+- **Alle 6 spilfører-krav holdt, efterprøvet konkret, ikke kun læst:**
+  netto beregnes med `outcomePoints` fra SAMME `superligaScoring`-modul som
+  `pointOpdeling.js`s `opdelPoint()` bruger (`chance += points − tip`, identisk
+  formel, identisk `taeller()`-gate `!!(info && info.result)`), og et direkte
+  test (`gameRecap.test.js` linje ~595) sammenligner bottens sum af
+  `chancer[].netto` mod `opdelPoint(...).chance` — det er den rigtige måde at
+  bevise "samme kilde" på, ikke bare en kommentar der siger det.
+  `stoersteGevinst`/`stoersteTab` er forudberegnet i JS (samme delt→null-mønster
+  som `standout`), og der er en test for netop den delte case. `ingenChancer`
+  er kollektiv (`chancer.length === 0`), og prompten forbyder eksplicit navne
+  ved den observation. De tre tone-grænser står ordret i `RECAP_SYSTEM` og er
+  hver for sig assertion-testet på INDHOLD (ikke kun "findes prompten").
+- **`players`-scoping af chancer er bevist, ikke antaget.** Der er en test,
+  der lægger en bruger 'C' UDEN FOR `players`-listen ind i `betsByUid` (som om
+  kaldstedet havde sendt en ikke-liga-scoped map) og bekræfter `chancer` bliver
+  tom for den kamp. Kaldstedet (`runGameRoundRecap` linje ~405) sender allerede
+  `players: lokaleRanger(medlemmer)`, hvor `medlemmer` er `memberUids ∩ perUid`
+  — dobbelt sikret. Eneste kaldsted i produktionskoden (`grep` bekræftet).
+- **`chanceMaxStake(bank)`-loftet er en FUNKTION AF SALDOEN VED BET-TIDSPUNKTET,
+  ikke af bet-dokumentet.** Bet-dokumentet gemmer kun det allerede-klippede
+  `chanceStake`, ikke banken før runden — så `maks` (spilførerens ønskede felt)
+  kan IKKE udledes bagudrettet uden at genafspille hele spillerens historik.
+  Beskyttelsen blev i stedet lagt som en REN prompt-regel ("Kommentér ALDRIG
+  størrelsen af en indsats som fej eller lille"). Det er en acceptabel
+  afvigelse — men bemærk at den ikke er en ny risikokategori: HELE tone-laget
+  i denne bot (alle tre ufravigelige grænser, "mod måles i odds" osv.) er
+  allerede udelukkende prompt-håndhævet, fri tekst har ingen kode-vagt. Vil
+  man gøre `maks` kontrollerbart FREMOVER (ikke bagudrettet for eksisterende
+  bets), er den rigtige rettelse at skrive banken/loftet ind på bet-dokumentet
+  VED SKRIVNING (`betActions.js`/`functions-platform` bet-handler), ikke i
+  gameRecap. Spørg dette igen, hvis nogen ønsker at gøre tone-reglerne
+  kode-håndhævede i stedet for prompt-håndhævede.
+- **Recapens chance-eksponering er IKKE ny eksponering — det er allerede
+  synligt data, blot samlet.** `LeagueBets.jsx` viser allerede ⚡ (med
+  `chanceStake` i title) for liga-kammeraters bets på en kamp, der er gået i
+  gang; og `firestore.rules` `players/{uid}/detalje/{docId}` (kommentar linje
+  ~706-720) tillader ALLEREDE læsning "eget dokument, eller en man deler liga
+  med" — samme kreds som `useVisibleGameStandings`. Chance-netto pr. kamp var
+  altså allerede udledeligt af en liga-kammerat FØR denne commit (kendt facit
+  + kendte odds + synlig stake). God ting at tjekke ved lignende "AI-bot får
+  nyt personligt felt"-ændringer: er feltet allerede synligt et andet sted i
+  samme synlighedskreds, eller er det en NY eksponering?
+- **Dokumentations-hul, ikke blokerende:** hverken `docs/admin-guide.md`s
+  "Runde-Botten"-afsnit, `GameRecapBotTab.jsx`s egen brødtekst
+  ("rundens resultater, stillingen og en kærlig stikpille til rundens
+  bedste") eller `FootballHelp.jsx`s spiller-vendte beskrivelse ("hvem der
+  løb med runden, hvem der brændte den...") nævner Chancen. Ikke FALSK (ingen
+  af dem lover noget, koden ikke giver), men ufuldstændig — en admin, der
+  forhåndsviser og ser en chance-kommentar første gang, har ingen tekst der
+  forklarer det. Værd at rette ved næste tekstpas på nogen af de tre steder.
+
+## Tip-status-fladen (26e9dea): implementering mod planens 7 krav — konkrete fund
+
+Alle 7 rettelser fra plan-gennemgangen (se afsnittet ovenfor) er implementeret
+og bevist, ikke kun læst i en kommentar: `byggTipStatus` genbruger bogstaveligt
+`gatedeKampe`/`startRundeFor`/`upcomingMatches` fra samme modul som
+`runGameTipReminders`, med en direkte test der viser `rammesAfKnappenNu`
+afviger fra `kampeIRunden` (Bo mangler kun en kamp 30 t ude — knappen springer
+ham over). Ingen ny per-person ryk-knap. `naaedeDetIkke`/`kanRykkes` er begge
+UI- og server-testet. Klienten kalder `groupByRound`/`activeRound`/
+`fraStartRunde`/`startRundeFor` — de SAMME importerede funktioner Tip-fanen
+bruger, ingen server-dublet af "aktiv runde" (serveren tager blot imod
+`round` og validerer `1–99`).
+
+- **`emailByUidMap(db)` scanner HELE `userContacts`-kollektionen — også fra
+  den nye `hentTipStatus`.** Kommentaren over `hentTipStatus` siger "kun
+  deltagernes profiler læses (db.getAll), aldrig hele brugerkartoteket", hvad
+  der er sandt for `users` (scoped via `db.getAll(...memberUids)`) men IKKE
+  for e-mails: `emailByUidMap` gør `db.collection('userContacts').get()` —
+  samme fulde scan som `gamePuljeStatus` kritiseres for at gøre på `users`
+  OG `userContacts`. Ikke en regression i denne commit (mønstret er arvet fra
+  det allerede eksisterende `runGameTipReminders`/`sendGameTestReminder`, som
+  begge allerede kaldte `emailByUidMap`), og stadig bag en knap (accepteret
+  efter reglen "kun så længe det sidder bag en KNAP"). Men kommentarens
+  påstand "aldrig hele brugerkartoteket" er præcist forkert for e-mail-delen.
+  Spørg næste gang nogen skriver "kun deltagernes data læses" ved siden af et
+  kald til `emailByUidMap`: gælder påstanden ALT i funktionen, eller kun
+  profilerne? Præcisér kommentaren, eller — hvis det nogensinde bliver dyrt —
+  lav en `db.getAll`-variant af e-mail-opslaget.
+- **To defensive fejl-veje er kodet rigtigt, men ikke testdækket:** "spillet
+  har ingen runder" (tom `groupByRound`-liste → `activeRound` returnerer
+  `null` → dansk fejlbesked, ikke et crash) og runde-0-fallback'en i
+  `groupByRound` (kampe uden `round`-felt). Læst efter i koden: begge er
+  korrekte, men INGEN test i `GameReminderTab.test.jsx` eller
+  `reminders.test.js` dækker "ingen runder"-stien. Lavt reelt risiko, fordi
+  `scripts/seed-football.mjs` linje 91 filtrerer `round == null` fra FØR
+  skrivning, og `superligaSync.js`s invariant siger eksplicit at
+  kickoff-synken ALDRIG rører `round` — så en kamp uden runde-nummer er en
+  defensiv fallback for korrupt data, ikke en nåbar tilstand i normal drift.
+  Server-loftet `round > 99` er af samme grund uskadeligt: ægte runde-tal for
+  fodbold topper omkring 38-46, langt under loftet — vælgeren kan aldrig
+  producere et tal, callablen afviser.
+- **En "runde uden kampe efter gate" kan ikke vælges via UI'et overhovedet:**
+  `tipRunder` bygges af `groupByRound(fraStartRunde(...))`, så en runde, hvor
+  ALLE kampe er gatet væk, optræder aldrig som et `<option>` — kun
+  `byggTipStatus` kaldt direkte (som i testen "gaten: runder før spillets
+  startrunde har ingen kampe at mangle") kan producere `kampeIRunden: 0`.
+  Ingen mismatch mellem hvad vælgeren viser og hvad serveren accepterer.
+- **Ordvalget matcher Pulje-status-sektionen i samme fane** (samme
+  "🔎 Tjek X-status"-knapmønster, samme "Alle har tippet ... 🎉"-badge). Den
+  strukturelle forskel (ét aggregeret tal i Pulje-status vs. én række pr.
+  spiller i Tip-status) er begrundet i datens form, ikke en tilfældig
+  afvigelse — ikke et fund.
+- **Testtal:** `npm --prefix functions-platform test` → 501/501 grønne
+  (`reminders.test.js` 11 af dem, inkl. `byggTipStatus`). `npx vitest run
+  src/features/admin` → 289/289 grønne (`GameReminderTab.test.jsx` 4 af dem).
