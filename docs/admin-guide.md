@@ -99,6 +99,10 @@ Liga-admin følger med at have oprettet ligaen.
 
 - **🔔 Send påmindelser nu** mailer de spillere, der mangler at tippe på kampe
   i det næste døgn. Kampe før spillets start tælles ikke med.
+- **Liga-spørgsmålene** har deres egen svar-status: knappen **🔎 Hvem mangler
+  at svare?** bor på ligaens kort under spillets 👥 Ligaer-fane (alle
+  medlemmer kan se den — ikke kun her i admin), for spørgsmålene ejes af
+  liga-ejeren, ikke af platformen.
 - **🎯 Hvem mangler at tippe?** viser pr. runde hver deltagers dækning (fx
   4/6) og hvilke kampe der mangler — men aldrig *hvad* der er tippet: du
   spiller selv med, så 1X2-valg er skjult, til kampen er gået i gang. Kortet

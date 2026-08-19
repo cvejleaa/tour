@@ -16,11 +16,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 const mockSaveAnswer = vi.fn().mockResolvedValue({ ok: true });
+const mockLqStatus = vi.fn();
 vi.mock('./gameLeagueActions', () => ({
   createLeagueQuestion: vi.fn().mockResolvedValue({ ok: true }),
   setLeagueQuestionFacit: vi.fn().mockResolvedValue({ ok: true }),
   deleteLeagueQuestion: vi.fn().mockResolvedValue({ ok: true }),
   saveLeagueQuestionAnswer: (...a) => mockSaveAnswer(...a),
+  callLeagueQuestionStatus: (...a) => mockLqStatus(...a),
   LEAGUE_Q_LABEL_MAX: 120,
 }));
 
@@ -126,5 +128,68 @@ describe('LeagueQuestions — ejerens facit på et hold-spørgsmål', () => {
     // acceptedAnswers er fritekstens sikkerhedsnet — overflødigt og
     // forvirrende, når svaret ikke kan staves forkert.
     expect(screen.queryByPlaceholderText('Også godkendt (komma-adskilt)')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hvem mangler at svare? (opgave #38) — den ærlige tæller og dæknings-knappen.
+// Båndet er dét, der IKKE må stå: "1 svar" på et åbent spørgsmål var løgnen
+// (klienten kan kun læse sit eget svar før lukning).
+// ---------------------------------------------------------------------------
+import { waitFor } from '@testing-library/react';
+
+describe('LeagueQuestions — ærlig tæller på åbne spørgsmål', () => {
+  it('åbent + eget svar: "Du har svaret ✓" — og ALDRIG "1 svar"', () => {
+    renderQ({
+      questions: [teamQ({ deadline: Date.now() + 86400000 })],
+      answersByQid: { q1: [{ uid: 'me', questionId: 'q1', answer: 'Arsenal' }] },
+    });
+    expect(screen.getByText(/Du har svaret ✓/)).toBeInTheDocument();
+    expect(screen.getByText(/svarene vises ved deadline/)).toBeInTheDocument();
+    expect(screen.queryByText(/1 svar/)).toBeNull();
+  });
+
+  it('åbent uden eget svar: "Du mangler at svare" — uden deadline vises facit-varianten', () => {
+    renderQ({ questions: [teamQ()], answersByQid: {} });
+    expect(screen.getByText(/Du mangler at svare/)).toBeInTheDocument();
+    expect(screen.getByText(/svarene vises når facit sættes/)).toBeInTheDocument();
+  });
+
+  it('lukket spørgsmål: tallet er sandt igen og vises som før', () => {
+    renderQ({
+      questions: [teamQ({ facit: 'Arsenal' })],
+      answersByQid: { q1: [{ uid: 'me', answer: 'Arsenal' }, { uid: 'andet', answer: 'Wolves' }] },
+    });
+    expect(screen.getByText(/2 svar/)).toBeInTheDocument();
+  });
+});
+
+describe('LeagueQuestions — Hvem mangler at svare?', () => {
+  it('knappen kalder serveren og viser dækningen i rækken — med "dig" for en selv', async () => {
+    mockLqStatus.mockResolvedValue({
+      ok: true,
+      data: {
+        spoergsmaal: [{
+          id: 'q1', label: 'Hvem vinder ligaen?', deadline: null, besvaret: 1, ialt: 3,
+          mangler: [{ uid: 'me', navn: 'Mig' }, { uid: 'andet', navn: 'Anden' }],
+        }],
+      },
+    });
+    renderQ({ questions: [teamQ()], answersByQid: {} });
+    fireEvent.click(screen.getByTestId('lq-hvem-mangler'));
+    await waitFor(() => expect(mockLqStatus).toHaveBeenCalledWith('pl', 'L1'));
+    const status = await screen.findByTestId('lq-status-q1');
+    expect(status.textContent).toContain('1 af 3');
+    expect(status.textContent).toContain('mangler: dig, Anden');
+    expect(screen.getByText(/Viser kun spørgsmål, der stadig kan besvares/)).toBeInTheDocument();
+  });
+
+  it('fejl fra serveren vises — og knappen findes IKKE uden spørgsmål', async () => {
+    mockLqStatus.mockResolvedValue({ ok: false, error: 'Kun ligaens medlemmer kan se svar-status.' });
+    renderQ({ questions: [teamQ()], answersByQid: {} });
+    fireEvent.click(screen.getByTestId('lq-hvem-mangler'));
+    expect(await screen.findByText(/Kun ligaens medlemmer/)).toBeInTheDocument();
+    renderQ({ questions: [], answersByQid: {} });
+    expect(screen.queryAllByTestId('lq-hvem-mangler')).toHaveLength(1); // kun fra første render
   });
 });

@@ -260,3 +260,23 @@ export async function saveLeagueQuestionAnswer({ uid, gameId, leagueId, question
     return { ok: false, error: danishError(err, 'Kunne ikke gemme svaret.') };
   }
 }
+
+/**
+ * Hvem mangler at svare på ligaens ÅBNE spørgsmål? (serverkald — rules
+ * nægter bevidst at læse andres svar før lukning, og serveren afslører kun
+ * HVEM der har svaret, aldrig hvad). Adgang: ligaens medlemmer + admin.
+ */
+export async function callLeagueQuestionStatus(gameId, leagueId) {
+  try {
+    const { httpsCallable } = await import('firebase/functions');
+    const { functions } = await import('../../firebase');
+    const fn = httpsCallable(functions, 'leagueQuestionStatus', { timeout: 60000 });
+    const res = await fn({ gameId, leagueId });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg = err?.code === 'functions/not-found'
+      ? 'Funktionen er ikke rullet ud endnu — prøv igen om lidt.'
+      : err?.message || 'Kunne ikke hente svar-status.';
+    return { ok: false, error: msg };
+  }
+}

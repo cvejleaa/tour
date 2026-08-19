@@ -396,3 +396,61 @@ bruger, ingen server-dublet af "aktiv runde" (serveren tager blot imod
 - **Testtal:** `npm --prefix functions-platform test` → 501/501 grønne
   (`reminders.test.js` 11 af dem, inkl. `byggTipStatus`). `npx vitest run
   src/features/admin` → 289/289 grønne (`GameReminderTab.test.jsx` 4 af dem).
+
+## Liga-spørgsmåls-status (#38, plan-gennemgang): svar-synlighed + ærlige tællere
+
+- **"X svar"-tælleren i `LeagueQuestions.jsx` (linje ~107) var ALTID løgn på et
+  åbent spørgsmål.** `useLeagueQuestions` abonnerer på egne svar bredt, men på
+  ANDRES svar kun for LUKKEDE spørgsmål (`settledQuestionIds`) — fordi
+  `firestore.rules` linje ~1008 kun åbner andres svar ved facit/deadline, og
+  regler ikke er filtre. `answersByQid[q.id].length` er derfor 0 eller 1 på et
+  åbent spørgsmål. Generel lære: **enhver tæller, der bygger på en query, som
+  er indsnævret for at matche en læseregel, tæller "hvad jeg må se" og ikke
+  "hvad der findes" — og skal enten hedde det eller væk.**
+- **Liga-spørgsmål er de ENESTE data, hvor global admin IKKE har en klient-
+  bypass.** `games/{g}/bets`, `players/{uid}/detalje` starter med
+  `allow read: if isGlobalAdmin()`; `questionAnswers` gør IKKE (kun medlemskab
+  + lukket spørgsmål). En callable er derfor ægte nødvendig her — modsat
+  tip-status-fladen, hvor begrundelsen "reglerne forbyder det" var falsk.
+- **Svar-dokument-id'et `qId_uid` er RULE-HÅNDHÆVET** (`answerId ==
+  request.resource.data.questionId + '_' + request.auth.uid`, rules ~1018), og
+  spørgsmåls-id'er er `addDoc`-auto-id'er ([A-Za-z0-9], aldrig '_'). Derfor er
+  det sikkert at udlede "hvem har svaret" af doc-id ALENE, uden at røre
+  svar-feltet. Deterministiske id'er giver desuden den præcise opslagsform:
+  `db.getAll(...åbneQ × memberUids, { fieldMask: [...] })` — eksakt pris, ingen
+  kollektion-scan, svaret forlader aldrig databasen. Bemærk afhængigheden:
+  lempes reglen, dør antagelsen tavst.
+- **Tre steder definerer allerede "lukket", og de er IKKE ens.** Rules:
+  `facit != null`. `lqSettled()` (leagueQuestionScoring.js): `facit != null &&
+  trim() !== ''`. `settledQuestionIds()` (useLeagueQuestions.js): facit ELLER
+  deadline + 60 s skew. Et fjerde, server-side, prædikat skal kopiere
+  **skrivereglen** (`facit == null && (deadline == null || now < deadline)`) —
+  det er den, der afgør, om nogen stadig KAN svare. Alt andet lister folk som
+  "mangler" på noget, de er låst ude af.
+- **Server-ur vs. klient-ur i samme række.** Callablens `Date.now()` er
+  reglernes ur; `deadlinePassed()` i `LeagueQuestions.jsx` er brugerens. Et par
+  minutters afvigelse giver "Deadline passeret" og "mangler: Bo" side om side.
+  Lad serveren sende sit eget `aabent`-flag + hentetidspunkt, og vis "Hentet kl.
+  HH:MM" — en hentet liste er ikke live, og skal ikke se live ud.
+- **`memberUids` er NUVÆRENDE medlemmer; svar slettes aldrig** (`allow delete:
+  if false`, og `leaveLeague` gør `arrayRemove`). "Besvaret X af Y" kan derfor
+  blive "5 af 4". Snit altid besvarede ∩ memberUids.
+- **Liga-væggen notificerer INGEN.** Der er ingen `onDocumentCreated`-trigger i
+  hele `functions-platform/index.js` — en væg-besked sender ikke mail og giver
+  ingen notifikation. "Væggen er nok som ryk" er derfor kun sandt, fordi ryk i
+  praksis sker i WhatsApp. En liga-mail ville give hver liga-ejer en
+  udsendelses-kanal til medlemmerne = ny kapacitet, ny sikkerhedsgennemgang.
+  Den billige ærlige mellemvej er "Kopiér navne" (mønster findes i
+  `LeaguesPage.jsx` og `UserRow.jsx`).
+- **Placering: liga-ejerens flade slår admin-fanen, når rollen ikke er admin.**
+  Trin 0b's "hvor ville en administrator lede?" gælder admin-funktioner. Her er
+  aktøren LIGA-EJEREN (de fleste er ikke admins), så Admin → Påmindelser ville
+  tjene én bruger og samtidig give globale admins indblik i alle private
+  ligaers svar-status. Rigtig løsning: byg på liga-fladen, og luk
+  genfindeligheds-hullet med en linje i `docs/admin-guide.md` + evt. en ren
+  tekst-henvisning i Påmindelser-fanen. Ejeren ledte forkert — det er et
+  vejvisnings-problem, ikke et placerings-problem.
+- **Sæt statussen dér, hvor den påvirker den næste handling.** "Gem facit"
+  sidder pr. spørgsmål (linje ~159), og facit kan aldrig nulstilles (rules
+  ~984). En mangler-liste i en blok for sig lader ejeren lukke et spørgsmål
+  uden at se, at tre endnu ikke har svaret. Knap ét sted, resultat i rækken.

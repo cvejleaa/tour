@@ -354,3 +354,77 @@ Pris pr. klik (30 spillere, 380 kampe i spillet): ~800 server-læsninger +
 klientens egne ~380 på matches; hvert rundeskift i dropdown'en koster ~800 igen.
 `emailByUidMap` scanner HELE `userContacts` for at udlede én boolean pr.
 spiller — arvet fra påmindelsesvejen, og forbeholdet står ærligt i koden.
+
+## leagueQuestionStatus (78b69ea) — angrebsflade: MEDLEMS-CALLABLE MED SVAR-LÆK-GRÆNSE
+
+Ny klasse: en callable, der bevidst er MERE tilladende end firestore.rules
+(rules har ingen læsegren for andres åbne `questionAnswers` — heller ikke for
+admin), og som derfor ER hele grænsen. Alt herunder emulator-verificeret.
+
+**BEKRÆFTET RENT — `fieldMask: []` er en ÆGTE, bærende vagt.**
+Målt på wire-niveau mod emulatoren (`@google-cloud/firestore` 7.11.6):
+`readOptions.fieldMask = []` er TRUTHY (transaction.js L546) → `request.mask =
+{fieldPaths: []}` (document-reader.js L112-114) → backend returnerer
+`exists:true` og `data() === {}`. Kontrol UDEN mask: fulde data. Det hemmelige
+felt findes ikke engang i det RÅ snapshot-objekt (`JSON.stringify(snap)`).
+→ Mutation af KUN `.exists`→`.data()` lækker INTET (mask'en fanger det);
+mutation af KUN mask'en lækker heller intet (`.exists` fanger det). To
+UAFHÆNGIGE vagter — godt for dybden, men ingen af dem bliver rød alene i en
+mutationstest. Testene i gameLeagues.test.js asserterer heldigvis BEGGE
+(`sidste.fieldMask` toEqual `[]` + `db._kaldteData` toEqual `[]`) — den
+modgift, jeg efterlyste efter gameTipStatus, er faktisk skrevet.
+
+**BEKRÆFTEDE huller (rapporteret, ikke lukket i 78b69ea):**
+- **Ingen `isApproved`-ækvivalent.** Callablen kræver kun `request.auth` +
+  medlemskab. Et medlem med `status:'rejected'` (bortvist) står stadig i
+  `memberUids` — INTET fjerner dem (redeemLeagueCodeCore L57 spærrer kun for
+  gen-tilmelding) — og får fuldt svar: liganavn, alle åbne spørgsmåls-labels,
+  alle medlemsnavne, hvem der har svaret. Rules kræver `isApproved()` HVERT
+  sted i leagues-træet, så callablen er strengt mere tilladende end klientvejen.
+- **Læse-forstærkning før autorisation.** `hentSpoergsmaalStatus` køres FØR
+  medlems-tjekket. Målt: 30 medl × 10 åbne sp = 341 læsninger, 60×40 = 2501,
+  100×60 = 6161 — pr. kald, også for en kalder der ender med
+  `permission-denied` (målt 87 vs. 1 for ukendt liga). Ingen App Check, ingen
+  rate limit. Fix: læs ligaen, tjek medlemskab, læs SÅ questions/svar/brugere.
+- **Eksistens-orakel.** `not-found` (1 læsning) vs `permission-denied` (87) for
+  ENHVER authenticated — også `pending`. Praktisk ufarligt: leagueId er et
+  auto-id fra `doc(collection(...))` (~62^20). Skelnes desuden på LATENS, så
+  ens fejlkoder alene ville ikke lukke det — kun rækkefølge-fixet gør.
+- **Griefing via `displayName`.** `users/{uid}` update-reglen (L107) type-tjekker
+  IKKE `displayName` — emulator-bekræftet at en spiller må skrive `42`, `{a:1}`,
+  `['a']`, 100k tegn på sig selv. `a.navn.localeCompare` (gameLeagues.js L112)
+  kaster da `TypeError` → callablen svarer `internal` → knappen er død for HELE
+  ligaen. `navn` har heller intet længdeloft (modsat `label`, der `.slice(0,120)`).
+  Fix: `String(...).slice(0, 60)`.
+- **"Kopierer skrivereglen" gør den ikke helt.** Koden: `q.facit == null` (dvs.
+  manglende nøgle = åbent). Reglen: `question(qid).facit == null` UDEN
+  `.get('facit', null)` → en manglende nøgle er en EVALUERINGSFEJL → nægtet.
+  Emulator-bekræftet: et spørgsmål uden `facit`-nøgle kan INGEN svare på (heller
+  ikke ejeren), men callablen lister alle som "mangler". Kun nåbar med håndlavet
+  skrivning (den ægte klient skriver altid `facit: null`).
+
+**Afprøvet og RENT (gentag ikke):**
+- Forfalskning af en ANDENS "har svaret" er umulig. Rules binder
+  `answerId == questionId + '_' + auth.uid`, så doc-id'et ender ALTID på
+  angriberens eget uid; kollision med `Q_offer` kræver at offerets uid er
+  suffiks af angriberens (samme længde, forskellige) → udelukket. 4 varianter
+  kørt, alle nægtet, kontroltest (eget svar) grøn.
+- Et EKS-medlems svar kan ikke give "5 af 4" (refs bygges af `memberUids`).
+- Ingen læk af `svar`, `points`, `facit`, `role`, `status` eller privat e-mail —
+  PoC med forbudte regexer + MUTERET udgave, der lækker (kontrollen virker).
+- Id-valideringen er identisk med gameTipStatus (`/^[A-Za-z0-9_-]{1,200}$/` PLUS
+  `!/^__.*__$/`), anvendt på BEGGE id'er, alle 7 fjendtlige værdier afvist med
+  0 læsninger. `label: {map}` → `''`; `deadline: {map}` → spørgsmålet skjules
+  (fejler lukket). `facit: false` → behandles som lukket, ligesom i reglen.
+
+**PoC-filer:** scratchpad/poc/{1-fieldmask,2-flow,3-adgang,4-oedelaeg,7-skala}.js
++ {5-rules,6-kontrol,9-forfalsk2}.mjs. Emulator startes som beskrevet øverst;
+`node_modules` symlinkes til functions-platform/node_modules.
+
+**Faldgrube til listen:** *en callable, der bevidst er mere tilladende end
+reglerne, arver ikke reglernes forudsætninger.* Rules siger `isApproved()` i
+hver eneste gren; callablen sagde kun "er du i listen". Spørg altid: hvilke
+prædikater står FORAN denne data i firestore.rules, og har callablen dem alle?
+**Og:** *autorisationen skal stå foran de dyre læsninger — ellers betaler
+projektet for en afvist kalder.* Rækkefølgen lukker eksistens-orakel og
+omkostning i ét greb.
