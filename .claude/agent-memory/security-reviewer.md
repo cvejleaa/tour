@@ -164,6 +164,12 @@
 - **Nyt: doc-id fra bruger-input skal whitelistes, ikke blacklistes.** `'/'`
   lukker sti-flugt, men `.`/`..`/`__x__` er reserverede og giver en ubehandlet
   SDK-fejl. Et ankret regex er ét udtryk mod tre fælder.
+  RETTELSE (emulator-bekræftet på gameTipStatus): det ankrede regex
+  `[A-Za-z0-9_-]` lukker `.` og `..`, men slipper `__proto__`/`__name__`
+  igennem — de er stadig reserverede. Komplet form er regexen PLUS `!/^__.*__$/`.
+- **Nyt: når vagten er kodens FORM og ikke en regel, skal testen angribe
+  formen.** En test på det rene mellemled (hvis input pr. konstruktion er
+  harmløst) kan ikke fejle. Muter LÆSEREN og se, om suiten bliver rød.
 
 ## PL-live (690829a) — angrebsflade: FREMMED KILDE → felter alle kan læse
 
@@ -286,3 +292,65 @@ forbrugeren, er en tidsindstillet bombe.* `ligaProfil` returnerer et FÆRDIG-
 ESCAPET `navn`, mens `invitationsHtml` fletter `l.navn` råt ind. Kontrakten står
 kun i en kommentar. Næste profil-gren, nogen tilføjer uden `esc()`, er en
 injektion — og suiten bliver grøn. Escap ved indsættelsen, ikke ved dannelsen.
+
+## gameTipStatus (26e9dea/8b3f404) — angrebsflade: ADMIN-CALLABLE MED ERKLÆRET GRÆNSE
+
+Ny type sag: en callable, hvis eneste eksistensberettigelse ER en grænse
+(reglerne TILLADER admin at læse alle bets — callablen findes for at picks ikke
+skal ned i admins browser). Her er vagten *koden selv*, ikke firestore.rules,
+og så skal man spørge: hvad beviser, at vagten stadig står i morgen?
+
+**PoC-mønster (genbrug):** `hentTipStatus` kan køres HELT uden emulator med en
+fake db, der returnerer FJENDTLIGE bet-dokumenter (`pick`, `points`,
+`hemmelig`, `__proto__`) og fjendtlige user-docs (privat email, XSS-navn), og
+så `JSON.stringify(svar)` mod en liste forbudte regexer. Kør ALTID samme PoC
+mod en MUTERET udgave bagefter — ellers ved du ikke, om PoC'en kan se en læk.
+Fil: scratchpad/poc/leak.js-mønstret.
+
+**BEKRÆFTET RENT:** intet pick, ingen points, ingen privat e-mail, intet ukendt
+bet-felt forlader svaret. Grunden er stærk-ved-konstruktion: `betByUid` er
+`Map<uid, Set<matchId>>` (picket kommer aldrig ind i processen), og BÅDE
+`byggTipStatus`' output og `manglende` bygges felt-for-felt — INGEN
+`...m`/`...u`-spread nogen steder. `emails` bruges kun som `!!`-boolean.
+
+**BEKRÆFTET TESTHUL (samme klasse som CLAUDE.md's "tests bekræfter sig selv"):**
+`hentTipStatus` har NUL tests. Testen der hedder "grænsen står i selve
+datastrukturen" (reminders.test.js) kalder `byggTipStatus`, hvis input pr.
+konstruktion er Sets — den kan ikke fejle. Mutation kørt på 8b3f404:
+`add(b.matchId)` → `add(b)` PLUS et `raaBets`-felt i svaret ⇒ alle spilleres
+1X2-valg i svaret, **12/12 tests grønne**. Modgift, hvis nogen rører linjen:
+en test der kører `hentTipStatus` mod en fake db med et `pick`-felt og
+assertérer `JSON.stringify(...)` uden `pick`.
+→ **Faldgrube til listen: når vagten er kodens FORM, skal testen angribe
+formen — en test på det rene mellemled beviser intet om læseren.**
+
+**Regel-kontroltests (emulator, kørt mod firestore.rules på denne branch):**
+- `getDocs(games/{g}/matches)` (klientens nye direkte læsning): tilladt for
+  globalAdmin, godkendt deltager OG godkendt ikke-deltager; nægtet for pending,
+  pending-globalAdmin og uautentificeret. `allow read: if isApproved()` (L764)
+  er dokument-uafhængig → ingen "regler er ikke filtre"-fælde.
+- Kontroltests GRØNNE (opsætningen måler noget): menig kan ikke læse andens tip
+  før kickoff, ikke liste alle bets, ikke sætte `points`, ikke hæve
+  `totalPoints`, ikke flytte `kickoff`.
+- Admin KAN liste alle bets med picks direkte fra klienten — grænsen er altså
+  frivillig disciplin, ikke håndhævelse. Det står ærligt i koden; husk det, hvis
+  nogen nogensinde påstår, at fladen *forhindrer* admin i at se picks.
+
+**Doc-id-regexen er stadig ikke helt tæt.** `/^[A-Za-z0-9_-]{1,200}$/` (den jeg
+selv anbefalede efter kvitterDriftAlarm) lukker `.`, `..` og `/` — men IKKE
+`__proto__`/`__name__`/`__id__`. Emulator-bekræftet: `.doc('__proto__')` er OK
+ved KONSTRUKTION (SDK 12.x kaster ikke der) og kaster først ved `.get()`:
+`INVALID_ARGUMENT: Resource id "__proto__" is invalid because it is reserved`
+→ ubehandlet → callablen svarer `internal` i stedet for `invalid-argument`.
+Kosmetisk, admin-gated. Komplet form: regexen **plus** `!/^__.*__$/`.
+
+**Skala målt (emulator, ægte admin-SDK + ægte hentTipStatus):**
+0 deltagere OK (`db.getAll()` er vagtet med `memberUids.length ? ... : []`),
+1000 deltagere × 38 kampe = 3,5 MB svar / 272 ms, 380 kampe i én runde × 30
+deltagere = 1,1 MB. `chunk(...,30)` klarer 380 id'er (13 `in`-queries).
+Svaret er O(deltagere × rundens kampe) UDEN loft → ~10 MB callable-grænsen
+nås først ved ~1000 deltagere × 110 kampe. Ikke et problem i en vennekreds.
+Pris pr. klik (30 spillere, 380 kampe i spillet): ~800 server-læsninger +
+klientens egne ~380 på matches; hvert rundeskift i dropdown'en koster ~800 igen.
+`emailByUidMap` scanner HELE `userContacts` for at udlede én boolean pr.
+spiller — arvet fra påmindelsesvejen, og forbeholdet står ærligt i koden.
