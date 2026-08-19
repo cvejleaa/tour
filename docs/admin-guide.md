@@ -99,6 +99,12 @@ Liga-admin følger med at have oprettet ligaen.
 
 - **🔔 Send påmindelser nu** mailer de spillere, der mangler at tippe på kampe
   i det næste døgn. Kampe før spillets start tælles ikke med.
+- **🎯 Hvem mangler at tippe?** viser pr. runde hver deltagers dækning (fx
+  4/6) og hvilke kampe der mangler — men aldrig *hvad* der er tippet: du
+  spiller selv med, så 1X2-valg er skjult, til kampen er gået i gang. Kortet
+  siger også, hvor mange *Send påmindelser nu* rammer lige nu (knappen rykker
+  kun for kampe i det næste døgn, ikke for hele runden). En manglende kamp
+  med passeret kickoff står som "nåede det ikke" — der er ingen at rykke.
 - **🎖️ Pulje-status** viser, hvem der mangler at afgive pulje-tip, og
   **📣 Ryk dem der mangler** sender en mail til netop dem. Knappen forsvinder,
   når puljen er låst.

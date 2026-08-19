@@ -122,6 +122,117 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
   return { sent, gameId, upcoming: upcoming.length, members: memberUids.length };
 }
 
+/**
+ * Tip-status for ÉN runde — admin-fladens "Hvem mangler at tippe?" (opgave #37).
+ *
+ * REN funktion: alle beslutninger bor her, så de kan mutationstestes.
+ * Grænsen (QC/spilfører på planen): output indeholder KUN om der er tippet —
+ * aldrig 1X2-valget. Grænsen håndhæves allerede i datastrukturen: betByUid er
+ * sæt af matchId'er, pick'et bliver aldrig læst ind (se hentTipStatus).
+ *
+ * "haster" beregnes med SAMME vindue som runGameTipReminders (upcomingMatches,
+ * 24 timer) — kortet står lige over 'Send påmindelser nu'-knappen, og et tal,
+ * der modsiger knappen, er værre end intet tal (QC-fund på planen). Af samme
+ * grund: rammesAfKnappenNu er ANTALLET af spillere, knappen ville sende til nu.
+ *
+ * En manglende kamp med passeret kickoff kan ikke længere tippes: den er
+ * "naaedeDetIkke", ikke "mangler" — der er ingen at rykke.
+ */
+function byggTipStatus({ game, matches, memberUids, betByUid, brugere, emails, round, now = new Date() }) {
+  const gatede = gatedeKampe(matches, startRundeFor(game, matches));
+  const rundens = matches
+    .filter((m) => m.round === round && !gatede.has(m.id))
+    .sort((a, b) => (kickoffMs(a) ?? Infinity) - (kickoffMs(b) ?? Infinity));
+  const hasterIds = new Set(
+    upcomingMatches(matches, now, new Date(now.getTime() + DAY_MS), gatede).map((m) => m.id),
+  );
+
+  const spillere = memberUids.map((uid) => {
+    const u = brugere.get(uid) || {};
+    const tippede = betByUid.get(uid) || new Set();
+    const manglende = rundens.filter((m) => !tippede.has(m.id)).map((m) => {
+      const ko = kickoffMs(m);
+      const laast = ko != null && ko <= now.getTime();
+      return {
+        id: m.id,
+        kamp: `${m.home || '?'} – ${m.away || '?'}`,
+        kickoff: ko,
+        naaedeDetIkke: laast,
+        haster: !laast && hasterIds.has(m.id),
+      };
+    });
+    return {
+      uid,
+      navn: u.displayName || 'Spiller',
+      tippet: rundens.length - manglende.length,
+      ialt: rundens.length,
+      manglende,
+      // Kan 'Send påmindelser nu' overhovedet nå vedkommende? (mail + opt-in)
+      kanRykkes: !!emails.get(uid) && !u.emailOptOut,
+    };
+  }).sort((a, b) => {
+    const aAabne = a.manglende.filter((m) => !m.naaedeDetIkke).length;
+    const bAabne = b.manglende.filter((m) => !m.naaedeDetIkke).length;
+    return bAabne - aAabne || a.navn.localeCompare(b.navn, 'da');
+  });
+
+  // Præcis knappens modtagerkreds: mangler en kamp i 24-timers-vinduet OG kan
+  // nås på mail. Runde-tallet ovenfor kan være større — det SKAL siges i UI.
+  const rammesAfKnappenNu = spillere
+    .filter((s) => s.kanRykkes && s.manglende.some((m) => m.haster))
+    .length;
+
+  return {
+    runde: round,
+    kampeIRunden: rundens.length,
+    spillere,
+    rammesAfKnappenNu,
+  };
+}
+
+/**
+ * Tynd læser til byggTipStatus — samme opslagsmønster som runGameTipReminders:
+ * kun deltagernes profiler (db.getAll), aldrig hele brugerkartoteket, og bets
+ * hentes pr. rundens kampe. KUN matchId læses af bettet: callablen findes,
+ * fordi andres 1X2-valg ikke skal ned i admins browser — reglerne TILLADER
+ * admin-læsning, så vagten er denne funktions form, ikke firestore.rules.
+ */
+async function hentTipStatus(db, gameId, round, now = new Date()) {
+  const gameRef = db.collection('games').doc(gameId);
+  const [gameSnap, matchesSnap, playersSnap] = await Promise.all([
+    gameRef.get(),
+    gameRef.collection('matches').get(),
+    gameRef.collection('players').get(),
+  ]);
+  if (!gameSnap.exists) return null;
+  const matches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const memberUids = playersSnap.docs.map((d) => d.id);
+
+  const rundensIds = matches.filter((m) => m.round === round).map((m) => m.id);
+  const betByUid = new Map();
+  for (const ids of chunk(rundensIds, IN_CHUNK)) {
+    if (ids.length === 0) continue;
+    const snap = await gameRef.collection('bets').where('matchId', 'in', ids).get();
+    for (const d of snap.docs) {
+      const b = d.data();
+      if (!b || !b.uid) continue;
+      if (!betByUid.has(b.uid)) betByUid.set(b.uid, new Set());
+      betByUid.get(b.uid).add(b.matchId); // KUN id'et — aldrig pick
+    }
+  }
+
+  const emails = await emailByUidMap(db);
+  const userDocs = memberUids.length
+    ? await db.getAll(...memberUids.map((uid) => db.collection('users').doc(uid)))
+    : [];
+  const brugere = new Map(userDocs.filter((d) => d.exists).map((d) => [d.id, d.data()]));
+
+  return {
+    gameNavn: gameSnap.data().name || gameId,
+    ...byggTipStatus({ game: gameSnap.data(), matches, memberUids, betByUid, brugere, emails, round, now }),
+  };
+}
+
 /** Send en test-påmindelse KUN til admin selv med spillets næste kampe. */
 async function sendGameTestReminder(db, transporter, gameId, toEmail, displayName) {
   const gameRef = db.collection('games').doc(gameId);
@@ -152,4 +263,4 @@ async function sendGameTestReminder(db, transporter, gameId, toEmail, displayNam
   return { sent: 1, to: toEmail, matches: next.length };
 }
 
-module.exports = { runGameTipReminders, sendGameTestReminder, upcomingMatches };
+module.exports = { runGameTipReminders, sendGameTestReminder, upcomingMatches, byggTipStatus, hentTipStatus };
