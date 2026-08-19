@@ -130,6 +130,29 @@ describe('byggTipStatus — hvem mangler at tippe', () => {
     expect(ud.rammesAfKnappenNu).toBe(1);
   });
 
+  it('en NÅBAR spiller, der kun mangler kampe UDEN FOR døgnet, tælles ikke af knappen', () => {
+    // TM-fund: mutationen 'tæl alle med manglende' overlevede, fordi enhver
+    // nåbar spiller i fixtures også manglede en hastende kamp. Ditte kan nås
+    // og mangler k2 (30 t ude) — men knappen ville springe hende over, så
+    // kortet må ikke tælle hende. UI-teksten lover præcis dét skel.
+    const ud = byggTipStatus({
+      game: {},
+      matches,
+      memberUids: ['a', 'c', 'd'],
+      betByUid: new Map([
+        ['a', new Set(['k1', 'k2', 'k3'])],
+        ['d', new Set(['k1', 'k3'])], // mangler KUN k2 — uden for vinduet
+        // c mangler alt, herunder k1 (haster)
+      ]),
+      brugere: new Map([...brugere, ['d', { displayName: 'Ditte' }]]),
+      emails: new Map([...emails, ['d', 'd@x.dk']]),
+      round: 4,
+      now,
+    });
+    expect(ud.spillere.find((s2) => s2.navn === 'Ditte').manglende.map((m) => m.id)).toEqual(['k2']);
+    expect(ud.rammesAfKnappenNu).toBe(1); // kun Carla — IKKE Ditte
+  });
+
   it('optOut fjerner en spiller fra knappens tal, selv når han mangler i vinduet', () => {
     const ud = byg(new Map()); // ingen har tippet noget
     // Anna + Carla mangler k1 og kan nås; Bo mangler k1 men er opt-out.

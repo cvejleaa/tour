@@ -192,8 +192,10 @@ function byggTipStatus({ game, matches, memberUids, betByUid, brugere, emails, r
 
 /**
  * Tynd læser til byggTipStatus — samme opslagsmønster som runGameTipReminders:
- * kun deltagernes profiler (db.getAll), aldrig hele brugerkartoteket, og bets
- * hentes pr. rundens kampe. KUN matchId læses af bettet: callablen findes,
+ * deltagernes profiler via db.getAll (aldrig hele users-kollektionen) og bets
+ * pr. rundens kampe. ÆRLIGT forbehold (QC): emailByUidMap scanner hele
+ * userContacts — arvet fra påmindelses-vejen; skaleres kartoteket op, skal
+ * begge veje have et scoped opslag. KUN matchId læses af bettet: callablen findes,
  * fordi andres 1X2-valg ikke skal ned i admins browser — reglerne TILLADER
  * admin-læsning, så vagten er denne funktions form, ikke firestore.rules.
  */
