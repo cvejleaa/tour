@@ -530,3 +530,65 @@ bruger, ingen server-dublet af "aktiv runde" (serveren tager blot imod
   `LeaguesPage.jsx:345` sidder på den GAMLE `leagues`-kollektion, ikke på
   `games`. Kill-switchen for botten kan kun sættes i hånden — "hvordan starter
   jeg det med vilje" har en tvilling: hvordan STOPPER jeg det?
+
+## Bot-afsløring af liga-spørgsmål (0657068): implementering mod planens 6 krav — konkrete fund
+
+Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
+
+- **Create-vagten på `botFacitAt`** findes i `firestore.rules` (~957) OG er
+  eksplicit rules-testet (`functions/rules.test.js`, 4 nye tests: update,
+  smuglet update, create-med-markør afvist, create-uden-markør ok). Update-
+  vagten alene (som QC/Security fandt på planen) var netop hullet.
+- **Scoring over HELE svarsættet** er bevist, ikke kun kommenteret:
+  `byggSpoergsmaalRecapFakta` tager `svar` uden medlems-filter, `scoreLeague-
+  Question` regner over `alleSvar`; en direkte test (`leagueQuestionScoring.
+  test.js`, "at udelade et svar kan ændre vinderen") viser at et eks-medlems
+  svar skifter vinderen. Eks-medlemmer navngives `'et tidligere medlem'`, og
+  `JSON.stringify(fakta)` er assertion-testet for at UDELUKKE uid'et
+  (`leagueQuestionRecap.test.js` linje ~82).
+- **`skalAfsloere` er ren og mutationstestet på netop de to farlige stier:**
+  facit-RETTELSE (afgjort→afgjort) og bottens egen markør-skrivning giver
+  begge `false` — begge har hver sin test.
+- **`tvingNy` findes på callablen** (`leagueQuestionRecapNow`), server- og
+  klient-testet (post-igen-knappen kræver `window.confirm` og kalder med
+  `tvingNy: true`).
+- **`questionId` sidder på væg-beskeden** (`messages.add({..., questionId})`),
+  testet direkte.
+- **Prompten skelner eksplicit fra puljen**: `LQ_RECAP_SYSTEM` indeholder
+  ordret "LIGAENS EGNE spørgsmål (liga-ejerens spørgsmål — ikke spillets
+  pulje eller kampene)" — assertion-testet på INDHOLD, ikke kun "prompt
+  findes".
+- **A4 (fejningen) er faktisk skåret**, som planen bad om: ingen
+  `onSchedule` for spørgsmål i `functions-platform/index.js`, ingen
+  48-timers-vindue nogen steder i koden eller kommentarerne. Bekræftet med
+  grep — kun trigger (`onDocumentWritten`) + bevidst callable-start.
+- **`generateRecapText(anthropic, facts, system = RECAP_SYSTEM)`**: default-
+  parameteren betyder det GAMLE kaldsted (`runGameRoundRecap`, ét argument
+  mindre) er uændret i adfærd — bekræftet ved at læse begge kaldsteder.
+  `sanitizeName()` i `gameRecap.js` delegerer nu til `rensTekst.js`, med
+  identisk default (`max: 40, fallback: 'Spiller'`) — ren udtræk, ingen
+  adfærdsændring for runde-opslagene.
+- **Server-side håndhævelse af forhåndsvisning er ægte, ikke kun klient:**
+  `leagueQuestionRecapNow` kræver liga-medlemskab for `dryRun`, uafhængigt af
+  om kalderen er ejer/admin — en global admin uden for ligaen må poste
+  blindt, men aldrig se svarene via preview. Testet i koden (server-logik),
+  ikke kun antaget.
+
+**Fund, ikke blokerende:**
+- **`FootballHelp.jsx`s "Runde-Botten 🤖"-afsnit (linje ~374) er STADIG kun om
+  runde-resuméet** — nævner intet om den nye liga-spørgsmåls-afsløring.
+  Samme dokumentations-hul som blev noteret (ikke rettet) for Chancen ved
+  a889bb1: en spiller, der ser et bot-opslag om et liga-spørgsmål første
+  gang, har ingen hjælpetekst der forklarer det. `docs/admin-guide.md` blev
+  derimod korrekt opdateret (afsnit om 🤖-knapperne, med begrundelse for
+  hvorfor de bor på liga-fladen og ikke i admin). To dokumentations-mål,
+  kun ét ramt — spørg specifikt om FootballHelp.jsx næste gang en bot får en
+  ny afsløringstype.
+- **Eksisterende spørgsmål med facit sat FØR deploy udløser ALDRIG triggeren
+  bagudrettet** (`onDocumentWritten` fyrer kun på fremtidige writes). Ejeren
+  ser korrekt "Botten har ikke postet afsløringen endnu" med virkende
+  Forhåndsvis/Post-knapper (recovery-vejen dækker det) — men parentesen
+  "(den poster selv, kort efter facit er sat)" er vildledende for disse
+  rækker, for det skete aldrig automatisk. Ikke en fejl (handlingen virker),
+  men en tekst der antyder en hændelse, der ikke fandt sted. Værd at
+  overveje en anden formulering, hvis det generer i praksis.

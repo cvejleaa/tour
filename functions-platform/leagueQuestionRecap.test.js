@@ -141,6 +141,7 @@ function makeDb({
     { uid: 'a', answer: 'Haaland', questionId: 'q1' },
     { uid: 'b', answer: 'Isak', questionId: 'q1' },
   ],
+  beskedFejler = false, // messages.add kaster — netværk/kvote/regel-afvisning
 } = {}) {
   const state = { beskeder: [], qUpdates: [] };
   const qRef = {
@@ -160,7 +161,14 @@ function makeDb({
           }),
         };
       }
-      if (navn === 'messages') return { add: async (m) => { state.beskeder.push(m); } };
+      if (navn === 'messages') {
+        return {
+          add: async (m) => {
+            if (beskedFejler) throw new Error('skriv-fejl');
+            state.beskeder.push(m);
+          },
+        };
+      }
       throw new Error(`uventet subcollection ${navn}`);
     },
   };
@@ -211,6 +219,37 @@ describe('runLeagueQuestionRecap', () => {
     await expect(runLeagueQuestionRecap(db, FieldValue, anthropic, IDS, { dryRun: false })).rejects.toThrow('boom');
     expect(db._state.beskeder).toHaveLength(0);
     expect(db._state.qUpdates).toHaveLength(0);
+  });
+
+  // TM-fund: "markøren EFTER posten" var kun bevist for AI-fejl. Fejler selve
+  // BESKED-skrivningen (netværk, kvote, regel), må markøren heller ikke være
+  // sat — ellers ser spørgsmålet "afsløret" ud uden noget opslag på væggen,
+  // og recovery-knappen siger "allerede postet".
+  it('fejlende BESKED-skrivning efterlader heller INGEN markør', async () => {
+    const db = makeDb({ beskedFejler: true });
+    await expect(runLeagueQuestionRecap(db, FieldValue, okAnthropic(), IDS, { dryRun: false }))
+      .rejects.toThrow('skriv-fejl');
+    expect(db._state.qUpdates).toHaveLength(0); // markøren blev aldrig rørt
+  });
+
+  // TM-fund: questionId-filteret var aldrig bevist — intet fixture havde svar
+  // på TO spørgsmål i samme liga. Uden filteret ville q2's svar tælle med i
+  // q1's afsløring (og i 'nærmest vinder'-konkurrencen).
+  it('svar på ANDRE spørgsmål i ligaen holdes ude af afsløringen', async () => {
+    const db = makeDb({
+      answers: [
+        { uid: 'a', answer: 'Haaland', questionId: 'q1' },
+        { uid: 'b', answer: 'Isak', questionId: 'q1' },
+        { uid: 'a', answer: 'FREMMED-SVAR', questionId: 'q2' },
+        { uid: 'b', answer: 'Haaland', questionId: 'q2' }, // ville fejlagtigt "vinde" q1
+      ],
+    });
+    const anthropic = okAnthropic();
+    await runLeagueQuestionRecap(db, FieldValue, anthropic, IDS, { dryRun: true });
+    const fakta = JSON.parse(anthropic.messages.create.mock.calls[0][0].messages[0].content);
+    expect(fakta.svar).toHaveLength(2);
+    expect(fakta.vindere).toEqual(['Navn-a']);
+    expect(JSON.stringify(fakta)).not.toContain('FREMMED-SVAR');
   });
 
   it('dryRun returnerer teksten uden at poste eller markere', async () => {
