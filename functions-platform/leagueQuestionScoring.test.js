@@ -24,6 +24,15 @@ const CASES = [
   ['uden facit: ingen point', { type: 'text', facit: null, points: 5 }, [{ uid: 'a', answer: 'x' }]],
   ['tom-streng facit: ikke afgjort', { type: 'text', facit: '  ', points: 5 }, [{ uid: 'a', answer: 'x' }]],
   ['ugyldige points → default', { type: 'yesno', facit: 'nej', points: -3 }, [{ uid: 'a', answer: 'nej' }]],
+  // Security-fund: svar/facit kan gemmes som utypede felter uden om fladen —
+  // et objekt uden toString fik String() til at kaste og væltede BÅDE
+  // afsløringen og spørgsmålsfladen. Begge spejle skal tåle giften ens.
+  ['giftigt svar (objekt uden toString) tæller som tomt', { type: 'text', facit: 'x', points: 5 },
+    [{ uid: 'a', answer: Object.create(null) }, { uid: 'b', answer: 'x' }]],
+  ['giftigt facit → ikke afgjort, ingen point', { type: 'text', facit: Object.create(null), points: 5 },
+    [{ uid: 'a', answer: 'x' }]],
+  ['giftigt number-svar behandles som tomt — begge spejle ens', { type: 'number', facit: '10', points: 5 },
+    [{ uid: 'a', answer: { toString: null } }, { uid: 'b', answer: '12' }]],
 ];
 
 describe('leagueQuestionScoring — server spejler klienten', () => {

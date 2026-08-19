@@ -928,7 +928,12 @@ service cloud.firestore {
             && request.resource.data.uid == request.auth.uid
             && request.resource.data.text is string
             && request.resource.data.text.size() > 0
-            && request.resource.data.text.size() <= 280;
+            && request.resource.data.text.size() <= 280
+            // 'system' er BOTTENS kendetegn (skrives kun via Admin SDK). Uden
+            // vagten kunne et medlem gemme displayName 'Runde-Botten' +
+            // system:true, forlade ligaen — og opslaget ville stå som bottens
+            // for alle (Security-fund, emulator-bekræftet).
+            && !request.resource.data.keys().hasAny(['system']);
           allow update: if false;
           // Slet egen besked, eller liga-ejeren kan moderere.
           allow delete: if isApproved()
@@ -996,7 +1001,18 @@ service cloud.firestore {
                 || (request.time.toMillis() < resource.data.deadline
                     && request.resource.data.get('deadline', null) != null
                     && request.resource.data.deadline >= resource.data.deadline));
-          allow delete: if isApproved() && qOwner() == request.auth.uid;
+          // Kun et U-ÅBNET spørgsmål må slettes. Svar kan aldrig slettes
+          // (delete: false nedenfor) og doc-id'et er deterministisk — så
+          // slet-og-genopret med samme id var en omvej UDEN OM hele
+          // "kortene kan ikke lukkes igen"-garantien ovenfor: sæt facit →
+          // læs alles svar → slet → genopret med facit:null → ret eget svar →
+          // sæt facit = 100 point med svarene i hånden (Security-fund,
+          // emulator-bekræftet, begge veje: facit og passeret deadline).
+          // Prisen: et afgjort spørgsmål kan ikke fjernes fra fladen igen.
+          allow delete: if isApproved() && qOwner() == request.auth.uid
+            && resource.data.get('facit', null) == null
+            && (resource.data.get('deadline', null) == null
+                || request.time.toMillis() < resource.data.deadline);
         }
 
         // games/{gameId}/leagues/{leagueId}/questionAnswers/{qId_uid} — medlemmernes

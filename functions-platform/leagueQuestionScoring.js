@@ -16,7 +16,13 @@ const DEFAULT_LQ_POINTS = 5;
 
 /** Normalisér et tekstsvar til sammenligning. */
 function lqNorm(s) {
-  return String(s ?? '').toLowerCase().trim().replace(/\s+/g, ' ');
+  // Fjendtligt indhold (fx {toString: null} gemt uden om fladen) må ikke
+  // kunne vælte scoringen — String() kaster på den slags. Ikke-konverterbart
+  // tæller som tomt svar (Security-fund: ét giftigt svar dræbte både
+  // afsløringen og hele spørgsmålsfladen).
+  let t;
+  try { t = String(s ?? ''); } catch { return ''; }
+  return t.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
 /** Spørgsmålets point (positivt tal, ellers default). */
@@ -27,7 +33,8 @@ function lqPoints(q) {
 
 /** Er spørgsmålet afgjort (facit sat)? */
 function lqSettled(q) {
-  return q?.facit != null && String(q.facit).trim() !== '';
+  if (q?.facit == null) return false;
+  try { return String(q.facit).trim() !== ''; } catch { return false; }
 }
 
 /**
@@ -46,12 +53,12 @@ function scoreLeagueQuestion(q, answers) {
   const pts = lqPoints(q);
 
   if (q.type === 'number') {
-    const target = Number(String(q.facit).replace(',', '.'));
+    const target = Number(lqNorm(q.facit).replace(',', '.'));
     if (!Number.isFinite(target)) return out;
     let best = Infinity;
     const dist = [];
     for (const a of answers || []) {
-      const n = Number(String(a?.answer ?? '').replace(',', '.'));
+      const n = Number(lqNorm(a?.answer).replace(',', '.'));
       if (!Number.isFinite(n)) continue;
       const d = Math.abs(n - target);
       dist.push({ uid: a.uid, d });

@@ -94,11 +94,16 @@ function byggSpoergsmaalRecapFakta({ ligaNavn, spoergsmaal, svar, memberUids, br
  * @param {object} FieldValue
  * @param {object} anthropic klar klient (nøglen er tjekket af kalderen)
  * @param {{gameId:string, leagueId:string, questionId:string}} ids
- * @param {{dryRun?:boolean, tvingNy?:boolean}} [opts] tvingNy: post selv om
- *   markøren er sat (recovery — et forkert opslag kan kun slettes, aldrig
- *   erstattes, så genudsendelse skal være mulig med vilje).
+ * @param {{dryRun?:boolean, tvingNy?:boolean, nowMs?:number}} [opts] tvingNy:
+ *   post selv om markøren er sat (recovery — et forkert opslag kan kun
+ *   slettes, aldrig erstattes, så genudsendelse skal være mulig med vilje).
+ *   Men med COOLDOWN: dette er den eneste AI-kaldende vej, en ikke-admin kan
+ *   nå, og uden bremse kunne den køres i løkke (Security-fund) — betalte
+ *   modelkald og væg-spam. Markøren ER tidsstemplet, så den bærer bremsen.
  */
-async function runLeagueQuestionRecap(db, FieldValue, anthropic, { gameId, leagueId, questionId }, { dryRun = true, tvingNy = false } = {}) {
+const TVING_NY_COOLDOWN_MS = 10 * 60 * 1000;
+
+async function runLeagueQuestionRecap(db, FieldValue, anthropic, { gameId, leagueId, questionId }, { dryRun = true, tvingNy = false, nowMs = Date.now() } = {}) {
   const gameRef = db.collection('games').doc(gameId);
   const leagueRef = gameRef.collection('leagues').doc(leagueId);
   const qRef = leagueRef.collection('questions').doc(questionId);
@@ -110,6 +115,11 @@ async function runLeagueQuestionRecap(db, FieldValue, anthropic, { gameId, leagu
   const q = qSnap.data();
   if (!lqSettled(q)) return { posted: 0, reason: 'not-settled' };
   if (q.botFacitAt && !tvingNy) return { posted: 0, reason: 'already' };
+  if (q.botFacitAt && tvingNy) {
+    const sidst = typeof q.botFacitAt.toMillis === 'function'
+      ? q.botFacitAt.toMillis() : Number(q.botFacitAt) || 0;
+    if (nowMs - sidst < TVING_NY_COOLDOWN_MS) return { posted: 0, reason: 'cooldown' };
+  }
 
   // HELE svarsættet for spørgsmålet — se byggSpoergsmaalRecapFakta.
   const svarSnap = await leagueRef.collection('questionAnswers')
@@ -153,5 +163,5 @@ async function runLeagueQuestionRecap(db, FieldValue, anthropic, { gameId, leagu
 }
 
 module.exports = {
-  LQ_RECAP_SYSTEM, skalAfsloere, byggSpoergsmaalRecapFakta, runLeagueQuestionRecap,
+  LQ_RECAP_SYSTEM, TVING_NY_COOLDOWN_MS, skalAfsloere, byggSpoergsmaalRecapFakta, runLeagueQuestionRecap,
 };

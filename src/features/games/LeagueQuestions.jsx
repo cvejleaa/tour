@@ -23,6 +23,7 @@ const BOT_AARSAG = {
   disabled: 'AI-opslag er slået fra for spillet.',
   'not-settled': 'Sæt facit først — botten afslører ved facit.',
   'no-text': 'Botten kunne ikke skrive teksten — prøv igen om lidt.',
+  cooldown: 'Vent lidt — der er lige postet en afsløring af det spørgsmål (spam-værn: 10 minutter).',
 };
 
 function deadlinePassed(q, nowMs) {
@@ -119,7 +120,11 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
         <span style={{ fontWeight: 600 }}>{q.label}</span>
         <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center' }}>
           <span className="badge badge--muted">{lqPoints(q)} point · {TYPE_LABEL[q.type] || 'Tekst'}</span>
-          {isOwner && (
+          {/* Slet kun mens spørgsmålet er U-ÅBNET — rules afviser sletning
+              efter facit/deadline (slet-og-genopret med samme doc-id var en
+              omvej uden om "kortene kan ikke lukkes igen"; Security-fund).
+              Knappen skal følge reglen, ellers står den og fejler. */}
+          {isOwner && !locked && !settled && (
             <button className="btn--icon" title="Slet spørgsmål" disabled={busy} onClick={remove}
               style={{ background: 'none', border: 'none', color: 'var(--c-err)', cursor: 'pointer', padding: 0 }}>
               ✕
@@ -235,7 +240,10 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
             </>
           ) : (
             <>
-              🤖 Botten har ikke postet afsløringen endnu (den poster selv, kort efter facit er sat).
+              {/* Ærlig for BEGGE tilfælde: nye facit poster triggeren selv,
+                  men spørgsmål afgjort FØR udrulningen fik aldrig en trigger
+                  — for dem er knappen den eneste vej (QC-fund). */}
+              🤖 Botten har ikke postet afsløringen endnu. (Nye facit poster den selv efter et øjeblik — ældre spørgsmål postes med knappen.)
               {' '}
               <button type="button" className="btn btn--sm" disabled={busy} onClick={() => botKald(true)}>Forhåndsvis</button>
               {' '}

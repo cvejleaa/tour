@@ -260,11 +260,40 @@ describe('runLeagueQuestionRecap', () => {
     expect(db._state.qUpdates).toHaveLength(0);
   });
 
-  it('tvingNy poster igen trods markør (recovery — gammelt opslag slettes manuelt)', async () => {
-    const db = makeDb({ question: { label: 'x', type: 'text', facit: 'y', points: 5, botFacitAt: { __ts: true } } });
-    const ud = await runLeagueQuestionRecap(db, FieldValue, okAnthropic(), IDS, { dryRun: false, tvingNy: true });
-    expect(ud).toEqual({ posted: 1 });
-    expect(db._state.beskeder).toHaveLength(1);
+  it('tvingNy poster igen trods markør — men KUN efter cooldown (Security-fund: spam/betalte AI-kald)', async () => {
+    const NU = 1_000_000_000;
+    // Markør sat for 1 minut siden: cooldown afviser, INTET modelkald.
+    const frisk = makeDb({ question: { label: 'x', type: 'text', facit: 'y', points: 5, botFacitAt: { toMillis: () => NU - 60_000 } } });
+    const anthropic = okAnthropic();
+    expect(await runLeagueQuestionRecap(frisk, FieldValue, anthropic, IDS, { dryRun: false, tvingNy: true, nowMs: NU }))
+      .toEqual({ posted: 0, reason: 'cooldown' });
+    expect(anthropic.messages.create).not.toHaveBeenCalled();
+    expect(frisk._state.beskeder).toHaveLength(0);
+
+    // Markør sat for 11 minutter siden: recovery virker.
+    const gammel = makeDb({ question: { label: 'x', type: 'text', facit: 'y', points: 5, botFacitAt: { toMillis: () => NU - 11 * 60_000 } } });
+    expect(await runLeagueQuestionRecap(gammel, FieldValue, okAnthropic(), IDS, { dryRun: false, tvingNy: true, nowMs: NU }))
+      .toEqual({ posted: 1 });
+    expect(gammel._state.beskeder).toHaveLength(1);
+  });
+
+  // Security-fund: et medlem kan gemme et svar som MAP uden om fladen
+  // ({toString: null} får String() til at kaste). Ét giftigt svar må hverken
+  // vælte afsløringen eller nå prompten — det tæller som tomt svar.
+  it('et giftigt svar (objekt uden toString) vælter ikke afsløringen', async () => {
+    const gift = Object.create(null); // String(gift) kaster
+    const db = makeDb({
+      answers: [
+        { uid: 'a', answer: 'Haaland', questionId: 'q1' },
+        { uid: 'b', answer: gift, questionId: 'q1' },
+      ],
+    });
+    const anthropic = okAnthropic();
+    const ud = await runLeagueQuestionRecap(db, FieldValue, anthropic, IDS, { dryRun: true });
+    expect(ud.dryRun).toBe(true); // ingen exception
+    const fakta = JSON.parse(anthropic.messages.create.mock.calls[0][0].messages[0].content);
+    expect(fakta.svar.find((s) => s.navn === 'Navn-b').svar).toBe('(tomt svar)');
+    expect(fakta.vindere).toEqual(['Navn-a']);
   });
 
   it('aiRecaps=false, manglende facit og for få svar giver hver sin nej-grund', async () => {

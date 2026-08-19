@@ -213,6 +213,12 @@ exports.leagueQuestionRecapNow = onCall(
     if (dryRun && !erMedlem) {
       throw new HttpsError('permission-denied', 'Forhåndsvisningen viser svarene og kræver medlemskab af ligaen.');
     }
+    // tvingNy (genudsendelse) kræver medlemskab eller admin: en ejer, der har
+    // FORLADT sin liga, skal ikke kunne spamme en væg, hen ikke selv må læse
+    // (Security-fund). Kernen lægger derudover 10 min cooldown pr. opslag.
+    if (request.data?.tvingNy === true && !erMedlem && !erAdmin) {
+      throw new HttpsError('permission-denied', 'Genudsendelse kræver medlemskab af ligaen.');
+    }
     const anthropic = anthropicClient();
     if (!anthropic) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
     try {

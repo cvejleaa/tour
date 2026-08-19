@@ -7,7 +7,11 @@
  * ét sted (én vagt pr. sikkerhedsregel).
  */
 function rensTekst(s, { max = 40, fallback = 'Spiller' } = {}) {
-  const t = String(s == null ? '' : s)
+  // Fjendtligt indhold ({toString: null}) får String() til at kaste — det må
+  // aldrig kunne vælte et opslag (Security-fund). Ikke-konverterbart = fallback.
+  let raa;
+  try { raa = String(s == null ? '' : s); } catch { return fallback; }
+  const t = raa
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001F\u007F]+/g, ' ')
     .replace(/[<>{}[\]`]/g, '')
