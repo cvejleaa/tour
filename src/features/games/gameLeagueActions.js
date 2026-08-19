@@ -266,6 +266,28 @@ export async function saveLeagueQuestionAnswer({ uid, gameId, leagueId, question
  * nægter bevidst at læse andres svar før lukning, og serveren afslører kun
  * HVEM der har svaret, aldrig hvad). Adgang: ligaens medlemmer + admin.
  */
+/**
+ * Runde-Bottens afsløring af ET liga-spørgsmål — den BEVIDSTE start (botten
+ * poster normalt selv via trigger, når facit sættes; knappen er recovery).
+ * dryRun=true (default) returnerer teksten uden at poste — kræver medlemskab,
+ * for forhåndsvisningen indeholder svar og navne. tvingNy poster igen, selv
+ * om markøren er sat (det gamle opslag skal slettes manuelt på væggen).
+ */
+export async function callLeagueQuestionRecapNow(gameId, leagueId, questionId, { dryRun = true, tvingNy = false } = {}) {
+  try {
+    const { httpsCallable } = await import('firebase/functions');
+    const { functions } = await import('../../firebase');
+    const fn = httpsCallable(functions, 'leagueQuestionRecapNow', { timeout: 300000 });
+    const res = await fn({ gameId, leagueId, questionId, dryRun, tvingNy });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg = err?.code === 'functions/not-found'
+      ? 'Funktionen er ikke rullet ud endnu — prøv igen om lidt.'
+      : err?.message || 'Kunne ikke generere afsløringen.';
+    return { ok: false, error: msg };
+  }
+}
+
 export async function callLeagueQuestionStatus(gameId, leagueId) {
   try {
     const { httpsCallable } = await import('firebase/functions');

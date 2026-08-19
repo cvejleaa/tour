@@ -52,6 +52,7 @@ const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder, hentTipStatus } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
+const { skalAfsloere, runLeagueQuestionRecap } = require('./leagueQuestionRecap');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { hentSpoergsmaalStatus } = require('./gameLeagues');
 const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
@@ -136,6 +137,91 @@ exports.generateGameRecapNow = onCall(
     } catch (e) {
       console.error('generateGameRecapNow:', e && e.message);
       throw new HttpsError('internal', 'Kunne ikke generere opslaget: ' + (e && e.message));
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Runde-Botten afslører et LIGA-SPØRGSMÅL, når facit sættes (opgave #39).
+// ÉT opslag pr. spørgsmål, ved facit — fladen viser selv svarene ved deadline
+// (design-afgørelse fra QC/Spilfører på planen; se leagueQuestionRecap.js).
+// Beslutningen "skal denne skrivning udløse et opslag?" er REN (skalAfsloere)
+// og mutationstestet dér — wrapperen her er kun rørføring.
+// ---------------------------------------------------------------------------
+exports.leagueQuestionClosed = onDocumentWritten(
+  { document: 'games/{gameId}/leagues/{leagueId}/questions/{qId}', region: REGION, secrets: [ANTHROPIC_API_KEY] },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!skalAfsloere(before, after)) return;
+    // Et AI-udfald må aldrig vælte facit-skrivningen — fejl logges kun, og
+    // markøren (botFacitAt) er ikke sat, så liga-ejerens knap kan samle op.
+    try {
+      const anthropic = anthropicClient();
+      if (!anthropic) { console.log('lqBot: ANTHROPIC_API_KEY ikke sat — springer over.'); return; }
+      const db = getFirestore();
+      const { gameId, leagueId, qId } = event.params;
+      const out = await runLeagueQuestionRecap(db, FieldValue, anthropic,
+        { gameId, leagueId, questionId: qId }, { dryRun: false });
+      console.log(`lqBot(${gameId}/${leagueId}/${qId}):`, JSON.stringify({ posted: out.posted, reason: out.reason || null }));
+    } catch (e) {
+      console.error('lqBot fejlede:', e && e.message);
+    }
+  },
+);
+
+// leagueQuestionRecapNow — den BEVIDSTE start på afsløringen (CLAUDE.md: en
+// funktion, der kun kan startes af en tilfældig hændelse, er ikke færdig).
+// Adgang: LIGA-EJEREN (der satte facit og savner opslaget) eller
+// owner/globalAdmin som recovery. Forhåndsvisning (dryRun) viser svar og
+// navne og kræver derfor MEDLEMSKAB af ligaen — en admin uden for ligaen må
+// gerne (gen)poste blindt, men aldrig læse svarene her.
+exports.leagueQuestionRecapNow = onCall(
+  { region: REGION, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 300 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    const db = getFirestore();
+    const ID_RE = /^[A-Za-z0-9_-]{1,200}$/;
+    const gameId = String(request.data?.gameId || '').trim();
+    const leagueId = String(request.data?.leagueId || '').trim();
+    const questionId = String(request.data?.questionId || '').trim();
+    for (const id of [gameId, leagueId, questionId]) {
+      if (!ID_RE.test(id) || /^__.*__$/.test(id)) {
+        throw new HttpsError('invalid-argument', 'Ugyldigt id.');
+      }
+    }
+    const leagueRef = db.collection('games').doc(gameId).collection('leagues').doc(leagueId);
+    const [leagueSnap, callerSnap] = await Promise.all([
+      leagueRef.get(),
+      db.collection('users').doc(request.auth.uid).get(),
+    ]);
+    const bruger = callerSnap.exists ? callerSnap.data() : null;
+    // Approved-tjekket FØR eksistens-svaret — samme dørmands-rækkefølge som
+    // leagueQuestionStatus (en ikke-godkendt må ikke kunne sondere liga-id'er).
+    if (!bruger || bruger.status !== 'approved') {
+      throw new HttpsError('permission-denied', 'Din bruger er ikke godkendt.');
+    }
+    if (!leagueSnap.exists) throw new HttpsError('not-found', 'Ligaen findes ikke.');
+    const liga = leagueSnap.data();
+    const erEjer = liga.ownerUid === request.auth.uid;
+    const erAdmin = bruger.role === 'owner' || bruger.role === 'globalAdmin';
+    if (!erEjer && !erAdmin) {
+      throw new HttpsError('permission-denied', 'Kun ligaens ejer kan poste afsløringen.');
+    }
+    const dryRun = request.data?.dryRun !== false; // default: forhåndsvisning
+    const erMedlem = (liga.memberUids || []).includes(request.auth.uid);
+    if (dryRun && !erMedlem) {
+      throw new HttpsError('permission-denied', 'Forhåndsvisningen viser svarene og kræver medlemskab af ligaen.');
+    }
+    const anthropic = anthropicClient();
+    if (!anthropic) throw new HttpsError('failed-precondition', 'ANTHROPIC_API_KEY er ikke sat.');
+    try {
+      return await runLeagueQuestionRecap(db, FieldValue, anthropic,
+        { gameId, leagueId, questionId },
+        { dryRun, tvingNy: request.data?.tvingNy === true });
+    } catch (e) {
+      console.error('leagueQuestionRecapNow:', e && e.message);
+      throw new HttpsError('internal', 'Kunne ikke generere afsløringen.');
     }
   },
 );

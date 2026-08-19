@@ -123,6 +123,12 @@ mens botten skriver et sted, alle kan læse — derfor sin egen fane.
   kort **pr. liga**: hver liga hører kun om sine egne medlemmer.
 - **Post runde-opslag nu** lægger den på alle liga-vægge — kun én gang pr.
   runde. Normalt kører den selv efter rundens sidste kamp.
+- **Liga-spørgsmålene afslører botten også**: når liga-ejeren sætter facit,
+  poster den svar, vindere og point på **den** ligas væg — én gang pr.
+  spørgsmål, og kun ved mindst 2 svar. Mangler opslaget, har liga-ejeren
+  🤖-knapperne (Forhåndsvis/Post) på selve spørgsmålet under spillets
+  👥 Ligaer-fane. De bor dér og ikke her, fordi forhåndsvisningen viser
+  svarene — og dem må kun ligaens medlemmer se.
 
 De allerførste opslag blev bygget af hele spillets felt og nævnte derfor
 spillere fra andre ligaer. De blev taget ned den 5. august 2026 med et

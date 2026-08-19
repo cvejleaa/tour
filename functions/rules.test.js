@@ -2613,6 +2613,37 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await assertFails(updateDoc(qDoc('se5-l14', 'se-q5n'),
         { label: 'Nyt spørgsmål', points: 10, deadline: Date.now() - 3600e3 }));
     });
+
+    // botFacitAt er SERVERENS markør for "Runde-Botten har postet afsløringen"
+    // (opgave #39). Kunne ejeren sætte den selv, kunne hen lydløst aflyse
+    // afsløringen af sit eget spørgsmål — begge skriveveje skal være lukket.
+    it('ejeren KAN IKKE sætte bottens markør ved UPDATE', async () => {
+      await seedSpoergsmaal('se5-l16', 'se-q5p', { facit: 'Isaksen' });
+      await assertFails(updateDoc(qDoc('se5-l16', 'se-q5p'), { botFacitAt: Timestamp.now() }));
+    });
+
+    it('ejeren KAN IKKE smugle markøren med i en ellers lovlig update', async () => {
+      await seedSpoergsmaal('se5-l17', 'se-q5q');
+      await assertFails(updateDoc(qDoc('se5-l17', 'se-q5q'),
+        { label: 'Nyt spørgsmål', botFacitAt: Timestamp.now() }));
+    });
+
+    it('ejeren KAN IKKE oprette spørgsmålet med markøren allerede sat (create-vejen)', async () => {
+      await seedSpoergsmaal('se5-l18', 'se-q5r'); // opretter liga + bruger
+      await assertFails(setDoc(qDoc('se5-l18', 'se-q5r-ny'), {
+        label: 'Hvem bliver topscorer?', type: 'text', points: 5,
+        facit: null, deadline: null, createdBy: 'se5', createdAt: Timestamp.now(),
+        botFacitAt: Timestamp.now(),
+      }));
+    });
+
+    it('oprettelse UDEN markør virker stadig (kontrol af create-vagten)', async () => {
+      await seedSpoergsmaal('se5-l19', 'se-q5s');
+      await assertSucceeds(setDoc(qDoc('se5-l19', 'se-q5s-ny'), {
+        label: 'Hvem bliver topscorer?', type: 'text', points: 5,
+        facit: null, deadline: null, createdBy: 'se5', createdAt: Timestamp.now(),
+      }));
+    });
   });
 
   // --- 6) messages: BEGGE deltagere skal være medlemmer --------------------

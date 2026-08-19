@@ -954,7 +954,13 @@ service cloud.firestore {
             && request.resource.data.label.size() <= 120
             && request.resource.data.points is number
             && request.resource.data.points > 0
-            && request.resource.data.points <= 100;
+            && request.resource.data.points <= 100
+            // botFacitAt er SERVERENS markør for "afsløringen er postet".
+            // Uden create-vagten kunne ejeren oprette spørgsmålet med markøren
+            // allerede sat og dermed lydløst aflyse afsløringen af sit eget
+            // spørgsmål (Security/QC-fund på planen — update-vagten alene er
+            // ikke nok).
+            && !request.resource.data.keys().hasAny(['botFacitAt']);
           // Når kortene først er åbnet, må de ikke kunne lukkes igen.
           //
           // questionAnswers åbner for LÆSNING og lukker for SKRIVNING ad to
@@ -981,6 +987,8 @@ service cloud.firestore {
             && request.resource.data.points is number
             && request.resource.data.points > 0
             && request.resource.data.points <= 100
+            // Markøren må aldrig røres fra klienten — se create-vagten.
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['botFacitAt'])
             && (resource.data.get('facit', null) == null
                 || request.resource.data.get('facit', null) != null)
             && (request.resource.data.get('deadline', null) == resource.data.get('deadline', null)
