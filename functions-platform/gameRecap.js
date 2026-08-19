@@ -11,6 +11,7 @@
 // stillingen, betyder, at ligavæggen kan komme til at sige et andet tal end
 // stillingen, uden at én test falder.
 const { buildRoundContext, combiBonus } = require('./pointOpdeling');
+const { outcomePoints } = require('./superligaScoring');
 const { gatedeKampe, startRundeFor } = require('./startGate');
 const { ligaPoint, harRundeVektor } = require('./ligaPoint');
 
@@ -76,6 +77,9 @@ Felterne betyder:
 - "standout": spilleren med FLEST "roundPoints" i runden. "standoutTie": true hvis flere deler rundens bedste (se "roundWinners").
 - "combi": spillere der fik combi-bonus, med beløbet. Bonussen falder for de FLESTE hver runde — den er hverken sjælden eller en bedrift. Nævn den KUN, hvis et beløb skiller sig ud (fx rundens klart højeste). Skriv ALDRIG at nogen "ramte hele runden", "tippede alle kampe" eller "fik næsten alt rigtigt": bonussen kræver ingen af delene.
 - "leader": fører lige nu. "leadChanged": true hvis førstepladsen har skiftet i denne runde.
+- "chancer": spillere der brugte Chancen — rundens mest personlige beslutning: man sætter point på spil på ÉT af sine tips (hele satsningen ligger altså på den ene kamp). Hvert element har "name", "kamp", "valg" (1/X/2), "odds" (spillerens odds på valget), "indsats", "ramt" og "netto" (±point). Mod måles i ODDS, ikke i netto: en gevinst på høje odds er modig, en gevinst på odds tæt på 1 er "satsede på det sikreste i verden og fik ét point hjem" — den slags må du gerne drille kærligt med.
+- "stoersteGevinst"/"stoersteTab": FORUDBEREGNET største chance-gevinst og -tab (navn + netto); null hvis ingen eller delt. Fremhæv højst disse to — sammenlign ALDRIG selv på tværs af listen.
+- "ingenChancer": true hvis INGEN i ligaen brugte Chancen i runden — det må du nævne som kollektiv observation i ÉN ledsætning ("ingen turde tage Chancen ⚡"), ALDRIG med navne på hvem der ikke satsede.
 - "nextRound": næste rundes nummer (kan mangle, hvis sæsonen er slut).
 
 Ufravigelige regler:
@@ -83,6 +87,11 @@ Ufravigelige regler:
 - Feltnavnene er INTERNE: skriv ALDRIG "roundPoints", "standout" el.lign. i teksten — skriv naturligt dansk ("8 point i runden", "i alt 31 point").
 - Skriv kun at nogen "overhalede"/"tog førstepladsen", hvis "leadChanged" er true. Ellers kan du skrive at lederen "fører stadig".
 - Slut gerne med en lille optakt: mind om at tippe næste runde, hvis "nextRound" findes.
+
+Tone om Chancen (ufravigelig):
+- Højst ÉN ledsætning om en tabt chance — tabet er altid begrænset til indsatsen, så en hel sætnings undergangsstemning er misforholdt.
+- Skriv ALDRIG at en chance "kostede placeringen" eller "kostede runden" — det er en udregning, du ikke må lave.
+- Kommentér ALDRIG størrelsen af en indsats som fej eller lille — loftet afhænger af spillerens saldo, så en lille indsats kan være alt, hvad reglerne tillod.
 
 Tone over for rundens bedste:
 - Er "standoutTie" false (ÉN klar rundevinder = "standout"), så lykønsk vedkommende med et glimt i øjet — gerne let drillende og hoverende på en venlig, humoristisk måde (en kærlig stikpille til de andre om at hænge på). Godmodigt, aldrig hånligt.
@@ -136,6 +145,48 @@ function buildRoundRecapFacts({
     };
   }).sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99) || b.points - a.points);
 
+  // Chancen — rundens mest personlige beslutning (opgave #29, spilførerens
+  // plan-råd fulgt). Nettoen udledes med SAMME kilde som PointOpdeling
+  // (points − 1X2-tip via outcomePoints), så væggen aldrig siger et andet tal
+  // end fladen. Kun spillere fra `players` (ligaens medlemmer) — et navn uden
+  // for ligaen er et brud på synlighedsmodellen OG en vits, ingen forstår.
+  const chancer = [];
+  for (const p of players) {
+    for (const b of (betsByUid.get(p.uid) || [])) {
+      if (!roundIds.has(b.matchId)) continue;
+      const indsats = Math.floor(Number(b.chanceStake) || 0);
+      if (indsats <= 0) continue;
+      const info = roundCtx.byMatch[b.matchId];
+      if (!info || !info.result) continue; // kampen er ikke afgjort endnu
+      const tip = outcomePoints(b.pick, info.result, info.odds);
+      const netto = Math.round(((Number(b.points) || 0) - tip) * 10) / 10;
+      const m = roundMatches.find((x) => x.id === b.matchId);
+      chancer.push({
+        name: sanitizeName(p.name),
+        kamp: m ? `${m.home}\u2013${m.away}` : null,
+        valg: b.pick || null,
+        // Spillerens frosne odds på sit valg — mod måles i odds, ikke i netto.
+        odds: (info.odds && b.pick != null && Number.isFinite(Number(info.odds[b.pick])))
+          ? Number(info.odds[b.pick]) : null,
+        indsats,
+        ramt: tip > 0,
+        netto,
+      });
+    }
+  }
+  // Forudberegnet, som standout: "fremhæv den største" ER en udregning, og
+  // dem må modellen ikke selv lave. null ved delt største (samme regel).
+  const stoerste = (liste, bedreEnd) => {
+    if (liste.length === 0) return null;
+    const top = liste.reduce((a, b) => (bedreEnd(b, a) ? b : a));
+    const delt = liste.filter((c) => c.netto === top.netto).length > 1;
+    return delt ? null : { name: top.name, netto: top.netto };
+  };
+  const gevinster = chancer.filter((c) => c.netto > 0);
+  const tab = chancer.filter((c) => c.netto < 0);
+  const stoersteGevinst = stoerste(gevinster, (a, b) => a.netto > b.netto);
+  const stoersteTab = stoerste(tab, (a, b) => a.netto < b.netto);
+
   const best = Math.max(0, ...rows.map((r) => r.roundPoints));
   const roundWinners = rows.filter((r) => r.roundPoints === best && best > 0).map((r) => r.name);
   const leader = rows.find((r) => r.rank === 1) || rows[0] || null;
@@ -166,6 +217,10 @@ function buildRoundRecapFacts({
     leader: leader ? leader.name : null,
     previousLeader: prevLeader ? prevLeader.name : null,
     leadChanged,
+    chancer,
+    stoersteGevinst,
+    stoersteTab,
+    ingenChancer: chancer.length === 0,
     nextRound,
   };
 }

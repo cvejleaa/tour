@@ -559,3 +559,91 @@ describe('runGameRoundRecap', () => {
     expect(out).toMatchObject({ posted: 0, reason: 'disabled' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Chancen i fakta (opgave #29, spilfører-rådgivet): odds/valg/ramt/netto pr.
+// chance, forudberegnet største gevinst/tab, kollektivt ingenChancer — og
+// SAMME tal som PointOpdeling (væggen må aldrig sige ét tal og fladen et andet).
+// ---------------------------------------------------------------------------
+describe('buildRoundRecapFacts — Chancen', () => {
+  const roundMatches = [
+    { id: 'm1', round: 2, home: 'FCK', away: 'Vejle', homeGoals: 2, awayGoals: 1, result: '1', odds: { 1: 1.6, X: 3.6, 2: 6.0 } },
+    { id: 'm2', round: 2, home: 'AGF', away: 'Brøndby', homeGoals: 0, awayGoals: 0, result: 'X', odds: { 1: 2.4, X: 3.7, 2: 2.6 } },
+  ];
+  const players = [
+    { uid: 'A', name: 'Anna', totalPoints: 10, rank: 1 },
+    { uid: 'B', name: 'Bo', totalPoints: 8, rank: 2 },
+  ];
+  // Anna: ramt chance (indsats 3 @ 1.6 → +2 oven i 1X2-pointene).
+  // Bo: tabt chance (indsats 3 → −3).
+  const betsByUid = new Map([
+    ['A', [{ matchId: 'm1', pick: '1', points: 3.6, chanceStake: 3 }]],
+    ['B', [{ matchId: 'm1', pick: '2', points: -3, chanceStake: 3 }]],
+  ]);
+
+  it('bygger chancer med kamp, valg, odds, ramt og netto — og forudberegner største', () => {
+    const f = buildRoundRecapFacts({ round: 2, roundMatches, players, betsByUid });
+    expect(f.chancer).toEqual([
+      { name: 'Anna', kamp: 'FCK–Vejle', valg: '1', odds: 1.6, indsats: 3, ramt: true, netto: 2 },
+      { name: 'Bo', kamp: 'FCK–Vejle', valg: '2', odds: 6.0, indsats: 3, ramt: false, netto: -3 },
+    ]);
+    expect(f.stoersteGevinst).toEqual({ name: 'Anna', netto: 2 });
+    expect(f.stoersteTab).toEqual({ name: 'Bo', netto: -3 });
+    expect(f.ingenChancer).toBe(false);
+  });
+
+  it('siger SAMME netto som PointOpdeling — bottens tal er fladens tal', () => {
+    const ctx = buildRoundContext(roundMatches);
+    const f = buildRoundRecapFacts({ round: 2, roundMatches, players, betsByUid });
+    for (const [uid, navn] of [['A', 'Anna'], ['B', 'Bo']]) {
+      const fladen = opdelPoint({ bets: betsByUid.get(uid), roundCtx: ctx }).chance;
+      const botten = f.chancer.filter((c) => c.name === navn).reduce((a, c) => a + c.netto, 0);
+      expect(botten).toBe(fladen);
+    }
+  });
+
+  it('uden chancer: tom liste, ingenChancer true og ingen største', () => {
+    const uden = new Map([['A', [{ matchId: 'm1', pick: '1', points: 1.6 }]]]);
+    const f = buildRoundRecapFacts({ round: 2, roundMatches, players, betsByUid: uden });
+    expect(f.chancer).toEqual([]);
+    expect(f.ingenChancer).toBe(true);
+    expect(f.stoersteGevinst).toBeNull();
+    expect(f.stoersteTab).toBeNull();
+  });
+
+  it('delt største gevinst → null (som standout: botten må ikke selv kåre)', () => {
+    const delt = new Map([
+      ['A', [{ matchId: 'm1', pick: '1', points: 3.6, chanceStake: 3 }]],
+      ['B', [{ matchId: 'm1', pick: '1', points: 3.6, chanceStake: 3 }]],
+    ]);
+    const f = buildRoundRecapFacts({ round: 2, roundMatches, players, betsByUid: delt });
+    expect(f.stoersteGevinst).toBeNull();
+    expect(f.ingenChancer).toBe(false);
+  });
+
+  it('en uafgjort kamp giver INGEN chance-post — og en chance uden for ligaen er usynlig', () => {
+    const aabne = [{ id: 'm3', round: 2, home: 'OB', away: 'Silkeborg', result: null, odds: { 1: 2.0, X: 3.3, 2: 3.4 } }];
+    const medFremmed = new Map([
+      ['A', [{ matchId: 'm3', pick: '1', points: 0, chanceStake: 5 }]],
+      // 'C' er IKKE i players (anden liga) — må aldrig optræde i fakta.
+      ['C', [{ matchId: 'm1', pick: '1', points: 3.6, chanceStake: 3 }]],
+    ]);
+    const f = buildRoundRecapFacts({
+      round: 2, roundMatches: [...roundMatches, ...aabne], players, betsByUid: medFremmed,
+    });
+    expect(f.chancer).toEqual([]);
+    expect(f.ingenChancer).toBe(true);
+  });
+});
+
+describe('RECAP_SYSTEM — Chancens tone-grænser (spilfører-krav)', () => {
+  it('forklarer felterne og sætter de tre ufravigelige grænser', () => {
+    for (const s of ['"chancer"', '"stoersteGevinst"', '"ingenChancer"', 'ODDS, ikke i netto']) {
+      expect(RECAP_SYSTEM).toContain(s);
+    }
+    expect(RECAP_SYSTEM).toContain('ÉN ledsætning om en tabt chance');
+    expect(RECAP_SYSTEM).toContain('kostede placeringen');
+    expect(RECAP_SYSTEM).toContain('ALDRIG med navne');
+    expect(RECAP_SYSTEM).toContain('loftet afhænger af spillerens saldo');
+  });
+});
