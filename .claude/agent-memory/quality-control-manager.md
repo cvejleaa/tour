@@ -454,3 +454,141 @@ bruger, ingen server-dublet af "aktiv runde" (serveren tager blot imod
   sidder pr. spørgsmål (linje ~159), og facit kan aldrig nulstilles (rules
   ~984). En mangler-liste i en blok for sig lader ejeren lukke et spørgsmål
   uden at se, at tre endnu ikke har svaret. Knap ét sted, resultat i rækken.
+
+## Bot-afsløring af liga-spørgsmål (#39) + PL-pulje (#8): plan-gennemgang
+
+- **`game.pulje` er IKKE kun en fane-gate — den er en visuel kontakt fire
+  steder til.** `GamePage.jsx:41` (`kraever: 'pulje'`) er den kendte. De
+  ukendte: `FootballTable.jsx:70` (`Number(game?.pulje?.poolSize) || 0`)
+  BYTTER hele Tabel-fanen ud — overskrift "⚽ Superligaen — grundspil",
+  brødtekst "de øverste N om mesterskabet og de nederste N i
+  nedrykningsspillet", og sektionerne "🏆 Mesterskabsspil (top N)" /
+  "⬇️ Nedrykningsspil (bund N)" — OG den fjerner den flade tabels
+  "⬇️ Nedrykning (bund 3)"-streg. `FootballHelp.jsx:111`, `:265`, `:294`
+  ("den officielle **Superliga**-stilling ... top 6 og bund 6", hardkodede
+  6-taller) og `:353`. `functions-platform/inviteTemplate.js:98,205`: mailens
+  feature-kort #3 skifter fra "Liga-spørgsmål" til "Pulje-tippet 🏆 ...
+  mesterskabsspillet ... +4 point ... +10 bonus" (hardkodet). Plus
+  ryk-mailen i `index.js` ~857 og `GameReminderTab.jsx:227`, begge med ordet
+  "mesterskabsspillet". **At skrive `pulje` på et spil er derfor en
+  UI-udrulning, ikke en konfiguration** — spørg altid `grep -rn "\.pulje"`
+  før nogen påstår "usynligt indtil vi tænder".
+- **`PULJE_MAKS_STARTRUNDE` har fire klient-læsere, ikke én:**
+  `FootballHelp.jsx:265`, `GameLeagues.jsx:223` + `:245`,
+  `GameStandings.jsx:280`. Og `ligaPoint` sendes BY REFERENCE ind i
+  `ligaRanking(standings, league, ligaPoint, harRundeVektor)` — gøres tallet
+  spil-afhængigt, skal `game` tråges gennem alle fire plus spejlet i
+  `functions-platform/ligaPoint.js` (paritetstesten binder tallet 3 til SL's
+  `puljeLockAt`, linje 51-53 — den skal blive ved med det).
+- **`PuljeTip.jsx:47-54` regner sit EGET facit** af `game.standings` med den
+  samme `matches.length % 6`-antagelse som serveren (`gameScoring.js:407`).
+  For 20 hold/180 kampe giver den `expectedPlayed = 30` → `officialTop6`
+  returnerer null → serveren falder tilbage på egen tabel og afregner, mens
+  klienten aldrig sætter `seasonDone` og ALDRIG viser facit-kortet. Point i
+  PointOpdeling, tavshed på fanen. To facit-kilder = to sandheder; de skal
+  drives af samme konfigurerede felt.
+- **`PuljeTip.jsx:91` lover "🟢 Åbent — deadline fastsættes af admin", mens
+  rules garanteret afviser.** `beforeDeadline()` kræver `gameLock() != null`,
+  og `get(...).data.puljeLockAt` på et dokument UDEN feltet er en
+  evalueringsfejl (samme fælde som kommentaren ved rules ~973 advarer om for
+  `deadline`). Gem-knappen er tændt (`locked` er false når lockMs er null).
+  Læse-grenen `(isApproved() && !beforeDeadline())` åbner desuden ALLES
+  puljetips, når låsen mangler. `pulje` og `puljeLockAt` må aldrig eksistere
+  hver for sig.
+- **Liga-spørgsmåls-scoring er SÆT-afhængig for `type:'number'`**
+  ("nærmest vinder", `leagueQuestionScoring.js:42-55`), og klienten scorer over
+  ALLE svar-dokumenter den må læse — inklusive svar fra folk, der har FORLADT
+  ligaen (`leaveLeague` gør `arrayRemove`, svar slettes aldrig, og læsereglen
+  spørger kun om LÆSEREN er medlem). En server-scoring, der kun læser
+  `${qId}_${uid}` for NUVÆRENDE `memberUids` (grebet fra
+  `hentSpoergsmaalStatus`), kan derfor udnævne en anden vinder end den grønne
+  badge i rækken ovenfor. Grebet er rigtigt til "hvem mangler", forkert til
+  "hvem vandt".
+- **`LeagueQuestions` renderes DIREKTE over `LeagueWall` i samme kort**
+  (`GameLeagues.jsx:267-275`), og efter deadline viser rækken allerede alle
+  svar, efter facit også point med grøn badge. Et bot-opslag om et spørgsmål
+  står altså få centimeter under de samme data — dets værdi er stemmen, ikke
+  oplysningen. Og væggen notificerer stadig ingen (ingen
+  `onDocumentCreated` i `functions-platform/index.js`), så et opslag er ikke
+  et ryk.
+- **`allow create` på `questions` begrænser IKKE ekstra felter.** En
+  regel-stramning, der kun rammer `update`-grenen (fx bot-markører), er
+  omgåelig ved at sætte feltet allerede ved oprettelsen. Tjek altid BEGGE
+  grene, når et felt skal reserveres til serveren.
+- **Facit kan RETTES iflg. rules (kun ikke nulstilles), men fladen tilbyder
+  det ikke:** facit-formen er gated på `!settled` (`LeagueQuestions.jsx:194`).
+  En "facit ændret"-sti er altså ikke nåbar fra appen — men markør-felter uden
+  override betyder, at et forkert bot-opslag kun kan SLETTES (liga-ejeren må
+  slette enhver væg-besked, rules ~934), aldrig erstattes. Enhver
+  én-gang-markør skal have en `tving`-vej i sin manuelle knap.
+- **`DriftTab`s `forventede` bygges KUN af sweep/kickoff pr. synket spil.**
+  Ukendte typer får nu et kort (QC-rettelsen er landet, linje ~138) — men
+  først når dokumentet FINDES. En ny skemalagt funktion, der aldrig deployes
+  eller aldrig kører, er stadig usynlig; skal den overvåges, skal dens type
+  med i `forventede`.
+- **`game.aiRecaps` har ingen UI nogen steder.** Afbryderen i
+  `LeaguesPage.jsx:345` sidder på den GAMLE `leagues`-kollektion, ikke på
+  `games`. Kill-switchen for botten kan kun sættes i hånden — "hvordan starter
+  jeg det med vilje" har en tvilling: hvordan STOPPER jeg det?
+
+## Bot-afsløring af liga-spørgsmål (0657068): implementering mod planens 6 krav — konkrete fund
+
+Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
+
+- **Create-vagten på `botFacitAt`** findes i `firestore.rules` (~957) OG er
+  eksplicit rules-testet (`functions/rules.test.js`, 4 nye tests: update,
+  smuglet update, create-med-markør afvist, create-uden-markør ok). Update-
+  vagten alene (som QC/Security fandt på planen) var netop hullet.
+- **Scoring over HELE svarsættet** er bevist, ikke kun kommenteret:
+  `byggSpoergsmaalRecapFakta` tager `svar` uden medlems-filter, `scoreLeague-
+  Question` regner over `alleSvar`; en direkte test (`leagueQuestionScoring.
+  test.js`, "at udelade et svar kan ændre vinderen") viser at et eks-medlems
+  svar skifter vinderen. Eks-medlemmer navngives `'et tidligere medlem'`, og
+  `JSON.stringify(fakta)` er assertion-testet for at UDELUKKE uid'et
+  (`leagueQuestionRecap.test.js` linje ~82).
+- **`skalAfsloere` er ren og mutationstestet på netop de to farlige stier:**
+  facit-RETTELSE (afgjort→afgjort) og bottens egen markør-skrivning giver
+  begge `false` — begge har hver sin test.
+- **`tvingNy` findes på callablen** (`leagueQuestionRecapNow`), server- og
+  klient-testet (post-igen-knappen kræver `window.confirm` og kalder med
+  `tvingNy: true`).
+- **`questionId` sidder på væg-beskeden** (`messages.add({..., questionId})`),
+  testet direkte.
+- **Prompten skelner eksplicit fra puljen**: `LQ_RECAP_SYSTEM` indeholder
+  ordret "LIGAENS EGNE spørgsmål (liga-ejerens spørgsmål — ikke spillets
+  pulje eller kampene)" — assertion-testet på INDHOLD, ikke kun "prompt
+  findes".
+- **A4 (fejningen) er faktisk skåret**, som planen bad om: ingen
+  `onSchedule` for spørgsmål i `functions-platform/index.js`, ingen
+  48-timers-vindue nogen steder i koden eller kommentarerne. Bekræftet med
+  grep — kun trigger (`onDocumentWritten`) + bevidst callable-start.
+- **`generateRecapText(anthropic, facts, system = RECAP_SYSTEM)`**: default-
+  parameteren betyder det GAMLE kaldsted (`runGameRoundRecap`, ét argument
+  mindre) er uændret i adfærd — bekræftet ved at læse begge kaldsteder.
+  `sanitizeName()` i `gameRecap.js` delegerer nu til `rensTekst.js`, med
+  identisk default (`max: 40, fallback: 'Spiller'`) — ren udtræk, ingen
+  adfærdsændring for runde-opslagene.
+- **Server-side håndhævelse af forhåndsvisning er ægte, ikke kun klient:**
+  `leagueQuestionRecapNow` kræver liga-medlemskab for `dryRun`, uafhængigt af
+  om kalderen er ejer/admin — en global admin uden for ligaen må poste
+  blindt, men aldrig se svarene via preview. Testet i koden (server-logik),
+  ikke kun antaget.
+
+**Fund, ikke blokerende:**
+- **`FootballHelp.jsx`s "Runde-Botten 🤖"-afsnit (linje ~374) er STADIG kun om
+  runde-resuméet** — nævner intet om den nye liga-spørgsmåls-afsløring.
+  Samme dokumentations-hul som blev noteret (ikke rettet) for Chancen ved
+  a889bb1: en spiller, der ser et bot-opslag om et liga-spørgsmål første
+  gang, har ingen hjælpetekst der forklarer det. `docs/admin-guide.md` blev
+  derimod korrekt opdateret (afsnit om 🤖-knapperne, med begrundelse for
+  hvorfor de bor på liga-fladen og ikke i admin). To dokumentations-mål,
+  kun ét ramt — spørg specifikt om FootballHelp.jsx næste gang en bot får en
+  ny afsløringstype.
+- **Eksisterende spørgsmål med facit sat FØR deploy udløser ALDRIG triggeren
+  bagudrettet** (`onDocumentWritten` fyrer kun på fremtidige writes). Ejeren
+  ser korrekt "Botten har ikke postet afsløringen endnu" med virkende
+  Forhåndsvis/Post-knapper (recovery-vejen dækker det) — men parentesen
+  "(den poster selv, kort efter facit er sat)" er vildledende for disse
+  rækker, for det skete aldrig automatisk. Ikke en fejl (handlingen virker),
+  men en tekst der antyder en hændelse, der ikke fandt sted. Værd at
+  overveje en anden formulering, hvis det generer i praksis.

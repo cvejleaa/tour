@@ -13,16 +13,18 @@
 //   3. Værdien, der gemmes, er det KANONISKE navn — det er join-nøglen.
 // ---------------------------------------------------------------------------
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 
 const mockSaveAnswer = vi.fn().mockResolvedValue({ ok: true });
 const mockLqStatus = vi.fn();
+const mockBotRecap = vi.fn();
 vi.mock('./gameLeagueActions', () => ({
   createLeagueQuestion: vi.fn().mockResolvedValue({ ok: true }),
   setLeagueQuestionFacit: vi.fn().mockResolvedValue({ ok: true }),
   deleteLeagueQuestion: vi.fn().mockResolvedValue({ ok: true }),
   saveLeagueQuestionAnswer: (...a) => mockSaveAnswer(...a),
   callLeagueQuestionStatus: (...a) => mockLqStatus(...a),
+  callLeagueQuestionRecapNow: (...a) => mockBotRecap(...a),
   LEAGUE_Q_LABEL_MAX: 120,
 }));
 
@@ -191,5 +193,56 @@ describe('LeagueQuestions — Hvem mangler at svare?', () => {
     expect(await screen.findByText(/Kun ligaens medlemmer/)).toBeInTheDocument();
     renderQ({ questions: [], answersByQid: {} });
     expect(screen.queryAllByTestId('lq-hvem-mangler')).toHaveLength(1); // kun fra første render
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Runde-Bottens afsløring (#39): ejerens bevidste start, når trigger-opslaget
+// mangler. Botten poster normalt selv — sektionen må derfor kun invitere til
+// handling, når markøren botFacitAt mangler.
+// ---------------------------------------------------------------------------
+describe('LeagueQuestions — Runde-Bottens afsløring (ejer)', () => {
+  const afgjort = (over = {}) => teamQ({ facit: 'Arsenal', ...over });
+
+  it('ejer ser Forhåndsvis/Post når opslaget mangler — teksten vises, og Post poster', async () => {
+    mockBotRecap.mockResolvedValueOnce({ ok: true, data: { posted: 0, dryRun: true, text: 'Udkastet 🤖' } })
+      .mockResolvedValueOnce({ ok: true, data: { posted: 1 } });
+    renderQ({ isOwner: true, questions: [afgjort()], answersByQid: { q1: [{ uid: 'me', answer: 'Arsenal' }] } });
+    const sektion = screen.getByTestId('lq-bot-q1');
+    expect(sektion.textContent).toContain('ikke postet');
+
+    fireEvent.click(screen.getByText('Forhåndsvis'));
+    await waitFor(() => expect(mockBotRecap).toHaveBeenCalledWith('pl', 'L1', 'q1', { dryRun: true, tvingNy: false }));
+    const udkast = await screen.findByTestId('lq-bot-udkast-q1');
+    expect(udkast.textContent).toContain('Udkastet 🤖');
+
+    // Post fra udkastet — dryRun: false.
+    fireEvent.click(within(udkast).getByText('Post på væggen'));
+    await waitFor(() => expect(mockBotRecap).toHaveBeenLastCalledWith('pl', 'L1', 'q1', { dryRun: false, tvingNy: false }));
+    expect(await screen.findByText(/Afsløringen er postet på væggen/)).toBeInTheDocument();
+  });
+
+  it('markør sat: "postet ✓" og INGEN post-knapper — "post igen" kræver bekræftelse (tvingNy)', async () => {
+    mockBotRecap.mockResolvedValue({ ok: true, data: { posted: 1 } });
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    renderQ({ isOwner: true, questions: [afgjort({ botFacitAt: { seconds: 1 } })], answersByQid: {} });
+    const sektion = screen.getByTestId('lq-bot-q1');
+    expect(sektion.textContent).toContain('postet på væggen ✓');
+    expect(screen.queryByText('Forhåndsvis')).toBeNull();
+    fireEvent.click(screen.getByText('post igen'));
+    await waitFor(() => expect(mockBotRecap).toHaveBeenCalledWith('pl', 'L1', 'q1', { dryRun: false, tvingNy: true }));
+  });
+
+  it('bottens nej-grund oversættes til dansk — og sektionen findes hverken for medlemmer eller på åbne spørgsmål', async () => {
+    mockBotRecap.mockResolvedValue({ ok: true, data: { posted: 0, reason: 'too-few-answers' } });
+    renderQ({ isOwner: true, questions: [afgjort()], answersByQid: {} });
+    fireEvent.click(screen.getByText('Post på væggen'));
+    expect(await screen.findByText(/mindst 2 svar/)).toBeInTheDocument();
+
+    const medlem = renderQ({ isOwner: false, questions: [afgjort({ id: 'q9' })], answersByQid: {} });
+    expect(screen.queryByTestId('lq-bot-q9')).toBeNull();
+    medlem.unmount();
+    renderQ({ isOwner: true, questions: [teamQ({ id: 'q8' })], answersByQid: {} }); // åbent — intet facit
+    expect(screen.queryByTestId('lq-bot-q8')).toBeNull();
   });
 });

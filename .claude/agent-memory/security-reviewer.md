@@ -428,3 +428,95 @@ prædikater står FORAN denne data i firestore.rules, og har callablen dem alle?
 **Og:** *autorisationen skal stå foran de dyre læsninger — ellers betaler
 projektet for en afvist kalder.* Rækkefølgen lukker eksistens-orakel og
 omkostning i ét greb.
+
+## leagueQuestionRecap / #39 (0657068) — Runde-Botten afslører et liga-spørgsmål
+
+**Nyt PoC-mønster, det bedste hidtil: KØR CALLABLEN ÆGTE mod emulatoren.**
+v2-`onCall` har `.run({ auth:{uid}, data, rawRequest:{} })`. Kombineret med en
+`Module._load`-hook, der returnerer en FAKE `@anthropic-ai/sdk`-klasse (tæller
+kald + fanger `messages[0].content` = de FAKTA, modellen ser), giver det hele
+adgangsmatrixen + prompt-input i ét kørt script. Opskrift:
+`process.env.FIRESTORE_EMULATOR_HOST=127.0.0.1:8080`, `GCLOUD_PROJECT=demo-x`,
+`ANTHROPIC_API_KEY=test-key`, `require('functions-platform/index.js')`, kør fra
+`cd functions-platform`. Filer: scratchpad/poc/lq39-{callable,gift2}.js,
+lq39-{rules,gift,deadline}.mjs, lq39-fakta.js.
+
+**BEKRÆFTET HUL (pre-existing, IKKE lukket): "kortene kan ikke lukkes igen"
+holder ikke — slet + genopret spørgsmålet med SAMME doc-id.**
+`questions` har `allow delete: if qOwner()` (firestore.rules L999), mens
+`questionAnswers` har `allow delete: if false` og doc-id `qid_uid`. Kæden
+(emulator-kørt, BEGGE varianter):
+facit-vejen: sæt facit → læs alles svar → slet spørgsmålet → opret samme id med
+`facit:null` → overskriv sit EGET svar med det rigtige → sæt facit = 100 point.
+deadline-vejen: vent på deadline → læs alles svar → slet → opret samme id med
+FREMTIDIG deadline → ret sit svar → sæt facit. Begge de direkte veje (nulstil
+facit, rul deadline tilbage) er korrekt lukkede — omvejen er ikke.
+Fix: `allow delete: if isApproved() && qOwner()==uid && resource.data.get('facit',null)==null && (resource.data.get('deadline',null)==null || request.time.toMillis() < resource.data.deadline)`.
+Samme omvej giver også ubegrænsede AI-kald og "botten siger hvad ejeren vil":
+det genoprettede spørgsmål har intet `botFacitAt`, så de GAMLE svar afsløres
+igen under en NY label og et NYT facit (kørt: modellen fik
+`{"spoergsmaal":"HELT ANDET SPOERGSMAAL","facit":"9","vindere":["M2"]}` over
+svar afgivet på det oprindelige spørgsmål).
+
+**BEKRÆFTET RENT (gentag ikke):**
+- `botFacitAt`-vagterne holder i ALLE fire skriveformer, jeg kunne finde:
+  `update`, `= null`, `setDoc`-overskrivning af hele dokumentet, og
+  `deleteField()` (`affectedKeys().hasAny` fanger også sletning). Kontroltest
+  grøn: ejeren må stadig sætte facit. Repoets 203 regel-tests er grønne.
+- Adgangsmatrix for `leagueQuestionRecapNow` (alle kørt): pending,
+  pending-globalAdmin, **rejected/bortvist medlem**, menigt medlem og admin
+  UDEN medlemskab nægtes alle forhåndsvisningen (= svar+navne). Kun ejer-og-
+  medlem får den. Dette er den FØRSTE callable med et rigtigt
+  `status === 'approved'`-tjek — #38's `leagueQuestionStatus` mangler det
+  stadig (bortvist medlem får svar-status dér).
+- Rækkefølgen er rigtig: approved-tjek FØR `not-found` → en pending kan ikke
+  sondere liga-id'er. (En APPROVED ikke-ejer kan stadig skelne
+  `permission-denied` fra `not-found` — auto-id'er, praktisk ufarligt.)
+- Id-validering: `/^[A-Za-z0-9_-]{1,200}$/` + `!/^__.*__$/` på alle TRE id'er,
+  før enhver læsning. 10 fjendtlige værdier afvist med 0 læsninger.
+- Ingen læk i AI-fakta: felt-for-felt bygget, intet spread. E-mail, `role`,
+  `status`, ukendte svar-/spørgsmålsfelter og `acceptedAnswers` når ALDRIG
+  prompten (PoC med forbudte regexer).
+- `skalAfsloere` er ren og ufølsom: rettelse (`a→b`), bottens egen
+  markør-skrivning og sletning giver alle `false`. `''`/`'  '` → `'x'` fyrer
+  præcis én gang.
+
+**Nye angrebsveje (rapporteret, ikke blokerende):**
+- **Ubegrænsede betalte AI-kald uden admin-port.** `leagueQuestionRecapNow` er
+  den første AI-kaldende callable, en ikke-admin kan nå (liga-ejer).
+  `tvingNy:true` springer `botFacitAt` over → kørt: 3 opslag + 3 modelkald i
+  træk, ingen cooldown, ingen `maxInstances`, ingen App Check. Bemærk: en ejer,
+  der har FORLADT sin egen liga, beholder `ownerUid` (update-reglens gren (b)
+  kræver kun uændret ownerUid) og kan spamme en væg, hen ikke selv må læse.
+  Afbødning: cooldown på `botFacitAt` (afvis `tvingNy` < N min efter sidste
+  opslag) eller forbehold `tvingNy` for admin.
+- **Ét medlem kan dræbe afsløringen for hele ligaen (griefing).** `answer` og
+  `displayName` type-tjekkes ikke af reglerne (emulator-bekræftet: begge kan
+  være et map). `{toString: null}` → `String(...)` i `lqNorm`/`rensTekst`
+  kaster `TypeError: Cannot convert object to primitive value` → triggeren
+  fejler tavst (kun `console.error`), og ejerens knap svarer `internal` for
+  altid, uden at nogen kan se hvorfor. Samme gift rammer KLIENTEN endnu
+  hårdere (pre-existing #150): `scoreLeagueQuestion` kaldes i render, og et map
+  som React-child kaster → hvid side for alle medlemmer.
+  Fix ét sted: `String()`-konverteringen i `lqNorm`/`rensTekst` i en try, eller
+  filtrér ikke-strenge svar fra ved indlæsningen.
+- **Bot-forfalskning på væggen.** `messages`-reglen binder KUN `uid` — ikke
+  `displayName`, `avatarEmoji`, `system` eller `questionId` (emulator: et
+  medlem kan gemme `{uid: sig selv, displayName:'Runde-Botten',
+  avatarEmoji:'🤖', system:true}`). Fladen (GameLeagues.jsx L96) viser
+  `byUid[m.uid] || { name: m.displayName, emoji: m.avatarEmoji }`, og `byUid`
+  bygges af STILLINGEN (players med `leagueIds`). Forlader forfalskeren
+  bagefter ligaen, forsvinder hen fra `byUid` → opslaget står som
+  "Runde-Botten 🤖" for alle. Fix: rendér navnet efter `m.system === true` og
+  et fast bot-uid, eller kræv `!('system' in request.resource.data)` i reglen.
+
+**Ikke ny eksponering (efterprøvet):** væggens læsekreds (nuværende medlemmer)
+er en delmængde af svarenes læsekreds efter facit — også for et medlem, der
+kommer til EFTER opslaget. `sov`-listen kan enhver medlem allerede regne ud af
+`memberUids` + svar-dokumenterne.
+
+**Faldgrube til listen:** *en uforanderlighed, der bygger på et dokuments
+tilstand, holder kun hvis dokumentet ikke kan genopstå.* Er sletning tilladt,
+og overlever børnene forælderen på deterministiske id'er, så er "må ikke
+nulstilles" i praksis "må nulstilles i to skridt". Spørg altid: hvad sker der,
+hvis ejeren SLETTER dokumentet og opretter det igen med samme id?

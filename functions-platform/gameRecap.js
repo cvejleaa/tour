@@ -11,6 +11,7 @@
 // stillingen, betyder, at ligavæggen kan komme til at sige et andet tal end
 // stillingen, uden at én test falder.
 const { buildRoundContext, combiBonus } = require('./pointOpdeling');
+const { rensTekst } = require('./rensTekst');
 const { outcomePoints } = require('./superligaScoring');
 const { gatedeKampe, startRundeFor } = require('./startGate');
 const { ligaPoint, harRundeVektor } = require('./ligaPoint');
@@ -102,14 +103,9 @@ Tone over for rundens bedste:
  * frit displayName — fjerner kontroltegn/kontekst-brydende tegn, klipper længde).
  */
 function sanitizeName(name) {
-  const s = String(name == null ? '' : name)
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001F\u007F]+/g, ' ')
-    .replace(/[<>{}[\]`]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const cut = s.slice(0, 40).trim();
-  return cut || 'Spiller';
+  // Delegerer til det fælles værn (rensTekst.js) — én vagt pr. sikkerhedsregel.
+  // Navne-adfærden er uændret: max 40, fallback 'Spiller'.
+  return rensTekst(name);
 }
 
 
@@ -225,8 +221,12 @@ function buildRoundRecapFacts({
   };
 }
 
-/** Kald Claude med retries ved midlertidige fejl (samme mønster som Tour-botten). */
-async function generateRecapText(anthropic, facts) {
+/**
+ * Kald Claude med retries ved midlertidige fejl (samme mønster som Tour-botten).
+ * `system` kan overstyres, så liga-spørgsmålenes afsløring (leagueQuestionRecap)
+ * genbruger samme retry og model-kald med sin egen prompt — ét kaldested.
+ */
+async function generateRecapText(anthropic, facts, system = RECAP_SYSTEM) {
   let attempt = 0;
   for (;;) {
     try {
@@ -234,7 +234,7 @@ async function generateRecapText(anthropic, facts) {
         model: 'claude-opus-4-8',
         max_tokens: 600,
         thinking: { type: 'adaptive' },
-        system: RECAP_SYSTEM,
+        system,
         messages: [{ role: 'user', content: JSON.stringify(facts) }],
       });
       return (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').trim();

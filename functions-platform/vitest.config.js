@@ -17,6 +17,8 @@ export default defineConfig({
       'driftlog.test.js',
       'gameLeagues.test.js',
       'gameRecap.test.js',
+      'leagueQuestionScoring.test.js',
+      'leagueQuestionRecap.test.js',
       'inviteTemplate.test.js',
       'reminders.test.js',
       'playerLeagues.test.js',

@@ -6,7 +6,8 @@
 import { useState } from 'react';
 import {
   createLeagueQuestion, setLeagueQuestionFacit, deleteLeagueQuestion,
-  saveLeagueQuestionAnswer, callLeagueQuestionStatus, LEAGUE_Q_LABEL_MAX,
+  saveLeagueQuestionAnswer, callLeagueQuestionStatus, callLeagueQuestionRecapNow,
+  LEAGUE_Q_LABEL_MAX,
 } from './gameLeagueActions';
 import { scoreLeagueQuestion, lqSettled, lqPoints } from './leagueQuestionScoring';
 import { teamsOf, visOf } from './football/teamInfo';
@@ -14,6 +15,16 @@ import { formatKickoff } from '../../lib/daDate';
 import { shareText } from '../../lib/share';
 
 const TYPE_LABEL = { text: 'Tekst', yesno: 'Ja/Nej', number: 'Tal (nærmest vinder)', team: 'Hold' };
+
+// Bottens nej-grunde oversat — 'internal' fra serveren har allerede dansk tekst.
+const BOT_AARSAG = {
+  'too-few-answers': 'Botten poster først ved mindst 2 svar fra ligaens medlemmer.',
+  already: 'Afsløringen er allerede postet på væggen.',
+  disabled: 'AI-opslag er slået fra for spillet.',
+  'not-settled': 'Sæt facit først — botten afslører ved facit.',
+  'no-text': 'Botten kunne ikke skrive teksten — prøv igen om lidt.',
+  cooldown: 'Vent lidt — der er lige postet en afsløring af det spørgsmål (spam-værn: 10 minutter).',
+};
 
 function deadlinePassed(q, nowMs) {
   return q.deadline != null && Number(q.deadline) <= nowMs;
@@ -51,6 +62,22 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
   const [accepted, setAccepted] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null); // { kind, text }
+  const [botTekst, setBotTekst] = useState(null); // forhåndsvisning af afsløringen
+
+  // Runde-Bottens afsløring: botten poster SELV via trigger, når facit
+  // sættes — knapperne her er den bevidste start (recovery), hvis opslaget
+  // mangler. Der er et lille kapløbs-vindue, hvis ejeren poster manuelt,
+  // sekunder efter facit er gemt (triggeren er stadig i gang) — derfor siger
+  // hjælpeteksten, at knappen kun er til når opslaget MANGLER.
+  async function botKald(dryRun, tvingNy = false) {
+    setBusy(true); setMsg(null);
+    const res = await callLeagueQuestionRecapNow(gameId, leagueId, q.id, { dryRun, tvingNy });
+    if (!res.ok) setMsg({ kind: 'err', text: res.error });
+    else if (res.data?.dryRun) setBotTekst(res.data.text || '');
+    else if (res.data?.posted) { setMsg({ kind: 'ok', text: 'Afsløringen er postet på væggen 🤖' }); setBotTekst(null); }
+    else setMsg({ kind: 'err', text: BOT_AARSAG[res.data?.reason] || `Botten postede ikke (${res.data?.reason || 'ukendt'}).` });
+    setBusy(false);
+  }
 
   async function saveAnswer(e) {
     e.preventDefault();
@@ -93,7 +120,11 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
         <span style={{ fontWeight: 600 }}>{q.label}</span>
         <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center' }}>
           <span className="badge badge--muted">{lqPoints(q)} point · {TYPE_LABEL[q.type] || 'Tekst'}</span>
-          {isOwner && (
+          {/* Slet kun mens spørgsmålet er U-ÅBNET — rules afviser sletning
+              efter facit/deadline (slet-og-genopret med samme doc-id var en
+              omvej uden om "kortene kan ikke lukkes igen"; Security-fund).
+              Knappen skal følge reglen, ellers står den og fejler. */}
+          {isOwner && !locked && !settled && (
             <button className="btn--icon" title="Slet spørgsmål" disabled={busy} onClick={remove}
               style={{ background: 'none', border: 'none', color: 'var(--c-err)', cursor: 'pointer', padding: 0 }}>
               ✕
@@ -187,6 +218,46 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
         <div style={{ marginTop: '0.35rem', fontSize: '0.85rem' }}>
           Facit: <strong>{visSvar(q.facit)}</strong>
           {winners.length === 0 && <span style={{ color: 'var(--c-muted)' }}> · ingen ramte rigtigt</span>}
+        </div>
+      )}
+
+      {/* Ejer: Runde-Bottens afsløring på væggen. Botten poster selv ved
+          facit — dette er den bevidste start, hvis opslaget mangler. */}
+      {settled && isOwner && (
+        <div style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--c-muted)' }} data-testid={`lq-bot-${q.id}`}>
+          {q.botFacitAt ? (
+            <>
+              🤖 Afsløringen er postet på væggen ✓{' '}
+              <button
+                type="button" className="btn--icon" disabled={busy}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', color: 'inherit', padding: 0 }}
+                onClick={() => {
+                  if (window.confirm('Post afsløringen IGEN på væggen? Det gamle opslag forsvinder ikke — det skal du selv slette på væggen bagefter.')) botKald(false, true);
+                }}
+              >
+                post igen
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Ærlig for BEGGE tilfælde: nye facit poster triggeren selv,
+                  men spørgsmål afgjort FØR udrulningen fik aldrig en trigger
+                  — for dem er knappen den eneste vej (QC-fund). */}
+              🤖 Botten har ikke postet afsløringen endnu. (Nye facit poster den selv efter et øjeblik — ældre spørgsmål postes med knappen.)
+              {' '}
+              <button type="button" className="btn btn--sm" disabled={busy} onClick={() => botKald(true)}>Forhåndsvis</button>
+              {' '}
+              <button type="button" className="btn btn--sm" disabled={busy} onClick={() => botKald(false)}>Post på væggen</button>
+            </>
+          )}
+          {botTekst != null && (
+            <div style={{ marginTop: '0.35rem', padding: '0.5rem', border: '1px solid var(--c-border)', borderRadius: 8, color: 'var(--c-text)' }} data-testid={`lq-bot-udkast-${q.id}`}>
+              <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{botTekst}</p>
+              <button type="button" className="btn btn--sm" disabled={busy} style={{ marginTop: '0.4rem' }} onClick={() => botKald(false)}>
+                Post på væggen
+              </button>
+            </div>
+          )}
         </div>
       )}
 

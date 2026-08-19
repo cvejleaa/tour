@@ -2613,6 +2613,95 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await assertFails(updateDoc(qDoc('se5-l14', 'se-q5n'),
         { label: 'Nyt spørgsmål', points: 10, deadline: Date.now() - 3600e3 }));
     });
+
+    // botFacitAt er SERVERENS markør for "Runde-Botten har postet afsløringen"
+    // (opgave #39). Kunne ejeren sætte den selv, kunne hen lydløst aflyse
+    // afsløringen af sit eget spørgsmål — begge skriveveje skal være lukket.
+    it('ejeren KAN IKKE sætte bottens markør ved UPDATE', async () => {
+      await seedSpoergsmaal('se5-l16', 'se-q5p', { facit: 'Isaksen' });
+      await assertFails(updateDoc(qDoc('se5-l16', 'se-q5p'), { botFacitAt: Timestamp.now() }));
+    });
+
+    it('ejeren KAN IKKE smugle markøren med i en ellers lovlig update', async () => {
+      await seedSpoergsmaal('se5-l17', 'se-q5q');
+      await assertFails(updateDoc(qDoc('se5-l17', 'se-q5q'),
+        { label: 'Nyt spørgsmål', botFacitAt: Timestamp.now() }));
+    });
+
+    it('ejeren KAN IKKE oprette spørgsmålet med markøren allerede sat (create-vejen)', async () => {
+      await seedSpoergsmaal('se5-l18', 'se-q5r'); // opretter liga + bruger
+      await assertFails(setDoc(qDoc('se5-l18', 'se-q5r-ny'), {
+        label: 'Hvem bliver topscorer?', type: 'text', points: 5,
+        facit: null, deadline: null, createdBy: 'se5', createdAt: Timestamp.now(),
+        botFacitAt: Timestamp.now(),
+      }));
+    });
+
+    it('oprettelse UDEN markør virker stadig (kontrol af create-vagten)', async () => {
+      await seedSpoergsmaal('se5-l19', 'se-q5s');
+      await assertSucceeds(setDoc(qDoc('se5-l19', 'se-q5s-ny'), {
+        label: 'Hvem bliver topscorer?', type: 'text', points: 5,
+        facit: null, deadline: null, createdBy: 'se5', createdAt: Timestamp.now(),
+      }));
+    });
+
+    // Slet-og-genopret med samme doc-id var en omvej uden om HELE
+    // "kortene kan ikke lukkes igen"-garantien: svar kan aldrig slettes og
+    // har deterministiske id'er, så et genoprettet spørgsmål arver alles
+    // svar — sæt facit → læs svar → slet → genopret → ret eget svar → facit
+    // (Security-fund, begge veje). Kun et U-ÅBNET spørgsmål må slettes.
+    it('ejeren KAN IKKE slette et spørgsmål med facit sat', async () => {
+      await seedSpoergsmaal('se5-l20', 'se-q5t', { facit: 'Isaksen' });
+      await assertFails(deleteDoc(qDoc('se5-l20', 'se-q5t')));
+    });
+
+    it('ejeren KAN IKKE slette et spørgsmål med passeret deadline (kortene er åbne)', async () => {
+      await seedSpoergsmaal('se5-l21', 'se-q5u', { deadline: Date.now() - 3600e3 });
+      await assertFails(deleteDoc(qDoc('se5-l21', 'se-q5u')));
+    });
+
+    it('ejeren KAN stadig slette et U-ÅBNET spørgsmål (kontrol)', async () => {
+      await seedSpoergsmaal('se5-l22', 'se-q5v', { deadline: Date.now() + 3600e3 });
+      await assertSucceeds(deleteDoc(qDoc('se5-l22', 'se-q5v')));
+    });
+  });
+
+  // --- spil-liga-væggen: 'system' er bottens kendetegn -----------------------
+  // Runde-Botten skriver med Admin SDK (uid 'runde-bot', system:true). uid er
+  // bundet af reglen, men uden system-vagten kunne et medlem gemme
+  // displayName 'Runde-Botten' + system:true, forlade ligaen — og opslaget
+  // ville stå som bottens for alle (Security-fund, #39).
+  describe('games/{g}/leagues/{l}/messages — bot-forfalskning', () => {
+    async function seedVaeg(leagueId) {
+      await createUser('se6', 'player', 'approved');
+      await createGame('se-spil');
+      await seed(`games/se-spil/leagues/${leagueId}`, {
+        name: 'Ligaen', code: 'SE6KOD', ownerUid: 'se6', memberUids: ['se6', 'ven'],
+        createdAt: Timestamp.now(),
+      });
+    }
+    const mDoc = (leagueId, id) => doc(
+      testEnv.authenticatedContext('se6').firestore(),
+      'games', 'se-spil', 'leagues', leagueId, 'messages', id,
+    );
+
+    it("et medlem KAN IKKE skrive en besked med 'system'-feltet — uanset værdi", async () => {
+      await seedVaeg('se6-l1');
+      await assertFails(setDoc(mDoc('se6-l1', 'm1'), {
+        uid: 'se6', displayName: 'Runde-Botten', avatarEmoji: '🤖', system: true,
+        text: 'Falsk bot-opslag', createdAt: Timestamp.now(),
+      }));
+      await assertFails(setDoc(mDoc('se6-l1', 'm2'), {
+        uid: 'se6', system: false, text: 'Også med false', createdAt: Timestamp.now(),
+      }));
+    });
+
+    it('en almindelig besked uden system-feltet virker stadig (kontrol)', async () => {
+      await seedVaeg('se6-l2');
+      await assertSucceeds(setDoc(mDoc('se6-l2', 'm1'), {
+        uid: 'se6', text: 'Hej liga!', createdAt: Timestamp.now(),
+      }));
+    });
   });
 
   // --- 6) messages: BEGGE deltagere skal være medlemmer --------------------
