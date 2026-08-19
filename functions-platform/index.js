@@ -53,6 +53,7 @@ const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = requir
 const { runGameTipReminders, sendGameTestReminder, hentTipStatus } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
+const { hentSpoergsmaalStatus } = require('./gameLeagues');
 const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
 
 initializeApp();
@@ -708,6 +709,40 @@ exports.sendGameTipRemindersNow = onCall(
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
     const result = await runGameTipReminders(db, transporter, gameId);
     return { success: true, ...result };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// leagueQuestionStatus — hvem mangler at svare på ligaens ÅBNE spørgsmål?
+// (opgave #38). Adgang: LIGA-MEDLEM eller owner/globalAdmin — symmetrisk
+// (spilfører-krav): alle i ligaen må se HVEM der har svaret; HVAD de svarede
+// er stadig lukket til facit/deadline (rules, questionAnswers — den regel
+// har med vilje ingen admin-gren, og denne callable læser aldrig svar-data:
+// kun dokument-eksistens på deterministiske id'er).
+// ---------------------------------------------------------------------------
+exports.leagueQuestionStatus = onCall(
+  { region: REGION },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Du skal være logget ind.');
+    const db = getFirestore();
+    const ID_RE = /^[A-Za-z0-9_-]{1,200}$/;
+    const gameId = String(request.data?.gameId || '').trim();
+    const leagueId = String(request.data?.leagueId || '').trim();
+    if (!ID_RE.test(gameId) || /^__.*__$/.test(gameId)
+      || !ID_RE.test(leagueId) || /^__.*__$/.test(leagueId)) {
+      throw new HttpsError('invalid-argument', 'Ugyldigt spil- eller liga-id.');
+    }
+    const status = await hentSpoergsmaalStatus(db, { gameId, leagueId });
+    if (!status) throw new HttpsError('not-found', 'Ligaen findes ikke.');
+    if (!status.memberUids.includes(request.auth.uid)) {
+      const caller = await db.collection('users').doc(request.auth.uid).get();
+      const role = caller.data()?.role;
+      if (role !== 'owner' && role !== 'globalAdmin') {
+        throw new HttpsError('permission-denied', 'Kun ligaens medlemmer kan se svar-status.');
+      }
+    }
+    // memberUids er intern (adgangstjekket ovenfor) — ud af svaret.
+    return { success: true, leagueName: status.leagueName, spoergsmaal: status.spoergsmaal };
   },
 );
 

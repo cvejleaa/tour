@@ -9,6 +9,7 @@ import {
   saveLeagueQuestionAnswer, LEAGUE_Q_LABEL_MAX,
 } from './gameLeagueActions';
 import { scoreLeagueQuestion, lqSettled, lqPoints } from './leagueQuestionScoring';
+import { callLeagueQuestionStatus } from './gameLeagueActions';
 import { teamsOf, visOf } from './football/teamInfo';
 import { formatKickoff } from '../../lib/daDate';
 
@@ -40,7 +41,7 @@ function HoldSelect({ hold, value, onChange, ariaLabel }) {
 }
 
 /** Ét spørgsmål: svar-input (før deadline), status og facit/vindere (efter). */
-function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid }) {
+function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid, status }) {
   const nowMs = Date.now();
   const locked = deadlinePassed(q, nowMs);
   const settled = lqSettled(q);
@@ -104,8 +105,35 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
         {q.deadline != null
           ? (locked ? `Deadline passeret (${formatKickoff(Number(q.deadline))})` : `Svar inden ${formatKickoff(Number(q.deadline))}`)
           : 'Ingen deadline'}
-        {` · ${answers.length} svar`}
+        {/* På et ÅBENT spørgsmål kan klienten kun læse sit EGET svar, så
+            `answers.length` var reelt altid "1 svar" — misvisende (QC-fund).
+            Ærligt: din egen status + hvornår svarene vises. Tallet er sandt
+            igen efter lukning, hvor alle svar kan læses. */}
+        {(locked || settled)
+          ? ` · ${answers.length} svar`
+          : ` · ${mine ? 'Du har svaret ✓' : 'Du mangler at svare'} · svarene vises ${q.deadline != null ? 'ved deadline' : 'når facit sættes'}`}
       </div>
+
+      {/* Hvem mangler? — hentet via knappen (serveren afslører KUN hvem, aldrig
+          hvad). Renderes i rækken, så ejeren ser mangler-listen, FØR facit
+          sættes — facit kan aldrig nulstilles (QC-fund). */}
+      {status && (
+        <div style={{ fontSize: '0.82rem', marginTop: 4 }} data-testid={`lq-status-${q.id}`}>
+          <strong>{status.besvaret} af {status.ialt}</strong> har svaret
+          {status.mangler.length > 0 && (
+            <>
+              {' '}· mangler: {status.mangler.map((m) => (m.uid === meUid ? 'dig' : m.navn)).join(', ')}
+              <button
+                type="button" className="btn--icon" title="Kopiér navnene (til at rykke i chatten)"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0.25rem' }}
+                onClick={() => navigator.clipboard?.writeText(status.mangler.map((m) => m.navn).join(', '))}
+              >
+                📋
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {msg && (
         <p className={`badge ${msg.kind === 'ok' ? 'badge--green' : 'badge--red'}`} style={{ marginTop: '0.35rem' }}>
@@ -188,6 +216,24 @@ export default function LeagueQuestions({ gameId, game, leagueId, meUid, isOwner
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  // Hvem mangler at svare? — SYMMETRISK (spilfører-krav): alle medlemmer må
+  // se dækningen, ikke kun ejeren. Bag knappen (aldrig auto-hent), og
+  // serveren afslører kun HVEM — aldrig hvad (rules-grænsen består).
+  const [spStatus, setSpStatus] = useState(null);  // { pr. qId } + hentetKl
+  const [spBusy, setSpBusy] = useState(false);
+  const [spErr, setSpErr] = useState('');
+
+  async function tjekHvemMangler() {
+    setSpBusy(true); setSpErr('');
+    const res = await callLeagueQuestionStatus(gameId, leagueId);
+    if (res.ok) {
+      const prQ = {};
+      for (const q of res.data.spoergsmaal || []) prQ[q.id] = q;
+      setSpStatus({ prQ, hentetKl: new Date() });
+    } else setSpErr(res.error);
+    setSpBusy(false);
+  }
+
   async function create(e) {
     e.preventDefault();
     setBusy(true); setErr('');
@@ -244,6 +290,20 @@ export default function LeagueQuestions({ gameId, game, leagueId, meUid, isOwner
         </form>
       )}
 
+      {questions.length > 0 && (
+        <div style={{ marginTop: '0.4rem' }}>
+          <button className="btn btn--ghost btn--sm" disabled={spBusy} onClick={tjekHvemMangler} data-testid="lq-hvem-mangler">
+            {spBusy ? 'Henter…' : '🔎 Hvem mangler at svare?'}
+          </button>
+          {spStatus && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--c-muted)', marginLeft: 8 }}>
+              Viser kun spørgsmål, der stadig kan besvares · hentet {formatKickoff(spStatus.hentetKl)}
+            </span>
+          )}
+          {spErr && <p className="badge badge--red" style={{ marginTop: '0.3rem' }}>{spErr}</p>}
+        </div>
+      )}
+
       {questions.length === 0 ? (
         <p style={{ fontSize: '0.85rem', color: 'var(--c-muted)', margin: '0.5rem 0 0' }}>
           Ingen spørgsmål endnu{isOwner ? ' — opret det første.' : '.'}
@@ -254,6 +314,7 @@ export default function LeagueQuestions({ gameId, game, leagueId, meUid, isOwner
             <QuestionRow
               key={q.id} q={q} gameId={gameId} game={game} leagueId={leagueId} meUid={meUid}
               isOwner={isOwner} answers={answersByQid[q.id] || []} byUid={byUid}
+              status={spStatus?.prQ[q.id] || null}
             />
           ))}
         </ul>

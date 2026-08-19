@@ -173,3 +173,101 @@ describe('redeemLeagueCodeCore', () => {
       .resolves.toMatchObject({ leagueId: 'L1' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Hvem mangler at svare? (opgave #38) — "åbent" er SKRIVEREGLEN, eks-medlem
+// kan ikke tælle med, og svar-data forlader aldrig databasen.
+// ---------------------------------------------------------------------------
+const { byggSpoergsmaalStatus, hentSpoergsmaalStatus } = require('./gameLeagues.js');
+
+describe('byggSpoergsmaalStatus', () => {
+  const NU = 1_000_000;
+  const brugere = new Map([
+    ['a', { displayName: 'Anna' }],
+    ['b', { displayName: 'Bo' }],
+    ['c', { displayName: 'Carla' }],
+  ]);
+
+  it('åbent følger skrivereglen: facit lukker, passeret deadline lukker — uden deadline er åbent', () => {
+    const ud = byggSpoergsmaalStatus({
+      spoergsmaal: [
+        { id: 'q1', label: 'Topscorer?', deadline: NU + 100 },      // åbent
+        { id: 'q2', label: 'Lukket af facit', facit: 'Haaland' },   // lukket
+        { id: 'q3', label: 'Deadline passeret', deadline: NU - 1 }, // lukket
+        { id: 'q4', label: 'Uden deadline' },                        // åbent, sidst
+      ],
+      memberUids: ['a', 'b'],
+      harSvaret: new Map([['q1', new Set(['a'])]]),
+      brugere,
+      nowMs: NU,
+    });
+    expect(ud.map((q) => q.id)).toEqual(['q1', 'q4']); // sorteret: deadline før ingen-deadline
+    expect(ud[0]).toMatchObject({ besvaret: 1, ialt: 2 });
+    expect(ud[0].mangler).toEqual([{ uid: 'b', navn: 'Bo' }]);
+    expect(ud[1].deadline).toBeNull();
+  });
+
+  it('kun NUVÆRENDE medlemmer tæller — et eks-medlems svar kan ikke give "5 af 4"', () => {
+    const ud = byggSpoergsmaalStatus({
+      spoergsmaal: [{ id: 'q1', label: 'x', deadline: NU + 100 }],
+      memberUids: ['a', 'b'],
+      // 'vaek' har et gammelt svar — men er ikke medlem og må hverken tælle
+      // i besvaret eller optræde i mangler.
+      harSvaret: new Map([['q1', new Set(['a', 'vaek'])]]),
+      brugere,
+      nowMs: NU,
+    });
+    expect(ud[0].besvaret).toBe(1);
+    expect(ud[0].ialt).toBe(2);
+    expect(ud[0].mangler.map((m) => m.uid)).toEqual(['b']);
+  });
+});
+
+describe('hentSpoergsmaalStatus — svar-data forlader ALDRIG databasen', () => {
+  function fakeDb() {
+    const kaldteData = [];
+    const svarDoc = (id) => ({
+      exists: id === 'q1_a', // kun Anna har svaret
+      data: () => { kaldteData.push(id); return { answer: 'HEMMELIGT SVAR' }; },
+    });
+    const leagueRef = {
+      get: async () => ({ exists: true, data: () => ({ name: 'Buddy', memberUids: ['a', 'b'] }) }),
+      collection: (navn) => ({
+        get: async () => ({
+          docs: navn === 'questions'
+            ? [{ id: 'q1', data: () => ({ label: 'Topscorer?', deadline: 9999999 }) }]
+            : [],
+        }),
+        doc: (id) => ({ __svarId: id }),
+      }),
+    };
+    return {
+      _kaldteData: kaldteData,
+      collection: (navn) => ({
+        doc: (id) => (navn === 'users'
+          ? { get: async () => ({ id, exists: true, data: () => ({ displayName: `Navn-${id}` }) }), __uid: id }
+          : { ...leagueRef, collection: () => ({ doc: () => leagueRef }) }),
+      }),
+      getAll: async (...args) => {
+        const sidste = args[args.length - 1];
+        const harOpts = sidste && !sidste.__svarId && !sidste.__uid && !sidste.get;
+        const refs = harOpts ? args.slice(0, -1) : args;
+        if (harOpts) {
+          // fieldMask SKAL være tom på svar-opslagene — garantien for, at
+          // felterne aldrig hentes fra databasen.
+          expect(sidste.fieldMask).toEqual([]);
+        }
+        return Promise.all(refs.map(async (r) => (r.__svarId ? svarDoc(r.__svarId) : r.get())));
+      },
+    };
+  }
+
+  it('eksistens afgør besvaret — .data() kaldes aldrig på et svar', async () => {
+    const db = fakeDb();
+    const ud = await hentSpoergsmaalStatus(db, { gameId: 'g', leagueId: 'l', nowMs: 1000 });
+    expect(ud.spoergsmaal[0]).toMatchObject({ besvaret: 1, ialt: 2 });
+    expect(ud.spoergsmaal[0].mangler.map((m) => m.uid)).toEqual(['b']);
+    expect(JSON.stringify(ud)).not.toContain('HEMMELIGT');
+    expect(db._kaldteData).toEqual([]); // ingen svar-data rørt
+  });
+});
