@@ -512,7 +512,8 @@ exports.syncGameKickoffs = onSchedule(
         console.log(`Kickoff-synk ${g.gameId}: ${ud.aendringer.length} rettet, ${ud.spillet} spillede urørt`
           + (ud.mangler.length ? `, MANGLER dokument: ${ud.mangler.join(', ')}` : '')
           + (ud.genaabninger.length ? `, GENÅBNING afvist: ${ud.genaabninger.join(', ')}` : '')
-          + (ud.snart.length ? `, <48t-alarm: ${ud.snart.join(', ')}` : '') + '.');
+          + (ud.snart.length ? `, <48t-alarm: ${ud.snart.join(', ')}` : '')
+          + (ud.puljeLock ? `, pulje-deadline (runde ${ud.puljeLock.runde}) sat til ${new Date(ud.puljeLock.tilMs).toISOString()}` : '') + '.');
         st.ok(`${ud.aendringer.length} kamptider rettet, ${ud.spillet} spillede urørt.`,
           { rettet: ud.aendringer.length, spillet: ud.spillet });
         if (ud.mangler.length) st.fejl(`${ud.mangler.length} kilde-kampe uden dokument: ${ud.mangler.join(', ')}`);

@@ -92,11 +92,16 @@ export const GAMES = [
     // afregnes mod forårets officielle tabel. tabelDeling: false — PL's tabel
     // er flad; puljen er et tip, ikke et liga-format (QC-fund).
     //
-    // VIGTIGT VED SEED: pulje og puljeLockAt skrives i SAMME kørsel — konfig
-    // uden deadline viser en fane, hvor rules afviser alle skrivninger. Og
-    // puljeLockAt SKAL ligge før runde 3 (PULJE_MAKS_STARTRUNDE=3: ligaer med
-    // senere startrunde mister ellers bonussen tavst — spilfører-afgørelse).
-    // Datoen herunder er et FORSLAG; ejeren bekræfter ved seed-kørslen.
+    // DEADLINE SOM RUNDE (puljeLockRound), ikke som fast dato: kickoff-synken
+    // udleder selv puljeLockAt fra det tidligste kickoff i runden, så
+    // deadlinen følger de faktiske kamptider frem for en dato, en
+    // landsholdspause kan ramme forbi. Runde 3 er valgt, fordi
+    // PULJE_MAKS_STARTRUNDE=3: en pulje, der lukker senere, ville tavst tage
+    // bonussen fra ligaer med senere startrunde (spilfører-afgørelse).
+    //
+    // puljeLockAt sættes IKKE her — den udledes ved kickoff-synken (kør
+    // syncGameKickoffsNow med skriv lige efter seedGames). Indtil da viser
+    // pulje-fanen "Endnu ikke åbnet".
     pulje: {
       poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10,
       facitKilde: 'egneKampe', tabelDeling: false,
@@ -112,6 +117,6 @@ export const GAMES = [
         facit: 'stillingen, når alle efterårets 18 runder er spillet',
       },
     },
-    puljeLockAt: new Date('2026-09-11T18:55:00+02:00'),
+    puljeLockRound: 3,
   },
 ];

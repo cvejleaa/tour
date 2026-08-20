@@ -24,9 +24,9 @@ const FieldValue = {
  * Superliga-suitens fake er bundet til superliga2627 — denne er spil-agnostisk,
  * for pointen HERUNDER er netop et spil, der ikke er Superligaen.
  */
-function fakeDb(matchDocs) {
+function fakeDb(matchDocs, gameInit = {}) {
   const docs = new Map(Object.entries(matchDocs));
-  const spil = {};
+  const spil = { ...gameInit };
   const metoder = []; // hvilken skrive-metode hver batch-operation brugte
   const matchesCol = {
     async get() { return { docs: [...docs.entries()].map(([id, data]) => ({ id, data: () => data })) }; },
@@ -39,7 +39,7 @@ function fakeDb(matchDocs) {
     collection: () => ({
       doc: () => ({
         collection: () => matchesCol,
-        async get() { return { data: () => spil }; },
+        async get() { return { exists: true, data: () => spil }; },
         async set(patch, opts) {
           if (opts?.merge !== true) throw new Error('set() uden merge');
           Object.assign(spil, patch);
@@ -560,6 +560,79 @@ describe('syncKickoffsCore', () => {
       gameId: 'sl', provider: PROVIDERS.superliga, sync: {}, fetchFn: fetchEksploderer,
     });
     expect(ud).toEqual({ understoettet: false });
+  });
+
+  // Pulje-deadline UDLEDT af en runde (#8): puljeLockAt = tidligste kickoff i
+  // game.puljeLockRound, opdateret hver synk, så den følger kamptiderne.
+  describe('runde-udledt pulje-deadline (puljeLockRound)', () => {
+    const r3a = Date.parse('2026-09-12T18:30:00Z');
+    const r3b = Date.parse('2026-09-11T16:00:00Z'); // TIDLIGST i runde 3
+
+    it('sætter puljeLockAt = tidligste kickoff i runden (og kun for spil MED puljeLockRound)', async () => {
+      const db = fakeDb({
+        'r2-1': { kickoff: new Date(Date.parse('2026-09-05T18:00:00Z')), round: 2 },
+        'r3-1': { kickoff: new Date(r3a), round: 3 },
+        'r3-2': { kickoff: new Date(r3b), round: 3 }, // tidligst
+        'r4-1': { kickoff: new Date(Date.parse('2026-09-20T18:00:00Z')), round: 4 },
+      }, { puljeLockRound: 3 });
+      const ud = await syncKickoffsCore(db, FieldValue, {
+        gameId: 'pl', provider: provider([]), sync: {}, fetchFn: fetchEksploderer,
+        nowMs: Date.parse('2026-08-20T12:00:00Z'), dryRun: false,
+      });
+      expect(ud.puljeLock).toMatchObject({ tilMs: r3b, runde: 3 });
+      expect(db._spil.puljeLockAt.getTime()).toBe(r3b); // runde 4 og 2 tæller ikke
+    });
+
+    it('følger en FLYTNING: rykkes runde 3-kampen, følger deadlinen med', async () => {
+      const nyereR3b = Date.parse('2026-09-13T16:00:00Z'); // flyttet SENERE end r3a
+      const db = fakeDb({
+        'r3-1': { kickoff: new Date(r3a), round: 3 },
+        'r3-2': { kickoff: new Date(r3b), round: 3 },
+      }, { puljeLockRound: 3, puljeLockAt: new Date(r3b) });
+      // Kilden flytter r3-2 (sourceKey 2) til efter r3a → r3a bliver tidligst.
+      await syncKickoffsCore(db, FieldValue, {
+        gameId: 'pl',
+        provider: provider([{ sourceKey: '2', kickoff: new Date(nyereR3b).toISOString() }]),
+        sync: {}, fetchFn: fetchEksploderer,
+        nowMs: Date.parse('2026-08-20T12:00:00Z'), dryRun: false,
+      });
+      expect(db._spil.puljeLockAt.getTime()).toBe(r3a); // nu tidligst
+    });
+
+    it('GENÅBNINGS-FORBUD: en passeret deadline skubbes ALDRIG ud i fremtiden', async () => {
+      const NU = Date.parse('2026-09-12T00:00:00Z'); // efter r3b (11/9), før r3a (12/9 18:30)
+      const db = fakeDb({
+        'r3-2': { kickoff: new Date(r3b), round: 3 },
+      }, { puljeLockRound: 3, puljeLockAt: new Date(r3b) }); // deadline PASSERET
+      // Kilden flytter r3-2 frem til fremtiden → ville genåbne puljen.
+      const ud = await syncKickoffsCore(db, FieldValue, {
+        gameId: 'pl',
+        provider: provider([{ sourceKey: '2', kickoff: '2026-09-20T18:00:00Z' }]),
+        sync: {}, fetchFn: fetchEksploderer, nowMs: NU, dryRun: false,
+      });
+      expect(ud.puljeLock).toBeNull(); // afvist
+      expect(db._spil.puljeLockAt.getTime()).toBe(r3b); // urørt — puljen forbliver lukket
+    });
+
+    it('et spil UDEN puljeLockRound (Superligaens faste dato) røres aldrig', async () => {
+      const fast = new Date(Date.parse('2027-01-01T00:00:00Z'));
+      const db = fakeDb({ 'r3-1': { kickoff: new Date(r3a), round: 3 } }, { puljeLockAt: fast });
+      await syncKickoffsCore(db, FieldValue, {
+        gameId: 'sl', provider: provider([]), sync: {}, fetchFn: fetchEksploderer,
+        nowMs: Date.parse('2026-08-20T12:00:00Z'), dryRun: false,
+      });
+      expect(db._spil.puljeLockAt.getTime()).toBe(fast.getTime()); // uændret
+    });
+
+    it('dryRun beregner men skriver ikke', async () => {
+      const db = fakeDb({ 'r3-2': { kickoff: new Date(r3b), round: 3 } }, { puljeLockRound: 3 });
+      const ud = await syncKickoffsCore(db, FieldValue, {
+        gameId: 'pl', provider: provider([]), sync: {}, fetchFn: fetchEksploderer,
+        nowMs: Date.parse('2026-08-20T12:00:00Z'), dryRun: true,
+      });
+      expect(ud.puljeLock).toMatchObject({ tilMs: r3b });
+      expect(db._spil.puljeLockAt).toBeUndefined();
+    });
   });
 });
 

@@ -181,11 +181,14 @@ describe('pulje — sæson-spørgsmålene pr. spil (#8)', () => {
     for (const nøgle of ['overskrift', 'top', 'ned', 'facit']) {
       expect(typeof pl.pulje.labels[nøgle], nøgle).toBe('string');
     }
-    // pulje uden puljeLockAt viser en fane, hvor rules afviser alt (QC-fund):
-    // de to felter SKAL følges ad i seedet.
-    expect(pl.puljeLockAt instanceof Date).toBe(true);
-    // Deadline før runde 3 (PULJE_MAKS_STARTRUNDE) — spilfører-afgørelsen, der
-    // holder bonussen inde for alle ligaer, der kan nå at tippe.
-    expect(pl.puljeLockAt.getTime()).toBeLessThan(new Date('2026-09-13T00:00:00Z').getTime());
+    // Deadline SOM RUNDE (#8): puljeLockRound udleder selv puljeLockAt fra
+    // det tidligste kickoff i runden ved kickoff-synken — ingen hårdkodet dato
+    // en landsholdspause kan ramme forbi. Runde 3 = PULJE_MAKS_STARTRUNDE
+    // (spilfører-afgørelsen, der holder bonussen inde for alle ligaer, der kan
+    // nå at tippe).
+    expect(pl.puljeLockRound).toBe(3);
+    // puljeLockAt sættes IKKE i config — den udledes. Står den her, er der to
+    // kilder til samme deadline, og de kan drive fra hinanden.
+    expect('puljeLockAt' in pl).toBe(false);
   });
 });

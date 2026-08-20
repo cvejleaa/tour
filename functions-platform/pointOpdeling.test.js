@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  opdelPoint, combiBonus, buildRoundContext, ugeNoegle, rundensUge,
+  opdelPoint, combiBonus, buildRoundContext, ugeNoegle, rundensUge, puljeLockFraRunde,
 } from './pointOpdeling.js';
 
 // Ét regnestykke for "hvor kommer pointene fra". Det fandtes før to steder ad
@@ -647,4 +647,31 @@ describe('spejling mod src/lib', () => {
       expect(combiBonus(bets, roundCtx)).toBe(src.combiBonus(bets, roundCtx));
     });
   }
+});
+
+describe('puljeLockFraRunde — pulje-deadline udledt af en runde (#8)', () => {
+  const k = (iso, round) => ({ kickoff: new Date(iso), round });
+  it('tager det TIDLIGSTE kickoff i den valgte runde — ikke andre runders', () => {
+    const matches = [
+      k('2026-09-05T18:00:00Z', 2),        // anden runde, ignoreres
+      k('2026-09-12T18:30:00Z', 3),
+      k('2026-09-11T16:00:00Z', 3),        // tidligst i runde 3
+      k('2026-09-20T18:00:00Z', 4),        // senere runde, ignoreres
+    ];
+    expect(puljeLockFraRunde(matches, 3)).toBe(Date.parse('2026-09-11T16:00:00Z'));
+  });
+  it('null når runden endnu ikke har en kamp med gyldigt kickoff', () => {
+    expect(puljeLockFraRunde([k('2026-09-05T18:00:00Z', 2)], 3)).toBeNull();
+    expect(puljeLockFraRunde([{ round: 3, kickoff: null }], 3)).toBeNull();
+    expect(puljeLockFraRunde([], 3)).toBeNull();
+  });
+  it('null når round mangler', () => {
+    expect(puljeLockFraRunde([k('2026-09-11T16:00:00Z', 3)], null)).toBeNull();
+  });
+  it('håndterer Firestore-Timestamp, tal og ISO ens (via kickoffMs)', () => {
+    const ms = Date.parse('2026-09-11T16:00:00Z');
+    expect(puljeLockFraRunde([{ round: 3, kickoff: { toMillis: () => ms } }], 3)).toBe(ms);
+    expect(puljeLockFraRunde([{ round: 3, kickoff: ms }], 3)).toBe(ms);
+    expect(puljeLockFraRunde([{ round: 3, kickoff: '2026-09-11T16:00:00Z' }], 3)).toBe(ms);
+  });
 });
