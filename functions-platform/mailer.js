@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------
 const nodemailer = require('nodemailer');
 const { FieldValue } = require('firebase-admin/firestore');
+const { mailMarkdown } = require('./mailMarkdown');
 
 const SMTP_HOST = 'send.one.com';
 const SMTP_PORT = 465; // implicit TLS
@@ -51,11 +52,14 @@ async function sendEmail(db, transporter, { to, subject, html, type }) {
   }
 }
 
-/** Fritekst-broadcast → HTML (linjeskift + klikbare links + platform-footer). */
+/**
+ * Fritekst-broadcast → HTML. Brødteksten renderes af den DELTE `mailMarkdown`
+ * (samme funktion som klientens forhåndsvisning), som escaper alt, bevarer
+ * \n→<br> og gør bare URL'er klikbare — plus let Markdown (fed/kursiv/links/
+ * lister/overskrifter/billeder). Layoutet + platform-footeren lægges udenom her.
+ */
 function broadcastHtml(body) {
-  const safe = escapeHtml(body).replace(/\r\n|\r|\n/g, '<br>');
-  const linked = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
-  return `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222">${linked}`
+  return `<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222">${mailMarkdown(body)}`
     + '<hr style="border:none;border-top:1px solid #eee;margin:18px 0">'
     + `<p style="color:#888;font-size:12px">Sendt fra Vejleaa Tip · <a href="${APP_URL}">${APP_URL}</a></p></div>`;
 }

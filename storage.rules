@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// ---------------------------------------------------------------------------
+// Storage-regler for spil-89af9. ENESTE brug i dag: billeder til Send mail,
+// skrevet SERVER-side af uploadBroadcastImage-callablen (Admin SDK).
+//
+// Adgangsbeslutningen for UPLOAD bor i callablen (requireAdmin) — IKKE her:
+// Storage-regler kan ikke læse Firestore-roller, så en regel kunne ikke skelne
+// admin fra spiller. Derfor: NÆGT alle klient-skrivninger på hele bucket'en.
+// Serveren skriver med en download-token, som gør ?alt=media&token=…-URL'en
+// læsbar uden om reglerne — så en mail-modtager (aldrig logget ind) kan hente
+// billedet. Læsning på broadcast/ er offentlig (billederne ER offentlige i en
+// mail); alt andet er lukket.
+// ---------------------------------------------------------------------------
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /broadcast/{fil} {
+      allow read: if true;      // mail-billeder er offentlige; token-URL virker uanset
+      allow write: if false;    // kun Admin SDK (callablen) må skrive
+    }
+    // Alt uden for broadcast/ er lukket i begge retninger.
+    match /{allePaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

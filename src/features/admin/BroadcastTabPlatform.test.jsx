@@ -10,7 +10,11 @@ vi.mock('../../firebase', () => ({ db: {}, functions: {} }));
 vi.mock('../../lib/platform', async (orig) => ({ ...(await orig()), PLATFORM_MODE: true }));
 
 const mockSend = vi.fn(() => Promise.resolve({ ok: true, data: { sent: 1, total: 1, failed: [] } }));
-vi.mock('./adminActions', () => ({ callSendBroadcastEmail: (...a) => mockSend(...a) }));
+const mockUpload = vi.fn(() => Promise.resolve({ ok: true, data: { url: 'https://firebasestorage.googleapis.com/v0/b/x/o/broadcast%2Fabc.png?alt=media&token=t' } }));
+vi.mock('./adminActions', () => ({
+  callSendBroadcastEmail: (...a) => mockSend(...a),
+  callUploadBroadcastImage: (...a) => mockUpload(...a),
+}));
 
 vi.mock('./useUsers', () => ({ useUsers: () => ({ users: [], loading: false, error: '' }) }));
 vi.mock('../leagues/useAllLeagues', () => ({ useAllLeagues: () => ({ leagues: [], loading: false, error: '' }) }));
@@ -50,5 +54,66 @@ describe('BroadcastTab (platform) — invitationen følger spillet', () => {
     expect(arg.joinLink).toContain('spil=pl2627-efteraar');
     expect(arg.joinLink).toContain('kode=4GGR99');
     expect(arg.leagueName).toBe('Buddy ligaen');
+  });
+});
+
+// Rig tekst + billeder i den RENE mail. Værktøjslinjen og forhåndsvisningen må
+// KUN vises for den rene tekstmail (ikke skabelon-introen, ikke Tour), fordi
+// kun DÉR renderer serveren markdown — ellers ville preview love formatering,
+// modtageren ikke får.
+describe('BroadcastTab (platform) — rig tekst + billeder', () => {
+  beforeEach(() => { mockSend.mockClear(); mockUpload.mockClear(); vi.spyOn(window, 'confirm').mockReturnValue(true); });
+
+  it('viser værktøjslinje + forhåndsvisning i den rene mail — og SKJULER dem, når en skabelon vælges', () => {
+    render(<BroadcastTab />);
+    // Platform starter uden skabelon → rig redigering er tilgængelig.
+    expect(screen.getByTestId('broadcast-toolbar')).toBeInTheDocument();
+    expect(screen.getByTestId('broadcast-preview')).toBeInTheDocument();
+    // Slå skabelonen TIL → introen bliver ren tekst, værktøjer forsvinder.
+    fireEvent.click(screen.getByTestId('broadcast-template'));
+    expect(screen.queryByTestId('broadcast-toolbar')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('broadcast-preview')).not.toBeInTheDocument();
+  });
+
+  it('forhåndsvisningen renderer markdown med den delte mailMarkdown', () => {
+    render(<BroadcastTab />);
+    fireEvent.change(screen.getByTestId('broadcast-body'), { target: { value: 'helt **fed** her' } });
+    const preview = screen.getByTestId('broadcast-preview');
+    expect(preview.innerHTML).toContain('<strong>fed</strong>');
+  });
+
+  it('“Billed-URL” indsætter ![](url) — og afviser en ikke-https URL', () => {
+    render(<BroadcastTab />);
+    fireEvent.change(screen.getByTestId('broadcast-body'), { target: { value: '' } });
+    // Ikke-https → dansk fejl, intet indsat.
+    vi.spyOn(window, 'prompt').mockReturnValueOnce('http://usikkert/a.png');
+    fireEvent.click(screen.getByRole('button', { name: /Billed-URL/ }));
+    expect(screen.getByTestId('broadcast-img-error').textContent).toMatch(/https:\/\//);
+    expect(screen.getByTestId('broadcast-body').value).toBe('');
+    // https → indsat som markdown-billede.
+    window.prompt.mockReturnValueOnce('https://x.dk/a.png');
+    fireEvent.click(screen.getByRole('button', { name: /Billed-URL/ }));
+    expect(screen.getByTestId('broadcast-body').value).toContain('![](https://x.dk/a.png)');
+  });
+
+  it('upload kalder callablen og indsætter det returnerede billede i teksten', async () => {
+    render(<BroadcastTab />);
+    fireEvent.change(screen.getByTestId('broadcast-body'), { target: { value: '' } });
+    const fil = new File([new Uint8Array([1, 2, 3])], 'stilling.png', { type: 'image/png' });
+    fireEvent.change(screen.getByTestId('broadcast-file'), { target: { files: [fil] } });
+    await waitFor(() => expect(mockUpload).toHaveBeenCalled());
+    // Serveren afgør type/størrelse; klienten sender content-type + base64.
+    expect(mockUpload.mock.calls[0][0].contentType).toBe('image/png');
+    expect(typeof mockUpload.mock.calls[0][0].data).toBe('string');
+    await waitFor(() => expect(screen.getByTestId('broadcast-body').value)
+      .toContain('![stilling.png](https://firebasestorage.googleapis.com'));
+  });
+
+  it('viser serverens danske fejl, hvis upload afvises (fx for stort billede)', async () => {
+    mockUpload.mockResolvedValueOnce({ ok: false, error: 'Billedet er for stort (2000 KB) — maks 1500 KB.' });
+    render(<BroadcastTab />);
+    const fil = new File([new Uint8Array([1, 2, 3])], 'stor.png', { type: 'image/png' });
+    fireEvent.change(screen.getByTestId('broadcast-file'), { target: { files: [fil] } });
+    await waitFor(() => expect(screen.getByTestId('broadcast-img-error').textContent).toMatch(/for stort/));
   });
 });

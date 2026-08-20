@@ -365,6 +365,25 @@ rettede. Væggen er live, så spillerne ser ændringen med det samme.
 Rør ikke `createdAt`: væggen henter beskeder med `orderBy('createdAt')`, og et
 opslag uden det felt forsvinder helt fra tråden.
 
+## Billeder i Send mail (Storage)
+
+Uploader en admin et billede i **Send mail**, skrives det til Firebase Storage
+(`spil-89af9`) under `broadcast/{unikt-navn}.{ext}` af `uploadBroadcastImage`-
+callablen — **server-side via Admin SDK**, aldrig direkte fra browseren.
+`storage.rules` nægter derfor ALLE klient-writes; adgangen sidder i callablen
+(`requireAdmin`). Billed-URL'en bærer en download-token og er offentligt læsbar,
+så den virker i en mail hos en modtager, der ikke er logget ind.
+
+- **Storage skal være aktiveret** for `spil-89af9` (Firebase Console → Storage →
+  Kom i gang) én gang. Er den ikke det, svarer callablen "Firebase Storage er
+  ikke sat op for projektet", og ingen billeder kan uploades.
+- **Billederne er PERMANENTE — der er ingen oprydning, og det er med vilje.**
+  Et billede, der er refereret i en allerede sendt mail, må aldrig slettes:
+  Gmails billed-proxy genhenter pr. URL, så en sletning ville brække gamle mails
+  med tilbagevirkende kraft. Volumen er få billeder om året; lad dem ligge.
+- Hvert upload får et UNIKT navn. Uden det ville to forskellige billeder kunne
+  dele URL, og Gmails cache ville vise det gamle billede i en ny udsendelse.
+
 ## Secrets pr. projekt
 
 Cloud Functions-secrets sættes **pr. Firebase-projekt** — de skal altså sættes

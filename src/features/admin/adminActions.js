@@ -433,6 +433,27 @@ export async function callSendBroadcastEmail(payload) {
 }
 
 /**
+ * Kald Cloud Function 'uploadBroadcastImage' — upload et billede (base64) til
+ * brug i Send mail. Serveren (requireAdmin) validerer type+størrelse, skriver
+ * til Storage og returnerer en public URL, der indsættes som ![](url) i teksten.
+ * @param {{contentType:string, data:string}} payload  data = base64 (evt. med data:-præfiks)
+ * @returns {Promise<{ok:boolean, data?:{url:string}, error?:string}>}
+ */
+export async function callUploadBroadcastImage({ contentType, data } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'uploadBroadcastImage', { timeout: 120000 });
+    const result = await fn({ contentType, data });
+    return { ok: true, data: result.data };
+  } catch (err) {
+    const msg =
+      err?.code === 'functions/not-found'
+        ? 'Cloud Function "uploadBroadcastImage" er ikke deployet endnu.'
+        : err?.message ?? 'Kunne ikke uploade billedet.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
  * Kald Cloud Function 'generateLeagueRecapNow' — generér AI-morgenopslag.
  * dryRun=true poster ikke, men returnerer teksten til forhåndsvisning.
  * @param {{ leagueId?: string, dryRun?: boolean }} [opts]

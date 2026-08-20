@@ -3,8 +3,9 @@
 // Vælges en liga, flettes dens DIREKTE tilmeldingslink (/tilmeld?kode=…) ind
 // hvor [LINK] står i teksten — modtageren oprettes, godkendes og tilmeldes
 // ligaen automatisk med ét klik.
-import { useEffect, useMemo, useState } from 'react';
-import { callSendBroadcastEmail } from './adminActions';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { callSendBroadcastEmail, callUploadBroadcastImage } from './adminActions';
+import { mailMarkdown } from '../../lib/mailMarkdown';
 import { fetchLegacyResults, applyLegacyResult } from './legacyResults';
 import { parseRecipients } from './broadcastUtils';
 import { useUsers } from './useUsers';
@@ -72,6 +73,11 @@ export default function BroadcastTab() {
   const [recipientsText, setRecipientsText] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  // Billed-upload til brødteksten (kun i den rene tekstmail).
+  const bodyRef = useRef(null);
+  const fileRef = useRef(null);
+  const [imgBusy, setImgBusy] = useState(false);
+  const [imgErr, setImgErr] = useState('');
 
   /**
    * Indsæt regelbrevet. Slår OGSÅ invitations-skabelonen fra: den bygger en
@@ -184,6 +190,79 @@ export default function BroadcastTab() {
   // vedkommer én, er den hurtigste måde at lære folk at lade være med at læse
   // dem. Knappen ovenfor tog alle godkendte, og det var den eneste, der fandtes.
   function addGamePlayers() { addEmails(gamePlayerEmails); }
+
+  // Ren tekstmail (ikke skabelon) på platformen: kun DÉR renderer serveren
+  // markdown, så kun DÉR må værktøjslinjen + forhåndsvisningen vises. I en
+  // skabelon-intro (som forbliver ren tekst) og i Tour ville de love en
+  // formatering, modtageren ikke får — "preview lyver".
+  const richEnabled = PLATFORM_MODE && !useTemplate;
+
+  /** Ombryd markeringen (eller indsæt ved cursor) med markdown-tegn. */
+  function wrapSelection(before, after = '', placeholder = '') {
+    setMsg('');
+    const el = bodyRef.current;
+    if (!el) { setBody((b) => b + before + placeholder + after); return; }
+    const start = el.selectionStart ?? body.length;
+    const end = el.selectionEnd ?? body.length;
+    const valgt = body.slice(start, end) || placeholder;
+    const next = body.slice(0, start) + before + valgt + after + body.slice(end);
+    setBody(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + before.length + valgt.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
+  /** Indsæt et linje-præfiks (overskrift/punkt) ved starten af cursor-linjen. */
+  function insertBlock(prefix) {
+    setMsg('');
+    const el = bodyRef.current;
+    const start = el?.selectionStart ?? body.length;
+    const lineStart = body.lastIndexOf('\n', start - 1) + 1;
+    const next = body.slice(0, lineStart) + prefix + body.slice(lineStart);
+    setBody(next);
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      const p = lineStart + prefix.length;
+      el.setSelectionRange(p, p);
+    });
+  }
+
+  function insertImageUrl() {
+    const url = window.prompt('Indsæt billed-URL (skal starte med https://):', 'https://');
+    if (!url) return;
+    if (!/^https:\/\//i.test(url.trim())) {
+      setImgErr('Billed-URL skal starte med https:// — ellers vises billedet ikke i mailen.');
+      return;
+    }
+    setImgErr('');
+    wrapSelection(`![](${url.trim()})`);
+  }
+
+  async function handleUploadFile(file) {
+    if (!file) return;
+    setImgErr(''); setImgBusy(true);
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(new Error('Kunne ikke læse filen.'));
+        r.readAsDataURL(file);
+      });
+      const res = await callUploadBroadcastImage({ contentType: file.type, data: String(dataUrl) });
+      if (!res.ok) { setImgErr(res.error); return; }
+      // Alt-tekst = filnavnet, renset for tegn der bryder markdown-billedet.
+      const alt = String(file.name || 'billede').replace(/[[\]()]/g, '');
+      wrapSelection(`![${alt}](${res.data.url})`);
+    } catch (e) {
+      setImgErr(e.message || 'Kunne ikke uploade billedet.');
+    } finally {
+      setImgBusy(false);
+      if (fileRef.current) fileRef.current.value = ''; // så samme fil kan vælges igen
+    }
+  }
 
   async function handleSend() {
     if (!canSend) return;
@@ -355,14 +434,61 @@ export default function BroadcastTab() {
           </label>
         )}
 
-        <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-          {useTemplate ? 'Personlig intro (står øverst i mailen — resten kommer fra skabelonen)' : 'Besked'}
+        <div>
+          <label htmlFor="broadcast-body-ta" style={{ fontSize: '0.8rem', color: 'var(--c-muted)', display: 'block' }}>
+            {useTemplate ? 'Personlig intro (står øverst i mailen — resten kommer fra skabelonen)' : 'Besked'}
+          </label>
+          {richEnabled && (
+            <div className="flex items-center" style={{ gap: '0.3rem', flexWrap: 'wrap', margin: '0.3rem 0' }} data-testid="broadcast-toolbar">
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => wrapSelection('**', '**', 'fed tekst')} title="Fed"><strong>F</strong></button>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => wrapSelection('*', '*', 'kursiv')} title="Kursiv"><em>K</em></button>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => wrapSelection('[', '](https://)', 'link-tekst')} title="Link">🔗 Link</button>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => insertBlock('## ')} title="Overskrift">H</button>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => insertBlock('- ')} title="Punktliste">• Liste</button>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={insertImageUrl} title="Indsæt et billede fra en URL">🖼️ Billed-URL</button>
+              <button
+                type="button" className="btn btn--ghost btn--sm"
+                onClick={() => fileRef.current?.click()} disabled={imgBusy}
+                data-testid="broadcast-upload"
+              >
+                {imgBusy ? 'Uploader…' : '📷 Upload billede'}
+              </button>
+              <input
+                ref={fileRef} type="file" style={{ display: 'none' }}
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                onChange={(e) => handleUploadFile(e.target.files?.[0])}
+                data-testid="broadcast-file"
+              />
+            </div>
+          )}
           <textarea
+            id="broadcast-body-ta" ref={bodyRef}
             value={body} onChange={(e) => setBody(e.target.value)} rows={12}
             style={{ ...inputStyle, marginTop: '0.25rem', resize: 'vertical', fontFamily: 'inherit' }}
             data-testid="broadcast-body"
           />
-        </label>
+          {imgErr && (
+            <div className="badge badge--red" data-testid="broadcast-img-error" style={{ marginTop: '0.3rem' }}>
+              {imgErr}
+            </div>
+          )}
+          {richEnabled && (
+            <div style={{ marginTop: '0.6rem' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--c-muted)', marginBottom: '0.25rem' }}>
+                Forhåndsvisning — sådan ser mailen ud, når modtageren har hentet billeder:
+              </div>
+              <div
+                data-testid="broadcast-preview"
+                style={{ border: '1px solid var(--c-border)', borderRadius: 8, padding: '0.7rem 0.8rem', background: '#fff', color: '#222', fontFamily: 'sans-serif', fontSize: '15px', lineHeight: 1.6 }}
+                // Forhåndsvisningen renderer PRÆCIS serverens mailMarkdown-output
+                // (samme delte funktion), som er generate-safe: intet script/on*=
+                // kan nå hertil. Derfor kan den vises trygt, og den kan pr.
+                // konstruktion ikke love andet end det, modtageren får.
+                dangerouslySetInnerHTML={{ __html: mailMarkdown(body) }}
+              />
+            </div>
+          )}
+        </div>
 
         <label style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
           Modtagere
