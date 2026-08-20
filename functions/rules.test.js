@@ -2628,6 +2628,43 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
         { label: 'Nyt spørgsmål', botFacitAt: Timestamp.now() }));
     });
 
+    // #40: ejeren fik en ✏️-flade. Klienten kan omgås, så tre grænser skal
+    // håndhæves i rules, ikke kun i JS (Security/QC-fund, emulator-bekræftet).
+    it('ejeren KAN IKKE hæve point på et AFGJORT spørgsmål (svarene er set)', async () => {
+      await seedSpoergsmaal('se5-p1', 'se-q6a', { facit: 'Isaksen', points: 5 });
+      await assertFails(updateDoc(qDoc('se5-p1', 'se-q6a'), { points: 100 }));
+    });
+
+    it('ejeren KAN IKKE hæve point efter PASSERET deadline (svarene er læsbare)', async () => {
+      await seedSpoergsmaal('se5-p2', 'se-q6b', { deadline: Date.now() - 3600e3, points: 5 });
+      await assertFails(updateDoc(qDoc('se5-p2', 'se-q6b'), { points: 100 }));
+    });
+
+    it('ejeren KAN rette point mens spørgsmålet er ÅBENT (kontrol)', async () => {
+      await seedSpoergsmaal('se5-p3', 'se-q6c', { deadline: Date.now() + 3600e3, points: 5 });
+      await assertSucceeds(updateDoc(qDoc('se5-p3', 'se-q6c'), { points: 10 }));
+    });
+
+    it('ejeren KAN rette TEKSTEN på et afgjort spørgsmål — bare ikke pointene (kontrol)', async () => {
+      await seedSpoergsmaal('se5-p4', 'se-q6d', { facit: 'Isaksen', points: 5 });
+      await assertSucceeds(updateDoc(qDoc('se5-p4', 'se-q6d'), { label: 'Rettet stavefejl' }));
+    });
+
+    it('ejeren KAN IKKE ændre TYPEN (text→number ville tænde nærmest-vinder med svarene i hånden)', async () => {
+      await seedSpoergsmaal('se5-p5', 'se-q6e', { type: 'text', deadline: Date.now() - 3600e3 });
+      await assertFails(updateDoc(qDoc('se5-p5', 'se-q6e'), { type: 'number' }));
+    });
+
+    it('ejeren KAN IKKE sætte en FØRSTE-gangs-deadline i fortiden (åbner alles svar uigenkaldeligt)', async () => {
+      await seedSpoergsmaal('se5-p6', 'se-q6f'); // deadline: null
+      await assertFails(updateDoc(qDoc('se5-p6', 'se-q6f'), { deadline: Date.now() - 3600e3 }));
+    });
+
+    it('ejeren KAN sætte en første-gangs-deadline i FREMTIDEN (kontrol)', async () => {
+      await seedSpoergsmaal('se5-p7', 'se-q6g'); // deadline: null
+      await assertSucceeds(updateDoc(qDoc('se5-p7', 'se-q6g'), { deadline: Date.now() + 3600e3 }));
+    });
+
     it('ejeren KAN IKKE oprette spørgsmålet med markøren allerede sat (create-vejen)', async () => {
       await seedSpoergsmaal('se5-l18', 'se-q5r'); // opretter liga + bruger
       await assertFails(setDoc(qDoc('se5-l18', 'se-q5r-ny'), {
@@ -2701,6 +2738,120 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await assertSucceeds(setDoc(mDoc('se6-l2', 'm1'), {
         uid: 'se6', text: 'Hej liga!', createdAt: Timestamp.now(),
       }));
+    });
+  });
+
+  // --- puljeBets: antal hold styres af spillets pulje-konfiguration (#8) ----
+  // Superligaens LITERALE dokument er {poolSize: 6} — den form SKAL blive ved
+  // med at betyde "6 hold, intet bundspørgsmål". PL: {poolSize:4, nedSize:3}
+  // kræver BEGGE lister i samme skrivning, uden overlap.
+  describe('games/{g}/puljeBets/{uid} — konfigurationsstyret form', () => {
+    const OM_EN_TIME = Timestamp.fromMillis(Date.now() + 3600e3);
+    async function seedPuljeSpil(gameId, pulje) {
+      await createUser('pb1', 'player', 'approved');
+      await createGame(gameId, { pulje, puljeLockAt: OM_EN_TIME });
+      await seedMembership(gameId, 'pb1');
+    }
+    const pDoc = (gameId) => doc(
+      testEnv.authenticatedContext('pb1').firestore(),
+      'games', gameId, 'puljeBets', 'pb1',
+    );
+    const HOLD = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+    it('SL-formen {poolSize:6}: præcis 6 hold, og relegation AFVISES', async () => {
+      await seedPuljeSpil('pb-sl', { poolSize: 6 });
+      await assertSucceeds(setDoc(pDoc('pb-sl'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      await assertFails(setDoc(pDoc('pb-sl'), { uid: 'pb1', championship: HOLD.slice(0, 4) }));
+      await assertFails(setDoc(pDoc('pb-sl'), {
+        uid: 'pb1', championship: HOLD.slice(0, 6), relegation: ['X', 'Y', 'Z'],
+      }));
+    });
+
+    it('PL-formen {poolSize:4, nedSize:3}: 4+3 accepteres — 6, halvt svar og overlap afvises', async () => {
+      await seedPuljeSpil('pb-pl', { poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10, facitKilde: 'egneKampe', tabelDeling: false });
+      await assertSucceeds(setDoc(pDoc('pb-pl'), {
+        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y', 'Z'],
+      }));
+      await assertFails(setDoc(pDoc('pb-pl'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      // Halvt svar: kun toppen — QC-fund: admin-status ville kalde det "færdigt".
+      await assertFails(setDoc(pDoc('pb-pl'), { uid: 'pb1', championship: HOLD.slice(0, 4) }));
+      // Overlap: et hold kan ikke stå i top 4 OG bund 3.
+      await assertFails(setDoc(pDoc('pb-pl'), {
+        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['A', 'Y', 'Z'],
+      }));
+    });
+
+    it('server-felterne kan ikke smugles med — HVERT felt for sig (TM-fund)', async () => {
+      await seedPuljeSpil('pb-sv', { poolSize: 4, nedSize: 3 });
+      const gyldig = { uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y', 'Z'] };
+      for (const felt of ['points', 'correct', 'nedPoints', 'nedCorrect']) {
+        await assertFails(setDoc(pDoc('pb-sv'), { ...gyldig, [felt]: 99 }));
+      }
+      // Kontrol: uden nogen af dem går det igennem.
+      await assertSucceeds(setDoc(pDoc('pb-sv'), gyldig));
+    });
+
+    it('en relegation-liste med FORKERT størrelse afvises (TM-fund: kun manglende var dækket)', async () => {
+      await seedPuljeSpil('pb-sz', { poolSize: 4, nedSize: 3 });
+      await assertFails(setDoc(pDoc('pb-sz'), {
+        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y'], // 2, skal være 3
+      }));
+      await assertFails(setDoc(pDoc('pb-sz'), {
+        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y', 'Z', 'H1'], // 4
+      }));
+    });
+
+    it('spil UDEN pulje-konfiguration afviser tip, selv med deadline sat', async () => {
+      // Fælden fra settlePuljeBets-kommentaren: puljeLockAt på et spil uden
+      // pulje. poolSize() falder til 0, og size()==0 kan aldrig opfyldes.
+      await createUser('pb1', 'player', 'approved');
+      await createGame('pb-tom', { puljeLockAt: OM_EN_TIME });
+      await seedMembership('pb-tom', 'pb1');
+      await assertFails(setDoc(pDoc('pb-tom'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      await assertFails(setDoc(pDoc('pb-tom'), { uid: 'pb1', championship: [] }));
+    });
+
+    it('uden deadline kan hverken skrives eller læses andres (fejler lukket)', async () => {
+      await createUser('pb1', 'player', 'approved');
+      await createUser('pb2', 'player', 'approved');
+      await createGame('pb-nolock', { pulje: { poolSize: 6 } });
+      await seedMembership('pb-nolock', 'pb1');
+      await assertFails(setDoc(pDoc('pb-nolock'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      // Andres tip: pb2 prøver at læse pb1's dokument — manglende puljeLockAt
+      // skal fejle LUKKET, ikke åbne læsningen (evalueringsfejl, ikke null).
+      await assertFails(getDoc(doc(
+        testEnv.authenticatedContext('pb2').firestore(),
+        'games', 'pb-nolock', 'puljeBets', 'pb1',
+      )));
+    });
+
+    // Den load-bearing egenskab BAG genåbnings-forbuddet i kickoff-synken: EFTER
+    // deadline afvises eget tip, OG andres tip bliver læsbart. Security
+    // efterprøvede den i emulatoren; her ligger den permanent i suiten. Uden
+    // den ville reglen kunne slækkes (fx `now < deadline` → `true`), og
+    // genåbnings-forbuddet på serversiden ville beskytte noget, reglen ikke
+    // længere håndhævede.
+    it('EFTER deadline: eget tip afvises, men andres BLIVER læsbart (det genåbning ville misbruge)', async () => {
+      const FOR_EN_TIME = Timestamp.fromMillis(Date.now() - 3600e3);
+      await createUser('pb1', 'player', 'approved');
+      await createUser('pb2', 'player', 'approved');
+      await createGame('pb-forbi', { pulje: { poolSize: 6 }, puljeLockAt: FOR_EN_TIME });
+      await seedMembership('pb-forbi', 'pb1');
+      await seedMembership('pb-forbi', 'pb2');
+      // pb1's tip lægges udenom reglerne (deadline er passeret, så en regel-
+      // skrivning ville selv fejle) — vi tester LÆSNINGEN af det.
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'games', 'pb-forbi', 'puljeBets', 'pb1'),
+          { uid: 'pb1', championship: HOLD.slice(0, 6) });
+      });
+      // Eget tip kan ikke længere skrives/ændres — puljen er lukket.
+      await assertFails(setDoc(pDoc('pb-forbi'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      // MEN pb2 (medlem) kan nu læse pb1's tip — puljen er afsløret. Det er
+      // netop synligheden, en genåbning ville lade nogen tippe VIDERE ud fra.
+      await assertSucceeds(getDoc(doc(
+        testEnv.authenticatedContext('pb2').firestore(),
+        'games', 'pb-forbi', 'puljeBets', 'pb1',
+      )));
     });
   });
 

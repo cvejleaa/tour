@@ -23,6 +23,21 @@ export function formatKickoff(d) {
 }
 
 /** "9. aug" (kort, uden ugedag) — til datospænd. */
+/**
+ * ms → værdi til <input type="datetime-local"> i LOKAL tid ('YYYY-MM-DDTHH:mm').
+ * toISOString().slice(0,16) er UTC og rammer 1-2 timer forkert i DK — sat som
+ * `min` ville browseren så acceptere et tidspunkt FØR den rigtige grænse
+ * (QC-fund på #40-planen). Tredje kopi af mønsteret (GameScheduleTab,
+ * LeagueBonus) — nu bor den her; de to gamle ryddes op ved lejlighed.
+ */
+export function tilLokalInput(ms) {
+  if (ms == null) return '';
+  const d = new Date(Number(ms));
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function formatDayShort(d) {
   const date = toDate(d);
   if (!date) return '';

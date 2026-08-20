@@ -4,7 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {
   recomputeGameMatchCore, recomputeSeasonElo,
-  computeRanks, snapshotRoundRanks, settlePuljeBets, officialTop6,
+  computeRanks, snapshotRoundRanks, settlePuljeBets, officielTop, puljeTipKomplet,
   gatedIds, recomputeAllPlayerTotals, rescoreAllBets, dryRunFraKald,
 } = require('./gameScoring');
 // Combi-reglen har ét hjem. Testen henter den DERFRA, så en fremtidig dublet
@@ -1099,21 +1099,128 @@ describe('settlePuljeBets', () => {
     await settlePuljeBets(db, FieldValue, 'g1', dummy);
     expect(db._pulje.P1).toMatchObject({ correct: 6, points: 34 });
     expect(db._pulje.P2).toMatchObject({ correct: 5, points: 20 });
+    // SL-formen må ALDRIG få bund-felter på — dokumentet har ingen nedSize.
+    expect(db._pulje.P1.nedPoints).toBeUndefined();
+    expect(db._pulje.P1.nedCorrect).toBeUndefined();
+  });
+
+  // TM-fund: kampePrRunde udledes af HOLDLISTEN (teams.length/2). Mutationen
+  // "tilbage til hårdkodet 6" overlevede, fordi de andre officiel-tests har 12
+  // hold (12/2=6, sammenfald) ELLER en komplet stilling (hvor expectedPlayed=null
+  // fra en forkert formel bare deaktiverer gaten uden at ændre resultatet).
+  // Fælden lukkes med 4 hold + en UFULDSTÆNDIG-følsom formel:
+  //   6 kampe (enkeltturnering, hvert hold spiller 3).
+  //   Rigtig kode: kampePrRunde = 4/2 = 2 → expectedPlayed = 6/2 = 3, matcher
+  //     standings' played=3 → officiel stilling GODKENDES og bruges.
+  //   Mutant (=6): expectedPlayed = 6/6 = 1 → 1 !== 3 → officielTop → null →
+  //     fallback til de faktiske kampe, som har en ANDEN top.
+  // standings-top og egne-kampe-top er med vilje MODSATTE, så resultatet skiller.
+  it('4-holds-spil: expectedPlayed udledes af holdlisten, ikke af hårdkodet 6', async () => {
+    // Egne kampe: C vinder alt, D næst — så leagueTable-top-2 = [C, D].
+    const kampe = [
+      { id: 'k1', home: 'C', away: 'A', homeGoals: 1, awayGoals: 0 },
+      { id: 'k2', home: 'C', away: 'B', homeGoals: 1, awayGoals: 0 },
+      { id: 'k3', home: 'C', away: 'D', homeGoals: 1, awayGoals: 0 },
+      { id: 'k4', home: 'D', away: 'A', homeGoals: 1, awayGoals: 0 },
+      { id: 'k5', home: 'D', away: 'B', homeGoals: 1, awayGoals: 0 },
+      { id: 'k6', home: 'A', away: 'B', homeGoals: 1, awayGoals: 0 },
+    ];
+    // Officiel stilling: MODSAT — top-2 = [A, B]. Alle på played=3.
+    const standings = [
+      { rank: 1, teamName: 'A', played: 3 }, { rank: 2, teamName: 'B', played: 3 },
+      { rank: 3, teamName: 'C', played: 3 }, { rank: 4, teamName: 'D', played: 3 },
+    ];
+    const db = makeDb([], kampe, {
+      teams: [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }],
+      standings, pulje: { poolSize: 2 }, // officiel facit-kilde (default)
+    }, { P1: {} }, { P1: { championship: ['A', 'B'] } }); // tipper OFFICIEL top
+    await settlePuljeBets(db, FieldValue, 'g1', kampe);
+    // Rigtig kode bruger den officielle top [A,B] → 2 rigtige.
+    // Mutanten (=6) falder tilbage på egne kampe [C,D] → 0 rigtige.
+    expect(db._pulje.P1).toMatchObject({ correct: 2 });
+  });
+
+  // --- PL-formen (#8): top + bund, facit af spillets EGNE kampe --------------
+  // 4 hold, alle indbyrdes kampe spillet: A 9p, B 6p, C 3p, D 0p.
+  // Konfiguration: top 2, bund 1, 4 point pr. hold, 10 i perfekt-bonus.
+  const PL_HOLD = [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }];
+  const PL_SPIL = {
+    teams: PL_HOLD,
+    pulje: { poolSize: 2, nedSize: 1, perTeam: 4, perfectBonus: 10, facitKilde: 'egneKampe', tabelDeling: false },
+  };
+  const plKampe = [
+    { id: 'p1', home: 'A', away: 'B', homeGoals: 1, awayGoals: 0 },
+    { id: 'p2', home: 'A', away: 'C', homeGoals: 2, awayGoals: 0 },
+    { id: 'p3', home: 'A', away: 'D', homeGoals: 3, awayGoals: 0 },
+    { id: 'p4', home: 'B', away: 'C', homeGoals: 1, awayGoals: 0 },
+    { id: 'p5', home: 'B', away: 'D', homeGoals: 2, awayGoals: 0 },
+    { id: 'p6', home: 'C', away: 'D', homeGoals: 1, awayGoals: 0 },
+  ];
+
+  it('PL-formen: scorer top OG bund hver for sig, og bonusPoints er summen', async () => {
+    const db = makeDb([], plKampe, PL_SPIL, { P1: {}, P2: {} }, {
+      P1: { championship: ['A', 'B'], relegation: ['D'] }, // 2/2 + bonus = 18; bund 1/1 + bonus = 14
+      P2: { championship: ['A', 'C'], relegation: ['C'] }, // 1 rigtig = 4; bund 0 = 0
+    });
+    const res = await settlePuljeBets(db, FieldValue, 'g1', plKampe);
+    expect(res.settled).toBe(2);
+    expect(db._pulje.P1).toMatchObject({ correct: 2, points: 18, nedCorrect: 1, nedPoints: 14 });
+    expect(db._pulje.P2).toMatchObject({ correct: 1, points: 4, nedCorrect: 0, nedPoints: 0 });
+    expect(db._players.P1.bonusPoints).toBe(32); // 18 + 14 — facit-kortet splitter, summen bor her
+    expect(db._players.P2.bonusPoints).toBe(4);
+
+    // Idempotens: samme tal ved gen-afregning (rettet facit → ny kørsel).
+    await settlePuljeBets(db, FieldValue, 'g1', plKampe);
+    expect(db._pulje.P1).toMatchObject({ correct: 2, points: 18, nedCorrect: 1, nedPoints: 14 });
+    expect(db._players.P1.bonusPoints).toBe(32);
+  });
+
+  // QC-fund: 'egneKampe' må ALDRIG falde tilbage på standings. Et halvsæson-
+  // spil (PL-efterår) kan i foråret stå med en KOMPLET officiel stilling i en
+  // anden rækkefølge — en genafregning måtte ikke tavst overskrive december-
+  // resultatet. Båndet her: standings siger det OMVENDTE af egne kampe.
+  it("'egneKampe' rører aldrig standings — selv en komplet officiel stilling ignoreres", async () => {
+    const omvendt = ['D', 'C', 'B', 'A'].map((name, i) => ({ rank: i + 1, teamName: name, played: 3 }));
+    const db = makeDb([], plKampe, { ...PL_SPIL, standings: omvendt }, { P1: {} }, {
+      P1: { championship: ['A', 'B'], relegation: ['D'] },
+    });
+    await settlePuljeBets(db, FieldValue, 'g1', plKampe);
+    // Efter egne kampe er A/B toppen og D bunden — standings ville sige det modsatte.
+    expect(db._pulje.P1).toMatchObject({ correct: 2, points: 18, nedCorrect: 1, nedPoints: 14 });
   });
 });
 
-describe('officialTop6', () => {
+describe('puljeTipKomplet', () => {
+  const SL = { poolSize: 6, nedSize: 0 };
+  const PL = { poolSize: 4, nedSize: 3 };
+  const seks = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+  it('SL: 6 hold er komplet — 5 er ikke, og null-konfig antager SL-form', () => {
+    expect(puljeTipKomplet({ championship: seks }, SL)).toBe(true);
+    expect(puljeTipKomplet({ championship: seks.slice(0, 5) }, SL)).toBe(false);
+    expect(puljeTipKomplet({ championship: seks }, null)).toBe(true);
+  });
+
+  it('PL: halvt svar (kun toppen) er IKKE komplet — QC-fundet ryk-mailen skulle ramme', () => {
+    expect(puljeTipKomplet({ championship: seks.slice(0, 4) }, PL)).toBe(false);
+    expect(puljeTipKomplet({ championship: seks.slice(0, 4), relegation: ['X', 'Y', 'Z'] }, PL)).toBe(true);
+    expect(puljeTipKomplet({ championship: seks.slice(0, 4), relegation: ['X'] }, PL)).toBe(false);
+    expect(puljeTipKomplet(null, PL)).toBe(false);
+  });
+});
+
+describe('officielTop', () => {
   const std = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
     .map((name, i) => ({ rank: i + 1, teamName: name, played: 22 }));
   it('tager rank 1–6 fra den officielle stilling', () => {
-    expect(officialTop6(std, 22)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
+    expect(officielTop(std, 22, 6, 12)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
   });
   it('returnerer null hvis stillingen ikke er helt spillet igennem', () => {
-    expect(officialTop6(std, 30)).toBeNull(); // forventer 30 spillede, har 22
+    expect(officielTop(std, 30, 6, 12)).toBeNull(); // forventer 30 spillede, har 22
   });
   it('returnerer null uden en fuld 12-holds stilling', () => {
-    expect(officialTop6(null)).toBeNull();
-    expect(officialTop6(std.slice(0, 5))).toBeNull();
+    expect(officielTop(null, 22, 6, 12)).toBeNull();
+    expect(officielTop(std.slice(0, 5), 22, 6, 12)).toBeNull();
   });
 });
 

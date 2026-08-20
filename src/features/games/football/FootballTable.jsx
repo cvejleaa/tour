@@ -2,12 +2,15 @@
  * FootballTable — den OFFICIELLE liga-stilling (games/{gameId}.standings,
  * synket af serveren). Vi beregner den ikke selv.
  *
- * Visningen følger spil-dokumentet, ikke komponenten: har spillet en pulje
- * (Superligaen), deles tabellen i mesterskabs-/nedrykningsspil — det er dét,
- * pulje-tippet afgøres på. Uden pulje (Premier League) vises én flad tabel
- * med en nedrykningsstreg før de nederste tre.
+ * Visningen følger spil-dokumentet, ikke komponenten: DELINGEN i mesterskabs-/
+ * nedrykningsspil styres af pulje-konfigurationens tabelDeling (Superligaens
+ * liga-FORMAT deler sig faktisk; {poolSize:6} normaliseres til deling). En
+ * pulje alene deler IKKE tabellen: PL-puljen (top 4/bund 3) er et sæson-tip,
+ * ikke et format — uden tabelDeling vises én flad tabel med nedrykningsstreg
+ * (QC-fund: puljen på PL må ikke flippe hele Tabel-fanen).
  */
 import { teamsOf, teamInfo } from './teamInfo';
+import { puljeKonfig } from '../../../lib/superligaScoring';
 import ClubBadge from '../../../components/ClubBadge';
 
 // Hvor mange hold der rykker ud af en liga uden slutspilsdeling. En engelsk
@@ -67,7 +70,8 @@ export default function FootballTable({ game }) {
     );
   }
 
-  const poolSize = Number(game?.pulje?.poolSize) || 0;
+  const konfig = puljeKonfig(game);
+  const poolSize = konfig && konfig.tabelDeling ? konfig.poolSize : 0;
   const kilde = KILDER[game?.sync?.provider];
 
   const Section = ({ title, rows, tone }) => (

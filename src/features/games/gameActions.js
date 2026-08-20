@@ -223,17 +223,29 @@ export async function setGameJoinable(gameId, joinable) {
  * serveren ved grundspillets slut. Deadline håndhæves af security rules.
  * @param {string} uid
  * @param {string} gameId
- * @param {string[]} championship – præcis 6 distinkte holdnavne
+ * @param {string[]} championship – præcis konfig.poolSize distinkte holdnavne
+ * @param {{konfig?: object, relegation?: string[]}} [opts] konfig fra
+ *   puljeKonfig(game); relegation kun når konfig.nedSize > 0 — rules kræver
+ *   da BEGGE lister i samme skrivning, uden overlap.
  * @returns {Promise<{ok:true}|{ok:false,error:string}>}
  */
-export async function setPuljeBet(uid, gameId, championship) {
+export async function setPuljeBet(uid, gameId, championship, { konfig = null, relegation = null } = {}) {
   if (!uid) return { ok: false, error: 'Du skal være logget ind.' };
   if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
+  const poolSize = konfig?.poolSize || 6;
+  const nedSize = konfig?.nedSize || 0;
   const picks = Array.isArray(championship) ? [...new Set(championship.filter(Boolean))] : [];
-  if (picks.length !== 6) return { ok: false, error: 'Vælg præcis 6 hold til mesterskabsspillet.' };
+  if (picks.length !== poolSize) return { ok: false, error: `Vælg præcis ${poolSize} hold i toppen.` };
+  const ned = Array.isArray(relegation) ? [...new Set(relegation.filter(Boolean))] : [];
+  if (nedSize > 0) {
+    if (ned.length !== nedSize) return { ok: false, error: `Vælg præcis ${nedSize} hold i bunden.` };
+    if (ned.some((t) => picks.includes(t))) return { ok: false, error: 'Et hold kan ikke stå i både toppen og bunden.' };
+  }
   try {
     const ref = doc(db, COL.GAMES, gameId, COL.GAME_PULJE, uid);
-    await setDoc(ref, { uid, championship: picks, updatedAt: serverTimestamp() }, { merge: true });
+    const data = { uid, championship: picks, updatedAt: serverTimestamp() };
+    if (nedSize > 0) data.relegation = ned;
+    await setDoc(ref, data, { merge: true });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: danishError(err, 'Kunne ikke gemme pulje-tippet (deadline måske passeret).') };

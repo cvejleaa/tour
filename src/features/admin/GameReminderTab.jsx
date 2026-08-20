@@ -224,7 +224,7 @@ export default function GameReminderTab() {
       <div style={{ borderTop: '1px solid var(--c-border)', marginTop: '1.25rem', paddingTop: '1rem' }}>
         <h3 style={{ marginTop: 0 }}>🎖️ Pulje-status</h3>
         <p style={{ color: 'var(--c-muted)' }}>
-          Se hvem der har sat deres <strong>pulje-tip</strong> (mesterskabsspillet) — og ryk dem,
+          Se hvem der har sat deres <strong>pulje-tip</strong> (sæsonens bonusspørgsmål) — og ryk dem,
           der mangler, med én mail.
         </p>
 

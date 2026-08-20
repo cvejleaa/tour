@@ -44,7 +44,20 @@ Liga-admin følger med at have oprettet ligaen.
   ikke, giver ingen point og udløser ingen påmindelser — så en sæson kan starte
   midt i, fx fra runde 2.
 - **Bonus-deadline** lukker pulje-tippet. Den behøver ikke ligge før runde 1;
-  giv gerne tid til at få spillere med.
+  giv gerne tid til at få spillere med. **Men aldrig senere end runde 3:**
+  ligaer med senere startrunde tæller ikke puljebonussen med (den blev tippet
+  før deres start), så en deadline efter runde 3 ville tage bonuspoint fra
+  ligaer, der ellers kunne have været med.
+
+  Et spil kan i stedet få deadlinen **udledt af en runde** (`puljeLockRound` i
+  `scripts/games.mjs` — sådan er Premier League sat op): så sættes bonus-
+  deadlinen automatisk til det **tidligste kickoff i den runde**, og den følger
+  med, hvis kampen flyttes. Den udledes ved kickoff-synken, så efter en seed af
+  et sådant spil skal du køre **🗓️ Synk kamptider nu** (eller vente på det
+  daglige job), før deadlinen står — indtil da viser pulje-fanen "Endnu ikke
+  åbnet". En passeret deadline skubbes aldrig ud i fremtiden igen, selv om en
+  kamp flyttes frem — så puljen ikke kan genåbnes, efter alle har set
+  hinandens tip.
 - **🏁 Status** er spillets livscyklus og et bevidst valg — den følger *ikke*
   automatisk starttidspunktet eller sidste kamp:
 

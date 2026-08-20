@@ -23,10 +23,12 @@ vi.mock('../games/gameActions', () => ({
 }));
 
 const mockReprice = vi.fn();
+const mockSyncKickoffs = vi.fn();
 vi.mock('./adminActions', () => ({
   callRecomputeGameScores: vi.fn().mockResolvedValue({ ok: true, data: {} }),
   callBackfillPlayerLeagues: vi.fn().mockResolvedValue({ ok: true, data: {} }),
   callRepriceGameOdds: (...a) => mockReprice(...a),
+  callSyncGameKickoffs: (...a) => mockSyncKickoffs(...a),
 }));
 
 // Kamplisten til rundevælgeren hentes med getDocs — den hentes FØRST når
@@ -37,7 +39,7 @@ vi.mock('firebase/firestore', () => ({
   getDocs: (...a) => mockGetDocs(...a),
 }));
 
-import GameScheduleTab from './GameScheduleTab';
+import GameScheduleTab, { byggSchedulePatch } from './GameScheduleTab';
 
 const TOUR = {
   id: 'tour2026', name: 'Tour de France 2026', emoji: '🚴',
@@ -605,5 +607,144 @@ describe('startrunde-vælgeren', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
     await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
     expect(mockSetGameSchedule.mock.calls[0][1].startRound).toBeNull();
+  });
+});
+
+// --- Rundebaseret pulje-deadline + 🗓️ Synk kamptider nu --------------------
+//
+// For et spil med puljeLockRound UDLEDES puljeLockAt af kickoff-synken.
+// Deadline-feltet må derfor ikke være redigerbart (en håndsat værdi
+// overskrives, og en for tidlig placeholder låser genåbnings-forbuddet), og
+// der SKAL findes en knap til at udløse synken med vilje — ellers står puljen
+// "Endnu ikke åbnet", til det daglige job kører af sig selv.
+describe('rundebaseret pulje-deadline', () => {
+  const PLPULJE = {
+    id: 'pl2627-efteraar', name: 'Premier League', emoji: '⚽',
+    type: 'football', status: 'open',
+    pulje: { poolSize: 4, nedSize: 3 }, puljeLockRound: 3,
+  };
+  // Superligaen: pulje MEN fast dato (ingen puljeLockRound) — feltet skal blive
+  // ved med at være redigerbart, og synk-knappen må IKKE dukke op.
+  const SL = {
+    id: 'sl', name: 'Superligaen', emoji: '⚽', type: 'football', status: 'live',
+    pulje: { poolSize: 6 }, puljeLockAt: { toMillis: () => Date.parse('2026-09-01T12:00:00Z') },
+  };
+  const KO = Date.parse('2026-09-04T18:00:00Z');
+
+  beforeEach(() => {
+    mockGames.mockReturnValue({ games: [PLPULJE], loading: false });
+    mockSyncKickoffs.mockResolvedValue({
+      ok: true, data: { dryRun: true, aendringer: [], puljeLock: { runde: 3, tilMs: KO } },
+    });
+  });
+
+  const synkKnap = () => screen.getByRole('button', { name: /Synk kamptider nu/i });
+
+  it('viser pulje-deadlinen som OPLYSNING, ikke som redigerbart input', () => {
+    render(<GameScheduleTab />);
+    expect(screen.getByText(/udledt af runde 3/i)).toBeInTheDocument();
+    expect(screen.getByText(/udledes automatisk til rundens tidligste/i)).toBeInTheDocument();
+    // Ingen redigerbar deadline: det rene felt-navn hører kun til det manuelle input.
+    expect(screen.queryByText('🎖️ Bonus-/pulje-deadline')).not.toBeInTheDocument();
+  });
+
+  it('siger "Endnu ikke sat", når deadlinen endnu ikke er udledt', () => {
+    render(<GameScheduleTab />); // PLPULJE har ingen puljeLockAt
+    expect(screen.getByText(/Endnu ikke sat/i)).toBeInTheDocument();
+  });
+
+  it('et Gem skriver ALDRIG puljeLockAt for et runde-spil', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.change(screen.getByLabelText(/Spil-start/), { target: { value: '2026-08-14T12:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
+    for (const [, patch] of mockSetGameSchedule.mock.calls) {
+      expect(patch).not.toHaveProperty('puljeLockAt');
+    }
+  });
+
+  it('tørkører FØRST — skrive-knappen findes ikke, før planen er set', async () => {
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /^Skriv$/ })).not.toBeInTheDocument();
+    fireEvent.click(synkKnap());
+    await waitFor(() => expect(mockSyncKickoffs).toHaveBeenCalledWith({ gameId: 'pl2627-efteraar', dryRun: true }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Skriv$/ })).toBeInTheDocument());
+    expect(screen.getByText(/pulje-deadlinen \(runde 3\) ville blive sat/i)).toBeInTheDocument();
+  });
+
+  it('sender dryRun: false ved Skriv, og melder den udledte deadline', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(synkKnap());
+    await waitFor(() => screen.getByRole('button', { name: /^Skriv$/ }));
+    mockSyncKickoffs.mockResolvedValue({
+      ok: true, data: { dryRun: false, aendringer: [{ id: 'a' }], puljeLock: { runde: 3, tilMs: KO } },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Skriv$/ }));
+    await waitFor(() => expect(mockSyncKickoffs).toHaveBeenLastCalledWith({ gameId: 'pl2627-efteraar', dryRun: false }));
+    expect(await screen.findByText(/pulje-deadlinen \(runde 3\) sat til/i)).toBeInTheDocument();
+  });
+
+  // updated/aendringer tælles ens i tør og våd tilstand — svarer serveren
+  // dryRun:true på et skrive-kald, er intet skrevet, og admin må ikke tro andet.
+  it('melder FEJL, hvis serveren tørkørte på et skrive-kald', async () => {
+    render(<GameScheduleTab />);
+    fireEvent.click(synkKnap());
+    await waitFor(() => screen.getByRole('button', { name: /^Skriv$/ }));
+    mockSyncKickoffs.mockResolvedValue({ ok: true, data: { dryRun: true, aendringer: [] } });
+    fireEvent.click(screen.getByRole('button', { name: /^Skriv$/ }));
+    await waitFor(() => expect(screen.getByText(/skrev INTET/i)).toBeInTheDocument());
+  });
+
+  // En grøn no-op må ikke ligne en fuldført deadline-sætning: har runden endnu
+  // ingen kampe (puljeLockFraRunde → null), returnerer serveren hverken
+  // puljeLock eller puljeLockAfvist, og teksten skal SIGE hvorfor (QC-fund).
+  it('forklarer, når deadlinen endnu ikke kan udledes (runden har ingen kampe)', async () => {
+    mockSyncKickoffs.mockResolvedValue({ ok: true, data: { dryRun: true, aendringer: [] } });
+    render(<GameScheduleTab />);
+    fireEvent.click(synkKnap());
+    await waitFor(() => expect(screen.getByText(/kunne endnu ikke udledes — runde 3 har ingen kampe/i)).toBeInTheDocument());
+  });
+
+  it('advarer, når genåbnings-forbuddet afviste deadlinen', async () => {
+    mockSyncKickoffs.mockResolvedValue({
+      ok: true, data: { dryRun: true, aendringer: [], puljeLockAfvist: { runde: 3 } },
+    });
+    render(<GameScheduleTab />);
+    fireEvent.click(synkKnap());
+    await waitFor(() => expect(screen.getByText(/kunne IKKE sættes/i)).toBeInTheDocument());
+  });
+
+  it('viser IKKE synk-knappen for et spil uden puljeLockRound — og lader deadline-feltet være redigerbart', () => {
+    mockGames.mockReturnValue({ games: [SL], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Synk kamptider nu/i })).not.toBeInTheDocument();
+    // SL's deadline sættes stadig i hånden.
+    expect(screen.getByText('🎖️ Bonus-/pulje-deadline')).toBeInTheDocument();
+  });
+
+  // Write-guarden kan IKKE bevises gennem komponenten: input-feltet rendres ikke
+  // for et runde-spil, så `puljeLockAt`-state kan aldrig afvige fra spillet, og
+  // en fjernelse af `!harPuljeRunde` i save() forblev grøn (TM-fund). Testet
+  // direkte på den rene byggSchedulePatch, hvor state KAN afvige.
+  describe('byggSchedulePatch — write-guarden på puljeLockAt', () => {
+    it('skriver ALDRIG puljeLockAt for et runde-spil, selv når state afviger', () => {
+      const patch = byggSchedulePatch({
+        game: { id: 'pl', startAt: null, startRound: 3, puljeLockAt: null },
+        startAt: '', startRound: '3',
+        puljeLockAt: '2026-09-04T18:00', // afviger fra game.puljeLockAt (null)
+        harPulje: true, harPuljeRunde: true,
+      });
+      expect(patch).not.toHaveProperty('puljeLockAt');
+    });
+
+    it('skriver puljeLockAt for et MANUELT pulje-spil, når den afviger', () => {
+      const patch = byggSchedulePatch({
+        game: { id: 'sl', startAt: null, startRound: null, puljeLockAt: null },
+        startAt: '', startRound: '',
+        puljeLockAt: '2026-09-04T18:00',
+        harPulje: true, harPuljeRunde: false,
+      });
+      expect(patch.puljeLockAt).toBe(new Date('2026-09-04T18:00').getTime());
+    });
   });
 });

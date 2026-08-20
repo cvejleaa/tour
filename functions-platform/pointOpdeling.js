@@ -369,7 +369,27 @@ function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs = Date.n
   };
 }
 
+/**
+ * Pulje-deadline UDLEDT af en runde: det tidligste kickoff blandt kampene i
+ * `round`. En pulje, der lukker "før runde N", følger dermed de FAKTISKE
+ * kamptider (opdateret af kickoff-synken), ikke en fast dato en
+ * landsholdspause kan ramme forbi. Returnerer null, hvis runden endnu ikke
+ * har nogen kamp med et gyldigt kickoff — så kalderen kan lade en tidligere
+ * udledt deadline stå.
+ * @param {Array<{round:*, kickoff:*}>} matches
+ * @param {number} round
+ * @returns {number|null} ms
+ */
+function puljeLockFraRunde(matches, round) {
+  if (round == null) return null;
+  const kickoffs = (matches || [])
+    .filter((m) => m && m.round === round)
+    .map((m) => kickoffMs(m))
+    .filter((ms) => Number.isFinite(ms));
+  return kickoffs.length ? Math.min(...kickoffs) : null;
+}
+
 module.exports = {
   opdelPoint, combiBonus, combiPerRunde, buildRoundContext, kickoffMs, matchOutcome,
-  ugeNoegle, rundensUge,
+  ugeNoegle, rundensUge, puljeLockFraRunde,
 };

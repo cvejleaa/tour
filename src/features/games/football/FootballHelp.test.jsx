@@ -23,7 +23,9 @@ describe('FootballHelp følger spillet', () => {
     // Rundeforløbets pulje-linje skal OGSÅ bevises positivt — mutationen
     // "gaten altid false" overlevede, da kun den negative retning var dækket.
     expect(container.textContent).toContain('Afgiv dit');
-    expect(container.textContent).toContain('officielle Superliga-stilling');
+    // Spilneutral: 'Superliga' er ude af delings-teksten (#8) — delingen og
+    // tallene kommer fra konfigurationen.
+    expect(container.textContent).toContain('officielle stilling');
     expect(container.textContent).toContain('mesterskabsspil (top 6)');
     expect(container.textContent).toContain('puljebonussen');
     expect(container.textContent).toContain('Følg den officielle');

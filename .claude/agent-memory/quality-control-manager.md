@@ -592,3 +592,143 @@ Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
   rækker, for det skete aldrig automatisk. Ikke en fejl (handlingen virker),
   men en tekst der antyder en hændelse, der ikke fandt sted. Værd at
   overveje en anden formulering, hvis det generer i praksis.
+
+## Ret liga-spørgsmål (#40, plan-gennemgang): indsatsen kan hæves EFTER kortene er vist
+
+- **Point-rettelse efter deadline er "kortene kan ikke lukkes igen" med
+  indsatsen i stedet for kortet.** `firestore.rules:1049-1064` åbner ALLE svar
+  for læsning, så snart deadline er passeret — og update-grenen (`:1017`)
+  tillader `points` 1-100 ubetinget, også bagefter. Ejeren kan altså se hvem
+  der vandt og derefter skrue spørgsmålet fra 5 til 100 point. Fladen skal
+  gate point-feltet med NØJAGTIG samme betingelse som ✕-knappen
+  (`!locked && !settled`, `LeagueQuestions.jsx:127`). Generelt: **spørg altid,
+  om et felt sætter INDSATSEN, og om den kan røres efter udfaldet er kendt.**
+- **`lqPoints(q)` læses live i `GameLeagues.jsx:132`** → et rettet point-tal
+  ændrer liga-stillingen for alle medlemmer med tilbagevirkende kraft, uden
+  spor og uden besked.
+- **Bottens væg-opslag er UFORANDERLIGT og indeholder både point og label**
+  (`leagueQuestionRecap.js:83` bager `lqPoints` + `label` ind i teksten;
+  `messages` har `allow update: if false`, rules ~965). Og `LeagueQuestions`
+  renderes direkte over `LeagueWall` i samme kort. En rettelse af tal eller
+  tekst modsiger derfor et opslag få centimeter under sig — kampkort-fælden
+  igen. Label-rettelse er stadig OK (påvirker ikke scoring), men nævn prisen.
+- **Deadline fra null må sættes til ENHVER værdi, også fortiden** (rules:1027,
+  `resource.data.get('deadline', null) == null` er en betingelsesfri gren).
+  Konsekvensen er øjeblikkelig OG uigenkaldelig: `settledQuestionIds()` tager
+  spørgsmålet med, abonnementet på andres svar åbner, alle ser alt — og
+  bagefter kan deadline aldrig rettes (gren 3 kræver ikke-passeret gammel
+  deadline), aldrig fjernes, og spørgsmålet kan ikke slettes (`:1041`). Én
+  tastefejl i årstallet lukker spørgsmålet for evigt. **Fortids-spærring skal
+  ligge i handlingen, ikke kun i `min`** — browseren håndhæver `min` kun ved
+  formular-submit og slet ikke ved programmatisk værdi.
+- **ms → datetime-local skal være LOKAL tid.** `toISOString().slice(0,16)` er
+  UTC og rammer 1-2 timer forkert i DK; sat som `min` accepterer browseren et
+  tidspunkt FØR den rigtige deadline → rules afviser → knap der fejler
+  garanteret. Mønsteret findes ALLEREDE to gange, identisk:
+  `toLocalInput(ms)` i `GameScheduleTab.jsx:29` og `tsToLocalInput(ts)` i
+  `LeagueBonus.jsx:24`. Tredje kopi er én for meget → `src/lib/daDate.js`.
+  Bemærk: opret-formen i `LeagueQuestions.jsx:363` bruger kun den MODSATTE
+  retning (`new Date(str).getTime()`), så "mønsteret findes i samme fil" er
+  kun det halve mønster.
+- **Update-grenen begrænser hverken `label`-længde eller `type`** (create gør
+  begge). `type`-skift `text` → `number` efter deadline ville lade ejeren
+  aktivere "nærmest vinder"-scoringen med alle svar i hånden — så et
+  type-felt i en redigeringsform er en cheat-vej, ikke en bekvemmelighed.
+  Skriv udeladelsen ned som en beslutning, ikke en forglemmelse.
+- **Update-reglen kræver `points is number` i RESULTATET.** En patch, der kun
+  rører label, arver feltet — men mangler feltet på dokumentet, viser
+  `lqPoints`-fallbacken "5 point" i en række, hvis gem-knap altid fejler. Send
+  altid `points: lqPoints(q)` med. Generelt: **en update-regel, der validerer
+  et felt patchen ikke rører, gør fallback-visninger til usynlige spærringer.**
+- **`deadlinePassed()` bruger `Date.now()` beregnet ved render** og rækken
+  opdaterer sig ikke selv → en "Udskyd"-form kan stå åben, efter serverens
+  `request.time` er forbi. `permission-denied` skal have forskellig dansk
+  tekst alt efter, hvad formen forsøgte (deadline vs. tekst/point).
+- **Væggen notificerer stadig ingen** (ingen `onDocumentCreated` i
+  `functions-platform/index.js`). En deadline sat på et spørgsmål, folk
+  allerede har svaret på, ses kun af den, der tilfældigvis kigger — værst for
+  den, der endnu ikke har svaret og mister chancen tavst. Billig ærlig
+  lukning: kvittering + "Skriv på væggen"-knap, der kalder det eksisterende
+  `postLeagueMessage`. Ingen ny kanal, ingen ny sikkerhedsgennemgang.
+- **Én tekst kan ikke dække både "sæt" og "udskyd".** "Deadline kan kun
+  udskydes" er meningsløs over et felt, der hedder "Sæt deadline". Del i to.
+
+## Pulje-deadline som RUNDE (84002c5, #8): korrekt derivation, brudt "live med det samme"
+
+- **Tekst peger på en knap, der ikke findes — igen.** `docs/admin-guide.md:56`
+  ("kør **🗓️ Synk kamptider nu**") bruger PRÆCIS samme emoji+fed-konvention
+  som to ÆGTE knapper i samme afsnit (`🔄 Genberegn point efter start-ændring`,
+  `💰 Ompris kampene`, begge bekræftet i `GameScheduleTab.jsx:408,428`), men
+  `syncGameKickoffsNow` (`functions-platform/index.js:557`, indført allerede i
+  b778efa) har INGEN klient-kobling nogen steder i `src/` — grep-bekræftet
+  (`adminActions.js`s liste af `httpsCallable(...)` mangler den helt). Samme
+  klasse fejl som "Åbn ligaen →": teksten lover en handling, koden ikke giver.
+  Konsekvens her er skarpere end normalt: den lovede knap er den ENESTE
+  dokumenterede vej til at gøre en runde-udledt pulje "live med det samme".
+- **Et manuelt felt, der overlever ved siden af en ny automatisk kilde, er en
+  fælde uden advarsel.** `GameScheduleTab.jsx:311-320`s `🎖️ Bonus-/pulje-
+  deadline`-felt er STADIG frit redigerbart for ethvert spil med `game.pulje`
+  — også Premier League, der nu har `puljeLockRound`. En admin KAN altså rent
+  faktisk gøre puljen "live med det samme" ved selv at skrive en dato der og
+  trykke Gem (`setGameSchedule`, client-write, tilladt for `isGlobalAdmin`).
+  Men værdien er kun midlertidig: næste kickoff-synk (dagligt job ELLER
+  `syncGameKickoffsNow`) genudregner og OVERSKRIVER den ubetinget, SÅ LÆNGE
+  admins dato stadig ligger i fremtiden ved synk-tidspunktet. Ingen tekst
+  nogen steder siger, at feltet er "overstyret" for et `puljeLockRound`-spil.
+- **Konkret, alvorligt hul: sætter admins placeholder-dato PASSERER FØR næste
+  synk kører, låser genåbnings-forbuddet puljen FOR EVIGT ved den forkerte
+  dato.** `superligaSync.js:568` (`genaabner = nuMs <= nowMs && nyMs > nowMs`)
+  kan ikke skelne "en admin-sat placeholder, der nåede at passere" fra en
+  ægte tidligere afsløring — den behandler begge som "nogen har allerede set
+  hinandens tip", og nægter for altid at rette til den rigtige runde-udledte
+  deadline. ENESTE spor er `console.error` (superligaSync.js:576) — modsat
+  søster-forbuddet for kickoffs, hvor `ud.genaabninger` FAKTISK får en
+  `meldAlarm(..., kraeverKvittering: true)` i `index.js:523-528` og dukker op
+  på Driftstatus. `ud.puljeLock` kan desuden ikke engang SKELNE "spil uden
+  puljeLockRound" fra "afvist genåbning" — begge giver `null`
+  (`superligaSync.js:556,575`) — så der er ikke engang datagrundlag til at
+  bygge alarmen bagefter uden først at rette returformen. Ren "en funktion,
+  der kun kan fejle tavst, er ikke færdig"-fælde, på helt nyt maskineri.
+- **To runbooks, kun det ene rettet.** `docs/drift.md:38`s
+  "Rækkefølge ved en ny sæson"-trin 3 ("Sæt **startrunde** og **puljeLockAt**
+  i Admin → Spil-tidsplan") er stadig generisk for ALLE fodboldspil og blev
+  IKKE opdateret i 84002c5 — modsiger nu `admin-guide.md`s nye afsnit for spil
+  med `puljeLockRound`. Følger man drift.md's egen opskrift (den, der bruges
+  til netop dette: "et nyt spil"), lander man direkte i fælden ovenfor uden
+  advarsel.
+- **God fangst, efterprøvet mod ægte data, ikke kun logik.** Den nye afledte
+  deadline er BEDRE end den gamle, ikke kun anderledes: `scripts/premier-
+  league-fixtures-2627.json` viser rundeE 3's TIDLIGSTE kickoff er
+  **2026-09-04T19:00Z**, mens den GAMLE hårdkodede `puljeLockAt`
+  (`2026-09-11T18:55+02:00`, fjernet i denne commit) reelt lå EFTER hele
+  runde 3 (spillet 4.-6. september; runde 4 starter 12. september) — den
+  gamle faste dato brød altså allerede spillets egen "aldrig senere end runde
+  3"-regel, ubemærket. Den nye mekanisme kan aldrig gøre det (den ER per
+  konstruktion lig det tidligste runde-3-kickoff). God skabelon for "Et tal
+  uden kode er en påstand": tjek datoen mod den FAKTISKE fixture-fil, ikke
+  kun mod kommentarens påstand om hvornår runde 3 starter.
+- **Kernen selv er solid.** `puljeLockFraRunde` (ren funktion,
+  `pointOpdeling.js:383`) og dens brug i `syncKickoffsCore`
+  (`superligaSync.js:556-578`) er korrekt, veltestet (9 nye tests, inkl. SL
+  urørt via eksplicit `puljeLockRound == null`-gate, og "sætter puljeLockAt
+  ved FØRSTE synk uden eksisterende felt" — netop det scenarie, der er
+  farligt i praksis). Ikke mirroret til `src/lib/pointOpdeling.js` — korrekt
+  undtagelse, for klienten (`PuljeTip.jsx:58`) læser kun `game.puljeLockAt`,
+  den udleder aldrig selv.
+
+## Runde-udledt pulje-deadline (#8) — synk-knap i Spil-tidsplan
+
+- **Grøn kvittering på en no-op ligner succes.** `synkTekst` i
+  `GameScheduleTab.jsx` er TAVS om pulje-deadlinen, når `puljeLockFraRunde`
+  returnerer null (runden har endnu ingen kampe med kickoff). Så viser badget
+  "0 kamptider rettet." (grøn) MENS oplysnings-feltet stadig siger "Endnu ikke
+  sat" — en selvmodsigelse uden vejledning. Spørg ved enhver tør→skriv-flade:
+  hvad står der, når kernehandlingen IKKE kunne udføres, men heller ikke fejlede?
+  Teksten skal sige "kunne ikke udledes — runden har ingen kampe endnu", ikke tie.
+- **`harPuljeRunde = Number.isFinite(game.puljeLockRound)`** styrer BÅDE at
+  deadline-feltet bliver read-only OG at synk-knappen vises. Feltet leveres af
+  `useGames` som `{id, ...data()}`, så `puljeLockRound` fra `scripts/games.mjs`
+  er med. Rører man den seed-feltdefinition, forsvinder hele UI'et tavst.
+- **Placering:** knappen sidder i Spil-tidsplan ved siden af deadline-feltet den
+  påvirker; read-only-feltet peger eksplicit "kør 🗓️ Synk kamptider nu nedenfor".
+  Navnet er "kamptider", ikke "pulje-deadline", men konteksten bygger broen. OK.

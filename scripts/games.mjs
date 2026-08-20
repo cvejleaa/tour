@@ -86,8 +86,37 @@ export const GAMES = [
     type: 'football', status: 'open', joinable: false,
     season: '2026-27', order: 4,
     sync: { provider: 'pulselive', competitionId: 8, season: 2026 },
-    // INTET pulje-felt. Premier League har ingen mesterskabs-/nedrykningsspil,
-    // så der er ikke noget at tippe om. Superligaens pulje er en egenskab ved
-    // DEN liga, ikke ved fodbold.
+    // 🎄 JULETABELLEN (#8): to sæson-spørgsmål — hvem sidder i top 4, og hvem
+    // hænger i nedrykningszonen, når efterårets 18 runder er spillet. Facit er
+    // spillets EGEN sluttabel ('egneKampe'): et halvsæson-spil må aldrig
+    // afregnes mod forårets officielle tabel. tabelDeling: false — PL's tabel
+    // er flad; puljen er et tip, ikke et liga-format (QC-fund).
+    //
+    // DEADLINE SOM RUNDE (puljeLockRound), ikke som fast dato: kickoff-synken
+    // udleder selv puljeLockAt fra det tidligste kickoff i runden, så
+    // deadlinen følger de faktiske kamptider frem for en dato, en
+    // landsholdspause kan ramme forbi. Runde 3 er valgt, fordi
+    // PULJE_MAKS_STARTRUNDE=3: en pulje, der lukker senere, ville tavst tage
+    // bonussen fra ligaer med senere startrunde (spilfører-afgørelse).
+    //
+    // puljeLockAt sættes IKKE her — den udledes ved kickoff-synken (kør
+    // syncGameKickoffsNow med skriv lige efter seedGames). Indtil da viser
+    // pulje-fanen "Endnu ikke åbnet".
+    pulje: {
+      poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10,
+      facitKilde: 'egneKampe', tabelDeling: false,
+      // "juleaften" er BEVIDST flavor (Juletabellen er et dansk fodboldbegreb),
+      // ikke en dato-garanti — det egentlige kriterium står i `facit` og er
+      // rundebaseret. Runde 18 spilles omkring jul, men en udsat kamp kan
+      // rykke; teksten lover derfor "når alle 18 runder er spillet", ikke en
+      // dato (QC-note på planen).
+      labels: {
+        overskrift: '🎄 Juletabellen',
+        top: 'top 4 juleaften',
+        ned: 'nedrykningszonen juleaften',
+        facit: 'stillingen, når alle efterårets 18 runder er spillet',
+      },
+    },
+    puljeLockRound: 3,
   },
 ];

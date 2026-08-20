@@ -23,6 +23,7 @@ const { initializeApp } = require('firebase-admin/app');
 const {
   recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets,
   dryRunFraKald,
+  puljeTipKomplet,
 } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore,
@@ -53,6 +54,7 @@ const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = requir
 const { runGameTipReminders, sendGameTestReminder, hentTipStatus } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
 const { skalAfsloere, runLeagueQuestionRecap } = require('./leagueQuestionRecap');
+const { puljeKonfig } = require('./superligaScoring');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { hentSpoergsmaalStatus } = require('./gameLeagues');
 const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
@@ -510,7 +512,9 @@ exports.syncGameKickoffs = onSchedule(
         console.log(`Kickoff-synk ${g.gameId}: ${ud.aendringer.length} rettet, ${ud.spillet} spillede urørt`
           + (ud.mangler.length ? `, MANGLER dokument: ${ud.mangler.join(', ')}` : '')
           + (ud.genaabninger.length ? `, GENÅBNING afvist: ${ud.genaabninger.join(', ')}` : '')
-          + (ud.snart.length ? `, <48t-alarm: ${ud.snart.join(', ')}` : '') + '.');
+          + (ud.snart.length ? `, <48t-alarm: ${ud.snart.join(', ')}` : '')
+          + (ud.puljeLock ? `, pulje-deadline (runde ${ud.puljeLock.runde}) sat til ${new Date(ud.puljeLock.tilMs).toISOString()}` : '')
+          + (ud.puljeLockAfvist ? `, pulje-deadline GENÅBNING afvist (runde ${ud.puljeLockAfvist.runde})` : '') + '.');
         st.ok(`${ud.aendringer.length} kamptider rettet, ${ud.spillet} spillede urørt.`,
           { rettet: ud.aendringer.length, spillet: ud.spillet });
         if (ud.mangler.length) st.fejl(`${ud.mangler.length} kilde-kampe uden dokument: ${ud.mangler.join(', ')}`);
@@ -527,6 +531,17 @@ exports.syncGameKickoffs = onSchedule(
           await meldAlarm(db, FieldValue, {
             type: 'kickoff48t', gameId: g.gameId, kampId: id, kraeverKvittering: true,
             besked: `${id} er flyttet til under 48 timer ude — tjek om nogen har tippet med facit i hånden.`,
+          });
+        }
+        // Pulje-deadlinen sidder fast: den kan ikke rettes til rundens rigtige
+        // tid, fordi den nuværende værdi allerede er passeret/eksponeret. Løser
+        // ALDRIG sig selv — kræver et menneske (typisk en placeholder-dato sat
+        // for tidligt i Spil-tidsplan). Uden denne alarm ville puljen stå med en
+        // forkert deadline i tavshed.
+        if (ud.puljeLockAfvist) {
+          await meldAlarm(db, FieldValue, {
+            type: 'puljeLockGenaabning', gameId: g.gameId, kraeverKvittering: true,
+            besked: `Pulje-deadlinen (runde ${ud.puljeLockAfvist.runde}) kunne ikke sættes til rundens tidligste kickoff, fordi den nuværende deadline allerede er passeret — en genåbning ville vise alles pulje-tip igen. Ret puljeLockAt i Firebase-konsollen til den rigtige runde-dato, eller fjern en for tidligt sat placeholder-dato.`,
           });
         }
         for (const id of ud.mangler) {
@@ -889,7 +904,7 @@ exports.sendGameTestReminderToMe = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// gamePuljeStatus — admin: hvem har/mangler pulje-tippet (mesterskabsspillet)?
+// gamePuljeStatus — admin: hvem har/mangler pulje-tippet (sæson-spørgsmålene)?
 // Med remind=true sendes samtidig en påmindelses-mail til dem der mangler
 // (respekterer emailOptOut; kræver SMTP og at deadline ikke er passeret).
 // ---------------------------------------------------------------------------
@@ -921,8 +936,14 @@ exports.gamePuljeStatus = onCall(
     const nameOf = new Map(usersSnap.docs.map((d) => [d.id, d.data().displayName || 'Spiller']));
     const optOut = new Set(usersSnap.docs.filter((d) => d.data().emailOptOut).map((d) => d.id));
     const emailOf = new Map(contactsSnap.docs.map((d) => [d.id, d.data().email]));
+    // "Har tippet" måles mod KONFIGURATIONEN, ikke mod "listen er ikke tom":
+    // med to spørgsmål (PL: top 4 + bund 3) ville et halvt svar ellers tælle
+    // som færdigt, og ryk-mailen ville springe netop dem over, den er til for
+    // (QC-fund). Rules kræver i dag begge lister i samme skrivning, men gamle
+    // dokumenter og fremtidige regel-ændringer skal ikke kunne vælte tallet.
+    const konfig = puljeKonfig(game);
     const hasPulje = new Set(
-      puljeSnap.docs.filter((d) => Array.isArray(d.data().championship) && d.data().championship.length > 0).map((d) => d.id),
+      puljeSnap.docs.filter((d) => puljeTipKomplet(d.data(), konfig)).map((d) => d.id),
     );
     const tipped = [];
     const missing = [];
@@ -947,7 +968,7 @@ exports.gamePuljeStatus = onCall(
         if (!email || optOut.has(m.uid)) continue;
         const html = `
           <p>Hej ${escapeHtml(m.name)} 👋</p>
-          <p>Du mangler at sætte dit <strong>pulje-tip</strong> (mesterskabsspillet) i ${escapeHtml(gameName)} —
+          <p>Du mangler at sætte dit <strong>pulje-tip</strong> (sæsonens bonusspørgsmål) i ${escapeHtml(gameName)} —
           det er dér, de store bonuspoint ligger til sæsonafslutningen.</p>
           ${deadlineTxt ? `<p>Deadline: <strong>${escapeHtml(deadlineTxt)}</strong>.</p>` : ''}
           <p><a href="${APP_URL}">Sæt dit pulje-tip på tip.vejleaa.dk</a> — det tager to minutter.</p>

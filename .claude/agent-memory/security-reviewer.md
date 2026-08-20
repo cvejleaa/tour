@@ -520,3 +520,146 @@ tilstand, holder kun hvis dokumentet ikke kan genopstå.* Er sletning tilladt,
 og overlever børnene forælderen på deterministiske id'er, så er "må ikke
 nulstilles" i praksis "må nulstilles i to skridt". Spørg altid: hvad sker der,
 hvis ejeren SLETTER dokumentet og opretter det igen med samme id?
+
+## puljeBets konfig-styret (#8, cc7edb6) — BEKRÆFTET RENT (emulator, 21+4 tests)
+
+Reglen (firestore.rules L767-816) binder nu antal hold til `game.pulje.poolSize`/
+`.nedSize` via `.get('pulje',{}).get(nøgle,0)`. Angreb kørt mod ægte emulator
+(PoC: scratchpad/poc8/run.mjs + admin.mjs), ALLE lukket:
+- Forkert antal top (5/7/4 i et 6-spil) afvist; smugling af
+  points/correct/nedPoints/nedCorrect afvist.
+- nedSize>0 (PL 4+3): kræver BEGGE lister; kun-top afvist; forkert antal i
+  hver liste afvist; SAMME hold i top OG bund afvist (`championship.hasAny(relegation)`).
+- poolSize==0 (spil uden pulje-config): `size()==0` uopfyldelig → INTET kan gemmes.
+- Uden `puljeLockAt`: `gameLock()` (BEVIDST direkte opslag uden default) er
+  evalueringsfejl → fejler LUKKET for BÅDE skrivning OG andres-læsning
+  (bekræftet: andres tip IKKE læsbart uden lock — åbner ikke alt).
+- Læsning: eget tip altid; andres FØR deadline nægtet, EFTER deadline åbent for
+  isApproved(). Matcher intentionen.
+- INGEN admin-omgåelse: puljeBets har ingen isGlobalAdmin-gren og der er intet
+  rekursivt `{document=**}`-wildcard. globalAdmin nægtes efter deadline, forkert
+  antal, andens uid, points-smugling. Kontroltests grønne → opsætningen måler noget.
+- Repoets 213 rules-tests grønne (inkl. 10 nye puljeBets).
+
+**Type-fælde (præeksisterende, IKKE #8, men #8 gør den mere relevant nu PL bruger pulje):**
+`beforeDeadline()` sammenligner `request.time < gameLock()`. Reglen kræver at
+`puljeLockAt` er en **Timestamp**. Seed (scripts/games.mjs L110) skriver en
+`Date` → Timestamp (virker). MEN admin-UI'et GameScheduleTab.jsx L172 skriver
+`new Date(x).getTime()` = et **TAL** → `timestamp < int` er "Unsupported
+operation" → reglen fejler LUKKET for ALLE pulje-skrivninger i det spil, hvis
+en admin redigerer deadline via skema-fanen. Availability-bug, ikke sikkerhed.
+Emulator-bekræftet: seed med tal → alle writes/reads-efter-deadline nægtes.
+
+## updateLeagueQuestion / liga-spørgsmåls-rettelse (#40, cc7edb6)
+
+**Rules UÆNDREDE** (eneste rules-hunk i denne branch er puljeBets L767; questions/
+questionAnswers 100% urørt). #40 er en KLIENT-only action + UI. Klient-vagten
+(gameLeagueActions.js updateLeagueQuestion) er IKKE håndhævelse — en angribende
+liga-ejer bruger rå `updateDoc`. Tre PRÆEKSISTERENDE regel-huller BEKRÆFTET via
+emulator (scratchpad/poc8/q40.mjs + q40b.mjs), alle kun for `qOwner()`:
+1. **Point på AFGJORT spørgsmål.** Update-reglen (L1017-1030) kræver kun
+   `points 1-100` UBETINGET — ingen facit/deadline-betingelse. Ejer hæver
+   5→100 på et spørgsmål med facit sat. Stillingen beregnes LIVE på klienten af
+   `q.points` (leagueQuestionScoring.js L44-101) → direkte manipulation af
+   liga-stillingen med alle svar i hånden. Dette er QC's blokerende fund #1,
+   "lukket" med en klient-gate der IKKE lukker det.
+2. **Første-gangs deadline i FORTIDEN.** Deadline-klausulen tillader ENHVER værdi
+   når `old deadline == null` (grenen `resource.data.get('deadline',null)==null`).
+   Ejer sætter deadline=fortid → questionAnswers åbnes for læsning for HELE
+   ligaen (bekræftet: MEM læste MEM2s hemmelige svar bagefter). Envejs-lås
+   (deadline kan ikke ændres igen), så ikke en svar-ændrings-cheat, men
+   info-disclosure/griefing.
+3. **type text→number EFTER deadline.** Update-reglen begrænser IKKE `type`.
+   Ejer ændrer text→number → "nærmest vinder"-scoring aktiveres med svar synlige.
+
+Kontroltests grønne (opsætning måler noget): ikke-ejer kan ikke hæve points,
+ejer kan ikke nulstille facit, ikke sætte points>100, ikke rykke deadline
+tidligere. Klient-gaten selv er velskrevet MOD en ærlig bruger — men irrelevant
+mod en devtools-angriber.
+
+**Kontekst der dæmper "blocking":** liga-ejeren kan ALLEREDE snyde sin egen
+liga via slet+genopret-med-samme-id (memory #39/leagueQuestionRecap, BEKRÆFTET,
+uafhjulpet). #40 tilføjer ingen regression på rules-niveau. Men QC's præmis
+("point-efter-lukning er håndteret") er FALSK. Anbefalet rules-stramning til
+questions/update, hvis liga-ejer-grænsen skal lukkes ægte:
+- points: `resource.data.points == request.resource.data.points ||
+  (facit==null && (deadline==null || now < deadline))`
+- type: `request.resource.data.get('type','text') == resource.data.get('type','text')`
+- første deadline: kræv `new deadline > request.time.toMillis()` når old==null
+- PLUS delete+genopret-hullet fra #39-memory.
+
+**Faldgrube til listen:** *en klient-gate, der "lukker" et QC-sikkerhedsfund, er
+theater, hvis den ting den beskytter kan nås med rå updateDoc. Spørg altid: er
+vagten i rules eller kun i vores JS? Kun rules tæller mod devtools-angriberen.*
+
+## Pulje-deadline som RUNDE (commit 84002c5, #8) — emulator+kerne-verificeret
+
+- **puljeBets-kontrakten HOLDER (10/10 emulator-checks, PoC scratchpad/poc.mjs).**
+  `gameLock()` (firestore.rules L781-790) læser `puljeLockAt` DIREKTE (ingen
+  default). Bekræftet trebenet:
+  - Fremtidig deadline: eget tip skrives, andres-læsning NÆGTET (kontrol virker).
+  - PASSERET deadline: skrivning NÆGTET (kan ikke ændre tip efter at have set
+    andres), andres tips LÆSBARE (netop dét genåbning ville misbruge).
+  - MANGLENDE puljeLockAt: fejler LUKKET — skrivning + andres-læsning nægtet
+    ("Property puljeLockAt is undefined"), EGET tip stadig læsbart. Dvs. et PL-
+    spil med puljeLockRound men endnu ingen udledt puljeLockAt er LÅST (ingen
+    kan tippe), ikke åbent. Fail-closed = sikker retning.
+  - En spiller (ikke-admin) kan IKKE skrive `game.puljeLockAt`/`puljeLockRound`
+    (games L646 kræver isGlobalAdmin). Kun admin kan skubbe feltet direkte —
+    sync-forbuddet er derfor et værn mod den AUTOMATISKE sti, ikke mod en ond
+    admin (som i forvejen er betroet, jf. matches create/update uden feltguard).
+- **Genåbnings-forbuddet i syncKickoffsCore (L556-578) virker (PoC core.mjs).**
+  - Passeret deadline + rundekamp i fremtid → AFVIST, intet skrevet, log.
+  - Q1 BEKRÆFTET: tømmes runden for gyldigt kickoff (nyMs=null), STÅR den
+    passerede deadline — `nyMs != null`-vagten gør null til en no-op. Godt.
+- **LATENT (ikke reachable af deltager, ikke-blokerende): NaN-kanten i
+  re-åbnings-vagten.** L568 `nuMs != null` fanger IKKE NaN. Er `puljeLockAt`
+  eksplicit `null` (felt til stede = null → rules eksponerer alles tips), giver
+  `kickoffMs(null)=NaN`, `genaabner` bliver false, og synken OVERSKRIVER med en
+  fremtidig deadline → puljen GENÅBNES efter eksponering. Bevist i core.mjs
+  (case 5). MEN: intet kodepunkt skriver puljeLockAt=null (synken skriver altid
+  `new Date(finite)`; PL-seed sætter den slet ikke), så kun en admin kan nå
+  tilstanden. Hærdning hvis linjen røres: `Number.isFinite(nuMs)` i stedet for
+  `nuMs != null`. Samme mønster bør bruges hvis nogen tilføjer flere vagter.
+- **Tavs fejl (Q5): null-udledning (runde uden kickoff) logges IKKE** — kun
+  genaabner-grenen logger. Men retningen er fail-closed (puljen forbliver låst,
+  ikke åben), så det er tilgængelighed, ikke integritet; manglende round-kampe
+  fanges desuden af `mangler`-alarmen.
+
+## NaN-hærdning af puljeLock-genåbning (commit 73639fa, #8) — BEKRÆFTET lukket
+
+- **Hullet fra forrige gennemgang er lukket (PoC, 6/6 kanter grønne).**
+  `nuEksponeret = game.puljeLockAt !== undefined && (!Number.isFinite(nuMs) ||
+  nuMs <= nowMs)` (superligaSync.js L577-578). Verificeret mod den ægte
+  `syncKickoffsCore` med fake-db, alle med rundekamp i fremtiden (nyMs>now):
+  - FRAVÆRENDE felt (`undefined`) → SKRIVER (første udledning, trygt). Rigtigt:
+    firebase-admin `.data()` giver `undefined` for et fraværende felt, `null`
+    for et null-felt — så `!== undefined` skelner dem præcist.
+  - `null` → AFVIST (var netop hullet). `kickoffMs(null)=NaN` (L43-47), fanges nu.
+  - uparselig streng → AFVIST. `0`/epoch → AFVIST (passeret). Timestamp med
+    `toMillis()=NaN` → AFVIST. Alt ikke-fremtidigt = eksponeret = fail-closed.
+  - fremtidig gyldig deadline (før eksponering) → opdateres frit. Korrekt: før
+    deadline er ingen tips synlige, så flytning i begge retninger er ufarlig.
+- **Kontroltesten holder:** rules.test.js "EFTER deadline: eget tip afvises, men
+  andres BLIVER læsbart" (den load-bearing egenskab bag forbuddet).
+- **syncGameKickoffsNow (index.js L569-591): rolle-porten holder.** owner/
+  globalAdmin (L575), ellers permission-denied — en `pending`/`player` afvises.
+  `dryRunFraKald` defaulter til SAND (skriver kun ved eksplicit `dryRun:false`).
+  gameId slås op i SYNCED_GAMES → manipuleret id afvises. Selv med dryRun:false
+  kan callablen IKKE genåbne en pulje: kernen har genåbnings-forbuddet uanset
+  kalder. Klient-UI'ens læse-only felt er kosmetik, ikke en server-vagt.
+- **LATENT (uændret, ikke-blokerende, admin er betroet):** games create/update
+  kræver kun `isGlobalAdmin()` UDEN feltguard på puljeLockAt (rules L646). En
+  admin kan `updateDoc` en vilkårlig fremtidig puljeLockAt direkte og genåbne
+  en eksponeret pulje uden om synken. Men: (a) admin er betroet (kan i forvejen
+  flytte kickoff/matches), og (b) den DAGLIGE sync heler det — næste kørsel
+  skriver nyMs = rundens ægte (passerede) tidligste kickoff, som !== den
+  manuelle fremtidsværdi og !genaabner (nuMs fremtid ⇒ nuEksponeret false), så
+  deadlinen sættes tilbage til fortiden og puljen lukker igen inden for 24t.
+- **Alarm `puljeLockGenaabning` (kraeverKvittering:true) er sund.** meldAlarm-id
+  = `gameId_puljeLockGenaabning` (kampId null filtreres væk) → stabil dedup,
+  bumper `antal` i stedet for nye docs. kvitterDriftAlarm er TYPE-AGNOSTISK
+  (sætter bare kvitteretAt på alarmId), så den KAN kvitteres; alarmId'et matcher
+  regex `^[A-Za-z0-9_-]{1,200}$` (slug-gameId + suffiks). Ingen loesDriftAlarmer-
+  kald bruger denne type, så den auto-lukkes ikke fejlagtigt. Persisterer
+  problemet, re-fyrer den daglige sync og nuller kvitteringen igen (korrekt).

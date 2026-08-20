@@ -18,6 +18,7 @@ const {
 } = require('./syncProviders');
 
 const { kickoffPlan } = require('./seedFootball');
+const { puljeLockFraRunde } = require('./pointOpdeling');
 
 const GAME_ID = 'superliga2627';
 
@@ -482,6 +483,8 @@ async function syncKickoffsCore(db, FieldValue, opts = {}) {
   if (typeof provider.hentKickoffs !== 'function') return { understoettet: false };
 
   const alle = await allMatches(db, { gameId });
+  // Spil-dokumentet: bruges kun til den runde-udledte pulje-deadline nederst.
+  const gameSnap = await db.collection('games').doc(gameId).get();
   // Kun kilde-kampe i SPILLETS runder tolkes (se kontrakten): ellers står
   // mangler-alarmen med 200 forårskampe hver morgen, og den ene ægte
   // manglende kamp bliver usynlig — og én ulæselig tid i en kamp, spillet
@@ -539,7 +542,61 @@ async function syncKickoffsCore(db, FieldValue, opts = {}) {
     }
     await batch.commit();
   }
-  return { understoettet: true, dryRun, aendringer: skrives, mangler, spillet: plan.spillet, snart, genaabninger };
+
+  // Pulje-deadline UDLEDT af en runde (game.puljeLockRound): puljen lukker ved
+  // det tidligste kickoff i den runde, og følger dermed kamptiderne, vi netop
+  // har rettet. KUN spil med puljeLockRound røres — Superligaens FASTE
+  // puljeLockAt (uden puljeLockRound) er derfor urørt.
+  //
+  // GENÅBNINGS-FORBUD (samme klasse som kickoff-forbuddet ovenfor): er
+  // deadlinen PASSERET, er alles pulje-tips blevet synlige. En kamp, der så
+  // flyttes frem i tid, må ALDRIG skubbe deadlinen ud i fremtiden igen og
+  // genåbne puljen, efter folk har set hinandens tip. Så en ny deadline i
+  // fremtiden afvises, når den gamle allerede er passeret.
+  let puljeLock = null;
+  let puljeLockAfvist = null; // udfyldt KUN når en genåbning afvises (til alarm)
+  const game = gameSnap && gameSnap.exists ? gameSnap.data() : null;
+  const lockRunde = game ? game.puljeLockRound : null;
+  if (lockRunde != null) {
+    // Udled fra de OPDATEREDE kickoffs (anvend dagens ændringer in-memory).
+    const nyeTider = new Map(skrives.map((a) => [a.id, a.tilMs]));
+    const opdaterede = alle.map((m) => ({
+      round: m.data.round,
+      kickoff: nyeTider.has(m.id) ? nyeTider.get(m.id) : m.data.kickoff,
+    }));
+    const nyMs = puljeLockFraRunde(opdaterede, lockRunde);
+    const nuMs = kickoffMs(game.puljeLockAt);
+    // Er den NUVÆRENDE deadline allerede EKSPONERET (alle tips synlige)? Kun et
+    // FRAVÆRENDE felt (allerførste udledning) er trygt: puljen har aldrig været
+    // åben, og rules holder den lukket, til feltet sættes. Alt andet, der er SAT
+    // men ikke et gyldigt FREMTIDIGT tidspunkt — et passeret kickoff (nuMs <=
+    // now) ELLER en uparselig værdi (NaN, fx et felt sat til null, som rules
+    // eksponerer) — regnes eksponeret. `nuMs != null` fangede IKKE NaN, så en
+    // null-deadline slap forbi og kunne genåbnes; derfor Number.isFinite. Kan
+    // vi ikke BEVISE, at puljen stadig er lukket, må deadlinen aldrig frem.
+    const nuEksponeret = game.puljeLockAt !== undefined
+      && (!Number.isFinite(nuMs) || nuMs <= nowMs);
+    const genaabner = nuEksponeret && nyMs != null && nyMs > nowMs;
+    if (nyMs != null && nyMs !== nuMs && !genaabner) {
+      puljeLock = { fraMs: Number.isFinite(nuMs) ? nuMs : null, tilMs: nyMs, runde: lockRunde };
+      if (!dryRun) {
+        await db.collection('games').doc(gameId)
+          .set({ puljeLockAt: new Date(nyMs) }, { merge: true });
+      }
+    } else if (genaabner) {
+      // Afvist genåbning er en TAVS fejl uden dette: deadlinen sidder fast på en
+      // passeret/eksponeret værdi, og puljen kan aldrig få sin rigtige runde-
+      // dato. Returnér detaljen, så den scheduled function kan meldAlarm (som
+      // kickoff-søsteren) — ikke kun console.error, som ingen læser. nuMs kan
+      // være NaN (felt sat til null), så new Date(nuMs).toISOString() ville
+      // kaste; vis råværdien i stedet.
+      puljeLockAfvist = { fraMs: Number.isFinite(nuMs) ? nuMs : null, tilMs: nyMs, runde: lockRunde };
+      const fraTekst = Number.isFinite(nuMs) ? new Date(nuMs).toISOString() : String(game.puljeLockAt);
+      console.error(`pulje-lock ${gameId}: runde ${lockRunde} ville skubbe en allerede EKSPONERET deadline (${fraTekst}) ud i fremtiden (${new Date(nyMs).toISOString()}) — afvist for ikke at genåbne puljen.`);
+    }
+  }
+
+  return { understoettet: true, dryRun, aendringer: skrives, mangler, spillet: plan.spillet, snart, genaabninger, puljeLock, puljeLockAfvist };
 }
 
 /**
