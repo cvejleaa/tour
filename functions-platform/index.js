@@ -856,8 +856,12 @@ exports.uploadBroadcastImage = onCall({ region: REGION }, async (request) => {
       metadata: { metadata: { firebaseStorageDownloadTokens: token } },
     });
   } catch (e) {
-    console.error('uploadBroadcastImage: kunne ikke skrive til Storage', e && e.message);
-    throw new HttpsError('internal', 'Billedet kunne ikke gemmes. Prøv igen.');
+    // Vis den ægte årsag til admin (kun-admin-værktøj): en blind "prøv igen"
+    // kan ikke fejlsøges. Typisk enten manglende Storage-rettighed på
+    // funktionens service-konto (403) eller forkert bucket-navn (404).
+    const detalje = String((e && (e.message || e.code)) || 'ukendt fejl');
+    console.error('uploadBroadcastImage: kunne ikke skrive til Storage', detalje);
+    throw new HttpsError('internal', `Billedet kunne ikke gemmes (bucket ${STORAGE_BUCKET}): ${detalje}`);
   }
   const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(sti)}?alt=media&token=${token}`;
   return { url };
