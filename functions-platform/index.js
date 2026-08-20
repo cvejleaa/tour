@@ -65,6 +65,12 @@ const { validerBroadcastBillede, broadcastBilledeSti } = require('./broadcastIma
 initializeApp();
 
 const REGION = 'europe-west1';
+// EKSPLICIT Storage-bucket. getStorage().bucket() uden argument falder tilbage
+// på FIREBASE_CONFIG's default, som er det GAMLE `.appspot.com`-navn — men
+// projektets faktiske bucket er den NYE `.firebasestorage.app` (samme værdi som
+// klientens VITE_FIREBASE_STORAGE_BUCKET). Uden dette navn skriver upload til en
+// bucket, der ikke findes, og fejler med "Billedet kunne ikke gemmes".
+const STORAGE_BUCKET = 'spil-89af9.firebasestorage.app';
 const TZ = 'Europe/Copenhagen';
 
 // SMTP-adgangskode for tip@vejleaa.dk. Sæt én gang (uden den no-op'er mail):
@@ -836,7 +842,7 @@ exports.uploadBroadcastImage = onCall({ region: REGION }, async (request) => {
 
   let bucket;
   try {
-    bucket = getStorage().bucket();
+    bucket = getStorage().bucket(STORAGE_BUCKET);
   } catch {
     throw new HttpsError('failed-precondition', 'Firebase Storage er ikke sat op for projektet.');
   }
