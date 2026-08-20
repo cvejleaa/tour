@@ -267,6 +267,73 @@ export async function saveLeagueQuestionAnswer({ uid, gameId, leagueId, question
  * HVEM der har svaret, aldrig hvad). Adgang: ligaens medlemmer + admin.
  */
 /**
+ * Ret et EKSISTERENDE liga-spørgsmål (#40): tekst, point og deadline — inden
+ * for regel-grænserne, som fladen skal FØLGE, ikke opdage ved fejl:
+ * - label/points må rettes, MEN fladen tilbyder kun points før lukning
+ *   (QC-blokerende: efter deadline kan ejeren se svarene, og en point-rettelse
+ *   dér er samme manøvre som at åbne kortene — bare med indsatsen).
+ * - deadline: sættes første gang eller UDSKYDES; aldrig fremad/fjernes.
+ *   Fortids-spærringen håndhæves HER (QC-blokerende): en første-gangs-deadline
+ *   i fortiden ville øjeblikkeligt og UIGENKALDELIGT åbne alles svar —
+ *   browserens min-attribut gælder ikke programmatisk satte værdier.
+ * - `type` må ALDRIG kunne rettes her: text → number efter deadline ville
+ *   aktivere "nærmest vinder" med alle svar i hånden (rules begrænser det
+ *   ikke i dag — fladen er vagten, så udvid den ikke "for en ordens skyld").
+ * points sendes ALTID med (reglen kræver `points is number` i det
+ * RESULTERENDE dokument — et dokument uden feltet ville ellers aldrig kunne
+ * gemmes herfra).
+ */
+export async function updateLeagueQuestion({
+  gameId, leagueId, questionId, q, label, points, deadline,
+}) {
+  const clean = String(label ?? '').trim();
+  if (clean.length < 3 || clean.length > LEAGUE_Q_LABEL_MAX) {
+    return { ok: false, error: `Teksten skal være 3-${LEAGUE_Q_LABEL_MAX} tegn.` };
+  }
+  const patch = { label: clean, points: lqPointsAf(points, q) };
+  const nuvaerende = q?.deadline != null ? Number(q.deadline) : null;
+  let saetterDeadline = false;
+  if (deadline != null && deadline !== '') {
+    const ms = new Date(deadline).getTime();
+    if (!Number.isFinite(ms)) return { ok: false, error: 'Ugyldig deadline.' };
+    if (ms <= Date.now()) {
+      return { ok: false, error: 'Deadline skal ligge i fremtiden — en passeret deadline viser alles svar med det samme og kan aldrig ændres igen.' };
+    }
+    if (nuvaerende != null && ms < nuvaerende) {
+      return { ok: false, error: 'Deadline kan kun udskydes — aldrig rykkes frem.' };
+    }
+    if (ms !== nuvaerende) { patch.deadline = ms; saetterDeadline = true; }
+  }
+  try {
+    await updateDoc(
+      doc(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId, COL.GAME_LEAGUE_QUESTIONS, questionId),
+      patch,
+    );
+    return { ok: true, deadlineSat: saetterDeadline };
+  } catch (err) {
+    if (err?.code === 'permission-denied') {
+      // Kapløbet: rækken kan stå åben, efter serverens ur har passeret
+      // deadline — den generiske adgangs-besked ville være ubrugelig her.
+      return {
+        ok: false,
+        error: saetterDeadline
+          ? 'Deadline nåede at passere — den kan ikke ændres længere. Svarene er nu vist for alle.'
+          : 'Rettelsen blev afvist af reglerne — er spørgsmålet lige blevet lukket?',
+      };
+    }
+    return { ok: false, error: danishError(err, 'Kunne ikke gemme rettelsen.') };
+  }
+}
+
+/** Spørgsmålets nye pointværdi: brugerens tal hvis gyldigt, ellers det gamle. */
+function lqPointsAf(points, q) {
+  const p = Number(points);
+  if (Number.isFinite(p) && p >= 1 && p <= 100) return p;
+  const gammel = Number(q?.points);
+  return Number.isFinite(gammel) && gammel >= 1 && gammel <= 100 ? gammel : 5;
+}
+
+/**
  * Runde-Bottens afsløring af ET liga-spørgsmål — den BEVIDSTE start (botten
  * poster normalt selv via trigger, når facit sættes; knappen er recovery).
  * dryRun=true (default) returnerer teksten uden at poste — kræver medlemskab,

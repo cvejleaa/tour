@@ -6,12 +6,13 @@
 import { useState } from 'react';
 import {
   createLeagueQuestion, setLeagueQuestionFacit, deleteLeagueQuestion,
-  saveLeagueQuestionAnswer, callLeagueQuestionStatus, callLeagueQuestionRecapNow,
+  saveLeagueQuestionAnswer, updateLeagueQuestion, postLeagueMessage,
+  callLeagueQuestionStatus, callLeagueQuestionRecapNow,
   LEAGUE_Q_LABEL_MAX,
 } from './gameLeagueActions';
 import { scoreLeagueQuestion, lqSettled, lqPoints } from './leagueQuestionScoring';
 import { teamsOf, visOf } from './football/teamInfo';
-import { formatKickoff } from '../../lib/daDate';
+import { formatKickoff, tilLokalInput } from '../../lib/daDate';
 import { shareText } from '../../lib/share';
 
 const TYPE_LABEL = { text: 'Tekst', yesno: 'Ja/Nej', number: 'Tal (nærmest vinder)', team: 'Hold' };
@@ -63,6 +64,11 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null); // { kind, text }
   const [botTekst, setBotTekst] = useState(null); // forhåndsvisning af afsløringen
+  const [redigerer, setRedigerer] = useState(false); // ✏️ (#40)
+  const [labelDraft, setLabelDraft] = useState(q.label || '');
+  const [pointsDraft, setPointsDraft] = useState(String(lqPoints(q)));
+  const [deadlineDraft, setDeadlineDraft] = useState(tilLokalInput(q.deadline));
+  const [vaegTekst, setVaegTekst] = useState(null); // "fortæl det på væggen"-tilbud
 
   // Runde-Bottens afsløring: botten poster SELV via trigger, når facit
   // sættes — knapperne her er den bevidste start (recovery), hvis opslaget
@@ -96,6 +102,41 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
     setMsg(res.ok ? { kind: 'ok', text: 'Facit gemt — pointene tæller nu i liga-stillingen.' } : { kind: 'err', text: res.error });
     setBusy(false);
   }
+  // ✏️ (#40): ret tekst/point/deadline inden for regel-grænserne — fladen
+  // FØLGER reglerne (points kun før lukning; deadline kun sæt/udskyd), så
+  // ingen knap står og fejler. Se updateLeagueQuestion for hvorfor.
+  const kanRetteDeadline = !settled && (q.deadline == null || !locked);
+  async function gemRettelse(e) {
+    e.preventDefault();
+    setBusy(true); setMsg(null);
+    const res = await updateLeagueQuestion({
+      gameId, leagueId, questionId: q.id, q,
+      label: labelDraft, points: pointsDraft,
+      deadline: kanRetteDeadline ? deadlineDraft : null,
+    });
+    if (res.ok) {
+      setMsg({ kind: 'ok', text: 'Rettelsen er gemt ✓' });
+      setRedigerer(false);
+      // Liga-væggen notificerer ingen — tilbyd ejeren at sige det selv
+      // (QC-fund: en ny/udskudt deadline opdages ellers kun ved et tilfælde,
+      // værst for den, der ikke har svaret endnu).
+      if (res.deadlineSat) {
+        const ms = new Date(deadlineDraft).getTime();
+        setVaegTekst(`Deadline på »${labelDraft.trim().slice(0, 80)}«: ${formatKickoff(ms)} — husk at svare! ❓`);
+      }
+    } else {
+      setMsg({ kind: 'err', text: res.error });
+    }
+    setBusy(false);
+  }
+  async function fortaelPaaVaeggen() {
+    setBusy(true);
+    const res = await postLeagueMessage({ uid: meUid, gameId, leagueId, text: vaegTekst });
+    setMsg(res.ok ? { kind: 'ok', text: 'Skrevet på væggen ✓' } : { kind: 'err', text: res.error });
+    if (res.ok) setVaegTekst(null);
+    setBusy(false);
+  }
+
   async function remove() {
     if (!window.confirm(`Slet spørgsmålet "${q.label}"?`)) return;
     setBusy(true);
@@ -120,6 +161,13 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
         <span style={{ fontWeight: 600 }}>{q.label}</span>
         <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center' }}>
           <span className="badge badge--muted">{lqPoints(q)} point · {TYPE_LABEL[q.type] || 'Tekst'}</span>
+          {isOwner && (
+            <button className="btn--icon" title="Ret spørgsmålet (tekst, point, deadline)" disabled={busy}
+              onClick={() => { setRedigerer((v) => !v); setMsg(null); setVaegTekst(null); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              ✏️
+            </button>
+          )}
           {/* Slet kun mens spørgsmålet er U-ÅBNET — rules afviser sletning
               efter facit/deadline (slet-og-genopret med samme doc-id var en
               omvej uden om "kortene kan ikke lukkes igen"; Security-fund).
@@ -144,6 +192,65 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
           ? ` · ${answers.length} svar`
           : ` · ${mine ? 'Du har svaret ✓' : 'Du mangler at svare'} · svarene vises ${q.deadline != null ? 'ved deadline' : 'når facit sættes'}`}
       </div>
+
+      {/* ✏️-redigering (#40). Deadline-teksterne er delt i to (QC-fund: "kan
+          kun udskydes" er meningsløs over et felt, der hedder "Sæt deadline"). */}
+      {isOwner && redigerer && (
+        <form onSubmit={gemRettelse} data-testid={`lq-ret-${q.id}`}
+          style={{ marginTop: '0.45rem', padding: '0.5rem', border: '1px solid var(--c-border)', borderRadius: 8, display: 'grid', gap: '0.4rem' }}>
+          <input
+            type="text" value={labelDraft} onChange={(e) => setLabelDraft(e.target.value)}
+            maxLength={LEAGUE_Q_LABEL_MAX} aria-label="Spørgsmålets tekst"
+          />
+          {!locked && !settled && (
+            <label style={{ fontSize: '0.82rem' }}>
+              Point{' '}
+              <input
+                type="number" min={1} max={100} value={pointsDraft}
+                onChange={(e) => setPointsDraft(e.target.value)}
+                aria-label="Point" style={{ width: 90 }}
+              />
+            </label>
+          )}
+          {kanRetteDeadline ? (
+            <label style={{ fontSize: '0.82rem', display: 'grid', gap: '0.2rem' }}>
+              {q.deadline == null ? 'Sæt deadline' : 'Udskyd deadline'}
+              <input
+                type="datetime-local" value={deadlineDraft}
+                min={tilLokalInput(q.deadline != null ? Number(q.deadline) : Date.now())}
+                onChange={(e) => setDeadlineDraft(e.target.value)}
+                aria-label="Deadline" style={{ maxWidth: 230 }}
+              />
+              <span style={{ color: 'var(--c-muted)' }}>
+                {q.deadline == null
+                  ? 'Sæt en deadline i FREMTIDEN — svarene vises for alle, når den passerer. Bagefter kan den kun udskydes, aldrig fjernes eller rykkes frem.'
+                  : 'Deadline kan kun udskydes — aldrig rykkes frem eller fjernes. Ellers kunne kortene lukkes igen, efter de var vist.'}
+              </span>
+            </label>
+          ) : (
+            <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)' }}>
+              {settled
+                ? 'Facit er sat — kun teksten kan rettes (pointene står i afsløringen og liga-stillingen).'
+                : 'Deadline er passeret og kan ikke ændres — svarene er vist for alle. Kun teksten kan rettes.'}
+            </span>
+          )}
+          <div className="flex" style={{ gap: '0.4rem' }}>
+            <button className="btn btn--sm" type="submit" disabled={busy || labelDraft.trim().length < 3}>Gem rettelse</button>
+            <button className="btn btn--sm btn--ghost" type="button" disabled={busy}
+              onClick={() => { setRedigerer(false); setLabelDraft(q.label || ''); setPointsDraft(String(lqPoints(q))); setDeadlineDraft(tilLokalInput(q.deadline)); }}>
+              Fortryd
+            </button>
+          </div>
+        </form>
+      )}
+      {isOwner && vaegTekst && (
+        <p style={{ marginTop: '0.35rem', fontSize: '0.82rem' }}>
+          <button className="btn btn--sm" type="button" disabled={busy} onClick={fortaelPaaVaeggen} data-testid={`lq-vaeg-${q.id}`}>
+            📣 Fortæl det på væggen
+          </button>{' '}
+          <span style={{ color: 'var(--c-muted)' }}>“{vaegTekst}”</span>
+        </p>
+      )}
 
       {/* Hvem mangler? — hentet via knappen (serveren afslører KUN hvem, aldrig
           hvad). Renderes i rækken, så ejeren ser mangler-listen, FØR facit

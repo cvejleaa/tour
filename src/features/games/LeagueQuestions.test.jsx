@@ -18,6 +18,8 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 const mockSaveAnswer = vi.fn().mockResolvedValue({ ok: true });
 const mockLqStatus = vi.fn();
 const mockBotRecap = vi.fn();
+const mockUpdateQ = vi.fn().mockResolvedValue({ ok: true, deadlineSat: false });
+const mockPostVaeg = vi.fn().mockResolvedValue({ ok: true });
 vi.mock('./gameLeagueActions', () => ({
   createLeagueQuestion: vi.fn().mockResolvedValue({ ok: true }),
   setLeagueQuestionFacit: vi.fn().mockResolvedValue({ ok: true }),
@@ -25,6 +27,8 @@ vi.mock('./gameLeagueActions', () => ({
   saveLeagueQuestionAnswer: (...a) => mockSaveAnswer(...a),
   callLeagueQuestionStatus: (...a) => mockLqStatus(...a),
   callLeagueQuestionRecapNow: (...a) => mockBotRecap(...a),
+  updateLeagueQuestion: (...a) => mockUpdateQ(...a),
+  postLeagueMessage: (...a) => mockPostVaeg(...a),
   LEAGUE_Q_LABEL_MAX: 120,
 }));
 
@@ -244,5 +248,68 @@ describe('LeagueQuestions — Runde-Bottens afsløring (ejer)', () => {
     medlem.unmount();
     renderQ({ isOwner: true, questions: [teamQ({ id: 'q8' })], answersByQid: {} }); // åbent — intet facit
     expect(screen.queryByTestId('lq-bot-q8')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ✏️ redigering (#40): fladen FØLGER regel-grænserne — points kun før lukning,
+// deadline kun sæt/udskyd — og siger dem, i stedet for at opdage dem ved fejl.
+// ---------------------------------------------------------------------------
+describe('LeagueQuestions — ✏️ ret spørgsmålet (ejer)', () => {
+  const aabn = (q) => {
+    renderQ({ isOwner: true, questions: [q], answersByQid: {} });
+    fireEvent.click(screen.getByTitle('Ret spørgsmålet (tekst, point, deadline)'));
+    return screen.getByTestId(`lq-ret-${q.id}`);
+  };
+
+  it('åbent spørgsmål uden deadline: tekst + point + "Sæt deadline" med fremtids-forklaring', async () => {
+    const form = aabn(teamQ());
+    expect(within(form).getByLabelText('Point')).toBeInTheDocument();
+    expect(within(form).getByText('Sæt deadline')).toBeInTheDocument();
+    expect(form.textContent).toContain('svarene vises for alle, når den passerer');
+    fireEvent.change(within(form).getByLabelText('Spørgsmålets tekst'), { target: { value: 'Ny tekst her' } });
+    fireEvent.click(within(form).getByText('Gem rettelse'));
+    await waitFor(() => expect(mockUpdateQ).toHaveBeenCalled());
+    expect(mockUpdateQ.mock.calls[0][0]).toMatchObject({ label: 'Ny tekst her', questionId: 'q1' });
+  });
+
+  it('kommende deadline: "Udskyd deadline" — og forklaringen siger aldrig-frem-aldrig-væk', () => {
+    const form = aabn(teamQ({ deadline: Date.now() + 86400000 }));
+    expect(within(form).getByText('Udskyd deadline')).toBeInTheDocument();
+    expect(form.textContent).toContain('kun udskydes');
+    expect(form.textContent).toContain('aldrig rykkes frem eller fjernes');
+    // min-attributten er sat — i LOKAL tid (QC-fund: toISOString rammer forkert)
+    expect(within(form).getByLabelText('Deadline').getAttribute('min')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+  });
+
+  it('passeret deadline: HVERKEN point- eller deadline-felt — kun tekst, med forklaring', () => {
+    const form = aabn(teamQ({ deadline: 1 }));
+    expect(within(form).queryByLabelText('Point')).toBeNull();
+    expect(within(form).queryByLabelText('Deadline')).toBeNull();
+    expect(form.textContent).toContain('Deadline er passeret og kan ikke ændres');
+  });
+
+  it('afgjort spørgsmål: kun tekst — "Facit er sat"-forklaring, ingen point-rettelse', () => {
+    const form = aabn(teamQ({ facit: 'Arsenal' }));
+    expect(within(form).queryByLabelText('Point')).toBeNull();
+    expect(form.textContent).toContain('Facit er sat — kun teksten kan rettes');
+  });
+
+  it('ny deadline tilbyder "📣 Fortæl det på væggen" — væggen notificerer ellers ingen', async () => {
+    mockUpdateQ.mockResolvedValueOnce({ ok: true, deadlineSat: true });
+    const form = aabn(teamQ());
+    fireEvent.change(within(form).getByLabelText('Deadline'), { target: { value: '2030-01-01T18:00' } });
+    fireEvent.click(within(form).getByText('Gem rettelse'));
+    const vaegKnap = await screen.findByTestId('lq-vaeg-q1');
+    fireEvent.click(vaegKnap);
+    await waitFor(() => expect(mockPostVaeg).toHaveBeenCalled());
+    const { text } = mockPostVaeg.mock.calls[0][0];
+    expect(text).toContain('Deadline på');
+    expect(text).toContain('husk at svare');
+  });
+
+  it('ikke-ejer har ingen ✏️', () => {
+    renderQ({ isOwner: false, questions: [teamQ()], answersByQid: {} });
+    expect(screen.queryByTitle('Ret spørgsmålet (tekst, point, deadline)')).toBeNull();
   });
 });
