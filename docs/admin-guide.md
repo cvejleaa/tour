@@ -157,6 +157,17 @@ skal gendannes.
   kørt, se [drift.md](drift.md).
 - **📸 Brug invitations-skabelonen** pakker teksten ind i et layout med
   skærmbilleder og en ét-kliks-tilmeldingsknap.
+- **Formatering og billeder i den rene mail:** når skabelonen er slået FRA
+  (den rene tekstmail), står der en værktøjslinje over beskeden: **F** (fed),
+  **K** (kursiv), **🔗 Link**, **H** (overskrift), **• Liste**, **🖼️ Billed-URL**
+  og **📷 Upload billede**. Teksten skrives som let Markdown (`**fed**`,
+  `*kursiv*`, `[tekst](https://…)`, `- punkt`, `## overskrift`,
+  `![](https://…)`), og en **forhåndsvisning** under feltet viser præcis, hvad
+  modtageren får, når billederne er hentet. Billeder skal være **https**;
+  uploadede billeder gemmes med et unikt navn (ellers ville Gmails billed-cache
+  vise et gammelt billede i en ny mail). Værktøjerne vises IKKE på
+  invitations-/salgstale-skabelonens intro — den er bevidst ren tekst, så din
+  personlige hilsen ikke bliver til endnu et reklamebrev oven på skabelonen.
 - Mails logges under **✉️ Mail-log** med tidspunkt, type, modtager og status.
 
 ## Resultater

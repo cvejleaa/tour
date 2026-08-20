@@ -99,7 +99,9 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: |
-          ONLY="hosting,firestore:rules"
+          # storage: broadcast-billed-reglerne (deny alle klient-writes) skal
+          # med — ellers ligger storage.rules i repoet uden at være i produktion.
+          ONLY="hosting,firestore:rules,storage"
           n=0; max=3
           until [ "$n" -ge "$max" ]; do
             n=$((n + 1))

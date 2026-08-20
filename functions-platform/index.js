@@ -18,7 +18,9 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
+const { getStorage } = require('firebase-admin/storage');
 const { initializeApp } = require('firebase-admin/app');
+const crypto = require('crypto');
 
 const {
   recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets,
@@ -58,6 +60,7 @@ const { puljeKonfig } = require('./superligaScoring');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { hentSpoergsmaalStatus } = require('./gameLeagues');
 const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
+const { validerBroadcastBillede, broadcastBilledeSti } = require('./broadcastImage');
 
 initializeApp();
 
@@ -801,6 +804,58 @@ exports.sendBroadcastEmail = onCall(
     return { success: true, sent, failed };
   },
 );
+
+// ---------------------------------------------------------------------------
+// uploadBroadcastImage — admin uploader et billede til brug i Send mail.
+// Går gennem en callable (IKKE en klient-Storage-write), fordi Storage-regler
+// ikke kan læse Firestore-roller: adgangsbeslutningen er `requireAdmin` HER,
+// ét sted. Serveren skriver via Admin SDK til broadcast/{unikt}.{ext} og
+// returnerer en public download-URL. UNIKT navn pr. upload — Gmails billed-
+// proxy cacher pr. URL, så to billeder må aldrig dele URL.
+// ---------------------------------------------------------------------------
+exports.uploadBroadcastImage = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+
+  const contentType = String(request.data?.contentType || '').toLowerCase();
+  // Klienten sender base64 (evt. med data:-præfiks). Afkod og MÅL på de rå
+  // bytes — payloadens strengelængde er ikke filstørrelsen.
+  const b64 = String(request.data?.data || '').replace(/^data:[^;,]*;base64,/, '');
+  let buffer;
+  try {
+    buffer = Buffer.from(b64, 'base64');
+  } catch {
+    throw new HttpsError('invalid-argument', 'Billedet kunne ikke læses.');
+  }
+  const check = validerBroadcastBillede({ contentType, bytes: buffer.length });
+  if (!check.ok) throw new HttpsError('invalid-argument', check.error);
+
+  const unik = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+  const sti = broadcastBilledeSti(check.ext, unik);
+  if (!sti) throw new HttpsError('internal', 'Kunne ikke bygge billed-sti.');
+
+  let bucket;
+  try {
+    bucket = getStorage().bucket();
+  } catch {
+    throw new HttpsError('failed-precondition', 'Firebase Storage er ikke sat op for projektet.');
+  }
+  // Download-token gør ?alt=media&token=…-URL'en offentligt læsbar UDEN om
+  // reglerne (tokenet afgør download). Storage-reglen nægter kun klient-writes.
+  const token = crypto.randomUUID();
+  try {
+    await bucket.file(sti).save(buffer, {
+      resumable: false,
+      contentType,
+      metadata: { metadata: { firebaseStorageDownloadTokens: token } },
+    });
+  } catch (e) {
+    console.error('uploadBroadcastImage: kunne ikke skrive til Storage', e && e.message);
+    throw new HttpsError('internal', 'Billedet kunne ikke gemmes. Prøv igen.');
+  }
+  const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(sti)}?alt=media&token=${token}`;
+  return { url };
+});
 
 // ---------------------------------------------------------------------------
 // Per-spil tip-påmindelser. gameId styrer hvilket spil. Kun owner/globalAdmin.
