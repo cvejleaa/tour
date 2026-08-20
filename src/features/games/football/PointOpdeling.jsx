@@ -27,7 +27,9 @@ export const RUBRIKKER = [
   { key: 'p1x2', ikon: '🎯', navn: 'Tippoint', hjaelp: 'Point for rigtige tip: kampens odds.' },
   { key: 'chance', ikon: '⚡', navn: 'Chancen', hjaelp: 'Gevinst og tab på de tip, du satte point på spil på.' },
   { key: 'combi', ikon: '🔗', navn: 'Combi', hjaelp: 'Kupon-bonus: de ramte odds ganget sammen.' },
-  { key: 'pulje', ikon: '🎖️', navn: 'Pulje', hjaelp: 'Point for dit mesterskabsspil-tip.' },
+  // Spilneutral: puljen er "mesterskabsspillet" i SL og "Juletabellen" i PL —
+  // rubrikteksten deles af begge (og genbruges i FootballHelp).
+  { key: 'pulje', ikon: '🎖️', navn: 'Pulje', hjaelp: 'Point fra pulje-tippet — sæsonens bonusspørgsmål.' },
 ];
 
 const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10;

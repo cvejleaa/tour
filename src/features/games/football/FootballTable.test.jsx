@@ -118,6 +118,28 @@ describe('FootballTable — visningen følger spillet', () => {
     expect(container.textContent).toContain('Officiel stilling');
   });
 
+  // QC-fund på #8-planen: PL-PULJEN må ikke flippe Tabel-fanen. Delingen
+  // styres af tabelDeling (liga-FORMATET), ikke af at spillet har en pulje —
+  // ellers ville 16 hold stå under "Nedrykningsspil", og den rigtige bund-3-
+  // streg forsvinde, i samme sekund puljen blev tændt.
+  it('PL MED pulje (tabelDeling: false) er stadig én flad tabel med bund-3-streg', () => {
+    const medPulje = {
+      ...plSpil,
+      pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe', tabelDeling: false },
+    };
+    const { container } = render(<FootballTable game={medPulje} />);
+    expect(container.textContent).not.toContain('Mesterskabsspil');
+    expect(container.textContent).not.toContain('Nedrykningsspil');
+    expect(container.textContent).toContain('Nedrykning (bund 3)');
+  });
+
+  // …og Superligaens LITERALE {poolSize: 6} normaliseres til deling — det er
+  // båndet, der holder SL-adfærden fast, mens gaten er flyttet til konfig.
+  it('SL-formen {poolSize: 6} deler stadig (tabelDeling-default)', () => {
+    const { container } = render(<FootballTable game={slSpil} />);
+    expect(container.textContent).toContain('Mesterskabsspil (top 6)');
+  });
+
   it('sætter nedrykningsstregen før de nederste 3 — regnet fra bunden', () => {
     const { container } = render(<FootballTable game={plSpil} />);
     expect(container.textContent).toContain('Nedrykning (bund 3)');

@@ -23,6 +23,7 @@ const { initializeApp } = require('firebase-admin/app');
 const {
   recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets,
   dryRunFraKald,
+  puljeTipKomplet,
 } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore,
@@ -53,6 +54,7 @@ const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = requir
 const { runGameTipReminders, sendGameTestReminder, hentTipStatus } = require('./reminders');
 const { runGameRoundRecap } = require('./gameRecap');
 const { skalAfsloere, runLeagueQuestionRecap } = require('./leagueQuestionRecap');
+const { puljeKonfig } = require('./superligaScoring');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { hentSpoergsmaalStatus } = require('./gameLeagues');
 const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
@@ -889,7 +891,7 @@ exports.sendGameTestReminderToMe = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// gamePuljeStatus — admin: hvem har/mangler pulje-tippet (mesterskabsspillet)?
+// gamePuljeStatus — admin: hvem har/mangler pulje-tippet (sæson-spørgsmålene)?
 // Med remind=true sendes samtidig en påmindelses-mail til dem der mangler
 // (respekterer emailOptOut; kræver SMTP og at deadline ikke er passeret).
 // ---------------------------------------------------------------------------
@@ -921,8 +923,14 @@ exports.gamePuljeStatus = onCall(
     const nameOf = new Map(usersSnap.docs.map((d) => [d.id, d.data().displayName || 'Spiller']));
     const optOut = new Set(usersSnap.docs.filter((d) => d.data().emailOptOut).map((d) => d.id));
     const emailOf = new Map(contactsSnap.docs.map((d) => [d.id, d.data().email]));
+    // "Har tippet" måles mod KONFIGURATIONEN, ikke mod "listen er ikke tom":
+    // med to spørgsmål (PL: top 4 + bund 3) ville et halvt svar ellers tælle
+    // som færdigt, og ryk-mailen ville springe netop dem over, den er til for
+    // (QC-fund). Rules kræver i dag begge lister i samme skrivning, men gamle
+    // dokumenter og fremtidige regel-ændringer skal ikke kunne vælte tallet.
+    const konfig = puljeKonfig(game);
     const hasPulje = new Set(
-      puljeSnap.docs.filter((d) => Array.isArray(d.data().championship) && d.data().championship.length > 0).map((d) => d.id),
+      puljeSnap.docs.filter((d) => puljeTipKomplet(d.data(), konfig)).map((d) => d.id),
     );
     const tipped = [];
     const missing = [];
@@ -947,7 +955,7 @@ exports.gamePuljeStatus = onCall(
         if (!email || optOut.has(m.uid)) continue;
         const html = `
           <p>Hej ${escapeHtml(m.name)} 👋</p>
-          <p>Du mangler at sætte dit <strong>pulje-tip</strong> (mesterskabsspillet) i ${escapeHtml(gameName)} —
+          <p>Du mangler at sætte dit <strong>pulje-tip</strong> (sæsonens bonusspørgsmål) i ${escapeHtml(gameName)} —
           det er dér, de store bonuspoint ligger til sæsonafslutningen.</p>
           ${deadlineTxt ? `<p>Deadline: <strong>${escapeHtml(deadlineTxt)}</strong>.</p>` : ''}
           <p><a href="${APP_URL}">Sæt dit pulje-tip på tip.vejleaa.dk</a> — det tager to minutter.</p>

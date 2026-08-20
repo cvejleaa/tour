@@ -8,7 +8,7 @@ const {
   hitPoints,
   PULJE, ELO, ODDS,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities, fairOdds,
-  leagueTable, championshipTeams, puljeScore,
+  leagueTable, championshipTeams, puljeScore, bundTeams, puljeKonfig,
 } = require('./superligaScoring');
 
 describe('superligaScoring (server-spejl)', () => {
@@ -168,6 +168,22 @@ describe('superligaScoring (server-spejl)', () => {
     const top6 = ['A', 'B', 'C', 'D', 'E', 'F'];
     expect(puljeScore(['A', 'B', 'C', 'X', 'Y', 'Z'], top6))
       .toEqual(src.puljeScore(['A', 'B', 'C', 'X', 'Y', 'Z'], top6));
+    // PL-formen (#8): valgfrie antal/point OG konfig-normalizeren spejles.
+    const plValg = { antal: 3, perTeam: 4, perfectBonus: 10 };
+    expect(puljeScore(['A', 'B', 'C'], top6, plValg)).toEqual(src.puljeScore(['A', 'B', 'C'], top6, plValg));
+    const kampe = [
+      { home: 'A', away: 'B', homeGoals: 2, awayGoals: 0 },
+      { home: 'C', away: 'D', homeGoals: 0, awayGoals: 1 },
+    ];
+    expect(bundTeams(kampe, 2)).toEqual(src.bundTeams(kampe, 2));
+    for (const g of [{ pulje: { poolSize: 6 } }, { pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe', tabelDeling: false } }, {}]) {
+      expect(puljeKonfig(g)).toEqual(src.puljeKonfig(g));
+    }
+    // Superligaens LITERALE dokument giver PRÆCIS dagens adfærd — bliver
+    // dette bånd rødt, har en default flyttet sig under SL.
+    expect(puljeKonfig({ pulje: { poolSize: 6 } })).toMatchObject({
+      poolSize: 6, nedSize: 0, perTeam: 4, perfectBonus: 10, facitKilde: 'officiel', tabelDeling: true,
+    });
     // Odds + Elo identisk med frontend-biblioteket.
     const args = { eloHome: 1623, eloAway: 1458 };
     expect(outcomeOdds(args)).toEqual(src.outcomeOdds(args));

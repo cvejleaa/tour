@@ -10,7 +10,7 @@
 
 const {
   scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeOdds,
-  championshipTeams, puljeScore, round1,
+  championshipTeams, bundTeams, puljeScore, puljeKonfig, round1,
 } = require('./superligaScoring');
 // Gaten — hvor spillet begynder. Ét modul, spejlet til klienten, fordi den
 // beslutning før lå fem steder i DEN HER fil alene.
@@ -356,16 +356,29 @@ async function snapshotRoundRanks(db, FieldValue, gameId) {
 }
 
 /**
- * Top-6 (mesterskabsspil) fra den OFFICIELLE stilling — kun hvis stillingen er
- * synket helt igennem grundspillet (hvert hold har spillet `expectedPlayed`).
- * Returnerer null hvis stillingen mangler/ikke er komplet (så kalderen kan bruge
- * en beregnet fallback).
+ * Er et pulje-tip KOMPLET efter spillets konfiguration? Bruges af admin-
+ * status (gamePuljeStatus): med to spørgsmål (PL) må et halvt svar aldrig
+ * tælle som "har tippet" — så springer ryk-mailen netop dem over, den er til
+ * for (QC-fund). Bor HER og ikke i index.js, fordi index.js ikke unit-testes.
+ */
+function puljeTipKomplet(bet, konfig) {
+  const k = konfig || { poolSize: 6, nedSize: 0 };
+  if (!Array.isArray(bet?.championship) || bet.championship.length !== k.poolSize) return false;
+  if (k.nedSize > 0 && (!Array.isArray(bet?.relegation) || bet.relegation.length !== k.nedSize)) return false;
+  return true;
+}
+
+/**
+ * Toppen fra den OFFICIELLE stilling — kun hvis stillingen er synket helt
+ * igennem sæsonen (hvert hold har spillet `expectedPlayed`). Returnerer null
+ * hvis stillingen mangler/ikke er komplet (så kalderen kan bruge en beregnet
+ * fallback). Generaliseret fra det hårdkodede top-6/12-hold (opgave #8).
  * @returns {string[]|null}
  */
-function officialTop6(standings, expectedPlayed) {
-  if (!Array.isArray(standings) || standings.length < 12) return null;
+function officielTop(standings, expectedPlayed, poolSize, antalHold) {
+  if (!Array.isArray(standings) || standings.length < antalHold) return null;
   if (expectedPlayed && !standings.every((r) => Number(r.played) === expectedPlayed)) return null;
-  return standings.filter((r) => Number(r.rank) >= 1 && Number(r.rank) <= 6 && r.teamName)
+  return standings.filter((r) => Number(r.rank) >= 1 && Number(r.rank) <= poolSize && r.teamName)
     .map((r) => r.teamName);
 }
 
@@ -396,23 +409,49 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   // her mod en top-6 af Premier Leagues tabel. Bonuspoint i en liga uden
   // pulje, én tastefejl væk. CLAUDE.md: serveren er eneste autoritet.
   const gameSnap = await gameRef.get();
-  if (!gameSnap.exists || !gameSnap.data().pulje) {
+  const konfig = puljeKonfig(gameSnap.exists ? gameSnap.data() : null);
+  if (!konfig) {
     console.log(`settlePuljeBets(${gameId}): spillet har ingen pulje — ${puljeSnap.size} tip afregnes IKKE.`);
     return { settled: 0, ingenPulje: true };
   }
-  // Top-6 fra den OFFICIELLE stilling (autoritativ); beregnet tabel kun som
-  // fallback, hvis stillingen ikke er synket helt igennem grundspillet.
-  const standings = gameSnap.data().standings;
   const gated = gatedIds(matches, gameSnap.data());
-  const expectedPlayed = matches.length % 6 === 0 ? matches.length / 6 : null;
-  const top6 = new Set(officialTop6(standings, expectedPlayed) || championshipTeams(matches));
+  // Kampe pr. runde = antal hold / 2. Formlen var før hårdkodet til 6 (12
+  // hold): for PL's 20 hold gav den 30 forventede kampe pr. hold i stedet for
+  // 18, så den officielle stilling ALDRIG blev godkendt, og fallbacken bar
+  // afregningen ved et held (QC-fund). Udledes nu af spillets egen holdliste.
+  const antalHold = Array.isArray(gameSnap.data().teams) && gameSnap.data().teams.length >= 2
+    ? gameSnap.data().teams.length : 12;
+  const kampePrRunde = antalHold / 2;
+  const expectedPlayed = matches.length % kampePrRunde === 0 ? matches.length / kampePrRunde : null;
+
+  // Facit-kilden er et EKSPLICIT valg (QC-fund — heldet ovenfor må ikke være
+  // valget): 'officiel' (SL) bruger standings med beregnet fallback;
+  // 'egneKampe' (PL-efterår) beregner ALTID af spillets egne kampe og rører
+  // aldrig standings — et halvsæson-spil må ikke kunne genafregnes mod
+  // forårets officielle tabel og tavst overskrive december-resultatet.
+  const standings = gameSnap.data().standings;
+  const top = new Set(konfig.facitKilde === 'egneKampe'
+    ? championshipTeams(matches, konfig.poolSize)
+    : (officielTop(standings, expectedPlayed, konfig.poolSize, antalHold)
+      || championshipTeams(matches, konfig.poolSize)));
+  const bund = konfig.nedSize > 0 ? new Set(bundTeams(matches, konfig.nedSize)) : null;
+
   const batch = db.batch();
   const uids = [];
   for (const d of puljeSnap.docs) {
-    const { correct, points } = puljeScore(d.data().championship, top6);
-    batch.update(d.ref, { correct, points });
+    const valg = { antal: konfig.poolSize, perTeam: konfig.perTeam, perfectBonus: konfig.perfectBonus };
+    const { correct, points } = puljeScore(d.data().championship, top, valg);
+    // Bundspørgsmålet skrives KUN når spillet har et — SL-dokumenter får
+    // ingen nye felter. Facit-kortet i fladen viser de to spørgsmål hver for
+    // sig, så bonusPoints-summen har en forklaring (QC-krav).
+    const ned = bund
+      ? puljeScore(d.data().relegation, bund, { ...valg, antal: konfig.nedSize })
+      : null;
+    batch.update(d.ref, ned
+      ? { correct, points, nedCorrect: ned.correct, nedPoints: ned.points }
+      : { correct, points });
     const playerRef = db.collection('games').doc(gameId).collection('players').doc(d.id);
-    batch.set(playerRef, { bonusPoints: points }, { merge: true });
+    batch.set(playerRef, { bonusPoints: points + (ned ? ned.points : 0) }, { merge: true });
     uids.push(d.id);
   }
   await batch.commit();
@@ -637,5 +676,5 @@ module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo, rescoreAllBets,
   dryRunFraKald,
   computeRanks, snapshotRoundRanks,
-  settlePuljeBets, officialTop6, gatedIds, recomputeAllPlayerTotals,
+  settlePuljeBets, officielTop, puljeTipKomplet, gatedIds, recomputeAllPlayerTotals,
 };

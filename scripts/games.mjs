@@ -86,8 +86,27 @@ export const GAMES = [
     type: 'football', status: 'open', joinable: false,
     season: '2026-27', order: 4,
     sync: { provider: 'pulselive', competitionId: 8, season: 2026 },
-    // INTET pulje-felt. Premier League har ingen mesterskabs-/nedrykningsspil,
-    // så der er ikke noget at tippe om. Superligaens pulje er en egenskab ved
-    // DEN liga, ikke ved fodbold.
+    // 🎄 JULETABELLEN (#8): to sæson-spørgsmål — hvem sidder i top 4, og hvem
+    // hænger i nedrykningszonen, når efterårets 18 runder er spillet. Facit er
+    // spillets EGEN sluttabel ('egneKampe'): et halvsæson-spil må aldrig
+    // afregnes mod forårets officielle tabel. tabelDeling: false — PL's tabel
+    // er flad; puljen er et tip, ikke et liga-format (QC-fund).
+    //
+    // VIGTIGT VED SEED: pulje og puljeLockAt skrives i SAMME kørsel — konfig
+    // uden deadline viser en fane, hvor rules afviser alle skrivninger. Og
+    // puljeLockAt SKAL ligge før runde 3 (PULJE_MAKS_STARTRUNDE=3: ligaer med
+    // senere startrunde mister ellers bonussen tavst — spilfører-afgørelse).
+    // Datoen herunder er et FORSLAG; ejeren bekræfter ved seed-kørslen.
+    pulje: {
+      poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10,
+      facitKilde: 'egneKampe', tabelDeling: false,
+      labels: {
+        overskrift: '🎄 Juletabellen',
+        top: 'top 4 juleaften',
+        ned: 'nedrykningszonen juleaften',
+        facit: 'stillingen, når alle efterårets 18 runder er spillet',
+      },
+    },
+    puljeLockAt: new Date('2026-09-11T18:55:00+02:00'),
   },
 ];

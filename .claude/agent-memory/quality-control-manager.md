@@ -592,3 +592,63 @@ Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
   rækker, for det skete aldrig automatisk. Ikke en fejl (handlingen virker),
   men en tekst der antyder en hændelse, der ikke fandt sted. Værd at
   overveje en anden formulering, hvis det generer i praksis.
+
+## Ret liga-spørgsmål (#40, plan-gennemgang): indsatsen kan hæves EFTER kortene er vist
+
+- **Point-rettelse efter deadline er "kortene kan ikke lukkes igen" med
+  indsatsen i stedet for kortet.** `firestore.rules:1049-1064` åbner ALLE svar
+  for læsning, så snart deadline er passeret — og update-grenen (`:1017`)
+  tillader `points` 1-100 ubetinget, også bagefter. Ejeren kan altså se hvem
+  der vandt og derefter skrue spørgsmålet fra 5 til 100 point. Fladen skal
+  gate point-feltet med NØJAGTIG samme betingelse som ✕-knappen
+  (`!locked && !settled`, `LeagueQuestions.jsx:127`). Generelt: **spørg altid,
+  om et felt sætter INDSATSEN, og om den kan røres efter udfaldet er kendt.**
+- **`lqPoints(q)` læses live i `GameLeagues.jsx:132`** → et rettet point-tal
+  ændrer liga-stillingen for alle medlemmer med tilbagevirkende kraft, uden
+  spor og uden besked.
+- **Bottens væg-opslag er UFORANDERLIGT og indeholder både point og label**
+  (`leagueQuestionRecap.js:83` bager `lqPoints` + `label` ind i teksten;
+  `messages` har `allow update: if false`, rules ~965). Og `LeagueQuestions`
+  renderes direkte over `LeagueWall` i samme kort. En rettelse af tal eller
+  tekst modsiger derfor et opslag få centimeter under sig — kampkort-fælden
+  igen. Label-rettelse er stadig OK (påvirker ikke scoring), men nævn prisen.
+- **Deadline fra null må sættes til ENHVER værdi, også fortiden** (rules:1027,
+  `resource.data.get('deadline', null) == null` er en betingelsesfri gren).
+  Konsekvensen er øjeblikkelig OG uigenkaldelig: `settledQuestionIds()` tager
+  spørgsmålet med, abonnementet på andres svar åbner, alle ser alt — og
+  bagefter kan deadline aldrig rettes (gren 3 kræver ikke-passeret gammel
+  deadline), aldrig fjernes, og spørgsmålet kan ikke slettes (`:1041`). Én
+  tastefejl i årstallet lukker spørgsmålet for evigt. **Fortids-spærring skal
+  ligge i handlingen, ikke kun i `min`** — browseren håndhæver `min` kun ved
+  formular-submit og slet ikke ved programmatisk værdi.
+- **ms → datetime-local skal være LOKAL tid.** `toISOString().slice(0,16)` er
+  UTC og rammer 1-2 timer forkert i DK; sat som `min` accepterer browseren et
+  tidspunkt FØR den rigtige deadline → rules afviser → knap der fejler
+  garanteret. Mønsteret findes ALLEREDE to gange, identisk:
+  `toLocalInput(ms)` i `GameScheduleTab.jsx:29` og `tsToLocalInput(ts)` i
+  `LeagueBonus.jsx:24`. Tredje kopi er én for meget → `src/lib/daDate.js`.
+  Bemærk: opret-formen i `LeagueQuestions.jsx:363` bruger kun den MODSATTE
+  retning (`new Date(str).getTime()`), så "mønsteret findes i samme fil" er
+  kun det halve mønster.
+- **Update-grenen begrænser hverken `label`-længde eller `type`** (create gør
+  begge). `type`-skift `text` → `number` efter deadline ville lade ejeren
+  aktivere "nærmest vinder"-scoringen med alle svar i hånden — så et
+  type-felt i en redigeringsform er en cheat-vej, ikke en bekvemmelighed.
+  Skriv udeladelsen ned som en beslutning, ikke en forglemmelse.
+- **Update-reglen kræver `points is number` i RESULTATET.** En patch, der kun
+  rører label, arver feltet — men mangler feltet på dokumentet, viser
+  `lqPoints`-fallbacken "5 point" i en række, hvis gem-knap altid fejler. Send
+  altid `points: lqPoints(q)` med. Generelt: **en update-regel, der validerer
+  et felt patchen ikke rører, gør fallback-visninger til usynlige spærringer.**
+- **`deadlinePassed()` bruger `Date.now()` beregnet ved render** og rækken
+  opdaterer sig ikke selv → en "Udskyd"-form kan stå åben, efter serverens
+  `request.time` er forbi. `permission-denied` skal have forskellig dansk
+  tekst alt efter, hvad formen forsøgte (deadline vs. tekst/point).
+- **Væggen notificerer stadig ingen** (ingen `onDocumentCreated` i
+  `functions-platform/index.js`). En deadline sat på et spørgsmål, folk
+  allerede har svaret på, ses kun af den, der tilfældigvis kigger — værst for
+  den, der endnu ikke har svaret og mister chancen tavst. Billig ærlig
+  lukning: kvittering + "Skriv på væggen"-knap, der kalder det eksisterende
+  `postLeagueMessage`. Ingen ny kanal, ingen ny sikkerhedsgennemgang.
+- **Én tekst kan ikke dække både "sæt" og "udskyd".** "Deadline kan kun
+  udskydes" er meningsløs over et felt, der hedder "Sæt deadline". Del i to.

@@ -149,7 +149,8 @@ describe('Superliga-stillingen', () => {
 
 describe('Pulje-tippet', () => {
   it('viser visningsnavnet på knapperne', () => {
-    const { container } = render(<PuljeTip game={SPIL} matches={[]} />);
+    // PuljeTip er konfigurations-gated (#8) — uden pulje renderer den intet.
+    const { container } = render(<PuljeTip game={{ ...SPIL, pulje: { poolSize: 6 } }} matches={[]} />);
     const navne = [...container.querySelectorAll('.pulje-team__name')].map((e) => e.textContent);
     expect(navne).toContain('Nordsjælland');
     expect(navne).toContain('Brøndby');

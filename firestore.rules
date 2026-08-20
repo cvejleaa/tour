@@ -767,26 +767,53 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // games/{gameId}/puljeBets/{uid} — pulje-tip (mesterskabsspil-forudsigelse).
-      // Præcis 6 hold, kun FØR deadline (game.puljeLockAt). points/correct sættes
-      // kun af serveren. Eget tip kan altid læses; andres først EFTER deadline.
+      // games/{gameId}/puljeBets/{uid} — pulje-tip (sæson-forudsigelse).
+      // Antal hold styres af spillets pulje-konfiguration (game.pulje —
+      // Superligaens {poolSize:6} betyder 6; PL: 4 i top + 3 i bund). Kun FØR
+      // deadline (game.puljeLockAt). points/correct/nedPoints/nedCorrect
+      // sættes kun af serveren. Eget tip kan altid læses; andres først EFTER
+      // deadline. BEMÆRK: manglende nøgler læses med .get(nøgle, default) —
+      // et opslag på en manglende nøgle er en evalueringsfejl, ikke null.
       match /puljeBets/{uid} {
+        function spil() {
+          return get(/databases/$(database)/documents/games/$(gameId)).data;
+        }
         function gameLock() {
+          // BEVIDST direkte opslag (IKKE .get med default): mangler feltet,
+          // er det en evalueringsfejl, og HELE reglen fejler LUKKET — både
+          // skrivning og andres-læsning. Med en null-default ville et spil
+          // uden deadline åbne alles tips for læsning (!beforeDeadline()).
           return get(/databases/$(database)/documents/games/$(gameId)).data.puljeLockAt;
         }
         function beforeDeadline() {
           return gameLock() != null && request.time < gameLock();
         }
+        function poolSize() {
+          return spil().get('pulje', {}).get('poolSize', 0);
+        }
+        function nedSize() {
+          return spil().get('pulje', {}).get('nedSize', 0);
+        }
         allow read: if (isSignedIn() && request.auth.uid == uid)
           || (isApproved() && !beforeDeadline());
+        // Har spillet et bundspørgsmål (nedSize > 0), skal BEGGE lister med i
+        // samme skrivning — et halvt svar ville få admin-status til at kalde
+        // spilleren "færdig" og ryk-mailen til at springe hen over (QC-fund).
+        // Og et hold kan ikke stå i toppen og bunden samtidig.
         allow create, update: if isApproved()
           && request.auth.uid == uid
           && request.resource.data.uid == uid
           && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
           && beforeDeadline()
           && request.resource.data.championship is list
-          && request.resource.data.championship.size() == 6
-          && !request.resource.data.keys().hasAny(['points', 'correct']);
+          && poolSize() > 0
+          && request.resource.data.championship.size() == poolSize()
+          && (nedSize() == 0
+            ? !request.resource.data.keys().hasAny(['relegation'])
+            : (request.resource.data.relegation is list
+              && request.resource.data.relegation.size() == nedSize()
+              && !request.resource.data.championship.hasAny(request.resource.data.relegation)))
+          && !request.resource.data.keys().hasAny(['points', 'correct', 'nedPoints', 'nedCorrect']);
         allow delete: if false;
       }
 

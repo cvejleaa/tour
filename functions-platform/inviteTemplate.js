@@ -95,8 +95,14 @@ function invitationsFejl({ template, joinLink, gameId, appUrl = 'https://tip.vej
  * mail er værre end et kort uden billede.
  */
 function ligaProfil(game) {
-  const harPulje = !!game?.pulje;
-  const poolSize = Number(game?.pulje?.poolSize) || 6;
+  // Hele den normaliserede konfiguration med — kortteksten skal kunne sige
+  // top/bund/point rigtigt for BÅDE SL (6, mesterskabsspillet) og PL (4+3,
+  // Juletabellen). Uden spil-dokument (bagudkompatibel superliga-gren)
+  // antages SL-standard.
+  const pulje = require('./superligaScoring').puljeKonfig(game)
+    || (game ? null : require('./superligaScoring').puljeKonfig({ pulje: { poolSize: 6 } }));
+  const harPulje = !!pulje;
+  const poolSize = pulje ? pulje.poolSize : 6;
   // typeof-vagter, ikke String(...): et lovligt Firestore-map {toString:null}
   // ville få String() til at kaste (Security-PoC). Loftet spejler leagueName.
   const spilNavn = typeof game?.name === 'string' ? game.name.slice(0, 60) : '';
@@ -113,6 +119,7 @@ function ligaProfil(game) {
       chip3: efteraar ? '&#128197; 18 runder &mdash; afgjort til jul' : '&#127942; Kun &aelig;re p&aring; spil',
       harPulje,
       poolSize,
+      pulje,
       // Ægte PL-screenshot (ejerens, runde 1, beskåret til kun de to
       // kampkort) — committet i public/salgstale/, ellers måtte stien ikke
       // stå her. NYT filnavn ved hver ny udgave: Gmails billed-proxy cacher
@@ -134,6 +141,7 @@ function ligaProfil(game) {
       chip3: '&#127942; Kun &aelig;re p&aring; spil',
       harPulje,
       poolSize,
+      pulje,
       rundeImg: null,
       puljeImg: null,
     };
@@ -145,6 +153,7 @@ function ligaProfil(game) {
     chip3: '&#127942; Kun &aelig;re p&aring; spil',
     harPulje: game ? harPulje : true,
     poolSize,
+    pulje,
     rundeImg: 'salgstale/runde.png',
     puljeImg: 'salgstale/pulje.png',
   };
@@ -202,7 +211,7 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
       featureRow({ n: 1, title: 'Runde-bonus &#127920;', text: 'Oddsene p&aring; de kampe, du rammer, ganges sammen, og du f&aring;r 2 &times; kvadratroden af produktet i bonus &mdash; h&oslash;jst 25 point. Det t&aelig;ller fra to rigtige og opefter, og en glemt kamp koster dig ikke bonussen.' }),
       featureRow({ n: 2, title: 'Chancen &#9889;', text: 'Hvis du f&oslash;ler dig HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af rundens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.' }),
       l.harPulje
-        ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `S&aelig;sonens store bonuspot: udpeg de <b>${l.poolSize} hold</b>, du tror ender i mesterskabsspillet. <b>+4 point</b> pr. rigtigt hold og <b>+10 bonus</b> for alle ${l.poolSize} &mdash; afgjort til allersidst, s&aring; det kan vende hele stillingen.`, last: true })
+        ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `S&aelig;sonens store bonuspot: udpeg de <b>${l.pulje.poolSize} hold</b>, du tror st&aring;r i ${esc(l.pulje.labels.top)}${l.pulje.nedSize > 0 ? ` &mdash; og de <b>${l.pulje.nedSize}</b>, du tror h&aelig;nger i ${esc(l.pulje.labels.ned)}` : ''}. <b>+${l.pulje.perTeam} point</b> pr. hold, der st&aring;r rigtigt${l.pulje.perfectBonus > 0 ? `, og <b>+${l.pulje.perfectBonus} bonus</b> for en perfekt r&aelig;kke` : ''} &mdash; afgjort til allersidst, s&aring; det kan vende hele stillingen.`, last: true })
         : featureRow({ n: 3, title: 'Liga-sp&oslash;rgsm&aring;l &#127942;', text: 'Ligaens egen joker: liga-admin stiller sp&oslash;rgsm&aring;l (&quot;hvem bliver topscorer?&quot;), I svarer f&oslash;r deadline &mdash; og pointene falder, n&aring;r facit kendes, s&aring; de kan vende stillingen sent.', last: true }),
     ].join(''),
     img: l.harPulje && l.puljeImg ? `${appUrl}/${l.puljeImg}` : null,

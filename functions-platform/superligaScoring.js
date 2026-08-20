@@ -273,17 +273,60 @@ function championshipTeams(matches, poolSize = PULJE.POOL_SIZE) {
   return leagueTable(matches).slice(0, poolSize).map((r) => r.name);
 }
 
-function puljeScore(championshipPick, actualTop6) {
-  const top = actualTop6 instanceof Set ? actualTop6 : new Set(actualTop6 || []);
-  const picks = Array.isArray(championshipPick) ? [...new Set(championshipPick)] : [];
-  const correct = picks.filter((t) => top.has(t)).length;
-  const perfect = correct === PULJE.POOL_SIZE && picks.length === PULJE.POOL_SIZE;
-  const points = correct * PULJE.PER_TEAM + (perfect ? PULJE.PERFECT_BONUS : 0);
+function puljeScore(picks, facitSaet, { antal = PULJE.POOL_SIZE, perTeam = PULJE.PER_TEAM, perfectBonus = PULJE.PERFECT_BONUS } = {}) {
+  const top = facitSaet instanceof Set ? facitSaet : new Set(facitSaet || []);
+  const valgte = Array.isArray(picks) ? [...new Set(picks)] : [];
+  const correct = valgte.filter((t) => top.has(t)).length;
+  const perfect = correct === antal && valgte.length === antal;
+  const points = correct * perTeam + (perfect ? perfectBonus : 0);
   return { correct, points };
 }
 
+/** De nederste n hold ud fra slutstillingen (bundspørgsmålet, fx PL's bund 3). */
+function bundTeams(matches, n) {
+  const rows = leagueTable(matches);
+  return rows.slice(Math.max(0, rows.length - n)).map((r) => r.name);
+}
+
+/**
+ * Normalisér spillets pulje-konfiguration. Superligaens LITERALE dokument er
+ * `{ poolSize: 6 }` — alle defaults herunder er valgt, så netop dét dokument
+ * giver præcis dagens adfærd (6/4/10, officiel facitkilde, delt tabel, ingen
+ * bund-pulje). null når spillet ingen pulje har.
+ *
+ * Nøglerne er FLADE (på nær labels), fordi firestore.rules skal kunne læse
+ * tallene med .get('pulje', {}).get('poolSize', 0).
+ */
+function puljeKonfig(game) {
+  const p = game && game.pulje;
+  if (!p) return null;
+  const tal = (v, fallback) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : fallback);
+  const labels = (p.labels && typeof p.labels === 'object') ? p.labels : {};
+  return {
+    poolSize: tal(p.poolSize, PULJE.POOL_SIZE),
+    nedSize: tal(p.nedSize, 0), // 0 = intet bundspørgsmål (Superligaen)
+    perTeam: tal(p.perTeam, PULJE.PER_TEAM),
+    perfectBonus: Number.isFinite(Number(p.perfectBonus)) && Number(p.perfectBonus) >= 0
+      ? Number(p.perfectBonus) : PULJE.PERFECT_BONUS,
+    // 'officiel': facit fra game.standings (Superligaen — grundspillet slutter
+    // med den officielle tabel). 'egneKampe': facit BEREGNES af spillets egne
+    // kampe og rører ALDRIG standings — et halvsæson-spil (PL-efterår) må
+    // ikke kunne genafregnes mod forårets officielle tabel (QC-fund).
+    facitKilde: p.facitKilde === 'egneKampe' ? 'egneKampe' : 'officiel',
+    // Deler tabellen sig i mesterskabs-/nedrykningsspil (SL), eller er den
+    // flad (PL)? Puljen på PL må ikke flippe Tabel-fanen (QC-fund).
+    tabelDeling: p.tabelDeling === undefined ? true : !!p.tabelDeling,
+    labels: {
+      overskrift: typeof labels.overskrift === 'string' ? labels.overskrift : '🏆 Pulje-tip',
+      top: typeof labels.top === 'string' ? labels.top : 'mesterskabsspillet',
+      ned: typeof labels.ned === 'string' ? labels.ned : 'nedrykningsspillet',
+      facit: typeof labels.facit === 'string' ? labels.facit : 'grundspillets slutstilling',
+    },
+  };
+}
+
 module.exports = {
-  PULJE, leagueTable, championshipTeams, puljeScore,
+  PULJE, leagueTable, championshipTeams, puljeScore, bundTeams, puljeKonfig,
   OUTCOME, OUTCOMES, DEFAULT_POINTS, COMBI, ELO, ODDS, CHANCE,
   isOutcome, outcomeFromScore, round1, outcomeReward, outcomePoints, roundComboBonus,
   hitPoints, TRAEF_BONUS,

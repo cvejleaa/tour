@@ -44,7 +44,10 @@ Liga-admin følger med at have oprettet ligaen.
   ikke, giver ingen point og udløser ingen påmindelser — så en sæson kan starte
   midt i, fx fra runde 2.
 - **Bonus-deadline** lukker pulje-tippet. Den behøver ikke ligge før runde 1;
-  giv gerne tid til at få spillere med.
+  giv gerne tid til at få spillere med. **Men aldrig senere end runde 3:**
+  ligaer med senere startrunde tæller ikke puljebonussen med (den blev tippet
+  før deres start), så en deadline efter runde 3 ville tage bonuspoint fra
+  ligaer, der ellers kunne have været med.
 - **🏁 Status** er spillets livscyklus og et bevidst valg — den følger *ikke*
   automatisk starttidspunktet eller sidste kamp:
 

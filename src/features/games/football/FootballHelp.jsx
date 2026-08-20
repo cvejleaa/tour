@@ -5,7 +5,7 @@
  */
 import { Link } from 'react-router-dom';
 import GameTabLink from '../GameTabLink';
-import { CHANCE, COMBI, PULJE, ELO, ODDS, roundComboBonus, TRAEF_BONUS } from '../../../lib/superligaScoring';
+import { CHANCE, COMBI, ELO, ODDS, puljeKonfig, roundComboBonus, TRAEF_BONUS } from '../../../lib/superligaScoring';
 import { PULJE_MAKS_STARTRUNDE } from '../../../lib/ligaPoint';
 import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
@@ -58,6 +58,10 @@ function Tab({ children, fane }) {
 // forklarede den pulje-tippet og Superligaens tabel-deling i Premier
 // League-spillet — en regelbog for et andet spil, to klik fra fanerne.
 export default function FootballHelp({ game }) {
+  // Pulje-tal og -ord kommer fra spillets konfiguration — SL siger
+  // 'mesterskabsspillet', PL 'Juletabellen'; hardkodede 6-taller ville lyve
+  // i det ene af spillene (QC-fund på planen).
+  const pulje = puljeKonfig(game);
   return (
     <div>
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1rem', fontSize: '0.95rem' }}>
@@ -291,10 +295,11 @@ export default function FootballHelp({ game }) {
         {game?.standings && (
           <>
             {' '}<Tab fane="tabel">⚽ Tabel</Tab>
-            {game?.pulje ? (
+            {pulje?.tabelDeling ? (
               <>
-                {' '}viser den <strong>officielle Superliga-stilling</strong> (hentet direkte fra ligaen), delt op i
-                mesterskabsspil (top 6) og nedrykningsspil (bund 6). Det er den, pulje-tippet afgøres på.
+                {' '}viser den <strong>officielle stilling</strong> (hentet direkte fra ligaen), delt op i
+                mesterskabsspil (top {pulje.poolSize}) og nedrykningsspil (bund {pulje.poolSize}). Det er den,
+                pulje-tippet afgøres på.
               </>
             ) : (
               <>
@@ -350,13 +355,15 @@ export default function FootballHelp({ game }) {
 
       {/* Kun spil MED pulje (samme gate som selve fanen i GamePage). En guide,
           der forklarer en fane, spillet ikke har, er en forkert regelbog. */}
-      {game?.pulje && (
+      {pulje && (
         <Section emoji="🎖️" title="Bonus: pulje-tip">
-          På <Tab fane="pulje">🎖️ Pulje</Tab> forudsiger du, hvilke <strong>{PULJE.POOL_SIZE} hold</strong> der ender i
-          <strong> mesterskabsspillet</strong> efter grundspillet (de øvrige 6 ryger i nedrykningsspillet).
-          Hvert rigtigt hold giver <strong>+{PULJE.PER_TEAM} point</strong>, og rammer du alle{' '}
-          {PULJE.POOL_SIZE}, får du <strong>+{PULJE.PERFECT_BONUS}</strong> i bonus. Deadline sættes af
-          arrangøren og vises på fanen.
+          På <Tab fane="pulje">🎖️ Pulje</Tab> forudsiger du de <strong>{pulje.poolSize} hold</strong>, der står i
+          <strong> {pulje.labels.top}</strong>
+          {pulje.nedSize > 0 && <> — og de <strong>{pulje.nedSize}</strong>, der hænger i <strong>{pulje.labels.ned}</strong></>}.
+          Afgøres på {pulje.labels.facit}: hvert hold, der står rigtigt, giver
+          {' '}<strong>+{pulje.perTeam} point</strong>
+          {pulje.perfectBonus > 0 && <>, og en perfekt række giver <strong>+{pulje.perfectBonus}</strong> i bonus</>}.
+          Deadline sættes af arrangøren og vises på fanen.
         </Section>
       )}
 

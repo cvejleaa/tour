@@ -2704,6 +2704,78 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
     });
   });
 
+  // --- puljeBets: antal hold styres af spillets pulje-konfiguration (#8) ----
+  // Superligaens LITERALE dokument er {poolSize: 6} — den form SKAL blive ved
+  // med at betyde "6 hold, intet bundspørgsmål". PL: {poolSize:4, nedSize:3}
+  // kræver BEGGE lister i samme skrivning, uden overlap.
+  describe('games/{g}/puljeBets/{uid} — konfigurationsstyret form', () => {
+    const OM_EN_TIME = Timestamp.fromMillis(Date.now() + 3600e3);
+    async function seedPuljeSpil(gameId, pulje) {
+      await createUser('pb1', 'player', 'approved');
+      await createGame(gameId, { pulje, puljeLockAt: OM_EN_TIME });
+      await seedMembership(gameId, 'pb1');
+    }
+    const pDoc = (gameId) => doc(
+      testEnv.authenticatedContext('pb1').firestore(),
+      'games', gameId, 'puljeBets', 'pb1',
+    );
+    const HOLD = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+    it('SL-formen {poolSize:6}: præcis 6 hold, og relegation AFVISES', async () => {
+      await seedPuljeSpil('pb-sl', { poolSize: 6 });
+      await assertSucceeds(setDoc(pDoc('pb-sl'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      await assertFails(setDoc(pDoc('pb-sl'), { uid: 'pb1', championship: HOLD.slice(0, 4) }));
+      await assertFails(setDoc(pDoc('pb-sl'), {
+        uid: 'pb1', championship: HOLD.slice(0, 6), relegation: ['X', 'Y', 'Z'],
+      }));
+    });
+
+    it('PL-formen {poolSize:4, nedSize:3}: 4+3 accepteres — 6, halvt svar og overlap afvises', async () => {
+      await seedPuljeSpil('pb-pl', { poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10, facitKilde: 'egneKampe', tabelDeling: false });
+      await assertSucceeds(setDoc(pDoc('pb-pl'), {
+        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y', 'Z'],
+      }));
+      await assertFails(setDoc(pDoc('pb-pl'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      // Halvt svar: kun toppen — QC-fund: admin-status ville kalde det "færdigt".
+      await assertFails(setDoc(pDoc('pb-pl'), { uid: 'pb1', championship: HOLD.slice(0, 4) }));
+      // Overlap: et hold kan ikke stå i top 4 OG bund 3.
+      await assertFails(setDoc(pDoc('pb-pl'), {
+        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['A', 'Y', 'Z'],
+      }));
+    });
+
+    it('server-felterne (points/correct/nedPoints/nedCorrect) kan ikke smugles med', async () => {
+      await seedPuljeSpil('pb-sv', { poolSize: 4, nedSize: 3 });
+      await assertFails(setDoc(pDoc('pb-sv'), {
+        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y', 'Z'], nedPoints: 99,
+      }));
+    });
+
+    it('spil UDEN pulje-konfiguration afviser tip, selv med deadline sat', async () => {
+      // Fælden fra settlePuljeBets-kommentaren: puljeLockAt på et spil uden
+      // pulje. poolSize() falder til 0, og size()==0 kan aldrig opfyldes.
+      await createUser('pb1', 'player', 'approved');
+      await createGame('pb-tom', { puljeLockAt: OM_EN_TIME });
+      await seedMembership('pb-tom', 'pb1');
+      await assertFails(setDoc(pDoc('pb-tom'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      await assertFails(setDoc(pDoc('pb-tom'), { uid: 'pb1', championship: [] }));
+    });
+
+    it('uden deadline kan hverken skrives eller læses andres (fejler lukket)', async () => {
+      await createUser('pb1', 'player', 'approved');
+      await createUser('pb2', 'player', 'approved');
+      await createGame('pb-nolock', { pulje: { poolSize: 6 } });
+      await seedMembership('pb-nolock', 'pb1');
+      await assertFails(setDoc(pDoc('pb-nolock'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      // Andres tip: pb2 prøver at læse pb1's dokument — manglende puljeLockAt
+      // skal fejle LUKKET, ikke åbne læsningen (evalueringsfejl, ikke null).
+      await assertFails(getDoc(doc(
+        testEnv.authenticatedContext('pb2').firestore(),
+        'games', 'pb-nolock', 'puljeBets', 'pb1',
+      )));
+    });
+  });
+
   // --- 6) messages: BEGGE deltagere skal være medlemmer --------------------
   describe('messages/{id} — create', () => {
     it('KAN IKKE lukke en fremmed ind i samtalen ved at sætte to = sig selv', async () => {

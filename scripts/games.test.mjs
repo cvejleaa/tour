@@ -155,27 +155,37 @@ describe('sync — hvor facit hentes fra', () => {
   });
 });
 
-describe('pulje — hvilke spil har et mesterskabsspil at tippe om', () => {
+describe('pulje — sæson-spørgsmålene pr. spil (#8)', () => {
   // Feltets TILSTEDEVÆRELSE er signalet. GamePage.faneVises læser det, og
   // settlePuljeBets afviser at afregne uden det.
-  it('findes kun på Superligaen', () => {
-    expect(GAMES.filter((g) => g.pulje).map((g) => g.id)).toEqual(['superliga2627']);
+  it('findes på Superligaen og PL-efteråret — og ingen andre', () => {
+    expect(GAMES.filter((g) => g.pulje).map((g) => g.id).sort())
+      .toEqual(['pl2627-efteraar', 'superliga2627']);
   });
 
-  it('har en poolSize, der matcher pointreglen', async () => {
+  it('Superligaens form er det LITERALE {poolSize: 6} — normalizerens SL-bånd', async () => {
     const { PULJE } = await import('../src/lib/superligaScoring.js');
-    for (const g of GAMES.filter((x) => x.pulje)) {
-      expect(g.pulje.poolSize, g.id).toBe(PULJE.POOL_SIZE);
-      // Låst med en LITERAL også: ændres POOL_SIZE og feltet i takt, ville
-      // testen ovenfor følge med — men firestore.rules hardkoder 6 og kan
-      // ikke læse konstanten, så de to ville drive fra hinanden i stilhed.
-      expect(g.pulje.poolSize, g.id).toBe(6);
-    }
+    const sl = GAMES.find((g) => g.id === 'superliga2627');
+    // Præcis den form, puljeKonfig-defaults er kalibreret til: ændres den her,
+    // skal normalizerens defaults (og dens SL-bånd i testene) flytte med.
+    expect(sl.pulje).toEqual({ poolSize: PULJE.POOL_SIZE });
+    expect(sl.pulje.poolSize).toBe(6);
   });
 
-  it('findes IKKE på Premier League', () => {
-    for (const g of GAMES.filter((x) => x.id.startsWith('pl'))) {
-      expect(g.pulje, g.id).toBeUndefined();
+  it('PL-formen: 4+3, egne kampe som facit, flad tabel — og deadline i samme skrivning', () => {
+    const pl = GAMES.find((g) => g.id === 'pl2627-efteraar');
+    expect(pl.pulje).toMatchObject({
+      poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10,
+      facitKilde: 'egneKampe', tabelDeling: false,
+    });
+    for (const nøgle of ['overskrift', 'top', 'ned', 'facit']) {
+      expect(typeof pl.pulje.labels[nøgle], nøgle).toBe('string');
     }
+    // pulje uden puljeLockAt viser en fane, hvor rules afviser alt (QC-fund):
+    // de to felter SKAL følges ad i seedet.
+    expect(pl.puljeLockAt instanceof Date).toBe(true);
+    // Deadline før runde 3 (PULJE_MAKS_STARTRUNDE) — spilfører-afgørelsen, der
+    // holder bonussen inde for alle ligaer, der kan nå at tippe.
+    expect(pl.puljeLockAt.getTime()).toBeLessThan(new Date('2026-09-13T00:00:00Z').getTime());
   });
 });
