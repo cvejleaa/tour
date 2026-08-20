@@ -52,6 +52,19 @@ describe('mailMarkdown — sikkerhed (generate-safe)', () => {
     // Hele strengen står escaped — `&lt;img` kan ikke udføre onerror.
     expect(ud).toContain('&lt;img src=x onerror=alert(1)&gt;');
   });
+
+  // TM-fund: teksten FØR et matchet token på samme linje skal OGSÅ escapes.
+  // De øvrige sikkerhedstests rammer enten intet token (fallback-grenen) eller
+  // et token ved index 0, så `escapeHtml(rest.slice(0, m.index))` kunne fjernes
+  // i BEGGE spejlfiler samtidig uden at fejle. Her står <script> FØR en gyldig
+  // autolink-URL på samme linje: fjernes pre-token-escapen, bliver <script>
+  // et levende tag.
+  it('escaper tekst FØR et token på samme linje — <script> foran en URL forbliver escaped', () => {
+    const ud = mailMarkdown('<script>alert(1)</script> se https://x.dk');
+    expect(ud).not.toMatch(/<script/);
+    expect(ud).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(ud).toContain('<a href="https://x.dk"'); // URL'en EFTER blev stadig et link
+  });
 });
 
 describe('mailMarkdown — render (kernen)', () => {

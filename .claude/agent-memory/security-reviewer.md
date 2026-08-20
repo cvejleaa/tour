@@ -663,3 +663,33 @@ vagten i rules eller kun i vores JS? Kun rules tæller mod devtools-angriberen.*
   regex `^[A-Za-z0-9_-]{1,200}$` (slug-gameId + suffiks). Ingen loesDriftAlarmer-
   kald bruger denne type, så den auto-lukkes ikke fejlagtigt. Persisterer
   problemet, re-fyrer den daglige sync og nuller kvitteringen igen (korrekt).
+
+## Send mail: billeder + Markdown (commit ba42150, 2026-08-20) — INGEN blokerende fund
+
+- **mailMarkdown er ægte generate-safe (PoC-bekræftet).** Parser til kendte noder,
+  al brugertekst gennem `escapeHtml` (escaper `& < > " '`). Al href/src escapes
+  → attribut-breakout via `"` i URL bliver til `&quot;`, ingen on*=-injektion.
+  Link/img-regex kræver `https?://`-præfiks, så `javascript:`/`data:`/`vbscript:`
+  matcher aldrig og ender som inert escaped tekst. PoC-mønster (genbrug):
+  `node -e` med payload-liste, flag på `<script|on\w+=|javascript:|data:text` i
+  output — MEN husk at escaped tekst (`&lt;`, `&quot;`) er falsk positiv; verificér
+  manuelt at det farlige ligger i escaped tekst, ikke i live tag/attribut.
+- **Mirror-paritet skal tjekkes på RUNTIME, ikke kun tekst-diff.** src/lib-versionen
+  bruges i `dangerouslySetInnerHTML`-preview; kør begge mod samme cases og assert
+  `A(c)===B(c)`. Var identiske her.
+- **Content-Type på Storage-objekt = den validerede variabel.** uploadBroadcastImage
+  passerer SAMME `contentType` til `validerBroadcastBillede` og til `.save()`.
+  Kun 4 raster-typer (png/jpeg/gif/webp) kan gemmes → objektet kan ALDRIG serveres
+  som text/html eller image/svg+xml. Stored-XSS-vejen er lukket. Bytes sniffes IKKE,
+  men er ligegyldigt: SVG-bytes gemt som image/png serveres som image/png (broken
+  image, ingen script-eksekvering).
+- **Sti-binding:** `unik` er server-genereret (`Date.now()-randomBytes(6)`), og
+  `broadcastBilledeSti` saniterer med `[^a-zA-Z0-9_-]`-fjernelse + ext fra whitelist.
+  Klienten styrer ikke stien → ingen traversal.
+- **requireAdmin er første linje** i callablen (owner/globalAdmin), før data læses.
+  Pending/normal bruger → permission-denied.
+- **Latent (ikke blokerende):** storage.rules `allow read:if true` på broadcast/{fil}
+  giver også LIST på broadcast/ — men billederne er offentlige by-design (i massemail),
+  så kun en enumeration af allerede-offentlige URLer. Ingen sletning/cleanup →
+  betroet admin kan fylde Storage (permanent, dokumenteret). Uppercase `HTTPS://`
+  autolinker ikke (kun UX).

@@ -82,6 +82,18 @@ describe('BroadcastTab (platform) — rig tekst + billeder', () => {
     expect(preview.innerHTML).toContain('<strong>fed</strong>');
   });
 
+  // TM-fund: "Fed" skal ombryde den MARKEREDE tekst DÉR, hvor cursoren står —
+  // ikke føje til enden. Uden markering midt i teksten kunne cursor-logikken
+  // fjernes (ren append) uden at fejle.
+  it('ombryder den markerede tekst ved cursor — ikke for enden', () => {
+    render(<BroadcastTab />);
+    const ta = screen.getByTestId('broadcast-body');
+    fireEvent.change(ta, { target: { value: 'Kære alle og tak' } });
+    ta.setSelectionRange(5, 9); // markér "alle"
+    fireEvent.click(screen.getByTitle('Fed'));
+    expect(ta.value).toBe('Kære **alle** og tak');
+  });
+
   it('“Billed-URL” indsætter ![](url) — og afviser en ikke-https URL', () => {
     render(<BroadcastTab />);
     fireEvent.change(screen.getByTestId('broadcast-body'), { target: { value: '' } });

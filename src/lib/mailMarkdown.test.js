@@ -61,4 +61,12 @@ describe('mailMarkdown — klientens nye konstrukter (kort; serveren har resten)
     expect(mailMarkdown('[t](https://a.dk)')).toContain('>t</a>');
     expect(mailMarkdown('![a](https://a.dk/b.png)')).toContain('<img src="https://a.dk/b.png"');
   });
+
+  // TM-fund (spejlet): tekst FØR et token på samme linje skal også escapes.
+  it('escaper tekst FØR et token — <script> foran en URL forbliver escaped', () => {
+    const ud = mailMarkdown('<script>alert(1)</script> se https://x.dk');
+    expect(ud).not.toMatch(/<script/);
+    expect(ud).toContain('&lt;script&gt;');
+    expect(ud).toContain('<a href="https://x.dk"');
+  });
 });
