@@ -39,7 +39,7 @@ vi.mock('firebase/firestore', () => ({
   getDocs: (...a) => mockGetDocs(...a),
 }));
 
-import GameScheduleTab from './GameScheduleTab';
+import GameScheduleTab, { byggSchedulePatch } from './GameScheduleTab';
 
 const TOUR = {
   id: 'tour2026', name: 'Tour de France 2026', emoji: '🚴',
@@ -695,6 +695,16 @@ describe('rundebaseret pulje-deadline', () => {
     await waitFor(() => expect(screen.getByText(/skrev INTET/i)).toBeInTheDocument());
   });
 
+  // En grøn no-op må ikke ligne en fuldført deadline-sætning: har runden endnu
+  // ingen kampe (puljeLockFraRunde → null), returnerer serveren hverken
+  // puljeLock eller puljeLockAfvist, og teksten skal SIGE hvorfor (QC-fund).
+  it('forklarer, når deadlinen endnu ikke kan udledes (runden har ingen kampe)', async () => {
+    mockSyncKickoffs.mockResolvedValue({ ok: true, data: { dryRun: true, aendringer: [] } });
+    render(<GameScheduleTab />);
+    fireEvent.click(synkKnap());
+    await waitFor(() => expect(screen.getByText(/kunne endnu ikke udledes — runde 3 har ingen kampe/i)).toBeInTheDocument());
+  });
+
   it('advarer, når genåbnings-forbuddet afviste deadlinen', async () => {
     mockSyncKickoffs.mockResolvedValue({
       ok: true, data: { dryRun: true, aendringer: [], puljeLockAfvist: { runde: 3 } },
@@ -710,5 +720,31 @@ describe('rundebaseret pulje-deadline', () => {
     expect(screen.queryByRole('button', { name: /Synk kamptider nu/i })).not.toBeInTheDocument();
     // SL's deadline sættes stadig i hånden.
     expect(screen.getByText('🎖️ Bonus-/pulje-deadline')).toBeInTheDocument();
+  });
+
+  // Write-guarden kan IKKE bevises gennem komponenten: input-feltet rendres ikke
+  // for et runde-spil, så `puljeLockAt`-state kan aldrig afvige fra spillet, og
+  // en fjernelse af `!harPuljeRunde` i save() forblev grøn (TM-fund). Testet
+  // direkte på den rene byggSchedulePatch, hvor state KAN afvige.
+  describe('byggSchedulePatch — write-guarden på puljeLockAt', () => {
+    it('skriver ALDRIG puljeLockAt for et runde-spil, selv når state afviger', () => {
+      const patch = byggSchedulePatch({
+        game: { id: 'pl', startAt: null, startRound: 3, puljeLockAt: null },
+        startAt: '', startRound: '3',
+        puljeLockAt: '2026-09-04T18:00', // afviger fra game.puljeLockAt (null)
+        harPulje: true, harPuljeRunde: true,
+      });
+      expect(patch).not.toHaveProperty('puljeLockAt');
+    });
+
+    it('skriver puljeLockAt for et MANUELT pulje-spil, når den afviger', () => {
+      const patch = byggSchedulePatch({
+        game: { id: 'sl', startAt: null, startRound: null, puljeLockAt: null },
+        startAt: '', startRound: '',
+        puljeLockAt: '2026-09-04T18:00',
+        harPulje: true, harPuljeRunde: false,
+      });
+      expect(patch.puljeLockAt).toBe(new Date('2026-09-04T18:00').getTime());
+    });
   });
 });

@@ -45,6 +45,33 @@ function toMs(v) {
 }
 
 /**
+ * Hvilke felter et Gem skriver — KUN de faktisk ændrede. datetime-local har kun
+ * minut-præcision, så et blindt gem ville nulstille sekunderne på et startAt,
+ * ingen havde rørt (fx når man kun kom for at skifte status). Tomt felt → null.
+ *
+ * Skilt ud som ren funktion, så write-guarden på puljeLockAt kan BEVISES
+ * isoleret: et rundebaseret spil (harPuljeRunde) udleder puljeLockAt ved synken,
+ * og et Gem må ALDRIG skrive en håndsat værdi (den overskrives — eller låser
+ * genåbnings-forbuddet). UI'et rendrer slet ikke input-feltet for et runde-spil,
+ * så en komponent-test kan ikke få state til at afvige og guarden ville ellers
+ * stå ubevist (TM-fund). Her testes den direkte med en afvigende puljeLockAt.
+ */
+export function byggSchedulePatch({ game, startAt, startRound, puljeLockAt, harPulje, harPuljeRunde }) {
+  const patch = {};
+  if (startAt !== toLocalInput(toMs(game.startAt))) {
+    patch.startAt = startAt ? new Date(startAt).getTime() : null;
+  }
+  const gemtRunde = Number.isFinite(game.startRound) ? String(game.startRound) : '';
+  if (startRound !== gemtRunde) {
+    patch.startRound = startRound === '' ? null : Number(startRound);
+  }
+  if (harPulje && !harPuljeRunde && puljeLockAt !== toLocalInput(toMs(game.puljeLockAt))) {
+    patch.puljeLockAt = puljeLockAt ? new Date(puljeLockAt).getTime() : null;
+  }
+  return patch;
+}
+
+/**
  * Vælg spillets startrunde. Viser runderne MED datointerval, fordi det er
  * dét, ejeren tænker i ("vi starter efter sommerferien"), og fordi en runde
  * kan ligge spredt: Superligaens runde 3 spilles 7.-10. august bortset fra to
@@ -168,24 +195,7 @@ function GameRow({ game }) {
 
   async function save() {
     setBusy(true); setSaveMsg(null);
-    // Kun de datoer, der faktisk er ændret. datetime-local har kun
-    // minut-præcision, så et blindt gem ville nulstille sekunderne på et
-    // startAt, ingen havde rørt — fx når man kun kom for at skifte status.
-    // Tomt felt → null (ryd).
-    const patch = {};
-    if (startAt !== toLocalInput(toMs(game.startAt))) {
-      patch.startAt = startAt ? new Date(startAt).getTime() : null;
-    }
-    const gemtRunde = Number.isFinite(game.startRound) ? String(game.startRound) : '';
-    if (startRound !== gemtRunde) {
-      patch.startRound = startRound === '' ? null : Number(startRound);
-    }
-    // Kun spil med MANUEL deadline skriver feltet. Et rundebaseret spil udleder
-    // puljeLockAt ved synken, og et blindt Gem må aldrig skrive en håndsat værdi
-    // (den ville alligevel blive overskrevet — eller låse genåbnings-forbuddet).
-    if (harPulje && !harPuljeRunde && puljeLockAt !== toLocalInput(toMs(game.puljeLockAt))) {
-      patch.puljeLockAt = puljeLockAt ? new Date(puljeLockAt).getTime() : null;
-    }
+    const patch = byggSchedulePatch({ game, startAt, startRound, puljeLockAt, harPulje, harPuljeRunde });
     const res = Object.keys(patch).length ? await setGameSchedule(game.id, patch) : { ok: true };
     // Status skrives kun når den faktisk er ændret — så en gemt tidsplan ikke
     // rører ved livscyklussen.
@@ -268,6 +278,11 @@ function GameRow({ game }) {
       dele.push(`pulje-deadlinen (runde ${ud.puljeLock.runde}) ${toer ? 'ville blive sat' : 'sat'} til ${formatKickoff(ud.puljeLock.tilMs)}`);
     } else if (ud.puljeLockAfvist) {
       dele.push(`pulje-deadlinen kunne IKKE sættes: den nuværende er allerede passeret, og en genåbning ville vise alles tip. Ret puljeLockAt i Firebase-konsollen`);
+    } else if (harPuljeRunde) {
+      // Hverken sat eller afvist: runden har endnu ingen kampe med kickoff.
+      // Uden denne gren ville en grøn "0 kamptider rettet" ligne en fuldført
+      // deadline-sætning, mens feltet ovenfor stadig siger "Endnu ikke sat" (QC).
+      dele.push(`pulje-deadlinen kunne endnu ikke udledes — runde ${game.puljeLockRound} har ingen kampe med kickoff endnu`);
     }
     if (ud.mangler?.length) dele.push(`${ud.mangler.length} kilde-kampe mangler dokument`);
     if (ud.snart?.length) dele.push(`${ud.snart.length} rykket til under 48 t`);

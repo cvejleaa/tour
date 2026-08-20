@@ -715,3 +715,20 @@ Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
   farligt i praksis). Ikke mirroret til `src/lib/pointOpdeling.js` — korrekt
   undtagelse, for klienten (`PuljeTip.jsx:58`) læser kun `game.puljeLockAt`,
   den udleder aldrig selv.
+
+## Runde-udledt pulje-deadline (#8) — synk-knap i Spil-tidsplan
+
+- **Grøn kvittering på en no-op ligner succes.** `synkTekst` i
+  `GameScheduleTab.jsx` er TAVS om pulje-deadlinen, når `puljeLockFraRunde`
+  returnerer null (runden har endnu ingen kampe med kickoff). Så viser badget
+  "0 kamptider rettet." (grøn) MENS oplysnings-feltet stadig siger "Endnu ikke
+  sat" — en selvmodsigelse uden vejledning. Spørg ved enhver tør→skriv-flade:
+  hvad står der, når kernehandlingen IKKE kunne udføres, men heller ikke fejlede?
+  Teksten skal sige "kunne ikke udledes — runden har ingen kampe endnu", ikke tie.
+- **`harPuljeRunde = Number.isFinite(game.puljeLockRound)`** styrer BÅDE at
+  deadline-feltet bliver read-only OG at synk-knappen vises. Feltet leveres af
+  `useGames` som `{id, ...data()}`, så `puljeLockRound` fra `scripts/games.mjs`
+  er med. Rører man den seed-feltdefinition, forsvinder hele UI'et tavst.
+- **Placering:** knappen sidder i Spil-tidsplan ved siden af deadline-feltet den
+  påvirker; read-only-feltet peger eksplicit "kør 🗓️ Synk kamptider nu nedenfor".
+  Navnet er "kamptider", ikke "pulje-deadline", men konteksten bygger broen. OK.

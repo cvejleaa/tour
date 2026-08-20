@@ -625,3 +625,41 @@ vagten i rules eller kun i vores JS? Kun rules tæller mod devtools-angriberen.*
   genaabner-grenen logger. Men retningen er fail-closed (puljen forbliver låst,
   ikke åben), så det er tilgængelighed, ikke integritet; manglende round-kampe
   fanges desuden af `mangler`-alarmen.
+
+## NaN-hærdning af puljeLock-genåbning (commit 73639fa, #8) — BEKRÆFTET lukket
+
+- **Hullet fra forrige gennemgang er lukket (PoC, 6/6 kanter grønne).**
+  `nuEksponeret = game.puljeLockAt !== undefined && (!Number.isFinite(nuMs) ||
+  nuMs <= nowMs)` (superligaSync.js L577-578). Verificeret mod den ægte
+  `syncKickoffsCore` med fake-db, alle med rundekamp i fremtiden (nyMs>now):
+  - FRAVÆRENDE felt (`undefined`) → SKRIVER (første udledning, trygt). Rigtigt:
+    firebase-admin `.data()` giver `undefined` for et fraværende felt, `null`
+    for et null-felt — så `!== undefined` skelner dem præcist.
+  - `null` → AFVIST (var netop hullet). `kickoffMs(null)=NaN` (L43-47), fanges nu.
+  - uparselig streng → AFVIST. `0`/epoch → AFVIST (passeret). Timestamp med
+    `toMillis()=NaN` → AFVIST. Alt ikke-fremtidigt = eksponeret = fail-closed.
+  - fremtidig gyldig deadline (før eksponering) → opdateres frit. Korrekt: før
+    deadline er ingen tips synlige, så flytning i begge retninger er ufarlig.
+- **Kontroltesten holder:** rules.test.js "EFTER deadline: eget tip afvises, men
+  andres BLIVER læsbart" (den load-bearing egenskab bag forbuddet).
+- **syncGameKickoffsNow (index.js L569-591): rolle-porten holder.** owner/
+  globalAdmin (L575), ellers permission-denied — en `pending`/`player` afvises.
+  `dryRunFraKald` defaulter til SAND (skriver kun ved eksplicit `dryRun:false`).
+  gameId slås op i SYNCED_GAMES → manipuleret id afvises. Selv med dryRun:false
+  kan callablen IKKE genåbne en pulje: kernen har genåbnings-forbuddet uanset
+  kalder. Klient-UI'ens læse-only felt er kosmetik, ikke en server-vagt.
+- **LATENT (uændret, ikke-blokerende, admin er betroet):** games create/update
+  kræver kun `isGlobalAdmin()` UDEN feltguard på puljeLockAt (rules L646). En
+  admin kan `updateDoc` en vilkårlig fremtidig puljeLockAt direkte og genåbne
+  en eksponeret pulje uden om synken. Men: (a) admin er betroet (kan i forvejen
+  flytte kickoff/matches), og (b) den DAGLIGE sync heler det — næste kørsel
+  skriver nyMs = rundens ægte (passerede) tidligste kickoff, som !== den
+  manuelle fremtidsværdi og !genaabner (nuMs fremtid ⇒ nuEksponeret false), så
+  deadlinen sættes tilbage til fortiden og puljen lukker igen inden for 24t.
+- **Alarm `puljeLockGenaabning` (kraeverKvittering:true) er sund.** meldAlarm-id
+  = `gameId_puljeLockGenaabning` (kampId null filtreres væk) → stabil dedup,
+  bumper `antal` i stedet for nye docs. kvitterDriftAlarm er TYPE-AGNOSTISK
+  (sætter bare kvitteretAt på alarmId), så den KAN kvitteres; alarmId'et matcher
+  regex `^[A-Za-z0-9_-]{1,200}$` (slug-gameId + suffiks). Ingen loesDriftAlarmer-
+  kald bruger denne type, så den auto-lukkes ikke fejlagtigt. Persisterer
+  problemet, re-fyrer den daglige sync og nuller kvitteringen igen (korrekt).
