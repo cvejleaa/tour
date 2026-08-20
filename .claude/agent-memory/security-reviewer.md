@@ -520,3 +520,74 @@ tilstand, holder kun hvis dokumentet ikke kan genopstå.* Er sletning tilladt,
 og overlever børnene forælderen på deterministiske id'er, så er "må ikke
 nulstilles" i praksis "må nulstilles i to skridt". Spørg altid: hvad sker der,
 hvis ejeren SLETTER dokumentet og opretter det igen med samme id?
+
+## puljeBets konfig-styret (#8, cc7edb6) — BEKRÆFTET RENT (emulator, 21+4 tests)
+
+Reglen (firestore.rules L767-816) binder nu antal hold til `game.pulje.poolSize`/
+`.nedSize` via `.get('pulje',{}).get(nøgle,0)`. Angreb kørt mod ægte emulator
+(PoC: scratchpad/poc8/run.mjs + admin.mjs), ALLE lukket:
+- Forkert antal top (5/7/4 i et 6-spil) afvist; smugling af
+  points/correct/nedPoints/nedCorrect afvist.
+- nedSize>0 (PL 4+3): kræver BEGGE lister; kun-top afvist; forkert antal i
+  hver liste afvist; SAMME hold i top OG bund afvist (`championship.hasAny(relegation)`).
+- poolSize==0 (spil uden pulje-config): `size()==0` uopfyldelig → INTET kan gemmes.
+- Uden `puljeLockAt`: `gameLock()` (BEVIDST direkte opslag uden default) er
+  evalueringsfejl → fejler LUKKET for BÅDE skrivning OG andres-læsning
+  (bekræftet: andres tip IKKE læsbart uden lock — åbner ikke alt).
+- Læsning: eget tip altid; andres FØR deadline nægtet, EFTER deadline åbent for
+  isApproved(). Matcher intentionen.
+- INGEN admin-omgåelse: puljeBets har ingen isGlobalAdmin-gren og der er intet
+  rekursivt `{document=**}`-wildcard. globalAdmin nægtes efter deadline, forkert
+  antal, andens uid, points-smugling. Kontroltests grønne → opsætningen måler noget.
+- Repoets 213 rules-tests grønne (inkl. 10 nye puljeBets).
+
+**Type-fælde (præeksisterende, IKKE #8, men #8 gør den mere relevant nu PL bruger pulje):**
+`beforeDeadline()` sammenligner `request.time < gameLock()`. Reglen kræver at
+`puljeLockAt` er en **Timestamp**. Seed (scripts/games.mjs L110) skriver en
+`Date` → Timestamp (virker). MEN admin-UI'et GameScheduleTab.jsx L172 skriver
+`new Date(x).getTime()` = et **TAL** → `timestamp < int` er "Unsupported
+operation" → reglen fejler LUKKET for ALLE pulje-skrivninger i det spil, hvis
+en admin redigerer deadline via skema-fanen. Availability-bug, ikke sikkerhed.
+Emulator-bekræftet: seed med tal → alle writes/reads-efter-deadline nægtes.
+
+## updateLeagueQuestion / liga-spørgsmåls-rettelse (#40, cc7edb6)
+
+**Rules UÆNDREDE** (eneste rules-hunk i denne branch er puljeBets L767; questions/
+questionAnswers 100% urørt). #40 er en KLIENT-only action + UI. Klient-vagten
+(gameLeagueActions.js updateLeagueQuestion) er IKKE håndhævelse — en angribende
+liga-ejer bruger rå `updateDoc`. Tre PRÆEKSISTERENDE regel-huller BEKRÆFTET via
+emulator (scratchpad/poc8/q40.mjs + q40b.mjs), alle kun for `qOwner()`:
+1. **Point på AFGJORT spørgsmål.** Update-reglen (L1017-1030) kræver kun
+   `points 1-100` UBETINGET — ingen facit/deadline-betingelse. Ejer hæver
+   5→100 på et spørgsmål med facit sat. Stillingen beregnes LIVE på klienten af
+   `q.points` (leagueQuestionScoring.js L44-101) → direkte manipulation af
+   liga-stillingen med alle svar i hånden. Dette er QC's blokerende fund #1,
+   "lukket" med en klient-gate der IKKE lukker det.
+2. **Første-gangs deadline i FORTIDEN.** Deadline-klausulen tillader ENHVER værdi
+   når `old deadline == null` (grenen `resource.data.get('deadline',null)==null`).
+   Ejer sætter deadline=fortid → questionAnswers åbnes for læsning for HELE
+   ligaen (bekræftet: MEM læste MEM2s hemmelige svar bagefter). Envejs-lås
+   (deadline kan ikke ændres igen), så ikke en svar-ændrings-cheat, men
+   info-disclosure/griefing.
+3. **type text→number EFTER deadline.** Update-reglen begrænser IKKE `type`.
+   Ejer ændrer text→number → "nærmest vinder"-scoring aktiveres med svar synlige.
+
+Kontroltests grønne (opsætning måler noget): ikke-ejer kan ikke hæve points,
+ejer kan ikke nulstille facit, ikke sætte points>100, ikke rykke deadline
+tidligere. Klient-gaten selv er velskrevet MOD en ærlig bruger — men irrelevant
+mod en devtools-angriber.
+
+**Kontekst der dæmper "blocking":** liga-ejeren kan ALLEREDE snyde sin egen
+liga via slet+genopret-med-samme-id (memory #39/leagueQuestionRecap, BEKRÆFTET,
+uafhjulpet). #40 tilføjer ingen regression på rules-niveau. Men QC's præmis
+("point-efter-lukning er håndteret") er FALSK. Anbefalet rules-stramning til
+questions/update, hvis liga-ejer-grænsen skal lukkes ægte:
+- points: `resource.data.points == request.resource.data.points ||
+  (facit==null && (deadline==null || now < deadline))`
+- type: `request.resource.data.get('type','text') == resource.data.get('type','text')`
+- første deadline: kræv `new deadline > request.time.toMillis()` når old==null
+- PLUS delete+genopret-hullet fra #39-memory.
+
+**Faldgrube til listen:** *en klient-gate, der "lukker" et QC-sikkerhedsfund, er
+theater, hvis den ting den beskytter kan nås med rå updateDoc. Spørg altid: er
+vagten i rules eller kun i vores JS? Kun rules tæller mod devtools-angriberen.*

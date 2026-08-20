@@ -397,3 +397,14 @@ describe('Elo-vedligeholdelse', () => {
     expect(actualHomeFromOutcome('2')).toBe(0);
   });
 });
+
+describe('puljeScore — perfekt-bonus-vagt', () => {
+  it('perfekt-bonus kræver PRÆCIS antal picks — flere picks giver ikke gratis bonus (TM-fund)', () => {
+    // Indsend 8 hold mod et 6-facit, alle 6 rigtige med: correct 6, men
+    // valgte.length (8) !== antal (6), så INGEN perfekt-bonus. Ellers kunne
+    // en klient sende alle hold og altid ramme perfekt.
+    const facit = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const r = puljeScore(['A', 'B', 'C', 'D', 'E', 'F', 'X', 'Y'], facit);
+    expect(r).toEqual({ correct: 6, points: 6 * PULJE.PER_TEAM }); // 24, IKKE 34
+  });
+});

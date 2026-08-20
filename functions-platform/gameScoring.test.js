@@ -1104,6 +1104,42 @@ describe('settlePuljeBets', () => {
     expect(db._pulje.P1.nedCorrect).toBeUndefined();
   });
 
+  // TM-fund: kampePrRunde udledes af HOLDLISTEN (teams.length/2). Mutationen
+  // "tilbage til hårdkodet 6" overlevede, fordi de andre officiel-tests har 12
+  // hold (12/2=6, sammenfald) ELLER en komplet stilling (hvor expectedPlayed=null
+  // fra en forkert formel bare deaktiverer gaten uden at ændre resultatet).
+  // Fælden lukkes med 4 hold + en UFULDSTÆNDIG-følsom formel:
+  //   6 kampe (enkeltturnering, hvert hold spiller 3).
+  //   Rigtig kode: kampePrRunde = 4/2 = 2 → expectedPlayed = 6/2 = 3, matcher
+  //     standings' played=3 → officiel stilling GODKENDES og bruges.
+  //   Mutant (=6): expectedPlayed = 6/6 = 1 → 1 !== 3 → officielTop → null →
+  //     fallback til de faktiske kampe, som har en ANDEN top.
+  // standings-top og egne-kampe-top er med vilje MODSATTE, så resultatet skiller.
+  it('4-holds-spil: expectedPlayed udledes af holdlisten, ikke af hårdkodet 6', async () => {
+    // Egne kampe: C vinder alt, D næst — så leagueTable-top-2 = [C, D].
+    const kampe = [
+      { id: 'k1', home: 'C', away: 'A', homeGoals: 1, awayGoals: 0 },
+      { id: 'k2', home: 'C', away: 'B', homeGoals: 1, awayGoals: 0 },
+      { id: 'k3', home: 'C', away: 'D', homeGoals: 1, awayGoals: 0 },
+      { id: 'k4', home: 'D', away: 'A', homeGoals: 1, awayGoals: 0 },
+      { id: 'k5', home: 'D', away: 'B', homeGoals: 1, awayGoals: 0 },
+      { id: 'k6', home: 'A', away: 'B', homeGoals: 1, awayGoals: 0 },
+    ];
+    // Officiel stilling: MODSAT — top-2 = [A, B]. Alle på played=3.
+    const standings = [
+      { rank: 1, teamName: 'A', played: 3 }, { rank: 2, teamName: 'B', played: 3 },
+      { rank: 3, teamName: 'C', played: 3 }, { rank: 4, teamName: 'D', played: 3 },
+    ];
+    const db = makeDb([], kampe, {
+      teams: [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }],
+      standings, pulje: { poolSize: 2 }, // officiel facit-kilde (default)
+    }, { P1: {} }, { P1: { championship: ['A', 'B'] } }); // tipper OFFICIEL top
+    await settlePuljeBets(db, FieldValue, 'g1', kampe);
+    // Rigtig kode bruger den officielle top [A,B] → 2 rigtige.
+    // Mutanten (=6) falder tilbage på egne kampe [C,D] → 0 rigtige.
+    expect(db._pulje.P1).toMatchObject({ correct: 2 });
+  });
+
   // --- PL-formen (#8): top + bund, facit af spillets EGNE kampe --------------
   // 4 hold, alle indbyrdes kampe spillet: A 9p, B 6p, C 3p, D 0p.
   // Konfiguration: top 2, bund 1, 4 point pr. hold, 10 i perfekt-bonus.

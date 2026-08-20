@@ -22,6 +22,7 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('../../firebase', () => ({ db: {}, functions: {} }));
 
 import { updateLeagueQuestion } from './gameLeagueActions';
+import { tilLokalInput } from '../../lib/daDate';
 
 const BASE = { gameId: 'g', leagueId: 'l', questionId: 'q1' };
 const OM_EN_DAG = Date.now() + 86400000;
@@ -70,6 +71,22 @@ describe('updateLeagueQuestion — deadline-vagterne', () => {
     });
     expect(res).toMatchObject({ ok: true, deadlineSat: false });
     expect(mockUpdateDoc.mock.calls[0][1]).toEqual({ label: 'Kun teksten rettes', points: 5 });
+  });
+
+  // TM-fund: "uændret"-tjekket (ms !== nuvaerende) var kun testet med tom
+  // streng, som filtreres bort FØR sammenligningen. Det REELLE scenarie:
+  // ✏️-formen prefiller feltet med tilLokalInput(q.deadline), og ejeren gemmer
+  // en ren tekst-rettelse uden at røre deadline. Da må deadline IKKE med i
+  // patchen, og deadlineSat SKAL være false (ellers falsk 📣-væg-tilbud).
+  it('deadline prefillet uændret (minut-rundet) sendes IKKE med', async () => {
+    // Minut-rundet fremtids-ms, så tilLokalInput-rundturen rammer præcist.
+    const ms = Math.floor((Date.now() + 3 * 86400000) / 60000) * 60000;
+    const res = await updateLeagueQuestion({
+      ...BASE, q: { label: 'x', points: 5, deadline: ms },
+      label: 'Rettet tekst', points: '5', deadline: tilLokalInput(ms),
+    });
+    expect(res).toMatchObject({ ok: true, deadlineSat: false });
+    expect('deadline' in mockUpdateDoc.mock.calls[0][1]).toBe(false);
   });
 
   it('for kort tekst afvises før noget skrives', async () => {

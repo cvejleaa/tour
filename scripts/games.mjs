@@ -100,6 +100,11 @@ export const GAMES = [
     pulje: {
       poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10,
       facitKilde: 'egneKampe', tabelDeling: false,
+      // "juleaften" er BEVIDST flavor (Juletabellen er et dansk fodboldbegreb),
+      // ikke en dato-garanti — det egentlige kriterium står i `facit` og er
+      // rundebaseret. Runde 18 spilles omkring jul, men en udsat kamp kan
+      // rykke; teksten lover derfor "når alle 18 runder er spillet", ikke en
+      // dato (QC-note på planen).
       labels: {
         overskrift: '🎄 Juletabellen',
         top: 'top 4 juleaften',

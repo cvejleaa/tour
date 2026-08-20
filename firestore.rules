@@ -1014,6 +1014,18 @@ service cloud.firestore {
           //
           // Point-loftet på 100 gjaldt kun ved oprettelse, så 100.000 kunne
           // sættes bagefter.
+          //
+          // ✏️-redigering (#40) gav ejeren en flade til at rette label/points/
+          // deadline. Klienten kan omgås (devtools), så disse tre må håndhæves
+          // HER, ikke kun i JS (Serveren er eneste autoritet — QC+Security):
+          //  - POINT må kun ændres mens spørgsmålet er ÅBENT (facit==null og
+          //    deadline ikke passeret). Ellers kunne ejeren se alles svar og
+          //    så skrue de spørgsmål hen selv ramte op til 100 point.
+          //  - TYPE må aldrig ændres (text→number efter deadline ville tænde
+          //    "nærmest vinder" med svarene i hånden).
+          //  - En FØRSTE-gangs-deadline skal ligge i FREMTIDEN — en dato i
+          //    fortiden åbner alles svar for læsning øjeblikkeligt og
+          //    uigenkaldeligt.
           allow update: if isApproved()
             && qOwner() == request.auth.uid
             && request.resource.data.points is number
@@ -1021,10 +1033,19 @@ service cloud.firestore {
             && request.resource.data.points <= 100
             // Markøren må aldrig røres fra klienten — se create-vagten.
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['botFacitAt'])
+            // type uændret.
+            && request.resource.data.get('type', 'text') == resource.data.get('type', 'text')
+            // points: uændret ELLER spørgsmålet er stadig åbent.
+            && (request.resource.data.points == resource.data.points
+                || (resource.data.get('facit', null) == null
+                    && (resource.data.get('deadline', null) == null
+                        || request.time.toMillis() < resource.data.deadline)))
             && (resource.data.get('facit', null) == null
                 || request.resource.data.get('facit', null) != null)
             && (request.resource.data.get('deadline', null) == resource.data.get('deadline', null)
-                || resource.data.get('deadline', null) == null
+                || (resource.data.get('deadline', null) == null
+                    && (request.resource.data.get('deadline', null) == null
+                        || request.resource.data.deadline > request.time.toMillis()))
                 || (request.time.toMillis() < resource.data.deadline
                     && request.resource.data.get('deadline', null) != null
                     && request.resource.data.deadline >= resource.data.deadline));

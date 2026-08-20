@@ -158,3 +158,20 @@ describe('PuljeTip — PL-formen (top + bund)', () => {
     expect(screen.getByText(/mesterskabsspillet/)).toBeInTheDocument();
   });
 });
+
+describe('PuljeTip — "lige nu" har brug for nok spillede kampe', () => {
+  it('tidligt i sæsonen (færre hold i tabellen end top+bund) vises INGEN "lige nu"-linje', () => {
+    // TM-fund: tilstrækkeligheds-vagten (leagueTable(spillede).length <
+    // poolSize+nedSize) var udækket. VIGTIGT at der er USPILLEDE kampe med,
+    // ellers er "alle spillet" sandt → seasonDone → facit-kortet vises i
+    // stedet, og "lige nu" testes aldrig. Her: 1 spillet (2 hold i tabellen)
+    // + 1 uspillet → seasonDone=false, men kun 2 < 7 hold → vagten skal
+    // undertrykke linjen (mutant uden vagt ville vise "på tomt grundlag").
+    mockBet.current = { championship: ['H1', 'H2', 'H3', 'H4'], relegation: ['H6', 'H7', 'H8'] };
+    render(<PuljeTip game={plGame()} matches={[
+      { home: 'H1', away: 'H2', homeGoals: 1, awayGoals: 0 },
+      { home: 'H3', away: 'H4', homeGoals: null, awayGoals: null }, // uspillet
+    ]} />);
+    expect(screen.queryByTestId('pulje-ligenu')).toBeNull();
+  });
+});

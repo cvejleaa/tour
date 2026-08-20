@@ -2628,6 +2628,43 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
         { label: 'Nyt spørgsmål', botFacitAt: Timestamp.now() }));
     });
 
+    // #40: ejeren fik en ✏️-flade. Klienten kan omgås, så tre grænser skal
+    // håndhæves i rules, ikke kun i JS (Security/QC-fund, emulator-bekræftet).
+    it('ejeren KAN IKKE hæve point på et AFGJORT spørgsmål (svarene er set)', async () => {
+      await seedSpoergsmaal('se5-p1', 'se-q6a', { facit: 'Isaksen', points: 5 });
+      await assertFails(updateDoc(qDoc('se5-p1', 'se-q6a'), { points: 100 }));
+    });
+
+    it('ejeren KAN IKKE hæve point efter PASSERET deadline (svarene er læsbare)', async () => {
+      await seedSpoergsmaal('se5-p2', 'se-q6b', { deadline: Date.now() - 3600e3, points: 5 });
+      await assertFails(updateDoc(qDoc('se5-p2', 'se-q6b'), { points: 100 }));
+    });
+
+    it('ejeren KAN rette point mens spørgsmålet er ÅBENT (kontrol)', async () => {
+      await seedSpoergsmaal('se5-p3', 'se-q6c', { deadline: Date.now() + 3600e3, points: 5 });
+      await assertSucceeds(updateDoc(qDoc('se5-p3', 'se-q6c'), { points: 10 }));
+    });
+
+    it('ejeren KAN rette TEKSTEN på et afgjort spørgsmål — bare ikke pointene (kontrol)', async () => {
+      await seedSpoergsmaal('se5-p4', 'se-q6d', { facit: 'Isaksen', points: 5 });
+      await assertSucceeds(updateDoc(qDoc('se5-p4', 'se-q6d'), { label: 'Rettet stavefejl' }));
+    });
+
+    it('ejeren KAN IKKE ændre TYPEN (text→number ville tænde nærmest-vinder med svarene i hånden)', async () => {
+      await seedSpoergsmaal('se5-p5', 'se-q6e', { type: 'text', deadline: Date.now() - 3600e3 });
+      await assertFails(updateDoc(qDoc('se5-p5', 'se-q6e'), { type: 'number' }));
+    });
+
+    it('ejeren KAN IKKE sætte en FØRSTE-gangs-deadline i fortiden (åbner alles svar uigenkaldeligt)', async () => {
+      await seedSpoergsmaal('se5-p6', 'se-q6f'); // deadline: null
+      await assertFails(updateDoc(qDoc('se5-p6', 'se-q6f'), { deadline: Date.now() - 3600e3 }));
+    });
+
+    it('ejeren KAN sætte en første-gangs-deadline i FREMTIDEN (kontrol)', async () => {
+      await seedSpoergsmaal('se5-p7', 'se-q6g'); // deadline: null
+      await assertSucceeds(updateDoc(qDoc('se5-p7', 'se-q6g'), { deadline: Date.now() + 3600e3 }));
+    });
+
     it('ejeren KAN IKKE oprette spørgsmålet med markøren allerede sat (create-vejen)', async () => {
       await seedSpoergsmaal('se5-l18', 'se-q5r'); // opretter liga + bruger
       await assertFails(setDoc(qDoc('se5-l18', 'se-q5r-ny'), {
@@ -2744,10 +2781,23 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       }));
     });
 
-    it('server-felterne (points/correct/nedPoints/nedCorrect) kan ikke smugles med', async () => {
+    it('server-felterne kan ikke smugles med — HVERT felt for sig (TM-fund)', async () => {
       await seedPuljeSpil('pb-sv', { poolSize: 4, nedSize: 3 });
-      await assertFails(setDoc(pDoc('pb-sv'), {
-        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y', 'Z'], nedPoints: 99,
+      const gyldig = { uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y', 'Z'] };
+      for (const felt of ['points', 'correct', 'nedPoints', 'nedCorrect']) {
+        await assertFails(setDoc(pDoc('pb-sv'), { ...gyldig, [felt]: 99 }));
+      }
+      // Kontrol: uden nogen af dem går det igennem.
+      await assertSucceeds(setDoc(pDoc('pb-sv'), gyldig));
+    });
+
+    it('en relegation-liste med FORKERT størrelse afvises (TM-fund: kun manglende var dækket)', async () => {
+      await seedPuljeSpil('pb-sz', { poolSize: 4, nedSize: 3 });
+      await assertFails(setDoc(pDoc('pb-sz'), {
+        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y'], // 2, skal være 3
+      }));
+      await assertFails(setDoc(pDoc('pb-sz'), {
+        uid: 'pb1', championship: HOLD.slice(0, 4), relegation: ['X', 'Y', 'Z', 'H1'], // 4
       }));
     });
 
