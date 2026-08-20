@@ -99,9 +99,7 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: |
-          # storage: broadcast-billed-reglerne (deny alle klient-writes) skal
-          # med — ellers ligger storage.rules i repoet uden at være i produktion.
-          ONLY="hosting,firestore:rules,storage"
+          ONLY="hosting,firestore:rules"
           n=0; max=3
           until [ "$n" -ge "$max" ]; do
             n=$((n + 1))
@@ -126,6 +124,21 @@ jobs:
         run: |
           firebase deploy --only firestore:indexes --project "$PROJECT_ID" --non-interactive --force \
             || echo "::warning::Index-deploy gav en fejl (typisk 'findes allerede'/under opbygning) — ignoreret."
+
+      # Storage-regler i EGET, ikke-fatalt trin. `firebase deploy --only storage`
+      # fejler HÅRDT, hvis Firebase Storage ikke er aktiveret på projektet
+      # ("has not been set up") — og lå det i hosting+rules-kommandoen ovenfor,
+      # væltede en manglende bucket HELE udrulningen (hosting og functions med).
+      # Reglerne beskytter kun en bucket, der findes; indtil Storage aktiveres i
+      # konsollen, er de irrelevante. Når den er aktiveret, lander de ved næste
+      # deploy. Kør en deploy IGEN, straks efter du har aktiveret Storage, så
+      # deny-alle-klient-writes-reglen er på plads FØR nogen bruger upload.
+      - name: Deploy Storage-regler (ikke-fatal — kræver aktiveret Storage)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          firebase deploy --only storage --project "$PROJECT_ID" --non-interactive --force \
+            || echo "::warning::Storage-regel-deploy fejlede — er Firebase Storage aktiveret for $PROJECT_ID? (Console → Storage → Kom i gang). Kør deploy igen bagefter."
 
       - name: Seed games-collection'en
         if: ${{ inputs.seedGames }}
