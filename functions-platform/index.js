@@ -513,7 +513,8 @@ exports.syncGameKickoffs = onSchedule(
           + (ud.mangler.length ? `, MANGLER dokument: ${ud.mangler.join(', ')}` : '')
           + (ud.genaabninger.length ? `, GENÅBNING afvist: ${ud.genaabninger.join(', ')}` : '')
           + (ud.snart.length ? `, <48t-alarm: ${ud.snart.join(', ')}` : '')
-          + (ud.puljeLock ? `, pulje-deadline (runde ${ud.puljeLock.runde}) sat til ${new Date(ud.puljeLock.tilMs).toISOString()}` : '') + '.');
+          + (ud.puljeLock ? `, pulje-deadline (runde ${ud.puljeLock.runde}) sat til ${new Date(ud.puljeLock.tilMs).toISOString()}` : '')
+          + (ud.puljeLockAfvist ? `, pulje-deadline GENÅBNING afvist (runde ${ud.puljeLockAfvist.runde})` : '') + '.');
         st.ok(`${ud.aendringer.length} kamptider rettet, ${ud.spillet} spillede urørt.`,
           { rettet: ud.aendringer.length, spillet: ud.spillet });
         if (ud.mangler.length) st.fejl(`${ud.mangler.length} kilde-kampe uden dokument: ${ud.mangler.join(', ')}`);
@@ -530,6 +531,17 @@ exports.syncGameKickoffs = onSchedule(
           await meldAlarm(db, FieldValue, {
             type: 'kickoff48t', gameId: g.gameId, kampId: id, kraeverKvittering: true,
             besked: `${id} er flyttet til under 48 timer ude — tjek om nogen har tippet med facit i hånden.`,
+          });
+        }
+        // Pulje-deadlinen sidder fast: den kan ikke rettes til rundens rigtige
+        // tid, fordi den nuværende værdi allerede er passeret/eksponeret. Løser
+        // ALDRIG sig selv — kræver et menneske (typisk en placeholder-dato sat
+        // for tidligt i Spil-tidsplan). Uden denne alarm ville puljen stå med en
+        // forkert deadline i tavshed.
+        if (ud.puljeLockAfvist) {
+          await meldAlarm(db, FieldValue, {
+            type: 'puljeLockGenaabning', gameId: g.gameId, kraeverKvittering: true,
+            besked: `Pulje-deadlinen (runde ${ud.puljeLockAfvist.runde}) kunne ikke sættes til rundens tidligste kickoff, fordi den nuværende deadline allerede er passeret — en genåbning ville vise alles pulje-tip igen. Ret puljeLockAt i Firebase-konsollen til den rigtige runde-dato, eller fjern en for tidligt sat placeholder-dato.`,
           });
         }
         for (const id of ud.mangler) {

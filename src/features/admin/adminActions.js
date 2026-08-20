@@ -102,6 +102,26 @@ export async function callRepriceGameOdds({ gameId, dryRun = true } = {}) {
 }
 
 /**
+ * Synk kamptiderne fra kildens API NU — den manuelle udløsning af det daglige
+ * kickoff-job. Det er "start med vilje"-vejen: efter en seed af et spil med
+ * rundebaseret pulje-deadline (puljeLockRound) er dette den eneste måde at få
+ * puljeLockAt sat MED DET SAMME i stedet for at vente på jobbet kl. 06:10.
+ *
+ * dryRun er DEFAULT SAND — kaldet skriver kamptider og pulje-deadlinen, så
+ * forhåndsvisningen skal ses først (samme disciplin som Ompris).
+ * @param {{gameId: string, dryRun?: boolean}} o
+ */
+export async function callSyncGameKickoffs({ gameId, dryRun = true } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'syncGameKickoffsNow', { timeout: 120000 });
+    const res = await fn({ gameId, dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke synke kamptiderne.' };
+  }
+}
+
+/**
  * Genopbyg players/{uid}.leagueIds ud fra ligaernes medlemmer. Feltet er dét,
  * security rules bruger til at afgøre, hvem der må se hvis point — så en
  * genopbygning retter op, hvis noget er drevet fra hinanden.

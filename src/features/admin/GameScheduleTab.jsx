@@ -12,7 +12,7 @@ import { useGames } from '../games/useGames';
 import { useGameRounds } from './useGameRounds';
 import { startRundeFor } from '../../lib/startGate';
 import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameActions';
-import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds } from './adminActions';
+import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds, callSyncGameKickoffs } from './adminActions';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
@@ -112,6 +112,12 @@ function GameRow({ game }) {
   const [syncMsg, setSyncMsg] = useState(null); // { kind, text }
   const [prisBusy, setPrisBusy] = useState(false);
   const [prisMsg, setPrisMsg] = useState(null); // { kind, text }
+  // Kickoff-synk (kun spil med rundebaseret pulje-deadline). Samme tør→skriv-
+  // disciplin som Ompris: planen skal SES, før skrive-knappen dukker op.
+  const [kickBusy, setKickBusy] = useState(false);
+  const [kickMsg, setKickMsg] = useState(null); // { kind, text }
+  const [kickPlan, setKickPlan] = useState(null); // hele ud-objektet fra tør-kørslen
+  const [kickSkrevet, setKickSkrevet] = useState(false);
   // Tør-kørslens resultat. Først når det ligger her, må skrive-knappen vises:
   // man skal have SET ændringerne, før man kan udføre dem.
   const [prisPlan, setPrisPlan] = useState(null); // { updated, aendringer }
@@ -140,6 +146,12 @@ function GameRow({ game }) {
   // blive gemt og senere afregnet mod PL-stillingen, selv om ligaen ikke har
   // et mesterskabsspil. Feltets tilstedeværelse på spillet er signalet.
   const harPulje = Boolean(game.pulje);
+  // Rundebaseret deadline: puljeLockAt UDLEDES af kickoff-synken (tidligste
+  // kickoff i puljeLockRound) og må ikke sættes i hånden — en manuel værdi
+  // bliver overskrevet ved næste synk, og en for tidligt sat placeholder, der
+  // passerer inden da, låser genåbnings-forbuddet, så den rigtige dato aldrig
+  // kan sættes. For sådanne spil er feltet ren oplysning + 🗓️-knappen nedenfor.
+  const harPuljeRunde = Number.isFinite(game.puljeLockRound);
   const statusChanged = gameStatus && gameStatus !== game.status;
   // Synlighed læses direkte af spillet — ikke af en lokal kopi. Knappen
   // skriver med det samme, og etiketten vender, når snapshottet kommer
@@ -168,7 +180,10 @@ function GameRow({ game }) {
     if (startRound !== gemtRunde) {
       patch.startRound = startRound === '' ? null : Number(startRound);
     }
-    if (harPulje && puljeLockAt !== toLocalInput(toMs(game.puljeLockAt))) {
+    // Kun spil med MANUEL deadline skriver feltet. Et rundebaseret spil udleder
+    // puljeLockAt ved synken, og et blindt Gem må aldrig skrive en håndsat værdi
+    // (den ville alligevel blive overskrevet — eller låse genåbnings-forbuddet).
+    if (harPulje && !harPuljeRunde && puljeLockAt !== toLocalInput(toMs(game.puljeLockAt))) {
       patch.puljeLockAt = puljeLockAt ? new Date(puljeLockAt).getTime() : null;
     }
     const res = Object.keys(patch).length ? await setGameSchedule(game.id, patch) : { ok: true };
@@ -242,6 +257,53 @@ function GameRow({ game }) {
     setPrisBusy(false);
   }
 
+  // Beskriv et synk-resultat i én dansk sætning: kamptider + pulje-deadline.
+  function synkTekst(ud, toer) {
+    const dele = [];
+    const n = ud.aendringer?.length ?? 0;
+    dele.push(toer
+      ? `${n} kamptider ville blive rettet`
+      : `${n} kamptider rettet`);
+    if (ud.puljeLock) {
+      dele.push(`pulje-deadlinen (runde ${ud.puljeLock.runde}) ${toer ? 'ville blive sat' : 'sat'} til ${formatKickoff(ud.puljeLock.tilMs)}`);
+    } else if (ud.puljeLockAfvist) {
+      dele.push(`pulje-deadlinen kunne IKKE sættes: den nuværende er allerede passeret, og en genåbning ville vise alles tip. Ret puljeLockAt i Firebase-konsollen`);
+    }
+    if (ud.mangler?.length) dele.push(`${ud.mangler.length} kilde-kampe mangler dokument`);
+    if (ud.snart?.length) dele.push(`${ud.snart.length} rykket til under 48 t`);
+    return dele.join('; ') + '.';
+  }
+
+  // Tør-kørsel: vis hvad synken VILLE gøre — især hvilken pulje-deadline den
+  // udleder. Skriver intet.
+  async function synkToer() {
+    setKickBusy(true); setKickMsg(null); setKickPlan(null); setKickSkrevet(false);
+    const res = await callSyncGameKickoffs({ gameId: game.id, dryRun: true });
+    if (!res.ok) { setKickMsg({ kind: 'err', text: res.error }); setKickBusy(false); return; }
+    setKickPlan(res.data);
+    setKickMsg({
+      kind: res.data.puljeLockAfvist ? 'err' : 'ok',
+      text: `Tør-kørsel: ${synkTekst(res.data, true)}`,
+    });
+    setKickBusy(false);
+  }
+
+  // Skriv for alvor. Kræver en tør-kørsel først — knappen findes ikke før.
+  async function synkSkriv() {
+    setKickBusy(true); setKickMsg(null);
+    const res = await callSyncGameKickoffs({ gameId: game.id, dryRun: false });
+    if (!res.ok) { setKickMsg({ kind: 'err', text: res.error }); setKickBusy(false); return; }
+    // Svaret bærer sit eget dryRun — brug DET, så en tør-kørsel ikke kan melde
+    // sig som skrevet (samme fælde som Ompris).
+    if (res.data?.dryRun === false) {
+      setKickMsg({ kind: res.data.puljeLockAfvist ? 'err' : 'ok', text: synkTekst(res.data, false) });
+      setKickSkrevet(true);
+    } else {
+      setKickMsg({ kind: 'err', text: 'Serveren tørkørte og skrev INTET. Prøv igen.' });
+    }
+    setKickBusy(false);
+  }
+
   async function syncLeagues() {
     setSyncBusy(true); setSyncMsg(null);
     const res = await callBackfillPlayerLeagues(game.id);
@@ -307,7 +369,7 @@ function GameRow({ game }) {
           )}
         </div>
 
-        {harPulje && (
+        {harPulje && !harPuljeRunde && (
           <label style={{ display: 'block' }}>
             <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--c-muted)', marginBottom: '0.25rem' }}>
               🎖️ Bonus-/pulje-deadline
@@ -318,6 +380,23 @@ function GameRow({ game }) {
               style={{ width: '100%' }}
             />
           </label>
+        )}
+
+        {harPulje && harPuljeRunde && (
+          <div>
+            <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--c-muted)', marginBottom: '0.25rem' }}>
+              🎖️ Bonus-/pulje-deadline (udledt af runde {game.puljeLockRound})
+            </span>
+            <div className="badge badge--muted" style={{ display: 'inline-block' }}>
+              {puljeMs != null
+                ? formatKickoff(puljeMs)
+                : 'Endnu ikke sat — kør 🗓️ Synk kamptider nu nedenfor'}
+            </div>
+            <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--c-muted)', marginTop: '0.25rem' }}>
+              Sættes IKKE i hånden: udledes automatisk til rundens tidligste
+              kickoff ved kickoff-synken og følger med, hvis kampen flyttes.
+            </span>
+          </div>
         )}
       </div>
 
@@ -471,6 +550,29 @@ function GameRow({ game }) {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* 🗓️ Synk kamptider nu — den manuelle udløsning af det daglige kickoff-
+          job. For et spil med rundebaseret pulje-deadline er dette "start med
+          vilje"-vejen: efter en seed er det den eneste måde at få puljeLockAt
+          sat MED DET SAMME (ellers venter man på jobbet kl. 06:10, og pulje-
+          fanen står "Endnu ikke åbnet" indtil da). Tør-kørsel først. */}
+      {harPuljeRunde && (
+        <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+          <button className="btn btn--ghost btn--sm" onClick={synkToer} disabled={kickBusy}>
+            {kickBusy ? 'Synker…' : '🗓️ Synk kamptider nu — vis hvad der ændrer sig'}
+          </button>
+          {kickPlan && !kickSkrevet && (
+            <button className="btn btn--sm" onClick={synkSkriv} disabled={kickBusy}>
+              Skriv
+            </button>
+          )}
+          {kickMsg && (
+            <span className={`badge ${kickMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
+              {kickMsg.text}
+            </span>
           )}
         </div>
       )}

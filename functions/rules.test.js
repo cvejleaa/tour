@@ -2824,6 +2824,35 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
         'games', 'pb-nolock', 'puljeBets', 'pb1',
       )));
     });
+
+    // Den load-bearing egenskab BAG genåbnings-forbuddet i kickoff-synken: EFTER
+    // deadline afvises eget tip, OG andres tip bliver læsbart. Security
+    // efterprøvede den i emulatoren; her ligger den permanent i suiten. Uden
+    // den ville reglen kunne slækkes (fx `now < deadline` → `true`), og
+    // genåbnings-forbuddet på serversiden ville beskytte noget, reglen ikke
+    // længere håndhævede.
+    it('EFTER deadline: eget tip afvises, men andres BLIVER læsbart (det genåbning ville misbruge)', async () => {
+      const FOR_EN_TIME = Timestamp.fromMillis(Date.now() - 3600e3);
+      await createUser('pb1', 'player', 'approved');
+      await createUser('pb2', 'player', 'approved');
+      await createGame('pb-forbi', { pulje: { poolSize: 6 }, puljeLockAt: FOR_EN_TIME });
+      await seedMembership('pb-forbi', 'pb1');
+      await seedMembership('pb-forbi', 'pb2');
+      // pb1's tip lægges udenom reglerne (deadline er passeret, så en regel-
+      // skrivning ville selv fejle) — vi tester LÆSNINGEN af det.
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'games', 'pb-forbi', 'puljeBets', 'pb1'),
+          { uid: 'pb1', championship: HOLD.slice(0, 6) });
+      });
+      // Eget tip kan ikke længere skrives/ændres — puljen er lukket.
+      await assertFails(setDoc(pDoc('pb-forbi'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      // MEN pb2 (medlem) kan nu læse pb1's tip — puljen er afsløret. Det er
+      // netop synligheden, en genåbning ville lade nogen tippe VIDERE ud fra.
+      await assertSucceeds(getDoc(doc(
+        testEnv.authenticatedContext('pb2').firestore(),
+        'games', 'pb-forbi', 'puljeBets', 'pb1',
+      )));
+    });
   });
 
   // --- 6) messages: BEGGE deltagere skal være medlemmer --------------------

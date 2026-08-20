@@ -35,9 +35,18 @@ bevarede kodeord.
    For **Premier League** findes der intet workflow-step — begge steps er
    hårdkodet til `superliga2627`. Første seed køres derfor lokalt; se
    "Seed et nyt fodbold-spil" nedenfor.
-3. Sæt **startrunde** og **puljeLockAt** i Admin → Spil-tidsplan. Startrunden
-   vælges fra en liste over spillets runder med datointerval; vælger man
-   ingen, udledes den af den gamle startdato.
+3. Sæt **startrunde** i Admin → Spil-tidsplan. Startrunden vælges fra en liste
+   over spillets runder med datointerval; vælger man ingen, udledes den af den
+   gamle startdato.
+   - **Pulje-deadline:** har spillet en **fast** dato-deadline (Superligaen),
+     sættes den i deadline-feltet samme sted. Er spillet sat op med en
+     **rundebaseret** deadline (`puljeLockRound` i `scripts/games.mjs` — sådan
+     er Premier League), er feltet ren oplysning: kør i stedet
+     **🗓️ Synk kamptider nu** samme sted, så udledes `puljeLockAt` af rundens
+     tidligste kickoff. **Sæt ALDRIG en placeholder-dato i deadline-feltet på et
+     rundebaseret spil** — passerer den, inden synken kører, låser
+     genåbnings-forbuddet, og deadlinen kan så aldrig sættes til den rigtige
+     runde-dato (fejlen ender som en drift-alarm, ikke tavst).
 4. Inviter spillere. Ligaer oprettes af spillerne selv; koden i invitationslinket
    tilmelder dem i ét klik.
 5. **Backfill liga-adgang** — kun nødvendig hvis liga-medlemskaber er kommet ind

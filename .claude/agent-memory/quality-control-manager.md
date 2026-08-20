@@ -652,3 +652,66 @@ Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
   `postLeagueMessage`. Ingen ny kanal, ingen ny sikkerhedsgennemgang.
 - **Én tekst kan ikke dække både "sæt" og "udskyd".** "Deadline kan kun
   udskydes" er meningsløs over et felt, der hedder "Sæt deadline". Del i to.
+
+## Pulje-deadline som RUNDE (84002c5, #8): korrekt derivation, brudt "live med det samme"
+
+- **Tekst peger på en knap, der ikke findes — igen.** `docs/admin-guide.md:56`
+  ("kør **🗓️ Synk kamptider nu**") bruger PRÆCIS samme emoji+fed-konvention
+  som to ÆGTE knapper i samme afsnit (`🔄 Genberegn point efter start-ændring`,
+  `💰 Ompris kampene`, begge bekræftet i `GameScheduleTab.jsx:408,428`), men
+  `syncGameKickoffsNow` (`functions-platform/index.js:557`, indført allerede i
+  b778efa) har INGEN klient-kobling nogen steder i `src/` — grep-bekræftet
+  (`adminActions.js`s liste af `httpsCallable(...)` mangler den helt). Samme
+  klasse fejl som "Åbn ligaen →": teksten lover en handling, koden ikke giver.
+  Konsekvens her er skarpere end normalt: den lovede knap er den ENESTE
+  dokumenterede vej til at gøre en runde-udledt pulje "live med det samme".
+- **Et manuelt felt, der overlever ved siden af en ny automatisk kilde, er en
+  fælde uden advarsel.** `GameScheduleTab.jsx:311-320`s `🎖️ Bonus-/pulje-
+  deadline`-felt er STADIG frit redigerbart for ethvert spil med `game.pulje`
+  — også Premier League, der nu har `puljeLockRound`. En admin KAN altså rent
+  faktisk gøre puljen "live med det samme" ved selv at skrive en dato der og
+  trykke Gem (`setGameSchedule`, client-write, tilladt for `isGlobalAdmin`).
+  Men værdien er kun midlertidig: næste kickoff-synk (dagligt job ELLER
+  `syncGameKickoffsNow`) genudregner og OVERSKRIVER den ubetinget, SÅ LÆNGE
+  admins dato stadig ligger i fremtiden ved synk-tidspunktet. Ingen tekst
+  nogen steder siger, at feltet er "overstyret" for et `puljeLockRound`-spil.
+- **Konkret, alvorligt hul: sætter admins placeholder-dato PASSERER FØR næste
+  synk kører, låser genåbnings-forbuddet puljen FOR EVIGT ved den forkerte
+  dato.** `superligaSync.js:568` (`genaabner = nuMs <= nowMs && nyMs > nowMs`)
+  kan ikke skelne "en admin-sat placeholder, der nåede at passere" fra en
+  ægte tidligere afsløring — den behandler begge som "nogen har allerede set
+  hinandens tip", og nægter for altid at rette til den rigtige runde-udledte
+  deadline. ENESTE spor er `console.error` (superligaSync.js:576) — modsat
+  søster-forbuddet for kickoffs, hvor `ud.genaabninger` FAKTISK får en
+  `meldAlarm(..., kraeverKvittering: true)` i `index.js:523-528` og dukker op
+  på Driftstatus. `ud.puljeLock` kan desuden ikke engang SKELNE "spil uden
+  puljeLockRound" fra "afvist genåbning" — begge giver `null`
+  (`superligaSync.js:556,575`) — så der er ikke engang datagrundlag til at
+  bygge alarmen bagefter uden først at rette returformen. Ren "en funktion,
+  der kun kan fejle tavst, er ikke færdig"-fælde, på helt nyt maskineri.
+- **To runbooks, kun det ene rettet.** `docs/drift.md:38`s
+  "Rækkefølge ved en ny sæson"-trin 3 ("Sæt **startrunde** og **puljeLockAt**
+  i Admin → Spil-tidsplan") er stadig generisk for ALLE fodboldspil og blev
+  IKKE opdateret i 84002c5 — modsiger nu `admin-guide.md`s nye afsnit for spil
+  med `puljeLockRound`. Følger man drift.md's egen opskrift (den, der bruges
+  til netop dette: "et nyt spil"), lander man direkte i fælden ovenfor uden
+  advarsel.
+- **God fangst, efterprøvet mod ægte data, ikke kun logik.** Den nye afledte
+  deadline er BEDRE end den gamle, ikke kun anderledes: `scripts/premier-
+  league-fixtures-2627.json` viser rundeE 3's TIDLIGSTE kickoff er
+  **2026-09-04T19:00Z**, mens den GAMLE hårdkodede `puljeLockAt`
+  (`2026-09-11T18:55+02:00`, fjernet i denne commit) reelt lå EFTER hele
+  runde 3 (spillet 4.-6. september; runde 4 starter 12. september) — den
+  gamle faste dato brød altså allerede spillets egen "aldrig senere end runde
+  3"-regel, ubemærket. Den nye mekanisme kan aldrig gøre det (den ER per
+  konstruktion lig det tidligste runde-3-kickoff). God skabelon for "Et tal
+  uden kode er en påstand": tjek datoen mod den FAKTISKE fixture-fil, ikke
+  kun mod kommentarens påstand om hvornår runde 3 starter.
+- **Kernen selv er solid.** `puljeLockFraRunde` (ren funktion,
+  `pointOpdeling.js:383`) og dens brug i `syncKickoffsCore`
+  (`superligaSync.js:556-578`) er korrekt, veltestet (9 nye tests, inkl. SL
+  urørt via eksplicit `puljeLockRound == null`-gate, og "sætter puljeLockAt
+  ved FØRSTE synk uden eksisterende felt" — netop det scenarie, der er
+  farligt i praksis). Ikke mirroret til `src/lib/pointOpdeling.js` — korrekt
+  undtagelse, for klienten (`PuljeTip.jsx:58`) læser kun `game.puljeLockAt`,
+  den udleder aldrig selv.

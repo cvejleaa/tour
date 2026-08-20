@@ -591,3 +591,37 @@ questions/update, hvis liga-ejer-grænsen skal lukkes ægte:
 **Faldgrube til listen:** *en klient-gate, der "lukker" et QC-sikkerhedsfund, er
 theater, hvis den ting den beskytter kan nås med rå updateDoc. Spørg altid: er
 vagten i rules eller kun i vores JS? Kun rules tæller mod devtools-angriberen.*
+
+## Pulje-deadline som RUNDE (commit 84002c5, #8) — emulator+kerne-verificeret
+
+- **puljeBets-kontrakten HOLDER (10/10 emulator-checks, PoC scratchpad/poc.mjs).**
+  `gameLock()` (firestore.rules L781-790) læser `puljeLockAt` DIREKTE (ingen
+  default). Bekræftet trebenet:
+  - Fremtidig deadline: eget tip skrives, andres-læsning NÆGTET (kontrol virker).
+  - PASSERET deadline: skrivning NÆGTET (kan ikke ændre tip efter at have set
+    andres), andres tips LÆSBARE (netop dét genåbning ville misbruge).
+  - MANGLENDE puljeLockAt: fejler LUKKET — skrivning + andres-læsning nægtet
+    ("Property puljeLockAt is undefined"), EGET tip stadig læsbart. Dvs. et PL-
+    spil med puljeLockRound men endnu ingen udledt puljeLockAt er LÅST (ingen
+    kan tippe), ikke åbent. Fail-closed = sikker retning.
+  - En spiller (ikke-admin) kan IKKE skrive `game.puljeLockAt`/`puljeLockRound`
+    (games L646 kræver isGlobalAdmin). Kun admin kan skubbe feltet direkte —
+    sync-forbuddet er derfor et værn mod den AUTOMATISKE sti, ikke mod en ond
+    admin (som i forvejen er betroet, jf. matches create/update uden feltguard).
+- **Genåbnings-forbuddet i syncKickoffsCore (L556-578) virker (PoC core.mjs).**
+  - Passeret deadline + rundekamp i fremtid → AFVIST, intet skrevet, log.
+  - Q1 BEKRÆFTET: tømmes runden for gyldigt kickoff (nyMs=null), STÅR den
+    passerede deadline — `nyMs != null`-vagten gør null til en no-op. Godt.
+- **LATENT (ikke reachable af deltager, ikke-blokerende): NaN-kanten i
+  re-åbnings-vagten.** L568 `nuMs != null` fanger IKKE NaN. Er `puljeLockAt`
+  eksplicit `null` (felt til stede = null → rules eksponerer alles tips), giver
+  `kickoffMs(null)=NaN`, `genaabner` bliver false, og synken OVERSKRIVER med en
+  fremtidig deadline → puljen GENÅBNES efter eksponering. Bevist i core.mjs
+  (case 5). MEN: intet kodepunkt skriver puljeLockAt=null (synken skriver altid
+  `new Date(finite)`; PL-seed sætter den slet ikke), så kun en admin kan nå
+  tilstanden. Hærdning hvis linjen røres: `Number.isFinite(nuMs)` i stedet for
+  `nuMs != null`. Samme mønster bør bruges hvis nogen tilføjer flere vagter.
+- **Tavs fejl (Q5): null-udledning (runde uden kickoff) logges IKKE** — kun
+  genaabner-grenen logger. Men retningen er fail-closed (puljen forbliver låst,
+  ikke åben), så det er tilgængelighed, ikke integritet; manglende round-kampe
+  fanges desuden af `mangler`-alarmen.
