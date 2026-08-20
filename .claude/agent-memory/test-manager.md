@@ -62,6 +62,26 @@
   (rå JSON eller håndskrevet), hvor feltet rent faktisk IKKE allerede er en
   streng?
 
+- **En "ombryd ved cursor"-test kan bevise INDHOLDET uden at bevise CURSOR-
+  POSITIONEN.** `BroadcastTab.jsx`s `wrapSelection`/`insertBlock` flytter
+  cursoren efter en programmatisk tekstændring via
+  `requestAnimationFrame(() => { el.focus(); el.setSelectionRange(pos, pos); })`
+  (samlet i `flytCursor(el, pos)` ved commit 935e32d). Den eneste test, der
+  rører denne kode (`BroadcastTabPlatform.test.jsx`, "ombryder den markerede
+  tekst ved cursor — ikke for enden"), asserterer kun `ta.value` lige efter
+  `fireEvent.click` — ALDRIG `ta.selectionStart`/`selectionEnd` efter rAF er
+  kørt. Mutationstestet: at gøre `flytCursor` til en total no-op (`return;`
+  som første linje) OG at hardkode `setSelectionRange(0, 0)` uanset `pos`
+  overlever BEGGE med alle 19 tests i BroadcastTab*.test.jsx grønne. Desuden
+  klikker INGEN test nogensinde på "Overskrift"/"Punktliste"
+  (`insertBlock`-vejen), så både dens kald til `flytCursor` og dens
+  null-el-gren (`if (!el) return;`) er 100 % udækket. Gapet er ikke nyt (det
+  gamle duplikerede kode havde samme mangel), men det gør en fremtidig
+  cursor-position-regression usynlig for suiten. Tjek næste gang: findes der
+  en test, der læser `el.selectionStart`/`selectionEnd` (evt. efter
+  `await new Promise(requestAnimationFrame)` eller `vi.useFakeTimers` +
+  `vi.advanceTimersToNextFrame`) — ikke kun værdien af feltet?
+
 ## Mønster at genkende
 
 Alle tre fund ovenfor deler samme form: en test, der ser ud til at dække en

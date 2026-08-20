@@ -197,6 +197,16 @@ export default function BroadcastTab() {
   // formatering, modtageren ikke får — "preview lyver".
   const richEnabled = PLATFORM_MODE && !useTemplate;
 
+  /** Sæt cursoren i tekstfeltet efter en programmatisk ændring — på næste
+   *  frame, så React har nået at skrive den nye body ud, før vi flytter. */
+  function flytCursor(el, pos) {
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
   /** Ombryd markeringen (eller indsæt ved cursor) med markdown-tegn. */
   function wrapSelection(before, after = '', placeholder = '') {
     setMsg('');
@@ -207,11 +217,7 @@ export default function BroadcastTab() {
     const valgt = body.slice(start, end) || placeholder;
     const next = body.slice(0, start) + before + valgt + after + body.slice(end);
     setBody(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + before.length + valgt.length;
-      el.setSelectionRange(pos, pos);
-    });
+    flytCursor(el, start + before.length + valgt.length);
   }
 
   /** Indsæt et linje-præfiks (overskrift/punkt) ved starten af cursor-linjen. */
@@ -222,12 +228,7 @@ export default function BroadcastTab() {
     const lineStart = body.lastIndexOf('\n', start - 1) + 1;
     const next = body.slice(0, lineStart) + prefix + body.slice(lineStart);
     setBody(next);
-    requestAnimationFrame(() => {
-      if (!el) return;
-      el.focus();
-      const p = lineStart + prefix.length;
-      el.setSelectionRange(p, p);
-    });
+    flytCursor(el, lineStart + prefix.length);
   }
 
   function insertImageUrl() {
