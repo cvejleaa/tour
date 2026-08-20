@@ -70,6 +70,11 @@ const REGION = 'europe-west1';
 // projektets faktiske bucket er den NYE `.firebasestorage.app` (samme værdi som
 // klientens VITE_FIREBASE_STORAGE_BUCKET). Uden dette navn skriver upload til en
 // bucket, der ikke findes, og fejler med "Billedet kunne ikke gemmes".
+//
+// LOCKSTEP: samme bucket-navn står tre steder i tre medier, der ikke kan dele
+// en konstant — her (JS-runtime), `firebase.json` storage.bucket (CLI'ens
+// regel-mål) og `.github/workflows/deploy-platform.yml` VITE_FIREBASE_STORAGE_
+// BUCKET (klient-bundlen). Migreres bucket'en, skal alle tre flyttes samtidig.
 const STORAGE_BUCKET = 'spil-89af9.firebasestorage.app';
 const TZ = 'Europe/Copenhagen';
 
@@ -827,12 +832,9 @@ exports.uploadBroadcastImage = onCall({ region: REGION }, async (request) => {
   // Klienten sender base64 (evt. med data:-præfiks). Afkod og MÅL på de rå
   // bytes — payloadens strengelængde er ikke filstørrelsen.
   const b64 = String(request.data?.data || '').replace(/^data:[^;,]*;base64,/, '');
-  let buffer;
-  try {
-    buffer = Buffer.from(b64, 'base64');
-  } catch {
-    throw new HttpsError('invalid-argument', 'Billedet kunne ikke læses.');
-  }
+  // Buffer.from kaster IKKE på ugyldig base64 (giver bare en kortere/tom
+  // buffer); et tomt eller ugyldigt billede fanges af validerBroadcastBillede.
+  const buffer = Buffer.from(b64, 'base64');
   const check = validerBroadcastBillede({ contentType, bytes: buffer.length });
   if (!check.ok) throw new HttpsError('invalid-argument', check.error);
 
@@ -840,12 +842,9 @@ exports.uploadBroadcastImage = onCall({ region: REGION }, async (request) => {
   const sti = broadcastBilledeSti(check.ext, unik);
   if (!sti) throw new HttpsError('internal', 'Kunne ikke bygge billed-sti.');
 
-  let bucket;
-  try {
-    bucket = getStorage().bucket(STORAGE_BUCKET);
-  } catch {
-    throw new HttpsError('failed-precondition', 'Firebase Storage er ikke sat op for projektet.');
-  }
+  // .bucket(navn) bygger blot en reference (ingen I/O) og kaster ikke — den
+  // ægte "Storage ikke sat op"/adgangs-fejl rammer .save() nedenfor og vises dér.
+  const bucket = getStorage().bucket(STORAGE_BUCKET);
   // Download-token gør ?alt=media&token=…-URL'en offentligt læsbar UDEN om
   // reglerne (tokenet afgør download). Storage-reglen nægter kun klient-writes.
   const token = crypto.randomUUID();
