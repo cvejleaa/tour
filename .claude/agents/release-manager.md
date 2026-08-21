@@ -68,6 +68,13 @@ Sig konkret, hvad der skal verificeres — ikke "tjek at det virker":
 kør-status på workflowet, et `curl` på en ny fil, en bestemt side der skal
 kunne indlæses, eller et admin-tjek. Peg på det, der ville afsløre en fejl.
 
+**Henviser planen til et element i fladen** ("klik på X for spil Y"), så spor
+elementets render-betingelse i koden (fil:linje) og bekræft, at den er sand for
+PRÆCIS det spil og den tilstand, planen gælder. En plan har før henvist til en
+knap, der ikke fandtes for det spil, den handlede om — planen beskrev
+intentionen, ikke koden, og ejeren fandt hullet i produktion. En klik-sti, du
+ikke har sporet, må ikke stå i planen.
+
 Vurder også, hvordan man kommer **tilbage**, hvis noget går galt: kan man
 rulle tilbage, eller er data ændret undervejs?
 

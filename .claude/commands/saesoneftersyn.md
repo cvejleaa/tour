@@ -127,7 +127,25 @@ Agenterne fører selv deres viden i `.claude/agent-memory/`. Stikprøv den:
 - Er noget vokset til støj, så kernen drukner i enkeltobservationer?
 - Er mapperne committet, så viden følger repoet?
 
-### 10. Backlogget
+### 10. Fladevandringen
+
+Rollerne kigger på diffs; en fane, ingen ændring har rørt, ser de aldrig — og
+Beskeder-fanen var netop en tavs blindgyde i månedsvis, fundet af ejeren i
+fladen, ikke af nogen rolle. Gå derfor HELE fladen igennem, systematisk:
+
+- Enumerér alle nav-punkter, faner og admin-flader i PLATFORM_MODE (App.jsx,
+  Layout, spil-sidens faner, Admin-fanerne) — og prøv hver primær handling.
+- For hver flade: virker den ende-til-ende med platformens datamodel
+  (games-scoped), eller er den en blindgyde — tom liste uden forklaring, knap
+  der aldrig kan aktiveres, form der altid afvises?
+- Tjek evne-fladerne pr. SPIL, ikke pr. mekanisme: har hvert synket spil sit
+  Drift-kort, sin manuelle udløser, sin hjælpetekst? ("Synk kamptider nu"
+  manglede for Superligaen, fordi ingen gik matrixen igennem.)
+- Fraværs-assertions i testene (`not.toBeInTheDocument`, `toBeNull` om
+  produkt-beslutninger): fastfryser nogen af dem en verden, der ikke længere
+  er den ønskede?
+
+### 11. Backlogget
 
 Gennemgå det, vi bevidst har udskudt, og spørg for hvert punkt: er det stadig
 det rigtige valg? Nogle ting bliver billigere at rette, når appen alligevel er
