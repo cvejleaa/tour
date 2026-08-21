@@ -25,9 +25,11 @@
 //       ({rank, teamName, teamShortName, points, played, won, draw, lost,
 //         gf, ga, rankType}).
 //   hentKickoffs(sync, fetchFn, runder) → [{ sourceKey, kickoff: ISO-UTC|null }]
-//       VALGFRI: kilder, hvis kamptider flytter sig løbende (PL: tv-aftaler).
-//       Mangler metoden, springer kickoff-synken spillet over — Superligaens
-//       tider rettes ad seedKickoffs-vejen (drift.md). `runder` er SPILLETS
+//       VALGFRI: kilder, hvis kamptider flytter sig løbende (tv-aftaler).
+//       Både PL og Superligaen har den nu. Mangler en kilde metoden, springer
+//       kickoff-synken spillet over, og tiderne rettes kun ad seedKickoffs-
+//       vejen (drift.md). En allerede PASSERET forkert tid rettes altid ad
+//       seed-vejen (genåbnings-vagten). `runder` er SPILLETS
 //       runde-sæt: kilde-kampe uden for det skal droppes FØR tolkning —
 //       ellers drukner mangler-alarmen i forårskampe, spillet ikke har, og
 //       én ulæselig tid i en irrelevant kamp vælter hele dagens kørsel.
@@ -122,6 +124,14 @@ function liveUrl(seasonId = SEASON_ID) {
     + `&env=production&locale=da&seasonId=${seasonId}&status=inprogress`;
 }
 
+/** URL til IKKE-STARTEDE kampe (til kickoff-synken). Vi henter KUN notstarted,
+ *  så en spillet eller igangværende kamps tidspunkt aldrig kan blive flyttet —
+ *  et facit er historie, ikke en deadline. */
+function kickoffsUrl(seasonId = SEASON_ID) {
+  return `${API_BASE}/events-v2?appName=${APP_NAME}&access_token=${ACCESS_TOKEN}`
+    + `&env=production&locale=da&seasonId=${seasonId}&status=notstarted`;
+}
+
 /** URL til den OFFICIELLE stilling (grundspil-stage), med form (last5). */
 function standingsUrl(seasonId = SEASON_ID, stageId = STAGE_ID, tournamentId = TOURNAMENT_ID) {
   // tournamentId SKAL komme fra sync-posten, når den kaldes af provideren —
@@ -201,6 +211,37 @@ const superliga = {
       }))
       .filter((r) => r.teamName)
       .sort((a, b) => a.rank - b.rank);
+  },
+
+  // Kickoff-synk: fanger kampe, ligaen har FLYTTET, så vores deadline følger
+  // med. KUN notstarted-kampe hentes (kickoffsUrl), så et facit aldrig flyttes.
+  // startDate er allerede ISO-UTC (…Z) fra kilden — ingen zone-omregning som
+  // PL (London). Filtreres til SPILLETS runder, præcis som pulselive.hentKickoffs.
+  //
+  // En MANGLENDE startDate giver kickoff:null — og den delte kickoffPlan-vagt
+  // KASTER, hvis en kamp med en gemt tid pludselig mangler tid (rydder aldrig
+  // en deadline som bivirkning af en rutinekørsel). En UGYLDIG startDate kaster
+  // vi selv her, med kampens id, så en uforståelig kilde skriver INTET frem for
+  // en forkert deadline (kickoff ER tip-deadlinen).
+  async hentKickoffs(sync, fetchFn, runder) {
+    const res = await fetchFn(kickoffsUrl(sync.seasonId), hentOpt());
+    if (!res.ok) throw new Error(`superliga kickoffs HTTP ${res.status}`);
+    const data = await res.json();
+    // Som hentLive: et svar uden events-liste er et format-brud, ikke "ingen
+    // kampe". Kast, så intet skrives — ellers ville {} tolkes som nul kickoffs.
+    if (!data || !Array.isArray(data.events)) throw new Error('superliga kickoffs: svar uden events-liste');
+    return data.events
+      .filter((e) => !runder || runder.has(e.round))
+      .map((e) => {
+        const id = matchDocId(e.round, e.homeName, e.awayName);
+        let kickoff = null;
+        if (e.startDate != null) {
+          const ms = Date.parse(e.startDate);
+          if (!Number.isFinite(ms)) throw new Error(`superliga kickoffs: ugyldig startDate "${e.startDate}" for ${id}`);
+          kickoff = new Date(ms).toISOString();
+        }
+        return { sourceKey: id, kickoff };
+      });
   },
 
   // Superligaens sourceKey ER dokument-id'et (begge genskabes fra runde +
@@ -465,6 +506,6 @@ const SYNCED_GAMES = [
 module.exports = {
   PROVIDERS, SYNCED_GAMES,
   SEASON_ID, TOURNAMENT_ID, STAGE_ID,
-  matchDocId, liveStatus, LIVE_STATUS, resultsUrl, liveUrl, standingsUrl, hentOpt,
+  matchDocId, liveStatus, LIVE_STATUS, resultsUrl, liveUrl, kickoffsUrl, standingsUrl, hentOpt,
   plLiveStatus, PL_PERIOD_STATUS,
 };

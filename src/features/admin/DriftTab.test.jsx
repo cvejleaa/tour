@@ -36,8 +36,15 @@ describe('DriftTab', () => {
   it('tegner GRÅT kort pr. forventet kørsel uden dokument — aldrig et hul i listen', () => {
     mockDrift.mockReturnValue(basis);
     render(<DriftTab />);
-    // SL: sweep. PL: sweep + kickoff. Touren: ingenting.
-    expect(screen.getAllByText('afventer første kørsel').length).toBe(3);
+    // BÅDE SL og PL har kickoff-synk (begge providere har hentKickoffs), så:
+    // SL: sweep + kickoff. PL: sweep + kickoff. Touren (uden sync): ingenting.
+    // = 4 kort. (Var 3, dengang SL manglede sit kickoff-kort — det var hullet,
+    // hvor en tavst fejlende SL-kickoff-synk ikke ville blive vist.)
+    expect(screen.getAllByText('afventer første kørsel').length).toBe(4);
+    // Præcist TO kickoff-kort — ét for hvert synket spil, ikke kun PL. Ét af
+    // dem SKAL være Superligaens (titlen er "Daglig kickoff-synk · <navn>").
+    expect(screen.getAllByText(/Daglig kickoff-synk/).length).toBe(2);
+    expect(screen.getByText(/Daglig kickoff-synk · Superligaen/)).toBeInTheDocument();
     expect(screen.queryByText(/Touren/)).toBeNull();
   });
 

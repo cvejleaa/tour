@@ -110,8 +110,10 @@ Functions-loggen er stadig sandheden for historik; fladen viser NU-billedet.
 ### Den daglige automatik (primærvejen)
 
 `syncGameKickoffs` retter tiderne **hver morgen kl. 6.10** for de spil, hvis
-provider kan levere dem (pt. kun pulselive/PL — Superligaen bruger stadig
-workflow-vejen nedenfor). Beslutningerne er SPEJLET fra `--kickoffs-only`
+provider kan levere dem — nu **både Premier League og Superligaen**. En kamp,
+hvis FORKERTE tid allerede er PASSERET, kan automatikken ikke flytte
+(genåbnings-vagten); den rettes ad workflow-vejen nedenfor. Beslutningerne er
+SPEJLET fra `--kickoffs-only`
 (paritetstestet i `functions-platform/seedFootball.test.js`), så de to veje
 giver samme svar: spillede kampe røres aldrig, en tid der står kan aldrig
 RYDDES af en rutinekørsel, og en kilde-kamp uden dokument er en alarm.
