@@ -73,7 +73,7 @@ describe('sendMessage', () => {
 
   it('kræver en delt liga (leagueId)', async () => {
     await expect(sendMessage({ from: 'a', to: 'b', text: 'hej' }))
-      .rejects.toThrow(/deler en liga/);
+      .rejects.toThrow(/deler en mini-liga/);
   });
 
   it('sætter sorterede participants, conversationId og leagueId', async () => {
@@ -84,6 +84,23 @@ describe('sendMessage', () => {
     expect(payload.from).toBe('zeb');
     expect(payload.to).toBe('amy');
     expect(payload.leagueId).toBe('lg1');
+  });
+
+  it('MEDTAGER gameId når det er sat (platformens mini-ligaer)', async () => {
+    await sendMessage({ from: 'a', to: 'b', text: 'hej', leagueId: 'lg1', gameId: 'g1' });
+    const payload = addDocMock.mock.calls[0][1];
+    expect(payload.gameId).toBe('g1');
+  });
+
+  it('UDELADER gameId-feltet når det ikke er sat (Tour rammer legacy-grenen)', async () => {
+    // En Tour-besked skal ligne dagens (INTET gameId-felt), ellers ville
+    // serveren tvinge game-league-grenen på en top-niveau-liga. Både udeladt
+    // og eksplicit null skal give et payload UDEN nøglen.
+    await sendMessage({ from: 'a', to: 'b', text: 'hej', leagueId: 'lg1' });
+    expect('gameId' in addDocMock.mock.calls[0][1]).toBe(false);
+    addDocMock.mockClear();
+    await sendMessage({ from: 'a', to: 'b', text: 'hej', leagueId: 'lg1', gameId: null });
+    expect('gameId' in addDocMock.mock.calls[0][1]).toBe(false);
   });
 });
 

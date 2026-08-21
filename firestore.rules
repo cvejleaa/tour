@@ -435,6 +435,33 @@ service cloud.firestore {
       // Kun de to deltagere kan læse beskeden
       allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
 
+      // Hvilken ligas medlemsliste afgør, om de to må skrive sammen?
+      // Denne app bygger TO verdener fra samme regelfil:
+      //  - Platformen: ligaen ligger under et spil (gameId sat) →
+      //    games/{gameId}/leagues/{leagueId}.
+      //  - Det afsluttede Tour-spil: intet gameId → top-niveau leagues
+      //    (uændret adfærd, så Tour-beskeder ikke knækker).
+      // Grenen er DETERMINISTISK på gameId-tilstedeværelse: er gameId sat,
+      // konsulteres top-niveau ALDRIG, så man kan ikke "låne" et gyldigt
+      // top-niveau-leagueId til en spil-liga, man ikke er med i. Et manglende
+      // liga-dokument får get() til at fejle → create AFVISES (fejler lukket).
+      function privateLeagueMembers(data) {
+        return ('gameId' in data && data.gameId != null)
+          ? get(/databases/$(database)/documents/games/$(data.gameId)/leagues/$(data.leagueId)).data.memberUids
+          : get(/databases/$(database)/documents/leagues/$(data.leagueId)).data.memberUids;
+      }
+      // ÉN vagt for "begge deler ligaen". BEGGE participants tjekkes — ikke
+      // bare afsenderen og 'to'. Sætter man to = sig selv, ramte begge de
+      // gamle tjek én selv, mens participants indeholdt en fremmed; den
+      // fremmede kunne så læse beskeden (læsereglen ovenfor bruger
+      // participants) og fik den i sin ulæst-tæller. Ved at måle på
+      // participants — dét læsning og visning faktisk bruger — og samle
+      // beslutningen ét sted, bliver en mutation af tjekket rød uanset gren.
+      function bothShareLeague(data) {
+        return data.participants[0] in privateLeagueMembers(data)
+          && data.participants[1] in privateLeagueMembers(data);
+      }
+
       // Opret: afsenderen er sig selv, er deltager, og BEGGE deler den angivne
       // liga (man kan kun skrive med folk, man er i liga med).
       allow create: if isApproved()
@@ -442,14 +469,7 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.participants
         && request.resource.data.participants.size() == 2
         && request.resource.data.to in request.resource.data.participants
-        // BEGGE deltagere skal være medlemmer — ikke bare afsenderen og 'to'.
-        // Sætter man to = sig selv, ramte begge de gamle tjek én selv, mens
-        // participants indeholdt en fremmed. Den fremmede kunne læse beskeden
-        // (læsereglen ovenfor bruger participants) og fik den i sin
-        // ulæst-tæller. Nu måles der på participants, som er dét, læsningen
-        // og visningen faktisk bruger.
-        && request.resource.data.participants[0] in get(/databases/$(database)/documents/leagues/$(request.resource.data.leagueId)).data.memberUids
-        && request.resource.data.participants[1] in get(/databases/$(database)/documents/leagues/$(request.resource.data.leagueId)).data.memberUids;
+        && bothShareLeague(request.resource.data);
 
       // Beskeder kan ikke redigeres
       allow update: if false;
