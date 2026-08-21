@@ -1212,6 +1212,26 @@ describe('messages/{id} — sikkerhedsregler', () => {
       })
     );
   });
+
+  it('eksplicit gameId=null rammer top-niveau-grenen (beviser != null-vagten)', async () => {
+    // En besked, hvor gameId er sat EKSPLICIT til null, skal behandles som en
+    // top-niveau-besked (legacy-grenen) — det er præcis, hvad `!= null`-vagten
+    // sikrer. Fjernes vagten (bare `'gameId' in data`), ville null tvinge
+    // game-league-grenen → get(games/null/leagues/…) → afvist, og denne
+    // assertSucceeds ville blive RØD. Klienten skriver aldrig null, men en rå
+    // SDK-skrivning kunne, og semantikken skal være bevist.
+    await createUser('a', 'player', 'approved');
+    await createUser('b', 'player', 'approved');
+    await createLeague('Ltop', 'a', ['a', 'b']);
+
+    const ctx = testEnv.authenticatedContext('a');
+    await assertSucceeds(
+      setDoc(doc(ctx.firestore(), 'messages', 'gnull'), {
+        participants: ['a', 'b'], conversationId: 'a__b', from: 'a', to: 'b',
+        gameId: null, leagueId: 'Ltop', text: 'null-gid', createdAt: Timestamp.now(),
+      })
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
