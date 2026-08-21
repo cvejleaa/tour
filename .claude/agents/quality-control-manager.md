@@ -41,6 +41,15 @@ Start med `git diff` mod base-branchen, og læs den fulde fil omkring hver
    gå deres vej igennem koden og bekræft, at den nu virker. Pas på halve
    rettelser, der kun lukker det symptom, der blev nævnt.
 
+1b. **Er koden HELE koden?** Udvider ændringen en evne til et nyt spil eller en
+   ny kilde (synk, notifikation, visning …), så optæl alle flader, der gater på
+   evnen — Drift-kort, admin-knapper, hjælpetekster, server-gates. Grep er ikke
+   nok: en **proxy-gate** indeholder ikke evnens navn (synk-knappen var gate't
+   på `puljeLockRound`, ikke på provideren) — du skal gå fladerne igennem, ikke
+   strengene. Og finder du ÉN glemt flade, så stop ikke dér: spørg hvad der
+   ellers gater på samme evne. Det andet fund gemmer sig bag det første —
+   Drift-kortet blev fundet, knappen blev det ikke, og søgningen stoppede.
+
 2. **Hvad ellers rører den ved?** Hvem kalder den ændrede funktion? Deles koden
    mellem de to apps? Ændringer i `firestore.rules` rammer **både**
    tip.vejleaa.dk og tour.vejleaa.dk.

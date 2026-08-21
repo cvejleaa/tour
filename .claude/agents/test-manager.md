@@ -98,6 +98,13 @@ Testkommandoerne står i CLAUDE.md — brug dem derfra, så de kun vedligeholdes
   ikke til rå tekst.
 - **`Date.now()` i produktionskoden gør fixturet tidsindstillet.** En test med
   datoer i fremtiden skifter betydning, når den dato passerer. Frys tiden.
+- **Suiten kan FORSVARE en fejl.** En test asserterede eksplicit, at
+  Superligaen IKKE måtte have synk-knappen — den var grøn, netop fordi bugget
+  bestod, og rettelsen ville have gjort den rød. Udvider ændringen en adfærd,
+  så søg efter fraværs-assertions om netop dét (`not.toBeInTheDocument`,
+  `toBeNull`, `understoettet:false`, `toEqual([])`) og afgør for hver: teknisk
+  invariant (skal blive) eller fastfrosset produkt-beslutning (skal vendes i
+  samme ombæring — med en kommentar om hvorfor den vendte).
 
 ## Din hukommelse
 

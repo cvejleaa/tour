@@ -97,7 +97,11 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
 4. Vent på grøn CI (fire jobs). Un-draft → squash-merge.
 5. **Deploy efter Release Managers plan — uden at spørge om lov.** Er CI grøn,
    og har rollerne ikke blokerende fund, så rul ud. Spørg ikke hver gang.
-6. Verificér i produktion, og fortæl brugeren hvad der er live.
+6. Verificér i produktion, og fortæl brugeren hvad der er live. Har ændringen
+   en ny knap/fane/kort, så bekræft at den faktisk VISES for det konkrete
+   spil/den konkrete tilstand — spor render-betingelsen i koden eller kræv en
+   render-test for præcis dét fixture. Meld aldrig en flade færdig, du kun har
+   set intentionen om.
 
 Undtagelserne fra trin 5, hvor der **stadig** spørges først: alt der skriver i
 produktionsdata (bagfyldninger, migreringer, `seedGames`/`seedSuperliga`),
@@ -113,7 +117,48 @@ der er holdt op med at køre — og alarmerne selv: virker de stadig?
 
 Kør derfor `/saesoneftersyn` før hver ny sæson, eller ca. hver anden måned.
 Aldrig midt i en aktiv runde. Kommandoen ligger i
-`.claude/commands/saesoneftersyn.md`.
+`.claude/commands/saesoneftersyn.md`. Eftersynet omfatter også **fladen selv**:
+gå hele nav'en igennem som bruger og som admin — en fane, ingen ændring har
+rørt, kan være død, og rollerne ser den aldrig, for de kigger kun på diffs.
+
+## Korrekt er ikke komplet
+
+To fejl nåede ejeren, mens hele kontrollen var grøn: Beskeder-fanen var en tavs
+blindgyde på platformen i månedsvis (den læste en afløst datamodel, og ingen
+ændring rørte den, så ingen rolle så den), og "Synk kamptider nu"-knappen
+manglede for Superligaen, da den fik kickoff-synk (knappen var gate't på en
+proxy — `puljeLockRound` — der kun tilfældigt fulgtes med evnen, så længe PL
+var alene om den). Fællesnævneren: rollerne efterprøver, om den **skrevne**
+kode er korrekt. Ingen af dem spørger, om den skrevne kode er **hele** koden —
+og ingen af dem bruger fladen. Deraf disse regler:
+
+- **En evne, der udvides, skal følges hele vejen ud i fladen.** Får et spil
+  eller en kilde en ny evne (eller mister en), så optæl FØR koden skrives alle
+  flader, der afhænger af evnen — Drift-kort, admin-knapper, hjælpetekster,
+  server-gates — og sæt listen i planen. Ét fund er ikke svaret; listen er.
+  SL-synken fik serverdelen i én PR, Drift-kortet i den næste og knappen i den
+  tredje, fordi hver flade først blev fundet, da nogen savnede den.
+- **En gate skal teste evnen, ikke en nabo-egenskab.** `puljeLockRound` var
+  proxy for "har kickoff-synk" og knækkede tavst, da korrelationen brød. En
+  proxy-gate kan ikke findes med grep — den indeholder ikke evnens navn. Gate
+  på en delt helper (fx `harKickoffSynk`), aldrig på noget, der blot plejer at
+  følges ad med evnen.
+- **En afløst datamodel skal have et forbrugs-eftersyn.** Da ligaerne flyttede
+  under spillene, blev hver læser af top-niveau `leagues` et potentielt lig.
+  Afløses en model, så grep ALLE læsere af den gamle og dispositionér hver
+  enkelt på skrift i planen: porteret, bevidst legacy, eller død. Beskeder var
+  en læser, ingen dispositionerede.
+- **En test kan fastfryse en fejl.** Suiten asserterede eksplicit, at SL IKKE
+  måtte have synk-knappen — grøn, fordi den forsvarede bugget. Udvider du en
+  adfærd, så søg i testene efter fraværs-assertions om netop dét, du udvider
+  (`not.toBeInTheDocument`, `toBeNull`, `understoettet:false`, `toEqual([])`),
+  og vend dem bevidst — de må ikke først opdages som røde, og slet ikke
+  overleve som grønne.
+- **En klik-sti i en plan skal være sporet, ikke antaget.** Release Managers
+  verifikationsplan henviste til en knap, der ikke fandtes for det spil, planen
+  handlede om — og stien blev givet videre til ejeren som facit. Hvert
+  klik-trin spores til den render-betingelse (fil:linje), der viser elementet
+  for præcis det spil og den tilstand, planen gælder.
 
 ## Faste regler
 
