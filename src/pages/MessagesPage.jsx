@@ -5,22 +5,29 @@
  *  - Trådvisning med beskeder + skrivefelt
  */
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useStandings } from '../features/leaderboard/useStandings';
 import { useLeagues } from '../features/leagues/useLeagues';
+import { useMyLeaguesAcrossGames } from '../features/games/useMyLeaguesAcrossGames';
 import { buildContactLeagues } from '../features/comments/contactLeagues';
 import { useMyMessages, groupConversations } from '../features/comments/useMessages';
 import { sendMessage, deleteMessage } from '../features/comments/commentActions';
 import { formatTimestamp } from '../features/comments/formatTimestamp';
 import { markConversationSeen } from '../features/comments/dmRead';
+import { PLATFORM_MODE } from '../lib/platform';
 import EmojiPicker from '../features/comments/EmojiPicker';
 import Avatar from '../components/Avatar';
+
+// På platformen ligger ligaer under det enkelte spil og hedder "mini-ligaer";
+// i det gamle Tour-spil er det bare "ligaer". Teksten følger verdenen.
+const LIGA_ORD = PLATFORM_MODE ? 'mini-liga' : 'liga';
 
 // ── Trådvisning ───────────────────────────────────────────────────────────────
 // Beskederne kommer fra forælderens samlede abonnement (useMyMessages) og
 // filtreres til denne samtale — det undgår en separat query, som ellers ville
 // blive afvist af sikkerhedsreglerne (de tillader læsning via participants).
-function Thread({ meUid, otherUid, nameOf, otherUser, messages, loading, leagueId }) {
+function Thread({ meUid, otherUid, nameOf, otherUser, messages, loading, leagueId, gameId }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -31,10 +38,16 @@ function Thread({ meUid, otherUid, nameOf, otherUser, messages, loading, leagueI
     setBusy(true);
     setError('');
     try {
-      await sendMessage({ from: meUid, to: otherUid, text, leagueId });
+      await sendMessage({ from: meUid, to: otherUid, text, leagueId, gameId });
       setText('');
     } catch (err) {
-      setError(err.message);
+      // En regel-afvisning (fx modparten har netop forladt den delte
+      // mini-liga) kommer fra Firestore med code 'permission-denied' og en
+      // engelsk besked. Match på code'en — samme robuste konvention som resten
+      // af kodebasen — og oversæt til en dansk, handlingsanvisende besked.
+      setError(err?.code === 'permission-denied'
+        ? `Beskeden kunne ikke sendes — I deler måske ikke længere en ${LIGA_ORD}.`
+        : (err?.message || 'Beskeden kunne ikke sendes.'));
     } finally {
       setBusy(false);
     }
@@ -117,7 +130,7 @@ function Thread({ meUid, otherUid, nameOf, otherUser, messages, loading, leagueI
         </form>
       ) : (
         <p style={{ marginTop: '0.75rem', color: 'var(--c-muted)', fontSize: '0.85rem' }}>
-          I deler ikke længere en liga, så du kan ikke skrive nye beskeder her.
+          I deler ikke længere en {LIGA_ORD}, så du kan ikke skrive nye beskeder her.
         </p>
       )}
     </div>
@@ -129,7 +142,13 @@ export default function MessagesPage() {
   const { user } = useAuth();
   const meUid = user?.uid;
   const { standings } = useStandings();
-  const { leagues } = useLeagues(meUid);
+  // Kontaktkredsen kommer fra ligaerne, man deler. På platformen ligger de
+  // under spillene (games/{gameId}/leagues, på tværs af alle mine spil); i det
+  // gamle Tour-spil er det top-niveau-ligaerne. Begge hooks kaldes (React-
+  // reglen), men kun den relevante bruges.
+  const { leagues: topLeagues } = useLeagues(meUid);
+  const { leagues: gameLeagues } = useMyLeaguesAcrossGames();
+  const leagues = PLATFORM_MODE ? gameLeagues : topLeagues;
   const { messages, loading } = useMyMessages(meUid);
   const [activeUid, setActiveUid] = useState(null);
   const [pick, setPick] = useState('');
@@ -199,9 +218,22 @@ export default function MessagesPage() {
           {loading ? (
             <div className="spinner" role="status" aria-label="Indlæser" />
           ) : conversations.length === 0 ? (
-            <p style={{ color: 'var(--c-muted)', fontSize: '0.9rem' }}>
-              Ingen samtaler endnu. Vælg en spiller ovenfor for at starte.
-            </p>
+            others.length === 0 ? (
+              // Ingen at skrive til OG ingen gamle samtaler: kredsen er "dem du
+              // deler en mini-liga med", og deler man ingen, er dropdownen tom.
+              // Sig det ærligt (i stedet for "vælg en spiller ovenfor", når der
+              // ingen er) og gør det til en krog — ikke en blindgyde. Har man
+              // derimod gamle samtaler, vises de nedenfor, selv uden delt liga.
+              <p style={{ color: 'var(--c-muted)', fontSize: '0.9rem' }} data-testid="dm-no-contacts">
+                Du deler endnu ikke en {LIGA_ORD} med nogen. Du kan skrive privat med
+                spillere, du deler en {LIGA_ORD} med
+                {PLATFORM_MODE ? <> — kom med i en pulje under <Link to="/spil">Spil</Link>.</> : '.'}
+              </p>
+            ) : (
+              <p style={{ color: 'var(--c-muted)', fontSize: '0.9rem' }}>
+                Ingen samtaler endnu. Vælg en spiller ovenfor for at starte.
+              </p>
+            )
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
               {conversations.map((c) => {
@@ -239,7 +271,9 @@ export default function MessagesPage() {
         {/* Højre: aktiv tråd */}
         {activeUid ? (
           <Thread meUid={meUid} otherUid={activeUid} nameOf={nameOf} otherUser={userOf(activeUid)}
-            messages={threadMessages} loading={loading} leagueId={contactLeagues[activeUid] || null} />
+            messages={threadMessages} loading={loading}
+            leagueId={contactLeagues[activeUid]?.leagueId || null}
+            gameId={contactLeagues[activeUid]?.gameId || null} />
         ) : (
           <div className="card" style={{ color: 'var(--c-muted)' }}>
             Vælg en samtale eller start en ny for at skrive beskeder.

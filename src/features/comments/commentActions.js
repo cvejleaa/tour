@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { COL } from '../../lib/constants';
+import { PLATFORM_MODE } from '../../lib/platform';
 
 const MAX_LEN = 1000;
 
@@ -68,13 +69,18 @@ export function conversationId(a, b) {
  * @param {string} p.from – afsenderens uid
  * @param {string} p.to   – modtagerens uid
  * @param {string} p.text
+ * @param {string} p.leagueId – ligaen de to deler (regel-kontekst)
+ * @param {string} [p.gameId] – spillet ligaen ligger under (platformens
+ *   mini-ligaer). Udelades for de gamle top-niveau-ligaer (Tour), så serveren
+ *   validerer ad den uændrede legacy-gren.
  * @returns {Promise<string>} det nye dokument-id
  */
-export async function sendMessage({ from, to, text, leagueId }) {
+export async function sendMessage({ from, to, text, leagueId, gameId = null }) {
   if (!from) throw new Error('Du skal være logget ind.');
   if (!to) throw new Error('Vælg en modtager.');
   if (from === to) throw new Error('Du kan ikke sende en besked til dig selv.');
-  if (!leagueId) throw new Error('Du kan kun skrive med spillere, du deler en liga med.');
+  // "mini-liga" på platformen, "liga" i det gamle Tour-spil (samme delte fil).
+  if (!leagueId) throw new Error(`Du kan kun skrive med spillere, du deler en ${PLATFORM_MODE ? 'mini-liga' : 'liga'} med.`);
   const participants = [from, to].sort();
   const ref = await addDoc(collection(db, COL.MESSAGES), {
     participants,
@@ -82,6 +88,9 @@ export async function sendMessage({ from, to, text, leagueId }) {
     from,
     to,
     leagueId,
+    // Skriv KUN gameId når det er sat — en Tour-besked skal ligne dagens
+    // (intet felt), så den rammer serverens legacy-gren.
+    ...(gameId ? { gameId } : {}),
     text: cleanText(text),
     createdAt: serverTimestamp(),
   });

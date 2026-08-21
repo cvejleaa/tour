@@ -1123,6 +1123,115 @@ describe('messages/{id} — sikkerhedsregler', () => {
     await assertFails(deleteDoc(doc(testEnv.authenticatedContext('b').firestore(), 'messages', 'msg4')));
     await assertSucceeds(deleteDoc(doc(testEnv.authenticatedContext('a').firestore(), 'messages', 'msg4')));
   });
+
+  // -------------------------------------------------------------------------
+  // Platformens mini-ligaer: beskeden bærer gameId, og medlemskabet måles på
+  // games/{gameId}/leagues/{leagueId} — IKKE top-niveau leagues.
+  // -------------------------------------------------------------------------
+  async function createGameLeague(gameId, leagueId, memberUids) {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('games').doc(gameId)
+        .collection('leagues').doc(leagueId)
+        .set({ name: 'Mini', code: 'KODE12', ownerUid: memberUids[0], memberUids, createdAt: Timestamp.now() });
+    });
+  }
+
+  it('game-scoped: KAN sende til en mini-liga-fælle (gameId sat)', async () => {
+    await createUser('a', 'player', 'approved');
+    await createUser('b', 'player', 'approved');
+    await createGameLeague('G', 'L', ['a', 'b']);
+
+    const ctx = testEnv.authenticatedContext('a');
+    await assertSucceeds(
+      setDoc(doc(ctx.firestore(), 'messages', 'gmsg1'), {
+        participants: ['a', 'b'], conversationId: 'a__b', from: 'a', to: 'b',
+        gameId: 'G', leagueId: 'L', text: 'Hej B', createdAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('game-scoped: KAN IKKE sende til en, der ikke er i mini-ligaen', async () => {
+    await createUser('a', 'player', 'approved');
+    await createUser('b', 'player', 'approved');
+    await createGameLeague('G', 'Lsolo', ['a']); // kun a er medlem
+
+    const ctx = testEnv.authenticatedContext('a');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'messages', 'gmsgx'), {
+        participants: ['a', 'b'], conversationId: 'a__b', from: 'a', to: 'b',
+        gameId: 'G', leagueId: 'Lsolo', text: 'Hej', createdAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('game-scoped: self-som-to-hullet forbliver lukket (participants[1] ikke medlem)', async () => {
+    // from=a, to=a (rammer én selv i de gamle from/to-tjek), men participants
+    // rummer en fremmed, som IKKE er i mini-ligaen → skal afvises, ellers
+    // kunne den fremmede læse beskeden via participants-læsereglen.
+    await createUser('a', 'player', 'approved');
+    await createUser('fremmed', 'player', 'approved');
+    await createGameLeague('G', 'Lself', ['a']);
+
+    const ctx = testEnv.authenticatedContext('a');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'messages', 'gself'), {
+        participants: ['a', 'fremmed'], conversationId: 'a__fremmed', from: 'a', to: 'a',
+        gameId: 'G', leagueId: 'Lself', text: 'snig', createdAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('game-scoped: gameId TVINGER game-league-grenen — et gyldigt top-niveau-leagueId redder ikke', async () => {
+    // a og b deler en TOP-NIVEAU liga 'L', men beskeden sender gameId='G' +
+    // leagueId='L', hvor games/G/leagues/L IKKE findes. Fordi gameId er sat,
+    // konsulteres top-niveau ALDRIG → get() på det manglende game-league-dok
+    // fejler → afvist. Beviser at man ikke kan "låne" et top-niveau-leagueId.
+    await createUser('a', 'player', 'approved');
+    await createUser('b', 'player', 'approved');
+    await createLeague('L', 'a', ['a', 'b']); // ægte top-niveau-fællesskab
+
+    const ctx = testEnv.authenticatedContext('a');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'messages', 'gborrow'), {
+        participants: ['a', 'b'], conversationId: 'a__b', from: 'a', to: 'b',
+        gameId: 'G', leagueId: 'L', text: 'lån', createdAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('game-scoped: manglende mini-liga-dokument fejler LUKKET', async () => {
+    await createUser('a', 'player', 'approved');
+    await createUser('b', 'player', 'approved');
+    // Ingen createGameLeague — dokumentet findes ikke.
+
+    const ctx = testEnv.authenticatedContext('a');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'messages', 'gmissing'), {
+        participants: ['a', 'b'], conversationId: 'a__b', from: 'a', to: 'b',
+        gameId: 'Gx', leagueId: 'Lx', text: 'ingen liga', createdAt: Timestamp.now(),
+      })
+    );
+  });
+
+  it('eksplicit gameId=null rammer top-niveau-grenen (beviser != null-vagten)', async () => {
+    // En besked, hvor gameId er sat EKSPLICIT til null, skal behandles som en
+    // top-niveau-besked (legacy-grenen) — det er præcis, hvad `!= null`-vagten
+    // sikrer. Fjernes vagten (bare `'gameId' in data`), ville null tvinge
+    // game-league-grenen → get(games/null/leagues/…) → afvist, og denne
+    // assertSucceeds ville blive RØD. Klienten skriver aldrig null, men en rå
+    // SDK-skrivning kunne, og semantikken skal være bevist.
+    await createUser('a', 'player', 'approved');
+    await createUser('b', 'player', 'approved');
+    await createLeague('Ltop', 'a', ['a', 'b']);
+
+    const ctx = testEnv.authenticatedContext('a');
+    await assertSucceeds(
+      setDoc(doc(ctx.firestore(), 'messages', 'gnull'), {
+        participants: ['a', 'b'], conversationId: 'a__b', from: 'a', to: 'b',
+        gameId: null, leagueId: 'Ltop', text: 'null-gid', createdAt: Timestamp.now(),
+      })
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
