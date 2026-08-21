@@ -72,8 +72,9 @@ describe('sendMessage', () => {
   });
 
   it('kræver en delt liga (leagueId)', async () => {
+    // Uden platform-flag (Tour) siger fejlen "liga"; på platformen "mini-liga".
     await expect(sendMessage({ from: 'a', to: 'b', text: 'hej' }))
-      .rejects.toThrow(/deler en mini-liga/);
+      .rejects.toThrow(/deler en (mini-)?liga med/);
   });
 
   it('sætter sorterede participants, conversationId og leagueId', async () => {

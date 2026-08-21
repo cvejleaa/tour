@@ -693,3 +693,44 @@ vagten i rules eller kun i vores JS? Kun rules tæller mod devtools-angriberen.*
   så kun en enumeration af allerede-offentlige URLer. Ingen sletning/cleanup →
   betroet admin kan fylde Storage (permanent, dokumenteret). Uppercase `HTTPS://`
   autolinker ikke (kun UX).
+
+## messages-create forgrenet på gameId (ecb561f) — BEKRÆFTET RENT (emulator, 227 + 14 PoC)
+
+Ændring: `messages` create validerer nu BEGGE participants mod enten
+`games/{gameId}/leagues/{leagueId}.memberUids` (gameId sat, platform) eller
+top-niveau `leagues/{leagueId}` (gameId fraværende/null, Tour). Samlet i
+`bothShareLeague`/`privateLeagueMembers` (firestore.rules L448-472). Læse-,
+update- (false), delete-reglerne URØRT.
+
+**Kritisk emulator-fælde (ny, til listen): `firebase-tools@latest emulators:exec`
+downloader en NYERE firestore-emulator med strammere null-semantik → 35 af 227
+regel-tests fejler falsk med "Null value error" på get()-kald (også kontroltests
+som "KAN rette visningsnavn"). Kør ALTID mod den dokumenterede jar v1.22.0
+direkte** (`java -jar ~/.cache/firebase/emulators/cloud-firestore-emulator-v1.22.0.jar
+--port=8085 --rules=...` + `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 npx vitest run
+--config vitest.rules.config.js`). Mod jar: 227/227 grønne.
+
+**BEKRÆFTET RENT (14 PoC-checks, scratchpad/poc/attack.mjs, alle som forventet):**
+- Skrive i fremmeds indbakke: AFVIST i alle former — liga hvor angriber ikke er
+  med (offer+andre), liga kun angriber er med, top-liga uden angriber. Vagten er
+  at BEGGE participants (ikke from/to) skal være i member-listen, og angriber ER
+  altid participants[0] via `from`-tjekket → kan aldrig nå en member-liste uden
+  selv at stå i den. Self-som-'to'-hul lukket (participants[1]=fremmed afvist).
+- Grenforvirring vandtæt: `gameId` sat TVINGER game-stien; et gyldigt top-niveau-
+  leagueId hvor begge er med kan IKKE lånes (games/GX/leagues/TL findes ikke →
+  Null value error → afvist). Determinismen holder.
+- `privateLeagueMembers` kaldes to gange, men begge læser SAMME
+  `request.resource.data` i én create-evaluering → ingen TOCTOU.
+- Fejler lukket: manglende game-league-dok, `gameId=''` (tom streng → games//… →
+  fejl), `gameId=null` → korrekt top-niveau-gren.
+- Tour-regression: gameId=null/udeladt + delt top-liga → TILLADT (uændret); top-
+  liga uden afsender → afvist. Ingen svækkelse af top-niveau-stien.
+- Standardvagter intakte: pending afvist (isApproved), from-forfalskning,
+  size!=2, to ikke i participants, participants-dublet — alle afvist.
+- Læsereglen (participants) intakt: tredjepart kan ikke læse; participant kan.
+- get()-tal: isApproved(1) + 2 liga-get = 3 pr. create, langt under 10-loftet;
+  identisk med den GAMLE regel (som også lavede 2 liga-get) → ingen DoS-regression.
+
+**Ingen blokerende fund.** Fladen er tæt. Data er adskilt pr. Firebase-projekt,
+så delt regelfil giver ingen krydskontaminering (top-niveau leagues er tom på
+platformen → Tour-grenen dér fejler bare lukket, uden lækage).

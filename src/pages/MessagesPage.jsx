@@ -42,12 +42,12 @@ function Thread({ meUid, otherUid, nameOf, otherUser, messages, loading, leagueI
       setText('');
     } catch (err) {
       // En regel-afvisning (fx modparten har netop forladt den delte
-      // mini-liga) kommer som Firestores engelske "Missing or insufficient
-      // permissions". Oversæt til en dansk, handlingsanvisende besked.
-      const raw = String(err?.message || '');
-      setError(/insufficient permissions|PERMISSION_DENIED/i.test(raw)
+      // mini-liga) kommer fra Firestore med code 'permission-denied' og en
+      // engelsk besked. Match på code'en — samme robuste konvention som resten
+      // af kodebasen — og oversæt til en dansk, handlingsanvisende besked.
+      setError(err?.code === 'permission-denied'
         ? `Beskeden kunne ikke sendes — I deler måske ikke længere en ${LIGA_ORD}.`
-        : raw);
+        : (err?.message || 'Beskeden kunne ikke sendes.'));
     } finally {
       setBusy(false);
     }
