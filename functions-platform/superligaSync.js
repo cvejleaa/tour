@@ -478,8 +478,9 @@ async function syncKickoffsCore(db, FieldValue, opts = {}) {
   const { provider, sync } = providerAfOpts(opts);
   const dryRun = opts.dryRun !== false;
 
-  // En kilde uden flytbare tider (Superligaen — rettes ad seedKickoffs-vejen)
-  // springes over uden støj.
+  // En kilde uden hentKickoffs (kickoff-provider) springes over uden støj —
+  // dens tider rettes kun ad seedKickoffs-vejen. Både PL og Superligaen HAR
+  // metoden nu og synkes dagligt.
   if (typeof provider.hentKickoffs !== 'function') return { understoettet: false };
 
   const alle = await allMatches(db, { gameId });

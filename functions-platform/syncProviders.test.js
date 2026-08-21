@@ -556,6 +556,31 @@ describe('syncKickoffsCore', () => {
     expect(db._docs.get('r1-103').kickoff.getTime()).toBe(Date.parse('2026-08-01T10:00:00Z'));
   });
 
+  it('END-TO-END med den ÆGTE superliga-provider: en flyttet kamp skrives gennem kernen', async () => {
+    // Beviser hele kæden — superliga.hentKickoffs → resolveDocs → kickoffPlan →
+    // skrivning — med den RIGTIGE provider, ikke en fake. Fanger et fremtidigt
+    // slug-mismatch mellem hentKickoffs og resolveDocs (begge bygger doc-id'et
+    // via matchDocId; her køres de FOR FØRSTE GANG sammen).
+    const gammel = Date.parse('2026-08-21T17:00:00Z'); // vores forkerte tid
+    const rigtig = '2026-08-23T12:00:00.000Z';         // kildens rettede tid
+    const db = fakeDb({ 'r5-agf-ob': { kickoff: new Date(gammel), round: 5 } });
+    const fetchFn = fetchRuter([
+      ['status=notstarted', () => ({ events: [
+        { round: 5, homeName: 'AGF', awayName: 'OB', startDate: rigtig },
+      ] })],
+    ]);
+    const ud = await syncKickoffsCore(db, FieldValue, {
+      gameId: 'superliga2627', provider: PROVIDERS.superliga,
+      sync: { seasonId: 35802 }, fetchFn, nowMs: NU, dryRun: false,
+    });
+    expect(ud.aendringer.map((a) => a.id)).toEqual(['r5-agf-ob']);
+    const skrevet = db._docs.get('r5-agf-ob');
+    expect(skrevet.kickoff.getTime()).toBe(Date.parse(rigtig));
+    // Kun kickoff + stempel — round og alt andet urørt (invarianten fra oven).
+    expect(Object.keys(skrevet).sort()).toEqual(['kickoff', 'kickoffSyncedAt', 'round']);
+    expect(db._metoder).toEqual(['update']);
+  });
+
   it('TØR-KØRSEL er default og fejler lukket: kun eksplicit false skriver', async () => {
     const foer = Date.parse('2026-08-21T18:00:00Z');
     const db = fakeDb({ 'r1-101': kamp(foer) });

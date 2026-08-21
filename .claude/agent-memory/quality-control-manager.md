@@ -732,3 +732,47 @@ Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
 - **Placering:** knappen sidder i Spil-tidsplan ved siden af deadline-feltet den
   påvirker; read-only-feltet peger eksplicit "kør 🗓️ Synk kamptider nu nedenfor".
   Navnet er "kamptider", ikke "pulje-deadline", men konteksten bygger broen. OK.
+
+## SL kickoff-synk (14db489): kernen solid, men den forudsagte fælde fra egen hukommelse blev IKKE undgået
+
+- **Selvopfyldt advarsel:** linje ~95-98 i denne fil sagde allerede "klienten
+  hardkoder `provider === 'pulselive'`, serveren tjekker
+  `typeof provider.hentKickoffs === 'function'` — konsistent i dag, men endnu
+  et sted der skal følges ad i hånden." 14db489 gjorde SERVEREN understøtte
+  superliga.hentKickoffs, men rørte IKKE `DriftTab.jsx:106`
+  (`g.sync.provider === 'pulselive' ? [kickoff-kort] : []`) eller kommentaren
+  linje 100-102 ("kun kilder med flytbare tider (pulselive) har kickoff-synk").
+  Konsekvens: intet "afventer"-kort for SL-kickoff, før den daglige synk har
+  skrevet mindst ét statusdokument. REDDET af en TIDLIGERE QC-rettelse
+  (samme fil, linje 133-141: "ALLE status-dokumenter uden et forventet kort
+  vises også") — den fanger et RØDT dokument, når det først findes, så en
+  vedvarende SL-kickoff-fejl bliver synlig fra og med første kørsel (6:10
+  dagen efter deploy, `skrivDriftStatus` kaldes ubetinget selv i catch-grenen,
+  `functions-platform/index.js:577`). Men gabet mellem deploy og første
+  kørsel giver INTET kort overhovedet — hverken "afventer" eller fejl — for
+  et nyt provider/type-par, indtil det er kørt mindst én gang. Spørg NÆSTE
+  gang en provider får en ny kilde-evne (`hentKickoffs`, `hentLive` osv.):
+  er `DriftTab.jsx`s `forventede`-filter opdateret til at matche, ikke kun
+  om et fallback-net fanger det bagefter?
+- **Dobbelt stale-kommentar samme mønster, ingen af dem rettet i diffen:**
+  `functions-platform/syncProviders.js:29-30` (modul-kontrakten) og
+  `functions-platform/superligaSync.js:481-483` (`syncKickoffsCore`s egen
+  guard-kommentar) siger BEGGE stadig "Superligaen — rettes ad
+  seedKickoffs-vejen", som var sandt FØR denne commit og er usandt nu.
+  Ingen funktionel skade (koden selv er korrekt), men næste udvikler, der
+  læser kontrakten for at forstå hvornår `hentKickoffs` er valgfri, får et
+  forkert eksempel.
+- **Den alvorligste dokumentationsdrift er i driftsrunbogen, ikke i kode-
+  kommentarer:** `docs/drift.md:112-114` siger stadig "provider kan levere
+  dem (pt. kun pulselive/PL — Superligaen bruger stadig workflow-vejen
+  nedenfor)" — den PRIMÆRE kilde en admin læser for at forstå, om en flyttet
+  SL-kamp fanges automatisk. Uændret i denne commit. En admin, der følger
+  drift.md efter en flyttet SL-kamp, vil tro automatikken ikke dækker SL og
+  blive ved med kun at bruge `seedKickoffs`-workflowet — harmløst (seed-vejen
+  virker stadig), men det modsiger lige netop det, commit-beskeden hævder at
+  løse ("fang flyttede kampe automatisk").
+- **Kernen selv (`kickoffsUrl` med `status=notstarted`, dobbelt-forsvar mod en
+  API-status-race via `kickoffPlan`s egen `nu.result`-check, genåbnings-vagt,
+  `puljeLockRound`-gaten uændret) er korrekt og veltestet** — 6 nye
+  counter-proofs, alle beståede, ingen mutationsfælde fundet ved læsning
+  (notstarted-endpoint bevist eksplicit i test, ikke kun antaget).

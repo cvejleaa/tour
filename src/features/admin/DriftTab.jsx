@@ -14,6 +14,11 @@ import { useGames } from '../games/useGames';
 import { useDriftStatus, ukvitterede } from './useDriftStatus';
 import { formatKickoff } from '../../lib/daDate';
 
+// Kilder, hvis provider har en hentKickoffs (daglig kickoff-synk). SKAL følge
+// SYNCED_GAMES/PROVIDERS på serveren: får et spil kickoff-synk dér uden at stå
+// her, mangler dets "afventer"-kort, og en tavst fejlende synk ses ikke.
+const KICKOFF_PROVIDERE = new Set(['pulselive', 'superliga']);
+
 const TYPE_NAVN = {
   sweep: 'Times-sweep (facit + tabel)',
   minut: 'Minut-synk (kampdage)',
@@ -98,12 +103,14 @@ export default function DriftTab() {
   const { status, alarmer, loading, error } = useDriftStatus();
 
   // Forventede kørsler afledt af spillenes seedede sync-felt: alle synkede
-  // spil har sweep + minut; kun kilder med flytbare tider (pulselive) har
-  // kickoff-synk. Spejler SYNCED_GAMES-semantikken via game-dokumenterne.
-  const synkede = (games || []).filter((g) => g.sync?.provider);
-  const forventede = synkede.flatMap((g) => [
+  // spil har sweep + minut; kun kilder med en kickoff-provider (hentKickoffs)
+  // får et kickoff-synk-kort. Spejler SYNCED_GAMES-semantikken via game-
+  // dokumenterne. Holdes som ét sæt, så en tredje kilde er én rettelse — ikke
+  // endnu et hardkodet provider-navn spredt i fladen (QC-fund: klienten skal
+  // følge serveren, ellers står en tavst fejlende synk uden "afventer"-kort).
+  const forventede = (games || []).filter((g) => g.sync?.provider).flatMap((g) => [
     { type: 'sweep', gameId: g.id, gameNavn: g.name },
-    ...(g.sync.provider === 'pulselive' ? [{ type: 'kickoff', gameId: g.id, gameNavn: g.name }] : []),
+    ...(KICKOFF_PROVIDERE.has(g.sync.provider) ? [{ type: 'kickoff', gameId: g.id, gameNavn: g.name }] : []),
   ]);
   const docAf = new Map(status.map((d) => [`${d.type}-${d.gameId}`, d]));
   const aabneAlarmer = alarmer.filter((a) => !a.loestAt);

@@ -37,14 +37,19 @@
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
 
-- **Fremmed kilde → genåbnet deadline.** `syncKickoffsCore`
-  (functions-platform/superligaSync.js L467-517) springer kun kampe over, hvis
-  de har `result`. En kamp, der er i gang / spillet, men uden facit endnu, kan
-  få sin `kickoff` flyttet fra FORTID til FREMTID af den daglige 6.10-kørsel.
-  48-timers-alarmen (L498-499) filtrerer på `tilMs - nowMs < 48t` og fanger
-  derfor IKKE den retning. Bekræftet både i kernen og i emulatoren.
-  Den symmetriske retning (fremtid → fortid) fanges af alarmen, men eksponerer
-  alles tips med det samme (L799) — halvdelen af en tur-retur er dækket.
+- **Fremmed kilde → genåbnet deadline (RETTET, verificeret 2026-08-21).**
+  DEN GAMLE post her var forældet: genåbnings-forbuddet
+  (superligaSync.js L515-517: `fraMs<=now && tilMs>now → afvist`) LUKKER nu
+  past→future for ENHVER kamp uden `result`, ikke kun kampe med facit. PoC kørt
+  mod ægte kerne (scratchpad/poc-kickoff.js, case 2): past→future giver
+  `genaabninger:[id]`, INTET skrevet, kickoff står. meldAlarm(genaabning,
+  kraeverKvittering) fyrer (index.js L540). Retningen er derfor lukket.
+  RESIDUAL (åben, by-design, pre-existing PL-klasse): fremtid→TIDLIGERE tid er
+  TILLADT (legitime reschedules skal kunne rykke en deadline frem). Backstop er
+  KUN <48t-alarmen (`tilMs-now < 48t`, kraeverKvittering). Et move på >48t
+  tidligere (fx 7d→3d) skrives TAVST — en kompromitteret kilde kan lukke tips
+  tidligt på en fjern kamp uden alarm. PoC case 3 bekræfter: future→nearPast
+  skrives + snart-alarm; et >48t-move ville ikke give snart.
 - **Alarm-druknen.** `mangler` i syncKickoffsCore samler ALLE kilde-kampe uden
   dokument. Kilden (pulselive competition=8) leverer hele sæsonens 380 kampe,
   mens `pl2627-efteraar` kun har 180 (runde 1-18) → 200 poster i alarmen hver
@@ -734,3 +739,58 @@ direkte** (`java -jar ~/.cache/firebase/emulators/cloud-firestore-emulator-v1.22
 **Ingen blokerende fund.** Fladen er tæt. Data er adskilt pr. Firebase-projekt,
 så delt regelfil giver ingen krydskontaminering (top-niveau leagues er tom på
 platformen → Tour-grenen dér fejler bare lukket, uden lækage).
+
+## Superliga hentKickoffs (14db489) — angrebsflade: FREMMED KILDE → TIP-DEADLINE. INGEN blokerende fund.
+
+Ny SL-kickoff-provider henter `status=notstarted`-events og mapper `startDate`
+→ kickoff (= tip-deadline). Angriber = kilden er kompromitteret (samme offentlige
+api.superliga.dk-token som results/live/standings). PoC: scratchpad/poc-kickoff.js
+(ægte `superliga.hentKickoffs` + ægte `syncKickoffsCore` + fake db, 10 cases,
+ingen emulator/node_modules-dans — kør fra `cd functions-platform && node ...`).
+
+**BEKRÆFTET RENT (alle 10 cases kørt):**
+- **Ingen sti-/proto-injektion, intet fremmed doc.** `matchDocId`
+  (syncProviders.js L67-74) slugger home/away med `.replace(/[^a-z0-9]/g,'')`
+  → `../../../etc/passwd`→`etcpasswd`, `__proto__`→`proto`, intet `/` overlever.
+  `resolveDocs` (L248-253) sætter kun `map[k]=k` hvis `k` ER et EKSISTERENDE
+  doc-id → fabrikeret id droppes til `mangler`, skriver INTET. Navnet NÅR ALDRIG
+  en skrivning eller render: det bruges kun til at udlede doc-id og kasseres.
+- **Kun `kickoff` (Date) + `kickoffSyncedAt` skrives** (superligaSync.js
+  L538-541, `batch.update` — kan ikke oprette). Fjendtlige EKSTRA event-felter
+  (`result`, `points`, `kickoff`, `evil:<script>`) når ALDRIG doc'et: mapperen
+  returnerer felt-for-felt `{sourceKey, kickoff}`. Case 9 + case 3 beviser det
+  (skrevne doc havde kun kickoff+kickoffSyncedAt). Ingen auth/rules rørt.
+- **Genåbning lukket** (se opdateret post ovenfor, case 2/2b).
+- **Fejler LUKKET i alle format-brud:** HTTP-fejl (`!res.ok` throw), `{}`-svar
+  (`!Array.isArray(data.events)` throw), ugyldig startDate (throw m. kamp-id),
+  MANGLENDE startDate → kickoff:null → kickoffPlan KASTER
+  (`tilMs==null && fraMs!=null`, seedFootball.js L60-61: rydder ALDRIG en
+  deadline som bivirkning). Alle 5 cases: INTET skrevet.
+
+**RESIDUAL A (åben, by-design, pre-existing PL-klasse — IKKE blokerende):**
+fremtid→tidligere-end-48t deadline skrives + kraeverKvittering-alarm; fremtid→
+tidligere-MEN->48t skrives TAVST. Kompromitteret kilde kan lukke tips tidligt.
+Legitime reschedules kræver retningen; samme som PL. Se opdateret post ovenfor.
+
+**RESIDUAL B (åben, availability ikke integritet — IKKE blokerende, dokumenteret
+faldgrube):** ÉN giftig post vælter HELE spillets kickoff-synk for dagen.
+`{toString:null}` som homeName → `String()` i matchDocId KASTER
+`Cannot convert object to primitive value` (case 6) → hele hentKickoffs kaster →
+intet skrevet (fail-closed), men blast radius = hele listen, ikke kun posten.
+`runder.has(e.round)`-filteret (superligaSync.js L492-493) dæmper: en giftig
+`round` (objekt) droppes FØR matchDocId, men navnene når stadig `String()`.
+Fix hvis nogen rører linjen: `String()` i try, eller filtrér ikke-streng-navne
+fra (samme modgift som PL-live-faldgruben øverst). Ugyldig/manglende startDate
+har samme blast radius (hele planen kaster).
+
+**Slug-kollision (case 10):** `A.G.F.`/`O.B.!!!` slugger til `r5-agf-ob` og
+rammer den ægte kamp — men kun en kamp, hvis navn angriberen kan reproducere
+(for en kompromitteret kilde trivielt kampens EGET navn). Giver ingen NY magt
+ud over "flyt en deadline jeg alligevel kan navngive". Pre-existing matchDocId-
+egenskab (bruges identisk til results/live/standings), ikke introduceret her.
+
+**Faldgrube bekræftet på listen:** *`status=notstarted` i URL'en er IKKE en
+vagt mod en kompromitteret kilde* (den styrer hele svaret) — den reelle
+integritetsvagt er downstream: `result`-skip + genåbnings-forbud + kickoffMs-
+throw. Commit-beskedens "et facit kan aldrig flyttes" holder pga. DEM, ikke pga.
+URL-filteret.

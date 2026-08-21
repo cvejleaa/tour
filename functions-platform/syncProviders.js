@@ -25,9 +25,11 @@
 //       ({rank, teamName, teamShortName, points, played, won, draw, lost,
 //         gf, ga, rankType}).
 //   hentKickoffs(sync, fetchFn, runder) → [{ sourceKey, kickoff: ISO-UTC|null }]
-//       VALGFRI: kilder, hvis kamptider flytter sig løbende (PL: tv-aftaler).
-//       Mangler metoden, springer kickoff-synken spillet over — Superligaens
-//       tider rettes ad seedKickoffs-vejen (drift.md). `runder` er SPILLETS
+//       VALGFRI: kilder, hvis kamptider flytter sig løbende (tv-aftaler).
+//       Både PL og Superligaen har den nu. Mangler en kilde metoden, springer
+//       kickoff-synken spillet over, og tiderne rettes kun ad seedKickoffs-
+//       vejen (drift.md). En allerede PASSERET forkert tid rettes altid ad
+//       seed-vejen (genåbnings-vagten). `runder` er SPILLETS
 //       runde-sæt: kilde-kampe uden for det skal droppes FØR tolkning —
 //       ellers drukner mangler-alarmen i forårskampe, spillet ikke har, og
 //       én ulæselig tid i en irrelevant kamp vælter hele dagens kørsel.
