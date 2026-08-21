@@ -776,3 +776,49 @@ Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
   `puljeLockRound`-gaten uændret) er korrekt og veltestet** — 6 nye
   counter-proofs, alle beståede, ingen mutationsfælde fundet ved læsning
   (notstarted-endpoint bevist eksplicit i test, ikke kun antaget).
+
+## Synk-knap gates på kickoff-synk, ikke pulje-model (1ff476c, #161): den forudsagte fælde blev rettet denne gang
+
+- **Lukker et reelt hul, fuldt ud.** `harPuljeRunde`-gaten på "🗓️ Synk kamptider
+  nu" (indført i #8, se ovenfor) udelukkede Superligaen efter SL fik sin egen
+  kickoff-synk (14db489/#160): SL har `puljeLockAt` (fast dato), aldrig
+  `puljeLockRound`, så knappen forsvandt sammen med den ENESTE måde at hente en
+  flyttet SL-kamp med vilje — man måtte vente til jobbet kl. 06:10. Ny gate
+  `harKickoffSynk(game)` (provider-baseret) er korrekt: `superliga2627` i
+  `scripts/games.mjs:69` har `sync.provider === 'superliga'`, serverens
+  `PROVIDERS.superliga.hentKickoffs` findes (`syncProviders.js`), og
+  `syncGameKickoffsNow` (`functions-platform/index.js:585`) var allerede
+  owner-gated og understøtter SL siden #160 — ren klient-fix, bekræftet ved
+  læsning af hele kæden, ikke kun antaget.
+- **De to gates blev korrekt AFKOBLET, ikke bare omdøbt.** `harPulje &&
+  !harPuljeRunde` (linje 388) styrer STADIG det redigerbare deadline-felt for
+  SL (fast dato, sættes i hånden); `harKickoffSynk(game)` (linje 580) styrer
+  STADIG kun knappens synlighed. For SL er begge sande samtidig (redigerbart
+  felt + synk-knap, der IKKE rører feltet — kun kamptiderne); for PL er begge
+  sande men synken sætter OGSÅ `puljeLockAt`. Ingen spil fundet, hvor kun den
+  ene er sand og den anden burde være det (Touren har intet `sync.provider` og
+  intet `pulje` — ingen af delene vises, korrekt).
+- **Selvopfyldt advarsel denne gang UNDGÅET.** Egen tidligere note (SL
+  kickoff-synk, 14db489) forudsagde netop denne klasse fejl: "et hardkodet
+  provider-navn spredt i fladen". Denne commit retter det strukturelt —
+  `KICKOFF_PROVIDERE` udtrukket til `src/features/games/kickoffSync.js` og
+  brugt af BÅDE `DriftTab.jsx` og `GameScheduleTab.jsx` (grep-bekræftet: intet
+  tredje hardkodet `'pulselive'`/`'superliga'`-gate tilbage i
+  `src/features/admin/` eller `src/features/games/` — kun display-navne i
+  `FootballTable.jsx`s `KILDER`, som er en ANDEN ting, ikke en gate).
+- **Testen, der før KODEDE selve bugget, blev vendt — ikke bare duplikeret.**
+  `GameScheduleTab.test.jsx`s gamle test asserterede eksplicit "knappen vises
+  IKKE for et spil uden puljeLockRound" med SL som fixture — dvs. testen
+  BEVISTE bugget grønt. Nu vendt til "knappen VISES", med kommentar der
+  forklarer hvorfor (samme mønster som CLAUDE.md's "et bånd der rummer både
+  før og efter" — her var det en PÅSTAND, ikke et bånd, men samme lære:
+  spring aldrig let hen over en fixture, der ser forkert overbevisende ud).
+- **Ingen dokumentationsdrift fundet.** `docs/drift.md:112-114` er allerede
+  rettet (fra en tidligere commit) til "nu både Premier League og
+  Superligaen" — ikke længere den stale tekst denne fils tidligere note
+  fangede. `docs/admin-guide.md:52-60` beskriver kun puljeLockRound-scenariet
+  og nævner ikke SL's nye brug af samme knap til at rette kamptider uden
+  pulje-kobling — men påstår heller intet forkert om det; ren udeladelse, ikke
+  en modsigelse. Ingen blokerende dokumentationsfejl.
+- Lint, build og relevante tests (`kickoffSync.test.js`, `DriftTab.test.jsx`,
+  `GameScheduleTab.test.jsx`, 62 tests) grønne ved egen gennemkørsel.
