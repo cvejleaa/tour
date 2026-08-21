@@ -504,12 +504,14 @@ exports.syncSuperligaSweep = onSchedule(
   },
 );
 
-// syncGameKickoffs — DAGLIG rettelse af kamptider fra kilden (kun spil, hvis
-// provider kan levere dem — pt. Premier League). PL flytter kampe uger forud
-// (tv-aftaler), og kickoff ER tip-deadlinen. Én gang i døgnet er nok: minut-
-// kadence ville være spild på ændringer, der meldes 5-6 uger før kampdag.
-// Kl. 6.10 dansk tid: før dagens første tips, efter nattens API-opdateringer.
-// Fejler et spil, fortsætter de andre — og fejlen står i loggen.
+// syncGameKickoffs — DAGLIG rettelse af kamptider fra kilden (alle spil, hvis
+// provider kan levere dem — nu både Premier League og Superligaen). Ligaerne
+// flytter kampe forud (tv-aftaler), og kickoff ER tip-deadlinen. Én gang i
+// døgnet er nok: minut-kadence ville være spild på ændringer, der meldes uger
+// før kampdag. Kl. 6.10 dansk tid: før dagens første tips, efter nattens API-
+// opdateringer. Fejler et spil, fortsætter de andre — og fejlen står i loggen.
+// En kamp, hvis FORKERTE tid allerede er passeret, kan synken ikke flytte
+// (genåbnings-vagten) — den slags rettes ad seed-vejen (drift.md).
 exports.syncGameKickoffs = onSchedule(
   { schedule: '10 6 * * *', timeZone: TZ, region: REGION },
   async () => {
@@ -517,7 +519,7 @@ exports.syncGameKickoffs = onSchedule(
     for (const g of SYNCED_GAMES) {
       const provider = Object.hasOwn(PROVIDERS, g.provider) ? PROVIDERS[g.provider] : null;
       if (!provider) continue;
-      if (typeof provider.hentKickoffs !== 'function') continue; // SL: seedKickoffs-vejen
+      if (typeof provider.hentKickoffs !== 'function') continue; // provider uden kickoff-kilde
       const st = statusSamler({ type: 'kickoff', gameId: g.gameId });
       try {
         const ud = await syncKickoffsCore(db, FieldValue, {

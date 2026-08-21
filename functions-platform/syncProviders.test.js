@@ -452,6 +452,69 @@ describe('pulselive.hentKickoffs — den ÆGTE metode, mod de rå fixtures', () 
   });
 });
 
+describe('superliga.hentKickoffs — den ÆGTE metode', () => {
+  const sync = { seasonId: 35802 };
+  const ev = (round, home, away, startDate) => ({ round, homeName: home, awayName: away, startDate });
+
+  it('henter KUN notstarted og mapper startDate (allerede UTC) uden zone-omregning', async () => {
+    const fetchFn = fetchRuter([
+      ['status=notstarted', () => ({ events: [
+        ev(5, 'AGF', 'OB', '2026-08-23T12:00:00.000Z'),
+        ev(5, 'Viborg FF', 'F.C. København', '2026-08-23T16:00:00.000Z'),
+      ] })],
+    ]);
+    const ud = await PROVIDERS.superliga.hentKickoffs(sync, fetchFn);
+    // sourceKey ER dokument-id'et (r{runde}-{slug}-{slug}); startDate står uændret.
+    expect(ud).toEqual([
+      { sourceKey: 'r5-agf-ob', kickoff: '2026-08-23T12:00:00.000Z' },
+      { sourceKey: 'r5-viborgff-fckobenhavn', kickoff: '2026-08-23T16:00:00.000Z' },
+    ]);
+    // Beviser at vi rammer notstarted-endpointet — ALDRIG finished, så et facit
+    // aldrig kan blive flyttet af kickoff-synken.
+    expect(fetchFn.kald[0].url).toContain('status=notstarted');
+    expect(fetchFn.kald[0].url).not.toContain('status=finished');
+  });
+
+  it('manglende startDate giver kickoff:null (den delte kickoffPlan-vagt afgør resten)', async () => {
+    const fetchFn = fetchRuter([
+      ['status=notstarted', () => ({ events: [ev(5, 'AGF', 'OB', null)] })],
+    ]);
+    expect(await PROVIDERS.superliga.hentKickoffs(sync, fetchFn))
+      .toEqual([{ sourceKey: 'r5-agf-ob', kickoff: null }]);
+  });
+
+  it('en UGYLDIG startDate KASTER med kampens id — en forkert deadline er værre end en rød log', async () => {
+    const fetchFn = fetchRuter([
+      ['status=notstarted', () => ({ events: [ev(5, 'AGF', 'OB', 'ikke-en-dato')] })],
+    ]);
+    await expect(PROVIDERS.superliga.hentKickoffs(sync, fetchFn))
+      .rejects.toThrow(/ugyldig startDate.*r5-agf-ob/);
+  });
+
+  it('kampe uden for spillets runder droppes FØR tolkning — også når tiden er ulæselig', async () => {
+    // En kamp i en runde, spillet ikke har, med skrald i tidsfeltet må ikke
+    // kunne vælte kørslen — den er ikke vores at tolke.
+    const fetchFn = fetchRuter([
+      ['status=notstarted', () => ({ events: [
+        ev(5, 'AGF', 'OB', '2026-08-23T12:00:00.000Z'),
+        ev(99, 'X', 'Y', 'skrald'),
+      ] })],
+    ]);
+    const ud = await PROVIDERS.superliga.hentKickoffs(sync, fetchFn, new Set([5]));
+    expect(ud.map((f) => f.sourceKey)).toEqual(['r5-agf-ob']);
+  });
+
+  it('HTTP-fejl KASTER (intet skrives)', async () => {
+    const fetchFn = async () => ({ ok: false, status: 503, json: async () => ({}) });
+    await expect(PROVIDERS.superliga.hentKickoffs(sync, fetchFn)).rejects.toThrow(/kickoffs HTTP 503/);
+  });
+
+  it('et 200 uden events-liste KASTER — {} må ikke tolkes som "nul kickoffs"', async () => {
+    const fetchFn = fetchRuter([['status=notstarted', () => ({})]]);
+    await expect(PROVIDERS.superliga.hentKickoffs(sync, fetchFn)).rejects.toThrow(/uden events-liste/);
+  });
+});
+
 describe('syncKickoffsCore', () => {
   const NU = Date.parse('2026-08-01T12:00:00Z');
   const langtUde = '2026-08-21T19:00:00Z'; // 20 dage ude — ingen alarm
@@ -555,9 +618,12 @@ describe('syncKickoffsCore', () => {
     expect([...modtagetRunder].sort()).toEqual([1, 2]);
   });
 
-  it('en kilde uden hentKickoffs springes over (Superligaen — seedKickoffs-vejen)', async () => {
+  it('en provider UDEN hentKickoffs springes over (understoettet:false, uden at hente)', async () => {
+    // Superligaen HAR nu hentKickoffs (den synkes), så grenen bevises med en
+    // provider uden metoden. fetchEksploderer beviser, at der ikke hentes.
+    const udenKickoffs = { resolveDocs: PROVIDERS.superliga.resolveDocs };
     const ud = await syncKickoffsCore(fakeDb({}), FieldValue, {
-      gameId: 'sl', provider: PROVIDERS.superliga, sync: {}, fetchFn: fetchEksploderer,
+      gameId: 'x', provider: udenKickoffs, sync: {}, fetchFn: fetchEksploderer,
     });
     expect(ud).toEqual({ understoettet: false });
   });
