@@ -13,6 +13,7 @@ import { useGameRounds } from './useGameRounds';
 import { startRundeFor } from '../../lib/startGate';
 import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameActions';
 import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds, callSyncGameKickoffs } from './adminActions';
+import { harKickoffSynk } from '../games/kickoffSync';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
@@ -570,11 +571,13 @@ function GameRow({ game }) {
       )}
 
       {/* 🗓️ Synk kamptider nu — den manuelle udløsning af det daglige kickoff-
-          job. For et spil med rundebaseret pulje-deadline er dette "start med
-          vilje"-vejen: efter en seed er det den eneste måde at få puljeLockAt
-          sat MED DET SAMME (ellers venter man på jobbet kl. 06:10, og pulje-
-          fanen står "Endnu ikke åbnet" indtil da). Tør-kørsel først. */}
-      {harPuljeRunde && (
+          job. Vises for ETHVERT spil med en kickoff-synk (harKickoffSynk), ikke
+          kun rundebaserede: også Superligaen (fast puljeLockAt) har brug for at
+          kunne hente flyttede kamptider med vilje uden at vente på jobbet kl.
+          06:10. For et spil med rundebaseret pulje-deadline sætter synken OGSÅ
+          puljeLockAt (tidligste kickoff i runden) med det samme — for de øvrige
+          rører den kun kamptiderne. Tør-kørsel først. */}
+      {harKickoffSynk(game) && (
         <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
           <button className="btn btn--ghost btn--sm" onClick={synkToer} disabled={kickBusy}>
             {kickBusy ? 'Synker…' : '🗓️ Synk kamptider nu — vis hvad der ændrer sig'}

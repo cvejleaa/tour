@@ -12,12 +12,8 @@ import { useState } from 'react';
 import { functions } from '../../firebase';
 import { useGames } from '../games/useGames';
 import { useDriftStatus, ukvitterede } from './useDriftStatus';
+import { harKickoffSynk } from '../games/kickoffSync';
 import { formatKickoff } from '../../lib/daDate';
-
-// Kilder, hvis provider har en hentKickoffs (daglig kickoff-synk). SKAL følge
-// SYNCED_GAMES/PROVIDERS på serveren: får et spil kickoff-synk dér uden at stå
-// her, mangler dets "afventer"-kort, og en tavst fejlende synk ses ikke.
-const KICKOFF_PROVIDERE = new Set(['pulselive', 'superliga']);
 
 const TYPE_NAVN = {
   sweep: 'Times-sweep (facit + tabel)',
@@ -110,7 +106,7 @@ export default function DriftTab() {
   // følge serveren, ellers står en tavst fejlende synk uden "afventer"-kort).
   const forventede = (games || []).filter((g) => g.sync?.provider).flatMap((g) => [
     { type: 'sweep', gameId: g.id, gameNavn: g.name },
-    ...(KICKOFF_PROVIDERE.has(g.sync.provider) ? [{ type: 'kickoff', gameId: g.id, gameNavn: g.name }] : []),
+    ...(harKickoffSynk(g) ? [{ type: 'kickoff', gameId: g.id, gameNavn: g.name }] : []),
   ]);
   const docAf = new Map(status.map((d) => [`${d.type}-${d.gameId}`, d]));
   const aabneAlarmer = alarmer.filter((a) => !a.loestAt);

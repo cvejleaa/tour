@@ -324,6 +324,30 @@ describe('synlighed — spil hvor feltet intet gør', () => {
 // pointværdi, og der er ingen oddsHistory at rulle tilbage til. CLAUDE.md
 // kræver tør-kørsel først, og den regel skal håndhæves af FLADEN — ikke kun
 // af en default i callablen, som en fremtidig ændring kan vende.
+describe('🗓️ Synk kamptider nu — vises for spil med kickoff-synk', () => {
+  // Superligaen har en FAST puljeLockAt (intet puljeLockRound), men HAR en
+  // kickoff-synk. Knappen var før gate't på puljeLockRound og forsvandt derfor
+  // fra SL — så en flyttet SL-kamp kunne ikke hentes med vilje. Nu gates den på
+  // harKickoffSynk (provideren), ikke på pulje-modellen.
+  const SL_SYNK = {
+    id: 'superliga2627', name: 'Superligaen 2026/27', emoji: '⚽',
+    type: 'football', status: 'open', sync: { provider: 'superliga' },
+    // BEVIDST intet puljeLockRound.
+  };
+
+  it('vises for Superligaen (kickoff-synk uden rundebaseret pulje-deadline)', () => {
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.getByRole('button', { name: /Synk kamptider nu/i })).toBeInTheDocument();
+  });
+
+  it('vises IKKE for et spil uden synk-provider (Touren)', () => {
+    mockGames.mockReturnValue({ games: [TOUR], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Synk kamptider nu/i })).not.toBeInTheDocument();
+  });
+});
+
 describe('ompris kampene', () => {
   const SL = { id: 'sl2627', name: 'Superligaen', emoji: '⚽', type: 'football', status: 'live' };
   const PLAN = {
@@ -620,13 +644,16 @@ describe('startrunde-vælgeren', () => {
 describe('rundebaseret pulje-deadline', () => {
   const PLPULJE = {
     id: 'pl2627-efteraar', name: 'Premier League', emoji: '⚽',
-    type: 'football', status: 'open',
+    type: 'football', status: 'open', sync: { provider: 'pulselive' },
     pulje: { poolSize: 4, nedSize: 3 }, puljeLockRound: 3,
   };
-  // Superligaen: pulje MEN fast dato (ingen puljeLockRound) — feltet skal blive
-  // ved med at være redigerbart, og synk-knappen må IKKE dukke op.
+  // Superligaen: pulje MEN fast dato (ingen puljeLockRound) — deadline-feltet
+  // skal blive ved med at være redigerbart. Den HAR en kickoff-synk (superliga-
+  // provider), så synk-knappen dukker op; men da der intet puljeLockRound er,
+  // sætter synken IKKE puljeLockAt (kun kamptiderne). De to ting er uafhængige.
   const SL = {
-    id: 'sl', name: 'Superligaen', emoji: '⚽', type: 'football', status: 'live',
+    id: 'superliga2627', name: 'Superligaen', emoji: '⚽', type: 'football', status: 'live',
+    sync: { provider: 'superliga' },
     pulje: { poolSize: 6 }, puljeLockAt: { toMillis: () => Date.parse('2026-09-01T12:00:00Z') },
   };
   const KO = Date.parse('2026-09-04T18:00:00Z');
@@ -714,11 +741,15 @@ describe('rundebaseret pulje-deadline', () => {
     await waitFor(() => expect(screen.getByText(/kunne IKKE sættes/i)).toBeInTheDocument());
   });
 
-  it('viser IKKE synk-knappen for et spil uden puljeLockRound — og lader deadline-feltet være redigerbart', () => {
+  it('for Superligaen (fast dato MEN kickoff-synk): synk-knappen VISES, og deadline-feltet er redigerbart', () => {
+    // De to egenskaber er uafhængige: knappen følger kickoff-synken (provideren),
+    // det redigerbare felt følger fraværet af puljeLockRound. Før var knappen
+    // fejlagtigt gate't på puljeLockRound og forsvandt for SL — derfor kunne en
+    // flyttet SL-kamp ikke hentes med vilje.
     mockGames.mockReturnValue({ games: [SL], loading: false });
     render(<GameScheduleTab />);
-    expect(screen.queryByRole('button', { name: /Synk kamptider nu/i })).not.toBeInTheDocument();
-    // SL's deadline sættes stadig i hånden.
+    expect(screen.getByRole('button', { name: /Synk kamptider nu/i })).toBeInTheDocument();
+    // SL's deadline sættes stadig i hånden (intet puljeLockRound → redigerbart felt).
     expect(screen.getByText('🎖️ Bonus-/pulje-deadline')).toBeInTheDocument();
   });
 
