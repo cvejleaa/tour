@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   docId, kickoffMs, tjekDubletter, parseArgs,
-  parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold,
+  parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold, teamsPlan,
 } from './seedFootball';
 import { matchId, buildMatch } from './superligaSeed';
 
@@ -322,5 +322,122 @@ describe('ukendteHold', () => {
   it('nævner hvert ukendt hold én gang', () => {
     const fx = [{ home: 'Vejle', away: 'Vejle' }, { home: 'Vejle', away: 'Arsenal' }];
     expect(ukendteHold(fx, teams)).toEqual(['Vejle']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HOLDLISTEN. Det, der kan gå galt, er ikke skrivningen men hvad den TAGER MED
+// og hvad den taber. `teams` er et array: en skrivning erstatter det helt.
+// ---------------------------------------------------------------------------
+
+describe('teamsPlan', () => {
+  const rfc = {
+    name: 'Randers FC', short: 'RFC', elo: 1472, color: '#78C5ED',
+    awayColor: '#33384F', thirdColor: '#FC8033',
+    troejer: { hjemme: { sekundaer: '#30374F', moenster: 'skraabaand' } },
+    venue: 'Cepheus Park Randers',
+  };
+
+  it('melder INGEN ændring, når filen og produktionen er ens', () => {
+    // Kørslen skal kunne gentages uden at støje. Meldte den en ændring hver
+    // gang, ville en ægte ændring drukne i den.
+    const p = teamsPlan([rfc], [{ ...rfc }]);
+    expect(p.aendringer).toEqual([]);
+    expect(p.uaendrede).toBe(1);
+    expect(p.tilfoejede).toEqual([]);
+    expect(p.forsvundne).toEqual([]);
+  });
+
+  it('finder en trøjefarve, der MANGLER i produktionen', () => {
+    // Præcis den fejl, der blev fundet: Randers stod i marine mod FCM, fordi
+    // `thirdColor` ikke fandtes i prod, og `badgeFor` faldt tilbage på
+    // udefarven. Så sammenligner `matchBadges` en værdi med sig selv.
+    const gammel = { ...rfc };
+    delete gammel.thirdColor;
+    const p = teamsPlan([rfc], [gammel]);
+    expect(p.aendringer).toEqual([
+      { name: 'Randers FC', felt: 'thirdColor', fra: undefined, til: '#FC8033' },
+    ]);
+  });
+
+  it('ser en ændring INDE I `troejer` — ikke kun på det yderste felt', () => {
+    // En flad sammenligning ville melde "uændret" om et hold, der var skiftet
+    // fra striber til skråbånd: begge er et objekt på samme nøgle.
+    const gammel = { ...rfc, troejer: { hjemme: { sekundaer: '#30374F', moenster: 'striber' } } };
+    const p = teamsPlan([rfc], [gammel]);
+    expect(p.aendringer).toHaveLength(1);
+    expect(p.aendringer[0].felt).toBe('troejer');
+    expect(p.aendringer[0].til).toEqual(rfc.troejer);
+  });
+
+  it('ser et helt NYT nested felt', () => {
+    const gammel = { ...rfc };
+    delete gammel.troejer;
+    const p = teamsPlan([rfc], [gammel]);
+    expect(p.aendringer.map((a) => a.felt)).toEqual(['troejer']);
+  });
+
+  it('regner `undefined` og et fraværende felt som det samme', () => {
+    // Firestore gemmer ikke et felt uden værdi, så prod kommer tilbage uden
+    // nøglen, mens filen kan have skrevet `troejer: undefined`. Uden reglen
+    // ville HVER kørsel melde en ændring, der ikke findes.
+    const p = teamsPlan([{ name: 'X', color: '#111', troejer: undefined }], [{ name: 'X', color: '#111' }]);
+    expect(p.aendringer).toEqual([]);
+    expect(p.uaendrede).toBe(1);
+  });
+
+  it('NÆVNER elo ved navn — feltet er Start-kolonnen, ikke bare et seed-tal', () => {
+    // `eloHistory.eloRows` bygger `start` af `t.elo`. En stiltiende ændring
+    // her ville omskrive sæsonens udgangspunkt bagud i tid.
+    const p = teamsPlan([{ ...rfc, elo: 1500 }], [rfc]);
+    expect(p.aendringer).toEqual([
+      { name: 'Randers FC', felt: 'elo', fra: 1472, til: 1500 },
+    ]);
+  });
+
+  it('tæller et hold, der forsvinder, FOR SIG — ikke som en ændring', () => {
+    // `teams` er et array, og en skrivning erstatter det helt, også med merge.
+    // Et hold i prod, der ikke står i filen, forsvinder sporløst, og hver kamp
+    // med det hold mister farve, kortkode og stadion. Det må ikke kunne læses
+    // som "én ændring" i en liste med tredive andre.
+    const p = teamsPlan([rfc], [rfc, { name: 'Vejle Boldklub', color: '#E4002B' }]);
+    expect(p.forsvundne).toEqual(['Vejle Boldklub']);
+    expect(p.aendringer).toEqual([]);
+    expect(p.uaendrede).toBe(1);
+  });
+
+  it('tæller et NYT hold for sig og lister ikke hvert af dets felter', () => {
+    const p = teamsPlan([rfc, { name: 'Vejle Boldklub', color: '#E4002B' }], [rfc]);
+    expect(p.tilfoejede).toEqual(['Vejle Boldklub']);
+    expect(p.aendringer).toEqual([]);
+  });
+
+  it('sorterer de forsvundne, så to kørsler kan sammenlignes', () => {
+    const p = teamsPlan([], [{ name: 'Å' }, { name: 'A' }, { name: 'M' }]);
+    expect(p.forsvundne).toEqual(['A', 'M', 'Å']);
+  });
+
+  it('behandler en TOM produktionsliste som "alt er nyt" — ikke som alt ændret', () => {
+    // Et spil, der aldrig er seedet, skal ikke give en ændringsliste på
+    // hundrede linjer, man alligevel ikke kan læse igennem.
+    const p = teamsPlan([rfc], []);
+    expect(p.tilfoejede).toEqual(['Randers FC']);
+    expect(p.aendringer).toEqual([]);
+    expect(p.forsvundne).toEqual([]);
+  });
+
+  it('klarer manglende input uden at kaste', () => {
+    expect(() => teamsPlan()).not.toThrow();
+    expect(teamsPlan(null, null)).toEqual({
+      aendringer: [], tilfoejede: [], forsvundne: [], uaendrede: 0,
+    });
+  });
+
+  it('melder ALLE ændrede felter på det samme hold', () => {
+    // Ét fund er ikke svaret; listen er. Stopper sammenligningen ved det
+    // første afvig, ville tør-kørslen vise én farve og skrive tre.
+    const gammel = { ...rfc, color: '#000000', awayColor: '#111111', venue: 'Andet' };
+    const p = teamsPlan([rfc], [gammel]);
+    expect(p.aendringer.map((a) => a.felt).sort()).toEqual(['awayColor', 'color', 'venue']);
   });
 });

@@ -232,3 +232,81 @@ export function ukendteHold(fixtures, teams) {
   }
   return [...ukendte].sort();
 }
+
+/**
+ * Hvad ville en holdliste-opdatering ÆNDRE?
+ *
+ * HVORFOR DEN FINDES. `games/{id}.teams` skrives i dag kun af `fuldtSeed`, som
+ * i samme åndedrag skriver `eloCurrent` og alle kampe uden frosne odds. Derfor
+ * er der ingen vej til at rette en trøjefarve midt i en sæson — og en manglende
+ * farve er ikke en skønhedsfejl: `badgeFor` falder tilbage
+ * `thirdColor || awayColor || color`, så mangler tredjefarven, bliver tredje
+ * lig med ude, og `matchBadges` sammenligner en værdi med sig selv. Udetrøjen
+ * bliver stående, uanset hvor meget den clasher.
+ *
+ * DEN SAMMENLIGNER I DYBDEN. `troejer` er et nested felt (sekundærfarve,
+ * mønster, ærme), og en flad sammenligning ville melde "uændret" om et hold,
+ * der havde skiftet fra striber til skråbånd.
+ *
+ * DE FORSVUNDNE ER DET FARLIGE TAL. `teams` er et ARRAY, og en skrivning
+ * erstatter det helt — også med `{ merge: true }`. Et hold, der står i
+ * produktionen men ikke i filen, forsvinder altså sporløst, og hver kamp med
+ * det hold mister både farve, kortkode og stadion. Derfor tælles de for sig og
+ * ikke som "en ændring" blandt de andre.
+ *
+ * `elo` NÆVNES VED NAVN i ændringslisten, fordi feltet ikke kun er et seed-tal:
+ * det ER "Start"-kolonnen i Elo-tabellen (`eloHistory.js` bygger `start` af
+ * `t.elo`). En stiltiende ændring dér ville omskrive sæsonens udgangspunkt
+ * bagud i tid.
+ *
+ * @param {Array<object>} nye         holdlisten fra filen
+ * @param {Array<object>} nuvaerende  games/{id}.teams som den står nu
+ * @returns {{aendringer: Array<{name:string, felt:string, fra:*, til:*}>,
+ *           tilfoejede: string[], forsvundne: string[], uaendrede: number}}
+ */
+export function teamsPlan(nye, nuvaerende) {
+  const foer = new Map((nuvaerende || []).map((t) => [t?.name, t]));
+  const aendringer = [];
+  const tilfoejede = [];
+  let uaendrede = 0;
+
+  for (const t of nye || []) {
+    const gammel = foer.get(t?.name);
+    if (!gammel) { tilfoejede.push(t?.name); continue; }
+    // Feltnavnene tages fra BEGGE sider. Kun fra den nye ville et felt, der er
+    // fjernet fra filen, se ud som om det aldrig havde været der — og det er
+    // netop en fjernet farve, der giver den tavse fallback ovenfor.
+    const felter = [...new Set([...Object.keys(gammel), ...Object.keys(t || {})])].sort();
+    let rørt = false;
+    for (const f of felter) {
+      if (f === 'name') continue;
+      if (ensVaerdi(gammel[f], t[f])) continue;
+      aendringer.push({ name: t.name, felt: f, fra: gammel[f], til: t[f] });
+      rørt = true;
+    }
+    if (!rørt) uaendrede += 1;
+  }
+
+  const iFilen = new Set((nye || []).map((t) => t?.name));
+  const forsvundne = [...foer.keys()].filter((n) => !iFilen.has(n)).sort();
+  return { aendringer, tilfoejede, forsvundne, uaendrede };
+}
+
+/**
+ * Er to feltværdier ens? Sammenligner nested objekter i dybden.
+ *
+ * `undefined` og et fravær er det samme — Firestore gemmer ikke et felt, der
+ * ikke findes, så et hold uden `troejer` kommer tilbage uden nøglen, mens
+ * filen kan have skrevet `troejer: undefined`. Uden den regel ville hver
+ * eneste kørsel melde en ændring, der ikke findes.
+ */
+function ensVaerdi(a, b) {
+  if (a === b) return true;
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (typeof a !== 'object' || typeof b !== 'object') return false;
+  const ka = Object.keys(a).filter((k) => a[k] !== undefined).sort();
+  const kb = Object.keys(b).filter((k) => b[k] !== undefined).sort();
+  if (ka.length !== kb.length || ka.some((k, i) => k !== kb[i])) return false;
+  return ka.every((k) => ensVaerdi(a[k], b[k]));
+}
