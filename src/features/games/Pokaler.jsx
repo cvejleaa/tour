@@ -34,8 +34,15 @@ import { useMemo } from 'react';
 import { rundeSejre, faerdigeRunder } from './rundeSejre';
 import { fmtSignedPoints } from '../../lib/daNum';
 
-/** Navnene på dem, der deler en pokal. Aldrig en tom streng. */
-function navneAf(rows, uids) {
+/**
+ * Navnene på dem, der deler en pokal.
+ *
+ * Eksporteret ALENE for at kunne testes: uid-fallbacken kan ikke nås gennem
+ * komponenten, fordi vinderne pr. konstruktion kommer fra samme `rows`, der
+ * slås op i. Den bliver stående, fordi et manglende navn ellers ville rendere
+ * ingenting — " — 3 rundesejre" uden en vinder er værre end et råt id.
+ */
+export function navneAf(rows, uids) {
   const navn = new Map((rows || []).map((r) => [r.uid, r.name]));
   return (uids || []).map((u) => navn.get(u) || u).join(', ');
 }
@@ -72,7 +79,10 @@ export default function Pokaler({ rows = [], matches = [], startRunde = null }) 
     let flest = 0;
     let uids = [];
     for (const [uid, n] of sejre) {
-      if (n > flest) { flest = n; uids = [uid]; } else if (n === flest && n > 0) uids.push(uid);
+      // Ingen `&& n > 0` her: `sejre` indeholder pr. konstruktion aldrig en
+      // værdi <= 0 (rundeSejre kræver bedst > 0), og den invariant er testet
+      // dér. To vagter om samme regel er den ene for mange.
+      if (n > flest) { flest = n; uids = [uid]; } else if (n === flest) uids.push(uid);
     }
     return flest > 0 ? { flest, uids } : null;
   }, [sejre]);
@@ -86,7 +96,12 @@ export default function Pokaler({ rows = [], matches = [], startRunde = null }) 
       .filter((x) => Number.isFinite(x.v) && x.v !== 0);
     if (!brugt.length) return null;
     const sorteret = [...brugt].sort((a, b) => b.v - a.v);
-    return { bedst: sorteret[0], vaerst: sorteret[sorteret.length - 1] };
+    const lavest = sorteret[sorteret.length - 1];
+    // "Modigst i minus" skal FAKTISK være i minus. `lavest` er bare feltets
+    // laveste tal, og har alle tjent på Chancen — helt almindeligt tidligt på
+    // sæsonen eller i en lille liga — ville kortet skrive "Modigst i minus:
+    // Bo +3" og modsige sig selv. Samme vagt som Rundekongens `flest > 0`.
+    return { bedst: sorteret[0], vaerst: lavest.v < 0 ? lavest : null };
   }, [rows]);
 
   // Er ligaen på en anden skala end Chancen? Så skal det stå i overskriften.
@@ -117,7 +132,7 @@ export default function Pokaler({ rows = [], matches = [], startRunde = null }) 
             <p style={VINDER}>
               Bedst: <strong>{chance.bedst.name}</strong> {fmtSignedPoints(chance.bedst.v)}
             </p>
-            {chance.vaerst.uid !== chance.bedst.uid && (
+            {chance.vaerst && chance.vaerst.uid !== chance.bedst.uid && (
               <p style={{ ...VINDER, color: 'var(--c-muted)', fontSize: '0.9rem' }}>
                 Modigst i minus: <strong>{chance.vaerst.name}</strong> {fmtSignedPoints(chance.vaerst.v)}
               </p>

@@ -52,7 +52,10 @@ const LEAGUES = [
 ];
 
 let container;
-function setup({ standings = ROWS, leagues = LEAGUES } = {}) {
+// `matches` skal kunne sendes ind: pokal-kortene regner rundesejre af
+// kampprogrammet, og uden en vej hertil kunne wiringen ikke bevises —
+// Pokaler ville stå med en tom liste og altid sige "ingen runder spillet".
+function setup({ standings = ROWS, leagues = LEAGUES, matches = [] } = {}) {
   mockStandings.mockReturnValue({
     standings, leagues, leagueCount: leagues.length, loading: false, error: null,
   });
@@ -61,7 +64,7 @@ function setup({ standings = ROWS, leagues = LEAGUES } = {}) {
   const r = render(
     <MemoryRouter initialEntries={['/spil/sl']}>
       <Routes>
-        <Route path="/spil/:gameId" element={<GameStandings gameId="sl" />} />
+        <Route path="/spil/:gameId" element={<GameStandings gameId="sl" matches={matches} />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -497,3 +500,63 @@ describe('GameStandings — spillerdetalje', () => {
     expect(screen.getByTestId('detalje')).toHaveAttribute('data-min-uid', 'me');
   });
 });
+describe('GameStandings — pokaler', () => {
+  // KOMPLETHED, anden gang: at Pokaler virker isoleret beviser ikke, at
+  // Stilling sender data videre. Fjernede man hele <Pokaler/> — eller bare
+  // matches-proppen — stod alle 42 tests grønne, mens kortene aldrig ville
+  // dukke op i produktionen. Derfor bindes tallet til de RIGTIGE matches.
+  const KAMPE = [
+    { round: 1, result: '1' },
+    { round: 2, result: '1' },
+    { round: 3, result: null },   // ikke færdig — må ikke tælle med
+  ];
+  const MED_RUNDER = [
+    { uid: 'u1', name: 'Anne', totalPoints: 60, rank: 1, perRound: { 1: 10, 2: 8, 3: 99 } },
+    { uid: 'u2', name: 'Bo', totalPoints: 40, rank: 2, perRound: { 1: 4, 2: 3, 3: 1 } },
+  ];
+
+  it('viser begge pokal-kort på fanen', () => {
+    setup({ standings: MED_RUNDER, matches: KAMPE });
+    expect(screen.getByText(/Rundekongen/)).toBeInTheDocument();
+    expect(screen.getByText(/Chance-kongen/)).toBeInTheDocument();
+  });
+
+  it('regner rundesejre af de matches, Stilling sender med', () => {
+    setup({ standings: MED_RUNDER, matches: KAMPE });
+    // Anne vinder runde 1 og 2. Runde 3 er IKKE færdig, så hendes 99 dér
+    // tæller ikke — uden matches-proppen ville tallet slet ikke kunne regnes.
+    // Teksten er delt af <strong>, så der assertes på kortets samlede tekst.
+    const kort = screen.getByText(/Rundekongen/).closest('.card');
+    expect(kort.textContent).toContain('Anne');
+    expect(kort.textContent).toContain('2 rundesejre');
+    expect(kort.textContent).not.toContain('Bo');
+  });
+
+  it('sender LIGAENS startrunde med, så pokalen viser den rigtige skala', () => {
+    // startRunde-proppen kunne fjernes, uden at noget blev rødt: kortene
+    // ville tavst vise hele sæsonen for en liga, der tæller fra runde N.
+    // To ligaer, så filteret overhovedet renderes — det vises først, når man
+    // er med i mere end én.
+    const medStart = [
+      { id: 'L1', name: 'Kontoret', memberUids: ['u1', 'u2'], startRound: 2 },
+      { id: 'L2', name: 'Familien', memberUids: ['u1', 'u2'] },
+    ];
+    setup({ standings: MED_RUNDER, matches: KAMPE, leagues: medStart });
+    fireEvent.change(filter(), { target: { value: 'L1' } });
+
+    const kort = screen.getByText(/Rundekongen/).closest('.card');
+    expect(kort.textContent).toContain('fra runde 2');
+    // Og tallet skal følge med: kun runde 2 tæller, ikke runde 1.
+    expect(kort.textContent).toContain('1 rundesejr');
+    expect(kort.textContent).not.toContain('2 rundesejre');
+    // Chancen er spil-scoped og skal derfor sige det.
+    expect(screen.getByText(/Chance-kongen/).closest('.card').textContent)
+      .toContain('hele sæsonen');
+  });
+
+  it('siger det med ord, når ingen runde er spillet færdig', () => {
+    setup({ standings: MED_RUNDER, matches: [{ round: 1, result: null }] });
+    expect(screen.getByText(/Ingen runder er spillet færdig endnu/)).toBeInTheDocument();
+  });
+});
+

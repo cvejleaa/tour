@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
-import Pokaler from './Pokaler';
+import { render, screen } from '@testing-library/react';
+import Pokaler, { navneAf } from './Pokaler';
 
 const kamp = (round, result) => ({ round, result });
 const KAMPE = [
@@ -89,8 +89,20 @@ describe('Chance-kongen', () => {
     });
     // Anne står i BEGGE kort (hun vandt også runder), så der scopes til
     // Chance-kortet — ellers måler testen på det forkerte trofæ.
+    // Bind hvert navn til SIN label. Assertede man kun på kortets samlede
+    // tekst, kunne sorteringen vendes, så bedst og værst byttede plads, uden
+    // at noget blev rødt — samme klasse fejl som kolonne-ombytningen i det
+    // indbyrdes opgør.
+    const bedstLinje = screen.getByText(/Bedst:/).closest('p');
+    const vaerstLinje = screen.getByText(/Modigst i minus/).closest('p');
+    expect(bedstLinje.textContent).toContain('Anne');
+    expect(bedstLinje.textContent).toContain('+12,5');
+    expect(vaerstLinje.textContent).toContain('Bo');
+    expect(vaerstLinje.textContent).toContain('\u221231,5');
+    expect(bedstLinje.textContent).not.toContain('Bo');
+    expect(vaerstLinje.textContent).not.toContain('Anne');
+
     const kort = screen.getByText(/Chance-kongen/).closest('.card');
-    expect(within(kort).getByText(/Modigst i minus/)).toBeInTheDocument();
     // Tallene står som tekstnoder ved siden af <strong>, så der assertes på
     // kortets samlede tekst. Fortegnet er pointen: uden det ligner et tab en
     // gevinst — samme grund som i opdelings-tabellen.
@@ -150,4 +162,49 @@ describe('tomme tilstande', () => {
     });
     expect(container.textContent).not.toMatch(/%/);
   });
+
+describe('modigst i minus', () => {
+  it('vises IKKE, når ingen faktisk er i minus', () => {
+    // QC beviste fejlen ved at rendere den: `vaerst` var bare feltets laveste
+    // tal, så kortet skrev "Modigst i minus: Bo +3" og modsagde sig selv.
+    // Helt almindeligt tidligt på sæsonen, hvor alle har tjent på Chancen.
+    const { container } = vis({
+      rows: [r('a', 'Anne', { 1: 5 }, 12.5), r('b', 'Bo', { 1: 3 }, 3)],
+    });
+    expect(screen.queryByText(/Modigst i minus/)).not.toBeInTheDocument();
+    expect(container.textContent).toContain('Anne');
+    // Og især: der må ikke stå et PLUS-tal under en minus-overskrift.
+    expect(container.textContent).not.toMatch(/Modigst i minus[^]*\+/);
+  });
+
+  it('vises, så snart ÉN er i minus', () => {
+    vis({ rows: [r('a', 'Anne', { 1: 5 }, 12.5), r('b', 'Bo', { 1: 3 }, -0.5)] });
+    const linje = screen.getByText(/Modigst i minus/).closest('p');
+    expect(linje.textContent).toContain('Bo');
+    expect(linje.textContent).toContain('\u22120,5');
+  });
+
+  it('vises ikke, når den eneste med Chancen selv er bedst OG i minus', () => {
+    // Én spiller kan ikke være både bedst og modigst — han står ét sted.
+    vis({ rows: [r('a', 'Anne', { 1: 5 }, -4)] });
+    expect(screen.queryByText(/Modigst i minus/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Bedst:/).closest('p').textContent).toContain('Anne');
+  });
+});
+
+describe('navneAf', () => {
+  it('sammenføjer delte vindere med komma', () => {
+    const rows = [{ uid: 'a', name: 'Anne' }, { uid: 'b', name: 'Bo' }];
+    expect(navneAf(rows, ['a', 'b'])).toBe('Anne, Bo');
+  });
+
+  it('falder tilbage på uid frem for at rendere ingenting', () => {
+    // Kan ikke nås gennem komponenten (vinderne kommer fra samme rows), men
+    // koden findes, og et manglende navn ville give " — 3 rundesejre" uden en
+    // vinder. Derfor bevist her frem for at stå utestet.
+    expect(navneAf([{ uid: 'a', name: 'Anne' }], ['a', 'ukendt'])).toBe('Anne, ukendt');
+    expect(navneAf([], ['x'])).toBe('x');
+    expect(navneAf(null, null)).toBe('');
+  });
+});
 });
