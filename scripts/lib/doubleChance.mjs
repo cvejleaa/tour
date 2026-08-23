@@ -156,7 +156,7 @@ export function beviserMekanismen(chancer) {
  * @param {Function} o.scoreBet       (bet, result, odds) → point
  * @returns {{rettelser:Array, totaler:Map<string,{foer:number,efter:number,delta:number}>, advarsler:string[]}}
  */
-export function byggRettelsesplan({ fund, pickAf, totalFoer, gatede = new Set(), scoreBet }) {
+export function byggRettelsesplan({ fund, pickAf, totalFoer, gatede = new Set(), kraevBevis = true, scoreBet }) {
   const r1 = (n) => Math.round(n * 10) / 10;
   const totaler = new Map();
   const advarsler = [];
@@ -164,6 +164,21 @@ export function byggRettelsesplan({ fund, pickAf, totalFoer, gatede = new Set(),
 
   for (const f of fund) {
     const [beholdes, ...senere] = f.chancer;
+
+    // BEVISKRAVET. Rækkefølgen afgør, hvilken chance der overlever. Kan den
+    // ikke bevises af kickoff-tiderne, hviler den ALENE på et tidsstempel —
+    // og indtil trin 3 er live, nævner firestore.rules ikke ordet "chance",
+    // så en spiller kan selv skrive både chanceStake og chanceSatAt. Så ville
+    // den ramte spiller selv vælge, hvilken af sine chancer der overlever.
+    // Kickoff-tiderne kommer fra synken og kan ikke forfalskes af en spiller.
+    // Derfor er beviset bindende for en RETTELSE — ikke bare en oplysning.
+    const bevis = beviserMekanismen(f.chancer);
+    if (kraevBevis && !bevis) {
+      advarsler.push(`${f.navn} · runde ${f.runde}: rækkefølgen kan ikke bevises af kickoff-tiderne — rundenafvises.`);
+      rettelser.push({ ...f, beholdes, fjernes: [], deltaSum: 0, afvist: true, bevis: null });
+      continue;
+    }
+
     const fjernes = senere.map((c) => {
       const pick = pickAf.get(c.betId);
       // Uden 1X2-valget kan point ikke regnes. Sig det højt frem for at
@@ -191,7 +206,7 @@ export function byggRettelsesplan({ fund, pickAf, totalFoer, gatede = new Set(),
       efter,
       delta: r1(efter - (totaler.has(f.uid) ? totaler.get(f.uid).foer : foer)),
     });
-    rettelser.push({ ...f, beholdes, fjernes, deltaSum, totalEfterRunden: efter });
+    rettelser.push({ ...f, beholdes, fjernes, deltaSum, totalEfterRunden: efter, afvist: false, bevis });
   }
   return { rettelser, totaler, advarsler };
 }

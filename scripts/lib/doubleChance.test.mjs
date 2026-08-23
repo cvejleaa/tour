@@ -197,11 +197,15 @@ describe('byggRettelsesplan', () => {
     ...ekstra,
   });
 
+  // De ÆGTE tidsstempler fra produktionen: nr. 2 blev lagt efter nr. 1's kamp
+  // gik i gang, så mekanismen er bevist, og planen må rette.
+  const BEVIST = [
+    bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(T('2026-08-05T18:59:05Z')) }),
+    bet('u1', 'ach-bif', { chanceStake: 2, points: 3.9, updatedAt: ts(T('2026-08-08T07:17:01Z')) }),
+  ];
+
   it('regner det fjernede tips nye point med den ÆGTE pointregel', () => {
-    const bets = [
-      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(1) }),
-      bet('u1', 'ach-bif', { chanceStake: 2, points: 3.9, updatedAt: ts(2) }),
-    ];
+    const bets = BEVIST;
     const fund = findDobbelteChancer({ bets, matches: KAMPE, navne: NAVNE });
     const { rettelser, totaler } = plan(fund, bets);
     expect(rettelser).toHaveLength(1);
@@ -220,10 +224,10 @@ describe('byggRettelsesplan', () => {
       { id: 'r7b', data: { round: 7, home: 'G', away: 'H', kickoff: T('2026-09-21T16:00:00Z'), result: '2', odds: { 1: 3, X: 3, 2: 2 } } },
     ];
     const bets = [
-      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(1) }),
-      bet('u1', 'ach-bif', { chanceStake: 2, points: 3.9, updatedAt: ts(2) }),
-      bet('u1', 'r7a', { chanceStake: 3, points: -3, updatedAt: ts(3) }),
-      bet('u1', 'r7b', { chanceStake: 3, points: 5, updatedAt: ts(4) }),
+      ...BEVIST,
+      bet('u1', 'r7a', { chanceStake: 3, points: -3, updatedAt: ts(T('2026-09-19T10:00:00Z')) }),
+      // Lagt EFTER r7a's kickoff (20/9 kl. 16.00 UTC) — bevist i runde 7 med.
+      bet('u1', 'r7b', { chanceStake: 3, points: 5, updatedAt: ts(T('2026-09-20T18:00:00Z')) }),
     ];
     const fund = findDobbelteChancer({ bets, matches, navne: NAVNE });
     expect(fund).toHaveLength(2);
@@ -233,10 +237,7 @@ describe('byggRettelsesplan', () => {
   });
 
   it('advarer om en GATED kamp — rescoreAllBets ville springe pointet over', () => {
-    const bets = [
-      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(1) }),
-      bet('u1', 'ach-bif', { chanceStake: 2, points: 3.9, updatedAt: ts(2) }),
-    ];
+    const bets = BEVIST;
     const fund = findDobbelteChancer({ bets, matches: KAMPE, navne: NAVNE });
     const { advarsler } = plan(fund, bets, { gatede: new Set(['ach-bif']) });
     expect(advarsler).toHaveLength(1);
@@ -244,10 +245,39 @@ describe('byggRettelsesplan', () => {
     expect(advarsler[0]).toContain('AC Horsens–Brøndby IF');
   });
 
+  it('AFVISER en runde, hvor rækkefølgen ikke kan bevises af kickoff-tiderne', () => {
+    // Indtil trin 3 er live, nævner firestore.rules ikke ordet "chance", så en
+    // spiller kan selv skrive chanceSatAt. Uden kickoff-beviset ville han
+    // dermed selv vælge, hvilken af sine chancer rettelsen lader stå.
+    const bets = [
+      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(T('2026-08-01T10:00:00Z')) }),
+      bet('u1', 'ach-bif', { chanceStake: 2, points: 3.9, updatedAt: ts(T('2026-08-02T10:00:00Z')) }),
+    ];
+    const fund = findDobbelteChancer({ bets, matches: KAMPE, navne: NAVNE });
+    const { rettelser, totaler, advarsler } = plan(fund, bets);
+    expect(rettelser[0].afvist).toBe(true);
+    expect(rettelser[0].fjernes).toEqual([]);
+    // Slet ingen total-post: en afvist runde flytter intet, og så skal der
+    // heller ikke udskrives en TOTAL-linje, der antyder, at noget skete.
+    expect(totaler.has('u1')).toBe(false);
+    expect(advarsler[0]).toContain('kan ikke bevises');
+  });
+
+  it('retter den alligevel, hvis beviskravet slås fra med vilje', () => {
+    const bets = [
+      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(T('2026-08-01T10:00:00Z')) }),
+      bet('u1', 'ach-bif', { chanceStake: 2, points: 3.9, updatedAt: ts(T('2026-08-02T10:00:00Z')) }),
+    ];
+    const fund = findDobbelteChancer({ bets, matches: KAMPE, navne: NAVNE });
+    const { rettelser } = plan(fund, bets, { kraevBevis: false });
+    expect(rettelser[0].afvist).toBe(false);
+    expect(rettelser[0].fjernes).toHaveLength(1);
+  });
+
   it('advarer i stedet for at udskrive et tal, når 1X2-valget mangler', () => {
     const bets = [
-      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(1) }),
-      { id: 'u1_ach-bif', data: { uid: 'u1', matchId: 'ach-bif', chanceStake: 2, points: 3.9, updatedAt: ts(2) } },
+      BEVIST[0],
+      { id: 'u1_ach-bif', data: { uid: 'u1', matchId: 'ach-bif', chanceStake: 2, points: 3.9, updatedAt: ts(T('2026-08-08T07:17:01Z')) } },
     ];
     const fund = findDobbelteChancer({ bets, matches: KAMPE, navne: NAVNE });
     const { rettelser, advarsler, totaler } = plan(fund, bets);

@@ -378,10 +378,21 @@ kickoff. Netop dét gør rækkefølgen bevislig.
 **Find** (læs-only, skriver aldrig): Actions → **Tjek for dobbelt Chancen
 (spil-89af9)**. Fejler med exit 1, hvis der findes nogen — det er meningen.
 
-**Ret**: Actions → **Ret dobbelt Chancen (spil-89af9)**. `apply` er `false` som
-udgangspunkt, og en tør-kørsel skriver intet. Sæt `game` til det konkrete
-spil-id: beslutningen om at rette gælder ét fund, ikke "enhver fremtidig dublet,
-uanset hvor den findes".
+**Ret**: Actions → **Ret dobbelt Chancen (spil-89af9)**. Feltet `skriv` skal
+indeholde ordet **SKRIV** — alt andet (også tomt) er tør-kørsel. Sæt `game` til
+det konkrete spil-id: beslutningen om at rette gælder ét fund, ikke "enhver
+fremtidig dublet, uanset hvor den findes".
+
+**Backup tages altid**, også ved tør-kørsel, og lægges op som artefakt. Filen
+har samme format som `rescore-bets.mjs`' backup, så en fortrydelse køres med
+`GENDAN=<fil>` dér — der findes ikke et separat gendannelses-værktøj.
+
+**En runde uden bevis rettes ikke.** Kan rækkefølgen ikke bevises af
+kickoff-tiderne, hviler den alene på et tidsstempel — og indtil trin 3 er live,
+nævner `firestore.rules` ikke ordet "chance", så en spiller kan selv skrive både
+`chanceStake` og `chanceSatAt`. Så ville den ramte selv vælge, hvilken af sine
+chancer der overlever. Kickoff-tiderne kommer fra synken og kan ikke
+forfalskes. Sådan en runde meldes `AFVIST` og skal afgøres i hånden.
 
 Reglen om, **hvilken** chance der beholdes, er den først lagte. Den bor i
 `scripts/lib/doubleChance.mjs` og deles af begge scripts, så de aldrig kan give
@@ -408,6 +419,13 @@ find årsagen først.
    næste afsnit.
 3. **Spilleren og ligaen får ikke besked af sig selv.** En stille pointændring
    er værre end ingen rettelse.
+
+**Blev kørslen afbrudt midtvejs?** Så kan chancen være nulstillet, uden at
+pointet er genscoret — og en genkørsel af *dette* workflow melder "ingen
+dobbelt-chancer" og exit 0, mens spilleren beholder point for en chance, der er
+væk. Ret det med `rescore-bets.yml` (tør-kørsel først), ikke ved at køre dette
+workflow igen. Workflowet har en `concurrency`-gruppe, så to kørsler ikke kan
+overlappe.
 
 ## Gendan et rettet bot-opslag
 
