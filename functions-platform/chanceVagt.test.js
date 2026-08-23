@@ -17,7 +17,7 @@ const T = (iso) => Date.parse(iso);
 // Nok til at køre kernen: én transaktion med get/getAll/where-get/set.
 // `state.skrevet` opsamler hver skrivning, så testene kan se PRÆCIS hvilke
 // felter der landede hvor — ikke bare at der blev skrevet.
-function makeDb({ erSpiller = true, kampe = [], tips = [] } = {}) {
+function makeDb({ erSpiller = true, bruger = { status: 'approved' }, kampe = [], tips = [] } = {}) {
   const state = { skrevet: [], laesninger: 0 };
   const kampAf = new Map(kampe.map((k) => [k.id, k]));
   const tipAf = new Map(tips.map((t) => [t.id, t]));
@@ -48,6 +48,7 @@ function makeDb({ erSpiller = true, kampe = [], tips = [] } = {}) {
       // (Test Manager-fund: den mutation overlevede hele suiten).
       if (state.skrevet.length) throw new Error('læsning efter skrivning i transaktionen');
       state.laesninger += 1;
+      if (ref.__user) return { exists: !!bruger, data: () => bruger };
       if (ref.__player) return { exists: erSpiller };
       if (ref.__match) return snapAf(ref.__match, kampAf);
       if (ref.__query) {
@@ -71,7 +72,7 @@ function makeDb({ erSpiller = true, kampe = [], tips = [] } = {}) {
 
   return {
     _state: state,
-    collection: () => ({
+    collection: (navn) => (navn === 'users' ? { doc: (id) => ({ __user: id }) } : {
       doc: () => ({
         collection: (sub) => {
           if (sub === 'matches') return matchesCol;
@@ -192,7 +193,14 @@ describe('normaliserIndsats', () => {
   it('lader være med at kopiere det BANK-afhængige loft', () => {
     // 15 %-loftet hører til afregningen (clampStake): saldoen ved skrivning er
     // ikke saldoen ved afregning, og to kopier ville være to regler med ét navn.
-    expect(KILDE).not.toMatch(/CAP_FRACTION|chanceMaxStake|isValidStake/);
+    // Kernen må ikke IMPLEMENTERE bank-loftet...
+    expect(KILDE).not.toMatch(/CAP_FRACTION\s*[*.]|chanceMaxStake\(|isValidStake\(/);
+    // ...og den må heller ikke PÅSTÅ, at afregningen gør det. gameScoring
+    // kalder scoreBet uden bank, så det loft findes ikke — en kommentar, der
+    // udpeger en vagt, som ikke er der, gør hullet sværere at finde.
+    const scoring = require('fs').readFileSync(new URL('./gameScoring.js', import.meta.url), 'utf8');
+    expect(scoring).not.toMatch(/scoreBet\([^)]*bank/);
+    expect(KILDE).toMatch(/håndhæves I DAG SLET IKKE/);
   });
 });
 
@@ -300,6 +308,26 @@ describe('setChanceCore — sætter chancen', () => {
     expect(db._state.skrevet.map((s) => s.id)).toEqual(['u1_m1']);
   });
 
+  it('skriver INTET, når den samme indsats sættes igen på den samme kamp', async () => {
+    // Uden no-op-vagten talte et gentaget klik chanceFlytninger op og rykkede
+    // chanceSatAt — revisionsfeltet blev støj, og et klik-loop blev skrivninger.
+    const { res, db } = await saet(
+      { kampe: standardKampe(), tips: [tip('m1', { chanceStake: 5, chanceFlytninger: 1 })] },
+      { matchId: 'm1', stake: 5 },
+    );
+    expect(res).toMatchObject({ ok: true, uaendret: true, flyttetFra: [] });
+    expect(db._state.skrevet).toEqual([]);
+  });
+
+  it('skriver dog, når indsatsen ÆNDRES på den samme kamp', async () => {
+    const { res, db } = await saet(
+      { kampe: standardKampe(), tips: [tip('m1', { chanceStake: 5, chanceFlytninger: 1 })] },
+      { matchId: 'm1', stake: 6 },
+    );
+    expect(res.uaendret).toBe(false);
+    expect(db._state.skrevet[0].patch).toMatchObject({ chanceStake: 6, chanceFlytninger: 2 });
+  });
+
   it('tæller flytninger op pr. tip, så summen over runden er antal gange lagt', async () => {
     const { db } = await saet(
       { kampe: standardKampe(), tips: [tip('m1', { chanceFlytninger: 3 })] },
@@ -368,6 +396,30 @@ describe('setChanceCore — afviser', () => {
       { matchId: 'm1', stake: 3 },
     );
     expect(e.message).toBe('not-member');
+  });
+
+  it('en AFVIST bruger — reglerne beskytter intet, når Admin SDK skriver', async () => {
+    // setUserStatus rører kun users-dokumentet, så players-dokumentet
+    // overlever en afvisning. Uden denne vagt kunne en bortvist spiller blive
+    // ved med at sætte ⚡ fra devtools, mens reglerne spærrede hen ude fra
+    // selve 1X2-valget.
+    const e = await fanger(
+      { bruger: { status: 'rejected' }, kampe: standardKampe(), tips: [tip('m1')] },
+      { matchId: 'm1', stake: 3 },
+    );
+    expect(e.message).toBe('rejected');
+  });
+
+  it('en bruger, der ikke er godkendt endnu — og en UDEN brugerdokument', async () => {
+    // `!== 'approved'`, ikke `=== 'rejected'`: et manglende dokument slap
+    // igennem en tidligere udgave af vagten.
+    for (const bruger of [{ status: 'pending' }, {}, null]) {
+      const e = await fanger(
+        { bruger, kampe: standardKampe(), tips: [tip('m1')] },
+        { matchId: 'm1', stake: 3 },
+      );
+      expect(e.message, JSON.stringify(bruger)).toBe('not-approved');
+    }
   });
 
   it('en ukendt kamp, et manglende id og en manglende bruger', async () => {

@@ -26,10 +26,20 @@
 //   HVORNÅR      ikke på en kamp i gang   → erKampLaast
 //   HVOR STOR    aldrig over det absolutte loft → normaliserIndsats
 //
-// Det BANK-afhængige loft (15 % af saldoen) håndhæves ét sted og kun ét:
-// afregningen (superligaScoring.clampStake). Saldoen ved skrivetidspunktet er
-// ikke saldoen ved afregning, så en kopi her ville være en anden regel med
-// samme navn — og en mutation af den ene ville overleve den andens tests.
+// OM DET BANK-AFHÆNGIGE LOFT (15 % af saldoen): det håndhæves I DAG SLET IKKE
+// på serveren. gameScoring kalder scoreBet(bet, result, odds) UDEN bank
+// (gameScoring.js:527 og :650), og clampStake uden bank klipper kun til
+// MAX_ABS. `isValidStake` i betActions.js er browservalidering og kan omgås.
+// Denne fil håndhæver derfor det loft, der FAKTISK gælder — det absolutte —
+// og påstår ikke et andet. (En tidligere udgave af denne kommentar udpegede
+// afregningen som vagten; den vagt findes ikke, og en forkert henvisning gør
+// hullet sværere at finde næste gang.)
+//
+// Det skal afgøres, FØR trin 2 flytter klienten over på callable'en: derefter
+// forlader isValidStake stien, og så er der ingen bank-vagt tilbage nogen
+// steder. Enten skal bank med i scoreBet-kaldene, eller også skal CAP_FRACTION
+// /chanceMaxStake/isValidStake fjernes — et loft, ingen håndhæver, er værre
+// end intet loft, fordi fladen lover spilleren noget andet end reglen.
 //
 // Afregningen ændres IKKE. Den må aldrig dedup'e: gjorde den det, kunne hele
 // transaktionen her tømmes for indhold med grøn suite, fordi afregningen
@@ -148,6 +158,10 @@ function normaliserIndsats(stake) {
  */
 const CHANCE_ERR = {
   unauthenticated: ['unauthenticated', 'Log ind for at bruge Chancen.'],
+  // Samme ordlyd som gameLeagues' dørmand — en afvist bruger skal få det
+  // samme svar, uanset hvilken vej hen prøver.
+  rejected: ['permission-denied', 'Din adgang er afvist. Kontakt en administrator.'],
+  'not-approved': ['permission-denied', 'Din bruger er ikke godkendt.'],
   'bad-input': ['invalid-argument', 'Mangler spil- eller kamp-id.'],
   'bad-stake': ['invalid-argument', `Indsatsen skal være 0 eller mellem ${CHANCE.MIN} og ${CHANCE.MAX_ABS} point.`],
   'not-member': ['permission-denied', 'Du deltager ikke i dette spil.'],
@@ -201,10 +215,21 @@ async function setChanceCore(db, FieldValue, { uid, gameId, matchId, stake, nowM
     // Deltagelse tjekkes EKSPLICIT. At tippet skal findes (intet-tip nedenfor)
     // ville i praksis også afvise en ikke-deltager, men det er en nabo-egenskab,
     // ikke en vagt: den knækker tavst, hvis tip-kravet nogensinde lempes.
-    const [spillerSnap, maalSnap] = await Promise.all([
+    const [brugerSnap, spillerSnap, maalSnap] = await Promise.all([
+      tx.get(db.collection('users').doc(uid)),
       tx.get(gameRef.collection('players').doc(uid)),
       tx.get(matchesRef.doc(matchId)),
     ]);
+    // GODKENDELSE er sin egen vagt. Admin SDK omgår firestore.rules
+    // fuldstændigt, så reglernes isApproved() beskytter INTET herinde — og et
+    // players-dokument overlever, at en bruger bliver afvist (setUserStatus
+    // rører kun users). Uden denne linje kunne en bortvist spiller blive ved
+    // med at sætte ⚡ fra devtools, mens reglerne spærrede hen ude fra selve
+    // 1X2-valget. Bemærk `!== 'approved'` og ikke `=== 'rejected'`: et
+    // MANGLENDE brugerdokument slap også igennem.
+    const status = brugerSnap.exists ? brugerSnap.data().status : null;
+    if (status === 'rejected') throw fejl('rejected');
+    if (status !== 'approved') throw fejl('not-approved');
     if (!spillerSnap.exists) throw fejl('not-member');
     if (!maalSnap.exists) throw fejl('no-match');
 
@@ -245,6 +270,12 @@ async function setChanceCore(db, FieldValue, { uid, gameId, matchId, stake, nowM
       tx.set(ref, { chanceStake: 0, chanceSatAt: null, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     }
     const nu = maalBet.data();
+    // Samme indsats, samme kamp, intet at flytte = intet skete. Uden denne
+    // vagt talte et gentaget klik chanceFlytninger op og rykkede chanceSatAt,
+    // så revisionsfeltet blev støj og et klik-loop blev til skrivninger.
+    if (flyttetFra.length === 0 && (Number(nu.chanceStake) || 0) === indsats) {
+      return { ok: true, gruppe: g.gruppe, indsats, matchId, flyttetFra: [], uaendret: true };
+    }
     // chanceSatAt er tidspunktet, chancen faktisk blev LAGT — ikke `updatedAt`,
     // som rykker med hver rettelse af 1X2-valget. Auditen kunne kun gætte på
     // rækkefølgen af to chancer; herefter kan den læse den.
@@ -264,6 +295,7 @@ async function setChanceCore(db, FieldValue, { uid, gameId, matchId, stake, nowM
       indsats,
       matchId,
       flyttetFra: flyttetFra.map((r) => r.id),
+      uaendret: false,
     };
   });
 }
