@@ -118,4 +118,19 @@ describe('SpillerDetalje', () => {
     setup();
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
+
+  // KOMPLETHED: at komponenten findes beviser ikke, at panelet VISES. Her
+  // spores knappen hele vejen ud i fladen for netop den tilstand, den gælder —
+  // en anden spiller, set af en kendt bruger.
+  it('viser det indbyrdes opgør, når en KENDT bruger ser en ANDEN spiller', async () => {
+    setup({ minUid: 'en-anden-bruger' });
+    expect(await screen.findByRole('button', { name: /Jer to imellem/ })).toBeInTheDocument();
+  });
+
+  it('viser det IKKE uden en kendt bruger, og ikke på ens eget navn', async () => {
+    setup();
+    expect(screen.queryByRole('button', { name: /Jer to imellem/ })).not.toBeInTheDocument();
+    setup({ minUid: SPILLER.uid });
+    expect(screen.queryByRole('button', { name: /Jer to imellem/ })).not.toBeInTheDocument();
+  });
 });

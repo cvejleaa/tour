@@ -450,6 +450,8 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                 // Spillets total: detaljen lister runder fra SPILLETS start,
                 // og dens sum skal ramme det tal, den selv viser.
                 spiller={{ ...aabenRow, totalPoints: aabenRow.spilTotal ?? aabenRow.totalPoints }}
+                // Den, der kigger — grundlaget for det indbyrdes opgør.
+                minUid={user?.uid ?? null}
                 onLuk={() => setAabenUid(null)}
               />
             )}

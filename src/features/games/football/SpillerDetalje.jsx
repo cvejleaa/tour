@@ -15,12 +15,16 @@ import { teamsOf } from './teamInfo';
 import { buildTipsHistory } from './tipsHistory';
 import { useSpillerOpdeling } from './useSpillerOpdeling';
 import TipsHistorik from './TipsHistorik';
+import Indbyrdes from './Indbyrdes';
 
 /**
  * @param {{game: object, matches: Array, spiller: {uid:string, name:string,
- *          opdeling?: object|null, totalPoints?: number}, onLuk?: Function}} props
+ *          opdeling?: object|null, totalPoints?: number},
+ *          minUid?: string|null, onLuk?: Function}} props
+ *   `minUid` er den, der KIGGER. Uden den vises det indbyrdes opgør ikke —
+ *   panelet skal kunne bruges uden, ikke fejle.
  */
-export default function SpillerDetalje({ game, matches, spiller, onLuk }) {
+export default function SpillerDetalje({ game, matches, spiller, minUid = null, onLuk }) {
   const { kampe, loading, error } = useSpillerOpdeling(game?.id, spiller?.uid);
 
   const startRunde = useMemo(() => startRundeFor(game, matches), [game, matches]);
@@ -71,6 +75,19 @@ export default function SpillerDetalje({ game, matches, spiller, onLuk }) {
               </p>
             )}
           />
+          {/* Sæsonens opgør mod netop denne spiller. Foldet sammen som
+              udgangspunkt: to ekstra dokumentlæsninger skal kun betales af
+              den, der faktisk vil se det. Runderne er de SAMME som ovenfor,
+              altså allerede gate't til SPILLETS startrunde (ikke ligaens). */}
+          <Indbyrdes
+            game={game}
+            rounds={rounds}
+            minUid={minUid}
+            dueUid={spiller?.uid}
+            dueNavn={spiller?.name}
+            teams={teamsOf(game)}
+          />
+
           {/* En "Luk" også i bunden: efter 22 runder er knappen i toppen langt
               væk, og der er ingen anden vej ud af panelet. */}
           {onLuk && (
