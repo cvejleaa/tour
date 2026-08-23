@@ -176,4 +176,20 @@ function naesteKoerselFoerMs(nowMs, { timer, minut = 25, slaekMin = 45, tz = 'Eu
   return nowMs + 36 * 3600 * 1000;
 }
 
-module.exports = { statusSamler, meldAlarm, loesDriftAlarmer, vaerste, naesteKoerselFoerMs };
+/**
+ * Beskeden på en strandet-alarm — udskilt som ren funktion, så REMEDIET kan
+ * testes på indhold (index.js kan ikke unit-testes). Teksten navngiver knappen
+ * og fanen; omdøbes de, skal testen i driftlog.test.js rettes I SAMME PR —
+ * det er tripwiren mod, at alarmen sender ejeren efter en flade, der ikke
+ * findes. Og fordi sweep'et, der rejser alarmen, netop selv HAR skannet hele
+ * sæsonen, vil knappen som regel svare "intet manglede" — derfor står
+ * hånd-vejen også i teksten.
+ * @param {string} kampId
+ * @returns {string}
+ */
+function strandetBesked(kampId) {
+  return `Kampen ${kampId} mangler facit længe efter kickoff — point er ikke afregnet. `
+    + 'Kør ⬇️ Synk resultater nu (Admin → 🗓️ Spil-tidsplan); finder den intet, har kilden ikke facit endnu — sæt det i hånden (admin-guiden → Resultater).';
+}
+
+module.exports = { statusSamler, meldAlarm, loesDriftAlarmer, vaerste, naesteKoerselFoerMs, strandetBesked };

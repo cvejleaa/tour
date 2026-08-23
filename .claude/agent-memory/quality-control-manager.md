@@ -990,3 +990,40 @@ loading/tom-tilstand; intro-sætning). Ét blev IKKE fulgt:
   skal bruge det nye felt, ellers retter man kun den automatiske vej.
 - `sent: 0` er OGSÅ det normale "alle har tippet" — teksten må ikke bruge
   samme formulering til "ingen at rykke" og "alle mails fejlede".
+
+## Drift for påmindelser + bots + resultat-synk-knap (f26d8f8): PR 1 af 3 — B1/B2 fra planen bekræftet løst
+
+Begge blokerende plan-fund er rettet og efterprøvet, ikke kun læst:
+
+- **B1 (timeoutSeconds)**: `syncSuperligaResultsNow` fik `timeoutSeconds: 300`,
+  `syncGameKickoffsNow` fik `timeoutSeconds: 120` (`functions-platform/index.js`).
+  Klientens `callSyncGameResults`/`callSyncGameKickoffs` (`adminActions.js`)
+  matcher med 300000/120000 ms. Begge ender tjekket — den latente fejl,
+  hukommelsen selv navngav ("serveren dræber kaldet efter 60 s"), er væk for
+  BEGGE callables, ikke kun den nye.
+- **B2 (alarm→knap-blindgyden)**: strandet-alarmens besked
+  (`functions-platform/index.js` ~487) OG `resultatSynk()`s rapport ved
+  `updated === 0` (`GameScheduleTab.jsx`) siger nu ordret det samme: knappen
+  først, "sæt facit i hånden (admin-guiden → Resultater)" som næste skridt.
+  Testet på INDHOLD (`screen.getByText(/sæt facit i hånden/)`), ikke kun på
+  at et badge vises.
+- **Omdøbningen `kickoffSync.js → spilEvner.js` er komplet** — grep for
+  `kickoffSync` i `src/` giver nul træf. Ny `harResultatSynk`-allowlist
+  (samme mønster som `harKickoffSynk`: allowlist over IMPLEMENTEREDE
+  providere, aldrig `!!sync.provider`) har sin egen spejlings-tripwire mod
+  `scripts/games.mjs` i `spilEvner.test.js` — samme mønster som
+  `syncProviders.test.js`s games.mjs⇄SYNCED_GAMES-tripwire på serversiden.
+- **Ét ikke-blokerende dokumentationsfund**: `docs/admin-guide.md`s nye sætning
+  "sent på aftenen hvor sweep'et holder pause" er FAKTUELT FORKERT. Sweep-cron
+  (`25 2,13-23`, TZ Europe/Copenhagen) kører hver time HELE aftenen (13:25→
+  23:25) — den reelle pause er om natten/formiddagen (23:25→02:25, og navnlig
+  02:25→13:25, jf. "Konkrete tal i dette repo"-afsnittet ovenfor i denne fil).
+  En eksempel-parentes, ikke en kerneprocedure — men et godt eksempel på at
+  "efterprøv med tal, ikke øjemål" gælder ALLE nye docs-sætninger, ikke kun
+  dem med et eksplicit tal i.
+- DriftTab.jsx's `forventede`-liste for `sweep`-kort bruger stadig rå
+  `g.sync?.provider` (truthy), IKKE den nye `harResultatSynk`-allowlist — men
+  det er urørt, pre-eksisterende kode i denne commit, og de to sæt er i dag
+  identiske (samme to spil). Spørg igen, hvis en tredje provider nogensinde
+  seedes uden fuld resultat-synk-implementering: sweep-kortet ville da vises
+  for et spil, der reelt ikke sweepes for resultater.

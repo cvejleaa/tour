@@ -42,6 +42,7 @@ import {
   sendAdminPasswordReset,
   callGenerateLeagueRecapNow,
   callRepriceGameOdds,
+  callSyncGameResults,
   callGenerateStageTip,
   saveStageTip,
   callSendTipRemindersNow,
@@ -175,6 +176,29 @@ describe('adminActions', () => {
       const res = await callRepriceGameOdds({ gameId: 'sl2627', dryRun: false });
       expect(res.ok).toBe(false);
       expect(res.error).toMatch(/ikke adgang/);
+    });
+  });
+
+  // GameScheduleTab-testen mocker hele modulet væk, så callable-NAVNET er
+  // ellers ubevogtet: 'syncSuperligaResultsNow' kunne staves om, og hele
+  // suiten stod grøn, mens knappen ramte functions/not-found (TM-fund — samme
+  // blinde vinkel som callRepriceGameOdds havde).
+  describe('callSyncGameResults', () => {
+    it('kalder syncSuperligaResultsNow med spillets id', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { gameId: 'superliga2627', checked: 12, updated: 0, rettede: [], standings: { rows: 12, changed: false } } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const res = await callSyncGameResults('superliga2627');
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'syncSuperligaResultsNow', { timeout: 300000 });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'superliga2627' });
+      expect(res.ok).toBe(true);
+      expect(res.data.checked).toBe(12);
+    });
+
+    it('giver fejlen videre i stedet for at kaste', async () => {
+      mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('Kun admin kan synke resultater.')));
+      const res = await callSyncGameResults('superliga2627');
+      expect(res.ok).toBe(false);
+      expect(res.error).toMatch(/Kun admin/);
     });
   });
 

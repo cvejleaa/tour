@@ -794,3 +794,53 @@ vagt mod en kompromitteret kilde* (den styrer hele svaret) — den reelle
 integritetsvagt er downstream: `result`-skip + genåbnings-forbud + kickoffMs-
 throw. Commit-beskedens "et facit kan aldrig flyttes" holder pga. DEM, ikke pga.
 URL-filteret.
+
+## timeoutSeconds på synk-callables + alarm-remedie (f26d8f8) — INGEN blokerende fund
+
+Ændring: `timeoutSeconds: 300` på `syncSuperligaResultsNow` og `120` på
+`syncGameKickoffsNow` (functions-platform/index.js L593, L654), længere
+alarm-tekst i sweep'et (L485-491), ny klient-knap i GameScheduleTab.
+
+**Nyt, hurtigt PoC-mønster (BEDSTE til adgangs+omkostnings-spørgsmål):** kør
+callablen ægte mod emulator-jar'en med `.run({auth:{uid},data,rawRequest:{}})`
+OG instrumentér forbruget i samme proces:
+- `global.fetch = () => { fetchKald++; throw ... }` → beviser om kalderen når
+  det DYRE arbejde (netværk) eller stoppes før.
+- monkey-patch `DocumentReference/CollectionReference/Query.prototype.get` og
+  `set/update/create/delete` + `WriteBatch.prototype.commit` fra
+  `functions-platform/node_modules/@google-cloud/firestore` → læse-/skrivetal
+  pr. kald.
+- `require(index.js)` FØR `admin.firestore()`; kald ALDRIG selv
+  `initializeApp` (index.js gør det → "app already exists").
+Fil: scratchpad/poc/gate.js. Kør fra `cd functions-platform`.
+
+**Målt adgangsmatrix (begge callables, emulator):**
+anon → `unauthenticated`, 0 læsninger. pending, approved player og bruger UDEN
+users-dok → `permission-denied` efter PRÆCIS 1 læsning, 0 skrivninger, 0 fetch,
+~10 ms. owner/globalAdmin (også `status:'pending'`) når netværket (kontroltest
+grøn → gaten måler noget). Ondt gameId `../users/ejer` → `invalid-argument`
+efter 1 læsning, 0 fetch (SYNCED_GAMES-allowlisten).
+→ **timeoutSeconds ændrer IKKE angrebsfladen:** budgettet er kun nåbart efter
+rolle-porten, så en ikke-admin kan ikke brænde 300 s. Generelt: et hævet
+timeout er kun farligt, hvis autorisationen står EFTER det dyre arbejde —
+tjek rækkefølgen, ikke tallet.
+
+**Alarm-teksten er ren.** `besked` renderes som JSX-tekstbarn i DriftTab
+(L51, L81) — React escaper, `pre-line` er CSS. Eneste interpolation er `m.id`
+= doc-id i `games/{g}/matches`, hvor create/update kræver `isGlobalAdmin()`
+(firestore.rules L786) → ingen spiller-skrevet tekst kan nå ejerens flade.
+Ingen andre forbrugere af `besked` end DriftTab + driftlog-linjerne.
+
+**Observation (ikke fra denne diff, men nu lettere at udløse med vilje):**
+`runGameRoundRecap` (gameRecap.js L308-309 / L439) er read-then-write om
+`game.recappedRounds` — markøren skrives EFTER AI-kaldet og alle væg-opslag,
+uden transaktion. To samtidige `recomputeGameMatch`-triggere for samme runde
+(fx to af rundens kampe får facit i SAMME batch) kan begge passere
+`done.includes(round)` → dobbeltopslag på alle liga-vægge + to betalte
+AI-kald. Kræver ingen angriber, kun timing. Hærdning: sæt markøren i en
+transaktion FØR opslagene (claim-then-post).
+
+**Nit (ikke sikkerhed):** alarm-teksten navngiver nu en knap og en fane
+("⬇️ Synk resultater nu (Admin → 🗓️ Spil-tidsplan)") uden nogen test, der
+binder strengen til fladen — et senere knap-omdøb driver tavst. Label
+verificeret korrekt i dag (AdminPage.jsx L72).

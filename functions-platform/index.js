@@ -32,7 +32,7 @@ const {
   strandedMatches, allMatches,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
-const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs } = require('./driftlog');
+const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
 
 // Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
 const SWEEP_TIMER = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
@@ -483,11 +483,9 @@ exports.syncSuperligaSweep = onSchedule(
               await meldAlarm(db, FieldValue, {
                 type: 'strandet', gameId: g.gameId, kampId: m.id,
                 // Remediet står I alarmen — en alarm uden næste skridt er en
-                // blindgyde. Og fordi sweep'et her netop HAR skannet hele
-                // sæsonen, vil knappen som regel svare "intet manglede": så
-                // er det kilden, der ikke har facit, og hånd-vejen er svaret.
-                besked: `Kampen ${m.id} mangler facit længe efter kickoff — point er ikke afregnet. `
-                  + 'Kør ⬇️ Synk resultater nu (Admin → 🗓️ Spil-tidsplan); finder den intet, har kilden ikke facit endnu — sæt det i hånden (admin-guiden → Resultater).',
+                // blindgyde. Teksten bor i driftlog.js, hvor den kan testes
+                // på indhold (index.js kan ikke unit-testes).
+                besked: strandetBesked(m.id),
               });
             }
           }
