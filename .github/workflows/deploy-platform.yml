@@ -24,7 +24,7 @@ on:
       seedSuperliga:
         # Labelen er det ENESTE, operatøren ser i klik-øjeblikket — YAML-
         # kommentarer er usynlige i Actions-UI'et. Derfor står forbeholdet her.
-        description: 'Seed Superliga-kampprogrammet (kampe, der allerede har odds, springes over — skriver intet på en igangværende sæson). Skal tidspunkter rettes, så brug seedKickoffs.'
+        description: 'Seed Superliga-kampprogrammet (kampe, der allerede har odds, springes over). NB: skriver ALTID teams og eloCurrent, uden forhåndsvisning. Skal tidspunkter rettes, så brug seedKickoffs — skal kun farver/kortkoder rettes, så brug seedTeams.'
         type: boolean
         default: false
       seedKickoffs:
@@ -36,6 +36,29 @@ on:
         # først og læs loggen", og kickoff ER tip-deadlinen — så forhåndsvisningen
         # skal være det, man får, når man ikke har taget stilling.
         description: 'seedKickoffs: SKRIV i databasen? Uden dette flueben tørkøres der, og ændringerne vises kun.'
+        type: boolean
+        default: false
+      seedTeams:
+        # Egen knap, fordi holdlisten er det ENESTE, der skal rettes, når en
+        # trøjefarve er forældet. Alternativet — seedSuperliga — skriver også
+        # `teams[].elo` og `eloCurrent` og har ingen forhåndsvisning.
+        description: 'Ret KUN holdlisten (trøjefarver, kortkoder, stadion) — rører hverken kampe, odds, Elo eller resultater'
+        type: boolean
+        default: false
+      seedTeamsSpil:
+        description: 'seedTeams: hvilket spil? (superliga2627 eller pl2627-efteraar)'
+        type: choice
+        options:
+          - superliga2627
+          - pl2627-efteraar
+        default: superliga2627
+      seedTeamsSkriv:
+        # Default FALSE = tør-kørsel, samme mønster som seedKickoffsSkriv.
+        # Tør-kørslen printer hver eneste feltændring, og det er MENINGEN at
+        # den læses igennem: den er den eneste vagt, der findes mod at repoets
+        # holdliste og produktionens er drevet fra hinanden. Ingen frontend-test
+        # kan se det — de kører alle på repoets liste.
+        description: 'seedTeams: SKRIV i databasen? Uden dette flueben tørkøres der, og ændringerne vises kun.'
         type: boolean
         default: false
       deployFunctions:
@@ -165,6 +188,27 @@ jobs:
             --teams src/data/superligaTeams2026.js \
             --fixtures scripts/superliga-fixtures.json \
             --skriv
+
+      - name: Ret holdlisten (valgfrit)
+        if: ${{ inputs.seedTeams }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          SPIL: ${{ inputs.seedTeamsSpil }}
+        # Trøjefarverne bor i `games/{id}.teams`, og indtil nu kunne kun det
+        # FULDE seed skrive dem — sammen med odds og Elo. En manglende
+        # tredjefarve er ikke kosmetik: badgeFor falder tilbage på udetrøjen,
+        # og holdet tegnes i en farve, der clasher med hjemmeholdets.
+        #
+        # Spil-id'et sendes som MILJØVARIABEL, ikke ind i argumentstrengen.
+        # Et felt, der ordsplittes af shellen, kan bære sit eget ekstra flag —
+        # det var præcis sådan `--apply` kunne smugles ind gennem "begræns til
+        # ét spil-id" i audit-workflowet.
+        run: |
+          node scripts/seed-football.mjs \
+            --game "$SPIL" \
+            --teams "$([ "$SPIL" = pl2627-efteraar ] && echo src/data/premierLeagueTeams2026.js || echo src/data/superligaTeams2026.js)" \
+            --teams-only \
+            ${{ inputs.seedTeamsSkriv && '--skriv' || '' }}
 
       - name: Ret kickoff-tider (valgfrit)
         if: ${{ inputs.seedKickoffs }}

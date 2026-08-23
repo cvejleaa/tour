@@ -1430,3 +1430,101 @@ ingen `.card`-CSS-konflikt (theme.css:100-106 har intet `width`).
   faktuelt korrekte mod koden, bortset fra at arve "modigst i minus"-fejlen
   ovenfor. Lukker desuden et tidligere fundet, IKKE-blokerende hul (⚔️ "Jer
   to imellem" manglede i hjælpen efter Indbyrdes-opgør-commit dc6d629).
+
+## Trøjefarver i prod (plan B, aug. 2026): `games/{id}.teams` er ikke kosmetik
+
+- **`games/{id}.teams` bærer POINT, ikke kun farver.** To kæder, begge målt i
+  koden: (1) `teams[].elo` er SEED for `recomputeSeasonElo`
+  (`functions-platform/gameScoring.js:102`) → `eloHistory`, `eloCurrent` OG
+  ny prissætning af alle ulåste kampes odds (samme fil, l. 162-187); den er
+  altså langt mere end "Start"-kolonnen i `eloHistory.js:16`. (2)
+  `teams.length` → `kampePrRunde` → `expectedPlayed` → om den OFFICIELLE
+  tabel godtages ved pulje-afregning (`gameScoring.js:422-436`). Et script,
+  der "kun skriver teams", rører derfor point. Vagten skal være en HÅRD
+  afvisning under `--skriv` ved ændret `elo` eller tilføjet/forsvundet hold —
+  en udskrift i en diff er ikke en vagt.
+- **`eloCurrent` har INGEN læser** (grep i hele repoet: kun skrivere —
+  `seed-football.mjs:261`, `gameScoring.js:143` — plus docs). Elo-tabellen
+  bygger på `teams[].elo` + `eloHistory`. Advarsler om "rør ikke eloCurrent"
+  peger altså på det ufarlige felt; faren er `teams[].elo`.
+- **`teams`-ARRAYETS RÆKKEFØLGE er brugersynlig:** `PuljeTip.jsx:149`
+  (`teams.map`) tegner pulje-gitteret i array-orden. Alle andre flader sorterer
+  selv. En diff, der matcher hold på navn, er blind for en omrokering.
+- **Ét symptom, flere datatilstande.** "Randers stod i marine" er forenelig med
+  BÅDE (a) `thirdColor` mangler → `badgeFor` falder tilbage til `awayColor`
+  #33384F, og `matchBadges` sammenligner en værdi med sig selv, OG (b)
+  `thirdColor` = den gamle, målt-væk værdi #003C7E (afstand 130,3 > ude 95,3 →
+  vinder og ER marineblå). En reproduktion, der viser at en mekanisme KAN give
+  symptomet, beviser ikke, at prod er i den tilstand. Kræv den diskriminerende
+  observation, ikke bekræftelsen.
+- **Hurtigste prod-aflæsning af `teams`: Admin → 🎨 Hold-farver.**
+  `TeamStylesTab.jsx:34,61-66` læser `game.teams` levende og viser hver farve
+  som hex pr. hold. Bedre end en swatch-flade, når spørgsmålet er "hvad står
+  der egentlig i prod".
+- **Samme fane er også en fix-vej uden deploy** (skriv hex → Gem → `teamStyles`
+  vinder i `badgeFor`), men den kan KUN farver — `troejer` (mønster/sekundær/
+  ærme) findes ikke i admin, og en override skygger permanent for datafilen.
+- **`TroejeOversigt` er en indbygget prod-alarm, ingen har læst.** Mangler
+  `thirdColor` for alle, giver `ubrugteTredjetroejer` (TroejeOversigt.jsx:89-99)
+  "3. trøje · bruges aldrig" på SAMTLIGE hold, og `findEksempel` returnerer
+  null, så "Fx X–Y"-sætningen forsvinder. Testen `markerer ingen i Superligaen`
+  (TroejeOversigt.test.jsx:238) er grøn, fordi den kører på REPOETS liste —
+  klassisk repo-vs-prod-paritetshul, som ingen frontend-test kan lukke.
+- **Rækkevidde, målt:** med repoets lister ændrer `thirdColor` udetrøjen i
+  **35 af 132** ordnede SL-par og **67 af 380** i PL, og FC Midtjyllands
+  side-tema skifter fra app-grøn til #E4002B (`klubAccentAf` går hjemme→ude→
+  tredje). "Kun kampkortet" undervurderer altid: `useSpilTema.js:61`,
+  `useKlubFarver.js:50`, `GameProfile.jsx` (inkl. teksten "Ingen af … tre
+  trøjer har kulør nok"), `TroejeOversigt`, `FootballTable`, `EloTable`,
+  `PuljeTip`, `MyTips`, `SpillerDetalje`, `Avatar`.
+- **`src/lib/seedFootball.js` ER en spejlet fil** (`functions-platform/
+  seedFootball.js`, paritetstest i begge `seedFootball.test.js`). Nye flag i
+  `KENDTE_FLAG` og nye eksporter skal vurderes mod spejlet.
+- **`.github/workflows/deploy-platform.yml` `seedSuperliga` skriver `teams`
+  ubetinget med hardkodet `--skriv` (l. 150-167) og har INGEN tør-kørsels-
+  input** — modsat `seedKickoffs`, der har `seedKickoffsSkriv`. Vejen findes
+  altså allerede; det er forhåndsvisningen, der mangler.
+
+## `--teams-only` (kode-gennemgang, aug. 2026): hvad kontrollen af holdlisten kan og ikke kan
+
+- **RETTELSE af min egen note ovenfor: `TeamStylesTab` viser IKKE rå
+  `game.teams`.** `TeamStylesTab.jsx:56-66` fletter admin-overrides ind
+  (`isHex6(o.thirdColor) ? o.thirdColor : t.thirdColor`), så feltet viser den
+  EFFEKTIVE farve. En override maskerer altså præcis den tilstand, man forsøger
+  at aflæse — og fanen er samtidig den anbefalede nødbremse, så den kan selv
+  skabe blindheden. Den eneste rå prod-aflæsning af `games/{id}.teams` er
+  tør-kørslen af `--teams-only` (`fra →`-kolonnen), som ikke skriver noget.
+  Peger en drift-tekst på Hold-farver som diagnose, så kræv forbeholdet.
+- **`teamsVagt` vogter NAVNE, ikke ANTAL** (`src/lib/seedFootball.js:348-374`):
+  `tilfoejede`/`forsvundne` bygges af Map/Set på `name`, så en DUBLET i filen
+  giver `{ok:true}` med en holdliste, der er én længere — og `teams.length` er
+  netop det, der bærer pulje-afregningen (`gameScoring.js:422-425`). Verificeret
+  kørende. Repoets datafiler har unikhedstests (`superligaTeams2026.test.js:25`),
+  så eksponeringen er en lokalt angivet fil. Spørg altid: vogter vagten
+  størrelsen eller kun mængden af navne?
+- **Vagtens HÅNDHÆVELSE lå ét sted uden test.** `teamsVagt` er tæt testet i
+  isolation, men brugen — `scripts/seed-football.mjs:296` `if (!vagt.ok) throw`
+  — har ingen test, fordi scriptet ikke er unit-testet. Mutér den linje væk, og
+  hele suiten er grøn. Mønstret findes allerede løst i repoet
+  (`scripts/lib/doubleChance.mjs` + `.test.mjs`): flyt beslutningen ind i en
+  testbar lib-funktion, når et script bærer en vagt.
+- **Pulje-tip gemmes på NAVN** (`PuljeTip.jsx:158` `toggle(t.name)`,
+  `LeagueQuestions` `HoldSelect value={t.name}`), så en omrokering af
+  `teams`-arrayet er ren kosmetik. `omrokeret` som ADVARSEL (ikke spærring) er
+  altså rigtigt afvejet — men det skal efterprøves på lagringsformen, ikke
+  antages.
+- **`seedTeamsSpil`s choice-liste er et hardkodet spejl af `scripts/games.mjs`.**
+  I dag komplet (kun `superliga2627` og `pl2627-efteraar` findes), men
+  `pl2627-foraar` er allerede planlagt i games.mjs' egen kommentar. Ingen
+  paritetstest binder de to lister — næste spil får tavst ikke evnen.
+- **Labelen på `seedSuperliga` er selve fælden, ikke kun den manglende
+  tør-kørsel.** Beskrivelsen — det eneste, operatøren ser i Actions-UI'et —
+  siger "skriver intet på en igangværende sæson", mens YAML-kommentaren lige
+  under og `docs/drift.md:302` begge indrømmer, at `teams` og `eloCurrent`
+  skrives ubetinget. Samme input har allerede mønstret for rettelsen: "Skal
+  tidspunkter rettes, så brug seedKickoffs."
+- **`docs/drift.md:305-309` påstår, at Elo-TABELLEN kan vise
+  sæsonstart-værdier, når `eloCurrent` nulstilles.** `EloTable.jsx:17` bruger
+  `eloRows(teams, game.eloHistory)`; `eloCurrent` har stadig ingen læser. Den
+  gamle begrundelse for "Ompris kampene"-knappen hviler altså på et felt, der
+  ikke vises. (Knappen er der gode grunde til alligevel — prissætningen.)

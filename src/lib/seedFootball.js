@@ -98,7 +98,7 @@ export function tjekDubletter(fixtures) {
  * ignoreret detalje.
  */
 export const KENDTE_ARGS = ['game', 'teams', 'fixtures', 'runder'];
-export const KENDTE_FLAG = ['kickoffs-only', 'skriv'];
+export const KENDTE_FLAG = ['kickoffs-only', 'teams-only', 'skriv'];
 
 export function parseArgs(argv) {
   const out = { flags: new Set() };
@@ -231,4 +231,185 @@ export function ukendteHold(fixtures, teams) {
     if (f?.away && !kendte.has(f.away)) ukendte.add(f.away);
   }
   return [...ukendte].sort();
+}
+
+/**
+ * Hvad ville en holdliste-opdatering ÆNDRE?
+ *
+ * HVORFOR DEN FINDES. `games/{id}.teams` skrives i dag kun af `fuldtSeed`, som
+ * i samme åndedrag skriver `eloCurrent` og alle kampe uden frosne odds. Derfor
+ * er der ingen vej til at rette en trøjefarve midt i en sæson — og en manglende
+ * farve er ikke en skønhedsfejl: `badgeFor` falder tilbage
+ * `thirdColor || awayColor || color`, så mangler tredjefarven, bliver tredje
+ * lig med ude, og `matchBadges` sammenligner en værdi med sig selv. Udetrøjen
+ * bliver stående, uanset hvor meget den clasher.
+ *
+ * DEN SAMMENLIGNER I DYBDEN. `troejer` er et nested felt (sekundærfarve,
+ * mønster, ærme), og en flad sammenligning ville melde "uændret" om et hold,
+ * der havde skiftet fra striber til skråbånd.
+ *
+ * DE FORSVUNDNE ER DET FARLIGE TAL. `teams` er et ARRAY, og en skrivning
+ * erstatter det helt — også med `{ merge: true }`. Et hold, der står i
+ * produktionen men ikke i filen, forsvinder altså sporløst, og hver kamp med
+ * det hold mister både farve, kortkode og stadion. Derfor tælles de for sig og
+ * ikke som "en ændring" blandt de andre.
+ *
+ * `elo` OG ANTALLET AF HOLD BÆRER POINT. Her stod først, at `elo` er
+ * "Start"-kolonnen i Elo-tabellen. Det er sandt og alt for lille:
+ *
+ *   - `teams[].elo` er SEED for hele den levende Elo. `recomputeSeasonElo`
+ *     bygger sin startrating af feltet (`gameScoring.js:102`) og skriver
+ *     derfra både `eloHistory`, `eloCurrent` OG nye odds på hver ulåst kamp.
+ *     Ændres ét tal, sker der ingenting i sekundet — og så omskriver næste
+ *     facit sæsonens historik og prisen på alle resterende kampe.
+ *   - `teams.length` afgør pulje-afregningen: antal hold → kampe pr. runde →
+ *     `expectedPlayed` → om den officielle tabel overhovedet godtages
+ *     (`gameScoring.js:422-425`).
+ *
+ * Derfor er de to ikke bare linjer i en liste — `teamsVagt` nedenfor afviser
+ * dem hårdt. En udskrift, man kan overse, er ikke en vagt.
+ *
+ * `eloCurrent` er derimod det UFARLIGE felt: der findes ingen læser af det i
+ * hele repoet, kun skrivere. Elo-tabellen bygger på `teams[].elo` +
+ * `eloHistory`. Den advarsel, der lå lige for, pegede altså på det felt, der
+ * ikke gør noget.
+ *
+ * @param {Array<object>} nye         holdlisten fra filen
+ * @param {Array<object>} nuvaerende  games/{id}.teams som den står nu
+ * @returns {{aendringer: Array<{name:string, felt:string, fra:*, til:*}>,
+ *           tilfoejede: string[], forsvundne: string[], uaendrede: number,
+ *           omrokeret: boolean, dubletter: string[]}}
+ */
+export function teamsPlan(nye, nuvaerende) {
+  const foer = new Map((nuvaerende || []).map((t) => [t?.name, t]));
+  const aendringer = [];
+  const tilfoejede = [];
+  let uaendrede = 0;
+
+  for (const t of nye || []) {
+    const gammel = foer.get(t?.name);
+    if (!gammel) { tilfoejede.push(t?.name); continue; }
+    // Feltnavnene tages fra BEGGE sider. Kun fra den nye ville et felt, der er
+    // fjernet fra filen, se ud som om det aldrig havde været der — og det er
+    // netop en fjernet farve, der giver den tavse fallback ovenfor.
+    const felter = [...new Set([...Object.keys(gammel), ...Object.keys(t || {})])].sort();
+    let rørt = false;
+    for (const f of felter) {
+      if (f === 'name') continue;
+      if (ensVaerdi(gammel[f], t[f])) continue;
+      aendringer.push({ name: t.name, felt: f, fra: gammel[f], til: t[f] });
+      rørt = true;
+    }
+    if (!rørt) uaendrede += 1;
+  }
+
+  const iFilen = new Set((nye || []).map((t) => t?.name));
+  const forsvundne = [...foer.keys()].filter((n) => !iFilen.has(n)).sort();
+
+  // DUBLETTER i filen. Både `foer` og `iFilen` er opslag på NAVN, så to rækker
+  // med samme navn ser ud som ét hold: hverken `tilfoejede` eller `forsvundne`
+  // fanger dem. Listen ville alligevel blive skrevet én række længere — og
+  // `teams.length` bærer pulje-afregningen. Samme klasse fejl som
+  // `tjekDubletter` findes for i kampprogrammet.
+  const set = new Set();
+  const dubletter = [...new Set(
+    (nye || []).map((t) => t?.name).filter((n) => (set.has(n) ? true : (set.add(n), false))),
+  )].sort();
+
+  // RÆKKEFØLGEN er brugersynlig og kan ikke ses i en navne-diff. `PuljeTip`
+  // tegner pulje-gitteret med `teams.map` i ARRAY-orden (alle andre flader
+  // sorterer selv), så en omrokering flytter holdknapperne for alle — uden at
+  // et eneste felt har ændret sig. Sammenlignes kun på fælles hold: er der
+  // kommet nogen til eller er nogen faldet fra, er rækkefølgen trivielt en
+  // anden, og det er de tal, der skal fortælle det.
+  const faelles = (l) => (l || []).map((t) => t?.name).filter((n) => foer.has(n) && iFilen.has(n));
+  const foerOrden = faelles(nuvaerende);
+  const efterOrden = faelles(nye);
+  // Længde-leddet er IKKE overflødigt: `faelles` filtrerer på navn, så to
+  // rækker med samme navn i den ene liste gør længderne ulige. Uden leddet
+  // ville `some` sammenligne forskudte lister og melde en omrokering, der
+  // ikke findes — oven i den dublet, vagten allerede afviser.
+  const omrokeret = foerOrden.length === efterOrden.length
+    && foerOrden.some((n, i) => n !== efterOrden[i]);
+
+  return {
+    aendringer, tilfoejede, forsvundne, uaendrede, omrokeret, dubletter,
+  };
+}
+
+/**
+ * MÅ planen skrives?
+ *
+ * Skrivningen er ikke kosmetisk, uanset at anledningen er en trøjefarve.
+ * To felter på `teams` bærer point, og begge kan flytte sig uden at nogen
+ * ser det i sekundet:
+ *
+ *   - `elo` — seed for `recomputeSeasonElo` (`gameScoring.js:102`). Ændres
+ *     tallet, omskriver næste facit sæsonens Elo-historik OG prisen på hver
+ *     ulåst kamp.
+ *   - antallet af hold — `teams.length` afgør, om den officielle tabel
+ *     godtages ved pulje-afregningen (`gameScoring.js:422-425`).
+ *
+ * Derfor er de en HÅRD AFVISNING og ikke en linje i en logbog. En udskrift,
+ * operatøren kan overse, er ikke en vagt — og her ville prisen være point,
+ * der flytter sig uger senere, hvor ingen længere forbinder de to ting.
+ *
+ * Vagten ligger ÉT sted, så en mutation af den bliver rød: scriptet spørger
+ * her og skriver ikke selv reglen af.
+ *
+ * @param {ReturnType<typeof teamsPlan>} plan
+ * @returns {{ok:boolean, grunde:string[]}} grunde er færdige danske sætninger
+ */
+export function teamsVagt(plan) {
+  const grunde = [];
+  const eloRørt = (plan?.aendringer || []).filter((a) => a.felt === 'elo');
+  if (eloRørt.length) {
+    const liste = eloRørt.map((a) => `${a.name} ${a.fra} → ${a.til}`).join(', ');
+    grunde.push(
+      `${eloRørt.length} hold får ændret elo (${liste}). Feltet er seed for den `
+      + 'levende Elo: næste facit ville omskrive sæsonens Elo-historik og prisen '
+      + 'på hver ulåst kamp. Skal Elo ændres, hører det til et fuldt seed.',
+    );
+  }
+  if (plan?.tilfoejede?.length) {
+    grunde.push(
+      `${plan.tilfoejede.length} hold kommer til (${plan.tilfoejede.join(', ')}). `
+      + 'Antallet af hold afgør, om den officielle tabel godtages ved '
+      + 'pulje-afregningen. Skal holdlisten vokse, hører det til et fuldt seed.',
+    );
+  }
+  if (plan?.dubletter?.length) {
+    grunde.push(
+      `${plan.dubletter.length} holdnavn står to gange i filen (${plan.dubletter.join(', ')}). `
+      + 'Listen ville blive skrevet længere, end der er hold — og antallet bærer '
+      + 'pulje-afregningen.',
+    );
+  }
+  if (plan?.forsvundne?.length) {
+    grunde.push(
+      `${plan.forsvundne.length} hold forsvinder (${plan.forsvundne.join(', ')}). `
+      + '`teams` er et array og erstattes helt — holdene ville miste farve, '
+      + 'kortkode og stadion, og antallet bærer pulje-afregningen.',
+    );
+  }
+  return { ok: grunde.length === 0, grunde };
+}
+
+/**
+ * Er to feltværdier ens? Sammenligner nested objekter i dybden.
+ *
+ * `undefined` og et fravær er det samme — Firestore gemmer ikke et felt, der
+ * ikke findes, så et hold uden `troejer` kommer tilbage uden nøglen, mens
+ * filen kan have skrevet `troejer: undefined`. Uden den regel ville hver
+ * eneste kørsel melde en ændring, der ikke findes.
+ */
+function ensVaerdi(a, b) {
+  if (a === b) return true;
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if (typeof a !== 'object' || typeof b !== 'object') return false;
+  const ka = Object.keys(a).filter((k) => a[k] !== undefined).sort();
+  const kb = Object.keys(b).filter((k) => b[k] !== undefined).sort();
+  if (ka.length !== kb.length || ka.some((k, i) => k !== kb[i])) return false;
+  return ka.every((k) => ensVaerdi(a[k], b[k]));
 }

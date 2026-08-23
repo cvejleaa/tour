@@ -26,6 +26,17 @@
 //
 //   Skriv:            ... --skriv
 //   Kun kickoff-tider: ... --kickoffs-only --skriv
+//   Kun holdlisten:   node scripts/seed-football.mjs --game superliga2627 \
+//                       --teams src/data/superligaTeams2026.js --teams-only
+//
+// --teams-only ER HELLER IKKE EN BEKVEMMELIGHED.
+// Trøjefarverne bor i `games/{id}.teams`, og kun det fulde seed kunne skrive
+// dem — sammen med odds og Elo. Der fandtes altså ingen vej til at rette en
+// farve midt i en sæson, og en manglende tredjefarve er ikke kosmetik:
+// `badgeFor` falder tilbage på udetrøjen, så holdet tegnes i en farve, der
+// clasher med hjemmeholdets. Tilstanden rører hverken kampe, odds eller
+// resultater — men den AFVISER hårdt, hvis holdlisten ville ændre `elo` eller
+// antallet af hold, for de to felter bærer point (se `teamsVagt`).
 //
 // Mod emulator: FIRESTORE_EMULATOR_HOST=localhost:8080
 // Mod produktion: GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json
@@ -42,6 +53,7 @@ const { resolve, isAbsolute } = await import('path');
 const ROD = new URL('..', import.meta.url).pathname;
 const sti = (p) => (isAbsolute(p) ? p : resolve(ROD, p));
 const { buildMatches } = await import('../src/lib/superligaSeed.js');
+const { koerTeamsOnly } = await import('./lib/teamsOnly.mjs');
 // Beslutningerne (hvad springes over, hvad ændres) bor i et testet modul.
 // To udgaver af "hvornår må vi skrive odds" er to steder at lave fejlen.
 const {
@@ -62,19 +74,33 @@ const GAME_ID = args.game;
 const TEAMS_PATH = args.teams;
 const FIXTURES_PATH = args.fixtures;
 const KICKOFFS_ONLY = args.flags.has('kickoffs-only');
+const TEAMS_ONLY = args.flags.has('teams-only');
 const SKRIV = args.flags.has('skriv');
 const RUNDER = args.runder || null; // fx "1-18" eller "19-38"
 
-if (!GAME_ID || !FIXTURES_PATH || (!TEAMS_PATH && !KICKOFFS_ONLY)) {
+// TO TILSTANDE PÅ ÉN GANG er en tavs fælde af samme slags som stavefejlen
+// `--kickoff-only`: begge flag ville passere argument-tjekket, og kun den ene
+// ville køre. Derfor er kombinationen en fejl, ikke en rangordning.
+if (KICKOFFS_ONLY && TEAMS_ONLY) {
+  console.error('\n⚠️  --kickoffs-only og --teams-only kan ikke kombineres. Kør dem hver for sig.\n');
+  process.exit(1);
+}
+
+// --teams-only rører ikke kampe og har derfor intet brug for kampprogrammet.
+// Kræves det alligevel, skal operatøren pege på en fil, der ikke bruges — og
+// så er det ikke længere klart, hvad kørslen egentlig gør.
+if (!GAME_ID || (!FIXTURES_PATH && !TEAMS_ONLY) || (!TEAMS_PATH && !KICKOFFS_ONLY)) {
   console.error(`
 Mangler argumenter.
 
   --game      spil-id, fx pl2627-efteraar
   --fixtures  sti til kampprogram (JSON: liste eller { fixtures: [...] })
+              — kan udelades ved --teams-only, som ikke rører kampe
   --teams     sti til holdliste (JS-modul der eksporterer en liste)
               — kan udelades ved --kickoffs-only, som ikke rører Elo
   --runder    valgfrit interval, fx 1-18. Uden: alle runder i filen.
   --kickoffs-only  skriv KUN kickoff. Rør aldrig odds, elo eller resultat.
+  --teams-only     skriv KUN holdlisten. Rør aldrig kampe, odds eller resultat.
   --skriv     skriv i databasen. UDEN denne tørkøres der.
 `);
   process.exit(1);
@@ -130,6 +156,11 @@ const { FieldValue, Timestamp } = admin.firestore;
 // --- kørsel ----------------------------------------------------------------
 
 async function run() {
+  // --teams-only går FØR kampprogrammet læses. Den rører ikke en eneste kamp,
+  // og krævede den alligevel en fixtures-fil, ville en tastefejl i en sti
+  // kunne vælte en kørsel, der ikke skulle bruge filen til noget.
+  if (TEAMS_ONLY) return teamsOnly(db.collection('games').doc(GAME_ID));
+
   const interval = parseRunder(RUNDER);
   let fixtures = loadFixtures(FIXTURES_PATH);
   tjekDubletter(fixtures);
@@ -197,6 +228,29 @@ async function kickoffsOnly(fixtures, matchesRef, eksisterende) {
   if (!SKRIV) { console.log('\nTør-kørsel — der er IKKE skrevet noget. Kør igen med --skriv.\n'); return; }
   if (aendrede) await batch.commit();
   console.log(`\n✅ ${aendrede} kickoff-tider opdateret i games/${GAME_ID}.\n`);
+}
+
+/**
+ * Opdatér KUN holdlisten på spillet.
+ *
+ * FORLØBET LIGGER I `scripts/lib/teamsOnly.mjs`, ikke her. Grunden er
+ * konkret: `teamsVagt` var grundigt unit-testet, og alligevel kunne linjen,
+ * der KALDER den, slettes herfra med hele suiten grøn — den ene linje, der
+ * bærer forskellen mellem at advare og at afvise. Nu kan forløbet køres med
+ * en fake Firestore, og en test tæller skrivningerne.
+ *
+ * Her bliver kun det, der kræver rigtige filer og en rigtig database.
+ */
+async function teamsOnly(gameRef) {
+  const teams = await loadTeams(TEAMS_PATH);
+  console.log(`Holdliste: ${teams.length} hold fra ${TEAMS_PATH}.`);
+  await koerTeamsOnly({
+    gameRef,
+    teams,
+    skriv: SKRIV,
+    serverTimestamp: FieldValue.serverTimestamp(),
+    log: (s) => console.log(s),
+  });
 }
 
 /** Fuldt seed: hold-Elo på spillet + kampe med FROSNE odds. */

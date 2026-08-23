@@ -140,3 +140,79 @@ describe('kampkortets badge-farver — Premier League (kendt gæld)', () => {
     expect(colorDistance(t.awayColor, t.thirdColor)).toBeLessThan(20);
   });
 });
+
+// ---------------------------------------------------------------------------
+// EN FORÆLDET HOLDLISTE ER USYNLIG I FLADEN — og det er dét, der gør den farlig.
+//
+// Ejeren så Randers stå i marine på kampkortet i udekampen mod FC Midtjylland,
+// selv om de spillede i den orange tredjetrøje. Årsagen lå ikke i reglen, men i
+// DATAENE: `games/{id}.teams` i produktionen kan være ældre end holdlisten her
+// i repoet, og ingen frontend-test kan se det — testene kører jo på repoets
+// liste. Denne blok binder derfor de to tilstande fast, så mekanismen står
+// beskrevet i kode i stedet for i en commit-besked.
+//
+// Bemærk især den anden test: den GAMLE tredjefarve giver præcis det samme
+// syn som en manglende. Reproducerer man kun den ene, tror man, man har bevist
+// hvilken tilstand produktionen er i — og det har man ikke.
+// ---------------------------------------------------------------------------
+
+describe('en manglende tredjefarve kan ikke ses — kun måles', () => {
+  const FCM = 'FC Midtjylland';
+  const RFC = 'Randers FC';
+  const udeblevet = (teams, navn, felt) => teams.map((t) => {
+    if (t.name !== navn) return t;
+    const kopi = { ...t };
+    delete kopi[felt];
+    return kopi;
+  });
+
+  it('vælger den ORANGE tredjetrøje med en komplet holdliste', () => {
+    const valgt = matchBadges(SUPERLIGA_TEAMS_2026, FCM, RFC, {}).a.color;
+    expect(valgt).toBe('#FC8033');
+  });
+
+  it('falder tilbage på UDETRØJEN, når thirdColor mangler', () => {
+    // `badgeFor` falder tilbage thirdColor || awayColor || color, så tredje
+    // bliver lig med ude — og `matchBadges` sammenligner en værdi med sig selv.
+    // `>` er strengt, så 95,3 > 95,3 er falsk, og udetrøjen bliver stående,
+    // uanset hvor meget den clasher.
+    const uden = udeblevet(SUPERLIGA_TEAMS_2026, RFC, 'thirdColor');
+    const valgt = matchBadges(uden, FCM, RFC, {}).a.color;
+    expect(valgt).toBe('#33384F');
+    expect(valgt).not.toBe('#FC8033');
+  });
+
+  it('giver SAMME syn med den gamle, målt-væk tredjefarve — to tilstande, ét symptom', () => {
+    // #003C7E er den værdi, superligaTeams2026.test.js vogter mod at snige sig
+    // tilbage. Her VINDER den (afstand 130,3 > udetrøjens 95,3) og er alligevel
+    // marineblå. En reproduktion af den manglende farve beviser derfor ikke,
+    // at produktionen er i dén tilstand — begge ser ens ud på skærmen.
+    const gammel = SUPERLIGA_TEAMS_2026.map((t) => (
+      t.name === RFC ? { ...t, thirdColor: '#003C7E' } : t));
+    const valgt = matchBadges(gammel, FCM, RFC, {}).a.color;
+    expect(valgt).toBe('#003C7E');
+    const hjemme = matchBadges(gammel, FCM, RFC, {}).h.color;
+    // Den vinder, fordi den er FJERNEST — ikke fordi den er pæn.
+    expect(colorDistance('#003C7E', hjemme)).toBeGreaterThan(colorDistance('#33384F', hjemme));
+  });
+
+  it('rammer 35 af Superligaens 132 par, ikke kun Randers', () => {
+    // Målt af scripts/troeje-raekkevidde.mjs (npx vite-node). Tallet står her,
+    // fordi "kun ét kampkort" var det svar, der lå lige for — og det er
+    // forkert: `matchBadges` vælger den fjerneste, så en tredjefarve slår
+    // igennem i par, der intet har med det hold at gøre, man kiggede på.
+    const uden = SUPERLIGA_TEAMS_2026.map((t) => udeblevet([t], t.name, 'thirdColor')[0]);
+    let skift = 0;
+    let par = 0;
+    for (const h of SUPERLIGA_TEAMS_2026) {
+      for (const a of SUPERLIGA_TEAMS_2026) {
+        if (h.name === a.name) continue;
+        par += 1;
+        if (matchBadges(uden, h.name, a.name, {}).a.color
+          !== matchBadges(SUPERLIGA_TEAMS_2026, h.name, a.name, {}).a.color) skift += 1;
+      }
+    }
+    expect(par).toBe(132);
+    expect(skift).toBe(35);
+  });
+});
