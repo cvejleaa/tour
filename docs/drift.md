@@ -180,6 +180,64 @@ odds, Elo eller resultat, og den lader en kamp med facit helt være — dens
 tidspunkt er historie, ikke en deadline. Den bruger `update`, ikke `set`, så
 den kan heller ikke oprette en kamp, der ikke er seedet endnu.
 
+## Hvis en trøjefarve er forkert på kampkortet
+
+Symptomet ser kosmetisk ud og er det ikke: et hold tegnes i en farve, der
+clasher med hjemmeholdets, fordi produktionens holdliste er ældre end repoets.
+
+`badgeFor` falder tilbage `thirdColor || awayColor || color`. Mangler
+tredjefarven, bliver tredje **lig med** ude, og `matchBadges` — som vælger den
+FJERNESTE af de to — kommer til at sammenligne en værdi med sig selv. `>` er
+strengt, så udetrøjen bliver stående, uanset hvor tæt den ligger. Det var
+præcis dét, der skete for Randers ude mod FC Midtjylland.
+
+**Aflæs produktionen først.** Admin → 🎨 **Hold-farver** viser hver farve som
+hex, læst levende fra `games/{id}.teams`. To forskellige tilstande giver samme
+syn på skærmen, og de skal ikke forveksles:
+
+| Hvad der står i prod | Hvad kortet viser |
+|---|---|
+| `thirdColor` mangler | udetrøjen (`#33384F` for Randers) |
+| `thirdColor` er den gamle `#003C7E` | tredjetrøjen — som også er marineblå |
+
+Er det den gamle værdi, er holdlisten drevet; er feltet væk, er den ældre endnu.
+Begge rettes samme sted.
+
+**Rettelsen:** GitHub → Actions → "Deploy platform" → `seedTeams` + vælg spil.
+Tør-kørsel er default (`seedTeamsSkriv` er fluebenet). Lokalt:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
+  --game superliga2627 \
+  --teams src/data/superligaTeams2026.js \
+  --teams-only
+```
+
+`--teams-only` skriver **kun** `teams` og `updatedAt`. Den rører hverken kampe,
+odds, Elo-historik eller resultater — og den kræver ikke `--fixtures`.
+
+**Den afviser hårdt**, hvis holdlisten ville ændre `elo` eller antallet af
+hold, og skriver ikke noget som helst. Det er ikke pedanteri: `teams[].elo` er
+seed for `recomputeSeasonElo`, så et ændret tal ville få næste facit til at
+omskrive sæsonens Elo-historik **og** prisen på hver ulåst kamp. Og
+`teams.length` afgør, om den officielle tabel godtages ved pulje-afregningen.
+Skal noget af det ændres, hører det til et fuldt seed mellem to sæsoner.
+
+Tør-kørslen advarer også, hvis holdene står i en anden RÆKKEFØLGE end i
+produktionen. Ingen point flytter sig, men pulje-gitteret tegnes i array-orden,
+så holdknapperne ville flytte sig for alle spillere.
+
+**Læs tør-kørslen igennem.** Den er den eneste vagt, der findes mod at repoets
+holdliste og produktionens er drevet fra hinanden — ingen test kan se det,
+for de kører alle sammen på repoets liste. Hvor meget der er på spil, kan måles:
+`npx vite-node scripts/troeje-raekkevidde.mjs` viser, at en manglende
+tredjefarve i Superligaen ændrer udetrøjen i **35 af 132** kampkort (og
+**67 af 380** i Premier League) — ikke kun det ene, man fik øje på.
+
+**Nødbremse i en aktiv runde:** Admin → 🎨 Hold-farver kan rette en enkelt farve
+med det samme, uden deploy og uden produktionsnøgle. Men den kan kun farver
+(ikke mønstre), og en override dér skygger permanent for datafilen.
+
 ## Live-stilling på kampkortene (minut-synken)
 
 Begge ligaer leverer nu live: minut-synken skriver stilling + halvleg til
@@ -250,6 +308,13 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   landskampspause vise sæsonstart-værdier i op mod to uger, mens grafen
   (`eloHistory`, som ikke røres) viste det rigtige forløb. Holdfarver **og
   visningsnavne** redigeret i admin ligger begge i `teamStyles` og røres ikke.
+- `seedTeams` (default false, med `seedTeamsSpil` og `seedTeamsSkriv`) — retter
+  **kun** holdlisten: trøjefarver, kortkoder, stadion. Rører hverken kampe,
+  odds, Elo eller resultater. Findes af samme grund som `seedKickoffs`:
+  `seedSuperliga` skriver ganske vist `teams`, men også `teams[].elo` og
+  `eloCurrent`, og uden nogen forhåndsvisning. `seedTeams` tørkører som
+  default og **nægter at skrive**, hvis `elo` eller antallet af hold ville
+  ændre sig. Se "Hvis en trøjefarve er forkert på kampkortet".
 - `seedKickoffs` (default false) — retter **kun** kickoff-tider. Skriver
   hverken odds, Elo eller resultat, og lader kampe med facit være. Findes,
   fordi `seedSuperliga` efter ovenstående ikke længere kan rette et tidspunkt

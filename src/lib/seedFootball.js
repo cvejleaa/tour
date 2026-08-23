@@ -98,7 +98,7 @@ export function tjekDubletter(fixtures) {
  * ignoreret detalje.
  */
 export const KENDTE_ARGS = ['game', 'teams', 'fixtures', 'runder'];
-export const KENDTE_FLAG = ['kickoffs-only', 'skriv'];
+export const KENDTE_FLAG = ['kickoffs-only', 'teams-only', 'skriv'];
 
 export function parseArgs(argv) {
   const out = { flags: new Set() };
@@ -254,10 +254,25 @@ export function ukendteHold(fixtures, teams) {
  * det hold mister både farve, kortkode og stadion. Derfor tælles de for sig og
  * ikke som "en ændring" blandt de andre.
  *
- * `elo` NÆVNES VED NAVN i ændringslisten, fordi feltet ikke kun er et seed-tal:
- * det ER "Start"-kolonnen i Elo-tabellen (`eloHistory.js` bygger `start` af
- * `t.elo`). En stiltiende ændring dér ville omskrive sæsonens udgangspunkt
- * bagud i tid.
+ * `elo` OG ANTALLET AF HOLD BÆRER POINT. Her stod først, at `elo` er
+ * "Start"-kolonnen i Elo-tabellen. Det er sandt og alt for lille:
+ *
+ *   - `teams[].elo` er SEED for hele den levende Elo. `recomputeSeasonElo`
+ *     bygger sin startrating af feltet (`gameScoring.js:102`) og skriver
+ *     derfra både `eloHistory`, `eloCurrent` OG nye odds på hver ulåst kamp.
+ *     Ændres ét tal, sker der ingenting i sekundet — og så omskriver næste
+ *     facit sæsonens historik og prisen på alle resterende kampe.
+ *   - `teams.length` afgør pulje-afregningen: antal hold → kampe pr. runde →
+ *     `expectedPlayed` → om den officielle tabel overhovedet godtages
+ *     (`gameScoring.js:422-425`).
+ *
+ * Derfor er de to ikke bare linjer i en liste — `teamsVagt` nedenfor afviser
+ * dem hårdt. En udskrift, man kan overse, er ikke en vagt.
+ *
+ * `eloCurrent` er derimod det UFARLIGE felt: der findes ingen læser af det i
+ * hele repoet, kun skrivere. Elo-tabellen bygger på `teams[].elo` +
+ * `eloHistory`. Den advarsel, der lå lige for, pegede altså på det felt, der
+ * ikke gør noget.
  *
  * @param {Array<object>} nye         holdlisten fra filen
  * @param {Array<object>} nuvaerende  games/{id}.teams som den står nu
@@ -289,7 +304,73 @@ export function teamsPlan(nye, nuvaerende) {
 
   const iFilen = new Set((nye || []).map((t) => t?.name));
   const forsvundne = [...foer.keys()].filter((n) => !iFilen.has(n)).sort();
-  return { aendringer, tilfoejede, forsvundne, uaendrede };
+
+  // RÆKKEFØLGEN er brugersynlig og kan ikke ses i en navne-diff. `PuljeTip`
+  // tegner pulje-gitteret med `teams.map` i ARRAY-orden (alle andre flader
+  // sorterer selv), så en omrokering flytter holdknapperne for alle — uden at
+  // et eneste felt har ændret sig. Sammenlignes kun på fælles hold: er der
+  // kommet nogen til eller er nogen faldet fra, er rækkefølgen trivielt en
+  // anden, og det er de tal, der skal fortælle det.
+  const faelles = (l) => (l || []).map((t) => t?.name).filter((n) => foer.has(n) && iFilen.has(n));
+  const foerOrden = faelles(nuvaerende);
+  const efterOrden = faelles(nye);
+  const omrokeret = foerOrden.length === efterOrden.length
+    && foerOrden.some((n, i) => n !== efterOrden[i]);
+
+  return {
+    aendringer, tilfoejede, forsvundne, uaendrede, omrokeret,
+  };
+}
+
+/**
+ * MÅ planen skrives?
+ *
+ * Skrivningen er ikke kosmetisk, uanset at anledningen er en trøjefarve.
+ * To felter på `teams` bærer point, og begge kan flytte sig uden at nogen
+ * ser det i sekundet:
+ *
+ *   - `elo` — seed for `recomputeSeasonElo` (`gameScoring.js:102`). Ændres
+ *     tallet, omskriver næste facit sæsonens Elo-historik OG prisen på hver
+ *     ulåst kamp.
+ *   - antallet af hold — `teams.length` afgør, om den officielle tabel
+ *     godtages ved pulje-afregningen (`gameScoring.js:422-425`).
+ *
+ * Derfor er de en HÅRD AFVISNING og ikke en linje i en logbog. En udskrift,
+ * operatøren kan overse, er ikke en vagt — og her ville prisen være point,
+ * der flytter sig uger senere, hvor ingen længere forbinder de to ting.
+ *
+ * Vagten ligger ÉT sted, så en mutation af den bliver rød: scriptet spørger
+ * her og skriver ikke selv reglen af.
+ *
+ * @param {ReturnType<typeof teamsPlan>} plan
+ * @returns {{ok:boolean, grunde:string[]}} grunde er færdige danske sætninger
+ */
+export function teamsVagt(plan) {
+  const grunde = [];
+  const eloRørt = (plan?.aendringer || []).filter((a) => a.felt === 'elo');
+  if (eloRørt.length) {
+    const liste = eloRørt.map((a) => `${a.name} ${a.fra} → ${a.til}`).join(', ');
+    grunde.push(
+      `${eloRørt.length} hold får ændret elo (${liste}). Feltet er seed for den `
+      + 'levende Elo: næste facit ville omskrive sæsonens Elo-historik og prisen '
+      + 'på hver ulåst kamp. Skal Elo ændres, hører det til et fuldt seed.',
+    );
+  }
+  if (plan?.tilfoejede?.length) {
+    grunde.push(
+      `${plan.tilfoejede.length} hold kommer til (${plan.tilfoejede.join(', ')}). `
+      + 'Antallet af hold afgør, om den officielle tabel godtages ved '
+      + 'pulje-afregningen. Skal holdlisten vokse, hører det til et fuldt seed.',
+    );
+  }
+  if (plan?.forsvundne?.length) {
+    grunde.push(
+      `${plan.forsvundne.length} hold forsvinder (${plan.forsvundne.join(', ')}). `
+      + '`teams` er et array og erstattes helt — holdene ville miste farve, '
+      + 'kortkode og stadion, og antallet bærer pulje-afregningen.',
+    );
+  }
+  return { ok: grunde.length === 0, grunde };
 }
 
 /**

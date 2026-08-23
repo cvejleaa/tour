@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   docId, kickoffMs, tjekDubletter, parseArgs,
-  parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold, teamsPlan,
+  parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold, teamsPlan, teamsVagt,
 } from './seedFootball';
 import { matchId, buildMatch } from './superligaSeed';
 
@@ -429,7 +429,7 @@ describe('teamsPlan', () => {
   it('klarer manglende input uden at kaste', () => {
     expect(() => teamsPlan()).not.toThrow();
     expect(teamsPlan(null, null)).toEqual({
-      aendringer: [], tilfoejede: [], forsvundne: [], uaendrede: 0,
+      aendringer: [], tilfoejede: [], forsvundne: [], uaendrede: 0, omrokeret: false,
     });
   });
 
@@ -439,5 +439,97 @@ describe('teamsPlan', () => {
     const gammel = { ...rfc, color: '#000000', awayColor: '#111111', venue: 'Andet' };
     const p = teamsPlan([rfc], [gammel]);
     expect(p.aendringer.map((a) => a.felt).sort()).toEqual(['awayColor', 'color', 'venue']);
+  });
+});
+
+describe('teamsPlan — rækkefølgen', () => {
+  const a = { name: 'A', color: '#1' };
+  const b = { name: 'B', color: '#2' };
+  const c = { name: 'C', color: '#3' };
+
+  it('opdager en OMROKERING, som ingen felt-diff kan se', () => {
+    // PuljeTip tegner pulje-gitteret med teams.map i array-orden, så en
+    // omrokering flytter holdknapperne for alle — uden at ét eneste felt har
+    // ændret sig. En diff, der matcher på navn, er blind for det.
+    const p = teamsPlan([b, a, c], [a, b, c]);
+    expect(p.omrokeret).toBe(true);
+    expect(p.aendringer).toEqual([]);
+    expect(p.uaendrede).toBe(3);
+  });
+
+  it('melder IKKE omrokering, når rækkefølgen er den samme', () => {
+    expect(teamsPlan([a, b, c], [a, b, c]).omrokeret).toBe(false);
+  });
+
+  it('melder ikke omrokering, når forskellen er et hold, der kom til', () => {
+    // Så er rækkefølgen trivielt en anden, og `tilfoejede` fortæller det
+    // allerede. To tal om det samme ville skjule, hvad der faktisk skete.
+    expect(teamsPlan([a, b, c], [a, b]).omrokeret).toBe(false);
+    expect(teamsPlan([a, b], [a, b, c]).omrokeret).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VAGTEN. Anledningen er en trøjefarve, men to felter på `teams` bærer point.
+// ---------------------------------------------------------------------------
+
+describe('teamsVagt', () => {
+  const rfc = { name: 'Randers FC', elo: 1472, color: '#78C5ED' };
+
+  it('slipper en ren farveændring igennem', () => {
+    const plan = teamsPlan([{ ...rfc, thirdColor: '#FC8033' }], [rfc]);
+    expect(teamsVagt(plan)).toEqual({ ok: true, grunde: [] });
+  });
+
+  it('AFVISER en ændret elo — og siger hvorfor med begge tal', () => {
+    // Feltet er seed for recomputeSeasonElo (gameScoring.js:102), ikke bare en
+    // kolonneoverskrift. En udskrift, man kan overse, er ikke en vagt: prisen
+    // ville være point, der flytter sig uger senere.
+    const v = teamsVagt(teamsPlan([{ ...rfc, elo: 1500 }], [rfc]));
+    expect(v.ok).toBe(false);
+    expect(v.grunde).toHaveLength(1);
+    expect(v.grunde[0]).toContain('1472');
+    expect(v.grunde[0]).toContain('1500');
+    expect(v.grunde[0]).toContain('Randers FC');
+    // Og begrundelsen skal pege på den LEVENDE Elo, ikke på Start-kolonnen.
+    expect(v.grunde[0]).toMatch(/levende Elo/);
+  });
+
+  it('AFVISER et hold, der forsvinder', () => {
+    const v = teamsVagt(teamsPlan([rfc], [rfc, { name: 'Vejle Boldklub' }]));
+    expect(v.ok).toBe(false);
+    expect(v.grunde.join(' ')).toContain('Vejle Boldklub');
+    expect(v.grunde.join(' ')).toMatch(/pulje-afregning/);
+  });
+
+  it('AFVISER et hold, der kommer til', () => {
+    const v = teamsVagt(teamsPlan([rfc, { name: 'Vejle Boldklub' }], [rfc]));
+    expect(v.ok).toBe(false);
+    expect(v.grunde.join(' ')).toContain('Vejle Boldklub');
+  });
+
+  it('nævner ALLE grunde, ikke kun den første', () => {
+    // Ét fund er ikke svaret; listen er. Stoppede vagten ved den første, ville
+    // operatøren rette elo'en og støde på holdlisten i næste kørsel.
+    const v = teamsVagt(teamsPlan(
+      [{ ...rfc, elo: 1500 }, { name: 'Ny' }],
+      [rfc, { name: 'Væk' }],
+    ));
+    expect(v.ok).toBe(false);
+    expect(v.grunde).toHaveLength(3);
+  });
+
+  it('lader en omrokering ALENE passere — den er synlig, ikke farlig', () => {
+    // Pulje-gitteret flytter sig, men ingen point ændrer sig. Den skal vises i
+    // tør-kørslen, ikke spærre for skrivningen.
+    const p = teamsPlan([{ name: 'B' }, { name: 'A' }], [{ name: 'A' }, { name: 'B' }]);
+    expect(p.omrokeret).toBe(true);
+    expect(teamsVagt(p).ok).toBe(true);
+  });
+
+  it('klarer en tom eller manglende plan uden at kaste', () => {
+    expect(teamsVagt({ aendringer: [], tilfoejede: [], forsvundne: [] }).ok).toBe(true);
+    expect(() => teamsVagt()).not.toThrow();
+    expect(teamsVagt().ok).toBe(true);
   });
 });
