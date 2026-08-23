@@ -12,13 +12,14 @@ import { useState } from 'react';
 import { functions } from '../../firebase';
 import { useGames } from '../games/useGames';
 import { useDriftStatus, ukvitterede } from './useDriftStatus';
-import { harKickoffSynk } from '../games/spilEvner';
+import { harKickoffSynk, forventerPaamindelser } from '../games/spilEvner';
 import { formatKickoff } from '../../lib/daDate';
 
 const TYPE_NAVN = {
   sweep: 'Times-sweep (facit + tabel)',
   minut: 'Minut-synk (kampdage)',
   kickoff: 'Daglig kickoff-synk',
+  reminder: 'Daglig tip-påmindelse',
 };
 
 function niveauFarve(niveau) {
@@ -104,10 +105,16 @@ export default function DriftTab() {
   // dokumenterne. Holdes som ét sæt, så en tredje kilde er én rettelse — ikke
   // endnu et hardkodet provider-navn spredt i fladen (QC-fund: klienten skal
   // følge serveren, ellers står en tavst fejlende synk uden "afventer"-kort).
-  const forventede = (games || []).filter((g) => g.sync?.provider).flatMap((g) => [
-    { type: 'sweep', gameId: g.id, gameNavn: g.name },
-    ...(harKickoffSynk(g) ? [{ type: 'kickoff', gameId: g.id, gameNavn: g.name }] : []),
-  ]);
+  const forventede = [
+    ...(games || []).filter((g) => g.sync?.provider).flatMap((g) => [
+      { type: 'sweep', gameId: g.id, gameNavn: g.name },
+      ...(harKickoffSynk(g) ? [{ type: 'kickoff', gameId: g.id, gameNavn: g.name }] : []),
+    ]),
+    // Påmindelses-kortet har sin EGEN gate (samme prædikat som 09-jobbets, IKKE
+    // sync.provider — påmindelser afhænger ikke af en kilde). Et pauset spil
+    // beholder sit kort: pausen er kortets indhold, ikke dets fravær.
+    ...(games || []).filter(forventerPaamindelser).map((g) => ({ type: 'reminder', gameId: g.id, gameNavn: g.name })),
+  ];
   const docAf = new Map(status.map((d) => [`${d.type}-${d.gameId}`, d]));
   const aabneAlarmer = alarmer.filter((a) => !a.loestAt);
   const skalKvitteres = ukvitterede(alarmer);

@@ -16,6 +16,12 @@
 //   joinable  Et spil, admin har afsløret, ville blive skjult igen — og et
 //             spil, admin har skjult for at gennemgå det, ville blive
 //             afsløret. Begge veje er tavse.
+//
+// `paused` (påmindelses-nødstoppet, sat fra 🔔 Påmindelser) seedes med vilje
+// IKKE — det står ikke i games.mjs, så merge-skrivningen rører det aldrig.
+// Men skulle feltet NOGENSINDE ind i games.mjs, SKAL det samtidig ind i
+// ADMIN_OWNED: en seed-kørsel må aldrig tavst genstarte påmindelser, ejeren
+// har standset (præcis den tilbagerulning, denne fils header advarer mod).
 export const ADMIN_OWNED = ['status', 'joinable'];
 
 /**

@@ -183,3 +183,29 @@ describe('strandetBesked', () => {
     expect(strandetBesked('x')).toMatch(/finder den intet/);
   });
 });
+
+// Påmindelses-jobbets kadence ('0 9 * * *' + 45 min slæk — timer:[9]/minut:0
+// SKAL følges ad med cron-udtrykket i index.js). Samme ±90s-vindue som
+// sweep-testene: scanningen er minut-opløst, så et eksakt toBe ville binde
+// testen til scanningens afrunding, ikke kadencen.
+describe('naesteKoerselFoerMs — dagligt 09-job (påmindelser)', () => {
+  const { naesteKoerselFoerMs } = require('./driftlog');
+  const dk = (s) => Date.parse(s);
+  const KADENCE = { timer: [9], minut: 0, slaekMin: 45 };
+
+  it('kl. 10 DK → næste er 09:00 NÆSTE dag + 45 min slæk = 09:45 (≈23 t 45 min)', () => {
+    const ud = naesteKoerselFoerMs(dk('2026-08-23T10:00:00+02:00'), KADENCE);
+    expect(Math.abs(ud - dk('2026-08-24T09:45:00+02:00'))).toBeLessThan(90 * 1000);
+  });
+
+  it('kl. 08 DK → SAMME dags 09:45 — tærsklen må ikke springe en hel dag frem', () => {
+    const ud = naesteKoerselFoerMs(dk('2026-08-23T08:00:00+02:00'), KADENCE);
+    expect(Math.abs(ud - dk('2026-08-23T09:45:00+02:00'))).toBeLessThan(90 * 1000);
+  });
+
+  it('hen over efterårs-tilbagefaldet (25/10-2026): 09:45 i VINTERTID (+01), ikke 25 timer ude', () => {
+    // Fra 24/10 kl. 12 CEST (+02) er næste 09:00 den 25/10 — som er CET (+01).
+    const ud = naesteKoerselFoerMs(dk('2026-10-24T12:00:00+02:00'), KADENCE);
+    expect(Math.abs(ud - dk('2026-10-25T09:45:00+01:00'))).toBeLessThan(90 * 1000);
+  });
+});

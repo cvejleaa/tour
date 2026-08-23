@@ -53,7 +53,8 @@ async function skrivDriftStatus(st, db, opts) {
 }
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
-const { runGameTipReminders, sendGameTestReminder, hentTipStatus } = require('./reminders');
+const { runGameTipReminders, sendGameTestReminder, hentTipStatus, koerPaamindelserForSpil } = require('./reminders');
+const { forventerPaamindelser } = require('./paamindelsesGate');
 const { runGameRoundRecap } = require('./gameRecap');
 const { skalAfsloere, runLeagueQuestionRecap } = require('./leagueQuestionRecap');
 const { puljeKonfig } = require('./superligaScoring');
@@ -1068,25 +1069,48 @@ exports.gamePuljeStatus = onCall(
   },
 );
 
-// Skemalagt: kl. 09:00 hver dag. Kør påmindelser for alle aktive fodbold-spil
-// (status open/live), medmindre spillet er sat på pause (game.paused).
+// Skemalagt: kl. 09:00 hver dag ('0 9 * * *' — timer:[9]/minut:0 i
+// driftstatus-kadencen nedenfor SKAL følges ad med dette udtryk, som
+// SWEEP_TIMER). Kør påmindelser for alle aktive fodbold-spil
+// (forventerPaamindelser — SAMME gate som DriftTabs forventede kort og
+// Påmindelser-fanen) og skriv driftstatus pr. spil, OGSÅ når intet sendes:
+// manglende SMTP returnerede før globalt uden ét spor, og en pause var
+// usynlig alle andre steder end i Firestore-konsollen.
 exports.gameTipReminders = onSchedule(
   { schedule: '0 9 * * *', timeZone: TZ, region: REGION, secrets: [SMTP_PASSWORD] },
   async () => {
     const db = getFirestore();
     const transporter = buildTransport(SMTP_PASSWORD.value());
-    if (!transporter) { console.log('gameTipReminders: ingen SMTP_PASSWORD — springer over.'); return; }
     const snap = await db.collection('games').where('type', '==', 'football').get();
     for (const d of snap.docs) {
-      const g = d.data();
-      if (g.paused) continue;
-      if (g.status !== 'open' && g.status !== 'live') continue;
-      try {
-        const r = await runGameTipReminders(db, transporter, d.id);
-        console.log(`gameTipReminders(${d.id}): sendte ${r.sent}${r.reason ? ` (${r.reason})` : ''}.`);
-      } catch (e) {
-        console.error(`gameTipReminders(${d.id}) fejl:`, e && e.message);
+      const g = { id: d.id, ...d.data() };
+      if (!forventerPaamindelser(g)) {
+        // Et spil, der IKKE længere kvalificerer (typisk: sat til finished),
+        // må ikke efterlade et kort med passeret naesteForventetFoer — det
+        // ville stå RØDT "HAR IKKE KØRT" for evigt. Luk kortet pænt med
+        // naesteForventetFoer: null — men KUN hvis dokumentet findes (et spil,
+        // der aldrig har haft påmindelser, skal aldrig have et kort), og kun
+        // én gang (ellers koster det en skrivning pr. døgn for evigt).
+        try {
+          const ref = db.collection('driftlog').doc(`reminder-${d.id}`);
+          const cur = await ref.get();
+          if (cur.exists && cur.data().naesteForventetFoer != null) {
+            const st = statusSamler({ type: 'reminder', gameId: d.id, gameNavn: g.name });
+            st.ok('Spillet er afsluttet — der sendes ikke flere påmindelser.');
+            await skrivDriftStatus(st, db, { naesteForventetFoerMs: null });
+          }
+        } catch (e) {
+          console.error(`gameTipReminders(${d.id}): kunne ikke lukke driftkortet (ignoreret):`, e && e.message);
+        }
+        continue;
       }
+      const st = statusSamler({ type: 'reminder', gameId: d.id, gameNavn: g.name });
+      const linje = await koerPaamindelserForSpil(db, transporter, g);
+      st[linje.niveau](linje.besked, linje.tal);
+      await skrivDriftStatus(st, db, {
+        naesteForventetFoerMs: () => naesteKoerselFoerMs(Date.now(), { timer: [9], minut: 0, slaekMin: 45 }),
+      });
+      console.log(`gameTipReminders(${d.id}): ${linje.niveau} — ${linje.besked}`);
     }
   },
 );

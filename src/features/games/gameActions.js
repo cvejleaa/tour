@@ -218,6 +218,35 @@ export async function setGameJoinable(gameId, joinable) {
 }
 
 /**
+ * Nødstop for de daglige tip-påmindelser i ÉT spil (games/{gameId}.paused —
+ * eneste læser: gameTipReminders-jobbet). Rører hverken resultat-synk,
+ * pointafregning eller Runde-Botten, og den manuelle "Send påmindelser nu"
+ * virker stadig. Driftkortet i 🩺 Driftstatus viser pausen (gult/rødt), så
+ * en GLEMT pause ikke kan ligge stille i ugevis.
+ *
+ * Værdien skal være en ægte boolean — samme vagt som setGameJoinable: strengen
+ * 'false' er sand i JavaScript og ville TÆNDE pausen af netop det klik, der
+ * skulle slukke den.
+ * @param {string} gameId
+ * @param {boolean} paused – true = 09-jobbet springer spillet over
+ * @returns {Promise<{ok:true}|{ok:false,error:string}>}
+ */
+export async function setGamePaused(gameId, paused) {
+  if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
+  if (typeof paused !== 'boolean') return { ok: false, error: 'Pausen skal være til eller fra.' };
+  try {
+    await setDoc(
+      doc(db, COL.GAMES, gameId),
+      { paused, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: danishError(err, 'Kunne ikke ændre påmindelses-pausen.') };
+  }
+}
+
+/**
  * Gem et pulje-tip: spillerens 6 valgte mesterskabs-hold (games/{gameId}/
  * puljeBets/{uid}). De øvrige 6 hold = nedrykningsspillet. Point sættes af
  * serveren ved grundspillets slut. Deadline håndhæves af security rules.

@@ -24,6 +24,7 @@ export default defineConfig({
       'mailer.test.js',
       'broadcastImage.test.js',
       'reminders.test.js',
+      'paamindelsesGate.test.js',
       'playerLeagues.test.js',
       'startGate.test.js',
       'ligaPoint.test.js',

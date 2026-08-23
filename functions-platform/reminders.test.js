@@ -234,3 +234,168 @@ describe('hentTipStatus — picks findes i databasen, men aldrig i svaret', () =
     expect(raa).not.toContain('hemmelig');
   });
 });
+
+// ---------------------------------------------------------------------------
+// paamindelsesLinje — driftkortets afbildning. Hele tabellen med EKSAKT niveau
+// og indhold, plus det der IKKE må stå: "Sendte" på en linje, hvor intet blev
+// sendt, var præcis den tavse fejl, kortet findes for.
+// ---------------------------------------------------------------------------
+const { runGameTipReminders, paamindelsesLinje, koerPaamindelserForSpil } = require('./reminders.js');
+
+describe('paamindelsesLinje', () => {
+  it('kastet fejl → rødt kort med fejlteksten', () => {
+    const l = paamindelsesLinje({ fejl: 'boom' });
+    expect(l.niveau).toBe('fejl');
+    expect(l.besked).toContain('Kørslen fejlede: boom');
+  });
+
+  it('manglende SMTP → rødt kort, der navngiver secret\'en', () => {
+    const l = paamindelsesLinje({ harSmtp: false });
+    expect(l.niveau).toBe('fejl');
+    expect(l.besked).toContain('SMTP_PASSWORD');
+  });
+
+  // Pausens niveau er BETINGET (spilfører): harmløs i en kampfri periode
+  // (gul), rød præcis den morgen den koster nogen en deadline. Mutationen
+  // 'fejl'→'advarsel' (eller omvendt) skal blive rød i begge grene.
+  it('pause uden kampe i vinduet → advarsel — og linjen påstår IKKE at have sendt', () => {
+    const l = paamindelsesLinje({ paused: true, resultat: { upcoming: 0 } });
+    expect(l.niveau).toBe('advarsel');
+    expect(l.besked).toContain('sat på pause');
+    expect(l.besked).toContain('🔔 Påmindelser');
+    expect(l.besked).not.toContain('Sendte');
+  });
+
+  it('pause MED kampe i vinduet → rødt kort: nogen kan misse deadline', () => {
+    const l = paamindelsesLinje({ paused: true, resultat: { upcoming: 2 } });
+    expect(l.niveau).toBe('fejl');
+    expect(l.besked).toContain('2 kampe inden for det næste døgn');
+    expect(l.besked).toContain('misse deadline');
+  });
+
+  it('ingen kampe i vinduet → grønt "ingen at rykke"', () => {
+    const l = paamindelsesLinje({ resultat: { sent: 0, fejlede: 0, reason: 'no-matches' } });
+    expect(l.niveau).toBe('ok');
+    expect(l.besked).toContain('Ingen kampe inden for det næste døgn');
+  });
+
+  it('ingen deltagere → grønt', () => {
+    const l = paamindelsesLinje({ resultat: { sent: 0, fejlede: 0, reason: 'no-members' } });
+    expect(l.niveau).toBe('ok');
+    expect(l.besked).toContain('ingen deltagere');
+  });
+
+  it('sendte N → grønt med alle tre tal', () => {
+    const l = paamindelsesLinje({ resultat: { sent: 5, fejlede: 0, upcoming: 3, members: 12 } });
+    expect(l.niveau).toBe('ok');
+    expect(l.besked).toBe('Sendte 5 påmindelser (3 kommende kampe, 12 deltagere).');
+    expect(l.tal).toEqual({ sent: 5, fejlede: 0, upcoming: 3, members: 12 });
+  });
+
+  // sent: 0 er OGSÅ det normale "alle har tippet" — det må ikke dele ordlyd
+  // med et nedbrud, og det må ikke hedde "Sendte 0" (QC-fund på planen).
+  it('sent 0 uden fejl = alle har tippet — egen ordlyd, aldrig "Sendte"', () => {
+    const l = paamindelsesLinje({ resultat: { sent: 0, fejlede: 0, upcoming: 3, members: 12 } });
+    expect(l.niveau).toBe('ok');
+    expect(l.besked).toContain('Ingen manglede at tippe');
+    expect(l.besked).not.toContain('Sendte');
+  });
+
+  it('delvist nedbrud → gult; totalt nedbrud → rødt — aldrig grønt', () => {
+    const delvis = paamindelsesLinje({ resultat: { sent: 3, fejlede: 2, upcoming: 3, members: 12 } });
+    expect(delvis.niveau).toBe('advarsel');
+    expect(delvis.besked).toContain('2 af 5 påmindelser kunne ikke sendes');
+
+    const totalt = paamindelsesLinje({ resultat: { sent: 0, fejlede: 5, upcoming: 3, members: 12 } });
+    expect(totalt.niveau).toBe('fejl');
+    expect(totalt.besked).toContain('5 af 5');
+    expect(totalt.besked).not.toContain('Ingen manglede');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// koerPaamindelserForSpil + fejlede-tælleren, kørt mod en lille Firestore-
+// attrap: nok til at bevise, at et SMTP-nedbrud bliver et RØDT kort — ikke et
+// grønt "Sendte 0" (arkitektens afsnit 7-forbehold, QC-krav på planen).
+// ---------------------------------------------------------------------------
+function fakeReminderDb({ game = {}, matches = [], players = [], contacts = {}, users = {} } = {}) {
+  const gameRef = {
+    get: async () => ({ exists: true, data: () => game }),
+    collection: (name) => {
+      if (name === 'matches') return { get: async () => ({ docs: matches.map((m) => ({ id: m.id, data: () => m })) }) };
+      if (name === 'players') return { get: async () => ({ docs: players.map((uid) => ({ id: uid })) }) };
+      if (name === 'bets') return { where: () => ({ get: async () => ({ docs: [] }) }) };
+      throw new Error(`uventet subcollection: ${name}`);
+    },
+  };
+  return {
+    collection: (name) => {
+      if (name === 'games') return { doc: () => gameRef };
+      if (name === 'userContacts') {
+        return { get: async () => ({ docs: Object.entries(contacts).map(([uid, email]) => ({ id: uid, data: () => ({ email }) })) }) };
+      }
+      if (name === 'users') return { doc: (uid) => ({ _uid: uid }) };
+      if (name === 'emailLog') return { add: async () => {} };
+      throw new Error(`uventet collection: ${name}`);
+    },
+    getAll: async (...refs) => refs.map((r) => ({ id: r._uid, exists: true, data: () => users[r._uid] || {} })),
+  };
+}
+
+const SPIL = { id: 'sl', name: 'Superligaen', type: 'football', status: 'live' };
+const KAMP_I_VINDUET = { id: 'm1', round: 1, home: 'AGF', away: 'OB', kickoff: ts(NOW + 2 * H) };
+
+describe('runGameTipReminders — fejlede-tælleren', () => {
+  const dbMedEnDerMangler = () => fakeReminderDb({
+    game: SPIL, matches: [KAMP_I_VINDUET], players: ['u1'],
+    contacts: { u1: 'u1@eksempel.dk' }, users: { u1: { displayName: 'Ulla' } },
+  });
+
+  it('tæller modtagere, hvor sendEmail kastede — og linjen bliver RØD', async () => {
+    const transporter = { sendMail: async () => { throw new Error('SMTP nede'); } };
+    const r = await runGameTipReminders(dbMedEnDerMangler(), transporter, 'sl', now);
+    expect(r.sent).toBe(0);
+    expect(r.fejlede).toBe(1);
+    // Hele kæden: nedbruddet ender som et rødt kort, aldrig et grønt "0".
+    expect(paamindelsesLinje({ resultat: r }).niveau).toBe('fejl');
+  });
+
+  it('tæller 0 fejlede, når afsendelsen lykkes', async () => {
+    const transporter = { sendMail: async () => {} };
+    const r = await runGameTipReminders(dbMedEnDerMangler(), transporter, 'sl', now);
+    expect(r.sent).toBe(1);
+    expect(r.fejlede).toBe(0);
+    expect(paamindelsesLinje({ resultat: r }).niveau).toBe('ok');
+  });
+});
+
+describe('koerPaamindelserForSpil', () => {
+  it('fanger sin egen fejl og returnerer rødt — fjernes try/catch, bliver denne rød', async () => {
+    const kaster = async () => { throw new Error('databasen brændte'); };
+    const l = await koerPaamindelserForSpil({}, { sendMail: async () => {} }, SPIL, { _koer: kaster });
+    expect(l.niveau).toBe('fejl');
+    expect(l.besked).toContain('databasen brændte');
+  });
+
+  it('uden transporter: SMTP-linjen — kørslen startes slet ikke', async () => {
+    const _koer = async () => { throw new Error('må ikke kaldes'); };
+    const l = await koerPaamindelserForSpil({}, null, SPIL, { _koer });
+    expect(l.niveau).toBe('fejl');
+    expect(l.besked).toContain('SMTP_PASSWORD');
+  });
+
+  it('pauset spil: kører intet, men tæller kampvinduet — rød med kamp i vinduet', async () => {
+    const _koer = async () => { throw new Error('må ikke kaldes under pause'); };
+    const db = fakeReminderDb({ game: SPIL, matches: [KAMP_I_VINDUET] });
+    const l = await koerPaamindelserForSpil(db, { sendMail: async () => {} }, { ...SPIL, paused: true }, { now, _koer });
+    expect(l.niveau).toBe('fejl');
+    expect(l.besked).toContain('misse deadline');
+  });
+
+  it('pauset spil uden kampe i vinduet: gul', async () => {
+    const db = fakeReminderDb({ game: SPIL, matches: [] });
+    const l = await koerPaamindelserForSpil(db, { sendMail: async () => {} }, { ...SPIL, paused: true }, { now });
+    expect(l.niveau).toBe('advarsel');
+    expect(l.besked).toContain('sat på pause');
+  });
+});

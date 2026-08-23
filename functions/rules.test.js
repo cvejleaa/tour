@@ -1576,6 +1576,32 @@ describe('games/{gameId} — sikkerhedsregler', () => {
     );
   });
 
+  // paused (påmindelses-nødstoppet, 🔔 Påmindelser) skrives direkte fra
+  // klienten. Games-reglen har ingen affectedKeys-liste — planen for
+  // driftssynligheden HVILER på at globalAdmin allerede må skrive feltet, og
+  // en påstand om rules skal have kode, ikke en læsning (QC-krav på planen).
+  it('global admin KAN sætte påmindelser på pause (paused)', async () => {
+    await createUser('admin1', 'globalAdmin', 'approved');
+    await createGame('superliga2627', { status: 'live' });
+    await assertSucceeds(
+      setDoc(
+        doc(testEnv.authenticatedContext('admin1').firestore(), 'games', 'superliga2627'),
+        { paused: true },
+        { merge: true },
+      )
+    );
+  });
+
+  it('en spiller KAN IKKE pause eller genoptage påmindelser', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('superliga2627', { status: 'live', paused: true });
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'superliga2627'), {
+        paused: false,
+      })
+    );
+  });
+
   // -------------------------------------------------------------------------
   // teamStyles — admins hold-overrides (farve + visningsnavn pr. holdnavn).
   //
