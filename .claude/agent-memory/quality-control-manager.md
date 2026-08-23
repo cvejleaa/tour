@@ -1269,3 +1269,76 @@ Konklusion: ingen nye blokerende fund. Landbar.
   den nye vej er strengere end den gamle, ikke løsere — men selve callable'en
   ER live og kaldbar af enhver godkendt bruger, så "inert" gælder kun
   "ubrugt af UI", ikke "ikke deployeret/ikke eksponeret".
+
+## Indbyrdes opgør (dc6d629): implementering mod plan — konkrete fund
+
+- **Én genuin sprogfejl, upåagtet af nogen test:** `Indbyrdes.jsx:138-140`s
+  "Uden for opgøret"-sætning har KUN ét verbal ("tippede") og deler det med
+  BEGGE halvdele: `{kunMig} kamp(e) tippede kun du, {kunDem} kun {dueNavn}.`
+  Anden halvdel mangler "kamp(e) tippede" helt — for `kunDem>0` renderes
+  fx "0 kampe tippede kun du, 2 kun Morten." (grammatisk ufuldstændig,
+  verificeret direkte: `node -e` gav præcis den streng). INGEN test i
+  `Indbyrdes.test.jsx` sætter `kunDem>0` i UI-laget — testen på linje ~116-125
+  ("nævner kampe, kun den ene tippede") bruger en fixture, hvor kun `kunMig`
+  bliver positiv (`deres` tipper alt det `mine` også tipper). `h2h.test.js`
+  tester `kunDem` på RENFUNKTIONS-niveau, aldrig i renderingen. Generel lære,
+  samme klasse som CLAUDE.md's "en test der kun tjekker at noget blev VIST":
+  en test, der dækker den ene af to symmetriske grene ("kun du" / "kun ham"),
+  beviser intet om den anden — symmetriske sætninger skal testes symmetrisk.
+- **Tre kommentarer (ikke koden) kalder gaten "ligaens startrunde", men den
+  ER spillets.** `h2h.js:36-38`, `Indbyrdes.jsx:43-44`, `SpillerDetalje.jsx:
+  80-81` siger alle "gate't til ligaens startrunde" — men `rounds` bygges i
+  `SpillerDetalje.jsx:30-32` af `startRundeFor(game, matches)`
+  (`src/lib/startGate.js:104-107`), som ALDRIG kender til nogen liga: den
+  bruger kun `game.startRound`/`game.startAt`, uafhængigt af hvilken liga der
+  er valgt i `GameStandings`-filteret. "Ligaens startrunde" er et RIGTIGT,
+  ANDET begreb i samme fil (`valgt.startRound` i `GameStandings.jsx:279`,
+  brugt af `ligaRanking`) — så ordvalget er ikke en unøjagtighed uden
+  modpart, det navngiver en konkurrerende, eksisterende ting forkert.
+  Funktionelt harmløst (opgøret er internt konsistent med, at panelet i
+  forvejen viser spil-skala data — `spilTotal`-override i
+  `GameStandings.jsx:452`), men ret ordlyden til "spillets startrunde" i alle
+  tre kommentarer, før nogen bygger videre på den forkerte antagelse.
+- **Synlighed korrekt genbekræftet, ikke kun antaget:** premissen "kun
+  afgjorte-og-begyndte kampe" i `players/{uid}/detalje/opdeling` er
+  efterprøvet i selve kilden (`functions-platform/pointOpdeling.js:182-210`s
+  `taeller`/`maaVises`, `gameScoring.js:301-309`s `kampe`-bygning), ikke kun
+  troet på kommentaren i `firestore.rules:765-768`. `Indbyrdes` er nået via
+  `aabenRow = standings.find(...)` (`GameStandings.jsx:298`), og `standings`
+  kommer fra `useVisibleGameStandings` (liga-kammerater + selv) — samme
+  kreds som selve `detalje`-læsereglen. Ingen ny eksponering: et opgør er
+  allerede udledeligt manuelt af en liga-kammerat via kamp-for-kamp-visning
+  efter kickoff (samme mønster som chance-eksponeringen i Runde-Botten,
+  a889bb1) — h2h samler kun, viser intet nyt.
+- **"Bot-linje i stedet for stående tavle" (Spilførers indvending) er et
+  ægte svar, ikke kun retorik.** Verificeret konkret: panelet kræver TO
+  bevidste klik (navn i Stilling → ⚔️-knap, `aaben` default `false`,
+  `Indbyrdes.jsx:47`), og data hentes først ved anden klik
+  (`useSpillerOpdeling(aaben ? game?.id : null, ...)`, linje 50-51) — modsat
+  en ambient synlig tavle, ingen automatisk post, intet der viser sig for
+  taberen uden en aktiv beslutning fra en anden om at kigge. Ingen bot,
+  ingen notifikation, ingen `onDocumentCreated`-trigger involveret.
+- **"Din sæson i tal" korrekt droppet — bekræftet, ikke kun læst i commit-
+  teksten:** træfprocent findes allerede i `TipsHistorik.jsx:119`
+  (`{fmtDec(totals.hitRate)}%`), chance-netto i `PointOpdeling.jsx:28,114`
+  (rubrikken `chance`), begge allerede rendered inde i SAMME
+  `SpillerDetalje`-panel (`TipsHistorik`-kald linje 57-77, der videresender
+  `opdeling`). At bygge "Din sæson i tal" oveni ville have været en ægte
+  ny sandhed om samme data — droppet med rette.
+- **Dokumentations-hul, ikke blokerende:** `FootballHelp.jsx:87-90` beskriver
+  allerede "klik på et navn i 🏆 Stilling og se den spillers tip på ALLE
+  afgjorte kampe" — men nævner intet om den nye ⚔️ "Jer to imellem"-linje
+  under panelet. Ikke forkert (loves intet, koden ikke giver), men samme
+  mønster som Chancen/liga-spørgsmåls-hullerne: første gang en spiller folder
+  opgøret ud, er der ingen hjælpetekst der forklarer det. `docs/` (admin-
+  guide.md, drift.md) kræver intet — ren klientfunktion, ingen ny
+  server-/admin-flade.
+- **Tomme tilstande gennemgået, alle testdækkede undtagen én kombination:**
+  ny spiller/spil uden afgjorte kampe (`afgjorteSammen===0` →
+  "I har endnu ikke tippet nogen af de samme afgjorte kampe."), aldrig
+  uenige (`uenige.length===0 && afgjorteSammen>0` → "tippet ens hver gang"),
+  aldrig mødtes vs. altid enige er eksplicit adskilt og testet
+  (`Indbyrdes.test.jsx:97-114`). IKKE testet i UI: `afgjorteSammen===0` MEN
+  `kunMig>0 || kunDem>0` samtidig (to spillere, der aldrig har tippet den
+  samme afgjorte kamp) — logisk konsistent ved gennemlæsning, men ingen
+  rendering-test viser hovedlinje + "Uden for opgøret" sammen i den tilstand.
