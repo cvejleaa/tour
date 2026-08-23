@@ -1083,3 +1083,89 @@ Derefter to angrebsveje i samme kørsel:
   alle angreb. `flyttetFra` kan pr. konstruktion ikke indeholde andres docs
   (gælder kun fordi Auth-uid'er aldrig indeholder `_`).
 - `normaliserIndsats`: 9, 8.5, -3, '8', null, [] afvises alle.
+
+---
+
+## fix-double-chance: script + workflow der SKRIVER i produktion (54c086c, PR #170)
+
+**Ny angrebsflade for mig: GitHub Actions-workflows som privilegie-grænse.**
+Et `workflow_dispatch`-workflow med en fuld Admin-SDK-service-account ER en
+callable — bare med "hvem har write-adgang til repoet" som eneste autorisation
+og shell som argument-parser. Gennemgå dem som callables.
+
+**BEKRÆFTET (emulator, PoC i scratchpad/{seed,dump,wf,halv,mut}.mjs):
+argument-smugling gennem et tekst-input.** `.github/workflows/fix-double-chance.yml`
+L67-72 bygger `args` og kalder `node script.mjs $args` UDEN anførselstegn. Med
+apply-fluebenet på **false** og spil-feltet sat til `" --apply"` (ét mellemrum
+foran) blev argv `["--game=", "--apply"]` → `apply=true` OG `kunSpil=""` →
+skrev i **alle** spil. Kørt mod emulatoren: begge seedede spil fik chancen
+fjernet, og en UVEDKOMMENDE spillers point gik 99 → 3,3 og total 99 → 3,3.
+Rettelse: `node script.mjs ${APPLY_FLAG:+--apply} ${GAME:+--game="$GAME"}` eller
+send begge som env og læs dem i scriptet (som rescore-bets.mjs gør: GAME_ID +
+DRY_RUN via env — dét mønster har slet ikke problemet).
+**Ikke** RCE: `$(...)`, `;`, backticks overlever ikke, fordi værdien kommer via
+`env:` og først ordsplittes bagefter — kommandosubstitution sker ikke på
+resultatet af en variabel-ekspansion. Glob DOG ja (`*` ekspanderer).
+**Generel regel til listen: et input, der er sat i `env:`, er sikkert mod
+kommando-injektion men IKKE mod argument-injektion. Uquoted `$args` er hullet.**
+
+**BEKRÆFTET: `[ "$APPLY" = "true" ] && args=…` fejler IKKE åbent og vælter ikke
+steppet** (testet med `bash -e`, exit 0 i alle kombinationer). AND-listen er
+ikke sidste kommando i scriptet, så errexit slår ikke til. Non-boolean
+API-værdier (`apply=YES`) fejler LUKKET. Den linje er ren — hullet er kun
+quoting.
+
+**BEKRÆFTET (mutation): to `if (apply)` om samme sikkerhedsregel.**
+scripts/fix-double-chance.mjs L118 (bet-skrivningen) og L128 (rescoreAllBets
+med hårdkodet `{ dryRun: false }`). Erstattes L128 med `if (true)`, skriver en
+TØR-KØRSEL i basen, mens den fortsat udskriver "TØR-KØRSEL — der skrives intet"
+og "VILLE blive fjernet". Ingen test bliver rød: der findes ingen testfil for
+fix-double-chance.mjs (kun scripts/lib/doubleChance.test.mjs), og vite.config.js
+L56 kører kun `scripts/**/*.test.mjs`. Rettelse: ÉN beslutning — send
+`{ dryRun: !apply }` videre, så tørkørslen tvinges igennem samme kaldsvej.
+
+**BEKRÆFTET: rettelsen er ikke atomar, og en genkørsel HELER IKKE.**
+Nedbrud mellem L118-skrivningen og L128-rescoren efterlader `chanceStake:0`
+uden genscorede point. Genkørsel siger "0 runder med dobbelt chance ·
+Ingen dobbelt-chancer at rette" og går GRØN ud, mens spilleren beholder sine
+17,5 point for en chance, der er fjernet. Auditen ville også melde rent.
+Samme gælder to samtidige kørsler: den ene døde med
+`FAILED_PRECONDITION: the stored version … does not match` (rescoreAllBets'
+`lastUpdateTime`-precondition — den er god), men den halve tilstand er stadig
+mulig. Workflowet har ingen `concurrency:`-gruppe.
+
+**Blast radius (bekræftet):** `rescoreAllBets` (gameScoring.js L625-673)
+omskriver `points` på HVERT bet i spillet, hvis nutidens `scoreBet` giver et
+andet tal end det gemte, og derefter ALLE spilleres `totalPoints`. Tørkørslen
+viser KUN deltaet for den fjernede chance — den kalder aldrig rescoren, heller
+ikke med `dryRun:true`. Et spil med historisk pointdrift (regelændring, der
+aldrig blev genscoret) bliver altså omprist som bivirkning af en
+"fjern én chance"-kørsel. Uden `--game` gælder det alle spil.
+**Sammenlign altid med rescore-bets.yml**, som rammer PRÆCIS samme primitiv:
+den kræver `skriv == "SKRIV"` (kommentaren: "et flueben er for nemt at komme
+til"), tager ALTID fuld backup som artefakt (90 dages retention),
+har `forventetPrBet`-kontrol og en `GENDAN`-vej. fix-double-chance har
+ingen af delene.
+
+**Ubevogtet input, rettelsen HVILER på:** firestore.rules indeholder ordet
+`chance` NUL gange (grep'et). `chanceStake` og `chanceSatAt` er derfor stadig
+frit skrivbare for spilleren selv før egen kickoff (games/{g}/bets update
+L900-906 begrænser kun uid/matchId/points/leagueIds). `lagtTidspunkt()`
+kalder `chanceSatAt` "sandheden" — det er et felt, angriberen selv skriver, og
+det afgør HVILKEN chance der beholdes. Trin 3 (regel-låsen) bør lande FØR
+rettelsen køres, ellers kan den ramte spiller have valgt sit eget facit.
+
+**Godt håndværk værd at kopiere:** secret'en sendes via `env: SA:` og skrives
+med `printf '%s' "$SA"` (fix + audit). De ældre workflows
+(backfill-player-leagues L41/44, strip-public-user-emails L36/39,
+migrate-users L45-52) interpolerer `'${{ secrets… }}'` direkte i shell — et
+apostrof i secret'en ville bryde ud af strengen. Disse tre mangler også
+`permissions:`-blokken, som fix/audit har.
+
+**PoC-opsætning (genbrug):** emulator-jar direkte
+(`java -jar ~/.cache/firebase/emulators/cloud-firestore-emulator-*.jar --port=8080`),
+falsk service-account med `openssl genrsa` (cert() validerer kun formatet;
+FIRESTORE_EMULATOR_HOST omgår auth), og `node_modules/firebase-admin` som
+SYMLINK i scratchpad — ESM slår ikke op i repoets node_modules udefra.
+Kør ALTID workflow-steppet som et ægte bash-script (kopiér `run:`-blokken
+ordret) frem for at læse det: quoting-fejl kan kun ses ved at køre dem.

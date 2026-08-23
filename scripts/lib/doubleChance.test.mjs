@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { createRequire } from 'node:module';
 import {
-  findDobbelteChancer, beviserMekanismen, lagtTidspunkt, kickoffMs, minutter,
+  findDobbelteChancer, beviserMekanismen, byggRettelsesplan, lagtTidspunkt,
+  kickoffMs, minutter,
 } from './doubleChance.mjs';
+
+// Den ÆGTE pointregel — ingen kopi og ingen fake. Planens tal skal være dem,
+// afregningen selv ville nå frem til.
+const require = createRequire(import.meta.url);
+const { scoreBet } = require('../../functions-platform/superligaScoring');
 
 const T = (iso) => Date.parse(iso);
 const ts = (ms) => ({ toMillis: () => ms });
@@ -101,6 +108,21 @@ describe('findDobbelteChancer', () => {
     expect(findDobbelteChancer({ bets, matches, navne: NAVNE })).toEqual([]);
   });
 
+  it('grupperer IKKE to kampe uden runde sammen som "runde undefined"', () => {
+    // Uden round-tjekket ville begge havne i nøglen "u1|undefined" og blive
+    // meldt som en falsk dobbelt-chance. Der skal TO til for at vise det —
+    // med kun én filtreres den væk af længde-kravet uanset.
+    const matches = [
+      { id: 'a', data: { home: 'A', away: 'B' } },
+      { id: 'b', data: { home: 'C', away: 'D' } },
+    ];
+    const bets = [
+      bet('u1', 'a', { chanceStake: 2, updatedAt: ts(1) }),
+      bet('u1', 'b', { chanceStake: 2, updatedAt: ts(2) }),
+    ];
+    expect(findDobbelteChancer({ bets, matches, navne: NAVNE })).toEqual([]);
+  });
+
   it('sorterer en chance UDEN tidsstempel sidst, så den aldrig bliver "den første"', () => {
     // Ellers kunne et manglende felt gøre en vilkårlig chance til den, der
     // beholdes — og rettelsen ville fjerne den forkerte.
@@ -163,5 +185,75 @@ describe('minutter', () => {
     expect(minutter(90 * 60e3)).toBe('1 t 30 min');
     expect(minutter(47 * 3600e3)).toBe('47 t 0 min');
     expect(minutter(49 * 3600e3)).toBe('2 d 1 t');
+  });
+});
+
+describe('byggRettelsesplan', () => {
+  const plan = (fund, bets, ekstra = {}) => byggRettelsesplan({
+    fund,
+    pickAf: new Map(bets.map((b) => [b.id, b.data.pick])),
+    totalFoer: new Map([['u1', 100]]),
+    scoreBet,
+    ...ekstra,
+  });
+
+  it('regner det fjernede tips nye point med den ÆGTE pointregel', () => {
+    const bets = [
+      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(1) }),
+      bet('u1', 'ach-bif', { chanceStake: 2, points: 3.9, updatedAt: ts(2) }),
+    ];
+    const fund = findDobbelteChancer({ bets, matches: KAMPE, navne: NAVNE });
+    const { rettelser, totaler } = plan(fund, bets);
+    expect(rettelser).toHaveLength(1);
+    expect(rettelser[0].beholdes.matchId).toBe('sdj-vff');
+    // pick '1' mod result '2' = forkert → uden chancen er pointet 0.
+    expect(rettelser[0].fjernes[0]).toMatchObject({ matchId: 'ach-bif', nyPoint: 0, delta: -3.9 });
+    expect(totaler.get('u1')).toEqual({ foer: 100, efter: 96.1, delta: -3.9 });
+  });
+
+  it('AKKUMULERER over flere runder for samme spiller', () => {
+    // Fejlen, der blev fundet: hver runde regnede fra spillerens OPRINDELIGE
+    // total, så to runder gav to tal, hvoraf ingen var slutstillingen.
+    const matches = [
+      ...KAMPE,
+      { id: 'r7a', data: { round: 7, home: 'E', away: 'F', kickoff: T('2026-09-20T16:00:00Z'), result: '2', odds: { 1: 3, X: 3, 2: 2 } } },
+      { id: 'r7b', data: { round: 7, home: 'G', away: 'H', kickoff: T('2026-09-21T16:00:00Z'), result: '2', odds: { 1: 3, X: 3, 2: 2 } } },
+    ];
+    const bets = [
+      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(1) }),
+      bet('u1', 'ach-bif', { chanceStake: 2, points: 3.9, updatedAt: ts(2) }),
+      bet('u1', 'r7a', { chanceStake: 3, points: -3, updatedAt: ts(3) }),
+      bet('u1', 'r7b', { chanceStake: 3, points: 5, updatedAt: ts(4) }),
+    ];
+    const fund = findDobbelteChancer({ bets, matches, navne: NAVNE });
+    expect(fund).toHaveLength(2);
+    const { totaler } = plan(fund, bets);
+    // −3,9 fra runde 3 OG −5 fra runde 7 = 91,1. Ikke 96,1 og ikke 95.
+    expect(totaler.get('u1')).toEqual({ foer: 100, efter: 91.1, delta: -8.9 });
+  });
+
+  it('advarer om en GATED kamp — rescoreAllBets ville springe pointet over', () => {
+    const bets = [
+      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(1) }),
+      bet('u1', 'ach-bif', { chanceStake: 2, points: 3.9, updatedAt: ts(2) }),
+    ];
+    const fund = findDobbelteChancer({ bets, matches: KAMPE, navne: NAVNE });
+    const { advarsler } = plan(fund, bets, { gatede: new Set(['ach-bif']) });
+    expect(advarsler).toHaveLength(1);
+    expect(advarsler[0]).toContain('gated');
+    expect(advarsler[0]).toContain('AC Horsens–Brøndby IF');
+  });
+
+  it('advarer i stedet for at udskrive et tal, når 1X2-valget mangler', () => {
+    const bets = [
+      bet('u1', 'sdj-vff', { chanceStake: 2, points: -2, updatedAt: ts(1) }),
+      { id: 'u1_ach-bif', data: { uid: 'u1', matchId: 'ach-bif', chanceStake: 2, points: 3.9, updatedAt: ts(2) } },
+    ];
+    const fund = findDobbelteChancer({ bets, matches: KAMPE, navne: NAVNE });
+    const { rettelser, advarsler, totaler } = plan(fund, bets);
+    expect(advarsler[0]).toContain('mangler 1X2-valg');
+    expect(rettelser[0].fjernes[0].nyPoint).toBe(null);
+    // Uden et troværdigt tal må totalen ikke rykke sig.
+    expect(totaler.get('u1').delta).toBe(0);
   });
 });

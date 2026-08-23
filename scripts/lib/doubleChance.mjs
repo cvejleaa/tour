@@ -77,6 +77,9 @@ export function findDobbelteChancer({ bets, matches, navne }) {
     if (stake <= 0) continue;
     const kamp = kampAf.get(d.matchId);
     // Kamp uden dokument har ingen runde at gruppere på — fanges af andre tjek.
+    // BEGGE halvdele bærer: uden round-tjekket ville to tips på kampe UDEN
+    // round-felt blive grupperet sammen som "runde undefined" og meldt som en
+    // falsk dobbelt-chance.
     if (!kamp || kamp.round == null) continue;
     const noegle = `${d.uid}|${kamp.round}`;
     if (!brugt.has(noegle)) brugt.set(noegle, []);
@@ -126,6 +129,71 @@ export function beviserMekanismen(chancer) {
     if (foer) return { nr: i + 1, efter: foer, forsinkelseMs: nu.lagtMs - foer.kickoffMs };
   }
   return null;
+}
+
+/**
+ * Byg den FULDE rettelsesplan — ren funktion, så tørkørslens tal kan bevises
+ * uden Firestore.
+ *
+ * HVORFOR DEN FINDES: totalen blev oprindeligt regnet inde i udskrivnings-
+ * løkken ud fra spillerens oprindelige total, én gang pr. runde. Havde samme
+ * spiller dobbelt-chance i TO runder i samme spil, viste begge TOTAL-linjer
+ * derfor et tal, der ikke var slutstillingen — de akkumulerede ikke. Ejeren
+ * ville have truffet sin ja/nej-beslutning på et tal, `--apply` aldrig ville
+ * lande på. Selve skrivningen var korrekt (rescoreAllBets regner forfra), og
+ * netop derfor kunne kløften ikke opdages ved at se på resultatet bagefter.
+ *
+ * `scoreBet` INJICERES i stedet for at blive importeret: modulet her er ESM i
+ * scripts/, pointreglen er CommonJS i functions-platform/. Injektionen holder
+ * modulet frit for den afhængighed OG lader testen regne med den ægte
+ * funktion — der er ingen kopi af pointreglen nogen steder i scripts/.
+ *
+ * @param {object} o
+ * @param {Array} o.fund              fra findDobbelteChancer
+ * @param {Map<string,string>} o.pickAf   betId → 1X2-valg
+ * @param {Map<string,number>} o.totalFoer uid → totalPoints før rettelsen
+ * @param {Set<string>} [o.gatede]    matchId'er, hvis point IKKE genscores
+ * @param {Function} o.scoreBet       (bet, result, odds) → point
+ * @returns {{rettelser:Array, totaler:Map<string,{foer:number,efter:number,delta:number}>, advarsler:string[]}}
+ */
+export function byggRettelsesplan({ fund, pickAf, totalFoer, gatede = new Set(), scoreBet }) {
+  const r1 = (n) => Math.round(n * 10) / 10;
+  const totaler = new Map();
+  const advarsler = [];
+  const rettelser = [];
+
+  for (const f of fund) {
+    const [beholdes, ...senere] = f.chancer;
+    const fjernes = senere.map((c) => {
+      const pick = pickAf.get(c.betId);
+      // Uden 1X2-valget kan point ikke regnes. Sig det højt frem for at
+      // udskrive et tal, ingen kan stole på.
+      if (!pick) {
+        advarsler.push(`${f.navn}: tippet ${c.betId} mangler 1X2-valg — point kan ikke beregnes.`);
+        return { ...c, nyPoint: null, delta: 0 };
+      }
+      // rescoreAllBets springer GATEDE kampe over (gameScoring.js:649), så
+      // chanceStake ville blive nulstillet UDEN at pointet fulgte med.
+      if (gatede.has(c.matchId)) {
+        advarsler.push(`${f.navn}: ${c.kampNavn} er gated — rescoreAllBets rører den ikke, og pointet ville blive stående.`);
+      }
+      const nyPoint = r1(scoreBet({ pick, chanceStake: 0 }, c.result, c.odds));
+      return { ...c, nyPoint, delta: r1(nyPoint - c.points) };
+    });
+
+    const deltaSum = r1(fjernes.reduce((s, c) => s + c.delta, 0));
+    // AKKUMULÉR pr. spiller på tværs af runder: anden runde skal regne videre
+    // fra første runde, ikke fra den oprindelige total.
+    const foer = totaler.has(f.uid) ? totaler.get(f.uid).efter : (Number(totalFoer.get(f.uid)) || 0);
+    const efter = r1(foer + deltaSum);
+    totaler.set(f.uid, {
+      foer: totaler.has(f.uid) ? totaler.get(f.uid).foer : foer,
+      efter,
+      delta: r1(efter - (totaler.has(f.uid) ? totaler.get(f.uid).foer : foer)),
+    });
+    rettelser.push({ ...f, beholdes, fjernes, deltaSum, totalEfterRunden: efter });
+  }
+  return { rettelser, totaler, advarsler };
 }
 
 /**

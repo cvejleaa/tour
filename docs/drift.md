@@ -367,6 +367,48 @@ der, hvis workflowet ikke kan bruges, men **workflowet er den normale vej**: det
 tager backup, har tripwiren indbygget, og efterlader et spor. `dryRun` er default
 sand, og kun boolean `false` skriver.
 
+## Dobbelt Chancen — find og ret
+
+Chancen må bruges **én gang pr. runde**. Reglen stod indtil trin 3 kun i
+browseren, og et hul i fladen (lukket 9/8-2026) lod en spiller sætte ⚡ på kamp
+A, se den låse ved kickoff, og bagefter sætte den igen på kamp B i samme runde
+— den første kunne ikke fjernes, fordi reglerne afviser skrivning efter eget
+kickoff. Netop dét gør rækkefølgen bevislig.
+
+**Find** (læs-only, skriver aldrig): Actions → **Tjek for dobbelt Chancen
+(spil-89af9)**. Fejler med exit 1, hvis der findes nogen — det er meningen.
+
+**Ret**: Actions → **Ret dobbelt Chancen (spil-89af9)**. `apply` er `false` som
+udgangspunkt, og en tør-kørsel skriver intet. Sæt `game` til det konkrete
+spil-id: beslutningen om at rette gælder ét fund, ikke "enhver fremtidig dublet,
+uanset hvor den findes".
+
+Reglen om, **hvilken** chance der beholdes, er den først lagte. Den bor i
+`scripts/lib/doubleChance.mjs` og deles af begge scripts, så de aldrig kan give
+hvert sit svar.
+
+**Tør-kørslen er kvitteringen.** Den udskriver point før/efter pr. tip og total
+før/efter pr. spiller — akkumuleret på tværs af runder, hvis samme spiller har
+flere fund. Den har en **tripwire** som bagfyldningen ovenfor: den kører
+`rescoreAllBets` i tør-kørsel FØRST og kræver, at `aendrede` er **0**. Er den
+ikke det, er et andet tips point drevet af en ubeslægtet grund, og en `--apply`
+ville feje det med ind i rettelsen, uden at nogen har besluttet det. Stop og
+find årsagen først.
+
+**Bagefter — tre ting, kørslen ikke gør:**
+
+1. **Rundens historiske delta-pile rettes ikke.** `snapshotRoundRanks` er
+   vogtet af `game.snapshottedRounds` og kører ikke igen for en gjort-op runde.
+   Den levende stilling retter sig selv (den regnes af `totalPoints`), men
+   bevægelsen for den runde fortæller fortsat den gamle historie. Det er med
+   vilje: et fremtvunget nyt snapshot ville måle de FØLGENDE runders bevægelser
+   fra et udgangspunkt, ingen stod ved.
+2. **Et allerede postet Runde-Bot-opslag bærer de gamle tal.** Det er en
+   statisk besked, ikke en levende visning — ret den i hånden efter mønstret i
+   næste afsnit.
+3. **Spilleren og ligaen får ikke besked af sig selv.** En stille pointændring
+   er værre end ingen rettelse.
+
 ## Gendan et rettet bot-opslag
 
 Runde-Bottens allerførste opslag blev bygget af hele spillets felt og nævnte
