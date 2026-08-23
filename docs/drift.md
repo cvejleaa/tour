@@ -420,6 +420,47 @@ find årsagen først.
 3. **Spilleren og ligaen får ikke besked af sig selv.** En stille pointændring
    er værre end ingen rettelse.
 
+### Kørslen, trin for trin
+
+Spil-id'et er **`superliga2627`** — ikke projekt-id'et `spil-89af9`. Sættes det
+forkerte i `game`-feltet, matcher kørslen ingen spil og gør intet.
+
+1. **Tør-kørsel:** `skriv` tom, `game` = `superliga2627`.
+2. **Læs loggen.** Den skal sige `✓ Ingen anden pointdrift` — ellers stopper den
+   selv med exit 1. Sammenhold `BEHOLDES`/`FJERNES` med auditens kørsel: samme
+   spiller, samme runde, samme to kampe.
+3. **Hent backup-artefaktet** og bekræft, at det fjernede tip står med
+   `chanceStake > 0` — så ved du, at filen er taget FØR nulstillingen.
+4. **Ejeren godkender tallene.** Total før/efter er dét, rettelsen koster.
+5. **Skriv:** samme workflow, `skriv` = `SKRIV`, `game` = `superliga2627`.
+   Tallene i denne log skal være de samme som i tør-kørslen.
+
+### Verifikation efter skrivningen
+
+Sporet til de render-betingelser, der faktisk findes:
+
+| Hvad | Hvor | Betingelse |
+|---|---|---|
+| ⚡-mærket er væk fra kampen | Tip-fladen, spillerens egen runde 3 | `FootballTip.jsx:548` viser pillen, og `:111` vælger rundens chance-kamp på `chanceStake > 0` |
+| Tabs-linjen er væk | Samme kampkort | `FootballTip.jsx:499-508` udleder teksten af DELTAET (`tipsHistory.js:59`), ikke af `chanceStake` — den forsvinder, når pointet er genscoret |
+| Totalen er rettet | Stillingen i spillet | `GameStandings.jsx` sorterer LIVE på `totalPoints`; intet gemt rangfelt skal opdateres |
+
+**Bemærk:** der findes **intet driftkort** for pointberegning. `DriftTab.jsx:18`
+kender kun `sweep`, `minut`, `kickoff` og `reminder`. Kørslens eneste kvittering
+er workflow-loggen og backup-artefaktet — så gem dem.
+
+### Tilbagerulning
+
+Backup'en har `rescore-bets.mjs`' format **plus** `chanceStake`. Derfor:
+
+- **Kun point tilbage:** `GENDAN=<fil>` i `rescore-bets.mjs`. Den skriver kun
+  `points` — `chanceStake` forbliver nulstillet.
+- **Hele rettelsen tilbage:** sæt først `chanceStake` tilbage fra backup-filen i
+  hånden (det er ét dokument pr. fjernet chance), og kør derefter
+  `rescore-bets.mjs` uden `GENDAN`, så pointet regnes forfra ud fra den
+  genskabte chance. `chanceSatAt` er **ikke** i backup'en; feltet må sættes i
+  hånden, hvis det skal være der.
+
 **Blev kørslen afbrudt midtvejs?** Så kan chancen være nulstillet, uden at
 pointet er genscoret — og en genkørsel af *dette* workflow melder "ingen
 dobbelt-chancer" og exit 0, mens spilleren beholder point for en chance, der er
