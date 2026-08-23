@@ -191,7 +191,13 @@ og `FullTime` — og **ingen ukendte tokens**. Capturen ligger som
 tolkningen ikke kan skride ubemærket. `FirstHalf` er derimod **stadig kun set
 på hændelses-niveau** (begge kampe var forbi pausen, da capturen blev taget) —
 en capture fra en kamps første halvleg ville lukke det punkt. `halftime`,
-`extratime`, `shootout`, `abandoned` m.fl. er uobserverede naboer. Et token, vi ikke kender, fejler SIKKERT: kampen vises som blot
+`extratime`, `shootout`, `abandoned` m.fl. er uobserverede naboer.
+
+For **Superligaen** er `statusFull` efterprøvet på samme vis: en live-capture
+fra runde 5 (`functions-platform/fixtures/sl-live-runde5.json`, AC Horsens–
+Lyngby) bekræfter `2nd half` → "2. halvleg" og — vigtigere — at kampens `id`
+er **null**, mens den er i gang. Nøglen SKAL derfor bygges af runde +
+holdnavne (`matchDocId`); et id-opslag ville lade live-vejen dø tavst. Et token, vi ikke kender, fejler SIKKERT: kampen vises som blot
 "DIREKTE", regnes stadig som i gang (aldrig et falsk "Slut"), og der logges
 `pulselive: ukendt live-period` — dukker det op i loggen, tilføjes ordet i
 `PL_PERIOD_STATUS` (`functions-platform/syncProviders.js`).

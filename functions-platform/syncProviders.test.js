@@ -863,9 +863,13 @@ describe('runScheduledSyncAll', () => {
 // Hvorfor den findes: PL_PERIOD_STATUS blev bygget på kamp-niveauets period
 // OBSERVERET kun i hvile (PreMatch/FullTime) — live-værdierne var GÆTTET ud
 // fra hændelses-niveauet, og drift.md bad om at tjekke loggen for ukendte
-// tokens efter første kampaften. Denne capture lukker det punkt med data:
-// hele sæson-listen indeholdt PRÆCIS FirstHalf/SecondHalf/FullTime/PreMatch —
-// ingen ukendte tokens. Testen holder tolkningen fast mod ægte kildedata.
+// tokens efter første kampaften.
+//
+// PRÆCIST hvad capturen lukker: 'SecondHalf' er nu set på KAMP-niveau, og der
+// var INGEN ukendte tokens. 'FirstHalf' er den STADIG ikke bevis for — begge
+// kampe var forbi pausen, da den blev taget, så det token sås kun på
+// hændelses-niveau, som før. Den skelnen skal stå, ellers påstår testen mere
+// end den måler.
 // ---------------------------------------------------------------------------
 describe('pulselive mod ægte live-capture (PL runde 1)', () => {
   const side = JSON.parse(
@@ -913,5 +917,61 @@ describe('pulselive mod ægte live-capture (PL runde 1)', () => {
       .map((m) => String(m.period || '').toLowerCase())
       .filter((p) => p && !['prematch', 'fulltime', 'firsthalf', 'secondhalf', 'halftime'].includes(p));
     expect(ukendte).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ÆGTE LIVE-CAPTURE (fixtures/sl-live-runde5.json) — Superligaen runde 5,
+// 23/8-2026, AC Horsens–Lyngby hentet mens kampen kørte.
+//
+// Samme ærinde som PL-capturen: LIVE_STATUS oversætter API'ets engelske
+// fritekst, og '2nd half' var indtil nu kun en rimelig antagelse. Her er den
+// set. Capturen pinner desuden to ting, syntetiske fixtures ikke kan:
+//   - `id` er NULL på live-kampen, så nøglen MÅ bygges af runde + holdnavne
+//     (matchDocId). Skiftede vi til et id-opslag, ville live-vejen dø tavst.
+//   - en kamp i gang bærer statusType 'inprogress' — det er dét, hentLive
+//     filtrerer på, og dét, 'afbrudt' deler med den (se LIVE_STATUS-noten).
+// ---------------------------------------------------------------------------
+describe('superliga mod ægte live-capture (runde 5)', () => {
+  const superliga = PROVIDERS.superliga;
+  const svar = JSON.parse(
+    readFileSync(new URL('./fixtures/sl-live-runde5.json', import.meta.url), 'utf8'),
+  );
+  const fetchFn = async () => ({ ok: true, status: 200, json: async () => svar });
+
+  it('læser den levende kamp med dansk halvleg og korrekt nøgle', async () => {
+    const { events, stadigIGang } = await superliga.hentLive({ seasonId: 35802 }, fetchFn);
+    expect(events).toEqual([{
+      sourceKey: 'r5-achorsens-lyngbyboldklub',
+      home: 1,
+      away: 0,
+      status: 'anden',
+      statusRaw: '2nd half',
+    }]);
+    expect([...stadigIGang]).toEqual(['r5-achorsens-lyngbyboldklub']);
+  });
+
+  // Muteres LIVE_STATUS['2nd half'] (fx til 'foerste' eller væk), bliver denne
+  // rød — det er hele pointen med at have ægte kildedata i suiten.
+  it('oversætter kildens engelske fritekst — der slipper aldrig engelsk ud', async () => {
+    const { events } = await superliga.hentLive({ seasonId: 35802 }, fetchFn);
+    expect(events[0].status).toBe('anden');
+    expect(events[0].status).not.toBe(events[0].statusRaw);
+  });
+
+  it('capturen bærer ingen ukendte statusFull-tokens', async () => {
+    const kendte = new Set(['1st half', 'halftime', 'half time', 'ht', '2nd half',
+      'extra time', '1st extra', '2nd extra', 'awaiting extra time',
+      'penalties', 'penalty shootout', 'interrupted', 'abandoned', 'postponed']);
+    for (const e of svar.events) {
+      expect(kendte.has(String(e.statusFull).toLowerCase()), e.statusFull).toBe(true);
+    }
+  });
+
+  // En kamp i gang har INTET facit endnu — hentFaerdige må ikke opfinde et
+  // 1-0 ud af den levende stilling (den filtrerer på statusType 'finished').
+  it('en kamp i gang giver INTET facit', async () => {
+    const f = await superliga.hentFaerdige({ seasonId: 35802 }, fetchFn);
+    expect(f).toEqual([]);
   });
 });
