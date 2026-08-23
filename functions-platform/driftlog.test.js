@@ -160,3 +160,26 @@ describe('meldAlarm + loesDriftAlarmer', () => {
     expect(db._docs.get('driftAlarmer/pl_r1-101_strandet').loestAt).toBeNull();
   });
 });
+
+// Alarm-teksten er fladens eneste vej fra "rød alarm" til "hvad gør jeg" —
+// den navngiver en knap og en fane. Testen binder strengen: omdøbes knappen
+// eller fanen, skal denne rettes I SAMME PR (ellers sender alarmen ejeren
+// efter en flade, der ikke findes — fejlen fra 'Korrekt er ikke komplet').
+describe('strandetBesked', () => {
+  const { strandetBesked } = require('./driftlog');
+
+  it('navngiver kampen, konsekvensen, remediet og hånd-vejen', () => {
+    const b = strandetBesked('r5-agf-ob');
+    expect(b).toContain('r5-agf-ob');
+    expect(b).toContain('point er ikke afregnet');
+    expect(b).toContain('⬇️ Synk resultater nu');
+    expect(b).toContain('🗓️ Spil-tidsplan');
+    // Knappen finder som regel intet i netop alarm-scenariet (sweep'et har
+    // selv skannet) — næste skridt SKAL stå der, ellers er alarmen en løkke.
+    expect(b).toContain('sæt det i hånden');
+  });
+
+  it('lover ikke, at knappen løser det — kilden kan mangle facit', () => {
+    expect(strandetBesked('x')).toMatch(/finder den intet/);
+  });
+});
