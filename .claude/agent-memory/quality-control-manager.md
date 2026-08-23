@@ -1216,3 +1216,56 @@ Efterprøvet i egen worktree mod `e230775` (ikke kun læst): `superligaSync.test
   Ingen rest af den gamle "lukker sig selv"-antagelse nogen steder (grep).
 
 Konklusion: ingen nye blokerende fund. Landbar.
+
+## Chancen-vagten (PR1 af 3, fdcf465): server-kerne, INERT — konkret fund
+
+- **`erKampLaast` bunker tre semantisk FORSKELLIGE `live.status`-tilstande
+  under ét `'afbrudt'`.** `syncProviders.js` mapper interrupted/abandoned/
+  postponed til samme streng. Koden FRIGIVER Chancen på alle tre, med
+  begrundelsen "en udsat kamp blev aldrig spillet". Det er sandt for
+  `postponed`, men IKKE for `interrupted`/`abandoned`: de har allerede rullet
+  (comment i `syncProviders.js:82` — "en afbrudt kamp har stadig statusType
+  'inprogress'"), og `hentLive` skriver den VIRKELIGE live-stilling
+  (`live.home/away`) på kampen, mens den er afbrudt. `harFacit()` tjekker kun
+  `result`/`homeGoals`/`awayGoals` — ikke `live.home/away` — så en kamp
+  afbrudt ved fx 3-0 efter 70 min tæller som "intet facit" og FRIGIVER
+  chancen, mens stillingen 3-0 allerede er synlig på kortet (`FootballTip.jsx`
+  viser live-pillen). En spiller med ⚡ på den tabende side kan altså flytte
+  chancen til en kamp, der endnu ikke er sparket i gang, MED facit i hånden —
+  præcis den asymmetri, filens egen kommentar advarer imod for "en kamp der
+  ruller". Testen (`chanceVagt.test.js:151-158`) dokumenterer bevidst kun
+  "FRIGIVER en udsat kamp" — ingen test for interrupted-med-synlig-stilling
+  eller for at kampen senere GENOPTAGES (skifter status tilbage til fx
+  'anden' og låser igen — hvilket virker korrekt, men kun blev efterprøvet
+  ved gennemlæsning, ikke af en test). Rejst som konkret, ikke-blokerende fund
+  (PR1 er inert; ingen produktion rammes endnu) — bør besvares FØR PR2
+  forbinder klienten, fordi det er billigst at rette nu.
+- **Fuld optælling af `chanceStake`-flader lykkedes med grep + læsning, ingen
+  proxy-gate fundet.** Kun ÉN klient-skriver (`betActions.js:setBet`, kaldt
+  fra `FootballTip.jsx` to gange pr. flyt: nulstil gammel, sæt ny — det ER
+  mekanismen bag det oprindelige hul). Alle andre forbrugere
+  (`tipsHistory.js`, `TipsHistorik.jsx`, `LeagueBets.jsx`, `gameRecap.js`,
+  `ligaPoint.js`, `gameScoring.js`-detalje-snapshot) er REN LÆSNING uden egen
+  dedup-logik — de vil automatisk vise korrekt data, når skrivestien lukkes i
+  PR2/PR3. `superligaScoring.scoreBet` afregner PR KAMP uden kendskab til
+  runde-dedup (med vilje, jf. filens egen kommentar) — det er netop DERFOR
+  server-vagten skal sidde ved SKRIVNINGEN, ikke ved afregningen.
+- **`firestore.rules` begrænser IKKE hvilke felter et bet-dokument må have.**
+  `bets`-reglen (linje 843-908) validerer kun `uid`/`matchId`/`points`/
+  `leagueIds` — en klient kan i dag frit skrive `chanceSatAt`/
+  `chanceFlytninger` med vilkårlige værdier. Lavt akut risiko nu (intet læser
+  felterne endnu — de er "foder til Runde-Botten, ingen ny UI"), men PR3's
+  beskrevne scope ("lukker døren for klientens skrivning af chanceStake")
+  nævner ikke de to nye felter — spørg eksplicit ved PR3, om de også skal
+  låses, ellers kan en klient forfalske revisionssporet (chanceFlytninger),
+  selv efter chanceStake er låst.
+- **To nye felter uden forbruger er begrundede, ikke en påstand:** de erstatter
+  `audit-double-chance.mjs`s eksplicitte gæt på rækkefølge via `updatedAt`
+  (scriptets egen kommentar hedder "ÆRLIGT FORBEHOLD OM TIDSSTEMPLET"). Men
+  scriptet er IKKE opdateret til at bruge `chanceSatAt` i denne PR — ingen af
+  de tre beskrevne PR'er nævner det heller. Værd at spørge, hvornår det sker.
+- Mønster genkendt fra tidligere: en ny server-kerne, der er RENT ADDITIV og
+  INERT (ingen klient kalder den), tilføjer ingen ny risiko ved deploy, FORDI
+  den nye vej er strengere end den gamle, ikke løsere — men selve callable'en
+  ER live og kaldbar af enhver godkendt bruger, så "inert" gælder kun
+  "ubrugt af UI", ikke "ikke deployeret/ikke eksponeret".

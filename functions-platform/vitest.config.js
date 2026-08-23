@@ -28,6 +28,7 @@ export default defineConfig({
       'playerLeagues.test.js',
       'startGate.test.js',
       'ligaPoint.test.js',
+      'chanceVagt.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

@@ -1028,3 +1028,58 @@ var proxy for "kilden svarede". Begge proxier knækker præcis i de to
 yderpunkter, alarmen findes for: den tier ved totalt kildesvigt og råber ved
 en helt normal slutfløjt. Spørg altid: hvilken linje i KLIENTEN viser det, jeg
 alarmerer om — og læser serveren den samme tilstand?
+
+---
+
+## setGameChance + chanceVagt.js (commit fdcf465, branch claude/multi-game-player-collection-21mc1w)
+
+**Opsætning der virkede (genbrug den):** ingen firebase CLI i miljøet, men
+emulator-jar'en ligger i `~/.cache/firebase/emulators/cloud-firestore-emulator-*.jar`.
+Start den direkte: `java -jar <jar> --host=127.0.0.1 --port=8080 --rules=/home/user/tour/firestore.rules`.
+Derefter to angrebsveje i samme kørsel:
+1. **Kernen** (Admin SDK, omgår rules) — `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080`
+   + `require('functions-platform/node_modules/firebase-admin')`, kald
+   `setChanceCore(db, FieldValue, {...})` direkte. Tester det, callable'en gør.
+2. **Reglerne** — `@firebase/rules-unit-testing` findes KUN i
+   `functions/node_modules`, så testfilen skal ligge i `functions/`, ellers
+   kan vite ikke resolve den. Egen vitest-config med `include`.
+   **Fælde:** fixtures skal skrive `kickoff` som `Timestamp`, ikke som tal —
+   rules laver `request.time < kickoff` og et tal giver "Unsupported operation:
+   timestamp < int" → PERMISSION_DENIED af FORKERT grund, så et hul ser lukket ud.
+
+**BEKRÆFTEDE fund:**
+- **Kernen tjekker ikke `users/{uid}.status`.** Eneste vagt er, at
+  `games/{g}/players/{uid}` findes — og en afvisning (`adminActions.setUserStatus`)
+  rører kun users-dokumentet, så players-dokumentet overlever. Kørt i emulator:
+  `rejected`, `pending` OG en bruger uden users-dokument overhovedet fik alle
+  `{ok:true}`. `redeemLeagueCodeCore` (gameLeagues.js L60) har vagten;
+  chanceVagt havde den ikke. **Mønster til listen: hver ny callable skal have
+  status-tjekket kopieret ind — rules' isApproved() findes ikke for Admin SDK.**
+- **`erKampLaast` frigav en AFBRUDT kamp med kendt stilling.** LIVE_STATUS
+  bunter interrupted/abandoned/postponed under ét ord, og kilden skriver kun
+  `live` for kampe, den melder `inprogress` — så 'afbrudt' kan KUN stå på en
+  kamp, der rullede. Grenen frigav altså det ene tilfælde, der skulle låses.
+  PoC: ⚡ 8 sat 1 time efter kickoff på en kamp med `live:{home:2,away:1}`.
+  Rettet i arbejdstræet under gennemgangen (live-felt → låst).
+- **15 %-bank-loftet håndhæves INGEN steder server-side.** `gameScoring.js`
+  L527/L650 kalder `scoreBet(bet, result, odds)` uden `bank`, og
+  `clampStake(s, undefined)` klipper kun til MAX_ABS. Målt: `clampStake(8,10)=1`
+  men `clampStake(8)=8`; `scoreBet({chanceStake:8},'1',{'1':4.0})` = **28** point
+  til en spiller med saldo 10. Filhovedet i chanceVagt.js påstår det modsatte.
+- **Rules begrænser ikke feltnavne på `games/{g}/bets`** ud over
+  points/uid/matchId/leagueIds. Emulator-bekræftet: klienten kan skrive
+  `chanceStake: 8` på to kampe i samme runde, `chanceStake: 99`, og forfalske
+  `chanceSatAt`/`chanceFlytninger`. Callable'en er derfor ren dekoration,
+  indtil reglen lukkes.
+
+**Afprøvet og RENT (gentag ikke):**
+- IDOR via `matchId`: `../m1`, `m1/x` → Firestore-argumentfejl (mappes til
+  `internal`, ingen lækage); `m1/sub/x` → `no-match`; `''` → `bad-input`;
+  `__proto__` → INVALID_ARGUMENT. Ingen skrivning uden for eget spil.
+- IDOR via `gameId`: et fremmed spil → `not-member` (players-opslaget er første
+  vagt). `gameId` med skråstreg → `not-member`.
+- **Skrivninger rammer kun `${uid}_${k.id}`**, og `k.id` kommer fra serverens
+  egen runde-forespørgsel — ikke fra klienten. Offerets bet stod urørt efter
+  alle angreb. `flyttetFra` kan pr. konstruktion ikke indeholde andres docs
+  (gælder kun fordi Auth-uid'er aldrig indeholder `_`).
+- `normaliserIndsats`: 9, 8.5, -3, '8', null, [] afvises alle.

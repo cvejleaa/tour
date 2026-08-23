@@ -53,6 +53,7 @@ async function skrivDriftStatus(st, db, opts) {
   }
 }
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
+const { setChanceCore, chanceFejl } = require('./chanceVagt');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder, hentTipStatus, koerPaamindelserForSpil } = require('./reminders');
 const { forventerPaamindelser } = require('./paamindelsesGate');
@@ -680,6 +681,23 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION, timeoutSeconds: 300 }
   const results = await syncResultsCore(db, FieldValue, opts);
   const standings = await syncStandingsCore(db, FieldValue, opts).catch((e) => ({ error: e?.message }));
   return { gameId: g.gameId, ...results, standings };
+});
+
+// ---------------------------------------------------------------------------
+// setGameChance — SERVEREN ejer chanceStake. Hele reglen ("én ⚡ pr. runde",
+// "ikke på en kamp i gang") bor i chanceVagt.js, fordi rules ikke kan køre
+// forespørgsler. Klienten skriver stadig selv sit 1X2-valg; kun chancen går
+// denne vej. Fejltabellen bor sammen med de throws, den oversætter.
+// ---------------------------------------------------------------------------
+exports.setGameChance = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid;
+  const { gameId, matchId, stake } = request.data || {};
+  try {
+    return await setChanceCore(getFirestore(), FieldValue, { uid, gameId, matchId, stake });
+  } catch (err) {
+    const [httpCode, msg] = chanceFejl(err);
+    throw new HttpsError(httpCode, msg);
+  }
 });
 
 // redeemGameLeagueCode — deltag i en privat mini-liga via invitationskode.
