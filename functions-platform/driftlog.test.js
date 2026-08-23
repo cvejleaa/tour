@@ -209,3 +209,62 @@ describe('naesteKoerselFoerMs — dagligt 09-job (påmindelser)', () => {
     expect(Math.abs(ud - dk('2026-10-25T09:45:00+01:00'))).toBeLessThan(90 * 1000);
   });
 });
+
+// tal på ADVARSEL og FEJL. Netop på nedbruds-linjen bærer den {sent, fejlede}
+// — og dér blev de tavst tabt, fordi kun ok() tog imod dem. Fjernes
+// Object.assign fra de to grene, bliver denne rød (TM-fund: den overlevede før).
+describe('statusSamler — tal følger med på alle niveauer', () => {
+  const { statusSamler } = require('./driftlog');
+  const FieldValue = { serverTimestamp: () => '@ts' };
+  const fake = () => {
+    const docs = new Map();
+    return {
+      _docs: docs,
+      collection: () => ({ doc: (id) => ({ set: async (d) => docs.set(id, d) }) }),
+    };
+  };
+
+  it('skriver tal fra advarsel()', async () => {
+    const db = fake();
+    const st = statusSamler({ type: 'reminder', gameId: 'sl' });
+    st.advarsel('delvist nedbrud', { sent: 3, fejlede: 2 });
+    await st.skriv(db, FieldValue);
+    expect(db._docs.get('reminder-sl').tal).toEqual({ sent: 3, fejlede: 2 });
+  });
+
+  it('skriver tal fra fejl()', async () => {
+    const db = fake();
+    const st = statusSamler({ type: 'reminder', gameId: 'pl' });
+    st.fejl('totalt nedbrud', { sent: 0, fejlede: 5 });
+    await st.skriv(db, FieldValue);
+    expect(db._docs.get('reminder-pl').tal).toEqual({ sent: 0, fejlede: 5 });
+    expect(db._docs.get('reminder-pl').niveau).toBe('fejl');
+  });
+});
+
+// loesDriftAlarmer må kun lukke SIN egen type. Det er første gang to typer
+// deler mekanismen for samme spil (strandet auto-lukker, livetavs må ALDRIG),
+// og krydsisolationen var load-bearing uden at være bevist: fjernes
+// .where('type','==',type), overlevede mutationen før (TM-fund).
+describe('loesDriftAlarmer lukker kun sin egen type', () => {
+  it('en åben livetavs-alarm røres ikke, når strandet-alarmer lukkes', async () => {
+    const db = fakeDb();
+    await meldAlarm(db, FieldValue, {
+      type: 'strandet', gameId: 'sl', kampId: 'r5-a-b', besked: 'strandet', nowMs: 1,
+    });
+    await meldAlarm(db, FieldValue, {
+      type: 'livetavs', gameId: 'sl', kampId: null, besked: 'pulsen står stille',
+      kraeverKvittering: true, nowMs: 1,
+    });
+
+    // Sweep'et melder, at ingen kampe strander længere.
+    const { lukket } = await loesDriftAlarmer(db, FieldValue, {
+      type: 'strandet', gameId: 'sl', aktuelleKampIds: [], nowMs: 2,
+    });
+
+    expect(lukket).toBe(1);
+    expect(db._docs.get('driftAlarmer/sl_r5-a-b_strandet').loestAt).toBe(2);
+    // Den, ejeren skal kvittere for, står stadig åben.
+    expect(db._docs.get('driftAlarmer/sl_livetavs').loestAt).toBeNull();
+  });
+});

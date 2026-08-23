@@ -29,7 +29,7 @@ const {
 } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore,
-  skalMeldeLiveTavs, liveTavsSymptom,
+  tjekLivePuls,
   strandedMatches, allMatches,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
@@ -391,49 +391,13 @@ exports.syncSuperligaResults = onSchedule(
         else st.ok(`${out.pending} kampe i vinduet, ${out.updated} nye facit.`, { pending: out.pending, updated: out.updated });
         await skrivDriftStatus(st, db, { naesteForventetFoerMs: null });
       }
-      // LIVE-PULSEN. Udebliver den, mens kampe er i gang, er det den fejl,
-      // ingen kunne se BAGEFTER: minut-kortet overskrives af næste grønne
-      // kørsel, så et 20-minutters udfald midt i en kamp forsvandt sporløst.
-      //
-      // ALARMEN AUTO-LUKKER MED VILJE IKKE. Første udgave kaldte
-      // loesDriftAlarmer, så snart pulsen slog igen — men fladen viser kun
-      // ÅBNE alarmer (useDriftStatus filtrerer på loestAt == null), så et
-      // udfald, der helede sig selv, slettede sit eget spor, før ejeren nåede
-      // at se det. Præcis den fejl, alarmen findes for (QC-fund). Den følger
-      // derfor mønstret fra genaabning/kickoff48t: kræver kvittering, lukkes
-      // kun af et menneske. Det er også derfor, slækket nedenfor skal være
-      // rigtigt — en falsk alarm koster nu et klik.
-      //
-      // Læsningen af spil-dokumentet sker KUN i den mistænkelige gren, så et
-      // normalt minut ikke koster en ekstra læsning.
-      if (out.pending > 0 && out.live && !out.live.pulsSkrevet) {
-        try {
-          const gSnap = await db.collection('games').doc(out.gameId).get();
-          const pulsAtMs = Number(gSnap.exists ? gSnap.data().liveHeartbeatAt : NaN);
-          const grundlag = {
-            pulsAtMs, tidligsteKickoffMs: out.tidligsteKickoffMs, nowMs: Date.now(),
-          };
-          if (skalMeldeLiveTavs({ ...grundlag, pending: out.pending, pulsSkrevet: false })) {
-            // Teksten må kun nævne det symptom, der FAKTISK er på skærmen:
-            // en frosset stilling ser anderledes ud end en, der aldrig kom.
-            const frosset = liveTavsSymptom(grundlag) === 'frosset';
-            await meldAlarm(db, FieldValue, {
-              type: 'livetavs', gameId: out.gameId, kampId: null, kraeverKvittering: true,
-              besked: `Live-stillingen opdateres ikke, mens ${out.pending} kamp`
-                + `${out.pending === 1 ? '' : 'e'} er i gang. `
-                + (frosset
-                  ? 'Kortene står med den sidste stilling og "OPDATERING AFBRUDT".'
-                  : 'Live er aldrig kommet i gang for kampen: kortene står låste helt uden stilling.')
-                + ' Facit og point rammes IKKE — de lander via sweep\'et. '
-                + 'Fejlteksten står på minut-kortet ovenfor, mens udfaldet står på. '
-                + '(Er pulsen frisk her, men mærkatet gult i en browser, er det browserens '
-                + 'forbindelse — genindlæs siden.)',
-            });
-          }
-        } catch (e) {
-          console.error(`Live-puls-tjek ${out.gameId} (ignoreret):`, e && e.message);
-        }
-      }
+      // LIVE-PULSEN. Udebliver den, mens kampe viser en levende stilling, er
+      // det den fejl, ingen kunne se BAGEFTER: minut-kortet overskrives af
+      // næste grønne kørsel, så et 20-minutters udfald forsvandt sporløst.
+      // Hele vagten bor i superligaSync (tjekLivePuls), fordi den her fil
+      // ikke kan unit-testes — en tastefejl i betingelsen ville ellers lande
+      // med grøn suite (TM-fund).
+      await tjekLivePuls(db, FieldValue, { ud: { gameId: out.gameId, ...out } });
 
       if (out.pending === 0) continue; // stille minut: intet i gang, intet rørt
       console.log(`Synk ${out.gameId}: ${out.pending} kampe uden facit, ${out.updated} nye facit.`

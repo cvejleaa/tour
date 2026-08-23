@@ -913,3 +913,97 @@ er den samme som den, der må trykke på knappen — men når et nyt felt STYRER
 maskineri (mails, point, synlighed), skal spørgsmålet stilles eksplicit:
 hvem må egentlig trykke på DENNE knap, og er det den samme kreds som
 `isGlobalAdmin()`? Her: ja.
+
+## Live-tavs-alarmen (5e51155, #47) — angrebsflade: EN ALARM, DER SKAL KUNNE STOLES PÅ
+
+**Nyt PoC-mønster, det stærkeste til skemalagt maskineri: kør ONSCHEDULE-jobbet
+ÆGTE.** `firebase-functions@7` sætter `func.run = handler` også på `onSchedule`
+(node_modules/firebase-functions/lib/v2/providers/scheduler.js L70), så hele
+minut-jobbet kan drives ende-til-ende:
+`exports.syncSuperligaResults.run({})` mod emulator-jar'en (port 8099) +
+`global.fetch`-stub pr. URL + `Date.now = () => T0 + off` for at spole tiden
+frem minut for minut. Instrumentér forbruget ved at wrappe
+`DocumentReference.prototype.get/set/update/delete` og `Query.prototype.get`.
+Filer: scratchpad/poc/{livetavs,selvheal,slut,blast,nu}.js + gate2.js + puls.mjs.
+Seed de ÆGTE gameId'er fra SYNCED_GAMES — jobbet tager ingen opts.
+
+**MÅLT forbrug (emulator, pr. minut pr. spil):**
+- Stille minut (pending=0): 1 query pr. spil, 0 læsninger, 0 skrivninger — den
+  nye gren koster INTET. (Bekræftet: spil-dok-læsningen sker kun i den
+  mistænkelige gren.)
+- Live-minut med puls: +1 query (loesDriftAlarmer i else-grenen) pr. spil pr.
+  minut. ~300 live-minutter × 2 spil × ~120 kampdage ≈ 72.000 ekstra læsninger
+  om året = under 1,2 % af ÉN dags gratiskvote. Ikke et problem.
+- Tavs minut med kampe i vinduet: +2 læsninger (spil-dok + alarm-dok).
+  149 minutters udfald → `antal=1`: 6-timers dæmpningen HOLDER (målt).
+- Flapping kan ikke koste mere end ~1 alarm-åbning pr. 6 min, fordi
+  LIVE_STALE_MS selv virker som rate-limit på genåbning.
+
+**BEKRÆFTET HUL 1 — alarmen fyrer IKKE ved det udfald, den er bygget til.**
+`hentLive` KASTER ved HTTP-fejl/timeout/format-brud → `runScheduledSync` sætter
+`live = null` → betingelsen `out.pending > 0 && out.live && !out.live.pulsSkrevet`
+(index.js) er FALSK i begge grene. PoC: 40 minutters HTTP 500 midt i en kamp →
+kampkortet står frosset (spillerne SER "Opdatering afbrudt"), `driftAlarmer` er
+TOM, og minut-kortet bliver grønt igen ved genkomst → intet spor. Fix:
+`const puls = !!(out.live && out.live.pulsSkrevet); if (out.pending > 0 && !puls)`.
+Gælder BÅDE 5e51155 og arbejdstræets nyere udgave.
+
+**BEKRÆFTET HUL 2 — alarmen fyrer, når INTET er galt.** `pending` = kampe i
+2,5t-vinduet UDEN facit, ikke kampe i gang. Efter slutfløjt (kilden dropper
+kampen, facit ikke landet endnu) er pulsen tavs pr. definition → alarm efter
+5 min med `kraeverKvittering:true`. PoC (kickoff 100 min siden): kampens
+`live.status` er `'slut'` — klienten viser med vilje "Slut · afventer facit" og
+kalder eksplicit "Opdatering afbrudt" en LØGN i den tilstand
+(FootballTip.jsx L535-538) — mens alarmen påstår "OPDATERING AFBRUDT". Rammer
+hver kampaften, hvor facit er >5 min forsinket. Fix: udled tælleren af KAMPENES
+egne dokumenter (live sat, status ikke `slut`/`afbrudt`), ikke af `pending`.
+
+**BEKRÆFTET (5e51155, rettet i arbejdstræet): auto-lukningen slettede sporet.**
+`loesDriftAlarmer(livetavs)` i else-grenen + klientens `where('loestAt','==',null)`
+= et selvhelbredende udfald forsvandt efter ét grønt minut. PoC selvheal.js:
+20 min tavshed → alarm åben; 1 grønt minut → 0 åbne alarmer.
+GENEREL REGEL: `kraeverKvittering: true` og `loesDriftAlarmer` er gensidigt
+udelukkende. Alle øvrige kvitteringsalarmer (genaabning, kickoff48t,
+puljeLockGenaabning) auto-lukkes aldrig — livetavs var den første, der gjorde
+begge dele.
+
+**Afprøvet og RENT (gentag ikke):**
+- **Ingen kan forfalske pulsen** (16/16 emulator-checks, kontroltests grønne,
+  scratchpad/poc/puls.mjs): spiller/pending/anon kan ikke sætte, flytte,
+  fremdatere eller SLETTE `games/{id}.liveHeartbeatAt`, ikke skrive `live` på
+  en kamp, ikke oprette et kamp-dok (så en fremmed kilde-event kunne resolve),
+  og ikke skrive/læse `driftAlarmer`. Selv admin kan ikke skrive driftAlarmer
+  (kun callablen). Kontrol: admin KAN sætte liveHeartbeatAt.
+- **Alarm-id er ikke injicerbart:** `gameId` kommer fra `SYNCED_GAMES`
+  (hardkodet allowlist), `kampId` er null, `out.pending` er `venter.length`
+  (tal). `besked` renderes som JSX-tekstbarn i AlarmKort (DriftTab.jsx L84).
+- **Blast radius er indeholdt (d):** monkeypatchet spil-dok-læsning til at
+  KASTE for superliga2627 → kun SL's alarm droppes ("Live-puls-tjek …
+  (ignoreret)"), PL får sin alarm, begge minut-kort skrives. try/catch +
+  `.catch()` sidder rigtigt.
+- `sendGameTipRemindersNow`-gaten (index.js L928-935) er MÅLT korrekt placeret:
+  anon 0 læsninger, pending/spiller `permission-denied` efter præcis 1, ejer +
+  ukendt/afsluttet/ikke-fodbold spil → `failed-precondition` efter 2 læsninger,
+  0 queries, 0 mails. Manglende spil-dok KRASHER ikke (`gSnap.exists ? … : null`
+  → `game?.type`). Kontrol grøn: åbent spil når arbejdet. `paused` tjekkes
+  bevidst IKKE — fladen holder "Send nu" aktiv under pause (GameReminderTab
+  L286-289), så paritet er korrekt.
+
+**Nit:** `sendGameTestReminderToMe` (index.js L1010) har stadig ingen
+forventerPaamindelser-gate, mens fanens knap har (`kanPaamindes`). Harmløst
+(mailen går kun til kalderen selv). Og gameId'et valideres stadig ikke som
+doc-id: `..`/`a/b`/`__proto__` giver `internal` i stedet for `invalid-argument`
+(fjerde callable med samme kosmetiske fælde).
+
+**Testhul (mutationsbekræftet):** `advarsel(besked, tal)`/`fejl(besked, tal)`-
+rettelsen i driftlog.js er UDÆKKET — fjernes `Object.assign(s.tal, tal||{})`
+BEGGE steder, er alle 646 platform-tests grønne. `ADMIN_OWNED`-tripwiren i
+seed-payload.test.mjs er derimod load-bearing: `paused: false` tilføjet til
+games.mjs L69 gør den RØD (kørt, derefter gendannet).
+
+**Faldgrube til listen:** *en alarm skal måle det SYMPTOM, brugeren ser — ikke
+en proxy for det.* `pending > 0` var proxy for "kampe i gang", og `out.live`
+var proxy for "kilden svarede". Begge proxier knækker præcis i de to
+yderpunkter, alarmen findes for: den tier ved totalt kildesvigt og råber ved
+en helt normal slutfløjt. Spørg altid: hvilken linje i KLIENTEN viser det, jeg
+alarmerer om — og læser serveren den samme tilstand?

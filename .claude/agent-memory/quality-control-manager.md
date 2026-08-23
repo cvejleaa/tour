@@ -1174,3 +1174,45 @@ sammenhængende fund, begge bekræftet i koden (ikke antaget):
   Fundene ovenfor er ikke i den rene funktions logik — de er i hvad
   specifikationen selv antager om, hvornår "aldrig/for længe siden frisk"
   reelt indtræffer, og i hvordan resultatet bruges i `index.js`.
+
+## Live-puls-alarm — opfølgning (e230775): begge blokerende fund korrekt rettet
+
+Efterprøvet i egen worktree mod `e230775` (ikke kun læst): `superligaSync.test.js`
+130/130 grønne, ingen anden `loesDriftAlarmer('livetavs', …)` tilbage noget sted
+(`grep` bekræftet, kun ét `livetavs`-sted i `index.js`: selve `meldAlarm`-kaldet).
+
+- **Auto-luk væk, ingen anden vej ud.** Hele `else if (out.live &&
+  out.live.pulsSkrevet) { loesDriftAlarmer(...) }`-grenen er slettet — ikke
+  gjort betinget. `livetavs` følger nu PRÆCIS samme mønster som
+  `genaabning`/`kickoff48t` (kræver kvittering, ingen selv-luk). Bekræftet:
+  ingen anden funktion i `functions-platform/` kalder `loesDriftAlarmer` med
+  `type: 'livetavs'`.
+- **Kickoff-gabet lukket rigtigt, ikke bare flyttet.** `tidligsteKickoffMs`
+  (min af venters kickoff-tider) bæres nu med ud af `runScheduledSync` og
+  bruges som EGEN grace (`nowMs - tidligsteKickoffMs <= LIVE_STALE_MS →
+  false`), FØR pulsAtMs-tjekket. `Math.min(...[])`-kanten (alle kickoffs
+  ulæselige) giver `Infinity` — eksplicit dækket af egen test
+  (`tidligsteKickoffMs: Infinity` → false). At bruge MIN (ikke seneste/første
+  fundne) er korrekt: en ægte overtids-kamp i samme vindue som en lige
+  kickoffet kamp maskerer ikke hinanden, fordi den TIDLIGSTE afgør slækket —
+  efterprøvet manuelt, ikke kun antaget.
+- **Symptom-teksten (`liveTavsSymptom`) er sand mod `liveScore()`/
+  `FootballTip.jsx` i begge sine grene** — bekræftet ved læsning af begge
+  filer, ikke kun af testen. Én resterende, IKKE-blokerende unøjagtighed:
+  symptomet er PR SPIL, ikke pr. kamp, og bruges til at beskrive ALLE
+  `out.pending`-kampe med ét ord. Ved to samtidige pending-kampe i forskellig
+  tilstand (én frosset efter tidligere live, én der aldrig kom i gang) kan
+  teksten vælge 'frosset' (fordi `pulsAtMs` stammer fra den ANDEN kamps
+  tidligere puls) og dermed beskrive en kamp forkert, der reelt står "Låst".
+  Smalt vindue (kræver netop den kombination), ikke fundet blokerende — men
+  værd at nævne, hvis nogen udvider alarmen til at navngive den enkelte kamp.
+- **Punkt (d) er ikke bare afbødet, men bortfaldet:** hele forespørgslen
+  `loesDriftAlarmer` lavede hvert tick under en sund, kørende kamp er væk med
+  grenen. Ingen ekstra Firestore-operation i noget normalt minut længere —
+  kommentaren i `index.js` er nu korrekt, ikke kun mere korrekt.
+- **Docs præcise i begge filer:** `admin-guide.md` og `drift.md` siger nu
+  eksplicit at alarmen "bliver stående, til du kvitterer — også når udfaldet
+  for længst er ovre", og `drift.md` nævner fem-minutters-slækket fra kickoff.
+  Ingen rest af den gamle "lukker sig selv"-antagelse nogen steder (grep).
+
+Konklusion: ingen nye blokerende fund. Landbar.
