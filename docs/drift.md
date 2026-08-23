@@ -184,14 +184,25 @@ den kan heller ikke oprette en kamp, der ikke er seedet endnu.
 
 Begge ligaer leverer nu live: minut-synken skriver stilling + halvleg til
 kampens `live`-felt på kampdage, og facit rydder det. For **Premier League**
-er kamp-niveauets `period` kun observeret i hvile (`PreMatch`/`FullTime`) —
-oversættelsen af live-værdierne (`FirstHalf` → 1. halvleg osv.) bygger på
-API'ets egen navngivning på hændelses-niveau (`docs/PL_match_liv_bou.har`).
-Et token, vi ikke kender, fejler SIKKERT: kampen vises som blot "DIREKTE",
-regnes stadig som i gang (aldrig et falsk "Slut"), og der logges en warn med
-ordet — **tjek functions-loggen efter første PL-kampaften** (21/8) for
-`pulselive: ukendt live-period` og tilføj evt. manglende tokens i
+er `period` nu efterprøvet mod en ægte live-capture (runde 1, 23/8-2026, to
+kampe i gang): hele sæson-listen bar præcis `PreMatch`, `FirstHalf`,
+`SecondHalf` og `FullTime` — **ingen ukendte tokens**. Capturen ligger som
+`functions-platform/fixtures/pl-live-runde1.json` og er bundet af en test, så
+tolkningen ikke kan skride ubemærket. De øvrige tokens i `PL_PERIOD_STATUS`
+(`halftime`, `extratime`, `shootout`, `abandoned` …) er stadig uobserverede
+naboer. Et token, vi ikke kender, fejler SIKKERT: kampen vises som blot
+"DIREKTE", regnes stadig som i gang (aldrig et falsk "Slut"), og der logges
+`pulselive: ukendt live-period` — dukker det op i loggen, tilføjes ordet i
 `PL_PERIOD_STATUS` (`functions-platform/syncProviders.js`).
+
+**Står live-visningen stille midt i en kamp** ("⏸ Opdatering afbrudt" på
+kortet), er spillets puls (`liveHeartbeatAt`) over 5 minutter gammel. Selve
+stillingen er stadig den sidst kendte — vi sletter aldrig, vi dæmper. Kig i
+**Admin → 🩺 Driftstatus** på *Minut-synk · <spil>*: rødt kort navngiver det
+fejlende led (`opslag:` / `resultater:` / `live:`), et gammelt grønt kort
+betyder, at jobbet slet ikke kører. Facit går ikke tabt uanset hvad —
+times-sweep'et henter det. Bemærk, at minut-synken slipper en kamp 2½ time
+efter kickoff (`WINDOW_MS`).
 
 ## Rækkefølge ved ændringer i security rules
 
