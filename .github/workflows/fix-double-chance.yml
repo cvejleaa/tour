@@ -1,0 +1,99 @@
+name: Ret dobbelt Chancen (spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+#
+# TØR-KØRSEL SOM STANDARD. Feltet `skriv` skal indeholde ordet SKRIV — et
+# flueben er for nemt at komme til, og naboworkflowet for præcis den samme
+# skrivning (rescore-bets.yml) kræver det samme.
+#
+# INGEN ARGUMENTSTRENG. Begge inputs går ind som miljøvariabler, og scriptet
+# læser dem af `process.env`. En tidligere udgave byggede en argument-streng og
+# lod shell'en ordsplitte den — så kunne " --apply" skrives i spil-feltet, og
+# feltet, der er beskrevet som en BEGRÆNSNING, blev både af-begrænsningen
+# (spil-id'et blev tomt) og skrive-knappen. Bekræftet mod emulator af
+# sikkerhedsgennemgangen.
+#
+# BACKUP TAGES ALTID — også ved tør-kørsel — og lægges op som artefakt. De
+# gamle bet-point findes ikke i noget andet felt. Formatet er det samme som
+# rescore-bets.mjs' backup, så GENDAN=<fil> dér kan rulle kørslen tilbage.
+#
+# Behold-reglen: den FØRST lagte chance beholdes, de senere fjernes. Se
+# scripts/lib/doubleChance.mjs. En runde, hvor rækkefølgen IKKE kan bevises af
+# kickoff-tiderne, bliver afvist frem for rettet — indtil trin 3 er live, kan
+# en spiller selv skrive det tidsstempel, rækkefølgen ellers ville hvile på.
+#
+# Rettelsen er IKKE færdig, når kørslen er grøn: spilleren og ligaen skal have
+# besked, og et allerede postet Runde-Bot-opslag bærer de gamle tal.
+# Se docs/drift.md → "Dobbelt Chancen — find og ret".
+#
+# Bruger repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+    inputs:
+      skriv:
+        description: 'Skriv SKRIV (med store bogstaver) for at rette rigtigt. Alt andet er tør-kørsel.'
+        type: string
+        default: ''
+      game:
+        description: 'Begræns til ét spil-id (tomt = alle spil)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+# To samtidige kørsler kan efterlade en halv tilstand: chancen nulstillet uden
+# at pointet er genscoret. En genkørsel ville så melde "ingen dobbelt-chancer"
+# og exit 0, mens spilleren beholdt point for en chance, der er væk.
+concurrency:
+  group: fix-double-chance
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  ret:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      # Scriptet importerer functions-platform/gameScoring.js og
+      # superligaScoring.js direkte — pointreglen findes ét sted, og det er
+      # ikke i dette script. Deres afhængigheder skal derfor være til stede.
+      - name: Installer functions-platform
+        run: npm --prefix functions-platform ci
+
+      - name: Skriv service-account
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/spil-sa.json"
+
+      # Ingen argumenter — kun env. Scriptet afgør selv tør-kørsel kontra
+      # skrivning ud fra SKRIV, og der findes ingen streng at ordsplitte.
+      - name: Ret dobbelt Chancen
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          SKRIV: ${{ inputs.skriv }}
+          GAME_ID: ${{ inputs.game }}
+          BACKUP: ${{ runner.temp }}/bets-backup-double-chance.json
+        run: node scripts/fix-double-chance.mjs
+
+      - name: Gem backup som artefakt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bets-backup-double-chance
+          path: ${{ runner.temp }}/bets-backup-double-chance*.json
+          if-no-files-found: warn
+          retention-days: 90

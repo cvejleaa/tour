@@ -367,6 +367,107 @@ der, hvis workflowet ikke kan bruges, men **workflowet er den normale vej**: det
 tager backup, har tripwiren indbygget, og efterlader et spor. `dryRun` er default
 sand, og kun boolean `false` skriver.
 
+## Dobbelt Chancen — find og ret
+
+Chancen må bruges **én gang pr. runde**. Reglen stod indtil trin 3 kun i
+browseren, og et hul i fladen (lukket 9/8-2026) lod en spiller sætte ⚡ på kamp
+A, se den låse ved kickoff, og bagefter sætte den igen på kamp B i samme runde
+— den første kunne ikke fjernes, fordi reglerne afviser skrivning efter eget
+kickoff. Netop dét gør rækkefølgen bevislig.
+
+**Find** (læs-only, skriver aldrig): Actions → **Tjek for dobbelt Chancen
+(spil-89af9)**. Fejler med exit 1, hvis der findes nogen — det er meningen.
+
+**Ret**: Actions → **Ret dobbelt Chancen (spil-89af9)**. Feltet `skriv` skal
+indeholde ordet **SKRIV** — alt andet (også tomt) er tør-kørsel. Sæt `game` til
+det konkrete spil-id: beslutningen om at rette gælder ét fund, ikke "enhver
+fremtidig dublet, uanset hvor den findes".
+
+**Backup tages altid**, også ved tør-kørsel, og lægges op som artefakt. Filen
+har samme format som `rescore-bets.mjs`' backup, så en fortrydelse køres med
+`GENDAN=<fil>` dér — der findes ikke et separat gendannelses-værktøj.
+
+**En runde uden bevis rettes ikke.** Kan rækkefølgen ikke bevises af
+kickoff-tiderne, hviler den alene på et tidsstempel — og indtil trin 3 er live,
+nævner `firestore.rules` ikke ordet "chance", så en spiller kan selv skrive både
+`chanceStake` og `chanceSatAt`. Så ville den ramte selv vælge, hvilken af sine
+chancer der overlever. Kickoff-tiderne kommer fra synken og kan ikke
+forfalskes. Sådan en runde meldes `AFVIST` og skal afgøres i hånden.
+
+Reglen om, **hvilken** chance der beholdes, er den først lagte. Den bor i
+`scripts/lib/doubleChance.mjs` og deles af begge scripts, så de aldrig kan give
+hvert sit svar.
+
+**Tør-kørslen er kvitteringen.** Den udskriver point før/efter pr. tip og total
+før/efter pr. spiller — akkumuleret på tværs af runder, hvis samme spiller har
+flere fund. Den har en **tripwire** som bagfyldningen ovenfor: den kører
+`rescoreAllBets` i tør-kørsel FØRST og kræver, at `aendrede` er **0**. Er den
+ikke det, er et andet tips point drevet af en ubeslægtet grund, og en `--apply`
+ville feje det med ind i rettelsen, uden at nogen har besluttet det. Stop og
+find årsagen først.
+
+**Bagefter — tre ting, kørslen ikke gør:**
+
+1. **Rundens historiske delta-pile rettes ikke.** `snapshotRoundRanks` er
+   vogtet af `game.snapshottedRounds` og kører ikke igen for en gjort-op runde.
+   Den levende stilling retter sig selv (den regnes af `totalPoints`), men
+   bevægelsen for den runde fortæller fortsat den gamle historie. Det er med
+   vilje: et fremtvunget nyt snapshot ville måle de FØLGENDE runders bevægelser
+   fra et udgangspunkt, ingen stod ved.
+2. **Et allerede postet Runde-Bot-opslag bærer de gamle tal.** Det er en
+   statisk besked, ikke en levende visning — ret den i hånden efter mønstret i
+   næste afsnit.
+3. **Spilleren og ligaen får ikke besked af sig selv.** En stille pointændring
+   er værre end ingen rettelse.
+
+### Kørslen, trin for trin
+
+Spil-id'et er **`superliga2627`** — ikke projekt-id'et `spil-89af9`. Sættes det
+forkerte i `game`-feltet, matcher kørslen ingen spil og gør intet.
+
+1. **Tør-kørsel:** `skriv` tom, `game` = `superliga2627`.
+2. **Læs loggen.** Den skal sige `✓ Ingen anden pointdrift` — ellers stopper den
+   selv med exit 1. Sammenhold `BEHOLDES`/`FJERNES` med auditens kørsel: samme
+   spiller, samme runde, samme to kampe.
+3. **Hent backup-artefaktet** og bekræft, at det fjernede tip står med
+   `chanceStake > 0` — så ved du, at filen er taget FØR nulstillingen.
+4. **Ejeren godkender tallene.** Total før/efter er dét, rettelsen koster.
+5. **Skriv:** samme workflow, `skriv` = `SKRIV`, `game` = `superliga2627`.
+   Tallene i denne log skal være de samme som i tør-kørslen.
+
+### Verifikation efter skrivningen
+
+Sporet til de render-betingelser, der faktisk findes:
+
+| Hvad | Hvor | Betingelse |
+|---|---|---|
+| ⚡-mærket er væk fra kampen | Tip-fladen, spillerens egen runde 3 | `FootballTip.jsx:548` viser pillen, og `:111` vælger rundens chance-kamp på `chanceStake > 0` |
+| Tabs-linjen er væk | Samme kampkort | `FootballTip.jsx:499-508` udleder teksten af DELTAET (`tipsHistory.js:59`), ikke af `chanceStake` — den forsvinder, når pointet er genscoret |
+| Totalen er rettet | Stillingen i spillet | `GameStandings.jsx` sorterer LIVE på `totalPoints`; intet gemt rangfelt skal opdateres |
+
+**Bemærk:** der findes **intet driftkort** for pointberegning. `DriftTab.jsx:18`
+kender kun `sweep`, `minut`, `kickoff` og `reminder`. Kørslens eneste kvittering
+er workflow-loggen og backup-artefaktet — så gem dem.
+
+### Tilbagerulning
+
+Backup'en har `rescore-bets.mjs`' format **plus** `chanceStake`. Derfor:
+
+- **Kun point tilbage:** `GENDAN=<fil>` i `rescore-bets.mjs`. Den skriver kun
+  `points` — `chanceStake` forbliver nulstillet.
+- **Hele rettelsen tilbage:** sæt først `chanceStake` tilbage fra backup-filen i
+  hånden (det er ét dokument pr. fjernet chance), og kør derefter
+  `rescore-bets.mjs` uden `GENDAN`, så pointet regnes forfra ud fra den
+  genskabte chance. `chanceSatAt` er **ikke** i backup'en; feltet må sættes i
+  hånden, hvis det skal være der.
+
+**Blev kørslen afbrudt midtvejs?** Så kan chancen være nulstillet, uden at
+pointet er genscoret — og en genkørsel af *dette* workflow melder "ingen
+dobbelt-chancer" og exit 0, mens spilleren beholder point for en chance, der er
+væk. Ret det med `rescore-bets.yml` (tør-kørsel først), ikke ved at køre dette
+workflow igen. Workflowet har en `concurrency`-gruppe, så to kørsler ikke kan
+overlappe.
+
 ## Gendan et rettet bot-opslag
 
 Runde-Bottens allerførste opslag blev bygget af hele spillets felt og nævnte
