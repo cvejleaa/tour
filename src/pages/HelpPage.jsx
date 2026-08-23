@@ -7,6 +7,8 @@
 import { Link } from 'react-router-dom';
 import PointRules from '../components/PointRules';
 import { PLATFORM_MODE } from '../lib/platform';
+import { useGames, splitGames } from '../features/games/useGames';
+import { GAME_STATUS_LABEL } from '../lib/constants';
 
 function Section({ emoji, title, children }) {
   return (
@@ -33,6 +35,76 @@ function GameBlurb({ emoji, name, status, children }) {
   );
 }
 
+// Redaktionelle beskrivelser pr. spil-id. BEVIDST evne-frie ud over spillets
+// grundform: pulje-tippet (det felt, der skifter navn og form pr. spil)
+// AFLEDES af game.pulje.labels nedenfor, så teksten ikke kan drifte fra
+// virkeligheden ("et spejl af levende data er en løgn med forsinkelse").
+// Et spil uden nøgle får en generisk hale — det kan mangle tekst, aldrig lyve.
+const BLURBS = {
+  superliga2627: (
+    <>Tip fodboldkampene runde for runde (1X2). Point <strong>følger oddsene</strong>, og der er bonus
+    for at ramme rundens kupon og et lille væddemål (Chancen). Følg holdenes Elo og dyst i mini-ligaer.</>
+  ),
+  'pl2627-efteraar': (
+    <>Tip Premier League-kampene runde for runde (1X2). Point <strong>følger oddsene</strong>, med
+    runde-bonus og Chancen — og følg holdenes Elo og dyst i mini-ligaer.</>
+  ),
+  tour2026: (
+    <>Cykel-tipning etape for etape: hold på etapevinderen, bedste hold, bjerg- og sprintpoint.</>
+  ),
+  vm2026: (
+    <>Vores fodbold-VM-tipning fra sommeren.</>
+  ),
+};
+
+/** "Spillene lige nu" — AFLEDT af den levende games-collection via splitGames,
+ *  så hjælpen pr. konstruktion viser præcis de spil, brugeren også ser under
+ *  🎮 Spil: aldrig et skjult spil, aldrig en forkert status. Den hardkodede
+ *  liste her stod med Touren som "i gang" efter sin afslutning og uden PL —
+ *  det var netop den "lige nu"-løgn, reglen i CLAUDE.md er opkaldt efter. */
+function SpilleneLigeNu() {
+  const { games, myGameIds, loading } = useGames();
+  const { mine, open, external } = splitGames(games, myGameIds);
+  const synlige = [...mine, ...open, ...external]
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  if (loading) return <p style={{ margin: 0 }}>Henter spillene …</p>;
+  if (synlige.length === 0) {
+    return <p style={{ margin: 0 }}>Se alle spil under <Link to="/spil">🎮 Spil</Link>.</p>;
+  }
+  return (
+    <>
+      <p style={{ margin: '0 0 0.25rem', fontSize: '0.85rem' }}>
+        Dine spil — og dem, du kan tilmelde dig (samme liste som under <Link to="/spil">🎮 Spil</Link>):
+      </p>
+      {synlige.map((g) => {
+        const labels = g.pulje?.labels;
+        return (
+          <GameBlurb key={g.id} emoji={g.emoji} name={g.name} status={GAME_STATUS_LABEL[g.status] ?? null}>
+            {BLURBS[g.id]}
+            {/* Pulje-linjen afledes af spillets egne labels — PL's "juletabel"
+                og SL's mesterskabsspil får hver deres ord uden håndskrift. */}
+            {labels?.top && (
+              <> Dertil et pulje-tip: de {g.pulje.poolSize} hold i <strong>{labels.top}</strong>
+              {g.pulje.nedSize > 0 && labels.ned ? <> — og de {g.pulje.nedSize} i <strong>{labels.ned}</strong></> : null}.</>
+            )}
+            {/* Halen lover kun det, spillet kan holde: Guide-fanen findes kun
+                for medlemmer (ellers ses kun Deltag-kortet), og eksterne spil
+                åbnes i deres egen app. */}
+            {g.externalUrl ? (
+              <> Kører i sin egen app — <a href={g.externalUrl} target="_blank" rel="noopener noreferrer">åbn spillet ↗</a>.</>
+            ) : myGameIds.has(g.id) ? (
+              <> Fuld guide inde i spillet under <strong>❓ Guide</strong>.</>
+            ) : (
+              <> Tryk <strong>Deltag</strong> under <Link to="/spil">🎮 Spil</Link> for at være med.</>
+            )}
+          </GameBlurb>
+        );
+      })}
+    </>
+  );
+}
+
 // ── Platform-hjælp (samlesiden) — handler om HELE platformen, ikke ét spil ────
 function PlatformHelp() {
   return (
@@ -51,20 +123,7 @@ function PlatformHelp() {
       </Section>
 
       <Section emoji="🏟️" title="Spillene lige nu">
-        <GameBlurb emoji="⚽" name="Superligaen 2026/27" status="åben">
-          Tip fodboldkampene runde for runde (1X2). Point <strong>følger oddsene</strong>, og der er bonus
-          for at ramme rundens kupon (combi), et lille væddemål (Chancen) og et pulje-tip om, hvem der når
-          mesterskabsspillet. Følg holdenes Elo og dyst i mini-ligaer. Fuld guide inde i spillet under
-          {' '}<strong>❓ Guide</strong>.
-        </GameBlurb>
-        <GameBlurb emoji="🚴" name="Tour de France 2026" status="i gang">
-          Cykel-tipning etape for etape: hold på etapevinderen, bedste hold, bjerg- og sprintpoint. Kører i
-          sin egen app — åbn den fra <Link to="/spil">🎮 Spil</Link> (“Åbn spillet ↗”).
-        </GameBlurb>
-        <GameBlurb emoji="⚽" name="VM 2026" status="afsluttet">
-          Vores fodbold-VM-tipning. Spillet er slut, men du kan stadig se{' '}
-          <a href="https://vm.vejleaa.dk" target="_blank" rel="noopener noreferrer">stillingen i VM-appen ↗</a>.
-        </GameBlurb>
+        <SpilleneLigeNu />
       </Section>
 
       <Section emoji="🙂" title="Din profil & login">

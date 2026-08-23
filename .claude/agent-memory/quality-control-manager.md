@@ -822,3 +822,46 @@ Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
   en modsigelse. Ingen blokerende dokumentationsfejl.
 - Lint, build og relevante tests (`kickoffSync.test.js`, `DriftTab.test.jsx`,
   `GameScheduleTab.test.jsx`, 62 tests) grønne ved egen gennemkørsel.
+
+## Hjælpesiden (#43): når en hardkodet liste afledes af levende data
+
+- **`splitGames` er IKKE "alle spil" — den er "de spil, DENNE bruger ser".**
+  `src/features/games/useGames.js:35-40`. Et spil, der hverken er mit, joinable
+  eller eksternt, falder ud af ALLE TRE lister. Konkret i dag: `vm2026`
+  (`status:'finished'`, `joinable:false`, INGEN `externalUrl`) og VM-spildata
+  blev aldrig migreret (`docs/platform-status.md:56` er uafkrydset) → ingen har
+  et players-doc → VM er usynlig for ALLE. Afleder man hjælpesiden af
+  `[...mine, ...open, ...external]`, forsvinder "VM 2026" og linket til
+  vm.vejleaa.dk helt. Spørg altid ved en afledning: hvilke rækker i kilden
+  falder ud af filteret — og var de synlige før?
+- **Kur, hvis et afsluttet spil skal blive ved med at kunne slås op:** giv det
+  `externalUrl` i `scripts/games.mjs`. `splitGames`' egen kommentar siger, at
+  eksterne spil vises "uanset medlemskab OG uanset status" netop derfor.
+  `externalUrl` er ikke i `ADMIN_OWNED` (`scripts/seed-payload.mjs:20`), så en
+  seed-kørsel må skrive det — men seedGames mod produktion kræver tørkørsel og
+  et ja fra ejeren.
+- **`joinable` afgør, om et spil overhovedet kan nævnes for en ikke-deltager.**
+  `pl2627-efteraar` seedes bevidst med `joinable:false` ("oprettes skjult").
+  En afledt liste nævner derfor kun PL, hvis admin har slået `joinable` til i
+  produktion. Et plan-løfte om "nu nævnes PL" skal verificeres mod prod-feltet,
+  ikke mod `games.mjs`.
+- **"Fuld guide inde i spillet under ❓ Guide" er et løfte, en ikke-deltager
+  ikke kan indfri.** `src/pages/GamePage.jsx:107` — er man ikke medlem, vises
+  KUN et Deltag-kort; ingen faner. Og Guide-fanen er `football:true`
+  (`GamePage.jsx:51`), så den findes slet ikke for et cykel-spil. Sætningen
+  står i dag i Superliga-blurben på hjælpesiden — altså præcis på det spil, man
+  typisk IKKE er med i.
+- **Evne-tekst skal gates på evnen, også i en blurb.** `FootballHelp.jsx:356`
+  er facit-mønstret: pulje-afsnittet renderes kun `if (pulje)` og henter ALLE
+  ord fra `game.pulje.labels` (`overskrift`/`top`/`ned`/`facit`). En håndskrevet
+  hjælpe-blurb, der lover "pulje-tip" eller "tabel", er et nyt spejl af
+  `game.pulje` / `game.standings` — de to felter, `GamePage.jsx:44` og `:49`
+  gater fanerne på. Genbrug labels frem for at skrive tallene af.
+- **`useGames()` giver ingen fejl ud.** Fejler games-lytteren, sættes
+  `games = []` og `loading = false` — ingen fejlbesked. En sektion, der
+  renderer listen råt, bliver en tavs tom overskrift. Kræv altid en
+  tom-tilstands-sætning + en loading-tilstand, når useGames flyttes til en ny
+  flade.
+- `/hjaelp` ER bag `ProtectedRoute` uden `require` → kræver `isApproved`
+  (`ProtectedRoute.jsx:10`), og `firestore.rules:639` giver `allow read` på
+  games til `isApproved()`. Ingen auth-fælde dér.
