@@ -19,7 +19,7 @@
  * uenigheds-tællingen ville være skæv i ens egen favør.
  */
 import { useMemo, useState } from 'react';
-import { bygIndbyrdes, indbyrdesLinje } from './h2h';
+import { bygIndbyrdes, indbyrdesLinje, udenForLinje } from './h2h';
 import { useSpillerOpdeling } from './useSpillerOpdeling';
 import { visOf } from './teamInfo';
 import { fmtSignedPoints } from '../../../lib/daNum';
@@ -40,8 +40,8 @@ function Valg({ pick, ret }) {
 /**
  * @param {{game:object, rounds:Array, minUid:string, dueUid:string,
  *          dueNavn:string, teams?:object}} props
- *   `rounds` er ALLEREDE gate't til ligaens startrunde af kalderen — gaten hører
- *   ét sted, og det er ikke her.
+ *   `rounds` er ALLEREDE gate't til SPILLETS startrunde af kalderen — gaten
+ *   hører ét sted, og det er ikke her. Spillets, ikke ligaens: se h2h.js.
  */
 export default function Indbyrdes({ game, rounds, minUid, dueUid, dueNavn, teams = null }) {
   const [aaben, setAaben] = useState(false);
@@ -118,12 +118,18 @@ export default function Indbyrdes({ game, rounds, minUid, dueUid, dueNavn, teams
                     <tr key={u.id}>
                       <td>{u.round}</td>
                       <td>{visOf(teams, u.home)}–{visOf(teams, u.away)}</td>
-                      <td style={{ textAlign: 'center' }}><Valg pick={u.minPick} ret={u.minRet} /></td>
-                      <td style={{ textAlign: 'center' }}><Valg pick={u.deresPick} ret={u.deresRet} /></td>
+                      {/* data-side binder kolonnen til PARTEN, ikke til
+                          rækkefølgen. Uden det kunne de to kolonner byttes om,
+                          uden at en test blev rød — og en spiller ville se sit
+                          eget resultat stå som modstanderens. */}
+                      <td data-side="mig" style={{ textAlign: 'center' }}><Valg pick={u.minPick} ret={u.minRet} /></td>
+                      <td data-side="dem" style={{ textAlign: 'center' }}><Valg pick={u.deresPick} ret={u.deresRet} /></td>
                       {/* Begge tal, så forskellen kan ses — ikke kun et delta,
                           der skjuler, hvem der fik hvad. */}
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {fmtSignedPoints(u.minPoint)} / {fmtSignedPoints(u.deresPoint)}
+                        <span data-side="mig">{fmtSignedPoints(u.minPoint)}</span>
+                        {' / '}
+                        <span data-side="dem">{fmtSignedPoints(u.deresPoint)}</span>
                       </td>
                     </tr>
                   ))}
@@ -133,11 +139,12 @@ export default function Indbyrdes({ game, rounds, minUid, dueUid, dueNavn, teams
           )}
 
           {/* Kampe, kun den ene tippede, er ikke et opgør — men de skal ikke
-              forsvinde tavst, ellers ser regnestykket forkert ud. */}
-          {(r.kunMig > 0 || r.kunDem > 0) && (
+              forsvinde tavst, ellers ser regnestykket forkert ud. Sætningen
+              bygges i h2h, så begge sider kan bevises hver for sig: skrevet
+              direkte her gav kunMig=0 en halv sætning uden udsagnsord. */}
+          {udenForLinje(r, dueNavn) && (
             <p style={{ color: 'var(--c-muted)', margin: '0.6rem 0 0', fontSize: '0.85rem' }}>
-              Uden for opgøret: {r.kunMig} kamp{r.kunMig === 1 ? '' : 'e'} tippede kun du,
-              {' '}{r.kunDem} kun {dueNavn}.
+              {udenForLinje(r, dueNavn)}
             </p>
           )}
         </div>

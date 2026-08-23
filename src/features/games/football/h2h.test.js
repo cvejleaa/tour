@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bygIndbyrdes, indbyrdesLinje } from './h2h';
+import { bygIndbyrdes, indbyrdesLinje, udenForLinje } from './h2h';
 
 const kamp = (id, round, result, extra = {}) => ({
   id, round, home: `H${id}`, away: `U${id}`, result, kickoff: 1000 + Number(id), ...extra,
@@ -92,6 +92,21 @@ describe('bygIndbyrdes', () => {
     }
   });
 
+  it('bryder ligestillingen inden for SAMME runde på kickoff', () => {
+    // Uden kickoff-leddet i sorteringen stod de seks kampe i en runde i
+    // vilkårlig rækkefølge. Testen ovenfor bruger tre FORSKELLIGE runder og
+    // udløser derfor aldrig tiebreaken.
+    const rounds = runder(
+      { ...kamp('a', 3, '1'), kickoff: 100 },
+      { ...kamp('b', 3, '1'), kickoff: 300 },
+      { ...kamp('c', 3, '1'), kickoff: 200 },
+    );
+    const bets = { a: { pick: '1' }, b: { pick: '1' }, c: { pick: '1' } };
+    const mod = { a: { pick: '2' }, b: { pick: '2' }, c: { pick: '2' } };
+    const r = bygIndbyrdes({ rounds, mine: bets, deres: mod });
+    expect(r.uenige.map((u) => u.id)).toEqual(['b', 'c', 'a']);
+  });
+
   it('sorterer uenighederne NYESTE først', () => {
     const rounds = runder(kamp('1', 1, '1'), kamp('9', 9, '1'), kamp('5', 5, '1'));
     const r = bygIndbyrdes({
@@ -163,5 +178,40 @@ describe('indbyrdesLinje', () => {
     for (const sag of [{ mig: 5, dem: 3, uenige: new Array(8) }, { mig: 0, dem: 0, uenige: [] }]) {
       expect(indbyrdesLinje(sag, 'Morten')).not.toMatch(/%/);
     }
+  });
+});
+
+describe('udenForLinje', () => {
+  it('skriver en HEL sætning, når kun MODPARTEN har tippet alene', () => {
+    // Fejlen, der blev fundet: den gamle udgave gav "0 kampe tippede kun du,
+    // 2 kun Morten" — anden halvdel manglede sit udsagnsord.
+    const l = udenForLinje({ kunMig: 0, kunDem: 2 }, 'Morten');
+    expect(l).toBe('Uden for opgøret: 2 kampe tippede kun Morten.');
+    expect(l).not.toContain('0 kampe');
+    expect(l).not.toContain('kun du');
+  });
+
+  it('skriver en hel sætning, når kun JEG har tippet alene', () => {
+    expect(udenForLinje({ kunMig: 1, kunDem: 0 }, 'Morten'))
+      .toBe('Uden for opgøret: 1 kamp tippede kun du.');
+  });
+
+  it('nævner begge sider, når de begge har noget', () => {
+    expect(udenForLinje({ kunMig: 2, kunDem: 3 }, 'Morten'))
+      .toBe('Uden for opgøret: 2 kampe tippede kun du, og 3 kampe kun Morten.');
+  });
+
+  it('bøjer ental korrekt på BEGGE sider', () => {
+    const l = udenForLinje({ kunMig: 1, kunDem: 1 }, 'Morten');
+    expect(l).toContain('1 kamp tippede kun du');
+    expect(l).toContain('1 kamp kun Morten');
+    expect(l).not.toContain('kampe');
+  });
+
+  it('siger INTET, når der ikke er noget uden for opgøret', () => {
+    // En linje om nul kampe er støj, ikke information.
+    expect(udenForLinje({ kunMig: 0, kunDem: 0 }, 'Morten')).toBe(null);
+    expect(udenForLinje({}, 'Morten')).toBe(null);
+    expect(udenForLinje()).toBe(null);
   });
 });

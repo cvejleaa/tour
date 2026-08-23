@@ -33,9 +33,12 @@ function pickAf(raekker, matchId) {
  * Byg det indbyrdes opgør.
  *
  * @param {object} o
- * @param {Array<{round:number, matches:Array}>} o.rounds  runder FRA ligaens
+ * @param {Array<{round:number, matches:Array}>} o.rounds  runder fra SPILLETS
  *   startrunde (kalderen har allerede kørt fraStartRunde — gaten hører til ét
- *   sted, og det er ikke her).
+ *   sted, og det er ikke her). Bemærk: spillets, ikke LIGAENS. Ligaens
+ *   startrunde er et andet begreb i samme flade (GameStandings' ligaRanking),
+ *   og opgøret bruger den bevidst ikke — panelet viser spil-skala tal hele
+ *   vejen igennem, også totalen ovenfor.
  * @param {object} o.mine    detalje/opdeling for MIG (matchId → række)
  * @param {object} o.deres   detalje/opdeling for MODPARTEN
  * @returns {{enige:number, uenige:Array, mig:number, dem:number, ingen:number,
@@ -92,7 +95,9 @@ export function bygIndbyrdes({ rounds, mine, deres }) {
     }
   }
 
-  // Nyeste først: det, der lige er sket, er dét, man taler om.
+  // Nyeste først: det, der lige er sket, er dét, man taler om. Kickoff bryder
+  // ligestillingen INDEN FOR en runde — uden det led ville to kampe i samme
+  // runde stå i vilkårlig rækkefølge, og en runde har typisk seks.
   uenige.sort((x, y) => (y.round - x.round) || ((y.kickoff ?? 0) - (x.kickoff ?? 0)));
 
   return {
@@ -107,6 +112,29 @@ export function bygIndbyrdes({ rounds, mine, deres }) {
     // nogen senere vil. enige + uenige.length, udregnet ét sted.
     afgjorteSammen: enige + uenige.length,
   };
+}
+
+/**
+ * Linjen om kampe, kun den ENE af de to tippede. De er ikke et opgør — ingen
+ * valgte imod nogen — men de skal nævnes, ellers ser regnestykket forkert ud.
+ *
+ * HVORFOR DEN ER EN FUNKTION: den blev først skrevet direkte i JSX med ét
+ * ental/flertal-udtryk og et komma imellem. Med kunMig=0 og kunDem=2 gav det
+ * "0 kampe tippede kun du, 2 kun Morten" — anden halvdel manglede sit udsagnsord
+ * og læste som en halv sætning. Fejlen var usynlig, fordi render-testen kun
+ * satte kunMig; den symmetriske gren var aldrig vist. Nu kan begge sider
+ * bevises hver for sig.
+ *
+ * @returns {string|null} null når der ikke er noget at sige.
+ */
+export function udenForLinje({ kunMig = 0, kunDem = 0 } = {}, dueNavn = 'modstanderen') {
+  const kamp = (n) => `${n} kamp${n === 1 ? '' : 'e'}`;
+  if (kunMig > 0 && kunDem > 0) {
+    return `Uden for opgøret: ${kamp(kunMig)} tippede kun du, og ${kamp(kunDem)} kun ${dueNavn}.`;
+  }
+  if (kunMig > 0) return `Uden for opgøret: ${kamp(kunMig)} tippede kun du.`;
+  if (kunDem > 0) return `Uden for opgøret: ${kamp(kunDem)} tippede kun ${dueNavn}.`;
+  return null;
 }
 
 /**

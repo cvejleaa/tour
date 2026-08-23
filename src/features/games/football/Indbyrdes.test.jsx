@@ -168,4 +168,89 @@ describe('Indbyrdes', () => {
     await userEvent.click(screen.getByRole('button', { name: /Jer to imellem/ }));
     expect(container.textContent).not.toMatch(/%/);
   });
+
+  it('viser MIT valg og point i "Dig"-kolonnen og MODPARTENS i den anden', async () => {
+    // Den alvorlige mutation: kolonnerne kunne byttes om, uden at en test blev
+    // rød — og en spiller ville se sit eget resultat stå som modstanderens.
+    // Cellerne bindes derfor til PARTEN, ikke til rækkefølgen.
+    opsaet({
+      mine: { m1: { pick: '1', points: 4.2 } },
+      deres: { m1: { pick: '2', points: -3 } },
+    });
+    const { container } = vis();
+    await userEvent.click(screen.getByRole('button', { name: /Jer to imellem/ }));
+
+    expect(container.querySelector('td[data-side="mig"]').textContent).toBe('1');
+    expect(container.querySelector('td[data-side="dem"]').textContent).toBe('2');
+    expect(container.querySelector('span[data-side="mig"]').textContent).toContain('4,2');
+    expect(container.querySelector('span[data-side="dem"]').textContent).toContain('3');
+    // Og pointene må ikke stå ens: fixturet havde før ingen points, så
+    // kolonnen viste altid "0 / 0" og kunne ikke afsløre en ombytning.
+    expect(container.querySelector('span[data-side="mig"]').textContent)
+      .not.toBe(container.querySelector('span[data-side="dem"]').textContent);
+  });
+
+  it('har kolonnerne i SAMME rækkefølge som overskrifterne', async () => {
+    // data-side binder værdien til parten, men ikke til PLADSEN. Byttes de to
+    // celler om, ville overskriften "Dig" stå over modstanderens tal — og
+    // attributterne ville følge med, så ingen af de øvrige tests så det.
+    opsaet({
+      mine: { m1: { pick: '1', points: 4.2 } },
+      deres: { m1: { pick: '2', points: -3 } },
+    });
+    const { container } = vis();
+    await userEvent.click(screen.getByRole('button', { name: /Jer to imellem/ }));
+
+    const overskrifter = [...container.querySelectorAll('thead th')].map((t) => t.textContent);
+    expect(overskrifter).toEqual(['Runde', 'Kamp', 'Dig', 'Morten', 'Point']);
+
+    const celler = [...container.querySelectorAll('tbody tr td')];
+    expect(celler[2].getAttribute('data-side')).toBe('mig');   // under "Dig"
+    expect(celler[3].getAttribute('data-side')).toBe('dem');   // under "Morten"
+
+    // Og i point-cellen skal MIT tal stå først, som overskriftsrækkefølgen lover.
+    const tal = [...celler[4].querySelectorAll('span')].map((x) => x.getAttribute('data-side'));
+    expect(tal).toEqual(['mig', 'dem']);
+  });
+
+  it('markerer den, der RAMTE — og kun den', async () => {
+    opsaet({
+      mine: { m1: { pick: '1' } },   // m1 endte '1' → jeg ramte
+      deres: { m1: { pick: '2' } },
+    });
+    const { container } = vis();
+    await userEvent.click(screen.getByRole('button', { name: /Jer to imellem/ }));
+    expect(container.querySelector('td[data-side="mig"] .badge').className).toContain('badge--green');
+    expect(container.querySelector('td[data-side="dem"] .badge').className).not.toContain('badge--green');
+  });
+
+  it('skriver en HEL sætning, når kun MODPARTEN har tippet kampe alene', async () => {
+    // Den symmetriske gren, render-testen manglede: før stod der
+    // "0 kampe tippede kun du, 2 kun Morten".
+    opsaet({
+      mine: { m1: { pick: '1' } },
+      deres: { m1: { pick: '2' }, m2: { pick: '1' }, m3: { pick: '1' } },
+    });
+    const { container } = vis();
+    await userEvent.click(screen.getByRole('button', { name: /Jer to imellem/ }));
+    expect(screen.getByText('Uden for opgøret: 2 kampe tippede kun Morten.')).toBeInTheDocument();
+    expect(container.textContent).not.toContain('0 kampe');
+  });
+
+  it('nævner slet ikke "uden for opgøret", når der ikke er noget', async () => {
+    opsaet({
+      mine: { m1: { pick: '1' } },
+      deres: { m1: { pick: '2' } },
+    });
+    const { container } = vis();
+    await userEvent.click(screen.getByRole('button', { name: /Jer to imellem/ }));
+    expect(container.textContent).not.toContain('Uden for opgøret');
+  });
+
+  it('vises ikke, når modparten er ukendt', () => {
+    // dueUid-halvdelen af vagten var udækket: den kunne fjernes med grøn suite.
+    opsaet({ mine: {}, deres: {} });
+    const { container } = vis({ dueUid: null });
+    expect(container).toBeEmptyDOMElement();
+  });
 });

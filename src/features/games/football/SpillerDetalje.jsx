@@ -78,7 +78,7 @@ export default function SpillerDetalje({ game, matches, spiller, minUid = null, 
           {/* Sæsonens opgør mod netop denne spiller. Foldet sammen som
               udgangspunkt: to ekstra dokumentlæsninger skal kun betales af
               den, der faktisk vil se det. Runderne er de SAMME som ovenfor,
-              altså allerede gate't til ligaens startrunde. */}
+              altså allerede gate't til SPILLETS startrunde (ikke ligaens). */}
           <Indbyrdes
             game={game}
             rounds={rounds}
