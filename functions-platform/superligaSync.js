@@ -348,10 +348,15 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   // weekend, en playoff-kamp uden dokument — må ikke kunne holde pulsen
   // falsk-frisk; så slog klientens "forældet"-dæmpning aldrig til på en
   // strandet stilling. resolved indeholder netop kun nøgler med dokument.
-  if (events.some((e) => resolved.get(e.sourceKey) != null)) {
+  const pulsSkrevet = events.some((e) => resolved.get(e.sourceKey) != null);
+  if (pulsSkrevet) {
     await db.collection('games').doc(gameId).set({ liveHeartbeatAt: nowMs }, { merge: true });
   }
-  return { live: events.length, skrevet, sluttet, sluttede };
+  // pulsSkrevet rapporteres OP: udebliver pulsen, mens kampe er i vinduet,
+  // står kortene med "OPDATERING AFBRUDT" — og det er i dag den ENESTE fejl,
+  // ingen kan se bagefter (minut-kortet overskrives af næste grønne kørsel).
+  // Se livetavsAlarm nedenfor.
+  return { live: events.length, skrevet, sluttet, sluttede, pulsSkrevet };
 }
 
 /**
@@ -449,6 +454,39 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
     fejl = `${fejl ? `${fejl}; ` : ''}stilling: ${err?.message || err}`;
   }
   return { pending: venter.length, updated, live, standings, fejl };
+}
+
+// Hvornår er en levende stilling "forældet" for spillerne? SPEJL af klientens
+// LIVE_STALE_MS (src/features/games/football/footballRounds.js) — bundet af en
+// paritetstest. Alarmen må ALDRIG fyre før kortene faktisk er blevet gule:
+// gør den det, lærer ejeren at ignorere den; fyrer den senere, har spillerne
+// stirret på en død stilling, før nogen fik besked.
+const LIVE_STALE_MS = 5 * 60 * 1000;
+
+/**
+ * Skal vi melde "live-pulsen står stille"?
+ *
+ * Ren funktion, fordi den er hele dommen: den afgør, om ejeren vækkes. To ting
+ * skal være sande på én gang —
+ *   1. der ER kampe i vinduet uden facit (ellers er tavshed helt normalt), og
+ *   2. denne kørsel skrev ikke pulsen, OG den sidst skrevne puls er ældre end
+ *      spillernes egen forældet-tærskel.
+ *
+ * Bemærk hvad den IKKE fanger, og hvorfor det er rigtigt: er pulsen frisk på
+ * serveren, men mærkatet gult i en browser, er det browserens forbindelse —
+ * ikke driften. Alarmen skelner altså mellem de to årsager, som ellers ser
+ * ens ud fra en telefon.
+ *
+ * En manglende puls (aldrig skrevet) tælles som forældet: et spil, der har
+ * kampe i vinduet og aldrig har haft en puls, er præcis det tavse tilfælde.
+ *
+ * @param {{pending:number, pulsSkrevet:boolean, pulsAtMs:number|null, nowMs:number}} o
+ */
+function skalMeldeLiveTavs({ pending, pulsSkrevet, pulsAtMs, nowMs }) {
+  if (!(pending > 0)) return false;
+  if (pulsSkrevet) return false;
+  if (!Number.isFinite(pulsAtMs)) return true;
+  return nowMs - pulsAtMs > LIVE_STALE_MS;
 }
 
 /**
@@ -632,6 +670,7 @@ async function runScheduledSyncAll(db, FieldValue, nowMs, opts = {}) {
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
+  skalMeldeLiveTavs, LIVE_STALE_MS,
   liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, runScheduledSyncAll,
   syncKickoffsCore, strandedMatches, allMatches,

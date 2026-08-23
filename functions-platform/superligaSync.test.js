@@ -574,7 +574,9 @@ describe('runScheduledSync', () => {
     });
     const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
     expect(out.updated).toBe(0);
-    expect(out.live).toEqual({ live: 1, skrevet: 1, sluttet: 0, sluttede: [] });
+    // pulsSkrevet skal HELE VEJEN op gennem runScheduledSync — minut-jobbet
+    // læser den for at afgøre, om live-alarmen skal fyre (#47).
+    expect(out.live).toEqual({ live: 1, skrevet: 1, sluttet: 0, sluttede: [], pulsSkrevet: true });
   });
 
   it('bruger den tid, den får ind — ikke uret', async () => {
@@ -871,7 +873,9 @@ describe('syncLiveCore', () => {
     const res = await syncLiveCore(db, FieldValue, {
       fetchFn: fetchLive([hændelse({ home: 1, away: 0 })]), only: [kamp], nowMs: NU,
     });
-    expect(res).toEqual({ live: 1, skrevet: 1, sluttet: 0, sluttede: [] });
+    // pulsSkrevet kom til med live-alarmen (#47) — feltet SKAL med her,
+    // ellers ville en fjernelse af det kunne lande med grøn suite.
+    expect(res).toEqual({ live: 1, skrevet: 1, sluttet: 0, sluttede: [], pulsSkrevet: true });
     expect(db._docs.get('r2-brondbyif-viborgff').live).toEqual({
       home: 1, away: 0, status: 'foerste', statusRaw: '1st half', at: NU,
     });
@@ -965,7 +969,7 @@ describe('syncLiveCore', () => {
     const res = await syncLiveCore(db, FieldValue, {
       fetchFn: fetchLive([færdig]), only: [kamp], nowMs: NU,
     });
-    expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0, sluttede: [] });
+    expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0, sluttede: [], pulsSkrevet: false });
     expect(db._spil.liveHeartbeatAt).toBeUndefined(); // heller ingen puls
   });
 
@@ -1235,7 +1239,7 @@ describe('syncLiveCore', () => {
       ];
       const db = makeDb(only);
       const res = await syncLiveCore(db, FieldValue, { fetchFn: fetchLive([]), only, nowMs: NU });
-      expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0, sluttede: [] });
+      expect(res).toEqual({ live: 0, skrevet: 0, sluttet: 0, sluttede: [], pulsSkrevet: false });
       expect(db._docs.get('r2-silkeborg-horsens').live).toBeUndefined();
       expect(db._docs.get('r2-randers-odense').live).toBeUndefined();
     });
@@ -1406,5 +1410,111 @@ describe('facit rydder den levende stilling', () => {
     const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0 } }]);
     const events = [{ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 2, away: 0 } }];
     expect((await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch(events) })).updated).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// skalMeldeLiveTavs — dommen bag live-alarmen (#47).
+//
+// Baggrund: en kampaften stod kortene med "OPDATERING AFBRUDT" i ~20 minutter,
+// og bagefter kunne INTET efterprøves: minut-kortet overskrives af næste
+// grønne kørsel. Alarmen består, til den kvitteres — og skelner mellem de to
+// årsager, der ser ens ud fra en telefon (server tavs vs. browserens
+// forbindelse), fordi den kun ser på serverens egen puls.
+// ---------------------------------------------------------------------------
+describe('skalMeldeLiveTavs', () => {
+  const { skalMeldeLiveTavs, LIVE_STALE_MS } = require('./superligaSync');
+  const NU = Date.UTC(2026, 7, 23, 15, 0, 0);
+  const basis = { pending: 2, pulsSkrevet: false, pulsAtMs: NU - 20 * 60000, nowMs: NU };
+
+  it('melder, når pulsen har stået stille længere end spillernes tærskel', () => {
+    expect(skalMeldeLiveTavs(basis)).toBe(true);
+  });
+
+  // Tavshed UDEN kampe i vinduet er den normale tilstand 22 timer i døgnet.
+  // Fjernes denne vagt, fyrer alarmen hvert minut hele natten.
+  it('melder ALDRIG, når ingen kampe er i vinduet', () => {
+    expect(skalMeldeLiveTavs({ ...basis, pending: 0 })).toBe(false);
+  });
+
+  it('melder ikke, når pulsen netop blev skrevet', () => {
+    expect(skalMeldeLiveTavs({ ...basis, pulsSkrevet: true })).toBe(false);
+  });
+
+  // BÅNDET SKAL VÆRE RØDT AF DEN GAMLE VÆRDI: tærsklen er 5 min (300000 ms).
+  // 4 min 59 s må IKKE melde — kortene er endnu ikke gule — og 5 min 1 s SKAL.
+  // Sættes tærsklen til fx 10 min, bliver den sidste linje rød.
+  it('følger spillernes forældet-tærskel præcist — 4:59 nej, 5:01 ja', () => {
+    const lige_under = { ...basis, pulsAtMs: NU - (LIVE_STALE_MS - 1000) };
+    const lige_over = { ...basis, pulsAtMs: NU - (LIVE_STALE_MS + 1000) };
+    expect(skalMeldeLiveTavs(lige_under)).toBe(false);
+    expect(skalMeldeLiveTavs(lige_over)).toBe(true);
+  });
+
+  // Et spil med kampe i vinduet, der ALDRIG har haft en puls, er præcis det
+  // tavse tilfælde — ikke et frisk et. Number(undefined) er NaN, ikke 0.
+  it('en puls, der aldrig er skrevet, tæller som forældet', () => {
+    for (const v of [NaN, null, undefined]) {
+      expect(skalMeldeLiveTavs({ ...basis, pulsAtMs: Number(v) }), String(v)).toBe(true);
+    }
+  });
+});
+
+// syncLiveCore SKAL rapportere, om pulsen blev skrevet — alarmen hviler på det.
+// Hardkodes pulsSkrevet til true, kan alarmen aldrig fyre; til false fyrer den
+// hvert minut. Begge retninger er dækket her.
+describe('syncLiveCore rapporterer live-pulsen', () => {
+  const NU = 1_754_150_000_000;
+  const kamp = { id: 'r2-brondbyif-viborgff', data: { round: 2 } };
+  const hændelse = (score, hjemme = 'Brøndby IF') => ({
+    statusType: 'inprogress', round: 2, homeName: hjemme, awayName: 'Viborg FF',
+    score, statusFull: '2nd half',
+  });
+  const fetchLive = (events) => async () => ({ ok: true, status: 200, json: async () => ({ events }) });
+
+  it('pulsSkrevet er SAND, når en kamp i gang rammer et af spillets dokumenter', async () => {
+    const db = makeDb([kamp]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 1, away: 0 })]), only: [kamp], nowMs: NU,
+    });
+    expect(res.pulsSkrevet).toBe(true);
+  });
+
+  // DET TAVSE TILFÆLDE, alarmen findes for: kilden melder en kamp i gang, men
+  // nøglen rammer intet dokument — fx hvis kilden omdøber et hold, for
+  // Superligaens nøgle bygges af runde + HOLDNAVNE (se sl-live-runde5-testen).
+  // Ingen fejl kastes, intet skrives, og kortene dør stille. pulsSkrevet er
+  // det eneste spor.
+  it('pulsSkrevet er FALSK, når kildens kamp ikke kan genfindes — uden at kaste', async () => {
+    const db = makeDb([kamp]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([hændelse({ home: 1, away: 0 }, 'Et Omdøbt Hold')]),
+      only: [kamp], nowMs: NU,
+    });
+    expect(res.pulsSkrevet).toBe(false);
+    expect(res.skrevet).toBe(0);
+  });
+
+  it('pulsSkrevet er FALSK, når ingen kampe er i gang', async () => {
+    const db = makeDb([kamp]);
+    const res = await syncLiveCore(db, FieldValue, {
+      fetchFn: fetchLive([]), only: [kamp], nowMs: NU,
+    });
+    expect(res.pulsSkrevet).toBe(false);
+  });
+});
+
+// SPEJL-PARITET: alarmens tærskel ER spillernes forældet-tærskel. Driver de to
+// fra hinanden, fyrer alarmen enten før kortene bliver gule (og ejeren lærer
+// at ignorere den) eller længe efter (og spillerne har stirret på en død
+// stilling, før nogen fik besked). Mønstret er mailMarkdowns.
+describe('LIVE_STALE_MS er spejlet af klientens', () => {
+  it('server og klient bruger præcis samme tærskel', async () => {
+    const { LIVE_STALE_MS: server } = require('./superligaSync');
+    const { LIVE_STALE_MS: klient } = await import('../src/features/games/football/footballRounds.js');
+    expect(server).toBe(klient);
+    // Og værdien selv, så en samtidig ændring af BEGGE stadig skal besluttes:
+    // 5 minutter = fem mistede minut-kørsler.
+    expect(server).toBe(5 * 60 * 1000);
   });
 });

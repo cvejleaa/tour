@@ -201,6 +201,12 @@ afregner point og kan få Runde-Botten til at poste **med det samme**. Melder
 den "intet manglede", har kilden ikke facit endnu: så er hånd-vejen nedenfor
 svaret.
 
+Står kampkortene med **⏸ OPDATERING AFBRUDT**, mens en kamp kører, er det
+kun den *levende* stilling, der er gået i stå — facit og point kommer stadig.
+Kig på **Admin → 🩺 Driftstatus**: er der en alarm om, at live-pulsen står
+stille, er det serveren, og fejlen står på minut-kortet. Er der ingen alarm,
+er pulsen frisk, og det er din egen forbindelse — genindlæs siden.
+
 Er noget gået galt, kan du sætte facit manuelt; point genberegnes ved hver
 ændring. Bemærk: **fjerner** du et facit igen, nulstilles pointene ikke
 automatisk.

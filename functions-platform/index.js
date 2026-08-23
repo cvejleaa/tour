@@ -29,6 +29,7 @@ const {
 } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore,
+  skalMeldeLiveTavs,
   strandedMatches, allMatches,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
@@ -390,6 +391,43 @@ exports.syncSuperligaResults = onSchedule(
         else st.ok(`${out.pending} kampe i vinduet, ${out.updated} nye facit.`, { pending: out.pending, updated: out.updated });
         await skrivDriftStatus(st, db, { naesteForventetFoerMs: null });
       }
+      // LIVE-PULSEN. Udebliver den, mens kampe er i vinduet, står spillernes
+      // kampkort med "OPDATERING AFBRUDT" — og det var indtil nu den eneste
+      // fejl, ingen kunne se BAGEFTER: minut-kortet overskrives af næste
+      // grønne kørsel, så et 20-minutters udfald midt i en kamp forsvandt
+      // sporløst. Alarmen består, til den kvitteres.
+      //
+      // Læsningen af spil-dokumentet sker KUN i den mistænkelige gren (pulsen
+      // blev ikke skrevet, og der er kampe i vinduet) — et normalt minut
+      // koster derfor ingen ekstra læsning.
+      if (out.pending > 0 && out.live && !out.live.pulsSkrevet) {
+        try {
+          const gSnap = await db.collection('games').doc(out.gameId).get();
+          const pulsAtMs = Number(gSnap.exists ? gSnap.data().liveHeartbeatAt : NaN);
+          if (skalMeldeLiveTavs({
+            pending: out.pending, pulsSkrevet: false, pulsAtMs, nowMs: Date.now(),
+          })) {
+            await meldAlarm(db, FieldValue, {
+              type: 'livetavs', gameId: out.gameId, kampId: null, kraeverKvittering: true,
+              besked: `Live-stillingen opdateres ikke, mens ${out.pending} kamp`
+                + `${out.pending === 1 ? '' : 'e'} er i gang: spillerne ser "OPDATERING AFBRUDT". `
+                + 'Facit og point rammes IKKE — de lander via sweep\'et. '
+                + 'Se fejlteksten på minut-kortet ovenfor, mens det står på. '
+                + '(Er pulsen frisk her, men mærkatet gult i en browser, er det browserens '
+                + 'forbindelse — genindlæs siden.)',
+            });
+          }
+        } catch (e) {
+          console.error(`Live-puls-tjek ${out.gameId} (ignoreret):`, e && e.message);
+        }
+      } else if (out.live && out.live.pulsSkrevet) {
+        // Selvhelbredende: pulsen slår igen, så alarmen lukkes af sig selv —
+        // ellers hober døde røde kort sig op, og ejeren lærer at ignorere dem.
+        await loesDriftAlarmer(db, FieldValue, {
+          type: 'livetavs', gameId: out.gameId, aktuelleKampIds: [],
+        }).catch((e) => console.error(`Kunne ikke lukke livetavs-alarm (ignoreret):`, e && e.message));
+      }
+
       if (out.pending === 0) continue; // stille minut: intet i gang, intet rørt
       console.log(`Synk ${out.gameId}: ${out.pending} kampe uden facit, ${out.updated} nye facit.`
         + (out.live ? ` ${out.live.live} i gang, ${out.live.skrevet} live-opdateringer`

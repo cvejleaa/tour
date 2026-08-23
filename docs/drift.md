@@ -103,7 +103,7 @@ og bliver flyttet hen over sæsonen — typisk 5–6 uger før kampen.
 Alle alarmer i dette afsnit står OGSÅ under **Admin → 🩺 Driftstatus**:
 seneste status pr. kørsel (sweep, kickoff-synk, minut-synk på kampdage) og
 åbne alarmer (strandede kampe, genåbnings-afvisninger, <48t-flytninger,
-manglende kampdokumenter). Alarmer, der ikke kan løse sig selv, kræver en
+manglende kampdokumenter, og **live-pulsen der står stille**). Alarmer, der ikke kan løse sig selv, kræver en
 kvittering i fladen — ⚠-markøren på Admin-knappen står, til de er set.
 Functions-loggen er stadig sandheden for historik; fladen viser NU-billedet.
 En strandet-alarm peger selv på sit remedie: **⬇️ Synk resultater nu** under
@@ -269,6 +269,7 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 | En runde vises halvt | Kan ikke ske længere — gaten tæller hele runder. Sker det, er `m.round` ikke sat på nogle af kampene |
 | Point er forkerte efter en ændring af selve POINTREGLEN | 🔄 **Genberegn point** hjælper IKKE — se afsnittet nedenfor |
 | Ingen påmindelser sendt | Se **Admin → 🩺 Driftstatus** → *Daglig tip-påmindelse · <spil>*: spillet kan være sat **på pause** (⏸ under 🔔 Påmindelser), `SMTP_PASSWORD` kan mangle i `spil-89af9`, eller kampene ligger i en runde før `startRound`. Kortet siger hvilken |
+| Live-stillingen opdateres ikke ("⏸ OPDATERING AFBRUDT" på kampkortene) | Se om der står en **livetavs-alarm** under 🩺 Driftstatus. **Gør der det**, er det serveren: fejlteksten står på minut-kortet, mens det står på. **Gør der det IKKE**, er serverens puls frisk, og det er browserens forbindelse — genindlæs siden. Facit og point rammes ikke; de lander via sweep'et |
 | Runde-Botten poster ikke | `ANTHROPIC_API_KEY` mangler, ligaen har under 2 medlemmer, eller runden er allerede recappet (`game.recappedRounds`) |
 
 ## To slags genberegning — de retter IKKE det samme
