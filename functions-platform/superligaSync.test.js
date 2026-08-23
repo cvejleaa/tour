@@ -579,6 +579,25 @@ describe('runScheduledSync', () => {
     expect(out.live).toEqual({ live: 1, skrevet: 1, sluttet: 0, sluttede: [], pulsSkrevet: true });
   });
 
+  // TM-FUND, det alvorlige: INGEN fixture satte data.live, så
+  // `kampeMedLevendeStilling(venter)` returnerede 0 i hver eneste test —
+  // tælleren kunne hardkodes til 0 med grøn suite, og så ville live-alarmen
+  // være permanent død og tavs. Præcis den fejl, hele #47 handler om.
+  it('bærer liveIGang ud af kampenes EGNE dokumenter — alarmens udløser', async () => {
+    const db = makeDb([
+      // Kamp i gang med skrevet stilling: TÆLLER.
+      { id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang, live: { home: 1, away: 0, status: 'foerste', at: NU - 60000 } } },
+      // Fløjtet af, facit mangler endnu: kortet siger "Slut · afventer facit",
+      // og tavshed er meningen — TÆLLER IKKE.
+      { id: 'r1-agf-bif', data: { round: 1, kickoff: iGang, live: { home: 2, away: 2, status: 'slut', at: NU - 60000 } } },
+      // Kilden har ikke flippet den i gang endnu: intet symptom — TÆLLER IKKE.
+      { id: 'r1-fck-fcm', data: { round: 1, kickoff: iGang } },
+    ]);
+    const out = await runScheduledSync(db, FieldValue, NU, { fetchFn: fakeApi({}).fn });
+    expect(out.pending).toBe(3);
+    expect(out.liveIGang).toBe(1);
+  });
+
   it('bruger den tid, den får ind — ikke uret', async () => {
     const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang } }]);
     const fetchFn = fakeApi({
@@ -1546,6 +1565,18 @@ describe('tjekLivePuls', () => {
     });
     expect(r.meldt).toBe(true);
     expect(meld.kald).toHaveLength(1);
+  });
+
+  // TM-FUND: alle melder-tests brugte en 20 minutter gammel puls, så en
+  // mutation, der altid læste NaN, gav samme udfald. Denne læser en FRISK
+  // puls gennem db-mocken — inverteres snap.exists-ternariet, bliver den rød.
+  it('melder IKKE, når pulsen i basen er frisk — læsningen skal virke', async () => {
+    const meld = meldFake();
+    const r = await tjekLivePuls(dbMedPuls(NU - 60 * 1000), {}, {
+      ud: { gameId: 'sl', liveIGang: 2, live: null }, nowMs: NU, meld,
+    });
+    expect(r.meldt).toBe(false);
+    expect(meld.kald).toHaveLength(0);
   });
 
   it('melder IKKE, når pulsen blev skrevet i denne kørsel', async () => {
