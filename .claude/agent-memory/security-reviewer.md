@@ -844,3 +844,72 @@ transaktion FØR opslagene (claim-then-post).
 ("⬇️ Synk resultater nu (Admin → 🗓️ Spil-tidsplan)") uden nogen test, der
 binder strengen til fladen — et senere knap-omdøb driver tavst. Label
 verificeret korrekt i dag (AdminPage.jsx L72).
+
+## games.paused — påmindelses-nødstoppet (ef3f549) + PL-live-fixturen (d111b89)
+
+**Emulator-verificeret 2026-08-23** (16 tests, 0 fail, PoC:
+scratchpad/poc/paused.mjs — genbrug den, mønstret er rent node uden vitest:
+`initializeTestEnvironment` + eget PASS/FAIL-array, ingen testrunner):
+- `games/{gameId}: allow create, update: if isGlobalAdmin() && gyldigtTeamStyles()`
+  (firestore.rules L666) har INGEN affectedKeys-liste → ETHVERT nyt felt på
+  spil-dokumentet er skrivbart for globalAdmin uden regel-ændring. Det gælder
+  `paused`. Planer, der hviler på "admin må allerede skrive feltet", er
+  korrekte — men de er også blanko-checks til NÆSTE felt.
+- Nægtet for: godkendt spiller (både sætte, fjerne og slette feltet),
+  pending-bruger, uautentificeret, og spiller kan ikke oprette et spil-dok.
+  Spiller kan heller ikke ændre `status` (= kan ikke omgå
+  `forventerPaamindelser`-gaten ved at flytte spillet ind/ud af den).
+- PENDING globalAdmin KAN pause (isGlobalAdmin ser ikke status) — kendt klasse.
+- **MUTATIONSTESTET REGLEN, ikke bare kørt den:** `isGlobalAdmin()` →
+  `isApproved()` i L666 vender præcis de 5 spiller-assertions til rødt og lader
+  alle kontroltests stå grønne. Repoets to nye tests i functions/rules.test.js
+  (L1579-1604) har samme form → de er load-bearing, ikke pynt. Kørt med
+  `npx vitest run --config vitest.rules.config.js -t "påmindelser"` fra
+  repo-roden mod en manuelt startet emulator-jar: 2 passed.
+
+**Afprøvet og RENT (gentag ikke):**
+- driftlog-id'et `reminder-${gameId}` kan ikke forgiftes: gameId ER et
+  Firestore-doc-id (ingen '/'), og prefixet gør `__x__`/`.`/`..` umulige.
+  Kun globalAdmin kan overhovedet skabe et spil-dok.
+- Loop'et i `gameTipReminders` (index.js L1078-1113) kan IKKE dræbes af ét
+  spil: `koerPaamindelserForSpil` fanger sin egen fejl, `skrivDriftStatus` sin,
+  og den "luk kortet"-gren har egen try/catch. Modsat den gamle
+  `naesteSweepFoerMs`-fælde er kadence-beregningen her givet som FUNKTION →
+  evalueres inde i try'et. Mønstret er nu rigtigt; brug det som reference.
+- `runGameTipReminders` returnerer kun TAL (`sent/fejlede/upcoming/members`) —
+  ingen modtager-identiteter. Adresser går kun til console.error (Cloud-log).
+  `sendGameTipRemindersNow` har `requireAdmin` som første linje.
+- `Kørslen fejlede: ${fejl}` (reminders.js L134) kan kun bære Firestore-/
+  nodemailer-fejltekster: alt spiller-skrevet indhold (tips) berøres ikke, og
+  per-modtager-fejl fanges INDE i send-loopet. DriftTab renderer `besked` som
+  JSX-tekst (L52) → React escaper; intet dangerouslySetInnerHTML.
+- `paused` er læsbar for enhver godkendt bruger (`games: allow read:
+  isApproved()`). Vurderet harmløst: den røber kun, at mails er slået fra.
+
+**Observationer (ikke blokerende):**
+- `kanPaamindes`/`paused` gates KUN i klienten. `sendGameTipRemindersNow`
+  tjekker hverken `forventerPaamindelser` eller `paused` server-side — en admin
+  kan mail-spamme et 'finished' spils deltagere med en håndlavet payload.
+  Admin→deltagere, inden for admins autoritet; men det er stadig den eneste
+  vej, hvor fanens gate ikke har en server-pendant.
+- `advarsel(besked)`/`fejl(besked)` i driftlog.js tager IKKE `tal` — så
+  `st[linje.niveau](linje.besked, linje.tal)` taber tallene på præcis de
+  linjer (delvist SMTP-nedbrud), hvor de er mest interessante. Kosmetisk.
+- ADMIN_OWNED-vagten mod at seedGames genstarter en pause er en KOMMENTAR
+  (seed-payload.mjs L19-24). Testen L77 tjekker kun retningen
+  ADMIN_OWNED ⊆ games.mjs — intet bliver rødt, hvis nogen tilføjer `paused`
+  til games.mjs uden at tilføje det til ADMIN_OWNED.
+- Fixturen `functions-platform/fixtures/pl-live-runde1.json` er ren: 10 kampe,
+  7 KB, kun offentlige kampdata. INGEN headere, cookies, tokens, e-mails, IP'er
+  (grep'et for authorization/bearer/cookie/token/secret/@domæne → 0 hits).
+  MEN: kommentaren i syncProviders.js L307-315 påstår "hele sæson-listen
+  indeholdt PRÆCIS FirstHalf/SecondHalf/FullTime/PreMatch"; den committede
+  fixture indeholder kun FullTime/PreMatch/SecondHalf — `firsthalf` er STADIG
+  uobserveret i repoet ("et tal uden kode er en påstand").
+
+**Faldgrube til listen:** *en regel uden affectedKeys-liste gør hvert fremtidigt
+felt admin-skrivbart pr. automatik.* Det er i orden, så længe skribent-kredsen
+er den samme som den, der må trykke på knappen — men når et nyt felt STYRER
+maskineri (mails, point, synlighed), skal spørgsmålet stilles eksplicit:
+hvem må egentlig trykke på DENNE knap, og er det den samme kreds som
+`isGlobalAdmin()`? Her: ja.

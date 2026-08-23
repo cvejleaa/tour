@@ -1027,3 +1027,59 @@ Begge blokerende plan-fund er rettet og efterprøvet, ikke kun læst:
   identiske (samme to spil). Spørg igen, hvis en tredje provider nogensinde
   seedes uden fuld resultat-synk-implementering: sweep-kortet ville da vises
   for et spil, der reelt ikke sweepes for resultater.
+
+## Drift for påmindelser + pause-nødstop (ef3f549, #47 PR2): implementering mod planens 6 krav + spilfører-tærskel — konkrete fund
+
+Alle 6 nummererede krav fra plan-gennemgangen holder, efterprøvet i koden, ikke
+kun læst: (1) `paamindelsesGate.js`/`spilEvner.forventerPaamindelser` er et
+ægte spejlet par med matrix-paritetstest (`paamindelsesGate.test.js`, alle
+kombinationer + `paused` bekræftet IKKE en del af gaten); GameReminderTab
+deaktiverer kun knapperne (`disabled={... || !kanPaamindes}`), Tip-status og
+Pulje-status forbliver aktive. (2) `GameScheduleTab.jsx`s "I gang"-hjælpetekst
+nævner nu pausen. (3) `GameReminderTab`s 09.00-tekst er et `paused ? … : …`
+skifte, ordret testet på INDHOLD i `reminders.test.js`
+(`not.toContain('Sendte')` osv.). (4)+(5) `paamindelsesLinje()` (ren funktion,
+`reminders.js`) returnerer `fejlede` og har EGEN ordlyd for "sent:0 = alle har
+tippet" vs. "delvist/totalt nedbrud" — begge grene mutationssikret med
+eksplicitte `not.toContain`-assertions. (6) `paused` er disponeret i
+`seed-payload.mjs`s kommentar mod `ADMIN_OWNED` (feltet er bevidst IKKE i
+`games.mjs`, så ingen konflikt i dag). Spilførerens tærskel (rødt kort ved
+pause + kampe inden for de næste 24 timer) bruger SAMME `upcomingMatches`
++ `DAY_MS`-vindue som selve påmindelses-jobbet — ikke en ny, uafhængig
+tærskel — og server-håndhævelsen af `paused`-skrivning er den EKSISTERENDE
+`allow create, update: if isGlobalAdmin()` på `games/{gameId}` (ingen
+rules-ændring nødvendig), nu eksplicit testet i `functions/rules.test.js`
+("global admin KAN sætte paused" / "spiller kan IKKE").
+
+- **En ny admin-kontrol kan lande med server- og gate-tests i topklasse, men
+  NUL UI-tests.** `GameReminderTab.test.jsx` er UÆNDRET (stadig 4 tests,
+  ingen af dem rører `paused`, pause-knappen, badge'en, den betingede
+  hjælpetekst eller den disablede knap-tilstand). Al den nye 78-linjers UI
+  (`kanPaamindes`/`paused`-betinget rendering) er læst og bekræftet KORREKT
+  ved manuel kodelæsning, men intet automatisk tjek ville fange et ombyttet
+  `!kanPaamindes` → `kanPaamindes`, en forkert prop, eller at hjælpeteksten
+  aldrig skifter. Spørg specifikt om dette FILNAVN, når Test Manager
+  mutationstester — server-siden (reminders.js/paamindelsesGate.js) er solidt
+  dækket; klient-komponentens WIRING er det ikke.
+- **`doc.tal` går tabt for 'advarsel'/'fejl'-niveauer.** `driftlog.js`s
+  `statusSamler().advarsel(besked)`/`.fejl(besked)` tager kun ÉT argument —
+  `index.js`s `st[linje.niveau](linje.besked, linje.tal)` sender `tal` med,
+  men det bliver stille droppet, når niveauet er advarsel/fejl (kun `.ok()`
+  merger `tal` ind i `s.tal`). Harmløst i dag: `DriftTab.jsx` læser aldrig
+  `doc.tal` — alle tal står allerede inline i `besked`-strengen. Værd at rette
+  for konsistens, hvis `tal` nogensinde bruges strukturelt (fx et fremtidigt
+  tal-baseret filter/sortering på Driftstatus-fanen).
+- **Dokumentations-drift, konkret og i den PRÆCISE scenarie funktionen findes
+  for.** `docs/admin-guide.md`s status-tabel (linje ~67, "I gang | ... Påmindelser
+  sendes.") blev IKKE opdateret, selvom kode-pendanten
+  (`GameScheduleTab.jsx` STATUS_HELP) fik pausens forbehold tilføjet i samme
+  commit — direkte spejlet-fil-brud. Hele "Påmindelser (platformen)"-afsnittet
+  (linje 111-127) nævner slet ikke den nye ⏸/▶-knap. Og `docs/drift.md`s
+  fejlfindingstabel "Hvis noget ser tomt ud" (linje 264, "Ingen påmindelser
+  sendt | Kampene ligger i en runde før startRound, eller SMTP_PASSWORD
+  mangler") nævner ikke `paused` som årsag — den manglende linje er netop i
+  den tabel, en admin ville slå op i, når en glemt pause er PRÆCIS problemet,
+  hele PR'en blev bygget for at gøre synligt. Ikke blokerende for landing
+  (ren dokumentation, ingen kodeafhængighed), men bør rettes i samme PR eller
+  en hurtig opfølger — spørg specifikt efter disse tre steder ved en
+  eventuel opfølgende dokumentations-commit.

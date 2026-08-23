@@ -76,4 +76,18 @@ describe('ADMIN_OWNED', () => {
     const kendte = new Set(GAMES.flatMap((g) => Object.keys(g)));
     for (const f of ADMIN_OWNED) expect(kendte.has(f), f).toBe(true);
   });
+
+  // TRIPWIRE DEN ANDEN VEJ (Security-fund): testen ovenfor er ADMIN_OWNED ⊆
+  // games.mjs. Den fanger derfor IKKE et admin-ejet felt, der sniger sig ind i
+  // games.mjs uden beskyttelse. `paused` (påmindelses-nødstoppet) er sat fra
+  // fladen og står med vilje ikke i listen — kommer det ind uden samtidig at
+  // stå i ADMIN_OWNED, ville en seed-kørsel tavst genstarte de påmindelser,
+  // ejeren har standset. Den slags skal være rød, ikke en kommentar.
+  it('et admin-sat felt i spil-listen SKAL være beskyttet', () => {
+    const adminSatte = ['paused'];
+    const iListen = new Set(GAMES.flatMap((g) => Object.keys(g)));
+    for (const f of adminSatte) {
+      if (iListen.has(f)) expect(ADMIN_OWNED, `${f} seedes uden beskyttelse`).toContain(f);
+    }
+  });
 });

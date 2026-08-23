@@ -887,6 +887,14 @@ exports.sendGameTipRemindersNow = onCall(
     await requireAdmin(db, request);
     const gameId = String(request.data?.gameId || '').trim();
     if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    // SAMME gate som fanen og det daglige job — serveren er eneste autoritet.
+    // Uden den kunne en håndlavet payload sende påmindelser for et afsluttet
+    // spil, som fladen har slået knapperne fra for (Security-fund).
+    const gSnap = await db.collection('games').doc(gameId).get();
+    if (!forventerPaamindelser(gSnap.exists ? gSnap.data() : null)) {
+      throw new HttpsError('failed-precondition',
+        'Spillet får ikke påmindelser (kræver et fodbold-spil med status Åbent eller I gang).');
+    }
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
     const result = await runGameTipReminders(db, transporter, gameId);

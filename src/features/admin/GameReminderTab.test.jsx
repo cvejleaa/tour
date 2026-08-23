@@ -9,8 +9,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 vi.mock('../../firebase', () => ({ db: {}, functions: {} }));
 
 const mockTipStatus = vi.fn();
+const mockSendNow = vi.fn();
 vi.mock('./adminActions', () => ({
-  callSendGameTipRemindersNow: vi.fn(),
+  callSendGameTipRemindersNow: (...a) => mockSendNow(...a),
   callSendGameTestReminderToMe: vi.fn(),
   callGamePuljeStatus: vi.fn(),
   callGameTipStatus: (...a) => mockTipStatus(...a),
@@ -26,12 +27,21 @@ vi.mock('firebase/firestore', () => ({
   getDocs: (...a) => mockGetDocs(...a),
 }));
 
+const mockSpil = vi.fn();
 vi.mock('../games/useGames', () => ({
-  useGames: () => ({
-    games: [{ id: 'sl', name: 'Superligaen', type: 'football', status: 'open' }],
-    myGameIds: [], loading: false,
-  }),
+  useGames: () => mockSpil(),
 }));
+
+const mockSetPaused = vi.fn();
+vi.mock('../games/gameActions', () => ({
+  setGamePaused: (...a) => mockSetPaused(...a),
+}));
+
+const SL = { id: 'sl', name: 'Superligaen', type: 'football', status: 'open' };
+/** useGames-svar med ét spil — pr. test, så pause/status kan varieres. */
+function spil(extra = {}) {
+  return { games: [{ ...SL, ...extra }], myGameIds: [], loading: false };
+}
 
 import GameReminderTab from './GameReminderTab';
 
@@ -43,6 +53,8 @@ const kampDocs = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockSpil.mockReturnValue(spil());
+  mockSetPaused.mockResolvedValue({ ok: true });
   mockGetDocs.mockResolvedValue({ docs: kampDocs });
   mockTipStatus.mockResolvedValue({
     ok: true,
@@ -111,5 +123,131 @@ describe('GameReminderTab — Hvem mangler at tippe?', () => {
     fireEvent.change(screen.getByLabelText('Runde'), { target: { value: '3' } });
     await waitFor(() => expect(mockTipStatus).toHaveBeenCalledWith('sl', 3));
     expect(mockGetDocs).toHaveBeenCalledTimes(1); // stadig kun én kamplæsning
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pause-nødstoppet (#47). Kontakten er den ENESTE måde at standse det daglige
+// 09-job for ét spil — og en glemt pause koster deltagerne en deadline. Derfor
+// skal både etiketten, badget, hjælpeteksten OG afgrænsningen bevises: teksten
+// må ikke påstå, at synk eller Runde-Botten også stopper.
+// ---------------------------------------------------------------------------
+describe('pause-nødstop', () => {
+  const pauseKnap = () => screen.getByRole('button', { name: /pause|Genoptag/i });
+
+  it('viser "Kører" og tilbyder at sætte på pause, når spillet ikke er pauset', () => {
+    render(<GameReminderTab />);
+    expect(screen.getByText('● Kører')).toBeInTheDocument();
+    expect(pauseKnap()).toHaveTextContent('Sæt påmindelser på pause');
+  });
+
+  it('viser "På pause" og tilbyder at genoptage, når spillet ER pauset', () => {
+    mockSpil.mockReturnValue(spil({ paused: true }));
+    render(<GameReminderTab />);
+    expect(screen.getByText('● På pause')).toBeInTheDocument();
+    expect(pauseKnap()).toHaveTextContent('Genoptag påmindelser');
+  });
+
+  // Vender man argumentet (!paused → paused), tænder klikket den pause, det
+  // skulle slukke — og omvendt. Begge retninger skal derfor bevises.
+  it('skriver den MODSATTE tilstand — begge veje', async () => {
+    const { unmount } = render(<GameReminderTab />);
+    fireEvent.click(pauseKnap());
+    await waitFor(() => expect(mockSetPaused).toHaveBeenCalledWith('sl', true));
+    unmount();
+
+    mockSetPaused.mockClear();
+    mockSpil.mockReturnValue(spil({ paused: true }));
+    render(<GameReminderTab />);
+    fireEvent.click(pauseKnap());
+    await waitFor(() => expect(mockSetPaused).toHaveBeenCalledWith('sl', false));
+  });
+
+  it('viser serverens fejl, hvis pausen ikke kunne skrives', async () => {
+    mockSetPaused.mockResolvedValue({ ok: false, error: 'Du har ikke adgang.' });
+    render(<GameReminderTab />);
+    fireEvent.click(pauseKnap());
+    await waitFor(() => expect(screen.getByText(/ikke adgang/)).toBeInTheDocument());
+  });
+
+  // INDHOLDET, ikke kun at der står noget: 09.00-løftet og "På pause" må aldrig
+  // stå som to nabosætninger, der modsiger hinanden — og teksten må ikke love
+  // mere, end pausen gør (synk og Runde-Botten kører videre).
+  it('hjælpeteksten skifter med tilstanden og lover ikke for meget', () => {
+    const { unmount } = render(<GameReminderTab />);
+    expect(screen.getByText(/får automatisk en mail/)).toBeInTheDocument();
+    unmount();
+
+    mockSpil.mockReturnValue(spil({ paused: true }));
+    render(<GameReminderTab />);
+    // Teksten er brudt op af <strong>, så assertionen skal stå på HELE
+    // afsnittet — ellers måler den kun det fremhævede stykke.
+    const afsnit = screen.getByText(/sat på pause for dette spil/).closest('p');
+    expect(afsnit.textContent).toMatch(/resultat-synk, pointafregning og Runde-Botten kører videre/);
+    expect(afsnit.textContent).toMatch(/nødstop/);
+    expect(afsnit.textContent).toMatch(/Send nu.*virker stadig manuelt/);
+    // Det gamle, ubetingede 09.00-løfte må IKKE stå samtidig.
+    expect(screen.queryByText(/får automatisk en mail/)).toBeNull();
+  });
+
+  // Pausen standser AUTOMATIKKEN — ikke den manuelle udvej. Teksten lover det,
+  // så knappen skal stadig kunne trykkes.
+  it('Send nu virker stadig under pause — det er udvejen, teksten lover', () => {
+    mockSpil.mockReturnValue(spil({ paused: true }));
+    render(<GameReminderTab />);
+    expect(screen.getByRole('button', { name: /Send påmindelser nu/ })).toBeEnabled();
+  });
+});
+
+describe('gate mod det daglige job', () => {
+  // Et spil uden for jobbets gate må ikke have aktive påmindelses-knapper —
+  // ellers lover fanen en udsendelse, automatikken aldrig ville lave. Men
+  // tip-status og pulje-status er IKKE påmindelser og skal blive (QC-krav).
+  it('slår påmindelses-knapperne fra for et spil uden status — men ikke tip-/pulje-status', () => {
+    mockSpil.mockReturnValue({
+      games: [{ id: 'sl', name: 'Superligaen', type: 'football' }], myGameIds: [], loading: false,
+    });
+    render(<GameReminderTab />);
+    expect(screen.getByRole('button', { name: /Send påmindelser nu/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Send testmail/ })).toBeDisabled();
+    expect(screen.getByTestId('tipstatus-tjek')).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Tjek pulje-status/ })).toBeEnabled();
+    expect(screen.getByText(/uden for det daglige jobs gate/)).toBeInTheDocument();
+    // Pause-kontakten hører til jobbet — den skal heller ikke stå der.
+    expect(screen.queryByRole('button', { name: /pause|Genoptag/i })).toBeNull();
+  });
+
+  it('lader påmindelses-knapperne stå for et spil i gang', () => {
+    mockSpil.mockReturnValue(spil({ status: 'live' }));
+    render(<GameReminderTab />);
+    expect(screen.getByRole('button', { name: /Send påmindelser nu/ })).toBeEnabled();
+    expect(screen.queryByText(/uden for det daglige jobs gate/)).toBeNull();
+  });
+});
+
+// Send nu-knappens egen rapport. Rettede vi kun automatikkens driftkort, ville
+// knappen stadig sige grønt "Sendte 0" på et totalt SMTP-nedbrud — en halv
+// rettelse (QC-fund). De to udfald må ikke dele ordlyd.
+describe('Send påmindelser nu — rapporten', () => {
+  const sendNu = () => screen.getByRole('button', { name: /Send påmindelser nu/ });
+
+  it('melder FEJL, når afsendelser er slået fejl — ikke "Sendte 0"', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSendNow.mockResolvedValue({ ok: true, data: { sent: 0, fejlede: 5, upcoming: 3, members: 12 } });
+    render(<GameReminderTab />);
+    fireEvent.click(sendNu());
+    await waitFor(() => expect(screen.getByText(/5 af 5 påmindelser kunne ikke sendes/)).toBeInTheDocument());
+    expect(screen.queryByText(/^Sendte 0/)).toBeNull();
+    window.confirm.mockRestore();
+  });
+
+  it('melder antal sendt, når det lykkedes', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSendNow.mockResolvedValue({ ok: true, data: { sent: 4, fejlede: 0, upcoming: 3, members: 12 } });
+    render(<GameReminderTab />);
+    fireEvent.click(sendNu());
+    await waitFor(() => expect(screen.getByText(/Sendte 4 påmindelser/)).toBeInTheDocument());
+    expect(screen.queryByText(/kunne ikke sendes/)).toBeNull();
+    window.confirm.mockRestore();
   });
 });

@@ -55,13 +55,18 @@ function statusSamler({ type, gameId = null, gameNavn = null }) {
       if (besked) s.linjer.push(besked);
       Object.assign(s.tal, tal || {});
     },
-    advarsel(besked) {
+    // advarsel/fejl tager OGSÅ tal: en linje om delvist nedbrud bærer
+    // {sent, fejlede, …}, og netop dér er tallene mest værd. Uden dette
+    // argument tabtes de tavst for alt andet end 'ok' (Security-fund).
+    advarsel(besked, tal) {
       s.niveau = vaerste(s.niveau, 'advarsel');
       s.linjer.push(`⚠ ${besked}`);
+      Object.assign(s.tal, tal || {});
     },
-    fejl(besked) {
+    fejl(besked, tal) {
       s.niveau = vaerste(s.niveau, 'fejl');
       s.linjer.push(`✖ ${besked}`);
+      Object.assign(s.tal, tal || {});
     },
     /**
      * Skriv status-dokumentet. `kilde: 'manuel'` (callables) rører IKKE

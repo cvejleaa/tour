@@ -184,13 +184,14 @@ den kan heller ikke oprette en kamp, der ikke er seedet endnu.
 
 Begge ligaer leverer nu live: minut-synken skriver stilling + halvleg til
 kampens `live`-felt på kampdage, og facit rydder det. For **Premier League**
-er `period` nu efterprøvet mod en ægte live-capture (runde 1, 23/8-2026, to
-kampe i gang): hele sæson-listen bar præcis `PreMatch`, `FirstHalf`,
-`SecondHalf` og `FullTime` — **ingen ukendte tokens**. Capturen ligger som
+er `period` nu delvist efterprøvet mod en ægte live-capture (runde 1,
+23/8-2026, to kampe i gang): på **kamp-niveau** sås `PreMatch`, `SecondHalf`
+og `FullTime` — og **ingen ukendte tokens**. Capturen ligger som
 `functions-platform/fixtures/pl-live-runde1.json` og er bundet af en test, så
-tolkningen ikke kan skride ubemærket. De øvrige tokens i `PL_PERIOD_STATUS`
-(`halftime`, `extratime`, `shootout`, `abandoned` …) er stadig uobserverede
-naboer. Et token, vi ikke kender, fejler SIKKERT: kampen vises som blot
+tolkningen ikke kan skride ubemærket. `FirstHalf` er derimod **stadig kun set
+på hændelses-niveau** (begge kampe var forbi pausen, da capturen blev taget) —
+en capture fra en kamps første halvleg ville lukke det punkt. `halftime`,
+`extratime`, `shootout`, `abandoned` m.fl. er uobserverede naboer. Et token, vi ikke kender, fejler SIKKERT: kampen vises som blot
 "DIREKTE", regnes stadig som i gang (aldrig et falsk "Slut"), og der logges
 `pulselive: ukendt live-period` — dukker det op i loggen, tilføjes ordet i
 `PL_PERIOD_STATUS` (`functions-platform/syncProviders.js`).
@@ -261,7 +262,7 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 | Point mangler for tidlige runder | Samme gate. Efter et skift i `startRound`: tryk 🔄 **Genberegn point** |
 | En runde vises halvt | Kan ikke ske længere — gaten tæller hele runder. Sker det, er `m.round` ikke sat på nogle af kampene |
 | Point er forkerte efter en ændring af selve POINTREGLEN | 🔄 **Genberegn point** hjælper IKKE — se afsnittet nedenfor |
-| Ingen påmindelser sendt | Kampene ligger i en runde før `startRound`, eller `SMTP_PASSWORD` mangler i `spil-89af9` |
+| Ingen påmindelser sendt | Se **Admin → 🩺 Driftstatus** → *Daglig tip-påmindelse · <spil>*: spillet kan være sat **på pause** (⏸ under 🔔 Påmindelser), `SMTP_PASSWORD` kan mangle i `spil-89af9`, eller kampene ligger i en runde før `startRound`. Kortet siger hvilken |
 | Runde-Botten poster ikke | `ANTHROPIC_API_KEY` mangler, ligaen har under 2 medlemmer, eller runden er allerede recappet (`game.recappedRounds`) |
 
 ## To slags genberegning — de retter IKKE det samme

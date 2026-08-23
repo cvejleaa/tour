@@ -64,7 +64,7 @@ Liga-admin følger med at have oprettet ligaen.
   | Status | Betyder |
   |---|---|
   | **Åben** | Kan tilmeldes. Spillerne kan også forlade spillet igen — og et forladt spil tager point og liga-medlemskab med sig. |
-  | **I gang** | Forlad-knappen er væk. Påmindelser sendes. |
+  | **I gang** | Forlad-knappen er væk. Påmindelser sendes — medmindre de er sat på pause under 🔔 Påmindelser. |
   | **Afsluttet** | Ude af "Åbne spil — deltag" og af 🔔 Påmindelser-fanen, og det daglige påmindelses-job springer spillet over. Stilling og historik kan stadig ses, og du kan stadig rette facit og genberegne. |
 
   Et **eksternt** spil (fx Touren, der kører i sin egen app) bliver stående på
@@ -111,7 +111,18 @@ Liga-admin følger med at have oprettet ligaen.
 ## Påmindelser (platformen)
 
 - **🔔 Send påmindelser nu** mailer de spillere, der mangler at tippe på kampe
-  i det næste døgn. Kampe før spillets start tælles ikke med.
+  i det næste døgn. Kampe før spillets start tælles ikke med. Sender du, mens
+  SMTP er nede, får du besked om **hvor mange** der slog fejl — ikke et grønt
+  "Sendte 0".
+- **⏸ Sæt påmindelser på pause** er et **nødstop pr. spil**: den standser KUN
+  det daglige 09.00-job for netop dét spil. Resultat-synk, pointafregning og
+  Runde-Botten kører videre, og *Send påmindelser nu* virker stadig i hånden.
+  Brug den ved fx en dobbeltsending eller et testspil — ikke som sæsonværktøj:
+  spillerne får ingen besked om, at mailen udebliver, så en glemt pause koster
+  dem en deadline. Derfor står pausen på **Admin → 🩺 Driftstatus**, og kortet
+  bliver **rødt**, hvis der er kampe inden for det næste døgn, mens pausen er
+  slået til. Knapperne er slået fra for spil, jobbet alligevel springer over
+  (kræver status Åbent eller I gang).
 - **Liga-spørgsmålene** har deres egen svar-status: knappen **🔎 Hvem mangler
   at svare?** bor på ligaens kort under spillets 👥 Ligaer-fane (alle
   medlemmer kan se den — ikke kun her i admin), for spørgsmålene ejes af
