@@ -822,3 +822,105 @@ Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
   en modsigelse. Ingen blokerende dokumentationsfejl.
 - Lint, build og relevante tests (`kickoffSync.test.js`, `DriftTab.test.jsx`,
   `GameScheduleTab.test.jsx`, 62 tests) grønne ved egen gennemkørsel.
+
+## Hjælpesiden (#43): når en hardkodet liste afledes af levende data
+
+- **`splitGames` er IKKE "alle spil" — den er "de spil, DENNE bruger ser".**
+  `src/features/games/useGames.js:35-40`. Et spil, der hverken er mit, joinable
+  eller eksternt, falder ud af ALLE TRE lister. Konkret i dag: `vm2026`
+  (`status:'finished'`, `joinable:false`, INGEN `externalUrl`) og VM-spildata
+  blev aldrig migreret (`docs/platform-status.md:56` er uafkrydset) → ingen har
+  et players-doc → VM er usynlig for ALLE. Afleder man hjælpesiden af
+  `[...mine, ...open, ...external]`, forsvinder "VM 2026" og linket til
+  vm.vejleaa.dk helt. Spørg altid ved en afledning: hvilke rækker i kilden
+  falder ud af filteret — og var de synlige før?
+- **Kur, hvis et afsluttet spil skal blive ved med at kunne slås op:** giv det
+  `externalUrl` i `scripts/games.mjs`. `splitGames`' egen kommentar siger, at
+  eksterne spil vises "uanset medlemskab OG uanset status" netop derfor.
+  `externalUrl` er ikke i `ADMIN_OWNED` (`scripts/seed-payload.mjs:20`), så en
+  seed-kørsel må skrive det — men seedGames mod produktion kræver tørkørsel og
+  et ja fra ejeren.
+- **`joinable` afgør, om et spil overhovedet kan nævnes for en ikke-deltager.**
+  `pl2627-efteraar` seedes bevidst med `joinable:false` ("oprettes skjult").
+  En afledt liste nævner derfor kun PL, hvis admin har slået `joinable` til i
+  produktion. Et plan-løfte om "nu nævnes PL" skal verificeres mod prod-feltet,
+  ikke mod `games.mjs`.
+- **"Fuld guide inde i spillet under ❓ Guide" er et løfte, en ikke-deltager
+  ikke kan indfri.** `src/pages/GamePage.jsx:107` — er man ikke medlem, vises
+  KUN et Deltag-kort; ingen faner. Og Guide-fanen er `football:true`
+  (`GamePage.jsx:51`), så den findes slet ikke for et cykel-spil. Sætningen
+  står i dag i Superliga-blurben på hjælpesiden — altså præcis på det spil, man
+  typisk IKKE er med i.
+- **Evne-tekst skal gates på evnen, også i en blurb.** `FootballHelp.jsx:356`
+  er facit-mønstret: pulje-afsnittet renderes kun `if (pulje)` og henter ALLE
+  ord fra `game.pulje.labels` (`overskrift`/`top`/`ned`/`facit`). En håndskrevet
+  hjælpe-blurb, der lover "pulje-tip" eller "tabel", er et nyt spejl af
+  `game.pulje` / `game.standings` — de to felter, `GamePage.jsx:44` og `:49`
+  gater fanerne på. Genbrug labels frem for at skrive tallene af.
+- **`useGames()` giver ingen fejl ud.** Fejler games-lytteren, sættes
+  `games = []` og `loading = false` — ingen fejlbesked. En sektion, der
+  renderer listen råt, bliver en tavs tom overskrift. Kræv altid en
+  tom-tilstands-sætning + en loading-tilstand, når useGames flyttes til en ny
+  flade.
+- `/hjaelp` ER bag `ProtectedRoute` uden `require` → kræver `isApproved`
+  (`ProtectedRoute.jsx:10`), og `firestore.rules:639` giver `allow read` på
+  games til `isApproved()`. Ingen auth-fælde dér.
+
+## Hjælpesiden (6341f42): implementering mod planens 5 punkter — ét bekræftet, blokerende fund
+
+Fire af fem punkter landede korrekt (VM-`externalUrl`; medlemskabs-hale;
+loading/tom-tilstand; intro-sætning). Ét blev IKKE fulgt:
+
+- **`HelpPage.jsx`s `SpilleneLigeNu` læser `g.pulje?.labels` RÅT — i stedet
+  for at genbruge `puljeKonfig(game)` (`src/lib/superligaScoring.js:524`),
+  det NETOP DEN FUNKTION planen selv pegede på ("FootballHelp-mønstret").**
+  `puljeKonfig` giver default-labels (`top: 'mesterskabsspillet'`,
+  `ned: 'nedrykningsspillet'`, osv.), når `game.pulje.labels` mangler —
+  `FootballHelp.jsx:356-365` bruger den, og derfor virker SL's pulje-afsnit
+  DÉR. Men Superligaens rigtige `pulje`-felt i `scripts/games.mjs` er kun
+  `{ poolSize: 6 }` — INGEN `labels`-nøgle (bekræftet ved at køre
+  `import('./scripts/games.mjs')` direkte). `SpilleneLigeNu`s betingelse
+  `labels?.top` er derfor `undefined` for Superligaen, og HELE
+  "Dertil et pulje-tip: …"-linjen forsvinder — bekræftet med en render af
+  `HelpPage` mod de ÆGTE `GAMES` (ikke test-fixturen): `screen.queryByText(/Dertil et pulje-tip/)`
+  er `null` for Superligaen. Den statiske `BLURBS.superliga2627`-tekst nævner
+  heller ikke puljen/mesterskabsspillet i ord — så resultatet er, at
+  Superligaens pulje-tip (som hjælpesiden FØR commit'en eksplicit nævnte:
+  "et pulje-tip om, hvem der når mesterskabsspillet") er helt væk fra
+  platform-hjælpesiden. Commit-beskeden hævder det modsatte ("PL's juletabel
+  OG SL's mesterskabsspil får hver deres ord uden håndskrift") — påstanden er
+  faktuelt forkert for SL.
+- **Testen der skulle fange det, bekræftede sig selv.** `SL`-fixturen i
+  `HelpPagePlatform.test.jsx` er HÅNDSKREVET med en opfundet
+  `pulje.labels: { top: 'mesterskabsspillet' }` — et felt, Superligaens
+  RIGTIGE `games.mjs`-post ikke har. Testen beviser derfor, at koden virker
+  for data, der ikke findes i produktion, og er blind for netop den kilde,
+  den påstår at teste imod (CLAUDE.md: "antag, at dine egne tests bekræfter
+  sig selv"). Retten er at importere `GAMES` fra `scripts/games.mjs` direkte
+  i mindst ét testtilfælde (som `FootballHelp.jsx`s paritetsmønster gør), ikke
+  en frithændig fixture, når nøjagtig DEN post allerede findes i repoet.
+- **Rettelsen er lille og lokal:** importér `puljeKonfig` fra
+  `src/lib/superligaScoring.js` i `HelpPage.jsx`, kald
+  `puljeKonfig(g)` i stedet for at læse `g.pulje?.labels`/`g.pulje.poolSize`/
+  `g.pulje.nedSize` direkte, og brug de garanterede default-labels. PL, der
+  allerede har eksplicitte labels, er upåvirket (samme output).
+- **Pulje-sætningens ordlyd med PL's rigtige labels er læsbar, men
+  redundant:** "Dertil et pulje-tip: de 4 hold i **top 4 juleaften** — og de 3
+  i **nedrykningszonen juleaften**." — tallet ("4"/"3") gentages unødigt lige
+  før label-teksten, der selv indeholder tallet ("top 4"). Ikke volapyk, men
+  værd at stramme ("hvem der ligger i **top 4 juleaften**" uden det
+  indledende talgentag), hvis teksten røres igen.
+- **Intro-sætningen "Dine spil — og dem, du kan tilmelde dig" dækker ikke helt
+  det, der faktisk vises:** listen inkluderer altid `external`-spil (VM, Tour)
+  UANSET medlemskab og UANSET `joinable` (begge har `joinable:false`) — de er
+  hverken "dine" eller "noget du kan tilmelde dig". Ikke en modsigelse af
+  nabo-sektionen "Én bruger, flere spil" (den taler kun om `/spil`, ikke om
+  denne liste), og ikke blokerende — men sætningen underdriver en tredje
+  kategori (spil, der kun kan slås op via link).
+- Fire eksplicit efterprøvede, ikke fundet nogen fejl: VM-`externalUrl`
+  (bekræftet i `scripts/games.mjs`), medlemskabs-hale (Guide kun for
+  `myGameIds.has(g.id)`, ellers Deltag), BLURBS-tekstens fire løfter
+  (kupon/Chancen/Elo/mini-ligaer) — alle fire er UNGATEDE generiske
+  fodbold-features (`FootballTip.jsx`, `EloTable.jsx`, `GAME_TABS`), så SL og
+  PL kan begge holde løftet, og loading/tom-tilstand (begge grene testet og
+  bekræftet ved manuel render).

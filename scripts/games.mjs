@@ -45,6 +45,11 @@ export const GAMES = [
     id: 'vm2026',
     name: 'VM 2026', shortName: 'VM', emoji: '⚽',
     type: 'football', status: 'finished', joinable: false,
+    // Kørte i sin egen app, og spildata blev aldrig migreret ind — så uden
+    // externalUrl er spillet hverken "mit", åbent eller eksternt og forsvinder
+    // fra ALLE afledte flader (splitGames' tre lister). Et afsluttet spil skal
+    // stå som link-ud med Afsluttet-mærkat, ikke forsvinde (QC-fund, #43).
+    externalUrl: 'https://vm.vejleaa.dk',
     season: '2026', order: 1,
   },
   {
