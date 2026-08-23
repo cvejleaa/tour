@@ -1,0 +1,72 @@
+name: Ret dobbelt Chancen (spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+#
+# TØR-KØRSEL SOM STANDARD. `apply` skal sættes til true med vilje, og kun
+# efter at tør-kørslens tal er set og godkendt af ejeren — det er en skrivning
+# i produktionsdata (CLAUDE.md: tør-kørsel først).
+#
+# Behold-reglen: den FØRST lagte chance beholdes, de senere fjernes. Se
+# scripts/fix-double-chance.mjs for hvorfor, og scripts/lib/doubleChance.mjs
+# for selve rækkefølgen — som auditen bruger til det samme svar.
+#
+# Rettelsen er IKKE færdig, når kørslen er grøn: spilleren og ligaen skal have
+# besked. En stille pointændring er værre end ingen rettelse.
+#
+# Bruger repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'SKRIV rigtigt (uden dette: tør-kørsel, der intet ændrer)'
+        type: boolean
+        default: false
+      game:
+        description: 'Begræns til ét spil-id (tomt = alle spil)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  ret:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      # Scriptet importerer functions-platform/gameScoring.js og
+      # superligaScoring.js direkte — pointreglen findes ét sted, og det er
+      # ikke i dette script. Deres afhængigheder skal derfor være til stede.
+      - name: Installer functions-platform
+        run: npm --prefix functions-platform ci
+
+      - name: Skriv service-account
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Ret dobbelt Chancen
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          APPLY: ${{ inputs.apply }}
+          GAME: ${{ inputs.game }}
+        run: |
+          args=""
+          [ "$APPLY" = "true" ] && args="$args --apply"
+          [ -n "$GAME" ] && args="$args --game=$GAME"
+          echo "Kører: node scripts/fix-double-chance.mjs$args"
+          node scripts/fix-double-chance.mjs $args
