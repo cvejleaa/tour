@@ -939,7 +939,28 @@ Seed de ÆGTE gameId'er fra SYNCED_GAMES — jobbet tager ingen opts.
 - Flapping kan ikke koste mere end ~1 alarm-åbning pr. 6 min, fordi
   LIVE_STALE_MS selv virker som rate-limit på genåbning.
 
-**BEKRÆFTET HUL 1 — alarmen fyrer IKKE ved det udfald, den er bygget til.**
+**BEGGE HULLER LUKKET i d5cc5e4 — efterprøvet med de samme PoC'er (11/11).**
+Alarmen tæller nu `kampeMedLevendeStilling(venter)` (kampe med skrevet `live`,
+status hverken 'slut' eller 'afbrudt', uden facit) i stedet for `pending`, og
+`tjekLivePuls` læser `!!(ud?.live && ud.live.pulsSkrevet)`, så et null-kildesvar
+tæller som "ikke skrevet". Målt mod d5cc5e4: HTTP 500 i 40 min midt i kampen →
+ALARM (før: intet); ægte 110-minutters kampforløb + slutfløjt uden facit i 40
+min → INGEN alarm og `live.status` bliver 'slut' i samme minut (før: falsk
+alarm); kickoff passeret uden at kilden har flippet kampen → ingen falsk alarm
+(kickoff-slækket kunne fjernes, fordi `live` slet ikke findes endnu); <5 min
+tavshed → ingen alarm; alarmen består efter at pulsen kom igen. Forbruget faldt
+også: else-grenens `loesDriftAlarmer` er væk, så live-minuttet er tilbage på
+2 queries/0 læsninger (de ~72.000 læsninger/år bortfaldt). Blast radius stadig
+indeholdt (kastende vagt for SL → PL får sin alarm, begge minut-kort skrives).
+ACCEPTERET RESIDUAL, dokumenteret i koden: er kilden nede FØR kickoff, skrives
+`live` aldrig, `liveIGang` er 0, og der kommer ingen live-alarm — backstop er
+strandet-alarmen i sweep'et (kickoff + 2,5 t, sweep 12×/døgn).
+FÆLDE I MIN EGEN PoC (kostede en falsk FAIL): tidsoffset skal nulstilles FØR
+seedning, ellers ligger kickoff et andet sted end tiltænkt, og
+MIN_SPILLETID_MS-grænsen (95 min) nås aldrig — så udebliver 'slut'-markeringen,
+og alarmen fyrer HELT KORREKT. Sæt `off = 0` før `nulstil()`.
+
+**BEKRÆFTET HUL 1 (i 5e51155/e230775, nu lukket) — alarmen fyrede IKKE ved det udfald, den er bygget til.**
 `hentLive` KASTER ved HTTP-fejl/timeout/format-brud → `runScheduledSync` sætter
 `live = null` → betingelsen `out.pending > 0 && out.live && !out.live.pulsSkrevet`
 (index.js) er FALSK i begge grene. PoC: 40 minutters HTTP 500 midt i en kamp →
@@ -948,7 +969,7 @@ TOM, og minut-kortet bliver grønt igen ved genkomst → intet spor. Fix:
 `const puls = !!(out.live && out.live.pulsSkrevet); if (out.pending > 0 && !puls)`.
 Gælder BÅDE 5e51155 og arbejdstræets nyere udgave.
 
-**BEKRÆFTET HUL 2 — alarmen fyrer, når INTET er galt.** `pending` = kampe i
+**BEKRÆFTET HUL 2 (i 5e51155/e230775, nu lukket) — alarmen fyrede, når INTET var galt.** `pending` = kampe i
 2,5t-vinduet UDEN facit, ikke kampe i gang. Efter slutfløjt (kilden dropper
 kampen, facit ikke landet endnu) er pulsen tavs pr. definition → alarm efter
 5 min med `kraeverKvittering:true`. PoC (kickoff 100 min siden): kampens

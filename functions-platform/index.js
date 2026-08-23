@@ -985,6 +985,16 @@ exports.sendGameTestReminderToMe = onCall(
     const caller = await requireAdmin(db, request);
     const gameId = String(request.data?.gameId || '').trim();
     if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    // SAMME gate som "Send nu" og som fanens knap: begge knapper slås fra for
+    // et spil, jobbet springer over, så serveren skal svare ens på begge veje
+    // (Security-nit). Testmailen går kun til kalderen selv, men en flade og en
+    // server, der er uenige om hvad et spil KAN, er præcis den slags divergens,
+    // der bider et halvt år senere.
+    const gSnap = await db.collection('games').doc(gameId).get();
+    if (!forventerPaamindelser(gSnap.exists ? gSnap.data() : null)) {
+      throw new HttpsError('failed-precondition',
+        'Spillet får ikke påmindelser (kræver et fodbold-spil med status Åbent eller I gang).');
+    }
     const contactSnap = await db.collection('userContacts').doc(request.auth.uid).get();
     const email = request.auth.token?.email || contactSnap.data()?.email || caller?.email;
     if (!email) throw new HttpsError('failed-precondition', 'Din profil har ingen e-mailadresse.');
