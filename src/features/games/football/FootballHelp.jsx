@@ -271,6 +271,23 @@ export default function FootballHelp({ game }) {
         {' '}Din <strong>saldo</strong> øverst er altid spillets samlede — det er den, Chancen må satse af.
         <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
           <li style={{ marginBottom: '0.4rem' }}>
+            <strong>👑 Rundekongen</strong> — hvem har vundet flest <strong>hele</strong> runder? En runde
+            tæller først, når hver eneste af dens kampe har facit, så en udsat kamp udskyder kåringen.
+            Står to lige, deler de sejren. Det er en anden pokal end tabellen: man kan vinde fire runder
+            og alligevel ligge midt i feltet.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>⚡ Chance-kongen</strong> — hvem står bedst? Er nogen i minus, står den modigste af dem også. Kortet viser altid
+            <strong> hele sæsonen</strong>, også når du kigger på en liga med startrunde: Chancen gemmes
+            ikke runde for runde. Derfor står der &quot;hele sæsonen&quot; på kortet, når de to tal er på hver sin
+            skala.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
+            <strong>⚔️ Jer to imellem</strong> — klik på et navn i stillingen og fold den ud: de kampe,
+            hvor I to valgte <strong>forskelligt</strong>, og hvem der fik ret. De kampe, I var enige om,
+            er ét tal — dér stod I side om side.
+          </li>
+          <li style={{ marginBottom: '0.4rem' }}>
             <strong>🧮 Hvor kommer pointene fra?</strong> — knappen bytter listen ud med et regnskab, hvor
             hver spillers point er delt i {RUBRIKKER.map(({ ikon, navn, hjaelp }, i) => (
               <span key={navn}>

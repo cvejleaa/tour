@@ -1342,3 +1342,91 @@ Konklusion: ingen nye blokerende fund. Landbar.
   `kunMig>0 || kunDem>0` samtidig (to spillere, der aldrig har tippet den
   samme afgjorte kamp) — logisk konsistent ved gennemlæsning, men ingen
   rendering-test viser hovedlinje + "Uden for opgøret" sammen i den tilstand.
+
+## Tre pokaler (4c20a14, PR #173): "Modigst i minus" kan vise en POSITIV værdi — BLOKERENDE
+
+Efterprøvet mod plan-gennemgangens tre krav: alle tre er fulgt, ikke kun i
+ordlyd. `Pokaler.jsx` bruger kort (`<div className="card">`), ikke kolonner
+(`GameStandings`s stillingsliste er en bar `<table>` uden `.table-wrap`,
+bekræftet). Rundekongen viser KUN en topvisning (`konge`), ingen rangliste.
+Skalaen ("hele sæsonen" / "fra runde N") står i selve titel-linjen
+(`Pokaler.jsx:47-51`), ikke i en fodnote — testdækket begge veje
+(`Pokaler.test.jsx`, "SKRIVER 'hele sæsonen'" / "skriver det IKKE"). Mobil
+verificeret ved læsning: `flex: '1 1 14rem'` + `flexWrap: 'wrap'` +
+`minWidth: 0` på to kort (à 224px) stables korrekt under ~460px bred skærm,
+ingen `.card`-CSS-konflikt (theme.css:100-106 har intet `width`).
+
+- **BLOKERENDE, bevist ved rendering (ikke kun læsning):** `chance.vaerst`
+  (`Pokaler.jsx:83-90`) er blot `sorteret[sorteret.length - 1]` — den eneste
+  vagt før "Modigst i minus" vises er `chance.vaerst.uid !== chance.bedst.uid`
+  (linje 120), ALDRIG at værdien faktisk er negativ. Med to spillere, der
+  BEGGE har brugt Chancen med positivt resultat (fx Anne +12,5, Bo +3 — ingen
+  har nogensinde tabt på Chancen, meget almindeligt tidligt på sæsonen eller i
+  en lille liga), renderer koden bogstaveligt "Modigst i minus: Bo +3" —
+  fortegnet er korrekt (`fmtSignedPoints` giver "+3"), men PÅSTANDEN er falsk:
+  Bo står IKKE i minus. Gengivet med `render()` + `screen.debug()`, ikke kun
+  simuleret. `Pokaler.test.jsx`s eneste test af sektionen
+  ("viser bedst og modigst-i-minus med fortegn") sætter altid en reel negativ
+  værdi (-31,5) og fanger derfor ikke dette. `FootballHelp.jsx:280` ("hvem er
+  dybest i minus?") arver samme fejlantagelse. **Rettelsen er én vagt:**
+  skjul/omdøb linjen når `chance.vaerst.v >= 0` (fx "Mindst i plus" eller slet
+  ingen anden linje, når INGEN har tabt på Chancen) — samme mønster som
+  Rundekongens `flest > 0`-krav, som IKKE har denne fejl. Spørg NÆSTE gang en
+  "bedst/værst"-visning bruger et ord med indbygget fortegn ("i minus",
+  "underskud", "tabte") om det ord er en PÅSTAND om dataen eller kun en
+  ETIKET — kun det første kræver en eksplicit vagt.
+- **Rundekongen HAR den vagt, Chance-kongen mangler:** `konge`
+  (`Pokaler.jsx:71-79`) kræver eksplicit `flest > 0`, og "(delt)" håndterer
+  uafgjort korrekt og testet. Samme fil, samme forfatter, to ensartede
+  "kår en vinder blandt lige"-opgaver — den ene fik en fuld vagt, den anden
+  ingen. Værd at spørge specifikt om symmetri næste gang to "topspiller"-kort
+  lander i samme commit.
+- **Flytning af `rundeSejre.js` UD af spejlet `src/lib/ligaPoint.js`
+  (begrundelse: "serveren har ingen brug for rundesejre") holder for I DAG,
+  men er skrøbelig, IKKE forkert:** `functions-platform/gameRecap.js`
+  ("Runde-Botten") har ALLEREDE sin egen, uafhængige implementering af
+  PRÆCIS samme regel — `roundWinners = rows.filter((r) => r.roundPoints ===
+  best && best > 0)` (gameRecap.js:187, "standout"/"standoutTie" for ÉN
+  runde) — bare for én runde ad gangen, ikke akkumuleret over sæsonen. Regnes
+  Runde-Botten nogensinde ud til at nævne SÆSONENS rundekonge (fx "Anne
+  udvidede sin føring til 4 rundesejre"), vil nogen enten genopfinde
+  `rundeSejre`s løkke en TREDJE gang i functions-platform (uspejlet), eller
+  først da flytte den ind i den spejlede lib — begge dyrere end at vide det nu.
+  Ikke blokerende (ingen kode i dag kræver det), men spørg eksplicit ved en
+  fremtidig Runde-Bot-udvidelse, der nævner Rundekongen: "flyt logikken til
+  det spejlede lib FØR den kodes i functions-platform, ikke efter."
+- **"Tre definitioner af runde færdig" — den tredje er dødt, uforbundet
+  facit-felt, ikke en aktiv konkurrent:** `src/lib/pointOpdeling.js`s
+  `buildRoundContext` har ALLEREDE `rounds[round].count`/`.settledCount`
+  (linje 175-188) — "alle rundens kampe har facit", PRÆCIS samme begreb som
+  `rundeSejre.js`s nye `faerdigeRunder`. Modulets EGEN kommentar (linje
+  137-140) advarer eksplicit imod "en TREDJE rundetælling i appen — og
+  modulet blev netop lavet for at fjerne den anden". `count`/`settledCount`
+  bruges dog IKKE af nogen UI i dag (kun i tests) — så `faerdigeRunder` er
+  reelt en uafhængig geninopfindelse af et begreb, modulet allerede
+  producerer, men ingen bruger. Forskel i implementering: `settledCount`
+  bruger `matchOutcome(m)` (facit ELLER udledt af homeGoals/awayGoals — se
+  `outcomeFromScore`), mens `faerdigeRunder` kun tjekker `m.result != null &&
+  m.result !== ''` — INGEN score-fallback. Harmløst i dag, fordi
+  `superligaSync.js:174-192` altid skriver `result` og `homeGoals/awayGoals`
+  i samme batch (`if (!result) continue`), så et facit uden `result`-felt
+  ikke forekommer i produktion — men det er en antagelse om skrivestien, ikke
+  en garanti i typen. `tipsHistory.js:120`s `roundSettled` (kupon-vindue,
+  `combiSettled === combiCount`) er derimod tydeligt adskilt — intet sted i
+  koden forveksler de to, og ingen kommentar refererer den anden ved navn i
+  nogen retning. Ikke blokerende, men værd at nævne, hvis nogen bygger en
+  fjerde "er runden færdig"-funktion: brug `buildRoundContext`, gen-opfind
+  den ikke.
+- **Ingen ny data-eksponering:** `rows` til `Pokaler` er allerede
+  `standings` (liga-filtreret af `ligaRanking`/`subsetRanking`, samme kreds
+  som `OpdelingsTabel` viser). Chance-kongen og opdelings-tabellen er samme
+  kilde (`opdeling.chance`), ikke to sandheder — kortet er en opsummering,
+  ikke en konkurrerende beregning. `GameStandings.test.jsx`s
+  "Chancen"→"Combi"-rettelse er reelt korrekt: "Combi" findes KUN i
+  `PointOpdeling.jsx`s RUBRIKKER-navn, aldrig i Pokaler eller andetsteds i
+  GameStandings, og `OpdelingsTabel` renderes slet ikke, når `visOpdeling`
+  er false (linje 424-454) — testen måler præcis det, den påstår.
+- **FootballHelp.jsx:274-289** (Rundekongen/Chance-kongen/Jer to imellem) er
+  faktuelt korrekte mod koden, bortset fra at arve "modigst i minus"-fejlen
+  ovenfor. Lukker desuden et tidligere fundet, IKKE-blokerende hul (⚔️ "Jer
+  to imellem" manglede i hjælpen efter Indbyrdes-opgør-commit dc6d629).
