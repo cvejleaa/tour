@@ -343,7 +343,12 @@ describe('GameStandings — pointopdeling', () => {
 
   it('er slået FRA som udgangspunkt', () => {
     setup();
-    expect(screen.queryByText(/Chancen/)).toBeNull();
+    // Testen målte før på ordet "Chancen" som stedfortræder for "tabellen er
+    // foldet sammen". Den holdt op med at virke, da pokalkortet fik en
+    // tom-tilstand med samme ord — en stedfortræder, der knækker, når en nabo
+    // ændrer sig. Her assertes i stedet på RUBRIKKEN Combi, som kun
+    // opdelingstabellen har.
+    expect(screen.queryByText(/Combi/)).toBeNull();
     expect(screen.getByRole('button', { name: /Hvor kommer pointene fra/ })).toBeInTheDocument();
   });
 

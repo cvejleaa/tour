@@ -14,6 +14,7 @@ import { formatPoints } from './GameLayout';
 import { fmtSignedPoints } from '../../lib/daNum';
 import { RUBRIKKER, opdelingsAfvigelse, afvigelsesTekst } from './football/PointOpdeling';
 import SpillerDetalje from './football/SpillerDetalje';
+import Pokaler from './Pokaler';
 import { useKlubFarver } from './football/useKlubFarver';
 
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
@@ -371,6 +372,18 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           </button>
         )}
       </div>
+
+      {/* Sæsonens to ANDRE pokaler. De står FØR podiet, fordi de er dem, der
+          kan have skiftet siden sidst — podiet ligner ofte sig selv fra
+          december. IKKE gate't på podiet: en liga på to spillere har ingen
+          top-3, men har stadig en rundekonge. Kortene bærer selv deres skala:
+          rundesejre følger ligaens startrunde, mens Chancen er spil-scoped og
+          ikke findes pr. runde. */}
+      <Pokaler
+        rows={standings}
+        matches={matches}
+        startRunde={valgt && Number.isFinite(valgt.startRound) ? valgt.startRound : null}
+      />
 
       {hasPodium && (
         <div className={`podium${enVinder ? '' : ' podium--lige'}`}>
