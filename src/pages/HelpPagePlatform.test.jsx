@@ -31,7 +31,11 @@ const TOUR = {
 const SL = {
   id: 'superliga2627', name: 'Superligaen 2026/27', emoji: '⚽', type: 'football',
   status: 'open', joinable: true, order: 3,
-  pulje: { poolSize: 6, nedSize: 0, labels: { top: 'mesterskabsspillet' } },
+  // SPEJLER DEN ÆGTE games.mjs-post: pulje UDEN labels. Ordene skal komme fra
+  // puljeKonfigs defaults — et fixture med opfundne labels bekræftede sig selv
+  // og skjulte, at en rå g.pulje.labels-læsning fjernede SL's pulje-linje
+  // (QC-fund på 6341f42).
+  pulje: { poolSize: 6 },
 };
 const PL = {
   id: 'pl2627-efteraar', name: 'Premier League 2026/27 — efterår', emoji: '⚽', type: 'football',
@@ -74,10 +78,14 @@ describe('HelpPage (platform) — Spillene lige nu afledes af games-collectionen
     expect(screen.getByText('Superligaen 2026/27')).toBeInTheDocument();
   });
 
-  it('pulje-linjen afledes af spillets EGNE labels — PL får juletabellen, Tour får ingen pulje-linje', () => {
+  it('pulje-linjen går gennem puljeKonfig: PL får sine egne labels, SL får DEFAULT-ordene uden labels i posten', () => {
     renderMed([VM, TOUR, SL, PL], ['superliga2627']);
+    // PL: egne labels fra data.
     expect(screen.getByText('top 4 juleaften')).toBeInTheDocument();
     expect(screen.getByText('nedrykningszonen juleaften')).toBeInTheDocument();
+    // SL: posten har INGEN labels (som i games.mjs) — "mesterskabsspillet" kan
+    // KUN komme fra puljeKonfigs defaults. En rå g.pulje.labels-læsning ville
+    // fjerne hele SL's pulje-linje og gøre denne assertion rød.
     expect(screen.getByText('mesterskabsspillet')).toBeInTheDocument();
     // Kun spil MED pulje får linjen (SL + PL = 2); Tour/VM har ingen.
     expect(screen.getAllByText(/Dertil et pulje-tip/).length).toBe(2);

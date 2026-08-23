@@ -9,6 +9,7 @@ import PointRules from '../components/PointRules';
 import { PLATFORM_MODE } from '../lib/platform';
 import { useGames, splitGames } from '../features/games/useGames';
 import { GAME_STATUS_LABEL } from '../lib/constants';
+import { puljeKonfig } from '../lib/superligaScoring';
 
 function Section({ emoji, title, children }) {
   return (
@@ -78,15 +79,17 @@ function SpilleneLigeNu() {
         Dine spil — og dem, du kan tilmelde dig (samme liste som under <Link to="/spil">🎮 Spil</Link>):
       </p>
       {synlige.map((g) => {
-        const labels = g.pulje?.labels;
+        // puljeKonfig — IKKE g.pulje.labels råt: Superligaens post har ingen
+        // labels (kun poolSize), så en rå læsning fjernede hele pulje-linjen
+        // for SL. puljeKonfig leverer default-ordene ("mesterskabsspillet"),
+        // præcis som FootballHelp gør ét niveau dybere (QC-fund på 6341f42).
+        const pulje = puljeKonfig(g);
         return (
           <GameBlurb key={g.id} emoji={g.emoji} name={g.name} status={GAME_STATUS_LABEL[g.status] ?? null}>
             {BLURBS[g.id]}
-            {/* Pulje-linjen afledes af spillets egne labels — PL's "juletabel"
-                og SL's mesterskabsspil får hver deres ord uden håndskrift. */}
-            {labels?.top && (
-              <> Dertil et pulje-tip: de {g.pulje.poolSize} hold i <strong>{labels.top}</strong>
-              {g.pulje.nedSize > 0 && labels.ned ? <> — og de {g.pulje.nedSize} i <strong>{labels.ned}</strong></> : null}.</>
+            {pulje && (
+              <> Dertil et pulje-tip om, hvem der står i <strong>{pulje.labels.top}</strong>
+              {pulje.nedSize > 0 ? <> — og hvem der hænger i <strong>{pulje.labels.ned}</strong></> : null}.</>
             )}
             {/* Halen lover kun det, spillet kan holde: Guide-fanen findes kun
                 for medlemmer (ellers ses kun Deltag-kortet), og eksterne spil

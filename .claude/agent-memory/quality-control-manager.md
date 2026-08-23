@@ -865,3 +865,62 @@ Alle 6 checkpoints fra plan-gennemgangen er bekræftet, ikke kun læst:
 - `/hjaelp` ER bag `ProtectedRoute` uden `require` → kræver `isApproved`
   (`ProtectedRoute.jsx:10`), og `firestore.rules:639` giver `allow read` på
   games til `isApproved()`. Ingen auth-fælde dér.
+
+## Hjælpesiden (6341f42): implementering mod planens 5 punkter — ét bekræftet, blokerende fund
+
+Fire af fem punkter landede korrekt (VM-`externalUrl`; medlemskabs-hale;
+loading/tom-tilstand; intro-sætning). Ét blev IKKE fulgt:
+
+- **`HelpPage.jsx`s `SpilleneLigeNu` læser `g.pulje?.labels` RÅT — i stedet
+  for at genbruge `puljeKonfig(game)` (`src/lib/superligaScoring.js:524`),
+  det NETOP DEN FUNKTION planen selv pegede på ("FootballHelp-mønstret").**
+  `puljeKonfig` giver default-labels (`top: 'mesterskabsspillet'`,
+  `ned: 'nedrykningsspillet'`, osv.), når `game.pulje.labels` mangler —
+  `FootballHelp.jsx:356-365` bruger den, og derfor virker SL's pulje-afsnit
+  DÉR. Men Superligaens rigtige `pulje`-felt i `scripts/games.mjs` er kun
+  `{ poolSize: 6 }` — INGEN `labels`-nøgle (bekræftet ved at køre
+  `import('./scripts/games.mjs')` direkte). `SpilleneLigeNu`s betingelse
+  `labels?.top` er derfor `undefined` for Superligaen, og HELE
+  "Dertil et pulje-tip: …"-linjen forsvinder — bekræftet med en render af
+  `HelpPage` mod de ÆGTE `GAMES` (ikke test-fixturen): `screen.queryByText(/Dertil et pulje-tip/)`
+  er `null` for Superligaen. Den statiske `BLURBS.superliga2627`-tekst nævner
+  heller ikke puljen/mesterskabsspillet i ord — så resultatet er, at
+  Superligaens pulje-tip (som hjælpesiden FØR commit'en eksplicit nævnte:
+  "et pulje-tip om, hvem der når mesterskabsspillet") er helt væk fra
+  platform-hjælpesiden. Commit-beskeden hævder det modsatte ("PL's juletabel
+  OG SL's mesterskabsspil får hver deres ord uden håndskrift") — påstanden er
+  faktuelt forkert for SL.
+- **Testen der skulle fange det, bekræftede sig selv.** `SL`-fixturen i
+  `HelpPagePlatform.test.jsx` er HÅNDSKREVET med en opfundet
+  `pulje.labels: { top: 'mesterskabsspillet' }` — et felt, Superligaens
+  RIGTIGE `games.mjs`-post ikke har. Testen beviser derfor, at koden virker
+  for data, der ikke findes i produktion, og er blind for netop den kilde,
+  den påstår at teste imod (CLAUDE.md: "antag, at dine egne tests bekræfter
+  sig selv"). Retten er at importere `GAMES` fra `scripts/games.mjs` direkte
+  i mindst ét testtilfælde (som `FootballHelp.jsx`s paritetsmønster gør), ikke
+  en frithændig fixture, når nøjagtig DEN post allerede findes i repoet.
+- **Rettelsen er lille og lokal:** importér `puljeKonfig` fra
+  `src/lib/superligaScoring.js` i `HelpPage.jsx`, kald
+  `puljeKonfig(g)` i stedet for at læse `g.pulje?.labels`/`g.pulje.poolSize`/
+  `g.pulje.nedSize` direkte, og brug de garanterede default-labels. PL, der
+  allerede har eksplicitte labels, er upåvirket (samme output).
+- **Pulje-sætningens ordlyd med PL's rigtige labels er læsbar, men
+  redundant:** "Dertil et pulje-tip: de 4 hold i **top 4 juleaften** — og de 3
+  i **nedrykningszonen juleaften**." — tallet ("4"/"3") gentages unødigt lige
+  før label-teksten, der selv indeholder tallet ("top 4"). Ikke volapyk, men
+  værd at stramme ("hvem der ligger i **top 4 juleaften**" uden det
+  indledende talgentag), hvis teksten røres igen.
+- **Intro-sætningen "Dine spil — og dem, du kan tilmelde dig" dækker ikke helt
+  det, der faktisk vises:** listen inkluderer altid `external`-spil (VM, Tour)
+  UANSET medlemskab og UANSET `joinable` (begge har `joinable:false`) — de er
+  hverken "dine" eller "noget du kan tilmelde dig". Ikke en modsigelse af
+  nabo-sektionen "Én bruger, flere spil" (den taler kun om `/spil`, ikke om
+  denne liste), og ikke blokerende — men sætningen underdriver en tredje
+  kategori (spil, der kun kan slås op via link).
+- Fire eksplicit efterprøvede, ikke fundet nogen fejl: VM-`externalUrl`
+  (bekræftet i `scripts/games.mjs`), medlemskabs-hale (Guide kun for
+  `myGameIds.has(g.id)`, ellers Deltag), BLURBS-tekstens fire løfter
+  (kupon/Chancen/Elo/mini-ligaer) — alle fire er UNGATEDE generiske
+  fodbold-features (`FootballTip.jsx`, `EloTable.jsx`, `GAME_TABS`), så SL og
+  PL kan begge holde løftet, og loading/tom-tilstand (begge grene testet og
+  bekræftet ved manuel render).
