@@ -1,0 +1,51 @@
+name: Mål bank-loftet på Chancen (spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+# LÆS-ONLY. Måler hvad det ville koste at lade afregningen håndhæve det
+# bank-afhængige loft (15 % af saldoen) — hvem det rammer, hvor meget, og om
+# indsatsen også var over loftet på det tal, spilleren SÅ, da han tippede.
+#
+# Skriver intet og fejler ikke på fund. Tallene er grundlaget for ejerens
+# beslutning om, hvorvidt loftet skal gælde med tilbagevirkende kraft.
+# Se scripts/probe-bank-loft.mjs.
+#
+# Bruger repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  maal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      # Scriptet importerer functions-platform/superligaScoring.js — pointreglen
+      # findes ét sted, og det er ikke i dette script.
+      - name: Installer functions-platform
+        run: npm --prefix functions-platform ci
+
+      - name: Skriv service-account
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Mål bank-loftet
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+        run: node scripts/probe-bank-loft.mjs
