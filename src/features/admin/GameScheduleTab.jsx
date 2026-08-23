@@ -157,7 +157,7 @@ function GameRow({ game }) {
   // game.startAt/puljeLockAt er Timestamp-objekter, som useGames laver forfra
   // ved hver snapshot. Med objekterne i deps ville et ugemt valg blive
   // nulstillet, hver gang noget andet på spil-dokumentet blev skrevet — fx
-  // syncSuperligaResults, der opdaterer standings hvert kvarter. Admin ville
+  // resultat-synken, der opdaterer standings løbende i kampvinduet. Admin ville
   // se sit valg hoppe tilbage uden besked.
   const startMs = toMs(game.startAt);
   const puljeMs = toMs(game.puljeLockAt);

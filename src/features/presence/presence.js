@@ -33,7 +33,15 @@ const SECTION_BY_SEGMENT = {
 };
 
 export function pageKeyFromPath(pathname) {
-  const seg = String(pathname ?? '/').split('/').filter(Boolean)[0] ?? '';
+  const dele = String(pathname ?? '/').split('/').filter(Boolean);
+  const seg = dele[0] ?? '';
+  // Platformens kerne bor under /spil — og segmentet manglede i tabellen, så
+  // AL spil-trafik (oversigten + alle faner i alle spil) landede i 'andet',
+  // og "Mest brugte sider" var informationstom for præcis den flade,
+  // platformen består af (sweep-fund L1-2). Oversigten og selve spillet
+  // skelnes; fanerne inde i spillet bor i query-parametre, som en side-nøgle
+  // (Firestore-feltnavn) bevidst ikke bærer.
+  if (seg === 'spil') return dele.length > 1 ? 'spil' : 'spiloversigt';
   return SECTION_BY_SEGMENT[seg] || 'andet';
 }
 
@@ -51,6 +59,8 @@ export const PAGE_LABELS = {
   beskeder: 'Beskeder',
   profil: 'Profil',
   admin: 'Admin',
+  spiloversigt: 'Spiloversigt',
+  spil: 'Inde i spillet',
   andet: 'Andet',
 };
 

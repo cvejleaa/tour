@@ -225,7 +225,7 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   `eloCurrent` sættes tilbage til sæsonstart-værdierne og genberegnes først, når
   `recomputeSeasonElo` kører. Den kører af sig selv **kun**, når en kamps
   resultat ændrer sig — men kan nu også startes manuelt med 💰 **Ompris
-  kampene** i Spil-planlægning. Uden den knap kunne Elo-tabellen under en
+  kampene** i Spil-tidsplan. Uden den knap kunne Elo-tabellen under en
   landskampspause vise sæsonstart-værdier i op mod to uger, mens grafen
   (`eloHistory`, som ikke røres) viste det rigtige forløb. Holdfarver **og
   visningsnavne** redigeret i admin ligger begge i `teamStyles` og røres ikke.
@@ -239,7 +239,7 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 
 | Symptom | Sandsynlig årsag |
 |---|---|
-| Stillingen er tom for alle | `players/{uid}.leagueIds` mangler → kør backfill, eller brug 🔐 **Genopbyg liga-adgang** i Admin → Spil-planlægning |
+| Stillingen er tom for alle | `players/{uid}.leagueIds` mangler → kør backfill, eller brug 🔐 **Genopbyg liga-adgang** i Admin → Spil-tidsplan |
 | "Ingen tips at vise fra dine ligaer" på en spillet kamp | `bets.leagueIds` mangler (tip skrevet før feltet fandtes) → samme backfill |
 | "Kunne ikke hente ligaens tips" | Composite-indexet `bets` (matchId + leagueIds) er ikke bygget færdigt → tjek Firestore → Indexes |
 | Stillingen viser kun dig selv | Du er ikke med i en liga endnu — det er den forventede visning |

@@ -5,6 +5,10 @@ import { formatTimestamp } from './adminActions';
 const TYPE_LABELS = {
   reminder: 'Påmindelse',
   'test-reminder': 'Test-påmindelse',
+  // Platformens testmail skriver typen med ordene byttet om (reminders.js:
+  // 'reminder-test') — begge stavninger skal have dansk label, og den gamle
+  // beholdes, fordi historiske log-rækker allerede bærer den (sweep-fund L4-06).
+  'reminder-test': 'Test-påmindelse',
   'password-reset': 'Kodeord-nulstilling',
   broadcast: 'Besked',
   other: 'Andet',
