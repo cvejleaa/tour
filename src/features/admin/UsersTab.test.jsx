@@ -83,6 +83,18 @@ describe('UsersTab', () => {
     expect(items[1]).toHaveTextContent('Anders');
   });
 
+  it('viser Tour-pointtallet på brugerrækken (kun i Tour-tilstand)', () => {
+    // Counter-proof for platform-gaten: på Tour SKAL tallet stå der — så en
+    // mutation, der fjerner hele point-segmentet, bliver rød her, mens
+    // UsersTabPlatform.test.jsx beviser, at det IKKE vises på platformen
+    // (users.totalPoints skrives aldrig dér og stod "0 point" for alle).
+    setupSnapshot([
+      { id: 'u1', displayName: 'Anders', email: 'a@test.dk', status: 'approved', role: 'player', totalPoints: 42 },
+    ]);
+    render(<UsersTab isOwner={true} isGlobalAdmin={true} />);
+    expect(screen.getByText(/42 point/)).toBeInTheDocument();
+  });
+
   it('viser pending-advarsel når der er afventende brugere', () => {
     setupSnapshot([
       { id: 'u1', displayName: 'Bent', email: 'b@test.dk', status: 'pending', role: 'player' },

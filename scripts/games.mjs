@@ -37,9 +37,10 @@
 // platform/syncProviders.js (spejlet af `sync`-feltet her — paritetstesten i
 // syncProviders.test.js holder dem i trit). Men et spil kommer først med i
 // den liste, når dets provider er IMPLEMENTERET: står der en provider her,
-// som ikke findes i PROVIDERS (pt. pulselive), er spillet tavst — kampe kan
-// stå uden facit i det uendelige, uden at nogen får besked. Indtil provideren
-// er bygget, er det et menneske, der skal huske at kigge.
+// som ikke findes i PROVIDERS, er spillet tavst — kampe kan stå uden facit i
+// det uendelige, uden at nogen får besked. (Begge nuværende providere —
+// superliga og pulselive — ER implementeret og synkes automatisk; advarslen
+// gælder det NÆSTE spil, der seedes før dets provider er bygget.)
 export const GAMES = [
   {
     id: 'vm2026',

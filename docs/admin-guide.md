@@ -172,10 +172,14 @@ skal gendannes.
 
 ## Resultater
 
-Superliga-resultater hentes automatisk fra `api.superliga.dk` hvert kvarter i
-kampvinduet. Når et facit sættes, sker der tre ting af sig selv: alle tips på
-kampen scores, holdenes Elo og fremtidige odds opdateres, og — hvis det var
-rundens sidste kamp — poster Runde-Botten et resumé på liga-væggene.
+Resultater hentes automatisk for **både Superligaen** (`api.superliga.dk`) og
+**Premier League** (ligaens eget API): et minut-job følger kampene i
+kampvinduet, og et times-sweep samler op bagefter. Kamptiderne rettes dagligt
+kl. 6.10 fra samme kilder. Når et facit sættes, sker der tre ting af sig selv:
+alle tips på kampen scores, holdenes Elo og fremtidige odds opdateres, og —
+hvis det var rundens sidste kamp — poster Runde-Botten et resumé på
+liga-væggene. Kører en synk skævt, står det på **Admin → 🩺 Driftstatus** —
+du skal ikke sætte PL-facit i hånden.
 
 Er noget gået galt, kan du sætte facit manuelt; point genberegnes ved hver
 ændring. Bemærk: **fjerner** du et facit igen, nulstilles pointene ikke

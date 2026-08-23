@@ -331,7 +331,7 @@ export default function BroadcastTab() {
             Fjern knappen OG src/features/admin/regelbrev.js, når brevet er
             sendt — sidst blev en engangs-mailfunktion liggende og forældedes,
             uden at nogen opdagede det (#112). Den ligger her og ikke under
-            Spil-planlægning, fordi en funktion, der sender mails, hører under
+            Spil-tidsplan, fordi en funktion, der sender mails, hører under
             Send mail — det var netop lektien fra dengang. */}
         {PLATFORM_MODE && (
           <div className="flex" style={{ gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>

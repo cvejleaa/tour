@@ -208,10 +208,20 @@ export default function UserRow({ user, authInfo, currentUserIsOwner, currentUse
             <span style={{ color: 'var(--c-muted)' }}>
               {roleLabel[user.role] ?? user.role}
             </span>
-            {' · '}
-            <span style={{ color: 'var(--c-muted)' }}>
-              {user.totalPoints ?? 0} point
-            </span>
+            {/* Point-tallet er Tour-feltet users.totalPoints. På platformen bor
+                point pr. SPIL (games/{gid}/players/{uid}) og det globale felt
+                skrives aldrig — så rækken sagde "0 point" for alle, også
+                spillere med hundredvis af Superliga-point, og modsagde
+                slette-vagten, der tæller rigtigt fra players-dokumenterne
+                (sweep-fund L1-1). Samme gate som Yndlingshold nedenfor. */}
+            {!PLATFORM_MODE && (
+              <>
+                {' · '}
+                <span style={{ color: 'var(--c-muted)' }}>
+                  {user.totalPoints ?? 0} point
+                </span>
+              </>
+            )}
           </div>
           <div style={{ marginTop: 2, fontSize: '0.8rem', color: 'var(--c-muted)' }}>
             {!PLATFORM_MODE && (

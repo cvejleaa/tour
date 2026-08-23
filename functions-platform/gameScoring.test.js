@@ -1313,7 +1313,7 @@ describe('recomputeSeasonElo (levende Elo)', () => {
 
   // --- dryRun ---------------------------------------------------------------
   //
-  // Knappen i Spil-planlægning viser tør-kørslen FØRST, og hele værdien af den
+  // Knappen i Spil-tidsplan viser tør-kørslen FØRST, og hele værdien af den
   // står og falder med, at den ikke skriver. En dryRun, der alligevel skrev,
   // ville se ud som en forhåndsvisning og være en udførelse.
   it('dryRun rører HVERKEN odds, Elo eller historik', async () => {

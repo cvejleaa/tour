@@ -148,7 +148,7 @@ describe('GameScheduleTab — status', () => {
     expect(mockSetGameStatus).not.toHaveBeenCalled();
   });
 
-  // Spil-dokumentet skrives også af serveren (fx standings hvert kvarter).
+  // Spil-dokumentet skrives også af serveren (fx standings i kampvinduet).
   // Et ugemt valg må ikke blive nulstillet af sådan en snapshot — ellers
   // hopper vælgeren tilbage, uden at admin får besked.
   it('beholder et ugemt statusvalg når spillet opdateres udefra', () => {

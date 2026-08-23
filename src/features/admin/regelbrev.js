@@ -20,7 +20,7 @@
 // sagt og inviterede til falsk tryghed.
 //
 // TIMING: brevet gælder fra RUNDE 3 og skal sendes FØR rundens første kickoff.
-// Rækkefølgen er: tryk "Ompris kampene" i Spil-planlægning → verificér på
+// Rækkefølgen er: tryk "Ompris kampene" i Spil-tidsplan → verificér på
 // skærmen at oddsene har flyttet sig → send brevet. Sendes det før
 // omprisningen, beskriver det priser, spillerne ikke kan se; sendes det efter
 // kickoff, har de ikke længere mulighed for at rette deres tip.

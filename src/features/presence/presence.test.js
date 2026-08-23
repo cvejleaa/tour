@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  pageKeyFromPath, dayKeyCopenhagen, isNewVisit, activityRows, VISIT_GAP_MS,
+  pageKeyFromPath, dayKeyCopenhagen, isNewVisit, activityRows, VISIT_GAP_MS, PAGE_LABELS,
 } from './presence';
 
 describe('pageKeyFromPath', () => {
@@ -15,6 +15,16 @@ describe('pageKeyFromPath', () => {
   it('ukendte ruter samles under "andet"', () => {
     expect(pageKeyFromPath('/noget-nyt')).toBe('andet');
     expect(pageKeyFromPath(null)).toBe('forside');
+  });
+  it('platformens spil-flade har sine EGNE nøgler — aldrig "andet" (sweep-fund L1-2)', () => {
+    // Før denne nøgle landede AL platform-trafik i 'andet', og "Mest brugte
+    // sider" var informationstom for hele spil-fladen. Oversigt ≠ spillet.
+    expect(pageKeyFromPath('/spil')).toBe('spiloversigt');
+    expect(pageKeyFromPath('/spil/superliga2627')).toBe('spil');
+    expect(pageKeyFromPath('/spil/pl2627-efteraar')).toBe('spil');
+    // Begge nøgler skal have et dansk visningsnavn i admin-fanen.
+    expect(PAGE_LABELS.spiloversigt).toBe('Spiloversigt');
+    expect(PAGE_LABELS.spil).toBe('Inde i spillet');
   });
 });
 
