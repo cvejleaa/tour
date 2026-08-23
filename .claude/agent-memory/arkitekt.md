@@ -138,3 +138,81 @@ ville have bygget forfra.
 - FÆLDE: `DriftTab.test.jsx:44` asserterer `getAllByText('afventer første
   kørsel').length === 4`, og fixture-spillene har INTET `type`-felt. Et nyt
   kort gated på `type==='football'` giver 0 kort OG grøn suite.
+
+## Test-/CI-infrastruktur (fundet ved opgave #50, aug 2026)
+- `playwright.config.js` — testDir `./e2e`, baseURL `localhost:4173`,
+  webServer = `npm run build && npm run preview` (linje 20-25). INGEN
+  VITE_PLATFORM_MODE, INGEN VITE_USE_EMULATORS → E2E er Tour-build,
+  uautentificeret. Eneste testfil: `e2e/smoke.spec.js` (4 tests: redirect til
+  /login, login-faner, opret-validering, 404).
+- `.github/workflows/ci.yml` har FIRE jobs: frontend (76-105 = e2e),
+  functions, rules (57-74 — har ALLEREDE Java 21 + firebase-tools +
+  `firebase emulators:exec --only firestore … --project demo-vm2026`), e2e.
+  Rules-jobbet er skabelonen for enhver emulator-baseret kørsel.
+- Emulator-porte i `firebase.json`: auth 9099, firestore 8080, functions 5001,
+  ui 4000, `singleProjectMode: true` → emulator-projekt-id SKAL matche
+  VITE_FIREBASE_PROJECT_ID i buildets .env.
+- FÆLDE: `scripts/seed-games.mjs:20` falder tilbage til projectId
+  `'spil-89af9'`, når GCLOUD_PROJECT ikke er sat — selv i emulator-tilstand.
+  Seeder man mod en emulator startet som `demo-vm2026`, lander data i et andet
+  navnerum, og appen ser en TOM database uden fejl.
+- `src/firebase.js:40-44` — `VITE_USE_EMULATORS==='true'` (BUILD-tid) forbinder
+  auth/firestore/functions til localhost. Linje 24: App Check slås fra i samme
+  tilstand. Der er ingen runtime-omskifter.
+- Emulator-venlige seed-scripts, der kan GENBRUGES som de er:
+  `seed-games.mjs`, `seed.mjs`, `seed-football.mjs`, `bootstrap-owner.mjs`
+  (alle: `if (process.env.FIRESTORE_EMULATOR_HOST) …`). `buildMatches(fixtures,
+  teams)` i `src/lib/superligaSeed.js:56` bygger kampe uden at skrive.
+- `@playwright/test` 1.61.1 understøtter `storageState({ indexedDB: true })`
+  (types.d.ts:9643-9649, dokumenteret netop til Firebase Auth) → én login i
+  globalSetup kan genbruges. Uden flaget mistes sessionen: Firebase v10 gemmer
+  i IndexedDB, ikke i localStorage/cookies.
+- `npm run build` tager ~6-7 s (målt). Bygge-tid er IKKE argumentet mod E2E.
+- `vite preview --outDir <dir>` findes → to builds (Tour/platform) kan serveres
+  side om side på hver sin port fra hver sit outDir.
+- 35 filer under `src/` logger `console.error` ved snapshot-fejl (fx
+  `useGame.js`, `useStandings.js`) → en console-error-vagt i E2E kan gøre
+  "tavs tom liste efter regel-afvisning" til en rød test.
+- Gate-korrekthed ER allerede dækket i komponenttests:
+  `GameScheduleTab.test.jsx:329-365` (synk-knap pr. provider),
+  `MessagesPage.test.jsx:54-119` (platform-kontakter). E2E skal derfor dække
+  NÅBARHED (kan fanen overhovedet nås, og er den ægte data-model i live),
+  ikke gate-permutationer.
+
+## Chancen ⚡ + skrivevejen for tips (fundet ved opgave #51, aug 2026)
+- `CHANCE {MIN:1, MAX_ABS:8, CAP_FRACTION:0.15}` + `chanceMaxStake / canUseChance /
+  isValidStake / settleChance` — `src/lib/superligaScoring.js:379-420` ⇄
+  `functions-platform/superligaScoring.js:123-158` (+ `clampStake`, `scoreBet`).
+  VIGTIGT: `scoreBet` kalder `clampStake(stake)` UDEN bank → 15 %-loftet er
+  KUN klient-side. Kun MAX_ABS=8 håndhæves af serveren.
+- `setBet()` i `src/features/games/betActions.js:44-73` er DEN ENESTE skriver af
+  `chanceStake` (grep bekræftet). Doc-id = `uid_matchId` (`betId()`), og reglen
+  binder id'et ved create (firestore.rules:876-882) — repoets faste idiom for
+  "præcis én af slagsen": entydigt doc-id, ikke et tjek.
+- Bets-reglen: firestore.rules:843-907 (read 862, create 876, update 899).
+  Nævner IKKE chanceStake med ét ord. `writingPointsField()` (rules:83) er
+  mønstret for "dette felt ejer serveren".
+- Afregning: `recomputeGameMatchCore` (gameScoring.js:476) scorer ÉN kamps bets
+  ad gangen → den kan ikke se spillerens andre bets i runden. Kun
+  `recalcPlayerTotal` (gameScoring.js:246) og `opdelPoint`
+  (pointOpdeling.js:299) ser hele bet-mængden. En dedup pr. runde i
+  afregningen skal derfor ligge i opdelPoint — men den UDLEDER bevidst chance
+  som (points − 1X2) og må ikke genberegne (pointOpdeling.js:288-292).
+- `scripts/audit-double-chance.mjs` — LÆS-ONLY: finder dobbelt-Chancen pr.
+  (uid, runde), viser hvornår hver blev skrevet ift. kickoff. Harnesset til
+  ethvert "hvor tit sker det?"-spørgsmål om bets.
+- `scripts/rescore-bets.mjs` — kører den ÆGTE `rescoreAllBets` med BACKUP +
+  GENDAN + DRY_RUN. Enhver dataretning af bet-point skal gå denne vej.
+  `rescoreGameBets`-callablen (index.js:299) har INGEN klient-kalder.
+- **Mønsteret "rules kan ikke udtrykke det → serveren ejer skrivningen":**
+  `redeemLeagueCodeCore(db, FieldValue, {...})` i `gameLeagues.js:43` +
+  `LEAGUE_ERR`-tabellen (gameLeagues.js:25) + tynd `onCall` i index.js:687 +
+  klient-wrapper `src/features/games/gameLeagueActions.js:81`. Eneste
+  SPILLER-vendte callable i appen; alle andre httpsCallable er admin.
+- Rules kan ikke query'e, men KAN `getAfter()` ét kendt dokument — vejen til at
+  binde to dokumenter i én batch. Koster et opslag mod grænsen på 10 pr.
+  enkeltdokument-skrivning; gets af SAMME sti tælles én gang (rules:741-747
+  hviler allerede på den antagelse).
+- FÆLDE: `createGameMatch` i `functions/rules.test.js:2002` sætter INTET
+  `round`-felt. En regel med direkte `.data.round` fejler-lukket på alle
+  eksisterende fixtures; `.get('round', null)` falder derimod ÅBEN.
