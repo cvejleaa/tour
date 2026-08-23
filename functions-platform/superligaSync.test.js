@@ -1425,7 +1425,11 @@ describe('facit rydder den levende stilling', () => {
 describe('skalMeldeLiveTavs', () => {
   const { skalMeldeLiveTavs, LIVE_STALE_MS } = require('./superligaSync');
   const NU = Date.UTC(2026, 7, 23, 15, 0, 0);
-  const basis = { pending: 2, pulsSkrevet: false, pulsAtMs: NU - 20 * 60000, nowMs: NU };
+  // Kampen er begyndt for en time siden — kilden har for længst haft tid.
+  const basis = {
+    pending: 2, pulsSkrevet: false, pulsAtMs: NU - 20 * 60000,
+    tidligsteKickoffMs: NU - 60 * 60000, nowMs: NU,
+  };
 
   it('melder, når pulsen har stået stille længere end spillernes tærskel', () => {
     expect(skalMeldeLiveTavs(basis)).toBe(true);
@@ -1457,6 +1461,44 @@ describe('skalMeldeLiveTavs', () => {
     for (const v of [NaN, null, undefined]) {
       expect(skalMeldeLiveTavs({ ...basis, pulsAtMs: Number(v) }), String(v)).toBe(true);
     }
+  });
+
+  // KICKOFF-GABET (QC-fund). pendingMatches gør pending>0 i selve
+  // kickoff-minuttet, men kilden flipper først kampen til 'inprogress' lidt
+  // efter — og fordi liveHeartbeatAt sidder på SPIL-dokumentet, er pulsen
+  // mellem kampdage dage gammel. Uden slæk fra kickoff ville alarmen fyre på
+  // første tick af hver eneste runde. Slækket måles derfor FRA KAMPENS START.
+  it('fyrer IKKE i de første fem minutter efter kickoff — kilden får samme frist som spillerne', () => {
+    const lige_startet = { ...basis, tidligsteKickoffMs: NU - 60 * 1000, pulsAtMs: NU - 3 * 86400000 };
+    expect(skalMeldeLiveTavs(lige_startet)).toBe(false);
+    // 4:59 efter kickoff: stadig nej. 5:01: ja.
+    expect(skalMeldeLiveTavs({ ...lige_startet, tidligsteKickoffMs: NU - (LIVE_STALE_MS - 1000) })).toBe(false);
+    expect(skalMeldeLiveTavs({ ...lige_startet, tidligsteKickoffMs: NU - (LIVE_STALE_MS + 1000) })).toBe(true);
+  });
+
+  // Uden et brugbart kickoff kan vi ikke vide, om kilden har haft tid — og en
+  // alarm, der kræver en kvittering, må ikke fyre på et gæt.
+  it('fyrer ikke, når kampens starttid ikke kan læses', () => {
+    expect(skalMeldeLiveTavs({ ...basis, tidligsteKickoffMs: NaN })).toBe(false);
+    expect(skalMeldeLiveTavs({ ...basis, tidligsteKickoffMs: Infinity })).toBe(false);
+  });
+});
+
+// Hvad ser spillerne? Alarmteksten må kun nævne det symptom, der faktisk er
+// på skærmen — den påstod før "OPDATERING AFBRUDT" også i det gab, hvor
+// kortet blot står låst uden stilling (QC-fund).
+describe('liveTavsSymptom', () => {
+  const { liveTavsSymptom } = require('./superligaSync');
+  const NU = Date.UTC(2026, 7, 23, 15, 0, 0);
+  const kickoff = NU - 60 * 60000;
+
+  it('pulsen slog EFTER kickoff → stillingen er frosset på skærmen', () => {
+    expect(liveTavsSymptom({ pulsAtMs: kickoff + 10 * 60000, tidligsteKickoffMs: kickoff })).toBe('frosset');
+  });
+
+  it('pulsen er fra FØR kickoff (eller findes ikke) → live kom aldrig i gang', () => {
+    expect(liveTavsSymptom({ pulsAtMs: kickoff - 86400000, tidligsteKickoffMs: kickoff })).toBe('aldrig-startet');
+    expect(liveTavsSymptom({ pulsAtMs: NaN, tidligsteKickoffMs: kickoff })).toBe('aldrig-startet');
   });
 });
 

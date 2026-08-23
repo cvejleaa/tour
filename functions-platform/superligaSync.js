@@ -416,6 +416,11 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
     return { pending: 0, updated: 0, live: null, standings: null, fejl: `opslag: ${err?.message || err}` };
   }
   if (venter.length === 0) return { pending: 0, updated: 0, live: null, standings: null, fejl: null };
+  // Tidligste kickoff blandt de ventende: alarmens slæk måles herfra, så
+  // kilden får tid til at flippe status efter kickoff (se skalMeldeLiveTavs).
+  const tidligsteKickoffMs = Math.min(...venter
+    .map((m) => kickoffMs(m.data.kickoff))
+    .filter((v) => Number.isFinite(v)));
 
   let updated = 0;
   let rettede = [];
@@ -445,7 +450,7 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
     fejl = `${fejl ? `${fejl}; ` : ''}live: ${err?.message || err}`;
   }
 
-  if (updated === 0) return { pending: venter.length, updated, live, standings: null, fejl };
+  if (updated === 0) return { pending: venter.length, updated, live, standings: null, fejl, tidligsteKickoffMs };
 
   let standings = null;
   try {
@@ -453,7 +458,7 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
   } catch (err) {
     fejl = `${fejl ? `${fejl}; ` : ''}stilling: ${err?.message || err}`;
   }
-  return { pending: venter.length, updated, live, standings, fejl };
+  return { pending: venter.length, updated, live, standings, fejl, tidligsteKickoffMs };
 }
 
 // Hvornår er en levende stilling "forældet" for spillerne? SPEJL af klientens
@@ -482,11 +487,36 @@ const LIVE_STALE_MS = 5 * 60 * 1000;
  *
  * @param {{pending:number, pulsSkrevet:boolean, pulsAtMs:number|null, nowMs:number}} o
  */
-function skalMeldeLiveTavs({ pending, pulsSkrevet, pulsAtMs, nowMs }) {
+function skalMeldeLiveTavs({ pending, pulsSkrevet, pulsAtMs, tidligsteKickoffMs, nowMs }) {
   if (!(pending > 0)) return false;
   if (pulsSkrevet) return false;
+  // SLÆKKET MÅLES FRA KAMPENS START — ikke fra sidste puls. Første udgave så
+  // kun på pulsens alder, og fordi liveHeartbeatAt sidder på SPIL-dokumentet,
+  // er den mellem kampdage dage gammel: alarmen kunne derfor fyre i selve
+  // kickoff-minuttet, hvor kilden endnu ikke har flippet kampen til
+  // 'inprogress'. Kilden får de samme fem minutter, som spillerne får,
+  // før noget kaldes tavst (QC-fund).
+  if (!Number.isFinite(tidligsteKickoffMs)) return false;
+  if (nowMs - tidligsteKickoffMs <= LIVE_STALE_MS) return false;
   if (!Number.isFinite(pulsAtMs)) return true;
   return nowMs - pulsAtMs > LIVE_STALE_MS;
+}
+
+/**
+ * Hvad SER spillerne, mens pulsen er væk? To forskellige symptomer, og
+ * alarmteksten må kun nævne det, der faktisk er på skærmen (QC-fund: den
+ * påstod "OPDATERING AFBRUDT" også i det gab, hvor kortet blot står låst).
+ *
+ * Har pulsen slået EFTER kampens start, nåede kortene at vise en levende
+ * stilling, som nu er frosset — det er "OPDATERING AFBRUDT". Har den ikke,
+ * er live aldrig kommet i gang, og kortet står som en helt normal låst kamp
+ * uden stilling (liveScore returnerer null, til match.live er skrevet én
+ * gang).
+ */
+function liveTavsSymptom({ pulsAtMs, tidligsteKickoffMs }) {
+  return Number.isFinite(pulsAtMs) && Number.isFinite(tidligsteKickoffMs) && pulsAtMs > tidligsteKickoffMs
+    ? 'frosset'
+    : 'aldrig-startet';
 }
 
 /**
@@ -670,7 +700,7 @@ async function runScheduledSyncAll(db, FieldValue, nowMs, opts = {}) {
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
-  skalMeldeLiveTavs, LIVE_STALE_MS,
+  skalMeldeLiveTavs, liveTavsSymptom, LIVE_STALE_MS,
   liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, runScheduledSyncAll,
   syncKickoffsCore, strandedMatches, allMatches,
