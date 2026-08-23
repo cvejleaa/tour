@@ -8,6 +8,7 @@
 // ---------------------------------------------------------------------------
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
+import { readFileSync } from 'node:fs';
 import { GAMES } from '../scripts/games.mjs';
 
 const require = createRequire(import.meta.url);
@@ -852,5 +853,125 @@ describe('runScheduledSyncAll', () => {
       ],
     });
     expect(ud.map((o) => o.gameId)).toEqual(['superliga2627']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ÆGTE LIVE-CAPTURE (fixtures/pl-live-runde1.json) — PL runde 1, 23/8-2026 kl.
+// ~16.30 dansk tid, hentet fra premierleague.com mens to kampe kørte.
+//
+// Hvorfor den findes: PL_PERIOD_STATUS blev bygget på kamp-niveauets period
+// OBSERVERET kun i hvile (PreMatch/FullTime) — live-værdierne var GÆTTET ud
+// fra hændelses-niveauet, og drift.md bad om at tjekke loggen for ukendte
+// tokens efter første kampaften.
+//
+// PRÆCIST hvad capturen lukker: 'SecondHalf' er nu set på KAMP-niveau, og der
+// var INGEN ukendte tokens. 'FirstHalf' er den STADIG ikke bevis for — begge
+// kampe var forbi pausen, da den blev taget, så det token sås kun på
+// hændelses-niveau, som før. Den skelnen skal stå, ellers påstår testen mere
+// end den måler.
+// ---------------------------------------------------------------------------
+describe('pulselive mod ægte live-capture (PL runde 1)', () => {
+  const side = JSON.parse(
+    readFileSync(new URL('./fixtures/pl-live-runde1.json', import.meta.url), 'utf8'),
+  );
+  // Én side, ingen _next — capturen er ét kald mod kildens kampliste.
+  const fetchFn = async () => ({ ok: true, status: 200, json: async () => side });
+  const sync = { competitionId: 8, season: 2026 };
+
+  it('læser præcis de 6 færdige kampe som facit — med kildens cifre', async () => {
+    const f = await PROVIDERS.pulselive.hentFaerdige(sync, fetchFn);
+    expect(f.map((x) => `${x.sourceKey}=${x.homeGoals}-${x.awayGoals}`)).toEqual([
+      '2645195=3-0', '2645198=2-0', '2645197=2-0', '2645199=2-1', '2645200=0-1', '2645196=3-0',
+    ]);
+  });
+
+  // KERNEN i capturen: to kampe stod i SecondHalf med rigtige cifre. Muteres
+  // PL_PERIOD_STATUS.secondhalf væk (eller til noget andet), bliver status
+  // 'ukendt', og kortet ville sige blot "DIREKTE" midt i 2. halvleg.
+  it('læser de to kampe i gang som "anden" (2. halvleg) med stillingen', async () => {
+    const { events, stadigIGang } = await PROVIDERS.pulselive.hentLive(sync, fetchFn);
+    expect(events).toEqual([
+      { sourceKey: '2645201', home: 4, away: 0, status: 'anden', statusRaw: 'SecondHalf' },
+      { sourceKey: '2645202', home: 0, away: 1, status: 'anden', statusRaw: 'SecondHalf' },
+    ]);
+    // Kun de to spillende kampe — de færdige og de ikke-startede må ALDRIG
+    // med, ellers holder de sig selv kunstigt "i gang".
+    expect([...stadigIGang]).toEqual(['2645201', '2645202']);
+  });
+
+  // Capturen rummer en PreMatch-kamp med score 0-0 i felterne (2645203) —
+  // altså en kamp, der IKKE er begyndt, men bærer cifre. Den må hverken læses
+  // som et 0-0-facit eller som en kamp i gang. Uden plIGang/period-vagten
+  // ville netop den kamp få et falsk uafgjort og afregne point.
+  it('en PreMatch-kamp med 0-0 i felterne bliver hverken facit eller live', async () => {
+    const f = await PROVIDERS.pulselive.hentFaerdige(sync, fetchFn);
+    const live = await PROVIDERS.pulselive.hentLive(sync, fetchFn);
+    expect(f.map((x) => x.sourceKey)).not.toContain('2645203');
+    expect(live.events.map((e) => e.sourceKey)).not.toContain('2645203');
+    expect([...live.stadigIGang]).not.toContain('2645203');
+  });
+
+  it('capturen indeholder INGEN period-tokens, vi ikke kender', async () => {
+    const ukendte = side.data
+      .map((m) => String(m.period || '').toLowerCase())
+      .filter((p) => p && !['prematch', 'fulltime', 'firsthalf', 'secondhalf', 'halftime'].includes(p));
+    expect(ukendte).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ÆGTE LIVE-CAPTURE (fixtures/sl-live-runde5.json) — Superligaen runde 5,
+// 23/8-2026, AC Horsens–Lyngby hentet mens kampen kørte.
+//
+// Samme ærinde som PL-capturen: LIVE_STATUS oversætter API'ets engelske
+// fritekst, og '2nd half' var indtil nu kun en rimelig antagelse. Her er den
+// set. Capturen pinner desuden to ting, syntetiske fixtures ikke kan:
+//   - `id` er NULL på live-kampen, så nøglen MÅ bygges af runde + holdnavne
+//     (matchDocId). Skiftede vi til et id-opslag, ville live-vejen dø tavst.
+//   - en kamp i gang bærer statusType 'inprogress' — det er dét, hentLive
+//     filtrerer på, og dét, 'afbrudt' deler med den (se LIVE_STATUS-noten).
+// ---------------------------------------------------------------------------
+describe('superliga mod ægte live-capture (runde 5)', () => {
+  const superliga = PROVIDERS.superliga;
+  const svar = JSON.parse(
+    readFileSync(new URL('./fixtures/sl-live-runde5.json', import.meta.url), 'utf8'),
+  );
+  const fetchFn = async () => ({ ok: true, status: 200, json: async () => svar });
+
+  it('læser den levende kamp med dansk halvleg og korrekt nøgle', async () => {
+    const { events, stadigIGang } = await superliga.hentLive({ seasonId: 35802 }, fetchFn);
+    expect(events).toEqual([{
+      sourceKey: 'r5-achorsens-lyngbyboldklub',
+      home: 1,
+      away: 0,
+      status: 'anden',
+      statusRaw: '2nd half',
+    }]);
+    expect([...stadigIGang]).toEqual(['r5-achorsens-lyngbyboldklub']);
+  });
+
+  // Muteres LIVE_STATUS['2nd half'] (fx til 'foerste' eller væk), bliver denne
+  // rød — det er hele pointen med at have ægte kildedata i suiten.
+  it('oversætter kildens engelske fritekst — der slipper aldrig engelsk ud', async () => {
+    const { events } = await superliga.hentLive({ seasonId: 35802 }, fetchFn);
+    expect(events[0].status).toBe('anden');
+    expect(events[0].status).not.toBe(events[0].statusRaw);
+  });
+
+  it('capturen bærer ingen ukendte statusFull-tokens', async () => {
+    const kendte = new Set(['1st half', 'halftime', 'half time', 'ht', '2nd half',
+      'extra time', '1st extra', '2nd extra', 'awaiting extra time',
+      'penalties', 'penalty shootout', 'interrupted', 'abandoned', 'postponed']);
+    for (const e of svar.events) {
+      expect(kendte.has(String(e.statusFull).toLowerCase()), e.statusFull).toBe(true);
+    }
+  });
+
+  // En kamp i gang har INTET facit endnu — hentFaerdige må ikke opfinde et
+  // 1-0 ud af den levende stilling (den filtrerer på statusType 'finished').
+  it('en kamp i gang giver INTET facit', async () => {
+    const f = await superliga.hentFaerdige({ seasonId: 35802 }, fetchFn);
+    expect(f).toEqual([]);
   });
 });

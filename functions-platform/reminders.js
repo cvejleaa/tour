@@ -47,11 +47,15 @@ function upcomingMatches(matches, now, windowEnd, gatede = null) {
 }
 
 /**
- * Kør påmindelser for ét spil. Returnerer { sent, reason?, upcoming, members }.
+ * Kør påmindelser for ét spil.
+ * Returnerer { sent, fejlede, reason?, upcoming, members }.
+ * `fejlede` = modtagere hvor sendEmail kastede: uden det tal er "sent: 0" ved
+ * totalt SMTP-nedbrud uskelneligt fra "alle har tippet" — præcis den tavse
+ * fejl, driftkortet findes for at vise (arkitekt-forbehold på planen).
  * No-op'er pænt uden transporter (mangler SMTP_PASSWORD).
  */
 async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
-  if (!transporter) return { sent: 0, reason: 'no-smtp-password' };
+  if (!transporter) return { sent: 0, fejlede: 0, reason: 'no-smtp-password' };
   const windowEnd = new Date(now.getTime() + DAY_MS);
   const gameRef = db.collection('games').doc(gameId);
 
@@ -63,12 +67,12 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
   const matches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const gatede = gatedeKampe(matches, startRundeFor(gameSnap.exists ? gameSnap.data() : null, matches));
   const upcoming = upcomingMatches(matches, now, windowEnd, gatede);
-  if (upcoming.length === 0) return { sent: 0, reason: 'no-matches' };
+  if (upcoming.length === 0) return { sent: 0, fejlede: 0, reason: 'no-matches' };
   const upcomingIds = new Set(upcoming.map((m) => m.id));
 
   const playersSnap = await gameRef.collection('players').get();
   const memberUids = playersSnap.docs.map((d) => d.id);
-  if (memberUids.length === 0) return { sent: 0, reason: 'no-members' };
+  if (memberUids.length === 0) return { sent: 0, fejlede: 0, reason: 'no-members' };
 
   // uid → Set(matchId) af tippede kommende kampe. Hent KUN tips på de kampe der
   // er i vinduet ('in' tager 30 værdier, og en runde har langt færre) — ellers
@@ -91,6 +95,7 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
   const gameName = (gameSnap.exists && gameSnap.data().name) || 'spillet';
 
   let sent = 0;
+  let fejlede = 0;
   for (const uid of memberUids) {
     const u = userById.get(uid) || {};
     const email = emails.get(uid);
@@ -116,10 +121,97 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
       });
       sent += 1;
     } catch (e) {
+      fejlede += 1;
       console.error(`gameTipReminders(${gameId}): kunne ikke sende til ${email}:`, e && e.message);
     }
   }
-  return { sent, gameId, upcoming: upcoming.length, members: memberUids.length };
+  return { sent, fejlede, gameId, upcoming: upcoming.length, members: memberUids.length };
+}
+
+/**
+ * Oversæt én kørsels udfald til driftkortets linje: { niveau, besked, tal? }.
+ * REN funktion — hele afbildningen kan mutationstestes uden Firestore.
+ *
+ * Pausens niveau er BETINGET (spilfører-krav): pause + kampe inden for det
+ * næste døgn = rødt, for dér koster pausen nogen en runde; en pause i en
+ * landsholdspause er harmløs og kun gul. Sådan kan en GLEMT pause ikke ligge
+ * stille i ugevis — kortet bliver rødt præcis den morgen, det gælder.
+ */
+function paamindelsesLinje({ paused = false, harSmtp = true, resultat = null, fejl = null } = {}) {
+  if (fejl != null) {
+    return { niveau: 'fejl', besked: `Kørslen fejlede: ${fejl}` };
+  }
+  if (!harSmtp) {
+    return { niveau: 'fejl', besked: 'SMTP_PASSWORD er ikke sat — der kan ikke sendes påmindelser.' };
+  }
+  if (paused) {
+    const kommende = resultat?.upcoming ?? 0;
+    if (kommende > 0) {
+      return {
+        niveau: 'fejl',
+        besked: `Spillet er sat på pause, og der ER ${kommende} kamp${kommende === 1 ? '' : 'e'} inden for det næste døgn `
+          + '— deltagerne får ingen påmindelse og kan misse deadline. Genoptag under 🔔 Påmindelser.',
+      };
+    }
+    return {
+      niveau: 'advarsel',
+      besked: 'Spillet er sat på pause — der sendes ingen påmindelser. Genoptages under 🔔 Påmindelser.',
+    };
+  }
+  if (resultat?.reason === 'no-matches') {
+    return { niveau: 'ok', besked: 'Ingen kampe inden for det næste døgn — ingen at rykke.' };
+  }
+  if (resultat?.reason === 'no-members') {
+    return { niveau: 'ok', besked: 'Spillet har ingen deltagere endnu.' };
+  }
+  const { sent = 0, fejlede = 0, upcoming = 0, members = 0 } = resultat || {};
+  const tal = { sent, fejlede, upcoming, members };
+  if (fejlede > 0) {
+    // Delvist nedbrud er gult, totalt er rødt — "Sendte 0" med grønt kort var
+    // netop den tavse fejl, kortet findes for (arkitekt-forbehold, QC-krav).
+    return {
+      niveau: sent > 0 ? 'advarsel' : 'fejl',
+      besked: `${fejlede} af ${sent + fejlede} påmindelser kunne ikke sendes (${sent} sendt, `
+        + `${upcoming} kommende kampe, ${members} deltagere) — se functions-loggen.`,
+      tal,
+    };
+  }
+  if (sent === 0) {
+    // sent: 0 er OGSÅ det normale "alle har tippet" — det må aldrig dele
+    // ordlyd med et nedbrud (QC-fund på planen).
+    return { niveau: 'ok', besked: `Ingen manglede at tippe (${upcoming} kommende kampe, ${members} deltagere).`, tal };
+  }
+  return {
+    niveau: 'ok',
+    besked: `Sendte ${sent} påmindelse${sent === 1 ? '' : 'r'} (${upcoming} kommende kampe, ${members} deltagere).`,
+    tal,
+  };
+}
+
+/**
+ * Kør påmindelser for ÉT spil og oversæt udfaldet til driftkortets linje —
+ * fanger sin EGEN fejl, så jobbet i index.js kan skrive status både ved succes
+ * og nedbrud (fjernes try/catch her, bliver testen med den kastende kørsel
+ * rød). For et pauset spil køres INTET, men kampvinduet tælles alligevel op,
+ * så linjen kan afgøre, om pausen koster nogen en runde lige nu.
+ * `deps._koer` er kun til test-injektion (kastende kørsel).
+ */
+async function koerPaamindelserForSpil(db, transporter, game, { now = new Date(), _koer = runGameTipReminders } = {}) {
+  try {
+    if (!transporter) return paamindelsesLinje({ harSmtp: false });
+    if (game.paused) {
+      const gameRef = db.collection('games').doc(game.id);
+      const [gameSnap, matchesSnap] = await Promise.all([gameRef.get(), gameRef.collection('matches').get()]);
+      const matches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const gatede = gatedeKampe(matches, startRundeFor(gameSnap.exists ? gameSnap.data() : null, matches));
+      const upcoming = upcomingMatches(matches, now, new Date(now.getTime() + DAY_MS), gatede);
+      return paamindelsesLinje({ paused: true, resultat: { upcoming: upcoming.length } });
+    }
+    const resultat = await _koer(db, transporter, game.id, now);
+    return paamindelsesLinje({ resultat });
+  } catch (e) {
+    return paamindelsesLinje({ fejl: (e && e.message) || String(e) });
+  }
 }
 
 /**
@@ -265,4 +357,7 @@ async function sendGameTestReminder(db, transporter, gameId, toEmail, displayNam
   return { sent: 1, to: toEmail, matches: next.length };
 }
 
-module.exports = { runGameTipReminders, sendGameTestReminder, upcomingMatches, byggTipStatus, hentTipStatus };
+module.exports = {
+  runGameTipReminders, sendGameTestReminder, upcomingMatches, byggTipStatus, hentTipStatus,
+  paamindelsesLinje, koerPaamindelserForSpil,
+};

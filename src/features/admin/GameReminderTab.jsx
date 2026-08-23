@@ -8,6 +8,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useGames } from '../games/useGames';
+import { setGamePaused } from '../games/gameActions';
+import { forventerPaamindelser } from '../games/spilEvner';
 import {
   callSendGameTipRemindersNow, callSendGameTestReminderToMe, callGamePuljeStatus,
   callGameTipStatus,
@@ -32,6 +34,8 @@ export default function GameReminderTab() {
 
   const [busy, setBusy] = useState(null); // 'test' | 'now' | 'pulje' | 'pulje-remind' | 'tip' | null
   const [msg, setMsg] = useState(null);   // { kind, text }
+  const [pauseBusy, setPauseBusy] = useState(false);
+  const [pauseFejl, setPauseFejl] = useState(null);
   const [pulje, setPulje] = useState(null);     // resultat fra gamePuljeStatus
   const [puljeMsg, setPuljeMsg] = useState(null); // { kind, text }
 
@@ -47,6 +51,24 @@ export default function GameReminderTab() {
   useEffect(() => { setTipMatches(null); setTipStatus(null); setTipMsg(null); }, [gameId]);
 
   const valgtSpil = useMemo(() => eligible.find((g) => g.id === gameId) || null, [eligible, gameId]);
+  // Fanen viser fodbold-spil uden 'finished'-status (eligible), men det
+  // daglige job kører KUN for open/live (forventerPaamindelser). For et spil
+  // udenfor jobbets gate (fx uden status) deaktiveres påmindelses-knapperne —
+  // fanen må ikke tilbyde en manuel knap, hvis automatiske tvilling er tavs
+  // for samme spil. Tip-status og pulje-status er IKKE påmindelser og virker
+  // stadig (QC-fund på planen: gaten må ikke tage dem med i faldet).
+  const kanPaamindes = forventerPaamindelser(valgtSpil);
+  const paused = valgtSpil?.paused === true;
+
+  // Pausen læses direkte af spillet — ikke af en lokal kopi. Knappen skriver
+  // med det samme, og badge/etiket vender, når snapshottet kommer tilbage;
+  // det ER kvitteringen (samme mønster som synligheds-knappen).
+  async function togglePause() {
+    setPauseBusy(true); setPauseFejl(null);
+    const res = await setGamePaused(gameId, !paused);
+    if (!res.ok) setPauseFejl(res.error || 'Kunne ikke ændre pausen.');
+    setPauseBusy(false);
+  }
   const tipRunder = useMemo(() => {
     if (!tipMatches) return [];
     const synlige = fraStartRunde(tipMatches, startRundeFor(valgtSpil, tipMatches));
@@ -107,9 +129,15 @@ export default function GameReminderTab() {
     const res = await callSendGameTipRemindersNow(gameId);
     if (res.ok) {
       const d = res.data || {};
-      setMsg({ kind: 'ok', text: d.reason
-        ? `Sendte 0 — ${d.reason === 'no-matches' ? 'ingen kampe inden for det næste døgn.' : d.reason}`
-        : `Sendte ${d.sent} påmindelse${d.sent === 1 ? '' : 'r'} (${d.upcoming} kommende kampe).` });
+      // fejlede SKAL med: "Sendte 0" ved totalt SMTP-nedbrud må ikke ligne
+      // "alle har tippet" — samme krav som driftkortets linje (QC-fund).
+      if (d.fejlede > 0) {
+        setMsg({ kind: 'err', text: `${d.fejlede} af ${d.sent + d.fejlede} påmindelser kunne ikke sendes (${d.sent} sendt) — se functions-loggen.` });
+      } else {
+        setMsg({ kind: 'ok', text: d.reason
+          ? `Sendte 0 — ${d.reason === 'no-matches' ? 'ingen kampe inden for det næste døgn.' : d.reason}`
+          : `Sendte ${d.sent} påmindelse${d.sent === 1 ? '' : 'r'} (${d.upcoming} kommende kampe).` });
+      }
     } else setMsg({ kind: 'err', text: res.error });
     setBusy(null);
   }
@@ -131,11 +159,51 @@ export default function GameReminderTab() {
         )}
       </div>
 
+      {/* Nødstop for det daglige job — pr. SPIL. Badge/etiket læses direkte af
+          spillet (live-snapshot = kvitteringen). Vises kun for spil, jobbet
+          overhovedet kører for: en pause på et spil uden påmindelser ville
+          være en kontakt uden ledning. */}
+      {valgtSpil && kanPaamindes && (
+        <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+          <button className="btn btn--ghost btn--sm" disabled={pauseBusy} onClick={togglePause}>
+            {pauseBusy ? 'Ændrer…' : (paused ? '▶ Genoptag påmindelser' : '⏸ Sæt påmindelser på pause')}
+          </button>
+          <span className={`badge ${paused ? 'badge--red' : 'badge--green'}`}>
+            {paused ? '● På pause' : '● Kører'}
+          </span>
+          {pauseFejl && <span className="badge badge--red">{pauseFejl}</span>}
+        </div>
+      )}
+
+      {/* Hjælpeteksten skifter med pausen — 09.00-løftet og "På pause" må
+          ALDRIG stå som to nabosætninger, der modsiger hinanden (QC-fund). */}
       <p style={{ color: 'var(--c-muted)' }}>
-        Deltagere får automatisk en mail <strong>kl. 09.00</strong>, hvis de mangler at tippe på kampe
-        inden for det næste døgn. <strong>Send testmail</strong> går kun til dig; <strong>Send nu</strong> kører
-        den rigtige udsendelse til alle med manglende tips i det valgte spil.
+        {paused ? (
+          <>
+            Den daglige 09.00-mail er <strong>sat på pause for dette spil</strong> — et nødstop, ikke et
+            sæsonværktøj: står den glemt, misser deltagerne en deadline uden at vide det, og drift-kortet
+            under 🩺 Driftstatus står gult/rødt, til den genoptages. Pausen rører <strong>kun</strong> påmindelserne:
+            resultat-synk, pointafregning og Runde-Botten kører videre, og <strong>Send nu</strong> nedenfor
+            virker stadig manuelt.
+          </>
+        ) : (
+          <>
+            Deltagere får automatisk en mail <strong>kl. 09.00</strong>, hvis de mangler at tippe på kampe
+            inden for det næste døgn. <strong>Send testmail</strong> går kun til dig; <strong>Send nu</strong> kører
+            den rigtige udsendelse til alle med manglende tips i det valgte spil.
+          </>
+        )}
       </p>
+
+      {/* Et spil i fanen, som 09-jobbet alligevel springer over (fx uden
+          status), må ikke have aktive påmindelses-knapper — så lover fanen en
+          udsendelse, automatikken aldrig ville lave. */}
+      {valgtSpil && !kanPaamindes && (
+        <p className="badge badge--yellow" style={{ display: 'block' }}>
+          Spillet er uden for det daglige jobs gate (kræver status Åbent eller I gang) — påmindelses-knapperne
+          er slået fra. Sæt status under 🗓️ Spil-tidsplan.
+        </p>
+      )}
 
       {/* ── Hvem mangler at tippe? (over Send-knapperne: se → ryk) ──────── */}
       <div className="card mb-2" style={{ padding: '0.75rem 1rem' }} data-testid="tipstatus">
@@ -212,10 +280,12 @@ export default function GameReminderTab() {
       )}
 
       <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
-        <button className="btn btn--ghost" disabled={!gameId || busy} onClick={sendTest}>
+        <button className="btn btn--ghost" disabled={!gameId || busy || !kanPaamindes} onClick={sendTest}>
           {busy === 'test' ? 'Sender…' : '🧪 Send testmail til mig'}
         </button>
-        <button className="btn" disabled={!gameId || busy} onClick={sendNow}>
+        {/* Pausen deaktiverer IKKE Send nu — den manuelle vej er netop
+            udvejen, mens automatikken holder pause (hjælpeteksten lover det). */}
+        <button className="btn" disabled={!gameId || busy || !kanPaamindes} onClick={sendNow}>
           {busy === 'now' ? 'Sender…' : 'Send påmindelser nu'}
         </button>
       </div>

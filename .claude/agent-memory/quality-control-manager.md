@@ -1027,3 +1027,192 @@ Begge blokerende plan-fund er rettet og efterprøvet, ikke kun læst:
   identiske (samme to spil). Spørg igen, hvis en tredje provider nogensinde
   seedes uden fuld resultat-synk-implementering: sweep-kortet ville da vises
   for et spil, der reelt ikke sweepes for resultater.
+
+## Drift for påmindelser + pause-nødstop (ef3f549, #47 PR2): implementering mod planens 6 krav + spilfører-tærskel — konkrete fund
+
+Alle 6 nummererede krav fra plan-gennemgangen holder, efterprøvet i koden, ikke
+kun læst: (1) `paamindelsesGate.js`/`spilEvner.forventerPaamindelser` er et
+ægte spejlet par med matrix-paritetstest (`paamindelsesGate.test.js`, alle
+kombinationer + `paused` bekræftet IKKE en del af gaten); GameReminderTab
+deaktiverer kun knapperne (`disabled={... || !kanPaamindes}`), Tip-status og
+Pulje-status forbliver aktive. (2) `GameScheduleTab.jsx`s "I gang"-hjælpetekst
+nævner nu pausen. (3) `GameReminderTab`s 09.00-tekst er et `paused ? … : …`
+skifte, ordret testet på INDHOLD i `reminders.test.js`
+(`not.toContain('Sendte')` osv.). (4)+(5) `paamindelsesLinje()` (ren funktion,
+`reminders.js`) returnerer `fejlede` og har EGEN ordlyd for "sent:0 = alle har
+tippet" vs. "delvist/totalt nedbrud" — begge grene mutationssikret med
+eksplicitte `not.toContain`-assertions. (6) `paused` er disponeret i
+`seed-payload.mjs`s kommentar mod `ADMIN_OWNED` (feltet er bevidst IKKE i
+`games.mjs`, så ingen konflikt i dag). Spilførerens tærskel (rødt kort ved
+pause + kampe inden for de næste 24 timer) bruger SAMME `upcomingMatches`
++ `DAY_MS`-vindue som selve påmindelses-jobbet — ikke en ny, uafhængig
+tærskel — og server-håndhævelsen af `paused`-skrivning er den EKSISTERENDE
+`allow create, update: if isGlobalAdmin()` på `games/{gameId}` (ingen
+rules-ændring nødvendig), nu eksplicit testet i `functions/rules.test.js`
+("global admin KAN sætte paused" / "spiller kan IKKE").
+
+- **En ny admin-kontrol kan lande med server- og gate-tests i topklasse, men
+  NUL UI-tests.** `GameReminderTab.test.jsx` er UÆNDRET (stadig 4 tests,
+  ingen af dem rører `paused`, pause-knappen, badge'en, den betingede
+  hjælpetekst eller den disablede knap-tilstand). Al den nye 78-linjers UI
+  (`kanPaamindes`/`paused`-betinget rendering) er læst og bekræftet KORREKT
+  ved manuel kodelæsning, men intet automatisk tjek ville fange et ombyttet
+  `!kanPaamindes` → `kanPaamindes`, en forkert prop, eller at hjælpeteksten
+  aldrig skifter. Spørg specifikt om dette FILNAVN, når Test Manager
+  mutationstester — server-siden (reminders.js/paamindelsesGate.js) er solidt
+  dækket; klient-komponentens WIRING er det ikke.
+- **`doc.tal` går tabt for 'advarsel'/'fejl'-niveauer.** `driftlog.js`s
+  `statusSamler().advarsel(besked)`/`.fejl(besked)` tager kun ÉT argument —
+  `index.js`s `st[linje.niveau](linje.besked, linje.tal)` sender `tal` med,
+  men det bliver stille droppet, når niveauet er advarsel/fejl (kun `.ok()`
+  merger `tal` ind i `s.tal`). Harmløst i dag: `DriftTab.jsx` læser aldrig
+  `doc.tal` — alle tal står allerede inline i `besked`-strengen. Værd at rette
+  for konsistens, hvis `tal` nogensinde bruges strukturelt (fx et fremtidigt
+  tal-baseret filter/sortering på Driftstatus-fanen).
+- **Dokumentations-drift, konkret og i den PRÆCISE scenarie funktionen findes
+  for.** `docs/admin-guide.md`s status-tabel (linje ~67, "I gang | ... Påmindelser
+  sendes.") blev IKKE opdateret, selvom kode-pendanten
+  (`GameScheduleTab.jsx` STATUS_HELP) fik pausens forbehold tilføjet i samme
+  commit — direkte spejlet-fil-brud. Hele "Påmindelser (platformen)"-afsnittet
+  (linje 111-127) nævner slet ikke den nye ⏸/▶-knap. Og `docs/drift.md`s
+  fejlfindingstabel "Hvis noget ser tomt ud" (linje 264, "Ingen påmindelser
+  sendt | Kampene ligger i en runde før startRound, eller SMTP_PASSWORD
+  mangler") nævner ikke `paused` som årsag — den manglende linje er netop i
+  den tabel, en admin ville slå op i, når en glemt pause er PRÆCIS problemet,
+  hele PR'en blev bygget for at gøre synligt. Ikke blokerende for landing
+  (ren dokumentation, ingen kodeafhængighed), men bør rettes i samme PR eller
+  en hurtig opfølger — spørg specifikt efter disse tre steder ved en
+  eventuel opfølgende dokumentations-commit.
+
+## Drift for påmindelser (dc1e7af, #47 rolle-fund): alle tre forbehold lukket
+
+Alle tre punkter fra forrige "land med forbehold" er efterprøvet lukket, ikke
+kun læst: `GameReminderTab.test.jsx` fik 10 nye tests (pause-badge begge veje,
+fejlvisning, hjælpetekst INDHOLD med `not.toContain`, gate mod jobbet, Send
+nu-rapportens to udfald hver med egen ordlyd); `docs/admin-guide.md` +
+`docs/drift.md` fik pausen ind i status-tabellen, et helt nyt "⏸ Sæt
+påmindelser på pause"-afsnit, og fejlsøgningsrækken "Ingen påmindelser sendt";
+`statusSamler().advarsel(besked, tal)`/`.fejl(besked, tal)` tager nu `tal`.
+Samme commit rettede desuden en PL-live-påstand i `drift.md` fra "hele
+sæson-listen bar præcis FirstHalf/SecondHalf/FullTime" til præcist "SecondHalf
+set på KAMP-niveau, FirstHalf STADIG kun på hændelses-niveau" — god skabelon
+for "efterprøv en påstand mod PRÆCIS hvad beviset dækker, ikke mere".
+
+## Live-puls-alarm (5e51155, #47): kraeverKvittering kolliderer med auto-luk — BLOKERENDE
+
+Ny alarm (`skalMeldeLiveTavs` i `superligaSync.js`, kaldt fra
+`syncSuperligaResults` i `index.js`) skal fange "live-pulsen står stille, mens
+kampe er i vinduet" — den fejl, hvor et 20-minutters udfald tidligere
+forsvandt sporløst, fordi minut-kortet overskrives. To konkrete,
+sammenhængende fund, begge bekræftet i koden (ikke antaget):
+
+- **`kraeverKvittering: true` + selv-lukning er en NY, uprøvet kombination —
+  og den TABER kvitteringen, ikke vinder den.** Alle andre `kraeverKvittering:
+  true`-alarmer i `index.js` (`genaabning`, `kickoff48t`,
+  `puljeLockGenaabning`) lukkes ALDRIG automatisk — kun `kvitterDriftAlarm`.
+  Alarmer der selv-lukker (`strandet`, `mangler`) kræver omvendt ALDRIG
+  kvittering. `livetavs` er den FØRSTE, der gør begge dele: næste tick, hvor
+  pulsen igen skrives (dvs. praktisk talt NÆSTE MINUT, ethvert normalt minut
+  under en kamp), kalder index.js `loesDriftAlarmer(..., { type: 'livetavs',
+  aktuelleKampIds: [] })` ubetinget. Både `useDriftStatus.js` (linje ~36+63)
+  OG `useDriftAlarmCount` filtrerer PÅ `where('loestAt', '==', null')` — så et
+  auto-lukket kort forsvinder fra BÅDE Driftstatus-listen og ⚠-badget i
+  navigationen, UANSET `kvitteretAt`. Der findes ingen historik-visning i
+  klienten (`useDriftStatus.js`s egen kommentar: "lukkede er historie, og
+  historik bor i functions-loggen" — som ejeren "ALDRIG skal lære at åbne",
+  jf. `driftlog.js`s modul-kommentar). Konsekvens: et udfald, der selv-heler
+  FØR ejeren tilfældigvis kigger på Driftstatus (dvs. de fleste transiente
+  udfald, inklusive netop det 20-minutters-udfald, PR'en er bygget for), bliver
+  ALDRIG set og ALDRIG kvitteret — nøjagtig samme "kan ikke efterprøves
+  bagefter"-fejl som featuren skal løse, blot flyttet fra minut-kortet til
+  alarm-kortet. Commit-beskeden selv siger begge ting i forlængelse af
+  hinanden ("en alarm, der består, til den kvitteres" / "Alarmen lukker sig
+  selv, når pulsen slår igen") uden at se modsætningen. **Rettelsen er enten:
+  drop `kraeverKvittering` for denne type (den er så reelt kun `advarsel`-agtig
+  med `loesDriftAlarmer` som den etablerede model), ELLER drop auto-lukningen
+  og lad den blive stående til kvittering som sine `kraeverKvittering`-søskende
+  — men aldrig begge dele på én gang.**
+- **`skalMeldeLiveTavs` har NUL grace for "pulsen har aldrig (for nylig) været
+  frisk" — og det er langt den ALMINDELIGE sti, ikke en sjælden fejltilstand.**
+  `if (!Number.isFinite(pulsAtMs)) return true` OG (i praksis oftere)
+  `nowMs - pulsAtMs > LIVE_STALE_MS` når `pulsAtMs` er dage gammel (sidste
+  kampdag) fyrer med ÉT tick, mens den "var-frisk-for-nylig"-vejen har en
+  5-minutters buffer. `liveHeartbeatAt` sidder på SPIL-dokumentet (ikke pr.
+  kamp), så feltet er så godt som ALTID "finite men gammelt" mellem
+  kampdage — den reneste alarmerings-vej er derfor den FØRSTE kamp, der
+  sparker i gang i en ny runde: `pendingMatches` gør `pending>0` fra selve
+  kickoff-minuttet (`kickoff <= now`, intet slæk), mens kildens `hentLive`
+  kun returnerer events for kampe kilden SELV allerede regner for
+  'inprogress' — et gab på (mindst) den tid, det tager kilden at flippe
+  status efter den faktiske fløjt. I det gab: `pending>0`, `pulsSkrevet:
+  false`, `pulsAtMs` ugammelt → alarm på FØRSTE tick, ingen grace.
+  **Bevist forkert symptombeskrivelse i netop dette gab:** alarmteksten
+  påstår "spillerne ser 'OPDATERING AFBRUDT'" — men klientens `liveScore()`
+  (`footballRounds.js:177-210`) returnerer `null`, indtil `match.live`
+  overhovedet er skrevet FØRSTE gang, og `FootballTip.jsx:551-552` viser i
+  det tilfælde badget **"Låst"**, ikke "Opdatering afbrudt" (det kræver
+  `live` sat OG `forældet`). Alarmen kan altså fyre, mens spillerne ser en
+  helt normal "Låst"-kamp uden noget som helst der ligner et problem — det
+  modsatte af hvad alarmteksten hævder. Spørg NÆSTE gang en server-alarm
+  citerer, hvad brugeren ser: findes der en render-betingelse, der beviser
+  præcis DEN tilstand, eller er det en antagelse om hvornår symptomet
+  indtræder?
+- **Ikke-blokerende doc-overclaim, samme rod som ovenstående:** kommentaren
+  ved læsningen i `index.js` ("et normalt minut koster derfor ingen ekstra
+  læsning") dækker kun opslaget på `games/{id}` (korrekt: sker kun i den
+  mistænkelige gren). Den nævner ikke, at `loesDriftAlarmer`s egen QUERY
+  (`driftAlarmer`, 3 betingelser) køres UBETINGET i else-grenen — dvs. hvert
+  ENESTE tick, en kamp er bekræftet live (`pulsSkrevet: true`), som er
+  langt de FLESTE minutter under en kamp, ikke kun "den mistænkelige gren".
+  Samme mønster (ubetinget `loesDriftAlarmer`-query) findes allerede i
+  sweep'et for `strandet`, men KUN én gang i timen — her er det op til
+  ~90-120 gange PR KAMP. Sandsynligvis billigt i absolutte tal, men
+  kommentaren er unøjagtig om HVOR grænsen for "ingen ekstra læsning" går.
+- **Pure-funktionen selv (`skalMeldeLiveTavs`) er velskrevet og
+  mutationstestet på sin EGEN specifikation** (båndet 4:59/5:01, alle
+  NaN/null/undefined-varianter, paritetstest mod klientens `LIVE_STALE_MS`).
+  Fundene ovenfor er ikke i den rene funktions logik — de er i hvad
+  specifikationen selv antager om, hvornår "aldrig/for længe siden frisk"
+  reelt indtræffer, og i hvordan resultatet bruges i `index.js`.
+
+## Live-puls-alarm — opfølgning (e230775): begge blokerende fund korrekt rettet
+
+Efterprøvet i egen worktree mod `e230775` (ikke kun læst): `superligaSync.test.js`
+130/130 grønne, ingen anden `loesDriftAlarmer('livetavs', …)` tilbage noget sted
+(`grep` bekræftet, kun ét `livetavs`-sted i `index.js`: selve `meldAlarm`-kaldet).
+
+- **Auto-luk væk, ingen anden vej ud.** Hele `else if (out.live &&
+  out.live.pulsSkrevet) { loesDriftAlarmer(...) }`-grenen er slettet — ikke
+  gjort betinget. `livetavs` følger nu PRÆCIS samme mønster som
+  `genaabning`/`kickoff48t` (kræver kvittering, ingen selv-luk). Bekræftet:
+  ingen anden funktion i `functions-platform/` kalder `loesDriftAlarmer` med
+  `type: 'livetavs'`.
+- **Kickoff-gabet lukket rigtigt, ikke bare flyttet.** `tidligsteKickoffMs`
+  (min af venters kickoff-tider) bæres nu med ud af `runScheduledSync` og
+  bruges som EGEN grace (`nowMs - tidligsteKickoffMs <= LIVE_STALE_MS →
+  false`), FØR pulsAtMs-tjekket. `Math.min(...[])`-kanten (alle kickoffs
+  ulæselige) giver `Infinity` — eksplicit dækket af egen test
+  (`tidligsteKickoffMs: Infinity` → false). At bruge MIN (ikke seneste/første
+  fundne) er korrekt: en ægte overtids-kamp i samme vindue som en lige
+  kickoffet kamp maskerer ikke hinanden, fordi den TIDLIGSTE afgør slækket —
+  efterprøvet manuelt, ikke kun antaget.
+- **Symptom-teksten (`liveTavsSymptom`) er sand mod `liveScore()`/
+  `FootballTip.jsx` i begge sine grene** — bekræftet ved læsning af begge
+  filer, ikke kun af testen. Én resterende, IKKE-blokerende unøjagtighed:
+  symptomet er PR SPIL, ikke pr. kamp, og bruges til at beskrive ALLE
+  `out.pending`-kampe med ét ord. Ved to samtidige pending-kampe i forskellig
+  tilstand (én frosset efter tidligere live, én der aldrig kom i gang) kan
+  teksten vælge 'frosset' (fordi `pulsAtMs` stammer fra den ANDEN kamps
+  tidligere puls) og dermed beskrive en kamp forkert, der reelt står "Låst".
+  Smalt vindue (kræver netop den kombination), ikke fundet blokerende — men
+  værd at nævne, hvis nogen udvider alarmen til at navngive den enkelte kamp.
+- **Punkt (d) er ikke bare afbødet, men bortfaldet:** hele forespørgslen
+  `loesDriftAlarmer` lavede hvert tick under en sund, kørende kamp er væk med
+  grenen. Ingen ekstra Firestore-operation i noget normalt minut længere —
+  kommentaren i `index.js` er nu korrekt, ikke kun mere korrekt.
+- **Docs præcise i begge filer:** `admin-guide.md` og `drift.md` siger nu
+  eksplicit at alarmen "bliver stående, til du kvitterer — også når udfaldet
+  for længst er ovre", og `drift.md` nævner fem-minutters-slækket fra kickoff.
+  Ingen rest af den gamle "lukker sig selv"-antagelse nogen steder (grep).
+
+Konklusion: ingen nye blokerende fund. Landbar.

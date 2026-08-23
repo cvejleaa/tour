@@ -304,13 +304,24 @@ async function plAlleKampe(sync, fetchFn) {
 }
 
 // Kamp-niveauets period → vores lukkede statussæt (samme sæt som Superligaen,
-// så klienten aldrig ser kildens egne ord). I fixtures er period kun
-// OBSERVERET som PreMatch/FullTime — live-værdierne herunder er API'ets egen
-// navngivning fra hændelses-niveauet i docs/PL_match_liv_bou.har (mål, kort
-// og udskiftninger bærer period "FirstHalf"/"SecondHalf"), plus de gængse
-// naboer i samme familie. En værdi, vi ikke kender, bliver 'ukendt' (vises
-// som blot "DIREKTE") og logges — første kampaften 21/8 afslører så evt.
-// tokens, vi mangler, uden at noget vælter.
+// så klienten aldrig ser kildens egne ord).
+//
+// OBSERVERET PÅ KAMP-NIVEAU (fixtures/pl-live-runde1.json — runde 1,
+// 23/8-2026, capturet mens to kampe kørte): PreMatch, SecondHalf, FullTime.
+// Det er 'secondhalf' der betyder noget her: den var før GÆTTET, og er nu
+// bundet af en test mod ægte kildedata.
+//
+// 'firsthalf' er STADIG kun set på HÆNDELSES-niveau (mål/kort bærer
+// period "FirstHalf" i docs/PL_match_liv_bou.har og i samme capture) — ikke
+// på kampen selv, for begge kampe var forbi pausen, da capturen blev taget.
+// Samme status som før; den er altså ikke efterprøvet, blot sandsynlig.
+// Ærligheden koster ingenting: en capture fra en kamps første 45 minutter
+// ville lukke punktet.
+//
+// halftime, extratime, shootout, abandoned, postponed og suspended er
+// uobserverede naboer i samme familie. En værdi, vi ikke kender, bliver
+// 'ukendt' (vises som blot "DIREKTE") og logges, så et nyt token afslører sig
+// selv uden at vælte noget.
 const PL_PERIOD_STATUS = {
   firsthalf: 'foerste',
   halftime: 'pause',

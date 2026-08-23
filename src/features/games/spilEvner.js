@@ -37,3 +37,20 @@ export function harKickoffSynk(game) {
 export function harResultatSynk(game) {
   return RESULTAT_PROVIDERE.has(game?.sync?.provider);
 }
+
+/**
+ * Forventer spillet daglige tip-påmindelser (og dermed et Drift-kort for
+ * 09-jobbet)? SPEJLET PAR med functions-platform/paamindelsesGate.js — samme
+ * prædikat som selve jobbets, og det ENESTE sted klienten må spørge (før
+ * fandtes tre uenige kopier: jobbet, Påmindelser-fanen og ingen i DriftTab).
+ *
+ * `paused` indgår med vilje IKKE: pausen er en TILSTAND, kortet rapporterer
+ * (gult/rødt), ikke en gate der fjerner kortet — ellers blev "nogen har slået
+ * påmindelserne fra" usynligt netop dér, hvor man leder efter tavse udfald.
+ * Heller ikke gated på sync.provider: påmindelser afhænger ikke af en kilde.
+ * @param {{type?: string, status?: string}} game
+ * @returns {boolean}
+ */
+export function forventerPaamindelser(game) {
+  return game?.type === 'football' && (game?.status === 'open' || game?.status === 'live');
+}

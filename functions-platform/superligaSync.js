@@ -18,6 +18,8 @@ const {
 } = require('./syncProviders');
 
 const { kickoffPlan } = require('./seedFootball');
+// driftlog er afhængighedsfrit, så der opstår ingen cyklus.
+const { meldAlarm } = require('./driftlog');
 const { puljeLockFraRunde } = require('./pointOpdeling');
 
 const GAME_ID = 'superliga2627';
@@ -348,10 +350,15 @@ async function syncLiveCore(db, FieldValue, opts = {}) {
   // weekend, en playoff-kamp uden dokument — må ikke kunne holde pulsen
   // falsk-frisk; så slog klientens "forældet"-dæmpning aldrig til på en
   // strandet stilling. resolved indeholder netop kun nøgler med dokument.
-  if (events.some((e) => resolved.get(e.sourceKey) != null)) {
+  const pulsSkrevet = events.some((e) => resolved.get(e.sourceKey) != null);
+  if (pulsSkrevet) {
     await db.collection('games').doc(gameId).set({ liveHeartbeatAt: nowMs }, { merge: true });
   }
-  return { live: events.length, skrevet, sluttet, sluttede };
+  // pulsSkrevet rapporteres OP: udebliver pulsen, mens kampe er i vinduet,
+  // står kortene med "OPDATERING AFBRUDT" — og det er i dag den ENESTE fejl,
+  // ingen kan se bagefter (minut-kortet overskrives af næste grønne kørsel).
+  // Se livetavsAlarm nedenfor.
+  return { live: events.length, skrevet, sluttet, sluttede, pulsSkrevet };
 }
 
 /**
@@ -411,6 +418,9 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
     return { pending: 0, updated: 0, live: null, standings: null, fejl: `opslag: ${err?.message || err}` };
   }
   if (venter.length === 0) return { pending: 0, updated: 0, live: null, standings: null, fejl: null };
+  // Kampe med en levende stilling på skærmen LIGE NU — alarmens grundlag.
+  // Læses FØR synken skriver, så et kildesvigt ikke kan skjule dem.
+  const liveIGang = kampeMedLevendeStilling(venter);
 
   let updated = 0;
   let rettede = [];
@@ -440,7 +450,7 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
     fejl = `${fejl ? `${fejl}; ` : ''}live: ${err?.message || err}`;
   }
 
-  if (updated === 0) return { pending: venter.length, updated, live, standings: null, fejl };
+  if (updated === 0) return { pending: venter.length, updated, live, standings: null, fejl, liveIGang };
 
   let standings = null;
   try {
@@ -448,7 +458,113 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
   } catch (err) {
     fejl = `${fejl ? `${fejl}; ` : ''}stilling: ${err?.message || err}`;
   }
-  return { pending: venter.length, updated, live, standings, fejl };
+  return { pending: venter.length, updated, live, standings, fejl, liveIGang };
+}
+
+// Hvornår er en levende stilling "forældet" for spillerne? SPEJL af klientens
+// LIVE_STALE_MS (src/features/games/football/footballRounds.js) — bundet af en
+// paritetstest.
+const LIVE_STALE_MS = 5 * 60 * 1000;
+
+/**
+ * Kampe, der LIGE NU viser en levende stilling på spillernes kort.
+ *
+ * Dette er alarmens grundlag, og valget ER rettelsen af to fejl (Security-
+ * fund): tidligere talte vi `pending` — "kampe i 2,5-timers vinduet uden
+ * facit" — men det er en PROXY, ikke symptomet:
+ *
+ *   - Efter slutfløjt dropper kilden kampen, og serveren sætter live.status
+ *     'slut'. Kortet siger da "Slut · afventer facit", og pulsen er tavs helt
+ *     efter hensigten. `pending` var stadig > 0, så alarmen råbte hver eneste
+ *     kampaften, hvor facit var mere end fem minutter forsinket.
+ *   - Før kilden har flippet kampen i gang, findes `live` slet ikke: kortet
+ *     står låst uden stilling. Intet symptom, ingen grund til alarm. (Er
+ *     kilden nede hele aftenen, fanges det af strandet-alarmen i sweep'et.)
+ *
+ * Vi tæller derfor præcis de kampe, hvis kort ville skifte til "Opdatering
+ * afbrudt", hvis pulsen udebliver: en skrevet live-stilling, der hverken er
+ * markeret slut eller afbrudt, og som endnu ikke har facit.
+ *
+ * @param {Array<{data:object}>} kampe – dokumenterne, som pendingMatches gav dem
+ */
+function kampeMedLevendeStilling(kampe) {
+  return (kampe || []).filter((m) => {
+    const l = m?.data?.live;
+    if (!l) return false;
+    if (m.data.result != null && m.data.result !== '') return false;
+    return l.status !== 'slut' && l.status !== 'afbrudt';
+  }).length;
+}
+
+/**
+ * Skal vi melde "live-pulsen står stille"? Ren funktion, fordi den er hele
+ * dommen: den afgør, om ejeren vækkes.
+ *
+ * `liveIGang` kommer fra kampenes EGNE dokumenter, ikke fra kildesvaret — og
+ * det er den anden halvdel af Security-rettelsen: kaster `hentLive` (HTTP 500,
+ * timeout, formatbrud), er kildesvaret `null`, og en betingelse, der hang på
+ * det, ville tie ved præcis det totale kildesvigt, alarmen findes for.
+ * Dokumenterne ved stadig, at kampene var i gang.
+ *
+ * En puls, der aldrig er skrevet, tæller som forældet.
+ *
+ * @param {{liveIGang:number, pulsSkrevet:boolean, pulsAtMs:number|null, nowMs:number}} o
+ */
+function skalMeldeLiveTavs({ liveIGang, pulsSkrevet, pulsAtMs, nowMs }) {
+  if (!(liveIGang > 0)) return false;
+  if (pulsSkrevet) return false;
+  if (!Number.isFinite(pulsAtMs)) return true;
+  return nowMs - pulsAtMs > LIVE_STALE_MS;
+}
+
+/**
+ * Alarmens tekst. Ren funktion, så INDHOLDET kan mutationstestes — teksten er
+ * ejerens eneste vej fra rødt kort til handling, og den må kun nævne det
+ * symptom, spillerne faktisk ser (se liveTavsSymptom).
+ */
+function liveTavsBesked({ liveIGang }) {
+  return `Live-stillingen opdateres ikke for ${liveIGang} kamp${liveIGang === 1 ? '' : 'e'}, `
+    + 'der er i gang: kortene står med den sidste stilling og "Opdatering afbrudt". '
+    + 'Facit og point rammes IKKE — de lander via sweep\'et. '
+    + 'Fejlteksten står på minut-kortet ovenfor, mens udfaldet står på. '
+    + '(Er pulsen frisk her, men mærkatet gult i en browser, er det browserens '
+    + 'forbindelse — genindlæs siden.)';
+}
+
+/**
+ * Hele live-puls-vagten: læs spillets puls, fæld dommen, meld alarm.
+ *
+ * Bor HER og ikke i index.js, fordi index.js ikke kan unit-testes — en
+ * tastefejl, der vender `!pulsSkrevet` om, ville ellers lande med grøn suite
+ * (TM-fund). `meld` injiceres, så en test kan se, hvad der blev meldt.
+ *
+ * Læser KUN spil-dokumentet i den mistænkelige gren, så et normalt minut ikke
+ * koster en ekstra læsning. Fejler ALDRIG hårdt: en fejlet vagt må ikke vælte
+ * minut-kørslen for de øvrige spil.
+ *
+ * @returns {Promise<{meldt:boolean, besked?:string, fejl?:string}>}
+ */
+async function tjekLivePuls(db, FieldValue, { ud, nowMs = Date.now(), meld = meldAlarm } = {}) {
+  // pulsSkrevet læses gennem !! — er kildesvaret null (hentLive kastede), er
+  // pulsen ikke skrevet, og DET er netop det tilfælde, alarmen skal fange.
+  const pulsSkrevet = !!(ud?.live && ud.live.pulsSkrevet);
+  const liveIGang = ud?.liveIGang ?? 0;
+  if (!(liveIGang > 0) || pulsSkrevet) return { meldt: false };
+  try {
+    const snap = await db.collection('games').doc(ud.gameId).get();
+    const pulsAtMs = Number(snap.exists ? snap.data().liveHeartbeatAt : NaN);
+    if (!skalMeldeLiveTavs({ liveIGang, pulsSkrevet: false, pulsAtMs, nowMs })) return { meldt: false };
+    const besked = liveTavsBesked({ liveIGang });
+    // kraeverKvittering + INGEN auto-lukning: et udfald, der heler sig selv,
+    // må ikke slette sit eget spor, før ejeren har set det (QC-fund).
+    await meld(db, FieldValue, {
+      type: 'livetavs', gameId: ud.gameId, kampId: null, kraeverKvittering: true, besked,
+    });
+    return { meldt: true, besked };
+  } catch (e) {
+    console.error(`Live-puls-tjek ${ud?.gameId} (ignoreret):`, e && e.message);
+    return { meldt: false, fejl: (e && e.message) || String(e) };
+  }
 }
 
 /**
@@ -632,6 +748,7 @@ async function runScheduledSyncAll(db, FieldValue, nowMs, opts = {}) {
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
+  skalMeldeLiveTavs, kampeMedLevendeStilling, liveTavsBesked, tjekLivePuls, LIVE_STALE_MS,
   liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, runScheduledSyncAll,
   syncKickoffsCore, strandedMatches, allMatches,

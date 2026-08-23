@@ -103,7 +103,7 @@ og bliver flyttet hen over sæsonen — typisk 5–6 uger før kampen.
 Alle alarmer i dette afsnit står OGSÅ under **Admin → 🩺 Driftstatus**:
 seneste status pr. kørsel (sweep, kickoff-synk, minut-synk på kampdage) og
 åbne alarmer (strandede kampe, genåbnings-afvisninger, <48t-flytninger,
-manglende kampdokumenter). Alarmer, der ikke kan løse sig selv, kræver en
+manglende kampdokumenter, og **live-pulsen der står stille**). Alarmer, der ikke kan løse sig selv, kræver en
 kvittering i fladen — ⚠-markøren på Admin-knappen står, til de er set.
 Functions-loggen er stadig sandheden for historik; fladen viser NU-billedet.
 En strandet-alarm peger selv på sit remedie: **⬇️ Synk resultater nu** under
@@ -184,14 +184,32 @@ den kan heller ikke oprette en kamp, der ikke er seedet endnu.
 
 Begge ligaer leverer nu live: minut-synken skriver stilling + halvleg til
 kampens `live`-felt på kampdage, og facit rydder det. For **Premier League**
-er kamp-niveauets `period` kun observeret i hvile (`PreMatch`/`FullTime`) —
-oversættelsen af live-værdierne (`FirstHalf` → 1. halvleg osv.) bygger på
-API'ets egen navngivning på hændelses-niveau (`docs/PL_match_liv_bou.har`).
-Et token, vi ikke kender, fejler SIKKERT: kampen vises som blot "DIREKTE",
-regnes stadig som i gang (aldrig et falsk "Slut"), og der logges en warn med
-ordet — **tjek functions-loggen efter første PL-kampaften** (21/8) for
-`pulselive: ukendt live-period` og tilføj evt. manglende tokens i
+er `period` nu delvist efterprøvet mod en ægte live-capture (runde 1,
+23/8-2026, to kampe i gang): på **kamp-niveau** sås `PreMatch`, `SecondHalf`
+og `FullTime` — og **ingen ukendte tokens**. Capturen ligger som
+`functions-platform/fixtures/pl-live-runde1.json` og er bundet af en test, så
+tolkningen ikke kan skride ubemærket. `FirstHalf` er derimod **stadig kun set
+på hændelses-niveau** (begge kampe var forbi pausen, da capturen blev taget) —
+en capture fra en kamps første halvleg ville lukke det punkt. `halftime`,
+`extratime`, `shootout`, `abandoned` m.fl. er uobserverede naboer.
+
+For **Superligaen** er `statusFull` efterprøvet på samme vis: en live-capture
+fra runde 5 (`functions-platform/fixtures/sl-live-runde5.json`, AC Horsens–
+Lyngby) bekræfter `2nd half` → "2. halvleg" og — vigtigere — at kampens `id`
+er **null**, mens den er i gang. Nøglen SKAL derfor bygges af runde +
+holdnavne (`matchDocId`); et id-opslag ville lade live-vejen dø tavst. Et token, vi ikke kender, fejler SIKKERT: kampen vises som blot
+"DIREKTE", regnes stadig som i gang (aldrig et falsk "Slut"), og der logges
+`pulselive: ukendt live-period` — dukker det op i loggen, tilføjes ordet i
 `PL_PERIOD_STATUS` (`functions-platform/syncProviders.js`).
+
+**Står live-visningen stille midt i en kamp** ("⏸ Opdatering afbrudt" på
+kortet), er spillets puls (`liveHeartbeatAt`) over 5 minutter gammel. Selve
+stillingen er stadig den sidst kendte — vi sletter aldrig, vi dæmper. Kig i
+**Admin → 🩺 Driftstatus** på *Minut-synk · <spil>*: rødt kort navngiver det
+fejlende led (`opslag:` / `resultater:` / `live:`), et gammelt grønt kort
+betyder, at jobbet slet ikke kører. Facit går ikke tabt uanset hvad —
+times-sweep'et henter det. Bemærk, at minut-synken slipper en kamp 2½ time
+efter kickoff (`WINDOW_MS`).
 
 ## Rækkefølge ved ændringer i security rules
 
@@ -250,7 +268,8 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 | Point mangler for tidlige runder | Samme gate. Efter et skift i `startRound`: tryk 🔄 **Genberegn point** |
 | En runde vises halvt | Kan ikke ske længere — gaten tæller hele runder. Sker det, er `m.round` ikke sat på nogle af kampene |
 | Point er forkerte efter en ændring af selve POINTREGLEN | 🔄 **Genberegn point** hjælper IKKE — se afsnittet nedenfor |
-| Ingen påmindelser sendt | Kampene ligger i en runde før `startRound`, eller `SMTP_PASSWORD` mangler i `spil-89af9` |
+| Ingen påmindelser sendt | Se **Admin → 🩺 Driftstatus** → *Daglig tip-påmindelse · <spil>*: spillet kan være sat **på pause** (⏸ under 🔔 Påmindelser), `SMTP_PASSWORD` kan mangle i `spil-89af9`, eller kampene ligger i en runde før `startRound`. Kortet siger hvilken |
+| Live-stillingen opdateres ikke ("⏸ Opdatering afbrudt" på kampkortene) | Se om der står en **livetavs-alarm** under 🩺 Driftstatus. **Gør der det**, er det serveren; alarmen bliver stående, til du kvitterer — også efter udfaldet er ovre, så et selv-helet udfald ikke sletter sit eget spor. Fejlteksten står på minut-kortet, mens udfaldet står på. **Gør der det IKKE**, er serverens puls frisk, og det er browserens forbindelse — genindlæs siden. Facit og point rammes ikke; de lander via sweep'et. Alarmen tæller kun kampe, der FAKTISK viser en levende stilling — en kamp markeret "Slut · afventer facit" eller en, live aldrig kom i gang for, udløser den ikke |
 | Runde-Botten poster ikke | `ANTHROPIC_API_KEY` mangler, ligaen har under 2 medlemmer, eller runden er allerede recappet (`game.recappedRounds`) |
 
 ## To slags genberegning — de retter IKKE det samme

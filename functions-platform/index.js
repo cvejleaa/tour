@@ -29,6 +29,7 @@ const {
 } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore,
+  tjekLivePuls,
   strandedMatches, allMatches,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
@@ -53,7 +54,8 @@ async function skrivDriftStatus(st, db, opts) {
 }
 const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
-const { runGameTipReminders, sendGameTestReminder, hentTipStatus } = require('./reminders');
+const { runGameTipReminders, sendGameTestReminder, hentTipStatus, koerPaamindelserForSpil } = require('./reminders');
+const { forventerPaamindelser } = require('./paamindelsesGate');
 const { runGameRoundRecap } = require('./gameRecap');
 const { skalAfsloere, runLeagueQuestionRecap } = require('./leagueQuestionRecap');
 const { puljeKonfig } = require('./superligaScoring');
@@ -389,6 +391,14 @@ exports.syncSuperligaResults = onSchedule(
         else st.ok(`${out.pending} kampe i vinduet, ${out.updated} nye facit.`, { pending: out.pending, updated: out.updated });
         await skrivDriftStatus(st, db, { naesteForventetFoerMs: null });
       }
+      // LIVE-PULSEN. Udebliver den, mens kampe viser en levende stilling, er
+      // det den fejl, ingen kunne se BAGEFTER: minut-kortet overskrives af
+      // næste grønne kørsel, så et 20-minutters udfald forsvandt sporløst.
+      // Hele vagten bor i superligaSync (tjekLivePuls), fordi den her fil
+      // ikke kan unit-testes — en tastefejl i betingelsen ville ellers lande
+      // med grøn suite (TM-fund).
+      await tjekLivePuls(db, FieldValue, { ud: { gameId: out.gameId, ...out } });
+
       if (out.pending === 0) continue; // stille minut: intet i gang, intet rørt
       console.log(`Synk ${out.gameId}: ${out.pending} kampe uden facit, ${out.updated} nye facit.`
         + (out.live ? ` ${out.live.live} i gang, ${out.live.skrevet} live-opdateringer`
@@ -886,6 +896,14 @@ exports.sendGameTipRemindersNow = onCall(
     await requireAdmin(db, request);
     const gameId = String(request.data?.gameId || '').trim();
     if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    // SAMME gate som fanen og det daglige job — serveren er eneste autoritet.
+    // Uden den kunne en håndlavet payload sende påmindelser for et afsluttet
+    // spil, som fladen har slået knapperne fra for (Security-fund).
+    const gSnap = await db.collection('games').doc(gameId).get();
+    if (!forventerPaamindelser(gSnap.exists ? gSnap.data() : null)) {
+      throw new HttpsError('failed-precondition',
+        'Spillet får ikke påmindelser (kræver et fodbold-spil med status Åbent eller I gang).');
+    }
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
     const result = await runGameTipReminders(db, transporter, gameId);
@@ -967,6 +985,16 @@ exports.sendGameTestReminderToMe = onCall(
     const caller = await requireAdmin(db, request);
     const gameId = String(request.data?.gameId || '').trim();
     if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+    // SAMME gate som "Send nu" og som fanens knap: begge knapper slås fra for
+    // et spil, jobbet springer over, så serveren skal svare ens på begge veje
+    // (Security-nit). Testmailen går kun til kalderen selv, men en flade og en
+    // server, der er uenige om hvad et spil KAN, er præcis den slags divergens,
+    // der bider et halvt år senere.
+    const gSnap = await db.collection('games').doc(gameId).get();
+    if (!forventerPaamindelser(gSnap.exists ? gSnap.data() : null)) {
+      throw new HttpsError('failed-precondition',
+        'Spillet får ikke påmindelser (kræver et fodbold-spil med status Åbent eller I gang).');
+    }
     const contactSnap = await db.collection('userContacts').doc(request.auth.uid).get();
     const email = request.auth.token?.email || contactSnap.data()?.email || caller?.email;
     if (!email) throw new HttpsError('failed-precondition', 'Din profil har ingen e-mailadresse.');
@@ -1068,25 +1096,48 @@ exports.gamePuljeStatus = onCall(
   },
 );
 
-// Skemalagt: kl. 09:00 hver dag. Kør påmindelser for alle aktive fodbold-spil
-// (status open/live), medmindre spillet er sat på pause (game.paused).
+// Skemalagt: kl. 09:00 hver dag ('0 9 * * *' — timer:[9]/minut:0 i
+// driftstatus-kadencen nedenfor SKAL følges ad med dette udtryk, som
+// SWEEP_TIMER). Kør påmindelser for alle aktive fodbold-spil
+// (forventerPaamindelser — SAMME gate som DriftTabs forventede kort og
+// Påmindelser-fanen) og skriv driftstatus pr. spil, OGSÅ når intet sendes:
+// manglende SMTP returnerede før globalt uden ét spor, og en pause var
+// usynlig alle andre steder end i Firestore-konsollen.
 exports.gameTipReminders = onSchedule(
   { schedule: '0 9 * * *', timeZone: TZ, region: REGION, secrets: [SMTP_PASSWORD] },
   async () => {
     const db = getFirestore();
     const transporter = buildTransport(SMTP_PASSWORD.value());
-    if (!transporter) { console.log('gameTipReminders: ingen SMTP_PASSWORD — springer over.'); return; }
     const snap = await db.collection('games').where('type', '==', 'football').get();
     for (const d of snap.docs) {
-      const g = d.data();
-      if (g.paused) continue;
-      if (g.status !== 'open' && g.status !== 'live') continue;
-      try {
-        const r = await runGameTipReminders(db, transporter, d.id);
-        console.log(`gameTipReminders(${d.id}): sendte ${r.sent}${r.reason ? ` (${r.reason})` : ''}.`);
-      } catch (e) {
-        console.error(`gameTipReminders(${d.id}) fejl:`, e && e.message);
+      const g = { id: d.id, ...d.data() };
+      if (!forventerPaamindelser(g)) {
+        // Et spil, der IKKE længere kvalificerer (typisk: sat til finished),
+        // må ikke efterlade et kort med passeret naesteForventetFoer — det
+        // ville stå RØDT "HAR IKKE KØRT" for evigt. Luk kortet pænt med
+        // naesteForventetFoer: null — men KUN hvis dokumentet findes (et spil,
+        // der aldrig har haft påmindelser, skal aldrig have et kort), og kun
+        // én gang (ellers koster det en skrivning pr. døgn for evigt).
+        try {
+          const ref = db.collection('driftlog').doc(`reminder-${d.id}`);
+          const cur = await ref.get();
+          if (cur.exists && cur.data().naesteForventetFoer != null) {
+            const st = statusSamler({ type: 'reminder', gameId: d.id, gameNavn: g.name });
+            st.ok('Spillet er afsluttet — der sendes ikke flere påmindelser.');
+            await skrivDriftStatus(st, db, { naesteForventetFoerMs: null });
+          }
+        } catch (e) {
+          console.error(`gameTipReminders(${d.id}): kunne ikke lukke driftkortet (ignoreret):`, e && e.message);
+        }
+        continue;
       }
+      const st = statusSamler({ type: 'reminder', gameId: d.id, gameNavn: g.name });
+      const linje = await koerPaamindelserForSpil(db, transporter, g);
+      st[linje.niveau](linje.besked, linje.tal);
+      await skrivDriftStatus(st, db, {
+        naesteForventetFoerMs: () => naesteKoerselFoerMs(Date.now(), { timer: [9], minut: 0, slaekMin: 45 }),
+      });
+      console.log(`gameTipReminders(${d.id}): ${linje.niveau} — ${linje.besked}`);
     }
   },
 );

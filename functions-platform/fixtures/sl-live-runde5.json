@@ -1,0 +1,98 @@
+{
+ "events": [
+  {
+   "_id": "6a200539ca5511597c509e8c",
+   "eventId": 5739488,
+   "startDate": "2026-08-23T14:00:00.000Z",
+   "statusType": "inprogress",
+   "statusFull": "2nd half",
+   "homeId": 9814,
+   "awayId": 9907,
+   "homeName": "AC Horsens",
+   "awayName": "Lyngby Boldklub",
+   "homeShortName": "ACH",
+   "awayShortName": "LBK",
+   "homeCountryId": 1,
+   "awayCountryId": 1,
+   "countryId": 1,
+   "country": "Danmark",
+   "tournamentName": "3F Superliga",
+   "tournamentStageId": 935487,
+   "tournamentYear": "2026/2027",
+   "tournamentId": 35802,
+   "tournamentTemplateId": 46,
+   "sportId": 1,
+   "sport": "football",
+   "stoppageTimeHT": 5,
+   "stoppageTimeFT": null,
+   "round": "5",
+   "roundNr": 0,
+   "knockout": "no",
+   "teams": [
+    9814,
+    9907
+   ],
+   "version": 37,
+   "score": {
+    "home": 1,
+    "away": 0
+   },
+   "detailedScore": {
+    "halftime": {
+     "home": 1,
+     "away": 0
+    },
+    "runningscore": {
+     "home": 1,
+     "away": 0
+    },
+    "ordinarytime": {
+     "home": 1,
+     "away": 0
+    }
+   },
+   "homeIsToBeDecided": false,
+   "awayIsToBeDecided": false,
+   "properties": {
+    "round": "5",
+    "live": "yes",
+    "venueName": "Hybel Arena Horsens",
+    "liveStatsPlus": "yes",
+    "liveStatsType": "livestats",
+    "commentary": "full",
+    "assistant1_refereeFK": "949160",
+    "assistant2_refereeFK": "949131",
+    "fourth_refereeFK": "1191722",
+    "refereeFK": "203753",
+    "var1_refereeFK": "1189510",
+    "var2_refereeFK": "177530",
+    "hasLineup": true,
+    "hasLineupConfirmed": true,
+    "lineupConfirmedAt": "2026-08-23T12:53:37.736Z",
+    "lineupConfirmed": "yes",
+    "lineupConfirmedSent": true,
+    "gameStarted": "2026-08-23T14:00:31.000Z",
+    "firstHalfEnded": "2026-08-23T14:50:55.000Z",
+    "secondHalfStarted": "2026-08-23T15:06:52.000Z",
+    "startDateTimeToBeDecided": "no"
+   },
+   "hasOpta": true,
+   "hasOptaMomentum": true,
+   "channel": {
+    "name": "TV 2 SPORT X",
+    "logoUrl": "https://dxugi372p6nmc.cloudfront.net/tv/tv2sportx.png",
+    "logoStream": null
+   },
+   "superligaDate": true,
+   "ticketsOpen3F": true,
+   "ticketsBooking": "closed",
+   "spdkLineupPublished": true,
+   "tickets": {
+    "sellStatus": "NOT_AVAILABLE",
+    "url": null,
+    "label": "Ingen billetter"
+   },
+   "covers": {}
+  }
+ ]
+}

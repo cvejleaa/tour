@@ -844,3 +844,187 @@ transaktion FØR opslagene (claim-then-post).
 ("⬇️ Synk resultater nu (Admin → 🗓️ Spil-tidsplan)") uden nogen test, der
 binder strengen til fladen — et senere knap-omdøb driver tavst. Label
 verificeret korrekt i dag (AdminPage.jsx L72).
+
+## games.paused — påmindelses-nødstoppet (ef3f549) + PL-live-fixturen (d111b89)
+
+**Emulator-verificeret 2026-08-23** (16 tests, 0 fail, PoC:
+scratchpad/poc/paused.mjs — genbrug den, mønstret er rent node uden vitest:
+`initializeTestEnvironment` + eget PASS/FAIL-array, ingen testrunner):
+- `games/{gameId}: allow create, update: if isGlobalAdmin() && gyldigtTeamStyles()`
+  (firestore.rules L666) har INGEN affectedKeys-liste → ETHVERT nyt felt på
+  spil-dokumentet er skrivbart for globalAdmin uden regel-ændring. Det gælder
+  `paused`. Planer, der hviler på "admin må allerede skrive feltet", er
+  korrekte — men de er også blanko-checks til NÆSTE felt.
+- Nægtet for: godkendt spiller (både sætte, fjerne og slette feltet),
+  pending-bruger, uautentificeret, og spiller kan ikke oprette et spil-dok.
+  Spiller kan heller ikke ændre `status` (= kan ikke omgå
+  `forventerPaamindelser`-gaten ved at flytte spillet ind/ud af den).
+- PENDING globalAdmin KAN pause (isGlobalAdmin ser ikke status) — kendt klasse.
+- **MUTATIONSTESTET REGLEN, ikke bare kørt den:** `isGlobalAdmin()` →
+  `isApproved()` i L666 vender præcis de 5 spiller-assertions til rødt og lader
+  alle kontroltests stå grønne. Repoets to nye tests i functions/rules.test.js
+  (L1579-1604) har samme form → de er load-bearing, ikke pynt. Kørt med
+  `npx vitest run --config vitest.rules.config.js -t "påmindelser"` fra
+  repo-roden mod en manuelt startet emulator-jar: 2 passed.
+
+**Afprøvet og RENT (gentag ikke):**
+- driftlog-id'et `reminder-${gameId}` kan ikke forgiftes: gameId ER et
+  Firestore-doc-id (ingen '/'), og prefixet gør `__x__`/`.`/`..` umulige.
+  Kun globalAdmin kan overhovedet skabe et spil-dok.
+- Loop'et i `gameTipReminders` (index.js L1078-1113) kan IKKE dræbes af ét
+  spil: `koerPaamindelserForSpil` fanger sin egen fejl, `skrivDriftStatus` sin,
+  og den "luk kortet"-gren har egen try/catch. Modsat den gamle
+  `naesteSweepFoerMs`-fælde er kadence-beregningen her givet som FUNKTION →
+  evalueres inde i try'et. Mønstret er nu rigtigt; brug det som reference.
+- `runGameTipReminders` returnerer kun TAL (`sent/fejlede/upcoming/members`) —
+  ingen modtager-identiteter. Adresser går kun til console.error (Cloud-log).
+  `sendGameTipRemindersNow` har `requireAdmin` som første linje.
+- `Kørslen fejlede: ${fejl}` (reminders.js L134) kan kun bære Firestore-/
+  nodemailer-fejltekster: alt spiller-skrevet indhold (tips) berøres ikke, og
+  per-modtager-fejl fanges INDE i send-loopet. DriftTab renderer `besked` som
+  JSX-tekst (L52) → React escaper; intet dangerouslySetInnerHTML.
+- `paused` er læsbar for enhver godkendt bruger (`games: allow read:
+  isApproved()`). Vurderet harmløst: den røber kun, at mails er slået fra.
+
+**Observationer (ikke blokerende):**
+- `kanPaamindes`/`paused` gates KUN i klienten. `sendGameTipRemindersNow`
+  tjekker hverken `forventerPaamindelser` eller `paused` server-side — en admin
+  kan mail-spamme et 'finished' spils deltagere med en håndlavet payload.
+  Admin→deltagere, inden for admins autoritet; men det er stadig den eneste
+  vej, hvor fanens gate ikke har en server-pendant.
+- `advarsel(besked)`/`fejl(besked)` i driftlog.js tager IKKE `tal` — så
+  `st[linje.niveau](linje.besked, linje.tal)` taber tallene på præcis de
+  linjer (delvist SMTP-nedbrud), hvor de er mest interessante. Kosmetisk.
+- ADMIN_OWNED-vagten mod at seedGames genstarter en pause er en KOMMENTAR
+  (seed-payload.mjs L19-24). Testen L77 tjekker kun retningen
+  ADMIN_OWNED ⊆ games.mjs — intet bliver rødt, hvis nogen tilføjer `paused`
+  til games.mjs uden at tilføje det til ADMIN_OWNED.
+- Fixturen `functions-platform/fixtures/pl-live-runde1.json` er ren: 10 kampe,
+  7 KB, kun offentlige kampdata. INGEN headere, cookies, tokens, e-mails, IP'er
+  (grep'et for authorization/bearer/cookie/token/secret/@domæne → 0 hits).
+  MEN: kommentaren i syncProviders.js L307-315 påstår "hele sæson-listen
+  indeholdt PRÆCIS FirstHalf/SecondHalf/FullTime/PreMatch"; den committede
+  fixture indeholder kun FullTime/PreMatch/SecondHalf — `firsthalf` er STADIG
+  uobserveret i repoet ("et tal uden kode er en påstand").
+
+**Faldgrube til listen:** *en regel uden affectedKeys-liste gør hvert fremtidigt
+felt admin-skrivbart pr. automatik.* Det er i orden, så længe skribent-kredsen
+er den samme som den, der må trykke på knappen — men når et nyt felt STYRER
+maskineri (mails, point, synlighed), skal spørgsmålet stilles eksplicit:
+hvem må egentlig trykke på DENNE knap, og er det den samme kreds som
+`isGlobalAdmin()`? Her: ja.
+
+## Live-tavs-alarmen (5e51155, #47) — angrebsflade: EN ALARM, DER SKAL KUNNE STOLES PÅ
+
+**Nyt PoC-mønster, det stærkeste til skemalagt maskineri: kør ONSCHEDULE-jobbet
+ÆGTE.** `firebase-functions@7` sætter `func.run = handler` også på `onSchedule`
+(node_modules/firebase-functions/lib/v2/providers/scheduler.js L70), så hele
+minut-jobbet kan drives ende-til-ende:
+`exports.syncSuperligaResults.run({})` mod emulator-jar'en (port 8099) +
+`global.fetch`-stub pr. URL + `Date.now = () => T0 + off` for at spole tiden
+frem minut for minut. Instrumentér forbruget ved at wrappe
+`DocumentReference.prototype.get/set/update/delete` og `Query.prototype.get`.
+Filer: scratchpad/poc/{livetavs,selvheal,slut,blast,nu}.js + gate2.js + puls.mjs.
+Seed de ÆGTE gameId'er fra SYNCED_GAMES — jobbet tager ingen opts.
+
+**MÅLT forbrug (emulator, pr. minut pr. spil):**
+- Stille minut (pending=0): 1 query pr. spil, 0 læsninger, 0 skrivninger — den
+  nye gren koster INTET. (Bekræftet: spil-dok-læsningen sker kun i den
+  mistænkelige gren.)
+- Live-minut med puls: +1 query (loesDriftAlarmer i else-grenen) pr. spil pr.
+  minut. ~300 live-minutter × 2 spil × ~120 kampdage ≈ 72.000 ekstra læsninger
+  om året = under 1,2 % af ÉN dags gratiskvote. Ikke et problem.
+- Tavs minut med kampe i vinduet: +2 læsninger (spil-dok + alarm-dok).
+  149 minutters udfald → `antal=1`: 6-timers dæmpningen HOLDER (målt).
+- Flapping kan ikke koste mere end ~1 alarm-åbning pr. 6 min, fordi
+  LIVE_STALE_MS selv virker som rate-limit på genåbning.
+
+**BEGGE HULLER LUKKET i d5cc5e4 — efterprøvet med de samme PoC'er (11/11).**
+Alarmen tæller nu `kampeMedLevendeStilling(venter)` (kampe med skrevet `live`,
+status hverken 'slut' eller 'afbrudt', uden facit) i stedet for `pending`, og
+`tjekLivePuls` læser `!!(ud?.live && ud.live.pulsSkrevet)`, så et null-kildesvar
+tæller som "ikke skrevet". Målt mod d5cc5e4: HTTP 500 i 40 min midt i kampen →
+ALARM (før: intet); ægte 110-minutters kampforløb + slutfløjt uden facit i 40
+min → INGEN alarm og `live.status` bliver 'slut' i samme minut (før: falsk
+alarm); kickoff passeret uden at kilden har flippet kampen → ingen falsk alarm
+(kickoff-slækket kunne fjernes, fordi `live` slet ikke findes endnu); <5 min
+tavshed → ingen alarm; alarmen består efter at pulsen kom igen. Forbruget faldt
+også: else-grenens `loesDriftAlarmer` er væk, så live-minuttet er tilbage på
+2 queries/0 læsninger (de ~72.000 læsninger/år bortfaldt). Blast radius stadig
+indeholdt (kastende vagt for SL → PL får sin alarm, begge minut-kort skrives).
+ACCEPTERET RESIDUAL, dokumenteret i koden: er kilden nede FØR kickoff, skrives
+`live` aldrig, `liveIGang` er 0, og der kommer ingen live-alarm — backstop er
+strandet-alarmen i sweep'et (kickoff + 2,5 t, sweep 12×/døgn).
+FÆLDE I MIN EGEN PoC (kostede en falsk FAIL): tidsoffset skal nulstilles FØR
+seedning, ellers ligger kickoff et andet sted end tiltænkt, og
+MIN_SPILLETID_MS-grænsen (95 min) nås aldrig — så udebliver 'slut'-markeringen,
+og alarmen fyrer HELT KORREKT. Sæt `off = 0` før `nulstil()`.
+
+**BEKRÆFTET HUL 1 (i 5e51155/e230775, nu lukket) — alarmen fyrede IKKE ved det udfald, den er bygget til.**
+`hentLive` KASTER ved HTTP-fejl/timeout/format-brud → `runScheduledSync` sætter
+`live = null` → betingelsen `out.pending > 0 && out.live && !out.live.pulsSkrevet`
+(index.js) er FALSK i begge grene. PoC: 40 minutters HTTP 500 midt i en kamp →
+kampkortet står frosset (spillerne SER "Opdatering afbrudt"), `driftAlarmer` er
+TOM, og minut-kortet bliver grønt igen ved genkomst → intet spor. Fix:
+`const puls = !!(out.live && out.live.pulsSkrevet); if (out.pending > 0 && !puls)`.
+Gælder BÅDE 5e51155 og arbejdstræets nyere udgave.
+
+**BEKRÆFTET HUL 2 (i 5e51155/e230775, nu lukket) — alarmen fyrede, når INTET var galt.** `pending` = kampe i
+2,5t-vinduet UDEN facit, ikke kampe i gang. Efter slutfløjt (kilden dropper
+kampen, facit ikke landet endnu) er pulsen tavs pr. definition → alarm efter
+5 min med `kraeverKvittering:true`. PoC (kickoff 100 min siden): kampens
+`live.status` er `'slut'` — klienten viser med vilje "Slut · afventer facit" og
+kalder eksplicit "Opdatering afbrudt" en LØGN i den tilstand
+(FootballTip.jsx L535-538) — mens alarmen påstår "OPDATERING AFBRUDT". Rammer
+hver kampaften, hvor facit er >5 min forsinket. Fix: udled tælleren af KAMPENES
+egne dokumenter (live sat, status ikke `slut`/`afbrudt`), ikke af `pending`.
+
+**BEKRÆFTET (5e51155, rettet i arbejdstræet): auto-lukningen slettede sporet.**
+`loesDriftAlarmer(livetavs)` i else-grenen + klientens `where('loestAt','==',null)`
+= et selvhelbredende udfald forsvandt efter ét grønt minut. PoC selvheal.js:
+20 min tavshed → alarm åben; 1 grønt minut → 0 åbne alarmer.
+GENEREL REGEL: `kraeverKvittering: true` og `loesDriftAlarmer` er gensidigt
+udelukkende. Alle øvrige kvitteringsalarmer (genaabning, kickoff48t,
+puljeLockGenaabning) auto-lukkes aldrig — livetavs var den første, der gjorde
+begge dele.
+
+**Afprøvet og RENT (gentag ikke):**
+- **Ingen kan forfalske pulsen** (16/16 emulator-checks, kontroltests grønne,
+  scratchpad/poc/puls.mjs): spiller/pending/anon kan ikke sætte, flytte,
+  fremdatere eller SLETTE `games/{id}.liveHeartbeatAt`, ikke skrive `live` på
+  en kamp, ikke oprette et kamp-dok (så en fremmed kilde-event kunne resolve),
+  og ikke skrive/læse `driftAlarmer`. Selv admin kan ikke skrive driftAlarmer
+  (kun callablen). Kontrol: admin KAN sætte liveHeartbeatAt.
+- **Alarm-id er ikke injicerbart:** `gameId` kommer fra `SYNCED_GAMES`
+  (hardkodet allowlist), `kampId` er null, `out.pending` er `venter.length`
+  (tal). `besked` renderes som JSX-tekstbarn i AlarmKort (DriftTab.jsx L84).
+- **Blast radius er indeholdt (d):** monkeypatchet spil-dok-læsning til at
+  KASTE for superliga2627 → kun SL's alarm droppes ("Live-puls-tjek …
+  (ignoreret)"), PL får sin alarm, begge minut-kort skrives. try/catch +
+  `.catch()` sidder rigtigt.
+- `sendGameTipRemindersNow`-gaten (index.js L928-935) er MÅLT korrekt placeret:
+  anon 0 læsninger, pending/spiller `permission-denied` efter præcis 1, ejer +
+  ukendt/afsluttet/ikke-fodbold spil → `failed-precondition` efter 2 læsninger,
+  0 queries, 0 mails. Manglende spil-dok KRASHER ikke (`gSnap.exists ? … : null`
+  → `game?.type`). Kontrol grøn: åbent spil når arbejdet. `paused` tjekkes
+  bevidst IKKE — fladen holder "Send nu" aktiv under pause (GameReminderTab
+  L286-289), så paritet er korrekt.
+
+**Nit:** `sendGameTestReminderToMe` (index.js L1010) har stadig ingen
+forventerPaamindelser-gate, mens fanens knap har (`kanPaamindes`). Harmløst
+(mailen går kun til kalderen selv). Og gameId'et valideres stadig ikke som
+doc-id: `..`/`a/b`/`__proto__` giver `internal` i stedet for `invalid-argument`
+(fjerde callable med samme kosmetiske fælde).
+
+**Testhul (mutationsbekræftet):** `advarsel(besked, tal)`/`fejl(besked, tal)`-
+rettelsen i driftlog.js er UDÆKKET — fjernes `Object.assign(s.tal, tal||{})`
+BEGGE steder, er alle 646 platform-tests grønne. `ADMIN_OWNED`-tripwiren i
+seed-payload.test.mjs er derimod load-bearing: `paused: false` tilføjet til
+games.mjs L69 gør den RØD (kørt, derefter gendannet).
+
+**Faldgrube til listen:** *en alarm skal måle det SYMPTOM, brugeren ser — ikke
+en proxy for det.* `pending > 0` var proxy for "kampe i gang", og `out.live`
+var proxy for "kilden svarede". Begge proxier knækker præcis i de to
+yderpunkter, alarmen findes for: den tier ved totalt kildesvigt og råber ved
+en helt normal slutfløjt. Spørg altid: hvilken linje i KLIENTEN viser det, jeg
+alarmerer om — og læser serveren den samme tilstand?
