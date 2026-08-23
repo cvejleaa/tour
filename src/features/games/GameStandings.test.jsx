@@ -24,8 +24,13 @@ vi.mock('../../components/Avatar', () => ({
   default: () => <span data-testid="avatar" />,
 }));
 
+// `minUid` udstilles med vilje: uden den ville en fjernelse af propen i
+// GameStandings være usynlig for suiten, og det indbyrdes opgør ville tavst
+// aldrig dukke op i fladen. Mutationstestet.
 vi.mock('./football/SpillerDetalje', () => ({
-  default: ({ spiller }) => <div data-testid="detalje">{spiller.name}</div>,
+  default: ({ spiller, minUid }) => (
+    <div data-testid="detalje" data-min-uid={minUid ?? ''}>{spiller.name}</div>
+  ),
 }));
 
 import GameStandings from './GameStandings';
@@ -476,5 +481,14 @@ describe('GameStandings — spillerdetalje', () => {
     expect(screen.getByRole('button', { name: /Hvor kommer pointene fra/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Erik' }));
     expect(screen.getByTestId('detalje')).toHaveTextContent('Erik');
+  });
+
+  it('giver panelet den KIGGENDES uid, så det indbyrdes opgør kan vises', () => {
+    // Komplethed: at Indbyrdes virker isoleret beviser ikke, at Stilling
+    // sender uid'et med. Uden denne test overlevede en fjernelse af propen
+    // hele suiten — verificeret ved mutation.
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Anne' }));
+    expect(screen.getByTestId('detalje')).toHaveAttribute('data-min-uid', 'me');
   });
 });
