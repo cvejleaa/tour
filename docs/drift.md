@@ -106,6 +106,9 @@ seneste status pr. kørsel (sweep, kickoff-synk, minut-synk på kampdage) og
 manglende kampdokumenter). Alarmer, der ikke kan løse sig selv, kræver en
 kvittering i fladen — ⚠-markøren på Admin-knappen står, til de er set.
 Functions-loggen er stadig sandheden for historik; fladen viser NU-billedet.
+En strandet-alarm peger selv på sit remedie: **⬇️ Synk resultater nu** under
+🗓️ Spil-tidsplan — og finder den intet, har kilden ikke facit endnu, så er
+hånd-vejen i admin-guiden (Resultater) svaret.
 
 ### Den daglige automatik (primærvejen)
 

@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { functions } from '../../firebase';
 import { useGames } from '../games/useGames';
 import { useDriftStatus, ukvitterede } from './useDriftStatus';
-import { harKickoffSynk } from '../games/kickoffSync';
+import { harKickoffSynk } from '../games/spilEvner';
 import { formatKickoff } from '../../lib/daDate';
 
 const TYPE_NAVN = {

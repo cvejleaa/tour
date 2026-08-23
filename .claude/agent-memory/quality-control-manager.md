@@ -924,3 +924,69 @@ loading/tom-tilstand; intro-sætning). Ét blev IKKE fulgt:
   fodbold-features (`FootballTip.jsx`, `EloTable.jsx`, `GAME_TABS`), så SL og
   PL kan begge holde løftet, og loading/tom-tilstand (begge grene testet og
   bekræftet ved manuel render).
+
+## Drift for påmindelser + bots + resultat-synk-knap (#47+#48, plan-gennemgang)
+
+- **En manuel synk-knap arver serverens timeout, ikke klientens.**
+  `syncSuperligaResultsNow` (`functions-platform/index.js:643`) har INGEN
+  `timeoutSeconds` → v2-default 60 s. `repriceGameOdds` har 300, minut-synken
+  120 ("to spil × fuld sæson × to veje"). En klient-wrapper med
+  `timeout: 300000` lyver derfor: serveren dræber kaldet efter 60 s. Samme
+  latente fejl findes allerede på `syncGameKickoffsNow` (klient 120 s, server
+  60 s). Tjek ALTID begge ender, når en "kør nu"-knap kobles på en callable.
+- **Sweep'et kører allerede fuld sæson hver time** (`only: alle` fra
+  `allMatches`, cron `25 2,13-23`). En manuel resultat-synk gør derfor intet
+  nyt inden for sweep-timerne — dens værdi ligger i hullet 02:25→13:25. Følge:
+  en alarm, hvis remedie er knappen, vil ofte få svaret "intet manglede", for
+  strandet betyder som regel "kilden HAR ikke facit". Rapporten for
+  `updated === 0` skal sige, hvad man så gør (sæt facit i hånden) — ellers er
+  alarm→knap→"intet manglede" en løkke. Callablen returnerer ikke de STADIG
+  manglende kampe; skal rapporten navngive dem, er det serverarbejde.
+- **Tør-kørsel kan udelades, når cron'en gør det samme uovervåget.** Det er
+  argumentet, ikke "idempotent": der findes ingen beslutning, en
+  forhåndsvisning kunne ændre. Men så må confirm-teksten heller ikke lyde som
+  en advarsel MOD at gøre det, alarmen lige har bedt om — skriv "du fremrykker
+  det, automatikken selv ville gøre".
+- **⚙️ Indstillinger findes IKKE i PLATFORM_MODE** (`AdminPage.jsx`:
+  `isOwner && !PLATFORM_MODE`), og `setAutomationPaused`/`config/automation`
+  bor kun i `functions/` (Tour). En platform-hjælpetekst, der advarer mod at
+  forveksle noget med "den globale pause i ⚙️ Indstillinger", sender ejeren
+  efter en fane, der ikke findes. Tjek altid fane-gaten i AdminPage, før en
+  tekst henviser til en anden fane.
+- **`GameReminderTab` er ikke kun påmindelser.** Den rummer også 🎯 Tip-status
+  og 🎖️ Pulje-status. Strammer man fanens `eligible`-filter for at matche
+  09-jobbets gate, ryger de to andre evner med. Vil man fjerne modsigelsen
+  (manuel knap aktiv, mens automatikken er tavs), så deaktivér KNAPPEN, ikke
+  hele spillet i vælgeren.
+- **En pause-kontakt skal rette nabo-teksten.** `GameScheduleTab.jsx:25`
+  siger "I gang. Påmindelser sendes." og fanens egen hjælpetekst
+  (`GameReminderTab.jsx:134-137`) "Deltagere får automatisk en mail kl. 09.00".
+  Begge bliver halve løgne for et paused spil — to nabosætninger, der modsiger
+  hinanden, er præcis den fælde CLAUDE.md navngiver.
+- **`ADMIN_OWNED = ['status','joinable']`** (`scripts/seed-payload.mjs`) og
+  `seed-payload.test.mjs:70` asserterer listen EKSAKT. Et nyt admin-skrevet
+  spil-felt (fx `paused`) er ufarligt, så længe det ikke står i `games.mjs` —
+  men i det øjeblik det gør, ruller en seed admins valg tavst tilbage.
+  Dispositionér nye spil-felter mod ADMIN_OWNED på skrift.
+- **Klik-stier i alarm-tekster skal spores.** Knappen i 🤖 Runde-Botten hedder
+  "Post runde-opslag nu" / "🧪 Forhåndsvis runde-opslag" — ikke "Generér nu".
+  Og `leagueQuestionRecapNow` har INGEN admin-knap: den bor på
+  `LeagueQuestions.jsx` hos LIGA-EJEREN inde i spillet. En alarm i 🩺
+  Driftstatus, der beder platform-ejeren køre den, peger på en andens flade.
+- **En kollapset alarm (`kampId: null` → ét doc pr. spil+type) mister nøglen,
+  når remediet er per-instans.** Fint for rundeBot (recovery vælger runde i
+  fladen), forkert for lqBot (recovery kræver liga+spørgsmål). Beskeden skal da
+  bære nøglen på den seneste fejl.
+- **Kvittering fjerner ikke et alarm-kort** — `kvitterDriftAlarm` sætter kun
+  `kvitteretAt`; `loestAt` forbliver null, og `useDriftStatus` viser stadig
+  kortet (dæmpet). Alarmer uden en `loesDriftAlarmer`-kalder står for evigt
+  (samme som `genaabning`/`kickoff48t` i dag). Etableret mønster, men sig i
+  planen, hvad der får kortet til at forsvinde.
+- **`runGameTipReminders` er utestet** (kun `upcomingMatches`/`byggTipStatus`
+  har dækning i `reminders.test.js`). En udvidelse af dens returkontrakt
+  (`fejlede`) kræver et db-fake, der ikke findes endnu — ellers er selve
+  tælleren udækket, selv om den rene afbildning er testet. Kaldere er kun to
+  (`index.js:883`, `index.js:1077`) plus `GameReminderTab.sendNow()`, som selv
+  skal bruge det nye felt, ellers retter man kun den automatiske vej.
+- `sent: 0` er OGSÅ det normale "alle har tippet" — teksten må ikke bruge
+  samme formulering til "ingen at rykke" og "alle mails fejlede".

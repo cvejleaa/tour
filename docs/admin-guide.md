@@ -181,6 +181,14 @@ hvis det var rundens sidste kamp — poster Runde-Botten et resumé på
 liga-væggene. Kører en synk skævt, står det på **Admin → 🩺 Driftstatus** —
 du skal ikke sætte PL-facit i hånden.
 
+Vil du ikke vente på næste automatiske kørsel (fx efter en strandet-alarm,
+eller sent på aftenen hvor sweep'et holder pause), findes **⬇️ Synk
+resultater nu** under **Admin → 🗓️ Spil-tidsplan** på hvert synket spil. Den
+gør præcis det samme som automatikken — hele sæsonen tjekkes, og nye facit
+afregner point og kan få Runde-Botten til at poste **med det samme**. Melder
+den "intet manglede", har kilden ikke facit endnu: så er hånd-vejen nedenfor
+svaret.
+
 Er noget gået galt, kan du sætte facit manuelt; point genberegnes ved hver
 ændring. Bemærk: **fjerner** du et facit igen, nulstilles pointene ikke
 automatisk.

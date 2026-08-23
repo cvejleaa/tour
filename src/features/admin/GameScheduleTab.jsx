@@ -12,8 +12,8 @@ import { useGames } from '../games/useGames';
 import { useGameRounds } from './useGameRounds';
 import { startRundeFor } from '../../lib/startGate';
 import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameActions';
-import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds, callSyncGameKickoffs } from './adminActions';
-import { harKickoffSynk } from '../games/kickoffSync';
+import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds, callSyncGameKickoffs, callSyncGameResults } from './adminActions';
+import { harKickoffSynk, harResultatSynk } from '../games/spilEvner';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
@@ -146,6 +146,9 @@ function GameRow({ game }) {
   const [kickMsg, setKickMsg] = useState(null); // { kind, text }
   const [kickPlan, setKickPlan] = useState(null); // hele ud-objektet fra tør-kørslen
   const [kickSkrevet, setKickSkrevet] = useState(false);
+  // Resultat-synk (⬇️). Ingen tør→skriv: se resultatSynk().
+  const [resBusy, setResBusy] = useState(false);
+  const [resMsg, setResMsg] = useState(null); // { kind, text }
   // Tør-kørslens resultat. Først når det ligger her, må skrive-knappen vises:
   // man skal have SET ændringerne, før man kan udføre dem.
   const [prisPlan, setPrisPlan] = useState(null); // { updated, aendringer }
@@ -318,6 +321,34 @@ function GameRow({ game }) {
       setKickMsg({ kind: 'err', text: 'Serveren tørkørte og skrev INTET. Prøv igen.' });
     }
     setKickBusy(false);
+  }
+
+  // ⬇️ Synk resultater nu — manuel udløsning af den synk, minut-jobbet og
+  // times-sweep'et selv kører. INGEN tør-kørsel, med vilje: sweep'et udfører
+  // nøjagtig samme fulde sæsonskanning uovervåget hver time, så der findes
+  // ingen beslutning, en forhåndsvisning kunne ændre — knappen fremrykker kun
+  // timingen. Confirm'en navngiver i stedet konsekvenserne, især den eneste
+  // ikke-idempotente: Runde-Bottens opslag lander NU, ikke ved næste sweep.
+  async function resultatSynk() {
+    if (!window.confirm(
+      `Hent resultater for "${game.name}" hos kilden nu?\n\n`
+      + 'Hele sæsonen tjekkes — det er præcis, hvad den automatiske synk selv gør hver time; du fremrykker den bare.\n\n'
+      + 'Nye facit afregner point og flytter Elo og odds med det samme. Fuldender et facit en runde, poster Runde-Botten sit opslag på liga-væggene NU (højst én gang pr. runde) — så vælg et tidspunkt, hvor folk er vågne.',
+    )) return;
+    setResBusy(true); setResMsg(null);
+    const res = await callSyncGameResults(game.id);
+    if (!res.ok) { setResMsg({ kind: 'err', text: res.error }); setResBusy(false); return; }
+    const d = res.data;
+    const tabel = d.standings?.error
+      ? `Tabellen kunne ikke synkes: ${d.standings.error}`
+      : `Tabellen: ${d.standings?.rows ?? '?'} hold, ${d.standings?.changed ? 'opdateret' : 'uændret'}`;
+    // "Intet manglede" er sandt og alligevel en halv besked i alarm-scenariet:
+    // den strandede kamp er netop IKKE blandt kildens færdige kampe. Sig
+    // næste skridt, ellers er alarm → knap → "intet manglede" en blindgyde.
+    setResMsg(d.updated > 0
+      ? { kind: 'ok', text: `${d.updated} kampe fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en runde, poster Runde-Botten på liga-væggene nu.` }
+      : { kind: 'ok', text: `Intet manglede — de ${d.checked} færdige kampe hos kilden står allerede rigtigt. ${tabel}. Står en kamp stadig uden facit, har kilden det ikke endnu — sæt facit i hånden (se admin-guiden → Resultater).` });
+    setResBusy(false);
   }
 
   async function syncLeagues() {
@@ -590,6 +621,25 @@ function GameRow({ game }) {
           {kickMsg && (
             <span className={`badge ${kickMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
               {kickMsg.text}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ⬇️ Synk resultater nu — remediet, den strandede-alarm i 🩺 Driftstatus
+          peger på. Gate't på harResultatSynk (allowlisten over IMPLEMENTEREDE
+          providere), aldrig på !!sync.provider: et spil kan seedes med en
+          provider, serveren ikke har endnu, og så ville knappen kun kunne
+          fejle. ⬇️ og ikke 🔄 — 🔄 er optaget af Genberegn ovenfor, og TourTab
+          bruger allerede ⬇️ om præcis denne handling. */}
+      {harResultatSynk(game) && (
+        <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+          <button className="btn btn--ghost btn--sm" onClick={resultatSynk} disabled={resBusy}>
+            {resBusy ? 'Henter…' : '⬇️ Synk resultater nu'}
+          </button>
+          {resMsg && (
+            <span className={`badge ${resMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
+              {resMsg.text}
             </span>
           )}
         </div>

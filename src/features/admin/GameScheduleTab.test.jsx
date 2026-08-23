@@ -24,11 +24,13 @@ vi.mock('../games/gameActions', () => ({
 
 const mockReprice = vi.fn();
 const mockSyncKickoffs = vi.fn();
+const mockSyncResults = vi.fn();
 vi.mock('./adminActions', () => ({
   callRecomputeGameScores: vi.fn().mockResolvedValue({ ok: true, data: {} }),
   callBackfillPlayerLeagues: vi.fn().mockResolvedValue({ ok: true, data: {} }),
   callRepriceGameOdds: (...a) => mockReprice(...a),
   callSyncGameKickoffs: (...a) => mockSyncKickoffs(...a),
+  callSyncGameResults: (...a) => mockSyncResults(...a),
 }));
 
 // Kamplisten til rundevælgeren hentes med getDocs — den hentes FØRST når
@@ -345,6 +347,113 @@ describe('🗓️ Synk kamptider nu — vises for spil med kickoff-synk', () => 
     mockGames.mockReturnValue({ games: [TOUR], loading: false });
     render(<GameScheduleTab />);
     expect(screen.queryByRole('button', { name: /Synk kamptider nu/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('⬇️ Synk resultater nu — manuel udløsning af resultat-synken', () => {
+  const SL_SYNK = {
+    id: 'superliga2627', name: 'Superligaen 2026/27', emoji: '⚽',
+    type: 'football', status: 'open', sync: { provider: 'superliga' },
+  };
+  const PL_SYNK = {
+    id: 'pl2627-efteraar', name: 'Premier League 2026/27 — efterår', emoji: '⚽',
+    type: 'football', status: 'open', sync: { provider: 'pulselive' },
+  };
+
+  const knap = () => screen.getByRole('button', { name: /Synk resultater nu/i });
+
+  it('vises for begge synkede spil (superliga og pulselive)', () => {
+    mockGames.mockReturnValue({ games: [SL_SYNK, PL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.getAllByRole('button', { name: /Synk resultater nu/i })).toHaveLength(2);
+  });
+
+  it('vises IKKE for et spil uden synk-provider (Touren)', () => {
+    mockGames.mockReturnValue({ games: [TOUR], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Synk resultater nu/i })).not.toBeInTheDocument();
+  });
+
+  // ALLOWLISTE-BEVISET i fladen: en provider, serveren ikke kender, ville få
+  // knappen vist med en gate på !!sync.provider — og hvert klik kunne kun
+  // fejle med invalid-argument. Muteres harResultatSynk til en sandheds-gate,
+  // bliver denne rød.
+  it('vises IKKE for et spil med en endnu ikke implementeret provider', () => {
+    mockGames.mockReturnValue({
+      games: [{ ...SL_SYNK, id: 'nyt-spil', name: 'Nyt spil', sync: { provider: 'endnu-ikke-bygget' } }],
+      loading: false,
+    });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Synk resultater nu/i })).not.toBeInTheDocument();
+  });
+
+  it('kalder ikke serveren uden bekræftelse — og confirm-teksten navngiver konsekvenserne', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    await waitFor(() => expect(bekraeft).toHaveBeenCalled());
+    // Annuller = intet kald. Fjernes confirm-vagten, bliver denne rød.
+    expect(mockSyncResults).not.toHaveBeenCalled();
+
+    // Indholdet, ikke kun eksistensen: point/Elo flytter sig, og Runde-Bottens
+    // opslag lander NU — den eneste ikke-idempotente bivirkning, og den man
+    // skal kende, før man trykker kl. 03.14.
+    const tekst = bekraeft.mock.calls[0][0];
+    expect(tekst).toMatch(/afregner point/);
+    expect(tekst).toMatch(/Runde-Botten/);
+    expect(tekst).toMatch(/NU/);
+    // Og den må ikke skræmme med falsk uigenkaldelighed: synken gør det samme
+    // som automatikken — teksten skal sige det.
+    expect(tekst).toMatch(/automatiske synk/);
+    bekraeft.mockRestore();
+  });
+
+  it('synker spillet efter bekræftelse og navngiver de rettede kampe', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({
+      ok: true,
+      data: { gameId: 'superliga2627', checked: 12, updated: 2, rettede: ['sl-a', 'sl-b'], standings: { rows: 12, changed: true } },
+    });
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    await waitFor(() => expect(mockSyncResults).toHaveBeenCalledWith('superliga2627'));
+    // Begge kamp-id'er skal stå i kvitteringen — tallet alene beviser intet.
+    await waitFor(() => expect(screen.getByText(/2 kampe fik nyt facit/)).toBeInTheDocument());
+    expect(screen.getByText(/sl-a, sl-b/)).toBeInTheDocument();
+    expect(screen.getByText(/12 hold, opdateret/)).toBeInTheDocument();
+    // Fremrykningen af bot-opslaget skal stå i kvitteringen, ikke kun i confirm.
+    expect(screen.getByText(/Runde-Botten på liga-væggene nu/)).toBeInTheDocument();
+    bekraeft.mockRestore();
+  });
+
+  // Alarm-scenariet: sweep'et har netop selv skannet hele sæsonen, så knappen
+  // finder som regel intet — og "intet manglede" alene ville være en blindgyde.
+  // Rapporten skal pege på næste skridt (hånd-vejen) og må IKKE påstå et facit.
+  it('siger ved 0 opdaterede, hvad næste skridt er — og påstår ikke et facit', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({
+      ok: true,
+      data: { gameId: 'superliga2627', checked: 12, updated: 0, rettede: [], standings: { rows: 12, changed: false } },
+    });
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    await waitFor(() => expect(screen.getByText(/Intet manglede/)).toBeInTheDocument());
+    expect(screen.getByText(/sæt facit i hånden/)).toBeInTheDocument();
+    expect(screen.queryByText(/fik nyt facit/)).not.toBeInTheDocument();
+    bekraeft.mockRestore();
+  });
+
+  it('viser serverens fejl, når synken fejler', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({ ok: false, error: 'Ingen synk-provider for "superliga2627".' });
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    await waitFor(() => expect(screen.getByText(/Ingen synk-provider/)).toBeInTheDocument());
+    bekraeft.mockRestore();
   });
 });
 

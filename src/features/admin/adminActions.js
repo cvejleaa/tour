@@ -122,6 +122,31 @@ export async function callSyncGameKickoffs({ gameId, dryRun = true } = {}) {
 }
 
 /**
+ * Synk resultater fra kildens API NU — den manuelle udløsning af den synk,
+ * minut-jobbet og times-sweep'et selv kører. Værdien ligger i hullet mellem
+ * sweep'ets kørsler (nætterne + formiddagen): en strandet kamp, hvis facit
+ * netop er kommet hos kilden, skal ikke vente på næste sweep.
+ *
+ * INGEN dryRun: serverens syncResultsCore har ingen, og sweep'et udfører
+ * nøjagtig samme fulde sæsonskanning uovervåget hver time — der findes ingen
+ * beslutning, en tør-kørsel kunne ændre; knappen fremrykker kun timingen.
+ * Konsekvenserne (point, Elo/odds, Runde-Botten) står i confirm-teksten i
+ * GameScheduleTab. Callablens navn er historisk (deployet under det) — den
+ * synker et valgfrit spil fra SYNCED_GAMES.
+ * Timeout matcher serverens timeoutSeconds: 300 (hele sæsonen skannes).
+ * @param {string} gameId
+ */
+export async function callSyncGameResults(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'syncSuperligaResultsNow', { timeout: 300000 });
+    const res = await fn({ gameId });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke synke resultaterne.' };
+  }
+}
+
+/**
  * Genopbyg players/{uid}.leagueIds ud fra ligaernes medlemmer. Feltet er dét,
  * security rules bruger til at afgøre, hvem der må se hvis point — så en
  * genopbygning retter op, hvis noget er drevet fra hinanden.

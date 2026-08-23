@@ -482,7 +482,12 @@ exports.syncSuperligaSweep = onSchedule(
             for (const m of strandede) {
               await meldAlarm(db, FieldValue, {
                 type: 'strandet', gameId: g.gameId, kampId: m.id,
-                besked: `Kampen ${m.id} mangler facit længe efter kickoff — point er ikke afregnet.`,
+                // Remediet står I alarmen — en alarm uden næste skridt er en
+                // blindgyde. Og fordi sweep'et her netop HAR skannet hele
+                // sæsonen, vil knappen som regel svare "intet manglede": så
+                // er det kilden, der ikke har facit, og hånd-vejen er svaret.
+                besked: `Kampen ${m.id} mangler facit længe efter kickoff — point er ikke afregnet. `
+                  + 'Kør ⬇️ Synk resultater nu (Admin → 🗓️ Spil-tidsplan); finder den intet, har kilden ikke facit endnu — sæt det i hånden (admin-guiden → Resultater).',
               });
             }
           }
@@ -582,7 +587,10 @@ exports.syncGameKickoffs = onSchedule(
 // syncGameKickoffsNow — manuel udløsning (admin/owner) med TØR-KØRSEL som
 // default: kun { dryRun: false } skriver. Det er "start med vilje"-vejen —
 // og forhåndsvisningen, som drift.md kræver før produktionsskrivninger.
-exports.syncGameKickoffsNow = onCall({ region: REGION }, async (request) => {
+// timeoutSeconds matcher klientens timeout (adminActions.js: 120000 ms) —
+// v2-defaulten er 60 s, så uden den dræbte serveren kaldet, mens klienten
+// stadig ventede, og admin fik en rå intern fejl.
+exports.syncGameKickoffsNow = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Log ind.');
   const db = getFirestore();
@@ -640,7 +648,9 @@ exports.kvitterDriftAlarm = onCall({ region: REGION }, async (request) => {
 // Gennemgår hele sæsonen (ingen `only`), så den også fanger rettede facit på
 // gamle kampe. Det er den "start med vilje"-vej, reglen om nyt maskineri
 // kræver — også for et spil, hvis første kamp endnu ikke er spillet.
-exports.syncSuperligaResultsNow = onCall({ region: REGION }, async (request) => {
+// timeoutSeconds: hele sæsonen skannes + standings — samme budget som
+// repriceGameOdds, og samme tal som klientens timeout (adminActions.js).
+exports.syncSuperligaResultsNow = onCall({ region: REGION, timeoutSeconds: 300 }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Log ind.');
   const db = getFirestore();
