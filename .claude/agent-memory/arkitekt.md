@@ -178,3 +178,41 @@ ville have bygget forfra.
   `MessagesPage.test.jsx:54-119` (platform-kontakter). E2E skal derfor dække
   NÅBARHED (kan fanen overhovedet nås, og er den ægte data-model i live),
   ikke gate-permutationer.
+
+## Chancen ⚡ + skrivevejen for tips (fundet ved opgave #51, aug 2026)
+- `CHANCE {MIN:1, MAX_ABS:8, CAP_FRACTION:0.15}` + `chanceMaxStake / canUseChance /
+  isValidStake / settleChance` — `src/lib/superligaScoring.js:379-420` ⇄
+  `functions-platform/superligaScoring.js:123-158` (+ `clampStake`, `scoreBet`).
+  VIGTIGT: `scoreBet` kalder `clampStake(stake)` UDEN bank → 15 %-loftet er
+  KUN klient-side. Kun MAX_ABS=8 håndhæves af serveren.
+- `setBet()` i `src/features/games/betActions.js:44-73` er DEN ENESTE skriver af
+  `chanceStake` (grep bekræftet). Doc-id = `uid_matchId` (`betId()`), og reglen
+  binder id'et ved create (firestore.rules:876-882) — repoets faste idiom for
+  "præcis én af slagsen": entydigt doc-id, ikke et tjek.
+- Bets-reglen: firestore.rules:843-907 (read 862, create 876, update 899).
+  Nævner IKKE chanceStake med ét ord. `writingPointsField()` (rules:83) er
+  mønstret for "dette felt ejer serveren".
+- Afregning: `recomputeGameMatchCore` (gameScoring.js:476) scorer ÉN kamps bets
+  ad gangen → den kan ikke se spillerens andre bets i runden. Kun
+  `recalcPlayerTotal` (gameScoring.js:246) og `opdelPoint`
+  (pointOpdeling.js:299) ser hele bet-mængden. En dedup pr. runde i
+  afregningen skal derfor ligge i opdelPoint — men den UDLEDER bevidst chance
+  som (points − 1X2) og må ikke genberegne (pointOpdeling.js:288-292).
+- `scripts/audit-double-chance.mjs` — LÆS-ONLY: finder dobbelt-Chancen pr.
+  (uid, runde), viser hvornår hver blev skrevet ift. kickoff. Harnesset til
+  ethvert "hvor tit sker det?"-spørgsmål om bets.
+- `scripts/rescore-bets.mjs` — kører den ÆGTE `rescoreAllBets` med BACKUP +
+  GENDAN + DRY_RUN. Enhver dataretning af bet-point skal gå denne vej.
+  `rescoreGameBets`-callablen (index.js:299) har INGEN klient-kalder.
+- **Mønsteret "rules kan ikke udtrykke det → serveren ejer skrivningen":**
+  `redeemLeagueCodeCore(db, FieldValue, {...})` i `gameLeagues.js:43` +
+  `LEAGUE_ERR`-tabellen (gameLeagues.js:25) + tynd `onCall` i index.js:687 +
+  klient-wrapper `src/features/games/gameLeagueActions.js:81`. Eneste
+  SPILLER-vendte callable i appen; alle andre httpsCallable er admin.
+- Rules kan ikke query'e, men KAN `getAfter()` ét kendt dokument — vejen til at
+  binde to dokumenter i én batch. Koster et opslag mod grænsen på 10 pr.
+  enkeltdokument-skrivning; gets af SAMME sti tælles én gang (rules:741-747
+  hviler allerede på den antagelse).
+- FÆLDE: `createGameMatch` i `functions/rules.test.js:2002` sætter INTET
+  `round`-felt. En regel med direkte `.data.round` fejler-lukket på alle
+  eksisterende fixtures; `.get('round', null)` falder derimod ÅBEN.
