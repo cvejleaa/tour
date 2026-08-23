@@ -162,6 +162,7 @@ describe('tomme tilstande', () => {
     });
     expect(container.textContent).not.toMatch(/%/);
   });
+});
 
 describe('modigst i minus', () => {
   it('vises IKKE, når ingen faktisk er i minus', () => {
@@ -206,5 +207,4 @@ describe('navneAf', () => {
     expect(navneAf([], ['x'])).toBe('x');
     expect(navneAf(null, null)).toBe('');
   });
-});
 });
