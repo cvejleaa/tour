@@ -159,6 +159,29 @@ og ingen af dem bruger fladen. Deraf disse regler:
   handlede om — og stien blev givet videre til ejeren som facit. Hvert
   klik-trin spores til den render-betingelse (fil:linje), der viser elementet
   for præcis det spil og den tilstand, planen gælder.
+- **Et spejl af levende data er en løgn med forsinkelse.** Hjælpesiden bar en
+  hardkodet spilliste under overskriften "Spillene lige nu" — Touren stod som
+  i gang efter sin afslutning, og PL manglede, mens der blev inviteret til
+  det. Skal fladen vise noget, der ændrer sig (spillenes status, kilder,
+  evner), så AFLED det af den levende kilde (games-collectionen, serverens
+  lister). Kan det ikke aflades — klienten kan ikke importere serverens
+  moduler — så bind spejlet med en paritetstest, der læser modparten (mønstret
+  fra mailMarkdown). En hardkodet kopi uden vagt er ikke en forenkling; det er
+  den næste "lige nu"-løgn.
+- **"Kan startes med vilje" og "kan ikke fejle tavst" efterprøves pr. SPIL —
+  og fra fødslen.** Begge regler fandtes, da påmindelses-jobbet blev bygget
+  uden driftlog-kort, og da resultat-synken fik en callable uden knap: de blev
+  læst som "mekanismen har en vej", ikke "hver instans har en". Byg matrixen
+  maskineri × spil, når nyt maskineri landes: en callable uden knap i fladen
+  tæller som ingen udløser, og en kørsel uden driftlog-kort/alarm tæller som
+  tavs — uanset hvad der findes for nabospillet.
+- **Dokumentation er en spejlet fil.** Admin-guiden beskrev en nedlagt
+  kvarter-synk og udelod, at PL-facit kommer af sig selv; drift.md sendte
+  ejeren til en fane, der ikke findes; games.mjs påstod, at pulselive ikke var
+  implementeret. Ændrer du adfærd eller navne, så grep `docs/` og
+  hjælpesiderne for den gamle formulering I SAMME PR — dokumentations-drift
+  opdages ellers først, når ejeren står i præcis den fejlsituation, manualen
+  var skrevet til at afkorte.
 
 ## Faste regler
 
