@@ -429,7 +429,12 @@ describe('teamsPlan', () => {
   it('klarer manglende input uden at kaste', () => {
     expect(() => teamsPlan()).not.toThrow();
     expect(teamsPlan(null, null)).toEqual({
-      aendringer: [], tilfoejede: [], forsvundne: [], uaendrede: 0, omrokeret: false,
+      aendringer: [],
+      tilfoejede: [],
+      forsvundne: [],
+      uaendrede: 0,
+      omrokeret: false,
+      dubletter: [],
     });
   });
 
@@ -531,5 +536,70 @@ describe('teamsVagt', () => {
     expect(teamsVagt({ aendringer: [], tilfoejede: [], forsvundne: [] }).ok).toBe(true);
     expect(() => teamsVagt()).not.toThrow();
     expect(teamsVagt().ok).toBe(true);
+  });
+});
+
+describe('teamsPlan — dybden er ægte, ikke en delt reference', () => {
+  // FÆLDEN, DER BLEV FUNDET: de øvrige "uændret"-tests bygger `nuvaerende` med
+  // `{ ...rfc }`, og et shallow spread deler `troejer`-OBJEKTET. Så var
+  // `a === b` sand uden at sammenligne indhold, og hele dybde-sammenligningen
+  // kunne fjernes med grøn suite — også testen, der hedder "ser en ændring
+  // INDE I troejer". Den brugte nemlig altid en frisk literal, som pr.
+  // konstruktion er en anden reference, uanset indholdet.
+  //
+  // Produktionen møder ALTID det, der testes her: Firestores snapshot og
+  // datafilen deler aldrig en reference.
+  const rfc = {
+    name: 'Randers FC', elo: 1472, color: '#78C5ED',
+    troejer: { hjemme: { sekundaer: '#30374F', moenster: 'skraabaand' } },
+  };
+  const uafhaengigKopi = (o) => JSON.parse(JSON.stringify(o));
+
+  it('melder UÆNDRET på to strukturelt ens, men reference-forskellige objekter', () => {
+    const p = teamsPlan([rfc], [uafhaengigKopi(rfc)]);
+    expect(p.aendringer).toEqual([]);
+    expect(p.uaendrede).toBe(1);
+  });
+
+  it('melder ÆNDRET, når kun et nested felt er forskelligt', () => {
+    const gammel = uafhaengigKopi(rfc);
+    gammel.troejer.hjemme.moenster = 'striber';
+    const p = teamsPlan([rfc], [gammel]);
+    expect(p.aendringer.map((a) => a.felt)).toEqual(['troejer']);
+  });
+
+  it('regner undefined som fravær også ét niveau NEDE', () => {
+    // Den gamle test ramte kun det yderste felt, hvor `a === b` allerede giver
+    // true for undefined mod undefined — nøglefiltreringen kom aldrig i spil.
+    const medUndefined = uafhaengigKopi(rfc);
+    medUndefined.troejer.hjemme.aerme = undefined;
+    const p = teamsPlan([medUndefined], [uafhaengigKopi(rfc)]);
+    expect(p.aendringer).toEqual([]);
+  });
+});
+
+describe('teamsVagt — dubletter i filen', () => {
+  it('AFVISER to rækker med samme navn', () => {
+    // Både opslaget og "findes i filen"-sættet er på NAVN, så en dublet ser ud
+    // som ét hold: hverken tilfoejede eller forsvundne fanger den. Listen ville
+    // alligevel blive skrevet én række længere, og teams.length bærer
+    // pulje-afregningen.
+    const a = { name: 'A' };
+    const b = { name: 'B' };
+    const plan = teamsPlan([a, b, b], [a, b]);
+    expect(plan.tilfoejede).toEqual([]);
+    expect(plan.forsvundne).toEqual([]);
+    expect(plan.dubletter).toEqual(['B']);
+    const v = teamsVagt(plan);
+    expect(v.ok).toBe(false);
+    expect(v.grunde.join(' ')).toContain('to gange');
+  });
+
+  it('melder ikke en falsk omrokering, når en dublet gør længderne ulige', () => {
+    // `faelles` filtrerer på navn, så dubletten gør efterOrden længere end
+    // foerOrden. Uden længde-leddet ville `some` sammenligne forskudte lister.
+    const plan = teamsPlan([{ name: 'A' }, { name: 'A' }, { name: 'B' }],
+      [{ name: 'A' }, { name: 'B' }]);
+    expect(plan.omrokeret).toBe(false);
   });
 });

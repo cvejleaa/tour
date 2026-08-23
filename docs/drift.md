@@ -191,9 +191,18 @@ FJERNESTE af de to — kommer til at sammenligne en værdi med sig selv. `>` er
 strengt, så udetrøjen bliver stående, uanset hvor tæt den ligger. Det var
 præcis dét, der skete for Randers ude mod FC Midtjylland.
 
-**Aflæs produktionen først.** Admin → 🎨 **Hold-farver** viser hver farve som
-hex, læst levende fra `games/{id}.teams`. To forskellige tilstande giver samme
-syn på skærmen, og de skal ikke forveksles:
+**Aflæs produktionen først — men kend instrumentet.** Admin → 🎨 **Hold-farver**
+viser hver farve som hex, og det er den hurtigste vej til et overblik. Men den
+viser den **effektive** farve: fanen fletter admin-overrides fra
+`games/{id}.teamStyles` ind over datafilen, så en override kan skjule, at
+`teams` mangler farven. Har nogen brugt nødbremsen nedenfor, ser feltet altså
+rigtigt ud, mens `teams` stadig er forældet.
+
+Den **rå** aflæsning af `teams` er tør-kørslen selv — `fra →`-kolonnen viser,
+hvad der faktisk står i produktionen, og den skriver ingenting.
+
+To forskellige tilstande i `teams` giver samme syn på skærmen, og de skal ikke
+forveksles:
 
 | Hvad der står i prod | Hvad kortet viser |
 |---|---|
@@ -203,8 +212,14 @@ syn på skærmen, og de skal ikke forveksles:
 Er det den gamle værdi, er holdlisten drevet; er feltet væk, er den ældre endnu.
 Begge rettes samme sted.
 
-**Rettelsen:** GitHub → Actions → "Deploy platform" → `seedTeams` + vælg spil.
-Tør-kørsel er default (`seedTeamsSkriv` er fluebenet). Lokalt:
+**Rettelsen:** GitHub → Actions → **"Deploy platform (tip.vejleaa.dk)"** →
+`seedTeams` + vælg spil. Der tørkøres, indtil du sætter fluebenet i
+`seedTeamsSkriv` — sæt det først, når du har læst loggen igennem.
+
+Bemærk, at kørslen som alle de andre seed-input først bygger og deployer hele
+platformen (frontend, regler, indexes) og derefter retter holdlisten. Det er
+samme vilkår som `seedKickoffs`, men det er værd at vide, når tør-kørslen
+bruges som ren diagnose. Lokalt koster det ingenting:
 
 ```bash
 GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
@@ -216,8 +231,10 @@ GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
 `--teams-only` skriver **kun** `teams` og `updatedAt`. Den rører hverken kampe,
 odds, Elo-historik eller resultater — og den kræver ikke `--fixtures`.
 
-**Den afviser hårdt**, hvis holdlisten ville ændre `elo` eller antallet af
-hold, og skriver ikke noget som helst. Det er ikke pedanteri: `teams[].elo` er
+**Den afviser hårdt**, hvis holdlisten ville ændre `elo`, antallet af hold,
+eller hvis et holdnavn står to gange i filen — og skriver ikke noget som helst.
+Afvisningen sker også i en tør-kørsel: står den tilstand, er svaret at rette
+holdlisten, ikke at prøve igen med `--skriv`. Det er ikke pedanteri: `teams[].elo` er
 seed for `recomputeSeasonElo`, så et ændret tal ville få næste facit til at
 omskrive sæsonens Elo-historik **og** prisen på hver ulåst kamp. Og
 `teams.length` afgør, om den officielle tabel godtages ved pulje-afregningen.
@@ -315,6 +332,11 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   `eloCurrent`, og uden nogen forhåndsvisning. `seedTeams` tørkører som
   default og **nægter at skrive**, hvis `elo` eller antallet af hold ville
   ændre sig. Se "Hvis en trøjefarve er forkert på kampkortet".
+  **Vælg spillet bevidst:** `seedTeamsSpil` er en fast liste, der er et spejl af
+  `scripts/games.mjs` uden paritetstest. Oprettes et nyt fodboldspil (fx
+  `pl2627-foraar`), får det ikke evnen af sig selv, og vælges det uden at
+  filvalget i workflowet rettes, køres det med Superligaens holdliste — dér
+  afviser vagten med 20 forsvundne og 12 tilføjede hold.
 - `seedKickoffs` (default false) — retter **kun** kickoff-tider. Skriver
   hverken odds, Elo eller resultat, og lader kampe med facit være. Findes,
   fordi `seedSuperliga` efter ovenstående ikke længere kan rette et tidspunkt

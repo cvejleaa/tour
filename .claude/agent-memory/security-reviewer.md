@@ -1169,3 +1169,92 @@ FIRESTORE_EMULATOR_HOST omgår auth), og `node_modules/firebase-admin` som
 SYMLINK i scratchpad — ESM slår ikke op i repoets node_modules udefra.
 Kør ALTID workflow-steppet som et ægte bash-script (kopiér `run:`-blokken
 ordret) frem for at læse det: quoting-fejl kan kun ses ved at køre dem.
+
+---
+
+## seedTeams-knappen i deploy-platform.yml (ca47a20) — INGEN blokerende fund
+
+**Ændring:** nyt workflow-trin (deploy-platform.yml L192-211) der kører
+`scripts/seed-football.mjs --teams-only` mod produktionen (spil-89af9) med
+service-account-nøglen. Nye inputs: `seedTeams` (bool), `seedTeamsSpil`
+(choice, 2 options), `seedTeamsSkriv` (bool, default false).
+
+**ARGUMENT-SMUGLINGEN FRA audit-double-chance ER LUKKET HER — bekræftet ved at
+køre run:-blokken ordret** (scratchpad/wf/steg.sh + argv.mjs, node der printer
+process.argv). 16 fjendtlige `SPIL`-værdier: ` --skriv`, `x --skriv`,
+`$(touch …)`, backticks, `*`, `"; touch …; echo "`, tom, `-o`, newline+`--skriv`,
+tab+`--skriv`, `--skriv` selv, sti-flugt. **Ingen** blev til et ekstra argv-element,
+ingen fil blev oprettet, `*` blev ikke globbet. Grunden: `--game "$SPIL"` er i
+anførselstegn, OG hele `$( … )` i `--teams` er i anførselstegn, så hverken
+resultatet eller variablen ordsplittes. Kommandosubstitution sker ikke på
+resultatet af en variabel-ekspansion (bekræftet igen).
+`SPIL="--skriv"` fejler LUKKET i parseArgs (`--game mangler en værdi`,
+seedFootball.js L116) — flaget bliver aldrig konsumeret.
+**Mønster til genbrug: kopiér run:-blokken ordret til en .sh og kør den mod et
+argv-dump. Det tager to minutter og afgør spørgsmålet.**
+
+**`teamsVagt` (src/lib/seedFootball.js L348-374) er en ÆGTE backstop, ikke pynt
+— emulator-verificeret (jar på port 8099, scratchpad/poc/{seed,muter,dump,steg}).**
+Angreb og resultat, alle med `--skriv`:
+- `SPIL=pl2728-forear` (= "nyt spil lagt i options, men glemt i `[ "$SPIL" =
+  pl2627-efteraar ]`-testen" → SL-filen mod et PL-spil): 12 tilfoejede +
+  20 forsvundne → ⛔, **exit 1**, intet skrevet. Proxy-gaten kan altså ikke
+  gøre skade tavst.
+- `SPIL=superliga2627/matches/r1-agf-ob` (3 segmenter → doc i subcollection,
+  `.doc()` accepterer det!): kamp-dokumentet blev LÆST, men har ingen `teams`
+  → 12 tilfoejede → ⛔ exit 1, kampen urørt.
+- `SPIL=../users/offer` → Firestore INVALID_ARGUMENT ("resource id .."), exit 1.
+- elo smuglet med i en farverettelse (prod-elo ≠ filens) → ⛔ exit 1.
+- hold fjernet i prod (11 vs 12) → ⛔ exit 1, stod stadig 11 bagefter.
+KONTROLTESTER GRØNNE: legitim farverettelse tørkøres uden skrivning, og med
+`--skriv` skrives PRÆCIS `teams` + `updatedAt` — `eloCurrent`, kampe, bets og
+users stod uændret bagefter (dump'et efterprøvede alle fire).
+
+**Vagtens dækning er præcis den rigtige** (verificeret mod læserne):
+`games/{id}.teams` har KUN to læsere i functions-platform — `gameScoring.js`
+L99 (navn→elo Map, orden irrelevant) og L422-423 (`teams.length` →
+`expectedPlayed`). Vagten blokerer netop `elo`-ændringer, tilføjede og
+forsvundne hold. `omrokeret` er derfor korrekt kun en advarsel. Og
+`games/{gameId}` har INGEN Cloud-Function-trigger (kun matches/leagues/questions),
+så skrivningen kan ikke forstærkes.
+
+**`{merge:true}` på et ARRAY:** bekræftet at `teams` erstattes helt — et felt,
+der findes i prod men ikke i filen (`adminNote`), blev SLETTET af kørslen.
+Det VISES dog i tør-kørslen som `adminNote: "…" → —`. Ufarligt i dag, fordi der
+kun findes to skrivere af `teams` (begge i seed-football.mjs) og admins
+farve-overrides bor i det separate `games/{id}.teamStyles`. Men et fremtidigt
+felt på `teams[]`, skrevet af en anden hånd, ville forsvinde ved næste
+farverettelse — og kun `elo` er hård afvisning.
+
+**Ikke afklaret (formodet):** om GitHubs API håndhæver `choice`-options ved
+workflow_dispatch. Det kunne ikke testes uden at dispatche mod produktionsrepoet.
+**Det er heller ikke afgørende**, fordi hver eneste ikke-option-værdi enten
+fejler i Firestore-stien eller afvises af `teamsVagt` (målt ovenfor).
+`${{ inputs.seedTeamsSkriv && '--skriv' || '' }}` er sikker FORDI inputtet er
+`type: boolean`; var det en streng, ville enhver ikke-tom værdi være truthy i
+GitHubs udtrykssprog. Samme mønster som L226 (seedKickoffsSkriv).
+
+**Blast radius: knappen er STRENGT svagere end det, der allerede kunne trykkes.**
+`seedSuperliga` (L185-190) kører med `--skriv` HÅRDKODET, uden tør-kørsel og
+uden `teamsVagt` (fuldtSeed L361 skriver `teams` + `eloCurrent` ubetinget), og
+`bootstrapOwnerEmail` (L251-256) er et FRITEKST-felt, der gør en vilkårlig
+e-mail til owner. Det eneste NYE er, at målspillet for første gang vælges af
+operatøren — og netop dét er dækket af vagten.
+
+**Åbne, PRÆEKSISTERENDE nits i deploy-platform.yml (ikke fra denne diff):**
+- L93/L99: secret'en interpoleres direkte i shell inde i ENKELTE anførselstegn
+  (`echo '${{ secrets.… }}'`). En apostrof i secret'en bryder ud. De nyere
+  workflows (fix-double-chance, audit) gør det rigtigt: `env: SA:` +
+  `printf '%s' "$SA"`. Samme klasse som backfill-player-leagues/migrate-users.
+- Ingen `permissions:`-blok og ingen `concurrency:`-gruppe i hele filen.
+- Nyt trin, ingen test: der findes INGEN test, der kører
+  `scripts/seed-football.mjs` (grep'et: kun kommentarer nævner filen).
+  `teamsVagt` er unit-testet (seedFootball.test.js L476-533), men KALDET
+  L296 kan slettes med grøn suite. Der er dog kun ÉN `if (!vagt.ok)` og ÉN
+  `gameRef.set` i teams-only-vejen — husreglen om én vagt er overholdt.
+
+**Faldgrube til listen:** *en fil-vælgende `[ "$X" = konstant ] && echo A ||
+echo B` i YAML er en proxy-gate.* Den er sikker mod injektion, men afbildningen
+spil→holdliste bor så i shell i stedet for i data, og næste spil arver tavst
+B-grenen. Her reddes den af `teamsVagt`; uden en downstream-vagt ville den
+skrive den forkerte fil.

@@ -24,7 +24,7 @@ on:
       seedSuperliga:
         # Labelen er det ENESTE, operatøren ser i klik-øjeblikket — YAML-
         # kommentarer er usynlige i Actions-UI'et. Derfor står forbeholdet her.
-        description: 'Seed Superliga-kampprogrammet (kampe, der allerede har odds, springes over — skriver intet på en igangværende sæson). Skal tidspunkter rettes, så brug seedKickoffs.'
+        description: 'Seed Superliga-kampprogrammet (kampe, der allerede har odds, springes over). NB: skriver ALTID teams og eloCurrent, uden forhåndsvisning. Skal tidspunkter rettes, så brug seedKickoffs — skal kun farver/kortkoder rettes, så brug seedTeams.'
         type: boolean
         default: false
       seedKickoffs:

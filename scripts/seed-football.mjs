@@ -53,11 +53,12 @@ const { resolve, isAbsolute } = await import('path');
 const ROD = new URL('..', import.meta.url).pathname;
 const sti = (p) => (isAbsolute(p) ? p : resolve(ROD, p));
 const { buildMatches } = await import('../src/lib/superligaSeed.js');
+const { koerTeamsOnly } = await import('./lib/teamsOnly.mjs');
 // Beslutningerne (hvad springes over, hvad ændres) bor i et testet modul.
 // To udgaver af "hvornår må vi skrive odds" er to steder at lave fejlen.
 const {
   parseArgs, parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold, tjekDubletter,
-  kickoffMs, teamsPlan, teamsVagt,
+  kickoffMs,
 } = await import('../src/lib/seedFootball.js');
 
 // --- argumenter ------------------------------------------------------------
@@ -232,71 +233,24 @@ async function kickoffsOnly(fixtures, matchesRef, eksisterende) {
 /**
  * Opdatér KUN holdlisten på spillet.
  *
- * HVORFOR DEN FINDES. Trøjefarverne bor i `games/{id}.teams`, og indtil nu
- * kunne kun `fuldtSeed` skrive dem — i samme åndedrag som odds og Elo. Der
- * fandtes altså ingen vej til at rette en farve midt i en sæson, og en
- * manglende tredjefarve er ikke kosmetik: `badgeFor` falder tilbage på
- * udetrøjen, så holdet tegnes i en farve, der clasher med hjemmeholdets.
+ * FORLØBET LIGGER I `scripts/lib/teamsOnly.mjs`, ikke her. Grunden er
+ * konkret: `teamsVagt` var grundigt unit-testet, og alligevel kunne linjen,
+ * der KALDER den, slettes herfra med hele suiten grøn — den ene linje, der
+ * bærer forskellen mellem at advare og at afvise. Nu kan forløbet køres med
+ * en fake Firestore, og en test tæller skrivningerne.
  *
- * DEN SKRIVER IKKE `eloCurrent`. `fuldtSeed` gør det, og feltet har ingen
- * læser i hele repoet — men en skrivning uden grund er en skrivning, der skal
- * forklares næste gang nogen læser koden.
- *
- * VAGTEN LIGGER I `teamsVagt`, ikke her. To felter på `teams` bærer point
- * (`elo` seeder den levende Elo, antallet af hold bærer pulje-afregningen), og
- * den beslutning skal stå ét sted, så en mutation af den bliver rød.
+ * Her bliver kun det, der kræver rigtige filer og en rigtig database.
  */
 async function teamsOnly(gameRef) {
   const teams = await loadTeams(TEAMS_PATH);
   console.log(`Holdliste: ${teams.length} hold fra ${TEAMS_PATH}.`);
-
-  const snap = await gameRef.get();
-  if (!snap.exists) throw new Error(`games/${GAME_ID} findes ikke — seed spillet først.`);
-  const nuvaerende = snap.data().teams;
-  if (!Array.isArray(nuvaerende) || !nuvaerende.length) {
-    console.log(`\n⚠️  games/${GAME_ID} har ingen holdliste i forvejen.`);
-    console.log('   Et spil uden hold skal seedes fuldt, ikke lappes her.');
-  }
-  console.log(`games/${GAME_ID}.teams har ${nuvaerende?.length ?? 0} hold i forvejen.`);
-
-  const plan = teamsPlan(teams, nuvaerende);
-
-  // ALLE ændringer vises. Et loft ville bede operatøren tro på resten — og det
-  // er netop gennemlæsningen, tør-kørslen findes for.
-  if (plan.aendringer.length) {
-    console.log(`\n  ${plan.aendringer.length} feltændringer:`);
-    for (const a of plan.aendringer) {
-      const vis = (v) => (v === undefined ? '—' : JSON.stringify(v));
-      console.log(`    ${a.name}  ${a.felt}: ${vis(a.fra)} → ${vis(a.til)}`);
-    }
-  }
-  if (plan.tilfoejede.length) console.log(`\n  hold der kommer til : ${plan.tilfoejede.join(', ')}`);
-  if (plan.forsvundne.length) console.log(`\n  hold der forsvinder : ${plan.forsvundne.join(', ')}`);
-  if (plan.omrokeret) {
-    // Ingen felter ændrer sig, men pulje-gitteret tegnes i array-orden, så
-    // holdknapperne flytter sig for alle. Det skal ses, ikke spærre.
-    console.log('\n  ⚠️  rækkefølgen er en anden. PuljeTip tegner pulje-gitteret i');
-    console.log('      array-orden, så holdknapperne flytter sig for alle spillere.');
-  }
-  console.log(`\n  uændrede hold : ${plan.uaendrede}`);
-
-  const vagt = teamsVagt(plan);
-  if (!vagt.ok) {
-    console.log('\n⛔ Denne ændring rører POINT og skrives ikke:');
-    for (const g of vagt.grunde) console.log(`   • ${g}`);
-  }
-
-  if (!plan.aendringer.length && !plan.tilfoejede.length
-    && !plan.forsvundne.length && !plan.omrokeret) {
-    console.log('\nHoldlisten er allerede den, filen beskriver. Intet at gøre.\n');
-    return;
-  }
-
-  if (!SKRIV) { console.log('\nTør-kørsel — der er IKKE skrevet noget. Kør igen med --skriv.\n'); return; }
-  if (!vagt.ok) { throw new Error('holdlisten rører point — se begrundelserne ovenfor'); }
-
-  await gameRef.set({ teams, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-  console.log(`\n✅ Holdlisten opdateret i games/${GAME_ID} (${teams.length} hold).\n`);
+  await koerTeamsOnly({
+    gameRef,
+    teams,
+    skriv: SKRIV,
+    serverTimestamp: FieldValue.serverTimestamp(),
+    log: (s) => console.log(s),
+  });
 }
 
 /** Fuldt seed: hold-Elo på spillet + kampe med FROSNE odds. */

@@ -277,7 +277,8 @@ export function ukendteHold(fixtures, teams) {
  * @param {Array<object>} nye         holdlisten fra filen
  * @param {Array<object>} nuvaerende  games/{id}.teams som den står nu
  * @returns {{aendringer: Array<{name:string, felt:string, fra:*, til:*}>,
- *           tilfoejede: string[], forsvundne: string[], uaendrede: number}}
+ *           tilfoejede: string[], forsvundne: string[], uaendrede: number,
+ *           omrokeret: boolean, dubletter: string[]}}
  */
 export function teamsPlan(nye, nuvaerende) {
   const foer = new Map((nuvaerende || []).map((t) => [t?.name, t]));
@@ -305,6 +306,16 @@ export function teamsPlan(nye, nuvaerende) {
   const iFilen = new Set((nye || []).map((t) => t?.name));
   const forsvundne = [...foer.keys()].filter((n) => !iFilen.has(n)).sort();
 
+  // DUBLETTER i filen. Både `foer` og `iFilen` er opslag på NAVN, så to rækker
+  // med samme navn ser ud som ét hold: hverken `tilfoejede` eller `forsvundne`
+  // fanger dem. Listen ville alligevel blive skrevet én række længere — og
+  // `teams.length` bærer pulje-afregningen. Samme klasse fejl som
+  // `tjekDubletter` findes for i kampprogrammet.
+  const set = new Set();
+  const dubletter = [...new Set(
+    (nye || []).map((t) => t?.name).filter((n) => (set.has(n) ? true : (set.add(n), false))),
+  )].sort();
+
   // RÆKKEFØLGEN er brugersynlig og kan ikke ses i en navne-diff. `PuljeTip`
   // tegner pulje-gitteret med `teams.map` i ARRAY-orden (alle andre flader
   // sorterer selv), så en omrokering flytter holdknapperne for alle — uden at
@@ -314,11 +325,15 @@ export function teamsPlan(nye, nuvaerende) {
   const faelles = (l) => (l || []).map((t) => t?.name).filter((n) => foer.has(n) && iFilen.has(n));
   const foerOrden = faelles(nuvaerende);
   const efterOrden = faelles(nye);
+  // Længde-leddet er IKKE overflødigt: `faelles` filtrerer på navn, så to
+  // rækker med samme navn i den ene liste gør længderne ulige. Uden leddet
+  // ville `some` sammenligne forskudte lister og melde en omrokering, der
+  // ikke findes — oven i den dublet, vagten allerede afviser.
   const omrokeret = foerOrden.length === efterOrden.length
     && foerOrden.some((n, i) => n !== efterOrden[i]);
 
   return {
-    aendringer, tilfoejede, forsvundne, uaendrede, omrokeret,
+    aendringer, tilfoejede, forsvundne, uaendrede, omrokeret, dubletter,
   };
 }
 
@@ -361,6 +376,13 @@ export function teamsVagt(plan) {
       `${plan.tilfoejede.length} hold kommer til (${plan.tilfoejede.join(', ')}). `
       + 'Antallet af hold afgør, om den officielle tabel godtages ved '
       + 'pulje-afregningen. Skal holdlisten vokse, hører det til et fuldt seed.',
+    );
+  }
+  if (plan?.dubletter?.length) {
+    grunde.push(
+      `${plan.dubletter.length} holdnavn står to gange i filen (${plan.dubletter.join(', ')}). `
+      + 'Listen ville blive skrevet længere, end der er hold — og antallet bærer '
+      + 'pulje-afregningen.',
     );
   }
   if (plan?.forsvundne?.length) {

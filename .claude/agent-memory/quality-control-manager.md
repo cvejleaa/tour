@@ -1484,3 +1484,47 @@ ingen `.card`-CSS-konflikt (theme.css:100-106 har intet `width`).
   ubetinget med hardkodet `--skriv` (l. 150-167) og har INGEN tør-kørsels-
   input** — modsat `seedKickoffs`, der har `seedKickoffsSkriv`. Vejen findes
   altså allerede; det er forhåndsvisningen, der mangler.
+
+## `--teams-only` (kode-gennemgang, aug. 2026): hvad kontrollen af holdlisten kan og ikke kan
+
+- **RETTELSE af min egen note ovenfor: `TeamStylesTab` viser IKKE rå
+  `game.teams`.** `TeamStylesTab.jsx:56-66` fletter admin-overrides ind
+  (`isHex6(o.thirdColor) ? o.thirdColor : t.thirdColor`), så feltet viser den
+  EFFEKTIVE farve. En override maskerer altså præcis den tilstand, man forsøger
+  at aflæse — og fanen er samtidig den anbefalede nødbremse, så den kan selv
+  skabe blindheden. Den eneste rå prod-aflæsning af `games/{id}.teams` er
+  tør-kørslen af `--teams-only` (`fra →`-kolonnen), som ikke skriver noget.
+  Peger en drift-tekst på Hold-farver som diagnose, så kræv forbeholdet.
+- **`teamsVagt` vogter NAVNE, ikke ANTAL** (`src/lib/seedFootball.js:348-374`):
+  `tilfoejede`/`forsvundne` bygges af Map/Set på `name`, så en DUBLET i filen
+  giver `{ok:true}` med en holdliste, der er én længere — og `teams.length` er
+  netop det, der bærer pulje-afregningen (`gameScoring.js:422-425`). Verificeret
+  kørende. Repoets datafiler har unikhedstests (`superligaTeams2026.test.js:25`),
+  så eksponeringen er en lokalt angivet fil. Spørg altid: vogter vagten
+  størrelsen eller kun mængden af navne?
+- **Vagtens HÅNDHÆVELSE lå ét sted uden test.** `teamsVagt` er tæt testet i
+  isolation, men brugen — `scripts/seed-football.mjs:296` `if (!vagt.ok) throw`
+  — har ingen test, fordi scriptet ikke er unit-testet. Mutér den linje væk, og
+  hele suiten er grøn. Mønstret findes allerede løst i repoet
+  (`scripts/lib/doubleChance.mjs` + `.test.mjs`): flyt beslutningen ind i en
+  testbar lib-funktion, når et script bærer en vagt.
+- **Pulje-tip gemmes på NAVN** (`PuljeTip.jsx:158` `toggle(t.name)`,
+  `LeagueQuestions` `HoldSelect value={t.name}`), så en omrokering af
+  `teams`-arrayet er ren kosmetik. `omrokeret` som ADVARSEL (ikke spærring) er
+  altså rigtigt afvejet — men det skal efterprøves på lagringsformen, ikke
+  antages.
+- **`seedTeamsSpil`s choice-liste er et hardkodet spejl af `scripts/games.mjs`.**
+  I dag komplet (kun `superliga2627` og `pl2627-efteraar` findes), men
+  `pl2627-foraar` er allerede planlagt i games.mjs' egen kommentar. Ingen
+  paritetstest binder de to lister — næste spil får tavst ikke evnen.
+- **Labelen på `seedSuperliga` er selve fælden, ikke kun den manglende
+  tør-kørsel.** Beskrivelsen — det eneste, operatøren ser i Actions-UI'et —
+  siger "skriver intet på en igangværende sæson", mens YAML-kommentaren lige
+  under og `docs/drift.md:302` begge indrømmer, at `teams` og `eloCurrent`
+  skrives ubetinget. Samme input har allerede mønstret for rettelsen: "Skal
+  tidspunkter rettes, så brug seedKickoffs."
+- **`docs/drift.md:305-309` påstår, at Elo-TABELLEN kan vise
+  sæsonstart-værdier, når `eloCurrent` nulstilles.** `EloTable.jsx:17` bruger
+  `eloRows(teams, game.eloHistory)`; `eloCurrent` har stadig ingen læser. Den
+  gamle begrundelse for "Ompris kampene"-knappen hviler altså på et felt, der
+  ikke vises. (Knappen er der gode grunde til alligevel — prissætningen.)
