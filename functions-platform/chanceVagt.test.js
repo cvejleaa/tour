@@ -42,6 +42,11 @@ function makeDb({ erSpiller = true, kampe = [], tips = [] } = {}) {
 
   const tx = {
     async get(ref) {
+      // Firestore KRÆVER alle læsninger før første skrivning. Uden denne
+      // vagt var fake'en mere eftergivende end den ægte transaktion, og en
+      // ombytning af rækkefølgen ville stå grøn her og fejle i produktionen
+      // (Test Manager-fund: den mutation overlevede hele suiten).
+      if (state.skrevet.length) throw new Error('læsning efter skrivning i transaktionen');
       state.laesninger += 1;
       if (ref.__player) return { exists: erSpiller };
       if (ref.__match) return snapAf(ref.__match, kampAf);
@@ -148,14 +153,19 @@ describe('erKampLaast', () => {
     expect(erKampLaast({ ...senere, live: { status: 'direkte' } }, NU)).toBe(true);
     expect(erKampLaast({ ...senere, live: { status: 'slut' } }, NU)).toBe(true);
   });
-  it('FRIGIVER en udsat kamp, hvis kickoff er passeret men kampen er afbrudt', () => {
-    // Kernen i Spilførers indvending: uden denne linje er en spiller med ⚡ på
-    // en udsat kamp låst fast til en kamp, der aldrig blev spillet.
-    // 'afbrudt' dækker interrupted/abandoned/postponed (syncProviders).
-    expect(erKampLaast({ kickoff: NU - 3600e3, live: { status: 'afbrudt' } }, NU)).toBe(false);
+  it('LÅSER en AFBRUDT kamp — den rullede, og stillingen var synlig', () => {
+    // Kilden skriver kun et live-felt for kampe, den melder `inprogress`
+    // (syncProviders.js:173), så 'afbrudt' står ALDRIG på en udsat kamp — kun
+    // på en, der gik i gang og blev afbrudt. En tidligere udgave af vagten
+    // frigav her og gav dermed chancen tilbage, efter spilleren havde set
+    // stillingen. Denne test er tripwiren mod, at den gren kommer igen.
+    expect(erKampLaast({ kickoff: NU - 3600e3, live: { status: 'afbrudt', home: 3, away: 0 } }, NU)).toBe(true);
   });
-  it('låser en afbrudt kamp, der ALLIGEVEL fik facit (fx dømt afgjort)', () => {
-    expect(erKampLaast({ kickoff: NU - 3600e3, live: { status: 'afbrudt' }, result: '1' }, NU)).toBe(true);
+  it('FRIGIVER en udsat kamp — udsættelse er en FLYTTET kickoff, ikke en status', () => {
+    // Kickoff-synken rykker tiden frem; så er kampen ikke længere passeret,
+    // og spilleren er ikke låst fast til en kamp, der aldrig blev spillet.
+    // Ingen live-status er involveret, fordi kilden aldrig så kampen i gang.
+    expect(erKampLaast({ kickoff: NU + 21 * 24 * 3600e3 }, NU)).toBe(false);
   });
   it('låser ved ulæseligt eller manglende kickoff — en vagt i tvivl siger nej', () => {
     expect(erKampLaast({}, NU)).toBe(true);
@@ -263,6 +273,21 @@ describe('setChanceCore — sætter chancen', () => {
     expect(til.patch).toMatchObject({ chanceStake: 6, chanceFlytninger: 1 });
   });
 
+  it('lader en LÅST kamp UDEN chance i runden være i fred', async () => {
+    // Den overlevende mutation: uden `chanceStake > 0`-vagten ville løkken
+    // kaste chance-laast for en låst kamp, spilleren aldrig satte ⚡ på — og
+    // en spiller med sin chance i behold ville få at vide, at han havde
+    // brugt den.
+    const kampe = standardKampe();
+    kampe[0].kickoff = NU - 60e3;          // m1 er i gang, men uden chance
+    const { res, db } = await saet(
+      { kampe, tips: [tip('m1'), tip('m2')] },
+      { matchId: 'm2', stake: 3 },
+    );
+    expect(res).toMatchObject({ ok: true, indsats: 3, flyttetFra: [] });
+    expect(db._state.skrevet.map((s) => s.id)).toEqual(['u1_m2']);
+  });
+
   it('rører IKKE en chance i en anden runde', async () => {
     const { res, db } = await saet(
       {
@@ -305,10 +330,25 @@ describe('setChanceCore — afviser', () => {
     expect(e.detaljer).toEqual({ gruppe: 3, kamp: 'Brøndby–FCK' });
   });
 
-  it('men TILLADER flytningen, hvis den første kamp blev UDSAT', async () => {
+  it('OGSÅ når den første kamp blev AFBRUDT — den rullede, og stillingen sås', async () => {
+    // Denne test stod oprindeligt med den modsatte forventning og var grøn,
+    // fordi den forsvarede en fejl: chancen blev givet tilbage til en spiller,
+    // der havde set 3-0 efter 70 minutter. 'afbrudt' skrives kun på kampe,
+    // kilden har meldt i gang.
     const kampe = standardKampe();
     kampe[0].kickoff = NU - 60e3;
-    kampe[0].live = { status: 'afbrudt' };
+    kampe[0].live = { status: 'afbrudt', home: 3, away: 0 };
+    const e = await fanger(
+      { kampe, tips: [tip('m1', { chanceStake: 4 }), tip('m2')] },
+      { matchId: 'm2', stake: 6 },
+    );
+    expect(e.message).toBe('chance-laast');
+  });
+
+  it('men TILLADER flytningen, når den første kamps kickoff er UDSKUDT', async () => {
+    // Den ægte udsættelses-vej: kickoff-synken har flyttet tiden frem.
+    const kampe = standardKampe();
+    kampe[0].kickoff = NU + 21 * 24 * 3600e3;
     const { res } = await saet(
       { kampe, tips: [tip('m1', { chanceStake: 4 }), tip('m2')] },
       { matchId: 'm2', stake: 6 },
@@ -357,6 +397,18 @@ describe('setChanceCore — afviser', () => {
     await expect(setChanceCore(db, FieldValue, { uid: 'u1', gameId: 'g1', matchId: 'm2', stake: 6, nowMs: NU }))
       .rejects.toThrow('chance-laast');
     expect(db._state.skrevet).toEqual([]);
+  });
+});
+
+// --- Transaktionens rækkefølge ----------------------------------------------
+describe('læs-før-skriv', () => {
+  it('fake\'en afviser en læsning efter første skrivning', async () => {
+    // Beviser at vagten i fake'en VIRKER — ellers ville den være en kommentar,
+    // og en ombytning af rækkefølgen i kernen ville stadig stå grøn.
+    const db = makeDb({ kampe: standardKampe(), tips: [tip('m1')] });
+    db._state.skrevet.push({ id: 'snyd' });
+    await expect(setChanceCore(db, FieldValue, { uid: 'u1', gameId: 'g1', matchId: 'm1', stake: 1, nowMs: NU }))
+      .rejects.toThrow('læsning efter skrivning');
   });
 });
 

@@ -15,6 +15,12 @@
 // FORESPØRGSLER — kun `get()` på et kendt dokument — og "har du allerede en
 // chance et andet sted i runden?" ER en forespørgsel. Den kan kun besvares her.
 //
+// STATUS: denne fil er TRIN 1 af 3 og er endnu IKKE i brug. Klienten skriver
+// stadig chanceStake direkte (betActions.setBet), og firestore.rules tillader
+// det. Hullet er derfor ÅBENT, indtil trin 2 (klienten kalder callable'en) og
+// trin 3 (rules lukker den direkte vej) er landet. Hverken en grøn suite her
+// eller et deploy af denne fil lukker noget alene.
+//
 // TRE SPØRGSMÅL, TRE VAGTER (én vagt pr. sikkerhedsregel — CLAUDE.md):
 //   HVOR MANGE   én pr. gruppe            → dedup'en i setChanceCore
 //   HVORNÅR      ikke på en kamp i gang   → erKampLaast
@@ -81,31 +87,35 @@ async function chanceGruppeKampe(tx, matchesRef, maal) {
  * VAGT "HVORNÅR": er kampen gået i gang, så chancen på den er BRUGT?
  *
  * En ⚡ på en kamp, der ruller, er brugt — alt andet ville være væddemål med
- * facit i hånden. Men en UDSAT kamp blev aldrig spillet, og en spiller, der
- * ligger fast på den, kan hverken flytte eller fjerne sin chance. Derfor
- * spørger vagten, om kampen faktisk er BEGYNDT — ikke blot om et gemt
- * kickoff-tidspunkt er passeret:
+ * facit i hånden.
  *
- *   afbrudt/udsat uden facit → ikke låst (chancen frigives)
- *   facit                    → låst
- *   kilden melder i gang     → låst
- *   kickoff passeret         → låst
+ *   facit               → låst
+ *   kilden har set den  → låst (ETHVERT live-felt, 'afbrudt' medregnet)
+ *   ulæseligt kickoff   → låst (en vagt i tvivl siger nej)
+ *   ellers              → låst når kickoff er passeret
  *
- * Rækkefølgen er meningsbærende: 'afbrudt' dækker BÅDE interrupted, abandoned
- * og postponed (syncProviders.LIVE_STATUS), og en udsat kamp har stadig sit
- * gamle kickoff, indtil kickoff-synken flytter det. Uden den første linje ville
- * den første udsættelse med en ⚡ på være en supportsag.
+ * HVAD MED EN UDSAT KAMP? Den skal frigive chancen — en spiller, der ligger
+ * fast på en kamp, som aldrig blev spillet, kan hverken flytte eller fjerne
+ * den. Men udsættelsen viser sig IKKE i live-status. Første udgave af denne
+ * vagt frigav på `live.status === 'afbrudt'`, fordi LIVE_STATUS bunter
+ * interrupted/abandoned/postponed sammen under det ene ord
+ * (syncProviders.js:95-98). Kilden skriver dog kun et live-felt for kampe,
+ * den melder `inprogress` (syncProviders.js:173, og PL's tilsvarende filter),
+ * og en udsat kamp er aldrig i gang. 'afbrudt' kan derfor KUN stå på en kamp,
+ * der rullede og blev afbrudt — præcis den kamp, hvor spilleren allerede har
+ * set stillingen. Grenen frigav altså det ene tilfælde, der skulle være låst,
+ * og ramte aldrig det, den var skrevet for. Samme fælde som puljeLockRound:
+ * et token, der bunter tilstande, er ikke evnen.
  *
- * Et ULÆSELIGT kickoff låser. Vi ved ikke, hvornår kampen begynder, og en
- * vagt, der er i tvivl, siger nej.
+ * Udsættelse viser sig i stedet ved, at kickoff-synken FLYTTER kickoff frem i
+ * tiden — og så er kampen ikke længere passeret, og chancen er fri. Det følger
+ * af den sidste linje alene og kræver ingen særgren. Indtil tiden flyttes, er
+ * kampen låst; det er den ærlige tilstand, for da ved vi det ikke endnu.
  */
 function erKampLaast(m, nowMs) {
   if (!m) return true;
-  const facit = harFacit(m);
-  const status = m.live && m.live.status;
-  if (status === 'afbrudt' && !facit) return false;
-  if (facit) return true;
-  if (status && status !== 'afbrudt') return true;
+  if (harFacit(m)) return true;
+  if (m.live && m.live.status) return true;
   const ko = kickoffMs(m);
   if (ko == null) return true;
   return ko <= nowMs;
