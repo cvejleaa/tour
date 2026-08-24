@@ -68,6 +68,22 @@ Opdatér den efter hver gennemgang: nye angrebsveje, bekræftede antagelser om
 reglerne, og PoC-mønstre der kan genbruges. "De faste faldgruber" ovenfor er
 den liste, du fremover selv vedligeholder.
 
+**Loft: højst fem sag-afsnit.** Tilføjer du et sjette, så destillér først det
+ældste ind i en af de varige lister nedenfor og slet derefter sag-afsnittet.
+Filen var vokset til 81 KB, hvoraf to tredjedele var referater af enkelt-PR'er
+— og du læses fra ende til anden, hver gang du kaldes.
+
+**TRE AFSNIT BESKÆRES ALDRIG**, uanset loftet:
+
+- `## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)` — at slette et
+  punkt her er ikke oprydning, det er at glemme et åbent hul.
+- `## Angrebsveje der IKKE virker (afprøvet, gentag ikke)`
+- `## Afprøvet og RENT (gentag ikke arbejdet uden grund)`
+
+De to sidste findes netop for at spare arbejde: de forhindrer, at du bruger en
+gennemgang på at afprøve noget, du allerede har afprøvet. De er billigere at
+bære end at genskabe.
+
 ## Din udmelding
 
 Kort, på dansk, prioriteret efter reel risiko. For hvert fund: filsti og
