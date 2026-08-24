@@ -1528,3 +1528,52 @@ ingen `.card`-CSS-konflikt (theme.css:100-106 har intet `width`).
   `eloRows(teams, game.eloHistory)`; `eloCurrent` har stadig ingen læser. Den
   gamle begrundelse for "Ompris kampene"-knappen hviler altså på et felt, der
   ikke vises. (Knappen er der gode grunde til alligevel — prissætningen.)
+
+## Farve-overrides (`games/{id}.teamStyles`) — plan-gennemgang, aug. 2026
+
+- **Fanen ligger i `src/features/admin/TeamStylesTab.jsx`** (ikke
+  `src/components/admin/` — ret min egen tidligere note). `teamStylesOverrides.js`
+  ved siden af bærer det, der FAKTISK gemmes.
+- **↺ sammenligner IKKE Firestore med holdlisten.** `TeamStylesTab.jsx:132-134`
+  sammenligner formularens FLETTEDE state (`styles`, l. 54-68) med `defaults`
+  (l. 36-40, bygget af `game.teams`). Derfor: (a) uGEMTE redigeringer tæller
+  som "afviger", (b) ↺ skriver ikke — den ændrer kun formularen, og der sker
+  intet i appen, før Gem trykkes. Enhver "overblik over overrides"-flade, der
+  regner på rå `teamStyles`, bliver en PARALLEL udregning, der driver fra ↺.
+- **`byggOverrides` gemmer kun AFVIGELSER, og `setTeamStyles` bruger
+  `updateDoc` (gameActions.js:95-98), som ERSTATTER hele mappet.** Derfor
+  slettes overrides for hold, der ikke længere står i `teams`, ved næste Gem —
+  bevidst og testet (`teamStylesOverrides.test.js:105`). En tæller bygget på
+  formularen kan altså sige "0 tilsidesatte", mens dokumentet har felter.
+- **Blind plet: et felt, holdlisten ikke har.** `changed = def != null && …`
+  (l. 134) skjuler ↺, når `t.thirdColor` er `undefined`, mens
+  `byggOverrides` (l. 35) BEVARER override'en (`eq(x, undefined)` er false).
+  En override på et felt uden standardværdi kan altså hverken ses eller
+  nulstilles i fanen. I dag har alle 32 hold alle tre felter — hullet åbner,
+  næste gang et felt tilføjes (fx `troejer`).
+- **Overrides slår KUN igennem, hvor `badgeFor` bruges.** Med:
+  `FootballTip.jsx:445`, `TroejeOversigt.jsx:65-96,154`, `GameProfile.jsx:56`,
+  `useKlubFarver.js:50`, `useSpilTema.js:61`. UDEN (læser rå `t.color`):
+  `FootballTable.jsx:34`, `EloTable.jsx:56`, `PuljeTip.jsx:162`,
+  `eloHistory.js:27`. `teamsOf` fletter kun `vis` ind, ikke farver
+  (`visningsnavn.js:89-101`). Backlog #16 er altså halvt løst, og en beholdt
+  hjemmefarve-override giver klubben TO farver på to skærme.
+- **"Ændrer denne override noget?" kan ikke besvares på kampkortet alene.**
+  `klubAccentAf` (badges.js:145-151) går hjemme→ude→tredje, så en tredjefarve,
+  `matchBadges` aldrig vælger, kan stadig farve hele spil-siden. En række, der
+  siger "harmløs", ville være den næste "Åbn ligaen →".
+- **En override kan være husets egen anvisning.** `premierLeagueTeams2026.js:84`
+  og `:89` skriver direkte "Den skal sættes i admin" (Leeds' og Spurs'
+  tredjetrøje). "Nulstil alle" ville slette dem. Omvendt er
+  `superligaTeams2026.js:26-38` listen over de seks hjemmefarver, der SKIFTEDE,
+  da de blev målt — dvs. den bedste forhåndsliste over forældede overrides.
+- **Forældelsen SKABES ved seed, ikke ved visning.** `koerTeamsOnly`
+  (`scripts/lib/teamsOnly.mjs:33-35`) har allerede `snap.data()` i hånden og
+  kunne printe "N gemte overrides rører hold, du ændrer" i tør-kørslen. En
+  admin-flade kræver, at nogen går hen og kigger; tør-kørslen rammer det
+  øjeblik, hvor filens værdi flytter sig under override'en — og den kan køres
+  I DAG, uden deploy.
+- **Ordet "filens værdi" er forkert i fladen.** Fanens standardværdier kommer
+  fra `game.teams` i Firestore, ikke fra repo-filen. Og "målte farver" er kun
+  sandt for Superligaens hjemmetrøjer + 11 ude/tredje-felter; PL er hentet fra
+  Wikipedia-skabeloner, og to felter er eksplicit skøn uden kilde.

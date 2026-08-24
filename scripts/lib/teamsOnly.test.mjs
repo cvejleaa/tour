@@ -4,12 +4,12 @@ import { koerTeamsOnly } from './teamsOnly.mjs';
 // En fake af det, Firestore giver os. Den TÆLLER skrivninger, for det er hele
 // pointen: `teamsVagt` var grundigt unit-testet, og alligevel kunne kaldet af
 // den slettes fra scriptet med hele suiten grøn. Her kan det ikke.
-const fakeRef = (teams) => {
+const fakeRef = (teams, teamStyles) => {
   const kald = [];
   return {
     id: 'sl-test',
     kald,
-    get: async () => ({ exists: teams !== null, data: () => ({ teams }) }),
+    get: async () => ({ exists: teams !== null, data: () => ({ teams, teamStyles }) }),
     set: async (data, opts) => { kald.push({ data, opts }); },
   };
 };
@@ -133,5 +133,81 @@ describe('koerTeamsOnly', () => {
       log: (s) => { tekst += `${s}\n`; },
     });
     for (const felt of ['color', 'awayColor', 'thirdColor']) expect(tekst).toContain(felt);
+  });
+});
+
+describe('gemte overrides i tør-kørslen', () => {
+  // Det, ejeren spurgte om: "er der andre, jeg skal nulstille?" Svaret skal
+  // stå i tør-kørslen, ikke afhænge af at nogen scanner 128 felter i fladen
+  // efter en lille pil.
+  const teams = [
+    { name: 'Randers FC', color: '#78C5ED', awayColor: '#33384F', thirdColor: '#FC8033' },
+    { name: 'AGF', color: '#0B4EA2', awayColor: '#FFFFFF', thirdColor: '#111111' },
+  ];
+  const koerMedLog = async (ref, nye) => {
+    let tekst = '';
+    await koerTeamsOnly({
+      gameRef: ref, teams: nye, skriv: false, serverTimestamp: 'NU', log: (s) => { tekst += `${s}\n`; },
+    });
+    return tekst;
+  };
+
+  it('NAVNGIVER hvert felt, der er rettet i hånden — og hvad listen siger', async () => {
+    const ref = fakeRef(teams, { 'Randers FC': { thirdColor: '#003C7E' } });
+    const tekst = await koerMedLog(ref, teams);
+    expect(tekst).toContain('1 felter er rettet i hånden');
+    expect(tekst).toContain('Randers FC');
+    expect(tekst).toContain('tredje');
+    expect(tekst).toContain('#003C7E');
+    expect(tekst).toContain('#FC8033');
+    // Og den skal SIGE, hvad konsekvensen er — ellers er tallet bare et tal.
+    expect(tekst).toContain('VINDER over holdlisten');
+    expect(tekst).toContain('Hold-farver');
+  });
+
+  it('siger positivt fra, når INTET er rettet i hånden', async () => {
+    // "Ingen overrides" må ikke se ud som manglende data. En tom tilstand,
+    // der ikke siger noget, læses som at rapporten ikke virkede.
+    const tekst = await koerMedLog(fakeRef(teams, {}), teams);
+    expect(tekst).toContain('ingen farver er rettet i hånden');
+    expect(tekst).not.toContain('rettet i hånden (games/');
+  });
+
+  it('rapporterer overrides, SELV når holdlisten er uændret', async () => {
+    // Den vigtigste gren. Produktionen er i sync, så kørslen er en no-op —
+    // og præcis dér blev spørgsmålet stillet. Rapporten må ikke kun komme,
+    // når der tilfældigvis også er en listeændring.
+    const ref = fakeRef(teams, { AGF: { color: '#000000' } });
+    const tekst = await koerMedLog(ref, teams);
+    expect(tekst).toContain('Holdlisten er allerede den, filen beskriver');
+    expect(tekst).toContain('AGF');
+    expect(tekst).toContain('#000000');
+  });
+
+  it('nævner overrides på hold, der ikke er i spillet, og hvad der sker med dem', async () => {
+    const ref = fakeRef(teams, { 'Vejle Boldklub': { color: '#E4002B' } });
+    const tekst = await koerMedLog(ref, teams);
+    expect(tekst).toContain('Vejle Boldklub');
+    expect(tekst).toContain('ryddes');
+  });
+
+  it('melder ikke en override, der er lig holdlisten', async () => {
+    const ref = fakeRef(teams, { 'Randers FC': { thirdColor: '#fc8033' } });
+    const tekst = await koerMedLog(ref, teams);
+    expect(tekst).toContain('ingen farver er rettet i hånden');
+  });
+
+  it('rapporterer også, når vagten spærrer — man skal ikke rette i blinde', async () => {
+    const gammel = [{ ...teams[0], elo: 1502 }, teams[1]];
+    const ref = fakeRef(gammel, { 'Randers FC': { thirdColor: '#003C7E' } });
+    let tekst = '';
+    await expect(koerTeamsOnly({
+      gameRef: ref,
+      teams: [{ ...teams[0], elo: 1472 }, teams[1]],
+      skriv: false,
+      serverTimestamp: 'NU',
+      log: (s) => { tekst += `${s}\n`; },
+    })).rejects.toThrow(/rører point/);
+    expect(tekst).toContain('rettet i hånden');
   });
 });
