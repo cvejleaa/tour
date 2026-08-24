@@ -1577,3 +1577,67 @@ ingen `.card`-CSS-konflikt (theme.css:100-106 har intet `width`).
   fra `game.teams` i Firestore, ikke fra repo-filen. Og "målte farver" er kun
   sandt for Superligaens hjemmetrøjer + 11 ude/tredje-felter; PL er hentet fra
   Wikipedia-skabeloner, og to felter er eksplicit skøn uden kilde.
+
+## Chancen trin 2+3 (plan-gennemgang): klient → callable, og rules lukker døren
+
+- **En gammel fane kører sit EGET gamle bundle.** Planens argument for at lade
+  `setBet` tavst ignorere et `chanceStake`-argument ("mildere ved en gammel
+  fane") er logisk tomt: den gamle fane har sin egen kopi af `betActions.js`
+  med den gamle signatur. Et parameter-valg i det NYE bundle kan aldrig ramme
+  den. Samme gælder fejltekster: `danishError` i det gamle bundle kan ikke
+  rettes bagudvirkende — en stram regel, der giver stale tabs
+  `permission-denied`, skal håndteres med TIMING (rul ud uden for en runde)
+  eller en version-/genindlæs-banner, ikke med bedre ordlyd i ny kode.
+- **Firestore rules: create kan ikke bruge `diff()`.** `resource` er null ved
+  create, så husets mønster er asymmetrisk og allerede etableret:
+  `firestore.rules:83` `writingPointsField()` =
+  `request.resource.data.diff(resource.data).affectedKeys().hasAny([...])` til
+  UPDATE, og `!request.resource.data.keys().hasAny(['points'])`
+  (`firestore.rules:880`) til CREATE. Et felt-frys på update SKAL skrives som
+  diff — `keys().hasAny()` ville afvise ENHVER opdatering af et dokument, der
+  allerede HAR feltet (request.resource.data er hele dokumentet efter
+  skrivningen), dvs. spilleren kunne ikke længere rette 1X2 på sin chance-kamp.
+  Diff sammenligner VÆRDIER: fraværende→fraværende og samme→samme er ikke
+  affected, så `updatedAt` og uændrede felter er uproblematiske.
+- **`games/{g}/bets` har `allow delete: if false` (firestore.rules:907)** — så
+  "slet og genopret uden chancen" er lukket. Men ingen test binder det til
+  Chancen; en fremtidig "ryd mit tip"-knap ville genåbne hullet uset.
+- **Latency compensation gør et "findes tippet?"-krav på serveren til en
+  fælde.** Firestore viser en lokal skrivning i `onSnapshot` FØR serveren har
+  den. Klikker spilleren 1X2 og straks derefter Chancen, ser fladen et valg,
+  som `setChanceCore` (`chanceVagt.js:250`) endnu ikke kan se → `intet-tip`,
+  "Vælg 1, X eller 2 først" på en kamp, hvor valget står tydeligt på skærmen.
+  Vagten er at AWAITE den direkte skrivning i samme handler, før callable'en
+  kaldes — den "overflødige" ekstra skrivning er altså ordens-vagten.
+- **Flytter man en skrivning fra klienten til en callable, forsvinder den
+  øjeblikkelige UI-kvittering.** Den lokale skrivning tegnede ⚡ med det samme;
+  et callable-kald koster en rundtur (+ evt. kold start). Spørg altid: hvad ser
+  spilleren i mellemtiden, og hvad ser han ved succes? `setChanceCore`
+  returnerer `{gruppe, indsats, matchId, flyttetFra, uaendret}` — nok til en
+  rigtig kvittering ("flyttet fra Brøndby–FCK"), som fladen ellers aldrig har
+  haft.
+- **Rå `chanceStake` vises FEM steder, ikke to** (planen nævnte to):
+  `LeagueBets.jsx:33`, `FootballTip.jsx:549`, `tipsHistory.js:28/88` (Mine
+  tips), `gameScoring.js:306` (detalje-snapshot pr. spiller) og
+  `gameRecap.js:153` (Runde-Bottens `chancer[].indsats` på liga-væggen).
+  Afregningen klipper til 8 (`superligaScoring.js:141`, bank=null), så en
+  forfalsket indsats har ALDRIG givet point — den har kun løjet på fem flader.
+- **Filhoveder kan bære forudsætninger — grep dem, ikke kun koden.**
+  `chanceVagt.js:38-42` siger eksplicit, at bank-loftets skæbne
+  (`CAP_FRACTION`/`chanceMaxStake`/`isValidStake`) SKAL afgøres FØR trin 2
+  flytter klienten. Og `chanceVagt.test.js:197` asserterer, at kernens KILDE
+  ikke må indeholde `CAP_FRACTION|chanceMaxStake\(|isValidStake\(` — en
+  fraværs-assertion, der skal vendes bevidst den dag bank-loftet skal
+  håndhæves server-side.
+- **Fraværs-/fastfrysnings-assertions for netop denne ændring:**
+  `betActions.test.js:77` (setBet validerer indsatsen),
+  `FootballTip.test.jsx:937/947` (setBet kaldt med chanceStake) og `:993-1003`
+  (præcis ÉT setBet-kald: klientens to-trins nulstilning), og — den vigtigste,
+  som ikke er en fraværs-assertion men en POSITIV frysning —
+  `functions/rules.test.js:2180-2194` "KAN stadig rette sit valg og sin
+  Chancen-indsats før kickoff", der `assertSucceeds` en direkte
+  `chanceStake: 0 → 3`-opdatering. Og `FootballTip.test.jsx:20` mocker
+  `'../betActions'` med KUN `setBet` — en ny eksport dér er `undefined` i alle
+  filens tests, indtil mocken udvides.
+- **`docs/drift.md:457-480` ("Dobbelt Chancen — find og ret") er skrevet med
+  "indtil trin 3 er live"-formuleringer** to steder og skal med i trin 3's PR.
