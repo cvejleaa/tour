@@ -75,6 +75,18 @@ knap, der ikke fandtes for det spil, den handlede om — planen beskrev
 intentionen, ikke koden, og ejeren fandt hullet i produktion. En klik-sti, du
 ikke har sporet, må ikke stå i planen.
 
+**Det samme gælder en KOMMANDO.** Skriver du "kør X, og du skal se Y", så kør
+den — eller læs den kode, der producerer udskriften, og citer den. To gange har
+en plan herfra lovet et output, kommandoen ikke giver: én gang blev
+`gamePage` i App.jsx læst som det modsatte af, hvad den gør, og én gang blev
+den forventede udskrift fra `scripts/roller.mjs` ved en tom diff gengivet som
+"INGEN roller påkrævet", mens den i virkeligheden siger "KUNNE IKKE AFGØRES"
+og exit'er 1 — netop fordi de to tilstande ikke må forveksles.
+
+En forventet udskrift er en påstand om koden på linje med en render-betingelse.
+Ejeren bruger den som facit, og en forkert forventning er værre end ingen: den
+får en rigtig kørsel til at se forkert ud, og en forkert til at se rigtig ud.
+
 Vurder også, hvordan man kommer **tilbage**, hvis noget går galt: kan man
 rulle tilbage, eller er data ændret undervejs?
 
