@@ -84,8 +84,40 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
 1. Skriv ændringen. Kør lokalt: `npm run lint`, relevante tests, `npm run build`.
    **Kontrollér, at hver ændring faktisk landede** — en tekst-erstatning, der
    ikke matcher, fejler tavst, og så står testfilen grøn uden at dække noget.
-2. **Commit FØRST, kør så Test Manager og Quality Control parallelt** — plus
+2. **Kør `node scripts/roller.mjs` og følg dens liste — vurder ikke selv.**
+   Den læser diffen og siger, hvilke roller der skal køre, og hvorfor. Klistr
+   udskriften ind i PR-teksten, så beslutningen kan efterprøves bagefter.
+   Den findes, fordi reglerne herunder blev brudt i BEGGE retninger i samme
+   session: Quality Control blev kørt på både planen og koden for ændringer,
+   hvor reglen kun kræver planen ved ny brugerflade, og Release Manager blev
+   kørt to gange, fordi den første briefing serverede en forkert påstand som
+   et faktum. Teksten var der; vagten manglede.
+
+   Der stod før et tal her — "~130.000 tokens" — og det havde ingen kode bag
+   sig. Forbruget pr. rolle-kørsel kan aflæses i sessionens egen telemetri,
+   men det findes ikke i repoet og kan ikke efterprøves af den, der læser
+   dette. Efter husets egen regel er det derfor en påstand, ikke et tal, og
+   det er taget ud. Begrundelsen for vagten er hændelsen, ikke størrelsen.
+
+   **Commit FØRST, kør så Test Manager og Quality Control parallelt** — plus
    Security Reviewer, hvis ændringen rører adgang. Ret det, de finder.
+
+   **Brug ALDRIG `git add -A`, mens roller kører.** Test Manager muterer i sin
+   egen worktree, men Quality Control og Security arbejder i DIT arbejdstræ og
+   kan have en bevidst ødelagt fil liggende, mens de efterprøver noget. Én
+   `git add -A` fejede en sådan mutation med ind i en commit, så en negeret
+   vagt i `rundeSejre.js` landede på branchen. Stage navngivne stier, eller
+   kontrollér `git status` mod det, du faktisk har rørt.
+
+   **Giv rollen diffen med i opgaven.** Ellers henter hver rolle den selv og
+   læser de samme fulde filer, du netop har skrevet og allerede har i kontekst
+   — `FootballTip.jsx` og dens test er alene 113 KB ≈ 28.000 tokens, betalt én
+   gang pr. rolle.
+
+   **Skriv dine antagelser som PÅSTANDE, rollen skal efterprøve** — ikke som
+   forudsætninger. En Release Manager-plan byggede på, at `gamePage` i App.jsx
+   gjorde det modsatte af, hvad den gør, fordi briefingen serverede det som et
+   faktum. Sig "spor det i koden, gæt ikke", og skriv fil:linje-kravet med.
    Test Manager muterer i sin **egen worktree**, ikke i dit arbejdstræ — men
    commit-først-reglen består, for worktree'en ser kun det committede: en
    ukommittet ændring bliver aldrig gennemgået. Nævn branchen, når rollerne
@@ -227,14 +259,44 @@ og ingen af dem bruger fladen. Deraf disse regler:
 
 ## Test-kommandoer
 
+**Brug dem herfra, og læs aldrig et grønt testoutput.** En fuld frontend-kørsel
+printer 77 KB ≈ 19.000 tokens, hvoraf under en tiendedel er fejl. Det tal er
+målt med `scripts/maal-testoutput.mjs`. Det værste er ikke prisen, men at
+outputtet ligger i samtalen resten af sessionen og gensendes hver eneste tur —
+modsat en underagents kontekst, der kasseres, når den returnerer.
+
+`--silent` fjerner ikke fejlene: hele `Failed Tests`-blokken med
+assertion-diffs og fil:linje overlever byte for byte (19.534 B mod 77.129 B,
+målt). Derfor logges der til fil, og fejlene læses KUN når exit-koden er rød —
+uden at køre suiten igen.
+
+**Men den skjuler ADVARSLER, og det er en bevidst pris.** Ca. 91 % af en grøn
+kørsels output var advarsler: ~21 KB React Router future-flags og ~10 KB
+`act()`. De forsvinder helt med `--silent`, og da en grøn kørsel ikke længere
+læses, ser ingen dem. En `act()`-advarsel kan dække over en ægte asynkron race
+i en komponent — det er et diagnostisk signal, vi giver afkald på, ikke bare
+støj. Derfor hører de nu til i `/saesoneftersyn`: kør ÉN gang uden `--silent`
+og gennemgå advarslerne. Dæmp dem aldrig med et filter i `src/test/setup.js`;
+så skjules ægte React-fejl med.
+
 ```bash
-npx vitest run                                   # frontend
-npm --prefix functions test                      # Tour-functions
-npm --prefix functions-platform test             # platform-functions
+npx vitest run --silent > /tmp/v.log 2>&1; echo "vitest=$?"; tail -5 /tmp/v.log
+sed -n '/Failed Tests/,$p' /tmp/v.log            # kun ved rød — ingen ny kørsel
+
+npm --prefix functions test                      # allerede ren (~1 kB) — IKKE --silent
+npm --prefix functions-platform test -- --silent
 firebase emulators:exec --only firestore "npm run test:rules" --project demo-vm2026
-npm run build                                    # Tour-build
-VITE_PLATFORM_MODE=true npm run build            # platform-build
+npx vite build --logLevel error                  # Tour-build
+VITE_PLATFORM_MODE=true npx vite build --logLevel error   # platform-build
 ```
+
+**Filtrér ALDRIG hvilke tests der køres, når kørslen skal bære et
+"grøn suite"-udsagn.** `vitest --changed` og `vitest related` vælger ud fra
+modul-grafen og kan ikke se `firestore.rules`, JSON-fixtures eller de spejlede
+filer `src/lib/*.js ⇄ functions*/…js`. De giver exit 0 på en tom udvælgelse.
+Det er samme form som "Regler er ikke filtre" — et filter, der ser grønt ud,
+fordi det ikke kiggede. Brug dem i den indre løkke, aldrig som det, der går
+videre til en rolle eller en PR.
 
 Nye testfiler i `functions/` og `functions-platform/` skal tilføjes til den
 eksplicitte `include`-liste i den respektive `vitest.config.js` — ellers køres
