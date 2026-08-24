@@ -667,6 +667,20 @@ describe('overrideAfvig', () => {
     expect(r.afvig).toEqual([]);
   });
 
+  it('SORTERER de ukendte — ét navn beviser ingen sortering', () => {
+    // Fundet ved mutationstest: med kun ét ukendt hold i fixturet kunne
+    // `ukendte.sort()` fjernes med hele suiten grøn. En liste med ét element
+    // ser sorteret ud, uanset om nogen har sorteret den. Nøglerne står her i
+    // omvendt orden, så rækkefølgen kommer af sorteringen og ikke af input.
+    const styles = {
+      'Vejle Boldklub': { color: '#E4002B' },
+      'Odense Q': { color: '#123456' },
+      'AC Horsens': { color: '#E8C45C' },
+    };
+    expect(overrideAfvig(styles, teams).ukendte)
+      .toEqual(['AC Horsens', 'Odense Q', 'Vejle Boldklub']);
+  });
+
   it('springer tomme og ikke-tekstlige værdier over', () => {
     const styles = { 'Randers FC': { color: '', awayColor: null, thirdColor: 42 } };
     expect(overrideAfvig(styles, teams).afvig).toEqual([]);
