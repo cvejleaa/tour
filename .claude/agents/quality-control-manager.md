@@ -99,7 +99,12 @@ gang. Plan-eksemplerne øverst er præcis den slags viden, der hører til dér.
 
 **Hukommelsen er MØNSTRE, ikke en journal — og den har et loft.** Højst fem
 sag-afsnit. Tilføjer du et sjette, skal du FØRST destillere det ældste til et
-generelt mønster i de forreste afsnit og derefter slette sag-afsnittet. Et
+generelt mønster i de forreste afsnit og derefter slette sag-afsnittet.
+
+**Filen er OVER loftet i dag, og reglen ovenfor får den ikke ned af sig selv.**
+Én ind, én ud giver nul vækst, ikke en nedbringelse. Første gang du læser dette
+uden for en igangværende gennemgang: destillér ned til fem. Gør det i ét hug og
+i din egen takt — det er ikke hastearbejde, men det sker ikke ved et tilfælde. Et
 afsnit, der er navngivet efter en commit eller et PR-nummer, hører hjemme i
 PR-teksten, ikke her.
 

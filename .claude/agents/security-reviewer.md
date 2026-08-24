@@ -70,6 +70,8 @@ den liste, du fremover selv vedligeholder.
 
 **Loft: højst fem sag-afsnit.** Tilføjer du et sjette, så destillér først det
 ældste ind i en af de varige lister nedenfor og slet derefter sag-afsnittet.
+Filen er over loftet i dag, og én-ind-én-ud bringer den ikke ned: destillér ned
+til fem, første gang du læser dette uden for en gennemgang.
 Filen var vokset til 81 KB, hvoraf to tredjedele var referater af enkelt-PR'er
 — og du læses fra ende til anden, hver gang du kaldes.
 

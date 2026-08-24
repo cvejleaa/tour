@@ -5,8 +5,9 @@
 // Alligevel blev reglen brudt i begge retninger i samme session: Quality
 // Control blev kørt på både planen OG koden for ændringer, hvor reglen kun
 // kræver planen ved ny brugerflade — og Release Manager blev kørt to gange,
-// fordi den første briefing var forkert. Det kostede ~130.000 tokens uden at
-// fange noget.
+// fordi den første briefing serverede en forkert påstand som et faktum.
+// (Her stod et tokental; det havde ingen kode bag sig og er taget ud.
+// Begrundelsen er hændelsen, ikke størrelsen.)
 //
 // Det er ikke en tekstmangel; teksten var der. Det er en vagt-mangel. Samme
 // slutning som `puljeLockRound`: en beslutning, der bæres af et skøn, knækker
@@ -33,14 +34,27 @@ const SIKKERHED = [
   { m: /^src\/features\/admin\//, hvorfor: 'admin-flade (adgang til andres data)' },
 ];
 
-/** Rører ændringen SPILLET som spil — mekanik, point, rangliste, synlighed? */
+/**
+ * Rører ændringen SPILLET som spil — mekanik, point, rangliste, synlighed?
+ *
+ * ALLE MØNSTRE ER CASE-INSENSITIVE. Uden `/i` missede listen
+ * `standingsUtils.js`, `standingsBreakdown.js` og `eloHistory.js`, fordi de
+ * starter med lille bogstav — mens `EloTable.jsx` ramte. Det er en gate, der
+ * virker for nogle filer og ikke for andre i samme begreb, og den slags
+ * knækker tavst.
+ *
+ * DANSKE FILNAVNE SKAL MED. `paamindelsesGate.js` ramte ikke `Reminder`, og
+ * `spilEvner.js` ramte ingenting — selv om det er netop den fil, reglen om at
+ * følge en evne hele vejen ud i fladen handler om.
+ */
 const SPILFOERER = [
-  { m: /(Scoring|scoring)/, hvorfor: 'scoring' },
-  { m: /(pointOpdeling|ligaPoint|rundeSejre|chanceVagt|Chance)/, hvorfor: 'point- eller chance-mekanik' },
-  { m: /(Standings|Pokaler|Leaderboard|Elo)/, hvorfor: 'rangliste eller styrketal' },
-  { m: /(Recap|Bot|Reminder|mail|Mail)/, hvorfor: 'notifikationer, mails eller bot-opslag' },
-  { m: /(LeagueBets|Indbyrdes|SpillerDetalje|useVisibleGame)/, hvorfor: 'hvem ser hvad hvornår' },
-  { m: /(Pulje|pulje)/, hvorfor: 'pulje-mekanik' },
+  { m: /scoring/i, hvorfor: 'scoring' },
+  { m: /(pointOpdeling|ligaPoint|rundeSejre|chanceVagt|chance)/i, hvorfor: 'point- eller chance-mekanik' },
+  { m: /(standings|pokaler|leaderboard|elo|h2h|indbyrdes)/i, hvorfor: 'rangliste, styrketal eller opgør' },
+  { m: /(recap|bot|reminder|paamindels|mail)/i, hvorfor: 'notifikationer, mails eller bot-opslag' },
+  { m: /(leagueBets|spillerDetalje|useVisibleGame)/i, hvorfor: 'hvem ser hvad hvornår' },
+  { m: /pulje/i, hvorfor: 'pulje-mekanik' },
+  { m: /(startGate|spilEvner)/i, hvorfor: 'hvornår et spil tæller, eller hvilke evner det har' },
 ];
 
 const erDoku = (f) => /^docs\//.test(f) || /\.md$/.test(f);

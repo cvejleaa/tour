@@ -223,3 +223,34 @@ describe('rækkefølgen i listen er fast', () => {
     ]);
   });
 });
+
+describe('QC-fund: filer der SKULLE udløse Spilfører og ikke gjorde', () => {
+  // Fundet ved at køre de faktiske regex'er mod repoets rigtige filer i stedet
+  // for mod opdigtede stier. Listens indhold var aldrig auditeret — kun dens
+  // eksisterende reglers provenans. En gate, der virker for `EloTable.jsx` og
+  // ikke for `eloHistory.js`, er værre end ingen gate: den ser ud til at dække
+  // begrebet.
+  it.each([
+    ['src/lib/startGate.js', 'hvornår et spil tæller'],
+    ['functions-platform/startGate.js', 'spejlet modpart'],
+    ['src/features/games/spilEvner.js', 'hvilke evner et spil har'],
+    ['functions-platform/paamindelsesGate.js', 'dansk filnavn — ramte ikke "Reminder"'],
+    ['src/lib/standingsUtils.js', 'lille begyndelsesbogstav'],
+    ['src/lib/standingsBreakdown.js', 'lille begyndelsesbogstav'],
+    ['src/features/games/football/eloHistory.js', 'lille begyndelsesbogstav'],
+    ['src/features/games/football/h2h.js', 'indbyrdes opgør'],
+  ])('%s udløser Spilfører (%s)', (fil) => {
+    expect(navne([fil])).toContain('Spilfører');
+  });
+
+  it('er case-insensitiv i BEGGE retninger for samme begreb', () => {
+    // Det var asymmetrien, der gjorde fejlen usynlig: den store variant virkede.
+    for (const par of [
+      ['src/features/games/football/EloTable.jsx', 'src/features/games/football/eloHistory.js'],
+      ['src/features/games/GameStandings.jsx', 'src/lib/standingsUtils.js'],
+    ]) {
+      expect(navne([par[0]]), par[0]).toContain('Spilfører');
+      expect(navne([par[1]]), par[1]).toContain('Spilfører');
+    }
+  });
+});

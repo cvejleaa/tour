@@ -100,6 +100,23 @@ npm --prefix functions-platform test
 firebase emulators:exec --only firestore "npm run test:rules" --project demo-vm2026
 ```
 
+Bemærk: her køres de **UDEN** `--silent`, modsat den daglige arbejdsgang i
+CLAUDE.md. Det er hele pointen med at have dem her.
+
+**Gennemgå advarslerne.** Til daglig køres suiten tavs, fordi ~91 % af en grøn
+kørsels output er advarsler — og da en grøn kørsel ikke læses, ser ingen dem
+mellem eftersynene. Det er en bevidst pris, men den forfalder her:
+
+- **`act()`-advarsler** kan dække over en ægte asynkron race i en komponent.
+  Ved sidste måling stod 34 af 41 i `UsersTab.test.jsx` og `AdminPage.test.jsx`.
+  Ret dem — **dæmp dem aldrig** med et filter i `src/test/setup.js`, for så
+  skjules ægte React-fejl med.
+- **React Router future-flag-advarsler** var ~21 KB, to unikke sætninger
+  gentaget 32 gange. De rettes med to flag i testenes router-opsætning, ikke
+  ved at tie dem.
+- Er der kommet en NY slags advarsel siden sidst? Den er det egentlige fund —
+  de kendte er støj, den nye er et signal.
+
 Alle fire skal køre. Spørg derudover:
 
 - Ligger der testfiler, som **ikke** står i `include`-listen i

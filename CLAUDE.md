@@ -90,11 +90,24 @@ så løs det først eller sig klart, hvad du lander med og hvorfor.
    Den findes, fordi reglerne herunder blev brudt i BEGGE retninger i samme
    session: Quality Control blev kørt på både planen og koden for ændringer,
    hvor reglen kun kræver planen ved ny brugerflade, og Release Manager blev
-   kørt to gange på en forkert briefing. Det kostede ~130.000 tokens uden at
-   fange noget. Teksten var der; vagten manglede.
+   kørt to gange, fordi den første briefing serverede en forkert påstand som
+   et faktum. Teksten var der; vagten manglede.
+
+   Der stod før et tal her — "~130.000 tokens" — og det havde ingen kode bag
+   sig. Forbruget pr. rolle-kørsel kan aflæses i sessionens egen telemetri,
+   men det findes ikke i repoet og kan ikke efterprøves af den, der læser
+   dette. Efter husets egen regel er det derfor en påstand, ikke et tal, og
+   det er taget ud. Begrundelsen for vagten er hændelsen, ikke størrelsen.
 
    **Commit FØRST, kør så Test Manager og Quality Control parallelt** — plus
    Security Reviewer, hvis ændringen rører adgang. Ret det, de finder.
+
+   **Brug ALDRIG `git add -A`, mens roller kører.** Test Manager muterer i sin
+   egen worktree, men Quality Control og Security arbejder i DIT arbejdstræ og
+   kan have en bevidst ødelagt fil liggende, mens de efterprøver noget. Én
+   `git add -A` fejede en sådan mutation med ind i en commit, så en negeret
+   vagt i `rundeSejre.js` landede på branchen. Stage navngivne stier, eller
+   kontrollér `git status` mod det, du faktisk har rørt.
 
    **Giv rollen diffen med i opgaven.** Ellers henter hver rolle den selv og
    læser de samme fulde filer, du netop har skrevet og allerede har i kontekst
@@ -256,6 +269,15 @@ modsat en underagents kontekst, der kasseres, når den returnerer.
 assertion-diffs og fil:linje overlever byte for byte (19.534 B mod 77.129 B,
 målt). Derfor logges der til fil, og fejlene læses KUN når exit-koden er rød —
 uden at køre suiten igen.
+
+**Men den skjuler ADVARSLER, og det er en bevidst pris.** Ca. 91 % af en grøn
+kørsels output var advarsler: ~21 KB React Router future-flags og ~10 KB
+`act()`. De forsvinder helt med `--silent`, og da en grøn kørsel ikke længere
+læses, ser ingen dem. En `act()`-advarsel kan dække over en ægte asynkron race
+i en komponent — det er et diagnostisk signal, vi giver afkald på, ikke bare
+støj. Derfor hører de nu til i `/saesoneftersyn`: kør ÉN gang uden `--silent`
+og gennemgå advarslerne. Dæmp dem aldrig med et filter i `src/test/setup.js`;
+så skjules ægte React-fejl med.
 
 ```bash
 npx vitest run --silent > /tmp/v.log 2>&1; echo "vitest=$?"; tail -5 /tmp/v.log
