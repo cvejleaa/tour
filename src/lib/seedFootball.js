@@ -413,3 +413,54 @@ function ensVaerdi(a, b) {
   if (ka.length !== kb.length || ka.some((k, i) => k !== kb[i])) return false;
   return ka.every((k) => ensVaerdi(a[k], b[k]));
 }
+
+/** Farvefelterne på et hold, med den etiket de har i admin-fladen. */
+const OVERRIDE_FELTER = [['color', 'hjemme'], ['awayColor', 'ude'], ['thirdColor', 'tredje']];
+
+/**
+ * Hvilke gemte `teamStyles`-overrides afviger fra holdlisten?
+ *
+ * HVORFOR DEN HØRER TIL I TØR-KØRSLEN. En override vinder over holdlisten i
+ * `badgeFor`, og den er usynlig i fladen, indtil man står på præcis det felt.
+ * Randers stod i marine på kampkortet, fordi en override fra før farverne blev
+ * MÅLT stadig lå og vandt — holdlisten var korrekt hele tiden. Den fejl opstår
+ * ikke i admin-fanen; den opstår her, når holdlisten flytter sig UNDER en
+ * override. Derfor rapporteres de netop i det øjeblik, listen sammenlignes.
+ *
+ * DEN DØMMER IKKE. En override kan være helt bevidst: datafilen beder selv
+ * ejeren om at sætte Leeds' og Spurs' tredjetrøjer i admin, fordi de ikke var
+ * udkommet, da listen blev skrevet. Rapporten siger derfor hvad der afviger og
+ * fra hvad — ikke hvad der bør nulstilles.
+ *
+ * `nye` er holdlisten fra FILEN, altså den liste, kørslen ville skrive. Er der
+ * intet at skrive (som når produktionen allerede er i sync), er `nye` og
+ * spillets egen liste den samme, og rapporten svarer stadig på det, den skal:
+ * hvilke felter er rettet i hånden, og hvad siger listen.
+ *
+ * @param {object} teamStyles  games/{id}.teamStyles
+ * @param {Array<object>} nye  holdlisten fra filen
+ * @returns {{afvig: Array<{name:string, felt:string, etiket:string, override:string, liste:*}>,
+ *            ukendte: string[]}}
+ *   `ukendte` er overrides på hold, der slet ikke er i holdlisten — de bliver
+ *   ryddet, næste gang nogen gemmer i admin-fanen, og er værd at nævne FØR det
+ *   sker i tavshed.
+ */
+export function overrideAfvig(teamStyles, nye) {
+  const holdliste = new Map((nye || []).map((t) => [t?.name, t]));
+  const afvig = [];
+  const ukendte = [];
+  for (const [name, o] of Object.entries(teamStyles || {})) {
+    const t = holdliste.get(name);
+    if (!t) { ukendte.push(name); continue; }
+    for (const [felt, etiket] of OVERRIDE_FELTER) {
+      const v = o?.[felt];
+      if (typeof v !== 'string' || !v) continue;
+      // Store/små bogstaver er samme farve. Ellers ville "#fc8033" mod
+      // "#FC8033" stå som en afvigelse, ejeren ikke kan se på skærmen.
+      if (String(t[felt] || '').toLowerCase() === v.toLowerCase()) continue;
+      afvig.push({ name, felt, etiket, override: v, liste: t[felt] });
+    }
+  }
+  afvig.sort((a, b) => a.name.localeCompare(b.name, 'da') || a.felt.localeCompare(b.felt));
+  return { afvig, ukendte: ukendte.sort() };
+}

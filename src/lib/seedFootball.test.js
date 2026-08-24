@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   docId, kickoffMs, tjekDubletter, parseArgs,
   parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold, teamsPlan, teamsVagt,
+  overrideAfvig,
 } from './seedFootball';
 import { matchId, buildMatch } from './superligaSeed';
 
@@ -601,5 +602,100 @@ describe('teamsVagt — dubletter i filen', () => {
     const plan = teamsPlan([{ name: 'A' }, { name: 'A' }, { name: 'B' }],
       [{ name: 'A' }, { name: 'B' }]);
     expect(plan.omrokeret).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OVERRIDES. Den fejl, der startede det hele: holdlisten var korrekt, og
+// Randers stod alligevel i marine, fordi en override fra FØR farverne blev
+// målt stadig vandt i badgeFor. Den er usynlig i fladen, indtil man står på
+// præcis det felt.
+// ---------------------------------------------------------------------------
+
+describe('overrideAfvig', () => {
+  const teams = [
+    { name: 'Randers FC', color: '#78C5ED', awayColor: '#33384F', thirdColor: '#FC8033' },
+    { name: 'AGF', color: '#0B4EA2', awayColor: '#FFFFFF', thirdColor: '#111111' },
+  ];
+
+  it('finder den override, der afviger — og siger hvad listen mener', () => {
+    const styles = { 'Randers FC': { thirdColor: '#003C7E' } };
+    const r = overrideAfvig(styles, teams);
+    expect(r.afvig).toEqual([{
+      name: 'Randers FC', felt: 'thirdColor', etiket: 'tredje',
+      override: '#003C7E', liste: '#FC8033',
+    }]);
+  });
+
+  it('melder IKKE en override, der er lig holdlisten', () => {
+    // Fanen gemmer kun afvigende felter, men et gammelt dokument kan have et
+    // felt, listen siden har indhentet. Det er ikke en afvigelse.
+    const r = overrideAfvig({ 'Randers FC': { thirdColor: '#FC8033' } }, teams);
+    expect(r.afvig).toEqual([]);
+  });
+
+  it('regner STORE og små bogstaver som samme farve', () => {
+    // Ellers ville "#fc8033" mod "#FC8033" stå som en afvigelse, ejeren ikke
+    // kan se på skærmen — og han ville lede efter en forskel, der ikke findes.
+    const r = overrideAfvig({ 'Randers FC': { thirdColor: '#fc8033' } }, teams);
+    expect(r.afvig).toEqual([]);
+  });
+
+  it('tager ALLE tre farvefelter med', () => {
+    const styles = { AGF: { color: '#000000', awayColor: '#EEEEEE', thirdColor: '#123456' } };
+    expect(overrideAfvig(styles, teams).afvig.map((a) => a.felt))
+      .toEqual(['awayColor', 'color', 'thirdColor']);
+  });
+
+  it('melder en override på et felt, holdlisten IKKE har', () => {
+    // Datafilen beder selv ejeren sætte Leeds' og Spurs' tredjetrøjer i admin,
+    // fordi de ikke var udkommet. De skal med — men som "listen har ingen
+    // værdi", ikke som en fejl.
+    const uden = [{ name: 'Leeds United', color: '#FFFFFF' }];
+    const r = overrideAfvig({ 'Leeds United': { thirdColor: '#FFD700' } }, uden);
+    expect(r.afvig).toEqual([{
+      name: 'Leeds United', felt: 'thirdColor', etiket: 'tredje',
+      override: '#FFD700', liste: undefined,
+    }]);
+  });
+
+  it('samler overrides på hold, der slet ikke er i listen, FOR SIG', () => {
+    // De ryddes, næste gang nogen gemmer i admin-fanen. Det skal siges, FØR
+    // det sker i tavshed — ikke opdages bagefter.
+    const r = overrideAfvig({ 'Vejle Boldklub': { color: '#E4002B' } }, teams);
+    expect(r.ukendte).toEqual(['Vejle Boldklub']);
+    expect(r.afvig).toEqual([]);
+  });
+
+  it('SORTERER de ukendte — ét navn beviser ingen sortering', () => {
+    // Fundet ved mutationstest: med kun ét ukendt hold i fixturet kunne
+    // `ukendte.sort()` fjernes med hele suiten grøn. En liste med ét element
+    // ser sorteret ud, uanset om nogen har sorteret den. Nøglerne står her i
+    // omvendt orden, så rækkefølgen kommer af sorteringen og ikke af input.
+    const styles = {
+      'Vejle Boldklub': { color: '#E4002B' },
+      'Odense Q': { color: '#123456' },
+      'AC Horsens': { color: '#E8C45C' },
+    };
+    expect(overrideAfvig(styles, teams).ukendte)
+      .toEqual(['AC Horsens', 'Odense Q', 'Vejle Boldklub']);
+  });
+
+  it('springer tomme og ikke-tekstlige værdier over', () => {
+    const styles = { 'Randers FC': { color: '', awayColor: null, thirdColor: 42 } };
+    expect(overrideAfvig(styles, teams).afvig).toEqual([]);
+  });
+
+  it('sorterer, så to kørsler kan sammenlignes', () => {
+    const styles = {
+      AGF: { thirdColor: '#999999' },
+      'Randers FC': { color: '#111111' },
+    };
+    expect(overrideAfvig(styles, teams).afvig.map((a) => a.name)).toEqual(['AGF', 'Randers FC']);
+  });
+
+  it('klarer manglende input uden at kaste', () => {
+    expect(overrideAfvig(null, null)).toEqual({ afvig: [], ukendte: [] });
+    expect(() => overrideAfvig()).not.toThrow();
   });
 });
