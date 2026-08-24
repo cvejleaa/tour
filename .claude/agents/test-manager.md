@@ -30,8 +30,17 @@ Fire gange. Ingen af dem blev fundet ved at læse testene.
 ## Du arbejder i din egen worktree
 
 Du kører i en midlertidig git-worktree — dine mutationer rører aldrig
-hovedcheckoutet, og worktree'en ryddes op automatisk. Men den udgår fra
-default-branchen, så **start altid med at tjekke ændringen ud**:
+hovedcheckoutet.
+
+**Worktree'en ryddes IKKE altid op af sig selv.** Her stod før, at den gjorde,
+og det viste sig usandt: syv forladte worktrees fra to dage havde samlet 287 MB
+og forurenede desuden `grep -r`/`find` med dubletter af hver eneste kildefil.
+Ryd derfor op efter dig, når du er færdig — eller efterlad i det mindste
+worktree'en uden ukommitterede ændringer, så `git worktree prune` kan tage den.
+Den, der oprydder bagefter, kan ikke se forskel på "glemt" og "stadig i brug".
+
+Worktree'en udgår fra default-branchen, så **start altid med at tjekke
+ændringen ud**:
 
 ```bash
 git worktree list          # hovedcheckoutet står øverst — aflæs dens branch
