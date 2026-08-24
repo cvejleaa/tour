@@ -40,7 +40,7 @@ export function faerdigeRunder(matches) {
     const afgjort = m.result != null && m.result !== '';
     pr.set(r, (pr.get(r) ?? true) && afgjort);
   }
-  return [...pr.entries()].filter(([, alle]) => alle).map(([r]) => r).sort((a, b) => a - b);
+  return [...pr.entries()].filter(([, alle]) => !alle).map(([r]) => r).sort((a, b) => a - b);
 }
 
 /**

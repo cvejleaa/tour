@@ -149,3 +149,77 @@ describe('formatér', () => {
     expect(formatér(paakraevedeRoller([]))).toContain('KUNNE IKKE AFGØRES');
   });
 });
+
+// ---------------------------------------------------------------------------
+// HVER REGEL SKAL HAVE SIT EGET FIXTURE.
+//
+// Test Manager muterede listerne og fandt fire regler, der kunne SLETTES med
+// grøn suite: `storage.rules`, `auth`, invitations-ordene og `Pulje`. Ingen
+// test ramte dem. En udækket regel i en sikkerhedsvagt er værre end ingen
+// regel — den ser ud til at beskytte noget.
+//
+// Fælden var `it.each`: fixturet `gameLeagueActions.js` ramte KUN
+// `[Ll]eagueActions`, og fordi assertionen bare spurgte "kræves Security?",
+// beviste den intet om de andre regler i listen. Derfor bindes hvert fixture
+// nu til sin EGEN begrundelse, ikke bare til rollens navn.
+// ---------------------------------------------------------------------------
+
+const grund = (filer, navn) => paakraevedeRoller(filer).roller
+  .find((r) => r.navn === navn)?.hvorfor || '';
+
+describe('hver SIKKERHED-regel har sit eget fixture', () => {
+  it('storage.rules — var helt udækket', () => {
+    expect(grund(['storage.rules'], 'Security Reviewer')).toMatch(/storage/);
+  });
+
+  it('en auth-sti — var helt udækket, og må ikke ramme functions eller admin', () => {
+    const g = grund(['src/lib/authHelpers.js'], 'Security Reviewer');
+    expect(g).toMatch(/auth/);
+    expect(g).not.toMatch(/Cloud Functions|admin-flade/);
+  });
+
+  it('invitations-ordene — ramtes aldrig, fordi gameLeagueActions tog en anden regel', () => {
+    const g = grund(['src/pages/InvitePage.jsx'], 'Security Reviewer');
+    expect(g).toMatch(/invitationer eller liga-tilmelding/);
+    expect(g).not.toMatch(/medlemskab/);
+  });
+
+  it('liga-medlemskab er sin EGEN regel, ikke den samme som invitationer', () => {
+    const g = grund(['src/features/games/gameLeagueActions.js'], 'Security Reviewer');
+    expect(g).toMatch(/medlemskab/);
+  });
+});
+
+describe('hver SPILFOERER-regel har sit eget fixture', () => {
+  it('pulje — var helt udækket', () => {
+    expect(grund(['src/features/games/football/PuljeTip.jsx'], 'Spilfører')).toMatch(/pulje-mekanik/);
+  });
+});
+
+describe('noter-grenene læses, ikke kun rolle-listen', () => {
+  it('siger fra ved markdown UDEN FOR docs/ — grenen var helt utestet', () => {
+    // `erDoku` kunne erstattes med `() => false` uden en eneste rød test:
+    // fixturene læste kun `undtaget` og `roller.length`, aldrig `noter`.
+    expect(paakraevedeRoller(['CLAUDE.md']).noter.join(' '))
+      .toMatch(/uden for docs\/ — arbejdsgangen ændres/);
+    expect(paakraevedeRoller(['README.md']).noter.join(' '))
+      .toMatch(/arbejdsgangen ændres/);
+  });
+
+  it('siger det IKKE, når ændringen indeholder rigtig kode', () => {
+    expect(paakraevedeRoller(['CLAUDE.md', 'src/lib/x.js']).noter.join(' '))
+      .not.toMatch(/Kun markdown/);
+  });
+});
+
+describe('rækkefølgen i listen er fast', () => {
+  it('de tre faste først, så Security, så Spilfører', () => {
+    // Rækkefølgen kunne byttes om med grøn suite, fordi intet fixture udløste
+    // BEGGE de betingede roller på én gang. gameScoring gør: functions/ giver
+    // Security, og "Scoring" giver Spilfører.
+    expect(navne(['functions-platform/gameScoring.js'])).toEqual([
+      'Test Manager', 'Quality Control', 'Release Manager',
+      'Security Reviewer', 'Spilfører',
+    ]);
+  });
+});

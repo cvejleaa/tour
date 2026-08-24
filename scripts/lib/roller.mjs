@@ -44,7 +44,10 @@ const SPILFOERER = [
 ];
 
 const erDoku = (f) => /^docs\//.test(f) || /\.md$/.test(f);
-const erTest = (f) => /\.(test|spec)\.[jt]sx?$/.test(f) || /\.test\.mjs$/.test(f);
+// Kun .jsx-formen. Den eneste kalder filtrerer med `erFlade(x) && !erTest(x)`,
+// og `erFlade` kræver `.jsx` — så et `.test.mjs`-alternativ kunne aldrig nås.
+// Død kode i en vagt er en påstand uden dækning.
+const erTest = (f) => /\.(test|spec)\.jsx$/.test(f);
 const erFlade = (f) => /\.jsx$/.test(f);
 
 function traef(regler, filer) {
