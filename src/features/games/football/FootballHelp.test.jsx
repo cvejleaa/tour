@@ -165,7 +165,31 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     expect(screen.getByRole('heading', { name: /Når en kamp bliver udsat/ })).toBeInTheDocument();
     expect(screen.getByText(/rundens kampe i samme uge/)).toBeInTheDocument();
     // Det vigtigste for spilleren: point går ikke tabt, kun combi'en venter ikke.
-    expect(screen.getByText(/1X2-point og Chancen præcis som altid/)).toBeInTheDocument();
+    expect(screen.getByText(/1X2-point præcis som altid/)).toBeInTheDocument();
+
+    // VENDT BEVIDST. Her stod før "1X2-point og Chancen præcis som altid" —
+    // testen asserterede altså LØGNEN ordret og ville have forsvaret den mod
+    // enhver rettelse. Chancen følger RUNDEN (chanceGruppeKampe grupperer på
+    // `round`), så en ⚡ brugt i weekenden er brugt, når rundens udsatte kamp
+    // spilles en måned senere. Combi'en skæres pr. uge; Chancen gør ikke.
+    //
+    // Det var netop den slags, der før først blev opdaget, når en spiller
+    // stod i situationen og troede, han havde en chance til gode.
+    expect(screen.getByText(/Chancen følger RUNDEN, ikke kuponen/)).toBeInTheDocument();
+    expect(screen.getByText(/Har du brugt din ⚡ i weekenden, er den brugt/)).toBeInTheDocument();
+  });
+
+  it('lover IKKE, at en udsat kamp giver en ny Chance', () => {
+    // Fraværs-assertion på præcis den formulering, der var forkert. Uden den
+    // kunne sætningen snige sig tilbage ved en senere omskrivning.
+    const { container } = render(
+      <MemoryRouter initialEntries={['/spil/sl?fane=hjaelp']}>
+        <Routes>
+          <Route path="/spil/:gameId" element={<FootballHelp />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(container.textContent).not.toMatch(/Chancen præcis som altid/);
   });
 
   // Den gamle regel ("alle på nær én, ellers ingenting") stod fem steder. Står

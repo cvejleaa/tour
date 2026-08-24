@@ -85,6 +85,27 @@ service cloud.firestore {
         .hasAny(['points']);
     }
 
+    /**
+     * Forsøger klienten at ændre et af Chancens felter?
+     *
+     * DIFF, IKKE keys().hasAny(). Ved en update er `request.resource.data`
+     * HELE dokumentet efter skrivningen, så en keys()-regel ville afvise
+     * enhver opdatering af et tip, der HAR en chance — spilleren kunne ikke
+     * længere rette sit 1X2-valg på sin egen chance-kamp. Diff sammenligner
+     * værdier: uændret felt er ikke en berørt nøgle, og et fravær i begge
+     * ender er det heller ikke.
+     *
+     * Feltet ejes af serveren (functions-platform/chanceVagt.js), fordi reglen
+     * "én ⚡ pr. runde" er en FORESPØRGSEL — "har du allerede en chance et
+     * andet sted i runden?" — og rules kan ikke køre forespørgsler, kun get()
+     * på ét kendt dokument. Hullet: sæt ⚡ på kamp A, lad den låse ved kickoff,
+     * sæt den igen på kamp B i samme runde. Begge blev afregnet.
+     */
+    function writingChanceFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['chanceStake', 'chanceSatAt', 'chanceFlytninger']);
+    }
+
     // -----------------------------------------------------------------------
     // users/{uid}
     // -----------------------------------------------------------------------
@@ -878,6 +899,21 @@ service cloud.firestore {
           && betId == request.auth.uid + '_' + request.resource.data.matchId
           && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
           && !request.resource.data.keys().hasAny(['points'])
+          // CHANCEN KAN IKKE FØDES MED ET TIP. Den sættes bagefter gennem
+          // callable'en setGameChance, som er den eneste, der kan svare på
+          // "har du allerede en chance i runden?".
+          //
+          // `== 0` og ikke bare "fraværende": en fane fra FØR denne regel
+          // sender `chanceStake: 0` med hvert 1X2-valg. Krævede vi fravær,
+          // kunne en sådan fane ikke afgive sit FØRSTE tip overhovedet — og
+          // faner overlever et deploy. Nul er ikke en chance.
+          && (!request.resource.data.keys().hasAny(['chanceStake'])
+              || request.resource.data.chanceStake == 0)
+          // De to revisionsfelter skal være HELT fraværende. Ved update er de
+          // frosne, så en forfalskning ved oprettelsen ville stå permanent —
+          // og chanceSatAt er hele grundlaget for, at auditen kan bevise
+          // rækkefølgen af to chancer.
+          && !request.resource.data.keys().hasAny(['chanceSatAt', 'chanceFlytninger'])
           && claimsOnlyOwnLeagues()
           && request.time < get(/databases/$(database)/documents/games/$(gameId)/matches/$(request.resource.data.matchId)).data.kickoff;
 
@@ -901,6 +937,7 @@ service cloud.firestore {
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.matchId == resource.data.matchId
           && !writingPointsField()
+          && !writingChanceFields()
           && claimsOnlyOwnLeagues()
           && request.time < get(/databases/$(database)/documents/games/$(gameId)/matches/$(resource.data.matchId)).data.kickoff;
 

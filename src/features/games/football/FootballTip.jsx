@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useGameBets } from '../useGameBets';
 import { setBet, setChance } from '../betActions';
+import { kvitteringFor } from './chanceKvittering';
 import LeagueBets from './LeagueBets';
 import MatchElo from './MatchElo';
 import { eloFormByTeam } from './eloHistory';
@@ -857,7 +858,13 @@ function ChancePanel({
       // et ord tilbage står fladen tilsyneladende uændret — hvorefter
       // spilleren trykker igen. `uaendret` skal derfor også kvittere: "der
       // skete ingenting" er et svar, ikke en fejl.
-      setKvittering(kvitteringFor(res, betsByMatch, teams));
+      // Opslaget oversætter callable'ens bet-id'er ("uid_matchId") til
+      // kampnavne. Det er dét, der gør "flyttet fra Brøndby–FCK" muligt —
+      // og dermed fjerner den dyreste misforståelse i hele mekanikken.
+      setKvittering(kvitteringFor(res, (betId) => {
+        const m = roundMatches.find((k) => betId.endsWith(`_${k.id}`));
+        return m ? `${visOf(teams, m.home)}–${visOf(teams, m.away)}` : null;
+      }));
     }
     setBusy(false);
   }
@@ -937,7 +944,13 @@ function ChancePanel({
             </p>
           )}
 
+          {/* FEJL OG KVITTERING STÅR SAMMEN, ikke i stedet for hinanden.
+              Værste udfald i hele mekanikken er, at spilleren tror chancen
+              ligger på søndagskampen og opdager søndag aften, at den lå på
+              fredagskampen. `gemtLinje` ovenfor siger, hvor den FAKTISK
+              ligger, og den må ikke forsvinde, fordi noget gik galt. */}
           {error && <p className="badge badge--red">{error}</p>}
+          {kvittering && <p className="badge badge--green">{kvittering}</p>}
 
           <div className="flex items-center" style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
             <button className="btn btn--sm" disabled={busy || !pick} onClick={() => save(clampedStake)}>

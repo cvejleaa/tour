@@ -74,11 +74,28 @@ describe('setBet', () => {
     expect(payload().leagueIds).toEqual([]);
   });
 
-  it('afviser en Chancen-indsats, saldoen ikke bærer', async () => {
-    const res = await setBet({ ...base, chanceStake: 500, bank: 10 });
-    expect(res.ok).toBe(false);
-    expect(res.error).toMatch(/indsats/i);
-    expect(mockSetDoc).not.toHaveBeenCalled();
+  it('SKRIVER ALDRIG chanceStake — feltet ejes af serveren', async () => {
+    // VENDT BEVIDST. Testen hed før "afviser en Chancen-indsats, saldoen ikke
+    // bærer" og forsvarede, at setBet validerede indsatsen. Den regel er
+    // flyttet til serveren (setGameChance), fordi "én ⚡ pr. runde" er en
+    // FORESPØRGSEL, som firestore.rules ikke kan køre — og browservalidering
+    // kan omgås.
+    //
+    // Pendant til "sætter ALDRIG points" ovenfor: begge felter ejes af
+    // serveren, og begge ville kunne skrives herfra uden denne vagt.
+    await setBet({ ...base, chanceStake: 500, bank: 10 });
+    expect(mockSetDoc).toHaveBeenCalled();
+    expect('chanceStake' in payload()).toBe(false);
+  });
+
+  it('rører ikke chance-felterne overhovedet', async () => {
+    // merge: true lader serverens felter stå. Sendte setBet et af dem med —
+    // også som 0 — ville et skift af 1X2 nulstille en chance, spilleren havde
+    // sat, og gøre det tavst.
+    await setBet(base);
+    for (const felt of ['chanceStake', 'chanceSatAt', 'chanceFlytninger']) {
+      expect(felt in payload(), felt).toBe(false);
+    }
   });
 
   it('giver en dansk fejl, når skrivningen afvises', async () => {

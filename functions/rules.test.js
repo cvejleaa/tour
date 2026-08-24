@@ -2178,7 +2178,18 @@ describe('games/{gameId}/bets — sikkerhedsregler', () => {
       { matchId: 'igang', pick: '2' }));
   });
 
-  it('KAN stadig rette sit valg og sin Chancen-indsats før kickoff', async () => {
+  it('KAN stadig rette sit VALG før kickoff — med chancen uændret', async () => {
+    // VENDT BEVIDST. Testen hed før "…og sin Chancen-indsats" og asserterede,
+    // at en direkte 0 → 3 på chanceStake LYKKEDES. Den forsvarede dermed
+    // præcis det hul, serveren nu lukker: reglen "én ⚡ pr. runde" er en
+    // forespørgsel, som rules ikke kan køre, så feltet må ikke kunne skrives
+    // herfra. Havde vi ikke vendt den bevidst, ville den være blevet rød ved
+    // regelændringen — og den nemme "rettelse" ville have været at løsne
+    // reglen igen.
+    //
+    // At rette sit 1X2-valg skal stadig kunne lade sig gøre, og det er ikke
+    // en selvfølge: en keys()-baseret regel ville have afvist enhver
+    // opdatering af et tip, der HAR en chance. Derfor diff.
     await createUser('p1', 'player', 'approved');
     await createGame('sl-edit');
     await seedMembership('sl-edit', 'p1', { leagueIds: ['liga-a'] });
@@ -2187,10 +2198,63 @@ describe('games/{gameId}/bets — sikkerhedsregler', () => {
     await assertSucceeds(setDoc(doc(fs, 'games', 'sl-edit', 'bets', 'p1_m1'),
       { uid: 'p1', matchId: 'm1', pick: '1', chanceStake: 0, leagueIds: ['liga-a'] }));
     // Klienten skriver med merge og sender uid/matchId med uændret — det skal
-    // stadig gå igennem.
+    // stadig gå igennem, så længe chancen ikke røres.
     await assertSucceeds(setDoc(doc(fs, 'games', 'sl-edit', 'bets', 'p1_m1'),
-      { uid: 'p1', matchId: 'm1', pick: 'X', chanceStake: 3, leagueIds: ['liga-a'] },
+      { uid: 'p1', matchId: 'm1', pick: 'X', chanceStake: 0, leagueIds: ['liga-a'] },
       { merge: true }));
+    // OG uden at sende feltet med overhovedet — det er dét, den nye klient gør.
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl-edit', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: '2', leagueIds: ['liga-a'] }, { merge: true }));
+  });
+
+  it('AFVISER en direkte skrivning af hvert enkelt chance-felt', async () => {
+    // Hvert felt for sig. En samlet assertion ville lade to af tre regler
+    // være udækkede — samme fælde som i rolle-vagtens it.each.
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl-chance');
+    await seedMembership('sl-chance', 'p1', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-chance', 'm1', future());
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl-chance', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: '1', chanceStake: 0, leagueIds: ['liga-a'] }));
+
+    for (const felt of [
+      { chanceStake: 3 },
+      { chanceSatAt: 1234567890 },
+      { chanceFlytninger: 1 },
+    ]) {
+      await assertFails(updateDoc(doc(fs, 'games', 'sl-chance', 'bets', 'p1_m1'), felt));
+    }
+  });
+
+  it('afviser et NYT tip, der fødes med en chance', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl-ny');
+    await seedMembership('sl-ny', 'p1', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-ny', 'm1', future());
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertFails(setDoc(doc(fs, 'games', 'sl-ny', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: '1', chanceStake: 3, leagueIds: ['liga-a'] }));
+    // Revisionsfelterne skal være HELT fraværende ved oprettelsen: ved update
+    // er de frosne, så en forfalskning her ville stå permanent.
+    await assertFails(setDoc(doc(fs, 'games', 'sl-ny', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: '1', chanceSatAt: 1, leagueIds: ['liga-a'] }));
+    await assertFails(setDoc(doc(fs, 'games', 'sl-ny', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: '1', chanceFlytninger: 9, leagueIds: ['liga-a'] }));
+  });
+
+  it('LADER en gammel fane afgive sit første tip med chanceStake: 0', async () => {
+    // Faner overlever et deploy. En fane fra før denne regel sender
+    // `chanceStake: 0` med hvert 1X2-valg. Krævede create fravær frem for
+    // "fraværende eller 0", kunne den slet ikke tippe — og fejlbeskeden ville
+    // sige "deadline passeret eller ingen adgang" på en åben kamp.
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl-gammel');
+    await seedMembership('sl-gammel', 'p1', { leagueIds: ['liga-a'] });
+    await createGameMatch('sl-gammel', 'm1', future());
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl-gammel', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', pick: '1', chanceStake: 0, leagueIds: ['liga-a'] }));
   });
 
   // ── Selve FORESPØRGSLEN, ikke bare enkeltdokumenter ────────────────────────
