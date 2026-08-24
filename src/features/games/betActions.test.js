@@ -106,11 +106,20 @@ describe('setBet', () => {
     }
   });
 
-  it('giver en dansk fejl, når skrivningen afvises', async () => {
+  it('nævner GENINDLÆSNING som mulig årsag, når skrivningen afvises', async () => {
+    // "Deadline passeret eller ingen adgang" på en ÅBEN kamp er den værste
+    // besked i mekanikken: den beskylder spilleren for at være for sen på
+    // noget, der ikke er lukket. Efter at serveren overtog chanceStake, er en
+    // forældet fane en ægte årsag — den gamle klient sender chanceStake: 0
+    // med hvert klik, og på et nyt tip er fravær → 0 en berørt nøgle.
     mockSetDoc.mockRejectedValueOnce(Object.assign(new Error('nej'), { code: 'permission-denied' }));
     const res = await setBet(base);
     expect(res.ok).toBe(false);
-    expect(res.error).toMatch(/deadline|adgang/i);
+    expect(res.error).toMatch(/genindlæs/i);
+    // Deadline skal stadig nævnes — den er den anden ægte årsag.
+    expect(res.error).toMatch(/deadline/i);
+    // Men den må ikke stå som den ENESTE forklaring længere.
+    expect(res.error).not.toBe('Tippet kunne ikke gemmes (deadline passeret eller ingen adgang).');
   });
 });
 

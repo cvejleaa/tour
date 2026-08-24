@@ -475,11 +475,13 @@ har samme format som `rescore-bets.mjs`' backup, så en fortrydelse køres med
 `GENDAN=<fil>` dér — der findes ikke et separat gendannelses-værktøj.
 
 **En runde uden bevis rettes ikke.** Kan rækkefølgen ikke bevises af
-kickoff-tiderne, hviler den alene på et tidsstempel — og indtil trin 3 er live,
-nævner `firestore.rules` ikke ordet "chance", så en spiller kan selv skrive både
-`chanceStake` og `chanceSatAt`. Så ville den ramte selv vælge, hvilken af sine
-chancer der overlever. Kickoff-tiderne kommer fra synken og kan ikke
-forfalskes. Sådan en runde meldes `AFVIST` og skal afgøres i hånden.
+kickoff-tiderne, hviler den alene på et tidsstempel. `firestore.rules` afviser
+nu klientens skrivning af `chanceStake`, `chanceSatAt` og `chanceFlytninger`,
+så nye chancer kan ikke forfalskes — men beviskravet består, fordi de bets, en
+audit kigger på, kan være ÆLDRE end reglen. For dem gælder stadig, at den ramte
+selv kunne have valgt, hvilken af sine chancer der overlever. Kickoff-tiderne
+kommer fra synken og kan ikke forfalskes. Sådan en runde meldes `AFVIST` og
+skal afgøres i hånden.
 
 Reglen om, **hvilken** chance der beholdes, er den først lagte. Den bor i
 `scripts/lib/doubleChance.mjs` og deles af begge scripts, så de aldrig kan give

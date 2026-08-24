@@ -20,12 +20,24 @@
 // chanceStake, chanceSatAt og chanceFlytninger. Denne fil er dermed den ENESTE
 // vej til feltet — hullet er lukket, ikke kun bevogtet.
 //
-// Bemærk, at hosting og regler ruller ud SAMMEN (deploy-platform.yml:125,
-// ONLY="hosting,firestore:rules"). Der findes derfor ingen mellemtilstand,
-// hvor reglerne spærrer for en klient, der endnu ikke kan kalde herind. En
-// allerede åben fane fra før udrulningen kan stadig tippe 1X2 (uændret
-// chanceStake er ikke en berørt nøgle), men dens forsøg på at sætte ⚡ afvises,
-// indtil den genindlæses.
+// UDRULNINGEN HAR EN FÆLDE, OG DEN ER OPERATØRENS, IKKE ANGRIBERENS.
+// Hosting og regler ruller ud sammen (deploy-platform.yml, ONLY=
+// "hosting,firestore:rules"), men DENNE FUNKTION deployes kun bag fluebenet
+// `deployFunctions`, som defaulter til false og kører BAGEFTER. Køres et
+// almindeligt deploy, mens funktionen ikke er live, spærrer reglerne den
+// direkte vej, mens den eneste tilladte vej ikke findes: så kan Chancen
+// hverken sættes, flyttes eller fjernes af nogen.
+//
+// Bekræft derfor, at setGameChance svarer i spil-89af9, FØR reglerne rulles
+// ud — eller kør deployet med `deployFunctions` slået til.
+//
+// EN ÅBEN FANE FRA FØR UDRULNINGEN. Her stod, at den "stadig kan tippe 1X2".
+// Det er kun halvt sandt, og halvdelen er værd at kende: den gamle klient
+// sender `chanceStake: 0` med hvert 1X2-klik. Rører den et tip, den selv har
+// oprettet, går 0 → 0 igennem. Men et tip oprettet af det NYE bundle har slet
+// intet chanceStake-felt, og fravær → 0 ER en berørt nøgle — så dér afvises
+// også selve 1X2-valget. Derfor rulles der ud uden for en aktiv tip-weekend,
+// og derfor nævner klientens fejlbesked genindlæsning som mulig årsag.
 //
 // TRE SPØRGSMÅL, TRE VAGTER (én vagt pr. sikkerhedsregel — CLAUDE.md):
 //   HVOR MANGE   én pr. gruppe            → dedup'en i setChanceCore

@@ -26,7 +26,19 @@ export function betId(uid, matchId) {
 
 function danishError(err, fallback) {
   const code = err?.code || '';
-  if (code === 'permission-denied') return 'Tippet kunne ikke gemmes (deadline passeret eller ingen adgang).';
+  // "Deadline passeret eller ingen adgang" er den værste besked i hele
+  // mekanikken, hvis kampen er ÅBEN: den beskylder spilleren for at være for
+  // sen på noget, der ikke er lukket, og han vil tro, spillet er i stykker.
+  //
+  // Efter at serveren overtog chanceStake, er en forældet fane en ægte og
+  // ret sandsynlig årsag: den gamle klient sender `chanceStake: 0` med hvert
+  // 1X2-klik, og på et tip oprettet af det nye bundle er fravær → 0 en berørt
+  // nøgle, som reglerne afviser. Faner overlever et deploy, og der findes
+  // ingen genindlæs-notits i appen endnu (backlog #33).
+  if (code === 'permission-denied') {
+    return 'Tippet kunne ikke gemmes. Er kampen stadig åben, er siden sandsynligvis '
+      + 'forældet — genindlæs og prøv igen. Ellers er deadline passeret.';
+  }
   if (code === 'unavailable') return 'Kunne ikke få forbindelse. Prøv igen.';
   return err?.message || fallback;
 }
