@@ -241,7 +241,8 @@ export default function FootballHelp({ game }) {
         rundens bonus først falde, længe efter alle havde glemt runden.
         <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem' }}>
           <li><strong>Kuponen er rundens kampe i samme uge</strong> — ugen fra tirsdag til mandag, hvor de fleste af rundens kampe ligger.</li>
-          <li><strong>De udsatte kampe står uden for kuponen.</strong> De giver 1X2-point og Chancen præcis som altid, men tæller hverken med i combi’en her eller i en senere runde.</li>
+          <li><strong>De udsatte kampe står uden for kuponen.</strong> De giver 1X2-point præcis som altid, men tæller hverken med i combi’en her eller i en senere runde.</li>
+          <li><strong>Chancen følger RUNDEN, ikke kuponen.</strong> Har du brugt din ⚡ i weekenden, er den brugt — også når rundens udsatte kamp spilles en måned senere. Der er én Chance pr. runde, og en splittet runde er stadig én runde.</li>
           <li><strong>Du kan se det på kampen.</strong> Er runden splittet, står der <em>🎯 På kuponen</em> eller <em>🕒 Uden for kuponen</em> på hvert kort, og øverst på <Tab fane="tip">Tip</Tab> står hvilke kampe der er rykket hvorhen.</li>
           <li><strong>Kuponen bliver mindre — men du mister ingenting.</strong> Formlen er den samme, og de udsatte kampe giver stadig deres egne point, når de spilles.</li>
         </ul>

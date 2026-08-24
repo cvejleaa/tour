@@ -166,10 +166,13 @@ export function byggRettelsesplan({ fund, pickAf, totalFoer, gatede = new Set(),
     const [beholdes, ...senere] = f.chancer;
 
     // BEVISKRAVET. Rækkefølgen afgør, hvilken chance der overlever. Kan den
-    // ikke bevises af kickoff-tiderne, hviler den ALENE på et tidsstempel —
-    // og indtil trin 3 er live, nævner firestore.rules ikke ordet "chance",
-    // så en spiller kan selv skrive både chanceStake og chanceSatAt. Så ville
-    // den ramte spiller selv vælge, hvilken af sine chancer der overlever.
+    // ikke bevises af kickoff-tiderne, hviler den ALENE på et tidsstempel.
+    //
+    // firestore.rules afviser nu klientens skrivning af chanceStake,
+    // chanceSatAt og chanceFlytninger, så en NY chance kan ikke forfalskes.
+    // Men kravet består, og det er pointen: en audit kigger på bets, der kan
+    // være ÆLDRE end reglen. For dem kunne den ramte spiller selv have valgt,
+    // hvilken af sine chancer der overlever.
     // Kickoff-tiderne kommer fra synken og kan ikke forfalskes af en spiller.
     // Derfor er beviset bindende for en RETTELSE — ikke bare en oplysning.
     const bevis = beviserMekanismen(f.chancer);

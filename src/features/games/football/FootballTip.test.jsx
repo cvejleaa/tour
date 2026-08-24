@@ -17,8 +17,14 @@ vi.mock('../useGameBets', () => ({ useGameBets: () => mockBets() }));
 vi.mock('../useVisibleGameStandings', () => ({
   useVisibleGameStandings: () => ({ standings: [], leagues: [], leagueCount: 0, loading: false, error: null }),
 }));
-vi.mock('../betActions', () => ({ setBet: vi.fn().mockResolvedValue({ ok: true }) }));
-import { setBet } from '../betActions';
+vi.mock('../betActions', () => ({
+  setBet: vi.fn().mockResolvedValue({ ok: true }),
+  // setChance SKAL med i mocken. Uden den er den `undefined` i hele filen, og
+  // hver klik-test ville fejle på "not a function" i stedet for på det, den
+  // prøver.
+  setChance: vi.fn().mockResolvedValue({ ok: true, indsats: 0, flyttetFra: [] }),
+}));
+import { setBet, setChance } from '../betActions';
 vi.mock('./LeagueBets', () => ({ default: () => <div data-testid="liga-tips" /> }));
 vi.mock('../../../components/ClubBadge', () => ({ default: () => <span /> }));
 // Delingsteksten var slet ikke testet, så combi-tegnet havde to grene og kun
@@ -679,6 +685,24 @@ describe('FootballTip — kuponen i en splittet runde', () => {
     expect(note).toHaveTextContent(/sep/);
   });
 
+  it('siger i banneret, at Chancen følger RUNDEN — ikke kuponen', () => {
+    // Quality Controls fund: den samme falske sætning, der blev rettet i
+    // hjælpesiden, stod stadig her — og det her er værre, for banneret vises
+    // i selve tip-øjeblikket, netop når runden er splittet.
+    //
+    // Combi-kuponen skæres pr. UGE (pointOpdeling), Chancen pr. RUNDE
+    // (chanceGruppeKampe). Har man brugt sin ⚡ i weekenden, er den brugt, når
+    // rundens udsatte kamp spilles en måned senere.
+    setup({}, '/spil/sl?runde=3', splittet);
+    const note = screen.getByTestId('combi-udenfor');
+    expect(note).toHaveTextContent(/Chancen følger RUNDEN/);
+    expect(note).toHaveTextContent(/er den brugt, også her/);
+    // Og fraværs-assertionen: den gamle formulering må ikke snige sig tilbage
+    // ved en senere omskrivning.
+    expect(note.textContent).not.toMatch(/Chancen som altid/);
+    expect(note.textContent).not.toMatch(/Chancen præcis som altid/);
+  });
+
   // VISNINGSNAVNET I NOTEN. Fixturets fire hold har alle `vis` === `name`, så
   // testen ovenfor består både med og uden `visOf` — den beviser altså ikke, at
   // noten bruger det. Overriden gør forskellen målbar, og navnene er valgt, så
@@ -931,26 +955,55 @@ describe('Chancen — den gemte indsats', () => {
   });
 
   // SKRIVNINGEN, ikke kun skærmen. save(clampedStake) kunne skiftes til
-  // save(CHANCE.MIN) med hele suiten grøn: setBet er mocket og blev aldrig
-  // assertet. Det er det symptom, der KOSTER POINT — panelet skrev 1 ned oven
-  // i en indsats på 4.
-  it('gemmer den viste indsats — ikke MIN', async () => {
+  // save(CHANCE.MIN) med hele suiten grøn. Det er det symptom, der KOSTER
+  // POINT — panelet skrev 1 ned oven i en indsats på 4.
+  //
+  // VENDT BEVIDST: indsatsen går nu gennem setChance, ikke setBet. Assertionen
+  // flyttede med, for det er stadig præcis samme fejl, der skal fanges.
+  it('sender den viste indsats til serveren — ikke MIN', async () => {
     render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
-    setBet.mockClear();
+    setChance.mockClear();
     // Tiden er frossen i denne fil, og waitFor hænger under fake timers —
     // act tømmer i stedet mikrotask-køen efter den mockede skrivning.
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Opdatér Chancen/ })); });
-    expect(setBet).toHaveBeenCalled();
-    expect(setBet.mock.calls[0][0]).toMatchObject({ matchId: 'm1', chanceStake: 4 });
+    expect(setChance).toHaveBeenCalled();
+    expect(setChance.mock.calls[0][0]).toMatchObject({ matchId: 'm1', stake: 4 });
   });
 
-  it('gemmer den værdi, man har skruet op til', async () => {
+  it('sender den værdi, man har skruet op til', async () => {
     render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
     fireEvent.click(screen.getByRole('button', { name: '+' }));
-    setBet.mockClear();
+    setChance.mockClear();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Opdatér Chancen/ })); });
-    expect(setBet).toHaveBeenCalled();
-    expect(setBet.mock.calls[0][0]).toMatchObject({ chanceStake: 5 });
+    expect(setChance).toHaveBeenCalled();
+    expect(setChance.mock.calls[0][0]).toMatchObject({ stake: 5 });
+  });
+
+  it('gemmer 1X2-valget FØR chancen — ellers afviser serveren med "intet-tip"', async () => {
+    // Rækkefølgen er ikke kosmetisk. Firestore viser en lokal skrivning i
+    // onSnapshot, før serveren har den (latency compensation), så fladen kan
+    // vise et valg, callable'en endnu ikke kan se. Den awaitede setBet lukker
+    // det kapløb — og uden denne test ville den næste "forenkling" fjerne den
+    // som overflødig.
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    setBet.mockClear();
+    setChance.mockClear();
+    const raekkefoelge = [];
+    setBet.mockImplementation(async () => { raekkefoelge.push('setBet'); return { ok: true }; });
+    setChance.mockImplementation(async () => { raekkefoelge.push('setChance'); return { ok: true, indsats: 4, flyttetFra: [] }; });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Opdatér Chancen/ })); });
+    expect(raekkefoelge).toEqual(['setBet', 'setChance']);
+  });
+
+  it('kalder IKKE serveren, hvis 1X2-valget ikke kunne gemmes', async () => {
+    // Ellers ville spilleren se en chance-fejl for noget, der fejlede før.
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    setChance.mockClear();
+    setBet.mockResolvedValueOnce({ ok: false, error: 'Tippet kunne ikke gemmes.' });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Opdatér Chancen/ })); });
+    expect(setChance).not.toHaveBeenCalled();
+    // Og beskeden skal matche den knap, der blev trykket på.
+    expect(screen.getByText(/Chancen blev ikke sat/)).toBeInTheDocument();
   });
 
   // DEPEN SKAL VÆRE ET TAL. Med bet-OBJEKTET i deps ville en ugemt ændring
@@ -989,17 +1042,58 @@ describe('Chancen — den gemte indsats', () => {
     expect(screen.getByText(/På spil nu:/)).toHaveTextContent('4 point');
   });
 
-  // Slår nulstillingen af den gamle kamp fejl, må den nye IKKE skrives.
-  it('skriver ikke den nye chance, hvis den gamle ikke kunne nulstilles', async () => {
+  // VENDT BEVIDST. Testen forsvarede klientens TO-TRINS nulstilning: først
+  // nulstil den gamle kamp, så skriv den nye — og skriv ikke den nye, hvis
+  // nulstillingen fejlede. Den halve tilstand kunne opstå, og testen vogtede,
+  // at den ikke blev til to åbne chancer.
+  //
+  // Den mekanisme findes ikke længere. Serveren flytter chancen i ÉN
+  // transaktion (setChanceCore), så klienten kan ikke efterlade en halv
+  // tilstand — der er intet mellemtrin at fejle i. Invarianten "aldrig to
+  // åbne chancer i samme runde" bevises nu i chanceVagt.test.js' dedup-tests,
+  // ikke her. Det er vigtigt, at det står skrevet: bevises den INTET sted,
+  // har vi slettet en vagt og troet, vi forenklede.
+  it('flytter chancen med ÉT kald — serveren nulstiller selv den gamle', async () => {
     render(tegn({ m1: { pick: '1', chanceStake: 4 }, m2: { pick: 'X', chanceStake: 0 } }));
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'm2' } });
-    setBet.mockClear();
-    setBet.mockResolvedValueOnce({ ok: false, error: 'Tippet kunne ikke gemmes (deadline passeret eller ingen adgang).' });
+    setChance.mockClear();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Flyt Chancen hertil/ })); });
-    expect(screen.getByText(/deadline passeret/)).toBeInTheDocument();
-    // Præcis ét kald: nulstillingen. Den nye chance blev ikke skrevet.
-    expect(setBet).toHaveBeenCalledTimes(1);
-    expect(setBet.mock.calls[0][0]).toMatchObject({ matchId: 'm1', chanceStake: 0 });
+    expect(setChance).toHaveBeenCalledTimes(1);
+    expect(setChance.mock.calls[0][0]).toMatchObject({ matchId: 'm2' });
+  });
+
+  it('viser serverens besked, når flytningen afvises', async () => {
+    // Serveren oversætter selv sine afvisninger til dansk og nævner kampen,
+    // chancen sidder fast på. Klienten må ikke erstatte den med sin egen,
+    // vagere formulering.
+    render(tegn({ m1: { pick: '1', chanceStake: 4 }, m2: { pick: 'X', chanceStake: 0 } }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'm2' } });
+    setChance.mockResolvedValueOnce({
+      ok: false, error: 'Chancen er allerede brugt i runden på Brøndby–FCK, og den kamp er i gang.',
+    });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Flyt Chancen hertil/ })); });
+    expect(screen.getByText(/allerede brugt i runden på Brøndby–FCK/)).toBeInTheDocument();
+    // Og linjen om, hvor chancen FAKTISK ligger, skal stadig stå — det er den
+    // dyreste misforståelse i mekanikken.
+    expect(screen.getByText(/På spil nu:/)).toBeInTheDocument();
+  });
+
+  it('kvitterer, når serveren FLYTTEDE chancen — med kampens navn', async () => {
+    render(tegn({ m1: { pick: '1', chanceStake: 4 }, m2: { pick: 'X', chanceStake: 0 } }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'm2' } });
+    setChance.mockResolvedValueOnce({ ok: true, indsats: 4, flyttetFra: ['me_m1'], uaendret: false });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Flyt Chancen hertil/ })); });
+    expect(screen.getByText(/Chancen er flyttet fra/)).toBeInTheDocument();
+  });
+
+  it('kvitterer OGSÅ når intet blev ændret — tavshed ligner en fejl', async () => {
+    // Før kom ⚡-pillen med det samme fra den lokale skrivning. Nu er der en
+    // rundtur, og uden et ord tilbage står fladen uændret — hvorefter
+    // spilleren trykker igen.
+    render(tegn({ m1: { pick: '1', chanceStake: 4 } }));
+    setChance.mockResolvedValueOnce({ ok: true, indsats: 4, flyttetFra: [], uaendret: true });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Opdatér Chancen/ })); });
+    expect(screen.getByText(/står, som den stod/)).toBeInTheDocument();
   });
 
   // Knappen skal sige, at chancen FLYTTES — intet sagde før, at et klik

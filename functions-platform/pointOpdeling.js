@@ -39,7 +39,8 @@ function matchOutcome(m) {
 // og delta-pilene og Runde-Botten med den.
 //
 // Derfor: combi-kuponen er de kampe i runden, der ligger i SAMME UGE. De
-// udsatte giver 1X2-point og Chancen som altid, men står ikke på kuponen og
+// udsatte giver 1X2-point som altid, men står ikke på kuponen og
+// (Chancen skæres derimod pr. RUNDE, ikke pr. uge — se chanceGruppeKampe.)
 // tages heller ikke med i nogen anden runde.
 //
 // Ugen går fra TIRSDAG kl. 04.00 dansk tid. Snittet ligger i et tomt hul i

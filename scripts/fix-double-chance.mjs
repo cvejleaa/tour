@@ -154,7 +154,8 @@ for (const game of gamesSnap.docs) {
 
     if (r.afvist) {
       console.log('    AFVIST    rækkefølgen kan ikke bevises af kickoff-tiderne — kun af et');
-      console.log('              tidsstempel, spilleren selv kan skrive indtil trin 3 er live.');
+      console.log('              tidsstempel. Reglerne spærrer nu for nye forfalskninger, men');
+      console.log('              disse bets kan være ældre end reglen.');
       console.log('              Denne runde rettes IKKE. Afgør den i hånden.');
       afvist += 1;
       continue;

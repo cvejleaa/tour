@@ -15,11 +15,29 @@
 // FORESPØRGSLER — kun `get()` på et kendt dokument — og "har du allerede en
 // chance et andet sted i runden?" ER en forespørgsel. Den kan kun besvares her.
 //
-// STATUS: denne fil er TRIN 1 af 3 og er endnu IKKE i brug. Klienten skriver
-// stadig chanceStake direkte (betActions.setBet), og firestore.rules tillader
-// det. Hullet er derfor ÅBENT, indtil trin 2 (klienten kalder callable'en) og
-// trin 3 (rules lukker den direkte vej) er landet. Hverken en grøn suite her
-// eller et deploy af denne fil lukker noget alene.
+// STATUS: alle tre trin er på plads. Klienten kalder callable'en
+// (betActions.setChance), og firestore.rules afviser en direkte skrivning af
+// chanceStake, chanceSatAt og chanceFlytninger. Denne fil er dermed den ENESTE
+// vej til feltet — hullet er lukket, ikke kun bevogtet.
+//
+// UDRULNINGEN HAR EN FÆLDE, OG DEN ER OPERATØRENS, IKKE ANGRIBERENS.
+// Hosting og regler ruller ud sammen (deploy-platform.yml, ONLY=
+// "hosting,firestore:rules"), men DENNE FUNKTION deployes kun bag fluebenet
+// `deployFunctions`, som defaulter til false og kører BAGEFTER. Køres et
+// almindeligt deploy, mens funktionen ikke er live, spærrer reglerne den
+// direkte vej, mens den eneste tilladte vej ikke findes: så kan Chancen
+// hverken sættes, flyttes eller fjernes af nogen.
+//
+// Bekræft derfor, at setGameChance svarer i spil-89af9, FØR reglerne rulles
+// ud — eller kør deployet med `deployFunctions` slået til.
+//
+// EN ÅBEN FANE FRA FØR UDRULNINGEN. Her stod, at den "stadig kan tippe 1X2".
+// Det er kun halvt sandt, og halvdelen er værd at kende: den gamle klient
+// sender `chanceStake: 0` med hvert 1X2-klik. Rører den et tip, den selv har
+// oprettet, går 0 → 0 igennem. Men et tip oprettet af det NYE bundle har slet
+// intet chanceStake-felt, og fravær → 0 ER en berørt nøgle — så dér afvises
+// også selve 1X2-valget. Derfor rulles der ud uden for en aktiv tip-weekend,
+// og derfor nævner klientens fejlbesked genindlæsning som mulig årsag.
 //
 // TRE SPØRGSMÅL, TRE VAGTER (én vagt pr. sikkerhedsregel — CLAUDE.md):
 //   HVOR MANGE   én pr. gruppe            → dedup'en i setChanceCore
@@ -35,11 +53,18 @@
 // afregningen som vagten; den vagt findes ikke, og en forkert henvisning gør
 // hullet sværere at finde næste gang.)
 //
-// Det skal afgøres, FØR trin 2 flytter klienten over på callable'en: derefter
-// forlader isValidStake stien, og så er der ingen bank-vagt tilbage nogen
-// steder. Enten skal bank med i scoreBet-kaldene, eller også skal CAP_FRACTION
-// /chanceMaxStake/isValidStake fjernes — et loft, ingen håndhæver, er værre
-// end intet loft, fordi fladen lover spilleren noget andet end reglen.
+// EJERENS BESLUTNING, truffet før trin 2: loftet bliver stående som det er,
+// og bank-vagten flyttes IKKE til serveren nu. Begrundelsen er, at hullet, der
+// skulle lukkes, var den dobbelte Chance — ikke prissætningen. At tage bank
+// med i afregningen ville genberegne hele systemet for et problem, ingen har
+// haft.
+//
+// Konsekvensen skal stå klart, så den ikke opdages som en overraskelse:
+// `chanceMaxStake` og fladens "af maks N" er fra nu af en KLIENT-vejledning,
+// ikke en regel. En spiller, der omgår browseren, kan sætte op til MAX_ABS
+// uanset sin saldo. Det er samme eksponering som før — afregningen klipper til
+// MAX_ABS med eller uden denne fil — men den er nu det ENESTE loft, og det er
+// et bevidst valg og ikke en forglemmelse.
 //
 // Afregningen ændres IKKE. Den må aldrig dedup'e: gjorde den det, kunne hele
 // transaktionen her tømmes for indhold med grøn suite, fordi afregningen

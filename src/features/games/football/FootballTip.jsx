@@ -6,7 +6,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useGameBets } from '../useGameBets';
-import { setBet } from '../betActions';
+import { setBet, setChance } from '../betActions';
+import { kvitteringFor } from './chanceKvittering';
 import LeagueBets from './LeagueBets';
 import MatchElo from './MatchElo';
 import { eloFormByTeam } from './eloHistory';
@@ -63,7 +64,7 @@ export default function FootballTip({ game, me, matches }) {
   const initialRound = useMemo(() => activeRound(rounds, nowMs), [rounds, nowMs]);
 
   // Combi-kuponen: rundens kampe i SAMME UGE. En udsat kamp giver 1X2-point og
-  // Chancen som altid, men står ikke på kuponen — ellers ville bonussen vente
+  // 1X2-point som altid, men står ikke på kuponen — ellers ville bonussen vente
   // på en kamp, der spilles en måned senere.
   //
   // Regnes af det spejlede modul, ikke her. Fladen havde sin egen udgave af
@@ -159,10 +160,12 @@ export default function FootballTip({ game, me, matches }) {
     if (isLocked(match, nowMs)) return;
     setError('');
     setBusy(match.id);
-    const existing = betsByMatch[match.id];
+    // `chanceStake` sendes IKKE med. Den blev før skrevet tilbage ved hvert
+    // skift af 1X2, fordi setBet skrev feltet ubetinget og ellers ville have
+    // nulstillet chancen. Nu ejer serveren feltet, og `merge: true` lader det
+    // stå urørt — så et skift af valget rører ikke længere chancen.
     const res = await setBet({
       uid: me?.uid, gameId, matchId: match.id, pick: outcome,
-      chanceStake: Number(existing?.chanceStake) || 0, bank,
       leagueIds: me?.leagueIds || [],
     });
     if (!res.ok) setError(res.error);
@@ -428,8 +431,9 @@ export default function FootballTip({ game, me, matches }) {
             🕒 {udenforKupon.length === 1 ? 'Én kamp i runden ligger' : `${udenforKupon.length} kampe i runden ligger`}
             {' '}uden for rundens uge ({formatDateRange(udenforFra, udenforTil)}) og står derfor uden for
             kuponen: {udenforKupon.map((m) => `${visOf(hold, m.home)}–${visOf(hold, m.away)}`).join(', ')}.
-            {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point og Chancen som altid — men runde-bonussen
-            venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}.
+            {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point som altid — men runde-bonussen
+            venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}, og Chancen følger RUNDEN:
+            har du brugt din ⚡ i denne runde, er den brugt, også her.
           </p>
         )}
       </div>
@@ -720,6 +724,9 @@ function ChancePanel({
   const [stake, setStake] = useState(CHANCE.MIN);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Kvitteringen står ved siden af fejlen, ikke i stedet for: efter et fejlet
+  // forsøg skal spilleren stadig kunne se, hvor chancen FAKTISK ligger.
+  const [kvittering, setKvittering] = useState('');
 
   // selMatchId sættes ÉN gang, når panelet monteres. Har man ikke tippet noget
   // endnu — eller er runden ikke hentet fra Firestore endnu — er `options` tom,
@@ -813,31 +820,53 @@ function ChancePanel({
   async function save(newStake) {
     if (!selMatch || !pick) { setError('Vælg først 1, X eller 2 på kampen.'); return; }
     setError('');
+    setKvittering('');
     setBusy(true);
-    // Én chance pr. runde: nulstil en evt. tidligere chance i runden.
+
+    // TRIN 1 — gem 1X2-valget. Den ser overflødig ud, for panelet viser kun
+    // kampe, der ALLEREDE har et valg (`options` ovenfor kræver det), og den
+    // skriver typisk samme værdi igen.
     //
-    // Og LYKKES den nulstilling ikke, må den nye chance ikke skrives. Ellers
-    // står der to bets med chanceStake > 0 i samme runde, og serveren afregner
-    // dem begge — den har ingen dedup. Returværdien blev før smidt væk, så en
-    // afvist nulstilling (fx fordi kampen er låst) blev til en tavs ekstra
-    // indsats i stedet for en fejlbesked.
-    if (chanceMatchId && chanceMatchId !== selMatch.id) {
-      const prev = betsByMatch[chanceMatchId];
-      const nulstil = await setBet({
-        uid: me?.uid, gameId, matchId: chanceMatchId, pick: prev.pick, chanceStake: 0, bank,
-        leagueIds: me?.leagueIds || [],
-      });
-      if (!nulstil.ok) {
-        setError(nulstil.error || 'Kunne ikke flytte Chancen fra den anden kamp. Prøv igen.');
-        setBusy(false);
-        return;
-      }
-    }
-    const res = await setBet({
-      uid: me?.uid, gameId, matchId: selMatch.id, pick, chanceStake: newStake, bank,
-      leagueIds: me?.leagueIds || [],
+    // Den er ikke overflødig, og grunden er værd at kende: Firestore viser en
+    // lokal skrivning i `onSnapshot` FØR serveren har den (latency
+    // compensation). Klikker spilleren 1X2 og straks derefter "Aktivér
+    // Chancen", ser fladen et valg, som serveren endnu ikke kan se — og
+    // callable'en ville afvise med `intet-tip`, altså "Vælg 1, X eller 2
+    // først" på en kamp, hvor valget står tydeligt på skærmen. Den awaitede
+    // skrivning her lukker det kapløb. Fjern den ikke som en forenkling.
+    const gemtValg = await setBet({
+      uid: me?.uid, gameId, matchId: selMatch.id, pick, leagueIds: me?.leagueIds || [],
     });
-    if (!res.ok) setError(res.error);
+    if (!gemtValg.ok) {
+      // Beskeden skal matche den knap, der blev trykket på. "Tippet kunne ikke
+      // gemmes" efter et tryk på "Aktivér Chancen" lader spilleren i tvivl om,
+      // hvad der så skete med chancen.
+      setError(`${gemtValg.error || 'Kunne ikke gemme dit 1X2-valg.'} Chancen blev ikke sat.`);
+      setBusy(false);
+      return;
+    }
+
+    // TRIN 2 — serveren sætter chancen. Den flytter selv en åben chance i
+    // samme runde, i én transaktion. Klienten nulstiller ikke længere selv:
+    // den to-trins nulstilning kunne slå fejl halvvejs og efterlade to åbne
+    // chancer i runden — præcis det hul, hele denne ændring lukker.
+    const res = await setChance({ gameId, matchId: selMatch.id, stake: newStake });
+    if (!res.ok) {
+      setError(res.error);
+    } else {
+      // KVITTERINGEN ER IKKE PYNT. Før skrev klienten selv, og ⚡-pillen kom
+      // med det samme fra den lokale skrivning. Nu er der en rundtur, og uden
+      // et ord tilbage står fladen tilsyneladende uændret — hvorefter
+      // spilleren trykker igen. `uaendret` skal derfor også kvittere: "der
+      // skete ingenting" er et svar, ikke en fejl.
+      // Opslaget oversætter callable'ens bet-id'er ("uid_matchId") til
+      // kampnavne. Det er dét, der gør "flyttet fra Brøndby–FCK" muligt —
+      // og dermed fjerner den dyreste misforståelse i hele mekanikken.
+      setKvittering(kvitteringFor(res, (betId) => {
+        const m = roundMatches.find((k) => betId.endsWith(`_${k.id}`));
+        return m ? `${visOf(teams, m.home)}–${visOf(teams, m.away)}` : null;
+      }));
+    }
     setBusy(false);
   }
 
@@ -916,7 +945,13 @@ function ChancePanel({
             </p>
           )}
 
+          {/* FEJL OG KVITTERING STÅR SAMMEN, ikke i stedet for hinanden.
+              Værste udfald i hele mekanikken er, at spilleren tror chancen
+              ligger på søndagskampen og opdager søndag aften, at den lå på
+              fredagskampen. `gemtLinje` ovenfor siger, hvor den FAKTISK
+              ligger, og den må ikke forsvinde, fordi noget gik galt. */}
           {error && <p className="badge badge--red">{error}</p>}
+          {kvittering && <p className="badge badge--green">{kvittering}</p>}
 
           <div className="flex items-center" style={{ gap: '0.5rem', marginTop: '0.5rem' }}>
             <button className="btn btn--sm" disabled={busy || !pick} onClick={() => save(clampedStake)}>
