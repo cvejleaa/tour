@@ -3,7 +3,7 @@
  * se det efter kickoff. Firebase er fuldt mocket.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { setBet, betId } from './betActions';
+import { setBet, setChance, betId } from './betActions';
 
 const mockSetDoc = vi.fn();
 const mockDoc = vi.fn((db, ...path) => ({ _path: path }));
@@ -14,7 +14,15 @@ vi.mock('firebase/firestore', () => ({
   serverTimestamp: () => ({ _serverTimestamp: true }),
 }));
 
-vi.mock('../../firebase', () => ({ db: {} }));
+vi.mock('../../firebase', () => ({ db: {}, functions: {} }));
+
+// setChance henter callable'en med en DYNAMISK import, så mocken skal ligge
+// her og ikke i selve testen.
+const mockFn = vi.fn();
+vi.mock('firebase/functions', () => ({
+  httpsCallable: (...a) => { mockHttpsCallable(...a); return (...b) => mockFn(...b); },
+}));
+const mockHttpsCallable = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -103,5 +111,79 @@ describe('setBet', () => {
     const res = await setBet(base);
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/deadline|adgang/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setChance — SERVEREN ejer Chancen.
+//
+// Test Manager fandt, at hele funktionen kunne tømmes til
+// `err?.message || 'Chancen kunne ikke sættes.'` med 2681 grønne tests:
+// betActions.test.js importerede den ikke, og FootballTip.test.jsx mockede den
+// helt væk. Nul dækning på det modul, hele ændringen findes for.
+// ---------------------------------------------------------------------------
+
+describe('setChance', () => {
+  it('kalder setGameChance og giver serverens svar videre', async () => {
+    mockFn.mockResolvedValueOnce({ data: { ok: true, indsats: 4, flyttetFra: ['u1_m9'], gruppe: 3 } });
+    const res = await setChance({ gameId: 'sl', matchId: 'm1', stake: 4 });
+    expect(mockHttpsCallable).toHaveBeenCalledWith({}, 'setGameChance');
+    expect(mockFn).toHaveBeenCalledWith({ gameId: 'sl', matchId: 'm1', stake: 4 });
+    // Serverens felter skal med UÆNDRET videre — kvitteringen bygger på dem.
+    expect(res).toMatchObject({ ok: true, indsats: 4, flyttetFra: ['u1_m9'], gruppe: 3 });
+  });
+
+  it('sender indsatsen VIDERE som den er — reglen bor ét sted', async () => {
+    // Klienten må ikke klippe, runde eller validere: så ville der være to
+    // steder at have loftet, og de kunne drive fra hinanden. normaliserIndsats
+    // på serveren er den ene vagt.
+    mockFn.mockResolvedValue({ data: { ok: true } });
+    for (const stake of [0, 1, 8, 99, -3, 2.5]) {
+      await setChance({ gameId: 'sl', matchId: 'm1', stake });
+      expect(mockFn.mock.calls.at(-1)[0].stake).toBe(stake);
+    }
+  });
+
+  it('siger det MED ORD, når callable\'en ikke er udrullet', async () => {
+    // Uden denne gren ville spilleren se en engelsk SDK-streng, og Chancen
+    // ville se ud til at være gået i stykker uden et ord om hvorfor.
+    mockFn.mockRejectedValueOnce(Object.assign(new Error('not found'), { code: 'functions/not-found' }));
+    const res = await setChance({ gameId: 'sl', matchId: 'm1', stake: 4 });
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/ikke udrullet/);
+    expect(res.error).not.toMatch(/not found/i);
+  });
+
+  it('forsikrer om, at INTET gik tabt ved en netværksfejl', async () => {
+    // Det vigtigste her er ikke fejlen, men at chancen er uændret. Uden den
+    // forsikring tror spilleren, den måske ligger et sted, han ikke kan se —
+    // og opdager det først, når runden er afgjort.
+    mockFn.mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'functions/unavailable' }));
+    const res = await setChance({ gameId: 'sl', matchId: 'm1', stake: 4 });
+    expect(res.error).toMatch(/Chancen er uændret/);
+  });
+
+  it('videresender serverens EGEN besked uændret', async () => {
+    // chanceFejl på serveren nævner kampen, chancen sidder fast på. Klienten
+    // må ikke erstatte den med sin egen, vagere formulering.
+    const besked = 'Chancen er allerede brugt i runden på Brøndby–FCK, og den kamp er i gang.';
+    mockFn.mockRejectedValueOnce(Object.assign(new Error(besked), { code: 'functions/failed-precondition' }));
+    const res = await setChance({ gameId: 'sl', matchId: 'm1', stake: 4 });
+    expect(res.error).toBe(besked);
+  });
+
+  it('kalder slet ikke serveren uden spil- eller kamp-id', async () => {
+    for (const arg of [{ matchId: 'm1', stake: 1 }, { gameId: 'sl', stake: 1 }, {}]) {
+      const res = await setChance(arg);
+      expect(res.ok).toBe(false);
+      expect(res.error).toMatch(/Mangler/);
+    }
+    expect(mockFn).not.toHaveBeenCalled();
+  });
+
+  it('har en dansk fallback, når fejlen ingen besked har', async () => {
+    mockFn.mockRejectedValueOnce({});
+    const res = await setChance({ gameId: 'sl', matchId: 'm1', stake: 4 });
+    expect(res.error).toBe('Chancen kunne ikke sættes.');
   });
 });

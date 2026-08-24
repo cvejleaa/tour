@@ -685,6 +685,24 @@ describe('FootballTip — kuponen i en splittet runde', () => {
     expect(note).toHaveTextContent(/sep/);
   });
 
+  it('siger i banneret, at Chancen følger RUNDEN — ikke kuponen', () => {
+    // Quality Controls fund: den samme falske sætning, der blev rettet i
+    // hjælpesiden, stod stadig her — og det her er værre, for banneret vises
+    // i selve tip-øjeblikket, netop når runden er splittet.
+    //
+    // Combi-kuponen skæres pr. UGE (pointOpdeling), Chancen pr. RUNDE
+    // (chanceGruppeKampe). Har man brugt sin ⚡ i weekenden, er den brugt, når
+    // rundens udsatte kamp spilles en måned senere.
+    setup({}, '/spil/sl?runde=3', splittet);
+    const note = screen.getByTestId('combi-udenfor');
+    expect(note).toHaveTextContent(/Chancen følger RUNDEN/);
+    expect(note).toHaveTextContent(/er den brugt, også her/);
+    // Og fraværs-assertionen: den gamle formulering må ikke snige sig tilbage
+    // ved en senere omskrivning.
+    expect(note.textContent).not.toMatch(/Chancen som altid/);
+    expect(note.textContent).not.toMatch(/Chancen præcis som altid/);
+  });
+
   // VISNINGSNAVNET I NOTEN. Fixturets fire hold har alle `vis` === `name`, så
   // testen ovenfor består både med og uden `visOf` — den beviser altså ikke, at
   // noten bruger det. Overriden gør forskellen målbar, og navnene er valgt, så

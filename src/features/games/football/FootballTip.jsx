@@ -64,7 +64,7 @@ export default function FootballTip({ game, me, matches }) {
   const initialRound = useMemo(() => activeRound(rounds, nowMs), [rounds, nowMs]);
 
   // Combi-kuponen: rundens kampe i SAMME UGE. En udsat kamp giver 1X2-point og
-  // Chancen som altid, men står ikke på kuponen — ellers ville bonussen vente
+  // 1X2-point som altid, men står ikke på kuponen — ellers ville bonussen vente
   // på en kamp, der spilles en måned senere.
   //
   // Regnes af det spejlede modul, ikke her. Fladen havde sin egen udgave af
@@ -431,8 +431,9 @@ export default function FootballTip({ game, me, matches }) {
             🕒 {udenforKupon.length === 1 ? 'Én kamp i runden ligger' : `${udenforKupon.length} kampe i runden ligger`}
             {' '}uden for rundens uge ({formatDateRange(udenforFra, udenforTil)}) og står derfor uden for
             kuponen: {udenforKupon.map((m) => `${visOf(hold, m.home)}–${visOf(hold, m.away)}`).join(', ')}.
-            {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point og Chancen som altid — men runde-bonussen
-            venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}.
+            {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point som altid — men runde-bonussen
+            venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}, og Chancen følger RUNDEN:
+            har du brugt din ⚡ i denne runde, er den brugt, også her.
           </p>
         )}
       </div>
