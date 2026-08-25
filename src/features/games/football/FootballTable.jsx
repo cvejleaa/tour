@@ -12,6 +12,7 @@
 import { teamsOf, teamInfo } from './teamInfo';
 import { puljeKonfig } from '../../../lib/superligaScoring';
 import ClubBadge from '../../../components/ClubBadge';
+import GameTabLink from '../GameTabLink';
 
 // Hvor mange hold der rykker ud af en liga uden slutspilsdeling. En engelsk
 // kendsgerning (PL rykker altid 3 ned) — men regnet fra bunden af tabellen,
@@ -35,7 +36,18 @@ function Row({ r, teams }) {
             color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
             aerme={info?.troejer?.hjemme?.aerme} title={r.teamName}
           />
-          <span className="sltab__name">{info?.vis || r.teamName}</span>
+          {/* Tabelrækken er den mest naturlige indgang til en holdside.
+              Kortkoden kommer fra HOLDLISTEN (info.short), ikke fra API'ets
+              teamShortName: URL'en skal matche spillets egen nøgle, og de to
+              kan afvige. Uden kortkode intet link — aldrig et link bygget af
+              et holdnavn med mellemrum. */}
+          {info?.short ? (
+            <GameTabLink fane="elo" hold={info.short} className="sltab__name">
+              {info?.vis || r.teamName}
+            </GameTabLink>
+          ) : (
+            <span className="sltab__name">{info?.vis || r.teamName}</span>
+          )}
         </span>
       </td>
       <td>{r.played}</td>

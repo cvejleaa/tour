@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { teamsOf, teamInfo } from './teamInfo';
 import { eloRows } from './eloHistory';
 import ClubBadge from '../../../components/ClubBadge';
+import GameTabLink from '../GameTabLink';
 // Delt med kampkortet, så ▲/▼ betyder det samme begge steder.
 import Delta from './EloDelta';
 
@@ -74,7 +75,22 @@ export default function EloTable({ game }) {
                           Superliga-stillingens tilsvarende fallback ER levende
                           (rækkerne kommer fra API'et, ikke fra holdlisten) og
                           er dækket i visningsnavnFlader.test.jsx. */}
-                      <span className="elo-team__name" title={row.name}>{info?.vis || row.name}</span>
+                      {/* Holdnavnet er indgangen til holdsiden. Kun når
+                          kortkoden findes: `shortOf` ville ellers falde
+                          tilbage på det fulde navn, og et link af "Brighton
+                          and Hove Albion" er ingen URL-nøgle. */}
+                      {(row.short || info?.short) ? (
+                        <GameTabLink
+                          fane="elo"
+                          hold={row.short || info.short}
+                          className="elo-team__name"
+                          title={row.name}
+                        >
+                          {info?.vis || row.name}
+                        </GameTabLink>
+                      ) : (
+                        <span className="elo-team__name" title={row.name}>{info?.vis || row.name}</span>
+                      )}
                     </span>
                   </td>
                   {cellsDesc.map((c) => (

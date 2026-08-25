@@ -34,6 +34,7 @@ import ClubBadge from '../../../components/ClubBadge';
 import { badgeFor, matchBadges } from './badges';
 import { teamsOf } from './teamInfo';
 import { colorDistance } from '../../../lib/contrastText';
+import GameTabLink from '../GameTabLink';
 
 const SLOTS = [
   { key: 'home', navn: 'Hjemme' },
@@ -155,7 +156,16 @@ export default function TroejeOversigt({ game }) {
           const doedTredje = ubrugte.has(t.name);
           return (
             <li key={t.name} className="troejer__hold">
-              <span className="troejer__navn">{t.vis || t.name}</span>
+              {/* Trøjeoversigten er det ENESTE sted i appen, hvor alle
+                  spillets hold står på række — altså det de facto hold-indeks,
+                  og den eneste vej til et holds side uden at kende dets kamp. */}
+              {t.short ? (
+                <GameTabLink fane="elo" hold={t.short} className="troejer__navn">
+                  {t.vis || t.name}
+                </GameTabLink>
+              ) : (
+                <span className="troejer__navn">{t.vis || t.name}</span>
+              )}
               <span className="troejer__saet">
               {troejer.map(({ key, navn, b }) => (
                 <span key={key} className="troejer__et">

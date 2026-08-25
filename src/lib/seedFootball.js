@@ -385,6 +385,20 @@ export function teamsVagt(plan) {
       + 'pulje-afregningen.',
     );
   }
+  // `short` er ikke længere kosmetik: den er NØGLEN i en delbar hold-URL
+  // (`?hold=BRE`). Passerede en ændring her som en almindelig linje i
+  // ændringslisten, ville hvert delt link dø tavst ved næste kosmetiske
+  // --teams-only-kørsel — modtageren får "Holdet ⟨BRE⟩ er ikke med i dette
+  // spil" uden at nogen har rørt spillet.
+  const shortRørt = (plan?.aendringer || []).filter((a) => a.felt === 'short');
+  if (shortRørt.length) {
+    const liste = shortRørt.map((a) => `${a.name} ${a.fra} → ${a.til}`).join(', ');
+    grunde.push(
+      `${shortRørt.length} hold får ændret short (${liste}). Kortkoden er nøglen i `
+      + 'delbare hold-links, og en ændring gør hvert eksisterende link dødt. '
+      + 'Skal kortkoden ændres, hører det til et fuldt seed.',
+    );
+  }
   if (plan?.forsvundne?.length) {
     grunde.push(
       `${plan.forsvundne.length} hold forsvinder (${plan.forsvundne.join(', ')}). `
