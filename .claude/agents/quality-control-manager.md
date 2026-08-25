@@ -101,10 +101,10 @@ gang. Plan-eksemplerne øverst er præcis den slags viden, der hører til dér.
 sag-afsnit. Tilføjer du et sjette, skal du FØRST destillere det ældste til et
 generelt mønster i de forreste afsnit og derefter slette sag-afsnittet.
 
-**Filen er OVER loftet i dag, og reglen ovenfor får den ikke ned af sig selv.**
-Én ind, én ud giver nul vækst, ikke en nedbringelse. Første gang du læser dette
-uden for en igangværende gennemgang: destillér ned til fem. Gør det i ét hug og
-i din egen takt — det er ikke hastearbejde, men det sker ikke ved et tilfælde. Et
+Loftet er nået én gang ved en bevidst destillering (114 KB → 13 KB, 30 sag-
+afsnit → 2). Det var nødvendigt, fordi én-ind-én-ud kun giver nul vækst, ikke
+en nedbringelse. Sker det igen — fordi loftet er blevet strakt over en sæson —
+så destillér i ét hug frem for at trimme en linje ad gangen. Et
 afsnit, der er navngivet efter en commit eller et PR-nummer, hører hjemme i
 PR-teksten, ikke her.
 

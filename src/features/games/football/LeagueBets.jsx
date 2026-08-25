@@ -11,6 +11,42 @@ import { useState } from 'react';
 import { useMatchLeagueBets } from './useMatchLeagueBets';
 import GameTabLink from '../GameTabLink';
 import { fmtDec } from '../../../lib/daNum';
+import { ensomRet } from './holdStatistik';
+
+/**
+ * Under så få tips er "kun én ramte" ikke en historie, men en mønt.
+ * Ved to tips er den ensomme ret et 50/50-udfald; ved tre begynder den at
+ * betyde noget. Tallet står her, fordi det er en DOM, ikke en detalje.
+ */
+export const ENSOM_MINIMUM = 3;
+
+/**
+ * Den ensomme ret som én sætning — eller null, hvis der ikke er nogen.
+ *
+ * Det eneste i dette panel, der ikke kan slås op andre steder, er hvad
+ * VENNERNE gjorde. Sætningen løfter den ud af tabellen, så man ser den uden
+ * at tælle navne.
+ *
+ * REGLEN, DEN SKAL HOLDE (h2h.js, Pokaler.test.jsx): et navn må kun stå her,
+ * fordi personen havde RET. Ingen procenter om navngivne andre, og grundlaget
+ * skrives som brøk. Ens eget tip tæller MED — "kun du så det komme" er hele
+ * pointen for den, der havde den.
+ *
+ * @param {Array<object>} bets   ALLE ligaens tips, også ens eget
+ * @param {string} result        kampens facit
+ * @param {string} myUid
+ * @returns {string|null}
+ */
+export function ensomRetLinje(bets, result, myUid) {
+  const { antal, ialt, ensom, ingen, ramte } = ensomRet(bets, result);
+  if (ialt < ENSOM_MINIMUM) return null;
+  if (ensom) {
+    const hvem = ramte[0]?.uid === myUid ? 'du' : (ramte[0]?.name || 'én');
+    return `Kun ${hvem} så det komme — ${antal} af ${ialt} ramte.`;
+  }
+  if (ingen) return `Ingen i ligaen så den her — 0 af ${ialt} ramte.`;
+  return null;
+}
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
 
@@ -61,6 +97,8 @@ export default function LeagueBets({ gameId, match, myUid, leagueIds }) {
   }
 
   const others = bets.filter((b) => b.uid !== myUid);
+  // Bemærk: linjen regnes af ALLE tips, ikke af `others` — se ensomRetLinje.
+  const ensomLinje = ensomRetLinje(bets, match?.result, myUid);
   const byOutcome = ['1', 'X', '2']
     .map((o) => ({ outcome: o, rows: others.filter((b) => b.pick === o) }))
     .filter((g) => g.rows.length > 0);
@@ -86,6 +124,13 @@ export default function LeagueBets({ gameId, match, myUid, leagueIds }) {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--c-muted)' }}>
               Ingen tips at vise fra dine ligaer på denne kamp.
             </p>
+          )}
+          {/* Øverst, over tabellen: den ene sætning, man kan læse højt.
+              (Den kræver stadig en udfoldning — panelet henter først dér, og
+              en hentning pr. låst kamp på siden ville koste en forespørgsel
+              hver. At gøre den synlig uden udfoldning er en egen opgave.) */}
+          {!loading && !error && ensomLinje && (
+            <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>{ensomLinje}</p>
           )}
           {!loading && !error && byOutcome.map((g) => (
             <PickGroup key={g.outcome} outcome={g.outcome} rows={g.rows} result={match?.result} />
