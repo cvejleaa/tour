@@ -470,13 +470,26 @@ export function maalforskelFordeling(matches, hold) {
  * odds-tal sammen hen over en sæson.
  *
  * `harBanker` og `harDraeber` findes, fordi de to kort skal SKJULES frem for
- * at vise "0 af 0". Det er ikke kosmetik, og tallet bag er efterprøveligt:
- * `node scripts/maal-favoritfordeling.mjs` regner favoritten af det seedede
- * kampprogram og de kalibrerede start-ratings og giver for runde 1-18 af
- * Premier League Hull City 0 favoritkampe af 18 og Arsenal 17 af 18. Kortene
- * er altså tomme HELE spillet igennem netop for de hold, folk kigger mest på.
- * En brøk med nævner nul er ikke et resultat, den er et fravær, og fladen skal
- * sige hvilket.
+ * at vise "0 af 0". En brøk med nævner nul er ikke et resultat, den er et
+ * fravær, og fladen skal sige hvilket.
+ *
+ * "FAVORIT I NUL KAMPE" ER EN TILSTAND, IKKE EN EGENSKAB — og den skelnen er
+ * rettet ind efter en fejl. Her stod før, at kortene er tomme "hele spillet
+ * igennem" for de svageste hold, med et tal fra
+ * `scripts/maal-favoritfordeling.mjs` som belæg. Tallet var rigtigt, men
+ * påstanden var forkert: `recomputeSeasonElo` opdaterer odds for FREMTIDIGE,
+ * ikke-låste kampe (`functions-platform/gameScoring.js:76-79`), så ratingen
+ * flytter sig, og kampene omprises undervejs. Scriptets del 1 er derfor en
+ * fremskrivning FRA SPILLETS BEGYNDELSE, ikke en dom over hele spillet.
+ *
+ * Del 2 af samme script måler, hvor hurtigt det kan vende: vinder Premier
+ * Leagues svageste hold hver kamp, er det selv favorit fra runde 9 — efter
+ * otte sejre i træk, med rating 1459 mod 1199 ved start.
+ *
+ * Det, der begrunder vagten, er derfor det simple: fra runde 1 har INTET hold
+ * en favoritkamp bag sig, og for de svageste varer det mange runder. Kortet
+ * skal ikke stå tomt imens — og det kommer af sig selv, når holdet har
+ * fortjent det.
  *
  * En kamp uden entydig favorit (delt laveste odds, eller odds der mangler)
  * tæller i INGEN af retningerne — den kan hverken bekræfte eller dræbe.
