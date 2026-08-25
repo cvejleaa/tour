@@ -263,3 +263,27 @@
   og `scripts/superliga-fixtures.json` (R1 24/7-2026). Ved en flade født i
   august 2026 er n=1 kamp pr. PL-hold og n≈5 pr. SL-hold NORMALTILFÆLDET, ikke
   kanten — en "tom tilstand" er så hele fladen på lanceringsdagen.
+
+## Holdsiden — koden efter plan-blokeringen (6b1cbb9, aug. 2026)
+
+- **En hjælper, der bliver lavet FORDI planen kræver den, kan stå ubrugt ved
+  siden af sin egen genopfindelse.** `teamByShort()` blev skrevet i
+  `teamInfo.js` netop for hold-URL-opslaget, men `HoldSide.jsx` genopfinder
+  samme `find`-udtryk inline i stedet for at importere den. Grep for kaldere
+  af en ny eksporteret funktion, ikke kun for dens eksistens.
+- **En testfils docstring kan love en dækning, filen ikke har.**
+  `holdIndgange.test.jsx` skriver eksplicit, at "pulje-tippet og det indbyrdes
+  opgør ... står her som fraværs-assertions" — men filen har ingen test for
+  hverken `PuljeTip` eller `Indbyrdes`. Den dispositionerede listes NEJ-linjer
+  var kun i planen, aldrig kodet. Læs testfilens EGEN påstand om, hvad den
+  dækker, og efterprøv den mod de faktiske `it`-blokke — en overclaimet
+  kommentar er lige så farlig som en overclaimet PR-tekst.
+- **Et tal, der begrunder en gate, hører til reglen "et tal uden kode er en
+  påstand" — også når det står i et kode-JSDoc, ikke kun i en PR-tekst.**
+  `favoritTal`s dokumentation citerer "Hull City er favorit i 0 af sine 18 PL-
+  kampe, Arsenal i 17 af 18" som begrundelse for at SKJULE kortet ved nævner
+  nul. Tallet forudsætter enten hele efterårets 18 runder spillet, eller er
+  regnet på fixturelisten + odds-modellen uden faktiske resultater — og der
+  findes intet script i `scripts/`, der reproducerer det. Et sådant tal skal
+  enten have et harnest, eller formuleres som eksempel/illustration, ikke som
+  en målt kendsgerning.
