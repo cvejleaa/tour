@@ -163,34 +163,49 @@
   `eloCurrent` har fortsat INGEN læser i repoet (kun skrivere) — advarsler om
   at "ikke røre eloCurrent" peger på det ufarlige felt; faren er `teams[].elo`.
 
-## Chancen — serveren ejer feltet (trin 1-3 landet, 3f086e1)
+## Nye TAL på en eksisterende flade (plan-gennemgange)
 
-Alle tre trin er nu implementeret: klienten kalder `setChance` (callable
-`setGameChance` → `chanceVagt.js:setChanceCore`), og firestore.rules afviser
-enhver direkte skrivning af `chanceStake`/`chanceSatAt`/`chanceFlytninger`
-(update via `writingChanceFields()`-diff, create via en eksplicit
-"kun 0 eller fravær"-vagt der stadig lader gamle faner tippe). PR1's fund om
-`erKampLaast`, der bunkede interrupted/abandoned/postponed under ét
-`'afbrudt'`, er allerede rettet i den kode, der landede: den låser nu på
-ETHVERT `live.status` og frigiver kun via kickoff-synkens flytning fremad.
-
-- **Samme misvisende sætning kan overleve i FLERE tekster, når kun én rettes.**
-  Denne PR rettede "de udsatte kampe giver 1X2-point og Chancen præcis som
-  altid" til at skelne kupon (uge) fra Chancen (runde) — men KUN i
-  `FootballHelp.jsx`. Den ORDRET samme, uændrede sætning står stadig direkte
-  på selve Tip-siden i `src/features/games/football/FootballTip.jsx:434`
-  ("giver 1X2-point og Chancen som altid — men runde-bonussen venter ikke")
-  og som kode-kommentar samme fil linje 67, samt i den spejlede
-  `functions-platform/pointOpdeling.js:42` / `src/lib/pointOpdeling.js:54`.
-  FootballTip.jsx:434 er potentielt VÆRRE end hjælpesiden var, fordi den
-  vises i selve tip-øjeblikket, lige der hvor en spiller kan tro et brugt ⚡
-  bliver frit igen, når rundens udsatte kamp falder uden for kuponen. Spørg
-  eksplicit ved denne slags rettelse: `grep` den PRÆCISE gamle ordlyd i hele
-  `src/` og `functions-platform/`, ikke kun den fil, planen nævnte.
-  (`docs/mail-combi-aendring.md:66` har samme sætning, men er en allerede
-  afsendt mail — historisk, ikke en aktiv løgn.)
-- **`scripts/audit-double-chance.mjs` var IKKE en glemt opdatering.**
-  `scripts/lib/doubleChance.mjs` (landet i en tidligere PR, #170) foretrækker
-  allerede `chanceSatAt` og falder kun tilbage på `updatedAt` for historiske
-  bets fra før feltet fandtes. En påstået "stadig forkert"-antagelse om dette
-  script bør efterprøves i selve filen, ikke gættes ud fra feltets alder.
+- **Fladen har som regel allerede sagt det.** Kampkortet i `FootballTip.jsx`
+  bærer tre udsagn om samme kamp: `MatchElo` (styrke), pick-knappernes point
+  (odds) og `LeagueBets` (ligaens tips, egen sammenklappelig sektion efter
+  kickoff). Optæl hvad fladen allerede siger, FØR nyt panel lægges på.
+- **`MatchElo.jsx:8-15` er husets skrevne præcedens:** Elo-forskellen må ikke
+  vises som "hvem er stærkest", fordi odds lægger `ELO.HFA = 60` oveni. Enhver
+  "favorit" skal komme af `m.odds`, aldrig af ratingforskellen.
+- **Frosne odds har en MODEL-VERSION.** `recomputeSeasonElo` genpriser kun
+  ikke-låste kampe (`gameScoring.js:80-82`); spillede beholder oddsene fra
+  modellen ved seeding, og `ELO.DRAW_BASE` gik 0,26 → 0,305 midt i en sæson.
+  Et sæson-aggregat af "hvad oddsene sagde" blander to modeller — og er
+  præcis det tal, model-ændringen blev afgjort på.
+- **Procent-reglen, som koden bærer den:** procent om DIG SELV er tilladt
+  (`TipsHistorik.jsx:119`), om NAVNGIVNE ANDRE forbudt (`h2h.js:20-23`, og
+  testen `Pokaler.test.jsx:159` "viser ALDRIG en procent"). Kollektive tal
+  skrives som brøk (`h2h.js:141`: "et opgør er 5-3"). Et tal om et HOLD er
+  uden for reglen — indtil det kan klikkes ned på navngivne spillere.
+  `Pokaler.jsx:14-18`: et tal om andre kræver, at NEDERST er en historie.
+- **Et "ligaens tal" er PR. SEER.** Aggregater over liga-kammerater giver to
+  venner i hver sin liga to forskellige tal. Skriv skalaen i labelen
+  (`Pokaler.jsx:25-31`), eller udled tallet af kampdata, så det er ens for alle.
+- **Spil-evne-matrix til enhver ny fodbold-flade** (`faneVises`,
+  `GamePage.jsx:55-61` + `scripts/games.mjs`): `tour2026` er cycling → alle
+  `football: true`-faner falder væk, og en fodbold-rute skal gate på
+  `game.type`; `vm2026` er finished/externalUrl → ingen kampe i platformen;
+  `pl2627-efteraar` har INGEN `game.standings` og er runde 1-18 af 38 — et
+  "sæson"-tal dér skal hedde "i dette spil". Kun `superliga2627` har alt.
+- **Fane-prisen kan MÅLES:** `scripts/fanebredde.mjs`. `GAME_TABS` = 9 poster
+  (`GamePage.jsx:32-52`), 3 synlige ved 375 px, 2 rækker på desktop.
+  `ScrollRaekke.jsx` HAR løst "skjult uden markering" — argumentet mod fane
+  nr. 10 er pladsen, ikke usynligheden. Citer harnessets tal.
+- **Ny rute under `/spil/:gameId` findes ikke.** `App.jsx` har kun bladet
+  `/spil/:gameId`; fanen er en query-param (`gameTabPath`). Et dybt link kan
+  laves som parameter og beholder GameLayout, fanerække og tilbage-knap — en
+  ny rute skal genskabe alt det OG `isMember`-gaten (`GamePage.jsx:107`).
+- **Et holdnavn er ikke en URL-nøgle.** `teamInfo()` matcher EKSAKT på `name`,
+  mens fladen viser `vis`. `short` er unikt pr. spil og er den rigtige nøgle.
+- **`game.eloHistory` har huller pr. konstruktion** — snapshot kun når en HEL
+  runde er spillet (`gameScoring.js:127-134`). En udsat kamp giver intet
+  punkt; en kurve, der bare forbinder punkterne, lyver om tidsaksen.
+- **En N-dokument-læsning må ikke blankes af ét afslag.** `detalje/opdeling`
+  læses pr. uid med en rules-`get()` (`firestore.rules:790-794`);
+  `useSpillerOpdeling` kan ÉT uid og gør ét `permission-denied` til hele
+  panelets fejl. En flade over 13 spillere skal tåle, at én forlod ligaen.
