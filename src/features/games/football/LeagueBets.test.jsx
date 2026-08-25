@@ -174,6 +174,25 @@ describe('LeagueBets', () => {
     expect(screen.queryByText(/så det komme/)).not.toBeInTheDocument();
   });
 
+  it('viser IKKE linjen, mens der hentes — rækkerne kan være forældede', () => {
+    // useMatchLeagueBets nulstiller ikke bets ved en ny hentning, så under en
+    // refetch i et åbent panel ville linjen blive regnet af de gamle tips,
+    // mens tabellen nedenunder korrekt er skjult. Begge dele følges ad.
+    mockHook.mockReturnValue({
+      loading: true,
+      error: '',
+      bets: [
+        { id: 'b0', uid: 'me', name: 'Mig', pick: '2' },
+        { id: 'b1', uid: 'u1', name: 'Anne', pick: '1' },
+        { id: 'b2', uid: 'u2', name: 'Bo', pick: '1' },
+      ],
+    });
+    render(<LeagueBets gameId="sl" match={{ ...MATCH, result: '2' }} myUid="me" leagueIds={['L1']} />);
+    fireEvent.click(screen.getByRole('button', { name: /se ligaens tips/i }));
+    expect(screen.queryByText(/så det komme/)).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
   it('markerer det rigtige udfald, når facit er sat', () => {
     mockHook.mockReturnValue({
       loading: false,

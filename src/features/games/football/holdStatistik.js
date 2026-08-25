@@ -35,16 +35,67 @@ function erUdfald(x) {
 }
 
 /**
- * Kronologisk nøgle for en kamp. Kickoff er sandheden, når den findes —
- * runder spilles ikke altid i rækkefølge, og en udsat kamp hører hjemme dér,
- * hvor den blev spillet, ikke hvor den var planlagt. Uden kickoff falder vi
- * tilbage på runden, så en useedet kamp ikke ender forrest.
+ * Runde → tidligste kendte kickoff i den runde, bygget af HELE kampprogrammet.
+ *
+ * Findes, fordi en kamp uden kickoff ikke kan placeres i tid af sig selv — men
+ * dens naboer i samme runde kan placere den. En bagfyldt kamp uden tidsstempel
+ * får dermed sin rundes tid og lander det rigtige sted i formen.
  */
-function tid(m) {
+function rundeTider(matches) {
+  const map = new Map();
+  for (const m of matches) {
+    const k = Number(m?.kickoff);
+    const r = Number(m?.round);
+    if (!Number.isFinite(k) || !Number.isFinite(r)) continue;
+    const kendt = map.get(r);
+    if (kendt === undefined || k < kendt) map.set(r, k);
+  }
+  return map;
+}
+
+/**
+ * Kronologisk nøgle for en kamp: `[lag, tid, runde]`.
+ *
+ * Kickoff er sandheden, når den findes — runder spilles ikke altid i
+ * rækkefølge, og en udsat kamp hører hjemme dér, hvor den blev spillet.
+ *
+ * DEN FÆLDE, DER VAR HER FØR: uden kickoff faldt nøglen tilbage på RUNDEN, og
+ * de to tal er ikke samme skala. Runde 30 er astronomisk mindre end en ægte
+ * epoch (~1,69 billioner), så en kommende kamp uden tidsstempel sorterede før
+ * alle spillede kampe. Fejlen var usynlig, fordi testene havde enten
+ * alle-med eller alle-uden kickoff — aldrig blandet.
+ *
+ * Den nærliggende rettelse — "sammenlign på kickoff, når BEGGE har det, ellers
+ * på runde" — er værre: den er IKKE transitiv. Med A(r2, k100), B(r8, intet)
+ * og C(r30, k50) giver den C<A, A<B og B<C, altså en cyklus, og `sort` må
+ * returnere hvad som helst. Derfor får hver kamp ÉN samlet nøgle:
+ *
+ *   lag 0 — kampen har en tid (egen kickoff, eller rundens tidligste)
+ *   lag 1 — ingen af delene: runden er ikke berammet endnu, så kampen ligger
+ *           i fremtiden og sorteres bagest efter rundenummer
+ */
+function noegle(m, rundeTid) {
   const k = Number(m?.kickoff);
-  if (Number.isFinite(k)) return k;
   const r = Number(m?.round);
-  return Number.isFinite(r) ? r : 0;
+  const runde = Number.isFinite(r) ? r : 0;
+  if (Number.isFinite(k)) return [0, k, runde];
+  const fraRunden = Number.isFinite(r) ? rundeTid.get(r) : undefined;
+  if (fraRunden !== undefined) return [0, fraRunden, runde];
+  return [1, runde, runde];
+}
+
+/** Sammenlign to nøgler felt for felt. Runden bryder uafgjorte tider. */
+function sammenlign(a, b) {
+  return (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]);
+}
+
+/** Sortér kampe kronologisk, ældst først. */
+function kronologisk(kampe, alle) {
+  const rundeTid = rundeTider(alle);
+  return kampe
+    .map((m) => ({ m, k: noegle(m, rundeTid) }))
+    .sort((x, y) => sammenlign(x.k, y.k))
+    .map((x) => x.m);
 }
 
 /** Spiller holdet med i kampen — og i så fald hjemme eller ude? */
@@ -64,9 +115,9 @@ function siden(m, hold) {
  */
 export function holdetsKampe(matches, hold) {
   if (!Array.isArray(matches) || !hold) return [];
-  return matches
-    .filter((m) => siden(m, hold) !== null)
-    .sort((a, b) => tid(a) - tid(b));
+  // Rundetiderne udledes af HELE programmet, ikke kun holdets egne kampe: en
+  // runde uden kickoff på holdets kamp kan sagtens have det på naboernes.
+  return kronologisk(matches.filter((m) => siden(m, hold) !== null), matches);
 }
 
 /**
@@ -138,10 +189,10 @@ export function indbyrdesHold(matches, a, b) {
   // vagt ovenfor stod her og var død kode — ingen kamp har samme hold på
   // begge sider, så den kunne fjernes med hele suiten grøn. Løsnes filteret
   // til `home === a || away === b`, bliver "samme hold to gange" rødt her.
-  const kampe = matches
-    .filter((m) => (m?.home === a && m?.away === b) || (m?.home === b && m?.away === a))
-    .sort((x, y) => tid(x) - tid(y))
-    .map((m) => ({ ...m, afgjort: erUdfald(m?.result) }));
+  const kampe = kronologisk(
+    matches.filter((m) => (m?.home === a && m?.away === b) || (m?.home === b && m?.away === a)),
+    matches,
+  ).map((m) => ({ ...m, afgjort: erUdfald(m?.result) }));
 
   let aVandt = 0;
   let bVandt = 0;

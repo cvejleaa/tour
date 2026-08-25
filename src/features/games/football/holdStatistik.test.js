@@ -32,6 +32,56 @@ describe('holdetsKampe', () => {
     expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r6', 'udsat']);
   });
 
+  // Det BLANDEDE tilfælde: nogle kampe har kickoff, andre ikke. Det var her
+  // fejlen sad — runde 30 er astronomisk mindre end en epoch, så en kommende
+  // kamp uden tidsstempel sorterede foran alt, der var spillet.
+  it('lader en KOMMENDE kamp uden kickoff ligge sidst, ikke først', () => {
+    const matches = [
+      kamp('r2', 2, 'FCK', 'BIF', { kickoff: 1_690_000_000_000, result: '1' }),
+      kamp('r8', 8, 'BIF', 'FCK', { kickoff: 1_695_000_000_000, result: '1' }),
+      kamp('r30', 30, 'FCK', 'BIF'), // ikke berammet endnu
+    ];
+    expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r2', 'r8', 'r30']);
+  });
+
+  it('placerer en bagfyldt kamp uden kickoff efter sin RUNDES tid', () => {
+    // Kampen mangler tidsstempel, men naboen i samme runde har et. Uden den
+    // udledning ville den bagfyldte kamp havne bagest og forgifte formen.
+    const matches = [
+      kamp('r1-nabo', 1, 'AGF', 'OB', { kickoff: 1_690_000_000_000, result: '1' }),
+      kamp('r1-fck', 1, 'FCK', 'BIF', { result: '1' }), // bagfyldt, uden kickoff
+      kamp('r5-fck', 5, 'FCK', 'VB', { kickoff: 1_694_000_000_000, result: '1' }),
+    ];
+    expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r1-fck', 'r5-fck']);
+  });
+
+  it('udleder rundetiden af HELE programmet, ikke kun holdets egne kampe', () => {
+    // FCK har ingen kickoff på nogen af sine kampe; runderne dateres af andre
+    // holds kampe. Ses kun holdets egne, findes der ingen tid at gå efter.
+    const matches = [
+      kamp('r9-andre', 9, 'AGF', 'OB', { kickoff: 1_698_000_000_000 }),
+      kamp('r3-andre', 3, 'VB', 'SIF', { kickoff: 1_692_000_000_000 }),
+      kamp('r9-fck', 9, 'FCK', 'BIF'),
+      kamp('r3-fck', 3, 'BIF', 'FCK'),
+    ];
+    expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r3-fck', 'r9-fck']);
+  });
+
+  it('holder rækkefølgen konsistent, uanset hvilken vej listen kommer ind', () => {
+    // En ikke-transitiv sammenligning ville give forskelligt svar på forskellig
+    // startrækkefølge. Præcis den fælde blev fravalgt — her holdes den ude.
+    const base = [
+      kamp('a', 2, 'FCK', 'BIF', { kickoff: 1_690_000_000_000 }),
+      kamp('b', 8, 'BIF', 'FCK'),
+      kamp('c', 30, 'FCK', 'AGF', { kickoff: 1_688_000_000_000 }),
+    ];
+    const frem = holdetsKampe(base, 'FCK').map((m) => m.id);
+    const bak = holdetsKampe([...base].reverse(), 'FCK').map((m) => m.id);
+    expect(frem).toEqual(bak);
+    // c ligger tidligst i TID, selv om dens rundenummer er højest.
+    expect(frem[0]).toBe('c');
+  });
+
   it('giver tom liste uden hold eller uden kampe', () => {
     expect(holdetsKampe(null, 'FCK')).toEqual([]);
     expect(holdetsKampe([kamp('a', 1, 'FCK', 'BIF')], '')).toEqual([]);
@@ -142,6 +192,19 @@ describe('indbyrdesHold', () => {
     expect(indbyrdesHold(matches, 'FCK', 'BIF').kampe.map((m) => m.id)).not.toContain('andre');
   });
 
+  it('sætter den KOMMENDE indbyrdes kamp sidst, også når de spillede har kickoff', () => {
+    // "De mødes igen i runde 30" skal stå til sidst. Med rundenummeret som
+    // tidsnøgle sorterede den forrest, foran begge spillede kampe.
+    const blandet = [
+      kamp('spillet2', 2, 'FCK', 'BIF', { kickoff: 1_690_000_000_000, result: '1' }),
+      kamp('spillet8', 8, 'BIF', 'FCK', { kickoff: 1_695_000_000_000, result: '1' }),
+      kamp('kommende', 30, 'FCK', 'BIF'),
+    ];
+    const r = indbyrdesHold(blandet, 'FCK', 'BIF');
+    expect(r.kampe.map((m) => m.id)).toEqual(['spillet2', 'spillet8', 'kommende']);
+    expect(r.kampe.map((m) => m.afgjort)).toEqual([true, true, false]);
+  });
+
   it('giver tomt for det samme hold to gange', () => {
     // Filteret kræver BEGGE hold i samme kamp. Løsnes det til
     // `home === a || away === b`, ville AGF-FCK slippe med her.
@@ -184,6 +247,16 @@ describe('oddsUdfald', () => {
     // null, ikke false: "favoritten tabte" må ikke stå på en kamp uden facit.
     expect(oddsUdfald({ odds: { 1: 1.8, X: 3.5, 2: 4.4 } }))
       .toMatchObject({ favorit: '1', ramte: null, overraskelse: null });
+  });
+
+  it('behandler et UGYLDIGT facit som intet facit', () => {
+    // Vagten `erUdfald(match?.result)` er en bevidst beslutning. Uden den ville
+    // en korrupt værdi give ramte: false — altså "favoritten tabte" — hvor
+    // svaret skal være ubesvaret.
+    const m = { odds: { 1: 1.7, X: 3.6, 2: 4.8 }, result: 'aflyst' };
+    expect(oddsUdfald(m)).toMatchObject({ favorit: '1', ramte: null, overraskelse: null });
+    expect(oddsUdfald({ odds: { 1: 1.7, X: 3.6, 2: 4.8 }, result: 1 }))
+      .toMatchObject({ ramte: null, overraskelse: null });
   });
 
   it('klarer manglende og ugyldige odds', () => {
