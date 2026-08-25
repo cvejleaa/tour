@@ -14,14 +14,24 @@ import { Link, useParams } from 'react-router-dom';
 export const DEFAULT_TAB = 'tip';
 
 /**
- * Byg stien til en fane (og evt. runde) i et spil.
+ * Byg stien til en fane i et spil.
+ *
+ * NAVNGIVNE argumenter, ikke positionelle. Signaturen var
+ * `(gameId, fane, runde, liga)`, og med et femte felt ville et hold-link se
+ * sådan ud: `gameTabPath(id, 'elo', null, null, 'BRE')`. Tre pladsholdere for
+ * at nå det fjerde felt er en fælde, der venter på at blive læst forkert.
+ *
  * @param {string} gameId
- * @param {string} [fane]  – udelad eller 'tip' for standardfanen
- * @param {number} [runde] – kun meningsfuld på tip-fanen
- * @param {string} [liga]  – forvælg én liga på Ligaer-fanen
+ * @param {object} [o]
+ * @param {string} [o.fane]  – udelad eller 'tip' for standardfanen
+ * @param {number} [o.runde] – kun meningsfuld på tip-fanen
+ * @param {string} [o.liga]  – forvælg én liga på Ligaer-fanen
+ * @param {string} [o.hold]  – KORTKODEN (`short`), ikke holdets navn: navnet
+ *   kan indeholde mellemrum ("Brighton and Hove Albion") og er ikke en
+ *   URL-nøgle. Se `teamByShort` i teamInfo.js.
  * @returns {string}
  */
-export function gameTabPath(gameId, fane, runde, liga) {
+export function gameTabPath(gameId, { fane, runde, liga, hold } = {}) {
   const base = `/spil/${gameId}`;
   const params = new URLSearchParams();
   if (fane && fane !== DEFAULT_TAB) params.set('fane', fane);
@@ -30,6 +40,7 @@ export function gameTabPath(gameId, fane, runde, liga) {
   // ikke det samme.
   if (Number(runde) > 0) params.set('runde', String(runde));
   if (liga) params.set('liga', liga);
+  if (hold) params.set('hold', hold);
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
 }
@@ -56,16 +67,18 @@ export function withTab(current, key) {
  * @param {object} o
  * @param {string} [o.fane]
  * @param {number} [o.runde]
+ * @param {string} [o.liga]
+ * @param {string} [o.hold]
  * @param {string} [o.className]
  * @param {React.ReactNode} o.children
  */
-export default function GameTabLink({ fane, runde, liga, className, children, ...rest }) {
+export default function GameTabLink({ fane, runde, liga, hold, className, children, ...rest }) {
   const { gameId } = useParams();
   // Uden spil-id (fx i en isoleret visning) er der intet at linke til —
   // vis teksten frem for et dødt link.
   if (!gameId) return <span className={className} {...rest}>{children}</span>;
   return (
-    <Link to={gameTabPath(gameId, fane, runde, liga)} className={className} {...rest}>
+    <Link to={gameTabPath(gameId, { fane, runde, liga, hold })} className={className} {...rest}>
       {children}
     </Link>
   );

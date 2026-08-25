@@ -268,3 +268,64 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     expect(container.textContent).toMatch(/ved kampstart, der gælder/);
   });
 });
+
+// Holdsiden er en NY flade, og guiden er det eneste sted, den forklares. En
+// test, der kun tjekker at afsnittet blev VIST, beviser ikke hvad der stod —
+// derfor assertes der på indholdet OG på det, der ikke må stå.
+describe('FootballHelp forklarer holdsiden', () => {
+  // Afgrænset til HOLDSIDENS kort. Uden afgrænsningen målte testen hele
+  // guiden, og "kampkort" (3 steder) og "dette spil" (4 steder) står også i
+  // andre afsnit — så mutationer af netop denne tekst overlevede, fordi
+  // ordene blev fundet et andet sted på siden.
+  const vis = () => {
+    render(
+      <MemoryRouter initialEntries={['/spil/x?fane=hjaelp']}>
+        <Routes>
+          <Route path="/spil/:gameId" element={<FootballHelp game={{ standings: [{ rank: 1 }] }} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const overskrift = screen.getByText(/Holdsiden/);
+    const kort = overskrift.closest('.card');
+    expect(kort, 'Holdsidens afsnit mangler helt i guiden').not.toBeNull();
+    return kort.textContent;
+  };
+
+  it('siger HVOR man klikker — ellers er fladen uopdagelig', () => {
+    const tekst = vis();
+    expect(tekst).toContain('Klik på et holdnavn');
+    // Alle fire indgange skal nævnes; en manglende indgang er en flade,
+    // brugeren ikke finder.
+    expect(tekst).toMatch(/Elo-tabellen/);
+    expect(tekst).toMatch(/officielle tabel/);
+    expect(tekst).toMatch(/trøjeoversigten/i);
+    expect(tekst).toMatch(/kampkort/);
+  });
+
+  it('siger at forventningen er VORES model, ikke rigtige odds', () => {
+    // Den vigtigste sætning på hele siden: uden den ville en bruger tro, at
+    // tallet måler os mod en bookmaker.
+    const tekst = vis();
+    expect(tekst).toContain('vores egen model');
+    expect(tekst).toContain('ikke rigtige');
+    expect(tekst).toMatch(/bookmakerodds/);
+  });
+
+  it('forklarer HVORFOR et kort kan mangle — ikke bare at det kan', () => {
+    const tekst = vis();
+    expect(tekst).toMatch(/aldrig været favorit/);
+    expect(tekst).toMatch(/nul i nævneren/);
+  });
+
+  it('siger DETTE SPIL og lover aldrig hele sæsonen', () => {
+    const tekst = vis();
+    // HELE sætningen, ikke bare ordene: "dette spil" står også i afsnittets
+    // første linje, så en assertion på ordene alene overlevede at forbeholdet
+    // blev vendt om til "Tallene gælder sæsonen".
+    expect(tekst).toContain('Tallene gælder dette spil — ikke hele sæsonen');
+    expect(tekst).toContain('forårets kampe ikke med');
+    // Guiden må ikke love tal for en hel sæson: Premier League-spillet er
+    // runde 1-18 af 38, og foråret bliver et andet spil.
+    expect(tekst).not.toMatch(/hele sæsonen for holdet/);
+  });
+});

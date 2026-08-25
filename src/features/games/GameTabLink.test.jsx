@@ -18,28 +18,28 @@ function iSpil(ui, url = '/spil/sl') {
 describe('gameTabPath', () => {
   it('lader standardfanen være uden parameter — URL\'en skal være ren', () => {
     expect(gameTabPath('sl')).toBe('/spil/sl');
-    expect(gameTabPath('sl', 'tip')).toBe('/spil/sl');
+    expect(gameTabPath('sl', { fane: 'tip' })).toBe('/spil/sl');
   });
 
   it('sætter fanen som parameter', () => {
-    expect(gameTabPath('sl', 'stilling')).toBe('/spil/sl?fane=stilling');
+    expect(gameTabPath('sl', { fane: 'stilling' })).toBe('/spil/sl?fane=stilling');
   });
 
   it('kan forvælge en liga på Ligaer-fanen', () => {
-    expect(gameTabPath('sl', 'ligaer', undefined, 'L1')).toBe('/spil/sl?fane=ligaer&liga=L1');
+    expect(gameTabPath('sl', { fane: 'ligaer', liga: 'L1' })).toBe('/spil/sl?fane=ligaer&liga=L1');
   });
 
   it('kan pege på en bestemt runde', () => {
-    expect(gameTabPath('sl', 'tip', 3)).toBe('/spil/sl?runde=3');
-    expect(gameTabPath('sl', 'mine', 3)).toBe('/spil/sl?fane=mine&runde=3');
+    expect(gameTabPath('sl', { fane: 'tip', runde: 3 })).toBe('/spil/sl?runde=3');
+    expect(gameTabPath('sl', { fane: 'mine', runde: 3 })).toBe('/spil/sl?fane=mine&runde=3');
   });
 
   // Runder er 1-indekserede, og læseren i FootballTip ignorerer 0 og negative
   // tal. Byggeren må derfor ikke producere dem.
   it('udelader runder, der ikke findes', () => {
-    expect(gameTabPath('sl', 'tip', 0)).toBe('/spil/sl');
-    expect(gameTabPath('sl', 'tip', -1)).toBe('/spil/sl');
-    expect(gameTabPath('sl', 'stilling', 0)).toBe('/spil/sl?fane=stilling');
+    expect(gameTabPath('sl', { fane: 'tip', runde: 0 })).toBe('/spil/sl');
+    expect(gameTabPath('sl', { fane: 'tip', runde: -1 })).toBe('/spil/sl');
+    expect(gameTabPath('sl', { fane: 'stilling', runde: 0 })).toBe('/spil/sl?fane=stilling');
   });
 });
 

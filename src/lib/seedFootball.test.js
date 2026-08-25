@@ -501,6 +501,21 @@ describe('teamsVagt', () => {
     expect(v.grunde[0]).toMatch(/levende Elo/);
   });
 
+  it('AFVISER en ændret short — den er nøglen i delbare hold-links', () => {
+    // Kortkoden var kosmetik, indtil holdsiden gjorde den til URL-nøgle
+    // (?hold=RFC). En kosmetisk --teams-only-kørsel ville ellers gøre hvert
+    // eksisterende delt link dødt, uden at nogen havde rørt spillet.
+    const v = teamsVagt(teamsPlan([{ ...rfc, short: 'RAN' }], [rfc]));
+    expect(v.ok).toBe(false);
+    expect(v.grunde).toHaveLength(1);
+    // Begge værdier skal stå der, som ved elo — en udskrift uden det gamle tal
+    // kan ikke efterprøves af den, der læser loggen.
+    expect(v.grunde[0]).toContain(rfc.short);
+    expect(v.grunde[0]).toContain('RAN');
+    expect(v.grunde[0]).toContain('Randers FC');
+    expect(v.grunde[0]).toMatch(/delbare hold-links/);
+  });
+
   it('AFVISER et hold, der forsvinder', () => {
     const v = teamsVagt(teamsPlan([rfc], [rfc, { name: 'Vejle Boldklub' }]));
     expect(v.ok).toBe(false);

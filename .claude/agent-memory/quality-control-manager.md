@@ -224,3 +224,66 @@
   mindste ligaer — acceptabelt, hvis det er en bevidst, begrundet konstant
   (som her: "2 tips er en mønt"), men nævn eksplicit at det ikke kan verificeres
   mod produktionstal, kun mod ræsonnementet.
+- **Et aggregat af ODDS-VÆRDIER er model-blandet; en FAVORIT-IDENTITET er
+  model-invariant.** Skellet er skarpt og afgør, hvad der må aggregeres.
+  Værdierne har skiftet skala midt i en sæson (`ODDS.MAX 6,0` fjernet og
+  `DRAW_BASE` 0,26 → 0,305 den 7/8-2026, commit `3cedbd3`), og
+  `recomputeSeasonElo` genpriser kun ULÅSTE kampe — spillede beholder deres
+  frosne pris. Superligaens runde 1-2 (spillet 24/7 og 1/8) bærer derfor den
+  gamle model, resten den nye. Men hvem der er FAVORIT er uændret: loftet
+  klipper kun høje odds, `MIN` kan kun binde ét udfald, og DRAW_BASE flytter
+  kun X. Tæl favoritter frit — gennemsnit aldrig odds over tid.
+- **"Markedets syn" findes ikke i dette hus.** `outcomeOdds` er FAIR odds af
+  vores egen Elo (`superligaScoring.js:367`, ingen vig — `1/odds` summerer til
+  1 og kan bruges direkte som sandsynlighed). Et gennemsnit af holdets odds er
+  derfor en omskrivning af Elo-tabellen, ikke en ekstern kilde: målt på PL's
+  180 efterårskampe med seed-Elo følger snit-sejrsodds (Arsenal 1,90 → Hull
+  City 10,02) Elo-rækkefølgen på nær to bytninger. Et "nyt" tal, der rangerer
+  som fanen ved siden af, er ikke nyt.
+- **Et "overraskelses"-tal uden fortegn måler holdets ANSEELSE, ikke dets
+  præstation.** Odds på det faldne udfald er høj både når holdet chokerer og
+  når det kollapser, og den er strukturelt høj for et svagt hold. Det
+  retningsbestemte alternativ er point over/under forventning (faktiske
+  tabelpoint minus Σ(3·p_sejr + 1·p_uafgjort)) — det har fortegn og kan
+  sammenlignes. Samme klasse som "Modigst i minus".
+- **Et felt, der bliver URL-nøgle, skal ind i den vagt, der beskytter
+  dataen.** `short` er målt unik (20 PL, 12 SL) og er den rigtige nøgle, MEN
+  `teamsVagt` (`seedFootball.js:363`) afviser kun ændret `elo`, tilføjede,
+  forsvundne og dubletter — `short` passerer som en linje i en udskrift. Bliver
+  short en delbar URL, dør hvert delt link tavst ved en kosmetisk
+  `--teams-only`-kørsel. Udvid vagten SAMTIDIG med nøglen.
+- **Et delt link overlever ikke login.** `ProtectedRoute.jsx:9` gør
+  `<Navigate to="/login" replace />` uden `from`-state, så en modtager, der
+  ikke er logget ind, mister URL'en helt. Lover en plan "delbart", er det kun
+  sandt for en allerede logget-ind bruger. (Efter Deltag bevares query'en
+  derimod — `GamePage` re-renderer på samme URL.)
+- **Spørg "hvor mange kampe er der SPILLET i dag?", ikke "hvor mange rundet
+  har spillet?"** Kampprogrammet ligger i repoet og kan tælles:
+  `scripts/premier-league-fixtures-2627.json` (nøgle `fixtures`, R1 21/8-2026)
+  og `scripts/superliga-fixtures.json` (R1 24/7-2026). Ved en flade født i
+  august 2026 er n=1 kamp pr. PL-hold og n≈5 pr. SL-hold NORMALTILFÆLDET, ikke
+  kanten — en "tom tilstand" er så hele fladen på lanceringsdagen.
+
+## Holdsiden — koden efter plan-blokeringen (6b1cbb9, aug. 2026)
+
+- **En hjælper, der bliver lavet FORDI planen kræver den, kan stå ubrugt ved
+  siden af sin egen genopfindelse.** `teamByShort()` blev skrevet i
+  `teamInfo.js` netop for hold-URL-opslaget, men `HoldSide.jsx` genopfinder
+  samme `find`-udtryk inline i stedet for at importere den. Grep for kaldere
+  af en ny eksporteret funktion, ikke kun for dens eksistens.
+- **En testfils docstring kan love en dækning, filen ikke har.**
+  `holdIndgange.test.jsx` skriver eksplicit, at "pulje-tippet og det indbyrdes
+  opgør ... står her som fraværs-assertions" — men filen har ingen test for
+  hverken `PuljeTip` eller `Indbyrdes`. Den dispositionerede listes NEJ-linjer
+  var kun i planen, aldrig kodet. Læs testfilens EGEN påstand om, hvad den
+  dækker, og efterprøv den mod de faktiske `it`-blokke — en overclaimet
+  kommentar er lige så farlig som en overclaimet PR-tekst.
+- **Et tal, der begrunder en gate, hører til reglen "et tal uden kode er en
+  påstand" — også når det står i et kode-JSDoc, ikke kun i en PR-tekst.**
+  `favoritTal`s dokumentation citerer "Hull City er favorit i 0 af sine 18 PL-
+  kampe, Arsenal i 17 af 18" som begrundelse for at SKJULE kortet ved nævner
+  nul. Tallet forudsætter enten hele efterårets 18 runder spillet, eller er
+  regnet på fixturelisten + odds-modellen uden faktiske resultater — og der
+  findes intet script i `scripts/`, der reproducerer det. Et sådant tal skal
+  enten have et harnest, eller formuleres som eksempel/illustration, ikke som
+  en målt kendsgerning.

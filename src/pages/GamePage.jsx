@@ -19,6 +19,7 @@ import FootballTip from '../features/games/football/FootballTip';
 import MyTips from '../features/games/football/MyTips';
 import PuljeTip from '../features/games/football/PuljeTip';
 import EloTable from '../features/games/football/EloTable';
+import HoldSide from '../features/games/football/HoldSide';
 import FootballTable from '../features/games/football/FootballTable';
 import FootballHelp from '../features/games/football/FootballHelp';
 import { GAME_TYPE } from '../lib/constants';
@@ -70,11 +71,22 @@ export default function GamePage() {
   // deling virker. Standard = tip (ingen parameter).
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('fane') || 'tip';
+  // Holdsiden bor bag ?hold= på Elo-fanen. Kortkoden, ikke navnet: navnet kan
+  // indeholde mellemrum ("Brighton and Hove Albion") og er ingen URL-nøgle.
+  const holdKode = searchParams.get('hold');
   // Flet ind i de eksisterende parametre — objekt-formen ville erstatte HELE
   // query-strengen og dermed tørre ?runde= af, hver gang man skiftede fane.
   // withTab fletter ind i de eksisterende parametre. Objekt-formen ville
   // erstatte HELE query-strengen og dermed tørre ?runde= af ved hvert klik.
-  const setTab = (key) => setSearchParams(withTab(searchParams, key));
+  const setTab = (key) => {
+    // `withTab` bevarer med vilje de øvrige parametre (?runde= må ikke tørres
+    // af ved et fane-klik). `hold` er den ene undtagelse: den hører til ÉN
+    // visning på ÉN fane, og bliver den hængende, viser Elo-fanen et hold,
+    // brugeren troede han havde forladt.
+    const next = withTab(searchParams, key);
+    next.delete('hold');
+    setSearchParams(next);
+  };
 
   if (loading || game === undefined) {
     return <div className="spinner" role="status" aria-label="Indlæser" />;
@@ -149,7 +161,23 @@ export default function GamePage() {
           ) : tab === 'pulje' && game.pulje && game.type === GAME_TYPE.FOOTBALL ? (
             <PuljeTip game={game} matches={matches} />
           ) : tab === 'elo' && game.type === GAME_TYPE.FOOTBALL ? (
-            <EloTable game={game} />
+            /* `?hold=XXX` viser ét holds tal i stedet for hele tabellen.
+               Ikke en egen rute: /spil/:gameId er et blad, så en rute skulle
+               selv genskabe GameLayout, fanerækken og isMember-gaten. */
+            holdKode ? (
+              <HoldSide
+                game={game}
+                matches={matches}
+                short={holdKode}
+                onLuk={() => {
+                  const next = new URLSearchParams(searchParams);
+                  next.delete('hold');
+                  setSearchParams(next, { replace: true });
+                }}
+              />
+            ) : (
+              <EloTable game={game} />
+            )
           ) : tab === 'tabel' && game.type === GAME_TYPE.FOOTBALL ? (
             <FootballTable game={game} />
           ) : game.type === GAME_TYPE.FOOTBALL ? (

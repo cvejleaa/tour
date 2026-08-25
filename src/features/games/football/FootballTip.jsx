@@ -9,6 +9,7 @@ import { useGameBets } from '../useGameBets';
 import { setBet, setChance } from '../betActions';
 import { kvitteringFor } from './chanceKvittering';
 import LeagueBets from './LeagueBets';
+import GameTabLink from '../GameTabLink';
 import MatchElo from './MatchElo';
 import { eloFormByTeam } from './eloHistory';
 import { playerBank } from '../GameLayout';
@@ -16,7 +17,7 @@ import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
-import { teamsOf, visOf } from './teamInfo';
+import { teamsOf, visOf, teamInfo } from './teamInfo';
 import { matchBadges } from './badges';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
 import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
@@ -45,6 +46,27 @@ function matchOdds(match, outcome) {
 /** Klokkeslæt uden dato — "opdateret 20.44". */
 function klokken(ms) {
   return new Date(ms).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Holdnavnet på kampkortet som indgang til holdsiden.
+ *
+ * Kortkoden slås op i HOLDLISTEN, ikke i badge-objektet: `badgeFor` udleder
+ * en kode af navnet, når holdet mangler `short`, og en udledt kode er ingen
+ * URL-nøgle. Findes den ikke, bliver navnet stående som ren tekst — et dødt
+ * link er værre end intet link.
+ *
+ * At navigere herfra er sikkert: et tip gemmes ved klikket (`setBet`), så der
+ * står ingen ugemt tilstand på kortet, man kunne miste undervejs.
+ */
+function HoldLink({ teams, name, className, children }) {
+  const short = teamInfo(teams, name)?.short;
+  if (!short) return <span className={className}>{children}</span>;
+  return (
+    <GameTabLink fane="elo" hold={short} className={className} title={name}>
+      {children}
+    </GameTabLink>
+  );
 }
 
 export default function FootballTip({ game, me, matches }) {
@@ -569,7 +591,9 @@ export default function FootballTip({ game, me, matches }) {
                     spillerne ved ikke, hvad forkortelserne betyder — "SJF" og
                     "VFF" er ikke almenviden, og de fleste tipper fra telefonen.
                     Navnet ombrydes i stedet; kortet har højde nok. */}
-                <span className="match-card__side-name">{h.navn}</span>
+                <HoldLink teams={hold} name={m.home} className="match-card__side-name">
+                  {h.navn}
+                </HoldLink>
               </div>
               {/* Stregen mellem holdene er pladsen, hvor scoren hører hjemme.
                   Uden den kunne kortet på én gang sige "Ramt +6,0" og vise en
@@ -623,7 +647,9 @@ export default function FootballTip({ game, me, matches }) {
                     spillerne ved ikke, hvad forkortelserne betyder — "SJF" og
                     "VFF" er ikke almenviden, og de fleste tipper fra telefonen.
                     Navnet ombrydes i stedet; kortet har højde nok. */}
-                <span className="match-card__side-name">{a.navn}</span>
+                <HoldLink teams={hold} name={m.away} className="match-card__side-name">
+                  {a.navn}
+                </HoldLink>
               </div>
             </div>
 

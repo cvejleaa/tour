@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   holdetsKampe, holdForm, indbyrdesHold, oddsUdfald, ensomRet,
+  hjemmeUde, maalforskelFordeling, favoritTal, pointModForventning,
+  FORDELING_MINIMUM,
 } from './holdStatistik';
+import { ELO, outcomeProbabilities } from '../../../lib/superligaScoring';
 
 /**
  * Kamp-fixture. `kickoff` er valgfri med vilje — kronologien skal kunne
@@ -401,5 +404,287 @@ describe('ensomRet', () => {
   it('melder hverken ensom eller ingen, før kampen er afgjort', () => {
     expect(ensomRet(bets, null)).toMatchObject({ antal: 0, ensom: false, ingen: false, ialt: 4 });
     expect(ensomRet(bets, 'ukendt')).toMatchObject({ ensom: false, ingen: false });
+  });
+});
+
+// Odds, hvor FAVORITTEN er entydig. Værdierne bruges kun til at pege på et
+// udfald — favoritTal tæller, den lægger aldrig odds sammen (afgørelse 3a).
+const HJEMMEFAVORIT = { 1: 1.6, X: 3.8, 2: 5.2 };
+const UDEFAVORIT = { 1: 5.2, X: 3.8, 2: 1.6 };
+const XFAVORIT = { 1: 3.9, X: 2.1, 2: 3.4 };
+
+describe('hjemmeUde', () => {
+  it('holder de to sider adskilt med V/U/T og mål', () => {
+    const matches = [
+      kamp('h1', 1, 'FCK', 'BIF', { result: '1', homeGoals: 3, awayGoals: 0 }),
+      kamp('h2', 2, 'FCK', 'AGF', { result: 'X', homeGoals: 1, awayGoals: 1 }),
+      kamp('u1', 3, 'OB', 'FCK', { result: '1', homeGoals: 2, awayGoals: 1 }),
+      kamp('u2', 4, 'VB', 'FCK', { result: '2', homeGoals: 0, awayGoals: 4 }),
+    ];
+    const r = hjemmeUde(matches, 'FCK');
+    // Hjemme: én sejr 3-0, én uafgjort 1-1 → 4 mål for, 1 imod.
+    expect(r.hjemme).toEqual({ kampe: 2, v: 1, u: 1, t: 0, maal: 4, imod: 1 });
+    // Ude: ét nederlag 1-2, én sejr 4-0 → 5 mål for, 2 imod.
+    expect(r.ude).toEqual({ kampe: 2, v: 1, u: 0, t: 1, maal: 5, imod: 2 });
+  });
+
+  it('tæller en kamp UDEN måltal i V/U/T, men ikke i målscoren', () => {
+    // En data-mangel må ikke pynte som et 0-0. Udfaldet står i result og
+    // tæller; målene gør ikke.
+    const matches = [
+      kamp('a', 1, 'FCK', 'BIF', { result: '1', homeGoals: 2, awayGoals: 0 }),
+      kamp('b', 2, 'FCK', 'AGF', { result: '1' }),
+    ];
+    const r = hjemmeUde(matches, 'FCK');
+    expect(r.hjemme.kampe).toBe(2);
+    expect(r.hjemme.v).toBe(2);
+    expect(r.hjemme.maal).toBe(2);
+    expect(r.hjemme.imod).toBe(0);
+  });
+
+  it('springer kampe uden facit over og giver begge sider samme form', () => {
+    const r = hjemmeUde([kamp('k', 1, 'FCK', 'BIF')], 'FCK');
+    expect(r.hjemme).toEqual({ kampe: 0, v: 0, u: 0, t: 0, maal: 0, imod: 0 });
+    expect(r.ude).toEqual(r.hjemme);
+    expect(hjemmeUde(null, 'FCK').ude.kampe).toBe(0);
+  });
+});
+
+describe('maalforskelFordeling', () => {
+  it('tæller kun SEJRE og grupperer på margen', () => {
+    const matches = [
+      kamp('a', 1, 'FCK', 'BIF', { result: '1', homeGoals: 1, awayGoals: 0 }),
+      kamp('b', 2, 'AGF', 'FCK', { result: '2', homeGoals: 0, awayGoals: 1 }),
+      kamp('c', 3, 'FCK', 'OB', { result: '1', homeGoals: 4, awayGoals: 1 }),
+      kamp('d', 4, 'FCK', 'VB', { result: 'X', homeGoals: 2, awayGoals: 2 }),
+      kamp('e', 5, 'FCK', 'SIF', { result: '2', homeGoals: 0, awayGoals: 2 }),
+    ];
+    const r = maalforskelFordeling(matches, 'FCK');
+    expect(r.sejre).toBe(3);
+    expect(r.fordeling).toEqual([{ forskel: 1, antal: 2 }, { forskel: 3, antal: 1 }]);
+  });
+
+  it('siger nej til grafen under gulvet — og ja præcis PÅ det', () => {
+    // Gulvet er sat på SEJRE, ikke på kampe: et hold kan have spillet ti
+    // kampe og vundet én, og så er "fordelingen" stadig ét datapunkt.
+    const sejr = (i) => kamp(`s${i}`, i, 'FCK', 'BIF', {
+      result: '1', homeGoals: 2, awayGoals: 0,
+    });
+    const under = Array.from({ length: FORDELING_MINIMUM - 1 }, (_, i) => sejr(i));
+    expect(maalforskelFordeling(under, 'FCK').nokTilGraf).toBe(false);
+    expect(maalforskelFordeling(under, 'FCK').sejre).toBe(FORDELING_MINIMUM - 1);
+
+    const paa = Array.from({ length: FORDELING_MINIMUM }, (_, i) => sejr(i));
+    expect(maalforskelFordeling(paa, 'FCK').nokTilGraf).toBe(true);
+
+    // Ti kampe, én sejr: mange kampe er IKKE nok, kun mange sejre er.
+    const tabt = Array.from({ length: 9 }, (_, i) => kamp(`t${i}`, i, 'FCK', 'OB', {
+      result: '2', homeGoals: 0, awayGoals: 1,
+    }));
+    expect(maalforskelFordeling([...tabt, sejr(99)], 'FCK').nokTilGraf).toBe(false);
+  });
+
+  it('udelader en sejr uden måltal — den har ingen margen', () => {
+    const matches = [kamp('a', 1, 'FCK', 'BIF', { result: '1' })];
+    expect(maalforskelFordeling(matches, 'FCK')).toEqual({
+      fordeling: [], sejre: 0, nokTilGraf: false,
+    });
+  });
+});
+
+describe('favoritTal', () => {
+  it('skelner mellem at holde som favorit og at dræbe en', () => {
+    const matches = [
+      // Favorit hjemme, vandt → banker holdt.
+      kamp('a', 1, 'FCK', 'BIF', { result: '1', odds: HJEMMEFAVORIT }),
+      // Favorit hjemme, tabte → banker brast.
+      kamp('b', 2, 'FCK', 'AGF', { result: '2', odds: HJEMMEFAVORIT }),
+      // Udfordrer ude, vandt → favoritdrab.
+      kamp('c', 3, 'OB', 'FCK', { result: '2', odds: HJEMMEFAVORIT }),
+      // Udfordrer ude, tabte.
+      kamp('d', 4, 'VB', 'FCK', { result: '1', odds: HJEMMEFAVORIT }),
+    ];
+    expect(favoritTal(matches, 'FCK')).toEqual({
+      favoritI: 2, favoritHoldt: 1, udfordrerI: 2, draebte: 1,
+      harBanker: true, harDraeber: true,
+    });
+  });
+
+  it('læser favoritten fra HOLDETS side, ikke fra hjemmeholdets', () => {
+    // Udehold er favorit: FCK ude er favorit, FCK hjemme er udfordrer.
+    const matches = [
+      kamp('ude', 1, 'BIF', 'FCK', { result: '2', odds: UDEFAVORIT }),
+      kamp('hjemme', 2, 'FCK', 'BIF', { result: '1', odds: UDEFAVORIT }),
+    ];
+    const r = favoritTal(matches, 'FCK');
+    expect(r.favoritI).toBe(1);
+    expect(r.favoritHoldt).toBe(1);
+    expect(r.udfordrerI).toBe(1);
+    expect(r.draebte).toBe(1);
+  });
+
+  it('melder FRAVÆR frem for 0 af 0 — Hull City-tilfældet', () => {
+    // Et hold, der aldrig er favorit, må ikke få et bankerkort med nævner
+    // nul. Fladen skal skjule kortet, ikke vise en tom brøk.
+    const matches = [
+      kamp('a', 1, 'ARS', 'HUL', { result: '1', odds: HJEMMEFAVORIT }),
+      kamp('b', 2, 'HUL', 'ARS', { result: '2', odds: UDEFAVORIT }),
+    ];
+    const r = favoritTal(matches, 'HUL');
+    expect(r.favoritI).toBe(0);
+    expect(r.harBanker).toBe(false);
+    expect(r.udfordrerI).toBe(2);
+    expect(r.harDraeber).toBe(true);
+  });
+
+  it('tæller IKKE en kamp, hvor X er favorit eller odds mangler', () => {
+    // X-favorit peger ikke på et hold, og uden odds er der ingen favorit at
+    // holde eller dræbe. Ingen af delene må tælle som et nederlag som favorit.
+    const matches = [
+      kamp('x', 1, 'FCK', 'BIF', { result: '1', odds: XFAVORIT }),
+      kamp('ingen', 2, 'FCK', 'AGF', { result: '1' }),
+      kamp('delt', 3, 'FCK', 'OB', { result: '1', odds: { 1: 2.5, X: 3.5, 2: 2.5 } }),
+    ];
+    expect(favoritTal(matches, 'FCK')).toEqual({
+      favoritI: 0, favoritHoldt: 0, udfordrerI: 0, draebte: 0,
+      harBanker: false, harDraeber: false,
+    });
+  });
+});
+
+describe('pointModForventning', () => {
+  const seed = { FCK: 1600, BIF: 1400 };
+
+  it('giver et POSITIVT tal, når holdet henter mere end ventet', () => {
+    // To sejre som det stærkeste hold hjemme. Forventningen er høj, men under
+    // 3 point pr. kamp, så forskellen skal være positiv og under 6.
+    const matches = [
+      kamp('a', 1, 'FCK', 'BIF', { result: '1' }),
+      kamp('b', 2, 'FCK', 'BIF', { result: '1' }),
+    ];
+    const r = pointModForventning(matches, 'FCK', [], seed);
+    expect(r.faktiske).toBe(6);
+    expect(r.kampe).toBe(2);
+    expect(r.forskel).toBeGreaterThan(0);
+    expect(r.forskel).toBeLessThan(6);
+    expect(r.ventede).toBeCloseTo(6 - r.forskel, 1);
+  });
+
+  it('giver et NEGATIVT tal, når favoritten fejler — fortegnet er hele pointen', () => {
+    // Forgængeren, et overraskelsesindeks bygget på odds for det faldne
+    // udfald, gav BEGGE hold en høj score for den samme kamp. Her skal det
+    // stærke hold ned og det svage op på præcis samme kamp.
+    const matches = [kamp('a', 1, 'FCK', 'BIF', { result: '2' })];
+    const staerk = pointModForventning(matches, 'FCK', [], seed);
+    const svag = pointModForventning(matches, 'BIF', [], seed);
+    expect(staerk.forskel).toBeLessThan(0);
+    expect(svag.forskel).toBeGreaterThan(0);
+    // Og de er ikke ens: samme kamp må ikke belønne begge parter.
+    expect(staerk.forskel).not.toBeCloseTo(svag.forskel, 1);
+  });
+
+  it('bruger eloHistory FØR runden, ikke seed-ratingen', () => {
+    // Historikken siger, at BIF var steget til 1700 før runde 5 — altså
+    // stærkere end FCK. Så er en FCK-sejr mere værd end forventet, og
+    // forskellen skal være STØRRE end med seed-ratingen alene.
+    const matches = [kamp('a', 5, 'FCK', 'BIF', { result: '1' })];
+    const udenHistorik = pointModForventning(matches, 'FCK', [], seed);
+    const medHistorik = pointModForventning(
+      matches, 'FCK', [{ round: 4, elo: { FCK: 1600, BIF: 1700 } }], seed,
+    );
+    expect(medHistorik.forskel).toBeGreaterThan(udenHistorik.forskel);
+  });
+
+  it('tager det SENESTE snapshot før runden, så et hul ikke rammer forkert', () => {
+    // Runde 4 er udsat og har intet snapshot. Kampen i runde 5 skal bruge
+    // runde 3's tal, ikke runde 1's — og slet ikke runde 6's.
+    const matches = [kamp('a', 5, 'FCK', 'BIF', { result: '1' })];
+    const historik = [
+      { round: 1, elo: { FCK: 1500, BIF: 1500 } },
+      { round: 3, elo: { FCK: 1600, BIF: 1700 } },
+      { round: 6, elo: { FCK: 1900, BIF: 1200 } },
+    ];
+    const faktisk = pointModForventning(matches, 'FCK', historik, seed);
+    const kunRunde3 = pointModForventning(
+      matches, 'FCK', [{ round: 3, elo: { FCK: 1600, BIF: 1700 } }], seed,
+    );
+    expect(faktisk.ventede).toBe(kunRunde3.ventede);
+    // Og IKKE runde 1's eller runde 6's tal.
+    const kunRunde1 = pointModForventning(
+      matches, 'FCK', [{ round: 1, elo: { FCK: 1500, BIF: 1500 } }], seed,
+    );
+    expect(faktisk.ventede).not.toBe(kunRunde1.ventede);
+  });
+
+  it('regner forventningen af MODELLEN, ikke af kampens frosne odds', () => {
+    // Afgørelse 3b: match.odds må aldrig røres. Her bærer kampen odds fra den
+    // gamle model (loft 6,0), og de skal ikke kunne flytte tallet.
+    const matches = [kamp('a', 1, 'FCK', 'BIF', { result: '1', odds: { 1: 6, X: 6, 2: 6 } })];
+    const med = pointModForventning(matches, 'FCK', [], seed);
+    const uden = pointModForventning(
+      [kamp('a', 1, 'FCK', 'BIF', { result: '1' })], 'FCK', [], seed,
+    );
+    expect(med).toEqual(uden);
+
+    // Og tallet skal svare til den nuværende model, regnet uafhængigt her.
+    const p = outcomeProbabilities({ eloHome: 1600, eloAway: 1400 });
+    expect(med.ventede).toBeCloseTo(Math.round(((3 * p['1']) + p.X) * 10) / 10, 5);
+  });
+
+  it('falder tilbage på START-ratingen for et hold uden seed', () => {
+    const matches = [kamp('a', 1, 'NYT', 'OGSAA_NYT', { result: '1' })];
+    const r = pointModForventning(matches, 'NYT', [], {});
+    const p = outcomeProbabilities({ eloHome: ELO.START, eloAway: ELO.START });
+    expect(r.ventede).toBeCloseTo(Math.round(((3 * p['1']) + p.X) * 10) / 10, 5);
+  });
+
+  it('bruger IKKE et snapshot for kampens EGEN runde', () => {
+    // Snapshottet for runde R skrives, EFTER runde R er spillet færdig. Brugte
+    // vi det, ville kampens eget resultat lække ind i den forventning, det
+    // skal måles imod — holdet ville se ud til at præstere præcis som ventet.
+    // Grænsen er derfor `< runde`, ikke `<=`, og forskellen er observerbar.
+    const matches = [kamp('a', 5, 'FCK', 'BIF', { result: '1' })];
+    const medEgen = pointModForventning(matches, 'FCK', [
+      { round: 3, elo: { FCK: 1600, BIF: 1700 } },
+      { round: 5, elo: { FCK: 1900, BIF: 1300 } }, // efter kampen — må ikke tælle
+    ], seed);
+    const kunFoer = pointModForventning(matches, 'FCK', [
+      { round: 3, elo: { FCK: 1600, BIF: 1700 } },
+    ], seed);
+    expect(medEgen.ventede).toBe(kunFoer.ventede);
+    // Og de to snapshots giver tydeligt forskellige forventninger, så testen
+    // måler noget: 1900 mod 1300 ville gøre sejren næsten given.
+    const somOm = pointModForventning(matches, 'FCK', [
+      { round: 4, elo: { FCK: 1900, BIF: 1300 } },
+    ], seed);
+    expect(somOm.ventede).toBeGreaterThan(kunFoer.ventede + 0.3);
+  });
+
+  it('giver ÉT point for uafgjort — ikke nul', () => {
+    // Mutationen "uafgjort giver 0 point" overlevede den første suite, fordi
+    // ingen test havde en uafgjort kamp overhovedet.
+    const matches = [kamp('a', 1, 'FCK', 'BIF', { result: 'X' })];
+    expect(pointModForventning(matches, 'FCK', [], seed).faktiske).toBe(1);
+    expect(pointModForventning(matches, 'BIF', [], seed).faktiske).toBe(1);
+  });
+
+  it('bruger UDE-sandsynligheden for et udehold', () => {
+    // Mutationen "sejrssandsynlighed altid hjemme" overlevede, fordi de
+    // tidligere fortegns-tests kun krævede positiv/negativ — og begge sider
+    // af den fejl gav samme fortegn. Her kræves den præcise værdi.
+    const matches = [kamp('a', 1, 'BIF', 'FCK', { result: '2' })];
+    const p = outcomeProbabilities({ eloHome: 1400, eloAway: 1600 });
+    const r = pointModForventning(matches, 'FCK', [], seed);
+    expect(r.ventede).toBeCloseTo(Math.round(((3 * p['2']) + p.X) * 10) / 10, 5);
+    // Og den må ikke være hjemmeholdets — de to er tydeligt forskellige her.
+    expect(r.ventede).not.toBeCloseTo(Math.round(((3 * p['1']) + p.X) * 10) / 10, 1);
+  });
+
+  it('tæller kun AFGJORTE kampe med', () => {
+    const matches = [
+      kamp('a', 1, 'FCK', 'BIF', { result: '1' }),
+      kamp('b', 2, 'FCK', 'BIF'),
+    ];
+    expect(pointModForventning(matches, 'FCK', [], seed).kampe).toBe(1);
   });
 });

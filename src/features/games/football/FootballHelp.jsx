@@ -371,6 +371,30 @@ export default function FootballHelp({ game }) {
         </p>
       </Section>
 
+      <Section emoji="🏟️" title="Holdsiden">
+        <strong>Klik på et holdnavn</strong> — i Elo-tabellen, i den officielle tabel, i
+        trøjeoversigten under <Tab fane="profil">🙂 Mit hold</Tab> eller på et kampkort — så får du
+        holdets egne tal i dette spil: form, hjemme og ude, mål, og hvor stort holdet vinder,
+        når det vinder.
+        <p style={{ margin: '0.5rem 0 0' }}>To af tallene er værd at forklare:</p>
+        <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.2rem' }}>
+          <li><strong>Mod oddsenes favorit.</strong> Hvor ofte holdet var favorit og holdt, og hvor
+            ofte det vandt som udfordrer. Favoritten er den, der havde lavest odds i kampen.
+            Har holdet aldrig været favorit, står der ingenting — en brøk med nul i nævneren er
+            ikke et resultat.</li>
+          <li><strong>Mod modellens forventning.</strong> Holdets point målt mod det, styrketallene
+            ventede. Står der <em>+4 point efter 12 kampe</em>, har holdet hentet fire point mere,
+            end modellen regnede med. Det er <strong>vores egen model</strong>, ikke rigtige
+            bookmakerodds.</li>
+        </ul>
+        <p style={{ margin: '0.5rem 0 0', color: 'var(--c-muted)' }}>
+          Tallene gælder <strong>dette spil</strong> — ikke hele sæsonen. Er spillet kun et
+          efterår, tæller forårets kampe ikke med. Og tidligt i et spil er tallene tynde: derfor
+          står der altid, hvor mange kampe de bygger på, og nogle af kortene dukker først op,
+          når der er nok at regne på.
+        </p>
+      </Section>
+
       {/* Kun spil MED pulje (samme gate som selve fanen i GamePage). En guide,
           der forklarer en fane, spillet ikke har, er en forkert regelbog. */}
       {pulje && (

@@ -58,3 +58,30 @@ export function teamInfo(teams, name) {
 export function shortOf(teams, name) {
   return teamInfo(teams, name)?.short || name;
 }
+
+/**
+ * Slå ét hold op på KORTKODEN. Modstykket til `teamInfo`, som matcher på
+ * `name`, og den opslagsvej en delbar URL har brug for.
+ *
+ * Hvorfor `short` og ikke `name`: navnet kan indeholde mellemrum ("Brighton
+ * and Hove Albion") og er ikke en URL-nøgle. Kortkoden er tre bogstaver, den
+ * er unik i begge holdlister, og den gør hold-URL'en her ens med Tours
+ * `/hold/:code`.
+ *
+ * Sammenligningen er UDEN forskel på store og små bogstaver: en delt URL
+ * overlever, at nogen skriver den af i hånden eller at en klient
+ * småbogstaverer stien.
+ *
+ * BEMÆRK: `shortOf` falder tilbage på det fulde navn, når `short` mangler.
+ * Et link må derfor ALDRIG bygges af `shortOf` — brug feltet direkte, og lad
+ * være med at lave et link for et hold uden kortkode.
+ *
+ * @param {Array<object>} teams
+ * @param {string} short
+ * @returns {object|null}
+ */
+export function teamByShort(teams, short) {
+  if (!Array.isArray(teams) || !short) return null;
+  const n = String(short).toLowerCase();
+  return teams.find((t) => typeof t?.short === 'string' && t.short.toLowerCase() === n) || null;
+}

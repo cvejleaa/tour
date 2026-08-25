@@ -20,14 +20,36 @@
  *    fremhæver kun dem, der havde RET. En optælling af hvem der rammer
  *    mindst, hører ikke hjemme i denne fil.
  *
- * 3. INGEN SÆSON-AGGREGATER AF ODDSENE. `recomputeSeasonElo` genpriser kun
- *    ikke-låste kampe, så spillede kampe bærer oddsene fra den model, der var
- *    gældende ved seedingen — og `ELO.DRAW_BASE` er ændret midt i en sæson.
- *    Et gennemsnit over en sæson ville blande to modeller og fremvise
- *    resultatet som modellens kalibrering. Alt her regnes PR. KAMP.
+ * 3. INGEN SÆSON-AGGREGATER AF DE FROSNE ODDS. `recomputeSeasonElo` genpriser
+ *    kun ikke-låste kampe, så spillede kampe bærer oddsene fra den model, der
+ *    var gældende ved seedingen — og `ELO.DRAW_BASE` gik fra 0,26 til 0,305
+ *    midt i en sæson (commit 3cedbd3, som også fjernede loftet ODDS.MAX = 6,0).
+ *    12 af Superligaens ~30 spillede kampe bærer den gamle model. Et
+ *    gennemsnit over `match.odds` ville derfor blande to modeller og fremvise
+ *    resultatet som modellens kalibrering.
+ *
+ *    DENNE AFGØRELSE ER PRÆCISERET, IKKE OPHÆVET. Forbuddet gælder VÆRDIERNE.
+ *    To ting er stadig lovlige, og forskellen er værd at kende:
+ *
+ *    a) FAVORIT-IDENTITETEN er model-invariant. Loftet klippede kun HØJE odds,
+ *       og `DRAW_BASE` flytter kun X — som aldrig kan blive laveste odds, da
+ *       det ville kræve p₁ og p₂ under 0,305, umuligt når de deler 0,695.
+ *       Hvem der var favorit, er altså det samme før og efter modelskiftet.
+ *       Derfor er `favoritTal` en OPTÆLLING og aldrig et gennemsnit.
+ *
+ *    b) Et aggregat regnet FORFRA på ÉN model er ikke et aggregat af de
+ *       frosne odds. `pointModForventning` rører aldrig `match.odds`; den
+ *       regner forventningen med den nuværende `outcomeProbabilities` og
+ *       holdets rating FØR runden. Derfor hedder tallet "modellens
+ *       forventning" på skærmen — aldrig "oddsene".
+ *
+ * 4. INTET TAL OM "MARKEDET". `outcomeOdds` er FAIR odds af vores egen Elo —
+ *    `fairOdds(p) = 1/p`, ingen vig, ingen bookmaker. Et kort om "markedets
+ *    syn" ville være usandt på skærmen og ville i praksis rangere holdene som
+ *    Elo-fanen ved siden af. Ordet bruges ikke i denne fil.
  */
 
-import { OUTCOME, OUTCOMES } from '../../../lib/superligaScoring';
+import { ELO, OUTCOME, OUTCOMES, outcomeProbabilities } from '../../../lib/superligaScoring';
 
 /** Er værdien et gyldigt 1X2-udfald? */
 function erUdfald(x) {
@@ -337,5 +359,261 @@ export function ensomRet(bets, result) {
     // "Ingen så den her" er kun en historie, hvis der VAR nogen til at tage
     // fejl. Uden tips er tavsheden ikke en pointe.
     ingen: gyldige.length > 0 && ramte.length === 0,
+  };
+}
+
+/** Holdets mål og modstanderens i én kamp — null, når måltallene mangler. */
+function maalene(m, hjemme) {
+  const egne = Number(hjemme ? m.homeGoals : m.awayGoals);
+  const andres = Number(hjemme ? m.awayGoals : m.homeGoals);
+  return Number.isFinite(egne) && Number.isFinite(andres) ? [egne, andres] : [null, null];
+}
+
+/** Udfaldet set fra holdets side. */
+function udfaldFor(m, hjemme) {
+  if (m.result === OUTCOME.DRAW) return 'U';
+  return (m.result === OUTCOME.HOME) === hjemme ? 'V' : 'T';
+}
+
+/** Tom optælling — så begge sider altid har samme form, også uden kampe. */
+function tomSide() {
+  return { kampe: 0, v: 0, u: 0, t: 0, maal: 0, imod: 0 };
+}
+
+/**
+ * Hjemme mod ude: kampe, V/U/T og mål på hver side.
+ *
+ * Rå tal, ALDRIG en rate. Efter én hjemmekamp er "100 % hjemmesejre" et tal,
+ * der ligner en statistik; "1 hjemmekamp: 1-0-0" er sandt. Fladen skriver
+ * derfor optællingen ud og udleder aldrig en procent af den.
+ *
+ * Som `holdForm` tælles mål kun med, når BEGGE måltal findes — en kamp med
+ * facit men uden måltal er en data-mangel, ikke et 0-0. Kampen tæller stadig
+ * i V/U/T, for dét afgøres af `result`.
+ *
+ * @param {Array<object>} matches
+ * @param {string} hold
+ * @returns {{hjemme:object, ude:object}}
+ */
+export function hjemmeUde(matches, hold) {
+  const ud = { hjemme: tomSide(), ude: tomSide() };
+  if (!Array.isArray(matches) || !hold) return ud;
+
+  for (const m of matches) {
+    const side = siden(m, hold);
+    if (!side || !erUdfald(m?.result)) continue;
+    const b = ud[side];
+    b.kampe += 1;
+    const u = udfaldFor(m, side === 'hjemme');
+    if (u === 'V') b.v += 1; else if (u === 'U') b.u += 1; else b.t += 1;
+    const [egne, andres] = maalene(m, side === 'hjemme');
+    // Vagten er for LÆSEREN, ikke for regnestykket: `maalene` giver null for
+    // BEGGE tal, når ét mangler, og `x += null` er allerede et nul-tillæg i
+    // JavaScript. En mutation, der fjerner den, er derfor ækvivalent og kan
+    // ikke gøres rød — efterprøvet. Den står, fordi det er obskurt at læne sig
+    // op ad, at null lægger nul til.
+    if (egne !== null) { b.maal += egne; b.imod += andres; }
+  }
+  return ud;
+}
+
+/**
+ * Under dette antal sejre er der ingen fordeling — kun en liste.
+ *
+ * En søjlegraf inviterer til at læse en FORM i tallene, og en form kan ikke
+ * findes i to søjler. Gulvet er sat på SEJRE, ikke på kampe: et hold kan have
+ * spillet ti kampe og vundet én, og så er "fordelingen af sejrsmargener" stadig
+ * ét datapunkt. Premier League-spillet gør det til normaltilstanden, ikke til
+ * en kant — hvert hold havde spillet ÉN kamp, da denne kode blev skrevet.
+ */
+export const FORDELING_MINIMUM = 5;
+
+/**
+ * Hvor stort vinder holdet, når det vinder?
+ *
+ * Kun sejre med kendte måltal tælles. `nokTilGraf` er fladens signal om, om
+ * den må tegne — den skal skrive listen ud, når svaret er nej, aldrig en graf
+ * med to søjler.
+ *
+ * @param {Array<object>} matches
+ * @param {string} hold
+ * @returns {{fordeling:Array<{forskel:number, antal:number}>, sejre:number,
+ *   nokTilGraf:boolean}}
+ */
+export function maalforskelFordeling(matches, hold) {
+  const tael = new Map();
+  let sejre = 0;
+  for (const m of (Array.isArray(matches) ? matches : [])) {
+    const side = siden(m, hold);
+    if (!side || !erUdfald(m?.result)) continue;
+    if (udfaldFor(m, side === 'hjemme') !== 'V') continue;
+    const [egne, andres] = maalene(m, side === 'hjemme');
+    if (egne === null) continue;
+    sejre += 1;
+    const d = egne - andres;
+    tael.set(d, (tael.get(d) || 0) + 1);
+  }
+  return {
+    fordeling: [...tael.entries()].sort((a, b) => a[0] - b[0])
+      .map(([forskel, antal]) => ({ forskel, antal })),
+    sejre,
+    nokTilGraf: sejre >= FORDELING_MINIMUM,
+  };
+}
+
+/**
+ * Favoritdræberen og Bankeren — OPTÆLLINGER, aldrig gennemsnit.
+ *
+ * Se afgørelse 3a i filens hoved: favorit-identiteten er den samme før og
+ * efter modelskiftet, mens odds-VÆRDIERNE ikke er det. Derfor må vi tælle,
+ * hvor ofte holdet var favorit og hvor ofte det holdt, men aldrig lægge
+ * odds-tal sammen hen over en sæson.
+ *
+ * `harBanker` og `harDraeber` findes, fordi de to kort skal SKJULES frem for
+ * at vise "0 af 0". En brøk med nævner nul er ikke et resultat, den er et
+ * fravær, og fladen skal sige hvilket.
+ *
+ * "FAVORIT I NUL KAMPE" ER EN TILSTAND, IKKE EN EGENSKAB — og den skelnen er
+ * rettet ind efter en fejl. Her stod før, at kortene er tomme "hele spillet
+ * igennem" for de svageste hold, med et tal fra
+ * `scripts/maal-favoritfordeling.mjs` som belæg. Tallet var rigtigt, men
+ * påstanden var forkert: `recomputeSeasonElo` opdaterer odds for FREMTIDIGE,
+ * ikke-låste kampe (`functions-platform/gameScoring.js:76-79`), så ratingen
+ * flytter sig, og kampene omprises undervejs. Scriptets del 1 er derfor en
+ * fremskrivning FRA SPILLETS BEGYNDELSE, ikke en dom over hele spillet.
+ *
+ * Del 2 af samme script måler, hvor hurtigt det kan vende: vinder Premier
+ * Leagues svageste hold hver kamp, er det selv favorit fra runde 9 — efter
+ * otte sejre i træk, med rating 1459 mod 1199 ved start.
+ *
+ * Det, der begrunder vagten, er derfor det simple: fra runde 1 har INTET hold
+ * en favoritkamp bag sig, og for de svageste varer det mange runder. Kortet
+ * skal ikke stå tomt imens — og det kommer af sig selv, når holdet har
+ * fortjent det.
+ *
+ * En kamp uden entydig favorit (delt laveste odds, eller odds der mangler)
+ * tæller i INGEN af retningerne — den kan hverken bekræfte eller dræbe.
+ *
+ * @param {Array<object>} matches
+ * @param {string} hold
+ * @returns {{favoritI:number, favoritHoldt:number, udfordrerI:number,
+ *   draebte:number, harBanker:boolean, harDraeber:boolean}}
+ */
+export function favoritTal(matches, hold) {
+  let favoritI = 0;
+  let favoritHoldt = 0;
+  let udfordrerI = 0;
+  let draebte = 0;
+
+  for (const m of (Array.isArray(matches) ? matches : [])) {
+    const side = siden(m, hold);
+    if (!side || !erUdfald(m?.result)) continue;
+    const { favorit } = oddsUdfald(m);
+    if (!favorit) continue;
+
+    const hjemme = side === 'hjemme';
+    // Uafgjort er favorittens udfald i X-kampe; her spørges kun om, hvem
+    // oddsene pegede på som VINDER, så en X-favorit er ingen af holdene.
+    const holdetErFavorit = favorit === (hjemme ? OUTCOME.HOME : OUTCOME.AWAY);
+    const modstanderErFavorit = favorit === (hjemme ? OUTCOME.AWAY : OUTCOME.HOME);
+    if (!holdetErFavorit && !modstanderErFavorit) continue;
+
+    const vandt = udfaldFor(m, hjemme) === 'V';
+    if (holdetErFavorit) { favoritI += 1; if (vandt) favoritHoldt += 1; }
+    else { udfordrerI += 1; if (vandt) draebte += 1; }
+  }
+
+  return {
+    favoritI,
+    favoritHoldt,
+    udfordrerI,
+    draebte,
+    harBanker: favoritI > 0,
+    harDraeber: udfordrerI > 0,
+  };
+}
+
+/**
+ * Holdets rating FØR en runde, læst af `game.eloHistory`.
+ *
+ * Snapshottet skrives kun, når en HEL runde er spillet (`gameScoring.js`), så
+ * historikken har huller — en udsat kamp efterlader sin runde udateret. Derfor
+ * tages det SENESTE snapshot før runden, ikke snapshottet for runde−1, og
+ * findes der intet, bruges holdets seed-rating.
+ *
+ * Det er en tilnærmelse, og den skal siges: er en runde sprunget over, bærer
+ * to runders kampe samme udgangsrating. Alternativet — at udelade kampene —
+ * ville gøre forventningen til en anden delmængde end de faktiske point, og
+ * så sammenlignes to forskellige sæsoner.
+ */
+function ratingFoerRunden(historik, hold, runde, seed) {
+  let fundet = null;
+  for (const h of historik) {
+    if (!(Number(h?.round) < Number(runde))) continue;
+    if (fundet === null || Number(h.round) > Number(fundet.round)) fundet = h;
+  }
+  const v = Number(fundet?.elo?.[hold]);
+  return Number.isFinite(v) ? v : seed;
+}
+
+/**
+ * Point over eller under modellens forventning.
+ *
+ *   faktiske tabelpoint − Σ(3·p_sejr + 1·p_uafgjort)
+ *
+ * DET HER ER IKKE ET AGGREGAT AF ODDSENE. `match.odds` røres aldrig. Både
+ * sandsynlighederne og ratingen kommer fra den NUVÆRENDE model, så hele
+ * spillet bæres af én model — det er hele grunden til, at tallet må findes
+ * (se afgørelse 3b i filens hoved). Teksten på skærmen siger "modellen".
+ *
+ * ET TAL MED FORTEGN, og det er pointen. Forgængeren — et
+ * "overraskelsesindeks" bygget på odds for det faldne udfald — havde intet:
+ * odds er høje både når underdoggen chokerer, og når favoritten kollapser, så
+ * SAMME kamp gav begge hold høj "overraskelse". Værre endnu rangerede det
+ * efter, hvor svagt et hold blev ANSET for at være, frem for hvordan det
+ * spillede. Dette tal kan derimod læses højt: "Brentford har 4 point mere,
+ * end modellen ventede efter 12 kampe."
+ *
+ * @param {Array<object>} matches
+ * @param {string} hold
+ * @param {Array<{round:number, elo:Record<string,number>}>} eloHistorik – game.eloHistory
+ * @param {Record<string,number>} seedElo – holdenes start-rating (teams[].elo)
+ * @returns {{faktiske:number, ventede:number, forskel:number, kampe:number}}
+ */
+export function pointModForventning(matches, hold, eloHistorik, seedElo) {
+  const historik = Array.isArray(eloHistorik) ? eloHistorik : [];
+  const seed = seedElo || {};
+  let faktiske = 0;
+  let ventede = 0;
+  let kampe = 0;
+
+  for (const m of (Array.isArray(matches) ? matches : [])) {
+    const side = siden(m, hold);
+    if (!side || !erUdfald(m?.result)) continue;
+    const hjemme = side === 'hjemme';
+    const modstander = hjemme ? m.away : m.home;
+
+    const eloHome = ratingFoerRunden(historik, m.home, m.round,
+      Number(seed[m.home]) || ELO.START);
+    const eloAway = ratingFoerRunden(historik, m.away, m.round,
+      Number(seed[m.away]) || ELO.START);
+    if (!modstander) continue;
+
+    const p = outcomeProbabilities({ eloHome, eloAway });
+    const pSejr = hjemme ? p[OUTCOME.HOME] : p[OUTCOME.AWAY];
+    ventede += (3 * pSejr) + p[OUTCOME.DRAW];
+
+    const u = udfaldFor(m, hjemme);
+    faktiske += u === 'V' ? 3 : u === 'U' ? 1 : 0;
+    kampe += 1;
+  }
+
+  return {
+    faktiske,
+    ventede: Math.round(ventede * 10) / 10,
+    forskel: Math.round((faktiske - ventede) * 10) / 10,
+    // Grundlaget skal på skærmen: "+4 point" uden "efter 12 kampe" er en
+    // påstand, og efter én kamp er det støj, der ligner en dom.
+    kampe,
   };
 }

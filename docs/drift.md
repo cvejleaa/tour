@@ -231,14 +231,21 @@ GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
 `--teams-only` skriver **kun** `teams` og `updatedAt`. Den rører hverken kampe,
 odds, Elo-historik eller resultater — og den kræver ikke `--fixtures`.
 
-**Den afviser hårdt**, hvis holdlisten ville ændre `elo`, antallet af hold,
-eller hvis et holdnavn står to gange i filen — og skriver ikke noget som helst.
+**Den afviser hårdt**, hvis holdlisten ville ændre `elo`, ændre `short`,
+antallet af hold, eller hvis et holdnavn står to gange i filen — og skriver
+ikke noget som helst.
 Afvisningen sker også i en tør-kørsel: står den tilstand, er svaret at rette
 holdlisten, ikke at prøve igen med `--skriv`. Det er ikke pedanteri: `teams[].elo` er
 seed for `recomputeSeasonElo`, så et ændret tal ville få næste facit til at
 omskrive sæsonens Elo-historik **og** prisen på hver ulåst kamp. Og
 `teams.length` afgør, om den officielle tabel godtages ved pulje-afregningen.
 Skal noget af det ændres, hører det til et fuldt seed mellem to sæsoner.
+
+`short` kom til listen, da holdsiden gjorde kortkoden til en URL-nøgle:
+`/spil/{spil}?fane=elo&hold=BIF`. Ændres den, dør hvert delt hold-link tavst —
+modtageren får "Holdet ⟨BIF⟩ er ikke med i dette spil", uden at nogen har rørt
+spillet. Det var netop en kosmetisk rettelse af en kortkode, vagten er skrevet
+for at stoppe.
 
 Tør-kørslen advarer også, hvis holdene står i en anden RÆKKEFØLGE end i
 produktionen. Ingen point flytter sig, men pulje-gitteret tegnes i array-orden,
