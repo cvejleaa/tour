@@ -209,3 +209,18 @@
   læses pr. uid med en rules-`get()` (`firestore.rules:790-794`);
   `useSpillerOpdeling` kan ÉT uid og gør ét `permission-denied` til hele
   panelets fejl. En flade over 13 spillere skal tåle, at én forlod ligaen.
+- **Et regnelag uden forbruger kan være rigtigt at lande.** `holdStatistik.js`
+  (trin 1) landede med fire eksporterede funktioner, kun én af dem kaldt
+  (`ensomRet` via `ensomRetLinje`) — resten venter til trin 3/4. Ikke en halv
+  rettelse, fordi den REVIDEREDE plan eksplicit sekventerede det sådan, og
+  commit-teksten sagde "trin 1+2" ærligt (overclaimede ikke "hold- og
+  kampstatistik" som færdig). Spørg i stedet: matcher PR-teksten det faktiske
+  omfang, og er den ubrugte del enhedstestet mod de afgørelser (B1-B4-typen),
+  senere trin skal holde?
+- **Et gulv (`ENSOM_MINIMUM`-typen) kan sjældent efterprøves mod ægte
+  ligastørrelser** — de er brugerdata, ikke i repoet. Eneste proxy fundet:
+  `docs/drift.md` "Runde-Botten poster ikke ... ligaen har under 2 medlemmer",
+  dvs. ligaer helt ned til 2 findes. Et gulv på 3 vil altså ALDRIG binde for de
+  mindste ligaer — acceptabelt, hvis det er en bevidst, begrundet konstant
+  (som her: "2 tips er en mønt"), men nævn eksplicit at det ikke kan verificeres
+  mod produktionstal, kun mod ræsonnementet.
