@@ -82,6 +82,42 @@ describe('holdetsKampe', () => {
     expect(frem[0]).toBe('c');
   });
 
+  it('placerer en AFGJORT kamp fra en udateret runde før den daterede runde', () => {
+    // Hele runde 1 er bagfyldt uden tidsstempler. Kampen er spillet, men har
+    // ingen tid at gå efter — den låner runde 5's og lander foran den, fordi
+    // rundenummeret er lavere. Uden laanet ville den sortere BAGEST, og
+    // holdForm ville vise sæsonens ældste kamp som den seneste.
+    const matches = [
+      kamp('r1', 1, 'FCK', 'BIF', { result: '1' }),
+      kamp('r5', 5, 'FCK', 'VB', { kickoff: 1_694_000_000_000, result: '2' }),
+    ];
+    expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r1', 'r5']);
+    expect(holdForm(matches, 'FCK', 1).raekke.map((r) => r.matchId)).toEqual(['r5']);
+  });
+
+  it('bruger rundens TIDLIGSTE kickoff, når runden har flere kampe', () => {
+    // Runde 4 spilles fredag-søndag. FCKs egen kamp mangler tidsstempel og
+    // låner rundens begyndelse. Vælges rundens SENESTE kickoff i stedet,
+    // rykker den forbi søndagskampen i runde 5.
+    const matches = [
+      kamp('r4-fre', 4, 'AGF', 'OB', { kickoff: 1_000 }),
+      kamp('r4-son', 4, 'VB', 'SIF', { kickoff: 9_000 }),
+      kamp('r4-fck', 4, 'FCK', 'BIF'),
+      kamp('r5-fck', 5, 'FCK', 'AGF', { kickoff: 5_000 }),
+    ];
+    expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r4-fck', 'r5-fck']);
+  });
+
+  it('lader RUNDEN skille to kampe, der deler tid', () => {
+    // kickoff 0 er en reel sentinel, ikke kun en krølle: begge kampe får
+    // nøglen [0, 0, runde], og uden rundeleddet kan de bytte plads.
+    const matches = [
+      kamp('r9', 9, 'FCK', 'AGF', { kickoff: 0, result: '1' }),
+      kamp('r2', 2, 'BIF', 'FCK', { kickoff: 0, result: '2' }),
+    ];
+    expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r2', 'r9']);
+  });
+
   it('giver tom liste uden hold eller uden kampe', () => {
     expect(holdetsKampe(null, 'FCK')).toEqual([]);
     expect(holdetsKampe([kamp('a', 1, 'FCK', 'BIF')], '')).toEqual([]);
@@ -203,6 +239,23 @@ describe('indbyrdesHold', () => {
     const r = indbyrdesHold(blandet, 'FCK', 'BIF');
     expect(r.kampe.map((m) => m.id)).toEqual(['spillet2', 'spillet8', 'kommende']);
     expect(r.kampe.map((m) => m.afgjort)).toEqual([true, true, false]);
+  });
+
+  it('daterer den indbyrdes kamp med et TREDJE holds kickoff', () => {
+    // Runde 5 blev UDSAT og spillet efter runde 8. FCK-BIF i runde 5 mangler
+    // selv et tidsstempel, men runden er dateret af AGF-OB — så kampen låner
+    // den sene tid og lander SIDST, hvilket er den sande kronologi.
+    //
+    // Udledes rundetiderne kun af parrets egne kampe, findes runde 5 slet
+    // ikke; kampen låner så runde 8's tid, og rundeleddet skubber den
+    // fejlagtigt FORAN den kamp, der faktisk blev spillet først.
+    const matches = [
+      kamp('r5-andre', 5, 'AGF', 'OB', { kickoff: 1_697_000_000_000 }),
+      kamp('r5-par', 5, 'FCK', 'BIF', { result: '1' }),
+      kamp('r8-par', 8, 'BIF', 'FCK', { kickoff: 1_694_000_000_000, result: '2' }),
+    ];
+    expect(indbyrdesHold(matches, 'FCK', 'BIF').kampe.map((m) => m.id))
+      .toEqual(['r8-par', 'r5-par']);
   });
 
   it('giver tomt for det samme hold to gange', () => {

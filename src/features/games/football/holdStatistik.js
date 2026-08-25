@@ -35,13 +35,14 @@ function erUdfald(x) {
 }
 
 /**
- * Runde → tidligste kendte kickoff i den runde, bygget af HELE kampprogrammet.
+ * De runder, der ER daterede, som `[runde, tid]` sorteret på rundenummer.
+ * `tid` er rundens TIDLIGSTE kendte kickoff: en runde spilles over flere dage,
+ * og dens begyndelse er det, der placerer den i forhold til naborunderne.
  *
- * Findes, fordi en kamp uden kickoff ikke kan placeres i tid af sig selv — men
- * dens naboer i samme runde kan placere den. En bagfyldt kamp uden tidsstempel
- * får dermed sin rundes tid og lander det rigtige sted i formen.
+ * Bygges af HELE kampprogrammet, ikke kun af de kampe, der skal sorteres — en
+ * runde uden kickoff på holdets egen kamp kan sagtens have det på naboernes.
  */
-function rundeTider(matches) {
+function daterede(matches) {
   const map = new Map();
   for (const m of matches) {
     const k = Number(m?.kickoff);
@@ -50,7 +51,7 @@ function rundeTider(matches) {
     const kendt = map.get(r);
     if (kendt === undefined || k < kendt) map.set(r, k);
   }
-  return map;
+  return [...map.entries()].sort((a, b) => a[0] - b[0]);
 }
 
 /**
@@ -68,32 +69,49 @@ function rundeTider(matches) {
  * Den nærliggende rettelse — "sammenlign på kickoff, når BEGGE har det, ellers
  * på runde" — er værre: den er IKKE transitiv. Med A(r2, k100), B(r8, intet)
  * og C(r30, k50) giver den C<A, A<B og B<C, altså en cyklus, og `sort` må
- * returnere hvad som helst. Derfor får hver kamp ÉN samlet nøgle:
+ * returnere hvad som helst. Derfor får hver kamp ÉN samlet nøgle.
  *
- *   lag 0 — kampen har en tid (egen kickoff, eller rundens tidligste)
- *   lag 1 — ingen af delene: runden er ikke berammet endnu, så kampen ligger
- *           i fremtiden og sorteres bagest efter rundenummer
+ * En udateret kamp låner tiden fra den NÆRMESTE daterede runde, og
+ * rundenummeret afgør så, om den ligger før eller efter den runde. Dermed
+ * placeres BÅDE en bagfyldt kamp fra en udateret runde 1 (før den daterede
+ * runde 5) OG en endnu ikke berammet runde 30 (efter den daterede runde 8)
+ * korrekt — uden at nogen af dem behøver et tidsstempel af sig selv.
+ *
+ * Lag 1 er kun for det tilfælde, hvor INGEN runde overhovedet er dateret; så
+ * findes der ingen tid at låne, og rundenummeret er alt, vi har.
  */
-function noegle(m, rundeTid) {
+function noegle(m, datoer) {
   const k = Number(m?.kickoff);
   const r = Number(m?.round);
   const runde = Number.isFinite(r) ? r : 0;
   if (Number.isFinite(k)) return [0, k, runde];
-  const fraRunden = Number.isFinite(r) ? rundeTid.get(r) : undefined;
-  if (fraRunden !== undefined) return [0, fraRunden, runde];
-  return [1, runde, runde];
+  if (!datoer.length) return [1, runde, runde];
+
+  // Nærmeste daterede runde målt på rundeafstand. Ved lige afstand vinder den
+  // LAVERE runde — et vilkårligt, men fast valg, så sorteringen er stabil.
+  let bedst = datoer[0];
+  for (const par of datoer) {
+    if (Math.abs(par[0] - runde) < Math.abs(bedst[0] - runde)) bedst = par;
+  }
+  return [0, bedst[1], runde];
 }
 
-/** Sammenlign to nøgler felt for felt. Runden bryder uafgjorte tider. */
+/**
+ * Sammenlign to nøgler felt for felt.
+ *
+ * Rundeleddet er ikke pynt: to kampe kan dele både lag og tid — enten fordi
+ * den ene låner den andens rundetid, eller fordi to kickoffs er ens (0 er en
+ * reel sentinel-værdi) — og så er rundenummeret det eneste, der skiller dem.
+ */
 function sammenlign(a, b) {
   return (a[0] - b[0]) || (a[1] - b[1]) || (a[2] - b[2]);
 }
 
-/** Sortér kampe kronologisk, ældst først. */
+/** Sortér kampe kronologisk, ældst først. `alle` daterer runderne. */
 function kronologisk(kampe, alle) {
-  const rundeTid = rundeTider(alle);
+  const datoer = daterede(alle);
   return kampe
-    .map((m) => ({ m, k: noegle(m, rundeTid) }))
+    .map((m) => ({ m, k: noegle(m, datoer) }))
     .sort((x, y) => sammenlign(x.k, y.k))
     .map((x) => x.m);
 }
