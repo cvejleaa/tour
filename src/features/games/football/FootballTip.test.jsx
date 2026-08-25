@@ -97,6 +97,33 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('FootballTip — Elo på kampkortene', () => {
+
+  // Kampkortets holdnavne er den fjerde indgang til holdsiden.
+  // holdIndgange.test.jsx vogter de tre andre; denne hører hjemme her, hvor
+  // kampkortets fixture og attrapper allerede står. Test Manager fandt hullet
+  // ved at gøre HoldLink til en ren <span> — hele suiten forblev grøn.
+  it('linker begge holdnavne til holdsiden med kortkoden', () => {
+    setup();
+    const hjemme = screen.getAllByRole('link', { name: /AGF/ })[0];
+    expect(hjemme).toHaveAttribute('href', '/spil/sl?fane=elo&hold=AGF');
+    const ude = screen.getAllByRole('link', { name: /K.benhavn/ })[0];
+    expect(ude).toHaveAttribute('href', '/spil/sl?fane=elo&hold=FCK');
+  });
+
+  it('lader et hold UDEN kortkode blive ren tekst på kampkortet', () => {
+    // badgeFor udleder en kode af navnet, når short mangler — en udledt kode
+    // er ingen URL-nøgle, og et dødt link er værre end intet link.
+    setup({
+      teams: [
+        { name: 'AGF', elo: 1500 },
+        { name: 'F.C. København', elo: 1600 },
+        { name: 'Brøndby IF', short: 'BIF', elo: 1560 },
+        { name: 'FC Midtjylland', short: 'FCM', elo: 1440 },
+      ],
+    });
+    expect(screen.queryByRole('link', { name: /^AGF$/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Br.ndby/ }).length).toBeGreaterThan(0);
+  });
   it('viser Elo for begge hold på hver kamp i runden', () => {
     setup();
     expect(screen.getByTitle('AGF: rating 1525')).toBeInTheDocument();

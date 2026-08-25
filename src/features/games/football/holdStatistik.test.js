@@ -638,6 +638,28 @@ describe('pointModForventning', () => {
     expect(r.ventede).toBeCloseTo(Math.round(((3 * p['1']) + p.X) * 10) / 10, 5);
   });
 
+  it('bruger IKKE et snapshot for kampens EGEN runde', () => {
+    // Snapshottet for runde R skrives, EFTER runde R er spillet færdig. Brugte
+    // vi det, ville kampens eget resultat lække ind i den forventning, det
+    // skal måles imod — holdet ville se ud til at præstere præcis som ventet.
+    // Grænsen er derfor `< runde`, ikke `<=`, og forskellen er observerbar.
+    const matches = [kamp('a', 5, 'FCK', 'BIF', { result: '1' })];
+    const medEgen = pointModForventning(matches, 'FCK', [
+      { round: 3, elo: { FCK: 1600, BIF: 1700 } },
+      { round: 5, elo: { FCK: 1900, BIF: 1300 } }, // efter kampen — må ikke tælle
+    ], seed);
+    const kunFoer = pointModForventning(matches, 'FCK', [
+      { round: 3, elo: { FCK: 1600, BIF: 1700 } },
+    ], seed);
+    expect(medEgen.ventede).toBe(kunFoer.ventede);
+    // Og de to snapshots giver tydeligt forskellige forventninger, så testen
+    // måler noget: 1900 mod 1300 ville gøre sejren næsten given.
+    const somOm = pointModForventning(matches, 'FCK', [
+      { round: 4, elo: { FCK: 1900, BIF: 1300 } },
+    ], seed);
+    expect(somOm.ventede).toBeGreaterThan(kunFoer.ventede + 0.3);
+  });
+
   it('giver ÉT point for uafgjort — ikke nul', () => {
     // Mutationen "uafgjort giver 0 point" overlevede den første suite, fordi
     // ingen test havde en uafgjort kamp overhovedet.

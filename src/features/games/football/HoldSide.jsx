@@ -12,7 +12,7 @@
  * SKJULES under deres gulv frem for at vise et tal, der ligner en statistik.
  */
 import { useMemo } from 'react';
-import { teamsOf, teamInfo, visOf } from './teamInfo';
+import { teamsOf, teamInfo, visOf, teamByShort } from './teamInfo';
 import {
   holdetsKampe, holdForm, hjemmeUde, maalforskelFordeling,
   favoritTal, pointModForventning, FORDELING_MINIMUM,
@@ -44,11 +44,7 @@ function Kort({ titel, children }) {
 
 export default function HoldSide({ game, matches, short, onLuk }) {
   const teams = teamsOf(game);
-  const hold = useMemo(
-    () => teams.find((t) => typeof t?.short === 'string'
-      && t.short.toLowerCase() === String(short || '').toLowerCase()) || null,
-    [teams, short],
-  );
+  const hold = useMemo(() => teamByShort(teams, short), [teams, short]);
 
   // Hooks SKAL stå før ethvert tidligt retur — reglen om hook-rækkefølge
   // gælder også den tomme tilstand nedenfor. Begge tåler et manglende hold.

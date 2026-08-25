@@ -470,10 +470,13 @@ export function maalforskelFordeling(matches, hold) {
  * odds-tal sammen hen over en sæson.
  *
  * `harBanker` og `harDraeber` findes, fordi de to kort skal SKJULES frem for
- * at vise "0 af 0". Det er ikke kosmetik: Hull City er favorit i 0 af sine 18
- * Premier League-kampe, og Arsenal i 17 af 18 — kortene er altså tomme netop
- * for de hold, folk kigger mest på. En brøk med nævner nul er ikke et
- * resultat, den er et fravær, og fladen skal sige hvilket.
+ * at vise "0 af 0". Det er ikke kosmetik, og tallet bag er efterprøveligt:
+ * `node scripts/maal-favoritfordeling.mjs` regner favoritten af det seedede
+ * kampprogram og de kalibrerede start-ratings og giver for runde 1-18 af
+ * Premier League Hull City 0 favoritkampe af 18 og Arsenal 17 af 18. Kortene
+ * er altså tomme HELE spillet igennem netop for de hold, folk kigger mest på.
+ * En brøk med nævner nul er ikke et resultat, den er et fravær, og fladen skal
+ * sige hvilket.
  *
  * En kamp uden entydig favorit (delt laveste odds, eller odds der mangler)
  * tæller i INGEN af retningerne — den kan hverken bekræfte eller dræbe.
