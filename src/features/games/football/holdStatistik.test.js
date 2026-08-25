@@ -95,6 +95,18 @@ describe('holdetsKampe', () => {
     expect(holdForm(matches, 'FCK', 1).raekke.map((r) => r.matchId)).toEqual(['r5']);
   });
 
+  it('låner fra den FØRSTE daterede runde over, ikke den sidste', () => {
+    // Runde 1 er bagfyldt uden tidsstempel, og der er INGEN dateret runde
+    // under den. Så må den låne opad — og det skal være runde 5, ikke
+    // runde 10. Låner den runde 10's tid, springer den forbi runde 5.
+    const matches = [
+      kamp('r1-fck', 1, 'FCK', 'BIF', { result: '1' }),
+      kamp('r5-fck', 5, 'FCK', 'AGF', { kickoff: 1_000, result: '1' }),
+      kamp('r10-fck', 10, 'FCK', 'OB', { kickoff: 9_000, result: '1' }),
+    ];
+    expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r1-fck', 'r5-fck', 'r10-fck']);
+  });
+
   it('bruger rundens TIDLIGSTE kickoff, når runden har flere kampe', () => {
     // Runde 4 spilles fredag-søndag. FCKs egen kamp mangler tidsstempel og
     // låner rundens begyndelse. Vælges rundens SENESTE kickoff i stedet,
@@ -106,6 +118,23 @@ describe('holdetsKampe', () => {
       kamp('r5-fck', 5, 'FCK', 'AGF', { kickoff: 5_000 }),
     ];
     expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r4-fck', 'r5-fck']);
+  });
+
+  it('KENDT BEGRÆNSNING: en udsat kamp uden eget kickoff bliver ved sin runde', () => {
+    // Runde 3 blev udsat og reelt spillet efter runde 5, men kampen har intet
+    // tidsstempel. Så findes der ingen sand information, og den placeres ved
+    // sin nominelle runde. Testen står her, for at beslutningen er en KENDT
+    // begrænsning og ikke en overraskelse den dag, nogen møder den — og for at
+    // den bliver rød, hvis nogen ændrer adfærden uden at ville det.
+    const matches = [
+      kamp('r1', 1, 'FCK', 'AGF', { kickoff: 1_000, result: '1' }),
+      kamp('r3-udsat', 3, 'FCK', 'OB', { result: '1' }),
+      kamp('r5', 5, 'FCK', 'VB', { kickoff: 5_000, result: '1' }),
+    ];
+    expect(holdetsKampe(matches, 'FCK').map((m) => m.id)).toEqual(['r1', 'r3-udsat', 'r5']);
+    // Får kampen sit kickoff, retter placeringen sig selv.
+    const medTid = matches.map((m) => (m.id === 'r3-udsat' ? { ...m, kickoff: 7_000 } : m));
+    expect(holdetsKampe(medTid, 'FCK').map((m) => m.id)).toEqual(['r1', 'r5', 'r3-udsat']);
   });
 
   it('lader RUNDEN skille to kampe, der deler tid', () => {

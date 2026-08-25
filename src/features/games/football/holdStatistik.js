@@ -71,29 +71,69 @@ function daterede(matches) {
  * og C(r30, k50) giver den C<A, A<B og B<C, altså en cyklus, og `sort` må
  * returnere hvad som helst. Derfor får hver kamp ÉN samlet nøgle.
  *
- * En udateret kamp låner tiden fra den NÆRMESTE daterede runde, og
- * rundenummeret afgør så, om den ligger før eller efter den runde. Dermed
- * placeres BÅDE en bagfyldt kamp fra en udateret runde 1 (før den daterede
- * runde 5) OG en endnu ikke berammet runde 30 (efter den daterede runde 8)
- * korrekt — uden at nogen af dem behøver et tidsstempel af sig selv.
+ * En udateret kamp låner tiden fra sin nærmeste daterede runde, og
+ * rundeleddet afgør resten. Dermed placeres BÅDE en bagfyldt kamp fra en
+ * udateret runde 1 (før den daterede runde 5) OG en endnu ikke berammet
+ * runde 30 (efter den daterede runde 8) korrekt — uden eget tidsstempel.
  *
- * Lag 1 er kun for det tilfælde, hvor INGEN runde overhovedet er dateret; så
- * findes der ingen tid at låne, og rundenummeret er alt, vi har.
+ * KENDT BEGRÆNSNING, som ingen regel kan løse: er en kamp UDSAT og mangler
+ * sit eget kickoff, placeres den efter sin NOMINELLE runde, ikke der hvor den
+ * blev spillet. En udsat runde 3, der reelt blev afviklet efter runde 5,
+ * lander altså mellem runde 2 og 4. Det er præcis den kamptype, kickoff-
+ * over-runde-reglen ellers findes for — men uden tidsstempel er der ingen sand
+ * information at gå efter. Får kampen sit kickoff (kickoff-synken skriver
+ * det), retter placeringen sig selv.
  */
 function noegle(m, datoer) {
   const k = Number(m?.kickoff);
   const r = Number(m?.round);
   const runde = Number.isFinite(r) ? r : 0;
   if (Number.isFinite(k)) return [0, k, runde];
+
+  // Ingen runde er dateret: så har INGEN kamp i programmet et kickoff, og der
+  // findes ingen epoch-værdier at blive sammenlignet skævt med. Rundenummeret
+  // er alt, vi har, og det er dermed sikkert at bruge. Lagret bliver konstant
+  // for hele gruppen, så det kan ikke i sig selv ændre nogen rækkefølge — det
+  // står som kontrakt, ikke som en gren en test kan skelne.
+  // (Forudsætter at `kampe ⊆ alle`, hvilket begge kaldere opfylder.)
   if (!datoer.length) return [1, runde, runde];
 
-  // Nærmeste daterede runde målt på rundeafstand. Ved lige afstand vinder den
-  // LAVERE runde — et vilkårligt, men fast valg, så sorteringen er stabil.
-  let bedst = datoer[0];
+  // Den seneste daterede runde til og med denne — ellers den første over.
+  // `datoer` er sorteret på rundenummer, så det er ét gennemløb.
+  //
+  // HVAD DEN LÅNTE TID EGENTLIG GØR — værd at vide, før nogen bruger tid på at
+  // finpudse den: RUNDELEDDET i nøglen udfører næsten hele sorteringen, fordi
+  // to kampe i samme runde deler tid og skilles af runden. Den lånte tid
+  // betyder kun noget, når den skal placere kampen mod en kamp i en ANDEN
+  // runde, hvis eget kickoff ligger ude af trit med rundeordenen — altså ved
+  // en udsat kamp. Og dér findes der ingen sand rækkefølge at ramme.
+  //
+  // Derfor overlever præcis to mutationer af dette valg med grøn suite, og de
+  // er EFTERPRØVET uobserverbare, ikke bare utestede:
+  //   - `par[0] < runde` i stedet for `<=` — at låne fra en LAVERE runde giver
+  //     altid en tid, der er ældre eller lig, og rundeleddet genopretter så
+  //     rækkefølgen. Ét hold spiller én kamp pr. runde, så der er aldrig to af
+  //     dets kampe i samme runde til at afsløre forskellen.
+  //   - at ignorere kampens eget kickoff til fordel for rundens tidligste —
+  //     forskellen kræver, at holdets kamp ikke er rundens første OG at det
+  //     ændrer rækkefølgen mod en anden runde, hvilket igen kræver en udsat
+  //     kamp.
+  // Begge er ækvivalente på ethvert kampprogram, hvor runderne spilles i
+  // rækkefølge. `break`-et nedenfor er derimod IKKE uobserverbart — uden det
+  // bliver `over` den sidste daterede runde i stedet for den første over
+  // denne, og en bagfyldt kamp før alle daterede runder havner forkert.
+  //
+  // Her stod et stykke tid en LINEÆR INTERPOLATION mellem naborunderne. Den
+  // blev skåret væk igen, fordi dens distinkte opførsel udelukkende lå i den
+  // zone, hvor intet svar er rigtigt. Maskineri, der kun kan skelnes på data
+  // uden facit, kan ikke efterprøves — og så er det ikke en forbedring.
+  let under = null;
+  let over = null;
   for (const par of datoer) {
-    if (Math.abs(par[0] - runde) < Math.abs(bedst[0] - runde)) bedst = par;
+    if (par[0] <= runde) under = par;
+    else { over = par; break; }
   }
-  return [0, bedst[1], runde];
+  return [0, (under || over)[1], runde];
 }
 
 /**
