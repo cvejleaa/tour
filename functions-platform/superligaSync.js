@@ -745,6 +745,87 @@ async function runScheduledSyncAll(db, FieldValue, nowMs, opts = {}) {
   return ud;
 }
 
+/**
+ * Højst så mange xG-kald pr. sweep-kørsel.
+ *
+ * xG koster ÉT kald pr. kamp hos begge kilder. Uden et loft ville den første
+ * kørsel efter udrulningen forsøge ~132 kald for Superligaen alene og ramme
+ * sweep'ets timeout — og så ville INGEN blive skrevet, hver gang. Med loftet
+ * tager bagfyldningen nogle kørsler og bliver færdig af sig selv.
+ *
+ * 30 er valgt så en fuld sæsons efterslæb er hentet på under et døgn
+ * (12 kørsler i døgnet), mens en normal runde på 6-10 kampe altid nås i den
+ * første kørsel efter runden.
+ */
+const XG_LOFT = 30;
+
+/**
+ * Hent og skriv xG for FÆRDIGE kampe, der mangler det.
+ *
+ * KØRES KUN FRA SWEEP'ET. Se kontrakten i syncProviders.js: xG i minut-synken
+ * ville være ~132 ekstra kald i minuttet og kunne tavst standse facit-synken,
+ * fordi hentFaerdige kaster ved timeout og fejlen sluges.
+ *
+ * Funktionen er også BAGFYLDNINGEN. Der findes ikke et separat script: de
+ * kampe, der allerede er spillet, mangler xG på præcis samme måde som en kamp
+ * fra i aftes, og sweep'et kan ikke se forskel. Derfor henter den sig selv
+ * ned mod nul, uden en tør-kørsel og uden en engangsskrivning i
+ * produktionsdata. recomputeGameMatch returnerer tidligt, når `result` er
+ * uændret, så en xG-skrivning på en afgjort kamp udløser hverken point, Elo
+ * eller Runde-Bot.
+ *
+ * @returns {Promise<{manglede:number, hentet:number, skrevet:number}>}
+ *   `manglede` er tallet FØR kørslen — det er dét, driftlog-kortet viser, og
+ *   det skal gå mod 0.
+ */
+async function syncXgCore(db, FieldValue, opts = {}) {
+  const gameId = opts.gameId || GAME_ID;
+  const fetchFn = opts.fetchFn || fetch;
+  const provider = opts.provider;
+  // En kilde uden hentXg er ikke en fejl — den har bare ikke evnen.
+  if (!provider || typeof provider.hentXg !== 'function') {
+    return { manglede: 0, hentet: 0, skrevet: 0 };
+  }
+  const alle = opts.only || await allMatches(db, opts);
+
+  // Kun kampe der ER afgjort og mangler tallet. `xgHome` er nok som prøve:
+  // de to felter skrives altid sammen, aldrig det ene alene.
+  const mangler = alle.filter((m) => m.data?.result && !Number.isFinite(Number(m.data?.xgHome)));
+  if (!mangler.length) return { manglede: 0, hentet: 0, skrevet: 0 };
+
+  const iAlt = mangler.length;
+  const valgte = mangler.slice(0, XG_LOFT);
+  // resolveDocs oversætter kildens nøgler til vores dokument-id'er. Vi skal
+  // den anden vej, så mappet vendes — kun for de valgte, så en stor base
+  // ikke bygger et map over hele sæsonen.
+  const docIds = valgte.map((m) => m.id);
+  // hentXg tager VORES id'er og giver KILDENS nøgler tilbage; resolveDocs
+  // oversætter dem så den modsatte vej. Kernen kender dermed ikke id-formen
+  // hos nogen af kilderne — se kontrakten i syncProviders.js.
+  const rows = await provider.hentXg(opts.sync, fetchFn, docIds);
+  const tilbage = provider.resolveDocs(rows.map((r) => r.sourceKey), docIds);
+
+  const batch = db.batch();
+  const matchesCol = db.collection('games').doc(gameId).collection('matches');
+  let skrevet = 0;
+  for (const r of rows) {
+    const id = tilbage.get(r.sourceKey);
+    if (!id) continue;
+    // UDELAD frem for at sætte undefined: der er ingen
+    // ignoreUndefinedProperties i dette projekt, og et undefined i en batch
+    // KASTER og river hele skrivningen med.
+    if (!Number.isFinite(r.xgHome) || !Number.isFinite(r.xgAway)) continue;
+    batch.set(matchesCol.doc(id), {
+      xgHome: r.xgHome,
+      xgAway: r.xgAway,
+      xgSyncedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    skrevet += 1;
+  }
+  if (skrevet) await batch.commit();
+  return { manglede: iAlt, hentet: rows.length, skrevet };
+}
+
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
@@ -752,4 +833,5 @@ module.exports = {
   liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, runScheduledSyncAll,
   syncKickoffsCore, strandedMatches, allMatches,
+  syncXgCore, XG_LOFT,
 };

@@ -24,6 +24,30 @@
 //   hentStandings(sync, fetchFn) → rækker i FootballTable-formen
 //       ({rank, teamName, teamShortName, points, played, won, draw, lost,
 //         gf, ga, rankType}).
+//   hentXg(sync, fetchFn, docIds) → [{ sourceKey, xgHome, xgAway }]
+//       VALGFRI. Forventede mål for FÆRDIGE kampe. Modsat de øvrige metoder
+//       tager den en LISTE af nøgler ind, og det er ikke pynt: xG ligger hos
+//       BEGGE kilder på et eget endpoint med ÉT kald PR. KAMP — det står
+//       ikke i de lister, hentFaerdige allerede henter.
+//
+//       DERFOR KALDES DEN KUN FRA SWEEP'ET, aldrig fra minut-synken.
+//       hentFaerdige returnerer hele sæsonens færdige kampe og kører hvert
+//       minut i et kampvindue; xG dér ville være ~132 ekstra kald i minuttet
+//       ved sæsonslut. Værre: hentFaerdige kaster ved timeout, og fejlen
+//       sluges i runScheduledSync — så xG kunne TAVST standse facit-synken
+//       midt på en kampaften. Sweep'et kører 12 gange i døgnet, har hele
+//       kamplisten i forvejen og er stedet, hvor et loft kan bæres.
+//
+//       Den tager VORES dokument-id'er ind og returnerer KILDENS nøgler, som
+//       resolveDocs så oversætter tilbage. Årsagen: resolveDocs går kun én vej
+//       (kilde → dokument), og oversættelsen den anden vej er provider-viden.
+//       Lagde kernen den selv, ville den skulle kende, at pulselives
+//       dokument-id er `r{runde}-{matchId}` — præcis den viden, kontrakten
+//       findes for at holde ude af kernen.
+//
+//       Kalderen sender kun id'er for kampe, der er færdige OG mangler xG, og
+//       højst XG_LOFT ad gangen. Ukendte id'er udelades af svaret, og en kamp
+//       uden brugbare tal SKAL udelades — aldrig 0 for "ved ikke".
 //   hentKickoffs(sync, fetchFn, runder) → [{ sourceKey, kickoff: ISO-UTC|null }]
 //       VALGFRI: kilder, hvis kamptider flytter sig løbende (tv-aftaler).
 //       Både PL og Superligaen har den nu. Mangler en kilde metoden, springer
@@ -157,6 +181,39 @@ const superliga = {
         homeGoals: e.score.home,
         awayGoals: e.score.away,
       }));
+  },
+
+  async hentXg(sync, fetchFn, docIds) {
+    // For denne kilde ER dokument-id'et og sourceKey det samme (begge er
+    // matchDocId), så listen kan bruges direkte. Se pulselive for modstykket.
+    const oenskede = new Set(docIds || []);
+    if (!oenskede.size) return [];
+    // Ét listekald for at oversætte vores dokument-nøgle til kildens eventId.
+    // Nøglen er matchDocId(runde, hjemme, ude) og kan ikke udledes af et tal,
+    // så opslaget er nødvendigt — modsat pulselive, hvor nøglen ER id'et.
+    const res = await fetchFn(resultsUrl(sync.seasonId), hentOpt());
+    if (!res.ok) throw new Error(`superliga API HTTP ${res.status}`);
+    const data = await res.json();
+    const ud = [];
+    for (const e of (data.events || [])) {
+      const key = matchDocId(e.round, e.homeName, e.awayName);
+      if (!oenskede.has(key)) continue;
+      const s2 = await fetchFn(
+        `${API_BASE}/opta-stats/events/${e.eventId}/teams?appName=${APP_NAME}`
+        + `&access_token=${ACCESS_TOKEN}&env=production&locale=da`,
+        hentOpt(),
+      );
+      // En enkelt kamp uden statistik må ikke vælte kørslen: den skrives
+      // simpelthen ikke, og tælleren på Drift-kortet bliver stående — så det
+      // er SYNLIGT frem for tavst.
+      if (!s2.ok) continue;
+      const xg = (await s2.json())?.expectedGoals || {};
+      const h = Number(xg.home);
+      const a = Number(xg.away);
+      if (!Number.isFinite(h) || !Number.isFinite(a)) continue;
+      ud.push({ sourceKey: key, xgHome: h, xgAway: a });
+    }
+    return ud;
   },
 
   async hentLive(sync, fetchFn) {
@@ -392,6 +449,30 @@ const pulselive = {
         homeGoals: m.homeTeam.score,
         awayGoals: m.awayTeam.score,
       }));
+  },
+
+  async hentXg(sync, fetchFn, docIds) {
+    const ud = [];
+    // Dokument-id'et er `r{runde}-{matchId}`, og kildens nøgle er halen —
+    // samme udledning som resolveDocs laver den modsatte vej. Den ligger HER
+    // og ikke i kernen, fordi id-formen er denne kildes viden alene.
+    for (const id of (docIds || [])) {
+      const i = String(id).lastIndexOf('-');
+      const key = i >= 0 ? String(id).slice(i + 1) : String(id);
+      if (!key) continue;
+      const res = await fetchFn(`${SDP_API}/v3/matches/${key}/stats`, plOpt());
+      if (!res.ok) continue; // se superligaens hentXg: én kamp vælter ikke kørslen
+      const sider = await res.json();
+      if (!Array.isArray(sider)) continue;
+      const tal = (side) => Number(
+        sider.find((x) => String(x?.side).toLowerCase() === side)?.stats?.expectedGoals,
+      );
+      const h = tal('home');
+      const a = tal('away');
+      if (!Number.isFinite(h) || !Number.isFinite(a)) continue;
+      ud.push({ sourceKey: String(key), xgHome: h, xgAway: a });
+    }
+    return ud;
   },
 
   async hentKickoffs(sync, fetchFn, runder) {

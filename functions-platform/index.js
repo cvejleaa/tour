@@ -28,7 +28,7 @@ const {
   puljeTipKomplet,
 } = require('./gameScoring');
 const {
-  syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore,
+  syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore, syncXgCore,
   tjekLivePuls,
   strandedMatches, allMatches,
 } = require('./superligaSync');
@@ -469,6 +469,38 @@ exports.syncSuperligaSweep = onSchedule(
         console.error(`Sweep ${g.gameId} fejlede (ignoreret):`, err?.message || err);
         st.fejl(`Resultat-synken fejlede: ${err?.message || err}`);
       }
+      // xG hentes HER og ikke i minut-synken. Kontrakten i syncProviders.js
+      // siger hvorfor: tallet koster ét kald pr. kamp, og hentFaerdige kaster
+      // ved timeout med en slugt fejl — xG i minut-synken kunne altså tavst
+      // standse facit-synken midt på en kampaften.
+      //
+      // Kørslen er OGSÅ bagfyldningen: en kamp fra i august mangler xG på
+      // præcis samme måde som en fra i aftes, og loftet gør efterslæbet til
+      // nogle kørsler i stedet for én timeout. Tallet `manglede` skal gå mod
+      // nul — står det stille over flere kørsler, er kilden holdt op med at
+      // levere, og DET er, hvad linjen her gør synligt.
+      try {
+        const { manglede, skrevet } = await syncXgCore(db, FieldValue, { ...opts, only: alle });
+        if (manglede === 0) {
+          console.log(`xG ${g.gameId}: alle færdige kampe har xG.`);
+          st.ok('xG: alle færdige kampe har tal.', { xgMangler: 0 });
+        } else if (skrevet > 0) {
+          console.log(`xG ${g.gameId}: ${skrevet} hentet, ${manglede - skrevet} tilbage.`);
+          st.ok(`xG: ${skrevet} hentet, ${manglede - skrevet} færdige kampe mangler endnu.`,
+            { xgMangler: manglede - skrevet });
+        } else {
+          // Kampe mangler, og INGEN blev hentet. Det er den tavse fejl, linjen
+          // findes for: kilden svarer ikke, eller den er holdt op med at give
+          // xG for netop de kampe.
+          console.warn(`xG ${g.gameId}: ${manglede} færdige kampe mangler xG, ingen hentet.`);
+          st.advarsel(`xG: ${manglede} færdige kampe mangler tal, og ingen blev hentet.`,
+            { xgMangler: manglede });
+        }
+      } catch (err) {
+        console.error(`xG-synk ${g.gameId} fejlede (ignoreret):`, err?.message || err);
+        st.fejl(`xG-synken fejlede: ${err?.message || err}`);
+      }
+
       try {
         const { rows, changed } = await syncStandingsCore(db, FieldValue, opts);
         console.log(`Stilling ${g.gameId} (sweep): ${rows} hold, ${changed ? 'opdateret' : 'uændret'}.`);
