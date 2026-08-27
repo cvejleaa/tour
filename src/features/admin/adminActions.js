@@ -707,3 +707,42 @@ export function formatTimestamp(ts) {
 export function datetimeToTimestamp(str) {
   return Timestamp.fromDate(new Date(str));
 }
+
+/**
+ * Hent alle ligaer i ét spil med medlemsnavne — og spillets deltagere.
+ *
+ * En CALLABLE og ikke en query: firestore.rules tillader kun at læse en
+ * spil-liga, hvis man selv står i memberUids, og der er ingen admin-gren
+ * (modsat top-niveau `leagues`). En klient-query ville give permission-denied
+ * for en admin, der ikke selv er medlem — eller en tom liste, hvis nogen
+ * "løste" det med et catch. Reglen er ikke åbnet; læsningen ligger på serveren.
+ */
+export async function callHentLigaMedlemmer(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'adminHentLigaMedlemmer', { timeout: 120000 });
+    const res = await fn({ gameId });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg = err?.code === 'functions/not-found'
+      ? 'Cloud Function "adminHentLigaMedlemmer" er ikke udrullet endnu.'
+      : err?.message || 'Kunne ikke hente ligaerne.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Meld en spiller ind i eller ud af en liga.
+ * @param {{gameId:string, leagueId:string, maalUid:string, medlem:boolean}} o
+ */
+export async function callSaetLigaMedlem({ gameId, leagueId, maalUid, medlem }) {
+  try {
+    const fn = httpsCallable(functions, 'adminSaetLigaMedlem', { timeout: 120000 });
+    const res = await fn({ gameId, leagueId, maalUid, medlem });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg = err?.code === 'functions/not-found'
+      ? 'Cloud Function "adminSaetLigaMedlem" er ikke udrullet endnu.'
+      : err?.message || 'Kunne ikke ændre medlemskabet.';
+    return { ok: false, error: msg };
+  }
+}

@@ -33,7 +33,10 @@ const css = readFileSync(resolve(ROD, 'src/styles/theme.css'), 'utf8');
 // Superligaen har alle 9 (pulje + tabel); PL efterår har 8 (ingen pulje).
 const SPIL_FANER = ['Tip', '📋 Mine tips', '🏆 Stilling', '🎖️ Pulje', '⚽ Tabel', '📈 Elo', '👥 Ligaer', '🙂 Mit hold', '❓ Guide'];
 // Ejerens faner på platformen (AdminPage.jsx, PLATFORM_MODE + isOwner).
-const ADMIN_FANER = ['Brugere', '🗓️ Spil-tidsplan', '🎨 Hold-farver og navne', '🔔 Påmindelser', '🤖 Runde-Botten', 'Tests', '🩺 Driftstatus', '✉️ Mail-log', '📈 Aktivitet', '📣 Send mail'];
+// LISTEN ER ET SPEJL af AdminPage.jsx og bindes af fanebredde.test.mjs. Uden
+// den paritetstest kunne en ny fane landes uden at komme med her, og harnesset
+// ville tavst måle en række, der ikke findes — et tal uden dækning.
+const ADMIN_FANER = ['Brugere', '🗓️ Spil-tidsplan', '🎨 Hold-farver og navne', '🔔 Påmindelser', '🤖 Runde-Botten', '🧑‍🤝‍🧑 Liga-medlemmer', 'Tests', '🩺 Driftstatus', '✉️ Mail-log', '📈 Aktivitet', '📣 Send mail'];
 
 const faneRaekke = (faner) => `
   <div class="tabs" role="tablist">
@@ -74,7 +77,7 @@ async function maal(page, faner, bredde, { wrap = false } = {}) {
 const browser = await chromium.launch();
 const page = await browser.newPage();
 
-console.log('— Spil-faner (Superligaen, 9 = værste spil) — scroll som i dag —');
+console.log(`— Spil-faner (Superligaen, ${SPIL_FANER.length} = værste spil) — scroll som i dag —`);
 for (const b of [320, 360, 375, 390, 414, 430]) {
   const m = await maal(page, SPIL_FANER, b);
   console.log(`  ${String(b).padStart(4)}px: ${m.synlige}/${m.ialt} faner synlige (${m.ialt - m.synlige} skjult uden markering)`);
@@ -86,7 +89,7 @@ for (const b of [720, 848, 1024]) {
   console.log(`  ${String(b).padStart(4)}px: ${m.raekker} række(r)`);
 }
 
-console.log('— Admin-faner (10, ejerens platform-sæt, målt i .tabs-målform) —');
+console.log(`— Admin-faner (${ADMIN_FANER.length}, ejerens platform-sæt, målt i .tabs-målform) —`);
 for (const b of [390, 720, 848]) {
   const scroll = await maal(page, ADMIN_FANER, b);
   const wrap = await maal(page, ADMIN_FANER, b, { wrap: true });
@@ -94,3 +97,5 @@ for (const b of [390, 720, 848]) {
 }
 
 await browser.close();
+
+export { SPIL_FANER, ADMIN_FANER };
