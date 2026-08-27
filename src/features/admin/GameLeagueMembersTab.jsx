@@ -74,7 +74,7 @@ export default function GameLeagueMembersTab() {
   return (
     <div>
       <div className="card mb-2">
-        <h3 className="card__title">👥 Liga-medlemmer</h3>
+        <h3 className="card__title">🧑‍🤝‍🧑 Liga-medlemmer</h3>
         <p style={{ color: 'var(--c-muted)', margin: '0 0 0.6rem' }}>
           Meld en spiller ind i eller ud af en privat liga. Vælg først spillet.
         </p>

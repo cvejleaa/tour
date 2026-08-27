@@ -215,6 +215,19 @@ describe('saetLigaMedlemCore', () => {
     expect(db.log.opdateringer).toHaveLength(0);
   });
 
+  it('KAN melde en AFVIST bruger ud — ellers kan grieferen ikke ryddes op', async () => {
+    // Vagten mod den bortviste stod før forgreningen og spærrede dermed også
+    // oprydningen: den bruger, man mest af alt vil melde ud, var den eneste
+    // man ikke kunne, og administratoren fik en fejl om MÅLETS status.
+    const db = dbMedDoc({
+      users: { adm: ADMIN, ude: { status: 'rejected' } },
+      ligaer: { L1: { ownerUid: 'ejer', memberUids: ['ejer', 'ude'] } },
+    });
+    expect(await kald(db, { maalUid: 'ude', medlem: false }))
+      .toEqual({ aendret: true, medlem: false });
+    expect(db.log.opdateringer[0].f.memberUids).toEqual({ __op: 'remove', v: ['ude'] });
+  });
+
   it('rører ALDRIG et andet spils liga', async () => {
     // Kryds-spil-lækage var HELT udækket, fordi attrappen ignorerede gameId.
     // To spil med hver sin liga af samme navn: et kald mod g2 må ikke kunne
@@ -325,6 +338,42 @@ describe('hentLigaMedlemmer', () => {
   it('afviser et spil, der ikke findes', async () => {
     const db = dbMedDoc({ users: { adm: ADMIN }, spilFindes: false });
     await expect(hentLigaMedlemmer(db, { uid: 'adm', gameId: 'x' })).rejects.toThrow('no-game');
+  });
+
+  it('overlever et liganavn, der IKKE er en streng', async () => {
+    // Reglerne kræver `name is string` ved OPRETTELSE, men ejer-grenen ved
+    // OPDATERING siger intet om feltet — en liga-ejer kan lovligt skrive
+    // { toString: null }. Med String() kastede kaldet, fejlen ramte ikke
+    // LEAGUE_ERR, og HELE fanen døde for spillet: også de ligaer, der ikke var
+    // forgiftet, fordi de hentes i ét svar.
+    const db = dbMedDoc({
+      users: { adm: ADMIN, a: { displayName: 'Anne' } },
+      ligaer: {
+        GIFT: { name: { toString: null }, ownerUid: 'a', memberUids: ['a'] },
+        OK: { name: 'Vennerne', ownerUid: 'a', memberUids: ['a'] },
+      },
+      spillere: ['a'],
+    });
+    const r = await hentLigaMedlemmer(db, { uid: 'adm', gameId: 'g' });
+    // Den forgiftede liga får et tomt navn — men de ANDRE overlever, og det
+    // er hele pointen: fanen må ikke kunne dræbes af én liga.
+    expect(r.ligaer.map((l) => l.navn)).toEqual(['', 'Vennerne']);
+    expect(r.ligaer).toHaveLength(2);
+  });
+
+  it('klarer også tal, arrays og objekter som liganavn', async () => {
+    const db = dbMedDoc({
+      users: { adm: ADMIN, a: { displayName: 'Anne' } },
+      ligaer: {
+        A: { name: 42, ownerUid: 'a', memberUids: ['a'] },
+        B: { name: ['x'], ownerUid: 'a', memberUids: ['a'] },
+        C: { name: { a: 1 }, ownerUid: 'a', memberUids: ['a'] },
+      },
+    });
+    const r = await hentLigaMedlemmer(db, { uid: 'adm', gameId: 'g' });
+    // Ingen af dem må blive til "42", "x" eller "[object Object]" — kun en
+    // rigtig streng er et navn.
+    expect(r.ligaer.map((l) => l.navn)).toEqual(['', '', '']);
   });
 
   it('falder tilbage på "Spiller" ved et ubrugeligt displayName', async () => {

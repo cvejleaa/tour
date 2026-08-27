@@ -738,8 +738,14 @@ exports.adminSaetLigaMedlem = onCall({ region: REGION }, async (request) => {
   const uid = request.auth?.uid;
   const { gameId, leagueId, maalUid, medlem } = request.data || {};
   try {
+    // `medlem === true` alene ville gøre ENHVER anden værdi til en fjernelse:
+    // et udeladt felt, 'false', 0, {} — alt havde meldt offeret ud uden fejl.
+    // Fladen sender altid en boolean, så det er ikke nåbart i dag, men
+    // destruktiv-som-standard er den forkerte retning at fejle i for et felt,
+    // der afgør hvem der ser hvis tips.
+    if (medlem !== true && medlem !== false) throw new Error('bad-code');
     const r = await saetLigaMedlemCore(getFirestore(), FieldValue, {
-      uid, gameId, leagueId, maalUid, medlem: medlem === true,
+      uid, gameId, leagueId, maalUid, medlem,
     });
     // Medlemskab afgør, hvem der ser hvis tips, så hver ÆNDRING skal kunne
     // spores til en person. Ikke et driftlog-kort: funktionen svarer klienten

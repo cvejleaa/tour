@@ -288,7 +288,18 @@ async function hentLigaMedlemmer(db, { uid, gameId }) {
       const members = Array.isArray(data.memberUids) ? data.memberUids : [];
       return {
         id: d.id,
-        navn: String(data.name || '').slice(0, 80),
+        // TYPE-VAGT, ikke String(): reglerne kræver `name is string` ved
+        // OPRETTELSE, men ejer-grenen ved OPDATERING (firestore.rules:979-983)
+        // siger intet om feltet. En liga-ejer kan derfor lovligt skrive
+        // { toString: null }, og String() ville kaste — fejlen rammer ikke
+        // LEAGUE_ERR, kaldet svarer `internal`, og HELE fanen dør for spillet,
+        // også for de ligaer der ikke er forgiftet. Så mister administratoren
+        // netop evnen til at rydde op efter den, der gjorde det.
+        //
+        // Vagten hører HER og ikke i reglerne: `name is string` på
+        // update-grenen ville låse en liga med et allerede skævt navn ude af
+        // omdøbning. Samme værn som displayName har nedenfor.
+        navn: (typeof data.name === 'string' ? data.name : '').slice(0, 80),
         ownerUid: data.ownerUid || null,
         medlemmer: members.map(navnFor),
       };
@@ -326,9 +337,6 @@ async function saetLigaMedlemCore(db, FieldValue, { uid, gameId, leagueId, maalU
 
   const maalSnap = await db.collection('users').doc(maalUid).get();
   if (!maalSnap.exists) throw new Error('no-target');
-  // En afvist bruger lukkes ikke ind ad bagdøren — samme værn som
-  // redeemLeagueCodeCore har mod den bortviste.
-  if (maalSnap.data().status === 'rejected') throw new Error('rejected');
 
   const ligaRef = db.collection('games').doc(gameId).collection('leagues').doc(leagueId);
   const ligaSnap = await ligaRef.get();
@@ -342,6 +350,13 @@ async function saetLigaMedlemCore(db, FieldValue, { uid, gameId, leagueId, maalU
     await ligaRef.update({ memberUids: FieldValue.arrayRemove(maalUid) });
     return { aendret: true, medlem: false };
   }
+
+  // Vagten mod den bortviste hører KUN i tilføj-grenen. Stod den før
+  // forgreningen, spærrede den også oprydningen: den bruger, man mest af alt
+  // vil melde ud, ville være den eneste man ikke kunne — og administratoren
+  // fik en fejl om MÅLETS status. Den afviste blev så stående i memberUids,
+  // beholdt sine leagueIds og talte fortsat i ligaens stilling.
+  if (maalSnap.data().status === 'rejected') throw new Error('rejected');
 
   if (members.includes(maalUid)) return { aendret: false, medlem: true };
   if (maalSnap.data().status !== 'approved') {
