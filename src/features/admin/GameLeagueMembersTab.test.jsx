@@ -138,6 +138,67 @@ describe('GameLeagueMembersTab', () => {
     expect(screen.queryByText(/ingen ligaer i dette spil/i)).not.toBeInTheDocument();
   });
 
+  it('HENTER LISTEN IGEN efter en ændring — den viser, hvem der ser hvis tips', async () => {
+    // Kommentaren i koden lover en frisk liste. Uden denne test kunne
+    // genhentningen fjernes med grøn suite, og admin ville stå med et
+    // forældet billede af, hvem der har adgang til hvad.
+    render(<GameLeagueMembersTab />);
+    const vaelger = await screen.findByRole('combobox', { name: /Vælg spiller til Vennerne/i });
+    expect(mockHent).toHaveBeenCalledTimes(1);
+    fireEvent.change(vaelger, { target: { value: 'fri' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Meld ind' }));
+    await waitFor(() => expect(mockHent).toHaveBeenCalledTimes(2));
+  });
+
+  it('NULSTILLER vælgeren efter en vellykket tilføjelse', async () => {
+    // Ellers står den med et navn, der nu er medlem — og næste klik ville
+    // gentage en handling, admin tror er en ny.
+    render(<GameLeagueMembersTab />);
+    const vaelger = await screen.findByRole('combobox', { name: /Vælg spiller til Vennerne/i });
+    fireEvent.change(vaelger, { target: { value: 'fri' } });
+    expect(vaelger.value).toBe('fri');
+    fireEvent.click(screen.getByRole('button', { name: 'Meld ind' }));
+    // Elementet slås op på ny: en fastholdt reference kan pege på en node,
+    // React har skiftet ud under genrenderingen.
+    await waitFor(() => {
+      const nu = screen.getByRole('combobox', { name: /Vælg spiller til Vennerne/i });
+      expect(nu.value).toBe('');
+    });
+  });
+
+  it('SPÆRRER knappen, mens kaldet er undervejs — dobbeltklik må ikke gå igennem', async () => {
+    let slip;
+    mockSaet.mockReturnValue(new Promise((r) => { slip = r; }));
+    render(<GameLeagueMembersTab />);
+    await screen.findByText('Bo');
+    const knap = screen.getByRole('button', { name: 'Meld ud' });
+    fireEvent.click(knap);
+    await waitFor(() => expect(knap).toBeDisabled());
+    fireEvent.click(knap);
+    expect(mockSaet).toHaveBeenCalledTimes(1);
+    slip({ ok: true, data: { aendret: true, medlem: false } });
+    await waitFor(() => expect(mockHent).toHaveBeenCalledTimes(2));
+  });
+
+  it('SPÆRRER meld-ind-knappen — både uden valg og mens kaldet er undervejs', async () => {
+    let slip;
+    mockSaet.mockReturnValue(new Promise((r) => { slip = r; }));
+    render(<GameLeagueMembersTab />);
+    const vaelger = await screen.findByRole('combobox', { name: /Vælg spiller til Vennerne/i });
+    const knap = screen.getByRole('button', { name: 'Meld ind' });
+    // Uden et valg må knappen ikke kunne trykkes — ellers ville et klik sende
+    // en tom uid til serveren.
+    expect(knap).toBeDisabled();
+    fireEvent.change(vaelger, { target: { value: 'fri' } });
+    expect(knap).not.toBeDisabled();
+    fireEvent.click(knap);
+    await waitFor(() => expect(knap).toBeDisabled());
+    fireEvent.click(knap);
+    expect(mockSaet).toHaveBeenCalledTimes(1);
+    slip({ ok: true, data: { aendret: true, medlem: true } });
+    await waitFor(() => expect(mockHent).toHaveBeenCalledTimes(2));
+  });
+
   it('siger det, når intet blev ændret — frem for at melde succes', async () => {
     mockSaet.mockResolvedValue({ ok: true, data: { aendret: false, medlem: true } });
     render(<GameLeagueMembersTab />);
