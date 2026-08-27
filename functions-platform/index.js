@@ -52,7 +52,9 @@ async function skrivDriftStatus(st, db, opts) {
     console.error('driftlog-skrivning fejlede (ignoreret):', err?.message || err);
   }
 }
-const { redeemLeagueCodeCore, LEAGUE_ERR } = require('./gameLeagues');
+const {
+  redeemLeagueCodeCore, LEAGUE_ERR, hentLigaMedlemmer, saetLigaMedlemCore,
+} = require('./gameLeagues');
 const { setChanceCore, chanceFejl } = require('./chanceVagt');
 const { buildTransport, sendEmail, escapeHtml, broadcastHtml, APP_URL } = require('./mailer');
 const { runGameTipReminders, sendGameTestReminder, hentTipStatus, koerPaamindelserForSpil } = require('./reminders');
@@ -709,6 +711,47 @@ exports.redeemGameLeagueCode = onCall({ region: REGION }, async (request) => {
     return await redeemLeagueCodeCore(getFirestore(), FieldValue, { uid, gameId, code });
   } catch (err) {
     const [httpCode, msg] = LEAGUE_ERR[err.message] || ['internal', 'Kunne ikke deltage i ligaen.'];
+    throw new HttpsError(httpCode, msg);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Liga-medlemmer, admin (#61). TO callables, fordi BEGGE veje er lukkede for
+// klienten: firestore.rules:952 tillader kun at LÆSE en spil-liga, hvis man
+// selv er medlem (ingen admin-gren, modsat top-niveau leagues:344), og
+// rules:979-995 tillader kun ejer-omdøbning med medlemmer uændret eller at et
+// medlem fjerner præcis sig selv. Reglerne åbnes IKKE — de er det eneste, der
+// forhindrer et medlem i at skrive en ny medlemsliste og lukke fremmede ind.
+// ---------------------------------------------------------------------------
+exports.adminHentLigaMedlemmer = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid;
+  const { gameId } = request.data || {};
+  try {
+    return await hentLigaMedlemmer(getFirestore(), { uid, gameId });
+  } catch (err) {
+    const [httpCode, msg] = LEAGUE_ERR[err.message] || ['internal', 'Kunne ikke hente ligaerne.'];
+    throw new HttpsError(httpCode, msg);
+  }
+});
+
+exports.adminSaetLigaMedlem = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid;
+  const { gameId, leagueId, maalUid, medlem } = request.data || {};
+  try {
+    const r = await saetLigaMedlemCore(getFirestore(), FieldValue, {
+      uid, gameId, leagueId, maalUid, medlem: medlem === true,
+    });
+    // Medlemskab afgør, hvem der ser hvis tips, så hver ÆNDRING skal kunne
+    // spores til en person. Ikke et driftlog-kort: funktionen svarer klienten
+    // og kan derfor ikke fejle tavst — men en tilføjelse afslører historik
+    // begge veje, og så skal der være et spor efter hvem der gjorde det.
+    if (r.aendret) {
+      console.log(`Liga-medlem ${r.medlem ? 'TILFOEJET' : 'FJERNET'}: `
+        + `spil=${gameId} liga=${leagueId} maal=${maalUid} af=${uid}`);
+    }
+    return r;
+  } catch (err) {
+    const [httpCode, msg] = LEAGUE_ERR[err.message] || ['internal', 'Kunne ikke ændre medlemskabet.'];
     throw new HttpsError(httpCode, msg);
   }
 });
