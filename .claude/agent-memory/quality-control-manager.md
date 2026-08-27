@@ -33,6 +33,24 @@
   den holdt op med at køre?", så lad SERVEREN skrive `naesteForventetFoer` i
   dokumentet — den kender sin egen cron. En tærskel hardkodet i klienten
   driver fra cron'en uden at nogen test bliver rød.
+- **En admin-flade over PRIVATE data: efterprøv LÆSE-vejen, ikke kun
+  skrive-vejen.** En plan kan korrekt konkludere "skrivning kræver en
+  callable, reglerne røres ikke" og helt overse, at fanen heller ikke må
+  LÆSE. `games/{gameId}/leagues/{leagueId}` (`firestore.rules:952`) har
+  **ingen** `isGlobalAdmin`-gren — modsat top-niveau `leagues:344`, som er
+  grunden til at Tour-admin-fanen virker. Enhver spil-scoped admin-flade over
+  ligaer skal derfor have BÅDE en læse-callable og en skrive-callable.
+  Spørg altid: hvilken query fylder listen, og hvilken regel-gren tillader den?
+- **En ny admin-fane skal navne-tjekkes mod spillets EGEN fanerække.**
+  `👥 Ligaer` findes allerede som spil-fane (`GamePage.jsx:50`), og
+  `docs/admin-guide.md:127` slår husets præcedens fast: liga-scopede
+  funktioner bor på ligaens kort i spillet, "for spørgsmålene ejes af
+  liga-ejeren, ikke af platformen". Et andet `👥 Liga-…` i admin er to flader
+  med samme navn i to navs.
+- **Fane-harnesset er en hardkodet KOPI uden paritetstest.**
+  `scripts/fanebredde.mjs:36` lister admin-fanerne i hånden (10 i dag). En ny
+  fane, der ikke tilføjes dér, gør harnessets tal tavst forkert — samme klasse
+  som "et spejl af levende data".
 - **Et symptom, en alarmtekst citerer ("spilleren ser X"), skal spores til den
   faktiske render-betingelse i klienten** — ikke antages ud fra hvornår
   serverfeltet skifter. En live-alarm påstod "spillerne ser 'OPDATERING
@@ -111,6 +129,22 @@
   rødt (`var(--c-err)`) og brugt til ventende godkendelser. Et nyt "rødt badge"
   samme sted er visuelt umuligt at skelne fra det gamle. Giv det egen form,
   egen `title` og egen `data-testid`.
+- **Liga-medlemskab: én skrivning, tre afledte flader.** `memberUids` skrives
+  KUN server-side; `syncPlayerLeagues` (`functions-platform/index.js:261`)
+  spejler den ned i `players/{uid}.leagueIds` OG i `leagueIds` på ALLE
+  spillerens `bets` (`playerLeagues.js:70-87`). Genimplementér den aldrig i en
+  ny callable — arrayUnion på liga-dokumentet er hele arbejdet. To
+  konsekvenser, en plan skal skrive højt: (1) tilføjelse afslører spillerens
+  HELE tip-historik for ligaen og omvendt (rules-kommentar 774-780), (2)
+  `applyMembershipDelta` SPRINGER TAVST OVER en uid uden players-dokument
+  (`playerLeagues.js:48`) — medlem i memberUids, men uden `leagueIds`.
+  Fjernelse er derimod fuldt fortrydelig: gen-tilføjelse rører alle bets igen,
+  ikke et øjebliksbillede. `useGameStandings.js:54` viser TOM stilling ved nul
+  ligaer — det er hvad et fjernet medlem ser.
+- **`redeemLeagueCodeCore` AUTO-godkender og AUTO-tilmelder spillet**
+  (`gameLeagues.js:67-76`). En ny liga-tilmeldingsvej, der i stedet AFVISER
+  ikke-deltagere, er en anden adfærd for samme handling — vælg bevidst og
+  begrund det, ellers har huset to svar på "må han være med?".
 - **Mønster for en log-flade:** `emailLog` + `useEmailLog.js` + `EmailLogTab.jsx`
   + rules `allow read: if isGlobalAdmin(); allow write: if false;`. Genbrug
   det frem for at opfinde et nyt.
