@@ -18,7 +18,7 @@ Liga-admin følger med at have oprettet ligaen.
 
 **Begge apps:** Brugere · Tests · ✉️ Mail-log · 📈 Aktivitet · 📣 Send mail (ejer)
 
-**Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver og navne · 🔔 Påmindelser · 🤖 Runde-Botten · 🩺 Driftstatus
+**Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver og navne · 🔔 Påmindelser · 🤖 Runde-Botten · 🧑‍🤝‍🧑 Liga-medlemmer · 🩺 Driftstatus
 
 **Kun Tour:** 🚴 Tour · 🏷️ Ryttertyper · Bonus · Ligaer · 📋 Køreplan · ⚙️ Indstillinger
 

@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { ADMIN_FANER } from './fanebredde.mjs';
 
 const kilde = readFileSync(`${process.cwd()}/src/pages/AdminPage.jsx`, 'utf8');
+const guide = readFileSync(`${process.cwd()}/docs/admin-guide.md`, 'utf8');
 
 /** Etiketterne i AdminPage, i den rækkefølge de står. */
 function etiketterFraKilden() {
@@ -44,5 +45,25 @@ describe('fanebredde.mjs spejler AdminPage', () => {
     expect(ADMIN_FANER).toContain('🧑‍🤝‍🧑 Liga-medlemmer');
     // Og den må IKKE hedde det samme som spillets egen Ligaer-fane.
     expect(ADMIN_FANER).not.toContain('👥 Ligaer');
+  });
+});
+
+// Anden gang en ny admin-fane ramte koden korrekt, men ikke docs-spejlet
+// (Quality Controls fund). Guiden er den flade, ejeren slår op i, når han
+// ikke kan finde en knap — en fane, den ikke nævner, er reelt uopdaget.
+// Derfor bindes den her, i stedet for at blive husket.
+describe('docs/admin-guide.md spejler admin-fanerne', () => {
+  it('nævner hver platform-fane, harnesset måler', () => {
+    // Emojien tælles ikke med: guiden skriver navnene i en prosalinje, og en
+    // emoji-forskel dér er ikke det, testen skal fange. Ordene er.
+    const udenEmoji = (s) => s.replace(/[^\p{L}\p{N}\s-]/gu, '').trim();
+    for (const fane of ADMIN_FANER) {
+      const ord = udenEmoji(fane);
+      expect(
+        udenEmoji(guide).includes(ord),
+        `admin-guide.md nævner ikke "${ord}" — en fane, guiden ikke kender, `
+        + 'er reelt uopdaget for den, der slår op i den',
+      ).toBe(true);
+    }
   });
 });

@@ -321,3 +321,10 @@
   findes intet script i `scripts/`, der reproducerer det. Et sådant tal skal
   enten have et harnest, eller formuleres som eksempel/illustration, ikke som
   en målt kendsgerning.
+- **`docs/admin-guide.md:20` ("Kun platformen: ...") er selv et spejl af
+  `AdminPage.jsx`s fane-liste, uden test.** Liga-medlemmer-fanen (#61) landede
+  helt korrekt i koden — samme emoji i nav og kortoverskrift, gate't rigtigt,
+  paritetstest i `scripts/fanebredde.test.mjs` — men denne linje i docs blev
+  ikke rettet, selv om alt andet var grønt. En ny/fjernet PLATFORM- eller
+  Tour-fane skal grep'es mod denne linje i SAMME PR, ikke kun mod
+  `fanebredde.mjs`. To spejle af samme fanerække, ikke ét.
