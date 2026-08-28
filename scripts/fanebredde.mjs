@@ -24,7 +24,7 @@
 
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { chromium } from '@playwright/test';
 
 const ROD = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -74,28 +74,45 @@ async function maal(page, faner, bredde, { wrap = false } = {}) {
   /* eslint-enable no-undef */
 }
 
-const browser = await chromium.launch();
-const page = await browser.newPage();
+/**
+ * Målingen kører KUN, når scriptet startes direkte.
+ *
+ * Den lå før på top-niveau, og så startede en `import` af filen en browser.
+ * Paritetstesten importerer netop listerne herfra — og trak dermed en
+ * Playwright-kørsel ind i unit-suiten. Lokalt gik det, fordi browserne er
+ * installeret; i CI fejlede frontend-jobbet, som ingen browsere har.
+ *
+ * Et modul, der ikke kan importeres uden at starte en browser, er defekten —
+ * ikke testen, der importerer det.
+ */
+async function main() {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
 
-console.log(`— Spil-faner (Superligaen, ${SPIL_FANER.length} = værste spil) — scroll som i dag —`);
-for (const b of [320, 360, 375, 390, 414, 430]) {
-  const m = await maal(page, SPIL_FANER, b);
-  console.log(`  ${String(b).padStart(4)}px: ${m.synlige}/${m.ialt} faner synlige (${m.ialt - m.synlige} skjult uden markering)`);
+  console.log(`— Spil-faner (Superligaen, ${SPIL_FANER.length} = værste spil) — scroll som i dag —`);
+  for (const b of [320, 360, 375, 390, 414, 430]) {
+    const m = await maal(page, SPIL_FANER, b);
+    console.log(`  ${String(b).padStart(4)}px: ${m.synlige}/${m.ialt} faner synlige (${m.ialt - m.synlige} skjult uden markering)`);
+  }
+
+  console.log('— Spil-faner — flex-wrap ved desktop-bredder —');
+  for (const b of [720, 848, 1024]) {
+    const m = await maal(page, SPIL_FANER, b, { wrap: true });
+    console.log(`  ${String(b).padStart(4)}px: ${m.raekker} række(r)`);
+  }
+
+  console.log(`— Admin-faner (${ADMIN_FANER.length}, ejerens platform-sæt, målt i .tabs-målform) —`);
+  for (const b of [390, 720, 848]) {
+    const scroll = await maal(page, ADMIN_FANER, b);
+    const wrap = await maal(page, ADMIN_FANER, b, { wrap: true });
+    console.log(`  ${String(b).padStart(4)}px: scroll ${scroll.synlige}/${scroll.ialt} synlige · wrap ${wrap.raekker} række(r)`);
+  }
+
+  await browser.close();
 }
 
-console.log('— Spil-faner — flex-wrap ved desktop-bredder —');
-for (const b of [720, 848, 1024]) {
-  const m = await maal(page, SPIL_FANER, b, { wrap: true });
-  console.log(`  ${String(b).padStart(4)}px: ${m.raekker} række(r)`);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
 }
-
-console.log(`— Admin-faner (${ADMIN_FANER.length}, ejerens platform-sæt, målt i .tabs-målform) —`);
-for (const b of [390, 720, 848]) {
-  const scroll = await maal(page, ADMIN_FANER, b);
-  const wrap = await maal(page, ADMIN_FANER, b, { wrap: true });
-  console.log(`  ${String(b).padStart(4)}px: scroll ${scroll.synlige}/${scroll.ialt} synlige · wrap ${wrap.raekker} række(r)`);
-}
-
-await browser.close();
 
 export { SPIL_FANER, ADMIN_FANER };
