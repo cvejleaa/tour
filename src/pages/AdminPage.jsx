@@ -10,6 +10,7 @@ import UsersTab from '../features/admin/UsersTab';
 import TourTab from '../features/admin/TourTab';
 import BonusTab from '../features/admin/BonusTab';
 import LeaguesAdminTab from '../features/admin/LeaguesAdminTab';
+import GameLeagueMembersTab from '../features/admin/GameLeagueMembersTab';
 import TestsTab from '../features/admin/TestsTab';
 import RunbookTab from '../features/admin/RunbookTab';
 import EmailLogTab from '../features/admin/EmailLogTab';
@@ -40,6 +41,7 @@ const TAB_TEAMSTYLES = 'teamstyles';
 const TAB_SCHEDULE = 'schedule';
 const TAB_REMINDERS = 'reminders';
 const TAB_RECAPBOT = 'recapbot';
+const TAB_LIGAMEDLEM = 'ligamedlem';
 const TAB_DRIFT = 'drift';
 
 export default function AdminPage() {
@@ -73,6 +75,10 @@ export default function AdminPage() {
       { key: TAB_TEAMSTYLES, label: '🎨 Hold-farver og navne' },
       { key: TAB_REMINDERS, label: '🔔 Påmindelser' },
       { key: TAB_RECAPBOT, label: '🤖 Runde-Botten' },
+      // Navnet er IKKE "👥 Ligaer": den fane findes allerede inde i spillet
+      // (GamePage), og samme emoji + næsten samme ord i to navigationer er en
+      // forveksling, der venter. Her styres MEDLEMMERNE, ikke ligaerne selv.
+      { key: TAB_LIGAMEDLEM, label: '🧑‍🤝‍🧑 Liga-medlemmer' },
     ] : []),
     { key: TAB_TESTS,   label: 'Tests' },
     ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
@@ -139,6 +145,7 @@ export default function AdminPage() {
         {tab === TAB_RECAPBOT && <GameRecapBotTab />}
         {tab === TAB_BONUS   && <BonusTab />}
         {tab === TAB_LEAGUES && <LeaguesAdminTab />}
+        {tab === TAB_LIGAMEDLEM && <GameLeagueMembersTab />}
         {tab === TAB_TESTS   && <TestsTab />}
         {tab === TAB_RUNBOOK && <RunbookTab />}
         {tab === TAB_DRIFT   && <DriftTab />}

@@ -18,7 +18,7 @@ Liga-admin følger med at have oprettet ligaen.
 
 **Begge apps:** Brugere · Tests · ✉️ Mail-log · 📈 Aktivitet · 📣 Send mail (ejer)
 
-**Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver og navne · 🔔 Påmindelser · 🤖 Runde-Botten · 🩺 Driftstatus
+**Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver og navne · 🔔 Påmindelser · 🤖 Runde-Botten · 🧑‍🤝‍🧑 Liga-medlemmer · 🩺 Driftstatus
 
 **Kun Tour:** 🚴 Tour · 🏷️ Ryttertyper · Bonus · Ligaer · 📋 Køreplan · ⚙️ Indstillinger
 
@@ -159,6 +159,35 @@ spillere fra andre ligaer. De blev taget ned den 5. august 2026 med et
 engangs-panel, der er fjernet igen. De ramte beskeder bærer stadig felterne
 `oprindeligTekst` og `rettetAt` — se [drift.md](drift.md), hvis en af dem
 skal gendannes.
+
+## Liga-medlemmer (platformen)
+
+Meld en spiller ind i eller ud af en privat liga i et spil. Vælg først spillet.
+
+**Læs dette, før du melder nogen IND.** En tilmelding afslører **hele spillets
+tip-historik begge veje** — ikke kun kommende kampe. Den, du melder ind, kan se
+alt, hvad ligaen tidligere har tippet, og ligaen kan se alt, hvad han har
+tippet. Det gælder med tilbagevirkende kraft, fordi medlemskabet spejles ned på
+hvert enkelt tip. Dialogen siger det, men beslutningen er truffet, før du
+klikker.
+
+Spilleren behøver ikke være med i spillet i forvejen — han bliver tilmeldt og
+godkendt automatisk, præcis som når nogen indløser en liga-kode. En
+liga-invitation ER en invitation til spillet.
+
+**Når du melder nogen UD:**
+
+- Han mister adgangen til ligaens tips og til ligavæggen.
+- Er det hans eneste liga i spillet, ser han en **tom stilling uden
+  fejlbesked** — sig til ham, at han skal med i en anden liga.
+- Hans egne opslag på ligavæggen **bliver stående**.
+- **Ingen point går tabt.** Han kan meldes ind igen, og alt er som før.
+
+**Ligaens ejer kan ikke fjernes.** Skal ligaen væk, sletter ejeren den selv —
+en ejerløs liga er en tilstand, ingen flade kan rette.
+
+En **afvist** bruger kan ikke meldes ind, men kan godt meldes ud. Det er med
+vilje: afvisningen skal kunne følges op af en oprydning.
 
 ## Send mail (ejer)
 

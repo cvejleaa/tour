@@ -16,6 +16,7 @@ export default defineConfig({
       'seedFootball.test.js',
       'driftlog.test.js',
       'gameLeagues.test.js',
+      'ligaMedlem.test.js',
       'gameRecap.test.js',
       'leagueQuestionScoring.test.js',
       'leagueQuestionRecap.test.js',

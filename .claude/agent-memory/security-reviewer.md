@@ -107,6 +107,23 @@
   binder svaret til afsenderen. `botFacitAt`-vagterne holder i alle fire
   skriveformer (update, `= null`, fuld setDoc-overskrivning, `deleteField()` —
   `affectedKeys().hasAny` fanger også sletning).
+- **`games/{gameId}/leagues/{leagueId}`: ingen admin-laesegren.** `allow read` (L952)
+  er KUN `isApproved() && uid in memberUids` - modsat top-niveau `leagues` (L344).
+  Emulator-bekraeftet: en globalAdmin naegtes. Derfor ER admin-callablen hele
+  graensen. Skrivning: ejer-grenen (medlemmer/ownerUid/code uaendret) eller
+  "fjern praecis mig selv"; begge kontroltestet som lukkede for at skrive en ny
+  medlemsliste. `name`s TYPE valideres kun ved create - se aabne angrebsveje.
+- **`users/{uid}` L136-139: en globalAdmin MAA saette `status`** (kun `role` og
+  point-felterne er spaerret for hen; `role` kraever owner). En callable, der
+  auto-godkender med Admin SDK, er derfor ikke rettighedseskalering - men den
+  maa aldrig roere `role`. Verificeret maalt: `role` uaendret efter godkendelsen.
+- **Et nyt liga-medlemskab afsloerer IKKE tips foer kickoff.** bets-read (L879-883)
+  kraever BAADE `request.time >= kickoff` OG delt liga, saa en tredjepart, der
+  aendrer medlemskab, kan ikke aabne kortene. Emulator-koert begge veje + kontrol
+  efter udmeldelse (liga, stilling og begyndte kampes tips alle naegtet igen).
+  Bemaerk til gengaeld, at den nyindmeldte straks kan laese hele liga-dokumentet
+  INKLUSIVE `code` - at udelade koden fra et callable-svar er hygiejne, ikke en
+  fortrolighedsgraense.
 - **`messages` create** validerer BEGGE participants mod enten
   `games/{g}/leagues/{l}.memberUids` (gameId sat) eller top-niveau `leagues/{l}`
   (gameId fraværende) — `bothShareLeague`/`privateLeagueMembers`, L448-472.
@@ -142,6 +159,31 @@
   `https://tip.vejleaa.dk@evil.dk/` igennem. Sammen: en globalAdmin (= en af
   vennerne) sender en officiel tip@vejleaa.dk-mail med en phishing-knap.
   Fix: `href="${esc(cta)}"` + `startsWith(APP_URL + '/')`.
+- **Liga-navnet er IKKE type-vagtet ved UPDATE - en spiller draeber en
+  admin-flade for HELE spillet.** `firestore.rules` L971 kraever `name is string`
+  ved CREATE; ejer-grenen ved update (L979-983) kraever kun ownerUid/memberUids/
+  code uaendret. Emulator-bekraeftet: en almindelig, godkendt spiller, der ejer
+  en liga, kan `updateDoc(..., { name: { toString: null } })`. `String(data.name)`
+  i `hentLigaMedlemmer` (gameLeagues.js L281) kaster da `TypeError: Cannot
+  convert object to primitive value` -> `internal` -> HELE `adminHentLigaMedlemmer`
+  fejler for spillet, ogsaa for de uforgiftede ligaer, og admin mister den eneste
+  flade, der kunne fjerne griefer'en. Samme gift rammer allerede `{league.name}`
+  i GameLeagues.jsx L195 (React-child -> hvid side for ligaens medlemmer).
+  Varianter maalt: `42`->"42", `['a']`->"a", `{a:1}`->"[object Object]", 100k tegn
+  -> klippet; KUN objekter uden brugbar `toString`/`valueOf` kaster.
+  Fix hos FORBRUGEREN: `typeof v === 'string' ? v : ''` (moenstret staar allerede
+  fem linjer hoejere oppe for `displayName`).
+- **Den afviste kan ikke meldes UD af en liga.** `saetLigaMedlemCore`
+  (gameLeagues.js L340-341) tjekker `status === 'rejected'` FOER forgreningen paa
+  `medlem` (L347), saa vagten mod "luk den bortviste ind ad bagdoeren" ogsaa
+  spaerrer OPRYDNINGEN. Emulator-bekraeftet: admins "Meld ud" paa en rejected
+  bruger -> `permission-denied` "Din adgang er afvist. Kontakt en
+  administrator." (en besked om MAALETS status vist til ADMINISTRATOREN), og
+  `memberUids` uaendret. Den afviste bliver dermed staaende i `memberUids`,
+  beholder `leagueIds` paa players-dok og paa alle sine tips, taeller i ligaens
+  stilling og serveres stadig af `leagueQuestionStatus`. Fix: flyt vagten ind i
+  `if (medlem)`-grenen. Testen (ligaMedlem.test.js L147-152) daekker kun
+  `medlem: true`, saa adfaerden er IKKE frosset fast.
 - **`leagueQuestionStatus`: intet `isApproved`-tjek.** Callablen kræver kun
   `request.auth` + medlemskab. Et medlem med `status:'rejected'` står stadig i
   `memberUids` — INTET fjerner dem — og får fuldt svar: liganavn, alle åbne
@@ -212,6 +254,15 @@
   bool, `__proto__`, `constructor`, `prototype`. **Ingen** forlader
   `driftAlarmer/`; kontrol-dokumentet `users/p1` var urørt. Prototype-tricks er
   umulige: værdien bliver aldrig en objektnøgle, kun `String()` → doc-id.
+- **Sti-fuzz mod `adminHentLigaMedlemmer`/`adminSaetLigaMedlem`.** 23 fjendtlige
+  vaerdier x 3 parametre (`maalUid`, `leagueId`, `gameId`): `../users/OFFER`,
+  `users/OFFER`, `g1/leagues/L1`, `L1/x`, `L1/x/y`, `__proto__`, `__name__`,
+  `constructor`, NUL-byte, 1600 tegn, tal/bool/objekt/array, `.`, `..`, `/`,
+  `a//b`, trailing space. INTET forlader sin collection; kontroldokumentet
+  `users/OFFER` stod uroert paa `status:'pending'` og `L1.memberUids` uaendret.
+  Raa Firestore-fejl mappes til `internal` med fast dansk tekst - stien laekker
+  ikke. `gameId` med skraastreger kan ramme et EKSISTERENDE dokument (fx
+  `g1/leagues/L1`), men dets under-collections er tomme -> tomt svar.
 - **IDOR mod chance-callable'en** (`setGameChance`/`setChanceCore`):
   `matchId` = `../m1`, `m1/x` → Firestore-argumentfejl (mappes til `internal`);
   `m1/sub/x` → `no-match`; `''` → `bad-input`; `__proto__` → INVALID_ARGUMENT.
@@ -286,6 +337,19 @@
   → **timeoutSeconds ændrer ikke angrebsfladen**: budgettet er kun nåbart efter
   rolle-porten. Generelt: et hævet timeout er kun farligt, hvis autorisationen
   står EFTER det dyre arbejde.
+- **Adgangsmatrix for admin-liga-medlemsstyringen** (`tjekMedlemsstyringAdgang`,
+  gameLeagues.js L149-152): 17 afviste kaldere mod BEGGE kerner - uden auth,
+  ukendt uid, `pending`, manglende `status`, `rejected`, godkendt spiller,
+  liga-EJER, og en `pending` globalAdmin. Alle afvist efter PRAECIS 1 laesning og
+  0 skrivninger; `memberUids` og maalets `status` verificeret uaendret bagefter.
+  Kontroltest groen: approved `globalAdmin` og `owner` kommer igennem. Vagten har
+  den rigtige form (`status !== 'approved'`, ikke `=== 'rejected'`), saa et
+  manglende brugerdokument fejler lukket, og den staar FORAN de dyre laesninger.
+  Kryds-spil: `leagueId` fra et andet spil -> `no-league`, det andet spils
+  `memberUids` uroert. Liga-EKSISTENSEN tjekkes foer auto-godkendelsen, saa et
+  ugyldigt leagueId ikke kan godkende nogen (som `redeemLeagueCodeCore`).
+  Svaret bygges felt for felt (intet `...data`): `code` og `startRound`
+  verificeret fravaerende, `displayName` type-vagtet og klippet.
 - **`hentTipStatus`** er stærk-ved-konstruktion: `betByUid` er
   `Map<uid, Set<matchId>>` (picket kommer aldrig ind i processen), og både
   output og `manglende` bygges felt-for-felt — INGEN `...m`/`...u`-spread.
@@ -328,6 +392,16 @@
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
+- **N+1 i `hentLigaMedlemmer`:** et sekventielt `users`-opslag pr. deltager.
+  Maalt: 61 deltagere = 65 laesninger, 304 ms lokalt. Fanen genhenter efter HVERT
+  klik (GameLeagueMembersTab.jsx L65) -> ~300 sekventielle round-trips pr. klik
+  ved platformens brugertal. Bag admin-porten, saa ingen angriber kan forstaerke
+  det; `db.getAll(...refs)` ville goere det til et RPC.
+- **`medlem: medlem === true`** (index.js L743) goer enhver ikke-boolsk vaerdi til
+  en FJERNELSE (maalt: `undefined`, `'true'`, `1`, `{}`, `[]`, `null` fjernede
+  alle uden fejl). Fladen sender altid en boolean, saa det er ikke naabart i dag -
+  men "destruktiv som standard" er den forkerte vej at fejle for et felt, der
+  afgoer, hvem der ser hvis tips.
 - `strandedMatches` (superligaSync.js L91-101) har INGEN nedre tidsgrænse. Ved
   længerevarende kildenedbrud vokser mængden til hele kampprogrammet;
   `meldAlarm` skriver ubetinget pr. alarm pr. kørsel × 12 sweeps/døgn →
@@ -417,6 +491,15 @@
   `=== 'rejected'`), for et MANGLENDE brugerdokument slipper ellers igennem.
 - **Autorisationen skal stå FORAN de dyre læsninger** — ellers betaler projektet
   for en afvist kalder, og fejlkoderne bliver et eksistens-orakel.
+- **En type-vagt, der kun staar ved CREATE, gaelder ikke ved UPDATE.** `name is
+  string` ved create og intet ved update betyder, at feltet kan blive et map
+  senere - og saa kaster `String()` hos hver eneste forbruger. Grep efter
+  `is string`/`is int` i rules og hold hver enkelt op mod BEGGE skriveformer.
+- **En vagt, der er skrevet for EN gren, skal staa i den gren.** Et
+  `status === 'rejected'`-tjek foran forgreningen spaerrede baade "luk ind" (som
+  det skulle) og "smid ud" (som det ikke skulle). Spoerg for hver forudsaetning:
+  gaelder den ogsaa for den MODSATTE operation? Og: er den modsatte operation
+  overhovedet daekket af en test?
 - **En uforanderlighed, der bygger på et dokuments tilstand, holder kun hvis
   dokumentet ikke kan genopstå.** Er sletning tilladt, og overlever børnene
   forælderen på deterministiske id'er, så er "må ikke nulstilles" i praksis

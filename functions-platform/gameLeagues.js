@@ -33,6 +33,12 @@ const LEAGUE_ERR = {
   // Dørmanden for svar-status (#38) bruger samme tabel — én oversættelse pr. kode.
   'not-approved': ['permission-denied', 'Din bruger er ikke godkendt.'],
   'not-member': ['permission-denied', 'Kun ligaens medlemmer kan se svar-status.'],
+  // Admin-medlemsstyringen (#61) deler tabellen — én oversættelse pr. kode.
+  'not-admin': ['permission-denied', 'Kun en administrator kan ændre liga-medlemmer.'],
+  'no-game': ['not-found', 'Spillet findes ikke.'],
+  'no-league': ['not-found', 'Ligaen findes ikke i dette spil.'],
+  'no-target': ['not-found', 'Brugeren findes ikke.'],
+  'owner-locked': ['failed-precondition', 'Ligaens ejer kan ikke fjernes. Slet ligaen i stedet.'],
 };
 
 /**
@@ -130,6 +136,22 @@ function tjekSvarStatusAdgang({ uid, bruger, memberUids, ligaFindes }) {
   if (!admin && !memberUids.includes(uid)) throw new Error('not-member');
 }
 
+/**
+ * Må denne bruger STYRE liga-medlemmer? Én beslutning ét sted.
+ *
+ * Bevidst SNÆVRERE end tjekSvarStatusAdgang: dér må et medlem se sin egen
+ * ligas svar-status, men her er der ingen medlems-gren. Medlemskab afgør, hvem
+ * der ser hvis tips, og en tilføjelse afslører hele tip-historikken begge veje
+ * (se firestore.rules-kommentaren ved leagueIds-spejlingen). Derfor: kun
+ * globalAdmin og owner, læst af users/{uid}.role — samme kilde som
+ * isGlobalAdmin() i reglerne. Klientens fane-gate er kosmetik; DEN HER er
+ * autoriteten.
+ */
+function tjekMedlemsstyringAdgang(bruger) {
+  if (!bruger || bruger.status !== 'approved') throw new Error('not-approved');
+  if (bruger.role !== 'owner' && bruger.role !== 'globalAdmin') throw new Error('not-admin');
+}
+
 function byggSpoergsmaalStatus({ spoergsmaal, memberUids, harSvaret, brugere, nowMs }) {
   const aabne = (spoergsmaal || [])
     .filter((q) => erAabent(q, nowMs))
@@ -219,7 +241,137 @@ async function hentSpoergsmaalStatus(db, { gameId, leagueId, uid, nowMs = Date.n
   };
 }
 
+/**
+ * LÆSE-vejen: alle ligaer i ét spil, med medlemmernes navne — til admin.
+ *
+ * HVORFOR DEN SKAL VÆRE EN CALLABLE. `firestore.rules:952` tillader kun at
+ * læse en spil-liga, hvis man selv står i memberUids. Der er INGEN
+ * admin-gren, modsat top-niveau `leagues` (linje 344) — og det er præcis
+ * derfor Tour-adminfanen virker, mens en tilsvarende klient-query her ville
+ * give permission-denied for en admin, der ikke selv er medlem. Reglen åbnes
+ * ikke; læsningen flyttes til serveren.
+ *
+ * Returnerer OGSÅ spillets deltagere, så fladen kan tilbyde dem i vælgeren
+ * uden et ekstra kald — og så "hvem kan tilføjes" er ét svar fra én kilde.
+ */
+async function hentLigaMedlemmer(db, { uid, gameId }) {
+  if (!uid) throw new Error('unauthenticated');
+  if (!gameId) throw new Error('bad-code');
+  const brugerSnap = await db.collection('users').doc(uid).get();
+  tjekMedlemsstyringAdgang(brugerSnap.exists ? brugerSnap.data() : null);
+
+  const gameSnap = await db.collection('games').doc(gameId).get();
+  if (!gameSnap.exists) throw new Error('no-game');
+
+  const [ligaSnap, spillerSnap] = await Promise.all([
+    db.collection('games').doc(gameId).collection('leagues').get(),
+    db.collection('games').doc(gameId).collection('players').get(),
+  ]);
+
+  // Navne til alle, der optræder — både medlemmer og mulige tilføjelser.
+  const uids = new Set();
+  for (const d of ligaSnap.docs) for (const u of (d.data().memberUids || [])) uids.add(u);
+  for (const d of spillerSnap.docs) uids.add(d.id);
+  const navne = new Map();
+  for (const del of [...uids]) {
+    const u = await db.collection('users').doc(del).get();
+    const dn = u.exists ? u.data()?.displayName : null;
+    navne.set(del, (typeof dn === 'string' && dn.trim() ? dn : 'Spiller').slice(0, 60));
+  }
+  const navnFor = (u) => ({ uid: u, navn: navne.get(u) || 'Spiller' });
+
+  return {
+    // `code` udelades med vilje: en admin skal kunne styre medlemmer uden at
+    // få ligaens invitationskode udleveret i en API-svar-krop.
+    ligaer: ligaSnap.docs.map((d) => {
+      const data = d.data();
+      const members = Array.isArray(data.memberUids) ? data.memberUids : [];
+      return {
+        id: d.id,
+        // TYPE-VAGT, ikke String(): reglerne kræver `name is string` ved
+        // OPRETTELSE, men ejer-grenen ved OPDATERING (firestore.rules:979-983)
+        // siger intet om feltet. En liga-ejer kan derfor lovligt skrive
+        // { toString: null }, og String() ville kaste — fejlen rammer ikke
+        // LEAGUE_ERR, kaldet svarer `internal`, og HELE fanen dør for spillet,
+        // også for de ligaer der ikke er forgiftet. Så mister administratoren
+        // netop evnen til at rydde op efter den, der gjorde det.
+        //
+        // Vagten hører HER og ikke i reglerne: `name is string` på
+        // update-grenen ville låse en liga med et allerede skævt navn ude af
+        // omdøbning. Samme værn som displayName har nedenfor.
+        navn: (typeof data.name === 'string' ? data.name : '').slice(0, 80),
+        ownerUid: data.ownerUid || null,
+        medlemmer: members.map(navnFor),
+      };
+    }).sort((a, b) => a.navn.localeCompare(b.navn, 'da')),
+    deltagere: spillerSnap.docs.map((d) => navnFor(d.id))
+      .sort((a, b) => a.navn.localeCompare(b.navn, 'da')),
+  };
+}
+
+/**
+ * SKRIVE-vejen: meld en spiller ind i eller ud af en liga i et spil.
+ *
+ * ARBEJDET ER KUN ÉN arrayUnion/arrayRemove. `syncPlayerLeagues`
+ * (index.js, onDocumentWritten på games/{gameId}/leagues/{leagueId}) spejler
+ * selv ændringen ned i players/{uid}.leagueIds OG i leagueIds på alle
+ * spillerens bets. Skriv ALDRIG de felter her: to skrivepunkter om samme
+ * sandhed betyder, at den sidste vinder, og at en fejl i den ene er usynlig.
+ *
+ * SPILLEREN OPRETTES, HVIS HAN MANGLER — samme adfærd som
+ * redeemLeagueCodeCore. Det er ikke bekvemmelighed: `applyMembershipDelta`
+ * SPRINGER TAVST OVER en uid uden players-dokument, og så ville brugeren stå
+ * i memberUids uden leagueIds — han kunne læse ligaen og væggen, men ville
+ * ikke optræde i stillingen og dele ingen tips. Første udkast af denne
+ * funktion afviste i stedet, men det modsagde husets eget svar: en
+ * liga-invitation ER en invitation til spillet.
+ *
+ * EJEREN KAN IKKE FJERNES. deleteLeague findes til at nedlægge en liga; en
+ * ejerløs liga er en tilstand, ingen flade kan rette.
+ */
+async function saetLigaMedlemCore(db, FieldValue, { uid, gameId, leagueId, maalUid, medlem }) {
+  if (!uid) throw new Error('unauthenticated');
+  if (!gameId || !leagueId || !maalUid) throw new Error('bad-code');
+  const brugerSnap = await db.collection('users').doc(uid).get();
+  tjekMedlemsstyringAdgang(brugerSnap.exists ? brugerSnap.data() : null);
+
+  const maalSnap = await db.collection('users').doc(maalUid).get();
+  if (!maalSnap.exists) throw new Error('no-target');
+
+  const ligaRef = db.collection('games').doc(gameId).collection('leagues').doc(leagueId);
+  const ligaSnap = await ligaRef.get();
+  if (!ligaSnap.exists) throw new Error('no-league');
+  const data = ligaSnap.data();
+  const members = Array.isArray(data.memberUids) ? data.memberUids : [];
+
+  if (!medlem) {
+    if (data.ownerUid === maalUid) throw new Error('owner-locked');
+    if (!members.includes(maalUid)) return { aendret: false, medlem: false };
+    await ligaRef.update({ memberUids: FieldValue.arrayRemove(maalUid) });
+    return { aendret: true, medlem: false };
+  }
+
+  // Vagten mod den bortviste hører KUN i tilføj-grenen. Stod den før
+  // forgreningen, spærrede den også oprydningen: den bruger, man mest af alt
+  // vil melde ud, ville være den eneste man ikke kunne — og administratoren
+  // fik en fejl om MÅLETS status. Den afviste blev så stående i memberUids,
+  // beholdt sine leagueIds og talte fortsat i ligaens stilling.
+  if (maalSnap.data().status === 'rejected') throw new Error('rejected');
+
+  if (members.includes(maalUid)) return { aendret: false, medlem: true };
+  if (maalSnap.data().status !== 'approved') {
+    await db.collection('users').doc(maalUid).update({ status: 'approved' });
+  }
+  const playerRef = db.collection('games').doc(gameId).collection('players').doc(maalUid);
+  if (!(await playerRef.get()).exists) {
+    await playerRef.set({ uid: maalUid, joinedAt: FieldValue.serverTimestamp() });
+  }
+  await ligaRef.update({ memberUids: FieldValue.arrayUnion(maalUid) });
+  return { aendret: true, medlem: true };
+}
+
 module.exports = {
   normalizeCode, redeemLeagueCodeCore, LEAGUE_ERR,
   byggSpoergsmaalStatus, hentSpoergsmaalStatus, tjekSvarStatusAdgang,
+  tjekMedlemsstyringAdgang, hentLigaMedlemmer, saetLigaMedlemCore,
 };
