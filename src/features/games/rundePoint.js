@@ -122,3 +122,71 @@ export function rundeFoerende(raekker, runde) {
   }
   return ud;
 }
+
+/** Vektoren UDEN én bestemt runde — grundlaget for "stillingen før runden". */
+function udenRunde(perRound, runde) {
+  const ud = {};
+  for (const [k, v] of Object.entries(perRound || {})) {
+    if (Number(k) === runde) continue;
+    ud[k] = v;
+  }
+  return ud;
+}
+
+/**
+ * Gen-tildel `previousRank`, så PILEN måler DEN VISTE RUNDE.
+ *
+ * HVORFOR DEN FINDES. Serverens `previousRank` er et øjebliksbillede, der kun
+ * skrives, når en rundes KUPON er helt afgjort (gameScoring.js:557), og kun
+ * én gang pr. runde (`snappedRounds` spærrer for gentagelser). Falder en runde
+ * ud af den betingelse, bliver billedet stående, og pilen sammenligner mod
+ * noget, der ligger FLERE runder tilbage.
+ *
+ * Det gik ubemærket, indtil rundens point kom på skærmen ved siden af pilen:
+ * ejeren havde rundens næsthøjeste tal og en pil NED. Regnet på ligaens egne
+ * tal var han slet ikke rykket. To tal om hver sin periode, side om side.
+ *
+ * Nu regnes pilen af SAMME vektor som rundetallet: rangen efter totalen uden
+ * rundens bidrag, på den skala der vises. Så betyder pil og tal altid det
+ * samme — også under et liga-filter, hvor de før kunne betyde hver sit.
+ *
+ * IKKE `total − perRound[runde]`. Både ligaPoint og opdelPoint lægger gulvet
+ * ved 0 PÅ SUMMEN, så et delta er forkert nær gulvet. Før-totalen regnes
+ * derfor forfra af vektoren, præcis som ligaRanking allerede gør det.
+ *
+ * En spiller uden vektor får `previousRank: null` — ingen pil, frem for en
+ * falsk en. Samme valg som subsetRanking træffer for en ny spiller.
+ *
+ * @param {Array<object>} raekker    rangeret stilling (rank er allerede sat)
+ * @param {number|null} runde        den viste runde
+ * @param {number|null} startRunde   ligaens startrunde, hvis nogen
+ * @param {(perRound, startRunde, bonus) => number} regn   ligaPoint
+ * @param {(perRound) => boolean} harVektor                harRundeVektor
+ */
+export function rundePile(raekker, runde, startRunde, regn, harVektor) {
+  if (runde == null) return raekker || [];
+  const foer = [];
+  for (const r of raekker || []) {
+    if (!harVektor(r?.perRound)) continue;
+    foer.push({
+      uid: r.uid,
+      navn: r.name || '',
+      point: regn(udenRunde(r.perRound, runde), startRunde, r.bonusPoints || 0),
+    });
+  }
+  // Samme sortering og uafgjort-regel som stillingen selv: ens point giver
+  // ens placering, og næste springer over. Ellers ville pilen bruge en anden
+  // rangorden end den, tallene ved siden af er sorteret efter.
+  foer.sort((a, b) => (b.point - a.point) || a.navn.localeCompare(b.navn, 'da'));
+  const rang = new Map();
+  let r = 0;
+  let forrige = null;
+  foer.forEach((x, i) => {
+    if (x.point !== forrige) { r = i + 1; forrige = x.point; }
+    rang.set(x.uid, r);
+  });
+  return (raekker || []).map((row) => ({
+    ...row,
+    previousRank: rang.has(row.uid) ? rang.get(row.uid) : null,
+  }));
+}

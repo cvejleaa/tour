@@ -154,6 +154,99 @@ describe('rundens point i stillingen', () => {
   });
 });
 
+describe('pilen måler den viste runde — ikke et gammelt øjebliksbillede', () => {
+  // EJERENS SAG, i fladen. Han havde rundens næsthøjeste tal og en pil NED.
+  // Serverens previousRank er et øjebliksbillede fra sidste KUPON-afgjorte
+  // runde og kan ligge flere runder tilbage; her sættes den bevidst forkert
+  // (som produktionen havde den), og testen kræver, at fladen IKKE bruger den.
+  const medGammelPil = () => [
+    ['a', 'Marianne', 96.3, { 5: 80.9, 6: 15.4 }, 1],
+    ['b', 'Better', 78, { 5: 68.6, 6: 9.4 }, 2],
+    ['c', 'Sonja', 77, { 5: 70.1, 6: 6.9 }, 5],
+    ['d', 'Bibamus', 73.6, { 5: 60.6, 6: 13 }, 3],
+    ['e', 'Team Sharkey', 61.3, { 5: 58.8, 6: 2.5 }, 4],
+    ['f', 'Oldefar', 44.4, { 5: 35.5, 6: 8.9 }, 6],
+    ['g', 'Fasteren', 36.5, { 5: 36.5 }, 7],
+  ].map(([uid, name, totalPoints, perRound, previousRank], i) => ({
+    uid, name, totalPoints, perRound, previousRank, rank: i + 1, bonusPoints: 0,
+  }));
+
+  /** Pilens tekst i en spillers række, eller null hvis der ingen er. */
+  const pil = (navn) => {
+    const boks = screen.getByText(navn).closest('tr, .podium__spot');
+    const m = boks.textContent.match(/[▲▼]\s*\d+/);
+    return m ? m[0].replace(/\s+/g, '') : null;
+  };
+
+  it('den, der ikke rykkede i runden, får INGEN pil — heller ikke en falsk ned', () => {
+    vis({ standings: medGammelPil() });
+    // Før runde 6: Marianne 80,9 · Sonja 70,1 · Better 68,6 · Bibamus 60,6 ·
+    // Team Sharkey 58,8 · Fasteren 36,5 · Oldefar 35,5.
+    // Bibamus var nr. 4 og er nr. 4. Serverens previousRank sagde 3 → ▼1.
+    expect(pil('Bibamus')).toBeNull();
+    expect(pil('Team Sharkey')).toBeNull();
+  });
+
+  it('de, der FAKTISK rykkede, får deres pil', () => {
+    vis({ standings: medGammelPil() });
+    // KUN listen bærer pile — podiet viser medalje, navn og point, ingen pil.
+    // Better og Sonja byttede plads, men står som nr. 2 og 3 og har derfor
+    // ingen pil at vise. Testen holder sig til listen, hvor pilen findes.
+    expect(pil('Oldefar')).toBe('▲1');   // 7 -> 6
+    expect(pil('Fasteren')).toBe('▼1');  // 6 -> 7
+  });
+
+  it('rundens point og pilen peger samme vej for den, der vandt runden', () => {
+    vis({ standings: medGammelPil() });
+    // Marianne har rundens højeste tal og fører. (Hun står på podiet, som
+    // aldrig viser pile — derfor kun ilden asserteres her.)
+    expect(foerendeNavne()).toEqual(['Marianne']);
+  });
+});
+
+describe('pilen under et liga-filter med startrunde', () => {
+  // Komponenten skal give ligaens startrunde VIDERE til pilberegningen. Gør
+  // den ikke det, tælles runder FØR ligaens start med i "stillingen før
+  // runden", og en spiller med en stor gammel score får en falsk stor pil.
+  // Fixturet er valgt, så de to veje giver forskellige pile — ellers ville
+  // testen bestå, uanset om startrunden blev givet med (mutationstestet).
+  const L = {
+    id: 'L1', name: 'Sent hold', startRound: 20,
+    memberUids: ['m1', 'm2', 'm3', 'm4', 'm5'],
+  };
+  const L2 = { id: 'L2', name: 'Alle', memberUids: ['m1', 'm2', 'm3', 'm4', 'm5'] };
+
+  const felt = () => [
+    ['m1', 'Anne', { 20: 50, 21: 10 }],
+    ['m2', 'Bo', { 20: 40, 21: 8 }],
+    ['m3', 'Carl', { 20: 30, 21: 6 }],
+    // Dorte har 100 point i runde 3 — LANGT før ligaens start. De må ikke
+    // tælle med, hverken i totalen eller i pilen.
+    ['m4', 'Dorte', { 3: 100, 20: 5, 21: 3 }],
+    ['m5', 'Erik', { 3: 0, 20: 9, 21: 0.5 }],
+  ].map(([uid, name, perRound], i) => ({
+    uid, name, perRound, bonusPoints: 0, totalPoints: 0, rank: i + 1,
+  }));
+
+  const pil = (navn) => {
+    const boks = screen.getByText(navn).closest('tr, .podium__spot');
+    const m = boks.textContent.match(/[▲▼]\s*\d+/);
+    return m ? m[0].replace(/\s+/g, '') : null;
+  };
+
+  it('runder før ligaens start tæller ikke med i pilen', () => {
+    vis({ standings: felt(), leagues: [L, L2] });
+    fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L1' } });
+    // Ligaens tal (fra runde 20): Anne 60, Bo 48, Carl 36, Erik 9,5, Dorte 8.
+    // Før runde 21:                Anne 50, Bo 40, Carl 30, Erik 9,   Dorte 5.
+    // Ingen af de to i listen har flyttet sig.
+    expect(pil('Erik')).toBeNull();
+    expect(pil('Dorte')).toBeNull();
+    // Tælles runde 3 med, bliver Dorte nr. 1 før runden og falder fire
+    // pladser — en pil, der udelukkende kommer af point, ligaen ikke tæller.
+  });
+});
+
 describe('overskriften overlever en TOM liste', () => {
   // REGRESSIONEN. Overskriften stod oprindeligt inde i listens betingelse. Med
   // tre eller færre spillere er listen tom — alle står på podiet — og så blev

@@ -372,6 +372,16 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     expect(afsnit.textContent).toMatch(/Har hele feltet tabt runden, er der ingen ild/i);
   });
 
+  it('siger at PILEN måler samme runde som tallet', () => {
+    // Uden den sætning står to tal side om side uden at nogen siger, at de
+    // dækker samme periode — og det var netop dét, ejeren snublede over,
+    // dengang pilen målte mod et flere runder gammelt øjebliksbillede.
+    guide();
+    const afsnit = screen.getByText(/Rundens point/).closest('li');
+    expect(afsnit.textContent).toMatch(/Pilen.*måler den samme runde/is);
+    expect(afsnit.textContent).toMatch(/siden runden begyndte/i);
+  });
+
   it('siger hvad en streg betyder — og lover ALDRIG et nul', () => {
     // Et 0 kan ikke leveres: serveren springer nul-værdier over, så den der
     // ramte alt forbi, er umulig at skelne fra den der ikke tippede. Lovede
