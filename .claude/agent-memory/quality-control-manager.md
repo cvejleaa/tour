@@ -474,12 +474,16 @@ korrekt, `xgImod` er modstanderens xG; gulv er `if (!kampe) return null`, ikke
 `FORDELING_MINIMUM`; `harXg`/`XG_PROVIDERE` er en allowlist, spil-bred, ikke
 pr. kamp). To ting var IKKE fuldt lukket, selv om alt er grønt:
 
-- **Manglende tripwire-test.** `harXg`/`XG_PROVIDERE` fulgte allowlist-
-  mønsteret (se `Mønstre`-afsnittet ovenfor), men fik ALDRIG sin egen
-  spejlings-tripwire i `spilEvner.test.js` mod `scripts/games.mjs` — modsat
-  `harKickoffSynk`/`harResultatSynk` lige ved siden af. En ny provider med
-  resultat-synk, men uden `hentXg`, kan give en guide-sektion, ingen kamp
-  nogensinde udfylder, uden at noget bliver rødt.
+- **Tripwire-testen, jeg efterlyste her, findes nu — rettet efter PR #186.**
+  `spilEvner.test.js:81-89` spejler `harXg` mod `GAMES` (`scripts/games.mjs`),
+  side om side med `harKickoffSynk`/`harResultatSynk` (samme describe-blok,
+  `'spejling mod scripts/games.mjs'`, linje 70). Testens egen kommentar
+  begrunder hvorfor de tre allowlister kan divergere lovligt: `hentXg` er
+  VALGFRI i provider-kontrakten, modsat `hentFaerdige`. Lærdom for næste gang:
+  bekræft en påstået mangel ved at LÆSE testfilen (grep på beskrivelsen, ikke
+  kun på funktionsnavnet) — en tripwire kan lande i en SENERE PR end den, der
+  først bar fundet, og en gammel hukommelses-post skal ikke gen-flages uden at
+  være tjekket frisk.
 - **"13 ud af 37" ældes uden vagt.** `FootballHelp.jsx` citerer nu et PRÆCIST
   optalt tal fra `scripts/maal-xg.mjs` — sandt i dag, reproduceret. Men
   scriptets EGEN konklusion siger ±15 procentpoint og "citér som RETNING,
