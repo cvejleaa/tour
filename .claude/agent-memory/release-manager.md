@@ -14,7 +14,7 @@
 **Den rigtige regel (CLAUDE.md):**
 > En klik-sti i en plan skal være sporet, ikke antaget. Release Managers verifikationsplan henviste til en knap, der ikke fandtes for det spil, planen handlede om.
 
-**For mig:** Slå ALTID game ID'erne op i `scripts/games.mjs` før jeg skriver en URL. Ikke "jeg tror det er `sl`" — det er det ikke. Testen bruger fixture-data med andre ID'er end produktion.
+**For mig:** Slå ALTID game ID'erne op i `scripts/games.mjs` før jeg skriver en URL. Ikke "jeg tror det er `sl`" — det er det ikke.
 
 ---
 
@@ -27,13 +27,13 @@ grep -l "hold for hold" dist/assets/*.js
 ```
 Søg efter en tekst-streng, brugeren KAN SE i UI'et — ikke et symbolnavn fra koden.
 
-**Lektionen (anden gang jeg skulle have lært det):**
-- `PR #181`: `adminActions.js` lå i en chunk, ingen ville gætte. Grep på en streng brugeren ser.
-- Her: `HoldXgListe` overlever ikke minificering, men "hold for hold" gør.
-
 **Bundel-struktur:**
-- Build ligger i `dist/assets/` (mindst 27 chunks), ikke under `functions-platform/`
-- Søg over alle chunks: `dist/assets/*.js`
+- Build ligger i `dist/assets/` (grep over ALLE chunks: `dist/assets/*.js`)
+- Søg efter en streng fra den nye kode, som brugeren ville se
+
+**Lektionen (anden gang jeg skulle have lært det — PR #181):**
+- `adminActions.js` lå i en chunk, ingen ville gætte. Grep på en streng brugeren ser.
+- `HoldXgListe` overlever ikke minificering, men `"hold for hold"` gør.
 
 ---
 
@@ -41,9 +41,9 @@ Søg efter en tekst-streng, brugeren KAN SE i UI'et — ikke et symbolnavn fra k
 
 Når jeg skriver en Release Manager-plan:
 
-1. **Game ID'er** – slå dem op i `scripts/games.mjs` eller `src/features/games/`
-2. **Linjetal** – tæl eller search, aldrig gæt (filen kan være kortere end jeg tror)
-3. **Bundle-probe** – grep på en UI-streng fra den nye kode, som brugeren ville se
+1. **Game ID'er** – slå dem op i `scripts/games.mjs`, aldrig gæt
+2. **Linjetal** – søg eller tæl i filen (`src/pages/GamePage.jsx:188`), aldrig gæt på filen kan være kortere end antaget
+3. **Bundel-probe** – grep på en UI-streng over alle chunks (`dist/assets/*.js`), ikke på et symbolnavn
 4. **Klik-stier** – trace til render-betingelse (fil:linje) eller bund ikke planen
 5. **Måling** – hvis en påstand afhænger af live-data, kør scriptet selv
 
@@ -51,11 +51,10 @@ Når jeg skriver en Release Manager-plan:
 
 ## Instruks fra koordinator (30/8 2026)
 
-Tre fejl blev fanget efter jeg skrev første version:
-1. Game ID'erne var forkert (`sl` i stedet for `superliga2627` og `pl2627-efteraar`)
-2. Linjenummer var forkert (skrev 774, filen er kun 209 linjer; det rigtige er 188)
-3. Bundel-probe var falsk negativ (grep på `HoldXgListe` i stedet for på UI-strengen `"hold for hold"`)
+Tre fejl blev fanget efter jeg skrev første version af udrulningsplanen for PR #186:
 
-**Mønstre jeg skal gemme:**
-- Game ID'er slåes op i `scripts/games.mjs` IKKE gættet
-- Bundel-probe grep på en streng brugeren ser, ikke et symbolnavn fra koden
+1. Game ID'erne var forkert (`sl` i stedet for `superliga2627` og `pl2627-efteraar`)
+2. Linjenummer var forkert (skrev 774, filen er kun 209 linjer; det rigtige er 188 i `src/pages/GamePage.jsx`)
+3. Bundel-probe var falsk negativ (grep på komponent-navn i stedet for på UI-strengen brugeren ser)
+
+Test Manager og Quality Control bekræftede, at mønsterne holder, og at `grep -l "hold for hold" dist/assets/*.js` virker korrekt.
