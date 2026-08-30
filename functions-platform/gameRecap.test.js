@@ -663,3 +663,42 @@ describe('RECAP_SYSTEM — Chancens tone-grænser (spilfører-krav)', () => {
     expect(RECAP_SYSTEM).toContain('loftet afhænger af spillerens saldo');
   });
 });
+
+// ---------------------------------------------------------------------------
+// TRIPWIRE: xG må ikke snige sig ind i bottens fakta uden at sproget følger med.
+//
+// Ordforbuddet omkring målchancer ("fortjent", "burde have vundet", "heldig",
+// "tyveri" …) er asserteret på de to RENDER-flader, der viser tallet. Men den
+// flade, der faktisk SKRIVER sætninger om runden på ligavæggen, er denne bot,
+// og RECAP_SYSTEM kender ikke ét af de ord.
+//
+// I dag er det ufarligt: buildRoundRecapFacts får ingen xG. Men den næste
+// naturlige tanke — "botten skulle da have målchancer med" — ville lade en
+// sprogmodel skrive "AGF fortjente mere" på hver eneste ligavæg, med hele
+// suiten grøn. Spilførers fund.
+//
+// BLIVER DENNE RØD, SÅ FJERN DEN IKKE. Flyt ordlisten til et delt modul og
+// assertér den mod RECAP_SYSTEM i samme PR, som giver botten xG. Botten har
+// desuden allerede et gennemarbejdet overraskelses-begreb bygget på odds
+// (isSurprise) — det er et bedre og allerede testet ordforråd til "hold da op,
+// den var mærkelig", end xG er.
+describe('Runde-Botten kender ikke xG — endnu', () => {
+  it('rundens fakta bærer ingen målchance-felter', () => {
+    // Kampene HAR xG her — det er hele prøven: felterne findes på kampen, og
+    // fakta må alligevel ikke bære dem videre til sprogmodellen.
+    const medXg = [
+      { id: 'm1', round: 2, home: 'FCK', away: 'Vejle', homeGoals: 2, awayGoals: 1, result: '1', odds: { 1: 1.6, X: 3.6, 2: 6.0 }, xgHome: 0.4, xgAway: 2.8 },
+    ];
+    const fakta = buildRoundRecapFacts({
+      round: 2,
+      roundMatches: medXg,
+      players: [{ uid: 'A', name: 'Anna', totalPoints: 10, rank: 1, previousRank: 1 }],
+      betsByUid: new Map([['A', [{ matchId: 'm1', pick: '1', points: 1.6 }]]]),
+    });
+    const json = JSON.stringify(fakta);
+    for (const felt of ['xgHome', 'xgAway', 'xg', 'maalchancer', 'målchancer']) {
+      expect(json, `${felt} er kommet ind i bottens fakta — læs kommentaren over denne test`)
+        .not.toContain(felt);
+    }
+  });
+});

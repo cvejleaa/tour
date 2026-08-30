@@ -19,6 +19,25 @@ export const KICKOFF_PROVIDERE = new Set(['pulselive', 'superliga']);
 // IMPLEMENTEREDE providere). Gater den manuelle "⬇️ Synk resultater nu"-knap.
 export const RESULTAT_PROVIDERE = new Set(['pulselive', 'superliga']);
 
+// Kilder med xG (provider har hentXg på serveren — VALGFRI i kontrakten,
+// modsat hentFaerdige). Gater den SPIL-brede forklaring i guiden.
+//
+// Bemærk forskellen på de to gates omkring xG: selve TALLET vises pr. KAMP,
+// gatet på om felterne findes, fordi en netop afsluttet kamp mangler dem,
+// indtil sweep'et har kørt. FORKLARINGEN kan ikke gates sådan — guiden er
+// spil-scopet (FootballHelp.jsx:57-60), og en regelbog må ikke forklare et
+// tal, spillet aldrig får. Derfor denne evne ved siden af felt-tjekket.
+export const XG_PROVIDERE = new Set(['pulselive', 'superliga']);
+
+/**
+ * Kan spillets kilde levere xG (målchancer)?
+ * @param {{sync?: {provider?: string}}} game
+ * @returns {boolean}
+ */
+export function harXg(game) {
+  return XG_PROVIDERE.has(game?.sync?.provider);
+}
+
 /**
  * Har spillet en daglig kickoff-synk (og dermed et Drift-kort + en manuel
  * "Synk kamptider nu"-udløser)?

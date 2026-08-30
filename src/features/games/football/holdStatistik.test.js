@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   holdetsKampe, holdForm, indbyrdesHold, oddsUdfald, ensomRet,
   hjemmeUde, maalforskelFordeling, favoritTal, pointModForventning,
-  FORDELING_MINIMUM,
+  FORDELING_MINIMUM, maalModXg,
 } from './holdStatistik';
 import { ELO, outcomeProbabilities } from '../../../lib/superligaScoring';
 
@@ -686,5 +686,61 @@ describe('pointModForventning', () => {
       kamp('b', 2, 'FCK', 'BIF'),
     ];
     expect(pointModForventning(matches, 'FCK', [], seed).kampe).toBe(1);
+  });
+});
+
+describe('maalModXg — mål mod målchancer', () => {
+  const kamp = (id, home, away, hg, ag, xh, xa) => ({
+    id, round: 1, home, away, kickoff: 1000 + id, result: hg > ag ? '1' : (hg < ag ? '2' : 'X'),
+    homeGoals: hg, awayGoals: ag, xgHome: xh, xgAway: xa,
+  });
+
+  it('summerer holdets mål og målchancer i begge ender', () => {
+    const t = maalModXg([
+      kamp(1, 'AGF', 'OB', 2, 0, 1.4, 0.7),
+      kamp(2, 'OB', 'AGF', 1, 3, 0.9, 2.2),
+    ], 'AGF');
+    // AGF: hjemme 2 mål / 1,4 xG, ude 3 mål / 2,2 xG.
+    expect(t.maal).toBe(5);
+    expect(t.xg).toBe(3.6);
+    // Imod: hjemme 0 / 0,7, ude 1 / 0,9.
+    expect(t.imod).toBe(1);
+    expect(t.xgImod).toBe(1.6);
+    expect(t.kampe).toBe(2);
+  });
+
+  it('BEGGE tal dækker samme kampe — en kamp uden xG tælles i INGEN af dem', () => {
+    // Kortets hele rigtighed. Talte vi mål over alt spillet og målchancer kun
+    // over dem, der har tallet, ville den nyeste kamp — som altid mangler xG
+    // først — fabrikere en overpræstation.
+    const udenXg = { ...kamp(3, 'AGF', 'FCK', 4, 0, null, null) };
+    const t = maalModXg([kamp(1, 'AGF', 'OB', 2, 0, 1.4, 0.7), udenXg], 'AGF');
+    expect(t.maal).toBe(2); // IKKE 6
+    expect(t.kampe).toBe(1);
+    // Men grundlaget kender forskellen, så fladen kan sige den.
+    expect(t.spillede).toBe(2);
+  });
+
+  it('xgHome: null tæller ikke som 0 — Number(null) er 0, og det ville lyve', () => {
+    const t = maalModXg([kamp(1, 'AGF', 'OB', 2, 0, null, 0.7)], 'AGF');
+    expect(t).toBeNull();
+  });
+
+  it('en kamp uden måltal er en data-mangel, ikke et 0-0', () => {
+    const uden = { id: 9, round: 1, home: 'AGF', away: 'OB', kickoff: 1, result: '1', xgHome: 1, xgAway: 1 };
+    expect(maalModXg([uden], 'AGF')).toBeNull();
+  });
+
+  it('intet grundlag giver null, så kortet kan skjules frem for at vise nuller', () => {
+    expect(maalModXg([], 'AGF')).toBeNull();
+    expect(maalModXg(null, 'AGF')).toBeNull();
+  });
+
+  it('ÉN kamp er nok — gulvet er 1, ikke 5', () => {
+    // Med gulv 5 ville kortet være usynligt for alle 20 PL-hold ved
+    // lanceringen: PL har ~1,8 spillet kamp pr. hold mod SL's ~5,3.
+    const t = maalModXg([kamp(1, 'AGF', 'OB', 1, 1, 0.8, 1.9)], 'AGF');
+    expect(t.kampe).toBe(1);
+    expect(t.maal).toBe(1);
   });
 });

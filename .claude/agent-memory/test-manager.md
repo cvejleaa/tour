@@ -152,6 +152,78 @@
   hardkodet tal i testen (uafhængigt af selve konstanten), der ville
   fange, hvis nogen ændrede den forretningsmæssige værdi ved et uheld?
 
+## `maalModXg`/xG på kampkort + holdside (commit 57a5221, aug. 2026)
+
+- **`m.result &&` i kampkortets xG-vagt kan fjernes helt uden at én test
+  fejler.** `FootballTip.jsx:692` gater xG-linjen på
+  `m.result && typeof m.xgHome === 'number' && Number.isFinite(...)`. Ingen
+  fixture i `tipPil.test.jsx` sætter `xgHome`/`xgAway` på en kamp UDEN
+  `result` — så den branch, der forhindrer en xG-linje på en endnu ikke
+  afgjort kamp (fx et facit, der er fortrudt/ryddet, mens xG-feltet stadig
+  ligger tilbage — "hvad hvis handlingen fortrydes igen"), er 100 % udækket.
+  Mutationsbevist ved at fjerne `m.result &&` — alle 11 tests forblev grønne.
+- **`typeof m.xgHome === 'number'` er redundant ved siden af
+  `Number.isFinite(m.xgHome)` — men det er IKKE symmetrisk med den anden
+  vagt.** `Number.isFinite` afviser (per spec) alt, der ikke er af typen
+  Number, FØR den tjekker finite — så `typeof === 'number' &&` bidrager intet
+  ekstra, og fjernes det, forbliver alle tests grønne (bevist). Den vagt, der
+  IKKE er redundant, er `Number.isFinite` selv: fjern DEN og behold kun
+  `typeof`, og NaN/Infinity ville slippe igennem til `fmtDec`, hvor
+  `Number(NaN) || 0` bliver til **"0,0"** — præcis den løgn, kode-kommentaren
+  eksplicit forbyder ("aldrig 0,0 for et tal, vi mangler"). Ingen test sætter
+  `xgHome: NaN`, så denne mutation overlever OGSÅ (bevist). To forskellige
+  fund under samme linje: den ene halvdel er dødvægt, den anden er den reelle
+  vagt og er udækket for sit eget canonical failure-case.
+- **`XG_PROVIDERE` (`src/features/games/spilEvner.js:30`) har NUL direkte
+  tests.** I modsætning til søskende-konstanterne `KICKOFF_PROVIDERE` og
+  `RESULTAT_PROVIDERE` (som i `spilEvner.test.js` hver har en
+  `[...SET].sort()).toEqual([...])`-test OG en games.mjs-spejlingstest),
+  mangler `XG_PROVIDERE`/`harXg` helt i `spilEvner.test.js`. Den eneste
+  dækning er indirekte via `FootballHelp`-guidens render-test i
+  `xgFlade.test.jsx` (superliga→vist, 'ukendt'→skjult). Mutationsbevist:
+  `XG_PROVIDERE = new Set(['pulselive','superliga','en-tredje-uden-hentXg'])`
+  overlever HELE suiten (spilEvner.test.js + xgFlade.test.jsx +
+  FootballHelp.test.jsx alle grønne) — den præcise "puljeLockRound"-fælde fra
+  CLAUDE.md: en gate, der i dag tilfældigt matcher de rigtige providere (begge
+  eksisterende har faktisk `hentXg` i `functions-platform/syncProviders.js`),
+  men ingen paritetstest binder den dertil. `KICKOFF_PROVIDERE` har SAMME
+  mangel på den ægte server-parity (ingen test i `functions-platform` binder
+  den til `hentKickoffs`-tilstedeværelse) — det er altså et eksisterende,
+  bredere hul, ikke noget denne ændring alene indførte, men `XG_PROVIDERE`
+  mangler oveni den simple set-indholds-test, søskende-konstanterne HAR.
+- **En betinget "mangler-data"-sætning i UI-teksten kan mangle sin negative
+  gren.** `HoldSide.jsx:185-187`: `xgTal.kampe < xgTal.spillede ? "...holdet
+  har spillet X kampe..." : '.'`. Ingen test bekræfter, at teksten IKKE viser
+  "holdet har spillet X kampe"-sætningen, når `kampe === spillede` (intet
+  data mangler). Mutationsbevist: hardkoder man betingelsen til `true` (så
+  advarslen ALTID vises, også når intet mangler), forbliver alle 10 tests i
+  `xgFlade.test.jsx` grønne.
+- **To fraværs-tests for det forbudte ordforråd (`FORBUDTE`) er trivielt
+  grønne, hvis HELE kortet forsvinder.** Både 'ingen dom om kampen'
+  (`tipPil.test.jsx`) og 'fælder INGEN dom' (`xgFlade.test.jsx`) asserterer
+  kun `not.toContain(ord)` på `document.body.textContent` — ingen positiv
+  `toBeInTheDocument()` ved siden af. Mutationsbevist isoleret
+  (`{false && xgTal && (...)`}`i HoldSide.jsx): kørt ALENE med `-t "fælder
+  INGEN dom"` består testen trivielt (kortet renderes aldrig, så der er intet
+  forbudt ord at finde). Kørt som HELE filen fanges mutationen dog af
+  søskende-tests (4/10 fejler) — så det er ikke et blokerende hul i sig selv,
+  men et skrøbeligt mønster: en fremtidig sletning af netop DENNE ene test
+  (fx ved en "oprydning") ville ikke i sig selv gøre nogen anden test rød for
+  akkurat dette scenarie. Tjek næste gang en forbudt-ordliste-test skrives:
+  parr den altid med en positiv assertion i SAMME test, ikke kun i naboer.
+- **De fire hjemme/ude-ombytninger i `maalModXg` (mål/imod/xg/xgImod) er
+  ALLE fanget**, fordi testens fixture er bevidst asymmetrisk (AGF
+  hjemme 2-0 / xG 1,4-0,7, AGF ude 1-3 / xG 0,9-2,2) — ingen af de fire felter
+  har samme værdi hjemme og ude. God fixture-praksis, værd at genbruge:
+  et symmetrisk fixture (fx samme scoreline hjemme og ude) ville have skjult
+  alle fire.
+- **Selve invarianten "begge kolonner samme kampe" ER mutationsbevist på
+  rette lag.** At flytte `maal += …; imod += …;` til FØR xG-tjekket (så mål
+  tælles for en kamp uden xG) fanges direkte af
+  `holdStatistik.test.js`-testen "BEGGE tal dækker samme kampe" (6 mod
+  forventet 2). Denne del af planens kernepåstand er altså bevist, i
+  modsætning til de fund ovenfor.
+
 ## Mønster at genkende
 
 Alle tre fund ovenfor deler samme form: en test, der ser ud til at dække en

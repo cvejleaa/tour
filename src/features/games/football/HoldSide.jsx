@@ -15,7 +15,7 @@ import { useMemo } from 'react';
 import { teamsOf, teamInfo, visOf, teamByShort } from './teamInfo';
 import {
   holdetsKampe, holdForm, hjemmeUde, maalforskelFordeling,
-  favoritTal, pointModForventning, FORDELING_MINIMUM,
+  favoritTal, pointModForventning, maalModXg, FORDELING_MINIMUM,
 } from './holdStatistik';
 import { eloRows } from './eloHistory';
 import ClubBadge from '../../../components/ClubBadge';
@@ -84,6 +84,7 @@ export default function HoldSide({ game, matches, short, onLuk }) {
 
   const kampe = holdetsKampe(matches, navn);
   const form = holdForm(matches, navn, 5);
+  const xgTal = maalModXg(matches, navn);
   const hu = hjemmeUde(matches, navn);
   const fordeling = maalforskelFordeling(matches, navn);
   const fav = favoritTal(matches, navn);
@@ -138,6 +139,55 @@ export default function HoldSide({ game, matches, short, onLuk }) {
               {' '}({maalFor - maalImod >= 0 ? '+' : ''}{maalFor - maalImod}).
             </p>
           </Kort>
+
+          {/* MÅL MOD MÅLCHANCER.
+              BEGGE KOLONNER OVER SAMME KAMPE — se maalModXg. Summerede vi mål
+              over alt spillet og målchancer kun over dem, der har tallet,
+              ville kortet vise en overpræstation, der kom af databrist.
+
+              INGEN DOM. Ikke "overpræsterer", ikke "heldig", ingen differens
+              med fortegn og farve. To rækker tal; læseren slutter selv.
+              Målingen (scripts/maal-xg.mjs) viser, at xG er uenig med facit i
+              13 af 37 afgjorte kampe — og modellen kommer fra to
+              leverandører med mulig forskellig skala. En dom oveni to usikre
+              tal er en påstand i tredje led.
+
+              Gulv = 1 kamp, ikke FORDELING_MINIMUM. Det gulv sidder på SEJRE
+              og er sat af grafiske grunde (en form kan ikke ses i to søjler);
+              her er der ingen graf. Med gulv 5 ville kortet være usynligt for
+              alle 20 PL-hold ved lanceringen — PL har ~1,8 spillet kamp pr.
+              hold mod Superligaens ~5,3. Grundlaget står i stedet på skærmen. */}
+          {xgTal && (
+            <Kort titel="🎯 Mål og målchancer (xG)">
+              <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left' }} aria-label="Række" />
+                    <th style={{ textAlign: 'right' }}>Mål</th>
+                    <th style={{ textAlign: 'right' }}>Målchancer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Scoret</td>
+                    <td style={{ textAlign: 'right' }}><strong>{xgTal.maal}</strong></td>
+                    <td style={{ textAlign: 'right' }}>{fmtDec(xgTal.xg)}</td>
+                  </tr>
+                  <tr>
+                    <td>Lukket ind</td>
+                    <td style={{ textAlign: 'right' }}><strong>{xgTal.imod}</strong></td>
+                    <td style={{ textAlign: 'right' }}>{fmtDec(xgTal.xgImod)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p style={{ margin: '0.5rem 0 0', color: 'var(--c-muted)', fontSize: '0.85rem' }}>
+                Begge kolonner dækker de samme {kampeOrd(xgTal.kampe)}
+                {xgTal.kampe < xgTal.spillede
+                  ? ` — holdet har spillet ${kampeOrd(xgTal.spillede)}, og de nyeste får målchancer, når kilden har dem.`
+                  : '.'}
+              </p>
+            </Kort>
+          )}
 
           <Kort titel="🏟️ Hjemme og ude">
             {/* RÅ TAL, aldrig en rate: efter én hjemmekamp ville "100 %

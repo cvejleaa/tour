@@ -11,6 +11,7 @@ import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
 // denne fils formål er at undgå.
+import { harXg } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
 
 // Udbetalingstabellen REGNES af den rigtige formel, den skrives ikke af.
@@ -343,6 +344,42 @@ export default function FootballHelp({ game }) {
         )}
       </Section>
 
+      {/* Kun spil, hvis KILDE kan levere målchancer. Gaten er spil-bred og
+          ikke pr. kamp: guiden er en regelbog for ét spil, og den må ikke
+          forklare et tal, spillet aldrig får. Selve tallet på kampkortet
+          gates derimod pr. kamp — en netop afsluttet kamp mangler det, til
+          sweep'et har kørt. To gates om to forskellige spørgsmål. */}
+      {harXg(game) && (
+        <Section emoji="🎯" title="Målchancer (xG)">
+          Efter en kamp står der <strong>xG (målchancer)</strong> under scoren på
+          {' '}<Tab fane="tip">Tip</Tab>. Tallet siger, hvor gode chancer hvert hold skabte —
+          en tam afslutning fra kanten tæller lidt, en fri chance foran mål tæller meget.
+          Et hold kan altså vinde 1-0 og have de dårligste chancer, eller tabe efter at
+          have spillet sig til mest.
+          <p style={{ margin: '0.5rem 0 0' }}>
+            Det er <strong>en beskrivelse af, hvad der skete</strong> — ikke et bud på, hvem der
+            burde have vundet. Vi har målt det på spillenes egne kampe: chancerne pegede på det
+            modsatte hold i <strong>mere end hver tredje</strong> afgjorte kamp (målt 30. august
+            2026 på 37 kampe — tallet flytter sig, som sæsonen skrider frem). Noget, der rammer
+            forbi så ofte, kan fortælle en historie om en kamp, men det kan ikke afgøre den.
+            Kampens facit er facit, og dine point følger facit.
+          </p>
+          <p style={{ margin: '0.5rem 0 0' }}>
+            Står der ingen målchancer, har kilden dem ikke endnu. De hentes nogle timer efter
+            kampen, og natten over kan der gå længere. Der står aldrig 0,0 for et tal, vi mangler.
+          </p>
+          <p style={{ margin: '0.5rem 0 0' }}>
+            På holdsiden står holdets mål og målchancer over sæsonen — begge tal over
+            <strong> de samme kampe</strong>, så de kan sammenlignes.
+          </p>
+          <p style={{ margin: '0.5rem 0 0' }}>
+            Var en kamp i runden særligt skæv, står den som <strong>🎲 Rundens vildeste</strong> på
+            {' '}<Tab fane="tip">Tip</Tab>. Den dukker kun op, når forskellen er stor — cirka
+            hver anden runde. Der står ingen dom om, hvem der blev snydt; kun hvad der skete.
+          </p>
+        </Section>
+      )}
+
       <Section emoji="📈" title="Elo på kampkortet">
         På <Tab fane="tip">Tip</Tab> står begge holds <strong>styrke-rating</strong> under kampen sammen med de
         seneste op til fem runders udvikling (▲/▼ pr. runde — samme betydning som i Elo-tabellen).
@@ -391,12 +428,16 @@ export default function FootballHelp({ game }) {
         trøjeoversigten under <Tab fane="profil">🙂 Mit hold</Tab> eller på et kampkort — så får du
         holdets egne tal i dette spil: form, hjemme og ude, mål, og hvor stort holdet vinder,
         når det vinder.
-        <p style={{ margin: '0.5rem 0 0' }}>To af tallene er værd at forklare:</p>
+        <p style={{ margin: '0.5rem 0 0' }}>Nogle af tallene er værd at forklare:</p>
         <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.2rem' }}>
           <li><strong>Mod oddsenes favorit.</strong> Hvor ofte holdet var favorit og holdt, og hvor
             ofte det vandt som udfordrer. Favoritten er den, der havde lavest odds i kampen.
             Har holdet aldrig været favorit, står der ingenting — en brøk med nul i nævneren er
             ikke et resultat.</li>
+          <li><strong>Mål og målchancer (xG).</strong> Hvad holdet scorede og lukkede ind, ved
+            siden af hvor gode chancer der var i begge ender. Begge kolonner dækker de samme
+            kampe — ellers ville en manglende måling ligne en overpræstation. Der står ingen dom
+            om, hvorvidt holdet har været heldigt; to rækker tal, og så dømmer du selv.</li>
           <li><strong>Mod modellens forventning.</strong> Holdets point målt mod det, styrketallene
             ventede. Står der <em>+4 point efter 12 kampe</em>, har holdet hentet fire point mere,
             end modellen regnede med. Det er <strong>vores egen model</strong>, ikke rigtige
