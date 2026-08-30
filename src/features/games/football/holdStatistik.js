@@ -617,3 +617,53 @@ export function pointModForventning(matches, hold, eloHistorik, seedElo) {
     kampe,
   };
 }
+
+/**
+ * Mål mod xG (målchancer) for ét hold.
+ *
+ * BEGGE TAL OVER SAMME KAMPSÆT. Det er hele kortets rigtighed. Summerede man
+ * mål over alle spillede kampe og xG kun over dem, der HAR xG, ville kortet
+ * systematisk vise flere mål end målchancer — for den nyeste kamp mangler
+ * altid xG, indtil sweep'et har kørt (cron `25 2,13-23`, så op til 11 timer
+ * i nattehullet). Det ville fabrikere en "overpræstation", der kom af
+ * databrist og ikke af fodbold. Quality Controls fund på planen.
+ *
+ * `typeof === 'number'` og ikke Number(): Number(null) er 0, og et falsk 0
+ * ville tælle med som en kamp uden chancer. Samme vagt som serveren bruger,
+ * da den skriver feltet.
+ *
+ * @param {Array<object>} matches  spillets kampe
+ * @param {string} hold            holdets `name`
+ * @returns {{kampe:number, spillede:number, maal:number, imod:number,
+ *            xg:number, xgImod:number}|null}  null når intet grundlag findes
+ */
+export function maalModXg(matches, hold) {
+  const tal = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  let kampe = 0;
+  let spillede = 0;
+  let maal = 0;
+  let imod = 0;
+  let xg = 0;
+  let xgImod = 0;
+  for (const m of holdetsKampe(matches, hold)) {
+    const s = siden(m, hold);
+    if (s === null) continue;
+    const hj = tal(m?.homeGoals);
+    const ud = tal(m?.awayGoals);
+    // En kamp med facit men uden måltal er en data-mangel, ikke et 0-0 —
+    // samme regel som holdForm bruger.
+    if (hj === null || ud === null) continue;
+    spillede += 1;
+    const xh = tal(m?.xgHome);
+    const xa = tal(m?.xgAway);
+    if (xh === null || xa === null) continue;
+    kampe += 1;
+    maal += s === 'hjemme' ? hj : ud;
+    imod += s === 'hjemme' ? ud : hj;
+    xg += s === 'hjemme' ? xh : xa;
+    xgImod += s === 'hjemme' ? xa : xh;
+  }
+  if (!kampe) return null;
+  const en = (v) => Math.round(v * 10) / 10;
+  return { kampe, spillede, maal, imod, xg: en(xg), xgImod: en(xgImod) };
+}

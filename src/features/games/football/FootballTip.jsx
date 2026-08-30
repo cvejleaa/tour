@@ -671,6 +671,33 @@ export default function FootballTip({ game, me, matches }) {
               </div>
             </div>
 
+            {/* MÅLCHANCER (xG) — HVAD DER SKETE, ikke hvem der burde have vundet.
+                Står OVER MatchElo og under scoren med vilje. MatchElo er
+                PROSPEKTIV og bærer selv sætningen "ikke et bud på denne kamp"
+                (MatchElo.jsx:93); et retrospektivt tal klistret ind i samme
+                stiplede zone inviterer til præcis den sammenblanding. xG hører
+                til dét, den beskriver: resultatet.
+
+                EGEN BLOK, ikke et badge i meta-rækken: den række er en
+                inline-flex UDEN wrap, så et fjerde element klipper venue-
+                teksten i stedet for at ombryde. Her vokser linjen nedad.
+
+                Vagten er `typeof === 'number'`, ikke fmtDec: fmtDec gør
+                `Number(n) || 0`, så en manglende værdi ville blive til "0,0"
+                — præcis det tal, der aldrig må vises for "ved ikke".
+
+                Ingen dom pr. kamp. Målingen (scripts/maal-xg.mjs) viser, at xG
+                peger den modsatte vej i 13 af 37 afgjorte kampe. Ord som
+                "burde", "fortjent", "heldig", "tyveri" hører ingen steder. */}
+            {m.result && typeof m.xgHome === 'number' && Number.isFinite(m.xgHome)
+              && typeof m.xgAway === 'number' && Number.isFinite(m.xgAway) && (
+              <div className="match-card__xg">
+                <span className="match-card__xg-label">xG (målchancer)</span>
+                {' '}{h.navn} <strong>{fmtDec(m.xgHome)}</strong>
+                {' – '}<strong>{fmtDec(m.xgAway)}</strong> {a.navn}
+              </div>
+            )}
+
             <MatchElo home={m.home} away={m.away} eloByTeam={eloByTeam} />
 
             <div className="pick-grid">

@@ -147,3 +147,75 @@ describe('facit-blokkens pil måler DEN VISTE RUNDE', () => {
     expect(screen.queryByText(/Du overhalede/)).toBeNull();
   });
 });
+
+describe('xG (målchancer) på kampkortet', () => {
+  /** Samme opsætning, men med xG på den ene kamp. */
+  function medXg(xh, xa) {
+    mockStandings.mockReturnValue({
+      standings: UDEN_BEVAEGELSE, leagues: [], leagueCount: 1, loading: false, error: null,
+    });
+    mockBets.mockReturnValue({ betsByMatch: { m1: { pick: '1', points: 5 } }, loading: false });
+    const matches = [
+      { ...MATCHES[0], xgHome: xh, xgAway: xa },
+      MATCHES[1],
+    ];
+    return render(
+      <MemoryRouter initialEntries={['/spil/sl?runde=1']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: [] }}
+                me={{ uid: 'me', totalPoints: 39 }}
+                matches={matches}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it('viser begge holds målchancer med navn, så retningen er tydelig', () => {
+    const { container } = medXg(1.8, 0.4);
+    const linje = container.querySelector('.match-card__xg');
+    expect(linje).not.toBeNull();
+    expect(linje.textContent).toMatch(/xG \(målchancer\)/);
+    expect(linje.textContent).toMatch(/1,8/);
+    expect(linje.textContent).toMatch(/0,4/);
+  });
+
+  it('et ÆGTE 0 vises — det er ikke det samme som "ved ikke"', () => {
+    const { container } = medXg(0, 2.1);
+    expect(container.querySelector('.match-card__xg').textContent).toMatch(/0,0/);
+  });
+
+  it('null giver INGEN linje — aldrig "0,0" for et tal vi mangler', () => {
+    // fmtDec gør Number(n) || 0, så uden vagten FØR formateringen ville en
+    // manglende måling blive vist som 0,0 — præcis den løgn, planen forbød.
+    const { container } = medXg(null, null);
+    expect(container.querySelector('.match-card__xg')).toBeNull();
+  });
+
+  it('kun det ene tal er nok til at udelade linjen', () => {
+    const { container } = medXg(1.2, null);
+    expect(container.querySelector('.match-card__xg')).toBeNull();
+  });
+
+  it('linjen står UDEN FOR badge-rækken, som ikke kan ombryde', () => {
+    // Meta-rækken er inline-flex uden wrap; et fjerde element dér klipper
+    // venue-teksten i stedet for at ombryde. Quality Controls fund.
+    const { container } = medXg(1.8, 0.4);
+    const linje = container.querySelector('.match-card__xg');
+    expect(linje.closest('.match-card__meta')).toBeNull();
+  });
+
+  it('ingen dom om kampen — de forbudte ord står ingen steder', () => {
+    medXg(0.2, 3.4); // resultatet 1-0 mod chancerne 0,2-3,4
+    const tekst = document.body.textContent.toLowerCase();
+    for (const ord of ['fortjent', 'burde have vundet', 'heldig', 'uheldig', 'tyveri', 'snydt']) {
+      expect(tekst, `"${ord}" står på kampkortet`).not.toContain(ord);
+    }
+  });
+});

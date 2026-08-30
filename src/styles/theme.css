@@ -1190,3 +1190,14 @@ a:focus-visible,
 .troejer__mrk { font-size: 0.78rem; color: var(--c-muted); }
 /* En 3. trøje, kampkortet aldrig vælger — se TroejeOversigt. */
 .troejer__doed { font-style: italic; }
+
+/* Målchancer (xG) på kampkortet — egen blok under scoren, over Elo-linjen.
+   Almindelig ombrydning med vilje: meta-rækken ovenover er inline-flex uden
+   wrap, og et fjerde element dér ville klippe venue-teksten. */
+.match-card__xg {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--c-muted);
+  text-align: center;
+}
+.match-card__xg-label { font-weight: 600; }

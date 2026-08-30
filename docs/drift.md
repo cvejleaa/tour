@@ -119,7 +119,7 @@ mangler tallet, og skriver én linje pr. spil på sweep-kortet:
 |---|---|---|
 | `xG: alle færdige kampe har tal.` | intet efterslæb | nej |
 | `xG: N hentet, M færdige kampe mangler endnu.` | bagfyldningen kører | nej — M skal falde for hver kørsel |
-| `⚠ xG: M færdige kampe mangler tal, og ingen blev hentet.` | kampe mangler, og kilden gav intet | kun hvis den står i FLERE kørsler i træk |
+| `⚠ xG: M færdige kampe mangler tal, og ingen blev hentet.` | kampe mangler, og kilden gav intet | kun hvis den står i FLERE kørsler i træk — spillerne ser hullet |
 | `xG-synken fejlede: …` | kaldet kastede | se Functions-loggen |
 
 **Den er selvhelende, og det er meningen.** Der findes ikke et bagfyldnings-
@@ -129,9 +129,16 @@ pr. kørsel — med 12 kørsler i døgnet er en hel sæsons efterslæb inde på 
 et døgn. Derfor er et faldende tal på kortet **normal drift**, ikke en fejl.
 
 Det, der ER et signal, er et tal der står **stille** over flere kørsler: så er
-kilden holdt op med at levere xG for netop de kampe. xG har med vilje ingen
-egen alarm — tallet påvirker hverken point, Elo eller runde-afregning, så en
-manglende xG er en skønhedsfejl, ikke en driftfejl.
+kilden holdt op med at levere xG for netop de kampe.
+
+xG har stadig ingen egen alarm — tallet påvirker hverken point, Elo eller
+runde-afregning, så en manglende xG kan ikke koste nogen en placering. Men
+**siden xG kom på skærmen, er det ikke længere usynligt for spillerne**: to
+flader viser det nu (kampkortets linje under scoren og holdsidens kort), og
+begge udelader tallet i stilhed, når det mangler. Står tælleren stille, er
+konsekvensen derfor et hul i fladen, ikke bare i databasen — spillerne ser
+kampe uden målchancer, mens naboerne har dem. Det gør et fastfrosset tal værd
+at kigge på, selv om det ikke er en driftfejl.
 
 xG hentes **kun** i sweep'et, aldrig i minut-synken. Det er ikke en
 tilfældighed: tallet koster ét kald pr. kamp, og minut-synkens `hentFaerdige`
