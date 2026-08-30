@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   holdetsKampe, holdForm, indbyrdesHold, oddsUdfald, ensomRet,
   hjemmeUde, maalforskelFordeling, favoritTal, pointModForventning,
-  FORDELING_MINIMUM, maalModXg,
+  FORDELING_MINIMUM, maalModXg, holdXgListe,
 } from './holdStatistik';
 import { ELO, outcomeProbabilities } from '../../../lib/superligaScoring';
 
@@ -742,5 +742,92 @@ describe('maalModXg — mål mod målchancer', () => {
     const t = maalModXg([kamp(1, 'AGF', 'OB', 1, 1, 0.8, 1.9)], 'AGF');
     expect(t.kampe).toBe(1);
     expect(t.maal).toBe(1);
+  });
+});
+
+describe('holdXgListe — hold-listen ved Elo-tabellen', () => {
+  // Kampe med målchancer i begge ender. `n` styrer hvor mange kampe holdet
+  // får, så gulvet kan rammes præcist.
+  const kampe = (home, away, n, opt = {}) => Array.from({ length: n }, (_, i) => ({
+    id: `${home}-${away}-${i}`, round: i + 1, home, away, kickoff: 1000 + i,
+    result: '1', homeGoals: opt.hg ?? 1, awayGoals: opt.ag ?? 0,
+    xgHome: opt.xh ?? 1, xgAway: opt.xa ?? 1,
+  }));
+  const hold = (...navne) => navne.map((name) => ({ name, short: name, elo: 1500 }));
+
+  it('sorterer PR. KAMP, ikke på summen — de to rækkefølger er ikke ens', () => {
+    // Målt i virkeligheden (scripts/maal-holdliste.mjs 30/8-2026): Lyngby stod
+    // på −5,5 over 6 kampe og FC Nordsjælland på −5,2 over 5. Summen sætter
+    // FCN ØVERST af de to; pr. kamp (−0,92 mod −1,03) sætter Lyngby øverst.
+    // Fixturet gengiver præcis det bytte, så en tilbagerulning til
+    // sum-sortering bliver RØD her — en sum-sorteret liste ville give
+    // ['FCN', 'Lyngby'].
+    const matches = [
+      ...kampe('Lyngby', 'X', 6, { hg: 2, ag: 0, xh: 2.9166667, xa: 1 }), // 12 mål, 17,5 xG → −5,5
+      ...kampe('FCN', 'Y', 5, { hg: 2, ag: 0, xh: 3.04, xa: 1 }), //          10 mål, 15,2 xG → −5,2
+      ...kampe('A', 'Z', 3), ...kampe('B', 'Q', 3),
+    ];
+    const liste = holdXgListe(matches, hold('Lyngby', 'FCN', 'A', 'B'));
+    const negative = liste.filter((r) => r.prKamp < 0).map((r) => r.navn);
+    expect(negative).toEqual(['Lyngby', 'FCN']);
+    // Og summen peger den anden vej — ellers beviser rækkefølgen ovenfor intet.
+    const sum = (r) => r.maal - r.xg;
+    const efterSum = [...liste].filter((r) => r.prKamp < 0).sort((a, b) => sum(b) - sum(a));
+    expect(efterSum.map((r) => r.navn)).toEqual(['FCN', 'Lyngby']);
+  });
+
+  it('et hold under gulvet er VÆK — ikke med på 0,0', () => {
+    // B6 fra Quality Control: et hold uden grundlag må aldrig stå med et nul,
+    // der ligner et måleresultat.
+    const matches = [
+      ...kampe('A', 'Z', 3), ...kampe('B', 'Z', 3),
+      ...kampe('C', 'Z', 3), ...kampe('D', 'Z', 3),
+      ...kampe('Tynd', 'Z', 2),
+    ];
+    const liste = holdXgListe(matches, hold('A', 'B', 'C', 'D', 'Tynd'));
+    expect(liste.map((r) => r.navn)).not.toContain('Tynd');
+    expect(liste).toHaveLength(4);
+  });
+
+  it('gulvet er 3 kampe: 2 er ude, 3 er inde', () => {
+    // Båndet skal knække præcis dér, gulvet står — ikke et sted i nærheden.
+    const nok = [...kampe('A', 'Z', 3), ...kampe('B', 'Z', 3),
+      ...kampe('C', 'Z', 3), ...kampe('D', 'Z', 3)];
+    expect(holdXgListe(nok, hold('A', 'B', 'C', 'D'))).toHaveLength(4);
+    const forFaa = [...kampe('A', 'Z', 2), ...kampe('B', 'Z', 3),
+      ...kampe('C', 'Z', 3), ...kampe('D', 'Z', 3)];
+    // Kun 3 hold tilbage → under mindstHold, så hele listen falder væk.
+    expect(holdXgListe(forFaa, hold('A', 'B', 'C', 'D'))).toBeNull();
+  });
+
+  it('under fire hold er der ingen liste — null, ikke en tom tabel', () => {
+    // Reglen, der faktisk binder (B3): hold i samme liga spiller i lockstep,
+    // så et hold-gulv alene er 0-eller-alle. Målt gav Premier League 0 rækker
+    // (højst 2 kampe pr. hold) og Superligaen 12.
+    const tre = [...kampe('A', 'Z', 4), ...kampe('B', 'Z', 4), ...kampe('C', 'Z', 4)];
+    expect(holdXgListe(tre, hold('A', 'B', 'C'))).toBeNull();
+    const fire = [...tre, ...kampe('D', 'Z', 4)];
+    expect(holdXgListe(fire, hold('A', 'B', 'C', 'D'))).toHaveLength(4);
+  });
+
+  it('kampe uden målchancer tæller i INGEN af kolonnerne', () => {
+    // Arver maalModXg' regel. Uden den ville de 4 mål i kampen uden xG give
+    // holdet en overpræstation, der kom af databrist.
+    const udenXg = {
+      id: 'x', round: 9, home: 'A', away: 'Z', kickoff: 9,
+      result: '1', homeGoals: 4, awayGoals: 0, xgHome: null, xgAway: null,
+    };
+    const matches = [...kampe('A', 'Z', 3), udenXg, ...kampe('B', 'Z', 3),
+      ...kampe('C', 'Z', 3), ...kampe('D', 'Z', 3)];
+    const a = holdXgListe(matches, hold('A', 'B', 'C', 'D')).find((r) => r.navn === 'A');
+    expect(a.maal).toBe(3); // IKKE 7
+    expect(a.kampe).toBe(3);
+  });
+
+  it('tomt hold-felt springes over uden at vælte listen', () => {
+    const matches = [...kampe('A', 'Z', 3), ...kampe('B', 'Z', 3),
+      ...kampe('C', 'Z', 3), ...kampe('D', 'Z', 3)];
+    const teams = [...hold('A', 'B', 'C', 'D'), { short: 'XX' }];
+    expect(holdXgListe(matches, teams)).toHaveLength(4);
   });
 });

@@ -133,9 +133,11 @@ kilden holdt op med at levere xG for netop de kampe.
 
 xG har stadig ingen egen alarm — tallet påvirker hverken point, Elo eller
 runde-afregning, så en manglende xG kan ikke koste nogen en placering. Men
-**siden xG kom på skærmen, er det ikke længere usynligt for spillerne**: to
-flader viser det nu (kampkortets linje under scoren og holdsidens kort), og
-begge udelader tallet i stilhed, når det mangler. Står tælleren stille, er
+**siden xG kom på skærmen, er det ikke længere usynligt for spillerne**. Disse
+flader viser det: kampkortets linje under scoren, "Rundens vildeste" øverst på
+tip-fladen, holdsidens kort, og hold-listen under Elo-tabellen. Alle fire
+udelader tallet i stilhed, når det mangler — hold-listen forsvinder helt, hvis
+færre end fire hold har tre kampe med målchancer. Står tælleren stille, er
 konsekvensen derfor et hul i fladen, ikke bare i databasen — spillerne ser
 kampe uden målchancer, mens naboerne har dem. Det gør et fastfrosset tal værd
 at kigge på, selv om det ikke er en driftfejl.
