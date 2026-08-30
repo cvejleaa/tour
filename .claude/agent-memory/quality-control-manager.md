@@ -427,3 +427,39 @@
   retrospektivt (findes ikke før kampen er spillet) og derfor ikke kan
   forveksles med en prognose, hvis teksten holder sig til "chancerne pegede
   på …", aldrig "burde have vundet" (samme fælde som `MatchElo.jsx`).
+
+## Pilen (`previousRank`) — fire forbrugere af ét afledt tal
+
+- **`previousRank` har FIRE forbrugere; ret aldrig kun den ene.** Serverens
+  snapshot (`snapshotRoundRanks`, `gameScoring.js:343`) skrives kun når en
+  rundes KUPON er afgjort, og kun én gang pr. runde — det kan ligge FLERE
+  runder tilbage. Læserne er: (1) listens ▲▼ i `GameStandings.jsx:329` —
+  **podiet (`:499-531`) viser aldrig pil**, kun listen; (2)
+  `FootballTip.jsx:247-256` → `:363-378`, rundens facit ("▲2", "⬆ Du
+  overhalede X") OG delingsteksten `buildFacitShare`; (3) `gameRecap.js`
+  Runde-Botten via `lokaleRanger` — den ER frisk, for snapshottet tages i
+  samme trigger lige før botten fyrer; (4) Tour-appens `StandingsTable.jsx`
+  (egne data). Dertil gen-regner `ligaRanking` (`gameStandings.js:109-128`)
+  pilen af `_foer`, og `gameRecap.js:373` har sin EGEN kopi af samme greb.
+  Ændrer man pilens betydning ét sted, siger to faner det modsatte om samme
+  runde. Grep på `previousRank` finder alle seks — brug den listen, ikke ét
+  fund.
+- **En hjælpetekst om et symbol skal efterprøves dér, hvor symbolet ALDRIG
+  vises.** "Står der ingen pil, har du holdt din plads" er falsk for top tre,
+  fordi podiet ikke tegner pile: nr. 2 og 3 kan bytte plads uden mærke — det
+  skete i selve PR'ens testfixture. Spørg ved enhver "hvis der ikke står X,
+  betyder det Y": findes der en flade, hvor X aldrig KAN stå?
+- **"Totalen uden rundens bidrag" er ikke "stillingen, da runden begyndte".**
+  Point, der lander i en ANDEN rundes nøgle undervejs (udsat kamp — SL runde 3
+  strakte sig 7/8-3/9 — eller `UDEN_RUNDE`-nøglen), sidder i BEGGE totaler og
+  bliver dermed usynlige for pilen, selv om spilleren reelt rykkede. Vælg
+  ordlyd derefter ("hvad runden gjorde ved din placering"), ikke "siden runden
+  begyndte".
+- **En per-kilde-opdeling, tilføjet for ikke at argumentere af gennemsnittet,
+  skal også rette KONKLUSIONSTEKSTEN.** `scripts/maal-xg.mjs`: efter
+  opdelingen viser PL-tabellen 9 → 8 → 7 → 7 uenige ved bånd 0-0,75 (båndet
+  FORBEDRER altså billedet dér), mens sluttekstens "ingen af de prøvede bånd
+  forbedrer uenige i alt" kun er sand for det samlede tal. Regnskabet selv er
+  efterprøvet: for alle 15 rækker gælder
+  `uenige(d) = uenige(0) − vundetX + mistetRigtig`, og de to spil summer
+  additivt til totaltabellen.

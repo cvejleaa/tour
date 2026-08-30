@@ -478,11 +478,13 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         startRunde={valgt && Number.isFinite(valgt.startRound) ? valgt.startRound : null}
       />
 
-      {/* HVILKEN RUNDE tallet er. Uden linjen står to tal om hver sin runde i
-          samme række: pilen ▲▼ opdateres først, når rundens KUPON er afgjort
-          (gameScoring.js:557-566), mens rundetallet er levende. Overskriften
-          tilskriver tallet en runde, så det ikke kan læses som pilens
-          forklaring. Kronen forklares her og ikke pr. række — det er en regel,
+      {/* HVILKEN RUNDE tallet er.
+          Linjen stod oprindeligt her, fordi pilen ▲▼ målte mod et ældre
+          øjebliksbillede og derfor kunne modsige rundetallet. Den strid er
+          løst i selve pilen (se rundePile ovenfor) — de to måler nu samme
+          runde. Overskriften bliver stående, fordi tallet stadig skal
+          TILSKRIVES en runde: uden den ved man ikke, hvilken runde "+12,3"
+          hører til. Ilden forklares her og ikke pr. række — det er en regel,
           ikke en oplysning om spilleren.
 
           Den står OVER podiet og ikke i listen, fordi tallet står BEGGE

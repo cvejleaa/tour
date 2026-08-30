@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import {
   sidsteRunde, rundensPoint, rundeFoerende, rundePile,
 } from './rundePoint';
+import { ligaPoint, harRundeVektor } from '../../lib/ligaPoint';
 import { UDEN_RUNDE } from '../../lib/ligaPoint';
 
 const r = (uid, perRound) => ({ uid, perRound });
@@ -128,17 +129,11 @@ describe('rundeFoerende — hvem fører runden', () => {
 });
 
 describe('rundePile — pilen skal måle DEN VISTE RUNDE', () => {
-  const regn = (perRound, startRunde, bonus = 0) => {
-    let sum = Number(bonus) || 0;
-    for (const [k, v] of Object.entries(perRound || {})) {
-      const n = Number(k);
-      if (!Number.isFinite(n)) { sum += Number(v) || 0; continue; }
-      if (Number.isFinite(startRunde) && n < startRunde) continue;
-      sum += Number(v) || 0;
-    }
-    return Math.max(0, Math.round(sum * 10) / 10);
-  };
-  const harVektor = (pr) => !!pr && Object.keys(pr).length > 0;
+  // DE ÆGTE funktioner, ikke håndlavede kopier. En dublet afveg på to punkter
+  // (puljebonussen og en tom vektor), og så ville testen bevise noget om
+  // dubletten frem for om koden. Fladen bruger netop disse to.
+  const regn = ligaPoint;
+  const harVektor = harRundeVektor;
   const spiller = (uid, name, perRound) => ({ uid, name, perRound, bonusPoints: 0 });
 
   it('EJERENS SAG: rundens næsthøjeste tal og INGEN pil, fordi han ikke rykkede', () => {
@@ -198,6 +193,22 @@ describe('rundePile — pilen skal måle DEN VISTE RUNDE', () => {
     expect(prev.Anne).toBe(1);
     expect(prev.Bo).toBe(1);
     expect(prev.Carl).toBe(3); // næste springer over
+  });
+
+  it('rangen er den SAMME, uanset hvilken rækkefølge rækkerne kommer i', () => {
+    // ANTAGELSEN bag den manglende navne-tiebreak. rundePile returnerer kun et
+    // rang-opslag, ikke en rækkefølge, så to med samme point skal få samme
+    // rang, uanset hvem der stod først i input. Holder det ikke længere —
+    // fordi funktionen en dag begynder at returnere en ORDEN — bliver denne
+    // rød, og så skal tiebreaken skrives ind igen.
+    const a = spiller('a', 'Anne', { 5: 10, 6: 1 });
+    const z = spiller('z', 'Zenia', { 5: 10, 6: 9 });
+    const c = spiller('c', 'Carl', { 5: 2, 6: 3 });
+    const frem = rundePile([a, z, c], 6, null, regn, harVektor);
+    const bagud = rundePile([c, z, a], 6, null, regn, harVektor);
+    const rang = (ud) => Object.fromEntries(ud.map((r) => [r.uid, r.previousRank]));
+    expect(rang(frem)).toEqual(rang(bagud));
+    expect(rang(frem)).toEqual({ a: 1, z: 1, c: 3 });
   });
 
   it('en spiller uden vektor får INGEN pil frem for en falsk', () => {

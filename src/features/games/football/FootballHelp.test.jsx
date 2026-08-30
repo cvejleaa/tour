@@ -378,8 +378,15 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     // dengang pilen målte mod et flere runder gammelt øjebliksbillede.
     guide();
     const afsnit = screen.getByText(/Rundens point/).closest('li');
-    expect(afsnit.textContent).toMatch(/Pilen.*måler den samme runde/is);
-    expect(afsnit.textContent).toMatch(/siden runden begyndte/i);
+    expect(afsnit.textContent).toMatch(/Pilen.*i listen måler den samme\s*runde/is);
+    expect(afsnit.textContent).toMatch(/hvad runden har gjort ved din placering/i);
+    // Podiet viser ALDRIG pile. Uden den sætning lover teksten, at fravær af
+    // pil betyder "du holdt din plads" — falsk for nr. 2 og 3, der bytter.
+    expect(afsnit.textContent).toMatch(/De tre på podiet har ingen pil/i);
+    // Og den må ikke love mere, end koden regner: point, der lander i en ANDEN
+    // rundes nøgle (en udsat kamp fra en tidligere runde), sidder i begge
+    // totaler og er usynlige for pilen. Derfor ikke "siden runden begyndte".
+    expect(afsnit.textContent).not.toMatch(/siden runden begyndte/i);
   });
 
   it('siger hvad en streg betyder — og lover ALDRIG et nul', () => {

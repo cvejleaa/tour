@@ -170,14 +170,20 @@ export function rundePile(raekker, runde, startRunde, regn, harVektor) {
     if (!harVektor(r?.perRound)) continue;
     foer.push({
       uid: r.uid,
-      navn: r.name || '',
       point: regn(udenRunde(r.perRound, runde), startRunde, r.bonusPoints || 0),
     });
   }
-  // Samme sortering og uafgjort-regel som stillingen selv: ens point giver
-  // ens placering, og næste springer over. Ellers ville pilen bruge en anden
-  // rangorden end den, tallene ved siden af er sorteret efter.
-  foer.sort((a, b) => (b.point - a.point) || a.navn.localeCompare(b.navn, 'da'));
+  // Kun POINT sorteres — bevidst uden navne-tiebreak, modsat rankStandings.
+  //
+  // Dér vises rækkefølgen, så to spillere med samme point skal stå i en fast
+  // orden. Her returneres KUN et rang-opslag: spillere med ens point får ens
+  // rang uanset deres indbyrdes orden, og den næste gruppes indeks er det
+  // samme, fordi de uafgjorte optager de samme pladser. En tiebreak kunne
+  // derfor fjernes med hele suiten grøn — den var død kode, og en vagt, ingen
+  // test kan se, er en vagt, den næste roligt sletter. Samme fund som
+  // 'uden'-nøglen i sidsteRunde. Testen nedenfor pinner ANTAGELSEN: samme
+  // rang, uanset hvilken rækkefølge rækkerne kommer i.
+  foer.sort((a, b) => b.point - a.point);
   const rang = new Map();
   let r = 0;
   let forrige = null;

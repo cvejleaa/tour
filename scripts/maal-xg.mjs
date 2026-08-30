@@ -43,9 +43,16 @@ function providerFor(g) {
 export const udfald = (h, a) => (h > a ? '1' : (h < a ? '2' : 'X'));
 
 /**
- * xG's udfald med STRENG sammenligning — kan aldrig give X.
- * Det er hele pointen i fund nr. 2: uden et bånd er "xG sagde uafgjort"
- * umuligt, så en uafgjort kamp tæller ALTID som uenighed.
+ * xG's udfald med STRENG sammenligning.
+ *
+ * Den kan ikke FORUDSIGE uafgjort som en model — men to helt ens decimaltal
+ * giver 'X', og det er sjældent nok til at blive overset. Netop dét snød den
+ * første optælling, som talte en sådan kamp som en 1-mod-2-vending. Derfor
+ * har `opdel` en egen bunke til den, og derfor står denne kommentar ikke
+ * længere og påstår "kan aldrig give X".
+ *
+ * Identisk med `udfald` i dag. De holdes adskilt, fordi de to begreber kan
+ * skulle skilles ad (fx et bånd på xG alene), og et delt navn ville skjule det.
  */
 export const xgUdfald = (h, a) => (h > a ? '1' : (h < a ? '2' : 'X'));
 
@@ -115,30 +122,21 @@ function rapportér(navn, raekker) {
   const n = raekker.length;
   if (!n) { console.log(`\n${navn}: ingen kampe med både facit og xG.`); return null; }
   const t = opdel(raekker);
-  const uenige = { length: t.uenige };
-  const uafgjorte = { length: t.uafgjorte };
-  const uenigeUafgjort = { length: t.uenigeUafgjort };
-  const afgjorte = { length: t.afgjorte };
-  const vendte = { length: t.vendte };
-  const xgLige = { length: t.xgLige };
 
   console.log(`\n=== ${navn} ===`);
   console.log(`Kampe med facit OG xG: ${n}`);
-  console.log(`  heraf uafgjorte:     ${uafgjorte.length}`);
-  console.log(`Uenigheder i alt:      ${uenige.length} af ${n}`
-    + `  (${(100 * uenige.length / n).toFixed(0)} %)`);
-  console.log(`  ... men ${uenigeUafgjort.length} af dem er UAFGJORTE kampe, som xG med`);
+  console.log(`  heraf uafgjorte:     ${t.uafgjorte}`);
+  console.log(`Uenigheder i alt:      ${t.uenige} af ${n}`
+    + `  (${(100 * t.uenige / n).toFixed(0)} %)`);
+  console.log(`  ... men ${t.uenigeUafgjort} af dem er UAFGJORTE kampe, som xG med`);
   console.log('      streng sammenligning per konstruktion ikke kan ramme.');
-  if (xgLige.length) {
-    console.log(`  ... og ${xgLige.length} afgjorte kampe, hvor xG selv var PRÆCIS LIGE.`);
+  if (t.xgLige) {
+    console.log(`  ... og ${t.xgLige} afgjorte kampe, hvor xG selv var PRÆCIS LIGE.`);
     console.log('      De peger ikke på det modsatte hold og er ikke vendinger.');
   }
-  console.log(`REEL 1-mod-2-vending:  ${vendte.length} af ${afgjorte.length}`
-    + `  (${afgjorte.length ? (100 * vendte.length / afgjorte.length).toFixed(0) : '–'} %)`);
-  return {
-    n, uenige: uenige.length, uafgjorte: uafgjorte.length,
-    afgjorte: afgjorte.length, vendte: vendte.length, xgLige: xgLige.length,
-  };
+  console.log(`REEL 1-mod-2-vending:  ${t.vendte} af ${t.afgjorte}`
+    + `  (${t.afgjorte ? (100 * t.vendte / t.afgjorte).toFixed(0) : '–'} %)`);
+  return t;
 }
 
 /**
@@ -220,8 +218,13 @@ async function main() {
     console.log(`usikkerheden på ${pct} % omkring ±15 procentpoint. Citér tallet som en`);
     console.log('RETNING ("for ofte uenig til at bære en prognose"), ikke som en præcis');
     console.log('rate. Kør igen, når sæsonen er længere fremme.');
-    console.log('Båndtabellens konklusion er derimod robust: den regnes direkte, og');
-    console.log('ingen af de prøvede bånd forbedrer "uenige i alt".');
+    console.log('');
+    console.log('OG BÅNDET: læs tabellerne PR. SPIL, ikke den samlede. Samlet ser det ud');
+    console.log('som om intet bånd forbedrer noget — men det er et gennemsnit af to');
+    console.log('kurver, der peger hver sin vej: Superligaen bliver værre, Premier');
+    console.log('League bedre. De udligner hinanden. Netop dét er grunden til, at');
+    console.log('tabellen deles: et gennemsnit kan ikke se, om kurven har rigtig form.');
+    console.log('PL-tallene hviler dog på n=18 og er for små til at bære en beslutning.');
   }
 }
 

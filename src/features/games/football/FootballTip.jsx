@@ -15,6 +15,8 @@ import { eloFormByTeam } from './eloHistory';
 import { playerBank } from '../GameLayout';
 import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
+import { rundePile } from '../rundePoint';
+import { ligaPoint, harRundeVektor } from '../../../lib/ligaPoint';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
 import { teamsOf, visOf, teamInfo } from './teamInfo';
@@ -239,20 +241,36 @@ export default function FootballTip({ game, me, matches }) {
   const manglerIRunden = total - spilledeIRunden;
   const roundBetPoints = roundMatches.reduce((a, m) => a + (Number(betsByMatch[m.id]?.points) || 0), 0);
   const roundEarned = round1(roundBetPoints + roundBonus);
-  const myIdx = standings.findIndex((r) => r.uid === me?.uid);
-  const myRow = myIdx >= 0 ? standings[myIdx] : null;
-  const rivalAbove = myIdx > 0 ? standings[myIdx - 1] : null;
-  const rivalBelow = myIdx >= 0 && myIdx < standings.length - 1 ? standings[myIdx + 1] : null;
+  // PILEN SKAL HANDLE OM DEN RUNDE, KORTET VISER. Serverens previousRank er et
+  // øjebliksbillede, der kun skrives når en rundes KUPON er afgjort, og kun én
+  // gang pr. runde — det kan ligge flere runder tilbage. Stillings-fanen
+  // regner den nu af runde-vektoren; gjorde denne flade ikke det samme, ville
+  // de to sider VISE FORSKELLIGE PILE for samme runde, og delingsteksten
+  // nedenfor ville sende den forkerte påstand videre til vennerne.
+  //
+  // Her bruges kortets EGEN runde (current.round), ikke "seneste runde med
+  // point": bladrer man tilbage til en gammel runde, skal pilen handle om
+  // netop den. Ingen startrunde — fladen viser hele kredsen, ikke én liga.
+  // Ikke useMemo: dette punkt ligger efter en tidlig returnering, og en hook
+  // her ville bryde hook-rækkefølgen. Arbejdet er én sortering over de få
+  // spillere, man deler liga med.
+  const raekker = Number.isFinite(current?.round)
+    ? rundePile(standings, current.round, null, ligaPoint, harRundeVektor)
+    : standings;
+  const myIdx = raekker.findIndex((r) => r.uid === me?.uid);
+  const myRow = myIdx >= 0 ? raekker[myIdx] : null;
+  const rivalAbove = myIdx > 0 ? raekker[myIdx - 1] : null;
+  const rivalBelow = myIdx >= 0 && myIdx < raekker.length - 1 ? raekker[myIdx + 1] : null;
   const showFacit = roundSettled && tipped > 0;
-  // Bevægelse siden sidste runde (server-snapshot af previousRank).
+  // Bevægelse i DENNE runde (se rundePile ovenfor).
   const myPrev = myRow?.previousRank;
   const myDelta = myRow ? rankDelta(myRow) : null;
   const overtook = (myRow && myPrev != null)
-    ? standings.filter((r) => r.uid !== me?.uid && r.previousRank != null
+    ? raekker.filter((r) => r.uid !== me?.uid && r.previousRank != null
         && r.previousRank < myPrev && r.rank > myRow.rank).map((r) => r.name)
     : [];
   const overtakenBy = (myRow && myPrev != null)
-    ? standings.filter((r) => r.uid !== me?.uid && r.previousRank != null
+    ? raekker.filter((r) => r.uid !== me?.uid && r.previousRank != null
         && r.previousRank > myPrev && r.rank < myRow.rank).map((r) => r.name)
     : [];
 
@@ -263,7 +281,7 @@ export default function FootballTip({ game, me, matches }) {
     // 🔗 og ikke ⚡: ⚡ er Chancen overalt i appen (PointOpdeling siger det
     // eksplicit), og delingsteksten stod med begge betydninger på samme linje.
     if (roundBonus > 0) parts.push(`combi +${fmtDec(roundBonus)} 🔗`);
-    if (myRow) parts.push(`nr. ${myRow.rank} af ${standings.length}`);
+    if (myRow) parts.push(`nr. ${myRow.rank} af ${raekker.length}`);
     if (overtook.length) parts.push(`overhalede ${overtook.slice(0, 2).join(', ')} 🎉`);
     return `${parts.join(' · ')}\ntip.vejleaa.dk`;
   }
@@ -360,7 +378,7 @@ export default function FootballTip({ game, me, matches }) {
           {myRow && (
             <div className="facit__pos">
               <div className="facit__rank">
-                Du er nr. <strong>{myRow.rank}</strong> af {standings.length}
+                Du er nr. <strong>{myRow.rank}</strong> af {raekker.length}
                 {myDelta != null && myDelta !== 0 && (
                   <span className={myDelta > 0 ? 'facit__up' : 'facit__down'}>
                     {' '}{myDelta > 0 ? `▲${myDelta}` : `▼${-myDelta}`}
