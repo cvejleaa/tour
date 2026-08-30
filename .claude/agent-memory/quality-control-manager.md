@@ -393,3 +393,37 @@
   ikke rettet, selv om alt andet var grønt. En ny/fjernet PLATFORM- eller
   Tour-fane skal grep'es mod denne linje i SAMME PR, ikke kun mod
   `fanebredde.mjs`. To spejle af samme fanerække, ikke ét.
+
+## `scripts/maal-xg.mjs` — xG mod facit, hele sæsonen (aug. 2026)
+
+- **Reproduceret præcist:** 26/50 (52 %) uenige, 13/37 (35 %) reel 1-mod-2-
+  vending, SL 8/23 (35 %), PL 5/14 (36 %). Scriptet bruger de ÆGTE providere
+  (`functions-platform/syncProviders.js`), ingen Firestore, ingen kopi-fixture.
+- **En "mister afgjorte"-kolonne, der ikke trækker allerede-forkerte fra, er
+  inflateret.** `baandtabel()` tæller enhver afgjort kamp, båndet nu kalder X,
+  som "prisen for at ramme X" — men halvdelen af dem var allerede forkerte FØR
+  båndet (xG pegede allerede på det forkerte hold), så båndet kun ændrede
+  HVILKEN forkert gætning, ikke fra rigtig til forkert. Målt konkret ved
+  d=0,25: `misterAfgjort=4`, men kun 2 var reelt korrekt→ødelagt. Den samlede
+  "uenige i alt"-kolonne er stadig korrekt (sammenligner direkte, uafhængigt
+  af historik), så hovedkonklusionen ("intet bånd forbedrer billedet") holder
+  — men enhver, der citerer "båndet ødelagde N korrekte gæt", overciterer.
+  Spørg ved fremtidige båndtabeller: tæller "prisen" kun kampe, der gik fra
+  RIGTIGT til FORKERT, eller alle kampe der endte som X uanset udgangspunkt?
+- **n=37 afgjorte kampe giver en 95 %-konfidens på ca. ±15 procentpoint**
+  (35 % ± 15, dvs. reelt ca. 20-51 %) — 25 % vs. 35 % kan sagtens være støj
+  ved denne stikprøvestørrelse. For at presse båndet ned til ±5 point kræves
+  groft 300-350 afgjorte kampe, dvs. en hel sæson eller mere i begge ligaer.
+  Et sådant tal må konkluderes RETNINGSBESTEMT ("xG er for ofte uenig til at
+  bære en prognose-flade"), aldrig som en præcis procent, før n er markant
+  større.
+- **xG findes KUN for FÆRDIGE kampe** (`docs/drift.md:115`) — det er
+  retrospektiv "chancekvalitet", ikke en prognosemodel. En "alternativ
+  stilling" bygget på streng xG-sammenligning tvinger ALLE uafgjorte kampe
+  (26 % af datasættet) om til et opfundet vinderhold — garanteret forkert for
+  netop de kampe, ikke bare usikkert — oveni den 35 % reelle vendingsrate på
+  de afgjorte. Det gør "alternativ stilling" til den mest sårbare af xG's
+  planlagte flader. Et kampkort er tryggere, FORDI xG kun kan vises
+  retrospektivt (findes ikke før kampen er spillet) og derfor ikke kan
+  forveksles med en prognose, hvis teksten holder sig til "chancerne pegede
+  på …", aldrig "burde have vundet" (samme fælde som `MatchElo.jsx`).

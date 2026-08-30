@@ -40,17 +40,17 @@ function providerFor(g) {
 }
 
 /** 1 / X / 2 af to måltal. */
-const udfald = (h, a) => (h > a ? '1' : (h < a ? '2' : 'X'));
+export const udfald = (h, a) => (h > a ? '1' : (h < a ? '2' : 'X'));
 
 /**
  * xG's udfald med STRENG sammenligning — kan aldrig give X.
  * Det er hele pointen i fund nr. 2: uden et bånd er "xG sagde uafgjort"
  * umuligt, så en uafgjort kamp tæller ALTID som uenighed.
  */
-const xgUdfald = (h, a) => (h > a ? '1' : (h < a ? '2' : 'X'));
+export const xgUdfald = (h, a) => (h > a ? '1' : (h < a ? '2' : 'X'));
 
 /** xG's udfald MED et uafgjort-bånd. */
-const xgUdfaldBaand = (h, a, d) => (Math.abs(h - a) < d ? 'X' : (h > a ? '1' : '2'));
+export const xgUdfaldBaand = (h, a, d) => (Math.abs(h - a) < d ? 'X' : (h > a ? '1' : '2'));
 
 async function hentSpil(g) {
   const p = providerFor(g);
@@ -63,7 +63,7 @@ async function hentSpil(g) {
   const frist = Date.now() + 10 * 60 * 1000; // rundhåndet: engangskørsel, ikke en sweep
   const xg = await p.hentXg(g.sync, fetch, docIds, frist);
   const xgVed = new Map(xg.map((x) => [String(x.sourceKey), x]));
-  return faerdige
+  const raekker = faerdige
     .map((f) => {
       const x = xgVed.get(String(f.sourceKey));
       if (!x) return null;
@@ -77,16 +77,50 @@ async function hentSpil(g) {
       };
     })
     .filter(Boolean);
+  // FRAFALD TÆLLES. Uden det falder n tavst, hvis en kilde holder op med at
+  // levere xG, og procenterne ser lige så pæne ud på et halvt datagrundlag.
+  // Samme fejlform som "et filter, der ser grønt ud, fordi det ikke kiggede".
+  return { raekker, faerdige: faerdige.length, bortfaldet: faerdige.length - raekker.length };
+}
+
+/**
+ * Optællingen, skilt fra udskriften så den kan testes uden netværk.
+ * Delingen er hele pointen: `uenige` er ét tal, `vendte` et andet, og de må
+ * aldrig forveksles — hverken af en læser eller af koden selv.
+ */
+export function opdel(raekker) {
+  const uenige = raekker.filter((r) => r.facit !== r.xg);
+  const uafgjorte = raekker.filter((r) => r.facit === 'X');
+  const uenigeUafgjort = uenige.filter((r) => r.facit === 'X');
+  const afgjorte = raekker.filter((r) => r.facit !== 'X');
+  // KUN ÆGTE VENDINGER. xG kan selv lande præcis lige (xgHome === xgAway) på
+  // en afgjort kamp; den peger da IKKE på det modsatte hold. Talte man den
+  // med, ville det nye tal bære nøjagtig samme kategorifejl, som scriptet er
+  // skrevet for at afsløre i det gamle — bare i den halvdel, man troede var
+  // sikker. Test Managers fund.
+  const vendte = afgjorte.filter((r) => r.xg !== 'X' && r.facit !== r.xg);
+  const xgLige = afgjorte.filter((r) => r.xg === 'X');
+  return {
+    n: raekker.length,
+    uenige: uenige.length,
+    uafgjorte: uafgjorte.length,
+    uenigeUafgjort: uenigeUafgjort.length,
+    afgjorte: afgjorte.length,
+    vendte: vendte.length,
+    xgLige: xgLige.length,
+  };
 }
 
 function rapportér(navn, raekker) {
   const n = raekker.length;
   if (!n) { console.log(`\n${navn}: ingen kampe med både facit og xG.`); return null; }
-  const uenige = raekker.filter((r) => r.facit !== r.xg);
-  const uafgjorte = raekker.filter((r) => r.facit === 'X');
-  const uenigeUafgjort = uenige.filter((r) => r.facit === 'X');
-  const afgjorte = raekker.filter((r) => r.facit !== 'X');
-  const vendte = afgjorte.filter((r) => r.facit !== r.xg);
+  const t = opdel(raekker);
+  const uenige = { length: t.uenige };
+  const uafgjorte = { length: t.uafgjorte };
+  const uenigeUafgjort = { length: t.uenigeUafgjort };
+  const afgjorte = { length: t.afgjorte };
+  const vendte = { length: t.vendte };
+  const xgLige = { length: t.xgLige };
 
   console.log(`\n=== ${navn} ===`);
   console.log(`Kampe med facit OG xG: ${n}`);
@@ -95,46 +129,99 @@ function rapportér(navn, raekker) {
     + `  (${(100 * uenige.length / n).toFixed(0)} %)`);
   console.log(`  ... men ${uenigeUafgjort.length} af dem er UAFGJORTE kampe, som xG med`);
   console.log('      streng sammenligning per konstruktion ikke kan ramme.');
+  if (xgLige.length) {
+    console.log(`  ... og ${xgLige.length} afgjorte kampe, hvor xG selv var PRÆCIS LIGE.`);
+    console.log('      De peger ikke på det modsatte hold og er ikke vendinger.');
+  }
   console.log(`REEL 1-mod-2-vending:  ${vendte.length} af ${afgjorte.length}`
     + `  (${afgjorte.length ? (100 * vendte.length / afgjorte.length).toFixed(0) : '–'} %)`);
-  return { n, uenige: uenige.length, uafgjorte: uafgjorte.length, afgjorte: afgjorte.length, vendte: vendte.length };
+  return {
+    n, uenige: uenige.length, uafgjorte: uafgjorte.length,
+    afgjorte: afgjorte.length, vendte: vendte.length, xgLige: xgLige.length,
+  };
+}
+
+/**
+ * Båndets pris, opgjort som OVERGANGE og ikke som en bunke.
+ *
+ * Første udgave talte enhver afgjort kamp, båndet kaldte uafgjort, som
+ * "prisen". Det var for højt: nogle af dem var ALLEREDE forkerte, og båndet
+ * skiftede kun ét forkert gæt ud med et andet. Ved bånd 0,25 gav det 4, hvor
+ * kun 2 gik fra rigtig til forkert — en overcitering med faktor 2, på præcis
+ * den slags tal, hele scriptet findes for at holde ærligt. QC's fund.
+ */
+export function baandOvergange(raekker, d) {
+  let vundetX = 0; // uafgjort kamp, båndet nu rammer
+  let mistetRigtig = 0; // var rigtig UDEN bånd, forkert MED
+  let byttetForkert = 0; // forkert begge veje — båndet ændrede kun hvordan
+  let uenige = 0;
+  for (const r of raekker) {
+    const uden = r.xg;
+    const med = d === 0 ? r.xg : xgUdfaldBaand(r.xgHome, r.xgAway, d);
+    const rigtigFoer = uden === r.facit;
+    const rigtigEfter = med === r.facit;
+    if (!rigtigEfter) uenige += 1;
+    if (!rigtigFoer && rigtigEfter) vundetX += 1;
+    if (rigtigFoer && !rigtigEfter) mistetRigtig += 1;
+    if (!rigtigFoer && !rigtigEfter && uden !== med) byttetForkert += 1;
+  }
+  return { vundetX, mistetRigtig, byttetForkert, uenige };
 }
 
 /** Hvad koster det at give xG et uafgjort-bånd? BEGGE veje tælles. */
-function baandtabel(raekker) {
-  console.log('\n=== Uafgjort-båndets pris (alle kampe samlet) ===');
-  console.log('bånd | rammer X | mister afgjorte | uenige i alt');
-  console.log('-----|----------|-----------------|-------------');
+function baandtabel(navn, raekker) {
+  console.log(`\n=== Uafgjort-båndets pris · ${navn} (n=${raekker.length}) ===`);
+  console.log('bånd | vinder | mister rigtige | bytter forkert | uenige i alt');
+  console.log('-----|--------|----------------|----------------|-------------');
   for (const d of [0, 0.25, 0.5, 0.75, 1.0]) {
-    let rammerX = 0; let misterAfgjort = 0; let uenige = 0;
-    for (const r of raekker) {
-      const b = d === 0 ? r.xg : xgUdfaldBaand(r.xgHome, r.xgAway, d);
-      if (b !== r.facit) uenige += 1;
-      if (r.facit === 'X' && b === 'X') rammerX += 1;
-      // En afgjort kamp, båndet nu kalder uafgjort: prisen for at ramme X.
-      if (r.facit !== 'X' && b === 'X') misterAfgjort += 1;
-    }
-    console.log(`${d.toFixed(2).padStart(4)} | ${String(rammerX).padStart(8)} | `
-      + `${String(misterAfgjort).padStart(15)} | ${String(uenige).padStart(12)}`);
+    const t = baandOvergange(raekker, d);
+    console.log(`${d.toFixed(2).padStart(4)} | ${String(t.vundetX).padStart(6)} | `
+      + `${String(t.mistetRigtig).padStart(14)} | ${String(t.byttetForkert).padStart(14)} | `
+      + `${String(t.uenige).padStart(12)}`);
   }
-  console.log('\nEt bånd, der kun måles på "rammer X", ser altid godt ud. Kolonnen');
-  console.log('"mister afgjorte" er den, der afgør, om det er en forbedring.');
 }
 
 async function main() {
+  // Stemplet gør et citat efterprøveligt: tallene flytter sig, når flere
+  // kampe spilles, så "35 %" uden dato og n er en påstand igen.
+  console.log(`Målt: ${new Date().toISOString()}`);
   const alle = [];
+  const perSpil = new Map();
   for (const g of SYNCED_GAMES) {
-    const raekker = await hentSpil(g);
+    const { raekker, faerdige, bortfaldet } = await hentSpil(g);
+    perSpil.set(g.gameId, raekker);
+    if (bortfaldet) {
+      console.log(`\n⚠ ${g.gameId}: ${bortfaldet} af ${faerdige} færdige kampe mangler xG `
+        + 'og indgår IKKE i tallene nedenfor.');
+    }
     rapportér(g.gameId, raekker);
     alle.push(...raekker);
   }
   const samlet = rapportér('BEGGE SPIL SAMLET', alle);
-  baandtabel(alle);
+  // Pr. spil OGSÅ: båndets tærskler er ABSOLUTTE xG-gab, og de to kilder
+  // (superliga.dk mod Opta/Pulselive) kan have hver sin skala. Et samlet
+  // gennemsnit kan skjule, at den ene kilde opfører sig anderledes — samme
+  // fælde som DRAW_BASE: et gennemsnit kan ikke se kurvens form.
+  for (const g of SYNCED_GAMES) {
+    const kun = perSpil.get(g.gameId) || [];
+    if (kun.length) baandtabel(g.gameId, kun);
+  }
+  baandtabel('BEGGE SPIL SAMLET', alle);
   if (samlet) {
+    const pct = (100 * samlet.vendte / samlet.afgjorte).toFixed(0);
     console.log('\n--- Til fladen ---');
-    console.log(`xG er uenig med facit i ${samlet.uenige} af ${samlet.n} kampe, men kun`);
-    console.log(`${samlet.vendte} af ${samlet.afgjorte} afgjorte kampe peger den modsatte vej.`);
-    console.log('Det ANDET tal er det, en "resultatet mod chancerne"-flade må bygge på.');
+    console.log(`xG er uenig med facit i ${samlet.uenige} af ${samlet.n} kampe (`
+      + `${(100 * samlet.uenige / samlet.n).toFixed(0)} %).`);
+    console.log(`Men KUN ${samlet.vendte} af ${samlet.afgjorte} afgjorte kampe (${pct} %) peger`);
+    console.log('på det modsatte hold. Det er DET tal — den reelle 1-mod-2-vending —');
+    console.log('en "resultatet mod chancerne"-flade må bygge på.');
+    console.log('');
+    console.log(`FORBEHOLD: n = ${samlet.afgjorte} afgjorte kampe. Ved den størrelse er`);
+    console.log(`usikkerheden på ${pct} % omkring ±15 procentpoint. Citér tallet som en`);
+    console.log('RETNING ("for ofte uenig til at bære en prognose"), ikke som en præcis');
+    console.log('rate. Kør igen, når sæsonen er længere fremme.');
+    console.log('Båndtabellens konklusion er derimod robust: den regnes direkte, og');
+    console.log('ingen af de prøvede bånd forbedrer "uenige i alt".');
   }
 }
 
