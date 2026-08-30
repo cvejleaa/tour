@@ -259,6 +259,11 @@ describe('guidens afsnit om målchancer', () => {
     const afsnit = screen.getByText(/Målchancer \(xG\)/).closest('section, div');
     expect(afsnit.textContent).toMatch(/under elo-tabellen/i);
     expect(afsnit.textContent).toMatch(/sorteret efter forskellen pr\. kamp/i);
+    // HVORFOR pr. kamp, ikke bare AT. Guiden bærer sin egen kopi af
+    // begrundelsen, og den kunne fjernes ubemærket: fladens tilsvarende
+    // assertion kigger kun på kortets DOM, aldrig på guiden. Test Managers
+    // fund — mutationen "fjern begrundelsen fra guiden" overlevede.
+    expect(afsnit.textContent).toMatch(/mindst data yderst/i);
     // Betingelsen for at listen findes — ellers leder læseren efter en flade,
     // spillet ikke har endnu.
     expect(afsnit.textContent).toMatch(/mindst fire hold har tre kampe/i);
