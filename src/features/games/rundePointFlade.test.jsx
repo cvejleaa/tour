@@ -63,12 +63,12 @@ function vis({ standings, leagues = [], game = FODBOLD }) {
 const tabel = () => screen.getByRole('table');
 
 /**
- * Navnene på dem, der bærer kronen — uanset om de står i tabellen eller på
+ * Navnene på dem, der er markeret som førende i runden — uanset om de står i tabellen eller på
  * podiet. Med tre eller færre spillere i et filter er listen TOM og alle står
  * på podiet, så en assertion, der kun kigger i <tr>, ville fejle af den
  * forkerte grund (og en, der kun kigger på podiet, ville gå glip af nr. 4).
  */
-const kroneNavne = () => screen.queryAllByLabelText('Flest point i runden')
+const foerendeNavne = () => screen.queryAllByLabelText('Flest point i runden')
   .map((k) => k.closest('tr, .podium__spot'))
   .map((boks) => boks?.querySelector('button')?.textContent ?? null)
   .sort();
@@ -88,7 +88,27 @@ describe('rundens point i stillingen', () => {
     expect(within(dorte).queryByText('+3')).toBeNull();
   });
 
-  it('kronen sidder på rundens højeste — ikke på totalens', () => {
+  it('markeringen er 🔥 og IKKE 👑 — pokalen ovenover bruger kronen', () => {
+    // BESLUTNINGEN, bundet fast. Begge var 👑 i første udgave, og Quality
+    // Control kaldte det en reel designrisiko: to identiske symboler med hver
+    // sin betydning på samme skærm — pokalen 👑 Rundekongen (flest HELE runder
+    // i sæsonen, endelig) står lige over podiet, mens markeringen her er
+    // foreløbig og flytter sig i løbet af weekenden.
+    //
+    // De øvrige tests finder markeringen på dens aria-label og ville derfor
+    // bestå, selv om nogen satte kronen tilbage. Denne ser tegnet.
+    vis({ standings: raekker({ u4: { 8: 12.3 }, me: { 8: 4 } }) });
+    const markering = screen.getAllByLabelText('Flest point i runden');
+    expect(markering).not.toHaveLength(0);
+    for (const m of markering) {
+      expect(m.textContent).toBe('🔥');
+      expect(m.textContent).not.toBe('👑');
+    }
+    // Overskriftens forklaring skal bruge SAMME tegn som markeringen.
+    expect(screen.getByText(/🔥 har flest indtil videre/)).toBeInTheDocument();
+  });
+
+  it('markeringen sidder på rundens højeste — ikke på totalens', () => {
     // Anne fører spillet (60 point), men Dorte tog runden. Det er hele
     // pointen: den, der vinder ugen, er ofte ikke den, der fører.
     vis({ standings: raekker({ u1: { 8: 1 }, u4: { 8: 12.3 }, me: { 8: 4 } }) });
@@ -160,7 +180,7 @@ describe('overskriften overlever en TOM liste', () => {
 
   it('kronen står på podiet, og forklaringen af den står med', () => {
     vis({ standings: tre });
-    expect(kroneNavne()).toEqual(['Anne']);
+    expect(foerendeNavne()).toEqual(['Anne']);
     expect(screen.getByText(/har flest indtil videre/)).toBeInTheDocument();
   });
 });
@@ -227,9 +247,9 @@ describe('rundens point under et liga-filter med startrunde', () => {
       u1: { 21: 2 }, u2: { 21: 3 }, u4: { 21: 6 }, me: { 21: 1 }, u5: { 21: 99 },
     });
     vis({ standings: rows, leagues: [LIGA, LIGA2] });
-    expect(kroneNavne()).toEqual(['Erik']);
+    expect(foerendeNavne()).toEqual(['Erik']);
     vaelgLiga();
     expect(screen.queryByText('Erik')).toBeNull();
-    expect(kroneNavne()).toEqual(['Dorte']);
+    expect(foerendeNavne()).toEqual(['Dorte']);
   });
 });

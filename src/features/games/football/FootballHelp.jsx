@@ -274,18 +274,19 @@ export default function FootballHelp({ game }) {
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Rundens point</strong> — tallet ved siden af totalen er, hvad du har hentet i den
             runde, der er i gang. Det er <strong>levende</strong>: det vokser, efterhånden som kampene
-            afgøres, så føringen i runden kan skifte, indtil den sidste kamp er spillet. En
-            {' '}<strong>👑</strong> sidder hos den, der har flest indtil videre — står to lige, bærer de
-            den begge. Har hele feltet tabt runden, er der ingen krone. En <strong>–</strong> betyder,
-            at du ikke har point i runden endnu.
+            afgøres, så føringen i runden kan skifte, indtil den sidste kamp er spillet. Et
+            {' '}<strong>🔥</strong> brænder hos den, der har flest indtil videre — står to lige, brænder
+            det hos dem begge. Har hele feltet tabt runden, er der ingen ild. En <strong>–</strong>
+            {' '}betyder, at du ikke har point i runden endnu.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>👑 Rundekongen</strong> — hvem har vundet flest <strong>hele</strong> runder? En runde
             tæller først, når hver eneste af dens kampe har facit, så en udsat kamp udskyder kåringen.
             Står to lige, deler de sejren. Det er en anden pokal end tabellen: man kan vinde fire runder
-            og alligevel ligge midt i feltet. Bemærk forskellen på kronen i listen: den er
-            <strong> foreløbig</strong> og flytter sig, mens runden spilles. Pokalen her tælles først,
-            når runden er helt færdig.
+            og alligevel ligge midt i feltet. Bemærk forskellen på 🔥 i listen: den er
+            <strong> foreløbig</strong> og flytter sig, mens runden spilles — kronen her er
+            <strong> endelig</strong> og tælles først, når runden er helt færdig. Derfor to
+            forskellige tegn.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>⚡ Chance-kongen</strong> — hvem står bedst? Er nogen i minus, står den modigste af dem også. Kortet viser altid

@@ -16,13 +16,13 @@
  * 7. august til 3. september; "seneste FÆRDIGE runde" ville have vist en måned
  * gammel runde i en måned.
  *
- * KRONEN ER FORELØBIG. RUNDEKONGEN ER ENDELIG. De ligner hinanden og er det
+ * FØRINGEN ER FORELØBIG. RUNDEKONGEN ER ENDELIG. De ligner hinanden og er det
  * ikke: rundeSejre.js kårer først, når HVER kamp i runden har facit
- * (faerdigeRunder), fordi en pokal ikke må skifte hånd hver dag. Kronen her
+ * (faerdigeRunder), fordi en pokal ikke må skifte hånd hver dag. Føringen her
  * afgøres på det levende tal og flytter sig med vilje i løbet af weekenden —
  * man skal kunne se, man er ved at miste den, mens den sidste kamp spilles.
- * RET IKKE DEN ENE TIL DEN ANDEN. Forskellen er hele grunden til, at kronen
- * findes ved siden af pokalen.
+ * RET IKKE DEN ENE TIL DEN ANDEN. Forskellen er hele grunden til, at
+ * markeringen findes ved siden af pokalen.
  *
  * HVORFOR IKKE ET UDREGNET DELTA. Man kunne fristes til "total minus total
  * uden runden". Det er FORKERT: både ligaPoint og opdelPoint gulver ved 0, så
@@ -84,24 +84,29 @@ export function rundensPoint(raekke, runde) {
 }
 
 /**
- * Hvem bærer kronen? Sættet af uid'er med rundens højeste point.
+ * Hvem fører runden? Sættet af uid'er med rundens højeste point.
  *
- * UAFGJORT DELES — to med samme tal får begge kronen. Alternativet, at ingen
- * får den, lader en kåring forsvinde netop når to var lige gode.
+ * NAVNGIVET EFTER BETYDNINGEN, ikke efter symbolet. Fladen markerer dem med
+ * 🔥 i dag; hed funktionen `kronebaerere`, ville et skift af tegnet efterlade
+ * kroner i en kode uden kroner — præcis den navne-drift, opgave #36 findes
+ * for. Symbolet vælges ÉT sted, i fladen.
  *
- * NUL VINDER IKKE — ramte hele feltet forbi, er der ingen krone. Ellers ville
- * en runde, alle tabte, krone samtlige deltagere.
+ * UAFGJORT DELES — to med samme tal fører begge. Alternativet, at ingen gør,
+ * lader en kåring forsvinde netop når to var lige gode.
+ *
+ * NUL FØRER IKKE — ramte hele feltet forbi, er der ingen fører. Ellers ville
+ * en runde, alle tabte, markere samtlige deltagere.
  *
  * EN MANGLENDE NØGLE ER IKKE NUL — den, der ikke er i runden, kan hverken
- * vinde kronen eller trække feltet ned. Følger af, at rundensPoint giver null.
+ * føre den eller trække feltet ned. Følger af, at rundensPoint giver null.
  *
  * Regnes af det VISTE felt, fordi stillingen er liga-filtreret
- * (useVisibleGameStandings). Ellers ville kronen forsvinde for alle, fordi
- * vinderen står i en liga, man ikke deler.
+ * (useVisibleGameStandings). Ellers ville markeringen forsvinde for alle,
+ * fordi den bedste står i en liga, man ikke deler.
  *
- * @returns {Set<string>} tom, hvis ingen kan bære den
+ * @returns {Set<string>} tom, hvis ingen fører
  */
-export function kronebaerere(raekker, runde) {
+export function rundeFoerende(raekker, runde) {
   if (runde == null) return new Set();
   let bedst = null;
   for (const r of raekker || []) {
@@ -109,7 +114,7 @@ export function kronebaerere(raekker, runde) {
     if (p == null) continue;
     if (bedst == null || p > bedst) bedst = p;
   }
-  // Nul vinder ikke. Gælder også negative tal: en tabt chance er ikke en sejr.
+  // Nul fører ikke. Gælder også negative tal: en tabt chance er ikke en sejr.
   if (bedst == null || bedst <= 0) return new Set();
   const ud = new Set();
   for (const r of raekker || []) {

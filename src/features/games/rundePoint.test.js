@@ -8,7 +8,7 @@
  *     Ellers ser to venner i hver sin liga hvert sit tal for det samme.
  */
 import { describe, it, expect } from 'vitest';
-import { sidsteRunde, rundensPoint, kronebaerere } from './rundePoint';
+import { sidsteRunde, rundensPoint, rundeFoerende } from './rundePoint';
 import { UDEN_RUNDE } from '../../lib/ligaPoint';
 
 const r = (uid, perRound) => ({ uid, perRound });
@@ -83,44 +83,44 @@ describe('rundensPoint', () => {
   });
 });
 
-describe('kronebaerere', () => {
-  it('kroner den højeste', () => {
-    expect([...kronebaerere([r('a', { 8: 5 }), r('b', { 8: 12 })], 8)]).toEqual(['b']);
+describe('rundeFoerende — hvem fører runden', () => {
+  it('markerer den højeste', () => {
+    expect([...rundeFoerende([r('a', { 8: 5 }), r('b', { 8: 12 })], 8)]).toEqual(['b']);
   });
 
-  it('UAFGJORT DELES — begge får kronen', () => {
-    const ud = kronebaerere([r('a', { 8: 12 }), r('b', { 8: 12 }), r('c', { 8: 3 })], 8);
+  it('UAFGJORT DELES — begge fører', () => {
+    const ud = rundeFoerende([r('a', { 8: 12 }), r('b', { 8: 12 }), r('c', { 8: 3 })], 8);
     expect([...ud].sort()).toEqual(['a', 'b']);
   });
 
-  it('NUL VINDER IKKE — en runde hele feltet tabte kroner ingen', () => {
-    // Uden vagten ville alle tre bære kronen, og den ville intet betyde.
-    expect(kronebaerere([r('a', { 8: 0 }), r('b', { 8: 0 })], 8).size).toBe(0);
+  it('NUL FØRER IKKE — en runde hele feltet tabte markerer ingen', () => {
+    // Uden vagten ville alle tre stå som førende, og det ville intet betyde.
+    expect(rundeFoerende([r('a', { 8: 0 }), r('b', { 8: 0 })], 8).size).toBe(0);
   });
 
-  it('et felt hvor alle er i MINUS kroner ingen', () => {
-    expect(kronebaerere([r('a', { 8: -2 }), r('b', { 8: -5 })], 8).size).toBe(0);
+  it('et felt hvor alle er i MINUS markerer ingen', () => {
+    expect(rundeFoerende([r('a', { 8: -2 }), r('b', { 8: -5 })], 8).size).toBe(0);
   });
 
-  it('en positiv slår en negativ — kronen findes stadig', () => {
-    expect([...kronebaerere([r('a', { 8: -2 }), r('b', { 8: 0.5 })], 8)]).toEqual(['b']);
+  it('en positiv slår en negativ — føringen findes stadig', () => {
+    expect([...rundeFoerende([r('a', { 8: -2 }), r('b', { 8: 0.5 })], 8)]).toEqual(['b']);
   });
 
   it('EN MANGLENDE NØGLE ER IKKE NUL — den udenforstående trækker ikke feltet ned', () => {
-    // c er ikke i runden. Havde han talt som 0, ville han stadig ikke vinde —
+    // c er ikke i runden. Havde han talt som 0, ville han stadig ikke føre —
     // men vagten skal gælde, også når ALLE de deltagende er i minus.
-    const ud = kronebaerere([r('a', { 8: -1 }), r('b', { 8: -3 }), r('c', { 7: 9 })], 8);
+    const ud = rundeFoerende([r('a', { 8: -1 }), r('b', { 8: -3 }), r('c', { 7: 9 })], 8);
     expect(ud.size).toBe(0);
   });
 
-  it('kronen regnes af det VISTE felt — en vinder i en anden liga tæller ikke', () => {
+  it('føringen regnes af det VISTE felt — en vinder i en anden liga tæller ikke', () => {
     // Kaldes med de rækker, stillingen faktisk viser. Står ligaens bedste
-    // uden for filteret, er kronen ligaens egen.
+    // uden for filteret, er føringen ligaens egen.
     const vist = [r('a', { 8: 4 }), r('b', { 8: 2 })];
-    expect([...kronebaerere(vist, 8)]).toEqual(['a']);
+    expect([...rundeFoerende(vist, 8)]).toEqual(['a']);
   });
 
-  it('ingen runde giver ingen krone', () => {
-    expect(kronebaerere([r('a', { 8: 5 })], null).size).toBe(0);
+  it('ingen runde giver ingen fører', () => {
+    expect(rundeFoerende([r('a', { 8: 5 })], null).size).toBe(0);
   });
 });

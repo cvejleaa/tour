@@ -8,7 +8,7 @@ import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useVisibleGameStandings } from './useVisibleGameStandings';
 import { rankDelta, ligaRanking } from './gameStandings';
-import { sidsteRunde, rundensPoint, kronebaerere } from './rundePoint';
+import { sidsteRunde, rundensPoint, rundeFoerende } from './rundePoint';
 import { ligaPoint, harRundeVektor, puljenTaeller } from '../../lib/ligaPoint';
 import { GAME_TYPE } from '../../lib/constants';
 import GameTabLink from './GameTabLink';
@@ -24,7 +24,17 @@ import { useKlubFarver } from './football/useKlubFarver';
 const ALLE = '__alle__';
 
 /**
- * Rundens point for ÉN spiller, med krone hvis han fører runden.
+ * Rundens point for ÉN spiller, med 🔥 hvis han fører runden.
+ *
+ * SYMBOLET VÆLGES HER OG KUN HER. Regnelaget hedder `rundeFoerende` efter
+ * betydningen, ikke efter tegnet, så et skift af glyf ikke efterlader
+ * kroner i en kode uden kroner (opgave #36 er den drift, sat i system).
+ *
+ * 🔥 og ikke 👑, fordi pokalen "👑 Rundekongen" står lige over podiet og
+ * betyder noget ANDET: flest HELE runder vundet over sæsonen, afgjort først
+ * når hver kamp har facit. To identiske symboler med hver sin betydning på
+ * samme skærm var Quality Controls fund; ilden skiller dem, så teksten ikke
+ * skal bære forskellen alene.
  *
  * ÉN komponent, fordi tallet står to steder — i listen og på podiet — og de
  * to skal sige det samme. Skrev man dem hver for sig, ville den ene få
@@ -42,16 +52,16 @@ const ALLE = '__alle__';
  * grænse i Pokaler.jsx og LeagueBets.jsx: et navn fremhæves KUN for at have
  * haft ret.
  */
-function RundeCelle({ r, runde, kroner }) {
+function RundeCelle({ r, runde, foerende }) {
   const p = rundensPoint(r, runde);
   if (p == null) {
     return <span title="Ingen point i runden endnu" style={{ color: 'var(--c-muted)' }}>–</span>;
   }
-  const krone = kroner.has(r.uid);
+  const foerer = foerende.has(r.uid);
   return (
-    <span title={krone ? 'Flest point i runden indtil videre' : undefined}>
-      {krone && <span aria-label="Flest point i runden">👑</span>}
-      {krone ? ' ' : ''}
+    <span title={foerer ? 'Flest point i runden indtil videre' : undefined}>
+      {foerer && <span aria-label="Flest point i runden">🔥</span>}
+      {foerer ? ' ' : ''}
       {fmtSignedPoints(p)}
     </span>
   );
@@ -239,8 +249,8 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
     () => (harRunder ? sidsteRunde(standings, valgt?.startRound ?? null) : null),
     [harRunder, standings, valgt],
   );
-  const kroner = useMemo(
-    () => kronebaerere(standings, rundeNr),
+  const foerende = useMemo(
+    () => rundeFoerende(standings, rundeNr),
     [standings, rundeNr],
   );
   const visRunde = harRunder && rundeNr != null;
@@ -331,7 +341,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
               overskriften siger, det er. */}
           {visRunde && (
             <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
-              <RundeCelle r={r} runde={rundeNr} kroner={kroner} />
+              <RundeCelle r={r} runde={rundeNr} foerende={foerende} />
             </div>
           )}
         </td>
@@ -463,12 +473,12 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           Den står OVER podiet og ikke i listen, fordi tallet står BEGGE
           steder. Lå den i listen, ville en liga med tre eller færre spillere
           — hvor listen er tom og alle står på podiet — vise rundepoint og
-          kroner uden et ord om, hvilken runde det handler om. Den fejl slap
+          ild uden et ord om, hvilken runde det handler om. Den fejl slap
           igennem en grøn test, indtil fladen blev mutationstestet. */}
       {visRunde && (
         <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
           Runde {rundeNr}: tallet ved siden af totalen er rundens point.
-          {kroner.size > 0 && ' 👑 har flest indtil videre.'}
+          {foerende.size > 0 && ' 🔥 har flest indtil videre.'}
         </p>
       )}
       {hasPodium && (
@@ -486,7 +496,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                   hvor en kolonne æder bredde på en telefon. */}
               {visRunde && (
                 <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-                  <RundeCelle r={r} runde={rundeNr} kroner={kroner} />
+                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} />
                 </span>
               )}
               {/* Selve trinnet. Højden følger PLACERINGEN og ikke pladsen i

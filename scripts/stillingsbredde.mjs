@@ -45,8 +45,8 @@ const BREDDER = [320, 375, 390];
 function side(bredde, medRunde) {
   // medRunde=false: tre kolonner, rundens point som en LINJE under totalen
   // (det, vi sender). medRunde=true: den fravalgte fjerde kolonne.
-  const rundeKolonne = medRunde ? '<td class="c-runde">👑 +12,3</td>' : '';
-  const rundeLinje = medRunde ? '' : '<div class="c-under">👑 +12,3</div>';
+  const rundeKolonne = medRunde ? '<td class="c-runde">🔥 +12,3</td>' : '';
+  const rundeLinje = medRunde ? '' : '<div class="c-under">🔥 +12,3</div>';
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     ${css}
     html,body{margin:0;padding:0;width:${bredde}px}
