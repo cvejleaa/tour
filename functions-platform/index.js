@@ -28,7 +28,7 @@ const {
   puljeTipKomplet,
 } = require('./gameScoring');
 const {
-  syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore,
+  syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore, syncXgCore,
   tjekLivePuls,
   strandedMatches, allMatches,
 } = require('./superligaSync');
@@ -434,8 +434,23 @@ exports.syncSuperligaResults = onSchedule(
 // døgnet — mod de ~5.300, den gamle kvartersynk brugte alene. Alarmen deler
 // opslaget med gen-synken og trækker de netop rettede kampe fra, i stedet for
 // at hente et friskt billede.
+// timeoutSeconds SKAL stå her. Uden den kører sweep'et på gen2-defaulten 60 s,
+// og xG-trinnet alene kan bruge mere end det (30 kald à 10 s pr. spil). Rammer
+// jobbet sit loft, dør HELE løkken: spil nr. 2 får hverken facit-synk, tabel
+// eller strandet-alarm, og driftlog-kortet — der skrives sidst — bliver aldrig
+// skrevet. Fejlen ville altså være tavs. 300 s er samme budget som
+// syncSuperligaResultsNow, der laver den samme fuldskanning.
+const SWEEP_TIMEOUT_S = 300;
+// xG må højst bruge en tredjedel af budgettet, delt ligeligt mellem spillene,
+// så facit, tabel og alarm har rigeligt tilbage. Afledt og ikke skrevet af:
+// får SYNCED_GAMES et spil mere, skrumper budgettet af sig selv.
+const XG_BUDGET_MS = Math.floor((SWEEP_TIMEOUT_S * 1000) / 3 / SYNCED_GAMES.length);
+
 exports.syncSuperligaSweep = onSchedule(
-  { schedule: '25 2,13-23 * * *', timeZone: TZ, region: REGION },
+  {
+    schedule: '25 2,13-23 * * *', timeZone: TZ, region: REGION,
+    timeoutSeconds: SWEEP_TIMEOUT_S,
+  },
   async () => {
     const db = getFirestore();
     // Sweep'et — og strandede-alarmen — løber over SAMME spil-liste som
@@ -513,6 +528,54 @@ exports.syncSuperligaSweep = onSchedule(
         console.error(`Kunne ikke tjekke for strandede kampe i ${g.gameId} (ignoreret):`, err?.message || err);
         st.fejl(`Strandede-tjekket fejlede: ${err?.message || err}`);
       }
+      // xG hentes HER og ikke i minut-synken. Kontrakten i syncProviders.js
+      // siger hvorfor: tallet koster ét kald pr. kamp, og hentFaerdige kaster
+      // ved timeout med en slugt fejl — xG i minut-synken kunne altså tavst
+      // standse facit-synken midt på en kampaften.
+      //
+      // Og den står SIDST i løkkekroppen med vilje. Første udgave lagde den
+      // før tabellen og strandede-alarmen, og dermed var den fejl, der lige
+      // var flyttet ud af minut-synken, flyttet oven på sikkerhedsnettet i
+      // stedet: en langsom kilde kunne bruge budgettet op, så platformen
+      // dræbte invocation'en, og hverken alarm, tabel eller driftlog-kort
+      // nåede at køre — heller ikke for det NÆSTE spil i løkken. En
+      // platform-timeout kan ikke fanges af try/catch nedenfor.
+      //
+      // `alle` er null, hvis kampopslaget fejlede tidligere i kørslen. Så
+      // springes xG over: syncXgCore ville ellers lave sit EGET fulde opslag
+      // netop i den situation, hvor Firestore allerede haltede. Det koster
+      // intet at vente — xG er selvhelende over døgnets kørsler.
+      //
+      // Kørslen er OGSÅ bagfyldningen: en kamp fra i august mangler xG på
+      // præcis samme måde som en fra i aftes, og loftet gør efterslæbet til
+      // nogle kørsler i stedet for én timeout. Tallet `manglede` skal gå mod
+      // nul — står det stille over flere kørsler, er kilden holdt op med at
+      // levere, og DET er, hvad linjen her gør synligt.
+      try {
+        if (!alle) throw new Error('kamplisten manglede i denne kørsel');
+        const { manglede, skrevet } = await syncXgCore(
+          db, FieldValue, { ...opts, only: alle, budgetMs: XG_BUDGET_MS },
+        );
+        if (manglede === 0) {
+          console.log(`xG ${g.gameId}: alle færdige kampe har xG.`);
+          st.ok('xG: alle færdige kampe har tal.', { xgMangler: 0 });
+        } else if (skrevet > 0) {
+          console.log(`xG ${g.gameId}: ${skrevet} hentet, ${manglede - skrevet} tilbage.`);
+          st.ok(`xG: ${skrevet} hentet, ${manglede - skrevet} færdige kampe mangler endnu.`,
+            { xgMangler: manglede - skrevet });
+        } else {
+          // Kampe mangler, og INGEN blev hentet. Det er den tavse fejl, linjen
+          // findes for: kilden svarer ikke, eller den er holdt op med at give
+          // xG for netop de kampe.
+          console.warn(`xG ${g.gameId}: ${manglede} færdige kampe mangler xG, ingen hentet.`);
+          st.advarsel(`xG: ${manglede} færdige kampe mangler tal, og ingen blev hentet.`,
+            { xgMangler: manglede });
+        }
+      } catch (err) {
+        console.error(`xG-synk ${g.gameId} fejlede (ignoreret):`, err?.message || err);
+        st.fejl(`xG-synken fejlede: ${err?.message || err}`);
+      }
+
       await skrivDriftStatus(st, db, {
         naesteForventetFoerMs: () => naesteKoerselFoerMs(Date.now(), { timer: SWEEP_TIMER }),
       });

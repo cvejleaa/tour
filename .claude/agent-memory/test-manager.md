@@ -82,6 +82,76 @@
   `await new Promise(requestAnimationFrame)` eller `vi.useFakeTimers` +
   `vi.advanceTimersToNextFrame`) — ikke kun værdien af feltet?
 
+- **En fake-db, der aldrig kaster på `undefined`, beviser intet om "UDELAD
+  frem for undefined".** `functions-platform/syncXg.test.js` (xG-sweep,
+  commit 7a1f8b1) har en kommentar og en test ("UDELADER en kamp med
+  ubrugelige tal") der eksplicit begrunder guarden med, at Admin SDK KASTER på
+  `undefined` i en batch uden `ignoreUndefinedProperties`. Men `fakeDb().batch().set()`
+  i samme fil gemmer bare objektet ukritisk — den kaster aldrig. Testen
+  bestod kun, fordi guarden (`Number.isFinite(r.xgHome) || …`) også styrer
+  HVILKE id'er der overhovedet skrives, så en fjernet guard viste sig som en
+  ekstra id i `db.skrevet`, ikke som et kastet undefined. Bevist konkret ved
+  mutation: hvis man i stedet lader guarden stå, men TILFØJER et nyt felt til
+  `batch.set(...)`-objektet, der kan være `undefined` (fx et ekstra
+  metadata-felt fra provideren) uden selv at være guardet, forbliver alle 8
+  tests grønne — fake'en opdager det aldrig. Tjek næste gang en kommentar
+  påstår "Admin SDK kaster på undefined": lad fake-db'ens `set()` rent
+  faktisk kaste, hvis noget felt i det skrevne objekt er `undefined` — ellers
+  er påstanden kun dokumentation, ikke bevist.
+
+- **En kernefunktions try/catch-grænse kan være helt udenfor testsuiten,
+  hvis dens WRAPPER (her `functions-platform/index.js`s `onSchedule`-handler)
+  ikke har en testfil overhovedet.** For xG-sweepet (commit 7a1f8b1) er hele
+  begrundelsen for at flytte xG-hentning ud af minut-synken, at "en fejl i
+  xG-hentningen ikke må stoppe facit-synken" — men det er index.js's
+  `try { … } catch { st.fejl(...) }` omkring `syncXgCore`-kaldet, der bærer
+  det løfte, og index.js har INGEN testfil (`index*test*` findes slet ikke,
+  og det gælder også de ældre blokke: resultat- og standings-synken i samme
+  sweep er lige så udækkede). Mutationsbevist: at pakke `provider.hentXg(...)`
+  ind i et internt `try/catch` i `syncXgCore` selv (så fejlen ALDRIG når
+  index.js's catch, og driftlog-alarmen derfor aldrig udløses) lader alle 8
+  tests i `syncXg.test.js` forblive grønne — fordi ingen test nogensinde
+  lader `hentXg` kaste. Samme blinde vinkel gælder driftlog-linjens PRÆCISE
+  tal og gren (`manglede`, `skrevet`, `manglede-skrevet`, de tre `st.ok`/
+  `st.advarsel`-grene i index.js) — ingen test læser den streng eller det
+  `{xgMangler:…}`-objekt. Tjek næste gang nyt maskineri lægges i en
+  `onSchedule`-handler: findes der overhovedet en testfil for wrapperen, og
+  hvis ikke — findes der i det mindste en test på core-niveau, hvor
+  afhængigheden (her provideren) KASTER, så man beviser at fejlen propagerer
+  ud i stedet for at blive slugt et sted på vejen?
+
+- **En provider-implementations FELT-PARSING kan være 100 % udækket, selvom
+  kernen der kalder den er grundigt testet.** `syncProviders.js`s nye
+  `superliga.hentXg` og `pulselive.hentXg` (commit 7a1f8b1) har hver deres
+  URL-opbygning, JSON-sti (`xg.home`/`xg.away` hhv.
+  `stats.expectedGoals`) og side-matching (`x.side.toLowerCase() === 'home'`).
+  `syncProviders.test.js` har INGEN `hentXg`-tests overhovedet —
+  `syncXg.test.js` tester kun `syncXgCore` med hånd-rullede fake-providers,
+  der aldrig kalder den rigtige implementation. Mutationsbevist: at ændre
+  feltnavnet i begge providers (`xg.home` → `xg.homeXXX`,
+  `stats.expectedGoals` → `stats.expectedGoalsXXX`) — hvilket i produktion
+  ville betyde xG ALDRIG bliver hentet for nogen kamp nogensinde — lader hele
+  `functions-platform`-suiten (199 relevante tests) forblive grøn. Tjek næste
+  gang en provider får en ny metode: findes der en test, der kalder
+  `PROVIDERS.<navn>.<metode>` direkte med en fetchFn-stub, der returnerer et
+  fixture i kildens ægte form — ikke kun kernen med en fake, der omgår hele
+  parsing-laget? (Samme mønster som "stub-provider i core-tests" ovenfor,
+  men her mangler den ægte providers test FULDSTÆNDIGT, ikke kun delvist.)
+
+- **Et loft (`XG_LOFT`), hvis test-fixture bruger konstanten selv til at
+  udlede sin egen størrelse, tester kun MEKANISMEN "slice til N", aldrig at
+  N ER 30.** `functions-platform/superligaSync.test.js` (nej,
+  `syncXg.test.js`) bygger sit loft-fixture som
+  `Array.from({length: XG_LOFT + 7}, …)` — muterer man `XG_LOFT` til 0,
+  fejler suiten (mekanismen virker), men muterer man den til et vilkårligt
+  STORT tal (999999), forbliver alle 8 tests grønne, fordi fixturet vokser
+  med konstanten. Den forretningsmæssige begrundelse i kommentaren ("30 er
+  valgt så en fuld sæsons efterslæb hentes på under et døgn") er derfor
+  ubevist af suiten — kun selve loft-mekanismen er det. Tjek næste gang et
+  loft/en grænseværdi testes med `KONSTANT + n`-fixtures: findes der ét
+  hardkodet tal i testen (uafhængigt af selve konstanten), der ville
+  fange, hvis nogen ændrede den forretningsmæssige værdi ved et uheld?
+
 ## Mønster at genkende
 
 Alle tre fund ovenfor deler samme form: en test, der ser ud til at dække en

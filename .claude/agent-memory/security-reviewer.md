@@ -214,6 +214,39 @@
   springer `botFacitAt` over — 3 opslag + 3 modelkald i træk, ingen cooldown,
   ingen `maxInstances`, ingen App Check. En ejer, der har FORLADT sin liga,
   beholder `ownerUid` og kan spamme en væg, hen ikke selv må læse.
+- **xG-synken kan vælte sweep'et — altså facit-nettet selv (BEKRÆFTET, 58e6bc7).**
+  `syncSuperligaSweep` (functions-platform/index.js L440) har INGEN
+  `timeoutSeconds` og der er intet `setGlobalOptions` → GCF gen2-default 60 s
+  (minut-synken har eksplicit 120 s, L380). xG-blokken (L482-508) er lagt FØR
+  standings og strandet-alarmen og laver op til `XG_LOFT`=30 SEKVENTIELLE
+  HTTP-kald pr. spil à `AbortSignal.timeout(10000)` (syncProviders.js L90) =
+  300 s værste fald pr. spil × 2 spil. Målt sekventialitet: 30 kald à 30 ms =
+  912 ms, intet samlet ur. Rammer funktionen sit budget, dør HELE løkken: spil
+  nr. 2 i `SYNCED_GAMES` får hverken `syncResultsCore`, standings eller
+  strandet-alarm, og `skrivDriftStatus` (L549) står SIDST i løkkekroppen, så
+  kortet aldrig skrives → tavst. Præcis den fejlform, xG blev flyttet ud af
+  minut-synken for at undgå. Fix: eksplicit `timeoutSeconds` på sweep'et, et
+  wall-clock-budget ind i `hentXg`, og xG SIDST i løkkekroppen.
+- **XG_LOFT er et loft på ØNSKEDE KAMPE, ikke på KALD (BEKRÆFTET).**
+  `superliga.hentXg` (syncProviders.js L186-205) løber kildens `data.events`
+  igennem og fyrer ét `opta-stats`-kald pr. event, hvis nøgle står i `oenskede`
+  — Set'et tømmes aldrig. PoC: 600 dubletter af SAMME event for ÉN ønsket kamp
+  → **601 fetch-kald og 600 batch-ops** mod ét dokument. Firestores 500-grænse
+  ville afvise commit'en (hele xG-skrivningen tabt), og driftlog-kortet melder
+  `xG: 600 hentet, -599 mangler endnu` (`xgMangler: -599`). Testen
+  (syncXg.test.js L340-349) måler kun hvor mange id'er KERNEN sender ind, aldrig
+  hvor mange kald provideren laver → usynlig for suiten. Fix uden en anden vagt:
+  `if (!oenskede.delete(key)) continue;`.
+- **`Number(null) === 0` → xG 0,0 skrives og prøves ALDRIG igen (BEKRÆFTET).**
+  Kontrakten (syncProviders.js L50) siger "aldrig 0 for ved-ikke", men
+  `Number(xg.home)` (L215-216) og pulselives `tal()` (L467-469) gør `null`, `''`,
+  `[]` og `false` til et FINITE 0, som `Number.isFinite`-vagten i
+  syncXgCore (superligaSync.js L130) lukker igennem. Prøvefiltret er
+  `!Number.isFinite(Number(m.data?.xgHome))` (L106), så 0 tæller som "har xG" →
+  kampen genforsøges aldrig, og kortet melder GRØNT ("alle færdige kampe har
+  tal") på forgiftede data. PoC bekræftet for BEGGE kilder. Fix: afvis
+  `null/''/bool/array` før `Number()` (HAR-optagelsen viser, at PL leverer
+  rigtige tal, så `typeof v === 'number'` er nok dér).
 - **Fremmed kilde → deadline flyttet TIDLIGERE (by-design residual).**
   Genåbnings-forbuddet (superligaSync.js L515-517) lukker past→future for enhver
   kamp uden `result`. Men fremtid→TIDLIGERE er TILLADT (legitime reschedules
@@ -362,6 +395,17 @@
 - **`requireAdmin` er FØRSTE linje** i `sendBroadcastEmail`,
   `uploadBroadcastImage` og `sendGameTipRemindersNow` — ingen pending/menig når
   hverken data, SMTP eller Storage.
+- **`syncXgCore`s skrive-omfang er RENT (PoC, 58e6bc7).** Objektet bygges felt
+  for felt (`xgHome`, `xgAway`, `xgSyncedAt` — målt: præcis de tre), så fjendtlige
+  ekstrafelter fra kilden (`result`, `odds`, `locked`, `points`) når aldrig
+  dokumentet. `gameId` kommer fra `SYNCED_GAMES`, aldrig fra en kalder — ingen
+  callable, ingen klientvej. En fabrikeret `sourceKey` (`../../users/offer`)
+  skriver INTET: begge `resolveDocs` binder mod de indsendte `docIds`.
+  `recomputeGameMatch` (index.js L118 `if (prevResult === nextResult) return;`)
+  returnerer FØR alt arbejde, så en xG-skrivning udløser hverken point, Elo
+  eller Runde-Bot. Ingen nøgle/URL i fejltekster (`HTTP ${status}`, `continue`).
+  ÉN hærdning tilbage: skrivningen er `set(..., {merge:true})` og kan derfor
+  OPRETTE et kamp-dokument; `batch.update` er husets vane netop som den vagt.
 - **`teamsVagt`** (src/lib/seedFootball.js L348-374) er en ægte backstop, ikke
   pynt: forkert spil-fil, subcollection-sti, `../users/offer`, smuglet elo og
   fjernet hold gav alle ⛔ + exit 1 med intet skrevet. Kontroltest grøn: legitim
@@ -460,6 +504,18 @@
 - **En tidsværdi, der ER en deadline, må ikke kunne bevæge sig frit i begge
   retninger fra en fremmed kilde.** Spørg: hvad sker der, hvis den nye værdi
   flytter et LUKKET vindue tilbage til åbent?
+- **Et loft, der tælles på ØNSKER, er ikke et loft på ARBEJDE.** `slice(0, LOFT)`
+  i kernen begrænser hvor mange id'er der SENDES ind; hvor mange kald kilden får
+  lov at udløse, afgøres af kildens eget svar. Tæl loftet dér, hvor kaldet sker,
+  eller gør nøglerne engangs (`Set.delete`).
+- **`Number(v)` er ikke en validering.** `null`, `''`, `[]` og `false` bliver
+  alle til et FINITE `0`, og `Number.isFinite` lukker dem igennem. Er 0 en
+  gyldig værdi i domænet, kan "ved ikke" ikke skelnes fra "nul" bagefter — og et
+  filter, der bruger feltets tilstedeværelse som "klaret", genforsøger aldrig.
+- **Et nyt led i et løkke-job arver ikke jobbets tidsbudget.** Læg altid det
+  nye, netværkstunge led SIDST i løkkekroppen og efterprøv `timeoutSeconds`
+  eksplicit: en hård timeout dræber hele løkken for de RESTERENDE spil, og en
+  status, der skrives til sidst, bliver aldrig skrevet.
 - **En alarm, der altid råber, er ingen alarm.** Tæl posterne på en normal dag,
   før du godkender den som afbødning.
 - **En alarm skal måle det SYMPTOM, brugeren ser — ikke en proxy for det.**

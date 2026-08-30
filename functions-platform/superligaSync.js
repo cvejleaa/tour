@@ -745,6 +745,103 @@ async function runScheduledSyncAll(db, FieldValue, nowMs, opts = {}) {
   return ud;
 }
 
+/**
+ * Højst så mange xG-kald pr. sweep-kørsel.
+ *
+ * xG koster ÉT kald pr. kamp hos begge kilder. Uden et loft ville den første
+ * kørsel efter udrulningen forsøge ~132 kald for Superligaen alene og ramme
+ * sweep'ets timeout — og så ville INGEN blive skrevet, hver gang. Med loftet
+ * tager bagfyldningen nogle kørsler og bliver færdig af sig selv.
+ *
+ * 30 er valgt så en fuld sæsons efterslæb er hentet på under et døgn
+ * (12 kørsler i døgnet), mens en normal runde på 6-10 kampe altid nås i den
+ * første kørsel efter runden.
+ */
+const XG_LOFT = 30;
+// Wall-clock-budget for ÉN xG-kørsel. Loftet ovenfor er sat efter kvote (132
+// kampe, 12 kørsler i døgnet), ikke efter tid — og tid var det, der manglede:
+// 30 sekventielle kald à 10 s er 300 s, hvilket alene overskrider budgettet
+// for det job, kaldet sidder i. Kalderen sætter tallet ud fra SIT budget
+// (se index.js); dette er gulvet, hvis ingen siger noget.
+const XG_BUDGET_MS = 30000;
+
+/**
+ * Hent og skriv xG for FÆRDIGE kampe, der mangler det.
+ *
+ * KØRES KUN FRA SWEEP'ET. Se kontrakten i syncProviders.js: xG i minut-synken
+ * ville være ~132 ekstra kald i minuttet og kunne tavst standse facit-synken,
+ * fordi hentFaerdige kaster ved timeout og fejlen sluges.
+ *
+ * Funktionen er også BAGFYLDNINGEN. Der findes ikke et separat script: de
+ * kampe, der allerede er spillet, mangler xG på præcis samme måde som en kamp
+ * fra i aftes, og sweep'et kan ikke se forskel. Derfor henter den sig selv
+ * ned mod nul, uden en tør-kørsel og uden en engangsskrivning i
+ * produktionsdata. recomputeGameMatch returnerer tidligt, når `result` er
+ * uændret, så en xG-skrivning på en afgjort kamp udløser hverken point, Elo
+ * eller Runde-Bot.
+ *
+ * @returns {Promise<{manglede:number, hentet:number, skrevet:number}>}
+ *   `manglede` er tallet FØR kørslen — det er dét, driftlog-kortet viser, og
+ *   det skal gå mod 0.
+ */
+async function syncXgCore(db, FieldValue, opts = {}) {
+  const gameId = opts.gameId || GAME_ID;
+  const fetchFn = opts.fetchFn || fetch;
+  const provider = opts.provider;
+  // En kilde uden hentXg er ikke en fejl — den har bare ikke evnen.
+  if (!provider || typeof provider.hentXg !== 'function') {
+    return { manglede: 0, hentet: 0, skrevet: 0 };
+  }
+  const alle = opts.only || await allMatches(db, opts);
+
+  // Kun kampe der ER afgjort og mangler tallet. `xgHome` er nok som prøve:
+  // de to felter skrives altid sammen, aldrig det ene alene.
+  // `typeof === 'number'` og ikke Number(): et felt med null ville ellers give
+  // Number(null) === 0, tælle som "har xG" og aldrig blive prøvet igen.
+  const harXg = (v) => typeof v === 'number' && Number.isFinite(v);
+  const mangler = alle.filter((m) => m.data?.result && !harXg(m.data?.xgHome));
+  if (!mangler.length) return { manglede: 0, hentet: 0, skrevet: 0 };
+
+  const iAlt = mangler.length;
+  const valgte = mangler.slice(0, XG_LOFT);
+  // resolveDocs oversætter kildens nøgler til vores dokument-id'er. Vi skal
+  // den anden vej, så mappet vendes — kun for de valgte, så en stor base
+  // ikke bygger et map over hele sæsonen.
+  const docIds = valgte.map((m) => m.id);
+  // hentXg tager VORES id'er og giver KILDENS nøgler tilbage; resolveDocs
+  // oversætter dem så den modsatte vej. Kernen kender dermed ikke id-formen
+  // hos nogen af kilderne — se kontrakten i syncProviders.js.
+  // Budgettet regnes HER og gives til provideren, som tjekker det pr. kamp.
+  // Kernen kan ikke selv afbryde et await, og en Promise.race ville lade
+  // kaldet løbe videre i baggrunden og stadig holde funktionen i live.
+  const budgetMs = Number.isFinite(Number(opts.budgetMs)) && Number(opts.budgetMs) > 0
+    ? Number(opts.budgetMs) : XG_BUDGET_MS;
+  const rows = await provider.hentXg(opts.sync, fetchFn, docIds, Date.now() + budgetMs);
+  const tilbage = provider.resolveDocs(rows.map((r) => r.sourceKey), docIds);
+
+  const batch = db.batch();
+  const matchesCol = db.collection('games').doc(gameId).collection('matches');
+  let skrevet = 0;
+  for (const r of rows) {
+    const id = tilbage.get(r.sourceKey);
+    if (!id) continue;
+    // UDELAD frem for at sætte undefined: der er ingen
+    // ignoreUndefinedProperties i dette projekt, og et undefined i en batch
+    // KASTER og river hele skrivningen med.
+    if (!harXg(r.xgHome) || !harXg(r.xgAway)) continue;
+    // update og ikke set(merge): set ville OPRETTE et kamp-dokument, hvis en
+    // nøgle nogensinde pegede forkert. Samme vagt som syncResultsCore bruger.
+    batch.update(matchesCol.doc(id), {
+      xgHome: r.xgHome,
+      xgAway: r.xgAway,
+      xgSyncedAt: FieldValue.serverTimestamp(),
+    });
+    skrevet += 1;
+  }
+  if (skrevet) await batch.commit();
+  return { manglede: iAlt, hentet: rows.length, skrevet };
+}
+
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
@@ -752,4 +849,5 @@ module.exports = {
   liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, runScheduledSyncAll,
   syncKickoffsCore, strandedMatches, allMatches,
+  syncXgCore, XG_LOFT, XG_BUDGET_MS,
 };
