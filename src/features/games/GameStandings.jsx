@@ -8,7 +8,9 @@ import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useVisibleGameStandings } from './useVisibleGameStandings';
 import { rankDelta, ligaRanking } from './gameStandings';
+import { sidsteRunde, rundensPoint, kronebaerere } from './rundePoint';
 import { ligaPoint, harRundeVektor, puljenTaeller } from '../../lib/ligaPoint';
+import { GAME_TYPE } from '../../lib/constants';
 import GameTabLink from './GameTabLink';
 import { formatPoints } from './GameLayout';
 import { fmtSignedPoints } from '../../lib/daNum';
@@ -20,6 +22,40 @@ import { useKlubFarver } from './football/useKlubFarver';
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
 // et manglende valg.
 const ALLE = '__alle__';
+
+/**
+ * Rundens point for ÉN spiller, med krone hvis han fører runden.
+ *
+ * ÉN komponent, fordi tallet står to steder — i listen og på podiet — og de
+ * to skal sige det samme. Skrev man dem hver for sig, ville den ene få
+ * kronen og den anden ikke, første gang reglen ændrede sig.
+ *
+ * `–` BETYDER "INGEN POINT I RUNDEN ENDNU", ikke "deltog ikke". De to kan
+ * ikke skelnes: serveren springer nul-værdier over, når runde-vektoren bygges
+ * (functions-platform/pointOpdeling.js:339), så den, der ramte alt forbi, får
+ * ingen nøgle. At vise 0 ville anklage den, der glemte at tippe, for noget
+ * andet end det, der skete. Derfor samme streg for begge, og en title der
+ * siger sandheden.
+ *
+ * INGEN FARVE PÅ ET LAVT TAL. Farve er en dom, cifre er en kendsgerning.
+ * Rødt på bunden ville gøre en ugentlig aflæsning til en kæp — se den samme
+ * grænse i Pokaler.jsx og LeagueBets.jsx: et navn fremhæves KUN for at have
+ * haft ret.
+ */
+function RundeCelle({ r, runde, kroner }) {
+  const p = rundensPoint(r, runde);
+  if (p == null) {
+    return <span title="Ingen point i runden endnu" style={{ color: 'var(--c-muted)' }}>–</span>;
+  }
+  const krone = kroner.has(r.uid);
+  return (
+    <span title={krone ? 'Flest point i runden indtil videre' : undefined}>
+      {krone && <span aria-label="Flest point i runden">👑</span>}
+      {krone ? ' ' : ''}
+      {fmtSignedPoints(p)}
+    </span>
+  );
+}
 
 /**
  * Navnet som knap. ÉT sted, fordi navne står tre steder — på podiet, i listen
@@ -190,6 +226,25 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
     [alleMine, valgt],
   );
 
+  // RUNDENS POINT. Regnes af det VISTE felt (standings), ikke af hele kredsen:
+  // stillingen er liga-filtreret, så kronen skal gælde dem, rækken faktisk
+  // viser. Ellers ville den forsvinde for alle, fordi vinderen står i en liga,
+  // man ikke deler.
+  //
+  // Gate på spillets EVNE (runder findes i et fodboldspil), ikke på fanen.
+  // At lægge football:true på selve Stilling-fanen ville fjerne den helt fra
+  // cykelspillet — en anden beslutning, som ikke hører til her (opgave #56).
+  const harRunder = game?.type === GAME_TYPE.FOOTBALL;
+  const rundeNr = useMemo(
+    () => (harRunder ? sidsteRunde(standings, valgt?.startRound ?? null) : null),
+    [harRunder, standings, valgt],
+  );
+  const kroner = useMemo(
+    () => kronebaerere(standings, rundeNr),
+    [standings, rundeNr],
+  );
+  const visRunde = harRunder && rundeNr != null;
+
   if (loading) return <div className="spinner" role="status" aria-label="Indlæser" />;
   if (error) return <p className="badge badge--red">{error}</p>;
 
@@ -258,6 +313,18 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             {isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
           </span>
         </td>
+        {visRunde && (
+          <td style={{
+            padding: '0.45rem 0.35rem',
+            textAlign: 'right',
+            fontVariantNumeric: 'tabular-nums',
+            color: 'var(--c-muted)',
+            whiteSpace: 'nowrap',
+          }}
+          >
+            <RundeCelle r={r} runde={rundeNr} kroner={kroner} />
+          </td>
+        )}
         <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
           {/* "IKKE KLAR" OG IKKE NUL. En spiller uden runde-vektor er ikke
               genberegnet endnu — at vise 0 ville påstå, at han ingen point
@@ -385,6 +452,24 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         startRunde={valgt && Number.isFinite(valgt.startRound) ? valgt.startRound : null}
       />
 
+      {/* HVILKEN RUNDE tallet er. Uden linjen står to tal om hver sin runde i
+          samme række: pilen ▲▼ opdateres først, når rundens KUPON er afgjort
+          (gameScoring.js:557-566), mens rundetallet er levende. Overskriften
+          tilskriver tallet en runde, så det ikke kan læses som pilens
+          forklaring. Kronen forklares her og ikke pr. række — det er en regel,
+          ikke en oplysning om spilleren.
+
+          Den står OVER podiet og ikke i listen, fordi tallet står BEGGE
+          steder. Lå den i listen, ville en liga med tre eller færre spillere
+          — hvor listen er tom og alle står på podiet — vise rundepoint og
+          kroner uden et ord om, hvilken runde det handler om. Den fejl slap
+          igennem en grøn test, indtil fladen blev mutationstestet. */}
+      {visRunde && (
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
+          Runde {rundeNr}: tallet ved siden af totalen er rundens point.
+          {kroner.size > 0 && ' 👑 har flest indtil videre.'}
+        </p>
+      )}
       {hasPodium && (
         <div className={`podium${enVinder ? '' : ' podium--lige'}`}>
           {podiumOrder.map((r) => (
@@ -396,6 +481,13 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
               />
               <SpillerNavn r={r} aaben={aabenUid === r.uid} onToggle={toggleUid} className="link-btn podium__name" />
               <span className="podium__pts">{formatPoints(r.totalPoints)} p</span>
+              {/* Podiet vokser kun LODRET af en linje mere — modsat listen,
+                  hvor en kolonne æder bredde på en telefon. */}
+              {visRunde && (
+                <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+                  <RundeCelle r={r} runde={rundeNr} kroner={kroner} />
+                </span>
+              )}
               {/* Selve trinnet. Højden følger PLACERINGEN og ikke pladsen i
                   rækken: står tre spillere lige, har de alle rang 1 og skal
                   stå i samme højde. Et podie, der løfter én af tre lige
@@ -442,14 +534,16 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             </>
           ) : (
             listRows.length > 0 && (
-              <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <tbody>
-                  {listRows.map((r) => <Row key={r.uid} r={r} />)}
-                  {meInList && meRow && !listRows.some((r) => r.uid === meUid) && (
-                    <Row r={meRow} sticky />
-                  )}
-                </tbody>
-              </table>
+              <>
+                <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    {listRows.map((r) => <Row key={r.uid} r={r} />)}
+                    {meInList && meRow && !listRows.some((r) => r.uid === meUid) && (
+                      <Row r={meRow} sticky />
+                    )}
+                  </tbody>
+                </table>
+              </>
             )
           )}
 

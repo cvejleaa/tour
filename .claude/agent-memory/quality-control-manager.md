@@ -310,6 +310,29 @@
   ikke er logget ind, mister URL'en helt. Lover en plan "delbart", er det kun
   sandt for en allerede logget-ind bruger. (Efter Deltag bevares query'en
   derimod — `GamePage` re-renderer på samme URL.)
+- **"Runden er færdig" har TRE forskellige definitioner i dette repo, og de
+  giver forskellige svar samtidig.** (1) `faerdigeRunder(matches)`
+  (`rundeSejre.js:35`): HVER kamp i runden har facit — bruges af Rundekongen.
+  (2) `rc.combiSettled === rc.combiCount` (kuponen = rundens UGE, `iVindue` i
+  `pointOpdeling.js`): bruges af `snapshotRoundRanks` (`gameScoring.js:557`),
+  af Runde-Botten og af `roundSettled` i `tipsHistory.js:120`. (3) At der
+  overhovedet findes en nøgle i `perRound`. En udsat kamp (SL runde 3 strakte
+  sig 7/8–3/9) river (1) og (2) fra hinanden i ugevis. Enhver ny flade med et
+  rundetal skal sige HVILKEN definition den bruger — og især: pilen i
+  stillingen følger (2), så et rundetal efter (1) eller (3) kan stå og
+  modsige pilen lige ved siden af.
+- **`perRound` kan IKKE skelne "0 point" fra "deltog ikke".**
+  `opdelPoint`s `laegTil` (`pointOpdeling.js:339`) har `if (!v) return;`, så
+  en runde, hvor alle spillerens afgjorte tips gav præcis 0 (et forkert 1X2-tip
+  uden Chancen giver 0 — `outcomePoints`), får slet INGEN nøgle. En plan, der
+  skriver "manglende nøgle = `–`, nul = `0`", er derfor uimplementerbar af
+  `perRound` alene; skellet kræver en anden kilde (bets/detalje) eller at
+  reglen skrives om. Harmløst for `rundeSejre` (nul vinder alligevel ikke) —
+  farligt for ethvert tal, der VISES.
+- **`ligaPoint` og serverens total gulves begge ved 0** (`ligaPoint.js:69`,
+  `opdelPoint`s `Math.max(0, …)`). `total − total_uden_runde` er derfor IKKE
+  lig `perRound[r]`, når summen er negativ. Et "delta"-tal og et
+  "rundens point"-tal er to forskellige tal nær gulvet.
 - **Spørg "hvor mange kampe er der SPILLET i dag?", ikke "hvor mange rundet
   har spillet?"** Kampprogrammet ligger i repoet og kan tælles:
   `scripts/premier-league-fixtures-2627.json` (nøgle `fixtures`, R1 21/8-2026)
