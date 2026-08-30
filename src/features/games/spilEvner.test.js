@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { KICKOFF_PROVIDERE, RESULTAT_PROVIDERE, harKickoffSynk, harResultatSynk } from './spilEvner';
+import {
+  KICKOFF_PROVIDERE, RESULTAT_PROVIDERE, XG_PROVIDERE,
+  harKickoffSynk, harXg, harResultatSynk,
+} from './spilEvner';
 import { GAMES } from '../../../scripts/games.mjs';
 
 describe('harKickoffSynk', () => {
@@ -43,6 +46,22 @@ describe('harResultatSynk', () => {
   });
 });
 
+describe('XG_PROVIDERE', () => {
+  it('indeholder præcis de kilder, serveren har hentXg for', () => {
+    // Søskende-evnerne har den samme test. Uden den kunne en tredje kilde
+    // føjes til sættet UDEN at serveren har hentXg — og så ville guiden
+    // forklare et tal, spillet aldrig får. Sættet er kun korrekt i dag, fordi
+    // begge nuværende providere tilfældigvis har metoden; intet binder dem.
+    expect([...XG_PROVIDERE].sort()).toEqual(['pulselive', 'superliga']);
+  });
+
+  it('en ukendt kilde har ikke evnen', () => {
+    expect(harXg({ sync: { provider: 'noget-andet' } })).toBe(false);
+    expect(harXg({})).toBe(false);
+    expect(harXg(null)).toBe(false);
+  });
+});
+
 // SPEJLINGS-TRIPWIRE mod den levende spilliste: serverens synk (og dermed
 // knappernes berettigelse) afgøres af games.mjs' sync-felt. Får et spil en
 // provider — eller mister et den — skal dette billede ændre sig, og testen
@@ -56,6 +75,16 @@ describe('spejling mod scripts/games.mjs', () => {
 
   it('præcis Superligaen og PL har kickoff-synk (og dermed 🗓️-knappen + Drift-kort)', () => {
     const med = GAMES.filter((g) => harKickoffSynk(g)).map((g) => g.id).sort();
+    expect(med).toEqual(['pl2627-efteraar', 'superliga2627']);
+  });
+
+  it('præcis Superligaen og PL har xG (og dermed guidens målchance-afsnit)', () => {
+    // Uden denne kunne en fremtidig kilde med resultat-synk, men UDEN hentXg,
+    // få en guide-sektion, ingen kamp nogensinde udfylder — en regelbog om et
+    // tal, spillet aldrig får. hentXg er VALGFRI i provider-kontrakten, modsat
+    // hentFaerdige, så de tre allowlister kan lovligt divergere. Netop derfor
+    // skal hver af dem tages stilling til i den PR, der ændrer dem.
+    const med = GAMES.filter((g) => harXg(g)).map((g) => g.id).sort();
     expect(med).toEqual(['pl2627-efteraar', 'superliga2627']);
   });
 });

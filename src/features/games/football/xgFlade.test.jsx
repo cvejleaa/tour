@@ -60,6 +60,13 @@ describe('holdsidens kort: Mål og målchancer', () => {
     expect(screen.getByText(/holdet har spillet 2 kampe/)).toBeInTheDocument();
   });
 
+  it('forbeholdet står IKKE, når alle spillede kampe har målchancer', () => {
+    // Fraværs-siden af den sætning. Uden denne kunne betingelsen hardkodes til
+    // true, og kortet ville altid undskylde for data, der ikke mangler.
+    visHold([kamp(1, 'AGF', 'OB', 2, 0, 1.4, 0.7), kamp(2, 'OB', 'AGF', 1, 3, 0.9, 2.2)]);
+    expect(screen.queryByText(/holdet har spillet/)).toBeNull();
+  });
+
   it('kortet SKJULES helt, når ingen kamp har målchancer', () => {
     visHold([kamp(1, 'AGF', 'OB', 2, 0, null, null)]);
     expect(screen.queryByText(/Mål og målchancer/)).toBeNull();
@@ -97,10 +104,17 @@ describe('guidens afsnit om målchancer', () => {
     expect(afsnit.textContent).toMatch(/ikke et bud på, hvem der burde have vundet/i);
   });
 
-  it('siger hvor ofte tallet er uenigt — 13 af 37, ikke en vag advarsel', () => {
+  it('siger hvor ofte tallet er uenigt — og DATERER påstanden', () => {
+    // En brøk uden dato ældes til en løgn: scriptet siger selv ±15
+    // procentpoint og "citér som retning, ikke som en rate". Et MÅLT tal med
+    // dato kan ikke blive falsk, kun gammelt — og læseren kan se hvor gammelt.
     guide(medKilde);
     const afsnit = screen.getByText(/Målchancer \(xG\)/).closest('section, div');
-    expect(afsnit.textContent).toMatch(/13 ud af 37/);
+    expect(afsnit.textContent).toMatch(/mere end hver tredje/i);
+    expect(afsnit.textContent).toMatch(/målt 30\. august 2026 på 37 kampe/i);
+    expect(afsnit.textContent).toMatch(/tallet flytter sig/i);
+    // Den præcise brøk må IKKE stå alene — den er det, der ældes forkert.
+    expect(afsnit.textContent).not.toMatch(/13 ud af 37 afgjorte kampe\./);
   });
 
   it('lover ALDRIG et nul for et manglende tal', () => {

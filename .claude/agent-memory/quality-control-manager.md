@@ -463,3 +463,31 @@
   efterprøvet: for alle 15 rækker gælder
   `uenige(d) = uenige(0) − vundetX + mistetRigtig`, og de to spil summer
   additivt til totaltabellen.
+
+## Efterprøvning af de fem B1-B5-fund (commit 57a5221, aug. 2026)
+
+Alle fem lukket og bekræftet i koden (navn "xG (målchancer)" er ledigt —
+"Chancen" bruges udelukkende om pointmekanikken overalt i repoet; xG-linjen er
+en sibling UNDER `.match-card__lineup`, OVER `<MatchElo>`, uden for
+`.match-card__meta`; `maalModXg` regnet efter i hånden — hjemme/ude byttes
+korrekt, `xgImod` er modstanderens xG; gulv er `if (!kampe) return null`, ikke
+`FORDELING_MINIMUM`; `harXg`/`XG_PROVIDERE` er en allowlist, spil-bred, ikke
+pr. kamp). To ting var IKKE fuldt lukket, selv om alt er grønt:
+
+- **Manglende tripwire-test.** `harXg`/`XG_PROVIDERE` fulgte allowlist-
+  mønsteret (se `Mønstre`-afsnittet ovenfor), men fik ALDRIG sin egen
+  spejlings-tripwire i `spilEvner.test.js` mod `scripts/games.mjs` — modsat
+  `harKickoffSynk`/`harResultatSynk` lige ved siden af. En ny provider med
+  resultat-synk, men uden `hentXg`, kan give en guide-sektion, ingen kamp
+  nogensinde udfylder, uden at noget bliver rødt.
+- **"13 ud af 37" ældes uden vagt.** `FootballHelp.jsx` citerer nu et PRÆCIST
+  optalt tal fra `scripts/maal-xg.mjs` — sandt i dag, reproduceret. Men
+  scriptets EGEN konklusion siger ±15 procentpoint og "citér som RETNING,
+  ikke præcis rate — kør igen, når sæsonen er længere fremme". Teksten har
+  hverken forbeholdet, en målt-dato, eller en test der binder den til en
+  frisk kørsel (kan ikke — scriptet rammer eksterne API'er, ikke lokale
+  fixtures). Om nogle måneder er "13 ud af 37" bare forkert, og intet
+  bliver rødt. Spørg ved næste tal af denne slags: er det en KVALITATIV
+  påstand ("rammer forbi hver tredje gang" — tåler at ældes) eller en
+  PRÆCIS optælling ("13 ud af 37" — ældes cifret)? Vælg det første, med
+  mindre tallet regenereres automatisk.

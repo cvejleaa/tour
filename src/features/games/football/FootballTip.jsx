@@ -16,6 +16,7 @@ import { playerBank } from '../GameLayout';
 import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta } from '../gameStandings';
 import { rundePile } from '../rundePoint';
+import { rundensVildeste } from './xgRunde';
 import { ligaPoint, harRundeVektor } from '../../../lib/ligaPoint';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
@@ -262,6 +263,12 @@ export default function FootballTip({ game, me, matches }) {
   const rivalAbove = myIdx > 0 ? raekker[myIdx - 1] : null;
   const rivalBelow = myIdx >= 0 && myIdx < raekker.length - 1 ? raekker[myIdx + 1] : null;
   const showFacit = roundSettled && tipped > 0;
+  // Rundens vildeste kamp. Uafhængig af `showFacit`: den handler om kampene,
+  // ikke om hvorvidt DU nåede at tippe dem, og en runde uden tips har lige så
+  // meget en vildeste kamp.
+  const vildeste = Number.isFinite(current?.round)
+    ? rundensVildeste(matches, current.round)
+    : null;
   // Bevægelse i DENNE runde (se rundePile ovenfor).
   const myPrev = myRow?.previousRank;
   const myDelta = myRow ? rankDelta(myRow) : null;
@@ -355,6 +362,26 @@ export default function FootballTip({ game, me, matches }) {
           </>
         )}
       </div>
+
+      {/* RUNDENS VILDESTE — eget kort, ALDRIG i facit-blokken.
+          Facit-blokken bærer "Du er nr. X · N point", og xG må ikke stå i
+          samme kort som en placering: et alibi er ufarligt drilleri, lige
+          indtil det kan pege på, hvad det kostede dig. Spilførers regel.
+
+          Om en KAMP, ingen navne. Vises kun over det målte gab (se xgRunde.js),
+          så det er en begivenhed hver anden runde og ikke fast inventar. */}
+      {vildeste && (
+        <div className="card mb-2">
+          <div className="xgvild">
+            <span className="xgvild__titel">🎲 Rundens vildeste</span>
+            {' '}
+            <span>
+              {vildeste.home} {vildeste.homeGoals}–{vildeste.awayGoals} {vildeste.away},
+              {' '}mens målchancerne stod {fmtDec(vildeste.xgHome)} – {fmtDec(vildeste.xgAway)}.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Rundens facit — vises når hele runden er spillet */}
       {showFacit && (

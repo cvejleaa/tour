@@ -203,6 +203,45 @@ describe('xG (målchancer) på kampkortet', () => {
     expect(container.querySelector('.match-card__xg')).toBeNull();
   });
 
+  it('INGEN linje på en kamp uden facit — xG hører til noget, der er sket', () => {
+    // Vagten er `m.result && …`. Uden den ville en kamp med målchancer, men
+    // uden resultat, vise tallet — fx hvis en admin fortryder et facit.
+    mockStandings.mockReturnValue({
+      standings: UDEN_BEVAEGELSE, leagues: [], leagueCount: 1, loading: false, error: null,
+    });
+    mockBets.mockReturnValue({ betsByMatch: {}, loading: false });
+    const { container } = render(
+      <MemoryRouter initialEntries={['/spil/sl?runde=1']}>
+        <Routes>
+          <Route
+            path="/spil/:gameId"
+            element={(
+              <FootballTip
+                game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: [] }}
+                me={{ uid: 'me', totalPoints: 39 }}
+                matches={[{ ...MATCHES[0], result: null, xgHome: 1.8, xgAway: 0.4 }, MATCHES[1]]}
+              />
+            )}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('.match-card__xg')).toBeNull();
+  });
+
+  it('NaN giver INGEN linje — Number.isFinite er den vagt, der bærer', () => {
+    // NaN ER typeof 'number', så typeof-halvdelen slipper den igennem, og
+    // fmtDec gør Number(NaN) || 0 til "0,0". Testen dækker netop den halvdel
+    // af vagten, som Test Manager kunne fjerne uden at noget blev rødt.
+    const { container } = medXg(NaN, 0.4);
+    expect(container.querySelector('.match-card__xg')).toBeNull();
+  });
+
+  it('Infinity giver heller INGEN linje', () => {
+    const { container } = medXg(Infinity, 0.4);
+    expect(container.querySelector('.match-card__xg')).toBeNull();
+  });
+
   it('linjen står UDEN FOR badge-rækken, som ikke kan ombryde', () => {
     // Meta-rækken er inline-flex uden wrap; et fjerde element dér klipper
     // venue-teksten i stedet for at ombryde. Quality Controls fund.

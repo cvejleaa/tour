@@ -358,10 +358,11 @@ export default function FootballHelp({ game }) {
           have spillet sig til mest.
           <p style={{ margin: '0.5rem 0 0' }}>
             Det er <strong>en beskrivelse af, hvad der skete</strong> — ikke et bud på, hvem der
-            burde have vundet. Vi har målt det på spillenes egne kampe: chancerne peger på det
-            modsatte hold i 13 ud af 37 afgjorte kampe. Et tal, der rammer forbi hver tredje gang,
-            kan fortælle en historie om en kamp, men det kan ikke afgøre den. Kampens facit er
-            facit, og dine point følger facit.
+            burde have vundet. Vi har målt det på spillenes egne kampe: chancerne pegede på det
+            modsatte hold i <strong>mere end hver tredje</strong> afgjorte kamp (målt 30. august
+            2026 på 37 kampe — tallet flytter sig, som sæsonen skrider frem). Noget, der rammer
+            forbi så ofte, kan fortælle en historie om en kamp, men det kan ikke afgøre den.
+            Kampens facit er facit, og dine point følger facit.
           </p>
           <p style={{ margin: '0.5rem 0 0' }}>
             Står der ingen målchancer, har kilden dem ikke endnu. De hentes nogle timer efter
@@ -370,6 +371,11 @@ export default function FootballHelp({ game }) {
           <p style={{ margin: '0.5rem 0 0' }}>
             På holdsiden står holdets mål og målchancer over sæsonen — begge tal over
             <strong> de samme kampe</strong>, så de kan sammenlignes.
+          </p>
+          <p style={{ margin: '0.5rem 0 0' }}>
+            Var en kamp i runden særligt skæv, står den som <strong>🎲 Rundens vildeste</strong> på
+            {' '}<Tab fane="tip">Tip</Tab>. Den dukker kun op, når forskellen er stor — cirka
+            hver anden runde. Der står ingen dom om, hvem der blev snydt; kun hvad der skete.
           </p>
         </Section>
       )}

@@ -1201,3 +1201,7 @@ a:focus-visible,
   text-align: center;
 }
 .match-card__xg-label { font-weight: 600; }
+
+/* Rundens vildeste — eget kort, aldrig sammen med point eller placering. */
+.xgvild { font-size: 0.9rem; }
+.xgvild__titel { font-weight: 700; }
