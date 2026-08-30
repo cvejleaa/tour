@@ -313,18 +313,6 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             {isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
           </span>
         </td>
-        {visRunde && (
-          <td style={{
-            padding: '0.45rem 0.35rem',
-            textAlign: 'right',
-            fontVariantNumeric: 'tabular-nums',
-            color: 'var(--c-muted)',
-            whiteSpace: 'nowrap',
-          }}
-          >
-            <RundeCelle r={r} runde={rundeNr} kroner={kroner} />
-          </td>
-        )}
         <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
           {/* "IKKE KLAR" OG IKKE NUL. En spiller uden runde-vektor er ikke
               genberegnet endnu — at vise 0 ville påstå, at han ingen point
@@ -333,6 +321,19 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           {r.klar === false
             ? <span className="badge badge--muted" title="Spillerens point pr. runde er ikke beregnet endnu — bed admin køre 🔄 Genberegn point">ikke klar</span>
             : formatPoints(r.totalPoints)}
+          {/* RUNDENS POINT UNDER TOTALEN — IKKE I EN EGEN KOLONNE.
+              Pokaler.jsx bærer husets skrevne beslutning: listen er en bar
+              <table> uden .table-wrap, så nye kolonner knækker den på en
+              telefon UDEN vandret scroll at hente indholdet med. Målt med
+              scripts/stillingsbredde.mjs: en fjerde kolonne skubbede 39-109 px
+              ud over kanten ved 320-390 px. Under totalen koster tallet højde
+              i stedet for bredde — og det står stadig ved totalen, hvor
+              overskriften siger, det er. */}
+          {visRunde && (
+            <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
+              <RundeCelle r={r} runde={rundeNr} kroner={kroner} />
+            </div>
+          )}
         </td>
       </tr>
     );

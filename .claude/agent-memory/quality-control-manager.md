@@ -339,6 +339,29 @@
   og `scripts/superliga-fixtures.json` (R1 24/7-2026). Ved en flade født i
   august 2026 er n=1 kamp pr. PL-hold og n≈5 pr. SL-hold NORMALTILFÆLDET, ikke
   kanten — en "tom tilstand" er så hele fladen på lanceringsdagen.
+- **Opfølgning (kode, samme feature):** alle tre plan-fund blev lukket
+  konsekvent — `–` (ikke et gættet 0) står ÉT sted (`RundeCelle`, delt af
+  podie og liste), Rundekongens og den foreløbige krones tekster er skrevet
+  side om side i `FootballHelp.jsx`, og `rundePoint.js` bruger udelukkende
+  definition (3) uden at blande (1)/(2) ind. Pilen er IKKE rettet — i stedet
+  en overskrift, der binder rundetallet til "tallet ved siden af totalen" og
+  dermed ikke til pilen. En reel mitigation, ikke en fjernelse af problemet:
+  spørg stadig ved fremtidige rundetal, om pilen (definition 2) står i samme
+  række.
+- **To identiske emoji med forskellig betydning på samme skærm er IKKE løst
+  af en hjælpetekst alene.** `Pokaler.jsx:112` (👑 Rundekongen, ENDELIG) står
+  direkte OVER podiet/listen, der nu også bruger 👑 for en FORELØBIG
+  rundeleder (`GameStandings.jsx`) — kun tooltip/aria-label/hjælpetekst
+  skelner, ingen visuel forskel (farve, form). Spørg ved en ny inline-emoji:
+  findes glyffen allerede på samme skærm med en anden betydning, og er svaret
+  et andet symbol, ikke kun tekst?
+- **En bar `<table>` uden `.table-wrap` (`GameStandings.jsx`, liste under
+  podiet) arver hele mobil-bredde-risikoen forstærket, hver gang en kolonne
+  føjes til.** `SpillerNavn` har hverken trunkering eller `nowrap`. Rundens
+  point-kolonne blev tilføjet uden at rette dette — kommentaren i koden
+  erkender det ("en kolonne æder bredde på en telefon") men løser det ikke.
+  jsdom-tests kan ikke se ombrydningen. Enhver ny kolonne her skal enten
+  begrunde bredden eksplicit eller lukke `.table-wrap`-hullet.
 
 ## Holdsiden — koden efter plan-blokeringen (6b1cbb9, aug. 2026)
 

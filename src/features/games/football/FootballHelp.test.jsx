@@ -329,3 +329,55 @@ describe('FootballHelp forklarer holdsiden', () => {
     expect(tekst).not.toMatch(/hele sæsonen for holdet/);
   });
 });
+
+// Guiden er det eneste sted, forskellen på de TO kroner står forklaret: den i
+// stillingslisten er FORELØBIG og flytter sig, mens runden spilles — pokalen
+// 👑 Rundekongen er ENDELIG og tælles først, når runden er helt færdig. To
+// identiske symboler med hver sin betydning på samme skærm bæres altså af
+// teksten alene, og så skal teksten være dækket.
+//
+// Test Manager beviste hullet: hele afsnittet kunne slettes, OG teksten kunne
+// byttes til den stik modsatte påstand ("kronen er endelig og flytter sig
+// ikke"), uden at en eneste af guidens 19 tests blev røde. Der asserteres
+// derfor på INDHOLDET, ikke på at der stod noget.
+describe('guiden forklarer de to kroner — foreløbig mod endelig', () => {
+  const guide = () => render(
+    <MemoryRouter initialEntries={['/spil/x?fane=hjaelp']}>
+      <Routes>
+        <Route path="/spil/:gameId" element={<FootballHelp game={{ id: 'x', type: 'football' }} />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  it('siger at rundens point er LEVENDE og kan skifte, indtil runden er spillet', () => {
+    guide();
+    const afsnit = screen.getByText(/Rundens point/).closest('li');
+    expect(afsnit.textContent).toMatch(/levende/i);
+    expect(afsnit.textContent).toMatch(/kan skifte, indtil den sidste kamp er spillet/i);
+  });
+
+  it('siger at kronen i listen er FORELØBIG — og det modsatte må ikke stå', () => {
+    guide();
+    const rundekongen = screen.getByText(/Rundekongen/).closest('li');
+    expect(rundekongen.textContent).toMatch(/foreløbig/i);
+    // Det, der IKKE må stå: at den flytter sig ikke, eller at den er endelig.
+    expect(rundekongen.textContent).not.toMatch(/kronen i listen er endelig/i);
+  });
+
+  it('forklarer at uafgjort deles, og at ingen krone gives når hele feltet tabte', () => {
+    guide();
+    const afsnit = screen.getByText(/Rundens point/).closest('li');
+    expect(afsnit.textContent).toMatch(/står to lige, bærer de den begge/i);
+    expect(afsnit.textContent).toMatch(/Har hele feltet tabt runden, er der ingen krone/i);
+  });
+
+  it('siger hvad en streg betyder — og lover ALDRIG et nul', () => {
+    // Et 0 kan ikke leveres: serveren springer nul-værdier over, så den der
+    // ramte alt forbi, er umulig at skelne fra den der ikke tippede. Lovede
+    // guiden et 0, ville den love noget, fladen ikke kan holde.
+    guide();
+    const afsnit = screen.getByText(/Rundens point/).closest('li');
+    expect(afsnit.textContent).toMatch(/betyder,\s*at du ikke har point i runden endnu/i);
+    expect(afsnit.textContent).not.toMatch(/vises som 0|står der 0/i);
+  });
+});

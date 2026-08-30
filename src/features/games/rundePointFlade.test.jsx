@@ -134,6 +134,37 @@ describe('rundens point i stillingen', () => {
   });
 });
 
+describe('overskriften overlever en TOM liste', () => {
+  // REGRESSIONEN. Overskriften stod oprindeligt inde i listens betingelse. Med
+  // tre eller færre spillere er listen tom — alle står på podiet — og så blev
+  // rundepoint og kroner vist UDEN et ord om, hvilken runde det handlede om.
+  //
+  // Alle andre fixtures her har 4+ spillere, så listen aldrig er tom. Test
+  // Manager beviste, at man kunne flytte overskriften tilbage ind i
+  // listens betingelse — altså gendanne præcis den fejl — med alle 57 tests
+  // grønne. Den her er den eneste, der kan se det.
+  const tre = [
+    ['u1', 'Anne', 60], ['u2', 'Bo', 50], ['u3', 'Carl', 40],
+  ].map(([uid, name, totalPoints], i) => ({
+    uid, name, totalPoints, rank: i + 1, perRound: { 8: 10 - i },
+  }));
+
+  it('med tre spillere er der INGEN tabel — og overskriften står der alligevel', () => {
+    vis({ standings: tre });
+    // Beviser at listen faktisk er tom: findes der en tabel, tester vi ikke
+    // det tilfælde, kommentaren i koden handler om.
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.getByText(/Runde 8: tallet ved siden af totalen er rundens point/))
+      .toBeInTheDocument();
+  });
+
+  it('kronen står på podiet, og forklaringen af den står med', () => {
+    vis({ standings: tre });
+    expect(kroneNavne()).toEqual(['Anne']);
+    expect(screen.getByText(/har flest indtil videre/)).toBeInTheDocument();
+  });
+});
+
 describe('rundens point — hvornår den IKKE vises', () => {
   it('ikke i et spil uden runder (evne-gaten)', () => {
     // Gaten er på spillets EVNE, ikke på fanen: Stilling-fanen findes stadig
