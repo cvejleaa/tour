@@ -278,6 +278,10 @@ export default function FootballHelp({ game }) {
             {' '}<strong>🔥</strong> brænder hos den, der har flest indtil videre — står to lige, brænder
             det hos dem begge. Har hele feltet tabt runden, er der ingen ild. En <strong>–</strong>
             {' '}betyder, at du ikke har point i runden endnu.
+            {' '}<strong>Pilen</strong> ved din placering i listen måler den <strong>samme
+            runde</strong>: den viser, hvad runden har gjort ved din placering. Står der ingen pil,
+            har du holdt din plads — også selv om du har hentet mange point, for det kan alle andre
+            have gjort. De tre på podiet har ingen pil; dér vises kun medalje, point og rundens tal.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>👑 Rundekongen</strong> — hvem har vundet flest <strong>hele</strong> runder? En runde

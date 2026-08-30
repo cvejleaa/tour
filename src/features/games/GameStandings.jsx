@@ -8,7 +8,9 @@ import Avatar from '../../components/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useVisibleGameStandings } from './useVisibleGameStandings';
 import { rankDelta, ligaRanking } from './gameStandings';
-import { sidsteRunde, rundensPoint, rundeFoerende } from './rundePoint';
+import {
+  sidsteRunde, rundensPoint, rundeFoerende, rundePile,
+} from './rundePoint';
 import { ligaPoint, harRundeVektor, puljenTaeller } from '../../lib/ligaPoint';
 import { GAME_TYPE } from '../../lib/constants';
 import GameTabLink from './GameTabLink';
@@ -255,6 +257,19 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   );
   const visRunde = harRunder && rundeNr != null;
 
+  // PILEN SKAL MÅLE SAMME PERIODE SOM RUNDETALLET. Serverens previousRank er
+  // et øjebliksbillede fra sidste KUPON-afgjorte runde og kan ligge flere
+  // runder tilbage; står den ved siden af rundens point, modsiger de to
+  // hinanden på skærmen. Ejeren fandt det: rundens næsthøjeste tal og en pil
+  // NED, uden at være rykket. Gen-tildeles kun når en runde faktisk vises —
+  // ellers beholder cykelspil og spil uden runder serverens billede.
+  const raekker = useMemo(
+    () => (visRunde
+      ? rundePile(standings, rundeNr, valgt?.startRound ?? null, ligaPoint, harRundeVektor)
+      : standings),
+    [visRunde, standings, rundeNr, valgt],
+  );
+
   if (loading) return <div className="spinner" role="status" aria-label="Indlæser" />;
   if (error) return <p className="badge badge--red">{error}</p>;
 
@@ -292,11 +307,11 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // En klar:false-spiller har rank null og hører ikke på et podie — medaljens
   // fallback ville vise "#null". Er nogen i top tre ikke klar, vises ALLE som
   // liste; et podie med huller ville ligne en færdig stilling.
-  const podieKlar = standings.slice(0, 3).every((r) => r.klar !== false);
-  const hasPodium = standings.length >= 3 && podieKlar;
-  const podium = hasPodium ? standings.slice(0, 3) : [];
-  const listRows = hasPodium ? standings.slice(3) : standings;
-  const meRow = standings.find((r) => r.uid === meUid);
+  const podieKlar = raekker.slice(0, 3).every((r) => r.klar !== false);
+  const hasPodium = raekker.length >= 3 && podieKlar;
+  const podium = hasPodium ? raekker.slice(0, 3) : [];
+  const listRows = hasPodium ? raekker.slice(3) : raekker;
+  const meRow = raekker.find((r) => r.uid === meUid);
   const meInList = meRow && (!hasPodium || meRow.rank > 3);
 
   const Row = ({ r, sticky = false }) => {
@@ -352,7 +367,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // Bestemt form i flertal er med vilje: listen trunkeres aldrig, så "de N
   // spillere" siger korrekt, at det er dem alle. Ved ÉN spiller er det én selv
   // — man deler ikke liga med sig selv, så den sætning skal skrives om.
-  const antal = standings.length;
+  const antal = raekker.length;
   // Skalaskiftet skal stå HER, hvor tallene ses — forklaringen på Ligaer-fanen
   // er én fane væk, og en title-attribut findes ikke på en telefon.
   const ligaGate = valgt && Number.isFinite(valgt.startRound)
@@ -369,12 +384,12 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // Opdelingen viser HELE feltet — også de tre på podiet. Byggede den på
   // listRows, ville regnskabet mangle netop de spillere, man helst vil se
   // tallene bag.
-  const alleRaekker = standings;
+  const alleRaekker = raekker;
 
   // Slå den åbne spiller op i de SYNLIGE rækker. Forsvinder han (liga skiftet,
   // filter ændret), lukker panelet af sig selv i stedet for at hænge med data,
   // man ikke længere må se.
-  const aabenRow = aabenUid ? standings.find((r) => r.uid === aabenUid) : null;
+  const aabenRow = aabenUid ? raekker.find((r) => r.uid === aabenUid) : null;
 
   const MEDAL = ['🥇', '🥈', '🥉'];
   // Ombytningen 2 · 1 · 3 findes ALENE for at sætte vinderen i midten. Er der
@@ -432,12 +447,12 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             mobil — og podiet har plads til nøjagtig ét tal. Derfor en knap,
             der bytter tabellen ud, og som er slået fra som udgangspunkt.
 
-            Betingelsen er `standings`, IKKE `listRows`. En liga med præcis tre
+            Betingelsen er `raekker`, IKKE `listRows`. En liga med præcis tre
             spillere fylder podiet og har en tom liste — og så forsvandt både
             knappen og spillerdetaljen for hele den gruppe. Værre: knappen
             fandtes under "Alle mine ligaer" og forsvandt, når man valgte den
             lille liga i filteret. En knap, der forsvinder af sig selv. */}
-        {standings.length > 0 && (
+        {raekker.length > 0 && (
           <button
             type="button"
             className="btn btn--ghost btn--sm"
@@ -458,16 +473,18 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           rundesejre følger ligaens startrunde, mens Chancen er spil-scoped og
           ikke findes pr. runde. */}
       <Pokaler
-        rows={standings}
+        rows={raekker}
         matches={matches}
         startRunde={valgt && Number.isFinite(valgt.startRound) ? valgt.startRound : null}
       />
 
-      {/* HVILKEN RUNDE tallet er. Uden linjen står to tal om hver sin runde i
-          samme række: pilen ▲▼ opdateres først, når rundens KUPON er afgjort
-          (gameScoring.js:557-566), mens rundetallet er levende. Overskriften
-          tilskriver tallet en runde, så det ikke kan læses som pilens
-          forklaring. Kronen forklares her og ikke pr. række — det er en regel,
+      {/* HVILKEN RUNDE tallet er.
+          Linjen stod oprindeligt her, fordi pilen ▲▼ målte mod et ældre
+          øjebliksbillede og derfor kunne modsige rundetallet. Den strid er
+          løst i selve pilen (se rundePile ovenfor) — de to måler nu samme
+          runde. Overskriften bliver stående, fordi tallet stadig skal
+          TILSKRIVES en runde: uden den ved man ikke, hvilken runde "+12,3"
+          hører til. Ilden forklares her og ikke pr. række — det er en regel,
           ikke en oplysning om spilleren.
 
           Den står OVER podiet og ikke i listen, fordi tallet står BEGGE
@@ -515,16 +532,16 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         </div>
       )}
 
-      {standings.length === 0 && (
+      {raekker.length === 0 && (
         <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>
           Ingen af ligaens medlemmer er med i stillingen endnu.
         </p>
       )}
 
-      {/* Betingelsen er `standings`, IKKE `listRows`. En liga med præcis tre
+      {/* Betingelsen er `raekker`, IKKE `listRows`. En liga med præcis tre
           spillere fylder podiet og har en tom liste — og så forsvandt både
           opdelingen og spillerdetaljen for hele den gruppe. */}
-      {standings.length > 0 && (
+      {raekker.length > 0 && (
         <div ref={tabelRef}>
           {visOpdeling ? (
             <>

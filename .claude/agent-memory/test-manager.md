@@ -159,3 +159,41 @@ invariant ("aldrig set", "andet gennemløb", "zone-vagt"), dækker i
 virkeligheden kun DEN VEJ, testens fixtures rent faktisk rammer — ikke
 invarianten selv. Spørg altid: hvilket konkret input ville denne kode-gren
 faktisk blive nået af, og findes det input i noget fixture?
+
+## `rundePile` (src/features/games/rundePoint.js) — pilen af samme vektor som rundetallet (aug. 2026)
+
+- **En fjernet navne-tiebreak i sorteringen OVERLEVER.** `rundePile` sorterer
+  `foer.sort((a, b) => (b.point - a.point) || a.navn.localeCompare(b.navn, 'da'))`.
+  Fjernes `|| a.navn.localeCompare(...)` helt, forbliver ALLE 44 tests i
+  `rundePoint.test.js` + `rundePointFlade.test.jsx` grønne — inkl. testen
+  "uafgjort før runden giver SAMME previousRank til begge", som eksplicit
+  handler om uafgjorte point. Årsagen: V8's `Array.prototype.sort` er stabil,
+  og ingen fixture har to spillere med ens `point`, hvor INSERTIONS-
+  rækkefølgen (som den stabile sort så falder tilbage på) afviger fra den
+  alfabetiske. Testen beviser derfor kun, at ens point giver samme RANG-TAL
+  (næste springer over) — ikke at rækkefølgen inden for et sådant tal er
+  alfabetisk og ikke bare "den rækkefølge, arrayet kom ind i". De øvrige
+  mutationer (fjern `udenRunde`, byt sorteringsretning, returnér `raekker`
+  uændret, `previousRank: rank`, drop `startRunde`, `visRunde` hårdkodet
+  false) blev alle dræbt af den samme suite. Tjek næste gang en
+  rangerings-funktion har en eksplicit tiebreak "for stabil orden": byg et
+  fixture med ens point OG insertions-rækkefølge, der er omvendt af
+  tiebreak-feltets orden (fx sidste spiller i arrayet har det alfabetisk
+  FØRSTE navn) — ellers er stabil sort en gratis (og usynlig) stand-in for
+  tiebreaken.
+- **Delta-vs-forfra-mutationen kræver et fixture, hvor de to metoder giver
+  FORSKELLIG rangorden — og branchens eget fixture gør netop det korrekt.**
+  `regn(perRound) − perRound[runde]` (den forbudte "delta"-genvej,
+  kommenteret eksplicit i filen som forkert pga. 0-gulvet) blev testet med
+  Anne `{5: -10, 6: 12}` / Bo `{5: -1, 6: 0.5}`: forfra giver begge 0 (delt
+  1.-plads), delta giver Bo enegang på 1. pladsen. Mutationen dræbes
+  præcis af denne test ("regner FORFRA af vektoren, ikke som total minus
+  rundens point"), ikke ved en tilfældighed — bekræftet ved at genindføre
+  delta-koden og se netop DENNE test fejle (og ellers ingen).
+- **Pilens fravær (`toBeNull()`) i `rundePointFlade.test.jsx` er ikke
+  vakuøs.** Alle `pil(navn)`-assertions med `toBeNull()` (Bibamus, Team
+  Sharkey, Erik, Dorte) peger på spillere i LISTEN (rang 4+), aldrig på
+  podiet (top 3, som aldrig viser pile) — efterprøvet ved at regne
+  podiepladserne ud fra fixturets `totalPoints`/ligapoint. En fraværs-
+  assertion på en podie-spiller ville have bestået uanset om `rundePile`
+  virkede.
