@@ -618,6 +618,11 @@ export function pointModForventning(matches, hold, eloHistorik, seedElo) {
   };
 }
 
+// Gulvene for hold-listen ved Elo-tabellen. Se holdXgListe for hvorfor der er
+// to, og hvad de er målt på.
+export const XG_LISTE_GULV = 3;
+export const XG_LISTE_MINDST_HOLD = 4;
+
 /**
  * Mål mod xG (målchancer) for ét hold.
  *
@@ -666,4 +671,56 @@ export function maalModXg(matches, hold) {
   if (!kampe) return null;
   const en = (v) => Math.round(v * 10) / 10;
   return { kampe, spillede, maal, imod, xg: en(xg), xgImod: en(xgImod) };
+}
+
+/**
+ * Alle holdenes mål mod målchancer, som listen ved Elo-tabellen viser dem.
+ *
+ * SORTERET PR. KAMP, ikke på summen. Målt med scripts/maal-holdliste.mjs
+ * 30/8-2026: Superligaen havde 4–6 kampe pr. hold, og sorteret på SUMMEN stod
+ * F.C. København nr. 1 med FÆRREST kampe af alle (4). En sum vokser med n, så
+ * en sum-sorteret liste sætter systematisk holdet med mindst data yderst.
+ * Samme måling viser, at Lyngby (−5,5) og FC Nordsjælland (−5,2) BYTTER plads
+ * mellem de to sorteringer — rækkefølgen er altså ikke den samme, og valget
+ * er ikke kosmetisk. Quality Controls blokerende fund på planen.
+ *
+ * `gulv` er pr. HOLD, `mindstHold` er på listen. To gulve, fordi det ene ikke
+ * kan bære det andet: hold i samme liga spiller i lockstep, så "hvor mange
+ * hold er over gulvet" er 0 eller alle — et hold-gulv alene binder derfor
+ * aldrig noget. Målt binder parret: Superligaen gav 12 rækker, Premier League
+ * 0 (højst 2 kampe pr. hold), og PL-listen dukker af sig selv op efter 3.
+ * runde. Under `mindstHold` rækker er det ikke en hold-for-hold-liste.
+ *
+ * Returnerer null — aldrig en tom liste og aldrig et nul-tal for et hold uden
+ * grundlag. `maalModXg` giver allerede null ved nul kampe med målchancer, og
+ * den værdi skal falde ud af listen, ikke ind i den som 0,0.
+ *
+ * @param {Array<object>} matches   spillets kampe
+ * @param {Array<{name?: string}>} teams  spillets hold
+ * @param {{gulv?: number, mindstHold?: number}} [opt]
+ * @returns {Array<{navn:string, kampe:number, maal:number, xg:number,
+ *                  prKamp:number}>|null}
+ */
+export function holdXgListe(matches, teams, opt = {}) {
+  const gulv = Number.isFinite(opt.gulv) ? opt.gulv : XG_LISTE_GULV;
+  const mindstHold = Number.isFinite(opt.mindstHold) ? opt.mindstHold : XG_LISTE_MINDST_HOLD;
+  const raekker = [];
+  for (const t of teams || []) {
+    const navn = t?.name;
+    if (!navn) continue;
+    const s = maalModXg(matches, navn);
+    if (!s || s.kampe < gulv) continue;
+    raekker.push({
+      navn,
+      kampe: s.kampe,
+      maal: s.maal,
+      xg: s.xg,
+      // To decimaler: med ét ville halvdelen af Superligaen stå på ±0,0 eller
+      // ±0,1, og listen ville se ud, som om holdene lå lige. Målt spænder
+      // feltet fra +1,41 til −1,03.
+      prKamp: Math.round(((s.maal - s.xg) / s.kampe) * 100) / 100,
+    });
+  }
+  if (raekker.length < mindstHold) return null;
+  return raekker.sort((a, b) => b.prKamp - a.prKamp || a.navn.localeCompare(b.navn, 'da'));
 }

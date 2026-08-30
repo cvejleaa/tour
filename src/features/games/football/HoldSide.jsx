@@ -19,7 +19,7 @@ import {
 } from './holdStatistik';
 import { eloRows } from './eloHistory';
 import ClubBadge from '../../../components/ClubBadge';
-import { fmtDec } from '../../../lib/daNum';
+import { fmtDec, fmtSignedDec } from '../../../lib/daNum';
 
 const UDFALD_KLASSE = { V: 'badge badge--green', U: 'badge', T: 'badge badge--red' };
 
@@ -145,12 +145,26 @@ export default function HoldSide({ game, matches, short, onLuk }) {
               over alt spillet og målchancer kun over dem, der har tallet,
               ville kortet vise en overpræstation, der kom af databrist.
 
-              INGEN DOM. Ikke "overpræsterer", ikke "heldig", ingen differens
-              med fortegn og farve. To rækker tal; læseren slutter selv.
+              INGEN DOM. Ikke "overpræsterer", ikke "heldig".
               Målingen (scripts/maal-xg.mjs) viser, at xG er uenig med facit i
               13 af 37 afgjorte kampe — og modellen kommer fra to
               leverandører med mulig forskellig skala. En dom oveni to usikre
               tal er en påstand i tredje led.
+
+              Der stod før "ingen differens med fortegn og farve" her, og den
+              regel var allerede brudt af sin nabo: kortet "Mod modellens
+              forventning" 100 linjer længere nede viser "+4,0 point mere, end
+              modellen ventede efter 12 kampe" — på SAMME fane. Reglen er
+              derfor skærpet i stedet for at blive brudt igen:
+
+                Et afledt tal må vises med fortegn, når begge bestanddele står
+                ved siden af og grundlaget (n) står på skærmen. Farve må det
+                aldrig.
+
+              Fortegnet kan efterregnes af tallene ved siden af; en farve kan
+              ikke — den siger "godt" eller "skidt". Differensen står her, så
+              holdsiden og hold-listen ved Elo-tabellen ikke viser de samme to
+              tal med hver sin konklusion; ét klik må ikke give to svar.
 
               Gulv = 1 kamp, ikke FORDELING_MINIMUM. Det gulv sidder på SEJRE
               og er sat af grafiske grunde (en form kan ikke ses i to søjler);
@@ -180,6 +194,11 @@ export default function HoldSide({ game, matches, short, onLuk }) {
                   </tr>
                 </tbody>
               </table>
+              <p style={{ margin: '0.6rem 0 0' }}>
+                Mål minus målchancer:{' '}
+                <strong>{fmtSignedDec((xgTal.maal - xgTal.xg) / xgTal.kampe, 2)}</strong>
+                {' '}pr. kamp.
+              </p>
               <p style={{ margin: '0.5rem 0 0', color: 'var(--c-muted)', fontSize: '0.85rem' }}>
                 Begge kolonner dækker de samme {kampeOrd(xgTal.kampe)}
                 {xgTal.kampe < xgTal.spillede

@@ -19,6 +19,8 @@ import FootballTip from '../features/games/football/FootballTip';
 import MyTips from '../features/games/football/MyTips';
 import PuljeTip from '../features/games/football/PuljeTip';
 import EloTable from '../features/games/football/EloTable';
+import HoldXgListe from '../features/games/football/HoldXgListe';
+import { harXg } from '../features/games/spilEvner';
 import HoldSide from '../features/games/football/HoldSide';
 import FootballTable from '../features/games/football/FootballTable';
 import FootballHelp from '../features/games/football/FootballHelp';
@@ -176,7 +178,15 @@ export default function GamePage() {
                 }}
               />
             ) : (
-              <EloTable game={game} />
+              <>
+                <EloTable game={game} />
+                {/* Søskende til tabellen, ikke inde i den: samme spørgsmål
+                    (hvem er stærkere end resultaterne siger?) målt på
+                    chancer i stedet for udfald. Gated på spillets EVNE, ikke
+                    på en nabo-egenskab — kilder uden xG får aldrig kortet,
+                    og listen skjuler sig selv, når grundlaget er for tyndt. */}
+                {harXg(game) && <HoldXgListe game={game} matches={matches} />}
+              </>
             )
           ) : tab === 'tabel' && game.type === GAME_TYPE.FOOTBALL ? (
             <FootballTable game={game} />

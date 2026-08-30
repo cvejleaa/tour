@@ -16,6 +16,22 @@ export function fmtDec(n, decimals = 1) {
   return v.toFixed(decimals).replace('.', ',');
 }
 
+/**
+ * Fast antal decimaler MED fortegn (+1,41 / −0,34). Ægte minus-tegn.
+ *
+ * Modsat fmtSignedPoints, der arver fmtPoints' variable decimaler: en kolonne
+ * af afledte tal skal have samme bredde hele vejen ned, ellers ser +1 og
+ * +1,41 ud som to forskellige slags tal. Nul får INTET fortegn — et "+0,00"
+ * ville påstå en retning, tallet ikke har.
+ */
+export function fmtSignedDec(n, decimals = 1) {
+  const v = Number(n) || 0;
+  const body = fmtDec(Math.abs(v), decimals);
+  if (v > 0) return `+${body}`;
+  if (v < 0) return `−${body}`;
+  return body;
+}
+
 /** Point med fortegn foran (+3,1 / −5). Bruger ægte minus-tegn. */
 export function fmtSignedPoints(n) {
   const v = Number(n) || 0;

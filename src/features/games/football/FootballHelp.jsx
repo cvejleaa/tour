@@ -369,8 +369,15 @@ export default function FootballHelp({ game }) {
             kampen, og natten over kan der gå længere. Der står aldrig 0,0 for et tal, vi mangler.
           </p>
           <p style={{ margin: '0.5rem 0 0' }}>
-            På holdsiden står holdets mål og målchancer over sæsonen — begge tal over
-            <strong> de samme kampe</strong>, så de kan sammenlignes.
+            {/* IKKE "over sæsonen": Premier League-spillet dækker runde 1-18 af
+                38, så ordet var usandt for halvdelen af spillerne. Samme regel
+                som i hold-listen selv. */}
+            På holdsiden står holdets mål og målchancer i dette spil — begge tal over
+            <strong> de samme kampe</strong>, så de kan sammenlignes. Under Elo-tabellen på
+            {' '}<Tab fane="elo">Elo</Tab> står alle holdene i samme opgørelse, sorteret efter
+            forskellen <strong>pr. kamp</strong>: holdene har spillet forskelligt mange kampe,
+            så en sammenlagt forskel ville sætte holdet med mindst data yderst. Listen dukker
+            først op, når mindst fire hold har tre kampe med målchancer.
           </p>
           <p style={{ margin: '0.5rem 0 0' }}>
             Var en kamp i runden særligt skæv, står den som <strong>🎲 Rundens vildeste</strong> på
