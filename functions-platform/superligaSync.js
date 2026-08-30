@@ -758,6 +758,12 @@ async function runScheduledSyncAll(db, FieldValue, nowMs, opts = {}) {
  * første kørsel efter runden.
  */
 const XG_LOFT = 30;
+// Wall-clock-budget for ÉN xG-kørsel. Loftet ovenfor er sat efter kvote (132
+// kampe, 12 kørsler i døgnet), ikke efter tid — og tid var det, der manglede:
+// 30 sekventielle kald à 10 s er 300 s, hvilket alene overskrider budgettet
+// for det job, kaldet sidder i. Kalderen sætter tallet ud fra SIT budget
+// (se index.js); dette er gulvet, hvis ingen siger noget.
+const XG_BUDGET_MS = 30000;
 
 /**
  * Hent og skriv xG for FÆRDIGE kampe, der mangler det.
@@ -790,7 +796,10 @@ async function syncXgCore(db, FieldValue, opts = {}) {
 
   // Kun kampe der ER afgjort og mangler tallet. `xgHome` er nok som prøve:
   // de to felter skrives altid sammen, aldrig det ene alene.
-  const mangler = alle.filter((m) => m.data?.result && !Number.isFinite(Number(m.data?.xgHome)));
+  // `typeof === 'number'` og ikke Number(): et felt med null ville ellers give
+  // Number(null) === 0, tælle som "har xG" og aldrig blive prøvet igen.
+  const harXg = (v) => typeof v === 'number' && Number.isFinite(v);
+  const mangler = alle.filter((m) => m.data?.result && !harXg(m.data?.xgHome));
   if (!mangler.length) return { manglede: 0, hentet: 0, skrevet: 0 };
 
   const iAlt = mangler.length;
@@ -802,7 +811,12 @@ async function syncXgCore(db, FieldValue, opts = {}) {
   // hentXg tager VORES id'er og giver KILDENS nøgler tilbage; resolveDocs
   // oversætter dem så den modsatte vej. Kernen kender dermed ikke id-formen
   // hos nogen af kilderne — se kontrakten i syncProviders.js.
-  const rows = await provider.hentXg(opts.sync, fetchFn, docIds);
+  // Budgettet regnes HER og gives til provideren, som tjekker det pr. kamp.
+  // Kernen kan ikke selv afbryde et await, og en Promise.race ville lade
+  // kaldet løbe videre i baggrunden og stadig holde funktionen i live.
+  const budgetMs = Number.isFinite(Number(opts.budgetMs)) && Number(opts.budgetMs) > 0
+    ? Number(opts.budgetMs) : XG_BUDGET_MS;
+  const rows = await provider.hentXg(opts.sync, fetchFn, docIds, Date.now() + budgetMs);
   const tilbage = provider.resolveDocs(rows.map((r) => r.sourceKey), docIds);
 
   const batch = db.batch();
@@ -814,12 +828,14 @@ async function syncXgCore(db, FieldValue, opts = {}) {
     // UDELAD frem for at sætte undefined: der er ingen
     // ignoreUndefinedProperties i dette projekt, og et undefined i en batch
     // KASTER og river hele skrivningen med.
-    if (!Number.isFinite(r.xgHome) || !Number.isFinite(r.xgAway)) continue;
-    batch.set(matchesCol.doc(id), {
+    if (!harXg(r.xgHome) || !harXg(r.xgAway)) continue;
+    // update og ikke set(merge): set ville OPRETTE et kamp-dokument, hvis en
+    // nøgle nogensinde pegede forkert. Samme vagt som syncResultsCore bruger.
+    batch.update(matchesCol.doc(id), {
       xgHome: r.xgHome,
       xgAway: r.xgAway,
       xgSyncedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
+    });
     skrevet += 1;
   }
   if (skrevet) await batch.commit();
@@ -833,5 +849,5 @@ module.exports = {
   liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, runScheduledSyncAll,
   syncKickoffsCore, strandedMatches, allMatches,
-  syncXgCore, XG_LOFT,
+  syncXgCore, XG_LOFT, XG_BUDGET_MS,
 };

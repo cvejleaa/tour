@@ -47,7 +47,20 @@
 //
 //       Kalderen sender kun id'er for kampe, der er færdige OG mangler xG, og
 //       højst XG_LOFT ad gangen. Ukendte id'er udelades af svaret, og en kamp
-//       uden brugbare tal SKAL udelades — aldrig 0 for "ved ikke".
+//       uden brugbare tal SKAL udelades — aldrig 0 for "ved ikke" (brug
+//       xgTal, ikke Number: Number(null) er 0, ikke NaN).
+//
+//       `deadlineMs` er et WALL-CLOCK-budget fra kernen, ikke en per-kald-
+//       timeout. Implementationen SKAL tjekke det i toppen af sin pr.-kamp-
+//       løkke og bryde ud. Uden det er løkken kun bundet af per-kald-timeouten
+//       gange antallet af kampe, og en langsom kilde kan bruge hele det
+//       omgivende jobs budget op — hvorefter platformen dræber invocation'en,
+//       og INTET af det, jobbet ellers skulle nå, bliver gjort. Den fejl kan
+//       ikke fanges af try/catch.
+//
+//       Et loft på antal ØNSKEDE kampe er ikke et loft på antal KALD: lister
+//       kilden samme kamp flere gange, skal nøglen være opbrugt efter første
+//       gennemløb (Set.delete, ikke Set.has).
 //   hentKickoffs(sync, fetchFn, runder) → [{ sourceKey, kickoff: ISO-UTC|null }]
 //       VALGFRI: kilder, hvis kamptider flytter sig løbende (tv-aftaler).
 //       Både PL og Superligaen har den nu. Mangler en kilde metoden, springer
@@ -165,6 +178,24 @@ function standingsUrl(seasonId = SEASON_ID, stageId = STAGE_ID, tournamentId = T
     + `&env=production&locale=da&addResults=true&resultsLimit=6&form=last5&seasonId=${seasonId}&stageId=${stageId}`;
 }
 
+// Number(null), Number(''), Number(false) og Number([]) er ALLE 0 — et finite
+// tal, der ville slippe forbi Number.isFinite-vagten og blive skrevet som et
+// ægte 0,0. Kontrakten ovenfor siger det modsatte: en kamp uden brugbare tal
+// SKAL udelades, aldrig 0 for "ved ikke". Og et falsk 0 er værre end et
+// manglende tal: prøvefiltret regner 0 som "har xG", så kampen genforsøges
+// ALDRIG — det forkerte tal støbes fast, mens Drift-kortet melder grønt.
+//
+// Returnerer null for alt, der ikke er et tal (eller en talstreng), så
+// kalderen kan skelne "ved ikke" fra et ægte nul.
+function xgTal(v) {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 const superliga = {
   async hentFaerdige(sync, fetchFn) {
     const res = await fetchFn(resultsUrl(sync.seasonId), hentOpt());
@@ -183,11 +214,15 @@ const superliga = {
       }));
   },
 
-  async hentXg(sync, fetchFn, docIds) {
+  async hentXg(sync, fetchFn, docIds, deadlineMs) {
     // For denne kilde ER dokument-id'et og sourceKey det samme (begge er
     // matchDocId), så listen kan bruges direkte. Se pulselive for modstykket.
     const oenskede = new Set(docIds || []);
     if (!oenskede.size) return [];
+    // Tidsbudgettet kommer fra kernen. Uden det er løkken kun bundet af
+    // per-kald-timeouten gange antallet af kampe, og en langsom (ikke engang
+    // nede) kilde kan æde hele sweep'ets budget — se syncXgCore.
+    const frist = Number(deadlineMs);
     // Ét listekald for at oversætte vores dokument-nøgle til kildens eventId.
     // Nøglen er matchDocId(runde, hjemme, ude) og kan ikke udledes af et tal,
     // så opslaget er nødvendigt — modsat pulselive, hvor nøglen ER id'et.
@@ -196,8 +231,14 @@ const superliga = {
     const data = await res.json();
     const ud = [];
     for (const e of (data.events || [])) {
+      if (Number.isFinite(frist) && Date.now() >= frist) break;
       const key = matchDocId(e.round, e.homeName, e.awayName);
-      if (!oenskede.has(key)) continue;
+      // delete og ikke has: sættet tømmes undervejs, så en kilde, der lister
+      // samme kamp mange gange, ikke kan gange kald- og skrivetallet op. Uden
+      // det er XG_LOFT et loft på ØNSKEDE KAMPE, ikke på KALD — 600 dubletter
+      // af én kamp gav 601 kald og 600 batch-ops, over Firestores grænse på
+      // 500, så HELE xG-skrivningen tabtes hver kørsel.
+      if (!oenskede.delete(key)) continue;
       const s2 = await fetchFn(
         `${API_BASE}/opta-stats/events/${e.eventId}/teams?appName=${APP_NAME}`
         + `&access_token=${ACCESS_TOKEN}&env=production&locale=da`,
@@ -208,9 +249,9 @@ const superliga = {
       // er SYNLIGT frem for tavst.
       if (!s2.ok) continue;
       const xg = (await s2.json())?.expectedGoals || {};
-      const h = Number(xg.home);
-      const a = Number(xg.away);
-      if (!Number.isFinite(h) || !Number.isFinite(a)) continue;
+      const h = xgTal(xg.home);
+      const a = xgTal(xg.away);
+      if (h === null || a === null) continue;
       ud.push({ sourceKey: key, xgHome: h, xgAway: a });
     }
     return ud;
@@ -451,12 +492,15 @@ const pulselive = {
       }));
   },
 
-  async hentXg(sync, fetchFn, docIds) {
+  async hentXg(sync, fetchFn, docIds, deadlineMs) {
     const ud = [];
+    const frist = Number(deadlineMs);
     // Dokument-id'et er `r{runde}-{matchId}`, og kildens nøgle er halen —
     // samme udledning som resolveDocs laver den modsatte vej. Den ligger HER
     // og ikke i kernen, fordi id-formen er denne kildes viden alene.
-    for (const id of (docIds || [])) {
+    // Set: ét kald pr. kamp, også hvis kalderen skulle sende samme id to gange.
+    for (const id of new Set(docIds || [])) {
+      if (Number.isFinite(frist) && Date.now() >= frist) break;
       const i = String(id).lastIndexOf('-');
       const key = i >= 0 ? String(id).slice(i + 1) : String(id);
       if (!key) continue;
@@ -464,12 +508,12 @@ const pulselive = {
       if (!res.ok) continue; // se superligaens hentXg: én kamp vælter ikke kørslen
       const sider = await res.json();
       if (!Array.isArray(sider)) continue;
-      const tal = (side) => Number(
+      const tal = (side) => xgTal(
         sider.find((x) => String(x?.side).toLowerCase() === side)?.stats?.expectedGoals,
       );
       const h = tal('home');
       const a = tal('away');
-      if (!Number.isFinite(h) || !Number.isFinite(a)) continue;
+      if (h === null || a === null) continue;
       ud.push({ sourceKey: String(key), xgHome: h, xgAway: a });
     }
     return ud;

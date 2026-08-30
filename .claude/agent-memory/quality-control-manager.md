@@ -104,6 +104,25 @@
   tidsstempel, der beviser rækkefølge) skal fryses lige så hårdt som selve
   værdien, ellers kan sporet forfalskes efter at hullet er lukket.
 
+- **Et design, der flytter arbejde væk fra sted A "for at undgå fejl X", skal
+  efterprøves for om sted B kan give X via en ANDEN mekanisme.** xG-sweep'et
+  (`syncXgCore`) flyttede eksplicit væk fra minut-synken, fordi
+  `hentFaerdige` kaster ved timeout med fejlen slugt. Men sweep'et
+  (`syncSuperligaSweep`, `functions-platform/index.js:438`) har INGEN
+  eksplicit `timeoutSeconds` — modsat alle sine søskende, der sætter den
+  bevidst (minut-synk 120s, `syncGameKickoffsNow` 120s,
+  `syncSuperligaResultsNow` 300s) — mens den nye kode tilføjer op til
+  `XG_LOFT` SEKVENTIELLE eksterne kald PR. SPIL, hver enkelt kun bundet af
+  et PER-KALD-timeout (`AbortSignal.timeout(10000)` i `hentOpt()`), ikke af
+  et loop-timeout. Værste tilfælde (langsom, ikke-nede kilde) er
+  `XG_LOFT × 10s × antal spil` — langt over en typisk 60s-standardtimeout —
+  og en platform-timeout kan IKKE fanges af try/catch: hele kørslen dræbes,
+  og `skrivDriftStatus` for det spil (og ethvert spil efter det i loopet)
+  skrives aldrig. Samme symptom som det, designet eksplicit undgik — bare
+  via en anden dør. Spørg altid ved nyt maskineri i en EKSISTERENDE
+  scheduled function: har værtsfunktionen et eksplicit tidsbudget, sat ud
+  fra den NYE arbejdsmængde (worst-case sekventielle kald), ikke kun den
+  gamle?
 ## Konkrete tal i dette repo (efterprøv, gæt ikke)
 
 - `syncSuperligaSweep`: cron `25 2,13-23 * * *`. Største NORMALE hul er

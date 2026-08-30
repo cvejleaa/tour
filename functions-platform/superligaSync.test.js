@@ -768,7 +768,7 @@ describe('skemaet dækker kampprogrammet', () => {
   ).fixtures;
 
   const skema = (navn) => {
-    const m = kilde.match(new RegExp(`exports\\.${navn} = onSchedule\\(\\s*\\{ schedule: '([^']+)'`));
+    const m = kilde.match(new RegExp(`exports\\.${navn} = onSchedule\\(\\s*\\{\\s*schedule: '([^']+)'`));
     if (!m) throw new Error(`fandt ikke skemaet for ${navn} — er funktionen omdøbt?`);
     return m[1];
   };

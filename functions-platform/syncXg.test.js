@@ -11,7 +11,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { syncXgCore, XG_LOFT } = require('./superligaSync');
+const { syncXgCore, XG_LOFT, XG_BUDGET_MS } = require('./superligaSync');
 
 /** Firestore-attrap, der husker hvad der blev skrevet. */
 function fakeDb(matches) {
@@ -28,7 +28,20 @@ function fakeDb(matches) {
     batch() {
       const self = this;
       return {
-        set(ref, felter) { skrevet.push({ id: ref.id, felter }); },
+        // update og ikke set: kernen må ikke kunne OPRETTE et kamp-dokument.
+        // Attrappen har derfor ingen set — kalder kernen den, ryger testen.
+        update(ref, felter) {
+          // Den ægte Admin SDK KASTER på undefined (der er ingen
+          // ignoreUndefinedProperties i dette projekt) og river hele batchen
+          // med. En attrap, der bare gemmer objektet, ville bevise ingenting
+          // om netop dét — så den efterligner opførslen.
+          for (const [k, v] of Object.entries(felter)) {
+            if (v === undefined) {
+              throw new Error(`Cannot use "undefined" as a Firestore value (field: ${k})`);
+            }
+          }
+          skrevet.push({ id: ref.id, felter });
+        },
         async commit() { self.commits += 1; },
       };
     },
@@ -54,7 +67,7 @@ const FieldValue = { serverTimestamp: () => 'TS' };
 
 /** Provider hvor sourceKey ER dokument-id'et (som superligaen). */
 const identitet = (rows, spion) => ({
-  async hentXg(sync, fetchFn, docIds) { if (spion) spion(docIds); return rows; },
+  async hentXg(sync, fetchFn, docIds, deadlineMs) { if (spion) spion(docIds, deadlineMs); return rows; },
   resolveDocs(sourceKeys, docIds) {
     const kendte = new Set(docIds);
     const m = new Map();
@@ -72,7 +85,74 @@ describe('syncXgCore', () => {
       ['ikke-spillet', {}],
     ]);
     await syncXgCore(db, FieldValue, { provider: identitet([], spion), sync: {} });
-    expect(spion).toHaveBeenCalledWith(['spillet-uden-xg']);
+    expect(spion.mock.calls[0][0]).toEqual(['spillet-uden-xg']);
+  });
+
+  it('loftet er 30 — tallet selv, ikke bare mekanismen', () => {
+    // Hardkodet med vilje. Testen nedenfor bygger sit fixture af XG_LOFT og
+    // skalerer derfor MED konstanten: sættes den til 999999, bliver den grøn.
+    // 30 er valgt efter kvote: 132 kampe i sæsonen, 12 sweep-kørsler i døgnet
+    // (cron '25 2,13-23 * * *'), så 30x12 = 360 henter et fuldt efterslæb ind
+    // på under et døgn, og en normal runde på 6-10 kampe klares i én kørsel.
+    expect(XG_LOFT).toBe(30);
+  });
+
+  it('budgettet gives VIDERE til provideren — kernen kan ikke selv afbryde et await', async () => {
+    // Uden fristen er løkken i provideren kun bundet af per-kald-timeouten
+    // gange antallet af kampe. Sweep'et ville så kunne dø af sin egen
+    // platform-timeout, og hverken alarm eller driftlog-kort nåede at køre.
+    let fristen = null;
+    const provider = {
+      async hentXg(sync, fetchFn, docIds, deadlineMs) { fristen = deadlineMs; return []; },
+      resolveDocs: () => new Map(),
+    };
+    const foer = Date.now();
+    await syncXgCore(dbMedDoc([['a', { result: '1' }]]), FieldValue,
+      { provider, sync: {}, budgetMs: 5000 });
+    expect(fristen).toBeGreaterThanOrEqual(foer + 5000);
+    expect(fristen).toBeLessThanOrEqual(Date.now() + 5000);
+  });
+
+  it('uden budgetMs bruges XG_BUDGET_MS — fristen er aldrig uendelig', async () => {
+    let fristen = null;
+    const provider = {
+      async hentXg(sync, fetchFn, docIds, deadlineMs) { fristen = deadlineMs; return []; },
+      resolveDocs: () => new Map(),
+    };
+    const foer = Date.now();
+    await syncXgCore(dbMedDoc([['a', { result: '1' }]]), FieldValue, { provider, sync: {} });
+    expect(Number.isFinite(fristen)).toBe(true);
+    expect(fristen).toBeGreaterThanOrEqual(foer + XG_BUDGET_MS);
+  });
+
+  it('en fejl i hentXg SLIPPER UD — den må ikke sluges her', async () => {
+    // Hele begrundelsen for at flytte xG ud af minut-synken er, at fejlen ikke
+    // må forsvinde tavst. Sluges den inde i kernen, når den aldrig frem til
+    // st.fejl() i sweep'et, og Drift-kortet ville melde grønt på en kilde,
+    // der er holdt op med at svare.
+    const provider = {
+      async hentXg() { throw new Error('kilden svarer ikke'); },
+      resolveDocs: () => new Map(),
+    };
+    await expect(syncXgCore(dbMedDoc([['a', { result: '1' }]]), FieldValue, { provider, sync: {} }))
+      .rejects.toThrow('kilden svarer ikke');
+  });
+
+  it('en kamp med xgHome: null prøves IGEN — Number(null) er 0, ikke "har xG"', async () => {
+    // Prøvefiltret må ikke bruge Number(): et null ville tælle som et finite 0
+    // og dermed som "har allerede xG", så kampen aldrig blev hentet igen.
+    const spion = vi.fn();
+    const db = dbMedDoc([['a', { result: '1', xgHome: null, xgAway: null }]]);
+    await syncXgCore(db, FieldValue, { provider: identitet([], spion), sync: {} });
+    expect(spion.mock.calls[0][0]).toEqual(['a']);
+  });
+
+  it('et ægte 0 tæller som "har xG" og hentes ikke igen', async () => {
+    const spion = vi.fn();
+    const db = dbMedDoc([['a', { result: '1', xgHome: 0, xgAway: 0 }]]);
+    const r = await syncXgCore(db, FieldValue, { provider: identitet([], spion), sync: {} });
+    expect(spion).not.toHaveBeenCalled();
+    expect(r.manglede).toBe(0);
   });
 
   it('holder loftet og melder hvor mange der MANGLEDE i alt', async () => {

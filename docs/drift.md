@@ -110,6 +110,36 @@ En strandet-alarm peger selv på sit remedie: **⬇️ Synk resultater nu** unde
 🗓️ Spil-tidsplan — og finder den intet, har kilden ikke facit endnu, så er
 hånd-vejen i admin-guiden (Resultater) svaret.
 
+#### xG-linjen på sweep-kortet
+
+Sweep'et henter også **xG (forventede mål)** for kampe, der er færdige og
+mangler tallet, og skriver én linje pr. spil på sweep-kortet:
+
+| Linjen siger | Betyder | Skal du gøre noget? |
+|---|---|---|
+| `xG: alle færdige kampe har tal.` | intet efterslæb | nej |
+| `xG: N hentet, M færdige kampe mangler endnu.` | bagfyldningen kører | nej — M skal falde for hver kørsel |
+| `⚠ xG: M færdige kampe mangler tal, og ingen blev hentet.` | kampe mangler, og kilden gav intet | kun hvis den står i FLERE kørsler i træk |
+| `xG-synken fejlede: …` | kaldet kastede | se Functions-loggen |
+
+**Den er selvhelende, og det er meningen.** Der findes ikke et bagfyldnings-
+script: en kamp fra i august mangler xG på præcis samme måde som en fra i
+aftes, og sweep'et kan ikke se forskel. Den henter højst `XG_LOFT` (30) kampe
+pr. kørsel — med 12 kørsler i døgnet er en hel sæsons efterslæb inde på under
+et døgn. Derfor er et faldende tal på kortet **normal drift**, ikke en fejl.
+
+Det, der ER et signal, er et tal der står **stille** over flere kørsler: så er
+kilden holdt op med at levere xG for netop de kampe. xG har med vilje ingen
+egen alarm — tallet påvirker hverken point, Elo eller runde-afregning, så en
+manglende xG er en skønhedsfejl, ikke en driftfejl.
+
+xG hentes **kun** i sweep'et, aldrig i minut-synken. Det er ikke en
+tilfældighed: tallet koster ét kald pr. kamp, og minut-synkens `hentFaerdige`
+kaster ved timeout med fejlen slugt — xG dér kunne altså tavst standse
+**facit**-synken midt på en kampaften. Af samme grund står xG-trinnet SIDST i
+sweep'ets løkke, efter tabel og strandet-alarm: en langsom kilde må kunne
+bruge sit budget op uden at tage sikkerhedsnettet med sig.
+
 ### Den daglige automatik (primærvejen)
 
 `syncGameKickoffs` retter tiderne **hver morgen kl. 6.10** for de spil, hvis

@@ -975,3 +975,152 @@ describe('superliga mod ægte live-capture (runde 5)', () => {
     expect(f).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// hentXg på de ÆGTE providers.
+//
+// Findes, fordi de ikke var dækket: begge implementationers feltnavne kunne
+// omdøbes (`xg.home` → `xg.homeXXX`, `stats.expectedGoals` →
+// `stats.expectedGoalsXXX`) med hele suiten grøn. I produktion ville xG så
+// aldrig blive hentet for nogen kamp, fra nogen kilde. Kernetestene i
+// syncXg.test.js kan ikke se det: de kalder hjemmelavede attrap-providers.
+// ---------------------------------------------------------------------------
+describe('superliga.hentXg — den ÆGTE metode', () => {
+  const sync = { seasonId: 35802 };
+  const ev = (round, home, away, eventId) => ({ round, homeName: home, awayName: away, eventId });
+  // Kildens ægte form: listen oversætter vores nøgle til et eventId, og
+  // opta-stats svarer med expectedGoals pr. side.
+  const ruter = (events, statsPrEvent) => fetchRuter([
+    ['/opta-stats/events/', (url) => statsPrEvent(url.match(/events\/(\d+)\//)[1])],
+    ['status=finished', () => ({ events })],
+  ]);
+
+  it('henter xG for de ØNSKEDE kampe og binder tallene til de rigtige felter', async () => {
+    const fetchFn = ruter(
+      [ev(5, 'AGF', 'OB', 111), ev(5, 'Viborg FF', 'F.C. København', 222)],
+      (id) => ({ expectedGoals: id === '111' ? { home: 1.42, away: 0.37 } : { home: 2.1, away: 1.9 } }),
+    );
+    const ud = await PROVIDERS.superliga.hentXg(sync, fetchFn, ['r5-agf-ob']);
+    // Kun den ønskede kamp — og tallene i den rigtige rækkefølge. Bytter man
+    // home og away om i implementationen, bliver denne rød.
+    expect(ud).toEqual([{ sourceKey: 'r5-agf-ob', xgHome: 1.42, xgAway: 0.37 }]);
+  });
+
+  it('samme kamp listet mange gange giver ÉT kald — loftet gælder kald, ikke ønsker', async () => {
+    // Uden engangs-nøglen (Set.delete frem for Set.has) ganger en kilde med
+    // dubletter både kald og batch-ops op: 600 dubletter af én kamp gav 600
+    // skrivninger, over Firestores grænse på 500, så HELE xG-skrivningen
+    // gik tabt hver kørsel.
+    const events = Array.from({ length: 40 }, () => ev(5, 'AGF', 'OB', 111));
+    const fetchFn = ruter(events, () => ({ expectedGoals: { home: 1.0, away: 0.5 } }));
+    const ud = await PROVIDERS.superliga.hentXg(sync, fetchFn, ['r5-agf-ob']);
+    expect(ud).toHaveLength(1);
+    // 1 listekald + præcis 1 statistikkald, ikke 40.
+    expect(fetchFn.kald.filter((k) => k.url.includes('/opta-stats/'))).toHaveLength(1);
+  });
+
+  it('null, tom streng og bool bliver UDELADT — aldrig skrevet som 0,0', async () => {
+    // Number(null) === 0 er et finite tal og ville slippe forbi
+    // Number.isFinite-vagten. Et falsk 0 er værre end et manglende tal:
+    // prøvefiltret regner 0 som "har xG", så kampen prøves aldrig igen.
+    for (const skidt of [{ home: null, away: null }, { home: '', away: [] },
+      { home: false, away: true }, { home: {}, away: 1 }]) {
+      const fetchFn = ruter([ev(5, 'AGF', 'OB', 111)], () => ({ expectedGoals: skidt }));
+      expect(await PROVIDERS.superliga.hentXg(sync, fetchFn, ['r5-agf-ob'])).toEqual([]);
+    }
+  });
+
+  it('et ægte 0 fra kilden SKRIVES — det er ikke det samme som "ved ikke"', async () => {
+    const fetchFn = ruter([ev(5, 'AGF', 'OB', 111)], () => ({ expectedGoals: { home: 0, away: 0.4 } }));
+    expect(await PROVIDERS.superliga.hentXg(sync, fetchFn, ['r5-agf-ob']))
+      .toEqual([{ sourceKey: 'r5-agf-ob', xgHome: 0, xgAway: 0.4 }]);
+  });
+
+  it('en overskredet frist stopper løkken — en langsom kilde må ikke æde jobbets budget', async () => {
+    const events = Array.from({ length: 10 }, (_, i) => ev(5, `H${i}`, `U${i}`, 100 + i));
+    const fetchFn = ruter(events, () => ({ expectedGoals: { home: 1, away: 1 } }));
+    const ud = await PROVIDERS.superliga.hentXg(
+      sync, fetchFn, events.map((e, i) => `r5-h${i}-u${i}`), Date.now() - 1,
+    );
+    expect(ud).toEqual([]);
+    expect(fetchFn.kald.filter((k) => k.url.includes('/opta-stats/'))).toHaveLength(0);
+  });
+
+  it('uden frist hentes alle — fristen er valgfri, ikke en tavs bremse', async () => {
+    const events = Array.from({ length: 3 }, (_, i) => ev(5, `H${i}`, `U${i}`, 100 + i));
+    const fetchFn = ruter(events, () => ({ expectedGoals: { home: 1, away: 1 } }));
+    const ud = await PROVIDERS.superliga.hentXg(sync, fetchFn, events.map((e, i) => `r5-h${i}-u${i}`));
+    expect(ud).toHaveLength(3);
+  });
+
+  it('en enkelt kamp uden statistik vælter ikke kørslen', async () => {
+    const kald = [];
+    const fetchFn = async (url) => {
+      kald.push(url);
+      if (url.includes('status=finished')) {
+        return { ok: true, status: 200, json: async () => ({ events: [ev(5, 'AGF', 'OB', 111), ev(5, 'OB', 'AGF', 222)] }) };
+      }
+      if (url.includes('/events/111/')) return { ok: false, status: 404, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => ({ expectedGoals: { home: 3, away: 1 } }) };
+    };
+    expect(await PROVIDERS.superliga.hentXg(sync, fetchFn, ['r5-agf-ob', 'r5-ob-agf']))
+      .toEqual([{ sourceKey: 'r5-ob-agf', xgHome: 3, xgAway: 1 }]);
+  });
+
+  it('HTTP-fejl på LISTEN kaster — det er ikke "nul kampe med xG"', async () => {
+    const fetchFn = async () => ({ ok: false, status: 503, json: async () => ({}) });
+    await expect(PROVIDERS.superliga.hentXg(sync, fetchFn, ['r5-agf-ob']))
+      .rejects.toThrow(/HTTP 503/);
+  });
+
+  it('tom id-liste henter INTET — heller ikke listekaldet', async () => {
+    const fetchFn = fetchRuter([['status=finished', () => ({ events: [] })]]);
+    expect(await PROVIDERS.superliga.hentXg(sync, fetchFn, [])).toEqual([]);
+    expect(fetchFn.kald).toHaveLength(0);
+  });
+});
+
+describe('pulselive.hentXg — den ÆGTE metode', () => {
+  const sync = { competitionId: 8, season: 2026 };
+  // Kildens ægte form: et array med én post pr. side.
+  const stats = (h, a) => [
+    { side: 'home', stats: { expectedGoals: h } },
+    { side: 'away', stats: { expectedGoals: a } },
+  ];
+
+  it('udleder kildens nøgle af r{runde}-{matchId} og binder siderne rigtigt', async () => {
+    const fetchFn = fetchRuter([['/stats', () => stats(1.7, 0.4)]]);
+    expect(await PROVIDERS.pulselive.hentXg(sync, fetchFn, ['r12-2645195']))
+      .toEqual([{ sourceKey: '2645195', xgHome: 1.7, xgAway: 0.4 }]);
+    // Halen efter SIDSTE bindestreg — ikke hele dokument-id'et.
+    expect(fetchFn.kald[0].url).toContain('/matches/2645195/stats');
+  });
+
+  it('null og tom streng bliver UDELADT — aldrig 0,0', async () => {
+    for (const [h, a] of [[null, null], ['', ''], [false, 1], [[], 2]]) {
+      const fetchFn = fetchRuter([['/stats', () => stats(h, a)]]);
+      expect(await PROVIDERS.pulselive.hentXg(sync, fetchFn, ['r12-2645195'])).toEqual([]);
+    }
+  });
+
+  it('en overskredet frist stopper løkken før første kald', async () => {
+    const fetchFn = fetchRuter([['/stats', () => stats(1, 1)]]);
+    expect(await PROVIDERS.pulselive.hentXg(sync, fetchFn, ['r12-1', 'r12-2'], Date.now() - 1))
+      .toEqual([]);
+    expect(fetchFn.kald).toHaveLength(0);
+  });
+
+  it('samme id to gange giver ét kald', async () => {
+    const fetchFn = fetchRuter([['/stats', () => stats(1, 1)]]);
+    await PROVIDERS.pulselive.hentXg(sync, fetchFn, ['r12-77', 'r12-77']);
+    expect(fetchFn.kald).toHaveLength(1);
+  });
+
+  it('en kamp uden statistik springes over uden at vælte resten', async () => {
+    const fetchFn = async (url) => (url.includes('/matches/1/')
+      ? { ok: false, status: 404, json: async () => ({}) }
+      : { ok: true, status: 200, json: async () => stats(2.2, 0.1) });
+    expect(await PROVIDERS.pulselive.hentXg(sync, fetchFn, ['r12-1', 'r12-2']))
+      .toEqual([{ sourceKey: '2', xgHome: 2.2, xgAway: 0.1 }]);
+  });
+});
