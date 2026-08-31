@@ -495,3 +495,41 @@ pr. kamp). To ting var IKKE fuldt lukket, selv om alt er grønt:
   påstand ("rammer forbi hver tredje gang" — tåler at ældes) eller en
   PRÆCIS optælling ("13 ud af 37" — ældes cifret)? Vælg det første, med
   mindre tallet regenereres automatisk.
+
+## Skala-fælden: ét tal, to regnestykker (plan-gennemgange)
+
+- **En gate på "er der noget at VÆLGE" er en proxy for "hvilken SKALA gælder".**
+  `GameStandings.jsx` skjuler liga-vælgeren ved `leagueCount <= 1` med
+  begrundelsen "med én liga er alle-mine-ligaer og den ene liga det samme" —
+  sandt om HVEM (samme medlemsmængde), falsk om POINT (spillets `totalPoints`
+  mod `ligaPoint` fra ligaens `startRound`). Samme form som `puljeLockRound`.
+  Spørg ved enhver "der er ikke noget at vælge"-genvej: er de to grene virkelig
+  identiske i VÆRDI, eller kun i MÆNGDE?
+- **En skala-forklaring, der er gate't på det samme som skalaskiftet, kan
+  aldrig vises i den gren, der har brug for den.** `ligaGate` (skala-teksten)
+  krævede `valgt` — præcis den betingelse, der også afgør om skalaen skifter.
+  Resultat: den flettede visning stod uden ét ord om, hvilken skala tallene er
+  på. Læs altid render-betingelsen for FORKLARINGEN og for FÆNOMENET side om
+  side; er de den samme, forklarer teksten kun det, der ikke behøver forklaring.
+- **Retter man skalaen ét sted, skal ALLE flader med samme spillers tal tælles
+  op — ellers bytter man én modsigelse ud med en anden.** Optællingen i dette
+  repo (aug. 2026), for "en spillers pointtal i ét spil":
+  `GameStandings` podie `:511` / liste `:348` / opdelingstabel `:150`
+  (`spilTotal`, bevidst spil-skala, forklaret af `ligaGate`);
+  `SpillerDetalje` (`GameStandings.jsx:587` → `SpillerDetalje.jsx:68`, spil-skala,
+  UDEN nogen tekst der siger det); `MyTips.jsx:44` (spil-skala, med en kommentar
+  der påstår "stillingen viser det samme"); `GameLayout.jsx:13` saldo-badget
+  (spil-skala, har allerede en korrekt `title`); `GameLeagues.jsx:46`
+  (liga-skala + liga-spørgsmål, korrekt); `gameRecap.js:373-386` Runde-Botten
+  (liga-skala pr. liga, korrekt); og **`FootballTip.jsx:259`**, hvor facit-blokken
+  bevidst regner med `startRunde = null` og viser rang, total, "op til/foran"
+  OG en delingstekst til vennerne. Facit-blokken er den farligste: dens tal
+  FORLADER appen.
+- **Hvis en ny visning begynder at bruge `perRound`, skal bagfyldningen med.**
+  `docs/drift.md:417`: spillere, der aldrig er genberegnet efter `perRound`-
+  udrulningen, mangler vektoren og vises som "ikke klar". En flade, der før
+  læste `totalPoints`, får derfor tomme badges i stedet for tal for netop de
+  spillere — kør 🔄 Genberegn point som del af udrulningen, ikke bagefter.
+- **`FootballHelp.jsx` bærer skalaen i to sætninger, der begge skal med i
+  samme PR:** "Er du med i flere ligaer, kan du vælge én ad gangen øverst"
+  (:266) og "Bemærk, at stillingen viser spillets point" (:323).
