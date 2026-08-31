@@ -458,7 +458,11 @@ describe('runGameRoundRecap — ligaens startrunde', () => {
     const ai = optager();
     const db = makeDb({
       matches: KAMPE, users: USERS,
-      players: { ...SPILLERE, B: { ...SPILLERE.B, bonusPoints: 34 } },
+      // Spillets total SKAL vokse med puljen — serveren skriver aldrig en
+      // bonus uden at lægge den til totalen. Uden det er vektoren pr.
+      // definition uenig med totalen, og `vektorStemmer` afviser den (med
+      // rette) som ufuldstændig.
+      players: { ...SPILLERE, B: { ...SPILLERE.B, bonusPoints: 34, totalPoints: 24 + 34 } },
       bets: [{ uid: 'A', matchId: 'm1', pick: '1', points: 1.6 }],
       leagues: [{ name: 'Kontoret', memberUids: ['A', 'B'], startRound: 2 }],
     });
@@ -469,6 +473,28 @@ describe('runGameRoundRecap — ligaens startrunde', () => {
     // ligamedlem med pulje ville mangle den i Runde-Bottens opslag.
     expect(fakta).toContain('"points":56');
     expect(fakta).not.toContain('"points":22');
+  });
+
+  it('regner IKKE en ligatotal af en halv runde-vektor', async () => {
+    // Bo har 24 point ifølge serveren, men vektoren kender kun runde 2.
+    // Uden vagten ville Runde-Botten poste ham med 22 — et for lavt tal, i en
+    // besked der går til hele ligaen og ikke kan trækkes tilbage. Fladen har
+    // "ikke klar" til den tilstand; botten har kun tavshed, så den skal lade
+    // være med at regne.
+    const ai = optager();
+    const db = makeDb({
+      matches: KAMPE, users: USERS,
+      players: { ...SPILLERE, B: { ...SPILLERE.B, perRound: { 2: 22 } } },
+      bets: [{ uid: 'A', matchId: 'm1', pick: '1', points: 1.6 }],
+      leagues: [{ name: 'Kontoret', memberUids: ['A', 'B'], startRound: 2 }],
+    });
+    await runGameRoundRecap(db, FieldValue, ai, 'g1', 2);
+    const fakta = ai.set.join(' ');
+    // Hverken det halve tal (22) eller spillets egen total (24) må stå der.
+    expect(fakta).not.toContain('"points":22');
+    expect(fakta).not.toContain('"points":24');
+    // Anna er hel og skal stadig med — vagten må ikke tømme hele opslaget.
+    expect(fakta).toContain('"points":10');
   });
 
   it('poster som hidtil for en liga uden startrunde', async () => {

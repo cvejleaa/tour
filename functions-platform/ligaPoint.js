@@ -86,6 +86,49 @@ function harRundeVektor(perRound) {
   return Boolean(perRound && typeof perRound === 'object' && !Array.isArray(perRound));
 }
 
+/**
+ * Kan runde-vektoren gengive spillets EGEN total?
+ *
+ * `harRundeVektor` spørger kun, om feltet findes. Det er ikke nok: en vektor,
+ * der mangler hele runder — en spiller, der ikke er genberegnet, siden de
+ * runder blev afgjort — består den prøve og bliver til et FOR LAVT ligatal
+ * uden en eneste fejlbesked. Ligaen ville vise en spiller langt nede, som i
+ * virkeligheden fører. Det er den tavse fejl, `klar: false` findes for.
+ *
+ * Prøven er gratis, fordi svaret allerede ligger på rækken: regnes vektoren
+ * UDEN startrunde, skal den give spillets total. Gør den ikke det, mangler
+ * der noget.
+ *
+ * TOLERANCE, IKKE LIGHED — og det er ikke slaskethed. Serveren afrunder ÉN
+ * gang på summen (`opdelPoint`: `round1(raw + combi + pulje)`), mens vektoren
+ * afrunder HVER runde for sig (`perRunde[k] = round1(...)`). De to tal må
+ * derfor lovligt afvige op til 0,05 pr. runde — pointOpdeling.js siger det
+ * selv. Med streng lighed ville en stor del af feltet stå som "ikke klar" af
+ * ren afrunding, og vagten ville koste mere, end den fanger.
+ *
+ * Gabet, den SKAL fange, er af en anden størrelsesorden: en manglende runde
+ * er hele point, ikke tiendedele.
+ *
+ * KENDT BLIND VINKEL: gulvet. Er både spillets og vektorens sum negativ,
+ * gulves begge til 0 og ser ens ud, uanset hvad der mangler. Det kræver en
+ * spiller i minus, som stillingen alligevel viser som 0.
+ *
+ * @param {object|null} perRound
+ * @param {number} spilTotal   serverens `totalPoints` for samme spiller
+ * @param {number} puljeBonus  players/{uid}.bonusPoints
+ * @returns {boolean}
+ */
+function vektorStemmer(perRound, spilTotal, puljeBonus = 0) {
+  if (!harRundeVektor(perRound)) return false;
+  const total = Number(spilTotal);
+  if (!Number.isFinite(total)) return false;
+  // Én afrunding pr. nøgle, plus én for serverens egen. `1e-9` er
+  // flydende-tal-støj, ikke slæk.
+  const slaek = 0.05 * Object.keys(perRound).length + 0.05 + 1e-9;
+  return Math.abs(ligaPoint(perRound, null, puljeBonus) - total) <= slaek;
+}
+
 module.exports = {
   PULJE_MAKS_STARTRUNDE, UDEN_RUNDE, puljenTaeller, ligaPoint, harRundeVektor,
+  vektorStemmer,
 };
