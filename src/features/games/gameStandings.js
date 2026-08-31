@@ -74,8 +74,12 @@ export function rankDelta(row) {
  * @param {{memberUids?:Array<string>, startRound?:number|null}} league
  * @param {(perRound: object|null, startRunde: number|null, pulje: number) => number} regn  – ligaPoint
  * @param {(perRound: object|null) => boolean} harVektor  – harRundeVektor
+ * @param {(perRound: object|null, spilTotal: number, pulje: number) => boolean} stemmer
+ *   – vektorStemmer. INJICERET og uden standardværdi med vilje: en default på
+ *   `() => true` ville slå vagten fra i enhver kalder, der glemte den, og
+ *   fejlen ville være tavs — præcis den slags, vagten selv findes for.
  */
-export function ligaRanking(rows, league, regn, harVektor) {
+export function ligaRanking(rows, league, regn, harVektor, stemmer) {
   const set = new Set(league?.memberUids || []);
   const startRunde = Number.isFinite(league?.startRound) ? league.startRound : null;
   // Uden startrunde er ligaen bare en delmængde af spillet — samme tal.
@@ -94,7 +98,14 @@ export function ligaRanking(rows, league, regn, harVektor) {
     }
   }
 
-  const talte = medlemmer.map((r) => ({
+  const talte = medlemmer.map((r) => {
+    // ÉN VAGT, ÉT STED. Stod prøven tre gange (total, klar, pilen), kunne to
+    // af dem muteres væk med grøn suite — og pilen ville regne på en vektor,
+    // totalen har afvist. Husets regel: saml beslutningen, så en mutation af
+    // den bliver rød.
+    const klar = harVektor(r.perRound)
+      && stemmer(r.perRound, r.totalPoints, r.bonusPoints || 0);
+    return {
     ...r,
     // Spillets total FØR omregningen. Pointopdelingen og spillerdetaljen
     // viser spillets regnskab (rubrikkerne er spil-globale), og de skal have
@@ -102,14 +113,20 @@ export function ligaRanking(rows, league, regn, harVektor) {
     // total på en anden, og afvigelses-noten forklarer det med to grunde, der
     // begge er forkerte.
     spilTotal: r.totalPoints,
-    klar: harVektor(r.perRound),
-    totalPoints: harVektor(r.perRound) ? regn(r.perRound, startRunde, r.bonusPoints || 0) : 0,
+    // KLAR ER TO SPØRGSMÅL, IKKE ÉT: findes vektoren, OG kan den gengive
+    // spillets egen total? En vektor, der mangler runder, består det første
+    // og fejler det andet — og uden det andet ville ligaen vise et for lavt
+    // tal uden fejlbesked. Se vektorStemmer.
+    klar,
+    totalPoints: klar ? regn(r.perRound, startRunde, r.bonusPoints || 0) : 0,
     // Total FØR den seneste runde — grundlaget for pilen. Regnet af samme
-    // vektor, så begge tal er på ligaens skala.
-    _foer: harVektor(r.perRound) && sidste != null
+    // vektor, så begge tal er på ligaens skala. Samme `klar` som totalen: en
+    // pil regnet af en afvist vektor ville pege et sted, tallet ikke gør.
+    _foer: klar && sidste != null
       ? regn(fjernRunde(r.perRound, sidste), startRunde, r.bonusPoints || 0)
       : null,
-  }));
+    };
+  });
 
   // Rang nu og rang før — begge på ligaens egen skala.
   const rangér = (liste, felt) => {

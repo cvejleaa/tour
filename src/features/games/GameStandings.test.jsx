@@ -245,9 +245,14 @@ describe('GameStandings — liga-filter', () => {
 
   // Bestemt form i flertal: listen trunkeres aldrig, så "de N" siger korrekt,
   // at det er dem alle. Uden denne kunne "de" fjernes ubemærket.
-  it('beholder bestemt form i flertal', () => {
+  it('beholder bestemt form i flertal — OG siger hvilken skala', () => {
+    // Den flettede visning har ingen ét-svar-skala: den samme spiller kan stå
+    // i to af mine ligaer med hver sin startrunde. Så må den sige, hvad den
+    // regner på. Før stod der intet, og et tal uden skala er ikke et tal.
     setup();
-    expect(screen.getByText('Viser de 6 spillere, du deler liga med.')).toBeInTheDocument();
+    expect(screen.getByText(
+      'Viser de 6 spillere, du deler liga med. Tæller fra runde 1 — spillets egen skala, ikke en ligas.',
+    )).toBeInTheDocument();
   });
 
   // En liga kan have ét medlem — så må der ikke stå "1 spillere".
@@ -285,10 +290,60 @@ describe('GameStandings — liga-filter', () => {
     expect(tableRows().some(([, navn]) => navn.includes('(dig)'))).toBe(true);
   });
 
-  // Med én liga er "alle mine ligaer" og den ene liga det samme valg.
+  // Med én liga er der intet at VÆLGE imellem — men det er ikke det samme som
+  // ingen liga. Testen her asserterede før KUN på vælgerens fravær og var
+  // grøn, mens fanen viste spillets point i en liga, der tæller fra runde N.
+  // Den forsvarede altså fejlen. Nu kræver den også, at ligaens tal står der.
   it('skjuler filteret, når man kun er med i én liga', () => {
     setup({ leagues: [LEAGUES[0]] });
     expect(screen.queryByLabelText('Vis stilling for')).not.toBeInTheDocument();
+    // Og feltet er ligaens, ikke hele kredsen: Erik er ikke medlem af L1.
+    expect(screen.getByText(/i Kontoret/)).toBeInTheDocument();
+    expect(screen.queryByText('Erik')).toBeNull();
+  });
+
+  // KOMBINATIONEN, DER IKKE FANDTES I SUITEN: én liga MED startrunde. Begge
+  // eksisterende startrunde-tests bygger et to-liga-fixture alene for at få
+  // vælgeren frem, så ét-liga-vejen er aldrig blevet regnet på en anden skala.
+  // Det var præcis dér, fejlen boede — ejeren så 47 point i stillingen og 9,7
+  // i ligaen for samme spiller.
+  describe('én liga med startrunde', () => {
+    const LIGA12 = [{ id: 'L1', name: 'Familien', memberUids: ['me', 'u1'], startRound: 12 }];
+    // Anne har 37,3 point FØR runde 12 og 9,7 i runde 12. Spillets total er
+    // 47; ligaens er 9,7. Fixturet er bygget, så de to tal ikke kan forveksles.
+    const MED_VEKTOR = [
+      {
+        uid: 'u1', name: 'Anne', totalPoints: 47, rank: 1, bonusPoints: 0,
+        perRound: { 1: 37.3, 12: 9.7 },
+      },
+      {
+        uid: 'me', name: 'Mig', totalPoints: 11.5, rank: 2, bonusPoints: 0,
+        perRound: { 12: 11.5 },
+      },
+    ];
+
+    it('regner på LIGAENS skala, ikke spillets', () => {
+      setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+      expect(screen.getByText('9,7')).toBeInTheDocument();
+      // Og spillets tal må IKKE stå som Annes total. Uden denne ville testen
+      // bestå med den gamle adfærd.
+      expect(screen.queryByText('47')).toBeNull();
+    });
+
+    it('siger HVILKEN skala tallene er på', () => {
+      setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+      expect(screen.getByText(/Tæller fra runde 12/)).toBeInTheDocument();
+    });
+
+    it('vender ordenen: Anne fører spillet, men ikke ligaen', () => {
+      // Kernen i hele fejlen. 47 > 11,5 på spillets skala; 9,7 < 11,5 på
+      // ligaens. Rækkefølgen SKAL derfor bytte om.
+      // To spillere giver intet podie (kræver mindst tre), så ordenen læses
+      // i tabellen.
+      setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+      const navne = tableRows().map(([, n]) => n.replace(' (dig)', '').trim());
+      expect(navne).toEqual(['Mig', 'Anne']);
+    });
   });
 
   it('falder tilbage til alle, hvis den valgte liga forsvinder', () => {
@@ -306,7 +361,10 @@ describe('GameStandings — liga-filter', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByText(/du deler liga med/)).toBeInTheDocument();
+    // FØR: "du deler liga med" — den flettede visning. Den påstand er nu
+    // forkert: med én tilbageværende liga ER den ligas skala stillingen, og
+    // opsummeringen navngiver den. Testen er vendt bevidst, ikke lempet.
+    expect(screen.getByText(/i Kontoret/)).toBeInTheDocument();
   });
 
   // Tom-tilstanden måles på hele kredsen. Ellers ville en tom liga skjule

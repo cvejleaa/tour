@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 import { describe, it, expect } from 'vitest';
 import {
-  ligaPoint, puljenTaeller, harRundeVektor, PULJE_MAKS_STARTRUNDE, UDEN_RUNDE,
+  ligaPoint, puljenTaeller, harRundeVektor, vektorStemmer, PULJE_MAKS_STARTRUNDE, UDEN_RUNDE,
 } from './ligaPoint';
 import { opdelPoint, buildRoundContext } from './pointOpdeling';
 
@@ -188,5 +188,54 @@ describe('runde-vektoren summer til spillets total', () => {
     expect(o.perRunde['2']).toBeGreaterThan(6.4);
     // …og en liga fra runde 2 får hele sin combi med.
     expect(ligaPoint(o.perRunde, 2, 0)).toBe(o.perRunde['2']);
+  });
+});
+
+describe('vektorStemmer — kan vektoren gengive spillets total?', () => {
+  it('siger ja, når vektoren summer til spillets total', () => {
+    expect(vektorStemmer({ 1: 20, 2: 5, 3: 5 }, 30, 0)).toBe(true);
+  });
+
+  it('siger NEJ, når en hel runde mangler — den tavse fejl, vagten findes for', () => {
+    // Spilleren har 30 point ifølge serveren, men vektoren kender kun 10.
+    // Uden vagten ville ligaen vise ham med 10 og placere ham langt nede,
+    // uden en eneste fejlbesked.
+    expect(vektorStemmer({ 2: 5, 3: 5 }, 30, 0)).toBe(false);
+  });
+
+  it('tåler afrundings-driften, den SKAL tåle', () => {
+    // Serveren afrunder ÉN gang på summen; vektoren afrunder hver runde for
+    // sig. Med tre runder á 0,05 i drift må svaret stadig være ja — ellers
+    // ville en stor del af feltet stå som "ikke klar" af ren afrunding.
+    // 3,35 + 3,35 + 3,35 = 10,05 → serveren skriver 10,1; hver runde står
+    // afrundet som 3,4 → 10,2. Forskellen er 0,1, inden for slækket.
+    expect(vektorStemmer({ 1: 3.4, 2: 3.4, 3: 3.4 }, 10.1, 0)).toBe(true);
+  });
+
+  it('slækket vokser IKKE nok til at skjule en manglende runde', () => {
+    // Grænsetilfældet, der adskiller de to fejltyper. Fire runder giver et
+    // slæk på 0,25 — en manglende runde på 5 point er tyve gange så stor.
+    expect(vektorStemmer({ 1: 5, 2: 5, 3: 5, 4: 5 }, 25, 0)).toBe(false);
+    // Og lige under slækket er svaret stadig ja.
+    expect(vektorStemmer({ 1: 5, 2: 5, 3: 5, 4: 5 }, 20.2, 0)).toBe(true);
+  });
+
+  it('regner puljebonussen med — ellers ville hver spiller med pulje være "ikke klar"', () => {
+    // Puljen står UDEN FOR vektoren (opdelPoint), men indgår i spillets total.
+    expect(vektorStemmer({ 1: 5 }, 39, 34)).toBe(true);
+    // Og glemmer man den, stemmer det ikke.
+    expect(vektorStemmer({ 1: 5 }, 39, 0)).toBe(false);
+  });
+
+  it('siger nej uden vektor og ved et ubrugeligt total', () => {
+    expect(vektorStemmer(null, 30, 0)).toBe(false);
+    expect(vektorStemmer({}, 30, 0)).toBe(false);
+    // `undefined` total: en spiller uden totalPoints kan ikke efterprøves, og
+    // et gæt ville være værre end et "ikke klar".
+    expect(vektorStemmer({ 1: 30 }, undefined, 0)).toBe(false);
+  });
+
+  it('kampe uden rundenummer tæller med, præcis som i ligaPoint', () => {
+    expect(vektorStemmer({ 1: 20, uden: 10 }, 30, 0)).toBe(true);
   });
 });

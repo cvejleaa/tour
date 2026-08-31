@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { ligaRanking } from './gameStandings';
-import { ligaPoint, harRundeVektor } from '../../lib/ligaPoint';
+import { ligaPoint, harRundeVektor, vektorStemmer } from '../../lib/ligaPoint';
 
 // Runde-vektorer, som serveren ville skrive dem. Anna vandt runde 1 stort;
 // Bo har været bedst siden runde 2. Ligaens startrunde afgør, hvem der fører.
@@ -21,7 +21,7 @@ const RÆKKER = [
 
 describe('ligaRanking', () => {
   it('uden startrunde: spillets tal, uændret', () => {
-    const ud = ligaRanking(RÆKKER, { memberUids: ['A', 'B'] }, ligaPoint, harRundeVektor);
+    const ud = ligaRanking(RÆKKER, { memberUids: ['A', 'B'] }, ligaPoint, harRundeVektor, vektorStemmer);
     expect(ud.map((r) => [r.uid, r.totalPoints])).toEqual([['A', 30], ['B', 24]]);
   });
 
@@ -29,7 +29,7 @@ describe('ligaRanking', () => {
   // først fra runde 2, fører Bo. En liga, der bare filtrerede, ville vise
   // Anna øverst — og så var hele opgaven en attrap.
   it('med startrunde: totalerne regnes forfra, og ordenen kan vende', () => {
-    const ud = ligaRanking(RÆKKER, { memberUids: ['A', 'B', 'C'], startRound: 2 }, ligaPoint, harRundeVektor);
+    const ud = ligaRanking(RÆKKER, { memberUids: ['A', 'B', 'C'], startRound: 2 }, ligaPoint, harRundeVektor, vektorStemmer);
     expect(ud.map((r) => [r.uid, r.totalPoints, r.rank])).toEqual([
       ['B', 22, 1], ['A', 10, 2], ['C', 6, 3],
     ]);
@@ -40,7 +40,7 @@ describe('ligaRanking', () => {
   // en Anna, han aldrig lå bag i ligaen. Pilene regnes derfor af samme vektor:
   // stillingen uden den seneste runde.
   it('pilene sammenligner ligaens egen skala, ikke spillets', () => {
-    const ud = ligaRanking(RÆKKER, { memberUids: ['A', 'B', 'C'], startRound: 2 }, ligaPoint, harRundeVektor);
+    const ud = ligaRanking(RÆKKER, { memberUids: ['A', 'B', 'C'], startRound: 2 }, ligaPoint, harRundeVektor, vektorStemmer);
     // Før runde 3 (ligaens seneste): B=11, A=5, C=3 → samme orden som nu.
     // Ingen har flyttet sig, så previousRank == rank for alle — ingen pile.
     for (const r of ud) expect(r.previousRank).toBe(r.rank);
@@ -48,16 +48,47 @@ describe('ligaRanking', () => {
 
   it('en spiller uden runde-vektor vises som "ikke klar", ikke som nul', () => {
     const raekker = [...RÆKKER, { uid: 'D', name: 'Dan', totalPoints: 50, rank: 1, perRound: null, bonusPoints: 0 }];
-    const ud = ligaRanking(raekker, { memberUids: ['A', 'D'], startRound: 2 }, ligaPoint, harRundeVektor);
+    const ud = ligaRanking(raekker, { memberUids: ['A', 'D'], startRound: 2 }, ligaPoint, harRundeVektor, vektorStemmer);
     const dan = ud.find((r) => r.uid === 'D');
     expect(dan.klar).toBe(false);
     expect(dan.rank).toBeNull();
   });
 
+  it('en vektor, der IKKE summer til spillets total, er også "ikke klar"', () => {
+    // Søstertesten til den ovenfor, og den vigtigere af de to: en MANGLENDE
+    // vektor er synlig, en HALV er tavs. Dan har 30 point ifølge serveren,
+    // men vektoren kender kun runde 2 og 3. Uden vagten ville ligaen vise ham
+    // med 10 point og placere ham sidst — uden en eneste fejlbesked.
+    //
+    // Denne test findes, fordi mutationen "klar = harVektor(perRound)" — altså
+    // vagten koblet FRA — overlevede hele suiten. `vektorStemmer` var bevist
+    // som funktion, men intet beviste, at den var koblet PÅ.
+    const halv = [
+      ...RÆKKER,
+      {
+        uid: 'D', name: 'Dan', totalPoints: 30, rank: 4, previousRank: 4,
+        perRound: { 2: 5, 3: 5 }, bonusPoints: 0,
+      },
+    ];
+    const ud = ligaRanking(halv, { memberUids: ['A', 'D'], startRound: 2 }, ligaPoint, harRundeVektor, vektorStemmer);
+    const dan = ud.find((r) => r.uid === 'D');
+    expect(dan.klar).toBe(false);
+    // Og han må ikke stå med et TAL — hverken det halve eller et nul, der
+    // ligner en placering.
+    expect(dan.rank).toBeNull();
+    // Anna er derimod hel og skal stadig regnes.
+    expect(ud.find((r) => r.uid === 'A').klar).toBe(true);
+  });
+
   it('puljen følger sin regel gennem hele kæden', () => {
-    const medPulje = RÆKKER.map((r) => ({ ...r, bonusPoints: 34 }));
-    const fra3 = ligaRanking(medPulje, { memberUids: ['A'], startRound: 3 }, ligaPoint, harRundeVektor);
-    const fra4 = ligaRanking(medPulje, { memberUids: ['A'], startRound: 4 }, ligaPoint, harRundeVektor);
+    // Spillets total SKAL vokse med puljen. Fixturet gav før kun bonussen og
+    // lod totalen stå — en tilstand serveren aldrig skriver, og som
+    // `vektorStemmer` nu (med rette) afviser som en ufuldstændig vektor.
+    const medPulje = RÆKKER.map((r) => ({
+      ...r, bonusPoints: 34, totalPoints: r.totalPoints + 34,
+    }));
+    const fra3 = ligaRanking(medPulje, { memberUids: ['A'], startRound: 3 }, ligaPoint, harRundeVektor, vektorStemmer);
+    const fra4 = ligaRanking(medPulje, { memberUids: ['A'], startRound: 4 }, ligaPoint, harRundeVektor, vektorStemmer);
     expect(fra3[0].totalPoints).toBe(5 + 34); // runde 3 + pulje (grænsen er 3)
     expect(fra4[0].totalPoints).toBe(0);      // intet tilbage, pulje udeladt
   });

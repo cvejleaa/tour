@@ -11,7 +11,9 @@ import { rankDelta, ligaRanking } from './gameStandings';
 import {
   sidsteRunde, rundensPoint, rundeFoerende, rundePile,
 } from './rundePoint';
-import { ligaPoint, harRundeVektor, puljenTaeller } from '../../lib/ligaPoint';
+import {
+  ligaPoint, harRundeVektor, puljenTaeller, vektorStemmer,
+} from '../../lib/ligaPoint';
 import { GAME_TYPE } from '../../lib/constants';
 import GameTabLink from './GameTabLink';
 import { formatPoints } from './GameLayout';
@@ -230,11 +232,32 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
 
   // Er ligaen forsvundet under fødderne på en (forladt, slettet), falder vi
   // tilbage til alle — hellere end en tom tabel uden forklaring.
-  const valgt = leagues.find((l) => l.id === leagueId) || null;
+  //
+  // ÉN LIGA ER IKKE "INTET VALG". Vælgeren skjules ved én liga, fordi der
+  // ikke er noget at vælge imellem — men den samme gren afgjorde også, om
+  // ligaens SKALA gjaldt. "Alle mine ligaer" og den ene liga er det samme om
+  // HVEM (samme medlemmer) og IKKE om POINT: uden `valgt` viste fanen
+  // spillets totaler fra runde 1 i en liga, der tæller fra runde N, og
+  // spillere stod med 47 her og 9,7 én fane væk. Er man kun i én liga, ER
+  // ligaen stillingen.
+  //
+  // VAGTEN "lister ligaen mig?" er ikke pynt. `leagueMateUids` springer en
+  // liga over, man ikke selv står i, så `alleMine` ville da kun rumme én selv
+  // — mens `subsetRanking` HER ville filtrere efter ligaens medlemsliste og
+  // dermed fjerne den sidste række. Uden vagten kunne ét skævt liga-dokument
+  // tømme ens egen stilling helt. Samme defensive tjek som `leagueMateUids`
+  // laver i den anden ende af kæden.
+  const enesteLiga = leagues.length === 1
+    && (leagues[0]?.memberUids || []).includes(user?.uid)
+    ? leagues[0]
+    : null;
+  const valgt = leagues.find((l) => l.id === leagueId) || enesteLiga;
   // En liga med egen startrunde får sin total regnet FORFRA af runde-vektoren
   // (ligaRanking); uden er den bare en delmængde af spillet (subsetRanking).
   const standings = useMemo(
-    () => (valgt ? ligaRanking(alleMine, valgt, ligaPoint, harRundeVektor) : alleMine),
+    () => (valgt
+      ? ligaRanking(alleMine, valgt, ligaPoint, harRundeVektor, vektorStemmer)
+      : alleMine),
     [alleMine, valgt],
   );
 
@@ -370,9 +393,16 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   const antal = raekker.length;
   // Skalaskiftet skal stå HER, hvor tallene ses — forklaringen på Ligaer-fanen
   // er én fane væk, og en title-attribut findes ikke på en telefon.
-  const ligaGate = valgt && Number.isFinite(valgt.startRound)
-    ? ` Tæller fra runde ${valgt.startRound}${puljenTaeller(valgt.startRound) ? '' : ' — puljen tæller ikke'}.`
-    : '';
+  // SKALA-TEKSTEN BESKRIVER DEN VISTE SKALA — ikke om nogen har valgt noget.
+  // Før krævede den `valgt`, præcis den betingelse der OGSÅ afgør om skalaen
+  // skifter. Så stod den ene gren, der havde mest brug for forklaringen, som
+  // den eneste uden den: den flettede visning sagde intet om, at dens tal er
+  // spillets og ikke ligaens. Samme fejl som gaten selv, gentaget i teksten.
+  const ligaGate = valgt
+    ? (Number.isFinite(valgt.startRound)
+      ? ` Tæller fra runde ${valgt.startRound}${puljenTaeller(valgt.startRound) ? '' : ' — puljen tæller ikke'}.`
+      : '')
+    : ' Tæller fra runde 1 — spillets egen skala, ikke en ligas.';
   const opsummering = (valgt
     ? (antal === 1
       ? `Viser 1 spiller i ${valgt.name || 'ligaen'}.`
@@ -579,16 +609,37 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
               skete der tilsyneladende ingenting — derfor rulles der derhen. */}
           <div ref={panelRef}>
             {aabenRow && (
-              <SpillerDetalje
-                game={game}
-                matches={matches}
-                // Spillets total: detaljen lister runder fra SPILLETS start,
-                // og dens sum skal ramme det tal, den selv viser.
-                spiller={{ ...aabenRow, totalPoints: aabenRow.spilTotal ?? aabenRow.totalPoints }}
-                // Den, der kigger — grundlaget for det indbyrdes opgør.
-                minUid={user?.uid ?? null}
-                onLuk={() => setAabenUid(null)}
-              />
+              <>
+                {/* SIG DET, NÅR PANELET STÅR PÅ EN ANDEN SKALA END RÆKKEN.
+                    Panelet får bevidst spillets total, fordi det lister runder
+                    fra spillets start — men rækken ovenfor kan vise ligaens.
+                    To tal for samme spiller på samme skærm uden ét ord er
+                    præcis den modsigelse, hele denne rettelse handler om;
+                    opdelings-tabellen har haft sin sætning hele tiden, dette
+                    panel havde ingen.
+
+                    Betingelsen er, at tallene FAKTISK er forskellige — ikke at
+                    der er valgt en liga. En liga uden startrunde giver samme
+                    tal, og en sætning dér ville forklare en forskel, læseren
+                    ikke kan se. */}
+                {aabenRow.spilTotal != null && aabenRow.spilTotal !== aabenRow.totalPoints && (
+                  <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
+                    Tallene herunder er spillets samlede point
+                    {' '}({formatPoints(aabenRow.spilTotal)}) — i stillingen ovenfor tæller
+                    {' '}{valgt?.name || 'ligaen'} kun fra runde {valgt?.startRound}.
+                  </p>
+                )}
+                <SpillerDetalje
+                  game={game}
+                  matches={matches}
+                  // Spillets total: detaljen lister runder fra SPILLETS start,
+                  // og dens sum skal ramme det tal, den selv viser.
+                  spiller={{ ...aabenRow, totalPoints: aabenRow.spilTotal ?? aabenRow.totalPoints }}
+                  // Den, der kigger — grundlaget for det indbyrdes opgør.
+                  minUid={user?.uid ?? null}
+                  onLuk={() => setAabenUid(null)}
+                />
+              </>
             )}
           </div>
         </div>

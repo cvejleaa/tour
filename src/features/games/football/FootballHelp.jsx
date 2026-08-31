@@ -265,7 +265,9 @@ export default function FootballHelp({ game }) {
         {' '}<strong>deler liga med</strong>. Er du ikke med i en liga endnu, er der ingen at måle dig
         mod: opret eller tilmeld dig én under <Tab fane="ligaer">👥 Ligaer</Tab>. Er du med i <strong>flere
         ligaer</strong>, kan du vælge én ad gangen øverst — så tælles placeringerne forfra inden
-        for den liga. En liga kan desuden have sin egen <strong>startrunde</strong>: så tæller kun
+        for den liga; uden et valg vises alle dine ligakammerater på spillets egen skala. Er du
+        kun med i <strong>én</strong> liga, er stillingen altid dén ligas. En liga kan desuden have
+        sin egen <strong>startrunde</strong>: så tæller kun
         runder fra den og frem i ligaens stilling — hele runder, aldrig halve, så en udsat kamp
         følger sin runde. Ligaens ejer sætter den under <Tab fane="ligaer">👥 Ligaer</Tab>, og den
         står på liga-kortet.{game?.pulje && <>{' '}Starter ligaen efter runde {PULJE_MAKS_STARTRUNDE}, tæller
@@ -320,8 +322,13 @@ export default function FootballHelp({ game }) {
             veje: de andre i dine ligaer kan se dine på samme måde.
           </li>
         </ul>
-        Bemærk, at stillingen viser <strong>spillets point</strong>; eventuelle
-        {' '}<strong>liga-spørgsmål</strong> lægges kun oveni på ligaens egen side under
+        {/* SÆTNINGEN BAR TO PÅSTANDE, og kun den ene var stadig sand.
+            "Stillingen viser spillets point" holdt, da fanen altid regnede fra
+            runde 1 — nu følger den ligaens startrunde, når man er i én liga.
+            Liga-spørgsmåls-forbeholdet er derimod uændret rigtigt, så
+            sætningen er skrevet om, ikke slettet. */}
+        Bemærk, at eventuelle <strong>liga-spørgsmål</strong> ikke tælles med i stillingen —
+        de lægges kun oveni på ligaens egen side under
         {' '}<Tab fane="ligaer">👥 Ligaer</Tab>, så rækkefølgen dér kan være en anden.
         {/* Samme gate som selve fanen (standings, ikke pulje): guiden må ikke
             beskrive og linke en fane, spilleren ikke har — "hentet direkte fra

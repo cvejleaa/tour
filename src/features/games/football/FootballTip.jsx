@@ -14,10 +14,10 @@ import MatchElo from './MatchElo';
 import { eloFormByTeam } from './eloHistory';
 import { playerBank } from '../GameLayout';
 import { useVisibleGameStandings } from '../useVisibleGameStandings';
-import { rankDelta } from '../gameStandings';
+import { rankDelta, ligaRanking } from '../gameStandings';
 import { rundePile } from '../rundePoint';
 import { rundensVildeste } from './xgRunde';
-import { ligaPoint, harRundeVektor } from '../../../lib/ligaPoint';
+import { ligaPoint, harRundeVektor, vektorStemmer } from '../../../lib/ligaPoint';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
 import { teamsOf, visOf, teamInfo } from './teamInfo';
@@ -76,7 +76,9 @@ export default function FootballTip({ game, me, matches }) {
   const gameId = game?.id;
   const { betsByMatch } = useGameBets(gameId);
   // Facittet måler dig mod dem du deler liga med — samme kreds som ranglisten.
-  const { standings } = useVisibleGameStandings(gameId);
+  // `leagues` kommer med fra samme hook — intet ekstra abonnement. Den bruges
+  // til at give facit-blokken ligaens skala, når man kun er i én liga.
+  const { standings, leagues } = useVisibleGameStandings(gameId);
   const bank = playerBank(me);
   const nowMs = Date.now();
 
@@ -251,13 +253,31 @@ export default function FootballTip({ game, me, matches }) {
   //
   // Her bruges kortets EGEN runde (current.round), ikke "seneste runde med
   // point": bladrer man tilbage til en gammel runde, skal pilen handle om
-  // netop den. Ingen startrunde — fladen viser hele kredsen, ikke én liga.
+  // netop den.
+  //
+  // SKALAEN FØLGER STILLINGEN. Der stod før "ingen startrunde — fladen viser
+  // hele kredsen, ikke én liga", og for én liga ER hele kredsen den liga.
+  // Blokken her viser rang, total og "op til/foran" — og `buildFacitShare`
+  // sender "nr. X af N" UD I CHATTEN. Regnede den på spillets skala, mens
+  // Stilling-fanen regner på ligaens, ville de to faner sige forskellige tal
+  // OG forskellige placeringer om samme spiller i samme sekund — og den
+  // forkerte af dem ville forlade appen.
+  //
   // Ikke useMemo: dette punkt ligger efter en tidlig returnering, og en hook
   // her ville bryde hook-rækkefølgen. Arbejdet er én sortering over de få
   // spillere, man deler liga med.
-  const raekker = Number.isFinite(current?.round)
-    ? rundePile(standings, current.round, null, ligaPoint, harRundeVektor)
+  const enesteLiga = leagues.length === 1 ? leagues[0] : null;
+  const ligaSkala = enesteLiga
+    ? ligaRanking(standings, enesteLiga, ligaPoint, harRundeVektor, vektorStemmer)
     : standings;
+  // En spiller uden brugbar runde-vektor kan ikke rangeres. Uden filteret
+  // stod han med 0 point nederst og talte med i "af N" — et felt, han ikke er
+  // placeret i. Er det ÉN SELV, forsvinder blokken (`myRow` bliver undefined),
+  // og det er det rigtige: hellere ingen placering end en påstået.
+  const rangerbare = ligaSkala.filter((r) => r.klar !== false);
+  const raekker = Number.isFinite(current?.round)
+    ? rundePile(rangerbare, current.round, enesteLiga?.startRound ?? null, ligaPoint, harRundeVektor)
+    : rangerbare;
   const myIdx = raekker.findIndex((r) => r.uid === me?.uid);
   const myRow = myIdx >= 0 ? raekker[myIdx] : null;
   const rivalAbove = myIdx > 0 ? raekker[myIdx - 1] : null;
