@@ -14,7 +14,7 @@ const { buildRoundContext, combiBonus } = require('./pointOpdeling');
 const { rensTekst } = require('./rensTekst');
 const { outcomePoints } = require('./superligaScoring');
 const { gatedeKampe, startRundeFor } = require('./startGate');
-const { ligaPoint, harRundeVektor } = require('./ligaPoint');
+const { ligaPoint, harRundeVektor, vektorStemmer } = require('./ligaPoint');
 
 // 'in' tager højst 30 værdier pr. forespørgsel.
 const IN_CHUNK = 30;
@@ -369,8 +369,14 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     // previousRank er en anden. Før-stillingen er ligaens total UDEN den
     // aktuelle runde, af samme vektor: nøjagtig det greb, fladen bruger
     // (`ligaRanking`/`fjernRunde`), bare her.
+    // SAMME VAGT SOM FLADEN. `harRundeVektor` spørger kun, om feltet findes;
+    // en vektor, der mangler runder, ville give en for lav ligatotal — og
+    // her ender det tal i en besked, der POSTES til hele ligaen. Se
+    // vektorStemmer.
+    const klarNok = (p) => harRundeVektor(p.perRound)
+      && vektorStemmer(p.perRound, p.totalPoints, p.bonusPoints || 0);
     const foerTotal = (p) => {
-      if (!harRundeVektor(p.perRound)) return null;
+      if (!klarNok(p)) return null;
       const uden = {};
       for (const [k, v] of Object.entries(p.perRound)) {
         if (Number(k) === round) continue;
@@ -382,7 +388,7 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     if (ligaStart != null) {
       const omregnede = rawMedlemmer.map((p) => ({
         ...p,
-        totalPoints: harRundeVektor(p.perRound)
+        totalPoints: klarNok(p)
           ? ligaPoint(p.perRound, ligaStart, p.bonusPoints || 0)
           : 0,
         _foer: foerTotal(p),

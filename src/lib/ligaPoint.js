@@ -80,3 +80,68 @@ export function ligaPoint(perRound, startRunde, puljeBonus = 0) {
 export function harRundeVektor(perRound) {
   return Boolean(perRound && typeof perRound === 'object' && !Array.isArray(perRound));
 }
+
+/**
+ * Loft over slækket i `vektorStemmer`. Målt, ikke skønnet — se dér.
+ */
+export const DRIFT_LOFT = 1.2;
+
+/**
+ * Kan runde-vektoren gengive spillets EGEN total?
+ *
+ * `harRundeVektor` spørger kun, om feltet findes. Det er ikke nok: en vektor,
+ * der mangler hele runder — en spiller, der ikke er genberegnet, siden de
+ * runder blev afgjort — består den prøve og bliver til et FOR LAVT ligatal
+ * uden en eneste fejlbesked. Ligaen ville vise en spiller langt nede, som i
+ * virkeligheden fører. Det er den tavse fejl, `klar: false` findes for.
+ *
+ * Prøven er gratis, fordi svaret allerede ligger på rækken: regnes vektoren
+ * UDEN startrunde, skal den give spillets total. Gør den ikke det, mangler
+ * der noget.
+ *
+ * TOLERANCE, IKKE LIGHED — og det er ikke slaskethed. Serveren afrunder ÉN
+ * gang på summen (`opdelPoint`: `round1(raw + combi + pulje)`), mens vektoren
+ * afrunder HVER runde for sig (`perRunde[k] = round1(...)`). De to tal må
+ * derfor lovligt afvige. Med streng lighed ville en stor del af feltet stå som
+ * "ikke klar" af ren afrunding, og vagten ville koste mere, end den fanger.
+ *
+ * MEN VÆRSTE TILFÆLDE ER IKKE DET RIGTIGE MÅL. Slækket var først 0,05 pr.
+ * nøgle — den matematiske øvre grænse. Den vokser ubegrænset: 30 runder giver
+ * 1,55, og så kan en ægte manglende runde på ét point stå og se lovlig ud.
+ * Test Manager viste det med kode. Grænsen kræver, at HVER runde runder samme
+ * vej med maksimalt udslag, og det sker ikke.
+ *
+ * Derfor et LOFT, sat på en måling og ikke på en fornemmelse
+ * (`scripts/maal-vektordrift.mjs`, 200.000 simulerede sæsoner pr. længde):
+ *
+ *   runder    værste tilfælde    målt maks
+ *        4               0,25         0,20
+ *       18               0,95         0,60
+ *       38               1,95         0,90
+ *
+ * Loftet er 1,2 — over den målte maks med god margen, og langt under en runde,
+ * der reelt mangler (typisk 5-25 point). Det binder først ved 23 runder og
+ * ændrer altså intet for korte sæsoner.
+ *
+ * ÆRLIGT FORBEHOLD: en manglende runde på under 1,2 point kan stadig gemme sig
+ * i en lang sæson. Det er en bevidst byttehandel — alternativet er falske
+ * "ikke klar" for spillere, hvis tal er helt i orden.
+ *
+ * KENDT BLIND VINKEL: gulvet. Er både spillets og vektorens sum negativ,
+ * gulves begge til 0 og ser ens ud, uanset hvad der mangler. Det kræver en
+ * spiller i minus, som stillingen alligevel viser som 0.
+ *
+ * @param {object|null} perRound
+ * @param {number} spilTotal   serverens `totalPoints` for samme spiller
+ * @param {number} puljeBonus  players/{uid}.bonusPoints
+ * @returns {boolean}
+ */
+export function vektorStemmer(perRound, spilTotal, puljeBonus = 0) {
+  if (!harRundeVektor(perRound)) return false;
+  const total = Number(spilTotal);
+  if (!Number.isFinite(total)) return false;
+  // Én afrunding pr. nøgle, plus én for serverens egen. `1e-9` er
+  // flydende-tal-støj, ikke slæk.
+  const slaek = Math.min(0.05 * Object.keys(perRound).length + 0.05, DRIFT_LOFT) + 1e-9;
+  return Math.abs(ligaPoint(perRound, null, puljeBonus) - total) <= slaek;
+}

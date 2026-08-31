@@ -80,7 +80,14 @@ const RAEKKER = [
   { uid: 'u5', name: 'Mads', totalPoints: 20, rank: 5, favoriteTeam: 'Viborg FF' },
   { uid: 'u6', name: 'Nete', totalPoints: 10, rank: 6, favoriteTeam: null },
 ];
-const LIGAER = [{ id: 'l1', name: 'Vennerne', memberUids: ['me', 'u2', 'u3', 'u4'], ownerUid: 'me' }];
+// ALLE SEKS ER MEDLEMMER. Fixturet listede før kun fire, mens `mockStandings`
+// returnerede alle seks — en tilstand, der ikke kan opstå: `alleMine` kommer
+// fra `leagueMateStandings`, som netop filtrerer til ens ligakammerater. Er
+// man i ÉN liga, ER stillingens felt den ligas medlemmer. Den uoverensstemmelse
+// var usynlig, så længe én liga ikke gav en liga-afgrænset visning.
+const LIGAER = [{
+  id: 'l1', name: 'Vennerne', memberUids: ['me', 'u2', 'u3', 'u4', 'u5', 'u6'], ownerUid: 'me',
+}];
 
 /** Box-shadows i et udsnit af fladen — dét er ringene. */
 function ringe(rod) {

@@ -3,7 +3,9 @@
  * opret/deltag, omdøb (ejer), slet/forlad, og en liga-væg med beskeder.
  */
 import { ligaRanking } from './gameStandings';
-import { ligaPoint, harRundeVektor, puljenTaeller, PULJE_MAKS_STARTRUNDE } from '../../lib/ligaPoint';
+import {
+  ligaPoint, harRundeVektor, puljenTaeller, vektorStemmer, PULJE_MAKS_STARTRUNDE,
+} from '../../lib/ligaPoint';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Avatar from '../../components/Avatar';
@@ -138,7 +140,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
   // basen spillets tal, som altid.
   const rows = useMemo(
     () => leagueRankingWithQuestions(
-      ligaRanking(standings, league, ligaPoint, harRundeVektor),
+      ligaRanking(standings, league, ligaPoint, harRundeVektor, vektorStemmer),
       league.memberUids,
       lqByUid,
     ),

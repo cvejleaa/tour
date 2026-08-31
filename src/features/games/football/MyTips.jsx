@@ -38,8 +38,13 @@ export default function MyTips({ game, matches, me }) {
       // Holdene kommer fra SPILLET. Uden dem faldt kortkoderne tilbage på den
       // danske liste, og et engelsk spil ville vise fulde holdnavne.
       teams={teamsOf(game)}
-      // Serverens tal, ikke historikkens: stillingen viser det samme, og to
-      // veje til ét tal driver fra hinanden.
+      // Serverens tal, ikke historikkens: to veje til ét tal driver fra
+      // hinanden. BEMÆRK at det er SPILLETS total — stillingen kan vise et
+      // andet tal for den samme spiller, når ens liga tæller fra en senere
+      // runde. Det er ikke en uoverensstemmelse, men to skalaer: her står
+      // regnskabet for alle ens tips, dér står ligaens opgør. Kommentaren
+      // påstod før, at "stillingen viser det samme"; det holdt kun, så længe
+      // stillingen ignorerede ligaens startrunde.
       opdeling={me?.opdeling ?? null}
       total={me?.totalPoints}
       tom={(

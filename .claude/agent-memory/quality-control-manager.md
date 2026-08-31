@@ -495,3 +495,65 @@ pr. kamp). To ting var IKKE fuldt lukket, selv om alt er grønt:
   påstand ("rammer forbi hver tredje gang" — tåler at ældes) eller en
   PRÆCIS optælling ("13 ud af 37" — ældes cifret)? Vælg det første, med
   mindre tallet regenereres automatisk.
+
+## Skala-fælden: ét tal, to regnestykker (plan-gennemgange)
+
+- **En gate på "er der noget at VÆLGE" er en proxy for "hvilken SKALA gælder".**
+  `GameStandings.jsx` skjuler liga-vælgeren ved `leagueCount <= 1` med
+  begrundelsen "med én liga er alle-mine-ligaer og den ene liga det samme" —
+  sandt om HVEM (samme medlemsmængde), falsk om POINT (spillets `totalPoints`
+  mod `ligaPoint` fra ligaens `startRound`). Samme form som `puljeLockRound`.
+  Spørg ved enhver "der er ikke noget at vælge"-genvej: er de to grene virkelig
+  identiske i VÆRDI, eller kun i MÆNGDE?
+- **En skala-forklaring, der er gate't på det samme som skalaskiftet, kan
+  aldrig vises i den gren, der har brug for den.** `ligaGate` (skala-teksten)
+  krævede `valgt` — præcis den betingelse, der også afgør om skalaen skifter.
+  Resultat: den flettede visning stod uden ét ord om, hvilken skala tallene er
+  på. Læs altid render-betingelsen for FORKLARINGEN og for FÆNOMENET side om
+  side; er de den samme, forklarer teksten kun det, der ikke behøver forklaring.
+- **Retter man skalaen ét sted, skal ALLE flader med samme spillers tal tælles
+  op — ellers bytter man én modsigelse ud med en anden.** Optællingen i dette
+  repo (aug. 2026), for "en spillers pointtal i ét spil":
+  `GameStandings` podie `:511` / liste `:348` / opdelingstabel `:150`
+  (`spilTotal`, bevidst spil-skala, forklaret af `ligaGate`);
+  `SpillerDetalje` (`GameStandings.jsx:587` → `SpillerDetalje.jsx:68`, spil-skala,
+  UDEN nogen tekst der siger det); `MyTips.jsx:44` (spil-skala, med en kommentar
+  der påstår "stillingen viser det samme"); `GameLayout.jsx:13` saldo-badget
+  (spil-skala, har allerede en korrekt `title`); `GameLeagues.jsx:46`
+  (liga-skala + liga-spørgsmål, korrekt); `gameRecap.js:373-386` Runde-Botten
+  (liga-skala pr. liga, korrekt); og **`FootballTip.jsx:259`**, hvor facit-blokken
+  bevidst regner med `startRunde = null` og viser rang, total, "op til/foran"
+  OG en delingstekst til vennerne. Facit-blokken er den farligste: dens tal
+  FORLADER appen.
+- **Hvis en ny visning begynder at bruge `perRound`, skal bagfyldningen med.**
+  `docs/drift.md:417`: spillere, der aldrig er genberegnet efter `perRound`-
+  udrulningen, mangler vektoren og vises som "ikke klar". En flade, der før
+  læste `totalPoints`, får derfor tomme badges i stedet for tal for netop de
+  spillere — kør 🔄 Genberegn point som del af udrulningen, ikke bagefter.
+- **`FootballHelp.jsx` bærer skalaen i to sætninger, der begge skal med i
+  samme PR:** "Er du med i flere ligaer, kan du vælge én ad gangen øverst"
+  (:266) og "Bemærk, at stillingen viser spillets point" (:323).
+- **Efterprøvet (0718a43, b71988d):** alle seks krav holdt ved eftersyn —
+  `vektorStemmer` (fil:linje `src/lib/ligaPoint.js:117` ⇄
+  `functions-platform/ligaPoint.js`, spejlet og paritetstestet), `ligaGate`
+  uden `valgt`-krav (`GameStandings.jsx:401-405`), `SpillerDetalje`s
+  skala-sætning gate't på FAKTISK forskel, ikke på om noget er valgt
+  (`GameStandings.jsx:625`), og `FootballTip.jsx:269-280` regner nu facit og
+  delingstekst på samme `ligaRanking`+`vektorStemmer`-kæde som Stilling. To nye
+  mønstre fra selve eftersynet:
+  - **En mocket hook kan skjule, at den nye gren aldrig kører.**
+    `tipPil.test.jsx`/`FootballTip.test.jsx` giver ALTID `leagues: []` til
+    `useVisibleGameStandings`, så `enesteLiga` i `FootballTip.jsx` aldrig bliver
+    andet end `null` — hele liga-skala-grenen (kravet, der blev efterprøvet) er
+    grøn uden at være kørt én eneste gang. Spørg ved en ny gren, der læser et
+    felt fra en mocket hook: findes der en test-opsætning, der rent faktisk
+    giver den værdi, grenen forgrener på?
+  - **Samme vagt, ny fil, glemt duplikat.** `GameStandings.jsx:289-292` tilføjede
+    `.memberUids.includes(user?.uid)` til sin `enesteLiga`, fordi
+    `leagueMateUids` springer en liga over, man ikke selv står i. `FootballTip.jsx:269`
+    fik en analog `enesteLiga` af SAMME kilde (samme `leagues`-array) men uden
+    guarden — konsekvensen er mildere (facit-blokken forsvinder, ingen forkert
+    tal), men det er det samme mønster som selve skala-fejlen: rettet ét sted,
+    ikke i søsteren, der deler datakilden. Findes en guard mod et skævt
+    liga-dokument ét sted, så spørg om enhver anden bruger af samme `leagues`
+    har brug for den samme.
