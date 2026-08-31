@@ -58,3 +58,32 @@ Tre fejl blev fanget efter jeg skrev første version af udrulningsplanen for PR 
 3. Bundel-probe var falsk negativ (grep på komponent-navn i stedet for på UI-strengen brugeren ser)
 
 Test Manager og Quality Control bekræftede, at mønsterne holder, og at `grep -l "hold for hold" dist/assets/*.js` virker korrekt.
+
+---
+
+## Instruks fra koordinator (31/8 2026)
+
+Fire fejl i udrulningsplanen for PR skala-ændring blev fanget:
+
+1. **Bundel-proben skal bruge en streng, der er NY i PR'en — ikke bare synlig i UI**
+   - **Fejl jeg lavede:** Jeg søgte efter `"ikke klar"`, der findes ALLEREDE på main (2 forekomster). Proben kunne både før og efter deployet — beviser ingenting.
+   - **Den rigtige metode:** Brug en streng, der er tilføjet i denne PR, og verificer med:
+     ```bash
+     git show origin/main:src/features/games/GameStandings.jsx | grep -c "spillets egen skala"  # skal være 0
+     grep -l "spillets egen skala" dist/assets/*.js                                             # skal være i bundlen efter
+     ```
+   - **De rigtige strenge for denne PR:**
+     - `"spillets egen skala"` (ny skala-forklaring)
+     - `"Tallene herunder"` (spillerpanelets sætning)
+   - **Læring:** En UI-streng er nødvendig, men ikke tilstrækkelig. Den skal være NY i PR'en.
+
+2. **Afterprøv aldrig at et værktøj HAR en tør-kørsel, før du foreskriver den**
+   - **Fejl jeg lavede:** Jeg foreslod at ejeren køres 🔄 Genberegn point med "tør-kørslen først (default)". Det findes ikke.
+   - **Fakta:** Knappen i `GameScheduleTab.jsx:533` kalder `recalc` direkte og skriver med det samme. Intet dryRun-flag.
+   - **Læring:** Søg i koden (fil linje) efter `dryRun`-logik eller "preview"-tekst. Hvis den ikke er der, er der ingen tør-kørsel. Tell ejeren præcis hvad der sker.
+
+3. Opret aldrig test-data i produktionen som verifikationstrin — ejeren har allerede det ægte fixture.
+
+4. Verifikation skal foregå på det spil, hvor fejlen ses — ikke et anderledes spil.
+
+---
