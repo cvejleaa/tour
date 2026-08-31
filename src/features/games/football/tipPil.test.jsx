@@ -295,6 +295,20 @@ describe('facit-blokken følger ligaens startrunde', () => {
     expect(screen.getByText(/· 47 point/)).toBeInTheDocument();
   });
 
+  it('udelader en spiller uden brugbar vektor af "af N" og pilene', () => {
+    // Test Managers fund: `rangerbare`-filteret kunne fjernes helt med grøn
+    // suite. Carl har 21 point ifølge serveren, men en vektor der kun kender
+    // runde 1 — han kan ikke rangeres, og han må ikke tælle med i feltet.
+    const medHalv = MED_BEVAEGELSE.map((r) => (r.uid === 'c'
+      ? { ...r, perRound: { 1: 1 } } : r));
+    vis(medHalv, LIGA1);
+    // Tre rangerbare tilbage, ikke fire. Teksten er brudt af et <strong>,
+    // så den læses af elementet frem for med en tekst-matcher.
+    const rang = document.querySelector('.facit__rank').textContent;
+    expect(rang).toMatch(/af 3/);
+    expect(rang).not.toMatch(/af 4/);
+  });
+
   it('lader blokken være, når ligaen ikke lister mig', () => {
     // Samme defensive vagt som i GameStandings: en liga, jeg ikke står i,
     // må ikke afgøre min skala. Uden vagten ville `ligaRanking` filtrere mig

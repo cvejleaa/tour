@@ -82,6 +82,11 @@ export function harRundeVektor(perRound) {
 }
 
 /**
+ * Loft over slækket i `vektorStemmer`. Målt, ikke skønnet — se dér.
+ */
+export const DRIFT_LOFT = 1.2;
+
+/**
  * Kan runde-vektoren gengive spillets EGEN total?
  *
  * `harRundeVektor` spørger kun, om feltet findes. Det er ikke nok: en vektor,
@@ -97,12 +102,30 @@ export function harRundeVektor(perRound) {
  * TOLERANCE, IKKE LIGHED — og det er ikke slaskethed. Serveren afrunder ÉN
  * gang på summen (`opdelPoint`: `round1(raw + combi + pulje)`), mens vektoren
  * afrunder HVER runde for sig (`perRunde[k] = round1(...)`). De to tal må
- * derfor lovligt afvige op til 0,05 pr. runde — pointOpdeling.js siger det
- * selv. Med streng lighed ville en stor del af feltet stå som "ikke klar" af
- * ren afrunding, og vagten ville koste mere, end den fanger.
+ * derfor lovligt afvige. Med streng lighed ville en stor del af feltet stå som
+ * "ikke klar" af ren afrunding, og vagten ville koste mere, end den fanger.
  *
- * Gabet, den SKAL fange, er af en anden størrelsesorden: en manglende runde
- * er hele point, ikke tiendedele.
+ * MEN VÆRSTE TILFÆLDE ER IKKE DET RIGTIGE MÅL. Slækket var først 0,05 pr.
+ * nøgle — den matematiske øvre grænse. Den vokser ubegrænset: 30 runder giver
+ * 1,55, og så kan en ægte manglende runde på ét point stå og se lovlig ud.
+ * Test Manager viste det med kode. Grænsen kræver, at HVER runde runder samme
+ * vej med maksimalt udslag, og det sker ikke.
+ *
+ * Derfor et LOFT, sat på en måling og ikke på en fornemmelse
+ * (`scripts/maal-vektordrift.mjs`, 200.000 simulerede sæsoner pr. længde):
+ *
+ *   runder    værste tilfælde    målt maks
+ *        4               0,25         0,20
+ *       18               0,95         0,60
+ *       38               1,95         0,90
+ *
+ * Loftet er 1,2 — over den målte maks med god margen, og langt under en runde,
+ * der reelt mangler (typisk 5-25 point). Det binder først ved 23 runder og
+ * ændrer altså intet for korte sæsoner.
+ *
+ * ÆRLIGT FORBEHOLD: en manglende runde på under 1,2 point kan stadig gemme sig
+ * i en lang sæson. Det er en bevidst byttehandel — alternativet er falske
+ * "ikke klar" for spillere, hvis tal er helt i orden.
  *
  * KENDT BLIND VINKEL: gulvet. Er både spillets og vektorens sum negativ,
  * gulves begge til 0 og ser ens ud, uanset hvad der mangler. Det kræver en
@@ -119,6 +142,6 @@ export function vektorStemmer(perRound, spilTotal, puljeBonus = 0) {
   if (!Number.isFinite(total)) return false;
   // Én afrunding pr. nøgle, plus én for serverens egen. `1e-9` er
   // flydende-tal-støj, ikke slæk.
-  const slaek = 0.05 * Object.keys(perRound).length + 0.05 + 1e-9;
+  const slaek = Math.min(0.05 * Object.keys(perRound).length + 0.05, DRIFT_LOFT) + 1e-9;
   return Math.abs(ligaPoint(perRound, null, puljeBonus) - total) <= slaek;
 }

@@ -52,6 +52,19 @@ describe('spejling mod src/lib', () => {
     }
   }
 
+  it('matcher src på LOFTET — den gren, der først binder ved lange sæsoner', async () => {
+    // Loftet er nyt og kunne drive mellem de to filer uset: kanttesten
+    // nedenfor bruger fire nøgler, hvor loftet slet ikke binder.
+    const src = await import('../src/lib/ligaPoint.js');
+    expect(server.DRIFT_LOFT).toBe(src.DRIFT_LOFT);
+    const tredive = {};
+    for (let r = 1; r <= 30; r += 1) tredive[r] = 1.5;
+    for (const total of [45, 45.9, 46, 46.2, 46.5, 47]) {
+      expect(server.vektorStemmer(tredive, total, 0), `total ${total}`)
+        .toBe(src.vektorStemmer(tredive, total, 0));
+    }
+  });
+
   it('matcher src på slækkets KANT — den eneste gren, der kan drive uset', async () => {
     // Løkken ovenfor ramte aldrig kanten: dens totaler lå enten klart inden
     // for eller klart uden for slækket, og en server med et HELT andet slæk

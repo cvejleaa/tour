@@ -376,6 +376,23 @@ describe('GameStandings — liga-filter', () => {
     });
   });
 
+  // Test Managers fund: `.includes(user?.uid)`-leddet i én-liga-vagten kunne
+  // fjernes med hele suiten grøn. Ingen fixture havde en solo-liga, brugeren
+  // ikke selv står i — netop det "skæve liga-dokument", kommentaren navngiver.
+  it('lader IKKE en liga, jeg ikke står i, afgøre min skala', () => {
+    // leagueMateUids springer sådan en liga over, så stillingen ville kun
+    // rumme mig selv — og ligaRanking ville filtrere den sidste række væk mod
+    // en medlemsliste uden mig. Uden vagten ville min egen stilling være tom.
+    setup({
+      standings: [ROWS[4]],
+      leagues: [{ id: 'LX', name: 'Uden mig', memberUids: ['u1', 'u2'], startRound: 3 }],
+    });
+    // Den flettede visnings tekst ved præcis én synlig spiller. Det vigtige
+    // er, at rækken IKKE er væk: uden vagten stod tabellen tom.
+    expect(screen.getByText(/Viser kun dig selv/)).toBeInTheDocument();
+    expect(screen.getByText(/Mig/)).toBeInTheDocument();
+  });
+
   it('falder tilbage til alle, hvis den valgte liga forsvinder', () => {
     const { rerender } = setup();
     fireEvent.change(filter(), { target: { value: 'L2' } });
