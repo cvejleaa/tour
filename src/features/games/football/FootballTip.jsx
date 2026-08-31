@@ -266,7 +266,14 @@ export default function FootballTip({ game, me, matches }) {
   // Ikke useMemo: dette punkt ligger efter en tidlig returnering, og en hook
   // her ville bryde hook-rækkefølgen. Arbejdet er én sortering over de få
   // spillere, man deler liga med.
-  const enesteLiga = leagues.length === 1 ? leagues[0] : null;
+  // Samme defensive vagt som i GameStandings: en liga, der ikke lister én
+  // selv, må ikke afgøre ens skala — `ligaRanking` ville filtrere én væk, og
+  // blokken forsvandt i stedet for at vise spillets tal. Rettet ét sted og
+  // glemt i søsteren er præcis den drift, spejlfils-reglen findes imod.
+  const enesteLiga = leagues.length === 1
+    && (leagues[0]?.memberUids || []).includes(me?.uid)
+    ? leagues[0]
+    : null;
   const ligaSkala = enesteLiga
     ? ligaRanking(standings, enesteLiga, ligaPoint, harRundeVektor, vektorStemmer)
     : standings;

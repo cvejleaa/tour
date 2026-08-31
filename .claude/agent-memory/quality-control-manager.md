@@ -533,3 +533,27 @@ pr. kamp). To ting var IKKE fuldt lukket, selv om alt er grønt:
 - **`FootballHelp.jsx` bærer skalaen i to sætninger, der begge skal med i
   samme PR:** "Er du med i flere ligaer, kan du vælge én ad gangen øverst"
   (:266) og "Bemærk, at stillingen viser spillets point" (:323).
+- **Efterprøvet (0718a43, b71988d):** alle seks krav holdt ved eftersyn —
+  `vektorStemmer` (fil:linje `src/lib/ligaPoint.js:117` ⇄
+  `functions-platform/ligaPoint.js`, spejlet og paritetstestet), `ligaGate`
+  uden `valgt`-krav (`GameStandings.jsx:401-405`), `SpillerDetalje`s
+  skala-sætning gate't på FAKTISK forskel, ikke på om noget er valgt
+  (`GameStandings.jsx:625`), og `FootballTip.jsx:269-280` regner nu facit og
+  delingstekst på samme `ligaRanking`+`vektorStemmer`-kæde som Stilling. To nye
+  mønstre fra selve eftersynet:
+  - **En mocket hook kan skjule, at den nye gren aldrig kører.**
+    `tipPil.test.jsx`/`FootballTip.test.jsx` giver ALTID `leagues: []` til
+    `useVisibleGameStandings`, så `enesteLiga` i `FootballTip.jsx` aldrig bliver
+    andet end `null` — hele liga-skala-grenen (kravet, der blev efterprøvet) er
+    grøn uden at være kørt én eneste gang. Spørg ved en ny gren, der læser et
+    felt fra en mocket hook: findes der en test-opsætning, der rent faktisk
+    giver den værdi, grenen forgrener på?
+  - **Samme vagt, ny fil, glemt duplikat.** `GameStandings.jsx:289-292` tilføjede
+    `.memberUids.includes(user?.uid)` til sin `enesteLiga`, fordi
+    `leagueMateUids` springer en liga over, man ikke selv står i. `FootballTip.jsx:269`
+    fik en analog `enesteLiga` af SAMME kilde (samme `leagues`-array) men uden
+    guarden — konsekvensen er mildere (facit-blokken forsvinder, ingen forkert
+    tal), men det er det samme mønster som selve skala-fejlen: rettet ét sted,
+    ikke i søsteren, der deler datakilden. Findes en guard mod et skævt
+    liga-dokument ét sted, så spørg om enhver anden bruger af samme `leagues`
+    har brug for den samme.

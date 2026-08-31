@@ -335,6 +335,36 @@ describe('GameStandings — liga-filter', () => {
       expect(screen.getByText(/Tæller fra runde 12/)).toBeInTheDocument();
     });
 
+    it('siger i spillerpanelet, at DETS tal er på en anden skala', () => {
+      // Quality Controls B-4. Panelet får bevidst spillets total, fordi det
+      // lister runder fra spillets start — men rækken ovenfor viser ligaens.
+      // To tal for samme spiller på samme skærm uden ét ord er den modsigelse,
+      // hele rettelsen handler om. Opdelings-tabellen har haft sin sætning
+      // hele tiden; panelet havde ingen.
+      setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+      fireEvent.click(screen.getByText('Anne'));
+      expect(screen.getByText(/Tallene herunder er spillets samlede point/))
+        .toBeInTheDocument();
+      // Og den skal NAVNGIVE begge dele: spillets tal og ligaens startrunde.
+      expect(screen.getByText(/47/)).toBeInTheDocument();
+      expect(screen.getByText(/kun fra runde 12/)).toBeInTheDocument();
+    });
+
+    it('siger det IKKE, når de to tal er ens', () => {
+      // Fraværs-siden. Uden den kunne betingelsen hardkodes til true, og
+      // panelet ville forklare en forskel, læseren ikke kan se.
+      //
+      // FIXTURET SKAL RAMME "ENS", IKKE "MANGLER". Første udgave brugte en
+      // liga UDEN startrunde — men da sætter `subsetRanking` slet ikke
+      // `spilTotal`, så testen bestod på `!= null`-leddet og sagde intet om
+      // sammenligningen. Mutationen "vis også når tallene er ens" overlevede.
+      // Her har Mig ingen point før runde 12, så spillets og ligaens tal er
+      // BEGGE 11,5 — og sætningen skal alligevel være væk.
+      setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+      fireEvent.click(screen.getByText(/^Mig/));
+      expect(screen.queryByText(/Tallene herunder er spillets samlede point/)).toBeNull();
+    });
+
     it('vender ordenen: Anne fører spillet, men ikke ligaen', () => {
       // Kernen i hele fejlen. 47 > 11,5 på spillets skala; 9,7 < 11,5 på
       // ligaens. Rækkefølgen SKAL derfor bytte om.

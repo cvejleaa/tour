@@ -79,9 +79,12 @@ const MED_BEVAEGELSE = [
   { uid: 'c', name: 'Carl', totalPoints: 21, rank: 4, previousRank: 4, perRound: { 1: 1, 0: 20 }, bonusPoints: 0 },
 ];
 
-function vis(felt = UDEN_BEVAEGELSE) {
+function vis(felt = UDEN_BEVAEGELSE, ligaer = []) {
   mockStandings.mockReturnValue({
-    standings: felt, leagues: [], leagueCount: 1, loading: false, error: null,
+    // `leagues` var før ALTID tom, mens `leagueCount` sagde 1 — en umulig
+    // tilstand, og grunden til at facit-blokkens liga-skala aldrig blev kørt
+    // af suiten. Quality Controls fund.
+    standings: felt, leagues: ligaer, leagueCount: ligaer.length, loading: false, error: null,
   });
   mockBets.mockReturnValue({
     betsByMatch: { m1: { pick: '1', points: 5 }, m2: { pick: 'X', points: 4 } },
@@ -152,7 +155,7 @@ describe('xG (målchancer) på kampkortet', () => {
   /** Samme opsætning, men med xG på den ene kamp. */
   function medXg(xh, xa) {
     mockStandings.mockReturnValue({
-      standings: UDEN_BEVAEGELSE, leagues: [], leagueCount: 1, loading: false, error: null,
+      standings: UDEN_BEVAEGELSE, leagues: [], leagueCount: 0, loading: false, error: null,
     });
     mockBets.mockReturnValue({ betsByMatch: { m1: { pick: '1', points: 5 } }, loading: false });
     const matches = [
@@ -207,7 +210,7 @@ describe('xG (målchancer) på kampkortet', () => {
     // Vagten er `m.result && …`. Uden den ville en kamp med målchancer, men
     // uden resultat, vise tallet — fx hvis en admin fortryder et facit.
     mockStandings.mockReturnValue({
-      standings: UDEN_BEVAEGELSE, leagues: [], leagueCount: 1, loading: false, error: null,
+      standings: UDEN_BEVAEGELSE, leagues: [], leagueCount: 0, loading: false, error: null,
     });
     mockBets.mockReturnValue({ betsByMatch: {}, loading: false });
     const { container } = render(
@@ -256,5 +259,47 @@ describe('xG (målchancer) på kampkortet', () => {
     for (const ord of ['fortjent', 'burde have vundet', 'heldig', 'uheldig', 'tyveri', 'snydt']) {
       expect(tekst, `"${ord}" står på kampkortet`).not.toContain(ord);
     }
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// FACIT-BLOKKEN PÅ LIGAENS SKALA.
+//
+// Quality Controls blokerende fund på koden: hver eneste test mockede
+// `leagues: []`, så `enesteLiga` var null i dem alle, og hele den nye gren —
+// den der giver facit-blokken ligaens startrunde — blev aldrig kørt. Grøn
+// suite, urørt kode. Samme form som wiring-hullet i hold-listen.
+//
+// Blokkens tal FORLADER APPEN via delingsteksten, så en forkert skala her er
+// dyrere end de fleste.
+// ---------------------------------------------------------------------------
+describe('facit-blokken følger ligaens startrunde', () => {
+  // Anne fører spillet stort på runde 0, men ligaen tæller først fra runde 1.
+  // På ligaens skala: Bo 12, Mig 2, Anne 10, Carl 1 → Bo fører, jeg er nr. 3.
+  const LIGA1 = [{ id: 'l1', name: 'Familien', memberUids: ['a', 'b', 'me', 'c'], startRound: 1 }];
+
+  it('regner rang og total af ligaens runder, ikke spillets', () => {
+    vis(MED_BEVAEGELSE, LIGA1);
+    // Spillets tal for mig er 47. Ligaens er 2. Står der 47, er skalaen
+    // spillets — præcis fejlen.
+    expect(screen.getByText(/· 2 point/)).toBeInTheDocument();
+    expect(screen.queryByText(/· 47 point/)).toBeNull();
+  });
+
+  it('bruger spillets skala, når man er i FLERE ligaer', () => {
+    // Med to ligaer findes der ingen ét-svar-skala, og blokken falder tilbage
+    // til spillets tal. Uden denne kunne gaten hardkodes til altid at bruge
+    // den første liga.
+    vis(MED_BEVAEGELSE, [...LIGA1, { id: 'l2', name: 'Kontoret', memberUids: ['a', 'me'] }]);
+    expect(screen.getByText(/· 47 point/)).toBeInTheDocument();
+  });
+
+  it('lader blokken være, når ligaen ikke lister mig', () => {
+    // Samme defensive vagt som i GameStandings: en liga, jeg ikke står i,
+    // må ikke afgøre min skala. Uden vagten ville `ligaRanking` filtrere mig
+    // væk, og blokken ville forsvinde i stedet for at vise spillets tal.
+    vis(MED_BEVAEGELSE, [{ id: 'l9', name: 'Uden mig', memberUids: ['a', 'b'], startRound: 1 }]);
+    expect(screen.getByText(/· 47 point/)).toBeInTheDocument();
   });
 });
