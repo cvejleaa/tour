@@ -77,10 +77,10 @@ Fire fejl i udrulningsplanen for PR skala-ændring blev fanget:
      - `"Tallene herunder"` (spillerpanelets sætning)
    - **Læring:** En UI-streng er nødvendig, men ikke tilstrækkelig. Den skal være NY i PR'en.
 
-2. **Afterprøv aldrig at et værktøj HAR en tør-kørsel, før du foreskriver den**
+2. **Efterprøv ALTID, at et værktøj har en tør-kørsel, før du foreskriver den**
    - **Fejl jeg lavede:** Jeg foreslod at ejeren køres 🔄 Genberegn point med "tør-kørslen først (default)". Det findes ikke.
    - **Fakta:** Knappen i `GameScheduleTab.jsx:533` kalder `recalc` direkte og skriver med det samme. Intet dryRun-flag.
-   - **Læring:** Søg i koden (fil linje) efter `dryRun`-logik eller "preview"-tekst. Hvis den ikke er der, er der ingen tør-kørsel. Tell ejeren præcis hvad der sker.
+   - **Læring:** Søg i koden (fil linje) efter `dryRun`-logik eller "preview"-tekst. Hvis den ikke er der, er der ingen tør-kørsel. Sig præcis til ejeren, hvad der sker.
 
 3. Opret aldrig test-data i produktionen som verifikationstrin — ejeren har allerede det ægte fixture.
 
