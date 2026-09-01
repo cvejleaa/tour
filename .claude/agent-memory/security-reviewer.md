@@ -147,6 +147,18 @@
   MEN `where(documentId(),'==',mig)` lykkes (wildcard'et binder), mens
   `where('uid','==',mig)` FEJLER — reglen kan kun bevises via doc-id'et.
   `getCountFromServer` følger præcis samme regel som `getDocs`.
+  **IDENTITETSKILDEN DIVERGERER MELLEM KLIENT OG SERVER.** Serveren bruger
+  `d.id` (gameScoring.js L441-455, index.js L1330); `PuljeAfsloering.jsx` L74
+  skriver `{ uid: d.id, ...d.data() }` — spreadet står SIDST, så `data().uid`
+  VINDER over doc-id'et. Målt i emulatoren: et dokument med id `u3` og feltet
+  `uid:'u2'` bliver til `uid:'u2'` i fladen. Ingen klient kan lave et sådant
+  dokument (`request.resource.data.uid == uid` har stået der siden 9e90d70, og
+  fremmed uid, tom uid, manglende uid, uid som liste og fremmed doc-id blev
+  alle afvist — kontrol grøn), og `settlePuljeBets` rører aldrig `uid`. Kun
+  Firebase-konsollen/et admin-SDK-script kan. Konsekvensen VILLE være, at
+  fladen tilskriver en andens tip — inkl. "kun dig" på et hold, man ikke har
+  valgt. Rettelsen er ét tegn-ombytning: `{ ...d.data(), uid: d.id }`, som
+  binder klienten til samme identitet som serveren.
   `collectionGroup('puljeBets')` fejler (ingen collectionGroup-gren).
   **Skala målt igen efter deltager-gaten (2026-09-01): LIST på 200 dokumenter
   lykkes.** De tre opslag i læsegrenen (`users/{mig}`, `games/{g}`,
@@ -519,6 +531,46 @@
   bruger en negeret tidsvagt (grep: alle `request.time`-sammenligninger er
   positive; de resterende `!`-led står på `request.resource`-prædikater i
   skrivegrene, hvor en evalueringsfejl fejler lukket).
+- **`PuljeAfsloering.jsx` — den FØRSTE klient på cross-user-vejen — passer
+  reglen (2026-09-01, 23 PoC-checks + 244/244 i repoets suite).** Klientens
+  form er `getDocs(collection(games/{g}/puljeBets))` UDEN `where`, og den er på
+  den rigtige side af asymmetrien: efter deadline lykkes den for en deltager
+  (målt også ved 60 og 250 dokumenter — de tre `get()` i læsegrenen er
+  konstante stier), før deadline afvises den, og det gør ALLE former uden
+  `where(documentId())`. Kontroller grønne: manglende/`null`/tal-`puljeLockAt`,
+  ikke-deltager, `pending`, anonym → afvist; eget dokument læsbart før deadline;
+  skrivning efter deadline, `delete` og `points`/`correct`/`nedPoints`/
+  `nedCorrect` i payloaden afvist. Klientens ur er irrelevant: `locked`
+  (PuljeTip.jsx L148, `Date.now()`) styrer kun MONTERINGEN — reglen bruger
+  `request.time`, så et ur stillet frem giver `permission-denied`, og et ur
+  stillet tilbage viser bare ingenting. Komponenten mounts kun bag
+  `isMember`-gaten i GamePage.jsx L121, så kalderen har altid et players-dok.
+- **En AFVIST `getDocs` er TAVS i browserkonsollen — modsat en afvist skrivning.**
+  Målt: en nægtet `getDocs` gav NUL `console.*`-output og ingen
+  unhandledRejection med `.then/.catch` (uden `await`), mens hver nægtet
+  `setDoc` printer `GrpcConnection RPC 'Write' stream error … PERMISSION_DENIED`
+  med regel-LINJENUMMER. Et "fejl stille"-design på en LÆSNING er derfor ægte
+  tavst; på en SKRIVNING er det ikke. Ingen tip-data i støjen.
+- **`championship`-ELEMENTERNE er ikke type-vagtet i rules** (kun `is list` +
+  `.size() == poolSize()`). Målt: en spiller KAN gemme
+  `[{toString:null}, {a:1}, 'A'.repeat(50000)]`. `puljeAfsloering.js` er immun,
+  og det er efterprøvet, ikke læst: `holdTilslutning` nøgler outputtet på
+  spillets `teams` (giften bliver aldrig en række), `puljeScore` bruger kun
+  `Set.has` (ingen `String()`, ingen `localeCompare` på picks), og
+  `erAfgjort`/`enegaengerTekst` rører kun tal og uid'er. Fire PoC-checks grønne.
+  Husk formen ved NÆSTE forbruger af `championship` — den er den klassiske
+  `{toString:null}`-gift, og reglen stopper den ikke.
+- **Navne-grænsen i afsløringen holder.** `navnAf` slår op i `useGameStandings`,
+  hvis players-query er `where('leagueIds','array-contains-any', mine ligaer)`
+  — målt: en deltager i en ANDEN liga er ikke i svaret, så en enegænger uden
+  for ligaen bliver `'kun én spiller'`, aldrig et navn. Aggregatet ("1 af 13")
+  er spillets, navnene er ligaens, og fladen siger kredsen ærligt
+  ("Efter deadline er puljen åben for alle i spillet", PuljeAfsloering.jsx L114
+  + FootballHelp.jsx). Udledning fra fladen ALENE kan ikke navngive en
+  ikke-liga-fælle: ranglisten viser `rigtige`, aldrig picks. Devtools kan
+  stadig (uid → `users/{uid}.displayName`), men det er den kendte, accepterede
+  åbning — fladen tilføjer intet.
+
 - **Ingen anden forbruger mistede adgang ved deltager-gaten.** De eneste
   læsere af `puljeBets` er `PuljeTip.jsx` (eget dokument — egen-grenen er
   urørt, målt også uden players-dokument) og den nye afsløring; serveren læser
@@ -725,6 +777,12 @@
   games.mjs uden at tilføje det til ADMIN_OWNED.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **`{ uid: d.id, ...d.data() }` giver dokumentet det SIDSTE ord.** Mønstret
+  ser ud som "doc-id'et er identiteten", men spreadet overskriver det, hvis
+  feltet findes. Skal doc-id'et bære identiteten — og det er hele pointen med
+  `uid_matchId`- og `uid`-doc-id-bindingen — skal det stå SIDST. Grep efter
+  `uid: d.id, ...` hver gang en ny cross-user-læser landes.
 
 - Regler er ikke filtre. En strammet læseregel uden matchende query = tom liste.
 - Klient-validering er ikke håndhævelse.

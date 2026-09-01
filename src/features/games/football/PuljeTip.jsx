@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { puljenTaeller } from '../../../lib/ligaPoint';
-import { useGameLeagues } from '../useGameLeagues';
+import { useGameStandings } from '../useGameStandings';
 import PuljeAfsloering from './PuljeAfsloering';
 import { useAuth } from '../../../context/AuthContext';
 import { COL } from '../../../lib/constants';
@@ -123,8 +123,12 @@ export default function PuljeTip({ game, matches }) {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const konfig = useMemo(() => puljeKonfig(game), [game]);
-  // Seerens ligaer i DETTE spil — bruges kun til forbeholdet nedenfor.
-  const { leagues } = useGameLeagues(gameId);
+  // ÉN lytter for både forbeholdet (ligaer) og afsløringen (liga-fæller med
+  // navne). `useGameStandings` giver begge dele — og kalder `useGameLeagues`
+  // indeni, så et direkte kald her ville være samme forespørgsel to gange
+  // (QC-fund). Prisen: stillingens lyttere (players, users) er nu også åbne
+  // på pulje-fanen, ikke kun på Stilling.
+  const { standings, leagues } = useGameStandings(gameId);
   const ligaForbehold = useMemo(() => puljeLigaForbehold(leagues), [leagues]);
   const [bet, setBet] = useState(undefined); // undefined = indlæser, null = intet tip
   const [picks, setPicks] = useState([]);    // toppen
@@ -399,7 +403,8 @@ export default function PuljeTip({ game, matches }) {
       {locked && (
         <PuljeAfsloering
           gameId={gameId} uid={uid} teams={teams} konfig={konfig}
-          facitTop={facit?.top || null} ligeNuTop={ligeNu?.top || null}
+          standings={standings} leagues={leagues}
+          facit={facit} ligeNu={ligeNu}
         />
       )}
 

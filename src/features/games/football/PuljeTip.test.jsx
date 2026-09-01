@@ -12,11 +12,16 @@ import { fileURLToPath } from 'node:url';
 
 vi.mock('../../../firebase', () => ({ db: {} }));
 
-// Seerens ligaer i spillet: styrbar pr. test. Uden mocken ville hooken lytte
-// på Firestore og altid give en tom liste, og forbeholdet kunne aldrig vises.
+// Seerens ligaer og liga-fæller i spillet: styrbare pr. test. Uden mocken
+// ville hooken lytte på Firestore og altid give tomme lister, og forbeholdet
+// kunne aldrig vises. PuljeTip bruger `useGameStandings` (ÉN lytter for både
+// forbehold og afsløring), ikke `useGameLeagues` direkte.
 const mockLeagues = { current: [] };
-vi.mock('../useGameLeagues', () => ({
-  useGameLeagues: () => ({ leagues: mockLeagues.current, loading: false, error: null }),
+const mockStand = { current: [] };
+vi.mock('../useGameStandings', () => ({
+  useGameStandings: () => ({
+    standings: mockStand.current, leagues: mockLeagues.current, loading: false, error: null,
+  }),
 }));
 
 // Firestore-lytteren: styrbar pr. test — mockBet.current er spillerens
@@ -33,10 +38,12 @@ vi.mock('firebase/firestore', () => ({
 // Afsløringen har sin egen testfil (PuljeAfsloering.test.jsx) og sin egen
 // Firestore-læsning (getDocs). Denne fils firestore-mock kender kun
 // doc/onSnapshot, så den rigtige komponent ville vælte på et låst spil.
-// Her måles PuljeTip — afsløringen erstattes af en markør, så det stadig
-// kan asserteres, HVORNÅR den monteres.
+// Her måles PuljeTip — afsløringen erstattes af en markør, der HUSKER sine
+// props, så det kan asserteres både HVORNÅR den monteres og HVAD den får med.
+// En markør, der ignorerede props, beviste 0 % om koblingen (Test Manager-fund).
+const mockAfsloering = vi.fn(() => <div data-testid="pulje-afsloering-mock" />);
 vi.mock('./PuljeAfsloering', () => ({
-  default: () => <div data-testid="pulje-afsloering-mock" />,
+  default: (p) => mockAfsloering(p),
 }));
 
 vi.mock('../../../context/AuthContext', () => ({
@@ -52,7 +59,9 @@ import PuljeTip, { topTitel, sektionsNavn, puljeLigaForbehold } from './PuljeTip
 import { PREMIER_LEAGUE_TEAMS_2026 } from '../../../data/premierLeagueTeams2026';
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
 
-beforeEach(() => { vi.clearAllMocks(); mockBet.current = null; mockLeagues.current = []; });
+beforeEach(() => {
+  vi.clearAllMocks(); mockBet.current = null; mockLeagues.current = []; mockStand.current = [];
+});
 
 describe('PuljeTip — holdene kommer fra spillet', () => {
   it('viser de engelske hold på et Premier League-spil', () => {
@@ -422,5 +431,40 @@ describe('PuljeTip — afsløringen monteres KUN når tippet er låst', () => {
     // Et forsøg på at læse ville bare give en fejl at sluge.
     render(<PuljeTip game={base} matches={[]} />);
     expect(screen.queryByTestId('pulje-afsloering-mock')).toBeNull();
+  });
+});
+
+describe('PuljeTip — afsløringen får det, den skal regne på', () => {
+  // Låst PL-spil med kampe i gang: "lige nu" findes, facit gør ikke.
+  const laastPL = plGame({ puljeLockAt: Date.now() - 1000 });
+  const medUspillet = [...SPILLEDE, { home: 'H1', away: 'H3', homeGoals: null, awayGoals: null }];
+
+  it('midt i sæsonen: spillets id, seerens uid, hold, konfiguration, stilling, ligaer og "lige nu" — facit er null', () => {
+    mockLeagues.current = [{ id: 'k', name: 'Kontoret', memberUids: ['A', 'B'] }];
+    mockStand.current = [{ uid: 'A', name: 'Anna' }, { uid: 'B', name: 'Bo' }];
+    render(<PuljeTip game={laastPL} matches={medUspillet} />);
+    expect(mockAfsloering).toHaveBeenCalled();
+    const p = mockAfsloering.mock.calls.at(-1)[0];
+    expect(p.gameId).toBe('pl');
+    expect(p.uid).toBe('A');
+    // Holdene får visningsnavne på vejen (`vis`) — det er SPILLETS 8 hold.
+    expect(p.teams.map((t) => t.name)).toEqual(HOLD8.map((t) => t.name));
+    expect(p.konfig).toEqual(expect.objectContaining({ poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10 }));
+    expect(p.standings).toBe(mockStand.current);
+    expect(p.leagues).toBe(mockLeagues.current);
+    // Vinderne af de 4 kampe er toppen lige nu; bunden er 3 af taberne.
+    expect(p.ligeNu.top).toEqual(new Set(['H1', 'H3', 'H5', 'H7']));
+    expect(p.ligeNu.bund).toBeInstanceOf(Set);
+    expect(p.ligeNu.bund.size).toBe(3);
+    expect(p.facit).toBeNull();
+  });
+
+  it('sæsonslut: facit med top og bund — og "lige nu" er null, så afsløringen selv må falde tilbage', () => {
+    render(<PuljeTip game={laastPL} matches={SPILLEDE} />);
+    const p = mockAfsloering.mock.calls.at(-1)[0];
+    expect(p.facit.top).toEqual(expect.arrayContaining(['H1', 'H3', 'H5', 'H7']));
+    expect(p.facit.top).toHaveLength(4);
+    expect(p.facit.bund).toHaveLength(3);
+    expect(p.ligeNu).toBeNull();
   });
 });

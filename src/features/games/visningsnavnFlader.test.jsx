@@ -27,13 +27,12 @@ vi.mock('firebase/firestore', () => ({
   doc: () => ({}),
   onSnapshot: (_ref, cb) => { cb({ exists: () => false, data: () => null }); return () => {}; },
 }));
-// PuljeTip henter seerens ligaer for at kunne tage forbehold om puljen (den
-// tæller ikke i ligaer med sen startrunde). Denne fil mocker `firebase/firestore`
-// PARTIELT — kun `doc` og `onSnapshot` — så hookens `query`/`where` ville
-// vælte renderen her. Denne fil måler visningsnavne, ikke ligaer, så hooken
-// mockes helt.
-vi.mock('./useGameLeagues', () => ({
-  useGameLeagues: () => ({ leagues: [], loading: false, error: null }),
+// PuljeTip henter seerens ligaer og liga-fæller (forbehold om puljen og
+// afsløringen efter deadline). Denne fil mocker `firebase/firestore` PARTIELT
+// — kun `doc` og `onSnapshot` — så hookens `query`/`where` ville vælte
+// renderen her. Denne fil måler visningsnavne, ikke ligaer, så hooken mockes helt.
+vi.mock('./useGameStandings', () => ({
+  useGameStandings: () => ({ standings: [], leagues: [], loading: false, error: null }),
 }));
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'A' } }) }));
 vi.mock('./gameActions', () => ({ setPuljeBet: vi.fn(), setPlayerFavoriteTeam: vi.fn() }));

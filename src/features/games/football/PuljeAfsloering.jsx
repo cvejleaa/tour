@@ -32,11 +32,16 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { COL } from '../../../lib/constants';
 import ClubBadge from '../../../components/ClubBadge';
-import { useGameStandings } from '../useGameStandings';
 import { fmtPoints } from '../../../lib/daNum';
 import {
   erAfgjort, holdTilslutning, puljeRangliste, puljeVindere,
 } from './puljeAfsloering';
+
+/** Set uanset om kilden gav et Set, en liste eller ingenting. */
+function saet(x) {
+  if (x instanceof Set) return x;
+  return new Set(Array.isArray(x) ? x : []);
+}
 
 /**
  * En enegænger blandt to tip er en mønt, ikke en bedrift. Samme tærskel som
@@ -56,30 +61,56 @@ export function enegaengerTekst(enesteUid, uid, navnAf) {
   return navn ? `kun ${navn}` : 'kun én spiller';
 }
 
+/**
+ * @param {object} p
+ * @param {Array} p.standings  liga-fæller MED navne — fra `useGameStandings`,
+ *   givet med som prop. Komponenten åbner ingen egen lytter: første udgave
+ *   kaldte hooken selv, oven i at PuljeTip allerede havde `useGameLeagues`,
+ *   og `useGameStandings` kalder dén IGEN indeni — samme forespørgsel, to
+ *   abonnementer, stik imod hookens egen kommentar (QC-fund). Én lytter, ét
+ *   sted, sendt ned.
+ * @param {Array} p.leagues     seerens ligaer i spillet
+ * @param {{top:Set|null, bund:Set|null}|null} p.facit     endeligt (klientens)
+ * @param {{top:Set|null, bund:Set|null}|null} p.ligeNu    "hvis tabellen sluttede i dag"
+ */
 export default function PuljeAfsloering({
-  gameId, uid, teams, konfig, facitTop, ligeNuTop,
+  gameId, uid, teams, konfig, standings, leagues, facit, ligeNu,
 }) {
   // undefined = henter · [] = ingen tip ELLER må ikke læse. De to sidste er
   // med vilje SAMME tilstand: begge skal tie, og ingen læser forskellen.
   // Første udgave holdt dem adskilt (null/[]), og mutationen "behandl fejl
   // som tom liste" overlevede — fordi den var ækvivalent.
   const [bets, setBets] = useState(undefined);
-  const { standings, leagues } = useGameStandings(gameId);
   const [ligaId, setLigaId] = useState(null);
 
   useEffect(() => {
     if (!gameId) return undefined;
     let aktiv = true;
     getDocs(collection(db, COL.GAMES, gameId, COL.GAME_PULJE))
-      .then((snap) => { if (aktiv) setBets(snap.docs.map((d) => ({ uid: d.id, ...d.data() }))); })
+      // DOKUMENT-ID'ET BINDER IDENTITETEN — som på serveren (gameScoring.js,
+      // index.js bruger d.id). Første udgave havde spreadet SIDST, så et
+      // `uid`-felt i data overskrev id'et: et skævt dokument (kun muligt fra
+      // konsollen eller et script — reglen kræver uid == id ved skrivning)
+      // kunne få fladen til at sige "kun dig" om en andens tip (Security-fund).
+      .then((snap) => { if (aktiv) setBets(snap.docs.map((d) => ({ ...d.data(), uid: d.id }))); })
       .catch(() => { if (aktiv) setBets([]); });   // stille — se toppen
     return () => { aktiv = false; };
   }, [gameId]);
 
   const afgjort = erAfgjort(bets);
   // ÉN KILDE: er puljen afgjort, bruges det endelige facit; ellers "lige nu".
-  const topHold = afgjort ? (facitTop || null) : (ligeNuTop || null);
-  const topSet = useMemo(() => (topHold instanceof Set ? topHold : new Set(topHold || [])), [topHold]);
+  //
+  // MEN "LIGE NU" KAN VÆRE TOM, NÅR DET BETYDER MEST. PuljeTip nulstiller
+  // `ligeNu`, så snart klientens eget facit findes — "lige nu" er bygget til
+  // puls MENS sæsonen kører. Er serveren så endnu ikke afregnet (ét af vores
+  // kampdokumenter mangler et resultat, mens den officielle tabel er komplet
+  // — en race, huset kender), ville toppen være tom, `puljeScore` give 0 for
+  // ALLE, og hele ranglisten sige "ingen ramte noget" i det øjeblik puljen
+  // faktisk afgøres (QC-fund, blokerende). Derfor falder "lige nu" tilbage på
+  // klientens facit, når den selv er tom.
+  const kilde = afgjort ? facit : (ligeNu || facit);
+  const topSet = useMemo(() => saet(kilde?.top), [kilde]);
+  const bundSet = useMemo(() => saet(kilde?.bund), [kilde]);
 
   const navnAf = (u) => standings.find((s) => s.uid === u)?.name || null;
 
@@ -96,12 +127,29 @@ export default function PuljeAfsloering({
 
   if (!bets?.length) return null; // henter, må ikke læse, eller ingen har tippet — tie
 
-  const valg = { antal: konfig.poolSize, perTeam: konfig.perTeam, perfectBonus: konfig.perfectBonus };
-  const hold = holdTilslutning(bets, teams).filter((h) => h.antal > 0);
+  const valg = {
+    antal: konfig.poolSize, perTeam: konfig.perTeam, perfectBonus: konfig.perfectBonus,
+    nedSize: konfig.nedSize,
+  };
+  // ALLE hold, også dem ingen tror på. Første udgave filtrerede 0-stemmer væk
+  // uden begrundelse; "ingen tror på Randers" er information i sig selv, og
+  // planen lovede konsensus OG enegængere i samme billede (QC-fund).
+  const hold = holdTilslutning(bets, teams);
   const antalTip = bets.length;
+  const nedSize = Number(konfig.nedSize) || 0;
+  const maxRigtige = konfig.poolSize + nedSize;
+  // Serveren giver perfekt-bonus PR. SPØRGSMÅL (gameScoring.js: top og bund
+  // afregnes hver for sig med samme `perfectBonus`). En perfekt række i PL er
+  // derfor +20, ikke +10 — første udgave skrev spillets ene tal.
+  const perfektBonus = konfig.perfectBonus * (nedSize > 0 ? 2 : 1);
   const raekker = medlemmer.length >= 2
-    ? puljeRangliste(bets, medlemmer, topSet, valg, afgjort)
+    ? puljeRangliste(bets, medlemmer, { top: topSet, bund: bundSet }, valg, afgjort)
     : null;
+  // Ligaen findes, men dens medlemmer er (endnu) ikke i `standings` — det
+  // server-skrevne `players.leagueIds` kan halte efter en tilmelding. Uden
+  // en sætning ville hele afsnittet bare udeblive; stillingen forklarer det
+  // (GameStandings.jsx), så det gør vi også (QC-fund).
+  const ligaUdenFaeller = valgtLiga && medlemmer.length < 2;
   const vindere = afgjort && raekker ? puljeVindere(raekker) : null;
 
   return (
@@ -145,6 +193,12 @@ export default function PuljeAfsloering({
         </tbody>
       </table>
 
+      {ligaUdenFaeller && (
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0.9rem 0 0' }} data-testid="pulje-ingen-faeller">
+          Ingen af {valgtLiga.name || 'ligaens'} medlemmer er med i stillingen endnu — puljens rangliste kommer, når de er.
+        </p>
+      )}
+
       {raekker && (
         <>
           <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.9rem' }}>
@@ -168,8 +222,8 @@ export default function PuljeAfsloering({
           {vindere && (
             <p className="badge badge--green" style={{ display: 'block' }} data-testid="pulje-vinder">
               🏆 Puljen er afgjort: <strong>{vindere.map((v) => (v.uid === uid ? 'du' : v.navn)).join(' og ')}</strong>
-              {' '}vandt med {vindere[0].rigtige} af {konfig.poolSize}
-              {vindere[0].rigtige === konfig.poolSize && konfig.perfectBonus > 0 && <> — perfekt række, +{konfig.perfectBonus} bonus</>}
+              {' '}vandt med {vindere[0].rigtige} af {maxRigtige}
+              {vindere[0].rigtige === maxRigtige && perfektBonus > 0 && <> — perfekt række, +{perfektBonus} bonus</>}
               {' '}(+{fmtPoints(vindere[0].point)} point).
             </p>
           )}
@@ -179,7 +233,7 @@ export default function PuljeAfsloering({
                 {r.uid === uid ? 'du' : r.navn}
                 {' — '}
                 {r.tippede
-                  ? <>{r.rigtige} af {konfig.poolSize}{afgjort && <> · +{fmtPoints(r.point)}</>}</>
+                  ? <>{r.rigtige} af {maxRigtige}{afgjort && <> · +{fmtPoints(r.point)}</>}</>
                   : <span style={{ color: 'var(--c-muted)' }}>tippede ikke</span>}
               </li>
             ))}
