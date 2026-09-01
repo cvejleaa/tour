@@ -982,7 +982,19 @@ a:focus-visible,
 @media (min-width: 620px) { .pulje-grid { grid-template-columns: repeat(3, 1fr); } }
 .pulje-team { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.7rem; text-align: left;
   background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: var(--radius-sm); position: relative; }
-.pulje-team:disabled { cursor: default; opacity: 0.55; }
+/* DÆMPNINGEN LIGGER PÅ BØRNENE, IKKE PÅ KNAPPEN.
+   `opacity` danner en stacking context, og et barn kan ALDRIG være mere
+   uigennemsigtigt end sin forælder — pokalen kunne derfor ikke reddes med en
+   regel på `.pulje-team__actual`. Den skal udelades ved kilden. */
+.pulje-team:disabled { cursor: default; }
+.pulje-team:disabled > *:not(.pulje-team__actual) { opacity: 0.55; }
+/* ER TIPPET LÅST, DÆMPES INTET. `disabled` betyder to forskellige ting her:
+   "maks er nået, ikke DENNE" — hvor dæmpningen er en besked — og "hele tippet
+   er lukket", hvor der ikke er nogen handling at fraråde. I den anden var HELE
+   gitteret dæmpet, og pokalerne, der viser hvem der står der lige nu, blev
+   ulæselige netop når de var det eneste tilbage at kigge på. Låsen står i
+   stedet som en tydelig pille over gitteret. */
+.pulje-team--laast:disabled > * { opacity: 1; }
 .pulje-team__name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pulje-team--chosen { border-color: var(--c-pitch); background: var(--c-pitch-weak); box-shadow: 0 0 0 1px var(--c-pitch); }
 .pulje-team__check { margin-left: auto; color: var(--c-pitch); font-weight: 800; }

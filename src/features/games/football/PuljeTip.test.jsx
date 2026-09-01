@@ -6,6 +6,9 @@
 // have været umuligt at afgive rigtigt.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 vi.mock('../../../firebase', () => ({ db: {} }));
 
@@ -29,7 +32,7 @@ vi.mock('../gameActions', () => ({ setPuljeBet: (...a) => mockSetPuljeBet(...a) 
 
 // Fixtures har game.pulje med: komponenten er konfigurations-gated (#8) og
 // renderer intet uden pulje — fanen er alligevel data-gated på samme felt.
-import PuljeTip from './PuljeTip';
+import PuljeTip, { topTitel } from './PuljeTip';
 import { PREMIER_LEAGUE_TEAMS_2026 } from '../../../data/premierLeagueTeams2026';
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
 
@@ -151,11 +154,16 @@ describe('PuljeTip — PL-formen (top + bund)', () => {
     expect(linje.textContent).toContain('4 af 4');
   });
 
-  it('SL-formen er uændret: ét grid, 6 valg, ingen bund-sektion', () => {
+  it('SL-formen: ét grid, 6 valg, ingen bund-sektion — men EN overskrift', () => {
     render(<PuljeTip game={{ id: 'sl', teams: HOLD8, pulje: { poolSize: 6 }, puljeLockAt: Date.now() + 86400000 }} matches={[]} />);
     expect(screen.queryByText(/Bunden — vælg/)).toBeNull();
     expect(screen.getByText('0/6 valgt')).toBeInTheDocument();
     expect(screen.getByText(/mesterskabsspillet/)).toBeInTheDocument();
+    // Overskriften manglede HELT for spil uden bundsektion — antallet stod kun
+    // i brødteksten, mens PL sagde det direkte over gitteret.
+    expect(screen.getByRole('heading', { name: '🏆 Mesterskabsspillet — vælg 6' })).toBeInTheDocument();
+    // Og den må ikke hedde "Toppen": der er ingen bund at være top FOR.
+    expect(screen.queryByText(/Toppen — vælg/)).toBeNull();
   });
 });
 
@@ -173,5 +181,77 @@ describe('PuljeTip — "lige nu" har brug for nok spillede kampe', () => {
       { home: 'H3', away: 'H4', homeGoals: null, awayGoals: null }, // uspillet
     ]} />);
     expect(screen.queryByTestId('pulje-ligenu')).toBeNull();
+  });
+});
+
+describe('topTitel — overskriften over holdgitteret', () => {
+  it('spil MED bund: "Toppen", fordi der er en bund at være top for', () => {
+    expect(topTitel({ poolSize: 4, nedSize: 3, labels: { top: 'top 4' } }))
+      .toBe('🏆 Toppen — vælg 4');
+  });
+
+  it('spil UDEN bund: spillets eget ord for feltet, med stort begyndelsesbogstav', () => {
+    expect(topTitel({ poolSize: 6, nedSize: 0, labels: { top: 'mesterskabsspillet' } }))
+      .toBe('🏆 Mesterskabsspillet — vælg 6');
+  });
+
+  it('ANTALLET følger konfigurationen — det var hele pointen med overskriften', () => {
+    expect(topTitel({ poolSize: 8, nedSize: 0, labels: { top: 'slutspillet' } }))
+      .toBe('🏆 Slutspillet — vælg 8');
+  });
+
+  it('tomt eller manglende ord falder tilbage på "Toppen", ikke på et hul', () => {
+    // `puljeKonfig` typetjekker labels.top, men ikke længden — en admin kan
+    // sætte "". Uden vagten ville overskriften blive "🏆  — vælg 6".
+    expect(topTitel({ poolSize: 6, nedSize: 0, labels: { top: '' } }))
+      .toBe('🏆 Toppen — vælg 6');
+    expect(topTitel({ poolSize: 6, nedSize: 0, labels: { top: '   ' } }))
+      .toBe('🏆 Toppen — vælg 6');
+    expect(topTitel({ poolSize: 6, nedSize: 0 })).toBe('🏆 Toppen — vælg 6');
+  });
+});
+
+describe('PuljeTip — pokalen skal kunne ses, når tippet er låst', () => {
+  // Superligaens deadline er passeret, PL's er ikke. Det er ikke to designs,
+  // men ét design i to tilstande — og den låste tilstand slukkede lyset i
+  // præcis den information, der stadig var interessant.
+  const laastSpil = { id: 'sl', teams: HOLD8, pulje: { poolSize: 6 }, puljeLockAt: Date.now() - 1000 };
+  const aabentSpil = { id: 'sl', teams: HOLD8, pulje: { poolSize: 6 }, puljeLockAt: Date.now() + 86400000 };
+
+  it('låst gitter mærkes, så CSS kan lade være med at dæmpe det', () => {
+    const { container } = render(<PuljeTip game={laastSpil} matches={[]} />);
+    const knapper = container.querySelectorAll('.pulje-team');
+    expect(knapper.length).toBe(HOLD8.length);
+    expect([...knapper].every((k) => k.classList.contains('pulje-team--laast'))).toBe(true);
+  });
+
+  it('ÅBENT gitter mærkes ikke — dér betyder dæmpningen stadig "ikke denne"', () => {
+    const { container } = render(<PuljeTip game={aabentSpil} matches={[]} />);
+    const knapper = container.querySelectorAll('.pulje-team');
+    expect(knapper.length).toBe(HOLD8.length);
+    expect([...knapper].some((k) => k.classList.contains('pulje-team--laast'))).toBe(false);
+  });
+});
+
+describe('Pulje-gitteret — CSS-kontrakten i theme.css', () => {
+  // Jsdom anvender ingen CSS, så markuppen alene beviser ingenting: klassen
+  // kunne stå på knappen uden at der fandtes en regel for den.
+  const css = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), '../../../styles/theme.css'),
+    'utf8',
+  );
+  const blok = css.slice(css.indexOf('.pulje-team {'), css.indexOf('.pulje-team__name {'));
+
+  it('dæmpningen ligger på BØRNENE og undtager pokalen', () => {
+    // Rød af den gamle regel `.pulje-team:disabled { … opacity: 0.55; }`:
+    // opacity på selve knappen danner en stacking context, og et barn kan
+    // ikke være mere uigennemsigtigt end sin forælder. Pokalen kunne derfor
+    // ikke reddes med en regel på barnet.
+    expect(blok).not.toMatch(/\.pulje-team:disabled \{[^}]*opacity/);
+    expect(blok).toMatch(/\.pulje-team:disabled > \*:not\(\.pulje-team__actual\) \{[^}]*opacity: 0\.55/);
+  });
+
+  it('et LÅST felt dæmpes slet ikke', () => {
+    expect(blok).toMatch(/\.pulje-team--laast:disabled > \* \{[^}]*opacity: 1/);
   });
 });

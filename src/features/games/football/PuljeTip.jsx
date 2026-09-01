@@ -32,6 +32,25 @@ function alleSpillet(matches) {
   );
 }
 
+/**
+ * Overskriften over holdgitteret — den, PL havde og Superligaen manglede.
+ *
+ * "Toppen" giver kun mening op mod en bund. Har spillet ingen bundsektion,
+ * bruges spillets eget ord for feltet (`labels.top`, fx "mesterskabsspillet"),
+ * så overskriften siger, hvad der vælges TIL.
+ *
+ * Er ordet tomt — `labels.top` er kun typetjekket, ikke længdetjekket, i
+ * `puljeKonfig` — falder den tilbage på "Toppen". Uden det ville
+ * overskriften blive "🏆  — vælg 6" med et hul, hvor navnet skulle stå.
+ */
+export function topTitel(konfig) {
+  const antal = konfig.poolSize;
+  if (konfig.nedSize > 0) return `🏆 Toppen — vælg ${antal}`;
+  const ord = (konfig.labels?.top || '').trim();
+  const navn = ord ? ord.charAt(0).toUpperCase() + ord.slice(1) : 'Toppen';
+  return `🏆 ${navn} — vælg ${antal}`;
+}
+
 export default function PuljeTip({ game, matches }) {
   const gameId = game?.id;
   const { user } = useAuth();
@@ -138,8 +157,23 @@ export default function PuljeTip({ game, matches }) {
 
   const teams = teamsOf(game);
 
+  // Overskriften over holdgitteret.
+  //
+  // Den blev FØR undertrykt for spil uden bundsektion — `nedSize > 0 ? … :
+  // null` — ud fra at én sektion ikke behøver et navn. Men overskriften bærer
+  // også ANTALLET, og uden den skulle man læse brødteksten for at vide, at
+  // Superligaen vil have 6. PL, som har to sektioner, sagde det direkte over
+  // gitteret. Det var hele forskellen mellem de to flader.
+  //
+  // Ét navn er ikke nok til begge: "Toppen" giver kun mening op mod en bund.
+  // Har spillet ingen, bruges spillets eget ord for feltet (`labels.top`, fx
+  // "mesterskabsspillet"), så overskriften siger, hvad der vælges TIL.
   // Én sektion (toppen eller bunden): grid af holdknapper med valg,
   // facit-markering (🏆/⚠️) og "lige nu"-markering, når facit mangler.
+  // LÅST er ikke det samme som "ikke DENNE". Er hele tippet lukket, er der
+  // ingen handling at fraråde — og så er pokalen det eneste, der stadig er
+  // interessant. Se `.pulje-team--laast` i theme.css.
+  const laast = ikkeAabnet || locked;
   const Sektion = ({ titel, maks, valgte, toggle, facitHold, ligeNuHold, ikon }) => {
     const chosen = new Set(valgte);
     return (
@@ -153,7 +187,7 @@ export default function PuljeTip({ game, matches }) {
             return (
               <button
                 key={t.name}
-                className={`pulje-team ${isChosen ? 'pulje-team--chosen' : ''} ${hitClass}`}
+                className={`pulje-team ${isChosen ? 'pulje-team--chosen' : ''} ${hitClass}${laast ? ' pulje-team--laast' : ''}`}
                 disabled={ikkeAabnet || locked || busy || (!isChosen && valgte.length >= maks)}
                 onClick={() => toggle(t.name)}
                 aria-pressed={isChosen}
@@ -246,7 +280,7 @@ export default function PuljeTip({ game, matches }) {
       {err && <p className="badge badge--red mb-2">{err}</p>}
 
       <Sektion
-        titel={konfig.nedSize > 0 ? `🏆 Toppen — vælg ${konfig.poolSize}` : null}
+        titel={topTitel(konfig)}
         maks={konfig.poolSize} valgte={picks}
         toggle={toggleI(picks, setPicks, nedPicks, konfig.poolSize)}
         facitHold={facit?.top || null} ligeNuHold={ligeNu?.top || null} ikon="🏆"
