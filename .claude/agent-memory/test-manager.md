@@ -391,3 +391,34 @@ faktisk blive nået af, og findes det input i noget fixture?
   podiepladserne ud fra fixturets `totalPoints`/ligapoint. En fraværs-
   assertion på en podie-spiller ville have bestået uanset om `rundePile`
   virkede.
+
+## `selvmaal` — IT=39 mærkes rødt på kampkortet (commit 218373b, sept. 2026)
+
+- **En committet fixture kan allerede dække en NY gren, uden at nogen
+  assertion bruger det.** `functions-platform/fixtures/livescore-kampe.json`
+  (valgt på "kode-dækning", ifølge filens egen docstring) indeholder allerede
+  et ægte IT=39-selvmål (Eid 1793566, CRY–MCI, minut 56, `Nm:1`, scorer
+  Donnarumma) — det blev IKKE hentet til denne ændring, det lå der i forvejen
+  (brugt af en helt anden test, om manglende tilskuertal). Kørt manuelt
+  gennem `detaljerAf` giver det `selvmaal: true` korrekt, men INGEN testfil
+  asserterer på det — hele selvmåls-dækningen i `kampDetaljer.test.js` bruger
+  håndbyggede events. Når en fixture-fil hævder at være valgt på
+  kode-dækning, så tjek ved hver ny gren om fixturen allerede INDEHOLDER et
+  eksempel (grep/parse den rå JSON for hændelseskoden), før du konkluderer at
+  den mangler — og læg en assertion på det ægte tilfælde, ikke kun det
+  håndbyggede.
+- **Mutationer, der DØDE (egen kørsel, bekræftet):** `selvmaal: h.IT === X`
+  vendt til `!==`; `SELVMAAL_IT` ændret fra 39 til 36 (et almindeligt måls
+  kode); skrivningen i `detaljerAf` ændret fra "altid sæt feltet" til "kun
+  sæt ved true" (fanget af `Object.hasOwn`-testen); `{g.selvmaal && …}` i
+  `FootballTip.jsx` vendt om til `{!g.selvmaal && …}`; ordet flyttet til FØR
+  holdnavnet i DOM'en (fanget af `post.indexOf('selvmål') >
+  post.indexOf(holdnavn)`); `detaljeNiveau`'s `ukendte`-led fjernet fra
+  OR-kæden. Ingen mutation overlevede.
+- **Farven (`var(--c-err)` vs. en ikke-eksisterende `--c-danger`) er reelt
+  ubundet af nogen test.** `theme.test.js` binder kun accent-temaets EGNE
+  variable (`TEMA_VARIABLE`), ikke en generel "findes hver `var(--c-x)` brugt
+  i src/ i theme.css"-kontrol — den findes slet ikke i repoet. Lavrisiko (ville
+  fejle synligt i browseren, ikke i testen), men værd at bygge en gang som en
+  udvidelse af `theme.test.js`, der scanner alle `.jsx`-filer for
+  `var(--c-[a-z-]+)` og krydstjekker navnet mod `:root`-blokken.

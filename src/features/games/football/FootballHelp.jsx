@@ -373,6 +373,11 @@ export default function FootballHelp({ game }) {
             ved slutfløjt i <strong>næsten hver anden kamp</strong>.
           </p>
           <p style={{ margin: '0.5rem 0 0' }}>
+            Et <strong>selvmål</strong> er mærket med rødt. Navnet i parentes er det hold,
+            der FIK målet — altså modstanderen af den, der sparkede den ind — så uden
+            mærkatet ville det se ud, som om manden spillede der.
+          </p>
+          <p style={{ margin: '0.5rem 0 0' }}>
             <strong>Det ændrer ingenting.</strong> Point følger slutresultatet og kun det.
             Halvlegen er en sjov detalje at drille hinanden med, ikke et regnskab —
             der findes ingen point for at have ført ved pausen, og der kommer ikke nogen.

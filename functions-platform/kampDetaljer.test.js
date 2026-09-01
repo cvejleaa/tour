@@ -24,7 +24,7 @@ const {
   syncKampDetaljerCore, detaljerAf, maalAf, kaedeOk, noegleAfKamp,
   heltal, tilskuertal, hentNoegler, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER, DETALJE_LOFT, AFVIST_KARANTAENE_MS, API,
-  DETALJE_BUDGET_BROEK, detaljeNiveau,
+  DETALJE_BUDGET_BROEK, detaljeNiveau, DETALJE_VERSION,
 } = require('./kampDetaljer');
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/livescore-kampe.json', import.meta.url), 'utf8'));
@@ -514,10 +514,14 @@ describe('syncKampDetaljerCore', () => {
     expect(db.commits).toBe(0);
   });
 
-  it('springer en kamp over, der ALLEREDE har detaljer', async () => {
+  it('springer en kamp over, der har detaljer i den AKTUELLE udgave', async () => {
+    // VENDT BEVIDST. Testen stod før uden `detaljerVersion` og fastfrøs
+    // dermed netop den fejl, Quality Control fandt: et NYT felt kunne aldrig
+    // nå en kamp, der allerede var hentet. "Allerede hentet" er ikke længere
+    // nok — det skal være hentet af en kode, der skriver de samme felter.
     const db = fakeDb(TEAMS, []);
     const ud = await syncKampDetaljerCore(db, FieldValue, opts({
-      only: [{ id: 'r1-a', data: { ...KAMP_DATA, detaljerSyncedAt: 'TS' } }],
+      only: [{ id: 'r1-a', data: { ...KAMP_DATA, detaljerSyncedAt: 'TS', detaljerVersion: DETALJE_VERSION } }],
     }));
     expect(ud.manglede).toBe(0);
   });
@@ -883,6 +887,26 @@ describe('maalAf — selvmål', () => {
     expect(m.selvmaal).toBe(true);
   });
 
+  it('mærker fixturens ÆGTE selvmål (CRY–MCI, Donnarumma 56\')', () => {
+    // TEST MANAGERS FUND, og en rettelse af min egen påstand: jeg fortalte
+    // rollerne, at fixturen ikke havde et selvmål. Den har — Eid 1793566,
+    // Donnarumma i 56'. Hele selvmåls-dækningen var håndbygget, mens den
+    // ÆGTE payload lå ubundet ved siden af.
+    //
+    // Forskellen er ikke kosmetisk: en håndbygget hændelse er skrevet af den
+    // samme, der skrev koden, og indkoder samme forståelse — også når den er
+    // forkert. Kildens eget svar gør ikke.
+    const m = maalAf(kamp('1793566').incidents.Incs);
+    const selv = m.filter((x) => x.selvmaal);
+    expect(selv).toHaveLength(1);
+    expect(selv[0].scorer).toBe('Gianluigi Donnarumma');
+    expect(selv[0].minut).toBe(56);
+    // Krediteret HJEMMEHOLDET, som fik målet — Donnarumma spiller for udeholdet.
+    expect(selv[0].hold).toBe('home');
+    // …og kampens øvrige mål er IKKE selvmål.
+    expect(m.filter((x) => !x.selvmaal)).toHaveLength(m.length - 1);
+  });
+
   it('mærker IKKE et almindeligt mål som selvmål', () => {
     // De tre koder, målingen fandt hos scorerens EGET hold. Hver for sig:
     // ét objekt med alle tre ville bestå, selv om to led var fjernet.
@@ -944,5 +968,67 @@ describe('maalAf — selvmål', () => {
     );
     expect(Object.hasOwn(svar.felter.maal[0], 'selvmaal')).toBe(true);
     expect(svar.felter.maal[0].selvmaal).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VERSIONSMÆRKET — så et NYT FELT når de kampe, der allerede er hentet.
+//
+// Quality Controls blokerende fund: `if (d.detaljerSyncedAt) return false;` var
+// permanent, så da `selvmaal` kom til, ville de fem selvmål, der allerede stod
+// på skærmen, aldrig blive mærket. Husets "korrekt er ikke komplet" — bagud.
+//
+// Versionsmærket er valgt frem for et migreringsscript, fordi et script ville
+// være en SKRIVNING I PRODUKTIONSDATA, med tør-kørsel og godkendelse, og hele
+// forløbet igen ved næste felt. Sweep'et er selvhelende i forvejen.
+// ---------------------------------------------------------------------------
+describe('DETALJE_VERSION', () => {
+  const kampMed = (extra) => [{
+    id: 'r1-a',
+    data: { ...KAMP_DATA, result: '1', ...extra },
+  }];
+  const koer = (extra) => syncKampDetaljerCore(
+    fakeDb(TEAMS, []), FieldValue, opts({ fetchFn: fakeFetch(), only: kampMed(extra) }),
+  );
+
+  it('henter en kamp igen, når den er hentet i en ÆLDRE udgave', () => {
+    // Det er hele pointen: uden versions-leddet var svaret 0.
+    return koer({ detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: DETALJE_VERSION - 1 })
+      .then((ud) => expect(ud.manglede).toBe(1));
+  });
+
+  it('henter en kamp igen, når versionen MANGLER helt', () => {
+    // De kampe, der blev hentet før mærket fandtes. Number(undefined) er NaN,
+    // og NaN >= n er falsk — men det skal bindes, ikke antages.
+    return koer({ detaljerSyncedAt: new Date('2026-08-01') })
+      .then((ud) => expect(ud.manglede).toBe(1));
+  });
+
+  it('lader en kamp i AKTUEL udgave være i fred', () => {
+    return koer({ detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: DETALJE_VERSION })
+      .then((ud) => expect(ud.manglede).toBe(0));
+  });
+
+  it('lader en kamp i en NYERE udgave være i fred', () => {
+    // Et rul tilbage må ikke få den gamle kode til at overskrive nyere data
+    // med færre felter. `>=` og ikke `===`.
+    return koer({ detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: DETALJE_VERSION + 1 })
+      .then((ud) => expect(ud.manglede).toBe(0));
+  });
+
+  it('SKRIVER versionen sammen med detaljerne', () => {
+    // Uden dette ville hver kørsel hente hver kamp igen, for evigt.
+    const db = fakeDb(TEAMS, []);
+    return syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn: fakeFetch(), only: [{ id: 'r1-a', data: KAMP_DATA }],
+    })).then(() => {
+      expect(db.skrevet[0].felter.detaljerVersion).toBe(DETALJE_VERSION);
+    });
+  });
+
+  it('versionen er talt OP, da selvmaal kom til', () => {
+    // Båndet gøres rødt af den GAMLE værdi: var mærket ikke bumpet, ville de
+    // allerede hentede kampe aldrig få selvmåls-flaget.
+    expect(DETALJE_VERSION).toBeGreaterThanOrEqual(2);
   });
 });

@@ -87,8 +87,34 @@ const hentOpt = () => ({
  */
 const SKRIVBARE_FELTER = Object.freeze([
   'halvlegHome', 'halvlegAway', 'tilskuere', 'maal',
-  'detaljerSyncedAt', 'detaljerAfvistAt', 'detaljerAfvistGrund',
+  'detaljerSyncedAt', 'detaljerVersion', 'detaljerAfvistAt', 'detaljerAfvistGrund',
 ]);
+
+/**
+ * HVILKEN UDGAVE AF DETALJERNE STÅR PÅ KAMPEN?
+ *
+ * Findes, fordi et NYT FELT ellers aldrig når de kampe, der allerede er
+ * hentet. Filteret nedenfor springer en kamp over, når `detaljerSyncedAt` er
+ * sat, og dét er permanent — så da `selvmaal` kom til, ville de fem selvmål,
+ * der allerede stod på skærmen, være forblevet umærkede resten af sæsonen.
+ * Quality Control fandt det, og det er husets "korrekt er ikke komplet": en
+ * evne, der udvides, skal følges hele vejen ud — også bagud.
+ *
+ * VALGT FREM FOR ET MIGRERINGSSCRIPT, og det er en bevidst forskel. Et script,
+ * der nulstiller `detaljerSyncedAt`, ville være en SKRIVNING I
+ * PRODUKTIONSDATA — tør-kørsel, ejerens godkendelse, og hele forløbet igen
+ * næste gang et felt kommer til. Et versionsmærke gør sweep'et selvhelende:
+ * det henter kampene igen af sig selv, 8 pr. spil pr. kørsel, og tallet går
+ * mod nul. Ingen engangshandling, og næste felt koster ét ciffer.
+ *
+ * BUMP DEN, når `detaljerAf` begynder at skrive noget nyt eller noget andet.
+ * Glemmer man det, er straffen mild og synlig: det nye felt mangler på gamle
+ * kampe, præcis som nu.
+ *
+ *   1  halvleg, målscorere, tilskuertal
+ *   2  + selvmaal pr. mål
+ */
+const DETALJE_VERSION = 2;
 
 /** Felter, der aldrig må stå i en skrivning herfra — testens modpol. */
 const FORBUDTE_FELTER = Object.freeze(['result', 'homeGoals', 'awayGoals', 'kickoff']);
@@ -484,7 +510,10 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
   const mangler = alle.filter((m) => {
     const d = m.data || {};
     if (!d.result) return false;
-    if (d.detaljerSyncedAt) return false;
+    // Hentet FØR i en NYERE eller ens udgave? Så er der intet at gøre.
+    // Uden versions-leddet var svaret permanent, og et nyt felt kunne aldrig
+    // nå en kamp, der allerede var hentet.
+    if (d.detaljerSyncedAt && Number(d.detaljerVersion) >= DETALJE_VERSION) return false;
     const a = d.detaljerAfvistAt;
     if (!a) return true;
     const ms = typeof a.toMillis === 'function' ? a.toMillis() : new Date(a).getTime();
@@ -574,7 +603,10 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
       // update og ikke set(merge): set ville OPRETTE et kampdokument, hvis en
       // nøgle nogensinde pegede forkert. Og felterne plukkes af den frosne
       // liste, så et forbudt felt ikke kan følge med.
-      const skriv = { detaljerSyncedAt: FieldValue.serverTimestamp() };
+      const skriv = {
+        detaljerSyncedAt: FieldValue.serverTimestamp(),
+        detaljerVersion: DETALJE_VERSION,
+      };
       for (const felt of SKRIVBARE_FELTER) {
         if (Object.hasOwn(svar.felter, felt)) skriv[felt] = svar.felter[felt];
       }
@@ -637,6 +669,7 @@ function detaljeNiveau(d) {
 module.exports = {
   detaljeNiveau,
   SELVMAAL_IT,
+  DETALJE_VERSION,
   syncKampDetaljerCore,
   DETALJE_BUDGET_BROEK,
   detaljerAf, maalAf, kaedeOk, noegleAfKamp, heltal, tilskuertal, fladeHaendelser,

@@ -17,6 +17,27 @@ describe('FootballHelp følger spillet', () => {
     </MemoryRouter>,
   );
 
+  // Afsnittet om kampdetaljer er gatet på EVNEN (harKampdetaljer), som er
+  // nøglet på spil-id. Min første udgave af denne assertion lå i et test-spil
+  // uden evnen, og den fejlede — hvilket er den rigtige måde at opdage, at en
+  // gate virker.
+  it('forklarer selvmåls-mærkatet i et spil MED kampdetaljer', () => {
+    medSpil({ id: 'superliga2627', sync: { provider: 'superliga' } });
+    expect(screen.getByRole('heading', { name: /Halvleg, målscorere og tilskuertal/ }))
+      .toBeInTheDocument();
+    // INDHOLDET: guiden skal sige HVORFOR mærkatet findes — at navnet i
+    // parentes er det hold, der FIK målet. Uden den sætning tror læseren, at
+    // spilleren hører til dér, og så forklarer guiden ingenting.
+    expect(screen.getByText(/selvmål/i)).toBeInTheDocument();
+    expect(screen.getByText(/der FIK målet/)).toBeInTheDocument();
+  });
+
+  it('nævner ikke selvmål i et spil UDEN kampdetaljer', () => {
+    // Regelbogen må ikke forklare noget, spillet aldrig får.
+    medSpil({ id: 'et-andet-spil', sync: { provider: 'superliga' } });
+    expect(screen.queryByText(/selvmål/i)).toBeNull();
+  });
+
   it('forklarer pulje-tippet og tabel-delingen i et spil MED pulje', () => {
     const { container } = medSpil({ pulje: { poolSize: 6 }, standings: [{ rank: 1 }] });
     expect(container.textContent).toContain('Bonus: pulje-tip');
