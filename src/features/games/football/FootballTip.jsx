@@ -926,15 +926,43 @@ export default function FootballTip({ game, me, matches }) {
                         </strong>
                         {' '}<span className="match-card__maal-minut">{g.minut}′</span>
                         {' '}{g.scorer || 'ukendt'}
+                        {/* HOLDET, SPILLEREN SPILLER FOR — ikke det, der fik
+                            målet. Ved et selvmål er de to forskellige, og det
+                            er scorerens eget hold, kortet mangler: stillingen
+                            til venstre siger ALLEREDE, hvem målet gavner
+                            (1–0 er hjemmeholdets), så modtageren i parentes er
+                            ren gentagelse.
+
+                            Det kræver ingen ny datakilde. Et selvmål er pr.
+                            definition scoret af en spiller på det MODSATTE
+                            hold — det er netop dét kriterium, målingen i
+                            scripts/maal-selvmaal.mjs brugte til at fastslå, at
+                            IT=39 ER et selvmål (scoreren står i modstanderens
+                            startopstilling i 5 af 5). Begge holdnavne er
+                            allerede på kortet; siden skal bare vendes.
+
+                            FØRSTE UDGAVE SKREV MODTAGEREN og hængte ordet
+                            "selvmål" på til sidst. Den var ikke forkert, men
+                            den brugte parentesen på noget, der stod to
+                            centimeter til venstre, og lod det eneste, der
+                            manglede, blive ude.
+
+                            SKREVET SOM TO NÆSTEDE VALG og ikke som et
+                            XOR-udtryk: min første udgave var
+                            `(g.hold === 'home') !== !g.selvmaal`, og den var
+                            omvendt — en glemt udråbstegn. En sandhedstabel
+                            fangede den, men et udtryk, der KRÆVER en
+                            sandhedstabel, hører ikke hjemme i en visning. */}
                         {' '}<span className="match-card__maal-hold">
-                          ({g.hold === 'home' ? h.navn : a.navn})
+                          ({g.hold === 'home'
+                            ? (g.selvmaal ? a.navn : h.navn)
+                            : (g.selvmaal ? h.navn : a.navn)})
                         </span>
-                        {/* SELVMÅL. Uden mærkaten står scoreren med det hold,
-                            der FIK målet — altså modstanderens navn — og
-                            læses som deres mand. Serveren afgør det på
-                            kildens egen hændelseskode; fladen gætter ikke.
-                            Ordet står EFTER holdet, så det læses som en
-                            rettelse af netop dét, der ellers ville forvirre. */}
+                        {/* Ordet BLIVER, og det er ikke pynt: uden det ville
+                            "1–0 … (F.C. København)" se ud som en fejl, når
+                            stillingen lige har sagt, at Viborg scorede. Ordet
+                            er dét, der gør parentesen læsbar — og det bærer
+                            betydningen alene for en farveblind læser. */}
                         {g.selvmaal && (
                           <span className="match-card__selvmaal"> selvmål</span>
                         )}
