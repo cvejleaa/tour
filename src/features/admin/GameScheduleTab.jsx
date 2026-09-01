@@ -383,9 +383,22 @@ function GameRow({ game }) {
       if (d.uenige) dele.push(`${d.uenige} hvor kildens facit er et andet end vores`);
       if (d.uparsede) dele.push(`${d.uparsede} kunne ikke læses`);
       if (d.ukendte) dele.push(`${d.ukendte} kunne ikke kobles til kilden`);
+      if (d.utilgaengelige) dele.push(`${d.utilgaengelige} hvor kilden ikke svarede`);
+      // HALEN SIGES KUN, NÅR DEN ER SAND. Første udgave hængte "Afviste kampe
+      // prøves igen om en uge" på ubetinget, og den sætning var direkte
+      // forkert for en UKOBLET kamp: karantænen (detaljerAfvistAt) sættes kun
+      // ved uenig/ulæselig. En ukoblet kamp prøves igen ved HVER kørsel og
+      // bliver ved med at fejle, til koblingen rettes — så beskeden fik
+      // ejeren til at vente på noget, der aldrig sker af sig selv. Det er
+      // husets "korrekt er ikke komplet" i tekstform.
+      const hale = [];
+      if (d.uenige || d.uparsede) hale.push('Afviste kampe prøves igen om en uge');
+      if (d.ukendte) hale.push('Ukoblede kampe retter sig IKKE selv — kortlægningen skal ses efter');
+      if (d.utilgaengelige) hale.push('Kilden var nede; de prøves igen ved næste kørsel');
       setDetMsg({
-        kind: (d.uenige || d.uparsede || d.ukendte) ? 'err' : 'ok',
-        text: `${dele.join(', ')}. Afviste kampe prøves igen om en uge — se Drift-kortet.`,
+        // Ukoblet og ulæselig kræver en hånd; uenig og nede gør ikke.
+        kind: (d.uparsede || d.ukendte) ? 'err' : 'ok',
+        text: `${dele.join(', ')}.${hale.length ? ` ${hale.join('. ')} — se Drift-kortet.` : ''}`,
       });
     }
     setDetBusy(false);
