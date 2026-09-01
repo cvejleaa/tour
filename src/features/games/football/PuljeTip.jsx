@@ -14,6 +14,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { puljenTaeller } from '../../../lib/ligaPoint';
 import { useGameLeagues } from '../useGameLeagues';
+import PuljeAfsloering from './PuljeAfsloering';
 import { useAuth } from '../../../context/AuthContext';
 import { COL } from '../../../lib/constants';
 import { teamsOf } from './teamInfo';
@@ -387,6 +388,18 @@ export default function PuljeTip({ game, matches }) {
           maks={konfig.nedSize} valgte={nedPicks}
           toggle={toggleI(nedPicks, setNedPicks, picks, konfig.nedSize)}
           facitHold={facit?.bund || null} ligeNuHold={ligeNu?.bund || null} ikon="⚠️"
+        />
+      )}
+
+      {/* AFSLØRINGEN — kun når tippet er låst. Før deadline ville det være at
+          kigge i kortene, og reglen afviser det alligevel. Ved "endnu ikke
+          åbnet" må der IKKE forsøges læst: reglen fejler lukket uden deadline,
+          og et forsøg ville bare give en fejl at sluge. `locked` er præcis
+          "deadline findes og er passeret". */}
+      {locked && (
+        <PuljeAfsloering
+          gameId={gameId} uid={uid} teams={teams} konfig={konfig}
+          facitTop={facit?.top || null} ligeNuTop={ligeNu?.top || null}
         />
       )}
 

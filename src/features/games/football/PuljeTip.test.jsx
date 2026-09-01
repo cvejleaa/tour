@@ -30,6 +30,15 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
+// Afsløringen har sin egen testfil (PuljeAfsloering.test.jsx) og sin egen
+// Firestore-læsning (getDocs). Denne fils firestore-mock kender kun
+// doc/onSnapshot, så den rigtige komponent ville vælte på et låst spil.
+// Her måles PuljeTip — afsløringen erstattes af en markør, så det stadig
+// kan asserteres, HVORNÅR den monteres.
+vi.mock('./PuljeAfsloering', () => ({
+  default: () => <div data-testid="pulje-afsloering-mock" />,
+}));
+
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({ user: { uid: 'A' } }),
 }));
@@ -393,5 +402,25 @@ describe('PuljeTip — forbeholdet på kortet', () => {
     mockLeagues.current = [{ id: 'd', name: 'Dreamteam' }];
     render(<PuljeTip game={sl} matches={[]} />);
     expect(screen.queryByTestId('pulje-liga-forbehold')).toBeNull();
+  });
+});
+
+describe('PuljeTip — afsløringen monteres KUN når tippet er låst', () => {
+  const base = { id: 'sl', teams: HOLD8, pulje: { poolSize: 6 } };
+
+  it('låst: monteres', () => {
+    render(<PuljeTip game={{ ...base, puljeLockAt: Date.now() - 1000 }} matches={[]} />);
+    expect(screen.getByTestId('pulje-afsloering-mock')).toBeInTheDocument();
+  });
+
+  it('åben: IKKE monteret — det ville være at kigge i kortene', () => {
+    render(<PuljeTip game={{ ...base, puljeLockAt: Date.now() + 86400000 }} matches={[]} />);
+    expect(screen.queryByTestId('pulje-afsloering-mock')).toBeNull();
+  });
+
+  it('"endnu ikke åbnet": IKKE monteret — reglen fejler lukket uden deadline', () => {
+    // Et forsøg på at læse ville bare give en fejl at sluge.
+    render(<PuljeTip game={base} matches={[]} />);
+    expect(screen.queryByTestId('pulje-afsloering-mock')).toBeNull();
   });
 });
