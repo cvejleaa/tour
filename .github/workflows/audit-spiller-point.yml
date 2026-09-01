@@ -1,0 +1,54 @@
+name: Se en spillers point (spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+# LÆS-ONLY. Skriver ikke ét felt. Viser hvor én spillers point kommer fra:
+# rubrikkerne på players-dokumentet, en genberegning forfra med serverens eget
+# modul, combi-kuponen pr. runde, runde-vektoren og hver ligas visning.
+# Se scripts/audit-spiller-point.mjs for hvorfor hvert af de fem afsnit er der.
+#
+# Bruger repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+    inputs:
+      spil:
+        description: 'Spillets id (fx superliga2627 eller pl2627)'
+        required: true
+        default: superliga2627
+      spiller:
+        description: 'Del af spillerens viste navn. Tomt = alle deltagere.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      - name: Skriv service-account
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Se spillerens point
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          SPIL: ${{ inputs.spil }}
+          SPILLER: ${{ inputs.spiller }}
+        run: node scripts/audit-spiller-point.mjs --spil "$SPIL" --spiller "$SPILLER"
