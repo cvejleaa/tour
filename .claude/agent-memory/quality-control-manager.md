@@ -234,6 +234,8 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   Sweep'et ER alarmen for minut-synken.
 - **Manuelle "kør nu"-callables skal have SAMME timeout i klient og server** —
   fundet forkert to gange.
+- **En kommentar, der PÅSTÅR en udledning ('halvdelen af xG's budget'), uden at koden faktisk udregner den, er en skjult kobling.** `DETALJE_BUDGET_MS = 25000` i `kampDetaljer.js` er en literal, ikke et udtryk som `XG_BUDGET_MS/2` — ændres `XG_BUDGET_MS` (fx flere `SYNCED_GAMES`), bliver kommentarens regnestykke stille forkert, og ingen test kan se det. Samme klasse som "et tal uden kode er en påstand", men på en KOMMENTAR i stedet for en UI-tekst.
+- **Et PRÆCIST målt tal i en KODE-kommentar ældes lige så let som ét i UI.** "Udfaldet skifter i 48 % af kampene" (`FootballTip.jsx`, halvlegslinjen) er en påstand om en levende kilde (livescore.com), ikke et fastfrosset facit — modsat den qualitative UI-tekst samme sted ("næsten hver anden kamp"), som fulgte husets regel korrekt. Tjek BEGGE steder, ikke kun det brugeren ser.
 - **Manuelle synk-knapper bor i `GameScheduleTab.jsx`:** `🗓️ Synk kamptider nu`
   (:611, `harKickoffSynk`), `⬇️ Synk resultater nu` (:635, `harResultatSynk`).
   Det er dér en administrator leder efter en kampdata-knap.
