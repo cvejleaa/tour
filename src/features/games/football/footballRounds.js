@@ -2,6 +2,7 @@
  * Rene hjælpere til fodbold-spil: grupper kampe i runder og find den runde,
  * spilleren skal se/tip'e nu. Ingen Firebase-afhængigheder (testbar).
  */
+import { ugeNoegle, rundensUge } from '../../../lib/pointOpdeling.js';
 
 /** Millisekunder fra et Firestore-Timestamp | Date | tal | ISO-streng. */
 export function toMillis(t) {
@@ -97,12 +98,39 @@ export function activeRound(rounds, nowMs) {
   const iGang = rounds.find(({ matches }) => matches.some((m) => spillesNu(m, nowMs)));
   if (iGang) return iGang.round;
 
+  // EFTERSLÆBERE TRÆKKER IKKE LANDINGEN BAGUD. To udsatte runde-2-kampe, der
+  // spilles onsdag og torsdag, havde ellers det tidligste fremtidige kickoff —
+  // og så åbnede tip-fanen på runde 2, mens runden, alle var ved at tippe, var
+  // runde 7. Brugerne troede, spillet var gået i stå.
+  //
+  // De er stadig SYNLIGE: fladen viser dem på den runde, hvis uge de spilles
+  // i (se `efterslaebere`). Det er kun spørgsmålet "hvilken runde er den
+  // næste", de holdes ude af — for dét spørgsmål handler om, hvor spillet er
+  // nået til, ikke om hvornår den næste bold trilles.
+  //
+  // Bemærk at `spillesNu` ovenfor er UÆNDRET: en kamp, der spilles LIGE NU,
+  // er værd at lande på, uanset hvilken runde den hører til.
+  const efterslaeb = new Set(efterslaebere(rounds).map((e) => e.match));
+
   let naeste = null;
   for (const { round, matches } of rounds) {
     for (const m of matches) {
+      if (efterslaeb.has(m)) continue;
       const k = toMillis(m.kickoff);
       // Uden kickoff kan kampen ikke være "den næste" — den har ingen dato at
       // sammenligne på. Den fanges af spørgsmål 3 nedenfor.
+      if (k == null || k <= nowMs) continue;
+      if (naeste == null || k < naeste.k) naeste = { k, round };
+    }
+  }
+  if (naeste) return naeste.round;
+
+  // Faldt ALT ud som efterslæb (fx en runde, der er skudt helt til hjørne),
+  // så er svaret ikke "ingenting". Prøv igen uden filteret, så fladen aldrig
+  // ender med at pege på ingen runde, fordi vagten var for grådig.
+  for (const { round, matches } of rounds) {
+    for (const m of matches) {
+      const k = toMillis(m.kickoff);
       if (k == null || k <= nowMs) continue;
       if (naeste == null || k < naeste.k) naeste = { k, round };
     }
@@ -207,4 +235,71 @@ export function liveScore(match, friskAt, nowMs) {
     forældet: Number.isFinite(puls) ? nowMs - puls > LIVE_STALE_MS : true,
     setAt: Number.isFinite(puls) ? puls : null,
   };
+}
+
+/**
+ * EFTERSLÆBERE: kampe, der ikke spilles i deres egen rundes uge.
+ *
+ * Begrebet er IKKE nyt — det er husets kupon-regel, brugt to steder til.
+ * `rundensUge` (pointOpdeling.js) afgør allerede, hvilke kampe der står på
+ * combi-kuponen, netop for at en bonus ikke skal vente på en kamp, der
+ * spilles en måned senere. Samme skel svarer på de to spørgsmål, denne
+ * funktion findes for:
+ *
+ *   1. Hvilken runde er den NÆSTE?  → efterslæbere tæller ikke med.
+ *   2. Hvor skal en udsat kamp VISES? → på den runde, hvis uge den spilles i.
+ *
+ * At skrive en femte udgave af "hvad er en runde" var det, filens egen
+ * kommentar advarede imod, så den ligger her og kalder den eksisterende.
+ *
+ * POINT FLYTTER SIG IKKE. En efterslæber giver point i sin EGEN runde, præcis
+ * som før — det er kun visningen og landings-runden, der ændrer sig. Ville man
+ * flytte point med, ændrede man en igangværende rundes combi-kupon bagud i
+ * tiden, og det er en helt anden beslutning.
+ *
+ * @param {Array<{round:number, matches:Array<object>}>} rounds
+ * @returns {Array<{match:object, fraRunde:number, uge:string}>}
+ */
+export function efterslaebere(rounds) {
+  const ud = [];
+  for (const { round, matches } of rounds || []) {
+    // Rundens egen uge er den med FLEST af dens kampe. En runde, der er
+    // flyttet i sin helhed, flytter derfor sin uge med sig og får ingen
+    // efterslæbere — det er kun de kampe, der bliver TILBAGE, der er det.
+    const uge = rundensUge(matches || []);
+    if (uge == null) continue;
+    for (const m of matches || []) {
+      const u = ugeNoegle(toMillis(m.kickoff));
+      // Et ULÆSELIGT kickoff er ikke en efterslæber. Samme retning som
+      // kuponens: den kamp bliver, hvor den er, frem for at blive flyttet
+      // til en runde, vi ikke kan vide er den rigtige.
+      if (u == null || u === uge) continue;
+      ud.push({ match: m, fraRunde: round, uge: u });
+    }
+  }
+  return ud;
+}
+
+/**
+ * De efterslæbere, der spilles i en bestemt rundes uge — altså dem, der skal
+ * vises PÅ den runde, selv om de giver point i en anden.
+ *
+ * @param {Array<{round:number, matches:Array<object>}>} rounds
+ * @param {number} rundeNr  runden, der vises
+ * @returns {Array<{match:object, fraRunde:number, uge:string}>}
+ */
+export function efterslaebPaaRunde(rounds, rundeNr) {
+  const runde = (rounds || []).find((r) => r.round === rundeNr);
+  if (!runde) return [];
+  const uge = rundensUge(runde.matches || []);
+  if (uge == null) return [];
+  // KUN ÉN BETINGELSE, og det er efterprøvet. Her stod før et ekstra
+  // `e.fraRunde !== rundeNr` med kommentaren "ellers ville en runde vise sin
+  // egen udsatte kamp to gange". Mutationstesten fjernede det og forblev
+  // grøn — med god grund: en efterslæber fra runde R har pr. definition en
+  // ANDEN uge end R's egen, så `e.uge === uge` kan aldrig være sand for den.
+  // Vagten var unåelig, og en unåelig vagt er ikke en ekstra sikkerhed; den er
+  // et sted, en fremtidig læser tror, der er dækning (CLAUDE.md: én vagt pr.
+  // regel — to betyder, at den inderste kan fjernes med grøn suite).
+  return efterslaebere(rounds).filter((e) => e.uge === uge);
 }

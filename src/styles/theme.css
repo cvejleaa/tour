@@ -1231,6 +1231,15 @@ a:focus-visible,
 .match-card__maal-stilling { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .match-card__maal-minut { opacity: 0.75; font-variant-numeric: tabular-nums; }
 .match-card__maal-hold { opacity: 0.8; }
+/* Mærkat på en kamp, der hører til en anden runde. Samme dæmpede vægt som
+   venue-teksten, den står ved siden af — den skal kunne læses, ikke råbe. */
+.match-card__fra-runde {
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  padding: 0 0.45em;
+  opacity: 0.85;
+  white-space: nowrap;
+}
 .match-card__maal-oplaeg { font-style: italic; opacity: 0.75; }
 /* Tilskuertallet er trivia og skal se sådan ud: egen linje, endnu svagere.
    Det er med, fordi det er det eneste tal, der siger noget om begivenhedens

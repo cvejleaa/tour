@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   toMillis, groupByRound, activeRound, RUNDE_SLIP_MS, isLocked, matchScore,
-  liveScore, LIVE_STALE_MS,
+  liveScore, LIVE_STALE_MS, efterslaebere, efterslaebPaaRunde,
 } from './footballRounds';
 
 const M = (round, kickoffMs, extra = {}) => ({ round, kickoff: kickoffMs, ...extra });
@@ -325,5 +325,140 @@ describe('liveScore', () => {
     const r = liveScore(live(), NU - 60 * 60_000, NU);
     expect(r.forældet).toBe(true);
     expect(r.home).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EFTERSLÆBERE — udsatte kampe, der ikke spilles i deres egen rundes uge.
+//
+// Ejer-rapport: tip-fanen åbnede på RUNDE 2, mens alle var ved at tippe runde
+// 7, fordi to udsatte runde-2-kampe blev spillet onsdag og torsdag og dermed
+// havde det tidligste fremtidige kickoff. Brugerne troede, spillet var gået i
+// stå.
+//
+// Ugen løber tirsdag→mandag (ugeNoegle i pointOpdeling.js), så 2.-3. sep. og
+// 4.-7. sep. er SAMME uge — det er derfor de to kampe hører hjemme på runde 7's
+// side, uden at deres point flytter sig.
+// ---------------------------------------------------------------------------
+describe('efterslæbere', () => {
+  const k = (iso) => new Date(iso);
+  // Runde 2: fire kampe i uge 2026-08-04, to udsat til uge 2026-09-01.
+  const R2 = {
+    round: 2,
+    matches: [
+      { id: 'a', kickoff: k('2026-08-08T16:00:00Z') },
+      { id: 'b', kickoff: k('2026-08-08T18:00:00Z') },
+      { id: 'c', kickoff: k('2026-08-09T14:00:00Z') },
+      { id: 'd', kickoff: k('2026-08-09T16:00:00Z') },
+      { id: 'agf-fcm', kickoff: k('2026-09-02T18:00:00Z') },
+      { id: 'fck-fcn', kickoff: k('2026-09-03T18:00:00Z') },
+    ],
+  };
+  const R7 = {
+    round: 7,
+    matches: [
+      { id: 'vib-lyn', kickoff: k('2026-09-04T17:00:00Z') },
+      { id: 'agf-sif', kickoff: k('2026-09-05T16:00:00Z') },
+      { id: 'bif-rfc', kickoff: k('2026-09-06T16:00:00Z') },
+    ],
+  };
+  const R8 = { round: 8, matches: [{ id: 'r8', kickoff: k('2026-09-11T17:00:00Z') }] };
+  const alle = [R2, R7, R8];
+
+  it('finder præcis de to udsatte — ikke rundens fire egne', () => {
+    expect(efterslaebere(alle).map((e) => e.match.id)).toEqual(['agf-fcm', 'fck-fcn']);
+    expect(efterslaebere(alle).every((e) => e.fraRunde === 2)).toBe(true);
+  });
+
+  it('en runde, der er flyttet I SIN HELHED, har ingen efterslæbere', () => {
+    // Rundens uge er den med FLEST kampe, så flytter hele runden sig, flytter
+    // ugen med. Uden dette ville en udskudt runde blive til lutter
+    // efterslæbere og forsvinde fra sin egen side.
+    const flyttet = { round: 3, matches: [
+      { id: 'x', kickoff: k('2026-10-06T17:00:00Z') },
+      { id: 'y', kickoff: k('2026-10-07T17:00:00Z') },
+    ] };
+    expect(efterslaebere([flyttet])).toEqual([]);
+  });
+
+  it('et ULÆSELIGT kickoff er ikke en efterslæber', () => {
+    // Samme retning som kuponens: kampen bliver, hvor den er, frem for at
+    // blive flyttet til en runde, vi ikke kan vide er den rigtige.
+    const r = { round: 4, matches: [
+      { id: 'p', kickoff: k('2026-08-08T16:00:00Z') },
+      { id: 'q', kickoff: k('2026-08-08T18:00:00Z') },
+      { id: 'skrald', kickoff: 'i morgen' },
+    ] };
+    expect(efterslaebere([r])).toEqual([]);
+  });
+
+  it('efterslaebPaaRunde giver runde 7 netop de to — og runde 8 ingen', () => {
+    expect(efterslaebPaaRunde(alle, 7).map((e) => e.match.id)).toEqual(['agf-fcm', 'fck-fcn']);
+    expect(efterslaebPaaRunde(alle, 8)).toEqual([]);
+  });
+
+  it('en runde kan ikke låne sin egen kamp tilbage', () => {
+    // Runde 2's egen uge er august, så dens september-kampe hører ikke hjemme
+    // på runde 2's side igen. Det følger af definitionen — en efterslæber har
+    // pr. definition en anden uge end sin runde — og derfor er der ÉN
+    // betingelse i filteret, ikke to. Testen binder følgen, ikke vagten.
+    expect(efterslaebPaaRunde(alle, 2)).toEqual([]);
+  });
+
+  it('rundens uge er den med FLEST kampe — ikke den FØRSTE kamps', () => {
+    // Mutationstesten afslørede hullet: mine fixtures havde altid rundens
+    // første kamp i rundens egen uge, så `rundensUge` kunne erstattes med
+    // "den første kamps uge" med grøn suite.
+    //
+    // Sagen, der skiller dem, er en kamp rykket FREM — præcis den, kommentaren
+    // på `rundensUge` beskriver: bliver én kamp flyttet til mandagen før
+    // runden, ville dén ene kamp ellers blive hele rundens uge, og de fire
+    // andre ville alle blive efterslæbere på deres egen runde.
+    const rykketFrem = { round: 9, matches: [
+      { id: 'frem', kickoff: k('2026-09-28T17:00:00Z') }, // en uge før de andre
+      { id: 'n1', kickoff: k('2026-10-02T17:00:00Z') },
+      { id: 'n2', kickoff: k('2026-10-03T16:00:00Z') },
+      { id: 'n3', kickoff: k('2026-10-04T14:00:00Z') },
+      { id: 'n4', kickoff: k('2026-10-04T16:00:00Z') },
+    ] };
+    // Præcis ÉN efterslæber: den fremrykkede. Med "første kamps uge" ville
+    // svaret være de fire andre.
+    expect(efterslaebere([rykketFrem]).map((e) => e.match.id)).toEqual(['frem']);
+  });
+});
+
+describe('activeRound — efterslæbere trækker ikke landingen bagud', () => {
+  const k = (iso) => new Date(iso);
+  const R2 = { round: 2, matches: [
+    { id: 'a', kickoff: k('2026-08-08T16:00:00Z'), result: '1' },
+    { id: 'b', kickoff: k('2026-08-08T18:00:00Z'), result: 'X' },
+    { id: 'c', kickoff: k('2026-08-09T14:00:00Z'), result: '2' },
+    { id: 'udsat1', kickoff: k('2026-09-02T18:00:00Z') },
+    { id: 'udsat2', kickoff: k('2026-09-03T18:00:00Z') },
+  ] };
+  const R7 = { round: 7, matches: [
+    { id: 'v', kickoff: k('2026-09-04T17:00:00Z') },
+    { id: 'w', kickoff: k('2026-09-05T16:00:00Z') },
+  ] };
+
+  it('lander på runde 7, ikke på runde 2 (ejerens rapport)', () => {
+    // 1. sep.: de to udsatte har det tidligste fremtidige kickoff, men de er
+    // efterslæbere. Uden vagten svarer denne 2 — dét var fejlen.
+    expect(activeRound([R2, R7], Date.parse('2026-09-01T07:00:00Z'))).toBe(7);
+  });
+
+  it('men en kamp, der spilles LIGE NU, vinder stadig — uanset runde', () => {
+    // spillesNu er bevidst uændret: en igangværende kamp er værd at lande på.
+    expect(activeRound([R2, R7], Date.parse('2026-09-02T18:30:00Z'))).toBe(2);
+  });
+
+  it('falder tilbage til den rå regel, hvis ALT er efterslæb', () => {
+    // Vagten må ikke kunne pege på ingen runde, fordi den var for grådig.
+    const kun = { round: 5, matches: [
+      { id: 'e1', kickoff: k('2026-08-08T16:00:00Z') },
+      { id: 'e2', kickoff: k('2026-08-08T17:00:00Z') },
+    ] };
+    const sen = { round: 6, matches: [{ id: 'f', kickoff: k('2026-12-01T17:00:00Z') }] };
+    expect(activeRound([kun, sen], Date.parse('2026-08-01T00:00:00Z'))).toBe(5);
   });
 });

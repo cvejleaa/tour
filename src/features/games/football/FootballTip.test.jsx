@@ -1533,3 +1533,88 @@ describe('FootballTip — rundens header: næste kamp låser, ikke "Deadline"', 
     expect(screen.getByText('Næste kamp låser om 2 t')).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// KAMPE FRA EN ANDEN RUNDE, DER SPILLES I DENNE UGE.
+//
+// Ejer-rapport: tip-fanen åbnede på runde 2, fordi to udsatte runde-2-kampe
+// blev spillet onsdag og torsdag, mens runde 7 begyndte fredag. Brugerne troede,
+// spillet var gået i stå — og kampene var i praksis umulige at finde.
+//
+// DE VISES, DE FLYTTES IKKE. Det er hele forskellen på denne ændring og en
+// scoringsændring: kuponen, tælleren, datospændet og hver eneste pointudregning
+// ser de samme kampe som før.
+// ---------------------------------------------------------------------------
+describe('FootballTip — kampe fra en anden runde i samme uge', () => {
+  // Ugen løber tirsdag→mandag, så 2. og 4.-5. sep. er SAMME uge.
+  const UGE = [
+    // Runde 2: to kampe i august, én skudt til september.
+    { id: 'r2a', round: 2, home: 'AGF', away: 'F.C. København', kickoff: new Date('2026-08-08T16:00:00Z'), odds: null, result: '1' },
+    { id: 'r2b', round: 2, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: new Date('2026-08-09T16:00:00Z'), odds: null, result: 'X' },
+    { id: 'udsat', round: 2, home: 'F.C. København', away: 'FC Midtjylland', kickoff: new Date('2026-09-02T18:00:00Z'), odds: null, result: null },
+    // Runde 7: to kampe senere i samme uge.
+    { id: 'r7a', round: 7, home: 'AGF', away: 'Brøndby IF', kickoff: new Date('2026-09-04T17:00:00Z'), odds: null, result: null },
+    { id: 'r7b', round: 7, home: 'FC Midtjylland', away: 'F.C. København', kickoff: new Date('2026-09-05T16:00:00Z'), odds: null, result: null },
+  ];
+
+  it('åbner på runde 7 — ikke på runde 2, som den gjorde før', () => {
+    // DET var ejerens klage. Den udsatte kamp har det tidligste fremtidige
+    // kickoff, og uden vagten i activeRound lander fanen på runde 2.
+    vi.setSystemTime(new Date('2026-09-01T07:00:00Z'));
+    setup({}, '/spil/sl', UGE);
+    expect(screen.getByTestId('round-nav-count')).toHaveTextContent('Runde 7 af 7');
+  });
+
+  it('viser den udsatte kamp PÅ runde 7 — og siger hvor pointene tæller', () => {
+    vi.setSystemTime(new Date('2026-09-01T07:00:00Z'));
+    const { container } = setup({}, '/spil/sl', UGE);
+    // Tre kort: den udsatte plus rundens to egne.
+    expect(container.querySelectorAll('.match-card')).toHaveLength(3);
+    const maerkat = screen.getByTestId('fra-runde');
+    // INDHOLDET, ikke bare at noget blev vist. Mærkaten skal sige, hvor
+    // pointene tæller — ellers læses kortet som runde 7's point.
+    expect(maerkat).toHaveTextContent('Runde 2');
+    expect(maerkat).toHaveTextContent('point tæller dér');
+    // Og ordet, der IKKE må stå: "udsat" er en påstand, huset ikke bakker op
+    // (se kommentaren ved combi-udenfor-teksten).
+    expect(maerkat.textContent.toLowerCase()).not.toContain('udsat');
+  });
+
+  it('kampene står i KICKOFF-rækkefølge, så ugen kan læses ovenfra og ned', () => {
+    vi.setSystemTime(new Date('2026-09-01T07:00:00Z'));
+    const { container } = setup({}, '/spil/sl', UGE);
+    // Den udsatte spilles 2. sep. og skal derfor stå FØRST — ellers ville
+    // "næste kamp låser"-tælleren pege på et kort længere nede.
+    const foerste = container.querySelector('.match-card');
+    expect(foerste.className).toContain('match-card--udenfor');
+    expect(foerste).toHaveTextContent('Runde 2');
+  });
+
+  it('TÆLLEREN og kuponen ændrer sig IKKE — kampen er lånt, ikke flyttet', () => {
+    // Den dyreste fejl, ændringen kunne have lavet: at en kamp fra runde 2
+    // begyndte at tælle i runde 7. Runde 7 har to egne kampe, og det skal
+    // "0/2 tippet" blive ved med at sige — ikke 0/3.
+    vi.setSystemTime(new Date('2026-09-01T07:00:00Z'));
+    setup({}, '/spil/sl', UGE);
+    expect(screen.getByText('0/2 tippet')).toBeInTheDocument();
+    expect(screen.queryByText('0/3 tippet')).toBeNull();
+  });
+
+  it('forklarer det i tekst — og forveksler det ikke med rundens egne', () => {
+    vi.setSystemTime(new Date('2026-09-01T07:00:00Z'));
+    setup({}, '/spil/sl', UGE);
+    const p = screen.getByTestId('combi-efterslaeb');
+    expect(p).toHaveTextContent('Én kamp fra en anden runde spilles');
+    expect(p).toHaveTextContent('runde 2');
+    expect(p).toHaveTextContent('giver point i sin egen runde');
+  });
+
+  it('runde 2 viser IKKE sin egen udsatte kamp to gange', () => {
+    vi.setSystemTime(new Date('2026-09-01T07:00:00Z'));
+    const { container } = setup({}, '/spil/sl?runde=2', UGE);
+    // Runde 2 har tre kampe, og den udsatte er én af dem — ikke fire kort.
+    expect(container.querySelectorAll('.match-card')).toHaveLength(3);
+    expect(screen.queryByTestId('fra-runde')).toBeNull();
+    expect(screen.queryByTestId('combi-efterslaeb')).toBeNull();
+  });
+});
