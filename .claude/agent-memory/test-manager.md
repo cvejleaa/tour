@@ -287,6 +287,65 @@
   er grøn. `ctx.skip()` retter det ved at gøre skippet synligt i selve
   PASS/FAIL-optællingen, ikke kun i logteksten.
 
+## Eftergennemgang af #192/#193/0cf45e6 (livescore-nøgle, efterslæbere, mållinjer — sept. 2026)
+
+Landet uden rollegennemgang efter ejerens beslutning. Fem NYE huller fundet ved
+egen mutationstest, oven i ejerens egne (som alle var døde og forblev det):
+
+- **`isChance` skiftede fra runde-scopet til tip-scopet UDEN at nogen test
+  binder forskellen.** `FootballTip.jsx:637` gik fra
+  `m.id === chanceMatchId` til `Number(bet?.chanceStake) > 0` netop for at en
+  ⚡ på en efterslæber (kamp fra en anden runde, vist på denne) ikke skulle
+  forsvinde fra kortet — kommentaren siger det eksplicit. Mutationsbevist: at
+  sætte den TILBAGE til `m.id === chanceMatchId` lader alle 122 tests i
+  `FootballTip.test.jsx` forblive grønne, fordi INGEN test sætter
+  `chanceStake > 0` på en efterslæber-kamp og tjekker `match-card--chance`.
+  Dette er den samme klasse fejl som ejerens egen produktionsfund ("point
+  flytter sig ikke") — bare på Chance-badget i stedet for pointudregningen.
+- **`activeRound`s fallback-loop (footballRounds.js, "faldt ALT ud som
+  efterslæb") er UDEN DÆKNING, fordi dens eget testnavn lyver om fixturet.**
+  Testen "falder tilbage til den rå regel, hvis ALT er efterslæb" bruger to
+  runder, hvor INGEN kampe rent faktisk er efterslæbere (`efterslaebere()`
+  returnerer `[]` for begge — bekræftet ved direkte kald). Første loop finder
+  derfor en `naeste` uden filtrering, og fallback-loopet nås aldrig.
+  Mutationsbevist: sletter man HELE fallback-blokken (10 linjer), forbliver
+  alle 52 tests i `footballRounds.test.js` grønne. Samme mønster som CLAUDE.md's
+  "en test uden data beviser ingenting" — bare med et testnavn, der aktivt
+  påstår det modsatte af, hvad fixturet gør.
+- **Ental/flertal i `combi-efterslaeb`-teksten har kun sin ENTAL-gren
+  dækket.** `FootballTip.jsx:614-618` har tre ternary-grene
+  (`efterslaeb.length === 1 ? … : …`), men ALLE tests bruger et fixture med
+  netop ÉN efterslæber (`UGE`-fixturet har kun `'udsat'`). Mutationsbevist:
+  hardkoder man alle tre ternaries til deres ental-gren (fjerner flertals-
+  grenen helt), forbliver alle 122 tests grønne. Præcis den faldgrube CLAUDE.md
+  nævner eksplicit ("to grene skal dræbes hver for sig").
+- **Badge-farven (`kind: 'err'`/`'ok'`) på "Synk kampdetaljer nu"-beskeden er
+  UDEN DÆKKELSE — for HELE feltet, ikke kun den ændrede del.**
+  `GameScheduleTab.jsx` linje ~400: `kind: (d.uparsede || d.ukendte) ? 'err' :
+  'ok'`. Denne ændrede sig i #192 (`uenige` blev fjernet fra betingelsen — en
+  ukoblet kamp skal stadig give rødt, en uenig ikke). INGEN test i
+  `GameScheduleTab.test.jsx` læser `badge--red`/`badge--green` for
+  kampdetalje-synken overhovedet. Mutationsbevist to gange: at fjerne
+  `d.ukendte` fra betingelsen OG at hardkode `kind: 'ok'` uanset input
+  overlever BEGGE alle 70 tests.
+- **Mållistens DOM-STRUKTUR (0cf45e6) er delvist bundet — label-til-liste-
+  forældreskabet er det ikke.** Commit-beskeden begrunder linjeskiftet med, at
+  "Mål"-labelen skal stå INDE i samme `.match-card__maal-liste`-blok som
+  posterne (ellers bliver den ikke venstrestillet på linje med dem — CSS,
+  ikke testbart direkte). Men DOM-*strukturen* (er label et BARN af
+  `.match-card__maal-liste`, eller en SØSKENDE uden for den?) ER testbar i
+  jsdom og er det ikke: at flytte labelen til at være søskende af
+  `.match-card__maal-liste` i stedet for dens første barn lader testen
+  "viser stillingen EFTER hvert mål" (og alle andre) forblive grøn — kun
+  antal `.match-card__maal-post` og fravær af "·" er bundet, ikke selve
+  parent/child-forholdet, som er halvdelen af den visuelle påstand.
+
+Alle fem blev rapporteret som ikke-blokerende observationer, IKKE fjernet
+eller rettet af Test Manager selv (rollen retter ikke kode). Genkendelses-
+mønster for #2: et testnavn, der beskriver et scenarie ("ALT er efterslæb"),
+skal efterprøves ved at KALDE funktionen, funktionen selv afhænger af
+(`efterslaebere()` her), ikke antages ud fra navnet.
+
 ## Mønster at genkende
 
 Alle tre fund ovenfor deler samme form: en test, der ser ud til at dække en

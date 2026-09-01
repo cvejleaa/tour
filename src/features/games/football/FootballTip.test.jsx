@@ -491,6 +491,13 @@ describe('FootballTip — slutresultat på kampkortet', () => {
     // sammenlignede et elements klasse med sig selv og kunne ikke fejle.
     expect(container.querySelectorAll('.match-card__maal-post')).toHaveLength(3);
     expect(tekst).not.toContain('·');
+    // DOM-FORÆLDRESKABET, som CSS'en afhænger af: venstrestillingen sidder på
+    // `.match-card__maal-liste`, så både labelen og posterne SKAL være dens
+    // børn. Er labelen en søskende, står den et andet sted end kolonnen — og
+    // dét kan jsdom faktisk se, modsat selve linjeskiftet.
+    const liste = container.querySelector('.match-card__maal-liste');
+    expect(liste.querySelector(':scope > .match-card__maal-label')).not.toBeNull();
+    expect(liste.querySelectorAll(':scope > .match-card__maal-post')).toHaveLength(3);
     // Indholdet, ikke bare "noget blev vist": rækken SKAL være 1-0, 1-1, 2-1.
     expect([...container.querySelectorAll('.match-card__maal-stilling')]
       .map((e) => e.textContent)).toEqual(['1–0', '1–1', '2–1']);
@@ -1618,6 +1625,42 @@ describe('FootballTip — kampe fra en anden runde i samme uge', () => {
     expect(p).toHaveTextContent('Én kamp fra en anden runde spilles');
     expect(p).toHaveTextContent('runde 2');
     expect(p).toHaveTextContent('giver point i sin egen runde');
+  });
+
+  it('viser ⚡ på en lånt kamp, spilleren FAKTISK har chancet', () => {
+    // TEST MANAGERS FUND: `isChance` kunne sættes tilbage til det gamle,
+    // runde-scopede `m.id === chanceMatchId` uden at én test fejlede — selv om
+    // kodekommentaren netop lover, at en ⚡ ikke må forsvinde fra kortet.
+    // Ingen fixture satte chanceStake på en lånt kamp. Løftet var altså
+    // skrevet ned og ubundet, og det er den værste slags: den næste læser
+    // tror, der er dækning.
+    vi.setSystemTime(new Date('2026-09-01T07:00:00Z'));
+    mockBets.mockReturnValue({
+      betsByMatch: { udsat: { pick: '1', chanceStake: 5 } },
+      loading: false,
+    });
+    const { container } = setup({}, '/spil/sl', UGE);
+    const laant = container.querySelector('.match-card');
+    expect(laant).toHaveTextContent('Runde 2');
+    expect(laant.className).toContain('match-card--chance');
+  });
+
+  it('nævner FLERE lånte kampe i flertal', () => {
+    // Ental/flertal skal dræbes hver for sig (CLAUDE.md). Alle øvrige tests
+    // brugte ét-efterslæber-fixturet, så de tre ternaries i teksten kunne
+    // hardkodes til ental med grøn suite.
+    vi.setSystemTime(new Date('2026-09-01T07:00:00Z'));
+    const to = [...UGE, {
+      id: 'udsat2', round: 2, home: 'Brøndby IF', away: 'AGF',
+      kickoff: new Date('2026-09-03T18:00:00Z'), odds: null, result: null,
+    }];
+    setup({}, '/spil/sl', to);
+    const p = screen.getByTestId('combi-efterslaeb');
+    expect(p).toHaveTextContent('2 kampe fra andre runder spilles');
+    expect(p).toHaveTextContent('De giver point i deres egne runder');
+    expect(p).toHaveTextContent('de står ikke på kuponen her');
+    // …og entalsformen må IKKE stå der.
+    expect(p).not.toHaveTextContent('Én kamp fra en anden runde');
   });
 
   it('runde 2 viser IKKE sin egen udsatte kamp to gange', () => {
