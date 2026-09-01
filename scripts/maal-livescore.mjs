@@ -46,7 +46,7 @@ function voresHold(fil) {
 }
 
 async function hentStage(land, liga) {
-  const res = await fetch(`${API}/stage/soccer/${land}/${liga}/2`, OPT);
+  const res = await fetch(`${API}/stage/soccer/${land}/${liga}/0`, OPT);
   if (!res.ok) throw new Error(`stage ${land}/${liga}: HTTP ${res.status}`);
   const d = await res.json();
   return (d.Stages || []).flatMap((s) => s.Events || []);

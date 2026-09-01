@@ -49,7 +49,7 @@ const voresHold = (fil) => new Map(
 );
 
 async function deresKoder(sti) {
-  const res = await fetch(`${API}/stage/soccer/${sti}/2`, {
+  const res = await fetch(`${API}/stage/soccer/${sti}/0`, {
     ...OPT, signal: AbortSignal.timeout(25000),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -71,8 +71,14 @@ describe.each(SPIL)('livescore-koder · $navn', ({ fil, sti }) => {
   }, 30000);
 
   it('hvert af VORES hold har en kode, livescore kender', (ctx) => {
-    if (fejl) return ctx.skip();
-    const mangler = [...voresHold(fil)]
+    if (fejl || deres.size < 10) return ctx.skip();
+    // ANTALS-TJEKKET ER IKKE PYNT. `voresHold` regexer en datafil; skifter den
+    // citationstegn eller feltrækkefølge, bliver Map'en tom — og så er
+    // `toEqual([])` grøn med NUL hold kontrolleret. Testen ville forsvare
+    // ingenting og se ud som om den beviste alt.
+    const vores = voresHold(fil);
+    expect(vores.size).toBeGreaterThan(9);
+    const mangler = [...vores]
       .filter(([, kode]) => !deres.has(livescoreKode(kode)))
       .map(([navn, kode]) => `${navn} (${kode} → ${livescoreKode(kode)})`);
     expect(mangler, 'hold uden modstykke hos livescore').toEqual([]);
@@ -82,24 +88,93 @@ describe.each(SPIL)('livescore-koder · $navn', ({ fil, sti }) => {
     // Fald-tilbagen dækker 24 af 32 hold. Uden denne kunne den være forkert
     // for et af dem, uden at testen ovenfor opdagede det — for den bruger
     // netop fald-tilbagen til sit opslag.
-    if (fejl) return ctx.skip();
+    if (fejl || deres.size < 10) return ctx.skip();
     const uden = [...voresHold(fil)].filter(([, kode]) => !(kode in AFVIGER));
     const forkerte = uden.filter(([, kode]) => !deres.has(kode)).map(([n]) => n);
     expect(forkerte, 'hold uden for tabellen, hvis kode IKKE matcher').toEqual([]);
     expect(uden.length).toBeGreaterThan(0);
   });
 
+  it('to af VORES hold får aldrig SAMME livescore-kode', (ctx) => {
+    // Kortlægningen skal være injektiv. Testen ovenfor spørger kun, om hver
+    // af vores koder FINDES hos dem — ikke om to af vores peger samme sted.
+    // Den dag en liga får et hold med kortkoden COP, BRO, LYN, RAN, SIL, SOE,
+    // VIB eller FOR, ville to af vores kampe koble til samme nøgle, og intet
+    // ville blive rødt. Security Reviewers fund.
+    if (fejl || deres.size < 10) return ctx.skip();
+    const koder = [...voresHold(fil).values()].map(livescoreKode);
+    expect(koder.length).toBeGreaterThan(9);
+    expect(new Set(koder).size, 'to hold deler livescore-kode').toBe(koder.length);
+  });
+
   it('hver af tabellens afvigelser er STADIG en afvigelse', (ctx) => {
     // Retter livescore en dag sin kode til vores, bliver posten overflødig —
     // og en tabel med døde poster er en tabel, ingen tør rette i.
-    if (fejl) return ctx.skip();
-    const vores = new Set(voresHold(fil).values());
+    if (fejl || deres.size < 10) return ctx.skip();
+    const alle = voresHold(fil);
+    expect(alle.size).toBeGreaterThan(9);
+    const vores = new Set(alle.values());
     for (const [vor, deresKode] of Object.entries(AFVIGER)) {
       if (!vores.has(vor)) continue; // hører til det andet spil
       expect(deres.has(deresKode), `${vor} → ${deresKode} findes ikke hos livescore`).toBe(true);
       expect(deres.has(vor), `${vor} er ikke længere en afvigelse — fjern posten`).toBe(false);
     }
   });
+});
+
+// ---------------------------------------------------------------------------
+// SOMMERTIDS-VAGTEN — den test, der ville have fanget offset-fejlen.
+//
+// Det sidste segment i `stage/.../{OFFSET}` er et UTC-offset i TIMER, ikke en
+// version. Koden hentede først med `/2`, og JSDoc'en påstod, at `Esd` var UTC.
+// `/2` er et FAST offset uden sommertid, så det faldt tilfældigvis sammen med
+// dansk tid i august og ville være én time forkert fra sidste søndag i
+// oktober.
+//
+// Derfor to kampe: én i sommertid og én i vintertid. Med `/2` fejler BEGGE
+// (to timer forskudt); med et naivt "dansk tid"-offset ville kun den ene
+// fejle — og en test med kun sommerkampen ville have godkendt netop den fejl.
+//
+// Sandheden er vores EGET kampprogram, som er committet og i UTC.
+// ---------------------------------------------------------------------------
+describe('Esd fra /0 er ægte UTC', () => {
+  const SANDHED = [
+    ['sommertid (BST)', 2645195, '20260821190000'],   // Arsenal-Coventry, r1
+    ['vintertid (GMT)', 2645315, '20261202200000'],   // Bournemouth-Brighton, r13
+  ];
+
+  it.each(SANDHED)('%s: kildens Esd matcher vores kickoff', async (_navn, matchId, ventet, ctx) => {
+    let kampe = null;
+    try {
+      const res = await fetch(`${API}/stage/soccer/england/premier-league/0`, {
+        ...OPT, signal: AbortSignal.timeout(25000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      kampe = (d.Stages || []).flatMap((x) => x.Events || []);
+    } catch { return ctx?.skip?.(); }
+    if (!kampe || kampe.length < 100) return ctx?.skip?.();
+
+    // Deres Eid er ikke vores matchId, så kampen findes på holdparret. Begge
+    // hold, ikke ét: tre kampe starter rutinemæssigt i samme minut.
+    const vores = JSON.parse(
+      readFileSync(new URL('../scripts/premier-league-fixtures-2627.json', import.meta.url), 'utf8'),
+    ).fixtures.find((f) => f.id.endsWith(String(matchId)));
+    expect(vores, `vores kamp ${matchId}`).toBeTruthy();
+
+    // KODEN, IKKE NAVNET — og det er ikke en detalje. Første udgave af denne
+    // test matchede på navn og fejlede på vinterkampen, fordi livescore
+    // skriver "AFC Bournemouth" hvor vores program skriver "Bournemouth".
+    // Tiderne var identiske. Det er nøjagtig den fælde, hele modulet findes
+    // for at lukke, og testen faldt selv i den.
+    const kode = livescoreKode(voresHold('premierLeagueTeams2026.js').get(vores.home));
+    expect(kode, `ingen kortkode for ${vores.home}`).toBeTruthy();
+    const traef = kampe.find((e) => String(e.Esd) === ventet
+      && (e.T1 || []).some((t) => t.Abr === kode));
+    expect(traef, `ingen livescore-kamp på ${ventet} med ${kode}`).toBeTruthy();
+    // Og vores eget program skal sige det samme — ellers er "sandheden" flyttet.
+    expect(vores.kickoff.replace(/[-:TZ]/g, '')).toBe(ventet);
+  }, 30000);
 });
 
 describe('kampNoegle', () => {
@@ -115,6 +190,15 @@ describe('kampNoegle', () => {
     for (const t of ['', null, undefined, '2026083119', '20260831190000Z', 'abc']) {
       expect(kampNoegle(t, 'AVL', 'ARS'), String(t)).toBeNull();
     }
+  });
+
+  it('afviser en holdkode med separatoren i sig', () => {
+    // ('A|B','C') og ('A','B|C') gav før SAMME nøgle. Tiden var strengt
+    // valideret, koderne slet ikke — og en nøgle, der kan bygges på to måder,
+    // peger ikke længere på én bestemt kamp.
+    expect(kampNoegle(20260831190000, 'A|B', 'C')).toBeNull();
+    expect(kampNoegle(20260831190000, 'AVL', 'AR|S')).toBeNull();
+    expect(kampNoegle(20260831190000, 'arsenal', 'ARS')).toBeNull();
   });
 
   it('afviser en FOR LANG cifferstreng, ikke kun en for kort', () => {
