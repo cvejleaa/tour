@@ -51,6 +51,17 @@
   `JSON.stringify(svar)` mod en liste forbudte regexer. **Kør ALTID samme PoC
   mod en MUTERET udgave bagefter** — ellers ved du ikke, om PoC'en kan se en læk.
   Husk at escaped tekst (`&lt;`, `&quot;`) er falsk positiv i XSS-PoC'er.
+- **LIST-PoC mod en regel med wildcard-uid:** test ALTID fire former, ikke én —
+  `getDocs(hele samlingen)`, `getCountFromServer`, `where(documentId(),'==',mig)`
+  og `where('felt','==',mig)`. De giver FORSKELLIGE svar (målt på puljeBets), og
+  en `getDoc`-test beviser intet om nogen af dem. Skalér til 60 dokumenter for
+  at afgøre, om `get()`-budgettet i rules rammes.
+- **Regel-rettelser efterprøves med RULES_FILE:** skriv den rettede regel til en
+  kopi i scratchpad, kør PoC'en mod kopien, og kør derefter
+  `RULES_FILE=<kopi> FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx vitest run
+  --config vitest.rules.config.js --silent` for at bevise, at de 233
+  eksisterende tests stadig er grønne. Er de grønne både FØR og EFTER, har du
+  samtidig målt, at suiten ikke dækker hullet.
 - **Fælder i mine egne PoC'er, der har kostet falske konklusioner:**
   - `kickoff` skal seedes som **Timestamp**, ikke som tal. `request.time < kickoff`
     med et tal giver "Unsupported operation: timestamp < int" → PERMISSION_DENIED
@@ -104,6 +115,20 @@
   andres-læsning. `poolSize == 0` gør `size() == 0` uopfyldelig → intet kan gemmes.
   **Type-fælde:** reglen kræver en **Timestamp**. GameScheduleTab.jsx L172 skriver
   `new Date(x).getTime()` = et TAL → hele puljen låses for spillet.
+- **`puljeBets` LIST er emulator-kortlagt (2026-09-01, 29 PoC-checks).** `allow read`
+  DÆKKER `list`: efter deadline lykkes `getDocs` på HELE samlingen for enhver
+  `isApproved()` — også en der IKKE deltager i spillet, og også på et spil man
+  ikke er med i. Ingen `get()`-budgetgrænse rammes: 60 dokumenter × 2 opslag
+  (`users/{mig}`, `games/{g}`) gik igennem, fordi begge stier er KONSTANTE
+  på tværs af dokumenterne — samme egenskab som `myLeagueIds()`-kommentaren
+  bygger på. FØR deadline fejler hele listen (dokument-uafhængigt led falsk),
+  MEN `where(documentId(),'==',mig)` lykkes (wildcard'et binder), mens
+  `where('uid','==',mig)` FEJLER — reglen kan kun bevises via doc-id'et.
+  `getCountFromServer` følger præcis samme regel som `getDocs`.
+  `collectionGroup('puljeBets')` fejler (ingen collectionGroup-gren).
+  Kontroltests grønne: pending, anonym, bruger uden users-dok og globalAdmin
+  (ingen admin-gren) afvises; skrivning efter deadline afvises; doc-id ≠ uid
+  og andens uid afvises; `delete` afvises.
 - **`questions`/`questionAnswers`:** `answerId == questionId + '_' + auth.uid`
   binder svaret til afsenderen. `botFacitAt`-vagterne holder i alle fire
   skriveformer (update, `= null`, fuld setDoc-overskrivning, `deleteField()` —
@@ -133,6 +158,50 @@
   `{a:1}`, `['a']` eller 100k tegn på sig selv. Se griefing-posten nedenfor.
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
+
+- **`puljeLockAt: null` ÅBNER alles pulje-tip (BEKRÆFTET, 2026-09-01).**
+  `beforeDeadline()` (firestore.rules ~L829) er
+  `gameLock() != null && request.time < gameLock()`. Et MANGLENDE felt er en
+  evalueringsfejl → fejler lukket (det er dét, kommentaren lover). Men et felt,
+  der EKSPLICIT er `null`, er ikke manglende: `gameLock()` returnerer null,
+  `beforeDeadline()` bliver `false`, og `!beforeDeadline()` bliver **true** →
+  `allow read` åbner HELE samlingen for enhver godkendt bruger, når som helst.
+  Vejen dertil er ét klik: `byggSchedulePatch` (GameScheduleTab.jsx L70-71)
+  skriver `puljeLockAt: null`, når admin TØMMER datetime-feltet, og
+  games-update har ingen affectedKeys-liste. Skrivning er stadig lukket, så
+  fladen siger "Endnu ikke åbnet", mens alt er læsbart via devtools.
+  superligaSync.js L694 KENDER tilstanden ("uparselig værdi … som rules
+  eksponerer") — vagten står kun server-side, ikke i reglen.
+  **Fix (emulator-verificeret, hele suiten 233/233 grøn):** erstat det negerede
+  led med et POSITIVT `afterDeadline()`:
+  `function afterDeadline() { return gameLock() != null && request.time >= gameLock(); }`
+  og `allow read: ... || (isApproved() && afterDeadline());`.
+  **Rør IKKE `beforeDeadline()` selv** — `gameLock() == null || ...` lukker godt
+  nok læsningen, men ÅBNER så skrivningen på ubestemt tid (målt: null-deadline
+  → `setDoc` lykkedes). Læse- og skrivevinduet må have hver sin vagt.
+  Generelt mønster: `!førDeadline()` ≠ `efterDeadline()` i Firestores
+  tre-værdi-logik. Grep efter flere negerede tidsvagter.
+- **`puljeBets` er IKKE liga-afgrænset — modsat `bets` og `players`.** Efter
+  deadline kan enhver `isApproved()` læse ethvert pulje-tip inkl. server-satte
+  `points`/`correct`, og `users/{uid}` (L114 `allow read: if isApproved()`)
+  giver uid→displayName. En "kun liga-fæller får navne"-visning er derfor ren
+  pynt: devtools giver hele spillets navn→tip-tabel, og pulje-POINT bliver en
+  omvej uden om liga-gaten på `players/{uid}` (L697). Hærdning uden at ødelægge
+  et game-wide aggregat: læg
+  `exists(/…/games/$(gameId)/players/$(request.auth.uid))` på læsegrenen —
+  stien er konstant, så `getDocs` på 60 dokumenter virker stadig (målt), og
+  fremmede afvises.
+- **Genåbning af puljen = perfekt-information-kopiering (KÆDE KØRT).** Kæden
+  målt ende-til-ende: deadline passeret → u2 `getDocs` alles tip → `users/u1`
+  giver navnet → globalAdmin sætter `puljeLockAt` frem i tiden → u2 gemmer u1's
+  tip som sit eget → læsningen er lukket igen, så kopieringen er usporlig.
+  Genåbnings-forbuddet findes KUN i den runde-udledte sti (superligaSync.js
+  L694-697) — altså PL. Superligaen har `pulje` men INGEN `puljeLockRound`
+  (scripts/games.mjs L69-76), så dens deadline sættes i hånden via
+  GameScheduleTab, hvor `byggSchedulePatch` har NUL vagt mod fortid→fremtid.
+  Admin-only og præeksisterende, men først skadeligt når en klient VISER
+  tippene. Fix: samme vagt i reglen (forbyd `puljeLockAt` fortid→fremtid på
+  games-update) — én vagt, ikke en tredje kopi af den server-side.
 
 - **Liga-ejer: slet + genopret spørgsmålet med SAMME doc-id.** `questions` har
   `allow delete: if qOwner()` (firestore.rules L999), mens `questionAnswers` har
@@ -580,6 +649,12 @@
 
 ## Testhuller værd at huske
 
+- `functions/rules.test.js` L3010-3053 (puljeBets-læsning) dækker `getDoc` på
+  ÉT fremmed dokument og et spil UDEN `puljeLockAt` — men hverken `getDocs`
+  (list) eller `puljeLockAt: null`. Hele suiten er GRØN både med og uden
+  null-hullet ovenfor (kørt: 233/233 mod den rettede regelfil). Skal en klient
+  liste samlingen, hører der en list-test til FØR og EFTER deadline plus en
+  eksplicit null-test — ellers er "regler er ikke filtre" udækket her.
 - `functions/rules.test.js` L1320-1358 (driftlog/driftAlarmer) tester kun
   `getDoc`, mens klienten bruger en collection-listener med
   `where('loestAt','==',null)`. Skærper nogen reglen med et `resource.data`-led,

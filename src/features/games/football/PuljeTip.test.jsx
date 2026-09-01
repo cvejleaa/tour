@@ -12,6 +12,13 @@ import { fileURLToPath } from 'node:url';
 
 vi.mock('../../../firebase', () => ({ db: {} }));
 
+// Seerens ligaer i spillet: styrbar pr. test. Uden mocken ville hooken lytte
+// på Firestore og altid give en tom liste, og forbeholdet kunne aldrig vises.
+const mockLeagues = { current: [] };
+vi.mock('../useGameLeagues', () => ({
+  useGameLeagues: () => ({ leagues: mockLeagues.current, loading: false, error: null }),
+}));
+
 // Firestore-lytteren: styrbar pr. test — mockBet.current er spillerens
 // gemte pulje-tip (null = intet tip endnu).
 const mockBet = { current: null };
@@ -32,11 +39,11 @@ vi.mock('../gameActions', () => ({ setPuljeBet: (...a) => mockSetPuljeBet(...a) 
 
 // Fixtures har game.pulje med: komponenten er konfigurations-gated (#8) og
 // renderer intet uden pulje — fanen er alligevel data-gated på samme felt.
-import PuljeTip, { topTitel, sektionsNavn } from './PuljeTip';
+import PuljeTip, { topTitel, sektionsNavn, puljeLigaForbehold } from './PuljeTip';
 import { PREMIER_LEAGUE_TEAMS_2026 } from '../../../data/premierLeagueTeams2026';
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
 
-beforeEach(() => { vi.clearAllMocks(); mockBet.current = null; });
+beforeEach(() => { vi.clearAllMocks(); mockBet.current = null; mockLeagues.current = []; });
 
 describe('PuljeTip — holdene kommer fra spillet', () => {
   it('viser de engelske hold på et Premier League-spil', () => {
@@ -322,5 +329,69 @@ describe('Pulje-gitteret — CSS\'en MÅLES, ikke læses', () => {
     const laast = maal('pulje-team pulje-team--laast');
     expect(laast.navn).toBe('1');
     expect(laast.pokal).toBe('1');
+  });
+});
+
+describe('puljeLigaForbehold — puljen tæller ikke i en sent startet liga', () => {
+  it('siger INTET, når alle ligaer tæller puljen med', () => {
+    expect(puljeLigaForbehold([{ name: 'Kontoret', startRound: 1 }])).toBeNull();
+    expect(puljeLigaForbehold([{ name: 'Kontoret', startRound: 3 }])).toBeNull();
+    // PULJE_MAKS_STARTRUNDE er 3 — grænsen skal være INDE, ikke ude.
+  });
+
+  it('siger INTET uden ligaer — spillets egen skala tæller altid puljen', () => {
+    expect(puljeLigaForbehold([])).toBeNull();
+    expect(puljeLigaForbehold(null)).toBeNull();
+    expect(puljeLigaForbehold(undefined)).toBeNull();
+  });
+
+  it('en liga UDEN startrunde tæller puljen med', () => {
+    expect(puljeLigaForbehold([{ name: 'Dreamteam' }])).toBeNull();
+    expect(puljeLigaForbehold([{ name: 'Dreamteam', startRound: null }])).toBeNull();
+  });
+
+  it('NAVNGIVER ligaen og siger først hvad der TÆLLER', () => {
+    const t = puljeLigaForbehold([{ name: 'Kontoret', startRound: 20 }]);
+    // "Puljen tæller ikke i dine ligaer" ville være usandt: med 2+ ligaer og
+    // intet valg viser stillingen SPILLETS skala, hvor puljen altid tæller.
+    expect(t).toBe('Puljen tæller i spillets samlede stilling, men tæller ikke i Kontoret.');
+    expect(t).not.toContain('dine ligaer');
+    // Ordlyden er den samme som de fire andre flader bruger.
+    expect(t).toContain('tæller ikke');
+  });
+
+  it('opremser flere ligaer på dansk — og tager kun dem, der ikke tæller', () => {
+    expect(puljeLigaForbehold([
+      { name: 'Kontoret', startRound: 20 },
+      { name: 'Familien', startRound: 1 },
+      { name: 'Vennerne', startRound: 12 },
+    ])).toBe('Puljen tæller i spillets samlede stilling, men tæller ikke i Kontoret og Vennerne.');
+
+    expect(puljeLigaForbehold([
+      { name: 'A', startRound: 9 }, { name: 'B', startRound: 9 }, { name: 'C', startRound: 9 },
+    ])).toBe('Puljen tæller i spillets samlede stilling, men tæller ikke i A, B og C.');
+  });
+
+  it('en liga uden navn får en læselig plads i sætningen', () => {
+    expect(puljeLigaForbehold([{ startRound: 20 }]))
+      .toContain('en liga uden navn');
+  });
+});
+
+describe('PuljeTip — forbeholdet på kortet', () => {
+  const sl = { id: 'sl', teams: HOLD8, pulje: { poolSize: 6 }, puljeLockAt: Date.now() + 86400000 };
+
+  it('vises ved LØFTET, når seeren har en sent startet liga', () => {
+    mockLeagues.current = [{ id: 'k', name: 'Kontoret', startRound: 20 }];
+    render(<PuljeTip game={sl} matches={[]} />);
+    expect(screen.getByTestId('pulje-liga-forbehold')).toHaveTextContent(
+      'Puljen tæller i spillets samlede stilling, men tæller ikke i Kontoret.',
+    );
+  });
+
+  it('vises IKKE, når alle seerens ligaer tæller puljen med', () => {
+    mockLeagues.current = [{ id: 'd', name: 'Dreamteam' }];
+    render(<PuljeTip game={sl} matches={[]} />);
+    expect(screen.queryByTestId('pulje-liga-forbehold')).toBeNull();
   });
 });

@@ -12,6 +12,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import { puljenTaeller } from '../../../lib/ligaPoint';
+import { useGameLeagues } from '../useGameLeagues';
 import { useAuth } from '../../../context/AuthContext';
 import { COL } from '../../../lib/constants';
 import { teamsOf } from './teamInfo';
@@ -75,11 +77,54 @@ export function topTitel(konfig, laast = false) {
   return `🏆 ${stort} — ${laast ? 'dine' : 'vælg'} ${konfig.poolSize}`;
 }
 
+/** "A", "A og B", "A, B og C" — dansk opremsning. */
+function opremsning(navne) {
+  if (navne.length === 1) return navne[0];
+  return `${navne.slice(0, -1).join(', ')} og ${navne[navne.length - 1]}`;
+}
+
+/**
+ * Forbeholdet: puljen tæller ikke i en liga, der starter for sent.
+ *
+ * `puljenTaeller` (`ligaPoint.js:43-46`) slår puljen fra over
+ * `PULJE_MAKS_STARTRUNDE`. Fire flader sagde det allerede — stillingen
+ * (`GameStandings.jsx:403`), Ligaer-fanen (`GameLeagues.jsx:225` og `:247`) og
+ * Guiden (`FootballHelp.jsx:273-274`) — men netop puljefanen, som LOVER
+ * pointene, sagde intet. Efter #201 lyser pokalerne oveni på et låst gitter og
+ * gør løftet mere nærværende.
+ *
+ * LIGAEN NAVNGIVES, og der siges hvad der TÆLLER først.
+ *
+ * "Puljen tæller ikke i dine ligaer" ville være både en dræber og USANDT: har
+ * man to eller flere ligaer og ikke valgt én, viser Stilling-fanen SPILLETS
+ * skala, hvor puljen altid tæller (`GameStandings.jsx:406-410`). Den absolutte
+ * form ville altså modsige den total, spilleren ser ét klik væk (QC-fund).
+ *
+ * En liga UDEN startrunde tæller puljen med — `puljenTaeller` returnerer true
+ * for alt, der ikke er et endeligt tal.
+ *
+ * @param {Array<{name?:string, startRound?:number}>} ligaer seerens ligaer i spillet
+ * @returns {string|null} sætningen, eller null når der intet er at tage forbehold for
+ */
+export function puljeLigaForbehold(ligaer) {
+  const uden = (ligaer || []).filter((l) => !puljenTaeller(l.startRound));
+  if (!uden.length) return null;
+  const navne = uden.map((l) => l.name || 'en liga uden navn');
+  // "men ikke i X" ville sige det samme, men uden strengen "tæller ikke", som
+  // de fire andre flader bruger — og så kunne denne femte ikke findes med en
+  // grep efter den. Gentagelsen af verbet er prisen for, at samme ting hedder
+  // det samme alle steder.
+  return `Puljen tæller i spillets samlede stilling, men tæller ikke i ${opremsning(navne)}.`;
+}
+
 export default function PuljeTip({ game, matches }) {
   const gameId = game?.id;
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const konfig = useMemo(() => puljeKonfig(game), [game]);
+  // Seerens ligaer i DETTE spil — bruges kun til forbeholdet nedenfor.
+  const { leagues } = useGameLeagues(gameId);
+  const ligaForbehold = useMemo(() => puljeLigaForbehold(leagues), [leagues]);
   const [bet, setBet] = useState(undefined); // undefined = indlæser, null = intet tip
   const [picks, setPicks] = useState([]);    // toppen
   const [nedPicks, setNedPicks] = useState([]); // bunden (kun når nedSize > 0)
@@ -273,6 +318,13 @@ export default function PuljeTip({ game, matches }) {
           )}
           .
         </p>
+        {/* VED LØFTET, ikke nederst på kortet: ellers lover kortet i ét blik
+            og trækker i land i et andet (Spilfører-fund). */}
+        {ligaForbehold && (
+          <p className="badge badge--yellow" style={{ display: 'block' }} data-testid="pulje-liga-forbehold">
+            {ligaForbehold}
+          </p>
+        )}
         {ikkeAabnet ? (
           <p className="badge badge--muted" style={{ display: 'inline-block' }}>
             Endnu ikke åbnet — arrangøren har ikke sat en deadline.

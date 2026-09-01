@@ -24,6 +24,23 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   fortrænge noget eller lægge sig som en kvalifikator på et tal, der allerede
   står der (halvlegsstilling i parentes efter scoren er en kvalifikator;
   tilskuertal og dommer er trivia og hører på holdsiden eller ingen steder).
+- **En AFSLØRING skæres pr. LIGA, aldrig pr. union af mine ligaer.** Husets
+  skrevne præcedens er `gameRecap.js:340-347`: ét opslag PR. LIGA, fordi et
+  spil-bredt fakta-sæt satte navne på "Familien"s væg fra folk, dens medlemmer
+  ikke deler liga med, og påstod en fører, ligaens egen stilling modsagde.
+  `useGameStandings().standings` er UNIONEN af mine ligaer — den er rigtig som
+  læse-afgrænsning, men forkert som RANGLISTE: rækkefølgen matcher da ingen
+  ligas stilling. `GameStandings.jsx:250-254` løser det med `enesteLiga` +
+  vælger; en ny rangliste uden vælger genskaber fejlen. Og ved nul ligaer
+  bliver listen ÉN række (dig selv) — `gameRecap` har `< 2 medlemmer → spring
+  over`, `LeagueBets.jsx:91-97` siger i stedet "Bliv med i en liga". Vælg ét af
+  de to; en etrækkers rangliste er ingen af delene.
+- **En ny udfoldning skal måles mod opgave #60, ikke mod bekvemmelighed.**
+  `LeagueBets.jsx:128-131` bærer indrømmelsen på skrift: den ene sætning, man
+  kan læse højt ("kun du så det komme"), ligger bag en fold. Et forslag om
+  `<details>` PR. SPILLER er samme fejl gange N — pointen (enegængeren) kan
+  kun findes ved at åbne alle. Løft det interessante ud som én sætning over
+  listen; fold kun det, ingen leder efter.
 - **Et statusfelt, der overskrives, kan ikke bære en alarm.** Kræver hændelsen
   en menneskelig handling, skal den persisteres og kvitteres. **En alarm må
   aldrig kombinere `kraeverKvittering: true` med selv-lukning** (fundet på
@@ -116,6 +133,16 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   VAR-annullering). Kræv afvisningsraten målt over en hel sæson, før
   konstruktionen landes — ellers ved ingen, om fladen er tom for 2 % eller
   40 % af kampene, og alarmen fyrer i stedet for at oplyse.
+- **Klient-beregnet facit og server-skrevet facit er TO kilder til samme tal —
+  og de skifter ikke samtidig.** `PuljeTip.jsx:110-133` regner `facit` af
+  `game.standings` (SL: alle hold har `played == expectedPlayed`), mens
+  `settlePuljeBets` (`gameScoring.js:392-397`) self-guarder på at ALLE
+  kampdokumenter har mål. Den officielle tabel kan være komplet, mens ét af
+  vores kampdokumenter mangler et resultat: klienten siger "sæsonen er slut",
+  serveren har ikke afregnet, og facit-kortet viser `bet.correct ?? 0` = 0/6.
+  Enhver NY flade, der viser et pulje-tal ved sæsonslut, skal vælge ÉN kilde —
+  og siger den noget andet end nabokortet, er det en modsigelse, ikke en
+  forsinkelse.
 - **Et "har-vi-det-allerede"-filter uden en AFVIST-markering er en giftpille.**
   Filtreres på "har facit OG mangler `…SyncedAt`", bliver en post, der
   permanent fejler valideringen, hentet igen ved HVER kørsel for evigt og æder
@@ -228,6 +255,12 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   `games/{gameId}/matches/{matchId}` (`firestore.rules:805-809`) er
   `read: isApproved()`, `create/update: isGlobalAdmin()`, ingen felt-allowlist
   — nye felter på kampdokumentet kræver ingen regelændring.
+- **En rules-test på `getDoc` beviser ikke en `getDocs`.**
+  `functions/rules.test.js:3033-3053` beviser, at andres pulje-tip kan læses
+  ENKELTVIS efter deadline (`puljeBets`, `firestore.rules:838-839`). En flade,
+  der henter HELE samlingen, er en `list`: hele forespørgslen falder, hvis ét
+  dokument fejler, og `gameLock()` er et `get()` inde i regel-evalueringen.
+  Kræv en emulator-test på selve `getDocs` — før OG efter deadline.
 - **`recomputeGameMatch` (`functions-platform/index.js:106-117`) er vagten
   mellem en felt-skrivning og en fuld rescore + `recomputeSeasonElo` +
   Runde-Botten.** Den returnerer, hvis `result` ikke ændrer sig — derfor er
