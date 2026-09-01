@@ -87,6 +87,23 @@ async function main() {
   const navnAf = (uid) => navne.get(uid) || '(uden navn)';
 
   const alle = spillereSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+  const game = gameSnap.exists ? gameSnap.data() : null;
+
+  // PULJENS DEADLINE-TYPE. Reglen sammenligner `request.time` med feltet; er
+  // det et TAL (admin-fladen skriver `new Date(x).getTime()`,
+  // GameScheduleTab.jsx:71), er sammenligningen en evalueringsfejl, og HELE
+  // læsningen af andres pulje-tip afvises — mens klientens `toMillis()` glad
+  // accepterer tallet og tror, puljen er låst. Afsløringen ville stå
+  // permanent tom uden en eneste fejlbesked, så typen skal kendes.
+  const lock = game?.puljeLockAt;
+  const lockType = lock == null ? String(lock)
+    : (typeof lock?.toDate === 'function' ? 'Timestamp' : typeof lock);
+  console.log(`puljeLockAt: ${lockType}`
+    + (lockType === 'Timestamp' ? ` (${lock.toDate().toISOString()})` : '')
+    + (lockType === 'number' ? '  ← TAL: reglen afviser andres tip' : '')
+    + (lockType === 'null' ? '  ← NULL' : ''));
+
+
   const traef = SOEG ? alle.filter((p) => navnAf(p.uid).toLowerCase().includes(SOEG)) : alle;
   if (!traef.length) {
     console.log(`\nIngen spiller matcher "${SOEG}". Spillets deltagere:`);
@@ -104,23 +121,8 @@ async function main() {
   // spiller med tips i en gatet runde få et for højt tal her — og forskellen
   // ville blive læst som "players-dokumentet er forældet". Den fejl ville
   // pege præcis den forkerte vej.
-  const game = gameSnap.exists ? gameSnap.data() : null;
   const startRunde = startRundeFor(game, kampe);
   const gated = gatedeKampe(kampe, startRunde);
-  // PULJENS DEADLINE-TYPE. Reglen sammenligner `request.time` med feltet; er
-  // det et TAL (admin-fladen skriver `new Date(x).getTime()`,
-  // GameScheduleTab.jsx:71), er sammenligningen en evalueringsfejl, og HELE
-  // læsningen af andres pulje-tip afvises — mens klientens `toMillis()` glad
-  // accepterer tallet og tror, puljen er låst. Afsløringen ville stå
-  // permanent tom uden en eneste fejlbesked, så typen skal kendes.
-  const lock = game?.puljeLockAt;
-  const lockType = lock == null ? String(lock)
-    : (typeof lock?.toDate === 'function' ? 'Timestamp' : typeof lock);
-  console.log(`puljeLockAt: ${lockType}`
-    + (lockType === 'Timestamp' ? ` (${lock.toDate().toISOString()})` : '')
-    + (lockType === 'number' ? '  ← TAL: reglen afviser andres tip' : '')
-    + (lockType === 'null' ? '  ← NULL' : ''));
-
   console.log(`Spillets startrunde: ${startRunde ?? 'ingen gate'}`
     + `   (game.startRound=${game?.startRound ?? '–'})`
     + `   ${gated.size} kamp(e) gatet ud`);
