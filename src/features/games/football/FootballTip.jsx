@@ -26,7 +26,7 @@ import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/d
 import { fmtPoints, fmtDec, fmtSignedPoints, fmtHeltal } from '../../../lib/daNum';
 import { shareText } from '../../../lib/share';
 import {
-  groupByRound, activeRound, isLocked, toMillis, matchScore, liveScore,
+  groupByRound, activeRound, isLocked, toMillis, matchScore, liveScore, efterslaebPaaRunde,
 } from './footballRounds';
 import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 import {
@@ -38,6 +38,7 @@ import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
 // Chance-deltaet udledes ÉT sted — se chanceUdfald.
 import { chanceUdfald } from './tipsHistory';
 import { medStilling } from './maalRaekke';
+
 
 const OUTCOME_LABEL = { [OUTCOME.HOME]: '1', [OUTCOME.DRAW]: 'X', [OUTCOME.AWAY]: '2' };
 
@@ -155,6 +156,38 @@ export default function FootballTip({ game, me, matches }) {
       idx: rounds.findIndex((r) => r.round === cur?.round),
     };
   }, [rounds, roundNo, initialRound]);
+
+  // KAMPE UDEN FOR RUNDENS UGE, DER SPILLES I DENNE UGE.
+  //
+  // Ejer-rapport: to runde-2-kampe blev spillet onsdag og torsdag, mens runde 7
+  // begyndte fredag. Tip-fanen åbnede derfor på runde 2 (rettet i activeRound),
+  // og kampene var i praksis umulige at finde for den, der kiggede på den runde,
+  // alle andre talte om.
+  //
+  // DE VISES, DE FLYTTES IKKE. `roundMatches` er urørt, så kuponen, tælleren
+  // "N/M tippet", datospændet, Chancens udvalg og hver eneste pointudregning
+  // ser præcis de samme kampe som før. Det er ALENE kort-listen, der udvides.
+  // Ville man flytte point med, ændrede man en igangværende rundes combi-kupon
+  // bagud i tiden — en helt anden beslutning.
+  const efterslaeb = useMemo(
+    () => (current ? efterslaebPaaRunde(rounds, current.round) : []),
+    [rounds, current],
+  );
+  const fraRundeAf = useMemo(
+    () => new Map(efterslaeb.map((e) => [e.match.id, e.fraRunde])),
+    [efterslaeb],
+  );
+  // Sorteret på kickoff, så ugen kan læses ovenfra og ned. Kampe uden
+  // kickoff sidst — de har ingen plads i en tidslinje.
+  const visteKampe = useMemo(() => {
+    const alle = [...roundMatches, ...efterslaeb.map((e) => e.match)];
+    return alle.sort((x, y) => {
+      const a = toMillis(x.kickoff); const b = toMillis(y.kickoff);
+      if (a == null) return b == null ? 0 : 1;
+      if (b == null) return -1;
+      return a - b;
+    });
+  }, [roundMatches, efterslaeb]);
 
   // Hvilken kamp i runden har Chancen aktiv (chanceStake > 0)?
   const chanceMatchId = useMemo(() => {
@@ -568,16 +601,40 @@ export default function FootballTip({ game, me, matches }) {
             har du brugt din ⚡ i denne runde, er den brugt, også her.
           </p>
         )}
+        {efterslaeb.length > 0 && (
+          <p
+            className="combi-udenfor"
+            data-testid="combi-efterslaeb"
+            style={{ color: 'var(--c-muted)', fontSize: '0.78rem', margin: '0.4rem 0 0' }}
+          >
+            {/* Modstykket til teksten ovenfor: DEN handler om rundens egne
+                kampe uden for ugen, DENNE om andre runders kampe, der spilles
+                i netop denne uge. De to må ikke slås sammen — remedien er
+                forskellig, og det er rundetallet også. */}
+            📅 {efterslaeb.length === 1 ? 'Én kamp fra en anden runde spilles' : `${efterslaeb.length} kampe fra andre runder spilles`}
+            {' '}i denne uge og står derfor med herunder:
+            {' '}{efterslaeb.map((e) => `${visOf(hold, e.match.home)}–${visOf(hold, e.match.away)} (runde ${e.fraRunde})`).join(', ')}.
+            {' '}{efterslaeb.length === 1 ? 'Den giver point i sin egen runde' : 'De giver point i deres egne runder'}
+            {' '}— ikke i denne — og {efterslaeb.length === 1 ? 'den står' : 'de står'} ikke på kuponen her.
+          </p>
+        )}
       </div>
       )}
 
       {error && <p className="badge badge--red mb-2">{error}</p>}
 
       {/* Kampe */}
-      {roundMatches.map((m) => {
+      {visteKampe.map((m) => {
         const bet = betsByMatch[m.id];
         const locked = isLocked(m, nowMs);
-        const isChance = m.id === chanceMatchId;
+        const fraRunde = fraRundeAf.get(m.id) ?? null;
+        // Spørg TIPPET, ikke runden. `chanceMatchId` er runde-scopet og ville
+        // svare null for en kamp fra en anden runde — så ville en ⚡, spilleren
+        // FAKTISK har brugt, forsvinde fra kortet her. Prædikatet er det samme
+        // (`chanceStake > 0`), bare stillet pr. kamp i stedet for pr. runde;
+        // panelet nedenfor bruger stadig chanceMatchId, fordi udvalget dér
+        // med rette er rundens egne kampe.
+        const isChance = Number(bet?.chanceStake) > 0;
         const { h, a } = matchBadges(hold, m.home, m.away, game?.teamStyles);
         const hit = m.result && bet?.pick ? bet.pick === m.result : null;
         const score = matchScore(m);
@@ -594,7 +651,7 @@ export default function FootballTip({ game, me, matches }) {
         return (
           <div
             className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`
-              + `${visMaerke && !paaKupon ? ' match-card--udenfor' : ''}`}
+              + `${(visMaerke && !paaKupon) || fraRunde ? ' match-card--udenfor' : ''}`}
             key={m.id}
           >
             <div className="match-card__meta">
@@ -614,6 +671,20 @@ export default function FootballTip({ game, me, matches }) {
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0 }}>
                 {h.venue && <span className="match-card__venue">{h.venue}</span>}
+                {/* SPROGET ER HUSETS: "uden for rundens uge", ALDRIG "udsat".
+                    Kommentaren ved combi-udenfor-teksten siger hvorfor — en
+                    kamp kan være programsat i næste uge helt legitimt, og
+                    "udsat" er en påstand, vi ikke kan bakke op.
+
+                    Mærkaten siger, hvor pointene TÆLLER, ikke bare hvor
+                    kampen kommer fra. Uden dét ville et kort på runde 7's
+                    side læses som runde 7's point — og så ville fladen have
+                    løjet om det eneste, spillet handler om. */}
+                {fraRunde && (
+                  <span className="match-card__fra-runde" data-testid="fra-runde">
+                    Runde {fraRunde} · point tæller dér
+                  </span>
+                )}
                 {m.result ? (
                   <>
                     {hit === true ? <span className="badge badge--green">Ramt +{fmtDec(hitPoints(m.result, m.odds))}</span>
