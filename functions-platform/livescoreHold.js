@@ -108,12 +108,34 @@ function livescoreKode(kode) {
 }
 
 /**
- * Nøglen, en af vores kampe kobles til livescore med.
+ * Nøglen, en af vores kampe kobles til livescore med: DATO + BEGGE HOLD.
  *
- * KICKOFF + BEGGE HOLD, og ikke ét af dem alene: tre Premier League-kampe
- * starter rutinemæssigt i samme minut. Målt er nøglen entydig for begge
- * spils fulde sæson (380 og 132 kampe, nul dubletter) — den måling er hele
- * grunden til, at kortlægningen kan automatiseres.
+ * HOLDPARRET ALENE ER IKKE NOK. Tre Premier League-kampe starter rutinemæssigt
+ * i samme minut, og i Superligaens mesterskabsspil mødes to hold igen efter
+ * grundspillet. Datoen skiller dem ad.
+ *
+ * KLOKKESLÆTTET VAR MED FØRST, OG DET VAR EN FEJL — fundet i produktion ved
+ * første tryk på knappen. FC Midtjylland–Randers FC (runde 5) stod hos os til
+ * 12:00:00 og hos dem til 12:05:00, så nøglen ramte aldrig, og kampen kunne
+ * ikke kobles. Fejlen var ikke fem minutter; den var at kræve, at TO
+ * UAFHÆNGIGE KILDER er enige på sekundet. Vores tid er den PLANLAGTE fra
+ * api.superliga.dk, deres er den, kampen faktisk blev sat i gang på. De to
+ * begreber er ikke det samme, og de vil aldrig blive det.
+ *
+ * MÅLT (scripts/maal-livescore-detaljer.mjs, 1/9-2026), begge fulde sæsoner:
+ *
+ *                     dubletter hos os   hos dem   ukoblede færdige kampe
+ *   dato + holdpar           0              0                0
+ *   holdpar alene            0              0                –
+ *
+ * Holdparret alene er altså entydigt i DAG, men kun fordi vores programfiler
+ * rummer grundspillet. Datoen bliver, så et mesterskabsspil ikke kræver en
+ * ny nøgle.
+ *
+ * MIDNAT er den ene måde, en dato-nøgle kan knække: en kamp, der udskydes
+ * hen over døgnskiftet, får en anden dato hos den ene kilde. Målt luft i UTC:
+ * Superligaens seneste kickoff er 18:00 (6 timer), Premier Leagues 20:00
+ * (4 timer). En udskydelse så lang ville uanset hvad kræve et menneske.
  *
  * `Esd` er livescores eget format: 20260831190000, uden separatorer — men
  * IKKE nødvendigvis UTC. Det sidste segment i `stage/.../{OFFSET}` er et
@@ -126,10 +148,11 @@ function livescoreKode(kode) {
  *
  * Offsettet er FAST og følger ikke sommertid, så `/2` faldt tilfældigvis
  * sammen med dansk tid, da koden blev skrevet, og ville være én time forkert
- * fra sidste søndag i oktober. Et ukendt segment fejler ÅBENT til 0.
- * Hent derfor altid med `/0`, og sammenlign mod UTC.
+ * fra sidste søndag i oktober. Hent derfor altid med `/0`, og sammenlign mod
+ * UTC. Det gælder OGSÅ med en dato-nøgle — faktisk skarpere: et forkert
+ * offset flytter en aftenkamp til dagen efter.
  *
- * @param {number|string} esd    kickoff som livescore skriver det
+ * @param {number|string} esd    kickoff som livescore skriver det (14 cifre)
  * @param {string} hjemmeKode    vores kortkode
  * @param {string} udeKode       vores kortkode
  * @returns {string|null}
@@ -139,15 +162,20 @@ function kampNoegle(esd, hjemmeKode, udeKode) {
   const u = livescoreKode(udeKode);
   if (!h || !u) return null;
   const t = String(esd ?? '');
-  // 14 cifre, ikke "noget der ligner": en afkortet eller tom tid ville give
-  // en nøgle, der matcher forkert frem for slet ikke at matche. Båndet lukker
-  // BEGGE ender — en for lang cifferstreng slap før igennem.
+  // Der kræves stadig 14 cifre af INPUTTET, selv om kun de otte bruges: en
+  // afkortet tid ville ellers slippe igennem som en gyldig dato, og en for
+  // lang cifferstreng ville få sin dato læst af de forkerte cifre. Båndet
+  // lukker BEGGE ender — det var også dét, trin 1's første udgave manglede.
   if (!/^\d{14}$/.test(t)) return null;
+  const dato = t.slice(0, 8);
+  // En dato skal være en dato. '00000000' er 14 cifre og ville ellers blive
+  // en gyldig nøgle, alle ulæselige tider delte.
+  if (!/^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(dato)) return null;
   // Og koderne skal valideres, ikke kun tiden. Uden det kolliderer
   // ('A|B','C') med ('A','B|C') i én og samme nøgle: separatoren kan indgå i
   // et felt, og så betyder nøglen ikke længere ét bestemt kampopslag.
   if (!/^[A-Z0-9]{2,5}$/.test(h) || !/^[A-Z0-9]{2,5}$/.test(u)) return null;
-  return `${t}|${h}|${u}`;
+  return `${dato}|${h}|${u}`;
 }
 
 module.exports = { AFVIGER, livescoreKode, kampNoegle };

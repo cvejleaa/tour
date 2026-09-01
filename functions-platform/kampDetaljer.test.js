@@ -19,6 +19,7 @@ import { createRequire } from 'module';
 import { readFileSync } from 'fs';
 
 const require = createRequire(import.meta.url);
+const { kampNoegle } = require('./livescoreHold');
 const {
   syncKampDetaljerCore, detaljerAf, maalAf, kaedeOk, noegleAfKamp,
   heltal, tilskuertal, hentNoegler, KildenLukkerOs,
@@ -318,18 +319,33 @@ describe('noegleAfKamp', () => {
   const koder = new Map([['Viborg FF', 'VFF'], ['OB', 'OB']]);
 
   it('regner kickoff om til UTC, ikke til lokal tid', () => {
-    // 17:00 UTC i juli er 19:00 dansk. Nøglen SKAL bære 170000 — /0-endpointet
-    // er ægte UTC (livescoreHold.js). Et lokalt-tid-regnestykke ville give
-    // 190000 og ramme en anden kamp eller ingen. Koden er VIB og ikke vores
-    // VFF: nøglen bygges af DERES koder — se testen længere nede.
-    const n = noegleAfKamp({ home: 'Viborg FF', away: 'OB', kickoff: new Date('2026-07-24T17:00:00Z') }, koder);
-    expect(n).toBe('20260724170000|VIB|OB');
+    // DENNE TEST BLEV VIGTIGERE, DA NØGLEN MISTEDE SIT KLOKKESLÆT. Før flyttede
+    // en tidszonefejl nøglen to timer; nu flytter den kampen en HEL DAG, og
+    // datoen er alt, der er tilbage at koble på.
+    //
+    // Derfor er tidspunktet valgt, så de to svar er FORSKELLIGE DATOER:
+    // 22:30 UTC den 24. juli er 00:30 dansk den 25. En test på en eftermiddags-
+    // kamp ville give samme dato begge veje og bevise ingenting.
+    const n = noegleAfKamp({ home: 'Viborg FF', away: 'OB', kickoff: new Date('2026-07-24T22:30:00Z') }, koder);
+    expect(n).toBe('20260724|VIB|OB');
+    expect(n).not.toBe('20260725|VIB|OB');
   });
 
   it('tåler en Firestore-Timestamp', () => {
-    const ts = { toMillis: () => Date.parse('2026-07-24T17:00:00Z') };
+    const ts = { toMillis: () => Date.parse('2026-07-24T22:30:00Z') };
     expect(noegleAfKamp({ home: 'Viborg FF', away: 'OB', kickoff: ts }, koder))
-      .toBe('20260724170000|VIB|OB');
+      .toBe('20260724|VIB|OB');
+  });
+
+  it('kobler VORES planlagte tid til DERES faktiske starttid', () => {
+    // Produktionsfundet ved første tryk: FCM-Randers stod hos os til 12:00:00
+    // og hos dem til 12:05:00, og kampen kunne ikke kobles. Her mødes de to
+    // sider af koblingen i én test — vores dokument mod deres event.
+    const vores = noegleAfKamp(
+      { home: 'FC Midtjylland', away: 'Randers FC', kickoff: new Date('2026-08-23T12:00:00Z') },
+      new Map([['FC Midtjylland', 'FCM'], ['Randers FC', 'RFC']]),
+    );
+    expect(vores).toBe(kampNoegle(20260823120500, 'FCM', 'RFC'));
   });
 
   it('giver null for et ulæseligt kickoff', () => {
@@ -368,7 +384,7 @@ describe('hentNoegler', () => {
     const m = await hentNoegler({ land: 'a', liga: 'b' }, svar([
       { Eid: '123', Esd: 20260724170000, T1: [{ Abr: 'VIB' }], T2: [{ Abr: 'OB' }] },
     ]));
-    expect(m.get('20260724170000|VIB|OB')).toBe('123');
+    expect(m.get('20260724|VIB|OB')).toBe('123');
   });
 
   it('henter med /0 — offsettet er en tidszone, ikke en version', async () => {

@@ -134,11 +134,25 @@ async function main() {
       }
     }
 
-    // 2. ENTYDIGHED. To kampe med samme kickoff OG samme holdpar ville gøre
-    //    nøglen tvetydig. Sker det, duer kickoff+hold ikke som nøgle.
-    const noegler = kampe.map((e) => `${e.Esd}|${(e.T1 || [])[0]?.Abr}|${(e.T2 || [])[0]?.Abr}`);
-    const dubletter = noegler.filter((n, i) => noegler.indexOf(n) !== i);
-    console.log(`nøglen kickoff+hold er ${dubletter.length ? `TVETYDIG (${dubletter.length} dubletter)` : 'entydig'}`);
+    // 2. ENTYDIGHED. To kampe med samme DATO og samme holdpar ville gøre
+    //    nøglen tvetydig.
+    //
+    //    NØGLEN BÆRER DATOEN, IKKE KLOKKESLÆTTET, og scriptet måler derfor
+    //    dét. Klokkeslættet var med først, og det knækkede i produktion:
+    //    FCM-Randers stod hos os til 12:00:00 og hos livescore til 12:05:00,
+    //    så kampen kunne ikke kobles. At kræve, at to uafhængige kilder er
+    //    enige på sekundet, er ikke en stram nøgle — det er en forkert.
+    //
+    //    Begge tal printes, så det kan efterprøves, at datoen ikke bare er
+    //    løsere, men stadig entydig.
+    const dub = (f) => {
+      const n = kampe.map(f);
+      return n.filter((x, i) => n.indexOf(x) !== i).length;
+    };
+    const medTid = dub((e) => `${e.Esd}|${(e.T1 || [])[0]?.Abr}|${(e.T2 || [])[0]?.Abr}`);
+    const medDato = dub((e) => `${String(e.Esd).slice(0, 8)}|${(e.T1 || [])[0]?.Abr}|${(e.T2 || [])[0]?.Abr}`);
+    console.log(`nøglen DATO+hold er ${medDato ? `TVETYDIG (${medDato} dubletter)` : 'entydig'}`
+      + `  ·  til sammenligning: kickoff+hold ${medTid ? `${medTid} dubletter` : 'entydig'}`);
 
     // 3. KRYDSVALIDERING af tilskuertallet mod vores egen kilde sker i
     //    parityscriptet; her rapporteres blot, hvor mange der HAR tallet.

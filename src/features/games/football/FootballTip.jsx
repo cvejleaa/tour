@@ -37,6 +37,7 @@ import {
 import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
 // Chance-deltaet udledes ÉT sted — se chanceUdfald.
 import { chanceUdfald } from './tipsHistory';
+import { medStilling } from './maalRaekke';
 
 const OUTCOME_LABEL = { [OUTCOME.HOME]: '1', [OUTCOME.DRAW]: 'X', [OUTCOME.AWAY]: '2' };
 
@@ -372,8 +373,22 @@ export default function FootballTip({ game, me, matches }) {
           <span className="btn btn--ghost btn--sm" aria-hidden="true" style={{ visibility: 'hidden' }}>←</span>
         )}
 
-        <span style={{ fontSize: '0.82rem', color: 'var(--c-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-          Runde {idx + 1} af {rounds.length}
+        {/* RUNDENUMMERET, ikke positionen i listen. `idx + 1` var forkert i
+            ethvert spil, der ikke starter i runde 1: Superligaen starter i
+            runde 2 (runde 1 blev spillet før spillet åbnede og filtreres af
+            fraStartRunde), så tælleren skrev "Runde 6 af 21", mens
+            overskriften under den sagde RUNDE 7 og knappen ved siden af
+            "← Runde 6". Tre tal om det samme, to af dem enige, og det
+            forkerte stod i midten.
+
+            Nævneren er SIDSTE RUNDES NUMMER og ikke antallet af runder, af
+            samme grund: "af 21" ville sige, at sæsonen slutter i runde 21,
+            og den slutter i 22. */}
+        <span
+          data-testid="round-nav-count"
+          style={{ fontSize: '0.82rem', color: 'var(--c-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}
+        >
+          Runde {rounds[idx].round} af {rounds[rounds.length - 1].round}
         </span>
 
         {idx < rounds.length - 1 ? (
@@ -828,10 +843,17 @@ export default function FootballTip({ game, me, matches }) {
               <div className="match-card__maal">
                 {harMaal(m) && <span className="match-card__maal-label">Mål</span>}
                 {' '}
-                {(harMaal(m) ? m.maal : []).map((g, i) => (
+                {(harMaal(m) ? medStilling(m.maal) : []).map((g, i) => (
                   <span key={`${g.hold}-${g.minut}-${i}`} className="match-card__maal-post">
                     {i > 0 && <span aria-hidden="true"> · </span>}
-                    <strong>{g.minut}′</strong>
+                    {/* STILLINGEN FØRST, og det er ikke en smagssag: listen
+                        læses for at se kampen bevæge sig, og så skal tallene
+                        kunne findes uden at læse et navn af vilkårlig længde
+                        først. Den er UDLEDT, ikke gemt — se maalRaekke.js. */}
+                    <strong className="match-card__maal-stilling">
+                      {g.hjemme}–{g.ude}
+                    </strong>
+                    {' '}<span className="match-card__maal-minut">{g.minut}′</span>
                     {' '}{g.scorer || 'ukendt'}
                     {' '}<span className="match-card__maal-hold">
                       ({g.hold === 'home' ? h.navn : a.navn})

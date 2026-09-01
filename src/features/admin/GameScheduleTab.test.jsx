@@ -971,6 +971,29 @@ describe('⚽ Synk kampdetaljer nu', () => {
     expect(besked).toHaveTextContent(/prøves igen om en uge/i);
   });
 
+  // ── Beskeden løj i produktion ───────────────────────────────────────────
+  it('lover IKKE et genforsøg om en uge for en UKOBLET kamp', async () => {
+    // Sådan så den ægte besked ud ved første tryk: 33 hentet, 1 ukoblet — og
+    // halen sagde "Afviste kampe prøves igen om en uge". Det er forkert:
+    // karantænen sættes kun ved uenig/ulæselig. En ukoblet kamp prøves igen
+    // ved HVER kørsel og fejler hver gang, til kortlægningen rettes. Beskeden
+    // fik ejeren til at vente på noget, der aldrig sker af sig selv.
+    await klik({ manglede: 34, skrevet: 33, uenige: 0, uparsede: 0, ukendte: 1 });
+    const besked = await screen.findByText(/33 kampe fik detaljer/);
+    expect(besked).toHaveTextContent('1 kunne ikke kobles til kilden');
+    expect(besked).toHaveTextContent(/retter sig IKKE selv/);
+    // Og dét, der IKKE må stå — en grøn suite beviser ikke, at teksten er væk.
+    expect(besked).not.toHaveTextContent(/om en uge/i);
+  });
+
+  it('siger om en kilde-nedetid at den prøves igen — ikke at noget er i stykker', async () => {
+    await klik({ manglede: 5, skrevet: 2, utilgaengelige: 3 });
+    const besked = await screen.findByText(/2 kampe fik detaljer/);
+    expect(besked).toHaveTextContent('3 hvor kilden ikke svarede');
+    expect(besked).toHaveTextContent(/prøves igen ved næste kørsel/);
+    expect(besked).not.toHaveTextContent(/om en uge/i);
+  });
+
   it('siger at kilden lukkede os ude — ikke at noget er i stykker', async () => {
     await klik({ manglede: 5, skrevet: 0, afbrudt: true });
     const besked = await screen.findByText(/Kilden afviste os/);

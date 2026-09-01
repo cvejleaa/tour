@@ -178,9 +178,40 @@ describe('Esd fra /0 er ægte UTC', () => {
 });
 
 describe('kampNoegle', () => {
-  it('oversætter begge hold og bevarer kickoff', () => {
-    expect(kampNoegle(20260831190000, 'AVL', 'ARS')).toBe('20260831190000|AVL|ARS');
-    expect(kampNoegle('20260724190000', 'VFF', 'OB')).toBe('20260724190000|VIB|OB');
+  it('oversætter begge hold og nøgler på DATOEN, ikke klokkeslættet', () => {
+    expect(kampNoegle(20260831190000, 'AVL', 'ARS')).toBe('20260831|AVL|ARS');
+    expect(kampNoegle('20260724190000', 'VFF', 'OB')).toBe('20260724|VIB|OB');
+  });
+
+  // ── Produktionsfundet, vendt til en test ────────────────────────────────
+  it('kobler stadig, når de to kilder er UENIGE om klokkeslættet', () => {
+    // FCM-Randers, runde 5: vores program sagde 12:00:00, livescore 12:05:00,
+    // og kampen kunne derfor ikke kobles ved første tryk på knappen. Fejlen
+    // var ikke de fem minutter — den var at KRÆVE, at to uafhængige kilder er
+    // enige på sekundet. Vores tid er den planlagte, deres er den, kampen
+    // faktisk gik i gang på. De begreber bliver aldrig ens.
+    expect(kampNoegle(20260823120000, 'FCM', 'RFC'))
+      .toBe(kampNoegle(20260823120500, 'FCM', 'RFC'));
+    // …og en time senere, som en udskudt kamp typisk flyttes.
+    expect(kampNoegle(20260823120000, 'FCM', 'RFC'))
+      .toBe(kampNoegle(20260823130000, 'FCM', 'RFC'));
+  });
+
+  it('to kampe mellem SAMME hold på FORSKELLIGE dage er stadig to nøgler', () => {
+    // Prisen for at slippe klokkeslættet: uden datoen ville hjemme- og
+    // udekampen — og et gensyn i mesterskabsspillet — smelte sammen til én.
+    expect(kampNoegle(20260823120000, 'FCM', 'RFC'))
+      .not.toBe(kampNoegle(20261115120000, 'FCM', 'RFC'));
+  });
+
+  it('afviser en cifferstreng, der ikke er en gyldig DATO', () => {
+    // '00000000000000' er 14 cifre og ville uden dette være en gyldig nøgle,
+    // som ALLE ulæselige tider delte — altså én kamp, der trak vilkårlige
+    // andre til sig. Det er den værste form for fejlkobling: den ser ud til
+    // at virke.
+    for (const t of ['00000000000000', '20261301120000', '20260732120000', '18990101120000']) {
+      expect(kampNoegle(t, 'AVL', 'ARS'), String(t)).toBeNull();
+    }
   });
 
   it('afviser en tid, der ikke er 14 cifre', () => {

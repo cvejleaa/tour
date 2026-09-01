@@ -467,6 +467,41 @@ describe('FootballTip — slutresultat på kampkortet', () => {
     expect(container.querySelector('.match-card__maal')).toBeNull();
   });
 
+  it('viser stillingen EFTER hvert mål, ikke kun scorerne', () => {
+    // Ejeren bad om resultatet med på hver begivenhed: listen skal kunne
+    // læses som en kamp, der bevæger sig. Stillingen er UDLEDT på klienten
+    // (maalRaekke.js), så den virker på de kampe, der allerede er hentet —
+    // uden et nyt felt og uden en bagfyldning.
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [
+        { minut: 12, hold: 'home', scorer: 'Dreyer' },
+        { minut: 40, hold: 'away', scorer: 'Bech' },
+        { minut: 70, hold: 'home', scorer: 'Kadewere' },
+      ],
+    }));
+    const tekst = container.querySelector('.match-card__maal').textContent;
+    // Indholdet, ikke bare "noget blev vist": rækken SKAL være 1-0, 1-1, 2-1.
+    expect([...container.querySelectorAll('.match-card__maal-stilling')]
+      .map((e) => e.textContent)).toEqual(['1–0', '1–1', '2–1']);
+    expect(tekst).toContain('Dreyer');
+    expect(tekst).toContain('12′');
+  });
+
+  it('stillingen følger MINUTTET, også når målene ligger i uorden', () => {
+    // Den fejl, en udledt stilling kan lave: arver den dokumentets
+    // rækkefølge, bliver hver mellemstilling forkert, mens slutresultatet
+    // stadig ser rigtigt ud — altså en fejl, totalen ikke afslører.
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [
+        { minut: 70, hold: 'home', scorer: 'Kadewere' },
+        { minut: 12, hold: 'home', scorer: 'Dreyer' },
+        { minut: 40, hold: 'away', scorer: 'Bech' },
+      ],
+    }));
+    expect([...container.querySelectorAll('.match-card__maal-stilling')]
+      .map((e) => e.textContent)).toEqual(['1–0', '1–1', '2–1']);
+  });
+
   it('viser tilskuertallet på en 0-0-kamp — det afhænger ikke af mål', () => {
     // VENDT BEVIDST. Første udgave gatede hele blokken på `maal.length > 0`,
     // så en målløs kamp aldrig viste tilskuertallet, og testen ovenfor
@@ -1440,21 +1475,26 @@ describe('combi-mærket', () => {
 // `SpillerDetalje` var dækket; netop den flade, man tipper på, var ikke.
 // ---------------------------------------------------------------------------
 describe('FootballTip — startrunden', () => {
-  // "Runde N af M" er sidevælgerens PLADS, ikke rundenummeret — overskriften
-  // ved siden af er runden selv. De to skal holdes adskilt, ellers måler man
-  // det forkerte: med kun runde 2 tilbage står der "Runde 1 af 1 · Runde 2".
-  const runder = () => screen.getByText(/Runde \d+ af \d+/).textContent;
+  // VENDT BEVIDST. Kommentaren her sagde før, at "Runde N af M" er
+  // sidevælgerens PLADS og ikke rundenummeret — og testene nedenfor
+  // FASTFRØS den adfærd med `af 1` / `af 2`. Den var forkert, og ejeren så
+  // den i produktion: Superligaen starter i runde 2, så tælleren skrev
+  // "Runde 6 af 21", mens overskriften under den sagde RUNDE 7 og knappen
+  // ved siden af "← Runde 6". At skelne plads fra rundenummer er rigtigt i
+  // koden og forkert på skærmen — brugeren har kun ét begreb om "runde".
+  const runder = () => screen.getByTestId('round-nav-count').textContent;
 
   it('skjuler runder FØR startrunden', () => {
     setup({ startRound: 2 }, '/spil/sl?runde=1');
-    expect(runder()).toMatch(/af 1$/);            // kun én runde tilbage
+    // RUNDENUMMERET, ikke pladsen: den gamle kode skrev "Runde 1 af 1" her.
+    expect(runder()).toBe('Runde 2 af 2');
     expect(screen.getByText('Runde 2')).toBeInTheDocument();
     expect(screen.queryByText('Runde 1')).toBeNull();
   });
 
   it('viser dem, når startrunden er 1', () => {
     setup({ startRound: 1 }, '/spil/sl?runde=1');
-    expect(runder()).toMatch(/af 2$/);
+    expect(runder()).toBe('Runde 1 af 2');
     expect(screen.getByText('Runde 1')).toBeInTheDocument();
   });
 
@@ -1462,7 +1502,7 @@ describe('FootballTip — startrunden', () => {
   // spil ikke pludselig viser runder, det ikke giver point for.
   it('skjuler runder via et gammelt startAt', () => {
     setup({ startAt: KICKOFF2 }, '/spil/sl?runde=1');
-    expect(runder()).toMatch(/af 1$/);
+    expect(runder()).toBe('Runde 2 af 2');
     expect(screen.queryByText('Runde 1')).toBeNull();
   });
 });

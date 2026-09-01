@@ -1226,6 +1226,10 @@ a:focus-visible,
 /* Hver målpost holdes samlet, så et minuttal aldrig står alene på en linje
    uden sin scorer. */
 .match-card__maal-post { display: inline-block; }
+/* Stillingen er postens ankertal — den skal kunne findes uden at læse navnet
+   først, og den må ikke kunne brydes midt over ("2–" / "1"). */
+.match-card__maal-stilling { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.match-card__maal-minut { opacity: 0.75; font-variant-numeric: tabular-nums; }
 .match-card__maal-hold { opacity: 0.8; }
 .match-card__maal-oplaeg { font-style: italic; opacity: 0.75; }
 /* Tilskuertallet er trivia og skal se sådan ud: egen linje, endnu svagere.
