@@ -294,6 +294,35 @@
   og `scripts/lib/doubleChance.mjs` L171 påstår begge stadig, at firestore.rules
   ikke nævner chance, så spilleren selv kan skrive `chanceStake`/`chanceSatAt`.
   Falsk siden trin 3. En operatør, der læser det, tør ikke stole på sit eget audit.
+- **Én giftig post i STAGE-LISTEN vælter hele kampdetalje-synken (BEKRÆFTET,
+  trin 2).** `hentNoegler` (kampDetaljer.js L355-371) kalder `String(e?.Eid ?? '')`
+  og `kampNoegle(e?.Esd, …)` UDEN for nogen try. PoC: ét event med
+  `Eid: {"toString":null}` (eller samme i `Esd`) blandt 380 → `TypeError:
+  Cannot convert object to primitive value` kastes ud af `syncKampDetaljerCore`
+  → alle spillets kampe mister detaljer, hver kørsel, for evigt. Den indre
+  try/catch (L476-480) dækker KUN `detaljerAf`, altså det ENE kampsvar — ikke
+  kortlægningen. Samme gift i `m.data.kickoff` (`noegleAfKamp` L327,
+  `new Date({toString:null})` kaster) rammer identisk, men er admin-only, fordi
+  rules ikke type-tjekker `kickoff`. Fejler LUKKET og ses som `st.fejl` på
+  Drift-kortet. Testfilen dækker `{toString:null}` KUN i `Pn` (L159-161).
+  Fix: læg pr. event-kroppen i `hentNoegler` i en try/continue.
+- **HTTP-udfald tælles som `uparsede` og udløser den FORKERTE alarm
+  (BEKRÆFTET, trin 2).** `hentJson` returnerer `null` ved 5xx (kampDetaljer.js
+  L351), og kaldstedet gør `if (!incidents) { ud.uparsede += 1; continue; }`
+  (L471). PoC med HTTP 500: `forsoegt=1, skrevet=0, ukendte=0, uparsede=1` →
+  sweep-grenen (index.js ~L613) fyrer `detaljerAfvist` med teksten "Kilden har
+  sandsynligvis skiftet form — se kampDetaljer.js". En kildenedetid får altså
+  en alarm med det forkerte remedie. Fix: eget felt `utilgaengelige`.
+  (Samme sted: `batch.commit()` kaldes på en TOM batch, når alle afvisninger
+  kom af 5xx — `if (ud.skrevet || ud.uenige || ud.uparsede)` L512.)
+- **Drift-kortet skrives EFTER det dyreste led, så en platform-timeout er
+  tavs.** `skrivDriftStatus` (index.js ~L668) står efter både xG- og
+  detalje-blokken i løkkekroppen. Kommentaren over detalje-blokken påstår
+  "hvad der ligger FØR den, er allerede gjort" — det gælder skrivningerne, men
+  IKKE statuskortet. Dør invocation'en i detalje-synken, mister spillet sit
+  kort OG hele det næste spil sin kørsel. Ny worst-case pr. spil: stage-kaldet
+  (10 s, UDEN for budget-tjekket) + `DETALJE_BUDGET_MS` 25 s + ét kald-sæt over
+  budgettet ≈ 45 s, oven i xG's 50 s, i et sweep på 300 s for to spil.
 - *(delvist lukket 9d7c1fa-tid: xG-sweep-posten ovenfor har nu fået
   `SWEEP_TIMEOUT_S = 300` (index.js L443/L452) og et afledt `XG_BUDGET_MS`
   (L447). Verificér selv, om xG stadig ligger FØR standings/alarm i løkkekroppen
@@ -465,6 +494,38 @@
   `livescoreHold.test.js`. Ingen Cloud Function, ingen callable, ingen klient
   importerer den. Eneste netværkskald ligger i testen og i
   `scripts/maal-livescore.mjs`. `kampNoegle` kaldes ingen steder i produktionskode.
+- **`kampDetaljer.js` (livescore trin 2) er BEKRÆFTET RENT på skriveomfanget.**
+  MUTATIONSTESTET, ikke bare læst: erstattes `for (const felt of
+  SKRIVBARE_FELTER)` (L494-496) med `Object.assign(skriv, svar.felter)`, lander
+  `result`/`homeGoals`/`kickoff` i skrivningen; med filteret gør de det ikke.
+  Den frosne liste ER altså vagten, og der er ÉN af dem. Begge skrivninger er
+  `batch.update` — intet `set(merge:true)`, så en fremmed post kan ikke OPRETTE
+  et kampdokument. Doc-id'et er `m.id` fra `allMatches`, aldrig fra kilden.
+  Fjendtlige ekstrafelter i BÅDE `incidents/` og `info/` (`result`, `homeGoals`,
+  `awayGoals`, `kickoff`, `points`, `evil`) når aldrig dokumentet.
+- **`maal[]` kan ikke sprænges af kilden.** `kaedeOk` kræver
+  `maal.length === facit` OG numrene 1..facit, og `facit` er VORES egne
+  `homeGoals`/`awayGoals`. PoC: 999 fabrikerede mål mod facit 2-1 → `uenig`,
+  intet skrevet. Kun hvis vores EGET dokument sagde 999-0, blev listen 999 lang
+  (79 KB, scorernavne klippet til 40 tegn) — altså langt under 1 MiB, og kun
+  admin kan skrive `homeGoals`. `heltal` er `/^\d{1,3}$/`, `tilskuertal`
+  `1..999999`.
+- **Kredsløbsafbryderen på 429/403 virker.** PoC: 403 på stage-kaldet → 1 kald
+  i alt, `afbrudt:true`, intet skrevet. 429 på `incidents` med 3 kampe i køen →
+  3 kald i alt (parret `Promise.all` når at fyre begge), resten sprunget over,
+  allerede validerede kampe i batchen bevaret. Ingen unhandled rejection.
+  RESIDUAL: afbryderen er PR. SPIL og PR. KØRSEL — nabospillet i samme sweep
+  laver stadig sit eget stage-kald (og rammer så selv 429), og der er ingen
+  persistent nedkøling mellem kørsler.
+- **`syncGameKampdetaljerNu` lækker intet.** Svaret er `syncKampDetaljerCore`s
+  tælleobjekt: otte tal + en boolean, ingen identiteter, ingen URL'er, ingen
+  kilde-fritekst. Rolleporten (`owner`/`globalAdmin`) står efter PRÆCIS 1
+  læsning og før `allMatches` og alt netværk; `gameId` slås op i den STATISKE
+  `SYNCED_GAMES`, så et frit id ikke kan ramme et vilkårligt spil.
+- **Kilde-fritekst når ALDRIG AI-prompten.** `gameRecap.js` L192-207 bygger
+  `matches`/`udsatte` felt for felt (`home`, `away`, `score`, `surprise`) — der
+  er intet `...m`-spread. `maal`, `scorer` og `oplaeg` findes ikke i fakta.
+  Målscorernavne bruges kun i `FootballTip.jsx` som React-børn (escapes).
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
@@ -651,90 +712,83 @@
   `expect(mangler).toEqual([])` grøn med nul hold tjekket. Målt: 2 af 3 tests
   bliver fuldstændig vakuøse; kun `expect(uden.length).toBeGreaterThan(0)`
   fanger det. Læg det antal-tjek i HVER test, der parser.
+- **Et loft, der tælles på VORES liste, ER et loft på kald** — modsat
+  `XG_LOFT`, der talte kildens events. `valgte = mangler.slice(0, loft)` og
+  derefter 2 kald pr. element er den rigtige form: kildens svar kan ikke
+  multiplicere arbejdet. Spørg altid: løber løkken over VORES kø eller over
+  KILDENS svar?
+- **En budget-konstant, der PÅSTÅS afledt, skal være afledt.**
+  `XG_BUDGET_MS = 300000/3/SYNCED_GAMES.length` skrumper af sig selv ved et
+  spil mere; `DETALJE_BUDGET_MS = 25000` gør ikke, selv om kommentaren regner
+  den ud af de samme 300 s. To spil i dag = 2×25 s; tre spil = 75 s uden at
+  nogen har taget stilling. Et tal uden kode er en påstand — også når det
+  ligger i en konstant.
+- **En SELVVALIDERENDE udledning slår en kode-whitelist.** Jeg krævede en
+  `IT`-whitelist (36/63/43); den blev målt til at ramme 14 af 20 kampe og
+  fejle TAVST. Løsningen blev at udlede mål af stillingen `Sc[Nm-1]` og kræve
+  den ubrudte kæde 1..`Tr_i` mod VORES facit. Accepteret som strengt bedre:
+  en ukendt kode kan ikke blive til et mål, og et annulleret mål falder ud af
+  sig selv. Krav en whitelist, når der ikke findes et invariant at måle mod —
+  ikke når der gør.
+- **En krydsvalidering mod vores EGNE tal er også et STØRRELSESLOFT.** Kravet
+  `maal.length === homeGoals + awayGoals` gør en liste fra en fremmed kilde
+  umulig at blæse op. Se efter den slags dobbeltvirkning, før du beder om en
+  separat `MAX_LEN`.
+- **Et delvist svar må ikke markeres som færdigt.** Fejler `info/` alene,
+  skrives kampen alligevel med `detaljerSyncedAt`, og filteret er netop
+  tilstedeværelsen af det felt → `tilskuere` kommer aldrig igen for den kamp.
+  Skriv "færdig"-markøren først, når ALLE de kilder, markøren dækker, svarede.
 
 ---
 
-## Livescore.com som kilde (trin 1, 9d7c1fa — kortlægningen)
+## Livescore.com som kilde (trin 1 + trin 2 — LUKKET, med tre rester)
 
-Ejerens beslutning om KILDEN er truffet; her står kun det tekniske. Trin 1 er
-`functions-platform/livescoreHold.js` (tabel + `livescoreKode`/`kampNoegle`),
-`livescoreHold.test.js` (paritetstest mod nettet) og `scripts/maal-livescore.mjs`.
-**Trin 1 rører ikke produktion** (se `Afprøvet og RENT`).
+Kildevalget (DIREKTE mod `prod-cdn-public-api.lsmedia1.com`, ikke via `proxy/`)
+er efterprøvet og holder: proxyen bruger en ANDEN leverandør
+(`proxy/flashscore_client.py:37-39` → livescore.in / 50.flashscore.ninja),
+dækker kun Superligaen (`tdf_api.py:175-204`), og `functions-platform/` har nul
+afhængighed af den. En proxy foran ville tilføje et led, ikke en grænse.
 
-**Endpointet, kortlagt af mig (31/8-2026):**
-`https://prod-cdn-public-api.lsmedia1.com/v1/api/app/…`, `content-type: application/json`,
-`cache-control: max-age=10`, kræver `Referer: https://www.livescore.com/`.
-- `stage/soccer/{land}/{liga}/{OFFSET}` — hele sæsonen i ét svar (PL: 380 events,
-  388 KB). **Sidste segment er UTC-offset i timer, ikke en version.**
-- `info/soccer/{Eid}` — 182 B, INTET offset-segment: `Vnm` (stadion), `Vcy`,
-  `Vsp` (tilskuertal, 60098 = identisk med pulselives `attendance`),
-  `Refs[0].Nm` (dommer). Fremmed fritekst på vej mod fladen — samme krav som `Pn`.
-- `incidents/soccer/{Eid}` — 1,3 KB pr. kamp. `Tr1`/`Tr2` (slutstilling),
-  `Trh1`/`Trh2` (halvleg), `Tr1OR`/`Tr2OR`, og `Incs` nøglet på halvleg ("1","2").
-  Mål+oplæg ligger i en NESTET `Incs`-liste inde i et container-objekt UDEN `IT`;
-  kort ligger fladt. En ikke-rekursiv gennemløbning **taber mål**.
-  Observerede `IT`: 36 = mål, 63 = oplæg, 43 = gult. Alt andet er ukendt.
-  `Pn` er fritekst ("Martin Oedegaard", mens `Ln` er "Ødegaard" — to
-  translitterationer i samme post).
+**Endpointet:** `stage/soccer/{land}/{liga}/{OFFSET}` (hele sæsonen, 260 KB PL),
+`incidents/soccer/{Eid}` (1,3 KB: `Tr1`/`Tr2`, `Trh1`/`Trh2`, `Incs` nøglet på
+halvleg), `info/soccer/{Eid}` (182 B: `Vsp` tilskuere, `Vnm` stadion,
+`Refs[0].Nm` dommer). Kræver `Referer: https://www.livescore.com/`. Ingen nøgle,
+ingen `defineSecret`, intet at lække: kaldene bærer hverken uid, e-mail, cookie
+eller token — kun vores egress-IP og kadence.
 
-**BEKRÆFTET, blokerende for trin 2: `Esd` er IKKE UTC.** Koden kalder `/2` og
-kommentaren i livescoreHold.js påstår UTC. Målt mod premierleague.com's egen
-feed for Arsenal–Coventry 21/8-2026 (`kickoff 20:00 BST` = 19:00 UTC):
-`/0`→19:00, `/1`→20:00, `/2`→21:00, `/-3`→16:00, `/2.5`→21:05, `/abc`→19:00.
-**Og de to endpoints er ikke enige med hinanden:** `info/soccer/1793530` har
-INTET offset-segment og svarer `Esd: 20260821190000` (ægte UTC) for præcis den
-kamp, `stage/.../2` kalder 21:00. Samme `Eid`, to timers forskel, samme feature.
-`/2` er et FAST +2 uden sommertid, så det falder sammen med dansk lokaltid i
-CEST og er én time forkert fra sidste søndag i oktober. **Fælden:** kalibrerer
-man mod dansk lokaltid i sommerhalvåret, virker koblingen — og holder tavst op
-midt i sæsonen. Fix er ét tegn: brug `/0`, og ret kommentaren.
+**Det sidste stisegment er et UTC-OFFSET I TIMER, ikke en version** (`/0`→19:00,
+`/2`→21:00, `/2.5`→21:05, `/abc`→0 — målt på Eid 1793530). Det var mit
+blokerende fund i trin 1. Trin 2 henter med `/0`, `noegleAfKamp` formaterer
+vores `kickoff` med `getUTC*`, og BEGGE dele er testet:
+`kampDetaljer.test.js:376` asserterer den præcise URL, og
+`livescoreHold.test.js:140-179` kører en SOMMER- og en VINTERKAMP mod den
+levende kilde (med `ctx.skip()`, ikke `return`).
 
-**`kampNoegle`s 14-cifer-vagt afviser intet i praksis.** Målt på alle 380
-PL-events: `typeof Esd === 'number'`, længde altid præcis 14. Vagten sidder på
-den side, der ikke fejler. Den side, der KAN fejle — vores egen kickoff-Timestamp
-formateret til 14 cifre — findes slet ikke i modulet endnu. Restformer, vagten
-ikke ser: `00000000000000`, `99999999999999`, `20261332990000` passerer alle.
+**Mine ti trin-2-krav: 1-4 og 6-9 opfyldt, 5 og 10 delvist.** De to rester og
+sweep-timeout-resten står i `Angrebsveje der VIRKER` (giftig post i
+stage-listen; 5xx tælles som `uparsede` og fyrer alarmen med det forkerte
+remedie; Drift-kortet skrives efter det dyreste led). Krav 6 (`IT`-whitelist)
+blev bevidst erstattet af den selvvaliderende `Sc`-udledning — accepteret, se
+faldgruberne. Skriveomfang, `maal[]`-loft, kredsløbsafbryder, callable-adgang og
+AI-prompten er BEKRÆFTET RENT (se dén liste).
 
-**Krav til trin 2, som skal stå på skrift:**
-1. `Esd` hentes fra `/0`, og VORES side formateres fra `toISOString()`. Skriv en
-   test med en vinter- OG en sommerkamp — én af dem ville bestå med `/2`.
-2. **Livescore må ALDRIG skrive `result`/`homeGoals`/`awayGoals`.** Det er dér
-   point mintes: `recomputeGameMatch` (index.js L118) rescorer alt, når `result`
-   ændrer sig. Brug `Tr1`/`Tr2` som KRYDSVALIDERING (antal `IT===36` pr. side skal
-   være lig `Tr1`/`Tr2`, og `Trh_i <= Tr_i`) — afvis posten ved uenighed, skriv ikke.
-3. **Livescore må ALDRIG skrive `kickoff`.** Tip-vinduet ER `request.time < kickoff`
-   (rules L820/L843), og en fremflytning genåbner vinduet på en spillet kamp.
-4. `Eid` går ind i en URL-sti og potentielt et doc-id: whitelist `/^\d{1,12}$/`.
-5. `Pn` er fremmed fritekst, der ender i fladen: `typeof === 'string'`, klip
-   længden, kør den gennem `rensTekst.js`, og hold den UDE af AI-prompter og
-   mail-HTML, medmindre den escapes ved indsættelsen. `{"toString":null}` er
-   JSON-nåbart og får `String()` til at kaste — validér PR. POST, ikke pr. felt.
-6. Whitelist `IT` (36/63/43). En ukendt kode må aldrig falde igennem til "mål".
-7. Objektet bygges felt for felt, og skrivningen er `batch.update` (ikke
-   `set(merge:true)`), så en fremmed post ikke kan OPRETTE et kampdokument.
-8. **Volumen:** 380+132 kampe × ét `incidents`-kald = 512 requests pr. fuldskan.
-   Læg det ALDRIG i `syncSuperligaSweep` uden eget wall-clock-budget og et
-   "har-vi-det-allerede"-filter — se XG_LOFT-posten: et loft på ØNSKER er ikke et
-   loft på KALD. Fra Cloud Functions er egress delt NAT pr. region: bliver vi
-   rate-limited, rammer det også nabo-synken.
-9. Driftlog-kort + alarm fra fødslen, pr. spil. Ingen `defineSecret` er nødvendig
-   (kilden kræver kun Referer/User-Agent) — så der er heller intet at lække.
+**Genbrugelig PoC:** `kampDetaljer.js` kræver kun `rensTekst` + `livescoreHold`
+og kan `require`'es direkte fra node uden emulator. Fake db =
+`{collection:()=>({doc:()=>gameRef}), batch:()=>({update:(r,o)=>skriv.push(...),
+commit:async()=>{}})}`, `FV = {serverTimestamp:()=>'<<ts>>', delete:()=>'<<del>>'}`,
+og en `fetchFn`, der matcher på `stage/` / `incidents/` / `info/` i URL'en og kan
+returnere et TAL som HTTP-status. Mutationstesten køres ved at kopiere filen,
+strenge-erstatte vagten og køre samme harness mod begge kopier.
 
-**Lækage: ingen.** Kaldene bærer hverken uid, e-mail, cookie eller token — kun en
-forfalsket browser-`User-Agent` og `Referer`. Det, der går ud, er vores egress-IP
-og vores kadence. Fra CI er det 2 requests pr. push fra GitHubs IP-range.
+**`rensTekst` fjerner `<>{}[]\``, kontroltegn og klipper til 40 — men IKKE `"`,
+`&`, U+202E (RTL-override) eller nulbredde-tegn.** Ufarligt i React (escapes),
+men et navn herfra i et HTML-ATTRIBUT ville kunne bryde ud
+(`x"onmouseover="…`). Escap ved indsættelsen, hvis navnene nogensinde skal i
+en mail.
 
-**Rettet af naboroller under samme gennemgang** (mine målinger er mod committet
-9d7c1fa): Test Manager skiftede `return` → `ctx.skip()` i alle seks
-netværkstests, og homoglyffen nedenfor forsvandt med Quality Controls omskrivning.
-Offset-fejlen (`/2`) stod stadig i BEGGE filer, da jeg returnerede.
-
-**Homoglyf i `scripts/maal-livescore.mjs` L98-99 (var):** identifikatoren `fаerdige`
-indeholder U+0430 CYRILLIC SMALL LETTER A. Den virker (begge forekomster er ens)
-og lintes rent — men `faerdige` skrevet med latinsk `a` giver `ReferenceError`.
-Grep efter ikke-ASCII i identifikatorer, når en fil er skrevet ud fra en HAR-fil
-eller kopieret fra en browser.
-
+**Homoglyf-fælden (fundet i `scripts/maal-livescore.mjs`, siden rettet):** en
+identifikator med U+0430 CYRILLIC A virker og linter rent. Grep efter ikke-ASCII
+i identifikatorer, når en fil er skrevet ud fra en HAR-fil eller en browser.
 ---
 
 ## Liga-spørgsmål (#38 leagueQuestionStatus, #39 recap, #40 updateLeagueQuestion)
