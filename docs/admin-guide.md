@@ -242,6 +242,24 @@ Er noget gået galt, kan du sætte facit manuelt; point genberegnes ved hver
 ændring. Bemærk: **fjerner** du et facit igen, nulstilles pointene ikke
 automatisk.
 
+### Halvleg, målscorere og tilskuertal
+
+Under slutresultatet på kampkortet står **stillingen ved pausen**, og under
+kortet står **hvem der scorede** og **hvor mange der var på stadion**. De tal
+kommer fra en helt anden kilde end resultaterne og hentes nogle timer efter
+kampen — derfor kan et kort godt have facit uden endnu at have detaljerne.
+
+**De kan ikke ændre point.** Synken har ikke lov til at røre facit, målene
+eller kickoff-tiden; den skriver kun de nye felter. Du behøver altså ikke
+tænke over, hvornår du trykker.
+
+Mangler de på en kamp, der ellers er afgjort, er der to muligheder: enten er
+de ikke nået frem endnu, eller også er de to kilder **uenige om, hvordan
+kampen endte** — og så viser vi hellere ingenting end noget forkert. Det sker
+typisk ved afbrudte kampe med et tildelt resultat. Vil du ikke vente, findes
+**⚽ Synk kampdetaljer nu** samme sted som ⬇️ Synk resultater nu. Den siger
+selv, hvor mange der blev hentet, og hvor mange kilden var uenig om.
+
 ## Hvis noget ser forkert ud
 
 Se fejlsøgningstabellen i [drift.md](drift.md) — den dækker tom stilling,

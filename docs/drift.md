@@ -332,6 +332,46 @@ betyder, at jobbet slet ikke kører. Facit går ikke tabt uanset hvad —
 times-sweep'et henter det. Bemærk, at minut-synken slipper en kamp 2½ time
 efter kickoff (`WINDOW_MS`).
 
+## Kampdetaljer: halvleg, målscorere og tilskuertal (livescore)
+
+Kommer fra en **tredje kilde** — livescore.com — og ikke fra den kilde, facit
+kommer fra. Hentes af times-sweep'et, aldrig af minut-synken, højst 8 kampe
+pr. kørsel. Se `functions-platform/kampDetaljer.js`.
+
+**Den skriver aldrig facit.** Ikke `result`, `homeGoals`, `awayGoals` eller
+`kickoff`. Det er ikke en høflighed: `matchOutcome()` udleder facit af målene,
+og tip-vinduet ER `kickoff`. Vagten er én frossen felt-liste i modulet, bundet
+af en mutationstest.
+
+**Manuel udløser:** Admin → Spil-planlægning → **⚽ Synk kampdetaljer nu**
+(står lige under ⬇️ Synk resultater nu). Ingen tør-kørsel og ingen confirm —
+kaldet kan hverken afregne point, flytte Elo eller få Runde-Botten til at
+poste. Knappen tager 40 kampe ad gangen, så en bagfyldning kan drives i hånden.
+
+**Drift-kortet** hedder *Times-sweep · <spil>* og bærer linjen
+`Kampdetaljer: …` med tallet `detaljerMangler`, som skal gå mod nul.
+
+### Når noget er galt
+
+| Det, kortet siger | Hvad det betyder | Hvad du gør |
+|---|---|---|
+| `N uenige om facit` | Kildens slutstilling er en anden end vores. Ofte legitimt: en afbrudt eller tildelt kamp. | Kig på kampen. Er vores facit rigtigt, skal der intet gøres — kampen prøves igen om en uge og bliver ved med at være uenig. |
+| `N kunne ikke parses` | Målene dannede ikke den ubrudte kæde. Kilden har sandsynligvis skiftet form. | Kør `node scripts/maal-livescore-detaljer.mjs`. Er afvisningsraten pludselig høj, eller er der nye IT-koder, skal `maalAf` rettes. |
+| `N uden kobling` | Kampen fandt ikke sin modpart hos kilden. | Kør `node scripts/maal-livescore.mjs`. Holdkoder eller kickoff-tider er drevet → ret `functions-platform/livescoreHold.js`. |
+| **Alarm** `detaljerLukket` | Kilden svarede 429/403 og kørslen stoppede sig selv. | Gør INTET i en time. Vagten findes, fordi Cloud Functions egresser gennem delt NAT: banker vi videre, rammer det `api.superliga.dk` og pulselive, som intet har med livescore at gøre. Sker det igen næste kørsel, er vi rate-limited — så skal loftet ned. |
+| **Alarm** `detaljerKobling` | Nul af kampene kunne kobles. Kortlægningen er død. | `scripts/maal-livescore.mjs` → ret `livescoreHold.js`. |
+| **Alarm** `detaljerAfvist` | Alt blev afvist. | Kilden har skiftet form. Se `kampDetaljer.js`. |
+
+**Afviste kampe ligger en uge i karantæne** (`detaljerAfvistAt`). Uden den
+ville en permanent uenig kamp blive hentet igen 24 gange i døgnet for evigt og
+æde loftet — den er gammel og ligger derfor forrest i køen.
+
+**Nødudgang, hvis vi bliver blokeret permanent:** der findes allerede en
+proxy uden for Cloud Functions (`proxy/`, Cloud Run) med signaturhåndtering og
+cache. Den henter i dag fra en ANDEN leverandør (flashscore/livescore.in) og
+dækker kun Superligaen, så den er ikke en drop-in — men den er stedet at
+flytte kaldet hen, hvis den delte NAT bliver et problem. Se `proxy/DEPLOY.md`.
+
 ## Rækkefølge ved ændringer i security rules
 
 Reglerne deployes **sammen med hosting**. Strammer man en regel, der kræver et

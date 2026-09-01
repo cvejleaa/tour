@@ -832,6 +832,16 @@ a:focus-visible,
   text-align: center; color: var(--c-text); font-weight: 800; font-size: 1.15rem;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
+/* Halvlegsstillingen — en KVALIFIKATOR på slutresultatet lige over den, ikke
+   et selvstændigt tal. Derfor lille, dæmpet og på egen linje under scoren:
+   den må aldrig kunne forveksles med det resultat, point er afregnet efter. */
+.match-card__halvleg {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--c-muted);
+  letter-spacing: 0.01em;
+}
 .match-card--chance {
   border-color: var(--c-accent) !important;
   box-shadow: 0 0 0 1px var(--c-accent), var(--shadow);
@@ -1201,6 +1211,31 @@ a:focus-visible,
   text-align: center;
 }
 .match-card__xg-label { font-weight: 600; }
+
+/* Målscorere + tilskuertal — egen blok ved siden af xG, samme begrundelse:
+   meta-rækken er inline-flex uden wrap. Her SKAL der ombrydes, for en kamp
+   med fem mål er en lang linje på en telefon. */
+.match-card__maal {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  color: var(--c-muted);
+  text-align: center;
+  line-height: 1.5;
+}
+.match-card__maal-label { font-weight: 600; }
+/* Hver målpost holdes samlet, så et minuttal aldrig står alene på en linje
+   uden sin scorer. */
+.match-card__maal-post { display: inline-block; }
+.match-card__maal-hold { opacity: 0.8; }
+.match-card__maal-oplaeg { font-style: italic; opacity: 0.75; }
+/* Tilskuertallet er trivia og skal se sådan ud: egen linje, endnu svagere.
+   Det er med, fordi det er det eneste tal, der siger noget om begivenhedens
+   størrelse — ikke fordi det hjælper nogen med at tippe. */
+.match-card__tilskuere {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
 
 /* Rundens vildeste — eget kort, aldrig sammen med point eller placering. */
 .xgvild { font-size: 0.9rem; }

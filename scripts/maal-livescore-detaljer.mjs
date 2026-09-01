@@ -17,6 +17,12 @@
 //   IT 39  mål, fladt — uden Aid/Fn/Ln (kun ID + Pn)
 //   IT 43  gult kort      IT 45  kort uden Sc      IT 62  ANNULLERET mål
 //
+// Scriptet udskriver derfor BÅDE hele IT-fordelingen og AFVISNINGSRATEN: hvor
+// stor en andel af kampene ville synken lade stå tomme? Kernen skriver intet
+// for en kamp, hvis målkæde ikke går op, så det tal er ikke en detalje — det
+// ER dækningsgraden på kampkortet. (Quality Controls krav: en whitelist, hvis
+// dækning ingen har målt, gør fladen til et lotteri.)
+//
 // En whitelist over koder er altså den forkerte vagt: den fejler i BEGGE
 // retninger, og den fejler TAVST, fordi en manglende kode bare giver et mål
 // færre. Derfor udleder koden i stedet målene af `Sc` — se `maalAf` nedenfor.
@@ -135,6 +141,7 @@ async function maalSpil(s) {
   const t = {
     iStage: kampe.length,
     ft: ft.length,
+    itKoder: new Map(),
     n: 0,
     halvleg: 0,
     tilskuere: 0,
@@ -159,6 +166,20 @@ async function maalSpil(s) {
       if (udfald(h1, h2) !== udfald(t1, t2)) t.halvlegSkift += 1;
     }
     if (tilskuertal(info?.Vsp) != null) t.tilskuere += 1;
+
+    // IT-FORDELINGEN, som Quality Control krævede skrevet ned: uden den er
+    // "whitelisten dækker ikke" en påstand om nogle prøvekampe. Tallene her
+    // er samtidig vagten mod, at kilden stille tilføjer en ny kode.
+    for (const h of (function flad(x, ud = []) {
+      if (Array.isArray(x)) { x.forEach((y) => flad(y, ud)); return ud; }
+      if (x && typeof x === 'object') {
+        if (x.IT != null) ud.push(x);
+        if (Array.isArray(x.Incs)) flad(x.Incs, ud);
+      }
+      return ud;
+    }(Object.values(inc?.Incs || {})))) {
+      t.itKoder.set(h.IT, (t.itKoder.get(h.IT) || 0) + 1);
+    }
 
     const m = maalAf(inc);
     t.maal += m.length;
@@ -202,6 +223,13 @@ async function main() {
     console.log(`  halvlegsstilling brugbar   ${t.halvleg}/${t.n}  (${pct(t.halvleg, t.n)})`);
     console.log(`  tilskuertal til stede      ${t.tilskuere}/${t.n}  (${pct(t.tilskuere, t.n)})`);
     console.log(`  målkæden komplet           ${t.kaede}/${t.n}  (${pct(t.kaede, t.n)})`);
+    // AFVISNINGSRATEN er det tal, der afgør, om fladen bliver tom. Kernen
+    // skriver INTET for en kamp, hvor kæden ikke går op — så en høj rate her
+    // betyder ikke "vi mister et ikon", men "kortet står tomt".
+    const afvist = t.n - t.kaede;
+    console.log(`  → ville blive AFVIST        ${afvist}/${t.n}  (${pct(afvist, t.n)})`);
+    console.log(`  IT-koder i kilden: ${[...t.itKoder.entries()]
+      .sort((a, b) => a[0] - b[0]).map(([k, v]) => `${k}×${v}`).join('  ')}`);
     console.log(`  mål i alt ${t.maal}, heraf uden scorernavn ${t.udenNavn}`);
     console.log(`  mål efter ${SENT_MINUT}'            ${t.sentMaal}/${t.n}  (${pct(t.sentMaal, t.n)})`);
     console.log(`  …som VENDTE udfaldet       ${t.sentVendte}/${t.n}  (${pct(t.sentVendte, t.n)})`);

@@ -1,9 +1,18 @@
 import { describe, it, expect } from 'vitest';
+import { createRequire } from 'module';
 import {
-  KICKOFF_PROVIDERE, RESULTAT_PROVIDERE, XG_PROVIDERE,
-  harKickoffSynk, harXg, harResultatSynk,
+  KICKOFF_PROVIDERE, RESULTAT_PROVIDERE, XG_PROVIDERE, KAMPDETALJE_SPIL,
+  harKickoffSynk, harXg, harResultatSynk, harKampdetaljer,
 } from './spilEvner';
 import { GAMES } from '../../../scripts/games.mjs';
+
+// Kampdetalje-evnen spejles mod SERVERENS egen liste og ikke mod games.mjs.
+// De andre evner kan nøjes med games.mjs, fordi de er egenskaber ved den
+// provider, DER STÅR i sync-feltet. Kampdetalje-kilden står bevidst ikke i
+// sync (den seedes ikke ud på dokumentet), så games.mjs ved intet om den —
+// og en spejling mod en fil, der ikke kender evnen, ville være en tom vagt.
+const require = createRequire(import.meta.url);
+const { SYNCED_GAMES } = require('../../../functions-platform/syncProviders');
 
 describe('harKickoffSynk', () => {
   it('er sand for de kilder, der har en daglig kickoff-synk (pulselive, superliga)', () => {
@@ -67,6 +76,46 @@ describe('XG_PROVIDERE', () => {
 // provider — eller mister et den — skal dette billede ændre sig, og testen
 // tvinger allowlisterne til at blive taget stilling til i samme PR (spejler
 // syncProviders.test.js' games.mjs⇄SYNCED_GAMES-tripwire på klientsiden).
+describe('harKampdetaljer', () => {
+  it('er sand for spillene med livescore-kortlægning', () => {
+    expect(harKampdetaljer({ id: 'superliga2627' })).toBe(true);
+    expect(harKampdetaljer({ id: 'pl2627-efteraar' })).toBe(true);
+  });
+
+  it('gates på SPILLET, ikke på provideren', () => {
+    // Dét, testen findes for. Et fremtidigt spil med samme facit-kilde, men
+    // uden livescore-kortlægning, må IKKE arve knap og hjælpetekst — det er
+    // puljeLockRound-fejlen, hvor en gate testede en nabo-egenskab.
+    expect(harKampdetaljer({ id: 'pl2728-foraar', sync: { provider: 'pulselive' } })).toBe(false);
+    expect(harKampdetaljer({ id: 'sl2728', sync: { provider: 'superliga' } })).toBe(false);
+  });
+
+  it('er falsk uden id', () => {
+    expect(harKampdetaljer({})).toBe(false);
+    expect(harKampdetaljer(null)).toBe(false);
+    expect(harKampdetaljer(undefined)).toBe(false);
+  });
+});
+
+// SPEJLINGS-TRIPWIRE mod serverens SYNCED_GAMES. Får et spil
+// livescore-kortlægning — eller mister et den — skal begge sider ændres i
+// SAMME PR, ellers får fladen en knap, hvis kald kun kan fejle, eller
+// serveren en synk, ingen kan starte og ingen kan se fejle.
+describe('spejling mod functions-platform/syncProviders.js', () => {
+  it('KAMPDETALJE_SPIL er præcis de spil, serveren har en livescore-konfiguration for', () => {
+    const server = SYNCED_GAMES.filter((g) => g.livescore).map((g) => g.gameId).sort();
+    expect([...KAMPDETALJE_SPIL].sort()).toEqual(server);
+  });
+
+  it('hvert spil i KAMPDETALJE_SPIL findes overhovedet i games.mjs', () => {
+    // Ellers gater fladen på et id, der ikke er noget spil — evnen ville være
+    // usynlig uden at nogen test blev rød.
+    for (const id of KAMPDETALJE_SPIL) {
+      expect(GAMES.some((g) => g.id === id), id).toBe(true);
+    }
+  });
+});
+
 describe('spejling mod scripts/games.mjs', () => {
   it('præcis Superligaen og PL har resultat-synk (og dermed ⬇️-knappen)', () => {
     const med = GAMES.filter((g) => harResultatSynk(g)).map((g) => g.id).sort();
