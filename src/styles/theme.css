@@ -982,7 +982,25 @@ a:focus-visible,
 @media (min-width: 620px) { .pulje-grid { grid-template-columns: repeat(3, 1fr); } }
 .pulje-team { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.7rem; text-align: left;
   background: var(--c-surface); border: 1.5px solid var(--c-border); border-radius: var(--radius-sm); position: relative; }
-.pulje-team:disabled { cursor: default; opacity: 0.55; }
+/* DÆMPNINGEN LIGGER PÅ BØRNENE, IKKE PÅ KNAPPEN.
+   `opacity` danner en stacking context, og et barn kan ALDRIG være mere
+   uigennemsigtigt end sin forælder — pokalen kunne derfor ikke reddes med en
+   regel på `.pulje-team__actual`. Den skal udelades ved kilden.
+
+   ÉN REGEL MED EN VAGT, IKKE TO REGLER. `disabled` betyder to ting i dette
+   gitter: "maks er nået, ikke DENNE" — hvor dæmpningen ER beskeden — og "hele
+   tippet er låst", hvor der ikke er nogen handling at fraråde, og hvor
+   pokalerne er det eneste, der stadig er interessant.
+
+   Første udgave skrev undtagelsen som en regel bagefter:
+       .pulje-team--laast:disabled > * { opacity: 1; }
+   Den var DØD. `:not()` arver sit arguments specificitet, så basisreglen vejer
+   (0,3,0) og undtagelsen kun (0,2,0) — den taber uanset kilderækkefølge.
+   Hele det låste gitter stod stadig dæmpet, og CSS-testen var grøn, fordi den
+   læste regel-TEKST i stedet for at måle effekt (QC-fund). Beslutningen er nu
+   samlet ét sted, så en mutation af den bliver rød. */
+.pulje-team:disabled { cursor: default; }
+.pulje-team:disabled:not(.pulje-team--laast) > *:not(.pulje-team__actual) { opacity: 0.55; }
 .pulje-team__name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pulje-team--chosen { border-color: var(--c-pitch); background: var(--c-pitch-weak); box-shadow: 0 0 0 1px var(--c-pitch); }
 .pulje-team__check { margin-left: auto; color: var(--c-pitch); font-weight: 800; }

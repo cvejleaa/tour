@@ -32,6 +32,49 @@ function alleSpillet(matches) {
   );
 }
 
+/**
+ * Sektionens navn i DETTE spil.
+ *
+ * "Toppen" giver kun mening op mod en bund. Har spillet ingen bundsektion,
+ * bruges spillets eget ord for feltet (`labels.top`, fx "mesterskabsspillet").
+ *
+ * ÉT STED, TO BRUGERE: overskriften over gitteret og "lige nu"-linjen. De sagde
+ * før hver sit — overskriften "Mesterskabsspillet", linjen "i toppen" — og så
+ * stod ordet "toppen" intet andet sted på Superligaens side.
+ *
+ * KONTRAKTEN PÅ `labels.top`: den skrives som et SÆTNINGSLED ("du tror står i
+ * top 4 juleaften"), ikke som en titel. Her sættes den forrest med stort
+ * begyndelsesbogstav, hvilket går godt for "mesterskabsspillet". Et spil uden
+ * bund og med en label som "top 4 juleaften" ville få "🏆 Top 4 juleaften —
+ * vælg 4"; forstået, men klodset. Skal det bruges, hører der en egen
+ * `labels.topTitel` med — ikke en omskrivning af den indlejrede.
+ */
+export function sektionsNavn(konfig) {
+  if (konfig.nedSize > 0) return 'toppen';
+  // `puljeKonfig` typetjekker labels.top, men tjekker ikke længden — en admin
+  // kan sætte "". Uden vagten ville overskriften få et hul, hvor navnet skulle
+  // stå: "🏆  — vælg 6".
+  return (konfig.labels?.top || '').trim() || 'toppen';
+}
+
+/**
+ * Overskriften over holdgitteret — den, PL havde og Superligaen manglede.
+ *
+ * Den blev FØR undertrykt for spil uden bundsektion (`nedSize > 0 ? … : null`)
+ * ud fra at én sektion ikke behøver et navn. Men overskriften bærer også
+ * ANTALLET, og uden den skulle man læse brødteksten for at vide, at
+ * Superligaen vil have 6.
+ *
+ * ER TIPPET LÅST, ER "VÆLG" EN LØGN. Efter deadline kan man ikke vælge, og
+ * overskriften er så den eneste tekst ved gitteret — en imperativ, ingen kan
+ * følge. Låst siger den derfor, hvad man HAR.
+ */
+export function topTitel(konfig, laast = false) {
+  const navn = sektionsNavn(konfig);
+  const stort = navn.charAt(0).toUpperCase() + navn.slice(1);
+  return `🏆 ${stort} — ${laast ? 'dine' : 'vælg'} ${konfig.poolSize}`;
+}
+
 export default function PuljeTip({ game, matches }) {
   const gameId = game?.id;
   const { user } = useAuth();
@@ -138,6 +181,33 @@ export default function PuljeTip({ game, matches }) {
 
   const teams = teamsOf(game);
 
+  // Overskriften over holdgitteret.
+  //
+  // Den blev FØR undertrykt for spil uden bundsektion — `nedSize > 0 ? … :
+  // null` — ud fra at én sektion ikke behøver et navn. Men overskriften bærer
+  // også ANTALLET, og uden den skulle man læse brødteksten for at vide, at
+  // Superligaen vil have 6. PL, som har to sektioner, sagde det direkte over
+  // gitteret. Det var hele forskellen mellem de to flader.
+  //
+  // Ét navn er ikke nok til begge: "Toppen" giver kun mening op mod en bund.
+  // Har spillet ingen, bruges spillets eget ord for feltet (`labels.top`, fx
+  // "mesterskabsspillet"), så overskriften siger, hvad der vælges TIL.
+  // LÅST er ikke det samme som "ikke DENNE". Er tippet lukket, er der ingen
+  // handling at fraråde — og så er pokalerne det eneste, der stadig er
+  // interessant at kigge på. Se `.pulje-team--laast` i theme.css.
+  //
+  // KUN `locked`, IKKE `ikkeAabnet`. Første udgave havde begge, og det var
+  // forkert: i "endnu ikke åbnet" er der ingen spillede kampe, altså ingen
+  // pokaler, ingen tæller og ingen gem-knap. Dér ER dæmpningen det rigtige
+  // signal — et fuldt oplyst gitter, der ser klikbart ud under "Endnu ikke
+  // åbnet", ville love noget, det ikke kan holde (QC-fund).
+  //
+  // `busy` er heller ikke med, og det er bevidst: den varer et øjeblik under
+  // et gem, hvor dæmpningen netop skal sige "vent". Den kan ikke støde sammen
+  // med låsen — der kan ikke gemmes på et låst tip (`:297`), så `busy` og
+  // `locked` er aldrig sande samtidig (TM-fund: forholdet var udokumenteret).
+  const laast = locked;
+
   // Én sektion (toppen eller bunden): grid af holdknapper med valg,
   // facit-markering (🏆/⚠️) og "lige nu"-markering, når facit mangler.
   const Sektion = ({ titel, maks, valgte, toggle, facitHold, ligeNuHold, ikon }) => {
@@ -153,7 +223,7 @@ export default function PuljeTip({ game, matches }) {
             return (
               <button
                 key={t.name}
-                className={`pulje-team ${isChosen ? 'pulje-team--chosen' : ''} ${hitClass}`}
+                className={`pulje-team ${isChosen ? 'pulje-team--chosen' : ''} ${hitClass}${laast ? ' pulje-team--laast' : ''}`}
                 disabled={ikkeAabnet || locked || busy || (!isChosen && valgte.length >= maks)}
                 onClick={() => toggle(t.name)}
                 aria-pressed={isChosen}
@@ -173,8 +243,16 @@ export default function PuljeTip({ game, matches }) {
             );
           })}
         </div>
-        {!ikkeAabnet && !locked && (
-          <span style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>{valgte.length}/{maks} valgt</span>
+        {/* TÆLLEREN BLIVER STÅENDE, NÅR DER ER LÅST. Den var skjult, og efter
+            at overskriften kom til, var den det ENESTE, der stod ved et låst
+            gitter — som en imperativ uden tæller. Værre: en spiller, der
+            aldrig nåede at tippe, fik ingen besked om det. "0/6 valgt · låst"
+            siger begge dele. Ved "endnu ikke åbnet" er der stadig intet at
+            tælle. */}
+        {!ikkeAabnet && (
+          <span style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>
+            {valgte.length}/{maks} valgt{locked ? ' · låst' : ''}
+          </span>
         )}
       </div>
     );
@@ -233,7 +311,7 @@ export default function PuljeTip({ game, matches }) {
       {/* "Lige nu" — puls hele sæsonen. Aldrig ordet "point" uden "lige nu". */}
       {!seasonDone && ligeNuTop && (
         <p style={{ color: 'var(--c-muted)', fontSize: '0.9rem' }} data-testid="pulje-ligenu">
-          Lige nu: <strong>{ligeNuTop.correct} af {konfig.poolSize}</strong> i toppen
+          Lige nu: <strong>{ligeNuTop.correct} af {konfig.poolSize}</strong> i {sektionsNavn(konfig)}
           {ligeNuBund && (
             <>, <strong>{ligeNuBund.correct} af {konfig.nedSize}</strong> i bunden</>
           )}
@@ -246,7 +324,7 @@ export default function PuljeTip({ game, matches }) {
       {err && <p className="badge badge--red mb-2">{err}</p>}
 
       <Sektion
-        titel={konfig.nedSize > 0 ? `🏆 Toppen — vælg ${konfig.poolSize}` : null}
+        titel={topTitel(konfig, laast)}
         maks={konfig.poolSize} valgte={picks}
         toggle={toggleI(picks, setPicks, nedPicks, konfig.poolSize)}
         facitHold={facit?.top || null} ligeNuHold={ligeNu?.top || null} ikon="🏆"
