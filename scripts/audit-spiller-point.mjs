@@ -41,6 +41,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { ligaPoint, harRundeVektor, vektorStemmer, puljenTaeller } from '../src/lib/ligaPoint.js';
 import { buildRoundContext, opdelPoint, kickoffMs } from '../src/lib/pointOpdeling.js';
+import { startRundeFor, gatedeKampe } from '../src/lib/startGate.js';
 
 const saPath = process.env.SPIL_SA;
 if (!saPath) {
@@ -66,7 +67,8 @@ async function main() {
   console.log(`Spil: ${GAME_ID}`);
 
   const gameRef = db.collection('games').doc(GAME_ID);
-  const [spillereSnap, kampeSnap, ligaSnap, brugereSnap] = await Promise.all([
+  const [gameSnap, spillereSnap, kampeSnap, ligaSnap, brugereSnap] = await Promise.all([
+    gameRef.get(),
     gameRef.collection('players').get(),
     gameRef.collection('matches').get(),
     gameRef.collection('leagues').get(),
@@ -92,6 +94,18 @@ async function main() {
   const kampAf = new Map(kampe.map((m) => [m.id, m]));
   const ligaer = ligaSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
+  // SPILLETS EGEN GATE. Serveren regner kun på kampe fra spillets startrunde
+  // (gameScoring.js:230 gatedIds). Regnede revisionen uden den, ville en
+  // spiller med tips i en gatet runde få et for højt tal her — og forskellen
+  // ville blive læst som "players-dokumentet er forældet". Den fejl ville
+  // pege præcis den forkerte vej.
+  const game = gameSnap.exists ? gameSnap.data() : null;
+  const startRunde = startRundeFor(game, kampe);
+  const gated = gatedeKampe(kampe, startRunde);
+  console.log(`Spillets startrunde: ${startRunde ?? 'ingen gate'}`
+    + `   (game.startRound=${game?.startRound ?? '–'})`
+    + `   ${gated.size} kamp(e) gatet ud`);
+
   for (const p of traef) {
     const per = p.perRound || null;
     const bonus = Number(p.bonusPoints) || 0;
@@ -109,7 +123,8 @@ async function main() {
 
     // --- 2. Genberegning forfra med serverens eget modul --------------------
     const betsSnap = await gameRef.collection('bets').where('uid', '==', p.uid).get();
-    const bets = betsSnap.docs.map((d) => d.data());
+    const alleBets = betsSnap.docs.map((d) => d.data());
+    const bets = alleBets.filter((b) => !gated.has(b.matchId));
     const nu = opdelPoint({ bets, roundCtx, puljeBonus: bonus });
     const afvig = r1(nu.total - Number(p.totalPoints));
     console.log('\nGENBEREGNET NU (samme modul som serveren, af tips + kampe)');
@@ -131,6 +146,28 @@ async function main() {
         + `   uge ${rc.uge ?? '?'}`
         + (udenfor ? `   ${udenfor} kamp(e) UDENFOR kuponen` : '')
         + (faerdig ? '   → bonus udbetalt' : '   → bonus venter'));
+    }
+
+    // --- 3b. Tips pr. runde ------------------------------------------------
+    //
+    // En runde med præcis 0 point UDELADES af vektoren (`laegTil` springer
+    // falsy over). Et hul i vektoren kan derfor betyde tre ting: ingen tips,
+    // tips uden afgjorte kampe endnu, eller tips der samlet gav nul. De tre
+    // ligner hinanden i fladen og skal skilles ad her.
+    const perRundeTips = new Map();
+    for (const b of alleBets) {
+      const info = roundCtx.byMatch[b.matchId];
+      const n = Number.isFinite(info?.round) ? info.round : 'uden';
+      const r = perRundeTips.get(n) || { tips: 0, afgjort: 0, point: 0, gatet: 0 };
+      r.tips += 1;
+      if (gated.has(b.matchId)) r.gatet += 1;
+      if (info?.result) { r.afgjort += 1; r.point += Number(b.points) || 0; }
+      perRundeTips.set(n, r);
+    }
+    console.log('\nTIPS PR. RUNDE');
+    for (const [nr, r] of [...perRundeTips].sort((a, b) => Number(a[0]) - Number(b[0]))) {
+      console.log(`  runde ${String(nr).padStart(4)}: ${r.tips} tip, ${r.afgjort} afgjort,`
+        + ` ${r1(r.point)} point fra tips` + (r.gatet ? `, ${r.gatet} GATET UD` : ''));
     }
 
     // --- 4. Vektoren og ligaerne -------------------------------------------
@@ -170,6 +207,19 @@ async function main() {
         + `  kickoff ${dkTid(kickoffMs(m))}`);
     }
     if (!chancer.length) console.log('  ingen — et fald kan ikke komme derfra.');
+  }
+
+  // --- Feltet til sammenligning ------------------------------------------
+  //
+  // Et hul i ÉN spillers vektor kan ikke tolkes alene. Mangler runde 1 for
+  // alle, er den gatet eller uspillet; mangler den kun for ham, er det hans
+  // egne tips. Derfor den korte tabel — navn, total og hvilke runder han har.
+  console.log(`\n${'='.repeat(66)}\nHELE FELTET (til sammenligning)\n${'='.repeat(66)}`);
+  for (const p of [...alle].sort((a, b) => (Number(b.totalPoints) || 0) - (Number(a.totalPoints) || 0))) {
+    const runder = harRundeVektor(p.perRound)
+      ? Object.keys(p.perRound).sort((a, b) => Number(a) - Number(b)).join(',')
+      : 'INGEN VEKTOR';
+    console.log(`  ${navnAf(p.uid).padEnd(22)} ${String(p.totalPoints).padStart(7)}   runder: ${runder}`);
   }
 }
 
