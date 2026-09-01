@@ -116,6 +116,21 @@ const SKRIVBARE_FELTER = Object.freeze([
  */
 const DETALJE_VERSION = 2;
 
+/**
+ * Versionen på et kampdokument, som et TAL man kan sammenligne — eller 0.
+ *
+ * Kaster ALDRIG. `typeof === 'number'` og ikke `Number(v)`: konverteringen er
+ * selv faren, for `Number({toString:null})` kaster, og opslaget sker i en
+ * filter-krop uden for try/catch. En skraldeværdi svarer 0 og fejler dermed
+ * mod GENHENTNING — den sikre retning, for kampen heler sig selv ved næste
+ * kørsel i stedet for at blive sprunget over for evigt.
+ *
+ * `Number.isFinite` lukker også `Infinity`, som ellers ville gøre en kamp
+ * permanent usynlig for enhver fremtidig feltudvidelse, uden at nogen kunne
+ * se det på Drift-kortet.
+ */
+const versionsTal = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+
 /** Felter, der aldrig må stå i en skrivning herfra — testens modpol. */
 const FORBUDTE_FELTER = Object.freeze(['result', 'homeGoals', 'awayGoals', 'kickoff']);
 
@@ -513,7 +528,16 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
     // Hentet FØR i en NYERE eller ens udgave? Så er der intet at gøre.
     // Uden versions-leddet var svaret permanent, og et nyt felt kunne aldrig
     // nå en kamp, der allerede var hentet.
-    if (d.detaljerSyncedAt && Number(d.detaljerVersion) >= DETALJE_VERSION) return false;
+    //
+    // `versionsTal` og ikke `Number()`: Number({toString:null}) KASTER, og
+    // kastet ligger i denne filter-krop uden for al try/catch — så ét forgiftet
+    // kampdokument ville dræbe HELE spillets detalje-synk i hver eneste
+    // kørsel. Security Reviewer viste det med en kørt PoC: 1 giftig blandt 19
+    // sunde gav 0 skrevet. Feltet er admin-skrivbart (firestore.rules har
+    // ingen felt-liste på kampe), så vejen dertil er et fejlbehæftet script,
+    // ikke en spiller — men det er nøjagtig samme klasse som `Eid`-fælden,
+    // filen allerede forsvarer sig mod i hentNoegler.
+    if (d.detaljerSyncedAt && versionsTal(d.detaljerVersion) >= DETALJE_VERSION) return false;
     const a = d.detaljerAfvistAt;
     if (!a) return true;
     const ms = typeof a.toMillis === 'function' ? a.toMillis() : new Date(a).getTime();

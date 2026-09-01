@@ -1016,6 +1016,42 @@ describe('DETALJE_VERSION', () => {
       .then((ud) => expect(ud.manglede).toBe(0));
   });
 
+  it('ét GIFTIGT versionsfelt draeber ikke hele spillets synk', async () => {
+    // SECURITY REVIEWERS FUND, med en kørt PoC: Number({toString:null}) KASTER,
+    // og kastet lå i filter-kroppen uden for al try/catch — 1 giftig kamp
+    // blandt 19 sunde gav 0 skrevet, i hver eneste kørsel. Samme klasse som
+    // `Eid`-fælden, filen allerede lukkede i hentNoegler; denne lå på VORES
+    // side af hegnet, hvor rules ikke type-tjekker feltet.
+    const db = fakeDb(TEAMS, []);
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn: fakeFetch(),
+      only: [
+        { id: 'gift', data: { ...KAMP_DATA, result: '1', detaljerSyncedAt: 'TS', detaljerVersion: { toString: null } } },
+        { id: 'r1-a', data: KAMP_DATA },
+      ],
+    }));
+    // Den sunde kamp skal igennem. Uden vagten er dette tal 0.
+    expect(ud.skrevet).toBeGreaterThanOrEqual(1);
+  });
+
+  it('en skraldeværdi fejler mod GENHENTNING, ikke mod evig overspringelse', () => {
+    // Den sikre retning: kampen heler sig selv ved næste kørsel. Ville
+    // vagten svare et højt tal i stedet for 0, blev kampen usynlig for
+    // enhver fremtidig feltudvidelse — og Drift-kortet ville sige "alle
+    // færdige kampe har detaljer", mens den aldrig fik dem.
+    return Promise.all(['ni', {}, [], true, null].map((v) => koer({
+      detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: v,
+    }).then((ud) => expect(ud.manglede, String(v)).toBe(1))));
+  });
+
+  it('Infinity gør ikke en kamp permanent usynlig', () => {
+    // `>=` er rigtig (et rul tilbage må ikke overskrive nyere data), men
+    // prisen er, at en for HØJ værdi er permanent og usynlig. Number.isFinite
+    // lukker Infinity-varianten.
+    return koer({ detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: Infinity })
+      .then((ud) => expect(ud.manglede).toBe(1));
+  });
+
   it('SKRIVER versionen sammen med detaljerne', () => {
     // Uden dette ville hver kørsel hente hver kamp igen, for evigt.
     const db = fakeDb(TEAMS, []);
