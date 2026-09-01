@@ -5,38 +5,68 @@ push/PR (se `.github/workflows/ci.yml`).
 
 ## Testpyramide
 
-| Niveau | Værktøj | Hvad dækkes | Antal | Kræver |
-|---|---|---|---:|---|
-| Unit + komponent/UI | Vitest + Testing Library | Al UI (sider, komponenter, hooks), delt logik — alle scenarier inkl. fejl/kanttilfælde (Firebase mocket) | **855** | — |
-| Unit (functions) | Vitest | Autoritativ scoring (inkl. fuzzy bonus) + grupperangering/tiebreak | **42** | — |
-| Security Rules | Vitest + `@firebase/rules-unit-testing` | Firestore-regler (roller, deadlines, ligaer) | 14 | Firestore-emulator |
-| E2E | Playwright | UI-flows i rigtig browser | 4+ | Browser (CI) |
+ANTALLET STÅR IKKE HER. Det stod her — 855, 42, 37 — og var forkert i alle
+tre kolonner, fordi suiten voksede og tabellen ikke gjorde. Et hardkodet tal
+om noget levende er en løgn med forsinkelse (CLAUDE.md), og at skrive nye tal
+ind ville blot nulstille uret på den samme løgn. Tallene findes ét sted, hvor
+de er afledt af den faktiske kørsel: **Admin → Tests**, som selv advarer, når
+øjebliksbilledet er for gammelt.
 
-**Frontend (unit + komponent): 855 grønne. Functions: 42 grønne.** Hele
-UI'et er dækket udtømmende — hver side/komponent testes i alle tilstande
+| Niveau | Værktøj | Hvad dækkes | Kræver |
+|---|---|---|---|
+| Unit + komponent/UI | Vitest + Testing Library | Al UI (sider, komponenter, hooks), delt logik — alle scenarier inkl. fejl/kanttilfælde (Firebase mocket) | — |
+| Unit (functions, Tour) | Vitest | Autoritativ scoring (inkl. fuzzy bonus) + grupperangering/tiebreak | — |
+| Unit (functions, platform) | Vitest | Platform-serveren: spil-scoring, ligaer, synk, kampdetaljer, mails | — |
+| Security Rules | Vitest + `@firebase/rules-unit-testing` | Firestore-regler (roller, deadlines, ligaer) | Firestore-emulator |
+| E2E | Playwright | UI-flows i rigtig browser | Browser (CI) |
+
+Hele UI'et er dækket udtømmende — hver side/komponent testes i alle tilstande
 (loading, fejl, tom, rollebaseret adgang, låst/åben, før/efter deadline,
 godkendt/afventer, korrekte/forkerte tip, fuzzy bonus-matchning osv.).
 
 ## Oversigt i appen (kun admin)
 Under **Admin → Tests** kan administratorer se en komplet oversigt over alle
-gennemførte tests (pr. fil og pr. test, med bestået/fejlet-status). Oversigten
-genereres fra den faktiske suite med:
+gennemførte tests (pr. fil og pr. test, med bestået/fejlet-status) samt
+afhængighedsdiagrammet. Begge er ØJEBLIKSBILLEDER — to committede JSON-filer,
+ikke en måling af suiten lige nu:
+
 ```bash
-npm run test:report   # opdaterer src/data/testReport.json
+npm run test:report   # skriver src/data/testReport.json OG src/data/depGraph.json
 ```
+
+Kørslen dækker alle tre suiter: frontend, `functions/` (Tour) og
+`functions-platform/` (platformen). Den sidste manglede, fra fanen blev
+bygget, til september 2026 — hele platform-serveren var utalt, mens fanen
+skrev "Cloud Functions" om Tourens tal.
+
+**Det gøres normalt ikke i hånden.** Actions → *"Opdatér test-rapporten"*
+kører den — hver mandag af sig selv, og på knappen når som helst — og
+committer de to filer, hvis tallene har flyttet sig. Fanen skifter dog først
+ved næste platform-deploy, fordi tallene bages ind i bundtet.
+
+Holder kørslen op med at virke, siger fanen selv fra: er det ældste af de to
+øjebliksbilleder over 14 dage gammelt — altså mindst to udeblevne ugekørsler
+— står der en advarsel over underfanerne med dato, alder og vejen videre.
+Uden den stod tallene fra 27. juni 2026 i over to måneder og påstod 73 filer,
+mens suiten var vokset til 252.
 
 ## Sådan køres testene
 
+Antallet står bevidst ikke i kommentarerne — se ovenfor.
+
 ```bash
-# Frontend unit + komponent (855 tests)
+# Frontend unit + komponent
 npm test
 npm run test:coverage          # med dækningsrapport (coverage/)
 
-# Cloud Functions: scoring + standings (37 tests, ingen emulator)
-cd functions && npm test
+# Cloud Functions, Tour (ingen emulator)
+npm --prefix functions test
 
-# Security Rules (14 tests) — kræver Firestore-emulator
-firebase emulators:exec --only firestore "npm run test:rules"
+# Cloud Functions, platform (ingen emulator)
+npm --prefix functions-platform test -- --silent
+
+# Security Rules — kræver Firestore-emulator
+firebase emulators:exec --only firestore "npm run test:rules" --project demo-vm2026
 
 # E2E (Playwright) — bygger appen og kører i Chromium
 npx playwright install chromium     # første gang
