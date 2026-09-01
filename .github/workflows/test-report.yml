@@ -1,0 +1,100 @@
+name: Opdatér test-rapporten
+
+# Genskaber de to committede øjebliksbilleder bag Admin → Tests:
+#   src/data/testReport.json  (antal tests, filer, bestået pr. suite)
+#   src/data/depGraph.json    (afhængighedsdiagrammet)
+#
+# HVORFOR ET SKEMA OG EN KNAP, OG IKKE ET CI-TRIN PÅ HVER PR:
+# filerne er 138 KB genereret JSON. Skrev hver PR dem, ville to samtidige PR'er
+# kollidere i dem hver eneste gang — en konflikt i maskingenereret data, ingen
+# kan reviewe. Derfor én ugentlig kørsel på main, plus en knap til at gøre det
+# med vilje. CLAUDE.md: "hvordan starter jeg det her med vilje?"
+#
+# HVORDAN DEN OPDAGES, NÅR DEN HOLDER OP MED AT KØRE: fanen selv siger det.
+# TestsTab advarer, når det ældste af de to øjebliksbilleder er over 14 dage —
+# altså når mindst TO planlagte kørsler er udeblevet. Alarmen står dér, hvor
+# tallene læses, ikke i en log ingen åbner.
+#
+# Committet lander på main. Fladen skifter FØRST ved næste platform-deploy,
+# fordi tallene bages ind i bundtet (deploy-platform.yml er workflow_dispatch).
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mandag kl. 05.00 UTC. Ugens første hverdag, før nogen kigger.
+    - cron: '0 5 * * 1'
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  rapport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # Alle tre suiter skal have deres egne afhængigheder — scriptet kører
+      # vitest i tre mapper. Mangler én, giver `run()` ingen rapport for den,
+      # og området ville forsvinde tavst fra fanen.
+      - name: Installer afhængigheder
+        run: |
+          npm ci
+          npm --prefix functions ci
+          npm --prefix functions-platform ci
+
+      - name: Genskab rapport og afhængighedsdiagram
+        run: npm run test:report
+
+      # Fejler ÅBENT. Skrev kørslen kun den ene fil — fordi en suite ikke kunne
+      # køre — ville de to datoer skride fra hinanden, og fanen ville vise et
+      # diagram fra en anden dag end tallene. Hellere en rød kørsel end et
+      # halvt øjebliksbillede.
+      - name: Kontrollér at begge filer blev skrevet i denne kørsel
+        run: |
+          node -e '
+            const fs = require("fs");
+            const a = JSON.parse(fs.readFileSync("src/data/testReport.json", "utf8"));
+            const b = JSON.parse(fs.readFileSync("src/data/depGraph.json", "utf8"));
+            const ta = Date.parse(a.generatedAt), tb = Date.parse(b.generatedAt);
+            if (!Number.isFinite(ta) || !Number.isFinite(tb)) {
+              console.error("::error::generatedAt kunne ikke læses i mindst én fil."); process.exit(1);
+            }
+            const spredning = Math.abs(ta - tb) / 1000;
+            if (spredning > 600) {
+              console.error(`::error::De to filer er ${Math.round(spredning)} s fra hinanden — kun den ene blev genskabt.`);
+              process.exit(1);
+            }
+            const omraader = [...new Set(a.suites.map((s) => s.area))].sort();
+            console.log(`Områder: ${omraader.join(", ")} · ${a.totals.files} filer · ${a.totals.tests} tests`);
+            for (const kraevet of ["frontend", "functions", "platform"]) {
+              if (!omraader.includes(kraevet)) {
+                console.error(`::error::Området "${kraevet}" mangler helt — dens suite kørte ikke.`);
+                process.exit(1);
+              }
+            }
+          '
+
+      - name: Commit, hvis tallene har flyttet sig
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/testReport.json src/data/depGraph.json
+          if git diff --cached --quiet; then
+            echo "Ingen ændring i tallene — intet at committe."
+            exit 0
+          fi
+          git commit -m "Test-rapporten er genskabt
+
+          Automatisk kørsel af npm run test:report. Kun de to genererede
+          øjebliksbilleder bag Admin → Tests er rørt."
+          git push origin HEAD:main

@@ -2,10 +2,72 @@
 // Data genereres fra den faktiske suite via `npm run test:report`.
 import { useState } from 'react';
 import report from '../../data/testReport.json';
+import depGraph from '../../data/depGraph.json';
 import DepGraph from './DepGraph';
 
-const AREA_LABELS = { frontend: 'Frontend (UI)', functions: 'Cloud Functions' };
+// ÉT NAVN PR. SERVER. Der er to: Tourens `functions/` og platformens
+// `functions-platform/`. Da kun den første var med, stod dens tal under den
+// generiske overskrift "Cloud Functions" — som om der kun fandtes én. Nu hvor
+// begge tælles med, skal begge sige HVILKEN.
+const AREA_LABELS = {
+  frontend: 'Frontend (UI)',
+  functions: 'Cloud Functions (Tour)',
+  platform: 'Cloud Functions (platform)',
+};
 const SUB = { OVERVIEW: 'overview', DEPS: 'deps', DETAILS: 'details' };
+
+// --- Er tallene forældede? -------------------------------------------------
+//
+// Fanen viser et ØJEBLIKSBILLEDE, ikke en måling af suiten lige nu: to
+// committede JSON-filer, skrevet af `npm run test:report`. Bliver de ikke
+// genskabt, står tallene og lyver stille. Det gjorde de i to måneder — siden
+// viste 73 testfiler, mens suiten var vokset til over 200 — og intet på
+// skærmen antydede det. Det er præcis den fejl, CLAUDE.md kalder "et spejl af
+// levende data er en løgn med forsinkelse".
+//
+// GRÆNSEN ER BUNDET TIL SKEMAET, ikke til en fornemmelse. Workflowet
+// `test-report.yml` kører hver mandag, så 14 dage betyder, at MINDST TO
+// planlagte kørsler er udeblevet. Én kan være et udfald; to er, at det er
+// holdt op med at virke.
+export const FORAELDET_DAGE = 14;
+
+/** Alder i dage, eller null hvis datoen ikke kan læses. */
+export function alderIDage(iso, nu = Date.now()) {
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? (nu - t) / 86_400_000 : null;
+}
+
+/**
+ * Den ÆLDSTE af datoerne — den, der afgør om fanen er forældet.
+ *
+ * De to filer skrives normalt i samme kørsel, men de ER to filer og kan komme
+ * fra hver sin. Målte vi på testrapporten alene, ville en frisk rapport kunne
+ * skjule et forældet diagram bag sin egen dato.
+ *
+ * Returnerer null, hvis bare én dato ikke kan læses — kalderen skal da larme,
+ * ikke gætte.
+ */
+export function aeldsteDato(isoListe, nu = Date.now()) {
+  let vaerst = null;
+  for (const iso of isoListe) {
+    const alder = alderIDage(iso, nu);
+    if (alder == null) return null;
+    if (!vaerst || alder > vaerst.alder) vaerst = { iso, alder };
+  }
+  return vaerst;
+}
+
+/**
+ * Er rapporten forældet?
+ *
+ * EN ULÆSELIG DATO TÆLLER SOM FORÆLDET. Vagten skal fejle ÅBENT: en tom eller
+ * ødelagt `generatedAt` er ikke et bevis på, at tallene er friske.
+ */
+export function erForaeldet(isoListe, nu = Date.now()) {
+  const aeldste = aeldsteDato(isoListe, nu);
+  if (!aeldste) return true;
+  return aeldste.alder > FORAELDET_DAGE;
+}
 
 function formatDate(iso) {
   try {
@@ -120,10 +182,40 @@ function DetailsTab() {
 
 export default function TestsTab() {
   const [sub, setSub] = useState(SUB.OVERVIEW);
+  // TO DATOER, IKKE ÉN. Linjen stod før over underfanerne og sagde "Senest
+  // opdateret" om dem alle — men hentede kun testrapportens dato.
+  // Afhængighedsdiagrammet er en SELVSTÆNDIG fil (depGraph.json), og et
+  // diagram fra en anden kørsel ville have båret en dato, der ikke var dets.
+  const datoer = [report.generatedAt, depGraph.generatedAt];
+  const gammel = erForaeldet(datoer);
+  // ADVARSLEN SKAL NAVNGIVE DEN FIL, DER UDLØSTE DEN. Skrev den altid
+  // testrapportens dato, kunne den sige "16 dage", mens den fyrede, fordi
+  // diagrammet var 40 dage gammelt — en alarm, der peger på det forkerte.
+  const aeldste = aeldsteDato(datoer);
   return (
     <div>
+      {/* Husets advarsels-flade i admin er `badge badge--yellow` som blok
+          (TeamStylesTab.jsx:119) — ikke en `notice`-klasse. Den findes ikke i
+          theme.css, og et opdigtet klassenavn ville rendere HELT uden farve og
+          fejle tavst. Samme fælde som `--c-danger`. */}
+      {gammel && (
+        <p className="badge badge--yellow mb-2" style={{ display: 'block' }} data-testid="rapport-forældet">
+          <strong>⚠️ Tallene her er forældede.</strong>{' '}
+          {aeldste
+            ? `Det ældste af de to øjebliksbilleder er fra ${formatDate(aeldste.iso)}, altså ${Math.floor(aeldste.alder)} dage gammelt.`
+            : 'Mindst én af de to filer har en dato, der ikke kan læses — de kan ikke bruges.'}
+          {' '}Suiten er sandsynligvis vokset siden — antal tests, filer og
+          bestået-andel passer ikke med koden, som den ser ud nu.
+          {' '}Kør <strong>Actions → «Opdatér test-rapporten»</strong> og deploy
+          derefter platformen; tallene bages ind i bundtet og skifter først ved
+          et deploy.
+        </p>
+      )}
+
       <p style={{ fontSize: '0.8rem', color: 'var(--c-muted)', margin: '0 0 0.75rem' }}>
-        Senest opdateret: {formatDate(report.generatedAt)} · opdateres med <code>npm run test:report</code>
+        Tests-tallene: {formatDate(report.generatedAt)}
+        {' · '}Afhængighedsdiagrammet: {formatDate(depGraph.generatedAt)}
+        {' · '}opdateres med <code>npm run test:report</code>
       </p>
 
       <div className="tabs" role="tablist" style={{ marginBottom: '1rem' }}>

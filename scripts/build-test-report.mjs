@@ -1,5 +1,11 @@
-// Genererer src/data/testReport.json fra den faktiske test-suite (frontend +
-// functions). Kør med: npm run test:report
+// Genererer src/data/testReport.json fra den faktiske test-suite. Kør med:
+// npm run test:report — eller Actions → "Opdatér test-rapporten".
+//
+// TRE SUITER, IKKE TO. `functions-platform/` manglede, fra fanen blev bygget:
+// scriptet kørte rod-projektet og `functions/`, altså frontend og TOURENS
+// server. Hele platform-serveren — den, dette spil faktisk kører på — har
+// aldrig været talt med, og fanen sagde "Cloud Functions" om Tourens tal, som
+// om der kun fandtes én server. Derfor er området nu navngivet pr. app.
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
@@ -8,6 +14,7 @@ import { fileURLToPath } from 'url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FE = path.join(ROOT, '.report-fe.json');
 const FN = path.join(ROOT, 'functions', '.report-fn.json');
+const PF = path.join(ROOT, 'functions-platform', '.report-pf.json');
 
 function run(cmd, cwd) {
   try { execSync(cmd, { cwd, stdio: 'ignore' }); }
@@ -16,8 +23,13 @@ function run(cmd, cwd) {
 
 console.log('Kører frontend-tests…');
 run(`npx vitest run --reporter=json --outputFile=${FE}`, ROOT);
-console.log('Kører functions-tests…');
+console.log('Kører functions-tests (Tour)…');
 run(`npx vitest run --reporter=json --outputFile=${FN}`, path.join(ROOT, 'functions'));
+// KØRES FRA MAPPEN, ikke med --config fra roden. `npx vitest run --config
+// functions-platform/vitest.config.js` fra roden giver "No test files found":
+// include-listen i konfigurationen er relativ til dens egen mappe.
+console.log('Kører functions-tests (platform)…');
+run(`npx vitest run --reporter=json --outputFile=${PF}`, path.join(ROOT, 'functions-platform'));
 
 function load(file, area) {
   if (!fs.existsSync(file)) return [];
@@ -37,7 +49,7 @@ function load(file, area) {
   });
 }
 
-const suites = [...load(FE, 'frontend'), ...load(FN, 'functions')]
+const suites = [...load(FE, 'frontend'), ...load(FN, 'functions'), ...load(PF, 'platform')]
   .sort((a, b) => a.area.localeCompare(b.area) || a.file.localeCompare(b.file));
 const all = suites.flatMap((s) => s.tests);
 const report = {
@@ -55,6 +67,7 @@ fs.mkdirSync(path.join(ROOT, 'src', 'data'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'src', 'data', 'testReport.json'), JSON.stringify(report, null, 2));
 fs.rmSync(FE, { force: true });
 fs.rmSync(FN, { force: true });
+fs.rmSync(PF, { force: true });
 console.log('Skrev src/data/testReport.json:', report.totals);
 
 // Opdater også afhængighedsdiagrammet
