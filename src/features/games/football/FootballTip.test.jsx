@@ -369,7 +369,112 @@ describe('FootballTip — slutresultat på kampkortet', () => {
   it('nævner begge hold ved navn for skærmlæsere', () => {
     setup({}, '/spil/sl', spillede());
     // "3 – 2" alene oplæses uforudsigeligt; tallene skal knyttes til holdene.
-    expect(screen.getByLabelText('Slutresultat: AGF 3, F.C. København 2')).toBeInTheDocument();
+    //
+    // PUNKTUMMET ER VENDT BEVIDST. Etiketten sluttede før uden punktum. Da
+    // halvlegsstillingen kom til, blev etiketten til to sætninger, og uden
+    // punktum ville en skærmlæser løbe dem sammen: "…København 2 Ved pausen
+    // stod den 1-1". Punktummet står derfor ALTID, også uden halvleg, så der
+    // kun er én form at vedligeholde.
+    expect(screen.getByLabelText('Slutresultat: AGF 3, F.C. København 2.')).toBeInTheDocument();
+  });
+
+  // ── Halvlegsstillingen ────────────────────────────────────────────────────
+  // Den er en KVALIFIKATOR på scoren, ikke et nyt tal: den må aldrig kunne
+  // forveksles med det resultat, point er afregnet efter.
+  it('viser stillingen ved pausen under slutresultatet', () => {
+    const { container } = setup({}, '/spil/sl', spillede({ halvlegHome: 1, halvlegAway: 1 }));
+    const halvleg = container.querySelector('.match-card__halvleg');
+    // INDHOLDET, ikke bare tilstedeværelsen: en test, der kun tjekker at
+    // elementet findes, ville overleve at de to tal byttede plads eller blev
+    // erstattet af slutresultatet.
+    expect(halvleg).toHaveTextContent('ved pausen 1–1');
+    // Og den må IKKE bære score-klassen: tripwiren nedenfor tæller den, og
+    // den skal blive ved med at betyde "ét slutresultat på kortet".
+    expect(container.querySelectorAll('.match-card__score')).toHaveLength(1);
+  });
+
+  it('fortæller skærmlæseren pausestillingen i samme etiket', () => {
+    setup({}, '/spil/sl', spillede({ halvlegHome: 0, halvlegAway: 2 }));
+    expect(screen.getByLabelText(
+      'Slutresultat: AGF 3, F.C. København 2. Ved pausen stod den 0-2.',
+    )).toBeInTheDocument();
+  });
+
+  it('viser en 0-0-pause — den er netop den mest interessante', () => {
+    // `m.halvlegHome && …` ville skjule præcis den pause, der oftest adskiller
+    // sig fra slutresultatet. Vagten skal være typeof, ikke sandhedsværdi.
+    const { container } = setup({}, '/spil/sl', spillede({ halvlegHome: 0, halvlegAway: 0 }));
+    expect(container.querySelector('.match-card__halvleg')).toHaveTextContent('ved pausen 0–0');
+  });
+
+  it('viser ingen pausestilling, når kilden ikke har den', () => {
+    const { container } = setup({}, '/spil/sl', spillede());
+    expect(container.querySelector('.match-card__halvleg')).toBeNull();
+  });
+
+  it('viser ingen pausestilling, hvis kun det ene tal findes', () => {
+    const { container } = setup({}, '/spil/sl', spillede({ halvlegHome: 1 }));
+    expect(container.querySelector('.match-card__halvleg')).toBeNull();
+  });
+
+  // ── Målscorere og tilskuertal ─────────────────────────────────────────────
+  it('viser målscorere med minut, hold og oplægger', () => {
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [
+        { hold: 'home', minut: 23, scorer: 'Anders And', oplaeg: 'Fedtmule' },
+        { hold: 'away', minut: 90, scorer: 'Georg Gearløs' },
+      ],
+    }));
+    const blok = container.querySelector('.match-card__maal');
+    expect(blok).toHaveTextContent('23′ Anders And (AGF)');
+    expect(blok).toHaveTextContent('opl. Fedtmule');
+    expect(blok).toHaveTextContent('90′ Georg Gearløs (F.C. København)');
+    // Og det, der IKKE må stå: appen dømmer ikke om et menneske i
+    // vennekredsen. Ingen "du tippede", ingen "holdt til det 90.".
+    expect(blok.textContent).not.toMatch(/du |dit |dine /i);
+  });
+
+  it('lægger målene i EGEN blok, aldrig i meta-rækken', () => {
+    // Meta-rækken er inline-flex UDEN wrap: et element mere dér klipper
+    // venue-teksten. Samme fund som for xG-blokken.
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [{ hold: 'home', minut: 5, scorer: 'A B' }],
+    }));
+    const blok = container.querySelector('.match-card__maal');
+    expect(blok.closest('.match-card__meta')).toBeNull();
+  });
+
+  it('viser tilskuertallet med dansk tusindtalsseparator', () => {
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [{ hold: 'home', minut: 5, scorer: 'A B' }], tilskuere: 22975,
+    }));
+    expect(container.querySelector('.match-card__tilskuere')).toHaveTextContent('22.975 tilskuere');
+  });
+
+  it('viser INTET tilskuertal, når kilden manglede det', () => {
+    // Kilden mangler det i 4 af 20 PL-kampe (målt). "0 tilskuere" ville være
+    // en løgn med app-dækning.
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [{ hold: 'home', minut: 5, scorer: 'A B' }],
+    }));
+    expect(container.querySelector('.match-card__tilskuere')).toBeNull();
+  });
+
+  it('viser ingen mål-blok på en kamp uden mål OG uden tilskuertal', () => {
+    // En 0-0 skrives med en TOM målliste — blokken skal så forsvinde helt i
+    // stedet for at stå med overskriften "Mål" og ingenting.
+    const { container } = setup({}, '/spil/sl', spillede({ maal: [] }));
+    expect(container.querySelector('.match-card__maal')).toBeNull();
+  });
+
+  it('viser tilskuertallet på en 0-0-kamp — det afhænger ikke af mål', () => {
+    // VENDT BEVIDST. Første udgave gatede hele blokken på `maal.length > 0`,
+    // så en målløs kamp aldrig viste tilskuertallet, og testen ovenfor
+    // FASTFRØS den fejl uden at nævne den (Test Managers fund). To gates nu.
+    const { container } = setup({}, '/spil/sl', spillede({ maal: [], tilskuere: 6111 }));
+    expect(container.querySelector('.match-card__tilskuere')).toHaveTextContent('6.111 tilskuere');
+    // …men uden overskriften "Mål", for der er ingen.
+    expect(container.querySelector('.match-card__maal-label')).toBeNull();
   });
 
   it('viser 0-0 i stedet for at skjule kampen', () => {

@@ -147,6 +147,33 @@ export async function callSyncGameResults(gameId) {
 }
 
 /**
+ * Synk KAMPDETALJER (halvleg, målscorere, tilskuertal) fra livescore NU.
+ *
+ * Findes, fordi et maskineri, der kun kan startes af skemaet, ikke er færdigt:
+ * sweep'et kører 12 gange i døgnet, og uden knappen ville en rettelse i
+ * parsningen ligge død, til en vilkårlig kørsel tilfældigvis kom forbi.
+ *
+ * INGEN dryRun, og det er en beslutning: forbudslisten i kampDetaljer.js
+ * udelukker `result`, `homeGoals`, `awayGoals` og `kickoff`, og
+ * `recomputeGameMatch` returnerer tidligt, når `result` er uændret — så
+ * kaldet kan hverken afregne point, flytte Elo eller udløse Runde-Botten.
+ * Der er intet, en forhåndsvisning kunne ændre beslutningen om.
+ *
+ * Timeout matcher serverens timeoutSeconds: 120. Uenige timeouts er fundet
+ * forkert to gange før — brugeren ser en fejl, mens serveren skriver videre.
+ * @param {string} gameId
+ */
+export async function callSyncGameKampdetaljer(gameId) {
+  try {
+    const fn = httpsCallable(functions, 'syncGameKampdetaljerNu', { timeout: 120000 });
+    const res = await fn({ gameId });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke synke kampdetaljerne.' };
+  }
+}
+
+/**
  * Genopbyg players/{uid}.leagueIds ud fra ligaernes medlemmer. Feltet er dét,
  * security rules bruger til at afgøre, hvem der må se hvis point — så en
  * genopbygning retter op, hvis noget er drevet fra hinanden.

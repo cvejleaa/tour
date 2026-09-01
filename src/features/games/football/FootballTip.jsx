@@ -23,7 +23,7 @@ import CountUp from '../../../components/CountUp';
 import { teamsOf, visOf, teamInfo } from './teamInfo';
 import { matchBadges } from './badges';
 import { formatKickoff, relativeDeadline, formatDateRange } from '../../../lib/daDate';
-import { fmtPoints, fmtDec, fmtSignedPoints } from '../../../lib/daNum';
+import { fmtPoints, fmtDec, fmtSignedPoints, fmtHeltal } from '../../../lib/daNum';
 import { shareText } from '../../../lib/share';
 import {
   groupByRound, activeRound, isLocked, toMillis, matchScore, liveScore,
@@ -62,6 +62,29 @@ function klokken(ms) {
  * At navigere herfra er sikkert: et tip gemmes ved klikket (`setBet`), så der
  * står ingen ugemt tilstand på kortet, man kunne miste undervejs.
  */
+
+/**
+ * Har kampen en brugbar halvlegsstilling?
+ *
+ * `typeof === 'number'` og ikke en sandhedsprøve: 0 er et helt normalt
+ * halvlegstal, og `m.halvlegHome && ...` ville skjule enhver 0-0-pause —
+ * altså netop den stilling, der oftest adskiller sig fra slutresultatet.
+ */
+function harHalvleg(m) {
+  return typeof m?.halvlegHome === 'number' && Number.isFinite(m.halvlegHome)
+    && typeof m?.halvlegAway === 'number' && Number.isFinite(m.halvlegAway);
+}
+
+/** Er der målscorere at vise? En 0-0 skrives med en TOM liste. */
+function harMaal(m) {
+  return Array.isArray(m?.maal) && m.maal.length > 0;
+}
+
+/** Er der et brugbart tilskuertal? Kilden mangler det i 4 af 20 PL-kampe. */
+function harTilskuere(m) {
+  return typeof m?.tilskuere === 'number' && Number.isFinite(m.tilskuere) && m.tilskuere > 0;
+}
+
 function HoldLink({ teams, name, className, children }) {
   const short = teamInfo(teams, name)?.short;
   if (!short) return <span className={className}>{children}</span>;
@@ -675,9 +698,29 @@ export default function FootballTip({ game, me, matches }) {
               {score ? (
                 <div
                   className="match-card__score"
-                  aria-label={`Slutresultat: ${m.home} ${score.home}, ${m.away} ${score.away}`}
+                  aria-label={`Slutresultat: ${m.home} ${score.home}, ${m.away} ${score.away}.`
+                    + `${harHalvleg(m) ? ` Ved pausen stod den ${m.halvlegHome}-${m.halvlegAway}.` : ''}`}
                 >
                   <span aria-hidden="true">{score.home} – {score.away}</span>
+                  {/* HALVLEGSSTILLINGEN er ikke et nyt tal på kortet — den er
+                      en kvalifikator på et tal, der allerede står der, og
+                      koster derfor ingen ny blok. Det er også den stærkeste af
+                      de tre nye datatyper: spillet er 1X2, så "2-1 (1-1)"
+                      betyder, at alle der tippede X havde ret i 45 minutter.
+                      Målt skifter udfaldet fra pausen til slutfløjt i 48 % af
+                      kampene (scripts/maal-livescore-detaljer.mjs).
+
+                      EGEN KLASSE og ikke match-card__score: den klasse tælles
+                      i FootballTip.test.jsx, og tripwiren dér skal blive ved
+                      med at betyde "der er ét slutresultat på kortet".
+
+                      "Ved pausen" og ikke "Pause": footballRounds.js bruger
+                      allerede "Pause" om en kamp, der holder pause LIGE NU. */}
+                  {harHalvleg(m) && (
+                    <span className="match-card__halvleg" aria-hidden="true">
+                      ved pausen {m.halvlegHome}–{m.halvlegAway}
+                    </span>
+                  )}
                 </div>
               ) : live ? (
                 /* Tre uafhængige kanaler skiller en LEVENDE stilling fra en
@@ -749,6 +792,58 @@ export default function FootballTip({ game, me, matches }) {
                 <span className="match-card__xg-label">xG (målchancer)</span>
                 {' '}{h.navn} <strong>{fmtDec(m.xgHome)}</strong>
                 {' – '}<strong>{fmtDec(m.xgAway)}</strong> {a.navn}
+              </div>
+            )}
+
+            {/* MÅLSCORERE. ÉN ombrydende linje, ikke en liste — og i EGEN
+                blok, aldrig i meta-rækken: den er inline-flex UDEN wrap og
+                klipper venue-teksten, hvis den får et element mere
+                (tipPil.test.jsx vogter netop dét).
+
+                RÅ FRA KILDEN ER LISTEN KORREKT OG KEDELIG — Spilførers dom, og
+                den samme, de to første xG-flader fik: en linje om Dreyer
+                handler om Dreyer, og ingen i vennekredsen er Dreyer. Det, der
+                skaber snak, er MINUTTALLET, og derfor står det først.
+
+                INGEN DOM OM ET MENNESKE. Kortet siger, hvad der skete. Det må
+                ALDRIG udregne "din X holdt til det 94" for en spiller: det
+                ville både pege på en person og opfinde et skyggepoint-system,
+                spillet ikke udbetaler. Vennerne siger det selv; ammunitionen
+                er husets, skuddet er deres.
+
+                TILSKUERTALLET hænger på samme blok som en fin-linje frem for
+                at få sin egen: kortet bærer i forvejen kickoff, kupon-mærke,
+                venue, ramt/ikke-ramt, Chancen, live-badges, score, holdnavne,
+                xG, Elo og pick-grid. Stadion og dommer er skåret helt —
+                stadion vises allerede som `h.venue` ovenfor, og dommeren er en
+                klage-magnet uden tipværdi.
+
+                Gatet på FELTERNE og ikke på evnen: en netop afsluttet kamp
+                mangler dem, til sweep'et har kørt. Samme skel som xG-tallet. */}
+            {/* TO GATES, ikke én. Første udgave lagde tilskuertallet INDEN FOR
+                mål-gaten, så en 0-0-kamp aldrig viste det — og min egen test
+                fastfrøs adfærden uden at nævne den (Test Managers fund).
+                Tilskuertal er uafhængigt af, hvor mange mål der faldt. */}
+            {m.result && (harMaal(m) || harTilskuere(m)) && (
+              <div className="match-card__maal">
+                {harMaal(m) && <span className="match-card__maal-label">Mål</span>}
+                {' '}
+                {(harMaal(m) ? m.maal : []).map((g, i) => (
+                  <span key={`${g.hold}-${g.minut}-${i}`} className="match-card__maal-post">
+                    {i > 0 && <span aria-hidden="true"> · </span>}
+                    <strong>{g.minut}′</strong>
+                    {' '}{g.scorer || 'ukendt'}
+                    {' '}<span className="match-card__maal-hold">
+                      ({g.hold === 'home' ? h.navn : a.navn})
+                    </span>
+                    {g.oplaeg && <span className="match-card__maal-oplaeg"> opl. {g.oplaeg}</span>}
+                  </span>
+                ))}
+                {harTilskuere(m) && (
+                  <span className="match-card__tilskuere">
+                    {fmtHeltal(m.tilskuere)} tilskuere
+                  </span>
+                )}
               </div>
             )}
 

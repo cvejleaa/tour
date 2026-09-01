@@ -11,7 +11,7 @@ import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
 // denne fils formål er at undgå.
-import { harXg } from '../spilEvner';
+import { harXg, harKampdetaljer } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
 
 // Udbetalingstabellen REGNES af den rigtige formel, den skrives ikke af.
@@ -356,6 +356,36 @@ export default function FootballHelp({ game }) {
           forklare et tal, spillet aldrig får. Selve tallet på kampkortet
           gates derimod pr. kamp — en netop afsluttet kamp mangler det, til
           sweep'et har kørt. To gates om to forskellige spørgsmål. */}
+      {/* Gaten er EVNEN og ikke felterne — samme skel som xG's to gates: en
+          regelbog må ikke forklare noget, spillet aldrig får, mens selve
+          tallene på kampkortet gates pr. kamp, fordi en netop afsluttet kamp
+          mangler dem, til sweep'et har kørt. */}
+      {harKampdetaljer(game) && (
+        <Section emoji="⚽" title="Halvleg, målscorere og tilskuertal">
+          Når en kamp er afgjort, står der tre ting mere på
+          {' '}<Tab fane="tip">Tip</Tab>: <strong>stillingen ved pausen</strong> under
+          slutresultatet, <strong>hvem der scorede</strong> og i hvilket minut, og
+          {' '}<strong>hvor mange der var på stadion</strong>.
+          <p style={{ margin: '0.5rem 0 0' }}>
+            Halvlegsstillingen er den sjoveste af dem, fordi spillet er 1X2: står der
+            {' '}<strong>2-1 (1-1)</strong>, havde alle, der tippede X, ret i 45 minutter.
+            Vi har målt det på spillenes egne kampe — udfaldet ved pausen var et andet end
+            ved slutfløjt i <strong>næsten hver anden kamp</strong>.
+          </p>
+          <p style={{ margin: '0.5rem 0 0' }}>
+            <strong>Det ændrer ingenting.</strong> Point følger slutresultatet og kun det.
+            Halvlegen er en sjov detalje at drille hinanden med, ikke et regnskab —
+            der findes ingen point for at have ført ved pausen, og der kommer ikke nogen.
+          </p>
+          <p style={{ margin: '0.5rem 0 0' }}>
+            Tallene kommer fra en anden kilde end resultaterne og hentes nogle timer efter
+            kampen. Mangler de på et kampkort, er de ikke nået frem endnu — eller de to
+            kilder er uenige om, hvordan kampen endte, og så viser vi hellere ingenting
+            end noget forkert.
+          </p>
+        </Section>
+      )}
+
       {harXg(game) && (
         <Section emoji="🎯" title="Målchancer (xG)">
           Efter en kamp står der <strong>xG (målchancer)</strong> under scoren på

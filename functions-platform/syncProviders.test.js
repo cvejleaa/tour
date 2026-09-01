@@ -172,6 +172,32 @@ describe('SYNCED_GAMES ⇄ scripts/games.mjs', () => {
     expect(SYNCED_GAMES.map((g) => g.gameId).sort()).toEqual(burde);
   });
 
+  // Kampdetalje-kilden er ORTOGONAL på facit-provideren: den er den samme for
+  // begge spil, uanset hvor facit kommer fra. Derfor er evnen nøglet på
+  // SPILLET og ikke på provideren — en gate på {'pulselive','superliga'} ville
+  // være en proxy for en korrelation, der kun tilfældigvis holder i dag
+  // (puljeLockRound-fejlen). Testen fastholder BEGGE dele: at konfigurationen
+  // er velformet, og at listen ikke stiltiende følger provider-listen.
+  it('hvert spil med kampdetalje-synk har en velformet livescore-konfiguration', () => {
+    for (const g of SYNCED_GAMES) {
+      if (!g.livescore) continue;
+      expect(typeof g.livescore.land, `${g.gameId}: land`).toBe('string');
+      expect(typeof g.livescore.liga, `${g.gameId}: liga`).toBe('string');
+      // Går i en URL. Et frit felt her ville være en sti-injektion.
+      expect(g.livescore.land, `${g.gameId}: land`).toMatch(/^[a-z-]{2,30}$/);
+      expect(g.livescore.liga, `${g.gameId}: liga`).toMatch(/^[a-z0-9-]{2,40}$/);
+    }
+  });
+
+  it('livescore-konfigurationen står IKKE i sync — den seedes ikke ud', () => {
+    // sync seedes ud på spil-dokumentet af games.mjs; livescore gør ikke, og
+    // må ikke, for så ville en seedGames-kørsel i produktion være en
+    // forudsætning for, at synken overhovedet virker.
+    for (const g of SYNCED_GAMES) {
+      expect(Object.hasOwn(g.sync, 'livescore'), `${g.gameId}`).toBe(false);
+    }
+  });
+
   it('hver post i SYNCED_GAMES peger på en provider, der findes', () => {
     for (const g of SYNCED_GAMES) {
       expect(PROVIDERS[g.provider], `${g.gameId}: "${g.provider}"`).toBeTruthy();

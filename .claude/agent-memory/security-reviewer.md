@@ -91,7 +91,8 @@
   `uid` og `matchId` uforanderlige ved update; `points` spærret begge veje;
   `allow delete: if false`; `claimsOnlyOwnLeagues()` forhindrer at man skriver
   en fremmed ligas id på sit tip. Siden 2026-08-24 også de tre chance-felter
-  (se sag-afsnittet). Der findes **intet rekursivt `{document=**}`-wildcard** i
+  (`writingChanceFields()` L88-106 + create-grenen L909-916 — 38 PoC-checks, alle
+  skriveformer afvist, mutationstestet: hver vagt → `true` gør præcis én test rød). Der findes **intet rekursivt `{document=**}`-wildcard** i
   filen og ingen `isGlobalAdmin`-skrivegren på bets.
 - **`driftlog/{id}` + `driftAlarmer/{id}`** (L383-390): `read: isGlobalAdmin()`,
   `write: false`. Verificeret for LIST/QUERY, ikke kun getDoc — reglen er
@@ -278,6 +279,54 @@
   (2026-08-24) er, at loftet bliver en KLIENT-vejledning; `chanceMaxStake` og
   fladens "af maks N" er derfor ikke en regel. MAX_ABS = 8 er det eneste loft,
   og det håndhæves nu af `normaliserIndsats`.
+- **`fix-double-chance.mjs`: hårdkodet `{dryRun:false}` i tørkørslens egen sti.**
+  To `if (apply)` om SAMME sikkerhedsregel (L118 bet-skrivningen, L128
+  `rescoreAllBets({dryRun:false})`). Erstattes L128 med `if (true)`, SKRIVER en
+  tør-kørsel i basen, mens den udskriver "der skrives intet" — og ingen test
+  bliver rød (scriptet har ingen testfil; vite.config.js L56 kører kun
+  `scripts/**/*.test.mjs`). Rettelsen er heller ikke atomar: nedbrud mellem L118
+  og L128 efterlader `chanceStake:0` UDEN genscorede point, og en genkørsel melder
+  grønt, mens spilleren beholder point. Intet `concurrency:`. Blast radius:
+  `rescoreAllBets` omskriver `points` på HVERT bet + alle totaler i spillet.
+  Fix: `{dryRun: !apply}`. Sammenlign med `rescore-bets.yml` (kræver
+  `skriv == "SKRIV"`, backup som artefakt, GENDAN-vej) — samme primitiv, rigtig indpakning.
+- **Doku-drift, der afgør om et audit-fund kan bruges:** `docs/drift.md` ~L457-480
+  og `scripts/lib/doubleChance.mjs` L171 påstår begge stadig, at firestore.rules
+  ikke nævner chance, så spilleren selv kan skrive `chanceStake`/`chanceSatAt`.
+  Falsk siden trin 3. En operatør, der læser det, tør ikke stole på sit eget audit.
+- **Én giftig post i STAGE-LISTEN vælter hele kampdetalje-synken (BEKRÆFTET,
+  trin 2).** `hentNoegler` (kampDetaljer.js L355-371) kalder `String(e?.Eid ?? '')`
+  og `kampNoegle(e?.Esd, …)` UDEN for nogen try. PoC: ét event med
+  `Eid: {"toString":null}` (eller samme i `Esd`) blandt 380 → `TypeError:
+  Cannot convert object to primitive value` kastes ud af `syncKampDetaljerCore`
+  → alle spillets kampe mister detaljer, hver kørsel, for evigt. Den indre
+  try/catch (L476-480) dækker KUN `detaljerAf`, altså det ENE kampsvar — ikke
+  kortlægningen. Samme gift i `m.data.kickoff` (`noegleAfKamp` L327,
+  `new Date({toString:null})` kaster) rammer identisk, men er admin-only, fordi
+  rules ikke type-tjekker `kickoff`. Fejler LUKKET og ses som `st.fejl` på
+  Drift-kortet. Testfilen dækker `{toString:null}` KUN i `Pn` (L159-161).
+  Fix: læg pr. event-kroppen i `hentNoegler` i en try/continue.
+- **HTTP-udfald tælles som `uparsede` og udløser den FORKERTE alarm
+  (BEKRÆFTET, trin 2).** `hentJson` returnerer `null` ved 5xx (kampDetaljer.js
+  L351), og kaldstedet gør `if (!incidents) { ud.uparsede += 1; continue; }`
+  (L471). PoC med HTTP 500: `forsoegt=1, skrevet=0, ukendte=0, uparsede=1` →
+  sweep-grenen (index.js ~L613) fyrer `detaljerAfvist` med teksten "Kilden har
+  sandsynligvis skiftet form — se kampDetaljer.js". En kildenedetid får altså
+  en alarm med det forkerte remedie. Fix: eget felt `utilgaengelige`.
+  (Samme sted: `batch.commit()` kaldes på en TOM batch, når alle afvisninger
+  kom af 5xx — `if (ud.skrevet || ud.uenige || ud.uparsede)` L512.)
+- **Drift-kortet skrives EFTER det dyreste led, så en platform-timeout er
+  tavs.** `skrivDriftStatus` (index.js ~L668) står efter både xG- og
+  detalje-blokken i løkkekroppen. Kommentaren over detalje-blokken påstår
+  "hvad der ligger FØR den, er allerede gjort" — det gælder skrivningerne, men
+  IKKE statuskortet. Dør invocation'en i detalje-synken, mister spillet sit
+  kort OG hele det næste spil sin kørsel. Ny worst-case pr. spil: stage-kaldet
+  (10 s, UDEN for budget-tjekket) + `DETALJE_BUDGET_MS` 25 s + ét kald-sæt over
+  budgettet ≈ 45 s, oven i xG's 50 s, i et sweep på 300 s for to spil.
+- *(delvist lukket 9d7c1fa-tid: xG-sweep-posten ovenfor har nu fået
+  `SWEEP_TIMEOUT_S = 300` (index.js L443/L452) og et afledt `XG_BUDGET_MS`
+  (L447). Verificér selv, om xG stadig ligger FØR standings/alarm i løkkekroppen
+  — dét led er ikke efterprøvet.)*
 
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
@@ -433,6 +482,50 @@
 - **Data er adskilt pr. Firebase-projekt**, så den delte regelfil giver ingen
   krydskontaminering (top-niveau `leagues` er tom på platformen → Tour-grenen
   dér fejler bare lukket).
+- **`setChanceCore` er BEKRÆFTET RENT.** approved slipper igennem; pending,
+  rejected, manglende `status`, manglende users-dok og manglende players-dok
+  afvises. `stake`-fuzz (20 værdier: 9, 1e21, MAX_SAFE_INTEGER, '4', true, [],
+  {}, NaN, 1e-7, 4n, 0.5) → kun heltal 0 og 1..8. Alle låse-varianter holder
+  (kickoff passeret, ETHVERT live-felt inkl. 'afbrudt', facit i begge former,
+  manglende/uparseligt kickoff, manglende runde). Gentaget identisk kald →
+  `uaendret: true`, ingen skrivning.
+- **Livescore trin 1 (9d7c1fa) rører IKKE produktion.** `livescoreHold.js` er en
+  ren tabel + to rene funktioner; grep over hele repoet: den `require`'es KUN af
+  `livescoreHold.test.js`. Ingen Cloud Function, ingen callable, ingen klient
+  importerer den. Eneste netværkskald ligger i testen og i
+  `scripts/maal-livescore.mjs`. `kampNoegle` kaldes ingen steder i produktionskode.
+- **`kampDetaljer.js` (livescore trin 2) er BEKRÆFTET RENT på skriveomfanget.**
+  MUTATIONSTESTET, ikke bare læst: erstattes `for (const felt of
+  SKRIVBARE_FELTER)` (L494-496) med `Object.assign(skriv, svar.felter)`, lander
+  `result`/`homeGoals`/`kickoff` i skrivningen; med filteret gør de det ikke.
+  Den frosne liste ER altså vagten, og der er ÉN af dem. Begge skrivninger er
+  `batch.update` — intet `set(merge:true)`, så en fremmed post kan ikke OPRETTE
+  et kampdokument. Doc-id'et er `m.id` fra `allMatches`, aldrig fra kilden.
+  Fjendtlige ekstrafelter i BÅDE `incidents/` og `info/` (`result`, `homeGoals`,
+  `awayGoals`, `kickoff`, `points`, `evil`) når aldrig dokumentet.
+- **`maal[]` kan ikke sprænges af kilden.** `kaedeOk` kræver
+  `maal.length === facit` OG numrene 1..facit, og `facit` er VORES egne
+  `homeGoals`/`awayGoals`. PoC: 999 fabrikerede mål mod facit 2-1 → `uenig`,
+  intet skrevet. Kun hvis vores EGET dokument sagde 999-0, blev listen 999 lang
+  (79 KB, scorernavne klippet til 40 tegn) — altså langt under 1 MiB, og kun
+  admin kan skrive `homeGoals`. `heltal` er `/^\d{1,3}$/`, `tilskuertal`
+  `1..999999`.
+- **Kredsløbsafbryderen på 429/403 virker.** PoC: 403 på stage-kaldet → 1 kald
+  i alt, `afbrudt:true`, intet skrevet. 429 på `incidents` med 3 kampe i køen →
+  3 kald i alt (parret `Promise.all` når at fyre begge), resten sprunget over,
+  allerede validerede kampe i batchen bevaret. Ingen unhandled rejection.
+  RESIDUAL: afbryderen er PR. SPIL og PR. KØRSEL — nabospillet i samme sweep
+  laver stadig sit eget stage-kald (og rammer så selv 429), og der er ingen
+  persistent nedkøling mellem kørsler.
+- **`syncGameKampdetaljerNu` lækker intet.** Svaret er `syncKampDetaljerCore`s
+  tælleobjekt: otte tal + en boolean, ingen identiteter, ingen URL'er, ingen
+  kilde-fritekst. Rolleporten (`owner`/`globalAdmin`) står efter PRÆCIS 1
+  læsning og før `allMatches` og alt netværk; `gameId` slås op i den STATISKE
+  `SYNCED_GAMES`, så et frit id ikke kan ramme et vilkårligt spil.
+- **Kilde-fritekst når ALDRIG AI-prompten.** `gameRecap.js` L192-207 bygger
+  `matches`/`udsatte` felt for felt (`home`, `away`, `score`, `surprise`) — der
+  er intet `...m`-spread. `maal`, `scorer` og `oplaeg` findes ikke i fakta.
+  Målscorernavne bruges kun i `FootballTip.jsx` som React-børn (escapes).
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
@@ -583,81 +676,119 @@
   opdatering af et dokument, der allerede HAR feltet. Diff sammenligner værdier,
   så uændret felt og fravær-i-begge-ender ikke er berørte nøgler — men
   **fravær → 0 ER en berørt nøgle**, og det er dét, der rammer en gammel fane.
+- **Regler må ALDRIG deployes før den callable, de forudsætter.**
+  `deploy-platform.yml` L121 ruller `ONLY="hosting,firestore:rules"` ud, mens
+  functions kun deployes af L228-229 bag `inputs.deployFunctions`, der
+  **defaulter til `false`** og kører BAGEFTER. Strammer man reglerne, så den
+  direkte vej spærres, og den eneste tilladte vej er en funktion, der ikke er
+  live, er featuren død for alle. Efterprøv ALTID, at callable'en svarer, før
+  reglerne rulles ud.
+- **En opslagstabel arver Object.prototype.** `TABEL[kode] || kode` returnerer en
+  FUNKTION for `'constructor'`/`'toString'`/`'valueOf'`/`'hasOwnProperty'` og
+  `Object.prototype` for `'__proto__'` — målt i `livescoreKode`. Værdien
+  overlever `typeof x === 'string'`-vagter, den er jo aldrig lavet, og ender som
+  `"function Object() { [native code] }"` i en template-streng. Skriv altid
+  `Object.hasOwn(TABEL, k) ? TABEL[k] : k` — samme familie som
+  `__proto__`/`__name__`-fælden i doc-id'er.
+- **En sammensat nøgle skal have en tegnsæt-vagt på HVER del, ikke kun på én.**
+  `${t}|${h}|${u}` er kollisions-fri kun hvis ingen del kan indeholde `|`.
+  Målt: `noegle(t,'A|B','C') === noegle(t,'A','B|C')`. Valider hver del
+  (`/^[A-Z0-9]{2,5}$/`), ikke bare den ene, der tilfældigvis blev mistænkt.
+- **En URL-STI kan omdefinere betydningen af data uden at ligne en parameter.**
+  Livescores `stage/soccer/england/premier-league/2`: det afsluttende `2` er
+  UTC-OFFSET I TIMER og forskyder hvert `Esd`-felt i svaret. `/0` = ægte UTC,
+  `/2.5` = +2:05, `/abc` fejler ÅBENT tilbage til 0. Et magisk stisegment uden
+  kommentar er en semantisk landmine: samme kode i to miljøer kan få to
+  forskellige tider. Skriv ALTID ud, hvad hvert segment i en fremmed URL betyder.
+- **En test, der `return`'er ved fejl, er GRØN — ikke sprunget over.** Målt på
+  `livescoreHold.test.js` mod en død vært: 6 netværkstests rapporteret
+  `✓ passed`, `Tests 10 passed (10)`, `0 skipped`. `console.warn` er usynlig,
+  fordi husets kommando kører `--silent` og husets regel er "læs aldrig et grønt
+  testoutput". Brug `ctx.skip()`/`it.skipIf`, så et ikke-kørt tjek rapporteres
+  som SKIPPED.
+- **En paritetstest, der PARSER sin egen side, skal bevise at parsingen ramte.**
+  `voresHold()`-regexen (`/name:\s*'…',\s*short:\s*'…'/`) giver en TOM Map, hvis
+  datafilen skifter citationstegn eller feltrækkefølge — og så er
+  `expect(mangler).toEqual([])` grøn med nul hold tjekket. Målt: 2 af 3 tests
+  bliver fuldstændig vakuøse; kun `expect(uden.length).toBeGreaterThan(0)`
+  fanger det. Læg det antal-tjek i HVER test, der parser.
+- **Et loft, der tælles på VORES liste, ER et loft på kald** — modsat
+  `XG_LOFT`, der talte kildens events. `valgte = mangler.slice(0, loft)` og
+  derefter 2 kald pr. element er den rigtige form: kildens svar kan ikke
+  multiplicere arbejdet. Spørg altid: løber løkken over VORES kø eller over
+  KILDENS svar?
+- **En budget-konstant, der PÅSTÅS afledt, skal være afledt.**
+  `XG_BUDGET_MS = 300000/3/SYNCED_GAMES.length` skrumper af sig selv ved et
+  spil mere; `DETALJE_BUDGET_MS = 25000` gør ikke, selv om kommentaren regner
+  den ud af de samme 300 s. To spil i dag = 2×25 s; tre spil = 75 s uden at
+  nogen har taget stilling. Et tal uden kode er en påstand — også når det
+  ligger i en konstant.
+- **En SELVVALIDERENDE udledning slår en kode-whitelist.** Jeg krævede en
+  `IT`-whitelist (36/63/43); den blev målt til at ramme 14 af 20 kampe og
+  fejle TAVST. Løsningen blev at udlede mål af stillingen `Sc[Nm-1]` og kræve
+  den ubrudte kæde 1..`Tr_i` mod VORES facit. Accepteret som strengt bedre:
+  en ukendt kode kan ikke blive til et mål, og et annulleret mål falder ud af
+  sig selv. Krav en whitelist, når der ikke findes et invariant at måle mod —
+  ikke når der gør.
+- **En krydsvalidering mod vores EGNE tal er også et STØRRELSESLOFT.** Kravet
+  `maal.length === homeGoals + awayGoals` gør en liste fra en fremmed kilde
+  umulig at blæse op. Se efter den slags dobbeltvirkning, før du beder om en
+  separat `MAX_LEN`.
+- **Et delvist svar må ikke markeres som færdigt.** Fejler `info/` alene,
+  skrives kampen alligevel med `detaljerSyncedAt`, og filteret er netop
+  tilstedeværelsen af det felt → `tilskuere` kommer aldrig igen for den kamp.
+  Skriv "færdig"-markøren først, når ALLE de kilder, markøren dækker, svarede.
 
 ---
 
-## Chancen ⚡ (trin 1-3, branch claude/multi-game-player-collection-21mc1w)
+## Livescore.com som kilde (trin 1 + trin 2 — LUKKET, med tre rester)
 
-**Hullet:** sæt ⚡ på kamp A, lad den låse ved kickoff, sæt den igen på kamp B i
-samme runde — begge blev afregnet. Reglen "én ⚡ pr. runde" er en FORESPØRGSEL,
-og rules kan kun `get()` ét kendt dokument, så den kan aldrig håndhæves dér.
+Kildevalget (DIREKTE mod `prod-cdn-public-api.lsmedia1.com`, ikke via `proxy/`)
+er efterprøvet og holder: proxyen bruger en ANDEN leverandør
+(`proxy/flashscore_client.py:37-39` → livescore.in / 50.flashscore.ninja),
+dækker kun Superligaen (`tdf_api.py:175-204`), og `functions-platform/` har nul
+afhængighed af den. En proxy foran ville tilføje et led, ikke en grænse.
 
-**Trin 3 (firestore.rules) — BEKRÆFTET LUKKET, 38 PoC-checks + 233 repo-tests.**
-`writingChanceFields()` (L88-106) på `allow update` (L940) og "fraværende eller
-0" + "revisionsfelter helt fraværende" på `allow create` (L909-916).
-Alt afvist: `updateDoc`, `setDoc` med og uden merge, fravær→3, `increment(8)`,
-`deleteField()`, `setDoc` der UDELADER feltet (= sletning), `'chanceStake.x'`,
-chance-felt smuglet med i samme operation som et lovligt felt, streng/bool/null,
-4→8, 4→99, bagdatering af `chanceSatAt`, nulstilling af `chanceFlytninger`,
-og en anden spillers dokument i alle former. `allow delete: if false` lukker
-slet-og-genopret. **Kontroltests grønne** (opret tip, ret 1X2 på et tip MED
-chance, `points` afvist) → opsætningen måler noget.
-**Mutationstestet:** hver af de tre vagter → `true` gør præcis én repo-test rød.
-De er load-bearing, ikke pynt.
+**Endpointet:** `stage/soccer/{land}/{liga}/{OFFSET}` (hele sæsonen, 260 KB PL),
+`incidents/soccer/{Eid}` (1,3 KB: `Tr1`/`Tr2`, `Trh1`/`Trh2`, `Incs` nøglet på
+halvleg), `info/soccer/{Eid}` (182 B: `Vsp` tilskuere, `Vnm` stadion,
+`Refs[0].Nm` dommer). Kræver `Referer: https://www.livescore.com/`. Ingen nøgle,
+ingen `defineSecret`, intet at lække: kaldene bærer hverken uid, e-mail, cookie
+eller token — kun vores egress-IP og kadence.
 
-**Kernen (`setChanceCore`) — BEKRÆFTET RENT.** approved-kontrol slipper igennem;
-pending, rejected, manglende `status`, manglende users-dok og manglende
-players-dok afvises alle. `stake`-fuzz (20 værdier: 9, 1e21, MAX_SAFE_INTEGER,
-'4', true, [], {}, NaN, 1e-7, 4n, 0.5) → kun heltal 0 og 1..8 accepteres.
-Alle låse-varianter holder (kickoff passeret, ETHVERT live-felt inkl. 'afbrudt',
-facit i begge former, manglende/uparseligt kickoff, manglende runde).
-Selve hullet: gammel chance på LÅST kamp + ny på åben → `chance-laast`.
-**Samtidighed: 15 par + 10 tripler → aldrig mere end én åben chance.**
-Transaktionen bærer dedup'en. Gentaget identisk kald → `uaendret: true`, ingen
-skrivning (klik-loop koster ikke kvote og støjer ikke i `chanceFlytninger`).
+**Det sidste stisegment er et UTC-OFFSET I TIMER, ikke en version** (`/0`→19:00,
+`/2`→21:00, `/2.5`→21:05, `/abc`→0 — målt på Eid 1793530). Det var mit
+blokerende fund i trin 1. Trin 2 henter med `/0`, `noegleAfKamp` formaterer
+vores `kickoff` med `getUTC*`, og BEGGE dele er testet:
+`kampDetaljer.test.js:376` asserterer den præcise URL, og
+`livescoreHold.test.js:140-179` kører en SOMMER- og en VINTERKAMP mod den
+levende kilde (med `ctx.skip()`, ikke `return`).
 
-**RESTRISIKO (availability, ikke integritet): den stale fane.**
-Den NYE `setBet` sender ikke længere `chanceStake`, så et tip oprettet efter
-udrulningen har INTET `chanceStake`-felt. En fane fra FØR udrulningen sender
-`Number(existing?.chanceStake) || 0` = 0 med hvert 1X2-klik → **fravær → 0 er en
-berørt nøgle → PERMISSION_DENIED**, og `danishError` (betActions.js L29) siger
-"deadline passeret eller ingen adgang" på en åben kamp. Samme gælder, hvis
-fanens cache siger 0, mens serveren har sat 4. Begge BEKRÆFTET i emulator.
-Rettes ved genindlæsning; der findes ingen version-/genindlæs-banner i appen.
-Bemærk: `chanceStake: 0` UÆNDRET (0→0) og `chanceSatAt` sendt uændret med går
-fint igennem — det er kun TRANSITIONEN, der rammes.
+**Mine ti trin-2-krav: 1-4 og 6-9 opfyldt, 5 og 10 delvist.** De to rester og
+sweep-timeout-resten står i `Angrebsveje der VIRKER` (giftig post i
+stage-listen; 5xx tælles som `uparsede` og fyrer alarmen med det forkerte
+remedie; Drift-kortet skrives efter det dyreste led). Krav 6 (`IT`-whitelist)
+blev bevidst erstattet af den selvvaliderende `Sc`-udledning — accepteret, se
+faldgruberne. Skriveomfang, `maal[]`-loft, kredsløbsafbryder, callable-adgang og
+AI-prompten er BEKRÆFTET RENT (se dén liste).
 
-**DEPLOY-RÆKKEFØLGEN ER DEN FARLIGE DEL.** `chanceVagt.js` L22-28 påstår, at
-hosting og regler ruller ud sammen, så der ikke findes en mellemtilstand. Det er
-sandt for KLIENTEN og udelader FUNKTIONEN: `deploy-platform.yml` deployer
-`ONLY="hosting,firestore:rules"` på L121, mens `setGameChance` kun deployes af
-L228-229 — bag `inputs.deployFunctions`, som **defaulter til `false`** og kører
-EFTER. Ruller man ud uden fluebenet, spærrer reglerne den direkte vej, mens den
-eneste tilladte vej ikke findes → ⚡ er dødt for alle. Klientens
-`functions/not-found`-gren giver en dansk besked, men er ikke en afbødning.
-**Efterprøv ALTID, at callable'en er live, før regler, der forudsætter den,
-udrulles.**
+**Genbrugelig PoC:** `kampDetaljer.js` kræver kun `rensTekst` + `livescoreHold`
+og kan `require`'es direkte fra node uden emulator. Fake db =
+`{collection:()=>({doc:()=>gameRef}), batch:()=>({update:(r,o)=>skriv.push(...),
+commit:async()=>{}})}`, `FV = {serverTimestamp:()=>'<<ts>>', delete:()=>'<<del>>'}`,
+og en `fetchFn`, der matcher på `stage/` / `incidents/` / `info/` i URL'en og kan
+returnere et TAL som HTTP-status. Mutationstesten køres ved at kopiere filen,
+strenge-erstatte vagten og køre samme harness mod begge kopier.
 
-**Dokumentations-drift (ikke rettet i trin 3):** `docs/drift.md` ~L457-480 og
-`scripts/lib/doubleChance.mjs` L171 siger begge stadig "indtil trin 3 er live,
-nævner firestore.rules ikke ordet chance, så en spiller kan selv skrive både
-`chanceStake` og `chanceSatAt`". Det er nu falsk, og det er præcis den sætning,
-der afgør, om operatøren tør stole på et audit-fund.
-`doubleChance.mjs` L52 læser `Number(bet?.chanceSatAt)`, og serveren skriver et
-tal (`nowMs`) — audit-vejen er kompatibel.
+**`rensTekst` fjerner `<>{}[]\``, kontroltegn og klipper til 40 — men IKKE `"`,
+`&`, U+202E (RTL-override) eller nulbredde-tegn.** Ufarligt i React (escapes),
+men et navn herfra i et HTML-ATTRIBUT ville kunne bryde ud
+(`x"onmouseover="…`). Escap ved indsættelsen, hvis navnene nogensinde skal i
+en mail.
 
-**Fra fix-double-chance-workflowet (54c086c) — stadig åbent:**
-to `if (apply)` om samme sikkerhedsregel (L118 bet-skrivningen og L128
-`rescoreAllBets` med hårdkodet `{dryRun:false}`); erstattes L128 med `if (true)`,
-skriver en TØR-KØRSEL i basen, mens den udskriver "der skrives intet". Ingen test
-bliver rød. Fix: send `{dryRun: !apply}` videre. Rettelsen er heller ikke atomar
-— nedbrud mellem L118 og L128 efterlader `chanceStake:0` uden genscorede point,
-og en genkørsel melder GRØNT, mens spilleren beholder sine point. Intet
-`concurrency:`. Blast radius: `rescoreAllBets` omskriver `points` på HVERT bet i
-spillet og ALLE totaler — et spil med historisk pointdrift bliver omprist som
-bivirkning. Sammenlign altid med `rescore-bets.yml`, der rammer samme primitiv,
-men kræver `skriv == "SKRIV"`, tager backup som artefakt og har en GENDAN-vej.
-
+**Homoglyf-fælden (fundet i `scripts/maal-livescore.mjs`, siden rettet):** en
+identifikator med U+0430 CYRILLIC A virker og linter rent. Grep efter ikke-ASCII
+i identifikatorer, når en fil er skrevet ud fra en HAR-fil eller en browser.
 ---
 
 ## Liga-spørgsmål (#38 leagueQuestionStatus, #39 recap, #40 updateLeagueQuestion)

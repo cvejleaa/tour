@@ -626,16 +626,31 @@ const PROVIDERS = { superliga, pulselive };
 // scripts/games.mjs (spejlfils-reglen). Et nyt spil = ny post her + i
 // games.mjs + functions-deploy — og et spil, der udgår, fjernes her uden at
 // røre dokumentet.
+// `livescore` står VED SIDEN AF `sync`, ikke inde i det, og det er ikke
+// kosmetik. `sync` seedes ud på spil-dokumentet af scripts/games.mjs; det
+// gør `livescore` ikke. Kampdetalje-kilden er ORTOGONAL på facit-provideren
+// — den er den samme for begge spil, uanset hvor facit kommer fra — og
+// serveren skal kunne læse den UDEN et Firestore-opslag og uden at en
+// seedGames-kørsel i produktion er en forudsætning for, at synken virker.
+//
+// Derfor er evnen heller ikke en egenskab ved PROVIDEREN. Ville man gate på
+// `{'pulselive','superliga'}`, gættede man på en korrelation, der tilfældigvis
+// holder i dag, fordi begge spil har begge dele — nøjagtig `puljeLockRound`-
+// fejlen, hvor en gate testede en nabo-egenskab i stedet for evnen selv. Et
+// fremtidigt pulselive-spil uden livescore-kortlægning ville få knap og
+// hjælpetekst gratis. Nøglen er spillet.
 const SYNCED_GAMES = [
   {
     gameId: 'superliga2627',
     provider: 'superliga',
     sync: { seasonId: SEASON_ID, tournamentId: TOURNAMENT_ID, stageId: STAGE_ID },
+    livescore: { land: 'denmark', liga: 'superliga' },
   },
   {
     gameId: 'pl2627-efteraar',
     provider: 'pulselive',
     sync: { competitionId: 8, season: 2026 },
+    livescore: { land: 'england', liga: 'premier-league' },
   },
 ];
 

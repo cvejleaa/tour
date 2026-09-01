@@ -1,0 +1,952 @@
+{
+ "_note": "RÅ svar fra livescores incidents/ og info/ endpoints, hentet 1/9-2026. Committet, så parseren i kampDetaljer.js kan testes UDEN den levende kilde: paritetstesten fanger drift, men den kan ikke bevise, at parseren tåler de former, kilden faktisk sender. Udvalget er valgt på KODE-DÆKNING, ikke tilfældigt.",
+ "kampe": [
+  {
+   "liga": "Premier League",
+   "hvorfor": "annulleret mål (IT 62) OG fladt mål (37/38/39) i samme kamp",
+   "Eid": "1793564",
+   "hjemme": "LIV",
+   "ude": "FOR",
+   "Esd": 20260829113000,
+   "incidents": {
+    "Eid": "1793564",
+    "Tr1": "2",
+    "Tr2": "2",
+    "Trh1": "0",
+    "Trh2": "1",
+    "Tr1OR": "2",
+    "Tr2OR": "2",
+    "Incs": {
+     "1": [
+      {
+       "Min": 24,
+       "Nm": 2,
+       "Sc": [
+        0,
+        1
+       ],
+       "Sor": 6,
+       "Incs": [
+        {
+         "Min": 24,
+         "Nm": 2,
+         "PosA": 3,
+         "Aid": "13294",
+         "ID": "13294",
+         "Fn": "Dan",
+         "Ln": "Ndoye",
+         "Pnt": "dan-ndoye",
+         "Pnum": 14,
+         "Pn": "Dan Ndoye",
+         "IT": 36,
+         "Sc": [
+          0,
+          1
+         ],
+         "Sor": 6
+        },
+        {
+         "Min": 24,
+         "Nm": 2,
+         "PosA": 3,
+         "Aid": "1697",
+         "ID": "1697",
+         "Fn": "Morgan",
+         "Ln": "Gibbs-White",
+         "Pnt": "morgan-gibbs-white",
+         "Pnum": 10,
+         "Pn": "Morgan Gibbs-White",
+         "IT": 63,
+         "Sc": [
+          0,
+          1
+         ],
+         "Sor": 6
+        }
+       ]
+      },
+      {
+       "Min": 32,
+       "Nm": 1,
+       "PosA": 3,
+       "Aid": "15610",
+       "ID": "15610",
+       "Fn": "Florian",
+       "Ln": "Wirtz",
+       "Pnt": "florian-wirtz",
+       "Pnum": 7,
+       "Pn": "Florian Wirtz",
+       "IT": 62,
+       "IR": "VAR:disallowed_offside",
+       "Sc": [
+        0,
+        1
+       ],
+       "Sor": 2
+      },
+      {
+       "Min": 44,
+       "Nm": 2,
+       "PosA": 4,
+       "Aid": "56344",
+       "ID": "56344",
+       "Fn": "Igor",
+       "Ln": "Jesus",
+       "Snm": "Igor Jesus",
+       "Pnt": "igor-jesus",
+       "Pnum": 11,
+       "Pn": "Igor Jesus",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 1
+      }
+     ],
+     "2": [
+      {
+       "Min": 50,
+       "Nm": 2,
+       "PosA": 3,
+       "Aid": "15981",
+       "ID": "15981",
+       "Fn": "Ola",
+       "Ln": "Aina",
+       "Pnt": "ola-aina",
+       "Pnum": 34,
+       "Pn": "Ola Aina",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 5
+      },
+      {
+       "Min": 54,
+       "Nm": 1,
+       "PosA": 3,
+       "Aid": "97696",
+       "ID": "97696",
+       "Fn": "Victor",
+       "Ln": "Munoz",
+       "Pnt": "victor-munoz",
+       "Pnum": 23,
+       "Pn": "Victor Munoz",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 3
+      },
+      {
+       "Min": 58,
+       "Nm": 1,
+       "PosA": 3,
+       "Aid": "15610",
+       "ID": "15610",
+       "Fn": "Florian",
+       "Ln": "Wirtz",
+       "Pnt": "florian-wirtz",
+       "Pnum": 7,
+       "Pn": "Florian Wirtz",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 5
+      },
+      {
+       "Min": 60,
+       "Nm": 1,
+       "Sc": [
+        1,
+        1
+       ],
+       "Sor": 3,
+       "Incs": [
+        {
+         "Min": 60,
+         "Nm": 1,
+         "PosA": 4,
+         "Aid": "18647",
+         "ID": "18647",
+         "Fn": "Alexander",
+         "Ln": "Isak",
+         "Pnt": "alexander-isak",
+         "Pnum": 9,
+         "Pn": "Alexander Isak",
+         "IT": 36,
+         "Sc": [
+          1,
+          1
+         ],
+         "Sor": 3
+        },
+        {
+         "Min": 60,
+         "Nm": 1,
+         "PosA": 3,
+         "Aid": "20054",
+         "ID": "20054",
+         "Fn": "Cody",
+         "Ln": "Gakpo",
+         "Pnt": "cody-gakpo",
+         "Pnum": 18,
+         "Pn": "Cody Gakpo",
+         "IT": 63,
+         "Sc": [
+          1,
+          1
+         ],
+         "Sor": 3
+        }
+       ]
+      },
+      {
+       "Min": 69,
+       "Nm": 1,
+       "PosA": 1,
+       "Aid": "31488",
+       "ID": "31488",
+       "Ln": "Alisson",
+       "Snm": "Alisson",
+       "Pnt": "alisson",
+       "Pnum": 1,
+       "Pn": "Alisson Becker",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 1
+      },
+      {
+       "Min": 70,
+       "Nm": 2,
+       "PosA": 3,
+       "Aid": "1697",
+       "ID": "1697",
+       "Fn": "Morgan",
+       "Ln": "Gibbs-White",
+       "Pnt": "morgan-gibbs-white",
+       "Pnum": 10,
+       "Pn": "Morgan Gibbs-White",
+       "IT": 37,
+       "IR": "VAR",
+       "Sc": [
+        1,
+        2
+       ],
+       "Sor": 2
+      },
+      {
+       "Min": 79,
+       "Nm": 1,
+       "PosA": 5,
+       "Aid": "18455",
+       "ID": "18455",
+       "Fn": "Ronald",
+       "Ln": "Araújo",
+       "Pnt": "ronald-araujo",
+       "Pnum": 33,
+       "Pn": "Ronald Araujo",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 6
+      },
+      {
+       "Min": 82,
+       "Nm": 1,
+       "Sc": [
+        2,
+        2
+       ],
+       "Sor": 2,
+       "Incs": [
+        {
+         "Min": 82,
+         "Nm": 1,
+         "PosA": 3,
+         "Aid": "97696",
+         "ID": "97696",
+         "Fn": "Victor",
+         "Ln": "Munoz",
+         "Pnt": "victor-munoz",
+         "Pnum": 23,
+         "Pn": "Victor Munoz",
+         "IT": 36,
+         "Sc": [
+          2,
+          2
+         ],
+         "Sor": 2
+        },
+        {
+         "Min": 82,
+         "Nm": 1,
+         "PosA": 3,
+         "Aid": "15610",
+         "ID": "15610",
+         "Fn": "Florian",
+         "Ln": "Wirtz",
+         "Pnt": "florian-wirtz",
+         "Pnum": 7,
+         "Pn": "Florian Wirtz",
+         "IT": 63,
+         "Sc": [
+          2,
+          2
+         ],
+         "Sor": 2
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "info": {
+    "Eid": "1793564",
+    "Esd": 20260829113000,
+    "Vnm": "Anfield",
+    "VCnm": "England",
+    "Vneut": 0,
+    "Vcy": "Liverpool",
+    "Refs": [
+     {
+      "Nm": "Samuel Barrott",
+      "Cid": "2",
+      "Cn": "England",
+      "Kn": 0
+     }
+    ]
+   }
+  },
+  {
+   "liga": "Superligaen",
+   "hvorfor": "annulleret mål (IT 62) — må ALDRIG tælle med",
+   "Eid": "1784439",
+   "hjemme": "SOE",
+   "ude": "VIB",
+   "Esd": 20260807170000,
+   "incidents": {
+    "Eid": "1784439",
+    "Tr1": "0",
+    "Tr2": "0",
+    "Trh1": "0",
+    "Trh2": "0",
+    "Tr1OR": "0",
+    "Tr2OR": "0",
+    "Incs": {
+     "1": [
+      {
+       "Min": 7,
+       "Nm": 2,
+       "PosA": 3,
+       "Aid": "67459",
+       "ID": "67459",
+       "Fn": "Thomas",
+       "Ln": "Jorgensen",
+       "Pnt": "thomas-jorgensen",
+       "Pnum": 10,
+       "Pn": "Thomas Joergensen",
+       "IT": 62,
+       "IR": "VAR:disallowed_offside",
+       "Sc": [
+        0,
+        0
+       ],
+       "Sor": 10
+      },
+      {
+       "MinEx": 2,
+       "Min": 45,
+       "Nm": 1,
+       "PosA": 3,
+       "Aid": "68374",
+       "ID": "68374",
+       "Fn": "Sefer",
+       "Ln": "Emini",
+       "Pnt": "sefer-emini",
+       "Pnum": 7,
+       "Pn": "Sefer Emini",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 14
+      }
+     ],
+     "2": []
+    }
+   },
+   "info": {
+    "Eid": "1784439",
+    "Esd": 20260807170000,
+    "Vnm": "Sydbank Park",
+    "VCnm": "Denmark",
+    "Vsp": 4025,
+    "Vneut": 0,
+    "Vcy": "Haderslev",
+    "Refs": [
+     {
+      "Nm": "Michael Tykgaard",
+      "Cid": "1",
+      "Cn": "Denmark",
+      "Kn": 0
+     }
+    ]
+   }
+  },
+  {
+   "liga": "Premier League",
+   "hvorfor": "fladt mål uden container (37/38/39) — IT-whitelisten ville tabe det",
+   "Eid": "1793556",
+   "hjemme": "BRE",
+   "ude": "TOT",
+   "Esd": 20260822163000,
+   "incidents": {
+    "Eid": "1793556",
+    "Tr1": "3",
+    "Tr2": "0",
+    "Trh1": "2",
+    "Trh2": "0",
+    "Tr1OR": "3",
+    "Tr2OR": "0",
+    "Incs": {
+     "1": [
+      {
+       "Min": 12,
+       "Nm": 1,
+       "Sc": [
+        1,
+        0
+       ],
+       "Sor": 3,
+       "Incs": [
+        {
+         "Min": 12,
+         "Nm": 1,
+         "PosA": 2,
+         "Aid": "38163",
+         "ID": "38163",
+         "Fn": "Keane",
+         "Ln": "Lewis-Potter",
+         "Pnt": "keane-lewis-potter",
+         "Pnum": 23,
+         "Pn": "Keane Lewis-Potter",
+         "IT": 36,
+         "Sc": [
+          1,
+          0
+         ],
+         "Sor": 3
+        },
+        {
+         "Min": 12,
+         "Nm": 1,
+         "PosA": 3,
+         "Aid": "6609",
+         "ID": "6609",
+         "Fn": "Mamadou",
+         "Ln": "Sangare",
+         "Pnt": "mamadou-sangare",
+         "Pnum": 18,
+         "Pn": "Mamadou Sangare",
+         "IT": 63,
+         "Sc": [
+          1,
+          0
+         ],
+         "Sor": 3
+        }
+       ]
+      },
+      {
+       "Min": 33,
+       "Nm": 1,
+       "PosA": 3,
+       "Aid": "34210",
+       "ID": "34210",
+       "Fn": "Vitaly",
+       "Ln": "Janelt",
+       "Pnt": "vitaly-janelt",
+       "Pnum": 27,
+       "Pn": "Vitaly Janelt",
+       "IT": 36,
+       "Sc": [
+        2,
+        0
+       ],
+       "Sor": 2
+      },
+      {
+       "Min": 34,
+       "Nm": 2,
+       "PosA": 3,
+       "Aid": "32356",
+       "ID": "32356",
+       "Fn": "Conor",
+       "Ln": "Gallagher",
+       "Pnt": "conor-gallagher",
+       "Pnum": 8,
+       "Pn": "Conor Gallagher",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 3
+      }
+     ],
+     "2": [
+      {
+       "Min": 49,
+       "Nm": 1,
+       "PosA": 2,
+       "Aid": "60259",
+       "ID": "60259",
+       "Fn": "Michael",
+       "Ln": "Kayode",
+       "Pnt": "michael-kayode",
+       "Pnum": 33,
+       "Pn": "Michael Kayode",
+       "IT": 36,
+       "Sc": [
+        3,
+        0
+       ],
+       "Sor": 2
+      },
+      {
+       "Min": 55,
+       "Nm": 1,
+       "PosA": 4,
+       "Aid": "31368",
+       "ID": "31368",
+       "Fn": "Igor",
+       "Ln": "Thiago",
+       "Pnt": "igor-thiago",
+       "Pnum": 9,
+       "Pn": "Igor Thiago",
+       "IT": 38,
+       "Sc": [
+        3,
+        0
+       ],
+       "Sor": 1
+      },
+      {
+       "Min": 78,
+       "Nm": 1,
+       "PosA": 3,
+       "Aid": "34210",
+       "ID": "34210",
+       "Fn": "Vitaly",
+       "Ln": "Janelt",
+       "Pnt": "vitaly-janelt",
+       "Pnum": 27,
+       "Pn": "Vitaly Janelt",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 4
+      }
+     ]
+    }
+   },
+   "info": {
+    "Eid": "1793556",
+    "Esd": 20260822163000,
+    "Vnm": "Gtech Community Stadium",
+    "VCnm": "England",
+    "Vsp": 17180,
+    "Vneut": 0,
+    "Vcy": "Brentford, Middlesex",
+    "Refs": [
+     {
+      "Nm": "Michael Oliver",
+      "Cid": "2",
+      "Cn": "England",
+      "Kn": 0
+     }
+    ]
+   }
+  },
+  {
+   "liga": "Premier League",
+   "hvorfor": "tilskuertal MANGLER — feltet skal udelades, ikke sættes til 0",
+   "Eid": "1793566",
+   "hjemme": "CRY",
+   "ude": "MCI",
+   "Esd": 20260828190000,
+   "incidents": {
+    "Eid": "1793566",
+    "Tr1": "1",
+    "Tr2": "4",
+    "Trh1": "0",
+    "Trh2": "1",
+    "Tr1OR": "1",
+    "Tr2OR": "4",
+    "Incs": {
+     "1": [
+      {
+       "Min": 17,
+       "Nm": 2,
+       "Sc": [
+        0,
+        1
+       ],
+       "Sor": 2,
+       "Incs": [
+        {
+         "Min": 17,
+         "Nm": 2,
+         "PosA": 4,
+         "Aid": "15419",
+         "ID": "15419",
+         "Fn": "Erling",
+         "Ln": "Haaland",
+         "Pnt": "erling-haaland",
+         "Pnum": 9,
+         "Pn": "Erling Haaland",
+         "IT": 36,
+         "Sc": [
+          0,
+          1
+         ],
+         "Sor": 2
+        },
+        {
+         "Min": 17,
+         "Nm": 2,
+         "PosA": 3,
+         "Aid": "37399",
+         "ID": "37399",
+         "Fn": "Antoine",
+         "Ln": "Semenyo",
+         "Pnt": "antoine-semenyo",
+         "Pnum": 42,
+         "Pn": "Antoine Semenyo",
+         "IT": 63,
+         "Sc": [
+          0,
+          1
+         ],
+         "Sor": 2
+        }
+       ]
+      },
+      {
+       "Min": 33,
+       "Nm": 2,
+       "PosA": 3,
+       "Aid": "2307",
+       "ID": "2307",
+       "Fn": "Rayan",
+       "Ln": "Cherki",
+       "Pnt": "rayan-cherki",
+       "Pnum": 10,
+       "Pn": "Rayan Cherki",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 2
+      }
+     ],
+     "2": [
+      {
+       "Min": 54,
+       "Nm": 2,
+       "Sc": [
+        0,
+        2
+       ],
+       "Sor": 1,
+       "Incs": [
+        {
+         "Min": 54,
+         "Nm": 2,
+         "PosA": 3,
+         "Aid": "2307",
+         "ID": "2307",
+         "Fn": "Rayan",
+         "Ln": "Cherki",
+         "Pnt": "rayan-cherki",
+         "Pnum": 10,
+         "Pn": "Rayan Cherki",
+         "IT": 36,
+         "Sc": [
+          0,
+          2
+         ],
+         "Sor": 1
+        },
+        {
+         "Min": 54,
+         "Nm": 2,
+         "PosA": 3,
+         "Aid": "3255",
+         "ID": "3255",
+         "Fn": "Phil",
+         "Ln": "Foden",
+         "Pnt": "phil-foden",
+         "Pnum": 47,
+         "Pn": "Phil Foden",
+         "IT": 63,
+         "Sc": [
+          0,
+          2
+         ],
+         "Sor": 1
+        }
+       ]
+      },
+      {
+       "Min": 55,
+       "Nm": 2,
+       "PosA": 3,
+       "Aid": "42312",
+       "ID": "42312",
+       "Fn": "Elliot",
+       "Ln": "Anderson",
+       "Pnt": "elliot-anderson",
+       "Pnum": 5,
+       "Pn": "Elliot Anderson",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 3
+      },
+      {
+       "Min": 56,
+       "Nm": 1,
+       "PosA": 1,
+       "Aid": "2139",
+       "ID": "2139",
+       "Fn": "Gianluigi",
+       "Ln": "Donnarumma",
+       "Pnt": "gianluigi-donnarumma",
+       "Pnum": 1,
+       "Pn": "Gianluigi Donnarumma",
+       "IT": 39,
+       "Sc": [
+        1,
+        2
+       ],
+       "Sor": 2
+      },
+      {
+       "Min": 59,
+       "Nm": 2,
+       "Sc": [
+        1,
+        3
+       ],
+       "Sor": 2,
+       "Incs": [
+        {
+         "Min": 59,
+         "Nm": 2,
+         "PosA": 3,
+         "Aid": "2307",
+         "ID": "2307",
+         "Fn": "Rayan",
+         "Ln": "Cherki",
+         "Pnt": "rayan-cherki",
+         "Pnum": 10,
+         "Pn": "Rayan Cherki",
+         "IT": 36,
+         "Sc": [
+          1,
+          3
+         ],
+         "Sor": 2
+        },
+        {
+         "Min": 59,
+         "Nm": 2,
+         "PosA": 2,
+         "Aid": "28465",
+         "ID": "28465",
+         "Fn": "Joško",
+         "Ln": "Gvardiol",
+         "Pnt": "josko-gvardiol",
+         "Pnum": 24,
+         "Pn": "Josko Gvardiol",
+         "IT": 63,
+         "Sc": [
+          1,
+          3
+         ],
+         "Sor": 2
+        }
+       ]
+      },
+      {
+       "Min": 68,
+       "Nm": 1,
+       "PosA": 3,
+       "Aid": "67184",
+       "ID": "67184",
+       "Fn": "Anan",
+       "Ln": "Khalaili",
+       "Pnt": "anan-khalaili",
+       "Pnum": 25,
+       "Pn": "Anan Khalaili",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 3
+      },
+      {
+       "Min": 84,
+       "Nm": 2,
+       "Sc": [
+        1,
+        4
+       ],
+       "Sor": 7,
+       "Incs": [
+        {
+         "Min": 84,
+         "Nm": 2,
+         "PosA": 4,
+         "Aid": "15419",
+         "ID": "15419",
+         "Fn": "Erling",
+         "Ln": "Haaland",
+         "Pnt": "erling-haaland",
+         "Pnum": 9,
+         "Pn": "Erling Haaland",
+         "IT": 36,
+         "Sc": [
+          1,
+          4
+         ],
+         "Sor": 7
+        },
+        {
+         "Min": 84,
+         "Nm": 2,
+         "PosA": 3,
+         "Aid": "3255",
+         "ID": "3255",
+         "Fn": "Phil",
+         "Ln": "Foden",
+         "Pnt": "phil-foden",
+         "Pnum": 47,
+         "Pn": "Phil Foden",
+         "IT": 63,
+         "Sc": [
+          1,
+          4
+         ],
+         "Sor": 7
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "info": {
+    "Eid": "1793566",
+    "Esd": 20260828190000,
+    "Vnm": "Selhurst Park",
+    "VCnm": "England",
+    "Vneut": 0,
+    "Vcy": "London",
+    "Refs": [
+     {
+      "Nm": "Andrew Madley",
+      "Cid": "2",
+      "Cn": "England",
+      "Kn": 0
+     }
+    ]
+   }
+  },
+  {
+   "liga": "Superligaen",
+   "hvorfor": "almindelig kamp: kun container-mål og kort",
+   "Eid": "1784451",
+   "hjemme": "FCM",
+   "ude": "RAN",
+   "Esd": 20260823120500,
+   "incidents": {
+    "Eid": "1784451",
+    "Tr1": "1",
+    "Tr2": "0",
+    "Trh1": "1",
+    "Trh2": "0",
+    "Tr1OR": "1",
+    "Tr2OR": "0",
+    "Incs": {
+     "1": [
+      {
+       "Min": 28,
+       "Nm": 1,
+       "PosA": 3,
+       "Aid": "87580",
+       "ID": "87580",
+       "Fn": "Darío",
+       "Ln": "Osorio",
+       "Pnt": "dario-osorio",
+       "Pnum": 11,
+       "Pn": "Dario Osorio",
+       "IT": 36,
+       "Sc": [
+        1,
+        0
+       ],
+       "Sor": 4
+      },
+      {
+       "Min": 40,
+       "Nm": 1,
+       "PosA": 2,
+       "Aid": "46642",
+       "ID": "46642",
+       "Fn": "Magnus",
+       "Ln": "Jensen",
+       "Pnt": "magnus-jensen",
+       "Pnum": 3,
+       "Pn": "Magnus Jensen",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 2
+      }
+     ],
+     "2": [
+      {
+       "Min": 56,
+       "Nm": 2,
+       "PosA": 3,
+       "Aid": "65938",
+       "ID": "65938",
+       "Fn": "Laurits",
+       "Ln": "Pedersen",
+       "Pnt": "laurits-pedersen",
+       "Pnum": 8,
+       "Pn": "Laurits Raun Pedersen",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 3
+      },
+      {
+       "Min": 75,
+       "Nm": 2,
+       "PosA": 3,
+       "Aid": "2702",
+       "ID": "2702",
+       "Fn": "Elies",
+       "Ln": "Mahmoud",
+       "Pnt": "elies-mahmoud",
+       "Pnum": 11,
+       "Pn": "Elies Mahmoud",
+       "IT": 43,
+       "NoP": false,
+       "Sor": 4
+      }
+     ]
+    }
+   },
+   "info": {
+    "Eid": "1784451",
+    "Esd": 20260823120500,
+    "Vnm": "MCH Arena",
+    "VCnm": "Denmark",
+    "Vsp": 10290,
+    "Vneut": 0,
+    "Vcy": "Herning",
+    "Refs": [
+     {
+      "Nm": "Jens Grabski Maae",
+      "Cid": "1",
+      "Cn": "Denmark",
+      "Kn": 0
+     }
+    ]
+   }
+  }
+ ]
+}

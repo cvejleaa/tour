@@ -43,6 +43,7 @@ import {
   callGenerateLeagueRecapNow,
   callRepriceGameOdds,
   callSyncGameResults,
+  callSyncGameKampdetaljer,
   callGenerateStageTip,
   saveStageTip,
   callSendTipRemindersNow,
@@ -197,6 +198,33 @@ describe('adminActions', () => {
     it('giver fejlen videre i stedet for at kaste', async () => {
       mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('Kun admin kan synke resultater.')));
       const res = await callSyncGameResults('superliga2627');
+      expect(res.ok).toBe(false);
+      expect(res.error).toMatch(/Kun admin/);
+    });
+  });
+
+  // FUNKTIONSNAVNET er det, der rammer serveren. En tastefejl her giver
+  // functions/not-found ved hvert klik, mens suiten står grøn — samme blinde
+  // vinkel som callRepriceGameOdds og callSyncGameResults begge har haft.
+  // TIMEOUTEN skal matche serverens timeoutSeconds: 120. Uenige timeouts er
+  // fundet forkert to gange før — brugeren ser en fejl, mens serveren skriver
+  // videre.
+  describe('callSyncGameKampdetaljer', () => {
+    it('kalder syncGameKampdetaljerNu med spillets id og 120 s timeout', async () => {
+      const mockFn = vi.fn().mockResolvedValue({
+        data: { manglede: 4, valgte: 4, forsoegt: 4, skrevet: 4, uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, afbrudt: false },
+      });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const res = await callSyncGameKampdetaljer('pl2627-efteraar');
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'syncGameKampdetaljerNu', { timeout: 120000 });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'pl2627-efteraar' });
+      expect(res.ok).toBe(true);
+      expect(res.data.skrevet).toBe(4);
+    });
+
+    it('giver fejlen videre i stedet for at kaste', async () => {
+      mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('Kun admin kan synke kampdetaljer.')));
+      const res = await callSyncGameKampdetaljer('superliga2627');
       expect(res.ok).toBe(false);
       expect(res.error).toMatch(/Kun admin/);
     });

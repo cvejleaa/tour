@@ -12,8 +12,9 @@ import { useGames } from '../games/useGames';
 import { useGameRounds } from './useGameRounds';
 import { startRundeFor } from '../../lib/startGate';
 import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameActions';
-import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds, callSyncGameKickoffs, callSyncGameResults } from './adminActions';
-import { harKickoffSynk, harResultatSynk } from '../games/spilEvner';
+import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds,
+  callSyncGameKickoffs, callSyncGameResults, callSyncGameKampdetaljer } from './adminActions';
+import { harKickoffSynk, harResultatSynk, harKampdetaljer } from '../games/spilEvner';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
@@ -149,6 +150,9 @@ function GameRow({ game }) {
   // Resultat-synk (⬇️). Ingen tør→skriv: se resultatSynk().
   const [resBusy, setResBusy] = useState(false);
   const [resMsg, setResMsg] = useState(null); // { kind, text }
+  // Kampdetalje-synk (⚽). Ingen tør→skriv: se kampdetaljeSynk().
+  const [detBusy, setDetBusy] = useState(false);
+  const [detMsg, setDetMsg] = useState(null); // { kind, text }
   // Tør-kørslens resultat. Først når det ligger her, må skrive-knappen vises:
   // man skal have SET ændringerne, før man kan udføre dem.
   const [prisPlan, setPrisPlan] = useState(null); // { updated, aendringer }
@@ -349,6 +353,42 @@ function GameRow({ game }) {
       ? { kind: 'ok', text: `${d.updated} kampe fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en runde, poster Runde-Botten på liga-væggene nu.` }
       : { kind: 'ok', text: `Intet manglede — de ${d.checked} færdige kampe hos kilden står allerede rigtigt. ${tabel}. Står en kamp stadig uden facit, har kilden det ikke endnu — sæt facit i hånden (se admin-guiden → Resultater).` });
     setResBusy(false);
+  }
+
+  // ⚽ Synk kampdetaljer nu — halvleg, målscorere og tilskuertal fra livescore.
+  //
+  // INGEN confirm, modsat naboknapperne, og det er en bevidst forskel:
+  // resultat-synken kan afregne point og få Runde-Botten til at poste, og
+  // ompris-knappen kan ændre værdien af allerede afgivne tips. Denne kan
+  // ingen af delene — forbudslisten i kampDetaljer.js udelukker result,
+  // homeGoals, awayGoals og kickoff. En confirm foran en harmløs handling
+  // lærer folk at klikke OK uden at læse, og så virker den ikke dér, hvor den
+  // skal.
+  async function kampdetaljeSynk() {
+    setDetBusy(true); setDetMsg(null);
+    const res = await callSyncGameKampdetaljer(game.id);
+    if (!res.ok) { setDetMsg({ kind: 'err', text: res.error }); setDetBusy(false); return; }
+    const d = res.data || {};
+    const tilbage = (d.manglede ?? 0) - (d.skrevet ?? 0);
+    if (d.afbrudt) {
+      setDetMsg({ kind: 'err', text: 'Kilden afviste os (429/403), og kørslen stoppede sig selv for ikke at ramme de andre synk. Prøv igen om en time.' });
+    } else if ((d.manglede ?? 0) === 0) {
+      setDetMsg({ kind: 'ok', text: 'Alle færdige kampe har allerede halvleg og målscorere.' });
+    } else {
+      // De to afvisningstal nævnes HVER FOR SIG: de har hver sin remedie.
+      // "uenige" betyder, at vores facit og kildens er forskellige — det skal
+      // et menneske se på. "kunne ikke parses" betyder, at VORES parsning er
+      // mangelfuld. Ét fælles tal kunne ikke sige hvilken.
+      const dele = [`${d.skrevet ?? 0} kampe fik detaljer`, `${tilbage} mangler endnu`];
+      if (d.uenige) dele.push(`${d.uenige} hvor kildens facit er et andet end vores`);
+      if (d.uparsede) dele.push(`${d.uparsede} kunne ikke læses`);
+      if (d.ukendte) dele.push(`${d.ukendte} kunne ikke kobles til kilden`);
+      setDetMsg({
+        kind: (d.uenige || d.uparsede || d.ukendte) ? 'err' : 'ok',
+        text: `${dele.join(', ')}. Afviste kampe prøves igen om en uge — se Drift-kortet.`,
+      });
+    }
+    setDetBusy(false);
   }
 
   async function syncLeagues() {
@@ -640,6 +680,30 @@ function GameRow({ game }) {
           {resMsg && (
             <span className={`badge ${resMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
               {resMsg.text}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ⚽ Synk kampdetaljer nu — halvleg, målscorere og tilskuertal.
+          PLACERET HER, lige under "⬇️ Synk resultater nu", fordi det er
+          kampdata: en administrator, der savner en målscorer på et kampkort,
+          leder dér, hvor kampenes andre synk-knapper står — ikke under en
+          fane, der tilfældigvis deler datamodel (trin 0b).
+
+          Gate't på harKampdetaljer, som er nøglet på SPILLET og ikke på
+          facit-provideren. Livescore er en tredje, ortogonal kilde, så
+          harResultatSynk ville være en proxy-gate — den ville tilfældigvis
+          passe i dag og give et fremtidigt spil en knap, hvis kald kun kan
+          fejle. Det er puljeLockRound-fejlen. */}
+      {harKampdetaljer(game) && (
+        <div className="flex items-center" style={{ gap: '0.6rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+          <button className="btn btn--ghost btn--sm" onClick={kampdetaljeSynk} disabled={detBusy}>
+            {detBusy ? 'Henter…' : '⚽ Synk kampdetaljer nu'}
+          </button>
+          {detMsg && (
+            <span className={`badge ${detMsg.kind === 'ok' ? 'badge--green' : 'badge--red'}`}>
+              {detMsg.text}
             </span>
           )}
         </div>

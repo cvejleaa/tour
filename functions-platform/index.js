@@ -29,11 +29,13 @@ const {
 } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore, syncXgCore,
+
   tjekLivePuls,
   strandedMatches, allMatches,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
+const { syncKampDetaljerCore, DETALJE_BUDGET_BROEK } = require('./kampDetaljer');
 
 // Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
 const SWEEP_TIMER = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
@@ -445,6 +447,11 @@ const SWEEP_TIMEOUT_S = 300;
 // så facit, tabel og alarm har rigeligt tilbage. Afledt og ikke skrevet af:
 // får SYNCED_GAMES et spil mere, skrumper budgettet af sig selv.
 const XG_BUDGET_MS = Math.floor((SWEEP_TIMEOUT_S * 1000) / 3 / SYNCED_GAMES.length);
+// Kampdetaljerne får HALVDELEN af xG's andel, og regnestykket står her — ikke
+// som en literal i kampDetaljer.js med en kommentar, der påstår udledningen.
+// Begge roller fandt den samme svaghed: tallet passede i dag og ville stille
+// blive forkert ved et tredje spil, fordi kun xG's blev divideret.
+const DETALJE_BUDGET_MS = Math.floor((SWEEP_TIMEOUT_S * 1000) / DETALJE_BUDGET_BROEK / SYNCED_GAMES.length);
 
 exports.syncSuperligaSweep = onSchedule(
   {
@@ -574,6 +581,105 @@ exports.syncSuperligaSweep = onSchedule(
       } catch (err) {
         console.error(`xG-synk ${g.gameId} fejlede (ignoreret):`, err?.message || err);
         st.fejl(`xG-synken fejlede: ${err?.message || err}`);
+      }
+
+      // Kampdetaljer (halvleg, målscorere, tilskuertal) fra livescore. Står
+      // ALLERSIDST, efter xG, af samme grund som xG står efter alarmen: den
+      // er den dyreste og mest fremmede del af kørslen, og en platform-timeout
+      // kan ikke fanges af try/catch. Hvad der ligger FØR den, er allerede
+      // gjort; hvad der lå efter, ville gå tabt for både dette og næste spil.
+      //
+      // Kilden er et browser-endpoint uden aftale bag. Derfor to vagter, der
+      // begge er synlige i linjen herunder: et kald-loft (kvote) og en
+      // kredsløbsafbryder på 429/403 (delt NAT — bliver vi lukket ude, rammer
+      // det nabo-synken, som intet har med livescore at gøre).
+      try {
+        if (!g.livescore) throw new Error('SPRING_OVER');
+        if (!alle) throw new Error('kamplisten manglede i denne kørsel');
+        const d = await syncKampDetaljerCore(db, FieldValue, {
+          gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: DETALJE_BUDGET_MS,
+        });
+        const tilbage = d.manglede - d.skrevet;
+        if (d.afbrudt) {
+          // SYSTEMISK: kilden har lukket os ude. Det er en alarm, fordi den
+          // ikke retter sig selv, og fordi den kan ramme naboerne.
+          console.error(`Kampdetaljer ${g.gameId}: kilden lukkede os ude.`);
+          st.fejl('Kampdetaljer: kilden afviste os (429/403) — kørslen blev afbrudt.');
+          await meldAlarm(db, FieldValue, {
+            type: 'detaljerLukket',
+            gameId: g.gameId,
+            besked: `Livescore afviste ${g.gameId} med 429/403. Synken stopper sig selv `
+              + 'for ikke at ramme de andre kilder gennem den delte udgående IP. '
+              + 'Sker det igen i næste kørsel, er vi rate-limited.',
+          });
+        } else if (d.manglede === 0) {
+          console.log(`Kampdetaljer ${g.gameId}: alle færdige kampe har detaljer.`);
+          st.ok('Kampdetaljer: alle færdige kampe har halvleg og målscorere.', { detaljerMangler: 0 });
+        } else if (d.utilgaengelige > 0 && d.skrevet === 0 && d.uenige === 0 && d.uparsede === 0) {
+          // KILDEN SVAREDE IKKE. Det er en ADVARSEL, ikke en alarm: en times
+          // nedetid hos livescore retter sig selv, og kørslen prøver igen om
+          // en time. Grenen står FØR afvist-alarmen, fordi den ellers ville
+          // fyre "kilden har skiftet form — se kampDetaljer.js" og sende
+          // ejeren på kodejagt under et helt almindeligt udfald.
+          console.warn(`Kampdetaljer ${g.gameId}: kilden svarede ikke på ${d.utilgaengelige} kampe.`);
+          st.advarsel(`Kampdetaljer: kilden svarede ikke (${d.utilgaengelige} kampe). Prøves igen ved næste kørsel.`,
+            { detaljerMangler: tilbage });
+        } else if (d.forsoegt > 0 && d.skrevet === 0 && d.ukendte === 0 && d.utilgaengelige === 0) {
+          // ALT blev afvist, og kilden SVAREDE. Enten har den skiftet form,
+          // eller vores parsning er drevet fra den — begge dele er systemiske.
+          console.error(`Kampdetaljer ${g.gameId}: alle ${d.forsoegt} forsøg blev afvist.`);
+          st.fejl(`Kampdetaljer: alle ${d.forsoegt} forsøgte kampe blev afvist.`,
+            { detaljerMangler: tilbage });
+          await meldAlarm(db, FieldValue, {
+            type: 'detaljerAfvist',
+            gameId: g.gameId,
+            besked: `Ingen af ${d.forsoegt} kampe i ${g.gameId} kunne læses fra livescore `
+              + `(${d.uenige} uenige om facit, ${d.uparsede} kunne ikke parses). `
+              + 'Kilden har sandsynligvis skiftet form — se kampDetaljer.js.',
+          });
+        } else if (d.valgte > 0 && d.ukendte === d.valgte) {
+          // INGEN nøglematch overhovedet. Kortlægningen i livescoreHold.js er
+          // død — det er præcis dét, den fil findes for at fange.
+          //
+          // Sammenligningen er mod `valgte` og IKKE mod `manglede`: `manglede`
+          // er hele efterslæbet, og loftet slipper kun 8 igennem ad gangen, så
+          // `ukendte === manglede` ville aldrig være sand ved et stort
+          // efterslæb — altså præcis når man mest har brug for at høre det.
+          console.error(`Kampdetaljer ${g.gameId}: nul af ${d.valgte} forsøgte kampe kunne kobles.`);
+          st.fejl(`Kampdetaljer: ingen af ${d.valgte} kampe kunne kobles til kilden.`,
+            { detaljerMangler: tilbage });
+          await meldAlarm(db, FieldValue, {
+            type: 'detaljerKobling',
+            gameId: g.gameId,
+            besked: `Ingen af ${d.manglede} kampe i ${g.gameId} fandt sin modpart hos livescore. `
+              + 'Holdkoderne eller kickoff-tiderne er drevet — kør '
+              + 'scripts/maal-livescore.mjs og ret functions-platform/livescoreHold.js.',
+          });
+        } else {
+          // Den almindelige linje. `uenige` og `uparsede` står HVER FOR SIG:
+          // de har hver sin remedie (et menneske skal se på kampen / vores
+          // parsning er mangelfuld), og ét fælles tal kunne ikke sige hvilken.
+          // De er ADVARSLER, ikke alarmer: en uenighed kan være permanent og
+          // legitim (en afbrudt kamp med tildelt resultat), og et rødt kort,
+          // der aldrig kan lukkes, lærer ejeren at ignorere fladen.
+          const dele = [`${d.skrevet} hentet`, `${tilbage} tilbage`];
+          if (d.uenige) dele.push(`${d.uenige} uenige om facit`);
+          if (d.uparsede) dele.push(`${d.uparsede} kunne ikke parses`);
+          if (d.utilgaengelige) dele.push(`${d.utilgaengelige} hvor kilden ikke svarede`);
+          if (d.ukendte) dele.push(`${d.ukendte} uden kobling`);
+          const besked = `Kampdetaljer: ${dele.join(', ')}.`;
+          console.log(`Kampdetaljer ${g.gameId}: ${dele.join(', ')}.`);
+          if (d.uenige || d.uparsede || d.utilgaengelige) st.advarsel(besked, { detaljerMangler: tilbage });
+          else st.ok(besked, { detaljerMangler: tilbage });
+        }
+      } catch (err) {
+        if (err?.message === 'SPRING_OVER') {
+          // Spillet har ikke evnen. Ikke en fejl, og ikke et kort — et spil
+          // uden kilden skal ikke stå med en tom rubrik resten af sæsonen.
+        } else {
+          console.error(`Kampdetalje-synk ${g.gameId} fejlede (ignoreret):`, err?.message || err);
+          st.fejl(`Kampdetalje-synken fejlede: ${err?.message || err}`);
+        }
       }
 
       await skrivDriftStatus(st, db, {
@@ -746,6 +852,50 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION, timeoutSeconds: 300 }
   const results = await syncResultsCore(db, FieldValue, opts);
   const standings = await syncStandingsCore(db, FieldValue, opts).catch((e) => ({ error: e?.message }));
   return { gameId: g.gameId, ...results, standings };
+});
+
+// ---------------------------------------------------------------------------
+// syncGameKampdetaljerNu — MANUEL udløser for kampdetalje-synken.
+//
+// Findes, fordi et maskineri, der kun kan startes af skemaet, ikke er færdigt
+// (CLAUDE.md). Sweep'et kører 12 gange i døgnet, og uden knappen ville enhver
+// rettelse i parsningen ligge død, til en vilkårlig kørsel tilfældigvis kom
+// forbi — samme timing-øvelse som recomputeSeasonElo før den fik sin knap.
+//
+// INGEN TØR-KØRSEL, og det er en beslutning, ikke en forglemmelse. Husets
+// regel er tør-kørsel FØRST på alt, der skriver i produktionsdata, fordi en
+// forkert skrivning koster point. Denne kan ikke: forbudslisten i
+// kampDetaljer.js udelukker `result`, `homeGoals`, `awayGoals` og `kickoff`,
+// og `recomputeGameMatch` returnerer tidligt, når `result` er uændret — så
+// hverken point, Elo eller Runde-Bot kan udløses. Det, der skrives, er
+// felter, ingen anden kode læser til at regne med.
+//
+// timeoutSeconds skal matche klientens egen timeout. Uenige timeouts er fundet
+// forkert to gange før: brugeren ser en fejl, mens serveren skriver videre.
+// ---------------------------------------------------------------------------
+exports.syncGameKampdetaljerNu = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Log ind.');
+  const db = getFirestore();
+  const userSnap = await db.collection('users').doc(uid).get();
+  const role = userSnap.exists ? userSnap.data().role : null;
+  if (role !== 'owner' && role !== 'globalAdmin') {
+    throw new HttpsError('permission-denied', 'Kun admin kan synke kampdetaljer.');
+  }
+  const gameId = request.data?.gameId;
+  // Kun spil fra den STATISKE liste: et frit gameId ville ellers kunne rette
+  // et vilkaarligt spils kampe mod den forkerte liga hos kilden.
+  const g = SYNCED_GAMES.find((x) => x.gameId === gameId);
+  if (!g || !g.livescore) {
+    throw new HttpsError('invalid-argument', `"${gameId}" har ikke kampdetalje-synk.`);
+  }
+  const alle = await allMatches(db, { gameId: g.gameId });
+  // Budgettet er knappens eget, ikke sweep'ets: her er der 120 s at tage af,
+  // og den, der trykker, staar og venter. Loftet haeves tilsvarende, saa en
+  // bagfyldning kan drives i haanden i stedet for at vente 12 koersler.
+  return syncKampDetaljerCore(db, FieldValue, {
+    gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: 90000, loft: 40,
+  });
 });
 
 // ---------------------------------------------------------------------------
