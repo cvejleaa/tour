@@ -520,20 +520,48 @@ describe('FootballTip — slutresultat på kampkortet', () => {
       .map((e) => e.textContent)).toEqual(['1–0', '1–1', '2–1']);
   });
 
-  it('mærker et SELVMÅL i rødt — og siger ordet, ikke kun farven', () => {
-    // Brighton–Aston Villa 8': Lindelöf spiller for Villa, men målet gik til
-    // Brighton. Uden mærkaten står han med modstanderens holdnavn i parentes
-    // og læses som deres mand.
+  it('viser SCORERENS EGET hold ved et selvmål — ikke det, målet gavner', () => {
+    // Ejer-rapport på den første udgave: den skrev modtageren i parentes og
+    // hængte "selvmål" på til sidst. Modtageren står ALLEREDE to centimeter
+    // til venstre — "1–0" siger, at hjemmeholdet fik målet — så parentesen
+    // brugte sin plads på en gentagelse og lod det eneste, der manglede,
+    // blive ude.
+    //
+    // Kampen er AGF (hjemme) mod F.C. København (ude). Et selvmål, der giver
+    // hjemmeholdet målet, er scoret af en UDEbane-spiller.
     const { container } = setup({}, '/spil/sl', spillede({
       maal: [{ minut: 8, hold: 'home', scorer: 'Victor Lindelof', selvmaal: true }],
     }));
-    const m = container.querySelector('.match-card__selvmaal');
-    // ORDET, ikke kun klassen: farven må ikke bære betydningen alene — en
-    // farveblind læser og en skærmlæser skal få det samme at vide.
-    expect(m).toHaveTextContent('selvmål');
-    // …og det står EFTER holdet, så det læses som en rettelse af netop dét.
     const post = container.querySelector('.match-card__maal-post').textContent;
-    expect(post.indexOf('selvmål')).toBeGreaterThan(post.indexOf('AGF'));
+    expect(post).toContain('(F.C. København)');
+    // …og dét, der IKKE må stå: modtagerens navn. En grøn suite beviser ikke,
+    // at gentagelsen er væk.
+    expect(post).not.toContain('(AGF)');
+    // ORDET bliver — uden det ligner "1–0 … (F.C. København)" en fejl. Og
+    // farven må ikke bære betydningen alene.
+    expect(container.querySelector('.match-card__selvmaal')).toHaveTextContent('selvmål');
+  });
+
+  it('et ALMINDELIGT mål viser stadig scorerens eget hold', () => {
+    // Den anden halvdel af vendingen: for et normalt mål ER modtageren og
+    // scorerens hold det samme, og dét må ikke gå tabt.
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [{ minut: 8, hold: 'home', scorer: 'Dreyer', selvmaal: false }],
+    }));
+    const post = container.querySelector('.match-card__maal-post').textContent;
+    expect(post).toContain('(AGF)');
+    expect(post).not.toContain('(F.C. København)');
+  });
+
+  it('vender også den anden vej — selvmål, der giver UDEholdet målet', () => {
+    // Alle fire felter i sandhedstabellen skal bindes. Min første udgave var
+    // et XOR-udtryk med en glemt negation og var omvendt i alle fire.
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [{ minut: 8, hold: 'away', scorer: 'Selvmaal Hansen', selvmaal: true }],
+    }));
+    const post = container.querySelector('.match-card__maal-post').textContent;
+    expect(post).toContain('(AGF)');
+    expect(post).not.toContain('(F.C. København)');
   });
 
   it('mærker IKKE et almindeligt mål', () => {

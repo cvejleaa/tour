@@ -29,7 +29,9 @@ describe('FootballHelp følger spillet', () => {
     // parentes er det hold, der FIK målet. Uden den sætning tror læseren, at
     // spilleren hører til dér, og så forklarer guiden ingenting.
     expect(screen.getByText(/selvmål/i)).toBeInTheDocument();
-    expect(screen.getByText(/der FIK målet/)).toBeInTheDocument();
+    expect(screen.getByText(/det hold, spilleren/)).toBeInTheDocument();
+    // …og den gamle, forkerte forklaring må ikke stå tilbage.
+    expect(screen.queryByText(/der FIK målet/)).toBeNull();
   });
 
   it('nævner ikke selvmål i et spil UDEN kampdetaljer', () => {
