@@ -35,7 +35,7 @@ const {
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
-const { syncKampDetaljerCore, DETALJE_BUDGET_MS } = require('./kampDetaljer');
+const { syncKampDetaljerCore, DETALJE_BUDGET_BROEK } = require('./kampDetaljer');
 
 // Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
 const SWEEP_TIMER = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
@@ -447,6 +447,11 @@ const SWEEP_TIMEOUT_S = 300;
 // så facit, tabel og alarm har rigeligt tilbage. Afledt og ikke skrevet af:
 // får SYNCED_GAMES et spil mere, skrumper budgettet af sig selv.
 const XG_BUDGET_MS = Math.floor((SWEEP_TIMEOUT_S * 1000) / 3 / SYNCED_GAMES.length);
+// Kampdetaljerne får HALVDELEN af xG's andel, og regnestykket står her — ikke
+// som en literal i kampDetaljer.js med en kommentar, der påstår udledningen.
+// Begge roller fandt den samme svaghed: tallet passede i dag og ville stille
+// blive forkert ved et tredje spil, fordi kun xG's blev divideret.
+const DETALJE_BUDGET_MS = Math.floor((SWEEP_TIMEOUT_S * 1000) / DETALJE_BUDGET_BROEK / SYNCED_GAMES.length);
 
 exports.syncSuperligaSweep = onSchedule(
   {
@@ -610,9 +615,18 @@ exports.syncSuperligaSweep = onSchedule(
         } else if (d.manglede === 0) {
           console.log(`Kampdetaljer ${g.gameId}: alle færdige kampe har detaljer.`);
           st.ok('Kampdetaljer: alle færdige kampe har halvleg og målscorere.', { detaljerMangler: 0 });
-        } else if (d.forsoegt > 0 && d.skrevet === 0 && d.ukendte === 0) {
-          // ALT blev afvist. Enten har kilden skiftet form, eller vores
-          // parsning er drevet fra den — begge dele er systemiske.
+        } else if (d.utilgaengelige > 0 && d.skrevet === 0 && d.uenige === 0 && d.uparsede === 0) {
+          // KILDEN SVAREDE IKKE. Det er en ADVARSEL, ikke en alarm: en times
+          // nedetid hos livescore retter sig selv, og kørslen prøver igen om
+          // en time. Grenen står FØR afvist-alarmen, fordi den ellers ville
+          // fyre "kilden har skiftet form — se kampDetaljer.js" og sende
+          // ejeren på kodejagt under et helt almindeligt udfald.
+          console.warn(`Kampdetaljer ${g.gameId}: kilden svarede ikke på ${d.utilgaengelige} kampe.`);
+          st.advarsel(`Kampdetaljer: kilden svarede ikke (${d.utilgaengelige} kampe). Prøves igen ved næste kørsel.`,
+            { detaljerMangler: tilbage });
+        } else if (d.forsoegt > 0 && d.skrevet === 0 && d.ukendte === 0 && d.utilgaengelige === 0) {
+          // ALT blev afvist, og kilden SVAREDE. Enten har den skiftet form,
+          // eller vores parsning er drevet fra den — begge dele er systemiske.
           console.error(`Kampdetaljer ${g.gameId}: alle ${d.forsoegt} forsøg blev afvist.`);
           st.fejl(`Kampdetaljer: alle ${d.forsoegt} forsøgte kampe blev afvist.`,
             { detaljerMangler: tilbage });
@@ -651,10 +665,11 @@ exports.syncSuperligaSweep = onSchedule(
           const dele = [`${d.skrevet} hentet`, `${tilbage} tilbage`];
           if (d.uenige) dele.push(`${d.uenige} uenige om facit`);
           if (d.uparsede) dele.push(`${d.uparsede} kunne ikke parses`);
+          if (d.utilgaengelige) dele.push(`${d.utilgaengelige} hvor kilden ikke svarede`);
           if (d.ukendte) dele.push(`${d.ukendte} uden kobling`);
           const besked = `Kampdetaljer: ${dele.join(', ')}.`;
           console.log(`Kampdetaljer ${g.gameId}: ${dele.join(', ')}.`);
-          if (d.uenige || d.uparsede) st.advarsel(besked, { detaljerMangler: tilbage });
+          if (d.uenige || d.uparsede || d.utilgaengelige) st.advarsel(besked, { detaljerMangler: tilbage });
           else st.ok(besked, { detaljerMangler: tilbage });
         }
       } catch (err) {

@@ -460,11 +460,21 @@ describe('FootballTip — slutresultat på kampkortet', () => {
     expect(container.querySelector('.match-card__tilskuere')).toBeNull();
   });
 
-  it('viser ingen mål-blok på en kamp uden mål', () => {
+  it('viser ingen mål-blok på en kamp uden mål OG uden tilskuertal', () => {
     // En 0-0 skrives med en TOM målliste — blokken skal så forsvinde helt i
     // stedet for at stå med overskriften "Mål" og ingenting.
     const { container } = setup({}, '/spil/sl', spillede({ maal: [] }));
     expect(container.querySelector('.match-card__maal')).toBeNull();
+  });
+
+  it('viser tilskuertallet på en 0-0-kamp — det afhænger ikke af mål', () => {
+    // VENDT BEVIDST. Første udgave gatede hele blokken på `maal.length > 0`,
+    // så en målløs kamp aldrig viste tilskuertallet, og testen ovenfor
+    // FASTFRØS den fejl uden at nævne den (Test Managers fund). To gates nu.
+    const { container } = setup({}, '/spil/sl', spillede({ maal: [], tilskuere: 6111 }));
+    expect(container.querySelector('.match-card__tilskuere')).toHaveTextContent('6.111 tilskuere');
+    // …men uden overskriften "Mål", for der er ingen.
+    expect(container.querySelector('.match-card__maal-label')).toBeNull();
   });
 
   it('viser 0-0 i stedet for at skjule kampen', () => {

@@ -75,6 +75,16 @@ function harHalvleg(m) {
     && typeof m?.halvlegAway === 'number' && Number.isFinite(m.halvlegAway);
 }
 
+/** Er der målscorere at vise? En 0-0 skrives med en TOM liste. */
+function harMaal(m) {
+  return Array.isArray(m?.maal) && m.maal.length > 0;
+}
+
+/** Er der et brugbart tilskuertal? Kilden mangler det i 4 af 20 PL-kampe. */
+function harTilskuere(m) {
+  return typeof m?.tilskuere === 'number' && Number.isFinite(m.tilskuere) && m.tilskuere > 0;
+}
+
 function HoldLink({ teams, name, className, children }) {
   const short = teamInfo(teams, name)?.short;
   if (!short) return <span className={className}>{children}</span>;
@@ -810,11 +820,15 @@ export default function FootballTip({ game, me, matches }) {
 
                 Gatet på FELTERNE og ikke på evnen: en netop afsluttet kamp
                 mangler dem, til sweep'et har kørt. Samme skel som xG-tallet. */}
-            {m.result && Array.isArray(m.maal) && m.maal.length > 0 && (
+            {/* TO GATES, ikke én. Første udgave lagde tilskuertallet INDEN FOR
+                mål-gaten, så en 0-0-kamp aldrig viste det — og min egen test
+                fastfrøs adfærden uden at nævne den (Test Managers fund).
+                Tilskuertal er uafhængigt af, hvor mange mål der faldt. */}
+            {m.result && (harMaal(m) || harTilskuere(m)) && (
               <div className="match-card__maal">
-                <span className="match-card__maal-label">Mål</span>
+                {harMaal(m) && <span className="match-card__maal-label">Mål</span>}
                 {' '}
-                {m.maal.map((g, i) => (
+                {(harMaal(m) ? m.maal : []).map((g, i) => (
                   <span key={`${g.hold}-${g.minut}-${i}`} className="match-card__maal-post">
                     {i > 0 && <span aria-hidden="true"> · </span>}
                     <strong>{g.minut}′</strong>
@@ -825,7 +839,7 @@ export default function FootballTip({ game, me, matches }) {
                     {g.oplaeg && <span className="match-card__maal-oplaeg"> opl. {g.oplaeg}</span>}
                   </span>
                 ))}
-                {typeof m.tilskuere === 'number' && Number.isFinite(m.tilskuere) && (
+                {harTilskuere(m) && (
                   <span className="match-card__tilskuere">
                     {fmtHeltal(m.tilskuere)} tilskuere
                   </span>

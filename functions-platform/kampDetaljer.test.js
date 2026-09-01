@@ -23,6 +23,7 @@ const {
   syncKampDetaljerCore, detaljerAf, maalAf, kaedeOk, noegleAfKamp,
   heltal, tilskuertal, hentNoegler, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER, DETALJE_LOFT, AFVIST_KARANTAENE_MS, API,
+  DETALJE_BUDGET_BROEK,
 } = require('./kampDetaljer');
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/livescore-kampe.json', import.meta.url), 'utf8'));
@@ -577,19 +578,43 @@ describe('syncKampDetaljerCore', () => {
     expect(f).toHaveBeenCalledTimes(1 + 2 * DETALJE_LOFT);
   });
 
-  it('bryder ud, når wall-clock-budgettet er brugt', async () => {
+  it('bryder ud MIDT i løkken, når wall-clock-budgettet er brugt', async () => {
     const db = fakeDb(TEAMS, []);
     const mange = Array.from({ length: 5 }, (_, i) => ({ id: `r1-${i}`, data: KAMP_DATA }));
     // Injiceret klokke, ikke en rigtig forsinkelse: uret springer forbi
-    // budgettet efter det første opslag, så testen hverken sover eller
-    // afhænger af maskinens hastighed.
+    // budgettet undervejs, så testen hverken sover eller afhænger af
+    // maskinens hastighed.
+    //
+    // Aflæsningerne er: udloeb = 100+2000 = 2100 · før stage 200 · løkke 300
+    // (< 2100, én kamp hentes) · løkke 2400 (>= 2100, brud).
     let t = 0;
     const ud = await syncKampDetaljerCore(db, FieldValue, opts({
-      only: mange, budgetMs: 1000, klokke: () => { t += 900; return t; },
+      only: mange,
+      budgetMs: 2000,
+      klokke: () => { t += t >= 300 ? 2100 : 100; return t; },
     }));
-    // Første tjek: 900 < 0+1000 → én kamp hentes. Andet: 1800 >= 1000 → brud.
     expect(ud.forsoegt).toBe(1);
     expect(ud.manglede).toBe(5);
+  });
+
+  it('tager IKKE stage-kaldet, hvis budgettet allerede er brugt', async () => {
+    // Stage-svaret er 90-260 KB og kan koste sine fulde 10 sekunder. Lå det
+    // uden for budgettet, var budgettet ikke et loft på KØRSLEN, men kun på
+    // løkken — Security regnede værste tilfælde til stage + budget + ét
+    // kald-sæt.
+    const db = fakeDb(TEAMS, []);
+    const f = fakeFetch();
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn: f,
+      only: [{ id: 'r1-a', data: KAMP_DATA }],
+      budgetMs: 1000,
+      // Første aflæsning sætter udloeb (0+1000); anden er tjekket lige før
+      // stage-kaldet. En KONSTANT klokke ville aldrig kunne udløbe, fordi
+      // udløbet regnes af samme ur — den fælde faldt testen selv i.
+      klokke: (() => { let n = 0; return () => (n++ === 0 ? 0 : 999999); })(),
+    }));
+    expect(ud.forsoegt).toBe(0);
+    expect(f).not.toHaveBeenCalled();
   });
 
   it('afbryder hele kørslen ved 429 — delt NAT rammer nabo-synken', async () => {
@@ -622,6 +647,147 @@ describe('syncKampDetaljerCore', () => {
     }));
     expect(ud.skrevet).toBe(0);
     expect(db.commits).toBe(0);
+  });
+
+  // ── Test Managers to overlevende mutationer ─────────────────────────────
+  it('tæller et HTTP-fejlsvar som UTILGÆNGELIGT, ikke som uparset', () => {
+    // Test Manager fjernede tælleren her, og alle 63 tests forblev grønne.
+    // Security viste hvorfor det betyder noget: `uparsede` udløser alarmen
+    // "kilden har sandsynligvis skiftet form — se kampDetaljer.js", så en
+    // times nedetid ville sende ejeren på kodejagt. De to tal SKAL kunne
+    // skelnes, for de har hver sin remedie.
+    const db = fakeDb(TEAMS, []);
+    const f = vi.fn(async (url) => {
+      if (url.includes('/stage/')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            Stages: [{
+              Events: [{
+                Eid: '1784451', Esd: 20260724170000,
+                T1: [{ Abr: 'FCM' }], T2: [{ Abr: 'RAN' }],
+              }],
+            }],
+          }),
+        };
+      }
+      return { ok: false, status: 500 };
+    });
+    return syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn: f, only: [{ id: 'r1-a', data: KAMP_DATA }],
+    })).then((ud) => {
+      expect(ud.utilgaengelige).toBe(1);
+      expect(ud.uparsede).toBe(0);
+      expect(ud.uenige).toBe(0);
+      expect(ud.skrevet).toBe(0);
+      // Og INTET committes: en tom batch er et unødigt kald, og en
+      // afvisnings-markering ville sætte kampen i en uges karantæne for en
+      // fejl, der ikke var dens.
+      expect(db.commits).toBe(0);
+      expect(db.skrevet).toEqual([]);
+    });
+  });
+
+  it('beholder det allerede hentede, når kredsløbet brydes MIDT i løkken', async () => {
+    // Test Manager: den eneste 429-test lod kilden svare 429 på ALLE kald,
+    // inkl. stage-opslaget — så kredsløbet brød, før nogen kamp var
+    // behandlet, og batchen var tom. Scenariet, kommentaren faktisk
+    // beskriver, blev aldrig prøvet: mutationen `if (!ud.afbrudt && …)`
+    // overlevede, og i produktion ville et helt gennemløbs arbejde blive
+    // smidt væk, hver gang et rate-limit rammer midt i en batch.
+    const db = fakeDb(TEAMS, []);
+    let kampOpslag = 0;
+    const f = vi.fn(async (url) => {
+      if (url.includes('/stage/')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            Stages: [{
+              Events: [
+                { Eid: '1784451', Esd: 20260724170000, T1: [{ Abr: 'FCM' }], T2: [{ Abr: 'RAN' }] },
+                { Eid: '1784452', Esd: 20260725170000, T1: [{ Abr: 'FCM' }], T2: [{ Abr: 'RAN' }] },
+              ],
+            }],
+          }),
+        };
+      }
+      // Den FØRSTE kamps to kald svarer normalt; derefter lukker kilden os ude.
+      kampOpslag += 1;
+      if (kampOpslag > 2) return { ok: false, status: 429 };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => (url.includes('/incidents/') ? K.incidents : K.info),
+      };
+    });
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn: f,
+      only: [
+        { id: 'r1-a', data: KAMP_DATA },
+        { id: 'r1-b', data: { ...KAMP_DATA, kickoff: new Date('2026-07-25T17:00:00Z') } },
+      ],
+    }));
+    expect(ud.afbrudt).toBe(true);
+    expect(ud.skrevet).toBe(1);
+    // DÉT er pointen: den første kamps arbejde er ikke blevet mindre rigtigt
+    // af, at den anden fik 429.
+    expect(db.commits).toBe(1);
+    expect(db.skrevet).toHaveLength(1);
+    expect(db.skrevet[0].id).toBe('r1-a');
+    expect(db.skrevet[0].felter.maal).toHaveLength(1);
+  });
+
+  // ── Security Reviewers fund: giftpillen i selve LISTEN ──────────────────
+  it('én uduelig post i stage-listen koster ÉN kamp, ikke hele sæsonen', async () => {
+    // Kørt PoC: ét event blandt 380 med Eid: {"toString":null} fik String()
+    // til at kaste ud af hele kernen — og så fik spillet ALDRIG detaljer, i
+    // nogen kørsel. Det er husets "validér pr. POST, ikke pr. felt" i en ny
+    // forklædning: fælden lå i LISTEN, ikke i kampen.
+    const db = fakeDb(TEAMS, []);
+    const f = vi.fn(async (url) => {
+      if (url.includes('/stage/')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            Stages: [{
+              Events: [
+                { Eid: { toString: null }, Esd: 20260101000000, T1: [{ Abr: 'AAA' }], T2: [{ Abr: 'BBB' }] },
+                { Eid: '1784451', Esd: { toString: null }, T1: [{ Abr: 'CCC' }], T2: [{ Abr: 'DDD' }] },
+                { Eid: '1784451', Esd: 20260724170000, T1: [{ Abr: 'FCM' }], T2: [{ Abr: 'RAN' }] },
+              ],
+            }],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => (url.includes('/incidents/') ? K.incidents : K.info),
+      };
+    });
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn: f, only: [{ id: 'r1-a', data: KAMP_DATA }],
+    }));
+    expect(ud.skrevet).toBe(1);
+  });
+
+  it('et giftigt kickoff på VORES kamp kaster ikke', () => {
+    // firestore.rules type-tjekker ikke kickoff, så feltet kan i princippet
+    // være hvad som helst. new Date({toString:null}) kaster.
+    const koder = new Map([['A', 'AA'], ['B', 'BB']]);
+    expect(noegleAfKamp({ home: 'A', away: 'B', kickoff: { toString: null } }, koder)).toBeNull();
+  });
+
+  it('budget-brøken er et TAL, kalderen kan regne med', () => {
+    // Konstanten er kernens gulv; brøken er dét, index.js deler sweep'ets
+    // sekunder med. Stod tallet kun som en literal med en kommentar, der
+    // påstod udledningen, ville et tredje spil gøre påstanden forkert i
+    // stilhed — begge roller fandt netop dét.
+    expect(Number.isInteger(DETALJE_BUDGET_BROEK)).toBe(true);
+    expect(DETALJE_BUDGET_BROEK).toBeGreaterThan(3); // xG tager en tredjedel
   });
 
   it('committer ikke, når intet blev skrevet', async () => {

@@ -357,10 +357,17 @@ poste. Knappen tager 40 kampe ad gangen, så en bagfyldning kan drives i hånden
 |---|---|---|
 | `N uenige om facit` | Kildens slutstilling er en anden end vores. Ofte legitimt: en afbrudt eller tildelt kamp. | Kig på kampen. Er vores facit rigtigt, skal der intet gøres — kampen prøves igen om en uge og bliver ved med at være uenig. |
 | `N kunne ikke parses` | Målene dannede ikke den ubrudte kæde. Kilden har sandsynligvis skiftet form. | Kør `node scripts/maal-livescore-detaljer.mjs`. Er afvisningsraten pludselig høj, eller er der nye IT-koder, skal `maalAf` rettes. |
+| `N hvor kilden ikke svarede` | Almindelig nedetid (5xx) hos livescore. **Ikke** en fejl i vores kode. | Ingenting. Kampene prøves igen ved næste kørsel om en time, og de sættes ikke i karantæne. Bliver tallet ved i et døgn, er kilden nede for alvor. |
 | `N uden kobling` | Kampen fandt ikke sin modpart hos kilden. | Kør `node scripts/maal-livescore.mjs`. Holdkoder eller kickoff-tider er drevet → ret `functions-platform/livescoreHold.js`. |
 | **Alarm** `detaljerLukket` | Kilden svarede 429/403 og kørslen stoppede sig selv. | Gør INTET i en time. Vagten findes, fordi Cloud Functions egresser gennem delt NAT: banker vi videre, rammer det `api.superliga.dk` og pulselive, som intet har med livescore at gøre. Sker det igen næste kørsel, er vi rate-limited — så skal loftet ned. |
 | **Alarm** `detaljerKobling` | Nul af kampene kunne kobles. Kortlægningen er død. | `scripts/maal-livescore.mjs` → ret `livescoreHold.js`. |
 | **Alarm** `detaljerAfvist` | Alt blev afvist. | Kilden har skiftet form. Se `kampDetaljer.js`. |
+
+**"Kunne ikke parses" og "kilden svarede ikke" er med vilje to tal.** Det
+første betyder, at VORES parsning er mangelfuld, og sender dig i koden; det
+andet er et helt almindeligt udfald, der retter sig selv. De var ét tal i
+første udgave, og så ville en times nedetid have fyret alarmen *"kilden har
+sandsynligvis skiftet form — se kampDetaljer.js"* og sendt dig på kodejagt.
 
 **Afviste kampe ligger en uge i karantæne** (`detaljerAfvistAt`). Uden den
 ville en permanent uenig kamp blive hentet igen 24 gange i døgnet for evigt og

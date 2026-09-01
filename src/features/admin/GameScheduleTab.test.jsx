@@ -25,12 +25,14 @@ vi.mock('../games/gameActions', () => ({
 const mockReprice = vi.fn();
 const mockSyncKickoffs = vi.fn();
 const mockSyncResults = vi.fn();
+const mockSyncDetaljer = vi.fn();
 vi.mock('./adminActions', () => ({
   callRecomputeGameScores: vi.fn().mockResolvedValue({ ok: true, data: {} }),
   callBackfillPlayerLeagues: vi.fn().mockResolvedValue({ ok: true, data: {} }),
   callRepriceGameOdds: (...a) => mockReprice(...a),
   callSyncGameKickoffs: (...a) => mockSyncKickoffs(...a),
   callSyncGameResults: (...a) => mockSyncResults(...a),
+  callSyncGameKampdetaljer: (...a) => mockSyncDetaljer(...a),
 }));
 
 // Kamplisten til rundevælgeren hentes med getDocs — den hentes FØRST når
@@ -886,5 +888,102 @@ describe('rundebaseret pulje-deadline', () => {
       });
       expect(patch.puljeLockAt).toBe(new Date('2026-09-04T18:00').getTime());
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ⚽ Synk kampdetaljer nu.
+//
+// Test Manager fandt knappen HELT utestet, mens dens to naboer havde både
+// gate-tests og klik/besked-tests. Det er den slags asymmetri, der bliver til
+// en tavs fejl: knappens fem beskeds-grene er dét, en administrator LÆSER og
+// HANDLER PÅ, så en forkert besked er ikke kosmetik — den sender ejeren det
+// forkerte sted hen.
+// ---------------------------------------------------------------------------
+describe('⚽ Synk kampdetaljer nu', () => {
+  const SL = {
+    id: 'superliga2627', name: 'Superligaen 2026/27', emoji: '⚽',
+    type: 'football', status: 'open', sync: { provider: 'superliga' },
+  };
+  const PL = {
+    id: 'pl2627-efteraar', name: 'Premier League 2026/27 — efterår', emoji: '⚽',
+    type: 'football', status: 'open', sync: { provider: 'pulselive' },
+  };
+  const knap = () => screen.getByRole('button', { name: /Synk kampdetaljer nu/i });
+  const klik = async (data) => {
+    mockSyncDetaljer.mockResolvedValue({ ok: true, data });
+    mockGames.mockReturnValue({ games: [SL], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    await waitFor(() => expect(mockSyncDetaljer).toHaveBeenCalled());
+  };
+
+  it('vises for begge spil med livescore-kortlægning', () => {
+    mockGames.mockReturnValue({ games: [SL, PL], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.getAllByRole('button', { name: /Synk kampdetaljer nu/i })).toHaveLength(2);
+  });
+
+  // DEN AFGØRENDE GATE-TEST. Samme facit-provider, andet spil-id: en gate på
+  // sync.provider (harResultatSynk) ville vise knappen her, og hvert klik
+  // kunne kun fejle med invalid-argument. Det er puljeLockRound-fejlen.
+  it('vises IKKE for et spil med SAMME provider, men uden kortlægning', () => {
+    mockGames.mockReturnValue({
+      games: [{ ...SL, id: 'sl2728', name: 'Superligaen 27/28' }],
+      loading: false,
+    });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Synk kampdetaljer nu/i })).not.toBeInTheDocument();
+  });
+
+  it('vises IKKE for et spil uden synk (Touren)', () => {
+    mockGames.mockReturnValue({ games: [TOUR], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Synk kampdetaljer nu/i })).not.toBeInTheDocument();
+  });
+
+  // INGEN confirm — bevidst, og derfor bundet. Kaldet kan hverken afregne
+  // point, flytte Elo eller få Runde-Botten til at poste, og en confirm foran
+  // en harmløs handling lærer folk at klikke OK uden at læse.
+  it('kalder serveren UDEN at spørge om lov', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    await klik({ manglede: 0 });
+    expect(bekraeft).not.toHaveBeenCalled();
+    expect(mockSyncDetaljer).toHaveBeenCalledWith('superliga2627');
+    bekraeft.mockRestore();
+  });
+
+  it('siger klart fra, når alt allerede er hentet', async () => {
+    await klik({ manglede: 0, skrevet: 0 });
+    expect(await screen.findByText(/Alle færdige kampe har allerede halvleg og målscorere/))
+      .toBeInTheDocument();
+  });
+
+  // De to afvisningstal SKAL nævnes hver for sig: "uenige om facit" kræver et
+  // menneske, der ser på kampen, mens "kunne ikke læses" betyder, at VORES
+  // parsning er mangelfuld. Ét fælles tal kunne ikke sige hvilken.
+  it('nævner uenige og ulæselige HVER FOR SIG — de har hver sin remedie', async () => {
+    await klik({ manglede: 10, skrevet: 6, uenige: 3, uparsede: 1, ukendte: 0 });
+    const besked = await screen.findByText(/6 kampe fik detaljer/);
+    expect(besked).toHaveTextContent('4 mangler endnu');
+    expect(besked).toHaveTextContent('3 hvor kildens facit er et andet end vores');
+    expect(besked).toHaveTextContent('1 kunne ikke læses');
+    expect(besked).toHaveTextContent(/prøves igen om en uge/i);
+  });
+
+  it('siger at kilden lukkede os ude — ikke at noget er i stykker', async () => {
+    await klik({ manglede: 5, skrevet: 0, afbrudt: true });
+    const besked = await screen.findByText(/Kilden afviste os/);
+    // Og den skal sige HVORFOR vi stopper: det er naboerne, vi beskytter.
+    expect(besked).toHaveTextContent(/for ikke at ramme de andre synk/);
+    expect(besked).toHaveTextContent(/Prøv igen om en time/);
+  });
+
+  it('viser serverens fejl frem for en tom besked', async () => {
+    mockSyncDetaljer.mockResolvedValue({ ok: false, error: 'permission-denied' });
+    mockGames.mockReturnValue({ games: [SL], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    expect(await screen.findByText('permission-denied')).toBeInTheDocument();
   });
 });

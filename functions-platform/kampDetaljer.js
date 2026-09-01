@@ -122,6 +122,18 @@ const DETALJE_LOFT = 8;
 const DETALJE_BUDGET_MS = 25000;
 
 /**
+ * Del af sweep'ets samlede budget, kampdetaljerne må bruge PR. SPIL.
+ *
+ * Kalderen regner det rigtige tal med denne brøk; konstanten ovenfor er kun
+ * gulvet, hvis ingen siger noget. Quality Control og Security fandt begge den
+ * samme svaghed: kommentaren PÅSTOD, at 25000 var regnet ud af sweep'ets 300 s
+ * ("en sjettedel, delt på to spil"), men tallet stod som en literal. Regnestykket
+ * passede i dag og ville stille blive forkert ved et tredje spil — xG's budget
+ * divideres med `SYNCED_GAMES.length`, dette gjorde ikke. Nu er brøken kode.
+ */
+const DETALJE_BUDGET_BROEK = 6;
+
+/**
  * Hvor længe ligger en AFVIST kamp i karantæne?
  *
  * Uden karantænen er en permanent uenig kamp en giftpille: filteret er "har
@@ -322,9 +334,15 @@ function detaljerAf(incidents, info, facit) {
  * @param {Map<string,string>} kodeAfNavn  holdnavn → vores kortkode
  */
 function noegleAfKamp(data, kodeAfNavn) {
-  const k = data?.kickoff;
-  const ms = k == null ? NaN
-    : (typeof k.toMillis === 'function' ? k.toMillis() : new Date(k).getTime());
+  // Try'et er ikke pynt: `new Date(k)` kaster på et kickoff som
+  // {"toString":null}, og firestore.rules type-tjekker ikke feltet. Samme
+  // klasse som fundet i hentNoegler — bare på VORES side af hegnet.
+  let ms;
+  try {
+    const k = data?.kickoff;
+    ms = k == null ? NaN
+      : (typeof k.toMillis === 'function' ? k.toMillis() : new Date(k).getTime());
+  } catch { return null; }
   if (!Number.isFinite(ms)) return null;
   const d = new Date(ms);
   const to = (n) => String(n).padStart(2, '0');
@@ -351,20 +369,34 @@ async function hentJson(sti, fetchFn) {
   return res.ok ? res.json() : null;
 }
 
-/** Hele sæsonens kampe hos livescore, som nøgle → Eid. */
+/**
+ * Hele sæsonens kampe hos livescore, som nøgle → Eid.
+ *
+ * HVER POST VALIDERES FOR SIG. Security Reviewer viste med en kørt PoC, at ét
+ * event blandt 380 med `Eid: {"toString":null}` fik `String()` til at kaste
+ * ud af hele `syncKampDetaljerCore` — og så fik spillet ALDRIG detaljer, i
+ * nogen kørsel. Den indre try omkring `detaljerAf` dækkede kun ét kampsvar.
+ * Det er husets kendte fælde ("validér pr. POST, ikke pr. felt") i en ny
+ * forklædning: den lå her i LISTEN, ikke i kampen.
+ */
 async function hentNoegler(livescore, fetchFn) {
   const d = await hentJson(`stage/soccer/${livescore.land}/${livescore.liga}/0`, fetchFn);
   const ud = new Map();
   for (const stage of d?.Stages || []) {
     for (const e of stage.Events || []) {
-      const eid = String(e?.Eid ?? '');
-      // Eid whitelistes FØR den nogensinde går i en URL.
-      if (!/^\d{1,12}$/.test(eid)) continue;
-      const n = kampNoegle(e?.Esd, e?.T1?.[0]?.Abr, e?.T2?.[0]?.Abr);
-      // Første vinder. En dublet-nøgle er målt til ikke at findes (380 og 132
-      // kampe, nul dubletter), og hvis den opstår, er det sikrere at holde
-      // fast i én kamp end at lade den sidste overskrive.
-      if (n && !ud.has(n)) ud.set(n, eid);
+      try {
+        const eid = String(e?.Eid ?? '');
+        // Eid whitelistes FØR den nogensinde går i en URL.
+        if (!/^\d{1,12}$/.test(eid)) continue;
+        const n = kampNoegle(e?.Esd, e?.T1?.[0]?.Abr, e?.T2?.[0]?.Abr);
+        // Første vinder. En dublet-nøgle er målt til ikke at findes (380 og
+        // 132 kampe, nul dubletter), og hvis den opstår, er det sikrere at
+        // holde fast i én kamp end at lade den sidste overskrive.
+        if (n && !ud.has(n)) ud.set(n, eid);
+      } catch {
+        // Én uduelig post koster én kamp, ikke hele sæsonen.
+        continue;
+      }
     }
   }
   return ud;
@@ -394,7 +426,7 @@ async function hentNoegler(livescore, fetchFn) {
 async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
   const tom = {
     manglede: 0, valgte: 0, forsoegt: 0, skrevet: 0,
-    uenige: 0, uparsede: 0, ukendte: 0, afbrudt: false,
+    uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, afbrudt: false,
   };
   const livescore = opts.livescore;
   // Et spil uden livescore-konfiguration har ikke evnen. Ikke en fejl.
@@ -447,10 +479,20 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
   const ud = { ...tom, manglede: mangler.length, valgte: valgte.length };
   const batch = db.batch();
   const matchesCol = gameRef.collection('matches');
+  // Tælles for sig og ikke udledt af de andre tal: en kørsel, hvor ALLE
+  // afvisninger kom af at kilden var nede, lægger intet i batchen, og
+  // `commit()` på en tom batch er et unødigt kald. Tælleren er dermed
+  // vagten om skrivningen, ikke en sum af tre andre tal, der kan drive.
+  let iBatch = 0;
   let noegler;
   try {
     // Stage-listen hentes KUN, når noget mangler — den er 90 KB for
     // Superligaen og ~260 KB for Premier League.
+    // Budget-tjek FØR stage-kaldet. Det er 90-260 KB og kan koste sine fulde
+    // 10 sekunder, og lå det uden for budgettet, var budgettet ikke et loft
+    // på kørslen, men på løkken. Security regnede værste tilfælde ud: uden
+    // dette tjek er det stage-kald + budget + ét kald-sæt.
+    if (klokke() >= udloeb) return ud;
     noegler = await hentNoegler(livescore, fetchFn);
     if (noegler.size === 0) return ud; // kilden svarede, men uden kampe
 
@@ -468,7 +510,14 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
         hentJson(`incidents/soccer/${eid}`, fetchFn),
         hentJson(`info/soccer/${eid}`, fetchFn),
       ]);
-      if (!incidents) { ud.uparsede += 1; continue; }
+      // KILDEN SVAREDE IKKE (5xx, netværk) er ikke det samme som "vi kunne
+      // ikke parse deres svar", og det er ikke pedanteri: `uparsede` udløser
+      // alarmen "kilden har sandsynligvis skiftet form — se kampDetaljer.js".
+      // Security Reviewer viste med en kørt PoC, at en HTTP 500 ramte præcis
+      // den gren, så en times nedetid hos livescore ville sende ejeren på
+      // kodejagt. En alarm, der måler en proxy for symptomet, er husets egen
+      // regel om gates i ny forklædning.
+      if (!incidents) { ud.utilgaengelige += 1; continue; }
 
       // Hele posten valideres i ÉT try: {"toString":null} er JSON-nåbart og
       // får String() til at kaste. Én giftig post må ikke vælte partiet.
@@ -485,6 +534,7 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
           detaljerAfvistAt: FieldValue.serverTimestamp(),
           detaljerAfvistGrund: svar.afvist,
         });
+        iBatch += 1;
         continue;
       }
       // update og ikke set(merge): set ville OPRETTE et kampdokument, hvis en
@@ -500,6 +550,7 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
         skriv.detaljerAfvistGrund = FieldValue.delete();
       }
       batch.update(matchesCol.doc(m.id), skriv);
+      iBatch += 1;
       ud.skrevet += 1;
     }
   } catch (err) {
@@ -509,12 +560,17 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
     // gøre en rate-limit til datatab oveni.
     ud.afbrudt = true;
   }
-  if (ud.skrevet || ud.uenige || ud.uparsede) await batch.commit();
+  // Batchen committes, OGSÅ når kredsløbet blev brudt undervejs: de kampe,
+  // der allerede er hentet og validerede, er ikke blevet mindre rigtige af,
+  // at den næste fik 429. At kaste dem væk ville gøre en rate-limit til
+  // datatab oveni.
+  if (iBatch > 0) await batch.commit();
   return ud;
 }
 
 module.exports = {
   syncKampDetaljerCore,
+  DETALJE_BUDGET_BROEK,
   detaljerAf, maalAf, kaedeOk, noegleAfKamp, heltal, tilskuertal, fladeHaendelser,
   hentNoegler, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER,
