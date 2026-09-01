@@ -164,9 +164,22 @@ function tilskuertal(v) {
 /**
  * Alle hændelser i kampen, fladet ud REKURSIVT.
  *
- * Mål+oplæg ligger i en nestet liste inde i et container-objekt; kort ligger
- * fladt. En flad løkke taber mål — og fordi kæde-tjekket nedenfor så knækker,
- * ville hele kampen blive afvist i stedet for at blive skrevet forkert.
+ * DEN FØRSTE UDGAVE AF DENNE KOMMENTAR VAR FORKERT, og en mutationstest
+ * afslørede det: der stod "en flad løkke taber mål", og suiten forblev grøn,
+ * da rekursionen blev fjernet. Grunden er, at container-objektet SELV bærer
+ * `Sc` og `Nm`, og at `maalAf` læser scorernavnet af `h.Incs` direkte — de
+ * indre poster tilføjer altså intet, den ydre ikke allerede har.
+ *
+ * Målt bagefter (alle 54 færdigspillede kampe, 218 nestede hændelser med en
+ * stilling): NUL af dem bærer et andet målnummer end deres forælder.
+ * Rekursionen er dermed redundant i dag.
+ *
+ * Den bliver alligevel — som den sikre retning, ikke som pynt. Nestede en
+ * fremtidig kildeform to mål i én container, ville en flad løkke tabe det ene
+ * i STILHED, og kæde-tjekket ville så afvise hele kampen frem for at skrive
+ * den forkert. Det forsvar er nu bundet af sin egen test (`kampDetaljer.test.js`:
+ * "et mål nestet med sit EGET nummer tælles med"), så koden ikke står som en
+ * påstand, ingen efterprøver.
  */
 function fladeHaendelser(incidents) {
   const ud = [];

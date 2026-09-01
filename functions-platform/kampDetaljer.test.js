@@ -122,7 +122,32 @@ describe('maalAf — stillingen, ikke koden', () => {
     }
   });
 
-  it('en nestet liste gennemløbes rekursivt — en flad løkke taber mål', () => {
+  it('et mål nestet med sit EGET nummer tælles med (rekursionens eksistensberettigelse)', () => {
+    // MÅLT: ingen af kildens 218 nestede hændelser bærer i dag et andet
+    // målnummer end sin forælder, så rekursionen er redundant på ægte data.
+    // Den er der som den sikre retning — og uden denne test ville forsvaret
+    // være en påstand, ingen efterprøver: mutationstesten viste, at
+    // rekursionen kunne fjernes med hele suiten grøn.
+    const incs = {
+      1: [{
+        Min: 10,
+        Nm: 1,
+        Sc: ['1', '0'],
+        Incs: [
+          { Min: 10, Nm: 1, Sc: ['1', '0'], IT: 36, Pn: 'Foerste Scorer' },
+          // Et ANDET mål, gemt inde i den samme container. Uden rekursion
+          // findes det aldrig, kæden knækker, og hele kampen afvises.
+          { Min: 11, Nm: 1, Sc: ['2', '0'], IT: 36, Pn: 'Anden Scorer' },
+        ],
+      }],
+    };
+    const m = maalAf(incs);
+    expect(m).toHaveLength(2);
+    expect(m.map((x) => x.nr)).toEqual([1, 2]);
+    expect(m[1].scorer).toBe('Anden Scorer');
+  });
+
+  it('en container-post giver ét mål, ikke to (den indre dubletteres væk)', () => {
     // Container-formen: mål+oplæg i en indre liste, uden IT på den ydre.
     const incs = {
       1: [{ Min: 10, Nm: 1, Sc: ['1', '0'], Incs: [{ Min: 10, Nm: 1, Sc: ['1', '0'], IT: 36, Pn: 'A B' }] }],
