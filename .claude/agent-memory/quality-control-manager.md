@@ -267,3 +267,16 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
 - **Kampprogrammet ligger i repoet og kan tælles:**
   `scripts/premier-league-fixtures-2627.json` (R1 21/8-2026),
   `scripts/superliga-fixtures.json` (R1 24/7-2026). 380 + 132 = 512 kampe.
+
+## Delt tæller, to domme
+
+- **To skrivepunkter, der læser SAMME tæller, skal give SAMME sværhedsgrad.**
+  `d.ukendte` fik i PR #192 sin klient-tekst rettet til `kind:'err'` og en
+  docs-linje, der siger "retter sig ALDRIG selv" (`GameScheduleTab.jsx:385`,
+  `docs/drift.md:360`) — men det automatiske sweep, der skriver samme tal til
+  Drift-kortet (`functions-platform/index.js:668-672`), klassificerer stadig
+  et rent `ukendte`-udfald som `st.ok()` (grøn), fordi dens advarselsbetingelse
+  kun tjekker `uenige||uparsede||utilgaengelige`. Samme evne (en permanent,
+  ikke-selvhelende fejl), to flader, to domme. Retter man ÉN aflæsning af en
+  delt tæller, så find den ANDEN, der læser samme felt, og spørg om den
+  drager samme konklusion.
