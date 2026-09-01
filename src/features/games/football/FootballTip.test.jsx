@@ -480,6 +480,17 @@ describe('FootballTip — slutresultat på kampkortet', () => {
       ],
     }));
     const tekst = container.querySelector('.match-card__maal').textContent;
+    // ÉN POST PR. LINJE. Ejeren bad om linjeskift efter hver begivenhed: med
+    // fem mål blev listen ellers til løbetekst, hvor stillingerne lå spredt
+    // midt inde i linjerne.
+    //
+    // SELVE LINJESKIFTET ER CSS (display: block), og det kan jsdom ikke se —
+    // det skal bekræftes i produktion. Det, testen KAN binde, er de to ting,
+    // der gjorde løbeteksten: at hvert mål er sit eget element, og at
+    // "·"-separatoren mellem dem er væk. Første udgave af denne assertion
+    // sammenlignede et elements klasse med sig selv og kunne ikke fejle.
+    expect(container.querySelectorAll('.match-card__maal-post')).toHaveLength(3);
+    expect(tekst).not.toContain('·');
     // Indholdet, ikke bare "noget blev vist": rækken SKAL være 1-0, 1-1, 2-1.
     expect([...container.querySelectorAll('.match-card__maal-stilling')]
       .map((e) => e.textContent)).toEqual(['1–0', '1–1', '2–1']);

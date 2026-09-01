@@ -1222,10 +1222,24 @@ a:focus-visible,
   text-align: center;
   line-height: 1.5;
 }
-.match-card__maal-label { font-weight: 600; }
-/* Hver målpost holdes samlet, så et minuttal aldrig står alene på en linje
-   uden sin scorer. */
-.match-card__maal-post { display: inline-block; }
+/* Selve rækken af mål centreres som BLOK, ikke som tekst: uden dette ville
+   den venstrestillede kolonne klistre til kortets venstre kant, mens alt
+   andet på kortet er centreret. */
+.match-card__maal-liste {
+  display: inline-block;
+  text-align: left;
+}
+/* Overskriften får sin egen linje, nu hvor posterne har det. Stod den inline
+   foran den første post, ville dén ene linje blive indrykket i forhold til de
+   andre — og så læses listen ikke længere som en kolonne. */
+.match-card__maal-label { font-weight: 600; display: block; }
+/* ÉN MÅLPOST PR. LINJE. Posterne stod før inline-block adskilt af "·", og med
+   fem mål i en kamp blev det til en løbetekst, hvor stillingerne 0–1, 0–2,
+   1–2 … lå spredt midt inde i linjerne. Tallene er hele grunden til, at
+   rækken findes, og de skal kunne læses lodret uden at lede.
+   Venstrestillet af samme grund: centreret ville hver linje starte et nyt
+   sted, og så kunne stillingerne ikke sammenlignes med øjet. */
+.match-card__maal-post { display: block; text-align: left; }
 /* Stillingen er postens ankertal — den skal kunne findes uden at læse navnet
    først, og den må ikke kunne brydes midt over ("2–" / "1"). */
 .match-card__maal-stilling { white-space: nowrap; font-variant-numeric: tabular-nums; }

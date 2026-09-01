@@ -912,26 +912,28 @@ export default function FootballTip({ game, me, matches }) {
                 Tilskuertal er uafhængigt af, hvor mange mål der faldt. */}
             {m.result && (harMaal(m) || harTilskuere(m)) && (
               <div className="match-card__maal">
-                {harMaal(m) && <span className="match-card__maal-label">Mål</span>}
-                {' '}
-                {(harMaal(m) ? medStilling(m.maal) : []).map((g, i) => (
-                  <span key={`${g.hold}-${g.minut}-${i}`} className="match-card__maal-post">
-                    {i > 0 && <span aria-hidden="true"> · </span>}
+                {harMaal(m) && (
+                  <span className="match-card__maal-liste">
+                    <span className="match-card__maal-label">Mål</span>
+                    {medStilling(m.maal).map((g, i) => (
+                      <span key={`${g.hold}-${g.minut}-${i}`} className="match-card__maal-post">
                     {/* STILLINGEN FØRST, og det er ikke en smagssag: listen
                         læses for at se kampen bevæge sig, og så skal tallene
                         kunne findes uden at læse et navn af vilkårlig længde
                         først. Den er UDLEDT, ikke gemt — se maalRaekke.js. */}
-                    <strong className="match-card__maal-stilling">
-                      {g.hjemme}–{g.ude}
-                    </strong>
-                    {' '}<span className="match-card__maal-minut">{g.minut}′</span>
-                    {' '}{g.scorer || 'ukendt'}
-                    {' '}<span className="match-card__maal-hold">
-                      ({g.hold === 'home' ? h.navn : a.navn})
-                    </span>
-                    {g.oplaeg && <span className="match-card__maal-oplaeg"> opl. {g.oplaeg}</span>}
+                        <strong className="match-card__maal-stilling">
+                          {g.hjemme}–{g.ude}
+                        </strong>
+                        {' '}<span className="match-card__maal-minut">{g.minut}′</span>
+                        {' '}{g.scorer || 'ukendt'}
+                        {' '}<span className="match-card__maal-hold">
+                          ({g.hold === 'home' ? h.navn : a.navn})
+                        </span>
+                        {g.oplaeg && <span className="match-card__maal-oplaeg"> opl. {g.oplaeg}</span>}
+                      </span>
+                    ))}
                   </span>
-                ))}
+                )}
                 {harTilskuere(m) && (
                   <span className="match-card__tilskuere">
                     {fmtHeltal(m.tilskuere)} tilskuere
