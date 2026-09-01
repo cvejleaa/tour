@@ -212,6 +212,14 @@ function fladeHaendelser(incidents) {
  * @returns {Array<{hold:'home'|'away', nr:number, minut:number,
  *                  scorer:string|null, oplaeg:string|null}>}
  */
+/**
+ * Hændelseskoden for et selvmål. Se maalAf og scripts/maal-selvmaal.mjs.
+ * Egen konstant frem for et tal i en betingelse: tallet optræder to steder
+ * (fladt mål og nestet i en container), og to løse 39-taller kan drive fra
+ * hinanden.
+ */
+const SELVMAAL_IT = 39;
+
 function maalAf(incidents) {
   const set = new Map(); // "hold:nr" → målet
   for (const h of fladeHaendelser(incidents)) {
@@ -230,6 +238,28 @@ function maalAf(incidents) {
       // en test bliver rød. En SIDE kan kortet selv slå op i sine egne hold.
       scorer: navn(indre.find((x) => x.IT === 36)?.Pn ?? h.Pn),
       oplaeg: navn(indre.find((x) => x.IT === 63)?.Pn),
+      // SELVMÅL. `Nm` er det hold, der FIK målet — ikke scorerens eget — så
+      // uden dette flag står en Aston Villa-spiller på kortet som "(Brighton)"
+      // og læses som Brightons mand. Det er ikke forkert, men det er
+      // vildledende, og kilden ved godt bedre.
+      //
+      // MÅLT, IKKE GÆTTET (scripts/maal-selvmaal.mjs, 1/9-2026, alle 54
+      // færdigspillede kampe): kriteriet er, om scoreren står i det MODSATTE
+      // holds startopstilling. IT=39 gør det i 5 af 5 opløselige tilfælde;
+      // IT 36/37/38 gør det i 0 af 121. Asymmetrien er total.
+      //
+      // KUN 39, og det er den sikre retning: en ukendt kode bliver et
+      // almindeligt mål, aldrig et selvmål. Den modsatte fejl ville hænge en
+      // forkert etiket på en rigtig scorer — og dét ser en spiller straks.
+      //
+      // KUN DEN FLADE FORM. Her stod før også `indre.some((x) => x.IT === 39)`
+      // for at fange et selvmål inde i en container. Mutationstesten fjernede
+      // det og forblev grøn, og målingen forklarer hvorfor: IT=39 er FLAD i 7
+      // af 7 tilfælde, nestet i 0. Det er ikke et tilfælde — container-formen
+      // findes for at bære OPLÆGGET, og et selvmål har ikke et oplæg. En
+      // unåelig gren er ikke ekstra sikkerhed; den er et sted, en fremtidig
+      // læser tror, der er dækning.
+      selvmaal: h.IT === SELVMAAL_IT,
     };
     // Containeren OG dens indre IT=36 bærer samme Sc. Behold den med et navn.
     const gl = set.get(`${kand.hold}:${nr}`);
@@ -316,6 +346,10 @@ function detaljerAf(incidents, info, facit) {
   // målløs kamp for evigt ud som "ikke hentet endnu".
   felter.maal = maal.map((m) => {
     const ud = { hold: m.hold, minut: m.minut };
+    // BOOLEAN OG IKKE ET UDELADT FELT når den er falsk: `maal` er en liste af
+    // ens objekter, og et felt, der kun findes på nogle af dem, tvinger hver
+    // læser til at kende forskellen. Prisen er ét felt pr. mål.
+    ud.selvmaal = m.selvmaal === true;
     if (m.scorer != null) ud.scorer = m.scorer;
     if (m.oplaeg != null) ud.oplaeg = m.oplaeg;
     return ud;
@@ -602,6 +636,7 @@ function detaljeNiveau(d) {
 
 module.exports = {
   detaljeNiveau,
+  SELVMAAL_IT,
   syncKampDetaljerCore,
   DETALJE_BUDGET_BROEK,
   detaljerAf, maalAf, kaedeOk, noegleAfKamp, heltal, tilskuertal, fladeHaendelser,

@@ -520,6 +520,30 @@ describe('FootballTip — slutresultat på kampkortet', () => {
       .map((e) => e.textContent)).toEqual(['1–0', '1–1', '2–1']);
   });
 
+  it('mærker et SELVMÅL i rødt — og siger ordet, ikke kun farven', () => {
+    // Brighton–Aston Villa 8': Lindelöf spiller for Villa, men målet gik til
+    // Brighton. Uden mærkaten står han med modstanderens holdnavn i parentes
+    // og læses som deres mand.
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [{ minut: 8, hold: 'home', scorer: 'Victor Lindelof', selvmaal: true }],
+    }));
+    const m = container.querySelector('.match-card__selvmaal');
+    // ORDET, ikke kun klassen: farven må ikke bære betydningen alene — en
+    // farveblind læser og en skærmlæser skal få det samme at vide.
+    expect(m).toHaveTextContent('selvmål');
+    // …og det står EFTER holdet, så det læses som en rettelse af netop dét.
+    const post = container.querySelector('.match-card__maal-post').textContent;
+    expect(post.indexOf('selvmål')).toBeGreaterThan(post.indexOf('AGF'));
+  });
+
+  it('mærker IKKE et almindeligt mål', () => {
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [{ minut: 8, hold: 'home', scorer: 'Dreyer', selvmaal: false }],
+    }));
+    expect(container.querySelector('.match-card__selvmaal')).toBeNull();
+    expect(container.querySelector('.match-card__maal').textContent).not.toContain('selvmål');
+  });
+
   it('viser tilskuertallet på en 0-0-kamp — det afhænger ikke af mål', () => {
     // VENDT BEVIDST. Første udgave gatede hele blokken på `maal.length > 0`,
     // så en målløs kamp aldrig viste tilskuertallet, og testen ovenfor

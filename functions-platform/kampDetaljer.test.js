@@ -857,3 +857,92 @@ describe('detaljeNiveau', () => {
     expect(detaljeNiveau(undefined)).toBe('ok');
   });
 });
+
+// ---------------------------------------------------------------------------
+// SELVMÅL. `Nm` er det hold, der FIK målet — ikke scorerens eget. Uden flaget
+// står en Aston Villa-spiller på kortet som "(Brighton)".
+//
+// MÅLT (scripts/maal-selvmaal.mjs, 1/9-2026, alle 54 færdigspillede kampe):
+// kriteriet er, om scoreren står i det MODSATTE holds startopstilling. IT=39
+// gør det i 5 af 5 opløselige tilfælde, IT 36/37/38 i 0 af 121.
+// ---------------------------------------------------------------------------
+describe('maalAf — selvmål', () => {
+  // maalAf tager `Incs`-objektet SELV, ikke hele incidents-svaret — nøglen er
+  // halvlegen. Min første hjælper pakkede det ét niveau for dybt, og
+  // funktionen svarede en tom liste på alt.
+  const inc = (haendelser) => ({ 1: haendelser });
+
+  it('mærker IT=39 som selvmål — og krediterer det hold, der FIK målet', () => {
+    // Brighton–Aston Villa, 8'. Lindelöf spiller for Villa (ude), men målet
+    // gik til Brighton (hjemme), og dét er hvad `Nm: 1` siger.
+    const [m] = maalAf(inc([
+      { Min: 8, Nm: 1, IT: 39, Sc: ['1', '0'], Pn: 'Victor Lindelof' },
+    ]));
+    expect(m.hold).toBe('home');
+    expect(m.scorer).toBe('Victor Lindelof');
+    expect(m.selvmaal).toBe(true);
+  });
+
+  it('mærker IKKE et almindeligt mål som selvmål', () => {
+    // De tre koder, målingen fandt hos scorerens EGET hold. Hver for sig:
+    // ét objekt med alle tre ville bestå, selv om to led var fjernet.
+    for (const it of [36, 37, 38]) {
+      const [m] = maalAf(inc([{ Min: 20, Nm: 1, IT: it, Sc: ['1', '0'], Pn: 'Spiller' }]));
+      expect(m.selvmaal, `IT=${it}`).toBe(false);
+    }
+  });
+
+  it('en UKENDT kode bliver et almindeligt mål, aldrig et selvmål', () => {
+    // Den sikre retning. Den modsatte fejl hænger en forkert etiket på en
+    // rigtig scorer, og dét ser en spiller straks.
+    const [m] = maalAf(inc([{ Min: 20, Nm: 2, IT: 99, Sc: ['0', '1'], Pn: 'Spiller' }]));
+    expect(m.selvmaal).toBe(false);
+  });
+
+  it('et mål med OPLÆG er aldrig et selvmål', () => {
+    // Container-formen findes for at bære oplægget, og et selvmål har ikke et
+    // oplæg — derfor er IT=39 flad i 7 af 7 målte tilfælde og nestet i 0.
+    // Testen binder følgen af dét: den almindelige container-form giver
+    // selvmaal:false, og reglen behøver derfor kun den flade gren.
+    const [m] = maalAf(inc([
+      { Min: 30, Nm: 1, Sc: ['1', '0'], Incs: [
+        { Min: 30, Nm: 1, IT: 36, Sc: ['1', '0'], Pn: 'Scorer Jensen' },
+        { Min: 30, Nm: 1, IT: 63, Sc: ['1', '0'], Pn: 'Oplaegger Hansen' },
+      ] },
+    ]));
+    expect(m.selvmaal).toBe(false);
+    expect(m.scorer).toBe('Scorer Jensen');
+    expect(m.oplaeg).toBe('Oplaegger Hansen');
+  });
+
+  it('feltet når hele vejen ud i det, der SKRIVES', () => {
+    // Første udgave asserterede på maalAf's mellemresultat, ikke på
+    // skrivningen — så `ud.selvmaal = …` kunne fjernes fra detaljerAf med grøn
+    // suite, og flaget ville aldrig nå Firestore. Husets "korrekt er ikke
+    // komplet": en evne skal følges hele vejen ud.
+    const svar = detaljerAf(
+      { Tr1: '1', Tr2: '0', Trh1: '0', Trh2: '0', Incs: { 1: [
+        { Min: 8, Nm: 1, IT: 39, Sc: ['1', '0'], Pn: 'Victor Lindelof' },
+      ] } },
+      null,
+      { homeGoals: 1, awayGoals: 0 },
+    );
+    expect(svar.afvist).toBeFalsy();
+    expect(svar.felter.maal).toHaveLength(1);
+    expect(svar.felter.maal[0].selvmaal).toBe(true);
+  });
+
+  it('…og skrives som false, ikke udeladt, på et almindeligt mål', () => {
+    // En liste af ens objekter: et felt, der kun findes på nogle af dem,
+    // tvinger hver læser til at kende forskellen.
+    const svar = detaljerAf(
+      { Tr1: '1', Tr2: '0', Trh1: '0', Trh2: '0', Incs: { 1: [
+        { Min: 8, Nm: 1, IT: 36, Sc: ['1', '0'], Pn: 'Dreyer' },
+      ] } },
+      null,
+      { homeGoals: 1, awayGoals: 0 },
+    );
+    expect(Object.hasOwn(svar.felter.maal[0], 'selvmaal')).toBe(true);
+    expect(svar.felter.maal[0].selvmaal).toBe(false);
+  });
+});
