@@ -51,6 +51,17 @@
   `JSON.stringify(svar)` mod en liste forbudte regexer. **Kør ALTID samme PoC
   mod en MUTERET udgave bagefter** — ellers ved du ikke, om PoC'en kan se en læk.
   Husk at escaped tekst (`&lt;`, `&quot;`) er falsk positiv i XSS-PoC'er.
+- **LIST-PoC mod en regel med wildcard-uid:** test ALTID fire former, ikke én —
+  `getDocs(hele samlingen)`, `getCountFromServer`, `where(documentId(),'==',mig)`
+  og `where('felt','==',mig)`. De giver FORSKELLIGE svar (målt på puljeBets), og
+  en `getDoc`-test beviser intet om nogen af dem. Skalér til 60 dokumenter for
+  at afgøre, om `get()`-budgettet i rules rammes.
+- **Regel-rettelser efterprøves med RULES_FILE:** skriv den rettede regel til en
+  kopi i scratchpad, kør PoC'en mod kopien, og kør derefter
+  `RULES_FILE=<kopi> FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx vitest run
+  --config vitest.rules.config.js --silent` for at bevise, at de 233
+  eksisterende tests stadig er grønne. Er de grønne både FØR og EFTER, har du
+  samtidig målt, at suiten ikke dækker hullet.
 - **Fælder i mine egne PoC'er, der har kostet falske konklusioner:**
   - `kickoff` skal seedes som **Timestamp**, ikke som tal. `request.time < kickoff`
     med et tal giver "Unsupported operation: timestamp < int" → PERMISSION_DENIED
@@ -62,6 +73,12 @@
     end tiltænkt, og en tidsgrænse nås aldrig.
   - En `catch` uden for `Promise.allSettled` fanger ikke en transaktion, der
     udløber senere — pak hver fjendtlig værdi ind hver for sig.
+  - **Den værdi, en flade BYGGER, er ikke den værdi, basen FÅR.** Jeg meldte
+    `puljeLockAt: null` og "et TAL" som admin-fladens skrivninger ud fra
+    `byggSchedulePatch` — men patchen går gennem `setGameSchedule` →
+    `toScheduleValue`, som laver tal om til `Timestamp` og null om til
+    `deleteField()`. Spor ALTID kæden fra komponenten til det kald, der rører
+    Firestore, før du kalder en type- eller null-vej "ét klik væk".
 
 ## Bekræftede antagelser om reglerne (emulator-verificeret)
 
@@ -98,12 +115,66 @@
   `write: false`. Verificeret for LIST/QUERY, ikke kun getDoc — reglen er
   dokument-uafhængig, så klientens `where('loestAt','==',null)` virker.
   Selv admin kan ikke skrive driftAlarmer; kun callablen.
-- **`puljeBets`** (L767-816) binder antal hold til `game.pulje.poolSize`/`.nedSize`.
-  `gameLock()` (L781-790) læser `puljeLockAt` DIREKTE uden default → manglende
-  felt er en evalueringsfejl og fejler LUKKET for BÅDE skrivning og
-  andres-læsning. `poolSize == 0` gør `size() == 0` uopfyldelig → intet kan gemmes.
-  **Type-fælde:** reglen kræver en **Timestamp**. GameScheduleTab.jsx L172 skriver
-  `new Date(x).getTime()` = et TAL → hele puljen låses for spillet.
+- **`puljeBets` — TYPEMATRIX, målt punkt for punkt (2026-09-01, efter 5c4b9e0).**
+  Læsegrenen for andres tip er `isApproved() && deltager() && afterDeadline()`,
+  hvor `afterDeadline()` er `gameLock() != null && request.time >= gameLock()`;
+  skrivegrenen bruger stadig `beforeDeadline()`. Kørt for 12 værdier af
+  `puljeLockAt` (læs/skriv): **Timestamp i fortiden → læs JA, skriv nej;
+  Timestamp i fremtiden → læs nej, skriv JA; eksplicit null, manglende felt,
+  tal (fortid/fremtid/0), streng (ISO/tom), bool, map og liste → læs NEJ og
+  skriv NEJ.** Der findes altså ingen værdi, der åbner begge, og ingen der
+  åbner læsningen uden en gyldig, passeret Timestamp. Kontrol: findes
+  spil-dokumentet slet ikke, afvises alt.
+  `poolSize == 0` gør `size() == 0` uopfyldelig → intet kan gemmes.
+  **DEN GAMLE TYPEFÆLDE ER LUKKET VED KILDEN — og påstanden om `null` var
+  forkert.** `GameScheduleTab.byggSchedulePatch` (L70-71) sender ganske vist et
+  TAL og et `null`, men det er ikke det, der skrives: `setGameSchedule` →
+  `toScheduleValue` (gameActions.js L24-29, uændret siden 08223f9) gør tal/ISO
+  til `Timestamp.fromMillis(...)` og `null`/`''`/uparselig til
+  **`deleteField()`**. Målt i emulatoren: et tømt datofelt FJERNER feltet
+  (`'puljeLockAt' in data === false`) — det er "manglende", ikke "null", og har
+  altid fejlet lukket. Ingen skribent i repoet kan skrive eksplicit `null` eller
+  et rå tal; kun Firebase-konsollen eller et ad hoc admin-SDK-script kan.
+  Rette-kommentaren i firestore.rules (~L840) og i
+  `scripts/audit-spiller-point.mjs` påstår begge det modsatte.
+- **`puljeBets` LIST er emulator-kortlagt (2026-09-01, 29 PoC-checks).** `allow read`
+  DÆKKER `list`: efter deadline lykkes `getDocs` på HELE samlingen for enhver
+  `isApproved()` — også en der IKKE deltager i spillet, og også på et spil man
+  ikke er med i. Ingen `get()`-budgetgrænse rammes: 60 dokumenter × 2 opslag
+  (`users/{mig}`, `games/{g}`) gik igennem, fordi begge stier er KONSTANTE
+  på tværs af dokumenterne — samme egenskab som `myLeagueIds()`-kommentaren
+  bygger på. FØR deadline fejler hele listen (dokument-uafhængigt led falsk),
+  MEN `where(documentId(),'==',mig)` lykkes (wildcard'et binder), mens
+  `where('uid','==',mig)` FEJLER — reglen kan kun bevises via doc-id'et.
+  `getCountFromServer` følger præcis samme regel som `getDocs`.
+  **IDENTITETSKILDEN DIVERGERER MELLEM KLIENT OG SERVER.** Serveren bruger
+  `d.id` (gameScoring.js L441-455, index.js L1330); `PuljeAfsloering.jsx` L74
+  skriver `{ uid: d.id, ...d.data() }` — spreadet står SIDST, så `data().uid`
+  VINDER over doc-id'et. Målt i emulatoren: et dokument med id `u3` og feltet
+  `uid:'u2'` bliver til `uid:'u2'` i fladen. Ingen klient kan lave et sådant
+  dokument (`request.resource.data.uid == uid` har stået der siden 9e90d70, og
+  fremmed uid, tom uid, manglende uid, uid som liste og fremmed doc-id blev
+  alle afvist — kontrol grøn), og `settlePuljeBets` rører aldrig `uid`. Kun
+  Firebase-konsollen/et admin-SDK-script kan. Konsekvensen VILLE være, at
+  fladen tilskriver en andens tip — inkl. "kun dig" på et hold, man ikke har
+  valgt. Rettelsen er ét tegn-ombytning: `{ ...d.data(), uid: d.id }`, som
+  binder klienten til samme identitet som serveren.
+  `collectionGroup('puljeBets')` fejler (ingen collectionGroup-gren).
+  **Skala målt igen efter deltager-gaten (2026-09-01): LIST på 200 dokumenter
+  lykkes.** De tre opslag i læsegrenen (`users/{mig}`, `games/{g}`,
+  `players/{mig}`) er alle KONSTANTE stier og koster tilsammen ét sæt, uanset
+  antal dokumenter — der er intet get()-loft at ramme her.
+  **Modprøve, der afgør spørgsmålet en gang for alle:** ændres `deltager()` til
+  `exists(.../players/$(uid))` — altså en sti, der afhænger af dokumentet —
+  så virker `getDoc` og `where(documentId(),'==',x)` STADIG, mens ENHVER
+  fler-dokument-query afvises **allerede ved `limit(1)`**, selv når hvert
+  dokument semantisk opfylder reglen. Et dokumentafhængigt opslag er altså
+  ikke "dyrt indtil 10" i en query — det er forbudt. (Kommentaren ved
+  `bets`/`detalje` om "ét opslag PR. DOKUMENT, sprænger loftet efter 10 kampe"
+  beskriver derfor konsekvensen for mildt.)
+  Kontroltests grønne: pending, anonym, bruger uden users-dok og globalAdmin
+  (ingen admin-gren) afvises; skrivning efter deadline afvises; doc-id ≠ uid
+  og andens uid afvises; `delete` afvises.
 - **`questions`/`questionAnswers`:** `answerId == questionId + '_' + auth.uid`
   binder svaret til afsenderen. `botFacitAt`-vagterne holder i alle fire
   skriveformer (update, `= null`, fuld setDoc-overskrivning, `deleteField()` —
@@ -134,6 +205,47 @@
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
 
+- **Deltager-gaten på `puljeBets` kan man SELV opfylde med ét dokument
+  (BEKRÆFTET, 2026-09-01, efter 5c4b9e0).** Læsegrenen kræver nu
+  `deltager()` = `exists(games/$(gameId)/players/$(request.auth.uid))`. Men
+  `players`-create (firestore.rules ~L704) kræver KUN `isApproved()` +
+  eget uid + ingen point-/liga-felter — der er INGEN betingelse på
+  `game.joinable` eller `game.status`. Kæden er kørt i emulatoren mod et spil
+  med `joinable:false, status:'finished'`: liste afvist → `setDoc(players/mig,
+  {uid})` lykkes → hele `puljeBets` listes (alle tip + server-satte
+  `points`/`correct`) → `deleteDoc(players/mig)` lykkes (delete er tilladt
+  ved `totalPoints == 0`/fraværende) → læsningen er lukket igen. Gaten er
+  altså en SCOPING-beslutning ("puljen er spillets"), ikke en
+  fortrolighedsgrænse: prisen for en fremmed er én skrivning, og sporet kan
+  fjernes igen. Vil man have grænsen, skal `players`-create bindes til
+  spillets tilstand (`joinable == true && status != 'finished'`) — den
+  betingelse findes i dag KUN i fladen.
+- **`puljeBets` er IKKE liga-afgrænset — modsat `bets` og `players`.** Efter
+  deadline kan enhver DELTAGER i spillet (efter 5c4b9e0; før: enhver
+  `isApproved()`) læse ethvert pulje-tip inkl. server-satte `points`/`correct`,
+  og `users/{uid}` (L114) giver uid→displayName. En "kun liga-fæller får
+  navne"-visning er derfor ren pynt: devtools giver hele spillets
+  navn→tip-tabel, og pulje-POINT er stadig en omvej uden om liga-gaten på
+  `players/{uid}` (L697). EJERENS BEVIDSTE AFGRÆNSNING (5c4b9e0): puljen er
+  åben for spillets deltagere — men se posten over: "deltager" er noget, man
+  selv kan blive.
+- **Genåbning af puljen = perfekt-information-kopiering (KÆDE KØRT).** Kæden
+  målt ende-til-ende: deadline passeret → u2 `getDocs` alles tip → `users/u1`
+  giver navnet → globalAdmin sætter `puljeLockAt` frem i tiden → u2 gemmer u1's
+  tip som sit eget → læsningen er lukket igen, så kopieringen er usporlig.
+  Genåbnings-forbuddet findes KUN i den runde-udledte sti (superligaSync.js
+  L694-697) — altså PL. Superligaen har `pulje` men INGEN `puljeLockRound`
+  (scripts/games.mjs L69-76), så dens deadline sættes i hånden via
+  GameScheduleTab, hvor `byggSchedulePatch` har NUL vagt mod fortid→fremtid.
+  Admin-only og præeksisterende, men først skadeligt når en klient VISER
+  tippene. **Kæden er kørt igen mod den RETTEDE regel (2026-09-01): uændret.**
+  EJEREN HAR AFVIST en vagt mod fortid→fremtid. Beslutningen betyder: for et
+  spil uden `puljeLockRound` (Superligaen) kan en globalAdmin med to
+  skrivninger genåbne puljen, efter afsløringen har vist alle tip — og der
+  findes hverken alarm, driftlog eller felt-historik, der viser det bagefter,
+  fordi læsningen lukker igen samtidig. Kredsen er ejeren + globalAdmins, og
+  det er dét, der bærer beslutningen — ikke en teknisk grænse.
+
 - **Liga-ejer: slet + genopret spørgsmålet med SAMME doc-id.** `questions` har
   `allow delete: if qOwner()` (firestore.rules L999), mens `questionAnswers` har
   `allow delete: if false` og doc-id `qid_uid`. Kæden (emulator-kørt, begge
@@ -160,6 +272,28 @@
   `https://tip.vejleaa.dk@evil.dk/` igennem. Sammen: en globalAdmin (= en af
   vennerne) sender en officiel tip@vejleaa.dk-mail med en phishing-knap.
   Fix: `href="${esc(cta)}"` + `startsWith(APP_URL + '/')`.
+- **`id`-FELTET SKYGGER FOR DOC-ID'ET I `useGameLeagues` — en liga-ejer kan
+  slukke stillingen for hele sin liga (BEKRÆFTET ende-til-ende, 2026-09-01).**
+  Samme klasse som pulje-fundet, men her er den ÅBEN. `useGameLeagues.js` L37
+  er `{ id: d.id, ...d.data() }` — spreadet sidst, så et `id`-felt i dataen
+  vinder. Ejer-grenen i leagues-update (firestore.rules L1029-1033) fryser kun
+  `memberUids`/`ownerUid`/`code`; ETHVERT andet felt må skrives. Kæden kørt i
+  emulatoren (3 checks, kontrol grøn): angriber ejer liga A (med offeret) og er
+  medlem af liga B (fremmede, hvis id hen derfor kender) → `updateDoc(A,
+  {id:'B'})` LYKKES (`memberUids` afvises stadig — kontrol) → offerets
+  `useGameLeagues` melder liga A med id `'B'` → `useGameStandings` L39 bygger
+  `leagueIds` af netop dét → `where('leagueIds','array-contains-any',['B'])`
+  rammer `fremmed`s players-dokument, som reglen (L698-699,
+  `hasAny(myLeagueIds())` på det SERVER-skrevne felt) afviser → HELE
+  forespørgslen fejler, også når det ægte id er med. Offeret mister stillingen
+  for ALLE sine ligaer i spillet — og på pulje-fanen (efter 4ee45aa) forsvinder
+  ranglisten bare, for `PuljeTip` viser aldrig hookens `error`. Ingen data
+  lækker; det er ren ødelæggelse, og den er usporlig for offeret.
+  Fix: ét tegn-ombytning, `{ ...d.data(), id: d.id }` (samme rettelse som
+  PuljeAfsloering L95 fik), evt. + en nøgle-whitelist i leagues-update.
+  Bemærk: mønstret står 30+ steder i `src/` (`useLeagues`, `useGameBets`,
+  `useGame` …); det farlige er dér, hvor id'et derefter fodrer en QUERY, som
+  reglen filtrerer på.
 - **Liga-navnet er IKKE type-vagtet ved UPDATE - en spiller draeber en
   admin-flade for HELE spillet.** `firestore.rules` L971 kraever `name is string`
   ved CREATE; ejer-grenen ved update (L979-983) kraever kun ownerUid/memberUids/
@@ -202,6 +336,20 @@
   død for HELE ligaen. Samme gift rammer KLIENTEN hårdere: `scoreLeagueQuestion`
   kaldes i render, og et map som React-child → hvid side for alle medlemmer.
   Fix ét sted: `String()`-konverteringen i en try, eller filtrér ikke-strenge fra.
+  **MÅLT IGEN 2026-09-01 på pulje-fanen (4ee45aa):** giften har ÉT
+  fælles knudepunkt på klienten — `rankStandings` (gameStandings.js L17
+  `name: u.displayName || 'Ukendt spiller'`, L37 `a.name.localeCompare`). Ingen
+  typevagt. Typematrix målt: `42`/`{a:1}`/`['x']`/`true` overlever som streng,
+  men `{toString:null, valueOf:null}` KASTER allerede i sorteringen, og et
+  almindeligt map (`{a:1}`) kaster i React som child ("Objects are not valid as
+  a React child") — begge bekræftet med render-PoC. Efter 4ee45aa kalder
+  `PuljeTip` (L130) `useGameStandings` UBETINGET, så en forgiftet liga-fælle
+  hvidner nu også pulje-fanen — og FØR deadline, hvor afsløringen slet ikke
+  er monteret. Samme gift via liganavnet rammer to NYE render-steder:
+  `PuljeAfsloering.jsx` L198 (`{valgtLiga.name || 'ligaens'}`) og L217
+  (`<option>{l.name}`). Fix ÉT sted, der dækker alle forbrugere:
+  `typeof u.displayName === 'string' ? u.displayName : 'Ukendt spiller'` i
+  `rankStandings` — hver render-side hver for sig er en tabt kamp.
 - **Bot-forfalskning på liga-væggen.** `messages`-reglen binder KUN `uid` — ikke
   `displayName`, `avatarEmoji`, `system` eller `questionId`. Et medlem kan gemme
   `{uid: sig selv, displayName:'Runde-Botten', avatarEmoji:'🤖', system:true}`.
@@ -407,6 +555,108 @@
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
 
+- **Rettelsen 5c4b9e0 (pulje-reglen) HOLDER — efterprøvet, ikke læst
+  (2026-09-01).** 241/241 i `functions/rules.test.js` + 30 egne PoC-checks mod
+  emulatoren. Mutationstestet på fire måder, alle røde og alle fanget af
+  repoets EGNE nye tests: (a) `afterDeadline()` → `!beforeDeadline()` → rød på
+  null-testen; (b) `deltager()` fjernet → rød på ikke-deltager-testen;
+  (c) tidssammenligningen fjernet → 4 røde; (d) den forkerte rettelse inde i
+  `beforeDeadline()` (`gameLock() == null || …`) → rød på
+  "null-deadline lukker STADIG skrivningen". Læse- og skrivevinduet har altså
+  hver sin vagt, og det er BEVIST, ikke skrevet. Ingen anden regel i filen
+  bruger en negeret tidsvagt (grep: alle `request.time`-sammenligninger er
+  positive; de resterende `!`-led står på `request.resource`-prædikater i
+  skrivegrene, hvor en evalueringsfejl fejler lukket).
+- **`PuljeAfsloering.jsx` — den FØRSTE klient på cross-user-vejen — passer
+  reglen (2026-09-01, 23 PoC-checks + 244/244 i repoets suite).** Klientens
+  form er `getDocs(collection(games/{g}/puljeBets))` UDEN `where`, og den er på
+  den rigtige side af asymmetrien: efter deadline lykkes den for en deltager
+  (målt også ved 60 og 250 dokumenter — de tre `get()` i læsegrenen er
+  konstante stier), før deadline afvises den, og det gør ALLE former uden
+  `where(documentId())`. Kontroller grønne: manglende/`null`/tal-`puljeLockAt`,
+  ikke-deltager, `pending`, anonym → afvist; eget dokument læsbart før deadline;
+  skrivning efter deadline, `delete` og `points`/`correct`/`nedPoints`/
+  `nedCorrect` i payloaden afvist. Klientens ur er irrelevant: `locked`
+  (PuljeTip.jsx L148, `Date.now()`) styrer kun MONTERINGEN — reglen bruger
+  `request.time`, så et ur stillet frem giver `permission-denied`, og et ur
+  stillet tilbage viser bare ingenting. Komponenten mounts kun bag
+  `isMember`-gaten i GamePage.jsx L121, så kalderen har altid et players-dok.
+- **En AFVIST `getDocs` er TAVS i browserkonsollen — modsat en afvist skrivning.**
+  Målt: en nægtet `getDocs` gav NUL `console.*`-output og ingen
+  unhandledRejection med `.then/.catch` (uden `await`), mens hver nægtet
+  `setDoc` printer `GrpcConnection RPC 'Write' stream error … PERMISSION_DENIED`
+  med regel-LINJENUMMER. Et "fejl stille"-design på en LÆSNING er derfor ægte
+  tavst; på en SKRIVNING er det ikke. Ingen tip-data i støjen.
+- **`championship`-ELEMENTERNE er ikke type-vagtet i rules** (kun `is list` +
+  `.size() == poolSize()`). Målt: en spiller KAN gemme
+  `[{toString:null}, {a:1}, 'A'.repeat(50000)]`. `puljeAfsloering.js` er immun,
+  og det er efterprøvet, ikke læst: `holdTilslutning` nøgler outputtet på
+  spillets `teams` (giften bliver aldrig en række), `puljeScore` bruger kun
+  `Set.has` (ingen `String()`, ingen `localeCompare` på picks), og
+  `erAfgjort`/`enegaengerTekst` rører kun tal og uid'er. Fire PoC-checks grønne.
+  Husk formen ved NÆSTE forbruger af `championship` — den er den klassiske
+  `{toString:null}`-gift, og reglen stopper den ikke.
+- **Navne-grænsen i afsløringen holder.** `navnAf` slår op i `useGameStandings`,
+  hvis players-query er `where('leagueIds','array-contains-any', mine ligaer)`
+  — målt: en deltager i en ANDEN liga er ikke i svaret, så en enegænger uden
+  for ligaen bliver `'kun én spiller'`, aldrig et navn. Aggregatet ("1 af 13")
+  er spillets, navnene er ligaens, og fladen siger kredsen ærligt
+  ("Efter deadline er puljen åben for alle i spillet", PuljeAfsloering.jsx L114
+  + FootballHelp.jsx). Udledning fra fladen ALENE kan ikke navngive en
+  ikke-liga-fælle: ranglisten viser `rigtige`, aldrig picks. Devtools kan
+  stadig (uid → `users/{uid}.displayName`), men det er den kendte, accepterede
+  åbning — fladen tilføjer intet.
+
+- **Identitets-bindingen i afsløringen er RETTET og mutationstestet
+  (2026-09-01, 4ee45aa).** `PuljeAfsloering.jsx` L95 er nu
+  `{ ...d.data(), uid: d.id }` — doc-id'et vinder, som på serveren
+  (`functions-platform/gameScoring.js` L453/455 bruger `d.id`). Render-PoC:
+  et dokument med id `u3` og feltet `uid:'me'` giver "kun Carla", ikke
+  "kun dig", og ranglisten får tre forskellige rækker. Mutationen tilbage til
+  `{ uid: d.id, ...d.data() }` gør PRÆCIS angrebstesten rød og lader
+  kontroltesten (ægte enegænger → "kun dig") være grøn — PoC'en måler altså
+  rettelsen og ikke sig selv. Samme mønster i `useGameStandings` L66/L85 er
+  dækket ved kilden: players-reglen binder `uid` BÅDE ved create (L706) og
+  update (L735).
+- **Spilleren kan IKKE skrive sine egne pulje-point (16 PoC-checks, emulator,
+  2026-09-01).** `firestore.rules` L907
+  `!request.resource.data.keys().hasAny(['points','correct','nedPoints','nedCorrect'])`
+  gælder BEGGE skriveformer: hvert felt for sig og alle fire på én gang afvist,
+  ved create og ved update — også `points: 0` (nøglen, ikke værdien). Efter
+  deadline afvises update, championship-ændring og delete, mens `getDoc` stadig
+  lykkes (kontrol: PoC'en kan skelne "lukket" fra "alt er lukket"). Derfor kan
+  `erAfgjort` (som kun ser på `correct`) ikke tvinges, og `puljeVindere`, der
+  nu kårer på POINT, kan ikke forfalskes. Kun `Points` med stort P slipper
+  igennem — der findes ingen læser af den nøgle.
+- **Dubletter i `championship` kan ikke inflatere score.** Reglen tjekker kun
+  `size() == poolSize()`, så `['A','A','A','A']` GEMMES (emulator-målt) — men
+  `puljeScore` (src/lib/superligaScoring.js L502) dedupliker med
+  `[...new Set(picks)]`, og `perfect` kræver desuden `valgte.length === antal`.
+  Serveren bruger SAMME funktion (functions-platform/gameScoring.js L443/448),
+  så klient og server er enige. Målt: 4×'A' mod facit {A,B} → `{correct:1,
+  points:5}`; kontrol med fire ægte → `{correct:4, points:30}`.
+- **Fremmede holdnavne i `championship` kan hverken skabe en række eller
+  injicere markup.** `holdTilslutning` (puljeAfsloering.js L64) nøgler
+  outputtet på spillets `teams`, så `'FC Onde'` og
+  `'<img src=x onerror=alert(1)>'` forsvinder sporløst (render-PoC: præcis
+  `teams.length` rækker, intet `<img>`, intet `onerror` i markup'en;
+  kontrol: et ægte holdnavn giver en række). Talnævneren `antalTip` er
+  `bets.length` og kan ikke pilles ved.
+- **Fejltilstanden i afsløringen er tavs.** `PuljeAfsloering.jsx` L96
+  `.catch(() => setBets([]))` logger intet og viser intet; L128 gør "afvist",
+  "tom" og "henter" til samme skærmbillede. `PuljeTip` destrukturerer kun
+  `{ standings, leagues }` fra `useGameStandings` (L130) og viser ALDRIG
+  hookens `error`. Den ENESTE nye støj på pulje-fanen er hookens egen
+  `console.error('useGameStandings (deltagere) fejl:', err)` — en FirebaseError,
+  ingen tip-data.
+- **Ingen anden forbruger mistede adgang ved deltager-gaten.** De eneste
+  læsere af `puljeBets` er `PuljeTip.jsx` (eget dokument — egen-grenen er
+  urørt, målt også uden players-dokument) og den nye afsløring; serveren læser
+  med Admin SDK (`gameScoring.js` L400, `index.js` L1309) og rammes ikke.
+  BEMÆRK dog: der er ingen admin-gren, så en globalAdmin UDEN players-dokument
+  afvises — bygges der nogensinde en admin-flade over pulje-tippene, skal den
+  gå gennem en callable.
+
 - **`syncGameKickoffsNow`** (functions-platform/index.js L371): auth → rolle →
   `SYNCED_GAMES.find` → `Object.hasOwn(PROVIDERS, …)`. Intet bruger-input når
   skrivningen. `dryRun` fejler lukket i begge ender (kernens er den bærende).
@@ -580,6 +830,12 @@
 
 ## Testhuller værd at huske
 
+- `functions/rules.test.js` L3010-3053 (puljeBets-læsning) dækker `getDoc` på
+  ÉT fremmed dokument og et spil UDEN `puljeLockAt` — men hverken `getDocs`
+  (list) eller `puljeLockAt: null`. Hele suiten er GRØN både med og uden
+  null-hullet ovenfor (kørt: 233/233 mod den rettede regelfil). Skal en klient
+  liste samlingen, hører der en list-test til FØR og EFTER deadline plus en
+  eksplicit null-test — ellers er "regler er ikke filtre" udækket her.
 - `functions/rules.test.js` L1320-1358 (driftlog/driftAlarmer) tester kun
   `getDoc`, mens klienten bruger en collection-listener med
   `where('loestAt','==',null)`. Skærper nogen reglen med et `resource.data`-led,
@@ -599,6 +855,12 @@
   games.mjs uden at tilføje det til ADMIN_OWNED.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **`{ uid: d.id, ...d.data() }` giver dokumentet det SIDSTE ord.** Mønstret
+  ser ud som "doc-id'et er identiteten", men spreadet overskriver det, hvis
+  feltet findes. Skal doc-id'et bære identiteten — og det er hele pointen med
+  `uid_matchId`- og `uid`-doc-id-bindingen — skal det stå SIDST. Grep efter
+  `uid: d.id, ...` hver gang en ny cross-user-læser landes.
 
 - Regler er ikke filtre. En strammet læseregel uden matchende query = tom liste.
 - Klient-validering er ikke håndhævelse.

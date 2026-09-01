@@ -820,14 +820,64 @@ service cloud.firestore {
           return get(/databases/$(database)/documents/games/$(gameId)).data;
         }
         function gameLock() {
-          // BEVIDST direkte opslag (IKKE .get med default): mangler feltet,
-          // er det en evalueringsfejl, og HELE reglen fejler LUKKET — både
-          // skrivning og andres-læsning. Med en null-default ville et spil
-          // uden deadline åbne alles tips for læsning (!beforeDeadline()).
+          // DIREKTE OPSLAG, IKKE `.get` med default: mangler feltet, er det en
+          // evalueringsfejl, og hele reglen fejler LUKKET — både skrivning og
+          // andres-læsning.
+          //
+          // FORBEHOLD, SÅ NÆSTE LÆSER IKKE OVERVURDERER DEN. Begrundelsen var
+          // før, at en null-default ville åbne alles tip via `!beforeDeadline()`.
+          // Den gren findes ikke længere: læsningen går nu gennem den POSITIVE
+          // `afterDeadline()`, og med en null-default ville `null != null` være
+          // falsk og lukke af sig selv. Vagten er altså redundant i dag, og en
+          // mutation af den kan IKKE gøres rød af nogen test (TM-fund).
+          //
+          // Den bliver stående alligevel, fordi den er den ENESTE, der ikke
+          // hviler på sprogets fejlsemantik: `request.time >= null` lukker kun,
+          // fordi en sammenligning med null er en evalueringsfejl. Det er en
+          // rigtig egenskab, men en tavs én, og den er dyrere at ræsonnere om
+          // end et manglende felt, der falder på gulvet med det samme.
           return get(/databases/$(database)/documents/games/$(gameId)).data.puljeLockAt;
         }
         function beforeDeadline() {
           return gameLock() != null && request.time < gameLock();
+        }
+        // EFTER-VAGTEN ER SIN EGEN, IKKE EN NEGERING AF FØR-VAGTEN.
+        //
+        // Læsegrenen stod før som `!beforeDeadline()`, og det var et hul.
+        // Kommentaren over `gameLock()` lover, at reglen fejler lukket uden
+        // `puljeLockAt` — og det passer for et MANGLENDE felt. Det passer
+        // ikke for et felt, der eksplicit er `null`: så er `gameLock()` null,
+        // `beforeDeadline()` bliver false, og `!beforeDeadline()` bliver
+        // TRUE. Alles pulje-tip var læsbare for enhver godkendt bruger, også
+        // midt i tipperioden.
+        //
+        // HVEM KAN SKRIVE EN EKSPLICIT NULL? Ikke admin-fladen. Den bygger
+        // ganske vist `null` (GameScheduleTab.jsx:70-71), men `toScheduleValue`
+        // (gameActions.js:24-29) oversætter det til `deleteField()`, og et
+        // tal/ISO til et Timestamp — feltet bliver altså MANGLENDE, ikke null,
+        // og manglende har altid fejlet lukket. En rå null kan kun komme fra
+        // Firebase-konsollen eller et ad hoc admin-SDK-script.
+        //
+        // Hullet var derfor uopnåeligt fra appen — men en regel må ikke hvile
+        // på, at enhver skribent opfører sig pænt. Værdien, en flade bygger, er
+        // ikke den værdi, basen får.
+        //
+        // Og rettelsen må IKKE laves inde i `beforeDeadline()`:
+        // `gameLock() == null || request.time < gameLock()` lukker læsningen,
+        // men åbner SKRIVNINGEN på ubestemt tid. Læse- og skrivevinduet skal
+        // have hver sin vagt. `!før` er ikke `efter` i tre-værdi-logik.
+        function afterDeadline() {
+          return gameLock() != null && request.time >= gameLock();
+        }
+        // Puljen er åben for spillets DELTAGERE, ikke for hele platformen.
+        // `isApproved()` er en platform-tærskel: en godkendt bruger uden
+        // players-dokument i spillet kunne liste alles tip — og `users/{uid}`
+        // er frit læsbar, så uid→navn er trivielt. Pulje-dokumenterne bærer
+        // desuden server-satte `points`/`correct`, mens `players` og `bets`
+        // er liga-gatede; uden denne vagt var pulje-vejen en omvej uden om
+        // liga-gaten på point.
+        function deltager() {
+          return exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid));
         }
         function poolSize() {
           return spil().get('pulje', {}).get('poolSize', 0);
@@ -836,7 +886,7 @@ service cloud.firestore {
           return spil().get('pulje', {}).get('nedSize', 0);
         }
         allow read: if (isSignedIn() && request.auth.uid == uid)
-          || (isApproved() && !beforeDeadline());
+          || (isApproved() && deltager() && afterDeadline());
         // Har spillet et bundspørgsmål (nedSize > 0), skal BEGGE lister med i
         // samme skrivning — et halvt svar ville få admin-status til at kalde
         // spilleren "færdig" og ryk-mailen til at springe hen over (QC-fund).

@@ -512,6 +512,15 @@ export default function FootballHelp({ game }) {
           {' '}<strong>+{pulje.perTeam} point</strong>
           {pulje.perfectBonus > 0 && <>, og en perfekt række giver <strong>+{pulje.perfectBonus}</strong> i bonus</>}.
           Deadline sættes af arrangøren og vises på fanen.
+          {/* SYNLIGHEDSREGLEN SKAL STÅ HER, ligesom liga-spørgsmålene har
+              deres ("Andres svar er skjult, indtil spørgsmålet lukker").
+              Puljen fik en ny synlighedsregel med afsløringen, og den skal
+              kunne læses i regelbogen — ikke opdages på fanen. Kredsen er
+              SPILLET, ikke ligaen: det er reglens grænse, og fladen må ikke
+              love mere fortrolighed, end reglen bærer. */}
+          {' '}Indtil deadline er dit tip skjult for alle andre. Efter deadline kan alle i spillet
+          se hinandens pulje-tip på fanen — hvilke hold flest tror på, hvem der står alene med
+          et hold, og hvordan puljen står lige nu i din liga.
         </Section>
       )}
 
