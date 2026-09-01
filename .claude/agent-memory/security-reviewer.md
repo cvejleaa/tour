@@ -73,6 +73,12 @@
     end tiltænkt, og en tidsgrænse nås aldrig.
   - En `catch` uden for `Promise.allSettled` fanger ikke en transaktion, der
     udløber senere — pak hver fjendtlig værdi ind hver for sig.
+  - **Den værdi, en flade BYGGER, er ikke den værdi, basen FÅR.** Jeg meldte
+    `puljeLockAt: null` og "et TAL" som admin-fladens skrivninger ud fra
+    `byggSchedulePatch` — men patchen går gennem `setGameSchedule` →
+    `toScheduleValue`, som laver tal om til `Timestamp` og null om til
+    `deleteField()`. Spor ALTID kæden fra komponenten til det kald, der rører
+    Firestore, før du kalder en type- eller null-vej "ét klik væk".
 
 ## Bekræftede antagelser om reglerne (emulator-verificeret)
 
@@ -109,12 +115,28 @@
   `write: false`. Verificeret for LIST/QUERY, ikke kun getDoc — reglen er
   dokument-uafhængig, så klientens `where('loestAt','==',null)` virker.
   Selv admin kan ikke skrive driftAlarmer; kun callablen.
-- **`puljeBets`** (L767-816) binder antal hold til `game.pulje.poolSize`/`.nedSize`.
-  `gameLock()` (L781-790) læser `puljeLockAt` DIREKTE uden default → manglende
-  felt er en evalueringsfejl og fejler LUKKET for BÅDE skrivning og
-  andres-læsning. `poolSize == 0` gør `size() == 0` uopfyldelig → intet kan gemmes.
-  **Type-fælde:** reglen kræver en **Timestamp**. GameScheduleTab.jsx L172 skriver
-  `new Date(x).getTime()` = et TAL → hele puljen låses for spillet.
+- **`puljeBets` — TYPEMATRIX, målt punkt for punkt (2026-09-01, efter 5c4b9e0).**
+  Læsegrenen for andres tip er `isApproved() && deltager() && afterDeadline()`,
+  hvor `afterDeadline()` er `gameLock() != null && request.time >= gameLock()`;
+  skrivegrenen bruger stadig `beforeDeadline()`. Kørt for 12 værdier af
+  `puljeLockAt` (læs/skriv): **Timestamp i fortiden → læs JA, skriv nej;
+  Timestamp i fremtiden → læs nej, skriv JA; eksplicit null, manglende felt,
+  tal (fortid/fremtid/0), streng (ISO/tom), bool, map og liste → læs NEJ og
+  skriv NEJ.** Der findes altså ingen værdi, der åbner begge, og ingen der
+  åbner læsningen uden en gyldig, passeret Timestamp. Kontrol: findes
+  spil-dokumentet slet ikke, afvises alt.
+  `poolSize == 0` gør `size() == 0` uopfyldelig → intet kan gemmes.
+  **DEN GAMLE TYPEFÆLDE ER LUKKET VED KILDEN — og påstanden om `null` var
+  forkert.** `GameScheduleTab.byggSchedulePatch` (L70-71) sender ganske vist et
+  TAL og et `null`, men det er ikke det, der skrives: `setGameSchedule` →
+  `toScheduleValue` (gameActions.js L24-29, uændret siden 08223f9) gør tal/ISO
+  til `Timestamp.fromMillis(...)` og `null`/`''`/uparselig til
+  **`deleteField()`**. Målt i emulatoren: et tømt datofelt FJERNER feltet
+  (`'puljeLockAt' in data === false`) — det er "manglende", ikke "null", og har
+  altid fejlet lukket. Ingen skribent i repoet kan skrive eksplicit `null` eller
+  et rå tal; kun Firebase-konsollen eller et ad hoc admin-SDK-script kan.
+  Rette-kommentaren i firestore.rules (~L840) og i
+  `scripts/audit-spiller-point.mjs` påstår begge det modsatte.
 - **`puljeBets` LIST er emulator-kortlagt (2026-09-01, 29 PoC-checks).** `allow read`
   DÆKKER `list`: efter deadline lykkes `getDocs` på HELE samlingen for enhver
   `isApproved()` — også en der IKKE deltager i spillet, og også på et spil man
@@ -126,6 +148,18 @@
   `where('uid','==',mig)` FEJLER — reglen kan kun bevises via doc-id'et.
   `getCountFromServer` følger præcis samme regel som `getDocs`.
   `collectionGroup('puljeBets')` fejler (ingen collectionGroup-gren).
+  **Skala målt igen efter deltager-gaten (2026-09-01): LIST på 200 dokumenter
+  lykkes.** De tre opslag i læsegrenen (`users/{mig}`, `games/{g}`,
+  `players/{mig}`) er alle KONSTANTE stier og koster tilsammen ét sæt, uanset
+  antal dokumenter — der er intet get()-loft at ramme her.
+  **Modprøve, der afgør spørgsmålet en gang for alle:** ændres `deltager()` til
+  `exists(.../players/$(uid))` — altså en sti, der afhænger af dokumentet —
+  så virker `getDoc` og `where(documentId(),'==',x)` STADIG, mens ENHVER
+  fler-dokument-query afvises **allerede ved `limit(1)`**, selv når hvert
+  dokument semantisk opfylder reglen. Et dokumentafhængigt opslag er altså
+  ikke "dyrt indtil 10" i en query — det er forbudt. (Kommentaren ved
+  `bets`/`detalje` om "ét opslag PR. DOKUMENT, sprænger loftet efter 10 kampe"
+  beskriver derfor konsekvensen for mildt.)
   Kontroltests grønne: pending, anonym, bruger uden users-dok og globalAdmin
   (ingen admin-gren) afvises; skrivning efter deadline afvises; doc-id ≠ uid
   og andens uid afvises; `delete` afvises.
@@ -159,38 +193,30 @@
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
 
-- **`puljeLockAt: null` ÅBNER alles pulje-tip (BEKRÆFTET, 2026-09-01).**
-  `beforeDeadline()` (firestore.rules ~L829) er
-  `gameLock() != null && request.time < gameLock()`. Et MANGLENDE felt er en
-  evalueringsfejl → fejler lukket (det er dét, kommentaren lover). Men et felt,
-  der EKSPLICIT er `null`, er ikke manglende: `gameLock()` returnerer null,
-  `beforeDeadline()` bliver `false`, og `!beforeDeadline()` bliver **true** →
-  `allow read` åbner HELE samlingen for enhver godkendt bruger, når som helst.
-  Vejen dertil er ét klik: `byggSchedulePatch` (GameScheduleTab.jsx L70-71)
-  skriver `puljeLockAt: null`, når admin TØMMER datetime-feltet, og
-  games-update har ingen affectedKeys-liste. Skrivning er stadig lukket, så
-  fladen siger "Endnu ikke åbnet", mens alt er læsbart via devtools.
-  superligaSync.js L694 KENDER tilstanden ("uparselig værdi … som rules
-  eksponerer") — vagten står kun server-side, ikke i reglen.
-  **Fix (emulator-verificeret, hele suiten 233/233 grøn):** erstat det negerede
-  led med et POSITIVT `afterDeadline()`:
-  `function afterDeadline() { return gameLock() != null && request.time >= gameLock(); }`
-  og `allow read: ... || (isApproved() && afterDeadline());`.
-  **Rør IKKE `beforeDeadline()` selv** — `gameLock() == null || ...` lukker godt
-  nok læsningen, men ÅBNER så skrivningen på ubestemt tid (målt: null-deadline
-  → `setDoc` lykkedes). Læse- og skrivevinduet må have hver sin vagt.
-  Generelt mønster: `!førDeadline()` ≠ `efterDeadline()` i Firestores
-  tre-værdi-logik. Grep efter flere negerede tidsvagter.
+- **Deltager-gaten på `puljeBets` kan man SELV opfylde med ét dokument
+  (BEKRÆFTET, 2026-09-01, efter 5c4b9e0).** Læsegrenen kræver nu
+  `deltager()` = `exists(games/$(gameId)/players/$(request.auth.uid))`. Men
+  `players`-create (firestore.rules ~L704) kræver KUN `isApproved()` +
+  eget uid + ingen point-/liga-felter — der er INGEN betingelse på
+  `game.joinable` eller `game.status`. Kæden er kørt i emulatoren mod et spil
+  med `joinable:false, status:'finished'`: liste afvist → `setDoc(players/mig,
+  {uid})` lykkes → hele `puljeBets` listes (alle tip + server-satte
+  `points`/`correct`) → `deleteDoc(players/mig)` lykkes (delete er tilladt
+  ved `totalPoints == 0`/fraværende) → læsningen er lukket igen. Gaten er
+  altså en SCOPING-beslutning ("puljen er spillets"), ikke en
+  fortrolighedsgrænse: prisen for en fremmed er én skrivning, og sporet kan
+  fjernes igen. Vil man have grænsen, skal `players`-create bindes til
+  spillets tilstand (`joinable == true && status != 'finished'`) — den
+  betingelse findes i dag KUN i fladen.
 - **`puljeBets` er IKKE liga-afgrænset — modsat `bets` og `players`.** Efter
-  deadline kan enhver `isApproved()` læse ethvert pulje-tip inkl. server-satte
-  `points`/`correct`, og `users/{uid}` (L114 `allow read: if isApproved()`)
-  giver uid→displayName. En "kun liga-fæller får navne"-visning er derfor ren
-  pynt: devtools giver hele spillets navn→tip-tabel, og pulje-POINT bliver en
-  omvej uden om liga-gaten på `players/{uid}` (L697). Hærdning uden at ødelægge
-  et game-wide aggregat: læg
-  `exists(/…/games/$(gameId)/players/$(request.auth.uid))` på læsegrenen —
-  stien er konstant, så `getDocs` på 60 dokumenter virker stadig (målt), og
-  fremmede afvises.
+  deadline kan enhver DELTAGER i spillet (efter 5c4b9e0; før: enhver
+  `isApproved()`) læse ethvert pulje-tip inkl. server-satte `points`/`correct`,
+  og `users/{uid}` (L114) giver uid→displayName. En "kun liga-fæller får
+  navne"-visning er derfor ren pynt: devtools giver hele spillets
+  navn→tip-tabel, og pulje-POINT er stadig en omvej uden om liga-gaten på
+  `players/{uid}` (L697). EJERENS BEVIDSTE AFGRÆNSNING (5c4b9e0): puljen er
+  åben for spillets deltagere — men se posten over: "deltager" er noget, man
+  selv kan blive.
 - **Genåbning af puljen = perfekt-information-kopiering (KÆDE KØRT).** Kæden
   målt ende-til-ende: deadline passeret → u2 `getDocs` alles tip → `users/u1`
   giver navnet → globalAdmin sætter `puljeLockAt` frem i tiden → u2 gemmer u1's
@@ -200,8 +226,13 @@
   (scripts/games.mjs L69-76), så dens deadline sættes i hånden via
   GameScheduleTab, hvor `byggSchedulePatch` har NUL vagt mod fortid→fremtid.
   Admin-only og præeksisterende, men først skadeligt når en klient VISER
-  tippene. Fix: samme vagt i reglen (forbyd `puljeLockAt` fortid→fremtid på
-  games-update) — én vagt, ikke en tredje kopi af den server-side.
+  tippene. **Kæden er kørt igen mod den RETTEDE regel (2026-09-01): uændret.**
+  EJEREN HAR AFVIST en vagt mod fortid→fremtid. Beslutningen betyder: for et
+  spil uden `puljeLockRound` (Superligaen) kan en globalAdmin med to
+  skrivninger genåbne puljen, efter afsløringen har vist alle tip — og der
+  findes hverken alarm, driftlog eller felt-historik, der viser det bagefter,
+  fordi læsningen lukker igen samtidig. Kredsen er ejeren + globalAdmins, og
+  det er dét, der bærer beslutningen — ikke en teknisk grænse.
 
 - **Liga-ejer: slet + genopret spørgsmålet med SAMME doc-id.** `questions` har
   `allow delete: if qOwner()` (firestore.rules L999), mens `questionAnswers` har
@@ -475,6 +506,26 @@
   bærer dedup'en — den ene kalder retryer og ser den andens skrivning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **Rettelsen 5c4b9e0 (pulje-reglen) HOLDER — efterprøvet, ikke læst
+  (2026-09-01).** 241/241 i `functions/rules.test.js` + 30 egne PoC-checks mod
+  emulatoren. Mutationstestet på fire måder, alle røde og alle fanget af
+  repoets EGNE nye tests: (a) `afterDeadline()` → `!beforeDeadline()` → rød på
+  null-testen; (b) `deltager()` fjernet → rød på ikke-deltager-testen;
+  (c) tidssammenligningen fjernet → 4 røde; (d) den forkerte rettelse inde i
+  `beforeDeadline()` (`gameLock() == null || …`) → rød på
+  "null-deadline lukker STADIG skrivningen". Læse- og skrivevinduet har altså
+  hver sin vagt, og det er BEVIST, ikke skrevet. Ingen anden regel i filen
+  bruger en negeret tidsvagt (grep: alle `request.time`-sammenligninger er
+  positive; de resterende `!`-led står på `request.resource`-prædikater i
+  skrivegrene, hvor en evalueringsfejl fejler lukket).
+- **Ingen anden forbruger mistede adgang ved deltager-gaten.** De eneste
+  læsere af `puljeBets` er `PuljeTip.jsx` (eget dokument — egen-grenen er
+  urørt, målt også uden players-dokument) og den nye afsløring; serveren læser
+  med Admin SDK (`gameScoring.js` L400, `index.js` L1309) og rammes ikke.
+  BEMÆRK dog: der er ingen admin-gren, så en globalAdmin UDEN players-dokument
+  afvises — bygges der nogensinde en admin-flade over pulje-tippene, skal den
+  gå gennem en callable.
 
 - **`syncGameKickoffsNow`** (functions-platform/index.js L371): auth → rolle →
   `SYNCED_GAMES.find` → `Object.hasOwn(PROVIDERS, …)`. Intet bruger-input når

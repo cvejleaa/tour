@@ -837,8 +837,18 @@ service cloud.firestore {
         // ikke for et felt, der eksplicit er `null`: så er `gameLock()` null,
         // `beforeDeadline()` bliver false, og `!beforeDeadline()` bliver
         // TRUE. Alles pulje-tip var læsbare for enhver godkendt bruger, også
-        // midt i tipperioden. Admin-fladen skriver præcis `null`, når
-        // datofeltet tømmes (GameScheduleTab.jsx:70-71).
+        // midt i tipperioden.
+        //
+        // HVEM KAN SKRIVE EN EKSPLICIT NULL? Ikke admin-fladen. Den bygger
+        // ganske vist `null` (GameScheduleTab.jsx:70-71), men `toScheduleValue`
+        // (gameActions.js:24-29) oversætter det til `deleteField()`, og et
+        // tal/ISO til et Timestamp — feltet bliver altså MANGLENDE, ikke null,
+        // og manglende har altid fejlet lukket. En rå null kan kun komme fra
+        // Firebase-konsollen eller et ad hoc admin-SDK-script.
+        //
+        // Hullet var derfor uopnåeligt fra appen — men en regel må ikke hvile
+        // på, at enhver skribent opfører sig pænt. Værdien, en flade bygger, er
+        // ikke den værdi, basen får.
         //
         // Og rettelsen må IKKE laves inde i `beforeDeadline()`:
         // `gameLock() == null || request.time < gameLock()` lukker læsningen,

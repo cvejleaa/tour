@@ -90,11 +90,16 @@ async function main() {
   const game = gameSnap.exists ? gameSnap.data() : null;
 
   // PULJENS DEADLINE-TYPE. Reglen sammenligner `request.time` med feltet; er
-  // det et TAL (admin-fladen skriver `new Date(x).getTime()`,
-  // GameScheduleTab.jsx:71), er sammenligningen en evalueringsfejl, og HELE
-  // læsningen af andres pulje-tip afvises — mens klientens `toMillis()` glad
-  // accepterer tallet og tror, puljen er låst. Afsløringen ville stå
-  // permanent tom uden en eneste fejlbesked, så typen skal kendes.
+  // det et TAL, er sammenligningen en evalueringsfejl, og HELE læsningen af
+  // andres pulje-tip afvises — mens klientens `toMillis()` glad accepterer
+  // tallet og tror, puljen er låst. Afsløringen ville stå permanent tom uden
+  // en eneste fejlbesked.
+  //
+  // Admin-fladen KAN ikke lave den fejl: den bygger et tal
+  // (GameScheduleTab.jsx:71), men `toScheduleValue` (gameActions.js:24-29)
+  // gør det til et Timestamp, før det når basen. Et rå tal kan kun komme fra
+  // Firebase-konsollen eller et script — og netop derfor er det værd at måle,
+  // for dén vej har ingen vagt.
   const lock = game?.puljeLockAt;
   const lockType = lock == null ? String(lock)
     : (typeof lock?.toDate === 'function' ? 'Timestamp' : typeof lock);
