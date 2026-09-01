@@ -3,7 +3,7 @@
 // påmindelser stopper), så den må hverken skrives utilsigtet eller kunne sættes
 // til en værdi, visningen ikke kender.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 
 vi.mock('../../firebase', () => ({ db: {} }));
 
@@ -992,6 +992,41 @@ describe('⚽ Synk kampdetaljer nu', () => {
     expect(besked).toHaveTextContent('3 hvor kilden ikke svarede');
     expect(besked).toHaveTextContent(/prøves igen ved næste kørsel/);
     expect(besked).not.toHaveTextContent(/om en uge/i);
+  });
+
+  // TEST MANAGERS FUND: badge-FARVEN var helt utestet. Man kunne hardkode
+  // kind:'ok' uanset input, eller fjerne `d.ukendte` fra betingelsen, og alle
+  // 70 tests forblev grønne. Farven er dét, en administrator ser FØRST — og
+  // det var netop en manglende `ukendte` i den anden fladens farvevalg, der
+  // gjorde Drift-kortet grønt på en ukoblet kamp.
+  const farve = () => screen.getByText(/kampe fik detaljer|allerede halvleg/)
+    .closest('[class*="badge"], .msg, p, div').className;
+
+  it('farver beskeden RØD, når noget kræver en hånd', async () => {
+    // ukendte og uparsede kræver et menneske: koblingen retter sig aldrig
+    // selv, og en ulæselig kamp betyder, at VORES parsning er mangelfuld.
+    for (const d of [
+      { manglede: 34, skrevet: 33, ukendte: 1 },
+      { manglede: 10, skrevet: 9, uparsede: 1 },
+    ]) {
+      cleanup();
+      await klik(d);
+      expect(farve(), JSON.stringify(d)).toMatch(/err|red|fejl/i);
+    }
+  });
+
+  it('farver den IKKE rød, når intet kræver en hånd', async () => {
+    // uenige og kilde-nedetid retter sig selv eller er legitime. Et rødt kort,
+    // der ikke kan lukkes, lærer administratoren at ignorere fladen.
+    for (const d of [
+      { manglede: 10, skrevet: 8, uenige: 2 },
+      { manglede: 5, skrevet: 2, utilgaengelige: 3 },
+      { manglede: 8, skrevet: 8 },
+    ]) {
+      cleanup();
+      await klik(d);
+      expect(farve(), JSON.stringify(d)).not.toMatch(/err|red|fejl/i);
+    }
   });
 
   it('siger at kilden lukkede os ude — ikke at noget er i stykker', async () => {

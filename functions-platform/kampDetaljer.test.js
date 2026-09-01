@@ -24,7 +24,7 @@ const {
   syncKampDetaljerCore, detaljerAf, maalAf, kaedeOk, noegleAfKamp,
   heltal, tilskuertal, hentNoegler, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER, DETALJE_LOFT, AFVIST_KARANTAENE_MS, API,
-  DETALJE_BUDGET_BROEK,
+  DETALJE_BUDGET_BROEK, detaljeNiveau,
 } = require('./kampDetaljer');
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/livescore-kampe.json', import.meta.url), 'utf8'));
@@ -812,5 +812,48 @@ describe('syncKampDetaljerCore', () => {
       only: [{ id: 'r1-a', data: { ...KAMP_DATA, kickoff: new Date('2026-08-01T17:00:00Z') } }],
     }));
     expect(db.commits).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// detaljeNiveau — Drift-kortets dom.
+//
+// QUALITY CONTROLS FUND EFTER UDRULNINGEN, og en ægte produktionsfejl: reglen
+// lå inline i sweep-handleren i index.js, hvor den ikke kunne unit-testes — og
+// den var forkert. `ukendte` manglede i advarsels-betingelsen, så en kørsel med
+// 33 skrevne og 1 ukoblet gav GRØNT Drift-kort, mens den manuelle knap for
+// præcis samme tæller sagde rødt.
+//
+// Det er husets "korrekt er ikke komplet": jeg udvidede klassifikationen på
+// knappen (`ukendte` → err, fordi den ALDRIG retter sig selv) og fulgte den
+// ikke hele vejen ud i den anden flade, der læser samme tal.
+// ---------------------------------------------------------------------------
+describe('detaljeNiveau', () => {
+  it('en ren kørsel er ok', () => {
+    expect(detaljeNiveau({ skrevet: 8, uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0 })).toBe('ok');
+  });
+
+  it('ADVARER om en ukoblet kamp — den retter sig aldrig selv', () => {
+    // Dagens situation, tal for tal: 34 kampe, 33 skrevet, 1 uden kobling.
+    // Den gamle kode svarede 'ok' her, og dét var fejlen.
+    expect(detaljeNiveau({ skrevet: 33, uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 1 })).toBe('advarsel');
+  });
+
+  it('advarer om HVER af de fire — de har hver sin remedie', () => {
+    // Fire separate assertions, ikke ét kombineret objekt: et objekt med alle
+    // fire sat ville bestå, selv om tre af leddene var fjernet fra reglen.
+    for (const felt of ['uenige', 'uparsede', 'utilgaengelige', 'ukendte']) {
+      expect(detaljeNiveau({ [felt]: 1 }), felt).toBe('advarsel');
+    }
+  });
+
+  it('tåler skrald i tællerne uden at kalde det en advarsel', () => {
+    // Number(null) er 0 og Number('') er 0 — begge finite, begge falsy her.
+    // Men NaN ville være falsy ved en naiv sum og sandt ved en naiv boolean.
+    for (const v of [null, undefined, '', 'to', NaN, {}]) {
+      expect(detaljeNiveau({ ukendte: v }), String(v)).toBe('ok');
+    }
+    expect(detaljeNiveau(null)).toBe('ok');
+    expect(detaljeNiveau(undefined)).toBe('ok');
   });
 });

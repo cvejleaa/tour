@@ -452,13 +452,38 @@ describe('activeRound — efterslæbere trækker ikke landingen bagud', () => {
     expect(activeRound([R2, R7], Date.parse('2026-09-02T18:30:00Z'))).toBe(2);
   });
 
-  it('falder tilbage til den rå regel, hvis ALT er efterslæb', () => {
-    // Vagten må ikke kunne pege på ingen runde, fordi den var for grådig.
+  it('falder tilbage til den rå regel, hvis ALT fremtidigt er efterslæb', () => {
+    // TEST MANAGERS FUND: den første udgave af denne test ramte ALDRIG
+    // fallback-koden. Dens fixture havde nul efterslæbere, så det almindelige
+    // loop svarede, og hele blokken kunne slettes med grøn suite. Testen
+    // bestod af den forkerte grund — præcis husets kendte fælde.
+    //
+    // For at NÅ fallbacket skal hver eneste FREMTIDIGE kamp være efterslæber.
+    // Her ligger rundens tre egne kampe i august (overstået), og kun den
+    // fremskudte december-kamp er tilbage — den er efterslæber, fordi rundens
+    // uge er augusts.
     const kun = { round: 5, matches: [
-      { id: 'e1', kickoff: k('2026-08-08T16:00:00Z') },
-      { id: 'e2', kickoff: k('2026-08-08T17:00:00Z') },
+      { id: 'a', kickoff: k('2026-08-08T16:00:00Z') },
+      { id: 'b', kickoff: k('2026-08-08T18:00:00Z') },
+      { id: 'c', kickoff: k('2026-08-09T14:00:00Z') },
+      { id: 'sent', kickoff: k('2026-12-01T17:00:00Z') },
     ] };
-    const sen = { round: 6, matches: [{ id: 'f', kickoff: k('2026-12-01T17:00:00Z') }] };
-    expect(activeRound([kun, sen], Date.parse('2026-08-01T00:00:00Z'))).toBe(5);
+    // Forudsætningen bindes EKSPLICIT: uden den kan fixturen drive, så testen
+    // igen består uden at røre fallbacket, og ingen ville opdage det.
+    expect(efterslaebere([kun]).map((e) => e.match.id)).toEqual(['sent']);
+    // …og ANDET FORSØG var også forkert. At give august-kampene et resultat
+    // lukkede ikke "mangler facit"-vejen, for december-kampen har jo netop
+    // intet facit — så dén regel svarede 5, og fallbacket var stadig unødigt.
+    // To udgaver af samme test, begge grønne, begge uden at røre koden.
+    //
+    // Fallbacket isoleres kun ved at lade de to regler give FORSKELLIGE svar:
+    // en TIDLIGERE runde med en uafgjort kamp uden læseligt kickoff svarer 3
+    // ad "mangler facit"-vejen, mens fallbacket svarer 5. Assertionen på 5 er
+    // derfor kun sand, hvis fallbacket findes.
+    const uden = { round: 3, matches: [{ id: 'ulaeselig', kickoff: 'i morgen' }] };
+    const afgjort = { round: 5, matches: kun.matches.map((m) => (
+      m.id === 'sent' ? m : { ...m, result: '1' }
+    )) };
+    expect(activeRound([uden, afgjort], Date.parse('2026-11-01T00:00:00Z'))).toBe(5);
   });
 });
