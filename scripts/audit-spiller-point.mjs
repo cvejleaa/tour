@@ -27,6 +27,11 @@
 //      `vektorStemmer` sætter spilleren til 0 uden fejlbesked, hvis vektoren
 //      ikke kan gengive totalen. Begge dele printes pr. liga.
 //
+// Til sidst to ting, der ikke kan ses på én spiller: en scanning for tips på
+// GATEDE kampe (lagt, scoret, og holdt uden for totalen uden fejlbesked), og
+// hele feltets totaler og runde-nøgler. Et hul i én vektor kan ikke tolkes
+// alene — mangler runde 1 for alle, er den gatet eller uspillet.
+//
 // Der regnes med de SAMME moduler som fladen og serveren — ikke en kopi. En
 // kopi ville kunne være enig med sig selv og uenig med spillet.
 //
@@ -207,6 +212,43 @@ async function main() {
         + `  kickoff ${dkTid(kickoffMs(m))}`);
     }
     if (!chancer.length) console.log('  ingen — et fald kan ikke komme derfra.');
+  }
+
+  // --- Gatede tips --------------------------------------------------------
+  //
+  // Et tip på en kamp FØR spillets startrunde bliver scoret som alle andre —
+  // `points` står på dokumentet — men `gatedIds` holder det ude af totalen.
+  // Spilleren ser altså et tip, han har lagt, og et facit han ramte, uden at
+  // det tæller. Det siger fladen ham ikke, og der findes ingen fejlbesked.
+  //
+  // Kigges der kun på ÉN spiller, kan det ikke ses: hans egen udskrift viser
+  // bare en runde, der mangler. Derfor scannes hele spillets bets her.
+  console.log(`\n${'='.repeat(66)}\nGATEDE TIPS (lagt, scoret — og holdt uden for totalen)\n${'='.repeat(66)}`);
+  if (!gated.size) {
+    console.log('  Spillet gater ingen kampe. Der kan ikke findes gatede tips.');
+  } else {
+    const alleBetsSnap = await gameRef.collection('bets').get();
+    const ramt = new Map(); // uid → {antal, point, runder:Set}
+    for (const d of alleBetsSnap.docs) {
+      const b = d.data();
+      if (!gated.has(b.matchId)) continue;
+      const r = ramt.get(b.uid) || { antal: 0, point: 0, runder: new Set() };
+      r.antal += 1;
+      r.point += Number(b.points) || 0;
+      const nr = roundCtx.byMatch[b.matchId]?.round;
+      r.runder.add(Number.isFinite(nr) ? nr : '?');
+      ramt.set(b.uid, r);
+    }
+    console.log(`  Gatede kampe: ${gated.size} (spillet tæller fra runde ${startRunde}).`);
+    if (!ramt.size) {
+      console.log(`  Ingen af ${alleBetsSnap.size} tips ligger på dem. Ingen mister point på gaten.`);
+    } else {
+      console.log(`  ${ramt.size} spiller(e) har tips på en gatet kamp:`);
+      for (const [uid, r] of [...ramt].sort((a, b) => b[1].point - a[1].point)) {
+        console.log(`    ${navnAf(uid).padEnd(22)} ${r.antal} tip i runde ${[...r.runder].join(',')}`
+          + `  →  ${r1(r.point)} point tælles IKKE med`);
+      }
+    }
   }
 
   // --- Feltet til sammenligning ------------------------------------------
