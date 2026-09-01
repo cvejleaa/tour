@@ -568,7 +568,40 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
   return ud;
 }
 
+/**
+ * Hvor alvorlig er en kampdetalje-kørsel? ÉN regel, ét sted.
+ *
+ * LAA FØR INLINE I SWEEP-HANDLEREN i index.js, og dét var fejlen: en
+ * `onSchedule`-krop kan ikke unit-testes, saa klassifikationen var udaekket —
+ * og den var forkert. `ukendte` (kampe, der ikke kan kobles til kilden) blev
+ * ikke naevnt i advarsels-betingelsen, saa en koersel med 33 skrevne og 1
+ * ukoblet gav GROENT Drift-kort, mens den manuelle knap for samme taeller
+ * sagde roedt. Praecis den situation opstod i produktion.
+ *
+ * Det er husets "korrekt er ikke komplet": evnen blev udvidet paa knappen og
+ * ikke fulgt hele vejen ud i den anden flade, der laeser samme tal.
+ *
+ * REMEDIERNE, som niveauet skal spejle:
+ *   uenige         et menneske skal se paa kampen        → advarsel
+ *   uparsede       VORES parsning er mangelfuld          → advarsel
+ *   utilgaengelige kilden var nede; retter sig selv      → advarsel
+ *   ukendte        koblingen er droevet; retter sig ALDRIG selv → advarsel
+ *
+ * Alle fire er ADVARSLER, ikke fejl: et roedt kort, der ikke kan lukkes,
+ * laerer ejeren at ignorere fladen. De totale udfald (alt afvist / intet
+ * koblet) haandteres af egne grene med alarm i index.js.
+ *
+ * @param {{uenige?:number, uparsede?:number, utilgaengelige?:number, ukendte?:number}} d
+ * @returns {'ok'|'advarsel'}
+ */
+function detaljeNiveau(d) {
+  const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  return n(d?.uenige) || n(d?.uparsede) || n(d?.utilgaengelige) || n(d?.ukendte)
+    ? 'advarsel' : 'ok';
+}
+
 module.exports = {
+  detaljeNiveau,
   syncKampDetaljerCore,
   DETALJE_BUDGET_BROEK,
   detaljerAf, maalAf, kaedeOk, noegleAfKamp, heltal, tilskuertal, fladeHaendelser,

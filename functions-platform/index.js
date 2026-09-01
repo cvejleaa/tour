@@ -35,7 +35,7 @@ const {
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
-const { syncKampDetaljerCore, DETALJE_BUDGET_BROEK } = require('./kampDetaljer');
+const { syncKampDetaljerCore, DETALJE_BUDGET_BROEK, detaljeNiveau } = require('./kampDetaljer');
 
 // Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
 const SWEEP_TIMER = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
@@ -669,8 +669,11 @@ exports.syncSuperligaSweep = onSchedule(
           if (d.ukendte) dele.push(`${d.ukendte} uden kobling`);
           const besked = `Kampdetaljer: ${dele.join(', ')}.`;
           console.log(`Kampdetaljer ${g.gameId}: ${dele.join(', ')}.`);
-          if (d.uenige || d.uparsede || d.utilgaengelige) st.advarsel(besked, { detaljerMangler: tilbage });
-          else st.ok(besked, { detaljerMangler: tilbage });
+          // Reglen bor i kampDetaljer.js, ikke her. Den stod inline og var
+          // derfor udaekket — og forkert: `ukendte` manglede, saa 33 skrevne
+          // og 1 ukoblet gav GROENT kort, mens knappen for samme tal sagde
+          // roedt. Quality Controls fund efter udrulningen.
+          st[detaljeNiveau(d)](besked, { detaljerMangler: tilbage });
         }
       } catch (err) {
         if (err?.message === 'SPRING_OVER') {
