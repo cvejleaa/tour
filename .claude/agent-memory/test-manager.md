@@ -224,6 +224,69 @@
   forventet 2). Denne del af planens kernepåstand er altså bevist, i
   modsætning til de fund ovenfor.
 
+## `livescoreHold.js` — kortlægning til livescore.com (commit 9d7c1fa, aug. 2026)
+
+- **En 14-cifre-regex, der kun tester NEDRE grænse, lader ØVRE grænse
+  overleve.** `kampNoegle`s `/^\d{14}$/`-vagt (`functions-platform/livescoreHold.js:81`)
+  har et testbatteri (`livescoreHold.test.js` "afviser en tid, der ikke er 14
+  cifre") med kun FOR KORTE/forkerte strenge (`''`, `null`, `undefined`,
+  `'2026083119'` (10 cifre), `'20260831190000Z'`, `'abc'`) — ingen for LANG
+  numerisk streng. Mutationsbevist: at bytte regex til `/^\d{14,30}$/` lader
+  alle 10 tests i filen forblive grønne, fordi ingen fixture nogensinde giver
+  en ren, udelukkende-cifret streng på 15+ tegn. Samme mønster som "et bånd,
+  der rummer både før og efter" i CLAUDE.md, blot på strenglængde i stedet
+  for et tal. Tjek næste gang en `{N}`-regex bruges som validering: findes
+  der et REJECT-testtilfælde på begge sider af grænsen (for kort OG for
+  langt), ikke kun den ene?
+- **En redundant vagt, der er "dækket" af en senere falsy-check, kan fjernes
+  ubemærket.** `livescoreKode`s guard `typeof kode !== 'string' || kode === ''`
+  (linje 55) — fjern kun `|| kode === ''`, og funktionen returnerer `''`
+  (fra `AFVIGER[''] || ''`) i stedet for `null` for tom streng. Alle 10 tests
+  forbliver grønne, fordi INGEN test kalder `livescoreKode('')` direkte;
+  den eneste vej er via `kampNoegle`, hvor `!h`/`!u` behandler `''` og `null`
+  ens (begge falsy). Funktionens egen dokumenterede kontrakt
+  (`@returns {string|null}`) er dermed ubevist for netop det tilfælde, JSDoc'en
+  nævner. Tjek næste gang en hjælpefunktion har en direkte unit-kontrakt
+  ("returnerer X for tomt/ugyldigt input"): er der en test, der kalder
+  funktionen SELV med det input — ikke kun en wrapper, der tilfældigvis
+  behandler resultatet ens uanset hvad?
+- **"Denne test er den vigtigste, fordi den dækker fald-tilbagen" holdt IKKE
+  ved mutation — tjek altid selv, hvilken test der rent faktisk dør.**
+  Påstanden var, at "de hold, tabellen IKKE nævner, har SAMME kode begge
+  steder" (test 2) er vigtigst, fordi test 1 "bruger netop fald-tilbagen til
+  sit opslag" og derfor ikke kan afsløre en fejl i den. Mutationsbevist er
+  det MODSATTE: test 2 kalder ALDRIG `livescoreKode()` — den genberegner
+  fald-tilbagen manuelt (`kode in AFVIGER` / rå `deres.has(kode)`). Muterede
+  jeg selve funktionen (`return AFVIGER[kode] || (kode + 'X')` — en reel
+  fald-tilbage-fejl), fejlede test 1 for fire hold (AGF, FCN, OB, ACH), mens
+  test 2 forblev 100 % GRØN, fordi den aldrig ser funktionens output. Test 1
+  er altså den, der reelt beviser fald-tilbagen i PRODUKTIONSKODEN; test 2
+  beviser kun en DATA-invariant (at livescores egne koder for de 24 hold
+  matcher vores rå tabel), uafhængig af om `livescoreKode` selv er korrekt
+  implementeret — og er for den invariant redundant med test 1 ved ægte
+  drift (livescore omdøber et hold rammes lige hårdt af begge). Test 3
+  ("stadig en afvigelse") har sin egen unikke fangst: en fejlagtig
+  AFVIGER-post, der peger et allerede-matchende hold over på et ANDET gyldigt
+  livescore-hold (fx `OB: 'AGF'`), slipper forbi BÅDE test 1 og test 2, men
+  fanges af test 3's `deres.has(vor)`-check. Konklusion: ranger aldrig
+  tests efter et ræsonnement om hvad de "burde" dække — kør mutationen og
+  se hvilken der rent faktisk bliver rød.
+- **`ctx.skip()` er en bekræftet bedre mekanisme end `console.warn` + tidligt
+  `return` for en netværksafhængig test.** Testet direkte i vitest 1.6.1:
+  kalder man `ctx.skip()` i test-body'en (test skal modtage `ctx` som
+  parameter), viser reporteren "N skipped" adskilt fra "passed" i selve
+  sammendraget (`Tests  1 skipped (1)`) — synligt i selv den korte
+  CI-hale, uden at nogen behøver læse hele loggen. `console.warn` + `return`
+  giver derimod stadig "passed", og beskeden drukner (og forsvinder helt med
+  `--silent`, som er husets DOKUMENTEREDE kommando for netop denne mappe).
+  Bemærk dog: CI's `ci.yml`-job (`functions`) kører `npm test` UDEN
+  `--silent` for `functions-platform` — så selve advarslen ER synlig i rå
+  CI-logs. Problemet er ikke `--silent` i CI, men husets egen regel om
+  ALDRIG at læse et grønt testoutput: en grøn CI-tjekmærke skjuler et skip
+  lige så effektivt som `--silent` ville, fordi ingen åbner loggen når den
+  er grøn. `ctx.skip()` retter det ved at gøre skippet synligt i selve
+  PASS/FAIL-optællingen, ikke kun i logteksten.
+
 ## Mønster at genkende
 
 Alle tre fund ovenfor deler samme form: en test, der ser ud til at dække en

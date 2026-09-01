@@ -9,8 +9,12 @@
 // Testen læser derfor den LEVENDE kilde. Det er et bevidst brud med reglen om
 // hermetiske tests, og prisen er, at den kan fejle på en netværksfejl. Til
 // gengæld fejler den DAGEN EFTER en omdøbning i stedet for midt i en sæson.
-// Uden netværk springes den over — en test, der ikke kunne køre, må ikke
-// ligne en, der bestod.
+// Uden netværk springes den over med `ctx.skip()` og IKKE med et tavst
+// `return`. Forskellen er hele pointen: et `return` giver en GRØN test uden
+// en eneste assertion, og en grøn CI-markering læser ingen. `ctx.skip()`
+// tælles derimod som "N skipped" i selve sammendraget, så et udfald — eller
+// en blokering af CI's IP, hvilket er sandsynligt for et browser-endpoint —
+// er synligt uden at nogen skal åbne loggen. Test Managers krav.
 //
 // Den efterprøver TO ting, og den anden er den vigtigste:
 //   1. Afvigelserne i tabellen er stadig afvigelser.
@@ -66,29 +70,29 @@ describe.each(SPIL)('livescore-koder · $navn', ({ fil, sti }) => {
     try { deres = await deresKoder(sti); } catch (e) { fejl = e; }
   }, 30000);
 
-  it('hvert af VORES hold har en kode, livescore kender', () => {
-    if (fejl) { console.warn(`sprunget over — kilden svarede ikke: ${fejl.message}`); return; }
+  it('hvert af VORES hold har en kode, livescore kender', (ctx) => {
+    if (fejl) return ctx.skip();
     const mangler = [...voresHold(fil)]
       .filter(([, kode]) => !deres.has(livescoreKode(kode)))
       .map(([navn, kode]) => `${navn} (${kode} → ${livescoreKode(kode)})`);
     expect(mangler, 'hold uden modstykke hos livescore').toEqual([]);
   });
 
-  it('de hold, tabellen IKKE nævner, har SAMME kode begge steder', () => {
+  it('de hold, tabellen IKKE nævner, har SAMME kode begge steder', (ctx) => {
     // Fald-tilbagen dækker 24 af 32 hold. Uden denne kunne den være forkert
     // for et af dem, uden at testen ovenfor opdagede det — for den bruger
     // netop fald-tilbagen til sit opslag.
-    if (fejl) { console.warn(`sprunget over — kilden svarede ikke: ${fejl.message}`); return; }
+    if (fejl) return ctx.skip();
     const uden = [...voresHold(fil)].filter(([, kode]) => !(kode in AFVIGER));
     const forkerte = uden.filter(([, kode]) => !deres.has(kode)).map(([n]) => n);
     expect(forkerte, 'hold uden for tabellen, hvis kode IKKE matcher').toEqual([]);
     expect(uden.length).toBeGreaterThan(0);
   });
 
-  it('hver af tabellens afvigelser er STADIG en afvigelse', () => {
+  it('hver af tabellens afvigelser er STADIG en afvigelse', (ctx) => {
     // Retter livescore en dag sin kode til vores, bliver posten overflødig —
     // og en tabel med døde poster er en tabel, ingen tør rette i.
-    if (fejl) { console.warn(`sprunget over — kilden svarede ikke: ${fejl.message}`); return; }
+    if (fejl) return ctx.skip();
     const vores = new Set(voresHold(fil).values());
     for (const [vor, deresKode] of Object.entries(AFVIGER)) {
       if (!vores.has(vor)) continue; // hører til det andet spil
@@ -111,6 +115,24 @@ describe('kampNoegle', () => {
     for (const t of ['', null, undefined, '2026083119', '20260831190000Z', 'abc']) {
       expect(kampNoegle(t, 'AVL', 'ARS'), String(t)).toBeNull();
     }
+  });
+
+  it('afviser en FOR LANG cifferstreng, ikke kun en for kort', () => {
+    // Test Managers fund: `/^\d{14}$/` kunne blive til `/^\d{14,30}$/` med
+    // grøn suite, fordi reject-listen kun rummede korte og ugyldige strenge.
+    // Et bånd, der kun lukker den ene ende, måler kun den ene ende.
+    expect(kampNoegle('202608311900001', 'AVL', 'ARS')).toBeNull();
+    expect(kampNoegle('2026083119000000', 'AVL', 'ARS')).toBeNull();
+  });
+
+  it('livescoreKode giver null for tom streng — ikke tom streng', () => {
+    // Kontrakten siger `string|null`. Uden denne kunne vagten fjernes, så
+    // funktionen returnerede '' — grøn suite, fordi den eneste kalder
+    // (`kampNoegle`) behandler '' og null ens. En kontrakt, kun én kalder
+    // efterprøver, er ikke efterprøvet.
+    expect(livescoreKode('')).toBeNull();
+    expect(livescoreKode(null)).toBeNull();
+    expect(livescoreKode(42)).toBeNull();
   });
 
   it('afviser en manglende holdkode', () => {

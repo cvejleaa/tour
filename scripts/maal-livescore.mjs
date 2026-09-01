@@ -57,6 +57,53 @@ const SPIL = [
   { navn: 'Superligaen', fil: 'superligaTeams2026.js', land: 'denmark', liga: 'superliga' },
 ];
 
+/**
+ * Findes de felter, hele kildeskiftet er begrundet med — eller er de en
+ * påstand? Quality Control fangede, at scriptets egen indledning lovede
+ * målscorere, halvleg, tilskuere og dommer, mens koden kun rørte liste-
+ * endpointet. Et løfte, ingen kode efterprøver, er præcis den slags, huset
+ * har en regel imod.
+ *
+ * Prøven tages på ÉN færdigspillet kamp pr. spil: er kampen ikke afgjort,
+ * findes hverken halvleg eller tilskuertal endnu, og et "manglende" felt
+ * ville sige mere om kampens tilstand end om kilden.
+ */
+async function proevDetaljer(kamp, navn) {
+  const id = kamp.Eid;
+  const hent = async (sti) => {
+    const res = await fetch(`${API}/${sti}/soccer/${id}`, OPT);
+    return res.ok ? res.json() : null;
+  };
+  const [inc, info] = await Promise.all([hent('incidents'), hent('info')]);
+  console.log(`  detaljer for Eid ${id} (${kamp.T1?.[0]?.Nm} - ${kamp.T2?.[0]?.Nm}):`);
+
+  const maal = [];
+  const kort = [];
+  for (const [halvleg, liste] of Object.entries(inc?.Incs || {})) {
+    for (const h of liste) {
+      // Et mål ligger som en ydre hændelse med scorer og oplægger i en indre
+      // liste. Kortene ligger fladt. Det er kildens form, ikke vores.
+      if (Array.isArray(h.Incs)) maal.push({ halvleg, min: h.Min, folk: h.Incs.map((x) => x.Pn) });
+      else if (h.Pn) kort.push({ halvleg, min: h.Min, navn: h.Pn, kode: h.IT });
+    }
+  }
+  const linjer = [
+    ['halvlegsstilling', inc && inc.Trh1 != null ? `${inc.Trh1}-${inc.Trh2}` : null],
+    ['slutstilling', inc && inc.Tr1 != null ? `${inc.Tr1}-${inc.Tr2}` : null],
+    ['målscorere', maal.length ? maal.map((m) => `${m.min}' ${m.folk.join(' / ')}`).join(' · ') : null],
+    ['kort m.m.', kort.length ? kort.map((k) => `${k.min}' ${k.navn} (IT=${k.kode})`).join(' · ') : null],
+    ['tilskuertal', info?.Vsp ?? null],
+    ['stadion', info?.Vnm ?? null],
+    ['dommer', info?.Refs?.[0]?.Nm ?? null],
+  ];
+  for (const [felt, vaerdi] of linjer) {
+    console.log(`    ${felt.padEnd(18)} ${vaerdi == null ? 'MANGLER' : vaerdi}`);
+  }
+  const mangler = linjer.filter(([, v]) => v == null).map(([f]) => f);
+  if (mangler.length) console.log(`    ⚠ ${navn}: ${mangler.length} lovede felter mangler`);
+  return mangler.length === 0;
+}
+
 async function main() {
   console.log(`Målt: ${new Date().toISOString()}\n`);
   for (const s of SPIL) {
@@ -95,8 +142,13 @@ async function main() {
 
     // 3. KRYDSVALIDERING af tilskuertallet mod vores egen kilde sker i
     //    parityscriptet; her rapporteres blot, hvor mange der HAR tallet.
-    const fаerdige = kampe.filter((e) => e.Eps === 'FT');
-    console.log(`færdige kampe: ${fаerdige.length}\n`);
+    const faerdige = kampe.filter((e) => e.Eps === 'FT');
+    console.log(`færdige kampe: ${faerdige.length}`);
+    // Den ÆLDSTE færdige kamp, ikke den nyeste: tilskuertallet halter et
+    // døgn eller to efter slutfløjt, så en frisk kamp ville se ud som om
+    // kilden manglede feltet.
+    if (faerdige.length) await proevDetaljer(faerdige[0], s.navn);
+    console.log('');
   }
   console.log('Otte undtagelser i alt betyder: nøglen kan IKKE være ren kode-');
   console.log('sammenligning. Der skal en oversættelsestabel til, og den skal have');
