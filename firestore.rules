@@ -829,6 +829,34 @@ service cloud.firestore {
         function beforeDeadline() {
           return gameLock() != null && request.time < gameLock();
         }
+        // EFTER-VAGTEN ER SIN EGEN, IKKE EN NEGERING AF FØR-VAGTEN.
+        //
+        // Læsegrenen stod før som `!beforeDeadline()`, og det var et hul.
+        // Kommentaren over `gameLock()` lover, at reglen fejler lukket uden
+        // `puljeLockAt` — og det passer for et MANGLENDE felt. Det passer
+        // ikke for et felt, der eksplicit er `null`: så er `gameLock()` null,
+        // `beforeDeadline()` bliver false, og `!beforeDeadline()` bliver
+        // TRUE. Alles pulje-tip var læsbare for enhver godkendt bruger, også
+        // midt i tipperioden. Admin-fladen skriver præcis `null`, når
+        // datofeltet tømmes (GameScheduleTab.jsx:70-71).
+        //
+        // Og rettelsen må IKKE laves inde i `beforeDeadline()`:
+        // `gameLock() == null || request.time < gameLock()` lukker læsningen,
+        // men åbner SKRIVNINGEN på ubestemt tid. Læse- og skrivevinduet skal
+        // have hver sin vagt. `!før` er ikke `efter` i tre-værdi-logik.
+        function afterDeadline() {
+          return gameLock() != null && request.time >= gameLock();
+        }
+        // Puljen er åben for spillets DELTAGERE, ikke for hele platformen.
+        // `isApproved()` er en platform-tærskel: en godkendt bruger uden
+        // players-dokument i spillet kunne liste alles tip — og `users/{uid}`
+        // er frit læsbar, så uid→navn er trivielt. Pulje-dokumenterne bærer
+        // desuden server-satte `points`/`correct`, mens `players` og `bets`
+        // er liga-gatede; uden denne vagt var pulje-vejen en omvej uden om
+        // liga-gaten på point.
+        function deltager() {
+          return exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid));
+        }
         function poolSize() {
           return spil().get('pulje', {}).get('poolSize', 0);
         }
@@ -836,7 +864,7 @@ service cloud.firestore {
           return spil().get('pulje', {}).get('nedSize', 0);
         }
         allow read: if (isSignedIn() && request.auth.uid == uid)
-          || (isApproved() && !beforeDeadline());
+          || (isApproved() && deltager() && afterDeadline());
         // Har spillet et bundspørgsmål (nedSize > 0), skal BEGGE lister med i
         // samme skrivning — et halvt svar ville få admin-status til at kalde
         // spilleren "færdig" og ryk-mailen til at springe hen over (QC-fund).

@@ -107,6 +107,20 @@ async function main() {
   const game = gameSnap.exists ? gameSnap.data() : null;
   const startRunde = startRundeFor(game, kampe);
   const gated = gatedeKampe(kampe, startRunde);
+  // PULJENS DEADLINE-TYPE. Reglen sammenligner `request.time` med feltet; er
+  // det et TAL (admin-fladen skriver `new Date(x).getTime()`,
+  // GameScheduleTab.jsx:71), er sammenligningen en evalueringsfejl, og HELE
+  // læsningen af andres pulje-tip afvises — mens klientens `toMillis()` glad
+  // accepterer tallet og tror, puljen er låst. Afsløringen ville stå
+  // permanent tom uden en eneste fejlbesked, så typen skal kendes.
+  const lock = game?.puljeLockAt;
+  const lockType = lock == null ? String(lock)
+    : (typeof lock?.toDate === 'function' ? 'Timestamp' : typeof lock);
+  console.log(`puljeLockAt: ${lockType}`
+    + (lockType === 'Timestamp' ? ` (${lock.toDate().toISOString()})` : '')
+    + (lockType === 'number' ? '  ← TAL: reglen afviser andres tip' : '')
+    + (lockType === 'null' ? '  ← NULL' : ''));
+
   console.log(`Spillets startrunde: ${startRunde ?? 'ingen gate'}`
     + `   (game.startRound=${game?.startRound ?? '–'})`
     + `   ${gated.size} kamp(e) gatet ud`);

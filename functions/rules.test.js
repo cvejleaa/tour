@@ -12,7 +12,7 @@
 // Disse tests verificerer de kritiske sikkerhedsprincipper fra architecture.md.
 // ---------------------------------------------------------------------------
 
-import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
   initializeTestEnvironment,
   assertSucceeds,
@@ -3051,6 +3051,102 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
         testEnv.authenticatedContext('pb2').firestore(),
         'games', 'pb-forbi', 'puljeBets', 'pb1',
       )));
+    });
+
+    // --- LÆSEVEJEN SOM KLIENTEN VIL BRUGE DEN: en LIST, ikke et GET --------
+    //
+    // Testene ovenfor beviser `getDoc` på ÉT fremmed dokument. Afsløringen på
+    // pulje-fanen skal hente HELE samlingen, og dér falder forespørgslen, hvis
+    // bare ét dokument fejler evalueringen — "regler er ikke filtre". Hele
+    // suiten var grøn både med og uden null-hullet nedenfor; det var udækket.
+    describe('LIST på hele samlingen — afsløringen efter deadline', () => {
+      const FOR_EN_TIME = Timestamp.fromMillis(Date.now() - 3600e3);
+      const liste = (uid, gameId) => getDocs(collection(
+        testEnv.authenticatedContext(uid).firestore(), 'games', gameId, 'puljeBets',
+      ));
+      async function seedToTip(gameId, lockAt) {
+        await createUser('pb1', 'player', 'approved');
+        await createUser('pb2', 'player', 'approved');
+        await createGame(gameId, { pulje: { poolSize: 6 }, ...(lockAt !== undefined ? { puljeLockAt: lockAt } : {}) });
+        await seedMembership(gameId, 'pb1');
+        await seedMembership(gameId, 'pb2');
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          for (const u of ['pb1', 'pb2']) {
+            await setDoc(doc(ctx.firestore(), 'games', gameId, 'puljeBets', u),
+              { uid: u, championship: HOLD.slice(0, 6) });
+          }
+        });
+      }
+
+      it('EFTER deadline kan en deltager liste ALLE tip — og få dem alle', async () => {
+        await seedToTip('pb-list-efter', FOR_EN_TIME);
+        const snap = await assertSucceeds(liste('pb2', 'pb-list-efter'));
+        // Ikke bare "lykkedes": ANTALLET. En regel, der tavst filtrerede
+        // fremmede dokumenter væk, ville bestå en ren succes-assertion.
+        expect(snap.size).toBe(2);
+      });
+
+      it('FØR deadline afvises listen — uden den beviser testen ovenfor intet', async () => {
+        await seedToTip('pb-list-foer', OM_EN_TIME);
+        await assertFails(liste('pb2', 'pb-list-foer'));
+      });
+
+      it('puljeLockAt: NULL åbnede alles tip midt i tipperioden', async () => {
+        // RØD PÅ DEN GAMLE REGEL. `!beforeDeadline()` var sand ved en
+        // eksplicit null: gameLock() er null, beforeDeadline() bliver false.
+        // Kommentaren lovede, at reglen fejlede lukket "uden puljeLockAt" —
+        // og det passede kun for et MANGLENDE felt. Admin-fladen skriver
+        // netop null, når datofeltet tømmes (GameScheduleTab.jsx:70-71).
+        await seedToTip('pb-list-null', null);
+        await assertFails(liste('pb2', 'pb-list-null'));
+      });
+
+      it('null-deadline lukker STADIG skrivningen — vagterne er hver sin', async () => {
+        // Fanger den forkerte rettelse: laver man vagten om inde i
+        // `beforeDeadline()` (gameLock() == null || …), lukker læsningen,
+        // men skrivningen står åben på ubestemt tid.
+        await seedToTip('pb-null-skriv', null);
+        await assertFails(setDoc(doc(
+          testEnv.authenticatedContext('pb1').firestore(),
+          'games', 'pb-null-skriv', 'puljeBets', 'pb1',
+        ), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      });
+
+      it('MANGLENDE puljeLockAt afviser både list og skrivning (uændret)', async () => {
+        await seedToTip('pb-list-mangler', undefined);
+        await assertFails(liste('pb2', 'pb-list-mangler'));
+        await assertFails(setDoc(doc(
+          testEnv.authenticatedContext('pb1').firestore(),
+          'games', 'pb-list-mangler', 'puljeBets', 'pb1',
+        ), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      });
+
+      it('puljeLockAt som TAL afviser listen — typekravet fryses', async () => {
+        // Admin-fladen skriver `new Date(x).getTime()`, altså et tal
+        // (GameScheduleTab.jsx:71). Med et tal er `request.time >= <int>` en
+        // evalueringsfejl, mens klientens toMillis() glad accepterer tallet og
+        // tror, puljen er låst. Uden denne test ville afsløringen stå
+        // permanent tom for sådan et spil, uden en eneste fejlbesked.
+        await seedToTip('pb-list-tal', Date.now() - 3600e3);
+        await assertFails(liste('pb2', 'pb-list-tal'));
+      });
+
+      it('en godkendt IKKE-deltager afvises — puljen er spillets, ikke platformens', async () => {
+        // VENDT MED VILJE. På den gamle regel lykkedes dette: isApproved() er
+        // en platform-tærskel, så enhver godkendt bruger kunne liste alles tip
+        // i et spil, han ikke deltager i — og users/{uid} giver navnet.
+        await seedToTip('pb-list-fremmed', FOR_EN_TIME);
+        await createUser('pb-udenfor', 'player', 'approved');
+        await assertFails(liste('pb-udenfor', 'pb-list-fremmed'));
+      });
+
+      it('eget tip kan stadig læses FØR deadline — den gren er urørt', async () => {
+        await seedToTip('pb-eget-foer', OM_EN_TIME);
+        await assertSucceeds(getDoc(doc(
+          testEnv.authenticatedContext('pb1').firestore(),
+          'games', 'pb-eget-foer', 'puljeBets', 'pb1',
+        )));
+      });
     });
   });
 
