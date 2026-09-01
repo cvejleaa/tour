@@ -526,6 +526,18 @@
   `matches`/`udsatte` felt for felt (`home`, `away`, `score`, `surprise`) — der
   er intet `...m`-spread. `maal`, `scorer` og `oplaeg` findes ikke i fakta.
   Målscorernavne bruges kun i `FootballTip.jsx` som React-børn (escapes).
+- **`selvmaal` + `detaljerVersion` (584d845) er BEKRÆFTET RENT bortset fra ét
+  kast.** PoC kørt uden emulator (fake db + fetchFn, se PoC-opsætningen):
+  `selvmaal` er `h.IT === 39` og derefter `m.selvmaal === true` — typeof
+  BOOLEAN for alle giftige `IT` jeg prøvede (`'39'`, `' 39'`, `{}`,
+  `{toString:null}`, `[39]`, `true`, `null`, `undefined`) og immun over for
+  `Object.prototype.selvmaal = true`. Skrivningen indeholder præcis
+  `detaljerSyncedAt, detaljerVersion, halvleg*, tilskuere, maal` — en kilde,
+  der returnerer `result/homeGoals/awayGoals/kickoff` i incidents- eller
+  info-svaret, får dem IKKE med (kørt). Loft (8 af 20 kandidater = 17 fetch),
+  wall-clock-budget og 429-kredsløbsafbryder virker uændret EFTER versions-
+  bumpet. En genhentning, hvor kilden har mistet `Incs`, skriver kun
+  `detaljerAfvistAt/Grund` — de gamle `maal` overlever (kørt).
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
@@ -769,7 +781,11 @@ sweep-timeout-resten står i `Angrebsveje der VIRKER` (giftig post i
 stage-listen; 5xx tælles som `uparsede` og fyrer alarmen med det forkerte
 remedie; Drift-kortet skrives efter det dyreste led). Krav 6 (`IT`-whitelist)
 blev bevidst erstattet af den selvvaliderende `Sc`-udledning — accepteret, se
-faldgruberne. Skriveomfang, `maal[]`-loft, kredsløbsafbryder, callable-adgang og
+faldgruberne. Med `selvmaal` (218373b) læses `IT` igen semantisk, men i den
+SIKRE retning: kun 39 → selvmål, ukendt kode → almindeligt mål, og flaget
+rører hverken kæde-tjek, måltal eller point. En fjendtlig kilde kan sætte
+"selvmål" på en ægte scorer — ære, ikke point, og samme tillid vi allerede
+giver kildens scorernavne. Skriveomfang, `maal[]`-loft, kredsløbsafbryder, callable-adgang og
 AI-prompten er BEKRÆFTET RENT (se dén liste).
 
 **Genbrugelig PoC:** `kampDetaljer.js` kræver kun `rensTekst` + `livescoreHold`
@@ -785,6 +801,30 @@ strenge-erstatte vagten og køre samme harness mod begge kopier.
 men et navn herfra i et HTML-ATTRIBUT ville kunne bryde ud
 (`x"onmouseover="…`). Escap ved indsættelsen, hvis navnene nogensinde skal i
 en mail.
+
+**`detaljerVersion` er et NYT FELT PÅ KAMPDOKUMENTET, DER STYRER MASKINERI** —
+præcis det tilfælde, `games/{id}/matches` "ingen affectedKeys-liste"-noten siger
+skal spørges eksplicit. Filteret er
+`d.detaljerSyncedAt && Number(d.detaljerVersion) >= DETALJE_VERSION`
+(kampDetaljer.js L513). Målt: `Number({toString:null})` KASTER, og kastet ryger
+ud af hele `syncKampDetaljerCore` — ét forgiftet kampdokument dræber dermed
+detalje-synken for HELE spillet i hver kørsel (kørt: 1 giftig blandt 20 sunde →
+0 skrevet). Kun globalAdmin/owner (eller et script) kan skrive feltet, og
+sweep'ets catch gør det synligt som et rødt Drift-kort, så det er robusthed,
+ikke en spillervej. Samme klasse som `Eid: {toString:null}`. Et for HØJT tal
+(`'999'`, `Infinity`) fryser kampen for evigt OG fjerner den fra `manglede`, så
+Drift-kortet viser 0 og ser sundt ud. Ét-linjes hærdning:
+`const ver = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);`.
+`>=` frem for `===` er stadig det rigtige valg: `===` ville få et TILBAGERUL til
+at genhente alt og skrive FÆRRE felter oven i nyere data.
+
+**Versions-bumpet genåbner ALLEREDE SYNKEDE kampe — og det er dem, kilden
+først taber.** Går incidents for gamle kampe tabt (sæsonskifte), tælles de som
+`uparsede`; er alle 8 valgte i en kørsel af den slags, fyrer index.js'
+`detaljerAfvist`-alarm "kilden har sandsynligvis skiftet form" på en kilde, der
+ikke har skiftet form. Samme fejl-remedie-forveksling som 5xx→uparset-resten.
+Målt 1/9-2026: alle 54 færdigspillede kampe svarer stadig, så risikoen er
+sæsongrænse-bunden, ikke aktuel.
 
 **Homoglyf-fælden (fundet i `scripts/maal-livescore.mjs`, siden rettet):** en
 identifikator med U+0430 CYRILLIC A virker og linter rent. Grep efter ikke-ASCII

@@ -1255,6 +1255,15 @@ a:focus-visible,
   white-space: nowrap;
 }
 .match-card__maal-oplaeg { font-style: italic; opacity: 0.75; }
+/* Selvmål — ejeren bad om rødt. Farven bærer ikke betydningen ALENE: ordet
+   "selvmål" står der også, så en farveblind læser (og en skærmlæser) får det
+   samme at vide. var(--c-err) og ikke en løs hex, så den følger temaet i både
+   lyst og mørkt — variabelnavnet er efterprøvet mod temaets egen liste, for
+   en variabel, der ikke findes, render'er helt UDEN farve og fejler tavst. */
+.match-card__selvmaal {
+  color: var(--c-err);
+  font-weight: 600;
+}
 /* Tilskuertallet er trivia og skal se sådan ud: egen linje, endnu svagere.
    Det er med, fordi det er det eneste tal, der siger noget om begivenhedens
    størrelse — ikke fordi det hjælper nogen med at tippe. */

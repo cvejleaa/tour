@@ -24,7 +24,7 @@ const {
   syncKampDetaljerCore, detaljerAf, maalAf, kaedeOk, noegleAfKamp,
   heltal, tilskuertal, hentNoegler, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER, DETALJE_LOFT, AFVIST_KARANTAENE_MS, API,
-  DETALJE_BUDGET_BROEK, detaljeNiveau,
+  DETALJE_BUDGET_BROEK, detaljeNiveau, DETALJE_VERSION,
 } = require('./kampDetaljer');
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/livescore-kampe.json', import.meta.url), 'utf8'));
@@ -514,10 +514,14 @@ describe('syncKampDetaljerCore', () => {
     expect(db.commits).toBe(0);
   });
 
-  it('springer en kamp over, der ALLEREDE har detaljer', async () => {
+  it('springer en kamp over, der har detaljer i den AKTUELLE udgave', async () => {
+    // VENDT BEVIDST. Testen stod før uden `detaljerVersion` og fastfrøs
+    // dermed netop den fejl, Quality Control fandt: et NYT felt kunne aldrig
+    // nå en kamp, der allerede var hentet. "Allerede hentet" er ikke længere
+    // nok — det skal være hentet af en kode, der skriver de samme felter.
     const db = fakeDb(TEAMS, []);
     const ud = await syncKampDetaljerCore(db, FieldValue, opts({
-      only: [{ id: 'r1-a', data: { ...KAMP_DATA, detaljerSyncedAt: 'TS' } }],
+      only: [{ id: 'r1-a', data: { ...KAMP_DATA, detaljerSyncedAt: 'TS', detaljerVersion: DETALJE_VERSION } }],
     }));
     expect(ud.manglede).toBe(0);
   });
@@ -855,5 +859,212 @@ describe('detaljeNiveau', () => {
     }
     expect(detaljeNiveau(null)).toBe('ok');
     expect(detaljeNiveau(undefined)).toBe('ok');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SELVMÅL. `Nm` er det hold, der FIK målet — ikke scorerens eget. Uden flaget
+// står en Aston Villa-spiller på kortet som "(Brighton)".
+//
+// MÅLT (scripts/maal-selvmaal.mjs, 1/9-2026, alle 54 færdigspillede kampe):
+// kriteriet er, om scoreren står i det MODSATTE holds startopstilling. IT=39
+// gør det i 5 af 5 opløselige tilfælde, IT 36/37/38 i 0 af 121.
+// ---------------------------------------------------------------------------
+describe('maalAf — selvmål', () => {
+  // maalAf tager `Incs`-objektet SELV, ikke hele incidents-svaret — nøglen er
+  // halvlegen. Min første hjælper pakkede det ét niveau for dybt, og
+  // funktionen svarede en tom liste på alt.
+  const inc = (haendelser) => ({ 1: haendelser });
+
+  it('mærker IT=39 som selvmål — og krediterer det hold, der FIK målet', () => {
+    // Brighton–Aston Villa, 8'. Lindelöf spiller for Villa (ude), men målet
+    // gik til Brighton (hjemme), og dét er hvad `Nm: 1` siger.
+    const [m] = maalAf(inc([
+      { Min: 8, Nm: 1, IT: 39, Sc: ['1', '0'], Pn: 'Victor Lindelof' },
+    ]));
+    expect(m.hold).toBe('home');
+    expect(m.scorer).toBe('Victor Lindelof');
+    expect(m.selvmaal).toBe(true);
+  });
+
+  it('mærker fixturens ÆGTE selvmål (CRY–MCI, Donnarumma 56\')', () => {
+    // TEST MANAGERS FUND, og en rettelse af min egen påstand: jeg fortalte
+    // rollerne, at fixturen ikke havde et selvmål. Den har — Eid 1793566,
+    // Donnarumma i 56'. Hele selvmåls-dækningen var håndbygget, mens den
+    // ÆGTE payload lå ubundet ved siden af.
+    //
+    // Forskellen er ikke kosmetisk: en håndbygget hændelse er skrevet af den
+    // samme, der skrev koden, og indkoder samme forståelse — også når den er
+    // forkert. Kildens eget svar gør ikke.
+    const m = maalAf(kamp('1793566').incidents.Incs);
+    const selv = m.filter((x) => x.selvmaal);
+    expect(selv).toHaveLength(1);
+    expect(selv[0].scorer).toBe('Gianluigi Donnarumma');
+    expect(selv[0].minut).toBe(56);
+    // Krediteret HJEMMEHOLDET, som fik målet — Donnarumma spiller for udeholdet.
+    expect(selv[0].hold).toBe('home');
+    // …og kampens øvrige mål er IKKE selvmål.
+    expect(m.filter((x) => !x.selvmaal)).toHaveLength(m.length - 1);
+  });
+
+  it('mærker IKKE et almindeligt mål som selvmål', () => {
+    // De tre koder, målingen fandt hos scorerens EGET hold. Hver for sig:
+    // ét objekt med alle tre ville bestå, selv om to led var fjernet.
+    for (const it of [36, 37, 38]) {
+      const [m] = maalAf(inc([{ Min: 20, Nm: 1, IT: it, Sc: ['1', '0'], Pn: 'Spiller' }]));
+      expect(m.selvmaal, `IT=${it}`).toBe(false);
+    }
+  });
+
+  it('en UKENDT kode bliver et almindeligt mål, aldrig et selvmål', () => {
+    // Den sikre retning. Den modsatte fejl hænger en forkert etiket på en
+    // rigtig scorer, og dét ser en spiller straks.
+    const [m] = maalAf(inc([{ Min: 20, Nm: 2, IT: 99, Sc: ['0', '1'], Pn: 'Spiller' }]));
+    expect(m.selvmaal).toBe(false);
+  });
+
+  it('et mål med OPLÆG er aldrig et selvmål', () => {
+    // Container-formen findes for at bære oplægget, og et selvmål har ikke et
+    // oplæg — derfor er IT=39 flad i 7 af 7 målte tilfælde og nestet i 0.
+    // Testen binder følgen af dét: den almindelige container-form giver
+    // selvmaal:false, og reglen behøver derfor kun den flade gren.
+    const [m] = maalAf(inc([
+      { Min: 30, Nm: 1, Sc: ['1', '0'], Incs: [
+        { Min: 30, Nm: 1, IT: 36, Sc: ['1', '0'], Pn: 'Scorer Jensen' },
+        { Min: 30, Nm: 1, IT: 63, Sc: ['1', '0'], Pn: 'Oplaegger Hansen' },
+      ] },
+    ]));
+    expect(m.selvmaal).toBe(false);
+    expect(m.scorer).toBe('Scorer Jensen');
+    expect(m.oplaeg).toBe('Oplaegger Hansen');
+  });
+
+  it('feltet når hele vejen ud i det, der SKRIVES', () => {
+    // Første udgave asserterede på maalAf's mellemresultat, ikke på
+    // skrivningen — så `ud.selvmaal = …` kunne fjernes fra detaljerAf med grøn
+    // suite, og flaget ville aldrig nå Firestore. Husets "korrekt er ikke
+    // komplet": en evne skal følges hele vejen ud.
+    const svar = detaljerAf(
+      { Tr1: '1', Tr2: '0', Trh1: '0', Trh2: '0', Incs: { 1: [
+        { Min: 8, Nm: 1, IT: 39, Sc: ['1', '0'], Pn: 'Victor Lindelof' },
+      ] } },
+      null,
+      { homeGoals: 1, awayGoals: 0 },
+    );
+    expect(svar.afvist).toBeFalsy();
+    expect(svar.felter.maal).toHaveLength(1);
+    expect(svar.felter.maal[0].selvmaal).toBe(true);
+  });
+
+  it('…og skrives som false, ikke udeladt, på et almindeligt mål', () => {
+    // En liste af ens objekter: et felt, der kun findes på nogle af dem,
+    // tvinger hver læser til at kende forskellen.
+    const svar = detaljerAf(
+      { Tr1: '1', Tr2: '0', Trh1: '0', Trh2: '0', Incs: { 1: [
+        { Min: 8, Nm: 1, IT: 36, Sc: ['1', '0'], Pn: 'Dreyer' },
+      ] } },
+      null,
+      { homeGoals: 1, awayGoals: 0 },
+    );
+    expect(Object.hasOwn(svar.felter.maal[0], 'selvmaal')).toBe(true);
+    expect(svar.felter.maal[0].selvmaal).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VERSIONSMÆRKET — så et NYT FELT når de kampe, der allerede er hentet.
+//
+// Quality Controls blokerende fund: `if (d.detaljerSyncedAt) return false;` var
+// permanent, så da `selvmaal` kom til, ville de fem selvmål, der allerede stod
+// på skærmen, aldrig blive mærket. Husets "korrekt er ikke komplet" — bagud.
+//
+// Versionsmærket er valgt frem for et migreringsscript, fordi et script ville
+// være en SKRIVNING I PRODUKTIONSDATA, med tør-kørsel og godkendelse, og hele
+// forløbet igen ved næste felt. Sweep'et er selvhelende i forvejen.
+// ---------------------------------------------------------------------------
+describe('DETALJE_VERSION', () => {
+  const kampMed = (extra) => [{
+    id: 'r1-a',
+    data: { ...KAMP_DATA, result: '1', ...extra },
+  }];
+  const koer = (extra) => syncKampDetaljerCore(
+    fakeDb(TEAMS, []), FieldValue, opts({ fetchFn: fakeFetch(), only: kampMed(extra) }),
+  );
+
+  it('henter en kamp igen, når den er hentet i en ÆLDRE udgave', () => {
+    // Det er hele pointen: uden versions-leddet var svaret 0.
+    return koer({ detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: DETALJE_VERSION - 1 })
+      .then((ud) => expect(ud.manglede).toBe(1));
+  });
+
+  it('henter en kamp igen, når versionen MANGLER helt', () => {
+    // De kampe, der blev hentet før mærket fandtes. Number(undefined) er NaN,
+    // og NaN >= n er falsk — men det skal bindes, ikke antages.
+    return koer({ detaljerSyncedAt: new Date('2026-08-01') })
+      .then((ud) => expect(ud.manglede).toBe(1));
+  });
+
+  it('lader en kamp i AKTUEL udgave være i fred', () => {
+    return koer({ detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: DETALJE_VERSION })
+      .then((ud) => expect(ud.manglede).toBe(0));
+  });
+
+  it('lader en kamp i en NYERE udgave være i fred', () => {
+    // Et rul tilbage må ikke få den gamle kode til at overskrive nyere data
+    // med færre felter. `>=` og ikke `===`.
+    return koer({ detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: DETALJE_VERSION + 1 })
+      .then((ud) => expect(ud.manglede).toBe(0));
+  });
+
+  it('ét GIFTIGT versionsfelt draeber ikke hele spillets synk', async () => {
+    // SECURITY REVIEWERS FUND, med en kørt PoC: Number({toString:null}) KASTER,
+    // og kastet lå i filter-kroppen uden for al try/catch — 1 giftig kamp
+    // blandt 19 sunde gav 0 skrevet, i hver eneste kørsel. Samme klasse som
+    // `Eid`-fælden, filen allerede lukkede i hentNoegler; denne lå på VORES
+    // side af hegnet, hvor rules ikke type-tjekker feltet.
+    const db = fakeDb(TEAMS, []);
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn: fakeFetch(),
+      only: [
+        { id: 'gift', data: { ...KAMP_DATA, result: '1', detaljerSyncedAt: 'TS', detaljerVersion: { toString: null } } },
+        { id: 'r1-a', data: KAMP_DATA },
+      ],
+    }));
+    // Den sunde kamp skal igennem. Uden vagten er dette tal 0.
+    expect(ud.skrevet).toBeGreaterThanOrEqual(1);
+  });
+
+  it('en skraldeværdi fejler mod GENHENTNING, ikke mod evig overspringelse', () => {
+    // Den sikre retning: kampen heler sig selv ved næste kørsel. Ville
+    // vagten svare et højt tal i stedet for 0, blev kampen usynlig for
+    // enhver fremtidig feltudvidelse — og Drift-kortet ville sige "alle
+    // færdige kampe har detaljer", mens den aldrig fik dem.
+    return Promise.all(['ni', {}, [], true, null].map((v) => koer({
+      detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: v,
+    }).then((ud) => expect(ud.manglede, String(v)).toBe(1))));
+  });
+
+  it('Infinity gør ikke en kamp permanent usynlig', () => {
+    // `>=` er rigtig (et rul tilbage må ikke overskrive nyere data), men
+    // prisen er, at en for HØJ værdi er permanent og usynlig. Number.isFinite
+    // lukker Infinity-varianten.
+    return koer({ detaljerSyncedAt: new Date('2026-08-01'), detaljerVersion: Infinity })
+      .then((ud) => expect(ud.manglede).toBe(1));
+  });
+
+  it('SKRIVER versionen sammen med detaljerne', () => {
+    // Uden dette ville hver kørsel hente hver kamp igen, for evigt.
+    const db = fakeDb(TEAMS, []);
+    return syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn: fakeFetch(), only: [{ id: 'r1-a', data: KAMP_DATA }],
+    })).then(() => {
+      expect(db.skrevet[0].felter.detaljerVersion).toBe(DETALJE_VERSION);
+    });
+  });
+
+  it('versionen er talt OP, da selvmaal kom til', () => {
+    // Båndet gøres rødt af den GAMLE værdi: var mærket ikke bumpet, ville de
+    // allerede hentede kampe aldrig få selvmåls-flaget.
+    expect(DETALJE_VERSION).toBeGreaterThanOrEqual(2);
   });
 });

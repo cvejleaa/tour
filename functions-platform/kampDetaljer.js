@@ -87,8 +87,49 @@ const hentOpt = () => ({
  */
 const SKRIVBARE_FELTER = Object.freeze([
   'halvlegHome', 'halvlegAway', 'tilskuere', 'maal',
-  'detaljerSyncedAt', 'detaljerAfvistAt', 'detaljerAfvistGrund',
+  'detaljerSyncedAt', 'detaljerVersion', 'detaljerAfvistAt', 'detaljerAfvistGrund',
 ]);
+
+/**
+ * HVILKEN UDGAVE AF DETALJERNE STÅR PÅ KAMPEN?
+ *
+ * Findes, fordi et NYT FELT ellers aldrig når de kampe, der allerede er
+ * hentet. Filteret nedenfor springer en kamp over, når `detaljerSyncedAt` er
+ * sat, og dét er permanent — så da `selvmaal` kom til, ville de fem selvmål,
+ * der allerede stod på skærmen, være forblevet umærkede resten af sæsonen.
+ * Quality Control fandt det, og det er husets "korrekt er ikke komplet": en
+ * evne, der udvides, skal følges hele vejen ud — også bagud.
+ *
+ * VALGT FREM FOR ET MIGRERINGSSCRIPT, og det er en bevidst forskel. Et script,
+ * der nulstiller `detaljerSyncedAt`, ville være en SKRIVNING I
+ * PRODUKTIONSDATA — tør-kørsel, ejerens godkendelse, og hele forløbet igen
+ * næste gang et felt kommer til. Et versionsmærke gør sweep'et selvhelende:
+ * det henter kampene igen af sig selv, 8 pr. spil pr. kørsel, og tallet går
+ * mod nul. Ingen engangshandling, og næste felt koster ét ciffer.
+ *
+ * BUMP DEN, når `detaljerAf` begynder at skrive noget nyt eller noget andet.
+ * Glemmer man det, er straffen mild og synlig: det nye felt mangler på gamle
+ * kampe, præcis som nu.
+ *
+ *   1  halvleg, målscorere, tilskuertal
+ *   2  + selvmaal pr. mål
+ */
+const DETALJE_VERSION = 2;
+
+/**
+ * Versionen på et kampdokument, som et TAL man kan sammenligne — eller 0.
+ *
+ * Kaster ALDRIG. `typeof === 'number'` og ikke `Number(v)`: konverteringen er
+ * selv faren, for `Number({toString:null})` kaster, og opslaget sker i en
+ * filter-krop uden for try/catch. En skraldeværdi svarer 0 og fejler dermed
+ * mod GENHENTNING — den sikre retning, for kampen heler sig selv ved næste
+ * kørsel i stedet for at blive sprunget over for evigt.
+ *
+ * `Number.isFinite` lukker også `Infinity`, som ellers ville gøre en kamp
+ * permanent usynlig for enhver fremtidig feltudvidelse, uden at nogen kunne
+ * se det på Drift-kortet.
+ */
+const versionsTal = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
 /** Felter, der aldrig må stå i en skrivning herfra — testens modpol. */
 const FORBUDTE_FELTER = Object.freeze(['result', 'homeGoals', 'awayGoals', 'kickoff']);
@@ -212,6 +253,14 @@ function fladeHaendelser(incidents) {
  * @returns {Array<{hold:'home'|'away', nr:number, minut:number,
  *                  scorer:string|null, oplaeg:string|null}>}
  */
+/**
+ * Hændelseskoden for et selvmål. Se maalAf og scripts/maal-selvmaal.mjs.
+ * Egen konstant frem for et tal i en betingelse: tallet optræder to steder
+ * (fladt mål og nestet i en container), og to løse 39-taller kan drive fra
+ * hinanden.
+ */
+const SELVMAAL_IT = 39;
+
 function maalAf(incidents) {
   const set = new Map(); // "hold:nr" → målet
   for (const h of fladeHaendelser(incidents)) {
@@ -230,6 +279,28 @@ function maalAf(incidents) {
       // en test bliver rød. En SIDE kan kortet selv slå op i sine egne hold.
       scorer: navn(indre.find((x) => x.IT === 36)?.Pn ?? h.Pn),
       oplaeg: navn(indre.find((x) => x.IT === 63)?.Pn),
+      // SELVMÅL. `Nm` er det hold, der FIK målet — ikke scorerens eget — så
+      // uden dette flag står en Aston Villa-spiller på kortet som "(Brighton)"
+      // og læses som Brightons mand. Det er ikke forkert, men det er
+      // vildledende, og kilden ved godt bedre.
+      //
+      // MÅLT, IKKE GÆTTET (scripts/maal-selvmaal.mjs, 1/9-2026, alle 54
+      // færdigspillede kampe): kriteriet er, om scoreren står i det MODSATTE
+      // holds startopstilling. IT=39 gør det i 5 af 5 opløselige tilfælde;
+      // IT 36/37/38 gør det i 0 af 121. Asymmetrien er total.
+      //
+      // KUN 39, og det er den sikre retning: en ukendt kode bliver et
+      // almindeligt mål, aldrig et selvmål. Den modsatte fejl ville hænge en
+      // forkert etiket på en rigtig scorer — og dét ser en spiller straks.
+      //
+      // KUN DEN FLADE FORM. Her stod før også `indre.some((x) => x.IT === 39)`
+      // for at fange et selvmål inde i en container. Mutationstesten fjernede
+      // det og forblev grøn, og målingen forklarer hvorfor: IT=39 er FLAD i 7
+      // af 7 tilfælde, nestet i 0. Det er ikke et tilfælde — container-formen
+      // findes for at bære OPLÆGGET, og et selvmål har ikke et oplæg. En
+      // unåelig gren er ikke ekstra sikkerhed; den er et sted, en fremtidig
+      // læser tror, der er dækning.
+      selvmaal: h.IT === SELVMAAL_IT,
     };
     // Containeren OG dens indre IT=36 bærer samme Sc. Behold den med et navn.
     const gl = set.get(`${kand.hold}:${nr}`);
@@ -316,6 +387,10 @@ function detaljerAf(incidents, info, facit) {
   // målløs kamp for evigt ud som "ikke hentet endnu".
   felter.maal = maal.map((m) => {
     const ud = { hold: m.hold, minut: m.minut };
+    // BOOLEAN OG IKKE ET UDELADT FELT når den er falsk: `maal` er en liste af
+    // ens objekter, og et felt, der kun findes på nogle af dem, tvinger hver
+    // læser til at kende forskellen. Prisen er ét felt pr. mål.
+    ud.selvmaal = m.selvmaal === true;
     if (m.scorer != null) ud.scorer = m.scorer;
     if (m.oplaeg != null) ud.oplaeg = m.oplaeg;
     return ud;
@@ -450,7 +525,19 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
   const mangler = alle.filter((m) => {
     const d = m.data || {};
     if (!d.result) return false;
-    if (d.detaljerSyncedAt) return false;
+    // Hentet FØR i en NYERE eller ens udgave? Så er der intet at gøre.
+    // Uden versions-leddet var svaret permanent, og et nyt felt kunne aldrig
+    // nå en kamp, der allerede var hentet.
+    //
+    // `versionsTal` og ikke `Number()`: Number({toString:null}) KASTER, og
+    // kastet ligger i denne filter-krop uden for al try/catch — så ét forgiftet
+    // kampdokument ville dræbe HELE spillets detalje-synk i hver eneste
+    // kørsel. Security Reviewer viste det med en kørt PoC: 1 giftig blandt 19
+    // sunde gav 0 skrevet. Feltet er admin-skrivbart (firestore.rules har
+    // ingen felt-liste på kampe), så vejen dertil er et fejlbehæftet script,
+    // ikke en spiller — men det er nøjagtig samme klasse som `Eid`-fælden,
+    // filen allerede forsvarer sig mod i hentNoegler.
+    if (d.detaljerSyncedAt && versionsTal(d.detaljerVersion) >= DETALJE_VERSION) return false;
     const a = d.detaljerAfvistAt;
     if (!a) return true;
     const ms = typeof a.toMillis === 'function' ? a.toMillis() : new Date(a).getTime();
@@ -540,7 +627,10 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
       // update og ikke set(merge): set ville OPRETTE et kampdokument, hvis en
       // nøgle nogensinde pegede forkert. Og felterne plukkes af den frosne
       // liste, så et forbudt felt ikke kan følge med.
-      const skriv = { detaljerSyncedAt: FieldValue.serverTimestamp() };
+      const skriv = {
+        detaljerSyncedAt: FieldValue.serverTimestamp(),
+        detaljerVersion: DETALJE_VERSION,
+      };
       for (const felt of SKRIVBARE_FELTER) {
         if (Object.hasOwn(svar.felter, felt)) skriv[felt] = svar.felter[felt];
       }
@@ -602,6 +692,8 @@ function detaljeNiveau(d) {
 
 module.exports = {
   detaljeNiveau,
+  SELVMAAL_IT,
+  DETALJE_VERSION,
   syncKampDetaljerCore,
   DETALJE_BUDGET_BROEK,
   detaljerAf, maalAf, kaedeOk, noegleAfKamp, heltal, tilskuertal, fladeHaendelser,

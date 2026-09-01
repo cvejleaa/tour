@@ -929,6 +929,15 @@ export default function FootballTip({ game, me, matches }) {
                         {' '}<span className="match-card__maal-hold">
                           ({g.hold === 'home' ? h.navn : a.navn})
                         </span>
+                        {/* SELVMÅL. Uden mærkaten står scoreren med det hold,
+                            der FIK målet — altså modstanderens navn — og
+                            læses som deres mand. Serveren afgør det på
+                            kildens egen hændelseskode; fladen gætter ikke.
+                            Ordet står EFTER holdet, så det læses som en
+                            rettelse af netop dét, der ellers ville forvirre. */}
+                        {g.selvmaal && (
+                          <span className="match-card__selvmaal"> selvmål</span>
+                        )}
                         {g.oplaeg && <span className="match-card__maal-oplaeg"> opl. {g.oplaeg}</span>}
                       </span>
                     ))}
