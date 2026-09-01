@@ -287,6 +287,48 @@
   er grøn. `ctx.skip()` retter det ved at gøre skippet synligt i selve
   PASS/FAIL-optællingen, ikke kun i logteksten.
 
+## Pulje-overskrift + låst pokal (commit 2046eb6, PR #201, sept. 2026)
+
+- **Ni "røde" mutationer i commit-beskeden var alle reelt røde — men OR'et
+  imellem dem havde en tiende, udokumenteret gren, der IKKE var det.**
+  `PuljeTip.jsx:176`: `const laast = ikkeAabnet || locked;`. Suiten har to
+  fixtures for `--laast`-klassen ("låst gitter" og "ÅBENT gitter"), men BEGGE
+  bruger kun `puljeLockAt` sat (fortid hhv. fremtid) — ingen bruger
+  `puljeLockAt: undefined` (den tredje, reelle tilstand: `ikkeAabnet`).
+  Mutationsbevist: `const laast = locked;` (dropper `ikkeAabnet ||` helt)
+  lader alle 18 tests forblive grønne. Den omvendte mutation
+  (`const laast = ikkeAabnet;`, dropper `locked`) DØR på "låst gitter
+  mærkes"-testen — så kun den ene gren af OR'et er dækket, præcis
+  CLAUDE.md's "to grene skal dræbes hver for sig"-fælde, denne gang på et
+  boolesk OR i stedet for en tekst-ternary. Reelt lavrisiko (et spil uden
+  deadline sat viser næppe pokaler at dæmpe), men suiten beviser det ikke.
+- **En CSS-"kontrakt-test", der kun regex-matcher SELEKTOR-TEKSTEN, beviser
+  ikke at reglen VINDER i cascaden.** `PuljeTip.test.jsx`s sidste describe
+  ("et LÅST felt dæmpes slet ikke") tjekker kun at strengen
+  `.pulje-team--laast:disabled > * { opacity: 1; }` findes i `theme.css` —
+  ikke at den rent faktisk overskriver `.pulje-team:disabled > *:not(.pulje-team__actual) { opacity: 0.55; }`.
+  Verificeret empirisk med en ægte Chromium-instans (Playwright,
+  `getComputedStyle`): specificiteten for `.pulje-team:disabled > *:not(...)`
+  er (0,3,0) — tre klasse-niveau-selektorer (`.pulje-team`, `:disabled`,
+  `:not(.pulje-team__actual)` tæller som sit arguments klasse) — mod
+  `.pulje-team--laast:disabled > *`s (0,2,0). Den MERE specifikke 0.55-regel
+  VINDER over 1.0-reglen for alt andet end pokalen (som allerede er undtaget
+  af `:not()` i den første regel, uanset låst-tilstand). Reelt resultat:
+  holdnavn og ✓-mærke forbliver dæmpet til 0.55 på et låst felt, selvom
+  commit-teksten eksplicit hævder "ER TIPPET LÅST, DÆMPES INTET" — kun
+  pokalen (som allerede var reddet af den FØRSTE regel) er upåvirket af
+  hele `--laast`-tilføjelsen. `--laast`-klassen er dermed reelt en no-op i
+  browseren for alt undtagen det, der allerede var løst. Ikke fundet af
+  suiten, fordi jsdom-baserede tekst-match-tests strukturelt IKKE kan se
+  cascade-specificitet — kommentaren i testfilen advarer endda selv om
+  præcis dette ("Jsdom anvender ingen CSS"), men løsningen (regex på
+  selektor-tekst) løser ikke det problem, den selv navngiver. Tjek næste
+  gang en CSS-"kontrakt-test" hævder at én regel overskriver en anden:
+  regn specificiteten af begge selektorer i hånden (klasser/pseudoklasser/
+  attributter vs. id vs. elementer), eller verificér med en ægte browser
+  (Playwright `getComputedStyle`) — en regex-match på selektor-TEKSTEN
+  beviser kun at reglen EKSISTERER, aldrig at den VINDER.
+
 ## Eftergennemgang af #192/#193/0cf45e6 (livescore-nøgle, efterslæbere, mållinjer — sept. 2026)
 
 Landet uden rollegennemgang efter ejerens beslutning. Fem NYE huller fundet ved

@@ -32,7 +32,7 @@ vi.mock('../gameActions', () => ({ setPuljeBet: (...a) => mockSetPuljeBet(...a) 
 
 // Fixtures har game.pulje med: komponenten er konfigurations-gated (#8) og
 // renderer intet uden pulje — fanen er alligevel data-gated på samme felt.
-import PuljeTip, { topTitel } from './PuljeTip';
+import PuljeTip, { topTitel, sektionsNavn } from './PuljeTip';
 import { PREMIER_LEAGUE_TEAMS_2026 } from '../../../data/premierLeagueTeams2026';
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
 
@@ -184,20 +184,31 @@ describe('PuljeTip — "lige nu" har brug for nok spillede kampe', () => {
   });
 });
 
-describe('topTitel — overskriften over holdgitteret', () => {
-  it('spil MED bund: "Toppen", fordi der er en bund at være top for', () => {
-    expect(topTitel({ poolSize: 4, nedSize: 3, labels: { top: 'top 4' } }))
-      .toBe('🏆 Toppen — vælg 4');
+describe('sektionsNavn + topTitel — overskriften over holdgitteret', () => {
+  it('spil MED bund: "toppen", fordi der er en bund at være top for', () => {
+    const k = { poolSize: 4, nedSize: 3, labels: { top: 'top 4 juleaften' } };
+    expect(sektionsNavn(k)).toBe('toppen');
+    expect(topTitel(k)).toBe('🏆 Toppen — vælg 4');
   });
 
-  it('spil UDEN bund: spillets eget ord for feltet, med stort begyndelsesbogstav', () => {
-    expect(topTitel({ poolSize: 6, nedSize: 0, labels: { top: 'mesterskabsspillet' } }))
-      .toBe('🏆 Mesterskabsspillet — vælg 6');
+  it('spil UDEN bund: spillets eget ord, med stort begyndelsesbogstav', () => {
+    const k = { poolSize: 6, nedSize: 0, labels: { top: 'mesterskabsspillet' } };
+    expect(sektionsNavn(k)).toBe('mesterskabsspillet');
+    expect(topTitel(k)).toBe('🏆 Mesterskabsspillet — vælg 6');
   });
 
   it('ANTALLET følger konfigurationen — det var hele pointen med overskriften', () => {
     expect(topTitel({ poolSize: 8, nedSize: 0, labels: { top: 'slutspillet' } }))
       .toBe('🏆 Slutspillet — vælg 8');
+  });
+
+  it('LÅST siger den, hvad man HAR — ikke hvad man skal', () => {
+    // "vælg 6" over et gitter, man ikke kan vælge i, er en imperativ, ingen
+    // kan følge. Efter at overskriften kom til, var den den eneste tekst dér.
+    const k = { poolSize: 6, nedSize: 0, labels: { top: 'mesterskabsspillet' } };
+    expect(topTitel(k, true)).toBe('🏆 Mesterskabsspillet — dine 6');
+    expect(topTitel(k, true)).not.toContain('vælg');
+    expect(topTitel({ poolSize: 4, nedSize: 3 }, true)).toBe('🏆 Toppen — dine 4');
   });
 
   it('tomt eller manglende ord falder tilbage på "Toppen", ikke på et hul', () => {
@@ -211,47 +222,105 @@ describe('topTitel — overskriften over holdgitteret', () => {
   });
 });
 
-describe('PuljeTip — pokalen skal kunne ses, når tippet er låst', () => {
-  // Superligaens deadline er passeret, PL's er ikke. Det er ikke to designs,
-  // men ét design i to tilstande — og den låste tilstand slukkede lyset i
-  // præcis den information, der stadig var interessant.
-  const laastSpil = { id: 'sl', teams: HOLD8, pulje: { poolSize: 6 }, puljeLockAt: Date.now() - 1000 };
-  const aabentSpil = { id: 'sl', teams: HOLD8, pulje: { poolSize: 6 }, puljeLockAt: Date.now() + 86400000 };
+describe('PuljeTip — den LÅSTE Superliga, som ejeren faktisk kigger på', () => {
+  const laastSL = { id: 'sl', teams: HOLD8, pulje: { poolSize: 6 }, puljeLockAt: Date.now() - 1000 };
+  const aabenSL = { id: 'sl', teams: HOLD8, pulje: { poolSize: 6 }, puljeLockAt: Date.now() + 86400000 };
 
-  it('låst gitter mærkes, så CSS kan lade være med at dæmpe det', () => {
-    const { container } = render(<PuljeTip game={laastSpil} matches={[]} />);
-    const knapper = container.querySelectorAll('.pulje-team');
-    expect(knapper.length).toBe(HOLD8.length);
-    expect([...knapper].every((k) => k.classList.contains('pulje-team--laast'))).toBe(true);
+  it('overskriften siger "dine 6" — ikke "vælg 6" — og tælleren bliver stående', () => {
+    render(<PuljeTip game={laastSL} matches={[]} />);
+    expect(screen.getByRole('heading', { name: '🏆 Mesterskabsspillet — dine 6' })).toBeInTheDocument();
+    expect(screen.queryByText(/vælg 6/)).toBeNull();
+    // Tælleren var skjult, når der var låst. En spiller, der aldrig nåede at
+    // tippe, fik dermed ingen besked om det.
+    expect(screen.getByText(/0\/6 valgt · låst/)).toBeInTheDocument();
   });
 
-  it('ÅBENT gitter mærkes ikke — dér betyder dæmpningen stadig "ikke denne"', () => {
-    const { container } = render(<PuljeTip game={aabentSpil} matches={[]} />);
-    const knapper = container.querySelectorAll('.pulje-team');
-    expect(knapper.length).toBe(HOLD8.length);
-    expect([...knapper].some((k) => k.classList.contains('pulje-team--laast'))).toBe(false);
+  it('ÅBEN: "vælg 6", og tælleren står uden låse-mærket', () => {
+    render(<PuljeTip game={aabenSL} matches={[]} />);
+    expect(screen.getByRole('heading', { name: '🏆 Mesterskabsspillet — vælg 6' })).toBeInTheDocument();
+    expect(screen.getByText('0/6 valgt')).toBeInTheDocument();
+    expect(screen.queryByText(/låst/)).toBeNull();
+  });
+
+  it('låst gitter mærkes; åbent gør ikke', () => {
+    const { container, unmount } = render(<PuljeTip game={laastSL} matches={[]} />);
+    expect([...container.querySelectorAll('.pulje-team')].every((k) => k.classList.contains('pulje-team--laast'))).toBe(true);
+    unmount();
+    const { container: c2 } = render(<PuljeTip game={aabenSL} matches={[]} />);
+    expect([...c2.querySelectorAll('.pulje-team')].some((k) => k.classList.contains('pulje-team--laast'))).toBe(false);
+  });
+
+  it('"lige nu"-linjen bruger SPILLETS ord for sektionen, ikke "toppen"', () => {
+    // Sektionen fik et spil-specifikt navn i overskriften, men linjen sagde
+    // stadig "i toppen" — og så stod ordet "toppen" intet andet sted på
+    // Superligaens side (QC-fund). De to skal komme fra samme beslutning.
+    // Linjen kræver et GEMT pulje-tip: `ligeNuTop` er null uden `bet`.
+    mockBet.current = { championship: ['H1', 'H3', 'H5', 'H7', 'H2', 'H4'] };
+    const medUspillet = [...SPILLEDE, { home: 'H1', away: 'H3', homeGoals: null, awayGoals: null }];
+    render(<PuljeTip game={aabenSL} matches={medUspillet} />);
+    const linje = screen.getByTestId('pulje-ligenu');
+    expect(linje.textContent).toContain('i mesterskabsspillet');
+    expect(linje.textContent).not.toContain('i toppen');
+  });
+
+  it('PL beholder "i toppen" — dér ER der en bund at være top for', () => {
+    mockBet.current = { championship: ['H1', 'H3', 'H5', 'H7'], relegation: ['H2', 'H4', 'H8'] };
+    const medUspillet = [...SPILLEDE, { home: 'H1', away: 'H3', homeGoals: null, awayGoals: null }];
+    render(<PuljeTip game={plGame()} matches={medUspillet} />);
+    const linje = screen.getByTestId('pulje-ligenu');
+    expect(linje.textContent).toContain('i toppen');
+    expect(linje.textContent).toContain('i bunden');
+  });
+
+  it('"endnu ikke åbnet" mærkes IKKE som låst — dér er dæmpningen det rigtige signal', () => {
+    // Ingen puljeLockAt = deadline ikke udledt endnu. Der er ingen spillede
+    // kampe, altså ingen pokaler, ingen tæller og ingen gem-knap: et fuldt
+    // oplyst, klikbart-udseende gitter ville love noget, det ikke kan holde.
+    const { container } = render(<PuljeTip game={{ id: 'sl', teams: HOLD8, pulje: { poolSize: 6 } }} matches={[]} />);
+    expect([...container.querySelectorAll('.pulje-team')].some((k) => k.classList.contains('pulje-team--laast'))).toBe(false);
   });
 });
 
-describe('Pulje-gitteret — CSS-kontrakten i theme.css', () => {
-  // Jsdom anvender ingen CSS, så markuppen alene beviser ingenting: klassen
-  // kunne stå på knappen uden at der fandtes en regel for den.
+describe('Pulje-gitteret — CSS\'en MÅLES, ikke læses', () => {
+  // Den første udgave af denne test asserterede på regel-TEKST, og var derfor
+  // grøn på en regel, der ikke gjorde noget: undtagelsen
+  // `.pulje-team--laast:disabled > * { opacity: 1 }` vejede (0,2,0) mod
+  // basisreglens (0,3,0) — `:not()` arver sit arguments specificitet — og tabte
+  // uanset kilderækkefølge. Hele det låste gitter stod stadig dæmpet.
+  //
+  // Jsdom regner faktisk kaskaden for `opacity` med `:not()` og `>`, så
+  // effekten kan måles. Det er forskellen på at bevise, at reglen STÅR der, og
+  // at den VIRKER.
   const css = readFileSync(
     resolve(dirname(fileURLToPath(import.meta.url)), '../../../styles/theme.css'),
     'utf8',
   );
   const blok = css.slice(css.indexOf('.pulje-team {'), css.indexOf('.pulje-team__name {'));
 
-  it('dæmpningen ligger på BØRNENE og undtager pokalen', () => {
-    // Rød af den gamle regel `.pulje-team:disabled { … opacity: 0.55; }`:
-    // opacity på selve knappen danner en stacking context, og et barn kan
-    // ikke være mere uigennemsigtigt end sin forælder. Pokalen kunne derfor
-    // ikke reddes med en regel på barnet.
-    expect(blok).not.toMatch(/\.pulje-team:disabled \{[^}]*opacity/);
-    expect(blok).toMatch(/\.pulje-team:disabled > \*:not\(\.pulje-team__actual\) \{[^}]*opacity: 0\.55/);
+  const maal = (klasser) => {
+    document.head.innerHTML = `<style>${blok}</style>`;
+    document.body.innerHTML = `<button class="${klasser}" disabled>
+      <span class="pulje-team__name">A</span>
+      <span class="pulje-team__actual">🏆</span></button>`;
+    const knap = document.querySelector('button');
+    return {
+      navn: getComputedStyle(knap.querySelector('.pulje-team__name')).opacity,
+      pokal: getComputedStyle(knap.querySelector('.pulje-team__actual')).opacity,
+    };
+  };
+
+  it('POKALEN dæmpes aldrig — heller ikke på et felt, der er fravalgt af maks', () => {
+    expect(maal('pulje-team').pokal).toBe('1');
+  });
+
+  it('et fravalgt felt dæmpes stadig — dæmpningen ER beskeden dér', () => {
+    expect(maal('pulje-team').navn).toBe('0.55');
   });
 
   it('et LÅST felt dæmpes slet ikke', () => {
-    expect(blok).toMatch(/\.pulje-team--laast:disabled > \* \{[^}]*opacity: 1/);
+    // Rød af den gamle to-regel-form: dér målte begge 0.55.
+    const laast = maal('pulje-team pulje-team--laast');
+    expect(laast.navn).toBe('1');
+    expect(laast.pokal).toBe('1');
   });
 });

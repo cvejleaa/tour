@@ -84,6 +84,20 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   tripwires (`FootballTip.test.jsx:407` `.match-card__score` toHaveLength(1);
   `tipPil.test.jsx:253` "xG-linjen ligger IKKE i `.match-card__meta`", fordi
   meta-rækken er inline-flex uden wrap og klipper venue-teksten).
+- **En CSS-"kontrakttest", der asserterer REGEL-TEKST, kan ikke se kaskaden.**
+  Klassen stod på elementet, reglen stod i filen, testen var grøn — og reglen
+  var død. `.pulje-team:disabled > *:not(.pulje-team__actual)` er (0,3,0),
+  fordi `:not()` arver argumentets specificitet; undtagelsen
+  `.pulje-team--laast:disabled > *` er kun (0,2,0) og taber uanset rækkefølge.
+  Skriv undtagelsen som et `:not()` PÅ BASISREGLEN (én vagt ét sted) i stedet
+  for en bredere regel bagefter — og MÅL effekten: jsdom kan faktisk regne
+  kaskaden for `opacity` + `:not()` + `>` (indsæt theme.css i en `<style>` og
+  brug `getComputedStyle`). Sammenlign MED og UDEN den nye regel: er outputtet
+  identisk, er reglen dekoration.
+- **`opacity` danner stacking context — et barn kan aldrig være mere
+  uigennemsigtigt end sin forælder.** Skal ét ikon overleve en dæmpning, skal
+  dæmpningen flytte fra forælderen til børnene. Men så holder BORDER og
+  BAGGRUND op med at dæmpe: tjek, om "kan ikke vælges"-signalet stadig læses.
 - **"Kan startes med vilje" og "kan ikke fejle tavst" efterprøves pr. SPIL.**
   Callable uden knap = ingen udløser; kørsel uden driftlog-linje = tavs.
 
