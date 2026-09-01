@@ -20,6 +20,7 @@ export default defineConfig({
       'ligaMedlem.test.js',
       'gameRecap.test.js',
       'livescoreHold.test.js',
+      'kampDetaljer.test.js',
       'leagueQuestionScoring.test.js',
       'leagueQuestionRecap.test.js',
       'inviteTemplate.test.js',
