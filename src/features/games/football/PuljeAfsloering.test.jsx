@@ -32,7 +32,7 @@ const BETS = [
 ];
 const props = (over = {}) => ({
   gameId: 'g', uid: 'me', teams: TEAMS, konfig: KONFIG,
-  standings: STAND, leagues: [LIGA],
+  standings: STAND, leagues: [LIGA], loading: false,
   facit: null, ligeNu: { top: new Set(['A', 'B', 'C']), bund: null },
   ...over,
 });
@@ -123,15 +123,31 @@ describe('PuljeAfsloering — ranglisten (én liga ad gangen)', () => {
     expect(punkter[punkter.length - 1]).not.toContain('0 af 3');
   });
 
-  it('under to liga-fæller i stillingen: INGEN rangliste, men en forklaring med ligaens navn', async () => {
+  it('under to liga-fæller i stillingen: INGEN rangliste, men en forklaring', async () => {
     // `players.leagueIds` kan halte efter en tilmelding — ligaen findes, men
     // stillingen kender endnu ikke dens medlemmer. Tavshed ville ligne en fejl.
+    // Samme sætning som stillingen selv (GameStandings.jsx) — uden liganavn,
+    // så der ikke skal bøjes ("Ingen af Kontoret medlemmer", QC-fund).
     render(<PuljeAfsloering {...props({ standings: [STAND[0]] })} />);
     await screen.findByTestId('pulje-holdtabel');
     expect(screen.queryByTestId('pulje-rangliste')).toBeNull();
     expect(screen.getByTestId('pulje-ingen-faeller')).toHaveTextContent(
-      'Ingen af Kontoret medlemmer er med i stillingen endnu — puljens rangliste kommer, når de er.',
+      'Ingen af ligaens medlemmer er med i stillingen endnu — puljens rangliste kommer, når de er.',
     );
+  });
+
+  it('præcis to liga-fæller: ranglisten står, og forklaringen er VÆK', async () => {
+    render(<PuljeAfsloering {...props({ standings: [STAND[0], STAND[1]] })} />);
+    const liste = await screen.findByTestId('pulje-rangliste');
+    expect(liste.textContent).toContain('Bo');
+    expect(screen.queryByTestId('pulje-ingen-faeller')).toBeNull();
+  });
+
+  it('mens stillingen HENTER, vises forklaringen ikke — den ville blinke forbi på enhver liga', async () => {
+    render(<PuljeAfsloering {...props({ standings: [], loading: true })} />);
+    await screen.findByTestId('pulje-holdtabel');
+    expect(screen.queryByTestId('pulje-ingen-faeller')).toBeNull();
+    expect(screen.queryByTestId('pulje-rangliste')).toBeNull();
   });
 
   it('viser IKKE ranglisten uden ligaer — hold-tabellen står, og der forklares intet', async () => {
@@ -147,6 +163,9 @@ describe('PuljeAfsloering — ranglisten (én liga ad gangen)', () => {
     const vaelger = await screen.findByRole('combobox', { name: 'Vis puljen for' });
     // En rangliste på unionen matcher INGEN ligas stilling — muligheden findes ikke.
     expect([...vaelger.options].map((o) => o.textContent)).toEqual(['Kontoret', 'Familien']);
+    // Standard er den FØRSTE liga — Kontoret har Bo, Familien har ikke.
+    expect(vaelger.value).toBe('k');
+    expect(screen.getByTestId('pulje-rangliste').textContent).toContain('Bo');
     fireEvent.change(vaelger, { target: { value: 'f' } });
     await waitFor(() => {
       const liste = screen.getByTestId('pulje-rangliste');

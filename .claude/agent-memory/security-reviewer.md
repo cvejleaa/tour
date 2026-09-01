@@ -272,6 +272,28 @@
   `https://tip.vejleaa.dk@evil.dk/` igennem. Sammen: en globalAdmin (= en af
   vennerne) sender en officiel tip@vejleaa.dk-mail med en phishing-knap.
   Fix: `href="${esc(cta)}"` + `startsWith(APP_URL + '/')`.
+- **`id`-FELTET SKYGGER FOR DOC-ID'ET I `useGameLeagues` — en liga-ejer kan
+  slukke stillingen for hele sin liga (BEKRÆFTET ende-til-ende, 2026-09-01).**
+  Samme klasse som pulje-fundet, men her er den ÅBEN. `useGameLeagues.js` L37
+  er `{ id: d.id, ...d.data() }` — spreadet sidst, så et `id`-felt i dataen
+  vinder. Ejer-grenen i leagues-update (firestore.rules L1029-1033) fryser kun
+  `memberUids`/`ownerUid`/`code`; ETHVERT andet felt må skrives. Kæden kørt i
+  emulatoren (3 checks, kontrol grøn): angriber ejer liga A (med offeret) og er
+  medlem af liga B (fremmede, hvis id hen derfor kender) → `updateDoc(A,
+  {id:'B'})` LYKKES (`memberUids` afvises stadig — kontrol) → offerets
+  `useGameLeagues` melder liga A med id `'B'` → `useGameStandings` L39 bygger
+  `leagueIds` af netop dét → `where('leagueIds','array-contains-any',['B'])`
+  rammer `fremmed`s players-dokument, som reglen (L698-699,
+  `hasAny(myLeagueIds())` på det SERVER-skrevne felt) afviser → HELE
+  forespørgslen fejler, også når det ægte id er med. Offeret mister stillingen
+  for ALLE sine ligaer i spillet — og på pulje-fanen (efter 4ee45aa) forsvinder
+  ranglisten bare, for `PuljeTip` viser aldrig hookens `error`. Ingen data
+  lækker; det er ren ødelæggelse, og den er usporlig for offeret.
+  Fix: ét tegn-ombytning, `{ ...d.data(), id: d.id }` (samme rettelse som
+  PuljeAfsloering L95 fik), evt. + en nøgle-whitelist i leagues-update.
+  Bemærk: mønstret står 30+ steder i `src/` (`useLeagues`, `useGameBets`,
+  `useGame` …); det farlige er dér, hvor id'et derefter fodrer en QUERY, som
+  reglen filtrerer på.
 - **Liga-navnet er IKKE type-vagtet ved UPDATE - en spiller draeber en
   admin-flade for HELE spillet.** `firestore.rules` L971 kraever `name is string`
   ved CREATE; ejer-grenen ved update (L979-983) kraever kun ownerUid/memberUids/
@@ -314,6 +336,20 @@
   død for HELE ligaen. Samme gift rammer KLIENTEN hårdere: `scoreLeagueQuestion`
   kaldes i render, og et map som React-child → hvid side for alle medlemmer.
   Fix ét sted: `String()`-konverteringen i en try, eller filtrér ikke-strenge fra.
+  **MÅLT IGEN 2026-09-01 på pulje-fanen (4ee45aa):** giften har ÉT
+  fælles knudepunkt på klienten — `rankStandings` (gameStandings.js L17
+  `name: u.displayName || 'Ukendt spiller'`, L37 `a.name.localeCompare`). Ingen
+  typevagt. Typematrix målt: `42`/`{a:1}`/`['x']`/`true` overlever som streng,
+  men `{toString:null, valueOf:null}` KASTER allerede i sorteringen, og et
+  almindeligt map (`{a:1}`) kaster i React som child ("Objects are not valid as
+  a React child") — begge bekræftet med render-PoC. Efter 4ee45aa kalder
+  `PuljeTip` (L130) `useGameStandings` UBETINGET, så en forgiftet liga-fælle
+  hvidner nu også pulje-fanen — og FØR deadline, hvor afsløringen slet ikke
+  er monteret. Samme gift via liganavnet rammer to NYE render-steder:
+  `PuljeAfsloering.jsx` L198 (`{valgtLiga.name || 'ligaens'}`) og L217
+  (`<option>{l.name}`). Fix ÉT sted, der dækker alle forbrugere:
+  `typeof u.displayName === 'string' ? u.displayName : 'Ukendt spiller'` i
+  `rankStandings` — hver render-side hver for sig er en tabt kamp.
 - **Bot-forfalskning på liga-væggen.** `messages`-reglen binder KUN `uid` — ikke
   `displayName`, `avatarEmoji`, `system` eller `questionId`. Et medlem kan gemme
   `{uid: sig selv, displayName:'Runde-Botten', avatarEmoji:'🤖', system:true}`.
@@ -571,6 +607,48 @@
   stadig (uid → `users/{uid}.displayName`), men det er den kendte, accepterede
   åbning — fladen tilføjer intet.
 
+- **Identitets-bindingen i afsløringen er RETTET og mutationstestet
+  (2026-09-01, 4ee45aa).** `PuljeAfsloering.jsx` L95 er nu
+  `{ ...d.data(), uid: d.id }` — doc-id'et vinder, som på serveren
+  (`functions-platform/gameScoring.js` L453/455 bruger `d.id`). Render-PoC:
+  et dokument med id `u3` og feltet `uid:'me'` giver "kun Carla", ikke
+  "kun dig", og ranglisten får tre forskellige rækker. Mutationen tilbage til
+  `{ uid: d.id, ...d.data() }` gør PRÆCIS angrebstesten rød og lader
+  kontroltesten (ægte enegænger → "kun dig") være grøn — PoC'en måler altså
+  rettelsen og ikke sig selv. Samme mønster i `useGameStandings` L66/L85 er
+  dækket ved kilden: players-reglen binder `uid` BÅDE ved create (L706) og
+  update (L735).
+- **Spilleren kan IKKE skrive sine egne pulje-point (16 PoC-checks, emulator,
+  2026-09-01).** `firestore.rules` L907
+  `!request.resource.data.keys().hasAny(['points','correct','nedPoints','nedCorrect'])`
+  gælder BEGGE skriveformer: hvert felt for sig og alle fire på én gang afvist,
+  ved create og ved update — også `points: 0` (nøglen, ikke værdien). Efter
+  deadline afvises update, championship-ændring og delete, mens `getDoc` stadig
+  lykkes (kontrol: PoC'en kan skelne "lukket" fra "alt er lukket"). Derfor kan
+  `erAfgjort` (som kun ser på `correct`) ikke tvinges, og `puljeVindere`, der
+  nu kårer på POINT, kan ikke forfalskes. Kun `Points` med stort P slipper
+  igennem — der findes ingen læser af den nøgle.
+- **Dubletter i `championship` kan ikke inflatere score.** Reglen tjekker kun
+  `size() == poolSize()`, så `['A','A','A','A']` GEMMES (emulator-målt) — men
+  `puljeScore` (src/lib/superligaScoring.js L502) dedupliker med
+  `[...new Set(picks)]`, og `perfect` kræver desuden `valgte.length === antal`.
+  Serveren bruger SAMME funktion (functions-platform/gameScoring.js L443/448),
+  så klient og server er enige. Målt: 4×'A' mod facit {A,B} → `{correct:1,
+  points:5}`; kontrol med fire ægte → `{correct:4, points:30}`.
+- **Fremmede holdnavne i `championship` kan hverken skabe en række eller
+  injicere markup.** `holdTilslutning` (puljeAfsloering.js L64) nøgler
+  outputtet på spillets `teams`, så `'FC Onde'` og
+  `'<img src=x onerror=alert(1)>'` forsvinder sporløst (render-PoC: præcis
+  `teams.length` rækker, intet `<img>`, intet `onerror` i markup'en;
+  kontrol: et ægte holdnavn giver en række). Talnævneren `antalTip` er
+  `bets.length` og kan ikke pilles ved.
+- **Fejltilstanden i afsløringen er tavs.** `PuljeAfsloering.jsx` L96
+  `.catch(() => setBets([]))` logger intet og viser intet; L128 gør "afvist",
+  "tom" og "henter" til samme skærmbillede. `PuljeTip` destrukturerer kun
+  `{ standings, leagues }` fra `useGameStandings` (L130) og viser ALDRIG
+  hookens `error`. Den ENESTE nye støj på pulje-fanen er hookens egen
+  `console.error('useGameStandings (deltagere) fejl:', err)` — en FirebaseError,
+  ingen tip-data.
 - **Ingen anden forbruger mistede adgang ved deltager-gaten.** De eneste
   læsere af `puljeBets` er `PuljeTip.jsx` (eget dokument — egen-grenen er
   urørt, målt også uden players-dokument) og den nye afsløring; serveren læser

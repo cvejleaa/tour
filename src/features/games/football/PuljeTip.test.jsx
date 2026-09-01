@@ -452,6 +452,7 @@ describe('PuljeTip — afsløringen får det, den skal regne på', () => {
     expect(p.konfig).toEqual(expect.objectContaining({ poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10 }));
     expect(p.standings).toBe(mockStand.current);
     expect(p.leagues).toBe(mockLeagues.current);
+    expect(p.loading).toBe(false);   // hookens loading, sendt med — ikke udeladt
     // Vinderne af de 4 kampe er toppen lige nu; bunden er 3 af taberne.
     expect(p.ligeNu.top).toEqual(new Set(['H1', 'H3', 'H5', 'H7']));
     expect(p.ligeNu.bund).toBeInstanceOf(Set);

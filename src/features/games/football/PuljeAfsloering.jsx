@@ -70,11 +70,12 @@ export function enegaengerTekst(enesteUid, uid, navnAf) {
  *   abonnementer, stik imod hookens egen kommentar (QC-fund). Én lytter, ét
  *   sted, sendt ned.
  * @param {Array} p.leagues     seerens ligaer i spillet
+ * @param {boolean} p.loading   stillingens lyttere har ikke svaret endnu
  * @param {{top:Set|null, bund:Set|null}|null} p.facit     endeligt (klientens)
  * @param {{top:Set|null, bund:Set|null}|null} p.ligeNu    "hvis tabellen sluttede i dag"
  */
 export default function PuljeAfsloering({
-  gameId, uid, teams, konfig, standings, leagues, facit, ligeNu,
+  gameId, uid, teams, konfig, standings, leagues, loading, facit, ligeNu,
 }) {
   // undefined = henter · [] = ingen tip ELLER må ikke læse. De to sidste er
   // med vilje SAMME tilstand: begge skal tie, og ingen læser forskellen.
@@ -148,8 +149,12 @@ export default function PuljeAfsloering({
   // Ligaen findes, men dens medlemmer er (endnu) ikke i `standings` — det
   // server-skrevne `players.leagueIds` kan halte efter en tilmelding. Uden
   // en sætning ville hele afsnittet bare udeblive; stillingen forklarer det
-  // (GameStandings.jsx), så det gør vi også (QC-fund).
-  const ligaUdenFaeller = valgtLiga && medlemmer.length < 2;
+  // (GameStandings.jsx), så det gør vi også (QC-fund). MEN IKKE MENS DER
+  // HENTES: `standings` starter tom, og uden gaten ville sætningen blinke
+  // forbi på en liga med rigtige fæller, hver gang fanen åbnes — stillingen
+  // gater præcis sådan (GameStandings.jsx), og mønstret blev først kopieret
+  // uden gaten (QC-fund).
+  const ligaUdenFaeller = !loading && valgtLiga && medlemmer.length < 2;
   const vindere = afgjort && raekker ? puljeVindere(raekker) : null;
 
   return (
@@ -195,7 +200,7 @@ export default function PuljeAfsloering({
 
       {ligaUdenFaeller && (
         <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0.9rem 0 0' }} data-testid="pulje-ingen-faeller">
-          Ingen af {valgtLiga.name || 'ligaens'} medlemmer er med i stillingen endnu — puljens rangliste kommer, når de er.
+          Ingen af ligaens medlemmer er med i stillingen endnu — puljens rangliste kommer, når de er.
         </p>
       )}
 

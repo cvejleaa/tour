@@ -128,7 +128,7 @@ export default function PuljeTip({ game, matches }) {
   // indeni, så et direkte kald her ville være samme forespørgsel to gange
   // (QC-fund). Prisen: stillingens lyttere (players, users) er nu også åbne
   // på pulje-fanen, ikke kun på Stilling.
-  const { standings, leagues } = useGameStandings(gameId);
+  const { standings, leagues, loading: stillingHenter } = useGameStandings(gameId);
   const ligaForbehold = useMemo(() => puljeLigaForbehold(leagues), [leagues]);
   const [bet, setBet] = useState(undefined); // undefined = indlæser, null = intet tip
   const [picks, setPicks] = useState([]);    // toppen
@@ -403,7 +403,7 @@ export default function PuljeTip({ game, matches }) {
       {locked && (
         <PuljeAfsloering
           gameId={gameId} uid={uid} teams={teams} konfig={konfig}
-          standings={standings} leagues={leagues}
+          standings={standings} leagues={leagues} loading={stillingHenter}
           facit={facit} ligeNu={ligeNu}
         />
       )}

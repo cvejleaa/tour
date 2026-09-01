@@ -118,6 +118,17 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
 - **"Kan startes med vilje" og "kan ikke fejle tavst" efterprøves pr. SPIL.**
   Callable uden knap = ingen udløser; kørsel uden driftlog-linje = tavs.
 
+- **En hook, der samler DATA og et LOADING-flag, skal give begge videre —
+  ikke kun dataet.** `useGameStandings` returnerer `{standings, leagues, loading}`;
+  `standings` starter tomt og fyldes async. `GameStandings.jsx:296` gater sit
+  tomme-state bag `if (loading) return spinner`, FØR den tomme-tekst på :567.
+  `PuljeAfsloering.jsx:152` bruger samme hooks `standings` til at afgøre
+  "ingen liga-fæller", men hverken `PuljeTip.jsx` eller `PuljeAfsloering.jsx`
+  læser `loading` — så en liga MED fæller kan vise "ingen fæller endnu" i det
+  øjeblik, standings' egne lyttere (players, users) endnu ikke har svaret.
+  Kopieres et mønster fra en søsterfil, skal gaten kopieres med, ikke kun
+  teksten.
+
 ## Data, kilder og målinger
 
 - **Et felt i en plan-tabel uden en målt kilde er en påstand.** En kildetabel,
@@ -314,6 +325,14 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
 - **Kampprogrammet ligger i repoet og kan tælles:**
   `scripts/premier-league-fixtures-2627.json` (R1 21/8-2026),
   `scripts/superliga-fixtures.json` (R1 24/7-2026). 380 + 132 = 512 kampe.
+
+- **En sætning, der navngiver et objekt med `{navn}` foran et substantiv, skal
+  bøjes.** "Ingen af {liga.name} medlemmer" mangler genitiv-s ("Kontorets",
+  ikke "Kontoret") — og fejlen er usynlig for grep, fordi fallback-strengen
+  ("ligaens") tilfældigvis ER korrekt bøjet. Husets egen præcedens
+  (`GameStandings.jsx:567`) undgår problemet helt ved ALDRIG at navngive:
+  "Ingen af ligaens medlemmer er med i stillingen endnu." Skal en ny sætning
+  navngive et dansk ord foran et substantiv, sæt `{navn}s` eller undgå navnet.
 
 ## Delt tæller, to domme
 
