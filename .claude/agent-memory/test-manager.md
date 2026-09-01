@@ -464,3 +464,68 @@ faktisk blive nået af, og findes det input i noget fixture?
   fejle synligt i browseren, ikke i testen), men værd at bygge en gang som en
   udvidelse af `theme.test.js`, der scanner alle `.jsx`-filer for
   `var(--c-[a-z-]+)` og krydstjekker navnet mod `:root`-blokken.
+
+## Pulje-reglen: `puljeLockAt: null` + deltager-gate (commit 5c4b9e0, PR #202, sept. 2026)
+
+- **`RULES_FILE` findes allerede i `functions/rules.test.js:39` — brug den.**
+  Testen læser reglerne fra `process.env.RULES_FILE || <repo>/firestore.rules`,
+  netop for at mutationstest kan køre mod en KOPI. Mutér ALDRIG `firestore.rules`
+  selv: emulatorens fil-vagt genindlæser midt i kørslen, og en anden rolle kan
+  have din fil under sig. Opskrift, der virkede:
+  `cp firestore.rules /tmp/m.rules; sed -i … /tmp/m.rules;
+   RULES_FILE=/tmp/m.rules firebase emulators:exec --only firestore "RULES_FILE=… npm run test:rules"`.
+- **To Firestore-emulatorer i samme container destabiliserer suiten.** Security
+  Reviewer kørte på 8080 mod hovedarbejdstræet, mens jeg kørte i egen worktree.
+  Første kørsel døde med `Firestore Emulator has exited with code: 143`, den
+  næste gav FIRE urelaterede røde ("KAN gemme sit hold (kontrol)", "en global
+  admin KAN stadig godkende en bruger (kontrol)") — ren flake. Flyt egne porte i
+  worktree'ens `firebase.json` (firestore/hub/logging/ui), og KØR ALTID EN REN
+  BASELINE IGEN, før du melder en mutation for "overlevet"/"dræbt".
+- **`request.time >= X` mod `>` kan ikke mutationstestes.** Grænsen "præcis PÅ
+  deadline" kræver, at emulatorens serverur rammer millisekundet — der findes
+  ingen vej til det fra en regel-test. Ækvivalent i praksis; skriv det som
+  utestbart, ikke som et hul.
+- **Tre vagter på samme regel gør to af dem u-mutérbare.** Pulje-reglen har nu
+  (1) direkte opslag `…data.puljeLockAt` (evalueringsfejl ved manglende felt),
+  (2) `gameLock() != null &&` i `beforeDeadline()` og (3) samme i
+  `afterDeadline()`. Både at fjerne (3) og at bytte (1) til
+  `.get('puljeLockAt', null)` OVERLEVER hele suiten (241 grønne), fordi
+  `request.time >= null` selv er en evalueringsfejl → deny. Konsekvens: testen
+  "MANGLENDE puljeLockAt afviser listen" kan ikke gøres rød af nogen
+  ét-punkts-mutation — dens LÆSE-halvdel er overdetermineret. Kun dens
+  SKRIVE-halvdel dør (og da sammen med naboen `:3013`). Husets regel "Én vagt
+  pr. sikkerhedsregel" gælder også, når den redundante vagt er selve sprogets
+  fejlsemantik.
+- **En `isApproved()`-vagt ved siden af en `deltager()`-vagt er ubevist, indtil
+  én test har en SUSPENDERET deltager.** `isApproved() && deltager() && …`:
+  fjern `isApproved() &&`, og alle 241 tests bliver grønne — for i alle
+  fixtures er "deltager" og "godkendt" samme personer. Hullet er reelt:
+  en bruger, der har et `players`-dokument, men hvis `users/{uid}.status`
+  senere sættes til `pending`/`rejected`, beholder dokumentet. Bevist med en
+  fire-linjers probe (createUser(uid,'player','pending') + seedMembership +
+  assertFails(liste)) — grøn på den rigtige regel, RØD på mutationen. Samme
+  form som `puljeLockAt`-hullet selv: en gate, der i dag tilfældigvis følges
+  ad med en anden. Tjek hver gang to gates står i AND: findes der ét fixture,
+  hvor de er UENIGE?
+- **En eksisterende assertFails kan blive overdetermineret af en ny gate.**
+  `functions/rules.test.js:3013` ("uden deadline kan hverken skrives eller
+  læses andres") lader pb2 læse pb1's tip UDEN at give pb2 et players-dokument.
+  Efter `deltager()` er den assertion rød af to grunde, og deadline-grunden er
+  ikke længere den, der bærer den. En ny gate svækker altså gamle
+  fraværs-assertions tavst — søg efter dem, når en gate tilføjes, ikke kun
+  efter fraværs-assertions der skal VENDES.
+- **`expect(snap.size).toBe(2)` fortjener sin plads — men af en anden grund end
+  kommentaren siger.** Kommentaren begrunder den med "en regel, der tavst
+  filtrerede fremmede dokumenter væk". Det kan ikke ske i Firestore (regler er
+  ikke filtre — en list fejler HELT). Beviste værdi: den er den ENESTE
+  assertion, der fanger et TOMT/HALVT fixture. Mutation af selve fixturet
+  (`for (const u of ['pb1','pb2'])` → `['pb2']`) gør præcis den ene test rød og
+  ingen andre.
+- **Mutationsmatrix (241 tests, én ad gangen, gendannet imellem):**
+  DØDE — `deltager()` fjernet (1 rød), `afterDeadline()` → `!beforeDeadline()`
+  (1 rød), hele læsegrenen → `false` (2 røde), tidssammenligningen ud af
+  `afterDeadline` (2 røde), `gameLock() == null || …` i `beforeDeadline` (1 rød),
+  samme spejlvending i `afterDeadline` (1 rød), egen-tip-grenen brudt (1 rød),
+  gammel regel i sin helhed (præcis 2 røde — de to, commit-beskeden nævner).
+  OVERLEVEDE — `>=` → `>`; `gameLock() != null &&` ud af `afterDeadline`;
+  `.get('puljeLockAt', null)`; `isApproved() &&` ud af læsegrenen.

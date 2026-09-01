@@ -820,10 +820,22 @@ service cloud.firestore {
           return get(/databases/$(database)/documents/games/$(gameId)).data;
         }
         function gameLock() {
-          // BEVIDST direkte opslag (IKKE .get med default): mangler feltet,
-          // er det en evalueringsfejl, og HELE reglen fejler LUKKET — både
-          // skrivning og andres-læsning. Med en null-default ville et spil
-          // uden deadline åbne alles tips for læsning (!beforeDeadline()).
+          // DIREKTE OPSLAG, IKKE `.get` med default: mangler feltet, er det en
+          // evalueringsfejl, og hele reglen fejler LUKKET — både skrivning og
+          // andres-læsning.
+          //
+          // FORBEHOLD, SÅ NÆSTE LÆSER IKKE OVERVURDERER DEN. Begrundelsen var
+          // før, at en null-default ville åbne alles tip via `!beforeDeadline()`.
+          // Den gren findes ikke længere: læsningen går nu gennem den POSITIVE
+          // `afterDeadline()`, og med en null-default ville `null != null` være
+          // falsk og lukke af sig selv. Vagten er altså redundant i dag, og en
+          // mutation af den kan IKKE gøres rød af nogen test (TM-fund).
+          //
+          // Den bliver stående alligevel, fordi den er den ENESTE, der ikke
+          // hviler på sprogets fejlsemantik: `request.time >= null` lukker kun,
+          // fordi en sammenligning med null er en evalueringsfejl. Det er en
+          // rigtig egenskab, men en tavs én, og den er dyrere at ræsonnere om
+          // end et manglende felt, der falder på gulvet med det samme.
           return get(/databases/$(database)/documents/games/$(gameId)).data.puljeLockAt;
         }
         function beforeDeadline() {

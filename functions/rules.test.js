@@ -3015,6 +3015,10 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await createUser('pb2', 'player', 'approved');
       await createGame('pb-nolock', { pulje: { poolSize: 6 } });
       await seedMembership('pb-nolock', 'pb1');
+      // pb2 SKAL være deltager, ellers er assertFails nedenfor rød af
+      // deltager-gaten, og testen beviser ikke længere det, dens navn siger
+      // (TM-fund efter deltager-gaten kom til).
+      await seedMembership('pb-nolock', 'pb2');
       await assertFails(setDoc(pDoc('pb-nolock'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
       // Andres tip: pb2 prøver at læse pb1's dokument — manglende puljeLockAt
       // skal fejle LUKKET, ikke åbne læsningen (evalueringsfejl, ikke null).
@@ -3081,8 +3085,12 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       it('EFTER deadline kan en deltager liste ALLE tip — og få dem alle', async () => {
         await seedToTip('pb-list-efter', FOR_EN_TIME);
         const snap = await assertSucceeds(liste('pb2', 'pb-list-efter'));
-        // Ikke bare "lykkedes": ANTALLET. En regel, der tavst filtrerede
-        // fremmede dokumenter væk, ville bestå en ren succes-assertion.
+        // Ikke bare "lykkedes": ANTALLET. Begrundelsen var først, at en regel
+        // kunne filtrere fremmede dokumenter tavst væk — det kan Firestore
+        // ikke, en list fejler HELT eller lykkes helt (TM-fund). Den værdi,
+        // assertionen faktisk har, er husets egen "en test uden data beviser
+        // ingenting": muteres fixturet til kun at seede ét tip, bliver præcis
+        // denne test rød.
         expect(snap.size).toBe(2);
       });
 
@@ -3138,6 +3146,38 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
         await seedToTip('pb-list-fremmed', FOR_EN_TIME);
         await createUser('pb-udenfor', 'player', 'approved');
         await assertFails(liste('pb-udenfor', 'pb-list-fremmed'));
+      });
+
+      it('en SUSPENDERET deltager afvises — players-dokumentet overlever en status-ændring', async () => {
+        // TM-FUND: mutationen "fjern `isApproved() &&` fra læsegrenen" overlevede
+        // alle 241 tests, fordi "deltager" og "godkendt" var samme personer i
+        // HVERT eneste fixture. To gates i AND kræver ét fixture, hvor de er
+        // UENIGE. Hullet er reelt: et players-dokument overlever, at
+        // users/{uid}.status sættes til pending eller rejected, så en
+        // suspenderet bruger ville kunne liste alles pulje-tip.
+        await seedToTip('pb-suspenderet', FOR_EN_TIME);
+        await createUser('pb3', 'player', 'pending');
+        await seedMembership('pb-suspenderet', 'pb3');
+        await assertFails(liste('pb3', 'pb-suspenderet'));
+      });
+
+      it('en AFVIST deltager afvises også', async () => {
+        await seedToTip('pb-afvist', FOR_EN_TIME);
+        await createUser('pb4', 'player', 'rejected');
+        await seedMembership('pb-afvist', 'pb4');
+        await assertFails(liste('pb4', 'pb-afvist'));
+      });
+
+      it('en globalAdmin UDEN players-dokument afvises — puljen er spillets', async () => {
+        // BESLUTNINGEN FRYSES HER, ikke når fladen står tom. Læsegrenen har
+        // bevidst ingen isGlobalAdmin()-gren: puljen er spillets deltageres.
+        // En ejer, der kigger på et spil, han ikke er med i, får derfor
+        // ingen liste — og afsløringen skal tie, ikke vise en tom tabel.
+        // Skal der nogensinde bygges en admin-flade over pulje-tippene, går
+        // den gennem en callable med Admin SDK, ikke gennem denne regel.
+        await seedToTip('pb-admin', FOR_EN_TIME);
+        await createUser('pb-ejer', 'globalAdmin', 'approved');
+        await assertFails(liste('pb-ejer', 'pb-admin'));
       });
 
       it('eget tip kan stadig læses FØR deadline — den gren er urørt', async () => {
