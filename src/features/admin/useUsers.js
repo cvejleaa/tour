@@ -26,7 +26,7 @@ export function useUsers() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setUsers(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setLoading(false);
       },
       (err) => {

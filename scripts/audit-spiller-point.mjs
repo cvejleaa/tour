@@ -86,7 +86,7 @@ async function main() {
   }));
   const navnAf = (uid) => navne.get(uid) || '(uden navn)';
 
-  const alle = spillereSnap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+  const alle = spillereSnap.docs.map((d) => ({ ...d.data(), uid: d.id }));
   const game = gameSnap.exists ? gameSnap.data() : null;
 
   // PULJENS DEADLINE-TYPE. Reglen sammenligner `request.time` med feltet; er
@@ -116,10 +116,10 @@ async function main() {
     return;
   }
 
-  const kampe = kampeSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const kampe = kampeSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const roundCtx = buildRoundContext(kampe);
   const kampAf = new Map(kampe.map((m) => [m.id, m]));
-  const ligaer = ligaSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const ligaer = ligaSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
 
   // SPILLETS EGEN GATE. Serveren regner kun på kampe fra spillets startrunde
   // (gameScoring.js:230 gatedIds). Regnede revisionen uden den, ville en

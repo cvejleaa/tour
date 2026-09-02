@@ -40,7 +40,7 @@ export function useGame(gameId) {
     const unsub = onSnapshot(
       doc(db, COL.GAMES, gameId),
       (snap) => {
-        setGame(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        setGame(snap.exists() ? { ...snap.data(), id: snap.id } : null);
         setGameLoading(false);
       },
       (err) => {
@@ -63,7 +63,7 @@ export function useGame(gameId) {
     const unsub = onSnapshot(
       doc(db, COL.GAMES, gameId, COL.GAME_PLAYERS, uid),
       (snap) => {
-        setMe(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        setMe(snap.exists() ? { ...snap.data(), id: snap.id } : null);
         setMeLoading(false);
       },
       (err) => {
@@ -86,7 +86,7 @@ export function useGame(gameId) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setMatches(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setMatches(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setMatchesLoading(false);
       },
       (err) => {

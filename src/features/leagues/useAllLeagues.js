@@ -17,7 +17,7 @@ export function useAllLeagues(enabled = true) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setLeagues(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLeagues(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setLoading(false);
       },
       (err) => {

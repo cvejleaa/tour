@@ -23,7 +23,7 @@ export function useLeagueMessages(gameId, leagueId, max = 50) {
     );
     const unsub = onSnapshot(
       q,
-      (snap) => { setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
+      (snap) => { setMessages(snap.docs.map((d) => ({ ...d.data(), id: d.id }))); setLoading(false); },
       (err) => { console.error('useLeagueMessages fejl:', err); setMessages([]); setLoading(false); },
     );
     return unsub;

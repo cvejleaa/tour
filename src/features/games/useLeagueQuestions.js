@@ -54,7 +54,7 @@ export function useLeagueQuestions(gameId, leagueId) {
       orderBy('createdAt', 'desc'),
     );
     return onSnapshot(qRef, (snap) => {
-      setQuestions(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setQuestions(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
       setLoading(false);
     }, () => setLoading(false));
   }, [gameId, leagueId]);
@@ -67,7 +67,7 @@ export function useLeagueQuestions(gameId, leagueId) {
       where('uid', '==', uid),
     );
     return onSnapshot(aRef, (snap) => {
-      setMine(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setMine(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
     }, (err) => console.error('useLeagueQuestions (egne svar) fejl:', err));
   }, [gameId, leagueId, uid]);
 
@@ -88,7 +88,7 @@ export function useLeagueQuestions(gameId, leagueId) {
         where('questionId', 'in', ids),
       ),
       (snap) => {
-        byGroup[i] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        byGroup[i] = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
         setOthers(byGroup.flat());
       },
       (err) => console.error('useLeagueQuestions (svar) fejl:', err),

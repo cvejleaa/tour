@@ -27,7 +27,7 @@ export function useStandings() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const users = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+        const users = snap.docs.map((d) => ({ ...d.data(), uid: d.id }));
         setStandings(sortByPoints(users));
         setLoading(false);
       },

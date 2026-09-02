@@ -37,7 +37,7 @@ export function useLeagueBonus(leagueId, meUid, isManager = false) {
       orderBy('createdAt', 'asc'),
     );
     const unsub = onSnapshot(q, (snap) => {
-      setQuestions(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setQuestions(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
       setLoading(false);
     }, () => setLoading(false));
     return unsub;

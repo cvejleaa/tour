@@ -268,7 +268,7 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
   const game = gameSnap.data();
   if (game.aiRecaps === false) return { posted: 0, reason: 'disabled' };
   const matchesSnap = await gameRef.collection('matches').get();
-  const alleKampe = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const alleKampe = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   // START-GATE. Samme sæt som pointgivningen bruger — botten må ikke skrive om
   // en runde, spillet ikke tæller. Den var før en dato-sammenligning her, og
   // kunne dermed komme til at referere en HALV runde.

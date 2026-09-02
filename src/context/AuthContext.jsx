@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
     if (!user) return undefined;
     const ref = doc(db, COL.USERS, user.uid);
     const unsub = onSnapshot(ref, (snap) => {
-      setProfile(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+      setProfile(snap.exists() ? { ...snap.data(), id: snap.id } : null);
       setLoading(false);
     });
     return unsub;

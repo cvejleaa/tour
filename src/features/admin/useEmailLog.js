@@ -19,7 +19,7 @@ export function useEmailLog(max = 100) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setEntries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setEntries(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setLoading(false);
       },
       (err) => {

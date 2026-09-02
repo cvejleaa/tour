@@ -19,7 +19,7 @@ export function useUnreadMessages(uid) {
     const q = query(collection(db, COL.MESSAGES), where('participants', 'array-contains', uid));
     const unsub = onSnapshot(
       q,
-      (snap) => setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (snap) => setMessages(snap.docs.map((d) => ({ ...d.data(), id: d.id }))),
       () => setMessages([]),
     );
     return unsub;

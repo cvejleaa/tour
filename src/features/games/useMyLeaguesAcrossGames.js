@@ -67,7 +67,7 @@ export function useMyLeaguesAcrossGames() {
           where('memberUids', 'array-contains', uid),
         ),
         (snap) => {
-          acc[gid] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          acc[gid] = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
           setPerGame({ ...acc });
           settled += 1;
           if (settled >= gameIds.length) setLeaguesLoading(false);

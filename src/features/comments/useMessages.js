@@ -30,7 +30,7 @@ export function useMyMessages(uid) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setMessages(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setError(null);
         setLoading(false);
       },
@@ -91,7 +91,7 @@ export function useConversation(a, b) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setMessages(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setError(null);
         setLoading(false);
       },

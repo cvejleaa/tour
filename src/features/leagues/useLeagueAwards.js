@@ -19,7 +19,7 @@ export function useLeagueAwards(leagueId) {
       where('leagueId', '==', leagueId),
     );
     const unsub = onSnapshot(q, (snap) => {
-      setDocs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setDocs(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
       setLoading(false);
     }, () => { setDocs([]); setLoading(false); });
     return unsub;

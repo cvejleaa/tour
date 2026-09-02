@@ -14,7 +14,11 @@ export function rankStandings(players, usersById = {}) {
     const u = usersById[p.uid] || {};
     return {
       uid: p.uid,
-      name: u.displayName || 'Ukendt spiller',
+      // KUN en ikke-tom streng er et navn. Reglen kræver nu en streng ved
+      // skrivning, men gamle dokumenter og konsollen er ikke underlagt den —
+      // og et objekt her kaster i React og hvidner Stilling- OG Pulje-fanen
+      // for alle liga-fæller (Security-fund). `||` alene lod alt sandt igennem.
+      name: (typeof u.displayName === 'string' && u.displayName) || 'Ukendt spiller',
       emoji: u.avatarEmoji ?? null,
       // Yndlingshold pr. spil (players-doc) har forrang for den globale profil.
       favoriteTeam: p.favoriteTeam ?? u.favoriteTeam ?? null,

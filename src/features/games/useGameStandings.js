@@ -63,7 +63,7 @@ export function useGameStandings(gameId) {
         where('leagueIds', 'array-contains-any', leagueIds),
       ),
       (snap) => {
-        setMates(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+        setMates(snap.docs.map((d) => ({ ...d.data(), uid: d.id })));
         setMatesLoading(false);
       },
       (err) => {
@@ -82,7 +82,7 @@ export function useGameStandings(gameId) {
     if (!gameId || !uid) { setMe(null); return undefined; }
     const unsub = onSnapshot(
       doc(db, COL.GAMES, gameId, COL.GAME_PLAYERS, uid),
-      (snap) => setMe(snap.exists() ? { uid: snap.id, ...snap.data() } : null),
+      (snap) => setMe(snap.exists() ? { ...snap.data(), uid: snap.id } : null),
       (err) => console.error('useGameStandings (mig) fejl:', err),
     );
     return unsub;

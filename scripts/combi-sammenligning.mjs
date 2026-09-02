@@ -88,7 +88,7 @@ const [matchesSnap, betsSnap, playersSnap] = await Promise.all([
 // dato-sammenligning — den tiende af slagsen — og et harness, der analyserer et
 // andet kampsæt end spillet bruger, måler noget andet end det, det påstår.
 // Netop dette harness har afgjort combi- og odds-ændringer.
-const alleKampe = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+const alleKampe = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
 const gatede = gatedeKampe(alleKampe, startRundeFor(gameSnap.data(), alleKampe));
 
 const kampe = new Map();

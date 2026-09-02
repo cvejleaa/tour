@@ -229,6 +229,31 @@ describe('users/{uid} — sikkerhedsregler', () => {
     );
   });
 
+  it('displayName SKAL være en streng — et map som navn hvidner alle liga-fællers stilling', async () => {
+    await createUser('user1', 'player', 'approved');
+    const ctx = testEnv.authenticatedContext('user1');
+    // `rankStandings` renderer navnet direkte; et objekt kaster i React, og
+    // Stilling- og Pulje-fanen forsvinder for alle, der deler liga med
+    // personen. Reglen er vagten, ikke klienten.
+    await assertFails(updateDoc(doc(ctx.firestore(), 'users', 'user1'), { displayName: { a: 1 } }));
+    await assertFails(updateDoc(doc(ctx.firestore(), 'users', 'user1'), { displayName: 42 }));
+    await assertFails(updateDoc(doc(ctx.firestore(), 'users', 'user1'), { displayName: ['x'] }));
+    // Kontrol: en streng går stadig igennem, og en opdatering UDEN
+    // displayName rammes ikke af vagten.
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'users', 'user1'), { displayName: 'Anna' }));
+    await assertSucceeds(updateDoc(doc(ctx.firestore(), 'users', 'user1'), { avatarEmoji: '🦊' }));
+  });
+
+  it('en profil kan heller ikke OPRETTES med et ikke-streng displayName', async () => {
+    const ctx = testEnv.authenticatedContext('nyBruger');
+    await assertFails(setDoc(doc(ctx.firestore(), 'users', 'nyBruger'), {
+      role: 'player', status: 'pending', displayName: { a: 1 },
+    }));
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'users', 'nyBruger'), {
+      role: 'player', status: 'pending', displayName: 'Ny',
+    }));
+  });
+
   it('en almindelig spiller KAN IKKE godkende en anden bruger', async () => {
     await createUser('player1', 'player', 'approved');
     await createUser('user2', 'player',   'pending');
@@ -2392,6 +2417,61 @@ describe('games/{gameId}/leagues — sikkerhedsregler', () => {
     await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR2'), { startRound: 3.5 }));
     await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR2'), { startRound: 0 }));
     await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgR2'), { startRound: -1 }));
+  });
+
+  // -------------------------------------------------------------------------
+  // `id`-feltet og navnets type — to felter, der ikke er ligaens, men som
+  // ejeren kunne skrive fra browseren og dermed ramme ALLE liga-fæller.
+  // -------------------------------------------------------------------------
+  it('ejeren KAN IKKE skrive et id-felt på ligaen — det skyggede for dokument-id\'et', async () => {
+    // Kæden, der virkede før: ejer af liga A (med offeret) og medlem af liga B
+    // skriver `id: 'B'` på A → offerets ligaliste bærer id 'B' → stillingens
+    // forespørgsel rammer en fremmed ligas players → afvist → hele stillingen
+    // væk (Security-fund).
+    await createUser('own', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lgId1', { ownerUid: 'own', memberUids: ['own'] });
+    const fs = testEnv.authenticatedContext('own').firestore();
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgId1'), { id: 'fremmedLiga' }));
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgId1'), { id: 'lgId1' }));   // heller ikke sit eget
+    // Kontrol: at omdøbe går stadig igennem.
+    await assertSucceeds(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgId1'), { name: 'Nyt navn' }));
+  });
+
+  it('heller ikke et medlem, der forlader ligaen, kan lægge et id-felt på den', async () => {
+    await createUser('own', 'player', 'approved');
+    await createUser('medlem', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lgId2', { ownerUid: 'own', memberUids: ['own', 'medlem'] });
+    const fs = testEnv.authenticatedContext('medlem').firestore();
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgId2'), { memberUids: ['own'], id: 'x' }));
+    await assertSucceeds(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgId2'), { memberUids: ['own'] }));
+  });
+
+  it('en liga kan ikke OPRETTES med et id-felt', async () => {
+    await createUser('own3', 'player', 'approved');
+    await createGame('sl');
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('games').doc('sl').collection('players').doc('own3').set({ uid: 'own3' });
+    });
+    const fs = testEnv.authenticatedContext('own3').firestore();
+    const basis = { ownerUid: 'own3', memberUids: ['own3'], name: 'Min liga', code: 'ABC123' };
+    await assertFails(setDoc(doc(fs, 'games', 'sl', 'leagues', 'lgId3'), { ...basis, id: 'lgId3' }));
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl', 'leagues', 'lgId3'), basis));
+  });
+
+  it('ejeren KAN IKKE omdøbe ligaen til noget, der ikke er en streng', async () => {
+    // Ved create har reglen længe krævet en streng; ved update manglede
+    // vagten, så et map som navn kunne lande og kaste i alle liga-fællers
+    // Stilling- og Pulje-fane (Security-fund).
+    await createUser('own', 'player', 'approved');
+    await createGame('sl');
+    await seedGameLeague('sl', 'lgNavn', { ownerUid: 'own', memberUids: ['own'] });
+    const fs = testEnv.authenticatedContext('own').firestore();
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgNavn'), { name: { a: 1 } }));
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgNavn'), { name: 7 }));
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgNavn'), { name: null }));
+    await assertSucceeds(updateDoc(doc(fs, 'games', 'sl', 'leagues', 'lgNavn'), { name: 'Kontoret' }));
   });
 
   it('en liga kan ikke OPRETTES med en ugyldig startrunde', async () => {

@@ -36,7 +36,7 @@ export function useLeagueBonusTasks(leagues, uid) {
     const q = query(collection(db, COL.LEAGUE_BONUS), where('leagueId', 'in', leagueIds));
     const unsub = onSnapshot(
       q,
-      (snap) => { setQuestions(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); setLoading(false); },
+      (snap) => { setQuestions(snap.docs.map((d) => ({ ...d.data(), id: d.id }))); setLoading(false); },
       () => setLoading(false),
     );
     return unsub;

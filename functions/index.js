@@ -1286,7 +1286,7 @@ async function runTipReminders(db, transporter) {
     .get();
 
   const upcomingStages = stagesSnap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
+    .map((d) => ({ ...d.data(), id: d.id }))
     .filter((s) => s.kickoff?.toDate
       && s.kickoff.toDate() > now
       && s.kickoff.toDate() < windowEnd);
@@ -1395,7 +1395,7 @@ exports.sendTestReminderToMe = onCall(
     // Alle etaper med kendt kickoff, sorteret efter kickoff
     const snap = await db.collection('stages').get();
     const playable = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
+      .map((d) => ({ ...d.data(), id: d.id }))
       .filter((s) => s.kickoff?.toDate)
       .sort((a, b) => a.kickoff.toDate() - b.kickoff.toDate());
 
@@ -1471,7 +1471,7 @@ exports.setAutomationPaused = onCall({ region: REGION }, async (request) => {
 // ---------------------------------------------------------------------------
 async function buildThankYouContext(db) {
   const stagesSnap = await db.collection('stages').get();
-  const stages = stagesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const stages = stagesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const clsSnap = await db.collection('config').doc('classifications').get();
   const classifications = clsSnap.exists ? clsSnap.data() : null;
   const gcPodium = tourSummary.computeGcPodium(classifications, stages);
@@ -1505,7 +1505,7 @@ async function buildThankYouContext(db) {
   ]);
   const lbQByLeague = {};
   lbQSnap.docs.forEach((d) => {
-    const q = { id: d.id, ...d.data() };
+    const q = { ...d.data(), id: d.id };
     if (!q.leagueId) return;
     (lbQByLeague[q.leagueId] = lbQByLeague[q.leagueId] || []).push(q);
   });
@@ -1524,7 +1524,7 @@ async function buildThankYouContext(db) {
 
   const leaguesSnap = await db.collection('leagues').where('status', '==', 'approved').get();
   const standings = leaguesSnap.docs.map((d) => {
-    const lg = { id: d.id, ...d.data() };
+    const lg = { ...d.data(), id: d.id };
     const lbByUid = leagueBonusTotalsByUid(
       lbQByLeague[lg.id] || [], lbAnsByQid, lbAwardsByLeague[lg.id] || [],
     );
@@ -1707,7 +1707,7 @@ async function gatherRecapData(db, now) {
     .where('kickoff', '<=', Timestamp.fromMillis(now.getTime()))
     .get();
   const finished = finSnap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
+    .map((d) => ({ ...d.data(), id: d.id }))
     .filter((s) => s.result && (s.hasResults || s.result.winnerTeam))
     .map((s) => ({
       id: s.id,
@@ -1836,7 +1836,7 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
   const { finished, pointsByStageUid, upcoming, resolvedBonus, bonusPtsByQ } = await gatherRecapData(db, now);
 
   const usersSnap = await db.collection('users').get();
-  const usersById = new Map(usersSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]));
+  const usersById = new Map(usersSnap.docs.map((d) => [d.id, { ...d.data(), id: d.id }]));
 
   // Liga-lokal bonus (ligaens egne spørgsmål + manuelle tildelinger), så
   // bottens stilling matcher ligaens stillingsvisning — grupperet pr. liga.
@@ -1847,7 +1847,7 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
   ]);
   const lbQByLeague = new Map(); // leagueId → [spørgsmål]
   for (const d of lbQSnap.docs) {
-    const q = { id: d.id, ...d.data() };
+    const q = { ...d.data(), id: d.id };
     if (!q.leagueId) continue;
     if (!lbQByLeague.has(q.leagueId)) lbQByLeague.set(q.leagueId, []);
     lbQByLeague.get(q.leagueId).push(q);
@@ -1869,7 +1869,7 @@ async function runGenerateLeagueRecaps(db, apiKey, { now = new Date(), dryRun = 
   const leaguesSnap = await db.collection('leagues').where('status', '==', 'approved').get();
   const results = [];
   for (const ld of leaguesSnap.docs) {
-    const league = { id: ld.id, ...ld.data() };
+    const league = { ...ld.data(), id: ld.id };
     if (onlyLeagueId && league.id !== onlyLeagueId) continue;
     if (league.aiRecaps === false) continue; // ejer har slået det fra
     const members = (league.memberUids || []).map((uid) => usersById.get(uid)).filter(Boolean);
@@ -2058,18 +2058,18 @@ async function gatherAllStagesAndPoints(db) {
 // fjerner markeringen, så man kan starte forfra.
 async function runRegenerateRecaps(db, apiKey, { apply = false, reset = false, limit = 8 } = {}) {
   const usersSnap = await db.collection('users').get();
-  const usersById = new Map(usersSnap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]));
+  const usersById = new Map(usersSnap.docs.map((d) => [d.id, { ...d.data(), id: d.id }]));
   const leaguesSnap = await db.collection('leagues').where('status', '==', 'approved').get();
 
   // Byg pr-liga liste af bot-opslag (ældste først) med "done"-flag.
   const leagueBlocks = [];
   for (const ld of leaguesSnap.docs) {
-    const league = { id: ld.id, ...ld.data() };
+    const league = { ...ld.data(), id: ld.id };
     const memberDocs = (league.memberUids || []).map((uid) => usersById.get(uid)).filter(Boolean);
     if (memberDocs.length < 2) continue;
     const postsSnap = await db.collection('leagueComments').where('leagueId', '==', league.id).get();
     const posts = postsSnap.docs
-      .map((d) => ({ id: d.id, ...d.data() }))
+      .map((d) => ({ ...d.data(), id: d.id }))
       .filter((p) => p.uid === 'ai-bot' && tsToMs(p.createdAt) != null)
       .map((p) => ({ id: p.id, createdAtMs: tsToMs(p.createdAt), oldText: p.text || '', done: !!p.regeneratedAt }))
       .sort((a, b) => a.createdAtMs - b.createdAtMs);

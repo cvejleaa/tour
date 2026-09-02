@@ -32,7 +32,7 @@ export function useGameBets(gameId) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setBets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setBets(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setLoading(false);
       },
       (err) => {

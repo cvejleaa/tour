@@ -498,7 +498,7 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   }
 
   const alleSnap = await gameRef.collection('matches').get();
-  const allMatches = alleSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const allMatches = alleSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const gated = gatedIds(allMatches, game);
   if (gated.has(matchId)) return { rescored: 0, players: 0, gated: true };
 
@@ -588,7 +588,7 @@ async function recomputeAllPlayerTotals(db, FieldValue, gameId) {
     gameRef.collection('matches').get(),
     gameRef.collection('players').get(),
   ]);
-  const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const allMatches = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const gated = gatedIds(allMatches, gameSnap.exists ? gameSnap.data() : null);
   const roundCtx = buildRoundContext(allMatches.filter((m) => !gated.has(m.id)));
   const uids = playersSnap.docs.map((d) => d.id);
@@ -629,7 +629,7 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
     gameRef.collection('matches').get(),
     gameRef.collection('bets').get(),
   ]);
-  const allMatches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const allMatches = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const gated = gatedIds(allMatches, gameSnap.exists ? gameSnap.data() : null);
   const byId = new Map(allMatches.map((m) => [m.id, m]));
 

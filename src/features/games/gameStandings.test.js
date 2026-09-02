@@ -67,6 +67,15 @@ describe('rankStandings', () => {
     expect(rows.map((r) => r.uid)).toEqual(['a', 'b', 'c']);
   });
 
+  it('et navn, der ikke er en streng, bliver "Ukendt spiller" — det må ikke kaste i fladen', () => {
+    // Et objekt som displayName er "Objects are not valid as a React child"
+    // for ALLE, der deler liga med personen; et tal ville sortere forkert.
+    const gift = { a: { displayName: { a: 1 } }, b: { displayName: 42 }, c: { displayName: ['x'] } };
+    const rows = rankStandings([{ uid: 'a' }, { uid: 'b' }, { uid: 'c' }], gift);
+    expect(rows.map((r) => r.name)).toEqual(['Ukendt spiller', 'Ukendt spiller', 'Ukendt spiller']);
+    expect(() => rows.sort((x, y) => x.name.localeCompare(y.name, 'da'))).not.toThrow();
+  });
+
   it('bruger fallback-navn og default 0 point', () => {
     const rows = rankStandings([{ uid: 'x' }], {});
     expect(rows[0].name).toBe('Ukendt spiller');
