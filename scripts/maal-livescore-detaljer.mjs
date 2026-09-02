@@ -32,12 +32,13 @@
 //
 // --live er målingen bag planen for LIVE-målscorere (opgave #78, delopgave 1):
 // er `incidents` befolket, MENS kampen spilles, og er `Tr1/Tr2` den løbende
-// stilling eller slutstillingen? Målt 2/9-2026 kl. 21.30 (AGF–FCM, 68'):
-// svaret kom på 123 ms, Tr1/Tr2 = 0/2 var den løbende stilling, Trh1/Trh2 =
-// 0/1 halvlegen, og hvert mål bar `Sc` efter sig — stillingskæden virker
-// live. Stage-listen giver spilleminuttet i `Eps` ("68'") og Eid for ALLE
-// kampe, også uspillede ("NS"). Kør den igen på en kampaften, når kadence og
-// kald-loft skal fastlægges — tabellen printer ét kald-sæt pr. kamp i gang.
+// stilling eller slutstillingen? Målt med denne tilstand 2/9-2026 kl. 21.28
+// (AGF–FCM, 70'): incidents svarede på 140 ms, Tr1/Tr2 = 0/2 var den løbende
+// stilling (stage-listen enig), Trh1/Trh2 = 0/1 halvlegen, og de to mål stod
+// i ubrudt kæde med navne — stillingskæden virker live. Stage-listen giver
+// spilleminuttet i `Eps` ("70'") og Eid for ALLE kampe, også uspillede
+// ("NS"). Kør den igen på en kampaften, når kadence og kald-loft skal
+// fastlægges — tabellen printer ét kald-sæt pr. kamp i gang.
 // ---------------------------------------------------------------------------
 
 const API = 'https://prod-cdn-public-api.lsmedia1.com/v1/api/app';
