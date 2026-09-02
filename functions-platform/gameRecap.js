@@ -322,7 +322,7 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
   ]);
   const nameOf = new Map(userDocs.filter((d) => d.exists).map((d) => [d.id, d.data().displayName]));
   const players = playersSnap.docs.map((d) => ({
-    uid: d.id, name: nameOf.get(d.id) || 'Spiller', ...d.data(),
+    ...d.data(), uid: d.id, name: nameOf.get(d.id) || 'Spiller',
   }));
   const betsByUid = new Map();
   for (const snap of betSnaps) {

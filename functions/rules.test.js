@@ -244,6 +244,17 @@ describe('users/{uid} — sikkerhedsregler', () => {
     await assertSucceeds(updateDoc(doc(ctx.firestore(), 'users', 'user1'), { avatarEmoji: '🦊' }));
   });
 
+  it('avatarEmoji og favoriteTeam SKAL være strenge eller null — de renderes hos alle liga-fæller', async () => {
+    await createUser('user1', 'player', 'approved');
+    const fs = testEnv.authenticatedContext('user1').firestore();
+    await assertFails(updateDoc(doc(fs, 'users', 'user1'), { avatarEmoji: { a: 1 } }));
+    await assertFails(updateDoc(doc(fs, 'users', 'user1'), { favoriteTeam: { toString: null } }));
+    await assertFails(updateDoc(doc(fs, 'users', 'user1'), { favoriteTeam: 7 }));
+    // null er "intet hold" (ProfilePage skriver team || null) — tilladt.
+    await assertSucceeds(updateDoc(doc(fs, 'users', 'user1'), { avatarEmoji: '🦊', favoriteTeam: null }));
+    await assertSucceeds(updateDoc(doc(fs, 'users', 'user1'), { favoriteTeam: 'FCK' }));
+  });
+
   it('en profil kan heller ikke OPRETTES med et ikke-streng displayName', async () => {
     const ctx = testEnv.authenticatedContext('nyBruger');
     await assertFails(setDoc(doc(ctx.firestore(), 'users', 'nyBruger'), {
@@ -749,6 +760,47 @@ describe('matches — sikkerhedsregler', () => {
 // ---------------------------------------------------------------------------
 // TESTS: liga-admins (adminUids) — kun global ejer tildeler
 // ---------------------------------------------------------------------------
+describe('leagues (Tour) — id-felt og navnets type', () => {
+  // Samme to huller som på spil-ligaerne, på den ældre collection. Serveren
+  // spredte dokumentet oven på id'et i generateLeagueRecaps, så en ejer med
+  // `id: '<fremmed>'` fik sin ligas morgenopslag postet på en fremmed ligas
+  // væg (Security-fund, emulator-bekræftet).
+  it('ejeren KAN IKKE skrive et id-felt eller et ikke-streng navn', async () => {
+    await createUser('ejer', 'player', 'approved');
+    await createUser('offer', 'player', 'approved');
+    await createLeague('TA', 'ejer', ['ejer', 'offer']);
+    const fs = testEnv.authenticatedContext('ejer').firestore();
+    await assertFails(updateDoc(doc(fs, 'leagues', 'TA'), { id: 'TB' }));
+    await assertFails(updateDoc(doc(fs, 'leagues', 'TA'), { name: { toString: null } }));
+    await assertFails(updateDoc(doc(fs, 'leagues', 'TA'), { name: 42 }));
+    await assertFails(updateDoc(doc(fs, 'leagues', 'TA'), { name: 'Ny', id: 'TB' }));
+    // Kontrol: omdøbning går igennem.
+    await assertSucceeds(updateDoc(doc(fs, 'leagues', 'TA'), { name: 'Nyt navn' }));
+  });
+
+  it('en liga-admin KAN omdøbe, men ikke til et ikke-streng navn', async () => {
+    await createUser('ejer', 'player', 'approved');
+    await createUser('ladmin', 'player', 'approved');
+    await createLeague('TB', 'ejer', ['ejer', 'ladmin']);
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('leagues').doc('TB').update({ adminUids: ['ladmin'] });
+    });
+    const fs = testEnv.authenticatedContext('ladmin').firestore();
+    await assertFails(updateDoc(doc(fs, 'leagues', 'TB'), { name: { a: 1 } }));
+    await assertSucceeds(updateDoc(doc(fs, 'leagues', 'TB'), { name: 'Admin-navn' }));
+  });
+
+  it('en liga kan ikke OPRETTES uden strengnavn eller med et id-felt', async () => {
+    await createUser('ny', 'player', 'approved');
+    const fs = testEnv.authenticatedContext('ny').firestore();
+    const basis = { ownerUid: 'ny', memberUids: ['ny'], status: 'pending', joinCode: 'X' };
+    await assertFails(setDoc(doc(fs, 'leagues', 'TC'), basis));                       // intet navn
+    await assertFails(setDoc(doc(fs, 'leagues', 'TC'), { ...basis, name: { a: 1 } }));
+    await assertFails(setDoc(doc(fs, 'leagues', 'TC'), { ...basis, name: 'Ok', id: 'TA' }));
+    await assertSucceeds(setDoc(doc(fs, 'leagues', 'TC'), { ...basis, name: 'Ok' }));
+  });
+});
+
 describe('leagues — liga-admins (adminUids)', () => {
   async function seedLeague(id, data) {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -2361,6 +2413,21 @@ describe('games/{gameId}/bets — sikkerhedsregler', () => {
     await createGameMatch('sl', 'm1', future());
     await assertFails(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'bets', 'p2_m1'),
       { uid: 'p2', matchId: 'm1', homeScore: 2, awayScore: 1 }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TESTS: games/{gameId}/players — yndlingsholdets type
+// ---------------------------------------------------------------------------
+describe('games/{gameId}/players — favoriteTeam', () => {
+  it('yndlingsholdet pr. spil SKAL være en streng eller null', async () => {
+    await createUser('sp', 'player', 'approved');
+    await createGame('sl');
+    const fs = testEnv.authenticatedContext('sp').firestore();
+    await assertFails(setDoc(doc(fs, 'games', 'sl', 'players', 'sp'), { uid: 'sp', favoriteTeam: { toString: null } }));
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl', 'players', 'sp'), { uid: 'sp', favoriteTeam: 'VFF' }));
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'players', 'sp'), { favoriteTeam: 7 }));
+    await assertSucceeds(updateDoc(doc(fs, 'games', 'sl', 'players', 'sp'), { favoriteTeam: null }));
   });
 });
 

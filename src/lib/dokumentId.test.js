@@ -16,8 +16,11 @@ import { fileURLToPath } from 'node:url';
 const ROD = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const MAPPER = ['src', 'functions', 'functions-platform', 'scripts'];
 const ENDELSER = ['.js', '.jsx', '.mjs'];
-// id/uid som nøgle, dokument-id'et først, spread af samme dokument bagefter.
-const GAMMEL = /\{\s*u?id:\s*([A-Za-z_]+)\.id\s*,\s*\.\.\.\1\.data\(\)/;
+// id/uid som nøgle sat FØR et spread i samme objekt — uanset hvad der står
+// imellem (`ref: d.ref`), og uanset om spreadet er `d.data()` eller en
+// mellemvariabel (`...b`). Første udgave krævede `...SAMME_VAR.data()` lige
+// efter nøglen og var blind for begge former (Test Manager- og Security-fund).
+const GAMMEL = /\{\s*u?id:\s*[A-Za-z_]+\.id\s*,[^}]*\.\.\./;
 
 function filer(mappe, ud = []) {
   for (const navn of readdirSync(mappe)) {
@@ -45,7 +48,10 @@ describe('dokument-id vinder over data-felter', () => {
     // Selvtest: en vagt, der intet matcher, er ingen vagt.
     expect(GAMMEL.test('({ id: d.id, ...d.data() })')).toBe(true);
     expect(GAMMEL.test('({ uid: snap.id, ...snap.data() })')).toBe(true);
+    expect(GAMMEL.test('({ id: d.id, ref: d.ref, ...d.data() })')).toBe(true);   // felt imellem
+    expect(GAMMEL.test('({ id: d.id, ...b })')).toBe(true);                       // mellemvariabel
     expect(GAMMEL.test('({ ...d.data(), id: d.id })')).toBe(false);
-    expect(GAMMEL.test('({ id: d.id, ...other.data() })')).toBe(false);
+    expect(GAMMEL.test('({ ...b, id: d.id })')).toBe(false);
+    expect(GAMMEL.test('({ id: d.id, ref: d.ref })')).toBe(false);               // intet spread
   });
 });

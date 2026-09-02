@@ -385,7 +385,7 @@ export default function BroadcastTab() {
               {PLATFORM_MODE && !gameId ? '– vælg spil først –' : leagueOptions.length === 0 ? '– ingen ligaer –' : '– vælg liga –'}
             </option>
             {leagueOptions.map((l) => (
-              <option key={l.id} value={l.id}>{l.name} (kode: {l.code})</option>
+              <option key={l.id} value={l.id}>{l.name || 'Liga uden navn'} (kode: {l.code})</option>
             ))}
           </select>
           {joinLink && (

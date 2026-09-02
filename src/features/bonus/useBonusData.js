@@ -101,7 +101,7 @@ export function useMyBonusBets(uid) {
         const m = new Map();
         snap.docs.forEach((d) => {
           const data = d.data();
-          m.set(data.questionId, { id: d.id, ...data });
+          m.set(data.questionId, { ...data, id: d.id });
         });
         setBonusBets(m);
         setLoading(false);

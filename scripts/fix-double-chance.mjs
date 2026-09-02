@@ -136,7 +136,7 @@ for (const game of gamesSnap.docs) {
   // Gatede kampe springes over af rescoreAllBets. Planen skal vide det, ellers
   // ville tørkørslen love et point, --apply aldrig skriver.
   const gatede = new Set(gatedIds(
-    matches.map((m) => ({ id: m.id, ...m.data })),
+    matches.map((m) => ({ ...m.data, id: m.id })),
     game.exists ? game.data() : null,
   ));
 

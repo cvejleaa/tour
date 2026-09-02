@@ -19,9 +19,12 @@ export function rankStandings(players, usersById = {}) {
       // og et objekt her kaster i React og hvidner Stilling- OG Pulje-fanen
       // for alle liga-fæller (Security-fund). `||` alene lod alt sandt igennem.
       name: (typeof u.displayName === 'string' && u.displayName) || 'Ukendt spiller',
-      emoji: u.avatarEmoji ?? null,
+      // Samme vagt på de to andre felter fra SAMME dokument: et map som emoji
+      // kaster i Avatar, et map som hold i holdopslaget — hos alle liga-fæller
+      // og i admin-fladen, der skulle fjerne griefer'en (Security-fund).
+      emoji: typeof u.avatarEmoji === 'string' ? u.avatarEmoji : null,
       // Yndlingshold pr. spil (players-doc) har forrang for den globale profil.
-      favoriteTeam: p.favoriteTeam ?? u.favoriteTeam ?? null,
+      favoriteTeam: [p.favoriteTeam, u.favoriteTeam].find((t) => typeof t === 'string') ?? null,
       totalPoints: Number(p.totalPoints) || 0,
       previousRank: p.previousRank ?? null,
       // Rubrikkerne (1X2, Chancen, Combi, Pulje) kommer FÆRDIGE fra serveren.

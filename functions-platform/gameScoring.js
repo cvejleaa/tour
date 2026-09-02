@@ -103,7 +103,7 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
   const get = (n) => (elo.has(n) ? elo.get(n) : ELO.START);
 
   const snap = await gameRef.collection('matches').get();
-  const matches = snap.docs.map((d) => ({ id: d.id, ref: d.ref, ...d.data() }));
+  const matches = snap.docs.map((d) => ({ ...d.data(), id: d.id, ref: d.ref }));
 
   // Kampe pr. runde (til Elo-historik-snapshot, når en hel runde er spillet).
   const roundTotal = new Map();
@@ -342,7 +342,7 @@ function computeRanks(players) {
  */
 async function snapshotRoundRanks(db, FieldValue, gameId) {
   const playersSnap = await db.collection('games').doc(gameId).collection('players').get();
-  const players = playersSnap.docs.map((d) => ({ uid: d.id, ref: d.ref, ...d.data() }));
+  const players = playersSnap.docs.map((d) => ({ ...d.data(), uid: d.id, ref: d.ref }));
   if (players.length === 0) return { ranked: 0 };
   const ranks = computeRanks(players);
   const batch = db.batch();

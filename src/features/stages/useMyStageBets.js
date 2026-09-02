@@ -25,7 +25,7 @@ export function useMyStageBets(uid, season) {
         const map = {};
         snap.docs.forEach((d) => {
           const b = d.data();
-          if (b.stageId) map[b.stageId] = { id: d.id, ...b };
+          if (b.stageId) map[b.stageId] = { ...b, id: d.id };
         });
         setBetsByStage(map);
         setLoading(false);
