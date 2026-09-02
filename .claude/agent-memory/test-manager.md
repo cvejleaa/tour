@@ -583,3 +583,72 @@ faktisk blive nået af, og findes det input i noget fixture?
   så `||`-fallback'en har kun ÉT input, den reelt kan blive ramt af (tom
   streng), og det er den simpleste mulige gren. Konsistent med eksisterende
   konvention, ikke en ny, udækket risiko.
+
+## `efterFacitDetaljer` — målscorere straks efter facit (commit 61a6e71, sept. 2026)
+
+- **En påstået "ækvivalent mutation" kan efterprøves mod den ÆGTE SDK, ikke
+  kun mod faken — og bør.** `kampDetaljer.js:715-725`s kommentar hævder
+  eksplicit, at en `exists`-vagt på et Firestore-opslag er "en ækvivalent
+  mutation væk" fra kernens `!d.result`-filter. Mutationsbevist i TO styrker:
+  (1) kun `typeof snap?.data === 'function'`-tjekket fjernet — overlevede;
+  (2) OGSÅ `|| {}`-fald-tilbagen fjernet (`data: snap.data()` råt) —
+  overlevede OGSÅ, fordi `syncKampDetaljerCore`s egen `const d = m.data || {}`
+  er et TREDJE, uafhængigt lag. Efterprøvede SELVE PÅSTANDEN (ikke kun
+  fakeDb'en) ved at læse `node_modules/@google-cloud/firestore/types/firestore.d.ts`
+  direkte: `data(): AppModelType | undefined` med kommentaren "Returns
+  'undefined' if the document doesn't exist" — bekræfter, at fakeDb'ens
+  `{exists:false, data: () => undefined}` er tro mod den ægte SDK (ikke en
+  fake, der tilfældigvis er for venlig). Genkendelsesmønster: når en
+  kode-kommentar hævder en SDK-kontrakt ("kaster aldrig", "returnerer X for
+  manglende dokument"), så tjek typedefinitionen i node_modules i stedet for
+  at stole på træningsviden ELLER på at faken "ser rigtig ud" — begge kan
+  være forkerte på samme måde.
+- **Et OR med to grene, der begge går gennem den SAMME nedstrøms
+  dobbelt-vagt, kan stadig dø hver for sig — bekræft det, antag det ikke.**
+  `if (!ids.length || !opts.livescore?.land) return null;`. Fjernes den ene
+  klausul isoleret (behold den anden), dør BEGGE mutationer uafhængigt — men
+  IKKE af den grund man ville tro: uden efterFacitDetaljers egen vagt falder
+  kaldet igennem til `syncKampDetaljerCore`, som har SIN EGEN
+  `!livescore?.land`-vagt og returnerer `tom`-objektet (ni felter, alle 0/false)
+  i stedet for `null`. `expect(...).toBeNull()` fanger forskellen på
+  objekt-identitet, ikke på at ydervagten faktisk forhindrede et kald. Værd at
+  vide: en sådan test kan bestå "af den rigtige grund" (rigtig gren dræbt) men
+  af en ANDEN mekanisme end kommentaren beskriver — kør mutationen, læs
+  fejlbeskeden, tjek at forklaringen stemmer, konkludér ikke kun på grønt/rødt.
+- **To input-valideringer uden egen test (`Array.isArray`-tjek og
+  `.filter(Boolean)` på `opts.rettede`) overlevede begge — vurderet lavrisiko,
+  IKKE rapporteret som blokerende.** Sporet til kilden: `rettede` bygges
+  udelukkende af `syncResultsCore` (`superligaSync.js:198`, `rettede.push(id)`),
+  hvor `id` allerede er guardet af `if (!cur) continue` nogle linjer over —
+  kan aldrig være falsy eller ikke-en-streng ved den ENESTE kaldevej i
+  produktion. Mønster: en overlevet mutation er kun et REELT hul, hvis der
+  findes en sandsynlig kaldevej, den ikke fanger — spor altid kilden til
+  inputtet, før du rapporterer et unit-niveau-hul som blokerende.
+- **`index.js`s halvårs-gamle blinde vinkel (ingen testfil for
+  `onSchedule`/`onCall`-håndteringer) gentog sig for en NY funktion, samme
+  form som xG-sweep-fundet.** Den nye hale (linje 428-453 i
+  `syncSuperligaResults`) er 100 % udækket: hverken "alarmen fyrer, når
+  `d.afbrudt`" eller "et `out.gameId`, der ikke findes i `SYNCED_GAMES`, vælter
+  ikke kørslen" er unit-bevist. Bekræftet SYSTEMISK, ikke nyt for denne PR:
+  `SYNCED_GAMES.find((x) => x.gameId === …)` optræder 4 steder i index.js (ny
+  linje 430 + tre eksisterende ved 835/897/940), alle lige udækkede. `meldAlarm`
+  SELV er grundigt testet generisk i `driftlog.test.js` (dæmpning, dedup) —
+  det er kun WIRING'EN ("kalder index.js den med de rette argumenter, når den
+  skal") der mangler, ikke selve alarm-mekanismen. Vurderet IKKE-blokerende,
+  konsistent med tidligere præcedens for samme fundklasse (se xG-sweep-notatet
+  ovenfor) — men nævnt konkret med fil:linje og minimumstest, hvis den skal
+  lukkes: udtræk halen til en ren funktion i kampDetaljer.js/superligaSync.js,
+  injicér `efterFacitDetaljer`+`meldAlarm` som parametre, og skriv mindst:
+  (a) tomt `rettede` → intet kaldes, (b) `gameId` uden for `SYNCED_GAMES` →
+  ingen kast, (c) stub der resolver `{afbrudt:true}` → `meldAlarm` kaldt
+  præcis én gang med `type:'detaljerLukket'`, (d) stub der REJECTER → loopet
+  fortsætter til næste spil uden at vælte.
+- **Et nyt `describe`-blok indsat MELLEM en eksisterende kommentar og dens
+  oprindelige mål efterlader kommentaren foran den forkerte blok.**
+  `kampDetaljer.test.js:829-841` ("detaljeNiveau — Drift-kortets dom …")
+  stod oprindeligt lige over `describe('detaljeNiveau', …)`; den nye
+  `describe('efterFacitDetaljer', …)` blev indsat IMELLEM dem, så kommentaren
+  nu introducerer den forkerte blok. Ren læsbarheds-nit (ingen testeffekt),
+  men værd at scanne efter ved enhver diff, der indsætter et nyt `describe`
+  midt i en fil: står der en forklarende kommentar lige før indsætningspunktet,
+  der egentlig hørte til blokken EFTER?

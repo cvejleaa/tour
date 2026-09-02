@@ -380,8 +380,13 @@ exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async 
 // timeoutSeconds: værste tilfælde er nu to spil × fuld sæson-liste × to veje
 // (facit + live à 10 s pr. side) — default 60 s kunne klippe kørslen midt i
 // et langsomt kampvindue (Security-fund). 120 s dækker med god margin.
+// Minut-jobbets loft. Står som konstant, fordi budgettet for målscorere
+// efter facit afledes af det (se EFTERFACIT_BUDGET_MS) — ikke som en literal
+// to steder, der kan drive fra hinanden.
+const MINUT_TIMEOUT_S = 120;
+
 exports.syncSuperligaResults = onSchedule(
-  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION, timeoutSeconds: 120 },
+  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION, timeoutSeconds: MINUT_TIMEOUT_S },
   async () => {
     // Selve rækkefølgen — og det tidlige exit — bor i superligaSync, så den
     // kan unit-testes. Her logges kun resultatet.
@@ -470,15 +475,20 @@ exports.syncSuperligaResults = onSchedule(
 );
 
 // Budget for målscorere lige efter facit — pr. spil, allersidst i minut-jobbet.
-// Minut-jobbet har 120 s; facit, live og stilling for to spil bruger typisk
-// få sekunder, og efter-facit-vejen henter højst de 1–3 kampe, der lige blev
-// afgjort. Målt (scripts/maal-livescore-detaljer.mjs, latens-tabellen,
-// 2/9-2026): stage-kaldet 259 ms, et kampopslag ~130 ms median og 1,2 s maks.
-// 15 s binder derfor kun, når kilden hænger. Det REELLE vægur-loft er 20 s pr.
-// spil: stage-kaldets timeout (10 s) ligger før første budget-tjek, og tjekket
+// En fjerdedel af minut-jobbets loft, delt ligeligt mellem spillene — AFLEDT
+// som XG_BUDGET_MS/DETALJE_BUDGET_MS, ikke skrevet af: et tredje spil
+// skrumper budgettet af sig selv i stedet for at tredoble halens værste
+// tilfælde (Test Manager-fund). Med to spil er det 15 s pr. spil.
+//
+// Facit, live og stilling for to spil bruger typisk få sekunder, og efter-
+// facit-vejen henter højst de 1–3 kampe, der lige blev afgjort. Målt
+// (scripts/maal-livescore-detaljer.mjs, latens-tabellen, 2/9-2026): stage-
+// kaldet 259 ms, et kampopslag ~130 ms median og 1,2 s maks. Budgettet binder
+// derfor kun, når kilden hænger. Det REELLE vægur-loft er budgettet + 5 s:
+// stage-kaldets timeout (10 s) ligger før første budget-tjek, og tjekket
 // sidder i toppen af løkken, så ét kald-sæt (10 s) kan gå over (Security
-// Reviewer målte 20.000 ms med simuleret ur). To spil: højst ~40 s af 120.
-const EFTERFACIT_BUDGET_MS = 15000;
+// Reviewer målte 20.000 ms med simuleret ur ved 15 s). To spil: højst ~40 s.
+const EFTERFACIT_BUDGET_MS = Math.floor((MINUT_TIMEOUT_S * 1000) / 4 / SYNCED_GAMES.length);
 
 // syncSuperligaSweep — SIKKERHEDSNETTET.
 //

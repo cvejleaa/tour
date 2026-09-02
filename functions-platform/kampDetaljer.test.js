@@ -826,19 +826,6 @@ describe('syncKampDetaljerCore', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// detaljeNiveau — Drift-kortets dom.
-//
-// QUALITY CONTROLS FUND EFTER UDRULNINGEN, og en ægte produktionsfejl: reglen
-// lå inline i sweep-handleren i index.js, hvor den ikke kunne unit-testes — og
-// den var forkert. `ukendte` manglede i advarsels-betingelsen, så en kørsel med
-// 33 skrevne og 1 ukoblet gav GRØNT Drift-kort, mens den manuelle knap for
-// præcis samme tæller sagde rødt.
-//
-// Det er husets "korrekt er ikke komplet": jeg udvidede klassifikationen på
-// knappen (`ukendte` → err, fordi den ALDRIG retter sig selv) og fulgte den
-// ikke hele vejen ud i den anden flade, der læser samme tal.
-// ---------------------------------------------------------------------------
 describe('efterFacitDetaljer — de netop afgjorte kampe, straks', () => {
   it('genlæser kampene og henter detaljer for præcis dem, der fik facit', async () => {
     // Dokumentet i basen HAR facit (det blev lige skrevet); listen minut-synken
@@ -880,6 +867,19 @@ describe('efterFacitDetaljer — de netop afgjorte kampe, straks', () => {
   // grøn suite). Vagten er `forbudslisten er vagten` ovenfor, på kernen.
 });
 
+// ---------------------------------------------------------------------------
+// detaljeNiveau — Drift-kortets dom.
+//
+// QUALITY CONTROLS FUND EFTER UDRULNINGEN, og en ægte produktionsfejl: reglen
+// lå inline i sweep-handleren i index.js, hvor den ikke kunne unit-testes — og
+// den var forkert. `ukendte` manglede i advarsels-betingelsen, så en kørsel med
+// 33 skrevne og 1 ukoblet gav GRØNT Drift-kort, mens den manuelle knap for
+// præcis samme tæller sagde rødt.
+//
+// Det er husets "korrekt er ikke komplet": jeg udvidede klassifikationen på
+// knappen (`ukendte` → err, fordi den ALDRIG retter sig selv) og fulgte den
+// ikke hele vejen ud i den anden flade, der læser samme tal.
+// ---------------------------------------------------------------------------
 describe('detaljeNiveau', () => {
   it('en ren kørsel er ok', () => {
     expect(detaljeNiveau({ skrevet: 8, uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0 })).toBe('ok');
