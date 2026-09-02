@@ -529,3 +529,57 @@ faktisk blive nået af, og findes det input i noget fixture?
   gammel regel i sin helhed (præcis 2 røde — de to, commit-beskeden nævner).
   OVERLEVEDE — `>=` → `>`; `gameLock() != null &&` ud af `afterDeadline`;
   `.get('puljeLockAt', null)`; `isApproved() &&` ud af læsegrenen.
+
+## `navnGyldigt()`/`ingenIdNoegle()` på top-niveau `leagues` + profilfelter (commit 6d14243, sept. 2026)
+
+- **To vagter, der begge står i `hasOnly`-listen, er allerede "Én vagt pr.
+  regel" — `ingenIdNoegle()` behøves IKKE tilføjes på en gren, hvis
+  `affectedKeys().hasOnly([...])` allerede udelukker feltet.** Liga-admin-
+  update-grenen (`firestore.rules` ~L402) har kun `navnGyldigt()`, ikke
+  `ingenIdNoegle()`, fordi `hasOnly(['memberUids', 'name'])` allerede gør et
+  `id`-felt umuligt at skrive dér. Mutationsbevist (egen kørsel): fjern
+  `navnGyldigt()` ALENE fra netop DEN gren → "en liga-admin KAN omdøbe, men
+  ikke til et ikke-streng navn" bliver rød, resten grøn (254/255) — dør
+  korrekt, isoleret til sin egen gren. Samme mønster for ejer-update-grenen:
+  fjern `ingenIdNoegle()` ALENE derfra (behold på create) → "ejeren KAN IKKE
+  skrive et id-felt eller et ikke-streng navn" bliver rød, resten grøn
+  (254/255) — også korrekt isoleret. Begge bekræfter: hver gren har sin egen,
+  ikke-redundante vagt, og suiten fanger en gren-specifik regression uden at
+  andre grene "låner" beskyttelse fra hinanden.
+- **En regex, der blev udvidet efter et Test Manager-fund (bredere `[^}]*`
+  mellem id-nøgle og spread), er selv mutationsbevist via sin egen
+  selvtest.** `src/lib/dokumentId.test.js`s `GAMMEL`-konstant blev udvidet fra
+  at kræve `...SAMME_VAR.data()` lige efter id-nøglen til `[^}]*\.\.\.` (vilkårligt
+  indhold, vilkårlig spread-kilde). Indsnævres den tilbage til den gamle,
+  snævre form (`,\s*\.\.\.` uden `[^}]*`), fejler selvtestens EGEN assertion
+  (`'({ id: d.id, ref: d.ref, ...d.data() })'` skal matche `true`) — testen
+  dør på sig selv, uden at røre nogen anden fil. Værd at bemærke: her ER
+  selvtesten (assertions på literal-strenge) selve mutationsbeviset, fordi
+  regexens "input" er hardkodet i testfilen, ikke i den skannede kildekode —
+  en sjælden situation, hvor testens fixture OG det, den beviser, er samme
+  linjer.
+- **En `for (const hook of [...])`-løkke over to hooks med SAMME mockDocs
+  dækker begge uafhængigt — bekræftet, ikke antaget.** `useLeagues.test.jsx`
+  kører `useLeagues('me')` og `useAllLeagues(true)` i én `it`, samme fixture,
+  med assertion INDE i løkken efter hver `renderHook`. Mutationsbevist to
+  gange isoleret: (1) kun `useAllLeagues.js`s normalisering fjernet → testen
+  fejler præcis på den forventede assertion (viser `TB`/rå objekt for det
+  ikke-strengede navn i stedet for `TA`/`''`); (2) kun `useLeagues.js`s
+  fjernet, `useAllLeagues.js` urørt → samme fejl, samme sted. Ingen af de to
+  hooks "låner" den andens dækning — hver iterations assertion kører reelt.
+  Generelt mønster værd at genkende: en løkke over flere implementeringer med
+  fælles fixture er IKKE i sig selv mistænkelig, hvis assertionen ligger
+  INDE i løkken (ikke akkumuleret og tjekket én gang efter) — men verificér
+  det altid med en isoleret mutation af hver gren, for navnet "for-løkke med
+  delt fixture" er præcis den form, CLAUDE.md advarer mod ved pulje-testen.
+- **`league.name || 'Liga uden navn'`-fallback (4 nye steder: GameLeagues.jsx,
+  LeaguesPage.jsx, LeaderboardPage.jsx, BroadcastTab.jsx) har INGEN
+  render-test noget sted — heller ikke i de to eksisterende forekomster
+  (PuljeAfsloering.jsx, GameStandings.jsx), som ikke blev rørt af denne
+  ændring.** Vurderet IKKE-blokerende: det er en ren streng-fallback (ingen
+  gren-logik ud over `||`), og de data, den beskytter mod, er allerede
+  mutationsbevist ét lag nedenfor — `useLeagues.test.jsx`/`useAllLeagues`
+  garanterer, at `name` er enten en ægte streng eller `''` (aldrig et objekt),
+  så `||`-fallback'en har kun ÉT input, den reelt kan blive ramt af (tom
+  streng), og det er den simpleste mulige gren. Konsistent med eksisterende
+  konvention, ikke en ny, udækket risiko.
