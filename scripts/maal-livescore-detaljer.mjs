@@ -128,9 +128,26 @@ const kaedeOk = (maal, facit) => facit != null
   && new Set(maal.map((m) => m.nr)).size === facit
   && maal.every((m) => m.nr >= 1 && m.nr <= facit);
 
+// LATENS pr. endpoint — det tal, budgetterne i kampDetaljer.js og index.js
+// bygger på. Målt her, ikke påstået: hvert kald tages med tid, og tabellen
+// til sidst viser median og maks pr. slags. Et tal uden kode er en påstand.
+const LATENS = { stage: [], incidents: [], info: [] };
+function slags(sti) { return sti.startsWith('stage/') ? 'stage' : sti.startsWith('incidents/') ? 'incidents' : 'info'; }
 async function hent(sti) {
-  const res = await fetch(`${API}/${sti}`, OPT);
-  return res.ok ? res.json() : null;
+  const t0 = Date.now();
+  try {
+    const res = await fetch(`${API}/${sti}`, OPT);
+    return res.ok ? res.json() : null;
+  } finally {
+    LATENS[slags(sti)].push(Date.now() - t0);
+  }
+}
+function median(xs) { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; }
+function latensTabel() {
+  for (const [navn, xs] of Object.entries(LATENS)) {
+    if (!xs.length) continue;
+    console.log(`  ${navn.padEnd(10)} ${String(xs.length).padStart(3)} kald · median ${median(xs)} ms · maks ${Math.max(...xs)} ms`);
+  }
 }
 
 async function maalSpil(s) {
@@ -240,6 +257,8 @@ async function main() {
     }
     n += t.n; vendte += t.sentVendte; skift += t.halvlegSkift;
   }
+  console.log('\n=== latens (ms) — grundlaget for DETALJE_BUDGET_MS og EFTERFACIT_BUDGET_MS ===');
+  latensTabel();
   console.log(`\n=== samlet, ${n} færdige kampe ===`);
   console.log(`Sent mål der vendte udfaldet: ${vendte} (${pct(vendte, n)}) ≈ ${(vendte / n * 6).toFixed(1)} pr. runde à 6 kampe.`);
   console.log(`Udfaldet ved pausen ≠ ved slutfløjt: ${skift} (${pct(skift, n)}) ≈ ${(skift / n * 6).toFixed(1)} pr. runde.`);

@@ -434,9 +434,24 @@ exports.syncSuperligaResults = onSchedule(
           gameId: g.gameId, livescore: g.livescore, rettede: out.rettede, budgetMs: EFTERFACIT_BUDGET_MS,
         });
         if (!d) continue;
-        console.log(`Kampdetaljer ${g.gameId} efter facit: ${d.skrevet} af ${out.rettede.length} hentet`
+        const linje = `Målscorere efter facit: ${d.skrevet} af ${out.rettede.length} hentet`
           + `${d.uenige ? `, ${d.uenige} uenige` : ''}${d.uparsede ? `, ${d.uparsede} uparsede` : ''}`
-          + `${d.utilgaengelige ? `, ${d.utilgaengelige} utilgængelige` : ''}${d.ukendte ? `, ${d.ukendte} ukendte` : ''}.`);
+          + `${d.utilgaengelige ? `, ${d.utilgaengelige} utilgængelige` : ''}${d.ukendte ? `, ${d.ukendte} ukendte` : ''}.`;
+        console.log(`Kampdetaljer ${g.gameId} efter facit: ${linje}`);
+        // Minut-kortet skrives IGEN med linjen føjet til — efter trinnet, ikke
+        // ved at bytte rækkefølgen (så ville en timeout her koste kortet).
+        // Kun når kørslen ellers gik godt: et fejl-kort må ikke overskrives af
+        // et grønt. Uden linjen kunne den hurtige vej fejle hver gang, uden at
+        // nogen så det: sweep'et henter en time senere og melder "hentet"
+        // (QC-fund). Advarsel, når kilden ikke gav noget for nogen af kampene.
+        if (!out.fejl) {
+          const st = statusSamler({ type: 'minut', gameId: g.gameId });
+          const tekst = `${out.pending} kampe i vinduet, ${out.updated} nye facit. ${linje}`;
+          const ekstra = { pending: out.pending, updated: out.updated, efterFacit: d.skrevet, efterFacitAf: out.rettede.length };
+          if (d.afbrudt || (d.forsoegt > 0 && d.skrevet === 0)) st.advarsel(tekst, ekstra);
+          else st.ok(tekst, ekstra);
+          await skrivDriftStatus(st, db, { naesteForventetFoerMs: null });
+        }
         if (d.afbrudt) {
           console.error(`Kampdetaljer ${g.gameId} efter facit: kilden lukkede os ude.`);
           await meldAlarm(db, FieldValue, {
@@ -444,7 +459,7 @@ exports.syncSuperligaResults = onSchedule(
             gameId: g.gameId,
             besked: `Livescore afviste ${g.gameId} med 429/403 lige efter facit. Synken stopper sig selv `
               + 'for ikke at ramme de andre kilder gennem den delte udgående IP. '
-              + 'Sker det igen i sweepet, er vi rate-limited.',
+              + 'Sker det igen i næste kørsel, er vi rate-limited.',
           });
         }
       } catch (err) {
@@ -457,9 +472,12 @@ exports.syncSuperligaResults = onSchedule(
 // Budget for målscorere lige efter facit — pr. spil, allersidst i minut-jobbet.
 // Minut-jobbet har 120 s; facit, live og stilling for to spil bruger typisk
 // få sekunder, og efter-facit-vejen henter højst de 1–3 kampe, der lige blev
-// afgjort (stage-kald ~300 ms + to kald pr. kamp ~200 ms, målt i
-// scripts/maal-livescore-detaljer.mjs). 15 s pr. spil er derfor et loft, der
-// kun binder, når kilden hænger — og dér skal den slippe, ikke vente.
+// afgjort. Målt (scripts/maal-livescore-detaljer.mjs, latens-tabellen,
+// 2/9-2026): stage-kaldet 259 ms, et kampopslag ~130 ms median og 1,2 s maks.
+// 15 s binder derfor kun, når kilden hænger. Det REELLE vægur-loft er 20 s pr.
+// spil: stage-kaldets timeout (10 s) ligger før første budget-tjek, og tjekket
+// sidder i toppen af løkken, så ét kald-sæt (10 s) kan gå over (Security
+// Reviewer målte 20.000 ms med simuleret ur). To spil: højst ~40 s af 120.
 const EFTERFACIT_BUDGET_MS = 15000;
 
 // syncSuperligaSweep — SIKKERHEDSNETTET.

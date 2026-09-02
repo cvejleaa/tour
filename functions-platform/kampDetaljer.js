@@ -141,7 +141,10 @@ const FORBUDTE_FELTER = Object.freeze(['result', 'homeGoals', 'awayGoals', 'kick
  * 8 × 2 kald + ét stage-kald = 17 kald pr. spil pr. kørsel, 12 kørsler i
  * døgnet. Efterslæbet ved ibrugtagning er 54 kampe (målt 1/9-2026), altså
  * hentet på under et døgn, og en normal runde på 6-10 kampe nås i den første
- * kørsel efter runden.
+ * kørsel efter runden. Efter-facit-vejen (minut-jobbet) lægger samme slags
+ * kald oveni, men kun i det minut en kamp får facit: højst 17 pr. spil pr.
+ * sådan et minut, og en kamp kan kun få facit én gang — så over en kampdag
+ * er det ét kald-sæt pr. spillet kamp, ikke pr. minut.
  */
 const DETALJE_LOFT = 8;
 
@@ -155,10 +158,11 @@ const DETALJE_LOFT = 8;
  * ikke fanges af try/catch: så mistede både dette OG det næste spil sin
  * alarm, sin tabel og sit driftlog-kort.
  *
- * Målt latenstid (scripts/maal-livescore-detaljer.mjs, 1/9-2026): stage-kaldet
- * 295 ms, et kampopslag 128 ms median / 171 ms max med de to kald parallelt.
- * Budgettet binder altså kun, når kilden hænger — og dér er værste tilfælde
- * ÉT kald-sæt over budgettet, fordi tjekket sidder i toppen af løkken.
+ * Målt latenstid (scripts/maal-livescore-detaljer.mjs, latens-tabellen,
+ * 2/9-2026, 54 færdige kampe): stage-kaldet 259 ms; incidents 132 ms median /
+ * 731 ms maks; info 128 ms median / 1.240 ms maks. Budgettet binder altså
+ * kun, når kilden hænger — og dér er værste tilfælde ÉT kald-sæt over
+ * budgettet, fordi tjekket sidder i toppen af løkken.
  */
 const DETALJE_BUDGET_MS = 25000;
 

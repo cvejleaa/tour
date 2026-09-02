@@ -877,6 +877,38 @@
   bumpet. En genhentning, hvor kilden har mistet `Incs`, skriver kun
   `detaljerAfvistAt/Grund` — de gamle `maal` overlever (kørt).
 
+- **Efter-facit-detaljer i minut-jobbet (61a6e71) er BEKRÆFTET RENT — PoC kørt
+  uden emulator (fake db + fetchFn).** `efterFacitDetaljer` er kun en
+  genlæsnings-indpakning om `syncKampDetaljerCore`; ingen ny skrivesti.
+  Målt: (a) 12 kampe med facit i SAMME minut → `valgte=8`, **17 livescore-kald**
+  (1 stage + 2×8), altså præcis sweep'ets eget pr.-spil-loft — ingen ny
+  kvote-spids; (b) en kamp, der ALLEREDE har `detaljerSyncedAt` + version 2,
+  giver **0 livescore-kald** (filteret ligger FØR stage-kaldet, L556), så et
+  flappende facit kan ikke lave en kald-storm; (c) 429 på 3. kamp →
+  `afbrudt=true`, 2 skrevet, ÉT commit, ingen kald efter; (d) en kilde, der
+  lægger `result/homeGoals/awayGoals/kickoff` i incidents-svaret, får dem IKKE
+  med; scorernavnet er `rensTekst`'et (`Ondt <script>Navn` → `Ondt scriptNavn`).
+- **Kilden kan ikke styre HVILKE dokumenter der røres.** `syncResultsCore`
+  (superligaSync.js L166) gør `provider.resolveDocs(sourceKeys, current.keys())`,
+  og SL's implementation (syncProviders.js L348-353) er `new Set(docIds)` +
+  `kendte.has(k)` — værdierne er altså ⊆ vores egne pending-dokument-id'er.
+  `rettede` arver den binding. PoC: `rettede: ['../../users/offer','r1-a']` →
+  kun `r1-a` skrives (det fremmede id koster ét spildt `doc().get()` og falder
+  på `!d.result`). `pendingMatches` filtrerer `result == null`, så en kamp kan
+  kun stå i `rettede` ÉN gang — ingen genkaldsløkke.
+- **Detalje-skrivningen kan ikke gen-udløse en afregning.** `recomputeGameMatch`
+  (index.js L120-122) returnerer på `prevResult === nextResult`, og
+  forbudslisten holder `result` ude af skrivningen. Ingen skrivekonflikt med
+  Elo-vejen heller: `recomputeSeasonElo` (gameScoring.js) springer spillede
+  kampe over (`if (matchOutcome(m)) continue;`) og rører kun FREMTIDIGE kampes
+  `odds`/`elo*` — den netop afgjorte kamp skrives aldrig af begge veje.
+- **Et livescore-429 kan ikke ramme facit-synken.** Trinnet ligger efter HELE
+  `runScheduledSyncAll` og efter driftlog + `tjekLivePuls` for alle spil
+  (index.js L389-453), afbryderen er per-invocation uden delt tilstand, og de
+  andre kilder er andre værter. `meldAlarm` dæmper 6 t på doc-id
+  `{gameId}_detaljerLukket`, som minut- og sweep-grenen DELER — ingen spam,
+  men den først fyrede besked vinder i 6 timer.
+
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
 - **N+1 i `hentLigaMedlemmer`:** et sekventielt `users`-opslag pr. deltager.
@@ -941,6 +973,22 @@
 - `ADMIN_OWNED`-tripwiren i seed-payload.test.mjs tjekker kun retningen
   ADMIN_OWNED ⊆ games.mjs — intet bliver rødt, hvis nogen tilføjer `paused` til
   games.mjs uden at tilføje det til ADMIN_OWNED.
+
+- **Forbudslisten i `kampDetaljer.js` er UDÆKKET — og dens test er en tautologi.**
+  Mutation kørt (61a6e71): pluck-løkken `for (const felt of SKRIVBARE_FELTER)`
+  → `Object.assign(skriv, svar.felter)` giver **95/95 grønne**, også den nye
+  test "respekterer forbudslisten — facit rører den aldrig". Grunden er, at
+  `detaljerAf` kun sætter LITERALE nøgler (`halvlegHome`, `halvlegAway`,
+  `tilskuere`, `maal`) — ingen kilde-data bliver til et feltnavn, så pluck'et
+  er en ÆKVIVALENT mutation i dag. Vagten er altså ægte forsvar i dybden mod en
+  fremtidig ændring af `detaljerAf`, men INTET binder den. Vil man binde den,
+  skal testen injicere et forbudt felt i `svar.felter` (spy/stub på
+  `detaljerAf`), ikke i kilde-JSON'en. Generelt: **en test, der asserterer på
+  fraværet af noget, produktionskoden strukturelt ikke kan producere, måler
+  ingenting** — samme form som "et bånd, der rummer både før og efter".
+  Kontrol kørt: `loft: Math.min(only.length, DETALJE_LOFT)` → `only.length`
+  BLIVER rød (1 fejl), så loftet er bundet; at fjerne `loft` helt er derimod
+  ækvivalent (kernen defaulter til samme 8).
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
 
@@ -1190,6 +1238,23 @@ først taber.** Går incidents for gamle kampe tabt (sæsonskifte), tælles de s
 ikke har skiftet form. Samme fejl-remedie-forveksling som 5xx→uparset-resten.
 Målt 1/9-2026: alle 54 færdigspillede kampe svarer stadig, så risikoen er
 sæsongrænse-bunden, ikke aktuel.
+
+**Efter-facit-vejen (61a6e71) — tallene, så de ikke skal måles igen.** Minut-
+jobbet (`syncSuperligaResults`, hvert minut 12-23) kalder `efterFacitDetaljer`
+ALLERSIDST, kun for `out.rettede`. Loft pr. spil pr. kørsel: 1 stage + 2×8 = 17
+kald (målt), altså identisk med sweep'ets. Frekvensen er bundet af, hvor mange
+kampe der får facit, ikke af minutterne: `pendingMatches` filtrerer `result`
+væk, så en kamp optræder én gang. Værste realistiske aften (PL's samtidige
+sidste runde, 10 kampe i samme minut) = 17 kald for PL + 13 for SL i ÉN kørsel;
+resten falder til sweep'et.
+
+**Budget-kommentaren i index.js L457-463 er et TAL UDEN KODE BAG.** Den siger
+"15 s pr. spil er … et loft". Målt med et simuleret ur (stage 10 s, hvert
+kald-sæt 10 s): reelt forløbet vægur = **20.000 ms**, fordi stage-kaldet ligger
+FØR den første løkke-kontrol og budget-tjekket sidder i toppen af løkken —
+ceiling er stage-timeouten (10 s) + ét kald-sæt over budgettet (10 s), ikke 15.
+For to spil er værste tilfælde altså ~40 s af minut-jobbets 120 s. Ikke
+farligt i dag, men skriv 20 s i planen, ikke 15.
 
 **Homoglyf-fælden (fundet i `scripts/maal-livescore.mjs`, siden rettet):** en
 identifikator med U+0430 CYRILLIC A virker og linter rent. Grep efter ikke-ASCII

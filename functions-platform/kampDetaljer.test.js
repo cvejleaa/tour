@@ -874,13 +874,10 @@ describe('efterFacitDetaljer — de netop afgjorte kampe, straks', () => {
     expect(ud.valgte).toBe(DETALJE_LOFT);
   });
 
-  it('respekterer forbudslisten — facit rører den aldrig', async () => {
-    const db = fakeDb(TEAMS, [['r1-a', KAMP_DATA]]);
-    await efterFacitDetaljer(db, FieldValue, opts({ rettede: ['r1-a'] }));
-    for (const s of db.skrevet) {
-      for (const f of FORBUDTE_FELTER) expect(s.felter).not.toHaveProperty(f);
-    }
-  });
+  // Ingen egen forbudsliste-test her: vejen har INGEN egen skrivning, og en
+  // test, der kigger på en kilde uden forbudte feltnavne, beviser ingenting
+  // (Security Reviewer: pluck-løkken kunne erstattes af Object.assign med
+  // grøn suite). Vagten er `forbudslisten er vagten` ovenfor, på kernen.
 });
 
 describe('detaljeNiveau', () => {
