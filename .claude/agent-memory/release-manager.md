@@ -87,3 +87,34 @@ Fire fejl i udrulningsplanen for PR skala-ændring blev fanget:
 4. Verifikation skal foregå på det spil, hvor fejlen ses — ikke et anderledes spil.
 
 ---
+
+## Instruks fra koordinator (2/9 2026) — Eid-cache + live-mål (PR #206, delopgave 2–4)
+
+Tre kritiske lessons for denne udrulning:
+
+1. **Trigger-invokationer fra cache-optimering er ikke skadelige, men noteres**
+   - Første sweep efter Eid-cache-deploy: 132 (SL) + 380 (PL) = 512 trigger-invokationer på `recomputeGameMatch`
+   - ALLE returnerer straks på linje 123 (`if (prevResult === nextResult) return;`) — `livescoreEid` ≠ `result`
+   - INGEN data-ændring, INGEN løkke. Det er normalt. Noteres hvis CPU-alarmer går af.
+
+2. **Forældet cache-id er en kendt risiko — dokumenteret i drift.md**
+   - Hvis kilden genudsteder Eid (sjældent, men muligt), får en kamp permanent status "kunne ikke kobles" eller "404"
+   - Fix: manuel sletning af `livescoreEid`-feltet på kampens dokument i Firestore-konsollen
+   - Drift.md linje 295 og 309 beskriver situationen og løsningen. Ikke blokering, men kendt.
+
+3. **Rollback er sikkert — gammel kode ignorerer nyt felt**
+   - Gammel version a746758 har IKKE `livescoreEid` i `SKRIVBARE_FELTER`
+   - Hvis vi ruller tilbage: feltet bliver på dokumenterne, men ignoreres af gammelt kode
+   - Ingen konflikt, ingen data-tab. Blot mere API-forbrug (hentNoegler laves hver gang).
+   - Commit refereret: a746758 (functions-platform/kampDetaljer.js SKRIVBARE_FELTER uden livescoreEid)
+
+**Nye verificeringstrin jeg kan bruge:**
+- **Probe-script** (ec530f5): `node scripts/probe-kamp.mjs --game superliga2627 --match r1-viborg-ob` printer livescoreEid hvis det er skrevet
+- **GCP Cloud Logging filter:** `textPayload=~"Eid superliga2627:"` viser cortlægningsresultat
+- **Firestore-konsol:** `games/superliga2627/matches/{id}` skal have `livescoreEid` efter første sweep
+
+**Deployment-timing:**
+- Aktive kampe: 2/9-2026 fra 18:00 UTC (mindst 2-3 kampe)
+- Sweep-interval: 13:25–23:25 UTC dagligt (kan køre overlap med kampe)
+- **Anbefaling:** deploy efter 23:30 UTC eller efter 4/9 kl. 19:00 (når runden slutter)
+
