@@ -24,7 +24,7 @@ const {
   syncKampDetaljerCore, detaljerAf, maalAf, kaedeOk, noegleAfKamp,
   heltal, tilskuertal, hentNoegler, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER, DETALJE_LOFT, AFVIST_KARANTAENE_MS, API,
-  DETALJE_BUDGET_BROEK, detaljeNiveau, DETALJE_VERSION,
+  DETALJE_BUDGET_BROEK, detaljeNiveau, DETALJE_VERSION, efterFacitDetaljer,
 } = require('./kampDetaljer');
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/livescore-kampe.json', import.meta.url), 'utf8'));
@@ -422,7 +422,14 @@ function fakeDb(teams, matches) {
       doc: () => ({
         get: async () => ({ exists: true, data: () => ({ teams }) }),
         collection: () => ({
-          doc: (id) => ({ id }),
+          doc: (id) => ({
+            id,
+            // Enkeltopslag — efterFacitDetaljer genlæser de netop afgjorte kampe.
+            get: async () => {
+              const hit = matches.find(([mid]) => mid === id);
+              return hit ? { exists: true, data: () => hit[1] } : { exists: false, data: () => undefined };
+            },
+          }),
           get: async () => ({ docs: matches.map(([id, data]) => ({ id, data: () => data })) }),
         }),
       }),
@@ -817,6 +824,47 @@ describe('syncKampDetaljerCore', () => {
     }));
     expect(db.commits).toBe(0);
   });
+});
+
+describe('efterFacitDetaljer — de netop afgjorte kampe, straks', () => {
+  it('genlæser kampene og henter detaljer for præcis dem, der fik facit', async () => {
+    // Dokumentet i basen HAR facit (det blev lige skrevet); listen minut-synken
+    // arbejdede på, havde det ikke. Derfor genlæsningen.
+    const db = fakeDb(TEAMS, [['r1-a', KAMP_DATA], ['r1-b', { ...KAMP_DATA, home: 'X', away: 'Y' }]]);
+    const fetchFn = fakeFetch();
+    const ud = await efterFacitDetaljer(db, FieldValue, opts({ fetchFn, rettede: ['r1-a'] }));
+    expect(ud.skrevet).toBe(1);
+    expect(db.skrevet.map((x) => x.id)).toEqual(['r1-a']);   // ikke r1-b
+    expect(ud.valgte).toBe(1);
+  });
+
+  it('en kamp, der er væk fra basen, springes over uden at vælte de andre', async () => {
+    const db = fakeDb(TEAMS, [['r1-a', KAMP_DATA]]);
+    const ud = await efterFacitDetaljer(db, FieldValue, opts({ rettede: ['findes-ikke', 'r1-a'] }));
+    expect(ud.skrevet).toBe(1);
+  });
+
+  it('intet at gøre → null, og INGEN kald til kilden', async () => {
+    const db = fakeDb(TEAMS, [['r1-a', KAMP_DATA]]);
+    const fetchFn = fakeFetch();
+    expect(await efterFacitDetaljer(db, FieldValue, opts({ fetchFn, rettede: [] }))).toBeNull();
+    expect(await efterFacitDetaljer(db, FieldValue, opts({ fetchFn, rettede: undefined }))).toBeNull();
+    // Et spil uden livescore-konfiguration har ikke evnen.
+    expect(await efterFacitDetaljer(db, FieldValue, opts({ fetchFn, rettede: ['r1-a'], livescore: null }))).toBeNull();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('loftet er listen selv — aldrig over DETALJE_LOFT', async () => {
+    const mange = Array.from({ length: DETALJE_LOFT + 3 }, (_, i) => [`k${i}`, KAMP_DATA]);
+    const db = fakeDb(TEAMS, mange);
+    const ud = await efterFacitDetaljer(db, FieldValue, opts({ rettede: mange.map(([id]) => id) }));
+    expect(ud.valgte).toBe(DETALJE_LOFT);
+  });
+
+  // Ingen egen forbudsliste-test her: vejen har INGEN egen skrivning, og en
+  // test, der kigger på en kilde uden forbudte feltnavne, beviser ingenting
+  // (Security Reviewer: pluck-løkken kunne erstattes af Object.assign med
+  // grøn suite). Vagten er `forbudslisten er vagten` ovenfor, på kernen.
 });
 
 // ---------------------------------------------------------------------------

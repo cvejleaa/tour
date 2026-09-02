@@ -35,7 +35,9 @@ const {
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
-const { syncKampDetaljerCore, DETALJE_BUDGET_BROEK, detaljeNiveau } = require('./kampDetaljer');
+const {
+  syncKampDetaljerCore, efterFacitDetaljer, DETALJE_BUDGET_BROEK, detaljeNiveau,
+} = require('./kampDetaljer');
 
 // Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
 const SWEEP_TIMER = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
@@ -378,8 +380,13 @@ exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async 
 // timeoutSeconds: værste tilfælde er nu to spil × fuld sæson-liste × to veje
 // (facit + live à 10 s pr. side) — default 60 s kunne klippe kørslen midt i
 // et langsomt kampvindue (Security-fund). 120 s dækker med god margin.
+// Minut-jobbets loft. Står som konstant, fordi budgettet for målscorere
+// efter facit afledes af det (se EFTERFACIT_BUDGET_MS) — ikke som en literal
+// to steder, der kan drive fra hinanden.
+const MINUT_TIMEOUT_S = 120;
+
 exports.syncSuperligaResults = onSchedule(
-  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION, timeoutSeconds: 120 },
+  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION, timeoutSeconds: MINUT_TIMEOUT_S },
   async () => {
     // Selve rækkefølgen — og det tidlige exit — bor i superligaSync, så den
     // kan unit-testes. Her logges kun resultatet.
@@ -410,8 +417,78 @@ exports.syncSuperligaResults = onSchedule(
           + `${out.live.sluttet ? `, slut: ${out.live.sluttede.join(', ')}` : ''}.` : '')
         + (out.standings ? ` Stilling ${out.standings.changed ? 'opdateret' : 'uændret'}.` : ''));
     }
+
+    // MÅLSCORERE FOR DE KAMPE, DER NETOP FIK FACIT — ALLERSIDST.
+    //
+    // Efter driftlog og puls-vagt for ALLE spil, af samme grund som detaljerne
+    // står sidst i sweep'et (se kampDetaljer.js' kontrakt): en fremmed kilde
+    // må aldrig kunne koste facit, puls-alarmen eller næste spil. Rammer
+    // livescore sit budget her, er alt ovenfor allerede gjort, og sweep'et
+    // henter detaljerne om højst en time — som det gjorde før denne vej fandtes.
+    //
+    // Ingen egen driftlog-linje: minut-kortet er skrevet ovenfor (før dette
+    // trin, med vilje), og sweep'ets kort viser efterslæbet ("N færdige kampe
+    // mangler detaljer"), som nu normalt er 0. Kun 429/403 — kilden lukker os
+    // ude, og det rammer naboerne gennem den delte NAT — er en alarm nu.
+    for (const out of alle) {
+      if (!out.rettede?.length) continue;
+      const g = SYNCED_GAMES.find((x) => x.gameId === out.gameId);
+      if (!g?.livescore) continue;
+      try {
+        const d = await efterFacitDetaljer(db, FieldValue, {
+          gameId: g.gameId, livescore: g.livescore, rettede: out.rettede, budgetMs: EFTERFACIT_BUDGET_MS,
+        });
+        if (!d) continue;
+        const linje = `Målscorere efter facit: ${d.skrevet} af ${out.rettede.length} hentet`
+          + `${d.uenige ? `, ${d.uenige} uenige` : ''}${d.uparsede ? `, ${d.uparsede} uparsede` : ''}`
+          + `${d.utilgaengelige ? `, ${d.utilgaengelige} utilgængelige` : ''}${d.ukendte ? `, ${d.ukendte} ukendte` : ''}.`;
+        console.log(`Kampdetaljer ${g.gameId} efter facit: ${linje}`);
+        // Minut-kortet skrives IGEN med linjen føjet til — efter trinnet, ikke
+        // ved at bytte rækkefølgen (så ville en timeout her koste kortet).
+        // Kun når kørslen ellers gik godt: et fejl-kort må ikke overskrives af
+        // et grønt. Uden linjen kunne den hurtige vej fejle hver gang, uden at
+        // nogen så det: sweep'et henter en time senere og melder "hentet"
+        // (QC-fund). Advarsel, når kilden ikke gav noget for nogen af kampene.
+        if (!out.fejl) {
+          const st = statusSamler({ type: 'minut', gameId: g.gameId });
+          const tekst = `${out.pending} kampe i vinduet, ${out.updated} nye facit. ${linje}`;
+          const ekstra = { pending: out.pending, updated: out.updated, efterFacit: d.skrevet, efterFacitAf: out.rettede.length };
+          if (d.afbrudt || (d.forsoegt > 0 && d.skrevet === 0)) st.advarsel(tekst, ekstra);
+          else st.ok(tekst, ekstra);
+          await skrivDriftStatus(st, db, { naesteForventetFoerMs: null });
+        }
+        if (d.afbrudt) {
+          console.error(`Kampdetaljer ${g.gameId} efter facit: kilden lukkede os ude.`);
+          await meldAlarm(db, FieldValue, {
+            type: 'detaljerLukket',
+            gameId: g.gameId,
+            besked: `Livescore afviste ${g.gameId} med 429/403 lige efter facit. Synken stopper sig selv `
+              + 'for ikke at ramme de andre kilder gennem den delte udgående IP. '
+              + 'Sker det igen i næste kørsel, er vi rate-limited.',
+          });
+        }
+      } catch (err) {
+        console.warn(`Kampdetaljer ${out.gameId} efter facit fejlede (sweepet henter dem):`, err?.message || err);
+      }
+    }
   },
 );
+
+// Budget for målscorere lige efter facit — pr. spil, allersidst i minut-jobbet.
+// En fjerdedel af minut-jobbets loft, delt ligeligt mellem spillene — AFLEDT
+// som XG_BUDGET_MS/DETALJE_BUDGET_MS, ikke skrevet af: et tredje spil
+// skrumper budgettet af sig selv i stedet for at tredoble halens værste
+// tilfælde (Test Manager-fund). Med to spil er det 15 s pr. spil.
+//
+// Facit, live og stilling for to spil bruger typisk få sekunder, og efter-
+// facit-vejen henter højst de 1–3 kampe, der lige blev afgjort. Målt
+// (scripts/maal-livescore-detaljer.mjs, latens-tabellen, 2/9-2026): stage-
+// kaldet 259 ms, et kampopslag ~130 ms median og 1,2 s maks. Budgettet binder
+// derfor kun, når kilden hænger. Det REELLE vægur-loft er budgettet + 5 s:
+// stage-kaldets timeout (10 s) ligger før første budget-tjek, og tjekket
+// sidder i toppen af løkken, så ét kald-sæt (10 s) kan gå over (Security
+// Reviewer målte 20.000 ms med simuleret ur ved 15 s). To spil: højst ~40 s.
+const EFTERFACIT_BUDGET_MS = Math.floor((MINUT_TIMEOUT_S * 1000) / 4 / SYNCED_GAMES.length);
 
 // syncSuperligaSweep — SIKKERHEDSNETTET.
 //

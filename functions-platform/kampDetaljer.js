@@ -141,7 +141,10 @@ const FORBUDTE_FELTER = Object.freeze(['result', 'homeGoals', 'awayGoals', 'kick
  * 8 × 2 kald + ét stage-kald = 17 kald pr. spil pr. kørsel, 12 kørsler i
  * døgnet. Efterslæbet ved ibrugtagning er 54 kampe (målt 1/9-2026), altså
  * hentet på under et døgn, og en normal runde på 6-10 kampe nås i den første
- * kørsel efter runden.
+ * kørsel efter runden. Efter-facit-vejen (minut-jobbet) lægger samme slags
+ * kald oveni, men kun i det minut en kamp får facit: højst 17 pr. spil pr.
+ * sådan et minut, og en kamp kan kun få facit én gang — så over en kampdag
+ * er det ét kald-sæt pr. spillet kamp, ikke pr. minut.
  */
 const DETALJE_LOFT = 8;
 
@@ -155,10 +158,11 @@ const DETALJE_LOFT = 8;
  * ikke fanges af try/catch: så mistede både dette OG det næste spil sin
  * alarm, sin tabel og sit driftlog-kort.
  *
- * Målt latenstid (scripts/maal-livescore-detaljer.mjs, 1/9-2026): stage-kaldet
- * 295 ms, et kampopslag 128 ms median / 171 ms max med de to kald parallelt.
- * Budgettet binder altså kun, når kilden hænger — og dér er værste tilfælde
- * ÉT kald-sæt over budgettet, fordi tjekket sidder i toppen af løkken.
+ * Målt latenstid (scripts/maal-livescore-detaljer.mjs, latens-tabellen,
+ * 2/9-2026, 54 færdige kampe): stage-kaldet 259 ms; incidents 132 ms median /
+ * 731 ms maks; info 128 ms median / 1.240 ms maks. Budgettet binder altså
+ * kun, når kilden hænger — og dér er værste tilfælde ÉT kald-sæt over
+ * budgettet, fordi tjekket sidder i toppen af løkken.
  */
 const DETALJE_BUDGET_MS = 25000;
 
@@ -480,9 +484,16 @@ async function hentNoegler(livescore, fetchFn) {
 /**
  * Hent og skriv kampdetaljer for FÆRDIGE kampe, der mangler dem.
  *
- * KØRES FRA SWEEP'ET, aldrig fra minut-synken — samme begrundelse som xG
- * (syncProviders.js' kontrakt): ét kald pr. kamp, og en langsom kilde i
- * minut-synken kunne tavst standse facit-synken midt på en kampaften.
+ * KØRES FRA SWEEP'ET (bagfyldningen) — og fra minut-synken KUN for de kampe,
+ * der netop fik facit i samme kørsel, via `efterFacitDetaljer` nedenfor.
+ * xG-kontrakten (syncProviders.js) gælder stadig: en fremmed kilde må ikke
+ * kunne standse facit-synken. Efter-facit-vejen overholder den ved at være
+ * BUNDET (kun de netop afgjorte kampe, typisk 1–3), SJÆLDEN (kun det minut
+ * facit lander) og SIDST i kørslen, efter driftlog og puls-vagt, med eget
+ * budget — se index.js. Før den fandtes, gik der op til 59 minutter fra
+ * facit til målscorere, fordi sweep'et kører 25 minutter over timen. Det er
+ * den mest sete tilstand på kortet: folk kigger lige efter slutfløjt
+ * (Quality Control-fund på planen for live-mål).
  *
  * Funktionen er OGSÅ bagfyldningen. Der findes ikke et separat script: en
  * kamp fra i august mangler detaljer på præcis samme måde som en fra i aftes.
@@ -690,8 +701,41 @@ function detaljeNiveau(d) {
     ? 'advarsel' : 'ok';
 }
 
+/**
+ * Detaljer for de kampe, der NETOP fik facit — kaldt af minut-synken.
+ *
+ * Genlæser dokumenterne først: listen `venter`, minut-synken arbejder på, er
+ * hentet FØR facit blev skrevet, så dens `data` mangler `result`/målene — og
+ * det er netop dem, `detaljerAf` krydsvaliderer imod. Én læsning pr. kamp,
+ * kun for de 1–3 kampe, der lige er afgjort.
+ *
+ * Loftet er listen selv (aldrig over `DETALJE_LOFT`): der er intet efterslæb
+ * at fordele, kun dét, der lige skete. Alt andet — kredsløbsafbryder,
+ * karantæne, forbudsliste, versionsmærke — er `syncKampDetaljerCore`s.
+ *
+ * @param {object} opts  gameId, livescore, rettede (kamp-id'er), budgetMs,
+ *                       fetchFn/nowMs/klokke som i syncKampDetaljerCore
+ */
+async function efterFacitDetaljer(db, FieldValue, opts = {}) {
+  const ids = Array.isArray(opts.rettede) ? opts.rettede.filter(Boolean) : [];
+  if (!ids.length || !opts.livescore?.land) return null;
+  const col = db.collection('games').doc(opts.gameId).collection('matches');
+  const only = [];
+  for (const id of ids) {
+    const snap = await col.doc(id).get();
+    // Ingen egen vagt på "findes ikke": et manglende dokument bliver et tomt
+    // objekt, og kernens filter (`!d.result`) sorterer det fra. En `exists`-
+    // vagt her var en ækvivalent mutation væk — to vagter for én regel.
+    only.push({ id, data: (typeof snap?.data === 'function' && snap.data()) || {} });
+  }
+  return syncKampDetaljerCore(db, FieldValue, {
+    ...opts, only, loft: Math.min(only.length, DETALJE_LOFT),
+  });
+}
+
 module.exports = {
   detaljeNiveau,
+  efterFacitDetaljer,
   SELVMAAL_IT,
   DETALJE_VERSION,
   syncKampDetaljerCore,

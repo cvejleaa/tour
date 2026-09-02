@@ -456,8 +456,20 @@ describe('runScheduledSync', () => {
     const db = makeDb([{ id: 'r1-a-b', data: { kickoff: new Date(NU + 3600e3) } }]);
     const fetchFn = fakeApi();
     const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
-    expect(out).toEqual({ pending: 0, updated: 0, live: null, standings: null, fejl: null });
+    expect(out).toEqual({ pending: 0, updated: 0, live: null, standings: null, fejl: null, rettede: [] });
     expect(fetchFn.kald).toEqual({ resultater: 0, live: 0, stilling: 0 }); // ingen API-kald
+  });
+
+  it('giver de NETOP afgjorte kampe med ud — minut-jobbet henter deres målscorere allersidst', async () => {
+    // Uden listen kunne minut-jobbet ikke vide, hvilke kampe der lige fik
+    // facit, og målscorerne ville vente på sweep'et (op til 59 min).
+    const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang } }]);
+    const fetchFn = fakeApi({
+      events: [{ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 2, away: 1 } }],
+    });
+    const out = await runScheduledSync(db, FieldValue, NU, { fetchFn });
+    expect(out.updated).toBe(1);
+    expect(out.rettede).toEqual(['r1-viborgff-ob']);
   });
 
   it('rører INTET, når kampene i gang allerede har facit', async () => {
