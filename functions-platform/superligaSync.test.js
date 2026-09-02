@@ -460,6 +460,25 @@ describe('runScheduledSync', () => {
     expect(fetchFn.kald).toEqual({ resultater: 0, live: 0, stilling: 0 }); // ingen API-kald
   });
 
+  it('facit rydder liveMaal — og en kamp, der KUN mangler den rydning, skrives igen', async () => {
+    // Live-målene (opgave #78) afløses af den validerede liste, når facit
+    // lander. Uden leddet i skip-vagten ville en kamp med facit + liveMaal
+    // fra samme kørsel beholde begge lister for evigt.
+    // Direkte på syncResultsCore: pendingMatches slipper kun kampe UDEN facit
+    // igennem, og det er netop sweep'ets fuldskanning (only: alle), der kan
+    // ramme en kamp med facit + efterladt liveMaal.
+    const kamp = { id: 'r1-viborgff-ob', data: { round: 1, kickoff: iGang, result: '1', homeGoals: 2, awayGoals: 1, liveMaal: { maal: [] } } };
+    const db = makeDb([kamp]);
+    const fetchFn = fakeApi({
+      events: [{ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 2, away: 1 } }],
+    });
+    const ud = await syncResultsCore(db, FieldValue, { fetchFn, only: [kamp] });
+    expect(ud.updated).toBe(1);
+    const doc = db._docs.get('r1-viborgff-ob');
+    expect(doc.liveMaal).toBe('@delete');
+    expect(doc.live).toBe('@delete');
+  });
+
   it('giver de NETOP afgjorte kampe med ud — minut-jobbet henter deres målscorere allersidst', async () => {
     // Uden listen kunne minut-jobbet ikke vide, hvilke kampe der lige fik
     // facit, og målscorerne ville vente på sweep'et (op til 59 min).

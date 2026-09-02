@@ -36,7 +36,8 @@ const {
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
 const {
-  syncKampDetaljerCore, efterFacitDetaljer, DETALJE_BUDGET_BROEK, detaljeNiveau,
+  syncKampDetaljerCore, efterFacitDetaljer, sweepKampDetaljer,
+  DETALJE_BUDGET_BROEK, detaljeNiveau,
 } = require('./kampDetaljer');
 
 // Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
@@ -673,9 +674,14 @@ exports.syncSuperligaSweep = onSchedule(
       try {
         if (!g.livescore) throw new Error('SPRING_OVER');
         if (!alle) throw new Error('kamplisten manglede i denne kørsel');
-        const d = await syncKampDetaljerCore(db, FieldValue, {
+        // Eid-kortlægning af hele kamplisten og detaljerne i ÉT kald med ÉN
+        // vagt om kredsløbsafbryderen — se sweepKampDetaljer. Kortlægningen
+        // lå før som et separat kald her, og et 429 dér gik forbi afbrudt-
+        // grenen herunder til den generiske fejl-linje: ingen alarm.
+        const d = await sweepKampDetaljer(db, FieldValue, {
           gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: DETALJE_BUDGET_MS,
         });
+        if (d.eid?.manglede) console.log(`Eid ${g.gameId}: ${d.eid.skrevet} af ${d.eid.manglede} kortlagt, ${d.eid.ukendte} ukendte.`);
         const tilbage = d.manglede - d.skrevet;
         if (d.afbrudt) {
           // SYSTEMISK: kilden har lukket os ude. Det er en alarm, fordi den

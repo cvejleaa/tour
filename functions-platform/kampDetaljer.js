@@ -88,6 +88,10 @@ const hentOpt = () => ({
 const SKRIVBARE_FELTER = Object.freeze([
   'halvlegHome', 'halvlegAway', 'tilskuere', 'maal',
   'detaljerSyncedAt', 'detaljerVersion', 'detaljerAfvistAt', 'detaljerAfvistGrund',
+  // Livescores kamp-id, kortlagt af sweep'et (kortlaegEids) — så efter-facit-
+  // vejen og en kommende live-synk kan slå kampen op UDEN stage-kaldet på
+  // 90–260 KB. Ikke en nøgle til noget hos os; kun et opslag hos dem.
+  'livescoreEid',
 ]);
 
 /**
@@ -133,6 +137,15 @@ const versionsTal = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 
 /** Felter, der aldrig må stå i en skrivning herfra — testens modpol. */
 const FORBUDTE_FELTER = Object.freeze(['result', 'homeGoals', 'awayGoals', 'kickoff']);
+
+/** Firestore: højst 500 skrivninger pr. batch. Under loftet med luft til PL's 380. */
+const BATCH_LOFT = 400;
+
+/** En kørsel, der intet gjorde. Ét sted, så kernen og sweep'et ikke kan drive. */
+const TOM_KOERSEL = Object.freeze({
+  manglede: 0, valgte: 0, forsoegt: 0, skrevet: 0,
+  uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, afbrudt: false,
+});
 
 /**
  * Hvor mange kampe hentes pr. kørsel? Loft på KVOTE, ikke på tid — budgettet
@@ -481,6 +494,90 @@ async function hentNoegler(livescore, fetchFn) {
   return ud;
 }
 
+/** Et Eid, vi tør sætte i en URL: cifre, højst tolv. Samme bånd som hentNoegler. */
+function gyldigEid(v) {
+  return typeof v === 'string' && /^\d{1,12}$/.test(v);
+}
+
+/**
+ * Kampens livescore-id: det cachede `livescoreEid` først, ellers opslag via
+ * nøglen i stage-listen. Ét sted for begge veje, så kernen og kortlægningen
+ * ikke kan drive fra hinanden.
+ */
+function eidForKamp(data, kodeAfNavn, noegler) {
+  if (gyldigEid(data?.livescoreEid)) return data.livescoreEid;
+  if (!noegler) return null;
+  const n = noegleAfKamp(data, kodeAfNavn);
+  return n ? (noegler.get(n) || null) : null;
+}
+
+/**
+ * Kortlæg vores kampe til livescores Eid og gem det på kampdokumentet.
+ *
+ * Findes, fordi stage-kaldet er det dyreste, vi laver mod en kilde uden
+ * aftale: 90 KB for Superligaen, ~260 KB for Premier League. Sweep'et laver
+ * det 12 gange i døgnet; efter-facit-vejen og en kommende live-synk (opgave
+ * #78) ville ellers lave det op til ~150 gange i døgnet på en kampdag. Med
+ * id'et på dokumentet koster et kampopslag to kald — ingen liste.
+ *
+ * Kortlægger ALLE kampe uden `livescoreEid`, også uspillede: stage-listen
+ * bærer Eid for hele sæsonen (målt 2/9-2026, 132 SL-kampe, 0 uden Eid), og
+ * et id ændrer sig ikke, fordi kampen bliver spillet. Ét stage-kald pr.
+ * kørsel, og listen gives tilbage, så kalderen kan sende den videre til
+ * syncKampDetaljerCore i samme kørsel.
+ *
+ * Skriver KUN `livescoreEid` — gennem samme frosne feltliste som resten.
+ * Ingen versionsbump: filteret er "mangler id", ikke `detaljerSyncedAt`.
+ *
+ * @param {object} opts  gameId, livescore, only ({id,data}[]), fetchFn, noegler?
+ * @returns {Promise<{manglede:number, skrevet:number, ukendte:number, noegler:Map|null}>}
+ */
+async function kortlaegEids(db, FieldValue, opts = {}) {
+  const tom = { manglede: 0, skrevet: 0, ukendte: 0, noegler: null };
+  const livescore = opts.livescore;
+  if (!livescore?.land || !livescore?.liga) return tom;
+  const fetchFn = opts.fetchFn || fetch;
+  const mangler = (opts.only || []).filter((m) => !gyldigEid(m?.data?.livescoreEid));
+  if (!mangler.length) return { ...tom, noegler: opts.noegler instanceof Map ? opts.noegler : null };
+
+  const gameRef = db.collection('games').doc(opts.gameId);
+  const gameSnap = await gameRef.get();
+  const teams = gameSnap.exists ? gameSnap.data().teams : null;
+  if (!Array.isArray(teams) || !teams.length) return { ...tom, manglede: mangler.length };
+  const kodeAfNavn = new Map(teams.map((t) => [t.name, t.short]));
+
+  const noegler = opts.noegler instanceof Map ? opts.noegler : await hentNoegler(livescore, fetchFn);
+  const ud = { manglede: mangler.length, skrevet: 0, ukendte: 0, noegler };
+  if (noegler.size === 0) return ud;
+
+  // Første kørsel efter udrulning skriver HELE sæsonen: 132 kampe for
+  // Superligaen, 380 for Premier League. Firestore tager 500 ops pr. batch,
+  // og klienten tæller ikke selv efter — serveren afviser, og så var ingen
+  // skrevet. Derfor deles der op, før nogen liga når loftet.
+  const matchesCol = gameRef.collection('matches');
+  let batch = db.batch();
+  let iBatch = 0;
+  for (const m of mangler) {
+    const n = noegleAfKamp(m.data, kodeAfNavn);
+    const eid = n ? noegler.get(n) : null;
+    if (!eid) { ud.ukendte += 1; continue; }
+    // Plukket af den frosne liste — ikke et frit objekt. Skulle et andet felt
+    // en dag følge med her, skal det først stå på listen.
+    const skriv = {};
+    if (SKRIVBARE_FELTER.includes('livescoreEid')) skriv.livescoreEid = eid;
+    batch.update(matchesCol.doc(m.id), skriv);
+    ud.skrevet += 1;
+    iBatch += 1;
+    if (iBatch === BATCH_LOFT) {
+      await batch.commit();
+      batch = db.batch();
+      iBatch = 0;
+    }
+  }
+  if (iBatch) await batch.commit();
+  return ud;
+}
+
 /**
  * Hent og skriv kampdetaljer for FÆRDIGE kampe, der mangler dem.
  *
@@ -510,10 +607,7 @@ async function hentNoegler(livescore, fetchFn) {
 
  */
 async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
-  const tom = {
-    manglede: 0, valgte: 0, forsoegt: 0, skrevet: 0,
-    uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, afbrudt: false,
-  };
+  const tom = { ...TOM_KOERSEL };
   const livescore = opts.livescore;
   // Et spil uden livescore-konfiguration har ikke evnen. Ikke en fejl.
   if (!livescore?.land || !livescore?.liga) return tom;
@@ -582,25 +676,38 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
   // `commit()` på en tom batch er et unødigt kald. Tælleren er dermed
   // vagten om skrivningen, ikke en sum af tre andre tal, der kan drive.
   let iBatch = 0;
-  let noegler;
+  // Stage-listen (90 KB SL / ~260 KB PL) hentes KUN, når en af de valgte
+  // kampe mangler sit cachede `livescoreEid` — og kalderen kan give listen
+  // med (sweep'et har den fra kortlaegEids), så den aldrig hentes to gange i
+  // samme kørsel. Med cachen fuld koster efter-facit-vejen to kald pr. kamp,
+  // intet stage-kald.
+  let noegler = opts.noegler instanceof Map ? opts.noegler : null;
+  const manglerEid = valgte.some((m) => !gyldigEid(m.data?.livescoreEid));
   try {
-    // Stage-listen hentes KUN, når noget mangler — den er 90 KB for
-    // Superligaen og ~260 KB for Premier League.
-    // Budget-tjek FØR stage-kaldet. Det er 90-260 KB og kan koste sine fulde
-    // 10 sekunder, og lå det uden for budgettet, var budgettet ikke et loft
-    // på kørslen, men på løkken. Security regnede værste tilfælde ud: uden
-    // dette tjek er det stage-kald + budget + ét kald-sæt.
-    if (klokke() >= udloeb) return ud;
-    noegler = await hentNoegler(livescore, fetchFn);
-    if (noegler.size === 0) return ud; // kilden svarede, men uden kampe
+    if (manglerEid) {
+      if (!noegler) {
+        // Budget-tjek FØR stage-kaldet. Det kan koste sine fulde 10 sekunder,
+        // og lå det uden for budgettet, var budgettet ikke et loft på kørslen,
+        // men på løkken. Security regnede værste tilfælde ud: uden dette tjek
+        // er det stage-kald + budget + ét kald-sæt.
+        if (klokke() >= udloeb) return ud;
+        noegler = await hentNoegler(livescore, fetchFn);
+      }
+      // Kilden svarede, men uden kampe — OGSÅ når listen kom udefra. Et 5xx
+      // på sweep'ets stage-kald giver kortlægningen en tom liste, og gik den
+      // igennem her, blev hver kamp uden cachet id "ukendt", og sweep'et
+      // fyrede detaljerKobling ("kortlægningen er død") under et helt
+      // almindeligt udfald. Tjekket stod før KUN i den gren, der selv
+      // hentede listen.
+      if (noegler.size === 0) return ud;
+    }
 
     for (const m of valgte) {
       // Budget-tjekket i TOPPEN af løkken. Kernen kan ikke afbryde et await,
       // og en Promise.race ville lade kaldet løbe videre i baggrunden og
       // stadig holde funktionen i live.
       if (klokke() >= udloeb) break;
-      const n = noegleAfKamp(m.data, kodeAfNavn);
-      const eid = n ? noegler.get(n) : null;
+      const eid = eidForKamp(m.data, kodeAfNavn, noegler);
       if (!eid) { ud.ukendte += 1; continue; }
       ud.forsoegt += 1;
       // De to kald er uafhængige — parallelt. Målt 128 ms median for parret.
@@ -733,9 +840,47 @@ async function efterFacitDetaljer(db, FieldValue, opts = {}) {
   });
 }
 
+/**
+ * Sweep'ets kampdetalje-kørsel: Eid-kortlægning af HELE kamplisten først (ét
+ * stage-kald), derefter detaljerne med den samme liste — og ÉN vagt om
+ * kredsløbsafbryderen for begge kald.
+ *
+ * Findes, fordi kortlægningen før lå som et separat kald i index.js' sweep-
+ * handler, hvor et 429/403 blev kastet FORBI kernens afbrudt-gren til den
+ * generiske fejl-linje: samme kilde, samme rate-limit, samme delte NAT — men
+ * ingen detaljerLukket-alarm. To kald mod samme fejlkilde, håndteret
+ * forskelligt alt efter hvilket der ramte loftet først, og det nye kald var
+ * det, der kørte FØRST. Quality Controls fund. Husets regel er én vagt pr.
+ * sikkerhedsregel, og en onSchedule-krop kan ikke unit-testes, så vagten bor
+ * her, hvor den kan.
+ *
+ * Bliver vi lukket ude allerede under kortlægningen, køres kernen IKKE: den
+ * ville blot ramme samme loft igen, og aftalen med afbryderen er at stoppe.
+ * Fejler kortlægningen af en ANDEN grund, henter kernen listen selv — som
+ * før.
+ *
+ * @returns kernens tal + `eid: {manglede, skrevet, ukendte}` fra kortlægningen
+ *          (null, hvis den fejlede)
+ */
+async function sweepKampDetaljer(db, FieldValue, opts = {}) {
+  let noegler = null;
+  let eid = null;
+  try {
+    const k = await kortlaegEids(db, FieldValue, opts);
+    noegler = k.noegler;
+    eid = { manglede: k.manglede, skrevet: k.skrevet, ukendte: k.ukendte };
+  } catch (err) {
+    if (err instanceof KildenLukkerOs) return { ...TOM_KOERSEL, afbrudt: true, eid };
+    console.warn(`Eid-kortlægning ${opts.gameId} fejlede (kernen henter selv):`, err?.message || err);
+  }
+  const d = await syncKampDetaljerCore(db, FieldValue, { ...opts, noegler });
+  return { ...d, eid };
+}
+
 module.exports = {
   detaljeNiveau,
   efterFacitDetaljer,
+  kortlaegEids, gyldigEid, navn, sweepKampDetaljer,
   SELVMAAL_IT,
   DETALJE_VERSION,
   syncKampDetaljerCore,
