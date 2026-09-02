@@ -21,6 +21,7 @@ export default defineConfig({
       'gameRecap.test.js',
       'livescoreHold.test.js',
       'kampDetaljer.test.js',
+      'liveMaal.test.js',
       'leagueQuestionScoring.test.js',
       'leagueQuestionRecap.test.js',
       'inviteTemplate.test.js',

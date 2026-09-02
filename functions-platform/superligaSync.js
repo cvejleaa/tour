@@ -183,7 +183,8 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
     if (cur.result === result
         && cur.homeGoals === e.homeGoals
         && cur.awayGoals === e.awayGoals
-        && cur.live == null) continue;
+        && cur.live == null
+        && cur.liveMaal == null) continue;
     batch.set(matchesCol.doc(id), {
       result,
       homeGoals: e.homeGoals,
@@ -194,6 +195,12 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
       // sweep'et også sætter facit — og så er det den eneste kørsel, der kan
       // rydde op efter en kamp, minut-synken ikke nåede.
       live: FieldValue.delete(),
+      // Live-målene (opgave #78) ryddes af FACIT, samme sted og af samme
+      // grund: den validerede liste (kampDetaljer) afløser dem. Leddet i
+      // skip-vagten ovenfor er den anden halvdel — uden det ville en kamp,
+      // der fik facit og sidste live-skrivning i samme kørsel, beholde
+      // begge lister for evigt.
+      liveMaal: FieldValue.delete(),
     }, { merge: true });
     rettede.push(id);
   }

@@ -36,7 +36,8 @@ const {
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
 const {
-  syncKampDetaljerCore, efterFacitDetaljer, DETALJE_BUDGET_BROEK, detaljeNiveau,
+  syncKampDetaljerCore, efterFacitDetaljer, kortlaegEids, KildenLukkerOs,
+  DETALJE_BUDGET_BROEK, detaljeNiveau,
 } = require('./kampDetaljer');
 
 // Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
@@ -673,8 +674,20 @@ exports.syncSuperligaSweep = onSchedule(
       try {
         if (!g.livescore) throw new Error('SPRING_OVER');
         if (!alle) throw new Error('kamplisten manglede i denne kørsel');
+        // Kortlægning FØRST: kampe uden livescoreEid får det nu, og stage-
+        // listen gives videre, så detaljerne ikke henter den igen. Fejler
+        // kortlægningen, henter kernen listen selv — som før.
+        let noegler = null;
+        try {
+          const k = await kortlaegEids(db, FieldValue, { gameId: g.gameId, livescore: g.livescore, only: alle });
+          noegler = k.noegler;
+          if (k.manglede) console.log(`Eid ${g.gameId}: ${k.skrevet} af ${k.manglede} kortlagt, ${k.ukendte} ukendte.`);
+        } catch (err) {
+          if (err instanceof KildenLukkerOs) throw err;
+          console.warn(`Eid-kortlægning ${g.gameId} fejlede (kernen henter selv):`, err?.message || err);
+        }
         const d = await syncKampDetaljerCore(db, FieldValue, {
-          gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: DETALJE_BUDGET_MS,
+          gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: DETALJE_BUDGET_MS, noegler,
         });
         const tilbage = d.manglede - d.skrevet;
         if (d.afbrudt) {

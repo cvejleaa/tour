@@ -24,7 +24,7 @@ const {
   syncKampDetaljerCore, detaljerAf, maalAf, kaedeOk, noegleAfKamp,
   heltal, tilskuertal, hentNoegler, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER, DETALJE_LOFT, AFVIST_KARANTAENE_MS, API,
-  DETALJE_BUDGET_BROEK, detaljeNiveau, DETALJE_VERSION, efterFacitDetaljer,
+  DETALJE_BUDGET_BROEK, detaljeNiveau, DETALJE_VERSION, efterFacitDetaljer, kortlaegEids, gyldigEid,
 } = require('./kampDetaljer');
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/livescore-kampe.json', import.meta.url), 'utf8'));
@@ -823,6 +823,116 @@ describe('syncKampDetaljerCore', () => {
       only: [{ id: 'r1-a', data: { ...KAMP_DATA, kickoff: new Date('2026-08-01T17:00:00Z') } }],
     }));
     expect(db.commits).toBe(0);
+  });
+});
+
+describe('kortlaegEids — livescores kamp-id på kampdokumentet', () => {
+  const USPILLET = { home: 'FC Midtjylland', away: 'Randers FC', kickoff: new Date('2026-07-24T17:00:00Z') };
+
+  it('skriver livescoreEid på kampe UDEN — også uspillede — og giver stage-listen tilbage', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const ud = await kortlaegEids(db, FieldValue, opts({ fetchFn, only: [{ id: 'r1-a', data: USPILLET }] }));
+    expect(ud.skrevet).toBe(1);
+    expect(db.skrevet).toEqual([{ id: 'r1-a', felter: { livescoreEid: '1784451' } }]);
+    expect(ud.noegler).toBeInstanceOf(Map);
+    expect(ud.noegler.size).toBe(1);
+    expect(db.commits).toBe(1);
+  });
+
+  it('springer kampe over, der allerede har et gyldigt id — og laver så INGEN kald', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const ud = await kortlaegEids(db, FieldValue, opts({ fetchFn, only: [{ id: 'r1-a', data: { ...USPILLET, livescoreEid: '1784451' } }] }));
+    expect(ud).toEqual({ manglede: 0, skrevet: 0, ukendte: 0, noegler: null });
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(db.commits).toBe(0);
+  });
+
+  it('et id, der ikke er cifre, tæller som manglende — det går i en URL', async () => {
+    expect(gyldigEid('../../admin')).toBe(false);
+    expect(gyldigEid('1784451')).toBe(true);
+    expect(gyldigEid(1784451)).toBe(false);   // tal, ikke streng
+    const db = fakeDb(TEAMS, []);
+    const ud = await kortlaegEids(db, FieldValue, opts({ only: [{ id: 'r1-a', data: { ...USPILLET, livescoreEid: '../x' } }] }));
+    expect(ud.skrevet).toBe(1);
+    expect(db.skrevet[0].felter.livescoreEid).toBe('1784451');
+  });
+
+  it('en kamp uden modpart i stage-listen tælles som ukendt og skrives ikke', async () => {
+    const db = fakeDb(TEAMS, []);
+    const ud = await kortlaegEids(db, FieldValue, opts({ only: [{ id: 'r9', data: { ...USPILLET, kickoff: new Date('2026-08-01T17:00:00Z') } }] }));
+    expect(ud).toMatchObject({ manglede: 1, skrevet: 0, ukendte: 1 });
+    expect(db.commits).toBe(0);
+  });
+
+  it('bruger en medgivet stage-liste i stedet for at hente den', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const noegler = new Map([['20260724|FCM|RAN', '1784451']]);
+    const ud = await kortlaegEids(db, FieldValue, opts({ fetchFn, noegler, only: [{ id: 'r1-a', data: USPILLET }] }));
+    expect(ud.skrevet).toBe(1);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('skriver ALDRIG andet end livescoreEid — heller ikke facit', async () => {
+    const db = fakeDb(TEAMS, []);
+    await kortlaegEids(db, FieldValue, opts({ only: [{ id: 'r1-a', data: KAMP_DATA }] }));
+    for (const s of db.skrevet) expect(Object.keys(s.felter)).toEqual(['livescoreEid']);
+  });
+
+  it('uden livescore-konfiguration: intet', async () => {
+    const db = fakeDb(TEAMS, []);
+    expect(await kortlaegEids(db, FieldValue, opts({ livescore: null, only: [{ id: 'r1-a', data: USPILLET }] })))
+      .toEqual({ manglede: 0, skrevet: 0, ukendte: 0, noegler: null });
+  });
+});
+
+describe('syncKampDetaljerCore — med cachet livescoreEid', () => {
+  it('henter INTET stage-kald, når alle valgte kampe bærer et id', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn, only: [{ id: 'r1-a', data: { ...KAMP_DATA, livescoreEid: '1784451' } }],
+    }));
+    expect(ud.skrevet).toBe(1);
+    const kaldte = fetchFn.mock.calls.map((c) => String(c[0]));
+    expect(kaldte.some((u) => u.includes('/stage/'))).toBe(false);
+    expect(kaldte.some((u) => u.includes('/incidents/soccer/1784451'))).toBe(true);
+  });
+
+  it('henter stage-listen, når blot ÉN valgt kamp mangler id — og bruger den for den', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn, only: [
+        { id: 'r1-a', data: { ...KAMP_DATA, livescoreEid: '1784451' } },
+        { id: 'r1-b', data: KAMP_DATA },
+      ],
+    }));
+    expect(ud.skrevet).toBe(2);
+    expect(fetchFn.mock.calls.filter((c) => String(c[0]).includes('/stage/'))).toHaveLength(1);
+  });
+
+  it('en medgivet stage-liste erstatter kaldet', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn, noegler: new Map([['20260724|FCM|RAN', '1784451']]), only: [{ id: 'r1-a', data: KAMP_DATA }],
+    }));
+    expect(ud.skrevet).toBe(1);
+    expect(fetchFn.mock.calls.some((c) => String(c[0]).includes('/stage/'))).toBe(false);
+  });
+
+  it('et ugyldigt cachet id ignoreres — opslaget går via nøglen som før', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn, only: [{ id: 'r1-a', data: { ...KAMP_DATA, livescoreEid: '../../x' } }],
+    }));
+    expect(ud.skrevet).toBe(1);
+    expect(fetchFn.mock.calls.some((c) => String(c[0]).includes('/incidents/soccer/1784451'))).toBe(true);
+    expect(fetchFn.mock.calls.some((c) => String(c[0]).includes('/incidents/soccer/../../x'))).toBe(false);
   });
 });
 
