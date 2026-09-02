@@ -193,6 +193,15 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   dem en tidligere krasch pegede på? og (2) rammer en downstream-fallback
   (`??`/`||`) den PRÆCISE tomme værdi, normaliseringen nu sender?
 
+- **Filhoved-kommentarens tal skal matche DEN kørsel, koden i samme commit selv
+  producerede — ikke en tidligere håndkørsel med samme påstand.**
+  `maal-livescore-detaljer.mjs`s nye `--live`-header citerede en ad-hoc måling
+  fra FØR flaget var skrevet (123 ms, 68', kl. 21.30), mens commit-beskeden og
+  selve `--live`-kørslen gav et andet, ægte tal (140 ms, 70', kl. 21.28,
+  stage=incidents). Begge er sande målinger, men kun ét er det, den leverede
+  kode faktisk viser ved kørsel — match filhovedet mod commit-beskedens tal
+  for SAMME diff, ikke mod research, der gik forud for koden.
+
 ## Nye TAL på en eksisterende flade
 
 - **`MatchElo.jsx:8-15` er husets skrevne præcedens:** en "favorit" skal komme
