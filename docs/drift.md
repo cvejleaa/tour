@@ -355,6 +355,11 @@ poste. Knappen tager 40 kampe ad gangen, så en bagfyldning kan drives i hånden
 **Drift-kortet** hedder *Times-sweep · <spil>* og bærer linjen
 `Kampdetaljer: …` med tallet `detaljerMangler`, som skal gå mod nul.
 
+**Efterprøv en konkret kamp uden konsollen:** GitHub → Actions → *Kig på en
+kamp* (læse-only, `scripts/probe-kamp.mjs`) printer facit, live, detaljer og
+Eid for kampen med tidsstempler — og afstanden fra facit til detaljer — plus
+spillets driftlog-kort og alarmer.
+
 ### Når noget er galt
 
 | Det, kortet siger | Hvad det betyder | Hvad du gør |

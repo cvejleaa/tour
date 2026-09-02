@@ -1,0 +1,63 @@
+name: Kig på en kamp (spil-89af9)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+# LÆS-ONLY. Skriver ikke ét felt. Printer de felter, synkerne skriver på en
+# kamp (facit, live, detaljer, Eid) med tidsstempler, og spillets driftlog-
+# kort og alarmer. Se scripts/probe-kamp.mjs.
+#
+# Bruger repo-secret FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+    inputs:
+      spil:
+        description: 'Spillets id (fx superliga2627 eller pl2627-efteraar)'
+        required: true
+        default: superliga2627
+      hold:
+        description: 'Kommasepareret del af holdnavne, fx "AGF,Midtjylland". Tomt = alle kampe i vinduet.'
+        required: false
+        default: ''
+      kamp:
+        description: 'Kamp-dokumentets id (kommasepareret) i stedet for hold.'
+        required: false
+        default: ''
+      dage:
+        description: 'Kun kampe med kickoff inden for så mange dage før nu (0 = alle).'
+        required: false
+        default: '3'
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer afhængigheder
+        run: npm ci
+
+      - name: Skriv service-account
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SPIL }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Mangler FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9)."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/spil-sa.json"
+
+      - name: Kig på kampen
+        env:
+          SA: ${{ runner.temp }}/spil-sa.json
+          SPIL: ${{ inputs.spil }}
+          HOLD: ${{ inputs.hold }}
+          KAMP: ${{ inputs.kamp }}
+          DAGE: ${{ inputs.dage }}
+        run: node scripts/probe-kamp.mjs --spil "$SPIL" --hold "$HOLD" --kamp "$KAMP" --dage "$DAGE"
