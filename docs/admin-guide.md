@@ -246,8 +246,9 @@ automatisk.
 
 Under slutresultatet på kampkortet står **stillingen ved pausen**, og under
 kortet står **hvem der scorede** og **hvor mange der var på stadion**. De tal
-kommer fra en helt anden kilde end resultaterne og hentes nogle timer efter
-kampen — derfor kan et kort godt have facit uden endnu at have detaljerne.
+kommer fra en helt anden kilde end resultaterne og hentes, så snart facit er
+landet (minut-synken tager de netop afgjorte kampe; times-sweep'et samler op)
+— derfor kan et kort i et par minutter have facit uden endnu at have detaljerne.
 
 **De kan ikke ændre point.** Synken har ikke lov til at røre facit, målene
 eller kickoff-tiden; den skriver kun de nye felter. Du behøver altså ikke

@@ -335,8 +335,12 @@ efter kickoff (`WINDOW_MS`).
 ## Kampdetaljer: halvleg, målscorere og tilskuertal (livescore)
 
 Kommer fra en **tredje kilde** — livescore.com — og ikke fra den kilde, facit
-kommer fra. Hentes af times-sweep'et, aldrig af minut-synken, højst 8 kampe
-pr. kørsel. Se `functions-platform/kampDetaljer.js`.
+kommer fra. Hentes **straks efter facit** af minut-synken, men KUN for de kampe,
+der netop blev afgjort i samme kørsel, allersidst i jobbet (efter driftlog og
+puls-vagt) og med eget budget på 15 s pr. spil — så kilden aldrig kan koste
+facit eller næste spil. Times-sweep'et er bagfyldningen: højst 8 kampe pr.
+kørsel, og dets kort viser efterslæbet. Se `functions-platform/kampDetaljer.js`
+(`efterFacitDetaljer`).
 
 **Den skriver aldrig facit.** Ikke `result`, `homeGoals`, `awayGoals` eller
 `kickoff`. Det er ikke en høflighed: `matchOutcome()` udleder facit af målene,

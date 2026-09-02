@@ -407,17 +407,21 @@ async function syncStandingsCore(db, FieldValue, opts = {}) {
  * vælte funktionen eller forhindre næste led i at prøve.
  *
  * @param {number} nowMs
+ * `rettede` er de kampe, der NETOP fik facit — minut-jobbet henter deres
+ * målscorere allersidst (efterFacitDetaljer), så kortet ikke står med facit
+ * og uden scorere i op til en time.
+ *
  * @returns {Promise<{pending:number, updated:number, live:object|null,
- *          standings:object|null, fejl:string|null}>}
+ *          standings:object|null, fejl:string|null, rettede:string[]}>}
  */
 async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
   let venter;
   try {
     venter = await pendingMatches(db, nowMs, opts);
   } catch (err) {
-    return { pending: 0, updated: 0, live: null, standings: null, fejl: `opslag: ${err?.message || err}` };
+    return { pending: 0, updated: 0, live: null, standings: null, fejl: `opslag: ${err?.message || err}`, rettede: [] };
   }
-  if (venter.length === 0) return { pending: 0, updated: 0, live: null, standings: null, fejl: null };
+  if (venter.length === 0) return { pending: 0, updated: 0, live: null, standings: null, fejl: null, rettede: [] };
   // Kampe med en levende stilling på skærmen LIGE NU — alarmens grundlag.
   // Læses FØR synken skriver, så et kildesvigt ikke kan skjule dem.
   const liveIGang = kampeMedLevendeStilling(venter);
@@ -450,7 +454,7 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
     fejl = `${fejl ? `${fejl}; ` : ''}live: ${err?.message || err}`;
   }
 
-  if (updated === 0) return { pending: venter.length, updated, live, standings: null, fejl, liveIGang };
+  if (updated === 0) return { pending: venter.length, updated, live, standings: null, fejl, liveIGang, rettede };
 
   let standings = null;
   try {
@@ -458,7 +462,7 @@ async function runScheduledSync(db, FieldValue, nowMs, opts = {}) {
   } catch (err) {
     fejl = `${fejl ? `${fejl}; ` : ''}stilling: ${err?.message || err}`;
   }
-  return { pending: venter.length, updated, live, standings, fejl, liveIGang };
+  return { pending: venter.length, updated, live, standings, fejl, liveIGang, rettede };
 }
 
 // Hvornår er en levende stilling "forældet" for spillerne? SPEJL af klientens

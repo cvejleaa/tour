@@ -35,7 +35,9 @@ const {
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
-const { syncKampDetaljerCore, DETALJE_BUDGET_BROEK, detaljeNiveau } = require('./kampDetaljer');
+const {
+  syncKampDetaljerCore, efterFacitDetaljer, DETALJE_BUDGET_BROEK, detaljeNiveau,
+} = require('./kampDetaljer');
 
 // Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
 const SWEEP_TIMER = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
@@ -410,8 +412,55 @@ exports.syncSuperligaResults = onSchedule(
           + `${out.live.sluttet ? `, slut: ${out.live.sluttede.join(', ')}` : ''}.` : '')
         + (out.standings ? ` Stilling ${out.standings.changed ? 'opdateret' : 'uændret'}.` : ''));
     }
+
+    // MÅLSCORERE FOR DE KAMPE, DER NETOP FIK FACIT — ALLERSIDST.
+    //
+    // Efter driftlog og puls-vagt for ALLE spil, af samme grund som detaljerne
+    // står sidst i sweep'et (se kampDetaljer.js' kontrakt): en fremmed kilde
+    // må aldrig kunne koste facit, puls-alarmen eller næste spil. Rammer
+    // livescore sit budget her, er alt ovenfor allerede gjort, og sweep'et
+    // henter detaljerne om højst en time — som det gjorde før denne vej fandtes.
+    //
+    // Ingen egen driftlog-linje: minut-kortet er skrevet ovenfor (før dette
+    // trin, med vilje), og sweep'ets kort viser efterslæbet ("N færdige kampe
+    // mangler detaljer"), som nu normalt er 0. Kun 429/403 — kilden lukker os
+    // ude, og det rammer naboerne gennem den delte NAT — er en alarm nu.
+    for (const out of alle) {
+      if (!out.rettede?.length) continue;
+      const g = SYNCED_GAMES.find((x) => x.gameId === out.gameId);
+      if (!g?.livescore) continue;
+      try {
+        const d = await efterFacitDetaljer(db, FieldValue, {
+          gameId: g.gameId, livescore: g.livescore, rettede: out.rettede, budgetMs: EFTERFACIT_BUDGET_MS,
+        });
+        if (!d) continue;
+        console.log(`Kampdetaljer ${g.gameId} efter facit: ${d.skrevet} af ${out.rettede.length} hentet`
+          + `${d.uenige ? `, ${d.uenige} uenige` : ''}${d.uparsede ? `, ${d.uparsede} uparsede` : ''}`
+          + `${d.utilgaengelige ? `, ${d.utilgaengelige} utilgængelige` : ''}${d.ukendte ? `, ${d.ukendte} ukendte` : ''}.`);
+        if (d.afbrudt) {
+          console.error(`Kampdetaljer ${g.gameId} efter facit: kilden lukkede os ude.`);
+          await meldAlarm(db, FieldValue, {
+            type: 'detaljerLukket',
+            gameId: g.gameId,
+            besked: `Livescore afviste ${g.gameId} med 429/403 lige efter facit. Synken stopper sig selv `
+              + 'for ikke at ramme de andre kilder gennem den delte udgående IP. '
+              + 'Sker det igen i sweepet, er vi rate-limited.',
+          });
+        }
+      } catch (err) {
+        console.warn(`Kampdetaljer ${out.gameId} efter facit fejlede (sweepet henter dem):`, err?.message || err);
+      }
+    }
   },
 );
+
+// Budget for målscorere lige efter facit — pr. spil, allersidst i minut-jobbet.
+// Minut-jobbet har 120 s; facit, live og stilling for to spil bruger typisk
+// få sekunder, og efter-facit-vejen henter højst de 1–3 kampe, der lige blev
+// afgjort (stage-kald ~300 ms + to kald pr. kamp ~200 ms, målt i
+// scripts/maal-livescore-detaljer.mjs). 15 s pr. spil er derfor et loft, der
+// kun binder, når kilden hænger — og dér skal den slippe, ikke vente.
+const EFTERFACIT_BUDGET_MS = 15000;
 
 // syncSuperligaSweep — SIKKERHEDSNETTET.
 //

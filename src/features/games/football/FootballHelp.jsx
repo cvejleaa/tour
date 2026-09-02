@@ -384,8 +384,9 @@ export default function FootballHelp({ game }) {
             der findes ingen point for at have ført ved pausen, og der kommer ikke nogen.
           </p>
           <p style={{ margin: '0.5rem 0 0' }}>
-            Tallene kommer fra en anden kilde end resultaterne og hentes nogle timer efter
-            kampen. Mangler de på et kampkort, er de ikke nået frem endnu — eller de to
+            Tallene kommer fra en anden kilde end resultaterne og hentes, så snart
+            resultatet er landet — normalt inden for et par minutter efter slutfløjt.
+            Mangler de på et kampkort, er de ikke nået frem endnu — eller de to
             kilder er uenige om, hvordan kampen endte, og så viser vi hellere ingenting
             end noget forkert.
           </p>
