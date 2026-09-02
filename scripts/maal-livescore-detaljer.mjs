@@ -242,6 +242,23 @@ const SENT_MINUT = 85;
 const pct = (x, n) => (n ? `${Math.round((x / n) * 100)} %` : '–');
 
 /**
+ * Er kampen i gang, ud fra stage-listens `Eps`? Minuttal ("68'"), "HT" (pause),
+ * "AET"/"Pen." (forlænget/straffe) er i gang; alt i mængden herunder er det
+ * ikke. EKSPLICIT mængde og ikke en inline sortliste: pulselive-provideren
+ * (syncProviders.js, LIVE_STATUS) lærte, at en afbrudt kamp stadig hedder
+ * "inprogress" hos kilden, og at kalde den DIREKTE er en løgn. Aflyst/afbrudt
+ * ("Canc."/"Abd.") ville her koste et spildt incidents-kald og skævvride det
+ * kald-loft, målingen skal levere (Test Manager-fund). Koderne for aflyst/
+ * afbrudt er overført fra livescore.com's egne visninger, ikke set i en
+ * kørsel endnu — dukker en ny op, skal den herind.
+ */
+export const IKKE_I_GANG = new Set(['NS', 'FT', 'Postp.', 'Canc.', 'Abd.', 'Aband.', 'Susp.']);
+export function erIGang(eps) {
+  if (typeof eps !== 'string' || eps === '') return false;
+  return !IKKE_I_GANG.has(eps);
+}
+
+/**
  * Kampe i gang LIGE NU, med det, live-planen skal bruge: spilleminut,
  * løbende stilling, halvleg, målkæde og latens. Ingen skrivning.
  */
@@ -251,7 +268,7 @@ async function maalLive() {
     const d = await hent(`stage/soccer/${s.land}/${s.liga}/0`);
     const kampe = (d?.Stages || []).flatMap((st) => st.Events || []);
     // Eps er "NS" (ikke startet), "FT" (slut), "HT" (pause) eller minuttet ("68'").
-    const iGang = kampe.filter((e) => e.Eps && e.Eps !== 'NS' && e.Eps !== 'FT' && e.Eps !== 'Postp.');
+    const iGang = kampe.filter((e) => erIGang(e.Eps));
     const udenEid = kampe.filter((e) => e.Eid == null).length;
     console.log(`\n=== ${s.navn} === ${kampe.length} kampe i stage-listen, ${udenEid} uden Eid, ${iGang.length} i gang`);
     for (const e of iGang) {
@@ -307,4 +324,7 @@ async function main() {
   console.log('~0,5 pr. runde en BEGIVENHED. Læs de to tal ovenfor mod dét.');
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+// Kør kun som script — testen importerer erIGang uden at måle noget.
+if (process.argv[1] && process.argv[1].endsWith('maal-livescore-detaljer.mjs')) {
+  main().catch((err) => { console.error(err); process.exit(1); });
+}
