@@ -28,6 +28,16 @@
 // færre. Derfor udleder koden i stedet målene af `Sc` — se `maalAf` nedenfor.
 //
 // BRUG: node scripts/maal-livescore-detaljer.mjs
+//       node scripts/maal-livescore-detaljer.mjs --live   (kampe i gang LIGE NU)
+//
+// --live er målingen bag planen for LIVE-målscorere (opgave #78, delopgave 1):
+// er `incidents` befolket, MENS kampen spilles, og er `Tr1/Tr2` den løbende
+// stilling eller slutstillingen? Målt 2/9-2026 kl. 21.30 (AGF–FCM, 68'):
+// svaret kom på 123 ms, Tr1/Tr2 = 0/2 var den løbende stilling, Trh1/Trh2 =
+// 0/1 halvlegen, og hvert mål bar `Sc` efter sig — stillingskæden virker
+// live. Stage-listen giver spilleminuttet i `Eps` ("68'") og Eid for ALLE
+// kampe, også uspillede ("NS"). Kør den igen på en kampaften, når kadence og
+// kald-loft skal fastlægges — tabellen printer ét kald-sæt pr. kamp i gang.
 // ---------------------------------------------------------------------------
 
 const API = 'https://prod-cdn-public-api.lsmedia1.com/v1/api/app';
@@ -230,7 +240,37 @@ const SENT_MINUT = 85;
 
 const pct = (x, n) => (n ? `${Math.round((x / n) * 100)} %` : '–');
 
+/**
+ * Kampe i gang LIGE NU, med det, live-planen skal bruge: spilleminut,
+ * løbende stilling, halvleg, målkæde og latens. Ingen skrivning.
+ */
+async function maalLive() {
+  console.log(`Målt (live): ${new Date().toISOString()}`);
+  for (const s of SPIL) {
+    const d = await hent(`stage/soccer/${s.land}/${s.liga}/0`);
+    const kampe = (d?.Stages || []).flatMap((st) => st.Events || []);
+    // Eps er "NS" (ikke startet), "FT" (slut), "HT" (pause) eller minuttet ("68'").
+    const iGang = kampe.filter((e) => e.Eps && e.Eps !== 'NS' && e.Eps !== 'FT' && e.Eps !== 'Postp.');
+    const udenEid = kampe.filter((e) => e.Eid == null).length;
+    console.log(`\n=== ${s.navn} === ${kampe.length} kampe i stage-listen, ${udenEid} uden Eid, ${iGang.length} i gang`);
+    for (const e of iGang) {
+      const inc = await hent(`incidents/soccer/${e.Eid}`);
+      const navn = `${e.T1?.[0]?.Nm ?? '?'}–${e.T2?.[0]?.Nm ?? '?'}`;
+      if (!inc) { console.log(`  ${navn} (${e.Eps}): incidents svarede IKKE`); continue; }
+      const t1 = heltal(inc.Tr1); const t2 = heltal(inc.Tr2);
+      const m = maalAf(inc);
+      const kaede = kaedeOk(m.filter((x) => x.hold === 1), t1) && kaedeOk(m.filter((x) => x.hold === 2), t2);
+      console.log(`  ${navn} · ${e.Eps} · stage ${e.Tr1}-${e.Tr2} · incidents ${t1}-${t2} (pause ${heltal(inc.Trh1) ?? '?'}-${heltal(inc.Trh2) ?? '?'})`
+        + ` · ${m.length} mål i kæden, ${kaede ? 'ubrudt' : 'BRUDT'}`);
+      for (const g of m) console.log(`     ${String(g.min).padStart(3)}'  ${g.hold === 1 ? 'hjemme' : 'ude  '}  ${g.scorer ?? '(uden navn)'}`);
+    }
+  }
+  console.log('\n=== latens (ms) ===');
+  latensTabel();
+}
+
 async function main() {
+  if (process.argv.includes('--live')) { await maalLive(); return; }
   console.log(`Målt: ${new Date().toISOString()}`);
   let n = 0; let vendte = 0; let skift = 0;
   for (const s of SPIL) {
