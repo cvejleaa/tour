@@ -357,3 +357,35 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   ikke-selvhelende fejl), to flader, to domme. Retter man ÉN aflæsning af en
   delt tæller, så find den ANDEN, der læser samme felt, og spørg om den
   drager samme konklusion.
+
+## Ny genvej med et eksisterende sikkerhedsnet
+
+- **En hurtig-vej, der er sekventeret EFTER facit er committet, er en anden
+  risikoklasse end en hurtig-vej PÅ FACIT-STIEN.** `efterFacitDetaljer` i
+  minut-synken citerer xG-kontraktens forbud ("aldrig fra minut-synken"), men
+  bryder det sikkert: den kører i et SEPARAT loop efter `runScheduledSyncAll`
+  allerede har committet facit for ALLE spil (`index.js:389` vs. den nye kode
+  ved 416+). xG var farlig, fordi den lå PÅ VEJEN til facit og var ubundet
+  (hele sæsonen); genvejen her er bundet (`rettede`, typisk 1-3) og kan ikke
+  røre en allerede-skrevet facit. Spørg ved en lignende "kør det tidligere"-PR:
+  er det NYE trin før eller efter den skrivning, det gamle forbud beskyttede?
+- **En optimering med et eksisterende sikkerhedsnet (sweep'et samler op om en
+  time) fritager IKKE for "kan ikke fejle tavst".** `efterFacitDetaljer` har
+  bevidst INGEN egen driftlog-linje — begrundelsen er, at sweep'ets kort
+  allerede viser efterslæbet. Men fejler genvejen KONSEKVENT (ikke kun
+  429/403, som har sin egen alarm), er der intet, der skelner "virker" fra
+  "altid død": sweep'ets `detaljerMangler` går mod nul i begge tilfælde, bare
+  en time langsommere. `docs/drift.md` bekræfter selv, at det ENESTE
+  driftkort for evnen hedder "Times-sweep · <spil>". Konsekvensen er bundet
+  (ingen data-/pointtab), så det er ikke automatisk blokerende — men er en
+  reel afvigelse fra husregelen og bør have et letvægts-signal EFTER trinnet
+  (aldrig FØR — det ville bryde ordenen, sikkerheden hviler på).
+- **Et "målt i scripts/X"-citat skal efterprøves ved at LÆSE scriptet, ikke
+  ved at tro på filnavnet.** `EFTERFACIT_BUDGET_MS = 15000`s kommentar (og en
+  søster-kommentar i `kampDetaljer.js`) citerede
+  `scripts/maal-livescore-detaljer.mjs` for latenstal (295 ms/128 ms/171 ms).
+  Scriptet indeholder ZERO tidsmåling — det tæller dækningsgrader (halvleg,
+  tilskuertal, IT-koder), ikke ms. Et præcist tal med en fil:linje-henvisning
+  SER ud som husets egen regel overholdt, men er lige så meget en påstand som
+  et helt umærket tal. Åbn filen; grep efter `Date.now`/`performance.now`/
+  `ms` i selve scriptet, ikke kun i kommentaren, der citerer det.
