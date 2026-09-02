@@ -388,6 +388,89 @@ mønster for #2: et testnavn, der beskriver et scenarie ("ALT er efterslæb"),
 skal efterprøves ved at KALDE funktionen, funktionen selv afhænger af
 (`efterslaebere()` her), ikke antages ud fra navnet.
 
+## `kortlaegEids`/`liveMaalAf` — Eid på kampdokumentet + regnedelen til live-mål (delopgave 2-4, opgave #78, commit f398627, sept. 2026)
+
+- **En guard, der har en NAVNESØSTER i naboFUNKTIONEN med sin egen test, er
+  ikke selv testet, bare fordi navnet/formen går igen.** `kortlaegEids`s
+  `if (noegler.size === 0) return ud;` (`kampDetaljer.js:542`) er en direkte
+  kopi af samme linje i `syncKampDetaljerCore` (linje 677, DÉR dækket af
+  "kilden svarede, men uden kampe"-testen). Ingen af `kortlaegEids`s syv egne
+  tests lader `fetchFn`/stage-svaret give et TOMT `Events`-array — alle bruger
+  enten `fakeFetch()` (ét event) eller en medgivet `noegler`-Map. Mutationsbevist:
+  fjern linjen ALENE fra `kortlaegEids` → 950/950 stadig grønne. Tjek næste
+  gang to funktioner deler en linje/vagt ved copy-paste: har BEGGE deres eget
+  fixture, der rammer den — eller "arver" den ene bare naboens grønne test?
+- **Et `.sort()` efter en løkke, der SAMLER hændelser i naturlig gennemløbs-
+  rækkefølge, kan være udækket, selv når fixturet har flere elementer.**
+  `liveMaal.js:74`, `annullerede.sort((a,b) => a.minut - b.minut)`. Den eneste
+  test med TO annullerede mål ("en giftig post kaster ikke ud af regnedelen")
+  bygger den anden ved `gift.Incs['1'].push(...)` — dvs. TILFØJER den efter
+  den eksisterende i samme array, så `fladeHaendelser`s gennemløb (som
+  bevarer indsætningsrækkefølgen) allerede leverer dem i stigende minuttal
+  UDEN sortering. Mutationsbevist: fjern `.sort()`-linjen helt → 950/950
+  grønne. Hullet er reelt (en kilde, der leverer et sent VAR-opslag FØR et
+  tidligere i samme array, ville vise dem i forkert rækkefølge), men ingen
+  test tvinger `unshift`/omvendt indsættelsesrækkefølge. Tjek næste gang en
+  `.sort()` står efter en `push`-løkke: er der et fixture, hvor kilde-
+  rækkefølgen allerede er "forkert" (sidste kommer først), ikke kun hvor der
+  er flere end ét element?
+- **En NY testfil, der genbruger et gammelt, committet fixture, lukker ikke
+  automatisk gamle huller i den funktion, den kalder igennem.** `liveMaal.js`
+  kalder `maalAf` (fra `kampDetaljer.js`, urørt af denne PR), og
+  `liveMaal.test.js` bruger PRÆCIS samme `livescore-kampe.json`-fixture som
+  `kampDetaljer.test.js` allerede gjorde. `maalAf`s dedup-linje
+  (`kampDetaljer.js:315`: `if (!gl || (gl.scorer == null && kand.scorer !=
+  null)) set.set(...)`) har en "erstat, hvis den gamle mangler scorer, men den
+  nye har en"-gren, som INGEN test i nogen af filerne rammer — hverken den nye
+  eller den gamle. Mutationsbevist: forenkl linjen til kun `if (!gl)
+  set.set(...)` (dropper erstatnings-grenen helt) → 950/950 grønne,
+  liveMaal.test.js's egne "container"/"annulleret"-tests inklusive. Ikke
+  introduceret af denne PR (funktionen er urørt), men værd at kende: et nyt
+  testfil, der arver et gammelt fixture, arver IKKE automatisk det gamle
+  fixtures teoretiske dækning af en funktion længere nede i kaldekæden — kun
+  det, testens EGNE assertions rent faktisk låser fast.
+- **En "én vagt pr. skrivesti"-test på to literal-arrays kan være en ren
+  tautologi, hvis den ene liste endnu ikke har en forbruger.**
+  `liveMaal.test.js`s sidste describe ("LIVE_SKRIVBARE — én vagt pr.
+  skrivesti") asserterer kun at to hardkodede arrays (`LIVE_SKRIVBARE` i
+  `liveMaal.js` og `SKRIVBARE_FELTER` i `kampDetaljer.js`) ikke overlapper.
+  Bekræftet ved grep: `LIVE_SKRIVBARE` bruges INGEN steder i ikke-test-kode —
+  ingen funktion plukker felter af den til en `batch.update`, som
+  `kampDetaljer.js`s egen "rører ALDRIG et forbudt felt"-test gør for
+  `SKRIVBARE_FELTER` (den ægte vagt: læser `db.skrevet[].felter`-NØGLERNE og
+  slår dem op i listen). Testen beviser derfor kun, at to strengarrays som
+  skrevet i dag ikke deler et element — intet om at en fremtidig skriver
+  rent faktisk vil overholde grænsen. Når skriveren (delopgaven, der bruger
+  `LIVE_SKRIVBARE`) lander, skal den have SIN EGEN indholds-test, parallel til
+  `kampDetaljer.test.js`s "rører ALDRIG et forbudt felt i en skrivning" — ikke
+  antage at nærværende test allerede dækker den. Tjek næste gang en "frossen
+  liste, der endnu ikke har en skriver" får sin egen indholds-test: grep om
+  listen konsumeres af noget, der rent faktisk skriver til en `batch`/`set` —
+  ellers er testen kun en fastfrysning af to litteraler, ikke et bevis om
+  adfærd.
+- **`eidForKamp`s `noegler.get(n) || null` overlever en `?? null`-mutation —
+  men det er en ÆKVIVALENT mutation, ikke et hul.** `noegler` bygges udelukkende
+  af `hentNoegler`, som kun gemmer id'er der bestod `/^\d{1,12}$/` (mindst ét
+  ciffer) — en tom streng kan derfor aldrig ligge som værdi i Map'en, og
+  `undefined` (manglende nøgle) opfører sig ens under begge operatorer. Modsat
+  de øvrige fund her: ingen ny test bør kræves, fordi der ikke findes noget
+  input i produktionens datavej, der kan skelne dem. Nævnt for kontrast til de
+  andre fund i dette afsnit — ikke alle overlevende mutationer er huller.
+- **Et cachet id, der er GYLDIGT FORMET men ikke længere findes hos KILDEN, har
+  hverken test eller fallback — vurderet reelt, ikke blokerende.**
+  `eidForKamp` (`kampDetaljer.js:498`) returnerer `data.livescoreEid`, så snart
+  `gyldigEid()` er sand, uanset om id'et stadig er gyldigt hos livescore. Sker
+  det (kilden reindekserer/fjerner en kamp), vil `hentJson('incidents/soccer/
+  {gammelt-eid}')` få et ikke-ok svar, og koden tæller det som `utilgaengelige`
+  — samme kategori som "kilden var nede" — der if. `detaljeNiveau`s kommentar
+  "retter sig selv". Det gør den IKKE her: uden en fallback til nøgle-opslag
+  ville kampen stå i den advarsels-kategori for evigt. Intet fixture i
+  `kortlaegEids`- eller `syncKampDetaljerCore`-testene sætter et gyldigt-formet
+  men opdigtet `livescoreEid` og lader `incidents`-kaldet fejle. Minimumstest,
+  hvis det skal lukkes: `data:{livescoreEid:'999999999999'}` (12 ciffer,
+  aldrig i fixturet) + `fetchFn`, der svarer `ok:false` KUN på det Eid → forvent
+  enten `utilgaengelige` (dokumentér som bevidst) eller en ny fallback-gren.
+
 ## Mønster at genkende
 
 Alle tre fund ovenfor deler samme form: en test, der ser ud til at dække en

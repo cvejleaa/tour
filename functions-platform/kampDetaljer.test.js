@@ -891,6 +891,28 @@ describe('kortlaegEids — livescores kamp-id på kampdokumentet', () => {
     expect(db.commits).toBe(2);
   });
 
+  it('gør intet — og laver INTET stage-kald — når spillet mangler sin holdliste', async () => {
+    // Test Manager: vagten var kopieret fra kernen, men kun kernens var
+    // dækket. Uden den udløses det 90-260 KB stage-kald, filen er bygget
+    // for at undgå — og ingen kamp kan alligevel kobles uden holdkoder.
+    for (const teams of [null, []]) {
+      const db = fakeDb(teams, []);
+      const fetchFn = fakeFetch();
+      const ud = await kortlaegEids(db, FieldValue, opts({ fetchFn, only: [{ id: 'r1-a', data: USPILLET }] }));
+      expect(ud).toEqual({ manglede: 1, skrevet: 0, ukendte: 0, noegler: null });
+      expect(fetchFn).not.toHaveBeenCalled();
+      expect(db.commits).toBe(0);
+    }
+  });
+
+  it('en stage-liste UDEN kampe: intet skrives, ingen tælles som ukendt', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ Stages: [{ Events: [] }] }) }));
+    const ud = await kortlaegEids(db, FieldValue, opts({ fetchFn, only: [{ id: 'r1-a', data: USPILLET }] }));
+    expect(ud).toMatchObject({ manglede: 1, skrevet: 0, ukendte: 0 });
+    expect(db.commits).toBe(0);
+  });
+
   it('uden livescore-konfiguration: intet', async () => {
     const db = fakeDb(TEAMS, []);
     expect(await kortlaegEids(db, FieldValue, opts({ livescore: null, only: [{ id: 'r1-a', data: USPILLET }] })))
