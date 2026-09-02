@@ -24,7 +24,7 @@ export function useBonusQuestions() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setQuestions(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setQuestions(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setLoading(false);
       },
       (err) => {
@@ -58,7 +58,7 @@ export function useBonusBets(questionId, enabled = false) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setBets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setBets(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setLoading(false);
       },
       (err) => {
@@ -101,7 +101,7 @@ export function useMyBonusBets(uid) {
         const m = new Map();
         snap.docs.forEach((d) => {
           const data = d.data();
-          m.set(data.questionId, { id: d.id, ...data });
+          m.set(data.questionId, { ...data, id: d.id });
         });
         setBonusBets(m);
         setLoading(false);

@@ -109,7 +109,7 @@ export default function LeaderboardPage() {
           >
             <option value="">— Alle spillere —</option>
             {leagues.map((l) => (
-              <option key={l.id} value={l.id}>{l.name}</option>
+              <option key={l.id} value={l.id}>{l.name || 'Liga uden navn'}</option>
             ))}
           </select>
         </div>

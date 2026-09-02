@@ -53,6 +53,27 @@ service cloud.firestore {
     /** Forsøger klienten at skrive til et beskyttet felt? Ud over rolle/status
      *  omfatter det ALLE denormaliserede scoring-felter (skrives kun af serveren),
      *  så en spiller ikke kan pumpe sin egen rangliste-placering. */
+    // displayName SKAL være en streng, hvis det skrives. Et map som navn
+    // kastede i `rankStandings` ("Objects are not valid as a React child")
+    // og hvidnede Stilling- og Pulje-fanen for ALLE, der deler liga med
+    // personen — ét forgiftet navn, alle skærme (Security-fund).
+    function displayNameGyldigt() {
+      return !('displayName' in request.resource.data)
+        || request.resource.data.displayName is string;
+    }
+    // Samme vagt for de to andre profilfelter, der renderes direkte hos alle
+    // liga-fæller OG i admin-fladen, der skulle fjerne en griefer: et map som
+    // avatarEmoji kaster i Avatar, et map som favoriteTeam i holdopslaget
+    // (Security-fund). null er tilladt — "intet hold" skrives som null.
+    function profilFelterGyldige() {
+      return displayNameGyldigt()
+        && (!('avatarEmoji' in request.resource.data)
+          || request.resource.data.avatarEmoji == null
+          || request.resource.data.avatarEmoji is string)
+        && (!('favoriteTeam' in request.resource.data)
+          || request.resource.data.favoriteTeam == null
+          || request.resource.data.favoriteTeam is string);
+    }
     function writingProtectedUserFields() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasAny([
@@ -121,12 +142,14 @@ service cloud.firestore {
         && request.resource.data.role == 'player'
         && request.resource.data.status == 'pending'
         && !creatingWithUserEmail()
+        && profilFelterGyldige()
         && !request.resource.data.keys().hasAny(
             ['totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank', 'points']);
 
       // Brugeren kan opdatere egne ikke-beskyttede felter (f.eks. displayName)
       allow update: if isSignedIn() && request.auth.uid == uid
-        && !writingProtectedUserFields() && !changingUserEmail();
+        && !writingProtectedUserFields() && !changingUserEmail()
+        && profilFelterGyldige();
 
       // Global admin kan godkende/afvise brugere (status m.m.), men IKKE ændre
       // roller — kun ejeren udpeger/fjerner admins.
@@ -344,16 +367,33 @@ service cloud.firestore {
       allow read: if isGlobalAdmin()
         || (isApproved() && request.auth.uid in resource.data.memberUids);
 
+      // Samme to vagter som på spil-ligaerne (games/{g}/leagues) — samme
+      // skriveflade, samme angriber, samme ofre: navnet renderes råt hos
+      // alle medlemmer (LeaguesPage, LeaderboardPage), går i AI-prompten
+      // (leagueRecap) og takke-mailen; og et `id`-felt sendte ligaens
+      // morgenopslag til en FREMMED ligas væg, fordi serveren spredte
+      // dokumentet oven på id'et (Security-fund, emulator-bekræftet).
+      function navnGyldigt() {
+        return request.resource.data.name is string;
+      }
+      function ingenIdNoegle() {
+        return !('id' in request.resource.data);
+      }
+
       // Opret liga: kun for sig selv, og altid som 'pending' (skal godkendes)
       allow create: if isApproved()
         && request.auth.uid == request.resource.data.ownerUid
         && request.resource.data.memberUids.hasOnly([request.auth.uid])
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && navnGyldigt()
+        && ingenIdNoegle();
 
       // Liga-ejeren kan opdatere egne felter, men kan IKKE ændre status eller
       // tildele liga-admins (kun den globale ejer styrer adminUids).
       allow update: if isOwnerOfDoc(resource.data)
         && request.resource.data.status == resource.data.status
+        && navnGyldigt()
+        && ingenIdNoegle()
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adminUids']);
 
       // Liga-admin (udpeget pr. liga) kan styre medlemmer og omdøbe ligaen
@@ -361,6 +401,7 @@ service cloud.firestore {
       // status, ejer eller adminUids.
       allow update: if isApproved()
         && (request.auth.uid in resource.data.get('adminUids', []))
+        && navnGyldigt()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids', 'name']);
 
       // Tilmelding sker SERVER-SIDE (redeemInviteCode med Admin SDK), som slår
@@ -375,11 +416,17 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids']);
 
       // globalAdmin/owner kan godkende/afvise og styre medlemmer — men kun den
-      // GLOBALE ejer må ændre adminUids (tildele liga-admins).
+      // GLOBALE ejer må ændre adminUids (tildele liga-admins). Samme to vagter
+      // som ejeren: en admin er betroet, men et uheld herfra rammer ligaens
+      // medlemmer præcis som et angreb (Security-fund).
       allow update: if isGlobalAdmin()
+        && navnGyldigt()
+        && ingenIdNoegle()
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adminUids']);
 
-      // Den globale ejer kan alt, inkl. at tildele/fjerne liga-admins
+      // Den globale ejer kan alt, inkl. at tildele/fjerne liga-admins — også
+      // UDEN de to vagter: det er den ene konto, der kan rydde op i et
+      // dokument, der allerede bærer et id-felt, uden at gå i konsollen.
       allow update: if isOwner();
 
       // Sletning: ejeren af ligaen eller en super-admin (owner)
@@ -701,9 +748,18 @@ service cloud.firestore {
         // Tilmeld: opret sit eget medlemskab UDEN at kunne seede point-felter
         // eller liga-medlemskab (dem sætter kun serveren — samme princip som
         // users-profilen).
+        // favoriteTeam pr. spil har forrang for profilens i stillingen, så
+        // den skal have samme typevagt som profilens (Security-fund).
+        function holdGyldigt() {
+          return !('favoriteTeam' in request.resource.data)
+            || request.resource.data.favoriteTeam == null
+            || request.resource.data.favoriteTeam is string;
+        }
+
         allow create: if isApproved()
           && request.auth.uid == uid
           && request.resource.data.uid == uid
+          && holdGyldigt()
           && !request.resource.data.keys().hasAny(
               ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds']);
 
@@ -730,6 +786,7 @@ service cloud.firestore {
         allow update: if isApproved()
           && request.auth.uid == uid
           && request.resource.data.get('uid', uid) == uid
+          && holdGyldigt()
           // `perRound` STÅR PÅ LISTEN AF SAMME GRUND SOM totalPoints: ligaens
           // stilling regnes af den, både i fladen og af Runde-Botten. Uden den
           // her kunne et medlem skrive { perRound: { '20': 1000000 } } og toppe
@@ -1014,20 +1071,38 @@ service cloud.firestore {
               && request.resource.data.startRound >= 1);
         }
 
+        // Navnet SKAL være en streng — ved create OG update. Ejeren skriver
+        // det fra browseren, og et map som navn kastede i `rankStandings` og
+        // hvidnede Stilling- og Pulje-fanen for alle liga-fæller
+        // (Security-fund). Klienterne er defensive, men reglen er vagten.
+        function navnGyldigt() {
+          return request.resource.data.name is string;
+        }
+        // Et `id`-FELT i dokumentet er forbudt. Alle læsere spreder data ind
+        // over dokument-id'et, og et felt med samme navn skyggede for id'et:
+        // en ejer kunne skrive `id: '<fremmed liga>'`, og offerets stilling
+        // forespurgte så på et liga-id, reglerne afviste — hele stillingen
+        // forsvandt (Security-fund). Samme form som `uid` i users-reglen.
+        function ingenIdNoegle() {
+          return !('id' in request.resource.data);
+        }
+
         // Opret: godkendt deltager, ejer = selv, medlemmer = kun selv.
         allow create: if isApproved()
           && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
           && request.resource.data.ownerUid == request.auth.uid
           && request.resource.data.memberUids == [request.auth.uid]
-          && request.resource.data.name is string
+          && navnGyldigt()
+          && ingenIdNoegle()
           && request.resource.data.code is string
           && startRoundGyldig();
 
         // Opdatér: (a) ejer omdøber/sætter startrunde (medlemmer uændret), ELLER
         //          (b) et medlem forlader (fjerner KUN sig selv).
         // Deltag-i-liga sker server-side (Admin SDK omgår denne regel).
-        allow update: if isApproved() && startRoundGyldig() && (
+        allow update: if isApproved() && startRoundGyldig() && ingenIdNoegle() && (
             (resource.data.ownerUid == request.auth.uid
+              && navnGyldigt()
               && request.resource.data.memberUids == resource.data.memberUids
               && request.resource.data.ownerUid == resource.data.ownerUid
               && request.resource.data.code == resource.data.code)

@@ -78,7 +78,7 @@ export function useMatchLeagueBets(gameId, matchId, leagueIds, enabled) {
           snap.forEach((d) => {
             if (seen.has(d.id)) return;
             seen.add(d.id);
-            rows.push({ id: d.id, ...d.data() });
+            rows.push({ ...d.data(), id: d.id });
           });
         }
         const names = await fetchNames(rows.map((r) => r.uid).filter(Boolean));

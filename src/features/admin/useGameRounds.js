@@ -35,7 +35,7 @@ export function useGameRounds(gameId) {
     (async () => {
       try {
         const snap = await getDocs(collection(db, 'games', gameId, 'matches'));
-        if (!afbrudt) setKampe(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        if (!afbrudt) setKampe(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
       } catch (err) {
         if (!afbrudt) setFejl(err?.message || 'Kunne ikke hente kampene.');
       }

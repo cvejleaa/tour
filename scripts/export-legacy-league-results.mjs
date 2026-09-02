@@ -80,7 +80,7 @@ export function topRows(rows, n = 5) {
 
 async function loadAll(db, col) {
   const snap = await db.collection(col).get();
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id }));
 }
 
 /** Tour (tour-85928): slutstilling pr. godkendt liga. */

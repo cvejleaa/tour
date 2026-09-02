@@ -57,7 +57,7 @@ function LeagueCard({ league, standings, meUid, onOpen }) {
       aria-label={`Åbn liga: ${league.name}`}
     >
       <div className="flex items-center justify-between">
-        <div className="league-card__name">{league.name}</div>
+        <div className="league-card__name">{league.name || 'Liga uden navn'}</div>
         <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
           {missing > 0 && (
             <span className="badge badge--red" title="Du mangler at svare på liga-spørgsmål">

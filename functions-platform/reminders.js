@@ -64,7 +64,7 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
     gameRef.get(),
     gameRef.collection('matches').get(),
   ]);
-  const matches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const matches = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const gatede = gatedeKampe(matches, startRundeFor(gameSnap.exists ? gameSnap.data() : null, matches));
   const upcoming = upcomingMatches(matches, now, windowEnd, gatede);
   if (upcoming.length === 0) return { sent: 0, fejlede: 0, reason: 'no-matches' };
@@ -202,7 +202,7 @@ async function koerPaamindelserForSpil(db, transporter, game, { now = new Date()
     if (game.paused) {
       const gameRef = db.collection('games').doc(game.id);
       const [gameSnap, matchesSnap] = await Promise.all([gameRef.get(), gameRef.collection('matches').get()]);
-      const matches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const matches = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
       const gatede = gatedeKampe(matches, startRundeFor(gameSnap.exists ? gameSnap.data() : null, matches));
       const upcoming = upcomingMatches(matches, now, new Date(now.getTime() + DAY_MS), gatede);
       return paamindelsesLinje({ paused: true, resultat: { upcoming: upcoming.length } });
@@ -299,7 +299,7 @@ async function hentTipStatus(db, gameId, round, now = new Date()) {
     gameRef.collection('players').get(),
   ]);
   if (!gameSnap.exists) return null;
-  const matches = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const matches = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const memberUids = playersSnap.docs.map((d) => d.id);
 
   const rundensIds = matches.filter((m) => m.round === round).map((m) => m.id);
@@ -334,7 +334,7 @@ async function sendGameTestReminder(db, transporter, gameId, toEmail, displayNam
     gameRef.get(),
     gameRef.collection('matches').get(),
   ]);
-  const alle = matchesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const alle = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const gatede = gatedeKampe(alle, startRundeFor(gameSnap.exists ? gameSnap.data() : null, alle));
   const nowMs = Date.now();
   const next = alle

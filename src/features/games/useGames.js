@@ -63,7 +63,7 @@ export function useGames() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setGames(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setGames(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setGamesLoading(false);
       },
       (err) => {

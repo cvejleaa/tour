@@ -34,8 +34,20 @@ export function useGameLeagues(gameId) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setLeagues(snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => String(a.name).localeCompare(String(b.name), 'da')));
+        // DOKUMENT-ID'ET VINDER — spreadet ligger FØRST. Første udgave satte
+        // id-nøglen FØR spreadet, så et `id`-FELT i dokumentet skyggede
+        // for det ægte id: en ejer kunne skrive `id: '<fremmed liga>'`, og
+        // stillingens forespørgsel (useGameStandings) ramte så en liga, reglen
+        // afviste — offerets stilling forsvandt (Security-fund). Reglen
+        // forbyder nu feltet; læseren stoler alligevel ikke på det.
+        //
+        // NAVNET NORMALISERES HER, ét sted for alle forbrugere: et map som
+        // navn (muligt før reglen fik typevagt på update) kaster i React,
+        // hvor det renderes — LeagueBets, GameStandings, PuljeAfsloering …
+        setLeagues(snap.docs.map((d) => {
+          const data = d.data();
+          return { ...data, id: d.id, name: typeof data.name === 'string' ? data.name : '' };
+        }).sort((a, b) => a.name.localeCompare(b.name, 'da')));
         setLoading(false);
       },
       (err) => {

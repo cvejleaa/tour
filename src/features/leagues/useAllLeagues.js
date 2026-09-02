@@ -17,7 +17,13 @@ export function useAllLeagues(enabled = true) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setLeagues(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        // Dokument-id'et vinder (spread først), og navnet normaliseres til en
+        // streng ét sted for alle forbrugere — et map som navn kastede i React
+        // hos alle ligaens medlemmer (Security-fund). Samme form som useGameLeagues.
+        setLeagues(snap.docs.map((d) => {
+          const data = d.data();
+          return { ...data, id: d.id, name: typeof data.name === 'string' ? data.name : '' };
+        }));
         setLoading(false);
       },
       (err) => {

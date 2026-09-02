@@ -39,6 +39,13 @@
   `functions-platform/node_modules/@google-cloud/firestore`, og
   `global.fetch = () => { kald++; throw }`. Det afgør, om en afvist kalder når
   det DYRE arbejde — svaret på "står autorisationen foran læsningerne?".
+- **Admin SDK mod emulatoren HÆNGER i dette miljø** (metadata-opslag går i
+  proxyen; en falsk service-account får `initializeApp` igennem, men første
+  skrivning står stille til timeout). Skal en PoC bare bevise DATA-semantik
+  (fx at et `id`-felt skygger i `{ id: d.id, ...d.data() }`), så brug
+  `env.withSecurityRulesDisabled(c => c.firestore())` fra
+  `@firebase/rules-unit-testing` i stedet — det er ægte Firestore-snapshots
+  uden regler, altså samme udsigt som Admin SDK'en har.
 - **Rene kerner kan PoC'es uden emulator** med en fake db:
   `{ collection: () => ({ doc: () => ({ collection: () => col }) }), batch: ... }`
   (kopiér `fakeDb` fra `functions-platform/syncProviders.test.js` L27-70).
@@ -272,42 +279,77 @@
   `https://tip.vejleaa.dk@evil.dk/` igennem. Sammen: en globalAdmin (= en af
   vennerne) sender en officiel tip@vejleaa.dk-mail med en phishing-knap.
   Fix: `href="${esc(cta)}"` + `startsWith(APP_URL + '/')`.
-- **`id`-FELTET SKYGGER FOR DOC-ID'ET I `useGameLeagues` — en liga-ejer kan
-  slukke stillingen for hele sin liga (BEKRÆFTET ende-til-ende, 2026-09-01).**
-  Samme klasse som pulje-fundet, men her er den ÅBEN. `useGameLeagues.js` L37
-  er `{ id: d.id, ...d.data() }` — spreadet sidst, så et `id`-felt i dataen
-  vinder. Ejer-grenen i leagues-update (firestore.rules L1029-1033) fryser kun
-  `memberUids`/`ownerUid`/`code`; ETHVERT andet felt må skrives. Kæden kørt i
-  emulatoren (3 checks, kontrol grøn): angriber ejer liga A (med offeret) og er
-  medlem af liga B (fremmede, hvis id hen derfor kender) → `updateDoc(A,
-  {id:'B'})` LYKKES (`memberUids` afvises stadig — kontrol) → offerets
-  `useGameLeagues` melder liga A med id `'B'` → `useGameStandings` L39 bygger
-  `leagueIds` af netop dét → `where('leagueIds','array-contains-any',['B'])`
-  rammer `fremmed`s players-dokument, som reglen (L698-699,
-  `hasAny(myLeagueIds())` på det SERVER-skrevne felt) afviser → HELE
-  forespørgslen fejler, også når det ægte id er med. Offeret mister stillingen
-  for ALLE sine ligaer i spillet — og på pulje-fanen (efter 4ee45aa) forsvinder
-  ranglisten bare, for `PuljeTip` viser aldrig hookens `error`. Ingen data
-  lækker; det er ren ødelæggelse, og den er usporlig for offeret.
-  Fix: ét tegn-ombytning, `{ ...d.data(), id: d.id }` (samme rettelse som
-  PuljeAfsloering L95 fik), evt. + en nøgle-whitelist i leagues-update.
-  Bemærk: mønstret står 30+ steder i `src/` (`useLeagues`, `useGameBets`,
-  `useGame` …); det farlige er dér, hvor id'et derefter fodrer en QUERY, som
-  reglen filtrerer på.
-- **Liga-navnet er IKKE type-vagtet ved UPDATE - en spiller draeber en
-  admin-flade for HELE spillet.** `firestore.rules` L971 kraever `name is string`
-  ved CREATE; ejer-grenen ved update (L979-983) kraever kun ownerUid/memberUids/
-  code uaendret. Emulator-bekraeftet: en almindelig, godkendt spiller, der ejer
-  en liga, kan `updateDoc(..., { name: { toString: null } })`. `String(data.name)`
-  i `hentLigaMedlemmer` (gameLeagues.js L281) kaster da `TypeError: Cannot
-  convert object to primitive value` -> `internal` -> HELE `adminHentLigaMedlemmer`
-  fejler for spillet, ogsaa for de uforgiftede ligaer, og admin mister den eneste
-  flade, der kunne fjerne griefer'en. Samme gift rammer allerede `{league.name}`
-  i GameLeagues.jsx L195 (React-child -> hvid side for ligaens medlemmer).
-  Varianter maalt: `42`->"42", `['a']`->"a", `{a:1}`->"[object Object]", 100k tegn
-  -> klippet; KUN objekter uden brugbar `toString`/`valueOf` kaster.
-  Fix hos FORBRUGEREN: `typeof v === 'string' ? v : ''` (moenstret staar allerede
-  fem linjer hoejere oppe for `displayName`).
+- **`id`-FELTET SKYGGER FOR DOC-ID'ET — spil-ligaer LUKKET (74ff02d), men
+  KLASSEN er kun lukket hos LÆSEREN andre steder.** Mønstret
+  `{ id: d.id, ...d.data() }` lader et `id`-FELT i dataen vinde over
+  dokument-id'et. Alle 70 forekomster er vendt til data-først, og
+  `src/lib/dokumentId.test.js` holder dem der. Reglen forbyder nu feltet på
+  `games/{g}/leagues/{l}` (create, ejer-update, forlad-gren). Men feltet er
+  STADIG skrivbart to steder (emulator-målt 2026-09-02):
+  `users/{uid}` (enhver, også `pending`, på egen profil) og top-niveau
+  `leagues/{id}` (ejeren; ejer-grenen fryser kun `status`/`adminUids`).
+  Tre BEKRÆFTEDE kæder, alle kørt ende-til-ende i emulatoren:
+  (a) *Stillingen slukkes* — spil-liga-ejer skriver `id:'<fremmed liga>'` →
+      offerets `useGameStandings`-query rammer en fremmed liga → hele
+      stillingen forsvinder. LUKKET i både regel og læser.
+  (b) *Administratorens klik omdirigeres* — en PENDING bruger skriver
+      `users/mig.id = '<offer>'`; `useUsers.js` L29 gav så rækken "Angriber"
+      id'et `offer`, og HVER handling i `UserRow.jsx` tager `user.id`:
+      `setUserStatus` (L90), `setGlobalAdminRole` (L111), `callSetUserEmail`
+      (L128), `callDeleteUser` (L141), `sendAdminPasswordReset` (L74) samt
+      `approveUsers(u.id)` i UsersTab L52. Målt: ét klik "Afvis" på
+      angriberens række satte `offer.status='rejected'`, mens angriberen
+      blev stående `pending`. Adressen på en mail-ændring er en
+      kontoovertagelse. Lukket hos læseren; reglen mangler stadig vagten.
+  (c) *Bottens opslag lander på en FREMMED ligas væg* — `functions/index.js`
+      L1872 (`runGenerateLeagueRecaps`) læste top-niveau-ligaen med den gamle
+      rækkefølge, og L1897-1903 skriver med `league.id`. Målt mod ægte
+      Firestore-data: opslaget "Stillingen i Min liga: offer 412 point …"
+      landede med `leagueId='TB'` og blev læst af TB's medlem, og
+      `lastRecapAt` blev sat på TB (som derved MISTER sit eget morgenopslag),
+      mens den egne liga aldrig fik markøren. Det var altså et ægte
+      server-hul — ikke kun en klient-detalje. Samme form i
+      `runRegenerateRecaps` og `buildThankYouContext`. Lukket af sweep'et.
+  Restrisiko: vagten er nu ÉN grep-test. Læg `!('id' in request.resource.data)`
+  på `users` og på top-niveau `leagues` for at få den anden vagt tilbage.
+- **Grep-vagten mod `{ id: d.id, ...x }` er nu BRED — og har falske positiver
+  (målt 2026-09-02).** Regexen i `src/lib/dokumentId.test.js` er
+  `/\{\s*u?id:\s*[A-Za-z_]+\.id\s*,[^}]*\.\.\./` — id-nøgle før ETHVERT spread
+  i samme objekt. Den fanger nu også de tre variabel-former, der slap før
+  (`useMyStageBets`, `useBonusData`, `fix-double-chance`). Men `[^}]*` kan ikke
+  skelne et objekt-spread fra et array-spread eller en rest-parameter. Målt
+  MATCH på fire LEGITIME former: `{ id: d.id, tags: [...arr] }`,
+  `{ id: d.id, items: [...a, ...b] }`, `{ id: d.id, fn: (...args) => args }` og
+  `{ id: d.id, ...KONSTANT }` (spread af noget der IKKE er dokumentdata).
+  0 forekomster i repoet i dag, så prisen er en fremtidig falsk rød — billig at
+  omgå (skriv id sidst) og langt billigere end en falsk grøn. Behold bredden;
+  men hvis nogen fjerner en assertion her, så tjek at det ikke er vagten selv.
+- **Navne-/profilgiften er LUKKET, men vagten dækker kun 3 af 6 update-grene
+  på top-niveau `leagues` (BEKRÆFTET 2026-09-02, 6d14243).** `navnGyldigt()` +
+  `ingenIdNoegle()` står på create, ejer-update og (kun navn) liga-admin-update
+  — men **IKKE** på forlad-grenen, `isGlobalAdmin()`-grenen eller
+  `isOwner()`-grenen (firestore.rules ~L419-427). Emulator-målt: en globalAdmin
+  må stadig skrive `id: 'TB'` OG `name: {a:1}` på enhver Tour-liga. Forlad-grenen
+  er dækket indirekte af `hasOnly(['memberUids'])` (målt: DENIED). Skaden er i
+  dag inert, fordi ALLE læsere er id-først og normaliserer navnet
+  (`useLeagues`/`useAllLeagues` → `name: typeof … === 'string' ? … : ''`), og
+  fordi `functions/index.js:1872` nu er `{ ...ld.data(), id: ld.id }`. Men
+  kommentaren i reglen lover "samme to vagter" og leverer dem kun på ejer-grenen
+  — modsat `games/{g}/leagues`, hvor der slet ikke FINDES en admin-skrivegren.
+  Vil man have vagten hel, skal `navnGyldigt() && ingenIdNoegle()` også på de to
+  admin-grene.
+- **`questions.label` er type-vagtet ved CREATE, men ikke ved UPDATE
+  (BEKRÆFTET).** `firestore.rules` create kræver `label is string`, 3-120 tegn;
+  update-grenen (L1164-1186) kræver kun `points`-båndet. Liga-ejeren kan
+  bagefter skrive `label: {toString:null}` (og `facit` ligeså). Præcis den
+  faldgrube, huset allerede har skrevet ned — og som `navnGyldigt()` lukkede
+  for liganavnet i samme fil.
+- **Liga-navnet ved UPDATE på SPIL-ligaer er LUKKET (74ff02d).** Historik:
+  `name is string` stod kun ved create, så en spiller, der ejede en liga,
+  kunne skrive `{toString:null}` og dermed dræbe `hentLigaMedlemmer`
+  (gameLeagues.js L281) for HELE spillet plus `{league.name}` i
+  GameLeagues.jsx L195. `navnGyldigt()` gælder nu create OG ejer-update
+  (mutationstestet, se RENT-listen).
 - **Den afviste kan ikke meldes UD af en liga.** `saetLigaMedlemCore`
   (gameLeagues.js L340-341) tjekker `status === 'rejected'` FOER forgreningen paa
   `medlem` (L347), saa vagten mod "luk den bortviste ind ad bagdoeren" ogsaa
@@ -475,6 +517,29 @@
   `SWEEP_TIMEOUT_S = 300` (index.js L443/L452) og et afledt `XG_BUDGET_MS`
   (L447). Verificér selv, om xG stadig ligger FØR standings/alarm i løkkekroppen
   — dét led er ikke efterprøvet.)*
+- **Vagten kan FRYSE et allerede forgiftet liga-dokument (BEKRÆFTET
+  2026-09-02, 6d14243).** `ingenIdNoegle()` på ejer-update er UBETINGET og ser
+  på `request.resource.data` — altså HELE resultatdokumentet, ikke kun de
+  ændrede felter. Har en Tour-liga allerede et `id`-felt (og det KUNNE den få,
+  indtil 6d14243 — hullet var bekræftet åbent), er ejeren låst ude for evigt:
+  emulator-målt `ejer-joinCode=DENIED, ejer-omdøb=DENIED`. Liga-admin kan
+  stadig omdøbe (den gren har ikke `ingenIdNoegle()`), medlem kan stadig
+  forlade, og globalAdmin kan alt — men INGEN flade fjerner selve `id`-feltet;
+  det kræver Firebase-konsollen. Samme form, mildere: en liga UDEN `name` giver
+  `ejer-joinCode=DENIED`, men `ejer-sæt-navn=OK`, og ejeren HAR omdøbnings-UI
+  (`LeaguesPage.jsx:217`), så den helbreder sig selv med ét klik. **Lære:** en
+  ubetinget felt-vagt på update er en RATCHET, ikke et filter — den rammer
+  historiske dokumenter, ikke kun nye skrivninger. Spørg altid: "kan det
+  dokument, vagten afviser, allerede findes — og kan nogen så rette det?"
+- **Det frie `id`-felt: kortet pr. 2026-09-02 (emulator-målt med kontrol).**
+  Reglen forbyder `id` KUN på `games/{g}/leagues` og top-niveau `leagues`
+  (create + ejer-update). Feltet accepteres frit på: **`users/{uid}`** (enhver
+  logget ind, også `pending`, på egen profil — create afvises kun fordi
+  `creatingWithUserEmail()` fanger `email`, ikke `id`), **`games/{g}/players`**,
+  **`games/{g}/bets`**, **`bonusBets`**, **`stageBets`**, **`messages`**,
+  **`leagueComments`** og **`leagueActivity`**. Alle otte er inerte i dag, fordi
+  hver læser er vendt til data-først og holdes der af `dokumentId.test.js` —
+  men det er ÉN vagt, og den er en grep-test, ikke en regel.
 
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
@@ -554,6 +619,29 @@
   bærer dedup'en — den ene kalder retryer og ser den andens skrivning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **Regel-vagterne i 74ff02d er MÅLT, ikke læst (2026-09-02).** 250/250 grønne
+  mod emulatoren, og SEKS mutationer mod `RULES_FILE`-kopier — alle dræbt:
+  `ingenIdNoegle()→true` (3 røde), `navnGyldigt()→true` (1), `ingenIdNoegle`
+  fjernet fra UPDATE men beholdt i create (2), `navnGyldigt` fjernet fra
+  ejer-update-grenen alene (1), `displayNameGyldigt` fjernet fra egen-update
+  (1) og fra create (1). Hver vagt har altså sin EGEN røde test — placeringen
+  er dækket, ikke bare eksistensen. Kontroltests grønne: ejer omdøber, ejer
+  sætter `startRound`, create uden `id`, medlem forlader rent, displayName som
+  streng. 16 egne PoC-checks oveni.
+- **To bivirkninger af `navnGyldigt()`/`ingenIdNoegle()` — begge målt, begge
+  uden for rækkevidde i dag.** (a) En spil-liga UDEN `name`-felt kan slet ikke
+  opdateres af ejeren mere (`navnGyldigt()` er ubetinget, modsat
+  `startRoundGyldig()`/`displayNameGyldigt()`, der begge er
+  `!('x' in …) || …`). Alle spil-ligaer skabes af `createLeague`
+  (gameLeagueActions.js L57-64) med `name` som streng, og create-reglen har
+  altid krævet det — så feltet kan kun mangle via konsollen/Admin SDK.
+  (b) Et dokument, der ALLEREDE har et `id`-felt, er frosset: ejeren kan ikke
+  omdøbe, og et medlem kan IKKE FORLADE ligaen (`ingenIdNoegle()` står foran
+  begge grene). `updateDoc(ref, {id: deleteField()})` virker (målt), men der
+  er ingen knap for den. Findes der forgiftede dokumenter i produktion, er
+  deres medlemmer låst inde — et scan af `games/*/leagues/*` for nøglen `id`
+  hører til i udrulningsplanen.
 
 - **Rettelsen 5c4b9e0 (pulje-reglen) HOLDER — efterprøvet, ikke læst
   (2026-09-01).** 241/241 i `functions/rules.test.js` + 30 egne PoC-checks mod
@@ -862,6 +950,21 @@
   `uid_matchId`- og `uid`-doc-id-bindingen — skal det stå SIDST. Grep efter
   `uid: d.id, ...` hver gang en ny cross-user-læser landes.
 
+- **En grep-vagt fanger kun den STAVEMÅDE, den er skrevet for.**
+  `dokumentId.test.js` kræver `{ id: X.id, ...X.data() }` med SAMME variabel;
+  tre steder med `...b` / `...data` / `...m.data` gik fri. Skriv vagten mod
+  FORMEN (id-nøgle før et spread af hvad som helst), eller accepter, at den
+  kun er en tripwire mod copy-paste — og sig det i kommentaren.
+- **En typevagt skal dække ALLE felter fra samme forgiftede kilde, ikke kun
+  det, fundet handlede om.** `rankStandings` fik `displayName` vagtet og
+  sendte `avatarEmoji`/`favoriteTeam` videre urørt fra præcis samme
+  bruger-dokument. Når du hærder ét felt i et normaliserings-knudepunkt, så
+  optæl HVER nøgle, funktionen udsender fra den kilde, og afgør hver enkelt.
+- **En rettelse, der lukker et hul på ét datasæt, skal spørges om SØSKENDE-
+  datasættet.** `games/{g}/leagues` fik både `id`- og navnevagt; top-niveau
+  `leagues` (samme begreb, samme ejer-rolle, samme render-mønster) fik ingen
+  af delene, og `useLeagues` fik ikke klientens normalisering. To ligabegreber
+  i samme fil skal have samme vagter, eller forskellen skal stå skrevet.
 - Regler er ikke filtre. En strammet læseregel uden matchende query = tom liste.
 - Klient-validering er ikke håndhævelse.
 - Doc-id'er skal bindes (`uid_matchId`) — ellers dublet-dokumenter.

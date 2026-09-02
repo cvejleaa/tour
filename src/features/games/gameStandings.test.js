@@ -67,6 +67,28 @@ describe('rankStandings', () => {
     expect(rows.map((r) => r.uid)).toEqual(['a', 'b', 'c']);
   });
 
+  it('et navn, der ikke er en streng, bliver "Ukendt spiller" — det må ikke kaste i fladen', () => {
+    // Et objekt som displayName er "Objects are not valid as a React child"
+    // for ALLE, der deler liga med personen; et tal ville sortere forkert.
+    const gift = { a: { displayName: { a: 1 } }, b: { displayName: 42 }, c: { displayName: ['x'] } };
+    const rows = rankStandings([{ uid: 'a' }, { uid: 'b' }, { uid: 'c' }], gift);
+    expect(rows.map((r) => r.name)).toEqual(['Ukendt spiller', 'Ukendt spiller', 'Ukendt spiller']);
+    expect(() => rows.sort((x, y) => x.name.localeCompare(y.name, 'da'))).not.toThrow();
+  });
+
+  it('emoji og yndlingshold, der ikke er strenge, bliver null — samme dokument, samme gift', () => {
+    const gift = { a: { displayName: 'Anna', avatarEmoji: { a: 1 }, favoriteTeam: { toString: null } } };
+    const [row] = rankStandings([{ uid: 'a', favoriteTeam: 7 }], gift);
+    expect(row.emoji).toBeNull();
+    expect(row.favoriteTeam).toBeNull();
+    // Kontrol: strenge går igennem, og spillets hold har forrang for profilens.
+    const [ok] = rankStandings([{ uid: 'a', favoriteTeam: 'VFF' }], { a: { avatarEmoji: '🦊', favoriteTeam: 'FCK' } });
+    expect(ok.emoji).toBe('🦊');
+    expect(ok.favoriteTeam).toBe('VFF');
+    // Et ugyldigt spil-hold falder tilbage på profilens gyldige.
+    expect(rankStandings([{ uid: 'a', favoriteTeam: { x: 1 } }], { a: { favoriteTeam: 'FCK' } })[0].favoriteTeam).toBe('FCK');
+  });
+
   it('bruger fallback-navn og default 0 point', () => {
     const rows = rankStandings([{ uid: 'x' }], {});
     expect(rows[0].name).toBe('Ukendt spiller');

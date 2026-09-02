@@ -44,7 +44,7 @@ export function useDailyStandings() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setStages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setStages(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setLoadingStages(false);
       },
       (err) => {
@@ -90,7 +90,7 @@ export function useDailyStandings() {
       return onSnapshot(
         q,
         (snap) => {
-          const chunkBets = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const chunkBets = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
           allBets = [...allBets.filter((b) => !chunk.includes(b.stageId)), ...chunkBets];
           setBets([...allBets]);
           pending -= 1;

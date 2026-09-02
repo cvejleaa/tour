@@ -115,7 +115,7 @@ async function chanceGruppeKampe(tx, matchesRef, maal) {
   const gruppe = maal && maal.round;
   if (gruppe == null || gruppe === '') return null;
   const snap = await tx.get(matchesRef.where('round', '==', gruppe));
-  return { gruppe, kampe: snap.docs.map((d) => ({ id: d.id, ...d.data() })) };
+  return { gruppe, kampe: snap.docs.map((d) => ({ ...d.data(), id: d.id })) };
 }
 
 /**

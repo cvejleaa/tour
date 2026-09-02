@@ -83,7 +83,7 @@ export default function GameReminderTab() {
       let matches = tipMatches;
       if (!matches) {
         const snap = await getDocs(collection(db, 'games', gameId, 'matches'));
-        matches = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        matches = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
         setTipMatches(matches);
       }
       const synlige = fraStartRunde(matches, startRundeFor(valgtSpil, matches));

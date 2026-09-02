@@ -1393,7 +1393,7 @@ exports.gameTipReminders = onSchedule(
     const transporter = buildTransport(SMTP_PASSWORD.value());
     const snap = await db.collection('games').where('type', '==', 'football').get();
     for (const d of snap.docs) {
-      const g = { id: d.id, ...d.data() };
+      const g = { ...d.data(), id: d.id };
       if (!forventerPaamindelser(g)) {
         // Et spil, der IKKE længere kvalificerer (typisk: sat til finished),
         // må ikke efterlade et kort med passeret naesteForventetFoer — det

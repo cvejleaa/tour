@@ -19,7 +19,7 @@ export default function ActivityTab() {
     const unsub = onSnapshot(
       collection(db, COL.PRESENCE),
       (snap) => {
-        setPresence(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+        setPresence(snap.docs.map((d) => ({ ...d.data(), uid: d.id })));
         setLoading(false);
       },
       (err) => {

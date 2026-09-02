@@ -19,7 +19,7 @@ export function useStages(season) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setStages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setStages(snap.docs.map((d) => ({ ...d.data(), id: d.id })));
         setLoading(false);
       },
       (err) => {

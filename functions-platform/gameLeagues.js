@@ -209,7 +209,7 @@ async function hentSpoergsmaalStatus(db, { gameId, leagueId, uid, nowMs = Date.n
   if (!leagueSnap.exists) return null;
 
   const qSnap = await leagueRef.collection('questions').get();
-  const spoergsmaal = qSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const spoergsmaal = qSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const aabne = spoergsmaal.filter((q) => erAabent(q, nowMs));
   const harSvaret = new Map();
   if (aabne.length && memberUids.length) {

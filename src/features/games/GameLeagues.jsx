@@ -194,7 +194,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
           </span>
         ) : (
           <span style={{ fontWeight: 600 }}>
-            {league.name}
+            {league.name || 'Liga uden navn'}
             <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> · {league.memberUids?.length ?? 0} medlemmer</span>
           </span>
         )}

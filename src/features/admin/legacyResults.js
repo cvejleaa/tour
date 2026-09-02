@@ -12,7 +12,7 @@ const MEDALS = { 1: '🥇', 2: '🥈', 3: '🥉' };
 export async function fetchLegacyResults() {
   try {
     const snap = await getDocs(collection(db, 'legacyLeagueResults'));
-    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const rows = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
     rows.sort((a, b) => (a.sourceLabel || '').localeCompare(b.sourceLabel || '', 'da')
       || (a.name || '').localeCompare(b.name || '', 'da'));
     return { ok: true, results: rows };
