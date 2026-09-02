@@ -22,7 +22,7 @@ import { readFileSync }            from 'fs';
 import { fileURLToPath }           from 'url';
 import { dirname, join }           from 'path';
 import {
-  setDoc, doc, updateDoc, getDoc, getDocs, deleteDoc, collection, collectionGroup,
+  setDoc, doc, updateDoc, getDoc, getDocs, deleteDoc, collection, collectionGroup, deleteField,
   query, where, Timestamp,
 } from 'firebase/firestore';
 
@@ -788,6 +788,27 @@ describe('leagues (Tour) — id-felt og navnets type', () => {
     const fs = testEnv.authenticatedContext('ladmin').firestore();
     await assertFails(updateDoc(doc(fs, 'leagues', 'TB'), { name: { a: 1 } }));
     await assertSucceeds(updateDoc(doc(fs, 'leagues', 'TB'), { name: 'Admin-navn' }));
+  });
+
+  it('en global admin er under samme vagter — den globale ejer er ikke (kan rydde op)', async () => {
+    await createUser('ejer', 'player', 'approved');
+    await createUser('gadmin', 'globalAdmin', 'approved');
+    await createUser('boss', 'owner', 'approved');
+    await createLeague('TD', 'ejer', ['ejer']);
+    const admin = testEnv.authenticatedContext('gadmin').firestore();
+    await assertFails(updateDoc(doc(admin, 'leagues', 'TD'), { id: 'TB' }));
+    await assertFails(updateDoc(doc(admin, 'leagues', 'TD'), { name: { a: 1 } }));
+    await assertSucceeds(updateDoc(doc(admin, 'leagues', 'TD'), { status: 'approved' }));
+    // Ejeren af platformen må skrive, hvad der skal til for at fjerne et
+    // allerede landet id-felt — også når dokumentet stadig bærer det.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().collection('leagues').doc('TD').update({ id: 'gift' });
+    });
+    const ejer = testEnv.authenticatedContext('ejer').firestore();
+    await assertFails(updateDoc(doc(ejer, 'leagues', 'TD'), { name: 'Nyt' }));   // låst, til giften er væk
+    const boss = testEnv.authenticatedContext('boss').firestore();
+    await assertSucceeds(updateDoc(doc(boss, 'leagues', 'TD'), { id: deleteField() }));
+    await assertSucceeds(updateDoc(doc(ejer, 'leagues', 'TD'), { name: 'Nyt' }));  // fri igen
   });
 
   it('en liga kan ikke OPRETTES uden strengnavn eller med et id-felt', async () => {

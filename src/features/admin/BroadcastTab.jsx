@@ -281,8 +281,8 @@ export default function BroadcastTab() {
       // kapitel, billeder) — uden det fik PL-invitationen Superligaens mail.
       ...(useTemplate
         ? (PLATFORM_MODE
-          ? { template: 'invitation', gameId, joinLink, leagueName: selectedLeague?.name }
-          : { template: 'salespitch', joinLink, leagueName: selectedLeague?.name })
+          ? { template: 'invitation', gameId, joinLink, leagueName: selectedLeague?.name || 'Liga uden navn' }
+          : { template: 'salespitch', joinLink, leagueName: selectedLeague?.name || 'Liga uden navn' })
         : {}),
     });
     setBusy(false);

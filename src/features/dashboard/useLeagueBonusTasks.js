@@ -60,7 +60,7 @@ export function useLeagueBonusTasks(leagues, uid) {
 
   // Mangler pr. liga
   const byLeague = useMemo(() => {
-    const nameById = Object.fromEntries((leagues ?? []).map((l) => [l.id, l.name ?? 'Liga']));
+    const nameById = Object.fromEntries((leagues ?? []).map((l) => [l.id, l.name || 'Liga']));
     const qByLeague = {};
     for (const q of questions) {
       (qByLeague[q.leagueId] ??= []).push(q);

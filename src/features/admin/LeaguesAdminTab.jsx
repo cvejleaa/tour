@@ -79,7 +79,7 @@ export default function LeaguesAdminTab() {
                 </span>
               ) : (
                 <>
-                  <strong style={{ fontSize: '1rem' }}>{lg.name}</strong>
+                  <strong style={{ fontSize: '1rem' }}>{lg.name || 'Liga uden navn'}</strong>
                   <button
                     className="btn--icon"
                     title="Omdøb liga"

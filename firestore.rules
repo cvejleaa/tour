@@ -416,11 +416,17 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids']);
 
       // globalAdmin/owner kan godkende/afvise og styre medlemmer — men kun den
-      // GLOBALE ejer må ændre adminUids (tildele liga-admins).
+      // GLOBALE ejer må ændre adminUids (tildele liga-admins). Samme to vagter
+      // som ejeren: en admin er betroet, men et uheld herfra rammer ligaens
+      // medlemmer præcis som et angreb (Security-fund).
       allow update: if isGlobalAdmin()
+        && navnGyldigt()
+        && ingenIdNoegle()
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['adminUids']);
 
-      // Den globale ejer kan alt, inkl. at tildele/fjerne liga-admins
+      // Den globale ejer kan alt, inkl. at tildele/fjerne liga-admins — også
+      // UDEN de to vagter: det er den ene konto, der kan rydde op i et
+      // dokument, der allerede bærer et id-felt, uden at gå i konsollen.
       allow update: if isOwner();
 
       // Sletning: ejeren af ligaen eller en super-admin (owner)

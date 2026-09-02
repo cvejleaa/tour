@@ -1,0 +1,50 @@
+name: Scan ligaer for frosne felter (begge projekter)
+
+# Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
+# LÆS-ONLY. Skriver ikke ét felt. Finder liga-dokumenter med et id-felt eller
+# uden streng-navn — dem, den strammede regel vil låse ejeren ude af, indtil
+# feltet er fjernet. Køres FØR reglerne deployes; exit 2 = noget skal ryddes.
+# Se scripts/scan-liga-felter.mjs.
+#
+# Bruger repo-secrets FIREBASE_SERVICE_ACCOUNT (tour-85928) og
+# FIREBASE_SERVICE_ACCOUNT_SPIL (spil-89af9).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - projekt: tour-85928
+            secret: FIREBASE_SERVICE_ACCOUNT
+          - projekt: spil-89af9
+            secret: FIREBASE_SERVICE_ACCOUNT_SPIL
+    name: ${{ matrix.projekt }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Installer afhængigheder
+        run: npm ci
+      - name: Skriv service-account
+        env:
+          SA_JSON: ${{ secrets[matrix.secret] }}
+        run: |
+          if [ -z "$SA_JSON" ]; then echo "::error::Mangler ${{ matrix.secret }} (${{ matrix.projekt }})."; exit 1; fi
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+      - name: Scan ligaer
+        env:
+          SA: ${{ runner.temp }}/sa.json
+        run: node scripts/scan-liga-felter.mjs

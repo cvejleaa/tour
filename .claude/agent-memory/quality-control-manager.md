@@ -181,6 +181,17 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   `perRound`-udrulningen er præcedensen (`docs/drift.md:417`).
 - **Dokumentation er en spejlet fil**: `docs/drift.md`, `docs/admin-guide.md`,
   `FootballHelp.jsx`, og `scripts/games.mjs`' egen felt-beskrivelse i toppen.
+- **En normaliserings-fix på tværs af render-steder rammer sjældent alle på
+  én gang — og en `?? 'fallback'` skrevet FØR normaliseringen fanger ikke den
+  nye tomme streng.** Da liganavne blev normaliseret til '' i
+  `useLeagues`/`useAllLeagues`/`useGameLeagues`, blev fire filer rettet med
+  `league.name || 'Liga uden navn'` — men `LeaguesAdminTab.jsx` (top-niveau-
+  ligaernes EGEN admin-side, den mest oplagte af alle) stod ikke på listen,
+  og `useLeagueBonusTasks.js:63` brugte `l.name ?? 'Liga'`, som er blind for
+  tom streng (kun `undefined`/`null` udløser `??`). Spørg ved enhver
+  streng-normalisering: (1) er ALLE forbrugere af kilden på listen, ikke kun
+  dem en tidligere krasch pegede på? og (2) rammer en downstream-fallback
+  (`??`/`||`) den PRÆCISE tomme værdi, normaliseringen nu sender?
 
 ## Nye TAL på en eksisterende flade
 

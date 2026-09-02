@@ -312,35 +312,32 @@
       `runRegenerateRecaps` og `buildThankYouContext`. Lukket af sweep'et.
   Restrisiko: vagten er nu ÉN grep-test. Læg `!('id' in request.resource.data)`
   på `users` og på top-niveau `leagues` for at få den anden vagt tilbage.
-- **Tre steder overlevede grep-vagten, fordi spreadet går gennem en VARIABEL.**
-  `src/features/stages/useMyStageBets.js:28` (`{ id: d.id, ...b }`),
-  `src/features/bonus/useBonusData.js:104` (`{ id: d.id, ...data }`) og
-  `scripts/fix-double-chance.mjs:139` (`{ id: m.id, ...m.data }`). Regexen i
-  `dokumentId.test.js` kræver `...SAMME_VAR.data()`. Alle tre er egne
-  dokumenter (stageBets/bonusBets), så skaden er selv-påført — men vagten er
-  blind for formen, og det er formen, der tæller.
-- **Top-niveau `leagues.name` har INGEN typevagt — hverken ved create eller
-  update (BEKRÆFTET, 2026-09-02).** Spil-ligaen fik `navnGyldigt()` i 74ff02d;
-  Tour-ligaen fik intet. Målt: ejeren kan skrive `name: {toString:null}` og
-  `name: 42`, og `create` uden `name` overhovedet er tilladt. Renderes råt som
-  React-barn i `LeaguesPage.jsx` L60 og L274, i `LeaderboardPage.jsx` L112
-  (`<option>{l.name}`) og som template i aria-label L57. Ét map → hvid side for
-  ligaens medlemmer. `useLeagues.js` normaliserer IKKE navnet (modsat
-  `useGameLeagues`). Samme gift går ind i AI-prompten via
-  `leagueRecap.js` L170 og i takke-mailen via `thankYouEmail.js` L76.
-- **`avatarEmoji` og `favoriteTeam` er den halvdel af navne-fundet, der IKKE
-  blev lukket (BEKRÆFTET, 2026-09-02).** `rankStandings` (gameStandings.js
-  L21-23) type-vagter nu `displayName`, men sender `emoji: u.avatarEmoji ?? null`
-  og `favoriteTeam: … ?? null` VIDERE URØRT fra samme forgiftede kilde.
-  Emulator: enhver godkendt spiller må skrive begge som map på sin egen profil
-  (users-reglen vagter kun `displayName`). Render-PoC mod den ÆGTE `Avatar`:
-  `emoji={a:1}` og `emoji={toString:null}` → "Objects are not valid as a React
-  child"; `favoriteTeam={toString:null}` → `Cannot convert object to primitive
-  value` i `teamMeta` (tourTeams2026.js L55); kontrol med en streng-emoji
-  overlever. Rammer HVER flade, der viser angriberens avatar: GameStandings
-  L357/L537, GameLeagues L41/L102, liga-væggen, MessagesPage — og
-  `UserRow.jsx` L171, altså den admin-flade, der skulle fjerne griefer'en.
-  Fix: samme to linjer i `rankStandings` + `avatarEmoji is string` i reglen.
+- **Grep-vagten mod `{ id: d.id, ...x }` er nu BRED — og har falske positiver
+  (målt 2026-09-02).** Regexen i `src/lib/dokumentId.test.js` er
+  `/\{\s*u?id:\s*[A-Za-z_]+\.id\s*,[^}]*\.\.\./` — id-nøgle før ETHVERT spread
+  i samme objekt. Den fanger nu også de tre variabel-former, der slap før
+  (`useMyStageBets`, `useBonusData`, `fix-double-chance`). Men `[^}]*` kan ikke
+  skelne et objekt-spread fra et array-spread eller en rest-parameter. Målt
+  MATCH på fire LEGITIME former: `{ id: d.id, tags: [...arr] }`,
+  `{ id: d.id, items: [...a, ...b] }`, `{ id: d.id, fn: (...args) => args }` og
+  `{ id: d.id, ...KONSTANT }` (spread af noget der IKKE er dokumentdata).
+  0 forekomster i repoet i dag, så prisen er en fremtidig falsk rød — billig at
+  omgå (skriv id sidst) og langt billigere end en falsk grøn. Behold bredden;
+  men hvis nogen fjerner en assertion her, så tjek at det ikke er vagten selv.
+- **Navne-/profilgiften er LUKKET, men vagten dækker kun 3 af 6 update-grene
+  på top-niveau `leagues` (BEKRÆFTET 2026-09-02, 6d14243).** `navnGyldigt()` +
+  `ingenIdNoegle()` står på create, ejer-update og (kun navn) liga-admin-update
+  — men **IKKE** på forlad-grenen, `isGlobalAdmin()`-grenen eller
+  `isOwner()`-grenen (firestore.rules ~L419-427). Emulator-målt: en globalAdmin
+  må stadig skrive `id: 'TB'` OG `name: {a:1}` på enhver Tour-liga. Forlad-grenen
+  er dækket indirekte af `hasOnly(['memberUids'])` (målt: DENIED). Skaden er i
+  dag inert, fordi ALLE læsere er id-først og normaliserer navnet
+  (`useLeagues`/`useAllLeagues` → `name: typeof … === 'string' ? … : ''`), og
+  fordi `functions/index.js:1872` nu er `{ ...ld.data(), id: ld.id }`. Men
+  kommentaren i reglen lover "samme to vagter" og leverer dem kun på ejer-grenen
+  — modsat `games/{g}/leagues`, hvor der slet ikke FINDES en admin-skrivegren.
+  Vil man have vagten hel, skal `navnGyldigt() && ingenIdNoegle()` også på de to
+  admin-grene.
 - **`questions.label` er type-vagtet ved CREATE, men ikke ved UPDATE
   (BEKRÆFTET).** `firestore.rules` create kræver `label is string`, 3-120 tegn;
   update-grenen (L1164-1186) kræver kun `points`-båndet. Liga-ejeren kan
@@ -520,6 +517,29 @@
   `SWEEP_TIMEOUT_S = 300` (index.js L443/L452) og et afledt `XG_BUDGET_MS`
   (L447). Verificér selv, om xG stadig ligger FØR standings/alarm i løkkekroppen
   — dét led er ikke efterprøvet.)*
+- **Vagten kan FRYSE et allerede forgiftet liga-dokument (BEKRÆFTET
+  2026-09-02, 6d14243).** `ingenIdNoegle()` på ejer-update er UBETINGET og ser
+  på `request.resource.data` — altså HELE resultatdokumentet, ikke kun de
+  ændrede felter. Har en Tour-liga allerede et `id`-felt (og det KUNNE den få,
+  indtil 6d14243 — hullet var bekræftet åbent), er ejeren låst ude for evigt:
+  emulator-målt `ejer-joinCode=DENIED, ejer-omdøb=DENIED`. Liga-admin kan
+  stadig omdøbe (den gren har ikke `ingenIdNoegle()`), medlem kan stadig
+  forlade, og globalAdmin kan alt — men INGEN flade fjerner selve `id`-feltet;
+  det kræver Firebase-konsollen. Samme form, mildere: en liga UDEN `name` giver
+  `ejer-joinCode=DENIED`, men `ejer-sæt-navn=OK`, og ejeren HAR omdøbnings-UI
+  (`LeaguesPage.jsx:217`), så den helbreder sig selv med ét klik. **Lære:** en
+  ubetinget felt-vagt på update er en RATCHET, ikke et filter — den rammer
+  historiske dokumenter, ikke kun nye skrivninger. Spørg altid: "kan det
+  dokument, vagten afviser, allerede findes — og kan nogen så rette det?"
+- **Det frie `id`-felt: kortet pr. 2026-09-02 (emulator-målt med kontrol).**
+  Reglen forbyder `id` KUN på `games/{g}/leagues` og top-niveau `leagues`
+  (create + ejer-update). Feltet accepteres frit på: **`users/{uid}`** (enhver
+  logget ind, også `pending`, på egen profil — create afvises kun fordi
+  `creatingWithUserEmail()` fanger `email`, ikke `id`), **`games/{g}/players`**,
+  **`games/{g}/bets`**, **`bonusBets`**, **`stageBets`**, **`messages`**,
+  **`leagueComments`** og **`leagueActivity`**. Alle otte er inerte i dag, fordi
+  hver læser er vendt til data-først og holdes der af `dokumentId.test.js` —
+  men det er ÉN vagt, og den er en grep-test, ikke en regel.
 
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
