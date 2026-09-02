@@ -282,6 +282,26 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
 
 ## Faste steder og konkrete tal (efterprøv, gæt ikke)
 
+- **Et cachet id, der springer et opslag over, mister en gratis selvhelbredelse.**
+  `livescoreEid` (`kampDetaljer.js:79-84`) foretrækkes altid over et frisk
+  nøgle-opslag, hvis blot FORMATET er gyldigt — men formatgyldig ≠ stadig
+  korrekt. Før caching blev id'et genberegnet hver kørsel og healede sig selv,
+  hvis kilden omdøbte/genudstedte det; nu fejler en forældet cache for evigt i
+  den gren, der IKKE har karantæne (`utilgaengelige`/404, adskilt fra
+  `detaljerAfvistAt`s 7-dages karantæne for `uenig`/`uparset`). Spørg ved
+  enhver ny cache af et FREMMED id: hvilken gren rammer et forældet men
+  gyldigt-formateret id, og har DEN gren en udgang?
+- **To kald, samme fejlkilde, ulige alarm-vej.** Et nyt opslag lagt FØRST i en
+  kørsel (fx `kortlaegEids` før `syncKampDetaljerCore`, `index.js:682-688`)
+  fik sin egen `KildenLukkerOs`-fangst, der re-kaster til en GENERISK ydre
+  catch (`st.fejl`, intet `meldAlarm`) — mens den samme fejl inde i det
+  oprindelige kald stadig udløser den navngivne alarm. To steder, der burde
+  give samme signal ved samme fejl, gør det ikke, fordi det nye kald blev
+  indsat med sin egen fangst i stedet for at dele den eksisterende. Spørg:
+  rammer et nyt kald, indsat FØR et eksisterende sikret kald, den SAMME
+  alarm-vej, eller har det fået sin egen?
+
+
 - **`firestore.rules` er ÉN fil for BEGGE projekter.**
   `games/{gameId}/matches/{matchId}` (`firestore.rules:805-809`) er
   `read: isApproved()`, `create/update: isGlobalAdmin()`, ingen felt-allowlist

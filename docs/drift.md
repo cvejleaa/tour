@@ -362,7 +362,7 @@ poste. Knappen tager 40 kampe ad gangen, så en bagfyldning kan drives i hånden
 | `N uenige om facit` | Kildens slutstilling er en anden end vores. Ofte legitimt: en afbrudt eller tildelt kamp. | Kig på kampen. Er vores facit rigtigt, skal der intet gøres — kampen prøves igen om en uge og bliver ved med at være uenig. |
 | `N kunne ikke parses` | Målene dannede ikke den ubrudte kæde. Kilden har sandsynligvis skiftet form. | Kør `node scripts/maal-livescore-detaljer.mjs`. Er afvisningsraten pludselig høj, eller er der nye IT-koder, skal `maalAf` rettes. |
 | `N kunne ikke kobles til kilden` | Kampen findes hos os, men ingen af kildens kampe har samme DATO og samme holdpar. Typisk et hold, livescore har omdøbt, eller en kamp flyttet til en anden dag hos den ene kilde. **Retter sig ALDRIG selv** — der sættes ingen karantæne, så den prøves forgæves ved hver kørsel. | Kør `node scripts/maal-livescore.mjs`. Er et holds kode ændret, skal `AFVIGER` i `functions-platform/livescoreHold.js` rettes. Er det datoen, der er skredet, så synk kamptiderne først. |
-| `N hvor kilden ikke svarede` | Almindelig nedetid (5xx) hos livescore. **Ikke** en fejl i vores kode. | Ingenting. Kampene prøves igen ved næste kørsel om en time, og de sættes ikke i karantæne. Bliver tallet ved i et døgn, er kilden nede for alvor. |
+| `N hvor kilden ikke svarede` | Almindelig nedetid (5xx) hos livescore. **Ikke** en fejl i vores kode. | Ingenting. Kampene prøves igen ved næste kørsel om en time, og de sættes ikke i karantæne. Bliver tallet ved i et døgn, er kilden nede for alvor. **Undtagelsen:** står den SAMME kamp dér dag efter dag, mens naboerne hentes fint, er det et forældet `livescoreEid` (se nedenfor) — slet feltet på kampen i konsollen, så kortlægges den igen ved næste sweep. |
 | `N uden kobling` | Kampen fandt ikke sin modpart hos kilden. | Kør `node scripts/maal-livescore.mjs`. Holdkoder eller kickoff-tider er drevet → ret `functions-platform/livescoreHold.js`. |
 | **Alarm** `detaljerLukket` | Kilden svarede 429/403 og kørslen stoppede sig selv. | Gør INTET i en time. Vagten findes, fordi Cloud Functions egresser gennem delt NAT: banker vi videre, rammer det `api.superliga.dk` og pulselive, som intet har med livescore at gøre. Sker det igen næste kørsel, er vi rate-limited — så skal loftet ned. |
 | **Alarm** `detaljerKobling` | Nul af kampene kunne kobles. Kortlægningen er død. | `scripts/maal-livescore.mjs` → ret `livescoreHold.js`. |
@@ -377,6 +377,16 @@ sandsynligvis skiftet form — se kampDetaljer.js"* og sendt dig på kodejagt.
 **Afviste kampe ligger en uge i karantæne** (`detaljerAfvistAt`). Uden den
 ville en permanent uenig kamp blive hentet igen 24 gange i døgnet for evigt og
 æde loftet — den er gammel og ligger derfor forrest i køen.
+
+**`livescoreEid` er kildens kamp-id, cachet på kampdokumentet.** Sweep'et
+kortlægger alle kampe uden id (også uspillede) i ét stage-kald, og derefter
+koster hvert kampopslag to kald og intet stage-kald — også for efter-facit-
+vejen i minut-jobbet. Prisen er, at id'et ikke efterprøves igen: peger det
+forkert (livescore genudsteder id'er sjældent, men det kan ske), ender kampen
+PERMANENT under *kilden svarede ikke* (404) eller *uenige om facit* (id'et
+peger på en anden kamp), og det retter sig ikke selv. Ret: slet feltet på
+kampen i konsollen; næste sweep kortlægger den igen. En automatisk selvheling
+(id'et slettes ved 404/uenig) er opgave #82 og bygges sammen med live-målene.
 
 **Nødudgang, hvis vi bliver blokeret permanent:** der findes allerede en
 proxy uden for Cloud Functions (`proxy/`, Cloud Run) med signaturhåndtering og

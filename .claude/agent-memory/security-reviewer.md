@@ -50,6 +50,13 @@
   `{ collection: () => ({ doc: () => ({ collection: () => col }) }), batch: ... }`
   (kopiér `fakeDb` fra `functions-platform/syncProviders.test.js` L27-70).
   Providers testes med en `fetchFn`, der returnerer et FJENDTLIGT JSON-svar.
+- **URL-vagter PoC'es med en fetch-SPION og altid med en muteret kopi.**
+  Kopiér modulet + dets naboer til scratchpad, streng-erstat guarden med en
+  svagere (`typeof v === 'string' && /re/` → `v != null`), og kør SAMME PoC mod
+  begge. Uden mutationen ved du ikke, om spionen kan se en læk — og en
+  URL-injektion ser ud som en tom `fetch`-liste, ikke som en fejl. Fjendtlige
+  værdier, der har afsløret ægte forskelle: sti-traversal, `//vært/x`,
+  `%2e%2e%2f`, CRLF (headerinjektion), ikke-ASCII-cifre, `{toString:()=>...}`.
 - **Workflow-steps køres som bash:** kopiér `run:`-blokken ORDRET til en `.sh`
   og kør den mod et `process.argv`-dump. Quoting-fejl kan kun ses ved at køre dem.
   Falsk service-account laves med `openssl genrsa` — `cert()` validerer kun
@@ -541,6 +548,29 @@
   hver læser er vendt til data-først og holdes der af `dokumentId.test.js` —
   men det er ÉN vagt, og den er en grep-test, ikke en regel.
 
+- **Et 429 på STAGE-kaldet mister sin alarm, når kortlægningen fyrer først
+  (BEKRÆFTET, f398627).** `kortlaegEids` (kampDetaljer.js L488-560) laver nu
+  stage-kaldet FØR `syncKampDetaljerCore`, og index.js L681-687 RETHROWER
+  `KildenLukkerOs` ud i det ydre catch (L768-776) → `st.fejl(...)`, men
+  `meldAlarm({type:'detaljerLukket'})` fyrer ALDRIG, for den hænger på
+  `d.afbrudt`, og kernen blev aldrig kaldt. PoC kørt: 429 på stage → kortlæg
+  KASTER; samme 429 direkte mod kernen → `afbrudt:true` (alarmen fyrer).
+  Vinduet er "mindst én kamp uden cachet Eid", altså hver sweep indtil cachen
+  er varm og hver gang nye kampe seedes. Med VARM cache rammer 429'en
+  incidents, og alarmen fyrer som før (kørt). Konsekvens: Drift-KORTET bliver
+  rødt (overskrives næste kørsel), men det vedvarende, kvitterbare
+  `driftAlarmer`-dokument med NAT-forklaringen udebliver. Samme klasse som
+  5xx→uparset: rigtig farve, forkert remedie. Fix: fang `KildenLukkerOs` i det
+  ydre catch og kald samme `meldAlarm` — én vagt, ét sted.
+- **`annullerede[]` i `liveMaalAf` har INTET loft (BEKRÆFTET, f398627).**
+  `maal[]` er bundet af `kaedeOk` mod VORES stilling (målt: kan ikke sprænges),
+  men annullerede mål tælles ikke mod noget: PoC med 20.000 IT-62-hændelser →
+  `annullerede.length = 20001`, `JSON.stringify` = **1.580.450 bytes**, altså
+  over Firestores 1 MiB pr. dokument. Ingen størrelsesgrænse på `res.json()` i
+  `hentJson` heller. Skriver delopgave 5 listen råt i kampdokumentet, fejler
+  hele batchen (INVALID_ARGUMENT) — og en batch dækker flere kampe.
+  Fix hører i liveMaal.js, ikke i skrivestien: `.slice(0, 25)` efter sorteringen.
+
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
 - **alarmId-fuzz mod `kvitterDriftAlarm`** (functions-platform/index.js L495-508).
@@ -617,6 +647,31 @@
 - **Chancen: to samtidige kald i samme runde.** 15 par + 10 tripler kørt mod
   emulatoren: ALDRIG mere end én åben chance. Transaktionen i `setChanceCore`
   bærer dedup'en — den ene kalder retryer og ser den andens skrivning.
+
+- **Et forgiftet `livescoreEid` på kampdokumentet i en URL.** 14 former mod
+  `syncKampDetaljerCore` (f398627): `../../admin`, `1784451?x=1`,
+  `1784451/../../v1/api/app/admin`, `//evil.example.com/x`, `%2e%2e%2fadmin`,
+  ` 1784451`, 13 cifre, CRLF (`1784451\r\nX-Evil: 1`), arabisk-indiske cifre,
+  tal i stedet for streng, `{toString:null}`, `{toString:()=>'../../admin'}`,
+  array, tom streng. **INGEN** nåede `fetch`; alle faldt tilbage til
+  nøgle-opslaget i stage-listen, og kampen blev skrevet korrekt.
+  `gyldigEid` (L489) er vagten: `typeof v === 'string' && /^\d{1,12}$/`.
+  MUTATIONSKONTROL kørt (guarden → `v != null && v !== ''`): så nåede
+  sti-traversal, `//evil.example.com`, CRLF-header-injektion og
+  `{toString:()=>'../../admin'}` ALLE frem i URL'en, og `{toString:null}`
+  kastede ud af hele kernen. PoC'en KAN altså se en læk — den var ren.
+- **Et forgiftet Eid fra stage-listen ind i `kortlaegEids`.** 12 former
+  (`../../admin`, `1784451?x=1`, 13 cifre, ` 1784451`, `{toString:null}`,
+  `{toString:()=>...}`, null/true/array/tal): kun cifre slipper igennem, fordi
+  `hentNoegler` whiteliste'r (L520-521) FØR kortlægningen ser værdien.
+  `kortlaegEids` omgår altså ikke filteret. Én giftig post blandt sunde vælter
+  ikke længere kørslen (pr-post-try'et er landet).
+- **En fjendtlig `noegler`-Map fra en fremtidig kalder.** `kortlaegEids`
+  re-validerer IKKE map-værdien før den skrives, så `../../admin` KAN havne i
+  `livescoreEid` — men `eidForKamp` validerer ved LÆSNING, så værdien aldrig
+  når en URL (kørt: opslaget faldt tilbage til stage-listen og skrev kampen
+  rigtigt). Fejler lukket. Kun kalderen i index.js findes i dag, og den giver
+  hentNoegler-mappet videre.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
 
@@ -909,6 +964,66 @@
   `{gameId}_detaljerLukket`, som minut- og sweep-grenen DELER — ingen spam,
   men den først fyrede besked vinder i 6 timer.
 
+- **Eid-cachen + liveMaalAf (f398627, delopgave 2-4) er BEKRÆFTET RENT bortset
+  fra de to poster i VIRKER-listen.** PoC uden emulator (fake db + fetch-spion,
+  se PoC-opsætningen). Målt:
+  (a) **Skriveomfang:** `kortlaegEids` skriver KUN `{livescoreEid}` — også når
+  stage-svaret bærer `result/homeGoals/awayGoals/kickoff/points/maal/
+  detaljerVersion/livescoreEid:'../../admin'` på både stage- og event-niveau.
+  Doc-id'et er `m.id` fra vores egen liste, aldrig kildens. `batch.update`,
+  ikke `set` — en fremmed nøgle kan ikke OPRETTE en kamp.
+  (b) **`SKRIVBARE_FELTER.includes('livescoreEid')`-vagten i kortlaegEids er
+  en ÆKVIVALENT mutation** (samme form som forbudslistens tautologi): fjernes
+  `if`'et, sker der intet. Fjernes derimod feltet fra listen, bliver `skriv`
+  tomt, og Admin SDK'ens `update({})` KASTER (verificeret mod
+  @google-cloud/firestore) → fanget af index.js' warn-catch, fallback til
+  gammel vej. Fejler lukket og støjende.
+  (c) **Giftigt kickoff på VORES kampdokument** (admin-skrivbart, ingen
+  feltliste i rules) → kampen tælles `ukendt`, kørslen fortsætter (try'et i
+  `noegleAfKamp`).
+  (d) **`liveMaalAf` er ren og kaster ikke** på 13 fjendtlige `Pn`
+  (XSS, ANSI-escape, RTL-override, nulbredde, NUL-byte, prompt-injektion,
+  500 tegn) eller 9 ikke-streng-typer (`{toString:null}`,
+  `{toString:()=>{throw}}`, Symbol, Object.create(null), array, tal, bool).
+  Alt går gennem `navn()` → `rensTekst` (max 40, `<>{}[]\`` og kontroltegn
+  væk). RESTEN ER UÆNDRET: `"`, `&`, U+202E og nulbredde overlever — ufarligt
+  i React, farligt i et HTML-attribut eller en mail.
+  (e) **Fremmede koder fejler i den SIKRE retning:** `IT:'62'` (streng),
+  `Nm:3`, `Min:-5`, `Min:'9999'` giver alle ingen annulleret post.
+  Uenighed pr. SIDE afviser (kørt: 1-0 mod 0-1 = uenig).
+  (f) **`liveMaal: FieldValue.delete()` i syncResultsCore (L203) tilføjer
+  INGEN ny eksponering.** Feltet ryddes i NØJAGTIG samme `batch.set` som
+  `result/homeGoals/awayGoals/status:'finished'` — en kilde, der kan lyve om
+  `finished`, skriver allerede FACIT, hvilket er uendeligt værre end at rydde
+  en live-liste. Den nye `cur.liveMaal == null`-vagt giver højst ÉN ekstra
+  skrivning pr. kamp (`delete` gør feltet fraværende → næste kørsel springer
+  over), og `recomputeGameMatch` returnerer på `prevResult === nextResult`.
+  (g) **Kald-regnskabet (påstand efterprøvet, ikke antaget):** kold cache =
+  1 stage + 8x2 = **17 kald** (uændret fra før); VARM cache = **16** (stage-
+  kaldet forsvinder helt, `mangler.length===0` returnerer FØR `fetch` og før
+  `gameRef.get()`). Efter-facit-vejen: 7 → **6** kald for 3 kampe. Ingen nye
+  kald nogen steder; kortlægningen genbruger sweep'ets ene stage-kald og
+  giver mappet videre, så det aldrig hentes to gange i samme kørsel.
+  (h) **Første sweep efter udrulning skriver Eid på HELE sæsonen i ÉN batch**
+  — 132 ops (SL) / 380 (PL). Under Firestores 500-grænse, men kun 120 docs'
+  headroom, og klienten validerer ikke selv (målt: 600 ops accepteres lokalt,
+  serveren afviser). Samme kørsel fyrer 132/380 `recomputeGameMatch`-triggere,
+  der alle returnerer på `prevResult === nextResult`. Chunk batchen, hvis et
+  spil nogensinde får >500 kampe.
+  (i) **`live`-stillingen kan ikke forgiftes af kilden:** begge providere
+  filtrerer på `Number.isFinite(score.home/away)` (syncProviders.js L274,
+  L554) FØR `live` skrives. `liveMaalAf` KASTER ganske vist på
+  `live:{home:{toString:null}}` (`heltal` → `String()` uden try) — men vejen
+  dertil er admin/script, ikke kilden. Samme klasse som `detaljerVersion`.
+  Delopgave 5 bør pakke kaldet pr. kamp i try/catch, så ét forgiftet dokument
+  ikke dræber live-løkken for hele spillet.
+  (j) **`livescoreEid` og `liveMaal` kræver INGEN regel-ændring og lækker
+  intet:** `games/{g}/matches` er `read: isApproved()` / `create,update:
+  isGlobalAdmin()` (firestore.rules L194-203, L862-866) — en spiller kan ikke
+  skrive dem, og indholdet er offentlige kendsgerninger (et fremmed kamp-id,
+  målscorere i en kamp, der spilles lige nu). Ingen ny læse-query, så
+  "regler er ikke filtre" er ikke i spil.
+
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
 - **N+1 i `hentLigaMedlemmer`:** et sekventielt `users`-opslag pr. deltager.
@@ -992,6 +1107,12 @@
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
 
+- **Et loft på én liste er ikke et loft på nabolisten.** `maal[]` er bundet af
+  `kaedeOk` mod vores egen stilling og kan ikke sprænges — og netop derfor blev
+  `annullerede[]` født uden loft i samme funktion: forsvaret var allerede
+  "bevist" for det felt, læseren havde i hovedet. Returnerer en funktion FLERE
+  lister fra samme fremmede svar, så spørg efter loftet på hver enkelt, og
+  mål bytes med `JSON.stringify` mod Firestores 1 MiB.
 - **`{ uid: d.id, ...d.data() }` giver dokumentet det SIDSTE ord.** Mønstret
   ser ud som "doc-id'et er identiteten", men spreadet overskriver det, hvis
   feltet findes. Skal doc-id'et bære identiteten — og det er hele pointen med

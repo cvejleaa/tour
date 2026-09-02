@@ -138,6 +138,15 @@ const versionsTal = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 /** Felter, der aldrig må stå i en skrivning herfra — testens modpol. */
 const FORBUDTE_FELTER = Object.freeze(['result', 'homeGoals', 'awayGoals', 'kickoff']);
 
+/** Firestore: højst 500 skrivninger pr. batch. Under loftet med luft til PL's 380. */
+const BATCH_LOFT = 400;
+
+/** En kørsel, der intet gjorde. Ét sted, så kernen og sweep'et ikke kan drive. */
+const TOM_KOERSEL = Object.freeze({
+  manglede: 0, valgte: 0, forsoegt: 0, skrevet: 0,
+  uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, afbrudt: false,
+});
+
 /**
  * Hvor mange kampe hentes pr. kørsel? Loft på KVOTE, ikke på tid — budgettet
  * nedenfor er tids-vagten.
@@ -541,8 +550,13 @@ async function kortlaegEids(db, FieldValue, opts = {}) {
   const ud = { manglede: mangler.length, skrevet: 0, ukendte: 0, noegler };
   if (noegler.size === 0) return ud;
 
-  const batch = db.batch();
+  // Første kørsel efter udrulning skriver HELE sæsonen: 132 kampe for
+  // Superligaen, 380 for Premier League. Firestore tager 500 ops pr. batch,
+  // og klienten tæller ikke selv efter — serveren afviser, og så var ingen
+  // skrevet. Derfor deles der op, før nogen liga når loftet.
   const matchesCol = gameRef.collection('matches');
+  let batch = db.batch();
+  let iBatch = 0;
   for (const m of mangler) {
     const n = noegleAfKamp(m.data, kodeAfNavn);
     const eid = n ? noegler.get(n) : null;
@@ -553,8 +567,14 @@ async function kortlaegEids(db, FieldValue, opts = {}) {
     if (SKRIVBARE_FELTER.includes('livescoreEid')) skriv.livescoreEid = eid;
     batch.update(matchesCol.doc(m.id), skriv);
     ud.skrevet += 1;
+    iBatch += 1;
+    if (iBatch === BATCH_LOFT) {
+      await batch.commit();
+      batch = db.batch();
+      iBatch = 0;
+    }
   }
-  if (ud.skrevet) await batch.commit();
+  if (iBatch) await batch.commit();
   return ud;
 }
 
@@ -587,10 +607,7 @@ async function kortlaegEids(db, FieldValue, opts = {}) {
 
  */
 async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
-  const tom = {
-    manglede: 0, valgte: 0, forsoegt: 0, skrevet: 0,
-    uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, afbrudt: false,
-  };
+  const tom = { ...TOM_KOERSEL };
   const livescore = opts.livescore;
   // Et spil uden livescore-konfiguration har ikke evnen. Ikke en fejl.
   if (!livescore?.land || !livescore?.liga) return tom;
@@ -667,14 +684,22 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
   let noegler = opts.noegler instanceof Map ? opts.noegler : null;
   const manglerEid = valgte.some((m) => !gyldigEid(m.data?.livescoreEid));
   try {
-    if (manglerEid && !noegler) {
-      // Budget-tjek FØR stage-kaldet. Det kan koste sine fulde 10 sekunder,
-      // og lå det uden for budgettet, var budgettet ikke et loft på kørslen,
-      // men på løkken. Security regnede værste tilfælde ud: uden dette tjek
-      // er det stage-kald + budget + ét kald-sæt.
-      if (klokke() >= udloeb) return ud;
-      noegler = await hentNoegler(livescore, fetchFn);
-      if (noegler.size === 0) return ud; // kilden svarede, men uden kampe
+    if (manglerEid) {
+      if (!noegler) {
+        // Budget-tjek FØR stage-kaldet. Det kan koste sine fulde 10 sekunder,
+        // og lå det uden for budgettet, var budgettet ikke et loft på kørslen,
+        // men på løkken. Security regnede værste tilfælde ud: uden dette tjek
+        // er det stage-kald + budget + ét kald-sæt.
+        if (klokke() >= udloeb) return ud;
+        noegler = await hentNoegler(livescore, fetchFn);
+      }
+      // Kilden svarede, men uden kampe — OGSÅ når listen kom udefra. Et 5xx
+      // på sweep'ets stage-kald giver kortlægningen en tom liste, og gik den
+      // igennem her, blev hver kamp uden cachet id "ukendt", og sweep'et
+      // fyrede detaljerKobling ("kortlægningen er død") under et helt
+      // almindeligt udfald. Tjekket stod før KUN i den gren, der selv
+      // hentede listen.
+      if (noegler.size === 0) return ud;
     }
 
     for (const m of valgte) {
@@ -815,10 +840,47 @@ async function efterFacitDetaljer(db, FieldValue, opts = {}) {
   });
 }
 
+/**
+ * Sweep'ets kampdetalje-kørsel: Eid-kortlægning af HELE kamplisten først (ét
+ * stage-kald), derefter detaljerne med den samme liste — og ÉN vagt om
+ * kredsløbsafbryderen for begge kald.
+ *
+ * Findes, fordi kortlægningen før lå som et separat kald i index.js' sweep-
+ * handler, hvor et 429/403 blev kastet FORBI kernens afbrudt-gren til den
+ * generiske fejl-linje: samme kilde, samme rate-limit, samme delte NAT — men
+ * ingen detaljerLukket-alarm. To kald mod samme fejlkilde, håndteret
+ * forskelligt alt efter hvilket der ramte loftet først, og det nye kald var
+ * det, der kørte FØRST. Quality Controls fund. Husets regel er én vagt pr.
+ * sikkerhedsregel, og en onSchedule-krop kan ikke unit-testes, så vagten bor
+ * her, hvor den kan.
+ *
+ * Bliver vi lukket ude allerede under kortlægningen, køres kernen IKKE: den
+ * ville blot ramme samme loft igen, og aftalen med afbryderen er at stoppe.
+ * Fejler kortlægningen af en ANDEN grund, henter kernen listen selv — som
+ * før.
+ *
+ * @returns kernens tal + `eid: {manglede, skrevet, ukendte}` fra kortlægningen
+ *          (null, hvis den fejlede)
+ */
+async function sweepKampDetaljer(db, FieldValue, opts = {}) {
+  let noegler = null;
+  let eid = null;
+  try {
+    const k = await kortlaegEids(db, FieldValue, opts);
+    noegler = k.noegler;
+    eid = { manglede: k.manglede, skrevet: k.skrevet, ukendte: k.ukendte };
+  } catch (err) {
+    if (err instanceof KildenLukkerOs) return { ...TOM_KOERSEL, afbrudt: true, eid };
+    console.warn(`Eid-kortlægning ${opts.gameId} fejlede (kernen henter selv):`, err?.message || err);
+  }
+  const d = await syncKampDetaljerCore(db, FieldValue, { ...opts, noegler });
+  return { ...d, eid };
+}
+
 module.exports = {
   detaljeNiveau,
   efterFacitDetaljer,
-  kortlaegEids, gyldigEid, navn,
+  kortlaegEids, gyldigEid, navn, sweepKampDetaljer,
   SELVMAAL_IT,
   DETALJE_VERSION,
   syncKampDetaljerCore,

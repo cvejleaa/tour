@@ -3,7 +3,7 @@ import { createRequire } from 'module';
 import { readFileSync } from 'fs';
 
 const require = createRequire(import.meta.url);
-const { liveMaalAf, LIVE_SKRIVBARE, ANNULLERET_IT } = require('./liveMaal');
+const { liveMaalAf, LIVE_SKRIVBARE, ANNULLERET_IT, ANNULLERET_LOFT } = require('./liveMaal');
 const { SKRIVBARE_FELTER } = require('./kampDetaljer');
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/livescore-kampe.json', import.meta.url), 'utf8'));
@@ -22,8 +22,11 @@ describe('liveMaalAf — målene, bundet til VORES levende stilling', () => {
   it('skriver kæden, når kilden og vores live-stilling er enige', () => {
     const ud = liveMaalAf(EN_NUL, { home: 1, away: 0 });
     expect(ud.afvist).toBeUndefined();
-    expect(ud.home).toBe(1);
-    expect(ud.away).toBe(0);
+    // Præcis to lister og INGEN kopi af stillingen: den står allerede i
+    // match.live, og en kopi skrevet af et andet job ville drive fra den.
+    expect(Object.keys(ud).sort()).toEqual(['annullerede', 'maal']);
+    expect(ud.maal.filter((m) => m.hold === 'home')).toHaveLength(1);
+    expect(ud.maal.filter((m) => m.hold === 'away')).toHaveLength(0);
     expect(ud.maal).toHaveLength(1);
     expect(ud.maal[0]).toMatchObject({ hold: 'home', selvmaal: false });
     expect(typeof ud.maal[0].minut).toBe('number');
@@ -90,6 +93,21 @@ describe('liveMaalAf — målene, bundet til VORES levende stilling', () => {
     const ud = liveMaalAf(gift, { home: 2, away: 2 });
     expect(ud.annullerede.map((a) => a.minut)).toEqual([32, 40]);
     expect(ud.annullerede[1].scorer).toBeUndefined();
+  });
+});
+
+describe('annullerede har et loft — listen er ikke bundet af kæden', () => {
+  it('beholder de FØRSTE efter minut og kapper resten', () => {
+    // Security: 20.000 IT-62 → 1,58 MB, over Firestores 1 MiB pr. dokument.
+    const mange = Array.from({ length: ANNULLERET_LOFT + 10 }, (_, i) => ({
+      IT: ANNULLERET_IT, Nm: 1, Min: 90 - i, Pn: `Spiller ${i}`,
+    }));
+    const ud = liveMaalAf({ Tr1: 0, Tr2: 0, Incs: { 1: mange } }, { home: 0, away: 0 });
+    expect(ud.afvist).toBeUndefined();
+    expect(ud.annullerede).toHaveLength(ANNULLERET_LOFT);
+    expect(ud.annullerede[0].minut).toBe(90 - (ANNULLERET_LOFT + 9));
+    expect(ud.annullerede.at(-1).minut).toBe(90 - 10);
+    expect(ANNULLERET_LOFT).toBeLessThanOrEqual(25);
   });
 });
 

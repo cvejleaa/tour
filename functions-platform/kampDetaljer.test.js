@@ -25,6 +25,7 @@ const {
   heltal, tilskuertal, hentNoegler, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER, DETALJE_LOFT, AFVIST_KARANTAENE_MS, API,
   DETALJE_BUDGET_BROEK, detaljeNiveau, DETALJE_VERSION, efterFacitDetaljer, kortlaegEids, gyldigEid,
+  sweepKampDetaljer,
 } = require('./kampDetaljer');
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/livescore-kampe.json', import.meta.url), 'utf8'));
@@ -881,6 +882,15 @@ describe('kortlaegEids — livescores kamp-id på kampdokumentet', () => {
     for (const s of db.skrevet) expect(Object.keys(s.felter)).toEqual(['livescoreEid']);
   });
 
+  it('deler skrivningen op, før Firestores batch-loft på 500 — PL har 380 kampe', async () => {
+    const db = fakeDb(TEAMS, []);
+    const only = Array.from({ length: 401 }, (_, i) => ({ id: `k${i}`, data: USPILLET }));
+    const ud = await kortlaegEids(db, FieldValue, opts({ only }));
+    expect(ud.skrevet).toBe(401);
+    expect(db.skrevet).toHaveLength(401);
+    expect(db.commits).toBe(2);
+  });
+
   it('uden livescore-konfiguration: intet', async () => {
     const db = fakeDb(TEAMS, []);
     expect(await kortlaegEids(db, FieldValue, opts({ livescore: null, only: [{ id: 'r1-a', data: USPILLET }] })))
@@ -933,6 +943,79 @@ describe('syncKampDetaljerCore — med cachet livescoreEid', () => {
     expect(ud.skrevet).toBe(1);
     expect(fetchFn.mock.calls.some((c) => String(c[0]).includes('/incidents/soccer/1784451'))).toBe(true);
     expect(fetchFn.mock.calls.some((c) => String(c[0]).includes('/incidents/soccer/../../x'))).toBe(false);
+  });
+});
+
+describe('syncKampDetaljerCore — en TOM medgivet liste', () => {
+  it('behandles som "kilden svarede uden kampe": ingen ukendte, intet nyt stage-kald', async () => {
+    // Sweep'ets kortlægning giver en tom Map videre, når stage-kaldet gav
+    // 5xx. Gik den igennem som en liste, blev kampen "ukendt", og sweep'et
+    // fyrede detaljerKobling ("kortlægningen er død") under et udfald.
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn, noegler: new Map(), only: [{ id: 'r1-a', data: KAMP_DATA }],
+    }));
+    expect(ud).toMatchObject({ manglede: 1, valgte: 1, forsoegt: 0, ukendte: 0, skrevet: 0 });
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+});
+
+describe('sweepKampDetaljer — én vagt om afbryderen for begge kald', () => {
+  const USPILLET = { home: 'FC Midtjylland', away: 'Randers FC', kickoff: new Date('2026-07-24T17:00:00Z') };
+
+  it('429 under KORTLÆGNINGEN giver afbrudt — samme gren som når kernen rammer det', async () => {
+    // Før: kastet forbi afbrudt-grenen i index.js → generisk fejl, ingen
+    // detaljerLukket-alarm. Quality Controls fund.
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = vi.fn(async () => ({ ok: false, status: 429 }));
+    const ud = await sweepKampDetaljer(db, FieldValue, opts({ fetchFn, only: [{ id: 'r1-a', data: KAMP_DATA }] }));
+    expect(ud.afbrudt).toBe(true);
+    expect(ud.eid).toBeNull();
+    // Kernen køres IKKE: ét stage-kald, ingen kampopslag, ingen skrivning.
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(String(fetchFn.mock.calls[0][0])).toContain('/stage/');
+    expect(db.commits).toBe(0);
+  });
+
+  it('kortlægger hele listen, giver den videre og henter detaljerne — ét stage-kald i alt', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const ud = await sweepKampDetaljer(db, FieldValue, opts({
+      fetchFn, only: [{ id: 'r1-a', data: KAMP_DATA }, { id: 'r2-a', data: USPILLET }],
+    }));
+    // Begge kampe (også den uspillede) fik id; kun den færdige fik detaljer.
+    expect(ud.eid).toEqual({ manglede: 2, skrevet: 2, ukendte: 0 });
+    expect(ud).toMatchObject({ manglede: 1, skrevet: 1, afbrudt: false });
+    expect(db.skrevet.filter((s) => 'livescoreEid' in s.felter).map((s) => s.id).sort()).toEqual(['r1-a', 'r2-a']);
+    expect(db.skrevet.some((s) => s.id === 'r1-a' && 'maal' in s.felter)).toBe(true);
+    expect(fetchFn.mock.calls.filter((c) => String(c[0]).includes('/stage/'))).toHaveLength(1);
+  });
+
+  it('5xx på stage-kaldet: tom liste, ingen ukendte, intet ekstra stage-kald — og ingen kobling-alarm-betingelse', async () => {
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = vi.fn(async () => ({ ok: false, status: 503 }));
+    const ud = await sweepKampDetaljer(db, FieldValue, opts({ fetchFn, only: [{ id: 'r1-a', data: KAMP_DATA }] }));
+    expect(ud).toMatchObject({ manglede: 1, valgte: 1, forsoegt: 0, ukendte: 0, skrevet: 0, afbrudt: false });
+    expect(ud.eid).toEqual({ manglede: 1, skrevet: 0, ukendte: 0 });
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    // index.js' kobling-alarm fyrer på `valgte > 0 && ukendte === valgte`.
+    expect(ud.ukendte === ud.valgte).toBe(false);
+  });
+
+  it('fejler kortlægningen af en ANDEN grund, henter kernen listen selv', async () => {
+    const db = fakeDb(TEAMS, []);
+    const ok = fakeFetch();
+    let kald = 0;
+    const fetchFn = vi.fn(async (url, o) => {
+      kald += 1;
+      if (kald === 1) throw new TypeError('fetch failed');
+      return ok(url, o);
+    });
+    const ud = await sweepKampDetaljer(db, FieldValue, opts({ fetchFn, only: [{ id: 'r1-a', data: KAMP_DATA }] }));
+    expect(ud.eid).toBeNull();
+    expect(ud.skrevet).toBe(1);
+    expect(fetchFn.mock.calls.filter((c) => String(c[0]).includes('/stage/'))).toHaveLength(2);
   });
 });
 

@@ -31,6 +31,16 @@ const {
 /** Hændelseskoden for et annulleret mål (VAR). Se filhovedet i kampDetaljer.js. */
 const ANNULLERET_IT = 62;
 
+/**
+ * Højst så mange annullerede mål pr. kamp. `maal` er bundet af kæden mod
+ * vores egen stilling og kan ikke sprænges — `annullerede` tælles ikke mod
+ * noget, og Security viste med en kørt PoC, at 20.000 IT-62-hændelser gav en
+ * liste på 1,58 MB: over Firestores 1 MiB pr. dokument, så hele batchen
+ * (flere kampe) ville fejle. Loftet står HER, hvor listen laves, ikke hos
+ * den, der skriver den. 25 er langt over alt, der er set i en fodboldkamp.
+ */
+const ANNULLERET_LOFT = 25;
+
 /** Det eneste felt, live-stien må skrive. Bundet af en mutationstest. */
 const LIVE_SKRIVBARE = Object.freeze(['liveMaal']);
 
@@ -39,8 +49,14 @@ const LIVE_SKRIVBARE = Object.freeze(['liveMaal']);
  *
  * @param {object} incidents  rå svar fra incidents/soccer/{Eid}
  * @param {{home:number, away:number}} live  VORES live-stilling (match.live)
- * @returns {{maal:Array, annullerede:Array, home:number, away:number}
- *          |{afvist:'uenig'|'uparset'}}
+ * @returns {{maal:Array, annullerede:Array}|{afvist:'uenig'|'uparset'}}
+ *
+ * Returnerer med vilje IKKE stillingen. Når funktionen ikke afviser, er
+ * kildens Tr1/Tr2 lig `live.home`/`live.away` pr. konstruktion, så en kopi
+ * her ville være en anden skrivning af det samme tal — og to skrivninger med
+ * hver sin kadence (minut-synken skriver `live`, live-mål-jobbet ville skrive
+ * kopien) driver fra hinanden. Kortet læser stillingen af `match.live` og
+ * tæller målene i `maal`, hvis det vil vide, om listen er nået frem til den.
  */
 function liveMaalAf(incidents, live) {
   const t1 = heltal(incidents?.Tr1);
@@ -73,7 +89,7 @@ function liveMaalAf(incidents, live) {
   }
   annullerede.sort((a, b) => a.minut - b.minut);
 
-  return { maal, annullerede, home: t1, away: t2 };
+  return { maal, annullerede: annullerede.slice(0, ANNULLERET_LOFT) };
 }
 
-module.exports = { liveMaalAf, LIVE_SKRIVBARE, ANNULLERET_IT };
+module.exports = { liveMaalAf, LIVE_SKRIVBARE, ANNULLERET_IT, ANNULLERET_LOFT };
