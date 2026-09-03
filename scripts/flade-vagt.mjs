@@ -12,6 +12,12 @@
 //      ellers står der forældede poster, som kan skjule et nyt hul senere,
 //   4. en undtagelse mangler en begrundelse (ellers bliver listen en losseplads).
 //
+// KUN VITEST-LOGGEN. E2E-klik tælles med i fanens øjebliksbillede (den
+// ugentlige kørsel), men ikke her: E2E kører i sit eget CI-job, og vagten
+// ser kun frontend-jobbets log. Et element, som KUN en Playwright-spec rører,
+// hører derfor i flade-undtagelser.json med begrundelsen "dækket af
+// e2e/…spec.js". Det er en bevidst pris for at holde vagten i ét job.
+//
 // IDENTITET UDEN LINJETAL. Basislinjen bruger (fil, komponent, tag, tekst,
 // nummer) — ikke fil:linje:kolonne. Linjetal flytter sig ved enhver
 // redigering ovenfor, og så ville hver eneste PR i en fil melde alle dens

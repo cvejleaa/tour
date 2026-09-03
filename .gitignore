@@ -52,3 +52,4 @@ scripts/.kit-cache/
 
 # Tappens log bag Admin → Tests → Fladen (build-test-report.mjs)
 .evne-log/
+.evne-log-e2e/

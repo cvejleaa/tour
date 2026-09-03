@@ -16,6 +16,15 @@ import { SPILLER_STATE } from './e2e/fixtures/konstanter.mjs';
 // Playwright starter ALLE webServer-entries uanset --project, så begge builds
 // bygges altid. Platform-serveren genbruges aldrig: en gammel dist bygget uden
 // emulator-flag ville tale med produktion.
+// Fladedækning (Admin → Tests → Knapper og felter): når EVNE_LOG er sat,
+// bygges begge apps med React-dev-runtime (NODE_ENV=development), så hvert
+// DOM-element bærer sit kildested (_debugSource), og e2e/fixtures/evne.mjs
+// kan logge, hvad testene klikker på. Ellers bygges der som i produktion —
+// den almindelige CI-kørsel tester produktionsbundtet, tap-kørslen
+// (build-test-report.mjs) tæller klik. Målt 3/9 2026: dev-bygget bevarer
+// _debugSource med absolutte filnavne i 18 chunks.
+const DEV_HVIS_TAP = process.env.EVNE_LOG ? 'NODE_ENV=development ' : '';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -52,13 +61,13 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'npx vite build --outDir dist-e2e-tour && npx vite preview --outDir dist-e2e-tour --port 4173',
+      command: `${DEV_HVIS_TAP}npx vite build --outDir dist-e2e-tour && npx vite preview --outDir dist-e2e-tour --port 4173`,
       url: 'http://localhost:4173',
       reuseExistingServer: !process.env.CI,
       timeout: 180000,
     },
     {
-      command: 'npx vite build --mode e2e --outDir dist-e2e-platform && npx vite preview --outDir dist-e2e-platform --port 4174',
+      command: `${DEV_HVIS_TAP}npx vite build --mode e2e --outDir dist-e2e-platform && npx vite preview --outDir dist-e2e-platform --port 4174`,
       url: 'http://localhost:4174',
       reuseExistingServer: false,
       timeout: 180000,

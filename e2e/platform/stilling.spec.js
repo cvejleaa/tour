@@ -11,7 +11,7 @@
 // i en anden liga. Fjernes filteret i forespørgslen, rammer den hendes
 // dokument, reglen afviser hele forespørgslen, og tabellen bliver tom med en
 // fejl — uden hende var testen grøn med og uden filter (Security's fund).
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/evne.mjs';
 import { SPIL_ID, SPILLER, MODSPILLER, FREMMED, POINT } from '../fixtures/konstanter.mjs';
 import { fmtPoints } from '../../src/lib/daNum.js';
 
