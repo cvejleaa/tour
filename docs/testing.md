@@ -20,9 +20,11 @@ de er afledt af den faktiske kørsel: **Admin → Tests**, som selv advarer, nå
 | Security Rules | Vitest + `@firebase/rules-unit-testing` | Firestore-regler (roller, deadlines, ligaer) | Firestore-emulator |
 | E2E | Playwright | UI-flows i rigtig browser | Browser (CI) |
 
-Hele UI'et er dækket udtømmende — hver side/komponent testes i alle tilstande
-(loading, fejl, tom, rollebaseret adgang, låst/åben, før/efter deadline,
-godkendt/afventer, korrekte/forkerte tip, fuzzy bonus-matchning osv.).
+UI-testene dækker siderne og komponenterne i deres tilstande (loading, fejl,
+tom, rollebaseret adgang, låst/åben, før/efter deadline, godkendt/afventer,
+korrekte/forkerte tip, fuzzy bonus-matchning osv.) — men IKKE udtømmende.
+Målt 3. september 2026 rørte testene 172 af 438 knapper og felter; det
+levende tal står under Admin → Tests → Knapper og felter (se nedenfor).
 
 ## Rundvisning for nye (offentlig side)
 
@@ -37,7 +39,7 @@ og bærer derfor ingen hemmeligheder.
 ## Oversigt i appen (kun admin)
 Under **Admin → Tests** kan administratorer se en komplet oversigt over alle
 gennemførte tests (pr. fil og pr. test, med bestået/fejlet-status),
-afhængighedsdiagrammet og **Fladen**: hvilke knapper, felter, formularer og
+afhængighedsdiagrammet og **Knapper og felter**: hvilke knapper, felter, formularer og
 links i kildekoden mindst én test har rørt ved. Alle tre er ØJEBLIKSBILLEDER
 — committede JSON-filer, ikke en måling af suiten lige nu:
 
@@ -45,7 +47,7 @@ links i kildekoden mindst én test har rørt ved. Alle tre er ØJEBLIKSBILLEDER
 npm run test:report   # skriver src/data/testReport.json, depGraph.json OG fladeDaekning.json
 ```
 
-Fladen bygges af to halvdele, der mødes i én nøgle (`fil:linje:kolonne`,
+Knapper og felter bygges af to halvdele, der mødes i én nøgle (`fil:linje:kolonne`,
 `scripts/lib/evneNoegle.mjs`): `scripts/scan-flade.mjs` finder alle
 interaktive JSX-elementer med parseren (ikke grep — flerlinje-tags var 42 %
 af knapperne), og en lytter i `src/test/setup.js` logger under kørslen,

@@ -13,12 +13,18 @@
 // ikke-interaktive forældre-elementer i loggen; de falder på gulvet.
 import { noegleFraDebugSource } from './evneNoegle.mjs';
 
-/** Hvilken app hører filen til? Tour er et afsluttet spil og foldes væk på fanen. */
+/**
+ * Hvilken gruppe hører filen til på fanen? Tour er et afsluttet spil og
+ * foldes væk. 'andet' er en OBLIGATORISK fallback: en sti→gruppe-tabel uden
+ * fallback taber elementer tavst, og fanen har en test på, at gruppesummen
+ * er lig totalen.
+ */
 export function appFor(fil) {
   if (/^src\/features\/games\//.test(fil) || /^src\/pages\/Games?Page\.jsx$/.test(fil)) return 'platform';
   if (/^src\/features\/(tour|riders|stages|teams|leagues|bonus|live|dashboard|leaderboard)\//.test(fil)) return 'tour';
   if (/^src\/pages\/(Dashboard|Stages|StagePresentation|Tour|Teams|Team|MyBets|Bonus|Leaderboard|Leagues)Page\.jsx$/.test(fil)) return 'tour';
-  return 'faelles';
+  if (/^src\/(pages|components)\//.test(fil) || /^src\/features\/(admin|auth|profile)\//.test(fil) || /^src\/App\.jsx$/.test(fil)) return 'faelles';
+  return 'andet';
 }
 
 /** Parser en NDJSON-log til poster; ugyldige linjer springes over. */
@@ -52,6 +58,7 @@ export function flet(inventar, poster, opt = {}) {
     const t = tests.get(p.noegle);
     return {
       fil: p.fil, linje: p.linje, kolonne: p.kolonne, tag: p.tag, type: p.type, tekst: p.tekst,
+      komponent: p.komponent || null,
       app: appFor(p.fil),
       aktiveret: Boolean(t),
       tests: t ? [...t].sort() : [],
@@ -60,7 +67,11 @@ export function flet(inventar, poster, opt = {}) {
   const aktiverede = elementer.filter((e) => e.aktiveret).length;
   return {
     generatedAt: opt.generatedAt || new Date().toISOString(),
-    totals: { elementer: elementer.length, aktiverede, logposter: poster.length },
+    // E2E-klik (Playwright) tælles ikke med endnu. Fanen renderer sit
+    // forbehold og ordet "Mindst" ud fra dette flag — ikke fra en hardkodet
+    // sætning — så det forsvinder af sig selv, den dag tællingen er bygget.
+    e2eMedregnet: Boolean(opt.e2eMedregnet),
+    totals: { elementer: elementer.length, aktiverede, logposter: poster.length, filer: new Set(elementer.map((e) => e.fil)).size },
     elementer,
   };
 }

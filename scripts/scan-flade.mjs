@@ -32,7 +32,11 @@ const ROD = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const NATIVE = new Set(['button', 'input', 'select', 'textarea', 'form', 'summary']);
 const ROUTER_LINKS = new Set(['Link', 'NavLink']);
 const HANDLERE = ['onClick', 'onChange', 'onInput', 'onSubmit'];
-const TEKST_ATTR = ['aria-label', 'data-testid', 'title', 'placeholder', 'name'];
+// Rækkefølgen er den, ejeren kan genkende på skærmen: det oplæste navn, så
+// titlen, så pladsholderen, så den tekst, der står på knappen. data-testid er
+// sidste udvej — det er et testnavn, ikke noget, der vises.
+const TEKST_ATTR = ['aria-label', 'title', 'placeholder'];
+const TEKST_ATTR_NOED = ['data-testid', 'name'];
 const MAKS_TEKST = 48;
 
 /** Hvilke DOM-hændelser aktiverer elementet? Tappen logger dem alle; fletningen krediterer kun de rigtige. */
@@ -82,9 +86,19 @@ export function scanKilde(kilde, fil) {
     throw new Error(`${fil}: kunne ikke parses — ${e.message}`);
   }
   const poster = [];
+  // Komponentnavnet er det eneste felt, en ejer kan oversætte til "hvor på
+  // skærmen" — linjetallet flytter sig ved første redigering ovenfor. Vi
+  // følger stakken af omsluttende funktioner og tager den inderste med stort
+  // begyndelsesbogstav (en React-komponent), ellers den inderste navngivne.
+  const stak = [];
+  const komponentNavn = () => [...stak].reverse().find((n) => /^[A-Z]/.test(n)) || stak[stak.length - 1] || null;
   (function besoeg(n) {
     if (!n || typeof n !== 'object') return;
     if (Array.isArray(n)) { n.forEach(besoeg); return; }
+    let skubbet = false;
+    if (n.type === 'FunctionDeclaration' && n.id) { stak.push(n.id.name); skubbet = true; }
+    else if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init
+      && (n.init.type === 'ArrowFunctionExpression' || n.init.type === 'FunctionExpression')) { stak.push(n.id.name); skubbet = true; }
     if (n.type === 'JSXElement') {
       const aabn = n.openingElement;
       const navn = aabn.name.type === 'JSXIdentifier' ? aabn.name.name : null;
@@ -98,7 +112,10 @@ export function scanKilde(kilde, fil) {
       else if (navn && ROUTER_LINKS.has(navn)) interaktiv = true;
       else if (erLowercase && handlere.length > 0) interaktiv = true;
       if (interaktiv) {
-        const tekst = TEKST_ATTR.map((a) => attrVaerdi(aabn, a)).find(Boolean) || boernTekst(n) || null;
+        const tekst = TEKST_ATTR.map((a) => attrVaerdi(aabn, a)).find(Boolean)
+          || boernTekst(n)
+          || TEKST_ATTR_NOED.map((a) => attrVaerdi(aabn, a)).find(Boolean)
+          || null;
         poster.push({
           noegle: noegleFraBabel(fil, aabn.loc.start),
           fil,
@@ -107,6 +124,7 @@ export function scanKilde(kilde, fil) {
           tag: navn,
           type: type || null,
           tekst,
+          komponent: komponentNavn(),
           haendelser: haendelserFor(navn, type, handlere),
         });
       }
@@ -115,6 +133,7 @@ export function scanKilde(kilde, fil) {
       if (k === 'loc' || k === 'leadingComments' || k === 'trailingComments' || k === 'innerComments') continue;
       besoeg(n[k]);
     }
+    if (skubbet) stak.pop();
   })(ast.program.body);
   return poster;
 }

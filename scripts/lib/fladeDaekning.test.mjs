@@ -16,7 +16,8 @@ describe('flet — kreditreglen', () => {
     expect(knap.aktiveret).toBe(true);
     expect(knap.tests).toEqual(['src/A.test.jsx']);
     expect(form.aktiveret).toBe(false);
-    expect(r.totals).toEqual({ elementer: 3, aktiverede: 1, logposter: 1 });
+    expect(r.totals).toEqual({ elementer: 3, aktiverede: 1, logposter: 1, filer: 2 });
+    expect(r.e2eMedregnet).toBe(false);
   });
 
   it('et klik på en <span> inde i formen (uden knap imellem) krediterer ingenting — form aktiveres af submit', () => {
@@ -33,7 +34,7 @@ describe('flet — kreditreglen', () => {
 
   it('en tom log giver alt som ikke-aktiveret — ikke en fejl og ikke grønt', () => {
     const r = flet(INV, [], T);
-    expect(r.totals).toEqual({ elementer: 3, aktiverede: 0, logposter: 0 });
+    expect(r.totals).toEqual({ elementer: 3, aktiverede: 0, logposter: 0, filer: 2 });
     expect(r.elementer.every((e) => !e.aktiveret && e.tests.length === 0)).toBe(true);
   });
 
@@ -47,8 +48,9 @@ describe('flet — kreditreglen', () => {
     const felt = r.elementer.find((e) => e.tag === 'input');
     expect(felt.tests).toEqual(['src/features/games/B.test.jsx', 'src/features/games/Z.test.jsx']);
     expect(felt.app).toBe('platform');
-    expect(r.elementer.find((e) => e.tag === 'button').app).toBe('faelles');
+    expect(r.elementer.find((e) => e.tag === 'button').app).toBe('andet');
     expect(r.generatedAt).toBe(T.generatedAt);
+    expect(flet(INV, [], { ...T, e2eMedregnet: true }).e2eMedregnet).toBe(true);
   });
 });
 
@@ -62,6 +64,9 @@ describe('appFor', () => {
     expect(appFor('src/pages/TeamPage.jsx')).toBe('tour');
     expect(appFor('src/features/admin/UsersTab.jsx')).toBe('faelles');
     expect(appFor('src/pages/ProfilePage.jsx')).toBe('faelles');
+    expect(appFor('src/components/Layout.jsx')).toBe('faelles');
+    // Fallback: en mappe, tabellen ikke kender, forsvinder IKKE — den lander i 'andet'.
+    expect(appFor('src/features/comments/CommentBox.jsx')).toBe('andet');
   });
 });
 

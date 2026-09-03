@@ -46,6 +46,7 @@ describe('scanKilde', () => {
     expect(knap.kolonne).toBe(7);
     expect(knap.noegle).toBe(noegle('src/X.jsx', 7, 7));
     expect(knap.tekst).toBe('Send besked');
+    expect(knap.komponent).toBe('X');
     expect(knap.haendelser).toEqual(['click']);
   });
 
@@ -59,6 +60,22 @@ describe('scanKilde', () => {
     expect(poster.find((p) => p.tag === 'textarea').tekst).toBe('Skriv her');
     expect(poster.find((p) => p.tag === 'Link').haendelser).toEqual(['click']);
     expect(poster.find((p) => p.tag === 'div').tekst).toBe('klik-div');
+  });
+
+  it('finder komponentnavnet også for pilefunktioner, og foretrækker komponenten frem for en indre hjælper', () => {
+    const k = `const Kort = () => {
+  const klik = () => <button aria-label="Inde i hjælper">x</button>;
+  return <div>{klik()}<input placeholder="Ude i Kort" /></div>;
+};`;
+    const p = scanKilde(k, 'src/K.jsx');
+    expect(p.map((x) => [x.tekst, x.komponent])).toEqual([['Inde i hjælper', 'Kort'], ['Ude i Kort', 'Kort']]);
+  });
+
+  it('foretrækker det oplæste navn og teksten på knappen frem for data-testid', () => {
+    const p = scanKilde('const A = () => <button data-testid="gem-knap">Gem</button>;', 'src/A.jsx');
+    expect(p[0].tekst).toBe('Gem');
+    const q = scanKilde('const A = () => <button data-testid="gem-knap">{t}</button>;', 'src/A.jsx');
+    expect(q[0].tekst).toBe('gem-knap');
   });
 
   it('kaster ved en fil, der ikke kan parses, i stedet for at tælle nul tavst', () => {

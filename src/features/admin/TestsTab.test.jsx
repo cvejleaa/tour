@@ -4,10 +4,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // NU er fast i testene, og fixturets datoer ligger 1 dag før. Uden det ville
 // mockene ældes af sig selv, og forældet-advarslen ville dukke op i alle de
 // øvrige tests, den dag suiten blev kørt 15 dage efter at filen blev skrevet.
-// De to filer har MED VILJE forskellige datoer: rapporten 31/8, diagrammet
-// 29/8. Med ens datoer kan en test ikke skelne "viser sin egen dato" fra
-// "viser den andens", og netop dén forveksling er fejlen, ændringen retter.
-// Diagrammet er ældst, så det er også dét, der styrer forældet-grænsen.
+// De tre filer har MED VILJE forskellige datoer: rapporten 31/8, diagrammet
+// 29/8, fladedækningen 27/8. Med ens datoer kan en test ikke skelne "viser
+// sin egen dato" fra "viser den andens", og netop dén forveksling er fejlen,
+// ændringen retter. FLADEDÆKNINGEN ER ÆLDST, så det er dén, der styrer
+// forældet-grænsen: fjernes den tredje dato fra `datoer`, bliver testene røde
+// — ellers var den tredje dato ren dekoration (QC's krav).
 //
 // Datoerne står som
 // LITTERAL inde i vi.mock-fabrikkerne: kaldet hejses til toppen af filen, så
@@ -37,6 +39,19 @@ vi.mock('../../data/testReport.json', () => ({
       // nu, så en mutation, der taber området igen, bliver rød.
       { file: 'functions-platform/kampDetaljer.test.js', area: 'platform', passed: 1, failed: 0,
         tests: [{ name: 'maalAf udleder mål af Sc-kæden', status: 'passed' }] },
+    ],
+  },
+}));
+
+// Mock fladedækning (to elementer: ét rørt, ét ikke). Ældst af de tre.
+vi.mock('../../data/fladeDaekning.json', () => ({
+  default: {
+    generatedAt: '2026-08-27T12:00:00.000Z', // litteral: vi.mock hejses
+    e2eMedregnet: false,
+    totals: { elementer: 2, aktiverede: 1, logposter: 3, filer: 1 },
+    elementer: [
+      { fil: 'src/pages/GamesPage.jsx', linje: 84, kolonne: 13, tag: 'button', type: null, tekst: null, komponent: 'MyGameCard', app: 'platform', aktiveret: true, tests: ['src/pages/GamesPage.test.jsx'] },
+      { fil: 'src/pages/GamesPage.jsx', linje: 64, kolonne: 11, tag: 'Link', type: null, tekst: 'Åbn', komponent: 'MyGameCard', app: 'platform', aktiveret: false, tests: [] },
     ],
   },
 }));
@@ -87,14 +102,24 @@ describe('TestsTab', () => {
     expect(screen.queryByText('Cloud Functions')).not.toBeInTheDocument();
   });
 
-  it('viser BEGGE datoer — testrapportens og diagrammets hver for sig', () => {
+  it('viser ALLE TRE datoer — testrapportens, diagrammets og fladedækningens hver for sig', () => {
     render(<TestsTab />);
-    // FORSKELLIGE datoer, så en ombytning af de to felter bliver rød.
+    // FORSKELLIGE datoer, så en ombytning af felterne bliver rød.
     expect(screen.getByText(/Tests-tallene: 31\. august 2026/)).toBeInTheDocument();
     expect(screen.getByText(/Afhængighedsdiagrammet: 29\. august 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Knapper og felter: 27\. august 2026/)).toBeInTheDocument();
     // Den gamle linje sagde "Senest opdateret" om ALLE tre underfaner, men
     // hentede kun testrapportens dato. Den formulering må ikke komme igen.
     expect(screen.queryByText(/Senest opdateret/)).not.toBeInTheDocument();
+  });
+
+  it('har underfanen «Knapper og felter» som nr. 2, og den viser fladedækningen', () => {
+    render(<TestsTab />);
+    const faner = screen.getAllByRole('tab').map((t) => t.textContent);
+    expect(faner[1]).toBe('🖱️ Knapper og felter');
+    fireEvent.click(screen.getByTestId('subtab-flade'));
+    expect(screen.getByTestId('flade-tal')).toHaveTextContent('Mindst 1 af 2');
+    expect(screen.getByText('ingen test rører den')).toBeInTheDocument();
   });
 
   it('siger INTET om forældelse, når tallene er friske', () => {
@@ -116,11 +141,13 @@ describe('TestsTab — forældet-advarslen', () => {
     // kunne erstattes med "OK?" og en test på blot tilstedeværelse ville
     // stadig være grøn (CLAUDE.md).
     expect(boks).toHaveTextContent('Tallene her er forældede');
-    // DEN ÆLDSTE fil skal navngives — diagrammet (29/8), ikke rapporten (31/8).
-    // En advarsel, der peger på den friskeste af de to, sender ejeren efter
-    // den forkerte fil.
-    expect(boks).toHaveTextContent('29. august 2026');
-    expect(boks).toHaveTextContent('22 dage gammelt');
+    // DEN ÆLDSTE fil skal navngives — fladedækningen (27/8), ikke diagrammet
+    // (29/8) eller rapporten (31/8). En advarsel, der peger på en friskere
+    // fil, sender ejeren efter den forkerte.
+    expect(boks).toHaveTextContent('de tre øjebliksbilleder');
+    expect(boks).toHaveTextContent('27. august 2026');
+    expect(boks).toHaveTextContent('24 dage gammelt');
+    expect(boks).not.toHaveTextContent('29. august 2026');
     expect(boks).not.toHaveTextContent('31. august 2026');
     expect(boks).toHaveTextContent('Opdatér test-rapporten');
     // Deploy-forbeholdet er ikke pynt: et commit på main ændrer INTET på
@@ -132,15 +159,15 @@ describe('TestsTab — forældet-advarslen', () => {
 
   it('er tavs præcis PÅ grænsen og larmer lige efter — målt på den ældste fil', () => {
     // Båndet må ikke rumme både før og efter (CLAUDE.md). Grænsen regnes fra
-    // DIAGRAMMET (29/8), som er den ældste — ikke fra rapporten (31/8). De to
-    // datoer giver forskellige svar netop her, så testen beviser også, at
-    // komponenten måler på den rigtige.
-    vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z')); // præcis 14 dage
+    // FLADEDÆKNINGEN (27/8), som er den ældste — ikke fra diagrammet (29/8)
+    // eller rapporten (31/8). De tre datoer giver forskellige svar netop her,
+    // så testen beviser også, at komponenten måler på den rigtige.
+    vi.setSystemTime(new Date('2026-09-10T12:00:00.000Z')); // præcis 14 dage
     const { unmount } = render(<TestsTab />);
     expect(screen.queryByTestId('rapport-forældet')).not.toBeInTheDocument();
     unmount();
 
-    vi.setSystemTime(new Date('2026-09-12T15:00:00.000Z')); // 14 dage + 3 timer
+    vi.setSystemTime(new Date('2026-09-10T15:00:00.000Z')); // 14 dage + 3 timer
     render(<TestsTab />);
     expect(screen.getByTestId('rapport-forældet')).toBeInTheDocument();
   });
@@ -150,12 +177,14 @@ describe('erForaeldet — vagten selv', () => {
   const NU_MS = Date.parse('2026-09-01T12:00:00.000Z');
   const dageSiden = (n) => new Date(NU_MS - n * 86_400_000).toISOString();
 
-  it('måler på den ÆLDSTE af de to filer', () => {
+  it('måler på den ÆLDSTE af filerne — uanset hvor i listen den står', () => {
     // En frisk testrapport må ikke kunne skjule et forældet diagram bag sin
-    // egen dato. De to er selvstændige filer og kan komme fra hver sin kørsel.
+    // egen dato. De tre er selvstændige filer og kan komme fra hver sin kørsel.
     expect(erForaeldet([dageSiden(1), dageSiden(40)], NU_MS)).toBe(true);
     expect(erForaeldet([dageSiden(40), dageSiden(1)], NU_MS)).toBe(true);
+    expect(erForaeldet([dageSiden(1), dageSiden(2), dageSiden(40)], NU_MS)).toBe(true);
     expect(erForaeldet([dageSiden(1), dageSiden(2)], NU_MS)).toBe(false);
+    expect(erForaeldet([dageSiden(1), dageSiden(2), dageSiden(3)], NU_MS)).toBe(false);
   });
 
   it('behandler en ULÆSELIG dato som forældet — vagten fejler åbent', () => {
