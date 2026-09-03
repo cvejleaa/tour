@@ -96,7 +96,7 @@ function MyGameCard({ game, onLeave, leaving }) {
 }
 
 // ── Spil-kort til "Åbne spil" ─────────────────────────────────────────────────
-function OpenGameCard({ game, onJoin, joining }) {
+function OpenGameCard({ game, onJoin, joining, tilbage = false }) {
   if (game.externalUrl) return <ExternalGameCard game={game} />;
   return (
     <div className="card">
@@ -115,9 +115,9 @@ function OpenGameCard({ game, onJoin, joining }) {
           className="btn btn--sm"
           onClick={() => onJoin(game)}
           disabled={joining}
-          aria-label={`Deltag i ${game.name}`}
+          aria-label={tilbage ? `Vend tilbage til ${game.name}` : `Deltag i ${game.name}`}
         >
-          {joining ? 'Tilmelder…' : 'Deltag'}
+          {joining ? 'Tilmelder…' : tilbage ? 'Vend tilbage' : 'Deltag'}
         </button>
       </div>
     </div>
@@ -129,7 +129,7 @@ export default function GamesPage() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const navigate = useNavigate();
-  const { games, myGameIds, myPoints = {}, loading } = useGames();
+  const { games, myGameIds, myPoints = {}, myForladt = new Set(), loading } = useGames();
   const { mine, open, external } = splitGames(games, myGameIds);
 
   const [busyId, setBusyId] = useState(null); // id på spil der behandles
@@ -226,6 +226,7 @@ export default function GamesPage() {
                     game={g}
                     onJoin={handleJoin}
                     joining={busyId === g.id}
+                    tilbage={myForladt.has(g.id)}
                   />
                 ))}
               </div>

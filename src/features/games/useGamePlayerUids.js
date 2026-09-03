@@ -33,7 +33,9 @@ export function useGamePlayerUids(gameId) {
     const unsub = onSnapshot(
       collection(db, COL.GAMES, gameId, 'players'),
       (snap) => {
-        setUids(snap.docs.map((d) => d.id));
+        // En forladt spiller er ikke deltager — hendes mail hører ikke til i
+        // "deltagerne i spillet" (CLAUDE.md: "Alle" er sjældent den rigtige kreds).
+        setUids(snap.docs.filter((d) => d.data()?.forladt !== true).map((d) => d.id));
         setLoading(false);
       },
       (err) => {

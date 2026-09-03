@@ -46,6 +46,7 @@ export function splitGames(games, myGameIds) {
  *   games: Array<object>,
  *   myGameIds: Set<string>,
  *   myPoints: Object<string, number>,  // gameId → totalPoints (0 uden felt)
+ *   myForladt: Set<string>,            // spil, jeg har forladt (arkiv ligger der)
  *   loading: boolean,
  * }}
  */
@@ -59,6 +60,9 @@ export function useGames() {
   // sige tallet, og det læses fra SAMME snapshot som medlemskabet, så det
   // aldrig er ukendt, når dialogen åbner.
   const [myPoints, setMyPoints] = useState({});
+  // Spil, jeg har forladt (arkivet ligger der): kortet under "Åbne spil" skal
+  // sige "Vend tilbage", ikke "Deltag" — det er to forskellige løfter.
+  const [myForladt, setMyForladt] = useState(() => new Set());
   const [gamesLoading, setGamesLoading] = useState(true);
   const [membershipLoading, setMembershipLoading] = useState(true);
 
@@ -95,18 +99,21 @@ export function useGames() {
     if (!uid || gameIds.length === 0) {
       setMyGameIds(new Set());
       setMyPoints({});
+      setMyForladt(new Set());
       setMembershipLoading(false);
       return undefined;
     }
     setMembershipLoading(true);
     const present = new Map(); // gameId -> boolean (er jeg medlem?)
     const points = new Map(); // gameId -> totalPoints
+    const forladt = new Set();
     let settled = 0;
     const recompute = () => {
       setMyGameIds(new Set(
         [...present.entries()].filter(([, isMember]) => isMember).map(([id]) => id),
       ));
       setMyPoints(Object.fromEntries(points));
+      setMyForladt(new Set(forladt));
     };
     const unsubs = gameIds.map((gid) =>
       onSnapshot(
@@ -118,6 +125,7 @@ export function useGames() {
           const data = snap.exists() ? snap.data() : null;
           present.set(gid, !!data && data.forladt !== true);
           points.set(gid, Number(data?.totalPoints) || 0);
+          if (data?.forladt === true) forladt.add(gid); else forladt.delete(gid);
           recompute();
           settled += 1;
           if (settled >= gameIds.length) setMembershipLoading(false);
@@ -138,5 +146,5 @@ export function useGames() {
   // Genbrug samme Set-reference mellem renders når indholdet er uændret.
   const stableMyGameIds = useMemo(() => myGameIds, [myGameIds]);
 
-  return { games, myGameIds: stableMyGameIds, myPoints, loading };
+  return { games, myGameIds: stableMyGameIds, myPoints, myForladt, loading };
 }

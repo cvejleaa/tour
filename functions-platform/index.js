@@ -34,7 +34,7 @@ const {
   strandedMatches, allMatches, WINDOW_MS,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
-const { forladSpilCore, FORLAD_ERR } = require('./forladSpil');
+const { forladSpilCore, FORLAD_ERR, aktiveSpillere } = require('./forladSpil');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
 const {
   syncKampDetaljerCore, efterFacitDetaljer, sweepKampDetaljer,
@@ -1525,7 +1525,8 @@ exports.gamePuljeStatus = onCall(
     );
     const tipped = [];
     const missing = [];
-    for (const p of playersSnap.docs) {
+    // Forladte spillere får ingen pulje-rykker og tæller ikke i mangler/total.
+    for (const p of aktiveSpillere(playersSnap.docs)) {
       const row = { uid: p.id, name: nameOf.get(p.id) || 'Spiller' };
       (hasPulje.has(p.id) ? tipped : missing).push(row);
     }

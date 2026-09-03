@@ -463,8 +463,9 @@
   `null/''/bool/array` før `Number()` (HAR-optagelsen viser, at PL leverer
   rigtige tal, så `typeof v === 'number'` er nok dér).
 - **Fremmed kilde → deadline flyttet TIDLIGERE (by-design residual).**
-  Genåbnings-forbuddet (superligaSync.js L515-517) lukker past→future for enhver
-  kamp uden `result`. Men fremtid→TIDLIGERE er TILLADT (legitime reschedules
+  Genåbnings-forbuddet (superligaSync.js ~L653-659) lukker past→future for ALLE
+  kampe — filteret ser på `fraMs`/`tilMs`, IKKE på `result` (rettet 2026-09-03;
+  den gamle formulering her var forkert). Men fremtid→TIDLIGERE er TILLADT (legitime reschedules
   kræver det). Backstop er KUN <48t-alarmen; et move på >48t tidligere (7d→3d)
   skrives TAVST — en kompromitteret kilde kan lukke tips tidligt uden alarm.
 - **Alarm-druknen.** `mangler` i syncKickoffsCore samler ALLE kilde-kampe uden
@@ -629,6 +630,47 @@
   det antal spil, den blev skrevet ved.
 
 
+- **`forladt`-flaget kan SÆTTES af spilleren selv → hun forsvinder fra
+  serverens rang-snapshot, men bliver stående i klientens stilling (BEKRÆFTET
+  2026-09-03, 76c5e9b).** `firestore.rules` er uændret i den PR, der indførte
+  arkiv-modellen: players-update spærrer kun point-/liga-felterne, og `forladt`
+  står ikke på listen. Emulator-kørt: `updateDoc(players/mig, {forladt:true})`,
+  `{forladt:true, forladtAt}` og `setDoc(..., {merge:true})` lykkes ALLE
+  (kontroller grønne: `totalPoints:999` nej, andens flag nej, `leagueIds` med i
+  samme skrivning nej). Serveren springer hende så over i `snapshotRoundRanks`
+  (gameScoring.js:345), `runGameRoundRecap` (gameRecap.js:315) og påmindelserne
+  — men hendes `leagueIds` er URØRT, så `useGameStandings.js:63`
+  (`array-contains-any`) viser hende stadig, og klienten regner `rank` selv
+  (`gameStandings.js:50`). Resultat: hele ligaen får en falsk rang-pil (server
+  skriver `previousRank` for N−1 spillere, klienten viser N), hendes egen pil
+  fryses på den gamle værdi, og Runde-Botten holder op med at nævne hende.
+  Fix i reglen: klienten må FJERNE flaget, aldrig sætte det —
+  `!(request.resource.data.get('forladt', false) == true
+     && resource.data.get('forladt', false) != true)` på update-grenen.
+- **Ejer-vagten i `forladSpil` spørger på MEDLEMSKAB, ikke på EJERSKAB
+  (BEKRÆFTET 2026-09-03).** `forladSpil.js:88` finder ligaer med
+  `where('memberUids','array-contains',uid)` og filtrerer så på `ownerUid`.
+  Men forlad-grenen i `firestore.rules:1113` lader ejeren fjerne sig selv fra
+  `memberUids` (kun `ownerUid`/`code`/`name` skal være uændret) — emulator-kørt.
+  To skridt: forlad ligaen, forlad så spillet. Kernen svarede `{ligaer:0}` og
+  satte flaget (PoC mod ægte `forladSpilCore` med fake db; kontrol med ejeren i
+  `memberUids` → `owns-league`). Bagefter kan hun — uden at være medlem og uden
+  at kunne LÆSE ligaen (read kræver medlemskab; målt DENIED) — stadig sætte
+  `startRound` (ligaens point-gate for de andre), omdøbe og SLETTE ligaen; alle
+  tre kørt. Plus den kendte `leagueQuestionRecapNow`-vej. Fix:
+  `where('ownerUid','==',uid)` som EGEN forespørgsel.
+- **"Halvt tilbage": de to server-veje ind i et spil rydder ikke arkiv-flaget.**
+  Kun klientens `joinGame` (gameActions.js:74) fjerner `forladt`.
+  `redeemLeagueCodeCore` (gameLeagues.js:78-82) og `saetLigaMedlemCore`
+  (gameLeagues.js:365) gør `if (!playerSnap.exists) set(...)` — et EKSISTERENDE
+  dokument med `forladt:true` får lov at ligge. En forladt spiller, der bruger
+  ligakoden hun kender i forvejen (callablen kan kaldes af enhver logget ind),
+  eller som en admin melder ind igen, er så i `memberUids` + `leagueIds` og
+  synlig i klientens stilling, mens serveren stadig regner hende for ude.
+  `hentLigaMedlemmer` (gameLeagues.js:307) tilbyder desuden forladte spillere
+  som "deltagere" at tilføje, uden markering. Fix ét sted: ryd flaget i enhver
+  server-vej, der giver medlemskab.
+
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
 - **alarmId-fuzz mod `kvitterDriftAlarm`** (functions-platform/index.js L495-508).
@@ -733,6 +775,25 @@
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
 
+- **`forladSpil`-callablen selv er ren på identitet og rækkefølge (2026-09-03,
+  76c5e9b).** `index.js:1097` tager KUN `gameId` fra `data`; uid kommer fra
+  `request.auth?.uid`, og `forladSpilCore` kaster `unauthenticated` som
+  ALLERFØRSTE linje — ingen læsning betales for en anonym kalder. Ingen sti i
+  data kan overstyre uid. `gameId` er ikke whitelistet, men fejler lukket:
+  ulige sti-segmenter → argumentfejl → `internal`; et lige antal (fx
+  `g1/players/u1`) rammer et players-dokument uden `status` → `not-open`.
+  Fejlteksten `owns-league` afslører kun ligaer, hun selv ejer og er medlem af.
+- **Forlad + vend tilbage giver IKKE en ny Chance i samme runde.**
+  `setChanceCore` (chanceVagt.js:280-291) tæller åbne chancer på BETS i runden,
+  og `forladSpil` beholder netop de tips, hvis kickoff er passeret — altså den
+  brugte chance. Divergensen ligger et andet sted, se faldgruben om
+  `erKampLaast`.
+- **`syncPlayerLeagues`/`applyMembershipDelta` knækker ikke på et forladt
+  players-dokument** (playerLeagues.js:43-52): den gør `ref.update({leagueIds})`
+  på et dokument, den lige har `get`'et; `forladt` er uden betydning.
+  Rækkefølgen i kernen (slet tips → arrayRemove → sæt flag) betyder, at
+  bet-sletningerne er FÆRDIGE, før triggeren fyrer, så `applyBetLeagueDelta`s
+  `batch.update` ikke rammer et slettet dokument.
 - **Regel-vagterne i 74ff02d er MÅLT, ikke læst (2026-09-02).** 250/250 grønne
   mod emulatoren, og SEKS mutationer mod `RULES_FILE`-kopier — alle dræbt:
   `ingenIdNoegle()→true` (3 røde), `navnGyldigt()→true` (1), `ingenIdNoegle`
@@ -1184,63 +1245,25 @@
   og bliver synligt som `st.fejl`. Fejler lukket, admin/script-only.
   Platform-suiten i arbejdstræet efter rettelsen: **983/983 grønne**.
 
-### E2E mod emulatorer (branch claude/multi-game-player-collection-21mc1w, sep 2026)
-- **`.env.e2e` kan IKKE nå en produktionsbuild.** PoC: `.env` erstattet med en
-  probe-config (`probe-prod-projekt`, `VITE_USE_EMULATORS=false`), derefter
-  `npx vite build` i default-mode → bundtet indeholder `probe-prod-projekt`,
-  INGEN `demo-vm2026` i noget asset (kun i den statiske `public/testsetup.html`,
-  der citerer en emulator-kommando) og INGEN `9099`: emulator-grenen i
-  `src/firebase.js:40-43` tree-shakes helt væk ved `VITE_USE_EMULATORS=false`.
-  Vite læser `.env.[mode]` KUN for den mode; begge deploy-workflows kører
-  `npm run build` uden `--mode` og skriver deres egen `.env`. `firebase.json`
-  hosting `public: "dist"`, og `dist-e2e-*/` er gitignored → aldrig uploadet.
-- **App Check-springet er dobbelt-gated:** `src/firebase.js:24` kræver BÅDE et
-  site-key OG `VITE_USE_EMULATORS !== 'true'`. En dev-`.env` med ægte
-  `VITE_RECAPTCHA_SITE_KEY` overlever i e2e-buildet (`.env.e2e` overskriver kun
-  de nøgler, den selv nævner) — men App Check aktiveres alligevel ikke.
-- **CI's e2e-job har NUL `secrets.`-referencer** (målt: `grep -c 'secrets\.'` = 0
-  i hele ci.yml), skriver selv en dummy `.env`, og `firebase emulators:exec`
-  kræver intet login.
-- **`emulators:exec` sætter selv begge værts-variabler** ubetinget
-  (firebase-tools `lib/emulator/env.js:15,26`) → `||=` i seed-e2e får ALTID
-  CLI'ens egne porte, når den køres gennem `npm run test:e2e:emu`.
-- **seed-e2e kan ikke falde tilbage på ADC:** `GOOGLE_APPLICATION_CREDENTIALS`
-  afvises (kontroltestet: kastede), værts-variablerne sættes ALTID (default
-  localhost), og `ventPaa` står FØR `initializeApp` — uden emulator dør den
-  efter 30 s uden overhovedet at have konstrueret en SDK (kontroltestet med
-  `example.invalid:1`).
-- `e2e/.auth/` og `dist-e2e-*/` er gitignored (`git check-ignore -v` bekræftet).
-  CI-artefakten er kun `playwright-report/`; traces (on-first-retry, retries=1 i
-  CI) kopieres dertil af html-reporteren og kan bære emulator-idTokens plus
-  testens adgangskode — begge allerede offentlige i repoet, og ingen prod-data,
-  fordi CI's `.env` er dummy. Repoet ER public (api.github.com svarer 200
-  uautentificeret), så artefakter er bredt tilgængelige.
-
-### E2E-fixturens serverfelter og ejer-login (e874d3f, sep 2026)
-- **Det gemte ejer-login er værdiløst uden for emulatoren — BEKRÆFTET.**
-  `e2e/.auth/ejer.json` bærer ét JWT med `{"alg":"none"}`, `aud`/`iss` =
-  `demo-vm2026`, `exp-iat` = 3600 s, plus en refresh-token og `apiKey` =
-  `demo-key` (`.env.e2e`). De ægte projekter er `tour-85928` og `spil-89af9`
-  (`.firebaserc`) → forkert audience OG usigneret. Både ejerens og spillerens
-  token kan lække via traces i `playwright-report/` (public repo, `if: always()`,
-  7 dages retention) — det er accepteret og uændret ved at ejeren kom med.
-- **Hele fixturen kørt mod ægte regler (8 cases, 7 bekræftede + 1 rettet
-  antagelse).** Klienten kan IKKE seede `leagueIds`/`totalPoints` ved
-  players-**create** (kun update var dækket i rules.test.js), en nygodkendt
-  bruger uden players-dok kan hverken `getDoc` eller køre stillingens
-  array-contains-any-query, en deltager uden fælles liga kan hverken ses eller
-  se, spiller/den pending selv kan ikke sætte `status:'approved'` (ejeren kan),
-  og hverken en fremmed eller et menigt medlem kan skrive `memberUids`.
-- **Rettet antagelse: EJEREN KAN læse alle players-dokumenter** — `allow read`
-  starter med `isGlobalAdmin()` (firestore.rules L744), og owner tæller med.
-  `stilling.spec` holder kun, fordi ejeren ikke HAR et players-dokument. Brug
-  aldrig "ejeren mangler i stillingen" som bevis for en læse-regel.
-- **En negativ assertion på en fixture uden ofre er tom.** `stilling.spec`
-  asserterer 2 rækker i en fixture med præcis 2 deltagere, begge i samme liga →
-  fjernes `where('leagueIds','array-contains-any')` i `useGameStandings.js:63`,
-  passerer testen stadig (begge dokumenter opfylder reglen, så den ufiltrerede
-  liste får lov). Mønstret: en "regler er ikke filtre"-test skal have et
-  dokument i samlingen, som reglen VILLE afvise.
+### E2E mod emulatorer (destilleret sep 2026 fra to sag-afsnit)
+- **Emulator-fixturen kan ikke nå produktion — målt, ikke læst.** `.env.e2e`
+  gælder kun `--mode e2e`, og begge deploy-workflows kører `npm run build` uden
+  mode og skriver deres egen `.env`; emulator-grenen (`src/firebase.js:40-43`)
+  tree-shakes væk ved `VITE_USE_EMULATORS=false`. `dist-e2e-*/` og `e2e/.auth/`
+  er gitignored. CI's e2e-job har NUL `secrets.`-referencer. App Check er
+  dobbelt-gated (site-key OG ikke-emulator).
+- **Gemte e2e-logins er værdiløse uden for emulatoren:** `{"alg":"none"}`,
+  `aud`/`iss` = `demo-vm2026`, `apiKey: demo-key` — de ægte projekter er
+  `tour-85928`/`spil-89af9`. De KAN lække via `playwright-report/`-traces i et
+  PUBLIC repo; accepteret, fordi der ikke er prod-data i dem.
+- **To varige lærdomme fra fixturen** (resten var engangs-fakta):
+  EJEREN kan læse ALLE players-dokumenter (`allow read` starter med
+  `isGlobalAdmin()`), så "ejeren mangler i stillingen" beviser INTET om en
+  læseregel. Og en negativ assertion på en fixture uden ofre er tom:
+  `stilling.spec` består stadig, hvis `where('leagueIds','array-contains-any')`
+  fjernes fra `useGameStandings.js:63`, fordi begge dokumenter i fixturen
+  opfylder reglen. En "regler er ikke filtre"-test SKAL have et dokument, som
+  reglen ville afvise.
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
@@ -1358,6 +1381,26 @@
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
 
+- **Et arkiv-/skjul-flag, klienten kan SÆTTE, er en rangerings-knap.** Et felt,
+  der får serverens læsere til at springe et dokument over, hører på
+  server-only-listen i reglerne — ellers kan den enkelte spiller løfte alle
+  andre en plads i den PERSISTEREDE `previousRank` og fryse sin egen pil.
+  Spørg ved ethvert nyt boolsk felt på et dokument, klienten må opdatere:
+  hvilken serverløkke ændrer adfærd af det?
+- **Et privat låse-prædikat, der dubler et delt, fejler altid i den ene
+  retning.** `forladSpil.js:104` (`kickoff != null && kickoff <= now`) mod
+  `chanceVagt.erKampLaast` (facit ELLER live-status ELLER ulæseligt kickoff
+  ELLER passeret kickoff): fire målte tilfælde, hvor det delte siger LÅST og
+  det private SLETTER tippet — og et slettet tip er en frigivet Chance og et
+  forsvundet minus-point ved næste `recalcPlayerTotal`. Genbrug prædikatet;
+  skriv aldrig "kampen er låst" to gange.
+- **En vagt på MEDLEMSKAB fanger ikke EJERSKAB.** `array-contains uid` finder
+  ikke den liga, hvis ejer har meldt sig selv ud af sin egen medlemsliste — og
+  rules tillader netop det. Ejerskab er et EGET felt; spørg på feltet.
+- **En tilstand med to indgange skal ryddes i BEGGE.** Flaget sættes af
+  serveren og fjernes kun af klientens joinGame; de to server-veje til
+  medlemskab (kode-indløsning, admin melder ind) efterlod en halv tilstand.
+  Optæl alle veje IND i tilstanden og alle veje ud, når du indfører et flag.
 - **Et loft på én liste er ikke et loft på nabolisten.** `maal[]` er bundet af
   `kaedeOk` mod vores egen stilling og kan ikke sprænges — og netop derfor blev
   `annullerede[]` født uden loft i samme funktion: forsvaret var allerede

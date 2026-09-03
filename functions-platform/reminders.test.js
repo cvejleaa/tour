@@ -200,7 +200,7 @@ describe('hentTipStatus — picks findes i databasen, men aldrig i svaret', () =
       collection: (navn) => ({
         get: async () => ({
           docs: navn === 'matches' ? docsAf(matches)
-            : navn === 'players' ? [{ id: 'a', data: () => ({}) }, { id: 'c', data: () => ({}) }]
+            : navn === 'players' ? [{ id: 'a', data: () => ({}) }, { id: 'c', data: () => ({}) }, { id: 'f', data: () => ({ forladt: true }) }]
               : [],
         }),
         where: () => ({
@@ -232,6 +232,12 @@ describe('hentTipStatus — picks findes i databasen, men aldrig i svaret', () =
     expect(raa).not.toContain('"pick"');
     expect(raa).not.toContain('7.7');
     expect(raa).not.toContain('hemmelig');
+  });
+
+  it('en FORLADT spiller står ikke på "hvem mangler at tippe" — arkivet mangler ikke noget', async () => {
+    const svar = await hentTipStatus(fakeDb(), 'spil', 4, now);
+    expect(svar.spillere.map((s) => s.uid).sort()).toEqual(['a', 'c']);
+    expect(JSON.stringify(svar)).not.toContain('"f"');
   });
 });
 

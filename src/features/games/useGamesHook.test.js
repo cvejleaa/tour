@@ -34,6 +34,7 @@ describe('useGames — medlemskab og point fra players/{uid}', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect([...result.current.myGameIds]).toEqual(['sl']);
     expect(result.current.myPoints).toEqual({ sl: 12.5, pl: 3 });
+    expect([...result.current.myForladt]).toEqual(['pl']);
   });
 
   it('uden dokument: ikke medlem, 0 point — og uden totalPoints-felt: 0', async () => {
@@ -45,5 +46,6 @@ describe('useGames — medlemskab og point fra players/{uid}', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect([...result.current.myGameIds]).toEqual(['pl']);
     expect(result.current.myPoints).toEqual({ sl: 0, pl: 0 });
+    expect(result.current.myForladt.size).toBe(0);
   });
 });

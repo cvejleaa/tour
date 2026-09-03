@@ -696,6 +696,17 @@ service cloud.firestore {
       // ikke inde i players/ — fordi både stillingen OG tips-læsningen skal
       // bruge den. Stien er den samme for alle dokumenter i én forespørgsel,
       // så opslaget tælles kun én gang mod Firestores grænse.
+      // AKTIV deltager: dokumentet findes OG er ikke forladt. Siden forlad blev
+      // et arkiv (forladSpil), overlever players-dokumentet udmeldelsen — så
+      // "findes" er ikke længere "deltager". Alle skrive-gates, der spørger
+      // "er du med i spillet?", går her igennem; ellers kunne en forladt
+      // spiller tippe videre uden om fladen, mens dialogen lovede det modsatte.
+      function erAktivDeltager() {
+        return isSignedIn()
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && get(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid)).data.get('forladt', false) != true;
+      }
+
       function myLeagueIds() {
         return isSignedIn()
           && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
@@ -951,7 +962,7 @@ service cloud.firestore {
         allow create, update: if isApproved()
           && request.auth.uid == uid
           && request.resource.data.uid == uid
-          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && erAktivDeltager()
           && beforeDeadline()
           && request.resource.data.championship is list
           && poolSize() > 0
@@ -1004,7 +1015,7 @@ service cloud.firestore {
         allow create: if isApproved()
           && request.auth.uid == request.resource.data.uid
           && betId == request.auth.uid + '_' + request.resource.data.matchId
-          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && erAktivDeltager()
           && !request.resource.data.keys().hasAny(['points'])
           // CHANCEN KAN IKKE FØDES MED ET TIP. Den sættes bagefter gennem
           // callable'en setGameChance, som er den eneste, der kan svare på
@@ -1040,6 +1051,7 @@ service cloud.firestore {
         // uid_matchId-bindingen håndhæves kun ved create, så den fanger det
         // ikke: doc-id'et ændrer sig jo ikke ved en opdatering.
         allow update: if isApproved()
+          && erAktivDeltager()
           && request.auth.uid == resource.data.uid
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.matchId == resource.data.matchId
@@ -1089,7 +1101,7 @@ service cloud.firestore {
 
         // Opret: godkendt deltager, ejer = selv, medlemmer = kun selv.
         allow create: if isApproved()
-          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && erAktivDeltager()
           && request.resource.data.ownerUid == request.auth.uid
           && request.resource.data.memberUids == [request.auth.uid]
           && navnGyldigt()

@@ -19,11 +19,12 @@ vi.mock('../context/AuthContext', () => ({
 let gamesData = [];
 let myGameIds = new Set();
 let myPoints = {};
+let myForladt = new Set();
 vi.mock('../features/games/useGames', async () => {
   const actual = await vi.importActual('../features/games/useGames');
   return {
     splitGames: actual.splitGames,
-    useGames: () => ({ games: gamesData, myGameIds, myPoints, loading: false }),
+    useGames: () => ({ games: gamesData, myGameIds, myPoints, myForladt, loading: false }),
   };
 });
 
@@ -52,6 +53,7 @@ describe('GamesPage', () => {
     gamesData = allGames;
     myGameIds = new Set(['wm']); // jeg deltager i VM
     myPoints = { wm: 0 };
+    myForladt = new Set();
   });
 
   it('viser mine spil under "Mine spil"', () => {
@@ -125,6 +127,16 @@ describe('GamesPage', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(global.confirm).toHaveBeenCalledTimes(2);
     expect(leaveGame).not.toHaveBeenCalled();
+  });
+
+  it('et forladt spil står under Åbne spil med "Vend tilbage", ikke "Deltag"', () => {
+    myGameIds = new Set();            // forladt = ikke medlem …
+    myForladt = new Set(['wm']);      // … men arkivet ligger der
+    renderPage();
+    expect(screen.getByRole('button', { name: 'Vend tilbage til VM 2026' })).toHaveTextContent('Vend tilbage');
+    expect(screen.queryByRole('button', { name: /deltag i VM 2026/i })).not.toBeInTheDocument();
+    // De andre åbne spil siger stadig Deltag.
+    expect(screen.getByRole('button', { name: /deltag i Superligaen/i })).toBeInTheDocument();
   });
 
   it('viser ikke Forlad for et spil i gang', () => {

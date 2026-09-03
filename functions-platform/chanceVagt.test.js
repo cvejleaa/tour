@@ -17,7 +17,7 @@ const T = (iso) => Date.parse(iso);
 // Nok til at køre kernen: én transaktion med get/getAll/where-get/set.
 // `state.skrevet` opsamler hver skrivning, så testene kan se PRÆCIS hvilke
 // felter der landede hvor — ikke bare at der blev skrevet.
-function makeDb({ erSpiller = true, bruger = { status: 'approved' }, kampe = [], tips = [] } = {}) {
+function makeDb({ erSpiller = true, spiller = { uid: 'me' }, bruger = { status: 'approved' }, kampe = [], tips = [] } = {}) {
   const state = { skrevet: [], laesninger: 0 };
   const kampAf = new Map(kampe.map((k) => [k.id, k]));
   const tipAf = new Map(tips.map((t) => [t.id, t]));
@@ -49,7 +49,7 @@ function makeDb({ erSpiller = true, bruger = { status: 'approved' }, kampe = [],
       if (state.skrevet.length) throw new Error('læsning efter skrivning i transaktionen');
       state.laesninger += 1;
       if (ref.__user) return { exists: !!bruger, data: () => bruger };
-      if (ref.__player) return { exists: erSpiller };
+      if (ref.__player) return { exists: erSpiller, data: () => spiller };
       if (ref.__match) return snapAf(ref.__match, kampAf);
       if (ref.__query) {
         const { felt, vaerdi } = ref.__query;
@@ -393,6 +393,14 @@ describe('setChanceCore — afviser', () => {
     // Deltagelse er sin EGEN vagt, ikke en bivirkning af tip-kravet.
     const e = await fanger(
       { erSpiller: false, kampe: standardKampe(), tips: [tip('m1')] },
+      { matchId: 'm1', stake: 3 },
+    );
+    expect(e.message).toBe('not-member');
+  });
+
+  it('en spiller, der har FORLADT spillet — dokumentet findes, men er et arkiv', async () => {
+    const e = await fanger(
+      { spiller: { uid: 'me', forladt: true, totalPoints: 12 }, kampe: standardKampe(), tips: [tip('m1')] },
       { matchId: 'm1', stake: 3 },
     );
     expect(e.message).toBe('not-member');
