@@ -261,6 +261,12 @@ typisk ved afbrudte kampe med et tildelt resultat. Vil du ikke vente, findes
 **⚽ Synk kampdetaljer nu** samme sted som ⬇️ Synk resultater nu. Den siger
 selv, hvor mange der blev hentet, og hvor mange kilden var uenig om.
 
+**Mens kampen spilles** står målscorerne også under den levende stilling på
+kampkortet ("Mål indtil videre") — de kommer normalt inden for et par minutter efter målet, og
+et mål, VAR annullerer, bliver stående overstreget. Listen dæmpes, hvis den
+halter efter stillingen, og forsvinder, når facit lander (så står den
+endelige liste der i stedet). Knappen ovenfor tager også kampe i gang med.
+
 ## Hvis noget ser forkert ud
 
 Se fejlsøgningstabellen i [drift.md](drift.md) — den dækker tom stilling,

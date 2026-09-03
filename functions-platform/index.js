@@ -31,7 +31,7 @@ const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore, syncXgCore,
 
   tjekLivePuls,
-  strandedMatches, allMatches,
+  strandedMatches, allMatches, WINDOW_MS,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
@@ -39,6 +39,9 @@ const {
   syncKampDetaljerCore, efterFacitDetaljer, sweepKampDetaljer,
   DETALJE_BUDGET_BROEK, detaljeNiveau,
 } = require('./kampDetaljer');
+const {
+  syncLiveMaalForSpil, syncLiveMaalCore, liveMaalLinje, liveMaalNiveau, LIVE_TIMEOUT_S, LIVE_BUDGET_MS,
+} = require('./liveMaal');
 
 // Sweepets timer — SKAL følges ad med cron-udtrykket på syncSuperligaSweep.
 const SWEEP_TIMER = [2, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
@@ -491,6 +494,59 @@ exports.syncSuperligaResults = onSchedule(
 // Reviewer målte 20.000 ms med simuleret ur ved 15 s). To spil: højst ~40 s.
 const EFTERFACIT_BUDGET_MS = Math.floor((MINUT_TIMEOUT_S * 1000) / 4 / SYNCED_GAMES.length);
 
+// syncLiveMaal — MÅLSCORERE, MENS KAMPEN SPILLES (opgave #78, delopgave 5).
+//
+// Samme kadence som minut-synken, men et EGET job — ikke en hale på den.
+// Kontrakten i syncProviders.js (xG) siger hvorfor: en fremmed kilde må aldrig
+// kunne koste facit, og dette kører hvert minut, mens kampe spilles. Egen
+// timeout (60 s), eget budget (afledt i liveMaal.js), eget driftlog-kort
+// ('livemaal' — kun på kampdage, som minut-kortet), og kun kredsløbsafbryderen
+// og alarmen deles med de andre livescore-kald.
+//
+// Alt, der kan tage fejl, ligger i liveMaal.js (syncLiveMaalForSpil), fordi en
+// onSchedule-krop ikke kan unit-testes. Her: kald pr. spil, kort, alarm.
+// Uden for kampvinduet koster et minut én tom range-forespørgsel pr. spil.
+exports.syncLiveMaal = onSchedule(
+  { schedule: '* 12-23 * * *', timeZone: TZ, region: REGION, timeoutSeconds: LIVE_TIMEOUT_S },
+  async () => {
+    const db = getFirestore();
+    for (const g of SYNCED_GAMES) {
+      // Object.hasOwn: se vagten i runScheduledSyncAll.
+      if (!Object.hasOwn(g, 'livescore') || !g.livescore) continue;
+      const st = statusSamler({ type: 'livemaal', gameId: g.gameId });
+      try {
+        const d = await syncLiveMaalForSpil(db, FieldValue, {
+          gameId: g.gameId, livescore: g.livescore, nowMs: Date.now(), budgetMs: LIVE_BUDGET_MS,
+        });
+        // Stille minut — ingen kampe i gang: intet kort, som for minut-synken.
+        // 720 stille minutter må ikke koste 720 skrivninger.
+        if (d.iGang === 0) continue;
+        const linje = liveMaalLinje(d);
+        console.log(`Live-mål ${g.gameId}: ${linje}`);
+        const tal = {
+          iGang: d.iGang, skrevet: d.skrevet, uaendrede: d.uaendrede, uenige: d.uenige, uparsede: d.uparsede,
+          utilgaengelige: d.utilgaengelige, ukendte: d.ukendte, sprunget: d.sprunget === true,
+        };
+        if (liveMaalNiveau(d) === 'advarsel') st.advarsel(linje, tal); else st.ok(linje, tal);
+        if (d.afbrudt) {
+          console.error(`Live-mål ${g.gameId}: kilden lukkede os ude.`);
+          await meldAlarm(db, FieldValue, {
+            type: 'detaljerLukket',
+            gameId: g.gameId,
+            besked: `Livescore afviste ${g.gameId} med 429/403 under en kamp. Live-mål-jobbet holder pause `
+              + 'i en time (livescoreLukketTil på spil-dokumentet) for ikke at ramme de andre kilder gennem '
+              + 'den delte udgående IP. Sker det igen efter pausen, er vi rate-limited — så skal loftet (LIVE_LOFT) ned.',
+          });
+        }
+      } catch (err) {
+        console.error(`Live-mål ${g.gameId} fejlede (ignoreret):`, err?.message || err);
+        st.fejl(`Live-mål fejlede: ${err?.message || err}`);
+      }
+      await skrivDriftStatus(st, db, { naesteForventetFoerMs: null });
+    }
+  },
+);
+
 // syncSuperligaSweep — SIKKERHEDSNETTET.
 //
 // Minut-synken ser kun kampe inden for 2,5 time efter kickoff. Falder en kamp
@@ -616,7 +672,9 @@ exports.syncSuperligaSweep = onSchedule(
       // xG hentes HER og ikke i minut-synken. Kontrakten i syncProviders.js
       // siger hvorfor: tallet koster ét kald pr. kamp, og hentFaerdige kaster
       // ved timeout med en slugt fejl — xG i minut-synken kunne altså tavst
-      // standse facit-synken midt på en kampaften.
+      // standse facit-synken midt på en kampaften. Live-målene (syncLiveMaal
+      // ovenfor) følger samme princip fra fødslen: eget job, egen timeout —
+      // aldrig en hale på facit-synken, selv om kadencen er den samme.
       //
       // Og den står SIDST i løkkekroppen med vilje. Første udgave lagde den
       // før tabellen og strandede-alarmen, og dermed var den fejl, der lige
@@ -979,9 +1037,37 @@ exports.syncGameKampdetaljerNu = onCall({ region: REGION, timeoutSeconds: 120 },
   // Budgettet er knappens eget, ikke sweep'ets: her er der 120 s at tage af,
   // og den, der trykker, staar og venter. Loftet haeves tilsvarende, saa en
   // bagfyldning kan drives i haanden i stedet for at vente 12 koersler.
-  return syncKampDetaljerCore(db, FieldValue, {
-    gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: 90000, loft: 40,
+  // BUDGETTERNE SKAL SUMME UNDER TIMEOUTEN MED OVERLØB: et budget-tjek i
+  // toppen af en løkke kan ikke afbryde et await, så hver kerne kan gå ét
+  // kald (KALD_TIMEOUT_MS) over sit budget. 90 + 20 + 2 × 10 = 130 s mod
+  // timeoutSeconds 120 var præcis det, kommentaren ovenfor advarer mod:
+  // detalje-batchen committet, funktionen dræbt, admin ser 'internal', live-
+  // batchen tabt (Security målte med simuleret ur). Nu 80 + 15 + 20 = 115 s.
+  const detaljer = await syncKampDetaljerCore(db, FieldValue, {
+    gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: 80000, loft: 40,
   });
+  // OG målscorerne for kampe I GANG lige nu — samme knap, samme sted (trin
+  // 0b): en administrator, der savner et mål på et levende kort, leder her.
+  // Kun kampe i vinduet (som jobbet): en kamp, der står fast med `live` og
+  // uden facit i dagevis, skal ikke æde en plads i loftet for evigt.
+  // Springes over, hvis kilden lige har lukket os ude: ét 429 er nok.
+  let live = null;
+  if (!detaljer.afbrudt) {
+    try {
+      const nu = Date.now();
+      const iVinduet = alle.filter((m) => {
+        const k = m.data?.kickoff;
+        const ms = typeof k?.toMillis === 'function' ? k.toMillis() : new Date(k).getTime();
+        return Number.isFinite(ms) && ms >= nu - WINDOW_MS && ms <= nu;
+      });
+      live = await syncLiveMaalCore(db, FieldValue, {
+        gameId: g.gameId, livescore: g.livescore, only: iVinduet, budgetMs: 15000,
+      });
+    } catch (err) {
+      live = { fejl: err?.message || String(err) };
+    }
+  }
+  return { ...detaljer, live };
 });
 
 // ---------------------------------------------------------------------------

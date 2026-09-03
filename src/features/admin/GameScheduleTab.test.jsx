@@ -918,6 +918,23 @@ describe('⚽ Synk kampdetaljer nu', () => {
     await waitFor(() => expect(mockSyncDetaljer).toHaveBeenCalled());
   };
 
+  it('nævner kampe i gang KUN når der er nogen — og siger, hvad der blev skrevet', async () => {
+    await klik({ manglede: 0, live: { iGang: 2, skrevet: 1, uaendrede: 1, uenige: 0, ukendte: 0 } });
+    await waitFor(() => expect(screen.getByText(/Alle færdige kampe har allerede/)).toBeInTheDocument());
+    expect(screen.getByText(/Alle færdige kampe/)).toHaveTextContent('Live: 2 i gang, 1 lister skrevet, 1 uændrede.');
+  });
+
+  it('tier om live, når ingen kampe er i gang', async () => {
+    await klik({ manglede: 0, live: { iGang: 0, skrevet: 0, uaendrede: 0 } });
+    await waitFor(() => expect(screen.getByText(/Alle færdige kampe har allerede/)).toBeInTheDocument());
+    expect(screen.getByText(/Alle færdige kampe/)).not.toHaveTextContent(/Live/);
+  });
+
+  it('siger, når live-delen fejlede', async () => {
+    await klik({ manglede: 0, live: { fejl: 'kilden hænger' } });
+    await waitFor(() => expect(screen.getByText(/Live-mål fejlede: kilden hænger/)).toBeInTheDocument());
+  });
+
   it('vises for begge spil med livescore-kortlægning', () => {
     mockGames.mockReturnValue({ games: [SL, PL], loading: false });
     render(<GameScheduleTab />);

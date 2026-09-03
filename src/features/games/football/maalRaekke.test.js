@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { medStilling } from './maalRaekke';
+import { medStilling, liveRaekke, stillingAfListe, liveMaalTilstand } from './maalRaekke';
 
 const m = (minut, hold) => ({ minut, hold, scorer: `S${minut}` });
 
@@ -49,5 +49,53 @@ describe('medStilling', () => {
     for (const v of [[], null, undefined, 'ikke en liste', 42]) {
       expect(medStilling(v), String(v)).toEqual([]);
     }
+  });
+});
+
+describe('stillingAfListe — hvor langt er listen nået', () => {
+  it('er det sidste måls stilling, eller 0-0 uden mål', () => {
+    expect(stillingAfListe([m(12, 'home'), m(40, 'away')])).toEqual({ home: 1, away: 1 });
+    expect(stillingAfListe([])).toEqual({ home: 0, away: 0 });
+    expect(stillingAfListe(undefined)).toEqual({ home: 0, away: 0 });
+  });
+});
+
+describe('liveRaekke — tællende mål med stilling, annullerede uden', () => {
+  it('fletter efter minut; et annulleret mål bærer INGEN stilling og flytter ingen', () => {
+    const r = liveRaekke(
+      [m(12, 'home'), m(70, 'home')],
+      [{ minut: 40, hold: 'away', scorer: 'VAR Hansen' }],
+    );
+    expect(r.map((g) => `${g.minut}${g.annulleret ? 'a' : ''}:${g.hjemme ?? '-'}-${g.ude ?? '-'}`))
+      .toEqual(['12:1-0', '40a:---', '70:2-0']);
+    expect(r[1]).toMatchObject({ annulleret: true, scorer: 'VAR Hansen', hold: 'away' });
+    expect(r[1]).not.toHaveProperty('hjemme');
+  });
+
+  it('mål først ved samme minut, og skrald filtreres fra', () => {
+    const r = liveRaekke([m(30, 'home')], [{ minut: 30, hold: 'home' }, null, { minut: 5, hold: 'nord' }]);
+    expect(r.map((g) => g.annulleret)).toEqual([false, true]);
+  });
+
+  it('tåler manglende lister', () => {
+    expect(liveRaekke(undefined, undefined)).toEqual([]);
+    expect(liveRaekke([], null)).toEqual([]);
+  });
+});
+
+describe('liveMaalTilstand — det, kortet skal vise', () => {
+  it('bagud, når listen ikke er nået frem til den levende stilling', () => {
+    const lm = { maal: [m(12, 'home')], annullerede: [] };
+    expect(liveMaalTilstand(lm, { home: 1, away: 0 })).toMatchObject({ bagud: false });
+    expect(liveMaalTilstand(lm, { home: 2, away: 0 })).toMatchObject({ bagud: true });
+    expect(liveMaalTilstand(lm, { home: 1, away: 1 })).toMatchObject({ bagud: true });
+  });
+  it('null uden noget at vise — tomme lister, intet felt, ingen live', () => {
+    expect(liveMaalTilstand({ maal: [], annullerede: [] }, { home: 0, away: 0 })).toBeNull();
+    expect(liveMaalTilstand(undefined, { home: 0, away: 0 })).toBeNull();
+    expect(liveMaalTilstand({ maal: [m(1, 'home')] }, null)).toBeNull();
+    // Kun et annulleret mål er stadig noget at vise — det er ejerens pointe.
+    expect(liveMaalTilstand({ maal: [], annullerede: [{ minut: 7, hold: 'away' }] }, { home: 0, away: 0 }))
+      .toMatchObject({ bagud: false });
   });
 });

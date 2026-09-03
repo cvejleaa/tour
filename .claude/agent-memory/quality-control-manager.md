@@ -117,6 +117,31 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   BAGGRUND op med at dæmpe: tjek, om "kan ikke vælges"-signalet stadig læses.
 - **"Kan startes med vilje" og "kan ikke fejle tavst" efterprøves pr. SPIL.**
   Callable uden knap = ingen udløser; kørsel uden driftlog-linje = tavs.
+- **"Kan ikke fejle tavst" dækker fejl UNDERVEJS, ikke jobbet der holder op med
+  at blive kaldt.** `syncLiveMaal` (opgave #78) fanger enhver fejl i sin egen
+  løkke og skriver et rødt kort — men intet opdager, hvis SELVE onSchedule-
+  triggeren stopper med at fyre (deploy, IAM, GCP). Minut-synken har samme
+  hul, MEN er dækket transitivt: sweep'et genudleder facit hver time uanset
+  hvad minut-synken gjorde, og er derfor dens egen alarm. `syncLiveMaal` har
+  intet sådant søskende-job — dør det, forbliver `liveMaal` bare væk, uden
+  et rødt kort. Spørg ved nyt maskineri: findes der et UAFHÆNGIGT job, der
+  ville opdage det, hvis dette holdt helt op — ikke kun "fanger jeg mine
+  egne exceptions".
+- **En type, der er udeladt af `DriftTab.jsx`s `forventede`-liste (:108),
+  skal begrunde sig i SIT EGET sikkerhedsnet — ikke i at en nabotype (fx
+  `minut`) også er udeladt.** `minut` er udeladt, fordi sweep'et er dens
+  alarm (kommentar i DriftTab.jsx selv). `livemaal` blev udeladt med samme
+  "kun kampdage"-begrundelse, men uden at have et sweep at læne sig op ad —
+  to typer, der ligner hinanden på kadence, kan stå med vidt forskellig
+  fejl-synlighed.
+- **En delt hjælpefunktion, eksporteret i SAMME commit som en ny fil, der
+  åbenlyst har brug for den, skal grep'es i den nye fil — ikke antages
+  brugt, fordi exports-linjen blev udvidet.** `kampDetaljer.js` eksporterede
+  `eidForKamp` (med kommentaren "Ét sted for begge veje, så … ikke kan
+  drive fra hinanden") i samme diff, der tilføjede `liveMaal.js` — som så
+  reimplementerede præcis samme cached→nøgle-opslag inline i stedet for at
+  importere den. Et grep efter funktionsnavnet i den NYE fil, ikke kun i
+  `module.exports`-diffen, fanger det.
 
 - **En hook, der samler DATA og et LOADING-flag, skal give begge videre —
   ikke kun dataet.** `useGameStandings` returnerer `{standings, leagues, loading}`;

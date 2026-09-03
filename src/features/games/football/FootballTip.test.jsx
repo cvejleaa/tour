@@ -434,6 +434,19 @@ describe('FootballTip — slutresultat på kampkortet', () => {
     expect(blok.textContent).not.toMatch(/du |dit |dine /i);
   });
 
+  it('viser PRÆCIS én liste på en afgjort kamp med et efterladt liveMaal', () => {
+    // Facit sletter liveMaal på serveren, men kortet må ikke afhænge af det:
+    // gaten for live-listen er liveScore, som svarer null på facit.
+    const { container } = setup({}, '/spil/sl', spillede({
+      maal: [{ hold: 'home', minut: 23, scorer: 'Anders And' }],
+      liveMaal: { maal: [{ hold: 'home', minut: 23, scorer: 'Anders And' }], annullerede: [], at: 1 },
+      live: { home: 1, away: 0, status: 'anden', at: 1 },
+    }));
+    expect(container.querySelectorAll('.match-card__maal-liste')).toHaveLength(1);
+    expect(container.querySelector('.match-card__maal')).not.toBeNull();
+    expect(container.querySelector('.match-card__live-maal')).toBeNull();
+  });
+
   it('lægger målene i EGEN blok, aldrig i meta-rækken', () => {
     // Meta-rækken er inline-flex UDEN wrap: et element mere dér klipper
     // venue-teksten. Samme fund som for xG-blokken.
@@ -695,6 +708,103 @@ describe('FootballTip — kampen er i gang', () => {
     expect(container.querySelectorAll('.live-pill--doed')).toHaveLength(1);
     expect(container.querySelectorAll('.match-card__score--doed')).toHaveLength(1);
     expect(container.querySelectorAll('.live-pill__prik')).toHaveLength(0); // ingen puls, ingen prik
+  });
+
+  // ── Målscorere, mens kampen spilles (opgave #78) ─────────────────────────
+  const LIVE_MAAL = {
+    maal: [{ hold: 'home', minut: 23, scorer: 'Anders And', oplaeg: 'Fedtmule', selvmaal: false }],
+    annullerede: [],
+    at: NU - 60000,
+  };
+
+  it('viser målene under den levende stilling — med stilling, minut, scorer og hold', () => {
+    const { container } = setup(frisk, '/spil/sl', kampe(LIVE, { liveMaal: LIVE_MAAL }));
+    const blok = container.querySelector('.match-card__live-maal');
+    expect(blok).not.toBeNull();
+    expect(blok).toHaveTextContent('Mål indtil videre');
+    expect(blok).toHaveTextContent('1–0 23′ Anders And (AGF)');
+    expect(blok).toHaveTextContent('opl. Fedtmule');
+    // ALDRIG facit-listens basisklasse: kortets øvrige tests skelner de to.
+    expect(container.querySelector('.match-card__maal')).toBeNull();
+    expect(container.querySelectorAll('.match-card__maal-liste')).toHaveLength(1);
+    // Frisk og indhentet: ikke dæmpet.
+    expect(container.querySelector('.match-card__live-maal--doed')).toBeNull();
+    // Ingen dom om et menneske — heller ikke live.
+    expect(blok.textContent).not.toMatch(/du |dit |dine /i);
+  });
+
+  it('oplæses som "indtil videre" med egen label — ikke oveni stillingens', () => {
+    const { container } = setup(frisk, '/spil/sl', kampe(LIVE, { liveMaal: LIVE_MAAL }));
+    const blok = container.querySelector('.match-card__live-maal');
+    expect(blok.getAttribute('aria-label')).toBe('Målscorere indtil videre: 23. minut Anders And, AGF.');
+    expect(screen.getByLabelText(/Stillingen lige nu/).getAttribute('aria-label')).not.toMatch(/Anders And/);
+  });
+
+  it('et annulleret mål bliver stående — overstreget, mærket, og UDEN stilling', () => {
+    const { container } = setup(frisk, '/spil/sl', kampe(LIVE, {
+      liveMaal: { ...LIVE_MAAL, annullerede: [{ hold: 'away', minut: 40, scorer: 'Georg Gearløs' }] },
+    }));
+    const poster = container.querySelectorAll('.match-card__live-maal .match-card__maal-post');
+    expect(poster).toHaveLength(2);
+    const ann = poster[1];
+    expect(ann.classList.contains('match-card__maal-post--annulleret')).toBe(true);
+    expect(ann).toHaveTextContent('40′ Georg Gearløs (F.C. København) annulleret (VAR)');
+    expect(ann.querySelector('.match-card__maal-stilling')).toBeNull();
+    // Det tællende mål har sin stilling, og den er UPÅVIRKET af annulleringen.
+    expect(poster[0].querySelector('.match-card__maal-stilling')).toHaveTextContent('1–0');
+    expect(container.querySelector('.match-card__live-maal').getAttribute('aria-label'))
+      .toContain('40. minut Georg Gearløs, F.C. København, annulleret af VAR');
+  });
+
+  it('kun et annulleret mål (0-0) er stadig en liste', () => {
+    const { container } = setup(frisk, '/spil/sl', kampe({ ...LIVE, home: 0 }, {
+      liveMaal: { maal: [], annullerede: [{ hold: 'away', minut: 40, scorer: 'Georg Gearløs' }] },
+    }));
+    expect(container.querySelector('.match-card__live-maal')).toHaveTextContent('annulleret (VAR)');
+    expect(container.querySelector('.match-card__live-maal--doed')).toBeNull();
+  });
+
+  it('dæmpes, når listen halter efter stillingen', () => {
+    // Stillingen siger 2–0, listen kender ét mål: kilden er et minut bagud.
+    const { container } = setup(frisk, '/spil/sl', kampe({ ...LIVE, home: 2 }, { liveMaal: LIVE_MAAL }));
+    expect(container.querySelector('.match-card__live-maal--doed')).not.toBeNull();
+    expect(container.querySelector('.match-card__live-maal').getAttribute('aria-label'))
+      .toContain('Listen er ikke nået frem til stillingen endnu.');
+  });
+
+  it('dæmpes, når kampen er slut', () => {
+    const { container } = setup(frisk, '/spil/sl', kampe({ ...LIVE, status: 'slut' }, { liveMaal: LIVE_MAAL }));
+    expect(container.querySelector('.match-card__live-maal--doed')).not.toBeNull();
+    expect(container.querySelector('.match-card__live-maal').getAttribute('aria-label')).toContain('Kampen er slut.');
+  });
+
+  it('dæmpes, når opdateringen er afbrudt', () => {
+    const { container } = setup({ liveHeartbeatAt: NU - 30 * 60000 }, '/spil/sl', kampe(LIVE, { liveMaal: LIVE_MAAL }));
+    expect(container.querySelector('.match-card__live-maal--doed')).not.toBeNull();
+    expect(container.querySelector('.match-card__live-maal').getAttribute('aria-label')).toContain('Opdateringen er afbrudt.');
+  });
+
+  it('et selvmål i live-listen nævner scorerens EGET hold — i listen og i oplæsningen', () => {
+    // AGF fører 1–0 på et selvmål af en FCK-spiller: målet står på home,
+    // men spilleren er F.C. Københavns. Oplæsningen havde sin egen kopi af
+    // den vending, og den var udækket (Test Managers fund).
+    const { container } = setup(frisk, '/spil/sl', kampe(LIVE, {
+      liveMaal: { maal: [{ hold: 'home', minut: 10, scorer: 'Selvmaal Hansen', selvmaal: true }], annullerede: [], at: NU },
+    }));
+    const blok = container.querySelector('.match-card__live-maal');
+    expect(blok).toHaveTextContent('1–0 10′ Selvmaal Hansen (F.C. København) selvmål');
+    expect(blok.getAttribute('aria-label')).toBe('Målscorere indtil videre: 10. minut Selvmaal Hansen, F.C. København, selvmål.');
+    expect(blok.getAttribute('aria-label')).not.toContain('AGF');
+  });
+
+  it('viser INGEN live-liste uden liveMaal', () => {
+    const { container } = setup(frisk, '/spil/sl', kampe(LIVE));
+    expect(container.querySelector('.match-card__live-maal')).toBeNull();
+  });
+
+  it('viser INGEN live-liste ved tomme lister', () => {
+    const { container } = setup(frisk, '/spil/sl', kampe(LIVE, { liveMaal: { maal: [], annullerede: [] } }));
+    expect(container.querySelector('.match-card__live-maal')).toBeNull();
   });
 
   // Klokkeslættet er den tredje kanal. Bundet til sit eget element, ikke til

@@ -499,12 +499,22 @@ const LIVE_STALE_MS = 5 * 60 * 1000;
  * @param {Array<{data:object}>} kampe – dokumenterne, som pendingMatches gav dem
  */
 function kampeMedLevendeStilling(kampe) {
-  return (kampe || []).filter((m) => {
-    const l = m?.data?.live;
-    if (!l) return false;
-    if (m.data.result != null && m.data.result !== '') return false;
-    return l.status !== 'slut' && l.status !== 'afbrudt';
-  }).length;
+  return (kampe || []).filter((m) => erIGang(m?.data)).length;
+}
+
+/**
+ * Er kampen I GANG lige nu — set fra dens eget dokument? ÉT prædikat, delt
+ * mellem puls-alarmen ovenfor og live-mål-jobbet (liveMaal.js): en skrevet
+ * live-stilling, der hverken er slut eller afbrudt, på en kamp uden facit.
+ * Bor her, så de to aldrig kan drive fra hinanden — en proxy-gate ("pending")
+ * var netop fejlen, kampeMedLevendeStilling blev skrevet for at rette.
+ * Kaster aldrig: et giftigt dokument svarer false.
+ */
+function erIGang(data) {
+  const l = data?.live;
+  if (!l || typeof l !== 'object') return false;
+  if (data.result != null && data.result !== '') return false;
+  return l.status !== 'slut' && l.status !== 'afbrudt';
 }
 
 /**
@@ -856,7 +866,7 @@ async function syncXgCore(db, FieldValue, opts = {}) {
 module.exports = {
   GAME_ID, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
   outcomeFromScore, matchDocId, resultsUrl, syncResultsCore, pendingMatches, WINDOW_MS,
-  skalMeldeLiveTavs, kampeMedLevendeStilling, liveTavsBesked, tjekLivePuls, LIVE_STALE_MS,
+  skalMeldeLiveTavs, kampeMedLevendeStilling, erIGang, liveTavsBesked, tjekLivePuls, LIVE_STALE_MS,
   liveUrl, liveStatus, syncLiveCore,
   standingsUrl, syncStandingsCore, runScheduledSync, runScheduledSyncAll,
   syncKickoffsCore, strandedMatches, allMatches,
