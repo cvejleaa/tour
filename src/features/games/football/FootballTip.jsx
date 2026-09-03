@@ -37,7 +37,7 @@ import {
 import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
 // Chance-deltaet udledes ÉT sted — se chanceUdfald.
 import { chanceUdfald } from './tipsHistory';
-import { medStilling } from './maalRaekke';
+import { medStilling, liveMaalTilstand } from './maalRaekke';
 
 
 const OUTCOME_LABEL = { [OUTCOME.HOME]: '1', [OUTCOME.DRAW]: 'X', [OUTCOME.AWAY]: '2' };
@@ -85,6 +85,67 @@ function harMaal(m) {
 /** Er der et brugbart tilskuertal? Kilden mangler det i 4 af 20 PL-kampe. */
 function harTilskuere(m) {
   return typeof m?.tilskuere === 'number' && Number.isFinite(m.tilskuere) && m.tilskuere > 0;
+}
+
+/**
+ * Én målpost — DELT af facit-listen og live-listen, så de ikke kan drive fra
+ * hinanden. `g` kommer fra medStilling (med hjemme/ude) eller liveRaekke
+ * (annulleret: true, UDEN stilling — et annulleret mål tæller ikke).
+ *
+ * HOLDET I PARENTES er det, spilleren SELV spiller for — ikke det, der fik
+ * målet. Ved et selvmål er de to forskellige, og det er scorerens eget hold,
+ * kortet mangler: stillingen til venstre siger allerede, hvem målet gavner.
+ * Et selvmål er pr. definition scoret af en spiller på det MODSATTE hold
+ * (scripts/maal-selvmaal.mjs: IT=39 er et selvmål, 5 af 5). Skrevet som to
+ * næstede valg og ikke et XOR-udtryk: første udgave var omvendt.
+ */
+function MaalPost({ g, h, a }) {
+  const hold = g.hold === 'home'
+    ? (g.selvmaal ? a.navn : h.navn)
+    : (g.selvmaal ? h.navn : a.navn);
+  return (
+    <span className={`match-card__maal-post${g.annulleret ? ' match-card__maal-post--annulleret' : ''}`}>
+      {/* STILLINGEN FØRST, og det er ikke en smagssag: listen læses for at se
+          kampen bevæge sig, og så skal tallene kunne findes uden at læse et
+          navn af vilkårlig længde først. Den er UDLEDT, ikke gemt — se
+          maalRaekke.js. Et annulleret mål har ingen: det flyttede intet. */}
+      {!g.annulleret && (
+        <strong className="match-card__maal-stilling">
+          {g.hjemme}–{g.ude}
+        </strong>
+      )}
+      {!g.annulleret && ' '}<span className="match-card__maal-minut">{g.minut}′</span>
+      {' '}{g.scorer || 'ukendt'}
+      {' '}<span className="match-card__maal-hold">({hold})</span>
+      {/* Ordet BLIVER, og det er ikke pynt: uden det ville "1–0 … (F.C.
+          København)" se ud som en fejl, når stillingen lige har sagt, at
+          Viborg scorede. Det bærer betydningen alene for en farveblind. */}
+      {g.selvmaal && (
+        <span className="match-card__selvmaal"> selvmål</span>
+      )}
+      {g.oplaeg && <span className="match-card__maal-oplaeg"> opl. {g.oplaeg}</span>}
+      {/* Samme regel for annulleringen: overstregningen er CSS, ordet er
+          det, en skærmlæser får. */}
+      {g.annulleret && <span className="match-card__annulleret"> annulleret (VAR)</span>}
+    </span>
+  );
+}
+
+/**
+ * Oplæsningen af live-listen: egen aria-label på blokken, ikke oveni
+ * score-labelen — de to læses hver for sig, og en lang label på tallet ville
+ * begrave stillingen i navne.
+ */
+function liveMaalOplaesning(tilstand, live, h, a) {
+  const poster = tilstand.raekke.map((g) => {
+    const hold = g.hold === 'home' ? (g.selvmaal ? a.navn : h.navn) : (g.selvmaal ? h.navn : a.navn);
+    const maerke = g.annulleret ? ', annulleret af VAR' : (g.selvmaal ? ', selvmål' : '');
+    return `${g.minut}. minut ${g.scorer || 'ukendt'}, ${hold}${maerke}`;
+  });
+  const forbehold = live.sluttet ? ' Kampen er slut.'
+    : live.forældet ? ' Opdateringen er afbrudt.'
+      : tilstand.bagud ? ' Listen er ikke nået frem til stillingen endnu.' : '';
+  return `Målscorere indtil videre: ${poster.join('; ')}.${forbehold}`;
 }
 
 function HoldLink({ teams, name, className, children }) {
@@ -639,6 +700,10 @@ export default function FootballTip({ game, me, matches }) {
         const hit = m.result && bet?.pick ? bet.pick === m.result : null;
         const score = matchScore(m);
         const live = liveScore(m, game?.liveHeartbeatAt, liveNu);
+        // Live-listen findes kun, hvor live-stillingen findes: liveScore
+        // svarer null på en kamp med facit, så et efterladt liveMaal på en
+        // afgjort kamp kan aldrig give to lister.
+        const liveMaal = live ? liveMaalTilstand(m.liveMaal, live) : null;
         // Kuponmærket vises KUN, når runden faktisk er splittet. I en normal
         // runde er alle seks kampe med, og seks ens mærker er støj — mærket
         // skal betyde noget, den dag der står ét anderledes.
@@ -916,58 +981,7 @@ export default function FootballTip({ game, me, matches }) {
                   <span className="match-card__maal-liste">
                     <span className="match-card__maal-label">Mål</span>
                     {medStilling(m.maal).map((g, i) => (
-                      <span key={`${g.hold}-${g.minut}-${i}`} className="match-card__maal-post">
-                    {/* STILLINGEN FØRST, og det er ikke en smagssag: listen
-                        læses for at se kampen bevæge sig, og så skal tallene
-                        kunne findes uden at læse et navn af vilkårlig længde
-                        først. Den er UDLEDT, ikke gemt — se maalRaekke.js. */}
-                        <strong className="match-card__maal-stilling">
-                          {g.hjemme}–{g.ude}
-                        </strong>
-                        {' '}<span className="match-card__maal-minut">{g.minut}′</span>
-                        {' '}{g.scorer || 'ukendt'}
-                        {/* HOLDET, SPILLEREN SPILLER FOR — ikke det, der fik
-                            målet. Ved et selvmål er de to forskellige, og det
-                            er scorerens eget hold, kortet mangler: stillingen
-                            til venstre siger ALLEREDE, hvem målet gavner
-                            (1–0 er hjemmeholdets), så modtageren i parentes er
-                            ren gentagelse.
-
-                            Det kræver ingen ny datakilde. Et selvmål er pr.
-                            definition scoret af en spiller på det MODSATTE
-                            hold — det er netop dét kriterium, målingen i
-                            scripts/maal-selvmaal.mjs brugte til at fastslå, at
-                            IT=39 ER et selvmål (scoreren står i modstanderens
-                            startopstilling i 5 af 5). Begge holdnavne er
-                            allerede på kortet; siden skal bare vendes.
-
-                            FØRSTE UDGAVE SKREV MODTAGEREN og hængte ordet
-                            "selvmål" på til sidst. Den var ikke forkert, men
-                            den brugte parentesen på noget, der stod to
-                            centimeter til venstre, og lod det eneste, der
-                            manglede, blive ude.
-
-                            SKREVET SOM TO NÆSTEDE VALG og ikke som et
-                            XOR-udtryk: min første udgave var
-                            `(g.hold === 'home') !== !g.selvmaal`, og den var
-                            omvendt — en glemt udråbstegn. En sandhedstabel
-                            fangede den, men et udtryk, der KRÆVER en
-                            sandhedstabel, hører ikke hjemme i en visning. */}
-                        {' '}<span className="match-card__maal-hold">
-                          ({g.hold === 'home'
-                            ? (g.selvmaal ? a.navn : h.navn)
-                            : (g.selvmaal ? h.navn : a.navn)})
-                        </span>
-                        {/* Ordet BLIVER, og det er ikke pynt: uden det ville
-                            "1–0 … (F.C. København)" se ud som en fejl, når
-                            stillingen lige har sagt, at Viborg scorede. Ordet
-                            er dét, der gør parentesen læsbar — og det bærer
-                            betydningen alene for en farveblind læser. */}
-                        {g.selvmaal && (
-                          <span className="match-card__selvmaal"> selvmål</span>
-                        )}
-                        {g.oplaeg && <span className="match-card__maal-oplaeg"> opl. {g.oplaeg}</span>}
-                      </span>
+                      <MaalPost key={`${g.hold}-${g.minut}-${i}`} g={g} h={h} a={a} />
                     ))}
                   </span>
                 )}
@@ -976,6 +990,30 @@ export default function FootballTip({ game, me, matches }) {
                     {fmtHeltal(m.tilskuere)} tilskuere
                   </span>
                 )}
+              </div>
+            )}
+
+            {/* MÅLSCORERE, MENS KAMPEN SPILLES (opgave #78). EGEN basisklasse
+                — aldrig `match-card__maal` — så en kamp med facit og et
+                efterladt liveMaal ikke kan vise to lister (facit rydder
+                feltet, men kortet må ikke afhænge af det; gaten er liveScore,
+                som svarer null på facit). Låner de indre klasser, så kolonnen
+                ser ud som facit-listen. Dæmpes med stillingen (slut/afbrudt),
+                og når listen HALTER efter tallet: den blev skrevet, da de to
+                kilder var enige, så en forskel betyder, at stillingen er ét
+                mål foran listen — næste minut heler det (enigheds-reglen).
+                Annullerede mål bliver stående, overstregede: ejerens valg. */}
+            {liveMaal && (
+              <div
+                className={`match-card__live-maal ${live.sluttet || live.forældet || liveMaal.bagud ? 'match-card__live-maal--doed' : ''}`}
+                aria-label={liveMaalOplaesning(liveMaal, live, h, a)}
+              >
+                <span className="match-card__maal-liste">
+                  <span className="match-card__maal-label">Mål indtil videre</span>
+                  {liveMaal.raekke.map((g, i) => (
+                    <MaalPost key={`${g.hold}-${g.minut}-${g.annulleret ? 'a' : 'm'}-${i}`} g={g} h={h} a={a} />
+                  ))}
+                </span>
               </div>
             )}
 

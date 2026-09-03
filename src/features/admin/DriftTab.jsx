@@ -18,6 +18,7 @@ import { formatKickoff } from '../../lib/daDate';
 const TYPE_NAVN = {
   sweep: 'Times-sweep (facit + tabel)',
   minut: 'Minut-synk (kampdage)',
+  livemaal: 'Live-mål (kampe i gang)',
   kickoff: 'Daglig kickoff-synk',
   reminder: 'Daglig tip-påmindelse',
 };

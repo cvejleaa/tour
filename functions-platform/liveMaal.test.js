@@ -1,9 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createRequire } from 'module';
 import { readFileSync } from 'fs';
 
 const require = createRequire(import.meta.url);
-const { liveMaalAf, LIVE_SKRIVBARE, ANNULLERET_IT, ANNULLERET_LOFT } = require('./liveMaal');
+const {
+  liveMaalAf, syncLiveMaalCore, syncLiveMaalForSpil, liveMaalLinje, liveMaalNiveau, sammeListe,
+  LIVE_SKRIVBARE, LIVE_LOFT, LIVE_BUDGET_MS, LIVE_TIMEOUT_S, ANNULLERET_IT, ANNULLERET_LOFT,
+} = require('./liveMaal');
+const { SYNCED_GAMES } = require('./syncProviders');
 const { SKRIVBARE_FELTER } = require('./kampDetaljer');
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/livescore-kampe.json', import.meta.url), 'utf8'));
@@ -113,9 +117,299 @@ describe('annullerede har et loft — listen er ikke bundet af kæden', () => {
 
 describe('LIVE_SKRIVBARE — én vagt pr. skrivesti', () => {
   it('live-feltet står IKKE på facit-stiens liste, og facit-felterne står ikke på live-stiens', () => {
-    expect(LIVE_SKRIVBARE).toEqual(['liveMaal']);
+    // livescoreEid er med: løkken slår id'et op, når cachen mangler det.
+    expect(LIVE_SKRIVBARE).toEqual(['liveMaal', 'livescoreEid']);
     expect(Object.isFrozen(LIVE_SKRIVBARE)).toBe(true);
     expect(SKRIVBARE_FELTER).not.toContain('liveMaal');
     for (const f of ['maal', 'result', 'homeGoals', 'awayGoals', 'kickoff']) expect(LIVE_SKRIVBARE).not.toContain(f);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// syncLiveMaalCore — løkken. Fake-Firestore: games/{g} med teams, matches med
+// where-kæde (pendingMatches) og batch.update/commit, der registrerer alt.
+// ---------------------------------------------------------------------------
+const FieldValue = { serverTimestamp: () => '@ts', delete: () => '@delete' };
+const TEAMS = [{ name: 'FC Midtjylland', short: 'FCM' }, { name: 'Randers FC', short: 'RFC' }];
+const NU = Date.parse('2026-07-24T18:00:00Z');
+const KICKOFF = new Date('2026-07-24T17:00:00Z');
+
+function fakeDb(matches, teams = TEAMS) {
+  const docs = new Map(matches.map((m) => [m.id, m.data]));
+  const alle = () => [...docs.entries()].map(([id, data]) => ({ id, data: () => data }));
+  const medFiltre = (filtre) => ({
+    where: (felt, op, v) => medFiltre([...filtre, { felt, op, v }]),
+    async get() {
+      const passer = (d) => filtre.every(({ felt, op, v }) => {
+        const x = d.data()[felt];
+        if (x == null) return false;
+        if (op === '>=') return x >= v;
+        if (op === '<=') return x <= v;
+        throw new Error(`faken kender ikke ${op}`);
+      });
+      return { docs: alle().filter(passer) };
+    },
+  });
+  const self = {
+    updates: [], commits: 0, gameReads: 0,
+    collection: (navn) => {
+      if (navn !== 'games') throw new Error(`uventet ${navn}`);
+      return {
+        doc: (gid) => ({
+          get: async () => { self.gameReads += 1; return { exists: true, data: () => ({ teams }) }; },
+          collection: () => ({
+            doc: (id) => ({ id, __gid: gid }),
+            where: (felt, op, v) => medFiltre([{ felt, op, v }]),
+            get: async () => ({ docs: alle() }),
+          }),
+        }),
+      };
+    },
+    batch: () => ({
+      update(ref, felter) {
+        for (const [k, v] of Object.entries(felter)) if (v === undefined) throw new Error(`undefined i ${k}`);
+        self.updates.push({ id: ref.id, felter });
+      },
+      async commit() { self.commits += 1; },
+    }),
+  };
+  return self;
+}
+
+/** fetch-attrap: stage-listen + incidents pr. Eid (eller null = 404). */
+function fakeFetch({ incidentsAf = {}, stageEid = '1784451', status = 200 } = {}) {
+  return vi.fn(async (url) => {
+    if (status !== 200) return { ok: false, status };
+    if (url.includes('/stage/')) {
+      return {
+        ok: true, status: 200,
+        json: async () => ({ Stages: [{ Events: [{ Eid: stageEid, Esd: 20260724170000, T1: [{ Abr: 'FCM' }], T2: [{ Abr: 'RAN' }] }] }] }),
+      };
+    }
+    const m = url.match(/incidents\/soccer\/(\d+)/);
+    const inc = m ? incidentsAf[m[1]] : undefined;
+    if (inc === undefined) return { ok: false, status: 404 };
+    return { ok: true, status: 200, json: async () => inc };
+  });
+}
+
+const I_GANG = (extra = {}) => ({
+  home: 'FC Midtjylland', away: 'Randers FC', kickoff: KICKOFF, result: null,
+  live: { home: 1, away: 0, status: 'anden', at: NU - 60000 },
+  livescoreEid: '1784451',
+  ...extra,
+});
+const opts = (extra = {}) => ({
+  gameId: 'superliga2627', livescore: { land: 'denmark', liga: 'superliga' }, nowMs: NU,
+  fetchFn: fakeFetch({ incidentsAf: { 1784451: EN_NUL } }), ...extra,
+});
+
+describe('syncLiveMaalCore — målscorere for kampe i gang', () => {
+  it('skriver liveMaal for en kamp i gang med cachet id — ét kald, intet stage-kald', async () => {
+    const db = fakeDb([{ id: 'k1', data: I_GANG() }]);
+    const fetchFn = fakeFetch({ incidentsAf: { 1784451: EN_NUL } });
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ fetchFn, only: [{ id: 'k1', data: I_GANG() }] }));
+    expect(ud).toMatchObject({ iGang: 1, valgte: 1, forsoegt: 1, skrevet: 1, uaendrede: 0, afbrudt: false });
+    expect(db.updates).toHaveLength(1);
+    expect(Object.keys(db.updates[0].felter)).toEqual(['liveMaal']);
+    const lm = db.updates[0].felter.liveMaal;
+    expect(lm.maal).toHaveLength(1);
+    expect(lm.maal[0]).toMatchObject({ hold: 'home', selvmaal: false });
+    expect(lm.annullerede).toEqual([]);
+    expect(lm.at).toBe(NU);
+    expect(db.commits).toBe(1);
+    const kald = fetchFn.mock.calls.map((c) => String(c[0]));
+    expect(kald).toHaveLength(1);
+    expect(kald[0]).toContain('/incidents/soccer/1784451');
+    expect(db.gameReads).toBe(0); // holdlisten læses kun, når et id mangler
+  });
+
+  it('skriver IKKE, når listen er uændret — hvert kampdokument lyttes på af hver browser', async () => {
+    const foer = { maal: [{ hold: 'home', minut: 45, selvmaal: false, scorer: 'X' }], annullerede: [], at: 1 };
+    // Samme indhold som EN_NUL giver — regnes af funktionen selv for at undgå en håndskrevet kopi.
+    const facit = liveMaalAf(EN_NUL, { home: 1, away: 0 });
+    const kamp = I_GANG({ liveMaal: { ...facit, at: NU - 60000 } });
+    const db = fakeDb([{ id: 'k1', data: kamp }]);
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ only: [{ id: 'k1', data: kamp }] }));
+    expect(ud).toMatchObject({ forsoegt: 1, skrevet: 0, uaendrede: 1 });
+    expect(db.updates).toHaveLength(0);
+    expect(db.commits).toBe(0);
+    expect(sammeListe(foer, { ...foer, at: 99 })).toBe(true); // `at` tæller ikke
+    expect(sammeListe(foer, { ...foer, maal: [] })).toBe(false);
+  });
+
+  it('uenig om stillingen → intet skrives, tælles som uenig (næste minut heler det)', async () => {
+    const kamp = I_GANG({ live: { home: 2, away: 0, status: 'anden', at: NU } }); // kilden siger 1-0
+    const db = fakeDb([{ id: 'k1', data: kamp }]);
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ only: [{ id: 'k1', data: kamp }] }));
+    expect(ud).toMatchObject({ forsoegt: 1, skrevet: 0, uenige: 1 });
+    expect(db.updates).toHaveLength(0);
+  });
+
+  it('404 på et CACHET id sletter id\'et (selvheling, #82) — via nøgle slettes intet', async () => {
+    const kamp = I_GANG({ livescoreEid: '9999999' });
+    const db = fakeDb([{ id: 'k1', data: kamp }]);
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ only: [{ id: 'k1', data: kamp }] }));
+    expect(ud).toMatchObject({ forsoegt: 1, utilgaengelige: 1, idSlettet: 1, skrevet: 0 });
+    expect(db.updates).toEqual([{ id: 'k1', felter: { livescoreEid: '@delete' } }]);
+    expect(db.commits).toBe(1);
+
+    // Uden cachet id: opslaget via stage-listen gav et id, kilden ikke svarer på.
+    const kamp2 = I_GANG({ livescoreEid: undefined });
+    const db2 = fakeDb([{ id: 'k1', data: kamp2 }]);
+    const ud2 = await syncLiveMaalCore(db2, FieldValue, opts({
+      fetchFn: fakeFetch({ incidentsAf: {}, stageEid: '9999999' }), only: [{ id: 'k1', data: kamp2 }],
+    }));
+    expect(ud2).toMatchObject({ utilgaengelige: 1, idSlettet: 0 });
+    expect(db2.updates).toHaveLength(0);
+  });
+
+  it('mangler id\'et, hentes stage-listen ÉN gang, og id + liste skrives sammen', async () => {
+    const kamp = I_GANG({ livescoreEid: undefined });
+    const db = fakeDb([{ id: 'k1', data: kamp }, { id: 'k2', data: kamp }]);
+    const fetchFn = fakeFetch({ incidentsAf: { 1784451: EN_NUL } });
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ fetchFn, only: [{ id: 'k1', data: kamp }, { id: 'k2', data: kamp }] }));
+    expect(ud).toMatchObject({ skrevet: 2, ukendte: 0 });
+    expect(fetchFn.mock.calls.filter((c) => String(c[0]).includes('/stage/'))).toHaveLength(1);
+    expect(db.gameReads).toBe(1);
+    for (const u of db.updates) expect(Object.keys(u.felter).sort()).toEqual(['liveMaal', 'livescoreEid']);
+    expect(db.updates[0].felter.livescoreEid).toBe('1784451');
+  });
+
+  it('en kamp uden id OG uden modpart hos kilden tælles som ukendt — intet kald for den', async () => {
+    const kamp = I_GANG({ livescoreEid: undefined, kickoff: new Date('2026-08-01T17:00:00Z') });
+    const db = fakeDb([{ id: 'k1', data: kamp }]);
+    const fetchFn = fakeFetch({ incidentsAf: { 1784451: EN_NUL } });
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ fetchFn, only: [{ id: 'k1', data: kamp }] }));
+    expect(ud).toMatchObject({ ukendte: 1, forsoegt: 0 });
+    expect(fetchFn.mock.calls.some((c) => String(c[0]).includes('/incidents/'))).toBe(false);
+  });
+
+  it('vælger KUN kampe i gang: facit, slut, afbrudt og uden live springes over', async () => {
+    const only = [
+      { id: 'facit', data: I_GANG({ result: '1' }) },
+      { id: 'slut', data: I_GANG({ live: { home: 1, away: 0, status: 'slut' } }) },
+      { id: 'afbrudt', data: I_GANG({ live: { home: 1, away: 0, status: 'afbrudt' } }) },
+      { id: 'ingen', data: I_GANG({ live: undefined }) },
+      { id: 'gift', data: I_GANG({ live: 'ja' }) },
+      { id: 'ok', data: I_GANG() },
+    ];
+    const db = fakeDb(only);
+    const fetchFn = fakeFetch({ incidentsAf: { 1784451: EN_NUL } });
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ fetchFn, only }));
+    expect(ud).toMatchObject({ iGang: 1, valgte: 1, skrevet: 1 });
+    expect(db.updates.map((u) => u.id)).toEqual(['ok']);
+  });
+
+  it('loftet: højst LIVE_LOFT kampe pr. kørsel, resten tælles som over loftet', async () => {
+    const only = Array.from({ length: LIVE_LOFT + 3 }, (_, i) => ({ id: `k${i}`, data: I_GANG() }));
+    const db = fakeDb(only);
+    const fetchFn = fakeFetch({ incidentsAf: { 1784451: EN_NUL } });
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ fetchFn, only }));
+    expect(ud).toMatchObject({ iGang: LIVE_LOFT + 3, valgte: LIVE_LOFT, forsoegt: LIVE_LOFT });
+    expect(fetchFn).toHaveBeenCalledTimes(LIVE_LOFT);
+    expect(LIVE_LOFT).toBe(10); // ejerens valg (2/9)
+    const ud2 = await syncLiveMaalCore(fakeDb(only), FieldValue, opts({ fetchFn: fakeFetch({ incidentsAf: { 1784451: EN_NUL } }), only, loft: 2 }));
+    expect(ud2).toMatchObject({ valgte: 2, forsoegt: 2 });
+  });
+
+  it('429 afbryder kørslen — det, der allerede lå i batchen, skrives stadig', async () => {
+    let kald = 0;
+    const ok = fakeFetch({ incidentsAf: { 1784451: EN_NUL } });
+    const fetchFn = vi.fn(async (u, o) => { kald += 1; return kald >= 2 ? { ok: false, status: 429 } : ok(u, o); });
+    const only = [{ id: 'k1', data: I_GANG() }, { id: 'k2', data: I_GANG() }, { id: 'k3', data: I_GANG() }];
+    const db = fakeDb(only);
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ fetchFn, only }));
+    expect(ud.afbrudt).toBe(true);
+    expect(ud.skrevet).toBe(1);
+    expect(fetchFn).toHaveBeenCalledTimes(2); // stopper straks — k3 røres ikke
+    expect(db.updates.map((u) => u.id)).toEqual(['k1']);
+    expect(db.commits).toBe(1);
+  });
+
+  it('ét giftigt dokument koster én kamp, ikke de andre', async () => {
+    const gift = I_GANG({ live: { home: { toString: null }, away: 0, status: 'anden' } });
+    const only = [{ id: 'gift', data: gift }, { id: 'ok', data: I_GANG() }];
+    const db = fakeDb(only);
+    const ud = await syncLiveMaalCore(db, FieldValue, opts({ only }));
+    expect(ud).toMatchObject({ uparsede: 1, skrevet: 1, afbrudt: false });
+    expect(db.updates.map((u) => u.id)).toEqual(['ok']);
+  });
+
+  it('skriver ALDRIG andet end LIVE_SKRIVBARE — heller ikke facit-felter', async () => {
+    const only = [{ id: 'k1', data: I_GANG({ livescoreEid: undefined }) }, { id: 'k2', data: I_GANG() }];
+    const db = fakeDb(only);
+    await syncLiveMaalCore(db, FieldValue, opts({ only }));
+    expect(db.updates.length).toBeGreaterThan(0);
+    for (const u of db.updates) {
+      for (const f of Object.keys(u.felter)) expect(LIVE_SKRIVBARE).toContain(f);
+      for (const f of ['maal', 'result', 'homeGoals', 'awayGoals', 'kickoff', 'live']) expect(u.felter).not.toHaveProperty(f);
+    }
+  });
+
+  it('budgettet: er tiden gået, røres ingen kamp — og kørslen er ikke afbrudt', async () => {
+    const only = [{ id: 'k1', data: I_GANG() }];
+    let t = 0;
+    const klokke = () => { t += 100000; return t; };
+    const fetchFn = fakeFetch({ incidentsAf: { 1784451: EN_NUL } });
+    const ud = await syncLiveMaalCore(fakeDb(only), FieldValue, opts({ fetchFn, only, klokke, budgetMs: 50 }));
+    expect(ud).toMatchObject({ iGang: 1, forsoegt: 0, afbrudt: false });
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('uden livescore-konfiguration eller uden kampe: tomt resultat, intet kald', async () => {
+    const fetchFn = fakeFetch();
+    expect(await syncLiveMaalCore(fakeDb([]), FieldValue, opts({ fetchFn, livescore: null, only: [{ id: 'k1', data: I_GANG() }] })))
+      .toMatchObject({ iGang: 0, skrevet: 0 });
+    expect(await syncLiveMaalCore(fakeDb([]), FieldValue, opts({ fetchFn, only: [] }))).toMatchObject({ iGang: 0 });
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('LIVE_BUDGET_MS er afledt af jobbets timeout og antal spil — ikke skrevet af', () => {
+    expect(LIVE_BUDGET_MS).toBe(Math.floor(((LIVE_TIMEOUT_S * 1000) * 2) / 3 / SYNCED_GAMES.length));
+    expect(LIVE_TIMEOUT_S).toBe(60);
+    expect(LIVE_BUDGET_MS * SYNCED_GAMES.length).toBeLessThan(LIVE_TIMEOUT_S * 1000);
+  });
+});
+
+describe('syncLiveMaalForSpil — kampene i vinduet, så løkken', () => {
+  it('bruger pendingMatches (2,5 timer efter kickoff) og skriver for den, der er i gang', async () => {
+    const forGammel = I_GANG({ kickoff: new Date(NU - 5 * 3600 * 1000) });
+    const fremtid = I_GANG({ kickoff: new Date(NU + 3600 * 1000) });
+    const db = fakeDb([{ id: 'gammel', data: forGammel }, { id: 'nu', data: I_GANG() }, { id: 'snart', data: fremtid }]);
+    const ud = await syncLiveMaalForSpil(db, FieldValue, opts());
+    expect(ud).toMatchObject({ iGang: 1, skrevet: 1 });
+    expect(db.updates.map((u) => u.id)).toEqual(['nu']);
+    expect(db.updates[0].felter.liveMaal.at).toBe(NU);
+  });
+});
+
+describe('liveMaalLinje og liveMaalNiveau — kortets tekst og farve', () => {
+  const d = (x) => ({
+    iGang: 0, valgte: 0, forsoegt: 0, skrevet: 0, uaendrede: 0, uenige: 0, uparsede: 0,
+    utilgaengelige: 0, ukendte: 0, idSlettet: 0, afbrudt: false, ...x,
+  });
+
+  it('nævner kun de tal, der er sat — og hvert med sin egen betydning', () => {
+    const linje = liveMaalLinje(d({ iGang: 3, valgte: 3, forsoegt: 3, skrevet: 1, uaendrede: 1, uenige: 1 }));
+    expect(linje).toBe('Live-mål: 3 kampe i gang, 1 liste skrevet, 1 uændret, 1 uenige om stillingen.');
+    expect(linje).not.toMatch(/kilden ikke svarede|uden id|over loftet|forældede/);
+    const alt = liveMaalLinje(d({ iGang: 12, valgte: 10, forsoegt: 10, utilgaengelige: 2, idSlettet: 2, ukendte: 1, uparsede: 1, afbrudt: true }));
+    expect(alt).toContain('2 hvor kilden ikke svarede');
+    expect(alt).toContain("2 forældede id'er slettet");
+    expect(alt).toContain('1 uden id hos kilden');
+    expect(alt).toContain('1 kunne ikke parses');
+    expect(alt).toContain('2 over loftet');
+    expect(alt).toContain('429/403');
+    expect(liveMaalLinje(d({ iGang: 1, valgte: 1 }))).toBe('Live-mål: 1 kamp i gang, 0 lister skrevet.');
+  });
+
+  it('advarsel ved afbrydelse, og når vi prøvede uden at noget kom igennem — ellers ok', () => {
+    expect(liveMaalNiveau(d({ afbrudt: true }))).toBe('advarsel');
+    expect(liveMaalNiveau(d({ forsoegt: 2, utilgaengelige: 2 }))).toBe('advarsel');
+    expect(liveMaalNiveau(d({ forsoegt: 2, uenige: 2 }))).toBe('advarsel');
+    expect(liveMaalNiveau(d({ forsoegt: 2, uenige: 1, uaendrede: 1 }))).toBe('ok');
+    expect(liveMaalNiveau(d({ forsoegt: 1, skrevet: 1 }))).toBe('ok');
+    expect(liveMaalNiveau(d({ iGang: 1, ukendte: 1 }))).toBe('ok'); // intet forsøgt — koblingen er kortets egen linje
   });
 });

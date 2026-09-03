@@ -53,6 +53,12 @@ export const KAMPDETALJE_SPIL = new Set(['superliga2627', 'pl2627-efteraar']);
  * Har spillet kampdetaljer fra livescore — og dermed et Drift-kort, en manuel
  * udløser og guidens afsnit om halvleg og målscorere?
  *
+ * EVNENS FLADER (optalt, så en udvidelse følges hele vejen ud): kampkortets
+ * facit-liste (FootballTip: match-card__maal) og LIVE-liste under den levende
+ * stilling (match-card__live-maal, feltet `liveMaal`), Drift-kortene
+ * "Times-sweep" (Kampdetaljer-linjen) og "Live-mål" (kampdage), knappen
+ * "⚽ Synk kampdetaljer nu" (facit + kampe i gang), guidens ⚽-afsnit.
+ *
  * Bemærk skellet, som xG også har: SELVE TALLENE vises pr. kamp, gatet på om
  * felterne findes, fordi en netop afsluttet kamp mangler dem indtil sweep'et
  * har kørt. FORKLARINGEN kan ikke gates sådan — guiden er spil-scopet, og en

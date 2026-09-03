@@ -144,7 +144,7 @@ const BATCH_LOFT = 400;
 /** En kørsel, der intet gjorde. Ét sted, så kernen og sweep'et ikke kan drive. */
 const TOM_KOERSEL = Object.freeze({
   manglede: 0, valgte: 0, forsoegt: 0, skrevet: 0,
-  uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, afbrudt: false,
+  uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, idSlettet: 0, afbrudt: false,
 });
 
 /**
@@ -722,7 +722,22 @@ async function syncKampDetaljerCore(db, FieldValue, opts = {}) {
       // den gren, så en times nedetid hos livescore ville sende ejeren på
       // kodejagt. En alarm, der måler en proxy for symptomet, er husets egen
       // regel om gates i ny forklædning.
-      if (!incidents) { ud.utilgaengelige += 1; continue; }
+      if (!incidents) {
+        ud.utilgaengelige += 1;
+        // SELVHELING AF ET FORÆLDET ID (opgave #82). Et cachet livescoreEid
+        // efterprøves aldrig igen, så pegede det forkert (kilden genudsteder
+        // id'er sjældent, men det sker), stod kampen HER for evigt — uden
+        // karantæne og uden at rette sig selv. Slettes id'et, kortlægger
+        // næste sweep kampen igen fra stage-listen (ét kald). Prisen ved en
+        // forbigående 5xx er det samme ene stage-kald. Kun ved cachet id:
+        // et opslag via nøglen har intet at slette.
+        if (gyldigEid(m.data?.livescoreEid)) {
+          batch.update(matchesCol.doc(m.id), { livescoreEid: FieldValue.delete() });
+          iBatch += 1;
+          ud.idSlettet += 1;
+        }
+        continue;
+      }
 
       // Hele posten valideres i ÉT try: {"toString":null} er JSON-nåbart og
       // får String() til at kaste. Én giftig post må ikke vælte partiet.
@@ -886,7 +901,7 @@ module.exports = {
   syncKampDetaljerCore,
   DETALJE_BUDGET_BROEK,
   detaljerAf, maalAf, kaedeOk, noegleAfKamp, heltal, tilskuertal, fladeHaendelser,
-  hentNoegler, KildenLukkerOs,
+  hentNoegler, hentJson, eidForKamp, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER,
   DETALJE_LOFT, DETALJE_BUDGET_MS, AFVIST_KARANTAENE_MS, API,
 };

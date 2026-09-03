@@ -1041,6 +1041,26 @@ describe('sweepKampDetaljer — én vagt om afbryderen for begge kald', () => {
   });
 });
 
+describe('syncKampDetaljerCore — forældet cachet id (#82)', () => {
+  it('404 på et cachet id SLETTER id\'et, så næste sweep kortlægger igen — via nøgle slettes intet', async () => {
+    const db = fakeDb(TEAMS, []);
+    const f404 = vi.fn(async (url) => (url.includes('/stage/')
+      ? fakeFetch()(url)
+      : { ok: false, status: 404 }));
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn: f404, only: [{ id: 'r1-a', data: { ...KAMP_DATA, livescoreEid: '7777777' } }],
+    }));
+    expect(ud).toMatchObject({ utilgaengelige: 1, idSlettet: 1, skrevet: 0 });
+    expect(db.skrevet).toEqual([{ id: 'r1-a', felter: { livescoreEid: 'DEL' } }]);
+    expect(db.commits).toBe(1);
+
+    const db2 = fakeDb(TEAMS, []);
+    const ud2 = await syncKampDetaljerCore(db2, FieldValue, opts({ fetchFn: f404, only: [{ id: 'r1-a', data: KAMP_DATA }] }));
+    expect(ud2).toMatchObject({ utilgaengelige: 1, idSlettet: 0 });
+    expect(db2.commits).toBe(0);
+  });
+});
+
 describe('efterFacitDetaljer — de netop afgjorte kampe, straks', () => {
   it('genlæser kampene og henter detaljer for præcis dem, der fik facit', async () => {
     // Dokumentet i basen HAR facit (det blev lige skrevet); listen minut-synken

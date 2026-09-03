@@ -39,3 +39,49 @@ export function medStilling(maal) {
     return { ...g, hjemme, ude };
   });
 }
+
+/**
+ * Stillingen, listen er nået til — det sidste måls stilling, eller 0-0.
+ * Bruges til at se, om live-listen halter efter den levende stilling.
+ */
+export function stillingAfListe(maal) {
+  const r = medStilling(maal);
+  const sidste = r[r.length - 1];
+  return sidste ? { home: sidste.hjemme, away: sidste.ude } : { home: 0, away: 0 };
+}
+
+/**
+ * LIVE-listen: de tællende mål med stilling flettet med de annullerede — UDEN
+ * stilling, for de tæller ikke (ejerens beslutning 2/9: et mål, VAR tager
+ * tilbage, bliver stående som annulleret i stedet for at forsvinde). Sorteret
+ * efter minut; stabilt, så et mål og en annullering i samme minut beholder
+ * rækkefølgen mål først.
+ *
+ * @param {Array} maal        liveMaal.maal
+ * @param {Array} annullerede liveMaal.annullerede
+ * @returns {Array<{hold:string, minut:number, annulleret:boolean, hjemme?:number, ude?:number}>}
+ */
+export function liveRaekke(maal, annullerede) {
+  const taellende = medStilling(maal).map((g) => ({ ...g, annulleret: false }));
+  const ann = (Array.isArray(annullerede) ? annullerede : [])
+    .filter((g) => g && (g.hold === 'home' || g.hold === 'away'))
+    .map((g) => ({ ...g, annulleret: true }));
+  return [...taellende, ...ann].sort((a, b) => (Number(a.minut) || 0) - (Number(b.minut) || 0));
+}
+
+/**
+ * Hvad kortet skal vise af en kamps live-liste — eller null, hvis der intet
+ * er at vise. `bagud` er sandt, når listen ikke er nået frem til den levende
+ * stilling: så halter kilden et minut, og kortet dæmper listen i stedet for
+ * at lade den modsige tallet lige over (enigheds-reglen).
+ *
+ * @param {{maal?:Array, annullerede?:Array}|null|undefined} liveMaal
+ * @param {{home:number, away:number}} live  liveScore()-resultatet
+ */
+export function liveMaalTilstand(liveMaal, live) {
+  if (!liveMaal || typeof liveMaal !== 'object' || !live) return null;
+  const raekke = liveRaekke(liveMaal.maal, liveMaal.annullerede);
+  if (!raekke.length) return null;
+  const st = stillingAfListe(liveMaal.maal);
+  return { raekke, bagud: st.home !== live.home || st.away !== live.away };
+}

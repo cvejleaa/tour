@@ -393,6 +393,33 @@ peger på en anden kamp), og det retter sig ikke selv. Ret: slet feltet på
 kampen i konsollen; næste sweep kortlægger den igen. En automatisk selvheling
 (id'et slettes ved 404/uenig) er opgave #82 og bygges sammen med live-målene.
 
+### Live-målscorere, mens kampen spilles (`syncLiveMaal`)
+
+Eget job, hvert minut 12–23 dansk tid — samme kadence som minut-synken, men
+**isoleret** fra den (xG-kontrakten: en fremmed kilde må aldrig koste facit).
+Pr. spil: kampene i 2½-timers-vinduet uden facit → dem, der ER i gang (samme
+prædikat som live-puls-alarmen, `erIGang`) → højst 10 → ét `incidents`-kald
+hver → målkæden pr. side skal stemme med kampens EGEN `live`-stilling, ellers
+skrives intet (enigheds-reglen: en liste, der modsiger tallet, er værre end
+ingen). Skrives KUN ved ændring i `liveMaal` (`maal`, `annullerede`, `at`).
+Facit sletter feltet. Se `functions-platform/liveMaal.js`.
+
+**Drift-kortet** hedder *Live-mål (kampe i gang) · <spil>* og skrives kun på
+kampdage (som minut-kortet), med linjen `Live-mål: N kampe i gang, M lister
+skrevet, …`. Gult, når kilden lukkede os ude, eller når vi prøvede og intet
+kom igennem. Alarmen er den samme `detaljerLukket` som ovenfor.
+
+| Det, kortet siger | Hvad det betyder | Hvad du gør |
+|---|---|---|
+| `N uenige om stillingen` | Livescore og vores egen kilde er ét mål fra hinanden i dette minut. | Ingenting — næste minut heler det. Står det der HELE kampen, er kampen koblet til en forkert kamp hos kilden: slet `livescoreEid` på kampen. |
+| `N hvor kilden ikke svarede` / `N forældede id'er slettet` | 404/5xx på kampens id. Et cachet id slettes, og næste minut slås det op igen fra stage-listen (selvheling, opgave #82). | Ingenting. Bliver det ved minut efter minut, er kilden nede. |
+| `N uden id hos kilden` | Kampen kunne ikke kobles (holdkode/dato). | `node scripts/maal-livescore.mjs` → ret `livescoreHold.js`. Listen kommer først, når koblingen virker. |
+| `N over loftet` | Flere end 10 kampe i gang samtidig. | Intet i dag; loftet er ejerens valg (LIVE_LOFT). |
+
+**Manuel udløser:** ⚽ Synk kampdetaljer nu tager også kampe i gang med og
+siger "Live: N i gang, M lister skrevet". **Efterprøv en kamp:** workflow *Kig
+på en kamp* printer `liveMaal` og `live` side om side.
+
 **Nødudgang, hvis vi bliver blokeret permanent:** der findes allerede en
 proxy uden for Cloud Functions (`proxy/`, Cloud Run) med signaturhåndtering og
 cache. Den henter i dag fra en ANDEN leverandør (flashscore/livescore.in) og

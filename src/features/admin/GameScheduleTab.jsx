@@ -355,7 +355,8 @@ function GameRow({ game }) {
     setResBusy(false);
   }
 
-  // ⚽ Synk kampdetaljer nu — halvleg, målscorere og tilskuertal fra livescore.
+  // ⚽ Synk kampdetaljer nu — halvleg, målscorere og tilskuertal fra livescore,
+  // og målscorerne for kampe i gang lige nu (live-listen på kortet).
   //
   // INGEN confirm, modsat naboknapperne, og det er en bevidst forskel:
   // resultat-synken kan afregne point og få Runde-Botten til at poste, og
@@ -400,6 +401,18 @@ function GameRow({ game }) {
         kind: (d.uparsede || d.ukendte) ? 'err' : 'ok',
         text: `${dele.join(', ')}.${hale.length ? ` ${hale.join('. ')} — se Drift-kortet.` : ''}`,
       });
+    }
+    // Live-delen af knappen: kampe i gang LIGE NU (samme callable). Nævnes
+    // kun, når der er nogen — "0 i gang" en tirsdag formiddag er støj.
+    const lv = d.live;
+    if (lv && (lv.fejl || lv.iGang > 0)) {
+      const liveTekst = lv.fejl
+        ? ` Live-mål fejlede: ${lv.fejl}.`
+        : ` Live: ${lv.iGang} i gang, ${lv.skrevet} lister skrevet`
+          + `${lv.uaendrede ? `, ${lv.uaendrede} uændrede` : ''}`
+          + `${lv.uenige ? `, ${lv.uenige} uenige om stillingen` : ''}`
+          + `${lv.ukendte ? `, ${lv.ukendte} uden id hos kilden` : ''}.`;
+      setDetMsg((prev) => (prev ? { ...prev, text: prev.text + liveTekst } : prev));
     }
     setDetBusy(false);
   }
@@ -698,7 +711,8 @@ function GameRow({ game }) {
         </div>
       )}
 
-      {/* ⚽ Synk kampdetaljer nu — halvleg, målscorere og tilskuertal.
+      {/* ⚽ Synk kampdetaljer nu — halvleg, målscorere og tilskuertal, og
+          live-målene for kampe i gang.
           PLACERET HER, lige under "⬇️ Synk resultater nu", fordi det er
           kampdata: en administrator, der savner en målscorer på et kampkort,
           leder dér, hvor kampenes andre synk-knapper står — ikke under en

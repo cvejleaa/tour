@@ -1273,6 +1273,24 @@ a:focus-visible,
   white-space: nowrap;
 }
 .match-card__maal-oplaeg { font-style: italic; opacity: 0.75; }
+/* LIVE-listen: samme kolonne som facit-listen (den låner alle de indre
+   klasser), men EGEN basisklasse — kortets tests skelner de to, og en kamp
+   med facit må aldrig vise begge. Dæmpes som stillingen, når kampen er slut,
+   opdateringen er afbrudt, eller listen halter efter tallet. */
+.match-card__live-maal {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  color: var(--c-muted);
+  text-align: center;
+  line-height: 1.5;
+}
+.match-card__live-maal--doed { opacity: 0.55; }
+/* Et annulleret mål (VAR) bliver stående, overstreget — ordet bærer
+   betydningen alene for en skærmlæser. Mærkatet er inline-block, så
+   overstregningen IKKE arves af det (text-decoration propagerer ikke ind i
+   en inline-block). */
+.match-card__maal-post--annulleret { text-decoration: line-through; }
+.match-card__annulleret { display: inline-block; text-decoration: none; opacity: 0.85; }
 /* Selvmål — ejeren bad om rødt. Farven bærer ikke betydningen ALENE: ordet
    "selvmål" står der også, så en farveblind læser (og en skærmlæser) får det
    samme at vide. var(--c-err) og ikke en løs hex, så den følger temaet i både

@@ -1694,3 +1694,23 @@ describe('LIVE_STALE_MS er spejlet af klientens', () => {
     expect(server).toBe(5 * 60 * 1000);
   });
 });
+
+describe('erIGang — ÉT prædikat for "kampen spilles lige nu"', () => {
+  const { erIGang, kampeMedLevendeStilling } = require('./superligaSync');
+  const live = { home: 1, away: 0, status: 'anden' };
+  it('kræver en live-stilling, intet facit, og hverken slut eller afbrudt', () => {
+    expect(erIGang({ live })).toBe(true);
+    expect(erIGang({ live, result: '1' })).toBe(false);
+    expect(erIGang({ live, result: '' })).toBe(true);
+    expect(erIGang({ live: { ...live, status: 'slut' } })).toBe(false);
+    expect(erIGang({ live: { ...live, status: 'afbrudt' } })).toBe(false);
+    expect(erIGang({})).toBe(false);
+    expect(erIGang(null)).toBe(false);
+    expect(erIGang({ live: 'ja' })).toBe(false); // gift — kaster aldrig
+  });
+  it('er det samme, kampeMedLevendeStilling tæller med', () => {
+    const kampe = [{ data: { live } }, { data: { live, result: '1' } }, { data: { live: { ...live, status: 'slut' } } }];
+    expect(kampeMedLevendeStilling(kampe)).toBe(kampe.filter((m) => erIGang(m.data)).length);
+    expect(kampeMedLevendeStilling(kampe)).toBe(1);
+  });
+});
