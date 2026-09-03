@@ -1832,6 +1832,20 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     );
   });
 
+  it('man KAN IKKE seede sit liga-medlemskab ved tilmelding', async () => {
+    // leagueIds afgør, hvem der ser hvis point i stillingen. Reglen afviste
+    // feltet ved create, men suiten beviste det kun ved update — Security
+    // fandt hullet, da E2E-fixturen seedede feltet med Admin SDK.
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    const ctx = testEnv.authenticatedContext('p1');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'games', 'vm2026', 'players', 'p1'), {
+        uid: 'p1', joinedAt: Timestamp.now(), leagueIds: ['fremmed-liga'],
+      })
+    );
+  });
+
   it('man KAN IKKE opskrive sine point på et eksisterende medlemskab', async () => {
     await createUser('p1', 'player', 'approved');
     await createGame('vm2026');

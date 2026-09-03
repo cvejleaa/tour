@@ -16,6 +16,15 @@
   **Brug ALDRIG `firebase-tools@latest emulators:exec`** — den henter en nyere
   emulator med strammere null-semantik, og 35 af 227 regel-tests fejler FALSK
   med "Null value error" (også kontroltests). Mod jar v1.22.0: alt grønt.
+- **`@firebase/rules-unit-testing` er IKKE længere i `functions/node_modules`**
+  (sep 2026: `find -name rules-unit-testing` = tomt). Hurtigste vej nu:
+  `npm install --no-save --prefix <scratchpad>/poc @firebase/rules-unit-testing firebase`
+  (~23 s gennem proxyen), `package.json` med `"type":"module"`, og kør PoC'en som
+  et **almindeligt node-script** — `assertSucceeds/assertFails` behøver ikke
+  vitest, en lille `t(navn, fn)`-wrapper med try/catch printer OK/FEJL pr. case.
+  Fordelen: intet i repoet, `git status` er ren pr. konstruktion.
+  **Port 8080 kan være optaget** af en anden agents emulator — brug 8085 og sæt
+  `port:` i `initializeTestEnvironment` (ikke kun `FIRESTORE_EMULATOR_HOST`).
 - **Regel-PoC'er skal ligge i `functions/`** — `@firebase/rules-unit-testing`,
   `firebase` og `vitest` findes KUN i `functions/node_modules`. Lav
   `functions/__poc__/x.test.js` + en lille `vitest.poc.js` med
@@ -1206,6 +1215,32 @@
   testens adgangskode — begge allerede offentlige i repoet, og ingen prod-data,
   fordi CI's `.env` er dummy. Repoet ER public (api.github.com svarer 200
   uautentificeret), så artefakter er bredt tilgængelige.
+
+### E2E-fixturens serverfelter og ejer-login (e874d3f, sep 2026)
+- **Det gemte ejer-login er værdiløst uden for emulatoren — BEKRÆFTET.**
+  `e2e/.auth/ejer.json` bærer ét JWT med `{"alg":"none"}`, `aud`/`iss` =
+  `demo-vm2026`, `exp-iat` = 3600 s, plus en refresh-token og `apiKey` =
+  `demo-key` (`.env.e2e`). De ægte projekter er `tour-85928` og `spil-89af9`
+  (`.firebaserc`) → forkert audience OG usigneret. Både ejerens og spillerens
+  token kan lække via traces i `playwright-report/` (public repo, `if: always()`,
+  7 dages retention) — det er accepteret og uændret ved at ejeren kom med.
+- **Hele fixturen kørt mod ægte regler (8 cases, 7 bekræftede + 1 rettet
+  antagelse).** Klienten kan IKKE seede `leagueIds`/`totalPoints` ved
+  players-**create** (kun update var dækket i rules.test.js), en nygodkendt
+  bruger uden players-dok kan hverken `getDoc` eller køre stillingens
+  array-contains-any-query, en deltager uden fælles liga kan hverken ses eller
+  se, spiller/den pending selv kan ikke sætte `status:'approved'` (ejeren kan),
+  og hverken en fremmed eller et menigt medlem kan skrive `memberUids`.
+- **Rettet antagelse: EJEREN KAN læse alle players-dokumenter** — `allow read`
+  starter med `isGlobalAdmin()` (firestore.rules L744), og owner tæller med.
+  `stilling.spec` holder kun, fordi ejeren ikke HAR et players-dokument. Brug
+  aldrig "ejeren mangler i stillingen" som bevis for en læse-regel.
+- **En negativ assertion på en fixture uden ofre er tom.** `stilling.spec`
+  asserterer 2 rækker i en fixture med præcis 2 deltagere, begge i samme liga →
+  fjernes `where('leagueIds','array-contains-any')` i `useGameStandings.js:63`,
+  passerer testen stadig (begge dokumenter opfylder reglen, så den ufiltrerede
+  liste får lov). Mønstret: en "regler er ikke filtre"-test skal have et
+  dokument i samlingen, som reglen VILLE afvise.
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 

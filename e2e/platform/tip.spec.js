@@ -10,6 +10,11 @@ test('et X-tip på en åben kamp vises i Mine tips', async ({ page }) => {
   // Den aktive runde er den med det tidligste fremtidige kickoff.
   await expect(page.getByTestId('round-nav-count')).toHaveText(new RegExp(`Runde ${AABEN_RUNDE} af`));
 
+  // Ligaens tips hører til LÅSTE kampe. På den åbne runde må panelet ikke
+  // findes — laas.spec ser kun runde 19, hvor alt er låst, så uden denne
+  // assertion kunne gaten `{locked && <LeagueBets/>}` fjernes med grøn suite.
+  await expect(page.getByRole('button', { name: 'Se ligaens tips' })).toHaveCount(0);
+
   const kort = page.locator('.pick-grid').first();
   const x = kort.locator('.pick').filter({ has: page.locator('.pick__label', { hasText: /^X$/ }) });
   await expect(x).toBeEnabled();

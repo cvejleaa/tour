@@ -25,8 +25,8 @@
 import admin from 'firebase-admin';
 import { buildMatches } from '../../src/lib/superligaSeed.js';
 import {
-  PROJEKT, SPILLER, EJER, MODSPILLER, SPIL_ID, SPIL_NAVN, AABEN_RUNDE, LAAST_RUNDE,
-  LIGA_ID, LIGA_NAVN, POINT,
+  PROJEKT, SPILLER, EJER, MODSPILLER, FREMMED, SPIL_ID, SPIL_NAVN, AABEN_RUNDE, LAAST_RUNDE,
+  LIGA_ID, LIGA_NAVN, FREMMED_LIGA_ID, POINT,
 } from './konstanter.mjs';
 
 const TIME = 60 * 60 * 1000;
@@ -93,7 +93,7 @@ export default async function seed() {
 
   // Brugere: Auth-konto + offentlig profil + privat kontakt — samme tre
   // dokumenter, som signup (useAuthActions.js) og bootstrap-owner.mjs skriver.
-  for (const [bruger, role] of [[SPILLER, 'player'], [MODSPILLER, 'player'], [EJER, 'owner']]) {
+  for (const [bruger, role] of [[SPILLER, 'player'], [MODSPILLER, 'player'], [FREMMED, 'player'], [EJER, 'owner']]) {
     await auth.createUser({
       uid: bruger.uid, email: bruger.email, password: bruger.password,
       displayName: bruger.displayName, emailVerified: true,
@@ -131,11 +131,14 @@ export default async function seed() {
   // Spiller og medspiller deltager allerede (uid + joinedAt som joinGame
   // skriver) og deler én liga. leagueIds og totalPoints er serverens felter —
   // reglerne afviser dem fra klienten, så de kan kun komme fra et seed.
+  // Den fremmede deltager i spillet, men i sin egen liga. Uden hende ville
+  // stillingens test være grøn med filteret fjernet: alt, reglen tillader, er
+  // så også alt, der findes. Hun er det dokument, reglen skal afvise.
   const spil = db.collection('games').doc(SPIL_ID);
-  for (const b of [SPILLER, MODSPILLER]) {
+  for (const [b, liga] of [[SPILLER, LIGA_ID], [MODSPILLER, LIGA_ID], [FREMMED, FREMMED_LIGA_ID]]) {
     batch.set(spil.collection('players').doc(b.uid), {
       uid: b.uid, joinedAt: FieldValue.serverTimestamp(),
-      leagueIds: [LIGA_ID], totalPoints: POINT[b.uid],
+      leagueIds: [liga], totalPoints: POINT[b.uid],
     });
   }
   // Samme felter som createLeague skriver, plus det andet medlem.
@@ -143,7 +146,11 @@ export default async function seed() {
     name: LIGA_NAVN, ownerUid: SPILLER.uid, memberUids: [SPILLER.uid, MODSPILLER.uid],
     code: 'E2E-KODE', createdAt: FieldValue.serverTimestamp(),
   });
+  batch.set(spil.collection('leagues').doc(FREMMED_LIGA_ID), {
+    name: 'De andre', ownerUid: FREMMED.uid, memberUids: [FREMMED.uid],
+    code: 'E2E-ANDRE', createdAt: FieldValue.serverTimestamp(),
+  });
   await batch.commit();
   await app.delete();
-  console.log(`seed-e2e: ${kampe.length} kampe, 3 brugere, 1 liga, spil ${SPIL_ID} i ${PROJEKT}`);
+  console.log(`seed-e2e: ${kampe.length} kampe, 4 brugere, 2 ligaer, spil ${SPIL_ID} i ${PROJEKT}`);
 }
