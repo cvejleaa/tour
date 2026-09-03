@@ -357,7 +357,7 @@
       <ol class="steps">
         <li><strong>Lokalt først.</strong> Lint, de relevante suiter og begge builds køres, før noget committes. Der er en eksplicit regel om at kontrollere, at hver ændring faktisk landede — en tekst-erstatning, der ikke matcher, fejler tavst og efterlader en grøn test uden dækning.</li>
         <li><strong>Commit, så reviewere.</strong> <code>roller.mjs</code> læser diffen og siger, hvilke roller der skal køre og hvorfor. Udskriften klistres ind i PR-teksten, så beslutningen kan efterprøves bagefter (sporbarhed). Test Manager og Quality Control kører altid; Security kun når ændringen rører regler, Cloud Functions eller adgang. Rollerne får diffen med som fil og påstande formuleret som noget, de skal efterprøve — ikke som forudsætninger.</li>
-        <li><strong>Rettelser og mutationstest.</strong> Fund rettes, og hver ny vagt i koden får en mutant, der skal gøre suiten rød. Alle 29 mutanter på ugens største PR blev dræbt.</li>
+        <li><strong>Rettelser og mutationstest.</strong> Fund rettes, og hver ny vagt i koden får en mutant, der skal gøre suiten rød. Dør mutanten ikke, er vagten ikke dækket — uanset hvor grøn suiten er. Antallet står i den enkelte PR-tekst, ikke her: et tal uden et script i repoet er en påstand.</li>
         <li><strong>Release Manager.</strong> Hvad skal deployes, i hvilken rækkefølge, hvad tjekkes bagefter, og hvordan ruller man tilbage. Hvert klik i planen skal kunne spores til den render-betingelse (fil:linje), der viser elementet — efter en plan, der henviste til en knap, der ikke fandtes.</li>
         <li><strong>CI, merge, deploy.</strong> Fire jobs skal være grønne. Deploy sker uden at spørge, når rollerne ikke har blokerende fund — undtagen alt, der skriver i produktionsdata, og tilbagerulninger.</li>
         <li><strong>Efterprøvning.</strong> Ingen ændring meldes færdig på intentionen. Et læse-only workflow læser de konkrete dokumenter i produktion, og Drift-fanen viser hver kørsels seneste status.</li>
@@ -366,7 +366,7 @@
 
     <section id="ci">
       <h2>De fire CI-jobs</h2>
-      <p>GitHub Actions kører fire uafhængige jobs på hvert push og hver PR. De er parallelle, så den samlede tid er det langsomste job — omkring tre minutter. Tiderne herunder er fra den seneste kørsel (3. september 2026, commit 14eea1c).</p>
+      <p>GitHub Actions kører fire uafhængige jobs på hvert push og hver PR. De er parallelle, så den samlede tid er det langsomste job — omkring tre minutter. Tiderne herunder er fra den seneste kørsel på PR #207 (3. september 2026, sidste commit 14eea1c — den findes kun på PR'en, fordi PR'en blev squash-merget til 4aeb45a).</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Job</th><th>Hvad det kører</th><th>Miljø</th><th class="num">Varighed</th></tr></thead>
@@ -470,7 +470,7 @@
       <p>Det, ISTQB placerer efter accepttesten, er hos os en fast del af hver ændring. To regler bærer det: <em>en funktion, der kun kan startes af en tilfældig hændelse, er ikke færdig</em> (der skal være en knap), og <em>en funktion, der kun kan fejle tavst, er heller ikke færdig</em> (der skal være et kort eller en alarm, hvor fejlen ville stå).</p>
       <ul>
         <li><strong>Drift-fanen</strong> i admin viser ét statuskort pr. skemalagt kørsel pr. spil — grønt, gult, rødt eller gråt "afventer første kørsel" — og åbne alarmer, der kræver kvittering. Listen over forventede kort afledes af spillenes egne felter, så en kørsel, ingen har set, aldrig kan gemme sig i et hul.</li>
-        <li><strong>Læse-only probe</strong>: workflowet "Kig på en kamp" printer facit, live-stilling, detaljer og tidsstempler for én kamp plus spillets kort og alarmer. Det er sådan, vi i tirsdags målte, at målscorerne landede 0,7 sekunder efter facit på AGF–FCM — før ændringen kunne det tage en time.</li>
+        <li><strong>Læse-only probe</strong>: workflowet "Kig på en kamp" printer facit, live-stilling, detaljer og tidsstempler for én kamp plus spillets kort og alarmer. Det er sådan, vi onsdag den 2. september målte, at målscorerne landede 0,7 sekunder efter facit på AGF–FCM — før ændringen kunne det tage en time.</li>
         <li><strong>Sæsoneftersyn</strong> hver anden måned: det, der vokser stille mellem ændringerne — forbrug, bundle, forældede afhængigheder, advarsler i testoutputtet, og fladen selv gået igennem som bruger og som admin.</li>
       </ul>
     </section>

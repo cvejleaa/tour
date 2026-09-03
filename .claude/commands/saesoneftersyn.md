@@ -76,6 +76,10 @@ Den farligste form for forældet dokumentation er den, der ser rigtig ud.
 Stikprøv: passer `README.md` og `docs/architecture.md` stadig på datamodellen?
 Beskriver `docs/admin-guide.md` de faner, der faktisk findes? Henter
 `FootballHelp.jsx` stadig de rigtige tal fra scoring-koden?
+Og `public/testsetup.html` — den offentlige rundvisning i testopsætningen — bærer
+hardkodede tal (antal tests, CI-tider, roller) uden paritetstest. Tæl efter, og
+ret datoen på siden, når tallene er rettet; ellers er den den næste "lige
+nu"-løgn.
 
 Historiske dokumenter (statusrapporter, gamle reviews) skal være **mærket som
 historiske**, ikke rettet — de er et referat af et tidspunkt.
