@@ -34,6 +34,7 @@ const {
   strandedMatches, allMatches, WINDOW_MS,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
+const { forladSpilCore, FORLAD_ERR } = require('./forladSpil');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
 const {
   syncKampDetaljerCore, efterFacitDetaljer, sweepKampDetaljer,
@@ -1084,6 +1085,29 @@ exports.setGameChance = onCall({ region: REGION }, async (request) => {
   } catch (err) {
     const [httpCode, msg] = chanceFejl(err);
     throw new HttpsError(httpCode, msg);
+  }
+});
+
+// forladSpil — en spiller forlader et spil: arkiv, ikke sletning (se
+// forladSpil.js). Tips på kommende kampe slettes, hun forlader sine ligaer,
+// og players-dokumentet får forladt: true — point og historik bliver stående,
+// så de andres "hvem tippede hvad" og indbyrdes opgør ikke ændrer sig bagud.
+// Klienten kan ikke selv: bets er `allow delete: if false`, og ligaens
+// medlemsliste er lukket.
+exports.forladSpil = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid;
+  const gameId = String(request.data?.gameId || '').trim();
+  try {
+    const res = await forladSpilCore(getFirestore(), FieldValue, { uid, gameId });
+    console.log(`forladSpil(${gameId}, ${uid}):`, JSON.stringify(res));
+    return res;
+  } catch (err) {
+    const [httpCode, msg] = FORLAD_ERR[err.message] || ['internal', 'Kunne ikke forlade spillet.'];
+    const tekst = err.message === 'owns-league' && Array.isArray(err.ligaer)
+      ? `${msg} (${err.ligaer.join(', ')})`
+      : msg;
+    if (!FORLAD_ERR[err.message]) console.error('forladSpil fejlede:', err);
+    throw new HttpsError(httpCode, tekst);
   }
 });
 

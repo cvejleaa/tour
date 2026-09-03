@@ -12,9 +12,10 @@
  *   { ok: false, error: 'dansk fejlbesked' }  ved fejl
  */
 import {
-  doc, setDoc, updateDoc, deleteDoc, deleteField, serverTimestamp, Timestamp,
+  doc, getDoc, setDoc, updateDoc, deleteField, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../../firebase';
 import { COL, GAME_STATUS_VALUES } from '../../lib/constants';
 
 /**
@@ -54,16 +55,25 @@ function danishError(err, fallback) {
 }
 
 /**
- * Deltag i et spil (opret games/{gameId}/players/{uid}).
+ * Deltag i et spil (opret games/{gameId}/players/{uid}) — eller VEND TILBAGE:
+ * har man forladt spillet tidligere, ligger dokumentet der stadig med
+ * `forladt: true` og hele arkivet (point, perRound, opdeling). Så fjernes
+ * flaget kun; et setDoc uden merge ville slette pointene, og reglen afviser
+ * det alligevel (point-felterne må ikke røres af klienten).
  * @param {string} uid     – den indloggede brugers uid
  * @param {string} gameId  – spillets id
- * @returns {Promise<{ok: true}|{ok: false, error: string}>}
+ * @returns {Promise<{ok: true, tilbage?: boolean}|{ok: false, error: string}>}
  */
 export async function joinGame(uid, gameId) {
   if (!uid) return { ok: false, error: 'Du skal være logget ind for at deltage.' };
   if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
   try {
     const ref = doc(db, COL.GAMES, gameId, COL.GAME_PLAYERS, uid);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      await updateDoc(ref, { forladt: deleteField(), forladtAt: deleteField(), joinedAt: serverTimestamp() });
+      return { ok: true, tilbage: true };
+    }
     // Kun ikke-point-felter — serveren ejer pointsummer og placering.
     await setDoc(ref, { uid, joinedAt: serverTimestamp() });
     return { ok: true };
@@ -304,20 +314,27 @@ export async function setPlayerFavoriteTeam(uid, gameId, team) {
 }
 
 /**
- * Forlad et spil (slet games/{gameId}/players/{uid}).
- * Reglerne tillader kun sletning, hvis dokumentet ikke har point.
+ * Forlad et spil — gennem serveren (callable `forladSpil`), fordi klienten
+ * hverken kan slette tips (`allow delete: if false`) eller skrive ligaernes
+ * medlemsliste. Serveren arkiverer: tips på kommende kampe slettes, man
+ * forlader sine ligaer, og players-dokumentet får `forladt: true` — point og
+ * historik bliver stående (functions-platform/forladSpil.js).
  * @param {string} uid     – den indloggede brugers uid
  * @param {string} gameId  – spillets id
- * @returns {Promise<{ok: true}|{ok: false, error: string}>}
+ * @returns {Promise<{ok: true, slettedeTips?: number, ligaer?: number}|{ok: false, error: string}>}
  */
 export async function leaveGame(uid, gameId) {
   if (!uid) return { ok: false, error: 'Du skal være logget ind.' };
   if (!gameId) return { ok: false, error: 'Mangler spil-id.' };
   try {
-    const ref = doc(db, COL.GAMES, gameId, COL.GAME_PLAYERS, uid);
-    await deleteDoc(ref);
-    return { ok: true };
+    const fn = httpsCallable(functions, 'forladSpil');
+    const res = await fn({ gameId });
+    return { ok: true, ...(res.data || {}) };
   } catch (err) {
+    // Serverens egne beskeder (fx "Du ejer en liga i spillet…") er dansk og
+    // præcise — dem må danishError ikke oversætte til den generiske.
+    const kode = String(err?.code || '');
+    if (kode.startsWith('functions/') && err?.message) return { ok: false, error: err.message };
     return { ok: false, error: danishError(err, 'Kunne ikke forlade spillet.') };
   }
 }

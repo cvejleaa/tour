@@ -2096,6 +2096,27 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     );
   });
 
+  // Arkiv-modellen (forladSpil): serveren sætter `forladt: true`, og spilleren
+  // fjerner det selv, når hun vender tilbage — uden at røre point-felterne.
+  it('man KAN selv fjerne sit forladt-flag (vende tilbage) — pointene forbliver serverens', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { totalPoints: 8, forladt: true });
+    const ref = doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p1');
+    await assertSucceeds(updateDoc(ref, { forladt: deleteField(), forladtAt: deleteField(), joinedAt: Timestamp.now() }));
+    await assertFails(updateDoc(ref, { forladt: deleteField(), totalPoints: 0 }));
+  });
+
+  it('man KAN IKKE røre en ANDENS forladt-flag', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p2', { forladt: true });
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p2'), { forladt: deleteField() })
+    );
+  });
+
   it('man KAN IKKE forlade et spil hvor man HAR fået point (placering ville gå tabt)', async () => {
     await createUser('p1', 'player', 'approved');
     await createGame('vm2026');

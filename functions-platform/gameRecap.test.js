@@ -333,6 +333,20 @@ describe('runGameRoundRecap — én liga må kun høre om sine egne', () => {
     expect(db._posted).toHaveLength(2);
   });
 
+  it('en FORLADT spiller står ikke i ligaens opsamling — selv om hun stadig er i memberUids og fører', async () => {
+    const db = makeDb({
+      ...opsaetning,
+      players: { ...opsaetning.players, E: { totalPoints: 99, rank: 1, previousRank: 1, forladt: true } },
+      users: { ...opsaetning.users, E: { displayName: 'Erik' } },
+      leagues: [{ name: 'Familien', memberUids: ['A', 'B', 'E'] }, { name: 'Kollegerne', memberUids: ['C', 'D'] }],
+    });
+    const a = optagende();
+    await runGameRoundRecap(db, FieldValue, a, 'g1', 1);
+    const navne = a.kald.map((f) => f.standings.map((r) => r.name).sort());
+    expect(navne).toContainEqual(['Anna', 'Bo']);
+    expect(navne.flat()).not.toContain('Erik');
+  });
+
   it('sender ALDRIG en fremmed spillers navn med til modellen', async () => {
     const db = makeDb(opsaetning);
     const a = optagende();

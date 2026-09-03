@@ -12,6 +12,8 @@ import {
 const mockSetDoc = vi.fn();
 const mockUpdateDoc = vi.fn();
 const mockDeleteDoc = vi.fn();
+const mockGetDoc = vi.fn();
+const mockCallable = vi.fn();
 const mockDoc = vi.fn((db, ...path) => ({ _path: path }));
 const mockServerTimestamp = vi.fn(() => ({ _serverTimestamp: true }));
 
@@ -20,6 +22,8 @@ beforeEach(() => {
   mockSetDoc.mockResolvedValue(undefined);
   mockUpdateDoc.mockResolvedValue(undefined);
   mockDeleteDoc.mockResolvedValue(undefined);
+  mockGetDoc.mockResolvedValue({ exists: () => false });
+  mockCallable.mockResolvedValue({ data: { slettedeTips: 1, beholdteTips: 2, ligaer: 1 } });
   mockServerTimestamp.mockReturnValue({ _serverTimestamp: true });
 });
 
@@ -28,12 +32,16 @@ vi.mock('firebase/firestore', () => ({
   setDoc: (...args) => mockSetDoc(...args),
   updateDoc: (...args) => mockUpdateDoc(...args),
   deleteDoc: (...args) => mockDeleteDoc(...args),
+  getDoc: (...args) => mockGetDoc(...args),
   serverTimestamp: () => mockServerTimestamp(),
   deleteField: () => ({ _deleteField: true }),
   Timestamp: { fromMillis: (ms) => ({ _ts: ms }) },
 }));
 
-vi.mock('../../firebase', () => ({ db: {} }));
+vi.mock('firebase/functions', () => ({
+  httpsCallable: (fns, name) => (data) => mockCallable(name, data),
+}));
+vi.mock('../../firebase', () => ({ db: {}, functions: {} }));
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -69,6 +77,18 @@ describe('joinGame', () => {
     expect(res).toEqual({ ok: true });
   });
 
+  // Arkiv-modellen: har man forladt spillet, ligger dokumentet der med point.
+  // Et setDoc ville slette dem (og reglen afviser det) — flaget fjernes i stedet.
+  it('vender tilbage: fjerner forladt-flaget med updateDoc og rører ikke point', async () => {
+    mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ uid: 'uid-1', forladt: true, totalPoints: 12.5 }) });
+    const res = await joinGame('uid-1', 'spil-1');
+    expect(res).toEqual({ ok: true, tilbage: true });
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    const [, patch] = mockUpdateDoc.mock.calls[0];
+    expect(patch).toEqual({ forladt: { _deleteField: true }, forladtAt: { _deleteField: true }, joinedAt: { _serverTimestamp: true } });
+    expect(Object.keys(patch)).not.toContain('totalPoints');
+  });
+
   it('returnerer dansk fejl ved permission-denied', async () => {
     mockSetDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
     const res = await joinGame('uid-1', 'spil-1');
@@ -86,35 +106,42 @@ describe('joinGame', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('leaveGame', () => {
+describe('leaveGame — gennem serveren', () => {
   it('returnerer fejl uden uid', async () => {
     const res = await leaveGame('', 'spil-1');
     expect(res.ok).toBe(false);
-    expect(mockDeleteDoc).not.toHaveBeenCalled();
+    expect(mockCallable).not.toHaveBeenCalled();
   });
 
   it('returnerer fejl uden gameId', async () => {
     const res = await leaveGame('uid-1', '');
     expect(res.ok).toBe(false);
+    expect(mockCallable).not.toHaveBeenCalled();
+  });
+
+  it('kalder callable forladSpil med spillets id — og sletter INTET selv', async () => {
+    await leaveGame('uid-1', 'spil-1');
+    expect(mockCallable).toHaveBeenCalledWith('forladSpil', { gameId: 'spil-1' });
     expect(mockDeleteDoc).not.toHaveBeenCalled();
   });
 
-  it('kalder deleteDoc på games/{gameId}/players/{uid}', async () => {
-    await leaveGame('uid-1', 'spil-1');
-    expect(mockDoc).toHaveBeenCalledWith({}, 'games', 'spil-1', 'players', 'uid-1');
-    expect(mockDeleteDoc).toHaveBeenCalled();
-  });
-
-  it('returnerer {ok:true} ved succes', async () => {
+  it('returnerer {ok:true} med serverens optælling', async () => {
     const res = await leaveGame('uid-1', 'spil-1');
-    expect(res).toEqual({ ok: true });
+    expect(res).toEqual({ ok: true, slettedeTips: 1, beholdteTips: 2, ligaer: 1 });
   });
 
-  it('returnerer dansk fejl når sletning afvises (har point)', async () => {
-    mockDeleteDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+  it('viser serverens egen danske besked (fx ejer en liga) — ikke den generiske', async () => {
+    mockCallable.mockRejectedValueOnce(Object.assign(new Error('Du ejer en liga i spillet. Slet ligaen først, så kan du forlade spillet. (Kontoret)'), { code: 'functions/failed-precondition' }));
     const res = await leaveGame('uid-1', 'spil-1');
     expect(res.ok).toBe(false);
-    expect(res.error).toMatch(/adgang/i);
+    expect(res.error).toContain('Du ejer en liga i spillet');
+    expect(res.error).toContain('Kontoret');
+  });
+
+  it('oversætter en netværksfejl til dansk', async () => {
+    mockCallable.mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'unavailable' }));
+    const res = await leaveGame('uid-1', 'spil-1');
+    expect(res.error).toMatch(/forbindelse/i);
   });
 });
 

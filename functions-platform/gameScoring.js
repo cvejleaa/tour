@@ -15,6 +15,7 @@ const {
 // Gaten — hvor spillet begynder. Ét modul, spejlet til klienten, fordi den
 // beslutning før lå fem steder i DEN HER fil alene.
 const { gatedeKampe, startRundeFor, foerStart } = require('./startGate');
+const { aktiveSpillere } = require('./forladSpil');
 // kickoffMs, matchOutcome og buildRoundContext bor i pointOpdeling, fordi
 // KLIENTEN skal bruge samme runde-kontekst for at kunne kalde opdelPoint.
 // Ét sted, ikke to — ellers driver serverens og fladens forestilling om
@@ -342,7 +343,8 @@ function computeRanks(players) {
  */
 async function snapshotRoundRanks(db, FieldValue, gameId) {
   const playersSnap = await db.collection('games').doc(gameId).collection('players').get();
-  const players = playersSnap.docs.map((d) => ({ ...d.data(), uid: d.id, ref: d.ref }));
+  // En forladt spiller står ikke i nogen stilling — og skal ikke skubbe de andres rang.
+  const players = aktiveSpillere(playersSnap.docs).map((d) => ({ ...d.data(), uid: d.id, ref: d.ref }));
   if (players.length === 0) return { ranked: 0 };
   const ranks = computeRanks(players);
   const batch = db.batch();

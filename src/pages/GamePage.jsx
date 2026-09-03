@@ -120,13 +120,24 @@ export default function GamePage() {
     <GameLayout game={game} me={me}>
       {!isMember ? (
         <div className="card">
-          <h3 className="card__title">Deltag i {game.name}</h3>
-          <p style={{ color: 'var(--c-muted)' }}>
-            Tilmeld dig for at tippe. Du kan altid forlade spillet igen, så længe du ikke har point.
-          </p>
+          {me?.forladt ? (
+            <>
+              <h3 className="card__title">Vend tilbage til {game.name}</h3>
+              <p style={{ color: 'var(--c-muted)' }}>
+                Du har forladt spillet. Din stilling står klar i arkivet — dine ligaer skal du melde dig ind i igen.
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 className="card__title">Deltag i {game.name}</h3>
+              <p style={{ color: 'var(--c-muted)' }}>
+                Tilmeld dig for at tippe. Du kan forlade spillet igen fra spiloversigten — kommer du tilbage i sæsonen, får du din stilling igen.
+              </p>
+            </>
+          )}
           {error && <p className="badge badge--red mb-2">{error}</p>}
           <button className="btn btn--sm" disabled={joining} onClick={onJoin}>
-            {joining ? 'Tilmelder…' : 'Deltag'}
+            {joining ? 'Tilmelder…' : me?.forladt ? 'Vend tilbage' : 'Deltag'}
           </button>
         </div>
       ) : (

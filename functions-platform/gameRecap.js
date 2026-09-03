@@ -15,6 +15,7 @@ const { rensTekst } = require('./rensTekst');
 const { outcomePoints } = require('./superligaScoring');
 const { gatedeKampe, startRundeFor } = require('./startGate');
 const { ligaPoint, harRundeVektor, vektorStemmer } = require('./ligaPoint');
+const { aktiveSpillere } = require('./forladSpil');
 
 // 'in' tager højst 30 værdier pr. forespørgsel.
 const IN_CHUNK = 30;
@@ -312,7 +313,8 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
   // rundens kampe, så hverken hele bet-samlingen eller hele brugerkartoteket
   // skal hentes — det ville vokse med hele sæsonen.)
   const playersSnap = await gameRef.collection('players').get();
-  const playerUids = playersSnap.docs.map((d) => d.id);
+  // Forladte spillere tæller ikke med i rundens opsamling.
+  const playerUids = aktiveSpillere(playersSnap.docs).map((d) => d.id);
   if (playerUids.length < 2) return { posted: 0, reason: 'too-few-players', round };
 
   const [userDocs, ...betSnaps] = await Promise.all([
@@ -321,7 +323,10 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
       .map((ids) => gameRef.collection('bets').where('matchId', 'in', ids).get()),
   ]);
   const nameOf = new Map(userDocs.filter((d) => d.exists).map((d) => [d.id, d.data().displayName]));
-  const players = playersSnap.docs.map((d) => ({
+  // Samme filter som playerUids: en forladt spiller må ikke snige sig ind i
+  // ligaens stilling via memberUids (hun står der, til syncPlayerLeagues har
+  // set ligaen ændre sig — og i testen for evigt).
+  const players = aktiveSpillere(playersSnap.docs).map((d) => ({
     ...d.data(), uid: d.id, name: nameOf.get(d.id) || 'Spiller',
   }));
   const betsByUid = new Map();

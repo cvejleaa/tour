@@ -487,3 +487,34 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   emulator-kommando, mens et senere, udførligt afsnit i SAMME fil var. Tjek
   ALLE forekomster af en ændret kommando/sti i én fil, ikke kun den, diffen
   rørte ved.
+
+## "Forlad" er en sletning — spor den til ALLE spor, spilleren efterlader
+
+- **En knap, hvis handling afvises af et REGEL-PRÆDIKAT, skal gates på præcis
+  det prædikat — ikke på en status, der plejer at følges ad.** Forlad-knappen
+  (`GamesPage.jsx:59`) stod på `status === OPEN`, mens players `allow delete`
+  (`firestore.rules:801`) kræver `totalPoints` fraværende eller 0. Superligaen
+  står 'open' HELE sæsonen (`scripts/games.mjs:73`) → alle med point fik
+  "Du har ikke adgang til denne handling.". Spejl prædikatet ord for ord,
+  aldrig strengere, og lad handlingen beholde en SPECIFIK fejltekst
+  (`danishError`, `gameActions.js:37`, er delt af alle handlinger).
+- **En klient-sletning kan ikke rydde op efter sig — og serveren genopliver
+  spilleren.** `leaveGame` (`gameActions.js:313`) sletter KUN
+  `games/{id}/players/{uid}`. `games/{id}/bets` er `allow delete: if false`
+  (`firestore.rules:~1051`), `detalje/`-underdokumenter følger ikke med en
+  doc-sletning, og ligaens `memberUids` røres ikke. Værre:
+  `recalcPlayerTotal` (`gameScoring.js:249-292`) samler sine uid'er fra BETS
+  (`berorteUids`, :522) og skriver med `tx.set(..., {mergeFields})` — det
+  GENSKABER et slettet players-dokument (uden `uid`, `joinedAt`, `leagueIds`)
+  ved næste afgjorte kamp, spilleren havde tippet. `settlePuljeBets` (:453) og
+  `adminDeleteUser` (`index.js:1695`) har samme hul. Spørg ved enhver
+  "fjern/forlad/slet mig"-flade: hvilke samlinger nævner uid'et STADIG, og
+  findes der et job, der skriver dokumentet tilbage? Rækkefølgen er svaret:
+  bets/puljeBets først, players-dokumentet SIDST — og fra serveren.
+- **En bekræftelsesdialog, der lover en sletning, er en påstand om koden.**
+  "Dine point, tips og liga-medlemskab slettes" / "de kan ikke tildeles igen"
+  kan kun være sandt, hvis bets faktisk slettes; ellers er det den omvendte
+  "Åbn ligaen →"-fejl (teksten lover MERE ødelæggelse end handlingen giver).
+  Et POINTTAL i dialogen er desuden skala-følsomt: spillets `totalPoints` er
+  ikke ligaens `ligaPoint` (startRound) — skriv "i <spillets navn>" og formatér
+  med `fmtDec` (dansk komma).

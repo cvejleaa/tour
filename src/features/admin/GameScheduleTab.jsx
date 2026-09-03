@@ -22,7 +22,7 @@ import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/co
 // Hvad hver status betyder i praksis — vises under vælgeren, så konsekvensen
 // af "Afsluttet" ikke først opdages, når spillet er væk fra oversigten.
 const STATUS_HELP = {
-  [GAME_STATUS.OPEN]: 'Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er sat til Synligt nedenfor. Spillerne kan forlade spillet igen — og et forladt spil tager point og liga-medlemskab med sig.',
+  [GAME_STATUS.OPEN]: 'Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er sat til Synligt nedenfor. Spillerne kan forlade spillet igen — også med point: de forsvinder fra stillingen og deres ligaer, tips på kommende kampe slettes, men point og historik arkiveres, og kommer de tilbage i sæsonen, får de stillingen igen.',
   [GAME_STATUS.LIVE]: 'I gang. Påmindelser sendes (medmindre de er sat på pause under 🔔 Påmindelser), og Forlad-knappen er væk.',
   [GAME_STATUS.FINISHED]: 'Afsluttet: forsvinder fra "Åbne spil — deltag", og der sendes ikke flere påmindelser. Stilling og historik kan stadig ses.',
 };

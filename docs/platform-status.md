@@ -25,7 +25,7 @@ og brandingen er ryddet op. Næste store blok er Fase B: de rigtige spil-sider.
 - [x] **Login:** e-mail/adgangskode **og** Google — samme konto virker begge
       veje. Selvbetjent godkendelse bevaret.
 - [x] **Spiloversigt** (`/spil`): "Mine spil" / "Åbne spil — deltag", ét-kliks
-      tilmelding, forlad-igen (uden point).
+      tilmelding, forlad-igen (arkiv: point og historik bevares, kommende tips slettes).
 - [x] **De tre spil seedet:** VM 2026 (afsluttet), Tour de France 2026
       (afsluttet), Superligaen 2026/27 (åben). Status sættes i Admin →
       🗓️ Spil-tidsplan; seedet rører den ikke på spil, der allerede findes.
