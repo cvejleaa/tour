@@ -27,6 +27,17 @@ describe('flet — kreditreglen', () => {
     expect(s.elementer.find((e) => e.linje === 8).aktiveret).toBe(true);
   });
 
+  it('to klikbare elementer i samme kæde: KUN det inderste krediteres (Test Managers mutation: "alle forfædre")', () => {
+    // En <div onClick> uden om en <button>: begge tager 'click'. Krediteres
+    // alle forfædre, får div'en gratis point, hver gang knappen klikkes — og
+    // fanen ville vise den som rørt, uden at nogen test nogensinde ramte den.
+    const DIV = { noegle: 'src/A.jsx:5:3', fil: 'src/A.jsx', linje: 5, kolonne: 3, tag: 'div', type: null, tekst: 'klik-div', haendelser: ['click'] };
+    const r = flet([DIV, KNAP], [{ type: 'click', kaede: ['src/A.jsx:11:7', KNAP.noegle, DIV.noegle], testfil: 'src/A.test.jsx' }], T);
+    expect(r.elementer.find((e) => e.tag === 'button').aktiveret).toBe(true);
+    expect(r.elementer.find((e) => e.tag === 'div').aktiveret).toBe(false);
+    expect(r.totals.aktiverede).toBe(1);
+  });
+
   it('en logpost, der kun peger på ukendte kildesteder, krediterer intet', () => {
     const r = flet(INV, [{ type: 'click', kaede: ['src/Ukendt.jsx:1:1', 'src/A.jsx:99:9'], testfil: 'x' }], T);
     expect(r.totals.aktiverede).toBe(0);

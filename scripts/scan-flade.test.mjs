@@ -71,6 +71,16 @@ describe('scanKilde', () => {
     expect(p.map((x) => [x.tekst, x.komponent])).toEqual([['Inde i hjælper', 'Kort'], ['Ude i Kort', 'Kort']]);
   });
 
+  it('komponentnavnet lækker ikke til den næste topniveau-funktion (Test Managers mutation: stak.pop)', () => {
+    // To sideordnede funktioner: den anden er en almindelig hjælper (lille
+    // begyndelsesbogstav). Bliver "Alpha" stående på stakken, får hjælperens
+    // knap komponentnavnet Alpha — og fanen peger på det forkerte sted.
+    const k = `function Alpha() { return <button>a</button>; }
+function beta() { return <button>b</button>; }
+const Gamma = () => <button>c</button>;`;
+    expect(scanKilde(k, 'src/S.jsx').map((x) => x.komponent)).toEqual(['Alpha', 'beta', 'Gamma']);
+  });
+
   it('læser en ren streng i et udtryk som tekst — men ikke et udtryk med variabler', () => {
     const p = scanKilde("const A = () => <><button>{'Gem'}</button><button>{`Gem alt`}</button><button>{`Gem ${n}`}</button></>;", 'src/A.jsx');
     expect(p.map((x) => x.tekst)).toEqual(['Gem', 'Gem alt', null]);
