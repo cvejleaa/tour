@@ -288,6 +288,11 @@ npm --prefix functions-platform test -- --silent
 firebase emulators:exec --only firestore "npm run test:rules" --project demo-vm2026
 npx vite build --logLevel error                  # Tour-build
 VITE_PLATFORM_MODE=true npx vite build --logLevel error   # platform-build
+
+# Ny knap/felt? Kør fladevagten FØR push — CI fejler ellers med en knap, du ikke vidste var ny:
+EVNE_LOG="$PWD/.evne-log" npm run test:coverage
+node scripts/flade-vagt.mjs          # skriv en test, der rører elementet — eller en begrundet
+                                     # undtagelse i scripts/flade-undtagelser.json (docs/testing.md)
 ```
 
 **Filtrér ALDRIG hvilke tests der køres, når kørslen skal bære et

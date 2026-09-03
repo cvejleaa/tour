@@ -1321,6 +1321,28 @@
   `totals.aktiverede === 0` fanges igen i workflow'ets eget node-tjek.
   `@babel/parser@7.29.7` er kun løftet fra transitiv til direkte devDep:
   ÉN lock-post, `dev: true`, samme version, ingen ny undertræ.
+- **Fladevagten i CI (#215) flytter ingen privilegie-grænse — KØRT.**
+  `scripts/flade-vagt.mjs` er ren læsning uden `--opdater`: kørt mod repoet med
+  `EVNE_LOG` på en tom mappe gav exit 1 og md5 UÆNDRET på både
+  `flade-basislinje.json` og `flade-undtagelser.json`. ci.yml:48 kalder den
+  uden flag. Env-variablen bruges kun til at LÆSE (`readdirSync`); skrivestien
+  er en fast konstant udledt af scriptets egen placering — ingen sti-flugt.
+  `scanTrae` PARSER kilden (@babel/parser), importerer/eksekverer den ikke.
+  Fejler LUKKET i alle prøvede retninger (PoC:
+  `scratchpad/poc.mjs`-mønstret, `vagt()` kaldt direkte): tom log → rød,
+  opdigtet nøgle i basislinjen → rød ("kan skrumpe"), `undtagelser` som objekt
+  → TypeError → exit≠0, undtagelse uden `noegle` eller med tom/0-begrundelse
+  → rød. `JSON.parse('{"__proto__":…}')` forurener ikke `Object.prototype`.
+  Beskederne indeholder kun fil:linje, tag, komponent og JSX-tekst — repoet er
+  PUBLIC (`api.github.com/repos/cvejleaa/tour` → `"private": false`), så CI-
+  loggen afslører intet, kildekoden ikke allerede viser. `.evne-log/` er
+  gitignored (`.gitignore:54`) og uploades ikke.
+  **Den ene evasion, der virker (og er tilsigtet):** basislinjen tjekkes kun
+  for at kunne SKRUMPE, aldrig for at VOKSE — skriver en PR-forfatter det nye
+  urørte elements nøgle direkte ind i `flade-basislinje.json`, er vagten grøn
+  UDEN begrundelse (undtagelseslisten kræver en). Kun review ser det, og der
+  er ingen CODEOWNERS. Ufarligt i trusselsmodellen (kun ejeren merger), men
+  hvis vagten skal kunne stå alene: gør en VOKSENDE basislinje rød.
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
@@ -1843,11 +1865,14 @@ autorisation og shell som argument-parser. Gennemgå dem som callables.
   bor i `games/{id}.teamStyles`.
 - **`games/{gameId}` har INGEN Cloud-Function-trigger** (kun matches, leagues,
   questions), så en skrivning dér kan ikke forstærkes.
-- **CI (`ci.yml`) har ingen `permissions:`-blok** og installerer `firebase-tools`
-  globalt og UPINNET i to jobs (rules, og fra sep 2026 også e2e). Alle fire jobs
-  er læse-only i deres formål; `permissions: contents: read` på workflow-niveau
-  ville forhindre, at en kompromitteret afhængighed i det store CLI-træ arver en
-  skrive-token. Ingen `secrets.` i ci.yml i dag.
+- **CI (`ci.yml`) har nu `permissions: contents: read`** på workflow-niveau
+  (L11-12, bekræftet 3/9 2026 ved #215) — den mangel er lukket. Triggere er
+  `push` på main/master + `pull_request` (IKKE `pull_request_target`), og der
+  er stadig ingen `secrets.` i filen: en fork-PR kører sin egen kode med et
+  læse-only token og uden hemmeligheder. Kun `e2e`-jobbet uploader et
+  artefakt (`playwright-report/`); frontend-jobbet uploader intet.
+  Uløst rest: `firebase-tools` installeres globalt og UPINNET i to jobs
+  (rules + e2e).
 - **`roller.mjs`s nye SIKKERHED-mønster `/^\.github\/workflows\//` er for snævert:**
   `.github/dependabot.yml` findes i repoet og styrer automatiske afhængigheds-PR'er,
   og `.github/CODEOWNERS` ville styre review-krav. Brug `/^\.github\//`. Samme

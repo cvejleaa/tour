@@ -39,7 +39,13 @@ jobs:
           VITE_OWNER_EMAIL=cvejleaa@gmail.com
           EOF
       - run: npm run lint
-      - run: npm run test:coverage
+      # EVNE_LOG: tappen i src/test/setup.js logger, hvilke knapper og felter
+      # testene rører (docs/testing.md → Knapper og felter). Vagten bagefter
+      # er rød ved et NYT urørt element, ved tom log, og når basislinjen kan
+      # skrumpe. Basislinjen låser de kendte huller; den kræver ikke 100 %.
+      - run: EVNE_LOG="$PWD/.evne-log" npm run test:coverage
+      - name: Fladevagt — nye knapper og felter uden en test, der rører dem
+        run: node scripts/flade-vagt.mjs
       # Repoet bygger TO apps fra samme kode (VITE_PLATFORM_MODE). Begge skal
       # bygges her — ellers kan platformen (tip.vejleaa.dk) gå i stykker, uden
       # at CI opdager det.
