@@ -696,6 +696,17 @@ service cloud.firestore {
       // ikke inde i players/ — fordi både stillingen OG tips-læsningen skal
       // bruge den. Stien er den samme for alle dokumenter i én forespørgsel,
       // så opslaget tælles kun én gang mod Firestores grænse.
+      // AKTIV deltager: dokumentet findes OG er ikke forladt. Siden forlad blev
+      // et arkiv (forladSpil), overlever players-dokumentet udmeldelsen — så
+      // "findes" er ikke længere "deltager". Alle skrive-gates, der spørger
+      // "er du med i spillet?", går her igennem; ellers kunne en forladt
+      // spiller tippe videre uden om fladen, mens dialogen lovede det modsatte.
+      function erAktivDeltager() {
+        return isSignedIn()
+          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && get(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid)).data.get('forladt', false) != true;
+      }
+
       function myLeagueIds() {
         return isSignedIn()
           && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
@@ -761,7 +772,7 @@ service cloud.firestore {
           && request.resource.data.uid == uid
           && holdGyldigt()
           && !request.resource.data.keys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds', 'forladt', 'forladtAt']);
 
         // Opdatér eget medlemskab, men aldrig point-/placerings-/liga-felterne.
         //
@@ -787,6 +798,12 @@ service cloud.firestore {
           && request.auth.uid == uid
           && request.resource.data.get('uid', uid) == uid
           && holdGyldigt()
+          // forladt SÆTTES kun af serveren (forladSpil). Kunne klienten sætte
+          // det selv, kunne hun skjule sig for rang-snapshot og opsamling, mens
+          // hun stadig stod i ligastillingen — og alle andres rang-pile blev
+          // falske (Security-fund, kørt i emulatoren). Fjerne det må hun.
+          && !(request.resource.data.get('forladt', false) == true
+               && resource.data.get('forladt', false) != true)
           // `perRound` STÅR PÅ LISTEN AF SAMME GRUND SOM totalPoints: ligaens
           // stilling regnes af den, både i fladen og af Runde-Botten. Uden den
           // her kunne et medlem skrive { perRound: { '20': 1000000 } } og toppe
@@ -951,7 +968,7 @@ service cloud.firestore {
         allow create, update: if isApproved()
           && request.auth.uid == uid
           && request.resource.data.uid == uid
-          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && erAktivDeltager()
           && beforeDeadline()
           && request.resource.data.championship is list
           && poolSize() > 0
@@ -1004,7 +1021,7 @@ service cloud.firestore {
         allow create: if isApproved()
           && request.auth.uid == request.resource.data.uid
           && betId == request.auth.uid + '_' + request.resource.data.matchId
-          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && erAktivDeltager()
           && !request.resource.data.keys().hasAny(['points'])
           // CHANCEN KAN IKKE FØDES MED ET TIP. Den sættes bagefter gennem
           // callable'en setGameChance, som er den eneste, der kan svare på
@@ -1040,6 +1057,7 @@ service cloud.firestore {
         // uid_matchId-bindingen håndhæves kun ved create, så den fanger det
         // ikke: doc-id'et ændrer sig jo ikke ved en opdatering.
         allow update: if isApproved()
+          && erAktivDeltager()
           && request.auth.uid == resource.data.uid
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.matchId == resource.data.matchId
@@ -1089,7 +1107,7 @@ service cloud.firestore {
 
         // Opret: godkendt deltager, ejer = selv, medlemmer = kun selv.
         allow create: if isApproved()
-          && exists(/databases/$(database)/documents/games/$(gameId)/players/$(request.auth.uid))
+          && erAktivDeltager()
           && request.resource.data.ownerUid == request.auth.uid
           && request.resource.data.memberUids == [request.auth.uid]
           && navnGyldigt()

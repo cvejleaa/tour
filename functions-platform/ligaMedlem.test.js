@@ -20,6 +20,7 @@ const FieldValue = {
   arrayUnion: (...v) => ({ __op: 'union', v }),
   arrayRemove: (...v) => ({ __op: 'remove', v }),
   serverTimestamp: () => 'TS',
+  delete: () => ({ __op: 'delete' }),
 };
 
 /**
@@ -43,6 +44,8 @@ function fakeDb({ users = {}, spil = {} } = {}) {
       collection: (sub) => {
         const ligaer = g?.ligaer || {};
         const spillere = g?.spillere || [];
+        const forladte = g?.forladte || [];
+        const spillerData = (id) => ({ uid: id, ...(forladte.includes(id) ? { forladt: true } : {}) });
         if (sub === 'leagues') {
           return {
             doc: (id) => ({
@@ -56,10 +59,11 @@ function fakeDb({ users = {}, spil = {} } = {}) {
         }
         return {
           doc: (id) => ({
-            get: async () => docSnap(id, spillere.includes(id) ? { uid: id } : null),
+            get: async () => docSnap(id, spillere.includes(id) ? spillerData(id) : null),
             set: async (d) => { log.oprettede.push({ gameId, ...d }); spillere.push(id); },
+            update: async (f) => { log.opdateringer.push({ gameId, id: `players/${id}`, f }); },
           }),
-          get: async () => ({ docs: spillere.map((id) => docSnap(id, { uid: id })) }),
+          get: async () => ({ docs: spillere.map((id) => docSnap(id, spillerData(id))) }),
         };
       },
     };
@@ -82,8 +86,8 @@ function fakeDb({ users = {}, spil = {} } = {}) {
 }
 
 /** Kortform: ét spil med id 'g'. */
-function dbMedDoc({ users = {}, ligaer = {}, spillere = [], spilFindes = true } = {}) {
-  return fakeDb({ users, spil: spilFindes ? { g: { ligaer, spillere } } : {} });
+function dbMedDoc({ users = {}, ligaer = {}, spillere = [], forladte = [], spilFindes = true } = {}) {
+  return fakeDb({ users, spil: spilFindes ? { g: { ligaer, spillere, forladte } } : {} });
 }
 
 const ADMIN = { status: 'approved', role: 'globalAdmin' };
@@ -126,6 +130,18 @@ describe('saetLigaMedlemCore', () => {
     expect(liga).toHaveLength(1);
     expect(Object.keys(liga[0].f)).toEqual(['memberUids']);
     expect(liga[0].f.memberUids).toEqual({ __op: 'union', v: ['ny'] });
+  });
+
+  it('VÆKKER en forladt spiller frem for at oprette hende igen — flaget fjernes, arkivet bevares', async () => {
+    const db = dbMedDoc({
+      users: { adm: ADMIN, ude: { status: 'approved' }, ejer: { status: 'approved' } },
+      ligaer: { L1: { name: 'Vennerne', ownerUid: 'ejer', memberUids: ['ejer'] } },
+      spillere: ['ejer', 'ude'], forladte: ['ude'],
+    });
+    await kald(db, { maalUid: 'ude', medlem: true });
+    expect(db.log.oprettede).toEqual([]);
+    const vaek = db.log.opdateringer.find((o) => o.id === 'players/ude');
+    expect(Object.keys(vaek.f).sort()).toEqual(['forladt', 'forladtAt', 'joinedAt']);
   });
 
   it('OPRETTER spilleren i spillet frem for at afvise', async () => {
@@ -280,6 +296,16 @@ describe('hentLigaMedlemmer', () => {
     expect(r.deltagere.map((d) => d.navn)).toEqual(['Anne', 'Bo', 'Carl']);
     expect(JSON.stringify(r)).not.toContain('HEMMELIG');
     expect(JSON.stringify(r)).not.toContain('code');
+  });
+
+  it('tilbyder IKKE en forladt spiller som deltager i vælgeren', async () => {
+    const db = dbMedDoc({
+      users: { adm: ADMIN, ejer: { status: 'approved', displayName: 'Anne' }, ude: { status: 'approved', displayName: 'Ude' } },
+      ligaer: { L1: { name: 'Vennerne', code: 'K', ownerUid: 'ejer', memberUids: ['ejer'] } },
+      spillere: ['ejer', 'ude'], forladte: ['ude'],
+    });
+    const r = await hentLigaMedlemmer(db, { uid: 'adm', gameId: 'g' });
+    expect(r.deltagere.map((d) => d.navn)).toEqual(['Anne']);
   });
 
   it('afviser en menig bruger', async () => {

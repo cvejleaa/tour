@@ -255,7 +255,9 @@ async function setChanceCore(db, FieldValue, { uid, gameId, matchId, stake, nowM
     const status = brugerSnap.exists ? brugerSnap.data().status : null;
     if (status === 'rejected') throw fejl('rejected');
     if (status !== 'approved') throw fejl('not-approved');
-    if (!spillerSnap.exists) throw fejl('not-member');
+    // Forladt er et arkiv, ikke en deltagelse (forladSpil): samme svar som
+    // uden dokument, så Chancen ikke kan sættes uden om fladen efter udmeldelse.
+    if (!spillerSnap.exists || spillerSnap.data()?.forladt === true) throw fejl('not-member');
     if (!maalSnap.exists) throw fejl('no-match');
 
     const maal = maalSnap.data();

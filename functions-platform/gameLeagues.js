@@ -12,6 +12,8 @@
 // (oprettes ved registrering) — findes den ikke, kastes 'no-user'.
 // ---------------------------------------------------------------------------
 
+const { aktiveSpillere } = require('./forladSpil');
+
 function normalizeCode(code) {
   return String(code || '').trim().toUpperCase();
 }
@@ -79,6 +81,10 @@ async function redeemLeagueCodeCore(db, FieldValue, { uid, gameId, code }) {
   const playerSnap = await playerRef.get();
   if (!playerSnap.exists) {
     await playerRef.set({ uid, joinedAt: FieldValue.serverTimestamp() });
+  } else if (playerSnap.data()?.forladt === true) {
+    // Har hun forladt spillet, er ligakoden en vej tilbage: arkivet vækkes,
+    // ellers stod hun i ligaen som medlem, mens serveren regnede hende for ude.
+    await playerRef.update({ forladt: FieldValue.delete(), forladtAt: FieldValue.delete(), joinedAt: FieldValue.serverTimestamp() });
   }
 
   const leagueDoc = q.docs[0];
@@ -304,7 +310,9 @@ async function hentLigaMedlemmer(db, { uid, gameId }) {
         medlemmer: members.map(navnFor),
       };
     }).sort((a, b) => a.navn.localeCompare(b.navn, 'da')),
-    deltagere: spillerSnap.docs.map((d) => navnFor(d.id))
+    // Forladte er ikke deltagere — de skal selv vende tilbage (Deltag/ligakode),
+    // ikke tilføjes af en admin som om intet var hændt.
+    deltagere: aktiveSpillere(spillerSnap.docs).map((d) => navnFor(d.id))
       .sort((a, b) => a.navn.localeCompare(b.navn, 'da')),
   };
 }
@@ -363,8 +371,12 @@ async function saetLigaMedlemCore(db, FieldValue, { uid, gameId, leagueId, maalU
     await db.collection('users').doc(maalUid).update({ status: 'approved' });
   }
   const playerRef = db.collection('games').doc(gameId).collection('players').doc(maalUid);
-  if (!(await playerRef.get()).exists) {
+  const playerSnap = await playerRef.get();
+  if (!playerSnap.exists) {
     await playerRef.set({ uid: maalUid, joinedAt: FieldValue.serverTimestamp() });
+  } else if (playerSnap.data()?.forladt === true) {
+    // Samme som ligakoden: medlemskab uden deltagelse er en halv spiller.
+    await playerRef.update({ forladt: FieldValue.delete(), forladtAt: FieldValue.delete(), joinedAt: FieldValue.serverTimestamp() });
   }
   await ligaRef.update({ memberUids: FieldValue.arrayUnion(maalUid) });
   return { aendret: true, medlem: true };

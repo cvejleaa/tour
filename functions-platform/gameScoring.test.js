@@ -932,6 +932,19 @@ describe('snapshotRoundRanks', () => {
     expect(db._players.A).toMatchObject({ rank: 1, previousRank: 1 });
     expect(db._players.B).toMatchObject({ rank: 2, previousRank: 2 });
   });
+  it('en forladt spiller rangeres ikke — og skubber ikke de andre ned', async () => {
+    // F har flest point, men har forladt spillet: A skal være nr. 1, ikke nr. 2.
+    const db = makeDb([], [], {}, {
+      F: { totalPoints: 99, forladt: true },
+      A: { totalPoints: 10 },
+      B: { totalPoints: 5 },
+    });
+    const res = await snapshotRoundRanks(db, FieldValue, 'g1');
+    expect(res.ranked).toBe(2);
+    expect(db._players.A).toMatchObject({ rank: 1 });
+    expect(db._players.B).toMatchObject({ rank: 2 });
+    expect(db._players.F.rank).toBeUndefined();
+  });
 });
 
 describe('recomputeGameMatchCore — placerings-snapshot ved rundeafslutning', () => {

@@ -18,11 +18,13 @@ vi.mock('../context/AuthContext', () => ({
 // ── Mock useGames-hooken (behold den rigtige splitGames) ─────────────────────
 let gamesData = [];
 let myGameIds = new Set();
+let myPoints = {};
+let myForladt = new Set();
 vi.mock('../features/games/useGames', async () => {
   const actual = await vi.importActual('../features/games/useGames');
   return {
     splitGames: actual.splitGames,
-    useGames: () => ({ games: gamesData, myGameIds, loading: false }),
+    useGames: () => ({ games: gamesData, myGameIds, myPoints, myForladt, loading: false }),
   };
 });
 
@@ -33,6 +35,7 @@ vi.mock('../features/games/gameActions', () => ({
 }));
 
 global.confirm = vi.fn(() => true);
+global.prompt = vi.fn(() => null);
 
 const allGames = [
   { id: 'wm', name: 'VM 2026', emoji: '⚽', order: 1, season: '2026', status: 'open', joinable: true },
@@ -49,6 +52,8 @@ describe('GamesPage', () => {
     vi.clearAllMocks();
     gamesData = allGames;
     myGameIds = new Set(['wm']); // jeg deltager i VM
+    myPoints = { wm: 0 };
+    myForladt = new Set();
   });
 
   it('viser mine spil under "Mine spil"', () => {
@@ -86,9 +91,54 @@ describe('GamesPage', () => {
     });
   });
 
-  // Forlad sletter spillerens players-dokument med point og liga-medlemskab.
-  // Knappen må derfor kun findes, mens spillet er åbent — også hvis admin
-  // sætter et spil tilbage fra "Afsluttet" til en anden status.
+  // Forlad arkiverer (serveren): man forsvinder fra stilling og ligaer, tips
+  // på kommende kampe slettes. Knappen findes kun, mens spillet er åbent — også
+  // hvis admin sætter et spil tilbage fra "Afsluttet" til en anden status.
+  it('spørger KUN én gang, når spilleren ingen point har — og dialogen siger hvad der sker', async () => {
+    const { leaveGame } = await import('../features/games/gameActions');
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /forlad VM 2026/i }));
+    await waitFor(() => expect(leaveGame).toHaveBeenCalledWith('me-uid', 'wm'));
+    expect(global.confirm).toHaveBeenCalledTimes(1);
+    const [tekst] = global.confirm.mock.calls[0];
+    expect(tekst).toContain('Forlad "VM 2026"?');
+    expect(tekst).toContain('tips på kommende kampe slettes');
+    expect(global.prompt).not.toHaveBeenCalled();
+  });
+
+  it('spørger TO gange med tallet, når spilleren har point — og forlader først ved andet ja', async () => {
+    const { leaveGame } = await import('../features/games/gameActions');
+    myPoints = { wm: 12.5 };
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /forlad VM 2026/i }));
+    await waitFor(() => expect(leaveGame).toHaveBeenCalledWith('me-uid', 'wm'));
+    expect(global.confirm).toHaveBeenCalledTimes(2);
+    const [anden] = global.confirm.mock.calls[1];
+    expect(anden).toContain('Du står med 12,5 point i VM 2026.');
+    expect(anden).toContain('får du din stilling igen');
+  });
+
+  it('forlader IKKE, når spilleren siger nej til anden dialog', async () => {
+    const { leaveGame } = await import('../features/games/gameActions');
+    myPoints = { wm: 4 };
+    global.confirm.mockImplementationOnce(() => true).mockImplementationOnce(() => false);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /forlad VM 2026/i }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(global.confirm).toHaveBeenCalledTimes(2);
+    expect(leaveGame).not.toHaveBeenCalled();
+  });
+
+  it('et forladt spil står under Åbne spil med "Vend tilbage", ikke "Deltag"', () => {
+    myGameIds = new Set();            // forladt = ikke medlem …
+    myForladt = new Set(['wm']);      // … men arkivet ligger der
+    renderPage();
+    expect(screen.getByRole('button', { name: 'Vend tilbage til VM 2026' })).toHaveTextContent('Vend tilbage');
+    expect(screen.queryByRole('button', { name: /deltag i VM 2026/i })).not.toBeInTheDocument();
+    // De andre åbne spil siger stadig Deltag.
+    expect(screen.getByRole('button', { name: /deltag i Superligaen/i })).toBeInTheDocument();
+  });
+
   it('viser ikke Forlad for et spil i gang', () => {
     myGameIds = new Set(['tour']);
     renderPage();

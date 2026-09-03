@@ -8,6 +8,7 @@ const { escapeHtml, sendEmail, emailByUidMap, APP_URL } = require('./mailer');
 // der ikke giver point.
 const { gatedeKampe, startRundeFor } = require('./startGate');
 const { kickoffMs } = require('./pointOpdeling');
+const { aktiveSpillere } = require('./forladSpil');
 
 const DAY_MS = 24 * 3600 * 1000;
 // 'in' tager højst 30 værdier pr. forespørgsel.
@@ -71,7 +72,8 @@ async function runGameTipReminders(db, transporter, gameId, now = new Date()) {
   const upcomingIds = new Set(upcoming.map((m) => m.id));
 
   const playersSnap = await gameRef.collection('players').get();
-  const memberUids = playersSnap.docs.map((d) => d.id);
+  // Forladte spillere får ingen påmindelser — de er ude, arkivet er ikke en deltager.
+  const memberUids = aktiveSpillere(playersSnap.docs).map((d) => d.id);
   if (memberUids.length === 0) return { sent: 0, fejlede: 0, reason: 'no-members' };
 
   // uid → Set(matchId) af tippede kommende kampe. Hent KUN tips på de kampe der
@@ -300,7 +302,7 @@ async function hentTipStatus(db, gameId, round, now = new Date()) {
   ]);
   if (!gameSnap.exists) return null;
   const matches = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
-  const memberUids = playersSnap.docs.map((d) => d.id);
+  const memberUids = aktiveSpillere(playersSnap.docs).map((d) => d.id);
 
   const rundensIds = matches.filter((m) => m.round === round).map((m) => m.id);
   const betByUid = new Map();

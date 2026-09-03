@@ -981,3 +981,104 @@ faktisk blive nået af, og findes det input i noget fixture?
   `await expect(link).toBeVisible({timeout: 5000})` FØR `.click()`, så
   fejlen kommer hurtigt og med en klar årsag — ikke som en 30 s
   "timeout uden forklaring", der ligner en hængende server.
+
+## forladSpil (arkiv-model, branch claude/multi-game-player-collection-21mc1w)
+
+- **`forladSpilCore` (`functions-platform/forladSpil.js`) er reelt godt mutationsbevist
+  på kernen**: rækkefølge-mutation (flag FØR tips-sletning i stedet for sidst) dræbes
+  af assertionen på `db.log[db.log.length - 1]` — den binder specifikt til "sidst",
+  ikke bare "findes". `owns-league`-vagten og `erForladt`-tjekket i `not-member`
+  (forhindrer dobbelt-forladelse) er hver især dræbt af egen test.
+- **`aktiveSpillere`-filteret bruges TO steder i `gameRecap.js` (linje 317 `playerUids`
+  og linje 329 `players`), men KUN ÉT af dem er reelt dækket.** Fjernes filteret på
+  linje 317 alene, forbliver hele suiten grøn — `playerUids` bruges kun til en
+  længde-tærskel og til at hente `users`-dokumenter til `nameOf`, og den forladte
+  spiller ryger under alle omstændigheder ud igen via `players` (linje 329), som er
+  det, testens `standings`-array rent faktisk bygges af. Mønster: når samme guard er
+  duplikeret to steder "for en sikkerheds skyld", så mutér dem ÉN AD GANGEN — den ene
+  kan vise sig at være complete slack, ikke reel dækning.
+- **`reminders.js:305` (`hentTipStatus`, bruges af admin-dashboardets "hvem mangler
+  at tippe"-kort via `byggTipStatus`) har INGEN test på sit `aktiveSpillere`-filter.**
+  Filteret fjernet → suiten forblev 100% grøn. Kun søsterfunktionen
+  `runGameTipReminders` (selve mail-udsendelsen, linje 76) har en forladt-test.
+  `hentTipStatus`-testene (linje 185+, "picks findes i databasen, men aldrig i
+  svaret") tester slet ikke `forladt`. Reel udækket læser — samme mønster som
+  proxy-gates i CLAUDE.md: to søskende-funktioner med samme guard, kun den ene
+  testet.
+- **`useGame.js`s `isMember = me != null && me.forladt !== true` (linje 103) har
+  ZERO dækning.** Fjernet mutation → hele frontend-suiten (3179 tests) forblev grøn.
+  `GamePage.test.jsx` tester udelukkende de rene, eksporterede funktioner
+  `faneVises`/`GAME_TABS` — filen renderer aldrig `<GamePage>`, så "Vend
+  tilbage"-kortet (GamePage.jsx render-gren ved `me?.forladt`) er helt uprøvet.
+  Mangler: en test der renderer `<GamePage>` med en mock af `useGame` (eller en
+  fuld integrationstest), sætter `me.forladt = true`, og asserterer at "Vend
+  tilbage"-knappen (ikke "Deltag") vises, og omvendt at fanerne (tip/stilling) IKKE
+  vises for en forladt spiller.
+- **Tautologi-mønsteret i CLAUDE.md ("assertér på indhold, ikke kun VIST") holder
+  KUN, hvis testen af den forbrugende komponent bruger den ægte tekst-funktion.**
+  Her: `GamesPage.test.jsx` importerer IKKE `forladTekst.js` — den render'er den
+  ægte `GamesPage.jsx`, som selv kalder de ægte `forladBekraeftelse`/
+  `forladPointAdvarsel`. Mutationsbevist: fjern én sætning i `forladTekst.js`, og
+  BÅDE `forladTekst.test.js` og `GamesPage.test.jsx` bliver røde uafhængigt (to
+  separate assertions på samme streng, ikke én der propagerer). Tjek altid dette
+  ved "delt tekst mellem to testfiler": grep efter import af tekstmodulet i den
+  forbrugende tests — mangler importen, og komponenten stadig kalder den ægte
+  funktion, er det ikke en tautologi, selvom teksterne er identiske.
+- **`gameActions.js` joinGame's tilbagevenden (`updateDoc` med `deleteField()` på
+  `forladt`/`forladtAt`) er dræbt af en mutation til `setDoc` uden merge** —
+  testen asserterer eksplicit `mockSetDoc.not.toHaveBeenCalled()` OG patch-indholdet.
+
+### Delta efter Security/QC-rettelser (27cb861, samme branch)
+
+- **`reminders.js:305` (`hentTipStatus`) er nu dræbt**: den manglende test blev
+  tilføjet (`reminders.test.js:237-241`) og fanger filter-fjernelse korrekt.
+  Bekræfter mønsteret fra runde 1: en manglende dækning på en navngiven
+  fil:linje er nemt at lukke med én lille test, når den er fundet.
+- **`useGame.js:103`s `isMember`-vagt er nu dækket af `useGameHook.test.js`**
+  (dræbt), men **`GamePageForladt.test.jsx` fanger IKKE samme mutation** —
+  bekræftet ved samme mutation kørt igen. Årsag: `GamePageForladt.test.jsx`
+  mocker `useGame` helt selv med sin EGEN kopi af guard-udtrykket
+  (`isMember: me != null && me.forladt !== true` indlejret i mock'en), så den
+  render'er aldrig den ægte hook. **Dette er acceptabelt, IKKE et hul** — det
+  er bevidst lagdeling: `useGameHook.test.js` beviser hookens egen beregning,
+  `GamePageForladt.test.jsx` beviser komponentens reaktion på en given
+  `isMember`-værdi. Tilsammen dækker de kæden, men KUN hvis noget uafhængigt
+  garanterer, at `GamePage.jsx` rent faktisk importerer den ægte `useGame` (det
+  gør den — importen er ikke mocket i produktionskoden). Mønster at kende:
+  når en komponenttest mocker en hook med en HÅNDSKREVET kopi af hookens
+  interne logik (i stedet for blot at levere rå fixture-data og lade den ægte
+  hook køre), bliver mock'en selv en broget kilde til falsk tryghed, HVIS den
+  ikke suppleres af en ren hook-test. Tjek altid: findes der en separat,
+  ren test af selve hooken, når en komponenttest mocker den med logik (ikke
+  bare data)?
+- **`firestore.rules` `erAktivDeltager()` i bets create (linje ~1024) er
+  dobbelt-dækket**: fjernes den, bliver BÅDE den nye "en FORLADT deltager KAN
+  IKKE tippe"-test OG en ældre, allerede eksisterende "IKKE-deltager KAN IKKE
+  tippe (mangler players-dok)"-test røde. Forventeligt: `erAktivDeltager()`
+  erstattede et rent `exists()`-tjek, så den dækker begge sider (findes slet
+  ikke / findes men er arkiveret) med samme prædikat.
+- **`erAktivDeltager()`s andre tre brugssteder (pulje, chance-update, ny
+  liga) blev IKKE selvstændigt mutationstestet i denne runde** — kun bets
+  create blev muteret på koordinatorens anmodning. Alle fire steder deler
+  samme funktion, så mutationsbeviset på ÉT sted beviser prædikatets EGEN
+  logik korrekt (den er testet via bets), men beviser IKKE at hvert
+  kaldested rent faktisk BRUGER funktionen (en kopi-indsat eller udeladt
+  `erAktivDeltager()` ved et af de tre andre steder ville kræve sin egen
+  mutation for at blive fanget). Rules-testsuiten HAR dog dedikerede
+  positive/negative par for pulje og liga (jf. delta-diffen), så risikoen er
+  lav, men ikke nul-bevist.
+- **`firestore.rules` forladt-sæt-forbuddet (linje ~805,
+  `!(request.resource.data.get('forladt', false) == true && resource.data...
+  != true)`) er dræbt** af `rules.test.js:2117` ("man KAN IKKE selv SÆTTE
+  forladt"), som eksplicit tester update, merge OG create-tidspunktet (seedet
+  via `setDoc` med `forladt: true` i selve tilmeldingen) — tre angrebsflader,
+  én test, alle dækket.
+- **`forladSpil.js`s `erKampLaast`-integration (linje 104) er dræbt** ved at
+  erstatte den med den GAMLE, rene kickoff-sammenligning: fejlen viser sig
+  både på den samlede `res.toEqual` (5 slettet mod forventet 1) og ville
+  vise sig på ID-niveau på `me_facitFrem`, `me_liveFrem`, `me_udenKickoff`
+  og `me_ukendt` — de fire kampe, der er "låst" via facit/live-status/
+  manglende-kickoff-behandles-som-låst, IKKE via et fremtidigt kickoff-
+  tidspunkt. God demonstration af "et privat prædikat, der dubler et
+  delt, fejler i den ene retning" (se security-reviewer.md) — testen fanger
+  netop den retning.

@@ -8,18 +8,19 @@ const KILDE = require('fs').readFileSync(new URL('./gameLeagues.js', import.meta
 const FieldValue = {
   arrayUnion: (v) => ({ __arrayUnion: v }),
   serverTimestamp: () => ({ __ts: true }),
+  delete: () => ({ __delete: true }),
 };
 
 // Minimal fake-Firestore for redeemLeagueCodeCore. `state` opsamler side-effekter
 // (auto-godkend + auto-tilmeld), så testene kan verificere dem.
-function makeDb({ user, isPlayer, leagues }) {
+function makeDb({ user, isPlayer, leagues, spiller = null }) {
   const leagueDocs = (leagues || []).map((l) => ({ id: l.id, data: { ...l } }));
   leagueDocs.forEach((d) => { d.ref = { __league: d, update: async (u) => Object.assign(d.data, u) }; });
   // leagueQueries tæller opslag på koden — så en test kan vise, at en afvist
   // bruger stoppes FØR opslaget og altså ikke kan bruge funktionen til at
   // afgøre, om en kode findes.
   const state = {
-    userUpdates: null, playerSet: null, userExists: !!user, isPlayer: !!isPlayer,
+    userUpdates: null, playerSet: null, playerUpdate: null, userExists: !!user, isPlayer: !!isPlayer,
     leagueQueries: 0,
   };
   return {
@@ -41,8 +42,9 @@ function makeDb({ user, isPlayer, leagues }) {
               if (sub === 'players') {
                 return {
                   doc: () => ({
-                    async get() { return { exists: state.isPlayer }; },
+                    async get() { return { exists: state.isPlayer, data: () => spiller || { uid: 'me' } }; },
                     async set(d) { state.playerSet = d; state.isPlayer = true; },
+                    async update(d) { state.playerUpdate = d; },
                   }),
                 };
               }
@@ -97,9 +99,18 @@ describe('redeemLeagueCodeCore', () => {
   const approved = { status: 'approved' };
   const league = { id: 'L1', name: 'Vennerne', code: 'X4KR2M', memberUids: ['owner'] };
 
+  it('en spiller, der har FORLADT spillet, vækkes af ligakoden — flaget fjernes, dokumentet oprettes ikke igen', async () => {
+    const db = makeDb({ user: approved, isPlayer: true, spiller: { uid: 'me', forladt: true, totalPoints: 9 }, leagues: [{ ...league }] });
+    const res = await redeemLeagueCodeCore(db, FieldValue, { uid: 'me', gameId: 'g1', code: 'X4KR2M' });
+    expect(res.leagueId).toBe('L1');
+    expect(db._state.playerSet).toBeNull();
+    expect(Object.keys(db._state.playerUpdate).sort()).toEqual(['forladt', 'forladtAt', 'joinedAt']);
+  });
+
   it('tilføjer godkendt deltager til ligaen via kode', async () => {
     const db = makeDb({ user: approved, isPlayer: true, leagues: [league] });
     const res = await redeemLeagueCodeCore(db, FieldValue, { uid: 'me', gameId: 'g1', code: 'x4kr2m' });
+    expect(db._state.playerUpdate).toBeNull(); // en aktiv deltager røres ikke
     expect(res).toEqual({ leagueId: 'L1', name: 'Vennerne', already: false });
     expect(db._leagues[0].data.memberUids).toEqual({ __arrayUnion: 'me' });
   });

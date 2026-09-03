@@ -99,7 +99,8 @@ export function useGame(gameId) {
   }, [gameId]);
 
   const loading = gameLoading || meLoading || matchesLoading;
-  const isMember = me != null;
+  // Forladt = arkiv: fladen viser Deltag-kortet ("Vend tilbage"), ikke fanerne.
+  const isMember = me != null && me.forladt !== true;
   const value = useMemo(
     () => ({ game, me, isMember, matches, loading }),
     [game, me, isMember, matches, loading],

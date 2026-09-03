@@ -2096,6 +2096,45 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     );
   });
 
+  // Arkiv-modellen (forladSpil): serveren sætter `forladt: true`, og spilleren
+  // fjerner det selv, når hun vender tilbage — uden at røre point-felterne.
+  it('man KAN selv fjerne sit forladt-flag (vende tilbage) — pointene forbliver serverens', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { totalPoints: 8, forladt: true });
+    const ref = doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p1');
+    await assertSucceeds(updateDoc(ref, { forladt: deleteField(), forladtAt: deleteField(), joinedAt: Timestamp.now() }));
+    await assertFails(updateDoc(ref, { forladt: deleteField(), totalPoints: 0 }));
+  });
+
+  it('man KAN IKKE selv SÆTTE forladt — hverken med update, merge eller ved tilmelding', async () => {
+    // Ellers kunne hun skjule sig for rang-snapshot og opsamling, mens hun
+    // stadig stod i ligastillingen: alle andres rang-pile blev falske.
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { totalPoints: 8 });
+    const ref = doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p1');
+    await assertFails(updateDoc(ref, { forladt: true }));
+    await assertFails(updateDoc(ref, { forladt: true, forladtAt: Timestamp.now() }));
+    await assertFails(setDoc(ref, { forladt: true }, { merge: true }));
+    // Positiv kontrol: en anden opdatering af eget dokument går stadig igennem.
+    await assertSucceeds(updateDoc(ref, { favoriteTeam: 'AGF' }));
+    // Ved tilmelding: flaget må ikke fødes med.
+    await createUser('p2', 'player', 'approved');
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p2').firestore(), 'games', 'vm2026', 'players', 'p2'),
+      { uid: 'p2', joinedAt: Timestamp.now(), forladt: true }));
+  });
+
+  it('man KAN IKKE røre en ANDENS forladt-flag', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p2', { forladt: true });
+    await assertFails(
+      updateDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p2'), { forladt: deleteField() })
+    );
+  });
+
   it('man KAN IKKE forlade et spil hvor man HAR fået point (placering ville gå tabt)', async () => {
     await createUser('p1', 'player', 'approved');
     await createGame('vm2026');
@@ -2151,6 +2190,24 @@ describe('games/{gameId}/bets — sikkerhedsregler', () => {
     await createGameMatch('sl', 'm1', future());
     await assertSucceeds(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'bets', 'p1_m1'),
       { uid: 'p1', matchId: 'm1', homeScore: 2, awayScore: 1 }));
+  });
+  it('en FORLADT deltager KAN IKKE tippe — dokumentet findes, men er et arkiv', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl');
+    await seedMembership('sl', 'p1', { forladt: true, totalPoints: 12 });
+    await createGameMatch('sl', 'm1', future());
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'sl', 'bets', 'p1_m1'),
+      { uid: 'p1', matchId: 'm1', homeScore: 2, awayScore: 1 }));
+  });
+  it('en FORLADT deltager KAN IKKE ændre et tip, hun havde liggende', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('sl');
+    await seedMembership('sl', 'p1');
+    await createGameMatch('sl', 'm1', future());
+    const fs = testEnv.authenticatedContext('p1').firestore();
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl', 'bets', 'p1_m1'), { uid: 'p1', matchId: 'm1', pick: '1' }));
+    await seedMembership('sl', 'p1', { forladt: true });
+    await assertFails(updateDoc(doc(fs, 'games', 'sl', 'bets', 'p1_m1'), { pick: 'X' }));
   });
   it('KAN IKKE lave et dublet-tip på samme kamp (doc-id skal være uid_matchId)', async () => {
     await createUser('p1', 'player', 'approved');
@@ -2560,6 +2617,17 @@ describe('games/{gameId}/leagues — sikkerhedsregler', () => {
     const basis = { ownerUid: 'own3', memberUids: ['own3'], name: 'Min liga', code: 'ABC123' };
     await assertFails(setDoc(doc(fs, 'games', 'sl', 'leagues', 'lgId3'), { ...basis, id: 'lgId3' }));
     await assertSucceeds(setDoc(doc(fs, 'games', 'sl', 'leagues', 'lgId3'), basis));
+  });
+
+  it('en FORLADT deltager KAN IKKE oprette en liga i spillet — samme payload lykkes for en aktiv', async () => {
+    await createUser('own4', 'player', 'approved');
+    await createGame('sl');
+    await seedMembership('sl', 'own4');
+    const fs = testEnv.authenticatedContext('own4').firestore();
+    const basis = { ownerUid: 'own4', memberUids: ['own4'], name: 'Min liga', code: 'ABC124' };
+    await assertSucceeds(setDoc(doc(fs, 'games', 'sl', 'leagues', 'lgAktiv'), basis));
+    await seedMembership('sl', 'own4', { forladt: true });
+    await assertFails(setDoc(doc(fs, 'games', 'sl', 'leagues', 'lgForladt'), basis));
   });
 
   it('ejeren KAN IKKE omdøbe ligaen til noget, der ikke er en streng', async () => {
@@ -3138,6 +3206,13 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       'games', gameId, 'puljeBets', 'pb1',
     );
     const HOLD = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+    it('en FORLADT deltager KAN IKKE skrive puljetip — samme payload lykkes for en aktiv', async () => {
+      await seedPuljeSpil('pb-forladt', { poolSize: 6 });
+      await assertSucceeds(setDoc(pDoc('pb-forladt'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+      await seedMembership('pb-forladt', 'pb1', { forladt: true });
+      await assertFails(setDoc(pDoc('pb-forladt'), { uid: 'pb1', championship: HOLD.slice(0, 6) }));
+    });
 
     it('SL-formen {poolSize:6}: præcis 6 hold, og relegation AFVISES', async () => {
       await seedPuljeSpil('pb-sl', { poolSize: 6 });

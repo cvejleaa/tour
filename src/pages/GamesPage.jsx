@@ -12,6 +12,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGames, splitGames } from '../features/games/useGames';
 import { joinGame, leaveGame } from '../features/games/gameActions';
+import { forladBekraeftelse, forladPointAdvarsel } from '../features/games/forladTekst';
 import { GAME_STATUS, GAME_STATUS_LABEL as STATUS_LABEL } from '../lib/constants';
 
 function statusBadgeClass(status) {
@@ -55,7 +56,8 @@ function ExternalGameCard({ game }) {
 // ── Spil-kort til "Mine spil" ─────────────────────────────────────────────────
 function MyGameCard({ game, onLeave, leaving }) {
   if (game.externalUrl) return <ExternalGameCard game={game} />;
-  // Forlad tillades kun før spillet går i gang (åbent = ingen point endnu).
+  // Forlad findes kun, mens spillet er åbent — også med point: serveren
+  // arkiverer (forladSpil), og dialogerne siger, hvad det betyder.
   const canLeave = game.status === GAME_STATUS.OPEN;
   return (
     <div className="card card--link">
@@ -94,7 +96,7 @@ function MyGameCard({ game, onLeave, leaving }) {
 }
 
 // ── Spil-kort til "Åbne spil" ─────────────────────────────────────────────────
-function OpenGameCard({ game, onJoin, joining }) {
+function OpenGameCard({ game, onJoin, joining, tilbage = false }) {
   if (game.externalUrl) return <ExternalGameCard game={game} />;
   return (
     <div className="card">
@@ -113,9 +115,9 @@ function OpenGameCard({ game, onJoin, joining }) {
           className="btn btn--sm"
           onClick={() => onJoin(game)}
           disabled={joining}
-          aria-label={`Deltag i ${game.name}`}
+          aria-label={tilbage ? `Vend tilbage til ${game.name}` : `Deltag i ${game.name}`}
         >
-          {joining ? 'Tilmelder…' : 'Deltag'}
+          {joining ? 'Tilmelder…' : tilbage ? 'Vend tilbage' : 'Deltag'}
         </button>
       </div>
     </div>
@@ -127,7 +129,7 @@ export default function GamesPage() {
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const navigate = useNavigate();
-  const { games, myGameIds, loading } = useGames();
+  const { games, myGameIds, myPoints = {}, myForladt = new Set(), loading } = useGames();
   const { mine, open, external } = splitGames(games, myGameIds);
 
   const [busyId, setBusyId] = useState(null); // id på spil der behandles
@@ -145,7 +147,11 @@ export default function GamesPage() {
   }
 
   async function handleLeave(game) {
-    if (!window.confirm(`Forlad "${game.name}"?`)) return;
+    // To dialoger, ikke én: den første siger hvad der sker, den anden — kun
+    // for spillere med point — siger TALLET og hvad der sker med det.
+    if (!window.confirm(forladBekraeftelse(game))) return;
+    const point = Number(myPoints[game.id]) || 0;
+    if (point > 0 && !window.confirm(forladPointAdvarsel(game, point))) return;
     setBusyId(game.id);
     setError('');
     const res = await leaveGame(uid, game.id);
@@ -220,6 +226,7 @@ export default function GamesPage() {
                     game={g}
                     onJoin={handleJoin}
                     joining={busyId === g.id}
+                    tilbage={myForladt.has(g.id)}
                   />
                 ))}
               </div>

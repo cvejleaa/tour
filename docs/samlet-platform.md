@@ -53,7 +53,7 @@ Firebase-projekt, hvor "spil" er et begreb i datamodellen.
 | Collection | Indhold |
 |---|---|
 | `games/{gameId}` | Metadata: navn, type (`football`/`cycling`), status (`open`/`live`/`finished`), om tilmelding er åben. |
-| `games/{gameId}/players/{uid}` | Deltagelse + spillerens point i netop dette spil. **"Deltag" = opret dette dokument.** |
+| `games/{gameId}/players/{uid}` | Deltagelse + spillerens point i netop dette spil. **"Deltag" = opret dette dokument.** Forlader spilleren spillet, slettes det IKKE: callablen `forladSpil` sætter `forladt: true` (arkiv — point og historik bevares, kommende tips slettes, ligaer forlades), og "Deltag" igen fjerner flaget. Serverens læsere og reglernes skrive-gates regner `forladt` som ikke-deltager. |
 | `games/{gameId}/…` | Alt spil-specifikt som subcollections: `matches`/`stages`, `bets`, `stageBets`, `bonusQuestions`, `bonusBets`, `leagues`, `leagueComments`, `leagueActivity`, `leagueBonus`, `leagueBonusAnswers`, `tipParticipation`, `teams`, `riders`. |
 
 Begge apps slår i forvejen alle collection-navne op ét sted (`COL` i

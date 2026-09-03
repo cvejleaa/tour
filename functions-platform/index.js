@@ -34,6 +34,7 @@ const {
   strandedMatches, allMatches, WINDOW_MS,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
+const { forladSpilCore, FORLAD_ERR, aktiveSpillere } = require('./forladSpil');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
 const {
   syncKampDetaljerCore, efterFacitDetaljer, sweepKampDetaljer,
@@ -1087,6 +1088,29 @@ exports.setGameChance = onCall({ region: REGION }, async (request) => {
   }
 });
 
+// forladSpil — en spiller forlader et spil: arkiv, ikke sletning (se
+// forladSpil.js). Tips på kommende kampe slettes, hun forlader sine ligaer,
+// og players-dokumentet får forladt: true — point og historik bliver stående,
+// så de andres "hvem tippede hvad" og indbyrdes opgør ikke ændrer sig bagud.
+// Klienten kan ikke selv: bets er `allow delete: if false`, og ligaens
+// medlemsliste er lukket.
+exports.forladSpil = onCall({ region: REGION }, async (request) => {
+  const uid = request.auth?.uid;
+  const gameId = String(request.data?.gameId || '').trim();
+  try {
+    const res = await forladSpilCore(getFirestore(), FieldValue, { uid, gameId });
+    console.log(`forladSpil(${gameId}, ${uid}):`, JSON.stringify(res));
+    return res;
+  } catch (err) {
+    const [httpCode, msg] = FORLAD_ERR[err.message] || ['internal', 'Kunne ikke forlade spillet.'];
+    const tekst = err.message === 'owns-league' && Array.isArray(err.ligaer)
+      ? `${msg} (${err.ligaer.join(', ')})`
+      : msg;
+    if (!FORLAD_ERR[err.message]) console.error('forladSpil fejlede:', err);
+    throw new HttpsError(httpCode, tekst);
+  }
+});
+
 // redeemGameLeagueCode — deltag i en privat mini-liga via invitationskode.
 // Fejltabellen bor i gameLeagues.js, sammen med de throws den oversætter.
 exports.redeemGameLeagueCode = onCall({ region: REGION }, async (request) => {
@@ -1501,7 +1525,8 @@ exports.gamePuljeStatus = onCall(
     );
     const tipped = [];
     const missing = [];
-    for (const p of playersSnap.docs) {
+    // Forladte spillere får ingen pulje-rykker og tæller ikke i mangler/total.
+    for (const p of aktiveSpillere(playersSnap.docs)) {
       const row = { uid: p.id, name: nameOf.get(p.id) || 'Spiller' };
       (hasPulje.has(p.id) ? tipped : missing).push(row);
     }

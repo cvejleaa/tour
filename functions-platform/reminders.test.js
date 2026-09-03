@@ -200,7 +200,7 @@ describe('hentTipStatus — picks findes i databasen, men aldrig i svaret', () =
       collection: (navn) => ({
         get: async () => ({
           docs: navn === 'matches' ? docsAf(matches)
-            : navn === 'players' ? [{ id: 'a', data: () => ({}) }, { id: 'c', data: () => ({}) }]
+            : navn === 'players' ? [{ id: 'a', data: () => ({}) }, { id: 'c', data: () => ({}) }, { id: 'f', data: () => ({ forladt: true }) }]
               : [],
         }),
         where: () => ({
@@ -232,6 +232,12 @@ describe('hentTipStatus — picks findes i databasen, men aldrig i svaret', () =
     expect(raa).not.toContain('"pick"');
     expect(raa).not.toContain('7.7');
     expect(raa).not.toContain('hemmelig');
+  });
+
+  it('en FORLADT spiller står ikke på "hvem mangler at tippe" — arkivet mangler ikke noget', async () => {
+    const svar = await hentTipStatus(fakeDb(), 'spil', 4, now);
+    expect(svar.spillere.map((s) => s.uid).sort()).toEqual(['a', 'c']);
+    expect(JSON.stringify(svar)).not.toContain('"f"');
   });
 });
 
@@ -323,7 +329,9 @@ function fakeReminderDb({ game = {}, matches = [], players = [], contacts = {}, 
     get: async () => ({ exists: true, data: () => game }),
     collection: (name) => {
       if (name === 'matches') return { get: async () => ({ docs: matches.map((m) => ({ id: m.id, data: () => m })) }) };
-      if (name === 'players') return { get: async () => ({ docs: players.map((uid) => ({ id: uid })) }) };
+      // En spiller er enten et uid (som før) eller {uid, ...data} — så en test
+      // kan lægge `forladt: true` på og se, at hun ikke får post.
+      if (name === 'players') return { get: async () => ({ docs: players.map((p) => (typeof p === 'string' ? { id: p } : { id: p.uid, data: () => p })) }) };
       if (name === 'bets') return { where: () => ({ get: async () => ({ docs: [] }) }) };
       throw new Error(`uventet subcollection: ${name}`);
     },
@@ -366,6 +374,20 @@ describe('runGameTipReminders — fejlede-tælleren', () => {
     expect(r.sent).toBe(1);
     expect(r.fejlede).toBe(0);
     expect(paamindelsesLinje({ resultat: r }).niveau).toBe('ok');
+  });
+
+  it('en spiller, der har FORLADT spillet, får ingen påmindelse — arkivet er ikke en deltager', async () => {
+    const sendt = [];
+    const transporter = { sendMail: async (m) => { sendt.push(m.to); } };
+    const db = fakeReminderDb({
+      game: SPIL, matches: [KAMP_I_VINDUET],
+      players: ['u1', { uid: 'u2', forladt: true, totalPoints: 40 }],
+      contacts: { u1: 'u1@eksempel.dk', u2: 'u2@eksempel.dk' },
+      users: { u1: { displayName: 'Ulla' }, u2: { displayName: 'Ude' } },
+    });
+    const r = await runGameTipReminders(db, transporter, 'sl', now);
+    expect(r.sent).toBe(1);
+    expect(sendt).toEqual(['u1@eksempel.dk']);
   });
 });
 

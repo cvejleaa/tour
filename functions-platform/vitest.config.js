@@ -34,6 +34,7 @@ export default defineConfig({
       'startGate.test.js',
       'ligaPoint.test.js',
       'chanceVagt.test.js',
+      'forladSpil.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,
