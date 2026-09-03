@@ -381,7 +381,10 @@ describe('syncLiveMaalCore — målscorere for kampe i gang', () => {
     expect(KALD_TIMEOUT_MS).toBe(10000);
     const loft = SYNCED_GAMES.length * (LIVE_BUDGET_MS + KALD_TIMEOUT_MS);
     expect(loft).toBeLessThanOrEqual(LIVE_TIMEOUT_S * 1000 - 5000);
-    // Og ikke degenereret: der er tid til mindst ét kald pr. spil.
+    // Og ikke degenereret: der er tid til mindst ét kald pr. spil. Gulvet i
+    // formlen sikrer det også ved seks spil — og så bliver summen ovenfor
+    // rød, så timeouten hæves med vilje (Security: uden gulv gav et negativt
+    // budget nul kald OG et grønt kort).
     expect(LIVE_BUDGET_MS).toBeGreaterThanOrEqual(KALD_TIMEOUT_MS);
   });
 });

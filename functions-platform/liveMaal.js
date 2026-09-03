@@ -137,9 +137,16 @@ const LIVE_TIMEOUT_S = 60;
  * 2/9-2026): incidents 140 ms under kampen, så budgettet binder kun, når
  * kilden hænger.
  */
-const LIVE_BUDGET_MS = Math.floor(
+//
+// GULV på ét kald: med seks spil eller flere bliver brøken negativ, løkken
+// bryder straks, og `liveMaalNiveau` melder ok, fordi intet blev forsøgt —
+// den eneste vej, Security fandt, hvor jobbet gør intet og lyser grønt.
+// Gulvet gør, at der altid prøves mindst én kamp; og testen på summen
+// (liveMaal.test.js) bliver rød, den dag et sjette spil kommer til, så
+// LIVE_TIMEOUT_S må hæves med vilje i stedet for at budgettet krymper tavst.
+const LIVE_BUDGET_MS = Math.max(KALD_TIMEOUT_MS, Math.floor(
   (LIVE_TIMEOUT_S * 1000 - SYNCED_GAMES.length * KALD_TIMEOUT_MS - 5000) / Math.max(1, SYNCED_GAMES.length),
-);
+));
 
 /**
  * Så længe holder jobbet sig væk fra kilden efter et 429/403. Afbryderen er

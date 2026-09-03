@@ -571,8 +571,8 @@
   hele batchen (INVALID_ARGUMENT) — og en batch dækker flere kampe.
   Fix hører i liveMaal.js, ikke i skrivestien: `.slice(0, 25)` efter sorteringen.
 
-- **Live-mål-jobbet henter STAGE-LISTEN hvert minut, når én kamp i gang ikke
-  kan kobles (BEKRÆFTET, f607272).** `syncLiveMaalCore` (liveMaal.js) gør
+- **[LUKKET i 6ed49aa — genkørt, se RENT-listen]** ~~Live-mål-jobbet henter STAGE-LISTEN hvert minut, når én kamp i gang ikke
+  kan kobles (BEKRÆFTET, f607272).~~ `syncLiveMaalCore` (liveMaal.js) gør
   `if (valgte.some((m) => !gyldigEid(m.data?.livescoreEid)))` → `hentNoegler`,
   og id'et gemmes FØRST efter et vellykket incidents-svar
   (`if (!cached) skriv.livescoreEid = eid;` står EFTER `if (!incidents) …
@@ -590,14 +590,14 @@
   kaldet, eller husk "ingen kobling" på dokumentet med et tidsstempel og slå
   kun op hvert N. minut, eller lad kortlægningen blive i sweep'et og tæl
   kampen `ukendt` i live-jobbet.
-- **Kredsløbsafbryderen har ingen PERSISTENT nedkøling — og det betyder nu
-  60× mere.** Et 429 giver `afbrudt` + alarm (dæmpet 6 t), men næste minut
+- **[LUKKET i 6ed49aa: `livescoreLukketTil`, 1 t pause]** ~~Kredsløbsafbryderen har ingen PERSISTENT nedkøling — og det betyder nu
+  60× mere.~~ Et 429 giver `afbrudt` + alarm (dæmpet 6 t), men næste minut
   banker jobbet på igen. Før lå de dyre livescore-kald i sweep'et (12/døgn);
   nu kører de 720 gange i døgnet. Alarmen fortæller ejeren én gang; kaldene
   fortsætter. Overvej et felt (`livescoreLukketTil`) og et spring i toppen af
   jobbet.
-- **`syncGameKampdetaljerNu` kan overskride sin egen `timeoutSeconds`
-  (BEKRÆFTET med simuleret ur, f607272).** De to kerner har hver sit budget —
+- **[LUKKET i 6ed49aa — genmålt til 109,99 s]** ~~`syncGameKampdetaljerNu` kan overskride sin egen `timeoutSeconds`
+  (BEKRÆFTET med simuleret ur, f607272).~~ De to kerner har hver sit budget —
   detaljer 90 s, live 20 s — men et budget-tjek i toppen af en løkke kan ikke
   afbryde et `await`, så loftet pr. kerne er `budget + ét kald-sæt` (kaldene
   har `AbortSignal.timeout(10000)`). Målt: detaljer **99,99 s**, live
@@ -1128,6 +1128,45 @@
   vinduet), så en kamp, der står fast med `live` sat og uden facit, æder en
   plads i loftet for evigt dér.
 
+- **Genkørsel mod 6ed49aa: begge blokerende fund og alle bør-punkter fra
+  f607272 er LUKKET (samme PoC'er, samme tal).**
+  (a) **Stage-løkken er væk ved KILDEN, ikke afbødet:** live-løkken importerer
+  ikke længere `hentNoegler`/`noegleAfKamp` og rører aldrig `livescoreEid` —
+  kortlægning og #82-sletning er sweep'ets alene. Samme 150-minutters PoC:
+  A (cachet id → 404) **0 stage-kald** (var 149), B (ukobbelig kamp) **0 kald
+  i alt** (var 150 stage), C (kontrol, varm cache) uændret 150 incidents.
+  En kamp uden gyldigt id tælles `ukendte` og er synlig i driftlinjen.
+  (b) **Budgetterne summer nu under timeouten MED overløb.** Målt med
+  simuleret ur: callable 89,99 s + 19,998 s = **109,99 s** mod 120 (var
+  129,99); jobbet, to spil = **39,996 s** mod 60. Formlen
+  `(T − N·KALD_TIMEOUT_MS − 5 s)/N` giver samme loft (55 s) for N=1..4 —
+  overløbet er indregnet, så et tredje spil ikke længere sprænger den.
+  RESTKANT: ved N≥6 bliver budgettet NEGATIVT → løkken bryder straks, 0 kald,
+  og `liveMaalNiveau` siger 'ok' (den kræver `forsoegt > 0` for at advare) →
+  tavs nul-kørsel. Langt ude, men det er den eneste vej, jeg fandt, hvor
+  jobbet gør intet og melder grønt. Sæt et gulv på budgettet.
+  (c) **`eidForKamp` whitelister nu map-værdien** (10 fjendtlige værdier →
+  `null`; kontrol `'9999999'` → igennem), så URL-vagten står ét sted for
+  begge stier i stedet for kun i `hentNoegler`.
+  (d) **Skriveomfanget er smallere:** `LIVE_SKRIVBARE = ['liveMaal']`.
+  Giftige incidents (`result/homeGoals/kickoff/points/locked/livescoreEid/
+  __proto__:{liveMaal:'PWN'}/toString:null`) → skrevne feltnøgler præcis
+  `['liveMaal']`, ingen prototype-forurening. Giftig kamp blandt tre →
+  `uparsede:1`, de to andre skrevet, ét commit (uændret med ÉN try).
+  (e) **Mutationstestet (30 grønne i baseline, 4 mutationer, alle røde):**
+  per-kamp-try'et fjernet → 2 røde, heraf den NYE "et svar, der ikke er JSON,
+  koster én kamp" — netop den vagt, der før kunne fjernes med grøn suite;
+  `LIVE_SKRIVBARE = []` → rød; nedkølings-tjekket ignoreret → rød; pausen
+  skrives aldrig → rød. Plukket er STADIG en ækvivalent mutation
+  (`{ ...skriv }` = grøn), men kommentaren siger det nu selv.
+  (f) **Nyt felt `livescoreLukketTil` på `games/{g}`** — endnu et felt uden
+  affectedKeys-liste, der STYRER maskineri. En admin kan pause live-målene
+  vilkårligt langt; det ses som `advarsel` på Drift-kortet, men
+  `klokkeslaet()` viser kun HH.MM, så en pause til år 2099 læses som "prøver
+  igen kl. 14.32". `Number({toString:null})` KASTER → jobbet dør for DET spil
+  og bliver synligt som `st.fejl`. Fejler lukket, admin/script-only.
+  Platform-suiten i arbejdstræet efter rettelsen: **983/983 grønne**.
+
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
 - **N+1 i `hentLigaMedlemmer`:** et sekventielt `users`-opslag pr. deltager.
@@ -1290,7 +1329,10 @@
   kerne er `budget + ét kald-sæt`. Regn altid
   `Σ(budget_i) + Σ(kald-timeout_i) ≤ timeout` — og gør det igen, når endnu et
   led lægges i samme funktion. En afledt konstant `(T·k)/N` skjuler
-  problemet: loftet er `T·k + timeout_kald·N` og vokser med N.
+  problemet: loftet er `T·k + timeout_kald·N` og vokser med N. Den rigtige
+  form er `(T − N·timeout_kald − slack)/N` (landet i liveMaal.js) — den
+  holder loftet konstant for ethvert N, men bliver NEGATIV, når N vokser
+  nok, og et negativt budget er en tavs nul-kørsel. Sæt et gulv.
 - **En alarm, der altid råber, er ingen alarm.** Tæl posterne på en normal dag,
   før du godkender den som afbødning.
 - **En alarm skal måle det SYMPTOM, brugeren ser — ikke en proxy for det.**
