@@ -29,6 +29,8 @@
 // et klik på Forlad. Hun sletter eller overdrager ligaen først.
 // ---------------------------------------------------------------------------
 
+const { erKampLaast } = require('./chanceVagt');
+
 const FORLAD_ERR = {
   unauthenticated: ['unauthenticated', 'Log ind for at forlade spillet.'],
   'no-game': ['not-found', 'Spillet findes ikke.'],
@@ -49,14 +51,6 @@ function erForladt(data) {
 /** Kun de spillere, der er med — til alt, der sender, tæller eller rangerer. */
 function aktiveSpillere(docs) {
   return (docs || []).filter((d) => !erForladt(typeof d.data === 'function' ? d.data() : null));
-}
-
-function toMillis(t) {
-  if (t == null) return null;
-  if (typeof t.toMillis === 'function') return t.toMillis();
-  if (typeof t === 'number') return t;
-  const ms = Date.parse(t);
-  return Number.isFinite(ms) ? ms : null;
 }
 
 async function sletAlle(db, refs) {
@@ -83,23 +77,31 @@ async function forladSpilCore(db, FieldValue, { uid, gameId, nowMs = Date.now() 
   const playerSnap = await playerRef.get();
   if (!playerSnap.exists || erForladt(playerSnap.data())) throw new Error('not-member');
 
-  const ligaer = await gameRef.collection('leagues').where('memberUids', 'array-contains', uid).get();
-  const ejede = ligaer.docs.filter((d) => d.data()?.ownerUid === uid);
-  if (ejede.length > 0) {
+  // Ejerskab spørges DIREKTE — ikke som et filter på medlemslisten. Reglerne
+  // lader en ejer fjerne sig selv fra memberUids, og så ville hun forlade
+  // spillet, mens hun stadig ejede en liga, hun ikke engang kunne læse
+  // (Security kørte det i emulatoren).
+  const [ligaer, ejede] = await Promise.all([
+    gameRef.collection('leagues').where('memberUids', 'array-contains', uid).get(),
+    gameRef.collection('leagues').where('ownerUid', '==', uid).get(),
+  ]);
+  if (ejede.size > 0) {
     const err = new Error('owns-league');
-    err.ligaer = ejede.map((d) => d.data()?.name || d.id);
+    err.ligaer = ejede.docs.map((d) => d.data()?.name || d.id);
     throw err;
   }
 
   // Kommende kampes tips væk; låste kampes tips bliver (de andres historik).
-  // En kamp uden kickoff kan ikke være låst — dens tip slettes.
+  // "Låst" er Chancens delte prædikat (erKampLaast): facit, i gang, passeret
+  // kickoff — og en ukendt kamp eller en uden kickoff regnes som låst, så
+  // tippet BEHOLDES: et slettet tip er en frigivet Chance og et forsvundet
+  // minus-point ved næste genberegning (Security-fund).
   const [matchesSnap, betsSnap] = await Promise.all([
     gameRef.collection('matches').get(),
     gameRef.collection('bets').where('uid', '==', uid).get(),
   ]);
-  const kickoff = new Map(matchesSnap.docs.map((d) => [d.id, toMillis(d.data()?.kickoff)]));
-  const laast = (bet) => { const k = kickoff.get(bet.matchId); return k != null && k <= nowMs; };
-  const slettes = betsSnap.docs.filter((d) => !laast(d.data() || {}));
+  const kampAf = new Map(matchesSnap.docs.map((d) => [d.id, { ...d.data(), id: d.id }]));
+  const slettes = betsSnap.docs.filter((d) => !erKampLaast(kampAf.get(d.data()?.matchId) || null, nowMs));
   await sletAlle(db, slettes.map((d) => d.ref));
 
   for (const d of ligaer.docs) {

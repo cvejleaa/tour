@@ -2107,6 +2107,24 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
     await assertFails(updateDoc(ref, { forladt: deleteField(), totalPoints: 0 }));
   });
 
+  it('man KAN IKKE selv SÆTTE forladt — hverken med update, merge eller ved tilmelding', async () => {
+    // Ellers kunne hun skjule sig for rang-snapshot og opsamling, mens hun
+    // stadig stod i ligastillingen: alle andres rang-pile blev falske.
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { totalPoints: 8 });
+    const ref = doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p1');
+    await assertFails(updateDoc(ref, { forladt: true }));
+    await assertFails(updateDoc(ref, { forladt: true, forladtAt: Timestamp.now() }));
+    await assertFails(setDoc(ref, { forladt: true }, { merge: true }));
+    // Positiv kontrol: en anden opdatering af eget dokument går stadig igennem.
+    await assertSucceeds(updateDoc(ref, { favoriteTeam: 'AGF' }));
+    // Ved tilmelding: flaget må ikke fødes med.
+    await createUser('p2', 'player', 'approved');
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p2').firestore(), 'games', 'vm2026', 'players', 'p2'),
+      { uid: 'p2', joinedAt: Timestamp.now(), forladt: true }));
+  });
+
   it('man KAN IKKE røre en ANDENS forladt-flag', async () => {
     await createUser('p1', 'player', 'approved');
     await createUser('p2', 'player', 'approved');

@@ -31,13 +31,17 @@ function fakeDb({ spil = { status: 'open' }, spiller = { uid: 'me' }, kampe = {}
               return { doc: (uid) => ({ get: async () => snap(uid, spiller, `${base}/${uid}`), update: async (f) => { log.push(`update ${base}/${uid} ${JSON.stringify(f)}`); } }) };
             }
             if (sub === 'matches') {
-              return { get: async () => ({ docs: Object.entries(kampe).map(([id, k]) => snap(id, { kickoff: k }, `${base}/${id}`)) }) };
+              // En kamp er enten et kickoff-tal eller et helt dokument ({kickoff, result, live}).
+              return { get: async () => ({ docs: Object.entries(kampe).map(([id, k]) => snap(id, typeof k === 'object' ? k : { kickoff: k }, `${base}/${id}`)) }) };
             }
             if (sub === 'bets') {
               return { where: (f, op, v) => ({ get: async () => { const hits = bets.filter((b) => b[f] === v); return { docs: hits.map((b) => snap(b.id, b, `${base}/${b.id}`)), size: hits.length }; } }) };
             }
             if (sub === 'leagues') {
-              return { where: (f, op, v) => ({ get: async () => { const hits = ligaer.filter((l) => (l[f] || []).includes(v)); return { docs: hits.map((l) => snap(l.id, l, `${base}/${l.id}`)), size: hits.length }; } }) };
+              return { where: (f, op, v) => ({ get: async () => {
+                const hits = ligaer.filter((l) => (op === 'array-contains' ? (l[f] || []).includes(v) : l[f] === v));
+                return { docs: hits.map((l) => snap(l.id, l, `${base}/${l.id}`)), size: hits.length };
+              } }) };
             }
             throw new Error(`uventet sub ${sub}`);
           },
@@ -69,6 +73,16 @@ describe('forladSpilCore — vagterne', () => {
     expect(db.log).toEqual([]);
   });
 
+  it('afviser også, når ejeren har fjernet SIG SELV fra medlemslisten — ejerskab er ikke medlemskab', async () => {
+    // Reglerne lader en ejer forlade sin egen medlemsliste; hun ejer stadig
+    // ligaen (startRound, navn, sletning). Security kørte det i emulatoren.
+    const db = fakeDb({ ligaer: [{ id: 'l1', name: 'Mine venner', ownerUid: 'me', memberUids: ['du'] }] });
+    const err = await kald(db).catch((e) => e);
+    expect(err.message).toBe('owns-league');
+    expect(err.ligaer).toEqual(['Mine venner']);
+    expect(db.log).toEqual([]);
+  });
+
   it('alle fejlnøgler har en dansk tekst og en HttpsError-kode', () => {
     for (const key of ['unauthenticated', 'no-game', 'not-member', 'not-open', 'owns-league']) {
       expect(FORLAD_ERR[key]).toHaveLength(2);
@@ -79,26 +93,35 @@ describe('forladSpilCore — vagterne', () => {
 
 describe('forladSpilCore — arkivet', () => {
   const fuldt = () => fakeDb({
-    kampe: { spillet: NU - 1000, igang: NU, kommende: NU + 1000 },
+    kampe: {
+      spillet: NU - 1000, igang: NU, kommende: NU + 1000,
+      // Låst på anden vis end kickoff — samme prædikat som Chancen bruger:
+      facitFrem: { kickoff: NU + 5000, result: '1' },
+      liveFrem: { kickoff: NU + 5000, live: { status: 'inprogress' } },
+      udenKickoff: { kickoff: null },
+    },
     bets: [
       { id: 'me_spillet', uid: 'me', matchId: 'spillet' },
       { id: 'me_igang', uid: 'me', matchId: 'igang' },
       { id: 'me_kommende', uid: 'me', matchId: 'kommende' },
       { id: 'me_ukendt', uid: 'me', matchId: 'findes-ikke' },
+      { id: 'me_facitFrem', uid: 'me', matchId: 'facitFrem' },
+      { id: 'me_liveFrem', uid: 'me', matchId: 'liveFrem' },
+      { id: 'me_udenKickoff', uid: 'me', matchId: 'udenKickoff' },
       { id: 'du_kommende', uid: 'du', matchId: 'kommende' },
     ],
     ligaer: [{ id: 'l1', name: 'Kontoret', ownerUid: 'du', memberUids: ['du', 'me'] }, { id: 'l2', name: 'Andre', ownerUid: 'x', memberUids: ['x'] }],
   });
 
-  it('sletter KUN hendes tips på kampe, der ikke er låst — spillede og igangværende bliver', async () => {
+  it('sletter KUN hendes tips på kampe, der ikke er låst — låst er Chancens prædikat, og ukendt = låst', async () => {
     const db = fuldt();
     const res = await kald(db);
-    expect(res).toEqual({ slettedeTips: 2, beholdteTips: 2, ligaer: 1 });
+    expect(res).toEqual({ slettedeTips: 1, beholdteTips: 6, ligaer: 1 });
     expect(db.log).toContain('delete games/sl/bets/me_kommende');
-    expect(db.log).toContain('delete games/sl/bets/me_ukendt');
-    expect(db.log).not.toContain('delete games/sl/bets/me_spillet');
-    expect(db.log).not.toContain('delete games/sl/bets/me_igang');
-    expect(db.log).not.toContain('delete games/sl/bets/du_kommende');
+    // Låst på hver sin måde — bliver alle: et slettet tip er en frigivet Chance.
+    for (const id of ['me_spillet', 'me_igang', 'me_facitFrem', 'me_liveFrem', 'me_udenKickoff', 'me_ukendt', 'du_kommende']) {
+      expect(db.log).not.toContain(`delete games/sl/bets/${id}`);
+    }
   });
 
   it('forlader hendes ligaer, men rører ikke andres', async () => {

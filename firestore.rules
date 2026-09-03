@@ -772,7 +772,7 @@ service cloud.firestore {
           && request.resource.data.uid == uid
           && holdGyldigt()
           && !request.resource.data.keys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds', 'forladt', 'forladtAt']);
 
         // Opdatér eget medlemskab, men aldrig point-/placerings-/liga-felterne.
         //
@@ -798,6 +798,12 @@ service cloud.firestore {
           && request.auth.uid == uid
           && request.resource.data.get('uid', uid) == uid
           && holdGyldigt()
+          // forladt SÆTTES kun af serveren (forladSpil). Kunne klienten sætte
+          // det selv, kunne hun skjule sig for rang-snapshot og opsamling, mens
+          // hun stadig stod i ligastillingen — og alle andres rang-pile blev
+          // falske (Security-fund, kørt i emulatoren). Fjerne det må hun.
+          && !(request.resource.data.get('forladt', false) == true
+               && resource.data.get('forladt', false) != true)
           // `perRound` STÅR PÅ LISTEN AF SAMME GRUND SOM totalPoints: ligaens
           // stilling regnes af den, både i fladen og af Runde-Botten. Uden den
           // her kunne et medlem skrive { perRound: { '20': 1000000 } } og toppe
