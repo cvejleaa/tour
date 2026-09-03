@@ -51,6 +51,18 @@ export const FREMMED_LIGA_ID = 'e2e-liga-2';
  *  fremmede har FLEST: stod hun i stillingen, ville hun stå øverst. */
 export const POINT = { [SPILLER.uid]: 4.5, [MODSPILLER.uid]: 7, [FREMMED.uid]: 9 };
 
+/**
+ * Fire opdigtede hold. Elo-tallene giver odds via buildMatches. Deles af
+ * seedet (emulatoren) og Vitest-scenariet (src/test/scenarie/superliga.js),
+ * så de to taler om samme hold og samme kamp-id'er.
+ */
+export const HOLD = [
+  { name: 'Alfa BK', short: 'ALF', elo: 1550 },
+  { name: 'Beta IF', short: 'BET', elo: 1500 },
+  { name: 'Gamma FC', short: 'GAM', elo: 1480 },
+  { name: 'Delta BK', short: 'DEL', elo: 1420 },
+];
+
 /** Runden med kickoff i FREMTIDEN (kan tippes) og runden i FORTIDEN (låst). */
 export const AABEN_RUNDE = 20;
 export const LAAST_RUNDE = 19;
