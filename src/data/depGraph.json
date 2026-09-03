@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-01T17:21:55.153Z",
+  "generatedAt": "2026-09-03T20:56:55.907Z",
   "nodes": [
     {
       "id": "firebase",
@@ -29,7 +29,7 @@
     {
       "id": "features/admin",
       "layer": 2,
-      "files": 32
+      "files": 33
     },
     {
       "id": "features/auth",
@@ -54,7 +54,7 @@
     {
       "id": "features/games",
       "layer": 2,
-      "files": 56
+      "files": 59
     },
     {
       "id": "features/leaderboard",
@@ -246,7 +246,7 @@
     {
       "from": "features/admin",
       "to": "app-skal",
-      "count": 10
+      "count": 12
     },
     {
       "from": "features/admin",
@@ -276,7 +276,7 @@
     {
       "from": "features/admin",
       "to": "components",
-      "count": 2
+      "count": 3
     },
     {
       "from": "features/admin",
@@ -366,12 +366,12 @@
     {
       "from": "features/games",
       "to": "lib (kerne)",
-      "count": 59
+      "count": 64
     },
     {
       "from": "features/games",
       "to": "components",
-      "count": 12
+      "count": 13
     },
     {
       "from": "features/games",
@@ -381,7 +381,7 @@
     {
       "from": "features/games",
       "to": "firebase",
-      "count": 15
+      "count": 16
     },
     {
       "from": "features/games",
@@ -661,7 +661,7 @@
     {
       "from": "pages",
       "to": "features/games",
-      "count": 22
+      "count": 23
     },
     {
       "from": "pages",

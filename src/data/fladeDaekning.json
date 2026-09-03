@@ -1,11 +1,11 @@
 {
- "generatedAt": "2026-09-01T17:21:55.077Z",
+ "generatedAt": "2026-09-03T20:56:55.330Z",
  "e2eMedregnet": false,
  "totals": {
-  "elementer": 438,
-  "aktiverede": 172,
-  "logposter": 566,
-  "filer": 72
+  "elementer": 443,
+  "aktiverede": 174,
+  "logposter": 570,
+  "filer": 73
  },
  "elementer": [
   {
@@ -725,6 +725,56 @@
    "app": "faelles",
    "aktiveret": false,
    "tests": []
+  },
+  {
+   "fil": "src/features/admin/FladeDaekning.jsx",
+   "linje": 84,
+   "kolonne": 11,
+   "tag": "summary",
+   "type": null,
+   "tekst": "hvilke tests",
+   "komponent": "Element",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/FladeDaekning.jsx",
+   "linje": 111,
+   "kolonne": 11,
+   "tag": "summary",
+   "type": null,
+   "tekst": null,
+   "komponent": "Gruppe",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/FladeDaekning.jsx",
+   "linje": 133,
+   "kolonne": 9,
+   "tag": "summary",
+   "type": null,
+   "tekst": null,
+   "komponent": "Gruppe",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/FladeDaekning.jsx",
+   "linje": 201,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": "flade-kun-uroerte",
+   "komponent": "FladeDaekning",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FladeDaekning.test.jsx"
+   ]
   },
   {
    "fil": "src/features/admin/GameLeagueMembersTab.jsx",
@@ -1656,7 +1706,7 @@
   },
   {
    "fil": "src/features/admin/TestsTab.jsx",
-   "linje": 161,
+   "linje": 164,
    "kolonne": 15,
    "tag": "summary",
    "type": null,
@@ -1668,7 +1718,7 @@
   },
   {
    "fil": "src/features/admin/TestsTab.jsx",
-   "linje": 222,
+   "linje": 229,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -1680,7 +1730,21 @@
   },
   {
    "fil": "src/features/admin/TestsTab.jsx",
-   "linje": 223,
+   "linje": 230,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "🖱️ Knapper og felter",
+   "komponent": "TestsTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TestsTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TestsTab.jsx",
+   "linje": 231,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -1694,7 +1758,7 @@
   },
   {
    "fil": "src/features/admin/TestsTab.jsx",
-   "linje": 224,
+   "linje": 232,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -2294,7 +2358,7 @@
    "type": "button",
    "tekst": null,
    "komponent": "EmojiPicker",
-   "app": "andet",
+   "app": "faelles",
    "aktiveret": true,
    "tests": [
     "src/features/comments/EmojiPicker.test.jsx"
@@ -2308,7 +2372,7 @@
    "type": "button",
    "tekst": null,
    "komponent": "EmojiPicker",
-   "app": "andet",
+   "app": "faelles",
    "aktiveret": true,
    "tests": [
     "src/features/comments/EmojiPicker.test.jsx"
@@ -2322,7 +2386,7 @@
    "type": null,
    "tekst": null,
    "komponent": "LeagueWall",
-   "app": "andet",
+   "app": "tour",
    "aktiveret": false,
    "tests": []
   },
@@ -2334,7 +2398,7 @@
    "type": null,
    "tekst": "Ny besked til liga-væggen",
    "komponent": "LeagueWall",
-   "app": "andet",
+   "app": "tour",
    "aktiveret": false,
    "tests": []
   },
@@ -2346,7 +2410,7 @@
    "type": "submit",
    "tekst": null,
    "komponent": "LeagueWall",
-   "app": "andet",
+   "app": "tour",
    "aktiveret": false,
    "tests": []
   },
@@ -2358,7 +2422,7 @@
    "type": null,
    "tekst": "Slet kommentar",
    "komponent": "LeagueWall",
-   "app": "andet",
+   "app": "tour",
    "aktiveret": false,
    "tests": []
   },
@@ -3812,7 +3876,7 @@
    "type": null,
    "tekst": "Forstået, skjul",
    "komponent": "OnboardingChecklist",
-   "app": "andet",
+   "app": "tour",
    "aktiveret": true,
    "tests": [
     "src/features/onboarding/OnboardingChecklist.test.jsx"
@@ -3826,7 +3890,7 @@
    "type": null,
    "tekst": null,
    "komponent": "OnboardingChecklist",
-   "app": "andet",
+   "app": "tour",
    "aktiveret": false,
    "tests": []
   },
@@ -3956,7 +4020,7 @@
    "type": "button",
    "tekst": "reaction-chip",
    "komponent": "Reactions",
-   "app": "andet",
+   "app": "tour",
    "aktiveret": false,
    "tests": []
   },
@@ -3968,7 +4032,7 @@
    "type": "button",
    "tekst": "Tilføj reaktion",
    "komponent": "Reactions",
-   "app": "andet",
+   "app": "tour",
    "aktiveret": false,
    "tests": []
   },
@@ -3980,7 +4044,7 @@
    "type": "button",
    "tekst": null,
    "komponent": "Reactions",
-   "app": "andet",
+   "app": "tour",
    "aktiveret": false,
    "tests": []
   },
