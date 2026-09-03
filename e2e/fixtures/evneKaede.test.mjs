@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+/* global document, window */
 import { tilPost, INIT_SCRIPT, HAENDELSER } from './evneKaede.mjs';
 
 describe('tilPost — browserens rå tripler bliver til Vitest-tappens format', () => {
@@ -35,5 +36,21 @@ describe('tilPost — browserens rå tripler bliver til Vitest-tappens format', 
     expect(INIT_SCRIPT).toContain('_debugSource');
     // Skal kunne parses som selvstændigt script.
     expect(() => new Function(INIT_SCRIPT)).not.toThrow();
+  });
+
+  it('capture-fasen fanger klikket, selv når target-fasen stopper videre bobling (Test Managers adfærdstest)', () => {
+    // Streng-assertionen ovenfor er en tekstmatch. Denne kører scriptet i
+    // jsdom: et element med en fake fiber, en stopPropagation i target-fasen
+    // — kun en capture-lytter på document ser klikket alligevel.
+    document.body.innerHTML = '<button id="btn"></button>';
+    const btn = document.getElementById('btn');
+    btn.__reactFiber$test = { _debugSource: { fileName: '/rod/src/A.jsx', lineNumber: 5, columnNumber: 3 }, return: null };
+    const kald = [];
+    window.__evneLog = (json) => kald.push(JSON.parse(json));
+    btn.addEventListener('click', (e) => e.stopPropagation());
+    new Function(INIT_SCRIPT)();
+    btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(kald).toEqual([{ type: 'click', kilder: [{ fileName: '/rod/src/A.jsx', lineNumber: 5, columnNumber: 3 }] }]);
+    delete window.__evneLog;
   });
 });
