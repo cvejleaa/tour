@@ -32,8 +32,9 @@ describe('vagt', () => {
   });
 
   it('rød ved tom log — alt ville se urørt ud, og det er en fejl i kørslen', () => {
-    const r = vagt([ROERT, KENDT], 0, [KENDT_N], []);
-    expect(r.fejl.some((f) => /ingen interaktioner/.test(f))).toBe(true);
+    const r = vagt([ROERT, KENDT, el({ linje: 7, tekst: 'Ny knap' })], 0, [KENDT_N], []);
+    expect(r.fejl).toHaveLength(1);
+    expect(r.fejl[0]).toMatch(/ingen interaktioner/);
   });
 
   it('rød når basislinjen kan skrumpe — den skal skrumpe med det samme', () => {

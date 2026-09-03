@@ -47,7 +47,12 @@ export function stabileNoegler(elementer) {
 export function vagt(elementer, logposter, basislinje, undtagelser) {
   const fejl = [];
   const advarsler = [];
-  if (!logposter) fejl.push('Tappen loggede ingen interaktioner — suiten kørte uden EVNE_LOG, eller tappen er gået i stykker. Alt ville se urørt ud.');
+  // Tom log: KUN den fejl. Alt ville se urørt ud, og 170+ "nye urørte"-linjer
+  // oven i ville drukne den ene besked, der forklarer hvad der er galt.
+  if (!logposter) {
+    fejl.push('Tappen loggede ingen interaktioner — suiten kørte uden EVNE_LOG, eller tappen er gået i stykker. Alt ville se urørt ud.');
+    return { fejl, advarsler, basislinjeNu: [] };
+  }
   for (const u of undtagelser) {
     if (!u || typeof u.noegle !== 'string' || !u.begrundelse || !String(u.begrundelse).trim()) {
       fejl.push(`Undtagelsen ${u && u.noegle ? u.noegle : JSON.stringify(u)} mangler en begrundelse.`);
