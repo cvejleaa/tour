@@ -35,7 +35,9 @@ import FootballTip from './FootballTip';
 const T = 60 * 60 * 1000;
 /** Tidspunkter, der rammer hver gren: før den lånte låser, lige efter, før/efter den åbne, og når alt er spillet. */
 const TIDSPUNKTER = [
+  new Date(NU.getTime() - 1.5 * T),           // den lånte låser om 2,5 t: IKKE snart — rammer 2–3 t-vinduet, så tærsklen ikke kan glide (TM)
   NU,
+  new Date(NU.getTime() + 1 * T),             // PRÆCIS ved den låntes kickoff: låst (k <= nu), ikke ulåst — isLocked-grænsen (TM)
   new Date(NU.getTime() + 1 * T + 60_000),    // den lånte er lige låst → næste er den åbne (om ~2 d)
   new Date(NU.getTime() + 2 * 24 * T + 5 * T),  // den åbne låser om 1 t → snart
   new Date(NU.getTime() + 2 * 24 * T + 7 * T),  // alt låst
@@ -90,6 +92,7 @@ describe('4b — tælleren følger af kortene, ikke af fixturen', () => {
       const snart = container.querySelector('.round-head__deadline--soon') != null;
       expect(snart, 'snart ⇔ under 2 t til det første aktive kort').toBe(tidligst - nu.getTime() < 2 * T);
       // Og hvert aktivt kort er ulåst efter sit kickoff — kortets knapper lyver ikke om tiden.
+      // PRÆCIS ved kickoff er kampen låst (isLocked: k <= nu), så > og ikke >=.
       for (const k of aktive) expect(toMillis(k.match.kickoff)).toBeGreaterThan(nu.getTime());
     });
   }
