@@ -82,7 +82,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Platform-testene kører mod Auth- og Firestore-emulatoren (Java) —
+      # samme opsætning som rules-jobbet.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
       - run: npm ci
+      - run: npm install -g firebase-tools
       - name: Skriv dummy .env
         run: |
           cat > .env <<'EOF'
@@ -96,7 +103,8 @@ jobs:
           VITE_OWNER_EMAIL=cvejleaa@gmail.com
           EOF
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Kør E2E (Tour uden backend + platform mod emulatorer)
+        run: npm run test:e2e:emu
       - uses: actions/upload-artifact@v7
         if: always()
         with:

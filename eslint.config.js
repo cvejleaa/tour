@@ -6,7 +6,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist', 'coverage', 'playwright-report', 'test-results', '**/node_modules', '.claude/worktrees'],
+    ignores: ['dist', 'dist-e2e-*', 'coverage', 'playwright-report', 'test-results', '**/node_modules', '.claude/worktrees'],
   },
 
   js.configs.recommended,
@@ -44,6 +44,7 @@ export default [
     files: [
       '*.{js,cjs}',
       'e2e/**/*.js',
+      'e2e/**/*.mjs',
       'scripts/**/*.mjs',
       'functions/**/*.test.js',
       'functions-platform/**/*.test.js',

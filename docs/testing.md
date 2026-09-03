@@ -137,12 +137,26 @@ Firebase mockes fuldt i alle komponent-tests (ingen netværk).
 - Kun ejer kan godkende brugere
 
 ### E2E (Playwright)
+To lag, se `playwright.config.js`:
+
+**Tour uden backend** (`e2e/tour/`, `npm run test:e2e`):
 - Uautentificeret bruger sendes til login
 - Login-siden viser begge faner
 - Validering viser danske fejlbeskeder
 - 404-side for ukendt rute
-- *(Fulde authentificerede flows — signup → godkend → tip → resultat → point —
-  køres mod Firebase-emulatorer; udvides i `e2e/`.)*
+
+**Platformen mod Auth- og Firestore-emulatoren** (`e2e/platform/`,
+`npm run test:e2e:emu` — kræver Java 21 og `firebase-tools`). Appen bygges i
+Vite-mode `e2e` (`.env.e2e`), `e2e/fixtures/seed-e2e.mjs` rydder emulatorerne
+og seeder to brugere, ét spil og fire kampe med kickoff relativt til nu, og
+`auth.setup.js` logger ind gennem fladen og gemmer tilstanden (IndexedDB, hvor
+Firebase Auth bor). Testene skriver og læser gennem de ægte `firestore.rules`:
+- Godkendt spiller lander på `/spil` og kan åbne sit spil (Deltag-kortet vises ikke)
+- Et X-tip på en åben kamp vises i Mine tips med præcis det bogstav
+- Kampe med passeret kickoff kan ikke tippes: knapperne er låst, OG et klik ændrer intet
+
+Mangler stadig som systemtest: opret → /afventer → ejeren godkender, og
+stillingen efter facit (kræver liga i fixturen).
 
 ## CI-pipeline
 `.github/workflows/ci.yml` kører fire parallelle jobs på hvert push/PR:
@@ -152,6 +166,7 @@ Firebase mockes fuldt i alle komponent-tests (ingen netværk).
 4. **e2e** – Playwright i Chromium (rapport uploades som artefakt)
 
 ## Kendte begrænsninger
-- Browser-baseret E2E kan ikke køres i det aktuelle udviklingsmiljø (netværks-
-  begrænsning på browser-download); det køres i CI hvor netværk er tilgængeligt.
-- Dybe authentificerede E2E-flows kræver kørende emulatorer + seedet data.
+- Et miljø uden browser-download kan pege Playwright på en forudinstalleret
+  Chromium med `E2E_CHROMIUM=/sti/til/chromium`; ellers køres E2E i CI.
+- E2E dækker ikke callables (Chancen, synk-knapper): der kører ingen
+  functions-emulator, og alle testede flows er rene klient-skrivninger.

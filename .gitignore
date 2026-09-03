@@ -30,6 +30,8 @@ ui-debug.log
 coverage/
 playwright-report/
 test-results/
+e2e/.auth/
+dist-e2e-*/
 .nyc_output/
 
 # Editor / OS

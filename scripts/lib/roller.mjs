@@ -32,6 +32,10 @@ const SIKKERHED = [
   { m: /(Join|invit|redeem|LeagueCode)/i, hvorfor: 'invitationer eller liga-tilmelding' },
   { m: /[Ll]eagueActions/, hvorfor: 'liga-medlemskab (afgør hvem der ser hvis tips)' },
   { m: /^src\/features\/admin\//, hvorfor: 'admin-flade (adgang til andres data)' },
+  // Workflows bærer hemmeligheder (service accounts, tokens) og afgør, hvad der
+  // kan deployes hvorfra. Ingen af de andre mønstre ramte .github/, så et
+  // ændret CI-job gik uden om Security — fundet, da E2E fik emulatorer i CI.
+  { m: /^\.github\/workflows\//, hvorfor: 'CI-workflow — hemmeligheder og udrulningsrettigheder' },
 ];
 
 /**
