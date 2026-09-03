@@ -2,6 +2,38 @@
 
 ## Faldgruber fundet ved mutationstest
 
+- **Et fixture, hvor ALLE synlige rækker allerede er i den tilstand, gaten
+  tester, kan ikke fange en fjernet gate.** `FootballTip.jsx:1065`
+  `{locked && <LeagueBets/>}` styrer, om "Se ligaens tips"-knappen vises —
+  KUN for låste kampe. `e2e/platform/laas.spec.js` besøger udelukkende
+  runde 19, hvor ALLE kampe er låste (seedet sådan med vilje). Mutation:
+  `{locked &&` → `{true &&` (gaten fjernet helt) — hele suiten (alle 6
+  platform-tests, inkl. `tip.spec.js` på den ÅBNE runde 20) forblev GRØN,
+  fordi ingen test asserterer FRAVÆRET af knappen på en åben kamp. Testet
+  2026-09-03 på branch `claude/multi-game-player-collection-21mc1w`. Mangler:
+  en negativ assertion i `tip.spec.js` (runde 20) på
+  `getByRole('button', {name:'Se ligaens tips'})` → `toHaveCount(0)`.
+  Generelt mønster: når et fixture kun rummer ÉN tilstand af en betinget
+  render (kun låste, kun åbne, kun godkendte), beviser ingen assertion i det
+  fixture, at betingelsen faktisk styrer noget — kun at værdien, der plejer
+  at følge med tilstanden, er der. Spørg altid: findes der et andet fixture
+  i samme spec-fil (eller en søster-spec), hvor gaten ville give et ANDET
+  udfald, og asserterer noget dér på fraværet?
+
+- **En Firestore-collection-query er alt-eller-intet under security rules,
+  ikke per-dokument.** Forventede at fjerne `hasAny(myLeagueIds())`-grenen i
+  `firestore.rules` (players-read) ville give 1 række (spillerens eget
+  dokument, som stadig er læsbart via `uid==auth.uid`) og 1 afvist
+  (medspillerens). Faktisk observeret: en `array-contains-any`-query, hvor
+  BARE ét af de matchende dokumenter fejler reglen, gør HELE queryen
+  `permission-denied` — også ens eget dokument, der isoleret ville være
+  tilladt. `useGameStandings.js` fanger det i onSnapshot-fejlhandleren
+  (`console.error` + `setError`), så UI'et skifter til fejltilstand, og
+  `raekker` bliver 0, ikke 1. Test dette empirisk næste gang i stedet for at
+  antage delvis-læsning — Firestores regelmotor evaluerer QUERY-resultatet
+  som helhed for `list`, ikke dokument for dokument sådan som en `get()`
+  ville.
+
 - **`fakeDb.set(ref, data, {merge:true})` skelner ikke create fra update.**
   I `functions-platform/syncProviders.test.js` kaster `batch.update()` på et
   ukendt dokument-id (rigtigt — spejler ægte Firestore), men `batch.set()`

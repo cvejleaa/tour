@@ -22,6 +22,12 @@ test('kampe med passeret kickoff kan ikke tippes', async ({ page }) => {
   for (let i = 0; i < 6; i++) await expect(knapper.nth(i)).toBeDisabled();
 
   // Den anden halvdel af samme betingelse: efter kickoff vises ligaens tips
-  // (her: opfordringen til at gå med i en liga, fordi spilleren ingen har).
-  await expect(page.getByRole('link', { name: 'Bliv med i en liga' }).first()).toBeVisible();
+  // (kun for låste kampe). Panelet henter først ved udfoldning; spilleren
+  // deler liga med medspilleren, som ikke har tippet runde 19, så svaret på
+  // den ægte forespørgsel gennem reglerne er "ingen tips" — ikke en fejl.
+  const ligaKnapper = page.getByRole('button', { name: 'Se ligaens tips' });
+  await expect(ligaKnapper).toHaveCount(2);
+  await ligaKnapper.first().click();
+  await expect(page.getByText('Ingen tips at vise fra dine ligaer på denne kamp.')).toBeVisible();
+  expect(await page.locator('[role="alert"]').allTextContents(), 'liga-tips hentet uden fejl').toEqual([]);
 });
