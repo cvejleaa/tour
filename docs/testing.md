@@ -36,13 +36,28 @@ og bærer derfor ingen hemmeligheder.
 
 ## Oversigt i appen (kun admin)
 Under **Admin → Tests** kan administratorer se en komplet oversigt over alle
-gennemførte tests (pr. fil og pr. test, med bestået/fejlet-status) samt
-afhængighedsdiagrammet. Begge er ØJEBLIKSBILLEDER — to committede JSON-filer,
-ikke en måling af suiten lige nu:
+gennemførte tests (pr. fil og pr. test, med bestået/fejlet-status),
+afhængighedsdiagrammet og **Fladen**: hvilke knapper, felter, formularer og
+links i kildekoden mindst én test har rørt ved. Alle tre er ØJEBLIKSBILLEDER
+— committede JSON-filer, ikke en måling af suiten lige nu:
 
 ```bash
-npm run test:report   # skriver src/data/testReport.json OG src/data/depGraph.json
+npm run test:report   # skriver src/data/testReport.json, depGraph.json OG fladeDaekning.json
 ```
+
+Fladen bygges af to halvdele, der mødes i én nøgle (`fil:linje:kolonne`,
+`scripts/lib/evneNoegle.mjs`): `scripts/scan-flade.mjs` finder alle
+interaktive JSX-elementer med parseren (ikke grep — flerlinje-tags var 42 %
+af knapperne), og en lytter i `src/test/setup.js` logger under kørslen,
+hvilke elementer testene dispatchede klik/indtastning/submit på, med
+kildestedet fra Reacts `_debugSource`. Lytteren er kun aktiv, når `EVNE_LOG`
+er sat — det gør `build-test-report.mjs`. "Aktiveret" betyder præcis det: en
+test rørte elementet. Det siger IKKE, at opførslen bag er bevist, og det ser
+ikke reglerne eller serveren — Forlad-knappen VAR aktiveret i tests den dag,
+den fejlede i produktion, fordi reglerne forbød det, fladen tilbød.
+E2E-tests (Playwright) tæller endnu ikke med; 1X2-knapperne i tip-fladen
+klikkes kun dér og står derfor som ikke-aktiverede, indtil den tælling er
+bygget.
 
 Kørslen dækker alle tre suiter: frontend, `functions/` (Tour) og
 `functions-platform/` (platformen). Den sidste manglede, fra fanen blev
@@ -51,10 +66,10 @@ skrev "Cloud Functions" om Tourens tal.
 
 **Det gøres normalt ikke i hånden.** Actions → *"Opdatér test-rapporten"*
 kører den — hver mandag af sig selv, og på knappen når som helst — og
-committer de to filer, hvis tallene har flyttet sig. Fanen skifter dog først
+committer de tre filer, hvis tallene har flyttet sig. Fanen skifter dog først
 ved næste platform-deploy, fordi tallene bages ind i bundtet.
 
-Holder kørslen op med at virke, siger fanen selv fra: er det ældste af de to
+Holder kørslen op med at virke, siger fanen selv fra: er det ældste af de tre
 øjebliksbilleder over 14 dage gammelt — altså mindst to udeblevne ugekørsler
 — står der en advarsel over underfanerne med dato, alder og vejen videre.
 Uden den stod tallene fra 27. juni 2026 i over to måneder og påstod 73 filer,
