@@ -62,6 +62,24 @@ E2E-tests (Playwright) tæller endnu ikke med; 1X2-knapperne i tip-fladen
 klikkes kun dér og står derfor som ikke-aktiverede, indtil den tælling er
 bygget.
 
+**Vagten i CI.** Frontend-jobbet kører suiten med `EVNE_LOG` sat og derefter
+`node scripts/flade-vagt.mjs`. Den er rød ved et nyt urørt element, ved tom
+log (så ville alt se urørt ud), når en undtagelse mangler begrundelse — og
+når basislinjen kan skrumpe. Basislinjen (`scripts/flade-basislinje.json`)
+er listen over de kendte urørte elementer; den kræver ikke 100 % fra dag ét,
+men den kan kun skrumpe, og den skal skrumpe med det samme:
+
+```bash
+EVNE_LOG="$PWD/.evne-log" npx vitest run --silent   # tappen skriver loggen
+node scripts/flade-vagt.mjs                          # rød/grøn som i CI
+node scripts/flade-vagt.mjs --opdater                # skriv basislinjen på ny
+```
+
+Nøglerne i basislinjen er `fil|komponent|tag|tekst#nummer`, ikke linjetal —
+linjetal flytter sig ved enhver redigering ovenfor. Et element, der med vilje
+ikke skal have en test (fx en knap, der er deaktiveret i alle tilstande),
+lægges i `scripts/flade-undtagelser.json` med en begrundelse.
+
 Kørslen dækker alle tre suiter: frontend, `functions/` (Tour) og
 `functions-platform/` (platformen). Den sidste manglede, fra fanen blev
 bygget, til september 2026 — hele platform-serveren var utalt, mens fanen
