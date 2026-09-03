@@ -17,6 +17,12 @@
 // redigering ovenfor, og så ville hver eneste PR i en fil melde alle dens
 // urørte elementer som nye. Nummeret skelner identiske tupler (104 af 443
 // elementer deler tuple med et andet, målt 3/9 2026).
+//
+// KENDT BEGRÆNSNING (QC): indsættes en NY identisk knap FØR en kendt urørt
+// makker i samme fil, skrider nummereringen — den nye arver #1 og glider
+// igennem, mens den gamle meldes som ny. CI er stadig rød, men på den forkerte
+// post. Derfor printer `--opdater` PRÆCIS hvilke nøgler der kommer til og
+// går ud, så diffen kan læses, før den committes — læs den, ikke kun tallet.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -79,6 +85,13 @@ export function vagt(elementer, logposter, basislinje, undtagelser) {
   return { fejl, advarsler, basislinjeNu: [...uroerteNu].sort() };
 }
 
+/** Hvad `--opdater` ændrer: nøgler, der kommer til, og nøgler, der går ud. */
+export function basislinjeDiff(gammel, ny) {
+  const g = new Set(gammel);
+  const n = new Set(ny);
+  return { til: ny.filter((k) => !g.has(k)), fra: gammel.filter((k) => !n.has(k)) };
+}
+
 function laesJson(sti, fallback) {
   return fs.existsSync(sti) ? JSON.parse(fs.readFileSync(sti, 'utf8')) : fallback;
 }
@@ -94,8 +107,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const r = vagt(daekning.elementer, poster.length, basislinje, undtagelser);
   if (process.argv.includes('--opdater')) {
     if (!poster.length) { console.error(r.fejl[0]); process.exit(1); }
+    const d = basislinjeDiff(basislinje, r.basislinjeNu);
     fs.writeFileSync(BASISLINJE, `${JSON.stringify({ generatedAt: new Date().toISOString(), noegler: r.basislinjeNu }, null, 1)}\n`);
-    console.log(`Skrev ${BASISLINJE}: ${r.basislinjeNu.length} kendte urørte af ${daekning.elementer.length} (${daekning.totals.aktiverede} rørt, ${poster.length} logposter).`);
+    for (const k of d.fra) console.log(`  − ${k}`);
+    for (const k of d.til) console.log(`  + ${k}   ← NYT urørt element i basislinjen: er det med vilje?`);
+    console.log(`Skrev ${BASISLINJE}: ${r.basislinjeNu.length} kendte urørte af ${daekning.elementer.length} (${daekning.totals.aktiverede} rørt, ${poster.length} logposter). ${d.til.length} kom til, ${d.fra.length} gik ud — læs listen, ikke kun tallet.`);
     process.exit(0);
   }
   for (const a of r.advarsler) console.warn(`⚠️  ${a}`);

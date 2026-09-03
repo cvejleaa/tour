@@ -261,6 +261,24 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   inventaret. Et kvalitets-måletal skal derfor SELV skrive, hvad det ikke kan
   se (regler, server, tallenes rigtighed), lige over tallet — ellers sælger det
   ro, der ikke er dækning for, og det er værre end intet tal.
+- **Den STABILE nøgle i `flade-vagt.mjs` (`fil|komponent|tag|tekst#n`) er kun
+  stabil mod redigeringer ANDRE steder i filen — ikke mod en NY duplikat
+  indsat FØR en eksisterende med samme tuple.** `stabileNoegler()`
+  (`scripts/flade-vagt.mjs:31-39`) nummererer i kildeorden: sæt en ny,
+  utestet knap med samme (fil, komponent, tag, tekst) foran en kendt urørt
+  makker, og hele nummerrækken forskyder sig. Effekten er ikke "ingen
+  advarsel" — CI går stadig rødt — men PÅ DEN FORKERTE POST: den nye,
+  aldrig-sete knap arver #1 fra basislinjen og glider igennem som "kendt",
+  mens en gammel, allerede-accepteret makker forskydes til et nyt nummer og
+  meldes fejlagtigt som "nyt urørt element". Følger man vagtens egen
+  reparationsvej (`--opdater`) uden at læse git-diffen på
+  `flade-basislinje.json` linje for linje, bages den REELT nye, utestede
+  knap ind som "kendt" for altid. `flade-vagt.test.mjs` beviser kun, at
+  nøglen er stabil ved LINJEFLYT (samme liste, nye `linje`-tal) — der er
+  intet testtilfælde for INDSÆTTELSE foran en eksisterende duplikat. Spørg
+  ved enhver ny knap, der deler tekst med en søster i samme komponent:
+  landede den FØR søsteren i kildeteksten? Og læs `--opdater`-diffen som en
+  liste af ægte nye elementer, ikke kun et antal.
 - **To procenter på samme flade læses som samme skala.** Admin → Tests bærer
   allerede en donut med "100 % bestået" (`TestsTab.jsx:79-94`). Et nyt "45 %
   dækket" i samme visuelle sprog bliver til "appen er 45 % i orden". Ny

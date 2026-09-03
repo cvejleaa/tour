@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { vagt, stabileNoegler } from './flade-vagt.mjs';
+import { vagt, stabileNoegler, basislinjeDiff } from './flade-vagt.mjs';
 
 const el = (o) => ({ fil: 'src/pages/A.jsx', linje: 1, kolonne: 1, tag: 'button', type: null, tekst: 'Gem', komponent: 'A', app: 'faelles', aktiveret: false, tests: [], ...o });
 
@@ -9,6 +9,22 @@ describe('stabileNoegler', () => {
     const b = stabileNoegler([el({ linje: 15 }), el({ linje: 25 }), el({ linje: 35, tekst: 'Slet' })]);
     expect(a).toEqual(b);
     expect(a).toEqual(['src/pages/A.jsx|A|button|Gem#1', 'src/pages/A.jsx|A|button|Gem#2', 'src/pages/A.jsx|A|button|Slet#1']);
+  });
+});
+
+describe('basislinjeDiff — det, --opdater skal vise, før nogen committer', () => {
+  it('nævner hver nøgle, der kommer til, og hver, der går ud', () => {
+    expect(basislinjeDiff(['a', 'b'], ['b', 'c'])).toEqual({ til: ['c'], fra: ['a'] });
+    expect(basislinjeDiff([], [])).toEqual({ til: [], fra: [] });
+  });
+
+  it('kendt begrænsning: en ny identisk knap FØR en kendt makker skrider nummereringen — diffen viser det som +#2', () => {
+    // Før: én "Gem"-knap (#1) i basislinjen. Efter: en ny "Gem" indsat foran.
+    // Den nye arver #1; den gamle bliver #2 og står som "til". Uden den
+    // eksplicitte liste ville --opdater bage den nye knap ind uset.
+    const foer = stabileNoegler([el({ linje: 10 })]);
+    const efter = stabileNoegler([el({ linje: 5 }), el({ linje: 10 })]);
+    expect(basislinjeDiff(foer, efter)).toEqual({ til: ['src/pages/A.jsx|A|button|Gem#2'], fra: [] });
   });
 });
 

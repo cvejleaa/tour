@@ -70,7 +70,7 @@ er listen over de kendte urørte elementer; den kræver ikke 100 % fra dag ét,
 men den kan kun skrumpe, og den skal skrumpe med det samme:
 
 ```bash
-EVNE_LOG="$PWD/.evne-log" npx vitest run --silent   # tappen skriver loggen
+EVNE_LOG="$PWD/.evne-log" npm run test:coverage      # samme kørsel som CI; tappen skriver loggen
 node scripts/flade-vagt.mjs                          # rød/grøn som i CI
 node scripts/flade-vagt.mjs --opdater                # skriv basislinjen på ny
 ```
@@ -79,6 +79,12 @@ Nøglerne i basislinjen er `fil|komponent|tag|tekst#nummer`, ikke linjetal —
 linjetal flytter sig ved enhver redigering ovenfor. Et element, der med vilje
 ikke skal have en test (fx en knap, der er deaktiveret i alle tilstande),
 lægges i `scripts/flade-undtagelser.json` med en begrundelse.
+
+Kendt begrænsning: nummeret (`#n`) tælles i kildeorden. Indsættes en ny
+identisk knap FØR en kendt urørt makker i samme fil, arver den nye nummeret,
+og den gamle meldes som ny. CI er rød under alle omstændigheder, men på den
+forkerte post — derfor printer `--opdater` præcis hvilke nøgler der kommer
+til og går ud. Læs den liste, før basislinjen committes.
 
 Kørslen dækker alle tre suiter: frontend, `functions/` (Tour) og
 `functions-platform/` (platformen). Den sidste manglede, fra fanen blev
