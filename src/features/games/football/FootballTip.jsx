@@ -346,7 +346,10 @@ export default function FootballTip({ game, me, matches }) {
   };
   const [rangeFrom, rangeTo] = spaend(kuponKampe.length ? kuponKampe : roundMatches);
   const [udenforFra, udenforTil] = spaend(udenforKupon);
-  const upcoming = roundMatches.filter((m) => !isLocked(m, nowMs))
+  // Tælleren skal se de SAMME kampe som listen — også den udsatte kamp fra en
+  // anden runde, der spilles i denne uge. Ejeren så "låser om 23 t" over et
+  // kort, der låste om en time (FCK–FCN, runde 3, vist på runde 7).
+  const upcoming = visteKampe.filter((m) => !isLocked(m, nowMs))
     .map((m) => toMillis(m.kickoff)).filter((x) => x != null);
   const nextDeadline = upcoming.length ? Math.min(...upcoming) : null;
   const deadlineSoon = nextDeadline != null && nextDeadline - nowMs < 2 * 3600 * 1000;

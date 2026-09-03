@@ -275,6 +275,20 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   kollektive tal som brøk. Et tal om et HOLD er uden for reglen.
 - **Et "ligaens tal" er PR. SEER** — skriv skalaen i labelen, eller udled
   tallet af kampdata.
+- **En tæller over en liste skal filtrere med SAMME kildeliste som listen
+  selv rendrer — ellers kan tælleren pege på en kamp, listen viser, men
+  tælleren ikke "kender".** `FootballTip.jsx:352` regnede "Næste kamp låser"
+  af `roundMatches` (kun rundens EGNE kampe), mens kort-listen længere nede
+  (`visteKampe`, :253) også viser en lånt kamp fra en anden runde, der
+  spilles i samme uge (`efterslaebPaaRunde`). En kamp, der stod ØVERST på
+  skærmen og låste om en time, blev meldt som "om 23 t". Rettet ved at
+  filtrere `visteKampe` i stedet. Spørg ved enhver ny tæller/aggregat over
+  en filtreret liste: bruger den den SAMME variabel som `.map()`'et, der
+  tegner kortene — eller en tidligere, snævrere variabel i samme funktion?
+  Modstykket er lige så vigtigt: `ChancePanel` (:1085, 1103) bruger BEVIDST
+  den snævre `roundMatches`, fordi Chancen "følger RUNDEN" (kommentar
+  :674) — ikke enhver bruger af `roundMatches` ved siden af `visteKampe` er
+  en fejl, kun dem der skal beskrive noget, spilleren ser i selve LISTEN.
 - **"Runden er færdig" har TRE definitioner, der svarer forskelligt samtidig:**
   (1) `faerdigeRunder(matches)` (`rundeSejre.js:35`), (2)
   `rc.combiSettled === rc.combiCount` (rundens UGE — pilen i stillingen følger
