@@ -23,6 +23,10 @@ import { SPILLER_STATE } from './e2e/fixtures/konstanter.mjs';
 // den almindelige CI-kørsel tester produktionsbundtet, tap-kørslen
 // (build-test-report.mjs) tæller klik. Målt 3/9 2026: dev-bygget bevarer
 // _debugSource med absolutte filnavne i 18 chunks.
+// BEMÆRK (QC): NODE_ENV=development slår HELE Vites dev-tilstand til, ikke
+// kun jsx-source — så <React.StrictMode> i main.jsx dobbelt-kalder mount-
+// effekter i tap-kørslen. Fejler en spec kun i den ugentlige kørsel, er
+// StrictMode en forklaring at prøve før "det er nok emulatoren".
 const DEV_HVIS_TAP = process.env.EVNE_LOG ? 'NODE_ENV=development ' : '';
 
 export default defineConfig({

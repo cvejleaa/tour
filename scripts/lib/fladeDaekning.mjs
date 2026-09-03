@@ -82,8 +82,16 @@ export function flet(inventar, poster, opt = {}) {
   };
 }
 
+/**
+ * Hvor mange fiber-led opad tappen følger. Deles med browser-scriptet i
+ * e2e/fixtures/evneKaede.mjs (en håndkopi af kildeKaede, fordi browseren ikke
+ * kan importere Node-moduler) — én konstant, så de to ikke driver fra
+ * hinanden. 12 rækker fra en <span> i en knap op gennem wrappers til Link.
+ */
+export const MAKS_KAEDE = 12;
+
 /** Kæden af kildesteder fra et DOM-element og opad — bruges af tappen. */
-export function kildeKaede(el, rod, maks = 12) {
+export function kildeKaede(el, rod, maks = MAKS_KAEDE) {
   const k = Object.keys(el).find((x) => x.startsWith('__reactFiber$'));
   let fiber = k ? el[k] : null;
   const ud = [];

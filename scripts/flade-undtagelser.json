@@ -1,1 +1,7 @@
-[]
+[
+ {
+  "noegle": "src/features/games/football/FootballTip.jsx|FootballTip|button|#1",
+  "begrundelse": "1X2-knapperne klikkes kun af e2e/platform/tip.spec.js — E2E tælles i fanens øjebliksbillede, men CI-vagten ser kun Vitest-loggen.",
+  "tilfoejet": "2026-09-03"
+ }
+]

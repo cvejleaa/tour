@@ -113,6 +113,16 @@ if (e2ePoster.length === 0) {
   process.exit(1);
 }
 const daekning = flet(scanTrae(ROOT), [...logposter, ...e2ePoster], { generatedAt: report.generatedAt, e2eMedregnet: true });
+// PRÆCIS VAGT, IKKE KUN "LOGGEN ER IKKE TOM" (QC): hele E2E-tællingen blev
+// bygget, fordi 1X2-knapperne i tip-fladen kun klikkes af tip.spec.js. Falder
+// netop de ud af krediteringen (en wrapper skubber kildestedet ud over
+// MAKS_KAEDE, spec'en omskrives), mens andre klik stadig logger, må rapporten
+// ikke skrives med e2eMedregnet: true og en urørt 1X2-knap.
+const tipKrediteret = daekning.elementer.some((e) => e.fil.endsWith('/FootballTip.jsx') && e.tag === 'button' && e.tests.includes('e2e/platform/tip.spec.js'));
+if (!tipKrediteret) {
+  console.error('Fladedækning: ingen knap i FootballTip.jsx er krediteret e2e/platform/tip.spec.js — E2E-kæden er knækket. fladeDaekning.json er IKKE skrevet.');
+  process.exit(1);
+}
 fs.writeFileSync(path.join(ROOT, 'src', 'data', 'fladeDaekning.json'), JSON.stringify(daekning, null, 1));
 fs.rmSync(EVNE, { recursive: true, force: true });
 fs.rmSync(EVNE_E2E, { recursive: true, force: true });

@@ -11,6 +11,7 @@
 // fil:linje:kolonne sker HER i Node, med den samme evneNoegle-funktion som
 // Vitest-siden. Én konvention, ét sted.
 import { noegleFraDebugSource } from '../../scripts/lib/evneNoegle.mjs';
+import { MAKS_KAEDE } from '../../scripts/lib/fladeDaekning.mjs';
 
 export const HAENDELSER = ['click', 'input', 'change', 'submit'];
 
@@ -21,7 +22,7 @@ export const INIT_SCRIPT = `(() => {
     const k = Object.keys(el).find((x) => x.startsWith('__reactFiber$'));
     let f = k ? el[k] : null;
     const ud = [];
-    for (let i = 0; f && i < 12; i++) {
+    for (let i = 0; f && i < ${MAKS_KAEDE}; i++) {
       const s = f._debugSource;
       if (s && s.fileName) ud.push({ fileName: s.fileName, lineNumber: s.lineNumber, columnNumber: s.columnNumber });
       f = f.return;

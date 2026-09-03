@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 /* global document, window */
 import { tilPost, INIT_SCRIPT, HAENDELSER } from './evneKaede.mjs';
+import { MAKS_KAEDE } from '../../scripts/lib/fladeDaekning.mjs';
 
 describe('tilPost — browserens rå tripler bliver til Vitest-tappens format', () => {
   const ROD = '/bygge/maskine/tour';
@@ -34,6 +35,8 @@ describe('tilPost — browserens rå tripler bliver til Vitest-tappens format', 
     expect(INIT_SCRIPT).toContain('window.__evneLog(');
     expect(INIT_SCRIPT).toContain('__reactFiber$');
     expect(INIT_SCRIPT).toContain('_debugSource');
+    // Samme kædedybde som Node-udgaven (kildeKaede) — håndkopien må ikke drive.
+    expect(INIT_SCRIPT).toContain(`i < ${MAKS_KAEDE};`);
     // Skal kunne parses som selvstændigt script.
     expect(() => new Function(INIT_SCRIPT)).not.toThrow();
   });
