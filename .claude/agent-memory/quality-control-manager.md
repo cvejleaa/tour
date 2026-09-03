@@ -191,6 +191,28 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
 - **Et tal uden kode er en påstand** — også i et JSDoc. Og et PRÆCIST tal ældes
   ("13 ud af 37"); vælg den kvalitative form ("rammer forbi hver tredje gang"),
   med mindre tallet regenereres automatisk.
+- **En side, der PRÆDIKER 'et tal uden kode er en påstand', er ikke fritaget
+  for reglen i sine egne eksempler.** `public/testsetup.html` (rundvisning i
+  testsetuppet) havde de store, systemiske tal helt rigtige —
+  3.156/1.187/256/4 tests matchede en faktisk kørsel til punkt og prikke — men
+  bar SAMTIDIG tre opdigtede facits: en CI-varighedstabel citerede `commit
+  14eea1c`, som ikke findes i repoets historik; "29 mutanter" på en navngiven
+  PR stod uden log eller script bag sig noget sted; og en produktionsmåling på
+  "AGF–FCM" modsagde `regelbrev.js`s egen tekst om, at netop den kamp var
+  udskudt en måned og altså endnu ikke havde facit. Konklusion: at DE FLESTE
+  tal stemmer, er ingen garanti for at ALLE gør — efterprøv navngivne
+  eksempler (kamp, commit, PR, dato) enkeltvis, især dem der ser ud som ægte
+  belæg snarere end runde tal, for det er netop den slags detalje, der sælger
+  en påstand uden at være sand.
+- **En hardkodet snapshot-side uden paritetstest ER dokumentations-drift, bare
+  ikke opdaget endnu.** `docs/testing.md` selv bærer ar fra to måneders
+  forkerte tal (73/855/42/37), og løsningen var at fjerne tallene og pege på
+  en levende kilde med ældre-advarsel. Den nye `testsetup.html` gentager
+  præcis den gamle synd bevidst (et dateret snapshot i stedet for afledte tal)
+  og har ingen paritetstest og intet punkt i `saesoneftersyn.md` §5, der
+  stikprøver den — kun en dato i sidehovedet, som ingen læser om et halvt år.
+  Enhver ny hardkodet snapshot-side hører på listen over dokumenter,
+  sæsoneftersynet stikprøver.
 - **En test med HÅNDSKREVET fixture kan bekræfte sig selv.** Importér den ægte
   kilde (`GAMES` fra `scripts/games.mjs`, den spejlede lib, en committet
   payload) i mindst ét tilfælde.

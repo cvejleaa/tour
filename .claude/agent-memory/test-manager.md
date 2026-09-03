@@ -825,3 +825,52 @@ faktisk blive nået af, og findes det input i noget fixture?
   men værd at scanne efter ved enhver diff, der indsætter et nyt `describe`
   midt i en fil: står der en forklarende kommentar lige før indsætningspunktet,
   der egentlig hørte til blokken EFTER?
+
+## `public/testsetup.html` — statisk rundvisningsside uden app-kode (commit 60396bc, sept. 2026)
+
+- **En ren statisk HTML-side har intet at mutere — "mutationstest kernen" må
+  erstattes af direkte tælling/verifikation af hver konkret talpåstand, ikke
+  droppes.** Siden har ingen JS-logik; der findes ingen vagt at vende om.
+  I stedet: kørte alle fire suiter og talte selv (frontend `npx vitest run`,
+  `npm --prefix functions test`, `npm --prefix functions-platform test`,
+  `grep -c "it(\|test(" functions/rules.test.js`, `find … -name "*.test.*"`),
+  og verificerede CI-varighederne mod GitHub API
+  (`curl https://api.github.com/repos/<org>/<repo>/commits/<sha>/check-runs`,
+  `completed_at − started_at`), fordi siden navngiver en præcis commit-sha for
+  dem. Alle FIRE hovedtal i "Kort sagt"-stripen (3.156 frontend, 1.187 Cloud
+  Functions [204+983], 256 rules, 4 E2E) og alle FIRE CI-varigheder
+  (2:48/2:28/1:59/0:25) var eksakt korrekte — inkl. varighederne, som matchede
+  til sekundet.
+- **MEN den detaljerede nedbrydningstabel (som ingen af hovedtallene fanger)
+  havde to reelle talfejl, allerede den dag siden blev skrevet — ikke
+  fremtidig drift, men forkert ved forfatterskabet.** "Scripts"-rækkens
+  Testfiler stod som 10, reelt 13 (`find scripts -name "*.test.mjs"` —
+  forfatteren talte kun `scripts/`-rodmappen og glemte `scripts/lib/*.test.mjs`
+  — doubleChance, roller, teamsOnly — hvoraf `roller.test.mjs` endda er nævnt
+  eksplicit længere nede på SAMME side som "Rolle-udvælgeren (testet)").
+  "Cloud Functions"-rækkens Testfiler stod som 45, reelt 44 (18
+  `functions/*.test.js` fra `vitest.config.js`s include-liste + 26
+  `functions-platform/*.test.js` — rules.test.js er allerede talt for sig i
+  Rules-rækken, så 45 kan ikke forklares ved at inkludere den). Lærdom: en
+  side, der EKSPLICIT advarer mod netop "et hardkodet tal om noget levende er
+  en løgn med forsinkelse" og peger på en levende kilde (Admin → Tests), kan
+  stadig have forkerte tal i sit eget øjebliksbillede — dateringen beviser
+  intet om at tallet blev talt korrekt DEN dag. Tæl altid selv, uanset om der
+  står en dato ved siden af.
+- **Ingen hemmeligheder fundet** ved `grep -inE` for e-mail-mønstre,
+  API-nøgle-mønstre (`AIza…`), `firebaseapp.com`, lange hex-strenge, uid'er,
+  `localhost`, tokens/secrets/passwords — siden nævner kun offentlige
+  produkt-hostnames (tip.vejleaa.dk, tour.vejleaa.dk), som allerede er
+  offentligt kendte.
+- **`dist/testsetup.html` bekræftet til stede efter BEGGE builds** (`npx vite
+  build --logLevel error` og `VITE_PLATFORM_MODE=true npx vite build
+  --logLevel error`) — Vite kopierer `public/` uændret, ingen custom
+  `publicDir`-konfiguration rørt af denne diff. Vurderet lavrisiko som
+  fremtidig regressionstest (tautologi-fælde: en test, der kun tjekker at en
+  committet fil findes, beviser intet nyt ud over hvad `git status` allerede
+  garanterer) — IKKE anbefalet som blokerende krav.
+- **E2E's 404-test (`e2e/smoke.spec.js`, "ukendt rute viser 404-siden") bruger
+  `/findes-ikke-12345`** — ingen kollision med `/testsetup.html`. Testen
+  forbliver meningsfuld: en statisk fil i `public/` rammes af Firebase
+  Hosting FØR SPA-rewrite'en og påvirker aldrig React Router-fallbacket, som
+  testen dækker.

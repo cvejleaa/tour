@@ -24,6 +24,16 @@ Hele UI'et er dækket udtømmende — hver side/komponent testes i alle tilstand
 (loading, fejl, tom, rollebaseret adgang, låst/åben, før/efter deadline,
 godkendt/afventer, korrekte/forkerte tip, fuzzy bonus-matchning osv.).
 
+## Rundvisning for nye (offentlig side)
+
+`tip.vejleaa.dk/testsetup.html` er en rundvisning i hele setuppet — niveauer,
+vejen fra commit til produktion, reviewer-rollerne, mutationstest og de kendte
+huller — med en ISTQB-ordbog til sidst. Filen ligger i
+`public/testsetup.html` og følger med begge builds. Tallene på siden er et
+DATERET øjebliksbillede (det står øverst på siden); de levende tal bor under
+Admin → Tests som beskrevet nedenfor. Siden er offentlig for alle med adressen
+og bærer derfor ingen hemmeligheder.
+
 ## Oversigt i appen (kun admin)
 Under **Admin → Tests** kan administratorer se en komplet oversigt over alle
 gennemførte tests (pr. fil og pr. test, med bestået/fejlet-status) samt

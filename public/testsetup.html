@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Sådan tester vi Vejleaa Tip</title>
+<meta name="description" content="Rundvisning i Vejleaa Tips testsetup: testniveauer, vejen fra commit til produktion, reviewer-roller, mutationstest og kendte huller.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<!--
+  Statisk side uden for appen: ligger i public/ og følger med begge builds,
+  så den findes på tip.vejleaa.dk/testsetup.html (og tour.vejleaa.dk). Firebase
+  hosting serverer en eksisterende fil FØR SPA-omskrivningen til index.html.
+  Tallene er et dateret øjebliksbillede (se "Tal aflæst …" øverst); de levende
+  tal bor under Admin → Tests. September 2026.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F3F6F4;
+    --surface: #FFFFFF;
+    --surface-2: #E9EFEC;
+    --ink: #16231F;
+    --ink-2: #3D4B46;
+    --muted: #5F6F68;
+    --line: #D3DCD7;
+    --accent: #0E6B6E;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #DCEFEF;
+    --pass: #2F8F5B;
+    --warn: #B8730A;
+    --fail: #B5443C;
+    --code-bg: #EEF3F0;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0F1614;
+      --surface: #172120;
+      --surface-2: #1F2B29;
+      --ink: #E7EEEA;
+      --ink-2: #C2CEC8;
+      --muted: #97A9A1;
+      --line: #2B3935;
+      --accent: #5CC3C6;
+      --accent-ink: #0B1A1B;
+      --accent-soft: #163536;
+      --pass: #5FC48D;
+      --warn: #E0A23A;
+      --fail: #E2736B;
+      --code-bg: #101917;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0F1614;
+    --surface: #172120;
+    --surface-2: #1F2B29;
+    --ink: #E7EEEA;
+    --ink-2: #C2CEC8;
+    --muted: #97A9A1;
+    --line: #2B3935;
+    --accent: #5CC3C6;
+    --accent-ink: #0B1A1B;
+    --accent-soft: #163536;
+    --pass: #5FC48D;
+    --warn: #E0A23A;
+    --fail: #E2736B;
+    --code-bg: #101917;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.55;
+  }
+  h1, h2, h3 {
+    font-family: "Sora", "Segoe UI", Helvetica, Arial, sans-serif;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  h1 { font-size: 2.1rem; font-weight: 700; line-height: 1.15; }
+  h2 { font-size: 1.45rem; font-weight: 600; line-height: 1.25; margin-top: 0.2rem; }
+  h3 { font-size: 1.08rem; font-weight: 600; }
+  p { margin: 0; }
+  a { color: var(--accent); }
+  code, pre, .mono {
+    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.86em;
+  }
+  code { background: var(--code-bg); padding: 0.05em 0.35em; border-radius: 3px; }
+  pre { background: var(--code-bg); padding: 0.9rem 1rem; overflow-x: auto; border-radius: 4px; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  strong { font-weight: 600; }
+  .eyebrow {
+    font-family: "Sora", sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 5rem;
+  }
+  @media (min-width: 1100px) {
+    .page { grid-template-columns: 200px minmax(0, 1fr); column-gap: 3rem; }
+    .toc { position: sticky; top: 1.5rem; align-self: start; }
+  }
+  .toc { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9rem; margin-bottom: 2rem; }
+  .toc a { color: var(--ink-2); text-decoration: none; padding: 0.15rem 0; border-left: 2px solid transparent; padding-left: 0.6rem; }
+  .toc a:hover, .toc a:focus-visible { border-left-color: var(--accent); color: var(--ink); outline: none; }
+  .toc .eyebrow { padding-left: 0.6rem; margin-bottom: 0.3rem; }
+
+  main { display: flex; flex-direction: column; gap: 3.2rem; max-width: 820px; }
+  section { display: flex; flex-direction: column; gap: 1rem; }
+  section > p, section > ul, section > ol { max-width: 68ch; }
+  ul, ol { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  li::marker { color: var(--muted); }
+
+  header.hero { display: flex; flex-direction: column; gap: 1rem; padding-bottom: 2rem; border-bottom: 1px solid var(--line); }
+  header.hero p.lede { font-size: 1.15rem; max-width: 62ch; color: var(--ink-2); }
+  .meta { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; font-size: 0.88rem; color: var(--muted); }
+
+  .strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .strip > div { padding: 0.85rem 1rem; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.15rem; }
+  .strip > div:last-child { border-right: 0; }
+  .strip .n { font-family: "Sora", sans-serif; font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .strip .l { font-size: 0.82rem; color: var(--muted); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  th, td { text-align: left; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: "Sora", sans-serif; font-size: 0.74rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); background: var(--surface-2); }
+  tr:last-child td { border-bottom: 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th.num { text-align: right; }
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  figure svg { max-width: 100%; height: auto; display: block; color: var(--ink); }
+  figcaption { font-size: 0.9rem; color: var(--muted); max-width: 68ch; }
+  .fig-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 1rem; overflow-x: auto; }
+
+  .pill { display: inline-block; font-family: "Sora", sans-serif; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; padding: 0.12em 0.55em; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+  .pill.pass { color: var(--pass); border-color: color-mix(in srgb, var(--pass) 45%, transparent); }
+  .pill.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+  .pill.fail { color: var(--fail); border-color: color-mix(in srgb, var(--fail) 45%, transparent); }
+  .pill.accent { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+
+  .callout { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 0.8rem 1rem; border-radius: 0 6px 6px 0; max-width: 68ch; }
+  .callout .eyebrow { display: block; margin-bottom: 0.25rem; }
+
+  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.8rem; }
+  .role { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .role h3 { font-size: 1rem; }
+  .role .q { font-style: italic; color: var(--ink-2); }
+  .role .b { font-size: 0.9rem; color: var(--muted); }
+
+  .steps { counter-reset: step; display: flex; flex-direction: column; gap: 0.7rem; padding: 0; list-style: none; max-width: 68ch; }
+  .steps li { display: grid; grid-template-columns: 2rem 1fr; gap: 0.6rem; align-items: baseline; }
+  .steps li::before { counter-increment: step; content: counter(step); font-family: "Sora", sans-serif; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+  .foot { border-top: 1px solid var(--line); padding-top: 1.2rem; font-size: 0.88rem; color: var(--muted); max-width: 68ch; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+</head>
+<body>
+<div class="page">
+  <nav class="toc" aria-label="Indhold">
+    <span class="eyebrow">Indhold</span>
+    <a href="#kort">Kort sagt</a>
+    <a href="#niveauer">Testniveauerne</a>
+    <a href="#flow">Fra ændring til produktion</a>
+    <a href="#ci">De fire CI-jobs</a>
+    <a href="#roller">Fire reviewere, der kan blokere</a>
+    <a href="#mutation">Mutationstest</a>
+    <a href="#data">Miljøer og testdata</a>
+    <a href="#prod">Efter deploy</a>
+    <a href="#istqb">ISTQB-ordbog</a>
+    <a href="#huller">Det, vi ved mangler</a>
+    <a href="#hvor">Hvor det ligger</a>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <span class="eyebrow">Vejleaa Tip · ét repo, to apps</span>
+      <h1>Sådan tester vi Vejleaa Tip</h1>
+      <p class="lede">En rundvisning i testsetuppet for tipspillet: hvilke niveauer der findes, hvordan en ændring bevæger sig fra commit til produktion, og hvorfor en grøn suite hos os aldrig er det sidste ord.</p>
+      <div class="meta">
+        <span>Tal aflæst 3. september 2026 fra <span class="mono">main</span> (4aeb45a)</span>
+      </div>
+    </header>
+
+    <section id="kort">
+      <h2>Kort sagt</h2>
+      <p>Vejleaa Tip er et tipspil om fodbold og cykling for en vennekreds. Ét repo bygger to apps (Tour-udgaven og platformen) mod hver sin Firebase-backend. Al forretningslogik ligger to steder — i browseren og i Cloud Functions — og serveren er eneste autoritet. Testsetuppet er bygget omkring én overbevisning fra husets regelsæt: <em>en grøn suite beviser intet i sig selv</em>, fordi koden og testene skrives af den samme i samme åndedrag. Derfor er der tre lag oven på den automatiske suite: reviewer-roller, mutationstest og efterprøvning i produktion.</p>
+      <div class="strip" aria-label="Nøgletal">
+        <div><span class="n">3.156</span><span class="l">frontend-tests (Vitest)</span></div>
+        <div><span class="n">1.187</span><span class="l">Cloud Functions-tests</span></div>
+        <div><span class="n">256</span><span class="l">Security Rules-tests (emulator)</span></div>
+        <div><span class="n">4</span><span class="l">E2E-tests (Playwright)</span></div>
+        <div><span class="n">4</span><span class="l">parallelle CI-jobs pr. push</span></div>
+      </div>
+      <p class="callout"><span class="eyebrow">Husregel</span>Tallene ovenfor er aflæst af dagens kørsler. I repoet står de bevidst ikke i dokumentationen: et hardkodet tal om noget levende er "en løgn med forsinkelse". Det levende tal findes under <strong>Admin → Tests</strong> i appen, som selv advarer, når øjebliksbilledet er over 14 dage gammelt.</p>
+    </section>
+
+    <section id="niveauer">
+      <h2>Testniveauerne</h2>
+      <p>Pyramiden er klassisk i formen, men bemærk det ekstra lag: Firestores sikkerhedsregler testes som et selvstændigt niveau mod en emulator. Det er reelt en komponent-integrationstest af grænsen mellem klient og database — og den grænse er den, der afgør, hvem der må se og skrive hvad.</p>
+      <figure>
+        <div class="fig-wrap">
+          <svg viewBox="0 0 880 330" role="img" aria-label="Testpyramide med fire niveauer: 4 E2E-tests i toppen, 256 Security Rules-tests, 1.187 Cloud Functions-tests og 3.156 frontend-tests i bunden; til højre ISTQB-niveauet for hvert lag" font-family="Source Sans 3, sans-serif" font-size="13">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+            </defs>
+            <!-- lag, nedefra -->
+            <polygon points="40,300 400,300 340,236 100,236" fill="#0E6B6E" fill-opacity="0.85"/>
+            <polygon points="100,230 340,230 290,166 150,166" fill="#0E6B6E" fill-opacity="0.65"/>
+            <polygon points="150,160 290,160 250,96 190,96" fill="#0E6B6E" fill-opacity="0.45"/>
+            <polygon points="190,90 250,90 222,30 218,30" fill="#0E6B6E" fill-opacity="0.3"/>
+            <!-- labels i lagene -->
+            <text x="220" y="272" text-anchor="middle" fill="#FFFFFF" font-weight="600" font-size="14">Frontend · 3.156</text>
+            <text x="220" y="202" text-anchor="middle" fill="#FFFFFF" font-weight="600" font-size="14">Cloud Functions · 1.187</text>
+            <text x="220" y="132" text-anchor="middle" fill="currentColor" font-weight="600" font-size="13">Rules · 256</text>
+            <text x="220" y="20" text-anchor="middle" fill="currentColor" font-weight="600" font-size="13">E2E · 4</text>
+            <!-- forklaring til højre -->
+            <line x1="410" y1="268" x2="450" y2="268" stroke="currentColor" stroke-width="1" marker-end="url(#arr)"/>
+            <text x="458" y="264" fill="currentColor" font-weight="600">Komponenttest</text>
+            <text x="458" y="282" fill="currentColor" opacity="0.75">Vitest + Testing Library, Firebase mocket</text>
+            <line x1="350" y1="198" x2="450" y2="198" stroke="currentColor" stroke-width="1" marker-end="url(#arr)"/>
+            <text x="458" y="194" fill="currentColor" font-weight="600">Komponenttest (server)</text>
+            <text x="458" y="212" fill="currentColor" opacity="0.75">Vitest, fake Firestore, fetch som spion</text>
+            <line x1="300" y1="128" x2="450" y2="128" stroke="currentColor" stroke-width="1" marker-end="url(#arr)"/>
+            <text x="458" y="124" fill="currentColor" font-weight="600">Komponentintegrationstest</text>
+            <text x="458" y="142" fill="currentColor" opacity="0.75">Firestore-emulator, ægte forespørgsler</text>
+            <line x1="260" y1="58" x2="450" y2="58" stroke="currentColor" stroke-width="1" marker-end="url(#arr)"/>
+            <text x="458" y="54" fill="currentColor" font-weight="600">Systemtest</text>
+            <text x="458" y="72" fill="currentColor" opacity="0.75">Playwright i Chromium mod den byggede app</text>
+          </svg>
+        </div>
+        <figcaption>Fire niveauer, aflæst 3. september 2026. Lagenes form viser niveauet, ikke antallet — bunden er bred, fordi al UI-logik og al serverlogik testes komponentvis med mockede eller emulerede afhængigheder.</figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Niveau</th><th>Hvad det binder</th><th>Værktøj</th><th class="num">Tests</th><th class="num">Testfiler</th></tr></thead>
+          <tbody>
+            <tr><td>Frontend (komponent)</td><td>Hver side, komponent og hook i alle tilstande: loading, fejl, tom, låst/åben, før/efter deadline, roller. Assertioner på indhold og på det, der ikke må stå.</td><td>Vitest, Testing Library, jsdom</td><td class="num">3.156</td><td class="num">203</td></tr>
+            <tr><td>Cloud Functions (komponent)</td><td>Point, ranglister, ligaer, synk mod tre eksterne kilder, kampdetaljer, mails. Tour-appen og platformen har hver sin suite.</td><td>Vitest, fakes for Firestore og fetch</td><td class="num">1.187</td><td class="num">44</td></tr>
+            <tr><td>Security Rules (komponentintegration)</td><td>Hvem må læse og skrive hvilke felter, før og efter kickoff, som spiller, liga-admin, admin og ejer. 20 samlinger.</td><td>Vitest + rules-unit-testing mod emulator</td><td class="num">256</td><td class="num">1</td></tr>
+            <tr><td>E2E (system)</td><td>Røgtest i en rigtig browser: redirect til login, login-fanerne, dansk fejlbesked, 404.</td><td>Playwright, Chromium</td><td class="num">4</td><td class="num">1</td></tr>
+            <tr><td>Scripts (komponent)</td><td>Målescripts, seed-planer og rolle-udvælgeren har egne tests — "et tal uden kode er en påstand".</td><td>Vitest</td><td class="num">—</td><td class="num">13</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>To ting er værd at se efter i suiterne. <strong>Paritetstests</strong>: point-reglerne findes både i browseren og på serveren (spejlede filer), og en test læser begge sider og kræver samme svar. <strong>Vagt-tests</strong>: en test scanner hele kodebasen for et forbudt mønster (fx et id-felt, der kan skygge for dokument-id'et) — så et fund fra en gennemgang bliver til en regel, ingen kan overtræde igen uden at få rødt.</p>
+    </section>
+
+    <section id="flow">
+      <h2>Fra ændring til produktion</h2>
+      <p>Enhver ændring i spillet går samme vej, også "bare en lille rettelse". Vejen er skrevet ned i repoets <code>CLAUDE.md</code>, og den er lavet af hændelser: hvert trin findes, fordi noget slap igennem uden det.</p>
+      <figure>
+        <div class="fig-wrap">
+          <svg viewBox="0 0 900 250" role="img" aria-label="Flow fra commit til produktion: commit, derefter roller.mjs, som udpeger reviewere; Test Manager, Quality Control og Security kører parallelt og kan blokere; rettelser; Release Manager; push og PR; fire parallelle CI-jobs; merge; deploy; efterprøvning i produktion" font-family="Source Sans 3, sans-serif" font-size="12">
+            <defs>
+              <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+            </defs>
+            <!-- række 1 -->
+            <rect x="10" y="40" width="96" height="44" rx="4" fill="none" stroke="currentColor"/>
+            <text x="58" y="58" text-anchor="middle" fill="currentColor" font-weight="600">Ændring</text>
+            <text x="58" y="74" text-anchor="middle" fill="currentColor" opacity="0.75">lint · tests · build</text>
+            <line x1="106" y1="62" x2="134" y2="62" stroke="currentColor" marker-end="url(#arr2)"/>
+            <text x="120" y="52" text-anchor="middle" fill="currentColor" opacity="0.7" font-size="10">commit</text>
+
+            <rect x="136" y="40" width="96" height="44" rx="4" fill="none" stroke="currentColor"/>
+            <text x="184" y="58" text-anchor="middle" fill="currentColor" font-weight="600" font-family="JetBrains Mono, monospace" font-size="11">roller.mjs</text>
+            <text x="184" y="74" text-anchor="middle" fill="currentColor" opacity="0.75">læser diffen</text>
+            <line x1="232" y1="62" x2="262" y2="62" stroke="currentColor" marker-end="url(#arr2)"/>
+
+            <!-- parallel-blok: roller -->
+            <rect x="264" y="10" width="150" height="104" rx="6" fill="#0E6B6E" fill-opacity="0.08" stroke="#0E6B6E" stroke-dasharray="4 3"/>
+            <text x="339" y="26" text-anchor="middle" fill="#0E6B6E" font-weight="600" font-size="11">PARALLELT · kan blokere</text>
+            <rect x="276" y="34" width="126" height="20" rx="3" fill="var(--surface)" stroke="currentColor"/>
+            <text x="339" y="48" text-anchor="middle" fill="currentColor">Test Manager</text>
+            <rect x="276" y="60" width="126" height="20" rx="3" fill="var(--surface)" stroke="currentColor"/>
+            <text x="339" y="74" text-anchor="middle" fill="currentColor">Quality Control</text>
+            <rect x="276" y="86" width="126" height="20" rx="3" fill="var(--surface)" stroke="currentColor"/>
+            <text x="339" y="100" text-anchor="middle" fill="currentColor">Security (ved adgang)</text>
+            <line x1="414" y1="62" x2="444" y2="62" stroke="currentColor" marker-end="url(#arr2)"/>
+            <text x="429" y="52" text-anchor="middle" fill="currentColor" opacity="0.7" font-size="10">fund</text>
+
+            <rect x="446" y="40" width="96" height="44" rx="4" fill="none" stroke="currentColor"/>
+            <text x="494" y="58" text-anchor="middle" fill="currentColor" font-weight="600">Rettelser</text>
+            <text x="494" y="74" text-anchor="middle" fill="currentColor" opacity="0.75">+ mutationstest</text>
+            <line x1="542" y1="62" x2="572" y2="62" stroke="currentColor" marker-end="url(#arr2)"/>
+
+            <rect x="574" y="40" width="110" height="44" rx="4" fill="none" stroke="currentColor"/>
+            <text x="629" y="58" text-anchor="middle" fill="currentColor" font-weight="600">Release Manager</text>
+            <text x="629" y="74" text-anchor="middle" fill="currentColor" opacity="0.75">udrulningsplan</text>
+            <line x1="684" y1="62" x2="714" y2="62" stroke="currentColor" marker-end="url(#arr2)"/>
+
+            <rect x="716" y="40" width="110" height="44" rx="4" fill="none" stroke="currentColor"/>
+            <text x="771" y="58" text-anchor="middle" fill="currentColor" font-weight="600">Push + PR</text>
+            <text x="771" y="74" text-anchor="middle" fill="currentColor" opacity="0.75">roller i PR'en</text>
+
+            <!-- ned til række 2 -->
+            <line x1="771" y1="84" x2="771" y2="124" stroke="currentColor" marker-end="url(#arr2)"/>
+
+            <!-- række 2, højre mod venstre -->
+            <rect x="660" y="128" width="150" height="88" rx="6" fill="#0E6B6E" fill-opacity="0.08" stroke="#0E6B6E" stroke-dasharray="4 3"/>
+            <text x="735" y="144" text-anchor="middle" fill="#0E6B6E" font-weight="600" font-size="11">CI · 4 JOBS PARALLELT</text>
+            <text x="735" y="162" text-anchor="middle" fill="currentColor">Frontend · Functions</text>
+            <text x="735" y="178" text-anchor="middle" fill="currentColor">Rules (emulator) · E2E</text>
+            <text x="735" y="200" text-anchor="middle" fill="currentColor" opacity="0.75">alle fire grønne = exit-kriterie</text>
+
+            <line x1="660" y1="172" x2="600" y2="172" stroke="currentColor" marker-end="url(#arr2)"/>
+            <rect x="500" y="150" width="98" height="44" rx="4" fill="none" stroke="currentColor"/>
+            <text x="549" y="168" text-anchor="middle" fill="currentColor" font-weight="600">Squash-merge</text>
+            <text x="549" y="184" text-anchor="middle" fill="currentColor" opacity="0.75">til main</text>
+
+            <line x1="500" y1="172" x2="440" y2="172" stroke="currentColor" marker-end="url(#arr2)"/>
+            <rect x="330" y="150" width="108" height="44" rx="4" fill="none" stroke="currentColor"/>
+            <text x="384" y="168" text-anchor="middle" fill="currentColor" font-weight="600">Deploy</text>
+            <text x="384" y="184" text-anchor="middle" fill="currentColor" opacity="0.75">efter RM's plan</text>
+
+            <line x1="330" y1="172" x2="270" y2="172" stroke="currentColor" marker-end="url(#arr2)"/>
+            <rect x="120" y="150" width="148" height="44" rx="4" fill="#0E6B6E" stroke="none"/>
+            <text x="194" y="168" text-anchor="middle" fill="#FFFFFF" font-weight="600">Efterprøvning i drift</text>
+            <text x="194" y="184" text-anchor="middle" fill="#FFFFFF" opacity="0.9">probe · Drift-fane · alarmer</text>
+            <text x="20" y="235" fill="currentColor" opacity="0.7" font-size="11">Rettelser fra rollerne committes og pushes, før PR'en un-draftes — CI kører på den endelige commit.</text>
+          </svg>
+        </div>
+        <figcaption>Vejen for én ændring. De tre reviewere i den stiplede boks kører parallelt på den committede kode; Release Manager kommer sidst, fordi planen afhænger af, hvad der faktisk lander. Exit-kriteriet for merge er fire grønne CI-jobs og ingen blokerende fund.</figcaption>
+      </figure>
+      <ol class="steps">
+        <li><strong>Lokalt først.</strong> Lint, de relevante suiter og begge builds køres, før noget committes. Der er en eksplicit regel om at kontrollere, at hver ændring faktisk landede — en tekst-erstatning, der ikke matcher, fejler tavst og efterlader en grøn test uden dækning.</li>
+        <li><strong>Commit, så reviewere.</strong> <code>roller.mjs</code> læser diffen og siger, hvilke roller der skal køre og hvorfor. Udskriften klistres ind i PR-teksten, så beslutningen kan efterprøves bagefter (sporbarhed). Test Manager og Quality Control kører altid; Security kun når ændringen rører regler, Cloud Functions eller adgang. Rollerne får diffen med som fil og påstande formuleret som noget, de skal efterprøve — ikke som forudsætninger.</li>
+        <li><strong>Rettelser og mutationstest.</strong> Fund rettes, og hver ny vagt i koden får en mutant, der skal gøre suiten rød. Dør mutanten ikke, er vagten ikke dækket — uanset hvor grøn suiten er. Antallet står i den enkelte PR-tekst, ikke her: et tal uden et script i repoet er en påstand.</li>
+        <li><strong>Release Manager.</strong> Hvad skal deployes, i hvilken rækkefølge, hvad tjekkes bagefter, og hvordan ruller man tilbage. Hvert klik i planen skal kunne spores til den render-betingelse (fil:linje), der viser elementet — efter en plan, der henviste til en knap, der ikke fandtes.</li>
+        <li><strong>CI, merge, deploy.</strong> Fire jobs skal være grønne. Deploy sker uden at spørge, når rollerne ikke har blokerende fund — undtagen alt, der skriver i produktionsdata, og tilbagerulninger.</li>
+        <li><strong>Efterprøvning.</strong> Ingen ændring meldes færdig på intentionen. Et læse-only workflow læser de konkrete dokumenter i produktion, og Drift-fanen viser hver kørsels seneste status.</li>
+      </ol>
+    </section>
+
+    <section id="ci">
+      <h2>De fire CI-jobs</h2>
+      <p>GitHub Actions kører fire uafhængige jobs på hvert push og hver PR. De er parallelle, så den samlede tid er det langsomste job — omkring tre minutter. Tiderne herunder er fra den seneste kørsel på PR #207 (3. september 2026, sidste commit 14eea1c — den findes kun på PR'en, fordi PR'en blev squash-merget til 4aeb45a).</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Job</th><th>Hvad det kører</th><th>Miljø</th><th class="num">Varighed</th></tr></thead>
+          <tbody>
+            <tr><td>Frontend – lint, unit-tests, build</td><td>ESLint på hele repoet, hele Vitest-suiten med dækning (v8), build af begge apps</td><td>Node 22, jsdom, dummy <span class="mono">.env</span></td><td class="num">2:48</td></tr>
+            <tr><td>Firestore Security Rules (emulator)</td><td>256 regel-tests mod en lokal Firestore-emulator i et demo-projekt</td><td>Firebase-emulator</td><td class="num">2:28</td></tr>
+            <tr><td>E2E (Playwright)</td><td>Bygger appen, starter en lokal server, kører røgtesten i Chromium; rapporten uploades som artefakt</td><td>Chromium</td><td class="num">1:59</td></tr>
+            <tr><td>Functions – scoring &amp; standings</td><td>Begge Cloud Functions-suiter (Tour og platform), uden emulator</td><td>Node 22</td><td class="num">0:25</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Dækningsrapporten genereres, men der er ingen dækningstærskel som gate. Det er et bevidst valg: dækning måler, om linjen blev kørt, ikke om testen kunne fange en fejl i den. Den vagt ligger i mutationstesten i stedet.</p>
+    </section>
+
+    <section id="roller">
+      <h2>Fire reviewere, der kan blokere</h2>
+      <p>Det, ISTQB kalder statisk test — reviews — er hos os automatiseret som fire faste roller. De er AI-agenter defineret i repoet (<code>.claude/agents/</code>), hver med sit spørgsmål, sin blokeringsret og en varig hukommelsesfil, som de selv vedligeholder og som committes med. Rollerne kører på tre forskellige modelklasser: de hyppige på billigere, de sjældne på de stærkeste. De læser den committede diff og efterprøver forfatterens påstande i koden, ikke i beskrivelsen.</p>
+      <div class="roles">
+        <div class="role"><h3>Test Manager</h3><p class="q">Er ændringen bevist?</p><p class="b">Kører egne mutationer i sin egen worktree, leder efter tautologier og fraværs-assertioner, der fastfryser en fejl. Kan blokere for at lande uden dækning. I ugens PR fandt den en udækket kopi af selvmåls-logikken i skærmlæser-oplæsningen.</p></div>
+        <div class="role"><h3>Quality Control Manager</h3><p class="q">Løser den det rigtige problem — og hvad rører den ellers ved?</p><p class="b">Sporer render-betingelser, dokumentation og "korrekt er ikke komplet": findes der en flade, ændringen glemte? Kan blokere for en halv rettelse. Fandt at et nyt job manglede sit forventede kort i Drift-fanen — så det kunne dø usynligt.</p></div>
+        <div class="role"><h3>Security Reviewer</h3><p class="q">Angriber-gennemgang: hvem ser og skriver hvad?</p><p class="b">Kører kun når ændringen rører regler, Cloud Functions eller adgang. Arbejder med kørte PoC'er, ikke antagelser. Målte i ugens PR, at én ukoblet kamp ville koste 150 kald à 260 KB mod en fremmed kilde — blokerende, rettet ved kilden, genkørt og bekræftet lukket.</p></div>
+        <div class="role"><h3>Release Manager</h3><p class="q">Hvad skal deployes, i hvilken rækkefølge, og hvad tjekkes bagefter?</p><p class="b">Kommer sidst. Leverer udrulningsplan, verifikation med fil:linje, risici og tilbagerulning. Kan blokere en forkert udrulning — og har gjort det, da en regel-udrulning ville have vist alle en tom stilling.</p></div>
+      </div>
+      <p class="callout"><span class="eyebrow">Hvorfor ikke bare én gennemgang?</span>Hver rolle er der, fordi den har fanget noget ægte: en grøn test, der ikke kunne fange fejlen; en rettelse, der kun lukkede symptomet; en udrulning, der ville have været forkert. En rolle, der altid siger "ser fint ud", holder man op med at læse — derfor er Security ikke fast, og derfor er en femte rolle, Spilføreren, kun rådgivende og kun på planen.</p>
+    </section>
+
+    <section id="mutation">
+      <h2>Mutationstest</h2>
+      <p>Grundantagelsen i huset: <em>antag, at dine egne tests bekræfter sig selv</em>. Koden og testene indkoder samme forståelse — også når den er forkert. Så en vagt i koden regnes først som dækket, når en bevidst ødelæggelse af den gør suiten rød. Det er testtilstrækkelighed målt direkte, ikke via dækningsprocent.</p>
+      <figure>
+        <div class="fig-wrap">
+          <svg viewBox="0 0 760 170" role="img" aria-label="Mutationsløkke: vend en vagt i koden, kør suiten; bliver den rød er mutanten dræbt og koden gendannes; bliver den grøn overlevede mutanten, og der skrives en test, før koden gendannes" font-family="Source Sans 3, sans-serif" font-size="12">
+            <defs>
+              <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+            </defs>
+            <rect x="10" y="60" width="130" height="48" rx="4" fill="none" stroke="currentColor"/>
+            <text x="75" y="80" text-anchor="middle" fill="currentColor" font-weight="600">Vend én vagt</text>
+            <text x="75" y="97" text-anchor="middle" fill="currentColor" opacity="0.75" font-family="JetBrains Mono, monospace" font-size="10">sed -i 's/&gt;/&gt;=/'</text>
+            <line x1="140" y1="84" x2="180" y2="84" stroke="currentColor" marker-end="url(#arr3)"/>
+            <rect x="182" y="60" width="130" height="48" rx="4" fill="none" stroke="currentColor"/>
+            <text x="247" y="80" text-anchor="middle" fill="currentColor" font-weight="600">Kør suiten</text>
+            <text x="247" y="97" text-anchor="middle" fill="currentColor" opacity="0.75">den relevante fil</text>
+            <line x1="312" y1="84" x2="352" y2="84" stroke="currentColor" marker-end="url(#arr3)"/>
+            <polygon points="354,84 414,54 474,84 414,114" fill="none" stroke="currentColor"/>
+            <text x="414" y="88" text-anchor="middle" fill="currentColor" font-weight="600">Rød?</text>
+            <line x1="474" y1="84" x2="514" y2="84" stroke="#2F8F5B" stroke-width="1.5" marker-end="url(#arr3)"/>
+            <text x="494" y="76" text-anchor="middle" fill="#2F8F5B" font-weight="600" font-size="11">ja</text>
+            <rect x="516" y="60" width="120" height="48" rx="4" fill="#2F8F5B" fill-opacity="0.15" stroke="#2F8F5B"/>
+            <text x="576" y="80" text-anchor="middle" fill="currentColor" font-weight="600">Dræbt</text>
+            <text x="576" y="97" text-anchor="middle" fill="currentColor" opacity="0.75">vagten er bevist</text>
+            <line x1="414" y1="114" x2="414" y2="140" stroke="#B5443C" stroke-width="1.5" marker-end="url(#arr3)"/>
+            <text x="428" y="132" fill="#B5443C" font-weight="600" font-size="11">nej</text>
+            <rect x="330" y="142" width="170" height="24" rx="4" fill="#B5443C" fill-opacity="0.12" stroke="#B5443C"/>
+            <text x="415" y="158" text-anchor="middle" fill="currentColor" font-weight="600">Overlevede → skriv testen</text>
+            <path d="M636,84 L700,84 L700,20 L75,20 L75,58" fill="none" stroke="currentColor" stroke-dasharray="4 3" marker-end="url(#arr3)"/>
+            <text x="390" y="14" text-anchor="middle" fill="currentColor" opacity="0.75" font-size="11">git checkout -- fil · næste mutant</text>
+          </svg>
+        </div>
+        <figcaption>Løkken køres pr. vagt, ikke pr. fil. Hver mutant er ét sed-udtryk mod den committede kode, og filen gendannes fra git mellem hver — derfor gælder reglen "commit først" før enhver gennemgang.</figcaption>
+      </figure>
+      <p>Tre mønstre, vi leder efter, fordi de er sluppet igennem før:</p>
+      <ul>
+        <li><strong>Et bånd, der rummer både før og efter, måler ingenting.</strong> En test krævede uafgjort mellem 13 og 20 %; den gamle værdi gav 13,7, den nye 16,1. Testen bestod med præcis den værdi, den skulle fange. Skriv båndet, så det bliver rødt af den gamle værdi.</li>
+        <li><strong>En test, der kun tjekker at noget blev vist, beviser ikke hvad der stod.</strong> Hele advarselsteksten i en bekræftelsesdialog kunne erstattes med "OK?" med grøn suite. Assertér på indholdet — og på det, der ikke må stå.</li>
+        <li><strong>Én vagt pr. sikkerhedsregel.</strong> To <code>if (!dryRun)</code> om samme skrivning betød, at den inderste kunne fjernes uden at noget blev rødt. Saml beslutningen ét sted, så en mutation af den bliver rød. Security fandt netop dette mønster igen i ugens PR: en indre og en ydre try om samme regel.</li>
+      </ul>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Eksempel fra ugens PR (live-målscorere)</th><th>Mutant</th><th>Udfald</th></tr></thead>
+          <tbody>
+            <tr><td>Kun kampe i gang må hentes</td><td>Filteret <code>erIGang</code> fjernet — alle kampe tælles</td><td><span class="pill pass">dræbt</span></td></tr>
+            <tr><td>Loft på 10 kald pr. kørsel</td><td><code>slice(0, loft)</code> fjernet</td><td><span class="pill pass">dræbt</span></td></tr>
+            <tr><td>Budgettet må ikke overskride jobbets timeout</td><td>Formlen uden overløbet på ét kald (den gamle)</td><td><span class="pill pass">dræbt</span></td></tr>
+            <tr><td>Et giftigt dokument koster én kamp, ikke aftenen</td><td>Per-kamp-vagten kaster videre</td><td><span class="pill pass">dræbt</span></td></tr>
+            <tr><td>Selvmål i skærmlæser-oplæsningen</td><td>Hjemme/ude-vendingen fjernet i kopien</td><td><span class="pill fail">overlevede</span> → én delt funktion + én test</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="data">
+      <h2>Miljøer og testdata</h2>
+      <p>Der er ingen delt testdatabase. Hvert niveau har sit eget svar på "hvor kommer data fra", og produktionen røres aldrig af en test.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Niveau</th><th>Afhængigheder</th><th>Testdata</th></tr></thead>
+          <tbody>
+            <tr><td>Frontend</td><td>Firebase er mocket helt; ingen netværk. Tiden fryses, fordi kampene ligger i kalenderen og en test ellers skifter betydning, når datoen passerer.</td><td>Små fixtures pr. test: kampe, tips, ligaer, brugere med roller.</td></tr>
+            <tr><td>Cloud Functions</td><td>En fake Firestore i hukommelsen, der efterligner where-kæder og batch-skrivninger — inklusive de fælder, den ægte SDK har (kast på <code>undefined</code>, <code>set</code> uden merge). <code>fetch</code> er en spion.</td><td>Ægte optagelser fra kilderne, committet som fixtures: en sæsonliste og kampe fra livescore, live-svar fra Superligaen og Premier League. Paritetstests binder parseren til dem.</td></tr>
+            <tr><td>Security Rules</td><td>Firestore-emulatoren i et demo-projekt. Reglerne testes mod ægte forespørgsler som spiller, liga-admin, admin og ejer.</td><td>Dokumenter seedes i emulatoren pr. test.</td></tr>
+            <tr><td>E2E</td><td>Den byggede app mod en lokal server; ingen backend.</td><td>Ingen — kun uautentificerede flows.</td></tr>
+            <tr><td>Produktion</td><td>Kun læsning. Et workflow med en læse-only service-account printer de dokumenter, en verifikation handler om.</td><td>Alt, der skriver i produktion (seed, bagfyldninger), har tør-kørsel som standard og kræver ejerens ord.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Måling er også testdata. Konstanter, der begrunder en adfærd (kadence, loft, budget), skal kunne føres tilbage til et script i <code>scripts/</code>, som målte tallet — "et tal uden kode er en påstand". Målescripterne har selv tests.</p>
+    </section>
+
+    <section id="prod">
+      <h2>Efter deploy: efterprøvning i drift</h2>
+      <p>Det, ISTQB placerer efter accepttesten, er hos os en fast del af hver ændring. To regler bærer det: <em>en funktion, der kun kan startes af en tilfældig hændelse, er ikke færdig</em> (der skal være en knap), og <em>en funktion, der kun kan fejle tavst, er heller ikke færdig</em> (der skal være et kort eller en alarm, hvor fejlen ville stå).</p>
+      <ul>
+        <li><strong>Drift-fanen</strong> i admin viser ét statuskort pr. skemalagt kørsel pr. spil — grønt, gult, rødt eller gråt "afventer første kørsel" — og åbne alarmer, der kræver kvittering. Listen over forventede kort afledes af spillenes egne felter, så en kørsel, ingen har set, aldrig kan gemme sig i et hul.</li>
+        <li><strong>Læse-only probe</strong>: workflowet "Kig på en kamp" printer facit, live-stilling, detaljer og tidsstempler for én kamp plus spillets kort og alarmer. Det er sådan, vi onsdag den 2. september målte, at målscorerne landede 0,7 sekunder efter facit på AGF–FCM — før ændringen kunne det tage en time.</li>
+        <li><strong>Sæsoneftersyn</strong> hver anden måned: det, der vokser stille mellem ændringerne — forbrug, bundle, forældede afhængigheder, advarsler i testoutputtet, og fladen selv gået igennem som bruger og som admin.</li>
+      </ul>
+    </section>
+
+    <section id="istqb">
+      <h2>ISTQB-ordbog</h2>
+      <p>Samme setup med syllabussens ord, så det er nemt at se, hvad der svarer til hvad — og hvor vi afviger.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Begreb</th><th>Hos os</th></tr></thead>
+          <tbody>
+            <tr><td>Komponenttest</td><td>Vitest-suiterne for frontend og Cloud Functions; afhængigheder mockes eller fakes.</td></tr>
+            <tr><td>Komponentintegrationstest</td><td>Security Rules mod emulatoren: klientens forespørgsel mod databasens regel. Husreglen "regler er ikke filtre" handler om præcis den grænse.</td></tr>
+            <tr><td>Systemtest</td><td>Playwright-røgtesten i Chromium. Bevidst tynd — se hullerne nedenfor.</td></tr>
+            <tr><td>Accepttest</td><td>Ejeren i produktion, understøttet af proben og Drift-fanen. Spilføreren vurderer på planen, om ændringen gør spillet sjovere — rådgivende, ejeren fælder dommen.</td></tr>
+            <tr><td>Statisk test</td><td>ESLint som statisk analyse; de fire reviewer-roller som review med defineret rolle, tjekliste og blokeringsret.</td></tr>
+            <tr><td>Testteknikker</td><td>Grænseværdianalyse på tal fra fremmede kilder (<code>heltal</code> tillader 0–999, et kamp-id 1–12 cifre), ækvivalensklasser på roller og tilstande, tilstandsovergange på kampen (åben → låst → i gang → slut → facit).</td></tr>
+            <tr><td>Testorakel</td><td>Paritet mellem spejlede filer, ægte optagelser fra kilderne, og krydsvalidering mod egne data (en målliste skrives kun, når kildens stilling stemmer med vores).</td></tr>
+            <tr><td>Regressionstest / bekræftelsestest</td><td>Hele suiten på hvert push; en rettelse får sin egen test, og en mutant, der skal blive rød.</td></tr>
+            <tr><td>Risikobaseret test</td><td><code>roller.mjs</code> udpeger reviewere ud fra, hvad diffen rører: regler og adgang udløser Security; ny brugerflade udløser Quality Control på planen, før koden skrives.</td></tr>
+            <tr><td>Exit-kriterier</td><td>Fire grønne CI-jobs, ingen blokerende fund, mutanter dræbt, Release Managers plan. Deploy er en del af "færdig", og det er efterprøvningen også.</td></tr>
+            <tr><td>Sporbarhed</td><td>PR-teksten bærer roller.mjs-udskriften, hver rolles konklusion og tallene. Fund, der ikke rettes nu, bliver nummererede opgaver.</td></tr>
+            <tr><td>Testdækning</td><td>Måles (v8), men er ikke en gate. Tilstrækkelighed måles med mutationstest i stedet.</td></tr>
+            <tr><td>Defekthåndtering</td><td>Rollernes fund graderes blokerende / bør / ok. Blokerende rettes før merge; resten bliver opgaver med begrundelse og fil:linje.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="huller">
+      <h2>Det, vi ved mangler</h2>
+      <p>En testmanager spørger med rette efter hullerne. Disse er kendte og nummererede:</p>
+      <ul>
+        <li><strong>E2E dækker kun Tour-appen, uautentificeret.</strong> Fire røgtests. Hele platform-fladen mangler systemtest med login; de autentificerede flows (opret → godkend → tip → resultat → point) kræver emulatorer og seedet data i CI.</li>
+        <li><strong>Skemalagte jobs kan ikke unit-testes i deres yderste lag.</strong> Alt, der kan tage fejl, trækkes ud i testbare moduler, og loggen er bagstopperen. Halen af minut-jobbet er stadig utestet og står som opgave.</li>
+        <li><strong>Et job uden søskende-job kan dø usynligt.</strong> Facit-synken har sweep'et som bagstopper; det nye live-mål-job har foreløbig kun sit grå kort. Alarmen er planlagt.</li>
+        <li><strong>Dokumenterede tal drifter.</strong> Testplanen i repoet havde forkerte tal i alle kolonner i to måneder. Løsningen var ikke nye tal, men at fjerne dem og lade Admin → Tests bære øjebliksbilledet med en advarsel ved ælde.</li>
+        <li><strong>Advarsler i testoutputtet læses ikke løbende.</strong> Suiten køres med <code>--silent</code>, fordi 91 % af outputtet var advarsler; de gennemgås i sæsoneftersynet i stedet. Det er en bevidst pris, ikke en forglemmelse.</li>
+      </ul>
+    </section>
+
+    <section id="hvor">
+      <h2>Hvor det ligger</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Hvad</th><th>Sti</th></tr></thead>
+          <tbody>
+            <tr><td>Arbejdsgang og husregler</td><td class="mono">CLAUDE.md</td></tr>
+            <tr><td>Testplan</td><td class="mono">docs/testing.md</td></tr>
+            <tr><td>CI-pipelinen</td><td class="mono">.github/workflows/ci.yml</td></tr>
+            <tr><td>Reviewer-rollerne og deres hukommelse</td><td class="mono">.claude/agents/ · .claude/agent-memory/</td></tr>
+            <tr><td>Rolle-udvælgeren (testet)</td><td class="mono">scripts/roller.mjs · scripts/lib/roller.mjs</td></tr>
+            <tr><td>Security Rules-tests</td><td class="mono">functions/rules.test.js · vitest.rules.config.js</td></tr>
+            <tr><td>E2E</td><td class="mono">e2e/smoke.spec.js · playwright.config.js</td></tr>
+            <tr><td>Fixtures fra ægte kilder</td><td class="mono">functions-platform/fixtures/</td></tr>
+            <tr><td>Produktions-proben (læse-only)</td><td class="mono">scripts/probe-kamp.mjs · .github/workflows/probe-kamp.yml</td></tr>
+            <tr><td>Testoversigten i appen</td><td class="mono">Admin → Tests · scripts/build-test-report.mjs</td></tr>
+            <tr><td>Drift og alarmer</td><td class="mono">docs/drift.md · Admin → Drift</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="foot">Kør det selv: <code>npx vitest run --silent</code> (frontend), <code>npm --prefix functions test</code> og <code>npm --prefix functions-platform test -- --silent</code> (server), <code>firebase emulators:exec --only firestore "npm run test:rules" --project demo-vm2026</code> (regler), <code>npm run test:e2e</code> (browser). Filtrér aldrig, hvilke tests der køres, når kørslen skal bære et "grøn suite"-udsagn.</p>
+    </section>
+  </main>
+</div>
+</body>
+</html>
