@@ -122,10 +122,11 @@ invarianter står i `superliga.test.js` — bliver én tilstand væk, er testene
 oven på det grønne uden at måle noget.
 
 Det deler hold, rundenumre, spiller-id'er og point med E2E-seedet
-(`e2e/fixtures/konstanter.mjs`), og kamp-id'erne kommer af samme
-`buildMatches`, så en Playwright-spec og en Vitest-test taler om den samme
-kamp. Formen er forskellig: Vitest bruger `Date` og en frossen systemtid
-(`NU`), emulatoren `Timestamp` relativt til seed-tiden.
+(`e2e/fixtures/konstanter.mjs`), og kamp-id'erne dannes af samme `matchId`,
+så id-formatet er ens — men kampopstillingerne er IKKE de samme: seedet
+bygger sine egne runder, og Vitest-scenariet sine (det har en efterslæber,
+seedet har ikke). Formen er også forskellig: Vitest bruger `Date` og en
+frossen systemtid (`NU`), emulatoren `Timestamp` relativt til seed-tiden.
 
 Baggrunden: «Næste kamp låser om» ignorerede udsatte kampe i månedsvis, fordi
 ingen fixture havde en efterslæber — hver test byggede sin egen, pæne runde.

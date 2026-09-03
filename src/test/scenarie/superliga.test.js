@@ -68,7 +68,10 @@ describe('Superliga-scenariet bærer begge tilstande af hver gate', () => {
     expect(S.ligaer.length).toBe(2);
   });
 
-  it("deler kamp-id'er og hold med emulator-seedet (matchId over de samme hold)", () => {
+  it("bruger seedets hold og seedets id-format (matchId) — ikke seedets kampopstilling", () => {
+    // QC: dette er IKKE en paritetstest mod seed-e2e.mjs (den importerer
+    // firebase-admin). Den holder fast i, at holdene er de delte, og at
+    // id'erne følger samme funktion — så et id fra en E2E-spec kan genkendes.
     expect(S.spil.teams.map((t) => t.name)).toEqual(HOLD.map((h) => h.name));
     for (const m of S.kampe) expect(m.id).toBe(matchId(m));
     expect(S.kampe.every((m) => m.odds && m.odds[1] > 1)).toBe(true);

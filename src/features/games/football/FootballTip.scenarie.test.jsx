@@ -24,10 +24,18 @@ vi.mock('../../../lib/share', () => ({ shareText: vi.fn().mockResolvedValue({ ok
 
 import FootballTip from './FootballTip';
 
-function opsaet(overrides = {}, url = `/spil/e2e-liga`) {
+/** Spillets stilling, som useVisibleGameStandings ville levere den: alle tre aktive spillere, rangeret. */
+function stilling(S) {
+  return S.spillere.filter((p) => !p.forladt)
+    .sort((a, b) => b.totalPoints - a.totalPoints)
+    .map((p, i) => ({ uid: p.uid, name: p.displayName, totalPoints: p.totalPoints, rank: i + 1 }));
+}
+
+function opsaet(overrides = {}, url = `/spil/e2e-liga`, { ligaer } = {}) {
   const S = scenarie(overrides);
+  const leagues = ligaer ?? S.ligaer;
   mockBets.mockReturnValue({ betsByMatch: S.tips, loading: false });
-  mockStandings.mockReturnValue({ standings: [], leagues: S.ligaer, leagueCount: S.ligaer.length, loading: false, error: null });
+  mockStandings.mockReturnValue({ standings: stilling(S), leagues, leagueCount: leagues.length, loading: false, error: null });
   vi.setSystemTime(S.nu);
   const r = render(
     <MemoryRouter initialEntries={[url]}>
@@ -103,6 +111,42 @@ describe('FootballTip på det fælles scenarie', () => {
     unmount();
     opsaet({ spil: { startRound: undefined } }, `/spil/e2e-liga?runde=17`);
     expect(screen.getByTestId('round-nav-count')).toHaveTextContent('Runde 17 af');
+  });
+
+  it('runde 18 er afgjort og tippet: facit-blokken siger 1/2 ramt og +1 — ikke på runde 20, som ikke er afgjort', () => {
+    // Test Managers hul: scenariet bar en afgjort runde med tips, men ingen test gik derhen.
+    const { container, unmount } = opsaet({}, `/spil/e2e-liga?runde=18`);
+    const facit = container.querySelector('.facit');
+    expect(facit).not.toBeNull();
+    expect(facit).toHaveTextContent('Runde 18 · facit');
+    expect(facit).toHaveTextContent('1/2 ramt');
+    expect(facit).not.toHaveTextContent('mangler endnu');
+    unmount();
+    opsaet();
+    expect(container.querySelector('.facit')).toBeNull();
+  });
+
+  it('chancen sidder på den LÅNTE kamp (pillen viser indsats 1) — den igangværende viser sin live-stilling uden chance', () => {
+    const { container, S } = opsaet();
+    const kort = [...container.querySelectorAll('.match-card')];
+    const laant = kort.find((k) => k.className.includes('match-card--udenfor'));
+    const igang = kort.find((k) => k.textContent.includes(S.noegle.igang.home) && !k.className.includes('match-card--udenfor'));
+    expect(laant.querySelector('.chance-pill')).toHaveTextContent('⚡ Chancen · indsats 1');
+    expect(igang.querySelector('.chance-pill')).toBeNull();
+    // Den igangværende er låst, men viser live-stillingen (1 – 0) i stedet for et «Låst»-mærke.
+    expect(igang).toHaveTextContent('1 – 0');
+    expect(laant).not.toHaveTextContent('Låst');
+    expect(laant).not.toHaveTextContent('1 – 0');
+  });
+
+  it('liga-skalaen: med KUN min liga er jeg nr. 2 af 2 (den fremmede med 9 point er ude); med begge ligaer gælder spillets skala — nr. 3 af 3', () => {
+    const minLiga = scenarie().ligaer[0];
+    const { container, unmount } = opsaet({}, `/spil/e2e-liga?runde=18`, { ligaer: [minLiga] });
+    expect(container.querySelector('.facit__rank')).toHaveTextContent('Du er nr. 2 af 2');
+    expect(container.querySelector('.facit__rank')).not.toHaveTextContent('af 3');
+    unmount();
+    const r = opsaet({}, `/spil/e2e-liga?runde=18`);
+    expect(r.container.querySelector('.facit__rank')).toHaveTextContent('Du er nr. 3 af 3');
   });
 
   it('når alt på runde 20 (inkl. den lånte) er spillet, forsvinder tælleren — den siger ikke "om 0 t"', () => {
