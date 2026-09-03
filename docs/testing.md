@@ -156,10 +156,13 @@ og seeder to brugere, ét spil og fire kampe med kickoff relativt til nu, og
 Firebase Auth bor). Testene skriver og læser gennem de ægte `firestore.rules`:
 - Godkendt spiller lander på `/spil` og kan åbne sit spil (Deltag-kortet vises ikke)
 - Et X-tip på en åben kamp vises i Mine tips med præcis det bogstav
-- Kampe med passeret kickoff kan ikke tippes: knapperne er låst, OG et klik ændrer intet
+- Kampe med passeret kickoff kan ikke tippes: knapperne er låst, og ligaens tips vises i stedet
+- Ny bruger opretter sig → /afventer → ejeren godkender under Admin → Brugere → brugeren
+  kommer ind uden genindlæsning (to browser-contexts, ejerens login gemt af setup)
+- Stillingen viser præcis liga-kammeraterne med serverens point, i rækkefølge, og uden
+  fejl i konsollen (fixturen har en liga med spiller og medspiller)
 
-Mangler stadig som systemtest: opret → /afventer → ejeren godkender, og
-stillingen efter facit (kræver liga i fixturen).
+Ikke dækket: callables (Chancen, synk), Tour-flows (spillet er afsluttet).
 
 ## CI-pipeline
 `.github/workflows/ci.yml` kører fire parallelle jobs på hvert push/PR:

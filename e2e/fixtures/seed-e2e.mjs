@@ -2,9 +2,12 @@
 // e2e/fixtures/seed-e2e.mjs — Playwrights globalSetup: seeder emulatorerne.
 //
 // Kører én gang før alle tests. Rydder Auth- og Firestore-emulatoren helt og
-// skriver et deterministisk lille univers: to brugere (godkendt spiller og
-// ejer), ét fodboldspil med fire hold, en runde med kickoff i fortiden (låst,
-// med facit) og en runde med kickoff i fremtiden (kan tippes).
+// skriver et deterministisk lille univers: tre brugere (godkendt spiller,
+// medspiller og ejer), ét fodboldspil med fire hold, en runde med kickoff i
+// fortiden (låst, med facit) og en runde med kickoff i fremtiden (kan tippes),
+// samt én liga med spiller og medspiller — med point skrevet direkte på
+// players-dokumenterne, som kun serveren ellers må (stillingen viser kun dem,
+// man deler liga med, så uden ligaen er den tom uden fejl).
 //
 // KICKOFF BEREGNES VED SEED-TID (nu ± timer/dage), så fixturen er åben
 // uanset dato. Og den skrives som Firestore-Timestamp: firestore.rules
@@ -22,7 +25,8 @@
 import admin from 'firebase-admin';
 import { buildMatches } from '../../src/lib/superligaSeed.js';
 import {
-  PROJEKT, SPILLER, EJER, SPIL_ID, SPIL_NAVN, AABEN_RUNDE, LAAST_RUNDE,
+  PROJEKT, SPILLER, EJER, MODSPILLER, SPIL_ID, SPIL_NAVN, AABEN_RUNDE, LAAST_RUNDE,
+  LIGA_ID, LIGA_NAVN, POINT,
 } from './konstanter.mjs';
 
 const TIME = 60 * 60 * 1000;
@@ -89,7 +93,7 @@ export default async function seed() {
 
   // Brugere: Auth-konto + offentlig profil + privat kontakt — samme tre
   // dokumenter, som signup (useAuthActions.js) og bootstrap-owner.mjs skriver.
-  for (const [bruger, role] of [[SPILLER, 'player'], [EJER, 'owner']]) {
+  for (const [bruger, role] of [[SPILLER, 'player'], [MODSPILLER, 'player'], [EJER, 'owner']]) {
     await auth.createUser({
       uid: bruger.uid, email: bruger.email, password: bruger.password,
       displayName: bruger.displayName, emailVerified: true,
@@ -124,11 +128,22 @@ export default async function seed() {
       ...(homeGoals != null ? { homeGoals, awayGoals, status: 'finished' } : {}),
     });
   }
-  // Spilleren deltager allerede — samme to felter som joinGame skriver.
-  batch.set(db.collection('games').doc(SPIL_ID).collection('players').doc(SPILLER.uid), {
-    uid: SPILLER.uid, joinedAt: FieldValue.serverTimestamp(),
+  // Spiller og medspiller deltager allerede (uid + joinedAt som joinGame
+  // skriver) og deler én liga. leagueIds og totalPoints er serverens felter —
+  // reglerne afviser dem fra klienten, så de kan kun komme fra et seed.
+  const spil = db.collection('games').doc(SPIL_ID);
+  for (const b of [SPILLER, MODSPILLER]) {
+    batch.set(spil.collection('players').doc(b.uid), {
+      uid: b.uid, joinedAt: FieldValue.serverTimestamp(),
+      leagueIds: [LIGA_ID], totalPoints: POINT[b.uid],
+    });
+  }
+  // Samme felter som createLeague skriver, plus det andet medlem.
+  batch.set(spil.collection('leagues').doc(LIGA_ID), {
+    name: LIGA_NAVN, ownerUid: SPILLER.uid, memberUids: [SPILLER.uid, MODSPILLER.uid],
+    code: 'E2E-KODE', createdAt: FieldValue.serverTimestamp(),
   });
   await batch.commit();
   await app.delete();
-  console.log(`seed-e2e: ${kampe.length} kampe, 2 brugere, spil ${SPIL_ID} i ${PROJEKT}`);
+  console.log(`seed-e2e: ${kampe.length} kampe, 3 brugere, 1 liga, spil ${SPIL_ID} i ${PROJEKT}`);
 }
