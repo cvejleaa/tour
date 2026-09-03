@@ -27,18 +27,12 @@ import { buildMatches } from '../../src/lib/superligaSeed.js';
 import {
   PROJEKT, SPILLER, EJER, MODSPILLER, FREMMED, SPIL_ID, SPIL_NAVN, AABEN_RUNDE, LAAST_RUNDE,
   LIGA_ID, LIGA_NAVN, FREMMED_LIGA_ID, POINT,
+  HOLD,
 } from './konstanter.mjs';
 
 const TIME = 60 * 60 * 1000;
 const DAG = 24 * TIME;
 
-/** Fire opdigtede hold. Elo-tallene giver odds via buildMatches. */
-const HOLD = [
-  { name: 'Alfa BK', short: 'ALF', elo: 1550 },
-  { name: 'Beta IF', short: 'BET', elo: 1500 },
-  { name: 'Gamma FC', short: 'GAM', elo: 1480 },
-  { name: 'Delta BK', short: 'DEL', elo: 1420 },
-];
 
 /** Vent på at en emulator svarer — Java-opstarten kan tage 10-20 s i CI. */
 async function ventPaa(url, navn, forsoeg = 15) {

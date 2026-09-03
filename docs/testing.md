@@ -109,6 +109,29 @@ Holder kørslen op med at virke, siger fanen selv fra: er det ældste af de tre
 Uden den stod tallene fra 27. juni 2026 i over to måneder og påstod 73 filer,
 mens suiten var vokset til 252.
 
+## Det fælles Superliga-scenarie
+
+`src/test/scenarie/superliga.js` er ét rodet scenarie, som tip-fladens og
+spiloversigtens tests kører på (`FootballTip.scenarie.test.jsx`,
+`GamesPage.scenarie.test.jsx`), og som invariant-testene bygger videre på.
+Det bærer BEGGE tilstande af hver gate på én gang: låste og ulåste kampe i
+samme runde, en lånt kamp fra runde 19, der låser før runde 20's egne, en
+afgjort runde med tips, en runde før `startRound`, en liga jeg er med i og
+en jeg ikke er, spillere med point og en forladt spiller. Scenariets egne
+invarianter står i `superliga.test.js` — bliver én tilstand væk, er testene
+oven på det grønne uden at måle noget.
+
+Det deler hold, rundenumre, spiller-id'er og point med E2E-seedet
+(`e2e/fixtures/konstanter.mjs`), og kamp-id'erne kommer af samme
+`buildMatches`, så en Playwright-spec og en Vitest-test taler om den samme
+kamp. Formen er forskellig: Vitest bruger `Date` og en frossen systemtid
+(`NU`), emulatoren `Timestamp` relativt til seed-tiden.
+
+Baggrunden: «Næste kamp låser om» ignorerede udsatte kampe i månedsvis, fordi
+ingen fixture havde en efterslæber — hver test byggede sin egen, pæne runde.
+Nye tests af tip-fladen bør starte her og vippe én knap (`scenarie({ nu,
+spil })`) frem for at bygge endnu en runde fra bunden.
+
 ## Sådan køres testene
 
 Antallet står bevidst ikke i kommentarerne — se ovenfor.
