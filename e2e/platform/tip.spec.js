@@ -14,10 +14,13 @@ test('et X-tip på en åben kamp vises i Mine tips', async ({ page }) => {
   const x = kort.locator('.pick').filter({ has: page.locator('.pick__label', { hasText: /^X$/ }) });
   await expect(x).toBeEnabled();
   await x.click();
+  // En regel-afvisning kaster ikke — den vises som rød badge, og knappen
+  // bliver aldrig valgt. Vent på det første af de to udfald, og læs så
+  // badgen FØR klassen: ellers fejler testen på "manglende klasse" uden at
+  // sige hvorfor (Test Manager tvang en afvisning og så præcis det).
+  await expect(page.locator('.pick--selected, .badge--red').first()).toBeVisible();
+  expect(await page.locator('.badge--red').allTextContents(), 'regel-afvisning vist som rød badge').toEqual([]);
   await expect(x).toHaveClass(/pick--selected/);
-  // En regel-afvisning kaster ikke — den vises som rød badge. Uden denne
-  // assertion ville permission-denied være en tavs timeout.
-  await expect(page.locator('.badge--red')).toHaveCount(0);
 
   await page.getByRole('tab', { name: 'Mine tips' }).click();
   const runde = page.locator('.card', { hasText: `Runde ${AABEN_RUNDE}` }).first();
