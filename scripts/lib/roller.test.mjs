@@ -55,6 +55,8 @@ describe('Security Reviewer — kun når adgang røres', () => {
     ['src/features/admin/UsersTab.jsx', 'admin-flade'],
     ['src/features/games/gameLeagueActions.js', 'invitationer'],
     ['.github/workflows/ci.yml', 'CI-workflow'],
+    ['.github/dependabot.yml', 'afhængigheder'],
+    ['.env.e2e', 'env-fil'],
   ])('kræves af %s', (fil) => {
     expect(navne([fil])).toContain('Security Reviewer');
   });

@@ -12,8 +12,10 @@
 // fejle lukket — tavs afvisning, ikke en fejl.
 //
 // KØRER ALDRIG MOD PRODUKTION. Scriptet nægter at starte, hvis
-// GOOGLE_APPLICATION_CREDENTIALS er sat, og det taler kun med de emulator-
-// værter, det selv sætter. GCLOUD_PROJECT sættes hårdt til emulator-projektet:
+// GOOGLE_APPLICATION_CREDENTIALS er sat, og det taler kun med emulator-værter
+// på den lokale maskine: en FIRESTORE_EMULATOR_HOST, der peger andetsteds hen,
+// afvises (Security kørte en sink-server og modtog både DELETE-kaldene og
+// brugeroprettelsen — over plain HTTP). GCLOUD_PROJECT sættes hårdt:
 // firebase.json har singleProjectMode, og et andet projekt-id ville lægge
 // data i et navnerum, appen aldrig ser — tom database uden fejl.
 // ---------------------------------------------------------------------------
@@ -46,12 +48,21 @@ async function ventPaa(url, navn, forsoeg = 15) {
   throw new Error(`${navn} svarer ikke på ${url} efter ${forsoeg} forsøg`);
 }
 
+/** Kun den lokale maskine. Alt andet er ikke en emulator, vi kender. */
+export function erLokalVaert(host) {
+  const navn = String(host || '').replace(/^\[?(.*?)\]?:\d+$/, '$1');
+  return ['localhost', '127.0.0.1', '::1'].includes(navn);
+}
+
 export default async function seed() {
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     throw new Error('seed-e2e nægter at køre med GOOGLE_APPLICATION_CREDENTIALS sat — den er kun til emulatorer.');
   }
   const FIRESTORE = process.env.FIRESTORE_EMULATOR_HOST || 'localhost:8080';
   const AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST || 'localhost:9099';
+  for (const [navn, host] of [['FIRESTORE_EMULATOR_HOST', FIRESTORE], ['FIREBASE_AUTH_EMULATOR_HOST', AUTH]]) {
+    if (!erLokalVaert(host)) throw new Error(`seed-e2e: ${navn}=${host} er ikke en lokal vært — nægter at rydde og seede der.`);
+  }
   process.env.FIRESTORE_EMULATOR_HOST = FIRESTORE;
   process.env.FIREBASE_AUTH_EMULATOR_HOST = AUTH;
   process.env.GCLOUD_PROJECT = PROJEKT;

@@ -33,9 +33,13 @@ const SIKKERHED = [
   { m: /[Ll]eagueActions/, hvorfor: 'liga-medlemskab (afgør hvem der ser hvis tips)' },
   { m: /^src\/features\/admin\//, hvorfor: 'admin-flade (adgang til andres data)' },
   // Workflows bærer hemmeligheder (service accounts, tokens) og afgør, hvad der
-  // kan deployes hvorfra. Ingen af de andre mønstre ramte .github/, så et
-  // ændret CI-job gik uden om Security — fundet, da E2E fik emulatorer i CI.
-  { m: /^\.github\/workflows\//, hvorfor: 'CI-workflow — hemmeligheder og udrulningsrettigheder' },
+  // kan deployes hvorfra; dependabot.yml og CODEOWNERS styrer, hvad der kommer
+  // ind og hvem der skal godkende. Ingen af de andre mønstre ramte .github/, så
+  // et ændret CI-job gik uden om Security — fundet, da E2E fik emulatorer i CI.
+  { m: /^\.github\//, hvorfor: '.github — CI, hemmeligheder, afhængigheder og review-krav' },
+  // .env.e2e afgør, om App Check springes over og hvilke værter appen taler
+  // med. Et env-fil-navn indeholder hverken "auth" eller "rules".
+  { m: /^\.env/, hvorfor: 'env-fil — afgør hvad appen bygges mod' },
 ];
 
 /**

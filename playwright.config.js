@@ -7,8 +7,10 @@ import { SPILLER_STATE } from './e2e/fixtures/konstanter.mjs';
 //                login-UI, validering. Kører uden backend — `npm run test:e2e`.
 //  - platform    (port 4174): platformen (tip.vejleaa.dk) bygget i mode "e2e"
 //                (.env.e2e: emulatorer, platform-tilstand) mod Firebase Auth-
-//                og Firestore-emulatoren. globalSetup seeder brugere og et spil;
-//                platform-setup logger ind gennem fladen og gemmer tilstanden.
+//                og Firestore-emulatoren. platform-setup seeder emulatorerne,
+//                logger ind gennem fladen og gemmer tilstanden. Seedet ligger
+//                DÉR og ikke i globalSetup, så `npm run test:e2e` (kun
+//                tour-smoke) aldrig venter på emulatorer, der ikke kører.
 //                `npm run test:e2e:emu` starter emulatorerne omkring det hele.
 //
 // Playwright starter ALLE webServer-entries uanset --project, så begge builds
@@ -20,7 +22,6 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [['html', { open: 'never' }], ['list']],
-  globalSetup: './e2e/fixtures/seed-e2e.mjs',
   use: {
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',

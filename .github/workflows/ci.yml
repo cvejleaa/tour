@@ -5,6 +5,12 @@ on:
     branches: [main, master]
   pull_request:
 
+# Alle fire jobs læser kun. GITHUB_TOKEN arver ellers repoets default, og to af
+# jobbene installerer hele firebase-tools-træet upinnet — jo mindre tokenet kan,
+# jo mindre kan en afhængighed.
+permissions:
+  contents: read
+
 # Kør GitHub's JavaScript-actions på Node 24 (Node 20 udfases)
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

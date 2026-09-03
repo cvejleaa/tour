@@ -53,7 +53,9 @@ export default defineConfig(({ mode }) => {
         VITE_FIREBASE_PROJECT_ID: 'demo-vm2026',
         VITE_FIREBASE_APP_ID: '1:000000000000:web:demo',
       },
-      include: ['src/**/*.{test,spec}.{js,jsx}', 'scripts/**/*.{test,spec}.mjs'],
+      // e2e/**/*.test.mjs er enhedstests af E2E-hjælperne (fx seedets værts-
+      // vagt) — IKKE Playwright-specs, som hedder *.spec.js og køres af Playwright.
+      include: ['src/**/*.{test,spec}.{js,jsx}', 'scripts/**/*.{test,spec}.mjs', 'e2e/**/*.test.mjs'],
       coverage: {
         provider: 'v8',
         reporter: ['text', 'html', 'lcov'],
