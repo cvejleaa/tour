@@ -874,3 +874,78 @@ faktisk blive nået af, og findes det input i noget fixture?
   forbliver meningsfuld: en statisk fil i `public/` rammes af Firebase
   Hosting FØR SPA-rewrite'en og påvirker aldrig React Router-fallbacket, som
   testen dækker.
+
+## E2E mod Auth-/Firestore-emulatoren — platform (commit 41c6ecb, sep 2026)
+
+- **Lokal kørsel kræver en ROD-`.env`, ellers "grøn" er en fejlfortolkning.**
+  `e2e/tour/smoke.spec.js` forventer Tour-branding ("Tour de France Tip"), men
+  uden `.env` i repo-roden falder Vite tilbage til en anden branding-gren, og
+  alle fire tour-smoke-tests bliver røde — INTET med E2E-diffen selv at gøre.
+  CI skriver `.env` eksplicit (`ci.yml` "Skriv dummy .env"-step); lokalt skal
+  man gøre det samme FØR man konkluderer noget. Opdaget, fordi min første
+  lokale kørsel viste 4 røde/4 grønne, og jeg nær havde tilskrevet det
+  ændringen selv.
+- **`page.locator(x).dispatchEvent('click')` på en DISABLED React-knap når
+  ALDRIG frem til `onClick`** — bekræftet med en tæller (`window.__pickCalled`)
+  i `pick()` (`FootballTip.jsx:315`): forblev `undefined` efter dispatchEvent.
+  Men et ÆGTE Playwright `.click()` PÅ EN KNAP, HVOR `disabled`-PROP'EN ER
+  FJERNET (mens `pick()`s egen `isLocked`-vagt stadig står), NÅR handleren og
+  bliver korrekt blokeret af `pick()`s vagt — bekræftet ved kun at fjerne
+  `disabled={locked || …}` og se testen forblive grøn på et ægte `.click()`.
+  Konklusion: `laas.spec.js`s nuværende `dispatchEvent('click')`-assertion
+  beviser KUN, at `disabled`-attributten findes i DOM'en — den beviser INTET
+  om `pick()`s egen vagt (linje 315), som forblev 100 % udækket, selv efter
+  at fjerne den HELT (hele suiten forblev grøn ved den mutation). For at
+  teste selve vagten skal testen enten (a) fjerne `disabled`-attributten via
+  `page.evaluate` FØR et ægte `.click()` (simulerer "hvad hvis en fremtidig
+  regression glemmer at forbinde `locked` til `disabled`"), eller (b) et
+  komponent-/enhedstest-niveau, der kalder `onClick`-funktionen direkte. Tjek
+  næste gang en "disabled + klik ændrer intet"-E2E-test skrives: skeln
+  eksplicit mellem "browseren blokerer klikket" og "min egen kode blokerer
+  klikket" — de er IKKE samme bevis.
+- **En fraværs-assertion, der står EFTER en anden assertion i samme
+  kodesti, kan være uigenkaldeligt uopnåelig.** `tip.spec.js` (linje 17-20):
+  `await expect(x).toHaveClass(/pick--selected/)` efterfulgt af
+  `await expect(page.locator('.badge--red')).toHaveCount(0)`, med kommentaren
+  "uden denne assertion ville permission-denied være en tavs timeout".
+  Bevist forkert ved mutation: tvang en ægte regel-afvisning (tilføjede
+  `points: 0` til skrivningen i `betActions.js` — rammer
+  `firestore.rules:1008`s `!hasAny(['points'])`), og testen fejlede PRÆCIST
+  på `toHaveClass`-linjen (med en klar "Received string: 'pick'"-diff, IKKE
+  en tavs timeout — kommentaren overdriver dét punkt), FØR `badge--red`-
+  linjen overhovedet blev nået. `badge--red`-assertionen kører derfor KUN i
+  succes-sporet, hvor den trivielt er sand (ingen fejl opstod) — den
+  tilføjer reelt ingen diagnostisk værdi i det afvisnings-spor, kommentaren
+  hævder at dække. For at gøre det bevist skal rækkefølgen vendes (tjek
+  badge--red FØR/uafhængigt af pick--selected). Mønster: en kommentar, der
+  begrunder en assertion med "ellers ville X være en tavs timeout", skal
+  selv mutationsbevises — ikke kun antages, fordi den lyder rigtigt.
+- **`firestore.rules`-krav, som klienten selv opfylder korrekt (fx
+  `betId == uid + '_' + matchId`, linje 1006), giver ALTID grøn E2E, hvis
+  kravet fjernes** — mutationsbevist (fjernede linjen, suiten forblev 8/8
+  grøn). Det er forventet og IKKE et hul: E2E (uden en ondsindet klient) kan
+  kun bevise ACCEPT af en lovlig skrivning, aldrig AFVISNING af en ulovlig
+  en — den slags hører til `functions/rules.test.js` mod emulatoren med en
+  bevidst forkert klient-nyttelast (Security Reviewers bord).
+- **`scripts/lib/roller.test.mjs`s nye `.github/workflows/ci.yml`-række er
+  reelt mutationsbevist**: fjern `{ m: /^\.github\/workflows\// }` fra
+  `SIKKERHED` i `roller.mjs`, og præcis den ene test
+  ("kræves af .github/workflows/ci.yml") bliver rød — resten upåvirket.
+  Et rent, isoleret gate-mønster; ingen skjult overlap med andre regler.
+- **`players/{uid}`-udeladelse i seed OG manglende `indexedDB: true` i
+  `auth.setup.js` giver begge korrekt røde platform-tests — men
+  `spiloversigt.spec.js` fejler i BEGGE tilfælde på en 30 s TEST-TIMEOUT
+  (`locator.click: Test timeout of 30000ms exceeded`), ikke på en hurtig,
+  navngivet assertion.** Årsagen: testen bruger
+  `.getByRole('link', {name: 'Åbn spil: …'}).click()` — når linket ikke
+  findes (spilleren er enten slet ikke logget ind, eller mangler
+  `players`-dokumentet og spillet derfor vises som "Deltag i …" i stedet for
+  "Åbn spil: …", jf. `GamesPage.jsx:56-94`), venter `.click()`'s indbyggede
+  actionability-polling hele test-timeout'et ud, FØR fejlen rapporteres.
+  `laas.spec.js` og `tip.spec.js` fejler samme rod-årsag på 5,3-5,5 s (hurtig,
+  fordi de bruger `expect(...).toHaveText(...)` med default 5 s
+  assertion-timeout, ikke en bar `.click()`). Skriv næste gang en E2E-test,
+  der klikker et element, som kan MANGLE: sæt en eksplicit, kort
+  `await expect(link).toBeVisible({timeout: 5000})` FØR `.click()`, så
+  fejlen kommer hurtigt og med en klar årsag — ikke som en 30 s
+  "timeout uden forklaring", der ligner en hængende server.
