@@ -15,6 +15,11 @@
 // er 1:1 (den lånte kamp om 1 t, den igangværende 16 t siden) — samme greb
 // som e2e/fixtures/seed-e2e.mjs.
 //
+// BRUGERNE ER GODKENDTE. Alle seedes med status 'approved' — også den nye:
+// ProtectedRoute (src/components/ProtectedRoute.jsx:10) sender enhver
+// ikke-godkendt til /afventer, så ingen pending-bruger ser Deltag-knappen.
+// Invarianten gælder derfor kun godkendte, og det er den rigtige afgrænsning.
+//
 // KRÆVER emulator: firebase emulators:exec --only firestore "npm run test:rules"
 // ---------------------------------------------------------------------------
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
@@ -22,7 +27,7 @@ import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebas
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { setDoc, doc, updateDoc, deleteField, serverTimestamp, Timestamp, collection } from 'firebase/firestore';
+import { setDoc, doc, getDoc, updateDoc, deleteField, serverTimestamp, Timestamp, collection } from 'firebase/firestore';
 import { scenarie, NU, FORLADT } from '../src/test/scenarie/superliga.js';
 import { isLocked } from '../src/features/games/football/footballRounds.js';
 import { SPILLER, MODSPILLER, FREMMED, EJER, SPIL_ID, LIGA_ID } from '../e2e/fixtures/konstanter.mjs';
@@ -117,13 +122,17 @@ describe('4a — fladen tilbyder ⇔ reglerne tillader', () => {
     const S = await seedScenarie();
     const nuMs = NU.getTime();
     for (const m of [S.noegle.laant, S.noegle.aaben, ...S.noegle.afgjort]) {
+      // Dokumentet SKAL findes, ellers er skrivningen en oprettelse, og testen
+      // måler create-reglen i stedet for update-reglen (Security-fund). Egne
+      // tips må altid læses.
+      expect((await getDoc(betDoc(SPILLER.uid, m))).exists(), `${m.id} er seedet`).toBe(true);
       const fladen = !isLocked(m, nuMs);
       const regler = await tilladt(skrivTip(SPILLER.uid, m, '2', [LIGA_ID]));
       expect(regler, m.id).toBe(fladen);
     }
   });
 
-  it('medlemsgaten: hele tip-fladen skjules for forladt og ikke-medlem — og reglerne afviser præcis dem', async () => {
+  it('medlemsgaten: hele tip-fladen skjules for forladt og for en uden players-dokument — og reglerne afviser præcis dem (den fremmede i en anden liga er stadig medlem)', async () => {
     const S = await seedScenarie();
     const m = S.noegle.aaben; // ulåst — så det KUN er medlemskabet, der afgør svaret
     const tilfaelde = [
@@ -161,7 +170,11 @@ describe('4a — fladen tilbyder ⇔ reglerne tillader', () => {
     // Fladen tilbyder ⚡ kun for tippede, ulåste kampe (FootballTip.jsx:1103) — den lånte er sådan én.
     expect(!isLocked(S.noegle.laant, NU.getTime()) && S.tips[S.noegle.laant.id]?.pick).toBeTruthy();
     // …og alligevel: en direkte skrivning af chanceStake afvises. Kun callable'en setGameChance må.
+    expect((await getDoc(betDoc(SPILLER.uid, S.noegle.laant))).exists()).toBe(true);
     await assertFails(updateDoc(betDoc(SPILLER.uid, S.noegle.laant), { chanceStake: 3 }));
+    // Kontrol på SAMME dokument og samme update-gren: uden chance-feltet går rettelsen igennem,
+    // så det er writingChanceFields-vagten, der afviser — ikke kickoff, medlemskab eller ligaer.
+    await assertSucceeds(skrivTip(SPILLER.uid, S.noegle.laant, '2', [LIGA_ID]));
     await assertFails(setDoc(betDoc(MODSPILLER.uid, S.noegle.aaben), { ...tipPayload(MODSPILLER.uid, S.noegle.aaben, '1'), chanceStake: 1 }));
     // Kontrol: samme skrivning uden chance-feltet går igennem — så det er FELTET, der afvises, ikke tippet.
     await assertSucceeds(skrivTip(MODSPILLER.uid, S.noegle.aaben, '1'));
