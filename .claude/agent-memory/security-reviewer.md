@@ -1292,6 +1292,36 @@
   opfylder reglen. En "regler er ikke filtre"-test SKAL have et dokument, som
   reglen ville afvise.
 
+- **Fladedækningen (PR #214, 487fe39) er ren — hele kæden efterprøvet.**
+  `src/data/fladeDaekning.json` (116 KB, 438 elementer) indeholder KUN
+  kildekode-afledt data: `fil:linje:kolonne`, tag/type, komponentnavn, statisk
+  tekst (aria-label/title/placeholder/knaptekst/data-testid) og TESTFILNAVNE.
+  Gennemsøgt: nul URL'er, nul hemmeligheder, ingen ægte mailadresser — de fem
+  hits (`din@email.dk`, `mor@example.com` m.fl.) er placeholder-attributter,
+  der allerede står i kildekoden. `flet()` skriver kun `post.testfil`, ikke
+  `post.test`, så testNAVNE (som står i NDJSON-loggen) når ALDRIG filen.
+  Marginal lækage mod status quo ≈ 0: `testReport.json` (669 KB, i produktion
+  siden juni) rummer allerede alle 4169 testnavne og filstier, og AdminPage-
+  chunken er alligevel hentbar af enhver med bundtet.
+- **Tappen i `src/test/setup.js` når ikke produktion (BEKRÆFTET på et byg).**
+  `VITE_PLATFORM_MODE=true vite build` → grep i `dist/assets`: `EVNE_LOG`,
+  `kildeKaede`, `_debugSource`, `ndjson` findes IKKE i noget chunk (kun
+  react-doms eget `__reactFiber`-navn). `setup.js` hænger alene i
+  `vite.config.js:45` `test.setupFiles` og importeres af intet i `src/`.
+  Kontroltest kørt begge veje: uden `EVNE_LOG` oprettes ingen `.evne-log`
+  (tappen er inert), med `EVNE_LOG` skrives NDJSON'en — så grønt betyder
+  noget her. `EVNE_LOG` sættes kun af `build-test-report.mjs`, og
+  `fs.rmSync` dér rammer en FAST sti (`ROOT/.evne-log`), ikke env-værdien:
+  ingen sti-flugt at hente. Loggen er gitignored og slettes efter kørslen.
+- **`test-report.yml`s udvidelse til tre filer flytter ingen privilegie-grænse.**
+  Triggere er stadig kun `workflow_dispatch` + `schedule` på `main` (ingen
+  `pull_request_target`, ingen fork-vej til `contents: write`-tokenet),
+  ingen `secrets.`-reference, og den nye vagt fejler LUKKET: tom log →
+  `build-test-report.mjs` `process.exit(1)` FØR `git add`, og
+  `totals.aktiverede === 0` fanges igen i workflow'ets eget node-tjek.
+  `@babel/parser@7.29.7` er kun løftet fra transitiv til direkte devDep:
+  ÉN lock-post, `dev: true`, samme version, ingen ny undertræ.
+
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
 - **Invitations-mailen falder TAVST tilbage til Superliga-profilen uden
@@ -1413,6 +1443,13 @@
   injicere et forbudt felt i `skriv` (spy/stub), ikke i kilde-JSON'en.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **Alt i `src/data/` er OFFENTLIGT.** Filen importeres statisk ind i et chunk,
+  og Hosting serverer chunks til enhver — også dem bag `<ProtectedRoute
+  require="admin">`, for ruten er en klient-gate, ikke en server-gate. Et nyt
+  committet øjebliksbillede skal derfor tåle at blive læst af en fremmed:
+  spørg, hvad GENERATOREN kan komme til at skrive ind i det (testnavne,
+  brugerdata, stier uden for repoet), ikke kun hvad der står i det i dag.
 
 - **Et arkiv-/skjul-flag, klienten kan SÆTTE, er en rangerings-knap.** Et felt,
   der får serverens læsere til at springe et dokument over, hører på

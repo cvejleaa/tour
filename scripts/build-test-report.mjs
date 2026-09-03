@@ -10,19 +10,26 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { scanTrae } from './scan-flade.mjs';
+import { flet, laesLog } from './lib/fladeDaekning.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FE = path.join(ROOT, '.report-fe.json');
 const FN = path.join(ROOT, 'functions', '.report-fn.json');
 const PF = path.join(ROOT, 'functions-platform', '.report-pf.json');
+// Tappen i src/test/setup.js skriver én NDJSON pr. worker hertil, når
+// EVNE_LOG er sat. Mappen tømmes før kørslen, så en gammel log ikke
+// krediterer elementer, ingen test rører længere.
+const EVNE = path.join(ROOT, '.evne-log');
 
-function run(cmd, cwd) {
-  try { execSync(cmd, { cwd, stdio: 'ignore' }); }
+function run(cmd, cwd, env = {}) {
+  try { execSync(cmd, { cwd, stdio: 'ignore', env: { ...process.env, ...env } }); }
   catch { /* vitest exit-kode != 0 ved fejlende tests — vi læser rapporten alligevel */ }
 }
 
+fs.rmSync(EVNE, { recursive: true, force: true });
 console.log('Kører frontend-tests…');
-run(`npx vitest run --reporter=json --outputFile=${FE}`, ROOT);
+run(`npx vitest run --reporter=json --outputFile=${FE}`, ROOT, { EVNE_LOG: EVNE });
 console.log('Kører functions-tests (Tour)…');
 run(`npx vitest run --reporter=json --outputFile=${FN}`, path.join(ROOT, 'functions'));
 // KØRES FRA MAPPEN, ikke med --config fra roden. `npx vitest run --config
@@ -65,6 +72,26 @@ const report = {
 
 fs.mkdirSync(path.join(ROOT, 'src', 'data'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'src', 'data', 'testReport.json'), JSON.stringify(report, null, 2));
+
+// --- Fladedækning: inventar ⋈ tappens log -----------------------------------
+// Samme generatedAt som testrapporten: de to filer er ét øjebliksbillede af
+// samme kørsel, og fanens forældelses-vagt sammenligner datoerne.
+const logposter = fs.existsSync(EVNE)
+  ? fs.readdirSync(EVNE).filter((f) => f.endsWith('.ndjson'))
+    .flatMap((f) => laesLog(fs.readFileSync(path.join(EVNE, f), 'utf8')))
+  : [];
+// NUL LOGPOSTER ER EN FEJL, IKKE ET RESULTAT. Suiten har over 500
+// interaktioner; en tom log betyder, at tappen ikke kørte (EVNE_LOG nåede
+// ikke frem, setup.js er ændret, React-internals har skiftet navn). Skrev vi
+// filen alligevel, ville fanen vise 0 % og lyve om, at ingen knap er testet.
+if (logposter.length === 0) {
+  console.error('Fladedækning: tappen loggede ingen interaktioner — fladeDaekning.json er IKKE skrevet.');
+  process.exit(1);
+}
+const daekning = flet(scanTrae(ROOT), logposter, { generatedAt: report.generatedAt });
+fs.writeFileSync(path.join(ROOT, 'src', 'data', 'fladeDaekning.json'), JSON.stringify(daekning, null, 1));
+fs.rmSync(EVNE, { recursive: true, force: true });
+console.log('Skrev src/data/fladeDaekning.json:', daekning.totals);
 fs.rmSync(FE, { force: true });
 fs.rmSync(FN, { force: true });
 fs.rmSync(PF, { force: true });

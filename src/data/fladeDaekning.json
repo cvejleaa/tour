@@ -1,0 +1,5686 @@
+{
+ "generatedAt": "2026-09-03T20:56:55.330Z",
+ "e2eMedregnet": false,
+ "totals": {
+  "elementer": 443,
+  "aktiverede": 174,
+  "logposter": 570,
+  "filer": 73
+ },
+ "elementer": [
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 73,
+   "kolonne": 15,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": null,
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 84,
+   "kolonne": 19,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Etaper",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 85,
+   "kolonne": 19,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Tour",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 86,
+   "kolonne": 19,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Hold",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 87,
+   "kolonne": 19,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Mine tips",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 88,
+   "kolonne": 19,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Bonus",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 89,
+   "kolonne": 19,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Stilling",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 90,
+   "kolonne": 19,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Ligaer",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 91,
+   "kolonne": 19,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Hjælp",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 94,
+   "kolonne": 15,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": null,
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 102,
+   "kolonne": 17,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Hjælp",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 105,
+   "kolonne": 17,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": null,
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 127,
+   "kolonne": 13,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Min profil",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 137,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Log ud",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/Layout.jsx",
+   "linje": 141,
+   "kolonne": 13,
+   "tag": "NavLink",
+   "type": null,
+   "tekst": "Log ind",
+   "komponent": "Layout",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/components/PointRules.jsx",
+   "linje": 16,
+   "kolonne": 7,
+   "tag": "summary",
+   "type": null,
+   "tekst": null,
+   "komponent": "PointRules",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/components/PointRules.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 35,
+   "kolonne": 7,
+   "tag": "select",
+   "type": null,
+   "tekst": "Facit (hold)",
+   "komponent": "FacitInput",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 66,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": null,
+   "komponent": "FacitInput",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 81,
+   "kolonne": 7,
+   "tag": "select",
+   "type": null,
+   "tekst": "Facit (ja/nej)",
+   "komponent": "FacitInput",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 98,
+   "kolonne": 7,
+   "tag": "input",
+   "type": "number",
+   "tekst": "Facit (tal)…",
+   "komponent": "FacitInput",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 112,
+   "kolonne": 5,
+   "tag": "input",
+   "type": "text",
+   "tekst": null,
+   "komponent": "FacitInput",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 189,
+   "kolonne": 7,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Spørgsmål",
+   "komponent": "EditQuestionForm",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 200,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": "Type",
+   "komponent": "EditQuestionForm",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 214,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "number",
+   "tekst": "Point",
+   "komponent": "EditQuestionForm",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 226,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "datetime-local",
+   "tekst": "Deadline",
+   "komponent": "EditQuestionForm",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 241,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "bonus-edit-save",
+   "komponent": "EditQuestionForm",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 250,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "Annullér",
+   "komponent": "EditQuestionForm",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 311,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Spørgsmål, fx: Hvilket hold vinder samlet?",
+   "komponent": "CreateQuestionForm",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 322,
+   "kolonne": 13,
+   "tag": "select",
+   "type": null,
+   "tekst": "Type",
+   "komponent": "CreateQuestionForm",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 336,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "number",
+   "tekst": "Point",
+   "komponent": "CreateQuestionForm",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 349,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "datetime-local",
+   "tekst": "Deadline",
+   "komponent": "CreateQuestionForm",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 364,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "bonus-new-save",
+   "komponent": "CreateQuestionForm",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 498,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": "Rediger",
+   "komponent": "BonusTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BonusTab.jsx",
+   "linje": 506,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "BonusTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BonusTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 321,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": "broadcast-template",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTab.test.jsx",
+    "src/features/admin/BroadcastTabPlatform.test.jsx",
+    "src/features/admin/BroadcastTabRegelbrev.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 338,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": "✉️ Indsæt regelbrevet (træf-bonus + odds-loft)",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTabRegelbrev.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 353,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "text",
+   "tekst": "broadcast-subject",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTabPlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 363,
+   "kolonne": 13,
+   "tag": "select",
+   "type": null,
+   "tekst": "broadcast-game",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTabPlatform.test.jsx",
+    "src/features/admin/BroadcastTabRegelbrev.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 379,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": "broadcast-league",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTab.test.jsx",
+    "src/features/admin/BroadcastTabPlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 412,
+   "kolonne": 15,
+   "tag": "select",
+   "type": null,
+   "tekst": "broadcast-legacy",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 421,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "📋 Indsæt top 5",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 444,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Fed",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTabPlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 445,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Kursiv",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 446,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Link",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 447,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Overskrift",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 448,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Punktliste",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 449,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Indsæt et billede fra en URL",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTabPlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 450,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "broadcast-upload",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 457,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "file",
+   "tekst": "broadcast-file",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTabPlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 465,
+   "kolonne": 11,
+   "tag": "textarea",
+   "type": null,
+   "tekst": "broadcast-body",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTabPlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 496,
+   "kolonne": 11,
+   "tag": "textarea",
+   "type": null,
+   "tekst": "mor@example.com, far@example.com\nsoester@example.com",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTab.test.jsx",
+    "src/features/admin/BroadcastTabPlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 509,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": "broadcast-add-game-players",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTabRegelbrev.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 519,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": "➕ Indsæt ALLE godkendte (",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/BroadcastTab.jsx",
+   "linje": 541,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "broadcast-send",
+   "komponent": "BroadcastTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/BroadcastTab.test.jsx",
+    "src/features/admin/BroadcastTabPlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/DriftTab.jsx",
+   "linje": 91,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "Kvittér — jeg har set den",
+   "komponent": "AlarmKort",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/FladeDaekning.jsx",
+   "linje": 84,
+   "kolonne": 11,
+   "tag": "summary",
+   "type": null,
+   "tekst": "hvilke tests",
+   "komponent": "Element",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/FladeDaekning.jsx",
+   "linje": 111,
+   "kolonne": 11,
+   "tag": "summary",
+   "type": null,
+   "tekst": null,
+   "komponent": "Gruppe",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/FladeDaekning.jsx",
+   "linje": 133,
+   "kolonne": 9,
+   "tag": "summary",
+   "type": null,
+   "tekst": null,
+   "komponent": "Gruppe",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/FladeDaekning.jsx",
+   "linje": 201,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": "flade-kun-uroerte",
+   "komponent": "FladeDaekning",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FladeDaekning.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameLeagueMembersTab.jsx",
+   "linje": 83,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": "Vælg spil",
+   "komponent": "GameLeagueMembersTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameLeagueMembersTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameLeagueMembersTab.jsx",
+   "linje": 134,
+   "kolonne": 23,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Meld ud",
+   "komponent": "GameLeagueMembersTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameLeagueMembersTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameLeagueMembersTab.jsx",
+   "linje": 169,
+   "kolonne": 19,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameLeagueMembersTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameLeagueMembersTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameLeagueMembersTab.jsx",
+   "linje": 179,
+   "kolonne": 19,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Meld ind",
+   "komponent": "GameLeagueMembersTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameLeagueMembersTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameRecapBotTab.jsx",
+   "linje": 75,
+   "kolonne": 9,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRecapBotTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameRecapBotTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameRecapBotTab.jsx",
+   "linje": 109,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRecapBotTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameRecapBotTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameRecapBotTab.jsx",
+   "linje": 112,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRecapBotTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameRecapBotTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameReminderTab.jsx",
+   "linje": 156,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameReminderTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/GameReminderTab.jsx",
+   "linje": 168,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameReminderTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameReminderTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameReminderTab.jsx",
+   "linje": 227,
+   "kolonne": 15,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameReminderTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameReminderTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameReminderTab.jsx",
+   "linje": 270,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "tipstatus-tjek",
+   "komponent": "GameReminderTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameReminderTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameReminderTab.jsx",
+   "linje": 283,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameReminderTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/GameReminderTab.jsx",
+   "linje": 288,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameReminderTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameReminderTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameReminderTab.jsx",
+   "linje": 331,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameReminderTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/GameReminderTab.jsx",
+   "linje": 335,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameReminderTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 104,
+   "kolonne": 7,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "StartRundeVaelger",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 448,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "datetime-local",
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 475,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 490,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "datetime-local",
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 523,
+   "kolonne": 9,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 548,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 584,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 599,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 619,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 623,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": "Skriv de",
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 679,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 683,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Skriv",
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 703,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 728,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 743,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 54,
+   "kolonne": 19,
+   "tag": "input",
+   "type": null,
+   "tekst": "Nyt liganavn",
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/LeaguesAdminTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 63,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": "Gem",
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/LeaguesAdminTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 73,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": "Annullér",
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 83,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": "Omdøb liga",
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/LeaguesAdminTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 105,
+   "kolonne": 17,
+   "tag": "button",
+   "type": null,
+   "tekst": "✓ Godkend",
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/LeaguesAdminTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 111,
+   "kolonne": 17,
+   "tag": "button",
+   "type": null,
+   "tekst": "Afvis",
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/LeaguesAdminTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 126,
+   "kolonne": 19,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/LeaguesAdminTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 140,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": "Tilmeld medlem",
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/LeaguesAdminTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 165,
+   "kolonne": 25,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/LeaguesAdminTab.jsx",
+   "linje": 178,
+   "kolonne": 25,
+   "tag": "button",
+   "type": null,
+   "tekst": "Fjern medlem",
+   "komponent": "LeaguesAdminTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/LeaguesAdminTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 112,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "number",
+   "tekst": "etape (tom = alle)",
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 118,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 126,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Søg rytter eller hold…",
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 154,
+   "kolonne": 21,
+   "tag": "button",
+   "type": "button",
+   "tekst": "✏️ Rediger",
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 166,
+   "kolonne": 27,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Fjern AI-tag",
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 182,
+   "kolonne": 23,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 191,
+   "kolonne": 23,
+   "tag": "input",
+   "type": "text",
+   "tekst": null,
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 195,
+   "kolonne": 23,
+   "tag": "textarea",
+   "type": null,
+   "tekst": null,
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 198,
+   "kolonne": 23,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/RiderProfilesTab.jsx",
+   "linje": 201,
+   "kolonne": 23,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Annullér",
+   "komponent": "RiderProfilesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 179,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "time",
+   "tekst": "recap-time",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 187,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "save-recap-time",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 217,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "number",
+   "tekst": "untipped-penalty",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 231,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "save-untipped-penalty",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 256,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "send-test-reminder",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 259,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "send-reminders-now",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 281,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "migrate-email-privacy",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 304,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "toggle-automation",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/SettingsTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 321,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "thankyou-draft",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/SettingsTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/SettingsTab.jsx",
+   "linje": 324,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "thankyou-all",
+   "komponent": "SettingsTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/SettingsTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TeamNameAudit.jsx",
+   "linje": 95,
+   "kolonne": 7,
+   "tag": "button",
+   "type": "button",
+   "tekst": "run-audit",
+   "komponent": "TeamNameAudit",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TeamNameAudit.jsx",
+   "linje": 138,
+   "kolonne": 27,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "TeamNameAudit",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TeamNameAudit.jsx",
+   "linje": 147,
+   "kolonne": 27,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Omdøb",
+   "komponent": "TeamNameAudit",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TeamNameAudit.jsx",
+   "linje": 156,
+   "kolonne": 27,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Nedlagt hold uden efterfølger: tøm felterne, så tippet fremstår uspillet",
+   "komponent": "TeamNameAudit",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TeamStylesTab.jsx",
+   "linje": 140,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "color",
+   "tekst": null,
+   "komponent": "Picker",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TeamStylesTab.jsx",
+   "linje": 147,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "text",
+   "tekst": null,
+   "komponent": "Picker",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TeamStylesTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TeamStylesTab.jsx",
+   "linje": 152,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "Nulstil",
+   "komponent": "Picker",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TeamStylesTab.jsx",
+   "linje": 171,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "TeamStylesTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TeamStylesTab.jsx",
+   "linje": 232,
+   "kolonne": 19,
+   "tag": "input",
+   "type": "text",
+   "tekst": null,
+   "komponent": "TeamStylesTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TeamStylesTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TeamStylesTab.jsx",
+   "linje": 241,
+   "kolonne": 21,
+   "tag": "button",
+   "type": "button",
+   "tekst": "↺",
+   "komponent": "TeamStylesTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TeamStylesTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TeamStylesTab.jsx",
+   "linje": 271,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "TeamStylesTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TeamStylesTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TestsTab.jsx",
+   "linje": 164,
+   "kolonne": 15,
+   "tag": "summary",
+   "type": null,
+   "tekst": null,
+   "komponent": "DetailsTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TestsTab.jsx",
+   "linje": 229,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "📊 Oversigt",
+   "komponent": "TestsTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TestsTab.jsx",
+   "linje": 230,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "🖱️ Knapper og felter",
+   "komponent": "TestsTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TestsTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TestsTab.jsx",
+   "linje": 231,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "🕸️ Afhængigheder",
+   "komponent": "TestsTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TestsTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TestsTab.jsx",
+   "linje": 232,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "📋 Detaljer",
+   "komponent": "TestsTab",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TestsTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 129,
+   "kolonne": 21,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": null,
+   "komponent": "StageQuestionsOverview",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TourTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 138,
+   "kolonne": 19,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "StageQuestionsOverview",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TourTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 257,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "button",
+   "tekst": "tip-gen-missing",
+   "komponent": "StageExpertTips",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TourTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 266,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "button",
+   "tekst": "tip-regen-all",
+   "komponent": "StageExpertTips",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TourTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 295,
+   "kolonne": 15,
+   "tag": "textarea",
+   "type": null,
+   "tekst": "Intet ekspert-tip endnu.",
+   "komponent": "StageExpertTips",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TourTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 304,
+   "kolonne": 17,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "StageExpertTips",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TourTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 313,
+   "kolonne": 17,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "StageExpertTips",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/TourTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 546,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "number",
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 551,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 563,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 578,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "sync-start-times-dry",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 581,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "sync-start-times",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 584,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "Fallback: skriv de statiske rutetider (bruges kun hvis racecenteret er nede)",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 598,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 601,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 604,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "reset-results",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 620,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 623,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 636,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 649,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "backfill-participation",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 663,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "recalc-totals",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 676,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Visningsnavn",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 682,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "debug-user",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 697,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "number",
+   "tekst": "Etape",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 703,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "debug-stage",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 706,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "Henter etapens facit + visningsdata forfra og omgår 8-timers-frysningen. Tips genberegnes automatisk hvis facittet ændrer sig.",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 710,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "Henter live-ticker-feedet helt frisk (uden cache) og viser rå statistik: antal opslag, nyeste/ældste tidsstempel og offset-varianter. Brug den hvis tickeren mangler de sidste opslag.",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 738,
+   "kolonne": 23,
+   "tag": "input",
+   "type": "number",
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 755,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "number",
+   "tekst": "pts-untippedPenalty",
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 765,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "number",
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/TourTab.jsx",
+   "linje": 776,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "TourTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/UserRow.jsx",
+   "linje": 251,
+   "kolonne": 19,
+   "tag": "a",
+   "type": null,
+   "tekst": "Kopiér/åbn link",
+   "komponent": "UserRow",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/UserRow.jsx",
+   "linje": 270,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Godkend",
+   "komponent": "UserRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/UsersTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/UserRow.jsx",
+   "linje": 280,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Afvis",
+   "komponent": "UserRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/UsersTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/UserRow.jsx",
+   "linje": 292,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "UserRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/UsersTab.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/admin/UserRow.jsx",
+   "linje": 306,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Send et nulstillingslink via egen SMTP (omgår Firebase-mailen)",
+   "komponent": "UserRow",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/UserRow.jsx",
+   "linje": 322,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Skift brugerens e-mail (login + påmindelser) med det samme",
+   "komponent": "UserRow",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/UserRow.jsx",
+   "linje": 337,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Sletter kontoen permanent fra login og alle spil",
+   "komponent": "UserRow",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/admin/UsersTab.jsx",
+   "linje": 75,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "UsersTab",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/bonus/BonusAnswers.jsx",
+   "linje": 33,
+   "kolonne": 7,
+   "tag": "button",
+   "type": null,
+   "tekst": "reveal-bonus-answers-btn",
+   "komponent": "BonusAnswers",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/bonus/BonusAnswers.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/bonus/BonusQuestion.jsx",
+   "linje": 24,
+   "kolonne": 7,
+   "tag": "select",
+   "type": null,
+   "tekst": "bonus-select",
+   "komponent": "AnswerInput",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/bonus/BonusQuestion.jsx",
+   "linje": 42,
+   "kolonne": 7,
+   "tag": "select",
+   "type": null,
+   "tekst": "bonus-select",
+   "komponent": "AnswerInput",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/bonus/BonusQuestion.jsx",
+   "linje": 71,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": null,
+   "komponent": "AnswerInput",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/bonus/BonusQuestion.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/bonus/BonusQuestion.jsx",
+   "linje": 86,
+   "kolonne": 7,
+   "tag": "select",
+   "type": null,
+   "tekst": "bonus-select",
+   "komponent": "AnswerInput",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/bonus/BonusQuestion.jsx",
+   "linje": 103,
+   "kolonne": 5,
+   "tag": "input",
+   "type": null,
+   "tekst": "bonus-input",
+   "komponent": "AnswerInput",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/bonus/BonusQuestion.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/bonus/BonusQuestion.jsx",
+   "linje": 252,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "bonus-save",
+   "komponent": "BonusQuestion",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/bonus/BonusQuestion.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/comments/EmojiPicker.jsx",
+   "linje": 56,
+   "kolonne": 7,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "EmojiPicker",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/comments/EmojiPicker.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/comments/EmojiPicker.jsx",
+   "linje": 88,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "EmojiPicker",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/comments/EmojiPicker.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/comments/LeagueWall.jsx",
+   "linje": 59,
+   "kolonne": 7,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueWall",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/comments/LeagueWall.jsx",
+   "linje": 60,
+   "kolonne": 9,
+   "tag": "textarea",
+   "type": null,
+   "tekst": "Ny besked til liga-væggen",
+   "komponent": "LeagueWall",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/comments/LeagueWall.jsx",
+   "linje": 73,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "LeagueWall",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/comments/LeagueWall.jsx",
+   "linje": 112,
+   "kolonne": 23,
+   "tag": "button",
+   "type": null,
+   "tekst": "Slet kommentar",
+   "komponent": "LeagueWall",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/dashboard/MiniStandings.jsx",
+   "linje": 51,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Hele stillingen →",
+   "komponent": "MiniStandings",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/dashboard/MyStatsCard.jsx",
+   "linje": 23,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Mine tips →",
+   "komponent": "MyStatsCard",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/dashboard/RecentResultsCard.jsx",
+   "linje": 25,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Etaper →",
+   "komponent": "RecentResultsCard",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/dashboard/TodoCard.jsx",
+   "linje": 11,
+   "kolonne": 5,
+   "tag": "Link",
+   "type": null,
+   "tekst": null,
+   "komponent": "TaskRow",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLayout.jsx",
+   "linje": 29,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "← Alle spil",
+   "komponent": "GameLayout",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 81,
+   "kolonne": 7,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueWall",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 82,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Skriv til ligaen…",
+   "komponent": "LeagueWall",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 86,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "submit",
+   "tekst": "Send",
+   "komponent": "LeagueWall",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 191,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "text",
+   "tekst": null,
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 192,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Gem",
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 193,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Fortryd",
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 201,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 235,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "number",
+   "tekst": "alle",
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/ligaStartRunde.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 241,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": "Gem",
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/ligaStartRunde.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 242,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": "Fortryd",
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 257,
+   "kolonne": 32,
+   "tag": "button",
+   "type": null,
+   "tekst": "Omdøb",
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 258,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": "Startrunde…",
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/ligaStartRunde.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 261,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": "Slet liga",
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 264,
+   "kolonne": 17,
+   "tag": "button",
+   "type": null,
+   "tekst": "Forlad",
+   "komponent": "LeagueCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 357,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameLeagues",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 359,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Ligaens navn",
+   "komponent": "GameLeagues",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 364,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "submit",
+   "tekst": "Opret",
+   "komponent": "GameLeagues",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 367,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameLeagues",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 369,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "text",
+   "tekst": "F.eks. X4KR2M",
+   "komponent": "GameLeagues",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameLeagues.jsx",
+   "linje": 374,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "submit",
+   "tekst": "Deltag",
+   "komponent": "GameLeagues",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameProfile.jsx",
+   "linje": 126,
+   "kolonne": 9,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameProfile",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameProfile.jsx",
+   "linje": 137,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameProfile",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/GameStandings.jsx",
+   "linje": 88,
+   "kolonne": 5,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "SpillerNavn",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/GameStandings.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/GameStandings.jsx",
+   "linje": 445,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": "Vis stilling for",
+   "komponent": "GameStandings",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/GameStandings.test.jsx",
+    "src/features/games/ligaStartRunde.test.jsx",
+    "src/features/games/rundePointFlade.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/GameStandings.jsx",
+   "linje": 486,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "GameStandings",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/GameStandings.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/GameTabLink.jsx",
+   "linje": 81,
+   "kolonne": 5,
+   "tag": "Link",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameTabLink",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 46,
+   "kolonne": 5,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "HoldSelect",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 165,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Ret spørgsmålet (tekst, point, deadline)",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 176,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Slet spørgsmål",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 199,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 201,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Spørgsmålets tekst",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 208,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "number",
+   "tekst": "Point",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 218,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "datetime-local",
+   "tekst": "Deadline",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 238,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "submit",
+   "tekst": "Gem rettelse",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 239,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Fortryd",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 248,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": "📣 Fortæl det på væggen",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 267,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Del eller kopiér navnene (til at rykke i chatten)",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 291,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 293,
+   "kolonne": 13,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 301,
+   "kolonne": 13,
+   "tag": "input",
+   "type": null,
+   "tekst": null,
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 307,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 338,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "post igen",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 355,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Forhåndsvis",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 357,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Post på væggen",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 363,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Post på væggen",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 373,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 377,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Facit",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 383,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Også godkendt (komma-adskilt)",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 388,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "submit",
+   "tekst": "Gem facit",
+   "komponent": "QuestionRow",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 438,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueQuestions",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 450,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueQuestions",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 451,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "text",
+   "tekst": "fx \"Hvem af os kommer sidst på ranglisten i oktober?\"",
+   "komponent": "LeagueQuestions",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 457,
+   "kolonne": 13,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueQuestions",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 465,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "number",
+   "tekst": "Point",
+   "komponent": "LeagueQuestions",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 469,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "datetime-local",
+   "tekst": "Deadline (valgfri)",
+   "komponent": "LeagueQuestions",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 473,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "submit",
+   "tekst": "Opret",
+   "komponent": "LeagueQuestions",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/LeagueQuestions.jsx",
+   "linje": 480,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "lq-hvem-mangler",
+   "komponent": "LeagueQuestions",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/FootballHelp.jsx",
+   "linje": 572,
+   "kolonne": 40,
+   "tag": "Link",
+   "type": null,
+   "tekst": "hjælp",
+   "komponent": "FootballHelp",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/football/FootballTip.jsx",
+   "linje": 471,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "← Runde",
+   "komponent": "FootballTip",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/football/FootballTip.jsx",
+   "linje": 502,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "Runde",
+   "komponent": "FootballTip",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/FootballTip.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/FootballTip.jsx",
+   "linje": 609,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "📣 Del i chatten",
+   "komponent": "FootballTip",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/FootballTip.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/FootballTip.jsx",
+   "linje": 1048,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "FootballTip",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/football/FootballTip.jsx",
+   "linje": 1307,
+   "kolonne": 13,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "ChancePanel",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/FootballTip.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/FootballTip.jsx",
+   "linje": 1322,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "−",
+   "komponent": "ChancePanel",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/football/FootballTip.jsx",
+   "linje": 1325,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "+",
+   "komponent": "ChancePanel",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/FootballTip.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/FootballTip.jsx",
+   "linje": 1360,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "ChancePanel",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/FootballTip.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/FootballTip.jsx",
+   "linje": 1369,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": "Fjern",
+   "komponent": "ChancePanel",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/football/HoldSide.jsx",
+   "linje": 73,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Tilbage til Elo-tabellen",
+   "komponent": "HoldSide",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/football/HoldSide.jsx",
+   "linje": 109,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Luk",
+   "komponent": "HoldSide",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/football/Indbyrdes.jsx",
+   "linje": 66,
+   "kolonne": 7,
+   "tag": "button",
+   "type": "button",
+   "tekst": "⚔️ Jer to imellem",
+   "komponent": "Indbyrdes",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/Indbyrdes.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/LeagueBets.jsx",
+   "linje": 108,
+   "kolonne": 7,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueBets",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/LeagueBets.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/PuljeAfsloering.jsx",
+   "linje": 215,
+   "kolonne": 15,
+   "tag": "select",
+   "type": null,
+   "tekst": "Vis puljen for",
+   "komponent": "PuljeAfsloering",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/PuljeAfsloering.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/PuljeTip.jsx",
+   "linje": 274,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "Sektion",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/PuljeTip.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/PuljeTip.jsx",
+   "linje": 413,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "PuljeTip",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/football/PuljeTip.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/games/football/SpillerDetalje.jsx",
+   "linje": 45,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Luk",
+   "komponent": "SpillerDetalje",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/games/football/SpillerDetalje.jsx",
+   "linje": 95,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Luk",
+   "komponent": "SpillerDetalje",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leaderboard/ThemeToggle.jsx",
+   "linje": 32,
+   "kolonne": 5,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "ThemeToggle",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/leaderboard/ThemeToggle.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/leagues/LeagueAwards.jsx",
+   "linje": 121,
+   "kolonne": 13,
+   "tag": "select",
+   "type": null,
+   "tekst": "award-question",
+   "komponent": "LeagueAwards",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/leagues/LeagueAwards.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/leagues/LeagueAwards.jsx",
+   "linje": 156,
+   "kolonne": 27,
+   "tag": "input",
+   "type": "number",
+   "tekst": "0",
+   "komponent": "LeagueAwards",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/leagues/LeagueAwards.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/leagues/LeagueAwards.jsx",
+   "linje": 171,
+   "kolonne": 17,
+   "tag": "button",
+   "type": "button",
+   "tekst": "award-save",
+   "komponent": "LeagueAwards",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/leagues/LeagueAwards.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 58,
+   "kolonne": 7,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "AnswerInput",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 71,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": null,
+   "komponent": "AnswerInput",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 80,
+   "kolonne": 7,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "AnswerInput",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 89,
+   "kolonne": 5,
+   "tag": "input",
+   "type": null,
+   "tekst": null,
+   "komponent": "AnswerInput",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 125,
+   "kolonne": 5,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "EditForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 126,
+   "kolonne": 7,
+   "tag": "input",
+   "type": null,
+   "tekst": "Spørgsmål",
+   "komponent": "EditForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 129,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": "Type",
+   "komponent": "EditForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 134,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "number",
+   "tekst": "Point",
+   "komponent": "EditForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 138,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "datetime-local",
+   "tekst": null,
+   "komponent": "EditForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 142,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "submit",
+   "tekst": "Gem ændringer",
+   "komponent": "EditForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 143,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Annullér",
+   "komponent": "EditForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 185,
+   "kolonne": 17,
+   "tag": "button",
+   "type": null,
+   "tekst": "Fjern godkendelse",
+   "komponent": "ApprovalList",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 187,
+   "kolonne": 17,
+   "tag": "button",
+   "type": null,
+   "tekst": "Godkend",
+   "komponent": "ApprovalList",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 223,
+   "kolonne": 7,
+   "tag": "button",
+   "type": null,
+   "tekst": "reveal-league-bonus-answers-btn",
+   "komponent": "AllAnswers",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/leagues/LeagueBonus.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 295,
+   "kolonne": 7,
+   "tag": "button",
+   "type": null,
+   "tekst": "copy-league-bonus-all",
+   "komponent": "CopyToAllButton",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 371,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Redigér spørgsmål",
+   "komponent": "QuestionCard",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 373,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Slet spørgsmål",
+   "komponent": "QuestionCard",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 407,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "QuestionCard",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 447,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Gem facit",
+   "komponent": "QuestionCard",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 489,
+   "kolonne": 12,
+   "tag": "button",
+   "type": null,
+   "tekst": "+ Nyt bonusspørgsmål",
+   "komponent": "CreateForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 492,
+   "kolonne": 5,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "CreateForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 493,
+   "kolonne": 7,
+   "tag": "input",
+   "type": null,
+   "tekst": "Spørgsmål",
+   "komponent": "CreateForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 496,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": "Type",
+   "komponent": "CreateForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 501,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "number",
+   "tekst": "Point",
+   "komponent": "CreateForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 505,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "datetime-local",
+   "tekst": null,
+   "komponent": "CreateForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 509,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "submit",
+   "tekst": "Opret",
+   "komponent": "CreateForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueBonus.jsx",
+   "linje": 510,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Annullér",
+   "komponent": "CreateForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueTipCounter.jsx",
+   "linje": 72,
+   "kolonne": 17,
+   "tag": "button",
+   "type": null,
+   "tekst": "/",
+   "komponent": "LeagueTipCounter",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/leagues/LeagueTipCounter.jsx",
+   "linje": 104,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueTipCounter",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/onboarding/OnboardingChecklist.jsx",
+   "linje": 35,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "Forstået, skjul",
+   "komponent": "OnboardingChecklist",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/onboarding/OnboardingChecklist.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/onboarding/OnboardingChecklist.jsx",
+   "linje": 42,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": null,
+   "komponent": "OnboardingChecklist",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/profile/AccountSection.jsx",
+   "linje": 94,
+   "kolonne": 7,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "AccountSection",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/profile/AccountSection.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/profile/AccountSection.jsx",
+   "linje": 99,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "email",
+   "tekst": "ny@mail.dk",
+   "komponent": "AccountSection",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/profile/AccountSection.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/profile/AccountSection.jsx",
+   "linje": 104,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "AccountSection",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/profile/AccountSection.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/profile/AccountSection.jsx",
+   "linje": 112,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "AccountSection",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/profile/AccountSection.jsx",
+   "linje": 117,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "email",
+   "tekst": "ny@mail.dk",
+   "komponent": "AccountSection",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/profile/AccountSection.jsx",
+   "linje": 122,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "password",
+   "tekst": "Nuværende adgangskode",
+   "komponent": "AccountSection",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/profile/AccountSection.jsx",
+   "linje": 127,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "AccountSection",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/profile/AccountSection.jsx",
+   "linje": 137,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": "link-google",
+   "komponent": "AccountSection",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/profile/AccountSection.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/profile/TeamThemePicker.jsx",
+   "linje": 73,
+   "kolonne": 7,
+   "tag": "select",
+   "type": null,
+   "tekst": "Holdfarve-tema",
+   "komponent": "TeamThemePicker",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/profile/TeamThemePicker.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/reactions/Reactions.jsx",
+   "linje": 43,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": "reaction-chip",
+   "komponent": "Reactions",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/reactions/Reactions.jsx",
+   "linje": 63,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Tilføj reaktion",
+   "komponent": "Reactions",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/reactions/Reactions.jsx",
+   "linje": 85,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "Reactions",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/stages/StageCard.jsx",
+   "linje": 184,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": "📖 Læs om etapen",
+   "komponent": "StageCard",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/stages/StageCard.jsx",
+   "linje": 264,
+   "kolonne": 17,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "StageCard",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/stages/StageCard.jsx",
+   "linje": 284,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": "reveal-stage-answers",
+   "komponent": "StageCard",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/stages/StageCard.jsx",
+   "linje": 303,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Kopiér fra forrige etape",
+   "komponent": "StageCard",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/stages/StageCard.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/stages/StageCard.jsx",
+   "linje": 317,
+   "kolonne": 13,
+   "tag": "select",
+   "type": null,
+   "tekst": "copy-similar",
+   "komponent": "StageCard",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/stages/StageCard.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/stages/StageCard.jsx",
+   "linje": 336,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": "apply-all-open",
+   "komponent": "StageCard",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/stages/StageCard.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/teams/RiderSearch.jsx",
+   "linje": 19,
+   "kolonne": 7,
+   "tag": "input",
+   "type": "search",
+   "tekst": "Søg efter en rytter",
+   "komponent": "RiderSearch",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/teams/RiderSearch.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/teams/RiderSearch.jsx",
+   "linje": 45,
+   "kolonne": 21,
+   "tag": "Link",
+   "type": null,
+   "tekst": "rider-result",
+   "komponent": "RiderSearch",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/teams/RiderTypeExplorer.jsx",
+   "linje": 140,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "RiderTypeExplorer",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/teams/RiderTypeExplorer.jsx",
+   "linje": 152,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": "group-teams",
+   "komponent": "RiderTypeExplorer",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/teams/RiderTypeExplorer.jsx",
+   "linje": 171,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "RiderTypeExplorer",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/teams/RiderTypeExplorer.jsx",
+   "linje": 198,
+   "kolonne": 19,
+   "tag": "th",
+   "type": null,
+   "tekst": "Rytter",
+   "komponent": "RiderTypeExplorer",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/teams/RiderTypeExplorer.jsx",
+   "linje": 205,
+   "kolonne": 19,
+   "tag": "th",
+   "type": null,
+   "tekst": "Hold",
+   "komponent": "RiderTypeExplorer",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/teams/RiderTypeExplorer.jsx",
+   "linje": 213,
+   "kolonne": 21,
+   "tag": "th",
+   "type": null,
+   "tekst": null,
+   "komponent": "RiderTypeExplorer",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/features/tour/StandingsTable.jsx",
+   "linje": 86,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "button",
+   "tekst": "standings-toggle",
+   "komponent": "StandingsTable",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/features/tour/StandingsTable.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/features/tour/TourRiderSearch.jsx",
+   "linje": 38,
+   "kolonne": 7,
+   "tag": "input",
+   "type": "search",
+   "tekst": "Søg efter en rytter i alle stillinger",
+   "komponent": "TourRiderSearch",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/AdminPage.jsx",
+   "linje": 124,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "AdminPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/AdminPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/DashboardPage.jsx",
+   "linje": 129,
+   "kolonne": 11,
+   "tag": "summary",
+   "type": null,
+   "tekst": null,
+   "komponent": "DashboardPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/DashboardPage.jsx",
+   "linje": 173,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "🚴 Til etaperne",
+   "komponent": "DashboardPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/DashboardPage.jsx",
+   "linje": 174,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "🏆 Stilling",
+   "komponent": "DashboardPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/DashboardPage.jsx",
+   "linje": 175,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "👥 Ligaer",
+   "komponent": "DashboardPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/DashboardPage.jsx",
+   "linje": 176,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "❓ Sådan virker det",
+   "komponent": "DashboardPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/GamePage.jsx",
+   "linje": 101,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": "← Alle spil",
+   "komponent": "GamePage",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/GamePage.jsx",
+   "linje": 139,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GamePage",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/GamePage.jsx",
+   "linje": 152,
+   "kolonne": 17,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GamePage",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/GamesPage.jsx",
+   "linje": 29,
+   "kolonne": 7,
+   "tag": "a",
+   "type": null,
+   "tekst": null,
+   "komponent": "ExternalGameCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/GamesPage.jsx",
+   "linje": 64,
+   "kolonne": 7,
+   "tag": "Link",
+   "type": null,
+   "tekst": null,
+   "komponent": "MyGameCard",
+   "app": "platform",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/GamesPage.jsx",
+   "linje": 84,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "MyGameCard",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/GamesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/GamesPage.jsx",
+   "linje": 114,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "OpenGameCard",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/GamesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 74,
+   "kolonne": 56,
+   "tag": "Link",
+   "type": null,
+   "tekst": "🎮 Spil",
+   "komponent": "SpilleneLigeNu",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 79,
+   "kolonne": 72,
+   "tag": "Link",
+   "type": null,
+   "tekst": "🎮 Spil",
+   "komponent": "SpilleneLigeNu",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 98,
+   "kolonne": 41,
+   "tag": "a",
+   "type": null,
+   "tekst": "åbn spillet ↗",
+   "komponent": "SpilleneLigeNu",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 102,
+   "kolonne": 53,
+   "tag": "Link",
+   "type": null,
+   "tekst": "🎮 Spil",
+   "komponent": "SpilleneLigeNu",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 122,
+   "kolonne": 62,
+   "tag": "Link",
+   "type": null,
+   "tekst": "🎮 Spil",
+   "komponent": "PlatformHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 133,
+   "kolonne": 68,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Profil",
+   "komponent": "PlatformHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 140,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Beskeder",
+   "komponent": "PlatformHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 155,
+   "kolonne": 16,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Etaper",
+   "komponent": "TourHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 158,
+   "kolonne": 69,
+   "tag": "Link",
+   "type": null,
+   "tekst": "forsidens",
+   "komponent": "TourHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 166,
+   "kolonne": 12,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Bonus",
+   "komponent": "TourHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 172,
+   "kolonne": 12,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Ligaer",
+   "komponent": "TourHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 179,
+   "kolonne": 12,
+   "tag": "Link",
+   "type": null,
+   "tekst": "forsiden",
+   "komponent": "TourHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 185,
+   "kolonne": 36,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Beskeder",
+   "komponent": "TourHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 192,
+   "kolonne": 51,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Profil",
+   "komponent": "TourHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 197,
+   "kolonne": 12,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Profil",
+   "komponent": "TourHelp",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/JoinPage.jsx",
+   "linje": 111,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Opret bruger / log ind",
+   "komponent": "JoinPage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/JoinPage.jsx",
+   "linje": 124,
+   "kolonne": 9,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Til mine ligaer",
+   "komponent": "JoinPage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaderboardPage.jsx",
+   "linje": 104,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeaderboardPage",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaderboardPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaderboardPage.jsx",
+   "linje": 120,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "📊 Samlet stilling",
+   "komponent": "LeaderboardPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaderboardPage.jsx",
+   "linje": 128,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "📅 Dagens etape",
+   "komponent": "LeaderboardPage",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaderboardPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaderboardPage.jsx",
+   "linje": 136,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "🧮 Udspecificeret",
+   "komponent": "LeaderboardPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 55,
+   "kolonne": 5,
+   "tag": "div",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueCard",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 253,
+   "kolonne": 7,
+   "tag": "button",
+   "type": null,
+   "tekst": "← Tilbage",
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 262,
+   "kolonne": 15,
+   "tag": "input",
+   "type": null,
+   "tekst": "Nyt liganavn",
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 267,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 270,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": "Annullér",
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 276,
+   "kolonne": 17,
+   "tag": "button",
+   "type": null,
+   "tekst": "Omdøb liga",
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 290,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Kopiér invitationslink",
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 300,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": "Generér ny invitationskode",
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 328,
+   "kolonne": 19,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": null,
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 345,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": null,
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 349,
+   "kolonne": 15,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 369,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 382,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Forlad liga",
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 463,
+   "kolonne": 13,
+   "tag": "select",
+   "type": null,
+   "tekst": "Tilføj spiller til ligaen",
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 473,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 494,
+   "kolonne": 19,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeagueDetail",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 543,
+   "kolonne": 5,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "CreateLeagueForm",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 546,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "text",
+   "tekst": "fx 'Kontoret' eller 'Familie'",
+   "komponent": "CreateLeagueForm",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 562,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": null,
+   "komponent": "CreateLeagueForm",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 574,
+   "kolonne": 7,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "CreateLeagueForm",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 606,
+   "kolonne": 5,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "JoinLeagueForm",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 609,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "text",
+   "tekst": "fx 'X4KR2M'",
+   "komponent": "JoinLeagueForm",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 623,
+   "kolonne": 7,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "JoinLeagueForm",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 710,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeaguesPage",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LeaguesPage.jsx",
+   "linje": 716,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LeaguesPage",
+   "app": "tour",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LeaguesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 127,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 149,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Log ind med Google",
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 240,
+   "kolonne": 15,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 242,
+   "kolonne": 19,
+   "tag": "input",
+   "type": "email",
+   "tekst": "din@email.dk",
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 255,
+   "kolonne": 19,
+   "tag": "input",
+   "type": "password",
+   "tekst": "••••••••",
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 267,
+   "kolonne": 17,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 276,
+   "kolonne": 17,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Glemt adgangskode?",
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 295,
+   "kolonne": 15,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 300,
+   "kolonne": 19,
+   "tag": "input",
+   "type": "email",
+   "tekst": "din@email.dk",
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 312,
+   "kolonne": 17,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 321,
+   "kolonne": 17,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Tilbage til login",
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 344,
+   "kolonne": 11,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 346,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Dit navn i konkurrencen",
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 359,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "email",
+   "tekst": "din@email.dk",
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 372,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "password",
+   "tekst": "Mindst 6 tegn",
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/LoginPage.jsx",
+   "linje": 384,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "LoginPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/LoginPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/MessagesPage.jsx",
+   "linje": 94,
+   "kolonne": 23,
+   "tag": "button",
+   "type": null,
+   "tekst": "Slet besked",
+   "komponent": "Thread",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/MessagesPage.jsx",
+   "linje": 112,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "Thread",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/MessagesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/MessagesPage.jsx",
+   "linje": 113,
+   "kolonne": 11,
+   "tag": "textarea",
+   "type": null,
+   "tekst": "Ny privat besked",
+   "komponent": "Thread",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/MessagesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/MessagesPage.jsx",
+   "linje": 126,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "Thread",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/MessagesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/MessagesPage.jsx",
+   "linje": 200,
+   "kolonne": 13,
+   "tag": "select",
+   "type": null,
+   "tekst": "Vælg modtager",
+   "komponent": "MessagesPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/MessagesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/MessagesPage.jsx",
+   "linje": 212,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Start",
+   "komponent": "MessagesPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/MessagesPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/MessagesPage.jsx",
+   "linje": 230,
+   "kolonne": 64,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Spil",
+   "komponent": "MessagesPage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/MessagesPage.jsx",
+   "linje": 243,
+   "kolonne": 21,
+   "tag": "button",
+   "type": null,
+   "tekst": "dm-conversation",
+   "komponent": "MessagesPage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/MyBetsPage.jsx",
+   "linje": 128,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": "🚴 Til etaperne",
+   "komponent": "MyBetsPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/MyBetsPage.jsx",
+   "linje": 140,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Gå til etaper",
+   "komponent": "MyBetsPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/MyBetsPage.jsx",
+   "linje": 217,
+   "kolonne": 27,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Rediger tip",
+   "komponent": "MyBetsPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/NotFoundPage.jsx",
+   "linje": 6,
+   "kolonne": 7,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Til forsiden",
+   "komponent": "NotFoundPage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/PendingPage.jsx",
+   "linje": 138,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "Log ud",
+   "komponent": "PendingPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/PendingPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/PendingPage.jsx",
+   "linje": 205,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "PendingPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/PendingPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/PendingPage.jsx",
+   "linje": 213,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "text",
+   "tekst": "fx ABC123",
+   "komponent": "PendingPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/PendingPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/PendingPage.jsx",
+   "linje": 227,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "PendingPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/PendingPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/PendingPage.jsx",
+   "linje": 247,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "Log ud",
+   "komponent": "PendingPage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/PendingPage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/ProfilePage.jsx",
+   "linje": 80,
+   "kolonne": 9,
+   "tag": "form",
+   "type": null,
+   "tekst": null,
+   "komponent": "ProfilePage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/ProfilePage.test.jsx",
+    "src/pages/ProfilePagePlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/ProfilePage.jsx",
+   "linje": 84,
+   "kolonne": 13,
+   "tag": "input",
+   "type": "text",
+   "tekst": "Dit navn",
+   "komponent": "ProfilePage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/ProfilePage.jsx",
+   "linje": 115,
+   "kolonne": 17,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Ryd",
+   "komponent": "ProfilePage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/ProfilePage.jsx",
+   "linje": 129,
+   "kolonne": 15,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "ProfilePage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/ProfilePage.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/ProfilePage.jsx",
+   "linje": 148,
+   "kolonne": 15,
+   "tag": "input",
+   "type": "checkbox",
+   "tekst": null,
+   "komponent": "ProfilePage",
+   "app": "faelles",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/ProfilePage.jsx",
+   "linje": 162,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "submit",
+   "tekst": null,
+   "komponent": "ProfilePage",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/ProfilePage.test.jsx",
+    "src/pages/ProfilePagePlatform.test.jsx"
+   ]
+  },
+  {
+   "fil": "src/pages/StagePresentationPage.jsx",
+   "linje": 88,
+   "kolonne": 7,
+   "tag": "summary",
+   "type": null,
+   "tekst": null,
+   "komponent": "Fold",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/StagePresentationPage.jsx",
+   "linje": 131,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Tilbage til etaperne",
+   "komponent": "StagePresentationPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/StagePresentationPage.jsx",
+   "linje": 307,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": "← Etape",
+   "komponent": "StagePresentationPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/StagePresentationPage.jsx",
+   "linje": 315,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Etape",
+   "komponent": "StagePresentationPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/StagePresentationPage.jsx",
+   "linje": 341,
+   "kolonne": 13,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Tip denne etape",
+   "komponent": "StagePresentationPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/StagePresentationPage.jsx",
+   "linje": 367,
+   "kolonne": 13,
+   "tag": "Link",
+   "type": null,
+   "tekst": "← Til etaperne",
+   "komponent": "StagePresentationPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/StagesPage.jsx",
+   "linje": 83,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "StagesPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/TeamPage.jsx",
+   "linje": 94,
+   "kolonne": 15,
+   "tag": "th",
+   "type": null,
+   "tekst": "Sortér efter startnummer",
+   "komponent": "RiderList",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/TeamPage.jsx",
+   "linje": 102,
+   "kolonne": 17,
+   "tag": "th",
+   "type": null,
+   "tekst": null,
+   "komponent": "RiderList",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/TeamPage.jsx",
+   "linje": 175,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": "Tilbage til holdene",
+   "komponent": "TeamPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/TeamPage.jsx",
+   "linje": 280,
+   "kolonne": 7,
+   "tag": "Link",
+   "type": null,
+   "tekst": "← Alle hold",
+   "komponent": "TeamPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/TeamsPage.jsx",
+   "linje": 72,
+   "kolonne": 11,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "TeamsPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/TeamsPage.jsx",
+   "linje": 97,
+   "kolonne": 11,
+   "tag": "Link",
+   "type": null,
+   "tekst": null,
+   "komponent": "TeamsPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  },
+  {
+   "fil": "src/pages/TourPage.jsx",
+   "linje": 151,
+   "kolonne": 15,
+   "tag": "button",
+   "type": "button",
+   "tekst": null,
+   "komponent": "TourPage",
+   "app": "tour",
+   "aktiveret": false,
+   "tests": []
+  }
+ ]
+}

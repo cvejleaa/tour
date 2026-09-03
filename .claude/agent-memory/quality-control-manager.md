@@ -250,6 +250,54 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   kode faktisk viser ved kørsel — match filhovedet mod commit-beskedens tal
   for SAMME diff, ikke mod research, der gik forud for koden.
 
+## Et måletal om VORES EGEN kvalitet (dæknings-/status-flader)
+
+- **Spørg først: ville tallet have fanget de sidste to ægte fejl?** En
+  flade-dækning, der tæller "element aktiveret i mindst én test", ville have
+  vist Forlad-knappen GRØN (`src/pages/GamesPage.jsx:88` klikkes af fire tests
+  i `GamesPage.test.jsx:88,100,113,126` med `leaveGame` mocket) — netop den
+  knap, der fejlede i produktion på `firestore.rules`. Og et forkert TAL
+  ("Næste kamp låser om") er slet ikke et interaktivt element og findes ikke i
+  inventaret. Et kvalitets-måletal skal derfor SELV skrive, hvad det ikke kan
+  se (regler, server, tallenes rigtighed), lige over tallet — ellers sælger det
+  ro, der ikke er dækning for, og det er værre end intet tal.
+- **To procenter på samme flade læses som samme skala.** Admin → Tests bærer
+  allerede en donut med "100 % bestået" (`TestsTab.jsx:79-94`). Et nyt "45 %
+  dækket" i samme visuelle sprog bliver til "appen er 45 % i orden". Ny
+  målestok = ny FORM (brøk "172 af 386", bar, aldrig samme donut) + en sætning,
+  der skiller de to spørgsmål ad.
+- **Rød farve på "ikke målt" gør en oversigt til en fejlliste.** 214 grå/gule
+  linjer er en arbejdsliste; 214 røde er en falliterklæring, ejeren lukker.
+- **Fil:linje i et UGENTLIGT øjebliksbillede peger på den forkerte linje efter
+  første redigering.** Vis komponent/funktionsnavn + statisk label som primær
+  identitet, linjen som sekundær.
+- **En sti→gruppe-tabel uden fallback-gruppe taber elementer tavst** (samme
+  fælde som `DriftTab.jsx:108`s `forventede`). Kræv "Andet"-gruppe og en test
+  på at gruppesummen == totalen — og at totalen VISES.
+- **En 'ukendt sti'-fallback kan skjule, at en RIGTIG mappe blot ikke stod på
+  listen.** `appFor()` (`scripts/lib/fladeDaekning.mjs`) puttede `comments/`,
+  `onboarding/`, `reactions/` i 'andet' — og egen-testen dokumenterede det som
+  bevidst fallback-eksempel (`appFor('src/features/comments/CommentBox.jsx')` →
+  'andet'). Men 9 af de 11 'andet'-elementer var reelt Tour-only
+  (`LeagueWall.jsx`, `OnboardingChecklist.jsx`, `Reactions.jsx`, kun brugt af
+  `LeaguesPage.jsx`/`DashboardPage.jsx`) og mistede dermed den de-emphasis-note,
+  'tour'-gruppen ellers bærer ("spillet er slut, intet at handle på"). Kun
+  `EmojiPicker.jsx` var reelt blandet (også brugt af den delte `MessagesPage.jsx`).
+  Spor hver mappe, en klassifikations-regex IKKE nævner, til dens faktiske
+  forbrugere — "ukendt" er sjældent sandt for en mappe, der findes i repoet.
+- **`docs/testing.md:23` påstår "Hele UI'et er dækket udtømmende".** Enhver ny
+  måling, der siger et andet tal, modsiger den linje og skal rette den i SAMME
+  PR.
+
+- **n → n+1 øjebliksbilleds-filer rammer flere spejle end fanen.** Listen for
+  Admin → Tests' to filer: `TestsTab.jsx:21,43,185,205,206,215-219`,
+  `TestsTab.test.jsx:7,90-98,153`, `test-report.yml:3,14,58-85,91,98`
+  (`git add`-linjen er den farligste: glemmes den, committes den nye fil
+  ALDRIG af ugekørslen, og fanens egen "kør Actions"-vejledning hjælper ikke),
+  `docs/testing.md:40,44,54,57-58`. Fixturen skal gøre den NYE fil til den
+  ÆLDSTE — ellers er den tredje dato ren dekoration, og en mutation, der
+  fjerner den fra listen, forbliver grøn.
+
 ## Nye TAL på en eksisterende flade
 
 - **`MatchElo.jsx:8-15` er husets skrevne præcedens:** en "favorit" skal komme

@@ -1,8 +1,9 @@
 name: Opdatér test-rapporten
 
-# Genskaber de to committede øjebliksbilleder bag Admin → Tests:
-#   src/data/testReport.json  (antal tests, filer, bestået pr. suite)
-#   src/data/depGraph.json    (afhængighedsdiagrammet)
+# Genskaber de tre committede øjebliksbilleder bag Admin → Tests:
+#   src/data/testReport.json     (antal tests, filer, bestået pr. suite)
+#   src/data/depGraph.json       (afhængighedsdiagrammet)
+#   src/data/fladeDaekning.json  (hvilke knapper/felter testene rørte ved)
 #
 # HVORFOR ET SKEMA OG EN KNAP, OG IKKE ET CI-TRIN PÅ HVER PR:
 # filerne er 138 KB genereret JSON. Skrev hver PR dem, ville to samtidige PR'er
@@ -11,7 +12,7 @@ name: Opdatér test-rapporten
 # med vilje. CLAUDE.md: "hvordan starter jeg det her med vilje?"
 #
 # HVORDAN DEN OPDAGES, NÅR DEN HOLDER OP MED AT KØRE: fanen selv siger det.
-# TestsTab advarer, når det ældste af de to øjebliksbilleder er over 14 dage —
+# TestsTab advarer, når det ældste af de tre øjebliksbilleder er over 14 dage —
 # altså når mindst TO planlagte kørsler er udeblevet. Alarmen står dér, hvor
 # tallene læses, ikke i en log ingen åbner.
 #
@@ -55,25 +56,33 @@ jobs:
       - name: Genskab rapport og afhængighedsdiagram
         run: npm run test:report
 
-      # Fejler ÅBENT. Skrev kørslen kun den ene fil — fordi en suite ikke kunne
-      # køre — ville de to datoer skride fra hinanden, og fanen ville vise et
+      # Fejler ÅBENT. Skrev kørslen kun én af filerne — fordi en suite ikke
+      # kunne køre — ville datoerne skride fra hinanden, og fanen ville vise et
       # diagram fra en anden dag end tallene. Hellere en rød kørsel end et
       # halvt øjebliksbillede.
-      - name: Kontrollér at begge filer blev skrevet i denne kørsel
+      - name: Kontrollér at alle tre filer blev skrevet i denne kørsel
         run: |
           node -e '
             const fs = require("fs");
             const a = JSON.parse(fs.readFileSync("src/data/testReport.json", "utf8"));
             const b = JSON.parse(fs.readFileSync("src/data/depGraph.json", "utf8"));
-            const ta = Date.parse(a.generatedAt), tb = Date.parse(b.generatedAt);
-            if (!Number.isFinite(ta) || !Number.isFinite(tb)) {
+            const c = JSON.parse(fs.readFileSync("src/data/fladeDaekning.json", "utf8"));
+            const tider = [a, b, c].map((f) => Date.parse(f.generatedAt));
+            if (tider.some((t) => !Number.isFinite(t))) {
               console.error("::error::generatedAt kunne ikke læses i mindst én fil."); process.exit(1);
             }
-            const spredning = Math.abs(ta - tb) / 1000;
+            const spredning = (Math.max(...tider) - Math.min(...tider)) / 1000;
             if (spredning > 600) {
-              console.error(`::error::De to filer er ${Math.round(spredning)} s fra hinanden — kun den ene blev genskabt.`);
+              console.error(`::error::Filerne er ${Math.round(spredning)} s fra hinanden — mindst én blev ikke genskabt.`);
               process.exit(1);
             }
+            // Fladedækningen: nul aktiverede betyder, at tappen ikke kørte —
+            // build-test-report.mjs fejler allerede dér, men vagten står også
+            // her, hvor den kan læses i kørslens log.
+            if (!c.totals || c.totals.aktiverede === 0) {
+              console.error("::error::fladeDaekning.json har 0 aktiverede elementer — tappen loggede ingenting."); process.exit(1);
+            }
+            console.log(`Fladen: ${c.totals.aktiverede} af ${c.totals.elementer} elementer aktiveret i mindst én test`);
             const omraader = [...new Set(a.suites.map((s) => s.area))].sort();
             console.log(`Områder: ${omraader.join(", ")} · ${a.totals.files} filer · ${a.totals.tests} tests`);
             for (const kraevet of ["frontend", "functions", "platform"]) {
@@ -88,13 +97,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/data/testReport.json src/data/depGraph.json
+          git add src/data/testReport.json src/data/depGraph.json src/data/fladeDaekning.json
           if git diff --cached --quiet; then
             echo "Ingen ændring i tallene — intet at committe."
             exit 0
           fi
           git commit -m "Test-rapporten er genskabt
 
-          Automatisk kørsel af npm run test:report. Kun de to genererede
+          Automatisk kørsel af npm run test:report. Kun de tre genererede
           øjebliksbilleder bag Admin → Tests er rørt."
           git push origin HEAD:main

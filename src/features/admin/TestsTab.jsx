@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import report from '../../data/testReport.json';
 import depGraph from '../../data/depGraph.json';
+import fladeDaekning from '../../data/fladeDaekning.json';
 import DepGraph from './DepGraph';
+import FladeDaekning from './FladeDaekning';
+import ScrollRaekke from '../../components/ScrollRaekke';
 
 // ÉT NAVN PR. SERVER. Der er to: Tourens `functions/` og platformens
 // `functions-platform/`. Da kun den første var med, stod dens tal under den
@@ -14,11 +17,11 @@ const AREA_LABELS = {
   functions: 'Cloud Functions (Tour)',
   platform: 'Cloud Functions (platform)',
 };
-const SUB = { OVERVIEW: 'overview', DEPS: 'deps', DETAILS: 'details' };
+const SUB = { OVERVIEW: 'overview', FLADE: 'flade', DEPS: 'deps', DETAILS: 'details' };
 
 // --- Er tallene forældede? -------------------------------------------------
 //
-// Fanen viser et ØJEBLIKSBILLEDE, ikke en måling af suiten lige nu: to
+// Fanen viser et ØJEBLIKSBILLEDE, ikke en måling af suiten lige nu: tre
 // committede JSON-filer, skrevet af `npm run test:report`. Bliver de ikke
 // genskabt, står tallene og lyver stille. Det gjorde de i to måneder — siden
 // viste 73 testfiler, mens suiten var vokset til over 200 — og intet på
@@ -40,7 +43,7 @@ export function alderIDage(iso, nu = Date.now()) {
 /**
  * Den ÆLDSTE af datoerne — den, der afgør om fanen er forældet.
  *
- * De to filer skrives normalt i samme kørsel, men de ER to filer og kan komme
+ * De tre filer skrives normalt i samme kørsel, men de ER tre filer og kan komme
  * fra hver sin. Målte vi på testrapporten alene, ville en frisk rapport kunne
  * skjule et forældet diagram bag sin egen dato.
  *
@@ -182,11 +185,11 @@ function DetailsTab() {
 
 export default function TestsTab() {
   const [sub, setSub] = useState(SUB.OVERVIEW);
-  // TO DATOER, IKKE ÉN. Linjen stod før over underfanerne og sagde "Senest
+  // TRE DATOER, IKKE ÉN. Linjen stod før over underfanerne og sagde "Senest
   // opdateret" om dem alle — men hentede kun testrapportens dato.
-  // Afhængighedsdiagrammet er en SELVSTÆNDIG fil (depGraph.json), og et
-  // diagram fra en anden kørsel ville have båret en dato, der ikke var dets.
-  const datoer = [report.generatedAt, depGraph.generatedAt];
+  // Afhængighedsdiagrammet og fladedækningen er SELVSTÆNDIGE filer, og en fil
+  // fra en anden kørsel ville have båret en dato, der ikke var dens.
+  const datoer = [report.generatedAt, depGraph.generatedAt, fladeDaekning.generatedAt];
   const gammel = erForaeldet(datoer);
   // ADVARSLEN SKAL NAVNGIVE DEN FIL, DER UDLØSTE DEN. Skrev den altid
   // testrapportens dato, kunne den sige "16 dage", mens den fyrede, fordi
@@ -202,8 +205,8 @@ export default function TestsTab() {
         <p className="badge badge--yellow mb-2" style={{ display: 'block' }} data-testid="rapport-forældet">
           <strong>⚠️ Tallene her er forældede.</strong>{' '}
           {aeldste
-            ? `Det ældste af de to øjebliksbilleder er fra ${formatDate(aeldste.iso)}, altså ${Math.floor(aeldste.alder)} dage gammelt.`
-            : 'Mindst én af de to filer har en dato, der ikke kan læses — de kan ikke bruges.'}
+            ? `Det ældste af de tre øjebliksbilleder er fra ${formatDate(aeldste.iso)}, altså ${Math.floor(aeldste.alder)} dage gammelt.`
+            : 'Mindst én af de tre filer har en dato, der ikke kan læses — de kan ikke bruges.'}
           {' '}Suiten er sandsynligvis vokset siden — antal tests, filer og
           bestået-andel passer ikke med koden, som den ser ud nu.
           {' '}Kør <strong>Actions → «Opdatér test-rapporten»</strong> og deploy
@@ -215,16 +218,22 @@ export default function TestsTab() {
       <p style={{ fontSize: '0.8rem', color: 'var(--c-muted)', margin: '0 0 0.75rem' }}>
         Tests-tallene: {formatDate(report.generatedAt)}
         {' · '}Afhængighedsdiagrammet: {formatDate(depGraph.generatedAt)}
+        {' · '}Knapper og felter: {formatDate(fladeDaekning.generatedAt)}
         {' · '}opdateres med <code>npm run test:report</code>
       </p>
 
-      <div className="tabs" role="tablist" style={{ marginBottom: '1rem' }}>
+      {/* ScrollRaekke, ikke en bar .tabs-div: under 720 px scroller rækken med
+          skjult scrollbar, og en fjerde fane kunne lægge sig uden for kanten
+          uden markering (Safari-rapporten "fanerne kommer ikke frem"). */}
+      <ScrollRaekke className="tabs" role="tablist" style={{ marginBottom: '1rem' }}>
         <button role="tab" className={`tab${sub === SUB.OVERVIEW ? ' tab--active' : ''}`} onClick={() => setSub(SUB.OVERVIEW)} data-testid="subtab-overview">📊 Oversigt</button>
+        <button role="tab" className={`tab${sub === SUB.FLADE ? ' tab--active' : ''}`} onClick={() => setSub(SUB.FLADE)} data-testid="subtab-flade">🖱️ Knapper og felter</button>
         <button role="tab" className={`tab${sub === SUB.DEPS ? ' tab--active' : ''}`} onClick={() => setSub(SUB.DEPS)} data-testid="subtab-deps">🕸️ Afhængigheder</button>
         <button role="tab" className={`tab${sub === SUB.DETAILS ? ' tab--active' : ''}`} onClick={() => setSub(SUB.DETAILS)} data-testid="subtab-details">📋 Detaljer</button>
-      </div>
+      </ScrollRaekke>
 
       {sub === SUB.OVERVIEW && <OverviewTab />}
+      {sub === SUB.FLADE && <FladeDaekning />}
       {sub === SUB.DEPS && <DepGraph />}
       {sub === SUB.DETAILS && <DetailsTab />}
     </div>

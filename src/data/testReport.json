@@ -1,12 +1,60 @@
 {
-  "generatedAt": "2026-09-01T17:21:55.077Z",
+  "generatedAt": "2026-09-03T20:56:55.330Z",
   "totals": {
-    "files": 252,
-    "tests": 4169,
-    "passed": 4169,
+    "files": 269,
+    "tests": 4424,
+    "passed": 4424,
     "failed": 0
   },
   "suites": [
+    {
+      "file": "e2e/fixtures/seed-e2e.test.mjs",
+      "area": "frontend",
+      "passed": 10,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "seed-e2e: kun lokale emulator-værter › tillader localhost:8080",
+          "status": "passed"
+        },
+        {
+          "name": "seed-e2e: kun lokale emulator-værter › tillader 127.0.0.1:9099",
+          "status": "passed"
+        },
+        {
+          "name": "seed-e2e: kun lokale emulator-værter › tillader [::1]:8080",
+          "status": "passed"
+        },
+        {
+          "name": "seed-e2e: kun lokale emulator-værter › afviser example.invalid:1",
+          "status": "passed"
+        },
+        {
+          "name": "seed-e2e: kun lokale emulator-værter › afviser firestore.googleapis.com:443",
+          "status": "passed"
+        },
+        {
+          "name": "seed-e2e: kun lokale emulator-værter › afviser 10.0.0.5:8080",
+          "status": "passed"
+        },
+        {
+          "name": "seed-e2e: kun lokale emulator-værter › afviser ",
+          "status": "passed"
+        },
+        {
+          "name": "seed-e2e: kun lokale emulator-værter › afviser undefined",
+          "status": "passed"
+        },
+        {
+          "name": "seed-e2e: vagterne sidder FØR første netværkskald › afviser en fremmed Firestore-vært med det samme",
+          "status": "passed"
+        },
+        {
+          "name": "seed-e2e: vagterne sidder FØR første netværkskald › afviser at køre med GOOGLE_APPLICATION_CREDENTIALS sat",
+          "status": "passed"
+        }
+      ]
+    },
     {
       "file": "scripts/fanebredde.test.mjs",
       "area": "frontend",
@@ -332,9 +380,53 @@
       ]
     },
     {
+      "file": "scripts/lib/fladeDaekning.test.mjs",
+      "area": "frontend",
+      "passed": 9,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "flet — kreditreglen › et klik på en <span> inde i knappen krediterer knappen, ikke formen udenom",
+          "status": "passed"
+        },
+        {
+          "name": "flet — kreditreglen › et klik på en <span> inde i formen (uden knap imellem) krediterer ingenting — form aktiveres af submit",
+          "status": "passed"
+        },
+        {
+          "name": "flet — kreditreglen › en logpost, der kun peger på ukendte kildesteder, krediterer intet",
+          "status": "passed"
+        },
+        {
+          "name": "flet — kreditreglen › en tom log giver alt som ikke-aktiveret — ikke en fejl og ikke grønt",
+          "status": "passed"
+        },
+        {
+          "name": "flet — kreditreglen › samler testfiler pr. element, sorteret og uden dubletter, og sætter app",
+          "status": "passed"
+        },
+        {
+          "name": "appFor › platform = spil-mapperne og spilsiderne; tour = Tourens mapper og sider; resten fælles",
+          "status": "passed"
+        },
+        {
+          "name": "laesLog › springer halve linjer over uden at tabe de hele",
+          "status": "passed"
+        },
+        {
+          "name": "evneNoegle — én konvertering › babel (0-indekseret) og React (1-indekseret) mødes i samme nøgle",
+          "status": "passed"
+        },
+        {
+          "name": "kildeKaede › følger fiber.return-kæden og springer led uden kilde over",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "scripts/lib/roller.test.mjs",
       "area": "frontend",
-      "passed": 45,
+      "passed": 48,
       "failed": 0,
       "tests": [
         {
@@ -379,6 +471,18 @@
         },
         {
           "name": "Security Reviewer — kun når adgang røres › kræves af src/features/games/gameLeagueActions.js",
+          "status": "passed"
+        },
+        {
+          "name": "Security Reviewer — kun når adgang røres › kræves af .github/workflows/ci.yml",
+          "status": "passed"
+        },
+        {
+          "name": "Security Reviewer — kun når adgang røres › kræves af .github/dependabot.yml",
+          "status": "passed"
+        },
+        {
+          "name": "Security Reviewer — kun når adgang røres › kræves af .env.e2e",
           "status": "passed"
         },
         {
@@ -596,6 +700,26 @@
       ]
     },
     {
+      "file": "scripts/maal-livescore-detaljer.test.mjs",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "erIGang › minuttal, pause, forlænget spilletid og straffe er i gang",
+          "status": "passed"
+        },
+        {
+          "name": "erIGang › ikke startet, slut, udsat, aflyst og afbrudt er IKKE i gang",
+          "status": "passed"
+        },
+        {
+          "name": "erIGang › tomt eller manglende Eps er ikke i gang — en kamp uden status må ikke koste et kald",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "scripts/maal-xg.test.mjs",
       "area": "frontend",
       "passed": 11,
@@ -679,6 +803,66 @@
         },
         {
           "name": "parseHashConfig › returnerer null hvis blokken mangler/ufuldstændig",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "scripts/scan-flade.test.mjs",
+      "area": "frontend",
+      "passed": 9,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "scanKilde › finder flerlinje-knappen præcis én gang — ikke den i kommentaren eller strengen",
+          "status": "passed"
+        },
+        {
+          "name": "scanKilde › tæller form, felter, links og lowercase-elementer med handler — men ikke hidden, tomme <a> eller egne komponenter",
+          "status": "passed"
+        },
+        {
+          "name": "scanKilde › finder komponentnavnet også for pilefunktioner, og foretrækker komponenten frem for en indre hjælper",
+          "status": "passed"
+        },
+        {
+          "name": "scanKilde › komponentnavnet lækker ikke til den næste topniveau-funktion (Test Managers mutation: stak.pop)",
+          "status": "passed"
+        },
+        {
+          "name": "scanKilde › læser en ren streng i et udtryk som tekst — men ikke et udtryk med variabler",
+          "status": "passed"
+        },
+        {
+          "name": "scanKilde › foretrækker det oplæste navn og teksten på knappen frem for data-testid",
+          "status": "passed"
+        },
+        {
+          "name": "scanKilde › kaster ved en fil, der ikke kan parses, i stedet for at tælle nul tavst",
+          "status": "passed"
+        },
+        {
+          "name": "haendelserFor › tekstfelter aktiveres af input/change, checkbox også af klik, form kun af submit",
+          "status": "passed"
+        },
+        {
+          "name": "scanTrae mod det rigtige repo › finder de knapper, der har været produktionsfejl i, og springer testfiler over",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "scripts/scan-liga-felter.test.mjs",
+      "area": "frontend",
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "ligaFejl — samme dom som firestore.rules › rent dokument → ingen fejl",
+          "status": "passed"
+        },
+        {
+          "name": "ligaFejl — samme dom som firestore.rules › id-felt, manglende navn og map-navn er hver sin fejl",
           "status": "passed"
         }
       ]
@@ -2482,9 +2666,25 @@
     {
       "file": "src/features/admin/DriftTab.test.jsx",
       "area": "frontend",
-      "passed": 8,
+      "passed": 12,
       "failed": 0,
       "tests": [
+        {
+          "name": "forventedeKoersler — matrixen maskineri × spil › et spil med livescore-kortlægning får et Live-mål-kort — jobbet har intet søskende-job",
+          "status": "passed"
+        },
+        {
+          "name": "forventedeKoersler — matrixen maskineri × spil › SAMME provider, andet spil-id: intet Live-mål-kort (gaten er evnen, ikke provideren)",
+          "status": "passed"
+        },
+        {
+          "name": "forventedeKoersler — matrixen maskineri × spil › et spil uden synk får ingen kørsels-kort",
+          "status": "passed"
+        },
+        {
+          "name": "forventedeKoersler — matrixen maskineri × spil › tegner Live-mål-kortet med det danske navn og kørslens linje",
+          "status": "passed"
+        },
         {
           "name": "DriftTab › tegner GRÅT kort pr. forventet kørsel uden dokument — aldrig et hul i listen",
           "status": "passed"
@@ -2539,6 +2739,58 @@
         },
         {
           "name": "EmailLogTab › viser fejlbesked",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/FladeDaekning.test.jsx",
+      "area": "frontend",
+      "passed": 11,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "FladeDaekning — teksten er selve risikoen › siger «Mindst 2 af 4» og bruger aldrig ordet «testet» om et element",
+          "status": "passed"
+        },
+        {
+          "name": "FladeDaekning — teksten er selve risikoen › forklarer over listen, hvad den IKKE kan se — begge dagens produktionsfejl ville stå rørt",
+          "status": "passed"
+        },
+        {
+          "name": "FladeDaekning — teksten er selve risikoen › E2E-forbeholdet og ordet «Mindst» styres af flaget — ikke af en hardkodet sætning",
+          "status": "passed"
+        },
+        {
+          "name": "FladeDaekning — teksten er selve risikoen › viser type på dansk, teksten på elementet (eller at den dannes i koden), komponenten og fil:linje",
+          "status": "passed"
+        },
+        {
+          "name": "FladeDaekning — teksten er selve risikoen › grupperer: spillet først, Tour foldet sammen med sin note, og urørte øverst i en fil",
+          "status": "passed"
+        },
+        {
+          "name": "FladeDaekning — teksten er selve risikoen › afkrydsningen «Vis kun det, ingen test rører» skjuler de rørte",
+          "status": "passed"
+        },
+        {
+          "name": "FladeDaekning — teksten er selve risikoen › fejler ÅBENT ved en tom måling — ingen tal, ingen liste, vejen videre",
+          "status": "passed"
+        },
+        {
+          "name": "grupper og typeNavn › sorterer filer efter antal urørte, faldende",
+          "status": "passed"
+        },
+        {
+          "name": "grupper og typeNavn › et element med en ukendt gruppe lander i «Andet» — det forsvinder ikke",
+          "status": "passed"
+        },
+        {
+          "name": "grupper og typeNavn › gruppesummen af det RIGTIGE øjebliksbillede er lig totalen",
+          "status": "passed"
+        },
+        {
+          "name": "grupper og typeNavn › oversætter tag og type til ejerens ord",
           "status": "passed"
         }
       ]
@@ -2726,7 +2978,7 @@
     {
       "file": "src/features/admin/GameScheduleTab.test.jsx",
       "area": "frontend",
-      "passed": 72,
+      "passed": 75,
       "failed": 0,
       "tests": [
         {
@@ -2967,6 +3219,18 @@
         },
         {
           "name": "rundebaseret pulje-deadline › byggSchedulePatch — write-guarden på puljeLockAt › skriver puljeLockAt for et MANUELT pulje-spil, når den afviger",
+          "status": "passed"
+        },
+        {
+          "name": "⚽ Synk kampdetaljer nu › nævner kampe i gang KUN når der er nogen — og siger, hvad der blev skrevet",
+          "status": "passed"
+        },
+        {
+          "name": "⚽ Synk kampdetaljer nu › tier om live, når ingen kampe er i gang",
+          "status": "passed"
+        },
+        {
+          "name": "⚽ Synk kampdetaljer nu › siger, når live-delen fejlede",
           "status": "passed"
         },
         {
@@ -3430,7 +3694,7 @@
     {
       "file": "src/features/admin/TestsTab.test.jsx",
       "area": "frontend",
-      "passed": 11,
+      "passed": 12,
       "failed": 0,
       "tests": [
         {
@@ -3450,7 +3714,11 @@
           "status": "passed"
         },
         {
-          "name": "TestsTab › viser BEGGE datoer — testrapportens og diagrammets hver for sig",
+          "name": "TestsTab › viser ALLE TRE datoer — testrapportens, diagrammets og fladedækningens hver for sig",
+          "status": "passed"
+        },
+        {
+          "name": "TestsTab › har underfanen «Knapper og felter» som nr. 2, og den viser fladedækningen",
           "status": "passed"
         },
         {
@@ -3466,7 +3734,7 @@
           "status": "passed"
         },
         {
-          "name": "erForaeldet — vagten selv › måler på den ÆLDSTE af de to filer",
+          "name": "erForaeldet — vagten selv › måler på den ÆLDSTE af filerne — uanset hvor i listen den står",
           "status": "passed"
         },
         {
@@ -5134,7 +5402,7 @@
     {
       "file": "src/features/games/football/FootballTip.test.jsx",
       "area": "frontend",
-      "passed": 128,
+      "passed": 142,
       "failed": 0,
       "tests": [
         {
@@ -5258,6 +5526,10 @@
           "status": "passed"
         },
         {
+          "name": "FootballTip — slutresultat på kampkortet › viser PRÆCIS én liste på en afgjort kamp med et efterladt liveMaal",
+          "status": "passed"
+        },
+        {
           "name": "FootballTip — slutresultat på kampkortet › lægger målene i EGEN blok, aldrig i meta-rækken",
           "status": "passed"
         },
@@ -5347,6 +5619,46 @@
         },
         {
           "name": "FootballTip — kampen er i gang › dæmper BÅDE pillen og tallet, når opdateringen er stoppet",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › viser målene under den levende stilling — med stilling, minut, scorer og hold",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › oplæses som \"indtil videre\" med egen label — ikke oveni stillingens",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › et annulleret mål bliver stående — overstreget, mærket, og UDEN stilling",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › kun et annulleret mål (0-0) er stadig en liste",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › dæmpes, når listen halter efter stillingen",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › dæmpes, når kampen er slut",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › dæmpes, når opdateringen er afbrudt",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › et selvmål i live-listen nævner scorerens EGET hold — i listen og i oplæsningen",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › viser INGEN live-liste uden liveMaal",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampen er i gang › viser INGEN live-liste ved tomme lister",
           "status": "passed"
         },
         {
@@ -5631,6 +5943,18 @@
         },
         {
           "name": "FootballTip — kampe fra en anden runde i samme uge › TÆLLEREN og kuponen ændrer sig IKKE — kampen er lånt, ikke flyttet",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampe fra en anden runde i samme uge › \"Næste kamp låser\" peger på den LÅNTE kamp, når den låser først",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampe fra en anden runde i samme uge › \"snart\"-markeringen følger med: under 2 t til den lånte kamp lyser tælleren",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — kampe fra en anden runde i samme uge › er alle viste kampe låst — også den lånte — forsvinder tælleren",
           "status": "passed"
         },
         {
@@ -6394,7 +6718,7 @@
     {
       "file": "src/features/games/football/maalRaekke.test.js",
       "area": "frontend",
-      "passed": 7,
+      "passed": 13,
       "failed": 0,
       "tests": [
         {
@@ -6423,6 +6747,30 @@
         },
         {
           "name": "medStilling › tom eller ugyldig ind giver tom ud",
+          "status": "passed"
+        },
+        {
+          "name": "stillingAfListe — hvor langt er listen nået › er det sidste måls stilling, eller 0-0 uden mål",
+          "status": "passed"
+        },
+        {
+          "name": "liveRaekke — tællende mål med stilling, annullerede uden › fletter efter minut; et annulleret mål bærer INGEN stilling og flytter ingen",
+          "status": "passed"
+        },
+        {
+          "name": "liveRaekke — tællende mål med stilling, annullerede uden › mål først ved samme minut, og skrald filtreres fra",
+          "status": "passed"
+        },
+        {
+          "name": "liveRaekke — tællende mål med stilling, annullerede uden › tåler manglende lister",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalTilstand — det, kortet skal vise › bagud, når listen ikke er nået frem til den levende stilling",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalTilstand — det, kortet skal vise › null uden noget at vise — tomme lister, intet felt, ingen live",
           "status": "passed"
         }
       ]
@@ -6576,9 +6924,233 @@
       ]
     },
     {
+      "file": "src/features/games/football/puljeAfsloering.test.js",
+      "area": "frontend",
+      "passed": 27,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "erAfgjort — én kilde til tallet, aldrig to › afgjort først når ALLE dokumenter har serverens correct",
+          "status": "passed"
+        },
+        {
+          "name": "erAfgjort — én kilde til tallet, aldrig to › et TOMT felt er ikke afgjort — [].every() er sand",
+          "status": "passed"
+        },
+        {
+          "name": "erAfgjort — én kilde til tallet, aldrig to › en ikke-numerisk correct tæller ikke som afgjort",
+          "status": "passed"
+        },
+        {
+          "name": "holdTilslutning — konsensus og enegængere på HELE spillet › tæller pr. hold og sorterer efter tilslutning",
+          "status": "passed"
+        },
+        {
+          "name": "holdTilslutning — konsensus og enegængere på HELE spillet › lige tilslutning brydes på NAVN — uanset holdenes rækkefølge i spillet",
+          "status": "passed"
+        },
+        {
+          "name": "holdTilslutning — konsensus og enegængere på HELE spillet › udpeger enegængeren — og KUN når præcis én har valgt holdet",
+          "status": "passed"
+        },
+        {
+          "name": "holdTilslutning — konsensus og enegængere på HELE spillet › et hold, INGEN har valgt, står med 0 og uden enegænger",
+          "status": "passed"
+        },
+        {
+          "name": "holdTilslutning — konsensus og enegængere på HELE spillet › et dublet-hold i ét tip tæller ÉN gang",
+          "status": "passed"
+        },
+        {
+          "name": "holdTilslutning — konsensus og enegængere på HELE spillet › tåler tip uden championship",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › skærer mod ligaens medlemmer — en fremmed kommer ikke med",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › \"tippede ikke\" er IKKE \"0 rigtige\" — og ligger sidst",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › en, der tippede og ramte NUL, ligger FØR en, der ikke tippede",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › to UDEN tip står i navneorden — uanset rækkefølgen i ligaen",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › sorterer efter point, så rigtige, så navn",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › to med SAMME tal står i navneorden — uanset rækkefølgen i ligaen",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › POINT går forud for rigtige (perfekt-bonus skiller), rigtige forud for navn",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › AFGJORT bruger serverens tal, ikke klientens regnestykke",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › bunden tæller med (PL: top OG bund) › lige nu: rigtige og point er SUMMEN af begge spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › bunden tæller med (PL: top OG bund) › lige nu: en perfekt BUND giver sin egen bonus — som på serveren",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › bunden tæller med (PL: top OG bund) › afgjort: serverens nedCorrect/nedPoints lægges til",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › bunden tæller med (PL: top OG bund) › afgjort UDEN bund-felter (SL-dokument): kun toppen — ingen NaN",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › bunden tæller med (PL: top OG bund) › et spil UDEN bund ignorerer et relegation-felt, selv med bund-facit",
+          "status": "passed"
+        },
+        {
+          "name": "puljeRangliste — én liga ad gangen › bunden tæller med (PL: top OG bund) › bund UDEN bund-facit (tabellen har ikke nok hold endnu) tæller 0, ikke fejl",
+          "status": "passed"
+        },
+        {
+          "name": "puljeVindere — sæsonens udbetaling › kårer på POINT — perfekt-bonussen skiller to med samme antal rigtige",
+          "status": "passed"
+        },
+        {
+          "name": "puljeVindere — sæsonens udbetaling › DELT førsteplads navngiver alle — en delt sejr er stadig en sejr",
+          "status": "passed"
+        },
+        {
+          "name": "puljeVindere — sæsonens udbetaling › ingen vinder, når ingen ramte noget — nul er ikke en sejr",
+          "status": "passed"
+        },
+        {
+          "name": "puljeVindere — sæsonens udbetaling › ingen vinder uden tip",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/games/football/PuljeAfsloering.test.jsx",
+      "area": "frontend",
+      "passed": 25,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "PuljeAfsloering — hold-tabellen (hele spillet, ingen navne) › tæller pr. hold på HELE spillet, også dem uden for ligaen",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — hold-tabellen (hele spillet, ingen navne) › et hold, INGEN tror på, står med \"0 af 3\" — det er information, ikke støj",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — hold-tabellen (hele spillet, ingen navne) › markerer holdene, der står der lige nu, med 🏆",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — hold-tabellen (hele spillet, ingen navne) › enegængeren nævnes ved navn KUN når han er liga-fælle — ellers \"kun én spiller\"",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — hold-tabellen (hele spillet, ingen navne) › DOKUMENT-ID'ET er identiteten — et uid-felt i data kan ikke gøre Bos tip til \"kun dig\"",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — hold-tabellen (hele spillet, ingen navne) › under ENEGAENGER_MINIMUM tip kaldes ingen enegænger — to tip er en mønt",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — hold-tabellen (hele spillet, ingen navne) › siger ÆRLIGT, at puljen er åben for hele spillet — ikke \"kun din liga\"",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — ranglisten (én liga ad gangen) › rangerer KUN ligaens medlemmer — u9 er i spillet, men ikke på listen",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — ranglisten (én liga ad gangen) › \"tippede ikke\" står SÆRSKILT og sidst — ikke som 0 af 3",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — ranglisten (én liga ad gangen) › under to liga-fæller i stillingen: INGEN rangliste, men en forklaring",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — ranglisten (én liga ad gangen) › præcis to liga-fæller: ranglisten står, og forklaringen er VÆK",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — ranglisten (én liga ad gangen) › mens stillingen HENTER, vises forklaringen ikke — den ville blinke forbi på enhver liga",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — ranglisten (én liga ad gangen) › viser IKKE ranglisten uden ligaer — hold-tabellen står, og der forklares intet",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — ranglisten (én liga ad gangen) › med flere ligaer: en vælger UDEN \"alle mine ligaer\", og listen følger valget",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — ranglisten (én liga ad gangen) › med ÉN liga er der ingen vælger — der er intet at vælge imellem",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — ranglisten (én liga ad gangen) › \"lige nu\"-forbeholdet står, så længe puljen ikke er afgjort",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — PL-formen: top OG bund tæller › lige nu: \"x af 5\" er summen af begge spørgsmål",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — PL-formen: top OG bund tæller › afgjort: vinderen kåres på SUMMEN — og en perfekt række i to spørgsmål er +20",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — sæsonslut, én kilde til tallet › bruger SERVERENS tal og kårer vinderen — med perfekt-bonus",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — sæsonslut, én kilde til tallet › ét dokument uden correct → IKKE afgjort, \"lige nu\" for alle",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — sæsonslut, én kilde til tallet › klientens facit findes, serveren har IKKE afregnet endnu: tallene kommer fra facit, ikke \"0 for alle\"",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — sæsonslut, én kilde til tallet › hverken \"lige nu\" eller facit (tidligt i sæsonen): tabellen står, ingen 🏆, alle 0",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — fejler stille › permission-denied (fx et ur foran serverens) viser INGENTING — ingen rød alarm",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeAfsloering — fejler stille › ingen tip endnu → ingenting",
+          "status": "passed"
+        },
+        {
+          "name": "enegaengerTekst › dig / navn / anonym",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/features/games/football/PuljeTip.test.jsx",
       "area": "frontend",
-      "passed": 10,
+      "passed": 37,
       "failed": 0,
       "tests": [
         {
@@ -6614,11 +7186,119 @@
           "status": "passed"
         },
         {
-          "name": "PuljeTip — PL-formen (top + bund) › SL-formen er uændret: ét grid, 6 valg, ingen bund-sektion",
+          "name": "PuljeTip — PL-formen (top + bund) › SL-formen: ét grid, 6 valg, ingen bund-sektion — men EN overskrift",
           "status": "passed"
         },
         {
           "name": "PuljeTip — \"lige nu\" har brug for nok spillede kampe › tidligt i sæsonen (færre hold i tabellen end top+bund) vises INGEN \"lige nu\"-linje",
+          "status": "passed"
+        },
+        {
+          "name": "sektionsNavn + topTitel — overskriften over holdgitteret › spil MED bund: \"toppen\", fordi der er en bund at være top for",
+          "status": "passed"
+        },
+        {
+          "name": "sektionsNavn + topTitel — overskriften over holdgitteret › spil UDEN bund: spillets eget ord, med stort begyndelsesbogstav",
+          "status": "passed"
+        },
+        {
+          "name": "sektionsNavn + topTitel — overskriften over holdgitteret › ANTALLET følger konfigurationen — det var hele pointen med overskriften",
+          "status": "passed"
+        },
+        {
+          "name": "sektionsNavn + topTitel — overskriften over holdgitteret › LÅST siger den, hvad man HAR — ikke hvad man skal",
+          "status": "passed"
+        },
+        {
+          "name": "sektionsNavn + topTitel — overskriften over holdgitteret › tomt eller manglende ord falder tilbage på \"Toppen\", ikke på et hul",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — den LÅSTE Superliga, som ejeren faktisk kigger på › overskriften siger \"dine 6\" — ikke \"vælg 6\" — og tælleren bliver stående",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — den LÅSTE Superliga, som ejeren faktisk kigger på › ÅBEN: \"vælg 6\", og tælleren står uden låse-mærket",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — den LÅSTE Superliga, som ejeren faktisk kigger på › låst gitter mærkes; åbent gør ikke",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — den LÅSTE Superliga, som ejeren faktisk kigger på › \"lige nu\"-linjen bruger SPILLETS ord for sektionen, ikke \"toppen\"",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — den LÅSTE Superliga, som ejeren faktisk kigger på › PL beholder \"i toppen\" — dér ER der en bund at være top for",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — den LÅSTE Superliga, som ejeren faktisk kigger på › \"endnu ikke åbnet\" mærkes IKKE som låst — dér er dæmpningen det rigtige signal",
+          "status": "passed"
+        },
+        {
+          "name": "Pulje-gitteret — CSS'en MÅLES, ikke læses › POKALEN dæmpes aldrig — heller ikke på et felt, der er fravalgt af maks",
+          "status": "passed"
+        },
+        {
+          "name": "Pulje-gitteret — CSS'en MÅLES, ikke læses › et fravalgt felt dæmpes stadig — dæmpningen ER beskeden dér",
+          "status": "passed"
+        },
+        {
+          "name": "Pulje-gitteret — CSS'en MÅLES, ikke læses › et LÅST felt dæmpes slet ikke",
+          "status": "passed"
+        },
+        {
+          "name": "puljeLigaForbehold — puljen tæller ikke i en sent startet liga › siger INTET, når alle ligaer tæller puljen med",
+          "status": "passed"
+        },
+        {
+          "name": "puljeLigaForbehold — puljen tæller ikke i en sent startet liga › siger INTET uden ligaer — spillets egen skala tæller altid puljen",
+          "status": "passed"
+        },
+        {
+          "name": "puljeLigaForbehold — puljen tæller ikke i en sent startet liga › en liga UDEN startrunde tæller puljen med",
+          "status": "passed"
+        },
+        {
+          "name": "puljeLigaForbehold — puljen tæller ikke i en sent startet liga › NAVNGIVER ligaen og siger først hvad der TÆLLER",
+          "status": "passed"
+        },
+        {
+          "name": "puljeLigaForbehold — puljen tæller ikke i en sent startet liga › opremser flere ligaer på dansk — og tager kun dem, der ikke tæller",
+          "status": "passed"
+        },
+        {
+          "name": "puljeLigaForbehold — puljen tæller ikke i en sent startet liga › en liga uden navn får en læselig plads i sætningen",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — forbeholdet på kortet › vises ved LØFTET, når seeren har en sent startet liga",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — forbeholdet på kortet › vises IKKE, når alle seerens ligaer tæller puljen med",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — afsløringen monteres KUN når tippet er låst › låst: monteres",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — afsløringen monteres KUN når tippet er låst › åben: IKKE monteret — det ville være at kigge i kortene",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — afsløringen monteres KUN når tippet er låst › \"endnu ikke åbnet\": IKKE monteret — reglen fejler lukket uden deadline",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — afsløringen får det, den skal regne på › midt i sæsonen: spillets id, seerens uid, hold, konfiguration, stilling, ligaer og \"lige nu\" — facit er null",
+          "status": "passed"
+        },
+        {
+          "name": "PuljeTip — afsløringen får det, den skal regne på › sæsonslut: facit med top og bund — og \"lige nu\" er null, så afsløringen selv må falde tilbage",
           "status": "passed"
         }
       ]
@@ -7544,6 +8224,26 @@
       ]
     },
     {
+      "file": "src/features/games/forladTekst.test.js",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "forladBekraeftelse — første dialog › nævner spillet og siger præcis hvad der sker: stilling, ligaer, kommende tips væk — spillede tips bliver",
+          "status": "passed"
+        },
+        {
+          "name": "forladPointAdvarsel — anden dialog, kun med point › siger tallet med dansk komma, spillets navn, og at pointene arkiveres — ikke slettes",
+          "status": "passed"
+        },
+        {
+          "name": "forladPointAdvarsel — anden dialog, kun med point › hele point skrives uden decimal",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/features/games/gameActions.setPuljeBet.test.js",
       "area": "frontend",
       "passed": 6,
@@ -7578,7 +8278,7 @@
     {
       "file": "src/features/games/gameActions.test.js",
       "area": "frontend",
-      "passed": 40,
+      "passed": 42,
       "failed": 0,
       "tests": [
         {
@@ -7602,6 +8302,10 @@
           "status": "passed"
         },
         {
+          "name": "joinGame › vender tilbage: fjerner forladt-flaget med updateDoc og rører ikke point",
+          "status": "passed"
+        },
+        {
           "name": "joinGame › returnerer dansk fejl ved permission-denied",
           "status": "passed"
         },
@@ -7610,23 +8314,27 @@
           "status": "passed"
         },
         {
-          "name": "leaveGame › returnerer fejl uden uid",
+          "name": "leaveGame — gennem serveren › returnerer fejl uden uid",
           "status": "passed"
         },
         {
-          "name": "leaveGame › returnerer fejl uden gameId",
+          "name": "leaveGame — gennem serveren › returnerer fejl uden gameId",
           "status": "passed"
         },
         {
-          "name": "leaveGame › kalder deleteDoc på games/{gameId}/players/{uid}",
+          "name": "leaveGame — gennem serveren › kalder callable forladSpil med spillets id — og sletter INTET selv",
           "status": "passed"
         },
         {
-          "name": "leaveGame › returnerer {ok:true} ved succes",
+          "name": "leaveGame — gennem serveren › returnerer {ok:true} med serverens optælling",
           "status": "passed"
         },
         {
-          "name": "leaveGame › returnerer dansk fejl når sletning afvises (har point)",
+          "name": "leaveGame — gennem serveren › viser serverens egen danske besked (fx ejer en liga) — ikke den generiske",
+          "status": "passed"
+        },
+        {
+          "name": "leaveGame — gennem serveren › oversætter en netværksfejl til dansk",
           "status": "passed"
         },
         {
@@ -7874,7 +8582,7 @@
     {
       "file": "src/features/games/gameStandings.test.js",
       "area": "frontend",
-      "passed": 22,
+      "passed": 24,
       "failed": 0,
       "tests": [
         {
@@ -7899,6 +8607,14 @@
         },
         {
           "name": "rankStandings › håndterer lige point (samme placering, spring over)",
+          "status": "passed"
+        },
+        {
+          "name": "rankStandings › et navn, der ikke er en streng, bliver \"Ukendt spiller\" — det må ikke kaste i fladen",
+          "status": "passed"
+        },
+        {
+          "name": "rankStandings › emoji og yndlingshold, der ikke er strenge, bliver null — samme dokument, samme gift",
           "status": "passed"
         },
         {
@@ -9056,6 +9772,38 @@
       ]
     },
     {
+      "file": "src/features/games/useGameHook.test.js",
+      "area": "frontend",
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "useGame — isMember › et forladt dokument er ikke et medlemskab, men me bærer stadig arkivet",
+          "status": "passed"
+        },
+        {
+          "name": "useGame — isMember › et almindeligt dokument er et medlemskab; intet dokument er det ikke",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/games/useGameLeagues.test.jsx",
+      "area": "frontend",
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "useGameLeagues › dokument-id'et vinder over et id-FELT i dokumentet",
+          "status": "passed"
+        },
+        {
+          "name": "useGameLeagues › et navn, der ikke er en streng, bliver tomt — det må ikke nå React som objekt",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/features/games/useGames.test.js",
       "area": "frontend",
       "passed": 10,
@@ -9099,6 +9847,22 @@
         },
         {
           "name": "splitGames › afsluttet eksternt spil er stadig ude af \"åbne\", selv når det er joinable",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/games/useGamesHook.test.js",
+      "area": "frontend",
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "useGames — medlemskab og point fra players/{uid} › et forladt dokument tæller ikke som medlemskab, men pointene kan stadig læses",
+          "status": "passed"
+        },
+        {
+          "name": "useGames — medlemskab og point fra players/{uid} › uden dokument: ikke medlem, 0 point — og uden totalPoints-felt: 0",
           "status": "passed"
         }
       ]
@@ -10143,6 +10907,18 @@
         },
         {
           "name": "filterUsersByLeague › ignorerer uid-er i memberUids der ikke har tilsvarende bruger",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/leagues/useLeagues.test.jsx",
+      "area": "frontend",
+      "passed": 1,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "useLeagues og useAllLeagues › dokument-id'et vinder, og et ikke-streng navn bliver tomt",
           "status": "passed"
         }
       ]
@@ -11331,6 +12107,22 @@
         },
         {
           "name": "fmtSignedPoints › fortegn foran, ægte minus-tegn",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/lib/dokumentId.test.js",
+      "area": "frontend",
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "dokument-id vinder over data-felter › ingen fil spreder dokumentet OVEN PÅ id'et",
+          "status": "passed"
+        },
+        {
+          "name": "dokument-id vinder over data-felter › vagten genkender den gamle rækkefølge — og kun den",
           "status": "passed"
         }
       ]
@@ -12908,9 +13700,29 @@
       ]
     },
     {
+      "file": "src/pages/GamePageForladt.test.jsx",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "GamePage — kortet før fanerne › uden deltagelse: \"Deltag i …\" og et løfte, der er sandt for arkiv-modellen",
+          "status": "passed"
+        },
+        {
+          "name": "GamePage — kortet før fanerne › forladt: \"Vend tilbage til …\", stillingen står klar, ligaerne skal meldes ind igen — ingen faner",
+          "status": "passed"
+        },
+        {
+          "name": "GamePage — kortet før fanerne › aktiv deltager: fanerne, intet kort",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/pages/GamesPage.test.jsx",
       "area": "frontend",
-      "passed": 8,
+      "passed": 12,
       "failed": 0,
       "tests": [
         {
@@ -12927,6 +13739,22 @@
         },
         {
           "name": "GamesPage › kalder leaveGame ved bekræftet Forlad",
+          "status": "passed"
+        },
+        {
+          "name": "GamesPage › spørger KUN én gang, når spilleren ingen point har — og dialogen siger hvad der sker",
+          "status": "passed"
+        },
+        {
+          "name": "GamesPage › spørger TO gange med tallet, når spilleren har point — og forlader først ved andet ja",
+          "status": "passed"
+        },
+        {
+          "name": "GamesPage › forlader IKKE, når spilleren siger nej til anden dialog",
+          "status": "passed"
+        },
+        {
+          "name": "GamesPage › et forladt spil står under Åbne spil med \"Vend tilbage\", ikke \"Deltag\"",
           "status": "passed"
         },
         {
@@ -14846,7 +15674,7 @@
     {
       "file": "functions-platform/chanceVagt.test.js",
       "area": "platform",
-      "passed": 40,
+      "passed": 41,
       "failed": 0,
       "tests": [
         {
@@ -14978,6 +15806,10 @@
           "status": "passed"
         },
         {
+          "name": "setChanceCore — afviser › en spiller, der har FORLADT spillet — dokumentet findes, men er et arkiv",
+          "status": "passed"
+        },
+        {
           "name": "setChanceCore — afviser › en AFVIST bruger — reglerne beskytter intet, når Admin SDK skriver",
           "status": "passed"
         },
@@ -15092,9 +15924,61 @@
       ]
     },
     {
+      "file": "functions-platform/forladSpil.test.js",
+      "area": "platform",
+      "passed": 11,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "forladSpilCore — vagterne › afviser uden login, uden spil, uden medlemskab, og når spillet ikke er åbent",
+          "status": "passed"
+        },
+        {
+          "name": "forladSpilCore — vagterne › en spiller, der allerede har forladt spillet, kan ikke forlade det igen",
+          "status": "passed"
+        },
+        {
+          "name": "forladSpilCore — vagterne › afviser, når spilleren EJER en liga i spillet — og skriver INTET",
+          "status": "passed"
+        },
+        {
+          "name": "forladSpilCore — vagterne › afviser også, når ejeren har fjernet SIG SELV fra medlemslisten — ejerskab er ikke medlemskab",
+          "status": "passed"
+        },
+        {
+          "name": "forladSpilCore — vagterne › alle fejlnøgler har en dansk tekst og en HttpsError-kode",
+          "status": "passed"
+        },
+        {
+          "name": "forladSpilCore — arkivet › sletter KUN hendes tips på kampe, der ikke er låst — låst er Chancens prædikat, og ukendt = låst",
+          "status": "passed"
+        },
+        {
+          "name": "forladSpilCore — arkivet › forlader hendes ligaer, men rører ikke andres",
+          "status": "passed"
+        },
+        {
+          "name": "forladSpilCore — arkivet › sletter ALDRIG players-dokumentet — det får flaget, sidst",
+          "status": "passed"
+        },
+        {
+          "name": "forladSpilCore — arkivet › uden tips og ligaer sættes kun flaget",
+          "status": "passed"
+        },
+        {
+          "name": "erForladt / aktiveSpillere — serverens læsere › kun forladt: true tæller — ikke et manglende felt, ikke en streng",
+          "status": "passed"
+        },
+        {
+          "name": "erForladt / aktiveSpillere — serverens læsere › filtrerer snapshot-dokumenter, også dem uden data()",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "functions-platform/gameLeagues.test.js",
       "area": "platform",
-      "passed": 24,
+      "passed": 25,
       "failed": 0,
       "tests": [
         {
@@ -15107,6 +15991,10 @@
         },
         {
           "name": "normalizeCode › trimmer + STORE bogstaver",
+          "status": "passed"
+        },
+        {
+          "name": "redeemLeagueCodeCore › en spiller, der har FORLADT spillet, vækkes af ligakoden — flaget fjernes, dokumentet oprettes ikke igen",
           "status": "passed"
         },
         {
@@ -15198,7 +16086,7 @@
     {
       "file": "functions-platform/gameRecap.test.js",
       "area": "platform",
-      "passed": 38,
+      "passed": 39,
       "failed": 0,
       "tests": [
         {
@@ -15251,6 +16139,10 @@
         },
         {
           "name": "runGameRoundRecap — én liga må kun høre om sine egne › kalder modellen én gang PR. LIGA, ikke én gang for spillet",
+          "status": "passed"
+        },
+        {
+          "name": "runGameRoundRecap — én liga må kun høre om sine egne › en FORLADT spiller står ikke i ligaens opsamling — selv om hun stadig er i memberUids og fører",
           "status": "passed"
         },
         {
@@ -15358,7 +16250,7 @@
     {
       "file": "functions-platform/gameScoring.test.js",
       "area": "platform",
-      "passed": 87,
+      "passed": 88,
       "failed": 0,
       "tests": [
         {
@@ -15571,6 +16463,10 @@
         },
         {
           "name": "snapshotRoundRanks › første snapshot: previousRank = rank (ingen bevægelse)",
+          "status": "passed"
+        },
+        {
+          "name": "snapshotRoundRanks › en forladt spiller rangeres ikke — og skubber ikke de andre ned",
           "status": "passed"
         },
         {
@@ -15822,7 +16718,7 @@
     {
       "file": "functions-platform/kampDetaljer.test.js",
       "area": "platform",
-      "passed": 90,
+      "passed": 115,
       "failed": 0,
       "tests": [
         {
@@ -16106,6 +17002,106 @@
           "status": "passed"
         },
         {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › skriver livescoreEid på kampe UDEN — også uspillede — og giver stage-listen tilbage",
+          "status": "passed"
+        },
+        {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › springer kampe over, der allerede har et gyldigt id — og laver så INGEN kald",
+          "status": "passed"
+        },
+        {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › et id, der ikke er cifre, tæller som manglende — det går i en URL",
+          "status": "passed"
+        },
+        {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › en kamp uden modpart i stage-listen tælles som ukendt og skrives ikke",
+          "status": "passed"
+        },
+        {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › bruger en medgivet stage-liste i stedet for at hente den",
+          "status": "passed"
+        },
+        {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › skriver ALDRIG andet end livescoreEid — heller ikke facit",
+          "status": "passed"
+        },
+        {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › deler skrivningen op, før Firestores batch-loft på 500 — PL har 380 kampe",
+          "status": "passed"
+        },
+        {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › gør intet — og laver INTET stage-kald — når spillet mangler sin holdliste",
+          "status": "passed"
+        },
+        {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › en stage-liste UDEN kampe: intet skrives, ingen tælles som ukendt",
+          "status": "passed"
+        },
+        {
+          "name": "kortlaegEids — livescores kamp-id på kampdokumentet › uden livescore-konfiguration: intet",
+          "status": "passed"
+        },
+        {
+          "name": "syncKampDetaljerCore — med cachet livescoreEid › henter INTET stage-kald, når alle valgte kampe bærer et id",
+          "status": "passed"
+        },
+        {
+          "name": "syncKampDetaljerCore — med cachet livescoreEid › henter stage-listen, når blot ÉN valgt kamp mangler id — og bruger den for den",
+          "status": "passed"
+        },
+        {
+          "name": "syncKampDetaljerCore — med cachet livescoreEid › en medgivet stage-liste erstatter kaldet",
+          "status": "passed"
+        },
+        {
+          "name": "syncKampDetaljerCore — med cachet livescoreEid › et ugyldigt cachet id ignoreres — opslaget går via nøglen som før",
+          "status": "passed"
+        },
+        {
+          "name": "syncKampDetaljerCore — en TOM medgivet liste › behandles som \"kilden svarede uden kampe\": ingen ukendte, intet nyt stage-kald",
+          "status": "passed"
+        },
+        {
+          "name": "sweepKampDetaljer — én vagt om afbryderen for begge kald › 429 under KORTLÆGNINGEN giver afbrudt — samme gren som når kernen rammer det",
+          "status": "passed"
+        },
+        {
+          "name": "sweepKampDetaljer — én vagt om afbryderen for begge kald › kortlægger hele listen, giver den videre og henter detaljerne — ét stage-kald i alt",
+          "status": "passed"
+        },
+        {
+          "name": "sweepKampDetaljer — én vagt om afbryderen for begge kald › 5xx på stage-kaldet: tom liste, ingen ukendte, intet ekstra stage-kald — og ingen kobling-alarm-betingelse",
+          "status": "passed"
+        },
+        {
+          "name": "sweepKampDetaljer — én vagt om afbryderen for begge kald › fejler kortlægningen af en ANDEN grund, henter kernen listen selv",
+          "status": "passed"
+        },
+        {
+          "name": "syncKampDetaljerCore — forældet cachet id (#82) › 404 på et cachet id SLETTER id'et, så næste sweep kortlægger igen — via nøgle slettes intet",
+          "status": "passed"
+        },
+        {
+          "name": "eidForKamp — én vagt om det, der går i en URL › en giftig værdi i en MEDGIVET stage-liste når aldrig fetch — kampen tælles ukendt",
+          "status": "passed"
+        },
+        {
+          "name": "efterFacitDetaljer — de netop afgjorte kampe, straks › genlæser kampene og henter detaljer for præcis dem, der fik facit",
+          "status": "passed"
+        },
+        {
+          "name": "efterFacitDetaljer — de netop afgjorte kampe, straks › en kamp, der er væk fra basen, springes over uden at vælte de andre",
+          "status": "passed"
+        },
+        {
+          "name": "efterFacitDetaljer — de netop afgjorte kampe, straks › intet at gøre → null, og INGEN kald til kilden",
+          "status": "passed"
+        },
+        {
+          "name": "efterFacitDetaljer — de netop afgjorte kampe, straks › loftet er listen selv — aldrig over DETALJE_LOFT",
+          "status": "passed"
+        },
+        {
           "name": "detaljeNiveau › en ren kørsel er ok",
           "status": "passed"
         },
@@ -16342,7 +17338,7 @@
     {
       "file": "functions-platform/ligaMedlem.test.js",
       "area": "platform",
-      "passed": 27,
+      "passed": 29,
       "failed": 0,
       "tests": [
         {
@@ -16359,6 +17355,10 @@
         },
         {
           "name": "saetLigaMedlemCore › tilføjer og skriver KUN memberUids",
+          "status": "passed"
+        },
+        {
+          "name": "saetLigaMedlemCore › VÆKKER en forladt spiller frem for at oprette hende igen — flaget fjernes, arkivet bevares",
           "status": "passed"
         },
         {
@@ -16415,6 +17415,10 @@
         },
         {
           "name": "hentLigaMedlemmer › giver ligaer med navne OG spillets deltagere — men ALDRIG koden",
+          "status": "passed"
+        },
+        {
+          "name": "hentLigaMedlemmer › tilbyder IKKE en forladt spiller som deltager i vælgeren",
           "status": "passed"
         },
         {
@@ -16915,6 +17919,134 @@
         },
         {
           "name": "spejling mod src/lib › serverudgaven har præcis ét rundes slæk til puljens deadline",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions-platform/liveMaal.test.js",
+      "area": "platform",
+      "passed": 30,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "liveMaalAf — målene, bundet til VORES levende stilling › skriver kæden, når kilden og vores live-stilling er enige",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalAf — målene, bundet til VORES levende stilling › UENIGHED om stillingen → intet — en liste, der modsiger tallet, er værre end ingen",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalAf — målene, bundet til VORES levende stilling › uden en brugbar stilling i en af enderne → uenig, aldrig et kast",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalAf — målene, bundet til VORES levende stilling › et ANNULLERET mål står for sig, markeret — og tæller ikke i kæden",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalAf — målene, bundet til VORES levende stilling › en målløs kamp med et annulleret mål: tom kæde, én annulleret",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalAf — målene, bundet til VORES levende stilling › en brudt kæde → uparset, selv om stillingen stemmer",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalAf — målene, bundet til VORES levende stilling › kæden tjekkes PR. SIDE — en brudt udekæde afviser, selv om hjemmekæden er hel",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalAf — målene, bundet til VORES levende stilling › en giftig post kaster ikke ud af regnedelen",
+          "status": "passed"
+        },
+        {
+          "name": "annullerede har et loft — listen er ikke bundet af kæden › beholder de FØRSTE efter minut og kapper resten",
+          "status": "passed"
+        },
+        {
+          "name": "LIVE_SKRIVBARE — én vagt pr. skrivesti › live-feltet står IKKE på facit-stiens liste, og facit-felterne står ikke på live-stiens",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › skriver liveMaal for en kamp i gang med cachet id — ét kald, intet stage-kald",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › skriver IKKE, når listen er uændret — hvert kampdokument lyttes på af hver browser",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › uenig om stillingen → intet skrives, tælles som uenig (næste minut heler det)",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › 404 på et cachet id tæller \"kilden svarede ikke\" — og RØRER ikke id'et (sweep'et heler)",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › mangler id'et, tælles kampen ukendt — INTET stage-kald, ingen holdlæsning: kortlægning er sweep'ets",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › et svar, der ikke er JSON, koster én kamp — de andre skrives (den ydre vagt er den eneste)",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › vælger KUN kampe i gang: facit, slut, afbrudt og uden live springes over",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › loftet: højst LIVE_LOFT kampe pr. kørsel, resten tælles som over loftet",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › 429 afbryder kørslen — det, der allerede lå i batchen, skrives stadig",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › ét giftigt dokument koster én kamp, ikke de andre",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › skriver ALDRIG andet end LIVE_SKRIVBARE — heller ikke facit-felter eller id'et",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › budgettet: er tiden gået, røres ingen kamp — og kørslen er ikke afbrudt",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › uden livescore-konfiguration eller uden kampe: tomt resultat, intet kald",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalCore — målscorere for kampe i gang › budgetterne summer under jobbets timeout MED overløbet på ét kald pr. spil",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalForSpil — kampene i vinduet, nedkølingen, så løkken › bruger pendingMatches (2,5 timer efter kickoff) og skriver for den, der er i gang",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalForSpil — kampene i vinduet, nedkølingen, så løkken › et stille minut koster INGEN læsning af spil-dokumentet",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalForSpil — kampene i vinduet, nedkølingen, så løkken › holder pause, mens livescoreLukketTil er i fremtiden — intet kald, kortet siger det",
+          "status": "passed"
+        },
+        {
+          "name": "syncLiveMaalForSpil — kampene i vinduet, nedkølingen, så løkken › sætter pausen på spil-dokumentet, når kilden lukkede os ude",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalLinje og liveMaalNiveau — kortets tekst og farve › nævner kun de tal, der er sat — og hvert med sin egen betydning",
+          "status": "passed"
+        },
+        {
+          "name": "liveMaalLinje og liveMaalNiveau — kortets tekst og farve › advarsel ved afbrydelse, og når vi prøvede uden at noget kom igennem — ellers ok",
           "status": "passed"
         }
       ]
@@ -17486,7 +18618,7 @@
     {
       "file": "functions-platform/reminders.test.js",
       "area": "platform",
-      "passed": 28,
+      "passed": 30,
       "failed": 0,
       "tests": [
         {
@@ -17542,6 +18674,10 @@
           "status": "passed"
         },
         {
+          "name": "hentTipStatus — picks findes i databasen, men aldrig i svaret › en FORLADT spiller står ikke på \"hvem mangler at tippe\" — arkivet mangler ikke noget",
+          "status": "passed"
+        },
+        {
           "name": "paamindelsesLinje › kastet fejl → rødt kort med fejlteksten",
           "status": "passed"
         },
@@ -17583,6 +18719,10 @@
         },
         {
           "name": "runGameTipReminders — fejlede-tælleren › tæller 0 fejlede, når afsendelsen lykkes",
+          "status": "passed"
+        },
+        {
+          "name": "runGameTipReminders — fejlede-tælleren › en spiller, der har FORLADT spillet, får ingen påmindelse — arkivet er ikke en deltager",
           "status": "passed"
         },
         {
@@ -17794,7 +18934,7 @@
     {
       "file": "functions-platform/superligaSync.test.js",
       "area": "platform",
-      "passed": 140,
+      "passed": 144,
       "failed": 0,
       "tests": [
         {
@@ -17919,6 +19059,14 @@
         },
         {
           "name": "runScheduledSync › rører INTET, når ingen kamp er i gang",
+          "status": "passed"
+        },
+        {
+          "name": "runScheduledSync › facit rydder liveMaal — og en kamp, der KUN mangler den rydning, skrives igen",
+          "status": "passed"
+        },
+        {
+          "name": "runScheduledSync › giver de NETOP afgjorte kampe med ud — minut-jobbet henter deres målscorere allersidst",
           "status": "passed"
         },
         {
@@ -18355,6 +19503,14 @@
         },
         {
           "name": "LIVE_STALE_MS er spejlet af klientens › server og klient bruger præcis samme tærskel",
+          "status": "passed"
+        },
+        {
+          "name": "erIGang — ÉT prædikat for \"kampen spilles lige nu\" › kræver en live-stilling, intet facit, og hverken slut eller afbrudt",
+          "status": "passed"
+        },
+        {
+          "name": "erIGang — ÉT prædikat for \"kampen spilles lige nu\" › er det samme, kampeMedLevendeStilling tæller med",
           "status": "passed"
         }
       ]

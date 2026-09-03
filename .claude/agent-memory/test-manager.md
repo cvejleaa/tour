@@ -1082,3 +1082,46 @@ faktisk blive nået af, og findes det input i noget fixture?
   tidspunkt. God demonstration af "et privat prædikat, der dubler et
   delt, fejler i den ene retning" (se security-reviewer.md) — testen fanger
   netop den retning.
+
+## Admin → Tests → Knapper og felter (fladeDaekning, branch claude/multi-game-player-collection-21mc1w, PR #214)
+
+- **"Nærmeste-forfader"-reglen i `flet()` (`scripts/lib/fladeDaekning.mjs:50`,
+  `post.kaede.find(...)` → kun ÉT element krediteret) er IKKE mutationsbevist.**
+  Muterede til "kreditér ALLE forfædre i kæden, der matcher hændelsestypen"
+  (loop i stedet for `.find`, `haendelser`-tjekket bevaret) — hele
+  `fladeDaekning.test.mjs` (9 tests) forblev grøn. Årsag: ingen fixture har to
+  elementer i samme kæde, der BEGGE har den udløste hændelsestype i deres
+  `haendelser` (fx en `<div onClick>`, der omslutter en `<button>` — begge
+  ville acceptere 'click'). Testen "span inde i knappen krediterer knappen,
+  ikke formen udenom" ser ud til at bevise nærmeste-reglen, men beviser reelt
+  kun hændelsestype-filteret (FORM har kun 'submit', så den ville være
+  udelukket under BEGGE regler). Mangler: en fixture med to indlejrede
+  klikbare elementer (ydre `<div onClick>` + indre `<button>`), der viser, at
+  KUN den inderste krediteres.
+- **Komponent-stakkens `if (skubbet) stak.pop()` (`scripts/scan-flade.mjs:136`)
+  er IKKE mutationsbevist.** Fjernet helt → `scan-flade.test.mjs` (7 tests)
+  forblev grøn. Bekræftet med et selvstændigt repro (ikke i suiten): to
+  SIDESTILLEDE top-niveau-funktioner i samme fil, `function Alpha() {...}`
+  efterfulgt af `function beta() {...}` (beta med småt, altså ikke en
+  komponent) — uden pop() arver `beta`s indhold fejlagtigt navnet "Alpha"
+  (verificeret: med pop() → `['Alpha','beta']`, uden pop() → `['Alpha',
+  'Alpha']`). Suitens eneste komponentnavns-test dækker NESTEDE
+  pilefunktioner i samme scope (`Kort`/`klik`), som utilsigtet er immun over
+  for denne mutation, fordi reverse-find altid rammer samme (seneste
+  uppercase) navn uanset pop. Mangler: en test med to sideordnede
+  top-niveau-deklarationer i samme fil, hvor den anden IKKE er en komponent,
+  der beviser komponentnavnet nulstilles korrekt mellem dem.
+- Øvrige syv påstande i samme PR var korrekt mutationsbeviste: tredje dato i
+  `TestsTab.jsx` (datoer-arrayet), `+1`-konverteringen i `evneNoegle.mjs`,
+  hændelsestype-tjekket i `flet()`, `e2eMedregnet`-flaget i
+  `FladeDaekning.jsx` (to steder), og hele forklaringsteksten (CLAUDE.md's
+  "OK?"-vagt). `build-test-report.mjs`s `process.exit(1)`-vagt ved 0
+  logposter har INGEN unit-test (scriptet er ikke i nogen testfil) — kun
+  CI-workflowets `aktiverede === 0`-tjek i `test-report.yml` er en selvstændig,
+  parallel vagt (ikke en test af selve scriptet). Tappen i `src/test/setup.js`
+  (selve `document.addEventListener`-lytteren, ikke `kildeKaede`, som ER
+  testet via `fladeDaekning.mjs`) har heller ingen direkte test — den læser
+  `process.env.EVNE_LOG` ved import, hvilket gør den svær at teste uden en
+  separat vitest-proces. Begge er acceptable som "operationelt script uden
+  unit-test, dækket af en fail-loud kørsel", samme mønster som
+  `probe-kamp.mjs` — men bemærk det ved lignende scripts fremover.
