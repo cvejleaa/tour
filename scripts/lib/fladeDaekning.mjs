@@ -72,17 +72,26 @@ export function flet(inventar, poster, opt = {}) {
   const aktiverede = elementer.filter((e) => e.aktiveret).length;
   return {
     generatedAt: opt.generatedAt || new Date().toISOString(),
-    // E2E-klik (Playwright) tælles ikke med endnu. Fanen renderer sit
-    // forbehold og ordet "Mindst" ud fra dette flag — ikke fra en hardkodet
-    // sætning — så det forsvinder af sig selv, den dag tællingen er bygget.
+    // Er E2E-klik (Playwright) med i loggen? build-test-report.mjs sætter
+    // flaget, når E2E-kørslen lykkedes og loggede. Fanen renderer sit
+    // forbehold og ordet "Mindst" ud fra flaget — ikke fra en hardkodet
+    // sætning — så en kørsel uden E2E stadig siger sandheden.
     e2eMedregnet: Boolean(opt.e2eMedregnet),
     totals: { elementer: elementer.length, aktiverede, logposter: poster.length, filer: new Set(elementer.map((e) => e.fil)).size },
     elementer,
   };
 }
 
+/**
+ * Hvor mange fiber-led opad tappen følger. Deles med browser-scriptet i
+ * e2e/fixtures/evneKaede.mjs (en håndkopi af kildeKaede, fordi browseren ikke
+ * kan importere Node-moduler) — én konstant, så de to ikke driver fra
+ * hinanden. 12 rækker fra en <span> i en knap op gennem wrappers til Link.
+ */
+export const MAKS_KAEDE = 12;
+
 /** Kæden af kildesteder fra et DOM-element og opad — bruges af tappen. */
-export function kildeKaede(el, rod, maks = 12) {
+export function kildeKaede(el, rod, maks = MAKS_KAEDE) {
   const k = Object.keys(el).find((x) => x.startsWith('__reactFiber$'));
   let fiber = k ? el[k] : null;
   const ud = [];

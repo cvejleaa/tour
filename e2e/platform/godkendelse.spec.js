@@ -4,7 +4,7 @@
 //
 // Det er den kæde, husets dyreste fejl ramte ("en lille ændring spærrede alle
 // migrerede brugere ude"). Ingen anden test kører den ende til ende.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/evne.mjs';
 import { EJER_STATE } from '../fixtures/konstanter.mjs';
 
 // Denne test starter UDEN gemt login — brugeren findes ikke endnu.

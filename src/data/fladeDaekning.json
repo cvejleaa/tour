@@ -1,10 +1,10 @@
 {
- "generatedAt": "2026-09-03T20:56:55.330Z",
- "e2eMedregnet": false,
+ "generatedAt": "2026-09-03T21:44:10.108Z",
+ "e2eMedregnet": true,
  "totals": {
   "elementer": 443,
-  "aktiverede": 174,
-  "logposter": 570,
+  "aktiverede": 177,
+  "logposter": 593,
   "filer": 73
  },
  "elementer": [
@@ -3275,8 +3275,10 @@
    "tekst": null,
    "komponent": "FootballTip",
    "app": "platform",
-   "aktiveret": false,
-   "tests": []
+   "aktiveret": true,
+   "tests": [
+    "e2e/platform/tip.spec.js"
+   ]
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3393,6 +3395,7 @@
    "app": "platform",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/laas.spec.js",
     "src/features/games/football/LeagueBets.test.jsx"
    ]
   },
@@ -4357,8 +4360,10 @@
    "tekst": null,
    "komponent": "GamePage",
    "app": "platform",
-   "aktiveret": false,
-   "tests": []
+   "aktiveret": true,
+   "tests": [
+    "e2e/platform/tip.spec.js"
+   ]
   },
   {
    "fil": "src/pages/GamesPage.jsx",
@@ -4381,8 +4386,10 @@
    "tekst": null,
    "komponent": "MyGameCard",
    "app": "platform",
-   "aktiveret": false,
-   "tests": []
+   "aktiveret": true,
+   "tests": [
+    "e2e/platform/spiloversigt.spec.js"
+   ]
   },
   {
    "fil": "src/pages/GamesPage.jsx",
@@ -5003,6 +5010,8 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/godkendelse.spec.js",
+    "e2e/tour/smoke.spec.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },
@@ -5029,6 +5038,7 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/auth.setup.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },
@@ -5043,6 +5053,7 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/auth.setup.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },
@@ -5057,6 +5068,7 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/auth.setup.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },
@@ -5071,6 +5083,7 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/auth.setup.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },
@@ -5151,6 +5164,8 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/godkendelse.spec.js",
+    "e2e/tour/smoke.spec.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },
@@ -5165,6 +5180,7 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/godkendelse.spec.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },
@@ -5179,6 +5195,7 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/godkendelse.spec.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },
@@ -5193,6 +5210,7 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/godkendelse.spec.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },
@@ -5207,6 +5225,8 @@
    "app": "faelles",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/godkendelse.spec.js",
+    "e2e/tour/smoke.spec.js",
     "src/pages/LoginPage.test.jsx"
    ]
   },

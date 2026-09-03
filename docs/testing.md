@@ -58,9 +58,14 @@ er sat — det gør `build-test-report.mjs`. "Aktiveret" betyder præcis det: en
 test rørte elementet. Det siger IKKE, at opførslen bag er bevist, og det ser
 ikke reglerne eller serveren — Forlad-knappen VAR aktiveret i tests den dag,
 den fejlede i produktion, fordi reglerne forbød det, fladen tilbød.
-E2E-tests (Playwright) tæller endnu ikke med; 1X2-knapperne i tip-fladen
-klikkes kun dér og står derfor som ikke-aktiverede, indtil den tælling er
-bygget.
+E2E-klik tæller også med: `build-test-report.mjs` kører Playwright mod
+emulatorerne med `EVNE_LOG` sat, og `e2e/fixtures/evne.mjs` logger klik i
+samme format (bundtet bygges da med React-dev-runtime, så elementerne bærer
+deres kildested). 1X2-knapperne i tip-fladen klikkes kun af
+`e2e/platform/tip.spec.js` og står derfor som rørt af netop den. Alle specs
+importerer `test`/`expect` fra fixturen — en spec, der importerer
+`@playwright/test` direkte, tæller ikke. CI-vagten (nedenfor) ser derimod
+kun Vitest-loggen.
 
 **Vagten i CI.** Frontend-jobbet kører suiten med `EVNE_LOG` sat og derefter
 `node scripts/flade-vagt.mjs`. Den er rød ved et nyt urørt element, ved tom
@@ -78,7 +83,9 @@ node scripts/flade-vagt.mjs --opdater                # skriv basislinjen på ny
 Nøglerne i basislinjen er `fil|komponent|tag|tekst#nummer`, ikke linjetal —
 linjetal flytter sig ved enhver redigering ovenfor. Et element, der med vilje
 ikke skal have en test (fx en knap, der er deaktiveret i alle tilstande),
-lægges i `scripts/flade-undtagelser.json` med en begrundelse.
+lægges i `scripts/flade-undtagelser.json` med en begrundelse — det gælder
+også et element, som kun en Playwright-spec rører (begrundelse «dækket af
+e2e/…spec.js»): vagten ser kun frontend-jobbets Vitest-log.
 
 Kendt begrænsning: nummeret (`#n`) tælles i kildeorden. Indsættes en ny
 identisk knap FØR en kendt urørt makker i samme fil, arver den nye nummeret,

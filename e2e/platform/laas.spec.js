@@ -10,7 +10,7 @@
 // målte det med en tæller i pick(), og mutationen "vagt fjernet" overlevede
 // begge varianter). Den vagt er tredje lag bag knappen og firestore.rules;
 // reglen "tip efter kickoff afvises" bæres af functions/rules.test.js.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/evne.mjs';
 import { SPIL_ID, LAAST_RUNDE } from '../fixtures/konstanter.mjs';
 
 test('kampe med passeret kickoff kan ikke tippes', async ({ page }) => {

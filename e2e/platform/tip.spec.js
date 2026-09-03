@@ -2,7 +2,7 @@
 // vises i Mine tips med præcis det bogstav, der blev klikket.
 // betActions.test.js mocker Firestore; dette er den eneste test, der skriver
 // et tip gennem firestore.rules.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/evne.mjs';
 import { SPIL_ID, AABEN_RUNDE } from '../fixtures/konstanter.mjs';
 
 test('et X-tip på en åben kamp vises i Mine tips', async ({ page }) => {

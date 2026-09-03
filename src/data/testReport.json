@@ -1,12 +1,36 @@
 {
-  "generatedAt": "2026-09-03T20:56:55.330Z",
+  "generatedAt": "2026-09-03T21:44:10.108Z",
   "totals": {
-    "files": 269,
-    "tests": 4424,
-    "passed": 4424,
+    "files": 271,
+    "tests": 4438,
+    "passed": 4438,
     "failed": 0
   },
   "suites": [
+    {
+      "file": "e2e/fixtures/evneKaede.test.mjs",
+      "area": "frontend",
+      "passed": 4,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "tilPost — browserens rå tripler bliver til Vitest-tappens format › konverterer absolutte build-stier til nøgler relative til roden, med Reacts 1-indekserede kolonne uændret",
+          "status": "passed"
+        },
+        {
+          "name": "tilPost — browserens rå tripler bliver til Vitest-tappens format › kasserer poster uden kilder, med ukendt hændelse eller uden fileName",
+          "status": "passed"
+        },
+        {
+          "name": "tilPost — browserens rå tripler bliver til Vitest-tappens format › init-scriptet lytter på præcis de hændelser, fletningen kender, i capture-fasen, og kalder bindingen",
+          "status": "passed"
+        },
+        {
+          "name": "tilPost — browserens rå tripler bliver til Vitest-tappens format › capture-fasen fanger klikket, selv når target-fasen stopper videre bobling (Test Managers adfærdstest)",
+          "status": "passed"
+        }
+      ]
+    },
     {
       "file": "e2e/fixtures/seed-e2e.test.mjs",
       "area": "frontend",
@@ -75,6 +99,50 @@
         },
         {
           "name": "docs/admin-guide.md spejler admin-fanerne › nævner hver platform-fane, harnesset måler",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "scripts/flade-vagt.test.mjs",
+      "area": "frontend",
+      "passed": 9,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "stabileNoegler › bruger ikke linjetal — en redigering ovenfor ændrer ikke nøglen — og nummererer identiske tupler",
+          "status": "passed"
+        },
+        {
+          "name": "basislinjeDiff — det, --opdater skal vise, før nogen committer › nævner hver nøgle, der kommer til, og hver, der går ud",
+          "status": "passed"
+        },
+        {
+          "name": "basislinjeDiff — det, --opdater skal vise, før nogen committer › kendt begrænsning: en ny identisk knap FØR en kendt makker skrider nummereringen — diffen viser det som +#2",
+          "status": "passed"
+        },
+        {
+          "name": "vagt › grøn: kun kendte urørte, log ikke tom, ingen undtagelser",
+          "status": "passed"
+        },
+        {
+          "name": "vagt › rød med fil:linje ved et NYT urørt element",
+          "status": "passed"
+        },
+        {
+          "name": "vagt › rød ved tom log — alt ville se urørt ud, og det er en fejl i kørslen",
+          "status": "passed"
+        },
+        {
+          "name": "vagt › rød når basislinjen kan skrumpe — den skal skrumpe med det samme",
+          "status": "passed"
+        },
+        {
+          "name": "vagt › en undtagelse dækker et nyt urørt element — men kun med begrundelse",
+          "status": "passed"
+        },
+        {
+          "name": "vagt › advarer (ikke rødt) om en undtagelse, der ikke længere gælder noget urørt",
           "status": "passed"
         }
       ]
@@ -382,7 +450,7 @@
     {
       "file": "scripts/lib/fladeDaekning.test.mjs",
       "area": "frontend",
-      "passed": 9,
+      "passed": 10,
       "failed": 0,
       "tests": [
         {
@@ -391,6 +459,10 @@
         },
         {
           "name": "flet — kreditreglen › et klik på en <span> inde i formen (uden knap imellem) krediterer ingenting — form aktiveres af submit",
+          "status": "passed"
+        },
+        {
+          "name": "flet — kreditreglen › to klikbare elementer i samme kæde: KUN det inderste krediteres (Test Managers mutation: \"alle forfædre\")",
           "status": "passed"
         },
         {

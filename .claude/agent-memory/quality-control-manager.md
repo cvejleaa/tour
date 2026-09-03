@@ -599,3 +599,14 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   Et POINTTAL i dialogen er desuden skala-følsomt: spillets `totalPoints` er
   ikke ligaens `ligaPoint` (startRound) — skriv "i <spillets navn>" og formatér
   med `fmtDec` (dansk komma).
+- **Et miljøflag, der er navngivet efter én virkning, slår ALLE virkninger
+  til.** `NODE_ENV=development` foran `vite build` blev sat for at bevare
+  `_debugSource` (jsx-source) — men Vite sætter `isProduction=false` for hele
+  buildet, så `<React.StrictMode>` i `main.jsx` dobbelt-kalder mount-effekter
+  i den E2E-kørsel, der tæller klik, og aldrig i CI's egen E2E-kørsel. Spørg
+  ved ethvert flag: hvad ELLERS læser det? (PR #216, 3/9 2026.)
+- **En ny undtagelseskonvention skal anvendes på sit eget motiverende
+  eksempel.** PR'en skrev "et element, kun en Playwright-spec rører, hører i
+  flade-undtagelser.json med begrundelse" — men lod 1X2-knappen, hele
+  ændringens ophav, stå ubegrundet i basislinjen. En regel, der ikke gælder
+  det første tilfælde, den blev skrevet for, bliver aldrig fulgt.

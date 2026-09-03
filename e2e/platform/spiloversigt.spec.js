@@ -1,7 +1,7 @@
 // Den mindste autentificerede kæde: gemt login → /spil → åbn spillet → fanerne.
 // Kan kun blive grøn, hvis ProtectedRoute (status approved), games-læsningen
 // (allow read: if isApproved()) og players/{uid}-medlemskabet alle holder.
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/evne.mjs';
 import { SPIL_ID, SPIL_NAVN } from '../fixtures/konstanter.mjs';
 
 test('godkendt spiller lander på spiloversigten og kan åbne sit spil', async ({ page }) => {

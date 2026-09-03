@@ -44,6 +44,14 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Fladedækningen tæller også E2E-klik: build-test-report.mjs kører
+      # Playwright mod Auth- og Firestore-emulatoren (Java) — samme opsætning
+      # som E2E-jobbet i ci.yml. Uden det stod 1X2-knapperne som urørte.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
       # Alle tre suiter skal have deres egne afhængigheder — scriptet kører
       # vitest i tre mapper. Mangler én, giver `run()` ingen rapport for den,
       # og området ville forsvinde tavst fra fanen.
@@ -52,9 +60,37 @@ jobs:
           npm ci
           npm --prefix functions ci
           npm --prefix functions-platform ci
+          # PINNET: dette job har contents: write og pusher til main, så en
+          # upinnet global installation ville køre fremmed kode med det token
+          # (Security-fund). Samme version som lokalt, hvor tallene blev målt.
+          npm install -g firebase-tools@15.29.0
+          npx playwright install --with-deps chromium
+
+      # Tour-bygget (E2E-smoke) læser .env; dummy-værdier som i ci.yml.
+      - name: Skriv dummy .env
+        run: |
+          cat > .env <<'EOF'
+          VITE_FIREBASE_API_KEY=demo-key
+          VITE_FIREBASE_AUTH_DOMAIN=demo.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID=demo-vm2026
+          VITE_FIREBASE_STORAGE_BUCKET=demo.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID=000000000000
+          VITE_FIREBASE_APP_ID=1:000000000000:web:demo
+          VITE_USE_EMULATORS=false
+          VITE_OWNER_EMAIL=cvejleaa@gmail.com
+          EOF
 
       - name: Genskab rapport og afhængighedsdiagram
         run: npm run test:report
+
+      # Fejler E2E-delen, peger build-test-report.mjs på playwright-report/ —
+      # den skal så også kunne hentes fra kørslen, ikke kun findes lokalt.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
 
       # Fejler ÅBENT. Skrev kørslen kun én af filerne — fordi en suite ikke
       # kunne køre — ville datoerne skride fra hinanden, og fanen ville vise et
@@ -81,6 +117,9 @@ jobs:
             // her, hvor den kan læses i kørslens log.
             if (!c.totals || c.totals.aktiverede === 0) {
               console.error("::error::fladeDaekning.json har 0 aktiverede elementer — tappen loggede ingenting."); process.exit(1);
+            }
+            if (c.e2eMedregnet !== true) {
+              console.error("::error::fladeDaekning.json er skrevet uden E2E-klik — E2E-tappen kørte ikke."); process.exit(1);
             }
             console.log(`Fladen: ${c.totals.aktiverede} af ${c.totals.elementer} elementer aktiveret i mindst én test`);
             const omraader = [...new Set(a.suites.map((s) => s.area))].sort();

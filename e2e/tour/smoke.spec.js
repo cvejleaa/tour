@@ -1,7 +1,7 @@
 // E2E smoke-tests: dækker UI-flows der ikke kræver backend
 // (ruter, redirects, login-UI, validering). Kører mod den byggede app.
 // Fulde authentificerede flows er beskrevet i docs/testing.md (kræver emulator).
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/evne.mjs';
 
 test.describe('Login & ruter (uautentificeret)', () => {
   test('uautentificeret bruger sendes til login fra forsiden', async ({ page }) => {

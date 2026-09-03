@@ -6,7 +6,7 @@
 // `indexedDB: true` er ikke pynt: Firebase Auth gemmer sessionen i IndexedDB,
 // ikke i localStorage. Uden flaget er den gemte tilstand tom, og hver test
 // lander på /login igen.
-import { test as setup, expect } from '@playwright/test';
+import { test as setup, expect } from '../fixtures/evne.mjs';
 import { SPILLER, EJER, SPILLER_STATE, EJER_STATE } from '../fixtures/konstanter.mjs';
 import seed from '../fixtures/seed-e2e.mjs';
 
