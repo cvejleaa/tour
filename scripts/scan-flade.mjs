@@ -63,13 +63,23 @@ function attrVaerdi(n, navn) {
   return null;
 }
 
-/** Den første tekst, elementet viser (JSXText-barn), forkortet. */
+/**
+ * Den første tekst, elementet viser, forkortet: et JSXText-barn, eller et
+ * udtryk der er en ren streng ({'Gem'}, {`Gem alt`} uden interpolation).
+ * Alt andet ({navn}, {t('…')}) dannes i koden og kan ikke aflæses statisk.
+ */
 function boernTekst(elem) {
   for (const c of elem.children || []) {
-    if (c.type === 'JSXText') {
-      const t = c.value.replace(/\s+/g, ' ').trim();
-      if (t) return t.length > MAKS_TEKST ? `${t.slice(0, MAKS_TEKST - 1)}…` : t;
+    let raa = null;
+    if (c.type === 'JSXText') raa = c.value;
+    else if (c.type === 'JSXExpressionContainer') {
+      const u = c.expression;
+      if (u.type === 'StringLiteral') raa = u.value;
+      else if (u.type === 'TemplateLiteral' && u.expressions.length === 0) raa = u.quasis.map((q) => q.value.cooked).join('');
     }
+    if (raa == null) continue;
+    const t = raa.replace(/\s+/g, ' ').trim();
+    if (t) return t.length > MAKS_TEKST ? `${t.slice(0, MAKS_TEKST - 1)}…` : t;
   }
   return null;
 }

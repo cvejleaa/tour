@@ -21,7 +21,12 @@ import { noegleFraDebugSource } from './evneNoegle.mjs';
  */
 export function appFor(fil) {
   if (/^src\/features\/games\//.test(fil) || /^src\/pages\/Games?Page\.jsx$/.test(fil)) return 'platform';
-  if (/^src\/features\/(tour|riders|stages|teams|leagues|bonus|live|dashboard|leaderboard)\//.test(fil)) return 'tour';
+  // onboarding, reactions og ligavæggen (LeagueWall) bruges KUN af Tour-siderne
+  // (DashboardPage, LeaguesPage) — sporet af QC. EmojiPicker deles med
+  // Beskeder og Profil og er derfor fælles.
+  if (/^src\/features\/(tour|riders|stages|teams|leagues|bonus|live|dashboard|leaderboard|onboarding|reactions)\//.test(fil)) return 'tour';
+  if (fil === 'src/features/comments/LeagueWall.jsx') return 'tour';
+  if (fil === 'src/features/comments/EmojiPicker.jsx') return 'faelles';
   if (/^src\/pages\/(Dashboard|Stages|StagePresentation|Tour|Teams|Team|MyBets|Bonus|Leaderboard|Leagues)Page\.jsx$/.test(fil)) return 'tour';
   if (/^src\/(pages|components)\//.test(fil) || /^src\/features\/(admin|auth|profile)\//.test(fil) || /^src\/App\.jsx$/.test(fil)) return 'faelles';
   return 'andet';

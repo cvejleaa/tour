@@ -71,6 +71,11 @@ describe('scanKilde', () => {
     expect(p.map((x) => [x.tekst, x.komponent])).toEqual([['Inde i hjælper', 'Kort'], ['Ude i Kort', 'Kort']]);
   });
 
+  it('læser en ren streng i et udtryk som tekst — men ikke et udtryk med variabler', () => {
+    const p = scanKilde("const A = () => <><button>{'Gem'}</button><button>{`Gem alt`}</button><button>{`Gem ${n}`}</button></>;", 'src/A.jsx');
+    expect(p.map((x) => x.tekst)).toEqual(['Gem', 'Gem alt', null]);
+  });
+
   it('foretrækker det oplæste navn og teksten på knappen frem for data-testid', () => {
     const p = scanKilde('const A = () => <button data-testid="gem-knap">Gem</button>;', 'src/A.jsx');
     expect(p[0].tekst).toBe('Gem');

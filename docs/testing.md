@@ -22,9 +22,10 @@ de er afledt af den faktiske kørsel: **Admin → Tests**, som selv advarer, nå
 
 UI-testene dækker siderne og komponenterne i deres tilstande (loading, fejl,
 tom, rollebaseret adgang, låst/åben, før/efter deadline, godkendt/afventer,
-korrekte/forkerte tip, fuzzy bonus-matchning osv.) — men IKKE udtømmende.
-Målt 3. september 2026 rørte testene 172 af 438 knapper og felter; det
-levende tal står under Admin → Tests → Knapper og felter (se nedenfor).
+korrekte/forkerte tip, fuzzy bonus-matchning osv.) — men IKKE udtømmende:
+under halvdelen af knapperne og felterne bliver rørt af nogen test. Det
+levende tal står under Admin → Tests → Knapper og felter (se nedenfor);
+det står bevidst ikke her.
 
 ## Rundvisning for nye (offentlig side)
 

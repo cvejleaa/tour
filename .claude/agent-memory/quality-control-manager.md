@@ -274,6 +274,17 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
 - **En sti→gruppe-tabel uden fallback-gruppe taber elementer tavst** (samme
   fælde som `DriftTab.jsx:108`s `forventede`). Kræv "Andet"-gruppe og en test
   på at gruppesummen == totalen — og at totalen VISES.
+- **En 'ukendt sti'-fallback kan skjule, at en RIGTIG mappe blot ikke stod på
+  listen.** `appFor()` (`scripts/lib/fladeDaekning.mjs`) puttede `comments/`,
+  `onboarding/`, `reactions/` i 'andet' — og egen-testen dokumenterede det som
+  bevidst fallback-eksempel (`appFor('src/features/comments/CommentBox.jsx')` →
+  'andet'). Men 9 af de 11 'andet'-elementer var reelt Tour-only
+  (`LeagueWall.jsx`, `OnboardingChecklist.jsx`, `Reactions.jsx`, kun brugt af
+  `LeaguesPage.jsx`/`DashboardPage.jsx`) og mistede dermed den de-emphasis-note,
+  'tour'-gruppen ellers bærer ("spillet er slut, intet at handle på"). Kun
+  `EmojiPicker.jsx` var reelt blandet (også brugt af den delte `MessagesPage.jsx`).
+  Spor hver mappe, en klassifikations-regex IKKE nævner, til dens faktiske
+  forbrugere — "ukendt" er sjældent sandt for en mappe, der findes i repoet.
 - **`docs/testing.md:23` påstår "Hele UI'et er dækket udtømmende".** Enhver ny
   måling, der siger et andet tal, modsiger den linje og skal rette den i SAMME
   PR.

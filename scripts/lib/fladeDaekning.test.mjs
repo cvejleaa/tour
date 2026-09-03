@@ -65,8 +65,13 @@ describe('appFor', () => {
     expect(appFor('src/features/admin/UsersTab.jsx')).toBe('faelles');
     expect(appFor('src/pages/ProfilePage.jsx')).toBe('faelles');
     expect(appFor('src/components/Layout.jsx')).toBe('faelles');
+    // Bruges kun af Tour-siderne (sporet): hører til Tour, ikke 'andet'.
+    expect(appFor('src/features/onboarding/OnboardingChecklist.jsx')).toBe('tour');
+    expect(appFor('src/features/reactions/Reactions.jsx')).toBe('tour');
+    expect(appFor('src/features/comments/LeagueWall.jsx')).toBe('tour');
+    expect(appFor('src/features/comments/EmojiPicker.jsx')).toBe('faelles');
     // Fallback: en mappe, tabellen ikke kender, forsvinder IKKE — den lander i 'andet'.
-    expect(appFor('src/features/comments/CommentBox.jsx')).toBe('andet');
+    expect(appFor('src/features/nyt-omraade/Kort.jsx')).toBe('andet');
   });
 });
 
