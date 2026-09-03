@@ -1780,6 +1780,16 @@ describe('FootballTip — kampe fra en anden runde i samme uge', () => {
     expect(screen.queryByText('0/3 tippet')).toBeNull();
   });
 
+  it('"Næste kamp låser" peger på den LÅNTE kamp, når den låser først', () => {
+    // Ejer-rapport: FCK–FCN (runde 3, vist på runde 7) låste om en time, men
+    // tælleren sagde "om 23 t" — den så kun rundens egne kampe. 2. sep. 16:00:
+    // den udsatte låser 18:00 (om 2 t), runde 7's første først 4. sep.
+    vi.setSystemTime(new Date('2026-09-02T16:00:00Z'));
+    setup({}, '/spil/sl', UGE);
+    expect(screen.getByText('Næste kamp låser om 2 t')).toBeInTheDocument();
+    expect(screen.queryByText(/Næste kamp låser om 2 d/)).toBeNull();
+  });
+
   it('forklarer det i tekst — og forveksler det ikke med rundens egne', () => {
     vi.setSystemTime(new Date('2026-09-01T07:00:00Z'));
     setup({}, '/spil/sl', UGE);
