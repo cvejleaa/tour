@@ -42,7 +42,7 @@ run(`npx vitest run --reporter=json --outputFile=${FE}`, ROOT, { EVNE_LOG: EVNE 
 console.log('Kører E2E (Playwright mod emulatorerne) med tappen…');
 const e2eOk = run('npm run test:e2e:emu', ROOT, { EVNE_LOG: EVNE_E2E });
 if (!e2eOk) {
-  console.error('E2E-kørslen fejlede — ingen af rapportfilerne er skrevet. Kør `EVNE_LOG=$PWD/.evne-log-e2e npm run test:e2e:emu` og læs playwright-report/.');
+  console.error('E2E-kørslen fejlede — ingen af rapportfilerne er skrevet. Læs playwright-report/ (lokalt, eller artefaktet fra kørslen i Actions), eller kør `EVNE_LOG=$PWD/.evne-log-e2e npm run test:e2e:emu` igen.');
   process.exit(1);
 }
 console.log('Kører functions-tests (Tour)…');

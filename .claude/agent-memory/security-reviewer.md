@@ -1343,6 +1343,34 @@
   UDEN begrundelse (undtagelseslisten kræver en). Kun review ser det, og der
   er ingen CODEOWNERS. Ufarligt i trusselsmodellen (kun ejeren merger), men
   hvis vagten skal kunne stå alene: gør en VOKSENDE basislinje rød.
+- **E2E-tappen (#216, e851601) er ren — PoC kørt, med kontroltest begge veje.**
+  `e2e/fixtures/evne.mjs:20-32` eksponerer `window.__evneLog` og injicerer
+  `INIT_SCRIPT` fra `evneKaede.mjs` — men KUN når `EVNE_LOG` er sat, og den
+  sættes kun i `ci.yml:46` (Vitest) og `build-test-report.mjs:43`. NUL deploy-
+  workflow sætter den (grep hele `.github/`), og begge deploy-jobs kører `npm
+  run build` uden mode/NODE_ENV, så dev-runtimen med `_debugSource` og
+  absolutte build-stier kan ikke nå produktion. `e2e/**` importeres af intet
+  i `src/`. Uden `EVNE_LOG` er fixturen ren gennemstilling — ingen binding,
+  intet init-script, heller ikke i ci.yml's E2E-job.
+  **Den generelle lærdom: et `exposeBinding` er en Node-funktion i hænderne på
+  sidens JS — vurder det som en callable uden auth.** Denne er indesluttet i
+  tre lag, alle PoC-bekræftede
+  (`scratchpad/poc-evne.mjs`-mønstret, `tilPost` + `flet` kaldt direkte):
+  (1) filstien er `path.join(EVNE_LOG, 'e2e-<workerIndex>.ndjson')` — env +
+  et Playwright-heltal, INTET fra siden; (2) `JSON.stringify` escaper `\n`,
+  så en fjendtlig `fileName` med linjeskift kan ikke injicere en ekstra
+  NDJSON-linje; (3) `flet()` (`fladeDaekning.mjs:55`) kræver, at nøglen findes
+  i det kilde-scannede inventar, så opdigtede filer/stier uden for roden
+  (`/home/runner/.npm/...`) falder på gulvet, og kun `post.testfil` (relativ)
+  skrives — testNAVNE og absolutte stier når ALDRIG `src/data/fladeDaekning.json`.
+  Kontroltest: ægte post → `aktiverede=1`; samme post med `type:'submit'` mod
+  et click-element → 0. Init-scriptet sender kun `{type, kilder}` — lytteren
+  på `input`/`change` sender ALDRIG `value`, så e2e-adgangskoder lækker ikke.
+  `addInitScript` gemmes ikke i `storageState`, så `e2e/.auth/*.json` er urørt.
+  Rå-loggen `.evne-log-e2e/` er gitignored (`.gitignore:55`), slettes efter
+  kørslen, og `test-report.yml` har NUL `upload-artifact`.
+  Restrisiko (accepteret): et ubundet kald til `__evneLog` i en løkke kan
+  OOM'e Node — DoS mod vores egen CI, ikke mod data.
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
@@ -1872,7 +1900,16 @@ autorisation og shell som argument-parser. Gennemgå dem som callables.
   læse-only token og uden hemmeligheder. Kun `e2e`-jobbet uploader et
   artefakt (`playwright-report/`); frontend-jobbet uploader intet.
   Uløst rest: `firebase-tools` installeres globalt og UPINNET i to jobs
-  (rules + e2e).
+  (rules + e2e) — og fra #216 i et TREDJE: `test-report.yml`, som er det ENESTE
+  af de tre med `contents: write` og et afsluttende `git push origin HEAD:main`.
+  `actions/checkout` har ingen `persist-credentials: false` nogen steder i
+  repoet, så tokenet ligger i `.git/config` og er brugbart for enhver kode i
+  jobbet. Det er ikke en ny KLASSE (`npm ci` kører allerede fremmed
+  postinstall i samme job), men den nye INSTANS er den privilegerede.
+  `git add` navngiver de tre JSON-filer, så en forgiftet build kan kun ramme
+  dem — men tokenet kan pushe frit uden om `git add`. Billig afbødning:
+  pin versionen, eller `persist-credentials: false` + eksplicit token i
+  push-steppet alene.
 - **`roller.mjs`s nye SIKKERHED-mønster `/^\.github\/workflows\//` er for snævert:**
   `.github/dependabot.yml` findes i repoet og styrer automatiske afhængigheds-PR'er,
   og `.github/CODEOWNERS` ville styre review-krav. Brug `/^\.github\//`. Samme

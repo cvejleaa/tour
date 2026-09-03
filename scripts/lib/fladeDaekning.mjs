@@ -72,9 +72,10 @@ export function flet(inventar, poster, opt = {}) {
   const aktiverede = elementer.filter((e) => e.aktiveret).length;
   return {
     generatedAt: opt.generatedAt || new Date().toISOString(),
-    // E2E-klik (Playwright) tælles ikke med endnu. Fanen renderer sit
-    // forbehold og ordet "Mindst" ud fra dette flag — ikke fra en hardkodet
-    // sætning — så det forsvinder af sig selv, den dag tællingen er bygget.
+    // Er E2E-klik (Playwright) med i loggen? build-test-report.mjs sætter
+    // flaget, når E2E-kørslen lykkedes og loggede. Fanen renderer sit
+    // forbehold og ordet "Mindst" ud fra flaget — ikke fra en hardkodet
+    // sætning — så en kørsel uden E2E stadig siger sandheden.
     e2eMedregnet: Boolean(opt.e2eMedregnet),
     totals: { elementer: elementer.length, aktiverede, logposter: poster.length, filer: new Set(elementer.map((e) => e.fil)).size },
     elementer,
