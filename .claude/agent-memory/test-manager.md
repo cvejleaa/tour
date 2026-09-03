@@ -1027,3 +1027,58 @@ faktisk blive nået af, og findes det input i noget fixture?
 - **`gameActions.js` joinGame's tilbagevenden (`updateDoc` med `deleteField()` på
   `forladt`/`forladtAt`) er dræbt af en mutation til `setDoc` uden merge** —
   testen asserterer eksplicit `mockSetDoc.not.toHaveBeenCalled()` OG patch-indholdet.
+
+### Delta efter Security/QC-rettelser (27cb861, samme branch)
+
+- **`reminders.js:305` (`hentTipStatus`) er nu dræbt**: den manglende test blev
+  tilføjet (`reminders.test.js:237-241`) og fanger filter-fjernelse korrekt.
+  Bekræfter mønsteret fra runde 1: en manglende dækning på en navngiven
+  fil:linje er nemt at lukke med én lille test, når den er fundet.
+- **`useGame.js:103`s `isMember`-vagt er nu dækket af `useGameHook.test.js`**
+  (dræbt), men **`GamePageForladt.test.jsx` fanger IKKE samme mutation** —
+  bekræftet ved samme mutation kørt igen. Årsag: `GamePageForladt.test.jsx`
+  mocker `useGame` helt selv med sin EGEN kopi af guard-udtrykket
+  (`isMember: me != null && me.forladt !== true` indlejret i mock'en), så den
+  render'er aldrig den ægte hook. **Dette er acceptabelt, IKKE et hul** — det
+  er bevidst lagdeling: `useGameHook.test.js` beviser hookens egen beregning,
+  `GamePageForladt.test.jsx` beviser komponentens reaktion på en given
+  `isMember`-værdi. Tilsammen dækker de kæden, men KUN hvis noget uafhængigt
+  garanterer, at `GamePage.jsx` rent faktisk importerer den ægte `useGame` (det
+  gør den — importen er ikke mocket i produktionskoden). Mønster at kende:
+  når en komponenttest mocker en hook med en HÅNDSKREVET kopi af hookens
+  interne logik (i stedet for blot at levere rå fixture-data og lade den ægte
+  hook køre), bliver mock'en selv en broget kilde til falsk tryghed, HVIS den
+  ikke suppleres af en ren hook-test. Tjek altid: findes der en separat,
+  ren test af selve hooken, når en komponenttest mocker den med logik (ikke
+  bare data)?
+- **`firestore.rules` `erAktivDeltager()` i bets create (linje ~1024) er
+  dobbelt-dækket**: fjernes den, bliver BÅDE den nye "en FORLADT deltager KAN
+  IKKE tippe"-test OG en ældre, allerede eksisterende "IKKE-deltager KAN IKKE
+  tippe (mangler players-dok)"-test røde. Forventeligt: `erAktivDeltager()`
+  erstattede et rent `exists()`-tjek, så den dækker begge sider (findes slet
+  ikke / findes men er arkiveret) med samme prædikat.
+- **`erAktivDeltager()`s andre tre brugssteder (pulje, chance-update, ny
+  liga) blev IKKE selvstændigt mutationstestet i denne runde** — kun bets
+  create blev muteret på koordinatorens anmodning. Alle fire steder deler
+  samme funktion, så mutationsbeviset på ÉT sted beviser prædikatets EGEN
+  logik korrekt (den er testet via bets), men beviser IKKE at hvert
+  kaldested rent faktisk BRUGER funktionen (en kopi-indsat eller udeladt
+  `erAktivDeltager()` ved et af de tre andre steder ville kræve sin egen
+  mutation for at blive fanget). Rules-testsuiten HAR dog dedikerede
+  positive/negative par for pulje og liga (jf. delta-diffen), så risikoen er
+  lav, men ikke nul-bevist.
+- **`firestore.rules` forladt-sæt-forbuddet (linje ~805,
+  `!(request.resource.data.get('forladt', false) == true && resource.data...
+  != true)`) er dræbt** af `rules.test.js:2117` ("man KAN IKKE selv SÆTTE
+  forladt"), som eksplicit tester update, merge OG create-tidspunktet (seedet
+  via `setDoc` med `forladt: true` i selve tilmeldingen) — tre angrebsflader,
+  én test, alle dækket.
+- **`forladSpil.js`s `erKampLaast`-integration (linje 104) er dræbt** ved at
+  erstatte den med den GAMLE, rene kickoff-sammenligning: fejlen viser sig
+  både på den samlede `res.toEqual` (5 slettet mod forventet 1) og ville
+  vise sig på ID-niveau på `me_facitFrem`, `me_liveFrem`, `me_udenKickoff`
+  og `me_ukendt` — de fire kampe, der er "låst" via facit/live-status/
+  manglende-kickoff-behandles-som-låst, IKKE via et fremtidigt kickoff-
+  tidspunkt. God demonstration af "et privat prædikat, der dubler et
+  delt, fejler i den ene retning" (se security-reviewer.md) — testen fanger
+  netop den retning.
