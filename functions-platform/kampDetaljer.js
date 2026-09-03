@@ -70,13 +70,16 @@ const API = 'https://prod-cdn-public-api.lsmedia1.com/v1/api/app';
  * samme, så en delt konstant ville give alle kald ÉT fælles ur (samme fælde
  * som syncProviders.hentOpt).
  */
+/** Så længe må ÉT kald tage. Budgetterne regner med det som overløb pr. kald. */
+const KALD_TIMEOUT_MS = 10000;
+
 const hentOpt = () => ({
   headers: {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
       + 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
     Referer: 'https://www.livescore.com/',
   },
-  signal: AbortSignal.timeout(10000),
+  signal: AbortSignal.timeout(KALD_TIMEOUT_MS),
 });
 
 /**
@@ -508,7 +511,12 @@ function eidForKamp(data, kodeAfNavn, noegler) {
   if (gyldigEid(data?.livescoreEid)) return data.livescoreEid;
   if (!noegler) return null;
   const n = noegleAfKamp(data, kodeAfNavn);
-  return n ? (noegler.get(n) || null) : null;
+  const e = n ? noegler.get(n) : null;
+  // Whitelistes HER, ikke kun i hentNoegler: én vagt om det, der går i en
+  // URL og skrives på dokumentet — en medgivet liste kan komme andre steder
+  // fra end hentNoegler (Security viste, at en svækket liste-vagt nåede
+  // helt frem til URL'en uden dette led).
+  return gyldigEid(e) ? e : null;
 }
 
 /**
@@ -903,5 +911,5 @@ module.exports = {
   detaljerAf, maalAf, kaedeOk, noegleAfKamp, heltal, tilskuertal, fladeHaendelser,
   hentNoegler, hentJson, eidForKamp, KildenLukkerOs,
   SKRIVBARE_FELTER, FORBUDTE_FELTER,
-  DETALJE_LOFT, DETALJE_BUDGET_MS, AFVIST_KARANTAENE_MS, API,
+  DETALJE_LOFT, DETALJE_BUDGET_MS, AFVIST_KARANTAENE_MS, API, KALD_TIMEOUT_MS,
 };

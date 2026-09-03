@@ -287,6 +287,96 @@
   er grøn. `ctx.skip()` retter det ved at gøre skippet synligt i selve
   PASS/FAIL-optællingen, ikke kun i logteksten.
 
+## Live-målscorere på kampkortet (opgave #78, delopgave 5–7, commit f607272, sept. 2026)
+
+- **En duplikeret hjælpefunktion, der genberegner den SAMME hjemme/ude-
+  selvmåls-logik som en allerede mutationstestet komponent, kan selv være
+  100 % udækket for netop den gren.** `FootballTip.jsx`s `MaalPost` (kortets
+  synlige tekst) og `liveMaalOplaesning` (dens `aria-label`) har HVER SIN
+  kopi af `g.hold === 'home' ? (g.selvmaal ? a.navn : h.navn) : (g.selvmaal ?
+  h.navn : a.navn)`. `MaalPost`s udgave er solidt dækket — de GAMLE
+  selvmåls-tests fra før udtrækningen ("viser SCORERENS EGET hold ved et
+  selvmål", "vender også den anden vej") binder stadig den udtrukne
+  komponent (mutationsbevist: fjernes selvmåls-grenen i `MaalPost`, fejler
+  2 tests præcist). Men INGEN fixture i hele live-mål-testblokken
+  (`FootballTip.test.jsx` linje ~713+) sætter `selvmaal: true` på et
+  `LIVE_MAAL.maal`-element — mutationsbevist: at fjerne selvmåls-grenen i
+  `liveMaalOplaesning` ALENE (`g.hold === 'home' ? h.navn : a.navn`, ingen
+  selvmåls-check) lader ALLE 138 tests i filen forblive grønne. Mønster at
+  huske: når en visning UDTRÆKKES og en NY, parallel sti (her: oplæsningen)
+  genimplementerer samme forgrening i stedet for at kalde den fælles logik,
+  arver den nye sti IKKE den gamle dækning — den skal bevises for sig selv.
+  Mangler: en test i "kampen er i gang"-blokken med
+  `liveMaal: { maal: [{ hold:'home', selvmaal:true, ... }], ... }`, der
+  asserterer at aria-label nævner det MODSATTE holds navn (spejler den
+  eksisterende `MaalPost`-test), og gerne også `', selvmål'`-mærket i samme
+  streng.
+- **En test, der importerer den ægte `pendingMatches` (ikke en stub) via en
+  generisk fake-Firestore `where`-kæde, ER et reelt bevis for tidsvinduet —
+  bekræftet ved mutation, ikke antaget.** `liveMaal.test.js`s
+  `syncLiveMaalForSpil`-test bruger `fakeDb()`s `collection().doc().collection()`
+  med en ægte `.where(felt,op,v)`-kæde (`medFiltre`), og kalder den RIGTIGE
+  `pendingMatches` fra `superligaSync.js` — ikke en hånd-rullet stub, der
+  omgår filtreringen (modsat det tidligere fundne pulselive-kickoff-mønster).
+  Mutationsbevist: at fjerne den øvre kickoff-grænse i `pendingMatches`
+  (`superligaSync.js:65`, `<=` mod `nowMs`) gør testen rød (den "fremtidige"
+  kamp bliver forkert talt med). God præcedens at genkende: en fake, der
+  implementerer den generiske Firestore-forespørgselssemantik i stedet for
+  at stubbe SVARET, beviser rent faktisk kalderens brug af den.
+- **`ud.forsoegt`-tællingen og batch-commit-vagten (`if (iBatch > 0)`) i
+  `syncLiveMaalCore` er begge mutationsbeviste isoleret** (flyt
+  `forsoegt += 1` til FØR `ukendte`-tjekket → rød; fjern `iBatch > 0`-vagten
+  → rød på "skriver IKKE, når listen er uændret"-testen, som forventer
+  `db.commits === 0`). Samme for stage-listens `if (valgte.some(...))`-vagt
+  (gjort ubetinget → 3 tests røde, inkl. "intet stage-kald"-påstanden) og
+  `liveMaalNiveau`s `d.forsoegt > 0 &&`-klausul (fjernet → testen for
+  "intet forsøgt, kun ukendte, stadig ok" bliver rød).
+- **`LIVE_BUDGET_MS`s selvtest ligner en tautologi, men er det kun delvist.**
+  `expect(LIVE_BUDGET_MS).toBe(Math.floor(((LIVE_TIMEOUT_S*1000)*2)/3/SYNCED_GAMES.length))`
+  genskriver KILDENS formel med hardkodet `2` og `3` direkte i testen (ikke
+  udledt af en importeret konstant), så en ændring af selve brøken i kilden
+  (`liveMaal.js:254`, fx til `1/2`) FANGES (mutationsbevist: testen bliver
+  rød). Det, testen IKKE binder, er om `2/3` selv er den rigtige brøk — den
+  tredje assertion (`LIVE_BUDGET_MS * SYNCED_GAMES.length <
+  LIVE_TIMEOUT_S*1000`) er sand for enhver brøk under 1, så den
+  forretningsmæssige begrundelse ("to tredjedele") er en påstand i
+  kommentaren, ikke i testen. Lavere risiko end en ægte tautologi (en
+  glemt/forkert opdatering af brøken FANGES stadig), men værd at kende
+  mønsteret: en formel duplikeret ordret ind i testen beviser kun "kilden og
+  testen er enige", ikke "værdien er den rigtige".
+- **Racen mellem minut-synken (skriver `live`) og live-mål-jobbet (læser
+  `live` via `pendingMatches`, skriver `liveMaal`) er sporet og er
+  BEVIDST tolereret, ikke en fejl.** To sekvenser afprøvet i koden (ikke i
+  testsuiten — dette er en analyse, ikke en kørt mutation): (1) hvis
+  minut-synken ruller `live` videre til et nyt mål EFTER live-mål-jobbets
+  `pendingMatches`-læsning, men FØR dets `batch.commit()`, skrives en
+  `liveMaal`-liste, der er ét mål "bagud" ift. den friskeste `live` —
+  præcis den tilstand, `liveMaalTilstand`s `bagud`-felt er bygget til at
+  detektere og dæmpe (`FootballTip.jsx`: `--doed`-klassen), og ER
+  mutationsbevist (`stillingAfListe`/`liveMaalTilstand`-testene). (2) Værre
+  race: facit-skrivningen (`syncResultsCore`) SLETTER `liveMaal` samtidig
+  med at den sætter `result` — lander live-mål-jobbets batch, der blev
+  forberedt FØR facit landede, EFTER facit-commit'et, kan `liveMaal`
+  genopstå på en allerede afgjort kamp. Dette er eksplicit forudset og
+  dækket: testen "viser PRÆCIS én liste på en afgjort kamp med et efterladt
+  liveMaal" (`FootballTip.test.jsx`) beviser, at klienten aldrig viser
+  live-listen, når `result` er sat, uanset hvad der ligger i `liveMaal`
+  (gaten er `liveScore()`, som returnerer `null` på facit — ikke fraværet af
+  feltet). Konklusion: racen kan skrive et "forkert" (forældet) `liveMaal`-
+  felt, men aldrig et forkert SKÆRMBILLEDE — begge sider af racen er
+  dækket af eksisterende, mutationsbeviste tests. Ingen ny test krævet, men
+  værd at vide, hvis feltet nogensinde læses et andet sted end
+  `liveMaalTilstand`+`liveScore`-parret.
+- **`DriftTab.jsx`s `TYPE_NAVN`-opslag har en fallback (`|| forventet.type`),
+  så en ny, utestet nøgle (`livemaal`) højst viser den rå type-streng i
+  stedet for det pæne navn — aldrig en fejl eller et skjult kort.** Ingen
+  test i `DriftTab.test.jsx` dækker `TYPE_NAVN` for NOGEN nøgle (heller ikke
+  de eksisterende `sweep`/`minut`/`kickoff`), så hullet er systemisk og ikke
+  nyt for denne PR. Vurderet IKKE-blokerende. Bekræftet også: `livemaal`
+  optræder bevidst IKKE i `forventede`-listen (samme udeladelse som `minut`,
+  med samme begrundelse i kommentaren — "et fraværende minut-dokument er
+  normalt", og live-mål er kun forventet på kampdage).
+
 ## Pulje-overskrift + låst pokal (commit 2046eb6, PR #201, sept. 2026)
 
 - **Ni "røde" mutationer i commit-beskeden var alle reelt røde — men OR'et

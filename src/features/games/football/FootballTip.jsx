@@ -99,10 +99,20 @@ function harTilskuere(m) {
  * (scripts/maal-selvmaal.mjs: IT=39 er et selvmål, 5 af 5). Skrevet som to
  * næstede valg og ikke et XOR-udtryk: første udgave var omvendt.
  */
-function MaalPost({ g, h, a }) {
-  const hold = g.hold === 'home'
+/**
+ * Holdet, scoreren SELV spiller for. Ved et selvmål er det modstanderen af
+ * det hold, målet blev skrevet på. ÉN funktion for både listen og
+ * oplæsningen — Test Manager fandt kopien i oplæsningen udækket, og to
+ * kopier kan vendes hver for sig.
+ */
+function scorerensHold(g, h, a) {
+  return g.hold === 'home'
     ? (g.selvmaal ? a.navn : h.navn)
     : (g.selvmaal ? h.navn : a.navn);
+}
+
+function MaalPost({ g, h, a }) {
+  const hold = scorerensHold(g, h, a);
   return (
     <span className={`match-card__maal-post${g.annulleret ? ' match-card__maal-post--annulleret' : ''}`}>
       {/* STILLINGEN FØRST, og det er ikke en smagssag: listen læses for at se
@@ -138,7 +148,7 @@ function MaalPost({ g, h, a }) {
  */
 function liveMaalOplaesning(tilstand, live, h, a) {
   const poster = tilstand.raekke.map((g) => {
-    const hold = g.hold === 'home' ? (g.selvmaal ? a.navn : h.navn) : (g.selvmaal ? h.navn : a.navn);
+    const hold = scorerensHold(g, h, a);
     const maerke = g.annulleret ? ', annulleret af VAR' : (g.selvmaal ? ', selvmål' : '');
     return `${g.minut}. minut ${g.scorer || 'ukendt'}, ${hold}${maerke}`;
   });

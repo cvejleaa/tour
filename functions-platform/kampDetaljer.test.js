@@ -1061,6 +1061,20 @@ describe('syncKampDetaljerCore — forældet cachet id (#82)', () => {
   });
 });
 
+describe('eidForKamp — én vagt om det, der går i en URL', () => {
+  it('en giftig værdi i en MEDGIVET stage-liste når aldrig fetch — kampen tælles ukendt', async () => {
+    // hentNoegler whitelister selv, men en liste kan komme andre steder fra.
+    // Security: svækkes listens vagt, nåede `../../v1/api/app/admin` URL'en.
+    const db = fakeDb(TEAMS, []);
+    const fetchFn = fakeFetch();
+    const ud = await syncKampDetaljerCore(db, FieldValue, opts({
+      fetchFn, noegler: new Map([['20260724|FCM|RAN', '../../v1/api/app/admin']]), only: [{ id: 'r1-a', data: KAMP_DATA }],
+    }));
+    expect(ud).toMatchObject({ ukendte: 1, forsoegt: 0, skrevet: 0 });
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+});
+
 describe('efterFacitDetaljer — de netop afgjorte kampe, straks', () => {
   it('genlæser kampene og henter detaljer for præcis dem, der fik facit', async () => {
     // Dokumentet i basen HAR facit (det blev lige skrevet); listen minut-synken

@@ -784,6 +784,19 @@ describe('FootballTip — kampen er i gang', () => {
     expect(container.querySelector('.match-card__live-maal').getAttribute('aria-label')).toContain('Opdateringen er afbrudt.');
   });
 
+  it('et selvmål i live-listen nævner scorerens EGET hold — i listen og i oplæsningen', () => {
+    // AGF fører 1–0 på et selvmål af en FCK-spiller: målet står på home,
+    // men spilleren er F.C. Københavns. Oplæsningen havde sin egen kopi af
+    // den vending, og den var udækket (Test Managers fund).
+    const { container } = setup(frisk, '/spil/sl', kampe(LIVE, {
+      liveMaal: { maal: [{ hold: 'home', minut: 10, scorer: 'Selvmaal Hansen', selvmaal: true }], annullerede: [], at: NU },
+    }));
+    const blok = container.querySelector('.match-card__live-maal');
+    expect(blok).toHaveTextContent('1–0 10′ Selvmaal Hansen (F.C. København) selvmål');
+    expect(blok.getAttribute('aria-label')).toBe('Målscorere indtil videre: 10. minut Selvmaal Hansen, F.C. København, selvmål.');
+    expect(blok.getAttribute('aria-label')).not.toContain('AGF');
+  });
+
   it('viser INGEN live-liste uden liveMaal', () => {
     const { container } = setup(frisk, '/spil/sl', kampe(LIVE));
     expect(container.querySelector('.match-card__live-maal')).toBeNull();

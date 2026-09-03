@@ -32,9 +32,42 @@ vi.mock('../games/useGames', () => ({
 vi.mock('../../firebase', () => ({ db: {}, functions: {} }));
 vi.mock('firebase/functions', () => ({ httpsCallable: () => vi.fn() }));
 
-import DriftTab from './DriftTab';
+import DriftTab, { forventedeKoersler } from './DriftTab';
 
 const basis = { status: [], alarmer: [], loading: false, error: '' };
+
+describe('forventedeKoersler — matrixen maskineri × spil', () => {
+  const SL = { id: 'superliga2627', name: 'Superligaen', type: 'football', status: 'open', sync: { provider: 'superliga' } };
+  const typer = (g) => forventedeKoersler([g]).map((k) => k.type);
+
+  it('et spil med livescore-kortlægning får et Live-mål-kort — jobbet har intet søskende-job', () => {
+    expect(typer(SL)).toEqual(['sweep', 'kickoff', 'livemaal', 'reminder']);
+  });
+
+  it('SAMME provider, andet spil-id: intet Live-mål-kort (gaten er evnen, ikke provideren)', () => {
+    expect(typer({ ...SL, id: 'sl2728' })).toEqual(['sweep', 'kickoff', 'reminder']);
+  });
+
+  it('et spil uden synk får ingen kørsels-kort', () => {
+    expect(typer({ id: 'tour', name: 'Touren', type: 'cycling', status: 'finished' })).toEqual([]);
+  });
+
+  it('tegner Live-mål-kortet med det danske navn og kørslens linje', () => {
+    // useGames-attrappen ovenfor kender kun 'sl'/'pl' — så kortet bevises via
+    // status-dokumentet (orphan-grenen), som fladen viser med TYPE_NAVN.
+    mockDrift.mockReturnValue({
+      ...basis,
+      status: [{
+        id: 'livemaal-superliga2627', type: 'livemaal', gameId: 'superliga2627', gameNavn: 'Superligaen',
+        niveau: 'ok', besked: 'Live-mål: 1 kamp i gang, 1 liste skrevet.', koertAt: Date.now(), naesteForventetFoer: null,
+      }],
+    });
+    render(<DriftTab />);
+    expect(screen.getByText(/Live-mål \(kampe i gang\) · Superligaen/)).toBeInTheDocument();
+    expect(screen.getByText(/1 liste skrevet/)).toBeInTheDocument();
+    expect(screen.queryByText(/^livemaal/)).toBeNull();
+  });
+});
 
 describe('DriftTab', () => {
   it('tegner GRÅT kort pr. forventet kørsel uden dokument — aldrig et hul i listen', () => {

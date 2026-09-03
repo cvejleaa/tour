@@ -402,7 +402,11 @@ prædikat som live-puls-alarmen, `erIGang`) → højst 10 → ét `incidents`-ka
 hver → målkæden pr. side skal stemme med kampens EGEN `live`-stilling, ellers
 skrives intet (enigheds-reglen: en liste, der modsiger tallet, er værre end
 ingen). Skrives KUN ved ændring i `liveMaal` (`maal`, `annullerede`, `at`).
-Facit sletter feltet. Se `functions-platform/liveMaal.js`.
+Facit sletter feltet. Jobbet henter ALDRIG stage-listen: kortlægningen er
+sweep'ets (én kamp, der ikke kunne kobles, ville ellers koste 150 stage-kald
+pr. kampvindue — Security målte det). Efter et 429/403 holder jobbet pause i
+en time (`livescoreLukketTil` på spil-dokumentet). Se
+`functions-platform/liveMaal.js`.
 
 **Drift-kortet** hedder *Live-mål (kampe i gang) · <spil>* og skrives kun på
 kampdage (som minut-kortet), med linjen `Live-mål: N kampe i gang, M lister
@@ -412,9 +416,10 @@ kom igennem. Alarmen er den samme `detaljerLukket` som ovenfor.
 | Det, kortet siger | Hvad det betyder | Hvad du gør |
 |---|---|---|
 | `N uenige om stillingen` | Livescore og vores egen kilde er ét mål fra hinanden i dette minut. | Ingenting — næste minut heler det. Står det der HELE kampen, er kampen koblet til en forkert kamp hos kilden: slet `livescoreEid` på kampen. |
-| `N hvor kilden ikke svarede` / `N forældede id'er slettet` | 404/5xx på kampens id. Et cachet id slettes, og næste minut slås det op igen fra stage-listen (selvheling, opgave #82). | Ingenting. Bliver det ved minut efter minut, er kilden nede. |
-| `N uden id hos kilden` | Kampen kunne ikke kobles (holdkode/dato). | `node scripts/maal-livescore.mjs` → ret `livescoreHold.js`. Listen kommer først, når koblingen virker. |
+| `N hvor kilden ikke svarede` | 404/5xx på kampens id. Jobbet rører ikke id'et; sweep'et sletter et forældet id og kortlægger igen (én gang i timen, opgave #82). | Ingenting. Bliver det ved hele kampen, får kampen først sin liste efter næste sweep. |
+| `N uden id hos kilden` | Kampen er ikke kortlagt endnu (sweep'et gør det hver time — normalt dage før kickoff), eller den kan ikke kobles (holdkode/dato). | Vent på sweep'et. Står den der næste kampdag også: `node scripts/maal-livescore.mjs` → ret `livescoreHold.js`. |
 | `N over loftet` | Flere end 10 kampe i gang samtidig. | Intet i dag; loftet er ejerens valg (LIVE_LOFT). |
+| `pause efter 429/403 fra kilden — prøver igen kl. …` | Kilden lukkede os ude; jobbet holder en times pause. | Gør INTET. Sker det igen efter pausen, er vi rate-limited — så skal loftet ned. |
 
 **Manuel udløser:** ⚽ Synk kampdetaljer nu tager også kampe i gang med og
 siger "Live: N i gang, M lister skrevet". **Efterprøv en kamp:** workflow *Kig

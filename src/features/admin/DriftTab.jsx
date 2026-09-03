@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { functions } from '../../firebase';
 import { useGames } from '../games/useGames';
 import { useDriftStatus, ukvitterede } from './useDriftStatus';
-import { harKickoffSynk, forventerPaamindelser } from '../games/spilEvner';
+import { harKickoffSynk, harKampdetaljer, forventerPaamindelser } from '../games/spilEvner';
 import { formatKickoff } from '../../lib/daDate';
 
 const TYPE_NAVN = {
@@ -96,26 +96,43 @@ function AlarmKort({ alarm }) {
   );
 }
 
+/**
+ * Forventede kørsler — matrixen maskineri × spil — afledt af spillenes egne
+ * felter, så klienten følger serveren (QC-fund: ellers står en tavst
+ * fejlende synk uden "afventer"-kort). Ren funktion, så hver række i
+ * matrixen kan testes med vilkårlige spil-id'er.
+ *
+ *   sweep      alle synkede spil (sync.provider)
+ *   kickoff    kun kilder med en kickoff-provider (harKickoffSynk)
+ *   livemaal   kun spil med livescore-kortlægning (harKampdetaljer) — jobbet
+ *              har intet søskende-job, der opdager, at det er holdt op med
+ *              at fyre (QC-fund, opgave #85); et gråt "afventer"-kort er det
+ *              mindste, der gør fraværet synligt. Skrives kun på kampdage, så
+ *              naesteForventetFoer er null, og kortet bliver aldrig rødt af
+ *              stilhed — kun af en fejlet kørsel.
+ *   reminder   egen gate (samme prædikat som 09-jobbet, IKKE sync.provider)
+ *
+ * Holdes som ét sæt, så en tredje kilde er én rettelse — ikke endnu et
+ * hardkodet provider-navn spredt i fladen.
+ */
+export function forventedeKoersler(games) {
+  return [
+    ...(games || []).filter((g) => g.sync?.provider).flatMap((g) => [
+      { type: 'sweep', gameId: g.id, gameNavn: g.name },
+      ...(harKickoffSynk(g) ? [{ type: 'kickoff', gameId: g.id, gameNavn: g.name }] : []),
+      ...(harKampdetaljer(g) ? [{ type: 'livemaal', gameId: g.id, gameNavn: g.name }] : []),
+    ]),
+    // Et pauset spil beholder sit påmindelses-kort: pausen er kortets
+    // indhold, ikke dets fravær.
+    ...(games || []).filter(forventerPaamindelser).map((g) => ({ type: 'reminder', gameId: g.id, gameNavn: g.name })),
+  ];
+}
+
 export default function DriftTab() {
   const { games } = useGames();
   const { status, alarmer, loading, error } = useDriftStatus();
 
-  // Forventede kørsler afledt af spillenes seedede sync-felt: alle synkede
-  // spil har sweep + minut; kun kilder med en kickoff-provider (hentKickoffs)
-  // får et kickoff-synk-kort. Spejler SYNCED_GAMES-semantikken via game-
-  // dokumenterne. Holdes som ét sæt, så en tredje kilde er én rettelse — ikke
-  // endnu et hardkodet provider-navn spredt i fladen (QC-fund: klienten skal
-  // følge serveren, ellers står en tavst fejlende synk uden "afventer"-kort).
-  const forventede = [
-    ...(games || []).filter((g) => g.sync?.provider).flatMap((g) => [
-      { type: 'sweep', gameId: g.id, gameNavn: g.name },
-      ...(harKickoffSynk(g) ? [{ type: 'kickoff', gameId: g.id, gameNavn: g.name }] : []),
-    ]),
-    // Påmindelses-kortet har sin EGEN gate (samme prædikat som 09-jobbets, IKKE
-    // sync.provider — påmindelser afhænger ikke af en kilde). Et pauset spil
-    // beholder sit kort: pausen er kortets indhold, ikke dets fravær.
-    ...(games || []).filter(forventerPaamindelser).map((g) => ({ type: 'reminder', gameId: g.id, gameNavn: g.name })),
-  ];
+  const forventede = forventedeKoersler(games);
   const docAf = new Map(status.map((d) => [`${d.type}-${d.gameId}`, d]));
   const aabneAlarmer = alarmer.filter((a) => !a.loestAt);
   const skalKvitteres = ukvitterede(alarmer);

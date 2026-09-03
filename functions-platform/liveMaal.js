@@ -35,7 +35,7 @@
 
 const {
   maalAf, kaedeOk, heltal, fladeHaendelser, navn,
-  hentJson, hentNoegler, noegleAfKamp, gyldigEid, KildenLukkerOs,
+  hentJson, gyldigEid, KildenLukkerOs,
 } = require('./kampDetaljer');
 const { erIGang, pendingMatches } = require('./superligaSync');
 const { SYNCED_GAMES } = require('./syncProviders');
@@ -54,12 +54,11 @@ const ANNULLERET_IT = 62;
 const ANNULLERET_LOFT = 25;
 
 /**
- * De eneste felter, live-stien må skrive. Bundet af en mutationstest.
- * `livescoreEid` er med, fordi løkken slår id'et op, når cachen mangler det
- * (en kamp seedet samme dag, eller et id slettet af selvhelingen), og så skal
- * næste minut ikke koste stage-listen igen.
+ * Det eneste felt, live-stien må skrive. Bundet af en mutationstest — af
+ * listens INDHOLD; selve plukket er en ækvivalent mutation, så længe `skriv`
+ * kun bærer literale nøgler (samme form som forbudslisten i kampDetaljer.js).
  */
-const LIVE_SKRIVBARE = Object.freeze(['liveMaal', 'livescoreEid']);
+const LIVE_SKRIVBARE = Object.freeze(['liveMaal']);
 
 /** Højst så mange kampe pr. kørsel — ét incidents-kald hver. Ejerens valg (2/9). */
 const LIVE_LOFT = 10;
@@ -119,34 +118,76 @@ function sammeListe(a, b) {
   return kerne(a) === kerne(b);
 }
 
+/** Et kald mod livescore kan højst tage så længe (hentOpt i kampDetaljer.js). */
+const { KALD_TIMEOUT_MS } = require('./kampDetaljer');
+
+/** Jobbets timeout (index.js: syncLiveMaal). */
+const LIVE_TIMEOUT_S = 60;
+
 /**
- * Målscorere for kampe, der er I GANG — ét incidents-kald pr. kamp.
+ * Wall-clock-budget for ÉN kørsel for ÉT spil — med OVERLØBET indregnet.
+ *
+ * Et budget-tjek i toppen af løkken kan ikke afbryde et await, så det
+ * reelle loft pr. spil er budget + ét kald (KALD_TIMEOUT_MS). Første udgave
+ * tog to tredjedele af timeouten delt på spillene og glemte overløbet:
+ * loftet var præcis 60 s ved to spil og 70 s ved tre — den afledte konstant
+ * SKJULTE overskridelsen i stedet for at forhindre den (Security målte).
+ * Nu: (timeout − N kald − 5 s til opslag og driftlog) / N. To spil: 17,5 s
+ * hver, loft 55 s. Målt (scripts/maal-livescore-detaljer.mjs --live,
+ * 2/9-2026): incidents 140 ms under kampen, så budgettet binder kun, når
+ * kilden hænger.
+ */
+const LIVE_BUDGET_MS = Math.floor(
+  (LIVE_TIMEOUT_S * 1000 - SYNCED_GAMES.length * KALD_TIMEOUT_MS - 5000) / Math.max(1, SYNCED_GAMES.length),
+);
+
+/**
+ * Så længe holder jobbet sig væk fra kilden efter et 429/403. Afbryderen er
+ * pr. kørsel, men jobbet kommer igen næste minut — og 720 kald i døgnet mod
+ * en kilde, der lige har sagt nej, er præcis det, den delte NAT ikke tåler
+ * (Security). Feltet `livescoreLukketTil` på spil-dokumentet bærer pausen.
+ */
+const LIVE_NEDKOELING_MS = 60 * 60 * 1000;
+
+const TOM_LIVE = Object.freeze({
+  iGang: 0, valgte: 0, forsoegt: 0, skrevet: 0, uaendrede: 0,
+  uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, afbrudt: false,
+});
+
+/**
+ * Målscorere for kampe, der er I GANG — ét incidents-kald pr. kamp, og
+ * ALDRIG stage-listen.
+ *
+ * Kortlægningen (`livescoreEid`) er sweep'ets opgave: hele sæsonen, ét
+ * stage-kald i timen (kortlaegEids). Første udgave slog id'et op HER, når
+ * det manglede, og slettede det ved 404 — og Security målte, hvad det
+ * kostede: én kamp, der ikke kunne kobles, gav 150 stage-kald à 260 KB pr.
+ * kampvindue, fordi opslaget aldrig konvergerede. Nøjagtig den adfærd,
+ * cachen blev bygget for at undgå. Så: en kamp uden gyldigt id tælles
+ * "ukendt" (synligt på kortet) og får sin liste, når sweep'et har kortlagt
+ * den — normalt dage før kickoff. Et id, kilden svarer 404 på, tælles
+ * "kilden svarede ikke" og RØRES ikke her: sweep'et sletter og
+ * genkortlægger det (opgave #82), ét kald i timen, ikke ét i minuttet.
  *
  * `only` er kampene fra pendingMatches (2,5-timers vinduet uden facit); her
  * vælges dem, der ER i gang (erIGang — samme prædikat som puls-alarmen), og
- * højst `loft` af dem. Pr. kamp: cachet `livescoreEid` → incidents →
- * liveMaalAf mod kampens EGEN live-stilling → skriv KUN ved ændring (hvert
- * kampdokument lyttes på af hver åben browser).
- *
- * Stage-listen hentes KUN, når en valgt kamp mangler sit id — og så gemmes
- * det fundne id, så næste minut koster ét kald. Et cachet id, kilden svarer
- * 404/5xx på, SLETTES (opgave #82): næste minut slås det op igen, så en kamp
- * med et forældet id er tilbage inden for to minutter i stedet for at stå død
- * hele aftenen.
+ * højst `loft` af dem. Pr. kamp: incidents → liveMaalAf mod kampens EGEN
+ * live-stilling → skriv KUN ved ændring (hvert kampdokument lyttes på af
+ * hver åben browser), plukket gennem LIVE_SKRIVBARE.
  *
  * Kredsløbsafbryderen (429/403) stopper kørslen — det, der allerede ligger i
- * batchen, skrives. ÉT giftigt dokument må aldrig vælte løkken for de andre
- * kampe (Security): hver kamp har sin egen try.
+ * batchen, skrives. ÉN vagt om et giftigt dokument eller et ugyldigt svar:
+ * hver kamp har sin egen try, og den er den eneste. Første udgave havde en
+ * indre try om liveMaalAf oveni — to vagter om samme regel, hvor den ene
+ * kunne fjernes med grøn suite (Security). Den ydre dækker også et
+ * `res.json()`, der kaster, og et kast fra batch.update.
  *
  * @param {{gameId:string, livescore:{land:string,liga:string},
  *          only:Array<{id:string,data:object}>, fetchFn?:Function, nowMs?:number,
  *          klokke?:Function, budgetMs?:number, loft?:number}} opts
  */
 async function syncLiveMaalCore(db, FieldValue, opts = {}) {
-  const tom = {
-    iGang: 0, valgte: 0, forsoegt: 0, skrevet: 0, uaendrede: 0,
-    uenige: 0, uparsede: 0, utilgaengelige: 0, ukendte: 0, idSlettet: 0, afbrudt: false,
-  };
+  const tom = { ...TOM_LIVE };
   const livescore = opts.livescore;
   if (!livescore?.land || !livescore?.liga) return tom;
   const gameId = opts.gameId;
@@ -163,74 +204,37 @@ async function syncLiveMaalCore(db, FieldValue, opts = {}) {
   const valgte = iGang.slice(0, loft);
   const ud = { ...tom, iGang: iGang.length, valgte: valgte.length };
 
-  const gameRef = db.collection('games').doc(gameId);
-  const matchesCol = gameRef.collection('matches');
+  const matchesCol = db.collection('games').doc(gameId).collection('matches');
   const batch = db.batch();
   let iBatch = 0;
-  let noegler = null;
-  let kodeAfNavn = null;
   try {
-    // Stage-listen og holdlisten KUN, når en valgt kamp mangler id. Med fuld
-    // cache (sweep'et kortlægger hele sæsonen) koster et minut N kald, ikke N+1.
-    if (valgte.some((m) => !gyldigEid(m.data?.livescoreEid))) {
-      if (klokke() >= udloeb) return ud;
-      const gameSnap = await gameRef.get();
-      const teams = gameSnap.exists ? gameSnap.data().teams : null;
-      if (Array.isArray(teams) && teams.length) {
-        kodeAfNavn = new Map(teams.map((t) => [t.name, t.short]));
-        noegler = await hentNoegler(livescore, fetchFn);
-      }
-    }
     for (const m of valgte) {
       if (klokke() >= udloeb) break;
       try {
-        const cached = gyldigEid(m.data?.livescoreEid) ? m.data.livescoreEid : null;
-        let eid = cached;
-        if (!eid && noegler && kodeAfNavn) {
-          const n = noegleAfKamp(m.data, kodeAfNavn);
-          eid = n ? (noegler.get(n) || null) : null;
-        }
+        const eid = gyldigEid(m.data?.livescoreEid) ? m.data.livescoreEid : null;
         if (!eid) { ud.ukendte += 1; continue; }
         ud.forsoegt += 1;
         const incidents = await hentJson(`incidents/soccer/${eid}`, fetchFn);
-        const skriv = {};
-        if (!incidents) {
-          ud.utilgaengelige += 1;
-          if (cached) {
-            // Forældet id? Slet det — næste minut slås det op igen (#82).
-            batch.update(matchesCol.doc(m.id), { livescoreEid: FieldValue.delete() });
-            iBatch += 1;
-            ud.idSlettet += 1;
-          }
-          continue;
-        }
-        if (!cached) skriv.livescoreEid = eid;
-        let svar;
-        try {
-          svar = liveMaalAf(incidents, m.data.live);
-        } catch {
-          svar = { afvist: 'uparset' };
-        }
+        if (!incidents) { ud.utilgaengelige += 1; continue; }
+        const svar = liveMaalAf(incidents, m.data.live);
         if (svar.afvist) {
           if (svar.afvist === 'uenig') ud.uenige += 1; else ud.uparsede += 1;
-        } else if (sammeListe(m.data.liveMaal, svar)) {
-          ud.uaendrede += 1;
-        } else {
-          skriv.liveMaal = { maal: svar.maal, annullerede: svar.annullerede, at: nowMs };
-          ud.skrevet += 1;
+          continue;
         }
+        if (sammeListe(m.data.liveMaal, svar)) { ud.uaendrede += 1; continue; }
+        const skriv = { liveMaal: { maal: svar.maal, annullerede: svar.annullerede, at: nowMs } };
         // Plukket af den frosne liste — et forbudt felt kan ikke følge med.
         const plukket = {};
         for (const felt of LIVE_SKRIVBARE) {
           if (Object.hasOwn(skriv, felt)) plukket[felt] = skriv[felt];
         }
-        if (Object.keys(plukket).length) {
-          batch.update(matchesCol.doc(m.id), plukket);
-          iBatch += 1;
-        }
+        batch.update(matchesCol.doc(m.id), plukket);
+        iBatch += 1;
+        ud.skrevet += 1;
       } catch (err) {
         if (err instanceof KildenLukkerOs) throw err;
-        // Ét giftigt dokument koster én kamp, ikke aftenen for de andre.
+        // Ét giftigt dokument eller ét ugyldigt svar koster én kamp, ikke
+        // aftenen for de andre.
         ud.uparsede += 1;
         console.warn(`Live-mål ${gameId}/${m.id} sprunget over:`, err?.message || err);
       }
@@ -244,54 +248,76 @@ async function syncLiveMaalCore(db, FieldValue, opts = {}) {
 }
 
 /**
- * Wall-clock-budget for ÉN kørsel for ÉT spil. To tredjedele af jobbets
- * 60 s (index.js: LIVE_TIMEOUT_S), delt på spillene — afledt, ikke skrevet
- * af, så et tredje spil skrumper budgettet i stedet for at sprænge loftet.
- * Målt (scripts/maal-livescore-detaljer.mjs --live, 2/9-2026): incidents
- * 140 ms under kampen, så budgettet binder kun, når kilden hænger.
- */
-const LIVE_TIMEOUT_S = 60;
-const LIVE_BUDGET_MS = Math.floor(((LIVE_TIMEOUT_S * 1000) * 2) / 3 / Math.max(1, SYNCED_GAMES.length));
-
-/**
  * Hele kørslen for ét spil: kampene i vinduet (pendingMatches — samme opslag
- * som minut-synken, én tom range-forespørgsel uden for kampvinduet) →
- * løkken ovenfor. index.js kalder KUN denne, så alt, der kan tage fejl, ligger
- * i en fil, der kan unit-testes.
+ * som minut-synken, én tom range-forespørgsel uden for kampvinduet) → er
+ * nogen i gang? → nedkølingen → løkken ovenfor → nedkølingen sættes, hvis
+ * kilden lukkede os ude. index.js kalder KUN denne, så alt, der kan tage
+ * fejl, ligger i en fil, der kan unit-testes.
+ *
+ * Spil-dokumentet læses KUN, når der er kampe i gang — et stille minut skal
+ * ikke koste en læsning ud over den tomme forespørgsel.
+ *
+ * @returns kernens tal + `sprunget`/`lukketTil`, når nedkølingen gjaldt
  */
 async function syncLiveMaalForSpil(db, FieldValue, opts = {}) {
   const nowMs = Number.isFinite(opts.nowMs) ? opts.nowMs : Date.now();
   const only = await pendingMatches(db, nowMs, { gameId: opts.gameId });
-  return syncLiveMaalCore(db, FieldValue, { ...opts, nowMs, only });
+  const iGang = only.filter((m) => erIGang(m?.data)).length;
+  if (iGang === 0) return { ...TOM_LIVE };
+
+  const gameRef = db.collection('games').doc(opts.gameId);
+  const spil = await gameRef.get();
+  const lukketTil = Number(spil?.exists ? spil.data()?.livescoreLukketTil : NaN);
+  if (Number.isFinite(lukketTil) && lukketTil > nowMs) {
+    return { ...TOM_LIVE, iGang, sprunget: true, lukketTil };
+  }
+
+  const ud = await syncLiveMaalCore(db, FieldValue, { ...opts, nowMs, only });
+  if (ud.afbrudt) {
+    ud.lukketTil = nowMs + LIVE_NEDKOELING_MS;
+    await gameRef.set({ livescoreLukketTil: ud.lukketTil }, { merge: true });
+  }
+  return ud;
+}
+
+/** Klokkeslæt i dansk tid, til kortet. */
+function klokkeslaet(ms) {
+  return new Intl.DateTimeFormat('da-DK', { timeZone: 'Europe/Copenhagen', hour: '2-digit', minute: '2-digit' })
+    .format(new Date(ms));
 }
 
 /** Driftlog-linjen for én kørsel. Ren funktion, så INDHOLDET kan testes. */
 function liveMaalLinje(d) {
+  if (d.sprunget) {
+    return `Live-mål: pause efter 429/403 fra kilden — ${d.iGang} kamp${d.iGang === 1 ? '' : 'e'} i gang, `
+      + `prøver igen kl. ${klokkeslaet(d.lukketTil)}.`;
+  }
   const dele = [`${d.iGang} kamp${d.iGang === 1 ? '' : 'e'} i gang`];
   dele.push(`${d.skrevet} liste${d.skrevet === 1 ? '' : 'r'} skrevet`);
   if (d.uaendrede) dele.push(`${d.uaendrede} uændret${d.uaendrede === 1 ? '' : 'e'}`);
   if (d.uenige) dele.push(`${d.uenige} uenige om stillingen`);
   if (d.uparsede) dele.push(`${d.uparsede} kunne ikke parses`);
   if (d.utilgaengelige) dele.push(`${d.utilgaengelige} hvor kilden ikke svarede`);
-  if (d.idSlettet) dele.push(`${d.idSlettet} forældede id'er slettet`);
   if (d.ukendte) dele.push(`${d.ukendte} uden id hos kilden`);
   if (d.iGang > d.valgte) dele.push(`${d.iGang - d.valgte} over loftet`);
-  return `Live-mål: ${dele.join(', ')}.${d.afbrudt ? ' Kilden lukkede os ude (429/403) — kørslen stoppede sig selv.' : ''}`;
+  return `Live-mål: ${dele.join(', ')}.${d.afbrudt
+    ? ` Kilden lukkede os ude (429/403) — pause til kl. ${klokkeslaet(d.lukketTil ?? 0)}.` : ''}`;
 }
 
 /**
  * Hvor alvorlig var kørslen? ÉN regel, ét sted. Advarsel, når kilden lukkede
- * os ude, eller når vi prøvede og INTET kom igennem — hverken nyt eller
- * uændret. "Uenig" alene er ikke en advarsel: kilderne skifter minut-
- * forskudt, og næste kørsel heler det.
+ * os ude (eller pausen efter det gælder), eller når vi prøvede og INTET kom
+ * igennem — hverken nyt eller uændret. "Uenig" alene er ikke en advarsel:
+ * kilderne skifter minut-forskudt, og næste kørsel heler det.
  */
 function liveMaalNiveau(d) {
-  if (d.afbrudt) return 'advarsel';
+  if (d.afbrudt || d.sprunget) return 'advarsel';
   if (d.forsoegt > 0 && d.skrevet + d.uaendrede === 0) return 'advarsel';
   return 'ok';
 }
 
 module.exports = {
   liveMaalAf, syncLiveMaalCore, syncLiveMaalForSpil, liveMaalLinje, liveMaalNiveau, sammeListe,
-  LIVE_SKRIVBARE, LIVE_LOFT, LIVE_TIMEOUT_S, LIVE_BUDGET_MS, ANNULLERET_IT, ANNULLERET_LOFT,
+  LIVE_SKRIVBARE, LIVE_LOFT, LIVE_TIMEOUT_S, LIVE_BUDGET_MS, LIVE_NEDKOELING_MS,
+  ANNULLERET_IT, ANNULLERET_LOFT,
 };

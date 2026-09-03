@@ -31,7 +31,7 @@ const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore, syncXgCore,
 
   tjekLivePuls,
-  strandedMatches, allMatches,
+  strandedMatches, allMatches, WINDOW_MS,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
@@ -525,7 +525,7 @@ exports.syncLiveMaal = onSchedule(
         console.log(`Live-mål ${g.gameId}: ${linje}`);
         const tal = {
           iGang: d.iGang, skrevet: d.skrevet, uaendrede: d.uaendrede, uenige: d.uenige, uparsede: d.uparsede,
-          utilgaengelige: d.utilgaengelige, ukendte: d.ukendte, idSlettet: d.idSlettet,
+          utilgaengelige: d.utilgaengelige, ukendte: d.ukendte, sprunget: d.sprunget === true,
         };
         if (liveMaalNiveau(d) === 'advarsel') st.advarsel(linje, tal); else st.ok(linje, tal);
         if (d.afbrudt) {
@@ -533,9 +533,9 @@ exports.syncLiveMaal = onSchedule(
           await meldAlarm(db, FieldValue, {
             type: 'detaljerLukket',
             gameId: g.gameId,
-            besked: `Livescore afviste ${g.gameId} med 429/403 under en kamp. Live-mål-jobbet stopper sig selv `
-              + 'for ikke at ramme de andre kilder gennem den delte udgående IP. '
-              + 'Sker det igen næste minut, er vi rate-limited — så skal loftet (LIVE_LOFT) ned.',
+            besked: `Livescore afviste ${g.gameId} med 429/403 under en kamp. Live-mål-jobbet holder pause `
+              + 'i en time (livescoreLukketTil på spil-dokumentet) for ikke at ramme de andre kilder gennem '
+              + 'den delte udgående IP. Sker det igen efter pausen, er vi rate-limited — så skal loftet (LIVE_LOFT) ned.',
           });
         }
       } catch (err) {
@@ -1037,17 +1037,31 @@ exports.syncGameKampdetaljerNu = onCall({ region: REGION, timeoutSeconds: 120 },
   // Budgettet er knappens eget, ikke sweep'ets: her er der 120 s at tage af,
   // og den, der trykker, staar og venter. Loftet haeves tilsvarende, saa en
   // bagfyldning kan drives i haanden i stedet for at vente 12 koersler.
+  // BUDGETTERNE SKAL SUMME UNDER TIMEOUTEN MED OVERLØB: et budget-tjek i
+  // toppen af en løkke kan ikke afbryde et await, så hver kerne kan gå ét
+  // kald (KALD_TIMEOUT_MS) over sit budget. 90 + 20 + 2 × 10 = 130 s mod
+  // timeoutSeconds 120 var præcis det, kommentaren ovenfor advarer mod:
+  // detalje-batchen committet, funktionen dræbt, admin ser 'internal', live-
+  // batchen tabt (Security målte med simuleret ur). Nu 80 + 15 + 20 = 115 s.
   const detaljer = await syncKampDetaljerCore(db, FieldValue, {
-    gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: 90000, loft: 40,
+    gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: 80000, loft: 40,
   });
   // OG målscorerne for kampe I GANG lige nu — samme knap, samme sted (trin
   // 0b): en administrator, der savner et mål på et levende kort, leder her.
+  // Kun kampe i vinduet (som jobbet): en kamp, der står fast med `live` og
+  // uden facit i dagevis, skal ikke æde en plads i loftet for evigt.
   // Springes over, hvis kilden lige har lukket os ude: ét 429 er nok.
   let live = null;
   if (!detaljer.afbrudt) {
     try {
+      const nu = Date.now();
+      const iVinduet = alle.filter((m) => {
+        const k = m.data?.kickoff;
+        const ms = typeof k?.toMillis === 'function' ? k.toMillis() : new Date(k).getTime();
+        return Number.isFinite(ms) && ms >= nu - WINDOW_MS && ms <= nu;
+      });
       live = await syncLiveMaalCore(db, FieldValue, {
-        gameId: g.gameId, livescore: g.livescore, only: alle, budgetMs: 20000,
+        gameId: g.gameId, livescore: g.livescore, only: iVinduet, budgetMs: 15000,
       });
     } catch (err) {
       live = { fejl: err?.message || String(err) };

@@ -374,7 +374,7 @@ export default function FootballHelp({ game }) {
           </p>
           <p style={{ margin: '0.5rem 0 0' }}>
             <strong>Mens kampen spilles</strong>, står målene også under den levende
-            stilling — typisk et minut efter, at bolden er inde. Et mål, VAR tager
+            stilling — normalt inden for et par minutter efter, at bolden er inde. Et mål, VAR tager
             tilbage, forsvinder ikke: det bliver stående, overstreget og mærket
             {' '}<em>annulleret (VAR)</em>. Halter listen efter stillingen, dæmpes den,
             til den er indhentet.
