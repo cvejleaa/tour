@@ -94,6 +94,14 @@
     `deleteField()`. Spor ALTID kæden fra komponenten til det kald, der rører
     Firestore, før du kalder en type- eller null-vej "ét klik væk".
 
+- **"Hvilken vært taler scriptet med?" måles med en SINK, ikke ved læsning.**
+  En 10-liniers `http.createServer` på 127.0.0.1:9911, der logger `method+url`
+  og svarer `200 {}`, plus `FIRESTORE_EMULATOR_HOST=127.0.0.1:9911` foran
+  scriptet. Beviste på første forsøg, at `seed-e2e.mjs` sender BÅDE sine
+  `DELETE /emulator/v1/...` og `POST .../accounts` (med adgangskoden i klartekst)
+  til den vært, miljøvariablen peger på. Genbrug den, hver gang "kan ikke ramme
+  produktion" hviler på en env-var.
+
 ## Bekræftede antagelser om reglerne (emulator-verificeret)
 
 - **Tip-vinduet er ÉN betingelse:** `request.time < matches/{matchId}.kickoff`
@@ -1167,6 +1175,38 @@
   og bliver synligt som `st.fejl`. Fejler lukket, admin/script-only.
   Platform-suiten i arbejdstræet efter rettelsen: **983/983 grønne**.
 
+### E2E mod emulatorer (branch claude/multi-game-player-collection-21mc1w, sep 2026)
+- **`.env.e2e` kan IKKE nå en produktionsbuild.** PoC: `.env` erstattet med en
+  probe-config (`probe-prod-projekt`, `VITE_USE_EMULATORS=false`), derefter
+  `npx vite build` i default-mode → bundtet indeholder `probe-prod-projekt`,
+  INGEN `demo-vm2026` i noget asset (kun i den statiske `public/testsetup.html`,
+  der citerer en emulator-kommando) og INGEN `9099`: emulator-grenen i
+  `src/firebase.js:40-43` tree-shakes helt væk ved `VITE_USE_EMULATORS=false`.
+  Vite læser `.env.[mode]` KUN for den mode; begge deploy-workflows kører
+  `npm run build` uden `--mode` og skriver deres egen `.env`. `firebase.json`
+  hosting `public: "dist"`, og `dist-e2e-*/` er gitignored → aldrig uploadet.
+- **App Check-springet er dobbelt-gated:** `src/firebase.js:24` kræver BÅDE et
+  site-key OG `VITE_USE_EMULATORS !== 'true'`. En dev-`.env` med ægte
+  `VITE_RECAPTCHA_SITE_KEY` overlever i e2e-buildet (`.env.e2e` overskriver kun
+  de nøgler, den selv nævner) — men App Check aktiveres alligevel ikke.
+- **CI's e2e-job har NUL `secrets.`-referencer** (målt: `grep -c 'secrets\.'` = 0
+  i hele ci.yml), skriver selv en dummy `.env`, og `firebase emulators:exec`
+  kræver intet login.
+- **`emulators:exec` sætter selv begge værts-variabler** ubetinget
+  (firebase-tools `lib/emulator/env.js:15,26`) → `||=` i seed-e2e får ALTID
+  CLI'ens egne porte, når den køres gennem `npm run test:e2e:emu`.
+- **seed-e2e kan ikke falde tilbage på ADC:** `GOOGLE_APPLICATION_CREDENTIALS`
+  afvises (kontroltestet: kastede), værts-variablerne sættes ALTID (default
+  localhost), og `ventPaa` står FØR `initializeApp` — uden emulator dør den
+  efter 30 s uden overhovedet at have konstrueret en SDK (kontroltestet med
+  `example.invalid:1`).
+- `e2e/.auth/` og `dist-e2e-*/` er gitignored (`git check-ignore -v` bekræftet).
+  CI-artefakten er kun `playwright-report/`; traces (on-first-retry, retries=1 i
+  CI) kopieres dertil af html-reporteren og kan bære emulator-idTokens plus
+  testens adgangskode — begge allerede offentlige i repoet, og ingen prod-data,
+  fordi CI's `.env` er dummy. Repoet ER public (api.github.com svarer 200
+  uautentificeret), så artefakter er bredt tilgængelige.
+
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
 - **N+1 i `hentLigaMedlemmer`:** et sekventielt `users`-opslag pr. deltager.
@@ -1205,6 +1245,20 @@
   `leagueName`, der `.slice(0,60)`): 50 000 tegn → 111 KB HTML × 300 mails.
 - storage.rules `allow read: if true` på `broadcast/{fil}` giver også LIST —
   kun enumeration af allerede-offentlige URL'er. Ingen sletning/cleanup.
+
+- **`e2e/fixtures/seed-e2e.mjs:56-58 + 66-72` validerer ikke værten.** `||=`
+  betyder, at en allerede sat `FIRESTORE_EMULATOR_HOST`/`FIREBASE_AUTH_EMULATOR_HOST`
+  bestemmer, hvor `DELETE .../documents` og `DELETE .../accounts` lander
+  (BEKRÆFTET med sink-PoC). Produktion er uden for rækkevidde — endpointet
+  findes kun i emulatoren, og admin-SDK'en kører helt uden credentials — men en
+  ANDEN emulator kan tømmes. Billig vagt: afvis værter, hvis hostname ikke er
+  localhost/127.0.0.1/::1.
+- **`.env` på arbejdsmaskinen blev overskrevet med `.env.e2e`** under E2E-arbejdet
+  (identisk mtime, identisk header-kommentar). `.firebaserc` default =
+  `tour-85928` (PRODUKTION), så et manuelt `npm run build && firebase deploy`
+  fra sådan et arbejdstræ ville lægge en app med `VITE_USE_EMULATORS=true` på
+  tour.vejleaa.dk. Gitignored, så det når aldrig en PR — men kopiér ALDRIG
+  `.env.e2e` oven i `.env`; brug `--mode e2e`.
 
 ## Testhuller værd at huske
 
@@ -1680,3 +1734,13 @@ autorisation og shell som argument-parser. Gennemgå dem som callables.
   bor i `games/{id}.teamStyles`.
 - **`games/{gameId}` har INGEN Cloud-Function-trigger** (kun matches, leagues,
   questions), så en skrivning dér kan ikke forstærkes.
+- **CI (`ci.yml`) har ingen `permissions:`-blok** og installerer `firebase-tools`
+  globalt og UPINNET i to jobs (rules, og fra sep 2026 også e2e). Alle fire jobs
+  er læse-only i deres formål; `permissions: contents: read` på workflow-niveau
+  ville forhindre, at en kompromitteret afhængighed i det store CLI-træ arver en
+  skrive-token. Ingen `secrets.` i ci.yml i dag.
+- **`roller.mjs`s nye SIKKERHED-mønster `/^\.github\/workflows\//` er for snævert:**
+  `.github/dependabot.yml` findes i repoet og styrer automatiske afhængigheds-PR'er,
+  og `.github/CODEOWNERS` ville styre review-krav. Brug `/^\.github\//`. Samme
+  familie: `.env*` matcher INTET mønster, selv om `.env.e2e` afgør, om App Check
+  springes over.

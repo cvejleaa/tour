@@ -216,3 +216,47 @@ ville have bygget forfra.
 - FÆLDE: `createGameMatch` i `functions/rules.test.js:2002` sætter INTET
   `round`-felt. En regel med direkte `.data.round` fejler-lukket på alle
   eksisterende fixtures; `.get('round', null)` falder derimod ÅBEN.
+
+## E2E mod emulatorer — efterprøvet (opgave #52, sep 2026)
+Bekræfter og udvider afsnittet "Test-/CI-infrastruktur" ovenfor.
+- `vite`s `loadEnv` (node_modules/vite/…/dep-BK3b2jBa.js:34922-34930): parsed
+  `.env` skrives FØRST, derefter overskriver `process.env`-nøgler med samme
+  prefix. → `VITE_USE_EMULATORS=true VITE_PLATFORM_MODE=true npx vite build
+  --outDir dist-e2e` slår CI's `.env` (som sætter false). Bevist i praksis af
+  ci.yml's `VITE_PLATFORM_MODE=true npm run build`.
+- `vite.config.js:39` bruger `loadEnv(mode, cwd, '')` (TOM prefix) til
+  branding-swappet — så også ikke-VITE-vars ses dér.
+- Playwright 1.61.1: `storageState({ indexedDB: true })` bekræftet i
+  `node_modules/playwright-core/types/types.d.ts:9643-9649`, med Firebase Auth
+  nævnt eksplicit i doc-kommentaren.
+- `scripts/lib/roller.mjs:27` — `{ m: /auth/i }` matcher ENHVER sti med "auth".
+  En fil ved navn `e2e/…/auth.setup.js` udløser altså Security Reviewer af sig
+  selv. MEN `.github/workflows/ci.yml` matcher INTET mønster i SIKKERHED —
+  en CI-ændring, der håndterer hemmeligheder/emulatorer, slipper forbi vagten.
+- Kæden for et autentificeret tip-flow (alle klient-skrivninger, INGEN
+  callable → functions-emulator er unødvendig):
+  signup `src/features/auth/useAuthActions.js:33-67` (skriver users/{uid} med
+  status pending + userContacts/{uid}) → godkend `src/features/admin/UserRow.jsx:270-278`
+  ("Godkend"-knap) → deltag `src/features/games/gameActions.js:62-73` (setDoc
+  games/{id}/players/{uid}) → tip `src/features/games/betActions.js:57-73`
+  (setDoc games/{id}/bets/{uid}_{matchId}).
+- Render-betingelser værd at kende:
+  `src/pages/GamePage.jsx:125` — `!isMember` viser "Deltag"-kortet i stedet for
+  fanerne; `GAME_TABS` linje 35-54; `MyTips` renderes kun ved
+  `tab==='mine' && game.type==='football'` (GamePage.jsx:161).
+  `FootballTip.jsx:700` `const locked = isLocked(m, nowMs)`; knapperne
+  `.pick` linje 1045-1058 med `disabled={locked || busy===m.id}` og labels
+  1/X/2 (`OUTCOME_LABEL`, linje 43).
+  `TipsHistorik.jsx:87` viser kun runder med `tippedCount > 0` → ét tip på en
+  FREMTIDIG kamp er nok til at "Mine tips" viser runden.
+  `GamesPage.jsx:65` `aria-label="Åbn spil: {navn}"`, `:116` "Deltag i {navn}".
+  `LoginPage.jsx:113-114` h1 = "Vejleaa Tip" (platform) / "Tour de France Tip".
+  Felter: `#login-email`, `#login-pw`, `#signup-name/-email/-pw`.
+- Stilling KRÆVER en liga: `useGameStandings.js:61-63` spørger
+  `where('leagueIds','array-contains-any', mine)` → uden liga-dokument og
+  `leagueIds` på players er stillingen tom. Fixtures til stillings-E2E er
+  derfor dyrere end til tip-E2E.
+- `game.startRound`/`startAt` udeladt i en fixture ⇒ `startRundeFor`
+  (src/lib/startGate.js:109-113) giver null ⇒ ingen gating. Sikkert i fixtures.
+- `kickoff` SKAL være en Firestore `Timestamp` — reglen sammenligner
+  `request.time < …data.kickoff` (firestore.rules:1012, 1050).
