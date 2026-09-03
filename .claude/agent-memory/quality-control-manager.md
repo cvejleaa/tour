@@ -568,6 +568,24 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   emulator-kommando, mens et senere, udførligt afsnit i SAMME fil var. Tjek
   ALLE forekomster af en ændret kommando/sti i én fil, ikke kun den, diffen
   rørte ved.
+- **En invariant-test, der navngiver sig efter et historisk bug (»Forlad-fejlen brød
+  denne invariant«), skal reproducere den PRÆCISE handling, buggen brugte — ikke en
+  beslægtet, men anden skrivning.** `rules.scenarie.test.js`s Forlad-case (4a) asserterer
+  kun, at klienten ikke selv kan sætte `forladt:true`/slette players-doc'et direkte — men
+  den historiske fejl var en RAW `deleteDoc` fra den daværende `leaveGame()`, som testen
+  aldrig afprøver, og »fladen tilbyder«-siden er en hardkodet KOMMENTAR, ikke en beregnet
+  værdi fra `GamesPage.jsx`s faktiske `canLeave`-betingelse. Den beviser dermed en anden,
+  vedvarende god egenskab (ingen klient-bypass af callable'en) — ikke selve invarianten,
+  overskriften påstår. Spørg ved enhver ny »X-fejl brød denne invariant«-test: udfører
+  testen SAMME kald (metode, felt, sti) som den historiske fejl, eller en nabo-handling?
+- **Et fil:linje-citat i en testkommentar skal pege på den kode, der REELT implementerer
+  påstanden — ikke en tilstødende kode-sti med samme navn i overskriften.** Samme fils
+  chance-case citerer `FootballTip.jsx:1103` (ChancePanel's `options`, RUNDE-scopet — den
+  lånte kamp fra en anden runde er IKKE i `roundMatches` og optræder aldrig i den liste)
+  som belæg for »fladen tilbyder ⚡ på den lånte kamp«, men den faktiske chance-PILLE, der
+  vises på kortet, kommer af et andet, urunde-scopet map (`isChance`/`chance-pill`,
+  samme fil ~711/833). To forskellige koncepter — »kan aktiveres via panelet« og »vises
+  som badge på kortet« — må ikke dele én fil:linje-henvisning.
 
 ## "Forlad" er en sletning — spor den til ALLE spor, spilleren efterlader
 
@@ -599,6 +617,13 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   Et POINTTAL i dialogen er desuden skala-følsomt: spillets `totalPoints` er
   ikke ligaens `ligaPoint` (startRound) — skriv "i <spillets navn>" og formatér
   med `fmtDec` (dansk komma).
+- **`me != null && me.forladt !== true` er nu kopieret TRE steder**
+  (`useGame.js:103`, `GamePageForladt.test.jsx:38`, og
+  `rules.scenarie.test.js`s `fladenSerMedlem`) — en KOPI i en test, der selv
+  hedder "fladen tilbyder ⇔ reglerne tillader", er ironisk nok en umålt
+  divergensrisiko: ændres prædikatet i `useGame.js`, driver testens egen kopi
+  stille fra den. Ikke blokerende for én ekstra linje, men eksportér
+  prædikatet fra `useGame.js` næste gang, en tredje forbruger dukker op.
 - **Et miljøflag, der er navngivet efter én virkning, slår ALLE virkninger
   til.** `NODE_ENV=development` foran `vite build` blev sat for at bevare
   `_debugSource` (jsx-source) — men Vite sætter `isProduction=false` for hele

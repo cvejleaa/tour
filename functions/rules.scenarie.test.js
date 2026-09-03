@@ -30,6 +30,8 @@ import { dirname, join } from 'path';
 import { setDoc, doc, getDoc, updateDoc, deleteField, serverTimestamp, Timestamp, collection } from 'firebase/firestore';
 import { scenarie, NU, FORLADT } from '../src/test/scenarie/superliga.js';
 import { isLocked } from '../src/features/games/football/footballRounds.js';
+import { erAktivtMedlem } from '../src/lib/medlem.js';
+import { GAME_STATUS } from '../src/lib/constants.js';
 import { SPILLER, MODSPILLER, FREMMED, EJER, SPIL_ID, LIGA_ID } from '../e2e/fixtures/konstanter.mjs';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -50,8 +52,8 @@ afterAll(async () => { if (testEnv) await testEnv.cleanup(); });
 
 const som = (uid) => testEnv.authenticatedContext(uid).firestore();
 const betDoc = (uid, m) => doc(som(uid), 'games', SPIL_ID, 'bets', `${uid}_${m.id}`);
-/** Fladens medlemsgate — useGame.js:103, spejlet af reglernes erAktivDeltager(). */
-const fladenSerMedlem = (me) => me != null && me.forladt !== true;
+/** Fladens medlemsgate — SAMME funktion, useGame.js bruger (src/lib/medlem.js), spejlet af reglernes erAktivDeltager(). */
+const fladenSerMedlem = erAktivtMedlem;
 /** Det, klienten faktisk sender (betActions.js setBet) — hverken points eller chance. */
 const tipPayload = (uid, m, pick, leagueIds = []) => ({ uid, matchId: m.id, pick, leagueIds, updatedAt: serverTimestamp() });
 /** Som setBet: setDoc med merge — så et eksisterende tip rettes i stedet for at blive erstattet (og miste points/chance-felterne). */
@@ -152,8 +154,15 @@ describe('4a — fladen tilbyder ⇔ reglerne tillader', () => {
     expect(tilfaelde.filter((t) => fladenSerMedlem(t.me))).toHaveLength(2);
   });
 
-  it('spiloversigten: «Vend tilbage» (forladt) og «Deltag» (ny) er præcis de skrivninger, reglerne tillader — og «Forlad» går ALDRIG udenom serveren', async () => {
-    await seedScenarie();
+  it('spiloversigten: «Vend tilbage» (forladt) og «Deltag» (ny) er præcis de skrivninger, reglerne tillader — og «Forlad» kan ikke omgå callable\'en', async () => {
+    // ÆRLIGT OM RÆKKEVIDDEN (QC): Forlad-knappen vises efter GamesPage.jsx:61
+    // (`canLeave = game.status === GAME_STATUS.OPEN`) — samme betingelse
+    // regnes her — men selve handlingen er callable'en forladSpil, som reglerne
+    // ikke kan svare på. Om et Forlad MED point lykkes, bevises i
+    // functions-platform/forladSpil.test.js, ikke her. Det, reglerne kan
+    // bevise, er at klienten ikke kan gøre det samme udenom callable'en.
+    const S = await seedScenarie();
+    expect(S.spil.status === GAME_STATUS.OPEN, 'fladen viser Forlad for et åbent spil').toBe(true);
     // Forladt: fladen tilbyder Vend tilbage (myForladt) → joinGame's update-gren.
     await assertSucceeds(updateDoc(doc(som(FORLADT.uid), 'games', SPIL_ID, 'players', FORLADT.uid),
       { forladt: deleteField(), forladtAt: deleteField(), joinedAt: serverTimestamp() }));
@@ -165,11 +174,11 @@ describe('4a — fladen tilbyder ⇔ reglerne tillader', () => {
     await assertFails(setDoc(doc(som(SPILLER.uid), 'games', SPIL_ID, 'players', SPILLER.uid), { uid: SPILLER.uid, forladt: true }, { merge: true }));
   });
 
-  it('chancen: fladen tilbyder ⚡ på den lånte kamp — men aldrig som en direkte skrivning; reglerne afviser feltet uanset', async () => {
+  it('chancen: kortet viser ⚡-pillen på den lånte kamp — men kun værdien 0 kan skrives direkte; alt andet kræver callable\'en setGameChance', async () => {
     const S = await seedScenarie();
-    // Fladen tilbyder ⚡ kun for tippede, ulåste kampe (FootballTip.jsx:1103) — den lånte er sådan én.
-    expect(!isLocked(S.noegle.laant, NU.getTime()) && S.tips[S.noegle.laant.id]?.pick).toBeTruthy();
-    // …og alligevel: en direkte skrivning af chanceStake afvises. Kun callable'en setGameChance må.
+    // ⚡-pillen på kortet følger af tippets chanceStake > 0 (FootballTip.jsx isChance, ~:711/833) — den lånte har 1.
+    expect(S.tips[S.noegle.laant.id]?.chanceStake).toBeGreaterThan(0);
+    // En direkte skrivning af en chance ≠ 0 afvises. Kun callable'en setGameChance må (den ved, om du allerede har én i runden).
     expect((await getDoc(betDoc(SPILLER.uid, S.noegle.laant))).exists()).toBe(true);
     await assertFails(updateDoc(betDoc(SPILLER.uid, S.noegle.laant), { chanceStake: 3 }));
     // Kontrol på SAMME dokument og samme update-gren: uden chance-feltet går rettelsen igennem,
@@ -178,5 +187,7 @@ describe('4a — fladen tilbyder ⇔ reglerne tillader', () => {
     await assertFails(setDoc(betDoc(MODSPILLER.uid, S.noegle.aaben), { ...tipPayload(MODSPILLER.uid, S.noegle.aaben, '1'), chanceStake: 1 }));
     // Kontrol: samme skrivning uden chance-feltet går igennem — så det er FELTET, der afvises, ikke tippet.
     await assertSucceeds(skrivTip(MODSPILLER.uid, S.noegle.aaben, '1'));
+    // Og PRÆCIS: nul er ikke en chance — en gammel fane, der sender chanceStake: 0 med sit første tip, må (firestore.rules ~1034).
+    await assertSucceeds(setDoc(betDoc(FREMMED.uid, S.noegle.aaben), { ...tipPayload(FREMMED.uid, S.noegle.aaben, 'X'), chanceStake: 0 }, { merge: true }));
   });
 });

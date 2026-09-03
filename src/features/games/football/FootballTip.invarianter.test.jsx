@@ -8,8 +8,10 @@
 //   (c) det første aktive kort er det med det tidligste kickoff blandt de aktive
 //
 // #213 var præcis et brud på (c): tælleren regnede på rundens egne kampe,
-// mens den lånte stod øverst på skærmen og låste først. Ingen af de tre
-// egenskaber kender fixturen — de læser kortene og regner selv.
+// mens den lånte stod øverst på skærmen og låste først. Egenskaberne kender
+// ikke fixturens TAL (ingen "om 1 t", ingen kort-antal) — de læser kortene og
+// regner selv. Det, de kender, er opsætningen: runden, der vises (?runde=),
+// og at et lånt kort bærer «Runde N» fra sin egen runde.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -40,9 +42,20 @@ const TIDSPUNKTER = [
   new Date('2026-09-07T20:00:00Z'),
 ];
 
-function kortPaaSkaermen(container, S) {
+/**
+ * Kort → kamp. Et lånt kort (match-card--udenfor) bærer «Runde N» fra sin egen
+ * runde og matches KUN mod den; et almindeligt kort matches KUN mod den viste
+ * runde. Hjemme skal stå før ude i kortets tekst, så ALFA–BETA og BETA–ALFA
+ * ikke forveksles (QC).
+ */
+function kortPaaSkaermen(container, S, visteRunde) {
   return [...container.querySelectorAll('.match-card')].map((k) => {
-    const m = S.kampe.find((x) => k.textContent.includes(x.home) && k.textContent.includes(x.away) && (k.textContent.includes(`Runde ${x.round}`) || x.round === AABEN_RUNDE));
+    const t = k.textContent;
+    const udenfor = k.className.includes('match-card--udenfor');
+    const kandidater = udenfor
+      ? S.kampe.filter((x) => x.round !== visteRunde && t.includes(`Runde ${x.round}`))
+      : S.kampe.filter((x) => x.round === visteRunde);
+    const m = kandidater.find((x) => t.indexOf(x.home) >= 0 && t.indexOf(x.away) > t.indexOf(x.home));
     const knapper = [...k.querySelectorAll('button.pick')];
     return { kort: k, match: m, aktiv: knapper.length > 0 && knapper.every((b) => !b.disabled) };
   });
@@ -62,7 +75,7 @@ describe('4b — tælleren følger af kortene, ikke af fixturen', () => {
           <Routes><Route path="/spil/:gameId" element={<FootballTip game={S.spil} me={S.mig} matches={S.kampe} />} /></Routes>
         </MemoryRouter>,
       );
-      const kort = kortPaaSkaermen(container, S);
+      const kort = kortPaaSkaermen(container, S, AABEN_RUNDE);
       expect(kort.length).toBeGreaterThan(0);
       expect(kort.every((k) => k.match)).toBe(true);
       const aktive = kort.filter((k) => k.aktiv);

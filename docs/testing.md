@@ -134,9 +134,14 @@ To invariant-suiter kører oven på scenariet:
   kræver emulatoren, `npm run test:rules`): for hver kamp i scenariet kører
   samme skrivning, klienten sender (`setBet`), mod `firestore.rules` med
   samme tilstand, fladen regner på (`isLocked`, medlemsgaten fra
-  `useGame.js`), og de to svar skal være ens — inkl. forladt, ikke-medlem,
-  «Vend tilbage», «Deltag» og at chancen aldrig kan skrives direkte. Det er
-  invarianten, Forlad-fejlen brød: fladen tilbød noget, reglerne forbød.
+  `src/lib/medlem.js`, som `useGame.js` også bruger), og de to svar skal
+  være ens — inkl. forladt, uden players-dokument, «Vend tilbage», «Deltag»
+  og at en chance ≠ 0 ikke kan skrives direkte (kun callable'en
+  `setGameChance` må; nul er ikke en chance). Det er den slags invariant,
+  Forlad-fejlen brød: fladen tilbød noget, reglerne forbød. Selve Forlad går
+  nu gennem callable'en `forladSpil`, som reglerne ikke kan svare på — om et
+  Forlad med point lykkes, bevises i `functions-platform/forladSpil.test.js`;
+  rules-testen beviser, at klienten ikke kan gøre det samme udenom.
 - **Afledte tal ⇔ DOM'en** (`FootballTip.invarianter.test.jsx`): «Næste kamp
   låser om» og «snart» skal følge af de kort, der står på skærmen — findes ⇔
   et kort er aktivt, lyser ⇔ det første aktive kort låser om under 2 t, og
