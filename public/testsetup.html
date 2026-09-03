@@ -369,14 +369,14 @@
 
     <section id="ci">
       <h2>De fire CI-jobs</h2>
-      <p>GitHub Actions kører fire uafhængige jobs på hvert push og hver PR. De er parallelle, så den samlede tid er det langsomste job — omkring tre minutter. Tiderne herunder er fra den seneste kørsel på PR #207 (3. september 2026, sidste commit 14eea1c — den findes kun på PR'en, fordi PR'en blev squash-merget til 4aeb45a).</p>
+      <p>GitHub Actions kører fire uafhængige jobs på hvert push og hver PR. De er parallelle, så den samlede tid er det langsomste job — omkring tre minutter. Tiderne herunder er fra den seneste kørsel på PR #207 (3. september 2026, sidste commit 14eea1c — den findes kun på PR'en, fordi PR'en blev squash-merget til 4aeb45a); E2E-tiden er fra PR #210 (41c6ecb), hvor jobbet fik emulatorerne.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Job</th><th>Hvad det kører</th><th>Miljø</th><th class="num">Varighed</th></tr></thead>
           <tbody>
             <tr><td>Frontend – lint, unit-tests, build</td><td>ESLint på hele repoet, hele Vitest-suiten med dækning (v8), build af begge apps</td><td>Node 22, jsdom, dummy <span class="mono">.env</span></td><td class="num">2:48</td></tr>
             <tr><td>Firestore Security Rules (emulator)</td><td>256 regel-tests mod en lokal Firestore-emulator i et demo-projekt</td><td>Firebase-emulator</td><td class="num">2:28</td></tr>
-            <tr><td>E2E (Playwright)</td><td>Bygger begge apps, starter Auth- og Firestore-emulatoren, seeder dem, kører Tour-røgtesten og platform-flowene i Chromium; rapporten uploades som artefakt</td><td>Chromium</td><td class="num">1:59</td></tr>
+            <tr><td>E2E (Playwright)</td><td>Bygger begge apps, starter Auth- og Firestore-emulatoren, seeder dem, kører Tour-røgtesten og platform-flowene i Chromium; rapporten uploades som artefakt</td><td>Chromium, Java 21, Firebase-emulatorer</td><td class="num">2:35</td></tr>
             <tr><td>Functions – scoring &amp; standings</td><td>Begge Cloud Functions-suiter (Tour og platform), uden emulator</td><td>Node 22</td><td class="num">0:25</td></tr>
           </tbody>
         </table>

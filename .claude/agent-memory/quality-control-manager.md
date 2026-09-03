@@ -465,3 +465,25 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   SER ud som husets egen regel overholdt, men er lige så meget en påstand som
   et helt umærket tal. Åbn filen; grep efter `Date.now`/`performance.now`/
   `ms` i selve scriptet, ikke kun i kommentaren, der citerer det.
+
+## E2E: en test er kun så god som sine selectorer
+
+- **En Playwright-tests `data-testid`/klassenavn/aria-label skal verificeres
+  mod den ÆGTE komponent, ikke antages fra testens egen tekst.** Grep
+  selectoren i `src/`; findes den ikke, tester filen enten et fremtidigt UI
+  eller intet (`locator(...)` matcher 0, og en `toHaveCount(0)`-agtig
+  assertion kan gøre det stille grønt). Tjek samtidig at den render-BETINGELSE,
+  testen udnytter (fx `locked && <LeagueBets/>`), rent faktisk styrer den
+  selector, testen læser — ellers beviser testen ikke det, kommentaren siger.
+- **Et nyt Vite-mode/`.env.<mode>` skal spores gennem `loadEnv`s fletning
+  (tom prefix = ALLE vars, ikke kun `VITE_`), og efterprøves for kollision med
+  eksisterende `.env`-skridt i CI/deploy** — se arkitekt.md's E2E-afsnit for
+  den konkrete `loadEnv`-mekanik; QC's opgave er at bekræfte, at INTET
+  deploy-workflow eller build-script kan forveksle den nye dummy-`.env.e2e`
+  eller dens `dist-e2e-*`-outDir med den rigtige (`firebase.json` peger stadig
+  på `dist`; deploy-workflows kalder `npm run build`, aldrig E2E-scripts).
+- **Et dokument kan modsige sig selv i to afsnit.** `docs/testing.md` havde et
+  kort "sådan kører du det"-kommandoblok, der IKKE var opdateret med den nye
+  emulator-kommando, mens et senere, udførligt afsnit i SAMME fil var. Tjek
+  ALLE forekomster af en ændret kommando/sti i én fil, ikke kun den, diffen
+  rørte ved.

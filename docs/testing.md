@@ -78,9 +78,12 @@ npm --prefix functions-platform test -- --silent
 # Security Rules — kræver Firestore-emulator
 firebase emulators:exec --only firestore "npm run test:rules" --project demo-vm2026
 
-# E2E (Playwright) — bygger appen og kører i Chromium
+# E2E (Playwright) — Tour uden backend, i Chromium
 npx playwright install chromium     # første gang
 npm run test:e2e
+
+# E2E, platformen mod Auth- og Firestore-emulatoren (kræver Java 21 + firebase-tools)
+npm run test:e2e:emu
 ```
 
 ## Dækningsområder
