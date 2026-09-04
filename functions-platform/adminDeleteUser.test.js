@@ -30,6 +30,7 @@ function fakeDb(spil = {}) {
         if (sub === 'players') return { doc: (uid) => ({ ...ref(`${b}/${uid}`), get: async () => snap(uid, g.spiller, `${b}/${uid}`) }) };
         if (sub === 'matches') return { get: async () => ({ docs: Object.entries(g.kampe || {}).map(([id, k]) => snap(id, typeof k === 'object' ? k : { kickoff: k }, `${b}/${id}`)) }) };
         if (sub === 'bets') return { where: (f, op, v) => ({ get: async () => { const hits = (g.bets || []).filter((x) => x[f] === v); return { docs: hits.map((x) => snap(x.id, x, `${b}/${x.id}`)), size: hits.length }; } }) };
+        if (sub === 'puljeBets') return { doc: (id) => ref(`${b}/${id}`) };
         if (sub === 'leagues') return { where: (f, op, v) => ({ get: async () => {
           const hits = (g.ligaer || []).filter((l) => (op === 'array-contains' ? (l[f] || []).includes(v) : l[f] === v));
           return { docs: hits.map((l) => snap(l.id, l, `${b}/${l.id}`)), size: hits.length };
@@ -99,6 +100,8 @@ describe('adminDeleteUserCore — oprydningen', () => {
     expect(a.kaldt).toEqual(['x']);
     expect(db.log).toEqual([
       'delete users/x', 'delete userContacts/x',
+      // Puljetippet SKAL med: settlePuljeBets skriver ellers dokumentet tilbage (QC).
+      'delete games/sl/puljeBets/x',
       'delete games/sl/players/x/detalje/opdeling', 'delete games/sl/players/x',
     ]);
     expect(r.spil).toEqual([{ spil: 'sl', navn: 'Superligaen', slettedeTips: 0, beholdteTips: 0, ligaer: 0, dokument: 'slettet' }]);
@@ -118,6 +121,8 @@ describe('adminDeleteUserCore — oprydningen', () => {
     // GENOPSTANDELSEN: dokumentet må ikke slettes, når der er tips tilbage —
     // recalcPlayerTotal ville ellers skrive det tilbage uden navn.
     expect(db.log).not.toContain('delete games/sl/players/x');
+    // Arkivet beholder puljetippet: afregnes det, lander bonussen i arkivet (som ved Forlad).
+    expect(db.log).not.toContain('delete games/sl/puljeBets/x');
     expect(db.log).toContain('update games/sl/players/x {"forladt":true,"forladtAt":"TS","slettet":true}');
     expect(r.spil[0]).toMatchObject({ slettedeTips: 1, beholdteTips: 1, ligaer: 1, dokument: 'arkiveret' });
   });

@@ -12,8 +12,10 @@
 //   - i hvert spil, hun er med i: kommende kampes tips slettes, låste kampes
 //     tips bliver (de andres historik), hun fjernes fra ligaernes memberUids
 //     (rydOpEfterSpiller — samme funktion som forladSpil);
-//   - har hun INGEN tips tilbage, slettes players-dokumentet (dublet-tilfældet:
-//     intet at genopstå fra);
+//   - har hun INGEN tips tilbage, slettes players-dokumentet (dublet-tilfældet)
+//     — OG hendes puljetip: settlePuljeBets skriver bonusPoints på players-
+//     dokumentet med set+merge for HVERT puljeBets-dokument, så et efterladt
+//     puljetip ville skabe dokumentet igen (QC-fund, samme klasse som bets);
 //   - har hun tips på spillede kampe, bliver dokumentet som arkiv med
 //     forladt: true og slettet: true — så aktiveSpillere springer hende over,
 //     og genberegningen ikke kan skabe et nyt, navnløst dokument.
@@ -21,6 +23,13 @@
 //     overdrages først — også med force. Reglerne fra forladSpil.
 //   - Har hun point, kræves force (så en rigtig spiller ikke fjernes ved en
 //     fejl). Kun DEN fejl kan forceres — svaret bærer `kanForceres`.
+//
+// RÆKKEFØLGE OG GENTAGELSE: alle vagter kører først, uden at skrive. Derefter
+// Auth-kontoen, så users/userContacts, så spillene. Ingen transaktion på tværs
+// (Auth og Firestore kan ikke dele én). Fejler et spil midtvejs, er login og
+// profil væk, men tips ligger tilbage — og kaldet kan køres IGEN: Auth
+// «findes ikke» tolereres, sletninger er idempotente, og et arkiveret
+// dokument arkiveres blot igen. Ejeren ser fejlen i fladen og trykker igen.
 // ---------------------------------------------------------------------------
 
 const { rydOpEfterSpiller } = require('./forladSpil');
@@ -81,7 +90,9 @@ async function adminDeleteUserCore(db, FieldValue, { uid, callerUid, callerRole,
     const ryddet = await rydOpEfterSpiller(db, FieldValue, g.ref, uid, { nowMs });
     let dokument;
     if (ryddet.beholdteTips === 0) {
-      // Intet at genopstå fra: væk med dokumentet og dets underdokument.
+      // Intet at genopstå fra: væk med dokumentet, dets underdokument — og
+      // puljetippet, som ellers ville skrive dokumentet tilbage ved afregning.
+      await g.ref.collection('puljeBets').doc(uid).delete();
       await playerRef.collection('detalje').doc('opdeling').delete();
       await playerRef.delete();
       dokument = 'slettet';

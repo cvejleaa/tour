@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-03T21:07:07.051Z",
+ "generatedAt": "2026-09-04T05:00:26.822Z",
  "noegler": [
   "src/components/Layout.jsx|Layout|NavLink|#1",
   "src/components/Layout.jsx|Layout|NavLink|#2",
@@ -95,7 +95,6 @@
   "src/features/admin/UserRow.jsx|UserRow|a|Kopiér/åbn link#1",
   "src/features/admin/UserRow.jsx|UserRow|button|Send et nulstillingslink via egen SMTP (omgår Firebase-mailen)#1",
   "src/features/admin/UserRow.jsx|UserRow|button|Skift brugerens e-mail (login + påmindelser) med det samme#1",
-  "src/features/admin/UserRow.jsx|UserRow|button|Sletter kontoen permanent fra login og alle spil#1",
   "src/features/admin/UsersTab.jsx|UsersTab|button|#1",
   "src/features/bonus/BonusQuestion.jsx|AnswerInput|select|bonus-select#1",
   "src/features/bonus/BonusQuestion.jsx|AnswerInput|select|bonus-select#2",
