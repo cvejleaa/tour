@@ -9,7 +9,7 @@ const NU = 1_000_000;
 /**
  * Firestore-attrap over flere spil. Logger hver skrivning som en linje, så
  * testene kan sige præcis, hvad der blev slettet, opdateret — og ikke rørt.
- * spil: { [gameId]: { name, spiller|null, kampe, bets, ligaer } }
+ * spil: { [gameId]: { name, spiller|null, kampe, bets, ligaer, puljetip } }
  */
 function fakeDb(spil = {}) {
   const log = [];
@@ -31,7 +31,7 @@ function fakeDb(spil = {}) {
         if (sub === 'players') return { doc: (uid) => ({ ...ref(`${b}/${uid}`), get: async () => snap(uid, g.spiller, `${b}/${uid}`) }) };
         if (sub === 'matches') return { get: async () => ({ docs: Object.entries(g.kampe || {}).map(([id, k]) => snap(id, typeof k === 'object' ? k : { kickoff: k }, `${b}/${id}`)) }) };
         if (sub === 'bets') return { where: (f, op, v) => ({ get: async () => { const hits = (g.bets || []).filter((x) => x[f] === v); return { docs: hits.map((x) => snap(x.id, x, `${b}/${x.id}`)), size: hits.length }; } }) };
-        if (sub === 'puljeBets') return { doc: (id) => ref(`${b}/${id}`) };
+        if (sub === 'puljeBets') return { doc: (id) => ({ ...ref(`${b}/${id}`), get: async () => snap(id, g.puljetip ? { uid: id } : null, `${b}/${id}`) }) };
         if (sub === 'leagues') return { where: (f, op, v) => ({ get: async () => {
           const hits = (g.ligaer || []).filter((l) => (op === 'array-contains' ? (l[f] || []).includes(v) : l[f] === v));
           return { docs: hits.map((l) => snap(l.id, l, `${b}/${l.id}`)), size: hits.length };
@@ -108,7 +108,7 @@ describe('adminDeleteUserCore — oprydningen', () => {
   const kampe = { aaben: NU + 3600e3, spillet: { kickoff: NU - 3600e3, result: '1' } };
 
   it('dublet uden tips: Auth + users + userContacts + players-dokumentet slettes; ingen bets at røre', async () => {
-    const db = fakeDb({ sl: { name: 'Superligaen', spiller: { uid: 'x' }, kampe } });
+    const db = fakeDb({ sl: { name: 'Superligaen', spiller: { uid: 'x' }, kampe, puljetip: true } });
     const { a, res } = kald(db);
     const r = await res;
     expect(a.kaldt).toEqual(['x']);
@@ -118,7 +118,7 @@ describe('adminDeleteUserCore — oprydningen', () => {
       'delete games/sl/puljeBets/x',
       'delete games/sl/players/x/detalje/opdeling', 'delete games/sl/players/x',
     ]);
-    expect(r.spil).toEqual([{ spil: 'sl', navn: 'Superligaen', slettedeTips: 0, beholdteTips: 0, ligaer: 0, dokument: 'slettet' }]);
+    expect(r.spil).toEqual([{ spil: 'sl', navn: 'Superligaen', slettedeTips: 0, beholdteTips: 0, ligaer: 0, puljetipSlettet: true, dokument: 'slettet' }]);
   });
 
   it('med point (force): kommende tips slettes, spillede tips bliver, ligaerne mister hende — og dokumentet ARKIVERES, ikke slettes', async () => {
@@ -141,7 +141,7 @@ describe('adminDeleteUserCore — oprydningen', () => {
     expect(r.spil[0]).toMatchObject({ slettedeTips: 1, beholdteTips: 1, ligaer: 1, dokument: 'arkiveret' });
   });
 
-  it('flere spil: hvert for sig — og et spil, hun ikke er med i, får kun puljetippet fejet (idempotent) og står ikke i svaret', async () => {
+  it('flere spil: hvert for sig — et spil uden spor af hende røres ikke og står ikke i svaret', async () => {
     const db = fakeDb({
       sl: { name: 'Superligaen', spiller: { uid: 'x' }, kampe },
       pl: { name: 'PL', spiller: null, kampe },
@@ -149,7 +149,14 @@ describe('adminDeleteUserCore — oprydningen', () => {
     });
     const r = await kald(db).res;
     expect(r.spil.map((s) => `${s.spil}:${s.dokument}`)).toEqual(['sl:slettet', 'vm:arkiveret']);
-    expect(db.log.filter((l) => l.includes('games/pl/'))).toEqual(['delete games/pl/puljeBets/x']);
+    expect(db.log.filter((l) => l.includes('games/pl/'))).toEqual([]);
+  });
+
+  it('kun et puljetip i spillet: det slettes — og spillet STÅR i svaret, så sletningen ikke er tavs (Security)', async () => {
+    const db = fakeDb({ sl: { name: 'Superligaen', spiller: null, kampe, puljetip: true } });
+    const r = await kald(db).res;
+    expect(db.log).toContain('delete games/sl/puljeBets/x');
+    expect(r.spil).toEqual([{ spil: 'sl', navn: 'Superligaen', slettedeTips: 0, beholdteTips: 0, ligaer: 0, puljetipSlettet: true, dokument: 'ingen' }]);
   });
 
   // SECURITY-FUND: reglerne lader spilleren slette sit eget players-dokument ved
@@ -157,14 +164,14 @@ describe('adminDeleteUserCore — oprydningen', () => {
   // spillet over, efterlades hun i memberUids, og settlePuljeBets skriver et
   // navnløst dokument tilbage.
   it('uden players-dokument: memberUids og puljetip ryddes alligevel — og spillet står i svaret uden dokument', async () => {
-    const db = fakeDb({ sl: { name: 'Superligaen', spiller: null, kampe, ligaer: [{ id: 'L', ownerUid: 'y', memberUids: ['x', 'y'] }] } });
+    const db = fakeDb({ sl: { name: 'Superligaen', spiller: null, kampe, puljetip: true, ligaer: [{ id: 'L', ownerUid: 'y', memberUids: ['x', 'y'] }] } });
     const r = await kald(db).res;
     expect(db.log).toContain('update games/sl/leagues/L {"memberUids":{"__op":"remove","v":["x"]}}');
     expect(db.log).toContain('delete games/sl/puljeBets/x');
     // Intet dokument at slette — og intet underdokument.
     expect(db.log).not.toContain('delete games/sl/players/x');
     expect(db.log).not.toContain('delete games/sl/players/x/detalje/opdeling');
-    expect(r.spil).toEqual([{ spil: 'sl', navn: 'Superligaen', slettedeTips: 0, beholdteTips: 0, ligaer: 1, dokument: 'ingen' }]);
+    expect(r.spil).toEqual([{ spil: 'sl', navn: 'Superligaen', slettedeTips: 0, beholdteTips: 0, ligaer: 1, puljetipSlettet: true, dokument: 'ingen' }]);
   });
 
   it('uden players-dokument, men med tips på spillede kampe: arkivet OPRETTES med flag — ellers genskaber genberegningen hende som aktiv', async () => {
@@ -173,7 +180,7 @@ describe('adminDeleteUserCore — oprydningen', () => {
     expect(db.log).toContain('delete games/sl/bets/x_aaben');
     expect(db.log).toContain('set games/sl/players/x {"uid":"x","forladt":true,"forladtAt":"TS","slettet":true} merge');
     expect(db.log).not.toContain('delete games/sl/puljeBets/x');
-    expect(r.spil[0]).toMatchObject({ slettedeTips: 1, beholdteTips: 1, dokument: 'arkiveret' });
+    expect(r.spil[0]).toMatchObject({ slettedeTips: 1, beholdteTips: 1, puljetipSlettet: false, dokument: 'arkiveret' });
   });
 
   it('en Auth-konto, der allerede er væk, stopper ikke oprydningen — enhver anden Auth-fejl gør', async () => {

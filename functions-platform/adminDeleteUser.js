@@ -101,11 +101,16 @@ async function adminDeleteUserCore(db, FieldValue, { uid, callerUid, callerRole,
   for (const { g, navn, playerRef, harDokument } of spilliste) {
     const ryddet = await rydOpEfterSpiller(db, FieldValue, g.ref, uid, { nowMs });
     let dokument;
+    let puljetipSlettet = false;
     if (ryddet.beholdteTips === 0) {
       // Intet at genopstå fra: væk med puljetippet (settlePuljeBets ville
       // ellers skrive dokumentet tilbage ved afregning — QC-fund) — uanset om
       // dokumentet findes — og med dokumentet og dets underdokument, hvis det gør.
-      await g.ref.collection('puljeBets').doc(uid).delete();
+      // Puljetippet læses først, så svaret kan sige, om der BLEV slettet noget:
+      // en blind sletning er en tavs skrivning, ejeren ikke kan se (Security).
+      const pulje = g.ref.collection('puljeBets').doc(uid);
+      puljetipSlettet = (await pulje.get()).exists;
+      if (puljetipSlettet) await pulje.delete();
       if (harDokument) {
         await playerRef.collection('detalje').doc('opdeling').delete();
         await playerRef.delete();
@@ -117,9 +122,9 @@ async function adminDeleteUserCore(db, FieldValue, { uid, callerUid, callerRole,
       await playerRef.set({ uid, forladt: true, forladtAt: FieldValue.serverTimestamp(), slettet: true }, { merge: true });
       dokument = 'arkiveret';
     }
-    // Rapportér kun de spil, hvor der var noget at rydde.
-    if (harDokument || ryddet.slettedeTips || ryddet.beholdteTips || ryddet.ligaer) {
-      spil.push({ spil: g.id, navn, ...ryddet, dokument });
+    // Rapportér kun de spil, hvor der var noget at rydde — men ALT, der blev ryddet.
+    if (harDokument || ryddet.slettedeTips || ryddet.beholdteTips || ryddet.ligaer || puljetipSlettet) {
+      spil.push({ spil: g.id, navn, ...ryddet, puljetipSlettet, dokument });
     }
   }
 
