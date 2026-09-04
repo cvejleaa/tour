@@ -191,17 +191,22 @@ function blokkeFuld(graf) {
   return lag.map((l) => ({ layer: l, items: graf.nodes.filter((n) => n.layer === l).map((n) => n.id), w: NODE_W, perRow: PER_ROW }));
 }
 
-/** Udfoldet visning: gruppens filer i egen blok + nabogrupperne. */
+/**
+ * Udfoldet visning: gruppens filer i egen blok + nabogrupperne. Returnerer
+ * også `grupper` — de nabogrupper, der blev placeret — og komponenten tegner
+ * PRÆCIS dem: ét filter, ét sted (Test Managers mutation viste, at to
+ * ens filtre kunne drive fra hinanden, uden at nogen test så det).
+ */
 function blokkeUdfoldet(graf, gruppe, u) {
   const lagAf = Object.fromEntries(graf.nodes.map((n) => [n.id, n.layer]));
-  const naboer = graf.nodes.filter((n) => u.naboer.has(n.id));
-  const lag = [...new Set([lagAf[gruppe], ...naboer.map((n) => n.layer)])];
+  const grupper = graf.nodes.filter((n) => u.naboer.has(n.id));
+  const lag = [...new Set([lagAf[gruppe], ...grupper.map((n) => n.layer)])];
   const blokke = [];
   for (const l of lag) {
     if (l === lagAf[gruppe]) blokke.push({ layer: l, items: u.filer, w: FIL_W, perRow: FIL_PER_ROW, label: shortLabel(gruppe) });
-    blokke.push({ layer: l, items: naboer.filter((n) => n.layer === l).map((n) => n.id), w: NODE_W, perRow: PER_ROW });
+    blokke.push({ layer: l, items: grupper.filter((n) => n.layer === l).map((n) => n.id), w: NODE_W, perRow: PER_ROW });
   }
-  return blokke;
+  return { blokke, grupper };
 }
 
 /** Kant-kurve: importer (bund) → importeret (top); i samme lag en bue nedenunder. */
@@ -237,10 +242,10 @@ export default function DepGraph({ graf = graph }) {
   // Kasser og kanter i den aktuelle visning. En kant er { id, from, to, antal, fil }.
   const { kasser, kanter, layout } = useMemo(() => {
     if (u) {
-      const blokke = blokkeUdfoldet(graf, visning.udfoldet, u);
+      const { blokke, grupper } = blokkeUdfoldet(graf, visning.udfoldet, u);
       const kasser = [
         ...u.filer.map((id) => ({ id, type: 'fil', gruppe: visning.udfoldet, label: afkort(filNavn(id)), fuldt: filNavn(id) })),
-        ...graf.nodes.filter((n) => u.naboer.has(n.id)).map((n) => ({ id: n.id, type: 'gruppe', layer: n.layer, label: shortLabel(n.id), files: n.files })),
+        ...grupper.map((n) => ({ id: n.id, type: 'gruppe', layer: n.layer, label: shortLabel(n.id), files: n.files })),
       ];
       const kanter = [
         ...u.interne.map((k) => ({ id: `${k.from}→${k.to}`, from: k.from, to: k.to, antal: k.antal, fil: true })),
@@ -291,9 +296,9 @@ export default function DepGraph({ graf = graph }) {
   const foldUd = (gruppe) => { if (!harFiler) return; gaaTil({ udfoldet: gruppe, fokus: null }); };
   const foldSammen = () => gaaTil({ udfoldet: null, fokus: visning.udfoldet ? { type: 'gruppe', id: visning.udfoldet } : null });
 
+  // Esc håndteres ÉT sted — på <svg>, som hændelsen bobler op til (én vagt pr. regel).
   const onKasseKey = (e, kasse) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fokuser(kasse); }
-    if (e.key === 'Escape') { e.preventDefault(); visAlt(); }
   };
 
   const kantTitel = (k) => `${navnAf(k.from)} → ${navnAf(k.to)}: ${k.antal} import${k.antal === 1 ? '' : 's'}`;
