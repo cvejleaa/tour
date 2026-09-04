@@ -24,7 +24,7 @@
 import { buildMatches } from '../../lib/superligaSeed.js';
 import {
   HOLD, SPIL_ID, SPIL_NAVN, LIGA_ID, LIGA_NAVN, FREMMED_LIGA_ID,
-  SPILLER, MODSPILLER, FREMMED, EJER, POINT, AABEN_RUNDE, LAAST_RUNDE,
+  SPILLER, MODSPILLER, FREMMED, EJER, FORLADT, POINT, AABEN_RUNDE, LAAST_RUNDE,
 } from '../../../e2e/fixtures/konstanter.mjs';
 
 const [ALFA, BETA, GAMMA, DELTA] = HOLD.map((h) => h.name);
@@ -35,8 +35,8 @@ const T = 60 * 60 * 1000;
 const D = 24 * T;
 const dato = (iso) => new Date(iso);
 
-/** Den forladte spiller — findes i players med point og forladt: true, men er ikke medlem. */
-export const FORLADT = { uid: 'e2e-forladt', displayName: 'E2E Forladt' };
+/** Den forladte spiller — findes i players med point og forladt: true, men er ikke medlem. Delt med E2E-seedet. */
+export { FORLADT };
 
 export const FOER_START = 17;   // runde før startRound — skal skjules
 export const AFGJORT_RUNDE = 18; // helt afgjort, med mine tips → facit-blokken

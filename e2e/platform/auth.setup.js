@@ -7,7 +7,7 @@
 // ikke i localStorage. Uden flaget er den gemte tilstand tom, og hver test
 // lander på /login igen.
 import { test as setup, expect } from '../fixtures/evne.mjs';
-import { SPILLER, EJER, SPILLER_STATE, EJER_STATE } from '../fixtures/konstanter.mjs';
+import { SPILLER, EJER, FORLADT, SPILLER_STATE, EJER_STATE, FORLADT_STATE } from '../fixtures/konstanter.mjs';
 import seed from '../fixtures/seed-e2e.mjs';
 
 /** Log ind gennem fladen og gem tilstanden. Venter på noget, der kræver BÅDE
@@ -24,11 +24,13 @@ async function logIndOgGem(page, bruger, sti) {
   await page.context().storageState({ path: sti, indexedDB: true });
 }
 
-setup('seed emulatorerne og log ind som spiller og som ejer', async ({ page, browser }) => {
+setup('seed emulatorerne og log ind som spiller, ejer og forladt', async ({ page, browser }) => {
   await seed();
   await logIndOgGem(page, SPILLER, SPILLER_STATE);
-  // Ejeren i sin egen context — to sessioner kan ikke dele én IndexedDB.
-  const ejer = await browser.newContext();
-  await logIndOgGem(await ejer.newPage(), EJER, EJER_STATE);
-  await ejer.close();
+  // Hver bruger i sin egen context — to sessioner kan ikke dele én IndexedDB.
+  for (const [bruger, sti] of [[EJER, EJER_STATE], [FORLADT, FORLADT_STATE]]) {
+    const ctx = await browser.newContext();
+    await logIndOgGem(await ctx.newPage(), bruger, sti);
+    await ctx.close();
+  }
 });

@@ -38,6 +38,14 @@ export const FREMMED = {
   displayName: 'E2E Fremmed',
 };
 
+/** Har forladt spillet (players-doc med forladt: true og point). Kan vende tilbage. */
+export const FORLADT = {
+  uid: 'e2e-forladt',
+  email: 'forladt@e2e.test',
+  password: 'e2e-hemmelig-5',
+  displayName: 'E2E Forladt',
+};
+
 export const SPIL_ID = 'e2e-liga';
 export const SPIL_NAVN = 'E2E-ligaen';
 
@@ -66,7 +74,11 @@ export const HOLD = [
 /** Runden med kickoff i FREMTIDEN (kan tippes) og runden i FORTIDEN (låst). */
 export const AABEN_RUNDE = 20;
 export const LAAST_RUNDE = 19;
+/** Runden med en UDSAT kamp: to spillede for to uger siden og én, der spilles i
+ *  denne uge — den lånte kamp, der vises på runde 20 og låser før dens egne. */
+export const UDSAT_RUNDE = 18;
 
 /** Hvor login-tilstanden gemmes mellem setup og tests. */
 export const SPILLER_STATE = 'e2e/.auth/spiller.json';
 export const EJER_STATE = 'e2e/.auth/ejer.json';
+export const FORLADT_STATE = 'e2e/.auth/forladt.json';

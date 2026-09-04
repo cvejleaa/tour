@@ -15,7 +15,9 @@ test('et X-tip på en åben kamp vises i Mine tips', async ({ page }) => {
   // assertion kunne gaten `{locked && <LeagueBets/>}` fjernes med grøn suite.
   await expect(page.getByRole('button', { name: 'Se ligaens tips' })).toHaveCount(0);
 
-  const kort = page.locator('.pick-grid').first();
+  // Rundens EGET første kort — ikke den lånte fra runde 18, som står øverst,
+  // fordi den låser først (laant.spec.js). Et tip dér ville tælle i runde 18.
+  const kort = page.locator('.match-card:not(.match-card--udenfor) .pick-grid').first();
   const x = kort.locator('.pick').filter({ has: page.locator('.pick__label', { hasText: /^X$/ }) });
   await expect(x).toBeEnabled();
   await x.click();

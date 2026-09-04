@@ -213,7 +213,7 @@
       <h1>Sådan tester vi Vejleaa Tip</h1>
       <p class="lede">En rundvisning i testsetuppet for tipspillet: hvilke niveauer der findes, hvordan en ændring bevæger sig fra commit til produktion, og hvorfor en grøn suite hos os aldrig er det sidste ord.</p>
       <div class="meta">
-        <span>Tal aflæst 3. september 2026 fra <span class="mono">main</span> (c4e0af8) og E2E-udvidelsen samme dag</span>
+        <span>Tal aflæst 3. september 2026 fra <span class="mono">main</span> (c4e0af8), E2E-udvidelserne samme dag og natten efter</span>
       </div>
     </header>
 
@@ -224,7 +224,7 @@
         <div><span class="n">3.156</span><span class="l">frontend-tests (Vitest)</span></div>
         <div><span class="n">1.187</span><span class="l">Cloud Functions-tests</span></div>
         <div><span class="n">257</span><span class="l">Security Rules-tests (emulator)</span></div>
-        <div><span class="n">9</span><span class="l">E2E-tests (Playwright)</span></div>
+        <div><span class="n">13</span><span class="l">E2E-tests (Playwright)</span></div>
         <div><span class="n">4</span><span class="l">parallelle CI-jobs pr. push</span></div>
       </div>
       <p class="callout"><span class="eyebrow">Husregel</span>Tallene ovenfor er aflæst af dagens kørsler. I repoet står de bevidst ikke i dokumentationen: et hardkodet tal om noget levende er "en løgn med forsinkelse". Det levende tal findes under <strong>Admin → Tests</strong> i appen, som selv advarer, når øjebliksbilledet er over 14 dage gammelt.</p>
@@ -235,7 +235,7 @@
       <p>Pyramiden er klassisk i formen, men bemærk det ekstra lag: Firestores sikkerhedsregler testes som et selvstændigt niveau mod en emulator. Det er reelt en komponent-integrationstest af grænsen mellem klient og database — og den grænse er den, der afgør, hvem der må se og skrive hvad.</p>
       <figure>
         <div class="fig-wrap">
-          <svg viewBox="0 0 880 330" role="img" aria-label="Testpyramide med fire niveauer: 9 E2E-tests i toppen, 257 Security Rules-tests, 1.187 Cloud Functions-tests og 3.156 frontend-tests i bunden; til højre ISTQB-niveauet for hvert lag" font-family="Source Sans 3, sans-serif" font-size="13">
+          <svg viewBox="0 0 880 330" role="img" aria-label="Testpyramide med fire niveauer: 13 E2E-tests i toppen, 257 Security Rules-tests, 1.187 Cloud Functions-tests og 3.156 frontend-tests i bunden; til højre ISTQB-niveauet for hvert lag" font-family="Source Sans 3, sans-serif" font-size="13">
             <defs>
               <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
             </defs>
@@ -248,7 +248,7 @@
             <text x="220" y="272" text-anchor="middle" fill="#FFFFFF" font-weight="600" font-size="14">Frontend · 3.156</text>
             <text x="220" y="202" text-anchor="middle" fill="#FFFFFF" font-weight="600" font-size="14">Cloud Functions · 1.187</text>
             <text x="220" y="132" text-anchor="middle" fill="currentColor" font-weight="600" font-size="13">Rules · 257</text>
-            <text x="220" y="20" text-anchor="middle" fill="currentColor" font-weight="600" font-size="13">E2E · 9</text>
+            <text x="220" y="20" text-anchor="middle" fill="currentColor" font-weight="600" font-size="13">E2E · 13</text>
             <!-- forklaring til højre -->
             <line x1="410" y1="268" x2="450" y2="268" stroke="currentColor" stroke-width="1" marker-end="url(#arr)"/>
             <text x="458" y="264" fill="currentColor" font-weight="600">Komponenttest</text>
@@ -273,7 +273,7 @@
             <tr><td>Frontend (komponent)</td><td>Hver side, komponent og hook i alle tilstande: loading, fejl, tom, låst/åben, før/efter deadline, roller. Assertioner på indhold og på det, der ikke må stå.</td><td>Vitest, Testing Library, jsdom</td><td class="num">3.156</td><td class="num">203</td></tr>
             <tr><td>Cloud Functions (komponent)</td><td>Point, ranglister, ligaer, synk mod tre eksterne kilder, kampdetaljer, mails. Tour-appen og platformen har hver sin suite.</td><td>Vitest, fakes for Firestore og fetch</td><td class="num">1.187</td><td class="num">44</td></tr>
             <tr><td>Security Rules (komponentintegration)</td><td>Hvem må læse og skrive hvilke felter, før og efter kickoff, som spiller, liga-admin, admin og ejer. 20 samlinger.</td><td>Vitest + rules-unit-testing mod emulator</td><td class="num">257</td><td class="num">1</td></tr>
-            <tr><td>E2E (system)</td><td>Tour uden backend: redirect til login, login-fanerne, dansk fejlbesked, 404. Platformen mod Auth- og Firestore-emulatoren med ægte regler: login → spiloversigt → åbn spil, tip afgives og vises i Mine tips, låst efter kickoff, opret → godkend → ind, stillingen viser liga-kammeraterne.</td><td>Playwright, Chromium, Firebase-emulatorer</td><td class="num">9</td><td class="num">6</td></tr>
+            <tr><td>E2E (system)</td><td>Tour uden backend: redirect til login, login-fanerne, dansk fejlbesked, 404. Platformen mod Auth- og Firestore-emulatoren med ægte regler: login → spiloversigt → åbn spil, tip afgives og vises i Mine tips, låst efter kickoff, opret → godkend → ind, stillingen viser liga-kammeraterne, den lånte kamp låser først, Forlad spørger to gange og kalder serveren, den forladte vender tilbage.</td><td>Playwright, Chromium, Firebase-emulatorer</td><td class="num">13</td><td class="num">9</td></tr>
             <tr><td>Scripts (komponent)</td><td>Målescripts, seed-planer og rolle-udvælgeren har egne tests — "et tal uden kode er en påstand".</td><td>Vitest</td><td class="num">—</td><td class="num">13</td></tr>
           </tbody>
         </table>
@@ -460,7 +460,7 @@
             <tr><td>Frontend</td><td>Firebase er mocket helt; ingen netværk. Tiden fryses, fordi kampene ligger i kalenderen og en test ellers skifter betydning, når datoen passerer.</td><td>Små fixtures pr. test: kampe, tips, ligaer, brugere med roller.</td></tr>
             <tr><td>Cloud Functions</td><td>En fake Firestore i hukommelsen, der efterligner where-kæder og batch-skrivninger — inklusive de fælder, den ægte SDK har (kast på <code>undefined</code>, <code>set</code> uden merge). <code>fetch</code> er en spion.</td><td>Ægte optagelser fra kilderne, committet som fixtures: en sæsonliste og kampe fra livescore, live-svar fra Superligaen og Premier League. Paritetstests binder parseren til dem.</td></tr>
             <tr><td>Security Rules</td><td>Firestore-emulatoren i et demo-projekt. Reglerne testes mod ægte forespørgsler som spiller, liga-admin, admin og ejer.</td><td>Dokumenter seedes i emulatoren pr. test.</td></tr>
-            <tr><td>E2E</td><td>Tour: den byggede app mod en lokal server, ingen backend. Platform: bygget i Vite-mode <code>e2e</code> mod Auth- og Firestore-emulatoren med de ægte <code>firestore.rules</code>.</td><td>Seedes før hver kørsel af <code>e2e/fixtures/seed-e2e.mjs</code>: tre brugere, ét spil, én liga, fire kampe med kickoff relativt til nu — så fixturen er åben uanset dato.</td></tr>
+            <tr><td>E2E</td><td>Tour: den byggede app mod en lokal server, ingen backend. Platform: bygget i Vite-mode <code>e2e</code> mod Auth- og Firestore-emulatoren med de ægte <code>firestore.rules</code>.</td><td>Seedes før hver kørsel af <code>e2e/fixtures/seed-e2e.mjs</code>: fem brugere (én forladt), ét spil, to ligaer, syv kampe med kickoff relativt til nu — heraf én udsat fra runde 18 — så fixturen er åben uanset dato.</td></tr>
             <tr><td>Produktion</td><td>Kun læsning. Et workflow med en læse-only service-account printer de dokumenter, en verifikation handler om.</td><td>Alt, der skriver i produktion (seed, bagfyldninger), har tør-kørsel som standard og kræver ejerens ord.</td></tr>
           </tbody>
         </table>
@@ -507,7 +507,7 @@
       <h2>Det, vi ved mangler</h2>
       <p>En testmanager spørger med rette efter hullerne. Disse er kendte og nummererede:</p>
       <ul>
-        <li><strong>E2E dækker ingen callable.</strong> Login, spiloversigt, tip, lås, godkendelse og stilling kører mod emulatorer med ægte regler — men Chancen og synk-knapperne går gennem Cloud Functions, og der kører ingen functions-emulator. De er kun komponenttestet på begge sider af spejlet.</li>
+        <li><strong>E2E kører ingen callable.</strong> Login, spiloversigt, tip, lås, godkendelse, stilling, den lånte kamp og «Vend tilbage» kører mod emulatorer med ægte regler — men Chancen, synk-knapperne og Forlad går gennem Cloud Functions, og der kører ingen functions-emulator. Forlad-testen opsnapper kaldet i browseren og beviser vejen fra knap til kald; hvad serveren gør med det, bevises i functions-platform-testene.</li>
         <li><strong>Skemalagte jobs kan ikke unit-testes i deres yderste lag.</strong> Alt, der kan tage fejl, trækkes ud i testbare moduler, og loggen er bagstopperen. Halen af minut-jobbet er stadig utestet og står som opgave.</li>
         <li><strong>Et job uden søskende-job kan dø usynligt.</strong> Facit-synken har sweep'et som bagstopper; det nye live-mål-job har foreløbig kun sit grå kort. Alarmen er planlagt.</li>
         <li><strong>Dokumenterede tal drifter.</strong> Testplanen i repoet havde forkerte tal i alle kolonner i to måneder. Løsningen var ikke nye tal, men at fjerne dem og lade Admin → Tests bære øjebliksbilledet med en advarsel ved ælde.</li>
