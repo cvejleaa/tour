@@ -48,6 +48,21 @@ links i kildekoden mindst én test har rørt ved. Alle tre er ØJEBLIKSBILLEDER
 npm run test:report   # skriver src/data/testReport.json, depGraph.json OG fladeDaekning.json
 ```
 
+**Afhængighedsdiagrammet** (`scripts/build-dep-graph.mjs` → `depGraph.json`,
+tegnet af `src/features/admin/DepGraph.jsx`) bygges af de faktiske relative
+imports (og `require` i functions) i `src/`, `functions/` og
+`functions-platform/`. Fil-niveauet er det målte; gruppe-kasserne afledes af
+det, så de to aldrig kan være uenige (paritetstest på den rigtige JSON). Fladen
+er interaktiv siden 4/9 2026: *peg* på en kasse, og dens pile tegnes op (blå =
+det den importerer, orange = det der importerer den); *klik* på en pil viser
+de konkrete fil-imports bag den; *klik* på en kasse viser diagrammet med fokus
+ud fra den — kasserne flytter sig ikke, ikke-naboer tømmes; *dobbeltklik* (eller
+«Fold ud i filer») bryder kassen ned i sine filer med afhængighederne tegnet
+ind, også de interne, og viser kun de grupper, den rører. «← Tilbage», «Vis
+hele diagrammet» og Esc går tilbage. Peg og dobbeltklik måles ikke af
+fladevagten (kun click/input/change/submit), så testene rører de grene
+eksplicit.
+
 Knapper og felter bygges af to halvdele, der mødes i én nøgle (`fil:linje:kolonne`,
 `scripts/lib/evneNoegle.mjs`): `scripts/scan-flade.mjs` finder alle
 interaktive JSX-elementer med parseren (ikke grep — flerlinje-tags var 42 %
