@@ -1125,3 +1125,47 @@ faktisk blive nået af, og findes det input i noget fixture?
   separat vitest-proces. Begge er acceptable som "operationelt script uden
   unit-test, dækket af en fail-loud kørsel", samme mønster som
   `probe-kamp.mjs` — men bemærk det ved lignende scripts fremover.
+
+## PR #221 — DELTA-gennemgang efter Security-fund (83910a0..04650ea, branch claude/multi-game-player-collection-21mc1w)
+
+Alle 5 mutationer i `functions-platform/adminDeleteUser.js`, som denne
+gennemgang skulle svare på, VAR dræbt af det udvidede testsæt:
+1. Fjern `if (harDokument)` om players-delete (slet altid) → rød (2 tests:
+   "flere spil" og "uden players-dokument").
+2. Byt uid-regex til `/^.+$/` → rød ('a/b/c' skal afvises).
+3. Fjern `p.exists &&` fra has-points-tjekket → rød, MEN interessant: fejler
+   ikke som forventet fejlmeddelelse, men som `TypeError: Cannot read
+   properties of null (reading 'totalPoints')`, fordi `p.data()` er `null`
+   uden dokument i fake-db'en. Testen fanger mutationen, men via en anden
+   fejltype end den, koden selv ville kaste i produktion — værd at bemærke
+   ved lignende "gør et prædikat betingelsesløst"-mutationer: en TypeError
+   tæller stadig som drab, men er ikke nødvendigvis den ÆGTE fejlvej.
+4. Fjern rapporteringsfilteret (push alle spil ubetinget) → rød ("pl:ingen"
+   dukker uventet op i svaret).
+5. Byt `set(...,{merge:true})` til `update(...)` i arkiv-grenen → rød i BEGGE
+   grene (med og uden dokument) — fake-db'ens `update`-log-linje mangler
+   " merge"-suffikset, så begge assertions rammer.
+
+Frontend-mutation (UserRow.jsx dialogtekst, «ligaerne mister brugeren» →
+«ligaerne beholder brugeren») → rød (samme test-fil, samme mønster som i
+runde 1: `toContain` på præcis den sætning, der blev vendt).
+
+Rules-mutationerne (fjern `slettet` fra hhv. update- og create-blacklisten,
+firestore.rules ~L775/~L817) blev IKKE kørt: en ANDEN agents Firestore-
+emulator (java, port 8085, cwd `/tmp/.../scratchpad/sec221` — tydeligvis
+Security Reviewer kørt parallelt) havde porten optaget, og ventede 20s uden
+at den blev fri. **Lær heraf:** når flere roller kører parallelt på samme
+PR (jf. CLAUDE.md's "commit først, kør Test Manager og Quality Control
+parallelt — plus Security"), kan de kollidere på emulator-porten 8085. Tjek
+`pgrep -c java` OG `curl 127.0.0.1:8085` FØR forsøg — er porten optaget af en
+ANDEN agents proces (identificérbar på cwd i `ps aux`), så vent ikke
+ubegrænset og forsøg ikke at dræbe den (det er ikke din proces at dræbe);
+rapportér rules-mutationerne som ikke-efterprøvet og lad koordinator
+beslutte, om de skal køres i en opfølgende, seriel tur.
+
+Miljønoter: worktree'en havde intet `node_modules` for hverken roden eller
+`functions-platform/` (kun 16 KB `.vite`-rester) — symlink til hovedtræets
+`node_modules` løste det uden ny `npm install` (og blev fjernet igen ved
+oprydning). Værd at tjekke FØR man antager en fejlende test skyldes selve
+ændringen: `MODULE_NOT_FOUND` på `nodemailer` i `mailer.js` var et rent
+miljøproblem, ikke et testfund.

@@ -126,7 +126,27 @@
   til den vært, miljøvariablen peger på. Genbrug den, hver gang "kan ikke ramme
   produktion" hviler på en env-var.
 
+- **Emulatoren startes i BAGGRUNDEN** (`run_in_background`) — `nohup ... & sleep`
+  i forgrunden er blokeret i dette miljø og giver exit 1, MENS java'en faktisk
+  når at binde porten. Tjek derfor med `curl -s -o /dev/null 127.0.0.1:8085`
+  før du starter en ny; "Address already in use" er ofte din egen.
+- **`getAuth().deleteUser(uid)` VALIDERER IKKE formen.** `isUid`
+  (firebase-admin/lib/utils/validator.js L138) er kun `typeof string && 1..128
+  tegn` — skråstreger slipper igennem og giver `auth/user-not-found` fra
+  backenden, som callables typisk SLUGER. Et uid som `<offer>/detalje/opdeling`
+  er samtidig en GYLDIG dokumentsti under `players` (målt: `doc()` kaster kun
+  ved ULIGE segmentantal, fx `a/b`). Auth-kaldet er altså ikke en uid-validator.
+
 ## Bekræftede antagelser om reglerne (emulator-verificeret)
+
+- **`games/{g}/players/{uid}` delete (~L817) er KUN `isSignedIn() && uid==uid &&
+  totalPoints==0`.** Ingen vagt mod ejet liga, efterladt puljetip eller
+  medlemskab — `forladSpil`-callablens vagter (`owns-league`, `status=='open'`)
+  gælder KUN dens egen vej. Enhver server-oprydning, der antager "players-dok
+  findes ⇔ hun er med i spillet", er derfor omgåelig med ét klient-delete.
+- **`puljeBets` create/update kræver `erAktivDeltager()`, men `delete` er `false`.**
+  Tippet kan altså fødes lovligt og derefter overleve, at players-dokumentet
+  forsvinder — kun serveren kan rydde det.
 
 - **Tip-vinduet er ÉN betingelse:** `request.time < matches/{matchId}.kickoff`
   (firestore.rules L820 create, L843 update). Der er INGEN "kampen er
@@ -261,6 +281,33 @@
   `{a:1}`, `['a']` eller 100k tegn på sig selv. Se griefing-posten nedenfor.
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
+
+- **`adminDeleteUserCore`s oprydning er KEYET PÅ players-dokumentet — og det kan
+  spilleren selv slette (BEKRÆFTET 2026-09-04, #221).** `adminDeleteUser.js:69-77`
+  gør `if (!p.exists) continue;`, så et helt spil springes over: owns-league-vagten,
+  memberUids-oprydningen, bet-oprydningen OG (efter QC's rettelse) puljeBet-sletningen.
+  Forudsætningen er klient-nåelig og emulator-kørt: `players`-delete
+  (firestore.rules ~L817) kræver KUN `isSignedIn() && uid==uid && totalPoints==0` —
+  ingen vagt mod at man ejer en liga eller har et puljetip. To kæder kørt:
+  (a) opret liga → slet eget players-dok → ejeren sletter kontoen → sletningen
+  LYKKES trods ejet liga (fake-db-PoC: `spil: []`, kun users+userContacts slettet),
+  og ligaen står tilbage med `ownerUid` = en død uid, som ingen kan omdøbe eller
+  slette (rules kræver `ownerUid == request.auth.uid`); hun bliver desuden stående
+  i `memberUids`.
+  (b) gem puljetip (`erAktivDeltager` er opfyldt her) → slet eget players-dok
+  (`puljeBets` har `allow delete: if false`, så tippet kan ikke fjernes af hende)
+  → kontoen slettes → puljetippet overlever → `settlePuljeBets`
+  (gameScoring.js:455-456, `batch.set(playerRef,{bonusPoints},{merge:true})`)
+  GENSKABER et navnløst players-dokument `{bonusPoints:9}` (emulator-målt) —
+  uden `forladt`, så `aktiveSpillere` tæller det med i rang-snapshot, gameRecap
+  og påmindelser. Præcis den genopstandelse, #221 blev skrevet for at lukke.
+  Fix: kør løkken over ALLE spil; lad kun arkivér/slet-VALGET afhænge af `p.exists`.
+- **`slettet` er et server-flag, klienten selv kan sætte (BEKRÆFTET, #221).**
+  players-update-blacklisten (firestore.rules ~L812) har `forladt` (asymmetrisk)
+  men IKKE `slettet`; emulator-målt: `updateDoc(players/mig,{slettet:true})`
+  lykkes, `{forladt:true}` afvises. Inert i dag (INGEN læser feltet — grep'et),
+  men det er samme klasse som `forladt`: får en serverløkke nogensinde et
+  `slettet`-tjek, er det en selvbetjent usynlighedskappe.
 
 - **Deltager-gaten på `puljeBets` kan man SELV opfylde med ét dokument
   (BEKRÆFTET, 2026-09-01, efter 5c4b9e0).** Læsegrenen kræver nu
@@ -1550,6 +1597,13 @@
   injicere et forbudt felt i `skriv` (spy/stub), ikke i kilde-JSON'en.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **En oprydningsløkke, der er keyet på ÉT dokuments eksistens, rydder ikke
+  det, der overlever dokumentet.** `if (!p.exists) continue` sprang både
+  vagten og oprydningen over for hele spillet. Spørg ved enhver oprydning:
+  hvilke andre dokumenter bærer brugerens uid, og kan de eksistere UDEN det
+  dokument, løkken spørger på? (leagues.ownerUid, memberUids, puljeBets,
+  questionAnswers, liga-væggens messages.)
 
 - **Alt i `src/data/` er OFFENTLIGT.** Filen importeres statisk ind i et chunk,
   og Hosting serverer chunks til enhver — også dem bag `<ProtectedRoute

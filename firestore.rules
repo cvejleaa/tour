@@ -772,7 +772,7 @@ service cloud.firestore {
           && request.resource.data.uid == uid
           && holdGyldigt()
           && !request.resource.data.keys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds', 'forladt', 'forladtAt']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds', 'forladt', 'forladtAt', 'slettet']);
 
         // Opdatér eget medlemskab, men aldrig point-/placerings-/liga-felterne.
         //
@@ -804,13 +804,18 @@ service cloud.firestore {
           // falske (Security-fund, kørt i emulatoren). Fjerne det må hun.
           && !(request.resource.data.get('forladt', false) == true
                && resource.data.get('forladt', false) != true)
+          // `slettet` er adminDeleteUsers arkiv-mærke: kontoen er væk, og
+          // dokumentet bliver som historik. Det er serverens ord og skal
+          // betyde det samme, hver gang det læses — så klienten må hverken
+          // sætte det (en levende spiller, der udgiver sig for slettet) eller
+          // fjerne det (Security-fund, sammen med løkken i adminDeleteUser).
           // `perRound` STÅR PÅ LISTEN AF SAMME GRUND SOM totalPoints: ligaens
           // stilling regnes af den, både i fladen og af Runde-Botten. Uden den
           // her kunne et medlem skrive { perRound: { '20': 1000000 } } og toppe
           // enhver liga med en startrunde — mens spil-stillingen så normal ud,
           // fordi totalPoints var urørt. Fundet af Security Reviewer.
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds', 'name']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds', 'name', 'slettet']);
 
         // Man kan fortryde en tilmelding (forlade spillet) SÅ LÆNGE der endnu
         // ikke er tildelt point — så en placering ikke kan gå tabt ved uheld.

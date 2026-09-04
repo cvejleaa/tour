@@ -68,6 +68,14 @@ describe('vagt', () => {
     expect(r.fejl.some((f) => /mangler en begrundelse/.test(f))).toBe(true);
   });
 
+  it('basislinjeNu (det, --opdater skriver) udelader de undtagne — ét sted pr. element', () => {
+    const ny = el({ linje: 7, tekst: 'Ny knap' });
+    const n = 'src/pages/A.jsx|A|button|Ny knap#1';
+    const r = vagt([ROERT, KENDT, ny], 5, [KENDT_N], [{ noegle: n, begrundelse: 'dækket af e2e' }]);
+    expect(r.fejl).toEqual([]);
+    expect(r.basislinjeNu).toEqual([KENDT_N]);
+  });
+
   it('advarer (ikke rødt) om en undtagelse, der ikke længere gælder noget urørt', () => {
     const r = vagt([ROERT], 5, [], [{ noegle: 'src/pages/A.jsx|A|button|Gem#1', begrundelse: 'x' }]);
     expect(r.fejl).toEqual([]);

@@ -648,3 +648,14 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   koden selv. Spørg ved enhver handler, der er DELT mellem to knapper med
   forskellige forventede sideforløb: gør den ene gren noget (navigation), som
   den anden test ikke regner med?
+- **En delt oprydnings-helper, der rører TO samlinger (`bets`, `leagues`),
+  kan overses at mangle en TREDJE.** `rydOpEfterSpiller` (delt af forladSpil
+  og adminDeleteUser) rører aldrig `puljeBets/{uid}` — harmløst for Forlad
+  (dokumentet slettes aldrig dér), men adminDeleteUser lagde en NY
+  sletnings-gren oveni (ingen tips → players-doc slettes helt) uden at
+  spørge, om et `puljeBets`-dokument stadig pegede på uid'et.
+  `settlePuljeBets` (`gameScoring.js:455-456`) skriver `batch.set(playerRef,
+  {bonusPoints}, {merge:true})` for ALLE puljeBets-dokumenter uden
+  eksistens-tjek — genopstandelsen fortsatte via en anden samling. Spørg ved
+  enhver "slet-dokument-hvis-intet-at-bevare"-gren: er ALLE samlinger, der
+  kan skrive dokumentet tilbage via set+merge, talt med? (PR #221, 4/9 2026.)

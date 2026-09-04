@@ -48,6 +48,7 @@ import {
   saveStageTip,
   callSendTipRemindersNow,
   callSendTestReminderToMe,
+  callDeleteUser,
   callSendBroadcastEmail,
   createBonusQuestion,
   updateBonusQuestion,
@@ -575,5 +576,34 @@ describe('adminActions', () => {
       const result = datetimeToTimestamp('2026-06-11T18:00');
       expect(result).toBeDefined();
     });
+  });
+});
+
+describe('callDeleteUser — broen mellem serverens kanForceres og «Slet alligevel?»', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('videregiver details.kanForceres fra en HttpsError — og kalder adminDeleteUser med uid og force', async () => {
+    const err = Object.assign(new Error('Brugeren har point i "Superligaen". Bekræft med force for at slette alligevel.'), {
+      code: 'functions/failed-precondition', details: { kanForceres: true },
+    });
+    const mockFn = vi.fn().mockRejectedValue(err);
+    mockHttpsCallable.mockReturnValue(mockFn);
+    const res = await callDeleteUser('x', false);
+    expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'adminDeleteUser');
+    expect(mockFn).toHaveBeenCalledWith({ uid: 'x', force: false });
+    expect(res).toEqual({ ok: false, code: 'functions/failed-precondition', details: { kanForceres: true }, error: err.message });
+  });
+
+  it('uden details (liga-ejer) er details null — ikke undefined, så UI\'en kan skelne «ikke sendt» fra «kan ikke forceres»', async () => {
+    const err = Object.assign(new Error('Brugeren ejer en liga i "VM". Slet eller overdrag ligaen først.'), { code: 'functions/failed-precondition' });
+    mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(err));
+    const res = await callDeleteUser('x', true);
+    expect(res.ok).toBe(false);
+    expect(res.details).toBeNull();
+  });
+
+  it('ved succes returneres serverens data', async () => {
+    mockHttpsCallable.mockReturnValue(vi.fn().mockResolvedValue({ data: { ok: true, uid: 'x', spil: [] } }));
+    expect(await callDeleteUser('x', true)).toEqual({ ok: true, data: { ok: true, uid: 'x', spil: [] } });
   });
 });

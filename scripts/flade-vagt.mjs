@@ -88,7 +88,10 @@ export function vagt(elementer, logposter, basislinje, undtagelser) {
     fejl.push(`${forsvundne.length} element(er) i basislinjen er nu rørt eller væk — basislinjen skal skrumpe: kør \`node scripts/flade-vagt.mjs --opdater\` og commit scripts/flade-basislinje.json.\n  ${forsvundne.join('\n  ')}`);
   }
   for (const k of undtaget) if (!uroerteNu.has(k)) advarsler.push(`Undtagelsen ${k} gælder et element, der nu er rørt eller væk — den kan fjernes.`);
-  return { fejl, advarsler, basislinjeNu: [...uroerteNu].sort() };
+  // Basislinjen bærer IKKE de undtagne: et element med en begrundelse hører
+  // hjemme ét sted. Ellers ville --opdater lægge 1X2-knappen tilbage i
+  // basislinjen, hver gang den blev kørt (set 4/9 2026).
+  return { fejl, advarsler, basislinjeNu: [...uroerteNu].filter((k) => !undtaget.has(k)).sort() };
 }
 
 /** Hvad `--opdater` ændrer: nøgler, der kommer til, og nøgler, der går ud. */

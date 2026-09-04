@@ -35,6 +35,7 @@ export default defineConfig({
       'ligaPoint.test.js',
       'chanceVagt.test.js',
       'forladSpil.test.js',
+      'adminDeleteUser.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

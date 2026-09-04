@@ -131,16 +131,22 @@ export default function UserRow({ user, authInfo, currentUserIsOwner, currentUse
   }
 
   async function handleDelete() {
+    // Teksten lover det, serveren gør (adminDeleteUser.js): login væk, tips
+    // på kommende kampe slettes, spillede kampes tips og point bliver som
+    // arkiv. Den lovede før "fjernes fra alle spil", mens tips blev liggende.
     if (!window.confirm(
       `Slet ${user.displayName || user.email} PERMANENT?\n\n` +
-      'Kontoen fjernes fra login og alle spil. Dette kan ikke fortrydes.',
+      'Login og profil fjernes. I spillene slettes tips på kommende kampe og medlemskab af ligaer; ' +
+      'tips på spillede kampe og point bliver stående som arkiv i spillet, men ligaerne mister brugeren — også i deres historik. Dette kan ikke fortrydes.',
     )) return;
     setBusy(true);
     setLocalError('');
     try {
       let res = await callDeleteUser(user.id, false);
-      // Backend blokerer sletning af brugere med point — spørg og prøv igen med force.
-      if (!res.ok && res.code === 'functions/failed-precondition') {
+      // Serveren blokerer sletning af brugere med point — og siger med
+      // `kanForceres`, at DEN fejl kan omgås. En liga-ejer kan ikke: dér
+      // vises fejlen, uden at spørge "Slet alligevel?" om noget, der afvises igen.
+      if (!res.ok && res.details?.kanForceres) {
         if (window.confirm(`${res.error}\n\nSlet alligevel?`)) {
           res = await callDeleteUser(user.id, true);
         } else {
