@@ -137,7 +137,7 @@ export default function UserRow({ user, authInfo, currentUserIsOwner, currentUse
     if (!window.confirm(
       `Slet ${user.displayName || user.email} PERMANENT?\n\n` +
       'Login og profil fjernes. I spillene slettes tips på kommende kampe og medlemskab af ligaer; ' +
-      'tips på spillede kampe og point bliver stående som arkiv (de andres historik). Dette kan ikke fortrydes.',
+      'tips på spillede kampe og point bliver stående som arkiv i spillet, men ligaerne mister brugeren — også i deres historik. Dette kan ikke fortrydes.',
     )) return;
     setBusy(true);
     setLocalError('');

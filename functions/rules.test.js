@@ -2125,6 +2125,26 @@ describe('games/{gameId}/players/{uid} — deltagelse', () => {
       { uid: 'p2', joinedAt: Timestamp.now(), forladt: true }));
   });
 
+  it('man KAN IKKE selv SÆTTE eller FJERNE slettet — adminDeleteUsers arkiv-mærke er serverens', async () => {
+    await createUser('p1', 'player', 'approved');
+    await createGame('vm2026');
+    await seedMembership('vm2026', 'p1', { totalPoints: 8 });
+    const ref = doc(testEnv.authenticatedContext('p1').firestore(), 'games', 'vm2026', 'players', 'p1');
+    await assertFails(updateDoc(ref, { slettet: true }));
+    await assertFails(setDoc(ref, { slettet: true }, { merge: true }));
+    // Positiv kontrol: en anden opdatering af eget dokument går stadig igennem.
+    await assertSucceeds(updateDoc(ref, { favoriteTeam: 'AGF' }));
+    // Er hun arkiveret som slettet, kan mærket ikke fjernes — heller ikke sammen
+    // med forladt, som «vend tilbage» ellers må fjerne.
+    await seedMembership('vm2026', 'p1', { totalPoints: 8, forladt: true, slettet: true });
+    await assertFails(updateDoc(ref, { slettet: deleteField() }));
+    await assertFails(updateDoc(ref, { forladt: deleteField(), forladtAt: deleteField(), slettet: deleteField() }));
+    // Ved tilmelding: mærket må ikke fødes med.
+    await createUser('p2', 'player', 'approved');
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('p2').firestore(), 'games', 'vm2026', 'players', 'p2'),
+      { uid: 'p2', joinedAt: Timestamp.now(), slettet: true }));
+  });
+
   it('man KAN IKKE røre en ANDENS forladt-flag', async () => {
     await createUser('p1', 'player', 'approved');
     await createUser('p2', 'player', 'approved');

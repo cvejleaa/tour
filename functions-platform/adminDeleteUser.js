@@ -24,6 +24,11 @@
 //   - Har hun point, kræves force (så en rigtig spiller ikke fjernes ved en
 //     fejl). Kun DEN fejl kan forceres — svaret bærer `kanForceres`.
 //
+// SPILLEREN KAN SELV HAVE SLETTET SIT players-DOKUMENT (reglerne tillader det
+// ved 0 point). Derfor kører vagterne og oprydningen i ALLE spil — liga-
+// ejerskab, memberUids, puljetip og tips ligger uden for dokumentet — og kun
+// valget arkivér-eller-slet ser på, om dokumentet findes (Security-fund).
+//
 // RÆKKEFØLGE OG GENTAGELSE: alle vagter kører først, uden at skrive. Derefter
 // Auth-kontoen, så users/userContacts, så spillene. Ingen transaktion på tværs
 // (Auth og Firestore kan ikke dele én). Fejler et spil midtvejs, er login og
@@ -57,21 +62,28 @@ const SLET_ERR = {
 async function adminDeleteUserCore(db, FieldValue, { uid, callerUid, callerRole, force = false, sletAuth, nowMs = Date.now() }) {
   if (callerRole !== 'owner') throw fejl('not-owner');
   uid = String(uid || '').trim();
-  if (!uid) throw fejl('no-uid');
+  // Formen vagtes FØR uid bruges som dokument-id: 'a/b/c' ville ellers pege et
+  // helt andet sted hen i stien (Security-fund). Firebase-uid'er er 1–128 tegn
+  // af [A-Za-z0-9_-] — de e2e-seedede ('e2e-spiller') passer også.
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) throw fejl('no-uid');
   if (uid === callerUid) throw fejl('self');
 
   const gamesSnap = await db.collection('games').get();
   // Alle vagter FØR nogen skrivning — Auth-kontoen må ikke være væk, hvis et
-  // spil afviser.
-  const medlemskaber = [];
+  // spil afviser. Og de kører i ALLE spil, ikke kun dem med et players-
+  // dokument: spilleren kan selv have slettet sit dokument (reglerne tillader
+  // det ved 0 point), mens hun stadig ejer en liga, står i memberUids eller
+  // har et puljetip liggende. Springes spillet over, efterlades ligaen uden
+  // ejer, og settlePuljeBets skriver et navnløst dokument tilbage
+  // (Security-fund). Kun valget arkivér-eller-slet afhænger af dokumentet.
+  const spilliste = [];
   for (const g of gamesSnap.docs) {
-    const p = await g.ref.collection('players').doc(uid).get();
-    if (!p.exists) continue;
     const navn = g.data()?.name || g.id;
     const ejede = await g.ref.collection('leagues').where('ownerUid', '==', uid).get();
     if (ejede.size > 0) throw fejl('owns-league', navn);
-    if (!force && (Number(p.data().totalPoints) || 0) > 0) throw fejl('has-points', navn, { kanForceres: true });
-    medlemskaber.push({ g, navn, playerRef: p.ref });
+    const p = await g.ref.collection('players').doc(uid).get();
+    if (p.exists && !force && (Number(p.data().totalPoints) || 0) > 0) throw fejl('has-points', navn, { kanForceres: true });
+    spilliste.push({ g, navn, playerRef: p.ref, harDokument: p.exists });
   }
 
   try {
@@ -86,21 +98,29 @@ async function adminDeleteUserCore(db, FieldValue, { uid, callerUid, callerRole,
   await batch.commit();
 
   const spil = [];
-  for (const { g, navn, playerRef } of medlemskaber) {
+  for (const { g, navn, playerRef, harDokument } of spilliste) {
     const ryddet = await rydOpEfterSpiller(db, FieldValue, g.ref, uid, { nowMs });
     let dokument;
     if (ryddet.beholdteTips === 0) {
-      // Intet at genopstå fra: væk med dokumentet, dets underdokument — og
-      // puljetippet, som ellers ville skrive dokumentet tilbage ved afregning.
+      // Intet at genopstå fra: væk med puljetippet (settlePuljeBets ville
+      // ellers skrive dokumentet tilbage ved afregning — QC-fund) — uanset om
+      // dokumentet findes — og med dokumentet og dets underdokument, hvis det gør.
       await g.ref.collection('puljeBets').doc(uid).delete();
-      await playerRef.collection('detalje').doc('opdeling').delete();
-      await playerRef.delete();
-      dokument = 'slettet';
+      if (harDokument) {
+        await playerRef.collection('detalje').doc('opdeling').delete();
+        await playerRef.delete();
+      }
+      dokument = harDokument ? 'slettet' : 'ingen';
     } else {
-      await playerRef.update({ forladt: true, forladtAt: FieldValue.serverTimestamp(), slettet: true });
+      // Arkivet — også når dokumentet er væk: recalcPlayerTotal skaber det
+      // ellers igen uden flag, og hun stod pludselig i stillingen som aktiv.
+      await playerRef.set({ uid, forladt: true, forladtAt: FieldValue.serverTimestamp(), slettet: true }, { merge: true });
       dokument = 'arkiveret';
     }
-    spil.push({ spil: g.id, navn, ...ryddet, dokument });
+    // Rapportér kun de spil, hvor der var noget at rydde.
+    if (harDokument || ryddet.slettedeTips || ryddet.beholdteTips || ryddet.ligaer) {
+      spil.push({ spil: g.id, navn, ...ryddet, dokument });
+    }
   }
 
   return { ok: true, uid, spil };

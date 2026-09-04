@@ -28,6 +28,10 @@ describe('UserRow — Slet bruger', () => {
     expect(tekst).toContain('Slet Dublet Hansen PERMANENT?');
     expect(tekst).toContain('tips på kommende kampe');
     expect(tekst).toContain('bliver stående som arkiv');
+    // Ligaerne mister hende OGSÅ bagud (applyBetLeagueDelta stripper leagueIds af
+    // de beholdte tips) — så dialogen må ikke love, at de andres historik er urørt.
+    expect(tekst).toContain('ligaerne mister brugeren');
+    expect(tekst).not.toContain('de andres historik');
     expect(tekst).not.toContain('fjernes fra login og alle spil');
     expect(global.confirm).toHaveBeenCalledTimes(1);
   });

@@ -17,6 +17,7 @@ function fakeDb(spil = {}) {
     sti,
     delete: async () => { log.push(`delete ${sti}`); },
     update: async (f) => { log.push(`update ${sti} ${JSON.stringify(f)}`); },
+    set: async (f, o) => { log.push(`set ${sti} ${JSON.stringify(f)}${o?.merge ? ' merge' : ''}`); },
     collection: (sub) => ({ doc: (id) => ref(`${sti}/${sub}/${id}`) }),
   });
   const snap = (id, data, sti) => ({ id, exists: !!data, data: () => data, ref: ref(sti) });
@@ -68,6 +69,11 @@ describe('adminDeleteUserCore — vagterne, FØR nogen skrivning', () => {
   it('afviser: ikke ejer, uden uid, sig selv', async () => {
     await expect(kald(fakeDb(), { callerRole: 'globalAdmin' }).res).rejects.toThrow('not-owner');
     await expect(kald(fakeDb(), { uid: '  ' }).res).rejects.toThrow('no-uid');
+    // Formen: et uid er en dokument-sti-komponent. 'a/b/c' ville pege et andet
+    // sted hen, og 129 tegn er over Firebase-grænsen (Security-fund).
+    await expect(kald(fakeDb(), { uid: 'a/b/c' }).res).rejects.toThrow('no-uid');
+    await expect(kald(fakeDb(), { uid: 'a'.repeat(129) }).res).rejects.toThrow('no-uid');
+    await expect(kald(fakeDb(), { uid: 'æble' }).res).rejects.toThrow('no-uid');
     await expect(kald(fakeDb(), { uid: 'ejer' }).res).rejects.toThrow('self');
   });
 
@@ -85,6 +91,14 @@ describe('adminDeleteUserCore — vagterne, FØR nogen skrivning', () => {
     const { a, res } = kald(db, { force: true });
     await expect(res).rejects.toThrow('owns-league');
     await res.catch((e) => { expect(e.navn).toBe('Superligaen'); expect(e.details).toBeUndefined(); });
+    expect(a.kaldt).toEqual([]);
+    expect(db.log).toEqual([]);
+  });
+
+  it('liga-vagten gælder OGSÅ uden players-dokument — hun kan selv have slettet det (Security)', async () => {
+    const db = fakeDb({ sl: { name: 'Superligaen', spiller: null, ligaer: [{ id: 'L', ownerUid: 'x', memberUids: ['x'] }] } });
+    const { a, res } = kald(db, { force: true });
+    await expect(res).rejects.toThrow('owns-league');
     expect(a.kaldt).toEqual([]);
     expect(db.log).toEqual([]);
   });
@@ -123,19 +137,43 @@ describe('adminDeleteUserCore — oprydningen', () => {
     expect(db.log).not.toContain('delete games/sl/players/x');
     // Arkivet beholder puljetippet: afregnes det, lander bonussen i arkivet (som ved Forlad).
     expect(db.log).not.toContain('delete games/sl/puljeBets/x');
-    expect(db.log).toContain('update games/sl/players/x {"forladt":true,"forladtAt":"TS","slettet":true}');
+    expect(db.log).toContain('set games/sl/players/x {"uid":"x","forladt":true,"forladtAt":"TS","slettet":true} merge');
     expect(r.spil[0]).toMatchObject({ slettedeTips: 1, beholdteTips: 1, ligaer: 1, dokument: 'arkiveret' });
   });
 
-  it('flere spil: kun dem, hun er med i, røres — og hvert for sig', async () => {
+  it('flere spil: hvert for sig — og et spil, hun ikke er med i, får kun puljetippet fejet (idempotent) og står ikke i svaret', async () => {
     const db = fakeDb({
       sl: { name: 'Superligaen', spiller: { uid: 'x' }, kampe },
-      pl: { name: 'PL', spiller: null },
+      pl: { name: 'PL', spiller: null, kampe },
       vm: { name: 'VM', spiller: { uid: 'x' }, kampe, bets: [{ id: 'x_spillet', uid: 'x', matchId: 'spillet' }] },
     });
     const r = await kald(db).res;
     expect(r.spil.map((s) => `${s.spil}:${s.dokument}`)).toEqual(['sl:slettet', 'vm:arkiveret']);
-    expect(db.log.some((l) => l.includes('games/pl/'))).toBe(false);
+    expect(db.log.filter((l) => l.includes('games/pl/'))).toEqual(['delete games/pl/puljeBets/x']);
+  });
+
+  // SECURITY-FUND: reglerne lader spilleren slette sit eget players-dokument ved
+  // 0 point. Ligaen, puljetippet og tips ligger UDEN FOR dokumentet — springes
+  // spillet over, efterlades hun i memberUids, og settlePuljeBets skriver et
+  // navnløst dokument tilbage.
+  it('uden players-dokument: memberUids og puljetip ryddes alligevel — og spillet står i svaret uden dokument', async () => {
+    const db = fakeDb({ sl: { name: 'Superligaen', spiller: null, kampe, ligaer: [{ id: 'L', ownerUid: 'y', memberUids: ['x', 'y'] }] } });
+    const r = await kald(db).res;
+    expect(db.log).toContain('update games/sl/leagues/L {"memberUids":{"__op":"remove","v":["x"]}}');
+    expect(db.log).toContain('delete games/sl/puljeBets/x');
+    // Intet dokument at slette — og intet underdokument.
+    expect(db.log).not.toContain('delete games/sl/players/x');
+    expect(db.log).not.toContain('delete games/sl/players/x/detalje/opdeling');
+    expect(r.spil).toEqual([{ spil: 'sl', navn: 'Superligaen', slettedeTips: 0, beholdteTips: 0, ligaer: 1, dokument: 'ingen' }]);
+  });
+
+  it('uden players-dokument, men med tips på spillede kampe: arkivet OPRETTES med flag — ellers genskaber genberegningen hende som aktiv', async () => {
+    const db = fakeDb({ sl: { name: 'Superligaen', spiller: null, kampe, bets: [{ id: 'x_spillet', uid: 'x', matchId: 'spillet' }, { id: 'x_aaben', uid: 'x', matchId: 'aaben' }] } });
+    const r = await kald(db).res;
+    expect(db.log).toContain('delete games/sl/bets/x_aaben');
+    expect(db.log).toContain('set games/sl/players/x {"uid":"x","forladt":true,"forladtAt":"TS","slettet":true} merge');
+    expect(db.log).not.toContain('delete games/sl/puljeBets/x');
+    expect(r.spil[0]).toMatchObject({ slettedeTips: 1, beholdteTips: 1, dokument: 'arkiveret' });
   });
 
   it('en Auth-konto, der allerede er væk, stopper ikke oprydningen — enhver anden Auth-fejl gør', async () => {
