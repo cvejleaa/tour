@@ -19,6 +19,8 @@ export default defineConfig({
     // findes, får kørslen til at se grøn ud uden at teste noget.
     include: [
       'functions/rules.test.js',
+      // Invariant 4a på det fælles Superliga-scenarie (fladen tilbyder ⇔ reglerne tillader).
+      'functions/rules.scenarie.test.js',
     ],
     // Ekskluder scoring/standings (de har egen config)
     exclude: [

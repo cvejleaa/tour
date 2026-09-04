@@ -16,8 +16,11 @@
   **Brug ALDRIG `firebase-tools@latest emulators:exec`** — den henter en nyere
   emulator med strammere null-semantik, og 35 af 227 regel-tests fejler FALSK
   med "Null value error" (også kontroltests). Mod jar v1.22.0: alt grønt.
-- **`@firebase/rules-unit-testing` er IKKE længere i `functions/node_modules`**
-  (sep 2026: `find -name rules-unit-testing` = tomt). Hurtigste vej nu:
+- **`@firebase/rules-unit-testing` ER i `functions/node_modules`** (efterprøvet
+  2026-09-03: `/home/user/tour/functions/node_modules/@firebase/rules-unit-testing`).
+  En tidligere note her sagde det modsatte — den var forkert eller forældet;
+  `find / -type d -name rules-unit-testing` er svaret, ikke hukommelsen.
+  Alternativ vej, hvis den mangler:
   `npm install --no-save --prefix <scratchpad>/poc @firebase/rules-unit-testing firebase`
   (~23 s gennem proxyen), `package.json` med `"type":"module"`, og kør PoC'en som
   et **almindeligt node-script** — `assertSucceeds/assertFails` behøver ikke
@@ -25,6 +28,18 @@
   Fordelen: intet i repoet, `git status` er ren pr. konstruktion.
   **Port 8080 kan være optaget** af en anden agents emulator — brug 8085 og sæt
   `port:` i `initializeTestEnvironment` (ikke kun `FIRESTORE_EMULATOR_HOST`).
+- **`assertFails` accepterer KUN permission-denied** (dist/index.cjs.js L578-595:
+  `code`/`message` skal indeholde permission_denied / permission denied /
+  unauthorized — alt andet re-kastes som "unexpected error"). Det gør den
+  ret skarp. MEN en hjemmelavet `try { await assertSucceeds(p); return true }
+  catch { return false }` har IKKE den vagt: den kalder ENHVER fejl for
+  "afvist" — NOT_FOUND, en tastefejl i stien, en TypeError. Bruger en test
+  et sådant boolsk prædikat på begge sider af en ⇔-invariant, skal mindst én
+  case i SAMME løkke give `true`, ellers kan hele testen være grøn uden at
+  reglerne nogensinde blev evalueret. Bemærk asymmetrien: `updateDoc` mod et
+  IKKE-eksisterende dokument giver PERMISSION_DENIED (ikke NOT_FOUND), når
+  reglen læser `resource.data` — så en `assertFails` kan bestå vakuøst, hvis
+  seedet af dokumentet tavst er slået fejl.
 - **Regel-PoC'er skal ligge i `functions/`** — `@firebase/rules-unit-testing`,
   `firebase` og `vitest` findes KUN i `functions/node_modules`. Lav
   `functions/__poc__/x.test.js` + en lille `vitest.poc.js` med
@@ -1433,6 +1448,21 @@
 
 ## Testhuller værd at huske
 
+- **`functions/rules.scenarie.test.js` (invariant 4a, sep 2026) kan ikke skelne
+  CREATE fra UPDATE.** `skrivTip` er `setDoc(..., {merge:true})`: rammer den et
+  dokument, seedet tavst har undladt at skrive, bliver skrivningen en
+  oprettelse — og create-reglen tillader den. Testen «ret et EKSISTERENDE tip»
+  er derfor grøn, uanset om der stod et tip i forvejen, og ville i så fald måle
+  create-reglen mens den påstår at måle update-reglen (uid/matchId-frysning,
+  `writingChanceFields`). Samme vakuum rammer chance-testens
+  `assertFails(updateDoc(bet, {chanceStake:3}))`. Billig binding: læs egen bet
+  med `getDoc` og assertér `exists()` FØR skrivningen (egne tips må altid
+  læses, firestore.rules L1004).
+- **Positiv kontrol i ⇔-tests: kræv en succes i SAMME løkke.** Invariant 4a's
+  `expect(svar.some((s) => s.fladen)).toBe(true)` + lighed pr. kamp tvinger
+  mindst én GODKENDT skrivning igennem reglerne — det er dét, der gør en
+  forkert sti/ødelagt seed rød. Mønsteret er værd at kopiere; en ren
+  `assertFails`-blok har det ikke.
 - `functions/rules.test.js` L3010-3053 (puljeBets-læsning) dækker `getDoc` på
   ÉT fremmed dokument og et spil UDEN `puljeLockAt` — men hverken `getDocs`
   (list) eller `puljeLockAt: null`. Hele suiten er GRØN både med og uden

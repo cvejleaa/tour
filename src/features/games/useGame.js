@@ -5,6 +5,7 @@
  * Fundament for spil-siderne under /spil/:gameId (Fase B).
  */
 import { useEffect, useMemo, useState } from 'react';
+import { erAktivtMedlem } from '../../lib/medlem.js';
 import {
   collection, doc, onSnapshot, query, orderBy,
 } from 'firebase/firestore';
@@ -100,7 +101,7 @@ export function useGame(gameId) {
 
   const loading = gameLoading || meLoading || matchesLoading;
   // Forladt = arkiv: fladen viser Deltag-kortet ("Vend tilbage"), ikke fanerne.
-  const isMember = me != null && me.forladt !== true;
+  const isMember = erAktivtMedlem(me);
   const value = useMemo(
     () => ({ game, me, isMember, matches, loading }),
     [game, me, isMember, matches, loading],
