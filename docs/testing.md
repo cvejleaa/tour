@@ -280,5 +280,9 @@ Tour-flows (spillet er afsluttet).
 ## Kendte begrænsninger
 - Et miljø uden browser-download kan pege Playwright på en forudinstalleret
   Chromium med `E2E_CHROMIUM=/sti/til/chromium`; ellers køres E2E i CI.
-- E2E dækker ikke callables (Chancen, synk-knapper): der kører ingen
-  functions-emulator, og alle testede flows er rene klient-skrivninger.
+- E2E kører ingen callable direkte — der kører ingen functions-emulator.
+  Chancen og synk-knapperne er slet ikke dækket; Forlads vej fra knap til
+  kald dækkes ved at opsnappe kaldet i browseren
+  (`e2e/platform/forlad.spec.js`), mens serverens del af `forladSpil`
+  bevises i `functions-platform/forladSpil.test.js`. Alle øvrige flows er
+  rene klient-skrivninger gennem reglerne.

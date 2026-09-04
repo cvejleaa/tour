@@ -18,13 +18,23 @@ test('«Vend tilbage» gør den forladte til medlem igen — gennem reglerne', a
   await expect(page.getByRole('button', { name: `Forlad ${SPIL_NAVN}` })).toHaveCount(0);
 
   await tilbage.click();
-  // Medlem igen: Forlad-knappen findes, Vend tilbage er væk — og ingen regel-afvisning.
-  await expect(page.getByRole('button', { name: `Forlad ${SPIL_NAVN}` })).toBeVisible();
-  await expect(page.getByRole('button', { name: `Vend tilbage til ${SPIL_NAVN}` })).toHaveCount(0);
-  expect(await page.locator('[role="alert"]').allTextContents(), 'ingen fejl ved tilbagevenden').toEqual([]);
-
-  // Og spilsiden viser fanerne, ikke Deltag-kortet: tip-fladen åbner på runde 20.
-  await page.goto(`/spil/${SPIL_ID}`);
+  // handleJoin (GamesPage.jsx) navigerer til spilsiden, så snart skrivningen
+  // er igennem — det er den designede vej, og den asserteres FØRST. Læste
+  // testen Mine spil-kortet før navigationen, hvilede den på, at onSnapshot
+  // nåede DOM'en før await'et (QC-fund) — ikke på noget, koden lover.
+  await expect(page).toHaveURL(new RegExp(`/spil/${SPIL_ID}$`));
+  // Spilsiden viser fanerne, ikke Deltag-kortet: tip-fladen åbner på runde 20.
   await expect(page.getByTestId('round-nav-count')).toHaveText(new RegExp(`Runde ${AABEN_RUNDE} af`));
   await expect(page.getByRole('button', { name: /Vend tilbage/ })).toHaveCount(0);
+  expect(await page.locator('[role="alert"]').allTextContents(), 'ingen fejl ved tilbagevenden').toEqual([]);
+
+  // Den forladte har ingen liga længere (forladSpil tog hende ud): stillingen
+  // siger det pænt i stedet for at stå tom — den tilstand skaber kun dette seed.
+  await page.getByRole('tab', { name: /Stilling/ }).click();
+  await expect(page.getByText('Du er ikke med i en liga endnu.')).toBeVisible();
+
+  // Og tilbage på oversigten står spillet under Mine spil med Forlad — Vend tilbage er væk.
+  await page.goto('/spil');
+  await expect(page.getByRole('button', { name: `Forlad ${SPIL_NAVN}` })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Vend tilbage til ${SPIL_NAVN}` })).toHaveCount(0);
 });

@@ -635,3 +635,16 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   flade-undtagelser.json med begrundelse" — men lod 1X2-knappen, hele
   ændringens ophav, stå ubegrundet i basislinjen. En regel, der ikke gælder
   det første tilfælde, den blev skrevet for, bliver aldrig fulgt.
+- **Et delt handler mellem to konceptuelt forskellige knapper kan navigere væk,
+  før en on-page-assertion ser sit vindue.** `GamesPage.jsx`s `handleJoin`
+  bruges BÅDE til «Deltag» og «Vend tilbage» (samme `onJoin`-prop, kun label
+  skifter via `tilbage`-flaget) og kalder `navigate(/spil/:id)`, så snart
+  `joinGame()`s promise er opfyldt (`GamesPage.jsx:145`) — ikke kun ved
+  førstegangs-tilmelding. En E2E-assertion, der forventer at blive PÅ `/spil`
+  lige efter et "Vend tilbage"-klik (for at se en anden knap dukke op på samme
+  side, `vendtilbage.spec.js`), hviler derfor på at Firestores optimistiske
+  lokale skrivning når at opdatere `onSnapshot`-lytteren, FØR `await`'et løses
+  og navigationen fyrer — en implicit timing-antagelse, ikke en garanti fra
+  koden selv. Spørg ved enhver handler, der er DELT mellem to knapper med
+  forskellige forventede sideforløb: gør den ene gren noget (navigation), som
+  den anden test ikke regner med?
