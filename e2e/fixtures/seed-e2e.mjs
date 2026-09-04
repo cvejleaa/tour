@@ -24,6 +24,7 @@
 // ---------------------------------------------------------------------------
 import admin from 'firebase-admin';
 import { buildMatches } from '../../src/lib/superligaSeed.js';
+import { adgangskode } from './adgangskoder.mjs';
 import {
   PROJEKT, SPILLER, EJER, MODSPILLER, FREMMED, FORLADT, SPIL_ID, SPIL_NAVN, AABEN_RUNDE, LAAST_RUNDE, UDSAT_RUNDE,
   LIGA_ID, LIGA_NAVN, FREMMED_LIGA_ID, POINT,
@@ -89,7 +90,7 @@ export default async function seed() {
   // dokumenter, som signup (useAuthActions.js) og bootstrap-owner.mjs skriver.
   for (const [bruger, role] of [[SPILLER, 'player'], [MODSPILLER, 'player'], [FREMMED, 'player'], [FORLADT, 'player'], [EJER, 'owner']]) {
     await auth.createUser({
-      uid: bruger.uid, email: bruger.email, password: bruger.password,
+      uid: bruger.uid, email: bruger.email, password: adgangskode(bruger.uid),
       displayName: bruger.displayName, emailVerified: true,
     });
     await db.collection('users').doc(bruger.uid).set({

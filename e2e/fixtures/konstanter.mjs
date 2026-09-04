@@ -3,6 +3,8 @@
 //
 // Ligger i sin egen fil, så en .spec.js kan importere navne og id'er UDEN at
 // trække firebase-admin ind i Playwright-workeren (det gør seed-e2e.mjs).
+// Importeres også af Vitest-tests og src/test/scenarie/ — derfor INGEN
+// adgangskoder her; de ligger i adgangskoder.mjs, som kun e2e/ må importere.
 // ---------------------------------------------------------------------------
 
 /** Emulator-projektet. Skal matche `--project` i `npm run test:e2e:emu`. */
@@ -11,14 +13,12 @@ export const PROJEKT = 'demo-vm2026';
 export const SPILLER = {
   uid: 'e2e-spiller',
   email: 'spiller@e2e.test',
-  password: 'e2e-hemmelig-1',
   displayName: 'E2E Spiller',
 };
 
 export const EJER = {
   uid: 'e2e-ejer',
   email: 'ejer@e2e.test',
-  password: 'e2e-hemmelig-2',
   displayName: 'E2E Ejer',
 };
 
@@ -26,7 +26,6 @@ export const EJER = {
 export const MODSPILLER = {
   uid: 'e2e-modspiller',
   email: 'modspiller@e2e.test',
-  password: 'e2e-hemmelig-3',
   displayName: 'E2E Modspiller',
 };
 
@@ -34,7 +33,6 @@ export const MODSPILLER = {
 export const FREMMED = {
   uid: 'e2e-fremmed',
   email: 'fremmed@e2e.test',
-  password: 'e2e-hemmelig-4',
   displayName: 'E2E Fremmed',
 };
 
@@ -42,7 +40,6 @@ export const FREMMED = {
 export const FORLADT = {
   uid: 'e2e-forladt',
   email: 'forladt@e2e.test',
-  password: 'e2e-hemmelig-5',
   displayName: 'E2E Forladt',
 };
 

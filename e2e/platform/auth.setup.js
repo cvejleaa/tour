@@ -9,6 +9,7 @@
 import { test as setup, expect } from '../fixtures/evne.mjs';
 import { SPILLER, EJER, FORLADT, SPILLER_STATE, EJER_STATE, FORLADT_STATE } from '../fixtures/konstanter.mjs';
 import seed from '../fixtures/seed-e2e.mjs';
+import { adgangskode } from '../fixtures/adgangskoder.mjs';
 
 /** Log ind gennem fladen og gem tilstanden. Venter på noget, der kræver BÅDE
  *  auth og Firestore (users/{uid}.status): /spil nås kun gennem
@@ -16,7 +17,7 @@ import seed from '../fixtures/seed-e2e.mjs';
 async function logIndOgGem(page, bruger, sti) {
   await page.goto('/login');
   await page.locator('#login-email').fill(bruger.email);
-  await page.locator('#login-pw').fill(bruger.password);
+  await page.locator('#login-pw').fill(adgangskode(bruger.uid));
   // "Log ind" matcher både fanen og submit-knappen — knappen er den sidste.
   await page.getByRole('button', { name: 'Log ind' }).last().click();
   await expect(page).toHaveURL(/\/spil$/);
