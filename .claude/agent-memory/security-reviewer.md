@@ -1481,6 +1481,32 @@
   (bekræftet), så `querySelectorAll('*')`-vandringen er nødvendig og ikke
   kvadratisk. Ingen hængning; matcher husets 142,5 s mod 139,1 s. Gentag ikke
   denne måling — genbrug PoC-mønstret, hvis vandringen ændrer FORM.
+- **depGraph.json på FIL-niveau (c96d6cc, #223) er ren — inkl. de to
+  functions-mapper.** JSON'en rummer KUN `{id,gruppe}` for 290 stier,
+  `[i,j]`-indekspar for 855 kanter og faste gruppenavne; nul filindhold, nul
+  absolutte stier, nul afvigende tegn (målt: alle 290 matcher
+  `^(src|functions|functions-platform)/` og `[A-Za-z0-9_./-]` og alle 290 står
+  i `git ls-files`). Repoet er bekræftet PUBLIC (`api.github.com/repos/
+  cvejleaa/tour` → `"private": false`, anonymt kald), så fil-niveauet tilføjer
+  intet ud over det, GitHub allerede viser. `.json`/`.env`/`serviceAccount*.json`
+  kan aldrig komme med: walk filtrerer på `\.(jsx?|mjs)$`.
+- **`opløs()` kan ikke pege uden for repoet (BEKRÆFTET med fixture-PoC).**
+  `import '../../../udenfor/hemmelig.js'`, `require('../../../udenfor/hemmelig')`
+  og `'../../../../../../etc/passwd'` gav NUL kanter og NUL noder — vagten er
+  `kendte.has(rel(to))`, og `kendte` fyldes kun af `walk()`. Kontroltest grøn
+  (en symlinket fil INDE i træet dukker op som node, og et markør-filnavn inde
+  i træet ses i outputtet, så PoC'en kan se en læk). Symlinkede MAPPER
+  traverseres ikke (`Dirent.isDirectory()` er false for en symlink), og en
+  symlinket FIL bidrager kun med sit in-repo NAVN — indholdet læses, men kun
+  imports udtrækkes.
+- **JSON-skriverens `__K__`-trick tåler fjendtlige filnavne.** `.replace('"__K__"',…)`
+  rammer kun den EKSAKTE token med anførselstegn; `src/lib/__K__.js` kolliderer
+  ikke, `x").js` bliver escaped af JSON.stringify, og outputtet parser rent
+  (målt på fixture). `</script>` er umuligt i et stinavn (skråstreg). DepGraph.jsx
+  har ingen `dangerouslySetInnerHTML`/`innerHTML`/`eval`; alle data-værdier går i
+  JSX-tekstbørn, `<title>`, `aria-label` og `data-id` — React escaper alle fire.
+  `url(#dep-arrow*)` er statiske marker-id'er, ikke data.
+
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
@@ -1682,6 +1708,20 @@
   `leagues` (samme begreb, samme ejer-rolle, samme render-mønster) fik ingen
   af delene, og `useLeagues` fik ikke klientens normalisering. To ligabegreber
   i samme fil skal have samme vagter, eller forskellen skal stå skrevet.
+- **En committet generator kender ikke `.gitignore`.** `build-dep-graph.mjs`
+  walker filsystemet, ikke git-indekset: kører nogen `npm run test:report`
+  LOKALT og committer, ryger navnet på enhver ikke-sporet `.js/.jsx/.mjs`-fil
+  under `src/`, `functions/`, `functions-platform/` ind i et offentligt
+  øjebliksbillede. Ufarligt i dag (CI kører på et rent checkout, og der findes
+  p.t. nul ignorerede kildefiler under de tre rødder — målt med
+  `git status --ignored`), men det er den vej, et generatoraftryk lækker.
+  Samme spørgsmål gælder ethvert nyt øjebliksbillede: hvad ville generatoren
+  skrive på en UDVIKLERS maskine?
+- **Offentlighed er en FORUDSÆTNING, ikke en egenskab, for `src/data/`.**
+  Hele argumentet for depGraph-fil-niveauet hviler på, at repoet er public.
+  Blev repoet lukket, ville JSON'en være en komplet kildefil-fortegnelse
+  serveret til enhver, der henter AdminPage-chunken (ruten er en klient-gate).
+  Genoptag vurderingen, hvis synligheden ændrer sig.
 - Regler er ikke filtre. En strammet læseregel uden matchende query = tom liste.
 - Klient-validering er ikke håndhævelse.
 - Doc-id'er skal bindes (`uid_matchId`) — ellers dublet-dokumenter.

@@ -66,6 +66,12 @@ vi.mock('../../data/depGraph.json', () => ({
       { id: 'pages', layer: 3, files: 2 },
     ],
     edges: [{ from: 'pages', to: 'lib (kerne)', count: 4 }],
+    // Fil-niveauet (siden 4/9 2026): DepGraph læser det til udfoldning og kant-detaljer.
+    filer: [
+      { id: 'src/lib/a.js', gruppe: 'lib (kerne)' }, { id: 'src/lib/b.js', gruppe: 'lib (kerne)' }, { id: 'src/lib/c.js', gruppe: 'lib (kerne)' },
+      { id: 'src/pages/P.jsx', gruppe: 'pages' }, { id: 'src/pages/Q.jsx', gruppe: 'pages' },
+    ],
+    filKanter: [[3, 0], [3, 1], [4, 1], [4, 2]],
   },
 }));
 

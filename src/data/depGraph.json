@@ -1,697 +1,1802 @@
 {
-  "generatedAt": "2026-09-04T06:26:53.791Z",
-  "nodes": [
-    {
-      "id": "firebase",
-      "layer": 0,
-      "files": 1
-    },
-    {
-      "id": "lib (kerne)",
-      "layer": 0,
-      "files": 22
-    },
-    {
-      "id": "Cloud Functions",
-      "layer": 1,
-      "files": 1
-    },
-    {
-      "id": "context",
-      "layer": 1,
-      "files": 2
-    },
-    {
-      "id": "components",
-      "layer": 2,
-      "files": 9
-    },
-    {
-      "id": "features/admin",
-      "layer": 2,
-      "files": 33
-    },
-    {
-      "id": "features/auth",
-      "layer": 2,
-      "files": 3
-    },
-    {
-      "id": "features/bonus",
-      "layer": 2,
-      "files": 4
-    },
-    {
-      "id": "features/comments",
-      "layer": 2,
-      "files": 9
-    },
-    {
-      "id": "features/dashboard",
-      "layer": 2,
-      "files": 7
-    },
-    {
-      "id": "features/games",
-      "layer": 2,
-      "files": 59
-    },
-    {
-      "id": "features/leaderboard",
-      "layer": 2,
-      "files": 9
-    },
-    {
-      "id": "features/leagues",
-      "layer": 2,
-      "files": 19
-    },
-    {
-      "id": "features/live",
-      "layer": 2,
-      "files": 6
-    },
-    {
-      "id": "features/onboarding",
-      "layer": 2,
-      "files": 1
-    },
-    {
-      "id": "features/presence",
-      "layer": 2,
-      "files": 2
-    },
-    {
-      "id": "features/profile",
-      "layer": 2,
-      "files": 4
-    },
-    {
-      "id": "features/reactions",
-      "layer": 2,
-      "files": 2
-    },
-    {
-      "id": "features/riders",
-      "layer": 2,
-      "files": 1
-    },
-    {
-      "id": "features/stages",
-      "layer": 2,
-      "files": 13
-    },
-    {
-      "id": "features/teams",
-      "layer": 2,
-      "files": 6
-    },
-    {
-      "id": "features/tour",
-      "layer": 2,
-      "files": 8
-    },
-    {
-      "id": "pages",
-      "layer": 3,
-      "files": 20
-    },
-    {
-      "id": "app-skal",
-      "layer": 4,
-      "files": 4
-    }
-  ],
-  "edges": [
-    {
-      "from": "app-skal",
-      "to": "components",
-      "count": 2
-    },
-    {
-      "from": "app-skal",
-      "to": "context",
-      "count": 2
-    },
-    {
-      "from": "app-skal",
-      "to": "lib (kerne)",
-      "count": 4
-    },
-    {
-      "from": "app-skal",
-      "to": "pages",
-      "count": 9
-    },
-    {
-      "from": "components",
-      "to": "features/profile",
-      "count": 1
-    },
-    {
-      "from": "components",
-      "to": "app-skal",
-      "count": 3
-    },
-    {
-      "from": "components",
-      "to": "lib (kerne)",
-      "count": 4
-    },
-    {
-      "from": "components",
-      "to": "firebase",
-      "count": 1
-    },
-    {
-      "from": "components",
-      "to": "context",
-      "count": 3
-    },
-    {
-      "from": "components",
-      "to": "features/admin",
-      "count": 2
-    },
-    {
-      "from": "components",
-      "to": "features/comments",
-      "count": 1
-    },
-    {
-      "from": "components",
-      "to": "features/presence",
-      "count": 1
-    },
-    {
-      "from": "components",
-      "to": "features/stages",
-      "count": 1
-    },
-    {
-      "from": "context",
-      "to": "firebase",
-      "count": 1
-    },
-    {
-      "from": "context",
-      "to": "lib (kerne)",
-      "count": 1
-    },
-    {
-      "from": "context",
-      "to": "features/stages",
-      "count": 3
-    },
-    {
-      "from": "context",
-      "to": "features/bonus",
-      "count": 1
-    },
-    {
-      "from": "context",
-      "to": "features/leagues",
-      "count": 1
-    },
-    {
-      "from": "context",
-      "to": "features/dashboard",
-      "count": 3
-    },
-    {
-      "from": "features/admin",
-      "to": "firebase",
-      "count": 17
-    },
-    {
-      "from": "features/admin",
-      "to": "lib (kerne)",
-      "count": 34
-    },
-    {
-      "from": "features/admin",
-      "to": "features/presence",
-      "count": 1
-    },
-    {
-      "from": "features/admin",
-      "to": "features/comments",
-      "count": 1
-    },
-    {
-      "from": "features/admin",
-      "to": "features/bonus",
-      "count": 1
-    },
-    {
-      "from": "features/admin",
-      "to": "app-skal",
-      "count": 12
-    },
-    {
-      "from": "features/admin",
-      "to": "features/leagues",
-      "count": 4
-    },
-    {
-      "from": "features/admin",
-      "to": "features/games",
-      "count": 19
-    },
-    {
-      "from": "features/admin",
-      "to": "context",
-      "count": 1
-    },
-    {
-      "from": "features/admin",
-      "to": "features/riders",
-      "count": 1
-    },
-    {
-      "from": "features/admin",
-      "to": "features/leaderboard",
-      "count": 1
-    },
-    {
-      "from": "features/admin",
-      "to": "components",
-      "count": 3
-    },
-    {
-      "from": "features/admin",
-      "to": "features/stages",
-      "count": 3
-    },
-    {
-      "from": "features/auth",
-      "to": "firebase",
-      "count": 2
-    },
-    {
-      "from": "features/auth",
-      "to": "lib (kerne)",
-      "count": 1
-    },
-    {
-      "from": "features/bonus",
-      "to": "app-skal",
-      "count": 3
-    },
-    {
-      "from": "features/bonus",
-      "to": "components",
-      "count": 1
-    },
-    {
-      "from": "features/bonus",
-      "to": "firebase",
-      "count": 2
-    },
-    {
-      "from": "features/bonus",
-      "to": "lib (kerne)",
-      "count": 3
-    },
-    {
-      "from": "features/comments",
-      "to": "components",
-      "count": 1
-    },
-    {
-      "from": "features/comments",
-      "to": "features/reactions",
-      "count": 1
-    },
-    {
-      "from": "features/comments",
-      "to": "lib (kerne)",
-      "count": 7
-    },
-    {
-      "from": "features/comments",
-      "to": "features/leagues",
-      "count": 1
-    },
-    {
-      "from": "features/comments",
-      "to": "firebase",
-      "count": 4
-    },
-    {
-      "from": "features/dashboard",
-      "to": "app-skal",
-      "count": 1
-    },
-    {
-      "from": "features/dashboard",
-      "to": "context",
-      "count": 1
-    },
-    {
-      "from": "features/dashboard",
-      "to": "lib (kerne)",
-      "count": 3
-    },
-    {
-      "from": "features/dashboard",
-      "to": "features/bonus",
-      "count": 1
-    },
-    {
-      "from": "features/dashboard",
-      "to": "firebase",
-      "count": 1
-    },
-    {
-      "from": "features/games",
-      "to": "lib (kerne)",
-      "count": 65
-    },
-    {
-      "from": "features/games",
-      "to": "components",
-      "count": 13
-    },
-    {
-      "from": "features/games",
-      "to": "context",
-      "count": 12
-    },
-    {
-      "from": "features/games",
-      "to": "firebase",
-      "count": 16
-    },
-    {
-      "from": "features/games",
-      "to": "app-skal",
-      "count": 1
-    },
-    {
-      "from": "features/games",
-      "to": "features/leagues",
-      "count": 1
-    },
-    {
-      "from": "features/leaderboard",
-      "to": "components",
-      "count": 2
-    },
-    {
-      "from": "features/leaderboard",
-      "to": "lib (kerne)",
-      "count": 12
-    },
-    {
-      "from": "features/leaderboard",
-      "to": "features/profile",
-      "count": 1
-    },
-    {
-      "from": "features/leaderboard",
-      "to": "firebase",
-      "count": 4
-    },
-    {
-      "from": "features/leaderboard",
-      "to": "features/stages",
-      "count": 1
-    },
-    {
-      "from": "features/leagues",
-      "to": "features/comments",
-      "count": 1
-    },
-    {
-      "from": "features/leagues",
-      "to": "firebase",
-      "count": 11
-    },
-    {
-      "from": "features/leagues",
-      "to": "lib (kerne)",
-      "count": 16
-    },
-    {
-      "from": "features/leagues",
-      "to": "features/admin",
-      "count": 1
-    },
-    {
-      "from": "features/leagues",
-      "to": "features/bonus",
-      "count": 2
-    },
-    {
-      "from": "features/leagues",
-      "to": "app-skal",
-      "count": 1
-    },
-    {
-      "from": "features/leagues",
-      "to": "features/stages",
-      "count": 2
-    },
-    {
-      "from": "features/live",
-      "to": "app-skal",
-      "count": 1
-    },
-    {
-      "from": "features/live",
-      "to": "firebase",
-      "count": 2
-    },
-    {
-      "from": "features/presence",
-      "to": "lib (kerne)",
-      "count": 2
-    },
-    {
-      "from": "features/presence",
-      "to": "firebase",
-      "count": 1
-    },
-    {
-      "from": "features/profile",
-      "to": "app-skal",
-      "count": 3
-    },
-    {
-      "from": "features/profile",
-      "to": "lib (kerne)",
-      "count": 4
-    },
-    {
-      "from": "features/profile",
-      "to": "firebase",
-      "count": 1
-    },
-    {
-      "from": "features/profile",
-      "to": "features/auth",
-      "count": 1
-    },
-    {
-      "from": "features/reactions",
-      "to": "firebase",
-      "count": 1
-    },
-    {
-      "from": "features/riders",
-      "to": "firebase",
-      "count": 1
-    },
-    {
-      "from": "features/riders",
-      "to": "app-skal",
-      "count": 1
-    },
-    {
-      "from": "features/riders",
-      "to": "lib (kerne)",
-      "count": 1
-    },
-    {
-      "from": "features/stages",
-      "to": "components",
-      "count": 4
-    },
-    {
-      "from": "features/stages",
-      "to": "app-skal",
-      "count": 3
-    },
-    {
-      "from": "features/stages",
-      "to": "context",
-      "count": 1
-    },
-    {
-      "from": "features/stages",
-      "to": "features/leaderboard",
-      "count": 2
-    },
-    {
-      "from": "features/stages",
-      "to": "features/leagues",
-      "count": 1
-    },
-    {
-      "from": "features/stages",
-      "to": "lib (kerne)",
-      "count": 18
-    },
-    {
-      "from": "features/stages",
-      "to": "firebase",
-      "count": 7
-    },
-    {
-      "from": "features/teams",
-      "to": "app-skal",
-      "count": 5
-    },
-    {
-      "from": "features/teams",
-      "to": "features/tour",
-      "count": 1
-    },
-    {
-      "from": "features/teams",
-      "to": "features/riders",
-      "count": 1
-    },
-    {
-      "from": "features/teams",
-      "to": "firebase",
-      "count": 1
-    },
-    {
-      "from": "features/teams",
-      "to": "lib (kerne)",
-      "count": 1
-    },
-    {
-      "from": "features/tour",
-      "to": "components",
-      "count": 3
-    },
-    {
-      "from": "features/tour",
-      "to": "lib (kerne)",
-      "count": 7
-    },
-    {
-      "from": "features/tour",
-      "to": "app-skal",
-      "count": 2
-    },
-    {
-      "from": "features/tour",
-      "to": "firebase",
-      "count": 2
-    },
-    {
-      "from": "app-skal",
-      "to": "features/profile",
-      "count": 1
-    },
-    {
-      "from": "pages",
-      "to": "context",
-      "count": 16
-    },
-    {
-      "from": "pages",
-      "to": "lib (kerne)",
-      "count": 21
-    },
-    {
-      "from": "pages",
-      "to": "features/admin",
-      "count": 18
-    },
-    {
-      "from": "pages",
-      "to": "components",
-      "count": 12
-    },
-    {
-      "from": "pages",
-      "to": "features/bonus",
-      "count": 3
-    },
-    {
-      "from": "pages",
-      "to": "features/leaderboard",
-      "count": 16
-    },
-    {
-      "from": "pages",
-      "to": "features/leagues",
-      "count": 26
-    },
-    {
-      "from": "pages",
-      "to": "features/stages",
-      "count": 31
-    },
-    {
-      "from": "pages",
-      "to": "app-skal",
-      "count": 21
-    },
-    {
-      "from": "pages",
-      "to": "features/live",
-      "count": 3
-    },
-    {
-      "from": "pages",
-      "to": "features/dashboard",
-      "count": 4
-    },
-    {
-      "from": "pages",
-      "to": "features/onboarding",
-      "count": 1
-    },
-    {
-      "from": "pages",
-      "to": "features/games",
-      "count": 23
-    },
-    {
-      "from": "pages",
-      "to": "features/comments",
-      "count": 8
-    },
-    {
-      "from": "pages",
-      "to": "features/auth",
-      "count": 2
-    },
-    {
-      "from": "pages",
-      "to": "firebase",
-      "count": 1
-    },
-    {
-      "from": "pages",
-      "to": "features/profile",
-      "count": 3
-    },
-    {
-      "from": "pages",
-      "to": "features/tour",
-      "count": 9
-    },
-    {
-      "from": "pages",
-      "to": "features/teams",
-      "count": 7
-    }
-  ]
+ "generatedAt": "2026-09-04T14:42:34.442Z",
+ "nodes": [
+  {
+   "id": "firebase",
+   "layer": 0,
+   "files": 1
+  },
+  {
+   "id": "lib (kerne)",
+   "layer": 0,
+   "files": 22
+  },
+  {
+   "id": "Cloud Functions (platform)",
+   "layer": 1,
+   "files": 29
+  },
+  {
+   "id": "Cloud Functions (Tour)",
+   "layer": 1,
+   "files": 19
+  },
+  {
+   "id": "context",
+   "layer": 1,
+   "files": 2
+  },
+  {
+   "id": "components",
+   "layer": 2,
+   "files": 9
+  },
+  {
+   "id": "features/admin",
+   "layer": 2,
+   "files": 33
+  },
+  {
+   "id": "features/auth",
+   "layer": 2,
+   "files": 3
+  },
+  {
+   "id": "features/bonus",
+   "layer": 2,
+   "files": 4
+  },
+  {
+   "id": "features/comments",
+   "layer": 2,
+   "files": 9
+  },
+  {
+   "id": "features/dashboard",
+   "layer": 2,
+   "files": 7
+  },
+  {
+   "id": "features/games",
+   "layer": 2,
+   "files": 59
+  },
+  {
+   "id": "features/leaderboard",
+   "layer": 2,
+   "files": 9
+  },
+  {
+   "id": "features/leagues",
+   "layer": 2,
+   "files": 19
+  },
+  {
+   "id": "features/live",
+   "layer": 2,
+   "files": 6
+  },
+  {
+   "id": "features/onboarding",
+   "layer": 2,
+   "files": 1
+  },
+  {
+   "id": "features/presence",
+   "layer": 2,
+   "files": 2
+  },
+  {
+   "id": "features/profile",
+   "layer": 2,
+   "files": 4
+  },
+  {
+   "id": "features/reactions",
+   "layer": 2,
+   "files": 2
+  },
+  {
+   "id": "features/riders",
+   "layer": 2,
+   "files": 1
+  },
+  {
+   "id": "features/stages",
+   "layer": 2,
+   "files": 13
+  },
+  {
+   "id": "features/teams",
+   "layer": 2,
+   "files": 6
+  },
+  {
+   "id": "features/tour",
+   "layer": 2,
+   "files": 8
+  },
+  {
+   "id": "pages",
+   "layer": 3,
+   "files": 20
+  },
+  {
+   "id": "app-skal",
+   "layer": 4,
+   "files": 2
+  }
+ ],
+ "edges": [
+  {
+   "from": "app-skal",
+   "to": "components",
+   "count": 2
+  },
+  {
+   "from": "app-skal",
+   "to": "context",
+   "count": 2
+  },
+  {
+   "from": "app-skal",
+   "to": "lib (kerne)",
+   "count": 3
+  },
+  {
+   "from": "app-skal",
+   "to": "pages",
+   "count": 9
+  },
+  {
+   "from": "components",
+   "to": "features/profile",
+   "count": 1
+  },
+  {
+   "from": "components",
+   "to": "lib (kerne)",
+   "count": 4
+  },
+  {
+   "from": "components",
+   "to": "context",
+   "count": 3
+  },
+  {
+   "from": "components",
+   "to": "features/admin",
+   "count": 2
+  },
+  {
+   "from": "components",
+   "to": "features/comments",
+   "count": 1
+  },
+  {
+   "from": "components",
+   "to": "features/presence",
+   "count": 1
+  },
+  {
+   "from": "components",
+   "to": "firebase",
+   "count": 1
+  },
+  {
+   "from": "components",
+   "to": "features/stages",
+   "count": 1
+  },
+  {
+   "from": "context",
+   "to": "firebase",
+   "count": 1
+  },
+  {
+   "from": "context",
+   "to": "lib (kerne)",
+   "count": 1
+  },
+  {
+   "from": "context",
+   "to": "features/bonus",
+   "count": 1
+  },
+  {
+   "from": "context",
+   "to": "features/dashboard",
+   "count": 3
+  },
+  {
+   "from": "context",
+   "to": "features/leagues",
+   "count": 1
+  },
+  {
+   "from": "context",
+   "to": "features/stages",
+   "count": 3
+  },
+  {
+   "from": "features/admin",
+   "to": "features/comments",
+   "count": 1
+  },
+  {
+   "from": "features/admin",
+   "to": "features/presence",
+   "count": 1
+  },
+  {
+   "from": "features/admin",
+   "to": "firebase",
+   "count": 17
+  },
+  {
+   "from": "features/admin",
+   "to": "lib (kerne)",
+   "count": 34
+  },
+  {
+   "from": "features/admin",
+   "to": "features/bonus",
+   "count": 1
+  },
+  {
+   "from": "features/admin",
+   "to": "features/games",
+   "count": 19
+  },
+  {
+   "from": "features/admin",
+   "to": "features/leagues",
+   "count": 4
+  },
+  {
+   "from": "features/admin",
+   "to": "context",
+   "count": 1
+  },
+  {
+   "from": "features/admin",
+   "to": "features/riders",
+   "count": 1
+  },
+  {
+   "from": "features/admin",
+   "to": "features/leaderboard",
+   "count": 1
+  },
+  {
+   "from": "features/admin",
+   "to": "components",
+   "count": 3
+  },
+  {
+   "from": "features/admin",
+   "to": "features/stages",
+   "count": 3
+  },
+  {
+   "from": "features/auth",
+   "to": "firebase",
+   "count": 2
+  },
+  {
+   "from": "features/auth",
+   "to": "lib (kerne)",
+   "count": 1
+  },
+  {
+   "from": "features/bonus",
+   "to": "components",
+   "count": 1
+  },
+  {
+   "from": "features/bonus",
+   "to": "firebase",
+   "count": 2
+  },
+  {
+   "from": "features/bonus",
+   "to": "lib (kerne)",
+   "count": 4
+  },
+  {
+   "from": "features/comments",
+   "to": "components",
+   "count": 1
+  },
+  {
+   "from": "features/comments",
+   "to": "features/leagues",
+   "count": 1
+  },
+  {
+   "from": "features/comments",
+   "to": "features/reactions",
+   "count": 1
+  },
+  {
+   "from": "features/comments",
+   "to": "lib (kerne)",
+   "count": 7
+  },
+  {
+   "from": "features/comments",
+   "to": "firebase",
+   "count": 4
+  },
+  {
+   "from": "features/dashboard",
+   "to": "context",
+   "count": 1
+  },
+  {
+   "from": "features/dashboard",
+   "to": "lib (kerne)",
+   "count": 3
+  },
+  {
+   "from": "features/dashboard",
+   "to": "features/bonus",
+   "count": 1
+  },
+  {
+   "from": "features/dashboard",
+   "to": "firebase",
+   "count": 1
+  },
+  {
+   "from": "features/games",
+   "to": "lib (kerne)",
+   "count": 65
+  },
+  {
+   "from": "features/games",
+   "to": "components",
+   "count": 13
+  },
+  {
+   "from": "features/games",
+   "to": "context",
+   "count": 12
+  },
+  {
+   "from": "features/games",
+   "to": "firebase",
+   "count": 16
+  },
+  {
+   "from": "features/games",
+   "to": "features/leagues",
+   "count": 1
+  },
+  {
+   "from": "features/leaderboard",
+   "to": "components",
+   "count": 2
+  },
+  {
+   "from": "features/leaderboard",
+   "to": "features/profile",
+   "count": 1
+  },
+  {
+   "from": "features/leaderboard",
+   "to": "lib (kerne)",
+   "count": 12
+  },
+  {
+   "from": "features/leaderboard",
+   "to": "features/stages",
+   "count": 1
+  },
+  {
+   "from": "features/leaderboard",
+   "to": "firebase",
+   "count": 4
+  },
+  {
+   "from": "features/leagues",
+   "to": "features/comments",
+   "count": 1
+  },
+  {
+   "from": "features/leagues",
+   "to": "features/admin",
+   "count": 1
+  },
+  {
+   "from": "features/leagues",
+   "to": "features/bonus",
+   "count": 2
+  },
+  {
+   "from": "features/leagues",
+   "to": "firebase",
+   "count": 11
+  },
+  {
+   "from": "features/leagues",
+   "to": "lib (kerne)",
+   "count": 16
+  },
+  {
+   "from": "features/leagues",
+   "to": "features/stages",
+   "count": 2
+  },
+  {
+   "from": "features/live",
+   "to": "firebase",
+   "count": 2
+  },
+  {
+   "from": "features/presence",
+   "to": "lib (kerne)",
+   "count": 2
+  },
+  {
+   "from": "features/presence",
+   "to": "firebase",
+   "count": 1
+  },
+  {
+   "from": "features/profile",
+   "to": "lib (kerne)",
+   "count": 4
+  },
+  {
+   "from": "features/profile",
+   "to": "features/auth",
+   "count": 1
+  },
+  {
+   "from": "features/profile",
+   "to": "firebase",
+   "count": 1
+  },
+  {
+   "from": "features/reactions",
+   "to": "firebase",
+   "count": 1
+  },
+  {
+   "from": "features/riders",
+   "to": "firebase",
+   "count": 1
+  },
+  {
+   "from": "features/riders",
+   "to": "lib (kerne)",
+   "count": 1
+  },
+  {
+   "from": "features/stages",
+   "to": "components",
+   "count": 4
+  },
+  {
+   "from": "features/stages",
+   "to": "context",
+   "count": 1
+  },
+  {
+   "from": "features/stages",
+   "to": "features/leaderboard",
+   "count": 2
+  },
+  {
+   "from": "features/stages",
+   "to": "features/leagues",
+   "count": 1
+  },
+  {
+   "from": "features/stages",
+   "to": "lib (kerne)",
+   "count": 18
+  },
+  {
+   "from": "features/stages",
+   "to": "firebase",
+   "count": 7
+  },
+  {
+   "from": "features/teams",
+   "to": "features/riders",
+   "count": 1
+  },
+  {
+   "from": "features/teams",
+   "to": "features/tour",
+   "count": 1
+  },
+  {
+   "from": "features/teams",
+   "to": "firebase",
+   "count": 1
+  },
+  {
+   "from": "features/teams",
+   "to": "lib (kerne)",
+   "count": 1
+  },
+  {
+   "from": "features/tour",
+   "to": "components",
+   "count": 3
+  },
+  {
+   "from": "features/tour",
+   "to": "lib (kerne)",
+   "count": 7
+  },
+  {
+   "from": "features/tour",
+   "to": "firebase",
+   "count": 2
+  },
+  {
+   "from": "app-skal",
+   "to": "features/profile",
+   "count": 1
+  },
+  {
+   "from": "pages",
+   "to": "components",
+   "count": 12
+  },
+  {
+   "from": "pages",
+   "to": "context",
+   "count": 16
+  },
+  {
+   "from": "pages",
+   "to": "features/admin",
+   "count": 18
+  },
+  {
+   "from": "pages",
+   "to": "lib (kerne)",
+   "count": 21
+  },
+  {
+   "from": "pages",
+   "to": "features/bonus",
+   "count": 3
+  },
+  {
+   "from": "pages",
+   "to": "features/leaderboard",
+   "count": 16
+  },
+  {
+   "from": "pages",
+   "to": "features/leagues",
+   "count": 26
+  },
+  {
+   "from": "pages",
+   "to": "features/dashboard",
+   "count": 4
+  },
+  {
+   "from": "pages",
+   "to": "features/live",
+   "count": 3
+  },
+  {
+   "from": "pages",
+   "to": "features/onboarding",
+   "count": 1
+  },
+  {
+   "from": "pages",
+   "to": "features/stages",
+   "count": 31
+  },
+  {
+   "from": "pages",
+   "to": "features/games",
+   "count": 23
+  },
+  {
+   "from": "pages",
+   "to": "features/comments",
+   "count": 8
+  },
+  {
+   "from": "pages",
+   "to": "features/auth",
+   "count": 2
+  },
+  {
+   "from": "pages",
+   "to": "firebase",
+   "count": 1
+  },
+  {
+   "from": "pages",
+   "to": "features/profile",
+   "count": 3
+  },
+  {
+   "from": "pages",
+   "to": "features/tour",
+   "count": 9
+  },
+  {
+   "from": "pages",
+   "to": "features/teams",
+   "count": 7
+  }
+ ],
+ "filer": [
+  {
+   "id": "functions-platform/adminDeleteUser.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/broadcastImage.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/chanceVagt.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/driftlog.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/forladSpil.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/gameLeagues.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/gameRecap.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/gameScoring.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/index.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/inviteTemplate.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/kampDetaljer.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/leagueQuestionRecap.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/leagueQuestionScoring.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/ligaPoint.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/liveMaal.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/livescoreHold.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/mailMarkdown.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/mailer.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/paamindelsesGate.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/playerLeagues.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/pointOpdeling.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/reminders.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/rensTekst.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/seedFootball.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/startGate.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/superligaScoring.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/superligaSync.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/syncProviders.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions-platform/vitest.config.js",
+   "gruppe": "Cloud Functions (platform)"
+  },
+  {
+   "id": "functions/index.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/invites.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/leagueBonus.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/leagueRecap.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/liveMap.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/liveTicker.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/pcsMapping.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/riderTagCanon.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/riderTags.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/salesPitch.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/stageTimes.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/stageTip.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/startlistSync.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/thankYouEmail.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/tourScoring.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/tourSummary.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/tourSync.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/tourTeams.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "functions/vitest.config.js",
+   "gruppe": "Cloud Functions (Tour)"
+  },
+  {
+   "id": "src/App.jsx",
+   "gruppe": "app-skal"
+  },
+  {
+   "id": "src/components/Avatar.jsx",
+   "gruppe": "components"
+  },
+  {
+   "id": "src/components/ClubBadge.jsx",
+   "gruppe": "components"
+  },
+  {
+   "id": "src/components/CountUp.jsx",
+   "gruppe": "components"
+  },
+  {
+   "id": "src/components/Hero.jsx",
+   "gruppe": "components"
+  },
+  {
+   "id": "src/components/Layout.jsx",
+   "gruppe": "components"
+  },
+  {
+   "id": "src/components/PointRules.jsx",
+   "gruppe": "components"
+  },
+  {
+   "id": "src/components/ProtectedRoute.jsx",
+   "gruppe": "components"
+  },
+  {
+   "id": "src/components/ScrollRaekke.jsx",
+   "gruppe": "components"
+  },
+  {
+   "id": "src/components/TeamBadge.jsx",
+   "gruppe": "components"
+  },
+  {
+   "id": "src/context/AuthContext.jsx",
+   "gruppe": "context"
+  },
+  {
+   "id": "src/context/TasksContext.jsx",
+   "gruppe": "context"
+  },
+  {
+   "id": "src/features/admin/ActivityTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/BonusTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/BroadcastTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/DepGraph.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/DriftTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/EmailLogTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/FladeDaekning.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/GameLeagueMembersTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/GameRecapBotTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/GameReminderTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/GameScheduleTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/LeaguesAdminTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/RiderProfilesTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/RunbookTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/SettingsTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/TeamNameAudit.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/TeamStylesTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/TestsTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/TourTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/UserRow.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/UsersTab.jsx",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/adminActions.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/broadcastUtils.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/legacyResults.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/regelbrev.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/teamNameAudit.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/teamStylesOverrides.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/useBonusQuestions.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/useDriftStatus.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/useEmailLog.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/useGameRounds.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/usePendingApprovals.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/admin/useUsers.js",
+   "gruppe": "features/admin"
+  },
+  {
+   "id": "src/features/auth/firebaseErrors.js",
+   "gruppe": "features/auth"
+  },
+  {
+   "id": "src/features/auth/inviteActions.js",
+   "gruppe": "features/auth"
+  },
+  {
+   "id": "src/features/auth/useAuthActions.js",
+   "gruppe": "features/auth"
+  },
+  {
+   "id": "src/features/bonus/BonusAnswers.jsx",
+   "gruppe": "features/bonus"
+  },
+  {
+   "id": "src/features/bonus/BonusQuestion.jsx",
+   "gruppe": "features/bonus"
+  },
+  {
+   "id": "src/features/bonus/bonusHelpers.js",
+   "gruppe": "features/bonus"
+  },
+  {
+   "id": "src/features/bonus/useBonusData.js",
+   "gruppe": "features/bonus"
+  },
+  {
+   "id": "src/features/comments/EmojiPicker.jsx",
+   "gruppe": "features/comments"
+  },
+  {
+   "id": "src/features/comments/LeagueWall.jsx",
+   "gruppe": "features/comments"
+  },
+  {
+   "id": "src/features/comments/commentActions.js",
+   "gruppe": "features/comments"
+  },
+  {
+   "id": "src/features/comments/contactLeagues.js",
+   "gruppe": "features/comments"
+  },
+  {
+   "id": "src/features/comments/dmRead.js",
+   "gruppe": "features/comments"
+  },
+  {
+   "id": "src/features/comments/formatTimestamp.js",
+   "gruppe": "features/comments"
+  },
+  {
+   "id": "src/features/comments/useLeagueComments.js",
+   "gruppe": "features/comments"
+  },
+  {
+   "id": "src/features/comments/useMessages.js",
+   "gruppe": "features/comments"
+  },
+  {
+   "id": "src/features/comments/useUnreadMessages.js",
+   "gruppe": "features/comments"
+  },
+  {
+   "id": "src/features/dashboard/MiniStandings.jsx",
+   "gruppe": "features/dashboard"
+  },
+  {
+   "id": "src/features/dashboard/MyStatsCard.jsx",
+   "gruppe": "features/dashboard"
+  },
+  {
+   "id": "src/features/dashboard/RecentResultsCard.jsx",
+   "gruppe": "features/dashboard"
+  },
+  {
+   "id": "src/features/dashboard/TodoCard.jsx",
+   "gruppe": "features/dashboard"
+  },
+  {
+   "id": "src/features/dashboard/dashboardStats.js",
+   "gruppe": "features/dashboard"
+  },
+  {
+   "id": "src/features/dashboard/dashboardTasks.js",
+   "gruppe": "features/dashboard"
+  },
+  {
+   "id": "src/features/dashboard/useLeagueBonusTasks.js",
+   "gruppe": "features/dashboard"
+  },
+  {
+   "id": "src/features/games/GameLayout.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/GameLeagues.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/GameProfile.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/GameStandings.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/GameTabLink.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/LeagueQuestions.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/Pokaler.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/betActions.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/EloDelta.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/EloTable.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/FootballHelp.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/FootballTable.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/FootballTip.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/HoldSide.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/HoldXgListe.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/Indbyrdes.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/LeagueBets.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/MatchElo.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/MyTips.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/PointOpdeling.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/PuljeAfsloering.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/PuljeTip.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/SpillerDetalje.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/TipsHistorik.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/TroejeOversigt.jsx",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/badges.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/chanceKvittering.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/eloHistory.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/footballRounds.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/h2h.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/holdStatistik.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/maalRaekke.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/puljeAfsloering.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/teamInfo.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/tipsHistory.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/useKlubFarver.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/useMatchLeagueBets.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/useSpillerOpdeling.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/visningsnavn.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/football/xgRunde.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/forladTekst.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/gameActions.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/gameLeagueActions.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/gameStandings.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/leagueQuestionScoring.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/rundePoint.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/rundeSejre.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/spilEvner.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useGame.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useGameBets.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useGameLeagues.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useGamePlayerUids.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useGameStandings.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useGames.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useLeagueMessages.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useLeagueQuestions.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useMyLeaguesAcrossGames.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useSpilTema.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/games/useVisibleGameStandings.js",
+   "gruppe": "features/games"
+  },
+  {
+   "id": "src/features/leaderboard/BreakdownTable.jsx",
+   "gruppe": "features/leaderboard"
+  },
+  {
+   "id": "src/features/leaderboard/StandingsTable.jsx",
+   "gruppe": "features/leaderboard"
+  },
+  {
+   "id": "src/features/leaderboard/ThemeToggle.jsx",
+   "gruppe": "features/leaderboard"
+  },
+  {
+   "id": "src/features/leaderboard/standingsBreakdown.js",
+   "gruppe": "features/leaderboard"
+  },
+  {
+   "id": "src/features/leaderboard/standingsUtils.js",
+   "gruppe": "features/leaderboard"
+  },
+  {
+   "id": "src/features/leaderboard/useDailyStandings.js",
+   "gruppe": "features/leaderboard"
+  },
+  {
+   "id": "src/features/leaderboard/useStandings.js",
+   "gruppe": "features/leaderboard"
+  },
+  {
+   "id": "src/features/leaderboard/useStandingsBreakdown.js",
+   "gruppe": "features/leaderboard"
+  },
+  {
+   "id": "src/features/leaderboard/useUntippedPenalty.js",
+   "gruppe": "features/leaderboard"
+  },
+  {
+   "id": "src/features/leagues/LeagueActivity.jsx",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/LeagueAwards.jsx",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/LeagueBonus.jsx",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/LeagueTipCounter.jsx",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/activityActions.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/joinLink.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/leagueActions.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/leagueAwardActions.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/leagueAwards.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/leagueBonusActions.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/leagueBonusScoring.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/leagueFormat.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/leagueUtils.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/useAllLeagues.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/useLeagueActivity.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/useLeagueAwards.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/useLeagueBonus.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/useLeagues.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/leagues/useTipParticipation.js",
+   "gruppe": "features/leagues"
+  },
+  {
+   "id": "src/features/live/LiveMapCard.jsx",
+   "gruppe": "features/live"
+  },
+  {
+   "id": "src/features/live/LiveTicker.jsx",
+   "gruppe": "features/live"
+  },
+  {
+   "id": "src/features/live/liveMapUtils.js",
+   "gruppe": "features/live"
+  },
+  {
+   "id": "src/features/live/liveTickerUtils.js",
+   "gruppe": "features/live"
+  },
+  {
+   "id": "src/features/live/useLiveMap.js",
+   "gruppe": "features/live"
+  },
+  {
+   "id": "src/features/live/useLiveTicker.js",
+   "gruppe": "features/live"
+  },
+  {
+   "id": "src/features/onboarding/OnboardingChecklist.jsx",
+   "gruppe": "features/onboarding"
+  },
+  {
+   "id": "src/features/presence/presence.js",
+   "gruppe": "features/presence"
+  },
+  {
+   "id": "src/features/presence/usePresenceBeacon.js",
+   "gruppe": "features/presence"
+  },
+  {
+   "id": "src/features/profile/AccountSection.jsx",
+   "gruppe": "features/profile"
+  },
+  {
+   "id": "src/features/profile/TeamThemePicker.jsx",
+   "gruppe": "features/profile"
+  },
+  {
+   "id": "src/features/profile/avatarUtils.js",
+   "gruppe": "features/profile"
+  },
+  {
+   "id": "src/features/profile/profileActions.js",
+   "gruppe": "features/profile"
+  },
+  {
+   "id": "src/features/reactions/Reactions.jsx",
+   "gruppe": "features/reactions"
+  },
+  {
+   "id": "src/features/reactions/reactionActions.js",
+   "gruppe": "features/reactions"
+  },
+  {
+   "id": "src/features/riders/useRiderProfiles.js",
+   "gruppe": "features/riders"
+  },
+  {
+   "id": "src/features/stages/ClassementsCard.jsx",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/StageAnswers.jsx",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/StageCard.jsx",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/applyPicksToOpenStages.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/previousPicks.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/similarPicks.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/stageAnswerRows.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/useActiveSeason.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/useMyStageBets.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/useStageBets.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/useStages.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/useTeams.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/stages/useTourSettings.js",
+   "gruppe": "features/stages"
+  },
+  {
+   "id": "src/features/teams/RiderSearch.jsx",
+   "gruppe": "features/teams"
+  },
+  {
+   "id": "src/features/teams/RiderTypeExplorer.jsx",
+   "gruppe": "features/teams"
+  },
+  {
+   "id": "src/features/teams/riderName.js",
+   "gruppe": "features/teams"
+  },
+  {
+   "id": "src/features/teams/riderSearch.js",
+   "gruppe": "features/teams"
+  },
+  {
+   "id": "src/features/teams/riderTypeStats.js",
+   "gruppe": "features/teams"
+  },
+  {
+   "id": "src/features/teams/useStartlist.js",
+   "gruppe": "features/teams"
+  },
+  {
+   "id": "src/features/tour/GameCompetitions.jsx",
+   "gruppe": "features/tour"
+  },
+  {
+   "id": "src/features/tour/StandingsTable.jsx",
+   "gruppe": "features/tour"
+  },
+  {
+   "id": "src/features/tour/TourRiderSearch.jsx",
+   "gruppe": "features/tour"
+  },
+  {
+   "id": "src/features/tour/gameCompetitions.js",
+   "gruppe": "features/tour"
+  },
+  {
+   "id": "src/features/tour/tippedTeams.js",
+   "gruppe": "features/tour"
+  },
+  {
+   "id": "src/features/tour/tourRiderSearch.js",
+   "gruppe": "features/tour"
+  },
+  {
+   "id": "src/features/tour/useClassifications.js",
+   "gruppe": "features/tour"
+  },
+  {
+   "id": "src/features/tour/useLeagueTippedTeams.js",
+   "gruppe": "features/tour"
+  },
+  {
+   "id": "src/firebase.js",
+   "gruppe": "firebase"
+  },
+  {
+   "id": "src/lib/accentTema.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/constants.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/contrastText.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/daDate.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/daNum.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/farveMode.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/ligaPoint.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/mailMarkdown.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/medlem.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/pcsMapping.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/platform.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/pointOpdeling.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/riderTagCanon.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/scoring.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/seedFootball.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/share.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/startGate.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/superligaScoring.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/superligaSeed.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/tourScoring.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/tourStages.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/lib/tourTeams.js",
+   "gruppe": "lib (kerne)"
+  },
+  {
+   "id": "src/main.jsx",
+   "gruppe": "app-skal"
+  },
+  {
+   "id": "src/pages/AdminPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/BonusPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/DashboardPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/GamePage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/GamesPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/HelpPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/JoinPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/LeaderboardPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/LeaguesPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/LoginPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/MessagesPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/MyBetsPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/NotFoundPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/PendingPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/ProfilePage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/StagePresentationPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/StagesPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/TeamPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/TeamsPage.jsx",
+   "gruppe": "pages"
+  },
+  {
+   "id": "src/pages/TourPage.jsx",
+   "gruppe": "pages"
+  }
+ ],
+ "filKanter": [
+[0,4],[2,25],[4,2],[5,4],[6,4],[6,13],[6,20],[6,22],[6,24],[6,25],[7,4],[7,20],[7,24],[7,25],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,5],[8,6],[8,7],[8,9],[8,10],[8,11],[8,14],[8,17],[8,18],[8,19],[8,21],[8,25],[8,26],[8,27],[9,25],[9,25],[10,15],[10,22],[11,6],[11,12],[11,22],[14,10],[14,10],[14,26],[14,27],[17,16],[20,25],[21,4],[21,17],[21,20],[21,24],[24,20],[26,3],[26,20],[26,23],[26,27],[27,23],[29,30],[29,31],[29,32],[29,33],[29,34],[29,35],[29,37],[29,38],[29,39],[29,40],[29,41],[29,42],[29,43],[29,44],[29,45],[31,43],[37,36],[40,43],[42,32],[43,46],[45,35],[45,43],[45,46],[48,53],[48,55],[48,59],[48,257],[48,273],[48,274],[48,275],[48,276],[48,279],[48,280],[48,282],[48,283],[48,284],[49,214],[49,249],[49,257],[50,249],[53,49],[53,56],[53,58],[53,59],[53,88],[53,91],[53,108],[53,211],[53,246],[53,257],[54,231],[55,58],[58,246],[58,248],[59,58],[59,99],[59,113],[59,114],[59,115],[59,201],[59,226],[59,227],[59,229],[60,92],[60,105],[60,210],[60,246],[60,248],[61,81],[61,87],[61,98],[61,248],[62,81],[62,82],[62,83],[62,84],[62,92],[62,166],[62,167],[62,169],[62,189],[62,197],[62,248],[62,254],[62,257],[64,88],[64,163],[64,169],[64,246],[64,250],[65,81],[65,89],[67,81],[67,169],[68,81],[68,169],[68,248],[69,81],[69,144],[69,157],[69,163],[69,169],[69,246],[69,248],[69,250],[69,263],[70,81],[70,90],[70,157],[70,163],[70,169],[70,248],[70,250],[70,251],[70,263],[71,58],[71,92],[71,190],[71,197],[71,248],[72,218],[72,246],[72,259],[74,81],[74,183],[74,246],[74,248],[74,257],[75,85],[75,246],[75,248],[76,50],[76,86],[76,154],[76,157],[76,169],[76,246],[76,248],[77,56],[77,63],[77,66],[78,75],[78,81],[78,226],[78,229],[78,231],[78,246],[78,248],[78,266],[79,49],[79,81],[79,246],[79,248],[79,257],[80,79],[80,81],[80,92],[80,248],[81,246],[81,248],[83,246],[84,251],[84,264],[85,268],[86,154],[87,246],[87,248],[88,246],[88,248],[89,246],[89,248],[90,144],[90,246],[91,246],[91,248],[92,246],[92,248],[94,246],[95,93],[95,246],[95,248],[96,49],[96,98],[96,99],[97,96],[97,98],[97,246],[97,248],[98,248],[98,248],[99,246],[99,248],[101,49],[101,100],[101,102],[101,105],[101,106],[101,188],[101,216],[101,248],[102,246],[102,248],[102,257],[105,248],[106,246],[106,248],[107,102],[107,246],[107,248],[108,104],[108,246],[108,248],[110,113],[111,113],[112,59],[113,266],[113,267],[114,98],[115,114],[115,246],[115,248],[116,173],[116,248],[116,251],[117,49],[117,58],[117,116],[117,121],[117,151],[117,158],[117,159],[117,160],[117,166],[117,168],[117,170],[117,171],[117,250],[117,253],[118,49],[118,50],[118,58],[118,140],[118,141],[118,149],[118,151],[118,157],[118,173],[119,49],[119,58],[119,116],[119,120],[119,122],[119,135],[119,138],[119,151],[119,159],[119,161],[119,174],[119,248],[119,251],[119,253],[121,149],[121,158],[121,160],[121,250],[121,262],[122,162],[122,251],[123,246],[123,248],[123,264],[125,50],[125,120],[125,124],[125,143],[125,149],[126,120],[126,135],[126,163],[126,251],[126,253],[126,264],[127,50],[127,120],[127,149],[127,264],[128,50],[128,51],[128,116],[128,120],[128,123],[128,132],[128,133],[128,141],[128,142],[128,143],[128,144],[128,147],[128,149],[128,150],[128,155],[128,159],[128,161],[128,165],[128,174],[128,250],[128,251],[128,253],[128,258],[128,262],[128,263],[128,264],[129,50],[129,143],[129,146],[129,149],[129,251],[130,50],[130,120],[130,146],[130,149],[130,251],[131,145],[131,149],[131,153],[131,251],[132,120],[132,146],[132,152],[132,251],[133,120],[133,124],[134,120],[134,139],[134,144],[134,149],[134,150],[134,165],[134,263],[135,116],[135,251],[136,50],[136,148],[136,246],[136,248],[136,251],[137,50],[137,58],[137,136],[137,144],[137,149],[137,157],[137,168],[137,246],[137,248],[137,250],[137,251],[137,253],[137,264],[138,131],[138,139],[138,144],[138,149],[138,150],[138,153],[138,263],[139,135],[139,149],[139,250],[139,251],[140,50],[140,120],[140,141],[140,149],[140,249],[141,149],[141,247],[141,249],[144,258],[146,264],[148,264],[149,154],[150,258],[150,264],[151,141],[151,149],[152,246],[152,248],[153,246],[153,248],[156,251],[157,246],[157,248],[158,160],[158,196],[158,246],[158,248],[162,253],[164,58],[164,246],[164,248],[164,255],[165,58],[165,246],[165,248],[166,58],[166,246],[166,248],[167,246],[167,248],[168,58],[168,159],[168,166],[168,246],[168,248],[169,58],[169,246],[169,248],[170,246],[170,248],[171,58],[171,246],[171,248],[172,58],[172,169],[172,246],[172,248],[173,141],[173,149],[173,247],[173,252],[174,58],[174,159],[174,168],[175,49],[175,178],[175,179],[176,49],[176,179],[177,213],[177,252],[178,266],[179,248],[179,266],[179,267],[180,179],[180,226],[180,246],[180,248],[180,267],[181,179],[181,246],[181,248],[182,178],[182,246],[182,248],[182,267],[183,246],[183,248],[183,266],[184,105],[184,188],[184,198],[185,87],[185,98],[185,191],[185,246],[185,248],[186,98],[186,193],[186,194],[186,248],[187,202],[187,226],[187,229],[187,267],[188,246],[188,248],[190,195],[190,196],[190,246],[190,248],[191,192],[191,246],[191,248],[193,246],[193,248],[194,248],[194,260],[195,248],[197,246],[197,248],[198,246],[198,248],[199,192],[199,246],[199,248],[200,194],[200,246],[200,248],[201,246],[201,248],[202,246],[202,248],[203,205],[203,207],[204,206],[204,208],[207,246],[208,246],[210,248],[211,210],[211,246],[211,248],[212,215],[213,247],[213,252],[215,93],[215,246],[215,248],[215,257],[216,217],[217,246],[218,246],[218,259],[219,57],[220,49],[220,57],[220,58],[220,179],[220,181],[220,201],[220,225],[220,228],[220,266],[221,57],[221,220],[221,246],[221,248],[221,266],[221,267],[221,268],[222,246],[222,248],[222,266],[222,267],[223,266],[224,266],[225,266],[226,246],[226,248],[226,267],[227,246],[227,248],[228,246],[228,248],[229,246],[229,248],[231,246],[231,248],[231,266],[232,235],[233,218],[233,236],[233,244],[235,234],[237,246],[237,248],[238,57],[238,241],[238,266],[238,268],[239,57],[239,268],[240,57],[240,243],[241,266],[242,268],[244,246],[244,248],[245,242],[245,246],[245,248],[247,249],[258,264],[261,265],[263,258],[265,264],[266,268],[269,48],[269,58],[269,213],[269,252],[269,257],[270,56],[270,58],[270,60],[270,61],[270,62],[270,64],[270,65],[270,67],[270,68],[270,69],[270,70],[270,71],[270,72],[270,73],[270,74],[270,76],[270,77],[270,78],[270,80],[270,257],[271,58],[271,97],[271,98],[271,99],[271,179],[271,181],[271,201],[272,52],[272,58],[272,109],[272,110],[272,111],[272,112],[272,179],[272,181],[272,201],[272,203],[272,204],[272,206],[272,209],[272,220],[272,221],[272,226],[272,227],[272,229],[272,230],[272,231],[272,267],[273,56],[273,58],[273,116],[273,117],[273,118],[273,119],[273,120],[273,125],[273,126],[273,127],[273,128],[273,129],[273,130],[273,134],[273,137],[273,157],[273,163],[273,164],[273,248],[274,58],[274,156],[274,157],[274,169],[274,248],[275,54],[275,169],[275,248],[275,257],[275,264],[276,58],[276,158],[276,188],[276,189],[276,190],[276,248],[276,257],[277,58],[277,175],[277,176],[277,179],[277,180],[277,181],[277,182],[277,195],[277,199],[277,200],[277,201],[277,226],[277,229],[277,231],[278,58],[278,59],[278,81],[278,101],[278,176],[278,179],[278,181],[278,184],[278,185],[278,186],[278,187],[278,188],[278,189],[278,190],[278,195],[278,196],[278,197],[278,199],[278,200],[278,201],[279,58],[279,95],[279,189],[279,257],[280,49],[280,58],[280,100],[280,102],[280,103],[280,104],[280,105],[280,107],[280,172],[280,181],[280,201],[280,257],[281,58],[281,226],[281,227],[281,229],[281,231],[281,266],[281,267],[283,58],[283,94],[283,158],[283,189],[283,246],[283,248],[283,257],[284,49],[284,58],[284,100],[284,177],[284,212],[284,213],[284,215],[284,257],[285,52],[285,220],[285,226],[285,229],[285,231],[285,238],[285,239],[285,266],[285,267],[286,52],[286,58],[286,219],[286,221],[286,222],[286,223],[286,224],[286,226],[286,227],[286,229],[286,230],[286,231],[286,266],[286,267],[287,52],[287,234],[287,236],[287,237],[287,244],[287,249],[288,52],[288,232],[288,233],[288,235],[288,237],[289,52],[289,57],[289,58],[289,179],[289,201],[289,226],[289,227],[289,231],[289,238],[289,239],[289,240],[289,242],[289,244],[289,245]
+]
 }

@@ -1198,3 +1198,60 @@ Miljønoter: worktree'en havde intet `node_modules` for hverken roden eller
 oprydning). Værd at tjekke FØR man antager en fejlende test skyldes selve
 ændringen: `MODULE_NOT_FOUND` på `nodemailer` i `mailer.js` var et rent
 miljøproblem, ikke et testfund.
+
+## Afhængighedsdiagrammet interaktivt — DepGraph.jsx + build-dep-graph.mjs (commit c96d6cc, sep. 2026)
+
+- **En layout-funktions EGEN filtrering kan være redundant, fordi en
+  SEPARAT filtrering i samme komponent allerede skjuler resultatet.**
+  `blokkeUdfoldet` (`src/features/admin/DepGraph.jsx`) beregner selv
+  `naboer = graf.nodes.filter((n) => u.naboer.has(n.id))` til layoutet — men
+  den kasse-liste, der rent faktisk RENDERES, filtreres SEPARAT i
+  komponentens `useMemo` (`graf.nodes.filter((n) => u.naboer.has(n.id))`,
+  samme betingelse, andet sted). Mutationsbevist: at ændre
+  `blokkeUdfoldet`s egen `naboer`-linje til `graf.nodes.filter((n) => n.id
+  !== gruppe)` (dvs. layoutet regner positioner for ALLE grupper, ikke kun
+  naboer) lader alle 28 tests forblive grønne — for de ekstra positioner har
+  ingen tilsvarende kasse i den rendrede liste, så de er usynlige `pos[id]`-
+  indgange uden effekt på det, testene kan se (kasse-liste, panel-tekst,
+  interne-kanter). Ingen test sammenligner faktiske x/y-koordinater for en
+  synlig nabo før/efter denne mutation. IKKE blokerende i sig selv (ingen
+  synlig fejl i produktion, siden dobbelt-filtreringen tilfældigvis er
+  konsistent lige nu), men et skrøbeligt mønster: fjernes komponentens egen
+  `u.naboer`-filter i stedet (en anden linje), ville layoutet OGSÅ vise
+  falske naboer — men DEN mutation blev ikke testet isoleret her. Tjek næste
+  gang to steder filtrerer på samme betingelse: findes der ÉT sted, testen
+  reelt binder sig til (her: layout-positionerne selv, ikke kun kasse-listen)?
+- **To uafhængige tastatur-håndteringer for samme tast (Escape) på
+  forskellige DOM-niveauer kan skjule, at den inderste er tom.**
+  `onKasseKey` (på hver `<g data-testid="dep-kasse">`) håndterer Escape, MEN
+  det gør `<svg data-testid="dep-svg" onKeyDown>` også — og native
+  keydown-events bobler, så React's event-system rammer begge. Mutationsbevist:
+  at fjerne Escape-grenen fra `onKasseKey` HELT lader testen
+  `fireEvent.keyDown(kasse('pages'), { key: 'Escape' })` forblive grøn (28/28),
+  fordi eventet bobler op til SVG'ens handler, som selv kalder `visAlt()`.
+  Modsat: Enter/Space i `onKasseKey` ER unikt dækket (ingen SVG-niveau
+  fallback for dem) — fjern Space alene, og testen dør. Ikke en fejl (ingen
+  af de to Escape-veje er forkerte — det er bevidst dobbelt-dækning, ikke
+  "Én vagt pr. sikkerhedsregel"-brud, for det er ikke en sikkerheds-vagt),
+  men selve `onKasseKey`s Escape-gren er reelt udækket som isoleret kode.
+- **Positiv/negativ betydningsomvending i en genereret sætning FANGES,
+  når testen binder sig til den fulde sætning via `toHaveTextContent` —
+  modsat CLAUDE.md's advarselseksempel.** `Panel`s tekst
+  `Ingen af filerne i ${gruppe} importerer hinanden` (ingen interne kanter)
+  vs. `${n} interne forbindelser: filerne … importerer hinanden` (nogen).
+  Mutationsbevist: at bytte den NEGATIVE sætning til en POSITIV (`Filerne i
+  ${gruppe} importerer hinanden.`) gør testen rød — modsat "en test der kun
+  tjekker at noget blev VIST" i CLAUDE.md, er dette et positivt eksempel:
+  `toHaveTextContent('Ingen af filerne i pages importerer hinanden')` binder
+  sig til NOK af sætningen (inkl. "Ingen"), at en betydnings-vending fanges.
+  God praksis værd at genbruge: match ikke kun et nøgleord, men den del af
+  sætningen, der bærer selve negationen/kvantoren.
+- **Alt kerne-materiale i denne PR var mutationsbevist: fremhaevning (ud/ind),
+  fokus-filtrering af kanter, kasseDaempet, fokus-layout-stabilitet (ingen
+  omberegning), udfoldning.interne, filKanterFor-dedup, bygGraf's require-match
+  og test-fil-udelukkelse, aggregerKanter's samme-gruppe-udelukkelse, og
+  tilbage() vs. visAlt() var alle RØDE ved mutation.** Ingen overraskelser i
+  selve kernepåstanden (fil-niveau → gruppe-niveau afledning, fokus/udfoldning-
+  mekanikken) — kun de to randfund ovenfor (blokkeUdfoldet-layoutets egen
+  filtrering og onKasseKey's Escape-gren) var reelt udækkede, og begge er
+  lavrisiko (skjult af en ANDEN, korrekt fungerende vagt et andet sted).

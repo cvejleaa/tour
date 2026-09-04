@@ -75,6 +75,56 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
 - **Et symptom, en alarmtekst citerer ("spilleren ser X"), skal spores til den
   faktiske render-betingelse i klienten.**
 
+- **Interaktivitet gør en flades latente løgne synlige.** Et statisk diagram
+  kan bære en dekorativ kasse i årevis; i det øjeblik man kan KLIKKE på den,
+  forlanger den et panel med indhold. Gennemgå datakilden FØR interaktionen:
+  «Cloud Functions» var én fil og NUL kanter (filtret pegede på filer, der ikke
+  fandtes mere, og `require()` blev ikke matchet af import-regexen), mens 21
+  pile op til «app-skal» i virkeligheden var imports af `src/data/*`, som
+  gruppetabellens tavse fallback mislabelede. Samme fane navngav i forvejen
+  omhyggeligt BEGGE servere (`TestsTab.jsx` `AREA_LABELS`) — den ene
+  underfane gentog altså præcis den fejl, nabo-underfanen var rettet for.
+- **En layoutfunktion, der placerer efter INDEX i en liste, kan ikke bære en
+  filtrering.** `DepGraph.jsx` `computeLayout` fordeler pr. lag i rækker à 7;
+  fjernes ikke-naboer i en «fokus»-visning, flytter alle tilbageværende kasser,
+  og hvert naboklik omarrangerer billedet. Fokus skal MASKERE (behold
+  positionerne, sluk indholdet), ikke omberegne. Efterprøv desuden, om fokus
+  overhovedet reducerer: nav-kasserne havde 18-19 naboer ud af 25.
+- **En «fold ud»-visning måles i STREGER, ikke i kasser.** Målt på depGraph:
+  udfoldning af `pages` (20 filer) lægger ~95 fil-kanter oveni de ~90
+  gruppe-kanter — mere rod, ikke mindre; udfoldning bør implicere fokus. Tæl
+  også de INTERNE kanter: `pages` har 0 (ejerens eget eksempel ser tomt ud),
+  `features/games` 106 — udelades de, mangler netop dét, «afhængighederne
+  tegnet ind» betyder.
+- **Fladevagten ser klik, ikke hover og dobbeltklik.** `scan-flade.mjs` tæller
+  ethvert lowercase-element med onClick (så `<g onClick>`/`<path onClick>` ER
+  i inventaret — intet hul dér), men `HANDLERE`/`HAENDELSER`
+  (`fladeDaekning.mjs:32`) kender kun click/input/change/submit: ét klik
+  krediterer elementet som rørt, mens dobbeltklik- og hover-grenen aldrig er
+  kørt. Beviset skal stå i testens assertions. Et `<g>` uden tekstbarn får
+  nøglen `fil|komponent|g|null#n` — giv klikbare SVG-elementer et statisk
+  `data-testid` (aria-label med template-literal læses ikke: kun StringLiteral),
+  og giv en tegnet kant et usynligt bredt klikmål, ellers kan den ikke rammes
+  med en finger.
+- **B1/B2/B3 (planens tre blokerende fund) er lukket i koden, efterprøvet 4/9
+  2026:** `udfoldning()`s `interne`-kanter tegnes faktisk (`kanter`-arrayet
+  i `useMemo`), fil-blokken har egen række med gruppenavn i venstre margen
+  (`layoutBlokke`, `MARGEN`), og fokus genbruger SAMME `layout` (kun afhængig
+  af `visning.udfoldet`, ikke af `visning.fokus`) — kassernes `transform` er
+  bevist urørt af et fokusklik.
+- **Radposition i en udfoldet gruppe kan IKKE bære samme "nederst=fundament,
+  øverst=app-skal"-læsning som lag gør på gruppe-niveau.** Filrækker i
+  `DepGraph.jsx`s dobbeltklik-udfoldning sorteres efter GRAD (mest forbundne
+  først), ikke efter lag — målt: 23 af 86 (27 %) tværrække-interne kanter i
+  `features/games` peger visuelt OPAD, selvom pilespidsen (marker-end) stadig
+  peger rigtigt. Den faste forklaringstekst under diagrammet ("nederst =
+  fundament, øverst = app-skal") vises UBETINGET, også i udfoldet visning,
+  hvor den ikke er sand for filrækkerne. Ikke blokerende her (retningen er
+  stadig korrekt via pilen, kun den RUMLIGE konvention brydes), men spørg ved
+  enhver lignende sub-gruppering: bærer den samme positions-konvention som
+  helheden, eller er den sorteret efter en anden nøgle (grad, alfabetisk) — og
+  siger en vedvarende forklaringstekst noget, der kun er sandt på ÉT niveau?
+
 ## Gates, evner og proxier
 
 - **`exists(games/{id}/players/{uid})` var “er aktiv deltager” — indtil et players-dokument kunne overleve medlemskabet.** Arkiv-modellen for “Forlad” (`forladSpil.js`) gør medlemskab ophørligt UDEN sletning (`forladt: true`), men ALLE de gamle skrive-gates blev stående uændret: `firestore.rules` (bets create `:1007`, chance-forudsætning via `chanceVagt.js:258`s `spillerSnap.exists`, pulje-tip create/update `:951-964`, ny liga `:1090-1098`, `detalje`-læsning `:850`) tjekker kun EKSISTENS. En spiller, der har forladt spillet, kan derfor stadig oprette bets på kommende kampe, sætte Chancen og pulje-tip, og oprette en liga — direkte mod Firestore, uden om UI'et (`useGame.js`s `isMember` er den ENESTE vagt, og den er klient-side). Løftet i bekræftelsesdialogen (“Du får ingen nye point, mens du er ude”) var derfor kun sandt, hvis brugeren klikkede pænt. Ingen rules-test forsøgte at skrive som en `forladt`-spiller. Enhver evne, der gøres “kan forlades/deaktiveres uden at slette dokumentet”, skal have sin `exists()`-gate erstattet af en delt ”er AKTIV”-funktion (server OG regler), aldrig et blot findes-check — “Point eller adgang”-fælden fra husets tre, i ny klædning. RETTET i 27cb861: `erAktivDeltager()` i `firestore.rules` (findes OG `forladt != true`), genbrugt på bets/pulje/liga-create, plus `chanceVagt.js` og klienten kan kun FJERNE flaget, aldrig sætte det. Tilbageværende, IKKE en fejl: `useGameStandings.js` (leagueIds array-contains-any) rydder først en forladt spiller, når `syncPlayerLeagues`-triggeren har kørt — samme asynkrone vindue som ETHVERT liga-medlemskabs-skift altid har haft, ikke noget denne evne indførte. Genopdag det ikke som nyt.
