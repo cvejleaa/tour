@@ -30,7 +30,7 @@ const NODE_W = 116;
 const FIL_W = 96;
 const NODE_H = 44;
 const PER_ROW = 7;      // maks. gruppekasser pr. række i et lag
-const FIL_PER_ROW = 10; // fil-kasser er smallere
+const FIL_PER_ROW = 9;  // fil-kasser er smallere — 10 gav 93 px centerafstand mod 96 px bredde (QC)
 const SUB_GAP = 34;     // lodret afstand mellem rækker i samme lag
 const BAND_GAP = 78;    // lodret afstand mellem lag
 const MARGEN = 96;      // venstre margen til gruppenavn ved en udfoldet blok
@@ -396,7 +396,9 @@ export default function DepGraph({ graf = graph }) {
       />
 
       <p style={{ fontSize: '0.78rem', color: 'var(--c-muted)', marginTop: '0.6rem' }} data-testid="dep-forklaring">
-        Pilene viser hvilke moduler der importerer hvilke (nederst = fundament, øverst = app-skal). Tykkere pile = flere imports.
+        {visning.udfoldet
+          ? 'Filerne i den udfoldede gruppe er ordnet efter, hvor forbundne de er — ikke efter lag — så en pil mellem to filrækker kan pege opad; pilespidsen viser retningen (importer → importeret). Tykkere pile = flere imports.'
+          : 'Pilene viser hvilke moduler der importerer hvilke (nederst = fundament, øverst = app-skal). Tykkere pile = flere imports.'}
         <strong> Peg</strong> på en kasse, og dens forbindelser tegnes op — blå er det, kassen importerer, orange er det, der importerer den.
         <strong> Klik</strong> på en pil for at se de konkrete filer bag den, eller på en kasse for at se diagrammet med fokus ud fra den.
         <strong> Dobbeltklik</strong> på en kasse (eller «Fold ud i filer») for at bryde den ned i sine filer med afhængighederne tegnet ind.

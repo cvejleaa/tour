@@ -50,6 +50,7 @@ describe('DepGraph — fuld visning, peg og klik på pile', () => {
     expect(screen.queryByTestId('dep-panel')).not.toBeInTheDocument();
     // Forklaringen nævner de tre gestus i den rækkefølge, de opdages.
     const f = screen.getByTestId('dep-forklaring').textContent;
+    expect(f).toContain('nederst = fundament, øverst = app-skal');
     expect(f.indexOf('Peg')).toBeLessThan(f.indexOf('Klik'));
     expect(f.indexOf('Klik')).toBeLessThan(f.indexOf('Dobbeltklik'));
     expect(f).toContain('«Fold ud i filer»');
@@ -173,6 +174,9 @@ describe('DepGraph — fold ud i filer', () => {
     ].map((k) => k.replace('src/App.jsx', 'app-skal')).sort());
     expect(screen.getByTestId('dep-interne')).toHaveTextContent('Ingen af filerne i pages importerer hinanden');
     expect(screen.getByTestId('dep-panel')).toHaveTextContent('pages · foldet ud i 2 filer, 3 nabogrupper');
+    // Forklaringen må ikke love «nederst = fundament» om filrækker, der er sorteret efter grad (QC).
+    expect(screen.getByTestId('dep-forklaring')).toHaveTextContent('ordnet efter, hvor forbundne de er');
+    expect(screen.getByTestId('dep-forklaring')).not.toHaveTextContent('nederst = fundament');
     // «Fold sammen» går tilbage til gruppen i fokus.
     fireEvent.click(screen.getByTestId('dep-fold-sammen'));
     expect(screen.queryAllByTestId('dep-fil-kasse')).toHaveLength(0);
