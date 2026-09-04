@@ -1,10 +1,13 @@
 {
- "generatedAt": "2026-09-03T21:44:10.108Z",
+ "generatedAt": "2026-09-04T06:26:53.233Z",
  "e2eMedregnet": true,
+ "renderMaalt": true,
  "totals": {
   "elementer": 443,
-  "aktiverede": 177,
-  "logposter": 593,
+  "aktiverede": 178,
+  "renderede": 375,
+  "logposter": 776,
+  "interaktioner": 606,
   "filer": 73
  },
  "elementer": [
@@ -18,7 +21,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 11,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -30,7 +35,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -42,7 +49,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -54,7 +63,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -66,7 +77,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -78,7 +91,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -90,7 +105,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -102,7 +119,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -114,7 +133,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -126,7 +147,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 11,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -138,7 +161,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 10,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -150,7 +175,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -162,7 +189,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 11,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -174,7 +203,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 11,
+   "status": "vist"
   },
   {
    "fil": "src/components/Layout.jsx",
@@ -186,7 +217,9 @@
    "komponent": "Layout",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 10,
+   "status": "vist"
   },
   {
    "fil": "src/components/PointRules.jsx",
@@ -200,7 +233,9 @@
    "aktiveret": true,
    "tests": [
     "src/components/PointRules.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -212,7 +247,9 @@
    "komponent": "FacitInput",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -224,7 +261,9 @@
    "komponent": "FacitInput",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -238,7 +277,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -250,7 +291,9 @@
    "komponent": "FacitInput",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -264,7 +307,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -278,7 +323,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -292,7 +339,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -306,7 +355,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -318,7 +369,9 @@
    "komponent": "EditQuestionForm",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -332,7 +385,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -346,7 +401,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -360,7 +417,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -374,7 +433,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -386,7 +447,9 @@
    "komponent": "CreateQuestionForm",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -398,7 +461,9 @@
    "komponent": "CreateQuestionForm",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -412,7 +477,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -426,7 +493,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BonusTab.jsx",
@@ -440,7 +509,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BonusTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -456,7 +527,9 @@
     "src/features/admin/BroadcastTab.test.jsx",
     "src/features/admin/BroadcastTabPlatform.test.jsx",
     "src/features/admin/BroadcastTabRegelbrev.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -470,7 +543,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BroadcastTabRegelbrev.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -484,7 +559,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BroadcastTabPlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -499,7 +576,9 @@
    "tests": [
     "src/features/admin/BroadcastTabPlatform.test.jsx",
     "src/features/admin/BroadcastTabRegelbrev.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -514,7 +593,9 @@
    "tests": [
     "src/features/admin/BroadcastTab.test.jsx",
     "src/features/admin/BroadcastTabPlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -526,7 +607,9 @@
    "komponent": "BroadcastTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -538,7 +621,9 @@
    "komponent": "BroadcastTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -552,7 +637,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BroadcastTabPlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -564,7 +651,9 @@
    "komponent": "BroadcastTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -576,7 +665,9 @@
    "komponent": "BroadcastTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -588,7 +679,9 @@
    "komponent": "BroadcastTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -600,7 +693,9 @@
    "komponent": "BroadcastTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -614,7 +709,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BroadcastTabPlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -626,7 +723,9 @@
    "komponent": "BroadcastTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -640,7 +739,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BroadcastTabPlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -654,7 +755,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BroadcastTabPlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -669,7 +772,9 @@
    "tests": [
     "src/features/admin/BroadcastTab.test.jsx",
     "src/features/admin/BroadcastTabPlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -683,7 +788,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BroadcastTabRegelbrev.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -697,7 +804,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/BroadcastTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/BroadcastTab.jsx",
@@ -712,7 +821,9 @@
    "tests": [
     "src/features/admin/BroadcastTab.test.jsx",
     "src/features/admin/BroadcastTabPlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/DriftTab.jsx",
@@ -724,11 +835,13 @@
    "komponent": "AlarmKort",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/FladeDaekning.jsx",
-   "linje": 84,
+   "linje": 136,
    "kolonne": 11,
    "tag": "summary",
    "type": null,
@@ -736,11 +849,13 @@
    "komponent": "Element",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/FladeDaekning.jsx",
-   "linje": 111,
+   "linje": 163,
    "kolonne": 11,
    "tag": "summary",
    "type": null,
@@ -748,11 +863,13 @@
    "komponent": "Gruppe",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/FladeDaekning.jsx",
-   "linje": 133,
+   "linje": 188,
    "kolonne": 9,
    "tag": "summary",
    "type": null,
@@ -760,21 +877,25 @@
    "komponent": "Gruppe",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/FladeDaekning.jsx",
-   "linje": 201,
-   "kolonne": 9,
+   "linje": 284,
+   "kolonne": 13,
    "tag": "input",
-   "type": "checkbox",
-   "tekst": "flade-kun-uroerte",
+   "type": "radio",
+   "tekst": "flade-filter",
    "komponent": "FladeDaekning",
    "app": "faelles",
    "aktiveret": true,
    "tests": [
     "src/features/admin/FladeDaekning.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameLeagueMembersTab.jsx",
@@ -788,7 +909,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameLeagueMembersTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameLeagueMembersTab.jsx",
@@ -802,7 +925,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameLeagueMembersTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameLeagueMembersTab.jsx",
@@ -816,7 +941,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameLeagueMembersTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameLeagueMembersTab.jsx",
@@ -830,7 +957,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameLeagueMembersTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameRecapBotTab.jsx",
@@ -844,7 +973,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameRecapBotTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameRecapBotTab.jsx",
@@ -858,7 +989,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameRecapBotTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameRecapBotTab.jsx",
@@ -872,7 +1005,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameRecapBotTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
@@ -884,7 +1019,9 @@
    "komponent": "GameReminderTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
@@ -898,7 +1035,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameReminderTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
@@ -912,7 +1051,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameReminderTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
@@ -926,7 +1067,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameReminderTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
@@ -938,7 +1081,9 @@
    "komponent": "GameReminderTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
@@ -952,7 +1097,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameReminderTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
@@ -964,7 +1111,9 @@
    "komponent": "GameReminderTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
@@ -976,7 +1125,9 @@
    "komponent": "GameReminderTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -990,7 +1141,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1004,7 +1157,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1018,7 +1173,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1030,7 +1187,9 @@
    "komponent": "GameRow",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1044,7 +1203,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1058,7 +1219,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1072,7 +1235,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1084,7 +1249,9 @@
    "komponent": "GameRow",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1098,7 +1265,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1112,7 +1281,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1126,7 +1297,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1140,7 +1313,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1154,7 +1329,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1168,7 +1345,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/GameScheduleTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
@@ -1180,7 +1359,9 @@
    "komponent": "GameRow",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1194,7 +1375,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/LeaguesAdminTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1208,7 +1391,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/LeaguesAdminTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1220,7 +1405,9 @@
    "komponent": "LeaguesAdminTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1234,7 +1421,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/LeaguesAdminTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1248,7 +1437,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/LeaguesAdminTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1262,7 +1453,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/LeaguesAdminTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1276,7 +1469,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/LeaguesAdminTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1290,7 +1485,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/LeaguesAdminTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1302,7 +1499,9 @@
    "komponent": "LeaguesAdminTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1316,7 +1515,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/LeaguesAdminTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1328,7 +1529,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1340,7 +1543,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1352,7 +1557,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1364,7 +1571,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1376,7 +1585,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1388,7 +1599,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1400,7 +1613,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1412,7 +1627,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1424,7 +1641,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/RiderProfilesTab.jsx",
@@ -1436,7 +1655,9 @@
    "komponent": "RiderProfilesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1448,7 +1669,9 @@
    "komponent": "SettingsTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1460,7 +1683,9 @@
    "komponent": "SettingsTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1472,7 +1697,9 @@
    "komponent": "SettingsTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1484,7 +1711,9 @@
    "komponent": "SettingsTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1496,7 +1725,9 @@
    "komponent": "SettingsTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1508,7 +1739,9 @@
    "komponent": "SettingsTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1520,7 +1753,9 @@
    "komponent": "SettingsTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1534,7 +1769,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/SettingsTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1548,7 +1785,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/SettingsTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/SettingsTab.jsx",
@@ -1562,7 +1801,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/SettingsTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TeamNameAudit.jsx",
@@ -1574,7 +1815,9 @@
    "komponent": "TeamNameAudit",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TeamNameAudit.jsx",
@@ -1586,7 +1829,9 @@
    "komponent": "TeamNameAudit",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/TeamNameAudit.jsx",
@@ -1598,7 +1843,9 @@
    "komponent": "TeamNameAudit",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/TeamNameAudit.jsx",
@@ -1610,7 +1857,9 @@
    "komponent": "TeamNameAudit",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
@@ -1622,7 +1871,9 @@
    "komponent": "Picker",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
@@ -1636,7 +1887,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TeamStylesTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
@@ -1648,7 +1901,9 @@
    "komponent": "Picker",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
@@ -1660,7 +1915,9 @@
    "komponent": "TeamStylesTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
@@ -1674,7 +1931,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TeamStylesTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
@@ -1688,7 +1947,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TeamStylesTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
@@ -1702,7 +1963,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TeamStylesTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TestsTab.jsx",
@@ -1714,7 +1977,9 @@
    "komponent": "DetailsTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TestsTab.jsx",
@@ -1726,7 +1991,9 @@
    "komponent": "TestsTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TestsTab.jsx",
@@ -1740,7 +2007,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TestsTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TestsTab.jsx",
@@ -1754,7 +2023,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TestsTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TestsTab.jsx",
@@ -1768,7 +2039,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TestsTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1782,7 +2055,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TourTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1796,7 +2071,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TourTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1810,7 +2087,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TourTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1824,7 +2103,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TourTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1838,7 +2119,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TourTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1852,7 +2135,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TourTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1866,7 +2151,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/TourTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1878,7 +2165,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1890,7 +2179,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1902,7 +2193,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1914,7 +2207,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1926,7 +2221,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1938,7 +2235,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1950,7 +2249,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1962,7 +2263,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1974,7 +2277,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1986,7 +2291,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -1998,7 +2305,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2010,7 +2319,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2022,7 +2333,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2034,7 +2347,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2046,7 +2361,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2058,7 +2375,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2070,7 +2389,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2082,7 +2403,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2094,7 +2417,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2106,7 +2431,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2118,7 +2445,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2130,7 +2459,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2142,7 +2473,9 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/TourTab.jsx",
@@ -2154,11 +2487,13 @@
    "komponent": "TourTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/UserRow.jsx",
-   "linje": 251,
+   "linje": 257,
    "kolonne": 19,
    "tag": "a",
    "type": null,
@@ -2166,11 +2501,13 @@
    "komponent": "UserRow",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/admin/UserRow.jsx",
-   "linje": 270,
+   "linje": 276,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -2180,11 +2517,13 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/UsersTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/UserRow.jsx",
-   "linje": 280,
+   "linje": 286,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -2194,11 +2533,13 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/UsersTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/UserRow.jsx",
-   "linje": 292,
+   "linje": 298,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -2208,11 +2549,13 @@
    "aktiveret": true,
    "tests": [
     "src/features/admin/UsersTab.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/UserRow.jsx",
-   "linje": 306,
+   "linje": 312,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -2220,11 +2563,13 @@
    "komponent": "UserRow",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/UserRow.jsx",
-   "linje": 322,
+   "linje": 328,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -2232,19 +2577,25 @@
    "komponent": "UserRow",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/admin/UserRow.jsx",
-   "linje": 337,
+   "linje": 343,
    "kolonne": 13,
    "tag": "button",
    "type": null,
    "tekst": "Sletter kontoen permanent fra login og alle spil",
    "komponent": "UserRow",
    "app": "faelles",
-   "aktiveret": false,
-   "tests": []
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/UserRow.slet.test.jsx"
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/UsersTab.jsx",
@@ -2256,7 +2607,9 @@
    "komponent": "UsersTab",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/bonus/BonusAnswers.jsx",
@@ -2270,7 +2623,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/bonus/BonusAnswers.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/bonus/BonusQuestion.jsx",
@@ -2282,7 +2637,9 @@
    "komponent": "AnswerInput",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/bonus/BonusQuestion.jsx",
@@ -2294,7 +2651,9 @@
    "komponent": "AnswerInput",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/bonus/BonusQuestion.jsx",
@@ -2308,7 +2667,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/bonus/BonusQuestion.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/bonus/BonusQuestion.jsx",
@@ -2320,7 +2681,9 @@
    "komponent": "AnswerInput",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/bonus/BonusQuestion.jsx",
@@ -2334,7 +2697,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/bonus/BonusQuestion.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/bonus/BonusQuestion.jsx",
@@ -2348,7 +2713,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/bonus/BonusQuestion.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/comments/EmojiPicker.jsx",
@@ -2362,7 +2729,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/comments/EmojiPicker.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/comments/EmojiPicker.jsx",
@@ -2376,7 +2745,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/comments/EmojiPicker.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/comments/LeagueWall.jsx",
@@ -2388,7 +2759,9 @@
    "komponent": "LeagueWall",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/comments/LeagueWall.jsx",
@@ -2400,7 +2773,9 @@
    "komponent": "LeagueWall",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/comments/LeagueWall.jsx",
@@ -2412,7 +2787,9 @@
    "komponent": "LeagueWall",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/comments/LeagueWall.jsx",
@@ -2424,7 +2801,9 @@
    "komponent": "LeagueWall",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/dashboard/MiniStandings.jsx",
@@ -2436,7 +2815,9 @@
    "komponent": "MiniStandings",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/dashboard/MyStatsCard.jsx",
@@ -2448,7 +2829,9 @@
    "komponent": "MyStatsCard",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/dashboard/RecentResultsCard.jsx",
@@ -2460,7 +2843,9 @@
    "komponent": "RecentResultsCard",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/dashboard/TodoCard.jsx",
@@ -2472,7 +2857,9 @@
    "komponent": "TaskRow",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLayout.jsx",
@@ -2484,7 +2871,9 @@
    "komponent": "GameLayout",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 9,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2496,7 +2885,9 @@
    "komponent": "LeagueWall",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2508,7 +2899,9 @@
    "komponent": "LeagueWall",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2520,7 +2913,9 @@
    "komponent": "LeagueWall",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2532,7 +2927,9 @@
    "komponent": "LeagueCard",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2544,7 +2941,9 @@
    "komponent": "LeagueCard",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2556,7 +2955,9 @@
    "komponent": "LeagueCard",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2568,7 +2969,9 @@
    "komponent": "LeagueCard",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2582,7 +2985,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/ligaStartRunde.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2596,7 +3001,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/ligaStartRunde.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2608,7 +3015,9 @@
    "komponent": "LeagueCard",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2620,7 +3029,9 @@
    "komponent": "LeagueCard",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2634,7 +3045,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/ligaStartRunde.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2646,7 +3059,9 @@
    "komponent": "LeagueCard",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2658,7 +3073,9 @@
    "komponent": "LeagueCard",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2670,7 +3087,9 @@
    "komponent": "GameLeagues",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2682,7 +3101,9 @@
    "komponent": "GameLeagues",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2694,7 +3115,9 @@
    "komponent": "GameLeagues",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2706,7 +3129,9 @@
    "komponent": "GameLeagues",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2718,7 +3143,9 @@
    "komponent": "GameLeagues",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
@@ -2730,7 +3157,9 @@
    "komponent": "GameLeagues",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 3,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameProfile.jsx",
@@ -2742,7 +3171,9 @@
    "komponent": "GameProfile",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 4,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameProfile.jsx",
@@ -2754,7 +3185,9 @@
    "komponent": "GameProfile",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 4,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
@@ -2768,7 +3201,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/GameStandings.test.jsx"
-   ]
+   ],
+   "renderAntal": 5,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
@@ -2784,7 +3219,9 @@
     "src/features/games/GameStandings.test.jsx",
     "src/features/games/ligaStartRunde.test.jsx",
     "src/features/games/rundePointFlade.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
@@ -2798,7 +3235,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/GameStandings.test.jsx"
-   ]
+   ],
+   "renderAntal": 5,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/GameTabLink.jsx",
@@ -2810,7 +3249,9 @@
    "komponent": "GameTabLink",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 21,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2824,7 +3265,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2838,7 +3281,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2850,7 +3295,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2864,7 +3311,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2878,7 +3327,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2890,7 +3341,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2904,7 +3357,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2918,7 +3373,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2930,7 +3387,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2944,7 +3403,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2956,7 +3417,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2970,7 +3433,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2982,7 +3447,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -2994,7 +3461,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3008,7 +3477,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3022,7 +3493,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3036,7 +3509,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3050,7 +3525,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3064,7 +3541,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3076,7 +3555,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3088,7 +3569,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3100,7 +3583,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3112,7 +3597,9 @@
    "komponent": "QuestionRow",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3126,7 +3613,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3138,7 +3627,9 @@
    "komponent": "LeagueQuestions",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3150,7 +3641,9 @@
    "komponent": "LeagueQuestions",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3162,7 +3655,9 @@
    "komponent": "LeagueQuestions",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3174,7 +3669,9 @@
    "komponent": "LeagueQuestions",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3186,7 +3683,9 @@
    "komponent": "LeagueQuestions",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3198,7 +3697,9 @@
    "komponent": "LeagueQuestions",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
@@ -3212,7 +3713,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/LeagueQuestions.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/FootballHelp.jsx",
@@ -3224,7 +3727,9 @@
    "komponent": "FootballHelp",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 4,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3236,7 +3741,9 @@
    "komponent": "FootballTip",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 8,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3250,7 +3757,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/football/FootballTip.test.jsx"
-   ]
+   ],
+   "renderAntal": 4,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3264,7 +3773,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/football/FootballTip.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3278,7 +3789,9 @@
    "aktiveret": true,
    "tests": [
     "e2e/platform/tip.spec.js"
-   ]
+   ],
+   "renderAntal": 9,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3292,7 +3805,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/football/FootballTip.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3304,7 +3819,9 @@
    "komponent": "ChancePanel",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3318,7 +3835,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/football/FootballTip.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3332,7 +3851,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/football/FootballTip.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
@@ -3344,7 +3865,9 @@
    "komponent": "ChancePanel",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/football/HoldSide.jsx",
@@ -3356,7 +3879,9 @@
    "komponent": "HoldSide",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/games/football/HoldSide.jsx",
@@ -3368,7 +3893,9 @@
    "komponent": "HoldSide",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/football/Indbyrdes.jsx",
@@ -3382,7 +3909,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/football/Indbyrdes.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/LeagueBets.jsx",
@@ -3397,7 +3926,9 @@
    "tests": [
     "e2e/platform/laas.spec.js",
     "src/features/games/football/LeagueBets.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/PuljeAfsloering.jsx",
@@ -3411,7 +3942,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/football/PuljeAfsloering.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/PuljeTip.jsx",
@@ -3425,7 +3958,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/football/PuljeTip.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/PuljeTip.jsx",
@@ -3439,7 +3974,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/football/PuljeTip.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/games/football/SpillerDetalje.jsx",
@@ -3451,7 +3988,9 @@
    "komponent": "SpillerDetalje",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/games/football/SpillerDetalje.jsx",
@@ -3463,7 +4002,9 @@
    "komponent": "SpillerDetalje",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leaderboard/ThemeToggle.jsx",
@@ -3477,7 +4018,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/leaderboard/ThemeToggle.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/leagues/LeagueAwards.jsx",
@@ -3491,7 +4034,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/leagues/LeagueAwards.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/leagues/LeagueAwards.jsx",
@@ -3505,7 +4050,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/leagues/LeagueAwards.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/leagues/LeagueAwards.jsx",
@@ -3519,7 +4066,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/leagues/LeagueAwards.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3531,7 +4080,9 @@
    "komponent": "AnswerInput",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3543,7 +4094,9 @@
    "komponent": "AnswerInput",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3555,7 +4108,9 @@
    "komponent": "AnswerInput",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3567,7 +4122,9 @@
    "komponent": "AnswerInput",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3579,7 +4136,9 @@
    "komponent": "EditForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3591,7 +4150,9 @@
    "komponent": "EditForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3603,7 +4164,9 @@
    "komponent": "EditForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3615,7 +4178,9 @@
    "komponent": "EditForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3627,7 +4192,9 @@
    "komponent": "EditForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3639,7 +4206,9 @@
    "komponent": "EditForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3651,7 +4220,9 @@
    "komponent": "EditForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3663,7 +4234,9 @@
    "komponent": "ApprovalList",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3675,7 +4248,9 @@
    "komponent": "ApprovalList",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3689,7 +4264,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/leagues/LeagueBonus.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3701,7 +4278,9 @@
    "komponent": "CopyToAllButton",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3713,7 +4292,9 @@
    "komponent": "QuestionCard",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3725,7 +4306,9 @@
    "komponent": "QuestionCard",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3737,7 +4320,9 @@
    "komponent": "QuestionCard",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3749,7 +4334,9 @@
    "komponent": "QuestionCard",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3761,7 +4348,9 @@
    "komponent": "CreateForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3773,7 +4362,9 @@
    "komponent": "CreateForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3785,7 +4376,9 @@
    "komponent": "CreateForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3797,7 +4390,9 @@
    "komponent": "CreateForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3809,7 +4404,9 @@
    "komponent": "CreateForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3821,7 +4418,9 @@
    "komponent": "CreateForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3833,7 +4432,9 @@
    "komponent": "CreateForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueBonus.jsx",
@@ -3845,7 +4446,9 @@
    "komponent": "CreateForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueTipCounter.jsx",
@@ -3857,7 +4460,9 @@
    "komponent": "LeagueTipCounter",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/leagues/LeagueTipCounter.jsx",
@@ -3869,7 +4474,9 @@
    "komponent": "LeagueTipCounter",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/onboarding/OnboardingChecklist.jsx",
@@ -3883,7 +4490,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/onboarding/OnboardingChecklist.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/onboarding/OnboardingChecklist.jsx",
@@ -3895,7 +4504,9 @@
    "komponent": "OnboardingChecklist",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/features/profile/AccountSection.jsx",
@@ -3909,7 +4520,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/profile/AccountSection.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/profile/AccountSection.jsx",
@@ -3923,7 +4536,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/profile/AccountSection.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/profile/AccountSection.jsx",
@@ -3937,7 +4552,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/profile/AccountSection.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/profile/AccountSection.jsx",
@@ -3949,7 +4566,9 @@
    "komponent": "AccountSection",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/profile/AccountSection.jsx",
@@ -3961,7 +4580,9 @@
    "komponent": "AccountSection",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/profile/AccountSection.jsx",
@@ -3973,7 +4594,9 @@
    "komponent": "AccountSection",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/profile/AccountSection.jsx",
@@ -3985,7 +4608,9 @@
    "komponent": "AccountSection",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/profile/AccountSection.jsx",
@@ -3999,7 +4624,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/profile/AccountSection.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/features/profile/TeamThemePicker.jsx",
@@ -4013,7 +4640,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/profile/TeamThemePicker.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/reactions/Reactions.jsx",
@@ -4025,7 +4654,9 @@
    "komponent": "Reactions",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/reactions/Reactions.jsx",
@@ -4037,7 +4668,9 @@
    "komponent": "Reactions",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/reactions/Reactions.jsx",
@@ -4049,7 +4682,9 @@
    "komponent": "Reactions",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/stages/StageCard.jsx",
@@ -4061,7 +4696,9 @@
    "komponent": "StageCard",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/stages/StageCard.jsx",
@@ -4073,7 +4710,9 @@
    "komponent": "StageCard",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/stages/StageCard.jsx",
@@ -4085,7 +4724,9 @@
    "komponent": "StageCard",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/stages/StageCard.jsx",
@@ -4099,7 +4740,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/stages/StageCard.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/stages/StageCard.jsx",
@@ -4113,7 +4756,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/stages/StageCard.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/stages/StageCard.jsx",
@@ -4127,7 +4772,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/stages/StageCard.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/teams/RiderSearch.jsx",
@@ -4141,7 +4788,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/teams/RiderSearch.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/features/teams/RiderSearch.jsx",
@@ -4153,7 +4802,9 @@
    "komponent": "RiderSearch",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/teams/RiderTypeExplorer.jsx",
@@ -4165,7 +4816,9 @@
    "komponent": "RiderTypeExplorer",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/teams/RiderTypeExplorer.jsx",
@@ -4177,7 +4830,9 @@
    "komponent": "RiderTypeExplorer",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/teams/RiderTypeExplorer.jsx",
@@ -4189,7 +4844,9 @@
    "komponent": "RiderTypeExplorer",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/teams/RiderTypeExplorer.jsx",
@@ -4201,7 +4858,9 @@
    "komponent": "RiderTypeExplorer",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/teams/RiderTypeExplorer.jsx",
@@ -4213,7 +4872,9 @@
    "komponent": "RiderTypeExplorer",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/teams/RiderTypeExplorer.jsx",
@@ -4225,7 +4886,9 @@
    "komponent": "RiderTypeExplorer",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/features/tour/StandingsTable.jsx",
@@ -4239,7 +4902,9 @@
    "aktiveret": true,
    "tests": [
     "src/features/tour/StandingsTable.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/tour/TourRiderSearch.jsx",
@@ -4251,7 +4916,9 @@
    "komponent": "TourRiderSearch",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/AdminPage.jsx",
@@ -4265,7 +4932,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/AdminPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/DashboardPage.jsx",
@@ -4277,7 +4946,9 @@
    "komponent": "DashboardPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/DashboardPage.jsx",
@@ -4289,7 +4960,9 @@
    "komponent": "DashboardPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/DashboardPage.jsx",
@@ -4301,7 +4974,9 @@
    "komponent": "DashboardPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/DashboardPage.jsx",
@@ -4313,7 +4988,9 @@
    "komponent": "DashboardPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/DashboardPage.jsx",
@@ -4325,7 +5002,9 @@
    "komponent": "DashboardPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/GamePage.jsx",
@@ -4337,7 +5016,9 @@
    "komponent": "GamePage",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/GamePage.jsx",
@@ -4349,7 +5030,9 @@
    "komponent": "GamePage",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/GamePage.jsx",
@@ -4362,8 +5045,11 @@
    "app": "platform",
    "aktiveret": true,
    "tests": [
-    "e2e/platform/tip.spec.js"
-   ]
+    "e2e/platform/tip.spec.js",
+    "e2e/platform/vendtilbage.spec.js"
+   ],
+   "renderAntal": 9,
+   "status": "roert"
   },
   {
    "fil": "src/pages/GamesPage.jsx",
@@ -4375,7 +5061,9 @@
    "komponent": "ExternalGameCard",
    "app": "platform",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/GamesPage.jsx",
@@ -4389,7 +5077,9 @@
    "aktiveret": true,
    "tests": [
     "e2e/platform/spiloversigt.spec.js"
-   ]
+   ],
+   "renderAntal": 6,
+   "status": "roert"
   },
   {
    "fil": "src/pages/GamesPage.jsx",
@@ -4402,8 +5092,12 @@
    "app": "platform",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/forlad.spec.js",
+    "src/pages/GamesPage.scenarie.test.jsx",
     "src/pages/GamesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 6,
+   "status": "roert"
   },
   {
    "fil": "src/pages/GamesPage.jsx",
@@ -4416,8 +5110,11 @@
    "app": "platform",
    "aktiveret": true,
    "tests": [
+    "e2e/platform/vendtilbage.spec.js",
     "src/pages/GamesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 7,
+   "status": "roert"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4429,7 +5126,9 @@
    "komponent": "SpilleneLigeNu",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4441,7 +5140,9 @@
    "komponent": "SpilleneLigeNu",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4453,7 +5154,9 @@
    "komponent": "SpilleneLigeNu",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4465,7 +5168,9 @@
    "komponent": "SpilleneLigeNu",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4477,7 +5182,9 @@
    "komponent": "PlatformHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4489,7 +5196,9 @@
    "komponent": "PlatformHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4501,7 +5210,9 @@
    "komponent": "PlatformHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4513,7 +5224,9 @@
    "komponent": "TourHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4525,7 +5238,9 @@
    "komponent": "TourHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4537,7 +5252,9 @@
    "komponent": "TourHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4549,7 +5266,9 @@
    "komponent": "TourHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4561,7 +5280,9 @@
    "komponent": "TourHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4573,7 +5294,9 @@
    "komponent": "TourHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4585,7 +5308,9 @@
    "komponent": "TourHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/HelpPage.jsx",
@@ -4597,7 +5322,9 @@
    "komponent": "TourHelp",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/JoinPage.jsx",
@@ -4609,7 +5336,9 @@
    "komponent": "JoinPage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/JoinPage.jsx",
@@ -4621,7 +5350,9 @@
    "komponent": "JoinPage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaderboardPage.jsx",
@@ -4635,7 +5366,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaderboardPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaderboardPage.jsx",
@@ -4647,7 +5380,9 @@
    "komponent": "LeaderboardPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaderboardPage.jsx",
@@ -4661,7 +5396,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaderboardPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaderboardPage.jsx",
@@ -4673,7 +5410,9 @@
    "komponent": "LeaderboardPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4687,7 +5426,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4701,7 +5442,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4713,7 +5456,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4725,7 +5470,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4737,7 +5484,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4749,7 +5498,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4761,7 +5512,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4773,7 +5526,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4785,7 +5540,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4797,7 +5554,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4809,7 +5568,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4823,7 +5584,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4835,7 +5598,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4847,7 +5612,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4859,7 +5626,9 @@
    "komponent": "LeagueDetail",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4873,7 +5642,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4887,7 +5658,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4901,7 +5674,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4913,7 +5688,9 @@
    "komponent": "CreateLeagueForm",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4927,7 +5704,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4941,7 +5720,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4955,7 +5736,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4969,7 +5752,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4983,7 +5768,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LeaguesPage.jsx",
@@ -4997,7 +5784,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LeaguesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5013,7 +5802,9 @@
     "e2e/platform/godkendelse.spec.js",
     "e2e/tour/smoke.spec.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 4,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5025,7 +5816,9 @@
    "komponent": "LoginPage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 4,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5040,7 +5833,9 @@
    "tests": [
     "e2e/platform/auth.setup.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 4,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5055,7 +5850,9 @@
    "tests": [
     "e2e/platform/auth.setup.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 4,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5070,7 +5867,9 @@
    "tests": [
     "e2e/platform/auth.setup.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 4,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5085,7 +5884,9 @@
    "tests": [
     "e2e/platform/auth.setup.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 4,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5099,7 +5900,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 4,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5113,7 +5916,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5125,7 +5930,9 @@
    "komponent": "LoginPage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5139,7 +5946,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5151,7 +5960,9 @@
    "komponent": "LoginPage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5167,7 +5978,9 @@
     "e2e/platform/godkendelse.spec.js",
     "e2e/tour/smoke.spec.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5182,7 +5995,9 @@
    "tests": [
     "e2e/platform/godkendelse.spec.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5197,7 +6012,9 @@
    "tests": [
     "e2e/platform/godkendelse.spec.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5212,7 +6029,9 @@
    "tests": [
     "e2e/platform/godkendelse.spec.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/pages/LoginPage.jsx",
@@ -5228,7 +6047,9 @@
     "e2e/platform/godkendelse.spec.js",
     "e2e/tour/smoke.spec.js",
     "src/pages/LoginPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/pages/MessagesPage.jsx",
@@ -5240,7 +6061,9 @@
    "komponent": "Thread",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/MessagesPage.jsx",
@@ -5254,7 +6077,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/MessagesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/MessagesPage.jsx",
@@ -5268,7 +6093,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/MessagesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/MessagesPage.jsx",
@@ -5282,7 +6109,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/MessagesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/MessagesPage.jsx",
@@ -5296,7 +6125,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/MessagesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/MessagesPage.jsx",
@@ -5310,7 +6141,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/MessagesPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/MessagesPage.jsx",
@@ -5322,7 +6155,9 @@
    "komponent": "MessagesPage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/MessagesPage.jsx",
@@ -5334,7 +6169,9 @@
    "komponent": "MessagesPage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/MyBetsPage.jsx",
@@ -5346,7 +6183,9 @@
    "komponent": "MyBetsPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/MyBetsPage.jsx",
@@ -5358,7 +6197,9 @@
    "komponent": "MyBetsPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/MyBetsPage.jsx",
@@ -5370,7 +6211,9 @@
    "komponent": "MyBetsPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/NotFoundPage.jsx",
@@ -5382,7 +6225,9 @@
    "komponent": "NotFoundPage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/PendingPage.jsx",
@@ -5396,7 +6241,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/PendingPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/PendingPage.jsx",
@@ -5410,7 +6257,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/PendingPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/pages/PendingPage.jsx",
@@ -5424,7 +6273,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/PendingPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/pages/PendingPage.jsx",
@@ -5438,7 +6289,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/PendingPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/pages/PendingPage.jsx",
@@ -5452,7 +6305,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/PendingPage.test.jsx"
-   ]
+   ],
+   "renderAntal": 3,
+   "status": "roert"
   },
   {
    "fil": "src/pages/ProfilePage.jsx",
@@ -5467,7 +6322,9 @@
    "tests": [
     "src/pages/ProfilePage.test.jsx",
     "src/pages/ProfilePagePlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/pages/ProfilePage.jsx",
@@ -5479,7 +6336,9 @@
    "komponent": "ProfilePage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/pages/ProfilePage.jsx",
@@ -5491,7 +6350,9 @@
    "komponent": "ProfilePage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/ProfilePage.jsx",
@@ -5505,7 +6366,9 @@
    "aktiveret": true,
    "tests": [
     "src/pages/ProfilePage.test.jsx"
-   ]
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/pages/ProfilePage.jsx",
@@ -5517,7 +6380,9 @@
    "komponent": "ProfilePage",
    "app": "faelles",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 2,
+   "status": "vist"
   },
   {
    "fil": "src/pages/ProfilePage.jsx",
@@ -5532,7 +6397,9 @@
    "tests": [
     "src/pages/ProfilePage.test.jsx",
     "src/pages/ProfilePagePlatform.test.jsx"
-   ]
+   ],
+   "renderAntal": 2,
+   "status": "roert"
   },
   {
    "fil": "src/pages/StagePresentationPage.jsx",
@@ -5544,7 +6411,9 @@
    "komponent": "Fold",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/StagePresentationPage.jsx",
@@ -5556,7 +6425,9 @@
    "komponent": "StagePresentationPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/StagePresentationPage.jsx",
@@ -5568,7 +6439,9 @@
    "komponent": "StagePresentationPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/StagePresentationPage.jsx",
@@ -5580,7 +6453,9 @@
    "komponent": "StagePresentationPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/StagePresentationPage.jsx",
@@ -5592,7 +6467,9 @@
    "komponent": "StagePresentationPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/StagePresentationPage.jsx",
@@ -5604,7 +6481,9 @@
    "komponent": "StagePresentationPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/StagesPage.jsx",
@@ -5616,7 +6495,9 @@
    "komponent": "StagesPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 0,
+   "status": "aldrig"
   },
   {
    "fil": "src/pages/TeamPage.jsx",
@@ -5628,7 +6509,9 @@
    "komponent": "RiderList",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/TeamPage.jsx",
@@ -5640,7 +6523,9 @@
    "komponent": "RiderList",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/TeamPage.jsx",
@@ -5652,7 +6537,9 @@
    "komponent": "TeamPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/TeamPage.jsx",
@@ -5664,7 +6551,9 @@
    "komponent": "TeamPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/TeamsPage.jsx",
@@ -5676,7 +6565,9 @@
    "komponent": "TeamsPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/TeamsPage.jsx",
@@ -5688,7 +6579,9 @@
    "komponent": "TeamsPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/pages/TourPage.jsx",
@@ -5700,7 +6593,9 @@
    "komponent": "TourPage",
    "app": "tour",
    "aktiveret": false,
-   "tests": []
+   "tests": [],
+   "renderAntal": 1,
+   "status": "vist"
   }
  ]
 }

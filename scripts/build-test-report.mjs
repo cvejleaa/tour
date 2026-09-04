@@ -11,7 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { scanTrae } from './scan-flade.mjs';
-import { flet, laesLog } from './lib/fladeDaekning.mjs';
+import { flet, laesLog, antalInteraktioner, renderBrud } from './lib/fladeDaekning.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FE = path.join(ROOT, '.report-fe.json');
@@ -101,18 +101,33 @@ const e2ePoster = laesMappe(EVNE_E2E);
 // interaktioner; en tom log betyder, at tappen ikke kørte (EVNE_LOG nåede
 // ikke frem, setup.js er ændret, React-internals har skiftet navn). Skrev vi
 // filen alligevel, ville fanen vise 0 % og lyve om, at ingen knap er testet.
-if (logposter.length === 0) {
+// KUN INTERAKTIONS-POSTER TÆLLER HER (antalInteraktioner): render-posterne
+// fra samme tap ville ellers holde loggen "ikke tom", mens klik-tappen var død.
+if (antalInteraktioner(logposter) === 0) {
   console.error('Fladedækning: Vitest-tappen loggede ingen interaktioner — fladeDaekning.json er IKKE skrevet.');
   process.exit(1);
 }
 // Samme vagt for E2E: en grøn Playwright-kørsel uden logposter betyder, at
 // fixturen ikke var koblet på (EVNE_LOG nåede ikke frem, dev-bygget udeblev,
 // en spec importerer @playwright/test direkte) — ikke at ingen klikkede.
-if (e2ePoster.length === 0) {
+if (antalInteraktioner(e2ePoster) === 0) {
   console.error('Fladedækning: E2E-tappen loggede ingen interaktioner — fladeDaekning.json er IKKE skrevet.');
   process.exit(1);
 }
 const daekning = flet(scanTrae(ROOT), [...logposter, ...e2ePoster], { generatedAt: report.generatedAt, e2eMedregnet: true });
+// RENDER-INVARIANTEN: man kan ikke klikke på noget, der aldrig blev tegnet.
+// Et aktiveret element uden render-kredit betyder, at render-tappen er død
+// eller filtrerer for hårdt — og så er hvert «aldrig vist» på fanen falsk
+// alarm. Samme form som tipKrediteret nedenfor: præcis vagt, ikke "ikke tom".
+if (!daekning.renderMaalt) {
+  console.error('Fladedækning: ingen render-poster i loggen — render-tappen (MutationObserver i src/test/setup.js) kørte ikke. fladeDaekning.json er IKKE skrevet.');
+  process.exit(1);
+}
+const brud = renderBrud(daekning);
+if (brud.length) {
+  console.error(`Fladedækning: ${brud.length} element(er) er rørt af en test, men aldrig set af render-tappen — den er død eller filtrerer for hårdt. fladeDaekning.json er IKKE skrevet.\n  ${brud.slice(0, 10).map((e) => `${e.fil}:${e.linje} <${e.tag}> (${e.tests.join(', ')})`).join('\n  ')}`);
+  process.exit(1);
+}
 // PRÆCIS VAGT, IKKE KUN "LOGGEN ER IKKE TOM" (QC): hele E2E-tællingen blev
 // bygget, fordi 1X2-knapperne i tip-fladen kun klikkes af tip.spec.js. Falder
 // netop de ud af krediteringen (en wrapper skubber kildestedet ud over

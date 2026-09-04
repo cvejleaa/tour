@@ -176,10 +176,12 @@ mod emulatoren ville have haft samme blinde vinkel. Derfor:
   egen konto) og som **admin** — ikke som en frisk testbruger. Tilstandene,
   der har brudt ting, er dem, kun rigtige data har: point, en liga man ejer,
   en udsat kamp, en runde midt i afvikling, en bruger der er afventende.
-- Brug **Admin → Tests → «Knapper og felter»** som tjekliste: filtrér med
-  «Vis kun det, ingen test rører» og klik hvert af de elementer i produktion.
-  Det er præcis de knapper og felter, ingen automatisk test har rørt siden
-  sidste kørsel — og fanen siger selv, hvornår tallene er fra.
+- Brug **Admin → Tests → «Knapper og felter»** som tjekliste. Start med
+  «Vis kun det, ingen test viser»: det er de elementer, ingen test nogensinde
+  har tegnet — dér er ingen vagt overhovedet, heller ikke mod at siden går ned.
+  Gå dem igennem først, i produktion. Skift så til
+  «Vis kun det, ingen test rører» for resten: knapper og felter, en test har
+  vist, men aldrig klikket. Fanen siger selv, hvornår tallene er fra.
 - Kun læsende handlinger og egne tips. **Klik aldrig knapper, der ændrer
   spillerens eller ligaens tilstand — Forlad, Deltag/Vend tilbage, opret/
   forlad liga og lignende — i produktion, heller ikke selv om «Vis kun det,

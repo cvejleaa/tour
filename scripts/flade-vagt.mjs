@@ -18,6 +18,13 @@
 // hører derfor i flade-undtagelser.json med begrundelsen "dækket af
 // e2e/…spec.js". Det er en bevidst pris for at holde vagten i ét job.
 //
+// «ALDRIG VIST» VOGTES IKKE HER — ENDNU. Tappen logger også render-poster
+// (hvad testene tegnede), og fanen skelner «vist, men ikke rørt» fra «aldrig
+// vist». Vagten tæller stadig kun RØRT/urørt mod basislinjen; antallet af
+// aldrig viste printes som information. Beslutningen er bevidst (QC bad om
+// at få den skrevet ned): først når tallet har stået stille et par uger,
+// ved vi, om det kan låses som en basislinje uden at blive støj.
+//
 // IDENTITET UDEN LINJETAL. Basislinjen bruger (fil, komponent, tag, tekst,
 // nummer) — ikke fil:linje:kolonne. Linjetal flytter sig ved enhver
 // redigering ovenfor, og så ville hver eneste PR i en fil melde alle dens
@@ -33,7 +40,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { scanTrae } from './scan-flade.mjs';
-import { flet, laesLog } from './lib/fladeDaekning.mjs';
+import { flet, laesLog, antalInteraktioner } from './lib/fladeDaekning.mjs';
 
 const ROD = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const BASISLINJE = path.join(ROD, 'scripts', 'flade-basislinje.json');
@@ -113,18 +120,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const daekning = flet(scanTrae(ROD), poster);
   const basislinje = laesJson(BASISLINJE, { noegler: [] }).noegler;
   const undtagelser = laesJson(UNDTAGELSER, []);
-  const r = vagt(daekning.elementer, poster.length, basislinje, undtagelser);
+  // Tom-log-vagten ser KUN interaktions-poster: render-poster fra samme tap
+  // må ikke kunne holde loggen "ikke tom", mens klik-tappen er død (QC).
+  const interaktioner = antalInteraktioner(poster);
+  const r = vagt(daekning.elementer, interaktioner, basislinje, undtagelser);
   if (process.argv.includes('--opdater')) {
-    if (!poster.length) { console.error(r.fejl[0]); process.exit(1); }
+    if (!interaktioner) { console.error(r.fejl[0]); process.exit(1); }
     const d = basislinjeDiff(basislinje, r.basislinjeNu);
     fs.writeFileSync(BASISLINJE, `${JSON.stringify({ generatedAt: new Date().toISOString(), noegler: r.basislinjeNu }, null, 1)}\n`);
     for (const k of d.fra) console.log(`  − ${k}`);
     for (const k of d.til) console.log(`  + ${k}   ← NYT urørt element i basislinjen: er det med vilje?`);
-    console.log(`Skrev ${BASISLINJE}: ${r.basislinjeNu.length} kendte urørte af ${daekning.elementer.length} (${daekning.totals.aktiverede} rørt, ${poster.length} logposter). ${d.til.length} kom til, ${d.fra.length} gik ud — læs listen, ikke kun tallet.`);
+    console.log(`Skrev ${BASISLINJE}: ${r.basislinjeNu.length} kendte urørte af ${daekning.elementer.length} (${daekning.totals.aktiverede} rørt, ${interaktioner} interaktioner). ${d.til.length} kom til, ${d.fra.length} gik ud — læs listen, ikke kun tallet.`);
     process.exit(0);
   }
   for (const a of r.advarsler) console.warn(`⚠️  ${a}`);
   for (const f of r.fejl) console.error(`✖ ${f}`);
-  console.log(`Fladen: ${daekning.totals.aktiverede} af ${daekning.totals.elementer} rørt, ${r.basislinjeNu.length} kendte urørte i basislinjen, ${poster.length} logposter.`);
+  const aldrig = daekning.elementer.filter((e) => e.status === 'aldrig').length;
+  console.log(`Fladen: ${daekning.totals.aktiverede} af ${daekning.totals.elementer} rørt, ${r.basislinjeNu.length} kendte urørte i basislinjen, ${interaktioner} interaktioner.${daekning.renderMaalt ? ` ${aldrig} aldrig vist af nogen Vitest-test (information — vogtes ikke).` : ''}`);
   process.exit(r.fejl.length ? 1 : 0);
 }

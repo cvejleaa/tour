@@ -48,10 +48,11 @@ vi.mock('../../data/fladeDaekning.json', () => ({
   default: {
     generatedAt: '2026-08-27T12:00:00.000Z', // litteral: vi.mock hejses
     e2eMedregnet: false,
-    totals: { elementer: 2, aktiverede: 1, logposter: 3, filer: 1 },
+    renderMaalt: true,
+    totals: { elementer: 2, aktiverede: 1, renderede: 1, logposter: 3, interaktioner: 2, filer: 1 },
     elementer: [
-      { fil: 'src/pages/GamesPage.jsx', linje: 84, kolonne: 13, tag: 'button', type: null, tekst: null, komponent: 'MyGameCard', app: 'platform', aktiveret: true, tests: ['src/pages/GamesPage.test.jsx'] },
-      { fil: 'src/pages/GamesPage.jsx', linje: 64, kolonne: 11, tag: 'Link', type: null, tekst: 'Åbn', komponent: 'MyGameCard', app: 'platform', aktiveret: false, tests: [] },
+      { fil: 'src/pages/GamesPage.jsx', linje: 84, kolonne: 13, tag: 'button', type: null, tekst: null, komponent: 'MyGameCard', app: 'platform', aktiveret: true, tests: ['src/pages/GamesPage.test.jsx'], renderAntal: 1, status: 'roert' },
+      { fil: 'src/pages/GamesPage.jsx', linje: 64, kolonne: 11, tag: 'Link', type: null, tekst: 'Åbn', komponent: 'MyGameCard', app: 'platform', aktiveret: false, tests: [], renderAntal: 0, status: 'aldrig' },
     ],
   },
 }));
@@ -119,7 +120,9 @@ describe('TestsTab', () => {
     expect(faner[1]).toBe('🖱️ Knapper og felter');
     fireEvent.click(screen.getByTestId('subtab-flade'));
     expect(screen.getByTestId('flade-tal')).toHaveTextContent('Mindst 1 af 2');
-    expect(screen.getByText('ingen test rører den')).toBeInTheDocument();
+    // Tre tilstande (siden 4/9 2026): den urørte Link er ALDRIG vist i mocken.
+    expect(screen.getByText('ingen test viser den')).toBeInTheDocument();
+    expect(screen.queryByText('ingen test rører den')).not.toBeInTheDocument();
   });
 
   it('siger INTET om forældelse, når tallene er friske', () => {

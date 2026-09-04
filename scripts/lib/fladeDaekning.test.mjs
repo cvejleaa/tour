@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { flet, appFor, laesLog, kildeKaede } from './fladeDaekning.mjs';
+import { flet, appFor, laesLog, kildeKaede, statusFor, renderBrud, antalInteraktioner, HAENDELSER } from './fladeDaekning.mjs';
 import { noegle, noegleFraDebugSource, noegleFraBabel, delNoegle } from './evneNoegle.mjs';
 
 const KNAP = { noegle: 'src/A.jsx:10:5', fil: 'src/A.jsx', linje: 10, kolonne: 5, tag: 'button', type: null, tekst: 'Gem', haendelser: ['click'] };
@@ -16,8 +16,13 @@ describe('flet — kreditreglen', () => {
     expect(knap.aktiveret).toBe(true);
     expect(knap.tests).toEqual(['src/A.test.jsx']);
     expect(form.aktiveret).toBe(false);
-    expect(r.totals).toEqual({ elementer: 3, aktiverede: 1, logposter: 1, filer: 2 });
+    expect(r.totals).toEqual({ elementer: 3, aktiverede: 1, renderede: 1, logposter: 1, interaktioner: 1, filer: 2 });
     expect(r.e2eMedregnet).toBe(false);
+    // Ingen render-poster i loggen: render er ikke målt, og de klikkede er
+    // renderet pr. definition (man kan ikke klikke det, der ikke blev tegnet).
+    expect(r.renderMaalt).toBe(false);
+    expect(knap.status).toBe('roert');
+    expect(form.status).toBe('aldrig');
   });
 
   it('et klik på en <span> inde i formen (uden knap imellem) krediterer ingenting — form aktiveres af submit', () => {
@@ -45,7 +50,7 @@ describe('flet — kreditreglen', () => {
 
   it('en tom log giver alt som ikke-aktiveret — ikke en fejl og ikke grønt', () => {
     const r = flet(INV, [], T);
-    expect(r.totals).toEqual({ elementer: 3, aktiverede: 0, logposter: 0, filer: 2 });
+    expect(r.totals).toEqual({ elementer: 3, aktiverede: 0, renderede: 0, logposter: 0, interaktioner: 0, filer: 2 });
     expect(r.elementer.every((e) => !e.aktiveret && e.tests.length === 0)).toBe(true);
   });
 
@@ -62,6 +67,81 @@ describe('flet — kreditreglen', () => {
     expect(r.elementer.find((e) => e.tag === 'button').app).toBe('andet');
     expect(r.generatedAt).toBe(T.generatedAt);
     expect(flet(INV, [], { ...T, e2eMedregnet: true }).e2eMedregnet).toBe(true);
+  });
+});
+
+describe('flet — render-poster (hvad testene tegnede)', () => {
+  it('en render-post krediterer ALLE nøgler i kæden, der står i inventaret — ikke kun den nærmeste — og tæller ikke som rørt', () => {
+    // Modsat klik: en <span> inde i knappen inde i formen beviser, at BÅDE
+    // knap og form blev tegnet. Mutation "nærmeste kun" → formen bliver 'aldrig'.
+    const r = flet(INV, [{ type: 'render', kaede: ['src/A.jsx:11:7', KNAP.noegle, FORM.noegle, 'src/Ukendt.jsx:1:1'], testfil: 'src/A.test.jsx' }], T);
+    const knap = r.elementer.find((e) => e.linje === 10);
+    const form = r.elementer.find((e) => e.linje === 8);
+    const felt = r.elementer.find((e) => e.tag === 'input');
+    expect(knap).toMatchObject({ aktiveret: false, renderAntal: 1, status: 'vist', tests: [] });
+    expect(Object.keys(knap)).not.toContain('renderet');
+    expect(form).toMatchObject({ aktiveret: false, renderAntal: 1, status: 'vist' });
+    expect(felt).toMatchObject({ aktiveret: false, renderAntal: 0, status: 'aldrig' });
+    expect(r.renderMaalt).toBe(true);
+    expect(r.totals).toEqual({ elementer: 3, aktiverede: 0, renderede: 2, logposter: 1, interaktioner: 0, filer: 2 });
+  });
+
+  it('render-kreditten går UDEN OM hændelses-gaten (QC-fund: ellers krediterede den nul, og hele fladen stod som aldrig vist)', () => {
+    // Formen har haendelser ['submit'] — 'render' står der ikke. Den skal
+    // alligevel blive 'vist'.
+    const r = flet([FORM], [{ type: 'render', kaede: [FORM.noegle], testfil: 't' }], T);
+    expect(r.elementer[0].status).toBe('vist');
+  });
+
+  it('renderAntal er ANTALLET af testfiler, ikke listen — og rørt + render giver status rørt', () => {
+    const r = flet([KNAP], [
+      { type: 'render', kaede: [KNAP.noegle], testfil: 'a.test.jsx' },
+      { type: 'render', kaede: [KNAP.noegle], testfil: 'b.test.jsx' },
+      { type: 'render', kaede: [KNAP.noegle], testfil: 'a.test.jsx' },
+      { type: 'click', kaede: [KNAP.noegle], testfil: 'a.test.jsx' },
+    ], T);
+    expect(r.elementer[0]).toMatchObject({ aktiveret: true, renderAntal: 2, status: 'roert', tests: ['a.test.jsx'] });
+    expect(Object.keys(r.elementer[0])).not.toContain('renderTests');
+    expect(r.totals.interaktioner).toBe(1);
+    expect(r.totals.logposter).toBe(4);
+  });
+
+  it('en ukendt posttype krediterer hverken rørt eller vist', () => {
+    const r = flet([KNAP], [{ type: 'mousemove', kaede: [KNAP.noegle], testfil: 't' }, { type: 'hover', kaede: [KNAP.noegle], testfil: 't' }], T);
+    expect(r.elementer[0].status).toBe('aldrig');
+    expect(r.totals.interaktioner).toBe(0);
+  });
+
+  it('statusFor: rørt slår vist, vist slår aldrig', () => {
+    expect(statusFor(true, 0)).toBe('roert');
+    expect(statusFor(true, 3)).toBe('roert');
+    expect(statusFor(false, 1)).toBe('vist');
+    expect(statusFor(false, 0)).toBe('aldrig');
+  });
+
+  it('renderBrud: et rørt element uden render-kredit er et brud — KUN når render er målt', () => {
+    // Klik uden render på knappen, mens formen har en render-post: tappen
+    // filtrerer for hårdt eller er halvdød → knappen er et brud.
+    const r = flet(INV, [
+      { type: 'click', kaede: [KNAP.noegle], testfil: 't' },
+      { type: 'render', kaede: [FORM.noegle], testfil: 't' },
+    ], T);
+    expect(renderBrud(r).map((e) => e.linje)).toEqual([10]);
+    // Samme klik, men INGEN render-poster overhovedet: render er ikke målt,
+    // og invarianten siger ingenting (ellers ville en gammel log bryde alt).
+    const u = flet(INV, [{ type: 'click', kaede: [KNAP.noegle], testfil: 't' }], T);
+    expect(renderBrud(u)).toEqual([]);
+    // Og med render-kredit på det rørte: intet brud.
+    const ok = flet(INV, [{ type: 'click', kaede: [KNAP.noegle], testfil: 't' }, { type: 'render', kaede: [KNAP.noegle], testfil: 't' }], T);
+    expect(renderBrud(ok)).toEqual([]);
+    expect(renderBrud(null)).toEqual([]);
+  });
+
+  it('antalInteraktioner tæller KUN hændelser fra HAENDELSER — render-poster kan ikke holde loggen "ikke tom" (QC-fund)', () => {
+    expect(HAENDELSER).toEqual(['click', 'input', 'change', 'submit']);
+    expect(antalInteraktioner([{ type: 'render', kaede: [] }, { type: 'render', kaede: [] }])).toBe(0);
+    expect(antalInteraktioner([{ type: 'render', kaede: [] }, { type: 'click', kaede: [] }, { type: 'submit', kaede: [] }, null])).toBe(2);
+    expect(antalInteraktioner(undefined)).toBe(0);
   });
 });
 

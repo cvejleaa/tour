@@ -21,6 +21,23 @@ describe('tilPost — browserens rå tripler bliver til Vitest-tappens format', 
     });
   });
 
+  it('en render-post (batch af nye kilder fra observeren) konverteres til én post med hele kæden', () => {
+    const p = tilPost({ type: 'render', kilder: [
+      { fileName: `${ROD}/src/A.jsx`, lineNumber: 1, columnNumber: 1 },
+      { fileName: `${ROD}/src/B.jsx`, lineNumber: 2, columnNumber: 3 },
+    ] }, ROD, { test: 'x', testfil: 'e2e/x.spec.js' });
+    expect(p).toEqual({ type: 'render', kaede: ['src/A.jsx:1:1', 'src/B.jsx:2:3'], test: 'x', testfil: 'e2e/x.spec.js' });
+  });
+
+  it('init-scriptet sætter render-tappen op: MutationObserver på body, batch pr. callback, tømning på pagehide', () => {
+    expect(INIT_SCRIPT).toContain('new MutationObserver(');
+    expect(INIT_SCRIPT).toContain("{ childList: true, subtree: true }");
+    expect(INIT_SCRIPT).toContain("send({ type: 'render', kilder: nye })");
+    expect(INIT_SCRIPT).toContain("'pagehide'");
+    expect(INIT_SCRIPT).toContain('takeRecords()');
+    expect(INIT_SCRIPT).toContain("querySelectorAll('*')");
+  });
+
   it('kasserer poster uden kilder, med ukendt hændelse eller uden fileName', () => {
     expect(tilPost({ type: 'click', kilder: [] }, ROD, {})).toBeNull();
     expect(tilPost({ type: 'mousemove', kilder: [{ fileName: `${ROD}/src/A.jsx`, lineNumber: 1, columnNumber: 1 }] }, ROD, {})).toBeNull();

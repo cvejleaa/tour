@@ -252,6 +252,49 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
 
 ## Et måletal om VORES EGEN kvalitet (dæknings-/status-flader)
 
+- **En NY TILSTAND i et måletal skal have en SELV-CHECKENDE invariant, ikke en
+  «der er poster»-vagt.** Til «renderet/vist» er invarianten gratis: *aktiveret
+  ⇒ renderet* — man kan ikke klikke noget, der aldrig blev tegnet. En vagt, der
+  kun tæller logposter, kan være grøn, mens krediteringen falder på gulvet
+  (`flet` i `scripts/lib/fladeDaekning.mjs` dropper enhver post, hvis type ikke
+  står i elementets `haendelser` — en ny posttype krediterer NUL uden at fejle,
+  og hele fladen ville stå i den ALVORLIGE kategori). Præcedensen for en
+  præcisions-vagt står i `build-test-report.mjs:116-125` (`tipKrediteret`).
+- **En ny posttype i en DELT log holder de gamle «loggen er tom»-vagter kunstigt
+  i live.** `flade-vagt.mjs` giver `poster.length` videre som `logposter`; render-
+  poster alene ville tilfredsstille vagten, mens klik-tappen var død — og så
+  drukner den ene forklarende besked i 260 «nyt urørt element»-linjer, som vagten
+  netop er skrevet for at undgå. Tæl pr. TYPE, ikke pr. linje.
+- **`import`eret `src/data/*.json` er BAGT IND I BUNDTET.** En ugentlig
+  workflow-commit (test-report.yml) ændrer INTET i produktion, før der deployes
+  igen — workflowet siger det selv (:19-20). En fallback-tekst «kommer med næste
+  rapport» er derfor en usandhed; rækkefølgen er workflow_dispatch FØR
+  hosting-deploy. Spørg ved enhver ny visning af et committet øjebliksbillede:
+  hvad ville brugeren se på dag ét?
+- **«Vist» i jsdom betyder kun «i DOM'en».** Målt: en `<button>` inde i en LUKKET
+  `<details>` står i DOM'en og ville tælle som vist; jsdom har ingen layout, så
+  forskellen kan aldrig måles. Navngiv tilstanden efter målingen («renderet»),
+  eller skriv begrænsningen ved tallet — samme regel som «et kvalitets-måletal
+  skal selv skrive, hvad det ikke kan se».
+- **React committer et helt undertræ som ÉN MutationObserver-record** (målt i
+  jsdom + react-dom 18.3.1: mount af en `<form>` med 6 efterkommere = 1 record,
+  1 addedNode). En observer, der ikke går `querySelectorAll('*')` igennem, ser
+  KUN det yderste element. `__reactFiber$` er sat på knuden før indsættelse;
+  `_debugSource` kommer af babels jsx-source og forsvinder i React 19.
+- **Et filter på en MÅLING skal være en OVERMÆNGDE af det, der måles.**
+  Under-rapportering i «blev det vist»-retningen giver FALSK ALARM i den
+  alvorlige kategori. Optimér i stedet dét, der er dyrt (memoiser `path.relative`
+  pr. `fileName`-streng, dedup på den beregnede nøgle) — aldrig på en tag-liste,
+  der stille skærer inventarets små-bogstavs-tags med onClick fra.
+- **Et nyt ALVORLIGHEDS-tal skal skille det DØDE spil ud.** 91 af 266 urørte
+  elementer (34 %) ligger i Tour-gruppen, som fanen selv kalder «ikke noget at
+  handle på». Et samlet «A aldrig vist» modsiger den note tre linjer nede.
+- **To afkrydsninger, hvis prædikater er INDLEJREDE (A ⊃ B), skal være
+  radioknapper eller en valgliste.** Afkrydsninger lover uafhængige til/fra;
+  «begge sæt» har ingen betydning og giver ingen tilbagemelding. Og et nyt
+  badge-ordforråd skal beholde det ORD, filteret bruger — ellers kan ejeren ikke
+  se, hvilke linjer filteret taler om.
+
 - **Spørg først: ville tallet have fanget de sidste to ægte fejl?** En
   flade-dækning, der tæller "element aktiveret i mindst én test", ville have
   vist Forlad-knappen GRØN (`src/pages/GamesPage.jsx:88` klikkes af fire tests
