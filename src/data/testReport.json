@@ -1,20 +1,48 @@
 {
-  "generatedAt": "2026-09-03T21:44:10.108Z",
+  "generatedAt": "2026-09-04T06:26:53.233Z",
   "totals": {
-    "files": 271,
-    "tests": 4438,
-    "passed": 4438,
+    "files": 279,
+    "tests": 4504,
+    "passed": 4504,
     "failed": 0
   },
   "suites": [
     {
+      "file": "e2e/fixtures/adgangskoder.test.mjs",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "adgangskoder.mjs › konstanter.mjs bærer ingen adgangskoder — hverken som felt eller som streng",
+          "status": "passed"
+        },
+        {
+          "name": "adgangskoder.mjs › importeres kun fra e2e/ — aldrig fra src/",
+          "status": "passed"
+        },
+        {
+          "name": "adgangskoder.mjs › kender hver seedet konto og kaster for en ukendt",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "e2e/fixtures/evneKaede.test.mjs",
       "area": "frontend",
-      "passed": 4,
+      "passed": 6,
       "failed": 0,
       "tests": [
         {
           "name": "tilPost — browserens rå tripler bliver til Vitest-tappens format › konverterer absolutte build-stier til nøgler relative til roden, med Reacts 1-indekserede kolonne uændret",
+          "status": "passed"
+        },
+        {
+          "name": "tilPost — browserens rå tripler bliver til Vitest-tappens format › en render-post (batch af nye kilder fra observeren) konverteres til én post med hele kæden",
+          "status": "passed"
+        },
+        {
+          "name": "tilPost — browserens rå tripler bliver til Vitest-tappens format › init-scriptet sætter render-tappen op: MutationObserver på body, batch pr. callback, tømning på pagehide",
           "status": "passed"
         },
         {
@@ -106,7 +134,7 @@
     {
       "file": "scripts/flade-vagt.test.mjs",
       "area": "frontend",
-      "passed": 9,
+      "passed": 10,
       "failed": 0,
       "tests": [
         {
@@ -139,6 +167,10 @@
         },
         {
           "name": "vagt › en undtagelse dækker et nyt urørt element — men kun med begrundelse",
+          "status": "passed"
+        },
+        {
+          "name": "vagt › basislinjeNu (det, --opdater skriver) udelader de undtagne — ét sted pr. element",
           "status": "passed"
         },
         {
@@ -450,7 +482,7 @@
     {
       "file": "scripts/lib/fladeDaekning.test.mjs",
       "area": "frontend",
-      "passed": 10,
+      "passed": 17,
       "failed": 0,
       "tests": [
         {
@@ -475,6 +507,34 @@
         },
         {
           "name": "flet — kreditreglen › samler testfiler pr. element, sorteret og uden dubletter, og sætter app",
+          "status": "passed"
+        },
+        {
+          "name": "flet — render-poster (hvad testene tegnede) › en render-post krediterer ALLE nøgler i kæden, der står i inventaret — ikke kun den nærmeste — og tæller ikke som rørt",
+          "status": "passed"
+        },
+        {
+          "name": "flet — render-poster (hvad testene tegnede) › render-kreditten går UDEN OM hændelses-gaten (QC-fund: ellers krediterede den nul, og hele fladen stod som aldrig vist)",
+          "status": "passed"
+        },
+        {
+          "name": "flet — render-poster (hvad testene tegnede) › renderAntal er ANTALLET af testfiler, ikke listen — og rørt + render giver status rørt",
+          "status": "passed"
+        },
+        {
+          "name": "flet — render-poster (hvad testene tegnede) › en ukendt posttype krediterer hverken rørt eller vist",
+          "status": "passed"
+        },
+        {
+          "name": "flet — render-poster (hvad testene tegnede) › statusFor: rørt slår vist, vist slår aldrig",
+          "status": "passed"
+        },
+        {
+          "name": "flet — render-poster (hvad testene tegnede) › renderBrud: et rørt element uden render-kredit er et brud — KUN når render er målt",
+          "status": "passed"
+        },
+        {
+          "name": "flet — render-poster (hvad testene tegnede) › antalInteraktioner tæller KUN hændelser fra HAENDELSER — render-poster kan ikke holde loggen \"ikke tom\" (QC-fund)",
           "status": "passed"
         },
         {
@@ -2254,7 +2314,7 @@
     {
       "file": "src/features/admin/adminActions.test.js",
       "area": "frontend",
-      "passed": 60,
+      "passed": 63,
       "failed": 0,
       "tests": [
         {
@@ -2495,6 +2555,18 @@
         },
         {
           "name": "adminActions › datetimeToTimestamp › konverterer ISO-streng til Timestamp",
+          "status": "passed"
+        },
+        {
+          "name": "callDeleteUser — broen mellem serverens kanForceres og «Slet alligevel?» › videregiver details.kanForceres fra en HttpsError — og kalder adminDeleteUser med uid og force",
+          "status": "passed"
+        },
+        {
+          "name": "callDeleteUser — broen mellem serverens kanForceres og «Slet alligevel?» › uden details (liga-ejer) er details null — ikke undefined, så UI'en kan skelne «ikke sendt» fra «kan ikke forceres»",
+          "status": "passed"
+        },
+        {
+          "name": "callDeleteUser — broen mellem serverens kanForceres og «Slet alligevel?» › ved succes returneres serverens data",
           "status": "passed"
         }
       ]
@@ -2818,11 +2890,15 @@
     {
       "file": "src/features/admin/FladeDaekning.test.jsx",
       "area": "frontend",
-      "passed": 11,
+      "passed": 14,
       "failed": 0,
       "tests": [
         {
           "name": "FladeDaekning — teksten er selve risikoen › siger «Mindst 2 af 4» og bruger aldrig ordet «testet» om et element",
+          "status": "passed"
+        },
+        {
+          "name": "FladeDaekning — teksten er selve risikoen › et GAMMELT øjebliksbillede uden render-måling viser to tilstande som før — og kalder ALDRIG noget «aldrig vist»",
           "status": "passed"
         },
         {
@@ -2842,7 +2918,11 @@
           "status": "passed"
         },
         {
-          "name": "FladeDaekning — teksten er selve risikoen › afkrydsningen «Vis kun det, ingen test rører» skjuler de rørte",
+          "name": "FladeDaekning — teksten er selve risikoen › valgknapperne «Vis kun det, ingen test rører» / «… ingen test viser» filtrerer — og sæsoneftersynet citerer præcis de tekster",
+          "status": "passed"
+        },
+        {
+          "name": "FladeDaekning — teksten er selve risikoen › i en fil står aldrig viste FØRST, så viste, så rørte — og filer sorteres efter antal aldrig viste",
           "status": "passed"
         },
         {
@@ -2858,7 +2938,11 @@
           "status": "passed"
         },
         {
-          "name": "grupper og typeNavn › gruppesummen af det RIGTIGE øjebliksbillede er lig totalen",
+          "name": "grupper og typeNavn › gruppesummen af det RIGTIGE øjebliksbillede er lig totalen — også for de tre tilstande",
+          "status": "passed"
+        },
+        {
+          "name": "grupper og typeNavn › statusAf og badgeFor: uden render-måling findes «aldrig» ikke",
           "status": "passed"
         },
         {
@@ -3883,6 +3967,26 @@
         },
         {
           "name": "usePendingApprovals › tæller både brugere og ligaer for ejer",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/UserRow.slet.test.jsx",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "UserRow — Slet bruger › dialogen siger, hvad der slettes, OG hvad der bliver stående — og lover ikke længere «alle spil»",
+          "status": "passed"
+        },
+        {
+          "name": "UserRow — Slet bruger › point: serveren siger kanForceres → «Slet alligevel?» → force",
+          "status": "passed"
+        },
+        {
+          "name": "UserRow — Slet bruger › liga-ejer: samme fejlkode, men UDEN kanForceres → ingen «Slet alligevel?», fejlen vises",
           "status": "passed"
         }
       ]
@@ -5467,6 +5571,90 @@
         },
         {
           "name": "FootballTable — tom tilstand og kildelinje › viser kilden pr. provider — og udelader linjen for en ukendt",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/games/football/FootballTip.invarianter.test.jsx",
+      "area": "frontend",
+      "passed": 7,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "4b — tælleren følger af kortene, ikke af fixturen › holder kl. 2026-09-03T08:30:00.000Z",
+          "status": "passed"
+        },
+        {
+          "name": "4b — tælleren følger af kortene, ikke af fixturen › holder kl. 2026-09-03T10:00:00.000Z",
+          "status": "passed"
+        },
+        {
+          "name": "4b — tælleren følger af kortene, ikke af fixturen › holder kl. 2026-09-03T11:00:00.000Z",
+          "status": "passed"
+        },
+        {
+          "name": "4b — tælleren følger af kortene, ikke af fixturen › holder kl. 2026-09-03T11:01:00.000Z",
+          "status": "passed"
+        },
+        {
+          "name": "4b — tælleren følger af kortene, ikke af fixturen › holder kl. 2026-09-05T15:00:00.000Z",
+          "status": "passed"
+        },
+        {
+          "name": "4b — tælleren følger af kortene, ikke af fixturen › holder kl. 2026-09-05T17:00:00.000Z",
+          "status": "passed"
+        },
+        {
+          "name": "4b — tælleren følger af kortene, ikke af fixturen › holder kl. 2026-09-07T20:00:00.000Z",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/games/football/FootballTip.scenarie.test.jsx",
+      "area": "frontend",
+      "passed": 10,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "FootballTip på det fælles scenarie › åbner på runde 20 — ikke på runde 19, selv om den lånte kamp er rundens tidligste ulåste",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip på det fælles scenarie › viser tre kort i KICKOFF-rækkefølge: den igangværende, så den lånte (mærket med sin runde), så den åbne",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip på det fælles scenarie › tælleren regner kun rundens egne: 1/2 tippet — ikke 2/3 med den lånte",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip på det fælles scenarie › \"Næste kamp låser om 1 t\" peger på den LÅNTE kamp og lyser — rundens egen åbne kamp er først om 2 dage",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip på det fælles scenarie › samme runde, to tilstande: den igangværende kamp har låste 1X2-knapper, den åbne har aktive",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip på det fælles scenarie › startRound skjuler runde 17 — uden startRound kan den åbnes",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip på det fælles scenarie › runde 18 er afgjort og tippet: facit-blokken siger 1/2 ramt og +1 — ikke på runde 20, som ikke er afgjort",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip på det fælles scenarie › chancen sidder på den LÅNTE kamp (pillen viser indsats 1) — den igangværende viser sin live-stilling uden chance",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip på det fælles scenarie › liga-skalaen: med KUN min liga er jeg nr. 2 af 2 (den fremmede med 9 point er ude); med begge ligaer gælder spillets skala — nr. 3 af 3",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip på det fælles scenarie › når alt på runde 20 (inkl. den lånte) er spillet, forsvinder tælleren — den siger ikke \"om 0 t\"",
           "status": "passed"
         }
       ]
@@ -12396,6 +12584,18 @@
       ]
     },
     {
+      "file": "src/lib/medlem.test.js",
+      "area": "frontend",
+      "passed": 1,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "erAktivtMedlem — spejlet af reglernes erAktivDeltager() › kræver et dokument, og at forladt ikke er sat",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/lib/pcsMapping.test.js",
       "area": "frontend",
       "passed": 16,
@@ -13792,6 +13992,34 @@
       ]
     },
     {
+      "file": "src/pages/GamesPage.scenarie.test.jsx",
+      "area": "frontend",
+      "passed": 5,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "GamesPage på det fælles scenarie › medlem: spillet står under Mine spil med mine point og Forlad — ikke Deltag",
+          "status": "passed"
+        },
+        {
+          "name": "GamesPage på det fælles scenarie › medlem med point: Forlad spørger to gange, og anden dialog nævner mine 4,5 point i spillet",
+          "status": "passed"
+        },
+        {
+          "name": "GamesPage på det fælles scenarie › forladt: spillet står under Åbne spil med «Vend tilbage» — hverken Forlad eller Deltag",
+          "status": "passed"
+        },
+        {
+          "name": "GamesPage på det fælles scenarie › ikke-medlem (ingen players-doc): Deltag — ikke Vend tilbage",
+          "status": "passed"
+        },
+        {
+          "name": "GamesPage på det fælles scenarie › en fremmed i en anden liga er stadig medlem af spillet — Forlad, med sine 9 point",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/pages/GamesPage.test.jsx",
       "area": "frontend",
       "passed": 12,
@@ -14739,6 +14967,50 @@
         },
         {
           "name": "theme.css: den gule accent har sit eget blæk › bruger --c-on-accent, ikke --c-pitch-dark",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/test/scenarie/superliga.test.js",
+      "area": "frontend",
+      "passed": 9,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Superliga-scenariet bærer begge tilstande af hver gate › runde 20 har både en låst og en ulåst kamp — i SAMME runde",
+          "status": "passed"
+        },
+        {
+          "name": "Superliga-scenariet bærer begge tilstande af hver gate › den lånte kamp fra runde 19 er ulåst og låser FØR runde 20's egne — inden for 2 timer",
+          "status": "passed"
+        },
+        {
+          "name": "Superliga-scenariet bærer begge tilstande af hver gate › runde 18 er helt afgjort og tippet — facit-blokken har noget at vise",
+          "status": "passed"
+        },
+        {
+          "name": "Superliga-scenariet bærer begge tilstande af hver gate › der findes en runde FØR startRound, med tips — så startrunde-gaten har noget at skjule",
+          "status": "passed"
+        },
+        {
+          "name": "Superliga-scenariet bærer begge tilstande af hver gate › en kamp er låst UDEN tip, en anden tippet og ulåst, og chancen står på den lånte",
+          "status": "passed"
+        },
+        {
+          "name": "Superliga-scenariet bærer begge tilstande af hver gate › en forladt spiller findes med point og flag — og er ikke med i nogen liga",
+          "status": "passed"
+        },
+        {
+          "name": "Superliga-scenariet bærer begge tilstande af hver gate › jeg er med i præcis én af de to ligaer",
+          "status": "passed"
+        },
+        {
+          "name": "Superliga-scenariet bærer begge tilstande af hver gate › bruger seedets hold og seedets id-format (matchId) — ikke seedets kampopstilling",
+          "status": "passed"
+        },
+        {
+          "name": "Superliga-scenariet bærer begge tilstande af hver gate › er en fabrik: to kald deler ingen objekter",
           "status": "passed"
         }
       ]
@@ -15699,6 +15971,62 @@
         },
         {
           "name": "canonicalTeamKey + aliaser (Ineos-sagen) › resultattabellens \"INEOS GRENADIERS\" = holdlistens \"Netcompany Ineos\"",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions-platform/adminDeleteUser.test.js",
+      "area": "platform",
+      "passed": 12,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "adminDeleteUserCore — vagterne, FØR nogen skrivning › afviser: ikke ejer, uden uid, sig selv",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — vagterne, FØR nogen skrivning › afviser med point uden force — og navngiver spillet; Auth-kontoen røres ikke",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — vagterne, FØR nogen skrivning › afviser ALTID, når brugeren ejer en liga — også med force",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — vagterne, FØR nogen skrivning › liga-vagten gælder OGSÅ uden players-dokument — hun kan selv have slettet det (Security)",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — oprydningen › dublet uden tips: Auth + users + userContacts + players-dokumentet slettes; ingen bets at røre",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — oprydningen › med point (force): kommende tips slettes, spillede tips bliver, ligaerne mister hende — og dokumentet ARKIVERES, ikke slettes",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — oprydningen › flere spil: hvert for sig — et spil uden spor af hende røres ikke og står ikke i svaret",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — oprydningen › kun et puljetip i spillet: det slettes — og spillet STÅR i svaret, så sletningen ikke er tavs (Security)",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — oprydningen › uden players-dokument: memberUids og puljetip ryddes alligevel — og spillet står i svaret uden dokument",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — oprydningen › uden players-dokument, men med tips på spillede kampe: arkivet OPRETTES med flag — ellers genskaber genberegningen hende som aktiv",
+          "status": "passed"
+        },
+        {
+          "name": "adminDeleteUserCore — oprydningen › en Auth-konto, der allerede er væk, stopper ikke oprydningen — enhver anden Auth-fejl gør",
+          "status": "passed"
+        },
+        {
+          "name": "sletFejl — oversættelsen til HttpsError › indsætter spillets navn og bærer kanForceres KUN for point-fejlen",
           "status": "passed"
         }
       ]

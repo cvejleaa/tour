@@ -593,6 +593,35 @@ skal efterprøves ved at KALDE funktionen, funktionen selv afhænger af
   aldrig i fixturet) + `fetchFn`, der svarer `ok:false` KUN på det Eid → forvent
   enten `utilgaengelige` (dokumentér som bevidst) eller en ny fallback-gren.
 
+## Flade-dækning: knapper/felter i tre tilstande — rørt/vist-men-ikke-rørt/aldrig vist (PR #222, branch `claude/multi-game-player-collection-21mc1w`)
+
+10 mutationer kørt, 9 røde: flet-render-gren fjernet → rød (`fladeDaekning.test.mjs`,
+4 tests); render kun nærmeste nøgle → rød; `renderBrud` uden `!renderMaalt`-vagt →
+rød; `antalInteraktioner` tæller alt → rød (4); `statusAf` giver `'aldrig'` uden
+`renderMaalt` → rød (2, `FladeDaekning.test.jsx`); aldrig-badge rød i stedet for
+gul → rød (2); sortering uden RANG → rød; `tilPost` afviser `'render'` → rød
+(`evneKaede.test.mjs`); FILTRE omdøbt → rød (labeltekst-assertionen fangede det
+FØR paritetsvagten nåede at slå til).
+
+- **CLI-entrypoint-blokke er usynlige for tests, der kun importerer modulet.**
+  `scripts/flade-vagt.mjs`s `if (process.argv[1] && import.meta.url ===
+  pathToFileURL(process.argv[1]).href)`-blok kaldte `antalInteraktioner(poster)`;
+  muteret til `poster.length` overlevede HELE suiten, fordi ingen test
+  nogensinde kører selve scriptet som proces — kun de eksporterede funktioner
+  testes direkte. Samme blinde vinkel gælder `scripts/build-test-report.mjs`,
+  som kun er dækket af CI's fail-loud kørsel. Lukket i en opfølgende commit på
+  branchen: `scripts/flade-vagt.test.mjs` spawner scriptet (`spawnSync`) med et
+  fixture-log af KUN render-poster og kræver præcis fejlteksten «Tappen loggede
+  ingen interaktioner» + exit 1 + INGEN «Nyt urørt element» i output. Genkørt:
+  mutationen ((`poster.length`) bliver rød under denne nye test (1 af 11
+  assertions fanger den). Tjek næste gang et script har en CLI-entrypoint-blok:
+  findes der en test, der `spawnSync`'er scriptet selv (ikke kun importerer dets
+  eksporterede funktioner) — ellers er alt, hvad der ligger UNDER entrypoint-
+  guarden, udækket uanset hvor grøn resten af suiten er.
+- Ingen fastfrosne fraværs-assertions fundet i denne PR; de gamle to-tilstands-
+  assertions (rørt/ikke-rørt) blev udvidet til tre og vendt bevidst med
+  kommentar, ikke efterladt som en overset `not.toBeInTheDocument`.
+
 ## Mønster at genkende
 
 Alle tre fund ovenfor deler samme form: en test, der ser ud til at dække en

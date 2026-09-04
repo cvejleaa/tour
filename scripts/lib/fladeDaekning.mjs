@@ -11,7 +11,30 @@
 //
 // EN LOGPOST UDEN INVENTAR-MATCH KREDITERER INTET. I målingen stod der 15+
 // ikke-interaktive forældre-elementer i loggen; de falder på gulvet.
+//
+// RENDER-POSTER ER DEN MODSATTE REGEL. En post af typen 'render' (fra
+// MutationObserver-tappen: elementet kom ind i DOM'en) krediterer ALLE nøgler
+// i kæden, der står i inventaret — en <span> inde i en knap inde i en form
+// beviser, at både knap og form blev tegnet. Den går UDEN OM hændelses-gaten
+// (ingen inventar-hændelse hedder 'render'; uden forbigåelsen krediterede en
+// render-post nul, og hele fladen stod som «aldrig vist» — QC-fund på
+// planen). Render-poster tæller IKKE i `aktiveret`, kun i `renderet`.
 import { noegleFraDebugSource } from './evneNoegle.mjs';
+
+/**
+ * Hændelserne, der AKTIVERER et element — den ene kilde til listen. Tappen
+ * (src/test/setup.js), E2E-init-scriptet (e2e/fixtures/evneKaede.mjs),
+ * fletningen og tom-log-vagterne læser alle herfra: kun poster af disse typer
+ * beviser, at en test rørte noget. 'render' står med vilje IKKE her — ellers
+ * ville en død klik-tap gemme sig bag en levende render-tap i "loggen er
+ * ikke tom" (QC-fund).
+ */
+export const HAENDELSER = ['click', 'input', 'change', 'submit'];
+
+/** Antal poster, der beviser en interaktion — det tal, tom-log-vagterne skal se på. */
+export function antalInteraktioner(poster) {
+  return (poster || []).filter((p) => p && HAENDELSER.includes(p.type)).length;
+}
 
 /**
  * Hvilken gruppe hører filen til på fanen? Tour er et afsluttet spil og
@@ -49,9 +72,19 @@ export function laesLog(tekst) {
  */
 export function flet(inventar, poster, opt = {}) {
   const prNoegle = new Map(inventar.map((p) => [p.noegle, p]));
-  const tests = new Map(); // noegle → Set(testfil)
+  const tests = new Map(); // noegle → Set(testfil)  — rørt
+  const vist = new Map();  // noegle → Set(testfil)  — renderet
   for (const post of poster) {
     if (!post || !Array.isArray(post.kaede)) continue;
+    if (post.type === 'render') {
+      for (const k of post.kaede) {
+        if (!prNoegle.has(k)) continue;
+        if (!vist.has(k)) vist.set(k, new Set());
+        vist.get(k).add(post.testfil || '?');
+      }
+      continue;
+    }
+    if (!HAENDELSER.includes(post.type)) continue;
     const naermeste = post.kaede.find((k) => prNoegle.has(k));
     if (!naermeste) continue;
     const elem = prNoegle.get(naermeste);
@@ -61,15 +94,26 @@ export function flet(inventar, poster, opt = {}) {
   }
   const elementer = inventar.map((p) => {
     const t = tests.get(p.noegle);
+    const v = vist.get(p.noegle);
+    const aktiveret = Boolean(t);
+    // Kun ANTALLET af render-tests gemmes: fanen viser aldrig listen for de
+    // viste, og delte komponenter tegnes af snesevis af testfiler — listen
+    // ville blæse den bundlede JSON op (QC).
+    const renderAntal = v ? v.size : 0;
     return {
       fil: p.fil, linje: p.linje, kolonne: p.kolonne, tag: p.tag, type: p.type, tekst: p.tekst,
       komponent: p.komponent || null,
       app: appFor(p.fil),
-      aktiveret: Boolean(t),
+      aktiveret,
       tests: t ? [...t].sort() : [],
+      // `renderet` er afledt (status !== 'aldrig') og gemmes ikke: 443 × ét
+      // felt er 10 KB i den bundlede JSON for ingenting.
+      renderAntal,
+      status: statusFor(aktiveret, renderAntal),
     };
   });
   const aktiverede = elementer.filter((e) => e.aktiveret).length;
+  const renderede = elementer.filter((e) => e.status !== 'aldrig').length;
   return {
     generatedAt: opt.generatedAt || new Date().toISOString(),
     // Er E2E-klik (Playwright) med i loggen? build-test-report.mjs sætter
@@ -77,9 +121,38 @@ export function flet(inventar, poster, opt = {}) {
     // forbehold og ordet "Mindst" ud fra flaget — ikke fra en hardkodet
     // sætning — så en kørsel uden E2E stadig siger sandheden.
     e2eMedregnet: Boolean(opt.e2eMedregnet),
-    totals: { elementer: elementer.length, aktiverede, logposter: poster.length, filer: new Set(elementer.map((e) => e.fil)).size },
+    // `renderMaalt` siger, om render-tappen overhovedet var med i kørslen.
+    // Uden det ville en gammel log (kun klik) vise alt urørt som «aldrig vist».
+    renderMaalt: poster.some((p) => p && p.type === 'render'),
+    totals: {
+      elementer: elementer.length, aktiverede, renderede,
+      logposter: poster.length, interaktioner: antalInteraktioner(poster),
+      filer: new Set(elementer.map((e) => e.fil)).size,
+    },
     elementer,
   };
+}
+
+/**
+ * De tre tilstande, fanen viser. 'roert': en test klikkede/skrev.
+ * 'vist': ingen rørte, men elementet kom ind i DOM'en i mindst én test.
+ * 'aldrig': ingen test har nogensinde tegnet det — ingen vagt overhovedet.
+ */
+export function statusFor(aktiveret, renderAntal) {
+  if (aktiveret) return 'roert';
+  return renderAntal > 0 ? 'vist' : 'aldrig';
+}
+
+/**
+ * INVARIANTEN, der beviser at render-tappen virker: man kan ikke klikke på
+ * noget, der aldrig blev tegnet. Hvert aktiveret element skal være renderet
+ * — ellers er observeren død eller filtrerer for hårdt, og «aldrig vist»
+ * er falsk alarm. Returnerer de elementer, der bryder den (tom = OK).
+ * Kun meningsfuld, når render er målt (renderMaalt); ellers bryder alt.
+ */
+export function renderBrud(daekning) {
+  if (!daekning || !daekning.renderMaalt) return [];
+  return daekning.elementer.filter((e) => e.aktiveret && !(e.renderAntal > 0));
 }
 
 /**
@@ -89,6 +162,26 @@ export function flet(inventar, poster, opt = {}) {
  * hinanden. 12 rækker fra en <span> i en knap op gennem wrappers til Link.
  */
 export const MAKS_KAEDE = 12;
+
+/**
+ * Render-tappens vandring: for et TILFØJET DOM-undertræ (MutationObserver)
+ * findes alle nøgler i fiber-kæden for roden og hver efterkommer. React
+ * appender et helt undertræ som ÉN mutation (roden appendes, når børnene er
+ * bygget — målt af QC: en <form> med 6 efterkommere gav 1 addedNode), så
+ * efterkommerne SKAL gås igennem. Nøglerne dedupleres i `set`; kalderen
+ * afgør, hvad der er nyt. Ingen tag-filtrering: ethvert filter her skal være
+ * en overmængde af scan-flade's interaktiv-prædikat, og under-rapportering
+ * er falsk alarm i den alvorlige kategori — så der filtreres ikke.
+ * @param {Element} rodEl
+ * @param {string} rod
+ * @param {Set<string>} set  fyldes med nøgler
+ */
+export function renderNoegler(rodEl, rod, set) {
+  const alle = [rodEl];
+  if (typeof rodEl.querySelectorAll === 'function') alle.push(...rodEl.querySelectorAll('*'));
+  for (const el of alle) for (const k of kildeKaede(el, rod)) set.add(k);
+  return set;
+}
 
 /** Kæden af kildesteder fra et DOM-element og opad — bruges af tappen. */
 export function kildeKaede(el, rod, maks = MAKS_KAEDE) {

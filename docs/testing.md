@@ -58,10 +58,27 @@ er sat — det gør `build-test-report.mjs`. "Aktiveret" betyder præcis det: en
 test rørte elementet. Det siger IKKE, at opførslen bag er bevist, og det ser
 ikke reglerne eller serveren — Forlad-knappen VAR aktiveret i tests den dag,
 den fejlede i produktion, fordi reglerne forbød det, fladen tilbød.
+
+Fanen viser **tre tilstande**, ikke to: *rørt* (en test klikkede/skrev),
+*vist, men ikke rørt* (elementet kom ind i DOM'en i mindst én test — også bag
+en lukket fold; jsdom har ingen layout) og *aldrig vist* (ingen test har
+nogensinde tegnet det — den alvorlige tilstand, uden vagt overhovedet). Det
+måles med en `MutationObserver` på `document.body` i samme tap (én
+`render`-post pr. testfil med alle nøgler i de tilføjede undertræers
+fiber-kæder); en render-post krediterer ALLE nøgler i kæden, modsat klik, der
+kun krediterer den nærmeste. `build-test-report.mjs` nægter at skrive
+rapporten, hvis et rørt element mangler render-kredit — man kan ikke klikke
+på noget, der aldrig blev tegnet, så et brud betyder, at render-tappen er død,
+og hvert «aldrig vist» ville være falsk alarm. Prisen er målt med
+`node scripts/maal-koeretid.mjs` (hele suiten uden og med tap): 138,8 s uden
+tap, 139,1 s med klik-tap, 142,5 s med klik- og render-tap (4/9 2026, samme
+container, ingen anden last) — ca. 2 %. React 19 fjerner `_debugSource`;
+så dør begge tapper, og render-invarianten er dét, der opdager det.
+
 E2E-klik tæller også med: `build-test-report.mjs` kører Playwright mod
-emulatorerne med `EVNE_LOG` sat, og `e2e/fixtures/evne.mjs` logger klik i
-samme format (bundtet bygges da med React-dev-runtime, så elementerne bærer
-deres kildested). 1X2-knapperne i tip-fladen klikkes kun af
+emulatorerne med `EVNE_LOG` sat, og `e2e/fixtures/evne.mjs` +
+`evneKaede.mjs` logger klik og render i samme format (bundtet bygges da med
+React-dev-runtime, så elementerne bærer deres kildested). 1X2-knapperne i tip-fladen klikkes kun af
 `e2e/platform/tip.spec.js` og står derfor som rørt af netop den. Alle specs
 importerer `test`/`expect` fra fixturen — en spec, der importerer
 `@playwright/test` direkte, tæller ikke. CI-vagten (nedenfor) ser derimod
