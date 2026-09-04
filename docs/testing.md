@@ -244,9 +244,11 @@ To lag, se `playwright.config.js`:
 **Platformen mod Auth- og Firestore-emulatoren** (`e2e/platform/`,
 `npm run test:e2e:emu` — kræver Java 21 og `firebase-tools`). Appen bygges i
 Vite-mode `e2e` (`.env.e2e`), `e2e/fixtures/seed-e2e.mjs` rydder emulatorerne
-og seeder to brugere, ét spil og fire kampe med kickoff relativt til nu, og
-`auth.setup.js` logger ind gennem fladen og gemmer tilstanden (IndexedDB, hvor
-Firebase Auth bor). Testene skriver og læser gennem de ægte `firestore.rules`:
+og seeder fem brugere (spiller, medspiller, fremmed, forladt, ejer), ét spil,
+to ligaer og syv kampe med kickoff relativt til nu — heraf én fra runde 18,
+udsat til denne uge — og `auth.setup.js` logger spiller, ejer og forladt ind
+gennem fladen og gemmer tilstandene (IndexedDB, hvor Firebase Auth bor).
+Testene skriver og læser gennem de ægte `firestore.rules`:
 - Godkendt spiller lander på `/spil` og kan åbne sit spil (Deltag-kortet vises ikke)
 - Et X-tip på en åben kamp vises i Mine tips med præcis det bogstav
 - Kampe med passeret kickoff kan ikke tippes: knapperne er låst, og ligaens tips vises i stedet
@@ -254,8 +256,19 @@ Firebase Auth bor). Testene skriver og læser gennem de ægte `firestore.rules`:
   kommer ind uden genindlæsning (to browser-contexts, ejerens login gemt af setup)
 - Stillingen viser præcis liga-kammeraterne med serverens point, i rækkefølge, og uden
   fejl i konsollen (fixturen har en liga med spiller og medspiller)
+- Den lånte kamp (runde 18, udsat til denne uge) står øverst på runde 20, bærer
+  «Runde 18 · point tæller dér», tælleren peger på den og lyser, og kuponen
+  tæller stadig kun rundens egne (0/2) — ejerens fejl fra 3/9 (#213)
+- Forlad med point: knappen findes for et åbent spil, der spørges to gange, anden
+  dialog nævner «4,5 point», og det, der sendes, er callable'en `forladSpil` med
+  spillets id — kaldet opsnappes i browseren og besvares som serveren ville
+  (functions-emulatoren kører ikke); serverens del bevises i `forladSpil.test.js`
+- «Vend tilbage»: den forladte ser kortet under Åbne spil (ikke Deltag, ikke
+  Forlad), klikket fjerner flaget gennem reglerne, spillet flytter til Mine spil,
+  og spilsiden viser fanerne igen
 
-Ikke dækket: callables (Chancen, synk), Tour-flows (spillet er afsluttet).
+Ikke dækket: callables ud over vejen til dem (Chancen, synk, selve forladSpil),
+Tour-flows (spillet er afsluttet).
 
 ## CI-pipeline
 `.github/workflows/ci.yml` kører fire parallelle jobs på hvert push/PR:
@@ -267,5 +280,9 @@ Ikke dækket: callables (Chancen, synk), Tour-flows (spillet er afsluttet).
 ## Kendte begrænsninger
 - Et miljø uden browser-download kan pege Playwright på en forudinstalleret
   Chromium med `E2E_CHROMIUM=/sti/til/chromium`; ellers køres E2E i CI.
-- E2E dækker ikke callables (Chancen, synk-knapper): der kører ingen
-  functions-emulator, og alle testede flows er rene klient-skrivninger.
+- E2E kører ingen callable direkte — der kører ingen functions-emulator.
+  Chancen og synk-knapperne er slet ikke dækket; Forlads vej fra knap til
+  kald dækkes ved at opsnappe kaldet i browseren
+  (`e2e/platform/forlad.spec.js`), mens serverens del af `forladSpil`
+  bevises i `functions-platform/forladSpil.test.js`. Alle øvrige flows er
+  rene klient-skrivninger gennem reglerne.

@@ -1306,6 +1306,33 @@
   fjernes fra `useGameStandings.js:63`, fordi begge dokumenter i fixturen
   opfylder reglen. En "regler er ikke filtre"-test SKAL have et dokument, som
   reglen ville afvise.
+- **`page.route('**/forladSpil')` (#219, 1f19c9c) fejler LUKKET, også i et
+  fejlkonfigureret byg.** Globbet matcher BÅDE emulatorens
+  `localhost:5001/<projekt>/europe-west1/forladSpil` og produktionens
+  `europe-west1-<projekt>.cloudfunctions.net/forladSpil` — men `route.fulfill`
+  betyder, at requesten ALDRIG forlader browseren. Værste tilfælde er derfor en
+  test, der lyver om hvor den kørte, ikke et prod-kald. Forlad-flowet har ingen
+  anden udgående skrivning: `leaveGame` (gameActions.js:317-339) kalder KUN
+  callable'en; klienten sletter intet selv. `vendtilbage.spec` derimod skriver
+  ægte gennem reglerne (`joinGame`, gameActions.js:74:
+  `{forladt: deleteField(), forladtAt: deleteField(), joinedAt}`) — den vej er
+  IKKE opsnappet, men dobbelt spærret uden for emulatoren (byg-flag +
+  `alg:none`-token for `demo-vm2026`), og skrivningen rammer kun ens eget
+  players-dokument.
+- **`erLokalVaert` + `GOOGLE_APPLICATION_CREDENTIALS`-nægtelsen i
+  `seed-e2e.mjs:49-65` er nu ON — og vagten står FØR første `fetch`/`ventPaa`.**
+  Regexen strippper kun `[v6]:port`; værter uden port, `127.0.0.1.evil.com:80`
+  og versaler falder alle igennem til afvisning (fejler lukket). Det lukker den
+  gamle sink-PoC-observation. Genlæs vagten, hver gang seedet ændres — den er
+  det eneste, der skiller et E2E-seed fra en fremmed emulator.
+- **KORREKTION til "e2e/** importeres af intet i src/":** det gælder ikke
+  længere. `src/test/scenarie/superliga.js:28`, `GamesPage.scenarie.test.jsx:7`
+  og `FootballTip.*.test.jsx` importerer `e2e/fixtures/konstanter.mjs` — som
+  rummer dummy-ADGANGSKODER (`e2e-hemmelig-*`). Efterprøvet 2026-09-04: alle
+  importører er `*.test.*` eller `src/test/`-scenariefiler, som selv kun
+  importeres af tests, og `grep -rl "e2e-hemmelig" dist/assets` er TOM. Vagten
+  at gentage ved næste ændring: bliver konstanterne importeret af en fil under
+  `src/`, som app-koden kan nå, ryger adgangskoderne i bundtet.
 
 - **Fladedækningen (PR #214, 487fe39) er ren — hele kæden efterprøvet.**
   `src/data/fladeDaekning.json` (116 KB, 438 elementer) indeholder KUN

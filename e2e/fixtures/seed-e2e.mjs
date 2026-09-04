@@ -24,8 +24,9 @@
 // ---------------------------------------------------------------------------
 import admin from 'firebase-admin';
 import { buildMatches } from '../../src/lib/superligaSeed.js';
+import { adgangskode } from './adgangskoder.mjs';
 import {
-  PROJEKT, SPILLER, EJER, MODSPILLER, FREMMED, SPIL_ID, SPIL_NAVN, AABEN_RUNDE, LAAST_RUNDE,
+  PROJEKT, SPILLER, EJER, MODSPILLER, FREMMED, FORLADT, SPIL_ID, SPIL_NAVN, AABEN_RUNDE, LAAST_RUNDE, UDSAT_RUNDE,
   LIGA_ID, LIGA_NAVN, FREMMED_LIGA_ID, POINT,
   HOLD,
 } from './konstanter.mjs';
@@ -87,9 +88,9 @@ export default async function seed() {
 
   // Brugere: Auth-konto + offentlig profil + privat kontakt — samme tre
   // dokumenter, som signup (useAuthActions.js) og bootstrap-owner.mjs skriver.
-  for (const [bruger, role] of [[SPILLER, 'player'], [MODSPILLER, 'player'], [FREMMED, 'player'], [EJER, 'owner']]) {
+  for (const [bruger, role] of [[SPILLER, 'player'], [MODSPILLER, 'player'], [FREMMED, 'player'], [FORLADT, 'player'], [EJER, 'owner']]) {
     await auth.createUser({
-      uid: bruger.uid, email: bruger.email, password: bruger.password,
+      uid: bruger.uid, email: bruger.email, password: adgangskode(bruger.uid),
       displayName: bruger.displayName, emailVerified: true,
     });
     await db.collection('users').doc(bruger.uid).set({
@@ -107,13 +108,32 @@ export default async function seed() {
   });
 
   // Kampe: låst runde (facit) og åben runde. Kickoff relativt til nu.
+  //
+  // Runde 18 er den med en UDSAT kamp: to spillede for to uger siden og én
+  // om 1½ time — i runde 20's uge, og FØR runde 20's egne. Det er ejerens
+  // fejl fra 3/9 (#213): tælleren så kun rundens egne kampe. To uger, ikke én:
+  // ugen løber tirsdag→mandag, og med nu−7d/nu−6d kunne én af de spillede
+  // lande i samme uge som den udsatte, alt efter ugedag — så var den ikke
+  // lånt. Med 13–14 dage kan det ikke ske.
+  // KENDT RESTVINDUE (Test Manager): den udsatte (nu+1½ t) og runde 20's
+  // første (nu+3 t) skal ligge i SAMME uge. Falder ugeskellet (tirsdag,
+  // UGE_SNIT_TIME dansk tid, src/lib/pointOpdeling.js) i de 1½ timer imellem
+  // dem, vises den udsatte ikke som lånt, og laant.spec.js er falsk rød —
+  // ca. 1,5/168 ≈ 0,9 % af tilfældigt fordelte kørsler. Ses en rød laant.spec
+  // tirsdag morgen, er det dét, ikke en regression: kør igen.
   const kampe = buildMatches([
+    { round: UDSAT_RUNDE, home: 'Alfa BK', away: 'Delta BK', kickoff: Timestamp.fromMillis(nu - 14 * DAG) },
+    { round: UDSAT_RUNDE, home: 'Beta IF', away: 'Gamma FC', kickoff: Timestamp.fromMillis(nu - 13 * DAG) },
+    { round: UDSAT_RUNDE, home: 'Delta BK', away: 'Beta IF', kickoff: Timestamp.fromMillis(nu + 1.5 * TIME) },
     { round: LAAST_RUNDE, home: 'Alfa BK', away: 'Beta IF', kickoff: Timestamp.fromMillis(nu - 7 * DAG) },
     { round: LAAST_RUNDE, home: 'Gamma FC', away: 'Delta BK', kickoff: Timestamp.fromMillis(nu - 6 * DAG) },
     { round: AABEN_RUNDE, home: 'Alfa BK', away: 'Gamma FC', kickoff: Timestamp.fromMillis(nu + 3 * TIME) },
     { round: AABEN_RUNDE, home: 'Beta IF', away: 'Delta BK', kickoff: Timestamp.fromMillis(nu + 27 * TIME) },
   ], HOLD);
-  const facit = { [`r${LAAST_RUNDE}-alfabk-betaif`]: [2, 0], [`r${LAAST_RUNDE}-gammafc-deltabk`]: [1, 1] };
+  const facit = {
+    [`r${UDSAT_RUNDE}-alfabk-deltabk`]: [1, 0], [`r${UDSAT_RUNDE}-betaif-gammafc`]: [2, 2],
+    [`r${LAAST_RUNDE}-alfabk-betaif`]: [2, 0], [`r${LAAST_RUNDE}-gammafc-deltabk`]: [1, 1],
+  };
   const batch = db.batch();
   for (const k of kampe) {
     const [homeGoals, awayGoals] = facit[k.id] || [];
@@ -135,6 +155,13 @@ export default async function seed() {
       leagueIds: [liga], totalPoints: POINT[b.uid],
     });
   }
+  // Den forladte: dokumentet er et arkiv (forladSpil) — point bliver stående,
+  // forladt: true, ingen ligaer. Reglerne lader hende selv fjerne flaget
+  // ("Vend tilbage"); fladen viser hende kortet under Åbne spil.
+  batch.set(spil.collection('players').doc(FORLADT.uid), {
+    uid: FORLADT.uid, joinedAt: Timestamp.fromMillis(nu - 30 * DAG),
+    leagueIds: [], totalPoints: 3, forladt: true, forladtAt: Timestamp.fromMillis(nu - 3 * DAG),
+  });
   // Samme felter som createLeague skriver, plus det andet medlem.
   batch.set(spil.collection('leagues').doc(LIGA_ID), {
     name: LIGA_NAVN, ownerUid: SPILLER.uid, memberUids: [SPILLER.uid, MODSPILLER.uid],
@@ -146,5 +173,5 @@ export default async function seed() {
   });
   await batch.commit();
   await app.delete();
-  console.log(`seed-e2e: ${kampe.length} kampe, 4 brugere, 2 ligaer, spil ${SPIL_ID} i ${PROJEKT}`);
+  console.log(`seed-e2e: ${kampe.length} kampe, 5 brugere, 2 ligaer, spil ${SPIL_ID} i ${PROJEKT}`);
 }
