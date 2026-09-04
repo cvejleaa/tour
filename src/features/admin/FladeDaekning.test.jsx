@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import FladeDaekning, { grupper, typeNavn, GRUPPER } from './FladeDaekning';
 import rigtig from '../../data/fladeDaekning.json';
@@ -86,8 +87,17 @@ describe('FladeDaekning — teksten er selve risikoen', () => {
     expect(screen.getByTestId('flade-gruppe-faelles')).toHaveTextContent('Alle 1 knapper og felter her bliver rørt af mindst én test. Det siger ikke, at de virker rigtigt');
   });
 
-  it('afkrydsningen «Vis kun det, ingen test rører» skjuler de rørte', () => {
+  it('afkrydsningen «Vis kun det, ingen test rører» skjuler de rørte — og sæsoneftersynet henviser til præcis den tekst', () => {
+    // Paritetsvagt (Test Manager): .claude/commands/saesoneftersyn.md bruger
+    // afkrydsningen som tjekliste og citerer dens tekst. Omdøbes den her,
+    // skal kommandoen følge med — et spejl uden vagt er den næste
+    // "Spillene lige nu"-løgn.
     render(<FladeDaekning data={DATA} />);
+    const label = screen.getByTestId('flade-kun-uroerte').closest('label') || screen.getByTestId('flade-kun-uroerte').parentElement;
+    const tekst = label.textContent.trim().replace(/\.$/, ''); // etiketten ender med punktum; citatet gør ikke
+    expect(tekst).toBe('Vis kun det, ingen test rører');
+    const kommando = readFileSync(`${process.cwd()}/.claude/commands/saesoneftersyn.md`, 'utf8');
+    expect(kommando).toContain(`«${tekst}»`);
     expect(screen.getAllByTestId('flade-element')).toHaveLength(4);
     fireEvent.click(screen.getByTestId('flade-kun-uroerte'));
     const rest = screen.getAllByTestId('flade-element');

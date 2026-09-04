@@ -166,6 +166,34 @@ fladen, ikke af nogen rolle. Gå derfor HELE fladen igennem, systematisk:
   produkt-beslutninger): fastfryser nogen af dem en verden, der ikke længere
   er den ønskede?
 
+**Med rigtige data, ikke med fixturen.** De to fejl 3/9 2026 (Forlad-knappen
+for spillere med point; «Næste kamp låser om», der ignorerede en udsat kamp)
+blev begge fundet af ejeren i produktion — med sine egne point og en kamp,
+der faktisk var udsat. Ingen fixture havde de tilstande, og en fladevandring
+mod emulatoren ville have haft samme blinde vinkel. Derfor:
+
+- Gå fladen igennem på tip.vejleaa.dk som **spiller med point** (ejerens
+  egen konto) og som **admin** — ikke som en frisk testbruger. Tilstandene,
+  der har brudt ting, er dem, kun rigtige data har: point, en liga man ejer,
+  en udsat kamp, en runde midt i afvikling, en bruger der er afventende.
+- Brug **Admin → Tests → «Knapper og felter»** som tjekliste: filtrér med
+  «Vis kun det, ingen test rører» og klik hvert af de elementer i produktion.
+  Det er præcis de knapper og felter, ingen automatisk test har rørt siden
+  sidste kørsel — og fanen siger selv, hvornår tallene er fra.
+- Kun læsende handlinger og egne tips. **Klik aldrig knapper, der ændrer
+  spillerens eller ligaens tilstand — Forlad, Deltag/Vend tilbage, opret/
+  forlad liga og lignende — i produktion, heller ikke selv om «Vis kun det,
+  ingen test rører» fremhæver dem som urørte.** Det var netop Forlad-knappen
+  på ejerens egen konto med rigtige point, der brød. Se, at knappen findes og
+  ser rigtig ud; tryk ikke. Aldrig admin-skrivninger (godkend, synk, bagfyld,
+  seed) som en del af vandringen. Alle skrivende knapper prøves i emulatoren
+  (`npm run test:e2e:emu` seeder en spiller med point, en forladt spiller og
+  en udsat kamp, hvis en fejl skal genskabes uden produktion).
+- Skriv hvert fund som et issue med den tilstand, der udløste det (uid-rolle,
+  runde, kampens status) — så det kan blive en fixture-tilstand i
+  `src/test/scenarie/superliga.js` eller i E2E-seedet, og ikke kun en
+  rettelse. Fejlen 3/9 blev til begge dele; det er målet hver gang.
+
 ### 11. Backlogget
 
 Gennemgå det, vi bevidst har udskudt, og spørg for hvert punkt: er det stadig
