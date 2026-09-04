@@ -1,4 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { vagt, stabileNoegler, basislinjeDiff } from './flade-vagt.mjs';
 
 const el = (o) => ({ fil: 'src/pages/A.jsx', linje: 1, kolonne: 1, tag: 'button', type: null, tekst: 'Gem', komponent: 'A', app: 'faelles', aktiveret: false, tests: [], ...o });
@@ -81,4 +85,23 @@ describe('vagt', () => {
     expect(r.fejl).toEqual([]);
     expect(r.advarsler).toHaveLength(1);
   });
+});
+
+describe('CLI-blokken — det, ci.yml faktisk kører', () => {
+  // Test Managers overlevende mutation (PR #222): `antalInteraktioner(poster)`
+  // → `poster.length` i CLI'en overlevede hele suiten, fordi ingen test kørte
+  // scriptet — kun de eksporterede funktioner. Kør det derfor ÉN gang med en
+  // log, der KUN rummer render-poster: vagten skal sige «ingen interaktioner»
+  // og INTET andet. Med poster.length ville den i stedet spytte 170+ «nyt
+  // urørt element» ud og skjule den ene besked, der forklarer fejlen.
+  it('en log med kun render-poster er en tom log: præcis den ene fejl, exit 1', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flade-vagt-'));
+    fs.writeFileSync(path.join(dir, '1-1.ndjson'), `${JSON.stringify({ type: 'render', kaede: ['src/pages/GamesPage.jsx:84:13'], testfil: 'x.test.jsx' })}\n`);
+    const r = spawnSync(process.execPath, ['scripts/flade-vagt.mjs'], { cwd: process.cwd(), env: { ...process.env, EVNE_LOG: dir }, encoding: 'utf8' });
+    fs.rmSync(dir, { recursive: true, force: true });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('Tappen loggede ingen interaktioner');
+    expect(r.stderr).not.toContain('Nyt urørt element');
+    expect(r.stdout).toContain('0 interaktioner');
+  }, 60_000);
 });

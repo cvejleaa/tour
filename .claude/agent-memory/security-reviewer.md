@@ -1460,6 +1460,27 @@
   kørslen, og `test-report.yml` har NUL `upload-artifact`.
   Restrisiko (accepteret): et ubundet kald til `__evneLog` i en løkke kan
   OOM'e Node — DoS mod vores egen CI, ikke mod data.
+- **Render-tappen (#222, c4688a5) er ren — PoC kørt.** MutationObserver i
+  `src/test/setup.js` (inde i `if (process.env.EVNE_LOG)`) og i
+  `evneKaede.mjs` INIT_SCRIPT. `src/data/fladeDaekning.json` fik kun to NYE
+  felter: `renderAntal` (heltal 0-21, antal testFILER — ingen navne) og
+  `status` ∈ {roert,vist,aldrig}. Kontroltest kørt (scratchpad/poc/flet.mjs):
+  render-post med `test:'HEMMELIGT'` → navnet står IKKE i output;
+  `/etc/passwd:1:1` og `../../x.jsx:1:1` krediterer 0 (inventar-match kræves
+  også på render-grenen); `antalInteraktioner([kun render]) = 0`, så en død
+  klik-tap kan ikke gemme sig bag en levende render-tap i tom-log-vagterne
+  (build-test-report + flade-vagt bruger nu `antalInteraktioner`, ikke
+  `poster.length`) — det er en HÆRDNING mod #215-udgaven.
+  `grep dist/ renderNoegler|__evneLog|EVNE_LOG|_debugSource|ndjson` = TOM på
+  et friskt byg af branchen; det ene `kildeKaede`-hit er et TESTNAVN i den
+  præeksisterende `testReport.json`.
+- **Render-tappens omkostning MÅLT (svar på "kan en stor DOM hænge CI?"):
+  ~9 µs pr. DOM-node, LINEÆRT** (scratchpad/poc/perf.mjs, jsdom + fake
+  fibers): 1.000→25 ms, 20.000→215 ms, 50.000→434 ms; 20 re-appends af et
+  5.000-node undertræ = 580 ms. Ét React-undertræ giver ÉN addedNode
+  (bekræftet), så `querySelectorAll('*')`-vandringen er nødvendig og ikke
+  kvadratisk. Ingen hængning; matcher husets 142,5 s mod 139,1 s. Gentag ikke
+  denne måling — genbrug PoC-mønstret, hvis vandringen ændrer FORM.
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
