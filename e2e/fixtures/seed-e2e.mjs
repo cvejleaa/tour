@@ -115,6 +115,12 @@ export default async function seed() {
   // ugen løber tirsdag→mandag, og med nu−7d/nu−6d kunne én af de spillede
   // lande i samme uge som den udsatte, alt efter ugedag — så var den ikke
   // lånt. Med 13–14 dage kan det ikke ske.
+  // KENDT RESTVINDUE (Test Manager): den udsatte (nu+1½ t) og runde 20's
+  // første (nu+3 t) skal ligge i SAMME uge. Falder ugeskellet (tirsdag,
+  // UGE_SNIT_TIME dansk tid, src/lib/pointOpdeling.js) i de 1½ timer imellem
+  // dem, vises den udsatte ikke som lånt, og laant.spec.js er falsk rød —
+  // ca. 1,5/168 ≈ 0,9 % af tilfældigt fordelte kørsler. Ses en rød laant.spec
+  // tirsdag morgen, er det dét, ikke en regression: kør igen.
   const kampe = buildMatches([
     { round: UDSAT_RUNDE, home: 'Alfa BK', away: 'Delta BK', kickoff: Timestamp.fromMillis(nu - 14 * DAG) },
     { round: UDSAT_RUNDE, home: 'Beta IF', away: 'Gamma FC', kickoff: Timestamp.fromMillis(nu - 13 * DAG) },
@@ -167,5 +173,5 @@ export default async function seed() {
   });
   await batch.commit();
   await app.delete();
-  console.log(`seed-e2e: ${kampe.length} kampe, 4 brugere, 2 ligaer, spil ${SPIL_ID} i ${PROJEKT}`);
+  console.log(`seed-e2e: ${kampe.length} kampe, 5 brugere, 2 ligaer, spil ${SPIL_ID} i ${PROJEKT}`);
 }
