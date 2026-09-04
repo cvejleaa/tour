@@ -180,8 +180,13 @@ mod emulatoren ville have haft samme blinde vinkel. Derfor:
   «Vis kun det, ingen test rører» og klik hvert af de elementer i produktion.
   Det er præcis de knapper og felter, ingen automatisk test har rørt siden
   sidste kørsel — og fanen siger selv, hvornår tallene er fra.
-- Kun læsende handlinger og egne tips. Aldrig admin-skrivninger (godkend,
-  synk, bagfyld, seed) som en del af vandringen — dem prøves i emulatoren
+- Kun læsende handlinger og egne tips. **Klik aldrig knapper, der ændrer
+  spillerens eller ligaens tilstand — Forlad, Deltag/Vend tilbage, opret/
+  forlad liga og lignende — i produktion, heller ikke selv om «Vis kun det,
+  ingen test rører» fremhæver dem som urørte.** Det var netop Forlad-knappen
+  på ejerens egen konto med rigtige point, der brød. Se, at knappen findes og
+  ser rigtig ud; tryk ikke. Aldrig admin-skrivninger (godkend, synk, bagfyld,
+  seed) som en del af vandringen. Alle skrivende knapper prøves i emulatoren
   (`npm run test:e2e:emu` seeder en spiller med point, en forladt spiller og
   en udsat kamp, hvis en fejl skal genskabes uden produktion).
 - Skriv hvert fund som et issue med den tilstand, der udløste det (uid-rolle,
