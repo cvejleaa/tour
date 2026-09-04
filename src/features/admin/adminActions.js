@@ -205,14 +205,18 @@ export async function callSetUserEmail(uid, email) {
   }
 }
 
-/** Slet en bruger helt (kun ejer). force=true sletter selv med point. */
+/**
+ * Slet en bruger (kun ejer). force=true sletter selv med point.
+ * `details.kanForceres` kommer fra serveren og siger, om fejlen er den ene,
+ * force kan omgå (point) — en liga-ejer kan IKKE forceres væk.
+ */
 export async function callDeleteUser(uid, force = false) {
   try {
     const fn = httpsCallable(functions, 'adminDeleteUser');
     const res = await fn({ uid, force });
     return { ok: true, data: res.data };
   } catch (err) {
-    return { ok: false, code: err?.code, error: err?.message || 'Kunne ikke slette brugeren.' };
+    return { ok: false, code: err?.code, details: err?.details || null, error: err?.message || 'Kunne ikke slette brugeren.' };
   }
 }
 

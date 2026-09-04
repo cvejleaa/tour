@@ -34,9 +34,14 @@ Liga-admin følger med at have oprettet ligaen.
 - **✏️ Skift e-mail** (ejer): ændrer Auth-kontoen og kontakt-mailen med det
   samme, uden bekræftelsesmail. En Google-konto logger dog stadig ind med sin
   Google-adresse.
-- **🗑️ Slet** (ejer): fjerner brugeren fra **dette** projekt. Sletter man på
-  platformen, rører det ikke tour-85928 eller vm2026-tip — de er adskilte
-  Firebase-projekter med hver sine konti.
+- **🗑️ Slet** (ejer): fjerner login og profil fra **dette** projekt. I hvert
+  spil, brugeren er med i, slettes tips på kommende kampe og medlemskab af
+  ligaer; tips på spillede kampe og point bliver stående som arkiv (samme
+  model som «Forlad spil» — de andres historik ændrer sig ikke). Har brugeren
+  point, spørges der en ekstra gang; ejer brugeren en liga, afvises sletningen,
+  til ligaen er slettet eller overdraget. Sletter man på platformen, rører det
+  ikke tour-85928 eller vm2026-tip — de er adskilte Firebase-projekter med
+  hver sine konti.
 
 ## Spil-tidsplan (platformen)
 

@@ -91,27 +91,43 @@ async function forladSpilCore(db, FieldValue, { uid, gameId, nowMs = Date.now() 
     throw err;
   }
 
-  // Kommende kampes tips væk; låste kampes tips bliver (de andres historik).
-  // "Låst" er Chancens delte prædikat (erKampLaast): facit, i gang, passeret
-  // kickoff — og en ukendt kamp eller en uden kickoff regnes som låst, så
-  // tippet BEHOLDES: et slettet tip er en frigivet Chance og et forsvundet
-  // minus-point ved næste genberegning (Security-fund).
-  const [matchesSnap, betsSnap] = await Promise.all([
+  const ryddet = await rydOpEfterSpiller(db, FieldValue, gameRef, uid, { nowMs, ligaer });
+
+  // Sidst: flaget. Alt andet på dokumentet bliver stående — det er arkivet.
+  await playerRef.update({ forladt: true, forladtAt: FieldValue.serverTimestamp() });
+
+  return ryddet;
+}
+
+/**
+ * Det, der skal ske i ét spil, når en spiller ikke længere er med — delt af
+ * forladSpil (spilleren går selv) og adminDeleteUser (ejeren sletter kontoen):
+ * kommende kampes tips slettes, låste kampes tips bliver (de andres historik),
+ * og spilleren fjernes fra alle ligaers memberUids. Rører IKKE players-
+ * dokumentet — det afgør kalderen (arkivér eller slet).
+ *
+ * "Låst" er Chancens delte prædikat (erKampLaast): facit, i gang, passeret
+ * kickoff — og en ukendt kamp eller en uden kickoff regnes som låst, så
+ * tippet BEHOLDES: et slettet tip er en frigivet Chance og et forsvundet
+ * minus-point ved næste genberegning (Security-fund).
+ *
+ * @returns {{slettedeTips:number, beholdteTips:number, ligaer:number}}
+ */
+async function rydOpEfterSpiller(db, FieldValue, gameRef, uid, { nowMs = Date.now(), ligaer = null } = {}) {
+  const [matchesSnap, betsSnap, ligaSnap] = await Promise.all([
     gameRef.collection('matches').get(),
     gameRef.collection('bets').where('uid', '==', uid).get(),
+    ligaer ? Promise.resolve(ligaer) : gameRef.collection('leagues').where('memberUids', 'array-contains', uid).get(),
   ]);
   const kampAf = new Map(matchesSnap.docs.map((d) => [d.id, { ...d.data(), id: d.id }]));
   const slettes = betsSnap.docs.filter((d) => !erKampLaast(kampAf.get(d.data()?.matchId) || null, nowMs));
   await sletAlle(db, slettes.map((d) => d.ref));
 
-  for (const d of ligaer.docs) {
+  for (const d of ligaSnap.docs) {
     await d.ref.update({ memberUids: FieldValue.arrayRemove(uid) });
   }
 
-  // Sidst: flaget. Alt andet på dokumentet bliver stående — det er arkivet.
-  await playerRef.update({ forladt: true, forladtAt: FieldValue.serverTimestamp() });
-
-  return { slettedeTips: slettes.length, beholdteTips: betsSnap.size - slettes.length, ligaer: ligaer.size };
+  return { slettedeTips: slettes.length, beholdteTips: betsSnap.size - slettes.length, ligaer: ligaSnap.size };
 }
 
-module.exports = { forladSpilCore, FORLAD_ERR, BATCH_LOFT, erForladt, aktiveSpillere };
+module.exports = { forladSpilCore, rydOpEfterSpiller, FORLAD_ERR, BATCH_LOFT, erForladt, aktiveSpillere };

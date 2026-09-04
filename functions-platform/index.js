@@ -34,6 +34,7 @@ const {
   strandedMatches, allMatches, WINDOW_MS,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
+const { adminDeleteUserCore, SLET_ERR, sletFejl } = require('./adminDeleteUser');
 const { forladSpilCore, FORLAD_ERR, aktiveSpillere } = require('./forladSpil');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
 const {
@@ -1647,10 +1648,10 @@ exports.adminAuthUserInfo = onCall({ region: REGION }, async (request) => {
 });
 
 // ---------------------------------------------------------------------------
-// adminDeleteUser — KUN ejeren: slet en bruger helt (Auth-konto + users-profil +
-// userContacts + spil-medlemskaber). Kan ikke slette sig selv. Blokerer hvis
-// brugeren har optjent point i et spil (medmindre force), så en rigtig spiller
-// ikke fjernes ved en fejl. Bruges bl.a. til at rydde dublet-konti op.
+// adminDeleteUser — KUN ejeren: slet en bruger (Auth-konto + users-profil +
+// userContacts) og ryd op i alle spil efter arkiv-modellen — se
+// adminDeleteUser.js. Blokerer hvis brugeren har point (medmindre force) og
+// altid hvis hun ejer en liga. Bruges bl.a. til at rydde dublet-konti op.
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // adminSetUserEmail — KUN ejeren: skift en brugers e-mail direkte (Auth-kontoen
@@ -1693,32 +1694,19 @@ exports.adminSetUserEmail = onCall({ region: REGION }, async (request) => {
 exports.adminDeleteUser = onCall({ region: REGION }, async (request) => {
   const db = getFirestore();
   const caller = await requireAdmin(db, request);
-  if (caller?.role !== 'owner') throw new HttpsError('permission-denied', 'Kun ejeren kan slette brugere.');
-  const uid = String(request.data?.uid || '').trim();
-  if (!uid) throw new HttpsError('invalid-argument', 'Mangler bruger-id.');
-  if (uid === request.auth.uid) throw new HttpsError('failed-precondition', 'Du kan ikke slette dig selv.');
-
-  const gamesSnap = await db.collection('games').get();
-  if (!request.data?.force) {
-    for (const g of gamesSnap.docs) {
-      const p = await g.ref.collection('players').doc(uid).get();
-      if (p.exists && (Number(p.data().totalPoints) || 0) > 0) {
-        throw new HttpsError('failed-precondition', `Brugeren har point i "${g.data().name || g.id}". Bekræft med force for at slette alligevel.`);
-      }
-    }
-  }
-
   try {
-    await getAuth().deleteUser(uid);
-  } catch (e) {
-    if (e.code !== 'auth/user-not-found') throw new HttpsError('internal', 'Kunne ikke slette Auth-kontoen.');
+    const res = await adminDeleteUserCore(db, FieldValue, {
+      uid: request.data?.uid,
+      callerUid: request.auth.uid,
+      callerRole: caller?.role,
+      force: request.data?.force === true,
+      sletAuth: (uid) => getAuth().deleteUser(uid),
+    });
+    console.log(`adminDeleteUser(${res.uid}):`, JSON.stringify(res.spil));
+    return res;
+  } catch (err) {
+    const [httpCode, tekst, details] = sletFejl(err);
+    if (!SLET_ERR[err.message]) console.error('adminDeleteUser fejlede:', err);
+    throw new HttpsError(httpCode, tekst, details);
   }
-
-  const batch = db.batch();
-  batch.delete(db.collection('users').doc(uid));
-  batch.delete(db.collection('userContacts').doc(uid));
-  for (const g of gamesSnap.docs) batch.delete(g.ref.collection('players').doc(uid));
-  await batch.commit();
-
-  return { ok: true, uid };
 });
