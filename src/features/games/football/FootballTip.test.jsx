@@ -208,6 +208,49 @@ describe('FootballTip — Elo på kampkortene', () => {
     expect(screen.getByText(/Runde 1 af/)).toBeInTheDocument();
   });
 
+  // ── Hop til ét kort (?kamp= fra holdsidens kampliste) ─────────────────────
+  it('?kamp= fremhæver PRÆCIS det kort og ruller det ind én gang — ikke ved hver gentegning', () => {
+    const rulletPaa = [];
+    Element.prototype.scrollIntoView = vi.fn(function ruller() { rulletPaa.push(this.id); });
+    const { rerender } = setup({}, '/spil/sl?runde=2&kamp=m3');
+    const kort = document.getElementById('kamp-m3');
+    expect(kort).not.toBeNull();
+    expect(kort.dataset.fremhaevet).toBe('true');
+    expect(kort.className).toContain('match-card--fremhaevet');
+    expect(document.getElementById('kamp-m4').dataset.fremhaevet).toBeUndefined();
+    expect(document.getElementById('kamp-m4').className).not.toContain('match-card--fremhaevet');
+    // Rullet ind på netop det kort — én gang.
+    expect(rulletPaa).toEqual(['kamp-m3']);
+    // En gentegning (live-tikket hvert 30. sekund) ruller IKKE igen.
+    rerender(
+      <MemoryRouter initialEntries={['/spil/sl?runde=2&kamp=m3']}>
+        <Routes>
+          <Route path="/spil/:gameId" element={<FootballTip game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY }} me={{ uid: 'me', totalPoints: 100 }} matches={MATCHES} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(rulletPaa).toEqual(['kamp-m3']);
+    delete Element.prototype.scrollIntoView;
+  });
+
+  it('et ukendt ?kamp= fremhæver intet og fejler ikke; hvert kort har ét unikt id', () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    setup({}, '/spil/sl?runde=1&kamp=findes-ikke');
+    expect(document.querySelectorAll('[data-fremhaevet]')).toHaveLength(0);
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('#kamp-m1')).toHaveLength(1);
+    delete Element.prototype.scrollIntoView;
+  });
+
+  it('et rundeskift fjerner ?kamp= — fremhævningen hører til én runde', () => {
+    setup({}, '/spil/sl?runde=1&kamp=m1');
+    expect(document.getElementById('kamp-m1').dataset.fremhaevet).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: /Næste runde/ }));
+    expect(screen.getByTestId('url').textContent).toContain('runde=2');
+    expect(screen.getByTestId('url').textContent).not.toContain('kamp=');
+    expect(document.querySelectorAll('[data-fremhaevet]')).toHaveLength(0);
+  });
+
   it('skriver runden i URL\'en, når man bladrer', () => {
     setup();
     fireEvent.click(screen.getByRole('button', { name: /Næste runde/ }));

@@ -317,6 +317,8 @@ describe('FootballHelp forklarer holdsiden', () => {
   it('siger HVOR man klikker — ellers er fladen uopdagelig', () => {
     const tekst = vis();
     expect(tekst).toContain('Klik på et holdnavn');
+    // Kamplisten nederst fører til kampens kort (6/9 2026) — guiden skal sige det.
+    expect(tekst).toContain('klik på en række, og du lander på kampens kort på Tip-fanen');
     // Alle fire indgange skal nævnes; en manglende indgang er en flade,
     // brugeren ikke finder.
     expect(tekst).toMatch(/Elo-tabellen/);
