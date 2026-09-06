@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import HoldSide from './HoldSide';
 
 const TEAMS = [
@@ -19,6 +19,15 @@ function kamp(id, round, home, away, extra = {}) {
 
 function vis(ui) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
+/** I et spil (ruten /spil/:gameId), så GameTabLink kan bygge sine stier. */
+function visISpil(ui) {
+  return render(
+    <MemoryRouter initialEntries={['/spil/sl?fane=elo&hold=FCK']}>
+      <Routes><Route path="/spil/:gameId" element={ui} /></Routes>
+    </MemoryRouter>,
+  );
 }
 
 describe('HoldSide', () => {
@@ -147,5 +156,50 @@ describe('HoldSide', () => {
     expect(screen.getByText('R7')).toBeInTheDocument();
     expect(screen.getByText('R9')).toBeInTheDocument();
     expect(screen.getByText('2-0')).toBeInTheDocument();
+  });
+
+  // ── Hop til kampens kort (ejerens ønske 6/9 2026) ─────────────────────────
+  it('hver kamprække er ét link til kampens kort på Tip-fanen — i kampens EGEN runde, med kampens id', () => {
+    const matches = [
+      kamp('r7-agf-fck', 7, 'AGF', 'FC København', { result: '2', homeGoals: 0, awayGoals: 2 }),
+      kamp('r9-fck-bif', 9, 'FC København', 'Brøndby IF'),
+    ];
+    visISpil(<HoldSide game={spil()} matches={matches} short="FCK" />);
+    const raekker = screen.getAllByTestId('holdside-kamp');
+    expect(raekker).toHaveLength(2);
+    expect(raekker[0].tagName).toBe('A');
+    expect(raekker[0].getAttribute('href')).toBe('/spil/sl?runde=7&kamp=r7-agf-fck');
+    expect(raekker[0]).toHaveAttribute('title', 'Åbn kampen på Tip-fanen');
+    // Hele rækken er linket — runde, side, modstander og resultat står inde i det.
+    expect(raekker[0].textContent).toContain('R7');
+    expect(raekker[0].textContent).toContain('2-0');
+    // En kommende kamp linker også (kortet viser kickoff og tip).
+    expect(raekker[1].getAttribute('href')).toBe('/spil/sl?runde=9&kamp=r9-fck-bif');
+  });
+
+  it('en kamp uden rundenummer står som ren tekst — Tip-fanen kan ikke vise den', () => {
+    const matches = [kamp('x', 0, 'AGF', 'FC København')];
+    visISpil(<HoldSide game={spil()} matches={matches} short="FCK" />);
+    const raekke = screen.getByTestId('holdside-kamp');
+    expect(raekke.tagName).toBe('DIV');
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  // QC-FUND PÅ PLANEN: Tip-fanen tegner aldrig runder før startrunden
+  // (fraStartRunde). Stod de her, landede et klik på en tilfældig anden runde
+  // uden fremhævning. Gaten gælder HELE holdsiden, så «i dette spil» også
+  // er sandt for tallene.
+  it('runder før spillets startrunde er IKKE med — hverken i listen eller i tallene', () => {
+    const matches = [
+      kamp('r1-fck-agf', 1, 'FC København', 'AGF', { result: '1', homeGoals: 3, awayGoals: 0 }),
+      kamp('r2-agf-fck', 2, 'AGF', 'FC København', { result: '2', homeGoals: 0, awayGoals: 2 }),
+    ];
+    visISpil(<HoldSide game={spil({ startRound: 2 })} matches={matches} short="FCK" />);
+    expect(screen.queryByText('R1')).not.toBeInTheDocument();
+    expect(screen.getByText('R2')).toBeInTheDocument();
+    expect(screen.getAllByTestId('holdside-kamp')).toHaveLength(1);
+    // Tallene tæller kun runde 2: 1 kamp spillet, 2 mål for, 0 imod.
+    expect(screen.getByText(/1 kamp spillet i dette spil/)).toBeInTheDocument();
+    expect(screen.queryByText(/2 kampe spillet i dette spil/)).not.toBeInTheDocument();
   });
 });

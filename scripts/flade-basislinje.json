@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-04T05:00:26.822Z",
+ "generatedAt": "2026-09-06T20:15:09.677Z",
  "noegler": [
   "src/components/Layout.jsx|Layout|NavLink|#1",
   "src/components/Layout.jsx|Layout|NavLink|#2",
@@ -206,7 +206,6 @@
   "src/pages/DashboardPage.jsx|DashboardPage|summary|#1",
   "src/pages/GamePage.jsx|GamePage|Link|← Alle spil#1",
   "src/pages/GamePage.jsx|GamePage|button|#1",
-  "src/pages/GamePage.jsx|GamePage|button|#2",
   "src/pages/GamesPage.jsx|ExternalGameCard|a|#1",
   "src/pages/GamesPage.jsx|MyGameCard|Link|#1",
   "src/pages/HelpPage.jsx|PlatformHelp|Link|Beskeder#1",

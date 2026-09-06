@@ -34,6 +34,12 @@ describe('gameTabPath', () => {
     expect(gameTabPath('sl', { fane: 'mine', runde: 3 })).toBe('/spil/sl?fane=mine&runde=3');
   });
 
+  it('kan pege på én kamp i dens runde — holdsidens hop til kampens kort', () => {
+    expect(gameTabPath('sl', { fane: 'tip', runde: 8, kamp: 'r8-agf-ob' })).toBe('/spil/sl?runde=8&kamp=r8-agf-ob');
+    // Uden kamp: ingen tom parameter.
+    expect(gameTabPath('sl', { fane: 'tip', runde: 8, kamp: '' })).toBe('/spil/sl?runde=8');
+  });
+
   // Runder er 1-indekserede, og læseren i FootballTip ignorerer 0 og negative
   // tal. Byggeren må derfor ikke producere dem.
   it('udelader runder, der ikke findes', () => {

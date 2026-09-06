@@ -12,6 +12,8 @@
  * SKJULES under deres gulv frem for at vise et tal, der ligner en statistik.
  */
 import { useMemo } from 'react';
+import GameTabLink from '../GameTabLink';
+import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 import { teamsOf, teamInfo, visOf, teamByShort } from './teamInfo';
 import {
   holdetsKampe, holdForm, hjemmeUde, maalforskelFordeling,
@@ -42,9 +44,16 @@ function Kort({ titel, children }) {
   );
 }
 
-export default function HoldSide({ game, matches, short, onLuk }) {
+export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
   const teams = teamsOf(game);
   const hold = useMemo(() => teamByShort(teams, short), [teams, short]);
+  // SAMME GATE SOM TIP-FANEN. Spillet kan starte i runde 2 (startAt/startRound),
+  // og så tegner Tip-fanen aldrig runde 1. Uden gaten her stod runde 1 i
+  // «Kampene i dette spil», og et klik på rækken landede på en tilfældig
+  // anden runde uden fremhævning (QC-fund på planen). Gaten gælder hele
+  // holdsiden — form, mål, xG, forventning — så «i dette spil» også er sandt
+  // for tallene, ikke kun for listen.
+  const matches = useMemo(() => fraStartRunde(alleKampe, startRundeFor(game, alleKampe)), [game, alleKampe]);
 
   // Hooks SKAL stå før ethvert tidligt retur — reglen om hook-rækkefølge
   // gælder også den tomme tilstand nedenfor. Begge tåler et manglende hold.
@@ -341,8 +350,8 @@ export default function HoldSide({ game, matches, short, onLuk }) {
               const hjemme = m.home === navn;
               const modstander = visOf(teams, hjemme ? m.away : m.home);
               const raekke = form.raekke.find((r) => r.matchId === m.id);
-              return (
-                <div key={m.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'baseline', fontSize: '0.9rem' }}>
+              const indhold = (
+                <>
                   <span style={{ color: 'var(--c-muted)', minWidth: '3.2rem' }}>R{m.round}</span>
                   <span style={{ minWidth: '1.6rem', color: 'var(--c-muted)' }}>{hjemme ? 'H' : 'U'}</span>
                   <span style={{ flex: 1 }}>{modstander}</span>
@@ -352,7 +361,20 @@ export default function HoldSide({ game, matches, short, onLuk }) {
                       : m.result ? '—' : ''}
                   </span>
                   {raekke && <span className={UDFALD_KLASSE[raekke.udfald]}>{raekke.udfald}</span>}
-                </div>
+                </>
+              );
+              // HELE RÆKKEN er linket til kampens kort på Tip-fanen (ejerens
+              // ønske 6/9 2026: «hoppe direkte til den viste kamp»). Det tager
+              // modstandernavnet, som ellers linker til holdsiden andre steder —
+              // en bevidst undtagelse, dispositioneret i holdIndgange.test.jsx.
+              // En kamp uden rundenummer (runde 0) kan Tip-fanen ikke vise;
+              // den står som ren tekst frem for et link, der lander forkert.
+              return Number(m.round) > 0 ? (
+                <GameTabLink key={m.id} fane="tip" runde={m.round} kamp={m.id} className="holdside__kamp" title="Åbn kampen på Tip-fanen" data-testid="holdside-kamp">
+                  {indhold}
+                </GameTabLink>
+              ) : (
+                <div key={m.id} className="holdside__kamp" data-testid="holdside-kamp">{indhold}</div>
               );
             })}
           </div>

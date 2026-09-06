@@ -3,7 +3,7 @@
  * Tipper 1X2 pr. kamp i den aktive runde og kan (valgfrit) bruge "Chancen ⚡"
  * på ÉN kamp: sæt point på spil på dit 1X2-valg til elo-lite fair odds.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useGameBets } from '../useGameBets';
 import { setBet, setChance } from '../betActions';
@@ -205,9 +205,13 @@ export default function FootballTip({ game, me, matches }) {
   // derfor ingen ekstra validering her: den ville være uobserverbar.
   const rundeParam = Number(searchParams.get('runde'));
   const roundNo = rundeParam > 0 ? rundeParam : initialRound;
+  // ?kamp= (fra holdsidens kampliste): kortet med det id fremhæves og rulles
+  // ind. Et rundeskift fjerner det — fremhævningen hører til én runde.
+  const kampParam = searchParams.get('kamp') || null;
   const setRoundNo = (r) => {
     const next = new URLSearchParams(searchParams);
     next.set('runde', String(r));
+    next.delete('kamp');
     // replace, ikke push: at bladre mellem runder er filtrering, ikke
     // navigation. Uden den ville seks rundeklik kræve seks tryk på
     // tilbage-knappen for at forlade tip-fladen — før forlod ét tryk siden.
@@ -216,6 +220,17 @@ export default function FootballTip({ game, me, matches }) {
   const [busy, setBusy] = useState(null); // matchId der gemmes
   const [error, setError] = useState('');
   const [shareMsg, setShareMsg] = useState('');
+  // Rul det fremhævede kort ind ÉN gang pr. kamp-id — ikke ved hver gentegning:
+  // fladen gentegnes hvert 30. sekund under en live-kamp (liveNu), og uden
+  // ref-vagten blev brugeren trukket tilbage til kortet hvert halve minut (QC).
+  const rulletTil = useRef(null);
+  useEffect(() => {
+    if (!kampParam || rulletTil.current === kampParam) return;
+    const el = document.getElementById(`kamp-${kampParam}`);
+    if (!el) return; // ukendt id, eller kortet er ikke i denne runde — ingen fejl
+    rulletTil.current = kampParam;
+    if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+  });
 
   const { current, roundMatches, idx } = useMemo(() => {
     const cur = rounds.find((r) => r.round === roundNo)
@@ -729,8 +744,11 @@ export default function FootballTip({ game, me, matches }) {
         return (
           <div
             className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`
-              + `${(visMaerke && !paaKupon) || fraRunde ? ' match-card--udenfor' : ''}`}
+              + `${(visMaerke && !paaKupon) || fraRunde ? ' match-card--udenfor' : ''}`
+              + `${m.id === kampParam ? ' match-card--fremhaevet' : ''}`}
             key={m.id}
+            id={`kamp-${m.id}`}
+            data-fremhaevet={m.id === kampParam ? 'true' : undefined}
           >
             <div className="match-card__meta">
               <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0 }}>

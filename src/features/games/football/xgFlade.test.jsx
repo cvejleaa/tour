@@ -130,6 +130,29 @@ describe('hold-listen ved Elo-tabellen', () => {
     </MemoryRouter>,
   );
 
+  // QC-FUND PÅ #225: holdsiden gater med startrunden, og listen her viser de
+  // SAMME tal om de samme hold ét klik væk — «ét klik må ikke give to svar».
+  it('tæller IKKE runder før spillets startrunde — samme tal som holdsiden', () => {
+    // Fire kampe pr. hold (runde 1–4); startrunde 2 skærer runde 1 fra, så
+    // hvert hold står med 3 kampe — over listens gulv, men IKKE de 4/24, en
+    // ugated liste ville vise for AGF.
+    const kampe = [
+      ...serie('AGF', 4, { hg: 6, xh: 1 }), ...serie('OB', 4, { hg: 0, xh: 2 }),
+      ...serie('FCK', 4, { hg: 1, xh: 1 }), ...serie('BIF', 4, { hg: 2, xh: 1 }),
+    ];
+    render(
+      <MemoryRouter initialEntries={['/spil/sl?fane=elo']}>
+        <Routes>
+          <Route path="/spil/:gameId" element={<HoldXgListe game={{ id: 'sl', type: 'football', teams: HOLD, startRound: 2 }} matches={kampe} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const agf = [...document.querySelectorAll('tbody tr')].find((tr) => tr.textContent.includes('AGF'));
+    const celler = [...agf.querySelectorAll('td')].map((td) => td.textContent.trim());
+    expect(celler[1]).toBe('3');   // kampe — ikke 4
+    expect(celler[2]).toBe('18');  // mål — ikke 24
+  });
+
   it('viser holdene i rækkefølge efter forskellen pr. kamp', () => {
     vis(BASIS);
     const navne = [...document.querySelectorAll('tbody tr')]

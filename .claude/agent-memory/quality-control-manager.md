@@ -106,12 +106,6 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   `data-testid` (aria-label med template-literal læses ikke: kun StringLiteral),
   og giv en tegnet kant et usynligt bredt klikmål, ellers kan den ikke rammes
   med en finger.
-- **B1/B2/B3 (planens tre blokerende fund) er lukket i koden, efterprøvet 4/9
-  2026:** `udfoldning()`s `interne`-kanter tegnes faktisk (`kanter`-arrayet
-  i `useMemo`), fil-blokken har egen række med gruppenavn i venstre margen
-  (`layoutBlokke`, `MARGEN`), og fokus genbruger SAMME `layout` (kun afhængig
-  af `visning.udfoldet`, ikke af `visning.fokus`) — kassernes `transform` er
-  bevist urørt af et fokusklik.
 - **Radposition i en udfoldet gruppe kan IKKE bære samme "nederst=fundament,
   øverst=app-skal"-læsning som lag gør på gruppe-niveau.** Filrækker i
   `DepGraph.jsx`s dobbeltklik-udfoldning sorteres efter GRAD (mest forbundne
@@ -124,6 +118,59 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   enhver lignende sub-gruppering: bærer den samme positions-konvention som
   helheden, eller er den sorteret efter en anden nøgle (grad, alfabetisk) — og
   siger en vedvarende forklaringstekst noget, der kun er sandt på ÉT niveau?
+
+- **En NY genvej fra flade A til flade B skal efterprøves mod B's EGEN
+  filtrering.** Holdsidens kampliste bygger på `useGame`s RÅ `matches`, mens
+  Tip-fanen først kører `fraStartRunde` (`startGate.js`) — Superligaens
+  `startAt` 1/8 15:59 UTC gør hele runde 1 usynlig dér. Et link til en
+  runde-1-kamp ville lande på `rounds.find(...) ?? initialRound ?? rounds[0]`
+  (`FootballTip.jsx:220-229`): en HELT anden runde, uden fremhævning og uden
+  besked — "Åbn ligaen →"-fælden i ny klædning. Spørg altid: hvilke rækker på A
+  kan B ikke vise? Startrunde-gate; runde 0 (kampe uden rundenummer, som
+  `gameTabPath` tavst dropper, fordi den kræver `Number(runde) > 0`);
+  medlems-gaten (`GamePage.jsx:124` viser join-kortet i stedet for fanerne, så
+  et delt dybt link aldrig når kortet). Og spørg om A's liste selv er sand:
+  kortet hedder "Kampene i dette spil" og viser kampe fra runder, spillet ikke
+  tæller med.
+- **Retter du en manglende gate på ÉN flade, så tæl de øvrige FORBRUGERE af
+  samme rå liste.** `grep fraStartRunde` viste fem gatende flader (FootballTip,
+  MyTips, SpillerDetalje, GameReminderTab, nu HoldSide) og ÉN ungated:
+  `HoldXgListe` får `matches` rå fra `GamePage.jsx:202` og viser de SAMME fire
+  xG-tal pr. hold som holdsidens kort — ét klik fra hinanden på samme fane.
+  Rettelsen af naboen gør den sidste ungatede til en synlig selvmodsigelse.
+  `HoldSide.jsx:164-167` bærer selv reglen på skrift: "ét klik må ikke give to
+  svar". Grep gaten, ikke fladen: den ungatede indeholder pr. definition ikke
+  gatens navn.
+- **En ny sætning i guiden skal gates som sine NABOER.** `FootballHelp.jsx`
+  gater sit målscorer-afsnit på `harKampdetaljer(game)` (:363) og sit
+  xG-afsnit på `harXg(game)` (:403) — en ny sætning et tredje sted, der
+  NÆVNER de samme evner uden gate, genindfører præcis det, `spilEvner.js:62-65`
+  er skrevet imod: en regelbog, der forklarer et tal, spillet aldrig får.
+  Enten samme gate, eller skriv evnen ud af sætningen.
+- **"Spillets farve" er `--c-accent` — og den er allerede taget.**
+  `.match-card--chance` (`theme.css:845`) er `border-color: var(--c-accent)
+  !important` + box-shadow-ring. En ny "fremhævet"-kant i spillets farve bliver
+  pixel-identisk med Chancen-markeringen OG taber til `!important`, når begge
+  klasser gælder samme kort. Brug `outline` frem for `border` til en ny
+  markering, og tæl de modifikatorer, der kan optræde samtidig med
+  (`--udenfor`, `theme.css:768`, dashed border-left). Samme klasse:
+  `a { color: var(--c-pitch) }` (`theme.css:83`) farver alt ikke-inline-stylet
+  indhold, når en hel række gøres til ét link — `color: inherit` skal med.
+- **En effekt, der ruller eller fokuserer, må ikke hænge på et ur.**
+  `FootballTip` gentegner hvert 30. sekund, mens en kamp er live (`liveNu`,
+  `FootballTip.jsx:296-300`); en scroll-effekt med for brede deps trækker
+  brugeren tilbage til kortet hvert halve minut. Og `scrollIntoView` findes
+  ikke i jsdom: en `typeof === 'function'`-vagt gør testen grøn UDEN at bevise
+  noget. Stub prototypen og assertér, at den blev kaldt på præcis det rigtige
+  element.
+- **Et nyt link ændrer betydningen af det ord, det omslutter.** Husets mønster
+  — og guidens udtrykkelige løfte (`FootballHelp.jsx:485`) — er: et HOLDNAVN
+  fører til holdsiden (EloTable, FootballTable, TroejeOversigt, HoldXgListe,
+  kampkortets `HoldLink`). Gøres en hel række til ét link, kan modstandernavnet
+  i rækken ikke samtidig være sit eget link (nestede anchors findes ikke). Det
+  er et valg, ikke en detalje: skriv det i `holdIndgange.test.jsx`s
+  dispositionerede liste (den fører allerede de bevidst link-løse flader) og
+  ret guidens sætning i samme PR.
 
 ## Gates, evner og proxier
 

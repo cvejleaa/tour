@@ -4,8 +4,8 @@
  * at isMember-vagten i useGame kunne fjernes med hele suiten grøn.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 vi.mock('../firebase', () => ({ db: {}, auth: {}, functions: {} }));
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'me' } }) }));
@@ -44,10 +44,16 @@ vi.mock('../features/games/useGame', async () => {
 
 import GamePage from './GamePage';
 
-function renderSide() {
+function UrlProbe() {
+  const { search } = useLocation();
+  return <output data-testid="url">{search}</output>;
+}
+
+function renderSide(url = '/spil/sl') {
   return render(
-    <MemoryRouter initialEntries={['/spil/sl']}>
+    <MemoryRouter initialEntries={[url]}>
       <Routes><Route path="/spil/:gameId" element={<GamePage />} /></Routes>
+      <UrlProbe />
     </MemoryRouter>,
   );
 }
@@ -78,5 +84,24 @@ describe('GamePage — kortet før fanerne', () => {
     renderSide();
     expect(screen.queryByRole('heading', { name: /Deltag i|Vend tilbage/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole('tab').length).toBeGreaterThan(0);
+  });
+});
+
+describe('GamePage — parametre, der hører til ÉN fane, følger ikke med til den næste', () => {
+  // Test Managers overlevende mutation på #225: `next.delete('kamp')` i setTab
+  // havde ingen test. ?kamp= fremhæver ét kort på Tip-fanen (og ?hold= viser
+  // ét hold på Elo-fanen); bliver de hængende, viser den næste fane noget,
+  // brugeren troede han havde forladt — eller intet, hvis man kommer tilbage.
+  it('faneskift tørrer ?kamp= og ?hold= af — som ?runde= IKKE tørres af', () => {
+    me = { uid: 'me', totalPoints: 3 };
+    renderSide('/spil/sl?runde=3&kamp=r3-agf-ob&hold=AGF');
+    const faner = screen.getAllByRole('tab');
+    const anden = faner.find((f) => f.getAttribute('aria-selected') !== 'true');
+    fireEvent.click(anden);
+    const url = screen.getByTestId('url').textContent;
+    expect(url).toContain('fane=');
+    expect(url).toContain('runde=3');
+    expect(url).not.toContain('kamp=');
+    expect(url).not.toContain('hold=');
   });
 });

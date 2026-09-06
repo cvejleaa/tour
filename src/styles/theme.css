@@ -846,6 +846,21 @@ a:focus-visible,
   border-color: var(--c-accent) !important;
   box-shadow: 0 0 0 1px var(--c-accent), var(--shadow);
 }
+/* Kortet, holdsidens kampliste hoppede til (?kamp=). OUTLINE, ikke border:
+   --chance og --udenfor ejer kanten (den ene med !important), og alle tre kan
+   gælde samtidig. Grøn, ikke accentfarven — accent er Chancens farve. */
+.match-card--fremhaevet {
+  outline: 2px solid var(--c-pitch);
+  outline-offset: 3px;
+}
+/* Holdsidens kamprække er ét link til kampens kort. Arver farven, så R8/H
+   ikke står i én farve og modstanderen i en anden; hover viser klikbarheden. */
+.holdside__kamp {
+  display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.9rem;
+  color: inherit; text-decoration: none;
+  padding: 0.1rem 0.3rem; margin: 0 -0.3rem; border-radius: 6px;
+}
+a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
 
 /* Live-pille: kampen er i gang lige nu. Rød og pulserende, så den ikke kan
    forveksles med "Spillet". Dæmpet variant når opdateringen er stoppet — vi

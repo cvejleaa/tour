@@ -80,6 +80,19 @@ describe('indgange til holdsiden', () => {
     expect('<GameTabLink fane="elo" hold={t.short}>').toMatch(/hold=\{/);
   });
 
+  // Den TREDJE dispositionerede flade — men modsat: holdsidens kampliste
+  // linker HELE rækken til KAMPENS kort på Tip-fanen (ejerens ønske 6/9 2026),
+  // og tager dermed modstandernavnet, som ellers er indgangen til holdsiden.
+  // Man står allerede på holdsiden; det, man mangler, er kampen.
+  it('HoldSide.jsx linker kamprækken til kampens kort — ikke modstanderen til holdsiden', () => {
+    const kilde = readFileSync(`${process.cwd()}/src/features/games/football/HoldSide.jsx`, 'utf8');
+    expect(kilde).toMatch(/kamp=\{m\.id\}/);
+    expect(kilde).toMatch(/fane="tip"/);
+    expect(kilde).not.toMatch(/hold=\{/);
+    // Positiv kontrol: vagten ville fange et hold-link i samme form som de andre flader.
+    expect('<GameTabLink fane="elo" hold={t.short}>').toMatch(/hold=\{/);
+  });
+
   it('et hold UDEN kortkode får ingen link — aldrig en URL af et holdnavn', () => {
     // shortOf falder tilbage på det fulde navn, og et navn med mellemrum er
     // ingen URL-nøgle. Uden kortkode skal navnet blive ren tekst.

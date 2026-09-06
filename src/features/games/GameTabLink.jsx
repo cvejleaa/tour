@@ -29,9 +29,12 @@ export const DEFAULT_TAB = 'tip';
  * @param {string} [o.hold]  – KORTKODEN (`short`), ikke holdets navn: navnet
  *   kan indeholde mellemrum ("Brighton and Hove Albion") og er ikke en
  *   URL-nøgle. Se `teamByShort` i teamInfo.js.
+ * @param {string} [o.kamp]  – kamp-id (dokument-id, fx `r8-agf-ob`): Tip-
+ *   fanen ruller kampens kort frem og fremhæver det. Kun meningsfuld på
+ *   tip-fanen sammen med kampens egen runde — holdsiden bygger den sådan.
  * @returns {string}
  */
-export function gameTabPath(gameId, { fane, runde, liga, hold } = {}) {
+export function gameTabPath(gameId, { fane, runde, liga, hold, kamp } = {}) {
   const base = `/spil/${gameId}`;
   const params = new URLSearchParams();
   if (fane && fane !== DEFAULT_TAB) params.set('fane', fane);
@@ -41,6 +44,7 @@ export function gameTabPath(gameId, { fane, runde, liga, hold } = {}) {
   if (Number(runde) > 0) params.set('runde', String(runde));
   if (liga) params.set('liga', liga);
   if (hold) params.set('hold', hold);
+  if (kamp) params.set('kamp', kamp);
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
 }
@@ -72,13 +76,13 @@ export function withTab(current, key) {
  * @param {string} [o.className]
  * @param {React.ReactNode} o.children
  */
-export default function GameTabLink({ fane, runde, liga, hold, className, children, ...rest }) {
+export default function GameTabLink({ fane, runde, liga, hold, kamp, className, children, ...rest }) {
   const { gameId } = useParams();
   // Uden spil-id (fx i en isoleret visning) er der intet at linke til —
   // vis teksten frem for et dødt link.
   if (!gameId) return <span className={className} {...rest}>{children}</span>;
   return (
-    <Link to={gameTabPath(gameId, { fane, runde, liga, hold })} className={className} {...rest}>
+    <Link to={gameTabPath(gameId, { fane, runde, liga, hold, kamp })} className={className} {...rest}>
       {children}
     </Link>
   );
