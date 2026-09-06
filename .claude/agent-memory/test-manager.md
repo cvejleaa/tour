@@ -184,6 +184,38 @@
   hardkodet tal i testen (uafhængigt af selve konstanten), der ville
   fange, hvis nogen ændrede den forretningsmæssige værdi ved et uheld?
 
+## Holdsidens kamphop til Tip-fanen (`?kamp=`, commit c986768, 6/9 2026)
+
+- **Alle 11 planlagte mutationer på denne ændring blev fanget — første
+  eksempel på en QC-forbedret plan, hvor selve mutationssvaret bagefter er
+  100 % rødt.** Testmanager-listen (a–g, i–k) dræbte hver eneste gren:
+  fjernet startrunde-gate i `HoldSide.jsx` (a), runde-0-linket åbnet (b),
+  forkert runde i linket (c), fjernet ref-vagt i `FootballTip.jsx` (d),
+  fremhæv-alle (e), rundeskift bevarer `kamp` (f), `scrollIntoView` aldrig
+  kaldt (g), `gameTabPath` udelader `kamp` (i), og modstandernavnet fik sit
+  eget `hold=`-link igen i `HoldSide.jsx` (k) — alle røde. Mønstret, der
+  plejer at snyde (fixture med kun én tilstand af en gate) var IKKE til
+  stede her, fordi planen selv havde skrevet et startRound-fixture og et
+  runde-0-fixture ind i testen på forhånd (QC-fund fra selve planen, se
+  `.claude/agent-memory/quality-control-manager.md`).
+- **(h) `GamePage.setTab`'s `next.delete('kamp')` har INGEN dækkende test —
+  bekræftet ved mutation, ikke kun ved fravær af søgeresultat.** Fjernet
+  linjen i `GamePage.jsx:92`, kørt `GamePage.test.jsx` +
+  `GamePageForladt.test.jsx`: 12/12 grønne. Ingen test i de to filer sætter
+  `?kamp=` og skifter fane. `GameTabLink.test.jsx`s rørføringstest af selve
+  `gameTabPath`/`GameTabLink`-komponenten dækker IKKE dette — den tester kun
+  at parameteren kan BYGGES, ikke at `GamePage` FJERNER den ved faneskift.
+  Mangler: en test i `GamePage.test.jsx`, der sætter URL til
+  `?fane=tip&kamp=x`, klikker en anden fane-knap, og asserterer at
+  `searchParams` (eller den fremviste URL) ikke længere indeholder `kamp=`
+  — samme mønster som `hold`-testen, der allerede findes for netop denne
+  komponent (`next.delete('hold')` to linjer over, som ligeledes bør
+  tjekkes — hvis den findes, brug samme skabelon for `kamp`).
+  Konsekvens i praksis, hvis regressionen sker: lavt — et forladt
+  `?kamp=`-flag på en anden fane fremhæver intet (kampens id findes ikke i
+  Elo/Stilling/etc.), men SKAL rettes for at lukke hullet permanent, ikke
+  fordi det er farligt nu.
+
 ## `maalModXg`/xG på kampkort + holdside (commit 57a5221, aug. 2026)
 
 - **`m.result &&` i kampkortets xG-vagt kan fjernes helt uden at én test
