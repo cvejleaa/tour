@@ -87,6 +87,9 @@ export default function GamePage() {
     // brugeren troede han havde forladt.
     const next = withTab(searchParams, key);
     next.delete('hold');
+    // Samme for `kamp`: den fremhæver ét kort på Tip-fanen og skal ikke
+    // følge med til en anden fane — og heller ikke tilbage igen.
+    next.delete('kamp');
     setSearchParams(next);
   };
 
