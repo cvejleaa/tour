@@ -648,6 +648,20 @@ describe('syncKickoffsCore', () => {
     expect(db._metoder).toEqual(['update']);
   });
 
+  it('spillets egen runde som STRENG i dokumentet knækker heller ikke filtret (Security: begge operander normaliseres)', async () => {
+    const gammel = Date.parse('2026-08-21T17:00:00Z');
+    const rigtig = '2026-08-23T12:00:00.000Z';
+    const db = fakeDb({ 'r5-agf-ob': { kickoff: new Date(gammel), round: '5' } });
+    const fetchFn = fetchRuter([
+      ['status=notstarted', () => ({ events: [{ round: '5', homeName: 'AGF', awayName: 'OB', startDate: rigtig }] })],
+    ]);
+    const ud = await syncKickoffsCore(db, FieldValue, {
+      gameId: 'superliga2627', provider: PROVIDERS.superliga,
+      sync: { seasonId: 35802 }, fetchFn, nowMs: NU, dryRun: false,
+    });
+    expect(ud.aendringer.map((a) => a.id)).toEqual(['r5-agf-ob']);
+  });
+
   it('TØR-KØRSEL er default og fejler lukket: kun eksplicit false skriver', async () => {
     const foer = Date.parse('2026-08-21T18:00:00Z');
     const db = fakeDb({ 'r1-101': kamp(foer) });

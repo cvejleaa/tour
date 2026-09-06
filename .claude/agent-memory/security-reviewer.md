@@ -830,6 +830,22 @@
   rigtigt). Fejler lukket. Kun kalderen i index.js findes i dag, og den giver
   hentNoegler-mappet videre.
 
+- **Runde-løgn kan IKKE ramme en anden kamps deadline (SL kickoff-synk, 2026-09-06).**
+  Kilden binder sin egen påstand: `sourceKey = matchDocId(runde, home, away)`, og
+  `resolveDocs` kræver EKSAKT lighed med et eksisterende doc-id. Kørt mod de ægte
+  132 fixtures + det ægte kilde-svar (93 events): kilden påstår runde 8 om et par,
+  der i spillet er r7 → nøglen bliver `r8-viborgff-lyngbyboldklub`, som ikke findes →
+  0 ændringer, posten havner i `mangler` (alarm). Runden er en DEL af nøglen, ikke
+  et opslag ved siden af den. FORUDSÆTNING, der skal gentjekkes: de seedede runder
+  1-22 har hvert ORDNET holdpar præcis én gang (målt: 132 fixtures → 132 unikke
+  doc-id, 0 gentagne par). Seedes mesterskabsspillet (runde 23-32), hvor par mødes
+  igen, KAN en runde-løgn pege på det andet møde — kør PoC'en om igen dér.
+- **Ikke-kanoniske runde-former giver ikke nye mål.** `rundeTal` gør ' 8 ', '8e0',
+  '0x8', '08', '8.0' ALLE til 8 → samme doc-id `r8-…` som '8'. Det UDVIDER ikke
+  angrebsfladen (samme dokument som en ærlig '8'), det kanoniserer. `true`→1 (runde 1
+  er spillet → `spillet`/`mangler`), '8.5'→`r8.5-…` og 1e21→`r1e+21-…` findes ikke.
+  '', null, 'finale' → NaN → filtreret FØR tolkning.
+
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
 
 - **Liga-spørgsmålenes afsløring (destilleret fra eget sag-afsnit):** væggens
@@ -1508,6 +1524,33 @@
   `url(#dep-arrow*)` er statiske marker-id'er, ikke data.
 
 
+- **Superligaens kickoff-synk — hele vagt-batteriet kørt mod ÆGTE data
+  (2026-09-06, e864244).** Harness: den ægte `syncKickoffsCore` + `PROVIDERS.superliga`
+  mod fake-db seedet fra `scripts/superliga-fixtures.json` og det ægte API-svar
+  (93 notstarted-events, `round` som STRENG). Kontroltest FØRST: uændret kilde →
+  0 ændringer / 0 mangler (bevis for at kortlægningen rammer 93/93), og legitim
+  +2t-flytning → præcis 1 `update`. Derefter grønt hele vejen:
+  genåbning (passeret → fremtid) afvist, 0 skrivninger; <48t → skrives MED alarm
+  (negativ delta, altså fortid, er dækket af samme udtryk); kamp med `result` →
+  `spillet`, urørt; manglende `startDate` på en kamp med gemt tid → KASTER, intet
+  skrevet; opdigtet kamp → `mangler`, ingen create (`batch.update` + fake-db, der
+  fejler som Firestore); `__proto__`/`constructor` i et event → output har KUN
+  `sourceKey`+`kickoff`, `Object.prototype` uforgiftet.
+  **Dublet-nøgler (samme kamp to gange i svaret) er fail-closed:** begge poster
+  havner i `aendringer` og sidste skrivning vinder, MEN genåbnings-filteret er
+  ID-baseret (`!genaabninger.includes(a.id)`), så er ÉN af dubletterne en genåbning,
+  droppes BEGGE. Eneste rest er kosmetisk: tælleren "N kamptider rettet" tæller
+  dubletten dobbelt. PoC: `scratchpad/poc/harness.cjs` + `angreb.cjs` (fake-db
+  kopieret fra syncProviders.test.js; brug .cjs — poc/package.json er ESM).
+- **Kickoff-synkens throw er IKKE tavs.** index.js L903-905 fanger pr. spil, skriver
+  `st.fejl(...)` og `skrivDriftStatus` → drift-kortet bliver rødt, og de andre spil
+  kører videre. En kilde, der sender én ulæselig/manglende tid, kan altså standse
+  hele dagens SL-synk (tilgængelighed, by design), men ikke gøre det usynligt.
+- **Alarm-druknen gælder IKKE Superligaen.** Modsat PL (hele sæsonens 380 kampe mod
+  180 seedede → ~200 mangler-poster daglig) svarer SL-kilden kun med de KOMMENDE
+  kampe i sæsonens runder — målt 93 events, alle inden for spillets runder 1-22,
+  `mangler` = 0. Runde 23+ (mesterskabsspil) filtreres af `runder`-sættet.
+
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
 - **Invitations-mailen falder TAVST tilbage til Superliga-profilen uden
@@ -1892,6 +1935,22 @@
   skrives kampen alligevel med `detaljerSyncedAt`, og filteret er netop
   tilstedeværelsen af det felt → `tilskuere` kommer aldrig igen for den kamp.
   Skriv "færdig"-markøren først, når ALLE de kilder, markøren dækker, svarede.
+
+- **En normalisering ved en grænse skal ske på BEGGE sider af sammenligningen.**
+  `rundeTal()` normaliserer kildens `round` til tal, men `runder` bygges stadig råt af
+  `m.data.round` (superligaSync.js ~L630). Kørt: får dokumenterne strenge runder,
+  vender PRÆCIS den fejl tilbage, som fixet lukkede — 0 ændringer, 0 mangler,
+  drift-kortet GRØNT med "0 kamptider rettet". Ufarligt i dag (seed-vejen skriver
+  tal; superliga-fixtures.json er 100 % `number`, og matches er kun globalAdmin-
+  skrivbar uden type-vagt), men billig hærdning: kør begge operander gennem samme
+  helper. Generelt: en type-normalisering, der kun rører den ene operand, FLYTTER
+  fejlen — den fjerner den ikke.
+- **En vagt, der aldrig har haft data at se på, er utestet i praksis.** SL-synkens
+  genåbnings-forbud, <48t-alarm og ryd-aldrig-en-tid stod i koden i månedsvis,
+  mens filteret tømte planen — korrekte, men aldrig kørt mod produktion. Går en
+  kodesti fra "skriver aldrig" til "skriver 93 dokumenter", er det en NY skrivekilde:
+  kør hele vagt-batteriet, også når diffen kun er én linje. Spørg altid ved en
+  filter-rettelse: *hvad var downstream dødt, mens filteret var for stramt?*
 
 ---
 
