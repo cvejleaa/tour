@@ -14,7 +14,7 @@
 
 const {
   PROVIDERS, SYNCED_GAMES, SEASON_ID, TOURNAMENT_ID, STAGE_ID,
-  matchDocId, liveStatus, resultsUrl, liveUrl, standingsUrl,
+  matchDocId, liveStatus, resultsUrl, liveUrl, standingsUrl, rundeTal,
 } = require('./syncProviders');
 
 const { kickoffPlan } = require('./seedFootball');
@@ -627,7 +627,11 @@ async function syncKickoffsCore(db, FieldValue, opts = {}) {
   // mangler-alarmen med 200 forårskampe hver morgen, og den ene ægte
   // manglende kamp bliver usynlig — og én ulæselig tid i en kamp, spillet
   // ikke har, kunne vælte hele dagens kørsel.
-  const runder = new Set(alle.map((m) => m.data.round).filter((r) => r != null));
+  // Begge operander gennem rundeTal: kilden sender strenge, og fik et dokument
+  // en streng-runde (seed skriver tal, men matches har ingen type-vagt), ville
+  // præcis den tavse fejl fra 6/9 vende tilbage — 0 rettet, 0 mangler, grønt
+  // kort (Security-fund på #224).
+  const runder = new Set(alle.map((m) => rundeTal(m.data.round)).filter(Number.isFinite));
   const fixtures = await provider.hentKickoffs(sync, fetchFn, runder);
   const resolved = provider.resolveDocs(fixtures.map((f) => f.sourceKey), alle.map((m) => m.id));
   const nuvaerende = new Map(alle.map((m) => {

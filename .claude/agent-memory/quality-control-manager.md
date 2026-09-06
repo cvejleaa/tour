@@ -300,6 +300,29 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   kode faktisk viser ved kørsel — match filhovedet mod commit-beskedens tal
   for SAMME diff, ikke mod research, der gik forud for koden.
 
+- **Streng vs. tal deler samme skæbne KUN i `${}`-interpolation, ikke i
+  `Set.has`/`===`.** `matchDocId(round, home, away)` bygger id'et som
+  `` `r${round}-…` `` — type-ligegyldigt, "8" og 8 giver samme streng — mens
+  `runder.has(e.round)` er en STRENGT typet sammenligning. api.superliga.dk
+  sender `round` som tekst; kun `hentKickoffs`, den ENESTE af superligaens
+  fire hent-funktioner der filtrerer via et Set af runder, brød (fundet af
+  ejeren 6/9 2026, `syncProviders.js:342`, rettet med `rundeTal()`).
+  `hentFaerdige`/`hentXg`/`hentLive` bruger alle `e.round` direkte i
+  `matchDocId` og var ALDRIG i fare — ikke fordi de var rettet rigtigt, men
+  fordi interpolation aldrig kræver typelighed. Spørg ved en type-fejl i ét
+  hent-kald: bruger søskende-kaldene samme felt i en SAMMENLIGNING (Set/===,
+  sårbar) eller kun i en STRENG (interpolation, immun)? Byg ikke en generel
+  "normalisér alle" ‑ret ud fra ét ramt sted — spor hver bruger for sig.
+- **En "kilde-kamp-uden-dokument"-alarm, der er BEREGNET AF den samme
+  filtrerede liste, kan ikke opdage at filteret selv spiste alt.**
+  `mangler` (`superligaSync.js:645`) er `fixtures.filter(f => !resolved.has(f.sourceKey))`
+  — når rundefilteret i `hentKickoffs` fejlagtigt tømte `fixtures` til [],
+  faldt `mangler` med, og kørslen meldte «0 rettet, 0 mangler, ok» i ugevis.
+  En reel "tavs tom plan"-vagt kræver et tal FØR filtreringen (rå
+  kilde-events) sammenholdt med, at spillet har mindst én kommende,
+  useedet kamp i sine egne runder — ellers fyrer den i sommerpausen. Ikke
+  bygget endnu; spørg efter den, næste gang en hent-funktion får et nyt filter.
+
 ## Et måletal om VORES EGEN kvalitet (dæknings-/status-flader)
 
 - **En NY TILSTAND i et måletal skal have en SELV-CHECKENDE invariant, ikke en

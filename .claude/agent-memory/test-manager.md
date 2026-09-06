@@ -1255,3 +1255,51 @@ miljøproblem, ikke et testfund.
   mekanikken) — kun de to randfund ovenfor (blokkeUdfoldet-layoutets egen
   filtrering og onKasseKey's Escape-gren) var reelt udækkede, og begge er
   lavrisiko (skjult af en ANDEN, korrekt fungerende vagt et andet sted).
+
+
+## Superliga kickoff-synk: streng-runde normaliseret til tal (commit e864244, sep. 2026)
+
+`rundeTal(round)` normaliserer kildens `round` ("8", streng) til tal FØR
+`runder.has(...)`-filtret i `PROVIDERS.superliga.hentKickoffs`
+(`functions-platform/syncProviders.js:112-115,342-364`). Mutationstestet:
+
+- a) `runde: e.round` (ingen normalisering) → RØD (2 fejl: E2E-testen og
+  "kildens round er TEKST"-testen).
+- b) `Number.isFinite(e.runde) &&` fjernet fra filteret → RØD (den ulæselige
+  `round: 'finale'`-kamp får ikke længere filtreret sin ugyldige `startDate`
+  fra, og kernen kaster på "ugyldig startDate ... for rNaN-x-y").
+- c) `rundeTal('')` → 0 i stedet for NaN (fjernet `round === ''`-grenen) →
+  RØD, fanget direkte af den dedikerede `rundeTal`-unittest.
+- d) **OVERLEVEDE.** `matchDocId(e.runde, ...)` → `matchDocId(e.round, ...)`
+  (bruger kildens RÅ streng til id'et i stedet for den normaliserede
+  `e.runde`) — hele suiten (69/69) forblev grøn. Årsag: for kildens ægte form
+  ("8", "9", bare cifre uden mellemrum/foranstillede nuller) er
+  `String('8') === String(8)`, så `r${round}-...` giver samme streng uanset
+  hvilket felt der bruges. Ingen test i fixturet bruger en runde-streng, der
+  ville stringify anderledes end sit tal (fx "08", " 8", "8.0") — kun sådan
+  en variant ville afsløre mutationen. Reelt, ikke-hypotetisk fund: kilden
+  kan i teorien ændre formatering uden varsel (samme klasse af risiko som
+  selve fejlen, denne PR retter), og docId'et ville da glide væk fra
+  spillets `matchDocId(8, ...)`-form uden nogen fejlmelding — en tavs
+  matchings-fejl, ikke et kast. IKKE blokerende for landing (kildens format
+  er bekræftet stabilt cifre-som-streng, og selve rettelsens kernepåstand —
+  at filteret ikke længere tømmer planen — ER dækket), men bør noteres som
+  et opfølgningspunkt: tilføj en test med `round: '08'` eller `round: ' 8'`,
+  der forventer `sourceKey` bygget af `matchDocId(8, ...)` (dvs. 'r8-...'),
+  for at binde koden til at bruge `e.runde`, ikke `e.round`, ved id-dannelsen.
+- e) Grep af `round` i `functions-platform/syncProviders.js` og
+  `superligaSync.js`: kun `superliga.hentKickoffs` bruger `runder.has(...)`
+  til at filtrere på runde — `hentFaerdige`, `hentXg`, `hentLive` bruger
+  `e.round` udelukkende til `matchDocId`, ALDRIG til sammenligning mod et
+  tal-sæt, så samme fejlklasse lurer ikke dér. `superligaSync.js:630` bygger
+  `runder`-sættet fra SPILLETS EGNE dokumenter (`m.data.round`, allerede
+  tal), ikke fra kilden — heller ikke en risiko. Bekræfter ejerens antagelse:
+  facit-synken (38 færdige kampe i produktion) filtrerer ikke på runde og var
+  aldrig ramt.
+
+Mønster værd at genbruge: når en kilde-værdi normaliseres (streng→tal) FØR
+brug i et filter, så tjek separat, om den RÅ (unormaliserede) værdi stadig
+bruges et andet sted i samme funktion (her: id-dannelsen) — normaliseringen
+kan være "gjort" ét sted og "glemt" tre linjer nedenfor, og hvis kildens
+nuværende data tilfældigvis stringifier ens i begge former, fanger ingen
+test det.
