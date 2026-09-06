@@ -103,6 +103,17 @@ const APP_NAME = 'dk.releaze.livecenter.spdk';
 const hentOpt = () => ({ signal: AbortSignal.timeout(10000) });
 
 /** Dokument-id: r{runde}-{slug(hjemme)}-{slug(ude)} (spejler superligaSeed.matchId). */
+/**
+ * Kildens rundenummer som TAL. api.superliga.dk sender `round` som streng
+ * ("8"); spillets dokumenter har tal. En runde, der ikke kan læses som tal,
+ * bliver NaN og matcher aldrig et spils runder — den falder fra, som en
+ * fremmed runde skal. Én konvertering, ét sted.
+ */
+function rundeTal(round) {
+  const n = Number(round);
+  return round === null || round === undefined || round === '' || !Number.isFinite(n) ? NaN : n;
+}
+
 function matchDocId(round, home, away) {
   const slug = (s) => String(s ?? '')
     .toLowerCase()
@@ -321,6 +332,13 @@ const superliga = {
   // en deadline som bivirkning af en rutinekørsel). En UGYLDIG startDate kaster
   // vi selv her, med kampens id, så en uforståelig kilde skriver INTET frem for
   // en forkert deadline (kickoff ER tip-deadlinen).
+  //
+  // KILDENS `round` ER TEKST ("8"), SPILLETS RUNDER ER TAL (8). Fundet af
+  // ejeren 6/9 2026: Drift meldte «0 kamptider rettet» dag efter dag, mens
+  // runde 8 lå med forkerte tider. `runder.has("8")` er falsk i et sæt af tal,
+  // så ALLE kildens kampe faldt fra før tolkning, planen var tom, og kørslen
+  // meldte ok. Testen mockede kilden med tal og var grøn. Derfor normaliseres
+  // runden HER, ved kildegrænsen — og testen bruger kildens ægte form.
   async hentKickoffs(sync, fetchFn, runder) {
     const res = await fetchFn(kickoffsUrl(sync.seasonId), hentOpt());
     if (!res.ok) throw new Error(`superliga kickoffs HTTP ${res.status}`);
@@ -329,9 +347,13 @@ const superliga = {
     // kampe". Kast, så intet skrives — ellers ville {} tolkes som nul kickoffs.
     if (!data || !Array.isArray(data.events)) throw new Error('superliga kickoffs: svar uden events-liste');
     return data.events
-      .filter((e) => !runder || runder.has(e.round))
+      .map((e) => ({ ...e, runde: rundeTal(e.round) }))
+      // En runde, der ikke kan læses som tal, er aldrig en af spillets — den
+      // falder fra FØR tolkning, også uden runde-filter (ellers kastede en
+      // ulæselig tid i en fremmed runde hele kørslen).
+      .filter((e) => Number.isFinite(e.runde) && (!runder || runder.has(e.runde)))
       .map((e) => {
-        const id = matchDocId(e.round, e.homeName, e.awayName);
+        const id = matchDocId(e.runde, e.homeName, e.awayName);
         let kickoff = null;
         if (e.startDate != null) {
           const ms = Date.parse(e.startDate);
@@ -657,6 +679,6 @@ const SYNCED_GAMES = [
 module.exports = {
   PROVIDERS, SYNCED_GAMES,
   SEASON_ID, TOURNAMENT_ID, STAGE_ID,
-  matchDocId, liveStatus, LIVE_STATUS, resultsUrl, liveUrl, kickoffsUrl, standingsUrl, hentOpt,
+  matchDocId, rundeTal, liveStatus, LIVE_STATUS, resultsUrl, liveUrl, kickoffsUrl, standingsUrl, hentOpt,
   plLiveStatus, PL_PERIOD_STATUS,
 };

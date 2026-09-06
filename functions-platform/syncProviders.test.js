@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { GAMES } from '../scripts/games.mjs';
 
 const require = createRequire(import.meta.url);
-const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
+const { PROVIDERS, SYNCED_GAMES, rundeTal } = require('./syncProviders');
 const { runScheduledSyncAll, syncResultsCore, syncLiveCore, syncKickoffsCore } = require('./superligaSync');
 
 const FieldValue = {
@@ -518,6 +518,31 @@ describe('superliga.hentKickoffs — den ÆGTE metode', () => {
       .rejects.toThrow(/ugyldig startDate.*r5-agf-ob/);
   });
 
+  // EJERENS FUND 6/9 2026: den ægte kilde sender `round` som STRENG ("8"),
+  // spillets runder er tal. Attrappen ovenfor gav tal, så suiten var grøn,
+  // mens produktionen filtrerede ALT fra og meldte «0 kamptider rettet».
+  // Kilde-formen her er kopieret fra et rigtigt svar (6/9 2026) — ikke opfundet.
+  it('kildens round er TEKST — kampene i spillets runder (tal) beholdes alligevel, og sourceKey er r8-…', async () => {
+    const fetchFn = fetchRuter([
+      ['status=notstarted', () => ({ events: [
+        { _id: 'x', eventId: 1, round: '8', startDate: '2026-09-13T12:00:00.000Z', statusType: 'notstarted', statusFull: 'Not started', homeName: 'Lyngby Boldklub', awayName: 'Sønderjyske Fodbold' },
+        { _id: 'y', eventId: 2, round: '9', startDate: '2026-09-18T17:00:00.000Z', statusType: 'notstarted', statusFull: 'Not started', homeName: 'AGF', awayName: 'OB' },
+        { _id: 'z', eventId: 3, round: 'finale', startDate: 'skrald', statusType: 'notstarted', statusFull: 'Not started', homeName: 'X', awayName: 'Y' },
+      ] })],
+    ]);
+    const ud = await PROVIDERS.superliga.hentKickoffs(sync, fetchFn, new Set([7, 8]));
+    expect(ud).toEqual([{ sourceKey: 'r8-lyngbyboldklub-sonderjyskefodbold', kickoff: '2026-09-13T12:00:00.000Z' }]);
+    // Uden runde-filter: begge læsbare runder med — og 'finale' (ulæselig runde) falder fra.
+    const alle = await PROVIDERS.superliga.hentKickoffs(sync, fetchFn);
+    expect(alle.map((u) => u.sourceKey)).toEqual(['r8-lyngbyboldklub-sonderjyskefodbold', 'r9-agf-ob']);
+  });
+
+  it('rundeTal: "8" → 8, 8 → 8, "", null og "finale" → NaN (matcher aldrig et spils runder)', () => {
+    expect(rundeTal('8')).toBe(8);
+    expect(rundeTal(8)).toBe(8);
+    for (const x of ['', null, undefined, 'finale']) expect(Number.isNaN(rundeTal(x))).toBe(true);
+  });
+
   it('kampe uden for spillets runder droppes FØR tolkning — også når tiden er ulæselig', async () => {
     // En kamp i en runde, spillet ikke har, med skrald i tidsfeltet må ikke
     // kunne vælte kørslen — den er ikke vores at tolke.
@@ -591,9 +616,11 @@ describe('syncKickoffsCore', () => {
     const gammel = Date.parse('2026-08-21T17:00:00Z'); // vores forkerte tid
     const rigtig = '2026-08-23T12:00:00.000Z';         // kildens rettede tid
     const db = fakeDb({ 'r5-agf-ob': { kickoff: new Date(gammel), round: 5 } });
+    // Kildens ÆGTE form: round som STRENG. Med `round: 5` (tal) her var testen
+    // grøn, mens produktionen filtrerede alt fra (ejerens fund 6/9 2026).
     const fetchFn = fetchRuter([
       ['status=notstarted', () => ({ events: [
-        { round: 5, homeName: 'AGF', awayName: 'OB', startDate: rigtig },
+        { round: '5', homeName: 'AGF', awayName: 'OB', startDate: rigtig, statusType: 'notstarted', statusFull: 'Not started' },
       ] })],
     ]);
     const ud = await syncKickoffsCore(db, FieldValue, {
