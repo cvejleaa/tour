@@ -319,6 +319,9 @@ describe('FootballHelp forklarer holdsiden', () => {
     expect(tekst).toContain('Klik på et holdnavn');
     // Kamplisten nederst fører til kampens kort (6/9 2026) — guiden skal sige det.
     expect(tekst).toContain('klik på en række, og du lander på kampens kort på Tip-fanen');
+    // Ingen opremsning af målscorere/målchancer her: de er gatede evner med
+    // egne afsnit — sætningen må ikke love et tal, et spil aldrig får.
+    expect(tekst).not.toMatch(/lander på kampens kort på Tip-fanen med/);
     // Alle fire indgange skal nævnes; en manglende indgang er en flade,
     // brugeren ikke finder.
     expect(tekst).toMatch(/Elo-tabellen/);

@@ -26,8 +26,14 @@ import { holdXgListe } from './holdStatistik';
 import ClubBadge from '../../../components/ClubBadge';
 import GameTabLink from '../GameTabLink';
 import { fmtDec, fmtSignedDec } from '../../../lib/daNum';
+import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 
-export default function HoldXgListe({ game, matches }) {
+export default function HoldXgListe({ game, matches: alleKampe }) {
+  // SAMME GATE SOM HOLDSIDEN og Tip-fanen (fraStartRunde): listen her og
+  // holdsidens xG-kort viser de samme tal om de samme hold ét klik fra
+  // hinanden — «ét klik må ikke give to svar». Uden gaten talte listen runde
+  // 1 med i et spil, der starter i runde 2 (QC-fund på #225).
+  const matches = useMemo(() => fraStartRunde(alleKampe, startRundeFor(game, alleKampe)), [game, alleKampe]);
   const teams = teamsOf(game);
   const raekker = useMemo(() => holdXgListe(matches, teams), [matches, teams]);
 

@@ -486,7 +486,7 @@ export default function FootballHelp({ game }) {
         trøjeoversigten under <Tab fane="profil">🙂 Mit hold</Tab> eller på et kampkort — så får du
         holdets egne tal i dette spil: form, hjemme og ude, mål, og hvor stort holdet vinder,
         når det vinder. Nederst står holdets kampe i dette spil — klik på en række, og du lander
-        på kampens kort på Tip-fanen med resultat, halvlegsstilling, målscorere og målchancer.
+        på kampens kort på Tip-fanen.
         <p style={{ margin: '0.5rem 0 0' }}>Nogle af tallene er værd at forklare:</p>
         <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.2rem' }}>
           <li><strong>Mod oddsenes favorit.</strong> Hvor ofte holdet var favorit og holdt, og hvor

@@ -209,9 +209,15 @@ describe('FootballTip — Elo på kampkortene', () => {
   });
 
   // ── Hop til ét kort (?kamp= fra holdsidens kampliste) ─────────────────────
+  // jsdom har ingen scrollIntoView; stubben sættes pr. test og ryddes i
+  // afterEach, så en fejlende assertion ikke lækker den til de øvrige tests.
+  let scrollStub = null;
+  afterEach(() => { if (scrollStub) { delete Element.prototype.scrollIntoView; scrollStub = null; } });
+
   it('?kamp= fremhæver PRÆCIS det kort og ruller det ind én gang — ikke ved hver gentegning', () => {
     const rulletPaa = [];
-    Element.prototype.scrollIntoView = vi.fn(function ruller() { rulletPaa.push(this.id); });
+    scrollStub = vi.fn(function ruller() { rulletPaa.push(this.id); });
+    Element.prototype.scrollIntoView = scrollStub;
     const { rerender } = setup({}, '/spil/sl?runde=2&kamp=m3');
     const kort = document.getElementById('kamp-m3');
     expect(kort).not.toBeNull();
@@ -230,16 +236,15 @@ describe('FootballTip — Elo på kampkortene', () => {
       </MemoryRouter>,
     );
     expect(rulletPaa).toEqual(['kamp-m3']);
-    delete Element.prototype.scrollIntoView;
   });
 
   it('et ukendt ?kamp= fremhæver intet og fejler ikke; hvert kort har ét unikt id', () => {
-    Element.prototype.scrollIntoView = vi.fn();
+    scrollStub = vi.fn();
+    Element.prototype.scrollIntoView = scrollStub;
     setup({}, '/spil/sl?runde=1&kamp=findes-ikke');
     expect(document.querySelectorAll('[data-fremhaevet]')).toHaveLength(0);
-    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    expect(scrollStub).not.toHaveBeenCalled();
     expect(document.querySelectorAll('#kamp-m1')).toHaveLength(1);
-    delete Element.prototype.scrollIntoView;
   });
 
   it('et rundeskift fjerner ?kamp= — fremhævningen hører til én runde', () => {

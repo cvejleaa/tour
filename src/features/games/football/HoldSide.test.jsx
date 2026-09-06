@@ -169,7 +169,7 @@ describe('HoldSide', () => {
     expect(raekker).toHaveLength(2);
     expect(raekker[0].tagName).toBe('A');
     expect(raekker[0].getAttribute('href')).toBe('/spil/sl?runde=7&kamp=r7-agf-fck');
-    expect(raekker[0]).toHaveAttribute('title', 'Se kampen på Tip-fanen');
+    expect(raekker[0]).toHaveAttribute('title', 'Åbn kampen på Tip-fanen');
     // Hele rækken er linket — runde, side, modstander og resultat står inde i det.
     expect(raekker[0].textContent).toContain('R7');
     expect(raekker[0].textContent).toContain('2-0');

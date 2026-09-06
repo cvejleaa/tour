@@ -370,7 +370,7 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
               // En kamp uden rundenummer (runde 0) kan Tip-fanen ikke vise;
               // den står som ren tekst frem for et link, der lander forkert.
               return Number(m.round) > 0 ? (
-                <GameTabLink key={m.id} fane="tip" runde={m.round} kamp={m.id} className="holdside__kamp" title="Se kampen på Tip-fanen" data-testid="holdside-kamp">
+                <GameTabLink key={m.id} fane="tip" runde={m.round} kamp={m.id} className="holdside__kamp" title="Åbn kampen på Tip-fanen" data-testid="holdside-kamp">
                   {indhold}
                 </GameTabLink>
               ) : (

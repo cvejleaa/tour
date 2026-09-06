@@ -86,8 +86,11 @@ describe('indgange til holdsiden', () => {
   // Man står allerede på holdsiden; det, man mangler, er kampen.
   it('HoldSide.jsx linker kamprækken til kampens kort — ikke modstanderen til holdsiden', () => {
     const kilde = readFileSync(`${process.cwd()}/src/features/games/football/HoldSide.jsx`, 'utf8');
-    expect(kilde).toMatch(/fane="tip" runde=\{m\.round\} kamp=\{m\.id\}/);
+    expect(kilde).toMatch(/kamp=\{m\.id\}/);
+    expect(kilde).toMatch(/fane="tip"/);
     expect(kilde).not.toMatch(/hold=\{/);
+    // Positiv kontrol: vagten ville fange et hold-link i samme form som de andre flader.
+    expect('<GameTabLink fane="elo" hold={t.short}>').toMatch(/hold=\{/);
   });
 
   it('et hold UDEN kortkode får ingen link — aldrig en URL af et holdnavn', () => {

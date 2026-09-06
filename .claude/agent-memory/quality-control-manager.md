@@ -132,6 +132,21 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   et delt dybt link aldrig når kortet). Og spørg om A's liste selv er sand:
   kortet hedder "Kampene i dette spil" og viser kampe fra runder, spillet ikke
   tæller med.
+- **Retter du en manglende gate på ÉN flade, så tæl de øvrige FORBRUGERE af
+  samme rå liste.** `grep fraStartRunde` viste fem gatende flader (FootballTip,
+  MyTips, SpillerDetalje, GameReminderTab, nu HoldSide) og ÉN ungated:
+  `HoldXgListe` får `matches` rå fra `GamePage.jsx:202` og viser de SAMME fire
+  xG-tal pr. hold som holdsidens kort — ét klik fra hinanden på samme fane.
+  Rettelsen af naboen gør den sidste ungatede til en synlig selvmodsigelse.
+  `HoldSide.jsx:164-167` bærer selv reglen på skrift: "ét klik må ikke give to
+  svar". Grep gaten, ikke fladen: den ungatede indeholder pr. definition ikke
+  gatens navn.
+- **En ny sætning i guiden skal gates som sine NABOER.** `FootballHelp.jsx`
+  gater sit målscorer-afsnit på `harKampdetaljer(game)` (:363) og sit
+  xG-afsnit på `harXg(game)` (:403) — en ny sætning et tredje sted, der
+  NÆVNER de samme evner uden gate, genindfører præcis det, `spilEvner.js:62-65`
+  er skrevet imod: en regelbog, der forklarer et tal, spillet aldrig får.
+  Enten samme gate, eller skriv evnen ud af sætningen.
 - **"Spillets farve" er `--c-accent` — og den er allerede taget.**
   `.match-card--chance` (`theme.css:845`) er `border-color: var(--c-accent)
   !important` + box-shadow-ring. En ny "fremhævet"-kant i spillets farve bliver
