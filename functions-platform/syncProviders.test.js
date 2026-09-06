@@ -537,6 +537,19 @@ describe('superliga.hentKickoffs — den ÆGTE metode', () => {
     expect(alle.map((u) => u.sourceKey)).toEqual(['r8-lyngbyboldklub-sonderjyskefodbold', 'r9-agf-ob']);
   });
 
+  it('sourceKey bygges af det NORMALISEREDE tal — "08" og " 8" giver r8-…, ikke r08-… (Test Managers mutation)', async () => {
+    // matchDocId(e.round) ville tilfældigt give samme id for "8" som for 8 —
+    // og glide tavst væk for "08". Bind koden til e.runde.
+    const fetchFn = fetchRuter([
+      ['status=notstarted', () => ({ events: [
+        { round: '08', startDate: '2026-09-13T12:00:00.000Z', homeName: 'AGF', awayName: 'OB' },
+        { round: ' 8', startDate: '2026-09-13T14:00:00.000Z', homeName: 'Randers FC', awayName: 'OB' },
+      ] })],
+    ]);
+    const ud = await PROVIDERS.superliga.hentKickoffs(sync, fetchFn, new Set([8]));
+    expect(ud.map((u) => u.sourceKey)).toEqual(['r8-agf-ob', 'r8-randersfc-ob']);
+  });
+
   it('rundeTal: "8" → 8, 8 → 8, "", null og "finale" → NaN (matcher aldrig et spils runder)', () => {
     expect(rundeTal('8')).toBe(8);
     expect(rundeTal(8)).toBe(8);
