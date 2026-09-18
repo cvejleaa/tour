@@ -559,6 +559,35 @@ kontrollen sammenlignede uden fortegn, fordi bonussen dengang gik op. Da den gik
 ned igen dagen efter, advarede den på en helt korrekt kørsel — og ✓ kunne kun
 lyse, hvis pointene bevægede sig opad. Vi gætter ikke på retningen.
 
+### Kontrol af de gemte totaler — sidste trin i workflowet
+
+Kørslens eget svar siger kun, hvad den *mente* den gjorde. Derfor kører
+`scripts/verificer-totaler.mjs` som sidste trin og læser, hvad serveren
+**faktisk har gemt** på hver spiller (`players/{uid}.totalPoints` og
+`.opdeling`). Den er læs-only og prøver tre ting, der ellers går galt uden en
+fejlbesked:
+
+1. **Rubrikkerne skal summe til totalen** — inden for afrundingen (0,25: fire
+   rubrikker afrundet hver for sig plus totalen afrundet én gang, se
+   `scripts/lib/verificerTotaler.mjs`). Er de uenige, lyver "Hvor kommer
+   pointene fra?" om stillingen. En spiller helt uden `opdeling` meldes for sig:
+   dér er svaret 🔄 **Genberegn point**, ikke en bagfyldning.
+2. **⚡ Chancen må kun være negativ for den, der faktisk har sat point på spil**
+   (`bets.chanceStake > 0`). Er den negativ uden indsats, står bet-pointene med
+   en gammel regel — præcis symptomet fra fælden ovenfor.
+3. Totalen gulves ved 0, så `sum < total` er legitimt netop dér — undtaget.
+
+**Ved tør-kørsel er trinnet informativt** (`continue-on-error`): det viser
+tilstanden FØR skrivningen, og den uenighed, det finder, er den, skrivningen
+skal rette. **Efter en skrivning er det blokerende:** en rød kørsel betyder, at
+totalerne stadig er forkerte — stop, og læs tabellen i loggen (én række pr.
+spiller med 1X2, chance, combi, pulje, sum, total og bemærkning). Ved gendan
+springes trinnet over. Lokalt:
+
+```bash
+SPIL_SA=<sa.json> GAME_ID=superliga2627 node scripts/verificer-totaler.mjs
+```
+
 **Tripwiren ser kun på summen.** Havde halvdelen af tippene flyttet sig −2 og
 den anden halvdel 0, ville totalen stadig se rigtig ud. Brug derfor
 `combi-sammenligning`-workflowet som forkontrol — det er læs-only og giver et

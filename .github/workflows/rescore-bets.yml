@@ -66,10 +66,13 @@ jobs:
         id: tilstand
         env:
           SKRIV: ${{ inputs.skriv }}
+          # Via env, ikke interpoleret i run-blokken: inputtet er fri tekst, og
+          # en ${{ }} inde i et shell-script er en shell-injektion (Security).
+          GAME_ID: ${{ inputs.gameId }}
         run: |
           if [ "$SKRIV" = "SKRIV" ]; then
             echo "dry=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::SKRIVER i produktionsdata for ${{ inputs.gameId }}."
+            echo "::warning::SKRIVER i produktionsdata for $GAME_ID."
           else
             echo "dry=true" >> "$GITHUB_OUTPUT"
             echo "Tør-kørsel — der skrives intet."
@@ -84,6 +87,21 @@ jobs:
           GENDAN: ${{ inputs.gendan }}
           FORVENTET_PR_BET: ${{ inputs.forventetPrBet }}
         run: node scripts/rescore-bets.mjs
+
+      # Kontrollen kører til sidst og læser, hvad serveren FAKTISK har gemt:
+      # rubrikkerne skal summe til totalen, og Chancen må kun være negativ for
+      # den, der faktisk har tabt en indsats. Ved TØR-KØRSEL viser den
+      # tilstanden FØR skrivningen — dér må den ikke farve kørslen rød, for den
+      # uenighed, den finder, er netop den, skrivningen skal rette. Efter en
+      # SKRIVNING er den blokerende: rød kørsel = totalerne er stadig forkerte.
+      # Ved GENDAN springes den over (den gamle tilstand var netop uenig).
+      - name: Verificér totaler (læs-only)
+        if: ${{ !inputs.gendan }}
+        continue-on-error: ${{ steps.tilstand.outputs.dry == 'true' }}
+        env:
+          SPIL_SA: ${{ runner.temp }}/spil-sa.json
+          GAME_ID: ${{ inputs.gameId }}
+        run: node scripts/verificer-totaler.mjs
 
       # Backup'en gemmes ALTID — også ved tør-kørsel. Uden den er der ingen vej
       # tilbage, og den koster ingenting at have liggende.

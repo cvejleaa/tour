@@ -118,6 +118,17 @@
     `deleteField()`. Spor ALTID kæden fra komponenten til det kald, der rører
     Firestore, før du kalder en type- eller null-vej "ét klik væk".
 
+- **Et `scripts/*.mjs` bevises LÆS-ONLY med en resolve-hook, ikke med læsning.**
+  `node --import ./register.mjs <script>`, hvor `register.mjs` kalder
+  `module.register('./hooks.mjs', …)` og hooken omdirigerer ALT, der starter med
+  `firebase-admin`, til en stub. Stubben er en `Proxy`, der logger hver
+  property-adgang og returnerer en kastende funktion for
+  `set/update/delete/create/add/commit/batch/runTransaction`. Kræver hverken
+  emulator, netværk eller ægte service-account (en fake `sa.json` med
+  `project_id` er nok, når `cert()` også er stubbet). Fixturen kommer ind via
+  `POC_DATA` som JSON, så FJENDTLIGE dokumenter (navne med `\n`, ANSI,
+  `::error::`) kan køres igennem den ÆGTE kode i samme greb. Ligger helt uden
+  for repoet — `git status` er ren pr. konstruktion.
 - **"Hvilken vært taler scriptet med?" måles med en SINK, ikke ved læsning.**
   En 10-liniers `http.createServer` på 127.0.0.1:9911, der logger `method+url`
   og svarer `200 {}`, plus `FIRESTORE_EMULATOR_HOST=127.0.0.1:9911` foran
@@ -277,8 +288,14 @@
   `games/{g}/leagues/{l}.memberUids` (gameId sat) eller top-niveau `leagues/{l}`
   (gameId fraværende) — `bothShareLeague`/`privateLeagueMembers`, L448-472.
   Grenforvirring er umulig: `gameId` sat TVINGER game-stien.
-- **`users/{uid}` type-tjekker IKKE `displayName`** — en spiller må skrive `42`,
-  `{a:1}`, `['a']` eller 100k tegn på sig selv. Se griefing-posten nedenfor.
+- **`users/{uid}` TYPE-tjekker nu `displayName` (RETTET 2026-09-18 — den gamle
+  note her var forældet).** `displayNameGyldigt()` + `profilFelterGyldige()`
+  (firestore.rules L56-72) står på BÅDE create (L145) og egen-update (L152):
+  `displayName`, `avatarEmoji` og `favoriteTeam` skal være strenge (avatar/hold
+  må dog være `null`). `42`, `{a:1}`, `['a']` og eksplicit `null` som navn er
+  dermed lukket. **Men der er hverken længde- eller indholdsvagt:** vilkårlige
+  strenge med NYLINJE, ANSI-escapes og GitHub-workflow-kommandoer er stadig
+  tilladt — se log-injektionen under "Angrebsveje der VIRKER".
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
 
@@ -489,6 +506,12 @@
   (`<option>{l.name}`). Fix ÉT sted, der dækker alle forbrugere:
   `typeof u.displayName === 'string' ? u.displayName : 'Ukendt spiller'` i
   `rankStandings` — hver render-side hver for sig er en tabt kamp.
+  **OPDATERET 2026-09-18:** TYPE-giften på `displayName`/`avatarEmoji`/
+  `favoriteTeam` er lukket ved kilden (`profilFelterGyldige()`, se ovenfor), så
+  `{toString:null}` kan ikke længere skrives af en klient. `answer`,
+  `questions.label`/`facit` og liganavnet på de to admin-grene er IKKE dækket —
+  de veje står stadig. Klient-siden mangler stadig sin egen typevagt, så et
+  admin-SDK-/konsol-skrevet navn kan stadig hvidne fladen.
 - **Bot-forfalskning på liga-væggen.** `messages`-reglen binder KUN `uid` — ikke
   `displayName`, `avatarEmoji`, `system` eller `questionId`. Et medlem kan gemme
   `{uid: sig selv, displayName:'Runde-Botten', avatarEmoji:'🤖', system:true}`.
@@ -728,6 +751,29 @@
   `forladt`/`forladtAt` (+ `joinedAt`) på et eksisterende dokument, og
   `hentLigaMedlemmer` tilbyder ikke længere forladte som "deltagere".
 
+- **Enhver spiller kan INJICERE LINJER i en offentlig GitHub Actions-log via sit
+  eget `displayName` (BEKRÆFTET 2026-09-18, #109).** `scripts/lib/verificerTotaler.mjs`
+  `tabel()` skriver navnet råt: `b((navn.get(r.uid) || r.uid).slice(0, 25), 26)` —
+  ingen fjernelse af styretegn. `displayName` skal være en streng (se ovenfor),
+  men må indeholde `\n`, `\r` og ESC. PoC (stub-loader, se PoC-afsnittet) med
+  navnene `"\n::error::ALT ER GALT"`, `"\n✓ Ingen fejl fundet."` og
+  `"\n::stop-commands::AA"` gav præcis de linjer i scriptets stdout, hver med
+  `::`/`✓` i kolonne 0 — altså (a) falske Actions-annoteringer på en grøn
+  kontrol, (b) en FALSK «✓ Ingen fejl fundet.»-linje i en kørsel med tre fejl,
+  (c) `::stop-commands::`/`::add-mask::`, der kan skjule resten af loggen.
+  `.slice(0, 25)` er rigeligt: `\n::error::x` er 11 tegn. Samme rå streng går til
+  et lokalt terminal-output (ANSI). **Repoet er PUBLIC** (målt:
+  `api.github.com/repos/cvejleaa/tour` → `"private": false`), så loggen læses af
+  hvem som helst. Fix ét sted: saniter i `tabel()`
+  (`String(s).replace(/[\u0000-\u001f\u007f]/g, ' ')`) — ikke hos hver skriver.
+- **En offentlig Actions-log er en visningsflade.** `verificer-totaler` printer
+  navn + fuld point-opdeling for HVER spiller i spillet (uid, når navnet mangler)
+  — mere end appen viser en enkelt spiller (`players/{uid}` er liga-gated,
+  firestore.rules L697). Samme klasse data ligger ganske vist allerede committet i
+  `docs/mail-combi-aendring.md` i det offentlige repo, så det er ikke en ny
+  kategori — men enhver ny log-udskrift i et `workflow_dispatch`-job er
+  offentliggørelse, ikke fejlsøgning. E-mails printes IKKE (kun `displayName`).
+
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
 - **alarmId-fuzz mod `kvitterDriftAlarm`** (functions-platform/index.js L495-508).
@@ -847,6 +893,30 @@
   '', null, 'finale' → NaN → filtreret FØR tolkning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **`scripts/verificer-totaler.mjs` SKRIVER ALDRIG (BEKRÆFTET 2026-09-18, #109).**
+  Kørt ende-til-ende mod en stub af `firebase-admin`, der logger HVER
+  property-adgang og kaster på `set/update/delete/create/add/commit/batch/
+  runTransaction/bulkWriter`. Hele kaldsgrafen var: `initializeApp` →
+  `collection(games).doc(GAME_ID)` → `.collection(players).get()` +
+  `.collection(bets).get()` → `db.getAll(users/...)` → `console.log` →
+  `process.exit(v.fejl?1:0)`. Nul skriveforsøg, ingen skrive-property overhovedet
+  rørt.
+- **`GAME_ID` fra `workflow_dispatch` giver ingen sti-flugt (målt 2026-09-18).**
+  `db.collection('games').doc(GAME_ID)`: `..` er IKKE et specialsegment
+  (`games/../users/x` er en LITERAL sti med segmentet `..`), lige segmentantal og
+  tom streng KASTER, `//` kaster. Ulige antal segmenter (`x/players/u1`) peger på
+  et andet dokument, men læsningen er altid `<ref>/players` og `<ref>/bets` —
+  altså altid INDE i `games`. Ingen vej til `users`-listning eller en fremmed
+  top-collection. `GAME_ID` sendes via `env:`, ikke interpoleret i shell.
+- **`continue-on-error: ${{ steps.tilstand.outputs.dry == 'true' }}` kan ikke
+  give «skrivning med kontrollen slået fra» (rescore-bets.yml L97).** Samme
+  output styrer BÅDE `DRY_RUN` på skrivetrinnet og blødheden på kontrollen (én
+  vagt), `dry` sættes af en literal `echo` (ingen GITHUB_OUTPUT-injektion fra
+  `SKRIV`, der kun bruges i `[ "$SKRIV" = "SKRIV" ]`), og
+  `rescore-bets.mjs:47` er `process.env.DRY_RUN !== 'false'` — fejler lukket.
+  Mangler outputtet, bliver kontrollen BLOKERENDE (`'' == 'true'` → false), ikke
+  blød. `if: ${{ !inputs.gendan }}` er korrekt tom-streng-semantik.
 
 - **Liga-spørgsmålenes afsløring (destilleret fra eget sag-afsnit):** væggens
   læsekreds er en DELMÆNGDE af svarenes læsekreds efter facit — også for et
