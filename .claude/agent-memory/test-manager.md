@@ -1335,3 +1335,82 @@ bruges et andet sted i samme funktion (her: id-dannelsen) — normaliseringen
 kan være "gjort" ét sted og "glemt" tre linjer nedenfor, og hvis kildens
 nuværende data tilfældigvis stringifier ens i begge former, fanger ingen
 test det.
+
+## `scripts/lib/verificerTotaler.mjs` — læs-only totalkontrol efter genscoring (PR #109, branch `claude/multi-game-player-collection-21mc1w`, sept. 2026)
+
+11 mutationer kørt (7 grene, hver med to varianter hvor relevant), 9 røde, 2
+overlevede — begge på samme konstant, af to forskellige, sammenhængende
+årsager:
+
+- **`CHANCE_NEGATIV = -0.05` (linje 28) er IKKE bundet af noget testtilfælde
+  mellem -0,05 og -3.** Mutationsbevist to gange: `-0.05 → 0` (dvs. tærsklen
+  "< 0") OG `-0.05 → -0.5` (dvs. "< -0,5") lader BEGGE alle 18 tests forblive
+  grønne. Årsag til den første: `chance`-værdien læses gennem `rubrik('chance')
+  = r1(o.chance)`, som runder til nærmeste 0,1 FØR sammenligningen — så en rå
+  værdi som -0,04 bliver til -0 (ikke -0,04) inden `chance < CHANCE_NEGATIV`
+  overhovedet evalueres. Enhver tærskel i det halvåbne interval (-0,1, 0] er
+  derfor ADFÆRDSMÆSSIGT IDENTISK for alle værdier, en rigtig kørsel kan
+  producere (de er alle multipla af 0,1 efter r1). Årsag til den anden: det
+  eneste testfixture for "negativ Chancen" (`tabt = { chance: -3 }`) ligger
+  langt under -0,5, så testen skelner aldrig mellem "-0,05" og "-0,5" som
+  tærskel — kun mellem "tæt på 0" og "langt fra 0". Reelt hul: en genscorings-
+  fejl, der giver en Chance på fx -0,2 eller -0,3 for en spiller uden indsats
+  (plausibelt — en delvis forkert regnesti, ikke en total udeladelse), ville
+  IKKE blive fanget af nogen eksisterende test, og det er uklart fra suiten,
+  om scriptet selv ville fange det i produktion (det ville: -0,2 < -0,05 er
+  sandt i den faktiske kode — kun TESTEN beviser det ikke). Vurderet
+  IKKE-blokerende for denne PR (scriptet er læs-only, diagnostisk, og SUM-
+  kontrollen er den primære, solidt dækkede vagt), men værd at lukke: mangler
+  et testtilfælde med `chance` i fx [-0.3, -0.1] uden indsats, der forventer
+  fejlen, og et med `chance` i (-0.1, 0) der IKKE gør — det binder tærsklen
+  til et konkret bånd i stedet for kun til dens yderpunkter.
+- **Gulv-undtagelsen (linje 68, `!(total === 0 && sum < 0)`) har to
+  mutationer, der overlever, men begge er reelt LAVRISIKO/ækvivalente, ikke
+  et produktionshul:** `sum < 0 → sum <= 0` overlever, fordi ingen test rammer
+  `sum === 0` PRÆCIS samtidig med `total === 0` OG en afvigelse over
+  TOLERANCE — men den kombination er selvmodsigende (er sum og total begge 0,
+  er `|sum-total|` også 0, langt under TOLERANCE, så grenen nås aldrig i
+  praksis). `total === 0 → total <= 0` overlever, fordi `total` i den ægte
+  kontrakt ALDRIG kan være negativ (`functions-platform/pointOpdeling.js:362`,
+  `total: Math.max(0, round1(...))` — gulvet sker allerede opstrøms), så
+  "total <= 0" og "total === 0" er adfærdsmæssigt identiske for al data,
+  scriptet reelt vil se. FJERNES hele undtagelsen derimod, bliver testen
+  "gulvet: total 0 med negativ sum er legitimt" RØD — så selve invarianten
+  ("gulvet er en undtagelse, ikke standarden") ER mutationsbevist; det er kun
+  de to yderkanter af selve OR-betingelsen, der er ubundne, og begge af
+  grunde der gør dem lavrisiko snarere end skjulte fejl.
+- **Alle øvrige grene ER mutationsbevist, hver for sig:** `TOLERANCE`
+  (0,25→0,15, linje 25) rød — testen har endda en direkte assertion
+  (`toBeGreaterThanOrEqual(0.2)`) OVENI det afledte scenarie, så den fanger
+  selv en tærskel der ikke rammer nøjagtigt 0,15. `harIndsatsAf` (linje 42):
+  både `&& b.uid` fjernet og `> 0 → >= 0` giver rød. `vurder`s sortering
+  (linje 88-90, fjernet helt) og dens fejltælling (linje 91, "antal noter" →
+  "antal rækker med noter") giver begge rød — sidstnævnte fanges specifikt af
+  "begge fejl kan stå på samme spiller"-testen, som forventer 2, ikke 1.
+  `tabel`s "ok"-fallback (linje 116, byttet til tom streng) og dens ✓/⚠️-bytte
+  (linje 122) giver begge rød. At fjerne hele `if (!o || typeof o !== 'object')`-
+  grenen (linje 63-68, så en spiller uden `opdeling` falder ned i SUM-
+  sammenligningen i stedet) giver rød — fanget af den præcise fejlbesked-
+  assertion ("INGEN OPDELING…", ikke "SUM …").
+- **TestsTab.test.jsx's flyttede "friske tal"-test (commit 196aab6) er
+  EMPIRISK bekræftet load-bearing, ikke kun en kosmetisk oprydning.** Testen
+  blev flyttet ind i `describe('TestsTab — forældet-advarslen', …)` med
+  `beforeEach(() => vi.setSystemTime(NU))` (NU = 2026-09-01). Simulerede den
+  GAMLE placering (testen udenfor describe'en, uden fake timers) og kørte
+  filen mod ægte systemtid 2026-09-18 (21 dage efter fixturets ældste dato
+  27/8): testen fejlede FAKTISK ("⚠️ Tallene her er forældede… 21 dage
+  gammelt"), præcis som commit-kommentaren hævder ("blev rød 18/9"). Med
+  fixet på plads (fake timers, `NU` fastfrosset) er samme test grøn i dag.
+  God bekræftelse af mønsteret "en Date.now()-baseret test uden fastfrysning
+  er en tidsindstillet bombe" — her fanget FØR den sprang, ikke bagefter.
+  Metode værd at genbruge: når en påstået tidsrelateret fejlrettelse skal
+  efterprøves, og dagens dato faktisk ligger forbi den gamle fejlgrænse, kan
+  man reproducere den gamle fejl direkte ved at simulere den gamle
+  kodeplacering og køre mod ægte `Date.now()` — ingen grund til at vente på
+  en fremtidig dato eller stole på kommentarens påstand.
+
+Kørt: `npx vitest run scripts/lib/verificerTotaler.test.mjs --silent` (18/18
+grøn efter hver retablering) + `npx vitest run --silent` for hele frontend-
+suiten (236 filer, 3331 tests, grøn). `functions/` og `functions-platform/`
+er urørt af denne PR (kun `scripts/`, `docs/`, `.github/workflows/` og
+`src/features/admin/TestsTab.test.jsx`) — ikke kørt, ikke relevant.
