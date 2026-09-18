@@ -130,17 +130,21 @@ describe('TestsTab', () => {
     expect(screen.getByText('ingen test viser den')).toBeInTheDocument();
     expect(screen.queryByText('ingen test rører den')).not.toBeInTheDocument();
   });
-
-  it('siger INTET om forældelse, når tallene er friske', () => {
-    render(<TestsTab />);
-    expect(screen.queryByTestId('rapport-forældet')).not.toBeInTheDocument();
-    expect(screen.queryByText(/forældede/)).not.toBeInTheDocument();
-  });
 });
 
 describe('TestsTab — forældet-advarslen', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NU); });
   afterEach(() => { vi.useRealTimers(); });
+
+  // Stod før i describe'en ovenfor UDEN fast tid og ældedes af sig selv: den
+  // blev rød 14 dage efter fixturets datoer (18/9 2026) — præcis det, NU-
+  // kommentaren øverst advarer imod. Her er tiden fast, og "friske" er et
+  // udsagn om fixturet, ikke om kalenderen.
+  it('siger INTET om forældelse, når tallene er friske', () => {
+    render(<TestsTab />);
+    expect(screen.queryByTestId('rapport-forældet')).not.toBeInTheDocument();
+    expect(screen.queryByText(/forældede/)).not.toBeInTheDocument();
+  });
 
   it('advarer med dato, alder OG vejen videre, når tallene er for gamle', () => {
     vi.setSystemTime(new Date('2026-09-20T12:00:00.000Z'));
