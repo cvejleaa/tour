@@ -69,6 +69,13 @@ describe('kontrollerSpiller — Chancen', () => {
     expect(kontrollerSpiller(tabt('u1'), new Set(['u2'])).noter).toHaveLength(1);
   });
 
+  it('båndet er bundet: −0,1 er den første værdi, der findes efter afrunding — og den er negativ', () => {
+    // Mutation −0,05 → −0,5 skal blive rød her; −0,05 → 0 er ækvivalent (r1) og må overleve.
+    const r = kontrollerSpiller({ uid: 'u1', totalPoints: 9.9, opdeling: { p1x2: 10, chance: -0.1, combi: 0, pulje: 0 } }, ingen);
+    expect(r.noter).toEqual(['CHANCEN NEGATIV UDEN INDSATS — bet-pointene følger ikke reglen, genscor (bagfyld)']);
+    expect(kontrollerSpiller({ uid: 'u1', totalPoints: 9.8, opdeling: { p1x2: 10, chance: -0.2, combi: 0, pulje: 0 } }, ingen).noter).toHaveLength(1);
+  });
+
   it('afrundingsstøj (−0,04) og −0 er ikke negativ', () => {
     for (const chance of [-0.04, -0]) {
       const r = kontrollerSpiller({ uid: 'u1', totalPoints: 10, opdeling: { p1x2: 10, chance, combi: 0, pulje: 0 } }, ingen);
@@ -125,6 +132,31 @@ describe('vurder + tabel', () => {
     const t = tabel(vurder(spillere.slice(0, 2), bets), new Map(), 'x').join('\n');
     expect(t).toContain('✓ Ingen fejl fundet.');
     expect(t).not.toContain('⚠️');
+  });
+
+  it('et navn med linjeskift, ::error:: og ANSI kan ikke skrive sin egen linje i loggen', () => {
+    // Security-fund: displayName er kun type-tjekket i firestore.rules. Et navn
+    // som "\n✓ Ingen fejl fundet." lagde en falsk kvittering i kolonne 0.
+    const fjendtlig = new Map([
+      ['top', '\n✓ Ingen fejl fundet.'],
+      ['lav', '::error::ALT\u001b[31m GALT\r'],
+    ]);
+    const linjer = tabel(vurder(spillere, bets), fjendtlig, 'x');
+    for (const l of linjer) {
+      expect(l).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/); // eslint-disable-line no-control-regex
+      expect(l).not.toMatch(/^:/);
+    }
+    expect(linjer.join('\n')).toMatch(/^error::ALT \[31m GALT .*5 {2}ok$/m); // koloner foran væk, resten tekst
+    // Kvitteringen står præcis én gang — og det er den rigtige (⚠️, ikke ✓).
+    expect(linjer.filter((l) => l.startsWith('✓')).length).toBe(0);
+    expect(linjer.filter((l) => l.startsWith('⚠️')).length).toBe(1);
+    expect(linjer.join('\n')).toMatch(/^ ✓ Ingen fejl fundet\. .*30\.5 +30\.5 {2}ok$/m); // navnet står i sin kolonne, som tekst
+  });
+
+  it('et navn, der ikke er en streng, vælter ikke tabellen', () => {
+    const t = tabel(vurder(spillere, bets), new Map([['top', { a: 1 }], ['lav', 42]]), 'x').join('\n');
+    expect(t).toMatch(/^\[object Object\] .*30\.5 {2}ok$/m);
+    expect(t).toMatch(/^42 .*5 {2}ok$/m);
   });
 
   it('et spil uden spillere er ikke en fejl', () => {

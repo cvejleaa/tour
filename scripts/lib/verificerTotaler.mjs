@@ -24,7 +24,13 @@
  */
 export const TOLERANCE = 0.25;
 
-/** Chancen regnes som "negativ", når den er under dette — ikke ved -0,0 eller afrundingsstøj. */
+/**
+ * Chancen regnes som "negativ", når den er under dette — ikke ved -0,0 eller
+ * afrundingsstøj. Rubrikken er allerede afrundet til én decimal (r1), så
+ * enhver tærskel i (-0,1; 0] giver samme adfærd: første negative værdi, der
+ * kan forekomme, er -0,1 (Test Manager: mutationer inden for det bånd
+ * overlever med rette — de er ækvivalente, ikke udækkede).
+ */
 export const CHANCE_NEGATIV = -0.05;
 
 export const r1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
@@ -103,6 +109,16 @@ export function vurder(spillere, bets) {
  */
 export function tabel(v, navn, gameId) {
   const b = (s, n) => String(s).padEnd(n);
+  // Visningsnavnet er brugerstyret tekst uden indholdsvagt i firestore.rules
+  // (kun typen er tjekket). Et navn med linjeskift eller ANSI kunne lægge en
+  // falsk «✓ Ingen fejl fundet.» eller en `::error::`-annotering i kolonne 0
+  // af Actions-loggen (Security-fund, målt). Alle styretegn bliver mellemrum —
+  // ÉT sted, så enhver skriver af tabellen er dækket. String() tåler et navn,
+  // der ikke er en streng (skrevet via konsol/Admin SDK) i stedet for at vælte.
+  // Navnet står i KOLONNE 0, så et navn, der begynder med «::error::», er en
+  // workflow-kommando uden et eneste styretegn — indledende koloner fjernes.
+  // eslint-disable-next-line no-control-regex
+  const rent = (s) => String(s).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/^:+/, '');
   const h = (s, n) => String(s).padStart(n);
   const linjer = [];
   linjer.push(`VERIFICÉR TOTALER · ${gameId}`);
@@ -111,7 +127,7 @@ export function tabel(v, navn, gameId) {
   linjer.push('-'.repeat(96));
   for (const r of v.rows) {
     linjer.push(
-      b((navn.get(r.uid) || r.uid).slice(0, 25), 26)
+      b(rent(navn.get(r.uid) || r.uid).slice(0, 25), 26)
       + h(r.p1x2, 8) + h(r.chance, 8) + h(r.combi, 8) + h(r.pulje, 7)
       + h(r.sum, 8) + h(r.total, 8) + '  ' + (r.noter.join(' · ') || 'ok'),
     );

@@ -90,6 +90,22 @@ Vi ses fredag kl. 19.
 
 ## Blokke — én pr. spiller
 
+**RETTET 18/9 2026 (fra PR #109, skrevet 5/8):** blokkene sagde oprindeligt
+«**Samlet** fra X til Y» om et tal, der udelod Chancen. Mailen blev sendt 7/8;
+er den gået ud med den gamle ordlyd, fik Bibamus og Forza Bif at vide «samlet
+33,7», mens stillingen viser **34,7**. Ordlyden herunder er den rettede — den
+oprindelige var «Samlet fra X til Y» i hver blok, ellers enslydende.
+
+**Til næste gang (Spilfører):** «Fra kampe og combi» er et tredje navn, ingen
+kan slå op. Skriv i stedet tre faste linjer i hver blok, totalen sidst og fed —
+den er det tal, man kan prale med i ligaen:
+
+> 1X2: 13,2 → 18,2 · Combi: 12 → 15,5 · Chancen: 1 (uændret)
+> **I stillingen: 26,2 → 34,7**
+
+Og nævn Chancen i fællesteksten, ikke kun hos de to: *«Chancen er uændret og
+ligger oveni — i runde 2 var der i øvrigt kun to, der fik point ud af den.»*
+
 *(Tallene er runde 2. "1X2" er pointene pr. kamp, "combi" er rundebonussen.
 **Chancen indgår ikke** — den er uændret og ligger oveni. Har du brugt den, står
 der derfor et lidt højere tal i stillingen end her.)*

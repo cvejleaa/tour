@@ -66,10 +66,13 @@ jobs:
         id: tilstand
         env:
           SKRIV: ${{ inputs.skriv }}
+          # Via env, ikke interpoleret i run-blokken: inputtet er fri tekst, og
+          # en ${{ }} inde i et shell-script er en shell-injektion (Security).
+          GAME_ID: ${{ inputs.gameId }}
         run: |
           if [ "$SKRIV" = "SKRIV" ]; then
             echo "dry=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::SKRIVER i produktionsdata for ${{ inputs.gameId }}."
+            echo "::warning::SKRIVER i produktionsdata for $GAME_ID."
           else
             echo "dry=true" >> "$GITHUB_OUTPUT"
             echo "Tør-kørsel — der skrives intet."
