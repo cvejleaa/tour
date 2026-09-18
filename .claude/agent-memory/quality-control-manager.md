@@ -1,7 +1,8 @@
 # Quality Control — varig hukommelse
 
-Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
-(Destilleret 1/9-2026: 38 KB / 6 sag-afsnit → mønstre. Anden destillering.)
+Kun MØNSTRE. Et afsnit navngivet efter en commit eller et PR-nummer hører i
+PR-teksten, ikke her.
+(Destilleret 1/9-2026 og igen 18/9-2026: 60 KB / 11 afsnit → dette.)
 
 ## Plan-gennemgange: de dyre fund er designfejl, ikke kodefejl
 
@@ -9,816 +10,295 @@ Kun MØNSTRE. Et afsnit navngivet efter en commit hører i PR-teksten.
   stærkest" af ren ratingforskel, mens odds lægger 60 point hjemmebanefordel
   oveni — pilen modsagde 1X2-knapperne under sig.
 - **Lover teksten mere end handlingen giver?** "Åbn ligaen →" landede på en
-  liste over ALLE ligaer, foldet sammen.
+  liste over ALLE ligaer, foldet sammen. Samme fælde i en bekræftelsesdialog:
+  "Dine point, tips og liga-medlemskab slettes" er kun sandt, hvis koden
+  faktisk sletter dem.
 - **Et NYT tal, der duplikerer et tal fladen allerede viser fra en ANDEN
-  kilde, er en modsigelse med forsinkelse.** Konkret: livescores `stadion`
-  (`info.Vnm`) mod `h.venue` fra `games/{id}.teams[].venue`, som kampkortet
-  allerede tegner (`FootballTip.jsx:578`). To stavemåder af samme sted i samme
-  kort. Svaret er sjældent "vis begge" og sjældent "drop det nye": vis det nye
-  KUN hvor det afviger — så bærer det information (kampen blev flyttet) i
-  stedet for støj.
-- **Fladen har som regel allerede sagt det.** Optæl kortets eksisterende udsagn
-  FØR nyt lægges på. Kampkortet bærer i dag: kickoff, kupon-mærke, venue,
-  Ramt/Ikke ramt/Spillet, Chancen-pille, live-badges, score, holdnavne+logo,
-  xG-linje, `MatchElo`, pick-grid med point, `LeagueBets`. Nyt indhold skal
-  fortrænge noget eller lægge sig som en kvalifikator på et tal, der allerede
-  står der (halvlegsstilling i parentes efter scoren er en kvalifikator;
-  tilskuertal og dommer er trivia og hører på holdsiden eller ingen steder).
-- **En AFSLØRING skæres pr. LIGA, aldrig pr. union af mine ligaer.** Husets
-  skrevne præcedens er `gameRecap.js:340-347`: ét opslag PR. LIGA, fordi et
-  spil-bredt fakta-sæt satte navne på "Familien"s væg fra folk, dens medlemmer
-  ikke deler liga med, og påstod en fører, ligaens egen stilling modsagde.
-  `useGameStandings().standings` er UNIONEN af mine ligaer — den er rigtig som
-  læse-afgrænsning, men forkert som RANGLISTE: rækkefølgen matcher da ingen
-  ligas stilling. `GameStandings.jsx:250-254` løser det med `enesteLiga` +
-  vælger; en ny rangliste uden vælger genskaber fejlen. Og ved nul ligaer
-  bliver listen ÉN række (dig selv) — `gameRecap` har `< 2 medlemmer → spring
-  over`, `LeagueBets.jsx:91-97` siger i stedet "Bliv med i en liga". Vælg ét af
-  de to; en etrækkers rangliste er ingen af delene.
-- **En ny udfoldning skal måles mod opgave #60, ikke mod bekvemmelighed.**
-  `LeagueBets.jsx:128-131` bærer indrømmelsen på skrift: den ene sætning, man
-  kan læse højt ("kun du så det komme"), ligger bag en fold. Et forslag om
-  `<details>` PR. SPILLER er samme fejl gange N — pointen (enegængeren) kan
-  kun findes ved at åbne alle. Løft det interessante ud som én sætning over
-  listen; fold kun det, ingen leder efter.
-- **Et statusfelt, der overskrives, kan ikke bære en alarm.** Kræver hændelsen
-  en menneskelig handling, skal den persisteres og kvitteres. **En alarm må
-  aldrig kombinere `kraeverKvittering: true` med selv-lukning** (fundet på
-  `livetavs`): næste normale tick lukker kortet, og udfaldet bliver hverken
-  set eller kvitteret. Vælg én model.
-- **ALARM eller ADVARSEL?** Spørg: kan tilstanden være PERMANENT og legitim?
-  Kan den det, hører den i drift-kortets linje (`st.advarsel` + et tal, der
-  skal gå mod nul), ikke i alarmen — ellers fyrer den 12 gange i døgnet for
-  evigt, og ejeren lærer at ignorere fladen (`index.js` siger det selv om
-  strandede kampe). Alarmen tager det SYSTEMISKE: kredsløbsafbrud, "alle
-  fejler", "tælleren står stille over flere kørsler".
+  kilde, er en modsigelse med forsinkelse.** Vis det nye KUN hvor det afviger
+  fra det gamle, så det bærer information i stedet for støj.
+- **Fladen har som regel allerede sagt det.** Optæl kortets eksisterende
+  udsagn FØR nyt lægges på; nyt indhold skal fortrænge noget eller lægge sig
+  som kvalifikator på et tal, der allerede står der.
+- **En AFSLØRING skæres pr. LIGA, aldrig pr. union af mine ligaer.**
+  `useGameStandings().standings` er unionen af mine ligaer — rigtig som
+  læse-afgrænsning, forkert som RANGLISTE. Ved nul/én liga: enten "spring
+  over" eller "bliv med i en liga" — en etrækkers rangliste er ingen af
+  delene.
+- **En ny udfoldning skal måles mod at kunne læses højt, ikke mod
+  bekvemmelighed.** Det interessante skal stå over listen som én sætning;
+  fold kun det, ingen leder efter.
+- **Et statusfelt, der overskrives, kan ikke bære en alarm.** Kræver en
+  hændelse menneskelig handling, skal den persisteres og kvitteres — en alarm
+  må aldrig kombinere `kraeverKvittering: true` med selv-lukning.
+- **ALARM eller ADVARSEL?** Kan tilstanden være permanent og legitim, hører
+  den i drift-kortets linje (et tal der skal mod nul), ikke i alarmen.
+  Alarmen tager det SYSTEMISKE ("alle fejler", "tælleren står stille").
 - **Flere skrivepunkter i ét dokument = sidste skriv vinder.** Saml status i
-  hukommelsen, skriv ÉN gang til sidst med `niveau = værste(...)`
-  (`driftlog.js` `statusSamler`/`vaerste` er mønstret).
-- **En dashboard-side, der kun tegner kort for dokumenter, der FINDES, er blind
-  for den værste fejl.** Tegn kort pr. FORVENTET type (`DriftTab.jsx:108`
-  `forventede` + en fallback-liste for uventede dokumenter).
-- **Tør-kørsel må aldrig kvittere som en rigtig kørsel.** De manuelle callables
-  har dryRun som default; skriver de i en "sidst kørt"-status, melder fladen en
-  kørsel, der ikke skete.
-- **Tærskler hører dér, hvor sandheden bor** — serveren skriver
-  `naesteForventetFoer`, klienten hardkoder ikke cron'en.
+  hukommelsen, skriv ÉN gang med `niveau = værste(...)`.
+- **Et dashboard, der kun tegner kort for dokumenter der FINDES, er blindt for
+  den værste fejl.** Tegn kort pr. FORVENTET type + en fallback for uventede.
+- **Tør-kørsel må aldrig kvittere som en rigtig kørsel.**
+- **Tærskler hører dér, hvor sandheden bor** — serveren skriver dem, klienten
+  hardkoder ikke en cron.
 - **En admin-flade over PRIVATE data: efterprøv LÆSE-vejen, ikke kun
-  skrive-vejen.** `games/{gameId}/leagues/{leagueId}` (`firestore.rules:952`)
-  har INGEN `isGlobalAdmin`-gren, modsat top-niveau `leagues:344`. Spørg altid:
-  hvilken query fylder listen, og hvilken regel-gren tillader den?
-- **En ny admin-fane skal navne-tjekkes mod spillets EGEN fanerække.**
-  `👥 Ligaer` findes som spil-fane (`GamePage.jsx:50`).
-  `scripts/fanebredde.mjs:36` er en hardkodet KOPI af admin-fanerækken, og
-  `docs/admin-guide.md:20` er et ANDET spejl af samme række. To spejle, begge
-  skal med i samme PR.
-- **Et symptom, en alarmtekst citerer ("spilleren ser X"), skal spores til den
-  faktiske render-betingelse i klienten.**
-
-- **Interaktivitet gør en flades latente løgne synlige.** Et statisk diagram
-  kan bære en dekorativ kasse i årevis; i det øjeblik man kan KLIKKE på den,
-  forlanger den et panel med indhold. Gennemgå datakilden FØR interaktionen:
-  «Cloud Functions» var én fil og NUL kanter (filtret pegede på filer, der ikke
-  fandtes mere, og `require()` blev ikke matchet af import-regexen), mens 21
-  pile op til «app-skal» i virkeligheden var imports af `src/data/*`, som
-  gruppetabellens tavse fallback mislabelede. Samme fane navngav i forvejen
-  omhyggeligt BEGGE servere (`TestsTab.jsx` `AREA_LABELS`) — den ene
-  underfane gentog altså præcis den fejl, nabo-underfanen var rettet for.
-- **En layoutfunktion, der placerer efter INDEX i en liste, kan ikke bære en
-  filtrering.** `DepGraph.jsx` `computeLayout` fordeler pr. lag i rækker à 7;
-  fjernes ikke-naboer i en «fokus»-visning, flytter alle tilbageværende kasser,
-  og hvert naboklik omarrangerer billedet. Fokus skal MASKERE (behold
-  positionerne, sluk indholdet), ikke omberegne. Efterprøv desuden, om fokus
-  overhovedet reducerer: nav-kasserne havde 18-19 naboer ud af 25.
-- **En «fold ud»-visning måles i STREGER, ikke i kasser.** Målt på depGraph:
-  udfoldning af `pages` (20 filer) lægger ~95 fil-kanter oveni de ~90
-  gruppe-kanter — mere rod, ikke mindre; udfoldning bør implicere fokus. Tæl
-  også de INTERNE kanter: `pages` har 0 (ejerens eget eksempel ser tomt ud),
-  `features/games` 106 — udelades de, mangler netop dét, «afhængighederne
-  tegnet ind» betyder.
-- **Fladevagten ser klik, ikke hover og dobbeltklik.** `scan-flade.mjs` tæller
-  ethvert lowercase-element med onClick (så `<g onClick>`/`<path onClick>` ER
-  i inventaret — intet hul dér), men `HANDLERE`/`HAENDELSER`
-  (`fladeDaekning.mjs:32`) kender kun click/input/change/submit: ét klik
-  krediterer elementet som rørt, mens dobbeltklik- og hover-grenen aldrig er
-  kørt. Beviset skal stå i testens assertions. Et `<g>` uden tekstbarn får
-  nøglen `fil|komponent|g|null#n` — giv klikbare SVG-elementer et statisk
-  `data-testid` (aria-label med template-literal læses ikke: kun StringLiteral),
-  og giv en tegnet kant et usynligt bredt klikmål, ellers kan den ikke rammes
-  med en finger.
-- **Radposition i en udfoldet gruppe kan IKKE bære samme "nederst=fundament,
-  øverst=app-skal"-læsning som lag gør på gruppe-niveau.** Filrækker i
-  `DepGraph.jsx`s dobbeltklik-udfoldning sorteres efter GRAD (mest forbundne
-  først), ikke efter lag — målt: 23 af 86 (27 %) tværrække-interne kanter i
-  `features/games` peger visuelt OPAD, selvom pilespidsen (marker-end) stadig
-  peger rigtigt. Den faste forklaringstekst under diagrammet ("nederst =
-  fundament, øverst = app-skal") vises UBETINGET, også i udfoldet visning,
-  hvor den ikke er sand for filrækkerne. Ikke blokerende her (retningen er
-  stadig korrekt via pilen, kun den RUMLIGE konvention brydes), men spørg ved
-  enhver lignende sub-gruppering: bærer den samme positions-konvention som
-  helheden, eller er den sorteret efter en anden nøgle (grad, alfabetisk) — og
-  siger en vedvarende forklaringstekst noget, der kun er sandt på ÉT niveau?
-
+  skrive-vejen.** Spørg: hvilken query fylder listen, og hvilken regel-gren
+  tillader den?
+- **En ny admin-fane/knap skal navne-tjekkes mod fladens EGEN fanerække** —
+  og mod dens egne spejlede lister (fx en hardkodet kopi i et script, en
+  anden kopi i en guide). To spejle af samme liste skal rettes i samme PR.
+- **Interaktivitet gør en flades latente løgne synlige.** Et statisk element
+  kan bære en tom/forkert kasse i årevis; i samme øjeblik man kan KLIKKE på
+  den, forlanger den rigtigt indhold. Gennemgå datakilden FØR interaktionen.
+- **En layoutfunktion, der placerer efter INDEX/GRAD i en liste, kan ikke
+  bære en filtrering eller en positions-konvention på tværs af niveauer
+  uden at blive efterprøvet dér.** Fokus/udfoldning skal MASKERE (behold
+  positioner, sluk indhold), ikke omberegne — og en fast forklaringstekst
+  ("nederst = fundament") kan være sand på ét niveau og falsk på et
+  udfoldet under-niveau. En "fold ud"-visning måles i STREGER (nye kanter
+  oveni), ikke i kasser — tæl også de kanter der bliver INDEN I den nye
+  gruppe, ikke kun til den.
 - **En NY genvej fra flade A til flade B skal efterprøves mod B's EGEN
-  filtrering.** Holdsidens kampliste bygger på `useGame`s RÅ `matches`, mens
-  Tip-fanen først kører `fraStartRunde` (`startGate.js`) — Superligaens
-  `startAt` 1/8 15:59 UTC gør hele runde 1 usynlig dér. Et link til en
-  runde-1-kamp ville lande på `rounds.find(...) ?? initialRound ?? rounds[0]`
-  (`FootballTip.jsx:220-229`): en HELT anden runde, uden fremhævning og uden
-  besked — "Åbn ligaen →"-fælden i ny klædning. Spørg altid: hvilke rækker på A
-  kan B ikke vise? Startrunde-gate; runde 0 (kampe uden rundenummer, som
-  `gameTabPath` tavst dropper, fordi den kræver `Number(runde) > 0`);
-  medlems-gaten (`GamePage.jsx:124` viser join-kortet i stedet for fanerne, så
-  et delt dybt link aldrig når kortet). Og spørg om A's liste selv er sand:
-  kortet hedder "Kampene i dette spil" og viser kampe fra runder, spillet ikke
-  tæller med.
+  filtrering** (startrunde-gate, kampe uden runde, medlems-gate). Spørg:
+  hvilke rækker på A kan B ikke vise — og er A's egen liste sand (viser den
+  kun det, den selv hævder at vise)?
 - **Retter du en manglende gate på ÉN flade, så tæl de øvrige FORBRUGERE af
-  samme rå liste.** `grep fraStartRunde` viste fem gatende flader (FootballTip,
-  MyTips, SpillerDetalje, GameReminderTab, nu HoldSide) og ÉN ungated:
-  `HoldXgListe` får `matches` rå fra `GamePage.jsx:202` og viser de SAMME fire
-  xG-tal pr. hold som holdsidens kort — ét klik fra hinanden på samme fane.
-  Rettelsen af naboen gør den sidste ungatede til en synlig selvmodsigelse.
-  `HoldSide.jsx:164-167` bærer selv reglen på skrift: "ét klik må ikke give to
-  svar". Grep gaten, ikke fladen: den ungatede indeholder pr. definition ikke
-  gatens navn.
-- **En ny sætning i guiden skal gates som sine NABOER.** `FootballHelp.jsx`
-  gater sit målscorer-afsnit på `harKampdetaljer(game)` (:363) og sit
-  xG-afsnit på `harXg(game)` (:403) — en ny sætning et tredje sted, der
-  NÆVNER de samme evner uden gate, genindfører præcis det, `spilEvner.js:62-65`
-  er skrevet imod: en regelbog, der forklarer et tal, spillet aldrig får.
-  Enten samme gate, eller skriv evnen ud af sætningen.
-- **"Spillets farve" er `--c-accent` — og den er allerede taget.**
-  `.match-card--chance` (`theme.css:845`) er `border-color: var(--c-accent)
-  !important` + box-shadow-ring. En ny "fremhævet"-kant i spillets farve bliver
-  pixel-identisk med Chancen-markeringen OG taber til `!important`, når begge
-  klasser gælder samme kort. Brug `outline` frem for `border` til en ny
-  markering, og tæl de modifikatorer, der kan optræde samtidig med
-  (`--udenfor`, `theme.css:768`, dashed border-left). Samme klasse:
-  `a { color: var(--c-pitch) }` (`theme.css:83`) farver alt ikke-inline-stylet
-  indhold, når en hel række gøres til ét link — `color: inherit` skal med.
-- **En effekt, der ruller eller fokuserer, må ikke hænge på et ur.**
-  `FootballTip` gentegner hvert 30. sekund, mens en kamp er live (`liveNu`,
-  `FootballTip.jsx:296-300`); en scroll-effekt med for brede deps trækker
-  brugeren tilbage til kortet hvert halve minut. Og `scrollIntoView` findes
-  ikke i jsdom: en `typeof === 'function'`-vagt gør testen grøn UDEN at bevise
-  noget. Stub prototypen og assertér, at den blev kaldt på præcis det rigtige
-  element.
-- **Et nyt link ændrer betydningen af det ord, det omslutter.** Husets mønster
-  — og guidens udtrykkelige løfte (`FootballHelp.jsx:485`) — er: et HOLDNAVN
-  fører til holdsiden (EloTable, FootballTable, TroejeOversigt, HoldXgListe,
-  kampkortets `HoldLink`). Gøres en hel række til ét link, kan modstandernavnet
-  i rækken ikke samtidig være sit eget link (nestede anchors findes ikke). Det
-  er et valg, ikke en detalje: skriv det i `holdIndgange.test.jsx`s
-  dispositionerede liste (den fører allerede de bevidst link-løse flader) og
-  ret guidens sætning i samme PR.
+  samme rå liste/data.** Grep gaten (fx `fraStartRunde`), ikke fladen — den
+  ungatede indeholder pr. definition ikke gatens navn.
+- **En ny sætning i en guide skal gates som sine NABOAFSNIT i samme fil** —
+  ellers forklarer regelbogen et tal, spillet aldrig får.
+- **En ny visuel markering skal tjekkes mod spillets/kortets eksisterende
+  farvesprog** (en accent-farve, en donut-form) og mod modifikatorer der kan
+  optræde SAMTIDIG (fx `opacity` der danner stacking context og dæmper børn
+  mere end forælderen).
+- **En effekt, der ruller eller fokuserer, må ikke hænge på et polling-ur** —
+  den trækker brugeren tilbage hvert tick. Og en test på den skal stubbe den
+  rigtige DOM-API og assertere PRÆCIS target, ikke kun at en funktion findes.
+- **Et nyt link, der omslutter en hel række, ændrer betydningen af det ord
+  det omslutter** (nestede anchors findes ikke) — er husets mønster "et
+  holdnavn linker til holdsiden", kan modstanderen i samme række ikke også
+  være sit eget link. Skriv valget ind i den dispositionerede test-liste for
+  emnet, og ret evt. hjælpetekst i samme PR.
+- **En tæller/aggregat over en filtreret liste skal bruge SAMME kildeliste
+  som `.map()`'et, der tegner kortene** — ikke en tidligere, snævrere
+  variabel i samme funktion. Modstykket: ikke enhver brug af den snævre liste
+  er en fejl, kun der hvor tælleren skal beskrive noget spilleren SER.
 
 ## Gates, evner og proxier
 
-- **`exists(games/{id}/players/{uid})` var “er aktiv deltager” — indtil et players-dokument kunne overleve medlemskabet.** Arkiv-modellen for “Forlad” (`forladSpil.js`) gør medlemskab ophørligt UDEN sletning (`forladt: true`), men ALLE de gamle skrive-gates blev stående uændret: `firestore.rules` (bets create `:1007`, chance-forudsætning via `chanceVagt.js:258`s `spillerSnap.exists`, pulje-tip create/update `:951-964`, ny liga `:1090-1098`, `detalje`-læsning `:850`) tjekker kun EKSISTENS. En spiller, der har forladt spillet, kan derfor stadig oprette bets på kommende kampe, sætte Chancen og pulje-tip, og oprette en liga — direkte mod Firestore, uden om UI'et (`useGame.js`s `isMember` er den ENESTE vagt, og den er klient-side). Løftet i bekræftelsesdialogen (“Du får ingen nye point, mens du er ude”) var derfor kun sandt, hvis brugeren klikkede pænt. Ingen rules-test forsøgte at skrive som en `forladt`-spiller. Enhver evne, der gøres “kan forlades/deaktiveres uden at slette dokumentet”, skal have sin `exists()`-gate erstattet af en delt ”er AKTIV”-funktion (server OG regler), aldrig et blot findes-check — “Point eller adgang”-fælden fra husets tre, i ny klædning. RETTET i 27cb861: `erAktivDeltager()` i `firestore.rules` (findes OG `forladt != true`), genbrugt på bets/pulje/liga-create, plus `chanceVagt.js` og klienten kan kun FJERNE flaget, aldrig sætte det. Tilbageværende, IKKE en fejl: `useGameStandings.js` (leagueIds array-contains-any) rydder først en forladt spiller, når `syncPlayerLeagues`-triggeren har kørt — samme asynkrone vindue som ETHVERT liga-medlemskabs-skift altid har haft, ikke noget denne evne indførte. Genopdag det ikke som nyt.
 - **En proxy-gate findes ikke ved grep — den indeholder ikke evnens navn.**
-  `puljeLockRound` som proxy for "har kickoff-synk"; en klient der hardkoder
-  `provider === 'pulselive'`, mens serveren tjekker
-  `typeof provider.hentKickoffs === 'function'`. Gate på en delt evne-funktion
-  i `src/features/games/spilEvner.js`, med spejlings-tripwire mod
-  `scripts/games.mjs` (`spilEvner.test.js:70-89`).
-- **En evne, hvis konfiguration er PR. SPIL, må ikke gates på PROVIDER.** Ny
-  form af samme fejl: en allowlist `{'pulselive','superliga'}` ser rigtig ud,
-  når de to eneste spil begge har evnen — men provideren er hvor FACIT kommer
-  fra, og en tredje kilde (fx livescore) er ortogonal. Nøglen skal være den
-  samme som serverens: `SYNCED_GAMES` i `functions-platform/syncProviders.js`
-  er nøglet på **gameId** og er STATISK med vilje (kommentaren dér:
-  "et produktionsdokument uden sync-felt kan ikke tabe et spil ud af synken").
-  En serverside-gate, der i stedet læser `game.sync.X` fra dokumentet, bryder
-  det design OG kræver en produktions-seed, før evnen virker.
-- **Klient og server skal gates på SAMME nøgle.** Læser klienten game-doc'et og
-  serveren en statisk liste, kan de to divergere i begge retninger: knap uden
-  server (kald der kun kan fejle) eller server uden knap (ingen udløser).
+  (`puljeLockRound` som proxy for "har kickoff-synk"; `exists()` som proxy
+  for "er aktiv deltager", indtil et dokument kunne overleve medlemskabet.)
+  Gate på en delt evne-funktion (`harX()`), aldrig på noget der blot plejer
+  at følges med evnen — og gør en evne "kan forlades/deaktiveres uden
+  sletning", skal HVER `exists()`-gate (rules, server, klient) erstattes af
+  en delt "er AKTIV"-funktion.
+- **Klient og server skal gates på SAMME nøgle**, og en evne hvis
+  konfiguration er PR. SPIL må ikke gates på PROVIDER (en tredje kilde er
+  ortogonal). Læser den ene game-doc'et og den anden en statisk liste, kan de
+  divergere i begge retninger (knap uden server, eller server uden knap).
+- **En gate, der er tjekket med en dialogs render-BETINGELSE ét sted, skal
+  spejles ORD FOR ORD, aldrig strengere, hvor den bruges igen** (fx en
+  Forlad-knap gatet på `status` i stedet for det faktiske sletbarheds-
+  prædikat i rules — samme spiller mistede adgang, koden gav en generisk
+  fejl frem for den handlings egen tekst).
+- **En klient-sletning/oprydning kan ikke rydde op i alt — og en anden
+  skrivevej kan genoplive det slettede.** Spørg ved enhver
+  "fjern/forlad/slet"-flade: hvilke SAMLINGER nævner uid'et stadig bagefter,
+  og findes der et job (typisk et `tx.set(..., {merge/mergeFields})` et
+  andet sted), der skriver dokumentet tilbage ved næste afgjorte kamp/andet
+  event? Rækkefølgen er ofte svaret: underliggende data først, ejer-
+  dokumentet sidst, og kun fra serveren. Retter man ét hul i en DELT
+  oprydnings-helper (rører fx to samlinger), så spørg om en TREDJE samling
+  også kan skrive dokumentet tilbage.
 - **En test kan fastfryse en fejl.** Søg `not.toBeInTheDocument`, `toBeNull`,
-  `understoettet:false`, `toEqual([])` om netop det, du udvider, og vend dem
+  `understoettet:false`, `toEqual([])` om netop det du udvider, og vend dem
   bevidst. Strukturelle "præcis ét element"-assertions er derimod nyttige
-  tripwires (`FootballTip.test.jsx:407` `.match-card__score` toHaveLength(1);
-  `tipPil.test.jsx:253` "xG-linjen ligger IKKE i `.match-card__meta`", fordi
-  meta-rækken er inline-flex uden wrap og klipper venue-teksten).
-- **En CSS-"kontrakttest", der asserterer REGEL-TEKST, kan ikke se kaskaden.**
-  Klassen stod på elementet, reglen stod i filen, testen var grøn — og reglen
-  var død. `.pulje-team:disabled > *:not(.pulje-team__actual)` er (0,3,0),
-  fordi `:not()` arver argumentets specificitet; undtagelsen
-  `.pulje-team--laast:disabled > *` er kun (0,2,0) og taber uanset rækkefølge.
-  Skriv undtagelsen som et `:not()` PÅ BASISREGLEN (én vagt ét sted) i stedet
-  for en bredere regel bagefter — og MÅL effekten: jsdom kan faktisk regne
-  kaskaden for `opacity` + `:not()` + `>` (indsæt theme.css i en `<style>` og
-  brug `getComputedStyle`). Sammenlign MED og UDEN den nye regel: er outputtet
-  identisk, er reglen dekoration.
-- **`opacity` danner stacking context — et barn kan aldrig være mere
-  uigennemsigtigt end sin forælder.** Skal ét ikon overleve en dæmpning, skal
-  dæmpningen flytte fra forælderen til børnene. Men så holder BORDER og
-  BAGGRUND op med at dæmpe: tjek, om "kan ikke vælges"-signalet stadig læses.
-- **"Kan startes med vilje" og "kan ikke fejle tavst" efterprøves pr. SPIL.**
-  Callable uden knap = ingen udløser; kørsel uden driftlog-linje = tavs.
-- **"Kan ikke fejle tavst" dækker fejl UNDERVEJS, ikke jobbet der holder op med
-  at blive kaldt.** `syncLiveMaal` (opgave #78) fanger enhver fejl i sin egen
-  løkke og skriver et rødt kort — men intet opdager, hvis SELVE onSchedule-
-  triggeren stopper med at fyre (deploy, IAM, GCP). Minut-synken har samme
-  hul, MEN er dækket transitivt: sweep'et genudleder facit hver time uanset
-  hvad minut-synken gjorde, og er derfor dens egen alarm. `syncLiveMaal` har
-  intet sådant søskende-job — dør det, forbliver `liveMaal` bare væk, uden
-  et rødt kort. Spørg ved nyt maskineri: findes der et UAFHÆNGIGT job, der
-  ville opdage det, hvis dette holdt helt op — ikke kun "fanger jeg mine
-  egne exceptions".
-- **En type, der er udeladt af `DriftTab.jsx`s `forventede`-liste (:108),
-  skal begrunde sig i SIT EGET sikkerhedsnet — ikke i at en nabotype (fx
-  `minut`) også er udeladt.** `minut` er udeladt, fordi sweep'et er dens
-  alarm (kommentar i DriftTab.jsx selv). `livemaal` blev udeladt med samme
-  "kun kampdage"-begrundelse, men uden at have et sweep at læne sig op ad —
-  to typer, der ligner hinanden på kadence, kan stå med vidt forskellig
-  fejl-synlighed.
-- **En delt hjælpefunktion, eksporteret i SAMME commit som en ny fil, der
-  åbenlyst har brug for den, skal grep'es i den nye fil — ikke antages
-  brugt, fordi exports-linjen blev udvidet.** `kampDetaljer.js` eksporterede
-  `eidForKamp` (med kommentaren "Ét sted for begge veje, så … ikke kan
-  drive fra hinanden") i samme diff, der tilføjede `liveMaal.js` — som så
-  reimplementerede præcis samme cached→nøgle-opslag inline i stedet for at
-  importere den. Et grep efter funktionsnavnet i den NYE fil, ikke kun i
-  `module.exports`-diffen, fanger det.
-
-- **En hook, der samler DATA og et LOADING-flag, skal give begge videre —
-  ikke kun dataet.** `useGameStandings` returnerer `{standings, leagues, loading}`;
-  `standings` starter tomt og fyldes async. `GameStandings.jsx:296` gater sit
-  tomme-state bag `if (loading) return spinner`, FØR den tomme-tekst på :567.
-  `PuljeAfsloering.jsx:152` bruger samme hooks `standings` til at afgøre
-  "ingen liga-fæller", men hverken `PuljeTip.jsx` eller `PuljeAfsloering.jsx`
-  læser `loading` — så en liga MED fæller kan vise "ingen fæller endnu" i det
-  øjeblik, standings' egne lyttere (players, users) endnu ikke har svaret.
-  Kopieres et mønster fra en søsterfil, skal gaten kopieres med, ikke kun
-  teksten.
+  tripwires, ikke fejl.
+- **Et delt prædikat, kopieret ind i en test i stedet for importeret, er en
+  umålt divergensrisiko** — særligt ironisk i en test der hedder "fladen
+  tilbyder ⇔ reglerne tillader". Eksportér prædikatet, når en tredje
+  forbruger dukker op.
+- **En optimering/genvej sekventeret EFTER en skrivning, det gamle forbud
+  beskyttede (fx "aldrig skriv facit fra synk X"), er en anden risikoklasse
+  end en genvej PÅ selve facit-stien** — men et eksisterende sikkerhedsnet
+  et andet sted (et sweep, der samler op en time senere) fritager IKKE for
+  husets "kan ikke fejle tavst": fejler genvejen KONSEKVENT, kan ingen se
+  forskel på "virker" og "altid død", bare langsommere. Kræv et letvægts-
+  signal EFTER trinnet, aldrig før (det ville bryde den orden sikkerheden
+  hviler på).
+- **To skrivepunkter/læsesteder, der deler samme tæller/felt, skal give
+  SAMME dom.** Rettes klientens tekst/alvorlighed for en tilstand, så find
+  den ANDEN flade (typisk et automatisk sweep, der skriver samme felt til et
+  drift-kort) og spørg, om DEN drager samme konklusion — dens
+  advarselsbetingelse kan stadig tjekke en delmængde af de samme flag.
+- **Et miljøflag navngivet efter én virkning kan slå ALLE virkninger til**
+  (`NODE_ENV=development` for at bevare debug-source slog samtidig
+  StrictMode til og dobbelt-kaldte mount-effekter). Spørg ved ethvert flag:
+  hvad ELLERS læser det?
+- **En ny undtagelseskonvention skal anvendes på sit eget motiverende
+  eksempel** — en regel, der ikke gælder det første tilfælde den blev
+  skrevet for, bliver aldrig fulgt.
+- **Et delt handler mellem to konceptuelt forskellige knapper kan navigere
+  væk, før en on-page-assertion ser sit vindue** — en implicit timing-
+  antagelse (fx at en optimistisk lokal skrivning når at opdatere en
+  listener FØR et await løses), ikke en garanti fra koden.
 
 ## Data, kilder og målinger
 
-- **Et felt i en plan-tabel uden en målt kilde er en påstand.** En kildetabel,
-  hvor kolonnen "kilde" siger `incidents.Incs` for et felt som `maal[].hold`,
-  har ikke identificeret feltet — og hvis krydsvalideringen HVILER på den
-  attribution (mål pr. side mod `Tr1`/`Tr2`), er hele sikkerhedsmekanismen
-  uverificeret. Kræv fil:linje i måle-scriptet eller en committet payload.
+- **Et felt i en plan-tabel uden en målt kilde er en påstand.** Kræv
+  fil:linje i måle-scriptet eller en committet payload — ikke en kolonne der
+  blot NÆVNER et feltnavn.
+- **Et citeret "målt i scripts/X" skal efterprøves ved at LÆSE scriptet, ikke
+  ved at tro på filnavnet.** Et script kan hedde noget der lyder som en
+  tidsmåling og indeholde nul kald til `Date.now`/`performance.now`.
 - **En prøve på ÉN post beviser en kildes eksistens, ikke dens dækning.**
-  `scripts/maal-livescore.mjs` prøvede detaljer på én færdig kamp pr. spil.
-  Det svarer på "findes felterne", ikke på "hvor ofte parser vi dem rigtigt".
-- **En whitelist plus "ét brud → afvis hele posten" gør whitelisten til en
-  DÆKNINGSGRAD.** Observerede koder er ikke alle koder (straffe, selvmål,
-  VAR-annullering). Kræv afvisningsraten målt over en hel sæson, før
-  konstruktionen landes — ellers ved ingen, om fladen er tom for 2 % eller
-  40 % af kampene, og alarmen fyrer i stedet for at oplyse.
-- **Klient-beregnet facit og server-skrevet facit er TO kilder til samme tal —
-  og de skifter ikke samtidig.** `PuljeTip.jsx:110-133` regner `facit` af
-  `game.standings` (SL: alle hold har `played == expectedPlayed`), mens
-  `settlePuljeBets` (`gameScoring.js:392-397`) self-guarder på at ALLE
-  kampdokumenter har mål. Den officielle tabel kan være komplet, mens ét af
-  vores kampdokumenter mangler et resultat: klienten siger "sæsonen er slut",
-  serveren har ikke afregnet, og facit-kortet viser `bet.correct ?? 0` = 0/6.
-  Enhver NY flade, der viser et pulje-tal ved sæsonslut, skal vælge ÉN kilde —
-  og siger den noget andet end nabokortet, er det en modsigelse, ikke en
-  forsinkelse.
-- **Et "har-vi-det-allerede"-filter uden en AFVIST-markering er en giftpille.**
-  Filtreres på "har facit OG mangler `…SyncedAt`", bliver en post, der
-  permanent fejler valideringen, hentet igen ved HVER kørsel for evigt og æder
-  loftet forrest i køen. Skriv et `…AfvistAt` (markeringen, ikke dataen), så
-  retryet backer af — og så tælleren betyder "NYE uenigheder", hvilket er dét,
-  der kan bære en alarm.
-- **Skil FEJLARTERNE i tælleren.** "Vores facit ≠ deres facit" (en datahændelse,
-  menneske skal kigge) og "vi kunne ikke parse deres data" (vores kode/whitelist)
-  er to forskellige incidents. Ét fælles tal kan ikke fortælle, hvilken det er.
-- **Et tal uden kode er en påstand** — også i et JSDoc. Og et PRÆCIST tal ældes
-  ("13 ud af 37"); vælg den kvalitative form ("rammer forbi hver tredje gang"),
-  med mindre tallet regenereres automatisk.
-- **En side, der PRÆDIKER 'et tal uden kode er en påstand', er ikke fritaget
-  for reglen i sine egne eksempler.** `public/testsetup.html` (rundvisning i
-  testsetuppet) havde de store, systemiske tal helt rigtige —
-  3.156/1.187/256/4 tests matchede en faktisk kørsel til punkt og prikke — men
-  bar SAMTIDIG tre opdigtede facits: en CI-varighedstabel citerede `commit
-  14eea1c`, som ikke findes i repoets historik; "29 mutanter" på en navngiven
-  PR stod uden log eller script bag sig noget sted; og en produktionsmåling på
-  "AGF–FCM" modsagde `regelbrev.js`s egen tekst om, at netop den kamp var
-  udskudt en måned og altså endnu ikke havde facit. Konklusion: at DE FLESTE
-  tal stemmer, er ingen garanti for at ALLE gør — efterprøv navngivne
-  eksempler (kamp, commit, PR, dato) enkeltvis, især dem der ser ud som ægte
-  belæg snarere end runde tal, for det er netop den slags detalje, der sælger
-  en påstand uden at være sand.
-- **En hardkodet snapshot-side uden paritetstest ER dokumentations-drift, bare
-  ikke opdaget endnu.** `docs/testing.md` selv bærer ar fra to måneders
-  forkerte tal (73/855/42/37), og løsningen var at fjerne tallene og pege på
-  en levende kilde med ældre-advarsel. Den nye `testsetup.html` gentager
-  præcis den gamle synd bevidst (et dateret snapshot i stedet for afledte tal)
-  og har ingen paritetstest og intet punkt i `saesoneftersyn.md` §5, der
-  stikprøver den — kun en dato i sidehovedet, som ingen læser om et halvt år.
-  Enhver ny hardkodet snapshot-side hører på listen over dokumenter,
-  sæsoneftersynet stikprøver.
-- **En test med HÅNDSKREVET fixture kan bekræfte sig selv.** Importér den ægte
-  kilde (`GAMES` fra `scripts/games.mjs`, den spejlede lib, en committet
-  payload) i mindst ét tilfælde.
-- **En ny evne på `games/{id}.NYTFELT` rammer flere læse-flader end planen
-  nævner.** Målte optællinger: `game.pulje` = 2 admin/klient + 3 hjælpetekster
-  + en mail-skabelon; `chanceStake` = seks steder; `games/{id}.teams` rører
-  point OG farver på ni komponenter. Grep FØR koden, dispositionér på skrift.
-- **En afløst datamodel skal have et forbrugs-eftersyn** (Beskeder-fanen døde
-  tavst som ikke-dispositioneret læser af top-niveau `leagues`).
-- **Virker det for EKSISTERENDE rækker?** Kræver ændringen et nyt felt på
-  game-dokumentet, skal `seedGames` køres i produktion først — det er en
-  skrivning i produktionsdata og hører til Release Manager, ikke til deployet.
-  `perRound`-udrulningen er præcedensen (`docs/drift.md:417`).
-- **Dokumentation er en spejlet fil**: `docs/drift.md`, `docs/admin-guide.md`,
-  `FootballHelp.jsx`, og `scripts/games.mjs`' egen felt-beskrivelse i toppen.
-- **En normaliserings-fix på tværs af render-steder rammer sjældent alle på
-  én gang — og en `?? 'fallback'` skrevet FØR normaliseringen fanger ikke den
-  nye tomme streng.** Da liganavne blev normaliseret til '' i
-  `useLeagues`/`useAllLeagues`/`useGameLeagues`, blev fire filer rettet med
-  `league.name || 'Liga uden navn'` — men `LeaguesAdminTab.jsx` (top-niveau-
-  ligaernes EGEN admin-side, den mest oplagte af alle) stod ikke på listen,
-  og `useLeagueBonusTasks.js:63` brugte `l.name ?? 'Liga'`, som er blind for
-  tom streng (kun `undefined`/`null` udløser `??`). Spørg ved enhver
-  streng-normalisering: (1) er ALLE forbrugere af kilden på listen, ikke kun
-  dem en tidligere krasch pegede på? og (2) rammer en downstream-fallback
-  (`??`/`||`) den PRÆCISE tomme værdi, normaliseringen nu sender?
+  En whitelist plus "ét brud → afvis hele posten" gør whitelisten til en
+  DÆKNINGSGRAD — kræv afvisningsraten målt over en hel sæson, ellers ved
+  ingen om fladen er tom for 2 % eller 40 % af kampene.
+- **Klient-beregnet facit og server-skrevet facit er TO kilder til samme
+  tal, og de skifter ikke samtidig.** Vælg ÉN kilde for et nyt pulje-/
+  sæsonslut-tal; siger det noget andet end nabokortet, er det en modsigelse.
+- **Et "har-vi-det-allerede"-filter uden en AFVIST-markering er en
+  giftpille** — en post der permanent fejler valideringen hentes igen for
+  evigt og æder loftet. Skriv en `…AfvistAt`, så retryet backer af.
+- **Skil FEJLARTERNE i en tæller.** "Vores facit ≠ deres facit" (datahændelse)
+  og "vi kunne ikke parse deres data" (vores kode) er to forskellige
+  incidents; ét fælles tal kan ikke fortælle hvilken.
+- **Et tal uden kode er en påstand — også i et JSDoc eller en kode-kommentar,
+  og også når det er PRÆCIST.** Et præcist tal ældes ("13 ud af 37"); brug
+  den kvalitative form, med mindre tallet regenereres automatisk. En
+  kommentar der PÅSTÅR en udledning (fx "halvdelen af X's budget") uden at
+  koden faktisk regner den, er en skjult kobling der stille bliver forkert.
+- **Et NYT statustal (dæknings-/kvalitetsmåling) skal have en
+  SELV-CHECKENDE invariant** (fx "aktiveret ⇒ renderet"), ikke kun en
+  "der er poster"-vagt — en vagt der blot tæller logposter kan være grøn,
+  mens selve krediteringen falder på gulvet for en ny type. Tæl pr. TYPE,
+  ikke pr. linje, når en delt log får en ny posttype. Og spørg altid: ville
+  DETTE tal have fanget de sidste to ægte fejl der slap igennem? Et
+  kvalitetsmål skal selv skrive, hvad det IKKE kan se (regler, server,
+  tallenes rigtighed) — ellers sælger det ro, der ikke er dækning for.
+- **Et filter på en MÅLING skal være en OVERMÆNGDE af det, der måles** —
+  under-rapportering giver falsk alarm i den alvorlige kategori. Og en
+  sti→gruppe-tabel uden fallback-gruppe taber elementer tavst; kræv en
+  "Andet"-gruppe + en test på gruppesum == total (og at totalen vises). En
+  'ukendt sti'-fallback kan i praksis skjule en RIGTIG mappe, der blot ikke
+  stod på listen — spor den til dens faktiske forbrugere.
+- **Et cachet id/felt, der springer et frisk opslag over ved blot
+  formatgyldighed, mister en gratis selvhelbredelse** hvis kilden
+  omdøber/genudsteder det — spørg hvilken fejlgren rammer et forældet men
+  gyldigt-formateret id, og om DEN gren har en udgang/karantæne.
+- **En test, der kun tjekker at noget blev VIST, beviser ikke hvad der
+  stod** (CLAUDE.md) — men omvendt beviser et fil:linje-citat i en
+  test-kommentar heller ikke noget, hvis det peger på en NABO-kode-sti med
+  samme overskrift/navn frem for den kode, der faktisk implementerer
+  påstanden. Og en invarianttest opkaldt efter en historisk bug skal
+  reproducere den PRÆCISE handling buggen brugte (samme kald/felt/sti), ikke
+  en beslægtet skrivning.
+- **Et dokument kan modsige sig selv i to afsnit** — en kort "sådan gør du"
+  et sted og et udførligt, opdateret afsnit et andet sted i SAMME fil. Tjek
+  ALLE forekomster af en ændret kommando/sti/påstand i filen, ikke kun den
+  diffen rørte.
+- **Et allerede afsendt/postet dokument (mail, opslag) må ikke rettes i sin
+  arkiverede form uden en RETTET-markør.** Husets eget precedent
+  (Runde-Bottens `oprindeligTekst`/`rettetAt` i drift.md) er at bevare
+  originalen ved siden af rettelsen. Redigeres en "skrevet til at sendes"-fil
+  (fx `docs/mail-*.md`) måneder efter afsendelse — selv for at rette en reel
+  unøjagtighed — uden en dateret markør, lyver arkivet om hvad modtageren
+  faktisk fik at vide. Et rent internt referenceafsnit i samme fil (tydeligt
+  mærket "ikke til mailen") kan til gengæld frit opdateres.
 
-- **Filhoved-kommentarens tal skal matche DEN kørsel, koden i samme commit selv
-  producerede — ikke en tidligere håndkørsel med samme påstand.**
-  `maal-livescore-detaljer.mjs`s nye `--live`-header citerede en ad-hoc måling
-  fra FØR flaget var skrevet (123 ms, 68', kl. 21.30), mens commit-beskeden og
-  selve `--live`-kørslen gav et andet, ægte tal (140 ms, 70', kl. 21.28,
-  stage=incidents). Begge er sande målinger, men kun ét er det, den leverede
-  kode faktisk viser ved kørsel — match filhovedet mod commit-beskedens tal
-  for SAMME diff, ikke mod research, der gik forud for koden.
+## Nye tal og ny skala på en eksisterende flade
 
-- **Streng vs. tal deler samme skæbne KUN i `${}`-interpolation, ikke i
-  `Set.has`/`===`.** `matchDocId(round, home, away)` bygger id'et som
-  `` `r${round}-…` `` — type-ligegyldigt, "8" og 8 giver samme streng — mens
-  `runder.has(e.round)` er en STRENGT typet sammenligning. api.superliga.dk
-  sender `round` som tekst; kun `hentKickoffs`, den ENESTE af superligaens
-  fire hent-funktioner der filtrerer via et Set af runder, brød (fundet af
-  ejeren 6/9 2026, `syncProviders.js:342`, rettet med `rundeTal()`).
-  `hentFaerdige`/`hentXg`/`hentLive` bruger alle `e.round` direkte i
-  `matchDocId` og var ALDRIG i fare — ikke fordi de var rettet rigtigt, men
-  fordi interpolation aldrig kræver typelighed. Spørg ved en type-fejl i ét
-  hent-kald: bruger søskende-kaldene samme felt i en SAMMENLIGNING (Set/===,
-  sårbar) eller kun i en STRENG (interpolation, immun)? Byg ikke en generel
-  "normalisér alle" ‑ret ud fra ét ramt sted — spor hver bruger for sig.
-- **En "kilde-kamp-uden-dokument"-alarm, der er BEREGNET AF den samme
-  filtrerede liste, kan ikke opdage at filteret selv spiste alt.**
-  `mangler` (`superligaSync.js:645`) er `fixtures.filter(f => !resolved.has(f.sourceKey))`
-  — når rundefilteret i `hentKickoffs` fejlagtigt tømte `fixtures` til [],
-  faldt `mangler` med, og kørslen meldte «0 rettet, 0 mangler, ok» i ugevis.
-  En reel "tavs tom plan"-vagt kræver et tal FØR filtreringen (rå
-  kilde-events) sammenholdt med, at spillet har mindst én kommende,
-  useedet kamp i sine egne runder — ellers fyrer den i sommerpausen. Ikke
-  bygget endnu; spørg efter den, næste gang en hent-funktion får et nyt filter.
+- **Et nyt aggregat-tal skal komme af den samme KILDE som fladens
+  eksisterende tal om samme ting** (fx "favorit" af odds, aldrig af rå
+  ratingforskel — odds har hjemmebanefordel oveni). Aggregér ODDS-VÆRDIER
+  aldrig over tid, hvis modellen kan ændre sig midt i sæsonen (kun ulåste
+  kampe genprises) — tæl i stedet model-invariante ting (favorit-identitet).
+- **Retrospektivt må aldrig klistres ind i det prospektive** — et nyt
+  retrospektivt tal (halvleg, målscorere) hører i sin egen blok, gatet på
+  facit + felternes eksistens, ikke sammenblandet med et "hvem vinder"-tal.
+- **To gates om to spørgsmål:** et TAL pr. kamp gates på felterne (er de
+  hentet endnu), en FORKLARING i guiden gates på EVNEN (har spillet den
+  overhovedet) — en regelbog må ikke forklare et tal, spillet aldrig får.
+- **Et tal uden fortegn måler ANSEELSE, ikke PRÆSTATION** ("mest overraskende"
+  kan vise en positiv værdi for noget der faktisk var negativt, hvis vagten
+  kun tjekker "forskellig fra bedst").
+- **Procent-reglen:** om DIG SELV er ok, om NAVNGIVNE ANDRE er forbudt,
+  kollektive tal skal være en brøk. Et tal om et HOLD (ikke en person) er
+  uden for den regel.
+- **En SKALA-forskel er en anden fælde end en TILGÆNGELIGHEDS-gate.** "Er der
+  noget at vælge" (fx `antal <= 1`) kan være sandt om HVEM men falsk om
+  hvilket REGNESTYKKE der gælder (spillets total vs. en ligas startRound-
+  afgrænsede sum) — spørg altid: identiske i VÆRDI, eller kun i MÆNGDE? En
+  forklaring, der er gatet på det SAMME som selve fænomenet, vises aldrig
+  hvor den behøves — læs de to render-betingelser side om side. Rettes
+  skalaen ét sted, tæl ALLE flader der viser samme spillers tal (typisk
+  flere end man tror, og especially farlig er en visning der forlader appen
+  — en delt tekst, et referat). En mocket hook (fx `leagues: []` overalt)
+  kan skjule, at en hel skala-gren i testene aldrig faktisk kørte.
+- **En sætning, der navngiver et objekt med `{navn}` foran et substantiv,
+  skal bøjes (genitiv-s)** — ellers er den grammatisk forkert for netop de
+  navne, der ikke tilfældigvis allerede ender rigtigt. Foretræk at UNDGÅ at
+  navngive ("ligaens medlemmer" frem for "{liga.name}s medlemmer"), hvis
+  fladen allerede har et mønster for det.
+- **En tæller, der IKKE kan skelne "0 point" fra "deltog ikke"**, og et
+  gulvet total-felt, betyder at `total − total_uden_X ≠ delta[X]` generelt.
+  Spørg om en ny beregning implicit antager, den kan trække to gemte,
+  gulvede/nullable tal fra hinanden.
 
-## Et måletal om VORES EGEN kvalitet (dæknings-/status-flader)
+## Tests, målinger og selectorer
 
-- **En NY TILSTAND i et måletal skal have en SELV-CHECKENDE invariant, ikke en
-  «der er poster»-vagt.** Til «renderet/vist» er invarianten gratis: *aktiveret
-  ⇒ renderet* — man kan ikke klikke noget, der aldrig blev tegnet. En vagt, der
-  kun tæller logposter, kan være grøn, mens krediteringen falder på gulvet
-  (`flet` i `scripts/lib/fladeDaekning.mjs` dropper enhver post, hvis type ikke
-  står i elementets `haendelser` — en ny posttype krediterer NUL uden at fejle,
-  og hele fladen ville stå i den ALVORLIGE kategori). Præcedensen for en
-  præcisions-vagt står i `build-test-report.mjs:116-125` (`tipKrediteret`).
-- **En ny posttype i en DELT log holder de gamle «loggen er tom»-vagter kunstigt
-  i live.** `flade-vagt.mjs` giver `poster.length` videre som `logposter`; render-
-  poster alene ville tilfredsstille vagten, mens klik-tappen var død — og så
-  drukner den ene forklarende besked i 260 «nyt urørt element»-linjer, som vagten
-  netop er skrevet for at undgå. Tæl pr. TYPE, ikke pr. linje.
-- **`import`eret `src/data/*.json` er BAGT IND I BUNDTET.** En ugentlig
-  workflow-commit (test-report.yml) ændrer INTET i produktion, før der deployes
-  igen — workflowet siger det selv (:19-20). En fallback-tekst «kommer med næste
-  rapport» er derfor en usandhed; rækkefølgen er workflow_dispatch FØR
-  hosting-deploy. Spørg ved enhver ny visning af et committet øjebliksbillede:
-  hvad ville brugeren se på dag ét?
-- **«Vist» i jsdom betyder kun «i DOM'en».** Målt: en `<button>` inde i en LUKKET
-  `<details>` står i DOM'en og ville tælle som vist; jsdom har ingen layout, så
-  forskellen kan aldrig måles. Navngiv tilstanden efter målingen («renderet»),
-  eller skriv begrænsningen ved tallet — samme regel som «et kvalitets-måletal
-  skal selv skrive, hvad det ikke kan se».
-- **React committer et helt undertræ som ÉN MutationObserver-record** (målt i
-  jsdom + react-dom 18.3.1: mount af en `<form>` med 6 efterkommere = 1 record,
-  1 addedNode). En observer, der ikke går `querySelectorAll('*')` igennem, ser
-  KUN det yderste element. `__reactFiber$` er sat på knuden før indsættelse;
-  `_debugSource` kommer af babels jsx-source og forsvinder i React 19.
-- **Et filter på en MÅLING skal være en OVERMÆNGDE af det, der måles.**
-  Under-rapportering i «blev det vist»-retningen giver FALSK ALARM i den
-  alvorlige kategori. Optimér i stedet dét, der er dyrt (memoiser `path.relative`
-  pr. `fileName`-streng, dedup på den beregnede nøgle) — aldrig på en tag-liste,
-  der stille skærer inventarets små-bogstavs-tags med onClick fra.
-- **Et nyt ALVORLIGHEDS-tal skal skille det DØDE spil ud.** 91 af 266 urørte
-  elementer (34 %) ligger i Tour-gruppen, som fanen selv kalder «ikke noget at
-  handle på». Et samlet «A aldrig vist» modsiger den note tre linjer nede.
-- **To afkrydsninger, hvis prædikater er INDLEJREDE (A ⊃ B), skal være
-  radioknapper eller en valgliste.** Afkrydsninger lover uafhængige til/fra;
-  «begge sæt» har ingen betydning og giver ingen tilbagemelding. Og et nyt
-  badge-ordforråd skal beholde det ORD, filteret bruger — ellers kan ejeren ikke
-  se, hvilke linjer filteret taler om.
+- **En Playwright-selector skal verificeres mod den ÆGTE komponent**, ikke
+  antages fra testens egen tekst — grep den i `src/`, og tjek at testens
+  udnyttede render-BETINGELSE (ikke bare selectoren) rent faktisk styrer
+  elementet.
+- **En stabil nøgle i en flade-vagt er kun stabil mod redigeringer ANDRE
+  steder** — en NY duplikat med samme (fil, komponent, tag, tekst) indsat
+  FØR en kendt urørt makker forskyder hele nummerrækken: den nye, utestede
+  knap arver den gamles "kendt"-nummer, og den gamle glider ud som "ny".
+  Spørg ved en knap der deler tekst med en søster: kom den FØR søsteren i
+  kildeteksten? Og læs en auto-opdaterings-diff linje for linje som en liste
+  af ægte nye elementer, ikke kun et antal.
+- **"Vist" i jsdom betyder kun "i DOM'en", ikke synligt** — et element i en
+  lukket `<details>` tæller som vist, fordi jsdom ikke har layout. Navngiv
+  målingen efter det den faktisk kan se, eller skriv begrænsningen ved
+  tallet.
+- **React committer et helt undertræ som ÉN MutationObserver-record** — en
+  observer der ikke selv går børnene igennem ser kun det yderste element.
+- **To afkrydsninger med INDLEJREDE prædikater (A ⊃ B) skal være
+  radioknapper/en valgliste**, ikke to uafhængige checkbokse; og et nyt
+  badge-ordforråd skal beholde det ord, et eksisterende filter allerede
+  bruger.
+- **Et nyt Vite-mode/`.env.<mode>` skal spores gennem `loadEnv`s fletning**
+  (tom prefix = alle vars) og efterprøves for kollision med eksisterende
+  build/deploy-trin — en dummy-outDir må aldrig kunne forveksles med den
+  rigtige (`firebase.json` peger fortsat på den ægte `dist`).
+- **En bar `<table>` uden wrapper arver mobil-bredde-risiko**, fordi jsdom
+  ikke ser ombrydning — og to identiske emoji med forskellig betydning på
+  samme skærm løses ikke af en hjælpetekst; svaret er et andet symbol.
 
-- **Spørg først: ville tallet have fanget de sidste to ægte fejl?** En
-  flade-dækning, der tæller "element aktiveret i mindst én test", ville have
-  vist Forlad-knappen GRØN (`src/pages/GamesPage.jsx:88` klikkes af fire tests
-  i `GamesPage.test.jsx:88,100,113,126` med `leaveGame` mocket) — netop den
-  knap, der fejlede i produktion på `firestore.rules`. Og et forkert TAL
-  ("Næste kamp låser om") er slet ikke et interaktivt element og findes ikke i
-  inventaret. Et kvalitets-måletal skal derfor SELV skrive, hvad det ikke kan
-  se (regler, server, tallenes rigtighed), lige over tallet — ellers sælger det
-  ro, der ikke er dækning for, og det er værre end intet tal.
-- **Den STABILE nøgle i `flade-vagt.mjs` (`fil|komponent|tag|tekst#n`) er kun
-  stabil mod redigeringer ANDRE steder i filen — ikke mod en NY duplikat
-  indsat FØR en eksisterende med samme tuple.** `stabileNoegler()`
-  (`scripts/flade-vagt.mjs:31-39`) nummererer i kildeorden: sæt en ny,
-  utestet knap med samme (fil, komponent, tag, tekst) foran en kendt urørt
-  makker, og hele nummerrækken forskyder sig. Effekten er ikke "ingen
-  advarsel" — CI går stadig rødt — men PÅ DEN FORKERTE POST: den nye,
-  aldrig-sete knap arver #1 fra basislinjen og glider igennem som "kendt",
-  mens en gammel, allerede-accepteret makker forskydes til et nyt nummer og
-  meldes fejlagtigt som "nyt urørt element". Følger man vagtens egen
-  reparationsvej (`--opdater`) uden at læse git-diffen på
-  `flade-basislinje.json` linje for linje, bages den REELT nye, utestede
-  knap ind som "kendt" for altid. `flade-vagt.test.mjs` beviser kun, at
-  nøglen er stabil ved LINJEFLYT (samme liste, nye `linje`-tal) — der er
-  intet testtilfælde for INDSÆTTELSE foran en eksisterende duplikat. Spørg
-  ved enhver ny knap, der deler tekst med en søster i samme komponent:
-  landede den FØR søsteren i kildeteksten? Og læs `--opdater`-diffen som en
-  liste af ægte nye elementer, ikke kun et antal.
-- **To procenter på samme flade læses som samme skala.** Admin → Tests bærer
-  allerede en donut med "100 % bestået" (`TestsTab.jsx:79-94`). Et nyt "45 %
-  dækket" i samme visuelle sprog bliver til "appen er 45 % i orden". Ny
-  målestok = ny FORM (brøk "172 af 386", bar, aldrig samme donut) + en sætning,
-  der skiller de to spørgsmål ad.
-- **Rød farve på "ikke målt" gør en oversigt til en fejlliste.** 214 grå/gule
-  linjer er en arbejdsliste; 214 røde er en falliterklæring, ejeren lukker.
-- **Fil:linje i et UGENTLIGT øjebliksbillede peger på den forkerte linje efter
-  første redigering.** Vis komponent/funktionsnavn + statisk label som primær
-  identitet, linjen som sekundær.
-- **En sti→gruppe-tabel uden fallback-gruppe taber elementer tavst** (samme
-  fælde som `DriftTab.jsx:108`s `forventede`). Kræv "Andet"-gruppe og en test
-  på at gruppesummen == totalen — og at totalen VISES.
-- **En 'ukendt sti'-fallback kan skjule, at en RIGTIG mappe blot ikke stod på
-  listen.** `appFor()` (`scripts/lib/fladeDaekning.mjs`) puttede `comments/`,
-  `onboarding/`, `reactions/` i 'andet' — og egen-testen dokumenterede det som
-  bevidst fallback-eksempel (`appFor('src/features/comments/CommentBox.jsx')` →
-  'andet'). Men 9 af de 11 'andet'-elementer var reelt Tour-only
-  (`LeagueWall.jsx`, `OnboardingChecklist.jsx`, `Reactions.jsx`, kun brugt af
-  `LeaguesPage.jsx`/`DashboardPage.jsx`) og mistede dermed den de-emphasis-note,
-  'tour'-gruppen ellers bærer ("spillet er slut, intet at handle på"). Kun
-  `EmojiPicker.jsx` var reelt blandet (også brugt af den delte `MessagesPage.jsx`).
-  Spor hver mappe, en klassifikations-regex IKKE nævner, til dens faktiske
-  forbrugere — "ukendt" er sjældent sandt for en mappe, der findes i repoet.
-- **`docs/testing.md:23` påstår "Hele UI'et er dækket udtømmende".** Enhver ny
-  måling, der siger et andet tal, modsiger den linje og skal rette den i SAMME
-  PR.
+## Faste steder og konkrete tal (efterprøv, gæt ikke — ikke udtømmende)
 
-- **n → n+1 øjebliksbilleds-filer rammer flere spejle end fanen.** Listen for
-  Admin → Tests' to filer: `TestsTab.jsx:21,43,185,205,206,215-219`,
-  `TestsTab.test.jsx:7,90-98,153`, `test-report.yml:3,14,58-85,91,98`
-  (`git add`-linjen er den farligste: glemmes den, committes den nye fil
-  ALDRIG af ugekørslen, og fanens egen "kør Actions"-vejledning hjælper ikke),
-  `docs/testing.md:40,44,54,57-58`. Fixturen skal gøre den NYE fil til den
-  ÆLDSTE — ellers er den tredje dato ren dekoration, og en mutation, der
-  fjerner den fra listen, forbliver grøn.
-
-## Nye TAL på en eksisterende flade
-
-- **`MatchElo.jsx:8-15` er husets skrevne præcedens:** en "favorit" skal komme
-  af `m.odds`, aldrig af ratingforskellen (odds har `ELO.HFA = 60` oveni).
-- **Retrospektivt må aldrig klistres ind i det prospektive.** xG-linjen står
-  som egen blok OVER `MatchElo` og UNDER scoren, netop for ikke at blande
-  "hvad skete" med "hvem er favorit". Et nyt retrospektivt tal (halvleg,
-  målscorere) hører samme sted, gatet på `m.result` + felternes eksistens.
-- **To gates om to spørgsmål:** TALLET pr. kamp gates på felterne (en netop
-  afsluttet kamp mangler dem, til sweep'et har kørt); FORKLARINGEN i guiden
-  gates på EVNEN (`FootballHelp.jsx:359`, `harXg(game)`) — en regelbog må ikke
-  forklare et tal, spillet aldrig får.
-- **Et aggregat af ODDS-VÆRDIER er model-blandet; en FAVORIT-IDENTITET er
-  model-invariant.** `recomputeSeasonElo` genpriser kun ULÅSTE kampe;
-  `ODDS.MAX` blev fjernet og `DRAW_BASE` gik 0,26 → 0,305 midt i sæsonen. Tæl
-  favoritter frit — gennemsnit aldrig odds over tid. "Markedets syn" findes
-  ikke: `outcomeOdds` er FAIR odds af vores egen Elo, uden vig.
-- **Et "overraskelses"-tal uden fortegn måler ANSEELSE, ikke præstation.**
-  Samme klasse som "Modigst i minus", der viste en positiv værdi, fordi vagten
-  var "forskellig fra bedst" og ikke "faktisk negativ".
-- **Procent-reglen, som koden bærer den:** procent om DIG SELV tilladt
-  (`TipsHistorik.jsx:119`), om NAVNGIVNE ANDRE forbudt (`h2h.js:20-23`);
-  kollektive tal som brøk. Et tal om et HOLD er uden for reglen.
-- **Et "ligaens tal" er PR. SEER** — skriv skalaen i labelen, eller udled
-  tallet af kampdata.
-- **En tæller over en liste skal filtrere med SAMME kildeliste som listen
-  selv rendrer — ellers kan tælleren pege på en kamp, listen viser, men
-  tælleren ikke "kender".** `FootballTip.jsx:352` regnede "Næste kamp låser"
-  af `roundMatches` (kun rundens EGNE kampe), mens kort-listen længere nede
-  (`visteKampe`, :253) også viser en lånt kamp fra en anden runde, der
-  spilles i samme uge (`efterslaebPaaRunde`). En kamp, der stod ØVERST på
-  skærmen og låste om en time, blev meldt som "om 23 t". Rettet ved at
-  filtrere `visteKampe` i stedet. Spørg ved enhver ny tæller/aggregat over
-  en filtreret liste: bruger den den SAMME variabel som `.map()`'et, der
-  tegner kortene — eller en tidligere, snævrere variabel i samme funktion?
-  Modstykket er lige så vigtigt: `ChancePanel` (:1085, 1103) bruger BEVIDST
-  den snævre `roundMatches`, fordi Chancen "følger RUNDEN" (kommentar
-  :674) — ikke enhver bruger af `roundMatches` ved siden af `visteKampe` er
-  en fejl, kun dem der skal beskrive noget, spilleren ser i selve LISTEN.
-- **"Runden er færdig" har TRE definitioner, der svarer forskelligt samtidig:**
-  (1) `faerdigeRunder(matches)` (`rundeSejre.js:35`), (2)
-  `rc.combiSettled === rc.combiCount` (rundens UGE — pilen i stillingen følger
-  DENNE), (3) at der findes en nøgle i `perRound`. En udsat kamp river dem fra
-  hinanden i ugevis. Sig hvilken en ny flade bruger.
-- **`perRound` kan IKKE skelne "0 point" fra "deltog ikke"**
-  (`pointOpdeling.js:339` `if (!v) return;`). Og `ligaPoint`/serverens total
-  gulves begge ved 0, så `total − total_uden_runde ≠ perRound[r]`.
-- **Spil-evne-matrix til enhver ny fodbold-flade:** `tour2026` er cycling;
-  `vm2026` er finished/externalUrl; `pl2627-efteraar` har INGEN
-  `game.standings` og er runde 1-18 af 38. Kun `superliga2627` har alt.
-- **Fane-prisen kan MÅLES** (`scripts/fanebredde.mjs`) — argumentet mod fane
-  nr. 10 er pladsen, ikke usynligheden.
-- **Ny rute under `/spil/:gameId` findes ikke** — fanen er en query-param, og
-  en ny rute skal genskabe `GameLayout`, fanerække og `isMember`-gaten
-  (`GamePage.jsx:107`). **Et delt link overlever ikke login**
-  (`ProtectedRoute.jsx:9` uden `from`-state).
-- **Et holdnavn er ikke en URL-nøgle** — `teamInfo()` matcher eksakt på `name`,
-  fladen viser `vis`, og `short` er den unikke nøgle. Bliver `short` en URL,
-  skal `teamsVagt` (`seedFootball.js:363`) udvides samtidig; den afviser i dag
-  kun ændret `elo`, tilføjede, forsvundne og dubletter.
-- **Ethvert HOLDNAVN i en ny visning skal bruge visningsnavnet.**
-  `visningsnavnFlader.test.jsx` ER listen over flader; en ny (fx en
-  målscorerlinje, der nævner hvilket hold der scorede) hører derind. Bedst er
-  at undgå navnet helt og gemme siden (`'home'|'away'`), så visningen løses af
-  kortets egne `h`/`a`.
-- **`game.eloHistory` har huller pr. konstruktion** — snapshot kun ved en HEL
-  spillet runde. **En N-dokument-læsning må ikke blankes af ét afslag**
-  (`useSpillerOpdeling` gør ét `permission-denied` til hele panelets fejl).
-- **Et regnelag uden forbruger kan være rigtigt at lande**, hvis den REVIDEREDE
-  plan sekventerede det, og commit/PR-teksten ikke overclaimer omfanget.
-- **En bar `<table>` uden `.table-wrap` arver mobil-bredde-risikoen**; jsdom
-  ser ikke ombrydning. **To identiske emoji med forskellig betydning på samme
-  skærm løses ikke af en hjælpetekst** — svaret er et andet symbol.
-
-## Skala-fælden: ét tal, to regnestykker
-
-- **En gate på "er der noget at VÆLGE" er en proxy for "hvilken SKALA gælder".**
-  `leagueCount <= 1` er sandt om HVEM, falsk om POINT (spillets `totalPoints`
-  mod `ligaPoint` fra ligaens `startRound`). Spørg: identiske i VÆRDI eller kun
-  i MÆNGDE?
-- **En forklaring, gate't på det samme som fænomenet, vises aldrig, hvor den
-  behøves.** Læs render-betingelsen for FORKLARINGEN og FÆNOMENET side om side.
-- **Retter man skalaen ét sted, skal ALLE flader med samme spillers tal tælles
-  op.** Otte i dette repo; `FootballTip.jsx:259` (facit + delingstekst) er den
-  farligste, for dens tal FORLADER appen.
-- **En mocket hook kan skjule, at den nye gren aldrig kører** (`leagues: []`
-  overalt i tipPil/FootballTip-testene gjorde hele liga-skala-grenen grøn uden
-  at være kørt).
-- **Samme vagt, ny fil, glemt duplikat:** findes en guard mod et skævt
-  liga-dokument ét sted, så spørg om enhver anden bruger af samme `leagues`
-  har brug for den.
-
-## Faste steder og konkrete tal (efterprøv, gæt ikke)
-
-- **Et cachet id, der springer et opslag over, mister en gratis selvhelbredelse.**
-  `livescoreEid` (`kampDetaljer.js:79-84`) foretrækkes altid over et frisk
-  nøgle-opslag, hvis blot FORMATET er gyldigt — men formatgyldig ≠ stadig
-  korrekt. Før caching blev id'et genberegnet hver kørsel og healede sig selv,
-  hvis kilden omdøbte/genudstedte det; nu fejler en forældet cache for evigt i
-  den gren, der IKKE har karantæne (`utilgaengelige`/404, adskilt fra
-  `detaljerAfvistAt`s 7-dages karantæne for `uenig`/`uparset`). Spørg ved
-  enhver ny cache af et FREMMED id: hvilken gren rammer et forældet men
-  gyldigt-formateret id, og har DEN gren en udgang?
-- **To kald, samme fejlkilde, ulige alarm-vej.** Et nyt opslag lagt FØRST i en
-  kørsel (fx `kortlaegEids` før `syncKampDetaljerCore`, `index.js:682-688`)
-  fik sin egen `KildenLukkerOs`-fangst, der re-kaster til en GENERISK ydre
-  catch (`st.fejl`, intet `meldAlarm`) — mens den samme fejl inde i det
-  oprindelige kald stadig udløser den navngivne alarm. To steder, der burde
-  give samme signal ved samme fejl, gør det ikke, fordi det nye kald blev
-  indsat med sin egen fangst i stedet for at dele den eksisterende. Spørg:
-  rammer et nyt kald, indsat FØR et eksisterende sikret kald, den SAMME
-  alarm-vej, eller har det fået sin egen?
-
-
-- **`firestore.rules` er ÉN fil for BEGGE projekter.**
-  `games/{gameId}/matches/{matchId}` (`firestore.rules:805-809`) er
-  `read: isApproved()`, `create/update: isGlobalAdmin()`, ingen felt-allowlist
-  — nye felter på kampdokumentet kræver ingen regelændring.
-- **En rules-test på `getDoc` beviser ikke en `getDocs`.**
-  `functions/rules.test.js:3033-3053` beviser, at andres pulje-tip kan læses
-  ENKELTVIS efter deadline (`puljeBets`, `firestore.rules:838-839`). En flade,
-  der henter HELE samlingen, er en `list`: hele forespørgslen falder, hvis ét
-  dokument fejler, og `gameLock()` er et `get()` inde i regel-evalueringen.
-  Kræv en emulator-test på selve `getDocs` — før OG efter deadline.
-- **`recomputeGameMatch` (`functions-platform/index.js:106-117`) er vagten
-  mellem en felt-skrivning og en fuld rescore + `recomputeSeasonElo` +
-  Runde-Botten.** Den returnerer, hvis `result` ikke ændrer sig — derfor er
-  regelen "livescore må aldrig skrive `result`/`homeGoals`/`awayGoals`" den
-  dyreste i huset: `matchOutcome()` udleder facit AF MÅLENE.
-- **`kickoff` er tip-vinduet** (`request.time < kickoff` i rules). Ingen
-  berigelses-kilde må skrive det; en fremflytning genåbner vinduet.
-- **Sweep-budget:** `SWEEP_TIMEOUT_S = 300` (`index.js:~530`),
-  `XG_BUDGET_MS = 300000/3/SYNCED_GAMES.length` (= 50 s pr. spil i dag). Nyt
-  arbejde i sweep'et skal have SIT tal skrevet ud af de 300 s — en
-  platform-timeout kan ikke fanges af try/catch, og så mister BÅDE dette og
-  det næste spil alarm, tabel og driftlog-kort. Dyreste trin lægges SIDST i
-  løkkekroppen, efter sikkerhedsnettene. Et loop-budget, der kun tjekkes i
-  toppen af løkken, kan overskrides med ét helt kald-sæt.
-- **`syncSuperligaSweep`: cron `25 2,13-23`** — største NORMALE hul er 11 timer.
-  `syncSuperligaResults`: `* 12-23` = 720 kørsler/dag × 2 spil, bevidst
-  optimeret til ét tomt opslag. `syncGameKickoffs`: `10 6 * * *`.
-  Sweep'et ER alarmen for minut-synken.
-- **Manuelle "kør nu"-callables skal have SAMME timeout i klient og server** —
-  fundet forkert to gange.
-- **En kommentar, der PÅSTÅR en udledning ('halvdelen af xG's budget'), uden at koden faktisk udregner den, er en skjult kobling.** `DETALJE_BUDGET_MS = 25000` i `kampDetaljer.js` er en literal, ikke et udtryk som `XG_BUDGET_MS/2` — ændres `XG_BUDGET_MS` (fx flere `SYNCED_GAMES`), bliver kommentarens regnestykke stille forkert, og ingen test kan se det. Samme klasse som "et tal uden kode er en påstand", men på en KOMMENTAR i stedet for en UI-tekst.
-- **Et PRÆCIST målt tal i en KODE-kommentar ældes lige så let som ét i UI.** "Udfaldet skifter i 48 % af kampene" (`FootballTip.jsx`, halvlegslinjen) er en påstand om en levende kilde (livescore.com), ikke et fastfrosset facit — modsat den qualitative UI-tekst samme sted ("næsten hver anden kamp"), som fulgte husets regel korrekt. Tjek BEGGE steder, ikke kun det brugeren ser.
-- **Manuelle synk-knapper bor i `GameScheduleTab.jsx`:** `🗓️ Synk kamptider nu`
-  (:611, `harKickoffSynk`), `⬇️ Synk resultater nu` (:635, `harResultatSynk`).
-  Det er dér en administrator leder efter en kampdata-knap.
-- **Kampkortets venue:** `FootballTip.jsx:578`, `h.venue` fra
-  `games/{id}.teams[].venue` via `badges.js:56`.
-- **`games/{id}.teams` bærer POINT, ikke kun farver:** `teams[].elo` er seed for
-  `recomputeSeasonElo`, `teams.length` styrer `expectedPlayed`, og array-orden
-  er brugersynlig i `PuljeTip`. `short` findes for alle 20 PL- og 12 SL-hold i
-  `src/data/*Teams2026.js` og skrives med `{merge:true}` af
-  `scripts/seed-football.mjs:315`. Kampdokumenter skrives også med merge
-  (:288-300), så et re-seed sletter ikke berigede felter.
-- **Farve-overrides (`teamStyles`) slår kun igennem, hvor `badgeFor` bruges** —
-  FootballTable, EloTable, PuljeTip og eloHistory læser rå `t.color`.
-- **Liga-medlemskab: én skrivning, tre afledte flader.** `memberUids` skrives
-  kun server-side; `syncPlayerLeagues` spejler til `players/{uid}.leagueIds` OG
-  til `leagueIds` på ALLE spillerens `bets`. `applyMembershipDelta` springer
-  TAVST over en uid uden players-dokument. `useGameStandings.js:54` viser TOM
-  stilling ved nul ligaer.
-- **`redeemLeagueCodeCore` AUTO-godkender og AUTO-tilmelder spillet.**
-- **Mønster for en log-flade:** `emailLog` + `useEmailLog.js` + `EmailLogTab.jsx`
-  + `allow read: if isGlobalAdmin(); allow write: if false;`.
-- **Badge på Admin-linket** (`Layout.jsx` `CountBadge`) er allerede rødt — et
-  nyt rødt badge samme sted kan ikke skelnes.
-- **Global admin har klient-læse-bypass på de fleste samlinger, men IKKE på
-  `questionAnswers`.** Skriv den rigtige begrundelse for en admin-callable.
-- **En tæller bygget på en query, indsnævret for at matche en læseregel, tæller
-  "hvad jeg må se", ikke "hvad der findes".**
-- **Tour-appen er på pause, men dens 7 `onSchedule` kører videre.**
-- **Kampprogrammet ligger i repoet og kan tælles:**
-  `scripts/premier-league-fixtures-2627.json` (R1 21/8-2026),
-  `scripts/superliga-fixtures.json` (R1 24/7-2026). 380 + 132 = 512 kampe.
-
-- **En sætning, der navngiver et objekt med `{navn}` foran et substantiv, skal
-  bøjes.** "Ingen af {liga.name} medlemmer" mangler genitiv-s ("Kontorets",
-  ikke "Kontoret") — og fejlen er usynlig for grep, fordi fallback-strengen
-  ("ligaens") tilfældigvis ER korrekt bøjet. Husets egen præcedens
-  (`GameStandings.jsx:567`) undgår problemet helt ved ALDRIG at navngive:
-  "Ingen af ligaens medlemmer er med i stillingen endnu." Skal en ny sætning
-  navngive et dansk ord foran et substantiv, sæt `{navn}s` eller undgå navnet.
-
-## Delt tæller, to domme
-
-- **To skrivepunkter, der læser SAMME tæller, skal give SAMME sværhedsgrad.**
-  `d.ukendte` fik i PR #192 sin klient-tekst rettet til `kind:'err'` og en
-  docs-linje, der siger "retter sig ALDRIG selv" (`GameScheduleTab.jsx:385`,
-  `docs/drift.md:360`) — men det automatiske sweep, der skriver samme tal til
-  Drift-kortet (`functions-platform/index.js:668-672`), klassificerer stadig
-  et rent `ukendte`-udfald som `st.ok()` (grøn), fordi dens advarselsbetingelse
-  kun tjekker `uenige||uparsede||utilgaengelige`. Samme evne (en permanent,
-  ikke-selvhelende fejl), to flader, to domme. Retter man ÉN aflæsning af en
-  delt tæller, så find den ANDEN, der læser samme felt, og spørg om den
-  drager samme konklusion.
-
-## Ny genvej med et eksisterende sikkerhedsnet
-
-- **En hurtig-vej, der er sekventeret EFTER facit er committet, er en anden
-  risikoklasse end en hurtig-vej PÅ FACIT-STIEN.** `efterFacitDetaljer` i
-  minut-synken citerer xG-kontraktens forbud ("aldrig fra minut-synken"), men
-  bryder det sikkert: den kører i et SEPARAT loop efter `runScheduledSyncAll`
-  allerede har committet facit for ALLE spil (`index.js:389` vs. den nye kode
-  ved 416+). xG var farlig, fordi den lå PÅ VEJEN til facit og var ubundet
-  (hele sæsonen); genvejen her er bundet (`rettede`, typisk 1-3) og kan ikke
-  røre en allerede-skrevet facit. Spørg ved en lignende "kør det tidligere"-PR:
-  er det NYE trin før eller efter den skrivning, det gamle forbud beskyttede?
-- **En optimering med et eksisterende sikkerhedsnet (sweep'et samler op om en
-  time) fritager IKKE for "kan ikke fejle tavst".** `efterFacitDetaljer` har
-  bevidst INGEN egen driftlog-linje — begrundelsen er, at sweep'ets kort
-  allerede viser efterslæbet. Men fejler genvejen KONSEKVENT (ikke kun
-  429/403, som har sin egen alarm), er der intet, der skelner "virker" fra
-  "altid død": sweep'ets `detaljerMangler` går mod nul i begge tilfælde, bare
-  en time langsommere. `docs/drift.md` bekræfter selv, at det ENESTE
-  driftkort for evnen hedder "Times-sweep · <spil>". Konsekvensen er bundet
-  (ingen data-/pointtab), så det er ikke automatisk blokerende — men er en
-  reel afvigelse fra husregelen og bør have et letvægts-signal EFTER trinnet
-  (aldrig FØR — det ville bryde ordenen, sikkerheden hviler på).
-- **Et "målt i scripts/X"-citat skal efterprøves ved at LÆSE scriptet, ikke
-  ved at tro på filnavnet.** `EFTERFACIT_BUDGET_MS = 15000`s kommentar (og en
-  søster-kommentar i `kampDetaljer.js`) citerede
-  `scripts/maal-livescore-detaljer.mjs` for latenstal (295 ms/128 ms/171 ms).
-  Scriptet indeholder ZERO tidsmåling — det tæller dækningsgrader (halvleg,
-  tilskuertal, IT-koder), ikke ms. Et præcist tal med en fil:linje-henvisning
-  SER ud som husets egen regel overholdt, men er lige så meget en påstand som
-  et helt umærket tal. Åbn filen; grep efter `Date.now`/`performance.now`/
-  `ms` i selve scriptet, ikke kun i kommentaren, der citerer det.
-
-## E2E: en test er kun så god som sine selectorer
-
-- **En Playwright-tests `data-testid`/klassenavn/aria-label skal verificeres
-  mod den ÆGTE komponent, ikke antages fra testens egen tekst.** Grep
-  selectoren i `src/`; findes den ikke, tester filen enten et fremtidigt UI
-  eller intet (`locator(...)` matcher 0, og en `toHaveCount(0)`-agtig
-  assertion kan gøre det stille grønt). Tjek samtidig at den render-BETINGELSE,
-  testen udnytter (fx `locked && <LeagueBets/>`), rent faktisk styrer den
-  selector, testen læser — ellers beviser testen ikke det, kommentaren siger.
-- **Et nyt Vite-mode/`.env.<mode>` skal spores gennem `loadEnv`s fletning
-  (tom prefix = ALLE vars, ikke kun `VITE_`), og efterprøves for kollision med
-  eksisterende `.env`-skridt i CI/deploy** — se arkitekt.md's E2E-afsnit for
-  den konkrete `loadEnv`-mekanik; QC's opgave er at bekræfte, at INTET
-  deploy-workflow eller build-script kan forveksle den nye dummy-`.env.e2e`
-  eller dens `dist-e2e-*`-outDir med den rigtige (`firebase.json` peger stadig
-  på `dist`; deploy-workflows kalder `npm run build`, aldrig E2E-scripts).
-- **Et dokument kan modsige sig selv i to afsnit.** `docs/testing.md` havde et
-  kort "sådan kører du det"-kommandoblok, der IKKE var opdateret med den nye
-  emulator-kommando, mens et senere, udførligt afsnit i SAMME fil var. Tjek
-  ALLE forekomster af en ændret kommando/sti i én fil, ikke kun den, diffen
-  rørte ved.
-- **En invariant-test, der navngiver sig efter et historisk bug (»Forlad-fejlen brød
-  denne invariant«), skal reproducere den PRÆCISE handling, buggen brugte — ikke en
-  beslægtet, men anden skrivning.** `rules.scenarie.test.js`s Forlad-case (4a) asserterer
-  kun, at klienten ikke selv kan sætte `forladt:true`/slette players-doc'et direkte — men
-  den historiske fejl var en RAW `deleteDoc` fra den daværende `leaveGame()`, som testen
-  aldrig afprøver, og »fladen tilbyder«-siden er en hardkodet KOMMENTAR, ikke en beregnet
-  værdi fra `GamesPage.jsx`s faktiske `canLeave`-betingelse. Den beviser dermed en anden,
-  vedvarende god egenskab (ingen klient-bypass af callable'en) — ikke selve invarianten,
-  overskriften påstår. Spørg ved enhver ny »X-fejl brød denne invariant«-test: udfører
-  testen SAMME kald (metode, felt, sti) som den historiske fejl, eller en nabo-handling?
-- **Et fil:linje-citat i en testkommentar skal pege på den kode, der REELT implementerer
-  påstanden — ikke en tilstødende kode-sti med samme navn i overskriften.** Samme fils
-  chance-case citerer `FootballTip.jsx:1103` (ChancePanel's `options`, RUNDE-scopet — den
-  lånte kamp fra en anden runde er IKKE i `roundMatches` og optræder aldrig i den liste)
-  som belæg for »fladen tilbyder ⚡ på den lånte kamp«, men den faktiske chance-PILLE, der
-  vises på kortet, kommer af et andet, urunde-scopet map (`isChance`/`chance-pill`,
-  samme fil ~711/833). To forskellige koncepter — »kan aktiveres via panelet« og »vises
-  som badge på kortet« — må ikke dele én fil:linje-henvisning.
-
-## "Forlad" er en sletning — spor den til ALLE spor, spilleren efterlader
-
-- **En knap, hvis handling afvises af et REGEL-PRÆDIKAT, skal gates på præcis
-  det prædikat — ikke på en status, der plejer at følges ad.** Forlad-knappen
-  (`GamesPage.jsx:59`) stod på `status === OPEN`, mens players `allow delete`
-  (`firestore.rules:801`) kræver `totalPoints` fraværende eller 0. Superligaen
-  står 'open' HELE sæsonen (`scripts/games.mjs:73`) → alle med point fik
-  "Du har ikke adgang til denne handling.". Spejl prædikatet ord for ord,
-  aldrig strengere, og lad handlingen beholde en SPECIFIK fejltekst
-  (`danishError`, `gameActions.js:37`, er delt af alle handlinger).
-- **En klient-sletning kan ikke rydde op efter sig — og serveren genopliver
-  spilleren.** `leaveGame` (`gameActions.js:313`) sletter KUN
-  `games/{id}/players/{uid}`. `games/{id}/bets` er `allow delete: if false`
-  (`firestore.rules:~1051`), `detalje/`-underdokumenter følger ikke med en
-  doc-sletning, og ligaens `memberUids` røres ikke. Værre:
-  `recalcPlayerTotal` (`gameScoring.js:249-292`) samler sine uid'er fra BETS
-  (`berorteUids`, :522) og skriver med `tx.set(..., {mergeFields})` — det
-  GENSKABER et slettet players-dokument (uden `uid`, `joinedAt`, `leagueIds`)
-  ved næste afgjorte kamp, spilleren havde tippet. `settlePuljeBets` (:453) og
-  `adminDeleteUser` (`index.js:1695`) har samme hul. Spørg ved enhver
-  "fjern/forlad/slet mig"-flade: hvilke samlinger nævner uid'et STADIG, og
-  findes der et job, der skriver dokumentet tilbage? Rækkefølgen er svaret:
-  bets/puljeBets først, players-dokumentet SIDST — og fra serveren.
-- **En bekræftelsesdialog, der lover en sletning, er en påstand om koden.**
-  "Dine point, tips og liga-medlemskab slettes" / "de kan ikke tildeles igen"
-  kan kun være sandt, hvis bets faktisk slettes; ellers er det den omvendte
-  "Åbn ligaen →"-fejl (teksten lover MERE ødelæggelse end handlingen giver).
-  Et POINTTAL i dialogen er desuden skala-følsomt: spillets `totalPoints` er
-  ikke ligaens `ligaPoint` (startRound) — skriv "i <spillets navn>" og formatér
-  med `fmtDec` (dansk komma).
-- **`me != null && me.forladt !== true` er nu kopieret TRE steder**
-  (`useGame.js:103`, `GamePageForladt.test.jsx:38`, og
-  `rules.scenarie.test.js`s `fladenSerMedlem`) — en KOPI i en test, der selv
-  hedder "fladen tilbyder ⇔ reglerne tillader", er ironisk nok en umålt
-  divergensrisiko: ændres prædikatet i `useGame.js`, driver testens egen kopi
-  stille fra den. Ikke blokerende for én ekstra linje, men eksportér
-  prædikatet fra `useGame.js` næste gang, en tredje forbruger dukker op.
-- **Et miljøflag, der er navngivet efter én virkning, slår ALLE virkninger
-  til.** `NODE_ENV=development` foran `vite build` blev sat for at bevare
-  `_debugSource` (jsx-source) — men Vite sætter `isProduction=false` for hele
-  buildet, så `<React.StrictMode>` i `main.jsx` dobbelt-kalder mount-effekter
-  i den E2E-kørsel, der tæller klik, og aldrig i CI's egen E2E-kørsel. Spørg
-  ved ethvert flag: hvad ELLERS læser det? (PR #216, 3/9 2026.)
-- **En ny undtagelseskonvention skal anvendes på sit eget motiverende
-  eksempel.** PR'en skrev "et element, kun en Playwright-spec rører, hører i
-  flade-undtagelser.json med begrundelse" — men lod 1X2-knappen, hele
-  ændringens ophav, stå ubegrundet i basislinjen. En regel, der ikke gælder
-  det første tilfælde, den blev skrevet for, bliver aldrig fulgt.
-- **Et delt handler mellem to konceptuelt forskellige knapper kan navigere væk,
-  før en on-page-assertion ser sit vindue.** `GamesPage.jsx`s `handleJoin`
-  bruges BÅDE til «Deltag» og «Vend tilbage» (samme `onJoin`-prop, kun label
-  skifter via `tilbage`-flaget) og kalder `navigate(/spil/:id)`, så snart
-  `joinGame()`s promise er opfyldt (`GamesPage.jsx:145`) — ikke kun ved
-  førstegangs-tilmelding. En E2E-assertion, der forventer at blive PÅ `/spil`
-  lige efter et "Vend tilbage"-klik (for at se en anden knap dukke op på samme
-  side, `vendtilbage.spec.js`), hviler derfor på at Firestores optimistiske
-  lokale skrivning når at opdatere `onSnapshot`-lytteren, FØR `await`'et løses
-  og navigationen fyrer — en implicit timing-antagelse, ikke en garanti fra
-  koden selv. Spørg ved enhver handler, der er DELT mellem to knapper med
-  forskellige forventede sideforløb: gør den ene gren noget (navigation), som
-  den anden test ikke regner med?
-- **En delt oprydnings-helper, der rører TO samlinger (`bets`, `leagues`),
-  kan overses at mangle en TREDJE.** `rydOpEfterSpiller` (delt af forladSpil
-  og adminDeleteUser) rører aldrig `puljeBets/{uid}` — harmløst for Forlad
-  (dokumentet slettes aldrig dér), men adminDeleteUser lagde en NY
-  sletnings-gren oveni (ingen tips → players-doc slettes helt) uden at
-  spørge, om et `puljeBets`-dokument stadig pegede på uid'et.
-  `settlePuljeBets` (`gameScoring.js:455-456`) skriver `batch.set(playerRef,
-  {bonusPoints}, {merge:true})` for ALLE puljeBets-dokumenter uden
-  eksistens-tjek — genopstandelsen fortsatte via en anden samling. Spørg ved
-  enhver "slet-dokument-hvis-intet-at-bevare"-gren: er ALLE samlinger, der
-  kan skrive dokumentet tilbage via set+merge, talt med? (PR #221, 4/9 2026.)
+- `MatchElo.jsx` bruger odds for favorit, aldrig rå ratingforskel.
+  `outcomeOdds` er FAIR odds af egen Elo, uden vig — "markedets syn" findes
+  ikke i dette repo.
+- `firestore.rules` er ÉN fil for BEGGE projekter (tip + tour). En rules-test
+  på `getDoc` beviser ikke en `getDocs`: en flade der henter en HEL samling
+  er en `list`, og hele forespørgslen falder, hvis reglen afviser ét
+  dokument i den.
+- `kickoff`-feltet er selve tip-vinduet (`request.time < kickoff`) — ingen
+  berigelses-kilde må skrive det.
+- Sweep-/synk-budgetter er eksplicit afsatte tidsbudgetter pr. spil inden for
+  en fælles function-timeout; nyt arbejde i et sweep skal have sit EGET
+  budget skrevet ud af helheden og lægges SIDST i løkken, efter
+  sikkerhedsnettene — en platform-timeout kan ikke fanges af try/catch, og
+  rammer den, mister BÅDE dette og det næste spil i løkken deres alarm.
+- Manuelle "kør nu"-callables skal have SAMME timeout i klient og server.
+- Manuelle synk-knapper for kampdata bor samlet i spillets Spil-tidsplan-fane
+  — det er dér en administrator leder efter dem.
+- Liga-medlemskab er ÉN server-side skrivning, spejlet ud til flere felter
+  (spillerens `leagueIds`, samme felt på ALLE spillerens bets) — en
+  medlemskabsændring har derfor et asynkront vindue, hvor andre flader endnu
+  viser den gamle tilstand.
+- Global admin har klient-læse-bypass på de fleste samlinger, men ikke
+  nødvendigvis alle — tjek den konkrete samling, antag det ikke.
