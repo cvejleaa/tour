@@ -299,6 +299,13 @@ Testene skriver og læser gennem de ægte `firestore.rules`:
   Forlad), klikket fjerner flaget gennem reglerne, spillet flytter til Mine spil,
   og spilsiden viser fanerne igen
 
+Kampenes afstande til «nu» er **hele uger** (`kampPlan` i `seed-e2e.mjs`):
+spilleugen går fra tirsdag kl. 04, og en afstand som «nu − 6 dage» lander i
+en anden uge alt efter ugedagen. Den ugentlige test-rapport kører mandag og
+var rød hver gang, fordi runde 19's kamp blev lånt ind på runde 20 netop dér.
+`seed-e2e.test.mjs` fejer alle ugens timer gennem planen med fladens egne
+uge-funktioner, så det ikke kan ske igen uden en rød test.
+
 Ikke dækket: callables ud over vejen til dem (Chancen, synk, selve forladSpil),
 Tour-flows (spillet er afsluttet).
 

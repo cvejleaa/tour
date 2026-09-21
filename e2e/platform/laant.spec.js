@@ -22,7 +22,7 @@ test('den lånte kamp står øverst på runde 20, bærer sin runde, og tælleren
   await expect(maerkat).toContainText('point tæller dér');
   await expect(maerkat).not.toContainText(/udsat/i);
 
-  // Den lånte låser om 1½ time (seedet), rundens egne først om 3 og 27 timer:
+  // Den lånte låser om 1½ time (seedet), rundens egne først om 3 timer:
   // tælleren afrunder (1½ t → «2 t», og efter et par minutter «1 t»), så det,
   // der skelner, er «ikke 3 t» — rundens egen første kamp — og at den LYSER
   // (under 2 t), hvilket rundens egne aldrig ville give.

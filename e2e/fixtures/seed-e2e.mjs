@@ -10,7 +10,8 @@
 // man deler liga med, så uden ligaen er den tom uden fejl).
 //
 // KICKOFF BEREGNES VED SEED-TID (nu ± timer/dage), så fixturen er åben
-// uanset dato. Og den skrives som Firestore-Timestamp: firestore.rules
+// uanset dato — og med hele uger som afstand, så den også er den SAMME
+// uanset ugedag (se kampPlan). Og den skrives som Firestore-Timestamp: firestore.rules
 // sammenligner `request.time < kickoff`, og et tal ville få reglen til at
 // fejle lukket — tavs afvisning, ikke en fejl.
 //
@@ -51,6 +52,47 @@ async function ventPaa(url, navn, forsoeg = 15) {
 export function erLokalVaert(host) {
   const navn = String(host || '').replace(/^\[?(.*?)\]?:\d+$/, '$1');
   return ['localhost', '127.0.0.1', '::1'].includes(navn);
+}
+
+/**
+ * Kampene, relativt til `nu` (ms). Ren funktion, så testen kan feje alle
+ * ugens timer igennem den — det er PRÆCIS den liste, seedet skriver.
+ *
+ * Runde 18 er den med en UDSAT kamp: to spillede for to uger siden og én om
+ * 1½ time — i runde 20's uge, og FØR runde 20's egne. Det er ejerens fejl fra
+ * 3/9 (#213): tælleren så kun rundens egne kampe.
+ *
+ * HELE UGER SOM AFSTAND, OG ENS KICKOFF INDEN FOR EN RUNDE. Ugen går fra
+ * tirsdag kl. 04 dansk tid (src/lib/pointOpdeling.js), og hvilken uge et
+ * relativt tidspunkt lander i, afhænger af ugedagen, kørslen sker på. Kun en
+ * afstand på præcis n·7 dage lander ALTID i uge −n. Før stod runde 19 på
+ * nu−7d/nu−6d og runde 18 på nu−14d/nu−13d: mandag mellem kl. 04 og tirsdag
+ * kl. 04 lå nu−6d i runde 20's uge (og blev lånt ind der: 4 kort i stedet for
+ * 3) og nu−13d i runde 19's uge (9 tip-knapper i stedet for 6) — og den
+ * ugentlige test-rapport (test-report.yml) kører netop mandag. Den var rød
+ * hver mandag, den nogensinde havde kørt (7/9 og 14/9 2026), mens CI på alle
+ * andre ugedage var grøn. seed-e2e.test.mjs fejer nu alle 168 timer.
+ *
+ * KENDT RESTVINDUE: den udsatte (nu+1½ t) og runde 20 (nu+3 t) skal ligge i
+ * SAMME uge. Falder ugeskellet i de 1½ timer imellem dem — tirsdag kl.
+ * 01.00–02.30 dansk tid — vises den udsatte ikke som lånt, og laant.spec.js
+ * er falsk rød. Det kan ikke undgås (begge skal ligge i fremtiden, og den
+ * udsatte skal låse først), men vinduet er 1,5/168 ≈ 0,9 %, og den ugentlige
+ * kørsel ligger mandag morgen. Testen måler vinduet og holder det dér.
+ *
+ * @param {number} nu  ms
+ * @returns {Array<{round:number, home:string, away:string, kickoff:number}>}
+ */
+export function kampPlan(nu) {
+  return [
+    { round: UDSAT_RUNDE, home: 'Alfa BK', away: 'Delta BK', kickoff: nu - 14 * DAG },
+    { round: UDSAT_RUNDE, home: 'Beta IF', away: 'Gamma FC', kickoff: nu - 14 * DAG },
+    { round: UDSAT_RUNDE, home: 'Delta BK', away: 'Beta IF', kickoff: nu + 1.5 * TIME },
+    { round: LAAST_RUNDE, home: 'Alfa BK', away: 'Beta IF', kickoff: nu - 7 * DAG },
+    { round: LAAST_RUNDE, home: 'Gamma FC', away: 'Delta BK', kickoff: nu - 7 * DAG },
+    { round: AABEN_RUNDE, home: 'Alfa BK', away: 'Gamma FC', kickoff: nu + 3 * TIME },
+    { round: AABEN_RUNDE, home: 'Beta IF', away: 'Delta BK', kickoff: nu + 3 * TIME },
+  ];
 }
 
 export default async function seed() {
@@ -107,29 +149,10 @@ export default async function seed() {
     season: '2026-27', order: 99, teams: HOLD,
   });
 
-  // Kampe: låst runde (facit) og åben runde. Kickoff relativt til nu.
-  //
-  // Runde 18 er den med en UDSAT kamp: to spillede for to uger siden og én
-  // om 1½ time — i runde 20's uge, og FØR runde 20's egne. Det er ejerens
-  // fejl fra 3/9 (#213): tælleren så kun rundens egne kampe. To uger, ikke én:
-  // ugen løber tirsdag→mandag, og med nu−7d/nu−6d kunne én af de spillede
-  // lande i samme uge som den udsatte, alt efter ugedag — så var den ikke
-  // lånt. Med 13–14 dage kan det ikke ske.
-  // KENDT RESTVINDUE (Test Manager): den udsatte (nu+1½ t) og runde 20's
-  // første (nu+3 t) skal ligge i SAMME uge. Falder ugeskellet (tirsdag,
-  // UGE_SNIT_TIME dansk tid, src/lib/pointOpdeling.js) i de 1½ timer imellem
-  // dem, vises den udsatte ikke som lånt, og laant.spec.js er falsk rød —
-  // ca. 1,5/168 ≈ 0,9 % af tilfældigt fordelte kørsler. Ses en rød laant.spec
-  // tirsdag morgen, er det dét, ikke en regression: kør igen.
-  const kampe = buildMatches([
-    { round: UDSAT_RUNDE, home: 'Alfa BK', away: 'Delta BK', kickoff: Timestamp.fromMillis(nu - 14 * DAG) },
-    { round: UDSAT_RUNDE, home: 'Beta IF', away: 'Gamma FC', kickoff: Timestamp.fromMillis(nu - 13 * DAG) },
-    { round: UDSAT_RUNDE, home: 'Delta BK', away: 'Beta IF', kickoff: Timestamp.fromMillis(nu + 1.5 * TIME) },
-    { round: LAAST_RUNDE, home: 'Alfa BK', away: 'Beta IF', kickoff: Timestamp.fromMillis(nu - 7 * DAG) },
-    { round: LAAST_RUNDE, home: 'Gamma FC', away: 'Delta BK', kickoff: Timestamp.fromMillis(nu - 6 * DAG) },
-    { round: AABEN_RUNDE, home: 'Alfa BK', away: 'Gamma FC', kickoff: Timestamp.fromMillis(nu + 3 * TIME) },
-    { round: AABEN_RUNDE, home: 'Beta IF', away: 'Delta BK', kickoff: Timestamp.fromMillis(nu + 27 * TIME) },
-  ], HOLD);
+  const kampe = buildMatches(
+    kampPlan(nu).map((k) => ({ ...k, kickoff: Timestamp.fromMillis(k.kickoff) })),
+    HOLD,
+  );
   const facit = {
     [`r${UDSAT_RUNDE}-alfabk-deltabk`]: [1, 0], [`r${UDSAT_RUNDE}-betaif-gammafc`]: [2, 2],
     [`r${LAAST_RUNDE}-alfabk-betaif`]: [2, 0], [`r${LAAST_RUNDE}-gammafc-deltabk`]: [1, 1],
