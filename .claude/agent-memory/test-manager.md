@@ -2,6 +2,35 @@
 
 ## Faldgruber fundet ved mutationstest
 
+- **En "ens kickoff inden for en runde"-påstand kan overleve, når testen kun
+  tjekker ANTAL og HVILKEN RUNDE, aldrig den enkelte kamps eget tidspunkt.**
+  `e2e/fixtures/seed-e2e.mjs`s `kampPlan()` (commit 6b6c56b, PR #227) har i sin
+  docstring en eksplicit designbeslutning: "ENS KICKOFF INDEN FOR EN RUNDE" —
+  runde 20's to kampe fik begge `nu + 3 * TIME` i stedet for den gamle
+  `+3h/+27h`. Mutation: sæt den ANDEN runde-20-kamp tilbage til `nu + 27 * TIME`
+  (den gamle værdi) — `seed-e2e.test.mjs`s fejetest over alle 168×2 ugetimer
+  forblev 100 % GRØN. Årsagen: testens `kortPaa()`-hjælper (og dermed
+  `groupByRound`/`efterslaebPaaRunde`, som den bevidst bruger fra fladen) tester
+  kun `egne.length` (stadig 2, uanset de to kampes indbyrdes afstand) og hvilke
+  ANDRE runder der låner ind — aldrig de to søsterkampes egen indbyrdes
+  kickoff-afstand. `FootballTip.jsx`s "Næste kamp låser om"-tæller
+  (`round-head__deadline--soon`, linje ~543) bruger kun den TIDLIGSTE ulåste
+  kamp, så heller ikke den fanger det — hverken enhedstests
+  (`FootballTip.invarianter.test.jsx`) eller e2e (`laant.spec.js`) asserterer
+  på den SENESTE kamps tidspunkt i en runde. De to andre grene af samme
+  mutation (runde 19: nu−7d/nu−6d → nu−7d/nu−7d, runde 18: nu−14d/nu−13d →
+  nu−14d/nu−14d) BLEV fanget, fordi de rykker en kamp over en UGE-grænse, hvad
+  runde 20's `+3h` vs. `+27h` typisk ikke gør (begge ligger som regel i samme
+  uge som den tredje "kommende" uge). Konklusion: "ens kickoff" er en
+  ubevist kommentar-påstand i koden, ikke en testet invariant — den bryder ikke
+  synligt for nogen assertion, medmindre en runde 20-kamp rykkes så langt at den
+  krydser et ugeskel (og selv da rammer den næppe nogen eksisterende test, for
+  ingen af dem kigger på "min egen søsterkamps tidspunkt"). Tjek næste gang en
+  kommentar hævder "X og Y skal ligge ens/tæt": findes der en assertion, der
+  sammenligner de to konkrete værdier direkte (fx begge kickoff-tal, eller en
+  UI-tekst der nævner begges afstand) — ikke kun en optælling eller en
+  MIN/MAX-aggregering, der er ligeglad med den ene af dem?
+
 - **Et fixture, hvor ALLE synlige rækker allerede er i den tilstand, gaten
   tester, kan ikke fange en fjernet gate.** `FootballTip.jsx:1065`
   `{locked && <LeagueBets/>}` styrer, om "Se ligaens tips"-knappen vises —
