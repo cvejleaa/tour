@@ -1,6 +1,9 @@
 // Vagten om emulator-værten skal kunne gøres rød uden at starte en emulator.
 import { describe, it, expect } from 'vitest';
-import { erLokalVaert } from './seed-e2e.mjs';
+import { erLokalVaert, kampPlan } from './seed-e2e.mjs';
+import { ugeNoegle } from '../../src/lib/pointOpdeling.js';
+import { groupByRound, efterslaebPaaRunde } from '../../src/features/games/football/footballRounds.js';
+import { AABEN_RUNDE, LAAST_RUNDE, UDSAT_RUNDE } from './konstanter.mjs';
 
 describe('seed-e2e: kun lokale emulator-værter', () => {
   it.each(['localhost:8080', '127.0.0.1:9099', '[::1]:8080'])('tillader %s', (h) => {
@@ -32,5 +35,85 @@ describe('seed-e2e: vagterne sidder FØR første netværkskald', () => {
     try {
       await expect(seed()).rejects.toThrow(/GOOGLE_APPLICATION_CREDENTIALS/);
     } finally { gendan(); }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixturet skal give den SAMME flade uanset hvilken time i ugen, seedet kører.
+// Regnet med fladens egne funktioner (groupByRound + efterslaebPaaRunde er
+// dem, FootballTip.jsx tegner rundens kort af), ikke en kopi af reglen.
+// ---------------------------------------------------------------------------
+const TIME = 3600e3;
+const DAG = 24 * TIME;
+
+/** Hvad en runde viser: egne kort + lånte (efterslæbere fra andre runder). */
+function kortPaa(plan, runde) {
+  const rounds = groupByRound(plan.map((k) => ({ ...k, id: `r${k.round}-${k.home}-${k.away}` })));
+  const egne = (rounds.find((r) => r.round === runde) || { matches: [] }).matches;
+  const laante = efterslaebPaaRunde(rounds, runde).map((e) => e.fraRunde);
+  return { egne: egne.length, laante };
+}
+
+/** Alle 168 timer i ugen fra et mandags-midnat (UTC). */
+const timerFra = (startIso) => Array.from({ length: 168 }, (_, h) => Date.parse(startIso) + h * TIME);
+
+describe('kampPlan — samme flade i alle ugens timer', () => {
+  // To uger: en almindelig i september og den, hvor sommertiden slutter (25/10 2026).
+  const uger = [timerFra('2026-09-21T00:00:00Z'), timerFra('2026-10-19T00:00:00Z')];
+
+  it.each(uger.map((u, i) => [i === 0 ? 'september' : 'omkring sommertidsskiftet', u]))(
+    'runde 20 viser 2 egne + den lånte, runde 19 viser 2 og låner intet — %s',
+    (_, timer) => {
+      const restvindue = [];
+      for (const nu of timer) {
+        const plan = kampPlan(nu);
+        const r20 = kortPaa(plan, AABEN_RUNDE);
+        const r19 = kortPaa(plan, LAAST_RUNDE);
+        const r18 = kortPaa(plan, UDSAT_RUNDE);
+        expect(r20.egne, `runde 20 egne @${new Date(nu).toISOString()}`).toBe(2);
+        expect(r19.egne, `runde 19 egne @${new Date(nu).toISOString()}`).toBe(2);
+        expect(r19.laante, `runde 19 låner @${new Date(nu).toISOString()}`).toEqual([]);
+        expect(r18.egne).toBe(3);
+        // Det dokumenterede restvindue: ugeskellet mellem den udsatte (+1½ t) og runde 20 (+3 t).
+        if (ugeNoegle(nu + 1.5 * TIME) !== ugeNoegle(nu + 3 * TIME)) { restvindue.push(nu); continue; }
+        expect(r20.laante, `runde 20 låner @${new Date(nu).toISOString()}`).toEqual([UDSAT_RUNDE]);
+      }
+      // Højst to hele timer (1½ times vindue), og de ligger tirsdag kl. 01–02
+      // dansk tid — ikke mandag formiddag, hvor rapporten kører.
+      expect(restvindue.length).toBeLessThanOrEqual(2);
+      expect(restvindue.length).toBeGreaterThan(0); // vinduet findes: forsvinder det, er reglen ændret
+      for (const nu of restvindue) {
+        const dk = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Copenhagen', weekday: 'short', hour: '2-digit', hour12: false }).format(nu);
+        expect(dk, `restvindue @${new Date(nu).toISOString()}`).toMatch(/^Tue,? 0[12]$/);
+      }
+    },
+  );
+
+  it('den GAMLE plan (nu−6 og nu−13 dage) gav 4 kort på runde 20 og et lån på runde 19 en mandag formiddag', () => {
+    // Båndet bliver rødt af den gamle værdi: det er præcis den røde ugentlige
+    // rapport (7/9 og 14/9 2026), regnet frem i stedet for observeret.
+    const gammel = (nu) => [
+      { round: UDSAT_RUNDE, home: 'A', away: 'D', kickoff: nu - 14 * DAG },
+      { round: UDSAT_RUNDE, home: 'B', away: 'G', kickoff: nu - 13 * DAG },
+      { round: UDSAT_RUNDE, home: 'D', away: 'B', kickoff: nu + 1.5 * TIME },
+      { round: LAAST_RUNDE, home: 'A', away: 'B', kickoff: nu - 7 * DAG },
+      { round: LAAST_RUNDE, home: 'G', away: 'D', kickoff: nu - 6 * DAG },
+      { round: AABEN_RUNDE, home: 'A', away: 'G', kickoff: nu + 3 * TIME },
+      { round: AABEN_RUNDE, home: 'B', away: 'D', kickoff: nu + 27 * TIME },
+    ];
+    const mandag = Date.parse('2026-09-14T08:09:41Z'); // kørslen 14/9, 10.09 dansk tid
+    expect(kortPaa(gammel(mandag), AABEN_RUNDE)).toEqual({ egne: 2, laante: [UDSAT_RUNDE, LAAST_RUNDE] });
+    expect(kortPaa(gammel(mandag), LAAST_RUNDE).laante).toEqual([UDSAT_RUNDE]);
+    // Og den nye plan, samme øjeblik: som alle andre timer.
+    expect(kortPaa(kampPlan(mandag), AABEN_RUNDE)).toEqual({ egne: 2, laante: [UDSAT_RUNDE] });
+    expect(kortPaa(kampPlan(mandag), LAAST_RUNDE).laante).toEqual([]);
+  });
+
+  it('den udsatte låser FØR runde 20\'s egne, og alle syv kampe er der', () => {
+    const nu = Date.parse('2026-09-18T10:00:00Z');
+    const plan = kampPlan(nu);
+    expect(plan).toHaveLength(7);
+    const udsat = plan.find((k) => k.round === UDSAT_RUNDE && k.kickoff > nu);
+    for (const k of plan.filter((k) => k.round === AABEN_RUNDE)) expect(k.kickoff).toBeGreaterThan(udsat.kickoff);
   });
 });
