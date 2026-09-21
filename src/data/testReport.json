@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-09-04T06:26:53.233Z",
+  "generatedAt": "2026-09-21T05:18:11.966Z",
   "totals": {
-    "files": 279,
-    "tests": 4504,
-    "passed": 4504,
+    "files": 282,
+    "tests": 4560,
+    "passed": 4560,
     "failed": 0
   },
   "suites": [
@@ -62,7 +62,7 @@
     {
       "file": "e2e/fixtures/seed-e2e.test.mjs",
       "area": "frontend",
-      "passed": 10,
+      "passed": 14,
       "failed": 0,
       "tests": [
         {
@@ -104,6 +104,42 @@
         {
           "name": "seed-e2e: vagterne sidder FØR første netværkskald › afviser at køre med GOOGLE_APPLICATION_CREDENTIALS sat",
           "status": "passed"
+        },
+        {
+          "name": "kampPlan — samme flade i alle ugens timer › runde 20 viser 2 egne + den lånte, runde 19 viser 2 og låner intet — september",
+          "status": "passed"
+        },
+        {
+          "name": "kampPlan — samme flade i alle ugens timer › runde 20 viser 2 egne + den lånte, runde 19 viser 2 og låner intet — omkring sommertidsskiftet",
+          "status": "passed"
+        },
+        {
+          "name": "kampPlan — samme flade i alle ugens timer › den GAMLE plan (nu−6 og nu−13 dage) gav 4 kort på runde 20 og et lån på runde 19 en mandag formiddag",
+          "status": "passed"
+        },
+        {
+          "name": "kampPlan — samme flade i alle ugens timer › den udsatte låser FØR runde 20's egne, og alle syv kampe er der",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "scripts/build-dep-graph.test.mjs",
+      "area": "frontend",
+      "passed": 3,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "bygGraf — fil-niveauet er det målte, gruppe-niveauet afledes › opløser relative imports (import, export-from, require) til filer og aggregerer pr. gruppe",
+          "status": "passed"
+        },
+        {
+          "name": "bygGraf — fil-niveauet er det målte, gruppe-niveauet afledes › groupOf: begge functions-mapper er hver sin kasse; ukendt src-sti falder i app-skal",
+          "status": "passed"
+        },
+        {
+          "name": "den RIGTIGE depGraph.json — paritet mellem niveauerne › gruppe-kanterne er præcis aggregeringen af fil-kanterne, og hver fil-kant peger på en kendt fil",
+          "status": "passed"
         }
       ]
     },
@@ -134,7 +170,7 @@
     {
       "file": "scripts/flade-vagt.test.mjs",
       "area": "frontend",
-      "passed": 10,
+      "passed": 11,
       "failed": 0,
       "tests": [
         {
@@ -175,6 +211,10 @@
         },
         {
           "name": "vagt › advarer (ikke rødt) om en undtagelse, der ikke længere gælder noget urørt",
+          "status": "passed"
+        },
+        {
+          "name": "CLI-blokken — det, ci.yml faktisk kører › en log med kun render-poster er en tom log: præcis den ene fejl, exit 1",
           "status": "passed"
         }
       ]
@@ -827,6 +867,98 @@
         },
         {
           "name": "gemte overrides i tør-kørslen › rapporterer også, når vagten spærrer — man skal ikke rette i blinde",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "scripts/lib/verificerTotaler.test.mjs",
+      "area": "frontend",
+      "passed": 21,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "kontrollerSpiller — rubrikkerne mod totalen › ok, når rubrikkerne summer til totalen",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne mod totalen › afrunding alene må ikke give fejl: 0,2 er grøn (den gamle grænse 0,15 gjorde den rød)",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne mod totalen › fejler, når afvigelsen er større end afrundingen kan forklare (0,3)",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne mod totalen › fejler tydeligt på en hel manglende kamp — ikke kun på tiendedele",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne mod totalen › gulvet: total 0 med negativ sum er legitimt (11 + (−44,8) + 8,5 → 0)",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne mod totalen › gulvet undtager KUN sum < 0: total 0 med positiv sum er en fejl",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne mod totalen › en spiller uden opdeling får sin egen besked — Genberegn point, ikke bagfyldning",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne mod totalen › en manglende total læses som 0, og tal som tekst afrundes til én decimal",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — Chancen › negativ Chancen UDEN indsats er fejlen, hele bagfyldningen findes for",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — Chancen › negativ Chancen MED indsats er bare en tabt indsats",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — Chancen › indsatsen skal være SPILLERENS egen — en andens indsats frikender ikke",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — Chancen › båndet er bundet: −0,1 er den første værdi, der findes efter afrunding — og den er negativ",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — Chancen › afrundingsstøj (−0,04) og −0 er ikke negativ",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — Chancen › begge fejl kan stå på samme spiller og tæller hver for sig",
+          "status": "passed"
+        },
+        {
+          "name": "harIndsatsAf › samler uids med chanceStake > 0 — 0, udeladt og ugyldigt tæller ikke; tekst-tal gør",
+          "status": "passed"
+        },
+        {
+          "name": "vurder + tabel › sorterer som stillingen, tæller fejl og summerer totalerne",
+          "status": "passed"
+        },
+        {
+          "name": "vurder + tabel › tabellen siger ok på de rene rækker, fejlen på den skæve, I ALT og LÆS-ONLY",
+          "status": "passed"
+        },
+        {
+          "name": "vurder + tabel › uden fejl lyser ✓ — og ikke ⚠️",
+          "status": "passed"
+        },
+        {
+          "name": "vurder + tabel › et navn med linjeskift, ::error:: og ANSI kan ikke skrive sin egen linje i loggen",
+          "status": "passed"
+        },
+        {
+          "name": "vurder + tabel › et navn, der ikke er en streng, vælter ikke tabellen",
+          "status": "passed"
+        },
+        {
+          "name": "vurder + tabel › et spil uden spillere er ikke en fejl",
           "status": "passed"
         }
       ]
@@ -2808,6 +2940,66 @@
       ]
     },
     {
+      "file": "src/features/admin/DepGraph.test.jsx",
+      "area": "frontend",
+      "passed": 13,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "DepGraph — fuld visning, peg og klik på pile › tegner alle kasser og pile, ingen fremhævet, og panelet er tomt",
+          "status": "passed"
+        },
+        {
+          "name": "DepGraph — fuld visning, peg og klik på pile › peg på en kasse: dens pile tegnes op med retning (ud = blå, ind = orange), resten dæmpes — og slipper igen",
+          "status": "passed"
+        },
+        {
+          "name": "DepGraph — fuld visning, peg og klik på pile › peg på en pil: titlen siger hvem → hvem og hvor mange imports",
+          "status": "passed"
+        },
+        {
+          "name": "DepGraph — fuld visning, peg og klik på pile › klik på en pil: panelet lister de konkrete fil-imports bag den, dedupleret med antal",
+          "status": "passed"
+        },
+        {
+          "name": "DepGraph — fokus på en kasse › klik på en kasse: kun dens pile tegnes, ikke-naboer tømmes men flytter sig ikke, panelet viser filer og naboer med tal",
+          "status": "passed"
+        },
+        {
+          "name": "DepGraph — fokus på en kasse › klik på en nabo flytter fokus; «← Tilbage» går ét trin tilbage; Esc går helt ud",
+          "status": "passed"
+        },
+        {
+          "name": "DepGraph — fokus på en kasse › tastatur: Enter og Space på en kasse giver fokus (role=button)",
+          "status": "passed"
+        },
+        {
+          "name": "DepGraph — fold ud i filer › dobbeltklik på pages: filerne står i egen blok med etiket, kun nabogrupperne vises, og fladen siger, at ingen af siderne importerer hinanden",
+          "status": "passed"
+        },
+        {
+          "name": "DepGraph — fold ud i filer › games foldet ud tegner den INTERNE kant G → H, og klik på en fil viser dens naboer på fil-niveau",
+          "status": "passed"
+        },
+        {
+          "name": "DepGraph — fold ud i filer › et gammelt øjebliksbillede uden fil-niveau: fokus virker, men udfoldning kan ikke — og panelet siger hvorfor",
+          "status": "passed"
+        },
+        {
+          "name": "hjælperne › naboGrupper, filKanterFor, udfoldning, filNaboer, navnAf",
+          "status": "passed"
+        },
+        {
+          "name": "hjælperne › layoutBlokke: en etiketteret blok får egne rækker og venstre margen; lag stables med det højeste øverst",
+          "status": "passed"
+        },
+        {
+          "name": "den RIGTIGE depGraph.json i komponenten › rendrer alle grupper, og app-skal er præcis App.jsx og main.jsx (fallback-vagt)",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/features/admin/DriftTab.test.jsx",
       "area": "frontend",
       "passed": 12,
@@ -3878,7 +4070,7 @@
           "status": "passed"
         },
         {
-          "name": "TestsTab › siger INTET om forældelse, når tallene er friske",
+          "name": "TestsTab — forældet-advarslen › siger INTET om forældelse, når tallene er friske",
           "status": "passed"
         },
         {
@@ -5662,7 +5854,7 @@
     {
       "file": "src/features/games/football/FootballTip.test.jsx",
       "area": "frontend",
-      "passed": 142,
+      "passed": 145,
       "failed": 0,
       "tests": [
         {
@@ -5715,6 +5907,18 @@
         },
         {
           "name": "FootballTip — Elo på kampkortene › ignorerer en ugyldig runde-parameter",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — Elo på kampkortene › ?kamp= fremhæver PRÆCIS det kort og ruller det ind én gang — ikke ved hver gentegning",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — Elo på kampkortene › et ukendt ?kamp= fremhæver intet og fejler ikke; hvert kort har ét unikt id",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — Elo på kampkortene › et rundeskift fjerner ?kamp= — fremhævningen hører til én runde",
           "status": "passed"
         },
         {
@@ -6330,7 +6534,7 @@
     {
       "file": "src/features/games/football/holdIndgange.test.jsx",
       "area": "frontend",
-      "passed": 6,
+      "passed": 7,
       "failed": 0,
       "tests": [
         {
@@ -6354,6 +6558,10 @@
           "status": "passed"
         },
         {
+          "name": "indgange til holdsiden › HoldSide.jsx linker kamprækken til kampens kort — ikke modstanderen til holdsiden",
+          "status": "passed"
+        },
+        {
           "name": "indgange til holdsiden › et hold UDEN kortkode får ingen link — aldrig en URL af et holdnavn",
           "status": "passed"
         }
@@ -6362,7 +6570,7 @@
     {
       "file": "src/features/games/football/HoldSide.test.jsx",
       "area": "frontend",
-      "passed": 12,
+      "passed": 15,
       "failed": 0,
       "tests": [
         {
@@ -6411,6 +6619,18 @@
         },
         {
           "name": "HoldSide › viser kampene med runde, side og resultat",
+          "status": "passed"
+        },
+        {
+          "name": "HoldSide › hver kamprække er ét link til kampens kort på Tip-fanen — i kampens EGEN runde, med kampens id",
+          "status": "passed"
+        },
+        {
+          "name": "HoldSide › en kamp uden rundenummer står som ren tekst — Tip-fanen kan ikke vise den",
+          "status": "passed"
+        },
+        {
+          "name": "HoldSide › runder før spillets startrunde er IKKE med — hverken i listen eller i tallene",
           "status": "passed"
         }
       ]
@@ -8330,7 +8550,7 @@
     {
       "file": "src/features/games/football/xgFlade.test.jsx",
       "area": "frontend",
-      "passed": 25,
+      "passed": 26,
       "failed": 0,
       "tests": [
         {
@@ -8367,6 +8587,10 @@
         },
         {
           "name": "holdsidens kort: Mål og målchancer › fælder INGEN dom — ingen af de forbudte ord står på siden",
+          "status": "passed"
+        },
+        {
+          "name": "hold-listen ved Elo-tabellen › tæller IKKE runder før spillets startrunde — samme tal som holdsiden",
           "status": "passed"
         },
         {
@@ -9162,7 +9386,7 @@
     {
       "file": "src/features/games/GameTabLink.test.jsx",
       "area": "frontend",
-      "passed": 12,
+      "passed": 13,
       "failed": 0,
       "tests": [
         {
@@ -9179,6 +9403,10 @@
         },
         {
           "name": "gameTabPath › kan pege på en bestemt runde",
+          "status": "passed"
+        },
+        {
+          "name": "gameTabPath › kan pege på én kamp i dens runde — holdsidens hop til kampens kort",
           "status": "passed"
         },
         {
@@ -13974,7 +14202,7 @@
     {
       "file": "src/pages/GamePageForladt.test.jsx",
       "area": "frontend",
-      "passed": 3,
+      "passed": 4,
       "failed": 0,
       "tests": [
         {
@@ -13987,6 +14215,10 @@
         },
         {
           "name": "GamePage — kortet før fanerne › aktiv deltager: fanerne, intet kort",
+          "status": "passed"
+        },
+        {
+          "name": "GamePage — parametre, der hører til ÉN fane, følger ikke med til den næste › faneskift tørrer ?kamp= og ?hold= af — som ?runde= IKKE tørres af",
           "status": "passed"
         }
       ]
@@ -19918,7 +20150,7 @@
     {
       "file": "functions-platform/syncProviders.test.js",
       "area": "platform",
-      "passed": 67,
+      "passed": 71,
       "failed": 0,
       "tests": [
         {
@@ -20010,6 +20242,18 @@
           "status": "passed"
         },
         {
+          "name": "superliga.hentKickoffs — den ÆGTE metode › kildens round er TEKST — kampene i spillets runder (tal) beholdes alligevel, og sourceKey er r8-…",
+          "status": "passed"
+        },
+        {
+          "name": "superliga.hentKickoffs — den ÆGTE metode › sourceKey bygges af det NORMALISEREDE tal — \"08\" og \" 8\" giver r8-…, ikke r08-… (Test Managers mutation)",
+          "status": "passed"
+        },
+        {
+          "name": "superliga.hentKickoffs — den ÆGTE metode › rundeTal: \"8\" → 8, 8 → 8, \"\", null og \"finale\" → NaN (matcher aldrig et spils runder)",
+          "status": "passed"
+        },
+        {
           "name": "superliga.hentKickoffs — den ÆGTE metode › kampe uden for spillets runder droppes FØR tolkning — også når tiden er ulæselig",
           "status": "passed"
         },
@@ -20027,6 +20271,10 @@
         },
         {
           "name": "syncKickoffsCore › END-TO-END med den ÆGTE superliga-provider: en flyttet kamp skrives gennem kernen",
+          "status": "passed"
+        },
+        {
+          "name": "syncKickoffsCore › spillets egen runde som STRENG i dokumentet knækker heller ikke filtret (Security: begge operander normaliseres)",
           "status": "passed"
         },
         {

@@ -1,14 +1,14 @@
 {
- "generatedAt": "2026-09-04T06:26:53.233Z",
+ "generatedAt": "2026-09-21T05:18:11.966Z",
  "e2eMedregnet": true,
  "renderMaalt": true,
  "totals": {
-  "elementer": 443,
-  "aktiverede": 178,
-  "renderede": 375,
-  "logposter": 776,
-  "interaktioner": 606,
-  "filer": 73
+  "elementer": 449,
+  "aktiverede": 184,
+  "renderede": 381,
+  "logposter": 790,
+  "interaktioner": 621,
+  "filer": 74
  },
  "elementer": [
   {
@@ -823,6 +823,102 @@
     "src/features/admin/BroadcastTabPlatform.test.jsx"
    ],
    "renderAntal": 3,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/DepGraph.jsx",
+   "linje": 345,
+   "kolonne": 17,
+   "tag": "path",
+   "type": null,
+   "tekst": "dep-kant-hit",
+   "komponent": "DepGraph",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/DepGraph.test.jsx"
+   ],
+   "renderAntal": 2,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/DepGraph.jsx",
+   "linje": 364,
+   "kolonne": 15,
+   "tag": "g",
+   "type": null,
+   "tekst": null,
+   "komponent": "DepGraph",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/DepGraph.test.jsx"
+   ],
+   "renderAntal": 2,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/DepGraph.jsx",
+   "linje": 420,
+   "kolonne": 22,
+   "tag": "button",
+   "type": "button",
+   "tekst": "← Tilbage",
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/DepGraph.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/DepGraph.jsx",
+   "linje": 421,
+   "kolonne": 47,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Vis hele diagrammet",
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/DepGraph.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/DepGraph.jsx",
+   "linje": 423,
+   "kolonne": 9,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Fold ud i filer",
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/DepGraph.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/DepGraph.jsx",
+   "linje": 425,
+   "kolonne": 28,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Fold sammen",
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/DepGraph.test.jsx"
+   ],
+   "renderAntal": 1,
    "status": "roert"
   },
   {
@@ -3241,7 +3337,7 @@
   },
   {
    "fil": "src/features/games/GameTabLink.jsx",
-   "linje": 81,
+   "linje": 85,
    "kolonne": 5,
    "tag": "Link",
    "type": null,
@@ -3250,7 +3346,7 @@
    "app": "platform",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 21,
+   "renderAntal": 22,
    "status": "vist"
   },
   {
@@ -3719,7 +3815,7 @@
   },
   {
    "fil": "src/features/games/football/FootballHelp.jsx",
-   "linje": 572,
+   "linje": 573,
    "kolonne": 40,
    "tag": "Link",
    "type": null,
@@ -3733,7 +3829,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 471,
+   "linje": 486,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -3747,7 +3843,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 502,
+   "linje": 517,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -3763,7 +3859,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 609,
+   "linje": 624,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -3779,7 +3875,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1048,
+   "linje": 1066,
    "kolonne": 19,
    "tag": "button",
    "type": null,
@@ -3795,7 +3891,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1307,
+   "linje": 1325,
    "kolonne": 13,
    "tag": "select",
    "type": null,
@@ -3811,7 +3907,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1322,
+   "linje": 1340,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -3825,7 +3921,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1325,
+   "linje": 1343,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -3841,7 +3937,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1360,
+   "linje": 1378,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -3857,7 +3953,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1369,
+   "linje": 1387,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -3871,7 +3967,7 @@
   },
   {
    "fil": "src/features/games/football/HoldSide.jsx",
-   "linje": 73,
+   "linje": 82,
    "kolonne": 11,
    "tag": "button",
    "type": "button",
@@ -3885,7 +3981,7 @@
   },
   {
    "fil": "src/features/games/football/HoldSide.jsx",
-   "linje": 109,
+   "linje": 118,
    "kolonne": 13,
    "tag": "button",
    "type": "button",
@@ -5008,7 +5104,7 @@
   },
   {
    "fil": "src/pages/GamePage.jsx",
-   "linje": 101,
+   "linje": 104,
    "kolonne": 11,
    "tag": "Link",
    "type": null,
@@ -5022,7 +5118,7 @@
   },
   {
    "fil": "src/pages/GamePage.jsx",
-   "linje": 139,
+   "linje": 142,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -5036,7 +5132,7 @@
   },
   {
    "fil": "src/pages/GamePage.jsx",
-   "linje": 152,
+   "linje": 155,
    "kolonne": 17,
    "tag": "button",
    "type": null,
@@ -5046,7 +5142,8 @@
    "aktiveret": true,
    "tests": [
     "e2e/platform/tip.spec.js",
-    "e2e/platform/vendtilbage.spec.js"
+    "e2e/platform/vendtilbage.spec.js",
+    "src/pages/GamePageForladt.test.jsx"
    ],
    "renderAntal": 9,
    "status": "roert"
@@ -5113,7 +5210,7 @@
     "e2e/platform/vendtilbage.spec.js",
     "src/pages/GamesPage.test.jsx"
    ],
-   "renderAntal": 7,
+   "renderAntal": 6,
    "status": "roert"
   },
   {
