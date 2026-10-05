@@ -1,12 +1,12 @@
 {
- "generatedAt": "2026-09-28T11:23:03.760Z",
+ "generatedAt": "2026-10-05T11:56:42.880Z",
  "e2eMedregnet": true,
  "renderMaalt": true,
  "totals": {
   "elementer": 449,
   "aktiverede": 184,
   "renderede": 381,
-  "logposter": 790,
+  "logposter": 789,
   "interaktioner": 621,
   "filer": 74
  },
@@ -5210,7 +5210,7 @@
     "e2e/platform/vendtilbage.spec.js",
     "src/pages/GamesPage.test.jsx"
    ],
-   "renderAntal": 6,
+   "renderAntal": 5,
    "status": "roert"
   },
   {
