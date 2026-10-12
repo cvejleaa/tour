@@ -56,8 +56,8 @@ export function faerdigeRunder(matches) {
  *
  * EN MANGLENDE NØGLE ER IKKE NUL. Har en spiller ingen afgjorte tips i runden
  * (nøglen skrives først, når ét tip er afgjort — også med 0, når alt ramte
- * forbi), står han uden for opgørelsen — han skal hverken vinde den eller
- * trække snittet ned. Det følger af, at Number(undefined) er NaN, sammen med
+ * forbi), står han uden for opgørelsen — han kan hverken vinde den eller
+ * tælle med i den. Det følger af, at Number(undefined) er NaN, sammen med
  * kravet om at en vinder skal have mere end nul — så et 0 vinder heller
  * aldrig. Se vagten i løkken.
  *
