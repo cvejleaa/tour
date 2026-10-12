@@ -443,7 +443,7 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     //    tidligere sand: uden scope står pilen som om den fandtes overalt.
     guide();
     const afsnit = screen.getByText(/Rundens point/).closest('li');
-    expect(afsnit.textContent).toMatch(/\(N er den runde, der er i gang\)/);
+    expect(afsnit.textContent).toMatch(/\(N er den seneste runde, nogen har\s+point i\)/);
     expect(afsnit.textContent).toMatch(/placeringen siger, hvem der fører indtil videre/);
     expect(afsnit.textContent).toMatch(/I Samlet: pilen ved din placering/);
     expect(afsnit.textContent).not.toMatch(/hvem der har vundet/);

@@ -281,7 +281,8 @@ export default function FootballHelp({ game }) {
             {' '}<strong>🔥</strong> brænder hos den, der har flest indtil videre — står to lige, brænder
             det hos dem begge. Har hele feltet tabt runden, er der ingen ild. En <strong>–</strong>
             {' '}betyder, at du ikke har point i runden endnu.
-            {' '}Med knappen <strong>Runde N</strong> over podiet (N er den runde, der er i gang) ser
+            {' '}Med knappen <strong>Runde N</strong> over podiet (N er den seneste runde, nogen har
+            point i) ser
             du runden alene: sorteret efter rundens point, og placering og point fra Samlet står med
             småt under. Dér er der hverken pil eller 🔥 — placeringen siger, hvem der fører indtil
             videre — og <strong>Samlet</strong> bringer dig tilbage.
