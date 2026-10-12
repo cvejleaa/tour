@@ -432,6 +432,23 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     expect(afsnit.textContent).not.toMatch(/ved siden af totalen/);
   });
 
+  it('knappen-sætningen binder N til den igangværende runde, kalder rundevisningen foreløbig — og sætter pilen i Samlet', () => {
+    // Test Manager: tre ord i sætningen kunne ændres uden at noget blev rødt
+    // (mutationstestet). De er ikke pynt:
+    //  - «N er den runde, der er i gang» er det, der holder N fra at blive læst
+    //    som en valgfri runde (testen ovenfor forbyder kun ordene «tidligere»);
+    //  - «hvem der fører indtil videre» er hvad der gør rundevisningen foreløbig,
+    //    ligesom 🔥 — «har vundet» ville modsige afsnittets egen «levende»;
+    //  - «I Samlet: pilen» er det, der gør «hverken pil eller 🔥» to sætninger
+    //    tidligere sand: uden scope står pilen som om den fandtes overalt.
+    guide();
+    const afsnit = screen.getByText(/Rundens point/).closest('li');
+    expect(afsnit.textContent).toMatch(/\(N er den runde, der er i gang\)/);
+    expect(afsnit.textContent).toMatch(/placeringen siger, hvem der fører indtil videre/);
+    expect(afsnit.textContent).toMatch(/I Samlet: pilen ved din placering/);
+    expect(afsnit.textContent).not.toMatch(/hvem der har vundet/);
+  });
+
   it('siger hvad en streg betyder — og lover ALDRIG et nul', () => {
     // Et 0 kan ikke leveres: serveren springer nul-værdier over, så den der
     // ramte alt forbi, er umulig at skelne fra den der ikke tippede. Lovede

@@ -10,7 +10,7 @@
 // begrundelsen for den beslutning heller ikke.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { KOLONNER } from './stillingsbredde.mjs';
+import { KOLONNER, UDGAVER } from './stillingsbredde.mjs';
 
 const kilde = readFileSync(`${process.cwd()}/src/features/games/GameStandings.jsx`, 'utf8');
 
@@ -40,6 +40,29 @@ describe('stillingsbredde.mjs spejler stillingsrækken', () => {
     expect(iEgenCelle, 'RundeCelle har fået sin egen <td> — mål bredden igen (scripts/stillingsbredde.mjs)')
       .toBe(false);
     expect(krop).toContain('<RundeCelle');
+  });
+
+  it('rundevisningens celle har samme FORM i harnesset som i Row — ud over tallene', () => {
+    // Test Manager: harnesset bærer en HÅNDSKREVET kopi af rundevisningens to
+    // tekster («+17,6» og «nr. 13 samlet · 1.234,5»), og ingen vagt bandt dem
+    // til Row. Gjorde man Row's linje dobbelt så lang, stod målingen «5 px
+    // overløb ved 320 px» stadig — om en celle, der ikke findes længere. Mutationen
+    // overlevede hele suiten; den her er rød af den.
+    const krop = rowKrop();
+    const skabelon = krop.match(/`(nr\. \$\{r\.samletRank\} samlet[^`]*)`/);
+    expect(skabelon, 'fandt ikke «nr. N samlet»-linjen i Row — er rundevisningen omskrevet?').not.toBeNull();
+    const script = readFileSync(`${process.cwd()}/scripts/stillingsbredde.mjs`, 'utf8');
+    const harnes = script.match(/<div class="c-under">(nr\. [^<]*)<\/div>/);
+    expect(harnes, 'fandt ikke rundevisningens linje i harnesset').not.toBeNull();
+    // Form = teksten med udtryk og tal erstattet af #: «nr. # samlet · #».
+    const form = (s) => s.replace(/\$\{[^}]*\}/g, '#').replace(/\d[\d.,]*/g, '#');
+    expect(form(harnes[1]), 'harnessets linje og Row\'s linje er ikke længere samme tekst — mål bredden igen')
+      .toBe(form(skabelon[1]));
+    // Det store tal er fortegnsmærket (+17,6): Row skal formatere det på samme måde.
+    expect(krop).toContain('fmtSignedPoints(r.rundePoint)');
+    expect(script).toMatch(/'rundevisning' \? '\+\d+,\d'/);
+    // Og udgaven bliver faktisk MÅLT: en tekst i scriptet, der aldrig køres, beviser intet.
+    expect(UDGAVER).toContain('rundevisning');
   });
 
   it('listen har stadig INGEN .table-wrap — forudsætningen for hele målingen', () => {

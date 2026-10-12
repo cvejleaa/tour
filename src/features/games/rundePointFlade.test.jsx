@@ -448,6 +448,8 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(t).toMatch(/Rækkefølgen er foreløbig — runden er ikke færdigspillet\./);
     expect(t).toMatch(/Det lille tal er placering og point i Samlet\./);
     expect(t).toMatch(/Stregen – betyder ingen point i runden endnu\./);
+    // Erik fører — så siges det IKKE, at ingen fører.
+    expect(t).not.toMatch(/Ingen fører runden/);
     // Det, der IKKE må stå i rundevisningen (QC på planen).
     // «færdigspillet» rummer «pil» — derfor ordgrænser på de korte ord.
     expect(t).not.toMatch(/ved siden af|under totalen|🔥|\buge\b|\bpil(en)?\b|samlede total|tidligere|[▲▼]/i);
@@ -489,6 +491,8 @@ describe('vælgeren Samlet / Runde N', () => {
     // Dorte har intet tal: begge streger, og titlen er den anden.
     expect(within(raekkeFor('Dorte')).getAllByTitle('Ingen point i runden endnu')).toHaveLength(2);
     expect(linje().textContent).toMatch(/– betyder ingen point i runden endnu/);
+    // Og linjen siger selv, hvorfor Carl ingen rang har — en title findes ikke på en telefon.
+    expect(linje().textContent).toMatch(/Ingen fører runden endnu: ingen er over nul, så ingen har en rang\./);
   });
 
   it('klar:false er urangeret, viser badget og ALDRIG et tal fra den afviste vektor', () => {
@@ -557,5 +561,127 @@ describe('vælgeren Samlet / Runde N', () => {
     // Tre spillere → alle på podiet, ingen tabel — men podiet er rundens igen.
     expect(screen.queryByRole('table')).toBeNull();
     expect(screen.getByText('+60 p')).toBeInTheDocument();
+  });
+
+  // ---- Test Manager: fire huller i vælgeren, fundet ved mutation af GameStandings.jsx ----
+  // Hver test nedenfor er rød uden den linje, den binder (se kommentaren pr. test).
+  // Mutationerne, de dræber: Samlet-knappens onClick tom · Pokaler rows={viste} ·
+  // meRow = raekker.find · rundeFaerdig = «nogen runde er færdig».
+
+  it('«Samlet» bringer dig tilbage: Samlet-orden, ilden og Samlet-linjen er tilbage — og «Runde 8» virker igen bagefter', () => {
+    // Binder Samlet-knappens egen onClick. Ingen af de andre tests trykker på
+    // den (de læser kun dens aria-pressed), så den kunne gøres til en tom
+    // funktion med hele suiten grøn — og knappen i guiden, «Samlet bringer dig
+    // tilbage», ville være en løgn. Fladevagten tæller kun klik, og har samme
+    // fund: ét urørt element.
+    const { container } = vis({ standings: FELT() });
+    fireEvent.click(knap('Runde 8'));
+    expect(tabelNavne()).toEqual(['Mig', 'Carl', 'Anne']); // rundevisningen ER vist, før vi trykker
+    fireEvent.click(knap('Samlet'));
+
+    expect(knap('Samlet')).toHaveAttribute('aria-pressed', 'true');
+    expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'false');
+    expect(tabelNavne()).toEqual(['Dorte', 'Mig', 'Erik']);
+    const guld = podiePlads(container, 1);
+    expect(guld.querySelector('.podium__name').textContent).toBe('Anne');
+    expect(guld.querySelector('.podium__pts').textContent).toBe('60 p');
+    // Ilden og Samlet-linjen er tilbage; intet af rundevisningens «nr. N samlet».
+    expect(foerendeNavne()).toEqual(['Erik']);
+    // (linje() finder kun rundevisningens «Runde 8 alene» — Samlet-linjen har
+    // kolon lige efter tallet, så den slås op på sin egen tekst.)
+    expect(screen.getByText(/^Runde 8: tallet under totalen er rundens point\./)).toBeInTheDocument();
+    expect(screen.queryByText(/^Runde 8 alene/)).toBeNull();
+    expect(container.textContent).not.toMatch(/nr\. \d+ samlet/);
+
+    fireEvent.click(knap('Runde 8'));
+    expect(tabelNavne()).toEqual(['Mig', 'Carl', 'Anne']);
+  });
+
+  it('pokalerne står fast, når man trykker på knappen — Rundekongens navne og Chance-kongens «Bedst:» skifter ikke', () => {
+    // Binder `<Pokaler rows={raekker}>` (og ikke `viste`). Mig (Samlet nr. 5) og
+    // Erik (nr. 6) er LIGE i alt, pokalerne måler: lige mange point i runde 8
+    // (de deler rundesejren) og samme Chance-saldo. Pokalerne tager rækkernes
+    // orden, når to er lige: Samlet-orden giver Mig, Erik. Rundevisningen
+    // sorterer lige point alfabetisk — Erik, Mig. Fik Pokaler den omsorterede
+    // liste, skiftede «Bedst: Mig» til «Bedst: Erik» og «Mig, Erik (delt)» til
+    // «Erik, Mig (delt)» ved et tryk på en knap, der ikke handler om pokalerne.
+    const felt = raekker({ u5: { 8: 20 }, me: { 8: 20 }, u4: { 8: 4 } })
+      .map((r) => (r.uid === 'me' || r.uid === 'u5' ? { ...r, opdeling: { chance: 5 } } : r));
+    const { container } = vis({ standings: felt, matches: [{ round: 8, result: '1' }] });
+    const kort = (titel) => screen.getByText(new RegExp(titel)).closest('.card').textContent;
+    const podieNavne = () => [...container.querySelectorAll('.podium__name')].map((n) => n.textContent);
+
+    expect(kort('Rundekongen')).toMatch(/Mig, Erik.*1 rundesejr.*\(delt\)/);
+    expect(kort('Chance-kongen')).toMatch(/Bedst: Mig/);
+    const foer = [kort('Rundekongen'), kort('Chance-kongen')];
+    // Samlet: podiet er Samlet-podiet — i visuel orden 2 · 1 · 3 (vinderen i midten).
+    expect(podieNavne()).toEqual(['Bo', 'Anne', 'Carl']);
+
+    fireEvent.click(knap('Runde 8'));
+    // Beviser at rundevisningen faktisk er vist (ellers er sammenligningen
+    // tom): lige point sorteres alfabetisk, så Erik står FØR Mig.
+    expect(podieNavne()).toEqual(['Erik', 'Mig', 'Dorte']);
+    expect(tabelNavne()).toEqual(['Anne', 'Bo', 'Carl']);
+    expect(kort('Rundekongen')).toBe(foer[0]);
+    expect(kort('Chance-kongen')).toBe(foer[1]);
+
+    fireEvent.click(knap('Samlet'));
+    expect(kort('Rundekongen')).toBe(foer[0]);
+    expect(kort('Chance-kongen')).toBe(foer[1]);
+  });
+
+  it('tager jeg selv runden, men er nr. 5 samlet, står jeg på podiet — og ikke også nederst i listen', () => {
+    // Binder `meRow = viste.find(…)` (og ikke raekker.find). Med Samlet-rækken
+    // er meRow.rank 5 (> 3), mens jeg ikke står i listen (jeg er på podiet) —
+    // og så tegnes min række én gang til som klæbende bundlinje, med «nr.
+    // undefined samlet». Det er netop den situation, knappen findes til: jeg
+    // er langt nede samlet, men vandt ugen.
+    const { container } = vis({ standings: raekker({ me: { 8: 30 }, u5: { 8: 20 }, u4: { 8: 12.3 }, u2: { 8: 4 } }) });
+    fireEvent.click(knap('Runde 8'));
+    expect(podiePlads(container, 1).querySelector('.podium__name').textContent).toBe('Mig');
+    expect(tabelNavne()).toEqual(['Bo', 'Anne', 'Carl']);
+    expect(container.querySelectorAll('.rank-row--me')).toHaveLength(0);
+    expect(screen.getAllByText('Mig')).toHaveLength(1);
+  });
+
+  it('«ikke færdigspillet» gælder DEN runde — en tidligere færdig runde gør ikke runde 8 færdig', () => {
+    // I produktion er alle tidligere runder færdige, mens den igangværende ikke
+    // er. Testen ovenfor har kun runde 8-kampe og kan derfor ikke se, om
+    // betingelsen spørger «er DENNE runde færdig» eller «er NOGEN runde
+    // færdig» (rundeFaerdig = faerdigeRunder(matches).length > 0).
+    const kampe = [
+      { round: 7, result: '1' }, { round: 7, result: '2' },
+      { round: 8, result: '1' }, { round: 8, result: null },
+    ];
+    vis({ standings: FELT(), matches: kampe });
+    fireEvent.click(knap('Runde 8'));
+    expect(linje().textContent).toMatch(/ikke færdigspillet/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// «IKKE KLAR» I SAMLET (Test Manager). Badget blev flyttet ud i komponenten
+// IkkeKlar, så det kan stå begge steder: som hovedtal i Samlet og som det lille
+// tal i rundevisningen. Rundevisningens brug er testet ovenfor; Samlets brug
+// blev ikke rørt af nogen render-test, hverken før eller efter. Erstattes den
+// med `formatPoints(r.totalPoints)`, er hele suiten grøn — og så står en spiller
+// uden stemmende vektor med «0» (det tal ligaRanking giver hende), præcis den
+// løgn, badget findes for.
+// ---------------------------------------------------------------------------
+describe('«ikke klar» i Samlet — badget, aldrig et nul', () => {
+  it('en klar:false-række viser badget med forklaringen, rangen er – og totalen er ikke 0', () => {
+    // Som ligaRanking leverer rækken: klar:false, rank:null, totalPoints:0.
+    const felt = raekker({ u4: { 8: 5 }, me: { 8: 2 } })
+      .map((r) => (r.uid === 'u3' ? { ...r, klar: false, rank: null, totalPoints: 0 } : r));
+    vis({ standings: felt });
+    const carl = within(tabel()).getByText('Carl').closest('tr');
+    const celler = [...carl.querySelectorAll('td')].map((td) => td.textContent.trim());
+    expect(celler[0]).toBe('–');
+    const badge = within(carl).getByText('ikke klar');
+    expect(badge).toHaveClass('badge', 'badge--muted');
+    // Forklaringen siger, hvad man kan GØRE ved det — den findes ikke på en telefon som andet end title.
+    expect(badge).toHaveAttribute('title', expect.stringMatching(/ikke beregnet endnu.*Genberegn point/));
+    expect(celler[2]).toMatch(/^ikke klar/);
+    expect(celler[2]).not.toMatch(/^0/);
   });
 });

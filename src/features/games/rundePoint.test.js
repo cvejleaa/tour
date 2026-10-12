@@ -330,4 +330,42 @@ describe('rundeRanking — rundens stilling', () => {
     expect(rundeRanking([], 8)).toEqual([]);
     expect(rundeRanking(null, 8)).toEqual([]);
   });
+
+  // ---- Test Manager: tre mutationer, der overlevede de tests ovenfor ----------
+  // (fandt dem ved at mutere rundePoint.js; hver test nedenfor er rød uden sin linje)
+
+  it('et tal fra en AFVIST vektor (klar:false) tæller ikke som rundens bedste', () => {
+    // Anne er klar:false med +9 i vektoren; Bo er klar og i minus. Regnes
+    // «bedste» af alle rækker i stedet for dem med et tal (rundensBedste(rows)
+    // i stedet for rundensBedste(medTal)), tæller Annes 9 med — og Bo får
+    // «1.» ved et minus, præcis det fejlbillede nul-fører-ikke findes for at
+    // forhindre. De øvrige klar:false-tests har alle en klar med et POSITIVT
+    // tal, så de to veje gav samme svar.
+    const ud = rundeRanking([
+      row('a', 'Anne', 1, { 8: 9 }, { klar: false }),
+      row('b', 'Bo', 2, { 8: -1 }),
+    ], 8);
+    expect(ud.map((x) => [x.uid, x.rank, x.rundePoint])).toEqual([['b', null, -1], ['a', null, null]]);
+  });
+
+  it('urangerede sorteres DANSK og efter navn — Å til sidst, ikke uid-orden og ikke engelsk orden', () => {
+    // Samme sprog som rankStandings (localeCompare(…, 'da')). uid-orden her er
+    // a < b < c < d og giver Åse, Zara, Anne, Øjvind; engelsk orden giver
+    // Anne, Åse, Øjvind, Zara. Kun dansk navne-orden giver dette svar.
+    const ud = rundeRanking([
+      row('a', 'Åse', 1, null), row('b', 'Zara', 2, null),
+      row('c', 'Anne', 3, null), row('d', 'Øjvind', 4, null),
+    ], 8);
+    expect(ud.map((x) => x.name)).toEqual(['Anne', 'Zara', 'Øjvind', 'Åse']);
+  });
+
+  it('uafgjort på rundens point: NAVNET afgør rækkefølgen — ikke uid og ikke input-rækkefølgen', () => {
+    // Zara står først i input og har det laveste uid; kun navnet stiller Anne
+    // foran. «rækkefølgen af input er ligegyldig» ovenfor har navne og uid i
+    // SAMME orden (Anne=a … Frede=f), så en tiebreak på uid var ikke til at
+    // se — og den stabile sort gør en helt manglende tiebreak lige så usynlig,
+    // når input allerede ligger alfabetisk.
+    const ud = rundeRanking([row('a', 'Zara', 1, { 8: 5 }), row('z', 'Anne', 2, { 8: 5 })], 8);
+    expect(ud.map((x) => [x.name, x.rank])).toEqual([['Anne', 1], ['Zara', 1]]);
+  });
 });

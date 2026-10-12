@@ -659,6 +659,10 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                 {!rundeFaerdig && ' Rækkefølgen er foreløbig — runden er ikke færdigspillet.'}
                 {' '}Det lille tal er placering og point i Samlet.
                 {viste.some((r) => r.rundePoint == null) && ' Stregen – betyder ingen point i runden endnu.'}
+                {/* Fredag aften med én tabt Chance: tal, men ingen rang — og en
+                    title findes ikke på en telefon, så linjen siger det selv. */}
+                {foerende.size === 0 && viste.some((r) => r.rundePoint != null)
+                  && ' Ingen fører runden endnu: ingen er over nul, så ingen har en rang.'}
               </>
             ) : (
               <>
