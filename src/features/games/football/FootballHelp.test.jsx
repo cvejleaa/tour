@@ -432,11 +432,13 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     expect(afsnit.textContent).not.toMatch(/ved siden af totalen/);
   });
 
-  it('knappen-sætningen binder N til den igangværende runde, kalder rundevisningen foreløbig — og sætter pilen i Samlet', () => {
+  it('knappen-sætningen binder N til den seneste runde med et afgjort tip, kalder rundevisningen foreløbig — og sætter pilen i Samlet', () => {
     // Test Manager: tre ord i sætningen kunne ændres uden at noget blev rødt
     // (mutationstestet). De er ikke pynt:
-    //  - «N er den runde, der er i gang» er det, der holder N fra at blive læst
-    //    som en valgfri runde (testen ovenfor forbyder kun ordene «tidligere»);
+    //  - «N er den seneste runde med et afgjort tip» er det, der holder N fra
+    //    at blive læst som en valgfri runde (testen ovenfor forbyder kun ordene
+    //    «tidligere») — og fra at blive læst som «den runde, der er i gang»,
+    //    for fredag før første afgjorte kamp er N stadig sidste uges runde;
     //  - «hvem der fører indtil videre» er hvad der gør rundevisningen foreløbig,
     //    ligesom 🔥 — «har vundet» ville modsige afsnittets egen «levende»;
     //  - «I Samlet: pilen» er det, der gør «hverken pil eller 🔥» to sætninger
@@ -460,6 +462,8 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     const afsnit = screen.getByText(/Rundens point/).closest('li');
     expect(afsnit.textContent).toMatch(/betyder,\s*at ingen af dine tips i runden er afgjort endnu/i);
     expect(afsnit.textContent).toMatch(/har du ramt forbi, står\s+der 0/i);
+    // QC: «står der 0» er forkert for en tabt Chance — den står som minus.
+    expect(afsnit.textContent).toMatch(/der 0 \(eller minus, hvis du tabte Chancen\)/);
     expect(afsnit.textContent).not.toMatch(/ikke har point i runden endnu/i);
     expect(afsnit.textContent).not.toMatch(/ikke tippet|deltog ikke|ingen point i runden/i);
   });

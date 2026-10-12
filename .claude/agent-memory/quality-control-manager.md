@@ -257,6 +257,19 @@ PR-teksten, ikke her.
   for den GAMLE forklaring ordret (guide-sætninger som "(N er den seneste
   runde, nogen har point i)"), ikke kun fraværs-assertions.
 
+- **Omdøber du en title/tekst, så grep testenes FRAVÆRS-regexer på den gamle
+  ordlyd** (`queryByTitle(/Ingen point i runden/)).toBeNull()`): de bliver
+  tavst døde, når teksten skifter — mutationstestet: vagten mod title på en
+  `klar:false`-streg kunne fjernes med grøn suite. Samme sweep for kommentarer,
+  der citerer den gamle regel ("serveren springer nul over", fil:linje).
+- **En ny tekst om en samlet kreds ("hele feltet …") skal efterprøves mod
+  kredsens RANDTILFÆLDE**: dem med "–" (intet tal endnu) er ikke ramt forbi.
+  Skriv kredsen ind i sætningen ("alle med et afgjort tip …").
+- **Deploy-workflowet rækkefølge er hosting+regler → functions (valgfrit
+  flueben, default FRA) i ét job** — "server før tekst" kan ikke opnås inden for
+  én kørsel, og den virkelige gap er til genberegn (knap pr. fodboldspil), ikke
+  de få minutter mellem trinene. Sig det, og peg på flueben + genberegn pr. spil.
+
 - **En markør, der fjernes "fordi rækkefølgen siger det", kan have båret en
   KVALIFIKATOR** (🔥 = "indtil videre"). Flyt kvalifikatoren til tekst, før
   markøren fjernes — ellers læses en levende førsteplads som endelig, lige

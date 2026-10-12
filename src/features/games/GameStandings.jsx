@@ -45,12 +45,12 @@ const ALLE = '__alle__';
  * to skal sige det samme. Skrev man dem hver for sig, ville den ene få
  * kronen og den anden ikke, første gang reglen ændrede sig.
  *
- * `–` BETYDER "INGEN POINT I RUNDEN ENDNU", ikke "deltog ikke". De to kan
- * ikke skelnes: serveren springer nul-værdier over, når runde-vektoren bygges
- * (functions-platform/pointOpdeling.js:339), så den, der ramte alt forbi, får
- * ingen nøgle. At vise 0 ville anklage den, der glemte at tippe, for noget
- * andet end det, der skete. Derfor samme streg for begge, og en title der
- * siger sandheden.
+ * `–` BETYDER "INGEN AFGJORTE TIPS I RUNDEN ENDNU". Serveren skriver rundens
+ * nøgle, så snart ét tip er afgjort — også med 0, når alt ramte forbi
+ * (functions-platform/pointOpdeling.js, laegTil). Ingen nøgle betyder derfor
+ * ikke "deltog ikke", men "intet facit på dine tips endnu": den, der tippede
+ * en kommende runde, og den, der aldrig tippede, får samme streg — før kickoff
+ * må de to ikke kunne skelnes. Et forbier står som 0 (rundeTal).
  *
  * INGEN FARVE PÅ ET LAVT TAL. Farve er en dom, cifre er en kendsgerning.
  * Rødt på bunden ville gøre en ugentlig aflæsning til en kæp — se den samme
@@ -675,7 +675,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                     ikke på en telefon, så linjen siger det selv. Spilførers ord:
                     det er drillestof, ikke en fejlmelding. */}
                 {foerende.size === 0 && viste.some((r) => r.rundePoint != null)
-                  && ' Hele feltet har ramt forbi indtil videre: ingen er over nul, så ingen har en rang.'}
+                  && ' Alle med et afgjort tip har ramt forbi indtil videre: ingen er over nul, så ingen har en rang.'}
               </>
             ) : (
               <>

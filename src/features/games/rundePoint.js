@@ -31,7 +31,8 @@
  */
 
 /**
- * Den seneste runde, nogen i feltet har point fra.
+ * Den seneste runde, nogen i feltet har et afgjort tip i — nøglen findes, så
+ * snart ét tip er afgjort, også med 0 point (se filens hoved).
  *
  * `UDEN_RUNDE` er ikke en runde — kampe uden rundenummer tæller altid med i
  * totalen, men kan ikke være "rundens" point. Der står IKKE en egen vagt for

@@ -135,8 +135,9 @@ describe('rundens point i stillingen', () => {
   });
 
   it('en spiller uden point i runden viser – og siger HVORFOR', () => {
-    // Stregen betyder "ingen afgjorte tips i runden endnu", IKKE "deltog ikke": de to
-    // kan ikke skelnes, fordi serveren springer nul-værdier over.
+    // Stregen betyder "ingen afgjorte tips i runden endnu", IKKE "deltog ikke": et
+    // forbier står som 0 (nøglen skrives, så snart ét tip er afgjort). Stregen
+    // er kun for den, hvis tips ingen facit har endnu — og den, der ikke tippede.
     vis({ standings: raekker({ u4: { 8: 5 } }) });
     const mig = within(tabel()).getByText('Mig').closest('tr');
     const streg = within(mig).getByText('–');
@@ -448,8 +449,8 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(t).toMatch(/Rækkefølgen er foreløbig — runden er ikke færdigspillet\./);
     expect(t).toMatch(/Det lille tal er placering og point i Samlet\./);
     expect(t).toMatch(/Stregen – betyder ingen afgjorte tips i runden endnu\./);
-    // Erik fører — så siges det IKKE, at hele feltet har ramt forbi.
-    expect(t).not.toMatch(/Hele feltet har ramt forbi|Ingen fører runden/);
+    // Erik fører — så siges det IKKE, at alle har ramt forbi.
+    expect(t).not.toMatch(/har ramt forbi indtil videre|Ingen fører runden/);
     // Det, der IKKE må stå i rundevisningen (QC på planen).
     // «færdigspillet» rummer «pil» — derfor ordgrænser på de korte ord.
     expect(t).not.toMatch(/ved siden af|under totalen|🔥|\buge\b|\bpil(en)?\b|samlede total|tidligere|[▲▼]/i);
@@ -512,7 +513,10 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(within(raekkeFor('Dorte')).getAllByTitle('Ingen afgjorte tips i runden endnu')).toHaveLength(2);
     expect(linje().textContent).toMatch(/– betyder ingen afgjorte tips i runden endnu/);
     // Og linjen siger selv, hvorfor Carl ingen rang har — en title findes ikke på en telefon.
-    expect(linje().textContent).toMatch(/Hele feltet har ramt forbi indtil videre: ingen er over nul, så ingen har en rang\./);
+    expect(linje().textContent).toMatch(/Alle med et afgjort tip har ramt forbi indtil videre: ingen er over nul, så ingen har en rang\./);
+    // IKKE «hele feltet» (QC): Dorte står med – og har ikke ramt noget forbi —
+    // hun har intet afgjort tip. Sætningen må kun tale om dem, der har et tal.
+    expect(linje().textContent).not.toMatch(/[Hh]ele feltet/);
   });
 
   it('klar:false er urangeret, viser badget og ALDRIG et tal fra den afviste vektor', () => {
@@ -527,8 +531,11 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(anne[2]).toMatch(/^–/);
     expect(anne[2]).toMatch(/ikke klar/);
     expect(anne[2]).not.toMatch(/\+9|nr\. 1 samlet/);
-    // Stregerne lover ikke «ingen point i runden» — hun kan have et tal, som er afvist.
-    expect(within(raekkeFor('Anne')).queryByTitle(/Ingen point i runden|Ingen rang/)).toBeNull();
+    // Stregerne lover ikke «ingen afgjorte tips» — hun kan have et tal, som er afvist.
+    // QC: regexen bar den gamle titel («Ingen point i runden») og matchede
+    // ingenting — vagten var død, og klar:false-grenen i IngenRundePoint kunne
+    // fjernes med grøn suite. Den følger nu den titel, der faktisk findes.
+    expect(within(raekkeFor('Anne')).queryByTitle(/Ingen afgjorte tips|Ingen rang/)).toBeNull();
   });
 
   it('klar:false fører heller ikke i Samlet — ilden følger samme regel som rangen', () => {
@@ -574,7 +581,7 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'true');
     fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L2' } });
     expect(screen.queryByRole('group', { name: 'Visning' })).toBeNull();
-    // Visningen er Samlet: ingen streg for «ingen point i runden».
+    // Visningen er Samlet: ingen streg for «ingen afgjorte tips i runden».
     expect(screen.queryByTitle('Ingen afgjorte tips i runden endnu')).toBeNull();
     fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L1' } });
     expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'true');

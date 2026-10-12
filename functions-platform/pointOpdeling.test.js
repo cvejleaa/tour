@@ -90,6 +90,21 @@ describe('opdelPoint', () => {
     expect(res.perRunde).toEqual({ 7: 0 });
   });
 
+  it('nøglen følger FACIT, ikke kickoff: en afgjort kamp med gemt kickoff i fremtiden giver 0-nøgle', () => {
+    // QC: alle andre nul-tests har kickoff i fortiden, hvor taeller() og
+    // maaVises() er enige — så grænsen kunne byttes til maaVises med grøn
+    // suite. Den skal være taeller(): et forkert gemt kickoff må ikke gøre
+    // rundens tal til «–», af samme grund som totalen ikke gates på kickoff
+    // (se maaVises' kommentar i pointOpdeling.js). Rækken (hvem tippede hvad)
+    // holdes stadig ude af kampe — nøglen siger kun «et afgjort tip findes».
+    const roundCtx = ctx([
+      { id: 'm1', round: 7, result: 'X', kickoff: NU + 3_600_000, odds: { 1: 2.5, X: 4, 2: 4 } },
+    ]);
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 0 }], roundCtx, nowMs: NU });
+    expect(res.perRunde).toEqual({ 7: 0 });
+    expect(res.kampe).toHaveLength(0);
+  });
+
   it('0-nøglen står ved siden af rundens rigtige tal — og en ukendt kamp skaber ingen', () => {
     const roundCtx = ctx([
       { id: 'm1', round: 7, result: '1', odds: { 1: 2.5, X: 4, 2: 4 } },
@@ -667,6 +682,14 @@ describe('spejling mod src/lib', () => {
         { id: 'm2', round: 2, result: null, odds: { 1: 4, X: 3.0, 2: 4 } },
       ],
       bets: [{ matchId: 'm1', pick: '1', points: 0 }, { matchId: 'm2', pick: '1', points: 0 }],
+    }],
+    // Grænsen er taeller(), ikke maaVises(): skiftede den ene fil til
+    // maaVises, ville et forbier på en kamp med gemt kickoff i fremtiden
+    // give nøgle i den ene og ingen i den anden. De øvrige tilfælde har alle
+    // kickoff i fortiden og kan ikke se forskel (QC).
+    ['afgjort forbier med gemt kickoff i fremtiden — nøglen følger facit', {
+      matches: [{ id: 'm1', round: 1, result: 'X', kickoff: NU + 3_600_000, odds: { 1: 2.0, X: 4, 2: 4 } }],
+      bets: [{ matchId: 'm1', pick: '1', points: 0 }],
     }],
     // Den nye gren: INTET kuponkrav. Uden dette tilfælde kunne den ene fil
     // begynde at kræve fuld kupon igen, mens den anden ikke gjorde — og
