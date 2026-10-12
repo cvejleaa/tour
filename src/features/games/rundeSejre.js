@@ -54,10 +54,12 @@ export function faerdigeRunder(matches) {
  * NUL VINDER IKKE. Ramte hele feltet forbi i en runde, er der ingen vinder.
  * Ellers ville en runde, alle tabte, uddele en pokal til samtlige deltagere.
  *
- * EN MANGLENDE NØGLE ER IKKE NUL. Deltog en spiller ikke i runden, står han
- * uden for opgørelsen — han skal hverken vinde den eller trække snittet ned.
- * Det følger af, at Number(undefined) er NaN, sammen med kravet om at en
- * vinder skal have mere end nul. Se vagten i løkken.
+ * EN MANGLENDE NØGLE ER IKKE NUL. Har en spiller ingen afgjorte tips i runden
+ * (nøglen skrives først, når ét tip er afgjort — også med 0, når alt ramte
+ * forbi), står han uden for opgørelsen — han kan hverken vinde den eller
+ * tælle med i den. Det følger af, at Number(undefined) er NaN, sammen med
+ * kravet om at en vinder skal have mere end nul — så et 0 vinder heller
+ * aldrig. Se vagten i løkken.
  *
  * @param {Array<{uid:string, perRound:object|null}>} spillere
  * @param {number|null} startRunde  ligaens startrunde; null = hele spillet

@@ -523,8 +523,9 @@ describe('startRound gater på serveren — uden nogen startdato', () => {
 // FORÆLDEDE RUNDENØGLER MÅ IKKE OVERLEVE.
 //
 // QC's fund: perRound blev skrevet med merge:true, som DEEP-merger maps. En
-// rundenøgle, der forsvandt fra den nye vektor — et facit fjernet, en kamp
-// omscoret til 0 — blev stående, og ligaens total indeholdt tavst point,
+// rundenøgle, der forsvandt fra den nye vektor — et facit fjernet (en kamp
+// omscoret til 0 BEHOLDER nu sin nøgle med 0) — blev stående, og ligaens total
+// indeholdt tavst point,
 // spillet ikke længere havde. QC målte det i miniature: spillets total 0,
 // ligaens 3,5. Derfor mergeFields, og derfor denne test.
 // ---------------------------------------------------------------------------
@@ -551,6 +552,33 @@ describe('recalcPlayerTotal — perRound erstattes helt', () => {
     expect(db._players.A.perRound['3']).toBeUndefined();
     expect(db._players.A.perRound[3]).toBeUndefined();
     expect(Number(db._players.A.perRound['4'] ?? db._players.A.perRound[4])).toBe(2);
+    expect(db._players.A.totalPoints).toBe(2);
+  });
+
+  // Test Manager: ledningen mellem opdelPoint og spiller-dokumentet var ubundet.
+  // opdelPoint-testene beviser, at funktionen RETURNERER en 0-nøgle — men det er
+  // `players/{uid}.perRound`, fladen læser. Et filter på `perRound: o.perRunde`
+  // (gameScoring.js, tx.set) kunne smide nullerne væk igen med hele
+  // platform-suiten grøn, og ejerens «–» var tilbage uden at nogen test så det.
+  it('en kamp omscoret til 0 BEHOLDER sin nøgle — med 0: hverken det gamle tal eller væk', async () => {
+    // Facit rettet fra '1' til 'X': A's tip '1' gav 3,5 og giver nu 0. Nøglen skal
+    // stå som 0 (afgjort tip, ramte forbi) — ikke som 3,5 (mergeFields erstatter
+    // hele feltet) og ikke fjernet (så ville fladen vise «–» i stedet for «0»).
+    const KAMPE = [
+      { id: 'r3', round: 3, kickoff: 100, result: 'X', odds: { 1: 2, X: 3, 2: 4 } },
+      { id: 'r4', round: 4, kickoff: 200, result: '1', odds: { 1: 2, X: 3, 2: 4 } },
+    ];
+    const db = makeDb(
+      [
+        { uid: 'A', matchId: 'r3', pick: '1', chanceStake: 0, points: 0 },
+        { uid: 'A', matchId: 'r4', pick: '1', chanceStake: 0, points: 2 },
+      ],
+      KAMPE,
+      {},
+      { A: { totalPoints: 5.5, perRound: { 3: 3.5, 4: 2 } } },
+    );
+    await recomputeAllPlayerTotals(db, FieldValue, 'g1');
+    expect(db._players.A.perRound).toEqual({ 3: 0, 4: 2 });
     expect(db._players.A.totalPoints).toBe(2);
   });
 });

@@ -58,8 +58,13 @@ describe('stillingsbredde.mjs spejler stillingsrækken', () => {
     const form = (s) => s.replace(/\$\{[^}]*\}/g, '#').replace(/\d[\d.,]*/g, '#');
     expect(form(harnes[1]), 'harnessets linje og Row\'s linje er ikke længere samme tekst — mål bredden igen')
       .toBe(form(skabelon[1]));
-    // Det store tal er fortegnsmærket (+17,6): Row skal formatere det på samme måde.
-    expect(krop).toContain('fmtSignedPoints(r.rundePoint)');
+    // Det store tal er fortegnsmærket (+17,6): Row skal formatere det på samme
+    // måde — gennem rundeTal, som kun afviger ved præcis nul («0», ikke «+0»,
+    // og smallere end det målte +17,6). Vagten følger helperen hele vejen:
+    // bytter Row til en anden formatering, eller holder rundeTal op med at
+    // bruge fmtSignedPoints, er målingen om en tekst, der ikke findes.
+    expect(krop).toContain('rundeTal(r.rundePoint)');
+    expect(kilde).toMatch(/function rundeTal\(p\) \{\s*return p === 0 \? '0' : fmtSignedPoints\(p\);/);
     expect(script).toMatch(/'rundevisning' \? '\+\d+,\d'/);
     // Og udgaven bliver faktisk MÅLT: en tekst i scriptet, der aldrig køres, beviser intet.
     expect(UDGAVER).toContain('rundevisning');

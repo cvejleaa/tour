@@ -97,7 +97,9 @@ har en startrunde.
 (helt tal >= 1, valideret i firestore.rules; kun ejeren skriver) gør, at kun
 runder fra den og frem tæller i ligaens stilling. Grundlaget er
 `players/{uid}.perRound` — spillerens point pr. runde inkl. rundens combi,
-skrevet af `recalcPlayerTotal` sammen med totalen — og summen lægges af
+skrevet af `recalcPlayerTotal` sammen med totalen; en runde står med, så snart
+ét af spillerens tips i den er afgjort, også med 0, mens en runde uden afgjorte
+tips har ingen nøgle — og summen lægges af
 `ligaPoint` (spejlet src/lib ⇄ functions-platform). Puljebonussen tæller kun
 for ligaer med startrunde <= `PULJE_MAKS_STARTRUNDE` (3): den tippes før
 sæsonen, så senere medlemmer kunne ikke være med. Saldoen (banken for Chancen)

@@ -1513,3 +1513,56 @@ mere pålidelig end sed. `pkill -f` på løberen dræber også baggrundsshellen 
 EFTERLADER en mutation i kildefilen — kør altid `git status` og gendan bagefter.
 Fladevagt: `EVNE_LOG=<abs sti>/.evne-log npm run test:coverage` + `node scripts/flade-vagt.mjs`
 (236 filer, 3373 tests, vagt grøn efter de nye klik).
+
+## 0-nøglen i `perRound`: afgjort forbier = 0, ikke "intet" (commits 45a1b37 + 9e713df, 12/10 2026)
+
+~60 mutationer (server 13, spejl 8, flade 21, guide 10, ledning 2, ekstra 6). 5 overlevede
+og er nu dræbt af 5 nye tests (`/…/scratchpad/tm-nul2.patch`); resten var røde første gang.
+
+1. **Et spejl uden klientforbruger er KUN bundet af paritetstabellen.** Hele frontend-suiten
+   (3378 tests) er grøn, hvis `src/lib/pointOpdeling.js` ELLER begge spejle springer nul
+   over igen — `opdelPoint().perRunde` læses aldrig i `src/` uden for `ligaPoint.test.js`
+   (som kun summerer). Det er i orden, fordi `functions-platform/pointOpdeling.test.js`
+   «spejling mod src/lib» bliver rød (3 grene) og kører i CI-jobbet «Functions» — men
+   flytter nogen paritetstesten eller sletter tabellens nye rækker, er klient-spejlet ubevist.
+   Tjek ved nye grene i opdelPoint: dræb dem i SPEJLET alene mod functions-platform-suiten.
+2. **Ledningen mellem en ren funktion og dokumentet er et eget led.** `perRound: o.perRunde`
+   (gameScoring.js, tx.set) kunne filtrere nuller fra med hele platform-suiten grøn, fordi
+   alle opdelPoint-tests kalder funktionen direkte. Bundet nu af en `recomputeAllPlayerTotals`-
+   test, der læser `db._players.A.perRound` (`toEqual({3: 0, 4: 2})`). Gælder ALLE
+   "funktionen returnerer X"-ændringer: spørg hvilken test læser det, der faktisk GEMMES.
+3. **Et nul-tal skal testes som +0, −0 og i HVER visning, tallet står.** `p === 0 ? '0' :
+   fmtSignedPoints(p)` (GameStandings.rundeTal) stod tre steder; render-testen havde nullet
+   på podiet, aldrig i LISTEN (Row), så Row kunne gå tilbage til «+0» — kun en
+   kildetekst-test (`scripts/stillingsbredde.test.mjs`, regex på koden) så det. Og `Object.is(p,0)`
+   overlevede, fordi ingen test brugte −0. −0 er ægte: `round1(−0,04)` er −0, Firestore Admin
+   SDK gemmer negativt nul som double (`serializer.js:93-101`, `isNegativeZero`), og
+   `fmtSignedPoints(−0)` = «+0» (`Number(-0) || 0` → 0). Kør MUTATIONERNE UDEN kildetekst-
+   tests (`MED_SB`-flaget i spec'en) for at se, hvad render-suiten alene fanger.
+4. **«Nyeste runde» uden et ikke-nul tal.** `sidsteRunde` kunne springe nul-nøgler over (gammel
+   semantik) uden at nogen test blev rød: alle fixtures havde et ikke-nul tal i den seneste
+   runde. Fixture skal have en runde, hvis EGET højeste tal er 0 (fredag efter første afgjorte
+   kamp) — og så vise «Runde 9», ikke «Runde 8».
+5. **En linjes andet led kan være ubevist.** `foerende.size === 0 && viste.some(rundePoint != null)`:
+   det andet led overlevede, fordi den eneste vej til en rundevisning UDEN et eneste tal er
+   «alle rækker klar:false» (sidsteRunde læser ikke `klar`). Fixture: alle rækker `klar:false`.
+6. **Ækvivalente (jagt dem ikke igen):** `laegTil`s default `afgjort = false` → `true`
+   (combiPerRunde skriver kun `if (b)`, så v er altid truthy); `+ v` → `+ (v || 0)`
+   (v er altid et tal); `Number(v)` → `typeof v === 'number'` i rundensPoint (Firestore leverer
+   tal; kun en `null`-værdi ville skille dem ad, og serveren skriver aldrig null).
+7. **Guide-tekst:** alle 10 ord-mutationer røde (en enkelt test med `.not.toMatch` på de
+   forbudte ord + positive regexes bærer det). MEN: afsnittets FØRSTE sætning siger stadig
+   «hvad du har hentet i den runde, der er i gang» (FootballHelp.jsx:278-279) lige over
+   «N er den seneste runde med et afgjort tip» — testens egen kommentar (linje ~440) kalder
+   netop «den runde, der er i gang» en fejllæsning. Ikke asserteret af nogen. Meldt som fund.
+8. **Docs-drift har ingen test:** hverken `docs/drift.md`-rækken eller `docs/architecture.md`-
+   sætningen læses af en test (kun `roller.test.mjs` bruger stierne som input). Hvis koden igen
+   sprang nul over, stod docs som de er. Information, ikke en mangel ved denne PR.
+
+Værktøj denne gang: heredocs afvises FORETRUKKET når teksten indeholder visse ord/mønstre
+(uforudsigeligt) — `cp` en eksisterende spec + Edit virker altid. `pkill -f "<sti>/mut.mjs"`
+rammer også den shell, der kører pkill (exit 144) — dræb på PID eller vent. Løberen har et
+exit/SIGTERM-net, men en mutation kan alligevel stå i træet, mens en baggrundskørsel
+kører: `git status` først, rør ikke worktree'en (heller ikke testfiler) mens løberen kører.
+Hele frontend-suiten tager ~135 s pr. kørsel — brug den kun til de mutationer, hvor
+de nærmeste filer overlever.

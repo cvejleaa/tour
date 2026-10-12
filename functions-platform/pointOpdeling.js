@@ -335,14 +335,25 @@ function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs = Date.n
   // `foerStart` rører aldrig en kamp uden runde, for `null < n` og
   // `undefined < n` svarer ikke ens, og en kamp må ikke miste sine point på
   // en tvetydighed.
+  //
+  // ET AFGJORT TIP MED 0 POINT SKRIVER NØGLEN MED 0. Før sprang `laegTil` alle
+  // nul-værdier over, så den, der ramte hele runden forbi, fik ingen nøgle og
+  // kunne ikke skelnes fra den, der aldrig tippede — og rundestillingen satte
+  // ham nederst, under en tabt Chance (ejerens fund 12/10 2026). Grænsen er
+  // AFGJORT (kampen har facit), ikke «tippet»: et uafgjort tip giver stadig
+  // ingen nøgle, for ellers blev en kommende runde «rundens» dage før kickoff,
+  // og nøglen ville afsløre, at man har tippet, før tips er synlige. Betydning
+  // for ALLE læsere: et tal (også 0) = mindst ét afgjort tip i runden; ingen
+  // nøgle = ingen afgjorte tips endnu. Combi-bidraget er uændret.
   const perRunde = {};
-  const laegTil = (noegle, v) => {
-    if (!v) return;
+  const laegTil = (noegle, v, afgjort = false) => {
+    if (!v && !afgjort) return;
     perRunde[noegle] = (perRunde[noegle] || 0) + v;
   };
   for (const b of bets) {
-    const r = byMatch[b.matchId]?.round;
-    laegTil(Number.isFinite(r) ? String(r) : 'uden', Number(b.points) || 0);
+    const info = byMatch[b.matchId];
+    const r = info?.round;
+    laegTil(Number.isFinite(r) ? String(r) : 'uden', Number(b.points) || 0, taeller(info));
   }
   for (const [r, v] of combiPerRunde(afgjorte, roundCtx)) laegTil(String(r), v);
   for (const k of Object.keys(perRunde)) perRunde[k] = round1(perRunde[k]);

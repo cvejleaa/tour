@@ -20,6 +20,11 @@
   2026-09-03: `/home/user/tour/functions/node_modules/@firebase/rules-unit-testing`).
   En tidligere note her sagde det modsatte — den var forkert eller forældet;
   `find / -type d -name rules-unit-testing` er svaret, ikke hukommelsen.
+  **2026-10-12 fandtes HVERKEN jar'en, firebase-CLI'en eller
+  `functions/node_modules`** (find over hele / gav intet). Miljøet varierer pr.
+  session — tjek først, og er en ren kerne det eneste, diffen rører, så er
+  et før/efter-script over `git show <base>:fil` i scratchpad nok (se RENT,
+  perRound-0-nøglen).
   Alternativ vej, hvis den mangler:
   `npm install --no-save --prefix <scratchpad>/poc @firebase/rules-unit-testing firebase`
   (~23 s gennem proxyen), `package.json` med `"type":"module"`, og kør PoC'en som
@@ -894,6 +899,22 @@
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
 
+- **perRound-0-nøglen (45a1b37, 2026-10-12): `laegTil` skriver nøglen med 0,
+  når `taeller(info)` er sand. RENT, ikke blokerende.** Før/efter-PoC (gammel
+  fil via `git show d93f641:…` i scratchpad + `superligaScoring.js` ved siden
+  af, samme input til begge): (a) uafgjort tip — kommende, i gang, med
+  Chance, `result:''` — giver INGEN nøgle før og efter; (b) fjendtlige
+  `points` (`'0'`, NaN, null, `'abc'`, `[]`, `{}`, −0) på et AFGJORT tip giver
+  nu `{r:0}` — nøglen afgøres af kampens facit, ikke af bettet, og værdien er
+  0 → `ligaPoint` uændret; Infinity gav `{r:0}`/total 0 også FØR (`round1`);
+  (c) `matchId` `__proto__`/`constructor` rammer Object.prototype i `byMatch`,
+  men intet har `.result` → ingen nøgle (og rules-create kræver at kampen
+  findes); (d) `round:'11'` (streng) lander under `uden` — uændret adfærd.
+  `rundeSejre` lader ALDRIG 0 vinde (`bedst <= 0 → continue`), gameRecap
+  regner kun summer. Skrivestien (`recalcPlayerTotal`, mergeFields, skriver
+  altid) og rules (players L774/L817 denylist inkl. perRound; testet i
+  functions/rules.test.js ~L3599) er urørt. Restlæk: se Åbne observationer.
+
 - **`scripts/verificer-totaler.mjs` SKRIVER ALDRIG (BEKRÆFTET 2026-09-18, #109).**
   Kørt ende-til-ende mod en stub af `firebase-admin`, der logger HVER
   property-adgang og kaster på `set/update/delete/create/add/commit/batch/
@@ -1623,6 +1644,19 @@
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
+- **`perRound`/`totalPoints` følger `taeller`, IKKE `maaVises` — bevidst.**
+  En kamp med facit, men gemt kickoff i fremtiden (eller ulæseligt), skjuler
+  rækken i `detalje/opdeling` og bets-reglen afviser læsning — men
+  liga-kammerater (players L755-757) ser stadig ramt-værdien i `perRound` og
+  totalen, og siden 45a1b37 også en 0-nøgle = «tippede og ramte forbi» (én
+  bit mere, kun når det er spillerens FØRSTE afgjorte tip i runden). Ingen
+  gevinst for angriberen: kampen er afgjort. Vinduet kan ikke opstå via
+  synken (superligaSync.js:61-70 skriver kun facit for gemt kickoff ≤ nu) —
+  kun ved manuelt facit eller et kickoff flyttet frem efter facit. BEMÆRK:
+  bets-create/update (rules ~L1047/L1072) tjekker KUN gemt kickoff, ikke
+  `result` — i samme vindue kan man altså tippe EFTER facit. Ikke PoC'et;
+  kandidat til en senere gennemgang af `setMatchResult`/manuelt facit.
+
 - **Invitations-mailen falder TAVST tilbage til Superliga-profilen uden
   `gameId`** (`functions/index.js` ~L668, `if (gameId)`): en håndlavet payload
   med `template:'invitation'` og uden gameId sender SL-salgstalen om PL. Kræv
@@ -1757,6 +1791,11 @@
   injicere et forbudt felt i `skriv` (spy/stub), ikke i kilde-JSON'en.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **En nøgles EKSISTENS er information.** En map-nøgle eller et flag, der
+  skrives betinget, lækker betingelsen til alle, der må læse dokumentet.
+  Spor betingelsen mod synligheds-gaten (kickoff/deadline): hvem læser
+  dokumentet, og kan betingelsen blive sand, FØR de må se det, den afslører?
 
 - **En oprydningsløkke, der er keyet på ÉT dokuments eksistens, rydder ikke
   det, der overlever dokumentet.** `if (!p.exists) continue` sprang både

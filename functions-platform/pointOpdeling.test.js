@@ -64,6 +64,67 @@ describe('opdelPoint', () => {
     const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 0 }], roundCtx, nowMs: NU });
     expect(res.kampe).toHaveLength(0);
     expect(res.total).toBe(0);
+    // Og ingen rundenøgle: et tip uden facit er ikke «et afgjort tip».
+    expect(res.perRunde).toEqual({});
+  });
+
+  // ET AFGJORT TIP MED 0 POINT ER ET TAL. Ejerens fund 12/10 2026: den, der
+  // ramte hele runden forbi, fik ingen nøgle og stod i rundestillingen som
+  // «deltog ikke» — nederst, under en tabt Chance. Nøglen skrives nu med 0.
+  it('skriver rundens nøgle med 0, når tippet er afgjort og ramte forbi', () => {
+    const roundCtx = ctx([{ id: 'm1', round: 7, result: 'X', odds: { 1: 2.5, X: 4, 2: 4 } }]);
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 0 }], roundCtx, nowMs: NU });
+    expect(res.perRunde).toEqual({ 7: 0 });
+    expect(res.total).toBe(0);
+  });
+
+  it('skriver INGEN nøgle for et tip uden facit — en kommende runde er ikke «rundens»', () => {
+    const roundCtx = ctx([
+      { id: 'm1', round: 7, result: 'X', odds: { 1: 2.5, X: 4, 2: 4 } },
+      { id: 'm2', round: 8, result: null, odds: { 1: 2.5, X: 4, 2: 4 } },
+    ]);
+    const res = opdelPoint({
+      bets: [{ matchId: 'm1', pick: '1', points: 0 }, { matchId: 'm2', pick: '1', points: 0 }],
+      roundCtx, nowMs: NU,
+    });
+    expect(res.perRunde).toEqual({ 7: 0 });
+  });
+
+  it('nøglen følger FACIT, ikke kickoff: en afgjort kamp med gemt kickoff i fremtiden giver 0-nøgle', () => {
+    // QC: alle andre nul-tests har kickoff i fortiden, hvor taeller() og
+    // maaVises() er enige — så grænsen kunne byttes til maaVises med grøn
+    // suite. Den skal være taeller(): et forkert gemt kickoff må ikke gøre
+    // rundens tal til «–», af samme grund som totalen ikke gates på kickoff
+    // (se maaVises' kommentar i pointOpdeling.js). Rækken (hvem tippede hvad)
+    // holdes stadig ude af kampe — nøglen siger kun «et afgjort tip findes».
+    const roundCtx = ctx([
+      { id: 'm1', round: 7, result: 'X', kickoff: NU + 3_600_000, odds: { 1: 2.5, X: 4, 2: 4 } },
+    ]);
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '1', points: 0 }], roundCtx, nowMs: NU });
+    expect(res.perRunde).toEqual({ 7: 0 });
+    expect(res.kampe).toHaveLength(0);
+  });
+
+  it('0-nøglen står ved siden af rundens rigtige tal — og en ukendt kamp skaber ingen', () => {
+    const roundCtx = ctx([
+      { id: 'm1', round: 7, result: '1', odds: { 1: 2.5, X: 4, 2: 4 } },
+      { id: 'm2', round: 8, result: 'X', odds: { 1: 2.5, X: 4, 2: 4 } },
+    ]);
+    const res = opdelPoint({
+      bets: [
+        { matchId: 'm1', pick: '1', points: 2.5 },
+        { matchId: 'm2', pick: '1', points: 0 },
+        { matchId: 'ukendt', pick: '1', points: 0 },
+      ],
+      roundCtx, nowMs: NU,
+    });
+    expect(res.perRunde).toEqual({ 7: 2.5, 8: 0 });
+  });
+
+  it('en afgjort kamp uden rundenummer med 0 point lander under «uden» med 0', () => {
+    const roundCtx = ctx([{ id: 'm1', round: null, result: '1', odds: { 1: 2.5, X: 4, 2: 4 } }]);
+    const res = opdelPoint({ bets: [{ matchId: 'm1', pick: '2', points: 0 }], roundCtx, nowMs: NU });
+    expect(res.perRunde).toEqual({ uden: 0 });
   });
 
   // De to filtre er ADSKILTE, og det er hele pointen. Rækken må ikke vises —
@@ -602,6 +663,32 @@ describe('spejling mod src/lib', () => {
     }],
     ['kamp uden facit', {
       matches: [{ id: 'm1', round: 1, result: null, odds: { 1: 2, X: 4, 2: 4 } }],
+      bets: [{ matchId: 'm1', pick: '1', points: 0 }],
+    }],
+    // Grenen, der skiftede 12/10 2026: et afgjort tip med 0 point skriver
+    // nøglen med 0. Uden tilfældet kunne den ene fil springe nul over igen,
+    // mens den anden skrev det — og rundestillingen ville vise «–» hos den ene
+    // og «0» hos den anden om samme runde.
+    ['afgjort runde, alt ramt forbi — nøglen er 0, ikke væk', {
+      matches: [
+        { id: 'm1', round: 1, result: 'X', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 1, result: '2', odds: { 1: 4, X: 3.0, 2: 4 } },
+      ],
+      bets: [{ matchId: 'm1', pick: '1', points: 0 }, { matchId: 'm2', pick: '1', points: 0 }],
+    }],
+    ['nul-runde ved siden af en uafgjort runde', {
+      matches: [
+        { id: 'm1', round: 1, result: 'X', odds: { 1: 2.0, X: 4, 2: 4 } },
+        { id: 'm2', round: 2, result: null, odds: { 1: 4, X: 3.0, 2: 4 } },
+      ],
+      bets: [{ matchId: 'm1', pick: '1', points: 0 }, { matchId: 'm2', pick: '1', points: 0 }],
+    }],
+    // Grænsen er taeller(), ikke maaVises(): skiftede den ene fil til
+    // maaVises, ville et forbier på en kamp med gemt kickoff i fremtiden
+    // give nøgle i den ene og ingen i den anden. De øvrige tilfælde har alle
+    // kickoff i fortiden og kan ikke se forskel (QC).
+    ['afgjort forbier med gemt kickoff i fremtiden — nøglen følger facit', {
+      matches: [{ id: 'm1', round: 1, result: 'X', kickoff: NU + 3_600_000, odds: { 1: 2.0, X: 4, 2: 4 } }],
       bets: [{ matchId: 'm1', pick: '1', points: 0 }],
     }],
     // Den nye gren: INTET kuponkrav. Uden dette tilfælde kunne den ene fil

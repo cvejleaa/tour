@@ -430,32 +430,48 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     // Tallet står UNDER totalen — ikke «ved siden af».
     expect(afsnit.textContent).toMatch(/tallet under totalen/);
     expect(afsnit.textContent).not.toMatch(/ved siden af totalen/);
+    // Test Manager: første sætning sagde «den runde, der er i gang», mens
+    // parentesen tre linjer senere sagde «den seneste runde med et afgjort
+    // tip» — to nabosætninger, der modsagde hinanden (fredag før første
+    // afgjorte kamp er N stadig sidste uges runde). Første sætning følger nu
+    // parentesen, og den gamle formulering må ikke komme igen.
+    expect(afsnit.textContent).toMatch(/hentet i den\s+seneste runde med et afgjort tip/);
+    expect(afsnit.textContent).not.toMatch(/hentet i den\s+runde, der er i gang/);
   });
 
-  it('knappen-sætningen binder N til den igangværende runde, kalder rundevisningen foreløbig — og sætter pilen i Samlet', () => {
+  it('knappen-sætningen binder N til den seneste runde med et afgjort tip, kalder rundevisningen foreløbig — og sætter pilen i Samlet', () => {
     // Test Manager: tre ord i sætningen kunne ændres uden at noget blev rødt
     // (mutationstestet). De er ikke pynt:
-    //  - «N er den runde, der er i gang» er det, der holder N fra at blive læst
-    //    som en valgfri runde (testen ovenfor forbyder kun ordene «tidligere»);
+    //  - «N er den seneste runde med et afgjort tip» er det, der holder N fra
+    //    at blive læst som en valgfri runde (testen ovenfor forbyder kun ordene
+    //    «tidligere») — og fra at blive læst som «den runde, der er i gang»,
+    //    for fredag før første afgjorte kamp er N stadig sidste uges runde;
     //  - «hvem der fører indtil videre» er hvad der gør rundevisningen foreløbig,
     //    ligesom 🔥 — «har vundet» ville modsige afsnittets egen «levende»;
     //  - «I Samlet: pilen» er det, der gør «hverken pil eller 🔥» to sætninger
     //    tidligere sand: uden scope står pilen som om den fandtes overalt.
     guide();
     const afsnit = screen.getByText(/Rundens point/).closest('li');
-    expect(afsnit.textContent).toMatch(/\(N er den seneste runde, nogen har\s+point i\)/);
+    expect(afsnit.textContent).toMatch(/\(N er den seneste runde med et\s+afgjort tip\)/);
     expect(afsnit.textContent).toMatch(/placeringen siger, hvem der fører indtil videre/);
     expect(afsnit.textContent).toMatch(/I Samlet: pilen ved din placering/);
     expect(afsnit.textContent).not.toMatch(/hvem der har vundet/);
   });
 
-  it('siger hvad en streg betyder — og lover ALDRIG et nul', () => {
-    // Et 0 kan ikke leveres: serveren springer nul-værdier over, så den der
-    // ramte alt forbi, er umulig at skelne fra den der ikke tippede. Lovede
-    // guiden et 0, ville den love noget, fladen ikke kan holde.
+  it('siger hvad en streg betyder — og at et forbier står som 0', () => {
+    // VENDT 12/10 2026. Før lovede guiden ALDRIG et nul, fordi serveren sprang
+    // nul-værdier over, og den der ramte alt forbi, ikke kunne skelnes fra den
+    // der ikke tippede. Nu skriver serveren 0 for et afgjort tip, og stregen
+    // betyder kun «ingen afgjorte tips endnu». Den gamle påstand må ikke komme
+    // igen, og stregen må aldrig kaldes «ikke tippet»: tips på uafgjorte kampe
+    // giver heller ingen nøgle.
     guide();
     const afsnit = screen.getByText(/Rundens point/).closest('li');
-    expect(afsnit.textContent).toMatch(/betyder,\s*at du ikke har point i runden endnu/i);
-    expect(afsnit.textContent).not.toMatch(/vises som 0|står der 0/i);
+    expect(afsnit.textContent).toMatch(/betyder,\s*at ingen af dine tips i runden er afgjort endnu/i);
+    expect(afsnit.textContent).toMatch(/har du ramt forbi, står\s+der 0/i);
+    // QC: «står der 0» er forkert for en tabt Chance — den står som minus.
+    expect(afsnit.textContent).toMatch(/der 0 \(eller minus, hvis du tabte Chancen\)/);
+    expect(afsnit.textContent).not.toMatch(/ikke har point i runden endnu/i);
+    expect(afsnit.textContent).not.toMatch(/ikke tippet|deltog ikke|ingen point i runden/i);
   });
 });

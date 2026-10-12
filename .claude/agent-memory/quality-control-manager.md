@@ -244,7 +244,31 @@ PR-teksten, ikke her.
 - **En tæller, der IKKE kan skelne "0 point" fra "deltog ikke"**, og et
   gulvet total-felt, betyder at `total − total_uden_X ≠ delta[X]` generelt.
   Spørg om en ny beregning implicit antager, den kan trække to gemte,
-  gulvede/nullable tal fra hinanden.
+  gulvede/nullable tal fra hinanden. En "bevidst pris" ved at springe 0 over
+  bliver en synlig fejl, i det øjeblik en flade RANGERER på feltet (0 havnede
+  under −6,4). Gives 0 en nøgle, så lad grænsen følge det, der ALLEREDE er
+  offentligt og som skrives ved samme hændelse (afgjort kamp) — "tippet
+  overhovedet" ville både lække deltagelse før kickoff og få nøgler med
+  tilfældig timing, fordi vektoren kun genskrives ved scoring.
+- **Ændres BETYDNINGEN af et persisteret felt, der kun genskrives for
+  "berørte", er feltet blandet, indtil en fuld genberegning har kørt** — og
+  en ny forklaringstekst om den nye betydning lyver over de gamle rækker.
+  Rækkefølge: server → genberegn (spørg ejeren) → tekst. Grep også testene
+  for den GAMLE forklaring ordret (guide-sætninger som "(N er den seneste
+  runde, nogen har point i)"), ikke kun fraværs-assertions.
+
+- **Omdøber du en title/tekst, så grep testenes FRAVÆRS-regexer på den gamle
+  ordlyd** (`queryByTitle(/Ingen point i runden/)).toBeNull()`): de bliver
+  tavst døde, når teksten skifter — mutationstestet: vagten mod title på en
+  `klar:false`-streg kunne fjernes med grøn suite. Samme sweep for kommentarer,
+  der citerer den gamle regel ("serveren springer nul over", fil:linje).
+- **En ny tekst om en samlet kreds ("hele feltet …") skal efterprøves mod
+  kredsens RANDTILFÆLDE**: dem med "–" (intet tal endnu) er ikke ramt forbi.
+  Skriv kredsen ind i sætningen ("alle med et afgjort tip …").
+- **Deploy-workflowet rækkefølge er hosting+regler → functions (valgfrit
+  flueben, default FRA) i ét job** — "server før tekst" kan ikke opnås inden for
+  én kørsel, og den virkelige gap er til genberegn (knap pr. fodboldspil), ikke
+  de få minutter mellem trinene. Sig det, og peg på flueben + genberegn pr. spil.
 
 - **En markør, der fjernes "fordi rækkefølgen siger det", kan have båret en
   KVALIFIKATOR** (🔥 = "indtil videre"). Flyt kvalifikatoren til tekst, før

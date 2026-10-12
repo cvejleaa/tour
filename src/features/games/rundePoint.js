@@ -5,7 +5,8 @@
  * stillingen ALLEREDE har på hvert spillerdokument (gameStandings.js:32) —
  * derfor nul nye læsninger og intet behov for kampprogrammet.
  *
- * HVILKEN RUNDE. Den seneste, NOGEN i det viste felt har point fra. Ejeren har
+ * HVILKEN RUNDE. Den seneste, NOGEN i det viste felt har et afgjort tip i —
+ * nøglen findes, så snart ét tip er afgjort, også med 0 point. Ejeren har
  * valgt det LEVENDE tal frem for kun færdigspillede runder, med åbne øjne:
  * midt i en runde kan tallet vise en anden fører end den, runden ender med.
  * Prisen betales for at tallet er levende netop søndag aften, hvor folk kigger.
@@ -30,7 +31,8 @@
  */
 
 /**
- * Den seneste runde, nogen i feltet har point fra.
+ * Den seneste runde, nogen i feltet har et afgjort tip i — nøglen findes, så
+ * snart ét tip er afgjort, også med 0 point (se filens hoved).
  *
  * `UDEN_RUNDE` er ikke en runde — kampe uden rundenummer tæller altid med i
  * totalen, men kan ikke være "rundens" point. Der står IKKE en egen vagt for
@@ -66,15 +68,16 @@ export function sidsteRunde(raekker, startRunde = null) {
 /**
  * Én spillers point i en bestemt runde — eller null for "ingen".
  *
- * NULL BETYDER "INGEN POINT I RUNDEN ENDNU", IKKE "DELTOG IKKE".
- * De to kan ikke skelnes, og det er ikke et valg: serveren springer nul-værdier
- * over, når vektoren bygges (functions-platform/pointOpdeling.js:339,
- * `if (!v) return;`). Den, der ramte ALT forbi, får derfor ingen nøgle og er
- * umulig at skelne fra den, der aldrig tippede.
+ * NULL BETYDER "INGEN AFGJORTE TIPS I RUNDEN ENDNU". 0 ER ET TAL.
+ * Serveren skriver nøglen, så snart ét af spillerens tips i runden er afgjort —
+ * også med 0 (functions-platform/pointOpdeling.js, `laegTil`). Den, der ramte
+ * ALT forbi, står derfor med 0 og rangeres over en tabt Chance; den, der ikke
+ * har et afgjort tip endnu, har ingen nøgle og vises med en streg.
  *
- * Vi viser dem ens frem for at gætte. Et synligt 0 hos den, der glemte at
- * tippe, ville være en anklage om noget andet, end der skete — og det er den
- * dyrere af de to fejl.
+ * Før sprang serveren nul-værdier over, og de to kunne ikke skelnes — så stod
+ * nr. 1 samlet nederst i rundestillingen som «deltog ikke» (ejerens fund
+ * 12/10 2026). Stregen må alligevel aldrig oversættes til «har ikke tippet»:
+ * tips på kampe, der ikke er afgjort endnu, giver heller ingen nøgle.
  */
 export function rundensPoint(raekke, runde) {
   // EN AFVIST VEKTOR HAR INGEN POINT I RUNDEN. `klar: false` sættes af
@@ -156,7 +159,7 @@ export function rundensBedste(raekker, runde) {
  * samlet» ved siden af rundens guld. Det er hele kontrasten.
  *
  * Urangerede NEDERST, alfabetisk, med `rank: null` og `rundePoint: null`:
- *  - ingen tal i runden (null — kan ikke skelnes fra 0, se rundensPoint);
+ *  - ingen afgjorte tips i runden (null — 0 er et TAL og rangeres, se rundensPoint);
  *  - `klar === false`: en vektor, totalen har afvist, kan ikke placere nogen.
  *    Det afgøres i rundensPoint (én regel for ild, rang og celle); uden den
  *    ville et tal fra en afvist vektor stå på rundens podie med "0 i alt".
