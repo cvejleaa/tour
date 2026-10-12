@@ -39,7 +39,7 @@ const raekker = (perRoundPrUid) => [
   uid, name, totalPoints, rank: i + 1, perRound: perRoundPrUid[uid] ?? null,
 }));
 
-function vis({ standings, leagues = [], game = FODBOLD }) {
+function vis({ standings, leagues = [], game = FODBOLD, matches = [] }) {
   // leagueCount mindst 1: med 0 viser fladen "du er ikke med i en liga endnu"
   // og rendrer slet ingen tabel. Ligalisten kan være tom uden at man står
   // uden for alle ligaer (fx en liga man er i, men som ikke er hentet her).
@@ -53,7 +53,7 @@ function vis({ standings, leagues = [], game = FODBOLD }) {
   return render(
     <MemoryRouter initialEntries={['/spil/sl']}>
       <Routes>
-        <Route path="/spil/:gameId" element={<GameStandings gameId="sl" game={game} />} />
+        <Route path="/spil/:gameId" element={<GameStandings gameId="sl" game={game} matches={matches} />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -81,7 +81,7 @@ describe('rundens point i stillingen', () => {
     // Rundenummeret SKAL stå: uden det er tallet ikke tilskrevet en runde, og
     // det kan læses som pilens forklaring — pilen opdateres først, når
     // rundens kupon er afgjort, og handler derfor ofte om en ANDEN runde.
-    expect(screen.getByText(/Runde 8: tallet ved siden af totalen er rundens point/)).toBeInTheDocument();
+    expect(screen.getByText(/Runde 8: tallet under totalen er rundens point/)).toBeInTheDocument();
     const dorte = within(tabel()).getByText('Dorte').closest('tr');
     expect(within(dorte).getByText('+12,3')).toBeInTheDocument();
     // Runde 7 er IKKE rundens — kun den seneste vises.
@@ -127,7 +127,8 @@ describe('rundens point i stillingen', () => {
 
   it('NUL VINDER IKKE — en runde hele feltet tabte giver ingen krone og ingen 👑-forklaring', () => {
     vis({ standings: raekker({ u4: { 8: -2 }, me: { 8: -5 } }) });
-    expect(screen.getByText(/Runde 8/)).toBeInTheDocument();
+    // Knappen «Runde 8» står også på siden — det er LINJEN, der skal findes.
+    expect(screen.getByText(/Runde 8: tallet/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Flest point i runden')).toBeNull();
     // Forklaringslinjen om kronen må heller ikke stå, når ingen bærer den.
     expect(screen.queryByText(/har flest indtil videre/)).toBeNull();
@@ -267,7 +268,7 @@ describe('overskriften overlever en TOM liste', () => {
     // Beviser at listen faktisk er tom: findes der en tabel, tester vi ikke
     // det tilfælde, kommentaren i koden handler om.
     expect(screen.queryByRole('table')).toBeNull();
-    expect(screen.getByText(/Runde 8: tallet ved siden af totalen er rundens point/))
+    expect(screen.getByText(/Runde 8: tallet under totalen er rundens point/))
       .toBeInTheDocument();
   });
 
@@ -344,5 +345,178 @@ describe('rundens point under et liga-filter med startrunde', () => {
     vaelgLiga();
     expect(screen.queryByText('Erik')).toBeNull();
     expect(foerendeNavne()).toEqual(['Dorte']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VÆLGEREN «Samlet / Runde N» over podiet (ejerens ønske 12/10 2026: «2 knapper
+// så man kan skifte mellem total stilling og ugestilling»). Rundevisningen
+// rangerer efter rundens point ALENE; det store tal er rundens, det lille er
+// placering og point fra Samlet. Der asserteres på INDHOLDET af linjen — og
+// på det, der IKKE må stå i rundevisningen.
+// ---------------------------------------------------------------------------
+describe('vælgeren Samlet / Runde N', () => {
+  // Rundens fører er IKKE totalens: Erik er sidst samlet (10 p) men tog runden
+  // (+20); Anne fører samlet (60 p) uden point i runden. Carl er i minus.
+  const FELT = () => raekker({ u5: { 8: 20 }, u4: { 8: 12.3 }, u2: { 8: 4 }, me: { 8: 3 }, u3: { 8: -1 } });
+  const gruppe = () => screen.getByRole('group', { name: 'Visning' });
+  const knap = (navn) => within(gruppe()).getByRole('button', { name: navn });
+  const tabelNavne = () => [...tabel().querySelectorAll('tbody tr')]
+    .map((tr) => tr.querySelectorAll('td')[1].textContent.replace(/\s*\(dig\)/, '').trim());
+  const raekkeFor = (navn) => within(tabel()).getByText(navn).closest('tr');
+  const celler = (navn) => [...raekkeFor(navn).querySelectorAll('td')].map((td) => td.textContent.trim());
+  const podiePlads = (c, rang) => [...c.querySelectorAll('.podium__spot')]
+    .find((sp) => sp.querySelector('.podium__plads')?.textContent === String(rang));
+  // Knappen hedder også «Runde 8» — linjen kendes på det, der følger efter tallet.
+  const linje = () => screen.getByText(/^Runde 8 (alene|:)/).closest('p');
+
+  it('står på Samlet som udgangspunkt, og listen er i Samlet-orden', () => {
+    vis({ standings: FELT() });
+    expect(knap('Samlet')).toHaveAttribute('aria-pressed', 'true');
+    expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'false');
+    expect(tabelNavne()).toEqual(['Dorte', 'Mig', 'Erik']);
+    // Og ilden brænder hos Erik — Samlet er uændret.
+    expect(foerendeNavne()).toEqual(['Erik']);
+  });
+
+  it('findes ikke uden en runde: hverken i Touren eller før nogen har point', () => {
+    vis({ standings: raekker({}), game: { id: 'tour', type: 'tour' } });
+    expect(screen.queryByRole('group', { name: 'Visning' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Runde/ })).toBeNull();
+  });
+
+  it('«Runde 8» vender stillingen: rundens fører får guldet, totalens fører står nederst med –', () => {
+    const { container } = vis({ standings: FELT() });
+    fireEvent.click(knap('Runde 8'));
+    expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'true');
+    expect(knap('Samlet')).toHaveAttribute('aria-pressed', 'false');
+
+    // Podiet er rundens: Erik (+20) guld, Dorte (+12,3) sølv, Bo (+4) bronze.
+    const guld = podiePlads(container, 1);
+    expect(guld.querySelector('.podium__name').textContent).toBe('Erik');
+    expect(guld.querySelector('.podium__pts').textContent).toBe('+20 p');
+    // Det lille tal er placering OG point fra Samlet — kontrasten er pointen.
+    expect(guld.textContent).toMatch(/nr\. 6 samlet · 10 p/);
+    expect(podiePlads(container, 2).querySelector('.podium__name').textContent).toBe('Dorte');
+    expect(podiePlads(container, 3).querySelector('.podium__name').textContent).toBe('Bo');
+
+    // Listen: Mig (+3, nr. 4), Carl (−1, nr. 5), Anne (– , urangeret, nederst).
+    expect(tabelNavne()).toEqual(['Mig', 'Carl', 'Anne']);
+    expect(celler('Mig')).toEqual(['4', 'Mig (dig)', '+3nr. 5 samlet · 20']);
+    expect(celler('Carl')[0]).toBe('5');
+    expect(celler('Carl')[2]).toMatch(/^−1nr\. 3 samlet · 40$/);
+    // Anne: ingen rang, ingen tal — og stregen siger HVORFOR (samme title som i Samlet).
+    expect(celler('Anne')[0]).toBe('–');
+    const streg = within(raekkeFor('Anne')).getByTitle('Ingen point i runden endnu');
+    expect(streg.textContent).toBe('–');
+    expect(celler('Anne')[2]).toBe('–nr. 1 samlet · 60');
+
+    // INGEN pil — der findes ikke noget «før» for en rundestilling — og INGEN ild.
+    expect(tabel().textContent).not.toMatch(/[▲▼]/);
+    expect(screen.queryAllByLabelText('Flest point i runden')).toHaveLength(0);
+    expect(container.textContent).not.toContain('🔥');
+  });
+
+  it('linjen siger, hvad rækkefølgen følger, at runden ikke er færdig, og hvad – betyder', () => {
+    vis({ standings: FELT() });
+    fireEvent.click(knap('Runde 8'));
+    const t = linje().textContent;
+    expect(t).toMatch(/^Runde 8 alene — sorteret efter rundens point\./);
+    // Uden kampprogram er runden ikke bevist færdig — så er den foreløbig.
+    expect(t).toMatch(/Runden er ikke færdigspillet, så rækkefølgen kan nå at skifte\./);
+    expect(t).toMatch(/Med småt: placering og point i Samlet\./);
+    expect(t).toMatch(/– betyder ingen point i runden endnu\./);
+    // Det, der IKKE må stå i rundevisningen (QC på planen).
+    // «færdigspillet» rummer «pil» — derfor ordgrænser på de korte ord.
+    expect(t).not.toMatch(/ved siden af|under totalen|🔥|\buge\b|\bpil(en)?\b|samlede total|tidligere|[▲▼]/i);
+  });
+
+  it('siger IKKE «ikke færdigspillet», når hver kamp i runden har facit — men gør det, når én mangler', () => {
+    const faerdig = [{ round: 8, result: '1' }, { round: 8, result: 'X' }];
+    const { unmount } = vis({ standings: FELT(), matches: faerdig });
+    fireEvent.click(knap('Runde 8'));
+    expect(linje().textContent).not.toMatch(/ikke færdigspillet/);
+    unmount();
+    vis({ standings: FELT(), matches: [{ round: 8, result: '1' }, { round: 8, result: null }] });
+    fireEvent.click(knap('Runde 8'));
+    expect(linje().textContent).toMatch(/ikke færdigspillet/);
+  });
+
+  it('nævner – kun, når nogen står med den', () => {
+    vis({ standings: raekker({ u1: { 8: 9 }, u2: { 8: 8 }, u3: { 8: 7 }, u4: { 8: 6 }, me: { 8: 5 }, u5: { 8: 4 } }) });
+    fireEvent.click(knap('Runde 8'));
+    expect(linje().textContent).not.toMatch(/– betyder/);
+  });
+
+  it('uafgjort i toppen: to guldmedaljer på lige trin', () => {
+    const { container } = vis({ standings: raekker({ u5: { 8: 20 }, u4: { 8: 20 }, me: { 8: 4 } }) });
+    fireEvent.click(knap('Runde 8'));
+    expect(container.querySelector('.podium').className).toMatch(/podium--lige/);
+    expect([...container.querySelectorAll('.podium__medal')].filter((m) => m.textContent === '🥇')).toHaveLength(2);
+  });
+
+  it('NUL FØRER IKKE: fredag aften med én tabt Chance er der intet podie og ingen «1.» ved et minus', () => {
+    const { container } = vis({ standings: raekker({ u3: { 8: -4 } }) });
+    fireEvent.click(knap('Runde 8'));
+    expect(container.querySelector('.podium')).toBeNull();
+    // Carl står først (han har et tal), men uden rang.
+    expect(tabelNavne()[0]).toBe('Carl');
+    expect(celler('Carl')[0]).toBe('–');
+    expect(celler('Carl')[2]).toMatch(/^−4/);
+    expect(linje().textContent).toMatch(/– betyder ingen point i runden endnu/);
+  });
+
+  it('klar:false er urangeret, viser badget og ALDRIG et tal fra den afviste vektor', () => {
+    const felt = raekker({ u4: { 8: 5 }, me: { 8: 2 } })
+      .map((r) => (r.uid === 'u1' ? { ...r, klar: false, perRound: { 8: 9 } } : r));
+    const { container } = vis({ standings: felt });
+    fireEvent.click(knap('Runde 8'));
+    // Kun to er rangerede → intet podie; alle i listen.
+    expect(container.querySelector('.podium')).toBeNull();
+    const anne = celler('Anne');
+    expect(anne[0]).toBe('–');
+    expect(anne[2]).toMatch(/^–/);
+    expect(anne[2]).toMatch(/ikke klar/);
+    expect(anne[2]).not.toMatch(/\+9|nr\. 1 samlet/);
+  });
+
+  it('regnskabet og rundevisningen udelukker hinanden — og vælgeren bliver stående', () => {
+    vis({ standings: FELT() });
+    fireEvent.click(knap('Runde 8'));
+    fireEvent.click(screen.getByRole('button', { name: '🧮 Hvor kommer pointene fra?' }));
+    // Regnskabet er spillets totaler → podiet over det er Samlet.
+    expect(knap('Samlet')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '← Tilbage til listen' })).toBeInTheDocument();
+    // Og den anden vej: «Runde 8» lukker regnskabet.
+    fireEvent.click(knap('Runde 8'));
+    expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '🧮 Hvor kommer pointene fra?' })).toBeInTheDocument();
+    expect(tabelNavne()).toEqual(['Mig', 'Carl', 'Anne']);
+  });
+
+  it('et ligaskift til en liga uden runden lader vælgeren forsvinde — og valget huskes, til runden er der igen', () => {
+    // Vektorerne stemmer med totalerne, så ligaen "Senere" (fra runde 12)
+    // kan regnes: dér er runde 8 FØR ligaens start, så der er ingen runde.
+    const felt = [
+      { uid: 'u1', name: 'Anne', totalPoints: 60, rank: 1, bonusPoints: 0, perRound: { 8: 60 } },
+      { uid: 'me', name: 'Mig', totalPoints: 20, rank: 2, bonusPoints: 0, perRound: { 8: 20 } },
+      { uid: 'u5', name: 'Erik', totalPoints: 10, rank: 3, bonusPoints: 0, perRound: { 8: 10 } },
+    ];
+    const ligaer = [
+      { id: 'L1', name: 'Alle', memberUids: ['me', 'u1', 'u5'] },
+      { id: 'L2', name: 'Senere', memberUids: ['me', 'u1'], startRound: 12 },
+    ];
+    vis({ standings: felt, leagues: ligaer });
+    fireEvent.click(knap('Runde 8'));
+    expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L2' } });
+    expect(screen.queryByRole('group', { name: 'Visning' })).toBeNull();
+    // Visningen er Samlet: ingen streg for «ingen point i runden».
+    expect(screen.queryByTitle('Ingen point i runden endnu')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L1' } });
+    expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'true');
+    // Tre spillere → alle på podiet, ingen tabel — men podiet er rundens igen.
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.getByText('+60 p')).toBeInTheDocument();
   });
 });

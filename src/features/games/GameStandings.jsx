@@ -9,8 +9,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useVisibleGameStandings } from './useVisibleGameStandings';
 import { rankDelta, ligaRanking } from './gameStandings';
 import {
-  sidsteRunde, rundensPoint, rundeFoerende, rundePile,
+  sidsteRunde, rundensPoint, rundeFoerende, rundePile, rundeRanking,
 } from './rundePoint';
+import { faerdigeRunder } from './rundeSejre';
 import {
   ligaPoint, harRundeVektor, puljenTaeller, vektorStemmer,
 } from '../../lib/ligaPoint';
@@ -177,6 +178,20 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle }) {
   );
 }
 
+/**
+ * "IKKE KLAR" OG IKKE NUL. En spiller uden runde-vektor er ikke genberegnet
+ * endnu — at vise 0 ville påstå, at han ingen point har. Det var præcis QC's
+ * fund: klar-flaget blev beregnet, men ingen flade læste det. ÉN komponent,
+ * fordi badget nu står både som hovedtal (Samlet) og som det lille tal
+ * (rundevisningen) — og ligaRanking sætter totalPoints til 0 for netop de
+ * rækker, så et formatPoints(0) dér ville være løgnen, badget findes for.
+ */
+function IkkeKlar() {
+  return (
+    <span className="badge badge--muted" title="Spillerens point pr. runde er ikke beregnet endnu — bed admin køre 🔄 Genberegn point">ikke klar</span>
+  );
+}
+
 function DeltaArrow({ row }) {
   const d = rankDelta(row);
   if (d == null || d === 0) return null;
@@ -202,6 +217,10 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // Slået fra som udgangspunkt: stillingen skal svare på "hvem fører", ikke
   // stille et regnskab op.
   const [visOpdeling, setVisOpdeling] = useState(false);
+  // Samlet eller rundens stilling — knapperne over podiet. Det er et VALG,
+  // ikke visningen: visningen udledes nedenfor, for valget kan pege på en
+  // runde, det viste felt ikke har (se `visning`).
+  const [valg, setValg] = useState('samlet');
   // Hvilken spiller er foldet ud? Kun én ad gangen — to paneler side om side
   // ville hver hente sit dokument og fylde skærmen.
   const [aabenUid, setAabenUid] = useState(null);
@@ -293,6 +312,28 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
     [visRunde, standings, rundeNr, valgt],
   );
 
+  // VISNINGEN UDLEDES, DEN GEMMES IKKE RÅT (QC på planen). Skifter man til
+  // en liga med startrunde 12, mens runde 6 vises, er `rundeNr` null for den
+  // liga — vælgeren forsvinder, og et råt gemt 'runde' ville efterlade en
+  // liste, hvor alle er urangerede og der intet podie er. Valget bliver
+  // stående, så vælgeren husker det, når runden er der igen.
+  const visning = visRunde && valg === 'runde' ? 'runde' : 'samlet';
+  // KUN podiet og listen får den omsorterede liste. Pokaler, regnskabet og
+  // spillerdetaljen bliver på `raekker`: rundeSejre bygger sin vinder-liste i
+  // rækkernes orden, og Chance-kongens "Bedst:" ved uafgjort ville skifte
+  // navn, når man trykkede på en knap, der ikke handler om pokalen.
+  const viste = useMemo(
+    () => (visning === 'runde' ? rundeRanking(raekker, rundeNr) : raekker),
+    [visning, raekker, rundeNr],
+  );
+  // Uden ilden skal forklaringslinjen selv bære "foreløbig": et guldpodie
+  // for en halvspillet runde står lige under 👑 Rundekongen, som først kårer,
+  // når hver kamp har facit. Samme afgørelse som pokalen (faerdigeRunder).
+  const rundeFaerdig = useMemo(
+    () => (rundeNr != null && faerdigeRunder(matches).includes(rundeNr)),
+    [matches, rundeNr],
+  );
+
   if (loading) return <div className="spinner" role="status" aria-label="Indlæser" />;
   if (error) return <p className="badge badge--red">{error}</p>;
 
@@ -327,14 +368,16 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
 
   const meUid = user?.uid;
   const toggleUid = (uid) => setAabenUid((u) => (u === uid ? null : uid));
-  // En klar:false-spiller har rank null og hører ikke på et podie — medaljens
-  // fallback ville vise "#null". Er nogen i top tre ikke klar, vises ALLE som
+  // En spiller UDEN RANG hører ikke på et podie — medaljens fallback ville
+  // vise "#null". Rangen mangler for klar:false (ligaRanking, Samlet) og for
+  // dem uden point i runden eller når ingen fører den (rundeRanking). Én
+  // regel for begge visninger: er nogen i top tre uden rang, vises ALLE som
   // liste; et podie med huller ville ligne en færdig stilling.
-  const podieKlar = raekker.slice(0, 3).every((r) => r.klar !== false);
-  const hasPodium = raekker.length >= 3 && podieKlar;
-  const podium = hasPodium ? raekker.slice(0, 3) : [];
-  const listRows = hasPodium ? raekker.slice(3) : raekker;
-  const meRow = raekker.find((r) => r.uid === meUid);
+  const podieKlar = viste.slice(0, 3).every((r) => r.rank != null);
+  const hasPodium = viste.length >= 3 && podieKlar;
+  const podium = hasPodium ? viste.slice(0, 3) : [];
+  const listRows = hasPodium ? viste.slice(3) : viste;
+  const meRow = viste.find((r) => r.uid === meUid);
   const meInList = meRow && (!hasPodium || meRow.rank > 3);
 
   const Row = ({ r, sticky = false }) => {
@@ -349,7 +392,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         }}
       >
         <td style={{ padding: '0.45rem 0.5rem', fontVariantNumeric: 'tabular-nums', width: 52 }}>
-          {r.klar === false ? '–' : <>{r.rank}<DeltaArrow row={r} /></>}
+          {r.rank == null ? '–' : <>{r.rank}<DeltaArrow row={r} /></>}
         </td>
         <td style={{ padding: '0.45rem 0.5rem' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -362,25 +405,41 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           </span>
         </td>
         <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-          {/* "IKKE KLAR" OG IKKE NUL. En spiller uden runde-vektor er ikke
-              genberegnet endnu — at vise 0 ville påstå, at han ingen point
-              har. Det var præcis QC's fund: klar-flaget blev beregnet, men
-              ingen flade læste det. */}
-          {r.klar === false
-            ? <span className="badge badge--muted" title="Spillerens point pr. runde er ikke beregnet endnu — bed admin køre 🔄 Genberegn point">ikke klar</span>
-            : formatPoints(r.totalPoints)}
-          {/* RUNDENS POINT UNDER TOTALEN — IKKE I EN EGEN KOLONNE.
-              Pokaler.jsx bærer husets skrevne beslutning: listen er en bar
-              <table> uden .table-wrap, så nye kolonner knækker den på en
-              telefon UDEN vandret scroll at hente indholdet med. Målt med
-              scripts/stillingsbredde.mjs: en fjerde kolonne skubbede 39-109 px
-              ud over kanten ved 320-390 px. Under totalen koster tallet højde
-              i stedet for bredde — og det står stadig ved totalen, hvor
-              overskriften siger, det er. */}
-          {visRunde && (
-            <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
-              <RundeCelle r={r} runde={rundeNr} foerende={foerende} />
-            </div>
+          {visning === 'runde' ? (
+            <>
+              {/* RUNDEVISNINGEN BYTTER TALLENE OM: rundens point er det store
+                  tal, for det er det, rækkefølgen følger — et stort total-tal
+                  ude af orden ville ligne en fejl. Det lille tal er placering
+                  og point fra Samlet (Spilfører: kontrasten «nr. 1 i runden,
+                  nr. 13 samlet» er selve pointen). En urangeret række viser
+                  samme streg og samme title som RundeCelle; klar:false viser
+                  badget og aldrig ligaRankings 0. */}
+              {r.rundePoint == null
+                ? <span title="Ingen point i runden endnu" style={{ color: 'var(--c-muted)' }}>–</span>
+                : fmtSignedPoints(r.rundePoint)}
+              <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
+                {r.klar === false
+                  ? <IkkeKlar />
+                  : `nr. ${r.samletRank} samlet · ${formatPoints(r.totalPoints)}`}
+              </div>
+            </>
+          ) : (
+            <>
+              {r.klar === false ? <IkkeKlar /> : formatPoints(r.totalPoints)}
+              {/* RUNDENS POINT UNDER TOTALEN — IKKE I EN EGEN KOLONNE.
+                  Pokaler.jsx bærer husets skrevne beslutning: listen er en bar
+                  <table> uden .table-wrap, så nye kolonner knækker den på en
+                  telefon UDEN vandret scroll at hente indholdet med. Målt med
+                  scripts/stillingsbredde.mjs: en fjerde kolonne skubbede 39-109 px
+                  ud over kanten ved 320-390 px. Under totalen koster tallet højde
+                  i stedet for bredde — og det står stadig ved totalen, hvor
+                  overskriften siger, det er. */}
+              {visRunde && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
+                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} />
+                </div>
+              )}
+            </>
           )}
         </td>
       </tr>
@@ -487,7 +546,12 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             type="button"
             className="btn btn--ghost btn--sm"
             aria-pressed={visOpdeling}
-            onClick={() => setVisOpdeling((v) => !v)}
+            // REGNSKAB OG RUNDEVISNING UDELUKKER HINANDEN (QC på planen):
+            // regnskabet er spillets totaler, så podiet over det skal være
+            // Samlet — ellers står to skalaer oven på hinanden. Vælgeren
+            // bliver stående med Samlet trykket ind; det er sandt. Og
+            // «Runde N» lukker regnskabet den anden vej (se knappen).
+            onClick={() => { if (!visOpdeling) setValg('samlet'); setVisOpdeling(!visOpdeling); }}
           >
             {/* "Tilbage til listen" og ikke "vis stillingen": man ER i
                 stillingen, og podiet står uændret ovenover hele tiden. */}
@@ -523,10 +587,67 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           ild uden et ord om, hvilken runde det handler om. Den fejl slap
           igennem en grøn test, indtil fladen blev mutationstestet. */}
       {visRunde && (
-        <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
-          Runde {rundeNr}: tallet ved siden af totalen er rundens point.
-          {foerende.size > 0 && ' 🔥 har flest indtil videre.'}
-        </p>
+        <>
+          {/* VÆLGEREN STÅR HER, lige over podiet — ikke i værktøjslinjen.
+              Værktøjslinjen ligger over pokalerne, som knapperne IKKE rører;
+              her står de ved det, de skifter: podiet og listen. To knapper
+              (ejerens ord), én gruppe, den trykkede er fyldt. «Runde N» og
+              ikke «Uge N»: perRound grupperes efter kampens runde, ikke efter
+              uge, så "uge" ville love denne uges point, og det kan data ikke
+              give. Ingen tidligere runder — ejeren bad om den igangværende;
+              en vælger til ældre runder er den naturlige næste udvidelse. */}
+          <div className="visning" role="group" aria-label="Visning">
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm visning__knap"
+              aria-pressed={visning === 'samlet'}
+              onClick={() => setValg('samlet')}
+            >
+              Samlet
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm visning__knap"
+              aria-pressed={visning === 'runde'}
+              onClick={() => { setValg('runde'); setVisOpdeling(false); }}
+            >
+              Runde {rundeNr}
+            </button>
+          </div>
+          {/* HVILKEN RUNDE tallet er — og hvad rækkefølgen følger.
+              Linjen stod oprindeligt her, fordi pilen ▲▼ målte mod et ældre
+              øjebliksbillede og derfor kunne modsige rundetallet. Den strid er
+              løst i selve pilen (se rundePile ovenfor). Overskriften bliver
+              stående, fordi tallet stadig skal TILSKRIVES en runde. Ilden
+              forklares her og ikke pr. række — det er en regel, ikke en
+              oplysning om spilleren.
+
+              I rundevisningen er der ingen ild: rækkefølgen og guldet siger,
+              hvem der fører — to tegn for samme ting. Men ilden bar også
+              ordet "foreløbig", så linjen siger selv, at runden ikke er
+              færdigspillet, når den ikke er. Og «–» forklares kun, når nogen
+              står med den.
+
+              Den står OVER podiet og ikke i listen, fordi tallet står BEGGE
+              steder. Lå den i listen, ville en liga med tre eller færre
+              spillere — hvor listen er tom og alle står på podiet — vise
+              rundepoint uden et ord om, hvilken runde det handler om. */}
+          <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
+            {visning === 'runde' ? (
+              <>
+                Runde {rundeNr} alene — sorteret efter rundens point.
+                {!rundeFaerdig && ' Runden er ikke færdigspillet, så rækkefølgen kan nå at skifte.'}
+                {' '}Med småt: placering og point i Samlet.
+                {viste.some((r) => r.rundePoint == null) && ' – betyder ingen point i runden endnu.'}
+              </>
+            ) : (
+              <>
+                Runde {rundeNr}: tallet under totalen er rundens point.
+                {foerende.size > 0 && ' 🔥 har flest indtil videre.'}
+              </>
+            )}
+          </p>
+        </>
       )}
       {hasPodium && (
         <div className={`podium${enVinder ? '' : ' podium--lige'}`}>
@@ -538,10 +659,18 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                 klubFarver={klubFarver(r.favoriteTeam)} size={r.rank === 1 ? 44 : 34}
               />
               <SpillerNavn r={r} aaben={aabenUid === r.uid} onToggle={toggleUid} className="link-btn podium__name" />
-              <span className="podium__pts">{formatPoints(r.totalPoints)} p</span>
+              <span className="podium__pts">
+                {visning === 'runde' ? fmtSignedPoints(r.rundePoint) : formatPoints(r.totalPoints)} p
+              </span>
               {/* Podiet vokser kun LODRET af en linje mere — modsat listen,
-                  hvor en kolonne æder bredde på en telefon. */}
-              {visRunde && (
+                  hvor en kolonne æder bredde på en telefon. I rundevisningen
+                  er linjen placering og point i Samlet; en podie-række er
+                  altid rangeret og klar, så badget er ikke nødvendigt her. */}
+              {visning === 'runde' ? (
+                <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+                  nr. {r.samletRank} samlet · {formatPoints(r.totalPoints)} p
+                </span>
+              ) : visRunde && (
                 <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
                   <RundeCelle r={r} runde={rundeNr} foerende={foerende} />
                 </span>

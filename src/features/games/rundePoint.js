@@ -107,20 +107,85 @@ export function rundensPoint(raekke, runde) {
  * @returns {Set<string>} tom, hvis ingen fører
  */
 export function rundeFoerende(raekker, runde) {
-  if (runde == null) return new Set();
+  const bedst = rundensBedste(raekker, runde);
+  if (bedst == null) return new Set();
+  const ud = new Set();
+  for (const r of raekker || []) {
+    if (rundensPoint(r, runde) === bedst && r?.uid) ud.add(r.uid);
+  }
+  return ud;
+}
+
+/**
+ * Rundens højeste point i feltet — eller null, når INGEN fører: ingen har et
+ * tal i runden, eller det højeste er 0 eller mindre.
+ *
+ * ÉN REGEL, ÉT STED. "Nul fører ikke" afgør både ilden (rundeFoerende) og
+ * rundestillingens rang (rundeRanking). Stod den to steder, kunne den ene
+ * fjernes med grøn suite — og så ville guldet gå til et minus fredag aften,
+ * mens ilden stadig sagde, at ingen fører. Negative tal fører heller ikke:
+ * en tabt Chance er ikke en sejr.
+ *
+ * @returns {number|null}
+ */
+export function rundensBedste(raekker, runde) {
   let bedst = null;
   for (const r of raekker || []) {
     const p = rundensPoint(r, runde);
     if (p == null) continue;
     if (bedst == null || p > bedst) bedst = p;
   }
-  // Nul fører ikke. Gælder også negative tal: en tabt chance er ikke en sejr.
-  if (bedst == null || bedst <= 0) return new Set();
-  const ud = new Set();
-  for (const r of raekker || []) {
-    if (rundensPoint(r, runde) === bedst && r?.uid) ud.add(r.uid);
+  return bedst != null && bedst > 0 ? bedst : null;
+}
+
+/**
+ * RUNDENS STILLING: rækkerne rangeret efter rundens point alene — grundlaget
+ * for knappen «Runde N» over podiet (ejerens ønske 12/10 2026: «skifte
+ * mellem total stilling og ugestilling»).
+ *
+ * Rangerede først: dem, der HAR et tal i runden, faldende, uafgjort deler
+ * rang (1, 2, 2, 4), navn som tiebreak — samme form som rankStandings.
+ * `rank` er rundens; `samletRank` er den rang, rækken kom med (Samlet-
+ * visningens — ligaens, når en liga er valgt), så fladen kan sige «nr. 13
+ * samlet» ved siden af rundens guld. Det er hele kontrasten.
+ *
+ * Urangerede NEDERST, alfabetisk, med `rank: null` og `rundePoint: null`:
+ *  - ingen tal i runden (null — kan ikke skelnes fra 0, se rundensPoint);
+ *  - `klar === false`: en vektor, totalen har afvist, kan ikke placere nogen.
+ *    Samme regel som ligaRanking ("samme klar som totalen"); uden den ville
+ *    et tal fra en afvist vektor stå på rundens podie med "0 i alt" under.
+ *
+ * NUL FØRER IKKE gælder også her (rundensBedste): er rundens bedste 0 eller
+ * mindre, får ingen en rang — listen sorteres stadig, men der er intet podie
+ * og ingen "1." ved et minus.
+ *
+ * `previousRank: null` for alle: der findes ingen «før» for en rundestilling,
+ * og en pil fra Samlet-skalaen ville måle noget andet end det, rækken viser.
+ *
+ * Rækkerne er kopier — kalderen beholder den samlede liste til alt andet
+ * (pokaler, regnskab, spillerdetalje), som ikke må skifte orden med knappen.
+ */
+export function rundeRanking(raekker, runde) {
+  const navn = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'da');
+  const rows = (raekker || []).map((r) => ({
+    ...r,
+    samletRank: r?.rank ?? null,
+    rundePoint: r?.klar === false ? null : rundensPoint(r, runde),
+    rank: null,
+    previousRank: null,
+  }));
+  const medTal = rows.filter((r) => r.rundePoint != null)
+    .sort((a, b) => (b.rundePoint - a.rundePoint) || navn(a, b));
+  const udenTal = rows.filter((r) => r.rundePoint == null).sort(navn);
+  if (rundensBedste(medTal, runde) != null) {
+    let rank = 0;
+    let forrige = null;
+    medTal.forEach((r, i) => {
+      if (r.rundePoint !== forrige) { rank = i + 1; forrige = r.rundePoint; }
+      r.rank = rank;
+    });
   }
-  return ud;
+  return [...medTal, ...udenTal];
 }
 
 /** Vektoren UDEN én bestemt runde — grundlaget for "stillingen før runden". */

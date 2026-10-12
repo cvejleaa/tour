@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  sidsteRunde, rundensPoint, rundeFoerende, rundePile,
+  sidsteRunde, rundensPoint, rundeFoerende, rundePile, rundensBedste, rundeRanking,
 } from './rundePoint';
 import { ligaPoint, harRundeVektor } from '../../lib/ligaPoint';
 import { UDEN_RUNDE } from '../../lib/ligaPoint';
@@ -222,5 +222,99 @@ describe('rundePile — pilen skal måle DEN VISTE RUNDE', () => {
   it('uden en runde røres rækkerne ikke — serverens billede beholdes', () => {
     const ind = [{ uid: 'a', name: 'Anne', previousRank: 7, perRound: { 6: 1 } }];
     expect(rundePile(ind, null, null, regn, harVektor)).toEqual(ind);
+  });
+});
+
+describe('rundensBedste — ÉN regel for ild og rang: nul fører ikke', () => {
+  it('giver rundens højeste positive tal', () => {
+    expect(rundensBedste([r('a', { 5: 3 }), r('b', { 5: 7.5 })], 5)).toBe(7.5);
+  });
+
+  it('giver null, når det højeste er 0 eller mindre — og når ingen har et tal', () => {
+    expect(rundensBedste([r('a', { 5: 0 }), r('b', { 5: -4 })], 5)).toBeNull();
+    expect(rundensBedste([r('a', { 4: 9 })], 5)).toBeNull();
+    expect(rundensBedste([], 5)).toBeNull();
+    expect(rundensBedste([r('a', { 5: 3 })], null)).toBeNull();
+  });
+
+  it('en positiv slår et minus — så er der en bedste', () => {
+    expect(rundensBedste([r('a', { 5: -4 }), r('b', { 5: 0.5 })], 5)).toBe(0.5);
+  });
+
+  it('ilden følger den — samme svar som rundeFoerende', () => {
+    const felt = [r('a', { 5: -4 }), r('b', { 5: 0.5 }), r('c', { 5: 0.5 })];
+    expect([...rundeFoerende(felt, 5)].sort()).toEqual(['b', 'c']);
+    expect(rundeFoerende([r('a', { 5: -4 }), r('b', { 5: 0 })], 5).size).toBe(0);
+  });
+});
+
+describe('rundeRanking — rundens stilling', () => {
+  const row = (uid, name, rank, perRound, extra = {}) => ({
+    uid, name, rank, totalPoints: 100 - rank, previousRank: rank + 1, perRound, ...extra,
+  });
+  const felt = () => [
+    row('a', 'Anne', 1, { 8: 1 }),
+    row('b', 'Bo', 2, { 8: 12.3 }),
+    row('c', 'Carl', 3, null),
+    row('d', 'Dorte', 4, { 8: 12.3 }),
+    row('e', 'Erik', 5, { 8: -2 }),
+    row('f', 'Frede', 6, { 7: 50 }), // kun en ÆLDRE runde — intet tal i runde 8
+  ];
+
+  it('sorterer faldende efter rundens point, deler rang ved uafgjort (1, 1, 3, 4), navn som tiebreak', () => {
+    expect(rundeRanking(felt(), 8).map((x) => [x.uid, x.rank, x.rundePoint])).toEqual([
+      ['b', 1, 12.3], ['d', 1, 12.3], ['a', 3, 1], ['e', 4, -2], ['c', null, null], ['f', null, null],
+    ]);
+  });
+
+  it('husker Samlet-rangen som samletRank, nulstiller pilen og beholder resten', () => {
+    const ud = rundeRanking(felt(), 8);
+    const bo = ud.find((x) => x.uid === 'b');
+    expect(bo.samletRank).toBe(2);
+    expect(ud.find((x) => x.uid === 'd').samletRank).toBe(4);
+    expect(ud.find((x) => x.uid === 'c').samletRank).toBe(3);
+    for (const x of ud) expect(x.previousRank).toBeNull();
+    expect(bo.totalPoints).toBe(98);
+    expect(bo.name).toBe('Bo');
+  });
+
+  it('urangerede står nederst, alfabetisk — uanset deres Samlet-rang', () => {
+    const ud = rundeRanking([row('z', 'Zara', 1, null), row('m', 'Mads', 2, { 8: 3 }), row('a', 'Anne', 3, null)], 8);
+    expect(ud.map((x) => x.uid)).toEqual(['m', 'a', 'z']);
+  });
+
+  it('klar:false er urangeret og uden tal — også når vektoren har runden', () => {
+    const ud = rundeRanking([row('a', 'Anne', 1, { 8: 9 }, { klar: false }), row('b', 'Bo', 2, { 8: 3 })], 8);
+    expect(ud.map((x) => [x.uid, x.rank, x.rundePoint])).toEqual([['b', 1, 3], ['a', null, null]]);
+  });
+
+  it('NUL FØRER IKKE: er rundens bedste 0 eller mindre, får ingen en rang — listen er stadig sorteret', () => {
+    const ud = rundeRanking([row('a', 'Anne', 1, { 8: -4 }), row('b', 'Bo', 2, { 8: -1 }), row('c', 'Carl', 3, null)], 8);
+    expect(ud.map((x) => [x.uid, x.rank, x.rundePoint])).toEqual([['b', null, -1], ['a', null, -4], ['c', null, null]]);
+  });
+
+  it('et ægte 0 i vektoren er et tal (står over –), men fører ikke', () => {
+    const ud = rundeRanking([row('a', 'Anne', 1, { 8: 0 }), row('b', 'Bo', 2, null)], 8);
+    expect(ud.map((x) => [x.uid, x.rank, x.rundePoint])).toEqual([['a', null, 0], ['b', null, null]]);
+  });
+
+  it('rækkefølgen af input er ligegyldig', () => {
+    expect(rundeRanking(felt().reverse(), 8).map((x) => x.uid))
+      .toEqual(rundeRanking(felt(), 8).map((x) => x.uid));
+  });
+
+  it('rører ikke de rækker, den får — kalderen beholder Samlet til pokaler og regnskab', () => {
+    const input = felt();
+    rundeRanking(input, 8);
+    expect(input.map((x) => x.uid)).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
+    expect(input[0].rank).toBe(1);
+    expect(input[0].previousRank).toBe(2);
+    expect(input[0]).not.toHaveProperty('rundePoint');
+  });
+
+  it('uden en runde er alle urangerede, og en tom liste giver en tom liste', () => {
+    expect(rundeRanking(felt(), null).every((x) => x.rank == null && x.rundePoint == null)).toBe(true);
+    expect(rundeRanking([], 8)).toEqual([]);
+    expect(rundeRanking(null, 8)).toEqual([]);
   });
 });
