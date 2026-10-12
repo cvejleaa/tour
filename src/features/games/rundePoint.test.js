@@ -62,16 +62,15 @@ describe('rundensPoint', () => {
   });
 
   it('giver null for en runde uden nøgle — IKKE nul', () => {
-    // Serveren springer nul-værdier over (pointOpdeling.js:339), så "ingen
-    // nøgle" dækker BÅDE den, der ramte alt forbi, og den der ikke tippede.
-    // De må ikke vises som 0, for så anklages den sidste for noget andet,
-    // end der skete.
+    // Ingen nøgle betyder «ingen afgjorte tips i runden endnu»: serveren
+    // skriver nøglen, så snart ét tip er afgjort — også med 0. Et hul må
+    // derfor ikke vises som 0; 0 er tallet for den, der ramte forbi.
     expect(rundensPoint(r('a', { 7: 5 }), 8)).toBeNull();
   });
 
   it('et ægte 0 i vektoren vises som 0', () => {
-    // Kan i praksis ikke skrives af serveren i dag, men funktionen må ikke
-    // selv finde på at skjule det, hvis den regel ændrer sig.
+    // Serveren skriver 0 for et afgjort tip, der ramte forbi (ejerens fund
+    // 12/10 2026) — tallet skal igennem, så 0 kan rangeres over en tabt Chance.
     expect(rundensPoint(r('a', { 8: 0 }), 8)).toBe(0);
   });
 

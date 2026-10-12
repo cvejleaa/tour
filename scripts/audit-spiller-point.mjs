@@ -176,10 +176,10 @@ async function main() {
 
     // --- 3b. Tips pr. runde ------------------------------------------------
     //
-    // En runde med præcis 0 point UDELADES af vektoren (`laegTil` springer
-    // falsy over). Et hul i vektoren kan derfor betyde tre ting: ingen tips,
-    // tips uden afgjorte kampe endnu, eller tips der samlet gav nul. De tre
-    // ligner hinanden i fladen og skal skilles ad her.
+    // En runde står i vektoren, så snart ét tip i den er afgjort — også med
+    // 0 (siden 12/10 2026; før sprang `laegTil` falsy over, og et nul var et
+    // hul). Et hul betyder derfor to ting: ingen tips, eller tips uden
+    // afgjorte kampe endnu. De to ligner hinanden i fladen og skilles ad her.
     const perRundeTips = new Map();
     for (const b of alleBets) {
       const info = roundCtx.byMatch[b.matchId];

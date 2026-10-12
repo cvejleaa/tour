@@ -244,7 +244,18 @@ PR-teksten, ikke her.
 - **En tæller, der IKKE kan skelne "0 point" fra "deltog ikke"**, og et
   gulvet total-felt, betyder at `total − total_uden_X ≠ delta[X]` generelt.
   Spørg om en ny beregning implicit antager, den kan trække to gemte,
-  gulvede/nullable tal fra hinanden.
+  gulvede/nullable tal fra hinanden. En "bevidst pris" ved at springe 0 over
+  bliver en synlig fejl, i det øjeblik en flade RANGERER på feltet (0 havnede
+  under −6,4). Gives 0 en nøgle, så lad grænsen følge det, der ALLEREDE er
+  offentligt og som skrives ved samme hændelse (afgjort kamp) — "tippet
+  overhovedet" ville både lække deltagelse før kickoff og få nøgler med
+  tilfældig timing, fordi vektoren kun genskrives ved scoring.
+- **Ændres BETYDNINGEN af et persisteret felt, der kun genskrives for
+  "berørte", er feltet blandet, indtil en fuld genberegning har kørt** — og
+  en ny forklaringstekst om den nye betydning lyver over de gamle rækker.
+  Rækkefølge: server → genberegn (spørg ejeren) → tekst. Grep også testene
+  for den GAMLE forklaring ordret (guide-sætninger som "(N er den seneste
+  runde, nogen har point i)"), ikke kun fraværs-assertions.
 
 - **En markør, der fjernes "fordi rækkefølgen siger det", kan have båret en
   KVALIFIKATOR** (🔥 = "indtil videre"). Flyt kvalifikatoren til tekst, før

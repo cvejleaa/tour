@@ -280,9 +280,10 @@ export default function FootballHelp({ game }) {
             afgøres, så føringen i runden kan skifte, indtil den sidste kamp er spillet. Et
             {' '}<strong>🔥</strong> brænder hos den, der har flest indtil videre — står to lige, brænder
             det hos dem begge. Har hele feltet tabt runden, er der ingen ild. En <strong>–</strong>
-            {' '}betyder, at du ikke har point i runden endnu.
-            {' '}Med knappen <strong>Runde N</strong> over podiet (N er den seneste runde, nogen har
-            point i) ser
+            {' '}betyder, at ingen af dine tips i runden er afgjort endnu — har du ramt forbi, står
+            der 0.
+            {' '}Med knappen <strong>Runde N</strong> over podiet (N er den seneste runde med et
+            afgjort tip) ser
             du runden alene: sorteret efter rundens point, og placering og point fra Samlet står med
             småt under. Dér er der hverken pil eller 🔥 — placeringen siger, hvem der fører indtil
             videre — og <strong>Samlet</strong> bringer dig tilbage.

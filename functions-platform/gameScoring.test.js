@@ -523,8 +523,9 @@ describe('startRound gater på serveren — uden nogen startdato', () => {
 // FORÆLDEDE RUNDENØGLER MÅ IKKE OVERLEVE.
 //
 // QC's fund: perRound blev skrevet med merge:true, som DEEP-merger maps. En
-// rundenøgle, der forsvandt fra den nye vektor — et facit fjernet, en kamp
-// omscoret til 0 — blev stående, og ligaens total indeholdt tavst point,
+// rundenøgle, der forsvandt fra den nye vektor — et facit fjernet (en kamp
+// omscoret til 0 BEHOLDER nu sin nøgle med 0) — blev stående, og ligaens total
+// indeholdt tavst point,
 // spillet ikke længere havde. QC målte det i miniature: spillets total 0,
 // ligaens 3,5. Derfor mergeFields, og derfor denne test.
 // ---------------------------------------------------------------------------

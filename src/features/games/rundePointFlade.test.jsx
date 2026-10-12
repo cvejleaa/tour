@@ -135,12 +135,12 @@ describe('rundens point i stillingen', () => {
   });
 
   it('en spiller uden point i runden viser – og siger HVORFOR', () => {
-    // Stregen betyder "ingen point i runden endnu", IKKE "deltog ikke": de to
+    // Stregen betyder "ingen afgjorte tips i runden endnu", IKKE "deltog ikke": de to
     // kan ikke skelnes, fordi serveren springer nul-værdier over.
     vis({ standings: raekker({ u4: { 8: 5 } }) });
     const mig = within(tabel()).getByText('Mig').closest('tr');
     const streg = within(mig).getByText('–');
-    expect(streg).toHaveAttribute('title', 'Ingen point i runden endnu');
+    expect(streg).toHaveAttribute('title', 'Ingen afgjorte tips i runden endnu');
   });
 
   it('INGEN FARVE og INGEN etiket på den lavest scorende', () => {
@@ -412,7 +412,7 @@ describe('vælgeren Samlet / Runde N', () => {
     // Anne: ingen rang, ingen tal — og stregen siger HVORFOR (samme title som i Samlet).
     expect(celler('Anne')[0]).toBe('–');
     // Begge streger (rang og point) siger hvorfor — samme title som i Samlet.
-    const streger = within(raekkeFor('Anne')).getAllByTitle('Ingen point i runden endnu');
+    const streger = within(raekkeFor('Anne')).getAllByTitle('Ingen afgjorte tips i runden endnu');
     expect(streger.map((e) => e.textContent)).toEqual(['–', '–']);
     expect(celler('Anne')[2]).toBe('–nr. 1 samlet · 60');
 
@@ -447,9 +447,9 @@ describe('vælgeren Samlet / Runde N', () => {
     // Spilfører bad om ORDET foreløbig — det bar ilden før.
     expect(t).toMatch(/Rækkefølgen er foreløbig — runden er ikke færdigspillet\./);
     expect(t).toMatch(/Det lille tal er placering og point i Samlet\./);
-    expect(t).toMatch(/Stregen – betyder ingen point i runden endnu\./);
-    // Erik fører — så siges det IKKE, at ingen fører.
-    expect(t).not.toMatch(/Ingen fører runden/);
+    expect(t).toMatch(/Stregen – betyder ingen afgjorte tips i runden endnu\./);
+    // Erik fører — så siges det IKKE, at hele feltet har ramt forbi.
+    expect(t).not.toMatch(/Hele feltet har ramt forbi|Ingen fører runden/);
     // Det, der IKKE må stå i rundevisningen (QC på planen).
     // «færdigspillet» rummer «pil» — derfor ordgrænser på de korte ord.
     expect(t).not.toMatch(/ved siden af|under totalen|🔥|\buge\b|\bpil(en)?\b|samlede total|tidligere|[▲▼]/i);
@@ -464,6 +464,26 @@ describe('vælgeren Samlet / Runde N', () => {
     vis({ standings: FELT(), matches: [{ round: 8, result: '1' }, { round: 8, result: null }] });
     fireEvent.click(knap('Runde 8'));
     expect(linje().textContent).toMatch(/ikke færdigspillet/);
+  });
+
+  it('0 er et tal: den, der ramte alt forbi, står med «0» over en tabt Chance — ikke nederst med –', () => {
+    // Serveren skriver nu nøglen med 0 for et afgjort tip (ejerens fund 12/10
+    // 2026: nr. 1 samlet stod nederst som «deltog ikke», under −6,4).
+    const { container } = vis({ standings: raekker({ u5: { 8: 20 }, u4: { 8: 0 }, u3: { 8: -1 } }) });
+    // Samlet: «0» under totalen — ikke «+0» — og ingen ild på et nul.
+    expect(within(raekkeFor('Dorte')).getByText('0')).toBeInTheDocument();
+    expect(screen.queryByText('+0')).toBeNull();
+    expect(foerendeNavne()).toEqual(['Erik']);
+    fireEvent.click(knap('Runde 8'));
+    // Rundens podie: Erik guld, Dorte SØLV med 0, Carl bronze med −1.
+    const soelv = podiePlads(container, 2);
+    expect(soelv.querySelector('.podium__name').textContent).toBe('Dorte');
+    expect(soelv.querySelector('.podium__pts').textContent).toBe('0 p');
+    expect(podiePlads(container, 3).querySelector('.podium__name').textContent).toBe('Carl');
+    expect(podiePlads(container, 3).querySelector('.podium__pts').textContent).toBe('−1 p');
+    // De tre uden afgjorte tips står nederst med streg — Dorte gør ikke.
+    expect(tabelNavne()).toEqual(['Anne', 'Bo', 'Mig']);
+    expect(container.textContent).not.toContain('+0');
   });
 
   it('nævner – kun, når nogen står med den', () => {
@@ -489,10 +509,10 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(within(raekkeFor('Carl')).getByTitle('Ingen rang — ingen fører runden endnu')).toBeInTheDocument();
     expect(celler('Carl')[2]).toMatch(/^−4/);
     // Dorte har intet tal: begge streger, og titlen er den anden.
-    expect(within(raekkeFor('Dorte')).getAllByTitle('Ingen point i runden endnu')).toHaveLength(2);
-    expect(linje().textContent).toMatch(/– betyder ingen point i runden endnu/);
+    expect(within(raekkeFor('Dorte')).getAllByTitle('Ingen afgjorte tips i runden endnu')).toHaveLength(2);
+    expect(linje().textContent).toMatch(/– betyder ingen afgjorte tips i runden endnu/);
     // Og linjen siger selv, hvorfor Carl ingen rang har — en title findes ikke på en telefon.
-    expect(linje().textContent).toMatch(/Ingen fører runden endnu: ingen er over nul, så ingen har en rang\./);
+    expect(linje().textContent).toMatch(/Hele feltet har ramt forbi indtil videre: ingen er over nul, så ingen har en rang\./);
   });
 
   it('klar:false er urangeret, viser badget og ALDRIG et tal fra den afviste vektor', () => {
@@ -555,7 +575,7 @@ describe('vælgeren Samlet / Runde N', () => {
     fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L2' } });
     expect(screen.queryByRole('group', { name: 'Visning' })).toBeNull();
     // Visningen er Samlet: ingen streg for «ingen point i runden».
-    expect(screen.queryByTitle('Ingen point i runden endnu')).toBeNull();
+    expect(screen.queryByTitle('Ingen afgjorte tips i runden endnu')).toBeNull();
     fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'L1' } });
     expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'true');
     // Tre spillere → alle på podiet, ingen tabel — men podiet er rundens igen.
