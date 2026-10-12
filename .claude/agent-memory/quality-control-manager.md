@@ -246,6 +246,22 @@ PR-teksten, ikke her.
   Spørg om en ny beregning implicit antager, den kan trække to gemte,
   gulvede/nullable tal fra hinanden.
 
+- **En markør, der fjernes "fordi rækkefølgen siger det", kan have båret en
+  KVALIFIKATOR** (🔥 = "indtil videre"). Flyt kvalifikatoren til tekst, før
+  markøren fjernes — ellers læses en levende førsteplads som endelig, lige
+  under en pokal der først kårer, når runden er færdig. Og den regel, markøren
+  havde ("nul fører ikke"), skal gælde det, der afløser den (et podie).
+- **En omsortering af en delt liste: hvem ELLERS spiser listen?** Find de
+  ordensfølsomme forbrugere (stabil sort ved uafgjort, Map-indsætningsorden
+  ved "delt"-navne) og giv dem den uændrede liste — ellers skifter et
+  pokalnavn, når man trykker på en knap, der ikke handler om pokalen.
+- **Byttes et tal fra lille til stort (eller omvendt), følger dets
+  særtilstande med** ("ikke klar"-badge, `totalPoints: 0` for klar:false).
+  Ellers står nullet, koden ellers kæmper imod, i den nye plads.
+- **"Samme regel som i dag" i en plan: læs dagens gren — den kan være død.**
+  En sticky mig-række var uopnåelig (betingelsen ⇒ rækken står allerede i
+  listen); en test bygget på den kan ikke blive grøn uden ny adfærd.
+
 ## Tests, målinger og selectorer
 
 - **En Playwright-selector skal verificeres mod den ÆGTE komponent**, ikke
