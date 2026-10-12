@@ -337,8 +337,12 @@ describe('rundens point under et liga-filter med startrunde', () => {
     // bærer han kronen; i ligaen skal Dorte have den. Uden afgrænsningen til
     // det VISTE felt ville kronen forsvinde for ligaens medlemmer, fordi
     // vinderen står i en liga, de ikke deler.
+    // Medlemmernes vektorer STEMMER med deres totaler (60/50/30/20): under
+    // ligaen regnes de forfra, og en vektor, totalen afviser, har ingen point
+    // i runden (rundensPoint) — så ville ingen føre, og testen ville måle
+    // klar-reglen i stedet for ligaens felt.
     const rows = raekker({
-      u1: { 21: 2 }, u2: { 21: 3 }, u4: { 21: 6 }, me: { 21: 1 }, u5: { 21: 99 },
+      u1: { 1: 58, 21: 2 }, u2: { 1: 47, 21: 3 }, u4: { 1: 24, 21: 6 }, me: { 1: 19, 21: 1 }, u5: { 21: 99 },
     });
     vis({ standings: rows, leagues: [LIGA, LIGA2] });
     expect(foerendeNavne()).toEqual(['Erik']);
@@ -407,8 +411,9 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(celler('Carl')[2]).toMatch(/^−1nr\. 3 samlet · 40$/);
     // Anne: ingen rang, ingen tal — og stregen siger HVORFOR (samme title som i Samlet).
     expect(celler('Anne')[0]).toBe('–');
-    const streg = within(raekkeFor('Anne')).getByTitle('Ingen point i runden endnu');
-    expect(streg.textContent).toBe('–');
+    // Begge streger (rang og point) siger hvorfor — samme title som i Samlet.
+    const streger = within(raekkeFor('Anne')).getAllByTitle('Ingen point i runden endnu');
+    expect(streger.map((e) => e.textContent)).toEqual(['–', '–']);
     expect(celler('Anne')[2]).toBe('–nr. 1 samlet · 60');
 
     // INGEN pil — der findes ikke noget «før» for en rundestilling — og INGEN ild.
@@ -439,9 +444,10 @@ describe('vælgeren Samlet / Runde N', () => {
     const t = linje().textContent;
     expect(t).toMatch(/^Runde 8 alene — sorteret efter rundens point\./);
     // Uden kampprogram er runden ikke bevist færdig — så er den foreløbig.
-    expect(t).toMatch(/Runden er ikke færdigspillet, så rækkefølgen kan nå at skifte\./);
-    expect(t).toMatch(/Med småt: placering og point i Samlet\./);
-    expect(t).toMatch(/– betyder ingen point i runden endnu\./);
+    // Spilfører bad om ORDET foreløbig — det bar ilden før.
+    expect(t).toMatch(/Rækkefølgen er foreløbig — runden er ikke færdigspillet\./);
+    expect(t).toMatch(/Det lille tal er placering og point i Samlet\./);
+    expect(t).toMatch(/Stregen – betyder ingen point i runden endnu\./);
     // Det, der IKKE må stå i rundevisningen (QC på planen).
     // «færdigspillet» rummer «pil» — derfor ordgrænser på de korte ord.
     expect(t).not.toMatch(/ved siden af|under totalen|🔥|\buge\b|\bpil(en)?\b|samlede total|tidligere|[▲▼]/i);
@@ -475,10 +481,13 @@ describe('vælgeren Samlet / Runde N', () => {
     const { container } = vis({ standings: raekker({ u3: { 8: -4 } }) });
     fireEvent.click(knap('Runde 8'));
     expect(container.querySelector('.podium')).toBeNull();
-    // Carl står først (han har et tal), men uden rang.
+    // Carl står først (han har et tal), men uden rang — og rangens streg siger hvorfor.
     expect(tabelNavne()[0]).toBe('Carl');
     expect(celler('Carl')[0]).toBe('–');
+    expect(within(raekkeFor('Carl')).getByTitle('Ingen rang — ingen fører runden endnu')).toBeInTheDocument();
     expect(celler('Carl')[2]).toMatch(/^−4/);
+    // Dorte har intet tal: begge streger, og titlen er den anden.
+    expect(within(raekkeFor('Dorte')).getAllByTitle('Ingen point i runden endnu')).toHaveLength(2);
     expect(linje().textContent).toMatch(/– betyder ingen point i runden endnu/);
   });
 
@@ -494,6 +503,20 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(anne[2]).toMatch(/^–/);
     expect(anne[2]).toMatch(/ikke klar/);
     expect(anne[2]).not.toMatch(/\+9|nr\. 1 samlet/);
+    // Stregerne lover ikke «ingen point i runden» — hun kan have et tal, som er afvist.
+    expect(within(raekkeFor('Anne')).queryByTitle(/Ingen point i runden|Ingen rang/)).toBeNull();
+  });
+
+  it('klar:false fører heller ikke i Samlet — ilden følger samme regel som rangen', () => {
+    // Som ligaRanking leverer det: klar:false OG rank null (ingen podieplads).
+    const felt = raekker({ u4: { 8: 5 }, me: { 8: 2 } })
+      .map((r) => (r.uid === 'u1' ? { ...r, klar: false, rank: null, perRound: { 8: 99 } } : r));
+    vis({ standings: felt });
+    expect(foerendeNavne()).toEqual(['Dorte']);
+    const anne = celler('Anne');
+    expect(anne[2]).toMatch(/ikke klar/);
+    expect(anne[2]).toMatch(/–$/);
+    expect(anne[2]).not.toMatch(/99/);
   });
 
   it('regnskabet og rundevisningen udelukker hinanden — og vælgeren bliver stående', () => {

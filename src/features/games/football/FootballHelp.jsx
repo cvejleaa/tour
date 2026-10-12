@@ -282,9 +282,9 @@ export default function FootballHelp({ game }) {
             det hos dem begge. Har hele feltet tabt runden, er der ingen ild. En <strong>–</strong>
             {' '}betyder, at du ikke har point i runden endnu.
             {' '}Med knappen <strong>Runde N</strong> over podiet (N er den runde, der er i gang) ser
-            du runden alene: sorteret efter rundens point, med placering og point fra Samlet med
-            småt. Dér er der hverken pil eller 🔥 — placeringen siger, hvem der fører indtil videre —
-            og <strong>Samlet</strong> bringer dig tilbage.
+            du runden alene: sorteret efter rundens point, og placering og point fra Samlet står med
+            småt under. Dér er der hverken pil eller 🔥 — placeringen siger, hvem der fører indtil
+            videre — og <strong>Samlet</strong> bringer dig tilbage.
             {' '}I Samlet: <strong>pilen</strong> ved din placering i listen måler den <strong>samme
             runde</strong>: den viser, hvad runden har gjort ved din placering. Står der ingen pil,
             har du holdt din plads — også selv om du har hentet mange point, for det kan alle andre

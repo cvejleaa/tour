@@ -57,11 +57,20 @@ const ALLE = '__alle__';
  * grænse i Pokaler.jsx og LeagueBets.jsx: et navn fremhæves KUN for at have
  * haft ret.
  */
+/**
+ * Stregen for «intet tal i runden». Titlen siger hvorfor — undtagen ved
+ * klar:false, hvor det ikke er sandt (hun kan have et tal, som er afvist):
+ * dér forklarer badget «ikke klar» i samme celle.
+ */
+function IngenRundePoint({ r }) {
+  return (
+    <span title={r?.klar === false ? undefined : 'Ingen point i runden endnu'} style={{ color: 'var(--c-muted)' }}>–</span>
+  );
+}
+
 function RundeCelle({ r, runde, foerende }) {
   const p = rundensPoint(r, runde);
-  if (p == null) {
-    return <span title="Ingen point i runden endnu" style={{ color: 'var(--c-muted)' }}>–</span>;
-  }
+  if (p == null) return <IngenRundePoint r={r} />;
   const foerer = foerende.has(r.uid);
   return (
     <span title={foerer ? 'Flest point i runden indtil videre' : undefined}>
@@ -392,7 +401,20 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         }}
       >
         <td style={{ padding: '0.45rem 0.5rem', fontVariantNumeric: 'tabular-nums', width: 52 }}>
-          {r.rank == null ? '–' : <>{r.rank}<DeltaArrow row={r} /></>}
+          {/* Rangens streg forklarer sig selv: i rundevisningen kan den
+              betyde «intet tal i runden» eller «ingen fører runden endnu»
+              (fredag aften med én tabt Chance: et tal, men ingen rang). Ved
+              klar:false siger badget i pointcellen det. */}
+          {r.rank == null
+            ? (
+              <span
+                title={visning !== 'runde' || r.klar === false ? undefined
+                  : (r.rundePoint == null ? 'Ingen point i runden endnu' : 'Ingen rang — ingen fører runden endnu')}
+              >
+                –
+              </span>
+            )
+            : <>{r.rank}<DeltaArrow row={r} /></>}
         </td>
         <td style={{ padding: '0.45rem 0.5rem' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -414,9 +436,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                   nr. 13 samlet» er selve pointen). En urangeret række viser
                   samme streg og samme title som RundeCelle; klar:false viser
                   badget og aldrig ligaRankings 0. */}
-              {r.rundePoint == null
-                ? <span title="Ingen point i runden endnu" style={{ color: 'var(--c-muted)' }}>–</span>
-                : fmtSignedPoints(r.rundePoint)}
+              {r.rundePoint == null ? <IngenRundePoint r={r} /> : fmtSignedPoints(r.rundePoint)}
               <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
                 {r.klar === false
                   ? <IkkeKlar />
@@ -636,9 +656,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             {visning === 'runde' ? (
               <>
                 Runde {rundeNr} alene — sorteret efter rundens point.
-                {!rundeFaerdig && ' Runden er ikke færdigspillet, så rækkefølgen kan nå at skifte.'}
-                {' '}Med småt: placering og point i Samlet.
-                {viste.some((r) => r.rundePoint == null) && ' – betyder ingen point i runden endnu.'}
+                {!rundeFaerdig && ' Rækkefølgen er foreløbig — runden er ikke færdigspillet.'}
+                {' '}Det lille tal er placering og point i Samlet.
+                {viste.some((r) => r.rundePoint == null) && ' Stregen – betyder ingen point i runden endnu.'}
               </>
             ) : (
               <>

@@ -79,6 +79,13 @@ describe('rundensPoint', () => {
     expect(rundensPoint(r('a', { 8: -5 }), 8)).toBe(-5);
   });
 
+  it('klar:false giver null — en afvist vektor har intet tal i runden', () => {
+    expect(rundensPoint({ uid: 'a', klar: false, perRound: { 5: 9 } }, 5)).toBeNull();
+    // Og KUN false: undefined (rækker uden liga-startrunde) og true læses som i dag.
+    expect(rundensPoint({ uid: 'a', klar: true, perRound: { 5: 9 } }, 5)).toBe(9);
+    expect(rundensPoint({ uid: 'a', perRound: { 5: 9 } }, 5)).toBe(9);
+  });
+
   it('null runde eller manglende vektor giver null', () => {
     expect(rundensPoint(r('a', { 8: 1 }), null)).toBeNull();
     expect(rundensPoint({ uid: 'a' }, 8)).toBeNull();
@@ -121,6 +128,12 @@ describe('rundeFoerende — hvem fører runden', () => {
     // uden for filteret, er føringen ligaens egen.
     const vist = [r('a', { 8: 4 }), r('b', { 8: 2 })];
     expect([...rundeFoerende(vist, 8)]).toEqual(['a']);
+  });
+
+  it('en afvist vektor (klar:false) fører ikke — heller ikke med rundens højeste tal', () => {
+    const felt = [{ uid: 'a', klar: false, perRound: { 5: 99 } }, r('b', { 5: 3 })];
+    expect([...rundeFoerende(felt, 5)]).toEqual(['b']);
+    expect(rundensBedste(felt, 5)).toBe(3);
   });
 
   it('ingen runde giver ingen fører', () => {

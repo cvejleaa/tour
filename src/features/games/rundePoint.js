@@ -77,6 +77,12 @@ export function sidsteRunde(raekker, startRunde = null) {
  * dyrere af de to fejl.
  */
 export function rundensPoint(raekke, runde) {
+  // EN AFVIST VEKTOR HAR INGEN POINT I RUNDEN. `klar: false` sættes af
+  // ligaRanking, når vektoren ikke kan gengive spillets total — så er intet
+  // tal i den til at stole på. Reglen står HER og kun her, så ilden, rundens
+  // bedste, rangen og cellen i fladen følger den sammen (QC: før udelod kun
+  // rangen klar:false, og Samlet kunne vise «ikke klar» ved siden af «🔥 +9»).
+  if (raekke?.klar === false) return null;
   if (runde == null || !raekke?.perRound) return null;
   const v = raekke.perRound[String(runde)];
   const tal = Number(v);
@@ -152,8 +158,8 @@ export function rundensBedste(raekker, runde) {
  * Urangerede NEDERST, alfabetisk, med `rank: null` og `rundePoint: null`:
  *  - ingen tal i runden (null — kan ikke skelnes fra 0, se rundensPoint);
  *  - `klar === false`: en vektor, totalen har afvist, kan ikke placere nogen.
- *    Samme regel som ligaRanking ("samme klar som totalen"); uden den ville
- *    et tal fra en afvist vektor stå på rundens podie med "0 i alt" under.
+ *    Det afgøres i rundensPoint (én regel for ild, rang og celle); uden den
+ *    ville et tal fra en afvist vektor stå på rundens podie med "0 i alt".
  *
  * NUL FØRER IKKE gælder også her (rundensBedste): er rundens bedste 0 eller
  * mindre, får ingen en rang — listen sorteres stadig, men der er intet podie
@@ -170,7 +176,7 @@ export function rundeRanking(raekker, runde) {
   const rows = (raekker || []).map((r) => ({
     ...r,
     samletRank: r?.rank ?? null,
-    rundePoint: r?.klar === false ? null : rundensPoint(r, runde),
+    rundePoint: rundensPoint(r, runde),
     rank: null,
     previousRank: null,
   }));

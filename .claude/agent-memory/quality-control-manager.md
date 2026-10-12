@@ -262,6 +262,16 @@ PR-teksten, ikke her.
   En sticky mig-række var uopnåelig (betingelsen ⇒ rækken står allerede i
   listen); en test bygget på den kan ikke blive grøn uden ny adfærd.
 
+- **En ny rang/visning, der indfører en undtagelse ("klar:false er urangeret"),
+  skal få ALLE eksisterende læsere af samme felt med** — ild, pokal og rang
+  læste `perRound` hver for sig, så en afvist vektor kunne give 🔥 i Samlet og
+  "–" i rundevisningen. Tæl læserne; enten én delt regel eller en bevidst note.
+- **Samme tegn i to kolonner = to betydninger.** "–" som rang (ingen rang,
+  selv med et tal) og som point (ingen point) skal forklares begge steder, ellers
+  læses rangens streg som "ingen point" ved et minus-tal.
+- **Briefingens HEAD kan være forældet** — tjek `git log` og vis kun diffen mod
+  det, du faktisk gennemgår; en opfølgende test-commit kan være landet.
+
 ## Tests, målinger og selectorer
 
 - **En Playwright-selector skal verificeres mod den ÆGTE komponent**, ikke
