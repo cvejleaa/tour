@@ -50,6 +50,16 @@ describe('sidsteRunde', () => {
     expect(sidsteRunde([r('a', null), { uid: 'b' }])).toBeNull();
   });
 
+  it('en runde, hvis nøgle kun har et NUL, er stadig rundens — 0 er et afgjort tip, ikke et hul', () => {
+    // Serveren skriver nøglen med 0, når et tip er afgjort og ramte forbi (12/10
+    // 2026). Fredag efter første afgjorte kamp i runde 9 har alle derfor {9: 0};
+    // en sidsteRunde, der sprang nul over (den gamle semantik), blev hængende på
+    // sidste uges runde 8. Test Manager: mutationen overlevede — alle fixtures
+    // havde et ikke-nul tal i den seneste runde.
+    expect(sidsteRunde([r('a', { 8: 5, 9: 0 }), r('b', { 8: 3 })])).toBe(9);
+    expect(sidsteRunde([r('a', { 9: 0 })])).toBe(9);
+  });
+
   it('numerisk og ikke alfabetisk: runde 10 slår runde 9', () => {
     // '9' > '10' som strenge — fejlen ville stå ubemærket resten af sæsonen.
     expect(sidsteRunde([r('a', { 9: 1, 10: 1 })])).toBe(10);

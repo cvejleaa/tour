@@ -430,6 +430,13 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     // Tallet står UNDER totalen — ikke «ved siden af».
     expect(afsnit.textContent).toMatch(/tallet under totalen/);
     expect(afsnit.textContent).not.toMatch(/ved siden af totalen/);
+    // Test Manager: første sætning sagde «den runde, der er i gang», mens
+    // parentesen tre linjer senere sagde «den seneste runde med et afgjort
+    // tip» — to nabosætninger, der modsagde hinanden (fredag før første
+    // afgjorte kamp er N stadig sidste uges runde). Første sætning følger nu
+    // parentesen, og den gamle formulering må ikke komme igen.
+    expect(afsnit.textContent).toMatch(/hentet i den\s+seneste runde med et afgjort tip/);
+    expect(afsnit.textContent).not.toMatch(/hentet i den\s+runde, der er i gang/);
   });
 
   it('knappen-sætningen binder N til den seneste runde med et afgjort tip, kalder rundevisningen foreløbig — og sætter pilen i Samlet', () => {

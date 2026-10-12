@@ -276,7 +276,8 @@ export default function FootballHelp({ game }) {
         <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Rundens point</strong> — tallet under totalen er, hvad du har hentet i den
-            runde, der er i gang. Det er <strong>levende</strong>: det vokser, efterhånden som kampene
+            seneste runde med et afgjort tip — som regel den, der er i gang. Det er
+            {' '}<strong>levende</strong>: det vokser, efterhånden som kampene
             afgøres, så føringen i runden kan skifte, indtil den sidste kamp er spillet. Et
             {' '}<strong>🔥</strong> brænder hos den, der har flest indtil videre — står to lige, brænder
             det hos dem begge. Har hele feltet tabt runden, er der ingen ild. En <strong>–</strong>

@@ -487,6 +487,62 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(container.textContent).not.toContain('+0');
   });
 
+  // Test Manager: rundeTal() står tre steder, men render-testen ovenfor rører kun
+  // to af dem — nullet stod på PODIET, aldrig i LISTEN, så Row's store tal kunne
+  // gå tilbage til fmtSignedPoints («+0») med hele render-suiten grøn; kun en
+  // kildetekst-test (scripts/stillingsbredde.test.mjs) så det. Og −0 var uprøvet:
+  // Firestore-SDK'et gemmer negativt nul som double (serializer.js: isNegativeZero
+  // → doubleValue), round1(−0,04) giver netop −0, og fmtSignedPoints(−0) er «+0».
+  // Object.is(p, 0) i stedet for p === 0 overlevede derfor hele suiten.
+  for (const [navn, nul] of [['0', 0], ['−0 (en sum på −0,04 afrundet af serveren)', -0]]) {
+    it(`et nul (${navn}) står som «0», aldrig «+0» — i Samlet, i rundevisningens liste og på podiet`, () => {
+      // Listen: fire har et tal, Dorte er nr. 4 med nul og står i LISTEN, ikke på podiet.
+      const liste = vis({ standings: raekker({ u1: { 8: 9 }, u2: { 8: 8 }, u3: { 8: 7 }, u4: { 8: nul } }) });
+      expect(within(raekkeFor('Dorte')).getByText('0')).toBeInTheDocument(); // Samlet: RundeCelle
+      fireEvent.click(knap('Runde 8'));
+      expect(celler('Dorte')).toEqual(['4', 'Dorte', '0nr. 4 samlet · 30']); // Row: det store tal
+      expect(liste.container.textContent).not.toContain('+0');
+      liste.unmount();
+      // Podiet: nullet er nr. 2, foran et minus.
+      const podie = vis({ standings: raekker({ u5: { 8: 20 }, u4: { 8: nul }, u3: { 8: -1 } }) });
+      fireEvent.click(knap('Runde 8'));
+      expect(podiePlads(podie.container, 2).querySelector('.podium__pts').textContent).toBe('0 p');
+      expect(podie.container.textContent).not.toContain('+0');
+    });
+  }
+
+  it('en runde, hvor ingen endnu har andet end et nul, er stadig rundens — fredag efter første afgjorte kamp', () => {
+    // Runde 9's første kamp er afgjort, og alle ramte forbi: nøglen 9 findes med 0
+    // hos begge. Springer sidsteRunde nul-nøgler over (den gamle semantik), hænger
+    // fladen på sidste uges runde 8 — og den, der er "i gang", ses ikke. Ingen test
+    // havde en runde, hvis EGET højeste tal er 0 (Test Manager: mutationen overlevede).
+    vis({ standings: raekker({ u4: { 8: 5, 9: 0 }, me: { 8: 4, 9: 0 } }) });
+    expect(screen.getByText(/^Runde 9: tallet under totalen er rundens point\./)).toBeInTheDocument();
+    expect(screen.queryByText(/^Runde 8: tallet/)).toBeNull();
+    expect(foerendeNavne()).toEqual([]); // nul fører ikke
+    fireEvent.click(knap('Runde 9'));
+    // Begge har et afgjort tip og står med «0» — over de fire uden tal — men ingen har en rang.
+    expect(celler('Dorte')).toEqual(['–', 'Dorte', '0nr. 4 samlet · 30']);
+    expect(celler('Mig')).toEqual(['–', 'Mig (dig)', '0nr. 5 samlet · 20']);
+    const t = screen.getByText(/^Runde 9 alene/).closest('p').textContent;
+    expect(t).toMatch(/Alle med et afgjort tip har ramt forbi indtil videre: ingen er over nul, så ingen har en rang\./);
+    expect(t).toMatch(/Stregen – betyder ingen afgjorte tips i runden endnu\./);
+  });
+
+  it('«Alle med et afgjort tip har ramt forbi» står IKKE, når ingen har et tal — her: alle vektorer er afvist (klar:false)', () => {
+    // Linjens anden betingelse (viste.some(rundePoint != null)) var ubevist: den
+    // kunne fjernes med grøn suite, og så påstod linjen, at «alle med et afgjort tip
+    // har ramt forbi», mens ingen havde et tal at have ramt forbi med. rundeNr
+    // kommer af vektorerne (sidsteRunde læser ikke klar), men rundePoint er null
+    // for hver række — den eneste vej til en rundevisning uden et eneste tal.
+    const felt = raekker({ u1: { 8: 9 }, u2: { 8: 8 }, u3: { 8: 7 }, u4: { 8: 6 }, me: { 8: 5 }, u5: { 8: 4 } })
+      .map((r) => ({ ...r, klar: false }));
+    vis({ standings: felt });
+    fireEvent.click(knap('Runde 8'));
+    expect(linje().textContent).toMatch(/Stregen – betyder ingen afgjorte tips i runden endnu\./); // alle står med –
+    expect(linje().textContent).not.toMatch(/ramt forbi|ingen er over nul/);
+  });
+
   it('nævner – kun, når nogen står med den', () => {
     vis({ standings: raekker({ u1: { 8: 9 }, u2: { 8: 8 }, u3: { 8: 7 }, u4: { 8: 6 }, me: { 8: 5 }, u5: { 8: 4 } }) });
     fireEvent.click(knap('Runde 8'));
