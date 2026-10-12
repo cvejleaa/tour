@@ -132,7 +132,8 @@ describe('stillings-fanen med en liga-startrunde', () => {
         <GameStandings gameId="sl" game={{ id: 'sl', type: 'football' }} />
       </MemoryRouter>,
     );
-    fireEvent.change(screen.getByLabelText(/vis/i), { target: { value: navn } });
+    // Præcis etiketten: vælgeren «Visning» (Samlet / Runde N) matcher også /vis/i.
+    fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: navn } });
     return container;
   };
 

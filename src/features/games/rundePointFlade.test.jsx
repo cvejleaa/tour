@@ -368,7 +368,7 @@ describe('vælgeren Samlet / Runde N', () => {
   const podiePlads = (c, rang) => [...c.querySelectorAll('.podium__spot')]
     .find((sp) => sp.querySelector('.podium__plads')?.textContent === String(rang));
   // Knappen hedder også «Runde 8» — linjen kendes på det, der følger efter tallet.
-  const linje = () => screen.getByText(/^Runde 8 (alene|:)/).closest('p');
+  const linje = () => screen.getByText(/^Runde 8( alene|:)/).closest('p');
 
   it('står på Samlet som udgangspunkt, og listen er i Samlet-orden', () => {
     vis({ standings: FELT() });
@@ -415,6 +415,22 @@ describe('vælgeren Samlet / Runde N', () => {
     expect(tabel().textContent).not.toMatch(/[▲▼]/);
     expect(screen.queryAllByLabelText('Flest point i runden')).toHaveLength(0);
     expect(container.textContent).not.toContain('🔥');
+  });
+
+  it('«Samlet» bringer én tilbage: Samlet-orden, pil og ild igen', () => {
+    const { container } = vis({ standings: FELT() });
+    fireEvent.click(knap('Runde 8'));
+    expect(tabelNavne()).toEqual(['Mig', 'Carl', 'Anne']);
+    fireEvent.click(knap('Samlet'));
+    expect(knap('Samlet')).toHaveAttribute('aria-pressed', 'true');
+    expect(knap('Runde 8')).toHaveAttribute('aria-pressed', 'false');
+    expect(tabelNavne()).toEqual(['Dorte', 'Mig', 'Erik']);
+    expect(podiePlads(container, 1).querySelector('.podium__name').textContent).toBe('Anne');
+    expect(podiePlads(container, 1).querySelector('.podium__pts').textContent).toBe('60 p');
+    expect(foerendeNavne()).toEqual(['Erik']);
+    // Det store tal er totalen igen, og rundens point står under den.
+    expect(celler('Erik')[2]).toBe('10🔥 +20');
+    expect(linje().textContent).toMatch(/^Runde 8: tallet under totalen er rundens point\. 🔥 har flest indtil videre\./);
   });
 
   it('linjen siger, hvad rækkefølgen følger, at runden ikke er færdig, og hvad – betyder', () => {
