@@ -1443,3 +1443,73 @@ grøn efter hver retablering) + `npx vitest run --silent` for hele frontend-
 suiten (236 filer, 3331 tests, grøn). `functions/` og `functions-platform/`
 er urørt af denne PR (kun `scripts/`, `docs/`, `.github/workflows/` og
 `src/features/admin/TestsTab.test.jsx`) — ikke kørt, ikke relevant.
+
+## Stilling: knapperne Samlet / Runde N (PR #229, branch claude/multi-game-player-collection-21mc1w, HEAD 46633f8, 12/10 2026)
+
+95 mutationer (rundePoint.js 23, GameStandings.jsx 57, guiden 12, stillingsbredde.mjs 3).
+18 overlevede første gang: 13 reelle huller + 5 ækvivalente. Alle 13 reelle er nu
+dræbt af 10 nye tests (rundePoint.test.js 3, rundePointFlade.test.jsx 5,
+FootballHelp.test.jsx 1, `scripts/stillingsbredde.test.mjs` 1) + én rettet selector i
+`ligaStartRunde.test.jsx`. Som COMMITTET var branchen RØD: 2 tests i en femte fil +
+fladevagten (se 1 og 2).
+
+1. **En ny aria-label kolliderer med en løs regex i en FJERN testfil.** Gruppen
+   `aria-label="Visning"` gjorde `getByLabelText(/vis/i)` i
+   `ligaStartRunde.test.jsx` tvetydig → 2 røde tests, uden at nogen adfærd var
+   gået i stykker. De fire filer i briefingen var grønne; kun hele suiten viste det
+   (briefingens egen coverage-log havde det, ingen læste den). Rettet: eksakt label
+   `'Vis stilling for'`. Næste gang en ny knap/gruppe/label lander: grep
+   `getByLabelText(/`, `getByRole(…name: /`, `getByText(/` i HELE `src/` på labelens
+   delstreng, og lad aldrig "de relevante filer" være beviset.
+2. **En to-tilstands-knap, hvor testene kun LÆSER den ene knaps `aria-pressed`, er
+   urørt.** Samlet-knappens `onClick` kunne gøres tom med suiten grøn; fladevagten
+   (`Nyt urørt element «Samlet»`) fandt det før mutationen. Tjek for hver `onClick` i
+   diffen, at der findes et `fireEvent.click(<netop den knap>)` — en aria-assertion
+   er ikke et klik. Gælder også "tilbage"-knappen i en vælger: den bevises kun ved
+   at gå frem OG tilbage og sammenligne med udgangspunktet.
+3. **"Pokalerne følger ikke knappen" (QC-krav) var ubevist** (`rows={viste}` overlevede).
+   Pokaler tager rækkernes orden ved lige (stabil sort, første vinder `Bedst:`;
+   `rundeSejre` skubber vindere i rækkefølge). Opdages kun med en UAFGJORT i pokalens
+   mål mellem to spillere, hvis Samlet-orden ≠ rundevisningens (lige rundepoint
+   sorteres alfabetisk): Mig (Samlet 5) og Erik (6) med lige rundepoint OG lige Chance.
+   Samme opskrift gælder for alt, der skal "blive på den usorterede liste".
+4. **Tiebreak-fixtures, hvor navn og uid ligger i samme orden, beviser intet** (igen —
+   se `rundePile` ovenfor). `rundeRanking`s navne-tiebreak blev kun dræbt af ÉN test
+   (omvendt input); en tiebreak på `uid` i stedet for `name` og `'da'`→`'en'`
+   overlevede. Nu: `row('a','Zara')`/`row('z','Anne')` og Å/Ø/Z-navne.
+5. **"Er DENNE runde færdig" testet med et fixture med kun den ene runde**
+   (`faerdigeRunder(matches).length > 0` overlevede). I produktion er alle tidligere
+   runder færdige — fixturet skal have en færdig runde 7 og en ufærdig runde 8.
+6. **`klar:false`-tallet i `rundensBedste(medTal)` vs `(rows)`** overlevede: alle
+   klar:false-tests havde en klar spiller med et POSITIVT tal ved siden af. Skal have
+   en klar i MINUS, så "bedste" afgør, om nogen får rang.
+7. **`meRow = viste.find` vs `raekker.find`** overlevede: den klæbende bundrække
+   (`meInList`) er DØD kode i Samlet og nås kun i rundevisningen, når jeg selv tager
+   runden men er nr. >3 samlet. Test: "jeg står på podiet og ikke også i listen".
+8. **Harnessets håndskrevne spejl af Row (`stillingsbredde.mjs`: «nr. 13 samlet · 1.234,5»)
+   havde ingen paritetsvagt** — Row's linje kunne gøres dobbelt så lang med suiten
+   grøn. Bundet nu af en test, der læser begge kilder og sammenligner FORMEN
+   (tal→#). Harnesset kan køres her: `E2E_CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node scripts/stillingsbredde.mjs`.
+9. Samlet-grenens `<IkkeKlar/>` (refaktoreret ud af inline-JSX) blev ikke rørt af
+   nogen render-test, hverken før eller efter — `formatPoints(totalPoints)` i stedet
+   overlevede (og dermed et "0" til en spiller uden stemmende vektor). Title-teksten
+   ("Genberegn point") var utestet i begge versioner.
+10. Ækvivalente mutanter (jagt dem ikke igen): `rundeFoerende` med den gamle inline-
+    logik (ren refaktor); `if (p == null) continue` i `rundensBedste` (dækket af den
+    afsluttende `> 0`); `rundeRanking(standings)` vs `(raekker)` (kun `previousRank`
+    forskellig, og den nulstilles); `aabenRow` fra `viste` (SpillerDetalje læser kun
+    uid/name/opdeling/totalPoints); regnskabet fra `viste` (regnskab og rundevisning
+    udelukker hinanden).
+11. Ikke-test-fund videregivet: Samlet viser stadig `+9 🔥` fra en AFVIST vektor
+    (RundeCelle/rundeFoerende læser `perRound` uanset `klar`) mens rundevisningen
+    viser `–` for samme række; og "alle i minus" giver rang `–` på alle uden at nogen
+    tekst forklarer hvorfor (forklaringen "– betyder ingen point" kræver en null).
+
+Værktøj/miljø: worktree'en havde intet `node_modules` (`npm ci`, 13 s). Sandboxen
+afviser heredocs og sammensatte kommandoer med `git` i teksten → opret filer med
+Edit-værktøjet og kør simple kommandoer. En mutationsløber (`node mut.mjs spec.json`,
+JSON-spec med old/new, gendanner fra gemt original, JSON-reporter) er hurtigere og
+mere pålidelig end sed. `pkill -f` på løberen dræber også baggrundsshellen og
+EFTERLADER en mutation i kildefilen — kør altid `git status` og gendan bagefter.
+Fladevagt: `EVNE_LOG=<abs sti>/.evne-log npm run test:coverage` + `node scripts/flade-vagt.mjs`
+(236 filer, 3373 tests, vagt grøn efter de nye klik).

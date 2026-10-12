@@ -1140,6 +1140,21 @@ a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
    for podiet, den ene ting den ikke ændrer. */
 .standings__bar > .btn { margin-left: auto; }
 
+/* Vælgeren Samlet / Runde N over podiet (GameStandings.jsx). Én gruppe, to
+   knapper, den trykkede er fyldt. Den står over podiet og ikke i
+   værktøjslinjen, fordi den skifter netop det, der står under den — podie og
+   liste — og værktøjslinjen ligger over pokalerne, som den IKKE rører. */
+.visning { display: inline-flex; margin: 0 0 0.5rem; }
+.visning__knap { border-radius: 0; }
+.visning__knap:first-child { border-radius: 6px 0 0 6px; }
+.visning__knap:last-child { border-radius: 0 6px 6px 0; margin-left: -1.5px; }
+.visning__knap[aria-pressed="true"] {
+  background: var(--c-pitch); color: var(--c-on-pitch); border-color: var(--c-pitch);
+}
+.visning__knap[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--c-pitch); color: var(--c-on-pitch); border-color: var(--c-pitch);
+}
+
 /* Sticky egen-række i stillingen */
 .rank-row--me { position: sticky; bottom: 0; background: var(--c-surface-alt); box-shadow: 0 -2px 8px rgba(0,0,0,.06); }
 

@@ -417,6 +417,38 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     expect(afsnit.textContent).not.toMatch(/siden runden begyndte/i);
   });
 
+  it('fortæller om knappen Runde N — hvad den sorterer efter, og at den ikke viser tidligere runder', () => {
+    guide();
+    const afsnit = screen.getByText(/Rundens point/).closest('li');
+    expect(afsnit.textContent).toMatch(/knappen Runde N over podiet/);
+    expect(afsnit.textContent).toMatch(/sorteret efter rundens point/);
+    expect(afsnit.textContent).toMatch(/placering og point fra Samlet/);
+    expect(afsnit.textContent).toMatch(/hverken pil eller 🔥/);
+    expect(afsnit.textContent).toMatch(/Samlet bringer dig tilbage/);
+    // Den lover ikke mere, end knappen kan: kun den igangværende runde.
+    expect(afsnit.textContent).not.toMatch(/tidligere runder|ældre runder|vælge en runde/i);
+    // Tallet står UNDER totalen — ikke «ved siden af».
+    expect(afsnit.textContent).toMatch(/tallet under totalen/);
+    expect(afsnit.textContent).not.toMatch(/ved siden af totalen/);
+  });
+
+  it('knappen-sætningen binder N til den igangværende runde, kalder rundevisningen foreløbig — og sætter pilen i Samlet', () => {
+    // Test Manager: tre ord i sætningen kunne ændres uden at noget blev rødt
+    // (mutationstestet). De er ikke pynt:
+    //  - «N er den runde, der er i gang» er det, der holder N fra at blive læst
+    //    som en valgfri runde (testen ovenfor forbyder kun ordene «tidligere»);
+    //  - «hvem der fører indtil videre» er hvad der gør rundevisningen foreløbig,
+    //    ligesom 🔥 — «har vundet» ville modsige afsnittets egen «levende»;
+    //  - «I Samlet: pilen» er det, der gør «hverken pil eller 🔥» to sætninger
+    //    tidligere sand: uden scope står pilen som om den fandtes overalt.
+    guide();
+    const afsnit = screen.getByText(/Rundens point/).closest('li');
+    expect(afsnit.textContent).toMatch(/\(N er den seneste runde, nogen har\s+point i\)/);
+    expect(afsnit.textContent).toMatch(/placeringen siger, hvem der fører indtil videre/);
+    expect(afsnit.textContent).toMatch(/I Samlet: pilen ved din placering/);
+    expect(afsnit.textContent).not.toMatch(/hvem der har vundet/);
+  });
+
   it('siger hvad en streg betyder — og lover ALDRIG et nul', () => {
     // Et 0 kan ikke leveres: serveren springer nul-værdier over, så den der
     // ramte alt forbi, er umulig at skelne fra den der ikke tippede. Lovede

@@ -31,7 +31,8 @@ IKKE hemmelig, så den kræver ingen ekstra opsætning.
 
 GitHub → **Actions → "Deploy platform (tip.vejleaa.dk)" → Run workflow**.
 Inputs:
-- **seedGames** (standard: til) — opretter spillene VM/Tour/Superliga i
+- **seedGames** (standard: FRA — workflowets default er `false`; slå den kun til, når
+  spillene faktisk skal skrives, og tør-kør først) — opretter spillene VM/Tour/Superliga i
   `games`-collection'en, så oversigten har noget at vise.
 - **bootstrapOwnerEmail** — lad den være tom ved FØRSTE kørsel (din konto
   findes ikke endnu). Se owner-trinnet nedenfor.
@@ -46,7 +47,7 @@ Der er ingen Cloud Functions endnu, så owner sættes manuelt:
 1. Gå til <https://tip.vejleaa.dk> og **log ind** (Google eller e-mail) med
    `cvejleaa@gmail.com`. Du lander på "Afventer godkendelse" (status = pending).
 2. Kør workflowen igen med **bootstrapOwnerEmail = `cvejleaa@gmail.com`**
-   (seedGames kan slås fra denne gang). Scriptet slår din bruger op og sætter
+   (seedGames står fra som standard — lad den være). Scriptet slår din bruger op og sætter
    `role=owner` + `status=approved`.
    - Alternativt manuelt: Firebase Console → Firestore → `users/{dit-uid}` →
      sæt `role: "owner"` og `status: "approved"`.

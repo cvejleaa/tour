@@ -42,11 +42,18 @@ const LANGT_NAVN = 'Christoffer Vejlelaaaaang';
 
 const BREDDER = [320, 375, 390];
 
-function side(bredde, medRunde) {
-  // medRunde=false: tre kolonner, rundens point som en LINJE under totalen
-  // (det, vi sender). medRunde=true: den fravalgte fjerde kolonne.
-  const rundeKolonne = medRunde ? '<td class="c-runde">🔥 +12,3</td>' : '';
-  const rundeLinje = medRunde ? '' : '<div class="c-under">🔥 +12,3</div>';
+// De tre udgaver af totalcellen:
+//   linje        – Samlet: totalen, rundens point som en LINJE under (sendes)
+//   rundevisning – Runde N: rundens point stort, placering + total under (sendes;
+//                  linjen er den LÆNGSTE tekst, totalcellen kan få — målt 12/10 2026)
+//   kolonne      – den fravalgte fjerde kolonne (måles kun for at vise hvorfor)
+export const UDGAVER = ['linje', 'rundevisning', 'kolonne'];
+
+function side(bredde, udgave) {
+  const rundeKolonne = udgave === 'kolonne' ? '<td class="c-runde">🔥 +12,3</td>' : '';
+  const hovedtal = udgave === 'rundevisning' ? '+17,6' : '1.234,5';
+  const rundeLinje = udgave === 'linje' ? '<div class="c-under">🔥 +12,3</div>'
+    : udgave === 'rundevisning' ? '<div class="c-under">nr. 13 samlet · 1.234,5</div>' : '';
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     ${css}
     html,body{margin:0;padding:0;width:${bredde}px}
@@ -65,14 +72,14 @@ function side(bredde, medRunde) {
         <span class="avatar"></span><button class="link-btn">${LANGT_NAVN}</button>
         <span> (dig)</span></span></td>
       ${rundeKolonne}
-      <td class="c-total">1.234,5${rundeLinje}</td>
+      <td class="c-total">${hovedtal}${rundeLinje}</td>
     </tr></tbody></table>
   </body></html>`;
 }
 
-async function maal(page, bredde, medRunde) {
+async function maal(page, bredde, udgave) {
   await page.setViewportSize({ width: bredde, height: 700 });
-  await page.setContent(side(bredde, medRunde));
+  await page.setContent(side(bredde, udgave));
   // Kører i BROWSEREN, ikke i Node — getBoundingClientRect findes kun dér.
   /* eslint-disable no-undef */
   return page.evaluate(() => {
@@ -91,21 +98,24 @@ async function maal(page, bredde, medRunde) {
 }
 
 async function main() {
-  const browser = await chromium.launch();
+  // Samme konvention som playwright.config.js: en forudinstalleret Chromium
+  // kan pege på via E2E_CHROMIUM, ellers Playwrights egen.
+  const browser = await chromium.launch(process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : {});
   const page = await browser.newPage();
   console.log('Stillingsrækken på telefonbredder — UDEN vandret scroll.\n');
   console.log('bredde | udgave                | overløb | navnets plads | linjer | højde');
   console.log('-------|-----------------------|---------|---------------|--------|------');
   let vaersteSendt = 0;
   let vaersteFravalgt = 0;
+  const navn = { linje: '3 + linje (sendes)', rundevisning: 'Runde N (sendes)', kolonne: '4 kolonner (fravalgt)' };
   for (const b of BREDDER) {
-    for (const medRunde of [false, true]) {
-      const m = await maal(page, b, medRunde);
+    for (const udgave of UDGAVER) {
+      const m = await maal(page, b, udgave);
       const overloeb = m.dokumentBredde - m.vinduesBredde;
-      if (medRunde) vaersteFravalgt = Math.max(vaersteFravalgt, overloeb);
+      if (udgave === 'kolonne') vaersteFravalgt = Math.max(vaersteFravalgt, overloeb);
       else vaersteSendt = Math.max(vaersteSendt, overloeb);
       console.log(
-        `${String(b).padStart(6)} | ${(medRunde ? '4 kolonner (fravalgt)' : '3 + linje (sendes)').padEnd(21)} | `
+        `${String(b).padStart(6)} | ${navn[udgave].padEnd(21)} | `
         + `${String(overloeb > 0 ? `${overloeb}px` : 'nej').padStart(7)} | `
         + `${String(`${m.navnBredde}px`).padStart(13)} | ${String(m.navnLinjer).padStart(6)} | ${m.raekkehoejde}px`,
       );
