@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-10-05T11:56:42.880Z",
+  "generatedAt": "2026-10-12T12:34:18.849Z",
   "totals": {
     "files": 282,
-    "tests": 4560,
-    "passed": 4560,
+    "tests": 4614,
+    "passed": 4614,
     "failed": 0
   },
   "suites": [
@@ -1178,7 +1178,7 @@
     {
       "file": "scripts/stillingsbredde.test.mjs",
       "area": "frontend",
-      "passed": 3,
+      "passed": 4,
       "failed": 0,
       "tests": [
         {
@@ -1187,6 +1187,10 @@
         },
         {
           "name": "stillingsbredde.mjs spejler stillingsrækken › rundens point står IKKE i en egen celle",
+          "status": "passed"
+        },
+        {
+          "name": "stillingsbredde.mjs spejler stillingsrækken › rundevisningens celle har samme FORM i harnesset som i Row — ud over tallene",
           "status": "passed"
         },
         {
@@ -5374,7 +5378,7 @@
     {
       "file": "src/features/games/football/FootballHelp.test.jsx",
       "area": "frontend",
-      "passed": 26,
+      "passed": 28,
       "failed": 0,
       "tests": [
         {
@@ -5478,7 +5482,15 @@
           "status": "passed"
         },
         {
-          "name": "guiden forklarer 🔥 mod 👑 — foreløbig mod endelig › siger hvad en streg betyder — og lover ALDRIG et nul",
+          "name": "guiden forklarer 🔥 mod 👑 — foreløbig mod endelig › fortæller om knappen Runde N — hvad den sorterer efter, og at den ikke viser tidligere runder",
+          "status": "passed"
+        },
+        {
+          "name": "guiden forklarer 🔥 mod 👑 — foreløbig mod endelig › knappen-sætningen binder N til den seneste runde med et afgjort tip, kalder rundevisningen foreløbig — og sætter pilen i Samlet",
+          "status": "passed"
+        },
+        {
+          "name": "guiden forklarer 🔥 mod 👑 — foreløbig mod endelig › siger hvad en streg betyder — og at et forbier står som 0",
           "status": "passed"
         }
       ]
@@ -9794,7 +9806,7 @@
     {
       "file": "src/features/games/rundePoint.test.js",
       "area": "frontend",
-      "passed": 27,
+      "passed": 46,
       "failed": 0,
       "tests": [
         {
@@ -9822,6 +9834,10 @@
           "status": "passed"
         },
         {
+          "name": "sidsteRunde › en runde, hvis nøgle kun har et NUL, er stadig rundens — 0 er et afgjort tip, ikke et hul",
+          "status": "passed"
+        },
+        {
           "name": "sidsteRunde › numerisk og ikke alfabetisk: runde 10 slår runde 9",
           "status": "passed"
         },
@@ -9839,6 +9855,10 @@
         },
         {
           "name": "rundensPoint › negative point overlever — en tabt chance er et rigtigt tal",
+          "status": "passed"
+        },
+        {
+          "name": "rundensPoint › klar:false giver null — en afvist vektor har intet tal i runden",
           "status": "passed"
         },
         {
@@ -9874,6 +9894,10 @@
           "status": "passed"
         },
         {
+          "name": "rundeFoerende — hvem fører runden › en afvist vektor (klar:false) fører ikke — heller ikke med rundens højeste tal",
+          "status": "passed"
+        },
+        {
           "name": "rundeFoerende — hvem fører runden › ingen runde giver ingen fører",
           "status": "passed"
         },
@@ -9904,13 +9928,77 @@
         {
           "name": "rundePile — pilen skal måle DEN VISTE RUNDE › uden en runde røres rækkerne ikke — serverens billede beholdes",
           "status": "passed"
+        },
+        {
+          "name": "rundensBedste — ÉN regel for ild og rang: nul fører ikke › giver rundens højeste positive tal",
+          "status": "passed"
+        },
+        {
+          "name": "rundensBedste — ÉN regel for ild og rang: nul fører ikke › giver null, når det højeste er 0 eller mindre — og når ingen har et tal",
+          "status": "passed"
+        },
+        {
+          "name": "rundensBedste — ÉN regel for ild og rang: nul fører ikke › en positiv slår et minus — så er der en bedste",
+          "status": "passed"
+        },
+        {
+          "name": "rundensBedste — ÉN regel for ild og rang: nul fører ikke › ilden følger den — samme svar som rundeFoerende",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › sorterer faldende efter rundens point, deler rang ved uafgjort (1, 1, 3, 4), navn som tiebreak",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › husker Samlet-rangen som samletRank, nulstiller pilen og beholder resten",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › urangerede står nederst, alfabetisk — uanset deres Samlet-rang",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › klar:false er urangeret og uden tal — også når vektoren har runden",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › NUL FØRER IKKE: er rundens bedste 0 eller mindre, får ingen en rang — listen er stadig sorteret",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › et ægte 0 i vektoren er et tal (står over –), men fører ikke",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › rækkefølgen af input er ligegyldig",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › rører ikke de rækker, den får — kalderen beholder Samlet til pokaler og regnskab",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › uden en runde er alle urangerede, og en tom liste giver en tom liste",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › et tal fra en AFVIST vektor (klar:false) tæller ikke som rundens bedste",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › urangerede sorteres DANSK og efter navn — Å til sidst, ikke uid-orden og ikke engelsk orden",
+          "status": "passed"
+        },
+        {
+          "name": "rundeRanking — rundens stilling › uafgjort på rundens point: NAVNET afgør rækkefølgen — ikke uid og ikke input-rækkefølgen",
+          "status": "passed"
         }
       ]
     },
     {
       "file": "src/features/games/rundePointFlade.test.jsx",
       "area": "frontend",
-      "passed": 18,
+      "passed": 41,
       "failed": 0,
       "tests": [
         {
@@ -9983,6 +10071,98 @@
         },
         {
           "name": "rundens point under et liga-filter med startrunde › kronen regnes af LIGAENS felt — en bedre runde uden for ligaen tæller ikke",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › står på Samlet som udgangspunkt, og listen er i Samlet-orden",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › findes ikke uden en runde: hverken i Touren eller før nogen har point",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › «Runde 8» vender stillingen: rundens fører får guldet, totalens fører står nederst med –",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › «Samlet» bringer én tilbage: Samlet-orden, pil og ild igen",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › linjen siger, hvad rækkefølgen følger, at runden ikke er færdig, og hvad – betyder",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › siger IKKE «ikke færdigspillet», når hver kamp i runden har facit — men gør det, når én mangler",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › 0 er et tal: den, der ramte alt forbi, står med «0» over en tabt Chance — ikke nederst med –",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › et nul (0) står som «0», aldrig «+0» — i Samlet, i rundevisningens liste og på podiet",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › et nul (−0 (en sum på −0,04 afrundet af serveren)) står som «0», aldrig «+0» — i Samlet, i rundevisningens liste og på podiet",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › en runde, hvor ingen endnu har andet end et nul, er stadig rundens — fredag efter første afgjorte kamp",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › «Alle med et afgjort tip har ramt forbi» står IKKE, når ingen har et tal — her: alle vektorer er afvist (klar:false)",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › nævner – kun, når nogen står med den",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › uafgjort i toppen: to guldmedaljer på lige trin",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › NUL FØRER IKKE: fredag aften med én tabt Chance er der intet podie og ingen «1.» ved et minus",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › klar:false er urangeret, viser badget og ALDRIG et tal fra den afviste vektor",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › klar:false fører heller ikke i Samlet — ilden følger samme regel som rangen",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › regnskabet og rundevisningen udelukker hinanden — og vælgeren bliver stående",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › et ligaskift til en liga uden runden lader vælgeren forsvinde — og valget huskes, til runden er der igen",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › «Samlet» bringer dig tilbage: Samlet-orden, ilden og Samlet-linjen er tilbage — og «Runde 8» virker igen bagefter",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › pokalerne står fast, når man trykker på knappen — Rundekongens navne og Chance-kongens «Bedst:» skifter ikke",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › tager jeg selv runden, men er nr. 5 samlet, står jeg på podiet — og ikke også nederst i listen",
+          "status": "passed"
+        },
+        {
+          "name": "vælgeren Samlet / Runde N › «ikke færdigspillet» gælder DEN runde — en tidligere færdig runde gør ikke runde 8 færdig",
+          "status": "passed"
+        },
+        {
+          "name": "«ikke klar» i Samlet — badget, aldrig et nul › en klar:false-række viser badget med forklaringen, rangen er – og totalen er ikke 0",
           "status": "passed"
         }
       ]
@@ -16882,7 +17062,7 @@
     {
       "file": "functions-platform/gameScoring.test.js",
       "area": "platform",
-      "passed": 88,
+      "passed": 89,
       "failed": 0,
       "tests": [
         {
@@ -16975,6 +17155,10 @@
         },
         {
           "name": "recalcPlayerTotal — perRound erstattes helt › fjerner en rundenøgle, der ikke længere har point bag sig",
+          "status": "passed"
+        },
+        {
+          "name": "recalcPlayerTotal — perRound erstattes helt › en kamp omscoret til 0 BEHOLDER sin nøgle — med 0: hverken det gamle tal eller væk",
           "status": "passed"
         },
         {
@@ -18978,7 +19162,7 @@
     {
       "file": "functions-platform/pointOpdeling.test.js",
       "area": "platform",
-      "passed": 66,
+      "passed": 74,
       "failed": 0,
       "tests": [
         {
@@ -18995,6 +19179,26 @@
         },
         {
           "name": "opdelPoint › tæller ikke kampe uden facit",
+          "status": "passed"
+        },
+        {
+          "name": "opdelPoint › skriver rundens nøgle med 0, når tippet er afgjort og ramte forbi",
+          "status": "passed"
+        },
+        {
+          "name": "opdelPoint › skriver INGEN nøgle for et tip uden facit — en kommende runde er ikke «rundens»",
+          "status": "passed"
+        },
+        {
+          "name": "opdelPoint › nøglen følger FACIT, ikke kickoff: en afgjort kamp med gemt kickoff i fremtiden giver 0-nøgle",
+          "status": "passed"
+        },
+        {
+          "name": "opdelPoint › 0-nøglen står ved siden af rundens rigtige tal — og en ukendt kamp skaber ingen",
+          "status": "passed"
+        },
+        {
+          "name": "opdelPoint › en afgjort kamp uden rundenummer med 0 point lander under «uden» med 0",
           "status": "passed"
         },
         {
@@ -19215,6 +19419,18 @@
         },
         {
           "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: kamp uden facit",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: afgjort runde, alt ramt forbi — nøglen er 0, ikke væk",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: nul-runde ved siden af en uafgjort runde",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: afgjort forbier med gemt kickoff i fremtiden — nøglen følger facit",
           "status": "passed"
         },
         {

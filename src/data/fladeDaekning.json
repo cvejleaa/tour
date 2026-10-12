@@ -1,13 +1,13 @@
 {
- "generatedAt": "2026-10-05T11:56:42.880Z",
+ "generatedAt": "2026-10-12T12:34:18.849Z",
  "e2eMedregnet": true,
  "renderMaalt": true,
  "totals": {
-  "elementer": 449,
-  "aktiverede": 184,
-  "renderede": 381,
-  "logposter": 789,
-  "interaktioner": 621,
+  "elementer": 451,
+  "aktiverede": 186,
+  "renderede": 383,
+  "logposter": 818,
+  "interaktioner": 651,
   "filer": 74
  },
  "elementer": [
@@ -3287,7 +3287,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 88,
+   "linje": 109,
    "kolonne": 5,
    "tag": "button",
    "type": "button",
@@ -3303,7 +3303,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 445,
+   "linje": 535,
    "kolonne": 11,
    "tag": "select",
    "type": null,
@@ -3321,7 +3321,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 486,
+   "linje": 576,
    "kolonne": 11,
    "tag": "button",
    "type": "button",
@@ -3330,9 +3330,42 @@
    "app": "platform",
    "aktiveret": true,
    "tests": [
-    "src/features/games/GameStandings.test.jsx"
+    "src/features/games/GameStandings.test.jsx",
+    "src/features/games/rundePointFlade.test.jsx"
    ],
    "renderAntal": 5,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/games/GameStandings.jsx",
+   "linje": 631,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Samlet",
+   "komponent": "GameStandings",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/rundePointFlade.test.jsx"
+   ],
+   "renderAntal": 2,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/games/GameStandings.jsx",
+   "linje": 639,
+   "kolonne": 13,
+   "tag": "button",
+   "type": "button",
+   "tekst": "Runde",
+   "komponent": "GameStandings",
+   "app": "platform",
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/rundePointFlade.test.jsx"
+   ],
+   "renderAntal": 2,
    "status": "roert"
   },
   {
@@ -3815,7 +3848,7 @@
   },
   {
    "fil": "src/features/games/football/FootballHelp.jsx",
-   "linje": 573,
+   "linje": 580,
    "kolonne": 40,
    "tag": "Link",
    "type": null,
@@ -5210,7 +5243,7 @@
     "e2e/platform/vendtilbage.spec.js",
     "src/pages/GamesPage.test.jsx"
    ],
-   "renderAntal": 5,
+   "renderAntal": 4,
    "status": "roert"
   },
   {
