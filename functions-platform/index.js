@@ -4,10 +4,10 @@
 //
 // Egen codebase ("platform" i firebase.json), adskilt fra Tour-motoren
 // ("default" → tour-85928): Firebase-CLI'en validerer ALLE en codebases
-// secrets mod målprojektet ved deploy, så Tour-funktionernes secrets
-// (SMTP_PASSWORD m.fl., som kun findes i tour-85928) må ikke ligge i den
-// codebase der deployes til spil-89af9 — og omvendt skal spil-afregningen
-// ikke med i Tour-deploys.
+// secrets mod målprojektet ved deploy, så hver codebase må kun bruge de
+// secrets, DENS projekt har (SMTP_PASSWORD findes i dag i begge projekter —
+// platformens er tip@vejleaa.dk; ANTHROPIC_API_KEY kun her) — og omvendt
+// skal spil-afregningen ikke med i Tour-deploys.
 // ---------------------------------------------------------------------------
 
 'use strict';

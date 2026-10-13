@@ -354,10 +354,12 @@ function testAlarmBesked(navn, nowMs) {
  */
 async function koerPostbud(db, FieldValue, { transporter, auth, nowMs = Date.now(), synkedeSpil = null } = {}) {
   const synkede = synkedeSpil || new Set(SYNCED_GAMES.map((g) => g.gameId));
-  // Alarmerne læses FØR kørsels-vagten: den skal vide, hvilke spil der
-  // allerede har en specifik alarm — og vagten må ikke kunne koste mailen.
-  // Kaster den (ét forkert kort), bliver det en ADVARSEL på kortet, og
-  // mailen går ud alligevel (QC på koden).
+  // Alarmerne læses FØR kørsels-vagten, så den ser de SPECIFIKKE alarmer, der
+  // allerede er åbne. At vagtens egne alarmer ikke tæller som specifikke,
+  // sikres af GENERISKE_TYPER — ikke af rækkefølgen (TM: en vagt, der
+  // genlæste efter sine egne skrivninger, var ækvivalent). Vagten må ikke
+  // kunne koste mailen: kaster den (ét forkert kort), bliver det en ADVARSEL
+  // på kortet, og mailen går ud alligevel (QC på koden).
   const foer = await db.collection('driftAlarmer').where('loestAt', '==', null).get();
   const aabneFoer = foer.docs.map((d) => ({ ...d.data(), id: d.id }));
   let kort = { roede: 0, lukket: 0, dubletter: 0 };

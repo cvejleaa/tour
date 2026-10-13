@@ -118,3 +118,33 @@ Tre kritiske lessons for denne udrulning:
 - Sweep-interval: 13:25–23:25 UTC dagligt (kan køre overlap med kampe)
 - **Anbefaling:** deploy efter 23:30 UTC eller efter 4/9 kl. 19:00 (når runden slutter)
 
+
+---
+
+## Alarm-postbudet (PR #231, 13/10 2026) — fakta, jeg har efterprøvet
+
+1. **NYE functions logger «Successful create operation», ikke «update».** Set i
+   run 33717669303 (syncLiveMaal, ny onSchedule). Briefingen bad om «update» for
+   tre nye functions — det havde givet en falsk rød verifikation. Ændrede
+   functions = update, nye = create. Tjek altid ordet mod en gammel run-log
+   (`gh run view <id> --log | grep -o "Successful [a-z]* operation"`).
+2. **Admin-strenge ligger i den lazy AdminPage-chunk, IKKE i entry-chunken**
+   (App.jsx lazy-loader admin). Probe, der virker (valideret mod produktion med
+   en eksisterende streng, og 0 for nye strenge før deploy):
+   `scratchpad`-scriptet: hent index.html → entry → `grep -oE '(assets/|\./)[A-Za-z0-9_.-]+\.js'`
+   → curl hver chunk og `grep -qF "<streng>"`. Gentag mønstret, hent ikke kun entry.
+3. **Produktionsfakta fra run-loggen 38236206714 (12/10, deployFunctions=true):**
+   34 functions opdateret; `gameTipReminders` m.fl. er bundet til SMTP_PASSWORD
+   → secret'en FINDES i spil-89af9. cloudscheduler- og secretmanager-API'erne
+   er slået til (CLI'en logger «required API ... is enabled»). Fem onSchedule
+   fandtes før postbudet; alle i europe-west1, timeZone Europe/Copenhagen.
+4. **Ingen GCP-adgang herfra**: `gcloud auth list` er tom. driftAlarmer,
+   Scheduler-jobs og logs kan ikke læses — sig det, gæt ikke.
+5. **Rollback af functions = redeploy af gammel kode med `--force`**: CLI'en
+   sletter functions, der mangler i kilden (kun i codebasen `platform`). Data,
+   som nyt maskineri har skrevet (driftlog-kort, alarm-typer), bliver liggende
+   og skal ryddes i hånden — skriv det i planen.
+6. Header-kommentarerne i functions-platform/index.js:5-10 og
+   deploy-platform.yml:233-235 påstår, at SMTP_PASSWORD «kun findes i
+   tour-85928». Forældet (index.js:99-101 + run-loggen siger andet). Ikke
+   blokerende, men læs dem ikke som fakta.

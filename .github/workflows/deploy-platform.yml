@@ -231,8 +231,9 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: |
           # Platform-funktionerne bor i deres EGEN codebase (functions-platform),
-          # så Firebase-CLI'en aldrig validerer Tour-motorens secrets
-          # (SMTP_PASSWORD m.fl. findes kun i tour-85928) mod spil-89af9.
+          # så Firebase-CLI'en kun validerer platformens egne secrets
+          # (SMTP_PASSWORD, ANTHROPIC_API_KEY) mod spil-89af9 — og aldrig
+          # Tour-motorens mod det forkerte projekt.
           npm --prefix functions-platform ci
           set +e
           out=$(firebase deploy --only functions:platform --project "$PROJECT_ID" --non-interactive --force 2>&1)

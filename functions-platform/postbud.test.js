@@ -462,6 +462,9 @@ describe('afkort', () => {
 
   it('fjerner også det, en mail-klient selv gør klikbart: www., tre-leds-domæner og .dk/.com — men ikke filnavne og versioner', () => {
     expect(afkort('se www.evil.dk/x nu')).toBe('se [url] nu');
+    // www-grenen alene (TM: uden den dækkede tre-leds-grenen eksemplet ovenfor).
+    expect(afkort('se www.evil-tip nu')).toBe('se [url] nu');
+    expect(afkort('www.evil.dk?a=1')).toBe('[url]');
     expect(afkort('tip.vejleaa.dk.evil.com/admin')).toBe('[url]');
     expect(afkort('api.superliga.dk svarede 429')).toBe('[url] svarede 429');
     expect(afkort('evil.dk')).toBe('[url]');
@@ -782,6 +785,24 @@ describe('ledningen mellem lagene — bundet af tekst, fordi index.js og kliente
 
   it('MAIL_TYPE har en dansk label i EmailLogTab.jsx — ellers står den rå type i Mail-loggen', () => {
     expect(les('../src/features/admin/EmailLogTab.jsx')).toContain(`'${MAIL_TYPE}': 'Driftalarm'`);
+  });
+
+  it('fyrTestAlarm melder med tvingMail: true — ellers mailes en gentaget test-alarm ikke, før den forrige er kvitteret (TM)', () => {
+    const udsnit = les('./index.js').split('exports.fyrTestAlarm')[1].split('exports.')[0];
+    expect(udsnit).toMatch(/type: 'test'[^}]*tvingMail: true/);
+  });
+
+  it('en fejl-linje logges med console.error — severity>=ERROR-alerten i docs/drift.md er kanalen, der ikke afhænger af postbudet (TM)', () => {
+    const udsnit = les('./index.js').split('async function koerPostbudMedKort')[1].split('exports.driftAlarmPostbud')[0];
+    expect(udsnit).toMatch(/linje\.niveau === 'fejl' \? console\.error : console\.log/);
+  });
+
+  it('timeoutSeconds 120 på BÅDE sendDriftAlarmMailNu og driftAlarmPostbud — klientens 120 s skal følges ad (QC)', () => {
+    const kilde = les('./index.js');
+    const skema = kilde.split('exports.driftAlarmPostbud')[1].split('exports.')[0];
+    const callable = kilde.split('exports.sendDriftAlarmMailNu')[1].split('exports.')[0];
+    expect(skema).toMatch(/timeoutSeconds: 120/);
+    expect(callable).toMatch(/timeoutSeconds: 120/);
   });
 
   it('fyrTestAlarm afviser via testAlarmTilladt; kvitterDriftAlarm skriver kvitteringFor', () => {

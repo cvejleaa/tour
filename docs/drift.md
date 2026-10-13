@@ -163,15 +163,27 @@ hvert kvarter, `functions-platform/postbud.js`):
 **Cloud Monitoring — vagten uden for huset (ÅBENT PUNKT — sættes op i
 konsollen, er ikke sat op endnu):** postbudet kan ikke maile sin egen død, og
 de tre tilfælde, hvor det ikke kan maile (SMTP, modtagere, afsendelse), ser
-kun fladen. Derfor to alerts i Google Cloud Console → Logging → *Log-based
-alerts*, projekt spil-89af9, med en e-mail-notifikationskanal til ejeren
-(kanalens adresse hører til i konsollen, ikke i repoet):
-1. `resource.type="cloud_run_revision" severity>=ERROR` — fanger en function,
-   der vælter, og postbudets egne fejl (niveau fejl logges som ERROR).
-2. **Fravær**: ingen log-linje med teksten `driftAlarmPostbud:` i 1 time
-   (log-baseret metric med «absence»-betingelse) — fanger et postbud, der
-   er holdt op med at køre (Scheduler pauset, deploy uden functions).
-Tjek ved sæsoneftersynet, at begge stadig findes.
+kun fladen. Derfor to alerts i Google Cloud Console, projekt spil-89af9, med
+en e-mail-notifikationskanal til ejeren (kanalens adresse hører til i
+konsollen, ikke i repoet). Trinnene (Release Manager; ingen konsol-adgang
+fra kode, så ejeren gør det selv):
+1. **ERROR-alert**: Logging → Logs Explorer, forespørgsel
+   `resource.type="cloud_run_revision" AND severity>=ERROR` → *Actions →
+   Create log alert* → e-mail-kanalen. Fanger en function, der vælter, og
+   postbudets egne fejl (niveau fejl logges med `console.error`).
+2. **Fraværs-alert** (log-based alerts kan ikke udtrykke fravær — derfor en
+   metric): Logging → *Log-based Metrics → Create metric*, type Counter, navn
+   `postbud_puls`, filter
+   `resource.type="cloud_run_revision" AND resource.labels.service_name="driftalarmpostbud" AND textPayload:"driftAlarmPostbud:"`
+   (prøv forespørgslen i Logs Explorer først — den skal give ca. 4 linjer i
+   timen; servicenavnet er ikke efterprøvet herfra, se hvad Logs Explorer
+   viser). Filtret på servicen er ikke pynt: et klik på «Send alarm-mail nu»
+   logger samme præfiks fra callablen og ville ellers dække over et dødt
+   skema. Derefter Monitoring → *Alerting → Create policy*, metric
+   `logging/user/postbud_puls`, betingelse *Metric absence* i 1 time, samme
+   e-mail-kanal.
+Indtil begge er sat op, er et dødt postbud pull-only (et rødt kort efter
+35 min). Tjek ved sæsoneftersynet, at begge stadig findes.
 
 #### xG-linjen på sweep-kortet
 

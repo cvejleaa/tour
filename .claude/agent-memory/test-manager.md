@@ -1566,3 +1566,26 @@ exit/SIGTERM-net, men en mutation kan alligevel stå i træet, mens en baggrunds
 kører: `git status` først, rør ikke worktree'en (heller ikke testfiler) mens løberen kører.
 Hele frontend-suiten tager ~135 s pr. kørsel — brug den kun til de mutationer, hvor
 de nærmeste filer overlever.
+
+## Alarm-postbudet (PR #231, a8e9d65) — 25 mutationer, 20 dræbt
+
+- **En «hvilke»-liste i en samlet linje kan bære uid'er, når id'et er en person.**
+  `postbud.js` `linjer()` viser `kampId` for >3 ens alarmer; for type `test` ER kampId
+  uid'et. Mutation: fjern `a.type === 'test' ? [] :` → dræbt af «ingen uid i mailen».
+  Spørg ved hver id-liste i en mail/UI: er id'et for NOGEN type en person?
+- **En test, der selv kalder kernen med callablens argumenter, beviser ikke callablen.**
+  «test-alarmens kæde» kalder `meldAlarm(... tvingMail: true)` selv — fjern
+  `tvingMail: true` i `index.js` fyrTestAlarm: grønt. Tekst-blokken «ledningen mellem
+  lagene» bandt 5 ledninger, men ikke tvingMail, `timeoutSeconds: 120` eller
+  `console.error`-grenen i koerPostbudMedKort — og DEN bærer Cloud Monitorings
+  `severity>=ERROR`-alert (docs/drift.md:169). Tæl ledningerne i index.js mod tekst-
+  testene: hvert argument, kernen har en gren for, skal bindes ved kaldet.
+- **Redundant alternations-gren overlever.** URL_MOENSTERs `www`-gren: testens eneste
+  www-eksempel (`www.evil.dk/x`) fanges også af tre-leds-grenen. Kun `www.evil-tip` /
+  `www.evil.dk?a=1` skiller dem. Spørg pr. gren: findes et input, KUN den gren fanger?
+- **Ækvivalent:** «alarmerne læses FØR vagten» er ikke bærende — GENERISKE_TYPER
+  filtrerer vagtens egne typer (genlæsning efter vagtens skrivninger overlever; tom
+  GENERISKE_TYPER dræbes). Kommentaren tilskriver rækkefølgen det, filtret gør.
+- Værktøj: heredoc til scratchpad blev afvist 3 gange, også uden ordet git i teksten.
+  `echo PLACEHOLDER > fil` + Read + Edit virker. Løber gendanner med
+  `fs.writeFileSync(orig)` i finally; ingen parenteser i mutations-id (shell-redirect).
