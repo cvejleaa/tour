@@ -51,7 +51,15 @@ const ALARM_TYPER = {
   detaljerLukket: { titel: 'Kilden har lukket os ude', hast: 'udvikler' },
   detaljerKobling: { titel: 'Live-kortlægningen er død', hast: 'udvikler' },
   detaljerAfvist: { titel: 'Kilden har skiftet form', hast: 'udvikler' },
-  koersel: { titel: 'En kørsel er forsinket eller fejlet', hast: 'haster' },
+  // De to kørsels-alarmer fra postbudet er skilt ad (QC på koden): en
+  // FORSINKET kørsel er en død scheduler og må gerne nage (kvittering), en
+  // kørsel, der FEJLEDE, er en selvlukkende tilstand ved siden af den
+  // specifikke alarm (strandet, detaljer*, mangler), der oftest er årsagen —
+  // og må hverken dubleres eller kunne genåbnes af en kvittering. Begge er
+  // «i dag», ikke «haster» (Spilfører): en enkelt forsinkelse om natten, som
+  // ejeren intet kan gøre ved, er den alarm, der lærer ham at ignorere ordet.
+  koersel: { titel: 'En kørsel er forsinket', hast: 'idag' },
+  koerselFejl: { titel: 'En kørsel fejlede', hast: 'idag' },
   postbud: { titel: 'Alarm-mailen kunne ikke sendes', hast: 'haster' },
   test: { titel: 'Test-alarm', hast: 'test' },
 };
@@ -135,7 +143,10 @@ function statusSamler({ type, gameId = null, gameNavn = null }) {
  * @param {{type:string, gameId:string, kampId?:string|null, besked:string,
  *          kraeverKvittering?:boolean, nowMs?:number}} a
  */
-async function meldAlarm(db, FieldValue, { type, gameId, kampId = null, besked, kraeverKvittering = false, nowMs = Date.now(), daempMs = 6 * 3600 * 1000 }) {
+async function meldAlarm(db, FieldValue, {
+  type, gameId, kampId = null, besked, kraeverKvittering = false, nowMs = Date.now(),
+  daempMs = 6 * 3600 * 1000, tvingMail = false,
+}) {
   const id = [gameId, kampId, type].filter(Boolean).join('_');
   const ref = db.collection('driftAlarmer').doc(id);
   const cur = await ref.get();
@@ -168,8 +179,23 @@ async function meldAlarm(db, FieldValue, { type, gameId, kampId = null, besked, 
   // eksplicit som null og ikke blot udeladt ved oprettelse: postbudet
   // filtrerer i kode, men `== null` i en query matcher aldrig et felt, der
   // mangler, og den fælde skal ingen kommende læser falde i.
-  if (!d || d.loestAt != null || d.kvitteretAt != null) doc.mailetAt = null;
+  // tvingMail: test-alarmen skal ALTID give en ny mail — også når den forrige
+  // hverken blev kvitteret eller løst (QC: knappen lovede ellers en mail, der
+  // aldrig kom, hvis man glemte at kvittere sidst).
+  if (tvingMail || !d || d.loestAt != null || d.kvitteretAt != null) doc.mailetAt = null;
   await ref.set(doc, { merge: true });
+}
+
+/**
+ * Felterne, en kvittering skriver. Ren funktion, så reglen «en TEST-alarm
+ * lukkes også (loestAt), ægte alarmer bliver stående» kan testes — index.js
+ * kan ikke. En test-alarm er færdig, når den er set; så forsvinder den fra
+ * fladen, og «Send en test-alarm» kan bruges igen.
+ */
+function kvitteringFor(type, uid, nowMs = Date.now()) {
+  const felter = { kvitteretAt: nowMs, kvitteretAf: uid };
+  if (type === 'test') felter.loestAt = nowMs;
+  return felter;
 }
 
 /**
@@ -264,6 +290,6 @@ function strandetBesked(kampId) {
 }
 
 module.exports = {
-  statusSamler, meldAlarm, loesDriftAlarmer, loesAlarmerAfType, vaerste, naesteKoerselFoerMs, strandetBesked,
-  ALARM_TYPER, alarmTitel, alarmHast,
+  statusSamler, meldAlarm, loesDriftAlarmer, loesAlarmerAfType, kvitteringFor, vaerste, naesteKoerselFoerMs,
+  strandetBesked, ALARM_TYPER, alarmTitel, alarmHast,
 };

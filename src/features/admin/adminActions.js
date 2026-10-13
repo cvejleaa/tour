@@ -780,8 +780,10 @@ export async function callSaetLigaMedlem({ gameId, leagueId, maalUid, medlem }) 
 
 /**
  * «📨 Send alarm-mail nu» — kør alarm-postbudet med det samme (manuel kilde,
- * rører ikke skemaets puls). Idempotent: kun umailede alarmer sendes, så et
- * dobbelt klik koster ingen dobbelt mail. Svaret er serverens status-linje.
+ * rører ikke skemaets puls). Idempotent i praksis: kun umailede alarmer
+ * sendes — knappen låses, mens kaldet kører, men to kørsler, der OVERLAPPER i
+ * samme sekund (skemaet + et klik), kan give samme mail to gange (Security;
+ * accepteret). Svaret er serverens status-linje med niveau.
  */
 export async function callSendDriftAlarmMailNu() {
   try {

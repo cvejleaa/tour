@@ -245,3 +245,23 @@ describe('DriftTab — alarm-postbudet', () => {
     expect(screen.getByText('strandet')).toBeInTheDocument();
   });
 });
+
+describe('DriftTab — postbudets svar farves efter serverens niveau', () => {
+  it('et «fejl»-svar (SMTP mangler) står som rødt badge — ikke som neutral tekst, der ligner succes', async () => {
+    mockSendNu.mockResolvedValue({ ok: true, data: { niveau: 'fejl', besked: 'SMTP_PASSWORD mangler — 2 alarmer kunne ikke mailes.', sendt: 0 } });
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    fireEvent.click(screen.getByRole('button', { name: '📨 Send alarm-mail nu' }));
+    const svar = await screen.findByText('SMTP_PASSWORD mangler — 2 alarmer kunne ikke mailes.');
+    expect(svar.className).toMatch(/badge--red/);
+  });
+
+  it('et «ok»-svar står som almindelig tekst', async () => {
+    mockSendNu.mockResolvedValue({ ok: true, data: { niveau: 'ok', besked: 'Sendt til 1 modtager (1 alarm).', sendt: 1 } });
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    fireEvent.click(screen.getByRole('button', { name: '📨 Send alarm-mail nu' }));
+    const svar = await screen.findByText('Sendt til 1 modtager (1 alarm).');
+    expect(svar.className).not.toMatch(/badge--red/);
+  });
+});

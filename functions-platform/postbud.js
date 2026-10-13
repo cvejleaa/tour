@@ -34,6 +34,7 @@
 // ---------------------------------------------------------------------------
 const { escapeHtml, sendEmail, APP_URL } = require('./mailer');
 const { meldAlarm, loesAlarmerAfType, alarmTitel, alarmHast } = require('./driftlog');
+const { SYNCED_GAMES } = require('./syncProviders');
 
 /** Typen i emailLog — får dansk label i EmailLogTab.jsx (TYPE_LABELS). */
 const MAIL_TYPE = 'drift-alarm';
@@ -70,14 +71,31 @@ const HAST_ORDEN = [
   ['andet', 'Andet'],
   ['test', 'Test'],
 ];
+/** Hast-ordet forrest i emnet (Spilfører), så indbakken kan sorteres på det. */
+const HAST_ORD = { haster: 'Haster', idag: 'I dag', udvikler: 'Til udvikleren', andet: 'Andet', test: 'Test' };
+/** Kort-typer, der kun findes for spil i SYNCED_GAMES — et kort for et spil, der er taget ud, er forældreløst. */
+const SYNKEDE_KORT = new Set(['sweep', 'minut', 'livemaal', 'kickoff']);
+/** Postbudets egne alarm-typer — dem, der IKKE tæller som «en specifik alarm for spillet». */
+const GENERISKE_TYPER = new Set(['koersel', 'koerselFejl', 'postbud', 'test']);
+/** Ti minutter mellem test-alarmer pr. administrator (Security F8). */
+const TEST_INTERVAL_MS = 10 * 60 * 1000;
 
 /**
  * Afkort en alarm-tekst til mailen: URL'er → [url] (ingen auto-linkning, ingen
  * fremmede links i indbakken), al whitespace → ét mellemrum, og en hård grænse.
  */
+/**
+ * Alt, en mail-klient kunne finde på at gøre klikbart (Security på koden):
+ * http(s)-adresser, www.-adresser, domæner med tre led (api.superliga.dk,
+ * tip.vejleaa.dk.evil.com/x) og to-leds-domæner på de almindelige endelser.
+ * «kampDetaljer.js» og «v1.22.0» rammes ikke (to led uden kendt endelse;
+ * sidste led skal være bogstaver).
+ */
+const URL_MOENSTER = /https?:\/\/\S+|\bwww\.\S+|\b[\w-]+(?:\.[\w-]+)+\.[a-z]{2,}(?:\/\S*)?|\b[\w-]+\.(?:dk|com|net|org|io|app|de|se|no|uk|eu|info|nu)\b(?:\/\S*)?/gi;
+
 function afkort(s, maks = BESKED_MAKS) {
   const ren = String(s == null ? '' : s)
-    .replace(/https?:\/\/\S+/g, '[url]')
+    .replace(URL_MOENSTER, '[url]')
     .replace(/\s+/g, ' ')
     .trim();
   return ren.length > maks ? `${ren.slice(0, maks - 1)}…` : ren;
@@ -106,11 +124,15 @@ function erRoedtKort(k, nowMs) {
   return forsinket || k.niveau === 'fejl';
 }
 
+/** Er kortet forsinket? Serverens egen frist — aldrig en gættet kadence. */
+function erForsinket(k, nowMs) {
+  return k.naesteForventetFoer != null && nowMs > k.naesteForventetFoer;
+}
+
 /** Teksten på en kørsels-alarm — hvad der er ramt, og hvad ejeren kan gøre. */
 function koerselBesked(k, nowMs) {
   const navn = `${KOERSEL_NAVN[k.type] || k.type} for ${k.gameNavn || k.gameId || 'platformen'}`;
-  const forsinket = k.naesteForventetFoer != null && nowMs > k.naesteForventetFoer;
-  if (forsinket) {
+  if (erForsinket(k, nowMs)) {
     return `${navn} har ikke kørt til tiden — sidst kørt ${k.koertAt ? datoDa(k.koertAt) : 'aldrig'}. `
       + 'Står den stadig rød ved næste kvarter, er skemaet holdt op med at køre: send denne mail til udvikleren.';
   }
@@ -118,24 +140,61 @@ function koerselBesked(k, nowMs) {
 }
 
 /**
+ * Et kort for et spil, der ikke længere synkes (taget ud af SYNCED_GAMES), er
+ * FORÆLDRELØST: dets frist er passeret for evigt, og det ville give en
+ * alarm, der aldrig lukker (Security på koden). Fladen viser det heller ikke
+ * som forventet kørsel. Påmindelses-kortet lukker sig selv (frist null) og
+ * er ikke omfattet. Udskilt, så reglen kan testes.
+ */
+function erForaeldreloest(k, synkedeSpil) {
+  return SYNKEDE_KORT.has(k.type) && !!k.gameId && !synkedeSpil.has(k.gameId);
+}
+
+/**
  * Kørsels-vagten: røde kort → alarmer; grønne kort lukker deres alarm igen.
+ * To slags (QC på koden):
+ *   forsinket → `koersel` med kvitteringskrav: en død scheduler må nage.
+ *   fejl      → `koerselFejl` UDEN kvitteringskrav og kun når der ikke
+ *               allerede er en åben, specifik alarm for samme spil — sweep-
+ *               og kickoff-kortet bliver netop rødt, når en strandet/mangler/
+ *               detaljer-alarm rejses, og den skal ikke stå to gange i mailen.
+ *               Uden kvittering kan den heller ikke genåbnes hvert 6. time af
+ *               en kvittering, mens en permanent tilstand (afbrudt kamp)
+ *               består.
  * Postbudets eget kort springes over — er postbudet i stykker, kører denne
  * kode ikke, og en alarm, kun postbudet kan maile, er ingen alarm.
  */
-async function roedeKortTilAlarmer(db, FieldValue, nowMs) {
+async function roedeKortTilAlarmer(db, FieldValue, nowMs, aabneAlarmer, synkedeSpil) {
   const snap = await db.collection('driftlog').get();
-  const kort = snap.docs.map((d) => ({ ...d.data(), id: d.id })).filter((k) => k.type !== 'postbud');
-  const roede = kort.filter((k) => erRoedtKort(k, nowMs));
-  for (const k of roede) {
+  const kort = snap.docs.map((d) => ({ ...d.data(), id: d.id }))
+    .filter((k) => k.type !== 'postbud' && !erForaeldreloest(k, synkedeSpil));
+  const spilMedSpecifikAlarm = new Set(
+    (aabneAlarmer || []).filter((a) => !GENERISKE_TYPER.has(a.type) && a.gameId).map((a) => a.gameId),
+  );
+  const forsinkede = kort.filter((k) => erForsinket(k, nowMs));
+  const fejlede = kort.filter((k) => !erForsinket(k, nowMs) && k.niveau === 'fejl');
+  for (const k of forsinkede) {
     await meldAlarm(db, FieldValue, {
       type: 'koersel', gameId: k.gameId ?? null, kampId: k.id,
       besked: koerselBesked(k, nowMs), kraeverKvittering: true, nowMs,
     });
   }
-  const { lukket } = await loesAlarmerAfType(db, FieldValue, {
-    type: 'koersel', aktuelleKampIds: roede.map((k) => k.id), nowMs,
-  });
-  return { roede: roede.length, lukket };
+  let dubletter = 0;
+  for (const k of fejlede) {
+    if (k.gameId && spilMedSpecifikAlarm.has(k.gameId)) { dubletter += 1; continue; }
+    await meldAlarm(db, FieldValue, {
+      type: 'koerselFejl', gameId: k.gameId ?? null, kampId: k.id,
+      besked: koerselBesked(k, nowMs), kraeverKvittering: false, nowMs,
+    });
+  }
+  const a = await loesAlarmerAfType(db, FieldValue, { type: 'koersel', aktuelleKampIds: forsinkede.map((k) => k.id), nowMs });
+  const b = await loesAlarmerAfType(db, FieldValue, { type: 'koerselFejl', aktuelleKampIds: fejlede.map((k) => k.id), nowMs });
+  return { roede: forsinkede.length + fejlede.length, lukket: a.lukket + b.lukket, dubletter };
+}
+
+/** Må administratoren sende en test-alarm nu? Ren, så 10-minutters-grænsen kan testes. */
+function testAlarmTilladt(cur, nowMs) {
+  return !cur || nowMs - (cur.sidstSetAt || 0) >= TEST_INTERVAL_MS;
 }
 
 /**
@@ -189,12 +248,17 @@ function linjer(alarmer, spilNavne) {
     const titel = a.titel || alarmTitel(a.type);
     if (g.length > SAMLE_GRAENSE) {
       const foerste = g.map((x) => x.foersteSetAt).filter(Number.isFinite).sort((x, y) => x - y)[0];
+      // Hvilke — ikke kun hvor mange (QC): de første fem kamp-/kort-id'er.
+      const ider = g.map((x) => x.kampId).filter(Boolean);
+      const hvilke = ider.length
+        ? ` Gælder: ${ider.slice(0, 5).map(escapeHtml).join(', ')}${ider.length > 5 ? ` (+${ider.length - 5})` : ''}.`
+        : '';
       ud.push({
         hast: alarmHast(a.type),
         titel: `${g.length} × ${titel}`,
         spil,
         html: `<strong>${escapeHtml(spil)} — ${g.length} × ${escapeHtml(titel)}</strong><br>`
-          + `${escapeHtml(afkort(a.besked))}<br>`
+          + `${escapeHtml(afkort(a.besked))}${hvilke}<br>`
           + `<small>Første set ${escapeHtml(datoDa(foerste))} · ${g.length} alarmer — se Driftstatus for hver enkelt</small>`,
       });
       continue;
@@ -225,18 +289,24 @@ function alarmMail(alarmer, { spilNavne = {} } = {}) {
   const kunTest = alle.length > 0 && alarmer.every((a) => a.type === 'test');
   const haster = alle.filter((l) => l.hast === 'haster').length;
   const n = alle.length;
+  // Hast-ordet står FORREST i emnet, hver gang (Spilfører + QC): den enkelte
+  // alarm, der haster, skal kunne skilles ud i indbakken — ikke kun bunker.
+  // Ved flere alarmer bruges den mest hastende gruppe.
+  const mest = HAST_ORDEN.map(([h]) => h).find((h) => alle.some((l) => l.hast === h)) || 'andet';
   let subject;
   if (kunTest) {
     subject = 'Vejleaa Tip – TEST-alarm: alarm-mailen virker';
   } else if (n === 1) {
-    subject = `Vejleaa Tip – driftalarm: ${alle[0].titel}${alle[0].spil !== 'Platformen' ? ` (${alle[0].spil})` : ''}`;
+    subject = `Vejleaa Tip · ${HAST_ORD[mest]}: ${alle[0].titel}${alle[0].spil !== 'Platformen' ? ` (${alle[0].spil})` : ''}`;
   } else {
-    subject = `${haster ? 'HASTER: ' : ''}Vejleaa Tip – ${n} nye driftalarmer${haster ? ` (${haster} haster)` : ''}`;
+    subject = `Vejleaa Tip · ${HAST_ORD[mest]}: ${n} driftalarmer${haster ? ` (${haster} haster)` : ''}`;
   }
   let html = '<div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#222">';
+  // «du ikke har fået mail om før» — sandt også for baseline-mailen efter en
+  // udrulning (QC: «siden sidste mail» var forkert for den første).
   html += kunTest
     ? '<p>Dette er en test af alarm-mailen — der er intet at gøre ud over at kvittere test-alarmen på Driftstatus.</p>'
-    : `<p>Driftvagten har fundet ${n === 1 ? '1 ny ting' : `${n} nye ting`} siden sidste mail.</p>`;
+    : `<p>Driftvagten har fundet ${n === 1 ? '1 ting' : `${n} ting`}, du ikke har fået mail om før.</p>`;
   let vist = 0;
   for (const [hast, overskrift] of HAST_ORDEN) {
     const del = alle.filter((l) => l.hast === hast);
@@ -250,7 +320,8 @@ function alarmMail(alarmer, { spilNavne = {} } = {}) {
     html += '</ul>';
   }
   if (alle.length > vist) html += `<p>… og ${alle.length - vist} flere — se Driftstatus.</p>`;
-  html += `<p><a href="${DRIFT_URL}">Åbn Driftstatus</a> (log ind først).</p>`;
+  // ProtectedRoute taber målet ved login (sender til forsiden) — sig det ærligt.
+  html += `<p><a href="${DRIFT_URL}">Åbn Driftstatus</a> — er du ikke logget ind, så log ind og tryk på linket igen.</p>`;
   html += '<p style="color:#888;font-size:12px">Løser en alarm sig selv, forsvinder den fra Driftstatus — du får ingen mail om det.<br>'
     + 'Du får denne mail, fordi du er administrator på Vejleaa Tip.</p></div>';
   return { subject, html, linjer: n };
@@ -279,22 +350,43 @@ function testAlarmBesked(navn, nowMs) {
  * postbudet selv kan gøre, når det ikke kan maile. Den eksterne vagt
  * (Cloud Monitoring, docs/drift.md) er den kanal, der ikke afhænger af os.
  */
-async function koerPostbud(db, FieldValue, { transporter, auth, nowMs = Date.now() } = {}) {
-  const kort = await roedeKortTilAlarmer(db, FieldValue, nowMs);
+async function koerPostbud(db, FieldValue, { transporter, auth, nowMs = Date.now(), synkedeSpil = null } = {}) {
+  const synkede = synkedeSpil || new Set(SYNCED_GAMES.map((g) => g.gameId));
+  // Alarmerne læses FØR kørsels-vagten: den skal vide, hvilke spil der
+  // allerede har en specifik alarm — og vagten må ikke kunne koste mailen.
+  // Kaster den (ét forkert kort), bliver det en ADVARSEL på kortet, og
+  // mailen går ud alligevel (QC på koden).
+  const foer = await db.collection('driftAlarmer').where('loestAt', '==', null).get();
+  const aabneFoer = foer.docs.map((d) => ({ ...d.data(), id: d.id }));
+  let kort = { roede: 0, lukket: 0, dubletter: 0 };
+  let vagtFejl = '';
+  try {
+    kort = await roedeKortTilAlarmer(db, FieldValue, nowMs, aabneFoer, synkede);
+  } catch (e) {
+    vagtFejl = String(e?.message || e).slice(0, 200);
+    console.error('postbud: kørsels-vagten fejlede (fortsætter til mailen):', vagtFejl);
+  }
   const snap = await db.collection('driftAlarmer').where('loestAt', '==', null).get();
   const aabne = snap.docs.map((d) => ({ ...d.data(), id: d.id, _ref: d.ref }));
   const nye = umailede(aabne);
   const tal = { roedeKort: kort.roede, aabne: aabne.length, umailede: nye.length };
+  const medVagt = (linje) => (vagtFejl
+    ? { ...linje, niveau: linje.niveau === 'fejl' ? 'fejl' : 'advarsel', besked: `${linje.besked} ⚠ Kørsels-vagten fejlede: ${vagtFejl}` }
+    : linje);
 
   if (!nye.length) {
-    return { niveau: 'ok', besked: `Ingen nye alarmer at maile (${aabne.length} åbne, alle mailet).`, tal: { ...tal, sendt: 0 } };
+    return medVagt({
+      niveau: 'ok',
+      besked: `Ingen nye alarmer at maile (${aabne.length} ${aabne.length === 1 ? 'åben' : 'åbne'}, alle mailet).`,
+      tal: { ...tal, sendt: 0 },
+    });
   }
   if (!transporter) {
     await meldAlarm(db, FieldValue, {
       type: 'postbud', gameId: null, kampId: 'smtp', kraeverKvittering: true, nowMs,
       besked: 'SMTP_PASSWORD er ikke sat — alarm-mails kan ikke sendes. Sæt secret\'en (docs/drift.md) og deploy functions.',
     });
-    return { niveau: 'fejl', besked: `SMTP_PASSWORD mangler — ${nye.length} alarmer kunne ikke mailes.`, tal: { ...tal, sendt: 0 } };
+    return medVagt({ niveau: 'fejl', besked: `SMTP_PASSWORD mangler — ${antalAlarmer(nye.length)} kunne ikke mailes.`, tal: { ...tal, sendt: 0 } });
   }
   const modtagere = await adminModtagere(db, auth);
   if (!modtagere.length) {
@@ -302,7 +394,7 @@ async function koerPostbud(db, FieldValue, { transporter, auth, nowMs = Date.now
       type: 'postbud', gameId: null, kampId: 'modtagere', kraeverKvittering: true, nowMs,
       besked: 'Ingen godkendt owner/globalAdmin har en e-mailadresse på sin Auth-konto — alarm-mails har ingen modtager.',
     });
-    return { niveau: 'fejl', besked: `Ingen modtager med e-mail — ${nye.length} alarmer kunne ikke mailes.`, tal: { ...tal, sendt: 0 } };
+    return medVagt({ niveau: 'fejl', besked: `Ingen modtager med e-mail — ${antalAlarmer(nye.length)} kunne ikke mailes.`, tal: { ...tal, sendt: 0 } });
   }
 
   const spilNavne = await hentSpilNavne(db, nye);
@@ -323,31 +415,44 @@ async function koerPostbud(db, FieldValue, { transporter, auth, nowMs = Date.now
       type: 'postbud', gameId: null, kampId: 'afsendelse', kraeverKvittering: true, nowMs,
       besked: `Afsendelsen fejlede for alle ${modtagere.length} modtagere — se Admin → ✉️ Mail-log. Der prøves igen hvert kvarter.`,
     });
-    return {
+    return medVagt({
       niveau: 'fejl',
-      besked: `Afsendelse fejlede til alle ${modtagere.length} modtagere — ${nye.length} alarmer prøves igen.`,
+      besked: `Afsendelse fejlede til alle ${modtagere.length} modtagere — ${antalAlarmer(nye.length)} prøves igen.`,
       tal: { ...tal, sendt, fejlede },
-    };
+    });
   }
 
+  // Kendt, lille løbsvindue (QC): genåbner sweep'et en alarm MELLEM læsningen
+  // ovenfor og denne skrivning, overskrives dens nye mailetAt: null — og den
+  // genåbning mailes ikke. Sandsynligheden er et par sekunder i kvarteret;
+  // prisen for en transaktion pr. alarm står ikke mål med den. Og to
+  // OVERLAPPENDE kørsler (skemaet + et klik i samme sekund) kan give samme
+  // mail to gange (Security) — en dobbelt mail er den rigtige retning at
+  // fejle i.
   const batch = db.batch();
   for (const a of nye) batch.set(a._ref, { mailetAt: nowMs }, { merge: true });
   await batch.commit();
   // Mailen kom ud → postbudets egne alarmer (smtp/modtagere/afsendelse) er løst.
   await loesAlarmerAfType(db, FieldValue, { type: 'postbud', aktuelleKampIds: [], nowMs });
 
-  const besked = `Sendt til ${sendt} modtager${sendt === 1 ? '' : 'e'} (${nye.length} alarm${nye.length === 1 ? '' : 'er'}).`;
+  const besked = `Sendt til ${sendt} modtager${sendt === 1 ? '' : 'e'} (${antalAlarmer(nye.length)}).`;
   if (fejlede) {
-    return {
+    return medVagt({
       niveau: 'advarsel',
       besked: `${besked} ${fejlede} modtager${fejlede === 1 ? '' : 'e'} fejlede — se Mail-log.`,
       tal: { ...tal, sendt, fejlede },
-    };
+    });
   }
-  return { niveau: 'ok', besked, tal: { ...tal, sendt, fejlede: 0 } };
+  return medVagt({ niveau: 'ok', besked, tal: { ...tal, sendt, fejlede: 0 } });
+}
+
+/** «1 alarm» / «3 alarmer» — dansk tal, ikke «1 alarmer» (QC). */
+function antalAlarmer(n) {
+  return `${n} alarm${n === 1 ? '' : 'er'}`;
 }
 
 module.exports = {
-  koerPostbud, alarmMail, umailede, erRoedtKort, koerselBesked, afkort, datoDa, adminModtagere,
-  testAlarmBesked, KOERSEL_NAVN, MAIL_TYPE, DRIFT_URL, MAKS_LINJER, SAMLE_GRAENSE,
+  koerPostbud, alarmMail, umailede, erRoedtKort, erForsinket, erForaeldreloest, koerselBesked, afkort, datoDa,
+  adminModtagere, testAlarmBesked, testAlarmTilladt, KOERSEL_NAVN, MAIL_TYPE, DRIFT_URL, MAKS_LINJER, SAMLE_GRAENSE,
+  TEST_INTERVAL_MS,
 };

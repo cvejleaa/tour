@@ -110,11 +110,14 @@ function AlarmKort({ alarm }) {
 function AlarmKnapper() {
   const [busy, setBusy] = useState(false);
   const [svar, setSvar] = useState('');
+  const [niveau, setNiveau] = useState('ok');
   const [err, setErr] = useState('');
   async function sendNu() {
     setBusy(true); setErr(''); setSvar('');
     const r = await callSendDriftAlarmMailNu();
-    if (r.ok) setSvar(r.data?.besked || 'Postbudet kørte.');
+    // Serverens niveau følger med: et «fejl»-svar (SMTP mangler, ingen
+    // modtager) må ikke stå som neutral tekst og ligne en succes (QC).
+    if (r.ok) { setSvar(r.data?.besked || 'Postbudet kørte.'); setNiveau(r.data?.niveau || 'ok'); }
     else setErr(r.error);
     setBusy(false);
   }
@@ -122,6 +125,7 @@ function AlarmKnapper() {
     setBusy(true); setErr(''); setSvar('');
     const r = await callFyrTestAlarm();
     if (r.ok) {
+      setNiveau('ok');
       setSvar('Test-alarmen er oprettet. Mailen bør komme inden for 15 min (næste postbud) — '
         + 'eller tryk Send alarm-mail nu. Kvittér alarmen herunder bagefter; så forsvinder den.');
     } else {
@@ -138,7 +142,14 @@ function AlarmKnapper() {
         <button className="btn btn--sm" disabled={busy} onClick={sendNu}>📨 Send alarm-mail nu</button>
         <button className="btn btn--sm" disabled={busy} onClick={testAlarm}>🧪 Send en test-alarm</button>
       </div>
-      {svar && <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem' }}>{svar}</p>}
+      {svar && (
+        <p
+          className={niveau === 'fejl' ? 'badge badge--red' : undefined}
+          style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: niveau === 'advarsel' ? '#b8860b' : undefined }}
+        >
+          {svar}
+        </p>
+      )}
       {err && <p className="badge badge--red" style={{ marginTop: '0.4rem' }}>{err}</p>}
     </div>
   );

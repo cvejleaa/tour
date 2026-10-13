@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { statusSamler, meldAlarm, loesDriftAlarmer, loesAlarmerAfType, vaerste, ALARM_TYPER, alarmTitel, alarmHast } = require('./driftlog');
+const { statusSamler, meldAlarm, loesDriftAlarmer, loesAlarmerAfType, kvitteringFor, vaerste, ALARM_TYPER, alarmTitel, alarmHast } = require('./driftlog');
 import { readFileSync } from 'node:fs';
 
 const FieldValue = { serverTimestamp: () => ({ __ts: true }) };
@@ -375,16 +375,32 @@ describe('ALARM_TYPER — titel og hast ét sted', () => {
     expect(alarmHast('test')).toBe('test');
   });
 
-  it('DÆKKER hver alarm-type, serveren faktisk melder (tripwire: en ny type uden titel bliver rød her)', () => {
+  it('DÆKKER hver alarm-type, serveren faktisk melder — og melder ikke typer, der ikke findes (tripwire begge veje)', () => {
     // index.js kan ikke importeres i en test — så læs kilden. Samme mønster som
     // strandetBesked-vagten: koden er sandheden, ikke en håndskrevet liste.
     const kilder = ['./index.js', './superligaSync.js', './postbud.js']
       .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
-    const brugte = [...kilder.matchAll(/type: '([A-Za-z0-9]+)'/g)].map((m) => m[1])
-      .filter((t) => !['sweep', 'minut', 'livemaal', 'kickoff', 'reminder', 'postbud', 'football', 'recap', 'reminder-test', 'liga'].includes(t));
-    const alarmTyper = new Set([...kilder.matchAll(/meldAlarm\([^)]*?type: '([A-Za-z0-9]+)'/gs)].map((m) => m[1]));
-    expect(alarmTyper.size).toBeGreaterThanOrEqual(8);
-    for (const t of alarmTyper) expect(ALARM_TYPER, `alarm-typen «${t}» mangler i ALARM_TYPER`).toHaveProperty(t);
-    expect(brugte.length).toBeGreaterThan(0);
+    // `meld(` er den injicerede meldAlarm i superligaSync.tjekLivePuls.
+    const alarmTyper = new Set([...kilder.matchAll(/\b(?:meldAlarm|meld)\([^)]*?type: '([A-Za-z0-9]+)'/gs)].map((m) => m[1]));
+    // Regex'en kan ikke miste typer tavst: den skal finde PRÆCIS de typer,
+    // tabellen kender (QC: «>= 8» lod fire typer forsvinde med grøn test).
+    expect([...alarmTyper].sort()).toEqual(Object.keys(ALARM_TYPER).sort());
+  });
+
+  it('kvitteringFor: en TEST-alarm lukkes også (loestAt) — ægte alarmer får kun kvitteretAt', () => {
+    expect(kvitteringFor('test', 'u1', 5000)).toEqual({ kvitteretAt: 5000, kvitteretAf: 'u1', loestAt: 5000 });
+    expect(kvitteringFor('kickoff48t', 'u1', 5000)).toEqual({ kvitteretAt: 5000, kvitteretAf: 'u1' });
+    expect(kvitteringFor(undefined, 'u1', 5000)).not.toHaveProperty('loestAt');
+  });
+
+  it('tvingMail nulstiller mailetAt, SELV om den forrige hverken var kvitteret eller løst (test-alarmen)', async () => {
+    const db = fakeDb();
+    const t = (over) => meldAlarm(db, FieldValue, { type: 'test', gameId: null, kampId: 'u1', besked: 'x', kraeverKvittering: true, daempMs: 0, ...over });
+    await t({ nowMs: 1000 });
+    await db.collection('driftAlarmer').doc('u1_test').set({ mailetAt: 1500 }, { merge: true });
+    await t({ nowMs: 1600 });
+    expect(db._docs.get('driftAlarmer/u1_test').mailetAt).toBe(1500);
+    await t({ nowMs: 1700, tvingMail: true });
+    expect(db._docs.get('driftAlarmer/u1_test').mailetAt).toBeNull();
   });
 });
