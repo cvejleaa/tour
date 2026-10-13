@@ -9,6 +9,13 @@
 
 ## PoC-opsætning der virker (genbrug den)
 
+- **2026-10-13: jar'en kan hentes direkte** (136 MB, ~10 s gennem proxyen):
+  `curl -sSf -o ~/.cache/firebase/emulators/cloud-firestore-emulator-v1.22.0.jar https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.22.0.jar`
+  Admin-SDK-PoC fra scratchpad: `require('module').createRequire('/home/user/tour/functions-platform/index.js')`
+  — et absolut sti-require af `node_modules/firebase-admin/app` fejler (exports-map).
+  Stop emulatoren med `ps aux | grep '[j]ava -jar' | awk '{print $2}' | xargs -r kill`
+  — `pkill -f cloud-firestore…` dræber din egen shell (exit 144).
+
 - **Emulatoren startes UDEN firebase-CLI** (den er ikke installeret):
   `java -jar ~/.cache/firebase/emulators/cloud-firestore-emulator-v1.22.0.jar --host=127.0.0.1 --port=8080 --rules=/home/user/tour/firestore.rules`
   Kør derefter repoets egen suite direkte mod den:
@@ -154,6 +161,22 @@
   ved ULIGE segmentantal, fx `a/b`). Auth-kaldet er altså ikke en uid-validator.
 
 ## Bekræftede antagelser om reglerne (emulator-verificeret)
+
+- **`where(felt,'==',null)` rammer IKKE et dokument, hvor feltet MANGLER**
+  (emulator v1.22.0, 2026-10-13). Et nyt "ikke-endnu"-felt (fx `mailetAt`) skal
+  skrives eksplicit som `null` ved oprettelse, ellers er forespørgslen tom for
+  altid — tavst. Eksisterende dokumenter uden feltet rammes heller aldrig.
+- **E-mail bor i `userContacts/{uid}`, og brugeren skriver sin egen FRIT og
+  uverificeret** (rules: kun `uid==auth.uid` + `data.uid==uid`). Auth-mailen
+  ændres kun af `adminSetUserEmail` (owner-only, index.js ~L1662). En
+  modtagerliste bygget på userContacts kan altså omdirigeres af kontohaveren
+  selv med én klient-skrivning — uden log.
+- **Admin-gaten er IKKE kun `requireAdmin`** (2026-10-13: 22 forekomster af
+  rolle-tjek i functions-platform/index.js). Inline-tjek: syncGameKickoffsNow,
+  kvitterDriftAlarm, syncSuperligaResultsNow, syncGameKampdetaljerNu,
+  adminSendPasswordReset (owner-only, RETURNERER reset-linket), og
+  adminHent/SaetLigaMedlem + leagueQuestionRecapNow/Status gater i deres kerne.
+  En wrapper/optælling "om requireAdmin" misser dem.
 
 - **`games/{g}/players/{uid}` delete (~L817) er KUN `isSignedIn() && uid==uid &&
   totalPoints==0`.** Ingen vagt mod ejet liga, efterladt puljetip eller
@@ -303,6 +326,18 @@
   tilladt — se log-injektionen under "Angrebsveje der VIRKER".
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
+
+- **`meldAlarm`s dæmpning sluger FORSKELLIGE hændelser, der deler alarm-id**
+  (driftlog.js L107-131, BEKRÆFTET i emulator 2026-10-13). Id =
+  `[gameId,kampId,type].filter(Boolean)`: en alarm med `gameId:null,kampId:null`
+  får id = type. Hændelse B inden for 6 t efter A: INTET skrives (besked står
+  stadig på A, antal 1). Efter kvittering + 6 t: besked opdateres, men
+  `loestAt` var aldrig sat → det er ikke en "genåbning". Ufarligt for de
+  kilde-alarmer, der findes i dag (samme hændelse gentaget), men FARLIGT for
+  hændelses-alarmer (rolle-ændring, test, fejlvagt): anden forfremmelse inden
+  for 6 t er usynlig. Krav til enhver ny alarm-type: unikt id pr. hændelse
+  ELLER `daempMs:0`, og "ny for et menneske" = loestAt ELLER kvitteretAt var sat.
+  Rejst i MDR-plan-gennemgangen (alarm-mail/adminlog) — tjek koden, når den lander.
 
 - **`adminDeleteUserCore`s oprydning er KEYET PÅ players-dokumentet — og det kan
   spilleren selv slette (BEKRÆFTET 2026-09-04, #221).** `adminDeleteUser.js:69-77`
@@ -1791,6 +1826,18 @@
   injicere et forbudt felt i `skriv` (spy/stub), ikke i kilde-JSON'en.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **En alarm er en hændelse, ikke en tilstand, når den melder noget, et
+  menneske GJORDE** (rolle, test-knap, uventet fejl). Kilde-alarmerne er
+  tilstande (dæmpning er rigtig); hændelses-alarmer må ikke dæmpes på et fast id.
+- **Ny besked-kilde i en mail = ny injektionsflade.** I dag er INGEN
+  spiller-tekst i driftAlarmer.besked. En fejlvagt med `err.message` eller en
+  rolle-alarm med `displayName` ændrer det — og mailer.js auto-linker URL'er.
+- **Offentligt repo:** denne fil serveres på github.com/cvejleaa/tour (HTTP 200,
+  2026-10-13), inkl. trin-for-trin-kæder under "VIRKER". Flere poster dér er
+  forældede (invite-href er nu `esc(cta)`, inviteTemplate.js L239; spørgsmåls-
+  delete har nu betingelser ~rules L1171) uden at være markeret LUKKET — ikke
+  genkørt. Ejeren er gjort opmærksom (MDR-gennemgangen).
 
 - **En nøgles EKSISTENS er information.** En map-nøgle eller et flag, der
   skrives betinget, lækker betingelsen til alle, der må læse dokumentet.
