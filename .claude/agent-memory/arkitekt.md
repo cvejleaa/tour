@@ -260,3 +260,35 @@ Bekræfter og udvider afsnittet "Test-/CI-infrastruktur" ovenfor.
   (src/lib/startGate.js:109-113) giver null ⇒ ingen gating. Sikkert i fixtures.
 - `kickoff` SKAL være en Firestore `Timestamp` — reglen sammenligner
   `request.time < …data.kickoff` (firestore.rules:1012, 1050).
+
+## Admin-gates, mail og logs (fundet ved MDR alarm-mail/adminlog, okt 2026)
+- `requireAdmin(db, request)` — `functions-platform/index.js:1227`. KALDES 14
+  gange (ikke 16): 158, 289, 297, 314, 342, 1245, 1326, 1373, 1440, 1462, 1494,
+  1629, 1664, 1696. Returnerer kalderens users-data. Tjekker IKKE status.
+  Admin-gates UDEN requireAdmin (inline rolle-tjek): syncGameKickoffsNow 919,
+  kvitterDriftAlarm 949, syncSuperligaResultsNow 979, syncGameKampdetaljerNu
+  1022; kun-owner inline: adminSendPasswordReset 1181; gate i kernen
+  (gameLeagues.js:158 'not-admin'): adminHentLigaMedlemmer 1136,
+  adminSaetLigaMedlem 1147. Liga-ejer-ELLER-admin: leagueQuestionRecapNow 210.
+  → 21 admin-callables i alt. En "omkring alle requireAdmin"-plan glemmer 7.
+- E-mails bor i `userContacts/{uid}.email`, ALDRIG på users (index.js:1685,
+  rules userContacts). `emailByUidMap(db)` (mailer.js:68) læser HELE samlingen.
+- `sendEmail(db, transporter, {to,subject,html,type})` (mailer.js:45) logger
+  selv i `emailLog` → ny mail-type dukker op i Admin → Mail-log (EmailLogTab)
+  uden klientændring. `broadcastHtml(body)` (mailer.js:61) = markdown + footer.
+- `useEmailLog(max)` (src/features/admin/useEmailLog.js) = generisk "seneste N
+  af en server-skrevet, admin-læst samling, orderBy createdAt desc". Skabelon
+  for adminLog o.l. — navngiv tidsfeltet `createdAt`, så hooket kan deles.
+- `firebase-functions` 7.3 har `onDocumentWrittenWithAuthContext`
+  (event.authType/authId). AuthType i d.ts: service_account|api_key|system|
+  unauthenticated|unknown — om en klient-skrivning giver authId=uid er
+  UBEKRÆFTET; efterprøv før aktør vises.
+- FÆLDE: `where('felt','==',null)` matcher IKKE dokumenter, hvor feltet
+  mangler. Nyt null-felt på eksisterende docs → query på kendt felt + filtrér
+  i kode (driftAlarmer: query loestAt==null, som fladen allerede gør).
+- FÆLDE: en kvitteret alarm får ALDRIG loestAt — "genåbning" af en
+  kvitteringsalarm sker via kvitteretAt→null (meldAlarm efter 6 t), ikke via
+  loestAt. Al "ny igen?"-logik skal se på begge.
+- Admin-klientskrivninger UDEN for callables (platform): users.status
+  (adminActions.js:27,38), users.role (adminActions.js:230), spil-konfiguration
+  i gameActions.js:92/130/171/215/244, kampfacit (rules:886 isGlobalAdmin).
