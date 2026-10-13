@@ -46,8 +46,11 @@ Release Manager ser deployet — ikke ugerne efter. Undersøg:
   først, når påmindelserne udebliver midt i en runde.
 - **Mails**: sendes de, og kommer de frem? Kvoteforbrug og bounces.
 - **Alarmerne selv**: en alarm, der aldrig har fyret, er enten et sundhedstegn
-  eller død. Afgør hvilken — fremprovokér en testfejl, hvis det er den eneste
-  måde at vide det på.
+  eller død. Afgør hvilken: tryk **🧪 Send en test-alarm** på Admin →
+  🩺 Driftstatus, se at mailen kommer (emnet har «TEST»), og kvittér den.
+  Kommer den ikke, er kæden alarm → postbud → mail i stykker — postbudets kort
+  siger hvor. Tjek samtidig, at Cloud Monitoring-alerten (docs/drift.md,
+  «vagten uden for huset») stadig findes i konsollen.
 
 ### 3. Bundle og indlæsningstid
 

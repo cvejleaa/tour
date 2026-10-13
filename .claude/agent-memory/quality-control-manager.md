@@ -296,6 +296,52 @@ PR-teksten, ikke her.
 - **Briefingens HEAD kan være forældet** — tjek `git log` og vis kun diffen mod
   det, du faktisk gennemgår; en opfølgende test-commit kan være landet.
 
+## Alarmer, postbud og pull→push
+
+- **Pull→push: optæl alle røde tilstande OG hvor de beregnes (klient/server).**
+  Et nyt "rødt kort → alarm" lag dublerer de specifikke alarmer, der rejses ved
+  SAMME tilstand (kort 'fejl' ⇐ strandet/mangler/detaljer*) — to linjer i mailen,
+  og den generiske får forkert hast. Spørg: findes der allerede en alarm for
+  dette? Og kan tilstanden blive stående uden ny kørsel (kort uden
+  `naesteForventetFoer`, skrevet kun ved aktivitet)? Så er alarmen permanent.
+- **`kraeverKvittering: true` + selvlukning + dæmpning = remail-løkke.** En
+  kvitteret alarm, hvis tilstand består, genåbnes (kvitteretAt/mailetAt null)
+  når dæmpningen udløber → badge + ny mail hvert 6. time, og kvittering kan ikke
+  dæmpe den. Spørg ved enhver alarm der meldes igen af et job: hvad sker der
+  EFTER kvittering mens tilstanden består?
+- **Et "send igen"-flag skal nulstilles ved HVER overgang, der kræver
+  opmærksomhed igen** (ny, genåbnet, ny efter kvittering); `== null` matcher
+  ikke et manglende felt (testens fake må ikke lyve om det). Og en knap, der
+  lover en mail, skal nulstille flaget selv — ellers lover teksten mere end
+  handlingen giver, når forrige test ikke blev kvitteret.
+- **Dæmpning uden mål i id'et sluger hændelse nummer to.** Mål/kamp i id'et.
+- **En singular-gren i en emnelinje glemmer prioriteten** (HASTER sat kun ved
+  flere). Tjek ALLE grene af en emne-/tekstbygger mod hver prioritet.
+- **Et mail-link til en fane, der kun bor i `useState`**: ProtectedRoute taber
+  målet ved login (`<Navigate to="/login" replace/>` → HOME) — teksten skal
+  sige "log ind, og åbn linket igen". Test den ægte tilstand (PLATFORM_MODE
+  true), ikke kun mekanismen på en anden fane.
+- **En uafhængig vagt (Cloud Monitoring) fanger kun det, den kan se.** ERROR-
+  alert ser en function der KASTER, ikke en der er HOLDT OP med at køre
+  (kræver "manglende log-linje"-alert) og ikke et `fejl`-niveau der logges med
+  console.log. Et remedie må ikke modsige modulets egen præmis ("kan ikke maile
+  sin egen død" → kanalen skal være uafhængig af SMTP).
+- **Server-regler i `index.js` kan ikke unit-testes**: rate-limit (10 min) og
+  "test-kvittering sætter loestAt" overlever mutation med grøn suite — træk
+  dem ud som rene funktioner. Nye manuelle callables: server `timeoutSeconds`
+  = klientens timeout (brudt igen her: klient 120 s, server default 60 s).
+- **En kørsel der kaster, må ikke vælte sin hovedopgave**: ny hjælpe-vagt FØR
+  hovedopgaven (kørsels-vagt før mailen) skal i egen try/catch.
+- **Et callable der kaster rå fejl viser "internal" til brugeren** — wrap i
+  HttpsError med dansk tekst. Et svar med niveau fejl vist som neutral tekst
+  ligner succes: farv efter niveau.
+- **Mail-indhold: assertér det der IKKE må stå** (uid i test-alarmens kampId,
+  '@', Firestore-stier) — strukturen forhindrer det, men ingen test vogter den.
+- Samme-sted-fakta: `onDocumentWrittenWithAuthContext` kender aktøren;
+  e-mailadresser bor i `userContacts` (Auth-kontoen er den brugeren ikke selv
+  kan skrive); `.claude/agent-memory` er offentlig; en wrapper der afløser
+  gate X rammer kun kaldere af X — optæl eksporterne.
+
 ## Tests, målinger og selectorer
 
 - **En Playwright-selector skal verificeres mod den ÆGTE komponent**, ikke

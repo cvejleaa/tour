@@ -9,6 +9,21 @@
 
 ## PoC-opsætning der virker (genbrug den)
 
+- **Hurtigste regel-kontrol uden npm: REST + usigneret JWT** (2026-10-13).
+  `tok(){ b64 '{"alg":"none"}' . b64 '{"sub":U,"user_id":U,"aud":"demo-x","iss":"https://securetoken.google.com/demo-x","iat":1,"exp":9999999999}' . }`
+  og `curl -X PATCH -H "Authorization: Bearer $(tok u)" .../documents/<sti>?updateMask.fieldPaths=f`.
+  Emulatoren evaluerer reglerne for den uid; 200/403 er svaret. Seed med Admin
+  SDK (createRequire, se nedenfor) — `MetadataLookupWarning 502` er ufarlig.
+  Ægte callables: `fns.x.run({auth:{uid,token:{}}, data, rawRequest:{}})` virkede
+  også i dag; `Date.now` spoles før `require(index.js)`.
+
+- **2026-10-13: jar'en kan hentes direkte** (136 MB, ~10 s gennem proxyen):
+  `curl -sSf -o ~/.cache/firebase/emulators/cloud-firestore-emulator-v1.22.0.jar https://storage.googleapis.com/firebase-preview-drop/emulator/cloud-firestore-emulator-v1.22.0.jar`
+  Admin-SDK-PoC fra scratchpad: `require('module').createRequire('/home/user/tour/functions-platform/index.js')`
+  — et absolut sti-require af `node_modules/firebase-admin/app` fejler (exports-map).
+  Stop emulatoren med `ps aux | grep '[j]ava -jar' | awk '{print $2}' | xargs -r kill`
+  — `pkill -f cloud-firestore…` dræber din egen shell (exit 144).
+
 - **Emulatoren startes UDEN firebase-CLI** (den er ikke installeret):
   `java -jar ~/.cache/firebase/emulators/cloud-firestore-emulator-v1.22.0.jar --host=127.0.0.1 --port=8080 --rules=/home/user/tour/firestore.rules`
   Kør derefter repoets egen suite direkte mod den:
@@ -154,6 +169,25 @@
   ved ULIGE segmentantal, fx `a/b`). Auth-kaldet er altså ikke en uid-validator.
 
 ## Bekræftede antagelser om reglerne (emulator-verificeret)
+
+- **`where(felt,'==',null)` rammer IKKE et dokument, hvor feltet MANGLER**
+  (emulator v1.22.0, 2026-10-13). Et nyt "ikke-endnu"-felt (fx `mailetAt`) skal
+  skrives eksplicit som `null` ved oprettelse, ellers er forespørgslen tom for
+  altid — tavst. Eksisterende dokumenter uden feltet rammes heller aldrig.
+- **E-mail bor i `userContacts/{uid}`, og brugeren skriver sin egen FRIT og
+  uverificeret** (rules: kun `uid==auth.uid` + `data.uid==uid`). Auth-mailen
+  ændres af `adminSetUserEmail` (owner-only, index.js ~L1662) — og (formodet,
+  ikke kørt) af kontohaveren SELV via klient-SDK'ens `verifyBeforeUpdateEmail`,
+  som kræver at den nye adresse bekræftes. Det flytter kun egen post, så Auth er
+  stadig den rigtige kilde til en admin-modtagerliste. En
+  modtagerliste bygget på userContacts kan altså omdirigeres af kontohaveren
+  selv med én klient-skrivning — uden log.
+- **Admin-gaten er IKKE kun `requireAdmin`** (2026-10-13: 22 forekomster af
+  rolle-tjek i functions-platform/index.js). Inline-tjek: syncGameKickoffsNow,
+  kvitterDriftAlarm, syncSuperligaResultsNow, syncGameKampdetaljerNu,
+  adminSendPasswordReset (owner-only, RETURNERER reset-linket), og
+  adminHent/SaetLigaMedlem + leagueQuestionRecapNow/Status gater i deres kerne.
+  En wrapper/optælling "om requireAdmin" misser dem.
 
 - **`games/{g}/players/{uid}` delete (~L817) er KUN `isSignedIn() && uid==uid &&
   totalPoints==0`.** Ingen vagt mod ejet liga, efterladt puljetip eller
@@ -303,6 +337,54 @@
   tilladt — se log-injektionen under "Angrebsveje der VIRKER".
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
+
+- **`meldAlarm`s dæmpning sluger FORSKELLIGE hændelser, der deler alarm-id**
+  (driftlog.js L107-131, BEKRÆFTET i emulator 2026-10-13). Id =
+  `[gameId,kampId,type].filter(Boolean)`: en alarm med `gameId:null,kampId:null`
+  får id = type. Hændelse B inden for 6 t efter A: INTET skrives (besked står
+  stadig på A, antal 1). Efter kvittering + 6 t: besked opdateres, men
+  `loestAt` var aldrig sat → det er ikke en "genåbning". Ufarligt for de
+  kilde-alarmer, der findes i dag (samme hændelse gentaget), men FARLIGT for
+  hændelses-alarmer (rolle-ændring, test, fejlvagt): anden forfremmelse inden
+  for 6 t er usynlig. Krav til enhver ny alarm-type: unikt id pr. hændelse
+  ELLER `daempMs:0`, og "ny for et menneske" = loestAt ELLER kvitteretAt var sat.
+  Rejst i MDR-plan-gennemgangen (alarm-mail/adminlog) — tjek koden, når den lander.
+  **Status 48d5212 (postbud, PR 1/3) — delvist afbødet, BEKRÆFTET i emulator:**
+  `mailetAt` nulstilles nu ved `!d || loestAt!=null || kvitteretAt!=null`, men
+  dæmpnings-`return` står FORAN og ser ikke på `kvitteretAt`: en ny forekomst
+  <6 t efter sidste `sidstSetAt` på en KVITTERET alarm skrives ikke → ingen mail
+  før 6 t. Ikke nåeligt for dagens hændelses-typer (genaabning/kickoff48t meldes
+  af den DAGLIGE kickoff-synk, altså >6 t imellem), og test-alarmen har
+  `daempMs:0` + id `<uid>_test`. Lad være at "rette" det ved at springe
+  dæmpningen over for kvitterede: så re-mailes en vedvarende `koersel` (meldes
+  hvert kvarter) hvert kvarter. 6-t-kadencen efter kvittering ER påmindelsen.
+  Krav til NY alarm-type med kadence <6 t, der melder menneske-hændelser: eget id
+  pr. hændelse eller `daempMs:0`.
+
+- **To samtidige postbud-kørsler sender SAMME mail to gange (BEKRÆFTET, 48d5212).**
+  `koerPostbud` er læs → send → `batch.set(mailetAt)` uden claim/transaktion.
+  Skema (*/15) + «📨 Send alarm-mail nu», eller to admins samtidig: PoC med 300 ms
+  SMTP → 2 mails til samme admin. "Idempotent" holder kun SEKVENTIELT (knappen er
+  `disabled` under kaldet, så samme admins dobbeltklik er dækket). Lav risiko:
+  én dublet. Fix hvis ønsket: claim i en transaktion (`mailetAt: 'sender'` +
+  precondition) før afsendelse.
+- **Forældreløst driftlog-kort → evig `koersel`-alarm og mail hver 6. time
+  (BEKRÆFTET, 48d5212).** Postbudet læser HELE `driftlog`; fladen viser kun
+  `forventedeKoersler(games)`. Fjernes et spil fra `SYNCED_GAMES` (pl2627-efteraar
+  → foraar!), står `sweep-<spil>`/`kickoff-<spil>` med passeret
+  `naesteForventetFoer` for evigt. Målt: ukvitteret = 1 mail og en alarm, der
+  aldrig lukker; kvitteret hver gang = 4 mails/døgn pr. admin (8 ved 2 admins),
+  for evigt. Kun reminder-jobbet lukker sit kort (`naesteForventetFoer:null`).
+  Fix: ignorér kort for spil uden for SYNCED_GAMES/uden `sync.provider`, eller
+  luk kortet i samme PR som spillet fjernes.
+- **`afkort` skrubber KUN `https?://` — bare domæner overlever (BEKRÆFTET).**
+  `www.evil.dk/x` og `tip.vejleaa.dk.evil.com/admin` står ordret i mailen, og
+  Gmail/Outlook/Apple Mail auto-linker `www.`-domæner også i HTML-mails. Vejene
+  ind i dag er kun admin-skrevne: spilnavnet og test-alarmens
+  «udløst af <displayName>» (den affyrende admins EGET, frie navn → de ANDRE
+  admins' indbakke). Ingen eskalering (globalAdmin kan allerede broadcaste
+  markdown-links til alle). MEN PR 2 lægger `err.message` i alarmer — Node's
+  `JSON.parse`-fejl citerer kildens tekst — så fra dér er det kilde→ejer.
 
 - **`adminDeleteUserCore`s oprydning er KEYET PÅ players-dokumentet — og det kan
   spilleren selv slette (BEKRÆFTET 2026-09-04, #221).** `adminDeleteUser.js:69-77`
@@ -891,6 +973,22 @@
   1-22 har hvert ORDNET holdpar præcis én gang (målt: 132 fixtures → 132 unikke
   doc-id, 0 gentagne par). Seedes mesterskabsspillet (runde 23-32), hvor par mødes
   igen, KAN en runde-løgn pege på det andet møde — kør PoC'en om igen dér.
+- **Alarm-postbudet (48d5212) — afprøvet mod emulator + ægte callables:**
+  spiller/pending/ukendt/anon → `permission-denied`/`unauthenticated` på både
+  `sendDriftAlarmMailNu` og `fyrTestAlarm` (requireAdmin er første linje).
+  Spiller kan ikke blive modtager: `role`→globalAdmin på egen profil 403,
+  oprette sig som owner/approved 403, globalAdmin sætter andens `role` 403
+  (kontrol: eget displayName 200). `userContacts` med angriber-adresse på
+  ejerens uid ignoreres — modtagere kommer KUN fra `auth.getUser(uid).email`
+  for `role in [owner,globalAdmin] && status=='approved'`. Én mail pr. modtager
+  (`to:` enkeltvis) → admins ser ikke hinandens adresser. Klient kan ikke skrive
+  `mailetAt` eller oprette alarmer (owner/ga/p1 → 403; kontrol: admin-læs 200).
+  10-min-grænsen på test-alarmen kan ikke omgås ved kvittering (kvittering sætter
+  `loestAt`/`kvitteretAt`, aldrig `sidstSetAt`); 5 SAMTIDIGE kald lykkes alle
+  (TOCTOU), men rammer ÉT dokument → én mail. Værste fald én admin i løkke
+  (fyr → send nu → kvitter): 5 cyklusser/time = 10 mails ved 2 admins.
+  `?fane=__proto__/constructor` → hvidliste mod `visibleTabs` med `===`, ingen
+  objekt-opslag.
 - **Ikke-kanoniske runde-former giver ikke nye mål.** `rundeTal` gør ' 8 ', '8e0',
   '0x8', '08', '8.0' ALLE til 8 → samme doc-id `r8-…` som '8'. Det UDVIDER ikke
   angrebsfladen (samme dokument som en ærlig '8'), det kanoniserer. `true`→1 (runde 1
@@ -898,6 +996,17 @@
   '', null, 'finale' → NaN → filtreret FØR tolkning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **`alarmMail` (postbud.js, 48d5212) er HTML-ren — med mutationskontrol.**
+  Fjendtlige felter i besked/titel/type/gameId/spilnavn/test-displayName
+  (`<script>`, `<img onerror>`, `<svg/onload>`, `"><a href=//evil>`,
+  `javascript:`, uid i URL): eneste `href` er `https://tip.vejleaa.dk/admin?fane=drift`,
+  ingen uid, ingen `https?://`-URL. Kontrol: fjernes `escapeHtml` om besked +
+  URL-regexen i `afkort`, melder samme PoC script/img/uid/URL-læk. Ingen
+  spiller-tekst når driftAlarmer.besked eller driftlog.besked i dag (alle
+  meldAlarm-kald: konstanter, gameId fra SYNCED_GAMES, kampId fra doc-id/
+  saniteret kildenøgle, tal; kort: tal + `err.message`). PoC i scratchpad:
+  `mail.cjs <sti-til-postbud>` — kør mod en sed-muteret kopi.
 
 - **perRound-0-nøglen (45a1b37, 2026-10-12): `laegTil` skriver nøglen med 0,
   når `taeller(info)` er sand. RENT, ikke blokerende.** Før/efter-PoC (gammel
@@ -1791,6 +1900,25 @@
   injicere et forbudt felt i `skriv` (spy/stub), ikke i kilde-JSON'en.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **En alarm er en hændelse, ikke en tilstand, når den melder noget, et
+  menneske GJORDE** (rolle, test-knap, uventet fejl). Kilde-alarmerne er
+  tilstande (dæmpning er rigtig); hændelses-alarmer må ikke dæmpes på et fast id.
+- **En server-forbruger af HELE samlingen ser de dokumenter, fladen filtrerer
+  væk.** DriftTab viser kun forventede kort; postbudet læser alle driftlog-kort
+  og alarmerer på forældreløse. Spørg ved enhver ny "læs alt"-løkke: hvilket
+  filter har fladen, som serveren ikke har?
+- **"Idempotent fordi vi kun tager de umarkerede" er sekventiel idempotens.**
+  Læs → send → markér uden claim giver dobbelt-afsendelse ved to samtidige
+  kørsler (skema + knap). Målt på postbudet.
+- **Ny besked-kilde i en mail = ny injektionsflade.** I dag er INGEN
+  spiller-tekst i driftAlarmer.besked. En fejlvagt med `err.message` eller en
+  rolle-alarm med `displayName` ændrer det — og mailer.js auto-linker URL'er.
+- **Offentligt repo:** denne fil serveres på github.com/cvejleaa/tour (HTTP 200,
+  2026-10-13), inkl. trin-for-trin-kæder under "VIRKER". Flere poster dér er
+  forældede (invite-href er nu `esc(cta)`, inviteTemplate.js L239; spørgsmåls-
+  delete har nu betingelser ~rules L1171) uden at være markeret LUKKET — ikke
+  genkørt. Ejeren er gjort opmærksom (MDR-gennemgangen).
 
 - **En nøgles EKSISTENS er information.** En map-nøgle eller et flag, der
   skrives betinget, lækker betingelsen til alle, der må læse dokumentet.

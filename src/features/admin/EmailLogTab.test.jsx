@@ -37,6 +37,19 @@ describe('EmailLogTab', () => {
     expect(screen.getByText(/✗ Fejl/)).toBeInTheDocument();
   });
 
+  // Alarm-postbudet skriver typen 'drift-alarm' (functions-platform/postbud.js
+  // MAIL_TYPE). Uden labelen stod den rå type i Mail-loggen — og labelen kunne
+  // fjernes eller omdøbes med alt grønt.
+  it('viser alarm-postbudets mails som «Driftalarm» — ikke den rå type', () => {
+    mockHook.mockReturnValue({
+      loading: false, error: '',
+      entries: [{ id: '3', to: 'x@y.dk', subject: 'Vejleaa Tip – driftalarm', type: 'drift-alarm', status: 'sent', createdAt: {} }],
+    });
+    render(<EmailLogTab />);
+    expect(screen.getByText('Driftalarm')).toBeInTheDocument();
+    expect(screen.queryByText('drift-alarm')).toBeNull();
+  });
+
   it('viser fejlbesked', () => {
     mockHook.mockReturnValue({ entries: [], loading: false, error: 'Kunne ikke hente mail-loggen.' });
     render(<EmailLogTab />);

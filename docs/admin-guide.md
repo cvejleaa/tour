@@ -225,7 +225,10 @@ kl. 6.10 fra samme kilder. Når et facit sættes, sker der tre ting af sig selv:
 alle tips på kampen scores, holdenes Elo og fremtidige odds opdateres, og —
 hvis det var rundens sidste kamp — poster Runde-Botten et resumé på
 liga-væggene. Kører en synk skævt, står det på **Admin → 🩺 Driftstatus** —
-du skal ikke sætte PL-facit i hånden.
+du skal ikke sætte PL-facit i hånden. Du behøver heller ikke kigge selv:
+nye alarmer og kørsler, der fejler eller udebliver, **mailes** til ejer og
+globale administratorer inden for et kvarter (knapperne **📨 Send alarm-mail
+nu** og **🧪 Send en test-alarm** på Driftstatus starter det med vilje).
 
 Vil du ikke vente på næste automatiske kørsel (fx efter en strandet-alarm,
 eller om natten og formiddagen, hvor times-sweep'et holder pause), findes

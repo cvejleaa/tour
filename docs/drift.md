@@ -110,6 +110,81 @@ En strandet-alarm peger selv på sit remedie: **⬇️ Synk resultater nu** unde
 🗓️ Spil-tidsplan — og finder den intet, har kilden ikke facit endnu, så er
 hånd-vejen i admin-guiden (Resultater) svaret.
 
+#### Alarm-mailen (postbudet) — fladen er ikke længere pull-only
+
+Fladen var i månedsvis det ENESTE sted, en alarm kunne ses: ingen fik besked,
+før ejeren selv loggede ind. Derfor **alarm-postbudet** (`driftAlarmPostbud`,
+hvert kvarter, `functions-platform/postbud.js`):
+
+- **Kørsler**: postbudet læser driftlog-kortene og melder to slags alarmer:
+  `koersel` for et kort, der er **forsinket** (serverens egen
+  `naesteForventetFoer` er passeret — samme regel som det røde «HAR IKKE KØRT»
+  i fladen; kræver kvittering, for en død scheduler må gerne nage), og
+  `koerselFejl` for et kort på niveau **fejl** (uden kvitteringskrav — og
+  springes over, når spillet allerede har en åben, specifik alarm som strandet
+  eller detaljer*, så samme hændelse ikke står to gange). Begge lukkes af sig
+  selv, når kortet er grønt igen. To ting ser postbudet IKKE: en kørsel, der
+  **aldrig har skrevet** et kort (fladens grå «afventer første kørsel»), og et
+  kort for et spil, der er taget ud af `SYNCED_GAMES` (forældreløst — det
+  ville ellers give en alarm, der aldrig lukker; slet kortet i konsollen,
+  når et spil tages ud).
+- **Mail**: alle ÅBNE alarmer, der ikke er mailet, samles i ÉN mail til alle
+  **godkendte owner/globalAdmin** — adressen tages fra Auth-kontoen (den, man
+  logger ind med), ikke fra profilens kontaktfelt. Mailen grupperer efter hast
+  (haster / kan vente / til udvikleren), samler mange ens alarmer i én linje,
+  og linker til `tip.vejleaa.dk/admin?fane=drift` (log ind først). Den er
+  fast HTML uden klikbare URL'er fra alarm-tekster.
+- **Hvornår kommer der mail igen om samme alarm?** Kun når den kræver
+  opmærksomhed IGEN: en ny forekomst efter at den var løst, eller efter at den
+  var kvitteret (en kvitteret alarm, der dukker op igen, tænder badget og
+  mailes). En åben, ukvitteret alarm, der bare ses igen, mailes ikke igen. En
+  alarm, der løser sig selv inden postbudet når den, mailes aldrig — og der
+  sendes ingen «løst»-mail; fladen er sandheden.
+- **Når mailen ikke kan sendes** (SMTP-secret mangler, ingen modtager har en
+  adresse, alle modtagere bouncer), står det som FEJL på postbudets eget kort
+  OG som en `postbud`-alarm, så ⚠-markøren lyser. Postbudet opgiver aldrig
+  tavst — men det kan heller ikke maile sin egen død: et postbud, der er holdt
+  op med at køre, ses kun som et rødt kort i fladen. Den uafhængige vagt er
+  **Cloud Monitoring** (se nedenfor).
+- **Start med vilje**: **📨 Send alarm-mail nu** (kører postbudet straks; kun
+  umailede alarmer sendes) og **🧪 Send en test-alarm** (opretter en
+  test-alarm, højst én hvert 10. minut pr. administrator; mailen har «TEST» i
+  emnet; kvitteringen lukker den). Det er beviset for hele kæden — brug det ved
+  sæsoneftersynet. Mail-loggen (Admin → ✉️ Mail-log) viser hver sendt
+  alarm-mail som typen **Driftalarm**.
+- **Efter første udrulning**: alarmer, der allerede var åbne, har aldrig fået
+  en mail — postbudet sender ÉN samlet mail med dem første gang, også dem,
+  der er kvitteret (de står som «allerede kvitteret»). Det er bevidst (en
+  baseline), ikke en fejl.
+- **To kørsler, der overlapper** (skemaet og et klik på «Send alarm-mail nu» i
+  samme sekund), kan give samme mail to gange. Accepteret: en dobbelt mail
+  er den rigtige retning at fejle i.
+
+**Cloud Monitoring — vagten uden for huset (ÅBENT PUNKT — sættes op i
+konsollen, er ikke sat op endnu):** postbudet kan ikke maile sin egen død, og
+de tre tilfælde, hvor det ikke kan maile (SMTP, modtagere, afsendelse), ser
+kun fladen. Derfor to alerts i Google Cloud Console, projekt spil-89af9, med
+en e-mail-notifikationskanal til ejeren (kanalens adresse hører til i
+konsollen, ikke i repoet). Trinnene (Release Manager; ingen konsol-adgang
+fra kode, så ejeren gør det selv):
+1. **ERROR-alert**: Logging → Logs Explorer, forespørgsel
+   `resource.type="cloud_run_revision" AND severity>=ERROR` → *Actions →
+   Create log alert* → e-mail-kanalen. Fanger en function, der vælter, og
+   postbudets egne fejl (niveau fejl logges med `console.error`).
+2. **Fraværs-alert** (log-based alerts kan ikke udtrykke fravær — derfor en
+   metric): Logging → *Log-based Metrics → Create metric*, type Counter, navn
+   `postbud_puls`, filter
+   `resource.type="cloud_run_revision" AND resource.labels.service_name="driftalarmpostbud" AND textPayload:"driftAlarmPostbud:"`
+   (prøv forespørgslen i Logs Explorer først — den skal give ca. 4 linjer i
+   timen; servicenavnet er ikke efterprøvet herfra, se hvad Logs Explorer
+   viser). Filtret på servicen er ikke pynt: et klik på «Send alarm-mail nu»
+   logger samme præfiks fra callablen og ville ellers dække over et dødt
+   skema. Derefter Monitoring → *Alerting → Create policy*, metric
+   `logging/user/postbud_puls`, betingelse *Metric absence* i 1 time, samme
+   e-mail-kanal.
+Indtil begge er sat op, er et dødt postbud pull-only (et rødt kort efter
+35 min). Tjek ved sæsoneftersynet, at begge stadig findes.
+
 #### xG-linjen på sweep-kortet
 
 Sweep'et henter også **xG (forventede mål)** for kampe, der er færdige og
@@ -372,6 +447,10 @@ spillets driftlog-kort og alarmer.
 | **Alarm** `detaljerLukket` | Kilden svarede 429/403 og kørslen stoppede sig selv. | Gør INTET i en time. Vagten findes, fordi Cloud Functions egresser gennem delt NAT: banker vi videre, rammer det `api.superliga.dk` og pulselive, som intet har med livescore at gøre. Sker det igen næste kørsel, er vi rate-limited — så skal loftet ned. |
 | **Alarm** `detaljerKobling` | Nul af kampene kunne kobles. Kortlægningen er død. | `scripts/maal-livescore.mjs` → ret `livescoreHold.js`. |
 | **Alarm** `detaljerAfvist` | Alt blev afvist. | Kilden har skiftet form. Se `kampDetaljer.js`. |
+| **Alarm** `koersel` | Et driftlog-kort er forsinket: skemaet har ikke kørt til tiden. Rejses af alarm-postbudet, kræver kvittering, og lukkes selv, når kortet er grønt. | Er det stadig rødt ved næste kvarter, er skemaet holdt op: tjek Cloud Scheduler/functions-loggen, og send mailen til udvikleren. |
+| **Alarm** `koerselFejl` | Et driftlog-kort står på niveau fejl (og spillet har ingen åben, specifik alarm). Rejses og lukkes af postbudet; ingen kvittering. | Se kortets egen fejltekst på 🩺 Driftstatus — den peger på remediet. |
+| **Alarm** `postbud` | Alarm-mailen kunne ikke sendes: `smtp` (secret mangler), `modtagere` (ingen godkendt admin med Auth-adresse) eller `afsendelse` (alle bouncer). | Sæt `SMTP_PASSWORD` / giv en admin en adresse / se ✉️ Mail-log. Alarmen lukkes selv, når en mail igen kommer ud. |
+| **Alarm** `test` | En administrator trykkede 🧪 Send en test-alarm. | Ingenting — kvittér den, når mailen er set; så forsvinder den. |
 
 **"Kunne ikke parses" og "kilden svarede ikke" er med vilje to tal.** Det
 første betyder, at VORES parsning er mangelfuld, og sender dig i koden; det

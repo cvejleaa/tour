@@ -16,6 +16,7 @@ export default defineConfig({
       'syncXg.test.js',
       'seedFootball.test.js',
       'driftlog.test.js',
+      'postbud.test.js',
       'gameLeagues.test.js',
       'ligaMedlem.test.js',
       'gameRecap.test.js',

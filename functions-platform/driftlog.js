@@ -27,6 +27,45 @@
 // Tour-appens functions/ kan adoptere det senere uden omskrivning.
 // ---------------------------------------------------------------------------
 
+/**
+ * ALARM-TYPERNE — titel og hast ét sted, så mailen (postbud.js) og kortet
+ * (AlarmKort) siger det samme om den samme hændelse. Titlen skrives på
+ * dokumentet som `titel` ved hver melding; gamle dokumenter uden feltet
+ * falder tilbage på typen i fladen.
+ *
+ * hast styrer rækkefølgen og emnet i alarm-mailen (QC på planen):
+ *   haster    – ejeren skal handle før næste kampstart
+ *   idag      – kan vente til i dag (point afregnes ikke, ingen har fordel)
+ *   udvikler  – intet ejeren kan gøre; sendes videre til udvikleren
+ *   test      – test-alarmen; mailes med [TEST] i emnet og tæller ikke som fund
+ * En ukendt type (nyt maskineri, der glemte at melde sig her) får titel = typen
+ * og hast 'andet' — den FORSVINDER ikke, den står bare sidst.
+ */
+const ALARM_TYPER = {
+  strandet: { titel: 'Kamp mangler facit', hast: 'idag' },
+  genaabning: { titel: 'Afvist genåbning af en kamp', hast: 'idag' },
+  kickoff48t: { titel: 'Kamp flyttet til under 48 timer', hast: 'haster' },
+  mangler: { titel: 'Kamp mangler som dokument i spillet', hast: 'haster' },
+  puljeLockGenaabning: { titel: 'Pulje-deadlinen sidder fast', hast: 'haster' },
+  livetavs: { titel: 'Live-stillingen står stille', hast: 'haster' },
+  detaljerLukket: { titel: 'Kilden har lukket os ude', hast: 'udvikler' },
+  detaljerKobling: { titel: 'Live-kortlægningen er død', hast: 'udvikler' },
+  detaljerAfvist: { titel: 'Kilden har skiftet form', hast: 'udvikler' },
+  // De to kørsels-alarmer fra postbudet er skilt ad (QC på koden): en
+  // FORSINKET kørsel er en død scheduler og må gerne nage (kvittering), en
+  // kørsel, der FEJLEDE, er en selvlukkende tilstand ved siden af den
+  // specifikke alarm (strandet, detaljer*, mangler), der oftest er årsagen —
+  // og må hverken dubleres eller kunne genåbnes af en kvittering. Begge er
+  // «i dag», ikke «haster» (Spilfører): en enkelt forsinkelse om natten, som
+  // ejeren intet kan gøre ved, er den alarm, der lærer ham at ignorere ordet.
+  koersel: { titel: 'En kørsel er forsinket', hast: 'idag' },
+  koerselFejl: { titel: 'En kørsel fejlede', hast: 'idag' },
+  postbud: { titel: 'Alarm-mailen kunne ikke sendes', hast: 'haster' },
+  test: { titel: 'Test-alarm', hast: 'test' },
+};
+function alarmTitel(type) { return ALARM_TYPER[type]?.titel || String(type || 'Alarm'); }
+function alarmHast(type) { return ALARM_TYPER[type]?.hast || 'andet'; }
+
 /** Værste af to niveauer — 'ok' < 'advarsel' < 'fejl'. */
 const RANG = { ok: 0, advarsel: 1, fejl: 2 };
 function vaerste(a, b) {
@@ -104,7 +143,10 @@ function statusSamler({ type, gameId = null, gameNavn = null }) {
  * @param {{type:string, gameId:string, kampId?:string|null, besked:string,
  *          kraeverKvittering?:boolean, nowMs?:number}} a
  */
-async function meldAlarm(db, FieldValue, { type, gameId, kampId = null, besked, kraeverKvittering = false, nowMs = Date.now(), daempMs = 6 * 3600 * 1000 }) {
+async function meldAlarm(db, FieldValue, {
+  type, gameId, kampId = null, besked, kraeverKvittering = false, nowMs = Date.now(),
+  daempMs = 6 * 3600 * 1000, tvingMail = false,
+}) {
   const id = [gameId, kampId, type].filter(Boolean).join('_');
   const ref = db.collection('driftAlarmer').doc(id);
   const cur = await ref.get();
@@ -114,11 +156,12 @@ async function meldAlarm(db, FieldValue, { type, gameId, kampId = null, besked, 
   // operationer i døgnet (Security-målt). antal bliver "mindst", ikke
   // eksakt; genåbning (loestAt sat) dæmpes ALDRIG.
   if (d && d.loestAt == null && nowMs - (d.sidstSetAt || 0) < daempMs) return;
-  await ref.set({
+  const doc = {
     type,
     gameId,
     kampId,
     besked,
+    titel: alarmTitel(type),
     kraeverKvittering,
     antal: (d?.antal || 0) + 1,
     foersteSetAt: d?.foersteSetAt ?? nowMs,
@@ -126,7 +169,56 @@ async function meldAlarm(db, FieldValue, { type, gameId, kampId = null, besked, 
     // Genåbning: alarmen er aktuel igen, uanset hvad der før var løst/set.
     loestAt: null,
     kvitteretAt: null,
-  }, { merge: true });
+  };
+  // MAILETAT NULSTILLES VED HVER OVERGANG, DER KRÆVER OPMÆRKSOMHED IGEN: en ny
+  // alarm, en genåbning efter løsning, ELLER en ny forekomst efter kvittering
+  // (QC + Security på planen: alarmer med kvitteringskrav får aldrig loestAt,
+  // så "kun ved genåbning" ville gøre dem tavse for evigt efter første
+  // kvittering). En åben, ukvitteret gentagelse (ikke dæmpet — fx daempMs 0)
+  // er allerede mailet: feltet UDELADES, så merge bevarer det. Skrives
+  // eksplicit som null og ikke blot udeladt ved oprettelse: postbudet
+  // filtrerer i kode, men `== null` i en query matcher aldrig et felt, der
+  // mangler, og den fælde skal ingen kommende læser falde i.
+  // tvingMail: test-alarmen skal ALTID give en ny mail — også når den forrige
+  // hverken blev kvitteret eller løst (QC: knappen lovede ellers en mail, der
+  // aldrig kom, hvis man glemte at kvittere sidst).
+  if (tvingMail || !d || d.loestAt != null || d.kvitteretAt != null) doc.mailetAt = null;
+  await ref.set(doc, { merge: true });
+}
+
+/**
+ * Felterne, en kvittering skriver. Ren funktion, så reglen «en TEST-alarm
+ * lukkes også (loestAt), ægte alarmer bliver stående» kan testes — index.js
+ * kan ikke. En test-alarm er færdig, når den er set; så forsvinder den fra
+ * fladen, og «Send en test-alarm» kan bruges igen.
+ */
+function kvitteringFor(type, uid, nowMs = Date.now()) {
+  const felter = { kvitteretAt: nowMs, kvitteretAf: uid };
+  if (type === 'test') felter.loestAt = nowMs;
+  return felter;
+}
+
+/**
+ * Luk alarmer af én type på tværs af spil — postbudets kørsels-alarmer
+ * (`koersel`) bærer kortets id som kampId og kan have gameId null (globale
+ * kørsler), så loesDriftAlarmers gameId-filter passer ikke. Samme regel: ses
+ * problemet ikke længere (id'et er ikke i `aktuelleKampIds`), er det løst.
+ */
+async function loesAlarmerAfType(db, FieldValue, { type, aktuelleKampIds, nowMs = Date.now() }) {
+  const snap = await db.collection('driftAlarmer')
+    .where('type', '==', type)
+    .where('loestAt', '==', null)
+    .get();
+  const stadig = new Set(aktuelleKampIds || []);
+  const batch = db.batch();
+  let lukket = 0;
+  for (const d of snap.docs) {
+    if (stadig.has(d.data().kampId)) continue;
+    batch.set(d.ref, { loestAt: nowMs }, { merge: true });
+    lukket += 1;
+  }
+  if (lukket) await batch.commit();
+  return { lukket };
 }
 
 /**
@@ -197,4 +289,7 @@ function strandetBesked(kampId) {
     + 'Kør ⬇️ Synk resultater nu (Admin → 🗓️ Spil-tidsplan); finder den intet, har kilden ikke facit endnu — sæt det i hånden (admin-guiden → Resultater).';
 }
 
-module.exports = { statusSamler, meldAlarm, loesDriftAlarmer, vaerste, naesteKoerselFoerMs, strandetBesked };
+module.exports = {
+  statusSamler, meldAlarm, loesDriftAlarmer, loesAlarmerAfType, kvitteringFor, vaerste, naesteKoerselFoerMs,
+  strandetBesked, ALARM_TYPER, alarmTitel, alarmHast,
+};
