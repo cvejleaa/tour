@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { functions } from '../../firebase';
 import { useGames } from '../games/useGames';
 import { useDriftStatus, ukvitterede } from './useDriftStatus';
+import { callSendDriftAlarmMailNu, callFyrTestAlarm } from './adminActions';
 import { harKickoffSynk, harKampdetaljer, forventerPaamindelser } from '../games/spilEvner';
 import { formatKickoff } from '../../lib/daDate';
 
@@ -21,6 +22,7 @@ const TYPE_NAVN = {
   livemaal: 'Live-mål (kampe i gang)',
   kickoff: 'Daglig kickoff-synk',
   reminder: 'Daglig tip-påmindelse',
+  postbud: 'Alarm-mail (hvert 15. min)',
 };
 
 function niveauFarve(niveau) {
@@ -80,6 +82,10 @@ function AlarmKort({ alarm }) {
   }
   return (
     <div className="card" style={{ marginBottom: '0.6rem', borderLeft: `4px solid ${kvitteret ? 'var(--c-muted)' : 'var(--c-err)'}` }}>
+      {/* Titlen kommer fra serveren (driftlog.js ALARM_TYPER), så kortet og
+          alarm-mailen siger det samme om samme hændelse. Gamle dokumenter
+          uden feltet falder tilbage på typen. */}
+      <p style={{ margin: '0 0 0.2rem', fontSize: '0.9rem', fontWeight: 700 }}>{alarm.titel || alarm.type}</p>
       <p style={{ margin: 0, fontSize: '0.9rem', whiteSpace: 'pre-line' }}>{alarm.besked}</p>
       <p style={{ margin: '0.3rem 0 0', color: 'var(--c-muted)', fontSize: '0.78rem' }}>
         Set {alarm.antal} gang{alarm.antal === 1 ? '' : 'e'} · første {formatKickoff(alarm.foersteSetAt)}
@@ -94,6 +100,58 @@ function AlarmKort({ alarm }) {
       )}
     </div>
   );
+}
+
+/**
+ * «Send alarm-mail nu» og «Send en test-alarm» — postbudets to «start med
+ * vilje»-veje (CLAUDE.md: en funktion, der kun kan startes af et skema, er
+ * ikke færdig). Serverens svar vises som tekst — et klik må aldrig være tavst.
+ */
+function AlarmKnapper() {
+  const [busy, setBusy] = useState(false);
+  const [svar, setSvar] = useState('');
+  const [err, setErr] = useState('');
+  async function sendNu() {
+    setBusy(true); setErr(''); setSvar('');
+    const r = await callSendDriftAlarmMailNu();
+    if (r.ok) setSvar(r.data?.besked || 'Postbudet kørte.');
+    else setErr(r.error);
+    setBusy(false);
+  }
+  async function testAlarm() {
+    setBusy(true); setErr(''); setSvar('');
+    const r = await callFyrTestAlarm();
+    if (r.ok) {
+      setSvar('Test-alarmen er oprettet. Mailen bør komme inden for 15 min (næste postbud) — '
+        + 'eller tryk Send alarm-mail nu. Kvittér alarmen herunder bagefter; så forsvinder den.');
+    } else {
+      setErr(r.error);
+    }
+    setBusy(false);
+  }
+  return (
+    <div style={{ margin: '0 0 0.8rem' }}>
+      <p style={{ margin: '0 0 0.4rem', color: 'var(--c-muted)', fontSize: '0.85rem' }}>
+        Test kæden: send en test-alarm, se mailen komme, og kvittér den.
+      </p>
+      <div className="flex" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+        <button className="btn btn--sm" disabled={busy} onClick={sendNu}>📨 Send alarm-mail nu</button>
+        <button className="btn btn--sm" disabled={busy} onClick={testAlarm}>🧪 Send en test-alarm</button>
+      </div>
+      {svar && <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem' }}>{svar}</p>}
+      {err && <p className="badge badge--red" style={{ marginTop: '0.4rem' }}>{err}</p>}
+    </div>
+  );
+}
+
+/**
+ * Kørsler uden spil — alarm-postbudet. Holdes ADSKILT fra
+ * forventedeKoersler(games), som er matrixen maskineri × spil og testet som
+ * sådan: et globalt kort i dén liste ville give Touren et kort, den ikke har
+ * (QC på planen). Uden kortet er et postbud, der aldrig har kørt, usynligt.
+ */
+export function globaleKoersler() {
+  return [{ type: 'postbud', gameId: null, gameNavn: 'Platformen' }];
 }
 
 /**
@@ -132,7 +190,7 @@ export default function DriftTab() {
   const { games } = useGames();
   const { status, alarmer, loading, error } = useDriftStatus();
 
-  const forventede = forventedeKoersler(games);
+  const forventede = [...globaleKoersler(), ...forventedeKoersler(games)];
   const docAf = new Map(status.map((d) => [`${d.type}-${d.gameId}`, d]));
   const aabneAlarmer = alarmer.filter((a) => !a.loestAt);
   const skalKvitteres = ukvitterede(alarmer);
@@ -142,6 +200,7 @@ export default function DriftTab() {
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1rem', fontSize: '0.9rem' }}>
         Kører maskineriet — og er der noget, du skal se? Historikken bor i functions-loggen;
         her står kun NU-billedet. Minut-synken skriver kun på kampdage — sweepet er dens alarm.
+        Nye alarmer og kørsler, der fejler eller udebliver, mailes til administratorerne inden for 15 min.
       </p>
 
       {error && <p className="badge badge--red">{error}</p>}
@@ -152,6 +211,7 @@ export default function DriftTab() {
           <h3 style={{ margin: '0 0 0.5rem' }}>
             🔔 Alarmer {aabneAlarmer.length === 0 ? '— ingen åbne' : `(${aabneAlarmer.length} åbne, ${skalKvitteres.length} venter på dig)`}
           </h3>
+          <AlarmKnapper />
           {aabneAlarmer.map((a) => <AlarmKort key={a.id} alarm={a} />)}
 
           <h3 style={{ margin: '1rem 0 0.5rem' }}>🩺 Kørsler</h3>

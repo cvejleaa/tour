@@ -777,3 +777,38 @@ export async function callSaetLigaMedlem({ gameId, leagueId, maalUid, medlem }) 
     return { ok: false, error: msg };
   }
 }
+
+/**
+ * «📨 Send alarm-mail nu» — kør alarm-postbudet med det samme (manuel kilde,
+ * rører ikke skemaets puls). Idempotent: kun umailede alarmer sendes, så et
+ * dobbelt klik koster ingen dobbelt mail. Svaret er serverens status-linje.
+ */
+export async function callSendDriftAlarmMailNu() {
+  try {
+    const fn = httpsCallable(functions, 'sendDriftAlarmMailNu', { timeout: 120000 });
+    const res = await fn({});
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg = err?.code === 'functions/not-found'
+      ? 'Cloud Function "sendDriftAlarmMailNu" er ikke udrullet endnu.'
+      : err?.message || 'Kunne ikke sende alarm-mailen.';
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * «🧪 Send en test-alarm» — opretter en test-alarm, som postbudet mailer ved
+ * næste kørsel. Serveren tillader én pr. administrator hvert 10. minut.
+ */
+export async function callFyrTestAlarm() {
+  try {
+    const fn = httpsCallable(functions, 'fyrTestAlarm');
+    const res = await fn({});
+    return { ok: true, data: res.data };
+  } catch (err) {
+    const msg = err?.code === 'functions/not-found'
+      ? 'Cloud Function "fyrTestAlarm" er ikke udrullet endnu.'
+      : err?.message || 'Kunne ikke oprette test-alarmen.';
+    return { ok: false, error: msg };
+  }
+}

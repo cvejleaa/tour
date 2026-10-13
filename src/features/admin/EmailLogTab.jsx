@@ -11,6 +11,8 @@ const TYPE_LABELS = {
   'reminder-test': 'Test-påmindelse',
   'password-reset': 'Kodeord-nulstilling',
   broadcast: 'Besked',
+  // Alarm-postbudet (functions-platform/postbud.js, MAIL_TYPE).
+  'drift-alarm': 'Driftalarm',
   other: 'Andet',
 };
 

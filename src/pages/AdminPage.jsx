@@ -4,6 +4,7 @@
 //   3. Bonus-facit (globale admins)
 // Rollebaseret adgang håndhæves her og i ProtectedRoute.
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORM_MODE } from '../lib/platform';
 import UsersTab from '../features/admin/UsersTab';
@@ -46,9 +47,7 @@ const TAB_DRIFT = 'drift';
 
 export default function AdminPage() {
   const { isOwner, isGlobalAdmin } = useAuth();
-
-  // Brugere-fanen er synlig for alle globale admins (godkendelse)
-  const [tab, setTab] = useState(TAB_USERS);
+  const [params] = useSearchParams();
 
   // Faner der er synlige for den aktuelle bruger
   const visibleTabs = [
@@ -99,6 +98,17 @@ export default function AdminPage() {
       ? [{ key: TAB_SETTINGS, label: '⚙️ Indstillinger' }]
       : []),
   ];
+
+  // ?fane=<id> åbner en fane direkte — alarm-mailen linker til ?fane=drift.
+  // HVIDLISTE, ikke rå værdi: kun en fane, der er SYNLIG for denne bruger
+  // (Driftstatus findes kun på platformen, Send mail kun for ejeren). Ukendt,
+  // skjult eller ingen → Brugere, som altid. Bemærk: ProtectedRoute taber
+  // målet ved login, så linket virker kun for en, der allerede er logget ind
+  // — mailen siger «log ind først».
+  const [tab, setTab] = useState(() => {
+    const fane = params.get('fane');
+    return visibleTabs.some((t) => t.key === fane) ? fane : TAB_USERS;
+  });
 
   return (
     <div style={{ paddingTop: '1.5rem' }}>

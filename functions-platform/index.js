@@ -37,6 +37,7 @@ const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { adminDeleteUserCore, SLET_ERR, sletFejl } = require('./adminDeleteUser');
 const { forladSpilCore, FORLAD_ERR, aktiveSpillere } = require('./forladSpil');
 const { statusSamler, meldAlarm, loesDriftAlarmer, naesteKoerselFoerMs, strandetBesked } = require('./driftlog');
+const { koerPostbud, testAlarmBesked } = require('./postbud');
 const {
   syncKampDetaljerCore, efterFacitDetaljer, sweepKampDetaljer,
   DETALJE_BUDGET_BROEK, detaljeNiveau,
@@ -964,7 +965,90 @@ exports.kvitterDriftAlarm = onCall({ region: REGION }, async (request) => {
   const ref = db.collection('driftAlarmer').doc(alarmId);
   const snap = await ref.get();
   if (!snap.exists) throw new HttpsError('not-found', 'Alarmen findes ikke.');
-  await ref.set({ kvitteretAt: Date.now(), kvitteretAf: uid }, { merge: true });
+  const nowMs = Date.now();
+  const kvittering = { kvitteretAt: nowMs, kvitteretAf: uid };
+  // En TEST-alarm er færdig, når den er set: den LUKKES også (loestAt), så den
+  // forsvinder fra fladen, og «Send en test-alarm» kan bruges igen med en ny
+  // mail (meldAlarm nulstiller mailetAt, når den forrige var løst). Ægte
+  // alarmer med kvitteringskrav bliver stående — de har ingen anden udvej.
+  if (snap.data()?.type === 'test') kvittering.loestAt = nowMs;
+  await ref.set(kvittering, { merge: true });
+  return { ok: true };
+});
+
+// ---------------------------------------------------------------------------
+// driftAlarmPostbud — alarm-mailen: hvert kvarter læses driftlog-kortene
+// (forsinkede/røde kort bliver `koersel`-alarmer) og alle åbne, umailede
+// alarmer samles i ÉN mail til godkendte owner/globalAdmin. Kernen bor i
+// postbud.js (ren, testet); her er kun rørføringen og driftlog-kortet.
+//
+// Kortet (id `postbud`, gameId null) skrives ALTID — også når intet sendes —
+// så et postbud, der er holdt op med at køre, bliver rødt («HAR IKKE KØRT»)
+// i fladen efter 35 min. Det er det eneste, et dødt postbud selv kan vise:
+// det kan ikke maile sin egen død. Den uafhængige vagt står i docs/drift.md
+// (Cloud Monitoring).
+// ---------------------------------------------------------------------------
+async function koerPostbudMedKort(db, { kilde }) {
+  const st = statusSamler({ type: 'postbud', gameId: null, gameNavn: 'Platformen' });
+  let linje;
+  try {
+    linje = await koerPostbud(db, FieldValue, { transporter: buildTransport(SMTP_PASSWORD.value()), auth: getAuth() });
+    st[linje.niveau](linje.besked, linje.tal);
+  } catch (err) {
+    // Selve postbudet væltede (læsning/skrivning fejlede): kortet skal være
+    // rødt med fejlen, og fejlen skal videre til loggen — ikke sluges.
+    st.fejl(`Postbudet fejlede: ${String(err?.message || err).slice(0, 200)}`);
+    await skrivDriftStatus(st, db, kilde === 'skema'
+      ? { naesteForventetFoerMs: () => Date.now() + 35 * 60 * 1000 }
+      : { kilde: 'manuel' });
+    throw err;
+  }
+  await skrivDriftStatus(st, db, kilde === 'skema'
+    ? { naesteForventetFoerMs: () => Date.now() + 35 * 60 * 1000 }
+    : { kilde: 'manuel' });
+  return linje;
+}
+
+exports.driftAlarmPostbud = onSchedule(
+  { schedule: '*/15 * * * *', timeZone: TZ, region: REGION, secrets: [SMTP_PASSWORD] },
+  async () => {
+    const db = getFirestore();
+    const linje = await koerPostbudMedKort(db, { kilde: 'skema' });
+    console.log(`driftAlarmPostbud: ${linje.niveau} — ${linje.besked}`);
+  },
+);
+
+// sendDriftAlarmMailNu — «📨 Send alarm-mail nu» på Driftstatus: samme kerne,
+// manuel kilde (rører ikke skemaets puls). Idempotent: kun umailede alarmer
+// sendes, så et dobbelt klik koster ingen dobbelt mail.
+exports.sendDriftAlarmMailNu = onCall(
+  { region: REGION, secrets: [SMTP_PASSWORD] },
+  async (request) => {
+    const db = getFirestore();
+    await requireAdmin(db, request);
+    const linje = await koerPostbudMedKort(db, { kilde: 'manuel' });
+    return { niveau: linje.niveau, besked: linje.besked, ...linje.tal };
+  },
+);
+
+// fyrTestAlarm — «🧪 Send en test-alarm»: beviset for, at hele kæden virker
+// (alarm → postbud → mail → kvittering). Én pr. administrator ad gangen, højst
+// én hvert 10. minut (Security F8: ellers kunne en globalAdmin mail-bombe de
+// andre). Rører aldrig ægte alarmer; typen 'test' har sin egen titel og [TEST]
+// i emnet, og kvitteringen lukker den.
+exports.fyrTestAlarm = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  const caller = await requireAdmin(db, request);
+  const uid = request.auth.uid;
+  const nowMs = Date.now();
+  const cur = await db.collection('driftAlarmer').doc(`${uid}_test`).get();
+  if (cur.exists && nowMs - (cur.data().sidstSetAt || 0) < 10 * 60 * 1000) {
+    throw new HttpsError('resource-exhausted', 'Vent 10 minutter mellem test-alarmer.');
+  }
+  await meldAlarm(db, FieldValue, {
+    type: 'test', gameId: null, kampId: uid, kraeverKvittering: true, nowMs, daempMs: 0,
+    besked: testAlarmBesked(caller?.displayName, nowMs),
+  });
   return { ok: true };
 });
 

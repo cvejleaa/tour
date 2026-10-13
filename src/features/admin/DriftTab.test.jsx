@@ -9,7 +9,7 @@
 //   - titlen flipper ikke til råt id efter første kørsel
 // ---------------------------------------------------------------------------
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 const mockDrift = vi.fn();
 vi.mock('./useDriftStatus', async (orig) => ({
@@ -31,8 +31,16 @@ vi.mock('../games/useGames', () => ({
 }));
 vi.mock('../../firebase', () => ({ db: {}, functions: {} }));
 vi.mock('firebase/functions', () => ({ httpsCallable: () => vi.fn() }));
+// Postbudets to knapper går gennem adminActions — attrappen svarer det, en
+// test sætter op, så fladen kan bevises på INDHOLDET af svaret.
+const mockSendNu = vi.fn();
+const mockTestAlarm = vi.fn();
+vi.mock('./adminActions', () => ({
+  callSendDriftAlarmMailNu: () => mockSendNu(),
+  callFyrTestAlarm: () => mockTestAlarm(),
+}));
 
-import DriftTab, { forventedeKoersler } from './DriftTab';
+import DriftTab, { forventedeKoersler, globaleKoersler } from './DriftTab';
 
 const basis = { status: [], alarmer: [], loading: false, error: '' };
 
@@ -77,8 +85,9 @@ describe('DriftTab', () => {
     // SL: sweep + kickoff + reminder. PL: sweep + kickoff + reminder.
     // Touren (uden sync, cycling/finished): ingenting.
     // 4 → 6: SL og PL fik hver et påmindelses-kort (09-jobbet kunne før kun
-    // fejle tavst — opgave #47).
-    expect(screen.getAllByText('afventer første kørsel').length).toBe(6);
+    // fejle tavst — opgave #47). 6 → 7: alarm-postbudets globale kort
+    // (vendt bevidst — et postbud, der aldrig har kørt, må ikke være usynligt).
+    expect(screen.getAllByText('afventer første kørsel').length).toBe(7);
     // Præcist TO kickoff-kort — ét for hvert synket spil, ikke kun PL. Ét af
     // dem SKAL være Superligaens (titlen er "Daglig kickoff-synk · <navn>").
     expect(screen.getAllByText(/Daglig kickoff-synk/).length).toBe(2);
@@ -161,5 +170,78 @@ describe('DriftTab', () => {
     });
     render(<DriftTab />);
     expect(screen.getAllByRole('button', { name: /Kvittér/ }).length).toBe(1);
+  });
+});
+
+// ── Alarm-postbudet: kortet, knapperne og titlerne ──────────────────────────
+describe('DriftTab — alarm-postbudet', () => {
+  it('postbudet er et GLOBALT kort («Platformen») med dansk navn — og forventedeKoersler(games) er uændret', () => {
+    expect(globaleKoersler()).toEqual([{ type: 'postbud', gameId: null, gameNavn: 'Platformen' }]);
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    expect(screen.getByText(/Alarm-mail \(hvert 15\. min\) · Platformen/)).toBeInTheDocument();
+    expect(screen.queryByText(/^postbud/)).toBeNull();
+  });
+
+  it('postbudets dokument (gameId null) lander på det globale kort — ét kort, ikke et ekstra orphan-kort', () => {
+    mockDrift.mockReturnValue({
+      ...basis,
+      status: [{
+        id: 'postbud', type: 'postbud', gameId: null, gameNavn: 'Platformen', niveau: 'ok',
+        besked: 'Sendt til 2 modtagere (1 alarm).', koertAt: Date.now(), naesteForventetFoer: Date.now() + 1e6,
+      }],
+    });
+    render(<DriftTab />);
+    expect(screen.getAllByText(/Alarm-mail \(hvert 15\. min\)/).length).toBe(1);
+    expect(screen.getByText('Sendt til 2 modtagere (1 alarm).')).toBeInTheDocument();
+  });
+
+  it('introen siger, at alarmer og fejlede kørsler MAILES inden for 15 min — pull blev push', () => {
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    expect(screen.getByText(/mailes til administratorerne inden for 15 min/)).toBeInTheDocument();
+  });
+
+  it('«Send alarm-mail nu» kalder postbudet og viser SERVERENS svar — ikke bare «ok»', async () => {
+    mockSendNu.mockResolvedValue({ ok: true, data: { niveau: 'ok', besked: 'Sendt til 2 modtagere (3 alarmer).', sendt: 2 } });
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    fireEvent.click(screen.getByRole('button', { name: '📨 Send alarm-mail nu' }));
+    expect(await screen.findByText('Sendt til 2 modtagere (3 alarmer).')).toBeInTheDocument();
+    expect(mockSendNu).toHaveBeenCalledTimes(1);
+    expect(mockTestAlarm).not.toHaveBeenCalled();
+  });
+
+  it('«Send en test-alarm» kalder fyrTestAlarm og siger, hvad der sker nu — og at kvitteringen lukker den', async () => {
+    mockTestAlarm.mockResolvedValue({ ok: true, data: { ok: true } });
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    fireEvent.click(screen.getByRole('button', { name: '🧪 Send en test-alarm' }));
+    const svar = await screen.findByText(/Test-alarmen er oprettet/);
+    expect(svar.textContent).toMatch(/inden for 15 min/);
+    expect(svar.textContent).toMatch(/Kvittér alarmen herunder bagefter; så forsvinder den\./);
+    expect(mockTestAlarm).toHaveBeenCalledTimes(1);
+  });
+
+  it('serverens afvisning vises som fejl — et klik er aldrig tavst', async () => {
+    mockTestAlarm.mockResolvedValue({ ok: false, error: 'Vent 10 minutter mellem test-alarmer.' });
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    fireEvent.click(screen.getByRole('button', { name: '🧪 Send en test-alarm' }));
+    expect(await screen.findByText('Vent 10 minutter mellem test-alarmer.')).toBeInTheDocument();
+    expect(screen.queryByText(/Test-alarmen er oprettet/)).toBeNull();
+  });
+
+  it('AlarmKort viser serverens titel — og typen, når et gammelt dokument mangler feltet', () => {
+    mockDrift.mockReturnValue({
+      ...basis,
+      alarmer: [
+        { id: 'a1', type: 'kickoff48t', titel: 'Kamp flyttet til under 48 timer', besked: 'k1 er flyttet.', kraeverKvittering: true, kvitteretAt: null, loestAt: null, antal: 1, foersteSetAt: 1, sidstSetAt: 1 },
+        { id: 'a2', type: 'strandet', besked: 'Strandet kamp.', kraeverKvittering: false, kvitteretAt: null, loestAt: null, antal: 1, foersteSetAt: 1, sidstSetAt: 1 },
+      ],
+    });
+    render(<DriftTab />);
+    expect(screen.getByText('Kamp flyttet til under 48 timer')).toBeInTheDocument();
+    expect(screen.getByText('strandet')).toBeInTheDocument();
   });
 });

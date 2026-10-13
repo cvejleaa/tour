@@ -14,6 +14,7 @@ vi.mock('firebase/firestore', () => ({
   collection: vi.fn(),
   onSnapshot: vi.fn(() => vi.fn()),
   orderBy: vi.fn(),
+  limit: vi.fn(),
   query: vi.fn(),
   doc: vi.fn(),
   updateDoc: vi.fn(),
@@ -195,5 +196,44 @@ describe('AdminPage', () => {
     mockUseAuth.mockReturnValue({ isOwner: true, isGlobalAdmin: true, user: { uid: 'x' } });
     renderAdminPage();
     expect(screen.getByText(/Admin-panel/i)).toBeInTheDocument();
+  });
+});
+
+// ── ?fane=<id>: alarm-mailens link åbner en fane direkte ─────────────────────
+// Hvidliste: kun en fane, der er SYNLIG for brugeren. Her køres Tour-tilstand
+// (PLATFORM_MODE er false i testmiljøet), så ?fane=drift er en SKJULT fane og
+// skal falde tilbage til Brugere — præcis som en ukendt værdi.
+describe('AdminPage — ?fane= åbner en fane direkte', () => {
+  function renderMed(sti) {
+    return render(
+      <MemoryRouter initialEntries={[sti]}>
+        <AdminPage />
+      </MemoryRouter>,
+    );
+  }
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({
+      isOwner: true, isGlobalAdmin: true, user: { uid: 'owner-uid' }, profile: { displayName: 'Ejer' },
+    });
+  });
+
+  it('?fane=mails åbner Mail-log direkte', () => {
+    renderMed('/admin?fane=mails');
+    expect(screen.getByTestId('tab-mails')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('tab-users')).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('en SKJULT fane (drift på Touren) og en ukendt værdi falder begge tilbage til Brugere', () => {
+    const { unmount } = renderMed('/admin?fane=drift');
+    expect(screen.queryByTestId('tab-drift')).toBeNull();
+    expect(screen.getByTestId('tab-users')).toHaveAttribute('aria-selected', 'true');
+    unmount();
+    renderMed('/admin?fane=findesIkke');
+    expect(screen.getByTestId('tab-users')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('uden ?fane starter den på Brugere som altid', () => {
+    renderMed('/admin');
+    expect(screen.getByTestId('tab-users')).toHaveAttribute('aria-selected', 'true');
   });
 });

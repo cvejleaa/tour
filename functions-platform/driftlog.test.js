@@ -5,7 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { statusSamler, meldAlarm, loesDriftAlarmer, vaerste } = require('./driftlog');
+const { statusSamler, meldAlarm, loesDriftAlarmer, loesAlarmerAfType, vaerste, ALARM_TYPER, alarmTitel, alarmHast } = require('./driftlog');
+import { readFileSync } from 'node:fs';
 
 const FieldValue = { serverTimestamp: () => ({ __ts: true }) };
 
@@ -266,5 +267,124 @@ describe('loesDriftAlarmer lukker kun sin egen type', () => {
     expect(db._docs.get('driftAlarmer/sl_r5-a-b_strandet').loestAt).toBe(2);
     // Den, ejeren skal kvittere for, står stadig åben.
     expect(db._docs.get('driftAlarmer/sl_livetavs').loestAt).toBeNull();
+  });
+});
+
+// ── mailetAt: postbudets «send igen»-flag ──────────────────────────────────
+// Flaget skal nulstilles ved HVER overgang, der kræver opmærksomhed igen —
+// ny alarm, genåbning efter løsning OG ny forekomst efter kvittering. Alarmer
+// med kvitteringskrav får aldrig loestAt (QC/Security på planen), så «kun ved
+// genåbning» ville gøre dem tavse for evigt efter første kvittering.
+describe('meldAlarm — mailetAt og titel', () => {
+  const T = 6 * 3600 * 1000;
+  const a = (over = {}) => ({ type: 'kickoff48t', gameId: 'sl', kampId: 'k1', besked: 'x', kraeverKvittering: true, ...over });
+
+  it('skriver mailetAt: null EKSPLICIT ved oprettelse — og en titel fra typen', async () => {
+    const db = fakeDb();
+    await meldAlarm(db, FieldValue, a({ nowMs: 1000 }));
+    const doc = db._docs.get('driftAlarmer/sl_k1_kickoff48t');
+    expect(doc).toHaveProperty('mailetAt', null);
+    expect(Object.keys(doc)).toContain('mailetAt');
+    expect(doc.titel).toBe('Kamp flyttet til under 48 timer');
+  });
+
+  it('en KVITTERET alarm, der opstår igen efter dæmpningen, får mailetAt nulstillet (og kvitteretAt)', async () => {
+    const db = fakeDb();
+    await meldAlarm(db, FieldValue, a({ nowMs: 1000 }));
+    await db.collection('driftAlarmer').doc('sl_k1_kickoff48t').set({ mailetAt: 2000, kvitteretAt: 3000 }, { merge: true });
+    await meldAlarm(db, FieldValue, a({ nowMs: 1000 + T + 1 }));
+    const doc = db._docs.get('driftAlarmer/sl_k1_kickoff48t');
+    expect(doc.mailetAt).toBeNull();
+    expect(doc.kvitteretAt).toBeNull();
+    expect(doc.antal).toBe(2);
+  });
+
+  it('en genåbning efter LØSNING nulstiller mailetAt', async () => {
+    const db = fakeDb();
+    await meldAlarm(db, FieldValue, a({ type: 'strandet', kraeverKvittering: false, nowMs: 1000 }));
+    await db.collection('driftAlarmer').doc('sl_k1_strandet').set({ mailetAt: 2000, loestAt: 2500 }, { merge: true });
+    await meldAlarm(db, FieldValue, a({ type: 'strandet', kraeverKvittering: false, nowMs: 3000 }));
+    const doc = db._docs.get('driftAlarmer/sl_k1_strandet');
+    expect(doc.mailetAt).toBeNull();
+    expect(doc.loestAt).toBeNull();
+  });
+
+  it('en åben, UKVITTERET gentagelse (ikke dæmpet) beholder sit mailetAt — den er allerede mailet', async () => {
+    const db = fakeDb();
+    await meldAlarm(db, FieldValue, a({ nowMs: 1000 }));
+    await db.collection('driftAlarmer').doc('sl_k1_kickoff48t').set({ mailetAt: 2000 }, { merge: true });
+    await meldAlarm(db, FieldValue, a({ nowMs: 1000 + T + 1 }));
+    expect(db._docs.get('driftAlarmer/sl_k1_kickoff48t').mailetAt).toBe(2000);
+  });
+
+  it('en DÆMPET genskrivning rører intet — hverken mailetAt eller antal', async () => {
+    const db = fakeDb();
+    await meldAlarm(db, FieldValue, a({ nowMs: 1000 }));
+    await db.collection('driftAlarmer').doc('sl_k1_kickoff48t').set({ mailetAt: 2000 }, { merge: true });
+    await meldAlarm(db, FieldValue, a({ nowMs: 1000 + T - 1 }));
+    const doc = db._docs.get('driftAlarmer/sl_k1_kickoff48t');
+    expect(doc.mailetAt).toBe(2000);
+    expect(doc.antal).toBe(1);
+  });
+
+  it('daempMs: 0 (test-alarmen) genskriver straks — men nulstiller kun mailetAt, hvis den forrige var kvitteret/løst', async () => {
+    const db = fakeDb();
+    const t = (nowMs) => meldAlarm(db, FieldValue, { type: 'test', gameId: null, kampId: 'u1', besked: 'x', kraeverKvittering: true, nowMs, daempMs: 0 });
+    await t(1000);
+    await db.collection('driftAlarmer').doc('u1_test').set({ mailetAt: 1500 }, { merge: true });
+    await t(1600);
+    expect(db._docs.get('driftAlarmer/u1_test').mailetAt).toBe(1500);
+    await db.collection('driftAlarmer').doc('u1_test').set({ kvitteretAt: 1700, loestAt: 1700 }, { merge: true });
+    await t(1800);
+    const doc = db._docs.get('driftAlarmer/u1_test');
+    expect(doc.mailetAt).toBeNull();
+    expect(doc.antal).toBe(3);
+  });
+});
+
+describe('loesAlarmerAfType — lukker på tværs af spil', () => {
+  it('lukker alarmer af typen, hvis kampId ikke længere er aktuel — uanset gameId (også null)', async () => {
+    const db = fakeDb();
+    const m = (gameId, kampId, nowMs) => meldAlarm(db, FieldValue, { type: 'koersel', gameId, kampId, besked: 'x', nowMs });
+    await m('sl', 'sweep-sl', 1000);
+    await m(null, 'reminder-x', 1000);
+    await m('pl', 'kickoff-pl', 1000);
+    const { lukket } = await loesAlarmerAfType(db, FieldValue, { type: 'koersel', aktuelleKampIds: ['kickoff-pl'], nowMs: 5000 });
+    expect(lukket).toBe(2);
+    expect(db._docs.get('driftAlarmer/sl_sweep-sl_koersel').loestAt).toBe(5000);
+    expect(db._docs.get('driftAlarmer/reminder-x_koersel').loestAt).toBe(5000);
+    expect(db._docs.get('driftAlarmer/pl_kickoff-pl_koersel').loestAt).toBeNull();
+  });
+
+  it('rører ikke andre typer', async () => {
+    const db = fakeDb();
+    await meldAlarm(db, FieldValue, { type: 'strandet', gameId: 'sl', kampId: 'k9', besked: 'x', nowMs: 1000 });
+    const { lukket } = await loesAlarmerAfType(db, FieldValue, { type: 'koersel', aktuelleKampIds: [], nowMs: 5000 });
+    expect(lukket).toBe(0);
+    expect(db._docs.get('driftAlarmer/sl_k9_strandet').loestAt).toBeNull();
+  });
+});
+
+describe('ALARM_TYPER — titel og hast ét sted', () => {
+  it('kendt type: dansk titel og hast; ukendt type: typen selv og «andet» — den forsvinder ikke', () => {
+    expect(alarmTitel('strandet')).toBe('Kamp mangler facit');
+    expect(alarmHast('kickoff48t')).toBe('haster');
+    expect(alarmHast('detaljerLukket')).toBe('udvikler');
+    expect(alarmTitel('nytMaskineri')).toBe('nytMaskineri');
+    expect(alarmHast('nytMaskineri')).toBe('andet');
+    expect(alarmHast('test')).toBe('test');
+  });
+
+  it('DÆKKER hver alarm-type, serveren faktisk melder (tripwire: en ny type uden titel bliver rød her)', () => {
+    // index.js kan ikke importeres i en test — så læs kilden. Samme mønster som
+    // strandetBesked-vagten: koden er sandheden, ikke en håndskrevet liste.
+    const kilder = ['./index.js', './superligaSync.js', './postbud.js']
+      .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
+    const brugte = [...kilder.matchAll(/type: '([A-Za-z0-9]+)'/g)].map((m) => m[1])
+      .filter((t) => !['sweep', 'minut', 'livemaal', 'kickoff', 'reminder', 'postbud', 'football', 'recap', 'reminder-test', 'liga'].includes(t));
+    const alarmTyper = new Set([...kilder.matchAll(/meldAlarm\([^)]*?type: '([A-Za-z0-9]+)'/gs)].map((m) => m[1]));
+    expect(alarmTyper.size).toBeGreaterThanOrEqual(8);
+    for (const t of alarmTyper) expect(ALARM_TYPER, `alarm-typen «${t}» mangler i ALARM_TYPER`).toHaveProperty(t);
+    expect(brugte.length).toBeGreaterThan(0);
   });
 });
