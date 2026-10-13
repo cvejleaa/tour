@@ -8,7 +8,7 @@
 //   - en læsefejl vises som fejl — aldrig som "ingen problemer"
 //   - titlen flipper ikke til råt id efter første kørsel
 // ---------------------------------------------------------------------------
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 const mockDrift = vi.fn();
@@ -175,6 +175,14 @@ describe('DriftTab', () => {
 
 // ── Alarm-postbudet: kortet, knapperne og titlerne ──────────────────────────
 describe('DriftTab — alarm-postbudet', () => {
+  // Attrapperne deles af hele filen, og vitest nulstiller dem ikke selv: uden
+  // dette afhang «kaldt 1 gang» / «ikke kaldt» af testenes rækkefølge og blev
+  // rødt under --sequence.shuffle (3 af 3 seeds).
+  beforeEach(() => {
+    mockSendNu.mockReset();
+    mockTestAlarm.mockReset();
+  });
+
   it('postbudet er et GLOBALT kort («Platformen») med dansk navn — og forventedeKoersler(games) er uændret', () => {
     expect(globaleKoersler()).toEqual([{ type: 'postbud', gameId: null, gameNavn: 'Platformen' }]);
     mockDrift.mockReturnValue(basis);
@@ -243,6 +251,39 @@ describe('DriftTab — alarm-postbudet', () => {
     render(<DriftTab />);
     expect(screen.getByText('Kamp flyttet til under 48 timer')).toBeInTheDocument();
     expect(screen.getByText('strandet')).toBeInTheDocument();
+  });
+
+  // Tillæg efter mutationstest: tre klik-veje overlevede med alt grønt.
+  it('«Send alarm-mail nu» uden besked i svaret falder tilbage på «Postbudet kørte.» — et klik er aldrig tavst', async () => {
+    mockSendNu.mockResolvedValue({ ok: true, data: {} });
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    fireEvent.click(screen.getByRole('button', { name: '📨 Send alarm-mail nu' }));
+    expect(await screen.findByText('Postbudet kørte.')).toBeInTheDocument();
+  });
+
+  it('serverens afvisning af «Send alarm-mail nu» vises som fejl-badge — og ikke som et svar', async () => {
+    mockSendNu.mockResolvedValue({ ok: false, error: 'Kun owner/global admin har adgang.' });
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    fireEvent.click(screen.getByRole('button', { name: '📨 Send alarm-mail nu' }));
+    expect(await screen.findByText('Kun owner/global admin har adgang.')).toHaveClass('badge--red');
+    expect(screen.queryByText('Postbudet kørte.')).toBeNull();
+  });
+
+  it('begge knapper er låst, mens et kald er i gang — et dobbeltklik koster ikke to kald', async () => {
+    let frigiv;
+    mockSendNu.mockReturnValue(new Promise((resolve) => { frigiv = resolve; }));
+    mockDrift.mockReturnValue(basis);
+    render(<DriftTab />);
+    fireEvent.click(screen.getByRole('button', { name: '📨 Send alarm-mail nu' }));
+    expect(screen.getByRole('button', { name: '📨 Send alarm-mail nu' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '🧪 Send en test-alarm' })).toBeDisabled();
+    frigiv({ ok: true, data: { besked: 'Færdig.' } });
+    expect(await screen.findByText('Færdig.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '📨 Send alarm-mail nu' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '🧪 Send en test-alarm' })).toBeEnabled();
+    expect(mockSendNu).toHaveBeenCalledTimes(1);
   });
 });
 

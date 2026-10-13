@@ -15,10 +15,9 @@ import { readFileSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
 const {
-  koerPostbud, alarmMail, umailede, erRoedtKort, erForaeldreloest, koerselBesked, afkort, adminModtagere,
-  testAlarmBesked, testAlarmTilladt, KOERSEL_NAVN, MAIL_TYPE, DRIFT_URL, MAKS_LINJER, SAMLE_GRAENSE, TEST_INTERVAL_MS,
+  DRIFT_URL, KOERSEL_NAVN, MAIL_TYPE, MAKS_LINJER, SAMLE_GRAENSE, TEST_INTERVAL_MS, adminModtagere, afkort, alarmMail, datoDa, erForaeldreloest, erRoedtKort, koerPostbud, koerselBesked, testAlarmBesked, testAlarmTilladt, umailede,
 } = require('./postbud');
-const { meldAlarm } = require('./driftlog');
+const { meldAlarm, ALARM_TYPER, kvitteringFor } = require('./driftlog');
 
 const FieldValue = { serverTimestamp: () => ({ __ts: true }) };
 
@@ -504,5 +503,306 @@ describe('KOERSEL_NAVN spejler DriftTab.jsx — paritet (mønstret fra mailMarkd
     expect(blok, 'fandt ikke TYPE_NAVN i DriftTab.jsx').not.toBeNull();
     const klient = Object.fromEntries([...blok[1].matchAll(/^\s*(\w+): '([^']*)'/gm)].map((m) => [m[1], m[2]]));
     expect(klient).toEqual(KOERSEL_NAVN);
+  });
+});
+
+// ===========================================================================
+// Tillæg efter mutationstest (Test Manager). Hver test dræber mutanter, der
+// overlevede suiten ovenfor med alt grønt — årsagen står ved testen.
+// ===========================================================================
+const li = (html) => (html.match(/<li>/g) || []).length;
+const NAVNE = { sl: 'Superligaen', pl: 'Premier League' };
+const flere = (n, over = () => ({})) => Array.from({ length: n }, (_, i) => alarm({ kampId: `k${i}`, ...over(i) }));
+
+describe('erRoedtKort / koerselBesked — grænsen, «aldrig» og navnene', () => {
+  it('præcis PÅ fristen er kortet ikke forsinket (nu > frist, som i StatusKort) — hverken som alarm eller som tekst', () => {
+    expect(erRoedtKort({ naesteForventetFoer: 1000, niveau: 'ok' }, 1000)).toBe(false);
+    expect(erRoedtKort({ naesteForventetFoer: 1000, niveau: 'ok' }, 1001)).toBe(true);
+    const t = koerselBesked({ type: 'sweep', gameNavn: 'Superligaen', niveau: 'fejl', besked: 'HTTP 500', naesteForventetFoer: 1000 }, 1000);
+    expect(t).toContain('fejlede: HTTP 500');
+    expect(t).not.toContain('ikke kørt til tiden');
+  });
+
+  it('«sidst kørt aldrig», når kortet aldrig har kørt — ellers tidspunktet i Københavns tid', () => {
+    const aldrig = koerselBesked({ type: 'sweep', gameNavn: 'Superligaen', naesteForventetFoer: 900 }, 1000);
+    expect(aldrig).toContain('sidst kørt aldrig.');
+    const koert = koerselBesked(
+      { type: 'sweep', gameNavn: 'Superligaen', naesteForventetFoer: 900, koertAt: Date.parse('2026-10-13T09:02:00Z') },
+      Date.parse('2026-10-13T10:00:00Z'),
+    );
+    expect(koert).toMatch(/13\.10.*11\.02/);
+    expect(koert).not.toContain('aldrig');
+  });
+
+  it('en ukendt kørselstype nævnes ved sit rå navn, og et kort uden spil står som «platformen»', () => {
+    expect(koerselBesked({ type: 'nytjob', niveau: 'fejl', besked: 'x' }, 1000)).toMatch(/^nytjob for platformen fejlede/);
+  });
+
+  it('kortets egen besked afkortes til 200 tegn i alarmen (hardkodet tal — ikke afledt af konstanten)', () => {
+    const t = koerselBesked({ type: 'sweep', gameNavn: 'S', niveau: 'fejl', besked: 'z'.repeat(400) }, 1000);
+    const m = t.match(/z+…/);
+    expect(m).not.toBeNull();
+    expect(m[0]).toHaveLength(200);
+  });
+});
+
+describe('datoDa — Københavns tid, sommer som vinter', () => {
+  it('09:02 UTC er 11.02 i sommertid (13/10) og 10.02 i vintertid (1/12) — ikke UTC', () => {
+    expect(datoDa(Date.parse('2026-10-13T09:02:00Z'))).toMatch(/13\.10.*11\.02/);
+    expect(datoDa(Date.parse('2026-12-01T09:02:00Z'))).toMatch(/1\.12.*10\.02/);
+  });
+
+  it('et ugyldigt tal giver tom streng — Intl ville ellers formatere «nu» og lyve om, hvornår alarmen blev set', () => {
+    for (const ugyldig of [undefined, null, NaN, 'x']) expect(datoDa(ugyldig)).toBe('');
+  });
+});
+
+describe('adminModtagere — Security F7: adressen kommer fra Auth, aldrig fra userContacts', () => {
+  it('en anden adresse i userContacts end i Auth bruges ALDRIG — og en admin uden Auth-adresse får ingen mail', async () => {
+    // Fixturet har data i BEGGE kilder. Uden userContacts-rækkerne kunne en
+    // mutation, der læser userContacts først, ikke skilles fra den rigtige kode
+    // (den overlevede, da fixturet kun havde Auth).
+    const db = fakeDb({
+      ...ADMINS,
+      userContacts: { ejer: { email: 'angriber@ond.dk' }, adm: { email: 'ond@ond.dk' }, venter: { email: 'x@ond.dk' } },
+    });
+    const ud = await adminModtagere(db, fakeAuth({ ejer: undefined, adm: 'adm@x.dk' }));
+    expect(ud).toEqual([{ uid: 'adm', email: 'adm@x.dk', navn: 'Bo' }]);
+  });
+});
+
+describe('alarmMail — tal, forgreninger og det, der IKKE må stå', () => {
+  it('præcis 3 ens alarmer listes enkeltvis, 4 samles til én linje (hardkodet grænse 3)', () => {
+    expect(li(alarmMail(flere(3), { spilNavne: NAVNE }).html)).toBe(3);
+    const fire = alarmMail(flere(4), { spilNavne: NAVNE });
+    expect(li(fire.html)).toBe(1);
+    expect(fire.html).toContain('4 × Kamp mangler facit');
+  });
+
+  it('højst 20 linjer (hardkodet 20; 25 alarmer i 25 spil) — resten som «og 5 flere»', () => {
+    const { html } = alarmMail(flere(25, (i) => ({ gameId: `g${i}` })), {});
+    expect(li(html)).toBe(20);
+    expect(html).toContain('… og 5 flere — se Driftstatus.');
+  });
+
+  it('loftet gælder på tværs af haste-grupper: ingen overskrift over en tom liste bag loftet', () => {
+    const haster = flere(20, (i) => ({ type: 'kickoff48t', gameId: `g${i}`, titel: undefined }));
+    const idag = alarm({ type: 'strandet', gameId: 'sl', kampId: 'z', titel: undefined });
+    const { html } = alarmMail([...haster, idag], { spilNavne: NAVNE });
+    expect(li(html)).toBe(20);
+    expect(html).toContain('… og 1 flere — se Driftstatus.');
+    expect(html).not.toContain('Kan vente til i dag');
+  });
+
+  it('alarm-teksten afkortes til 300 tegn (hardkodet) med «…»', () => {
+    const { html } = alarmMail([alarm({ besked: 'y'.repeat(500) })], { spilNavne: NAVNE });
+    expect(html.match(/y+…/)[0]).toHaveLength(300);
+  });
+
+  it('ESCAPER også i den SAMLEDE linje (4+ ens alarmer): spilnavn, titel og tekst — og URL\'er bliver [url]', () => {
+    // Den samlede linje har sin EGEN escaping, adskilt fra enkelt-linjens — og
+    // den var ikke dækket: alle tre escapeHtml kunne fjernes med suiten grøn.
+    const fire = flere(4, () => ({ titel: '<i>t</i>', besked: 'https://ond.dk/x <b>fed</b>' }));
+    const { html } = alarmMail(fire, { spilNavne: { sl: '<s>Spil</s>' } });
+    expect(li(html)).toBe(1);
+    for (const raa of ['<i>', '<b>', '<s>', 'ond.dk']) expect(html).not.toContain(raa);
+    expect(html).toContain('&lt;s&gt;Spil&lt;/s&gt;');
+    expect(html).toContain('4 × &lt;i&gt;t&lt;/i&gt;');
+    expect(html).toContain('[url] &lt;b&gt;fed&lt;/b&gt;');
+  });
+
+  it('ingen uid i mailen: en alarms kampId (for en test-alarm er det uid\'et) står hverken i emne eller krop — enkeltvis eller samlet', () => {
+    const uid = 'kX8Pg1Dr8qgyUnj0ZwBJTRoWTvx1';
+    const en = alarmMail([alarm({ type: 'test', titel: 'Test-alarm', gameId: null, kampId: uid, besked: testAlarmBesked('Carsten', 0) })], {});
+    expect(en.html).not.toContain(uid);
+    expect(en.subject).not.toContain(uid);
+    const enAnden = alarmMail([alarm({ kampId: uid })], { spilNavne: NAVNE });
+    expect(enAnden.html).not.toContain(uid);
+    expect(enAnden.subject).not.toContain(uid);
+    // Samlet: fire test-alarmer fra fire administratorer — kampId er uid'et,
+    // og den samlede linje må ikke liste dem («Gælder: …» gælder kun kampe).
+    const samlet = alarmMail(
+      Array.from({ length: 4 }, (_, i) => alarm({ type: 'test', titel: 'Test-alarm', gameId: null, kampId: `${uid}${i}`, besked: testAlarmBesked('Carsten', 0) })),
+      {},
+    );
+    expect(samlet.html).not.toContain(uid);
+    expect(samlet.subject).not.toContain(uid);
+    // — mens kamp-alarmer stadig siger HVILKE kampe (QC).
+    const kampe = alarmMail(flere(4, (i) => ({ kampId: `r10-k${i}` })), { spilNavne: NAVNE });
+    expect(kampe.html).toContain('Gælder: r10-k0, r10-k1, r10-k2, r10-k3.');
+  });
+
+  it('«1 ny ting» i ental, «N gange» kun når antal > 1, og kvitterings-teksten kun når alarmen kræver kvittering', () => {
+    const en = alarmMail([alarm({ antal: 1 })], { spilNavne: NAVNE }).html;
+    expect(en).toContain('Driftvagten har fundet 1 ting, du ikke har fået mail om før.');
+    expect(en).not.toContain('gange');
+    expect(en).not.toMatch(/kvitter/);
+    const gentaget = alarmMail([alarm({ antal: 4, kraeverKvittering: true })], { spilNavne: NAVNE }).html;
+    expect(gentaget).toContain(' · 4 gange');
+    expect(gentaget).toContain('skal kvitteres');
+  });
+
+  it('grupperingen er pr. (type, spil): 2+2 ens alarmer i to spil — og 4 forskellige typer i ét spil — samles IKKE', () => {
+    const toSpil = alarmMail([...flere(2), ...flere(2, (i) => ({ gameId: 'pl', kampId: `p${i}` }))], { spilNavne: NAVNE });
+    expect(li(toSpil.html)).toBe(4);
+    expect(toSpil.html).toContain('Superligaen — Kamp mangler facit');
+    expect(toSpil.html).toContain('Premier League — Kamp mangler facit');
+    const typer = ['strandet', 'genaabning', 'mangler', 'livetavs'].map((type, i) => alarm({ type, titel: undefined, kampId: `t${i}` }));
+    expect(li(alarmMail(typer, { spilNavne: NAVNE }).html)).toBe(4);
+  });
+
+  it('emnet for ÉN alarm uden spil har ingen «(Platformen)»-parentes', () => {
+    expect(alarmMail([alarm({ gameId: null })], {}).subject).toBe('Vejleaa Tip · I dag: Kamp mangler facit');
+  });
+
+  it('HVER alarm-type i ALARM_TYPER — og en ukendt — når frem i mailen med sin tekst (ingen forsvinder bag en forkert hast)', () => {
+    for (const type of [...Object.keys(ALARM_TYPER), 'nytMaskineri']) {
+      const { html } = alarmMail([alarm({ type, titel: undefined, besked: `tekst-for-${type}` })], { spilNavne: NAVNE });
+      expect(html, type).toContain(`tekst-for-${type}`);
+      expect(html, type).not.toContain('og 1 flere');
+    }
+  });
+});
+
+describe('koerPostbud — statuslinjen og den ene mail pr. opmærksomheds-overgang', () => {
+  it('2 alarmer og 1 af 3 modtagere: «Sendt til 1 modtager (2 alarmer). 2 modtagere fejlede — se Mail-log.»', async () => {
+    const db = fakeDb({
+      driftAlarmer: { a1: alarm(), a2: alarm({ kampId: 'k2' }) },
+      users: {
+        a: { role: 'owner', status: 'approved' },
+        b: { role: 'globalAdmin', status: 'approved' },
+        c: { role: 'globalAdmin', status: 'approved' },
+      },
+    });
+    const t = fakeTransport(['b@x.dk', 'c@x.dk']);
+    const r = await koerPostbud(db, FieldValue, { transporter: t, auth: fakeAuth({ a: 'a@x.dk', b: 'b@x.dk', c: 'c@x.dk' }), nowMs: 1000 });
+    expect(r.niveau).toBe('advarsel');
+    expect(r.besked).toBe('Sendt til 1 modtager (2 alarmer). 2 modtagere fejlede — se Mail-log.');
+  });
+
+  it('en åben, ukvitteret alarm mailes ÉN gang, uanset hvor mange gange den ses; efter kvittering og ny forekomst mailes den igen', async () => {
+    // Hele løftet i docs/drift.md, igennem den rigtige meldAlarm + postbud:
+    // «en åben, ukvitteret alarm, der bare ses igen, mailes ikke igen».
+    const H = 3600 * 1000;
+    const db = fakeDb({
+      driftlog: { 'sweep-sl': { type: 'sweep', gameId: 'sl', gameNavn: 'Superligaen', niveau: 'fejl', besked: 'x', naesteForventetFoer: null } },
+      ...ADMINS,
+    });
+    const t = fakeTransport();
+    const koer = (nowMs) => koerPostbud(db, FieldValue, { transporter: t, auth: AUTH, nowMs, synkedeSpil: SYNK });
+    await koer(1000);
+    expect(t.sendt).toHaveLength(2);
+    await koer(1000 + 15 * 60 * 1000); // dæmpet (< 6 timer)
+    await koer(1000 + 7 * H); // dæmpningen udløbet: alarmen skrives igen — men er åben og ukvitteret
+    expect(db._docs.get('driftAlarmer/sl_sweep-sl_koerselFejl').antal).toBe(2);
+    expect(t.sendt).toHaveLength(2);
+    // En kvittering (her sat direkte — koerselFejl har intet kvitteringskrav i
+    // fladen, men reglen i meldAlarm gælder ethvert kvitteretAt) + ny forekomst → mail igen.
+    await db.collection('driftAlarmer').doc('sl_sweep-sl_koerselFejl').set({ kvitteretAt: 1000 + 8 * H }, { merge: true });
+    await koer(1000 + 14 * H + 1); // ny forekomst EFTER kvittering
+    expect(t.sendt).toHaveLength(4);
+  });
+});
+
+describe('testAlarmTilladt — 10 minutter pr. administrator (Security F8) — TM\'s grænsetilfælde', () => {
+  // Signaturen er (dokumentets data | null, nowMs): index.js giver
+  // `cur.exists ? cur.data() : null`.
+  const T = 1_700_000_000_000;
+
+  it('første gang (ingen alarm endnu) er altid tilladt', () => {
+    expect(testAlarmTilladt(null, T)).toBe(true);
+  });
+
+  it('afvist lige indtil 10 minutter er gået — præcis 10 minutter er tilladt', () => {
+    expect(testAlarmTilladt({ sidstSetAt: T }, T)).toBe(false);
+    expect(testAlarmTilladt({ sidstSetAt: T }, T + 10 * 60 * 1000 - 1)).toBe(false);
+    expect(testAlarmTilladt({ sidstSetAt: T }, T + 10 * 60 * 1000)).toBe(true);
+  });
+
+  it('en alarm uden sidstSetAt (gammelt dokument) blokerer ikke', () => {
+    expect(testAlarmTilladt({ sidstSetAt: undefined }, T)).toBe(true);
+  });
+});
+
+describe('kvitteringFor — kun en TEST-alarm lukkes af kvitteringen (reglen bor i driftlog.js)', () => {
+  it('test: kvittering OG loestAt; ægte alarm (også med kvitteringskrav) og manglende type: kun kvitteringen', () => {
+    expect(kvitteringFor('test', 'u1', 5)).toEqual({ kvitteretAt: 5, kvitteretAf: 'u1', loestAt: 5 });
+    expect(kvitteringFor('kickoff48t', 'u1', 5)).toEqual({ kvitteretAt: 5, kvitteretAf: 'u1' });
+    expect(kvitteringFor(undefined, 'u1', 5)).toEqual({ kvitteretAt: 5, kvitteretAf: 'u1' });
+  });
+});
+
+describe('test-alarmens kæde: fyr → mail → kvittér → fyr igen', () => {
+  it('højst én pr. 10 minutter; kvitteringen lukker den; så mailes den næste', async () => {
+    const MIN = 60 * 1000;
+    const T0 = Date.parse('2026-10-13T09:00:00Z');
+    const db = fakeDb(ADMINS);
+    const t = fakeTransport();
+    const fyr = async (nowMs) => {
+      const cur = await db.collection('driftAlarmer').doc('u1_test').get();
+      if (!testAlarmTilladt(cur.exists ? cur.data() : null, nowMs)) return false;
+      await meldAlarm(db, FieldValue, {
+        type: 'test', gameId: null, kampId: 'u1', kraeverKvittering: true, nowMs, daempMs: 0, besked: testAlarmBesked('Carsten', nowMs),
+      });
+      return true;
+    };
+    const post = (nowMs) => koerPostbud(db, FieldValue, { transporter: t, auth: AUTH, nowMs });
+
+    expect(await fyr(T0)).toBe(true);
+    await post(T0 + MIN);
+    expect(t.sendt).toHaveLength(2);
+    expect(t.sendt[0].subject).toContain('TEST');
+
+    expect(await fyr(T0 + 9 * MIN)).toBe(false); // for tidligt — og intet skrevet
+    expect(db._docs.get('driftAlarmer/u1_test').sidstSetAt).toBe(T0);
+
+    await db.collection('driftAlarmer').doc('u1_test')
+      .set(kvitteringFor(db._docs.get('driftAlarmer/u1_test').type, 'u1', T0 + 9 * MIN), { merge: true });
+    expect(db._docs.get('driftAlarmer/u1_test').loestAt).toBe(T0 + 9 * MIN);
+    await post(T0 + 9 * MIN + 1);
+    expect(t.sendt).toHaveLength(2); // lukket → ingen ny mail
+
+    expect(await fyr(T0 + 10 * MIN)).toBe(true); // præcis 10 minutter
+    await post(T0 + 11 * MIN);
+    expect(t.sendt).toHaveLength(4);
+  });
+});
+
+describe('ledningen mellem lagene — bundet af tekst, fordi index.js og klienten ikke kan importeres her', () => {
+  const les = (sti) => readFileSync(new URL(sti, import.meta.url), 'utf8');
+
+  it('mailens link ?fane=… er den fane-nøgle, AdminPage kender som Driftstatus (og /admin findes)', () => {
+    const tabDrift = les('../src/pages/AdminPage.jsx').match(/const TAB_DRIFT = '([^']+)'/);
+    expect(tabDrift, 'fandt ikke TAB_DRIFT i AdminPage.jsx').not.toBeNull();
+    const url = new URL(DRIFT_URL);
+    expect(url.pathname).toBe('/admin');
+    expect(url.searchParams.get('fane')).toBe(tabDrift[1]);
+    expect(les('../src/App.jsx')).toContain('path="/admin"');
+  });
+
+  it('MAIL_TYPE har en dansk label i EmailLogTab.jsx — ellers står den rå type i Mail-loggen', () => {
+    expect(les('../src/features/admin/EmailLogTab.jsx')).toContain(`'${MAIL_TYPE}': 'Driftalarm'`);
+  });
+
+  it('fyrTestAlarm afviser via testAlarmTilladt; kvitterDriftAlarm skriver kvitteringFor', () => {
+    const kilde = les('./index.js');
+    expect(kilde).toMatch(/if \(!testAlarmTilladt\(cur\.exists \? cur\.data\(\) : null, nowMs\)\) \{\s*throw new HttpsError\('resource-exhausted'/);
+    expect(kilde).toMatch(/ref\.set\(kvitteringFor\(snap\.data\(\)\?\.type, uid, Date\.now\(\)\), \{ merge: true \}\)/);
+  });
+
+  it('test-alarmens tekst får visningsnavnet — aldrig uid (en mail må ikke bære uid\'er)', () => {
+    const kilde = les('./index.js');
+    expect(kilde).toMatch(/testAlarmBesked\(caller\?\.displayName, nowMs\)/);
+    expect(kilde).not.toMatch(/testAlarmBesked\((uid|request\.auth\.uid)\b/);
+  });
+
+  it('postbudets slæk er længere end to skema-intervaller — ellers står kortet rødt, mens skemaet kører', () => {
+    const kilde = les('./index.js');
+    const skema = kilde.match(/exports\.driftAlarmPostbud = onSchedule\(\s*\{\s*schedule: '\*\/(\d+) \* \* \* \*'/);
+    expect(skema, 'fandt ikke driftAlarmPostbud-skemaet (*/N) — er cron-udtrykket ændret?').not.toBeNull();
+    const del = kilde.slice(kilde.indexOf('async function koerPostbudMedKort'), kilde.indexOf('exports.driftAlarmPostbud'));
+    const slaek = [...del.matchAll(/Date\.now\(\) \+ (\d+) \* 60 \* 1000/g)].map((m) => Number(m[1]));
+    expect(slaek.length).toBeGreaterThan(0);
+    for (const minutter of slaek) expect(minutter).toBeGreaterThan(2 * Number(skema[1]));
   });
 });

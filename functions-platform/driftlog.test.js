@@ -403,4 +403,27 @@ describe('ALARM_TYPER — titel og hast ét sted', () => {
     await t({ nowMs: 1700, tvingMail: true });
     expect(db._docs.get('driftAlarmer/u1_test').mailetAt).toBeNull();
   });
+
+  // Tillæg efter mutationstest (TM): de nye typers hast og titel overlevede
+  // at blive vendt med alt grønt. Hast afgør ordet forrest i emnet og
+  // rækkefølgen i mailen. postbud HASTER (en mail, der ikke kan sendes, skal
+  // ses først); koersel/koerselFejl er «i dag» (Spilfører: en enkelt natlig
+  // forsinkelse må ikke lære ejeren at ignorere ordet «haster»).
+  it('postbud HASTER; koersel og koerselFejl er «i dag»; test er «test» — og titlerne er dem, mailen og kortet viser', () => {
+    expect(alarmHast('koersel')).toBe('idag');
+    expect(alarmHast('koerselFejl')).toBe('idag');
+    expect(alarmHast('postbud')).toBe('haster');
+    expect(alarmHast('test')).toBe('test');
+    expect(alarmTitel('koersel')).toBe('En kørsel er forsinket');
+    expect(alarmTitel('koerselFejl')).toBe('En kørsel fejlede');
+    expect(alarmTitel('postbud')).toBe('Alarm-mailen kunne ikke sendes');
+    expect(alarmTitel('test')).toBe('Test-alarm');
+  });
+
+  it('hver type har en titel og en hast, mailen kender — en tastefejl i hast ville smide alarmen ud af mailen', () => {
+    for (const [type, v] of Object.entries(ALARM_TYPER)) {
+      expect(v.titel, type).toBeTruthy();
+      expect(['haster', 'idag', 'udvikler', 'test'], type).toContain(v.hast);
+    }
+  });
 });

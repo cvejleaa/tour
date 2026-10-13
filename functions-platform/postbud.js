@@ -249,7 +249,9 @@ function linjer(alarmer, spilNavne) {
     if (g.length > SAMLE_GRAENSE) {
       const foerste = g.map((x) => x.foersteSetAt).filter(Number.isFinite).sort((x, y) => x - y)[0];
       // Hvilke — ikke kun hvor mange (QC): de første fem kamp-/kort-id'er.
-      const ider = g.map((x) => x.kampId).filter(Boolean);
+      // ALDRIG for test-alarmer: deres kampId er administratorens uid, og en
+      // uid hører ikke hjemme i en mail (TM-fund på den samlede linje).
+      const ider = a.type === 'test' ? [] : g.map((x) => x.kampId).filter(Boolean);
       const hvilke = ider.length
         ? ` Gælder: ${ider.slice(0, 5).map(escapeHtml).join(', ')}${ider.length > 5 ? ` (+${ider.length - 5})` : ''}.`
         : '';
