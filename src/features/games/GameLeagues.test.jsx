@@ -10,9 +10,8 @@ vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { uid: 'me
 
 const mockLeagues = vi.fn();
 vi.mock('./useGameLeagues', () => ({ useGameLeagues: () => mockLeagues() }));
-vi.mock('./useGameStandings', () => ({
-  useGameStandings: () => ({ standings: [], leagues: [], loading: false, error: null }),
-}));
+const mockStandings = vi.fn();
+vi.mock('./useGameStandings', () => ({ useGameStandings: () => mockStandings() }));
 const mockMessages = vi.fn();
 vi.mock('./useLeagueMessages', () => ({ useLeagueMessages: () => mockMessages() }));
 vi.mock('./useLeagueQuestions', () => ({
@@ -43,6 +42,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockLeagues.mockReturnValue({ leagues: LEAGUES, loading: false, error: null });
   mockMessages.mockReturnValue({ messages: [], loading: false });
+  mockStandings.mockReturnValue({ standings: [], leagues: [], loading: false, error: null });
 });
 
 describe('GameLeagues — forvalgt liga', () => {
@@ -103,6 +103,21 @@ describe('GameLeagues — liga-væggen og bottens navn', () => {
     setup('/spil/sl?fane=ligaer&liga=L1');
     expect(screen.queryByText('Runde-Botten')).toBeNull();
     expect(screen.getAllByText('Tidligere medlem')).toHaveLength(2);
+  });
+
+  it('mens stillingen indlæses, hedder ingen «Tidligere medlem» — og ens eget opslag hedder «Dig»', () => {
+    // Før stillingen er inde, mangler ALLE navne; «Tidligere medlem» ville da
+    // påstå noget forkert om nuværende deltagere (QC-fund).
+    mockStandings.mockReturnValue({ standings: [], leagues: [], loading: true, error: null });
+    mockMessages.mockReturnValue({ loading: false, messages: [
+      besked({ id: 'l1', uid: 'gaaet', text: 'Mens vi venter' }),
+      besked({ id: 'l2', uid: 'me', text: 'Mit eget' }),
+    ] });
+    setup('/spil/sl?fane=ligaer&liga=L1');
+    expect(screen.queryByText(/Tidligere medlem/)).toBeNull();
+    expect(screen.getByText('Spiller')).toBeInTheDocument();
+    expect(screen.getByText('Dig')).toBeInTheDocument();
+    expect(screen.queryByText(/\(dig\)/)).toBeNull();
   });
 
   it('et map som navn på et ældre opslag hvidner ikke fanen', () => {

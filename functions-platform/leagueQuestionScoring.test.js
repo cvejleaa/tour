@@ -33,6 +33,13 @@ const CASES = [
     [{ uid: 'a', answer: 'x' }]],
   ['giftigt number-svar behandles som tomt — begge spejle ens', { type: 'number', facit: '10', points: 5 },
     [{ uid: 'a', answer: { toString: null } }, { uid: 'b', answer: '12' }]],
+  // QC-fund: klienten fik Array.isArray-vagten på acceptedAnswers, serverspejlet
+  // ikke — `.map` på en streng kastede, og Runde-Bottens afsløring udeblev.
+  // Reglerne kræver nu en liste, men ældre dokumenter kan bære en streng/et map.
+  ['acceptedAnswers som streng (ældre dokument) ignoreres — begge spejle ens', { type: 'text', facit: 'x', acceptedAnswers: 'y', points: 5 },
+    [{ uid: 'a', answer: 'y' }, { uid: 'b', answer: 'x' }]],
+  ['acceptedAnswers som map ignoreres — begge spejle ens', { type: 'text', facit: 'x', acceptedAnswers: { a: 1 }, points: 5 },
+    [{ uid: 'a', answer: 'x' }]],
 ];
 
 describe('leagueQuestionScoring — server spejler klienten', () => {

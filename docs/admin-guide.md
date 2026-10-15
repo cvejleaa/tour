@@ -186,7 +186,8 @@ liga-invitation ER en invitation til spillet.
 - Han mister adgangen til ligaens tips og til ligavæggen.
 - Er det hans eneste liga i spillet, ser han en **tom stilling uden
   fejlbesked** — sig til ham, at han skal med i en anden liga.
-- Hans egne opslag på ligavæggen **bliver stående**.
+- Hans egne opslag på ligavæggen **bliver stående** — med «Tidligere medlem»
+  som afsender, når han ikke længere står i spillets stilling.
 - **Ingen point går tabt.** Han kan meldes ind igen, og alt er som før.
 
 **Ligaens ejer kan ikke fjernes.** Skal ligaen væk, sletter ejeren den selv —
