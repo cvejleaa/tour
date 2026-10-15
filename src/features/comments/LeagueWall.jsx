@@ -88,6 +88,12 @@ export default function LeagueWall({ leagueId, meUid, myName, myEmoji = null, my
           {ordered.map((c) => {
             const mine = c.uid === meUid;
             const canDelete = mine || isOwner || isAdmin;
+            // Navn/emoji caches på beskeden og renderes råt — reglerne kræver nu
+            // strenge, men et ældre dokument med et map ville hvidne hele
+            // væggen (Security-fund). Samme vagt som i rankStandings.
+            const navn = typeof c.displayName === 'string' && c.displayName ? c.displayName : 'Spiller';
+            const emoji = typeof c.avatarEmoji === 'string' ? c.avatarEmoji : undefined;
+            const hold = typeof c.favoriteTeam === 'string' ? c.favoriteTeam : undefined;
             return (
               <li
                 key={c.id}
@@ -100,8 +106,8 @@ export default function LeagueWall({ leagueId, meUid, myName, myEmoji = null, my
               >
                 <div className="flex items-center justify-between" style={{ gap: '0.5rem' }}>
                   <strong style={{ fontSize: '0.86rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Avatar uid={c.uid} name={c.displayName} emoji={c.avatarEmoji} favoriteTeam={c.favoriteTeam} size={24} />
-                    {c.displayName || 'Spiller'}
+                    <Avatar uid={c.uid} name={navn} emoji={emoji} favoriteTeam={hold} size={24} />
+                    {navn}
                     {mine && <span className="badge badge--blue">dig</span>}
                   </strong>
                   <span style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>

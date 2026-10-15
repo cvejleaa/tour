@@ -74,16 +74,21 @@ service cloud.firestore {
           || request.resource.data.favoriteTeam == null
           || request.resource.data.favoriteTeam is string);
     }
+    // Felter, som KUN serveren skriver på en profil: point, placering, sæsoner
+    // — og de to identitets-felter. `uid` skygger for doc-id'et i stillingen,
+    // `id` i admin-fladens rækker (useUsers), hvor HVER handling tager
+    // `user.id`: en pending bruger skrev `id: '<offer>'`, og ét "Afvis" på
+    // angriberens række ramte offeret (Security-fund, emulator-målt). Læserne
+    // er siden vendt til data-først; reglen er den anden vagt, så en grep-test
+    // ikke står alene. ÉN liste til alle tre skrive-grene (create med keys(),
+    // egen update og admin-update med diff) — før stod der tre lister, og de
+    // var uenige om `uid`, mens kommentaren påstod det modsatte.
+    function serverEjedeBrugerfelter() {
+      return ['totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank', 'points', 'uid', 'id'];
+    }
     function writingProtectedUserFields() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny([
-          'role', 'status', 'approvedViaInvite', 'approvedAt',
-          'totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank',
-          // uid og points var frie her, mens BÅDE create-reglen og admin-reglen
-          // blokerede dem — samme asymmetri som den, admin-reglen lige er rettet
-          // for. uid rammer stillingen, der spreder dokumentet efter doc-id'et.
-          'uid', 'points',
-        ]);
+        .hasAny(serverEjedeBrugerfelter().concat(['role', 'status', 'approvedViaInvite', 'approvedAt']));
     }
 
     /** Opretter klienten en profil MED e-mail? E-mails hører kun hjemme i
@@ -143,8 +148,7 @@ service cloud.firestore {
         && request.resource.data.status == 'pending'
         && !creatingWithUserEmail()
         && profilFelterGyldige()
-        && !request.resource.data.keys().hasAny(
-            ['totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank', 'points']);
+        && !request.resource.data.keys().hasAny(serverEjedeBrugerfelter());
 
       // Brugeren kan opdatere egne ikke-beskyttede felter (f.eks. displayName)
       allow update: if isSignedIn() && request.auth.uid == uid
@@ -160,7 +164,7 @@ service cloud.firestore {
       allow update: if isGlobalAdmin()
         && !changingUserEmail()
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-            ['role', 'totalPoints', 'stagePoints', 'bonusPoints', 'seasons', 'previousRank', 'points']);
+            serverEjedeBrugerfelter().concat(['role']));
 
       // Ejeren kan ændre alt, inkl. role (udpege/fjerne globale admins) — men
       // heller ikke ejeren lægger e-mails på den offentlige profil.
@@ -481,7 +485,19 @@ service cloud.firestore {
       // Opret: kun som sig selv, kun hvis man er medlem af ligaen
       allow create: if isApproved()
         && request.auth.uid == request.resource.data.uid
-        && !request.resource.data.keys().hasAny(['edited'])
+        // Navn, emoji og hold caches på beskeden med vilje (commentActions), og
+        // væggen viser dem råt — så typen SKAL være vagtet her, ellers hvidner
+        // ét map hele væggen. 'system' er Tour-Bottens kendetegn (skrives kun
+        // via Admin SDK, functions/index.js) — samme hul som på spil-ligaernes
+        // væg (Security-fund).
+        && request.resource.data.displayName is string
+        && (!('avatarEmoji' in request.resource.data)
+          || request.resource.data.avatarEmoji == null
+          || request.resource.data.avatarEmoji is string)
+        && (!('favoriteTeam' in request.resource.data)
+          || request.resource.data.favoriteTeam == null
+          || request.resource.data.favoriteTeam is string)
+        && !request.resource.data.keys().hasAny(['edited', 'system'])
         && isMemberOfLeague(request.resource.data.leagueId);
 
       // Reaktioner: medlemmer må ændre KUN 'reactions'-feltet (ingen anden redigering)
@@ -1161,11 +1177,17 @@ service cloud.firestore {
             && request.resource.data.text is string
             && request.resource.data.text.size() > 0
             && request.resource.data.text.size() <= 280
-            // 'system' er BOTTENS kendetegn (skrives kun via Admin SDK). Uden
-            // vagten kunne et medlem gemme displayName 'Runde-Botten' +
-            // system:true, forlade ligaen — og opslaget ville stå som bottens
-            // for alle (Security-fund, emulator-bekræftet).
-            && !request.resource.data.keys().hasAny(['system']);
+            // Klienten skriver PRÆCIS {uid, text, createdAt} (postLeagueMessage)
+            // — alt andet er serverens. 'system' er BOTTENS kendetegn (skrives
+            // kun via Admin SDK), og uden vagten kunne et medlem gemme
+            // displayName 'Runde-Botten' + system:true, forlade ligaen — og
+            // opslaget ville stå som bottens for alle (Security-fund,
+            // emulator-bekræftet). Et forbud mod 'system' alene var ikke nok:
+            // væggen faldt tilbage til dokumentets displayName for enhver uid
+            // uden for stillingen, så samme kæde virkede UDEN system-feltet —
+            // og et map som navn hvidnede fanen for alle (Security-fund,
+            // emulator-kørt). hasOnly dækker også round/questionId.
+            && request.resource.data.keys().hasOnly(['uid', 'text', 'createdAt']);
           allow update: if false;
           // Slet egen besked, eller liga-ejeren kan moderere.
           allow delete: if isApproved()
@@ -1197,7 +1219,15 @@ service cloud.firestore {
             // allerede sat og dermed lydløst aflyse afsløringen af sit eget
             // spørgsmål (Security/QC-fund på planen — update-vagten alene er
             // ikke nok).
-            && !request.resource.data.keys().hasAny(['botFacitAt']);
+            && !request.resource.data.keys().hasAny(['botFacitAt'])
+            // facit sættes SENERE (setLeagueQuestionFacit) — et spørgsmål fødes
+            // uden facit, for facit != null åbner alles svar for læsning.
+            // acceptedAnswers skrives i samme greb som facit; typevagterne
+            // står på update.
+            && request.resource.data.get('facit', null) == null
+            && (!('acceptedAnswers' in request.resource.data)
+                || (request.resource.data.acceptedAnswers is list
+                    && request.resource.data.acceptedAnswers.size() <= 20));
           // Når kortene først er åbnet, må de ikke kunne lukkes igen.
           //
           // questionAnswers åbner for LÆSNING og lukker for SKRIVNING ad to
@@ -1238,6 +1268,26 @@ service cloud.firestore {
             && request.resource.data.points <= 100
             // Markøren må aldrig røres fra klienten — se create-vagten.
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['botFacitAt'])
+            // TYPEVAGTER — i DIFF-form, så de kun rammer felter, skrivningen
+            // rører. label og facit renderes råt hos alle medlemmer, og et map
+            // dér gav hvid side for hele ligaen — permanent, fordi et afgjort
+            // spørgsmål ikke kan slettes (Security-fund, emulator-kørt). Typen
+            // var kun vagtet ved create. Diff og ikke keys(): setLeagueQuestionFacit
+            // skriver kun facit + acceptedAnswers, så en ubetinget label-vagt
+            // ville fryse facit på et ældre spørgsmål med en for lang label
+            // (ratchet) — og ejeren skal kunne RETTE et forgiftet felt tilbage
+            // til en streng.
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['label'])
+                || (request.resource.data.label is string
+                    && request.resource.data.label.size() >= 3
+                    && request.resource.data.label.size() <= 120))
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['facit'])
+                || request.resource.data.get('facit', null) == null
+                || (request.resource.data.facit is string
+                    && request.resource.data.facit.size() <= 200))
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['acceptedAnswers'])
+                || (request.resource.data.acceptedAnswers is list
+                    && request.resource.data.acceptedAnswers.size() <= 20))
             // type uændret.
             && request.resource.data.get('type', 'text') == resource.data.get('type', 'text')
             // points: uændret ELLER spørgsmålet er stadig åbent.
@@ -1293,6 +1343,16 @@ service cloud.firestore {
             && request.auth.uid in aMembers()
             && request.resource.data.uid == request.auth.uid
             && answerId == request.resource.data.questionId + '_' + request.auth.uid
+            // Svaret renderes råt hos alle medlemmer, når kortene åbner, og kan
+            // hverken slettes (delete: false) eller rettes efter låsen. Et map
+            // som svar (gemt uden om fladen) var derfor en PERMANENT hvid side
+            // for hele ligaen (Security-fund, emulator-kørt). Klienten sender
+            // altid en trimmet streng — også for taltypen — og har samme loft
+            // (LEAGUE_Q_SVAR_MAX), så fejlen hedder "for langt", ikke
+            // "deadline er passeret".
+            && request.resource.data.answer is string
+            && request.resource.data.answer.size() > 0
+            && request.resource.data.answer.size() <= 200
             && question(request.resource.data.questionId).facit == null
             && (question(request.resource.data.questionId).deadline == null
                 || request.time.toMillis() < question(request.resource.data.questionId).deadline);

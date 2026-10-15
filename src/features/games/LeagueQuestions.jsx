@@ -8,7 +8,7 @@ import {
   createLeagueQuestion, setLeagueQuestionFacit, deleteLeagueQuestion,
   saveLeagueQuestionAnswer, updateLeagueQuestion, postLeagueMessage,
   callLeagueQuestionStatus, callLeagueQuestionRecapNow,
-  LEAGUE_Q_LABEL_MAX,
+  LEAGUE_Q_LABEL_MAX, LEAGUE_Q_SVAR_MAX,
 } from './gameLeagueActions';
 import { scoreLeagueQuestion, lqSettled, lqPoints } from './leagueQuestionScoring';
 import { teamsOf, visOf } from './football/teamInfo';
@@ -41,6 +41,20 @@ function holdAf(game) {
 }
 
 /** Select over spillets hold — kanonisk navn som værdi, visningsnavn som label. */
+/**
+ * Tekst, der må renderes råt. Reglerne afviser nu ikke-strenge i label, facit
+ * og svar — men ældre dokumenter kan bære et map (gemt uden om fladen), og et
+ * map som React-child kaster og hvidner ligafanen for ALLE medlemmer —
+ * permanent, fordi et afgjort spørgsmål og et låst svar ikke kan rettes
+ * (Security-fund). Ét sted for alle tre felter; tal (ældre talsvar) vises som
+ * tekst, alt andet som tomt.
+ */
+export function tekst(s) {
+  if (typeof s === 'string') return s;
+  if (typeof s === 'number' && Number.isFinite(s)) return String(s);
+  return '';
+}
+
 function HoldSelect({ hold, value, onChange, ariaLabel }) {
   return (
     <select className="select" value={value} onChange={onChange} aria-label={ariaLabel} style={{ maxWidth: 220 }}>
@@ -65,7 +79,7 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
   const [msg, setMsg] = useState(null); // { kind, text }
   const [botTekst, setBotTekst] = useState(null); // forhåndsvisning af afsløringen
   const [redigerer, setRedigerer] = useState(false); // ✏️ (#40)
-  const [labelDraft, setLabelDraft] = useState(q.label || '');
+  const [labelDraft, setLabelDraft] = useState(tekst(q.label));
   const [pointsDraft, setPointsDraft] = useState(String(lqPoints(q)));
   const [deadlineDraft, setDeadlineDraft] = useState(tilLokalInput(q.deadline));
   const [vaegTekst, setVaegTekst] = useState(null); // "fortæl det på væggen"-tilbud
@@ -138,7 +152,7 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
   }
 
   async function remove() {
-    if (!window.confirm(`Slet spørgsmålet "${q.label}"?`)) return;
+    if (!window.confirm(`Slet spørgsmålet "${tekst(q.label)}"?`)) return;
     setBusy(true);
     const res = await deleteLeagueQuestion({ gameId, leagueId, questionId: q.id });
     if (!res.ok) { setMsg({ kind: 'err', text: res.error }); setBusy(false); }
@@ -153,12 +167,12 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
   // Mangler holdlisten (typen oprettet, holdene senere fjernet), falder alt
   // tilbage til rå tekst — aldrig en tom dropdown.
   const hold = q.type === 'team' ? holdAf(game) : null;
-  const visSvar = (s) => (hold ? visOf(hold, s) : s);
+  const visSvar = (s) => (hold ? visOf(hold, tekst(s)) : tekst(s));
 
   return (
     <li style={{ borderTop: '1px solid var(--c-border)', padding: '0.6rem 0' }}>
       <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 600 }}>{q.label}</span>
+        <span style={{ fontWeight: 600 }}>{tekst(q.label)}</span>
         <span style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center' }}>
           <span className="badge badge--muted">{lqPoints(q)} point · {TYPE_LABEL[q.type] || 'Tekst'}</span>
           {isOwner && (
@@ -237,7 +251,7 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
           <div className="flex" style={{ gap: '0.4rem' }}>
             <button className="btn btn--sm" type="submit" disabled={busy || labelDraft.trim().length < 3}>Gem rettelse</button>
             <button className="btn btn--sm btn--ghost" type="button" disabled={busy}
-              onClick={() => { setRedigerer(false); setLabelDraft(q.label || ''); setPointsDraft(String(lqPoints(q))); setDeadlineDraft(tilLokalInput(q.deadline)); }}>
+              onClick={() => { setRedigerer(false); setLabelDraft(tekst(q.label)); setPointsDraft(String(lqPoints(q))); setDeadlineDraft(tilLokalInput(q.deadline)); }}>
               Fortryd
             </button>
           </div>
@@ -300,7 +314,7 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
           ) : (
             <input
               type={q.type === 'number' ? 'text' : 'text'} inputMode={q.type === 'number' ? 'decimal' : undefined}
-              value={draft} onChange={(e) => setDraft(e.target.value)}
+              value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={LEAGUE_Q_SVAR_MAX}
               placeholder={q.type === 'number' ? 'fx 42' : 'Dit svar'} style={{ maxWidth: 220 }}
             />
           )}
@@ -375,7 +389,7 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
             <HoldSelect hold={hold} value={facitDraft} onChange={(e) => setFacitDraft(e.target.value)} ariaLabel="Facit" />
           ) : (
             <input
-              type="text" value={facitDraft} onChange={(e) => setFacitDraft(e.target.value)}
+              type="text" value={facitDraft} onChange={(e) => setFacitDraft(e.target.value)} maxLength={LEAGUE_Q_SVAR_MAX}
               placeholder="Facit" style={{ maxWidth: 180 }}
             />
           )}

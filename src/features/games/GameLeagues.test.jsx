@@ -13,9 +13,8 @@ vi.mock('./useGameLeagues', () => ({ useGameLeagues: () => mockLeagues() }));
 vi.mock('./useGameStandings', () => ({
   useGameStandings: () => ({ standings: [], leagues: [], loading: false, error: null }),
 }));
-vi.mock('./useLeagueMessages', () => ({
-  useLeagueMessages: () => ({ messages: [], loading: false }),
-}));
+const mockMessages = vi.fn();
+vi.mock('./useLeagueMessages', () => ({ useLeagueMessages: () => mockMessages() }));
 vi.mock('./useLeagueQuestions', () => ({
   useLeagueQuestions: () => ({ questions: [], answers: [], loading: false }),
 }));
@@ -43,6 +42,7 @@ const antalÅbne = () => screen.queryAllByPlaceholderText(/Skriv/i).length;
 beforeEach(() => {
   vi.clearAllMocks();
   mockLeagues.mockReturnValue({ leagues: LEAGUES, loading: false, error: null });
+  mockMessages.mockReturnValue({ messages: [], loading: false });
 });
 
 describe('GameLeagues — forvalgt liga', () => {
@@ -61,5 +61,55 @@ describe('GameLeagues — forvalgt liga', () => {
   it('folder intet ud, når ?liga= peger på en liga, man ikke er med i', () => {
     setup('/spil/sl?fane=ligaer&liga=findes-ikke');
     expect(antalÅbne()).toBe(0);
+  });
+});
+
+// Liga-væggen: KUN bottens opslag (system:true, skrives kun af serveren) må
+// hente navn og emoji fra dokumentet. Faldt væggen tilbage til dokumentets
+// displayName for enhver uid uden for stillingen, kunne et medlem poste som
+// "Runde-Botten", forlade ligaen og stå som botten for alle — og et map som
+// navn hvidnede fanen (Security-fund). Reglen stopper NYE forfalskninger;
+// kun renderingen neutraliserer dem, der allerede ligger der.
+describe('GameLeagues — liga-væggen og bottens navn', () => {
+  const besked = (over) => ({ id: 'm', text: 'Hej', createdAt: new Date(), ...over });
+
+  it('bottens eget opslag (system:true) vises med bottens navn', () => {
+    mockMessages.mockReturnValue({ loading: false, messages: [
+      besked({ id: 'b1', uid: 'runde-bot', system: true, displayName: 'Runde-Botten', avatarEmoji: '🤖', text: 'Rundens opsamling' }),
+    ] });
+    setup('/spil/sl?fane=ligaer&liga=L1');
+    expect(screen.getByText('Runde-Botten')).toBeInTheDocument();
+    expect(screen.getByText('Rundens opsamling')).toBeInTheDocument();
+  });
+
+  it('et opslag UDEN system fra en, der har forladt ligaen, får ALDRIG dokumentets navn — teksten vises stadig', () => {
+    mockMessages.mockReturnValue({ loading: false, messages: [
+      besked({ id: 'f1', uid: 'gaaet', displayName: 'Runde-Botten', avatarEmoji: '🤖', text: 'Falsk opsamling' }),
+    ] });
+    setup('/spil/sl?fane=ligaer&liga=L1');
+    expect(screen.queryByText('Runde-Botten')).toBeNull();
+    expect(screen.getByText('Falsk opsamling')).toBeInTheDocument();
+    expect(screen.getByText('Tidligere medlem')).toBeInTheDocument();
+  });
+
+  it("'system' skal være PRÆCIS true — false eller en streng er ikke botten", () => {
+    // Reglen forbyder feltet for klienter i dag, men et ældre dokument kan
+    // bære system:false — og `m.system` som truthy-tjek ville også godtage
+    // 'ja'. Kun serverens egen form (true) må låne navnet fra dokumentet.
+    mockMessages.mockReturnValue({ loading: false, messages: [
+      besked({ id: 'f2', uid: 'gaaet', system: false, displayName: 'Runde-Botten', text: 'Falsk med false' }),
+      besked({ id: 'f3', uid: 'gaaet2', system: 'ja', displayName: 'Runde-Botten', text: 'Falsk med streng' }),
+    ] });
+    setup('/spil/sl?fane=ligaer&liga=L1');
+    expect(screen.queryByText('Runde-Botten')).toBeNull();
+    expect(screen.getAllByText('Tidligere medlem')).toHaveLength(2);
+  });
+
+  it('et map som navn på et ældre opslag hvidner ikke fanen', () => {
+    mockMessages.mockReturnValue({ loading: false, messages: [
+      besked({ id: 'g1', uid: 'gaaet', displayName: { a: 1 }, avatarEmoji: { b: 2 }, text: 'Gift' }),
+    ] });
+    expect(() => setup('/spil/sl?fane=ligaer&liga=L1')).not.toThrow();
+    expect(screen.getByText('Gift')).toBeInTheDocument();
   });
 });
