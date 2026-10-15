@@ -20,6 +20,14 @@ describe('relativeTime', () => {
     expect(relativeTime({ seconds: Math.floor(now.getTime() / 1000) - 120 }, now)).toBe('for 2 min siden');
     expect(relativeTime(null, now)).toBe('');
   });
+  it('et map som tidsstempel (ældre dokument gemt uden om fladen) giver tomt — kaster aldrig', () => {
+    // `seconds * 1000` på et map kastede og hvidnede liga-væggen for alle
+    // (Security-fund). Reglen binder nu createdAt til serverens ur; dette er
+    // vagten for det, der allerede ligger der.
+    expect(relativeTime({ seconds: { a: 1 } }, now)).toBe('');
+    expect(() => relativeTime({ seconds: { toString: null } }, now)).not.toThrow();
+    expect(relativeTime({ seconds: 'zzz' }, now)).toBe('');
+  });
 });
 
 describe('formatKickoff', () => {

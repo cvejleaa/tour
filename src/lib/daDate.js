@@ -11,7 +11,10 @@ function toDate(d) {
   if (typeof d === 'number') return new Date(d);
   if (typeof d === 'string') { const t = Date.parse(d); return Number.isNaN(t) ? null : new Date(t); }
   if (typeof d.toMillis === 'function') return new Date(d.toMillis());
-  if (d.seconds != null) return new Date(d.seconds * 1000);
+  // Et ældre dokument kan bære et map som tidsstempel (gemt uden om fladen,
+  // før reglen bandt createdAt til serverens ur) — `seconds * 1000` på et
+  // map kaster, og hele fanen hvidner (Security-fund). Kun et tal tæller.
+  if (typeof d.seconds === 'number') return new Date(d.seconds * 1000);
   return null;
 }
 

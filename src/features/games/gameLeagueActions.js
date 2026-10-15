@@ -19,6 +19,14 @@ import { LQ_TYPES } from './leagueQuestionScoring';
 
 /** Maks. længde på en liga-væg-besked. */
 export const LEAGUE_MSG_MAX = 280;
+/**
+ * Maks. længde på et svar og et facit på et liga-spørgsmål — spejlet i
+ * firestore.rules (answer/facit ≤ 200), så fejlen hedder "for langt" her og
+ * ikke "deadline er passeret" (klientens oversættelse af permission-denied).
+ */
+export const LEAGUE_Q_SVAR_MAX = 200;
+/** Højst så mange alternative stavemåder af facit (spejlet i firestore.rules). */
+export const LEAGUE_Q_ALT_MAX = 20;
 
 function danishError(err, fallback) {
   const code = err?.code || '';
@@ -220,10 +228,13 @@ export async function createLeagueQuestion({ uid, gameId, leagueId, label, type 
 export async function setLeagueQuestionFacit({ gameId, leagueId, questionId, facit, acceptedAnswers = [] }) {
   const clean = String(facit ?? '').trim();
   if (!clean) return { ok: false, error: 'Skriv et facit.' };
+  if (clean.length > LEAGUE_Q_SVAR_MAX) return { ok: false, error: `Facit må højst være ${LEAGUE_Q_SVAR_MAX} tegn.` };
+  const alternative = (acceptedAnswers || []).map((s) => String(s).trim()).filter(Boolean);
+  if (alternative.length > LEAGUE_Q_ALT_MAX) return { ok: false, error: `Højst ${LEAGUE_Q_ALT_MAX} alternative svar.` };
   try {
     await updateDoc(doc(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId, COL.GAME_LEAGUE_QUESTIONS, questionId), {
       facit: clean,
-      acceptedAnswers: (acceptedAnswers || []).map((s) => String(s).trim()).filter(Boolean),
+      acceptedAnswers: alternative,
     });
     return { ok: true };
   } catch (err) {
@@ -249,6 +260,7 @@ export async function saveLeagueQuestionAnswer({ uid, gameId, leagueId, question
   const clean = String(answer ?? '').trim();
   if (!uid || !questionId) return { ok: false, error: 'Mangler oplysninger.' };
   if (!clean) return { ok: false, error: 'Skriv et svar.' };
+  if (clean.length > LEAGUE_Q_SVAR_MAX) return { ok: false, error: `Svaret må højst være ${LEAGUE_Q_SVAR_MAX} tegn.` };
   try {
     await setDoc(
       doc(db, COL.GAMES, gameId, COL.GAME_LEAGUES, leagueId, COL.GAME_LEAGUE_QUESTION_ANSWERS, `${questionId}_${uid}`),

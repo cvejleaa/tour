@@ -62,7 +62,10 @@ export function scoreLeagueQuestion(q, answers) {
     return out;
   }
 
-  const accepted = new Set([lqNorm(q.facit), ...(q.acceptedAnswers || []).map(lqNorm)].filter(Boolean));
+  // acceptedAnswers er en liste i reglerne — men et ældre dokument kan bære
+  // en streng eller et map, og `.map` på dem kaster midt i render for alle.
+  const alternative = Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers : [];
+  const accepted = new Set([lqNorm(q.facit), ...alternative.map(lqNorm)].filter(Boolean));
   for (const a of answers || []) {
     if (a?.uid && accepted.has(lqNorm(a.answer))) out[a.uid] = pts;
   }

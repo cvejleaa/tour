@@ -30,6 +30,7 @@ vi.mock('./gameLeagueActions', () => ({
   updateLeagueQuestion: (...a) => mockUpdateQ(...a),
   postLeagueMessage: (...a) => mockPostVaeg(...a),
   LEAGUE_Q_LABEL_MAX: 120,
+  LEAGUE_Q_SVAR_MAX: 200,
 }));
 
 import LeagueQuestions from './LeagueQuestions';
@@ -311,5 +312,36 @@ describe('LeagueQuestions — ✏️ ret spørgsmålet (ejer)', () => {
   it('ikke-ejer har ingen ✏️', () => {
     renderQ({ isOwner: false, questions: [teamQ()], answersByQid: {} });
     expect(screen.queryByTitle('Ret spørgsmålet (tekst, point, deadline)')).toBeNull();
+  });
+});
+
+// Fjendtligt indhold må ikke hvidne ligafanen: reglerne afviser nu et map i
+// label/facit/svar og en ikke-liste i acceptedAnswers — men ældre dokumenter
+// kan bære det, og et map som React-child kaster for ALLE medlemmer —
+// permanent, fordi et afgjort spørgsmål og et låst svar ikke kan rettes
+// (Security-fund, emulator-kørt). Testen er rød, hvis `tekst()` tabes ét
+// sted, eller hvis scoringen igen kalder .map på acceptedAnswers råt.
+describe('LeagueQuestions — fjendtligt indhold i label, facit, svar og acceptedAnswers', () => {
+  it('et afgjort spørgsmål med map i alle fire felter renderer uden at kaste — og de sunde svar vises stadig', () => {
+    const giftig = {
+      id: 'q9', label: { a: 1 }, type: 'text', points: 5, deadline: 1, facit: { a: 1 }, acceptedAnswers: 'x',
+    };
+    expect(() => renderQ({
+      game: CYKELSPIL, isOwner: true,
+      questions: [giftig],
+      answersByQid: { q9: [{ uid: 'andet', answer: { a: 1 } }, { uid: 'me', answer: 'Mit svar' }] },
+    })).not.toThrow();
+    expect(screen.getByText(/Mig: Mit svar/)).toBeInTheDocument();
+    expect(screen.getByText(/Anden:/)).toBeInTheDocument();
+    expect(screen.getByText('Facit:')).toBeInTheDocument();
+  });
+
+  it('et ældre TAL-svar vises som tekst, ikke som tomt', () => {
+    renderQ({
+      game: CYKELSPIL,
+      questions: [{ id: 'q8', label: 'Hvor mange mål?', type: 'number', points: 5, deadline: 1, facit: '42' }],
+      answersByQid: { q8: [{ uid: 'andet', answer: 41 }] },
+    });
+    expect(screen.getByText(/Anden: 41/)).toBeInTheDocument();
   });
 });

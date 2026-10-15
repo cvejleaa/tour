@@ -18,7 +18,10 @@ export default function Reactions({ collectionName, docId, reactions = {}, meUid
 
   // Aktive reaktioner (dem med mindst én bruger)
   const active = Object.entries(reactions || {})
-    .map(([emoji, uids]) => [emoji, (uids || []).filter(Boolean)])
+    // Ethvert medlem må skrive reactions-feltet på andres beskeder, og reglen
+    // tjekker ikke formen — en streng eller et map ville kaste i .filter og
+    // hvidne væggen (Security-fund). Kun en liste tæller.
+    .map(([emoji, uids]) => [emoji, (Array.isArray(uids) ? uids : []).filter(Boolean)])
     .filter(([, uids]) => uids.length > 0);
 
   async function react(emoji) {
