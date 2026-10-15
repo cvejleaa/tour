@@ -498,6 +498,13 @@ service cloud.firestore {
           || request.resource.data.favoriteTeam == null
           || request.resource.data.favoriteTeam is string)
         && !request.resource.data.keys().hasAny(['edited', 'system'])
+        // text og createdAt renderes råt — et map i dem vælter væggen, og et
+        // map som tidsstempel ligger øverst for evigt (Security-fund). 1000 =
+        // klientens MAX_LEN i commentActions; createdAt skal være serverens ur.
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000
+        && request.resource.data.createdAt == request.time
         && isMemberOfLeague(request.resource.data.leagueId);
 
       // Reaktioner: medlemmer må ændre KUN 'reactions'-feltet (ingen anden redigering)
@@ -1187,7 +1194,14 @@ service cloud.firestore {
             // uden for stillingen, så samme kæde virkede UDEN system-feltet —
             // og et map som navn hvidnede fanen for alle (Security-fund,
             // emulator-kørt). hasOnly dækker også round/questionId.
-            && request.resource.data.keys().hasOnly(['uid', 'text', 'createdAt']);
+            && request.resource.data.keys().hasOnly(['uid', 'text', 'createdAt'])
+            // hasOnly er en NØGLE-vagt, ikke en typevagt: createdAt som map
+            // sorterer over alle tidsstempler (typeordenen), lå øverst for
+            // evigt og fik relativeTime til at kaste — samme hvide fane ad en
+            // anden vej (Security-fund, emulator-kørt). Klienten skriver
+            // serverTimestamp(), som er lig request.time i reglen; et
+            // klient-ur (Timestamp.now()) afvises også.
+            && request.resource.data.createdAt == request.time;
           allow update: if false;
           // Slet egen besked, eller liga-ejeren kan moderere.
           allow delete: if isApproved()
@@ -1284,6 +1298,7 @@ service cloud.firestore {
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['facit'])
                 || request.resource.data.get('facit', null) == null
                 || (request.resource.data.facit is string
+                    && request.resource.data.facit.size() > 0
                     && request.resource.data.facit.size() <= 200))
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['acceptedAnswers'])
                 || (request.resource.data.acceptedAnswers is list

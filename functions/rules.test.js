@@ -23,7 +23,7 @@ import { fileURLToPath }           from 'url';
 import { dirname, join }           from 'path';
 import {
   setDoc, doc, updateDoc, getDoc, getDocs, deleteDoc, collection, collectionGroup, deleteField,
-  query, where, orderBy, limit, Timestamp,
+  query, where, orderBy, limit, Timestamp, serverTimestamp,
 } from 'firebase/firestore';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1087,7 +1087,7 @@ describe('leagueComments/{id} — sikkerhedsregler', () => {
     const ctx = testEnv.authenticatedContext('m1');
     await assertSucceeds(
       setDoc(doc(ctx.firestore(), 'leagueComments', 'c1'), {
-        leagueId: 'lg1', uid: 'm1', displayName: 'M1', text: 'Hej!', createdAt: Timestamp.now(),
+        leagueId: 'lg1', uid: 'm1', displayName: 'M1', text: 'Hej!', createdAt: serverTimestamp(),
       })
     );
   });
@@ -1100,7 +1100,7 @@ describe('leagueComments/{id} — sikkerhedsregler', () => {
     const ctx = testEnv.authenticatedContext('outsider');
     await assertFails(
       setDoc(doc(ctx.firestore(), 'leagueComments', 'c2'), {
-        leagueId: 'lg2', uid: 'outsider', displayName: 'O', text: 'snyd', createdAt: Timestamp.now(),
+        leagueId: 'lg2', uid: 'outsider', displayName: 'O', text: 'snyd', createdAt: serverTimestamp(),
       })
     );
   });
@@ -1113,7 +1113,7 @@ describe('leagueComments/{id} — sikkerhedsregler', () => {
     const ctx = testEnv.authenticatedContext('m2');
     await assertFails(
       setDoc(doc(ctx.firestore(), 'leagueComments', 'c3'), {
-        leagueId: 'lg3', uid: 'm1', displayName: 'M1', text: 'falsk', createdAt: Timestamp.now(),
+        leagueId: 'lg3', uid: 'm1', displayName: 'M1', text: 'falsk', createdAt: serverTimestamp(),
       })
     );
   });
@@ -1127,19 +1127,31 @@ describe('leagueComments/{id} — sikkerhedsregler', () => {
     const ctx = testEnv.authenticatedContext('m1');
     await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3b'), {
       leagueId: 'lg3b', uid: 'm1', displayName: 'Tour-Botten', avatarEmoji: '🤖', system: true,
-      text: 'Falsk bot', createdAt: Timestamp.now(),
+      text: 'Falsk bot', createdAt: serverTimestamp(),
     }));
     await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3c'), {
-      leagueId: 'lg3b', uid: 'm1', displayName: { a: 1 }, text: 'Gift', createdAt: Timestamp.now(),
+      leagueId: 'lg3b', uid: 'm1', displayName: { a: 1 }, text: 'Gift', createdAt: serverTimestamp(),
     }));
     await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3d'), {
-      leagueId: 'lg3b', uid: 'm1', displayName: 'M1', avatarEmoji: { a: 1 }, text: 'Gift', createdAt: Timestamp.now(),
+      leagueId: 'lg3b', uid: 'm1', displayName: 'M1', avatarEmoji: { a: 1 }, text: 'Gift', createdAt: serverTimestamp(),
     }));
     // Kontrol: klientens præcise form (commentActions) virker stadig.
     await assertSucceeds(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3e'), {
       leagueId: 'lg3b', uid: 'm1', displayName: 'M1', avatarEmoji: null, favoriteTeam: null,
-      text: 'Hej!', createdAt: Timestamp.now(),
+      text: 'Hej!', createdAt: serverTimestamp(),
     }));
+  });
+
+  it('tekst og tidsstempel på Tour-væggen er typevagtet (map/for lang tekst, map/klient-ur som createdAt)', async () => {
+    await createUser('m1', 'player', 'approved');
+    await createLeague('lg3c', 'm1', ['m1']);
+    const ctx = testEnv.authenticatedContext('m1');
+    const basis = { leagueId: 'lg3c', uid: 'm1', displayName: 'M1', avatarEmoji: null, favoriteTeam: null };
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3f'), { ...basis, text: { a: 1 }, createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3g'), { ...basis, text: 'x'.repeat(1001), createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3h'), { ...basis, text: 'Hej', createdAt: { seconds: { a: 1 } } }));
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3i'), { ...basis, text: 'Hej', createdAt: Timestamp.now() }));
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3j'), { ...basis, text: 'x'.repeat(1000), createdAt: serverTimestamp() })); // kontrol: loftet
   });
 
   it('et medlem KAN læse væggen, en udenforstående KAN IKKE', async () => {
@@ -3110,6 +3122,7 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await assertFails(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: { a: 1 } }));
       await assertFails(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: 42 }));
       await assertFails(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: 'x'.repeat(201) }));
+      await assertFails(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: '' })); // tom streng ville åbne svarene uden et facit
       await assertSucceeds(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: 'x'.repeat(200) })); // kontrol: præcis loftet
     });
 
@@ -3298,17 +3311,17 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await seedVaeg('se6-l1');
       await assertFails(setDoc(mDoc('se6-l1', 'm1'), {
         uid: 'se6', displayName: 'Runde-Botten', avatarEmoji: '🤖', system: true,
-        text: 'Falsk bot-opslag', createdAt: Timestamp.now(),
+        text: 'Falsk bot-opslag', createdAt: serverTimestamp(),
       }));
       await assertFails(setDoc(mDoc('se6-l1', 'm2'), {
-        uid: 'se6', system: false, text: 'Også med false', createdAt: Timestamp.now(),
+        uid: 'se6', system: false, text: 'Også med false', createdAt: serverTimestamp(),
       }));
     });
 
     it('en almindelig besked uden system-feltet virker stadig (kontrol)', async () => {
       await seedVaeg('se6-l2');
       await assertSucceeds(setDoc(mDoc('se6-l2', 'm1'), {
-        uid: 'se6', text: 'Hej liga!', createdAt: Timestamp.now(),
+        uid: 'se6', text: 'Hej liga!', createdAt: serverTimestamp(),
       }));
     });
 
@@ -3322,13 +3335,33 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await seedVaeg('se6-l3');
       await assertFails(setDoc(mDoc('se6-l3', 'm1'), {
         uid: 'se6', displayName: 'Runde-Botten', avatarEmoji: '🤖',
-        text: 'Falsk bot uden system', createdAt: Timestamp.now(),
+        text: 'Falsk bot uden system', createdAt: serverTimestamp(),
       }));
       await assertFails(setDoc(mDoc('se6-l3', 'm2'), {
-        uid: 'se6', displayName: { a: 1 }, text: 'Gift som navn', createdAt: Timestamp.now(),
+        uid: 'se6', displayName: { a: 1 }, text: 'Gift som navn', createdAt: serverTimestamp(),
       }));
       await assertFails(setDoc(mDoc('se6-l3', 'm3'), {
-        uid: 'se6', questionId: 'q1', text: 'Bottens spørgsmålsmarkør', createdAt: Timestamp.now(),
+        uid: 'se6', questionId: 'q1', text: 'Bottens spørgsmålsmarkør', createdAt: serverTimestamp(),
+      }));
+    });
+
+    // hasOnly er en NØGLE-vagt: createdAt som map sorterer over alle
+    // tidsstempler, lå øverst for evigt og fik relativeTime til at kaste —
+    // samme hvide fane ad en anden vej (Security-fund, emulator-kørt).
+    // Klienten skriver serverTimestamp(); et klient-ur afvises også.
+    it('createdAt skal være serverens ur — hverken et map eller klientens Timestamp.now()', async () => {
+      await seedVaeg('se6-l4');
+      await assertFails(setDoc(mDoc('se6-l4', 'm1'), {
+        uid: 'se6', text: 'Klæber øverst', createdAt: { seconds: { a: 1 } },
+      }));
+      await assertFails(setDoc(mDoc('se6-l4', 'm2'), {
+        uid: 'se6', text: 'Klient-ur', createdAt: Timestamp.now(),
+      }));
+      await assertFails(setDoc(mDoc('se6-l4', 'm3'), {
+        uid: 'se6', text: 'Uden tidsstempel',
+      }));
+      await assertSucceeds(setDoc(mDoc('se6-l4', 'm4'), {
+        uid: 'se6', text: 'Serverens ur', createdAt: serverTimestamp(),
       }));
     });
   });

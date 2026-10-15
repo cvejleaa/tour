@@ -9,6 +9,14 @@
 
 ## PoC-opsætning der virker (genbrug den)
 
+- **REST via `:commit` (2026-10-15, bedst):** `POST .../documents:commit` med
+  `{writes:[{update:{name,fields}, updateMask?, currentDocument?, updateTransforms:[{fieldPath,
+  setToServerValue:'REQUEST_TIME'}]}]}` giver ÆGTE `serverTimestamp()` (nødvendigt for regler
+  med `== request.time`) og `deleteField` (felt i mask, ikke i fields). Harness med encoder,
+  `t(navn, forvent, p)` og reset lå i scratchpad `sec-pr1/lib.mjs` — genskab den, den er 50
+  linjer. Kør SAMME script mod tre emulatorer (ny / gammel / rettet kopi) — afvigelseslisten
+  pr. emulator ER beviset. E2E-læsning med ægte SDK-deserialisering: `@firebase/rules-unit-testing`
+  via `createRequire('/home/user/tour/functions/package.json')` fra scratchpad.
 - **REST-harness uden npm (2026-10-15, virkede på første forsøg).** Seed med
   `Authorization: Bearer owner` (emulatoren omgår reglerne), og test som en uid med det
   usignerede JWT. Opdatering = `PATCH ?updateMask.fieldPaths=f&currentDocument.exists=true`,
@@ -491,7 +499,7 @@
   `https://tip.vejleaa.dk@evil.dk/` igennem. Sammen: en globalAdmin (= en af
   vennerne) sender en officiel tip@vejleaa.dk-mail med en phishing-knap.
   Fix: `href="${esc(cta)}"` + `startsWith(APP_URL + '/')`.
-- **[DELVIST — efterprøvet 2026-10-15: top-niveau leagues' globalAdmin-gren LUKKET (fb7c42b); `users/{uid}.id` STADIG ÅBEN for pending/create/globalAdmin (emulator 200), inert fordi 0 id-først-læsere (grep)]** **`id`-FELTET SKYGGER FOR DOC-ID'ET — spil-ligaer LUKKET (74ff02d), men
+- **[LUKKET for users i 7bf30ca — emulator 2026-10-15: `id`/`uid` 403 for pending, approved, create og globalAdmin; owner-grenen bevidst fri. Top-niveau leagues LUKKET i fb7c42b]** **`id`-FELTET SKYGGER FOR DOC-ID'ET — spil-ligaer LUKKET (74ff02d), men
   KLASSEN er kun lukket hos LÆSEREN andre steder.** Mønstret
   `{ id: d.id, ...d.data() }` lader et `id`-FELT i dataen vinde over
   dokument-id'et. Alle 70 forekomster er vendt til data-først, og
@@ -550,7 +558,7 @@
   — modsat `games/{g}/leagues`, hvor der slet ikke FINDES en admin-skrivegren.
   Vil man have vagten hel, skal `navnGyldigt() && ingenIdNoegle()` også på de to
   admin-grene.
-- **[STADIG ÅBEN — genkørt 2026-10-15: label/facit som map og acceptedAnswers som streng → 200; se B4-posten om svar-giften nedenfor]** **`questions.label` er type-vagtet ved CREATE, men ikke ved UPDATE
+- **[LUKKET i 7bf30ca — emulator 2026-10-15: label/facit map/tal/for lang og acceptedAnswers ikke-liste/>20 → 403 i DIFF-form; ratchet-kontroller 200]** **`questions.label` er type-vagtet ved CREATE, men ikke ved UPDATE
   (BEKRÆFTET).** `firestore.rules` create kræver `label is string`, 3-120 tegn;
   update-grenen (L1164-1186) kræver kun `points`-båndet. Liga-ejeren kan
   bagefter skrive `label: {toString:null}` (og `facit` ligeså). Præcis den
@@ -582,7 +590,7 @@
   30 medl × 10 sp = 341 læsninger, 100×60 = 6161, også for en kalder der ender
   med `permission-denied`. Fix begge i ét greb: læs ligaen, tjek medlemskab,
   læs SÅ resten.
-- **[DELVIST — efterprøvet 2026-10-15: profilfelterne lukket (fb7c42b); `answer` og `label`/`facit` STADIG ÅBNE, og svar-giften er nu PERMANENT — se posten 'Liga-svar som map' nederst i listen]** **Griefing via `displayName`/`answer` (type ikke tjekket i rules).**
+- **[LUKKET i 7bf30ca (answer/label/facit) + fb7c42b (profil) — emulator 2026-10-15]** **Griefing via `displayName`/`answer` (type ikke tjekket i rules).**
   `{toString: null}` er et lovligt Firestore-map → `String(...)` i
   `lqNorm`/`rensTekst` kaster `TypeError: Cannot convert object to primitive
   value` → triggeren fejler tavst, og ejerens knap svarer `internal` for altid.
@@ -610,7 +618,7 @@
   `questions.label`/`facit` og liganavnet på de to admin-grene er IKKE dækket —
   de veje står stadig. Klient-siden mangler stadig sin egen typevagt, så et
   admin-SDK-/konsol-skrevet navn kan stadig hvidne fladen.
-- **[DELVIST LUKKET i db00422 — efterprøvet 2026-10-15: `system` 403 (firestore.rules:1168); `displayName`/`avatarEmoji`/`questionId` stadig 200 — se posten 'Væggens displayName' nederst]** **Bot-forfalskning på liga-væggen.** `messages`-reglen binder KUN `uid` — ikke
+- **[LUKKET i 7bf30ca: `keys().hasOnly(['uid','text','createdAt'])` + klienten tager navn KUN ved `m.system === true` — men `createdAt` står åben, se posten 'Væggens createdAt' nederst]** **Bot-forfalskning på liga-væggen.** `messages`-reglen binder KUN `uid` — ikke
   `displayName`, `avatarEmoji`, `system` eller `questionId`. Et medlem kan gemme
   `{uid: sig selv, displayName:'Runde-Botten', avatarEmoji:'🤖', system:true}`.
   Fladen (GameLeagues.jsx L96) viser `byUid[m.uid] || {name: m.displayName, …}`,
@@ -753,8 +761,7 @@
 - **Det frie `id`-felt: kortet pr. 2026-09-02 (emulator-målt med kontrol).**
   Reglen forbyder `id` KUN på `games/{g}/leagues` og top-niveau `leagues`
   (create + ejer-update). Feltet accepteres frit på: **`users/{uid}`** (enhver
-  logget ind, også `pending`, på egen profil — create afvises kun fordi
-  `creatingWithUserEmail()` fanger `email`, ikke `id`), **`games/{g}/players`**,
+  logget ind, også `pending`, på egen profil — LUKKET i 7bf30ca), **`games/{g}/players`**,
   **`games/{g}/bets`**, **`bonusBets`**, **`stageBets`**, **`messages`**,
   **`leagueComments`** og **`leagueActivity`**. Alle otte er inerte i dag, fordi
   hver læser er vendt til data-først og holdes der af `dokumentId.test.js` —
@@ -872,33 +879,52 @@
   kategori — men enhver ny log-udskrift i et `workflow_dispatch`-job er
   offentliggørelse, ikke fejlsøgning. E-mails printes IKKE (kun `displayName`).
 
-- **Liga-svar som map → PERMANENT hvid side for hele ligaen (BEKRÆFTET 2026-10-15, d0aa9df).**
-  `questionAnswers` create/update (firestore.rules:1292-1298) typetjekker ikke `answer`.
-  Et medlem gemmer `answer:{a:1}` før deadline (200). Efter deadline/facit renderer
-  `LeagueQuestions.jsx:319` `{visSvar(a.answer)}` (identitet for ikke-hold, :156) → "Objects
-  are not valid as a React child" (renderToString-kørt). Repoet har INGEN ErrorBoundary
-  (grep), så appen hvidner for hvert medlem, der åbner ligaen. Det kan ikke fjernes fra
-  fladen: svar `delete:false`, låst efter deadline, og afgjort spørgsmål kan ikke slettes
-  (:1265). Ejer-varianten: `facit`/`label` som map (:326/:161). 100 KB-svar accepteres også.
-  Fix (kørt mod rettet kopi, alle legitime klientstier 200): `answer is string &&
-  size()<=200`, `get('facit',null)==null` ved create, og DIFF-form type/længde-vagter
-  på label/facit/acceptedAnswers ved update (ratchet: en legacy-label på 200 tegn kan stadig
-  få facit), plus en typeof-vagt i visSvar for allerede skrevne dokumenter. Klienten skal
-  have samme 200-loft, ellers mapper saveLeagueQuestionAnswer:259 permission-denied
-  til den falske tekst "Deadline er passeret".
-- **Væggens `displayName` som map → hvid liga-fane, og ejeren kan ikke moderere
-  (BEKRÆFTET 2026-10-15).** `messages` create (firestore.rules:1158-1168) forbyder kun `system`.
-  Kæde: post med `displayName:{a:1}` (eller 'Runde-Botten'+🤖) → forlad ligaen (fjern-mig-
-  grenen) → forfatteren er ude af `byUid` (stilling, GameLeagues.jsx:295) → tilbagefald
-  `:98` → `:107` `{u.name||'Spiller'}` kaster for alle, også for ejeren, hvis slet-knap
-  sidder på samme side. Fix: `keys().hasOnly(['uid','text','createdAt'])` (eneste
-  klientskribent er postLeagueMessage, kørt grøn) + klienten tager navnet fra `m.system`,
-  aldrig fra dokumentet (gamle forfalskninger neutraliseres kun dér).
-- **`users/{uid}.id` er stadig frit (genkørt 2026-10-15):** pending egen update, create og
-  globalAdmin på andres → 200. Inert (0 id-først-læsere). Fix i diff-form: `'id'` i
-  firestore.rules:85, :147 og :163. Kørt: et legacy-dokument med `id` kan stadig rette navn.
+- **[LUKKET i 7bf30ca — PR 1 af security-oprydningen, emulator-kørt 2026-10-15: 117 checks, 46 lukkede mod d0aa9df, 0 legitime stier ændret]**
+  B4 (svar/label/facit/acceptedAnswers som map → permanent hvid liga-fane), B3 (væggens
+  displayName/avatarEmoji/questionId → udgiv dig for Runde-Botten), B2 (`users.id`/`uid`).
+  Klientlaget (`tekst()`, `m.system === true`, `Array.isArray`) neutraliserer de dokumenter,
+  der allerede ligger der. Serverspejlet `functions-platform/leagueQuestionScoring.js` fik
+  `Array.isArray` i 1e8e136 (7bf30ca glemte det: legacy-streng → `.map` kastede i recap).
+- **Væggens `createdAt` er klientstyret → PERMANENT hvid liga-fane (BEKRÆFTET 2026-10-15, 7bf30ca).**
+  `hasOnly(['uid','text','createdAt'])` typer ikke `createdAt`. Medlem poster
+  `createdAt: {seconds: {toString: null}}` (200). Map sorterer OVER alle timestamps i
+  Firestores typeorden, så `orderBy('createdAt','desc').limit(50)` (useLeagueMessages.js:21)
+  lægger opslaget ØVERST for altid. `relativeTime` → `toDate` (daDate.js:14) `d.seconds * 1000`
+  → TypeError (KØRT med ægte JS-SDK-snapshot fra emulatoren). Kaldet sker i render
+  (GameLeagues.jsx `{relativeTime(m.createdAt)}`), ingen ErrorBoundary → hvid fane for alle,
+  også ejeren, hvis slet-knap sidder samme sted. Mildere: streng/år 9999 → klæber øverst
+  ("nu"). Fix (kørt mod rettet kopi, kun de 4 hul-checks skifter, SDK-addDoc med
+  `serverTimestamp()` 200, `Timestamp.now()` 403): `&& request.resource.data.createdAt == request.time`.
+  Repoets positive vægtests bruger `Timestamp.now()` og skal over på `serverTimestamp()`.
+  Valgfri klientvagt: `typeof d.seconds === 'number'` i toDate.
+- **Tour-væggen (`leagueComments`) efter 7bf30ca — kun Tour-projektet (afsluttet spil)
+  (BEKRÆFTET i regel 2026-10-15).** `system` og typerne på navn/emoji/hold er lukket, men:
+  (a) `text` er HELT uvagtet (map 200, 100 KB 200) → `{c.text}` LeagueWall.jsx kaster;
+  (b) `createdAt` map 200 → `formatTimestamp` `new Date(map)` kaster; (c) ENHVER medlem kan
+  sætte `reactions` på ANDRES besked til `{"👍": {a:1}}` eller en streng (200) →
+  Reactions.jsx `(uids || []).filter` kaster; (d) `system`-forbuddet er pynt: Tour-klienten
+  læser aldrig `system`, så `displayName:'Tour-Botten'`+🤖 (eller en medspillers navn) uden
+  system → 200 og vises som botten. Fix (a)+(b) kørt: `text is string && 1..1000` +
+  `createdAt == request.time`. (c) kræver klientvagt (`Array.isArray(uids)`); (d) kræver at
+  væggen henter navnet fra profilen og kun låner dokumentets ved `c.system === true`.
 
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
+
+- **Mod 7bf30ca (2026-10-15, emulator, kontrol-par pr. case):** svar som map/`{toString:null}`/
+  tal/liste/bool/null/''/manglende/201 tegn; `questionId` som tal (`42_m1`) eller map — doc-id-
+  bindingen `answerId == questionId + '_' + uid` gør evalueringsfejl → 403, så questionId er
+  de facto en streng; svar på ikke-eksisterende spørgsmål; væg-besked med displayName/
+  avatarEmoji/questionId/round/system:false/system:true; `users` `id`/`uid` som pending,
+  approved, ved create (også `uid` = egen) og fra globalAdmin; legacy-`id` flyttet eller fjernet
+  af brugeren selv/globalAdmin; spørgsmål oprettet med facit eller ikke-liste acceptedAnswers;
+  label/facit map/tal/kort/lang/fjernet ved update. Tour-væg: `system`, map som navn/emoji/hold.
+- **`List.concat()` i rules EVALUERES (bevist 2026-10-15):** egen update `{displayName}` 200
+  OG `{role}`/`{status}`/`{approvedAt}` 403 (kun i concat-halen) OG `{id}` 403 (kun i hovedet);
+  admin-grenen `{status}` 200 og `{role}` 403. Fejlede concat, ville de legitime være 403.
+- **Regel-`size()` på strenge tæller UTF-16-enheder ligesom JS `.length`** (emulator v1.22):
+  100 × 😀 = 200 → 200 OK, 101 × 😀 → 403, 200 × æ → OK. Et JS-loft på `.length` og et
+  regel-loft på `size()` med samme tal er altså i takt — klienten afviser aldrig noget, reglen
+  tillader, og omvendt.
 
 - **alarmId-fuzz mod `kvitterDriftAlarm`** (functions-platform/index.js L495-508).
   16 fjendtlige værdier mod ægte admin-SDK + emulator: `../users/p1`,
@@ -1033,6 +1059,22 @@
   '', null, 'finale' → NaN → filtreret FØR tolkning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **PR 1 (7bf30ca, 2026-10-15): alle klientens præcise payloads 200** — registrering
+  (`useAuthActions.js:46/124`), `updateDisplayName`, `updateProfile`-patch, deleteField på
+  egen profil, `setUserStatus`, `approveUsers` (batch.set merge), `setGlobalAdminRole` (owner),
+  `postLeagueMessage` (også via ægte SDK `addDoc`+`serverTimestamp()`), `createLeagueQuestion`
+  (facit:null og udeladt), `updateLeagueQuestion` (label+points[+deadline]),
+  `setLeagueQuestionFacit`, ret facit på afgjort, `saveLeagueQuestionAnswer` (create + update),
+  `postLeagueComment`. Ratchet-kontroller 200: legacy-`id` retter navn/profil, globalAdmin
+  godkender legacy-dok, owner fjerner legacy-`id`; forgiftet/200-tegns label kan få facit og
+  rettes; legacy facit-map og acceptedAnswers-streng kan rettes. Samme script mod d0aa9df:
+  præcis de 46 hul-checks skifter, intet andet.
+  Inert, men accepteret: `acceptedAnswers` med map-ELEMENTER (200) — `lqNorm` har try på
+  begge sider, og ingen flade renderer listen (grep). Ekstra felter på `questionAnswers`
+  (200, ingen hasOnly) — læsere bruger kun uid/answer. `facit: ''` på åbent spørgsmål (200)
+  åbner læsning af svar og lukker skrivning — ejeren kan ikke udnytte det (kan ikke svare
+  bagefter); hygiejne: `facit.size() > 0`.
 
 - **Triage 2026-10-15 mod d0aa9df: kontroller kørt og LUKKET.** players `totalPoints`/`perRound`/
   `slettet`, egen `role`/`status`, andres tip før kickoff, `system:true` på væggen,
@@ -1944,6 +1986,11 @@
   injicere et forbudt felt i `skriv` (spy/stub), ikke i kilde-JSON'en.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **`hasOnly([...,'createdAt'])` er en NØGLE-vagt, ikke en TYPE-vagt.** Et klientskrevet
+  tidsstempel er et frit felt: map → kast i datoformatering, map/streng → klæber øverst i
+  `orderBy desc` (typeorden: timestamp < string < map). Bind det: `createdAt == request.time`
+  (klienten sender `serverTimestamp()`). Tjek HVER nøgle i en hasOnly-liste for type.
 
 - **En alarm er en hændelse, ikke en tilstand, når den melder noget, et
   menneske GJORDE** (rolle, test-knap, uventet fejl). Kilde-alarmerne er

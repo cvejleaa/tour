@@ -94,6 +94,7 @@ export default function LeagueWall({ leagueId, meUid, myName, myEmoji = null, my
             const navn = typeof c.displayName === 'string' && c.displayName ? c.displayName : 'Spiller';
             const emoji = typeof c.avatarEmoji === 'string' ? c.avatarEmoji : undefined;
             const hold = typeof c.favoriteTeam === 'string' ? c.favoriteTeam : undefined;
+            const tekst = typeof c.text === 'string' ? c.text : '';
             return (
               <li
                 key={c.id}
@@ -127,7 +128,7 @@ export default function LeagueWall({ leagueId, meUid, myName, myEmoji = null, my
                   </span>
                 </div>
                 <div style={{ fontSize: '0.92rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginTop: '0.15rem' }}>
-                  {c.text}
+                  {tekst}
                 </div>
                 <div style={{ marginTop: '0.3rem' }}>
                   <Reactions collectionName={COL.LEAGUE_COMMENTS} docId={c.id} reactions={c.reactions} meUid={meUid} />
