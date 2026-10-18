@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-06T20:15:09.677Z",
+ "generatedAt": "2026-10-18T19:26:15.626Z",
  "noegler": [
   "src/components/Layout.jsx|Layout|NavLink|#1",
   "src/components/Layout.jsx|Layout|NavLink|#2",
@@ -135,9 +135,7 @@
   "src/features/games/LeagueQuestions.jsx|LeagueQuestions|input|fx \"Hvem af os kommer sidst på ranglisten i oktober?\"#1",
   "src/features/games/LeagueQuestions.jsx|LeagueQuestions|select|#1",
   "src/features/games/LeagueQuestions.jsx|QuestionRow|button|Del eller kopiér navnene (til at rykke i chatten)#1",
-  "src/features/games/LeagueQuestions.jsx|QuestionRow|button|Fortryd#1",
   "src/features/games/LeagueQuestions.jsx|QuestionRow|button|Gem facit#1",
-  "src/features/games/LeagueQuestions.jsx|QuestionRow|button|Slet spørgsmål#1",
   "src/features/games/LeagueQuestions.jsx|QuestionRow|form|#3",
   "src/features/games/LeagueQuestions.jsx|QuestionRow|input|#1",
   "src/features/games/LeagueQuestions.jsx|QuestionRow|input|Facit#1",
