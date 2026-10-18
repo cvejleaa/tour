@@ -897,6 +897,19 @@
   `serverTimestamp()` 200, `Timestamp.now()` 403): `&& request.resource.data.createdAt == request.time`.
   Repoets positive vægtests bruger `Timestamp.now()` og skal over på `serverTimestamp()`.
   Valgfri klientvagt: `typeof d.seconds === 'number'` i toDate.
+- **[LUKKET i d497f71] Væggens createdAt (begge vægge `== request.time`), Tour-tekst 1-1000, facit ikke tom.**
+- **[LUKKET i 4b6cf1a — emulator 2026-10-18] questions CREATE: `type` in de fire typer, `deadline` null|number.**
+  type map/'x'/null og deadline 'abc'/map/Timestamp/bool → 403; klientens createLeagueQuestion,
+  number+tal, team+null, yesno+double, begge udeladt → 200. UPDATE: type-skift (text→number/map) og
+  deadline→streng/map → 403 (uændret-vagten + `>=`-sammenligningen).
+  **REST (ÅBEN, kun ÆLDRE dokumenter):** et spørgsmål med `deadline:'abc'`/map (kun skrivbart
+  før 4b6cf1a) er MURET INDE: slet, points, deadline→tal/null og medlemssvar → 403 (evalueringsfejl
+  i `request.time.toMillis() < resource.data.deadline`); KUN label-ret og setFacit → 200. Og
+  fladen dør: `LeagueQuestions.jsx:199` `formatKickoff(Number(q.deadline))` → `Intl.format(Invalid
+  Date)` → RangeError (node-kørt) → hvid liga-fane. Facit-formen (:386) er skjult (NaN → ikke
+  locked). Fix: `toDate` returnerer null ved ugyldig dato (daDate.js) + facit-form også ved
+  ikke-endelig deadline. Prod-scan efter ikke-tal-deadlines kræver ejerens ja.
+  Bemærk: CREATE tillader deadline i FORTIDEN (200) — uskadeligt (ingen svar kan skrives).
 - **Tour-væggen (`leagueComments`) efter 7bf30ca — kun Tour-projektet (afsluttet spil)
   (BEKRÆFTET i regel 2026-10-15).** `system` og typerne på navn/emoji/hold er lukket, men:
   (a) `text` er HELT uvagtet (map 200, 100 KB 200) → `{c.text}` LeagueWall.jsx kaster;

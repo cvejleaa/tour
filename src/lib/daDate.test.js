@@ -28,6 +28,14 @@ describe('relativeTime', () => {
     expect(() => relativeTime({ seconds: { toString: null } }, now)).not.toThrow();
     expect(relativeTime({ seconds: 'zzz' }, now)).toBe('');
   });
+  it('et ugyldigt tidspunkt (NaN) giver tomt i alle formattere — Intl.format må aldrig kaste', () => {
+    // Number('abc') fra en forgiftet deadline nåede formatKickoff og kastede
+    // RangeError «Invalid time value» — hvid liga-fane for alle (Security-fund).
+    expect(formatKickoff(NaN)).toBe('');
+    expect(formatKickoff(Number('abc'))).toBe('');
+    expect(formatKickoff(new Date('ugyldig'))).toBe('');
+    expect(relativeTime(NaN, now)).toBe('');
+  });
 });
 
 describe('formatKickoff', () => {

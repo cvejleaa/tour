@@ -382,8 +382,12 @@ function QuestionRow({ q, gameId, game, leagueId, meUid, isOwner, answers, byUid
         </div>
       )}
 
-      {/* Ejer: sæt facit når deadline er passeret (eller når som helst uden deadline). */}
-      {isOwner && !settled && (locked || q.deadline == null) && (
+      {/* Ejer: sæt facit når deadline er passeret (eller når som helst uden deadline).
+          Også når deadline er UGYLDIG (et ældre dokument med fx 'abc', gemt før
+          reglen krævede et tal): reglerne afviser alt andet på sådan et
+          spørgsmål, men facit må sættes — det er ejerens eneste vej til at
+          lukke det (Security-fund). */}
+      {isOwner && !settled && (locked || q.deadline == null || !Number.isFinite(Number(q.deadline))) && (
         <form onSubmit={saveFacit} className="flex" style={{ gap: '0.4rem', marginTop: '0.45rem', flexWrap: 'wrap' }}>
           {hold ? (
             <HoldSelect hold={hold} value={facitDraft} onChange={(e) => setFacitDraft(e.target.value)} ariaLabel="Facit" />

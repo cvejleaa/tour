@@ -340,6 +340,17 @@ describe('LeagueQuestions — fjendtligt indhold i label, facit, svar og accepte
     expect(screen.getByText('Facit:')).toBeInTheDocument();
   });
 
+  it('en UGYLDIG deadline (ældre dokument) kaster ikke — og ejeren kan stadig sætte facit', () => {
+    // Reglerne afviser alt andet på et spørgsmål med deadline 'abc' (evalueringsfejl
+    // i `now < deadline`), men facit må sættes — fladen skal derfor vise formen,
+    // og formatKickoff(Number('abc')) må ikke kaste RangeError (Security-fund).
+    expect(() => renderQ({
+      game: CYKELSPIL, isOwner: true,
+      questions: [{ id: 'q7', label: 'Hvem vinder?', type: 'text', points: 5, deadline: 'abc', facit: null }],
+    })).not.toThrow();
+    expect(screen.getByPlaceholderText('Facit')).toBeInTheDocument();
+  });
+
   it('et ældre TAL-svar vises som tekst, ikke som tomt', () => {
     renderQ({
       game: CYKELSPIL,
