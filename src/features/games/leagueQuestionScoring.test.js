@@ -36,6 +36,27 @@ describe('scoreLeagueQuestion', () => {
     expect(per).toEqual({ a: 5, b: 5 });
   });
 
+  // Reglen kræver en liste (≤ 20) — men et ældre dokument kan bære en streng eller et map, og `.map` på dem
+  // kaster midt i render for alle medlemmer. Enhedslaget: komponenttesten kalder scoringen kun indirekte,
+  // og dér er det KUN «streng»-grenen, der er bevist (se LeagueQuestions.test.jsx).
+  it.each([
+    ['en streng', 'FC København, FCK'],
+    ['et map', { a: 'FC København' }],
+    ['null', null],
+  ])('acceptedAnswers som %s (ældre dokument) kaster ikke — kun facit tæller', (_navn, accepted) => {
+    const q = { type: 'text', points: 5, facit: 'FCK', acceptedAnswers: accepted };
+    const per = scoreLeagueQuestion(q, [
+      { uid: 'a', answer: 'fck' },
+      { uid: 'b', answer: 'FC København' },
+    ]);
+    expect(per).toEqual({ a: 5 });
+  });
+
+  it('en rigtig liste virker stadig — vagten kasserer ikke gyldige alternativer', () => {
+    const q = { type: 'text', points: 5, facit: 'FCK', acceptedAnswers: ['FC København'] };
+    expect(scoreLeagueQuestion(q, [{ uid: 'b', answer: 'fc københavn' }])).toEqual({ b: 5 });
+  });
+
   it('yesno scorer som tekst', () => {
     const q = { type: 'yesno', points: 2, facit: 'ja' };
     expect(scoreLeagueQuestion(q, [{ uid: 'a', answer: 'Ja' }, { uid: 'b', answer: 'nej' }])).toEqual({ a: 2 });

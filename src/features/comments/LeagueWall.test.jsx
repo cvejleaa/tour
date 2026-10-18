@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 
 // Firebase + actions mockes, så vi kan teste rækkefølgen isoleret.
 vi.mock('../../firebase', () => ({ db: {} }));
@@ -59,5 +59,38 @@ describe('LeagueWall – rækkefølge', () => {
     // Øverste element skal være den nyeste besked.
     expect(items[0]).toHaveTextContent('Sidste besked');
     expect(items[1]).toHaveTextContent('Første besked');
+  });
+});
+
+// Navn, emoji og hold caches på beskeden og renderes råt. Reglerne kræver nu strenge ved create — men et
+// ældre dokument kan bære et map, og ét map hvidnede hele væggen for alle ligaens medlemmer. Vagten i
+// LeagueWall.jsx havde INGEN test: den kunne fjernes, og suiten forblev grøn (Test Manager).
+describe('LeagueWall – ældre dokumenter med forgiftet navn, emoji eller hold', () => {
+  const giftig = (over) => ({ id: 'g', uid: 'u9', displayName: 'Ok', text: 'Gift', createdAt: 1, ...over });
+
+  it.each([
+    ['displayName', { displayName: { a: 1 } }],
+    ['avatarEmoji', { avatarEmoji: { b: 2 } }],
+    // {c:3} ville IKKE kaste i teamMeta (nøglen bliver bare "[object Object]") — men {toString:null} kaster
+    // ved enhver implicit streng-konvertering, og det er den gift-form, der kan gemmes uden om fladen.
+    ['favoriteTeam', { favoriteTeam: { toString: null } }],
+  ])('et map som %s hvidner ikke væggen — teksten vises stadig', (_felt, over) => {
+    useLeagueComments.mockReturnValue({ comments: [giftig(over)], loading: false, error: null });
+    expect(() => render(<LeagueWall leagueId="L1" meUid="u1" myName="Mig" />)).not.toThrow();
+    expect(screen.getByText('Gift')).toBeInTheDocument();
+  });
+
+  it('et forgiftet navn falder tilbage til "Spiller" — et tomt navn gør det samme', () => {
+    useLeagueComments.mockReturnValue({
+      comments: [
+        giftig({ id: 'a', displayName: { a: 1 }, text: 'Map' }),
+        giftig({ id: 'b', displayName: '', text: 'Tom' }),
+      ],
+      loading: false, error: null,
+    });
+    render(<LeagueWall leagueId="L1" meUid="u1" myName="Mig" />);
+    const [a, b] = ['Map', 'Tom'].map((t) => screen.getByText(t).closest('li'));
+    expect(within(a).getByText('Spiller')).toBeInTheDocument();
+    expect(within(b).getByText('Spiller')).toBeInTheDocument();
   });
 });

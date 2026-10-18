@@ -1241,7 +1241,16 @@ service cloud.firestore {
             && request.resource.data.get('facit', null) == null
             && (!('acceptedAnswers' in request.resource.data)
                 || (request.resource.data.acceptedAnswers is list
-                    && request.resource.data.acceptedAnswers.size() <= 20));
+                    && request.resource.data.acceptedAnswers.size() <= 20))
+            // type og deadline læses af fladen OG af update-reglen: en streng
+            // som deadline gør `now < deadline` til en evalueringsfejl, så
+            // spørgsmålet hverken kan rettes eller slettes bagefter, og et map
+            // som type kaster i fladen (Test Manager-fund, emulator-kørt).
+            // Klienten skriver altid en af de fire typer og et tal eller null
+            // (LQ_TYPES i leagueQuestionScoring.js — bundet af en paritetstest).
+            && request.resource.data.get('type', 'text') in ['text', 'yesno', 'number', 'team']
+            && (request.resource.data.get('deadline', null) == null
+                || request.resource.data.deadline is number);
           // Når kortene først er åbnet, må de ikke kunne lukkes igen.
           //
           // questionAnswers åbner for LÆSNING og lukker for SKRIVNING ad to
