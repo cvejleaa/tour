@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-10-12T12:34:18.849Z",
+  "generatedAt": "2026-10-19T10:25:53.326Z",
   "totals": {
-    "files": 282,
-    "tests": 4614,
-    "passed": 4614,
+    "files": 283,
+    "tests": 4711,
+    "passed": 4711,
     "failed": 0
   },
   "suites": [
@@ -3006,7 +3006,7 @@
     {
       "file": "src/features/admin/DriftTab.test.jsx",
       "area": "frontend",
-      "passed": 12,
+      "passed": 24,
       "failed": 0,
       "tests": [
         {
@@ -3056,13 +3056,61 @@
         {
           "name": "DriftTab › kvittér-knappen findes kun på ukvitterede alarmer, der kræver kvittering",
           "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › postbudet er et GLOBALT kort («Platformen») med dansk navn — og forventedeKoersler(games) er uændret",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › postbudets dokument (gameId null) lander på det globale kort — ét kort, ikke et ekstra orphan-kort",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › introen siger, at alarmer og fejlede kørsler MAILES inden for 15 min — pull blev push",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › «Send alarm-mail nu» kalder postbudet og viser SERVERENS svar — ikke bare «ok»",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › «Send en test-alarm» kalder fyrTestAlarm og siger, hvad der sker nu — og at kvitteringen lukker den",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › serverens afvisning vises som fejl — et klik er aldrig tavst",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › AlarmKort viser serverens titel — og typen, når et gammelt dokument mangler feltet",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › «Send alarm-mail nu» uden besked i svaret falder tilbage på «Postbudet kørte.» — et klik er aldrig tavst",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › serverens afvisning af «Send alarm-mail nu» vises som fejl-badge — og ikke som et svar",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — alarm-postbudet › begge knapper er låst, mens et kald er i gang — et dobbeltklik koster ikke to kald",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — postbudets svar farves efter serverens niveau › et «fejl»-svar (SMTP mangler) står som rødt badge — ikke som neutral tekst, der ligner succes",
+          "status": "passed"
+        },
+        {
+          "name": "DriftTab — postbudets svar farves efter serverens niveau › et «ok»-svar står som almindelig tekst",
+          "status": "passed"
         }
       ]
     },
     {
       "file": "src/features/admin/EmailLogTab.test.jsx",
       "area": "frontend",
-      "passed": 4,
+      "passed": 5,
       "failed": 0,
       "tests": [
         {
@@ -3075,6 +3123,10 @@
         },
         {
           "name": "EmailLogTab › viser loglinjer med type, modtager og status",
+          "status": "passed"
+        },
+        {
+          "name": "EmailLogTab › viser alarm-postbudets mails som «Driftalarm» — ikke den rå type",
           "status": "passed"
         },
         {
@@ -14138,7 +14190,7 @@
     {
       "file": "src/pages/AdminPage.test.jsx",
       "area": "frontend",
-      "passed": 16,
+      "passed": 19,
       "failed": 0,
       "tests": [
         {
@@ -14203,6 +14255,18 @@
         },
         {
           "name": "AdminPage › viser Admin-panel som overskrift",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage — ?fane= åbner en fane direkte › ?fane=mails åbner Mail-log direkte",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage — ?fane= åbner en fane direkte › en SKJULT fane (drift på Touren) og en ukendt værdi falder begge tilbage til Brugere",
+          "status": "passed"
+        },
+        {
+          "name": "AdminPage — ?fane= åbner en fane direkte › uden ?fane starter den på Brugere som altid",
           "status": "passed"
         }
       ]
@@ -16658,7 +16722,7 @@
     {
       "file": "functions-platform/driftlog.test.js",
       "area": "platform",
-      "passed": 18,
+      "passed": 32,
       "failed": 0,
       "tests": [
         {
@@ -16731,6 +16795,62 @@
         },
         {
           "name": "loesDriftAlarmer lukker kun sin egen type › en åben livetavs-alarm røres ikke, når strandet-alarmer lukkes",
+          "status": "passed"
+        },
+        {
+          "name": "meldAlarm — mailetAt og titel › skriver mailetAt: null EKSPLICIT ved oprettelse — og en titel fra typen",
+          "status": "passed"
+        },
+        {
+          "name": "meldAlarm — mailetAt og titel › en KVITTERET alarm, der opstår igen efter dæmpningen, får mailetAt nulstillet (og kvitteretAt)",
+          "status": "passed"
+        },
+        {
+          "name": "meldAlarm — mailetAt og titel › en genåbning efter LØSNING nulstiller mailetAt",
+          "status": "passed"
+        },
+        {
+          "name": "meldAlarm — mailetAt og titel › en åben, UKVITTERET gentagelse (ikke dæmpet) beholder sit mailetAt — den er allerede mailet",
+          "status": "passed"
+        },
+        {
+          "name": "meldAlarm — mailetAt og titel › en DÆMPET genskrivning rører intet — hverken mailetAt eller antal",
+          "status": "passed"
+        },
+        {
+          "name": "meldAlarm — mailetAt og titel › daempMs: 0 (test-alarmen) genskriver straks — men nulstiller kun mailetAt, hvis den forrige var kvitteret/løst",
+          "status": "passed"
+        },
+        {
+          "name": "loesAlarmerAfType — lukker på tværs af spil › lukker alarmer af typen, hvis kampId ikke længere er aktuel — uanset gameId (også null)",
+          "status": "passed"
+        },
+        {
+          "name": "loesAlarmerAfType — lukker på tværs af spil › rører ikke andre typer",
+          "status": "passed"
+        },
+        {
+          "name": "ALARM_TYPER — titel og hast ét sted › kendt type: dansk titel og hast; ukendt type: typen selv og «andet» — den forsvinder ikke",
+          "status": "passed"
+        },
+        {
+          "name": "ALARM_TYPER — titel og hast ét sted › DÆKKER hver alarm-type, serveren faktisk melder — og melder ikke typer, der ikke findes (tripwire begge veje)",
+          "status": "passed"
+        },
+        {
+          "name": "ALARM_TYPER — titel og hast ét sted › kvitteringFor: en TEST-alarm lukkes også (loestAt) — ægte alarmer får kun kvitteretAt",
+          "status": "passed"
+        },
+        {
+          "name": "ALARM_TYPER — titel og hast ét sted › tvingMail nulstiller mailetAt, SELV om den forrige hverken var kvitteret eller løst (test-alarmen)",
+          "status": "passed"
+        },
+        {
+          "name": "ALARM_TYPER — titel og hast ét sted › postbud HASTER; koersel og koerselFejl er «i dag»; test er «test» — og titlerne er dem, mailen og kortet viser",
+          "status": "passed"
+        },
+        {
+          "name": "ALARM_TYPER — titel og hast ét sted › hver type har en titel og en hast, mailen kender — en tastefejl i hast ville smide alarmen ud af mailen",
           "status": "passed"
         }
       ]
@@ -19459,6 +19579,282 @@
         },
         {
           "name": "puljeLockFraRunde — pulje-deadline udledt af en runde (#8) › håndterer Firestore-Timestamp, tal og ISO ens (via kickoffMs)",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions-platform/postbud.test.js",
+      "area": "platform",
+      "passed": 67,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "umailede — et manglende felt tæller som umailet › tager åbne alarmer uden mailetAt (også dem, der mangler feltet helt) — ikke mailede, ikke løste",
+          "status": "passed"
+        },
+        {
+          "name": "erRoedtKort — samme prædikat som StatusKort › forsinket (serverens naesteForventetFoer passeret) eller niveau fejl; null-frist er aldrig forsinket",
+          "status": "passed"
+        },
+        {
+          "name": "erRoedtKort — samme prædikat som StatusKort › beskeden siger HVAD der er ramt — med kørslens danske navn og spillets navn, ikke rå id'er",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — kørsels-vagten › et forsinket kort bliver en koersel-alarm med kvitteringskrav — og lukkes, når kortet er grønt igen",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — kørsels-vagten › et rødt kort (niveau fejl) med null-frist er en koerselFejl-alarm UDEN kvitteringskrav; postbudets eget kort springes over",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — kørsels-vagten › et fejlet kort for et spil med en åben SPECIFIK alarm (strandet) dubleres IKKE — alarmen står ikke to gange i mailen",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — kørsels-vagten › en VEDVARENDE rød tilstand giver ÉN mail — ikke en ny hvert 6. time (ingen kvittering, ingen genåbning)",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — kørsels-vagten › et FORÆLDRELØST kort (spil taget ud af SYNCED_GAMES) giver ingen alarm — det ville aldrig lukke",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — kørsels-vagten › kaster kørsels-vagten, bliver det en ADVARSEL — og mailen om de eksisterende alarmer går ud alligevel",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — mailen › ingen umailede alarmer: ok, intet sendes, og allerede mailede tælles som åbne",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — mailen › sender ÉN mail pr. godkendt owner/globalAdmin (Auth-adressen), sætter mailetAt og logger typen drift-alarm",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — mailen › en kvitteret, men umailet alarm mailes STADIG — én admin må ikke kunne kvittere en mail væk for de andre",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — mailen › uden SMTP: FEJL på kortet, en postbud-alarm, og mailetAt sættes IKKE (prøves igen)",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — mailen › ingen modtagere (kun spillere, ikke-godkendte eller uden Auth-adresse): FEJL + alarm",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — mailen › én af to modtagere bouncer: ADVARSEL — men mailetAt sættes (ellers mailes den anden hvert kvarter for evigt)",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — mailen › ALLE modtagere bouncer: FEJL, afsendelses-alarm, og mailetAt sættes IKKE",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — mailen › en vellykket afsendelse LUKKER postbudets egne alarmer igen",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › én alarm: emnet bærer HAST-ORDET forrest, titel og spil; kroppen titel, afkortet tekst, første-set og det faste link",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › én alarm, der HASTER, får «Haster:» forrest — det er den, der skal kunne skilles ud i indbakken",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › flere alarmer: den mest hastende gruppe forrest i emnet, tæller, og haste-grupperne i rækkefølge",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › uden hastende alarmer: «I dag:» forrest og ingen haster-parentes",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › flere end SAMLE_GRAENSE ens alarmer i samme spil samles i ÉN linje med antal og første-set",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › højst 20 linjer — resten står som «og N flere»",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › ESCAPER alt fra alarm-tekster, afkorter til 300 tegn, og gør aldrig en URL klikbar",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › kun test-alarmer: TEST-emne og teksten om, at intet skal gøres",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › en test-alarm SAMMEN med en ægte er ikke en test-mail",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › ingen uid og ingen adresse i mailen — heller ikke test-alarmens kampId (uid) eller modtagerens adresse",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — indholdet › en alarm uden titel-felt (gammelt dokument) får titlen fra typen",
+          "status": "passed"
+        },
+        {
+          "name": "test-alarmens tekst › nævner navnet, aldrig uid — og siger, at kvitteringen lukker den",
+          "status": "passed"
+        },
+        {
+          "name": "afkort › URL → [url], whitespace → ét mellemrum, hård grænse med …",
+          "status": "passed"
+        },
+        {
+          "name": "afkort › fjerner også det, en mail-klient selv gør klikbart: www., tre-leds-domæner og .dk/.com — men ikke filnavne og versioner",
+          "status": "passed"
+        },
+        {
+          "name": "testAlarmTilladt — 10 minutter mellem test-alarmer › ingen tidligere test → tilladt; under 10 min siden → nej; præcis 10 min → ja; kvittering flytter ikke sidstSetAt",
+          "status": "passed"
+        },
+        {
+          "name": "adminModtagere › kun godkendte owner/globalAdmin — adressen fra Auth; en uid uden Auth-konto springes over",
+          "status": "passed"
+        },
+        {
+          "name": "DRIFT_URL peger på den fane, AdminPage faktisk har — paritet › ?fane=<TAB_DRIFT> — omdøbes fanen, falder mailens link ellers tilbage til Brugere med grøn suite (QC)",
+          "status": "passed"
+        },
+        {
+          "name": "KOERSEL_NAVN spejler DriftTab.jsx — paritet (mønstret fra mailMarkdown) › samme nøgler og samme danske navne som TYPE_NAVN i src/features/admin/DriftTab.jsx",
+          "status": "passed"
+        },
+        {
+          "name": "erRoedtKort / koerselBesked — grænsen, «aldrig» og navnene › præcis PÅ fristen er kortet ikke forsinket (nu > frist, som i StatusKort) — hverken som alarm eller som tekst",
+          "status": "passed"
+        },
+        {
+          "name": "erRoedtKort / koerselBesked — grænsen, «aldrig» og navnene › «sidst kørt aldrig», når kortet aldrig har kørt — ellers tidspunktet i Københavns tid",
+          "status": "passed"
+        },
+        {
+          "name": "erRoedtKort / koerselBesked — grænsen, «aldrig» og navnene › en ukendt kørselstype nævnes ved sit rå navn, og et kort uden spil står som «platformen»",
+          "status": "passed"
+        },
+        {
+          "name": "erRoedtKort / koerselBesked — grænsen, «aldrig» og navnene › kortets egen besked afkortes til 200 tegn i alarmen (hardkodet tal — ikke afledt af konstanten)",
+          "status": "passed"
+        },
+        {
+          "name": "datoDa — Københavns tid, sommer som vinter › 09:02 UTC er 11.02 i sommertid (13/10) og 10.02 i vintertid (1/12) — ikke UTC",
+          "status": "passed"
+        },
+        {
+          "name": "datoDa — Københavns tid, sommer som vinter › et ugyldigt tal giver tom streng — Intl ville ellers formatere «nu» og lyve om, hvornår alarmen blev set",
+          "status": "passed"
+        },
+        {
+          "name": "adminModtagere — Security F7: adressen kommer fra Auth, aldrig fra userContacts › en anden adresse i userContacts end i Auth bruges ALDRIG — og en admin uden Auth-adresse får ingen mail",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › præcis 3 ens alarmer listes enkeltvis, 4 samles til én linje (hardkodet grænse 3)",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › højst 20 linjer (hardkodet 20; 25 alarmer i 25 spil) — resten som «og 5 flere»",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › loftet gælder på tværs af haste-grupper: ingen overskrift over en tom liste bag loftet",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › alarm-teksten afkortes til 300 tegn (hardkodet) med «…»",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › ESCAPER også i den SAMLEDE linje (4+ ens alarmer): spilnavn, titel og tekst — og URL'er bliver [url]",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › ingen uid i mailen: en alarms kampId (for en test-alarm er det uid'et) står hverken i emne eller krop — enkeltvis eller samlet",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › «1 ny ting» i ental, «N gange» kun når antal > 1, og kvitterings-teksten kun når alarmen kræver kvittering",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › grupperingen er pr. (type, spil): 2+2 ens alarmer i to spil — og 4 forskellige typer i ét spil — samles IKKE",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › emnet for ÉN alarm uden spil har ingen «(Platformen)»-parentes",
+          "status": "passed"
+        },
+        {
+          "name": "alarmMail — tal, forgreninger og det, der IKKE må stå › HVER alarm-type i ALARM_TYPER — og en ukendt — når frem i mailen med sin tekst (ingen forsvinder bag en forkert hast)",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — statuslinjen og den ene mail pr. opmærksomheds-overgang › 2 alarmer og 1 af 3 modtagere: «Sendt til 1 modtager (2 alarmer). 2 modtagere fejlede — se Mail-log.»",
+          "status": "passed"
+        },
+        {
+          "name": "koerPostbud — statuslinjen og den ene mail pr. opmærksomheds-overgang › en åben, ukvitteret alarm mailes ÉN gang, uanset hvor mange gange den ses; efter kvittering og ny forekomst mailes den igen",
+          "status": "passed"
+        },
+        {
+          "name": "testAlarmTilladt — 10 minutter pr. administrator (Security F8) — TM's grænsetilfælde › første gang (ingen alarm endnu) er altid tilladt",
+          "status": "passed"
+        },
+        {
+          "name": "testAlarmTilladt — 10 minutter pr. administrator (Security F8) — TM's grænsetilfælde › afvist lige indtil 10 minutter er gået — præcis 10 minutter er tilladt",
+          "status": "passed"
+        },
+        {
+          "name": "testAlarmTilladt — 10 minutter pr. administrator (Security F8) — TM's grænsetilfælde › en alarm uden sidstSetAt (gammelt dokument) blokerer ikke",
+          "status": "passed"
+        },
+        {
+          "name": "kvitteringFor — kun en TEST-alarm lukkes af kvitteringen (reglen bor i driftlog.js) › test: kvittering OG loestAt; ægte alarm (også med kvitteringskrav) og manglende type: kun kvitteringen",
+          "status": "passed"
+        },
+        {
+          "name": "test-alarmens kæde: fyr → mail → kvittér → fyr igen › højst én pr. 10 minutter; kvitteringen lukker den; så mailes den næste",
+          "status": "passed"
+        },
+        {
+          "name": "ledningen mellem lagene — bundet af tekst, fordi index.js og klienten ikke kan importeres her › mailens link ?fane=… er den fane-nøgle, AdminPage kender som Driftstatus (og /admin findes)",
+          "status": "passed"
+        },
+        {
+          "name": "ledningen mellem lagene — bundet af tekst, fordi index.js og klienten ikke kan importeres her › MAIL_TYPE har en dansk label i EmailLogTab.jsx — ellers står den rå type i Mail-loggen",
+          "status": "passed"
+        },
+        {
+          "name": "ledningen mellem lagene — bundet af tekst, fordi index.js og klienten ikke kan importeres her › fyrTestAlarm melder med tvingMail: true — ellers mailes en gentaget test-alarm ikke, før den forrige er kvitteret (TM)",
+          "status": "passed"
+        },
+        {
+          "name": "ledningen mellem lagene — bundet af tekst, fordi index.js og klienten ikke kan importeres her › en fejl-linje logges med console.error — severity>=ERROR-alerten i docs/drift.md er kanalen, der ikke afhænger af postbudet (TM)",
+          "status": "passed"
+        },
+        {
+          "name": "ledningen mellem lagene — bundet af tekst, fordi index.js og klienten ikke kan importeres her › timeoutSeconds 120 på BÅDE sendDriftAlarmMailNu og driftAlarmPostbud — klientens 120 s skal følges ad (QC)",
+          "status": "passed"
+        },
+        {
+          "name": "ledningen mellem lagene — bundet af tekst, fordi index.js og klienten ikke kan importeres her › fyrTestAlarm afviser via testAlarmTilladt; kvitterDriftAlarm skriver kvitteringFor",
+          "status": "passed"
+        },
+        {
+          "name": "ledningen mellem lagene — bundet af tekst, fordi index.js og klienten ikke kan importeres her › test-alarmens tekst får visningsnavnet — aldrig uid (en mail må ikke bære uid'er)",
+          "status": "passed"
+        },
+        {
+          "name": "ledningen mellem lagene — bundet af tekst, fordi index.js og klienten ikke kan importeres her › postbudets slæk er længere end to skema-intervaller — ellers står kortet rødt, mens skemaet kører",
           "status": "passed"
         }
       ]

@@ -1,13 +1,13 @@
 {
- "generatedAt": "2026-10-12T12:34:18.849Z",
+ "generatedAt": "2026-10-19T10:25:53.326Z",
  "e2eMedregnet": true,
  "renderMaalt": true,
  "totals": {
-  "elementer": 451,
-  "aktiverede": 186,
-  "renderede": 383,
-  "logposter": 818,
-  "interaktioner": 651,
+  "elementer": 453,
+  "aktiverede": 188,
+  "renderede": 385,
+  "logposter": 826,
+  "interaktioner": 659,
   "filer": 74
  },
  "elementer": [
@@ -923,7 +923,7 @@
   },
   {
    "fil": "src/features/admin/DriftTab.jsx",
-   "linje": 91,
+   "linje": 97,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -934,6 +934,38 @@
    "tests": [],
    "renderAntal": 1,
    "status": "vist"
+  },
+  {
+   "fil": "src/features/admin/DriftTab.jsx",
+   "linje": 142,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "📨 Send alarm-mail nu",
+   "komponent": "AlarmKnapper",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/DriftTab.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/DriftTab.jsx",
+   "linje": 143,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "🧪 Send en test-alarm",
+   "komponent": "AlarmKnapper",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/DriftTab.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/FladeDaekning.jsx",
@@ -5051,7 +5083,7 @@
   },
   {
    "fil": "src/pages/AdminPage.jsx",
-   "linje": 124,
+   "linje": 134,
    "kolonne": 11,
    "tag": "button",
    "type": null,
