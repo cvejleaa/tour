@@ -31,6 +31,10 @@ export const SVAR_MAKS = 200;
 export const ALTERNATIVER_MAKS = 20;
 export const BESKED_MAKS = 280;
 export const BESKED_FELTER = ['uid', 'text', 'createdAt'];
+export const POINTS_MIN = 1;
+export const POINTS_MAKS = 100;
+/** Runde-Bottens uid — det, BEGGE serverens skriveveje bruger (gameRecap.js, leagueQuestionRecap.js; bundet af en test). */
+export const BOT_UID = 'runde-bot';
 
 const erTimestamp = (v) => v != null && typeof v === 'object' && typeof v.toMillis === 'function';
 const typen = (v) => (v === undefined ? 'fraværende' : v === null ? 'null' : Array.isArray(v) ? 'liste' : typeof v);
@@ -38,10 +42,10 @@ const typen = (v) => (v === undefined ? 'fraværende' : v === null ? 'null' : Ar
 /** Fejlene i ét liga-spørgsmål (games/{g}/leagues/{l}/questions/{q}). */
 export function spoergsmaalFejl(data) {
   const fejl = [];
-  if (typeof data.label !== 'string') fejl.push(`label er ${typen(data.label)}`);
+  if (typeof data.label !== 'string') fejl.push(`label er ${typen(data.label)} — ejeren kan rette den i fladen (✏️)`);
   else if (data.label.length < LABEL_MIN || data.label.length > LABEL_MAKS) fejl.push(`label på ${data.label.length} tegn`);
   if (data.facit != null) {
-    if (typeof data.facit !== 'string') fejl.push(`facit er ${typen(data.facit)}`);
+    if (typeof data.facit !== 'string') fejl.push(`facit er ${typen(data.facit)} — ret til en streng i konsollen (fladen skjuler «Gem facit» på et afgjort spørgsmål)`);
     else if (data.facit.length === 0 || data.facit.length > FACIT_MAKS) fejl.push(`facit på ${data.facit.length} tegn`);
   }
   if (data.acceptedAnswers !== undefined) {
@@ -49,9 +53,18 @@ export function spoergsmaalFejl(data) {
     else if (data.acceptedAnswers.length > ALTERNATIVER_MAKS) fejl.push(`acceptedAnswers med ${data.acceptedAnswers.length} elementer`);
   }
   if (data.type !== undefined && !SPOERGSMAAL_TYPER.includes(data.type)) fejl.push(`type er ${JSON.stringify(data.type)}`);
-  // deadline: null/fraværende eller et tal. En streng eller et map murer spørgsmålet inde.
-  if (data.deadline != null && typeof data.deadline !== 'number') fejl.push(`deadline er ${typen(data.deadline)} — spørgsmålet er muret inde`);
-  if (typeof data.points !== 'number') fejl.push(`points er ${typen(data.points)}`);
+  // deadline: null/fraværende eller et tal. En streng eller et map MURER spørgsmålet
+  // inde: reglen kaster i `now < deadline`, så deadline kan hverken rettes eller
+  // fjernes, svar afvises, og spørgsmålet kan ikke slettes — kun label/facit kan
+  // skrives. Rettes i Firebase-konsollen (QC-fund: sig HVAD der skal gøres).
+  if (data.deadline != null && typeof data.deadline !== 'number') {
+    fejl.push(`deadline er ${typen(data.deadline)} — MURET INDE: sæt et tal (ms) eller slet feltet i konsollen`);
+  }
+  // points: reglen kræver et tal på 1-100 ved HVER rettelse — også facit. Et
+  // ældre spørgsmål uden points, eller med 150, kan altså ikke lukkes.
+  if (typeof data.points !== 'number' || data.points < POINTS_MIN || data.points > POINTS_MAKS) {
+    fejl.push(`points er ${typeof data.points === 'number' ? data.points : typen(data.points)} — MURET INDE: sæt et tal ${POINTS_MIN}-${POINTS_MAKS} i konsollen`);
+  }
   return fejl;
 }
 
@@ -63,9 +76,16 @@ export function svarFejl(data) {
   return fejl;
 }
 
-/** Fejlene i én væg-besked (games/{g}/leagues/{l}/messages/{id}) — bottens (system:true) er serverens og springes over. */
+/**
+ * Fejlene i én væg-besked (games/{g}/leagues/{l}/messages/{id}).
+ *
+ * Bottens egne opslag springes over — men KUN på flag PLUS identitet: `system`
+ * var klient-skrivbart før #39, så et forfalsket opslag kan bære `system: true`
+ * med et medlems egen uid. Undtog vi på flaget alene, skjulte scanningen præcis
+ * de opslag, den findes for (QC-fund).
+ */
 export function beskedFejl(data) {
-  if (data.system === true) return [];
+  if (data.system === true && data.uid === BOT_UID) return [];
   const fejl = [];
   const ekstra = Object.keys(data).filter((k) => !BESKED_FELTER.includes(k));
   if (ekstra.length) fejl.push(`ekstra felter: ${ekstra.join(', ')}`);

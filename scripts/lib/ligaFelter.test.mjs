@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import {
   ligaFejl, spoergsmaalFejl, svarFejl, beskedFejl,
   SPOERGSMAAL_TYPER, LABEL_MIN, LABEL_MAKS, FACIT_MAKS, SVAR_MAKS, ALTERNATIVER_MAKS, BESKED_MAKS, BESKED_FELTER,
+  POINTS_MIN, POINTS_MAKS, BOT_UID,
 } from './ligaFelter.mjs';
 import { LQ_TYPES } from '../../src/features/games/leagueQuestionScoring.js';
 
@@ -34,10 +35,20 @@ describe('spoergsmaalFejl — spejler questions-reglen', () => {
     expect(spoergsmaalFejl(sund)).toEqual([]);
     expect(spoergsmaalFejl({ ...sund, facit: 'Isaksen', acceptedAnswers: ['Isak'], deadline: 1760000000000, type: 'number' })).toEqual([]);
     expect(spoergsmaalFejl({ label: 'Uden type og deadline', points: 5 })).toEqual([]);
+    expect(spoergsmaalFejl({ ...sund, label: { a: 1 } }).join()).toMatch(/ejeren kan rette den i fladen/);
+    expect(spoergsmaalFejl({ ...sund, facit: { a: 1 } }).join()).toMatch(/ret til en streng i konsollen/);
   });
-  it('deadline, der ikke er et tal, meldes som «muret inde»', () => {
-    expect(spoergsmaalFejl({ ...sund, deadline: 'abc' }).join()).toMatch(/deadline er string — spørgsmålet er muret inde/);
+  it('deadline, der ikke er et tal, meldes som MURET INDE med en handling', () => {
+    expect(spoergsmaalFejl({ ...sund, deadline: 'abc' }).join()).toMatch(/deadline er string — MURET INDE: sæt et tal/);
     expect(spoergsmaalFejl({ ...sund, deadline: { a: 1 } })).toHaveLength(1);
+  });
+  it('points uden for 1-100, som streng eller fraværende, meldes som MURET INDE (reglen kræver 1-100 ved HVER rettelse, også facit)', () => {
+    expect(spoergsmaalFejl({ ...sund, points: POINTS_MAKS + 1 }).join()).toMatch(/points er 101 — MURET INDE/);
+    expect(spoergsmaalFejl({ ...sund, points: POINTS_MIN - 1 })).toHaveLength(1);
+    expect(spoergsmaalFejl({ ...sund, points: '5' })).toHaveLength(1);
+    expect(spoergsmaalFejl({ label: 'Uden points', type: 'text' })).toHaveLength(1);
+    expect(spoergsmaalFejl({ ...sund, points: POINTS_MAKS })).toEqual([]);
+    expect(spoergsmaalFejl({ ...sund, points: POINTS_MIN })).toEqual([]);
   });
   it('label, facit, acceptedAnswers, type og points — typer og grænser', () => {
     expect(spoergsmaalFejl({ ...sund, label: { a: 1 } })).toHaveLength(1);
@@ -52,7 +63,6 @@ describe('spoergsmaalFejl — spejler questions-reglen', () => {
     expect(spoergsmaalFejl({ ...sund, acceptedAnswers: Array(ALTERNATIVER_MAKS + 1).fill('x') })).toHaveLength(1);
     expect(spoergsmaalFejl({ ...sund, type: 'x' })).toHaveLength(1);
     expect(spoergsmaalFejl({ ...sund, type: { toString: null } })).toHaveLength(1);
-    expect(spoergsmaalFejl({ ...sund, points: '5' })).toHaveLength(1);
   });
   it('flere fejl i samme dokument tælles hver for sig', () => {
     expect(spoergsmaalFejl({ label: { a: 1 }, facit: { b: 2 }, acceptedAnswers: 'x', deadline: 'abc', points: 5 })).toHaveLength(4);
@@ -72,9 +82,20 @@ describe('svarFejl — spejler questionAnswers-reglen', () => {
 });
 
 describe('beskedFejl — spejler messages-reglen', () => {
-  it('klientens form er sund, og bottens egen form springes over', () => {
+  it('klientens form er sund, og bottens egen form (system:true MED bottens uid) springes over', () => {
     expect(beskedFejl({ uid: 'u', text: 'Hej', createdAt: ts })).toEqual([]);
-    expect(beskedFejl({ uid: 'runde-bot', displayName: 'Runde-Botten', avatarEmoji: '🤖', system: true, text: 'Opslag', createdAt: ts })).toEqual([]);
+    expect(beskedFejl({ uid: BOT_UID, displayName: 'Runde-Botten', avatarEmoji: '🤖', system: true, text: 'Opslag', createdAt: ts })).toEqual([]);
+  });
+  it('et FORFALSKET opslag med system:true og et medlems egen uid findes — flaget alene fritager ikke (QC-fund)', () => {
+    // Før #39 kunne et medlem selv skrive system:true. Undtog scanningen på flaget
+    // alene, skjulte den præcis de opslag, den findes for.
+    const falsk = beskedFejl({ uid: 'u1', system: true, displayName: 'Runde-Botten', avatarEmoji: '🤖', text: 'Falsk', createdAt: ts });
+    expect(falsk.join()).toMatch(/ekstra felter: system, displayName, avatarEmoji/);
+  });
+  it('bottens uid er den, BEGGE serverens skriveveje bruger', () => {
+    for (const fil of ['../../functions-platform/gameRecap.js', '../../functions-platform/leagueQuestionRecap.js']) {
+      expect(readFileSync(resolve(her, fil), 'utf8')).toContain(`uid: '${BOT_UID}'`);
+    }
   });
   it('ekstra felter uden system, map som tekst eller tidsstempel, og for lang tekst er gift', () => {
     expect(beskedFejl({ uid: 'u', displayName: 'Runde-Botten', text: 'Falsk', createdAt: ts }).join()).toMatch(/ekstra felter: displayName/);
@@ -92,6 +113,9 @@ describe('grænserne er reglens — læst ud af firestore.rules', () => {
     expect(FACIT_MAKS).toBe(tal(/request\.resource\.data\.facit\.size\(\) <= (\d+)/));
     expect(ALTERNATIVER_MAKS).toBe(tal(/request\.resource\.data\.acceptedAnswers\.size\(\) <= (\d+)/));
     expect(SVAR_MAKS).toBe(tal(/request\.resource\.data\.answer\.size\(\) <= (\d+)/));
+    const qBlok = regler.slice(regler.indexOf('match /questions/{qId}'), regler.indexOf('match /questionAnswers/{answerId}'));
+    expect(qBlok).toContain(`request.resource.data.points > ${POINTS_MIN - 1}`);
+    expect(qBlok).toContain(`request.resource.data.points <= ${POINTS_MAKS}`);
     const q = regler.slice(regler.indexOf('match /messages/{msgId}'), regler.indexOf('match /questions/{qId}'));
     expect(q).toContain(`request.resource.data.text.size() <= ${BESKED_MAKS}`);
     expect(q).toContain(`hasOnly([${BESKED_FELTER.map((f) => `'${f}'`).join(', ')}])`);

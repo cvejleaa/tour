@@ -41,7 +41,7 @@ async function scan(navn, snap, vagt = ligaFejl, hvad = 'ville blive frosset') {
     const fejl = vagt(d.data());
     if (!fejl.length) continue;
     ramt += 1;
-    const ejer = d.data().ownerUid ?? d.data().uid ?? '?';
+    const ejer = d.data().ownerUid ?? d.data().createdBy ?? d.data().uid ?? '?';
     console.log(`  ${d.ref.path}  ejer=${ejer}  → ${fejl.join(', ')}`);
   }
   console.log(`${navn}: ${snap.size} dokumenter, ${ramt} ${hvad}`);
@@ -65,7 +65,10 @@ const spoergsmaal = await scan('games/*/leagues/*/questions', await underSpil('q
 const svar = await scan('games/*/leagues/*/questionAnswers', await underSpil('questionAnswers'), svarFejl, 'er forgiftede');
 const beskeder = await scan('games/*/leagues/*/messages', await underSpil('messages'), beskedFejl, 'er forgiftede');
 
-const ialt = top + spil + spoergsmaal + svar + beskeder;
-console.log(`\nProjekt ${sa.project_id}: ${top + spil} liga-dokument(er) skal ryddes FØR reglen deployes; `
-  + `${spoergsmaal + svar + beskeder} forgiftet/forgiftede spørgsmål, svar eller beskeder (ryd med Admin SDK — klienten tåler dem).`);
-process.exit(ialt > 0 ? 2 : 0);
+const gift = spoergsmaal + svar + beskeder;
+console.log(`\nProjekt ${sa.project_id}:`);
+console.log(`  Ligaer: ${top + spil} dokument(er) ville blive frosset af id-/navne-reglen — ryd FØR en regel-udrulning.`);
+console.log(`  Spørgsmål/svar/beskeder: ${gift} dokument(er), som reglerne (#234, udrullet) allerede afviser ved skrivning. `
+  + 'Klienten tåler dem; linjer mærket MURET INDE kan kun rettes i Firebase-konsollen (ret feltet på stien) — '
+  + 'de bliver stående i hver scanning, til feltet er rettet.');
+process.exit(top + spil + gift > 0 ? 2 : 0);
