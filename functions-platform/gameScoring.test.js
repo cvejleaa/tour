@@ -581,6 +581,33 @@ describe('recalcPlayerTotal — perRound erstattes helt', () => {
     expect(db._players.A.perRound).toEqual({ 3: 0, 4: 2 });
     expect(db._players.A.totalPoints).toBe(2);
   });
+
+  // opdelingPerRunde skrives SAMMEN med perRound og erstattes helt (mergeFields):
+  // en forsvundet rundenøgle i den ene skal også forsvinde i den anden, ellers
+  // viser ligaens regnskab rubrikker for en runde, vektoren ikke længere har.
+  it('opdelingPerRunde skrives med PRÆCIS perRounds nøgler — og en forsvundet nøgle forsvinder også dér', async () => {
+    const KAMPE = [
+      { id: 'r3', round: 3, kickoff: 100, result: null, odds: { 1: 2, X: 3, 2: 4 } },
+      { id: 'r4', round: 4, kickoff: 200, result: '1', odds: { 1: 2, X: 3, 2: 4 } },
+    ];
+    const db = makeDb(
+      [
+        { uid: 'A', matchId: 'r3', pick: '1', chanceStake: 0, points: 0 },
+        { uid: 'A', matchId: 'r4', pick: '1', chanceStake: 0, points: 2 },
+      ],
+      KAMPE,
+      {},
+      // Den GAMLE vektor OG det gamle rubrikkort fra dengang runde 3 havde facit.
+      { A: {
+        totalPoints: 5.5, perRound: { 3: 3.5, 4: 2 },
+        opdelingPerRunde: { 3: { p1x2: 3.5, chance: 0, combi: 0 }, 4: { p1x2: 2, chance: 0, combi: 0 } },
+      } },
+    );
+    await recomputeAllPlayerTotals(db, FieldValue, 'g1');
+    expect(Object.keys(db._players.A.opdelingPerRunde)).toEqual(Object.keys(db._players.A.perRound));
+    expect(db._players.A.opdelingPerRunde['3']).toBeUndefined();
+    expect(db._players.A.opdelingPerRunde['4']).toEqual({ p1x2: 2, chance: 0, combi: 0 });
+  });
 });
 
 describe('rescoreAllBets — gaten', () => {

@@ -795,7 +795,7 @@ service cloud.firestore {
           && request.resource.data.uid == uid
           && holdGyldigt()
           && !request.resource.data.keys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds', 'forladt', 'forladtAt', 'slettet']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'opdelingPerRunde', 'leagueIds', 'forladt', 'forladtAt', 'slettet']);
 
         // Opdatér eget medlemskab, men aldrig point-/placerings-/liga-felterne.
         //
@@ -838,7 +838,7 @@ service cloud.firestore {
           // enhver liga med en startrunde — mens spil-stillingen så normal ud,
           // fordi totalPoints var urørt. Fundet af Security Reviewer.
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(
-              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'leagueIds', 'name', 'slettet']);
+              ['totalPoints', 'stagePoints', 'matchPoints', 'bonusPoints', 'roundBonus', 'previousRank', 'rank', 'points', 'opdeling', 'perRound', 'opdelingPerRunde', 'leagueIds', 'name', 'slettet']);
 
         // Man kan fortryde en tilmelding (forlade spillet) SÅ LÆNGE der endnu
         // ikke er tildelt point — så en placering ikke kan gå tabt ved uheld.

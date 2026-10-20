@@ -3950,6 +3950,26 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       ));
     });
 
+    // Samme hul som perRound, ét felt senere: opdelingPerRunde er grundlaget for
+    // ligaens REGNSKAB (rubrikkerne fra startrunden). Kunne et medlem skrive det
+    // selv, kunne han vise 1000 i 1X2-kolonnen i enhver liga — mens stillingen
+    // stod uændret (den regnes af perRound), og mergeFields på serveren
+    // overskriver det først ved næste genberegning.
+    it('KAN IKKE skrive sit eget opdelingPerRunde (ligaens regnskab)', async () => {
+      await seedDeltager('se9g', { uid: 'se9g', joinedAt: Timestamp.now() });
+      await assertFails(updateDoc(pDoc('se9g'), { opdelingPerRunde: { 20: { p1x2: 1000, chance: 0, combi: 0 } } }));
+      await assertFails(updateDoc(pDoc('se9g'), { favoriteTeam: 'AGF', opdelingPerRunde: { 1: { p1x2: 5, chance: 0, combi: 0 } } }));
+    });
+
+    it('KAN IKKE seede opdelingPerRunde ved tilmelding', async () => {
+      await createUser('se9h', 'player', 'approved');
+      await createGame('se9-spil');
+      await assertFails(setDoc(
+        doc(testEnv.authenticatedContext('se9h').firestore(), 'games', 'se9-spil', 'players', 'se9h'),
+        { uid: 'se9h', joinedAt: Timestamp.now(), opdelingPerRunde: { 1: { p1x2: 999, chance: 0, combi: 0 } } },
+      ));
+    });
+
     it('et deltager-dokument UDEN uid-felt kan stadig opdateres', async () => {
       // Pulje-afregningen kan danne { bonusPoints } med merge på en spiller
       // uden players-dokument. Krævede reglen feltet, kunne den spiller aldrig

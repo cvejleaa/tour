@@ -595,8 +595,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           kan have skiftet siden sidst — podiet ligner ofte sig selv fra
           december. IKKE gate't på podiet: en liga på to spillere har ingen
           top-3, men har stadig en rundekonge. Kortene bærer selv deres skala:
-          rundesejre følger ligaens startrunde, mens Chancen er spil-scoped og
-          ikke findes pr. runde. */}
+          rundesejre følger ligaens startrunde, mens Chance-kongen stadig regner
+          på hele sæsonen (opdeling.chance) — rubrikkerne pr. runde findes nu,
+          men kortet følger først ligaen, når alle rækker har dem. */}
       <Pokaler
         rows={raekker}
         matches={matches}

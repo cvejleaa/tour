@@ -23,9 +23,10 @@
  * og drilles; en rubrik kan ikke.
  *
  * SKALAEN SKAL STÅ I SELVE LABELEN. Rundesejre kan afgrænses til ligaens
- * startrunde, men `opdeling.chance` er SPIL-scoped og findes ikke pr. runde
- * (pointOpdeling lægger 1X2, chance og combi sammen i perRunde). I en liga med
- * startrunde er de to pokaler altså på hver sin skala. En grå fodnote er ikke
+ * startrunde, men kortet regner på `opdeling.chance`, som er SPIL-scoped —
+ * rubrikkerne pr. runde (`opdelingPerRunde`) findes, men kortet følger først
+ * ligaen, når alle rækker har dem (D4 i planen for ligaens regnskab). I en liga
+ * med startrunde er de to pokaler altså på hver sin skala. En grå fodnote er ikke
  * nok, når en enkelt person hænges op som "bedst": så tror man, trofæet er
  * ligaens. Derfor står "hele sæsonen" i overskriften — og kun når ligaen
  * faktisk tæller fra en senere runde.

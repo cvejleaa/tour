@@ -304,9 +304,8 @@ export default function FootballHelp({ game }) {
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>⚡ Chance-kongen</strong> — hvem står bedst? Er nogen i minus, står den modigste af dem også. Kortet viser altid
-            <strong> hele sæsonen</strong>, også når du kigger på en liga med startrunde: Chancen gemmes
-            ikke runde for runde. Derfor står der &quot;hele sæsonen&quot; på kortet, når de to tal er på hver sin
-            skala.
+            <strong> hele sæsonen</strong>, også når du kigger på en liga med startrunde. Derfor står der
+            &quot;hele sæsonen&quot; på kortet, når de to tal er på hver sin skala.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>⚔️ Jer to imellem</strong> — klik på et navn i stillingen og fold den ud: de kampe,

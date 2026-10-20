@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   opdelPoint, combiBonus, buildRoundContext, ugeNoegle, rundensUge, puljeLockFraRunde,
+  rubrikkerPerRunde, REST_AFRUNDING,
 } from './pointOpdeling.js';
 
 // Ét regnestykke for "hvor kommer pointene fra". Det fandtes før to steder ad
@@ -591,6 +592,133 @@ describe('combiBonus — uden kuponkrav', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// opdelingPerRunde — RUBRIKKER PR. RUNDE (ejerens fund 20/10 2026: under et
+// liga-filter med startrunde viste regnskabet spillets tal, så nr. 2 stod med
+// flest point). Ligaens regnskab lægges i fladen af dette felt fra startrunden,
+// og det skal derfor (a) have PRÆCIS perRundes nøgler, (b) summe præcis til
+// rundens tal, hvor resten er ren afrunding, (c) ikke drive over en sæson, og
+// (d) lade en rest stå ÅBEN, når den er point fra en kamp, opdelingen ikke kan
+// læse — præcis som på spil-niveau.
+// ---------------------------------------------------------------------------
+describe('opdelingPerRunde — rubrikker pr. runde', () => {
+  const odds = { 1: 2.5, X: 4, 2: 4 };
+  const rubriksum = (r) => Math.round((r.p1x2 + r.chance + r.combi) * 10) / 10;
+
+  it('har PRÆCIS perRundes nøgler — også 0-nøglen, «uden» og en slettet kamps rest', () => {
+    const roundCtx = ctx([
+      { id: 'm1', round: 1, result: '1', odds },
+      { id: 'm2', round: 2, result: 'X', odds },
+      { id: 'm3', result: '1', odds: { 1: 3, X: 4, 2: 4 } },   // ingen runde → 'uden'
+    ]);
+    const res = opdelPoint({
+      bets: [
+        { matchId: 'm1', pick: '1', points: 5.5 },
+        { matchId: 'm2', pick: '1', points: 0 },      // afgjort forbier → nøglen 2 med 0
+        { matchId: 'm3', pick: '1', points: 3 },
+        { matchId: 'slettet', pick: '1', points: 2 }, // kampen findes ikke → 'uden', ulæselig
+      ],
+      roundCtx, nowMs: NU,
+    });
+    expect(res.perRunde).toEqual({ 1: 5.5, 2: 0, uden: 5 });
+    expect(Object.keys(res.opdelingPerRunde).sort()).toEqual(Object.keys(res.perRunde).sort());
+    expect(res.opdelingPerRunde['1']).toEqual({ p1x2: 2.5, chance: 3, combi: 0 });
+    expect(res.opdelingPerRunde['2']).toEqual({ p1x2: 0, chance: 0, combi: 0 });
+  });
+
+  it('rubrikkerne summer præcis til rundens tal, når alle kampe kan læses', () => {
+    const roundCtx = ctx([
+      { id: 'm1', round: 4, result: '1', odds },
+      { id: 'm2', round: 4, result: 'X', odds },
+      { id: 'm3', round: 5, result: '2', odds },
+    ]);
+    const res = opdelPoint({
+      bets: [
+        { matchId: 'm1', pick: '1', points: 7.1 },  // 2,5 + 4,6 fra Chancen
+        { matchId: 'm2', pick: '1', points: -2.4 }, // tabt indsats
+        { matchId: 'm3', pick: '2', points: 4 },
+      ],
+      roundCtx, nowMs: NU,
+    });
+    for (const k of Object.keys(res.perRunde)) {
+      expect(rubriksum(res.opdelingPerRunde[k]), `runde ${k}`).toBe(res.perRunde[k]);
+    }
+    expect(res.opdelingPerRunde['4'].combi).toBe(Math.round(res.combi * 10) / 10);
+  });
+
+  // Afrunding pr. rubrik driver ±0,1 pr. runde. Over 30 runder er det 3 point —
+  // langt over fladens tærskel på 0,25 for «delene summer ikke til totalen».
+  // Resten lægges derfor i p1x2, så summen af ligaens rubrikker er ligaens tal.
+  // Odds 2,25 og tip 5 er binært eksakte: p1x2 2,25→2,3, Chancen 2,75→2,8, sum
+  // 5,1 mod rundens 5,0 — resten er −0,1 i HVER runde. Rød uden rest-reglen.
+  it('driver ikke fra ligaens tal over en sæson: 30 runder med afrundingsrest summer præcis', () => {
+    const matches = [];
+    const bets = [];
+    for (let r = 1; r <= 30; r += 1) {
+      matches.push({ id: `m${r}`, round: r, result: '1', odds: { 1: 2.25, X: 3, 2: 3 } });
+      bets.push({ matchId: `m${r}`, pick: '1', points: 5 });
+    }
+    const res = opdelPoint({ bets, roundCtx: ctx(matches), nowMs: NU });
+    let rubrikker = 0;
+    let runder = 0;
+    for (const k of Object.keys(res.perRunde)) {
+      expect(rubriksum(res.opdelingPerRunde[k]), `runde ${k}`).toBe(res.perRunde[k]);
+      rubrikker += rubriksum(res.opdelingPerRunde[k]);
+      runder += res.perRunde[k];
+    }
+    expect(Math.round(rubrikker * 10) / 10).toBe(150);
+    expect(Math.round(runder * 10) / 10).toBe(150);
+  });
+
+  it('en rest, der er mere end afrunding, står ÅBEN — point fra en slettet kamp lægges ikke i p1x2', () => {
+    const roundCtx = ctx([{ id: 'm3', result: '1', odds: { 1: 3, X: 4, 2: 4 } }]); // 'uden'
+    const res = opdelPoint({
+      bets: [
+        { matchId: 'm3', pick: '1', points: 3 },
+        { matchId: 'slettet', pick: '1', points: 2 },
+      ],
+      roundCtx, nowMs: NU,
+    });
+    expect(res.perRunde.uden).toBe(5);
+    // 3 kan læses (p1x2), 2 kan ikke — og de 2 må IKKE forklædes som 1X2-point.
+    expect(res.opdelingPerRunde.uden).toEqual({ p1x2: 3, chance: 0, combi: 0 });
+  });
+
+  it('gulvet lægges ALDRIG pr. runde: en tabt indsats står som negativ rubrik', () => {
+    const roundCtx = ctx([{ id: 'm2', round: 2, result: 'X', odds }]);
+    const res = opdelPoint({ bets: [{ matchId: 'm2', pick: '1', points: -8 }], roundCtx, nowMs: NU });
+    expect(res.perRunde['2']).toBe(-8);
+    expect(res.opdelingPerRunde['2']).toEqual({ p1x2: 0, chance: -8, combi: 0 });
+    expect(res.total).toBe(0); // gulvet ligger på summen, ikke på runden
+  });
+
+  // REST-REGLEN bindes direkte: bet-point og 1X2 er allerede i tiendedele, så
+  // en rest opstår kun, når combi (2·√odds, irrationel) eller flydende støj
+  // afrundes anderledes alene end sammen med resten — sjældent, men over en
+  // sæson nok til fladens stjerne. Reglen skal derfor kunne bevises på
+  // syntetiske tal, ikke jagtes i fixtures.
+  it('rubrikkerPerRunde lægger en ren afrundingsrest (≤ 0,2) i p1x2 — og lader en større rest stå åben', () => {
+    const perRunde = { 1: 5.0, 2: 5.0, 3: 5.0, uden: 2, 9: 0 };
+    const rubrikker = {
+      1: { p1x2: 2.3, chance: 2.8, combi: 0 },      // sum 5,1 → rest −0,1 → p1x2 2,2
+      2: { p1x2: 2.25, chance: 2.74, combi: 0.2 },  // afrundet 2,3+2,7+0,2 = 5,2 → rest −0,2 (grænsen) → p1x2 2,1
+      3: { p1x2: 2.0, chance: 0, combi: 2.7 },      // sum 4,7 → rest +0,3 → ÅBEN (point, opdelingen ikke kan læse)
+      // 'uden' har ingen rubrik: 2 point fra en slettet kamp → {0,0,0}, resten står åben
+    };
+    expect(rubrikkerPerRunde(perRunde, rubrikker)).toEqual({
+      1: { p1x2: 2.2, chance: 2.8, combi: 0 },
+      2: { p1x2: 2.1, chance: 2.7, combi: 0.2 },
+      3: { p1x2: 2, chance: 0, combi: 2.7 },
+      uden: { p1x2: 0, chance: 0, combi: 0 },
+      9: { p1x2: 0, chance: 0, combi: 0 },
+    });
+    expect(REST_AFRUNDING).toBe(0.2);
+    // Negativ nul må ikke slippe ud (toEqual skelner -0 fra 0 i Firestore-dokumentet er det ligegyldigt, i JSON ikke).
+    const n = rubrikkerPerRunde({ 1: 0 }, { 1: { p1x2: -0.04, chance: 0.04, combi: 0 } });
+    expect(Object.is(n[1].p1x2, 0)).toBe(true);
+  });
+});
+
 describe('spejling mod src/lib', () => {
   // EN TABEL, ikke ét lykkeligt tilfælde. Med kun ét fixture — begge kampe
   // afgjorte, i fortiden, positiv total — kunne både kickoff-vagten og gulvet
@@ -722,6 +850,18 @@ describe('spejling mod src/lib', () => {
         { matchId: 'm1', pick: '1', points: 3 },
         { matchId: 'm2', pick: 'X', points: 4 },
       ],
+    }],
+    // opdelingPerRunde: de grene, rest-reglen og nøglerne kan drive på.
+    ['afrundingsrest i hver runde (opdelingPerRunde)', {
+      matches: [
+        { id: 'm1', round: 1, result: '1', odds: { 1: 2.25, X: 3, 2: 3 } },
+        { id: 'm2', round: 2, result: '1', odds: { 1: 2.25, X: 3, 2: 3 } },
+      ],
+      bets: [{ matchId: 'm1', pick: '1', points: 5 }, { matchId: 'm2', pick: '1', points: 5 }],
+    }],
+    ['slettet kamp og kamp uden runde — åben rest under «uden» (opdelingPerRunde)', {
+      matches: [{ id: 'm3', result: '1', odds: { 1: 3, X: 4, 2: 4 } }],
+      bets: [{ matchId: 'm3', pick: '1', points: 3 }, { matchId: 'slettet', pick: '1', points: 2 }],
     }],
   ];
 
