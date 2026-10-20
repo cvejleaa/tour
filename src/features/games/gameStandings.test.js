@@ -44,6 +44,17 @@ describe('rankStandings', () => {
     expect(row.bonusPoints).toBe(0);
   });
 
+  // Samme datavej for rubrikkerne pr. runde: fjernes feltet her, viser
+  // ligaens regnskab streger for alle — med grøn UI-suite, fordi den mocker
+  // hooken og leverer rækker, der allerede bærer feltet.
+  it('fører opdelingPerRunde med ud til fladen — og null, når den ikke findes', () => {
+    const opdelingPerRunde = { 12: { p1x2: 7.2, chance: 2.5, combi: 0 } };
+    const [med] = rankStandings([{ uid: 'a', totalPoints: 9.7, opdelingPerRunde }], users);
+    expect(med.opdelingPerRunde).toEqual(opdelingPerRunde);
+    const [uden] = rankStandings([{ uid: 'a', totalPoints: 9.7 }], users);
+    expect(uden.opdelingPerRunde).toBeNull();
+  });
+
   it('sorterer faldende efter point og tildeler placering', () => {
     const rows = rankStandings([
       { uid: 'a', totalPoints: 5 },
