@@ -12,7 +12,7 @@
 //      `vis` er tabt.
 //   3. Værdien, der gemmes, er det KANONISKE navn — det er join-nøglen.
 // ---------------------------------------------------------------------------
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 
 const mockSaveAnswer = vi.fn().mockResolvedValue({ ok: true });
@@ -20,6 +20,10 @@ const mockLqStatus = vi.fn();
 const mockBotRecap = vi.fn();
 const mockUpdateQ = vi.fn().mockResolvedValue({ ok: true, deadlineSat: false });
 const mockPostVaeg = vi.fn().mockResolvedValue({ ok: true });
+// Ryd kaldene mellem tests: ✏️-testen læser `mockUpdateQ.mock.calls[0]` og var rækkefølgeafhængig (med
+// `--sequence.shuffle` blev den rød, så snart en anden test havde kaldt mocken før den). mockClear beholder
+// implementeringen — kun historikken ryddes.
+beforeEach(() => { mockUpdateQ.mockClear(); });
 vi.mock('./gameLeagueActions', () => ({
   createLeagueQuestion: vi.fn().mockResolvedValue({ ok: true }),
   setLeagueQuestionFacit: vi.fn().mockResolvedValue({ ok: true }),
@@ -30,6 +34,7 @@ vi.mock('./gameLeagueActions', () => ({
   updateLeagueQuestion: (...a) => mockUpdateQ(...a),
   postLeagueMessage: (...a) => mockPostVaeg(...a),
   LEAGUE_Q_LABEL_MAX: 120,
+  LEAGUE_Q_SVAR_MAX: 200,
 }));
 
 import LeagueQuestions from './LeagueQuestions';
@@ -311,5 +316,107 @@ describe('LeagueQuestions — ✏️ ret spørgsmålet (ejer)', () => {
   it('ikke-ejer har ingen ✏️', () => {
     renderQ({ isOwner: false, questions: [teamQ()], answersByQid: {} });
     expect(screen.queryByTitle('Ret spørgsmålet (tekst, point, deadline)')).toBeNull();
+  });
+});
+
+// Fjendtligt indhold må ikke hvidne ligafanen: reglerne afviser nu et map i
+// label/facit/svar og en ikke-liste i acceptedAnswers — men ældre dokumenter
+// kan bære det, og et map som React-child kaster for ALLE medlemmer —
+// permanent, fordi et afgjort spørgsmål og et låst svar ikke kan rettes
+// (Security-fund, emulator-kørt). Testen er rød, hvis `tekst()` tabes ét
+// sted, eller hvis scoringen igen kalder .map på acceptedAnswers råt.
+describe('LeagueQuestions — fjendtligt indhold i label, facit, svar og acceptedAnswers', () => {
+  it('et afgjort spørgsmål med map i alle fire felter renderer uden at kaste — og de sunde svar vises stadig', () => {
+    const giftig = {
+      id: 'q9', label: { a: 1 }, type: 'text', points: 5, deadline: 1, facit: { a: 1 }, acceptedAnswers: 'x',
+    };
+    expect(() => renderQ({
+      game: CYKELSPIL, isOwner: true,
+      questions: [giftig],
+      answersByQid: { q9: [{ uid: 'andet', answer: { a: 1 } }, { uid: 'me', answer: 'Mit svar' }] },
+    })).not.toThrow();
+    expect(screen.getByText(/Mig: Mit svar/)).toBeInTheDocument();
+    expect(screen.getByText(/Anden:/)).toBeInTheDocument();
+    expect(screen.getByText('Facit:')).toBeInTheDocument();
+  });
+
+  it('en UGYLDIG deadline (ældre dokument) kaster ikke — og ejeren kan stadig sætte facit', () => {
+    // Reglerne afviser alt andet på et spørgsmål med deadline 'abc' (evalueringsfejl
+    // i `now < deadline`), men facit må sættes — fladen skal derfor vise formen,
+    // og formatKickoff(Number('abc')) må ikke kaste RangeError (Security-fund).
+    expect(() => renderQ({
+      game: CYKELSPIL, isOwner: true,
+      questions: [{ id: 'q7', label: 'Hvem vinder?', type: 'text', points: 5, deadline: 'abc', facit: null }],
+    })).not.toThrow();
+    expect(screen.getByPlaceholderText('Facit')).toBeInTheDocument();
+  });
+
+  it('et ældre TAL-svar vises som tekst, ikke som tomt', () => {
+    renderQ({
+      game: CYKELSPIL,
+      questions: [{ id: 'q8', label: 'Hvor mange mål?', type: 'number', points: 5, deadline: 1, facit: '42' }],
+      answersByQid: { q8: [{ uid: 'andet', answer: 41 }] },
+    });
+    expect(screen.getByText(/Anden: 41/)).toBeInTheDocument();
+  });
+});
+
+// --- Test Manager: de tekst()-anvendelser og felt-lofter, som ovenstående ikke bandt ------------
+// ✏️-formularen åbner først ved et klik, så en gengivelse alene ser aldrig labelDraft; hold-grenen af
+// visSvar kræver et HOLD-spørgsmål (visOf returnerer et ukendt navn uændret — også et map); og
+// maxLength er attributter, ingen test læste.
+describe('LeagueQuestions — rettelse af et forgiftet label, hold-grenen og felt-lofterne', () => {
+  const GIFT = { id: 'q6', label: { a: 1 }, type: 'text', points: 5, deadline: null, facit: null };
+  const aabnRet = () => {
+    fireEvent.click(screen.getByTitle('Ret spørgsmålet (tekst, point, deadline)'));
+    return screen.getByTestId('lq-ret-q6');
+  };
+
+  it('et forgiftet label kan RETTES fra fladen: ✏️ åbner med tom tekst, og den nye tekst gemmes', async () => {
+    mockUpdateQ.mockClear();
+    renderQ({ game: CYKELSPIL, isOwner: true, questions: [GIFT] });
+    const form = aabnRet();
+    const felt = within(form).getByLabelText('Spørgsmålets tekst');
+    expect(felt).toHaveValue('');
+    fireEvent.change(felt, { target: { value: 'Hvem scorer flest?' } });
+    fireEvent.click(within(form).getByText('Gem rettelse'));
+    await waitFor(() => expect(mockUpdateQ).toHaveBeenCalled());
+    expect(mockUpdateQ.mock.calls[0][0]).toMatchObject({ label: 'Hvem scorer flest?', questionId: 'q6' });
+  });
+
+  it('Fortryd nulstiller til det rensede label — ikke til map-objektet', () => {
+    renderQ({ game: CYKELSPIL, isOwner: true, questions: [GIFT] });
+    let form = aabnRet();
+    fireEvent.change(within(form).getByLabelText('Spørgsmålets tekst'), { target: { value: 'Halvskrevet' } });
+    fireEvent.click(within(form).getByText('Fortryd'));
+    form = aabnRet();
+    expect(within(form).getByLabelText('Spørgsmålets tekst')).toHaveValue('');
+  });
+
+  it('slet-bekræftelsen nævner aldrig et forgiftet label råt', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderQ({ game: CYKELSPIL, isOwner: true, questions: [GIFT] });
+    fireEvent.click(screen.getByTitle('Slet spørgsmål'));
+    expect(confirmSpy).toHaveBeenCalledWith('Slet spørgsmålet ""?');
+    confirmSpy.mockRestore();
+  });
+
+  it('et map som svar eller facit på et HOLD-spørgsmål hvidner heller ikke — de sunde svar vises stadig', () => {
+    expect(() => renderQ({
+      game: PL_GAME,
+      questions: [teamQ({ deadline: 1, facit: { a: 1 } })],
+      answersByQid: { q1: [{ uid: 'andet', answer: { a: 1 } }, { uid: 'me', answer: 'Arsenal' }] },
+    })).not.toThrow();
+    expect(screen.getByText(/Anden:/)).toBeInTheDocument();
+    expect(screen.getByText(/Mig: Arsenal/)).toBeInTheDocument();
+  });
+
+  it('svar- og facit-felterne stopper ved reglens loft på 200 tegn', () => {
+    renderQ({
+      game: CYKELSPIL, isOwner: true,
+      questions: [{ id: 'q5', label: 'Hvem vinder?', type: 'text', points: 5, deadline: null, facit: null }],
+    });
+    expect(screen.getByPlaceholderText('Dit svar')).toHaveAttribute('maxlength', '200');
+    expect(screen.getByPlaceholderText('Facit')).toHaveAttribute('maxlength', '200');
   });
 });

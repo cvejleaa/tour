@@ -23,7 +23,7 @@ import { fileURLToPath }           from 'url';
 import { dirname, join }           from 'path';
 import {
   setDoc, doc, updateDoc, getDoc, getDocs, deleteDoc, collection, collectionGroup, deleteField,
-  query, where, Timestamp,
+  query, where, orderBy, limit, Timestamp, serverTimestamp,
 } from 'firebase/firestore';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -177,6 +177,26 @@ describe('users/{uid} — sikkerhedsregler', () => {
       setDoc(doc(ctx.firestore(), 'users', 'newUser'), {
         displayName: 'Snyder', email: 'x@test.dk', role: 'player', status: 'pending',
         totalPoints: 99999,
+      })
+    );
+  });
+
+  // Testen ovenfor sender OGSÅ en e-mail, som alene afviser den (creatingWithUserEmail) — den beviser
+  // derfor intet om point-felterne: fjernes hele felt-vagten ved oprettelse, er den stadig grøn (Test
+  // Manager: create-listen kunne skrumpe til ['uid','id'] med hele suiten grøn). Her er formen præcis
+  // signup-formen, plus ÉT server-ejet felt ad gangen — så er det felt-vagten, og intet andet, der afviser.
+  it.each([
+    ['totalPoints', 99999],
+    ['stagePoints', 500],
+    ['bonusPoints', 500],
+    ['seasons', { 2026: { totalPoints: 1 } }],
+    ['previousRank', 1],
+    ['points', 500],
+  ])('en ny profil KAN IKKE oprettes med %s — ellers signup-formen, så kun felt-vagten afviser', async (felt, vaerdi) => {
+    const ctx = testEnv.authenticatedContext('newUser');
+    await assertFails(
+      setDoc(doc(ctx.firestore(), 'users', 'newUser'), {
+        displayName: 'Snyder', role: 'player', status: 'pending', createdAt: Timestamp.now(), [felt]: vaerdi,
       })
     );
   });
@@ -1087,7 +1107,7 @@ describe('leagueComments/{id} — sikkerhedsregler', () => {
     const ctx = testEnv.authenticatedContext('m1');
     await assertSucceeds(
       setDoc(doc(ctx.firestore(), 'leagueComments', 'c1'), {
-        leagueId: 'lg1', uid: 'm1', displayName: 'M1', text: 'Hej!', createdAt: Timestamp.now(),
+        leagueId: 'lg1', uid: 'm1', displayName: 'M1', text: 'Hej!', createdAt: serverTimestamp(),
       })
     );
   });
@@ -1100,7 +1120,7 @@ describe('leagueComments/{id} — sikkerhedsregler', () => {
     const ctx = testEnv.authenticatedContext('outsider');
     await assertFails(
       setDoc(doc(ctx.firestore(), 'leagueComments', 'c2'), {
-        leagueId: 'lg2', uid: 'outsider', displayName: 'O', text: 'snyd', createdAt: Timestamp.now(),
+        leagueId: 'lg2', uid: 'outsider', displayName: 'O', text: 'snyd', createdAt: serverTimestamp(),
       })
     );
   });
@@ -1113,9 +1133,72 @@ describe('leagueComments/{id} — sikkerhedsregler', () => {
     const ctx = testEnv.authenticatedContext('m2');
     await assertFails(
       setDoc(doc(ctx.firestore(), 'leagueComments', 'c3'), {
-        leagueId: 'lg3', uid: 'm1', displayName: 'M1', text: 'falsk', createdAt: Timestamp.now(),
+        leagueId: 'lg3', uid: 'm1', displayName: 'M1', text: 'falsk', createdAt: serverTimestamp(),
       })
     );
+  });
+
+  // Navnet caches på beskeden og renderes råt (LeagueWall) — så 'system' (Tour-
+  // Bottens kendetegn, skrives kun af serveren) og typen på navn/emoji er
+  // reglens sag. Samme hul som på spil-ligaernes væg (Security-fund).
+  it('et medlem KAN IKKE udgive sig for Tour-Botten eller skrive et map som navn/emoji', async () => {
+    await createUser('m1', 'player', 'approved');
+    await createLeague('lg3b', 'm1', ['m1']);
+    const ctx = testEnv.authenticatedContext('m1');
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3b'), {
+      leagueId: 'lg3b', uid: 'm1', displayName: 'Tour-Botten', avatarEmoji: '🤖', system: true,
+      text: 'Falsk bot', createdAt: serverTimestamp(),
+    }));
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3c'), {
+      leagueId: 'lg3b', uid: 'm1', displayName: { a: 1 }, text: 'Gift', createdAt: serverTimestamp(),
+    }));
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3d'), {
+      leagueId: 'lg3b', uid: 'm1', displayName: 'M1', avatarEmoji: { a: 1 }, text: 'Gift', createdAt: serverTimestamp(),
+    }));
+    // Kontrol: klientens præcise form (commentActions) virker stadig.
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3e'), {
+      leagueId: 'lg3b', uid: 'm1', displayName: 'M1', avatarEmoji: null, favoriteTeam: null,
+      text: 'Hej!', createdAt: serverTimestamp(),
+    }));
+  });
+
+  it('tekst og tidsstempel på Tour-væggen er typevagtet (map/for lang tekst, map/klient-ur som createdAt)', async () => {
+    await createUser('m1', 'player', 'approved');
+    await createLeague('lg3c', 'm1', ['m1']);
+    const ctx = testEnv.authenticatedContext('m1');
+    const basis = { leagueId: 'lg3c', uid: 'm1', displayName: 'M1', avatarEmoji: null, favoriteTeam: null };
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3f'), { ...basis, text: { a: 1 }, createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3g'), { ...basis, text: 'x'.repeat(1001), createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3h'), { ...basis, text: 'Hej', createdAt: { seconds: { a: 1 } } }));
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3i'), { ...basis, text: 'Hej', createdAt: Timestamp.now() }));
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3j'), { ...basis, text: 'x'.repeat(1000), createdAt: serverTimestamp() })); // kontrol: loftet
+  });
+
+  // Test Manager: favoriteTeam-vagten og 'edited' havde hver ÉN linje i reglen og INGEN test — begge
+  // kunne fjernes med hele suiten grøn. Hver assertion afviger fra klientens form i netop ét felt.
+  it('et medlem KAN IKKE skrive et map som favoriteTeam eller oprette en besked, der allerede er «redigeret»', async () => {
+    await createUser('m1', 'player', 'approved');
+    await createLeague('lg3d', 'm1', ['m1']);
+    const ctx = testEnv.authenticatedContext('m1');
+    // serverTimestamp(): createdAt SKAL være serverens ur (reglen), så formen er ellers gyldig.
+    const form = { leagueId: 'lg3d', uid: 'm1', displayName: 'M1', text: 'Hej', createdAt: serverTimestamp() };
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3k'), { ...form, favoriteTeam: { a: 1 } }));
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3l'), { ...form, edited: true }));
+    // Kontrol: samme form uden de to felter virker — så er det feltet, og intet andet, der afviser.
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3m'), form));
+  });
+
+  // Test Manager (d497f71): `text.size() > 0` og `<= 1000` blev tilføjet, men testen ovenfor binder kun toppen —
+  // tom tekst (`> 0` → `>= 0`) og en besked på ÉT tegn («k», «👍»; `> 0` → `> 1`) kunne ændres med grøn suite.
+  it('Tour-væggens tekst: tom afvises, og én tegn er lovligt', async () => {
+    await createUser('m1', 'player', 'approved');
+    await createLeague('lg3e', 'm1', ['m1']);
+    const ctx = testEnv.authenticatedContext('m1');
+    const basis = {
+      leagueId: 'lg3e', uid: 'm1', displayName: 'M1', avatarEmoji: null, favoriteTeam: null, createdAt: serverTimestamp(),
+    };
+    await assertFails(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3n'), { ...basis, text: '' }));
+    await assertSucceeds(setDoc(doc(ctx.firestore(), 'leagueComments', 'c3o'), { ...basis, text: 'k' })); // kontrol: nedre grænse
   });
 
   it('et medlem KAN læse væggen, en udenforstående KAN IKKE', async () => {
@@ -1511,6 +1594,17 @@ describe('emailLog — sikkerhedsregler', () => {
     await createUser('p1', 'player', 'approved');
     await seedLog();
     await assertFails(getDoc(doc(testEnv.authenticatedContext('p1').firestore(), 'emailLog', 'e1')));
+  });
+
+  // Fladen (useEmailLog) er en LIST med orderBy+limit — en getDoc-test kan
+  // ikke se, om reglen stadig kan afgøres pr. dokument ("regler er ikke filtre").
+  it('list-queryen fra Mail-log-fanen: admin kan, spiller kan ikke', async () => {
+    await createUser('admin2', 'globalAdmin', 'approved');
+    await createUser('p2', 'player', 'approved');
+    await seedLog();
+    const q = (fs) => query(collection(fs, 'emailLog'), orderBy('createdAt', 'desc'), limit(50));
+    await assertSucceeds(getDocs(q(testEnv.authenticatedContext('admin2').firestore())));
+    await assertFails(getDocs(q(testEnv.authenticatedContext('p2').firestore())));
   });
 
   it('selv en admin KAN IKKE skrive i mail-loggen fra klienten', async () => {
@@ -3058,6 +3152,80 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await assertSucceeds(updateDoc(qDoc('se5-l10', 'se-q5j'), { deadline: Date.now() + 3600e3 }));
     });
 
+    // TYPEVAGTER ved update (Security-fund, emulator-kørt): label og facit
+    // renderes råt hos alle medlemmer, og et map dér gav hvid side for hele
+    // ligaen — permanent, fordi et afgjort spørgsmål ikke kan slettes. Typen
+    // var kun vagtet ved create.
+    it('ejeren KAN IKKE skrive et map, et tal, en for kort eller en for lang tekst som label', async () => {
+      await seedSpoergsmaal('se5-l20', 'se-q5t');
+      await assertFails(updateDoc(qDoc('se5-l20', 'se-q5t'), { label: { a: 1 } }));
+      await assertFails(updateDoc(qDoc('se5-l20', 'se-q5t'), { label: 42 }));
+      await assertFails(updateDoc(qDoc('se5-l20', 'se-q5t'), { label: 'x'.repeat(121) }));
+      await assertFails(updateDoc(qDoc('se5-l20', 'se-q5t'), { label: 'ab' }));
+      // Test Manager: map-et ovenfor har ÉN nøgle (size 1) og afvises af `size() >= 3` ALENE — `is string`
+      // kunne fjernes med hele suiten grøn, og tallet 42 afvises af en evalueringsfejl (`42.size()`). Et map
+      // med ≥ 3 nøgler og en liste med ≥ 3 elementer har size() ≥ 3 og slipper forbi størrelsen: kun
+      // typevagten holder dem ude.
+      await assertFails(updateDoc(qDoc('se5-l20', 'se-q5t'), { label: { a: 1, b: 2, c: 3 } }));
+      await assertFails(updateDoc(qDoc('se5-l20', 'se-q5t'), { label: ['abc', 'def', 'ghi'] }));
+      // Kontrol: præcis grænserne 3 og 120 virker — ellers kunne `>= 3` / `<= 120` blive `>` / `<` ubemærket.
+      await assertSucceeds(updateDoc(qDoc('se5-l20', 'se-q5t'), { label: 'abc' }));
+      await assertSucceeds(updateDoc(qDoc('se5-l20', 'se-q5t'), { label: 'x'.repeat(120) }));
+    });
+
+    it('ejeren KAN IKKE skrive et map, et tal eller en for lang tekst som facit', async () => {
+      await seedSpoergsmaal('se5-l21', 'se-q5u');
+      await assertFails(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: { a: 1 } }));
+      await assertFails(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: 42 }));
+      await assertFails(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: 'x'.repeat(201) }));
+      await assertFails(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: '' })); // tom streng ville åbne svarene uden et facit
+      await assertSucceeds(updateDoc(qDoc('se5-l21', 'se-q5u'), { facit: 'x'.repeat(200) })); // kontrol: præcis loftet
+    });
+
+    it('acceptedAnswers skal være en liste på højst 20', async () => {
+      await seedSpoergsmaal('se5-l22', 'se-q5v');
+      await assertFails(updateDoc(qDoc('se5-l22', 'se-q5v'), { facit: 'Isaksen', acceptedAnswers: 'Isaksen, Isak' }));
+      await assertFails(updateDoc(qDoc('se5-l22', 'se-q5v'), { facit: 'Isaksen', acceptedAnswers: { a: 1 } }));
+      await assertFails(updateDoc(qDoc('se5-l22', 'se-q5v'), { facit: 'Isaksen', acceptedAnswers: Array(21).fill('x') }));
+      await assertSucceeds(updateDoc(qDoc('se5-l22', 'se-q5v'), { facit: 'Isaksen', acceptedAnswers: ['Isak', 'isaksen'] }));
+      // Kontrol: præcis loftet på 20 (ellers kunne `<= 20` blive `< 20` ubemærket).
+      await assertSucceeds(updateDoc(qDoc('se5-l22', 'se-q5v'), { facit: 'Isaksen', acceptedAnswers: Array(20).fill('x') }));
+    });
+
+    it('vagterne er i DIFF-form: et ældre spørgsmål med forgiftet eller for lang label kan stadig få facit — og label kan rettes', async () => {
+      // Ingen ratchet: setLeagueQuestionFacit skriver kun facit/acceptedAnswers,
+      // så en ubetinget label-vagt ville fryse facit på et forgiftet eller for
+      // langt spørgsmål — og ejeren skal kunne rydde op fra fladen.
+      await seedSpoergsmaal('se5-l23', 'se-q5w', { label: { a: 1 } });
+      await assertSucceeds(updateDoc(qDoc('se5-l23', 'se-q5w'), { facit: 'Isaksen', acceptedAnswers: [] }));
+      await assertSucceeds(updateDoc(qDoc('se5-l23', 'se-q5w'), { label: 'Rettet spørgsmål' }));
+      await seedSpoergsmaal('se5-l24', 'se-q5x', { label: 'x'.repeat(200) });
+      await assertSucceeds(updateDoc(qDoc('se5-l24', 'se-q5x'), { facit: 'Isaksen' }));
+    });
+
+    // Test Manager: ovenstående bandt kun DIFF-formen på label. Facit-vagten kunne gøres ubetinget (en
+    // ratchet: et forgiftet facit blokerer enhver anden rettelse) uden at nogen test blev rød, og
+    // acceptedAnswers-vagtens diff-form bandt kun «feltet mangler» (evalueringsfejl), ikke «feltet er
+    // forgiftet, men uberørt».
+    it('ingen ratchet på facit og acceptedAnswers: et forgiftet, uberørt felt blokerer ikke en label-rettelse', async () => {
+      await seedSpoergsmaal('se5-l27', 'se-q5aa', { facit: { a: 1 } });
+      await assertSucceeds(updateDoc(qDoc('se5-l27', 'se-q5aa'), { label: 'Rettet spørgsmål' }));
+      await seedSpoergsmaal('se5-l28', 'se-q5ab', { acceptedAnswers: 'Isak, Isaksen' });
+      await assertSucceeds(updateDoc(qDoc('se5-l28', 'se-q5ab'), { label: 'Rettet spørgsmål' }));
+    });
+
+    // «facit: null | streng ≤ 200» — null-grenen er tilsigtet, men kan kun afgøre noget på et dokument UDEN
+    // facit-nøgle (et uberørt null er ingen berørt nøgle, og at nulstille et sat facit afvises af en ældre
+    // regel). Uden denne test kunne grenen fjernes ubemærket.
+    it('ejeren KAN rette et spørgsmål uden facit-nøgle ved at skrive facit: null', async () => {
+      await seedSpoergsmaal('se5-l29', 'se-q5ac');
+      await seed('games/se-spil/leagues/se5-l29/questions/se-q5ac', {
+        label: 'Hvem bliver topscorer?', type: 'text', points: 5, deadline: null,
+        createdBy: 'se5', createdAt: Timestamp.now(), // ← INGEN facit-nøgle
+      });
+      await assertSucceeds(updateDoc(qDoc('se5-l29', 'se-q5ac'), { facit: null }));
+    });
+
     // Klientens ENESTE update-vej (setLeagueQuestionFacit), og den bruges typisk
     // EFTER deadline. Uden denne kontrol kunne deadline-betingelsen strammes til
     // noget, der spærrer selve produktionsstien, uden at nogen test blev rød.
@@ -3143,6 +3311,63 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       }));
     });
 
+    // Et spørgsmål fødes UDEN facit (facit != null åbner alles svar), og
+    // acceptedAnswers er en liste — begge typevagter gælder også create-vejen.
+    it('ejeren KAN IKKE oprette spørgsmålet med facit allerede sat eller med acceptedAnswers som streng', async () => {
+      await seedSpoergsmaal('se5-l26', 'se-q5z');
+      const basis = {
+        label: 'Hvem bliver topscorer?', type: 'text', points: 5,
+        deadline: null, createdBy: 'se5', createdAt: Timestamp.now(),
+      };
+      await assertFails(setDoc(qDoc('se5-l26', 'se-q5z-a'), { ...basis, facit: 'Isaksen' }));
+      await assertFails(setDoc(qDoc('se5-l26', 'se-q5z-b'), { ...basis, facit: null, acceptedAnswers: 'Isak' }));
+      await assertSucceeds(setDoc(qDoc('se5-l26', 'se-q5z-c'), { ...basis, facit: null, acceptedAnswers: [] })); // kontrol
+      // Test Manager: loftet på 20 gælder OGSÅ create — det stod kun på update-testen, så create-vagtens
+      // `<= 20` kunne blive `<= 2000` med grøn suite.
+      await assertFails(setDoc(qDoc('se5-l26', 'se-q5z-d'), { ...basis, facit: null, acceptedAnswers: Array(21).fill('x') }));
+      await assertSucceeds(setDoc(qDoc('se5-l26', 'se-q5z-e'), { ...basis, facit: null, acceptedAnswers: Array(20).fill('x') })); // kontrol: præcis loftet
+    });
+
+    // SVAR: typevagt + loft. Et map som svar var en PERMANENT hvid side for
+    // hele ligaen — svar kan hverken slettes eller rettes efter låsen
+    // (Security-fund, emulator-kørt). Klienten sender altid en trimmet streng.
+    it('et svar skal være en ikke-tom streng på højst 200 tegn', async () => {
+      await seedSpoergsmaal('se5-l25', 'se-q5y');
+      const aDoc = (id) => doc(testEnv.authenticatedContext('se5').firestore(),
+        'games', 'se-spil', 'leagues', 'se5-l25', 'questionAnswers', id);
+      const svar = (answer) => ({ questionId: 'se-q5y', uid: 'se5', answer });
+      await assertFails(setDoc(aDoc('se-q5y_se5'), svar({ a: 1 })));
+      await assertFails(setDoc(aDoc('se-q5y_se5'), svar(42)));
+      await assertFails(setDoc(aDoc('se-q5y_se5'), svar('')));
+      await assertFails(setDoc(aDoc('se-q5y_se5'), svar('x'.repeat(201))));
+      await assertSucceeds(setDoc(aDoc('se-q5y_se5'), svar('x'.repeat(200)))); // kontrol: præcis loftet
+      await assertSucceeds(setDoc(aDoc('se-q5y_se5'), svar('Isaksen')));        // kontrol: klientens form, også som update
+      // Test Manager: et svar på ÉT tegn er det mest almindelige for en tal- eller ja/nej-type («7», «x»).
+      // `size() > 0` kunne blive `> 1` — og afvise dem alle — uden at nogen test blev rød.
+      await assertSucceeds(setDoc(aDoc('se-q5y_se5'), svar('7')));
+      // Tegn, ikke bytes: reglens size() og klientens .length (loftet i saveLeagueQuestionAnswer) tæller begge
+      // «æ» som ÉT. Talte reglen bytes, ville et dansk svar på 200 tegn afvises her, mens klienten lod det
+      // gå — og fejlen blev vist som «Deadline er passeret».
+      await assertSucceeds(setDoc(aDoc('se-q5y_se5'), svar('æ'.repeat(200))));
+      await assertFails(setDoc(aDoc('se-q5y_se5'), svar('æ'.repeat(201))));
+    });
+
+    // Test Manager-fund: type og deadline var utypede ved create. deadline:'abc'
+    // gjorde `now < deadline` til en evalueringsfejl — spørgsmålet kunne hverken
+    // rettes eller slettes — og type som map kastede i fladen.
+    it('ejeren KAN IKKE oprette spørgsmålet med en ukendt type eller en deadline, der ikke er et tal', async () => {
+      await seedSpoergsmaal('se5-l27', 'se-q5aa');
+      const basis = {
+        label: 'Hvem bliver topscorer?', points: 5, facit: null, createdBy: 'se5', createdAt: Timestamp.now(),
+      };
+      await assertFails(setDoc(qDoc('se5-l27', 'se-q5aa-a'), { ...basis, type: { a: 1 }, deadline: null }));
+      await assertFails(setDoc(qDoc('se5-l27', 'se-q5aa-b'), { ...basis, type: 'x', deadline: null }));
+      await assertFails(setDoc(qDoc('se5-l27', 'se-q5aa-c'), { ...basis, type: 'text', deadline: 'abc' }));
+      await assertFails(setDoc(qDoc('se5-l27', 'se-q5aa-d'), { ...basis, type: 'text', deadline: { a: 1 } }));
+      await assertSucceeds(setDoc(qDoc('se5-l27', 'se-q5aa-e'), { ...basis, type: 'number', deadline: Date.now() + 3600e3 })); // kontrol
+      await assertSucceeds(setDoc(qDoc('se5-l27', 'se-q5aa-f'), { ...basis, type: 'team', deadline: null }));                 // kontrol
+    });
+
     it('oprettelse UDEN markør virker stadig (kontrol af create-vagten)', async () => {
       await seedSpoergsmaal('se5-l19', 'se-q5s');
       await assertSucceeds(setDoc(qDoc('se5-l19', 'se-q5s-ny'), {
@@ -3195,17 +3420,70 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await seedVaeg('se6-l1');
       await assertFails(setDoc(mDoc('se6-l1', 'm1'), {
         uid: 'se6', displayName: 'Runde-Botten', avatarEmoji: '🤖', system: true,
-        text: 'Falsk bot-opslag', createdAt: Timestamp.now(),
+        text: 'Falsk bot-opslag', createdAt: serverTimestamp(),
       }));
       await assertFails(setDoc(mDoc('se6-l1', 'm2'), {
-        uid: 'se6', system: false, text: 'Også med false', createdAt: Timestamp.now(),
+        uid: 'se6', system: false, text: 'Også med false', createdAt: serverTimestamp(),
       }));
     });
 
     it('en almindelig besked uden system-feltet virker stadig (kontrol)', async () => {
       await seedVaeg('se6-l2');
       await assertSucceeds(setDoc(mDoc('se6-l2', 'm1'), {
-        uid: 'se6', text: 'Hej liga!', createdAt: Timestamp.now(),
+        uid: 'se6', text: 'Hej liga!', createdAt: serverTimestamp(),
+      }));
+    });
+
+    // Et forbud mod 'system' alene lukkede ikke kæden: væggen faldt tilbage til
+    // dokumentets displayName for enhver uid uden for stillingen — så et medlem
+    // kunne poste som "Runde-Botten 🤖" UDEN system-feltet, forlade ligaen og
+    // stå som botten for alle; og et map som navn hvidnede fanen for alle
+    // (Security-fund, emulator-kørt). Klienten skriver præcis {uid, text,
+    // createdAt}; alt andet er serverens.
+    it("et medlem KAN IKKE gemme displayName, avatarEmoji eller questionId på en besked — heller ikke uden 'system'", async () => {
+      await seedVaeg('se6-l3');
+      await assertFails(setDoc(mDoc('se6-l3', 'm1'), {
+        uid: 'se6', displayName: 'Runde-Botten', avatarEmoji: '🤖',
+        text: 'Falsk bot uden system', createdAt: serverTimestamp(),
+      }));
+      await assertFails(setDoc(mDoc('se6-l3', 'm2'), {
+        uid: 'se6', displayName: { a: 1 }, text: 'Gift som navn', createdAt: serverTimestamp(),
+      }));
+      await assertFails(setDoc(mDoc('se6-l3', 'm3'), {
+        uid: 'se6', questionId: 'q1', text: 'Bottens spørgsmålsmarkør', createdAt: serverTimestamp(),
+      }));
+      // Test Manager: m1 ovenfor bærer displayName OG avatarEmoji — displayName afviser den alene, så
+      // avatarEmoji (og `round`, som kommentaren i reglen lover at dække) kunne tilføjes til hasOnly-listen
+      // med grøn suite. Hver af dem alene:
+      await assertFails(setDoc(mDoc('se6-l3', 'm4'), {
+        uid: 'se6', avatarEmoji: '🤖', text: 'Kun en emoji', createdAt: serverTimestamp(),
+      }));
+      await assertFails(setDoc(mDoc('se6-l3', 'm5'), {
+        uid: 'se6', round: 3, text: 'Bottens rundemarkør', createdAt: serverTimestamp(),
+      }));
+      // Kontrol i SAMME liga: de tre tilladte felter virker — så er det de ekstra felter, der afviser.
+      await assertSucceeds(setDoc(mDoc('se6-l3', 'm6'), {
+        uid: 'se6', text: 'Almindelig besked', createdAt: serverTimestamp(),
+      }));
+    });
+
+    // hasOnly er en NØGLE-vagt: createdAt som map sorterer over alle
+    // tidsstempler, lå øverst for evigt og fik relativeTime til at kaste —
+    // samme hvide fane ad en anden vej (Security-fund, emulator-kørt).
+    // Klienten skriver serverTimestamp(); et klient-ur afvises også.
+    it('createdAt skal være serverens ur — hverken et map eller klientens Timestamp.now()', async () => {
+      await seedVaeg('se6-l4');
+      await assertFails(setDoc(mDoc('se6-l4', 'm1'), {
+        uid: 'se6', text: 'Klæber øverst', createdAt: { seconds: { a: 1 } },
+      }));
+      await assertFails(setDoc(mDoc('se6-l4', 'm2'), {
+        uid: 'se6', text: 'Klient-ur', createdAt: Timestamp.now(),
+      }));
+      await assertFails(setDoc(mDoc('se6-l4', 'm3'), {
+        uid: 'se6', text: 'Uden tidsstempel',
+      }));
+      await assertSucceeds(setDoc(mDoc('se6-l4', 'm4'), {
+        uid: 'se6', text: 'Serverens ur', createdAt: serverTimestamp(),
       }));
     });
   });
@@ -3531,6 +3809,16 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
       await assertFails(updateDoc(doc(fs, 'users', 'se7b'), { seasons: { 2026: { totalPoints: 9999 } } }));
       await assertFails(updateDoc(doc(fs, 'users', 'se7b'), { points: 500 }));
     });
+
+    it('en global admin KAN IKKE skrive id eller uid på en andens profil — men kan stadig godkende', async () => {
+      await createUser('se7c', 'globalAdmin', 'approved');
+      await createUser('se7maal', 'player', 'pending');
+      const fs = testEnv.authenticatedContext('se7c').firestore();
+      // Samme liste som create og egen-update: de tre grene var før uenige om uid.
+      await assertFails(updateDoc(doc(fs, 'users', 'se7maal'), { id: 'offer' }));
+      await assertFails(updateDoc(doc(fs, 'users', 'se7maal'), { uid: 'offer' }));
+      await assertSucceeds(updateDoc(doc(fs, 'users', 'se7maal'), { status: 'approved' })); // kontrol
+    });
   });
 
   // --- Fund fra rollernes gennemgang: samme fejltype, andre steder ---------
@@ -3560,6 +3848,56 @@ describe('sæsoneftersyn — uforanderlige felter og lukkede bagdøre', () => {
         doc(testEnv.authenticatedContext('se8c').firestore(), 'users', 'se8c'),
         { points: 9999 },
       ));
+    });
+
+    // id-FELTET skygger for doc-id'et i admin-fladen (useUsers: hver handling
+    // tager user.id): en PENDING bruger skrev id:'<offer>', og ét "Afvis" på
+    // angriberens række satte offerets status (Security-fund, emulator-målt).
+    // Læserne er siden vendt til data-først — reglen er den anden vagt.
+    it('KAN IKKE skrive et id-felt på sin egen profil — heller ikke som pending', async () => {
+      await createUser('se8d', 'player', 'pending');
+      const fs = testEnv.authenticatedContext('se8d').firestore();
+      await assertFails(updateDoc(doc(fs, 'users', 'se8d'), { id: 'offer' }));
+      await assertFails(updateDoc(doc(fs, 'users', 'se8d'), { displayName: 'Nyt navn', id: 'offer' }));
+      // Kontrol: en pending bruger KAN ellers rette sit navn — så er det id-feltet, og intet andet, der afviser.
+      await assertSucceeds(updateDoc(doc(fs, 'users', 'se8d'), { displayName: 'Nyt navn' }));
+    });
+
+    // approvedViaInvite/approvedAt er serverens godkendelses-markører (approveUserAndJoin). De stod i den
+    // gamle liste og blev flyttet med i PR 1's omskrivning (`.concat([...])`) — men ingen test bandt dem:
+    // begge kunne tabes ved omskrivningen uden at nogen test blev rød.
+    it('KAN IKKE skrive approvedViaInvite eller approvedAt på sin egen profil', async () => {
+      await createUser('se8g', 'player', 'pending');
+      const fs = testEnv.authenticatedContext('se8g').firestore();
+      await assertFails(updateDoc(doc(fs, 'users', 'se8g'), { approvedViaInvite: true }));
+      await assertFails(updateDoc(doc(fs, 'users', 'se8g'), { approvedAt: Timestamp.now() }));
+      await assertSucceeds(updateDoc(doc(fs, 'users', 'se8g'), { displayName: 'Stadig fri' })); // kontrol
+    });
+
+    it('KAN IKKE oprette sin profil med id- eller uid-felt', async () => {
+      const fs = testEnv.authenticatedContext('se8e').firestore();
+      await assertFails(setDoc(doc(fs, 'users', 'se8e'), {
+        displayName: 'Ny', role: 'player', status: 'pending', createdAt: Timestamp.now(), id: 'offer',
+      }));
+      await assertFails(setDoc(doc(fs, 'users', 'se8e'), {
+        displayName: 'Ny', role: 'player', status: 'pending', createdAt: Timestamp.now(), uid: 'offer',
+      }));
+      // Kontrol: SAMME form uden de to felter virker — så er det id/uid, og intet andet, der afviser.
+      await assertSucceeds(setDoc(doc(fs, 'users', 'se8e'), {
+        displayName: 'Ny', role: 'player', status: 'pending', createdAt: Timestamp.now(),
+      }));
+    });
+
+    it('et ældre dokument, der ALLEREDE bærer et id-felt, kan stadig rette navn (ingen ratchet)', async () => {
+      await createUser('se8f', 'player', 'approved');
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection('users').doc('se8f').update({ id: 'gift' });
+      });
+      const fs = testEnv.authenticatedContext('se8f').firestore();
+      // Vagten måler på ÆNDRINGEN: et uændret id-felt er ikke en berørt nøgle...
+      await assertSucceeds(updateDoc(doc(fs, 'users', 'se8f'), { displayName: 'Rettet' }));
+      // ...men det kan ikke flyttes til et andet offer.
+      await assertFails(updateDoc(doc(fs, 'users', 'se8f'), { id: 'andet-offer' }));
     });
   });
 

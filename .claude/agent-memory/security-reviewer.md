@@ -9,6 +9,25 @@
 
 ## PoC-opsætning der virker (genbrug den)
 
+- **REST via `:commit` (2026-10-15, bedst):** `POST .../documents:commit` med
+  `{writes:[{update:{name,fields}, updateMask?, currentDocument?, updateTransforms:[{fieldPath,
+  setToServerValue:'REQUEST_TIME'}]}]}` giver ÆGTE `serverTimestamp()` (nødvendigt for regler
+  med `== request.time`) og `deleteField` (felt i mask, ikke i fields). Harness med encoder,
+  `t(navn, forvent, p)` og reset lå i scratchpad `sec-pr1/lib.mjs` — genskab den, den er 50
+  linjer. Kør SAMME script mod tre emulatorer (ny / gammel / rettet kopi) — afvigelseslisten
+  pr. emulator ER beviset. E2E-læsning med ægte SDK-deserialisering: `@firebase/rules-unit-testing`
+  via `createRequire('/home/user/tour/functions/package.json')` fra scratchpad.
+- **REST-harness uden npm (2026-10-15, virkede på første forsøg).** Seed med
+  `Authorization: Bearer owner` (emulatoren omgår reglerne), og test som en uid med det
+  usignerede JWT. Opdatering = `PATCH ?updateMask.fieldPaths=f&currentDocument.exists=true`,
+  oprettelse = `?currentDocument.exists=false`, sæt = `PATCH` uden mask. Nulstil med
+  `DELETE /emulator/v1/projects/P/databases/(default)/documents`. Port via env.
+  **Rettelser bevises med TO emulatorer** (8085 = repoets regler, 8086 = rettet kopi) og
+  SAMME script: huller åbne→lukkede, legitime klientstier grønne begge steder. Pas på:
+  et hul, der LYKKES tidligt i scriptet, ændrer tilstanden (fx facit-map gør spørgsmålet
+  'afgjort'), så senere legitime checks fejler af den grund på de urettede regler. Seed
+  pr. check, eller læs fejlene i lyset af det.
+
 - **Hurtigste regel-kontrol uden npm: REST + usigneret JWT** (2026-10-13).
   `tok(){ b64 '{"alg":"none"}' . b64 '{"sub":U,"user_id":U,"aud":"demo-x","iss":"https://securetoken.google.com/demo-x","iat":1,"exp":9999999999}' . }`
   og `curl -X PATCH -H "Authorization: Bearer $(tok u)" .../documents/<sti>?updateMask.fieldPaths=f`.
@@ -361,14 +380,14 @@
   Krav til NY alarm-type med kadence <6 t, der melder menneske-hændelser: eget id
   pr. hændelse eller `daempMs:0`.
 
-- **To samtidige postbud-kørsler sender SAMME mail to gange (BEKRÆFTET, 48d5212).**
+- **[ACCEPTERET i d0aa9df — efterprøvet 2026-10-15: postbud.js:427-434 vælger dubletten som fejlretning]** **To samtidige postbud-kørsler sender SAMME mail to gange (BEKRÆFTET, 48d5212).**
   `koerPostbud` er læs → send → `batch.set(mailetAt)` uden claim/transaktion.
   Skema (*/15) + «📨 Send alarm-mail nu», eller to admins samtidig: PoC med 300 ms
   SMTP → 2 mails til samme admin. "Idempotent" holder kun SEKVENTIELT (knappen er
   `disabled` under kaldet, så samme admins dobbeltklik er dækket). Lav risiko:
   én dublet. Fix hvis ønsket: claim i en transaktion (`mailetAt: 'sender'` +
   precondition) før afsendelse.
-- **Forældreløst driftlog-kort → evig `koersel`-alarm og mail hver 6. time
+- **[LUKKET i d0aa9df — efterprøvet 2026-10-15: postbud.js:149-151/170, kerne kørt]** **Forældreløst driftlog-kort → evig `koersel`-alarm og mail hver 6. time
   (BEKRÆFTET, 48d5212).** Postbudet læser HELE `driftlog`; fladen viser kun
   `forventedeKoersler(games)`. Fjernes et spil fra `SYNCED_GAMES` (pl2627-efteraar
   → foraar!), står `sweep-<spil>`/`kickoff-<spil>` med passeret
@@ -377,7 +396,7 @@
   for evigt. Kun reminder-jobbet lukker sit kort (`naesteForventetFoer:null`).
   Fix: ignorér kort for spil uden for SYNCED_GAMES/uden `sync.provider`, eller
   luk kortet i samme PR som spillet fjernes.
-- **`afkort` skrubber KUN `https?://` — bare domæner overlever (BEKRÆFTET).**
+- **[DELVIST LUKKET i d0aa9df — efterprøvet 2026-10-15: www.-domæner og listede TLD'er fanges nu (postbud.js:94); `evil.ru/login`, `evil.xyz`, `login-vejleaa.co` overlever stadig — kørt]** **`afkort` skrubber KUN `https?://` — bare domæner overlever (BEKRÆFTET).**
   `www.evil.dk/x` og `tip.vejleaa.dk.evil.com/admin` står ordret i mailen, og
   Gmail/Outlook/Apple Mail auto-linker `www.`-domæner også i HTML-mails. Vejene
   ind i dag er kun admin-skrevne: spilnavnet og test-alarmens
@@ -386,7 +405,7 @@
   markdown-links til alle). MEN PR 2 lægger `err.message` i alarmer — Node's
   `JSON.parse`-fejl citerer kildens tekst — så fra dér er det kilde→ejer.
 
-- **`adminDeleteUserCore`s oprydning er KEYET PÅ players-dokumentet — og det kan
+- **[LUKKET i c1ac932 — efterprøvet 2026-10-15: adminDeleteUser.js:79-87 + :111-113]** **`adminDeleteUserCore`s oprydning er KEYET PÅ players-dokumentet — og det kan
   spilleren selv slette (BEKRÆFTET 2026-09-04, #221).** `adminDeleteUser.js:69-77`
   gør `if (!p.exists) continue;`, så et helt spil springes over: owns-league-vagten,
   memberUids-oprydningen, bet-oprydningen OG (efter QC's rettelse) puljeBet-sletningen.
@@ -406,14 +425,14 @@
   uden `forladt`, så `aktiveSpillere` tæller det med i rang-snapshot, gameRecap
   og påmindelser. Præcis den genopstandelse, #221 blev skrevet for at lukke.
   Fix: kør løkken over ALLE spil; lad kun arkivér/slet-VALGET afhænge af `p.exists`.
-- **`slettet` er et server-flag, klienten selv kan sætte (BEKRÆFTET, #221).**
+- **[LUKKET i c1ac932 — efterprøvet 2026-10-15: emulator 403]** **`slettet` er et server-flag, klienten selv kan sætte (BEKRÆFTET, #221).**
   players-update-blacklisten (firestore.rules ~L812) har `forladt` (asymmetrisk)
   men IKKE `slettet`; emulator-målt: `updateDoc(players/mig,{slettet:true})`
   lykkes, `{forladt:true}` afvises. Inert i dag (INGEN læser feltet — grep'et),
   men det er samme klasse som `forladt`: får en serverløkke nogensinde et
   `slettet`-tjek, er det en selvbetjent usynlighedskappe.
 
-- **Deltager-gaten på `puljeBets` kan man SELV opfylde med ét dokument
+- **[STADIG ÅBEN — genkørt 2026-10-15 mod finished/joinable:false; EJER-BESLUTNING. Bemærk gameActions.js:194-205 dokumenterer joinable som 'ikke annonceret', ikke adgang, og GamePage.jsx:123-144 viser Deltag-knappen uden status-/joinable-tjek]** **Deltager-gaten på `puljeBets` kan man SELV opfylde med ét dokument
   (BEKRÆFTET, 2026-09-01, efter 5c4b9e0).** Læsegrenen kræver nu
   `deltager()` = `exists(games/$(gameId)/players/$(request.auth.uid))`. Men
   `players`-create (firestore.rules ~L704) kræver KUN `isApproved()` +
@@ -454,7 +473,7 @@
   fordi læsningen lukker igen samtidig. Kredsen er ejeren + globalAdmins, og
   det er dét, der bærer beslutningen — ikke en teknisk grænse.
 
-- **Liga-ejer: slet + genopret spørgsmålet med SAMME doc-id.** `questions` har
+- **[LUKKET i db00422 — efterprøvet 2026-10-15: emulator 403]** **Liga-ejer: slet + genopret spørgsmålet med SAMME doc-id.** `questions` har
   `allow delete: if qOwner()` (firestore.rules L999), mens `questionAnswers` har
   `allow delete: if false` og doc-id `qid_uid`. Kæden (emulator-kørt, begge
   varianter): sæt facit → læs alles svar → slet spørgsmålet → opret samme id med
@@ -464,14 +483,14 @@
   "botten siger hvad ejeren vil" (det genoprettede spørgsmål har intet
   `botFacitAt`, så de GAMLE svar afsløres under en NY label og et NYT facit).
   Fix: `allow delete: if isApproved() && qOwner()==uid && resource.data.get('facit',null)==null && (resource.data.get('deadline',null)==null || request.time.toMillis() < resource.data.deadline)`.
-- **Liga-ejer: point på et AFGJORT spørgsmål.** questions-update (L1017-1030)
+- **[LUKKET i 1146d1e — efterprøvet 2026-10-15: point, type og første-deadline-i-fortid alle 403]** **Liga-ejer: point på et AFGJORT spørgsmål.** questions-update (L1017-1030)
   kræver kun `points 1-100` UBETINGET — ingen facit-/deadline-betingelse. Ejer
   hæver 5→100 med alle svar i hånden; stillingen beregnes LIVE på klienten af
   `q.points`. Dertil: **første-gangs deadline i FORTIDEN** er tilladt (grenen
   `old deadline == null`) → åbner alles svar for hele ligaen, og **`type`
   text→number EFTER deadline** er ikke begrænset → "nærmest vinder"-scoring
   aktiveres med svarene synlige. Alle tre BEKRÆFTET i emulator.
-- **Invitations-mailen: HTML-injektion i 300 mails.** `<a href="${cta}">`
+- **[DELVIST LUKKET — efterprøvet 2026-10-15: værts-spoof lukket (functions/index.js:1642 kræver `${APP_URL}/tilmeld?kode=`); rå `href="${cta}"` i functions/salesPitch.js:147 STADIG ÅBEN — kørt, attribut-breakout + fuld <a>-injektion passerer. Kun globalAdmin, ingen eskalering]** **Invitations-mailen: HTML-injektion i 300 mails.** `<a href="${cta}">`
   (inviteTemplate.js L189) flettes RÅT — `esc()` bruges kun til den synlige
   kopi (L192). `https://tip.vejleaa.dk/x" style="…` er attribut-breakout, og
   `…/"></a></td></tr></table><a href="https://phish/">…` er fuld injektion.
@@ -480,7 +499,7 @@
   `https://tip.vejleaa.dk@evil.dk/` igennem. Sammen: en globalAdmin (= en af
   vennerne) sender en officiel tip@vejleaa.dk-mail med en phishing-knap.
   Fix: `href="${esc(cta)}"` + `startsWith(APP_URL + '/')`.
-- **`id`-FELTET SKYGGER FOR DOC-ID'ET — spil-ligaer LUKKET (74ff02d), men
+- **[LUKKET for users i 7bf30ca — emulator 2026-10-15: `id`/`uid` 403 for pending, approved, create og globalAdmin; owner-grenen bevidst fri. Top-niveau leagues LUKKET i fb7c42b]** **`id`-FELTET SKYGGER FOR DOC-ID'ET — spil-ligaer LUKKET (74ff02d), men
   KLASSEN er kun lukket hos LÆSEREN andre steder.** Mønstret
   `{ id: d.id, ...d.data() }` lader et `id`-FELT i dataen vinde over
   dokument-id'et. Alle 70 forekomster er vendt til data-først, og
@@ -525,7 +544,7 @@
   0 forekomster i repoet i dag, så prisen er en fremtidig falsk rød — billig at
   omgå (skriv id sidst) og langt billigere end en falsk grøn. Behold bredden;
   men hvis nogen fjerner en assertion her, så tjek at det ikke er vagten selv.
-- **Navne-/profilgiften er LUKKET, men vagten dækker kun 3 af 6 update-grene
+- **[LUKKET i fb7c42b — efterprøvet 2026-10-15: globalAdmin-grenen 403 på `id` og `name:{a:1}`; isOwner-grenen bevidst åben som oprydningsvej (firestore.rules:427-430)]** **Navne-/profilgiften er LUKKET, men vagten dækker kun 3 af 6 update-grene
   på top-niveau `leagues` (BEKRÆFTET 2026-09-02, 6d14243).** `navnGyldigt()` +
   `ingenIdNoegle()` står på create, ejer-update og (kun navn) liga-admin-update
   — men **IKKE** på forlad-grenen, `isGlobalAdmin()`-grenen eller
@@ -539,7 +558,7 @@
   — modsat `games/{g}/leagues`, hvor der slet ikke FINDES en admin-skrivegren.
   Vil man have vagten hel, skal `navnGyldigt() && ingenIdNoegle()` også på de to
   admin-grene.
-- **`questions.label` er type-vagtet ved CREATE, men ikke ved UPDATE
+- **[LUKKET i 7bf30ca — emulator 2026-10-15: label/facit map/tal/for lang og acceptedAnswers ikke-liste/>20 → 403 i DIFF-form; ratchet-kontroller 200]** **`questions.label` er type-vagtet ved CREATE, men ikke ved UPDATE
   (BEKRÆFTET).** `firestore.rules` create kræver `label is string`, 3-120 tegn;
   update-grenen (L1164-1186) kræver kun `points`-båndet. Liga-ejeren kan
   bagefter skrive `label: {toString:null}` (og `facit` ligeså). Præcis den
@@ -551,7 +570,7 @@
   (gameLeagues.js L281) for HELE spillet plus `{league.name}` i
   GameLeagues.jsx L195. `navnGyldigt()` gælder nu create OG ejer-update
   (mutationstestet, se RENT-listen).
-- **Den afviste kan ikke meldes UD af en liga.** `saetLigaMedlemCore`
+- **[LUKKET i fe2db59 — efterprøvet 2026-10-15: gameLeagues.js:355-367]** **Den afviste kan ikke meldes UD af en liga.** `saetLigaMedlemCore`
   (gameLeagues.js L340-341) tjekker `status === 'rejected'` FOER forgreningen paa
   `medlem` (L347), saa vagten mod "luk den bortviste ind ad bagdoeren" ogsaa
   spaerrer OPRYDNINGEN. Emulator-bekraeftet: admins "Meld ud" paa en rejected
@@ -562,7 +581,7 @@
   stilling og serveres stadig af `leagueQuestionStatus`. Fix: flyt vagten ind i
   `if (medlem)`-grenen. Testen (ligaMedlem.test.js L147-152) daekker kun
   `medlem: true`, saa adfaerden er IKKE frosset fast.
-- **`leagueQuestionStatus`: intet `isApproved`-tjek.** Callablen kræver kun
+- **[LUKKET i 2470aac — efterprøvet 2026-10-15: tjekSvarStatusAdgang gameLeagues.js:138-143, kaldt :208-213 FØR questions/svar læses]** **`leagueQuestionStatus`: intet `isApproved`-tjek.** Callablen kræver kun
   `request.auth` + medlemskab. Et medlem med `status:'rejected'` står stadig i
   `memberUids` — INTET fjerner dem — og får fuldt svar: liganavn, alle åbne
   spørgsmåls-labels, alle medlemsnavne, hvem der har svaret. Rules kræver
@@ -571,7 +590,7 @@
   30 medl × 10 sp = 341 læsninger, 100×60 = 6161, også for en kalder der ender
   med `permission-denied`. Fix begge i ét greb: læs ligaen, tjek medlemskab,
   læs SÅ resten.
-- **Griefing via `displayName`/`answer` (type ikke tjekket i rules).**
+- **[LUKKET i 7bf30ca (answer/label/facit) + fb7c42b (profil) — emulator 2026-10-15]** **Griefing via `displayName`/`answer` (type ikke tjekket i rules).**
   `{toString: null}` er et lovligt Firestore-map → `String(...)` i
   `lqNorm`/`rensTekst` kaster `TypeError: Cannot convert object to primitive
   value` → triggeren fejler tavst, og ejerens knap svarer `internal` for altid.
@@ -599,7 +618,7 @@
   `questions.label`/`facit` og liganavnet på de to admin-grene er IKKE dækket —
   de veje står stadig. Klient-siden mangler stadig sin egen typevagt, så et
   admin-SDK-/konsol-skrevet navn kan stadig hvidne fladen.
-- **Bot-forfalskning på liga-væggen.** `messages`-reglen binder KUN `uid` — ikke
+- **[LUKKET i 7bf30ca: `keys().hasOnly(['uid','text','createdAt'])` + klienten tager navn KUN ved `m.system === true` — men `createdAt` står åben, se posten 'Væggens createdAt' nederst]** **Bot-forfalskning på liga-væggen.** `messages`-reglen binder KUN `uid` — ikke
   `displayName`, `avatarEmoji`, `system` eller `questionId`. Et medlem kan gemme
   `{uid: sig selv, displayName:'Runde-Botten', avatarEmoji:'🤖', system:true}`.
   Fladen (GameLeagues.jsx L96) viser `byUid[m.uid] || {name: m.displayName, …}`,
@@ -607,12 +626,12 @@
   forsvinder hen fra `byUid` → opslaget står som "Runde-Botten 🤖" for alle.
   Fix: rendér efter `m.system === true` + et fast bot-uid, eller kræv
   `!('system' in request.resource.data)` i reglen.
-- **Ubegrænsede betalte AI-kald uden admin-port.** `leagueQuestionRecapNow` er
+- **[LUKKET i db00422 — efterprøvet 2026-10-15: index.js:250-255 medlem/admin + 10 min cooldown leagueQuestionRecap.js:104/118-121]** **Ubegrænsede betalte AI-kald uden admin-port.** `leagueQuestionRecapNow` er
   den første AI-kaldende callable, en ikke-admin (liga-ejer) kan nå. `tvingNy:true`
   springer `botFacitAt` over — 3 opslag + 3 modelkald i træk, ingen cooldown,
   ingen `maxInstances`, ingen App Check. En ejer, der har FORLADT sin liga,
   beholder `ownerUid` og kan spamme en væg, hen ikke selv må læse.
-- **xG-synken kan vælte sweep'et — altså facit-nettet selv (BEKRÆFTET, 58e6bc7).**
+- **[LUKKET i 5f76b71 — efterprøvet 2026-10-15: SWEEP_TIMEOUT_S 300 (index.js:584/598), xG (:704) efter strandet (:658)]** **xG-synken kan vælte sweep'et — altså facit-nettet selv (BEKRÆFTET, 58e6bc7).**
   `syncSuperligaSweep` (functions-platform/index.js L440) har INGEN
   `timeoutSeconds` og der er intet `setGlobalOptions` → GCF gen2-default 60 s
   (minut-synken har eksplicit 120 s, L380). xG-blokken (L482-508) er lagt FØR
@@ -625,7 +644,7 @@
   kortet aldrig skrives → tavst. Præcis den fejlform, xG blev flyttet ud af
   minut-synken for at undgå. Fix: eksplicit `timeoutSeconds` på sweep'et, et
   wall-clock-budget ind i `hentXg`, og xG SIDST i løkkekroppen.
-- **XG_LOFT er et loft på ØNSKEDE KAMPE, ikke på KALD (BEKRÆFTET).**
+- **[LUKKET i 5f76b71 — efterprøvet 2026-10-15]** **XG_LOFT er et loft på ØNSKEDE KAMPE, ikke på KALD (BEKRÆFTET).**
   `superliga.hentXg` (syncProviders.js L186-205) løber kildens `data.events`
   igennem og fyrer ét `opta-stats`-kald pr. event, hvis nøgle står i `oenskede`
   — Set'et tømmes aldrig. PoC: 600 dubletter af SAMME event for ÉN ønsket kamp
@@ -635,7 +654,7 @@
   (syncXg.test.js L340-349) måler kun hvor mange id'er KERNEN sender ind, aldrig
   hvor mange kald provideren laver → usynlig for suiten. Fix uden en anden vagt:
   `if (!oenskede.delete(key)) continue;`.
-- **`Number(null) === 0` → xG 0,0 skrives og prøves ALDRIG igen (BEKRÆFTET).**
+- **[LUKKET i 5f76b71 — efterprøvet 2026-10-15: xgTal]** **`Number(null) === 0` → xG 0,0 skrives og prøves ALDRIG igen (BEKRÆFTET).**
   Kontrakten (syncProviders.js L50) siger "aldrig 0 for ved-ikke", men
   `Number(xg.home)` (L215-216) og pulselives `tal()` (L467-469) gør `null`, `''`,
   `[]` og `false` til et FINITE 0, som `Number.isFinite`-vagten i
@@ -651,12 +670,12 @@
   den gamle formulering her var forkert). Men fremtid→TIDLIGERE er TILLADT (legitime reschedules
   kræver det). Backstop er KUN <48t-alarmen; et move på >48t tidligere (7d→3d)
   skrives TAVST — en kompromitteret kilde kan lukke tips tidligt uden alarm.
-- **Alarm-druknen.** `mangler` i syncKickoffsCore samler ALLE kilde-kampe uden
+- **[LUKKET i b778efa — efterprøvet 2026-10-15: runder sendes til hentKickoffs (superligaSync.js:634-635), filtreret syncProviders.js:354/548]** **Alarm-druknen.** `mangler` i syncKickoffsCore samler ALLE kilde-kampe uden
   dokument. Kilden leverer hele sæsonens 380 PL-kampe, mens `pl2627-efteraar`
   kun har 180 → 200 poster i alarmen hver dag. Seed-vejen har `--runder 1-18`;
   synk-vejen har intet filter, og `mangler` bygges UDEN for den spejlede
   `kickoffPlan`, så paritetstesten kan ikke fange det.
-- **Argument-smugling gennem et tekst-input i et workflow.**
+- **[LUKKET i 9b58d63 — efterprøvet 2026-10-15: kun env, fix-double-chance.yml:83-90]** **Argument-smugling gennem et tekst-input i et workflow.**
   `.github/workflows/fix-double-chance.yml` L67-72 bygger `args` og kalder
   `node script.mjs $args` UDEN anførselstegn. Med apply-fluebenet på **false**
   og spil-feltet sat til `" --apply"` blev argv `["--game=", "--apply"]` →
@@ -666,7 +685,7 @@
   Fix: `${GAME:+--game="$GAME"}` eller send alt via env (mønstret i
   rescore-bets.mjs har slet ikke problemet). **Samme fælde er LUKKET i
   seedTeams-trinnet**, hvor `--game "$SPIL"` er i anførselstegn.
-- **`sendGameTipRemindersNow` har ingen server-pendant til fanens gates.**
+- **[LUKKET i c51d4c4 — efterprøvet 2026-10-15: index.js:1474-1481 forventerPaamindelser; `paused` er BEVIDST ikke en gate (paamindelsesGate.js:12-15)]** **`sendGameTipRemindersNow` har ingen server-pendant til fanens gates.**
   Hverken `forventerPaamindelser` eller `paused` tjekkes server-side — en admin
   kan mail-spamme et 'finished' spils deltagere med en håndlavet payload.
   Admin→deltagere, inden for admins autoritet, men den eneste kendte gate uden
@@ -677,7 +696,7 @@
   (2026-08-24) er, at loftet bliver en KLIENT-vejledning; `chanceMaxStake` og
   fladens "af maks N" er derfor ikke en regel. MAX_ABS = 8 er det eneste loft,
   og det håndhæves nu af `normaliserIndsats`.
-- **`fix-double-chance.mjs`: hårdkodet `{dryRun:false}` i tørkørslens egen sti.**
+- **[LUKKET i 9b58d63 — efterprøvet 2026-10-15: `dryRun: !apply` :197, én vagt]** **`fix-double-chance.mjs`: hårdkodet `{dryRun:false}` i tørkørslens egen sti.**
   To `if (apply)` om SAMME sikkerhedsregel (L118 bet-skrivningen, L128
   `rescoreAllBets({dryRun:false})`). Erstattes L128 med `if (true)`, SKRIVER en
   tør-kørsel i basen, mens den udskriver "der skrives intet" — og ingen test
@@ -688,11 +707,11 @@
   `rescoreAllBets` omskriver `points` på HVERT bet + alle totaler i spillet.
   Fix: `{dryRun: !apply}`. Sammenlign med `rescore-bets.yml` (kræver
   `skriv == "SKRIV"`, backup som artefakt, GENDAN-vej) — samme primitiv, rigtig indpakning.
-- **Doku-drift, der afgør om et audit-fund kan bruges:** `docs/drift.md` ~L457-480
+- **[LUKKET i 3a6ab52 — efterprøvet 2026-10-15: doubleChance.mjs:171, drift.md:733]** **Doku-drift, der afgør om et audit-fund kan bruges:** `docs/drift.md` ~L457-480
   og `scripts/lib/doubleChance.mjs` L171 påstår begge stadig, at firestore.rules
   ikke nævner chance, så spilleren selv kan skrive `chanceStake`/`chanceSatAt`.
   Falsk siden trin 3. En operatør, der læser det, tør ikke stole på sit eget audit.
-- **Én giftig post i STAGE-LISTEN vælter hele kampdetalje-synken (BEKRÆFTET,
+- **[LUKKET i d412a15 — efterprøvet 2026-10-15: try pr. event kampDetaljer.js:482-491]** **Én giftig post i STAGE-LISTEN vælter hele kampdetalje-synken (BEKRÆFTET,
   trin 2).** `hentNoegler` (kampDetaljer.js L355-371) kalder `String(e?.Eid ?? '')`
   og `kampNoegle(e?.Esd, …)` UDEN for nogen try. PoC: ét event med
   `Eid: {"toString":null}` (eller samme i `Esd`) blandt 380 → `TypeError:
@@ -704,7 +723,7 @@
   rules ikke type-tjekker `kickoff`. Fejler LUKKET og ses som `st.fejl` på
   Drift-kortet. Testfilen dækker `{toString:null}` KUN i `Pn` (L159-161).
   Fix: læg pr. event-kroppen i `hentNoegler` i en try/continue.
-- **HTTP-udfald tælles som `uparsede` og udløser den FORKERTE alarm
+- **[LUKKET i d412a15 — efterprøvet 2026-10-15: `utilgaengelige` :150/:734]** **HTTP-udfald tælles som `uparsede` og udløser den FORKERTE alarm
   (BEKRÆFTET, trin 2).** `hentJson` returnerer `null` ved 5xx (kampDetaljer.js
   L351), og kaldstedet gør `if (!incidents) { ud.uparsede += 1; continue; }`
   (L471). PoC med HTTP 500: `forsoegt=1, skrevet=0, ukendte=0, uparsede=1` →
@@ -713,7 +732,7 @@
   en alarm med det forkerte remedie. Fix: eget felt `utilgaengelige`.
   (Samme sted: `batch.commit()` kaldes på en TOM batch, når alle afvisninger
   kom af 5xx — `if (ud.skrevet || ud.uenige || ud.uparsede)` L512.)
-- **Drift-kortet skrives EFTER det dyreste led, så en platform-timeout er
+- **[TAVSHEDEN LUKKET i d0aa9df — efterprøvet 2026-10-15: kortet har naesteForventetFoer (index.js:835), postbudet melder `koersel` når fristen passeres. Rest: teksten siger 'skemaet holdt op', ikke 'timeout', og spil 2 mister kørslen]** **Drift-kortet skrives EFTER det dyreste led, så en platform-timeout er
   tavs.** `skrivDriftStatus` (index.js ~L668) står efter både xG- og
   detalje-blokken i løkkekroppen. Kommentaren over detalje-blokken påstår
   "hvad der ligger FØR den, er allerede gjort" — det gælder skrivningerne, men
@@ -742,14 +761,13 @@
 - **Det frie `id`-felt: kortet pr. 2026-09-02 (emulator-målt med kontrol).**
   Reglen forbyder `id` KUN på `games/{g}/leagues` og top-niveau `leagues`
   (create + ejer-update). Feltet accepteres frit på: **`users/{uid}`** (enhver
-  logget ind, også `pending`, på egen profil — create afvises kun fordi
-  `creatingWithUserEmail()` fanger `email`, ikke `id`), **`games/{g}/players`**,
+  logget ind, også `pending`, på egen profil — LUKKET i 7bf30ca), **`games/{g}/players`**,
   **`games/{g}/bets`**, **`bonusBets`**, **`stageBets`**, **`messages`**,
   **`leagueComments`** og **`leagueActivity`**. Alle otte er inerte i dag, fordi
   hver læser er vendt til data-først og holdes der af `dokumentId.test.js` —
   men det er ÉN vagt, og den er en grep-test, ikke en regel.
 
-- **Et 429 på STAGE-kaldet mister sin alarm, når kortlægningen fyrer først
+- **[LUKKET i 795a9e3 — efterprøvet 2026-10-15: KildenLukkerOs → afbrudt kampDetaljer.js:895-896]** **Et 429 på STAGE-kaldet mister sin alarm, når kortlægningen fyrer først
   (BEKRÆFTET, f398627).** `kortlaegEids` (kampDetaljer.js L488-560) laver nu
   stage-kaldet FØR `syncKampDetaljerCore`, og index.js L681-687 RETHROWER
   `KildenLukkerOs` ud i det ydre catch (L768-776) → `st.fejl(...)`, men
@@ -763,7 +781,7 @@
   `driftAlarmer`-dokument med NAT-forklaringen udebliver. Samme klasse som
   5xx→uparset: rigtig farve, forkert remedie. Fix: fang `KildenLukkerOs` i det
   ydre catch og kald samme `meldAlarm` — én vagt, ét sted.
-- **`annullerede[]` i `liveMaalAf` har INTET loft (BEKRÆFTET, f398627).**
+- **[LUKKET i 795a9e3 — efterprøvet 2026-10-15: liveMaal.js:54/111]** **`annullerede[]` i `liveMaalAf` har INTET loft (BEKRÆFTET, f398627).**
   `maal[]` er bundet af `kaedeOk` mod VORES stilling (målt: kan ikke sprænges),
   men annullerede mål tælles ikke mod noget: PoC med 20.000 IT-62-hændelser →
   `annullerede.length = 20001`, `JSON.stringify` = **1.580.450 bytes**, altså
@@ -838,7 +856,7 @@
   `forladt`/`forladtAt` (+ `joinedAt`) på et eksisterende dokument, og
   `hentLigaMedlemmer` tilbyder ikke længere forladte som "deltagere".
 
-- **Enhver spiller kan INJICERE LINJER i en offentlig GitHub Actions-log via sit
+- **[LUKKET i 742f53b — efterprøvet 2026-10-15: verificerTotaler.mjs:110-121]** **Enhver spiller kan INJICERE LINJER i en offentlig GitHub Actions-log via sit
   eget `displayName` (BEKRÆFTET 2026-09-18, #109).** `scripts/lib/verificerTotaler.mjs`
   `tabel()` skriver navnet råt: `b((navn.get(r.uid) || r.uid).slice(0, 25), 26)` —
   ingen fjernelse af styretegn. `displayName` skal være en streng (se ovenfor),
@@ -861,7 +879,65 @@
   kategori — men enhver ny log-udskrift i et `workflow_dispatch`-job er
   offentliggørelse, ikke fejlsøgning. E-mails printes IKKE (kun `displayName`).
 
+- **[LUKKET i 7bf30ca — PR 1 af security-oprydningen, emulator-kørt 2026-10-15: 117 checks, 46 lukkede mod d0aa9df, 0 legitime stier ændret]**
+  B4 (svar/label/facit/acceptedAnswers som map → permanent hvid liga-fane), B3 (væggens
+  displayName/avatarEmoji/questionId → udgiv dig for Runde-Botten), B2 (`users.id`/`uid`).
+  Klientlaget (`tekst()`, `m.system === true`, `Array.isArray`) neutraliserer de dokumenter,
+  der allerede ligger der. Serverspejlet `functions-platform/leagueQuestionScoring.js` fik
+  `Array.isArray` i 1e8e136 (7bf30ca glemte det: legacy-streng → `.map` kastede i recap).
+- **Væggens `createdAt` er klientstyret → PERMANENT hvid liga-fane (BEKRÆFTET 2026-10-15, 7bf30ca).**
+  `hasOnly(['uid','text','createdAt'])` typer ikke `createdAt`. Medlem poster
+  `createdAt: {seconds: {toString: null}}` (200). Map sorterer OVER alle timestamps i
+  Firestores typeorden, så `orderBy('createdAt','desc').limit(50)` (useLeagueMessages.js:21)
+  lægger opslaget ØVERST for altid. `relativeTime` → `toDate` (daDate.js:14) `d.seconds * 1000`
+  → TypeError (KØRT med ægte JS-SDK-snapshot fra emulatoren). Kaldet sker i render
+  (GameLeagues.jsx `{relativeTime(m.createdAt)}`), ingen ErrorBoundary → hvid fane for alle,
+  også ejeren, hvis slet-knap sidder samme sted. Mildere: streng/år 9999 → klæber øverst
+  ("nu"). Fix (kørt mod rettet kopi, kun de 4 hul-checks skifter, SDK-addDoc med
+  `serverTimestamp()` 200, `Timestamp.now()` 403): `&& request.resource.data.createdAt == request.time`.
+  Repoets positive vægtests bruger `Timestamp.now()` og skal over på `serverTimestamp()`.
+  Valgfri klientvagt: `typeof d.seconds === 'number'` i toDate.
+- **[LUKKET i d497f71] Væggens createdAt (begge vægge `== request.time`), Tour-tekst 1-1000, facit ikke tom.**
+- **[LUKKET i 4b6cf1a — emulator 2026-10-18] questions CREATE: `type` in de fire typer, `deadline` null|number.**
+  type map/'x'/null og deadline 'abc'/map/Timestamp/bool → 403; klientens createLeagueQuestion,
+  number+tal, team+null, yesno+double, begge udeladt → 200. UPDATE: type-skift (text→number/map) og
+  deadline→streng/map → 403 (uændret-vagten + `>=`-sammenligningen).
+  **REST (ÅBEN, kun ÆLDRE dokumenter):** et spørgsmål med `deadline:'abc'`/map (kun skrivbart
+  før 4b6cf1a) er MURET INDE: slet, points, deadline→tal/null og medlemssvar → 403 (evalueringsfejl
+  i `request.time.toMillis() < resource.data.deadline`); KUN label-ret og setFacit → 200. Og
+  fladen dør: `LeagueQuestions.jsx:199` `formatKickoff(Number(q.deadline))` → `Intl.format(Invalid
+  Date)` → RangeError (node-kørt) → hvid liga-fane. Facit-formen (:386) er skjult (NaN → ikke
+  locked). Fix: `toDate` returnerer null ved ugyldig dato (daDate.js) + facit-form også ved
+  ikke-endelig deadline. Prod-scan efter ikke-tal-deadlines kræver ejerens ja.
+  Bemærk: CREATE tillader deadline i FORTIDEN (200) — uskadeligt (ingen svar kan skrives).
+- **Tour-væggen (`leagueComments`) efter 7bf30ca — kun Tour-projektet (afsluttet spil)
+  (BEKRÆFTET i regel 2026-10-15).** `system` og typerne på navn/emoji/hold er lukket, men:
+  (a) `text` er HELT uvagtet (map 200, 100 KB 200) → `{c.text}` LeagueWall.jsx kaster;
+  (b) `createdAt` map 200 → `formatTimestamp` `new Date(map)` kaster; (c) ENHVER medlem kan
+  sætte `reactions` på ANDRES besked til `{"👍": {a:1}}` eller en streng (200) →
+  Reactions.jsx `(uids || []).filter` kaster; (d) `system`-forbuddet er pynt: Tour-klienten
+  læser aldrig `system`, så `displayName:'Tour-Botten'`+🤖 (eller en medspillers navn) uden
+  system → 200 og vises som botten. Fix (a)+(b) kørt: `text is string && 1..1000` +
+  `createdAt == request.time`. (c) kræver klientvagt (`Array.isArray(uids)`); (d) kræver at
+  væggen henter navnet fra profilen og kun låner dokumentets ved `c.system === true`.
+
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
+
+- **Mod 7bf30ca (2026-10-15, emulator, kontrol-par pr. case):** svar som map/`{toString:null}`/
+  tal/liste/bool/null/''/manglende/201 tegn; `questionId` som tal (`42_m1`) eller map — doc-id-
+  bindingen `answerId == questionId + '_' + uid` gør evalueringsfejl → 403, så questionId er
+  de facto en streng; svar på ikke-eksisterende spørgsmål; væg-besked med displayName/
+  avatarEmoji/questionId/round/system:false/system:true; `users` `id`/`uid` som pending,
+  approved, ved create (også `uid` = egen) og fra globalAdmin; legacy-`id` flyttet eller fjernet
+  af brugeren selv/globalAdmin; spørgsmål oprettet med facit eller ikke-liste acceptedAnswers;
+  label/facit map/tal/kort/lang/fjernet ved update. Tour-væg: `system`, map som navn/emoji/hold.
+- **`List.concat()` i rules EVALUERES (bevist 2026-10-15):** egen update `{displayName}` 200
+  OG `{role}`/`{status}`/`{approvedAt}` 403 (kun i concat-halen) OG `{id}` 403 (kun i hovedet);
+  admin-grenen `{status}` 200 og `{role}` 403. Fejlede concat, ville de legitime være 403.
+- **Regel-`size()` på strenge tæller UTF-16-enheder ligesom JS `.length`** (emulator v1.22):
+  100 × 😀 = 200 → 200 OK, 101 × 😀 → 403, 200 × æ → OK. Et JS-loft på `.length` og et
+  regel-loft på `size()` med samme tal er altså i takt — klienten afviser aldrig noget, reglen
+  tillader, og omvendt.
 
 - **alarmId-fuzz mod `kvitterDriftAlarm`** (functions-platform/index.js L495-508).
   16 fjendtlige værdier mod ægte admin-SDK + emulator: `../users/p1`,
@@ -996,6 +1072,29 @@
   '', null, 'finale' → NaN → filtreret FØR tolkning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **PR 1 (7bf30ca, 2026-10-15): alle klientens præcise payloads 200** — registrering
+  (`useAuthActions.js:46/124`), `updateDisplayName`, `updateProfile`-patch, deleteField på
+  egen profil, `setUserStatus`, `approveUsers` (batch.set merge), `setGlobalAdminRole` (owner),
+  `postLeagueMessage` (også via ægte SDK `addDoc`+`serverTimestamp()`), `createLeagueQuestion`
+  (facit:null og udeladt), `updateLeagueQuestion` (label+points[+deadline]),
+  `setLeagueQuestionFacit`, ret facit på afgjort, `saveLeagueQuestionAnswer` (create + update),
+  `postLeagueComment`. Ratchet-kontroller 200: legacy-`id` retter navn/profil, globalAdmin
+  godkender legacy-dok, owner fjerner legacy-`id`; forgiftet/200-tegns label kan få facit og
+  rettes; legacy facit-map og acceptedAnswers-streng kan rettes. Samme script mod d0aa9df:
+  præcis de 46 hul-checks skifter, intet andet.
+  Inert, men accepteret: `acceptedAnswers` med map-ELEMENTER (200) — `lqNorm` har try på
+  begge sider, og ingen flade renderer listen (grep). Ekstra felter på `questionAnswers`
+  (200, ingen hasOnly) — læsere bruger kun uid/answer. `facit: ''` på åbent spørgsmål (200)
+  åbner læsning af svar og lukker skrivning — ejeren kan ikke udnytte det (kan ikke svare
+  bagefter); hygiejne: `facit.size() > 0`.
+
+- **Triage 2026-10-15 mod d0aa9df: kontroller kørt og LUKKET.** players `totalPoints`/`perRound`/
+  `slettet`, egen `role`/`status`, andres tip før kickoff, `system:true` på væggen,
+  globalAdmin `id`/`name`-map på top-niveau-liga, sletning af afgjort spørgsmål, point/type
+  på afgjort, første deadline i fortiden, nulstil facit, svar efter facit, pending-players-
+  create: alle 403. Positive kontroller med klientens præcise payloads: alle 200. Gentag
+  ikke uden en regelændring i de blokke.
 
 - **`alarmMail` (postbud.js, 48d5212) er HTML-ren — med mutationskontrol.**
   Fjendtlige felter i besked/titel/type/gameId/spilnavn/test-displayName
@@ -1796,7 +1895,7 @@
 - **Dobbelt hentning:** `hentFaerdige` OG `hentLive` kalder hver sin
   `plAlleKampe` = 4+4 sider pr. minut. Værste tilfælde 100 s > `onSchedule`'s
   60 s default. Afbødning: memoiser pr. kørsel.
-- `runGameRoundRecap` (gameRecap.js L308-309/L439) er read-then-write om
+- **[STADIG ÅBEN — efterprøvet 2026-10-15, og BREDERE: samme mønster i gameScoring.js:560-568 om `snapshottedRounds`, og `snapshotRoundRanks` er IKKE idempotent (:353-354 previousRank=rank) → to samtidige triggere giver flade rang-pile for hele runden. Formodet, ikke kørt]** `runGameRoundRecap` (gameRecap.js L308-309/L439) er read-then-write om
   `game.recappedRounds` uden transaktion. To samtidige triggere for samme runde
   → dobbeltopslag på alle vægge + to betalte AI-kald. Kræver ingen angriber, kun
   timing. Hærdning: claim-then-post i en transaktion.
@@ -1846,7 +1945,7 @@
   null-hullet ovenfor (kørt: 233/233 mod den rettede regelfil). Skal en klient
   liste samlingen, hører der en list-test til FØR og EFTER deadline plus en
   eksplicit null-test — ellers er "regler er ikke filtre" udækket her.
-- `functions/rules.test.js` L1320-1358 (driftlog/driftAlarmer) tester kun
+- **[LUKKET for driftAlarmer — efterprøvet 2026-10-15: rules.test.js:1572-1581 list med loestAt; emailLog stadig kun getDoc (:1495-1513)]** `functions/rules.test.js` L1320-1358 (driftlog/driftAlarmer) tester kun
   `getDoc`, mens klienten bruger en collection-listener med
   `where('loestAt','==',null)`. Skærper nogen reglen med et `resource.data`-led,
   bliver fladen tom UDEN at suiten bliver rød. Samme hul i emailLog-testene.
@@ -1854,7 +1953,7 @@
   kalder `byggTipStatus`, hvis input pr. konstruktion er Sets — den kan ikke
   fejle. Mutation kørt: `add(b.matchId)` → `add(b)` + et `raaBets`-felt lækker
   alle spilleres 1X2-valg med **12/12 tests grønne**.
-- `advarsel(besked, tal)`/`fejl(besked, tal)` i driftlog.js er UDÆKKET —
+- **[LUKKET — efterprøvet 2026-10-15: driftlog.test.js:228-239]** `advarsel(besked, tal)`/`fejl(besked, tal)` i driftlog.js er UDÆKKET —
   fjernes `Object.assign(s.tal, tal||{})` begge steder, er alle 646
   platform-tests grønne.
 - `scripts/fix-double-chance.mjs` har INGEN testfil (kun
@@ -1900,6 +1999,11 @@
   injicere et forbudt felt i `skriv` (spy/stub), ikke i kilde-JSON'en.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **`hasOnly([...,'createdAt'])` er en NØGLE-vagt, ikke en TYPE-vagt.** Et klientskrevet
+  tidsstempel er et frit felt: map → kast i datoformatering, map/streng → klæber øverst i
+  `orderBy desc` (typeorden: timestamp < string < map). Bind det: `createdAt == request.time`
+  (klienten sender `serverTimestamp()`). Tjek HVER nøgle i en hasOnly-liste for type.
 
 - **En alarm er en hændelse, ikke en tilstand, når den melder noget, et
   menneske GJORDE** (rolle, test-knap, uventet fejl). Kilde-alarmerne er

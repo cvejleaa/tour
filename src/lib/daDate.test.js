@@ -20,6 +20,22 @@ describe('relativeTime', () => {
     expect(relativeTime({ seconds: Math.floor(now.getTime() / 1000) - 120 }, now)).toBe('for 2 min siden');
     expect(relativeTime(null, now)).toBe('');
   });
+  it('et map som tidsstempel (ældre dokument gemt uden om fladen) giver tomt — kaster aldrig', () => {
+    // `seconds * 1000` på et map kastede og hvidnede liga-væggen for alle
+    // (Security-fund). Reglen binder nu createdAt til serverens ur; dette er
+    // vagten for det, der allerede ligger der.
+    expect(relativeTime({ seconds: { a: 1 } }, now)).toBe('');
+    expect(() => relativeTime({ seconds: { toString: null } }, now)).not.toThrow();
+    expect(relativeTime({ seconds: 'zzz' }, now)).toBe('');
+  });
+  it('et ugyldigt tidspunkt (NaN) giver tomt i alle formattere — Intl.format må aldrig kaste', () => {
+    // Number('abc') fra en forgiftet deadline nåede formatKickoff og kastede
+    // RangeError «Invalid time value» — hvid liga-fane for alle (Security-fund).
+    expect(formatKickoff(NaN)).toBe('');
+    expect(formatKickoff(Number('abc'))).toBe('');
+    expect(formatKickoff(new Date('ugyldig'))).toBe('');
+    expect(relativeTime(NaN, now)).toBe('');
+  });
 });
 
 describe('formatKickoff', () => {

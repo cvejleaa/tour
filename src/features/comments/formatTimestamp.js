@@ -4,6 +4,10 @@ import { TIMEZONE } from '../../lib/constants';
 function toDate(ts) {
   if (!ts) return null;
   if (typeof ts.toDate === 'function') return ts.toDate();
+  // Et map uden toString (ældre dokument gemt uden om fladen) får new Date()
+  // til at kaste — og så er hele væggen væk (Security-fund). Kun de former,
+  // vi selv skriver, tæller.
+  if (typeof ts !== 'number' && typeof ts !== 'string' && !(ts instanceof Date)) return null;
   const d = new Date(ts);
   return Number.isNaN(d.getTime()) ? null : d;
 }

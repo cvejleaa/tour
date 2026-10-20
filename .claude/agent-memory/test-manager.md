@@ -1589,3 +1589,64 @@ de nærmeste filer overlever.
 - Værktøj: heredoc til scratchpad blev afvist 3 gange, også uden ordet git i teksten.
   `echo PLACEHOLDER > fil` + Read + Edit virker. Løber gendanner med
   `fs.writeFileSync(orig)` i finally; ingen parenteser i mutations-id (shell-redirect).
+
+## PR 1 regel-hærdning (7bf30ca, 15/10 2026) — 74 regel- og 41 klient-mutationer
+
+Forfatterens påstande holdt (11 røde mod gamle regler; de 6 listede klientmutationer dræbt) — men
+37 af de første 113 mutationer (74 regel + 39 klient) overlevede forfatterens suite: 15 regel,
+22 klient, alle på vagter forfatteren IKKE havde muteret. 13 nye `it` i rules.test.js, ikke 14.
+Efter patchen: alle 37 dræbt (de fleste af præcis én test; konstant-mutationerne af 3-5, UX1 af
+seks — én pr. felt). Patch: 8 testfiler, ingen produktionskode.
+
+- **En `assertFails` kan fejle af en ANDEN grund end vagten — tre former.**
+  (a) To overtrædelser i samme dokument: «KAN IKKE oprette sin profil med point-felter» sender
+  også `email` (afvist af `creatingWithUserEmail`). Fjern HELE felt-vagten (create-listen →
+  `['uid','id']`): 283/283 grønne. Fix: `it.each` over de seks felter, signup-form + ÉT felt.
+  (b) Størrelsesvagt skjuler typevagt: `label is string && size() >= 3 && <= 120` — `{a:1}`
+  (size 1) afvises af `>= 3`, `42.size()` er en evalueringsfejl: fjern `is string` → grønt.
+  Brug map med ≥ 3 nøgler og liste med ≥ 3 elementer. (For `answer`/`facit` er lower bound 0/1,
+  så dér binder `{a:1}` typevagten korrekt.) (c) Grænser: `'x'.repeat(200)` binder øvre
+  grænse; `> 0`→`> 1` (svar «7»), `>= 3`→`> 3`, `<= 20`→`< 20` kræver egne præcis-grænsen-
+  assertions. Opdages ved: mutér hver klausul; tjek at fixturet kun har ÉN overtrædelse.
+- **Delt liste i tre grene (`serverEjedeBrugerfelter().concat(..)`): mutér hver gren med en liste,
+  der kun mangler de GAMLE felter** (UX1: create = `['uid','id']` overlevede). En test, der kun
+  rammer de nye felter, bevarer ikke de gamle ved en omskrivning. `approvedViaInvite`/`approvedAt`
+  i egen-update-listen var ubundne (flyttet med i omskrivningen). `.concat` ER evalueret i
+  emulatoren (dropper man en af listerne, bliver præcis de forventede tests røde).
+- **Forbyder reglen et felt, koden NATURLIGT kunne skrive?** `uid` på users — userContacts
+  skriver `uid`, så det er det oplagte at kopiere ind i signup; mocket Firestore ser aldrig
+  reglen, og HVER tilmelding ville fejle. Bind payloaden: `not.toHaveProperty('uid'|'id')`
+  (useAuthActions.test.js); mutation = tilføj `uid: cred.user.uid`.
+- **Mock, der udelader den positive sti.** `useGameStandings` → `standings: []` gør `byUid`
+  altid tom: `(byUid[m.uid] || {})` → `({})` (ALLE navne «Tidligere medlem») overlevede.
+  `Avatar` mocket som `<span/>` skjuler emojiens kilde — lad mocken udstille `data-emoji`.
+- **Gift-fixture: `{a:1}` kaster kun som React-child; `{toString:null}` kaster ved enhver
+  implicit streng-konvertering** (template literal, `TEAM_META[x]`). Tour-LeagueWalls
+  `favoriteTeam`-vagt overlevede med `{c:3}`, blev dræbt med `{toString:null}`.
+- **Resthuller i samme klasse som PR'en lukkede (emulator + render bevist, 15/10):** Tour
+  `leagueComments` create tillader `text` som map/tal og `reactions` som streng, update tillader
+  `reactions:{'👍':'x'}` → `LeagueWall` kaster (text, Reactions `.filter`). `questions` create
+  tillader `deadline:'abc'` og `type:{toString:null}` → LeagueQuestions kaster; en streng-
+  deadline gør spørgsmålet uslettebart (`now < 'abc'` = evalueringsfejl). Spørg ved hver
+  «typevagt på X»-PR: hvilke ANDRE felter i samme dokument renderes råt?
+- **K4-klientvagterne (svar/facit ≤ 200, ≤ 20 alternative) og K5 (Tour-væg) havde ingen
+  test** — actions-modulet er kun mocket i komponenttesten. Bind konstanterne til reglen med en
+  paritetstest, der læser `firestore.rules` (`gameLeagueActions.regler.test.js`, `RULES_FILE`
+  som i rules.test.js) — tæl-vagtet `toEqual`, ellers giver en regex uden match en tom liste.
+- **Miljø:** port 8085 var Security Reviewers; brug 8095+. To egne emulatorer (8095/8096) på 4
+  kerner gik fint og halverede tiden (projekt-id `tour-tip-test` er pr. emulator). RØR IKKE
+  `functions/rules.test.js` mens en batch kører — den læses ved hver mutationskørsel.
+  Mutér rules via `RULES_FILE`-kopier (aldrig `firestore.rules`) og læs resultater fra
+  `--reporter=json`. Heredoc-afvisningen var allerede noteret ovenfor; GREP hukommelsen efter
+  «heredoc» FØR du skriver scripts (kostede ~15 afviste kald). Scripts lå i scratchpad
+  (`tm-pr1/`): muts.mjs (linje-assertion pr. mutation), cmut-run.mjs (klient, gendanner i finally).
+- **Grenen flyttede sig under gennemgangen (7bf30ca → d497f71, to opfølger-commits).** Tjek
+  `git worktree list` (hovedtræets HEAD) FØR aflevering og læs `git diff <gennemgået>..HEAD` på
+  testfiler og regler — min første patch ramte forfatterens egen omskrivning af samme mock-header
+  (GameLeagues.test.jsx) og alle mine `Timestamp.now()`-kontroller var blevet vakuøse, for
+  opfølgeren krævede `createdAt == request.time`. Når en NY regel gør en gammel fixture-værdi
+  ulovlig, fejler hver `assertFails` i samme blok af den NYE grund: omskriv fixturet (serverTimestamp)
+  og mutér igen. Aflever patch mod gennemgået commit OG mod HEAD, og anbefal HEAD-udgaven.
+- **Nedre grænser på nye tekstvagte overlever igen:** Tour `text.size() > 0` → `>= 0`/`> 1` (d497f71)
+  — samme mønster som label/answer. Nye `size()`-vagte: test altid tom streng OG ét tegn.
+  Eget opslags «(dig)»-suffiks var ubundet (`{u.name && m.uid === meUid ? ' (dig)' : ''}`).

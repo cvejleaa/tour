@@ -58,7 +58,7 @@ function LeagueTable({ rows, meUid, klubFarver }) {
 }
 
 /** Liga-væg: seneste beskeder + skrivefelt. */
-function LeagueWall({ gameId, leagueId, meUid, byUid, klubFarver }) {
+function LeagueWall({ gameId, leagueId, meUid, byUid, klubFarver, navneKlar }) {
   const { messages, loading } = useLeagueMessages(gameId, leagueId);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -94,8 +94,26 @@ function LeagueWall({ gameId, leagueId, meUid, byUid, klubFarver }) {
         <ul className="wall__list">
           {messages.map((m) => {
             // System-/bot-beskeder (fx Runde-Botten) bærer selv navn og emoji —
-            // afsenderen findes ikke i spillets deltagerliste.
-            const u = byUid[m.uid] || { name: m.displayName, emoji: m.avatarEmoji };
+            // afsenderen findes ikke i spillets deltagerliste. KUN dem: for en
+            // almindelig besked tæller dokumentets navn ikke, for så kunne et
+            // medlem poste som botten, forlade ligaen og stå som botten for
+            // alle — og et map som navn hvidnede hele fanen (Security-fund).
+            // `system` kan kun skrives af serveren (firestore.rules). En
+            // afsender uden for stillingen (forladt spillet eller slettet)
+            // vises som "Tidligere medlem" — ikke "Spiller", der lyder som en
+            // fejl, og ikke dokumentets navn, der er angriberens (Spilfører).
+            // Profilen slås ikke op: en slettet konto har ingen, og den
+            // forladte ER et tidligere medlem — teksten passer i begge tilfælde.
+            // Men kun når stillingen ER indlæst (navneKlar): før da mangler
+            // ALLE navne, og «Tidligere medlem» ville påstå noget forkert om
+            // nuværende deltagere — også om én selv (QC-fund).
+            const u = m.system === true
+              ? {
+                name: typeof m.displayName === 'string' ? m.displayName : 'Bot',
+                emoji: typeof m.avatarEmoji === 'string' ? m.avatarEmoji : undefined,
+              }
+              : (byUid[m.uid] || {});
+            const navn = u.name || (m.uid === meUid ? 'Dig' : (navneKlar ? 'Tidligere medlem' : 'Spiller'));
             return (
               <li key={m.id} className="wall__msg">
                 <Avatar
@@ -104,7 +122,7 @@ function LeagueWall({ gameId, leagueId, meUid, byUid, klubFarver }) {
                 />
                 <div className="wall__body">
                   <div className="wall__meta">
-                    <strong>{u.name || 'Spiller'}{m.uid === meUid ? ' (dig)' : ''}</strong>
+                    <strong>{navn}{u.name && m.uid === meUid ? ' (dig)' : ''}</strong>
                     <span className="wall__time">{relativeTime(m.createdAt)}</span>
                   </div>
                   <div className="wall__text">{m.text}</div>
@@ -118,7 +136,7 @@ function LeagueWall({ gameId, leagueId, meUid, byUid, klubFarver }) {
   );
 }
 
-function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, klubFarver }) {
+function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, klubFarver, navneKlar }) {
   // Kommer man fra "Åbn ligaen →" i stillingen, skal DEN liga stå åben. Ellers
   // lander man på en liste, hvor alt er foldet sammen — og linket lovede mere,
   // end klikket gav.
@@ -273,7 +291,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
 
           <LeagueWall
             gameId={gameId} leagueId={league.id} meUid={meUid} byUid={byUid}
-            klubFarver={klubFarver}
+            klubFarver={klubFarver} navneKlar={navneKlar}
           />
         </>
       )}
@@ -288,7 +306,7 @@ export default function GameLeagues({ gameId, game = null }) {
   const { user } = useAuth();
   const meUid = user?.uid;
   const { leagues, loading, error } = useGameLeagues(gameId);
-  const { standings } = useGameStandings(gameId);
+  const { standings, loading: standingsLoading } = useGameStandings(gameId);
   // Yndlingsholdets farver som ring om avataren — se useKlubFarver.
   const klubFarver = useKlubFarver(game);
 
@@ -349,6 +367,7 @@ export default function GameLeagues({ gameId, game = null }) {
             game={game}
             forvalgt={l.id === valgtLigaId}
             klubFarver={klubFarver}
+            navneKlar={!standingsLoading}
           />
         ))
       )}

@@ -106,6 +106,11 @@ describe('useAuthActions', () => {
       // Reglerne afviser en profil der selv sætter point-felter; e-mail er privat.
       expect(usersCall[1]).not.toHaveProperty('email');
       expect(usersCall[1]).not.toHaveProperty('totalPoints');
+      // ...og `uid`/`id` (firestore.rules: serverEjedeBrugerfelter). Det er netop de felter, man naturligt
+      // tilføjer her (userContacts skriver `uid`) — og så afviser reglen HVER tilmelding, mens alle
+      // enhedstests (som mocker Firestore) forbliver grønne.
+      expect(usersCall[1]).not.toHaveProperty('uid');
+      expect(usersCall[1]).not.toHaveProperty('id');
     });
 
     it('gemmer e-mailen PRIVAT i userContacts (lowercase)', async () => {
@@ -372,9 +377,11 @@ describe('useAuthActions', () => {
         role: 'player',
         status: 'pending',
       });
-      // Ingen e-mail/point i den offentlige profil.
+      // Ingen e-mail/point i den offentlige profil — og ingen `uid`/`id` (reglen afviser dem ved oprettelse).
       expect(usersCall[1]).not.toHaveProperty('email');
       expect(usersCall[1]).not.toHaveProperty('totalPoints');
+      expect(usersCall[1]).not.toHaveProperty('uid');
+      expect(usersCall[1]).not.toHaveProperty('id');
 
       const contactCall = setDocCallFor('userContacts');
       expect(contactCall).toBeTruthy();
