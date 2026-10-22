@@ -136,6 +136,21 @@ describe('FootballHelp (spil-intern hjælp)', () => {
     expect(screen.getByText(/Klik på et navn/)).toBeInTheDocument();
   });
 
+  // Regnskabet skiftede skala under et liga-filter med startrunde: det
+  // regner nu SOM ligaen, og I alt er stillingens tal. Guiden er en spejlet
+  // fil (CLAUDE.md) — og dens Chance-kongen-afsnit skal navngive, hvorfor
+  // kortet og kolonnen kan vise to forskellige Chancen-tal.
+  it('siger, at regnskabet regner som ligaen — og at Chance-kongen ikke gør', () => {
+    const { container } = render(<MemoryRouter><FootballHelp /></MemoryRouter>);
+    const tekst = container.textContent;
+    expect(tekst).toContain('regner tabellen som ligaen: kun runderne fra startrunden tæller, '
+      + 'og puljen kun når ligaen tæller den — så I alt er det samme tal som i stillingen');
+    expect(tekst).toContain('Spillets samlede regnskab for en spiller ser du ved at klikke på navnet');
+    expect(tekst).toContain('derfor kan tallet afvige fra Chancen-kolonnen i regnskabet, som tæller fra ligaens start');
+    // Og den gamle, falske begrundelse må ikke komme tilbage.
+    expect(tekst).not.toMatch(/Chancen gemmes ikke runde for runde/);
+  });
+
   // Rubrik-navnene hentes fra RUBRIKKER. Skrives de af, hedder de noget andet
   // på hjælpesiden end på skærmen, næste gang et ord ændres.
   it('bruger de samme rubrik-navne som skærmen', () => {

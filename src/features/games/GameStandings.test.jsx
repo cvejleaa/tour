@@ -311,14 +311,25 @@ describe('GameStandings — liga-filter', () => {
     const LIGA12 = [{ id: 'L1', name: 'Familien', memberUids: ['me', 'u1'], startRound: 12 }];
     // Anne har 37,3 point FØR runde 12 og 9,7 i runde 12. Spillets total er
     // 47; ligaens er 9,7. Fixturet er bygget, så de to tal ikke kan forveksles.
+    // Spillets regnskab (`opdeling`, summer til 47) og rubrikkerne pr. runde.
+    // Tallene er valgt, så ligaens rubrikker (7,2 / +2,5 / 0 → 9,7) og
+    // spillets (37,2 / +7,8 / 2 → 47) ikke deler ét eneste tal: en test, der
+    // finder «7,2», kan ikke have fundet spillets kolonne.
     const MED_VEKTOR = [
       {
         uid: 'u1', name: 'Anne', totalPoints: 47, rank: 1, bonusPoints: 0,
         perRound: { 1: 37.3, 12: 9.7 },
+        opdeling: { p1x2: 37.2, chance: 7.8, combi: 2, pulje: 0 },
+        opdelingPerRunde: {
+          1: { p1x2: 30, chance: 5.3, combi: 2 },
+          12: { p1x2: 7.2, chance: 2.5, combi: 0 },
+        },
       },
       {
         uid: 'me', name: 'Mig', totalPoints: 11.5, rank: 2, bonusPoints: 0,
         perRound: { 12: 11.5 },
+        opdeling: { p1x2: 10, chance: 1.5, combi: 0, pulje: 0 },
+        opdelingPerRunde: { 12: { p1x2: 10, chance: 1.5, combi: 0 } },
       },
     ];
 
@@ -342,7 +353,8 @@ describe('GameStandings — liga-filter', () => {
       // hele rettelsen handler om. Opdelings-tabellen har haft sin sætning
       // hele tiden; panelet havde ingen.
       setup({ standings: MED_VEKTOR, leagues: LIGA12 });
-      fireEvent.click(screen.getByText('Anne'));
+      // Rollen, ikke teksten: «Anne» står nu også på Chance-kongen-kortet.
+      fireEvent.click(screen.getByRole('button', { name: 'Anne' }));
       expect(screen.getByText(/Tallene herunder er spillets samlede point/))
         .toBeInTheDocument();
       // Og den skal NAVNGIVE begge dele: spillets tal og ligaens startrunde.
@@ -373,6 +385,217 @@ describe('GameStandings — liga-filter', () => {
       setup({ standings: MED_VEKTOR, leagues: LIGA12 });
       const navne = tableRows().map(([, n]) => n.replace(' (dig)', '').trim());
       expect(navne).toEqual(['Mig', 'Anne']);
+    });
+
+    // REGNSKABET UNDER LIGAEN. Ejerens fund (20/10): med liga-filteret på
+    // viste tabellen spillets samlede point — Team Sharkey 170,8 over Better
+    // 159 — mens podiet var ligaens, og nr. 1 på podiet havde ikke flest
+    // point i tabellen. Nu regner tabellen som ligaen af rubrikkerne pr.
+    // runde, og I alt er stillingens tal.
+    describe('regnskabet («Hvor kommer pointene fra?»)', () => {
+      const aabn = () => fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+      /** Cellerne i regnskabstabellen, række for række — den eneste tabel, når regnskabet er åbent. */
+      const regnskab = () => [...container.querySelectorAll('table tbody tr')]
+        .map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent.trim()));
+      const tabel = () => within(container.querySelector('table'));
+      /** Rækken uden de nævnte felter — «ikke genberegnet endnu»-fixtures. */
+      const uden = (r, ...felter) => Object.fromEntries(Object.entries(r).filter(([k]) => !felter.includes(k)));
+
+      it('regner rubrikkerne på LIGAENS skala — og I alt er stillingens tal', () => {
+        setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+        aabn();
+        // Ordenen er ligaens (Mig fører), puljekolonnen er væk (startrunde 12),
+        // og hver celle er runde 12 alene.
+        expect(regnskab()).toEqual([
+          ['1. Mig (dig)', '10', '+1,5', '0', '11,5'],
+          ['2. Anne', '7,2', '+2,5', '0', '9,7'],
+        ]);
+        // FRAVÆR: spillets tal står ikke i tabellen — hverken totalen eller
+        // nogen rubrik. (Chance-kongen ovenfor viser stadig +7,8 for hele
+        // sæsonen, mærket «hele sæsonen», så fraværet måles INDE i tabellen.)
+        expect(screen.queryByText('47')).toBeNull();
+        expect(tabel().queryByText('37,2')).toBeNull();
+        expect(tabel().queryByText('+7,8')).toBeNull();
+      });
+
+      it('siger, at regnskabet tæller som ligaen — og IKKE, at det viser spillets point', () => {
+        setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+        aabn();
+        expect(screen.getByText(
+          'Regnskabet tæller som ligaen: kun point fra runde 12 og frem, uden puljen. '
+          + 'I alt er derfor det samme tal som i stillingen. Hele sæsonen for en spiller: tryk på navnet.',
+        )).toBeInTheDocument();
+        // Den gamle sætning var præcis modsigelsen: den må ikke overleve her.
+        expect(screen.queryByText(/Regnskabet viser spillets samlede point/)).toBeNull();
+      });
+
+      it('skjuler puljekolonnen alle tre steder, når ligaen ikke tæller puljen', () => {
+        setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+        aabn();
+        // Overskrift, celler og forklaringslinjen («🎖️ Pulje: …») — ingen af dem.
+        expect(screen.queryByText(/Pulje/)).toBeNull();
+        expect(container.querySelectorAll('table thead th')).toHaveLength(5);
+      });
+
+      it('viser puljekolonnen og lægger puljen på, når ligaen tæller den', () => {
+        // Startrunde 2 er inden for PULJE_MAKS_STARTRUNDE. Anne har 7 fra
+        // puljen (bonusPoints) — spillets total 54, ligaens 9,7 + 7 = 16,7.
+        const liga2 = [{ ...LIGA12[0], startRound: 2 }];
+        const medPulje = [
+          {
+            ...MED_VEKTOR[0], totalPoints: 54, bonusPoints: 7,
+            perRound: { 1: 37.3, 2: 9.7 },
+            opdeling: { ...MED_VEKTOR[0].opdeling, pulje: 7 },
+            opdelingPerRunde: { 1: MED_VEKTOR[0].opdelingPerRunde[1], 2: MED_VEKTOR[0].opdelingPerRunde[12] },
+          },
+          { ...MED_VEKTOR[1], perRound: { 2: 11.5 }, opdelingPerRunde: { 2: MED_VEKTOR[1].opdelingPerRunde[12] } },
+        ];
+        setup({ standings: medPulje, leagues: liga2 });
+        aabn();
+        expect(regnskab()).toEqual([
+          ['1. Anne', '7,2', '+2,5', '0', '7', '16,7'],
+          ['2. Mig (dig)', '10', '+1,5', '0', '0', '11,5'],
+        ]);
+        expect(screen.getAllByText(/Pulje/).length).toBeGreaterThanOrEqual(2);
+        expect(screen.getByText(/kun point fra runde 2 og frem\. I alt er derfor/)).toBeInTheDocument();
+        expect(screen.queryByText(/uden puljen/)).toBeNull();
+      });
+
+      it('viser en streg og ligaens I alt for en spiller uden rubrikker pr. runde — og siger det', () => {
+        // Anne er ikke genberegnet, siden feltet kom til. Hendes I alt er
+        // stadig ligaens (vektoren findes), kun rubrikkerne mangler.
+        setup({ standings: [uden(MED_VEKTOR[0], 'opdelingPerRunde'), MED_VEKTOR[1]], leagues: LIGA12 });
+        aabn();
+        expect(regnskab()[1]).toEqual(['2. Anne', '–', '–', '–', '9,7']);
+        expect(screen.getByText(
+          '– : For 1 spiller er pointene ikke delt op fra runde 12 endnu. '
+          + 'Totalen er rigtig — kun opdelingen mangler. Bed admin køre 🔄 Genberegn point.',
+        )).toBeInTheDocument();
+      });
+
+      it('tæller dem, der mangler — og bruger ALDRIG spil-tilstandens «bygges næste gang»', () => {
+        setup({ standings: MED_VEKTOR.map((r) => uden(r, 'opdelingPerRunde')), leagues: LIGA12 });
+        aabn();
+        expect(screen.getByText(/– : For 2 spillere er pointene ikke delt op fra runde 12 endnu/)).toBeInTheDocument();
+        // Den sætning gælder spillets regnskab, som serveren selv skriver ved
+        // næste kamp. Her hjælper kun Genberegn, og det skal der stå.
+        expect(screen.queryByText(/Opdelingen bygges/)).toBeNull();
+      });
+
+      it('viser en streg for en forældet opdeling, der mangler en talt runde (tilbagerulning)', () => {
+        // Runde 12 blev afgjort, mens functions var rullet tilbage: vektoren
+        // har nøglen, opdelingen har den ikke. Rubrikker for runde 1 alene
+        // ville være et forkert tal for en liga fra runde 12.
+        const anne = { ...MED_VEKTOR[0], opdelingPerRunde: { 1: MED_VEKTOR[0].opdelingPerRunde[1] } };
+        setup({ standings: [anne, MED_VEKTOR[1]], leagues: LIGA12 });
+        aabn();
+        expect(regnskab()[1]).toEqual(['2. Anne', '–', '–', '–', '9,7']);
+        expect(screen.getByText(/For 1 spiller er pointene ikke delt op/)).toBeInTheDocument();
+      });
+
+      it('viser «ikke klar» og ingen rang for en spiller med AFVIST rundevektor — og tæller hende ikke med', () => {
+        // Vektoren FINDES, men kan ikke gengive spillets total (runde 1 mangler
+        // i den: 9,7 mod 47), så ligaRanking afviser den (klar:false). Så må
+        // rubrikkerne heller ikke regnes af den — tallene er lige så upålidelige
+        // som totalen. Fixturet har feltet med VILJE: uden det ville
+        // ligaOpdeling give null af sig selv, og vagten kunne fjernes ubemærket.
+        const afvist = { ...MED_VEKTOR[0], perRound: { 12: 9.7 } };
+        setup({ standings: [afvist, MED_VEKTOR[1]], leagues: LIGA12 });
+        aabn();
+        // Rangcellen er en streg (ligaRanking giver rank null), rubrikkerne
+        // streger, og I alt er badget — ikke ligaRankings 0.
+        expect(regnskab()[1]).toEqual(['– Anne', '–', '–', '–', 'ikke klar']);
+        expect(tabel().queryByText('7,2')).toBeNull();
+        // Badget siger det selv; stregens forklaring gælder kun rækker MED total.
+        expect(screen.queryByText(/pointene ikke delt op/)).toBeNull();
+      });
+
+      it('sætter ingen stjerne, når rubrikkerne summer til ligaens total — heller ikke efter afrunding', () => {
+        setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+        aabn();
+        expect(screen.queryByText(/Delene summer ikke til totalen/)).toBeNull();
+        expect(screen.queryByTitle(/Delene giver/)).toBeNull();
+      });
+
+      it('sætter en stjerne med gulv-teksten, når ligaens sum er i minus', () => {
+        // Anne tabte 7 på Chancen i runde 12. Spillets total er 45 (ingen
+        // gulv dér), men ligaen fra runde 12 ser −5 — og stillingen viser 0,
+        // fordi saldoen aldrig går i minus. Rubrikkerne skal vise −5, og
+        // stjernen skal sige HVORFOR de ikke summer til 0.
+        const anne = {
+          ...MED_VEKTOR[0], totalPoints: 45,
+          perRound: { 1: 50, 12: -5 },
+          opdeling: { p1x2: 52, chance: -7, combi: 0, pulje: 0 },
+          opdelingPerRunde: { 1: { p1x2: 50, chance: 0, combi: 0 }, 12: { p1x2: 2, chance: -7, combi: 0 } },
+        };
+        setup({ standings: [anne, MED_VEKTOR[1]], leagues: LIGA12 });
+        aabn();
+        expect(regnskab()[1]).toEqual(['2. Anne', '2', '−7', '0', '0*']);
+        expect(screen.getByTitle(/Delene giver -5 tilsammen\. Saldoen kan ikke gå i minus, så totalen står på 0\./))
+          .toBeInTheDocument();
+        expect(screen.getByText(/Delene summer ikke til totalen/)).toBeInTheDocument();
+      });
+
+      it('viser rubrikkerne MED stjerne — ikke en streg — ved en åben rest fra en kamp, der ikke kunne læses', () => {
+        // Et tip med point på en slettet kamp: serveren lægger pointene under
+        // nøglen «uden» i totalen, men i ingen rubrik. Det er permanent —
+        // Genberegn hjælper ikke — så en streg med «bed admin køre Genberegn»
+        // ville være en falsk anvisning. Samme kontrakt som spillets regnskab:
+        // totalen er den rigtige, stjernen siger resten.
+        const anne = {
+          ...MED_VEKTOR[0], totalPoints: 50,
+          perRound: { 1: 37.3, 12: 9.7, uden: 3 },
+          opdelingPerRunde: { ...MED_VEKTOR[0].opdelingPerRunde, uden: { p1x2: 0, chance: 0, combi: 0 } },
+        };
+        setup({ standings: [anne, MED_VEKTOR[1]], leagues: LIGA12 });
+        aabn();
+        expect(regnskab()[0]).toEqual(['1. Anne', '7,2', '+2,5', '0', '12,7*']);
+        expect(screen.getByTitle(/Delene giver 9,7 tilsammen, men totalen er 12,7/)).toBeInTheDocument();
+        expect(screen.queryByText(/pointene ikke delt op/)).toBeNull();
+      });
+
+      it('holder panelets sætning om HELE sæsonen, når regnskabet er åbent', () => {
+        // Regnskabet og panelet er nu på hver sin skala — med vilje (panelet
+        // lister runder fra spillets start). Begge skal sige det.
+        setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+        aabn();
+        fireEvent.click(tabel().getByText('Anne'));
+        expect(screen.getByText(/Tallene herunder er spillets samlede point/)).toBeInTheDocument();
+      });
+    });
+
+    // REGRESSIONEN FRA EJERENS SKÆRMBILLEDE, i fixture-form: tre spillere, så
+    // der ER et podie, og en liga fra runde 2. Sharkey fører spillet (170,8),
+    // Better fører ligaen (139). Regnskabets orden skal være podiets, og ingen
+    // række under nr. 1 må have et højere I alt.
+    it('regnskabets orden er podiets — og nr. 1 har flest point i tabellen', () => {
+      const liga2 = [{ id: 'L1', name: 'Kontoret', memberUids: ['me', 'u1', 'u2'], startRound: 2 }];
+      const rk = (p1x2) => ({ p1x2, chance: 0, combi: 0 });
+      const tre = [
+        {
+          uid: 'u1', name: 'Sharkey', totalPoints: 170.8, rank: 1, bonusPoints: 0,
+          perRound: { 1: 60, 2: 110.8 }, opdelingPerRunde: { 1: rk(60), 2: rk(110.8) },
+        },
+        {
+          uid: 'u2', name: 'Better', totalPoints: 159, rank: 2, bonusPoints: 0,
+          perRound: { 1: 20, 2: 139 }, opdelingPerRunde: { 1: rk(20), 2: rk(139) },
+        },
+        {
+          uid: 'me', name: 'Mig', totalPoints: 110, rank: 3, bonusPoints: 0,
+          perRound: { 1: 10, 2: 100 }, opdelingPerRunde: { 1: rk(10), 2: rk(100) },
+        },
+      ];
+      setup({ standings: tre, leagues: liga2 });
+      expect(podiumName(1)).toBe('Better');
+      fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+      const raekker = [...container.querySelectorAll('table tbody tr')]
+        .map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent.trim()));
+      expect(raekker.map((r) => r[0])).toEqual(['1. Better', '2. Sharkey', '3. Mig (dig)']);
+      const iAlt = raekker.map((r) => Number(r[r.length - 1].replace(',', '.')));
+      expect(iAlt).toEqual([139, 110.8, 100]);
+      for (let i = 1; i < iAlt.length; i += 1) expect(iAlt[i]).toBeLessThanOrEqual(iAlt[0]);
+      // Og spillets total — det tal, der SÅ ud som en fejl — står ingen steder.
+      expect(screen.queryByText('170,8')).toBeNull();
     });
   });
 
@@ -529,6 +752,11 @@ describe('GameStandings — pointopdeling', () => {
     fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
     expect(screen.getByText(/Opdelingen bygges, næste gang en kamp afgøres/)).toBeInTheDocument();
     expect(screen.getAllByText('–').length).toBeGreaterThan(0);
+    // Tællelinjen med «Genberegn point» hører KUN til liga-tilstand (Test Manager:
+    // uden `liga ?` på tælleren stod den her også — med «runde null»). I spil-tilstand
+    // skriver serveren selv feltet ved næste kamp, og Genberegn er ikke anvisningen.
+    expect(screen.queryByText(/pointene ikke delt op/)).toBeNull();
+    expect(screen.queryByText(/Genberegn point/)).toBeNull();
   });
 
   it('kan foldes sammen igen', () => {
@@ -536,6 +764,30 @@ describe('GameStandings — pointopdeling', () => {
     fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
     fireEvent.click(screen.getByRole('button', { name: /Tilbage til listen/ }));
     expect(screen.queryByText(/Chancen/)).toBeNull();
+  });
+
+  // «Alle mine ligaer» er spillets skala, og det skal regnskabet blive ved
+  // med at sige — liga-sætningen («tæller som ligaen») hører KUN til en liga
+  // med startrunde. Fraværs-siden af liga-testen ovenfor.
+  it('siger under «Alle mine ligaer», at regnskabet er spillets — med puljen', () => {
+    setup({ standings: MED });
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    expect(screen.getByText(
+      'Regnskabet viser spillets samlede point. Tæller fra runde 1 — spillets egen skala, ikke en ligas.',
+    )).toBeInTheDocument();
+    expect(screen.queryByText(/Regnskabet tæller som ligaen/)).toBeNull();
+    expect(screen.getAllByText(/Pulje/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('7')).toBeInTheDocument();
+  });
+
+  // En liga UDEN startrunde er en delmængde af spillet — samme tal, ingen
+  // skalasætning overhovedet (ligaGate er tom), og spillets rubrikker.
+  it('viser spillets rubrikker uden skalasætning i en liga uden startrunde', () => {
+    setup({ standings: MED });
+    fireEvent.change(filter(), { target: { value: 'L1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
+    expect(screen.getByText('31')).toBeInTheDocument();
+    expect(screen.queryByText(/Regnskabet/)).toBeNull();
   });
 });
 

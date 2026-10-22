@@ -38,6 +38,9 @@ export function rankStandings(players, usersById = {}) {
       // når den starter ved en senere runde (se ligaRanking/ligaPoint).
       perRound: p.perRound ?? null,
       bonusPoints: Number(p.bonusPoints) || 0,
+      // Rubrikkerne PR. RUNDE — grundlaget for en ligas EGET regnskab, når
+      // den starter senere (se ligaOpdeling). Samme null-regel som `opdeling`.
+      opdelingPerRunde: p.opdelingPerRunde ?? null,
     };
   });
 
@@ -114,11 +117,10 @@ export function ligaRanking(rows, league, regn, harVektor, stemmer) {
       && stemmer(r.perRound, r.totalPoints, r.bonusPoints || 0);
     return {
     ...r,
-    // Spillets total FØR omregningen. Pointopdelingen og spillerdetaljen
-    // viser spillets regnskab (rubrikkerne er spil-globale), og de skal have
-    // spillets tal at stemme mod — ellers står rubrikker på én skala mod en
-    // total på en anden, og afvigelses-noten forklarer det med to grunde, der
-    // begge er forkerte.
+    // Spillets total FØR omregningen. Spillerdetaljen lister runder fra
+    // SPILLETS start og skal have spillets tal at stemme mod. Regnskabet
+    // (OpdelingsTabel) bruger den IKKE længere: det regner som ligaen af
+    // `opdelingPerRunde` (ligaOpdeling) og stemmer mod ligaens total.
     spilTotal: r.totalPoints,
     // KLAR ER TO SPØRGSMÅL, IKKE ÉT: findes vektoren, OG kan den gengive
     // spillets egen total? En vektor, der mangler runder, består det første
