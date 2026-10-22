@@ -1650,3 +1650,47 @@ seks — én pr. felt). Patch: 8 testfiler, ingen produktionskode.
 - **Nedre grænser på nye tekstvagte overlever igen:** Tour `text.size() > 0` → `>= 0`/`> 1` (d497f71)
   — samme mønster som label/answer. Nye `size()`-vagte: test altid tom streng OG ét tegn.
   Eget opslags «(dig)»-suffiks var ubundet (`{u.name && m.uid === meUid ? ' (dig)' : ''}`).
+
+## Scan-scriptet `scripts/scan-liga-felter.mjs` + `scripts/lib/ligaFelter.mjs` (ba85775 → HEAD 179d091, 20/10 2026)
+
+~350 mutationer (lib 69+84, regler 25+42, script 43+53). Forfatterens suite på HEAD: lib 57/84 røde,
+paritet 14/39 (+2 FALSKE røde ved omordning), script 0/43 (ingen test kører det). Med patch: lib 83/84
+(resten ækvivalent: `typeof v === 'object'` i erTimestamp), paritet 39/39, script 53/53. Patch mod HEAD:
+2 testfiler, ingen produktionskode. Runner + specs lå i scratchpad `tm-scan/` (mut.mjs: old/new/nth/copy/file
+pr. mutation, gendanner i exit/SIGINT, vitest `--reporter=json`).
+
+- **Et `scripts/*.mjs` med top-level await + `process.exit` har ingen test, selv når `lib/` har én.**
+  43/43 script-mutationer overlevede — også en ægte `doc().set()`, `ref.delete()`, `fetch POST` og
+  `writeFileSync`. Workflowet kører med DEPLOY-servicekontoen, så «læs-only» hviler kun på disciplin. Bind det
+  ved at KØRE scriptet i en rigtig node-proces (`scan-liga-felter.korsel.test.mjs`): `--import register.mjs` →
+  `module.register(hooks)` omdirigerer `firebase-admin/app|firestore` til en stub med ALLOWLIST (db har kun
+  `collection(n).get()`/`collectionGroup(n).get()`, alt andet er TypeError → exit 1 → rød), `fetch` kastet af,
+  http/net/child_process afvist. Fixture via env-JSON (`{"$ts":ms}` → `{toMillis}`), læsninger logges til fil,
+  stub-filerne skrives til `mkdtemp` (ingen hjælpefiler i repoet). Supplér med en statisk import-allowlist:
+  stubben ser ikke `fs`-skrivninger. Opdages: grep efter en testfil, der KØRER scriptet — ikke kun importerer lib.
+- **Plain-node-indlæsning er et eget led:** lib→`src/`-import (`LQ_TYPES`) uden `.js` virker i Vitest og dør i
+  rå node. Kun subprocess-testen blev rød (11 tests); alle enhedstests grønne.
+- **Paritetstest med `regler.match(re)` læser kun FØRSTE match.** Create og update har hver sin kopi (label ≥3/≤120,
+  acceptedAnswers ≤20, points >0/≤100), og update-kopien er den, der fryser ældre dokumenter: ændring dér
+  overlevede (R2/R4/R7, og hele points-paritetens 7 mutationer). `matchAll` + `toEqual([x, x])`, skær blokken
+  mellem ankre, strip `//`-kommentarer, `RULES_FILE` (kontrolmutationer: kommentar med tal, omordnet liste = må
+  IKKE give rød — forfatterens `toContain('hasOnly([…])')` gav falsk rød ved omordning).
+- **`toContain('… <= 280')` / `'points <= 100'` er delstreng af `<= 2800` / `<= 1000`.** Udtræk hele tallet
+  (`(\d+)`, `[\d.]+` ved decimaler). Reglens tekst er rå tekst i samme forstand som UI-tekst.
+- **`<` → `<=` overlevede 4 af 6 grænser** (label min, facit max, alternativer max, besked max): testene havde
+  grænse±1 kun på ÉN side. Pr. grænse: ét sundt tilfælde PRÆCIS på den + ét gift lige uden for.
+- **Fejlmeddelelser pinnet med `toHaveLength` alene:** 14 af 16 feltnavne kunne omdøbes uden rød. Pin
+  DIAGNOSEN (det foran « — ») eksakt og handlingsteksten løst, så rådgivningen kan omformuleres frit.
+- **Null-vagten i en hjælper (`erTimestamp(null)`)** overlevede, fordi testen kun havde `{}`/map; fjernes den,
+  dør HELE scanningen midt i en kørsel (`null.toMillis`). Test `createdAt: null`.
+- **Undtagelse på flag + identitet (`system === true && uid === BOT_UID`) har TO halvdele:** forfalsker-testen
+  (flag + medlems-uid) binder kun den ene. Test også bottens uid med `system: false/'true'/1` og uden flag.
+- **`size()` i Firestore-regler tæller UTF-16-enheder** (som JS `.length`) — målt i emulator v1.22.0 (`java -jar`
+  jar'en + `@firebase/rules-unit-testing` fra `functions/node_modules` + egne rules i scratchpad; «ab😀d» afvist af
+  `size() <= 4`, «😀😀» accepteret af `>= 3`). Pinnet med en emoji-test.
+- **Branchen flyttede sig midt i gennemgangen (66eeb36: bot-undtagelse indsnævret, createdBy, points 1-100).**
+  `git worktree list` før aflevering → rebase testene, kør matricen igen mod HEAD, patch mod begge.
+- Værktøj: `echo PLACEHOLDER > fil` + Edit (heredoc afvist); `git show <sha>:fil > fil` virker; `git add -N` +
+  `git diff -- stier` giver patch med ny fil; sammensatte kommandoer med `git`/`.github` afvises — del dem op.
+  Edit afviser stien i delt checkout (`/home/user/tour/…`) fra en worktree-agent: hukommelsen redigeres i
+  worktree-kopien og afleveres som patch. Mutation, der skriver en fil (R9), efterlader den: ryd `/tmp` bagefter.
