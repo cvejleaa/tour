@@ -646,7 +646,7 @@ lyse, hvis pointene bevægede sig opad. Vi gætter ikke på retningen.
 Kørslens eget svar siger kun, hvad den *mente* den gjorde. Derfor kører
 `scripts/verificer-totaler.mjs` som sidste trin og læser, hvad serveren
 **faktisk har gemt** på hver spiller (`players/{uid}.totalPoints` og
-`.opdeling`). Den er læs-only og prøver tre ting, der ellers går galt uden en
+`.opdeling`). Den er læs-only og prøver fire ting, der ellers går galt uden en
 fejlbesked:
 
 1. **Rubrikkerne skal summe til totalen** — inden for afrundingen (0,25: fire
@@ -658,6 +658,21 @@ fejlbesked:
    (`bets.chanceStake > 0`). Er den negativ uden indsats, står bet-pointene med
    en gammel regel — præcis symptomet fra fælden ovenfor.
 3. Totalen gulves ved 0, så `sum < total` er legitimt netop dér — undtaget.
+4. **Rubrikkerne pr. runde (`opdelingPerRunde`) skal findes for hver runde i
+   `perRound`.** Mangler feltet eller en runde, meldes «INGEN OPDELING PR.
+   RUNDE» eller «RUNDE k MANGLER» som fejl — svaret er 🔄 **Genberegn point**.
+   Summer en rundes rubrikker ikke til rundens tal, står der «ulæselig rest i
+   runde k» og en ℹ️-linje: det er point fra en kamp, opdelingen ikke kan læse
+   (fx et tip på en slettet kamp). Det er INFORMATION, ikke en fejl, og
+   Genberegn ændrer det ikke — afrunding giver aldrig en rest, så tallet er
+   ægte.
+
+   **Rulles functions tilbage efter en Genberegn**, skriver den gamle kode
+   totalerne, men ikke `opdelingPerRunde`. Et resultat, der ændrer sig i en
+   runde, som allerede har sin nøgle, giver så en STJERNE i ligaens regnskab
+   med begrundelsen «en kamp ikke kunne læses» — det er forkert; den rigtige
+   er, at feltet er forældet. Kør 🔄 Genberegn point, når de nye functions er
+   ude igen.
 
 **Ved tør-kørsel er trinnet informativt** (`continue-on-error`): det viser
 tilstanden FØR skrivningen, og den uenighed, det finder, er den, skrivningen
