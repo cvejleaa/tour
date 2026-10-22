@@ -296,6 +296,28 @@ PR-teksten, ikke her.
 - **Briefingens HEAD kan være forældet** — tjek `git log` og vis kun diffen mod
   det, du faktisk gennemgår; en opfølgende test-commit kan være landet.
 
+- **Skifter en tabel skala, skal HVER celle og tekst for samme tilstand følge
+  med** — rang, I alt, badge, forklaringslinjer, kolonner (skjul en kolonne
+  ALLE tre steder: overskrift, celler, forklaring), tællelinjer og de
+  naboflader, der bevidst bliver på den gamle skala (panel, pokal) og skal SIGE
+  det. Spor tilstanden gennem hver gren: spil-tilstand, liga uden startrunde,
+  liga med, klar:false.
+- **En rules-blacklist på et nyt server-ejet felt stopper kun FREMTIDIGE
+  skrivninger.** Genberegn før fladen stoler på feltet, og kræv en optælling
+  efter (verificerens tal → 0). Rækkefølgen rules → functions (flueben) →
+  genberegn → hosting er et krav, ikke en anbefaling.
+- **Permanent tilstand må ikke få en anvisning, der kun hjælper midlertidig.**
+  En streg lover «Genberegn hjælper»; en åben rest fra en slettet kamp (nøglen
+  'uden', alle ligaer) hjælper den ikke mod. Del tilstandene efter, om
+  handlingen kan løse dem: MANGLER (streg + anvisning) vs. ÅBEN REST (tal +
+  stjerne). Prisen ved at udelade en gate: en forældet-men-komplet kopi får
+  stjerne med en forkert begrundelse indtil næste genberegn — acceptabelt, når
+  totalen er den rigtige og teksten siger det.
+- **Et afledt felt, der nu er forudsætning for en gammel flade, rammer også de
+  rækker, der var rigtige før** (en liga uden egen startrunde-effekt, fx
+  startrunde 1, viste før spillets tal korrekt; kræver nu det nye felt og
+  viser streger indtil genberegn). Sig det til Release Manager som rækkefølge.
+
 ## Alarmer, postbud og pull→push
 
 - **Pull→push: optæl alle røde tilstande OG hvor de beregnes (klient/server).**

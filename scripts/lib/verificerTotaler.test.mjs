@@ -89,6 +89,58 @@ describe('kontrollerSpiller — Chancen', () => {
   });
 });
 
+describe('kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde)', () => {
+  const medVektor = (over) => spiller({ perRound: { 3: 5.1, 4: 2 }, opdelingPerRunde: {
+    3: { p1x2: 2.2, chance: 2.9, combi: 0 }, 4: { p1x2: 2, chance: 0, combi: 0 },
+  }, ...over });
+
+  it('ok, når hver runde summer til perRound — og en spiller uden vektor spørges ikke', () => {
+    expect(kontrollerSpiller(medVektor(), ingen).noter).toEqual([]);
+    expect(kontrollerSpiller(medVektor(), ingen).rester).toEqual([]);
+    expect(kontrollerSpiller(spiller(), ingen).noter).toEqual([]); // ingen perRound → intet krav
+  });
+  it('mangler feltet hos en spiller MED vektor, er det en fejl: Genberegn point', () => {
+    const r = kontrollerSpiller(medVektor({ opdelingPerRunde: undefined }), ingen);
+    expect(r.noter).toEqual(['INGEN OPDELING PR. RUNDE — kør Genberegn point for spillet']);
+  });
+  it('en rundenøgle, der mangler i opdelingen, er en fejl (forældet kort ved siden af en frisk vektor)', () => {
+    const r = kontrollerSpiller(medVektor({ opdelingPerRunde: { 3: { p1x2: 2.2, chance: 2.9, combi: 0 } } }), ingen);
+    expect(r.noter.join()).toMatch(/RUNDE 4 MANGLER/);
+  });
+  it('en runde, hvis rubrikker ikke summer til rundens tal, er en REST — ikke en fejl, men tælles', () => {
+    const r = kontrollerSpiller(medVektor({ perRound: { 3: 7.1, 4: 2 } }), ingen);
+    expect(r.noter).toEqual([]);
+    expect(r.rester).toEqual(['3']);
+  });
+  // Test Manager: fixturerne havde kun rubrikker UNDER rundens tal og combi 0.
+  // `Math.abs` kunne blive til én side, og combi kunne ryge ud af summen, uden at
+  // noget blev rødt.
+  it('en rest i BEGGE retninger tælles: rubrikker over rundens tal er også en rest', () => {
+    // Rubrikkerne giver 5,1 mod rundens 4,0.
+    expect(kontrollerSpiller(medVektor({ perRound: { 3: 4, 4: 2 } }), ingen).rester).toEqual(['3']);
+  });
+  it('combi indgår i rundens rubriksum — en runde, der KUN går op med combi, er grøn', () => {
+    const r = kontrollerSpiller(medVektor({
+      perRound: { 3: 5.2, 4: 2 },
+      opdelingPerRunde: { 3: { p1x2: 2.2, chance: 0.5, combi: 2.5 }, 4: { p1x2: 2, chance: 0, combi: 0 } },
+    }), ingen);
+    expect(r.rester).toEqual([]);
+    expect(r.noter).toEqual([]);
+  });
+  it('en spiller med flere ulæselige runder er ÉN spiller i rester-tallet, men alle runder står på rækken', () => {
+    const v = vurder([
+      { uid: 'x', totalPoints: 9, opdeling: { p1x2: 9, chance: 0, combi: 0, pulje: 0 },
+        perRound: { 3: 5, 4: 4 }, opdelingPerRunde: { 3: { p1x2: 1, chance: 0, combi: 0 }, 4: { p1x2: 1, chance: 0, combi: 0 } } },
+    ], []);
+    expect(v.rester).toBe(1);
+    expect(v.rows[0].rester).toEqual(['3', '4']);
+  });
+  it('sammenligningen sker i tiendedele: 5,14 er lig 5,1 (grøn), 5,2 er en rest', () => {
+    expect(kontrollerSpiller(medVektor({ perRound: { 3: 5.14, 4: 2 } }), ingen).rester).toEqual([]);
+    expect(kontrollerSpiller(medVektor({ perRound: { 3: 5.2, 4: 2 } }), ingen).rester).toEqual(['3']);
+  });
+});
+
 describe('harIndsatsAf', () => {
   it('samler uids med chanceStake > 0 — 0, udeladt og ugyldigt tæller ikke; tekst-tal gør', () => {
     const s = harIndsatsAf([
@@ -128,6 +180,19 @@ describe('vurder + tabel', () => {
     expect(t).toContain('LÆS-ONLY — der er ikke skrevet noget.');
   });
 
+  it('rester står på rækken og i en egen ℹ️-linje — og tæller ikke som fejl', () => {
+    const v = vurder([
+      { uid: 'rest', totalPoints: 7.1, opdeling: { p1x2: 7.1, chance: 0, combi: 0, pulje: 0 },
+        perRound: { 3: 7.1 }, opdelingPerRunde: { 3: { p1x2: 5.1, chance: 0, combi: 0 } } },
+    ], []);
+    expect(v.fejl).toBe(0);
+    expect(v.rester).toBe(1);
+    const t = tabel(v, new Map(), 'pl').join('\n');
+    expect(t).toMatch(/^rest .*ok · ulæselig rest i runde 3$/m);
+    expect(t).toContain('✓ Ingen fejl fundet.');
+    expect(t).toContain('ℹ️  1 spiller(e) har point fra kampe, opdelingen ikke kan læse');
+  });
+
   it('uden fejl lyser ✓ — og ikke ⚠️', () => {
     const t = tabel(vurder(spillere.slice(0, 2), bets), new Map(), 'x').join('\n');
     expect(t).toContain('✓ Ingen fejl fundet.');
@@ -153,6 +218,27 @@ describe('vurder + tabel', () => {
     expect(linjer.join('\n')).toMatch(/^ ✓ Ingen fejl fundet\. .*30\.5 +30\.5 {2}ok$/m); // navnet står i sin kolonne, som tekst
   });
 
+  it('en RUNDE-NØGLE med linjeskift og ::error:: kan heller ikke skrive sin egen linje', () => {
+    // Security-fund på opdelingPerRunde: noterne («RUNDE k MANGLER») og resterne
+    // bærer nøgler fra dokumentet, og de stod uden om navnets rensning. En
+    // spiller kan ikke skrive nøglen (reglerne), men konsollen og Admin SDK kan.
+    const gift = '\n::error::FALSK';
+    const v = vurder([
+      { uid: 'mangler', totalPoints: 2, opdeling: { p1x2: 2, chance: 0, combi: 0, pulje: 0 },
+        perRound: { [gift]: 2 }, opdelingPerRunde: {} },
+      { uid: 'rest', totalPoints: 7.1, opdeling: { p1x2: 7.1, chance: 0, combi: 0, pulje: 0 },
+        perRound: { [gift]: 7.1 }, opdelingPerRunde: { [gift]: { p1x2: 5.1, chance: 0, combi: 0 } } },
+    ], []);
+    const linjer = tabel(v, new Map(), 'x');
+    for (const l of linjer) {
+      expect(l).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/); // eslint-disable-line no-control-regex
+      expect(l).not.toMatch(/^:/);
+    }
+    const t = linjer.join('\n');
+    expect(t).toMatch(/^mangler .*RUNDE {2}::error::FALSK MANGLER I OPDELINGEN/m);
+    expect(t).toMatch(/^rest .*ulæselig rest i runde {2}::error::FALSK$/m);
+  });
+
   it('et navn, der ikke er en streng, vælter ikke tabellen', () => {
     const t = tabel(vurder(spillere, bets), new Map([['top', { a: 1 }], ['lav', 42]]), 'x').join('\n');
     expect(t).toMatch(/^\[object Object\] .*30\.5 {2}ok$/m);
@@ -161,6 +247,6 @@ describe('vurder + tabel', () => {
 
   it('et spil uden spillere er ikke en fejl', () => {
     const v = vurder([], []);
-    expect(v).toEqual({ rows: [], fejl: 0, iAlt: 0 });
+    expect(v).toEqual({ rows: [], fejl: 0, rester: 0, iAlt: 0 });
   });
 });

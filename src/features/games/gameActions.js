@@ -57,7 +57,7 @@ function danishError(err, fallback) {
 /**
  * Deltag i et spil (opret games/{gameId}/players/{uid}) — eller VEND TILBAGE:
  * har man forladt spillet tidligere, ligger dokumentet der stadig med
- * `forladt: true` og hele arkivet (point, perRound, opdeling). Så fjernes
+ * `forladt: true` og hele arkivet (point, perRound, opdeling, opdelingPerRunde). Så fjernes
  * flaget kun; et setDoc uden merge ville slette pointene, og reglen afviser
  * det alligevel (point-felterne må ikke røres af klienten).
  * @param {string} uid     – den indloggede brugers uid

@@ -100,7 +100,13 @@ runder fra den og frem tæller i ligaens stilling. Grundlaget er
 skrevet af `recalcPlayerTotal` sammen med totalen; en runde står med, så snart
 ét af spillerens tips i den er afgjort, også med 0, mens en runde uden afgjorte
 tips har ingen nøgle — og summen lægges af
-`ligaPoint` (spejlet src/lib ⇄ functions-platform). Puljebonussen tæller kun
+`ligaPoint` (spejlet src/lib ⇄ functions-platform). Ved siden af står
+`players/{uid}.opdelingPerRunde` — rubrikkerne (1X2, Chancen, combi) pr. runde
+med PRÆCIS samme nøgler, skrevet i samme transaktion, så ligaens regnskab kan
+vises kolonne for kolonne fra startrunden (puljen er spil-niveau og lægges på
+af fladen). Rubrikkerne summer præcis til rundens tal, hvor resten er ren
+afrunding; en større rest (point fra en kamp, opdelingen ikke kan læse) står
+åben og vises som «–». Puljebonussen tæller kun
 for ligaer med startrunde <= `PULJE_MAKS_STARTRUNDE` (3): den tippes før
 sæsonen, så senere medlemmer kunne ikke være med. Saldoen (banken for Chancen)
 er ALTID spillets samlede — der er ét bet pr. kamp, delt af alle ligaer.

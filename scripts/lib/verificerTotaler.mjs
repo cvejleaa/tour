@@ -34,6 +34,8 @@ export const TOLERANCE = 0.25;
 export const CHANCE_NEGATIV = -0.05;
 
 export const r1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
+/** Så meget må rubrikkerne pr. runde afvige fra rundens tal, før resten er point, opdelingen ikke kunne læse (serveren har allerede lagt ren afrunding i p1x2). */
+export const RUNDE_TOLERANCE = 0.05;
 
 /**
  * Hvem har overhovedet sat point på spil? KUN de spillere må have negativ
@@ -82,7 +84,29 @@ export function kontrollerSpiller(p, harIndsats) {
     noter.push('CHANCEN NEGATIV UDEN INDSATS — bet-pointene følger ikke reglen, genscor (bagfyld)');
   }
 
-  return { uid: p.uid, p1x2, chance, combi, pulje, sum, total, noter };
+  // RUBRIKKERNE PR. RUNDE (opdelingPerRunde) — ligaens regnskab fra startrunden.
+  // Feltet skrives sammen med perRound; mangler det hos en spiller, der HAR en
+  // vektor, er spilleren ikke genberegnet siden udrulningen (🔄 Genberegn point).
+  // En runde, hvis rubrikker ikke summer til rundens tal, er ikke en fejl men
+  // point fra en kamp, opdelingen ikke kan læse (slettet kamp, kamp uden facit):
+  // den vises som «–» i ligaens regnskab. Tælles for sig (`rester`), så den
+  // kan måles FØR fladen stoler på feltet — og farver aldrig en kørsel rød.
+  const rester = [];
+  if (p.perRound && typeof p.perRound === 'object') {
+    const opr = p.opdelingPerRunde;
+    if (!opr || typeof opr !== 'object') {
+      noter.push('INGEN OPDELING PR. RUNDE — kør Genberegn point for spillet');
+    } else {
+      for (const [k, v] of Object.entries(p.perRound)) {
+        const rk = opr[k];
+        if (!rk || typeof rk !== 'object') { noter.push(`RUNDE ${k} MANGLER I OPDELINGEN PR. RUNDE — kør Genberegn point`); continue; }
+        const rs = r1((Number(rk.p1x2) || 0) + (Number(rk.chance) || 0) + (Number(rk.combi) || 0));
+        if (Math.abs(rs - r1(v)) > RUNDE_TOLERANCE) rester.push(k);
+      }
+    }
+  }
+
+  return { uid: p.uid, p1x2, chance, combi, pulje, sum, total, noter, rester };
 }
 
 /**
@@ -95,8 +119,9 @@ export function vurder(spillere, bets) {
     .sort((x, y) => (Number(y.totalPoints) || 0) - (Number(x.totalPoints) || 0))
     .map((p) => kontrollerSpiller(p, harIndsats));
   const fejl = rows.reduce((a, r) => a + r.noter.length, 0);
+  const rester = rows.reduce((a, r) => a + (r.rester.length ? 1 : 0), 0);
   const iAlt = r1(spillere.reduce((a, p) => a + (Number(p.totalPoints) || 0), 0));
-  return { rows, fejl, iAlt };
+  return { rows, fejl, rester, iAlt };
 }
 
 /**
@@ -129,13 +154,21 @@ export function tabel(v, navn, gameId) {
     linjer.push(
       b(rent(navn.get(r.uid) || r.uid).slice(0, 25), 26)
       + h(r.p1x2, 8) + h(r.chance, 8) + h(r.combi, 8) + h(r.pulje, 7)
-      + h(r.sum, 8) + h(r.total, 8) + '  ' + (r.noter.join(' · ') || 'ok'),
+      // Noterne og resterne bærer RUNDE-NØGLER fra dokumentet — samme rensning
+      // som navnet, for en nøgle med linjeskift er lige så meget en
+      // `::error::`-annotering (Security-fund på opdelingPerRunde).
+      + h(r.sum, 8) + h(r.total, 8) + '  ' + (rent(r.noter.join(' · ')) || 'ok')
+      + (r.rester.length ? ` · ulæselig rest i runde ${rent(r.rester.join(', '))}` : ''),
     );
   }
   linjer.push('-'.repeat(96));
   linjer.push(`${b('I ALT', 26)}${h('', 39)}${h(v.iAlt, 8)}`);
   linjer.push('');
   linjer.push(v.fejl === 0 ? '✓ Ingen fejl fundet.' : `⚠️  ${v.fejl} problem(er) fundet.`);
+  if (v.rester > 0) {
+    linjer.push(`ℹ️  ${v.rester} spiller(e) har point fra kampe, opdelingen ikke kan læse (rubrikkerne pr. runde summer ikke) `
+      + '— vises som «–» i ligaens regnskab. Ikke en fejl.');
+  }
   linjer.push('LÆS-ONLY — der er ikke skrevet noget.');
   return linjer;
 }

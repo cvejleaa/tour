@@ -593,7 +593,8 @@ ligner hinanden, men den ene kan ikke rette det, den anden retter.
 |---|---|---|
 | `game.startRound` STRAMMET (fx 2 → 3), en liga, en puljeafregning | 🔄 **Genberegn point** (`recomputeGameScores`) | `bets.points` er allerede rigtige; kun totalerne skal lægges sammen forfra |
 | `game.startRound` LØSNET (fx 3 → 2) | **`rescoreGameBets`** — ikke Genberegn point | Kampe, hvis facit faldt, MENS de var gatet, står med `points: 0`. `recomputeGameMatchCore` returnerer tidligt for en gatet kamp og skriver aldrig et point på den, så der er intet at lægge sammen. Stillingen ville vise for lave tal uden en eneste fejlbesked |
-| En LIGAS `startRound` (sat/ændret af ejeren) | Ingenting | Ligaens total regnes i fladen af `players.perRound` — der er intet server-tal at genberegne. MEN: spillere, der aldrig er genberegnet efter udrulningen af `perRound`, mangler vektoren og vises som "ikke klar" — kør 🔄 **Genberegn point** for spillet én gang efter udrulning |
+| En LIGAS `startRound` (sat/ændret af ejeren) | Ingenting | Ligaens total regnes i fladen af `players.perRound` — der er intet server-tal at genberegne. MEN: spillere, der aldrig er genberegnet efter udrulningen af `perRound`, mangler vektoren og vises som "ikke klar" — kør 🔄 **Genberegn point** for spillet én gang efter udrulning. Regnskabet («Hvor kommer pointene fra?») viser «–» for de samme spillere |
+| **Nyt felt `players.opdelingPerRunde`** (20/10 2026: ligaens regnskab pr. runde) | 🔄 **Genberegn point** — pr. spil, ÉN gang efter udrulning af functions (tørkørsel af `rescore-bets.yml` før og efter: «INGEN OPDELING PR. RUNDE» skal gå til 0) | Feltet skrives af alle genberegninger, men ved en afgjort kamp kun for de berørte spillere — indtil Genberegn er kørt, er feltet derfor blandet, og ligaens regnskab viser «–» i rubrikkerne for dem, der mangler det (I alt er stadig ligaens tal). Det gælder OGSÅ ligaer med startrunde 1, der før viste spillets tal: kør Genberegn, FØR hosting udrulles |
 | **Betydningen af `players.perRound`** — fx at et afgjort forbier skriver nøglen med 0 (12/10 2026) | 🔄 **Genberegn point** — pr. spil (knappen er pr. fodboldspil: PL og Superligaen hver for sig) | Vektoren genskrives ellers kun, når noget andet alligevel skriver den: for de spillere, der har et bet på den næste afgjorte kamp (`berorteUids`), for alle pulje-tippere ved en facit-ændring efter grundspillet, og for alle ved `rescoreGameBets` uden tør-kørsel. Indtil da er feltet blandet: nyt tal hos dem, en kamp har genberegnet, gammel vektor hos resten — og fladen viser «–», hvor der burde stå 0 |
 | **Selve pointreglen** i `superligaScoring.js` — fx træf-bonussen eller combi-formlen | **`rescoreGameBets`** | `bets.points` er kilden til totalen, og de står med det GAMLE tal |
 | **Odds-modellen** — `ELO.DRAW_BASE`, `DRAW_DECAY`, `ODDS.MIN`, seed-Elo | 💰 **Ompris kampene** (`repriceGameOdds`) | Odds er frosne på kamp-dokumentet. Hverken de to andre knapper eller et deploy rører dem — se nedenfor |
@@ -645,7 +646,7 @@ lyse, hvis pointene bevægede sig opad. Vi gætter ikke på retningen.
 Kørslens eget svar siger kun, hvad den *mente* den gjorde. Derfor kører
 `scripts/verificer-totaler.mjs` som sidste trin og læser, hvad serveren
 **faktisk har gemt** på hver spiller (`players/{uid}.totalPoints` og
-`.opdeling`). Den er læs-only og prøver tre ting, der ellers går galt uden en
+`.opdeling`). Den er læs-only og prøver fire ting, der ellers går galt uden en
 fejlbesked:
 
 1. **Rubrikkerne skal summe til totalen** — inden for afrundingen (0,25: fire
@@ -657,6 +658,21 @@ fejlbesked:
    (`bets.chanceStake > 0`). Er den negativ uden indsats, står bet-pointene med
    en gammel regel — præcis symptomet fra fælden ovenfor.
 3. Totalen gulves ved 0, så `sum < total` er legitimt netop dér — undtaget.
+4. **Rubrikkerne pr. runde (`opdelingPerRunde`) skal findes for hver runde i
+   `perRound`.** Mangler feltet eller en runde, meldes «INGEN OPDELING PR.
+   RUNDE» eller «RUNDE k MANGLER» som fejl — svaret er 🔄 **Genberegn point**.
+   Summer en rundes rubrikker ikke til rundens tal, står der «ulæselig rest i
+   runde k» og en ℹ️-linje: det er point fra en kamp, opdelingen ikke kan læse
+   (fx et tip på en slettet kamp). Det er INFORMATION, ikke en fejl, og
+   Genberegn ændrer det ikke — afrunding giver aldrig en rest, så tallet er
+   ægte.
+
+   **Rulles functions tilbage efter en Genberegn**, skriver den gamle kode
+   totalerne, men ikke `opdelingPerRunde`. Et resultat, der ændrer sig i en
+   runde, som allerede har sin nøgle, giver så en STJERNE i ligaens regnskab
+   med begrundelsen «en kamp ikke kunne læses» — det er forkert; den rigtige
+   er, at feltet er forældet. Kør 🔄 Genberegn point, når de nye functions er
+   ude igen.
 
 **Ved tør-kørsel er trinnet informativt** (`continue-on-error`): det viser
 tilstanden FØR skrivningen, og den uenighed, det finder, er den, skrivningen

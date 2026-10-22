@@ -293,6 +293,49 @@ export function combiPerRunde(bets, roundCtx) {
 }
 
 /**
+ * Nøglen i `perRunde` OG `opdelingPerRunde` for en kamp: rundenummeret som
+ * streng, ellers 'uden'. ÉT udtryk for begge vektorer, så de aldrig kan nøgles
+ * forskelligt — ligaPoint tæller 'uden' med i alle ligaer.
+ */
+function rundeNoegle(info) {
+  const r = info?.round;
+  return Number.isFinite(r) ? String(r) : 'uden';
+}
+
+/**
+ * Så meget må rubrikkerne afvige fra rundens tal, før resten er mere end
+ * afrunding: tre rubrikker afrundet hver for sig (3 × 0,05) plus rundens egen
+ * afrunding (0,05). Større rest = point fra kampe, opdelingen ikke kunne læse
+ * (slettet kamp, kamp uden facit) — den står åben, præcis som på spil-niveau.
+ */
+export const REST_AFRUNDING = 0.2;
+
+/**
+ * Rubrikkerne pr. runde-nøgle — SAMME nøgler som perRunde, afrundet så de
+ * summer PRÆCIS til rundens tal, hvor resten er ren afrunding.
+ *
+ * Hvorfor resten lægges i p1x2 frem for at tolerere den: ligaPoint summerer de
+ * afrundede rundetal, og rubrikker afrundet hver for sig driver ±0,1 pr. runde.
+ * Over en sæson på 30+ runder ville summen af ligaens rubrikker afvige mere
+ * end fladens tærskel (0,25) fra ligaens total — og stjernen «delene summer
+ * ikke» ville stå på rækker uden grund. Bundet af 30-runders-fixturet i testen.
+ * Gulv lægges ALDRIG her: det lægges én gang, på summen, i ligaPoint.
+ */
+export function rubrikkerPerRunde(perRunde, rubrikker) {
+  const ud = {};
+  for (const k of Object.keys(perRunde)) {
+    const r = rubrikker[k] || { p1x2: 0, chance: 0, combi: 0 };
+    let p1x2 = round1(r.p1x2) || 0;
+    const chance = round1(r.chance) || 0;
+    const combi = round1(r.combi) || 0;
+    const rest = round1(perRunde[k] - (p1x2 + chance + combi)) || 0;
+    if (Math.abs(rest) <= REST_AFRUNDING) p1x2 = round1(p1x2 + rest) || 0;
+    ud[k] = { p1x2, chance, combi };
+  }
+  return ud;
+}
+
+/**
  * Del en spillers point op i de fire kilder, spillet har.
  *
  * `bets` skal ALLEREDE være renset for gatede kampe (runder før spillets start) —
@@ -321,6 +364,15 @@ export function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs =
   // kampdokument — nulstille spillerens stilling, tavst. Rubrikkerne er
   // best-effort; totalen er stillingen.
   let raw = 0;
+  // RUBRIKKER PR. RUNDE — samme nøgler som perRunde, så en liga med startrunde
+  // kan vise sit regnskab kolonne for kolonne (ejerens fund 20/10 2026: nr. 2
+  // stod med flest point i regnskabet, fordi det viste hele spillet). Puljen
+  // er ikke med: den er spil-niveau (bonusPoints) og lægges på af ligaPoint.
+  const rubrikker = {};
+  const rubrikFor = (noegle) => {
+    if (!rubrikker[noegle]) rubrikker[noegle] = { p1x2: 0, chance: 0, combi: 0 };
+    return rubrikker[noegle];
+  };
 
   for (const b of bets) {
     raw += Number(b.points) || 0;
@@ -329,6 +381,9 @@ export function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs =
     const tip = outcomePoints(b.pick, info.result, info.odds);
     p1x2 += tip;
     chance += (Number(b.points) || 0) - tip;
+    const rk = rubrikFor(rundeNoegle(info));
+    rk.p1x2 += tip;
+    rk.chance += (Number(b.points) || 0) - tip;
     afgjorte.push(b);
     if (maaVises(info, nowMs)) kampe.push(b);
   }
@@ -365,11 +420,14 @@ export function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs =
   };
   for (const b of bets) {
     const info = byMatch[b.matchId];
-    const r = info?.round;
-    laegTil(Number.isFinite(r) ? String(r) : 'uden', Number(b.points) || 0, taeller(info));
+    laegTil(rundeNoegle(info), Number(b.points) || 0, taeller(info));
   }
-  for (const [r, v] of combiPerRunde(afgjorte, roundCtx)) laegTil(String(r), v);
+  for (const [r, v] of combiPerRunde(afgjorte, roundCtx)) {
+    laegTil(String(r), v);
+    rubrikFor(String(r)).combi += v;
+  }
   for (const k of Object.keys(perRunde)) perRunde[k] = round1(perRunde[k]);
+  const opdelingPerRunde = rubrikkerPerRunde(perRunde, rubrikker);
 
 
   // Totalen afrundes ÉN gang og gulves ÉN gang — nøjagtig som recalcPlayerTotal.
@@ -381,6 +439,8 @@ export function opdelPoint({ bets = [], roundCtx = null, puljeBonus = 0, nowMs =
     combi: round1(combi),
     pulje: round1(pulje),
     perRunde,
+    // Rubrikker pr. runde — ligaens regnskab lægges af dem i fladen (ligaOpdeling).
+    opdelingPerRunde,
     // raw, ikke p1x2 + chance: identisk med den gamle formel i
     // recalcPlayerTotal, så stillingen ikke kan flytte sig af denne ændring.
     total: Math.max(0, round1(raw + combi + pulje)),

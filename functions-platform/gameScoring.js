@@ -282,6 +282,10 @@ async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null, g
       // Ét felt og ikke fire løse: rubrikkerne skrives altid sammen, så de
       // ikke kan komme til at stamme fra hver sin kørsel.
       opdeling: { p1x2: o.p1x2, chance: o.chance, combi: o.combi, pulje: o.pulje },
+      // Rubrikkerne PR. RUNDE (samme nøgler som perRound) — ligaens regnskab
+      // lægges af dem i fladen fra ligaens startrunde, så regnskabstabellen
+      // viser de point, der TÆLLER i ligaen (ejerens fund 20/10 2026).
+      opdelingPerRunde: o.opdelingPerRunde,
       updatedAt: FieldValue.serverTimestamp(),
       // mergeFields, IKKE merge:true. merge:true DEEP-merger maps: en
       // rundenøgle, der forsvinder fra den nye vektor — et facit fjernes, en
@@ -290,7 +294,7 @@ async function recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx = null, g
       // mergeFields erstatter hvert felt HELT og bevarer, at dokumentet kan
       // mangle. Samme beslutning som `kampe`-dokumentet nedenfor ("FULD
       // ERSTATNING — bevidst ingen merge").
-    }, { mergeFields: ['totalPoints', 'roundBonus', 'perRound', 'opdeling', 'updatedAt'] });
+    }, { mergeFields: ['totalPoints', 'roundBonus', 'perRound', 'opdeling', 'opdelingPerRunde', 'updatedAt'] });
 
     // FULD ERSTATNING — bevidst ingen merge.
     //

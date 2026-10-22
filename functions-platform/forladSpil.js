@@ -7,7 +7,7 @@
 // spiller går. Derfor:
 //
 //   - players/{uid} bliver liggende med `forladt: true` (+ tidspunkt). Point,
-//     perRound, opdeling og detalje-rækker røres ikke. Kommer hun tilbage i
+//     perRound, opdeling, opdelingPerRunde og detalje-rækker røres ikke. Kommer hun tilbage i
 //     sæsonen, fjernes flaget, og hun har sin stilling igen (joinGame).
 //   - Tips på kampe, der IKKE er låst endnu, slettes: hun skal ikke score
 //     point fremover. Tips på låste/spillede kampe bliver stående.
