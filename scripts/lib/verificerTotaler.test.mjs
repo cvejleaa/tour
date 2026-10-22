@@ -112,6 +112,29 @@ describe('kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde)', () =>
     expect(r.noter).toEqual([]);
     expect(r.rester).toEqual(['3']);
   });
+  // Test Manager: fixturerne havde kun rubrikker UNDER rundens tal og combi 0.
+  // `Math.abs` kunne blive til én side, og combi kunne ryge ud af summen, uden at
+  // noget blev rødt.
+  it('en rest i BEGGE retninger tælles: rubrikker over rundens tal er også en rest', () => {
+    // Rubrikkerne giver 5,1 mod rundens 4,0.
+    expect(kontrollerSpiller(medVektor({ perRound: { 3: 4, 4: 2 } }), ingen).rester).toEqual(['3']);
+  });
+  it('combi indgår i rundens rubriksum — en runde, der KUN går op med combi, er grøn', () => {
+    const r = kontrollerSpiller(medVektor({
+      perRound: { 3: 5.2, 4: 2 },
+      opdelingPerRunde: { 3: { p1x2: 2.2, chance: 0.5, combi: 2.5 }, 4: { p1x2: 2, chance: 0, combi: 0 } },
+    }), ingen);
+    expect(r.rester).toEqual([]);
+    expect(r.noter).toEqual([]);
+  });
+  it('en spiller med flere ulæselige runder er ÉN spiller i rester-tallet, men alle runder står på rækken', () => {
+    const v = vurder([
+      { uid: 'x', totalPoints: 9, opdeling: { p1x2: 9, chance: 0, combi: 0, pulje: 0 },
+        perRound: { 3: 5, 4: 4 }, opdelingPerRunde: { 3: { p1x2: 1, chance: 0, combi: 0 }, 4: { p1x2: 1, chance: 0, combi: 0 } } },
+    ], []);
+    expect(v.rester).toBe(1);
+    expect(v.rows[0].rester).toEqual(['3', '4']);
+  });
   it('sammenligningen sker i tiendedele: 5,14 er lig 5,1 (grøn), 5,2 er en rest', () => {
     expect(kontrollerSpiller(medVektor({ perRound: { 3: 5.14, 4: 2 } }), ingen).rester).toEqual([]);
     expect(kontrollerSpiller(medVektor({ perRound: { 3: 5.2, 4: 2 } }), ingen).rester).toEqual(['3']);

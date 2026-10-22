@@ -1694,3 +1694,36 @@ pr. mutation, gendanner i exit/SIGINT, vitest `--reporter=json`).
   `git diff -- stier` giver patch med ny fil; sammensatte kommandoer med `git`/`.github` afvises — del dem op.
   Edit afviser stien i delt checkout (`/home/user/tour/…`) fra en worktree-agent: hukommelsen redigeres i
   worktree-kopien og afleveres som patch. Mutation, der skriver en fil (R9), efterlader den: ryd `/tmp` bagefter.
+
+## Opdeling pr. runde — `opdelingPerRunde` (D1+D3, okt. 2026)
+
+- **En test kan love "rød uden regel X" uden at fixturet nogensinde aktiverer X.**
+  `rubrikkerPerRunde`s rest-regel (|rest| ≤ 0,2 foldes i p1x2) blev "bundet" af et
+  30-runders-fixture (tip 5, odds 2,25) med kommentaren "Rød uden rest-reglen".
+  Men `outcomePoints` afrunder allerede 2,25 til 2,3, så rubrikkerne summer til 5,0
+  = rundens tal og resten er 0: `if (false)` på reglen overlevede det og
+  src-spejlets `REST_AFRUNDING = 0.05` med. Fuzz (30.000 tilfælde, node + REST=−1)
+  viste: med bet-point i tiendedele opstår en rest ALDRIG; først bet-point med
+  hundredele (5,05, odds 4 → 5,1 mod 5,0) giver den. Kun det direkte
+  syntetiske `rubrikkerPerRunde`-kald bar reglen. Opdages næste gang: sæt tærsklen
+  til −1 (aldrig) i kilden og kør fuzz — er resten overhovedet nogensinde ≠ 0?
+- **Paritetstest over `opdelPoint` binder ikke en hjælpers tærskel**, hvis ingen
+  fixture rammer den (src `REST_AFRUNDING` kunne ændres frit). Bind den eksporterede
+  hjælper + konstant direkte, server mod src, på en tabel der rammer begge sider.
+- **`Math.abs(x) <= T` → `x <= T` overlever, når alle åbne rester i fixturerne har
+  samme fortegn.** Test begge fortegn. Samme i verificerTotaler (`Math.abs(rs - v)`):
+  én-sidet variant overlevede, og `combi` kunne droppes ud af rubrik-summen, fordi
+  combi var 0 i alle fixtures.
+- **`const mangler = liga ? … : 0` → `true ?` overlevede**: ingen test hævdede
+  FRAVÆR af liga-tællelinjen i spil-tilstand (rækker uden `opdeling`). Fraværs-
+  assertion tilføjet i "viser en streg, ikke nuller…".
+- **Ækvivalente mutanter her** (skal ikke jagtes igen): `Number.isFinite` alene i
+  stedet for `typeof==='number' && isFinite`; `RUNDE_TOLERANCE` 0 vs 0,05 (begge
+  sider r1-afrundet); `ligaStart` som `valgt?.startRound ?? null` (rules tvinger
+  int ≥ 1 eller null, så Number.isFinite-normaliseringen er uobserverbar);
+  `|| 0` på fold-resultatet (−0 kan ikke opstå af to tiendedels-doubles).
+- Rules-test via `RULES_FILE=<muteret kopi>` + emulator på port 8099 virker fint
+  til blacklist-mutationer. **`pkill -f 'port 8099'` rammer sin egen shell** (kommandolinjen
+  indeholder mønstret → exit 144): brug `pgrep -f cloud-firestore-emulator` og kill pid.
+- Mutationsværktøj: `scratchpad/tm-op/mut.py NAVN FIL OLD NEW CMD` (en forekomst,
+  gendanner selv; "MATCH COUNT 2" = vælg mere kontekst).

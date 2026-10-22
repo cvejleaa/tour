@@ -752,6 +752,11 @@ describe('GameStandings — pointopdeling', () => {
     fireEvent.click(screen.getByRole('button', { name: /Hvor kommer pointene fra/ }));
     expect(screen.getByText(/Opdelingen bygges, næste gang en kamp afgøres/)).toBeInTheDocument();
     expect(screen.getAllByText('–').length).toBeGreaterThan(0);
+    // Tællelinjen med «Genberegn point» hører KUN til liga-tilstand (Test Manager:
+    // uden `liga ?` på tælleren stod den her også — med «runde null»). I spil-tilstand
+    // skriver serveren selv feltet ved næste kamp, og Genberegn er ikke anvisningen.
+    expect(screen.queryByText(/pointene ikke delt op/)).toBeNull();
+    expect(screen.queryByText(/Genberegn point/)).toBeNull();
   });
 
   it('kan foldes sammen igen', () => {

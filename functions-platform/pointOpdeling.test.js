@@ -649,25 +649,43 @@ describe('opdelingPerRunde — rubrikker pr. runde', () => {
   // Afrunding pr. rubrik driver ±0,1 pr. runde. Over 30 runder er det 3 point —
   // langt over fladens tærskel på 0,25 for «delene summer ikke til totalen».
   // Resten lægges derfor i p1x2, så summen af ligaens rubrikker er ligaens tal.
-  // Odds 2,25 og tip 5 er binært eksakte: p1x2 2,25→2,3, Chancen 2,75→2,8, sum
-  // 5,1 mod rundens 5,0 — resten er −0,1 i HVER runde. Rød uden rest-reglen.
+  //
+  // FIXTURET SKAL SELV SKABE RESTEN (Test Manager): bet-point og 1X2 er i
+  // tiendedele, så med tip 5 og odds 2,25 er p1x2 2,3 og Chancen 2,7 — sum 5,0 =
+  // rundens tal, ingen rest, og testen var grøn UDEN rest-reglen. Et bet med
+  // hundredele giver resten: 5,05 afrundes til 5,1 på runden, men Chancen er
+  // 5,05 − 4 = 1,0499999… → 1,0, så rubrikkerne giver 5,0 (rest +0,1 i HVER
+  // runde). Rød uden rest-reglen: 150 mod rundens 153.
   it('driver ikke fra ligaens tal over en sæson: 30 runder med afrundingsrest summer præcis', () => {
     const matches = [];
     const bets = [];
     for (let r = 1; r <= 30; r += 1) {
-      matches.push({ id: `m${r}`, round: r, result: '1', odds: { 1: 2.25, X: 3, 2: 3 } });
-      bets.push({ matchId: `m${r}`, pick: '1', points: 5 });
+      matches.push({ id: `m${r}`, round: r, result: '1', odds: { 1: 4, X: 3, 2: 3 } });
+      bets.push({ matchId: `m${r}`, pick: '1', points: 5.05 });
     }
     const res = opdelPoint({ bets, roundCtx: ctx(matches), nowMs: NU });
     let rubrikker = 0;
     let runder = 0;
     for (const k of Object.keys(res.perRunde)) {
+      expect(res.perRunde[k], `runde ${k}`).toBe(5.1);
       expect(rubriksum(res.opdelingPerRunde[k]), `runde ${k}`).toBe(res.perRunde[k]);
+      // Resten (+0,1) ligger i p1x2: 4 + 0,1. Chancen er urørt.
+      expect(res.opdelingPerRunde[k], `runde ${k}`).toEqual({ p1x2: 4.1, chance: 1, combi: 0 });
       rubrikker += rubriksum(res.opdelingPerRunde[k]);
       runder += res.perRunde[k];
     }
-    expect(Math.round(rubrikker * 10) / 10).toBe(150);
-    expect(Math.round(runder * 10) / 10).toBe(150);
+    expect(Math.round(rubrikker * 10) / 10).toBe(153);
+    expect(Math.round(runder * 10) / 10).toBe(153);
+  });
+
+  // 0-nøglen er en rundenøgle som enhver anden: «Number.isFinite», ikke «> 0».
+  // En kamp i runde 0 hører ikke under «uden» — den ville så tælle i alle ligaer.
+  it('en kamp i runde 0 får nøglen «0» i begge vektorer — ikke «uden»', () => {
+    const roundCtx = ctx([{ id: 'm0', round: 0, result: '1', odds }]);
+    const res = opdelPoint({ bets: [{ matchId: 'm0', pick: '1', points: 2.5 }], roundCtx, nowMs: NU });
+    expect(Object.keys(res.perRunde)).toEqual(['0']);
+    expect(Object.keys(res.opdelingPerRunde)).toEqual(['0']);
+    expect(res.opdelingPerRunde['0']).toEqual({ p1x2: 2.5, chance: 0, combi: 0 });
   });
 
   it('en rest, der er mere end afrunding, står ÅBEN — point fra en slettet kamp lægges ikke i p1x2', () => {
@@ -716,6 +734,23 @@ describe('opdelingPerRunde — rubrikker pr. runde', () => {
     // Negativ nul må ikke slippe ud (toEqual skelner -0 fra 0 i Firestore-dokumentet er det ligegyldigt, i JSON ikke).
     const n = rubrikkerPerRunde({ 1: 0 }, { 1: { p1x2: -0.04, chance: 0.04, combi: 0 } });
     expect(Object.is(n[1].p1x2, 0)).toBe(true);
+  });
+
+  // Reglen er |rest| ≤ 0,2 — begge fortegn (Test Manager: en vagt på kun den ene
+  // side overlevede, fordi alle åbne rester i fixturerne var positive).
+  it('rest-reglen gælder begge fortegn: −0,3 står åben lige som +0,3 — og −0,1 må give en negativ p1x2', () => {
+    const r = rubrikkerPerRunde(
+      { 1: 4.4, 2: 2.7 },
+      {
+        1: { p1x2: 2, chance: 2.7, combi: 0 },   // sum 4,7 mod 4,4: rest −0,3 → ÅBEN
+        2: { p1x2: 0, chance: 2.8, combi: 0 },   // sum 2,8 mod 2,7: rest −0,1 → p1x2 −0,1
+      },
+    );
+    expect(r[1]).toEqual({ p1x2: 2, chance: 2.7, combi: 0 });
+    // Summen går forud for fortegnet: en p1x2 på −0,1 er grimt, men en rubrik-
+    // sum, der ikke er rundens tal, ville drive ligaens I alt (gulv pr. rubrik
+    // er lige så forbudt som gulv pr. runde).
+    expect(r[2]).toEqual({ p1x2: -0.1, chance: 2.8, combi: 0 });
   });
 });
 
@@ -859,11 +894,39 @@ describe('spejling mod src/lib', () => {
       ],
       bets: [{ matchId: 'm1', pick: '1', points: 5 }, { matchId: 'm2', pick: '1', points: 5 }],
     }],
+    // Bet-point med hundredele giver en ÆGTE afrundingsrest (+0,1), som rest-reglen
+    // lægger i p1x2. Uden dette fixture er resten 0 i alle andre, og en afvigende
+    // REST_AFRUNDING i src/lib var usynlig (Test Manager).
+    ['afrundingsrest +0,1 fra et bet med hundredele (opdelingPerRunde)', {
+      matches: [{ id: 'm1', round: 1, result: '1', odds: { 1: 4, X: 3, 2: 3 } }],
+      bets: [{ matchId: 'm1', pick: '1', points: 5.05 }],
+    }],
+    ['kamp i runde 0 — nøglen «0», ikke «uden» (opdelingPerRunde)', {
+      matches: [{ id: 'm0', round: 0, result: '1', odds: { 1: 2.5, X: 4, 2: 4 } }],
+      bets: [{ matchId: 'm0', pick: '1', points: 2.5 }],
+    }],
     ['slettet kamp og kamp uden runde — åben rest under «uden» (opdelingPerRunde)', {
       matches: [{ id: 'm3', result: '1', odds: { 1: 3, X: 4, 2: 4 } }],
       bets: [{ matchId: 'm3', pick: '1', points: 3 }, { matchId: 'slettet', pick: '1', points: 2 }],
     }],
   ];
+
+  // REST-REGLEN direkte, server mod src: samme tærskel og samme resultat på en
+  // tabel, der rammer begge sider af grænsen. Gennem opdelPoint kan en afvigende
+  // tærskel i src/lib kun ses på et fixture, der skaber en rest.
+  it('rubrikkerPerRunde og REST_AFRUNDING er ens i src/lib', async () => {
+    const src = await import('../src/lib/pointOpdeling.js');
+    expect(src.REST_AFRUNDING).toBe(REST_AFRUNDING);
+    const perRunde = { 1: 5.0, 2: 5.0, 3: 5.0, 4: 4.4, 5: 5.2, uden: 2 };
+    const rubrikker = {
+      1: { p1x2: 2.3, chance: 2.8, combi: 0 },
+      2: { p1x2: 2.25, chance: 2.74, combi: 0.2 },
+      3: { p1x2: 2.0, chance: 0, combi: 2.7 },
+      4: { p1x2: 2, chance: 2.7, combi: 0 },
+      5: { p1x2: 2.5, chance: 2.5, combi: 0 },
+    };
+    expect(src.rubrikkerPerRunde(perRunde, rubrikker)).toEqual(rubrikkerPerRunde(perRunde, rubrikker));
+  });
 
   for (const [navn, { matches, bets, puljeBonus = 0 }] of tilfaelde) {
     it(`server-spejlet matcher src-udgaven: ${navn}`, async () => {
