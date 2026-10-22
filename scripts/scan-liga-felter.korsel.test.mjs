@@ -119,14 +119,14 @@ describe('scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces
     expect(k.stderr).toBe('');
     expect(k.kode).toBe(0);
     expect(k.linjer).toEqual([
-      'leagues (top-niveau): 1 dokumenter, 0 ville blive frosset',
-      'games/*/leagues: 1 dokumenter, 0 ville blive frosset',
+      'leagues (top-niveau): 1 dokumenter, 0 er frosset',
+      'games/*/leagues: 1 dokumenter, 0 er frosset',
       'games/*/leagues/*/questions: 1 dokumenter, 0 er forgiftede',
       'games/*/leagues/*/questionAnswers: 1 dokumenter, 0 er forgiftede',
       'games/*/leagues/*/messages: 2 dokumenter, 0 er forgiftede',
       '',
       'Projekt demo-scan:',
-      expect.stringMatching(/^ {2}Ligaer: 0 dokument\(er\) ville blive frosset/),
+      expect.stringMatching(/^ {2}Ligaer: 0 dokument\(er\) er frosset/),
       expect.stringMatching(/^ {2}Spørgsmål\/svar\/beskeder: 0 dokument\(er\)/),
       '',
     ]);
@@ -143,10 +143,10 @@ describe('scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces
   const GIFT = [
     ['en top-niveau-liga med id-felt', { top: [SUND.topLiga, dok('leagues/L9', { id: 'X', name: 'N', ownerUid: 'o9' })] },
       '  leagues/L9  ejer=o9  → id-felt ("X")',
-      ['leagues (top-niveau): 2 dokumenter, 1 ville blive frosset', 'games/*/leagues: 1 dokumenter, 0 ville blive frosset']],
+      ['leagues (top-niveau): 2 dokumenter, 1 er frosset', 'games/*/leagues: 1 dokumenter, 0 er frosset']],
     ['en spil-liga uden streng-navn', { spil: [SUND.spilLiga, dok('games/g1/leagues/L8', { name: { a: 1 }, ownerUid: 'o8' })] },
       '  games/g1/leagues/L8  ejer=o8  → name er object',
-      ['games/*/leagues: 2 dokumenter, 1 ville blive frosset']],
+      ['games/*/leagues: 2 dokumenter, 1 er frosset']],
     ['et spørgsmål med deadline "abc" (muret inde)', { sp: [SUND.spoergsmaal, dok('games/g1/leagues/L1/questions/q9', { label: 'Hvem vinder?', type: 'text', points: 5, deadline: 'abc', facit: null, createdBy: 'o1' })] },
       // ejer = createdBy (liga-ejeren): et muret spørgsmål skal kunne føres tilbage til den, der kan rydde det.
       '  games/g1/leagues/L1/questions/q9  ejer=o1  → deadline er string — MURET INDE',
@@ -198,7 +198,7 @@ describe('scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces
     expect(k.kode).toBe(2);
     expect(k.fund).toHaveLength(6);
     expect(k.linjer).toContain('Projekt demo-scan:');
-    expect(k.linjer.find((l) => l.startsWith('  Ligaer: '))).toMatch(/^ {2}Ligaer: 2 dokument\(er\) ville blive frosset/);
+    expect(k.linjer.find((l) => l.startsWith('  Ligaer: '))).toMatch(/^ {2}Ligaer: 2 dokument\(er\) er frosset/);
     expect(k.linjer.find((l) => l.startsWith('  Spørgsmål/svar/beskeder: '))).toMatch(/^ {2}Spørgsmål\/svar\/beskeder: 4 dokument\(er\)/);
   });
 
@@ -216,10 +216,25 @@ describe('scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces
     }) });
     expect(k.stderr).toBe('');
     expect(k.kode).toBe(0);
-    expect(k.linjer).toContain('games/*/leagues: 1 dokumenter, 0 ville blive frosset');
+    expect(k.linjer).toContain('games/*/leagues: 1 dokumenter, 0 er frosset');
     expect(k.linjer).toContain('games/*/leagues/*/questions: 0 dokumenter, 0 er forgiftede');
     expect(k.linjer).toContain('games/*/leagues/*/questionAnswers: 0 dokumenter, 0 er forgiftede');
     expect(k.linjer).toContain('games/*/leagues/*/messages: 1 dokumenter, 0 er forgiftede');
+  });
+
+  // Release Managers fund: en forkert sti eller et forkert filter giver 0 dokumenter og exit 0 — en grøn kørsel,
+  // der intet så. Advarslen skal stå, når HELE projektet læste ingenting, og KUN dér.
+  it('advarer, når projektet læste 0 dokumenter — og ellers ikke', () => {
+    const tom = koer({ fixture: fixture({ top: [], spil: [], sp: [], sv: [], be: [] }) });
+    expect(tom.kode).toBe(0);
+    expect(tom.linjer.filter((l) => l.startsWith('::warning::'))).toEqual([
+      '::warning::Scanningen læste 0 dokumenter i demo-scan — forkert projekt, sti eller filter? '
+        + 'En grøn kørsel uden et eneste dokument har ikke kigget.',
+    ]);
+    // Ét eneste dokument et sted er nok til, at scanningen HAR kigget.
+    const en = koer({ fixture: fixture({ top: [SUND.topLiga], spil: [], sp: [], sv: [], be: [] }) });
+    expect(en.kode).toBe(0);
+    expect(en.linjer.some((l) => l.startsWith('::warning::'))).toBe(false);
   });
 
   // Reglens hasOnly lukker netop dette: et medlem, der gemmer bottens kendetegn (system:true + displayName) under eget uid.

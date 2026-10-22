@@ -15,9 +15,11 @@ export function ligaFejl(data) {
 // ---------------------------------------------------------------------------
 // Liga-spørgsmål, svar og væg-beskeder (#234): reglerne typevagter dem nu ved
 // skrivning, og klienten tåler ældre gift — men et ældre spørgsmål med fx
-// `deadline: 'abc'` er MURET INDE: reglen afviser rettelse, sletning og svar
-// (evalueringsfejl i `now < deadline`), så kun facit kan sættes. Scanningen
-// finder dem, så de kan ryddes med Admin SDK. Grænserne spejler reglen
+// `deadline: 'abc'` er MURET INDE: `now < deadline` er en evalueringsfejl, så
+// reglen afviser sletning, svar og enhver ændring af deadline eller points.
+// Label og facit kan stadig rettes (de grene rører ikke deadline, så længe den
+// står uændret). Feltet selv kan kun rettes i Firebase-konsollen — scanningen
+// finder dem med sti og ejer. Grænserne spejler reglen
 // (firestore.rules, questions/questionAnswers/messages) — paritetstesten i
 // ligaFelter.test.mjs læser reglen og holder dem ens.
 // ---------------------------------------------------------------------------
