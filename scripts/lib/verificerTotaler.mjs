@@ -154,8 +154,11 @@ export function tabel(v, navn, gameId) {
     linjer.push(
       b(rent(navn.get(r.uid) || r.uid).slice(0, 25), 26)
       + h(r.p1x2, 8) + h(r.chance, 8) + h(r.combi, 8) + h(r.pulje, 7)
-      + h(r.sum, 8) + h(r.total, 8) + '  ' + (r.noter.join(' · ') || 'ok')
-      + (r.rester.length ? ` · ulæselig rest i runde ${r.rester.join(', ')}` : ''),
+      // Noterne og resterne bærer RUNDE-NØGLER fra dokumentet — samme rensning
+      // som navnet, for en nøgle med linjeskift er lige så meget en
+      // `::error::`-annotering (Security-fund på opdelingPerRunde).
+      + h(r.sum, 8) + h(r.total, 8) + '  ' + (rent(r.noter.join(' · ')) || 'ok')
+      + (r.rester.length ? ` · ulæselig rest i runde ${rent(r.rester.join(', '))}` : ''),
     );
   }
   linjer.push('-'.repeat(96));

@@ -195,6 +195,27 @@ describe('vurder + tabel', () => {
     expect(linjer.join('\n')).toMatch(/^ ✓ Ingen fejl fundet\. .*30\.5 +30\.5 {2}ok$/m); // navnet står i sin kolonne, som tekst
   });
 
+  it('en RUNDE-NØGLE med linjeskift og ::error:: kan heller ikke skrive sin egen linje', () => {
+    // Security-fund på opdelingPerRunde: noterne («RUNDE k MANGLER») og resterne
+    // bærer nøgler fra dokumentet, og de stod uden om navnets rensning. En
+    // spiller kan ikke skrive nøglen (reglerne), men konsollen og Admin SDK kan.
+    const gift = '\n::error::FALSK';
+    const v = vurder([
+      { uid: 'mangler', totalPoints: 2, opdeling: { p1x2: 2, chance: 0, combi: 0, pulje: 0 },
+        perRound: { [gift]: 2 }, opdelingPerRunde: {} },
+      { uid: 'rest', totalPoints: 7.1, opdeling: { p1x2: 7.1, chance: 0, combi: 0, pulje: 0 },
+        perRound: { [gift]: 7.1 }, opdelingPerRunde: { [gift]: { p1x2: 5.1, chance: 0, combi: 0 } } },
+    ], []);
+    const linjer = tabel(v, new Map(), 'x');
+    for (const l of linjer) {
+      expect(l).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/); // eslint-disable-line no-control-regex
+      expect(l).not.toMatch(/^:/);
+    }
+    const t = linjer.join('\n');
+    expect(t).toMatch(/^mangler .*RUNDE {2}::error::FALSK MANGLER I OPDELINGEN/m);
+    expect(t).toMatch(/^rest .*ulæselig rest i runde {2}::error::FALSK$/m);
+  });
+
   it('et navn, der ikke er en streng, vælter ikke tabellen', () => {
     const t = tabel(vurder(spillere, bets), new Map([['top', { a: 1 }], ['lav', 42]]), 'x').join('\n');
     expect(t).toMatch(/^\[object Object\] .*30\.5 {2}ok$/m);

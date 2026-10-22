@@ -9,6 +9,16 @@
 
 ## PoC-opsætning der virker (genbrug den)
 
+- **Klientmoduler med extensionless imports køres med `npx vite-node <script>` fra repo-roden**
+  (2026-10-22): scriptet i scratchpad importerer repo-filer med absolut sti, vite løser resten.
+  Hurtigste typematrix-PoC for en `src/features/**`-funktion — ingen testfil i repoet.
+  **Fælder kørt i samme gennemgang:** (a) `pkill -f 'port 8098'` (koordinatorens forslag)
+  dræber DIN EGEN shell (exit 144) — brug `ps aux | grep '[j]ava -jar' | grep 8098 | awk …`.
+  (b) En skrivning af SAMME værdi, som allerede står i feltet, giver ingen `affectedKeys` og
+  lykkes — en PoC, der seeder og "angriber" med samme fixture, melder et falsk hul. Angrib
+  altid med en ANDEN værdi. (c) Gift lagt i en runde FØR ligaens startrunde måles aldrig —
+  læg giften i en TALT nøgle og kør en kontrol, der viser at samme gift før start ignoreres.
+
 - **REST via `:commit` (2026-10-15, bedst):** `POST .../documents:commit` med
   `{writes:[{update:{name,fields}, updateMask?, currentDocument?, updateTransforms:[{fieldPath,
   setToServerValue:'REQUEST_TIME'}]}]}` giver ÆGTE `serverTimestamp()` (nødvendigt for regler
@@ -188,6 +198,15 @@
   ved ULIGE segmentantal, fx `a/b`). Auth-kaldet er altså ikke en uid-validator.
 
 ## Bekræftede antagelser om reglerne (emulator-verificeret)
+
+- **Firestore reserverer feltnavne `__.*__` — også som NØGLER i maps** (2026-10-22,
+  emulator v1.22.0): `{opdelingPerRunde: {'__proto__': …}}` og `'__x__'` → 400
+  `field name '__proto__' is reserved`, selv med owner-token. En `__proto__`-nøgle kan altså
+  aldrig nå en læser via et dokument; `constructor`/`toString` kan (200).
+- **Flere writes til SAMME dokument i én commit evalueres mod commit'ens SLUTtilstand**
+  (2026-10-22): `{opdelingPerRunde: gift}` + `{opdelingPerRunde: gammel}` i samme commit → 200,
+  men intet ændret (diff er tom). `favoriteTeam` + ny `opdelingPerRunde` i to writes → 403.
+  Batch er ikke en omvej uden om `affectedKeys`.
 
 - **`where(felt,'==',null)` rammer IKKE et dokument, hvor feltet MANGLER**
   (emulator v1.22.0, 2026-10-13). Et nyt "ikke-endnu"-felt (fx `mailetAt`) skal
@@ -923,6 +942,17 @@
 
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
+- **`players/{uid}.opdelingPerRunde` (D1 9a5a42e, 2026-10-22) — 16 skriveformer afvist i
+  emulator, alle 200 mod mains regler (eef35b6):** hele feltet, nested sti
+  `opdelingPerRunde.\`3\`.p1x2`, ny nested nøgle, merge-set, fuld overskrivning med alle
+  felter, `deleteField`, `null`, streng, batch (favoriteTeam + felt), backtick-feltnavn i mask,
+  create (precondition og uden), andens dokument (update + delete af feltet), globalAdmin-klient
+  på andens dokument (players har ingen admin-skrivegren). Serveren: alle `players`-skrivere i
+  functions-platform har LITERALE payloads (gameLeagues :83/:87/:376/:379, forladSpil :97,
+  adminDeleteUser :122, gameScoring :272/:460) — ingen klient-payload kan nå feltet.
+  `opdelPoint`s eneste klient-felter er `pick` (gennem `isOutcome`, superligaScoring.js:91)
+  og `matchId` (kun opslag); nøglerne er `rundeNoegle` = `String(finite round)`|'uden'.
+
 - **Mod 7bf30ca (2026-10-15, emulator, kontrol-par pr. case):** svar som map/`{toString:null}`/
   tal/liste/bool/null/''/manglende/201 tegn; `questionId` som tal (`42_m1`) eller map — doc-id-
   bindingen `answerId == questionId + '_' + uid` gør evalueringsfejl → 403, så questionId er
@@ -1072,6 +1102,21 @@
   '', null, 'finale' → NaN → filtreret FØR tolkning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **«Opdeling pr. runde» (D1 9a5a42e + D3 d382b4e, 2026-10-22): RENT.** Rules-suiten 299/299
+  grøn; mod mains regler præcis de 2 nye tests røde. Mutation: `opdelingPerRunde` fjernet KUN
+  fra create-listen → kun «seede ved tilmelding» rød; KUN fra update-listen → kun «skrive sit
+  eget» rød — hver placering har sin egen røde test. Kontroller 200 på et dokument, der BÆRER
+  feltet (ingen ratchet): favoriteTeam update+merge, fjern `forladt`, ny tilmelding. Læsning:
+  liga-fælle 200, ikke-fælle 403 — feltet ligger i samme dokument som perRound/opdeling, så
+  ingen ny læsekreds. Klienten (`ligaOpdeling.js:1327-1338`) typematrix via vite-node:
+  array/streng/tal/null som felt, runde som array/streng, værdi streng/map `{toString:null}`/
+  Infinity/NaN/bool, manglende talt runde → `null` («–»), INTET kaster; -0 → 0; ekstra nøgler
+  (`constructor`, `toString`) ignoreres. Eneste kuriosum: to endelige 1.7e308 summer til
+  Infinity → vises «Infinity» + stjerne (kun konsol-nåeligt). Ny information: rubrikker pr.
+  runde for liga-fæller, der i forvejen kan læse perRound, sæson-`opdeling` (live-diffbar) og
+  tips efter kickoff — ingen ny kategori; maaVises-vinduet (se Åbne observationer) får én
+  rubrik-split mere.
 
 - **PR 1 (7bf30ca, 2026-10-15): alle klientens præcise payloads 200** — registrering
   (`useAuthActions.js:46/124`), `updateDisplayName`, `updateProfile`-patch, deleteField på
@@ -1851,6 +1896,14 @@
   `mangler` = 0. Runde 23+ (mesterskabsspil) filtreres af `runder`-sættet.
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
+
+- **`verificerTotaler.mjs` (D1) printer perRound-NØGLER råt** i `RUNDE ${k} MANGLER` og
+  `ulæselig rest i runde ${k}` — `rent()` står kun om navnet. Kørt: nøglen `'\n::error::FALSK'`
+  giver en Actions-annotering i kolonne 0. IKKE klient-nåeligt (nøgler er `String(finite
+  round)`|'uden', rules spærrer perRound/opdelingPerRunde), kun konsol/admin-SDK. Og
+  `Number({toString:null})` i en rubrik eller perRound-værdi KASTER (som `totalPoints` altid
+  har gjort) → scriptet dør højlydt (exit≠0), ikke tavst; i tørkørsel er trinnet dog
+  `continue-on-error`. Hygiejne: `rent(k)` i begge noter.
 
 - **`perRound`/`totalPoints` følger `taeller`, IKKE `maaVises` — bevidst.**
   En kamp med facit, men gemt kickoff i fremtiden (eller ulæseligt), skjuler
