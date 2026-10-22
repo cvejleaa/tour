@@ -106,7 +106,11 @@ med PRÆCIS samme nøgler, skrevet i samme transaktion, så ligaens regnskab kan
 vises kolonne for kolonne fra startrunden (puljen er spil-niveau og lægges på
 af fladen). Rubrikkerne summer præcis til rundens tal, hvor resten er ren
 afrunding; en større rest (point fra en kamp, opdelingen ikke kan læse) står
-åben og vises som «–». Puljebonussen tæller kun
+åben. Fladen lægger sammen i `src/features/games/ligaOpdeling.js` (klient-only,
+som rundeSejre) og stemmer summen mod ligaens total med samme
+`opdelingsAfvigelse` som spillets regnskab: en åben rest giver en stjerne
+(totalen er den rigtige), mens en spiller uden feltet — eller uden en talt
+runde i det — får «–» og en henvisning til 🔄 Genberegn point. Puljebonussen tæller kun
 for ligaer med startrunde <= `PULJE_MAKS_STARTRUNDE` (3): den tippes før
 sæsonen, så senere medlemmer kunne ikke være med. Saldoen (banken for Chancen)
 er ALTID spillets samlede — der er ét bet pr. kamp, delt af alle ligaer.
