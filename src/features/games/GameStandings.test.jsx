@@ -469,7 +469,7 @@ describe('GameStandings — liga-filter', () => {
         expect(regnskab()[1]).toEqual(['2. Anne', '–', '–', '–', '9,7']);
         expect(screen.getByText(
           '– : For 1 spiller er pointene ikke delt op fra runde 12 endnu. '
-          + 'I alt er rigtig — kun opdelingen mangler. Bed admin køre 🔄 Genberegn point.',
+          + 'Totalen er rigtig — kun opdelingen mangler. Bed admin køre 🔄 Genberegn point.',
         )).toBeInTheDocument();
       });
 

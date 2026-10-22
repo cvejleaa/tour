@@ -221,7 +221,7 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle, startRunde = null }) 
       {mangler > 0 && (
         <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', marginTop: '0.4rem' }}>
           {`– : For ${mangler === 1 ? '1 spiller' : `${mangler} spillere`} er pointene ikke delt op fra runde ${startRunde} endnu. `
-            + 'I alt er rigtig — kun opdelingen mangler. Bed admin køre 🔄 Genberegn point.'}
+            + 'Totalen er rigtig — kun opdelingen mangler. Bed admin køre 🔄 Genberegn point.'}
         </p>
       )}
       {/* Kolonneoverskrifternes title-tekst findes ikke på en telefon — der er
