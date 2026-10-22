@@ -292,3 +292,44 @@ Bekræfter og udvider afsnittet "Test-/CI-infrastruktur" ovenfor.
 - Admin-klientskrivninger UDEN for callables (platform): users.status
   (adminActions.js:27,38), users.role (adminActions.js:230), spil-konfiguration
   i gameActions.js:92/130/171/215/244, kampfacit (rules:886 isGlobalAdmin).
+
+## Liga-skala, regnskab og bagfyldning (fundet ved "opdeling pr. runde", okt 2026)
+- Regnskabet ("🧮 Hvor kommer pointene fra?") er `OpdelingsTabel` i
+  `GameStandings.jsx:120` på STILLING-fanen (GamePage.jsx:166-168) — IKKE
+  Ligaer-fanen. Ligaer-fanen har sin egen tabel (`leagueRankingWithQuestions`,
+  GameLeagues.jsx:160) uden rubrikker.
+- Felter fra players-dok plukkes i `rankStandings` (gameStandings.js:12-42),
+  IKKE i useGameStandings (den spreder bare d.data()). Nyt server-felt, der
+  skal i fladen = én linje dér, ellers tavst "–" overalt.
+- `ligaRanking` (gameStandings.js:86) giver rækker `klar`, `totalPoints`
+  (ligaens), `spilTotal` (spillets). `klar` = harRundeVektor && vektorStemmer —
+  den ENE vagt for "vektoren duer"; byg ikke en til ved siden af.
+- Mønster for klient-only helper ved siden af et SPEJLET modul: læg den uden
+  for spejlet (`rundeSejre.js:1-13`) og bind den med en test mod spejlet
+  (`rundeSejre.test.js:128` "samme afgrænsning som ligaPoint").
+- Spejl-paritet for pointOpdeling: `functions-platform/pointOpdeling.test.js:594`
+  — `toEqual` på HELE opdelPoint-returobjektet over 17 tilfælde → et nyt felt i
+  returværdien er automatisk paritetsdækket (men ikke mod symmetrisk drift).
+  ligaPoint-paritet: `functions-platform/ligaPoint.test.js:25` (pr. funktion).
+- Fake-db i `functions-platform/gameScoring.test.js:104-120` håndhæver
+  mergeFields; `:530-581` er skabelonen for "en forsvundet nøgle forsvinder".
+- BAGFYLDNING af et nyt players-felt = Admin → Spil-tidsplan "🔄 Genberegn
+  point efter start-ændring" (GameScheduleTab.jsx:597-600, gate isFootball) →
+  `recomputeGameScores` (index.js:298) → `recomputeAllPlayerTotals`
+  (gameScoring.js:586). Ren aggregering, ingen trigger på players. Ikke
+  rescore-bets (den genscorer bets). Produktionsskrivning → ejerens ja.
+- Uden bagfyldning får KUN spillere med bet på den afgjorte kamp nye felter
+  (`berorteUids`, gameScoring.js:524) — frafaldne spillere aldrig. Enhver
+  "alle rækker skal have feltet"-gate er derfor en evig fallback.
+- Læs-only "hvem mangler feltet / stemmer det": `scripts/lib/verificerTotaler.mjs`,
+  kører i `rescore-bets.yml:98-104` (informativt ved DRY_RUN). Udvid den frem
+  for at skrive et nyt audit-script.
+- `detalje/opdeling` læses af liga-fæller (rules:849-890), men rummer kun
+  {pick,points,chanceStake} for afgjort+begyndt — kan IKKE bære ligaens
+  rubrikker (mangler combi, pulje, ulæselige kickoffs, gulv).
+- Afrunding: ligaPoint summerer round1(perRunde[r]); rubrikker afrundet pr.
+  runde ophober ±0,1/runde → overstiger `TAERSKEL 0,25` (PointOpdeling.jsx:39)
+  over en sæson. Løs ved kilden (rest i én rubrik), ikke med større slæk.
+- Tekster, der påstår "Chancen findes ikke pr. runde": Pokaler.jsx:25-31,
+  GameStandings.jsx:597-599, FootballHelp.jsx:307-308 — bliver falske, så snart
+  der findes et pr.-runde-felt for chance.
