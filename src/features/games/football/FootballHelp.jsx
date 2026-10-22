@@ -304,9 +304,8 @@ export default function FootballHelp({ game }) {
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>⚡ Chance-kongen</strong> — hvem står bedst? Er nogen i minus, står den modigste af dem også. Kortet viser altid
-            <strong> hele sæsonen</strong>, også når du kigger på en liga med startrunde — derfor kan tallet
-            afvige fra Chancen-kolonnen i regnskabet, som tæller fra ligaens start, og derfor står der
-            &quot;hele sæsonen&quot; på kortet.
+            <strong> hele sæsonen</strong>, også når du kigger på en liga med startrunde. Derfor står der
+            &quot;hele sæsonen&quot; på kortet, når de to tal er på hver sin skala.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>⚔️ Jer to imellem</strong> — klik på et navn i stillingen og fold den ud: de kampe,
@@ -321,10 +320,7 @@ export default function FootballHelp({ game }) {
                 <strong>{ikon} {navn}</strong> ({hjaelp.replace(/\.$/, '').toLowerCase()})
               </span>
             ))}. Summen kan afvige lidt fra totalen — så står forklaringen under tabellen, og totalen
-            er den rigtige. Kigger du på en liga med startrunde, regner tabellen som ligaen: kun
-            runderne fra startrunden tæller, og puljen kun når ligaen tæller den — så I alt er det
-            samme tal som i stillingen. Spillets samlede regnskab for en spiller ser du ved at klikke
-            på navnet.
+            er den rigtige.
           </li>
           <li>
             <strong>Klik på et navn</strong> — så folder du den spillers tips ud runde for runde, med facit

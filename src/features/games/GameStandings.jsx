@@ -12,7 +12,6 @@ import {
   sidsteRunde, rundensPoint, rundeFoerende, rundePile, rundeRanking,
 } from './rundePoint';
 import { faerdigeRunder } from './rundeSejre';
-import { ligaOpdeling } from './ligaOpdeling';
 import {
   ligaPoint, harRundeVektor, puljenTaeller, vektorStemmer,
 } from '../../lib/ligaPoint';
@@ -117,54 +116,24 @@ function SpillerNavn({ r, aaben, onToggle, className = 'link-btn' }) {
  * Opdelingen for hele feltet. Kolonnerne bygges af SAMME RUBRIKKER-liste som
  * kort-visningen — ét sted at ændre rækkefølge og ord. Ellers hedder det
  * "Chancen" det ene sted og noget andet det andet om et halvt år.
- *
- * TO SKALAER, ÉN TABEL — OG HVER CELLE FØLGER MED. Uden `startRunde`
- * (spil-tilstand: «Alle mine ligaer» og ligaer uden egen startrunde) er
- * rubrikkerne serverens `opdeling`, og I alt er spillets total. MED startrunde
- * regner tabellen SOM LIGAEN: rubrikkerne lægges sammen af `opdelingPerRunde`
- * fra startrunden (ligaOpdeling), I alt er ligaens tal — det samme som i
- * stillingen ovenover — og puljen er kun med, når ligaen tæller den. Før stod
- * spillets regnskab under ligaens podie, og den, der havde flest point i
- * tabellen, var ikke nr. 1 på podiet. Det kunne ingen forklare (ejerens fund,
- * 20/10).
  */
-function OpdelingsTabel({ rows, meUid, aabenUid, onToggle, startRunde = null }) {
-  const liga = Number.isFinite(startRunde);
-  // Puljen er en rubrik, kun når ligaen tæller den. Skjules kolonnen, skal den
-  // væk ALLE tre steder — overskrift, celler og forklaringslinjen. En
-  // forklaring på en kolonne, der ikke findes, er samme slags modsigelse som
-  // to skalaer i én tabel.
-  const rubrikker = liga && !puljenTaeller(startRunde)
-    ? RUBRIKKER.filter(({ key }) => key !== 'pulje')
-    : RUBRIKKER;
-  // Rubrikkerne pr. række. null betyder «har vi ikke» og bliver til en streg —
-  // aldrig til nuller. klar:false har ikke engang en total at dele op.
-  const dele = rows.map((r) => {
-    if (!liga) return r.opdeling;
-    if (r.klar === false) return null;
-    return ligaOpdeling(r.perRound, r.opdelingPerRunde, startRunde, r.bonusPoints);
-  });
-  const harNogen = dele.some(Boolean);
+function OpdelingsTabel({ rows, meUid, aabenUid, onToggle }) {
+  const harNogen = rows.some((r) => r.opdeling);
   // Afvigelserne regnes med SAMME funktion som kortet, så noten siger det
   // samme begge steder. I en tabel med 22 rækker kan sætningen ikke stå ved
   // hver række — derfor en stjerne på totalen og forklaringen under tabellen.
-  // MOD DEN TOTAL, RÆKKEN VISER: spillets i spil-tilstand, ligaens i liga-
-  // tilstand. Rubrikker på én skala mod en total på en anden gav en note med
-  // to grunde, der begge var forkerte. En åben rest (en slettet kamp, hvis
-  // point ligger i totalen og i ingen rubrik) får stjernen her og ikke en
-  // streg: stregen lover, at Genberegn hjælper, og det gør den ikke dér.
-  const afvigelser = rows.map((r, i) => opdelingsAfvigelse(dele[i], r.totalPoints));
+  // MOD SPILLETS TOTAL, ikke ligaens. Rubrikkerne (1X2, Chancen, combi, pulje)
+  // er spillets regnskab; under et liga-filter med startrunde er totalPoints
+  // ligaens tal, og de to må ikke stemmes mod hinanden.
+  const afvigelser = rows.map((r) => opdelingsAfvigelse(r.opdeling, r.spilTotal ?? r.totalPoints));
   const foersteAfvigelse = afvigelser.find(Boolean) || null;
-  // Liga-tilstand: hvor mange rækker MED total mangler rubrikkerne pr. runde?
-  // klar:false tælles ikke — badget i I alt-cellen siger det selv.
-  const mangler = liga ? rows.filter((r, i) => r.klar !== false && !dele[i]).length : 0;
   return (
     <div className="table-wrap">
       <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             <th style={{ textAlign: 'left' }}>Spiller</th>
-            {rubrikker.map(({ key, ikon, navn, hjaelp }) => (
+            {RUBRIKKER.map(({ key, ikon, navn, hjaelp }) => (
               <th key={key} title={hjaelp} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                 <span aria-hidden="true">{ikon}</span> {navn}
               </th>
@@ -185,28 +154,23 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle, startRunde = null }) 
                 style={{ background: isMe ? 'var(--c-surface-alt)' : undefined, fontWeight: isMe ? 700 : 400 }}
               >
                 <td>
-                  {/* Ingen rang uden total (klar:false, ligaRanking): en streg
-                      som i listen — «null.» ville ligne en fejl i koden. */}
-                  {r.rank == null ? '–' : `${r.rank}.`}{' '}
+                  {r.rank}.{' '}
                   <SpillerNavn r={r} aaben={aabenUid === r.uid} onToggle={onToggle} />
                   {isMe && <span style={{ color: 'var(--c-muted)', fontWeight: 400 }}> (dig)</span>}
                 </td>
-                {rubrikker.map(({ key }) => (
+                {RUBRIKKER.map(({ key }) => (
                   <td key={key} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                     {/* En streg og ikke et nul: findes opdelingen ikke endnu, har
                         vi ikke tallet — vi ved ikke, at det er nul. */}
-                    {dele[i]
+                    {r.opdeling
                       ? (key === 'chance'
-                        ? fmtSignedPoints(dele[i][key] ?? 0)
-                        : formatPoints(dele[i][key] ?? 0))
+                        ? fmtSignedPoints(r.opdeling[key] ?? 0)
+                        : formatPoints(r.opdeling[key] ?? 0))
                       : '–'}
                   </td>
                 ))}
                 <td style={{ textAlign: 'right', fontWeight: 700 }}>
-                  {/* Den total, RÆKKEN er på: ligaens i liga-tilstand. Samme
-                      badge som listen ved klar:false — ligaRanking sætter
-                      totalPoints til 0 for netop de rækker. */}
-                  {r.klar === false ? <IkkeKlar /> : formatPoints(r.totalPoints)}
+                  {formatPoints(r.spilTotal ?? r.totalPoints)}
                   {afvigelser[i] && <span title={afvigelsesTekst(afvigelser[i])}>*</span>}
                 </td>
               </tr>
@@ -214,20 +178,10 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle, startRunde = null }) 
           })}
         </tbody>
       </table>
-      {/* Stregens forklaring står ØVERST under tabellen: den gælder hele
-          rækker, og den siger, hvad der skal gøres (QC på planen). Kun i
-          liga-tilstand — i spil-tilstand skriver serveren feltet selv, og
-          sætningen om det står nederst. */}
-      {mangler > 0 && (
-        <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', marginTop: '0.4rem' }}>
-          {`– : For ${mangler === 1 ? '1 spiller' : `${mangler} spillere`} er pointene ikke delt op fra runde ${startRunde} endnu. `
-            + 'Totalen er rigtig — kun opdelingen mangler. Bed admin køre 🔄 Genberegn point.'}
-        </p>
-      )}
       {/* Kolonneoverskrifternes title-tekst findes ikke på en telefon — der er
           ingen mus at holde stille. Derfor står forklaringen også som tekst. */}
       <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', marginTop: '0.4rem' }}>
-        {rubrikker.map(({ ikon, navn, hjaelp }) => `${ikon} ${navn}: ${hjaelp}`).join(' ')}
+        {RUBRIKKER.map(({ ikon, navn, hjaelp }) => `${ikon} ${navn}: ${hjaelp}`).join(' ')}
       </p>
       {foersteAfvigelse && (
         <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', marginTop: '0.4rem' }}>
@@ -235,7 +189,7 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle, startRunde = null }) 
           ikke kan gå i minus, eller fordi en kamp ikke kunne læses i opdelingen.
         </p>
       )}
-      {!liga && !harNogen && (
+      {!harNogen && (
         <p style={{ color: 'var(--c-muted)', fontSize: '0.82rem', marginTop: '0.4rem' }}>
           Opdelingen bygges, næste gang en kamp afgøres. Totalen er der allerede.
         </p>
@@ -337,11 +291,6 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
     ? leagues[0]
     : null;
   const valgt = leagues.find((l) => l.id === leagueId) || enesteLiga;
-  // Ligaens startrunde — eller null, når det viste felt er på spillets skala
-  // («Alle mine ligaer», eller en liga uden egen startrunde). Samme
-  // normalisering som ligaRanking, og ÉT udtryk for alle de steder, der
-  // skifter skala med den: rundetallet, pilene, pokalerne og regnskabet.
-  const ligaStart = valgt && Number.isFinite(valgt.startRound) ? valgt.startRound : null;
   // En liga med egen startrunde får sin total regnet FORFRA af runde-vektoren
   // (ligaRanking); uden er den bare en delmængde af spillet (subsetRanking).
   const standings = useMemo(
@@ -361,8 +310,8 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // cykelspillet — en anden beslutning, som ikke hører til her (opgave #56).
   const harRunder = game?.type === GAME_TYPE.FOOTBALL;
   const rundeNr = useMemo(
-    () => (harRunder ? sidsteRunde(standings, ligaStart) : null),
-    [harRunder, standings, ligaStart],
+    () => (harRunder ? sidsteRunde(standings, valgt?.startRound ?? null) : null),
+    [harRunder, standings, valgt],
   );
   const foerende = useMemo(
     () => rundeFoerende(standings, rundeNr),
@@ -378,9 +327,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // ellers beholder cykelspil og spil uden runder serverens billede.
   const raekker = useMemo(
     () => (visRunde
-      ? rundePile(standings, rundeNr, ligaStart, ligaPoint, harRundeVektor)
+      ? rundePile(standings, rundeNr, valgt?.startRound ?? null, ligaPoint, harRundeVektor)
       : standings),
-    [visRunde, standings, rundeNr, ligaStart],
+    [visRunde, standings, rundeNr, valgt],
   );
 
   // VISNINGEN UDLEDES, DEN GEMMES IKKE RÅT (QC på planen). Skifter man til
@@ -629,11 +578,10 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             className="btn btn--ghost btn--sm"
             aria-pressed={visOpdeling}
             // REGNSKAB OG RUNDEVISNING UDELUKKER HINANDEN (QC på planen):
-            // regnskabet er på Samlet-skalaen — spillets, eller ligaens når
-            // den har startrunde — så podiet over det skal være Samlet;
-            // ellers står rundens tal oven på sæsonens. Vælgeren bliver
-            // stående med Samlet trykket ind; det er sandt. Og «Runde N»
-            // lukker regnskabet den anden vej (se knappen).
+            // regnskabet er spillets totaler, så podiet over det skal være
+            // Samlet — ellers står to skalaer oven på hinanden. Vælgeren
+            // bliver stående med Samlet trykket ind; det er sandt. Og
+            // «Runde N» lukker regnskabet den anden vej (se knappen).
             onClick={() => { if (!visOpdeling) setValg('samlet'); setVisOpdeling(!visOpdeling); }}
           >
             {/* "Tilbage til listen" og ikke "vis stillingen": man ER i
@@ -653,7 +601,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
       <Pokaler
         rows={raekker}
         matches={matches}
-        startRunde={ligaStart}
+        startRunde={valgt && Number.isFinite(valgt.startRound) ? valgt.startRound : null}
       />
 
       {/* HVILKEN RUNDE tallet er.
@@ -794,20 +742,10 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
         <div ref={tabelRef}>
           {visOpdeling ? (
             <>
-              {/* HVILKEN SKALA regnskabet er på. Med startrunde regner tabellen
-                  som ligaen (OpdelingsTabel), og så er I alt stillingens tal —
-                  det skal siges, for det var det MODSATTE, der stod her før.
-                  Hele sæsonen findes i spillerpanelet, og det skal også siges
-                  (Spilfører): den, der kun er i én liga, har ingen vælger, så
-                  panelet er hans eneste vej derhen. Uden startrunde er
-                  regnskabet spillets, og i «Alle mine ligaer» står der tilmed,
-                  at skalaen ikke er en ligas. */}
-              {ligaStart != null ? (
-                <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
-                  {`Regnskabet tæller som ligaen: kun point fra runde ${ligaStart} og frem${puljenTaeller(ligaStart) ? '' : ', uden puljen'}. `
-                    + 'I alt er derfor det samme tal som i stillingen. Hele sæsonen for en spiller: tryk på navnet.'}
-                </p>
-              ) : ligaGate && (
+              {/* Under et liga-filter med startrunde er tabellen ovenfor på
+                  LIGAENS skala; regnskabet her er spillets. Uden sætningen
+                  ville de to tal ligne en fejl. */}
+              {ligaGate && (
                 <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
                   Regnskabet viser spillets samlede point.{ligaGate}
                 </p>
@@ -817,7 +755,6 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                 meUid={meUid}
                 aabenUid={aabenUid}
                 onToggle={toggleUid}
-                startRunde={ligaStart}
               />
             </>
           ) : (
