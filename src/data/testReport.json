@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-10-19T10:25:53.326Z",
+  "generatedAt": "2026-10-26T10:41:09.064Z",
   "totals": {
-    "files": 283,
-    "tests": 4711,
-    "passed": 4711,
+    "files": 287,
+    "tests": 4896,
+    "passed": 4896,
     "failed": 0
   },
   "suites": [
@@ -596,6 +596,278 @@
       ]
     },
     {
+      "file": "scripts/lib/ligaFelter.test.mjs",
+      "area": "frontend",
+      "passed": 66,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "ligaFejl (uændret) › id-felt og ikke-streng-navn",
+          "status": "passed"
+        },
+        {
+          "name": "spoergsmaalFejl — spejler questions-reglen › et sundt spørgsmål — også afgjort, med alternative svar og deadline som tal",
+          "status": "passed"
+        },
+        {
+          "name": "spoergsmaalFejl — spejler questions-reglen › deadline, der ikke er et tal, meldes som MURET INDE med en handling",
+          "status": "passed"
+        },
+        {
+          "name": "spoergsmaalFejl — spejler questions-reglen › points uden for 1-100, som streng eller fraværende, meldes som MURET INDE (reglen kræver 1-100 ved HVER rettelse, også facit)",
+          "status": "passed"
+        },
+        {
+          "name": "spoergsmaalFejl — spejler questions-reglen › label, facit, acceptedAnswers, type og points — typer og grænser",
+          "status": "passed"
+        },
+        {
+          "name": "spoergsmaalFejl — spejler questions-reglen › flere fejl i samme dokument tælles hver for sig",
+          "status": "passed"
+        },
+        {
+          "name": "spoergsmaalFejl — spejler questions-reglen › tegn tælles som UTF-16-enheder, som reglens size(): en emoji er to",
+          "status": "passed"
+        },
+        {
+          "name": "spoergsmaalFejl — spejler questions-reglen › præcis på grænsen er sundt: LABEL_MIN tegn, FACIT_MAKS tegn, 1 tegn facit og ALTERNATIVER_MAKS alternativer",
+          "status": "passed"
+        },
+        {
+          "name": "spoergsmaalFejl — spejler questions-reglen › null og fraværende: null som acceptedAnswers/type er gift, fraværende points er gift, null som facit/deadline er sundt",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › label: map",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › label: fraværende",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › label: null",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › label: for kort",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › label: for lang",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › facit: map",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › facit: tal",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › facit: tom",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › facit: for lang",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › acceptedAnswers: streng",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › acceptedAnswers: map",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › acceptedAnswers: for mange",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › type: ukendt streng",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › type: gift-objekt",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › deadline: streng",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › deadline: map",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › deadline: liste",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › points: streng",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › points: null",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › points: fraværende",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › points: for lav",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › points: for høj",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › svar: map",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › svar: tal",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › svar: fraværende",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › svar: tomt",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › svar: for langt",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: ét ekstra felt",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: flere ekstra felter, i nøglens rækkefølge",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: text map",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: text fraværende",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: text tom",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: text for lang",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: createdAt map",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: createdAt null",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: createdAt fraværende",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: createdAt som tal (ikke et tidsstempel)",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: bottens uid + system:false fritages ikke",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: bottens uid + system:\"true\" (streng) fritages ikke",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: bottens uid + system:1 fritages ikke",
+          "status": "passed"
+        },
+        {
+          "name": "meddelelserne — hver gren melder sit eget felt og sin egen fejl › besked: bottens uid uden system-flaget fritages ikke",
+          "status": "passed"
+        },
+        {
+          "name": "svarFejl — spejler questionAnswers-reglen › streng på 1..SVAR_MAKS tegn er sund; map, tom og for lang er gift",
+          "status": "passed"
+        },
+        {
+          "name": "svarFejl — spejler questionAnswers-reglen › præcis på den nedre grænse: ét tegn er sundt",
+          "status": "passed"
+        },
+        {
+          "name": "beskedFejl — spejler messages-reglen › klientens form er sund, og bottens egen form (system:true MED bottens uid) springes over",
+          "status": "passed"
+        },
+        {
+          "name": "beskedFejl — spejler messages-reglen › et FORFALSKET opslag med system:true og et medlems egen uid findes — flaget alene fritager ikke (QC-fund)",
+          "status": "passed"
+        },
+        {
+          "name": "beskedFejl — spejler messages-reglen › bottens uid er den, BEGGE serverens skriveveje bruger",
+          "status": "passed"
+        },
+        {
+          "name": "beskedFejl — spejler messages-reglen › ekstra felter uden system, map som tekst eller tidsstempel, og for lang tekst er gift",
+          "status": "passed"
+        },
+        {
+          "name": "beskedFejl — spejler messages-reglen › præcis på grænserne: 1 tegn og BESKED_MAKS tegn er sunde, en tom besked er gift",
+          "status": "passed"
+        },
+        {
+          "name": "beskedFejl — spejler messages-reglen › en besked uden brugbart tidsstempel kaster ikke — den meldes",
+          "status": "passed"
+        },
+        {
+          "name": "grænserne er reglens — læst ud af firestore.rules › questions: label ≥ LABEL_MIN og ≤ LABEL_MAKS — i create OG update",
+          "status": "passed"
+        },
+        {
+          "name": "grænserne er reglens — læst ud af firestore.rules › questions: facit ≤ FACIT_MAKS (kun update; create kræver facit = null) og acceptedAnswers ≤ ALTERNATIVER_MAKS i create OG update",
+          "status": "passed"
+        },
+        {
+          "name": "grænserne er reglens — læst ud af firestore.rules › questions: points > POINTS_MIN − 1 og ≤ POINTS_MAKS — i create OG update (reglen kræver det af det RESULTERENDE dokument, også ved facit)",
+          "status": "passed"
+        },
+        {
+          "name": "grænserne er reglens — læst ud af firestore.rules › questionAnswers: answer ≤ SVAR_MAKS",
+          "status": "passed"
+        },
+        {
+          "name": "grænserne er reglens — læst ud af firestore.rules › messages: text ≤ BESKED_MAKS, og feltlisten er PRÆCIS BESKED_FELTER",
+          "status": "passed"
+        },
+        {
+          "name": "grænserne er reglens — læst ud af firestore.rules › nedre grænse: en tom facit, et tomt svar og en tom besked afvises af reglen (size() > 0) — det, vagterne kalder gift",
+          "status": "passed"
+        },
+        {
+          "name": "grænserne er reglens — læst ud af firestore.rules › typerne: reglen kræver samme type af hvert felt, som vagterne tjekker",
+          "status": "passed"
+        },
+        {
+          "name": "grænserne er reglens — læst ud af firestore.rules › typelisten er klientens LQ_TYPES, vagtens SPOERGSMAAL_TYPER og reglens create-liste",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "scripts/lib/roller.test.mjs",
       "area": "frontend",
       "passed": 48,
@@ -874,7 +1146,7 @@
     {
       "file": "scripts/lib/verificerTotaler.test.mjs",
       "area": "frontend",
-      "passed": 21,
+      "passed": 31,
       "failed": 0,
       "tests": [
         {
@@ -934,6 +1206,38 @@
           "status": "passed"
         },
         {
+          "name": "kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde) › ok, når hver runde summer til perRound — og en spiller uden vektor spørges ikke",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde) › mangler feltet hos en spiller MED vektor, er det en fejl: Genberegn point",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde) › en rundenøgle, der mangler i opdelingen, er en fejl (forældet kort ved siden af en frisk vektor)",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde) › en runde, hvis rubrikker ikke summer til rundens tal, er en REST — ikke en fejl, men tælles",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde) › en rest i BEGGE retninger tælles: rubrikker over rundens tal er også en rest",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde) › combi indgår i rundens rubriksum — en runde, der KUN går op med combi, er grøn",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde) › en spiller med flere ulæselige runder er ÉN spiller i rester-tallet, men alle runder står på rækken",
+          "status": "passed"
+        },
+        {
+          "name": "kontrollerSpiller — rubrikkerne pr. runde (opdelingPerRunde) › sammenligningen sker i tiendedele: 5,14 er lig 5,1 (grøn), 5,2 er en rest",
+          "status": "passed"
+        },
+        {
           "name": "harIndsatsAf › samler uids med chanceStake > 0 — 0, udeladt og ugyldigt tæller ikke; tekst-tal gør",
           "status": "passed"
         },
@@ -946,11 +1250,19 @@
           "status": "passed"
         },
         {
+          "name": "vurder + tabel › rester står på rækken og i en egen ℹ️-linje — og tæller ikke som fejl",
+          "status": "passed"
+        },
+        {
           "name": "vurder + tabel › uden fejl lyser ✓ — og ikke ⚠️",
           "status": "passed"
         },
         {
           "name": "vurder + tabel › et navn med linjeskift, ::error:: og ANSI kan ikke skrive sin egen linje i loggen",
+          "status": "passed"
+        },
+        {
+          "name": "vurder + tabel › en RUNDE-NØGLE med linjeskift og ::error:: kan heller ikke skrive sin egen linje",
           "status": "passed"
         },
         {
@@ -1111,6 +1423,74 @@
         },
         {
           "name": "scanTrae mod det rigtige repo › finder de knapper, der har været produktionsfejl i, og springer testfiler over",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "scripts/scan-liga-felter.korsel.test.mjs",
+      "area": "frontend",
+      "passed": 15,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › et sundt datasæt: exit 0, intet fund, kun de fem læsninger — og private 1:1-beskeder og top-niveau-ligaer tælles ikke med under games/",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › en top-niveau-liga med id-felt → exit 2, og fundet står med sti, ejer og diagnose",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › en spil-liga uden streng-navn → exit 2, og fundet står med sti, ejer og diagnose",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › et spørgsmål med deadline \"abc\" (muret inde) → exit 2, og fundet står med sti, ejer og diagnose",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › et spørgsmål med points 150 (reglen kræver 1-100 ved hver rettelse, også facit) → exit 2, og fundet står med sti, ejer og diagnose",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › et svar med et map som answer → exit 2, og fundet står med sti, ejer og diagnose",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › en besked med ekstra felter og uden system → exit 2, og fundet står med sti, ejer og diagnose",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › ejer i fundlinjen: ownerUid, ellers createdBy (spørgsmål), ellers uid (svar, besked), ellers «?»",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › slutlinjen lægger tallene rigtigt sammen: liga-dokumenter for sig, forgiftede spørgsmål/svar/beskeder for sig",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › dokumenter uden for games/ springes over: private 1:1-beskeder, brugerundersamlinger, en samling med lignende rod — og de tælles ikke",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › advarer, når projektet læste 0 dokumenter — og ellers ikke",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › en forfalsket bot-besked (system:true, medlems-uid) meldes, mens botten selv ikke gør",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › tomme og null-dokumenter vælter ikke scanningen: hvert meldes, exit 2 og ingen stderr",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs — selve scriptet, kørt i en rigtig node-proces mod en stubbet firebase-admin › uden SA: exit 1, besked på stderr, og intet læses",
+          "status": "passed"
+        },
+        {
+          "name": "scan-liga-felter.mjs er LÆS-ONLY › importerer kun fs (readFileSync), firebase-admin/app, firebase-admin/firestore (getFirestore) og vagterne — ingen dynamisk import",
           "status": "passed"
         }
       ]
@@ -5022,11 +5402,31 @@
     {
       "file": "src/features/comments/LeagueWall.test.jsx",
       "area": "frontend",
-      "passed": 1,
+      "passed": 6,
       "failed": 0,
       "tests": [
         {
+          "name": "LeagueWall – fjendtligt indhold i ældre beskeder › map som navn/tekst/tidsstempel og en ikke-liste i reactions hvidner ikke væggen",
+          "status": "passed"
+        },
+        {
           "name": "LeagueWall – rækkefølge › viser nyeste besked øverst",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueWall – ældre dokumenter med forgiftet navn, emoji eller hold › et map som displayName hvidner ikke væggen — teksten vises stadig",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueWall – ældre dokumenter med forgiftet navn, emoji eller hold › et map som avatarEmoji hvidner ikke væggen — teksten vises stadig",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueWall – ældre dokumenter med forgiftet navn, emoji eller hold › et map som favoriteTeam hvidner ikke væggen — teksten vises stadig",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueWall – ældre dokumenter med forgiftet navn, emoji eller hold › et forgiftet navn falder tilbage til \"Spiller\" — et tomt navn gør det samme",
           "status": "passed"
         }
       ]
@@ -5430,7 +5830,7 @@
     {
       "file": "src/features/games/football/FootballHelp.test.jsx",
       "area": "frontend",
-      "passed": 28,
+      "passed": 29,
       "failed": 0,
       "tests": [
         {
@@ -5467,6 +5867,10 @@
         },
         {
           "name": "FootballHelp (spil-intern hjælp) › fortæller om opdelingen og om at klikke på et navn",
+          "status": "passed"
+        },
+        {
+          "name": "FootballHelp (spil-intern hjælp) › siger, at regnskabet regner som ligaen — og at Chance-kongen ikke gør",
           "status": "passed"
         },
         {
@@ -9000,9 +9404,45 @@
       ]
     },
     {
-      "file": "src/features/games/gameLeagueActions.test.js",
+      "file": "src/features/games/gameLeagueActions.regler.test.js",
       "area": "frontend",
       "passed": 7,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "klientens lofter ⇄ firestore.rules (liga-væg, liga-spørgsmål og svar) › svar: reglens answer.size() ≤ LEAGUE_Q_SVAR_MAX (ét sted — create og update er samme regel)",
+          "status": "passed"
+        },
+        {
+          "name": "klientens lofter ⇄ firestore.rules (liga-væg, liga-spørgsmål og svar) › facit: reglens facit.size() ≤ LEAGUE_Q_SVAR_MAX (update-reglen; create kræver facit = null)",
+          "status": "passed"
+        },
+        {
+          "name": "klientens lofter ⇄ firestore.rules (liga-væg, liga-spørgsmål og svar) › alternative svar: BÅDE create- og update-reglens acceptedAnswers.size() ≤ LEAGUE_Q_ALT_MAX",
+          "status": "passed"
+        },
+        {
+          "name": "klientens lofter ⇄ firestore.rules (liga-væg, liga-spørgsmål og svar) › spørgsmålstekst: create og update begge ≤ LEAGUE_Q_LABEL_MAX",
+          "status": "passed"
+        },
+        {
+          "name": "klientens lofter ⇄ firestore.rules (liga-væg, liga-spørgsmål og svar) › væg-besked: reglens text.size() ≤ LEAGUE_MSG_MAX",
+          "status": "passed"
+        },
+        {
+          "name": "klientens lofter ⇄ firestore.rules (liga-væg, liga-spørgsmål og svar) › spørgsmålstype: create-reglens liste er PRÆCIS klientens LQ_TYPES",
+          "status": "passed"
+        },
+        {
+          "name": "klientens lofter ⇄ firestore.rules (liga-væg, liga-spørgsmål og svar) › konstanterne selv: 200 / 20 — de tal, rules.test.js og gameLeagueActions.test.js tester på",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/games/gameLeagueActions.test.js",
+      "area": "frontend",
+      "passed": 15,
       "failed": 0,
       "tests": [
         {
@@ -9031,6 +9471,38 @@
         },
         {
           "name": "createLeagueQuestion — typen når databasen › gemmer 'team' som 'team' — og en ukendt type falder til 'text'",
+          "status": "passed"
+        },
+        {
+          "name": "saveLeagueQuestionAnswer — svaret må højst være 200 tegn › 201 tegn afvises som \"for langt\" — og databasen røres ikke",
+          "status": "passed"
+        },
+        {
+          "name": "saveLeagueQuestionAnswer — svaret må højst være 200 tegn › præcis 200 tegn gemmes, trimmet — længden måles efter trim",
+          "status": "passed"
+        },
+        {
+          "name": "saveLeagueQuestionAnswer — svaret må højst være 200 tegn › kontrol af begrundelsen: reglens permission-denied hedder «Deadline er passeret» — derfor skal loftet fanges FØR",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueQuestionFacit — facit højst 200 tegn og højst 20 alternative svar › et facit på 201 tegn afvises som \"for langt\" — og databasen røres ikke",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueQuestionFacit — facit højst 200 tegn og højst 20 alternative svar › præcis 200 tegn gemmes, trimmet, sammen med de rensede alternativer",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueQuestionFacit — facit højst 200 tegn og højst 20 alternative svar › 21 alternative svar afvises; 20 gemmes",
+          "status": "passed"
+        },
+        {
+          "name": "setLeagueQuestionFacit — facit højst 200 tegn og højst 20 alternative svar › alternativerne tælles EFTER oprydning — tomme felter fra «a,,b» fylder ikke",
+          "status": "passed"
+        },
+        {
+          "name": "postLeagueMessage — skriver præcis de tre felter, reglen tillader › uid, text og createdAt — og intet andet",
           "status": "passed"
         }
       ]
@@ -9074,7 +9546,7 @@
     {
       "file": "src/features/games/GameLeagues.test.jsx",
       "area": "frontend",
-      "passed": 3,
+      "passed": 13,
       "failed": 0,
       "tests": [
         {
@@ -9087,6 +9559,46 @@
         },
         {
           "name": "GameLeagues — forvalgt liga › folder intet ud, når ?liga= peger på en liga, man ikke er med i",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › bottens eget opslag (system:true) vises med bottens navn",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › et opslag UDEN system fra en, der har forladt ligaen, får ALDRIG dokumentets navn — teksten vises stadig",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › 'system' skal være PRÆCIS true — false eller en streng er ikke botten",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › mens stillingen indlæses, hedder ingen «Tidligere medlem» — og ens eget opslag hedder «Dig»",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › et map som navn på et ældre opslag hvidner ikke fanen",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › en almindelig besked fra et medlem viser navn og emoji FRA STILLINGEN — dokumentets egne tæller ikke",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › ens EGET opslag får «(dig)» efter navnet, når man står i stillingen",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › bottens opslag bærer bottens navn OG emoji helt ned til avataren",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › selv botten kan ikke hvidne væggen: system:true med map som navn og emoji giver \"Bot\" uden emoji",
+          "status": "passed"
+        },
+        {
+          "name": "GameLeagues — liga-væggen og bottens navn › en forfalsket besked (uden system) får hverken dokumentets navn ELLER dokumentets emoji på avataren",
           "status": "passed"
         }
       ]
@@ -9130,7 +9642,7 @@
     {
       "file": "src/features/games/gameStandings.test.js",
       "area": "frontend",
-      "passed": 24,
+      "passed": 25,
       "failed": 0,
       "tests": [
         {
@@ -9147,6 +9659,10 @@
         },
         {
           "name": "rankStandings › giver null-vektor og 0 i pulje, når serveren ikke har skrevet dem",
+          "status": "passed"
+        },
+        {
+          "name": "rankStandings › fører opdelingPerRunde med ud til fladen — og null, når den ikke findes",
           "status": "passed"
         },
         {
@@ -9234,7 +9750,7 @@
     {
       "file": "src/features/games/GameStandings.test.jsx",
       "area": "frontend",
-      "passed": 52,
+      "passed": 67,
       "failed": 0,
       "tests": [
         {
@@ -9342,6 +9858,58 @@
           "status": "passed"
         },
         {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › regner rubrikkerne på LIGAENS skala — og I alt er stillingens tal",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › siger, at regnskabet tæller som ligaen — og IKKE, at det viser spillets point",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › skjuler puljekolonnen alle tre steder, når ligaen ikke tæller puljen",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › viser puljekolonnen og lægger puljen på, når ligaen tæller den",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › viser en streg og ligaens I alt for en spiller uden rubrikker pr. runde — og siger det",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › tæller dem, der mangler — og bruger ALDRIG spil-tilstandens «bygges næste gang»",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › viser en streg for en forældet opdeling, der mangler en talt runde (tilbagerulning)",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › viser «ikke klar» og ingen rang for en spiller med AFVIST rundevektor — og tæller hende ikke med",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › sætter ingen stjerne, når rubrikkerne summer til ligaens total — heller ikke efter afrunding",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › sætter en stjerne med gulv-teksten, når ligaens sum er i minus",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › viser rubrikkerne MED stjerne — ikke en streg — ved en åben rest fra en kamp, der ikke kunne læses",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › holder panelets sætning om HELE sæsonen, når regnskabet er åbent",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabets orden er podiets — og nr. 1 har flest point i tabellen",
+          "status": "passed"
+        },
+        {
           "name": "GameStandings — liga-filter › lader IKKE en liga, jeg ikke står i, afgøre min skala",
           "status": "passed"
         },
@@ -9399,6 +9967,14 @@
         },
         {
           "name": "GameStandings — pointopdeling › kan foldes sammen igen",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — pointopdeling › siger under «Alle mine ligaer», at regnskabet er spillets — med puljen",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — pointopdeling › viser spillets rubrikker uden skalasætning i en liga uden startrunde",
           "status": "passed"
         },
         {
@@ -9566,7 +10142,7 @@
     {
       "file": "src/features/games/LeagueQuestions.test.jsx",
       "area": "frontend",
-      "passed": 21,
+      "passed": 29,
       "failed": 0,
       "tests": [
         {
@@ -9652,13 +10228,45 @@
         {
           "name": "LeagueQuestions — ✏️ ret spørgsmålet (ejer) › ikke-ejer har ingen ✏️",
           "status": "passed"
+        },
+        {
+          "name": "LeagueQuestions — fjendtligt indhold i label, facit, svar og acceptedAnswers › et afgjort spørgsmål med map i alle fire felter renderer uden at kaste — og de sunde svar vises stadig",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueQuestions — fjendtligt indhold i label, facit, svar og acceptedAnswers › en UGYLDIG deadline (ældre dokument) kaster ikke — og ejeren kan stadig sætte facit",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueQuestions — fjendtligt indhold i label, facit, svar og acceptedAnswers › et ældre TAL-svar vises som tekst, ikke som tomt",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueQuestions — rettelse af et forgiftet label, hold-grenen og felt-lofterne › et forgiftet label kan RETTES fra fladen: ✏️ åbner med tom tekst, og den nye tekst gemmes",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueQuestions — rettelse af et forgiftet label, hold-grenen og felt-lofterne › Fortryd nulstiller til det rensede label — ikke til map-objektet",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueQuestions — rettelse af et forgiftet label, hold-grenen og felt-lofterne › slet-bekræftelsen nævner aldrig et forgiftet label råt",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueQuestions — rettelse af et forgiftet label, hold-grenen og felt-lofterne › et map som svar eller facit på et HOLD-spørgsmål hvidner heller ikke — de sunde svar vises stadig",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueQuestions — rettelse af et forgiftet label, hold-grenen og felt-lofterne › svar- og facit-felterne stopper ved reglens loft på 200 tegn",
+          "status": "passed"
         }
       ]
     },
     {
       "file": "src/features/games/leagueQuestionScoring.test.js",
       "area": "frontend",
-      "passed": 11,
+      "passed": 15,
       "failed": 0,
       "tests": [
         {
@@ -9671,6 +10279,22 @@
         },
         {
           "name": "scoreLeagueQuestion › tekst: normaliseret match mod facit + acceptedAnswers",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueQuestion › acceptedAnswers som en streng (ældre dokument) kaster ikke — kun facit tæller",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueQuestion › acceptedAnswers som et map (ældre dokument) kaster ikke — kun facit tæller",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueQuestion › acceptedAnswers som null (ældre dokument) kaster ikke — kun facit tæller",
+          "status": "passed"
+        },
+        {
+          "name": "scoreLeagueQuestion › en rigtig liste virker stadig — vagten kasserer ikke gyldige alternativer",
           "status": "passed"
         },
         {
@@ -9703,6 +10327,82 @@
         },
         {
           "name": "leagueRankingWithQuestions › uden spørgsmåls-point svarer den til almindelig subset-rangering",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/games/ligaOpdeling.test.js",
+      "area": "frontend",
+      "passed": 17,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "ligaOpdeling › lægger rubrikkerne sammen for runderne fra startrunden",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › tager startrunden SELV med — `<`, ikke `<=`",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › tager alle runder med uden startrunde",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › tager kampe uden rundenummer med, uanset startrunde",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › springer en ulæselig runde-nøgle over, som ligaPoint gør",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › lægger puljen på, når ligaen tæller den — og 0 ellers",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › afrunder hver rubrik til én decimal og skriver aldrig −0",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › null — «har vi ikke», aldrig nuller › uden rundevektor",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › null — «har vi ikke», aldrig nuller › uden rubrikker pr. runde — spilleren er ikke genberegnet endnu",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › null — «har vi ikke», aldrig nuller › når en TALT runde mangler i opdelingen — forældet efter tilbagerulning",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › null — «har vi ikke», aldrig nuller › men IKKE når kun en runde FØR startrunden mangler",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › null — «har vi ikke», aldrig nuller › når en talt rundes rubrik ikke er et tal",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › null — «har vi ikke», aldrig nuller › ignorerer nøgler, der KUN findes i opdelingen — totalen kender dem ikke",
+          "status": "passed"
+        },
+        {
+          "name": "ligaOpdeling › klarer tomt input uden at kaste",
+          "status": "passed"
+        },
+        {
+          "name": "samme afgrænsning som ligaPoint › summer PRÆCIS til ligaens total for hver startrunde — før gulvet",
+          "status": "passed"
+        },
+        {
+          "name": "samme afgrænsning som ligaPoint › gulver IKKE — det gør kun ligaPoint, og det er hele grunden til en egen funktion",
+          "status": "passed"
+        },
+        {
+          "name": "samme afgrænsning som ligaPoint › rubrikkerne pr. runde er præcis spillets tre — puljen er spil-niveau",
           "status": "passed"
         }
       ]
@@ -12742,7 +13442,7 @@
     {
       "file": "src/lib/daDate.test.js",
       "area": "frontend",
-      "passed": 9,
+      "passed": 11,
       "failed": 0,
       "tests": [
         {
@@ -12751,6 +13451,14 @@
         },
         {
           "name": "relativeTime › håndterer Firestore-timestamp og tom værdi",
+          "status": "passed"
+        },
+        {
+          "name": "relativeTime › et map som tidsstempel (ældre dokument gemt uden om fladen) giver tomt — kaster aldrig",
+          "status": "passed"
+        },
+        {
+          "name": "relativeTime › et ugyldigt tidspunkt (NaN) giver tomt i alle formattere — Intl.format må aldrig kaste",
           "status": "passed"
         },
         {
@@ -17182,7 +17890,7 @@
     {
       "file": "functions-platform/gameScoring.test.js",
       "area": "platform",
-      "passed": 89,
+      "passed": 90,
       "failed": 0,
       "tests": [
         {
@@ -17279,6 +17987,10 @@
         },
         {
           "name": "recalcPlayerTotal — perRound erstattes helt › en kamp omscoret til 0 BEHOLDER sin nøgle — med 0: hverken det gamle tal eller væk",
+          "status": "passed"
+        },
+        {
+          "name": "recalcPlayerTotal — perRound erstattes helt › opdelingPerRunde skrives med PRÆCIS perRounds nøgler — og en forsvundet nøgle forsvinder også dér",
           "status": "passed"
         },
         {
@@ -18214,7 +18926,7 @@
     {
       "file": "functions-platform/leagueQuestionScoring.test.js",
       "area": "platform",
-      "passed": 13,
+      "passed": 15,
       "failed": 0,
       "tests": [
         {
@@ -18259,6 +18971,14 @@
         },
         {
           "name": "leagueQuestionScoring — server spejler klienten › giftigt number-svar behandles som tomt — begge spejle ens",
+          "status": "passed"
+        },
+        {
+          "name": "leagueQuestionScoring — server spejler klienten › acceptedAnswers som streng (ældre dokument) ignoreres — begge spejle ens",
+          "status": "passed"
+        },
+        {
+          "name": "leagueQuestionScoring — server spejler klienten › acceptedAnswers som map ignoreres — begge spejle ens",
           "status": "passed"
         },
         {
@@ -19282,7 +20002,7 @@
     {
       "file": "functions-platform/pointOpdeling.test.js",
       "area": "platform",
-      "passed": 74,
+      "passed": 87,
       "failed": 0,
       "tests": [
         {
@@ -19498,6 +20218,42 @@
           "status": "passed"
         },
         {
+          "name": "opdelingPerRunde — rubrikker pr. runde › har PRÆCIS perRundes nøgler — også 0-nøglen, «uden» og en slettet kamps rest",
+          "status": "passed"
+        },
+        {
+          "name": "opdelingPerRunde — rubrikker pr. runde › rubrikkerne summer præcis til rundens tal, når alle kampe kan læses",
+          "status": "passed"
+        },
+        {
+          "name": "opdelingPerRunde — rubrikker pr. runde › driver ikke fra ligaens tal over en sæson: 30 runder med afrundingsrest summer præcis",
+          "status": "passed"
+        },
+        {
+          "name": "opdelingPerRunde — rubrikker pr. runde › en kamp i runde 0 får nøglen «0» i begge vektorer — ikke «uden»",
+          "status": "passed"
+        },
+        {
+          "name": "opdelingPerRunde — rubrikker pr. runde › en rest, der er mere end afrunding, står ÅBEN — point fra en slettet kamp lægges ikke i p1x2",
+          "status": "passed"
+        },
+        {
+          "name": "opdelingPerRunde — rubrikker pr. runde › gulvet lægges ALDRIG pr. runde: en tabt indsats står som negativ rubrik",
+          "status": "passed"
+        },
+        {
+          "name": "opdelingPerRunde — rubrikker pr. runde › rubrikkerPerRunde lægger en ren afrundingsrest (≤ 0,2) i p1x2 — og lader en større rest stå åben",
+          "status": "passed"
+        },
+        {
+          "name": "opdelingPerRunde — rubrikker pr. runde › rest-reglen gælder begge fortegn: −0,3 står åben lige som +0,3 — og −0,1 må give en negativ p1x2",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib › rubrikkerPerRunde og REST_AFRUNDING er ens i src/lib",
+          "status": "passed"
+        },
+        {
           "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: almindelig runde med Chancen",
           "status": "passed"
         },
@@ -19563,6 +20319,22 @@
         },
         {
           "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: dublet-bet på samme kamp",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: afrundingsrest i hver runde (opdelingPerRunde)",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: afrundingsrest +0,1 fra et bet med hundredele (opdelingPerRunde)",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: kamp i runde 0 — nøglen «0», ikke «uden» (opdelingPerRunde)",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib › server-spejlet matcher src-udgaven: slettet kamp og kamp uden runde — åben rest under «uden» (opdelingPerRunde)",
           "status": "passed"
         },
         {

@@ -1,13 +1,13 @@
 {
- "generatedAt": "2026-10-19T10:25:53.326Z",
+ "generatedAt": "2026-10-26T10:41:09.064Z",
  "e2eMedregnet": true,
  "renderMaalt": true,
  "totals": {
   "elementer": 453,
-  "aktiverede": 188,
-  "renderede": 385,
-  "logposter": 826,
-  "interaktioner": 659,
+  "aktiverede": 190,
+  "renderede": 388,
+  "logposter": 854,
+  "interaktioner": 685,
   "filer": 74
  },
  "elementer": [
@@ -2921,7 +2921,7 @@
   },
   {
    "fil": "src/features/comments/LeagueWall.jsx",
-   "linje": 112,
+   "linje": 119,
    "kolonne": 23,
    "tag": "button",
    "type": null,
@@ -3047,7 +3047,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 191,
+   "linje": 209,
    "kolonne": 13,
    "tag": "input",
    "type": "text",
@@ -3061,7 +3061,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 192,
+   "linje": 210,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -3075,7 +3075,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 193,
+   "linje": 211,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -3089,7 +3089,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 201,
+   "linje": 219,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -3103,7 +3103,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 235,
+   "linje": 253,
    "kolonne": 15,
    "tag": "input",
    "type": "number",
@@ -3119,7 +3119,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 241,
+   "linje": 259,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -3135,7 +3135,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 242,
+   "linje": 260,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -3149,7 +3149,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 257,
+   "linje": 275,
    "kolonne": 32,
    "tag": "button",
    "type": null,
@@ -3163,7 +3163,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 258,
+   "linje": 276,
    "kolonne": 19,
    "tag": "button",
    "type": null,
@@ -3179,7 +3179,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 261,
+   "linje": 279,
    "kolonne": 19,
    "tag": "button",
    "type": null,
@@ -3193,7 +3193,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 264,
+   "linje": 282,
    "kolonne": 17,
    "tag": "button",
    "type": null,
@@ -3207,7 +3207,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 357,
+   "linje": 376,
    "kolonne": 9,
    "tag": "form",
    "type": null,
@@ -3221,7 +3221,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 359,
+   "linje": 378,
    "kolonne": 11,
    "tag": "input",
    "type": "text",
@@ -3235,7 +3235,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 364,
+   "linje": 383,
    "kolonne": 11,
    "tag": "button",
    "type": "submit",
@@ -3249,7 +3249,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 367,
+   "linje": 386,
    "kolonne": 9,
    "tag": "form",
    "type": null,
@@ -3263,7 +3263,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 369,
+   "linje": 388,
    "kolonne": 11,
    "tag": "input",
    "type": "text",
@@ -3277,7 +3277,7 @@
   },
   {
    "fil": "src/features/games/GameLeagues.jsx",
-   "linje": 374,
+   "linje": 393,
    "kolonne": 11,
    "tag": "button",
    "type": "submit",
@@ -3319,7 +3319,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 109,
+   "linje": 110,
    "kolonne": 5,
    "tag": "button",
    "type": "button",
@@ -3335,7 +3335,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 535,
+   "linje": 586,
    "kolonne": 11,
    "tag": "select",
    "type": null,
@@ -3353,7 +3353,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 576,
+   "linje": 627,
    "kolonne": 11,
    "tag": "button",
    "type": "button",
@@ -3370,7 +3370,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 631,
+   "linje": 684,
    "kolonne": 13,
    "tag": "button",
    "type": "button",
@@ -3386,7 +3386,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 639,
+   "linje": 692,
    "kolonne": 13,
    "tag": "button",
    "type": "button",
@@ -3416,7 +3416,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 46,
+   "linje": 60,
    "kolonne": 5,
    "tag": "select",
    "type": null,
@@ -3432,7 +3432,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 165,
+   "linje": 179,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -3448,21 +3448,23 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 176,
+   "linje": 190,
    "kolonne": 13,
    "tag": "button",
    "type": null,
    "tekst": "Slet spørgsmål",
    "komponent": "QuestionRow",
    "app": "platform",
-   "aktiveret": false,
-   "tests": [],
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ],
    "renderAntal": 1,
-   "status": "vist"
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 199,
+   "linje": 213,
    "kolonne": 9,
    "tag": "form",
    "type": null,
@@ -3478,7 +3480,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 201,
+   "linje": 215,
    "kolonne": 11,
    "tag": "input",
    "type": "text",
@@ -3494,7 +3496,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 208,
+   "linje": 222,
    "kolonne": 15,
    "tag": "input",
    "type": "number",
@@ -3508,7 +3510,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 218,
+   "linje": 232,
    "kolonne": 15,
    "tag": "input",
    "type": "datetime-local",
@@ -3524,7 +3526,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 238,
+   "linje": 252,
    "kolonne": 13,
    "tag": "button",
    "type": "submit",
@@ -3540,21 +3542,23 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 239,
+   "linje": 253,
    "kolonne": 13,
    "tag": "button",
    "type": "button",
    "tekst": "Fortryd",
    "komponent": "QuestionRow",
    "app": "platform",
-   "aktiveret": false,
-   "tests": [],
+   "aktiveret": true,
+   "tests": [
+    "src/features/games/LeagueQuestions.test.jsx"
+   ],
    "renderAntal": 1,
-   "status": "vist"
+   "status": "roert"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 248,
+   "linje": 262,
    "kolonne": 11,
    "tag": "button",
    "type": "button",
@@ -3570,7 +3574,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 267,
+   "linje": 281,
    "kolonne": 15,
    "tag": "button",
    "type": "button",
@@ -3584,7 +3588,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 291,
+   "linje": 305,
    "kolonne": 9,
    "tag": "form",
    "type": null,
@@ -3600,7 +3604,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 293,
+   "linje": 307,
    "kolonne": 13,
    "tag": "select",
    "type": null,
@@ -3614,7 +3618,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 301,
+   "linje": 315,
    "kolonne": 13,
    "tag": "input",
    "type": null,
@@ -3628,7 +3632,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 307,
+   "linje": 321,
    "kolonne": 11,
    "tag": "button",
    "type": "submit",
@@ -3644,7 +3648,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 338,
+   "linje": 352,
    "kolonne": 15,
    "tag": "button",
    "type": "button",
@@ -3660,7 +3664,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 355,
+   "linje": 369,
    "kolonne": 15,
    "tag": "button",
    "type": "button",
@@ -3676,7 +3680,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 357,
+   "linje": 371,
    "kolonne": 15,
    "tag": "button",
    "type": "button",
@@ -3692,7 +3696,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 363,
+   "linje": 377,
    "kolonne": 15,
    "tag": "button",
    "type": "button",
@@ -3708,7 +3712,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 373,
+   "linje": 391,
    "kolonne": 9,
    "tag": "form",
    "type": null,
@@ -3722,7 +3726,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 377,
+   "linje": 395,
    "kolonne": 13,
    "tag": "input",
    "type": "text",
@@ -3731,12 +3735,12 @@
    "app": "platform",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 0,
-   "status": "aldrig"
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 383,
+   "linje": 401,
    "kolonne": 13,
    "tag": "input",
    "type": "text",
@@ -3745,12 +3749,12 @@
    "app": "platform",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 0,
-   "status": "aldrig"
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 388,
+   "linje": 406,
    "kolonne": 11,
    "tag": "button",
    "type": "submit",
@@ -3764,7 +3768,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 438,
+   "linje": 456,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -3780,7 +3784,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 450,
+   "linje": 468,
    "kolonne": 9,
    "tag": "form",
    "type": null,
@@ -3794,7 +3798,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 451,
+   "linje": 469,
    "kolonne": 11,
    "tag": "input",
    "type": "text",
@@ -3808,7 +3812,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 457,
+   "linje": 475,
    "kolonne": 13,
    "tag": "select",
    "type": null,
@@ -3822,7 +3826,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 465,
+   "linje": 483,
    "kolonne": 13,
    "tag": "input",
    "type": "number",
@@ -3836,7 +3840,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 469,
+   "linje": 487,
    "kolonne": 13,
    "tag": "input",
    "type": "datetime-local",
@@ -3850,7 +3854,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 473,
+   "linje": 491,
    "kolonne": 13,
    "tag": "button",
    "type": "submit",
@@ -3864,7 +3868,7 @@
   },
   {
    "fil": "src/features/games/LeagueQuestions.jsx",
-   "linje": 480,
+   "linje": 498,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -3880,7 +3884,7 @@
   },
   {
    "fil": "src/features/games/football/FootballHelp.jsx",
-   "linje": 580,
+   "linje": 583,
    "kolonne": 40,
    "tag": "Link",
    "type": null,
@@ -4807,7 +4811,7 @@
   },
   {
    "fil": "src/features/reactions/Reactions.jsx",
-   "linje": 43,
+   "linje": 46,
    "kolonne": 11,
    "tag": "button",
    "type": "button",
@@ -4816,12 +4820,12 @@
    "app": "tour",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 0,
-   "status": "aldrig"
+   "renderAntal": 1,
+   "status": "vist"
   },
   {
    "fil": "src/features/reactions/Reactions.jsx",
-   "linje": 63,
+   "linje": 66,
    "kolonne": 9,
    "tag": "button",
    "type": "button",
@@ -4835,7 +4839,7 @@
   },
   {
    "fil": "src/features/reactions/Reactions.jsx",
-   "linje": 85,
+   "linje": 88,
    "kolonne": 15,
    "tag": "button",
    "type": "button",
@@ -5275,7 +5279,7 @@
     "e2e/platform/vendtilbage.spec.js",
     "src/pages/GamesPage.test.jsx"
    ],
-   "renderAntal": 4,
+   "renderAntal": 6,
    "status": "roert"
   },
   {
