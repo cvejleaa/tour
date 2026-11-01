@@ -87,6 +87,11 @@ describe('seedKampe', () => {
       .toBe('Sport: fodbold (game.sport = "fodbold"; hjemmebane 60, odds-gulv 1.1).');
     expect(sportLinje({ sportRaa: 'proeve', profil: PROEVE }))
       .toBe('Sport: proeve (game.sport = "proeve"; hjemmebane 0, odds-gulv 1.01).');
+    // Linjen må ALDRIG skjule det rå felt bag profilens navn — heller ikke,
+    // hvis den en dag kaldes uden om seedKampes vagt. Det var præcis fejlen:
+    // "Sport: fodbold" for et spil med sport 'handbold'.
+    expect(sportLinje({ sportRaa: 'handbold', profil: fodbold }))
+      .toBe('Sport: fodbold (game.sport = "handbold"; hjemmebane 60, odds-gulv 1.1).');
   });
 
   describe('med en prøvesport på spillet', () => {
