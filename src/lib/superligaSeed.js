@@ -8,17 +8,19 @@
 import { ELO, outcomeOdds, oddsParametre, sportProfil } from './superligaScoring.js';
 
 /**
- * Slå et holds Elo op. `teams` kan være et map {navn: elo} eller en liste
- * [{name, elo}]. Ukendt hold → `start` (sportens neutrale rating; fodbold
+ * Slå et holds Elo op i holdlisten [{name, elo}]. Ukendt hold, hold uden
+ * elo eller ingen liste → `start` (sportens neutrale rating; fodbold
  * ELO.START).
+ *
+ * Kun LISTEN. Der var også en map-form {navn: elo}, men ingen kalder brugte
+ * den: seed-football.mjs, E2E-seedet og scenarierne giver alle holdlisten.
+ * Den er taget ud, fordi en ubrugt gren med sin egen fallback var et sted,
+ * sportens START kunne glemmes, uden at nogen test eller kalder opdagede det.
+ * Fallbacken står nu ÉT sted.
  */
 export function teamElo(teams, name, start = ELO.START) {
-  if (!teams || name == null) return start;
-  if (Array.isArray(teams)) {
-    const t = teams.find((x) => x.name === name);
-    return Number.isFinite(t?.elo) ? t.elo : start;
-  }
-  return Number.isFinite(teams[name]) ? teams[name] : start;
+  const t = Array.isArray(teams) && name != null ? teams.find((x) => x.name === name) : undefined;
+  return Number.isFinite(t?.elo) ? t.elo : start;
 }
 
 /** Stabilt kamp-id: runde + hold (små bogstaver, kun a-z0-9). */

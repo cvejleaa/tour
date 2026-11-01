@@ -10,7 +10,7 @@
 //   klient  pointModForventning (Holdsidens "point mod forventning")
 //
 // Filen, den skriver, blev lavet af koden FØR sportProfil fandtes (commit
-// 62e20aa), og testene `sportProfil.golden.test.js` (klient) og
+// 62e20aa), og testene `src/lib/sportProfil.test.js` (klient) og
 // `gameScoring.test.js` (server) kræver, at koden EFTER giver præcis de samme
 // tal — byte for byte, ikke "tæt på". Det er beviset for, at profilen ikke
 // har flyttet noget for de to fodboldspil.

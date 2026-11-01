@@ -265,7 +265,7 @@ export const SUPERLIGA_TEAMS_2026 = [
   { name: 'Lyngby Boldklub',     short: 'LBK', elo: 1413, color: '#022592', awayColor: '#FFFFFF', thirdColor: '#25336D', venue: 'Lyngby Stadion' },
 ];
 
-/** Opslag holdnavn → Elo (fallback håndteres af teamElo i superligaSeed). */
+/** Opslag holdnavn → Elo. NB: teamElo i superligaSeed tager listen, ikke dette map. */
 export function superligaEloMap() {
   const map = {};
   for (const t of SUPERLIGA_TEAMS_2026) map[t.name] = t.elo;

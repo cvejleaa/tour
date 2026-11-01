@@ -135,6 +135,16 @@ describe('odds-gulvet er en profilværdi', () => {
     expect(outcomeOdds(args)['1']).toBe(1.1);
   });
 
+  it('… også for UDE-favoritten', () => {
+    // Spejlet: 1300 mod 1900 på neutral bane. Hvert udfald har sit eget
+    // fairOdds-kald, så gulvet skal bevises på '2' for sig — et kald, der
+    // glemte oddsMin dér, gav 1,1 i stedet for 1,07 med alle andre tests grønne.
+    const args = { eloHome: 1300, eloAway: 1900, hfa: 0, drawBase: 0.05, drawDecay: 0.2 };
+    expect(outcomeProbabilities(args)['2']).toBeGreaterThan(1 / ODDS.MIN);
+    expect(outcomeOdds({ ...args, oddsMin: 1.01 })['2']).toBe(1.07);
+    expect(outcomeOdds(args)['2']).toBe(1.1);
+  });
+
   it('fairOdds tager gulvet som argument', () => {
     expect(fairOdds(0.99, 1.01)).toBe(1.01);
     expect(fairOdds(0.99)).toBe(1.1);
@@ -189,6 +199,15 @@ describe('kaldestederne bruger SPILLETS profil (prøvesport)', () => {
     expect(sportProfil({ sport: 'proeve' })).toBe(PROEVE);
   });
 
+  it('kun en STRENG finder den — ikke noget, der bliver til "proeve" som nøgle', () => {
+    // Uden typeof-vagten ville hasOwnProperty gøre ['proeve'] til nøglen
+    // 'proeve' og give prøvesporten. Kun synligt, mens en anden sport end
+    // fodbold er registreret — derfor står sagen HER og ikke ovenfor.
+    for (const sport of [['proeve'], { toString: () => 'proeve' }]) {
+      expect(sportProfil({ sport }), String(sport)).toBe(SPORT_PROFILER.fodbold);
+    }
+  });
+
   it('buildMatch prissætter med profilen', () => {
     const m = buildMatch({ round: 1, home: 'Stærk', away: 'Svag' }, TEAMS, sportProfil({ sport: 'proeve' }));
     expect(m.odds).toEqual(outcomeOdds({ eloHome: 1900, eloAway: 1300, ...PROEVE_ARGS }));
@@ -198,11 +217,26 @@ describe('kaldestederne bruger SPILLETS profil (prøvesport)', () => {
     expect(m.odds).not.toEqual(buildMatch({ round: 1, home: 'Stærk', away: 'Svag' }, TEAMS).odds);
   });
 
+  it('buildMatch prissætter UDE-favoritten med profilens gulv', () => {
+    // Spejlet af kampen ovenfor (neutral bane): 2 får gulvet 1,01 → 1,07.
+    // Fodboldens gulv ville give 1,1.
+    const m = buildMatch({ round: 1, home: 'Svag', away: 'Stærk' }, TEAMS, PROEVE);
+    expect(m.odds).toEqual({ 1: 33.78, X: 29.11, 2: 1.07 });
+  });
+
   it('buildMatch giver et ukendt hold SPORTENS neutrale rating', () => {
     const m = buildMatch({ round: 1, home: 'Ukendt', away: 'Svag' }, TEAMS, PROEVE);
     expect(m.eloHome).toBe(1000);
     expect(teamElo(TEAMS, 'Ukendt', PROEVE.elo.START)).toBe(1000);
     expect(teamElo(TEAMS, 'Ukendt')).toBe(1500);
+    // UDEholdet slås op for sig — samme krav dér.
+    const ude = buildMatch({ round: 1, home: 'Svag', away: 'Ukendt' }, TEAMS, PROEVE);
+    expect(ude.eloHome).toBe(1300);
+    expect(ude.eloAway).toBe(1000);
+    // Ingen holdliste overhovedet: begge får sportens START.
+    const tom = buildMatch({ round: 1, home: 'Stærk', away: 'Svag' }, null, PROEVE);
+    expect([tom.eloHome, tom.eloAway]).toEqual([1000, 1000]);
+    expect(teamElo(null, 'Stærk', PROEVE.elo.START)).toBe(1000);
   });
 
   it('buildMatches sender profilen videre til hver kamp', () => {
@@ -233,6 +267,16 @@ describe('kaldestederne bruger SPILLETS profil (prøvesport)', () => {
     const r = pointModForventning(kampe, 'Ny', [], { Svag: 1300 }, PROEVE);
     const p = outcomeProbabilities({ eloHome: 1000, eloAway: 1300, ...PROEVE_ARGS });
     expect(r.ventede).toBe(Math.round((3 * p['1'] + p.X) * 10) / 10);
+    expect(r.ventede).toBeLessThan(1);
+  });
+
+  it('… også når holdet uden seed er UDEholdet', () => {
+    // 1300 hjemme mod et usedet udehold: prøvesporten → 1000, svag outsider.
+    // Fik udeholdet fodboldens 1500, blev det favorit (forventning over 2).
+    const kampe = [{ id: 'a', round: 1, home: 'Svag', away: 'Ny', result: 'X' }];
+    const r = pointModForventning(kampe, 'Ny', [], { Svag: 1300 }, PROEVE);
+    const p = outcomeProbabilities({ eloHome: 1300, eloAway: 1000, ...PROEVE_ARGS });
+    expect(r.ventede).toBe(Math.round((3 * p['2'] + p.X) * 10) / 10);
     expect(r.ventede).toBeLessThan(1);
   });
 });

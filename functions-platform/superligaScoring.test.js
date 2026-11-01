@@ -326,6 +326,20 @@ describe('sportsprofilen: server-spejlet er identisk med src', () => {
     }
     expect(fairOdds(0.99, 1.01)).toBe(1.01);
   });
+
+  // Hvert udfald har sit eget fairOdds-kald. Gulvet på '2' skal derfor bevises
+  // med en UDE-favorit for sig — ellers kunne det kald miste oddsMin, og
+  // ude-favoritter i en sport med lavere gulv ville få fodboldens 1,1.
+  it('outcomeOdds bruger oddsMin ens — også for UDE-favoritten', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const args = { eloHome: 1300, eloAway: 1900, hfa: 0, drawBase: 0.05, drawDecay: 0.2 };
+    for (const oddsMin of [undefined, 1.01, 1.1, 1.2]) {
+      expect(outcomeOdds({ ...args, oddsMin })).toEqual(src.outcomeOdds({ ...args, oddsMin }));
+    }
+    expect(outcomeOdds({ ...args, oddsMin: 1.01 })).toEqual({ 1: 33.78, X: 29.11, 2: 1.07 });
+    expect(src.outcomeOdds({ ...args, oddsMin: 1.01 })['2']).toBe(1.07);
+    expect(outcomeOdds(args)['2']).toBe(1.1);
+  });
 });
 
 describe('puljeScore — perfekt-bonus-vagt (server, spejlet)', () => {

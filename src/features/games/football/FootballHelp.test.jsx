@@ -518,6 +518,9 @@ describe('guidens Elo- og odds-tal kommer fra spillets sportsprofil', () => {
     expect(elo).toMatch(/gammel \+ 20 ×/);
     expect(elo).toMatch(/20 × \(1 − 0,5\) = \+10 point/);
     expect(elo).toMatch(/20 × \(1 − 0,2\) = \+16 point/);
+    // Taberens minus står for sig — det er regnet af K for sig, ikke af plusset.
+    expect(elo).toMatch(/og udeholdet −10\./);
+    expect(elo).toMatch(/og favoritten −16 — et langt større udsving/);
     expect(afsnit(/Point følger oddsene/)).toMatch(/mindst 1,1, og ellers uden loft/);
   });
 
@@ -530,7 +533,9 @@ describe('guidens Elo- og odds-tal kommer fra spillets sportsprofil', () => {
     expect(elo).toMatch(/gammel \+ 40 ×/);
     expect(elo).toMatch(/40 × \(1 − 0,5\) = \+20 point/);
     expect(elo).toMatch(/40 × \(1 − 0,2\) = \+32 point/);
-    expect(elo).not.toMatch(/1500|~60|59 %|\+ 20 ×/);
+    expect(elo).toMatch(/og udeholdet −20\./);
+    expect(elo).toMatch(/og favoritten −32 — et langt større udsving/);
+    expect(elo).not.toMatch(/1500|~60|59 %|\+ 20 ×|−10\b|−16\b/);
     // Gulvet med sine egne decimaler: 1,01 — ikke fmtDec's "1,0", som ville
     // sige, at et ramt tip kan betale mindre end indsatsen.
     const odds = afsnit(/Point følger oddsene/);

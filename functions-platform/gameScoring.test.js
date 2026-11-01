@@ -1621,6 +1621,7 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
       { id: 'm2', round: 2, home: 'A', away: 'B', kickoff: future },
       { id: 'm3', round: 2, home: 'A', away: 'C', kickoff: future }, // C findes ikke i holdlisten
       { id: 'm4', round: 3, home: 'A', away: 'D', kickoff: future }, // D står uden elo
+      { id: 'm5', round: 3, home: 'C', away: 'A', kickoff: future }, // UDE-favorit: m3 spejlet
     ];
     const hold = [{ name: 'A', elo: 1500 }, { name: 'B', elo: 1500 }, { name: 'D' }];
     const kamp = (db, id) => db._matches.find((m) => m.data.id === id).data;
@@ -1641,6 +1642,18 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
       // A (1520) mod et hold på 1000: p(1) = 0,919 → fair 1,088. Gulvet 1,01
       // lader det stå (1,09); fodboldens 1,1 ville have hævet det.
       expect(kamp(db, 'm3').odds).toEqual({ 1: 1.09, X: 28.72, 2: 21.71 });
+      // Spejlet på neutral bane: nu er A UDE-favorit, og '2' har sit eget
+      // fairOdds-kald, der også skal have profilens gulv (fodbold: 1,1).
+      expect(kamp(db, 'm5').odds).toEqual({ 1: 21.71, X: 28.72, 2: 1.09 });
+    });
+
+    it('kun en STRENG finder prøvesporten', () => {
+      // Uden typeof-vagten gjorde hasOwnProperty ['proeve'] til nøglen
+      // 'proeve'. Kun synligt, mens en anden sport end fodbold er registreret.
+      expect(scoring.sportProfil({ sport: 'proeve' })).toBe(PROEVE);
+      for (const sport of [['proeve'], { toString: () => 'proeve' }]) {
+        expect(scoring.sportProfil({ sport }), String(sport)).toBe(scoring.SPORT_PROFILER.fodbold);
+      }
     });
 
     it('et ukendt hold og et hold uden elo får SPORTENS neutrale rating', async () => {

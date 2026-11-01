@@ -10,7 +10,11 @@ import { PROEVE, medProeveSport } from '../../src/test/proeveSport.js';
 const ref = (data) => ({ get: async () => ({ exists: data !== null, data: () => data }) });
 
 const TEAMS = [{ name: 'Stærk', elo: 1900 }, { name: 'Svag', elo: 1300 }];
-const FX = [{ round: 1, home: 'Stærk', away: 'Svag' }, { round: 1, home: 'Ukendt', away: 'Svag' }];
+const FX = [
+  { round: 1, home: 'Stærk', away: 'Svag' },
+  { round: 1, home: 'Ukendt', away: 'Svag' },
+  { round: 1, home: 'Svag', away: 'Ukendt' }, // ukendt UDEhold slås op for sig
+];
 
 describe('seedKampe', () => {
   it('et spil uden sport — og et spil, der ikke findes endnu — seedes som fodbold', async () => {
@@ -34,6 +38,7 @@ describe('seedKampe', () => {
       expect(matches[0].odds).toEqual({ 1: 1.07, X: 29.11, 2: 33.78 });
       // … og et ukendt hold får sportens neutrale rating, ikke fodboldens.
       expect(matches[1].eloHome).toBe(1000);
+      expect(matches[2].eloAway).toBe(1000);
       expect(matches).toEqual(buildMatches(FX, TEAMS, PROEVE));
     });
   });
