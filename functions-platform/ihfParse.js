@@ -45,7 +45,16 @@
 // indexOf til `[\s\S]*?`. Undtagelsen er KORT_TEKST: i et lukket resultatkort
 // følger der altid et «<», så første forsøg lykkes, og y og g er her den samme
 // regex (en ækvivalent mutant, ingen test kan skelne dem). Flaget står for at
-// holde reglen, ikke fordi en test bærer det.
+// holde reglen, ikke fordi en test bærer det. (Også kampmarkørens id,
+// MARKOER_ID, har sin sag: 200.000 cifre uden «"» er kvadratisk med g.)
+//
+// Det samme gælder LØKKERNE: en løkke, der flytter sin egen position, hænger,
+// hvis positionen står stille eller går baglæns — og en hængende løkke giver
+// ingen rød test, men en suite (og en synk), der aldrig svarer. Parseren har
+// derfor kun én sådan løkke, divElement, og den har en fremdriftsvagt, der
+// kaster IhfStrukturFejl; antal er split, ikke en indexOf-løkke. Kommentar-
+// og script-sagerne med et tidligere «-->»/«</script» på siden køres også i
+// børneprocessen, så en fejl i `forbi` bliver rød, ikke en hængende kørsel.
 //
 // ═══════════════════════════════════════════════════════════════════════════
 // TING, SIDERNE VISTE, OG SOM IKKE ER HVAD DE LIGNER (målt mod fixtures)
@@ -185,11 +194,13 @@ function indhold(tekst, anker, slut, fra = 0) {
   return j < 0 ? null : tekst.slice(start, j);
 }
 
-/** Hvor mange gange `anker` står i `tekst`. */
+/**
+ * Hvor mange gange `anker` står i `tekst`. split i stedet for en indexOf-løkke:
+ * løkken hang, hvis dens spring blev 0 (et tomt anker, eller `i` i stedet for
+ * `i + anker.length`), og split har ingen position, der kan stå stille.
+ */
 function antal(tekst, anker) {
-  let n = 0;
-  for (let i = tekst.indexOf(anker); i >= 0; i = tekst.indexOf(anker, i + anker.length)) n++;
-  return n;
+  return tekst.split(anker).length - 1;
 }
 
 /** «Munich / SAP Garden» → { by, hal }. Uden skråstreg er det hele hallen. */
@@ -283,6 +294,8 @@ function holdAf(felt, side, hvor) {
   let id = null;
   if (felt.includes('team-matches/')) {
     // Et hold-link, der ikke kan læses, er en ændret markup — ikke en pladsholder.
+    // </a> og </span> søges fra linket/<span> — et tidligere i feltet (fx et
+    // flag-link) er ikke navnets slut.
     const link = efter(felt, 'team-matches/', HOLD_LINK);
     const slut = link ? felt.indexOf('</a>', HOLD_LINK.lastIndex) : -1;
     if (slut < 0) fejl(`${side}holdets link for ${hvor} kan ikke læses (team-matches/{id}">…</a>).`);
@@ -444,15 +457,28 @@ function forbi(html, aabner, fra) {
  * «<!-- <div class="gammel"> -->» flytte slutgrænsen ud over en nabo-widget,
  * og «<!-- </div> -->» lukke kortet før dets felter. Null, hvis elementet —
  * eller en kommentar eller et script i det — aldrig lukkes.
+ *
+ * FREMDRIFT: løkken flytter selv sin position, når den springer en kommentar
+ * eller et script over. Lander springet ikke EFTER åbningen, ville den finde
+ * samme «<!--» igen og gå i ring — en fejl i `forbi` (fx søgning fra sidens
+ * start, hvor «<!--Match result section-->» står før kortet) hang før hele
+ * synken. Derfor kastes der, hvis springet ikke kommer forbi åbningen.
+ * `slutAf` er `forbi`; parameteren findes, så vagten kan prøves med en
+ * defekt `forbi` (ihfParse.test.js) — vagten kan ellers ikke nås.
  */
-function divElement(html, start) {
+function divElement(html, start, slutAf = forbi) {
   const re = /<(\/?)div\b|<!--|<script\b/gi;
   re.lastIndex = start;
   let dybde = 0;
   for (let m = re.exec(html); m; m = re.exec(html)) {
     if (m[1] === undefined) { // «<!--» eller «<script» — gruppen deltog ikke
-      const j = forbi(html, m[0].toLowerCase(), re.lastIndex);
+      const aabner = m[0].toLowerCase();
+      const j = slutAf(html, aabner, re.lastIndex);
       if (j < 0) return null;
+      if (!(j > re.lastIndex)) {
+        fejl(`${aabner === '<!--' ? 'en kommentar' : 'et script'} ved tegn ${m.index} «slutter» ved tegn ${j}, `
+          + `ikke efter sin åbning (tegn ${re.lastIndex}) — optællingen af <div> ville gå i ring.`);
+      }
       re.lastIndex = j;
       continue;
     }
@@ -482,6 +508,7 @@ function eneste(kort, anker, hvor) {
 }
 
 const MARKOER = 'data-ihf-competitions-match-results-match-id="';
+const MARKOER_ID = /(\d+)"/y;
 const KORT_TEKST = /([^<]*)</y;
 const KORT_GMT = /([^<]*)<small>\s*GMT/y;
 const KORT_ARENA = /\s*<span>([^<]*)<\/span>/y;
@@ -572,7 +599,7 @@ function parseKampside(html, { ihfId: forventet } = {}) {
   if (markoerer > 1) {
     fejl(`kampsiden har ${markoerer} kampmarkører (data-ihf-competitions-match-results-match-id) — præcis én forventes.`);
   }
-  const id = efter(html, MARKOER, /(\d+)"/y);
+  const id = efter(html, MARKOER, MARKOER_ID);
   if (!id) fejl('kampsidens kampmarkør har intet tal-id.');
   const ihfId = Number(id[1]);
 
@@ -663,4 +690,5 @@ module.exports = {
   konkurrenceIdAf,
   kampIdAf,
   kalenderAf,
+  divElement,
 };

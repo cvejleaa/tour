@@ -25,7 +25,7 @@ import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
 const {
-  STATUS, PERIODE_ID, IhfStrukturFejl, parseDagside, parseKampside, konkurrenceIdAf, kampIdAf, kalenderAf,
+  STATUS, PERIODE_ID, IhfStrukturFejl, parseDagside, parseKampside, konkurrenceIdAf, kampIdAf, kalenderAf, divElement,
 } = require('./ihfParse');
 
 const fx = (navn) => readFileSync(new URL(`./testdata/${navn}`, import.meta.url), 'utf8');
@@ -1047,6 +1047,15 @@ describe('parseKampside — siden er bundet til sit kamp-id og sit eget resultat
     kaster(() => parseKampside(html, { ihfId: 202123 }), /kamp 202123: resultatkortet .*lukkes aldrig/);
   });
 
+  it('et resultatkort, hvis sidste </div aldrig får sit «>», kaster', () => {
+    // Uden vagten bliver kortet '' (slice til -1+1) i stedet for null — og fejlen
+    // en misvisende «mangler sin lokale tid» i stedet for «lukkes aldrig».
+    const slutTag = '</div>\n<!--End Match result section-->';
+    const html = KAMP_BRONZE.slice(0, KAMP_BRONZE.indexOf(slutTag) + '</div'.length);
+    expect(html.endsWith('</div'), 'testfejl: kortets slut-tag findes ikke').toBe(true);
+    kaster(() => parseKampside(html, { ihfId: 202123 }), /kamp 202123: resultatkortet .*lukkes aldrig/);
+  });
+
   it('en kampmarkør, der ikke står på et <div>, kaster', () => {
     const html = erstat(KAMP_BRONZE, '<div id="ihf-competitions-match-results-match-node-202123"',
       '<section id="ihf-competitions-match-results-match-node-202123"');
@@ -1153,6 +1162,17 @@ describe('felterne læses, hvor de hører til — og mellemrum trimmes', () => {
     kaster(() => parseDagside(uLukket), /udeholdets link for kamp 202123 kan ikke læses/);
   });
 
+  it('et </a> FØR hold-linket i feltet er ikke navnets slut (søges fra linket)', () => {
+    // Søgtes der fra feltets start, ville navnet være '' og kampen kaste «intet navn».
+    const html = erstat(DAG_2025, '<img alt="Portugal"', '<a href="/flag">flag</a><img alt="Portugal"');
+    expect(parseDagside(html)[0]).toMatchObject({ ude: 'Portugal', udeId: 5647 });
+  });
+
+  it('et </span> FØR pladsholderens <span> er ikke navnets slut (søges fra <span>)', () => {
+    const html = erstat(DAG_2027_SF, '<span>W QF1</span>', '<span class="flag"></span><span>W QF1</span>');
+    expect(parseDagside(html).find((k) => k.fase === 'Semi-finals')).toMatchObject({ hjemme: 'W QF1', hjemmeId: null });
+  });
+
   it('dagsidens tid trimmes («>  18:00  </time>» er 18:00)', () => {
     const html = erstat(DAG_2025, '>18:00</time>', '>\n   18:00   </time>', 'match-time-202125');
     expect(parseDagside(html)[1]).toMatchObject({ lokalTid: '18:00', gmtTid: '17:00' });
@@ -1192,9 +1212,13 @@ describe('kraevSide — fejlsidens citat', () => {
 //    kommentaren ved dem).
 //  • Det STICKY flag og indexOf: fyld lige efter ankeret, som et mønster med g
 //    i stedet for y prøver forfra fra hver eneste position (kvadratisk).
-//    Hver af de syv sager blev rød (dræbt efter 4000 ms), når netop dens flag
-//    byttedes fra y til g, eller indexOf i `indhold` til `([\s\S]*?)</p>` —
-//    målt med 200.000 tegn; med y er de under grænsen på 250 ms. KORT_TEKST har ingen
+//    Hver af de otte sager (også MARKOER_ID) blev rød (dræbt efter 4000 ms),
+//    når netop dens flag byttedes fra y til g, eller indexOf i `indhold` til
+//    `([\s\S]*?)</p>` — målt med 200.000 tegn; med y er de under grænsen på
+//    250 ms.
+//  • `forbi` (divElement): en kommentar og et script i kortet med et tidligere
+//    slutmærke på siden. Søgning fra sidens start blev rød i begge — kastet af
+//    fremdriftsvagten, og uden vagten dræbt efter 4000 ms (målt 1/11 2026). KORT_TEKST har ingen
 //    sag: i et lukket kort følger der altid et «<», så y og g er den samme
 //    regex (se ihfParse.js, toppen).
 
@@ -1214,11 +1238,30 @@ describe('ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendt
       const t0 = process.hrtime.bigint();
       let udfald = 'returnerede';
       let besked = '';
+      let slut = null;
       try {
-        if (slags === 'dag') P.parseDagside(html); else P.parseKampside(html, { ihfId });
+        if (slags === 'dag') P.parseDagside(html); else slut = P.parseKampside(html, { ihfId }).slut;
       } catch (e) { udfald = e.name; besked = e.message; }
-      process.stdout.write(JSON.stringify({ udfald, besked, ms: Number(process.hrtime.bigint() - t0) / 1e6 }));
+      process.stdout.write(JSON.stringify({ udfald, besked, slut, ms: Number(process.hrtime.bigint() - t0) / 1e6 }));
     });`;
+
+  /**
+   * Kampsiden med `indsat` i resultatkortets første indre element og en nabo
+   * med sit eget result-a-b lige efter kortet (som kortgrænse-testene ovenfor).
+   */
+  const iKortet = (indsat) => erstat(
+    erstat(KAMP_BRONZE, '<div class="topResultCard text-center">', `<div class="topResultCard text-center">${indsat}`),
+    '<!--End Match result section-->',
+    '<div class="nabo"><p id="result-a-b">1:0</p></div><!--End Match result section-->',
+  );
+  // Sagerne nedenfor forudsætter et «-->» og et «</script» FØR kortet — ellers
+  // finder også en søgning fra sidens start kortets egen slutning.
+  for (const slutMaerke of ['-->', '</script']) {
+    const foerKortet = KAMP_BRONZE.indexOf(slutMaerke);
+    if (foerKortet < 0 || foerKortet > KAMP_BRONZE.indexOf(MARKOER_KAMP)) {
+      throw new Error(`testfejl: fixturen har intet «${slutMaerke}» før resultatkortet`);
+    }
+  }
 
   /** Kampsiden afskåret lige efter `anker` + fjendtligt fyld: intet «<» følger. */
   const afskaaret = (anker, fyld) => KAMP_BRONZE.slice(0, KAMP_BRONZE.indexOf(anker) + anker.length) + fyld;
@@ -1289,22 +1332,75 @@ describe('ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendt
       () => erstat(KAMP_BRONZE.split('</script').join(''), '<div class="resultCardBody text-center">',
         '<div class="resultCardBody text-center"><script>aldrig lukket'),
       /resultatkortet .*lukkes aldrig/],
+    // MARKOER_ID `(\d+)"` — kampmarkørens id som 200.000 cifre og så «x», intet «"».
+    ['kamp', 'MARKOER_ID: kampmarkøren + 200.000 cifre uden afsluttende «"»',
+      () => erstat(KAMP_BRONZE, `${MARKOER_KAMP}"202123"`, `${MARKOER_KAMP}"${'9'.repeat(N)}x"`),
+      /kampsidens kampmarkør har intet tal-id/],
+    // `forbi`: en kommentar og et script i kortet, med et tidligere «-->» og
+    // «</script» på siden (fixturens «<!--Match result section-->» og
+    // head-scripts). Søger `forbi` fra sidens start i stedet for fra åbningen,
+    // springer løkken baglæns — kørt i testprocessen hang hele suiten. Her
+    // bliver den rød: fremdriftsvagten kaster, og uden vagten dræbes barnet.
+    ['kamp', 'forbi: en kommentar i kortet, med et «-->» tidligere på siden',
+      () => iKortet('<!-- <div class="gammel"> -->'), 'returnerede', { h: 35, u: 34 }],
+    ['kamp', 'forbi: et script i kortet, med et «</script» tidligere på siden',
+      () => iKortet('<script>var s = \'<div>\';</script>'), 'returnerede', { h: 35, u: 34 }],
   ];
 
   // Den valgfri fjerde kolonne siger, HVILKEN vagt der skal svare: ellers kunne
   // en tidligere vagt kaste, før mønsteret overhovedet køres, og sagen bevise intet.
-  it.each(SAGER)('%s: %s', (slags, _, byg, forvent) => {
+  it.each(SAGER)('%s: %s', (slags, _, byg, forvent, forventSlut) => {
     const html = byg();
     const r = spawnSync(process.execPath, ['-e', BARN, PARSER], {
       input: JSON.stringify({ slags, html, ihfId: 202123 }), encoding: 'utf8', timeout: DRAEB_MS,
     });
     expect(r.error?.code, `parseren svarede ikke inden for ${DRAEB_MS} ms (dræbt: ${r.signal})`).toBeUndefined();
     expect(r.status, r.stderr).toBe(0);
-    const { udfald, besked, ms } = JSON.parse(r.stdout);
+    const { udfald, besked, slut, ms } = JSON.parse(r.stdout);
     // Kaster den, er det en skraberfejl — aldrig RangeError eller anden runtime-fejl.
     expect(['returnerede', 'IhfStrukturFejl']).toContain(udfald);
     if (forvent === 'returnerede') expect(udfald, besked).toBe('returnerede');
     else if (forvent) expect(besked).toMatch(forvent);
+    if (forventSlut) expect(slut).toEqual(forventSlut);
     expect(ms, `${ms.toFixed(1)} ms`).toBeLessThan(GRAENSE_MS);
   }, 15_000);
+});
+
+// ---------------------------------------------------------------------------
+// Fremdriftsvagten i divElement kan ikke nås med den rigtige `forbi` — den er
+// et værn mod en FEJL i den. Den prøves derfor med en defekt `forbi` (divElements
+// tredje parameter) i en børneproces med timeout: uden vagten går løkken i ring.
+describe('divElement — løkken kommer altid videre (fremdriftsvagten)', () => {
+  const PARSER = fileURLToPath(new URL('./ihfParse.js', import.meta.url));
+  const HTML = '<div><!-- x --><div>y</div></div>';
+  // `slutAf` modtager (html, aabner, fra) — fra = lige efter «<!--» (tegn 9).
+  const BARN = `
+    const { divElement } = require(process.argv[1]);
+    const slutAf = new Function('html', 'aabner', 'fra', process.argv[2]);
+    let ud;
+    try { ud = { svar: divElement(${JSON.stringify(HTML)}, 0, slutAf) }; }
+    catch (e) { ud = { navn: e.name, besked: e.message }; }
+    process.stdout.write(JSON.stringify(ud));`;
+
+  const iBarn = (krop) => {
+    const r = spawnSync(process.execPath, ['-e', BARN, PARSER, krop], { encoding: 'utf8', timeout: 4000 });
+    expect(r.error?.code, `divElement svarede ikke inden for 4000 ms (dræbt: ${r.signal})`).toBeUndefined();
+    expect(r.status, r.stderr).toBe(0);
+    return JSON.parse(r.stdout);
+  };
+
+  it('den rigtige forbi: kommentaren springes over, og elementet findes', () => {
+    expect(divElement(HTML, 0)).toBe(HTML);
+    expect(iBarn('return html.indexOf("-->", fra) + 3;')).toEqual({ svar: HTML });
+  });
+
+  it.each([
+    ['return 0;', 'baglæns til sidens start (som søgning fra 0) — uden vagten går løkken i ring'],
+    ['return fra - 4;', 'tilbage til selve «<!--» — uden vagten går løkken i ring'],
+    ['return fra;', 'blot forbi «<!--», ikke forbi kommentaren — uden vagten tælles kommentarens indhold'],
+  ])('en forbi, der svarer «%s» (%s), kaster IhfStrukturFejl', (krop) => {
+    const ud = iBarn(krop);
+    expect(ud.navn).toBe('IhfStrukturFejl');
+    expect(ud.besked).toMatch(/^IHF: en kommentar ved tegn 5 «slutter» ved tegn \d+, ikke efter sin åbning \(tegn 9\)/);
+  });
 });
