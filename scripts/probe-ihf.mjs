@@ -49,6 +49,7 @@ const SIDER = [
   { fil: 'ihf-dag-2027-01-29.html', slags: 'dag', url: `${VM2027}/matches/2027-01-29`, daekker: 'VM 2027 semifinaledag: pladsholdere «W QF1»' },
   { fil: 'ihf-dag-2025-02-02.html', slags: 'dag', url: `${VM2025}/matches/2025-02-02`, daekker: 'VM 2025 finaledag: finale 26-32, bronze 35-34' },
   { fil: 'ihf-dag-2023-01-25.html', slags: 'dag', url: `${VM2023}/matches/2023-01-25`, daekker: 'VM 2023 kvartfinaler: dagsidens score er inkl. forlængelse' },
+  { fil: 'ihf-dag-2025-01-22.html', slags: 'dag', url: `${VM2025}/matches/2025-01-22`, daekker: "VM 2025 hovedrunde «Main Round IV» og «President's Cup II» samme dag" },
   { fil: 'ihf-kamp-2025-202123.html', slags: 'kamp', url: `${VM2025}/match-center/202123`, daekker: 'bronzekampen 2025: perioder uden forlængelse' },
   { fil: 'ihf-kamp-2023-119085.html', slags: 'kamp', url: `${VM2023}/match-center/119085`, daekker: 'Norge–Spanien 2023: to forlængelser' },
   { fil: 'ihf-kamp-2021-26809.html', slags: 'kamp', url: `${VM2021}/match-center/26809`, daekker: 'Danmark–Egypten 2021: straffekast' },
@@ -88,13 +89,16 @@ for (const side of SIDER) {
       for (const k of kampe) {
         const tid = k.gmtTid ? `${k.gmtTid} GMT` : 'tid ikke sat';
         const hold = `${k.hjemme}${k.hjemmeId == null ? ' (pladsholder)' : ''} – ${k.ude}${k.udeId == null ? ' (pladsholder)' : ''}`;
-        console.log(`  ${k.ihfId}  ${k.fase}${k.gruppe ? ` · ${k.gruppe}` : ''}  ${hold}  ${k.status} ${vis(k.score)}  ${tid}`);
+        const st = k.status === 'ukendt' ? `ukendt (kode «${k.statusKode}»)` : k.status;
+        console.log(`  ${k.ihfId}  ${k.fase}${k.gruppe ? ` · ${k.gruppe}` : ''}  ${hold}  ${st} ${vis(k.slutScore)}  ${tid}`);
       }
     } else {
-      const k = parseKampside(html);
+      // Kampsiden bindes til det id, der blev bedt om (adressens sidste led).
+      const k = parseKampside(html, { ihfId: Number(side.url.split('/').pop()) });
       const p = k.perioder;
       const forloeb = p ? `h1 ${vis(p.h1)} h2 ${vis(p.h2)} ot1 ${vis(p.ot1)} ot2 ${vis(p.ot2)} straffe ${vis(p.straffe)}` : 'ingen perioder';
-      console.log(`  ${k.ihfId}  ${k.hjemme} – ${k.ude}  ${k.status}  slut ${vis(k.slut)}  efter 60 ${vis(k.efter60)}  (${forloeb})`);
+      console.log(`  ${k.ihfId}  ${k.hjemme} – ${k.ude}  ${k.status}  slut ${vis(k.slut)}  efter 60 ${vis(k.efter60)}  `
+        + `afgjort ${k.afgjort ?? '—'}  (${forloeb})`);
     }
     skriv(side.fil, html);
   } catch (e) {

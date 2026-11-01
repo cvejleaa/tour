@@ -24,6 +24,25 @@
 // Hver vagt har sin egen røde test i ihfParse.test.js.
 //
 // ═══════════════════════════════════════════════════════════════════════════
+// SIDEN ER FREMMED INPUT — INGEN REGEX MÅ KUNNE HÆNGE
+// ═══════════════════════════════════════════════════════════════════════════
+// Et mønster som `>\s*([^<]*?)\s*<` har tre kvantorer, der alle kan tage de
+// samme mellemrum. Følger slutningen ikke efter, prøver motoren hver fordeling:
+// 10.000 mellemrum tog 159 s (Security, PR #240). En lille markup-ændring hos
+// IHF ville have hængt synken til timeout ved hver kørsel. Reglerne her er:
+//  • Ingen to kvantorer i træk, der kan matche samme tegn. Hvert `[^x]*`
+//    efterfølges af netop `x` (eller et tegn, klassen udelukker). Mellemrum
+//    trimmes i JS, ikke med `\s*` omkring en gruppe.
+//  • Et felt findes med indexOf på sit anker og læses med et STICKY mønster
+//    (flag y) lige efter ankeret — ét forsøg, ikke ét pr. tegn i siden. Et
+//    «læs til slut-tag» er indexOf, ikke `[\s\S]*?`.
+//  • Tag-fjernelsen er `<[^<>]*>`: en scanning stopper ved næste «<», så
+//    100.000 «<» uden «>» er lineært (med `<[^>]*>` tog det 3,4 s).
+// Hver regel har en tidstest på et fjendtligt input i ihfParse.test.js, der
+// kører i en børneproces med timeout (en hængende regex kan ikke afbrydes
+// inde fra testen).
+//
+// ═══════════════════════════════════════════════════════════════════════════
 // TING, SIDERNE VISTE, OG SOM IKKE ER HVAD DE LIGNER (målt mod fixtures)
 // ═══════════════════════════════════════════════════════════════════════════
 //  • 00:00 er IKKE et klokkeslæt. 2027-siderne står med «Local time 00:00 -
@@ -36,18 +55,28 @@
 //  • Dagsidens score for en knockoutkamp er SLUTRESULTATET inkl. forlængelse
 //    og straffekast (VM 2023-kvartfinalen Norge–Spanien står som 34-35, men
 //    var 25-25 efter 60 minutter; VM 2021 Danmark–Egypten står som 39-38 efter
-//    straffe). Stillingen efter 60 minutter findes KUN på kampsiden, som
-//    summen af to halvlege — ejerens beslutning er, at knockout tippes på den.
+//    straffe). Feltet hedder derfor `slutScore`, ikke `score`: det må aldrig
+//    læses som 60-minutters-facit. Stillingen efter 60 minutter findes KUN på
+//    kampsiden, som summen af to halvlege — ejerens beslutning er, at knockout
+//    tippes på den. Kampsiden siger også, HVORDAN kampen blev afgjort
+//    (`afgjort`), så facitFelter har ét sted at hente det fra.
 //  • Kampsidens slutscore TÆLLER straffekastene med (39:38 = 35-35 + 4-3).
 //  • Knockout-kampe ligger på dagsiden FØR holdene kendes, med pladsholdere
 //    som «W QF1» / «L QF2» og uden hold-link. De gives med `hjemmeId/udeId:
 //    null`, så den, der opretter kampe, kan se, at holdene ikke kendes.
+//  • Presidents Cup spilles på SAMME dagside som hovedrunden (VM 2025, 22/1:
+//    «Main Round IV» og «President's Cup II»). Fasen er det, der skiller dem
+//    (`fase: "President's Cup"`); provideren filtrerer dem fra (planen §11.4).
 //  • Status-koderne, der er set: '' (ikke spillet) og 'E' (slut). En live
-//    kamp har ikke kunnet observeres; dens kode er ukendt og KASTER, til den
-//    er set og lagt ind i STATUS med en fixture.
+//    kamp har ikke kunnet observeres. En ukendt kode KASTER IKKE: den kamp
+//    gives som `status: 'ukendt'` med den rå `statusKode` og uden score, og
+//    resten af dagen læses som normalt. Kastede den, ville hver kampdag fejle,
+//    så længe dagens sidste kamp blev spillet — og facit for de afsluttede
+//    kampe vente på den. At en kamp bliver ved med at stå som ukendt, er
+//    providerens alarm (med et vindue), ikke parserens.
 // ---------------------------------------------------------------------------
 
-/** Det lukkede sæt af IHF-status-koder → vores ord. Alt andet kaster. */
+/** Det lukkede sæt af IHF-status-koder → vores ord. Alt andet er 'ukendt'. */
 const STATUS = Object.freeze({ '': 'planlagt', E: 'slut' });
 
 /** Kampsidens perioder: vores nøgle → IHF's element-id (uden -a/-b). */
@@ -73,21 +102,85 @@ function fejl(besked) {
 
 const ENTITETER = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' };
 
+/** Erstatningstegnet for en entitet, der ikke er et gyldigt tegn. */
+const UGYLDIG = '\uFFFD';
+
 /**
- * Tekst ud af et HTML-stykke: tags væk, entiteter afkodet, mellemrum samlet.
+ * Et tal fra en numerisk entitet → tegnet. Kun et ægte Unicode-tegn afkodes:
+ * over U+10FFFF (eller en cifferrække, der giver Infinity), en enlig
+ * surrogat og NUL giver U+FFFD. String.fromCodePoint ville ellers kaste
+ * RangeError — en fejl, provideren ikke kan kende fra en netværksfejl.
+ */
+function tegn(kode) {
+  const gyldig = Number.isSafeInteger(kode) && kode > 0 && kode <= 0x10ffff && (kode < 0xd800 || kode > 0xdfff);
+  return gyldig ? String.fromCodePoint(kode) : UGYLDIG;
+}
+
+/** Styretegn (C0/C1) bliver til mellemrum — de samles bagefter. */
+const STYRETEGN = /\p{Cc}/gu;
+/** Enlige surrogater (kan ikke komme fra UTF-8, men en streng kan bære dem). */
+const SURROGAT = /\p{Cs}/gu;
+/**
+ * Usynlige retnings- og formateringstegn fjernes helt: U+202E vender teksten
+ * («Denmark» kan vises som et andet navn), og nul-bredde-tegn får to ens
+ * navne til at være forskellige strenge.
+ */
+const USYNLIGE = /[\u061C\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+
+/**
+ * Tekst ud af et HTML-stykke: tags væk, entiteter afkodet, styre- og
+ * retningstegn væk, mellemrum samlet.
  * Decimale (&#39;), hex (&#x27;) og navngivne (&apos;) entiteter afkodes i ÉT
  * gennemløb, så «&#38;lt;» bliver «&lt;» og ikke dobbelt-afkodes til «<».
+ * Tag-mønsteret er `<[^<>]*>` (lineært), se toppen.
  */
 function rens(s) {
   return String(s ?? '')
-    .replace(/<[^>]*>/g, ' ')
+    .replace(/<[^<>]*>/g, ' ')
     .replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (hel, dec, hex, navn) => {
-      if (dec) return String.fromCodePoint(Number(dec));
-      if (hex) return String.fromCodePoint(parseInt(hex, 16));
+      if (dec) return tegn(Number(dec));
+      if (hex) return tegn(parseInt(hex, 16));
       return ENTITETER[navn.toLowerCase()] ?? hel;
     })
+    .replace(STYRETEGN, ' ')
+    .replace(SURROGAT, UGYLDIG)
+    .replace(USYNLIGE, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Første forekomst af `anker` i `tekst` — og så det STICKY mønster `hale`
+ * (flag y) læst lige efter ankeret. Ét forsøg, ikke ét pr. position i siden.
+ * Null, hvis ankeret mangler, eller halen ikke passer.
+ */
+function efter(tekst, anker, hale, fra = 0) {
+  const i = tekst.indexOf(anker, fra);
+  if (i < 0) return null;
+  hale.lastIndex = i + anker.length;
+  return hale.exec(tekst);
+}
+
+/** Resten af et åbningstag (attributter) til og med «>». */
+const TAG_REST = /[^<>]*>/y;
+
+/**
+ * Indholdet af det element, hvis åbningstag indeholder `anker`: fra tagets
+ * «>» til første `slut`. Null, hvis ankeret, «>» eller `slut` mangler.
+ * indexOf i stedet for `[\s\S]*?` — lineært, også når slut-tagget mangler.
+ */
+function indhold(tekst, anker, slut, fra = 0) {
+  if (!efter(tekst, anker, TAG_REST, fra)) return null;
+  const start = TAG_REST.lastIndex;
+  const j = tekst.indexOf(slut, start);
+  return j < 0 ? null : tekst.slice(start, j);
+}
+
+/** Hvor mange gange `anker` står i `tekst`. */
+function antal(tekst, anker) {
+  let n = 0;
+  for (let i = tekst.indexOf(anker); i >= 0; i = tekst.indexOf(anker, i + anker.length)) n++;
+  return n;
 }
 
 /** «Munich / SAP Garden» → { by, hal }. Uden skråstreg er det hele hallen. */
@@ -99,14 +192,16 @@ function sted(tekst) {
   return { by: t.slice(0, i).trim() || null, hal: t.slice(i + 3).trim() || null };
 }
 
-/** Status-koden gennem det lukkede sæt. En ukendt kode tolkes ALDRIG som slut. */
-function status(kode, hvor) {
-  if (!Object.prototype.hasOwnProperty.call(STATUS, kode)) {
-    fejl(`ukendt status-kode «${kode}» for ${hvor}. Kendte koder: '' (ikke spillet) og 'E' (slut). `
-      + 'Kampen tolkes ikke — læg koden ind i STATUS med en fixture, når den er set.');
-  }
-  return STATUS[kode];
+/**
+ * Status-koden gennem det lukkede sæt. En ukendt kode er 'ukendt' — ALDRIG
+ * slut, og den får ingen score. Den rå kode følger med som `statusKode`.
+ */
+function status(kode) {
+  return Object.prototype.hasOwnProperty.call(STATUS, kode) ? STATUS[kode] : 'ukendt';
 }
+
+/** Den rå kode, som den kan vises på Drift-kortet: renset og afkortet. */
+const visKode = (kode) => rens(kode).slice(0, 40);
 
 const TID = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -128,6 +223,12 @@ function stilling(tekst, skilletegn, hvor) {
   return { h: Number(m[1]), u: Number(m[2]) };
 }
 
+/** Sidens kanoniske adresse (href i <link rel="canonical">), eller null. */
+function kanoniskAf(html) {
+  const m = /<link\s+rel="canonical"\s+href="([^"]*)"/i.exec(String(html ?? ''));
+  return m ? m[1] : null;
+}
+
 /**
  * Konkurrence-id'et i sidens kanoniske adresse — markøren for, at det
  * overhovedet ER en IHF-konkurrenceside. En consent-, fejl- eller
@@ -135,15 +236,25 @@ function stilling(tekst, skilletegn, hvor) {
  * (dagside) eller 'match-center' (kampside). Null, hvis markøren mangler.
  */
 function konkurrenceIdAf(html, slags) {
-  const kanonisk = /<link\s+rel="canonical"\s+href="([^"]*)"/i.exec(String(html ?? ''));
-  if (!kanonisk) return null;
-  const m = new RegExp(`/competitions/[^/]+/\\d+/[^/]+/(\\d+)/${slags}/`, 'i').exec(kanonisk[1]);
+  const kanonisk = kanoniskAf(html);
+  if (kanonisk == null) return null;
+  const m = new RegExp(`/competitions/[^/]+/\\d+/[^/]+/(\\d+)/${slags}/`, 'i').exec(kanonisk);
   return m ? Number(m[1]) : null;
 }
 
+/** Kamp-id'et som SIDSTE led i kampsidens kanoniske adresse (…/match-center/{id}). Null ellers. */
+function kampIdAf(html) {
+  const kanonisk = kanoniskAf(html);
+  const m = kanonisk == null ? null : /\/match-center\/(\d+)\/?$/.exec(kanonisk);
+  return m ? Number(m[1]) : null;
+}
+
+/** Fejlsidens citat læses kun af sidens begyndelse — en hel fremmed side renses aldrig. */
+const CITAT_KILDE = 4096;
+
 function kraevSide(html, slags, navn) {
   if (typeof html !== 'string' || konkurrenceIdAf(html, slags) == null) {
-    const start = rens(typeof html === 'string' ? html : '').slice(0, 80);
+    const start = rens(typeof html === 'string' ? html.slice(0, CITAT_KILDE) : '').slice(0, 80);
     fejl(`siden ligner ikke en IHF-${navn} (ingen konkurrence-markør i den kanoniske adresse) — `
       + `consent-, fejl- eller vedligeholdsside? Sidens tekst begynder: «${start}».`);
   }
@@ -155,63 +266,93 @@ function kalenderAf(html) {
     .map((m) => m[1]);
 }
 
+const HOLD_LINK = /(\d+)"[^<>]*>/y;
+
 /** Et holdfelt på dagsiden: navn + IHF's hold-id (null for en pladsholder som «W QF1»). */
 function holdAf(felt, side, hvor) {
-  const link = /team-matches\/(\d+)"[^>]*>([\s\S]*?)<\/a>/.exec(felt);
-  const navn = rens(link ? link[2] : (/<span>([\s\S]*?)<\/span>/.exec(felt) || [])[1]);
+  let navnHtml;
+  let id = null;
+  if (felt.includes('team-matches/')) {
+    // Et hold-link, der ikke kan læses, er en ændret markup — ikke en pladsholder.
+    const link = efter(felt, 'team-matches/', HOLD_LINK);
+    const slut = link ? felt.indexOf('</a>', HOLD_LINK.lastIndex) : -1;
+    if (slut < 0) fejl(`${side}holdets link for ${hvor} kan ikke læses (team-matches/{id}">…</a>).`);
+    id = Number(link[1]);
+    navnHtml = felt.slice(HOLD_LINK.lastIndex, slut);
+  } else {
+    const i = felt.indexOf('<span>');
+    const j = i < 0 ? -1 : felt.indexOf('</span>', i);
+    navnHtml = j < 0 ? '' : felt.slice(i + 6, j);
+  }
+  const navn = rens(navnHtml);
   if (!navn) fejl(`${side}holdet for ${hvor} har intet navn.`);
-  return { navn, id: link ? Number(link[1]) : null };
+  return { navn, id };
 }
 
 /** Kamp-id'et på dagsiden — én pr. kampblok (se vagten i parseDagside). */
 const KAMP_ID = /data-ihf-competitions-match-id="(\d+)"/g;
 
+const ATTR = /([^"]*)"/y;
+const SCORE_FELT = /[^<>]*>([^<]*)</y;
+// «Local time <time datetime="…">15:30</time>\n - GMT 14:30». Hver kvantor
+// efterfølges af et tegn, den ikke selv kan tage (se toppen).
+const DAG_TID = /\s*(<time\b[^<>]*>)([^<]*)<\/time>\s*-\s*GMT\s*([0-9:]+)/y;
+
 function parseKampBlok(blok, ihfId) {
   const hvor = `kamp ${ihfId}`;
 
-  const kode = /data-ihf-competitions-match-status="([^"]*)"/.exec(blok);
+  // Status står på kampblokkens EGET åbningstag (<div class="matchDetails" …>).
+  const aabning = blok.slice(0, blok.indexOf('>') + 1);
+  const kode = efter(aabning, 'data-ihf-competitions-match-status="', ATTR);
   if (!kode) fejl(`${hvor} mangler sin status.`);
-  const st = status(kode[1], hvor);
+  const st = status(kode[1]);
 
-  const gruppeFelt = /class="groupName[^"]*">([\s\S]*?)<\/div>/.exec(blok);
-  if (!gruppeFelt) fejl(`${hvor} mangler fase/gruppe.`);
-  const [faseTekst, gruppeTekst] = gruppeFelt[1].split(/<br\s*\/?>/i);
+  const gruppeFelt = indhold(blok, 'class="groupName', '</div>');
+  if (gruppeFelt == null) fejl(`${hvor} mangler fase/gruppe.`);
+  const [faseTekst, gruppeTekst] = gruppeFelt.split(/<br\s*\/?>/i);
   const fase = rens(faseTekst);
   if (!fase) fejl(`${hvor} har en tom fase.`);
 
-  const arena = /class="arena[^"]*">([\s\S]*?)<\/p>/.exec(blok);
+  const arena = indhold(blok, 'class="arena', '</p>');
 
-  const hold = [...blok.matchAll(/<div class="country[^"]*">([\s\S]*?)<\/div>/g)];
-  if (hold.length !== 2) fejl(`${hvor} har ${hold.length} holdfelter, ikke 2.`);
-  const hjemme = holdAf(hold[0][1], 'hjemme', hvor);
-  const ude = holdAf(hold[1][1], 'ude', hvor);
+  const holdFelter = blok.split('<div class="country').slice(1).map((del, n) => {
+    const felt = indhold(del, '', '</div>');
+    if (felt == null) fejl(`${hvor}: holdfelt ${n + 1} lukkes ikke (</div> mangler).`);
+    return felt;
+  });
+  if (holdFelter.length !== 2) fejl(`${hvor} har ${holdFelter.length} holdfelter, ikke 2.`);
+  const hjemme = holdAf(holdFelter[0], 'hjemme', hvor);
+  const ude = holdAf(holdFelter[1], 'ude', hvor);
 
-  const scoreFelt = new RegExp(`id="ihf-competitions-score-${ihfId}"[^>]*>([^<]*)<`).exec(blok);
+  const scoreFelt = efter(blok, `id="ihf-competitions-score-${ihfId}"`, SCORE_FELT);
   if (!scoreFelt) fejl(`${hvor} mangler sit score-felt.`);
   const scoreTekst = rens(scoreFelt[1]);
-  let score = null;
+  let slutScore = null;
   if (st === 'slut') {
-    score = stilling(scoreTekst, '-', hvor);
-  } else if (scoreTekst !== 'VS') {
+    slutScore = stilling(scoreTekst, '-', hvor);
+  } else if (st === 'planlagt' && scoreTekst !== 'VS') {
     fejl(`${hvor} er ikke spillet, men score-feltet viser «${scoreTekst}» (forventet «VS»).`);
   }
+  // 'ukendt': score-feltet skal findes (struktur), men tolkes ikke.
 
-  const tid = /Local time\s*<time[^>]*datetime="(\d{4}-\d{2}-\d{2})[^"]*"[^>]*>\s*([^<]*?)\s*<\/time>\s*-\s*GMT\s*([0-9:]+)/.exec(blok);
-  if (!tid) fejl(`${hvor} mangler sin tid («Local time … - GMT …»).`);
+  const tid = efter(blok, 'Local time', DAG_TID);
+  const dato = tid && /\bdatetime="(\d{4}-\d{2}-\d{2})/.exec(tid[1]);
+  if (!tid || !dato) fejl(`${hvor} mangler sin tid («Local time … - GMT …»).`);
 
   return {
     ihfId,
     fase,
     gruppe: rens(gruppeTekst) || null,
-    ...sted(arena && arena[1]),
+    ...sted(arena),
     hjemme: hjemme.navn,
     hjemmeId: hjemme.id,
     ude: ude.navn,
     udeId: ude.id,
     status: st,
-    score,
-    dato: tid[1],
-    ...tider(tid[2], tid[3], hvor),
+    statusKode: visKode(kode[1]),
+    slutScore,
+    dato: dato[1],
+    ...tider(tid[2].trim(), tid[3], hvor),
   };
 }
 
@@ -219,11 +360,15 @@ function parseKampBlok(blok, ihfId) {
  * En dagside (…/{konkurrence}/matches/YYYY-MM-DD) → dagens kampe.
  *
  * [{ ihfId, fase, gruppe, by, hal, hjemme, hjemmeId, ude, udeId, status,
- *    score, dato, lokalTid, gmtTid }]
+ *    statusKode, slutScore, dato, lokalTid, gmtTid }]
  *
- *  - status: 'planlagt' | 'slut' (STATUS). score: { h, u } ved slut, ellers null.
- *    For en knockoutkamp er det slutresultatet INKL. forlængelse og straffe.
- *  - gruppe: «Group A» eller null (knockout). hjemmeId/udeId: null = pladsholder.
+ *  - status: 'planlagt' | 'slut' | 'ukendt'. statusKode: IHF's rå kode.
+ *  - slutScore: { h, u } ved slut, ellers null (også ved 'ukendt'). For en
+ *    knockoutkamp er det slutresultatet INKL. forlængelse og straffe — ALDRIG
+ *    60-minutters-facit (det findes kun på kampsiden som `efter60`).
+ *  - fase: «Main Round», «President's Cup», «Quarter finals» …; gruppe:
+ *    «Group A», «Main Round IV», «President's Cup II» eller null (knockout).
+ *  - hjemmeId/udeId: null = pladsholder.
  *  - lokalTid/gmtTid: «HH:MM» eller null (begge stod som 00:00 = ikke sat).
  *  - dato: datoen fra sidens <time datetime> (dens klokkeslæt er lokal tid med
  *    et forkert «Z» og bruges ikke).
@@ -255,18 +400,65 @@ function parseDagside(html) {
     fejl(`dagsiden har ${iAlt} kamp-id'er og ${blokke.length} kampblokke, men hver kampblok skal have præcis ét `
       + `(${hvor}) — markuppen er ændret.`);
   }
+  // To blokke med samme id: hvilken af dem er kampen? Ingen af dem tolkes.
+  const set = new Set();
+  for (const [id] of ider.slice(1)) {
+    if (set.has(id)) fejl(`dagsiden har kamp ${id} i to kampblokke — det er uklart, hvilken der er kampen.`);
+    set.add(id);
+  }
   return blokke.map((blok, i) => parseKampBlok(blok, ider[i + 1][0]));
 }
 
-/** Én periode på kampsiden → { h, u }. Mangler den eller er den ikke et tal, kastes der. */
-function periode(html, noegle, hvor) {
-  const sider = ['a', 'b'].map((s) => {
-    const m = new RegExp(`id="${PERIODE_ID[noegle]}-${s}"[^>]*>\\s*([^<]*?)\\s*<`).exec(html);
-    if (!m || !/^\d{1,3}$/.test(m[1])) {
-      fejl(`perioden ${noegle} (${PERIODE_ID[noegle]}-${s}) for ${hvor} mangler eller har et uventet format`
-        + `${m ? ` («${m[1]}»)` : ''}.`);
+/**
+ * Det element, der STARTER ved `start` (et «<div»), til og med sit eget
+ * </div> — fundet ved at tælle <div og </div>. Null, hvis det aldrig lukkes.
+ */
+function divElement(html, start) {
+  const re = /<(\/?)div\b/gi;
+  re.lastIndex = start;
+  let dybde = 0;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    dybde += m[1] ? -1 : 1;
+    if (dybde === 0) {
+      const slut = html.indexOf('>', re.lastIndex);
+      return slut < 0 ? null : html.slice(start, slut + 1);
     }
-    return Number(m[1]);
+  }
+  return null;
+}
+
+/**
+ * Det sticky mønster `hale` efter ankerets ENESTE forekomst i resultatkortet.
+ * Står ankeret to gange, er det uklart, hvilket felt der er kampens — så kastes der.
+ * Null, hvis ankeret mangler (kalderen siger, hvad der mangler).
+ */
+function ietKort(kort, anker, hale, hvor) {
+  return eneste(kort, anker, hvor) < 0 ? null : efter(kort, anker, hale);
+}
+
+/** Indekset for ankerets ENESTE forekomst i resultatkortet; -1, hvis det mangler. To eller flere kaster. */
+function eneste(kort, anker, hvor) {
+  const n = antal(kort, anker);
+  if (n > 1) fejl(`${hvor}: «${anker}» står ${n} gange i resultatkortet — præcis én forventes.`);
+  return kort.indexOf(anker);
+}
+
+const MARKOER = 'data-ihf-competitions-match-results-match-id="';
+const KORT_TEKST = /([^<]*)</y;
+const KORT_GMT = /([^<]*)<small>\s*GMT/y;
+const KORT_ARENA = /\s*<span>([^<]*)<\/span>/y;
+const PERIODE_FELT = /[^<>]*>([^<]*)</y;
+
+/** Én periode på kampsiden → { h, u }. Mangler den eller er den ikke et tal, kastes der. */
+function periode(kort, noegle, hvor) {
+  const sider = ['a', 'b'].map((s) => {
+    const m = ietKort(kort, `id="${PERIODE_ID[noegle]}-${s}"`, PERIODE_FELT, hvor);
+    const tal = m && m[1].trim();
+    if (!m || !/^\d{1,3}$/.test(tal)) {
+      fejl(`perioden ${noegle} (${PERIODE_ID[noegle]}-${s}) for ${hvor} mangler eller har et uventet format`
+        + `${m ? ` («${tal}»)` : ''}.`);
+    }
+    return Number(tal);
   });
   return { h: sider[0], u: sider[1] };
 }
@@ -279,9 +471,10 @@ const vis = (s) => `${s.h}-${s.u}`;
 /**
  * Vagten om stillingen efter 60 minutter. Den er summen af de to halvlege —
  * det er definitionen — men den skal HÆNGE SAMMEN med resten: forlængelse
- * spilles kun ved uafgjort efter 60, og straffekast kun ved uafgjort efter
- * forlængelsen. Er der spillet forlængelse fra en stilling, der ikke var lige,
- * er halvlegene læst forkert, og så må knockout-facit (= efter60) ikke bruges.
+ * spilles kun ved uafgjort efter 60, 2. forlængelse kun ved uafgjort efter
+ * 1. forlængelse, og straffekast kun ved uafgjort efter forlængelsen. Er der
+ * spillet en periode fra en stilling, der ikke var lige, er perioderne læst
+ * forkert, og så må knockout-facit (= efter60) ikke bruges.
  */
 function tjekEfter60(p, efter60, hvor) {
   const forlaenget = !nul(p.ot1) || !nul(p.ot2);
@@ -289,75 +482,127 @@ function tjekEfter60(p, efter60, hvor) {
     fejl(`${hvor}: der er spillet forlængelse/straffekast, men halvlegene giver ${vis(efter60)} efter 60 minutter `
       + '— ikke uafgjort. Halvlegene er læst forkert; facit efter 60 minutter bruges ikke.');
   }
+  if (!nul(p.ot2) && !lige(plus(efter60, p.ot1))) {
+    fejl(`${hvor}: der er spillet 2. forlængelse, men stillingen efter 1. forlængelse er `
+      + `${vis(plus(efter60, p.ot1))} — ikke uafgjort.`);
+  }
   if (!nul(p.straffe) && !lige(plus(efter60, p.ot1, p.ot2))) {
     fejl(`${hvor}: der er spillet straffekast, men stillingen efter forlængelsen er `
       + `${vis(plus(efter60, p.ot1, p.ot2))} — ikke uafgjort.`);
   }
 }
 
+/** Hvordan kampen blev afgjort, afledt af perioderne (ÉT sted — facitFelter henter det her). */
+function afgjortAf(p) {
+  if (!nul(p.straffe)) return 'straffe';
+  if (!nul(p.ot1) || !nul(p.ot2)) return 'forlaenget';
+  return 'ordinaer';
+}
+
 /**
  * En kampside (…/{konkurrence}/match-center/{id}) → kampens forløb.
  *
- * { ihfId, status, hjemme, ude, slut:{h,u}, perioder:{h1,h2,ot1,ot2,straffe},
- *   efter60:{h,u}, lokalTid, gmtTid, by, hal }
+ *   parseKampside(html, { ihfId })   — ihfId er det kamp-id, der blev bedt om.
+ *
+ * { ihfId, status, statusKode, hjemme, ude, lokalTid, gmtTid, by, hal,
+ *   slut:{h,u}, perioder:{h1,h2,ot1,ot2,straffe}, efter60:{h,u}, afgjort }
  *
  *  - slut: slutscoren INKL. forlængelse og straffekast (35:34, 39:38).
  *  - efter60: h1 + h2 — knockout-facit efter ejerens beslutning.
- *  - En ikke-spillet kamp (status 'planlagt', scoren står som 0:0) giver
- *    slut, perioder og efter60 = null.
+ *  - afgjort: 'ordinaer' | 'forlaenget' | 'straffe' (af perioderne).
+ *  - En ikke-spillet kamp (status 'planlagt', scoren står som 0:0) og en kamp
+ *    med ukendt status giver slut, perioder, efter60 og afgjort = null.
  *
- * Kaster IhfStrukturFejl, hvis perioderne ikke summerer til slutscoren, eller
- * hvis forlængelse/straffe er spillet fra en stilling, der ikke var lige.
+ * Siden skal være kampen, der blev bedt om: præcis én kampmarkør, og dens id
+ * = id'et i den kanoniske adresse = `ihfId`. Status, tider, hold, resultat og
+ * perioder læses KUN i kampmarkørens eget element (resultatkortet), og hvert
+ * felt skal stå der præcis én gang — en nabo-widget kan ikke låne kampen sit
+ * resultat.
+ *
+ * Kaster IhfStrukturFejl, hvis noget af det ikke holder, hvis perioderne ikke
+ * summerer til slutscoren, eller hvis en periode er spillet fra en stilling,
+ * der ikke var lige.
  */
-function parseKampside(html) {
+function parseKampside(html, { ihfId: forventet } = {}) {
+  if (!Number.isSafeInteger(forventet) || forventet <= 0) {
+    throw new TypeError('parseKampside kræver det kamp-id, der blev bedt om: parseKampside(html, { ihfId }).');
+  }
   kraevSide(html, 'match-center', 'kampside');
-  const id = /data-ihf-competitions-match-results-match-id="(\d+)"/.exec(html);
-  if (!id) fejl('kampsiden mangler sin kampmarkør (data-ihf-competitions-match-results-match-id).');
+
+  const markoerer = antal(html, MARKOER);
+  if (markoerer === 0) fejl('kampsiden mangler sin kampmarkør (data-ihf-competitions-match-results-match-id).');
+  if (markoerer > 1) {
+    fejl(`kampsiden har ${markoerer} kampmarkører (data-ihf-competitions-match-results-match-id) — præcis én forventes.`);
+  }
+  const id = efter(html, MARKOER, /(\d+)"/y);
+  if (!id) fejl('kampsidens kampmarkør har intet tal-id.');
   const ihfId = Number(id[1]);
+
+  const adressensId = kampIdAf(html);
+  if (adressensId !== forventet) {
+    fejl(`kampsiden er ikke kamp ${forventet}: den kanoniske adresse siger ${adressensId ?? 'intet kamp-id'} `
+      + '— omdirigering eller forkert side.');
+  }
+  if (ihfId !== adressensId) {
+    fejl(`kampsidens markør siger kamp ${ihfId}, men den kanoniske adresse siger ${adressensId}.`);
+  }
   const hvor = `kamp ${ihfId}`;
 
-  const kode = /data-ihf-competitions-match-results-match-status="([^"]*)"/.exec(html);
+  // Resultatkortet = elementet, hvis åbningstag bærer markøren.
+  const mi = html.indexOf(MARKOER);
+  const tagStart = html.lastIndexOf('<', mi);
+  const tagSlut = html.indexOf('>', mi);
+  const aabning = tagSlut < 0 ? '' : html.slice(tagStart, tagSlut + 1);
+  if (!/^<div\b/i.test(aabning)) fejl(`${hvor}: kampmarkøren står ikke på et <div> (resultatkortet).`);
+  const kort = divElement(html, tagStart);
+  if (kort == null) fejl(`${hvor}: resultatkortet (kampmarkørens <div>) lukkes aldrig.`);
+
+  const kode = efter(aabning, 'data-ihf-competitions-match-results-match-status="', ATTR);
   if (!kode) fejl(`${hvor} mangler sin status.`);
-  const st = status(kode[1], hvor);
+  const st = status(kode[1]);
 
-  const lokal = /class="time time-local">\s*([^<]*?)\s*</.exec(html);
-  const gmt = /class="time time-gmt">\s*([^<]*?)\s*<small>\s*GMT/.exec(html);
+  const lokal = ietKort(kort, 'class="time time-local">', KORT_TEKST, hvor);
+  const gmt = ietKort(kort, 'class="time time-gmt">', KORT_GMT, hvor);
   if (!lokal || !gmt) fejl(`${hvor} mangler sin lokale tid eller GMT-tid.`);
-  const arena = /class="time time-gmt">[\s\S]*?<\/p>\s*<span>([^<]*)<\/span>/.exec(html);
+  const pEfterGmt = kort.indexOf('</p>', KORT_GMT.lastIndex);
+  const arena = pEfterGmt < 0 ? null : efter(kort, '</p>', KORT_ARENA, pEfterGmt);
 
-  // Holdene læses KUN i resultatkortet: andre «country»-felter på siden (fx en
-  // nabokamp) må ikke blive til kampens hold. Mangler kortet, ville indexOf give
-  // -1 og slice(-1) sidste tegn — og så hold = null uden et ord. Derfor kastes der.
-  const kortStart = html.indexOf('resultCardBody');
-  if (kortStart < 0) fejl(`${hvor} mangler sit resultatkort (resultCardBody) — holdene kan ikke læses.`);
-  const hold = [...html.slice(kortStart).matchAll(/<div class="country[^"]*">\s*(?:<img[^>]*>\s*)?<span>([^<]*)<\/span>/g)]
+  // Holdene læses KUN i resultatkortets krop: andre «country»-felter på siden
+  // (fx en nabokamp) må ikke blive til kampens hold.
+  const krop = eneste(kort, 'resultCardBody', hvor);
+  if (krop < 0) fejl(`${hvor} mangler sit resultatkort (resultCardBody) — holdene kan ikke læses.`);
+  const hold = [...kort.slice(krop).matchAll(/<div class="country[^"<>]*">\s*(?:<img[^<>]*>\s*)?<span>([^<]*)<\/span>/g)]
     .slice(0, 2).map((m) => rens(m[1]));
   if (hold.length < 2 || hold.some((navn) => !navn)) {
     fejl(`${hvor}: resultatkortet har ikke to holdnavne (fandt ${JSON.stringify(hold)}).`);
   }
 
-  const resultat = /id="result-a-b">\s*([^<]*?)\s*</.exec(html);
+  const resultat = ietKort(kort, 'id="result-a-b">', KORT_TEKST, hvor);
   if (!resultat) fejl(`${hvor} mangler sin slutscore (result-a-b).`);
+  const resultatTekst = resultat[1].trim();
 
   const faelles = {
     ihfId,
     status: st,
+    statusKode: visKode(kode[1]),
     hjemme: hold[0],
     ude: hold[1],
-    ...tider(lokal[1], gmt[1], hvor),
+    ...tider(lokal[1].trim(), gmt[1].trim(), hvor),
     ...sted(arena && arena[1]),
   };
+  const intet = { slut: null, perioder: null, efter60: null, afgjort: null };
 
+  if (st === 'ukendt') return { ...faelles, ...intet };
   if (st === 'planlagt') {
-    if (resultat[1] !== '0:0') {
-      fejl(`${hvor} er ikke spillet, men slutscoren viser «${resultat[1]}» (forventet «0:0»).`);
+    if (resultatTekst !== '0:0') {
+      fejl(`${hvor} er ikke spillet, men slutscoren viser «${resultatTekst}» (forventet «0:0»).`);
     }
-    return { ...faelles, slut: null, perioder: null, efter60: null };
+    return { ...faelles, ...intet };
   }
 
-  const slut = stilling(resultat[1], ':', hvor);
+  const slut = stilling(resultatTekst, ':', hvor);
   const perioder = {};
-  for (const noegle of Object.keys(PERIODE_ID)) perioder[noegle] = periode(html, noegle, hvor);
+  for (const noegle of Object.keys(PERIODE_ID)) perioder[noegle] = periode(kort, noegle, hvor);
 
   const sum = plus(...Object.values(perioder));
   if (sum.h !== slut.h || sum.u !== slut.u) {
@@ -368,7 +613,7 @@ function parseKampside(html) {
   const efter60 = plus(perioder.h1, perioder.h2);
   tjekEfter60(perioder, efter60, hvor);
 
-  return { ...faelles, slut, perioder, efter60 };
+  return { ...faelles, slut, perioder, efter60, afgjort: afgjortAf(perioder) };
 }
 
 module.exports = {
@@ -378,5 +623,6 @@ module.exports = {
   parseDagside,
   parseKampside,
   konkurrenceIdAf,
+  kampIdAf,
   kalenderAf,
 };
