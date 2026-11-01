@@ -1013,6 +1013,38 @@ describe('parseKampside — siden er bundet til sit kamp-id og sit eget resultat
   });
 });
 
+describe('felterne læses, hvor de hører til — og mellemrum trimmes', () => {
+  it('dagsidens status læses af kampblokkens EGET åbningstag, ikke af et element inde i blokken', () => {
+    // Statussen flyttet fra <div class="matchDetails" …> ind i en indre <i>: blokken har ingen status.
+    let html = erstat(DAG_2025, 'data-ihf-competitions-match-status="E"', 'data-x="E"', 'data-ihf-competitions-match-id="202125"');
+    html = erstat(html, 'class="groupName', 'class="groupName" data-ihf-competitions-match-status="E" data-y="', 'data-ihf-competitions-match-id="202125"');
+    kaster(() => parseDagside(html), /kamp 202125 mangler sin status/);
+  });
+
+  it('et hold-link, der ikke kan læses, kaster — det er ikke en pladsholder', () => {
+    // Uden vagten ville et ødelagt link enten vælte med TypeError eller give hjemmeId null (= «W QF1»).
+    const html = erstat(DAG_2025, 'team-matches/117">France</a>', 'team-matches/frankrig">France</a>');
+    kaster(() => parseDagside(html), /hjemmeholdets link for kamp 202123 kan ikke læses/);
+    const uLukket = erstat(DAG_2025, 'team-matches/5647">Portugal</a>', 'team-matches/5647">Portugal</b>');
+    kaster(() => parseDagside(uLukket), /udeholdets link for kamp 202123 kan ikke læses/);
+  });
+
+  it('dagsidens tid trimmes («>  18:00  </time>» er 18:00)', () => {
+    const html = erstat(DAG_2025, '>18:00</time>', '>\n   18:00   </time>', 'match-time-202125');
+    expect(parseDagside(html)[1]).toMatchObject({ lokalTid: '18:00', gmtTid: '17:00' });
+  });
+
+  it('kampsidens tider, slutscore og perioder trimmes', () => {
+    let html = erstat(KAMP_BRONZE, '<p class="time time-local">15:00</p>', '<p class="time time-local">\n  15:00  </p>');
+    html = erstat(html, '<p class="time time-gmt">14:00 <small>', '<p class="time time-gmt">\n  14:00\n  <small>');
+    html = erstat(html, '<p id="result-a-b">35:34</p>', '<p id="result-a-b">\n 35:34 \n</p>');
+    html = erstat(html, 'id="fh-goals-a" class="col-xs-4 bigFont">19<', 'id="fh-goals-a" class="col-xs-4 bigFont">\n  19  <');
+    expect(parseKampside(html, { ihfId: 202123 })).toMatchObject({
+      lokalTid: '15:00', gmtTid: '14:00', slut: { h: 35, u: 34 }, perioder: { h1: { h: 19, u: 17 } },
+    });
+  });
+});
+
 describe('kraevSide — fejlsidens citat', () => {
   it('læses kun af sidens første 4 KB — en hel fremmed side renses aldrig', () => {
     const side = `${'<br>'.repeat(1100)}Teksten efter 4 KB`; // 4096 = 1024 × «<br>»
