@@ -340,6 +340,9 @@ exports.rescoreGameBets = onCall({ region: REGION }, async (request) => {
 // dryRun er DEFAULT SAND, som rescoreGameBets. Den skriver i produktionsdata
 // på hver eneste ikke-låst kamp, og der er ingen oddsHistory at rulle tilbage
 // til. `aendringer` er derfor den eneste kvittering, der findes — gem den.
+//
+// Et ukendt game.sport afvises med failed-precondition (ukendtSportFejl i
+// gameScoring.js), før der er regnet noget — fladen viser beskeden rødt.
 exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async (request) => {
   const db = getFirestore();
   await requireAdmin(db, request);
@@ -352,7 +355,17 @@ exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async 
   // Reglen bor i gameScoring, hvor den er unit-testet — ikke som en
   // sammenligning her, der kunne vendes uden at nogen test sagde fra.
   const dryRun = dryRunFraKald(request.data);
-  const out = await recomputeSeasonElo(db, FieldValue, gameId, Date.now(), { dryRun });
+  // Et SAT, men ukendt sport AFVISES — også i tør-kørslen. Uden flaget
+  // regnedes et håndboldspil med fodboldens profil, tør-kørslen viste de odds,
+  // som om de var rigtige, og dryRun:false skrev dem. Triggeren (facit-
+  // ændring) sætter IKKE flaget: dér advares der kun, så driften ikke går i stå.
+  let out;
+  try {
+    out = await recomputeSeasonElo(db, FieldValue, gameId, Date.now(), { dryRun, afvisUkendtSport: true });
+  } catch (err) {
+    if (err && err.kode === 'failed-precondition') throw new HttpsError('failed-precondition', err.message);
+    throw err;
+  }
   console.log(`repriceGameOdds(${gameId}, dryRun=${dryRun}): ${out.updated} kampe`);
   // HELE listen logges ved en rigtig skrivning, ikke bare antallet. Der er
   // ingen oddsHistory, og browserens tabel forsvinder, når fanen lukkes — så

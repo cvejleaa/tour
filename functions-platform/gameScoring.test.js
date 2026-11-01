@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { createRequire } from 'module';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 // Facit for sportsprofilen: skrevet af koden FØR profilen (scripts/sportprofil-golden.mjs).
 import golden from './testdata/sportprofil-golden.json';
 import slProgram from '../scripts/superliga-fixtures.json';
@@ -13,7 +16,7 @@ const require = createRequire(import.meta.url);
 const {
   recomputeGameMatchCore, recomputeSeasonElo,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officielTop, puljeTipKomplet,
-  gatedIds, recomputeAllPlayerTotals, rescoreAllBets, dryRunFraKald,
+  gatedIds, recomputeAllPlayerTotals, rescoreAllBets, dryRunFraKald, ukendtSportFejl,
 } = require('./gameScoring');
 // Combi-reglen har ét hjem. Testen henter den DERFRA, så en fremtidig dublet
 // ikke kan snige sig ind bag en grøn suite.
@@ -1601,31 +1604,159 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
 
   // Et SAT, men ukendt sport (tastefejl) regnes som fodbold — serveren må ikke
   // gå i stå i drift — men det må ikke være TAVST. Advarslen skal bære spil-id
-  // og den rå værdi, så den kan findes i Cloud-loggen.
-  it('et ukendt sport kaster ikke, regnes som fodbold — og advarer med spil-id og værdi', async () => {
+  // og den RÅ værdi, så den kan findes i Cloud-loggen.
+  //
+  // Prøvet med en tastefejl, et tal og et array: med 'handbold' alene var
+  // mutanten "kun strenge advarer" (`typeof game.sport === 'string' &&`) grøn.
+  // Arrayet ['fodbold'] skal stå som ["fodbold"] — med String(...) stod det
+  // som "fodbold" i loggen, altså som den sport, det netop IKKE er.
+  it('et ukendt sport kaster ikke, regnes som fodbold — og advarer med spil-id og RÅ værdi', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const { fixtures, teams: holdliste } = LIGAER.sl;
-      const db = makeGoldenDb({ teams: holdliste, sport: 'handbold' }, goldenKampe(buildMatches(fixtures, holdliste)));
-      await expect(recomputeSeasonElo(db, FieldValue, 'vm-haandbold', GOLDEN_NU_MS, { dryRun: true })).resolves.toBeTruthy();
-      expect(warn).toHaveBeenCalledTimes(1);
-      const linje = String(warn.mock.calls[0][0]);
-      expect(linje).toContain('vm-haandbold');
-      expect(linje).toContain('"handbold"');
-      expect(linje).toMatch(/ukendt sport/);
-      expect(linje).toMatch(/regnes som fodbold/);
+      for (const [sport, vist] of [['handbold', '"handbold"'], [123, ' 123 '], [['fodbold'], '["fodbold"]']]) {
+        warn.mockClear();
+        const db = makeGoldenDb({ teams: holdliste, sport }, goldenKampe(buildMatches(fixtures, holdliste)));
+        const res = await recomputeSeasonElo(db, FieldValue, 'vm-haandbold', GOLDEN_NU_MS, { dryRun: true });
+        const hvad = JSON.stringify(sport);
+        // Resultatet bærer den rå værdi — ikke en streng-kopi.
+        expect(res.ukendtSport, hvad).toEqual(sport);
+        expect(typeof res.ukendtSport, hvad).toBe(typeof sport);
+        expect(res.updated, hvad).toBeGreaterThan(0); // regnet videre som fodbold
+        expect(warn, hvad).toHaveBeenCalledTimes(1);
+        const linje = String(warn.mock.calls[0][0]);
+        expect(linje, hvad).toContain('vm-haandbold');
+        expect(linje, hvad).toContain(vist);
+        expect(linje, hvad).toMatch(/ukendt sport/);
+        expect(linje, hvad).toMatch(/regnes som fodbold/);
+      }
+      // Arrayet må ALDRIG stå som en kendt sport i loggen.
+      warn.mockClear();
+      const dbA = makeGoldenDb({ teams: holdliste, sport: ['fodbold'] }, goldenKampe(buildMatches(fixtures, holdliste)));
+      await recomputeSeasonElo(dbA, FieldValue, 'x', GOLDEN_NU_MS, { dryRun: true });
+      expect(String(warn.mock.calls[0][0])).not.toMatch(/sport "fodbold"/);
 
       // Manglende felt og en kendt sport advarer IKKE — ellers ville SL og PL
       // skrive en advarsel ved hvert eneste resultat, og så læser ingen den.
+      // Og resultatet har så INGEN ukendtSport-nøgle.
       warn.mockClear();
       for (const ekstra of [{}, { sport: 'fodbold' }, { sport: null }]) {
         const db2 = makeGoldenDb({ teams: holdliste, ...ekstra }, goldenKampe(buildMatches(fixtures, holdliste)));
-        await recomputeSeasonElo(db2, FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: true });
+        const res2 = await recomputeSeasonElo(db2, FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: true });
+        expect(Object.keys(res2).sort(), JSON.stringify(ekstra)).toEqual(['aendringer', 'updated']);
       }
       expect(warn).not.toHaveBeenCalled();
     } finally {
       warn.mockRestore();
     }
+  });
+
+  // KNAPPEN (repriceGameOdds) afviser — også i tør-kørslen. Før returnerede
+  // callablen {...out, dryRun} uden et ord: tør-kørslen viste fodboldens odds
+  // på et håndboldspil, som om de var rigtige, og dryRun:false skrev dem.
+  describe('afvisUkendtSport (knappens vej)', () => {
+    const { fixtures, teams: holdliste } = LIGAER.sl;
+    const nytDb = (ekstra) => makeGoldenDb({ teams: holdliste, ...ekstra }, goldenKampe(buildMatches(fixtures, holdliste)));
+
+    for (const dryRun of [true, false]) {
+      it(`kaster failed-precondition, FØR der er regnet eller skrevet noget (dryRun: ${dryRun})`, async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+          for (const sport of ['handbold', '', 123, ['fodbold']]) {
+            const db = nytDb({ sport });
+            const foerKampe = JSON.stringify(db._matches.map((m) => m.data));
+            let fejl = null;
+            try {
+              await recomputeSeasonElo(db, FieldValue, 'vm-haandbold', GOLDEN_NU_MS, { dryRun, afvisUkendtSport: true });
+            } catch (e) { fejl = e; }
+            const hvad = JSON.stringify(sport);
+            expect(fejl, hvad).toBeInstanceOf(Error);
+            expect(fejl.kode, hvad).toBe('failed-precondition');
+            expect(fejl.message, hvad).toBe(ukendtSportFejl('vm-haandbold', sport).message);
+            // Intet skrevet: hverken Elo på spillet eller odds på kampene.
+            expect(db._game.eloCurrent, hvad).toBeUndefined();
+            expect(db._game.eloHistory, hvad).toBeUndefined();
+            expect(JSON.stringify(db._matches.map((m) => m.data)), hvad).toBe(foerKampe);
+          }
+          // Den kaster i stedet for at advare — ikke begge dele.
+          expect(warn).not.toHaveBeenCalled();
+        } finally {
+          warn.mockRestore();
+        }
+      });
+    }
+
+    // Tjekket står FØR hold-tjekket: et spil uden hold gav ellers tavst
+    // {updated: 0}, og fladen meldte "allerede i takt med modellen".
+    it('afviser også et spil uden hold — ikke et tavst {updated: 0}', async () => {
+      const db = makeGoldenDb({ teams: [], sport: 'handbold' }, []);
+      await expect(recomputeSeasonElo(db, FieldValue, 'g', GOLDEN_NU_MS, { dryRun: true, afvisUkendtSport: true }))
+        .rejects.toMatchObject({ kode: 'failed-precondition' });
+      // … og triggerens vej på samme spil siger det i resultatet.
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        await expect(recomputeSeasonElo(db, FieldValue, 'g', GOLDEN_NU_MS, { dryRun: true }))
+          .resolves.toEqual({ updated: 0, aendringer: [], ukendtSport: 'handbold' });
+        expect(warn).toHaveBeenCalledTimes(1);
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it('en kendt sport og et manglende felt afvises IKKE — svaret er det samme som uden flaget', async () => {
+      for (const ekstra of [{}, { sport: 'fodbold' }, { sport: null }]) {
+        const med = await recomputeSeasonElo(nytDb(ekstra), FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: true, afvisUkendtSport: true });
+        const uden = await recomputeSeasonElo(nytDb(ekstra), FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: true });
+        expect(med, JSON.stringify(ekstra)).toEqual(uden);
+        expect(med.updated).toBeGreaterThan(50);
+      }
+    });
+
+    it('kun et eksplicit true afviser — et truthy ikke-boolean gør ikke', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        await expect(recomputeSeasonElo(nytDb({ sport: 'handbold' }), FieldValue, 'g', GOLDEN_NU_MS, { dryRun: true, afvisUkendtSport: 'ja' }))
+          .resolves.toMatchObject({ ukendtSport: 'handbold' });
+      } finally {
+        warn.mockRestore();
+      }
+    });
+  });
+
+  it('ukendtSportFejl: dansk besked med spil-id, RÅ værdi, de kendte sporter og at INTET er sket', () => {
+    const e = ukendtSportFejl('vm-haandbold', ['fodbold']);
+    expect(e).toBeInstanceOf(Error);
+    expect(e.kode).toBe('failed-precondition');
+    expect(e.message).toContain('Spillet "vm-haandbold"');
+    expect(e.message).toContain('sport ["fodbold"]');
+    expect(e.message).not.toContain('sport "fodbold"');
+    expect(e.message).toContain('(kendte: fodbold)');
+    expect(e.message).toMatch(/IKKE omprist noget — heller ikke i tør-kørslen/);
+    expect(e.message).toMatch(/Ret game\.sport/);
+    expect(ukendtSportFejl('g', 123).message).toContain('sport 123,');
+    expect(ukendtSportFejl('g', '').message).toContain('sport "",');
+  });
+
+  // index.js kan ikke importeres uden firebase-functions, så LEDNINGEN
+  // bevogtes som tekst (samme mønster som postbud.test.js): knappen skal sætte
+  // flaget og oversætte fejlen til HttpsError — triggeren må IKKE sætte det.
+  describe('index.js: knappen afviser, triggeren advarer', () => {
+    const kilde = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'index.js'), 'utf8')
+      .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    const knap = kilde.split('exports.repriceGameOdds')[1].split('exports.')[0];
+    const trigger = kilde.split('exports.recomputeGameMatch')[1].split('exports.')[0];
+
+    it('repriceGameOdds sætter afvisUkendtSport: true og oversætter kode → HttpsError med serverens besked', () => {
+      expect(knap).toMatch(/recomputeSeasonElo\(db, FieldValue, gameId, Date\.now\(\), \{ dryRun, afvisUkendtSport: true \}\)/);
+      expect(knap).toMatch(/if \(err && err\.kode === 'failed-precondition'\) throw new HttpsError\('failed-precondition', err\.message\);\s*throw err;/);
+      // Ingen anden vej til recomputeSeasonElo i knappen, der kunne gå uden om flaget.
+      expect(knap.match(/recomputeSeasonElo\(/g)).toHaveLength(1);
+    });
+
+    it('triggeren kalder UDEN flaget — en tastefejl må ikke stoppe afregningen', () => {
+      expect(trigger).toMatch(/await recomputeSeasonElo\(db, FieldValue, gameId, Date\.now\(\)\);/);
+      expect(trigger).not.toMatch(/afvisUkendtSport/);
+    });
   });
 
   it('et spil, der ikke findes, giver intet at gøre — og kaster ikke', async () => {

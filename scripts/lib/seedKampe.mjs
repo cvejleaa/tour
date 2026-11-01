@@ -34,7 +34,7 @@ export async function seedKampe({ gameRef, fixtures, teams }) {
   const sportRaa = game?.sport;
   if (ukendtSport(game)) {
     throw new Error(
-      `Spillet har sport ${JSON.stringify(String(sportRaa))}, men den sport findes ikke i sportsprofilerne `
+      `Spillet har sport ${JSON.stringify(sportRaa)}, men den sport findes ikke i sportsprofilerne `
       + '(SPORT_PROFILER). Der er IKKE skrevet noget. Ret game.sport i scripts/games.mjs, '
       + 'eller fjern feltet for fodbold.',
     );
@@ -45,6 +45,9 @@ export async function seedKampe({ gameRef, fixtures, teams }) {
 
 /** Linjen, seedet skriver om sporten — med det RÅ felt, ikke kun den opløste profil. */
 export function sportLinje({ sportRaa, profil }) {
+  // PRÆCIST undefined/null — ikke `!sportRaa`: en tom streng, 0 og false er
+  // SATTE værdier (seedKampe afviser dem som ukendte) og skal vises som det,
+  // ikke som "intet sport-felt".
   const kilde = sportRaa === undefined || sportRaa === null
     ? `intet sport-felt på spillet → ${profil.sport}`
     : `game.sport = ${JSON.stringify(sportRaa)}`;

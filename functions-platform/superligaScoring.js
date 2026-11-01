@@ -266,8 +266,9 @@ function erRegistreret(sport) {
 }
 
 // game.sport er SAT, men ukendt (tastefejl som 'handbold'). Mangler feltet, er
-// det fodbold med vilje. Serveren kaster ikke for det i drift, men advarer
-// (recomputeSeasonElo); seedet afviser at skrive.
+// det fodbold med vilje. Triggeren kaster ikke for det i drift, men advarer
+// (recomputeSeasonElo); begge skriveveje afviser: det fulde seed
+// (seedKampe) og Ompris-knappen (repriceGameOdds).
 function ukendtSport(game) {
   const sport = game ? game.sport : undefined;
   return sport != null && !erRegistreret(sport);

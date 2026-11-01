@@ -76,6 +76,15 @@ describe('seedKampe', () => {
     }
     await expect(seedKampe({ gameRef: ref({ sport: 'handbold' }), fixtures: FX, teams: TEAMS }))
       .rejects.toThrow(/sport "handbold"/);
+    // Den RÅ værdi — ikke String(...). Et array ['fodbold'] stod før som
+    // sport "fodbold" i fejlen, altså som netop den sport, det IKKE er; og en
+    // tom streng skal stå som "", ikke forsvinde.
+    await expect(seedKampe({ gameRef: ref({ sport: ['fodbold'] }), fixtures: FX, teams: TEAMS }))
+      .rejects.toThrow(/sport \["fodbold"\], men/);
+    await expect(seedKampe({ gameRef: ref({ sport: '' }), fixtures: FX, teams: TEAMS }))
+      .rejects.toThrow(/sport "", men/);
+    await expect(seedKampe({ gameRef: ref({ sport: 123 }), fixtures: FX, teams: TEAMS }))
+      .rejects.toThrow(/sport 123, men/);
   });
 
   it('sportLinje viser det rå felt — og siger det, når feltet mangler', () => {
@@ -83,6 +92,15 @@ describe('seedKampe', () => {
     expect(sportLinje({ sportRaa: undefined, profil: fodbold }))
       .toBe('Sport: fodbold (intet sport-felt på spillet → fodbold; hjemmebane 60, odds-gulv 1.1).');
     expect(sportLinje({ sportRaa: null, profil: fodbold })).toMatch(/intet sport-felt/);
+    // Grenen er PRÆCIST undefined/null. En tom streng, 0 og false er SATTE
+    // værdier (seedKampe kaster for dem) — med `!sportRaa` stod de som
+    // "intet sport-felt", altså som et spil, der bevidst er fodbold.
+    expect(sportLinje({ sportRaa: '', profil: fodbold }))
+      .toBe('Sport: fodbold (game.sport = ""; hjemmebane 60, odds-gulv 1.1).');
+    for (const sportRaa of [0, false]) {
+      expect(sportLinje({ sportRaa, profil: fodbold }), String(sportRaa)).not.toMatch(/intet sport-felt/);
+      expect(sportLinje({ sportRaa, profil: fodbold })).toContain(`game.sport = ${sportRaa}`);
+    }
     expect(sportLinje({ sportRaa: 'fodbold', profil: fodbold }))
       .toBe('Sport: fodbold (game.sport = "fodbold"; hjemmebane 60, odds-gulv 1.1).');
     expect(sportLinje({ sportRaa: 'proeve', profil: PROEVE }))

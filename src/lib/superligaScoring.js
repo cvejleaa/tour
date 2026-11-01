@@ -340,7 +340,10 @@ export function outcomeProbabilities({
  *
  * Det gælder IKKE for andre sporter. Loftet over p kommer af uafgjort-modellen
  * (DRAW_BASE/DRAW_DECAY), og en sport med få uafgjorte (håndbold) kan nå over
- * 0,909 — prøvesporten i src/test/proeveSport.js gør det med 0,936. Dér binder
+ * 0,909. Prøvesporten i src/test/proeveSport.js giver fx 0,936 ved 1900 mod
+ * 1300 på neutral bane — det er ET EKSEMPEL, ikke et loft: dens p stiger med
+ * styrkeforskellen mod 1 − 0,05·e^(−0,4) ≈ 0,966 (bevist i
+ * src/lib/sportProfil.test.js, "odds-gulvet er en profilværdi"). Dér binder
  * 1,1 og giver favorittippet positiv forventning. Derfor er gulvet en
  * profilværdi (`profil.odds.min`, se sportProfil), og MIN her er kun
  * fodboldens.
@@ -450,8 +453,8 @@ function erRegistreret(sport) {
 /**
  * Er `game.sport` SAT, men ukendt? Fallbacken i sportProfil er tavs med vilje
  * (et spil må ikke gå i stå i drift), men så skjuler den også en tastefejl:
- * `sport: 'handbold'` ville blive prissat som fodbold. Skrivevejene (seedet)
- * spørger her og afviser; serveren advarer. Mangler feltet (undefined/null),
+ * `sport: 'handbold'` ville blive prissat som fodbold. Skrivevejene (det
+ * fulde seed og Ompris-knappen) spørger her og afviser; triggeren advarer. Mangler feltet (undefined/null),
  * er det IKKE ukendt — så er det fodbold med vilje, som SL og PL.
  */
 export function ukendtSport(game) {

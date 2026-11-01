@@ -103,8 +103,8 @@ describe('sportProfil — hvilken profil et spil får', () => {
 
 // --- Et SAT, men ukendt sport er en tastefejl, ikke fodbold ------------------
 // sportProfil falder tavst tilbage (serveren må ikke gå i stå i drift), så
-// skrivevejene spørger ukendtSport og afviser (scripts/lib/seedKampe.mjs), og
-// serveren advarer (recomputeSeasonElo). Mangler feltet, er det fodbold MED
+// skrivevejene spørger ukendtSport og afviser (scripts/lib/seedKampe.mjs og
+// repriceGameOdds via afvisUkendtSport), og triggeren advarer (recomputeSeasonElo). Mangler feltet, er det fodbold MED
 // VILJE — SL og PL har intet felt og må aldrig blive "ukendte".
 describe('ukendtSport — sat, men ikke i registret', () => {
   it('manglende felt er IKKE ukendt (SL og PL)', () => {
@@ -241,6 +241,19 @@ describe('odds-gulvet er en profilværdi', () => {
     expect(outcomeProbabilities(args)['1']).toBeGreaterThan(1 / ODDS.MIN);
     expect(outcomeOdds({ ...args, oddsMin: 1.01 })['1']).toBe(1.07);
     expect(outcomeOdds(args)['1']).toBe(1.1);
+  });
+
+  // 0,936 i ODDS-kommentaren (superligaScoring.js) er ET EKSEMPEL, ikke et
+  // loft. Med drawBase 0,05 og drawDecay 0,2 stiger p(1) med styrkeforskellen
+  // mod 1 − 0,05·e^(−0,4) ≈ 0,966 — og når aldrig dertil.
+  it('0,936 er et eksempel (1900 mod 1300), ikke et loft — p stiger mod ≈ 0,966', () => {
+    const p = (eloHome, eloAway) => outcomeProbabilities({ eloHome, eloAway, hfa: 0, drawBase: 0.05, drawDecay: 0.2 })['1'];
+    expect(p(1900, 1300)).toBeCloseTo(0.936, 3);
+    const graense = 1 - 0.05 * Math.exp(-0.4);
+    expect(p(2500, 1000)).toBeGreaterThan(0.95);
+    expect(p(4000, 1000)).toBeGreaterThan(p(2500, 1000));
+    expect(p(4000, 1000)).toBeLessThan(graense);
+    expect(graense - p(6000, 1000)).toBeLessThan(1e-4);
   });
 
   it('… også for UDE-favoritten', () => {

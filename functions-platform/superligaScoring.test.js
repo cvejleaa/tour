@@ -290,9 +290,9 @@ describe('sportsprofilen: server-spejlet er identisk med src', () => {
     expect(sportProfil()).toBe(SPORT_PROFILER.fodbold);
   });
 
-  // ukendtSport er spejlet: seedet (klient-modulet) afviser og serveren
-  // advarer — er de uenige om, hvad der er ukendt, advarer serveren om et
-  // spil, seedet godtog (eller tier om et, seedet afviste).
+  // ukendtSport er spejlet: seedet (klient-modulet) afviser, Ompris-knappen
+  // afviser og triggeren advarer (begge server-modulet) — er de uenige om, hvad
+  // der er ukendt, afviser serveren et spil, seedet godtog (eller omvendt).
   it('ukendtSport: samme svar som src — og manglende felt er IKKE ukendt', async () => {
     const src = await import('../src/lib/superligaScoring.js');
     for (const g of [...SPIL, { sport: 'handbold' }, { sport: null }, { sport: undefined }, { sport: ['fodbold'] }]) {

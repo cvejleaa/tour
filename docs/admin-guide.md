@@ -111,6 +111,10 @@ Liga-admin følger med at have oprettet ligaen.
   **Vigtigt:** allerede afgivne tips på de omprisede kampe afregnes til de
   NYE odds, også Chancen. Ompriser du midt i en runde, så sig det til
   spillerne, mens de stadig kan nå at rette deres tip.
+  Har spillet et `sport`-felt, platformen ikke kender (fx tastefejlen
+  `handbold`), afviser knappen med en **rød besked** — også tør-kørslen, og
+  før der er regnet noget. Ret eller fjern `sport` på spillet i
+  Firebase-konsollen, og kør igen.
 - **🔐 Genopbyg liga-adgang til stillingen** — kun nødvendig, hvis stillingen
   står tom. Se [drift.md](drift.md).
 

@@ -10,7 +10,7 @@
 
 const {
   scoreBet, updateElo, actualHomeFromOutcome, outcomeOdds,
-  sportProfil, ukendtSport, oddsParametre, eloParametre,
+  SPORT_PROFILER, sportProfil, ukendtSport, oddsParametre, eloParametre,
   championshipTeams, bundTeams, puljeScore, puljeKonfig, round1,
 } = require('./superligaScoring');
 // Gaten — hvor spillet begynder. Ét modul, spejlet til klienten, fordi den
@@ -70,6 +70,25 @@ function dryRunFraKald(data) {
   return data?.dryRun !== false;
 }
 
+/**
+ * Fejlen, repriceGameOdds afviser et ukendt sport med. `kode` er
+ * HttpsError-koden — callablen oversætter den uden at kende teksten, så
+ * beskeden bor ét sted og kan testes uden firebase-functions.
+ *
+ * Beskeden siger HVAD der er galt (den rå værdi), at INTET er sket, og hvad
+ * admin skal gøre. "Handlingen blev afvist" lærer ingen noget.
+ */
+function ukendtSportFejl(gameId, vaerdi) {
+  const kendte = Object.keys(SPORT_PROFILER).join(', ');
+  const e = new Error(
+    `Spillet "${gameId}" har sport ${JSON.stringify(vaerdi)}, som ikke er en kendt sport (kendte: ${kendte}). `
+    + 'Der er IKKE omprist noget — heller ikke i tør-kørslen, for den ville vise fodboldens odds, som om de var rigtige. '
+    + 'Ret game.sport på spillet, eller fjern feltet for fodbold.',
+  );
+  e.kode = 'failed-precondition';
+  return e;
+}
+
 /** Er to odds-objekter ens (afrundet)? */
 function oddsEqual(a, b) {
   if (!a || !b) return false;
@@ -90,32 +109,54 @@ function oddsEqual(a, b) {
  * tør-kørsel på alt, der skriver i produktionsdata, og det her rører hver
  * eneste ikke-låst kamps pointværdi.
  *
- * @param {{dryRun?: boolean}} [opts]
- * @returns {Promise<{updated:number, aendringer:Array}>} antal kampe med
- *   opdaterede odds + hvad der (ville) ændre sig, kamp for kamp
+ * @param {{dryRun?: boolean, afvisUkendtSport?: boolean}} [opts]
+ *   afvisUkendtSport: kast ukendtSportFejl i stedet for at advare (knappen).
+ * @returns {Promise<{updated:number, aendringer:Array, ukendtSport?:any}>}
+ *   antal kampe med opdaterede odds + hvad der (ville) ændre sig, kamp for
+ *   kamp. `ukendtSport` er sat (med game.sports RÅ værdi) kun, når sporten
+ *   er sat, men ukendt — og kun når afvisUkendtSport ikke er sat.
  */
 async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
   const dryRun = opts.dryRun === true;
   const gameRef = db.collection('games').doc(gameId);
   const gameSnap = await gameRef.get();
   const game = gameSnap.exists ? gameSnap.data() : null;
-  const seedTeams = game ? game.teams : null;
-  if (!Array.isArray(seedTeams) || seedTeams.length === 0) return { updated: 0, aendringer: [] };
-
   // SPILLETS sportsprofil — både Elo-opdateringen og de friske odds. Et spil
   // uden `sport` er fodbold, så SL og PL regnes præcis som før profilen fandtes
   // (bevist mod facit i testdata/sportprofil-golden.json).
   const profil = sportProfil(game);
-  // En SAT, men ukendt sport (tastefejl som 'handbold') regnes som fodbold —
-  // serveren må ikke gå i stå midt i en sæson for det. Men det må ikke være
-  // tavst: så omprissede vi et håndboldspil med hjemmebane 60 uden et ord.
-  // Advarslen står i Cloud-loggen med spil-id og værdi. Ikke på Drift-kortet:
-  // driftlog.meldAlarm kræver en ny alarmtype (ALARM_TYPER, tripwire-testen,
-  // alarm-mailen) — det hører til D7's strandede-alarm. Den egentlige vagt
-  // står på skrivevejen: seed-football afviser et ukendt sport.
-  if (ukendtSport(game)) {
-    console.warn(`recomputeSeasonElo(${gameId}): ukendt sport ${JSON.stringify(String(game.sport))} — regnes som ${profil.sport}. Ret game.sport.`);
+  // En SAT, men ukendt sport (tastefejl som 'handbold') regnes som fodbold.
+  // Hvad der så sker, afhænger af, HVEM der kalder:
+  //
+  //   triggeren (facit ændrede sig)  → advarer og regner videre. Serveren må
+  //     ikke gå i stå midt i en sæson for en tastefejl.
+  //   knappen (repriceGameOdds)      → afvisUkendtSport: kaster, FØR der er
+  //     regnet eller skrevet noget — også i tør-kørslen. En tør-kørsel, der
+  //     viser fodboldens odds på et håndboldspil, ligner et rigtigt svar, og
+  //     det næste klik skriver dem.
+  //
+  // Tjekket står FØR hold-tjekket nedenfor: et spil uden hold ville ellers
+  // give tavst {updated: 0}, og fladen melder så "allerede i takt".
+  //
+  // Den rå værdi (ikke String(...)) står i advarslen og i resultatet: et
+  // array ['fodbold'] skal ikke kunne stå som "fodbold" i loggen. Ikke på
+  // Drift-kortet: driftlog.meldAlarm kræver en ny alarmtype (ALARM_TYPER,
+  // tripwire-testen, alarm-mailen) — det hører til D7's strandede-alarm.
+  // Skrivevejene er begge vagter: seed-football.mjs afviser at seede et
+  // ukendt sport (scripts/lib/seedKampe.mjs), og repriceGameOdds afviser at
+  // ompris det (her).
+  const ukendt = ukendtSport(game);
+  if (ukendt) {
+    if (opts.afvisUkendtSport === true) throw ukendtSportFejl(gameId, game.sport);
+    console.warn(`recomputeSeasonElo(${gameId}): ukendt sport ${JSON.stringify(game.sport)} — regnes som ${profil.sport}. Ret game.sport.`);
   }
+  // Kun SAT ved et ukendt sport — en kendt sport og et manglende felt giver
+  // det samme svar som før profilen fandtes.
+  const sportFlag = ukendt ? { ukendtSport: game.sport } : {};
+
+  const seedTeams = game ? game.teams : null;
+  if (!Array.isArray(seedTeams) || seedTeams.length === 0) return { updated: 0, aendringer: [], ...sportFlag };
+
   const start = profil.elo.START;
   const elo = new Map(seedTeams.map((t) => [t.name, Number(t.elo) || start]));
   const get = (n) => (elo.has(n) ? elo.get(n) : start);
@@ -228,6 +269,7 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
       id: a.id, round: a.round, home: a.home, away: a.away,
       kickoff: a.kickoff, foer: a.foer, efter: a.efter,
     })),
+    ...sportFlag,
   };
 }
 
@@ -697,7 +739,7 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
 
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo, rescoreAllBets,
-  dryRunFraKald,
+  dryRunFraKald, ukendtSportFejl,
   computeRanks, snapshotRoundRanks,
   settlePuljeBets, officielTop, puljeTipKomplet, gatedIds, recomputeAllPlayerTotals,
 };

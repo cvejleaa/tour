@@ -18,8 +18,12 @@ tal er målt — ikke før.
 
 Et `game.sport`, der er **sat, men ukendt** (fx tastefejlen `'handbold'`), giver
 også fodbold — serveren må ikke gå i stå i drift — men ikke tavst:
-`seed-football.mjs` afviser at seede (exit 1, også i tør-kørslen), og
-`recomputeSeasonElo` skriver en `console.warn` med spil-id og værdi i
+det fulde seed i `seed-football.mjs` afviser at seede (exit 1, også i
+tør-kørslen) — `--kickoffs-only` og `--teams-only` priser ikke odds og læser
+derfor ikke sporten. Knappen **💰 Ompris kampene** (`repriceGameOdds`) afviser
+med en rød besked, også i tør-kørslen, før der er regnet noget. Kun triggeren
+på et resultat (`recomputeSeasonElo` uden knappens flag) regner videre som
+fodbold og skriver en `console.warn` med spil-id og den rå værdi i
 Cloud-loggen. Profilernes form (nøglerne, og at `odds.min` er et endeligt tal
 over 1) er bevist over hele registret i `src/lib/sportProfil.test.js` og
 spejlet i `functions-platform/superligaScoring.test.js`.
