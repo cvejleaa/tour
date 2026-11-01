@@ -368,3 +368,15 @@ Bekræfter og udvider afsnittet "Test-/CI-infrastruktur" ovenfor.
 - VM-appen (/home/user/VM): knockout.js (bracket af stillinger), MatchResultForm.jsx
   (facit + advance), MATCH_STATUS.PENDING_TEAMS = pladsholder-model. Platformen har
   ingen pladsholder-model. Fasevis seeding kræver nul klientændring.
+- Rolle-prognose pr. delopgave: importér `paakraevedeRoller` fra
+  `scripts/lib/roller.mjs` og kald den på den FORVENTEDE filliste (ren funktion, intet
+  I/O). Den melder IKKE Spilfører for et nyt modulnavn uden mønster (fx `faseKampe.js`).
+  Følg listen, men sig det.
+- `seed-football.mjs:315` skriver `teams` + `eloCurrent` ubetinget → seeding midt i en
+  sæson nulstiller den levende Elo. Nyt maskineri, der opretter kampe, skal bruge
+  `ref.create()` og må ikke røre spil-dokumentet.
+- `FootballTip.jsx:513` tælleren er "Runde {idx} af {sidste OPRETTEDE runde}", og
+  `gameRecap.js:342` nextRound kommer af eksisterende kampe → begge lyver, når kampe
+  oprettes fasevis. En kalender på spillet (`game.faser`) er kilden.
+- `PuljeTip.jsx:31-36` `alleSpillet` er klient-spejlet af serverens self-guard
+  (gameScoring.js:399-403). En ændring skal ske i begge ender.
