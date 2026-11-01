@@ -83,7 +83,7 @@ function ukendtSportFejl(gameId, vaerdi) {
   const e = new Error(
     `Spillet "${gameId}" har sport ${visSport(vaerdi)}, som ikke er en kendt sport (kendte: ${kendte}). `
     + 'Der er IKKE omprist noget — heller ikke i tør-kørslen, for den ville vise fodboldens odds, som om de var rigtige. '
-    + 'Ret game.sport på spillet, eller fjern feltet for fodbold.',
+    + 'Står sport i scripts/games.mjs, så ret det dér og kør seedGames; skal feltet væk (fodbold), så fjern det i Firebase-konsollen — seedGames kan ikke fjerne et felt.',
   );
   e.kode = 'failed-precondition';
   return e;
@@ -174,7 +174,10 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
   // ['fodbold'] skal ikke kunne stå som "fodbold" i loggen, og NaN ikke som
   // "null". Ikke på
   // Drift-kortet: driftlog.meldAlarm kræver en ny alarmtype (ALARM_TYPER,
-  // tripwire-testen, alarm-mailen) — det hører til D7's strandede-alarm.
+  // tripwire-testen, alarm-mailen), og den er IKKE bygget. Vagten mod en
+  // tastefejl i scripts/games.mjs er games.test.mjs (et sat sport skal findes
+  // i registret); et sport, der kun er sat i konsollen, ses kun i Cloud-loggen
+  // og som Ompris-knappens røde besked.
   // Der er TRE skriveveje: seed-football.mjs afviser at seede et ukendt sport
   // (scripts/lib/seedKampe.mjs), repriceGameOdds afviser at ompris det
   // (omprisFraKnap), og triggeren (recomputeGameMatch) advarer kun — bevidst.

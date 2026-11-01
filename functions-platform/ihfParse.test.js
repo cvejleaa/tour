@@ -226,6 +226,15 @@ describe('parseDagside — ægte sider', () => {
     expect(JSON.stringify(finale)).not.toMatch(/&(quot|nbsp|lt|gt|apos);/);
   });
 
+  // Quality Control: ENTITETER[navn] ramte Object.prototype, så «&constructor;»
+  // blev til funktionens kildetekst («function Object() { [native code] }»).
+  it('navne fra Object.prototype er ikke entiteter — «&constructor;» står som tekst', () => {
+    let html = erstat(DAG_2025, '>Croatia</a>', '>A &constructor; &toString; &__proto__; B</a>');
+    const finale = parseDagside(html)[1];
+    expect(finale.hjemme).toBe('A &constructor; &toString; &__proto__; B');
+    expect(finale.hjemme).not.toMatch(/native code|function/);
+  });
+
   it('entiteter afkodes i ÉT gennemløb — «&#38;lt;» bliver «&lt;», ikke «<»', () => {
     const html = erstat(DAG_2025, '>Portugal</a>', '>A &#38;lt; B</a>');
     expect(parseDagside(html)[0].ude).toBe('A &lt; B');
@@ -339,6 +348,24 @@ describe('parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «in
     expect(blokke).toHaveLength(2);
     const html = [foer, blokke[0], ...blokke].join('<div class="matchDetails"');
     kaster(() => parseDagside(html), /dagsiden har kamp 202123 i to kampblokke/);
+  });
+
+  // Security: fejlene citerer rå tekst fra siden. 2 MB i et felt gav en besked
+  // på 2 mio. tegn, og et driftlog-dokument over 1 MiB kan ikke skrives — så
+  // alarmen om netop skraberfejlen ville blive tavs.
+  it('en fejlbesked har et loft — 2 MB i scorefeltet giver en kort besked', () => {
+    const stor = 'x'.repeat(2_000_000);
+    const html = erstat(DAG_2025, '>26-32<', `>${stor}<`);
+    const e = kaster(() => parseDagside(html), /har et uventet format|…\[afkortet\]/);
+    expect(e.message.length).toBeLessThanOrEqual(5 + 500 + ' …[afkortet]'.length);
+    expect(e.message).toMatch(/…\[afkortet\]$/);
+  });
+
+  it('en kort fejlbesked afkortes ikke', () => {
+    const e = new IhfStrukturFejl('kort');
+    expect(e.message).toBe('IHF: kort');
+    expect(new IhfStrukturFejl('y'.repeat(500)).message).toBe(`IHF: ${'y'.repeat(500)}`);
+    expect(new IhfStrukturFejl('y'.repeat(501)).message).toBe(`IHF: ${'y'.repeat(500)} …[afkortet]`);
   });
 
   it('score med kolon i stedet for bindestreg kaster', () => {

@@ -113,8 +113,9 @@ Liga-admin følger med at have oprettet ligaen.
   spillerne, mens de stadig kan nå at rette deres tip.
   Har spillet et `sport`-felt, platformen ikke kender (fx tastefejlen
   `handbold`), afviser knappen med en **rød besked** — også tør-kørslen, og
-  før der er regnet noget. Ret eller fjern `sport` på spillet i
-  Firebase-konsollen, og kør igen.
+  før der er regnet noget. Står `sport` i `scripts/games.mjs`, så ret det
+  dér og kør `seedGames`; skal feltet væk (fodbold), så fjern det i
+  Firebase-konsollen — `seedGames` kan ikke fjerne et felt. Kør så igen.
 - **🔐 Genopbyg liga-adgang til stillingen** — kun nødvendig, hvis stillingen
   står tom. Se [drift.md](drift.md).
 

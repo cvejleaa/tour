@@ -103,9 +103,16 @@ const PERIODE_ID = Object.freeze({
 });
 
 /** Fejlen, alle vagter kaster — så provideren kan kende en skraber-fejl fra en netværksfejl. */
+// Loft på beskeden: fejlene citerer rå tekst fra siden, og en ændret eller
+// fjendtlig side med 2 MB i et felt gav en besked på 2 mio. tegn. driftlog
+// afkorter ikke, og et Firestore-dokument over 1 MiB kan ikke skrives — så
+// alarmen om netop skraberfejlen ville blive tavs (Security-fund).
+const BESKED_LOFT = 500;
+
 class IhfStrukturFejl extends Error {
   constructor(besked) {
-    super(`IHF: ${besked}`);
+    const tekst = String(besked);
+    super(`IHF: ${tekst.length > BESKED_LOFT ? `${tekst.slice(0, BESKED_LOFT)} …[afkortet]` : tekst}`);
     this.name = 'IhfStrukturFejl';
   }
 }
@@ -158,7 +165,11 @@ function rens(s) {
     .replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (hel, dec, hex, navn) => {
       if (dec) return tegn(Number(dec));
       if (hex) return tegn(parseInt(hex, 16));
-      return ENTITETER[navn.toLowerCase()] ?? hel;
+      // Object.hasOwn og ikke `?? hel`: et opslag på et almindeligt objekt
+      // rammer Object.prototype, så «&constructor;» blev til funktionens
+      // kildetekst i et holdnavn (Quality Control-fund).
+      const k = navn.toLowerCase();
+      return Object.hasOwn(ENTITETER, k) ? ENTITETER[k] : hel;
     })
     .replace(STYRETEGN, ' ')
     .replace(SURROGAT, UGYLDIG)

@@ -1744,7 +1744,7 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
     expect(e.message).not.toContain('sport "fodbold"');
     expect(e.message).toContain('(kendte: fodbold)');
     expect(e.message).toMatch(/IKKE omprist noget — heller ikke i tør-kørslen/);
-    expect(e.message).toMatch(/Ret game\.sport/);
+    expect(e.message).toMatch(/ret det dér og kør seedGames; skal feltet væk \(fodbold\), så fjern det i Firebase-konsollen/);
     expect(ukendtSportFejl('g', 123).message).toContain('sport 123,');
     expect(ukendtSportFejl('g', '').message).toContain('sport "",');
     // JSON.stringify(NaN) og (Infinity) er "null" — et sat felt må ikke stå
