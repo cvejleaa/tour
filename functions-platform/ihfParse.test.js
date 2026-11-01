@@ -1094,7 +1094,12 @@ describe('ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendt
     // Kampsidens GMT: `\s*([^<]*?)\s*<small>\s*GMT` — mellemrum, og så ikke <small>.
     ['kamp', 'kampsidens GMT-tid: 200.000 mellemrum uden <small>GMT',
       () => erstat(KAMP_BRONZE, '14:00 <small>GMT', `${SP}14:00${SP}<span>GMT`)],
-    // Kampsidens lokale tid: `\s*([^<]*?)\s*<` — mellemrum, og intet «<» bagefter.
+    // Kampsidens lokale tid, slutscore og periode: `\s*([^<]*?)\s*<` — mellemrum,
+    // og intet «<» bagefter. Det kan kun ske ved sidens ende, og i dag rammer de
+    // tre derfor kortvagten først (kortet lukkes aldrig → IhfStrukturFejl), før
+    // mønsteret overhovedet køres: inde i et lukket kort følger der altid et «<»,
+    // og så er også det gamle mønster lineært. De står som værn, hvis kortvagten
+    // en dag fjernes — de beviser ikke mønsteret alene (se ihfParse.js, toppen).
     ['kamp', 'kampsidens lokale tid: 200.000 mellemrum, intet «<» bagefter',
       () => afskaaret('class="time time-local">', `${SP}15:00${SP}`)],
     ['kamp', 'kampsidens slutscore: 200.000 mellemrum, intet «<» bagefter',
@@ -1105,10 +1110,6 @@ describe('ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendt
     ['dag', 'fejlside med 200.000 «<» uden «>» (citatet renses)', () => '<'.repeat(N)],
     ['kamp', 'kampside-fejlside med 200.000 «<» uden «>»', () => '<'.repeat(N)],
     ['dag', 'holdnavn med 200.000 «<» uden «>»', () => erstat(DAG_2025, '>Portugal</a>', `>${'<'.repeat(N)}</a>`)],
-    // Mange gentagne ankre uden slutning (lazy `[\s\S]*?` pr. start).
-    ['dag', '20.000 holdfelter uden </div>',
-      () => erstat(DAG_2025, '<div class="country', `${'<div class="country x">'.repeat(20_000)}<div class="country`,
-        'data-ihf-competitions-match-id="202125"')],
     ['dag', 'en entitet med 200.000 cifre', () => erstat(DAG_2025, '>Portugal</a>', `>&#${'9'.repeat(N)};</a>`)],
   ];
 

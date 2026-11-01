@@ -106,19 +106,20 @@ const ENTITETER = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' 
 const UGYLDIG = '\uFFFD';
 
 /**
- * Et tal fra en numerisk entitet → tegnet. Kun et ægte Unicode-tegn afkodes:
- * over U+10FFFF (eller en cifferrække, der giver Infinity), en enlig
- * surrogat og NUL giver U+FFFD. String.fromCodePoint ville ellers kaste
- * RangeError — en fejl, provideren ikke kan kende fra en netværksfejl.
+ * Et tal fra en numerisk entitet → tegnet. Over U+10FFFF (også en
+ * cifferrække, der giver Infinity) og NUL giver U+FFFD: String.fromCodePoint
+ * ville ellers kaste RangeError — en fejl, provideren ikke kan kende fra en
+ * netværksfejl. Tallet er altid et heltal (\d+ eller hex) eller Infinity.
+ * En enlig surrogat (&#xD800;) afkodes her og fanges af SURROGAT i rens —
+ * ÉN vagt for surrogater, også dem, der står rå i strengen.
  */
 function tegn(kode) {
-  const gyldig = Number.isSafeInteger(kode) && kode > 0 && kode <= 0x10ffff && (kode < 0xd800 || kode > 0xdfff);
-  return gyldig ? String.fromCodePoint(kode) : UGYLDIG;
+  return kode > 0 && kode <= 0x10ffff ? String.fromCodePoint(kode) : UGYLDIG;
 }
 
 /** Styretegn (C0/C1) bliver til mellemrum — de samles bagefter. */
 const STYRETEGN = /\p{Cc}/gu;
-/** Enlige surrogater (kan ikke komme fra UTF-8, men en streng kan bære dem). */
+/** Enlige surrogater — fra en entitet eller rå i strengen — bliver U+FFFD. */
 const SURROGAT = /\p{Cs}/gu;
 /**
  * Usynlige retnings- og formateringstegn fjernes helt: U+202E vender teksten
