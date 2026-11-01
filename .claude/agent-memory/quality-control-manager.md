@@ -83,6 +83,27 @@ PR-teksten, ikke her.
   variabel i samme funktion. Modstykket: ikke enhver brug af den snævre liste
   er en fejl, kun der hvor tælleren skal beskrive noget spilleren SER.
 
+- **En ny SPORT/kilde på en eksisterende spiltype arver fladernes ORDFORRÅD
+  og SKALA, ikke kun deres gates.** Spørg pr. ord: hvad betyder det i den nye
+  sport? ("runde" er et FASE-ord i håndbold — "Runde 2" læses som hovedrunden;
+  en konstant i runder, fx `PULJE_MAKS_STARTRUNDE`, var uger og bliver dage.)
+  Grep emoji (⚽/&#9917;), "sæson", "hjemmebane", "den officielle tabel" i
+  guide OG invitationsmail — mailen er den første flade, ejeren bruger.
+- **Inkrementel seeding gør hvert "alle seedede X"-prædikat til en løgn:**
+  `.every(` over kampe (puljeafregning, klient OG server), `rounds[length-1]`
+  som nævner ("Runde 6 af 6"), `nextRound ?? null` ("sæsonen er slut"), og
+  "ingen næste kamp" uden en tilstand, der siger "næste fase kommer". En
+  glemt seed er TAVS — intet strander, intet påmindes. Kræv en kalender, der
+  ved hvad der burde findes.
+- **Et seed-script skriver mere, end dets navn siger** — læs skrive-stien
+  (seed-football skriver `eloCurrent` ubetinget = nulstiller levende Elo
+  midt i en turnering). En runbook med N manuelle trin under tidspres skal
+  helst blive ÉT server-side create-only trin med tør-kørsel.
+- **En nødbremse skal kunne RETTE, ikke kun udfylde** (en liste "uden facit"
+  kan ikke redde et forkert facit), og dialogen skal nævne de IRREVERSIBLE
+  følgevirkninger (Runde-Botten poster ved rundens sidste kamp; en lås mod
+  synken gør tastefejl permanente).
+
 ## Gates, evner og proxier
 
 - **En proxy-gate findes ikke ved grep — den indeholder ikke evnens navn.**
@@ -420,3 +441,5 @@ PR-teksten, ikke her.
   viser den gamle tilstand.
 - Global admin har klient-læse-bypass på de fleste samlinger, men ikke
   nødvendigvis alle — tjek den konkrete samling, antag det ikke.
+- `strandedMatches` melder en kamp UDEN kickoff som strandet med det samme
+  (bevidst) — seed aldrig kampe med `kickoff:null` i et spil med alarmen.

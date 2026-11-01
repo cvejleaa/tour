@@ -333,3 +333,38 @@ Bekræfter og udvider afsnittet "Test-/CI-infrastruktur" ovenfor.
 - Tekster, der påstår "Chancen findes ikke pr. runde": Pokaler.jsx:25-31,
   GameStandings.jsx:597-599, FootballHelp.jsx:307-308 — bliver falske, så snart
   der findes et pr.-runde-felt for chance.
+
+## Ny sport / ny kilde (fundet ved håndbold-VM-planen, nov 2026)
+- `GAME_TYPE.FOOTBALL` ER typen "kampspil" (constants.js:110-113), ikke sporten.
+  14 type-gates (GamePage.jsx:59,173-207; GameStandings.jsx:362; GameScheduleTab.jsx:178;
+  GameReminderTab.jsx:26; GameRecapBotTab.jsx:17; useKlubFarver.js:44;
+  TroejeOversigt.jsx:106; useSpilTema.js:54; spilEvner.js:116 ⇄ paamindelsesGate.js:23;
+  index.js:1687). firestore.rules nævner IKKE type. En ny sport → genbrug typen og læg det
+  sport-specifikke på en `sport`-akse, ikke en ny type.
+- `outcomeProbabilities/outcomeOdds/updateElo` TAGER allerede {hfa,drawBase,drawDecay,k}
+  (superligaScoring.js:261, 367, 431). Kaldere uden profil: superligaSeed.js:42,
+  gameScoring.js:125+177, holdStatistik.js:602, FootballHelp.jsx:472-489.
+- `ODDS.MIN=1.1` binder KUN ikke, fordi DRAW_BASE 0,305 lægger loftet over p på 0,896
+  (kommentar :335-341). En sport med få uafgjorte → gulvet binder → +EV på favoritter.
+- Pulselive-skabelonen for et eksternt id: dokument-id `r{runde}-{id}`, `resolveDocs`
+  på suffiks (syncProviders.js:625-638). Robust mod holdnavne og flyttede kampe.
+- `hentStandings → []` er sikkert: syncStandingsCore skriver intet (superligaSync.js:383),
+  og Tabel-fanen skjuler sig (kraever:'standings').
+- FÆLDE: `settlePuljeBets` "complete = alle kampe har mål" (gameScoring.js:399-403) kaldes
+  ved HVER afregning (:578). Ved fasevis seeding (kampe oprettes først, når holdene kendes)
+  er hver fase "komplet" → puljen afregnes for tidligt.
+- FÆLDE: deploy-platform.yml:209 vælger holdfil med `[ SPIL = pl2627-efteraar ] && PL ||
+  superliga` → et nyt spil får Superligaens hold.
+- Strandede-alarm løber KUN over SYNCED_GAMES (index.js:605-675) → et spil uden
+  implementeret provider har INGEN alarm for manglende facit.
+- INGEN manuel facit-flade på platformen. Rules tillader admin at skrive hele
+  kamp-dokumentet (firestore.rules:907-911). admin-guide.md:249-251 og
+  strandetBesked (driftlog.js:287) lover alligevel en hånd-vej. Guiden siger, at et
+  fjernet facit ikke nulstiller point, og index.js:128-131 siger det modsatte.
+- `buildMatch` fryser odds af SEED-Elo, ikke eloCurrent → kampe seedet midt i en
+  turnering skal omprises ("💰 Ompris kampene", GameScheduleTab.jsx:616).
+- `seedPayload` skriver ALLE GAMES-felter ud på dokumentet (seed-payload.mjs:31) →
+  script-only konfiguration må ikke stå på GAMES-posterne.
+- VM-appen (/home/user/VM): knockout.js (bracket af stillinger), MatchResultForm.jsx
+  (facit + advance), MATCH_STATUS.PENDING_TEAMS = pladsholder-model. Platformen har
+  ingen pladsholder-model. Fasevis seeding kræver nul klientændring.
