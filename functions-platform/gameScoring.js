@@ -10,7 +10,7 @@
 
 const {
   scoreBet, updateElo, actualHomeFromOutcome, outcomeOdds,
-  sportProfil, oddsParametre, eloParametre,
+  sportProfil, ukendtSport, oddsParametre, eloParametre,
   championshipTeams, bundTeams, puljeScore, puljeKonfig, round1,
 } = require('./superligaScoring');
 // Gaten — hvor spillet begynder. Ét modul, spejlet til klienten, fordi den
@@ -106,6 +106,16 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
   // uden `sport` er fodbold, så SL og PL regnes præcis som før profilen fandtes
   // (bevist mod facit i testdata/sportprofil-golden.json).
   const profil = sportProfil(game);
+  // En SAT, men ukendt sport (tastefejl som 'handbold') regnes som fodbold —
+  // serveren må ikke gå i stå midt i en sæson for det. Men det må ikke være
+  // tavst: så omprissede vi et håndboldspil med hjemmebane 60 uden et ord.
+  // Advarslen står i Cloud-loggen med spil-id og værdi. Ikke på Drift-kortet:
+  // driftlog.meldAlarm kræver en ny alarmtype (ALARM_TYPER, tripwire-testen,
+  // alarm-mailen) — det hører til D7's strandede-alarm. Den egentlige vagt
+  // står på skrivevejen: seed-football afviser et ukendt sport.
+  if (ukendtSport(game)) {
+    console.warn(`recomputeSeasonElo(${gameId}): ukendt sport ${JSON.stringify(String(game.sport))} — regnes som ${profil.sport}. Ret game.sport.`);
+  }
   const start = profil.elo.START;
   const elo = new Map(seedTeams.map((t) => [t.name, Number(t.elo) || start]));
   const get = (n) => (elo.has(n) ? elo.get(n) : start);

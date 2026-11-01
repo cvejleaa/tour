@@ -54,7 +54,7 @@ const ROD = new URL('..', import.meta.url).pathname;
 const sti = (p) => (isAbsolute(p) ? p : resolve(ROD, p));
 // Kampene prises med SPILLETS sportsprofil (game.sport på spil-dokumentet) —
 // samme felt, serveren omprisser med. Testet i scripts/lib/seedKampe.test.mjs.
-const { seedKampe } = await import('./lib/seedKampe.mjs');
+const { seedKampe, sportLinje } = await import('./lib/seedKampe.mjs');
 const { koerTeamsOnly } = await import('./lib/teamsOnly.mjs');
 // Beslutningerne (hvad springes over, hvad ændres) bor i et testet modul.
 // To udgaver af "hvornår må vi skrive odds" er to steder at lave fejlen.
@@ -270,8 +270,10 @@ async function fuldtSeed(fixtures, gameRef, matchesRef, eksisterende) {
     console.log('   Skal odds genberegnes, sker det af recomputeSeasonElo på ULÅSTE kampe.');
   }
 
-  const { profil, matches } = await seedKampe({ gameRef, fixtures: plan.skriv, teams });
-  console.log(`Sport: ${profil.sport} (hjemmebane ${profil.elo.HFA}, odds-gulv ${profil.odds.min}).`);
+  // Et SAT, men ukendt game.sport kaster i seedKampe (også i tør-kørslen) —
+  // run().catch giver exit 1 med beskeden. Linjen viser det RÅ felt.
+  const { sportRaa, profil, matches } = await seedKampe({ gameRef, fixtures: plan.skriv, teams });
+  console.log(sportLinje({ sportRaa, profil }));
 
   // Den TAVSE fælde: teamElo giver sportens neutrale rating for et navn, den
   // ikke kender.

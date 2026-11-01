@@ -332,11 +332,18 @@ export function outcomeProbabilities({
  * sikre kamp — det modsatte af hensigten.
  *
  * MIN bliver stående: et udfald skal betale mere end indsatsen tilbage. Vær
- * dog klar over, at det er et VÆRN, ikke en aktiv grænse: efter DRAW_BASE gik
- * til 0,305, er den højeste sandsynlighed modellen overhovedet kan give
- * 0,8958 — altså laveste odds 1,116. Gulvet kan derfor aldrig binde gennem
- * outcomeOdds, som er den eneste vej i produktion. Det binder kun, hvis nogen
- * kalder fairOdds direkte med en sandsynlighed over 0,909.
+ * dog klar over, at det i FODBOLD er et VÆRN, ikke en aktiv grænse: efter
+ * DRAW_BASE gik til 0,305, er den højeste sandsynlighed fodboldmodellen
+ * overhovedet kan give 0,8958 — altså laveste odds 1,116. Med FODBOLDENS
+ * uafgjort-model kan gulvet derfor aldrig binde gennem outcomeOdds; det binder
+ * kun, hvis nogen kalder fairOdds direkte med en sandsynlighed over 0,909.
+ *
+ * Det gælder IKKE for andre sporter. Loftet over p kommer af uafgjort-modellen
+ * (DRAW_BASE/DRAW_DECAY), og en sport med få uafgjorte (håndbold) kan nå over
+ * 0,909 — prøvesporten i src/test/proeveSport.js gør det med 0,936. Dér binder
+ * 1,1 og giver favorittippet positiv forventning. Derfor er gulvet en
+ * profilværdi (`profil.odds.min`, se sportProfil), og MIN her er kun
+ * fodboldens.
  *
  * Måles med scripts/maal-chancen.mjs (tabellen ovenfor) og
  * scripts/maal-spilbalance.mjs (1X2 og combi). Se docs/spilbalance.md.
@@ -431,19 +438,46 @@ export const SPORT_PROFILER = {
  */
 export function sportProfil(game) {
   const sport = game?.sport;
-  if (typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_PROFILER, sport)) {
-    return SPORT_PROFILER[sport];
-  }
-  return SPORT_PROFILER[STANDARD_SPORT];
+  return erRegistreret(sport) ? SPORT_PROFILER[sport] : SPORT_PROFILER[STANDARD_SPORT];
 }
 
-/** Profilens odds-model i den form, outcomeOdds og outcomeProbabilities tager. */
+// ÉN vagt for "findes denne sport i registret" — sportProfil og ukendtSport
+// læser begge den, så de kan ikke blive uenige om, hvad der er kendt.
+function erRegistreret(sport) {
+  return typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_PROFILER, sport);
+}
+
+/**
+ * Er `game.sport` SAT, men ukendt? Fallbacken i sportProfil er tavs med vilje
+ * (et spil må ikke gå i stå i drift), men så skjuler den også en tastefejl:
+ * `sport: 'handbold'` ville blive prissat som fodbold. Skrivevejene (seedet)
+ * spørger her og afviser; serveren advarer. Mangler feltet (undefined/null),
+ * er det IKKE ukendt — så er det fodbold med vilje, som SL og PL.
+ */
+export function ukendtSport(game) {
+  const sport = game?.sport;
+  return sport != null && !erRegistreret(sport);
+}
+
+/**
+ * Profilens odds-model i den form, outcomeOdds og outcomeProbabilities tager.
+ *
+ * KASTER, hvis profilens gulv ikke er et endeligt tal over 1. outcomeOdds
+ * falder ellers TAVST tilbage: et manglende `oddsMin` (fx en profil med
+ * `odds: {minimum: 1.01}`) gav fodboldens 1,1, et `null` gav slet intet gulv
+ * (Math.max(null, x) = x), og NaN gav NaN-odds. Profilerne er kode, ikke data
+ * — en forkert profil er en programfejl og skal være højlydt.
+ */
 export function oddsParametre(profil = sportProfil()) {
+  const min = profil.odds?.min;
+  if (!(Number.isFinite(min) && min > 1)) {
+    throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-gulv (odds.min = ${String(min)}).`);
+  }
   return {
     hfa: profil.elo.HFA,
     drawBase: profil.elo.DRAW_BASE,
     drawDecay: profil.elo.DRAW_DECAY,
-    oddsMin: profil.odds.min,
+    oddsMin: min,
   };
 }
 

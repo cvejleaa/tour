@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 import { describe, it, expect } from 'vitest';
 import {
-  ELO, ODDS, OUTCOME, SPORT_PROFILER, STANDARD_SPORT, sportProfil, oddsParametre, eloParametre,
+  ELO, ODDS, OUTCOME, SPORT_PROFILER, STANDARD_SPORT, sportProfil, ukendtSport, oddsParametre, eloParametre,
   outcomeOdds, outcomeProbabilities, fairOdds, updateElo,
 } from './superligaScoring';
 import { buildMatch, buildMatches, teamElo } from './superligaSeed';
@@ -98,6 +98,110 @@ describe('sportProfil — hvilken profil et spil får', () => {
     // andre, så et byttet eller hardkodet felt ikke kan gemme sig.
     expect(oddsParametre(PROEVE)).toEqual({ hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01 });
     expect(eloParametre(PROEVE)).toEqual({ hfa: 0, k: 40 });
+  });
+});
+
+// --- Et SAT, men ukendt sport er en tastefejl, ikke fodbold ------------------
+// sportProfil falder tavst tilbage (serveren må ikke gå i stå i drift), så
+// skrivevejene spørger ukendtSport og afviser (scripts/lib/seedKampe.mjs), og
+// serveren advarer (recomputeSeasonElo). Mangler feltet, er det fodbold MED
+// VILJE — SL og PL har intet felt og må aldrig blive "ukendte".
+describe('ukendtSport — sat, men ikke i registret', () => {
+  it('manglende felt er IKKE ukendt (SL og PL)', () => {
+    for (const game of [undefined, null, {}, { sport: undefined }, { sport: null }, { teams: [] }]) {
+      expect(ukendtSport(game), JSON.stringify(game)).toBe(false);
+    }
+    expect(ukendtSport({ sport: 'fodbold' })).toBe(false);
+  });
+
+  it('en tastefejl, et forkert bogstav, en tom streng og ikke-strenge ER ukendte', () => {
+    for (const sport of ['handbold', 'haandbold', 'Fodbold', '', ' fodbold', 0, 123, false, ['fodbold'], { fodbold: true }]) {
+      expect(ukendtSport({ sport }), JSON.stringify(sport)).toBe(true);
+    }
+  });
+
+  it('prototype-navne er ukendte — de findes på ethvert objekt, ikke i registret', () => {
+    for (const sport of ['toString', '__proto__', 'constructor', 'hasOwnProperty', 'valueOf']) {
+      expect(ukendtSport({ sport }), sport).toBe(true);
+    }
+  });
+
+  describe('med en prøvesport registreret', () => {
+    medProeveSport();
+    it('en registreret sport er kendt — og sportProfil er enig', () => {
+      expect(ukendtSport({ sport: 'proeve' })).toBe(false);
+      expect(sportProfil({ sport: 'proeve' })).toBe(PROEVE);
+      // Kun en STRENG tæller: et array, der bliver til nøglen 'proeve', er ukendt.
+      expect(ukendtSport({ sport: ['proeve'] })).toBe(true);
+    });
+  });
+});
+
+// --- Profilernes FORM -------------------------------------------------------
+// En profil med en stavefejl i en nøgle får ikke en fejl, men fodboldens tal:
+// `odds: {minimum: 1.01}` gav før oddsMin = undefined, og så gav outcomeOdds
+// tavst 1,1. Formen bevises her over HELE registret — også en profil, der
+// lægges til i delopgave 4, uden at nogen husker at skrive en test for den.
+// Formkontrollen er skrevet i testen (ikke importeret), så den ikke kan
+// arve en fejl fra koden, den efterprøver.
+function profilFormFejl(navn, p) {
+  const fejl = [];
+  if (!p || typeof p !== 'object') return ['ikke et objekt'];
+  const noegler = Object.keys(p).sort();
+  if (JSON.stringify(noegler) !== JSON.stringify(['elo', 'odds', 'sport'])) fejl.push(`nøgler ${noegler}`);
+  if (p.sport !== navn) fejl.push(`sport ${String(p.sport)} ≠ ${navn}`);
+  const eloNoegler = Object.keys(p.elo || {}).sort();
+  if (JSON.stringify(eloNoegler) !== JSON.stringify(Object.keys(ELO).sort())) fejl.push(`elo-nøgler ${eloNoegler}`);
+  for (const k of Object.keys(ELO)) {
+    if (!Number.isFinite(p.elo?.[k])) fejl.push(`elo.${k} ${String(p.elo?.[k])}`);
+  }
+  const oddsNoegler = Object.keys(p.odds || {});
+  if (JSON.stringify(oddsNoegler) !== JSON.stringify(['min'])) fejl.push(`odds-nøgler ${oddsNoegler}`);
+  if (!(Number.isFinite(p.odds?.min) && p.odds.min > 1)) fejl.push(`odds.min ${String(p.odds?.min)}`);
+  return fejl;
+}
+
+describe('hver sportsprofil har præcis den forventede form', () => {
+  it('hele registret — og prøvesporten, der bruges som stand-in for en anden sport', () => {
+    // Ikke tomt: et tomt register ville gøre løkken grøn uden at se noget.
+    expect(Object.keys(SPORT_PROFILER).length).toBeGreaterThan(0);
+    for (const [navn, p] of Object.entries(SPORT_PROFILER)) {
+      expect(profilFormFejl(navn, p), navn).toEqual([]);
+    }
+    expect(profilFormFejl('proeve', PROEVE)).toEqual([]);
+  });
+
+  it('formkontrollen fanger de stavefejl, den er skrevet til (ellers beviser den ikke noget)', () => {
+    const god = { sport: 'x', elo: { ...ELO }, odds: { min: 1.01 } };
+    expect(profilFormFejl('x', god)).toEqual([]);
+    const daarlige = [
+      { ...god, odds: { minimum: 1.01 } },          // stavefejl — gav tavst fodboldens 1,1
+      { ...god, odds: { min: null } },
+      { ...god, odds: { min: NaN } },
+      { ...god, odds: { min: 1 } },                 // et ramt tip må ikke kunne betale indsatsen
+      { ...god, odds: { min: '1.01' } },
+      { ...god, odds: { min: 1.01, max: 6 } },      // en ekstra nøgle, ingen kode læser
+      { ...god, elo: { ...ELO, HFA: undefined } },
+      { ...god, elo: { START: 1500, HFA: 0, K: 20, DRAW_BASE: 0.1 } }, // DRAW_DECAY mangler → fodboldens
+      { ...god, elo: { ...ELO, hfa: 0 } },          // lille h: en ny nøgle, HFA står stadig på 60
+      { ...god, sport: 'y' },                       // navn og nøgle uenige
+      { elo: { ...ELO }, odds: { min: 1.01 } },     // sport mangler
+      { ...god, ekstra: true },
+    ];
+    for (const p of daarlige) expect(profilFormFejl('x', p), JSON.stringify(p)).not.toEqual([]);
+  });
+
+  it('oddsParametre AFVISER et gulv, der ikke er et endeligt tal over 1 — i stedet for at falde tavst tilbage', () => {
+    // Uden vagten: manglende → fodboldens 1,1; null → INTET gulv
+    // (Math.max(null, x) = x); NaN → NaN-odds. Alle tre tavse.
+    const elo = { ...ELO };
+    for (const odds of [{ minimum: 1.01 }, { min: null }, { min: undefined }, { min: NaN }, { min: Infinity },
+      { min: 1 }, { min: 0.5 }, { min: '1.01' }, {}, undefined]) {
+      expect(() => oddsParametre({ sport: 'x', elo, odds }), JSON.stringify(odds)).toThrow(/odds-gulv/);
+    }
+    // Det, der skal virke, virker — også lige over 1.
+    expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.01 } }).oddsMin).toBe(1.01);
+    expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.0001 } }).oddsMin).toBe(1.0001);
   });
 });
 

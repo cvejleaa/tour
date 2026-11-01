@@ -190,6 +190,11 @@ const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.305, DRAW_DECAY: 0.55 };
 // indsatsen, så en Chance på høje odds fik negativ forventning: den modige
 // tabte 27-47 point pr. sæson på at turde. Fuld begrundelse og måling i
 // src/lib/superligaScoring.js.
+//
+// MIN er FODBOLDENS gulv. I fodbold binder det aldrig gennem outcomeOdds
+// (uafgjort-modellen holder p under 0,896), men en sport med få uafgjorte kan
+// nå over 0,909, og dér binder det — derfor er gulvet en profilværdi
+// (profil.odds.min). Fuld begrundelse ved ODDS i src.
 const ODDS = { MIN: 1.1, UGYLDIG: 100 };
 
 function eloExpectedHome(eloHome, eloAway, hfa = ELO.HFA) {
@@ -252,18 +257,35 @@ const SPORT_PROFILER = {
 
 function sportProfil(game) {
   const sport = game ? game.sport : undefined;
-  if (typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_PROFILER, sport)) {
-    return SPORT_PROFILER[sport];
-  }
-  return SPORT_PROFILER[STANDARD_SPORT];
+  return erRegistreret(sport) ? SPORT_PROFILER[sport] : SPORT_PROFILER[STANDARD_SPORT];
 }
 
+// ÉN vagt for "kendt sport" — sportProfil og ukendtSport kan ikke blive uenige.
+function erRegistreret(sport) {
+  return typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_PROFILER, sport);
+}
+
+// game.sport er SAT, men ukendt (tastefejl som 'handbold'). Mangler feltet, er
+// det fodbold med vilje. Serveren kaster ikke for det i drift, men advarer
+// (recomputeSeasonElo); seedet afviser at skrive.
+function ukendtSport(game) {
+  const sport = game ? game.sport : undefined;
+  return sport != null && !erRegistreret(sport);
+}
+
+// Kaster for et gulv, der ikke er et endeligt tal over 1: outcomeOdds faldt
+// ellers tavst tilbage (manglende → 1,1, null → intet gulv, NaN → NaN-odds).
+// Profilerne er kode — en forkert profil er en programfejl.
 function oddsParametre(profil = sportProfil()) {
+  const min = profil.odds ? profil.odds.min : undefined;
+  if (!(Number.isFinite(min) && min > 1)) {
+    throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-gulv (odds.min = ${String(min)}).`);
+  }
   return {
     hfa: profil.elo.HFA,
     drawBase: profil.elo.DRAW_BASE,
     drawDecay: profil.elo.DRAW_DECAY,
-    oddsMin: profil.odds.min,
+    oddsMin: min,
   };
 }
 
@@ -377,5 +399,5 @@ module.exports = {
   settleChance, scoreBet, chanceMaxStake, clampStake,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
-  STANDARD_SPORT, SPORT_PROFILER, sportProfil, oddsParametre, eloParametre,
+  STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, oddsParametre, eloParametre,
 };

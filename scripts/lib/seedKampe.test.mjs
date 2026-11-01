@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { seedKampe } from './seedKampe.mjs';
+import { seedKampe, sportLinje } from './seedKampe.mjs';
 import { buildMatches } from '../../src/lib/superligaSeed.js';
 import { SPORT_PROFILER } from '../../src/lib/superligaScoring.js';
 import { PROEVE, medProeveSport } from '../../src/test/proeveSport.js';
@@ -34,6 +34,18 @@ describe('seed-football.mjs bruger seedKampe', () => {
   it('scriptet kalder ikke buildMatches direkte og importerer det ikke', () => {
     expect(kode).not.toMatch(/buildMatches/);
   });
+
+  it('sport-linjen bygges af det RÅ felt (sportLinje), ikke af den opløste profil alene', () => {
+    // Linjen stod som `Sport: ${profil.sport}` og skrev "fodbold" for en
+    // tastefejl. Nu kommer den fra sportLinje, der får sportRaa med.
+    expect(kode).toMatch(/const \{ sportRaa, profil, matches \} = await seedKampe\(/);
+    expect(kode).toMatch(/console\.log\(sportLinje\(\{ sportRaa, profil \}\)\)/);
+    expect(kode).not.toMatch(/Sport: \$\{profil\.sport\}/);
+  });
+
+  it('en fejl fra seedKampe ender i exit ≠ 0 — run() fanges og afsluttes med 1', () => {
+    expect(kode).toMatch(/\.catch\(\(err\) => \{ console\.error\('Seed-fejl:', err\.message\); process\.exit\(1\); \}\)/);
+  });
 });
 
 describe('seedKampe', () => {
@@ -45,13 +57,46 @@ describe('seedKampe', () => {
     }
   });
 
+  it('returnerer det RÅ game.sport ved siden af profilen', async () => {
+    for (const [data, raa] of [[null, undefined], [{}, undefined], [{ sport: null }, null], [{ sport: 'fodbold' }, 'fodbold']]) {
+      const { sportRaa, profil } = await seedKampe({ gameRef: ref(data), fixtures: FX, teams: TEAMS });
+      expect(sportRaa, JSON.stringify(data)).toBe(raa);
+      expect(profil).toBe(SPORT_PROFILER.fodbold);
+    }
+  });
+
+  // Tastefejlen, QC fandt: sportProfil({sport:'handbold'}) giver fodbold, og
+  // seedet skrev så kampene med hjemmebane 60 og gulv 1,1 — og linjen
+  // "Sport: fodbold" så rigtig ud. Nu afvises den, FØR der er bygget en kamp.
+  it('et SAT, men ukendt sport afvises med en dansk besked — også i tør-kørslen', async () => {
+    for (const sport of ['handbold', 'Fodbold', '', 'toString', '__proto__', 123, ['fodbold']]) {
+      await expect(
+        seedKampe({ gameRef: ref({ sport }), fixtures: FX, teams: TEAMS }), JSON.stringify(sport),
+      ).rejects.toThrow(/findes ikke i sportsprofilerne.*IKKE skrevet noget/);
+    }
+    await expect(seedKampe({ gameRef: ref({ sport: 'handbold' }), fixtures: FX, teams: TEAMS }))
+      .rejects.toThrow(/sport "handbold"/);
+  });
+
+  it('sportLinje viser det rå felt — og siger det, når feltet mangler', () => {
+    const fodbold = SPORT_PROFILER.fodbold;
+    expect(sportLinje({ sportRaa: undefined, profil: fodbold }))
+      .toBe('Sport: fodbold (intet sport-felt på spillet → fodbold; hjemmebane 60, odds-gulv 1.1).');
+    expect(sportLinje({ sportRaa: null, profil: fodbold })).toMatch(/intet sport-felt/);
+    expect(sportLinje({ sportRaa: 'fodbold', profil: fodbold }))
+      .toBe('Sport: fodbold (game.sport = "fodbold"; hjemmebane 60, odds-gulv 1.1).');
+    expect(sportLinje({ sportRaa: 'proeve', profil: PROEVE }))
+      .toBe('Sport: proeve (game.sport = "proeve"; hjemmebane 0, odds-gulv 1.01).');
+  });
+
   describe('med en prøvesport på spillet', () => {
     medProeveSport();
 
     it('læser sporten AF SPIL-DOKUMENTET og prissætter med den', async () => {
-      const { profil, matches } = await seedKampe({
+      const { sportRaa, profil, matches } = await seedKampe({
         gameRef: ref({ sport: 'proeve' }), fixtures: FX, teams: TEAMS,
       });
+      expect(sportRaa).toBe('proeve');
       expect(profil).toBe(PROEVE);
       // Prøvesportens odds (neutral bane, få uafgjorte, gulv 1,01) — fodbold
       // giver 1,15 / 9,21 / 51,23 for samme kamp.

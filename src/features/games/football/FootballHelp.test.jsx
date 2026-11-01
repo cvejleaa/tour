@@ -524,12 +524,23 @@ describe('guidens Elo- og odds-tal kommer fra spillets sportsprofil', () => {
     expect(afsnit(/Point følger oddsene/)).toMatch(/mindst 1,1, og ellers uden loft/);
   });
 
-  it('prøvesporten: prøvesportens tal — og ingen af fodboldens', () => {
+  // VENDES I D12 (tekster gates på harHjemmebane). TEKSTEN HER ER IKKE FACIT.
+  // For en sport uden hjemmebane siger guiden i dag noget selvmodsigende:
+  // «hjemmebanefordel på ~0 point. To hold med samme rating er altså ikke
+  // 50/50 — hjemmeholdet forventes at tage omkring 50 % takket være
+  // hjemmebanen». Ingen bruger ser det endnu (der er ingen sådan sport), og
+  // D12 gater sætningen på evnen harHjemmebane. Derfor assertes KUN de TAL,
+  // der kommer fra profilen (0 og 50) — aldrig sætningen omkring dem, så en
+  // rettelse i D12 ikke møder en grøn test, der forsvarer fejlen. Når D12
+  // lander, skal her stå fraværs-assertions: uden hjemmebane hverken «ikke
+  // 50/50» eller «takket være hjemmebanen». (Ikke som it.todo: test-rapporten,
+  // scripts/build-test-report.mjs, tæller alt andet end 'passed' som fejlet.)
+  it('prøvesporten: prøvesportens tal — og ingen af fodboldens (sætningerne VENDES I D12)', () => {
     const afsnit = vis({ id: 'x', sport: 'proeve' });
     const elo = afsnit(/Elo-tabellen/);
     expect(elo).toMatch(/Holdene starter ikke alle på 1000\./);
-    expect(elo).toMatch(/hjemmebanefordel på ~0 point/);
-    expect(elo).toMatch(/omkring 50 % takket være hjemmebanen/);
+    expect(elo).toMatch(/~0 point/);       // HFA fra profilen
+    expect(elo).toMatch(/omkring 50 %/);   // eloExpectedHome(START, START, HFA 0)
     expect(elo).toMatch(/gammel \+ 40 ×/);
     expect(elo).toMatch(/40 × \(1 − 0,5\) = \+20 point/);
     expect(elo).toMatch(/40 × \(1 − 0,2\) = \+32 point/);

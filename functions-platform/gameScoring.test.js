@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { createRequire } from 'module';
 // Facit for sportsprofilen: skrevet af koden FØR profilen (scripts/sportprofil-golden.mjs).
 import golden from './testdata/sportprofil-golden.json';
@@ -1598,6 +1598,35 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
       }
     });
   }
+
+  // Et SAT, men ukendt sport (tastefejl) regnes som fodbold — serveren må ikke
+  // gå i stå i drift — men det må ikke være TAVST. Advarslen skal bære spil-id
+  // og den rå værdi, så den kan findes i Cloud-loggen.
+  it('et ukendt sport kaster ikke, regnes som fodbold — og advarer med spil-id og værdi', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { fixtures, teams: holdliste } = LIGAER.sl;
+      const db = makeGoldenDb({ teams: holdliste, sport: 'handbold' }, goldenKampe(buildMatches(fixtures, holdliste)));
+      await expect(recomputeSeasonElo(db, FieldValue, 'vm-haandbold', GOLDEN_NU_MS, { dryRun: true })).resolves.toBeTruthy();
+      expect(warn).toHaveBeenCalledTimes(1);
+      const linje = String(warn.mock.calls[0][0]);
+      expect(linje).toContain('vm-haandbold');
+      expect(linje).toContain('"handbold"');
+      expect(linje).toMatch(/ukendt sport/);
+      expect(linje).toMatch(/regnes som fodbold/);
+
+      // Manglende felt og en kendt sport advarer IKKE — ellers ville SL og PL
+      // skrive en advarsel ved hvert eneste resultat, og så læser ingen den.
+      warn.mockClear();
+      for (const ekstra of [{}, { sport: 'fodbold' }, { sport: null }]) {
+        const db2 = makeGoldenDb({ teams: holdliste, ...ekstra }, goldenKampe(buildMatches(fixtures, holdliste)));
+        await recomputeSeasonElo(db2, FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: true });
+      }
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
 
   it('et spil, der ikke findes, giver intet at gøre — og kaster ikke', async () => {
     // spil-dokumentet læses nu som `game` og slås op til profilen; et id uden
