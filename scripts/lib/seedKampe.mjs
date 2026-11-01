@@ -20,7 +20,7 @@
 // ---------------------------------------------------------------------------
 
 import { buildMatches } from '../../src/lib/superligaSeed.js';
-import { sportProfil, ukendtSport } from '../../src/lib/superligaScoring.js';
+import { sportProfil, ukendtSport, visSport } from '../../src/lib/superligaScoring.js';
 
 /**
  * @param {{gameRef: {get: Function}, fixtures: Array, teams: Array}} o
@@ -34,7 +34,7 @@ export async function seedKampe({ gameRef, fixtures, teams }) {
   const sportRaa = game?.sport;
   if (ukendtSport(game)) {
     throw new Error(
-      `Spillet har sport ${JSON.stringify(sportRaa)}, men den sport findes ikke i sportsprofilerne `
+      `Spillet har sport ${visSport(sportRaa)}, men den sport findes ikke i sportsprofilerne `
       + '(SPORT_PROFILER). Der er IKKE skrevet noget. Ret game.sport i scripts/games.mjs, '
       + 'eller fjern feltet for fodbold.',
     );

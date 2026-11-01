@@ -266,12 +266,23 @@ function erRegistreret(sport) {
 }
 
 // game.sport er SAT, men ukendt (tastefejl som 'handbold'). Mangler feltet, er
-// det fodbold med vilje. Triggeren kaster ikke for det i drift, men advarer
-// (recomputeSeasonElo); begge skriveveje afviser: det fulde seed
-// (seedKampe) og Ompris-knappen (repriceGameOdds).
+// det fodbold med vilje. Der er TRE skriveveje, og de behandler det forskelligt
+// med vilje: det fulde seed (seedKampe) og Ompris-knappen (repriceGameOdds)
+// afviser, mens triggeren på facit-ændring (recomputeGameMatch →
+// recomputeSeasonElo) kun advarer og regner videre som fodbold — driften må
+// ikke gå i stå midt i en sæson for en tastefejl.
 function ukendtSport(game) {
   const sport = game ? game.sport : undefined;
   return sport != null && !erRegistreret(sport);
+}
+
+// Den RÅ sport-værdi, som den skal stå i en fejl eller en advarsel. Tal vises
+// med String: JSON.stringify(NaN) og JSON.stringify(Infinity) giver "null", og
+// "sport null" er netop det, et sat felt IKKE er. Alt andet med JSON.stringify,
+// så et array ['fodbold'] står som ["fodbold"] og ikke som en kendt sport.
+// Spejlet i src/lib/superligaScoring.js.
+function visSport(vaerdi) {
+  return typeof vaerdi === 'number' ? String(vaerdi) : JSON.stringify(vaerdi);
 }
 
 // Kaster for et gulv, der ikke er et endeligt tal over 1: outcomeOdds faldt
@@ -400,5 +411,5 @@ module.exports = {
   settleChance, scoreBet, chanceMaxStake, clampStake,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
-  STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, oddsParametre, eloParametre,
+  STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
 };

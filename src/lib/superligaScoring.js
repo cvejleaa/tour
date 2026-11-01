@@ -453,13 +453,27 @@ function erRegistreret(sport) {
 /**
  * Er `game.sport` SAT, men ukendt? Fallbacken i sportProfil er tavs med vilje
  * (et spil må ikke gå i stå i drift), men så skjuler den også en tastefejl:
- * `sport: 'handbold'` ville blive prissat som fodbold. Skrivevejene (det
- * fulde seed og Ompris-knappen) spørger her og afviser; triggeren advarer. Mangler feltet (undefined/null),
- * er det IKKE ukendt — så er det fodbold med vilje, som SL og PL.
+ * `sport: 'handbold'` ville blive prissat som fodbold. Der er TRE skriveveje,
+ * og de svarer forskelligt med vilje: det fulde seed (seedKampe) og
+ * Ompris-knappen (repriceGameOdds) spørger her og afviser, mens triggeren på
+ * facit-ændring (recomputeGameMatch → recomputeSeasonElo) kun advarer og
+ * regner videre — driften må ikke gå i stå for en tastefejl. Mangler feltet
+ * (undefined/null), er det IKKE ukendt — så er det fodbold med vilje, som SL og PL.
  */
 export function ukendtSport(game) {
   const sport = game?.sport;
   return sport != null && !erRegistreret(sport);
+}
+
+/**
+ * Den RÅ sport-værdi, som den skal stå i en fejl eller advarsel. Tal vises med
+ * String: JSON.stringify(NaN) og JSON.stringify(Infinity) giver "null", og
+ * "sport null" er netop det, et sat felt IKKE er. Alt andet med
+ * JSON.stringify, så et array ['fodbold'] står som ["fodbold"] og ikke som en
+ * kendt sport. Spejlet i functions-platform/superligaScoring.js.
+ */
+export function visSport(vaerdi) {
+  return typeof vaerdi === 'number' ? String(vaerdi) : JSON.stringify(vaerdi);
 }
 
 /**

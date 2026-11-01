@@ -9,7 +9,7 @@ const {
   PULJE, ELO, ODDS,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities, fairOdds,
   leagueTable, championshipTeams, puljeScore, bundTeams, puljeKonfig,
-  STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, oddsParametre, eloParametre,
+  STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
 } = require('./superligaScoring');
 
 describe('superligaScoring (server-spejl)', () => {
@@ -311,6 +311,22 @@ describe('sportsprofilen: server-spejlet er identisk med src', () => {
       expect(ukendtSport({ sport: ['proeve'] })).toBe(true);
     } finally {
       delete SPORT_PROFILER.proeve;
+    }
+  });
+
+  // visSport er spejlet: serverens fejl/advarsel og seedets fejl skal vise den
+  // rå værdi ens. Tal med String — JSON.stringify(NaN/Infinity) er "null", og
+  // "sport null" er netop det, et SAT felt ikke er.
+  it('visSport: tal som sig selv (også NaN/Infinity), alt andet som JSON — og samme svar som src', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const forventet = [
+      [NaN, 'NaN'], [Infinity, 'Infinity'], [-Infinity, '-Infinity'], [123, '123'], [1.5, '1.5'],
+      ['handbold', '"handbold"'], ['', '""'], [['fodbold'], '["fodbold"]'], [{ a: 1 }, '{"a":1}'],
+      [true, 'true'], [null, 'null'],
+    ];
+    for (const [v, vist] of forventet) {
+      expect(visSport(v), String(v)).toBe(vist);
+      expect(src.visSport(v), String(v)).toBe(vist);
     }
   });
 

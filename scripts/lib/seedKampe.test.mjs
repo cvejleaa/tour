@@ -85,6 +85,12 @@ describe('seedKampe', () => {
       .rejects.toThrow(/sport "", men/);
     await expect(seedKampe({ gameRef: ref({ sport: 123 }), fixtures: FX, teams: TEAMS }))
       .rejects.toThrow(/sport 123, men/);
+    // JSON.stringify(NaN) er "null": fejlen sagde "sport null" om et SAT felt.
+    for (const [sport, vist] of [[NaN, /sport NaN, men/], [Infinity, /sport Infinity, men/]]) {
+      const fejl = await seedKampe({ gameRef: ref({ sport }), fixtures: FX, teams: TEAMS }).catch((e) => e);
+      expect(fejl.message, String(sport)).toMatch(vist);
+      expect(fejl.message, String(sport)).not.toMatch(/sport null/);
+    }
   });
 
   it('sportLinje viser det rå felt — og siger det, når feltet mangler', () => {

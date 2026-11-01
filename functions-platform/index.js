@@ -24,7 +24,7 @@ const crypto = require('crypto');
 
 const {
   recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets,
-  dryRunFraKald,
+  dryRunFraKald, omprisFraKnap,
   puljeTipKomplet,
 } = require('./gameScoring');
 const {
@@ -341,8 +341,9 @@ exports.rescoreGameBets = onCall({ region: REGION }, async (request) => {
 // på hver eneste ikke-låst kamp, og der er ingen oddsHistory at rulle tilbage
 // til. `aendringer` er derfor den eneste kvittering, der findes — gem den.
 //
-// Et ukendt game.sport afvises med failed-precondition (ukendtSportFejl i
-// gameScoring.js), før der er regnet noget — fladen viser beskeden rødt.
+// Et ukendt game.sport afvises med failed-precondition (ukendtSportFejl og
+// omprisFraKnap i gameScoring.js), før der er regnet noget — fladen viser
+// beskeden rødt.
 exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async (request) => {
   const db = getFirestore();
   await requireAdmin(db, request);
@@ -359,13 +360,9 @@ exports.repriceGameOdds = onCall({ region: REGION, timeoutSeconds: 300 }, async 
   // regnedes et håndboldspil med fodboldens profil, tør-kørslen viste de odds,
   // som om de var rigtige, og dryRun:false skrev dem. Triggeren (facit-
   // ændring) sætter IKKE flaget: dér advares der kun, så driften ikke går i stå.
-  let out;
-  try {
-    out = await recomputeSeasonElo(db, FieldValue, gameId, Date.now(), { dryRun, afvisUkendtSport: true });
-  } catch (err) {
-    if (err && err.kode === 'failed-precondition') throw new HttpsError('failed-precondition', err.message);
-    throw err;
-  }
+  // Kaldet OG oversættelsen til HttpsError bor i omprisFraKnap (gameScoring),
+  // hvor de er unit-testet — her var de kun bevist som tekst.
+  const out = await omprisFraKnap(db, FieldValue, gameId, Date.now(), dryRun, HttpsError);
   console.log(`repriceGameOdds(${gameId}, dryRun=${dryRun}): ${out.updated} kampe`);
   // HELE listen logges ved en rigtig skrivning, ikke bare antallet. Der er
   // ingen oddsHistory, og browserens tabel forsvinder, når fanen lukkes — så
