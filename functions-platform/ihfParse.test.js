@@ -1015,34 +1015,30 @@ describe('parseKampside — siden er bundet til sit kamp-id og sit eget resultat
     kaster(() => parseKampside(html, { ihfId: 202123 }), /kampsidens kampmarkør har intet tal-id/);
   });
 
-  // Kortets grænse findes ved at tælle <div og </div>. Hver sag indsættes inde i
-  // kortet, og en nabo med sit eget result-a-b står lige EFTER kortet: forskydes
-  // optællingen udad, står slutscoren to gange; forskydes den indad, mangler
-  // kortets krop. Kun den rigtige optælling giver kampen.
+  // Kortets grænse findes ved at tælle <div og </div>. Hver sag indsættes i
+  // kortets FØRSTE indre element (topResultCard), og en nabo med sit eget
+  // result-a-b står lige EFTER kortet. Forskydes optællingen udad (et «<div»
+  // for meget), står slutscoren to gange; forskydes den indad (et «</div>» for
+  // meget), slutter «kortet» med topResultCard, og krop og hold mangler. Kun
+  // den rigtige optælling giver kampen. (En kommentar eller et script, der
+  // aldrig lukkes, er ReDoS-sager nedenfor: med en løs vagt hænger optællingen,
+  // og det kan kun en børneproces med timeout opdage.)
   it.each([
-    ['<!-- <div class="gammel"> -->', 'et «<div» i en HTML-kommentar'],
-    ['<!-- </div> -->', 'et «</div>» i en HTML-kommentar'],
-    ['<script>var s = \'<div>\';</script>', 'et «<div» i et script'],
-    ['<SCRIPT>var s = \'</div>\';</SCRIPT>', 'et «</div>» i et script med store bogstaver'],
-    ['<DIV class="x">y</div>', 'et <DIV> med store bogstaver, lukket med </div>'],
-    ['<divider>', 'et element, hvis navn blot begynder med «div»'],
+    ['<!-- <div class="gammel"> -->', 'et «<div» i en HTML-kommentar — udad'],
+    ['<!-- </div> -->', 'et «</div>» i en HTML-kommentar — indad'],
+    ['<script>var s = \'<div>\';</script>', 'et «<div» i et script — udad'],
+    ['<script>var s = \'</div>\';</script>', 'et «</div>» i et script — indad'],
+    ['<SCRIPT>var s = \'<div>\';</SCRIPT>', 'et script med store bogstaver — udad'],
+    ['<div class="x">y</DIV>', 'et </DIV> med store bogstaver — udad, hvis det ikke tælles'],
+    ['<DIV class="x">y</div>', 'et <DIV> med store bogstaver — indad, hvis det ikke tælles'],
+    ['<divider>', 'et element, hvis navn blot begynder med «div» — udad'],
   ])('%s (%s) forskyder ikke resultatkortets slutgrænse', (indsat) => {
-    let html = erstat(KAMP_BRONZE, '<div class="resultCardBody text-center">', `<div class="resultCardBody text-center">${indsat}`);
+    let html = erstat(KAMP_BRONZE, '<div class="topResultCard text-center">', `<div class="topResultCard text-center">${indsat}`);
     html = erstat(html, '<!--End Match result section-->',
       '<div class="nabo"><p id="result-a-b">1:0</p></div><!--End Match result section-->');
-    expect(parseKampside(html, { ihfId: 202123 })).toMatchObject({ slut: { h: 35, u: 34 }, efter60: { h: 35, u: 34 } });
-  });
-
-  it.each([
-    ['<!-- aldrig lukket', 'en kommentar', '-->'],
-    ['<script>aldrig lukket', 'et script', '</script'],
-  ])('%s: %s i kortet, der aldrig lukkes, kaster', (indsat, _, luk) => {
-    // Også sidens senere kommentarer/scripts mister deres slutmærke — ellers
-    // lukkes den indsatte af det næste «-->» længere nede, som i en browser.
-    const mi = KAMP_BRONZE.indexOf(MARKOER_KAMP);
-    const aaben = KAMP_BRONZE.slice(0, mi) + erstatAlle(KAMP_BRONZE.slice(mi), luk, '[lukket ikke]');
-    const html = erstat(aaben, '<div class="resultCardBody text-center">', `<div class="resultCardBody text-center">${indsat}`);
-    kaster(() => parseKampside(html, { ihfId: 202123 }), /kamp 202123: resultatkortet .*lukkes aldrig/);
+    expect(parseKampside(html, { ihfId: 202123 })).toMatchObject({
+      hjemme: 'France', ude: 'Portugal', slut: { h: 35, u: 34 }, efter60: { h: 35, u: 34 },
+    });
   });
 
   it('et resultatkort, der aldrig lukkes, kaster', () => {
@@ -1198,7 +1194,7 @@ describe('kraevSide — fejlsidens citat', () => {
 //    i stedet for y prøver forfra fra hver eneste position (kvadratisk).
 //    Hver af de syv sager blev rød (dræbt efter 4000 ms), når netop dens flag
 //    byttedes fra y til g, eller indexOf i `indhold` til `([\s\S]*?)</p>` —
-//    målt med 200.000 tegn; med y svarer de på få ms. KORT_TEKST har ingen
+//    målt med 200.000 tegn; med y er de under grænsen på 250 ms. KORT_TEKST har ingen
 //    sag: i et lukket kort følger der altid et «<», så y og g er den samme
 //    regex (se ihfParse.js, toppen).
 
@@ -1281,10 +1277,17 @@ describe('ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendt
     // KORT_ARENA `\s*<span>…` — 200.000 mellemrum efter GMT-tidens </p>, og så ikke <span>.
     ['kamp', 'KORT_ARENA: 200.000 mellemrum efter GMT-tiden, og så ikke <span>',
       () => erstat(KAMP_BRONZE, '<span>Oslo / Unity Arena</span>', `${SP}<i>Oslo / Unity Arena</i>`), 'returnerede'],
-    // divElement: en kommentar i kortet, der aldrig lukkes — ét indexOf, ikke ét pr. «<div».
+    // divElement: en kommentar eller et script i kortet, der aldrig lukkes (og
+    // sidens senere «-->»/«</script» fjernet — ellers lukkes den af dem, som i en
+    // browser). Skal give «lukkes aldrig» — uden vagten om det manglende
+    // slutmærke starter optællingen forfra og hænger.
     ['kamp', 'resultatkortet med 50.000 «<!--» og intet «-->»',
       () => erstat(KAMP_BRONZE.split('-->').join(''), '<div class="resultCardBody text-center">',
         `<div class="resultCardBody text-center">${'<!--'.repeat(N / 4)}`),
+      /resultatkortet .*lukkes aldrig/],
+    ['kamp', 'resultatkortet med et <script>, der aldrig lukkes',
+      () => erstat(KAMP_BRONZE.split('</script').join(''), '<div class="resultCardBody text-center">',
+        '<div class="resultCardBody text-center"><script>aldrig lukket'),
       /resultatkortet .*lukkes aldrig/],
   ];
 
