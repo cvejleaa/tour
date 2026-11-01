@@ -51,7 +51,7 @@ describe('sportProfil — hvilken profil et spil får', () => {
     const fodbold = SPORT_PROFILER.fodbold;
     for (const game of [
       undefined, null, {}, { sport: undefined }, { sport: null }, { sport: '' },
-      { sport: 'haandbold' },      // findes ikke endnu — må ikke give en tom profil
+      { sport: 'curling' },        // ukendt — må ikke give en tom profil (ikke 'haandbold': det navn får sin profil i delopgave 4)
       { sport: 'Fodbold' },        // store bogstaver er en anden nøgle
       { sport: 123 }, { sport: ['fodbold'] }, { sport: { fodbold: true } },
       // Navne, der findes på ETHVERT objekt. Et naivt `SPORT_PROFILER[sport]`
@@ -67,6 +67,10 @@ describe('sportProfil — hvilken profil et spil får', () => {
   it('fodbold er bygget AF ELO og ODDS — og har dagens tal', () => {
     const p = sportProfil();
     expect(p).toEqual({ sport: 'fodbold', elo: { ...ELO }, odds: { min: ODDS.MIN } });
+    // En KOPI: profilen fryses hele vejen ned, og delte den objekt med ELO,
+    // blev konstanten selv frosset — og scripts/maal-*.mjs, der læser den, med.
+    expect(p.elo).not.toBe(ELO);
+    expect(Object.isFrozen(ELO)).toBe(false);
     // Literaler: profilen må ikke kunne flytte sig sammen med konstanterne,
     // uden at noget bliver rødt. Ændres modellen med vilje, ændres de her.
     expect(p.elo).toEqual({ START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.305, DRAW_DECAY: 0.55 });
@@ -145,6 +149,15 @@ describe('odds-gulvet er en profilværdi', () => {
     expect(outcomeOdds(args)['2']).toBe(1.1);
   });
 
+  it('… også for uafgjort (X har sit eget fairOdds-kald)', () => {
+    // X ligger altid omkring 3-4 i odds, så et almindeligt gulv (1,1) binder
+    // aldrig dér — et kald, der glemte oddsMin på X, ville være usynligt. Et
+    // gulv over X's fair pris (≈ 3,3) viser det: alle tre udfald skal hæves.
+    const args = { eloHome: 1500, eloAway: 1500, hfa: 0, drawBase: 0.305, drawDecay: 0.55 };
+    expect(outcomeOdds(args).X).toBeLessThan(5);
+    expect(outcomeOdds({ ...args, oddsMin: 5 })).toEqual({ 1: 5, X: 5, 2: 5 });
+  });
+
   it('fairOdds tager gulvet som argument', () => {
     expect(fairOdds(0.99, 1.01)).toBe(1.01);
     expect(fairOdds(0.99)).toBe(1.1);
@@ -165,7 +178,7 @@ describe('SL og PL er byte-identiske med koden før sportsprofilen', () => {
   for (const [liga, { fixtures, teams }] of Object.entries(LIGAER)) {
     it(`${liga}: de frosne odds ved seed er uændrede — uanset hvordan "fodbold" nås`, () => {
       expect(somFacit(buildMatches(fixtures, teams))).toEqual(golden[liga].seedet);
-      for (const game of [{}, { sport: 'fodbold' }, { sport: 'haandbold' }, null]) {
+      for (const game of [{}, { sport: 'fodbold' }, { sport: 'curling' }, null]) {
         expect(somFacit(buildMatches(fixtures, teams, sportProfil(game))), JSON.stringify(game))
           .toEqual(golden[liga].seedet);
       }

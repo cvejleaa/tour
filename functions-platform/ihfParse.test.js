@@ -60,6 +60,8 @@ function kaster(fn, moenster) {
   }
   expect(fanget, 'skulle have kastet').toBeInstanceOf(IhfStrukturFejl);
   expect(fanget.message).toMatch(moenster);
+  // Præfikset er det, Drift-kortet og alarmen viser først.
+  expect(fanget.message).toMatch(/^IHF: /);
   return fanget;
 }
 
@@ -223,6 +225,50 @@ describe('parseDagside — ægte sider', () => {
     const html = erstat(DAG_2025, '>Portugal</a>', '>A &#38;lt; B</a>');
     expect(parseDagside(html)[0].ude).toBe('A &lt; B');
   });
+
+  it('fase og gruppe skilles også, når linjeskiftet står som <br/> eller <BR />', () => {
+    // Skilles de ikke, bliver «Preliminary round Group A» til fasen og gruppen null — tavst forkert.
+    for (const br of ['<br/>', '<BR />']) {
+      const html = erstat(DAG_2027, 'Preliminary round <br> Group A', `Preliminary round ${br} Group A`);
+      expect(parseDagside(html)[0], br).toMatchObject({ fase: 'Preliminary round', gruppe: 'Group A' });
+    }
+  });
+
+  it('en hal uden skråstreg er hele hallen (ingen by) — og en tom hal er ingen af dem', () => {
+    let html = erstat(DAG_2025, 'Oslo / Unity Arena', 'Unity Arena', 'data-ihf-competitions-match-id="202125"');
+    expect(parseDagside(html)[1]).toMatchObject({ by: null, hal: 'Unity Arena' });
+    html = erstat(DAG_2025, 'Oslo / Unity Arena', '', 'data-ihf-competitions-match-id="202125"');
+    const finale = parseDagside(html)[1];
+    expect(finale.by).toBeNull();
+    expect(finale.hal).toBeNull();
+  });
+
+  it('store bogstaver i en entitet (&AMP;) afkodes; en ukendt (&eacute;) lades stå — ikke sluges', () => {
+    // Sluges den, bliver «Cur&ccedil;ao» til «Curao» og kan matche et forkert hold
+    // uden en lyd; står den, fejler holdopslaget højlydt.
+    const html = erstat(DAG_2025, '>Portugal</a>', '>A &AMP; B &eacute;</a>');
+    expect(parseDagside(html)[0].ude).toBe('A & B &eacute;');
+  });
+
+  it('tegn uden for det basale plan afkodes som ét tegn (decimal og hex)', () => {
+    const html = erstat(DAG_2025, '>Portugal</a>', '>A &#128512; B &#x1F600;</a>');
+    expect(parseDagside(html)[0].ude).toBe('A \u{1F600} B \u{1F600}');
+  });
+
+  it('mellemrum og linjeskift i et holdnavn samles til ét mellemrum', () => {
+    const html = erstat(DAG_2025, '>Portugal</a>', '>South\n        Korea   </a>');
+    expect(parseDagside(html)[0].ude).toBe('South Korea');
+  });
+
+  it('score-feltet skal tilhøre kampen: et felt med et andet id tæller ikke', () => {
+    const html = erstat(DAG_2025, 'id="ihf-competitions-score-202123"', 'id="ihf-competitions-score-999999"');
+    kaster(() => parseDagside(html), /kamp 202123 mangler sit score-felt/);
+  });
+
+  it.each(['1000-32', '26-1000'])('en score med fire cifre på den ene side kaster (%s)', (score) => {
+    const html = erstat(DAG_2025, '>26-32<', `>${score}<`);
+    kaster(() => parseDagside(html), new RegExp(`scoren «${score}» for kamp 202125 har et uventet format`));
+  });
 });
 
 describe('parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu»)', () => {
@@ -359,7 +405,9 @@ describe('parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «in
   // regex-former (timer, minutter, uden ^, uden $) har sin røde test.
   it.each([
     ['25:00', 'timer over 23'],
+    ['24:00', 'timer = 24 (midnat hedder 00:00)'],
     ['12:60', 'minutter over 59'],
+    ['12:5', 'ét ciffer i minutterne'],
     ['18:00 h', 'suffiks efter tiden'],
     ['kl. 18:00', 'tekst foran tiden'],
   ])('tiden «%s» kaster (%s)', (tid) => {
@@ -593,6 +641,29 @@ describe('parseKampside — struktur-vagterne kaster', () => {
     let html = erstat(KAMP_BRONZE, 'id="penalty-score-b" class="col-xs-4 bigFont">0<', 'id="penalty-score-b" class="col-xs-4 bigFont">1<');
     html = erstat(html, '<p id="result-a-b">35:34</p>', '<p id="result-a-b">35:35</p>');
     kaster(() => parseKampside(html), /forlængelse\/straffekast, men halvlegene giver 35-34 efter 60 minutter/);
+  });
+
+  it('straffekast efter en forlængelse, hvor HJEMMEholdet førte i 1. forlængelse, kaster', () => {
+    // Danmark–Egypten 2021 med Danmarks 1. forlængelse 6 → 7: 28-28 + 7-6 + 1-1 = 36-35.
+    // (Hver periode har sin egen røde test: en vagt, der kun så 2. forlængelse, ville slippe den her.)
+    let html = erstat(KAMP_STRAFFE, 'id="fot-1-score-a" class="col-xs-4 bigFont">6<', 'id="fot-1-score-a" class="col-xs-4 bigFont">7<');
+    html = erstat(html, '<p id="result-a-b">39:38</p>', '<p id="result-a-b">40:38</p>');
+    kaster(() => parseKampside(html), /straffekast, men stillingen efter forlængelsen er 36-35/);
+  });
+
+  it('en forlængelse, der udligner sig selv over de to perioder (7-6 og 0-1), er lige — straffene må stå', () => {
+    // 28-28 + 7-6 + 0-1 = 35-35. Samme slutscore (39:38) som den ægte side.
+    let html = erstat(KAMP_STRAFFE, 'id="fot-1-score-a" class="col-xs-4 bigFont">6<', 'id="fot-1-score-a" class="col-xs-4 bigFont">7<');
+    html = erstat(html, 'id="fot-2-score-a" class="col-xs-4 bigFont">1<', 'id="fot-2-score-a" class="col-xs-4 bigFont">0<');
+    const k = parseKampside(html);
+    expect(k.perioder.ot1).toEqual({ h: 7, u: 6 });
+    expect(k.perioder.ot2).toEqual({ h: 0, u: 1 });
+    expect(k.slut).toEqual({ h: 39, u: 38 });
+  });
+
+  it('en ikke-spillet kamp med TOM slutscore kaster (ukendt tilstand, ikke «0:0»)', () => {
+    const html = erstat(KAMP_2027, '<p id="result-a-b">0:0</p>', '<p id="result-a-b"></p>');
+    kaster(() => parseKampside(html), /kamp 307515 er ikke spillet, men slutscoren viser «»/);
   });
 
   it('uafgjort efter 60 uden forlængelse er et gyldigt facit (gruppekamp)', () => {

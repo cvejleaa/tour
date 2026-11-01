@@ -272,7 +272,7 @@ describe('superligaScoring (server-spejl)', () => {
 describe('sportsprofilen: server-spejlet er identisk med src', () => {
   // Spil, der rammer hver gren: mangler, ukendt, ugyldig, prototype-navne.
   const SPIL = [
-    undefined, null, {}, { sport: 'fodbold' }, { sport: 'haandbold' }, { sport: 'Fodbold' },
+    undefined, null, {}, { sport: 'fodbold' }, { sport: 'curling' }, { sport: 'Fodbold' },
     { sport: 123 }, { sport: '' }, { sport: 'toString' }, { sport: '__proto__' }, { sport: 'constructor' },
   ];
 
@@ -293,6 +293,9 @@ describe('sportsprofilen: server-spejlet er identisk med src', () => {
   it('fodbold er bygget af ELO/ODDS, har dagens tal og er frosset', () => {
     const p = sportProfil();
     expect(p).toEqual({ sport: 'fodbold', elo: { ...ELO }, odds: { min: ODDS.MIN } });
+    // En KOPI — delte profilen objekt med ELO, blev konstanten selv frosset.
+    expect(p.elo).not.toBe(ELO);
+    expect(Object.isFrozen(ELO)).toBe(false);
     expect(p.elo).toEqual({ START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.305, DRAW_DECAY: 0.55 });
     expect(Object.isFrozen(p) && Object.isFrozen(p.elo) && Object.isFrozen(p.odds)).toBe(true);
   });
@@ -325,6 +328,18 @@ describe('sportsprofilen: server-spejlet er identisk med src', () => {
       expect(fairOdds(p, 1.01)).toBe(src.fairOdds(p, 1.01));
     }
     expect(fairOdds(0.99, 1.01)).toBe(1.01);
+  });
+
+  // … og uafgjort har sit eget. X ligger omkring 3-4 i odds, så et almindeligt
+  // gulv binder aldrig dér; et gulv over X's fair pris viser, om kaldet fik det.
+  it('outcomeOdds bruger oddsMin ens — også for uafgjort', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const args = { eloHome: 1500, eloAway: 1500, hfa: 0, drawBase: 0.305, drawDecay: 0.55 };
+    expect(outcomeOdds(args).X).toBeLessThan(5);
+    for (const oddsMin of [undefined, 5]) {
+      expect(outcomeOdds({ ...args, oddsMin })).toEqual(src.outcomeOdds({ ...args, oddsMin }));
+    }
+    expect(outcomeOdds({ ...args, oddsMin: 5 })).toEqual({ 1: 5, X: 5, 2: 5 });
   });
 
   // Hvert udfald har sit eget fairOdds-kald. Gulvet på '2' skal derfor bevises

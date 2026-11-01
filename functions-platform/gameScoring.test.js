@@ -1586,7 +1586,7 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
   for (const [liga, { fixtures, teams: holdliste }] of Object.entries(LIGAER)) {
     it(`${liga}: Elo og omprisning er uændrede — uanset hvordan "fodbold" nås`, async () => {
       expect(Object.keys(golden[liga].ompris).length).toBeGreaterThan(50); // facit er ikke tomt
-      for (const ekstra of [{}, { sport: 'fodbold' }, { sport: 'haandbold' }, { sport: '__proto__' }]) {
+      for (const ekstra of [{}, { sport: 'fodbold' }, { sport: 'curling' }, { sport: '__proto__' }]) {
         const db = makeGoldenDb({ teams: holdliste, ...ekstra }, goldenKampe(buildMatches(fixtures, holdliste)));
         const res = await recomputeSeasonElo(db, FieldValue, liga, GOLDEN_NU_MS, { dryRun: false });
         const ompris = Object.fromEntries(res.aendringer.map((a) => [a.id, [a.efter['1'], a.efter.X, a.efter['2']]]));
@@ -1598,6 +1598,16 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
       }
     });
   }
+
+  it('et spil, der ikke findes, giver intet at gøre — og kaster ikke', async () => {
+    // spil-dokumentet læses nu som `game` og slås op til profilen; et id uden
+    // dokument skal stadig give 0 ændringer, ikke en TypeError.
+    const db = {
+      collection: () => ({ doc: () => ({ get: async () => ({ exists: false, data: () => undefined }) }) }),
+    };
+    await expect(recomputeSeasonElo(db, FieldValue, 'findes-ikke', GOLDEN_NU_MS))
+      .resolves.toEqual({ updated: 0, aendringer: [] });
+  });
 
   describe('med en prøvesport på spillet', () => {
     // Prøvesporten: hvert tal er et andet end fodboldens (se

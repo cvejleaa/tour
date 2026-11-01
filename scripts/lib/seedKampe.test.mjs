@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { seedKampe } from './seedKampe.mjs';
 import { buildMatches } from '../../src/lib/superligaSeed.js';
 import { SPORT_PROFILER } from '../../src/lib/superligaScoring.js';
@@ -15,6 +18,23 @@ const FX = [
   { round: 1, home: 'Ukendt', away: 'Svag' },
   { round: 1, home: 'Svag', away: 'Ukendt' }, // ukendt UDEhold slås op for sig
 ];
+
+// Selve scriptet kræver en rigtig database og kan ikke køres her, så dets
+// LEDNING bevogtes som tekst: kampene skal gå gennem seedKampe (der læser
+// spillets sport). Et direkte buildMatches(...) i scriptet gav fodboldens odds
+// til alle spil, med hele denne fil grøn.
+describe('seed-football.mjs bruger seedKampe', () => {
+  const kode = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../seed-football.mjs'), 'utf8')
+    .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+
+  it('kampene bygges af seedKampe på den fulde plan og spillets egen reference', () => {
+    expect(kode).toMatch(/await seedKampe\(\{ gameRef, fixtures: plan\.skriv, teams \}\)/);
+  });
+
+  it('scriptet kalder ikke buildMatches direkte og importerer det ikke', () => {
+    expect(kode).not.toMatch(/buildMatches/);
+  });
+});
 
 describe('seedKampe', () => {
   it('et spil uden sport — og et spil, der ikke findes endnu — seedes som fodbold', async () => {

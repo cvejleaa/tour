@@ -166,6 +166,17 @@ PR-teksten, ikke her.
 
 ## Data, kilder og målinger
 
+- **En parser, der KASTER på en ukendt statuskode, kaster også på LIVE** — og
+  på en dagside med flere kampe forgifter ét ukendt kampblok hele dagen
+  (tidligere afsluttede kampes facit bliver siddende, alarmen går hver
+  turneringsdag). Spørg: hvad ser siden ud som MENS noget er i gang, og taber en
+  fejl i én blok de andre? Returnér `ukendt` pr. kamp (aldrig tolket som slut),
+  kast først ved strukturbrud. Tæl desuden fixtures mod de SIDEFORMER
+  produktionen møder (hovedrunde manglede ved siden af gruppe/KO/finaledag).
+- **En tavs default på en MANGLENDE konfig-nøgle er en fallback, der skjuler
+  tastefejl** (`sport:'handbold'` → fodbold; `odds:{minimum}` → fodboldens
+  gulv). Kræv en form-test over HELE registret (alle felter endelige tal) og at
+  et skrivende script viser det RÅ felt, ikke den opløste profil.
 - **Et felt i en plan-tabel uden en målt kilde er en påstand.** Kræv
   fil:linje i måle-scriptet eller en committet payload — ikke en kolonne der
   blot NÆVNER et feltnavn.
@@ -387,6 +398,9 @@ PR-teksten, ikke her.
 
 ## Tests, målinger og selectorer
 
+- **En prøve-fixture kan fastfryse en tekst, der er forkert for netop prøven**
+  (HFA 0 → «ikke 50/50 … omkring 50 % takket være hjemmebanen»): markér i testen,
+  at den VENDES, når teksten gates på evnen — ellers læses den som facit.
 - **En Playwright-selector skal verificeres mod den ÆGTE komponent**, ikke
   antages fra testens egen tekst — grep den i `src/`, og tjek at testens
   udnyttede render-BETINGELSE (ikke bare selectoren) rent faktisk styrer

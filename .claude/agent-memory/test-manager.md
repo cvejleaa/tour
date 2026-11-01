@@ -1727,3 +1727,44 @@ pr. mutation, gendanner i exit/SIGINT, vitest `--reporter=json`).
   indeholder mønstret → exit 144): brug `pgrep -f cloud-firestore-emulator` og kill pid.
 - Mutationsværktøj: `scratchpad/tm-op/mut.py NAVN FIL OLD NEW CMD` (en forekomst,
   gendanner selv; "MATCH COUNT 2" = vælg mere kontekst).
+
+## Håndbold-VM del 1: sportsprofil + IHF-parser (PR #240, 1/11 2026)
+
+- **Facit "genereret af den gamle kode" kan efterprøves, ikke bare tros.**
+  `functions-platform/testdata/sportprofil-golden.json` blev genskabt byte-identisk
+  ved `git archive 62e20aa` (før profilen) + kopi af `scripts/sportprofil-golden.mjs`
+  og `scripts/lib/sportprofilGolden.mjs` ind + `npx vite-node` — `diff` tom. JSON'en
+  er kun rørt i 07ebcb6 (aldrig regenereret siden). Gør det samme ved næste "golden".
+- **En fjernet `min` på ÉT af tre `fairOdds`-kald overlevede (`DRAW`).** Gulvet binder
+  aldrig på X (fair ≈ 3,3), så hverken prøvesport (gulv 1,01) eller ude-/hjemme-
+  favorit-testene kunne se det. Kun et gulv OVER X's fair pris (oddsMin 5) viser det.
+  Mønster: ét-kald-pr.-udfald kræver et input, hvor HVERT udfald rammer gulvet.
+- **`elo: { ...ELO }` → `elo: ELO` overlevede**: profilen frøs så konstanten selv. Bind
+  kopien (`not.toBe(ELO)`, `Object.isFrozen(ELO) === false`).
+- **Refaktor-gren uden test: `game ? game.teams : null`** (spil-dokumentet findes ikke)
+  overlevede — ingen test kaldte `recomputeSeasonElo` på et manglende dokument. Når en
+  `x ? x.felt : null`-gren er ny, så kald funktionen med dokumentet væk.
+- **Fraværs-assertion med fremtidigt produktnavn.** `{ sport: 'haandbold' }` blev brugt
+  som "ukendt sport → fodbold" i fire testfiler; i delopgave 4 bliver navnet kendt, og
+  fire steder går røde af en forkert grund. Brug et navn, der aldrig bliver en sport
+  ('curling'). `Object.keys(SPORT_PROFILER) === ['fodbold']` er den ene, bevidste vender.
+- **Script uden tests: bevogt LEDNINGEN som tekst.** `seed-football.mjs` kan ikke køres;
+  `seedKampe` var testet, men ledningen ind i scriptet ikke (en direkte `buildMatches`
+  overlevede). Tekst-vagt i `scripts/lib/seedKampe.test.mjs` (kommentarer filtreret fra).
+  Brug `resolve(dirname(fileURLToPath(import.meta.url)), …)` — `new URL(…, import.meta.url)`
+  er ikke en file-URL i jsdom-miljøet.
+- **ihfParse: overlevere ved regex-løsning, ikke ved logik.** Tidsregex `2[0-4]` og
+  `[0-5]\d?`, score `{1,5}` på én side, `<br/>`-variant, `&AMP;`, ukendt entitet slugt,
+  `fromCodePoint`→`fromCharCode`, `.replace(/\s+/)` fjernet, score-felt uden id-binding,
+  tom hal, `tjekEfter60` der ignorerer 1. forlængelse (`plus(efter60, p.ot2)`): alle
+  overlevede 77 grønne tests og er dræbt af ni nye. Test hver SIDE af en to-sidet
+  regex/sum for sig (h/u, ot1/ot2) og både grænse og én-over-grænsen.
+- **Ækvivalente mutanter (jag dem ikke):** `tjekEfter60` 2. check uden `efter60` (efter
+  første check er `efter60` lige, så den ændrer intet); `|| null` i `sted()` (efter
+  `rens`/trim kan ' / ' hverken stå først eller sidst); `.slice(0,3)` på holdkortet;
+  `/^\d{1,3}$/` på perioder (sum-vagten fanger NaN); `typeof html` i `kraevSide`.
+- Kendt hul, ikke rettet: `fairOdds(p, null/NaN)` — `Math.max(null, x)` fjerner gulvet,
+  `NaN` giver NaN-odds. Uopnåeligt før en profil med slåfejl i `odds.min` (delopgave 4);
+  profilen bør valideres, når håndbold registreres.
+- Mutationsværktøj: `scratchpad/tm-hb1/mut.py <specs.json>` (en forekomst pr. spec,
+  gendanner selv, rapporterer DRAEBT/OVERLEVER; anker-antal ≠ 1 giver FEJL-anker).
