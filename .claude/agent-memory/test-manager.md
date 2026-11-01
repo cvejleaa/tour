@@ -1768,3 +1768,35 @@ pr. mutation, gendanner i exit/SIGINT, vitest `--reporter=json`).
   profilen bør valideres, når håndbold registreres.
 - Mutationsværktøj: `scratchpad/tm-hb1/mut.py <specs.json>` (en forekomst pr. spec,
   gendanner selv, rapporterer DRAEBT/OVERLEVER; anker-antal ≠ 1 giver FEJL-anker).
+
+### PR #240, runde 2 (205fa54): ~255 mutanter, 44 overlevede (heraf 5 fejlkørt mod forkert suite), 12 reelle — nu dræbt
+
+- **En parameter, der kun er bevist som TEKST/gennemløb, men aldrig ændrer et testet svar, kan
+  droppes.** `omprisFraKnap(…, nowMs, …)`: `nowMs` → `0` overlevede 238+146 tests, fordi
+  `GOLDEN_NU_MS` ligger FØR første kickoff (ingen kamp er låst) og spillede kampe aldrig ompriser.
+  Fixturets "nu" skal ligge MIDT i de ikke-spillede kampe (`ikkeSpillede[20].kickoff`), ellers
+  er låse-vagten usynlig. Tjek ved enhver `nowMs`/`Date.now()`-gennemstilling: findes en låst
+  kamp i fixturet, og er den fraværende i svaret?
+- **Kørte index.js-mutanter mod FORKERT suite**: `cwd: '.'` + `vitest run gameScoring.test.js`
+  kører ROD-vitest (49 tests, ikke functions-platform) og melder OVERLEVER. Sæt `cwd` til
+  `functions-platform` for alt, der testes dér — og læs testantallet i resultatlinjen.
+- **Fejlbeskeder pinnet med `toThrow(/ét-ord/)`**: sport og rå værdi kunne droppes ud af
+  `oddsParametre`-fejlen i begge spejle. Pin hele strengen på mindst ét input pr. gren.
+- **Rød/grøn-klasse pr. STI**: `kind:'err'` → `'ok'` overlevede på Ompris-SKRIVESTIEN, fordi
+  rød-assertionen kun stod på tør-kørsels-stien (to `setPrisMsg(err)`-kald, to tests).
+- **`indexOf(slut, start)` → `indexOf(slut)` i `indhold`** overlevede: ingen fixture har et
+  `</p>`/`</div>` FØR ankeret. Kost: hal tavst null/null. Indsæt et lukke-tag før ankeret.
+- **`if (x == null) fejl(…)` uden test af den gren = TypeError i stedet for IhfStrukturFejl.**
+  Kræver et holdfelt uden `</div>` — men så skal kampblokken stadig lukke (sæt `</div></div>` ind
+  andetsteds), ellers kastes "lukkes aldrig" først. Samme for `!lokal || !gmt`: test HVER side.
+- **Default-parameter `= {}` + TypeError**: `toThrow(TypeError)` fanger også "Cannot destructure".
+  Pin beskeden.
+- **Ækvivalente (jag ikke):** `dybde += ±1` omvendt og `dybde <= 0` i divElement (symmetri);
+  `j + 2` efter `-->`; `forbi` → `html.length` ved uafsluttet script; `toLowerCase()` på
+  `<SCRIPT`; `.slice(0,3)` hold; `KORT_TEKST` y→g; `!m ||` i periode; split-regex→streng;
+  `dryRun: dryRun === true` (boolean); `oddsMin: profil.odds.min` for `min`; `'fodbold'` for
+  `profil.sport` i advarslen (profilen ER fodbold); `snap.exists ? snap.data() : null`.
+- **Åbne (accept-mere/hård-retning, ikke rettet):** `/i` på canonical-regexerne, trailing `/` i
+  `kampIdAf`, `\b` på `<script`/`</script`/`<div`/`datetime=`, `team-matches/` uden `/`.
+  De gør parseren strengere eller giver en højlydt fejl, aldrig tavse data.
+- Værktøj: `scratchpad/tm-hb1-r2/mut.py <specs.json>` (cwd er vigtig, se ovenfor).

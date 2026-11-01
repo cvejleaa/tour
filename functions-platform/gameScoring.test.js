@@ -1802,6 +1802,30 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
       expect(vaad._game.eloCurrent).toEqual(golden.sl.eloCurrent); // rigtig kørsel: skrevet
     });
 
+    // nowMs afgør, hvilke kampe der er LÅSTE — og en låst kamps odds må aldrig
+    // ompriser (point afregnes af de frosne odds). GOLDEN_NU_MS ligger før
+    // første kickoff, så ingen kamp er låst: omprisFraKnap kunne glemme nowMs
+    // (eller sende 0) uden at nogen anden test blev rød. Mutant: `nowMs` → `0`
+    // i omprisFraKnaps kald overlevede alle 238+146 tests (Test Manager, PR #240).
+    it('nowMs sendes igennem: låste kampe ompriser IKKE (kampene før "nu" røres ikke)', async () => {
+      // "Nu" = den 21. ikke-spillede kamps kickoff: de 21 første er låste, resten ikke.
+      // (Spillede kampe ompriser aldrig, så et "nu" blandt de spillede ville intet vise.)
+      const ikkeSpillede = nytDb({})._matches.map((m) => m.data).filter((m) => !m.result).sort((a, b) => a.kickoff - b.kickoff);
+      const SENERE = ikkeSpillede[20].kickoff;
+      const tidligt = await omprisFraKnap(nytDb({}), FieldValue, 'sl', GOLDEN_NU_MS, true, HttpsError);
+      const db = nytDb({});
+      const sent = await omprisFraKnap(db, FieldValue, 'sl', SENERE, true, HttpsError);
+      // Fixturet har noget at arbejde på: der ER låste kampe 60 dage inde …
+      expect(tidligt.updated).toBeGreaterThan(50);
+      expect(db._matches.filter((m) => m.data.kickoff <= SENERE).length).toBeGreaterThan(0);
+      // … og de er ikke med i omprisningen.
+      expect(sent.updated).toBeLessThan(tidligt.updated);
+      expect(sent).toEqual(await recomputeSeasonElo(nytDb({}), FieldValue, 'sl', SENERE, { dryRun: true }));
+      const laaste = new Set(ikkeSpillede.filter((m) => m.kickoff <= SENERE).map((m) => m.id));
+      expect(laaste.size).toBeGreaterThanOrEqual(21); // ens kickoff kan give flere
+      for (const a of sent.aendringer) expect(laaste.has(a.id), a.id).toBe(false);
+    });
+
     it('en anden fejl (fx Firestore) slipper UÆNDRET igennem — den er ikke admins at rette', async () => {
       const boom = new Error('DEADLINE_EXCEEDED');
       const db = { collection: () => ({ doc: () => ({ get: async () => { throw boom; } }) }) };

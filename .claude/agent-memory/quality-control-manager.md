@@ -177,6 +177,21 @@ PR-teksten, ikke her.
   tastefejl** (`sport:'handbold'` → fodbold; `odds:{minimum}` → fodboldens
   gulv). Kræv en form-test over HELE registret (alle felter endelige tal) og at
   et skrivende script viser det RÅ felt, ikke den opløste profil.
+- **Afvisning af en tastefejl i et felt skal pege på DET STED, der ikke
+  overskrives.** Skal feltet bo i et seedet script (`games.mjs` + `seedGames`
+  med merge), vinder scriptet over en konsol-rettelse ved næste seed, og merge
+  kan ikke FJERNE et felt. Tjek guide, fejlbesked og script-besked mod hinanden
+  (de pegede på tre forskellige steder) og mod planens fremtidige skrivevej,
+  ikke kun mod i dag. Og en kommentar, der parkerer en alarm hos en fremtidig
+  delopgave ("hører til D7"), skal efterprøves mod planen: ejer den delopgave
+  faktisk DEN alarm, eller en anden?
+- **Opslag i en objekt-literal på en FREMMED nøgle rammer Object.prototype**
+  (`ENTITETER[navn] ?? hel` gav «function Object() {…}» for `&constructor;`).
+  Samme familie som `sportProfil`s hasOwnProperty: `Object.hasOwn`/null-
+  prototype, eller et Map. Test med `constructor`, `__proto__`, `toString`.
+- **Gammel mod ny parser: kør begge over ALLE fixtures og diff feltvist**
+  (`git show <sha>:fil > old.cjs`). Forskellen skal være præcis de omdøbte/
+  tilføjede felter og intet andet — det er beviset for «samme data som før».
 - **Et felt i en plan-tabel uden en målt kilde er en påstand.** Kræv
   fil:linje i måle-scriptet eller en committet payload — ikke en kolonne der
   blot NÆVNER et feltnavn.

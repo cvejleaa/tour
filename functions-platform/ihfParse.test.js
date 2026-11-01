@@ -567,6 +567,9 @@ describe('parseKampside — struktur-vagterne kaster', () => {
   it('manglende tid kaster', () => {
     const html = erstat(KAMP_BRONZE, 'class="time time-gmt"', 'class="tid"');
     kaster(() => parseKampside(html, { ihfId: 202123 }), /kamp 202123 mangler sin lokale tid eller GMT-tid/);
+    // … og den LOKALE tid alene (mutant: `!lokal || !gmt` → `!gmt` gav TypeError på lokal[1]).
+    const udenLokal = erstat(KAMP_BRONZE, 'class="time time-local"', 'class="tid"');
+    kaster(() => parseKampside(udenLokal, { ihfId: 202123 }), /kamp 202123 mangler sin lokale tid eller GMT-tid/);
   });
 
   it('en ikke-spillet kamp med en anden score end 0:0 kaster (ukendt tilstand)', () => {
@@ -930,6 +933,8 @@ describe('parseKampside — siden er bundet til sit kamp-id og sit eget resultat
   it('kræver det forventede id: uden { ihfId } er det en programmeringsfejl, ikke en skraberfejl', () => {
     for (const opt of [undefined, {}, { ihfId: '202123' }, { ihfId: 0 }, { ihfId: 2.5 }]) {
       expect(() => parseKampside(KAMP_BRONZE, opt), JSON.stringify(opt)).toThrow(TypeError);
+      // Beskeden, ikke kun typen: uden default `= {}` er `undefined` også en TypeError («Cannot destructure …»).
+      expect(() => parseKampside(KAMP_BRONZE, opt), JSON.stringify(opt)).toThrow(/kræver det kamp-id, der blev bedt om/);
     }
   });
 
@@ -1402,5 +1407,48 @@ describe('divElement — løkken kommer altid videre (fremdriftsvagten)', () => 
     const ud = iBarn(krop);
     expect(ud.navn).toBe('IhfStrukturFejl');
     expect(ud.besked).toMatch(/^IHF: en kommentar ved tegn 5 «slutter» ved tegn \d+, ikke efter sin åbning \(tegn 9\)/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Huller fundet ved mutationstest af runde 2 (Test Manager, PR #240). Hver test
+// står for én mutant, der overlevede alle de øvrige tests; kommentaren siger hvilken.
+
+describe('feltgrænser og afkodning — huller fra runde 2', () => {
+  const ID = 'data-ihf-competitions-match-id="202123"';
+
+  // Mutant: `tekst.indexOf(slut, start)` → `tekst.indexOf(slut)` i `indhold`.
+  // Et «</div>» eller «</p>» FØR ankeret blev så feltets slut, og feltet blev
+  // tomt: fasen gav «tom fase» (højlydt), men HALLEN blev tavst null/null.
+  it('et </div> og et </p> FØR fase- og hal-ankeret er ikke deres slut (søges fra ankeret)', () => {
+    const html = erstat(DAG_2025, '<div class="col-md-4 col-xs-12 no-padding">',
+      '<div>x</div><p>y</p><div class="col-md-4 col-xs-12 no-padding">', ID);
+    expect(parseDagside(html)[0]).toMatchObject({ fase: 'Bronze Medal Match', by: 'Oslo', hal: 'Unity Arena' });
+  });
+
+  // Mutant: `if (felt == null) fejl(...)` → `if (false)`. Så faldt et uafsluttet
+  // holdfelt igennem til holdAf(null) og kastede TypeError — en fejl, provideren
+  // ikke kan kende fra en programfejl (filens hovedregel: ALLE vagter kaster IhfStrukturFejl).
+  it('et holdfelt uden </div> kaster IhfStrukturFejl — ikke TypeError', () => {
+    // Hjemmefeltets og score-feltets </div> fjernes (så intet </div> står mellem de to country-felter)
+    // og to lukkere sættes ind bagefter, så kampblokken stadig lukker.
+    let html = erstat(DAG_2025, 'France.png"></div>', 'France.png">', ID);
+    html = erstat(html, '35-34</div>', '35-34', ID);
+    html = erstat(html, '<div class="clearfix"></div>', '</div></div><div class="clearfix"></div>', ID);
+    kaster(() => parseDagside(html), /kamp 202123: holdfelt 1 lukkes ikke/);
+  });
+
+  // Mutant: fejlsidens `.slice(0, 80)` → `.slice(0, 800)`. 4 KB-testen ovenfor har
+  // en tom tekst, så ingen test så længden af selve citatet.
+  it('fejlsidens citat afkortes til 80 tegn — Drift-kortet bærer ikke en hel fremmed tekst', () => {
+    const e = kaster(() => parseDagside(`<html>${'x'.repeat(300)}`), /ingen konkurrence-markør/);
+    expect(e.message).toContain(`Sidens tekst begynder: «${'x'.repeat(80)}».`);
+    expect(e.message).not.toContain('x'.repeat(81));
+  });
+
+  // Mutant: `kode > 1` i `tegn` (i stedet for `> 0`): U+0001 blev U+FFFD i stedet for mellemrum.
+  it('&#1; (SOH) er et styretegn og bliver til mellemrum — ikke U+FFFD', () => {
+    const ude = parseDagside(erstat(DAG_2025, '>Portugal</a>', '>South&#1;Korea</a>'))[0].ude;
+    expect(ude).toBe('South Korea');
   });
 });

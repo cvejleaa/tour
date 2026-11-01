@@ -199,6 +199,15 @@ describe('hver sportsprofil har præcis den forventede form', () => {
       { min: 1 }, { min: 0.5 }, { min: '1.01' }, {}, undefined]) {
       expect(() => oddsParametre({ sport: 'x', elo, odds }), JSON.stringify(odds)).toThrow(/odds-gulv/);
     }
+    // Beskeden er det eneste, der står i loggen/CI, når en profil er forkert: den
+    // skal nævne SPORTEN og den RÅ værdi — ikke bare «odds-gulv». (Mutant: sporten
+    // eller værdien udeladt overlevede, fordi testen over kun matchede /odds-gulv/.)
+    expect(() => oddsParametre({ sport: 'haandbold', elo, odds: { min: NaN } }))
+      .toThrow('Sportsprofilen "haandbold" har intet gyldigt odds-gulv (odds.min = NaN).');
+    expect(() => oddsParametre({ sport: 'x', elo, odds: { minimum: 1.01 } }))
+      .toThrow('Sportsprofilen "x" har intet gyldigt odds-gulv (odds.min = undefined).');
+    expect(() => oddsParametre({ sport: 'x', elo, odds: { min: 1 } }))
+      .toThrow('(odds.min = 1).');
     // Det, der skal virke, virker — også lige over 1.
     expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.01 } }).oddsMin).toBe(1.01);
     expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.0001 } }).oddsMin).toBe(1.0001);

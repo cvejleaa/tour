@@ -351,6 +351,10 @@ describe('sportsprofilen: server-spejlet er identisk med src', () => {
       expect(() => oddsParametre(p), JSON.stringify(odds)).toThrow(/odds-gulv/);
       expect(() => src.oddsParametre(p), JSON.stringify(odds)).toThrow(/odds-gulv/);
     }
+    // Beskeden bærer sporten og den RÅ værdi (mutant: begge udeladt overlevede /odds-gulv/).
+    const msg = 'Sportsprofilen "haandbold" har intet gyldigt odds-gulv (odds.min = NaN).';
+    expect(() => oddsParametre({ sport: 'haandbold', elo: { ...ELO }, odds: { min: NaN } })).toThrow(msg);
+    expect(() => src.oddsParametre({ sport: 'haandbold', elo: { ...ELO }, odds: { min: NaN } })).toThrow(msg);
     expect(oddsParametre({ sport: 'x', elo: { ...ELO }, odds: { min: 1.0001 } }).oddsMin).toBe(1.0001);
   });
 

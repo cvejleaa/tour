@@ -376,22 +376,19 @@
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
 
-- **IHF-parseren (PR #240, 3b7499e) — tre ÅBNE, alle kræver en fjendtlig/ændret
-  side fra ihf.info (ingen deltager kan styre dem), og ingen provider kalder den endnu:**
-  (a) **Kubisk ReDoS** i `\s*([^<]*?)\s*<…`-mønstret (ihfParse.js L199 dag-tid,
-  L324 GMT; også L264/L323/L339, men de bider kun uden et efterfølgende `<`).
-  BEKRÆFTET: ægte kampside med `<small>`→`<span>` og 2000/4000 mellemrum i
-  tids-elementet → 5,2 s / 40,7 s; 10 000 → 159 s. Rettelse målt lineær:
-  `([^<]*)<small>` + `.trim()` i JS → 3 MB på <10 ms. Fixtures' største ws-run = 254.
-  (b) `rens` kalder `String.fromCodePoint` ukontrolleret: `&#99999999;`, `&#x…;`
-  >0x10FFFF og 400 cifre → **RangeError, ikke IhfStrukturFejl** (BEKRÆFTET); lone
-  surrogate `&#xD800;`, `&#0;` og U+202E slipper igennem i holdnavne. Plus
-  `kraevSide` kører `rens` (`<[^>]*>`, kvadratisk) på HELE fejlsiden: 100k `<` → 3,4 s.
-  (c) `parseKampside` tager ihfId/status/tider/score fra FØRSTE forekomst i hele
-  siden og binder ikke ihfId til den kanoniske `match-center/{id}`. BEKRÆFTET: en
-  nabo-widget med `data-ihf-competitions-match-results-match-id="999999"` foran →
-  kampens 35-34 tilskrives 999999 uden kast. Rettelse: præcis én markør + ihfId ===
-  kanonisk id (eller === det id, provideren bad om).
+- **IHF-parseren (PR #240) — a/b/c LUKKET i 205fa54 (se IKKE virker); TO rester ÅBNE
+  til provideren (del 2), begge kræver en fjendtlig/ændret side fra ihf.info:**
+  (d) **`IhfStrukturFejl.message` er ubegrænset.** Rå sidetekst citeres i fejlene for
+  tid (`tider` L231), score (`stilling` L241, L356, L663), periode (L523) og
+  `JSON.stringify(hold)` (L642). BEKRÆFTET: 2 MB i `time-local` eller `result-a-b` →
+  besked på 2 000 097 tegn. driftlog.js afkorter IKKE (`linjer.push(besked)`, meldAlarm
+  `besked`) → over 1 MiB fejler Firestore-skrivningen, og alarmen om skraber-fejlen
+  bliver TAVS. Rettelse: afkort i `IhfStrukturFejl`-konstruktøren (fx 500 tegn) eller
+  hvert citat (som `visKode` = 40). Kun `statusKode` og fejlside-citatet er afkortet.
+  (e) Holdnavne er stadig fri tekst: U+3164/U+2800/U+115F (usynlige Lo/So), Zalgo
+  (50 kombinerende), homoglyffer (kyrillisk а), `__proto__`, `<img onerror>` som tekst
+  passerer `rens` (BEKRÆFTET). Kampsiden giver KUN navne, ingen hold-id. Se sag-afsnittet
+  pkt. 3: bind IHF-hold-id → seedet hold, brug aldrig IHF-navnet som nøgle.
 
 - **`meldAlarm`s dæmpning sluger FORSKELLIGE hændelser, der deler alarm-id**
   (driftlog.js L107-131, BEKRÆFTET i emulator 2026-10-13). Id =
@@ -958,6 +955,31 @@
   væggen henter navnet fra profilen og kun låner dokumentets ved `c.system === true`.
 
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
+
+- **IHF-parseren efter omskrivningen (PR #240, 205fa54, 2026-11-01) — BEKRÆFTET lukket:**
+  ReDoS: 40 fjendtlige sager × 100k/2M tegn i børneproces (timeout 15 s) — alle sticky
+  mønstre, `rens` (`<`, `&`, `&#`+cifre), kanonisk `<link`+ws, kalender `href="`, `<br`+ws,
+  divElement med uafsluttet `<!--`/`<script`, 100k kommentarer/scripts, `</script` uden
+  åbner, dyb `<div>` (400k) balanceret og ubalanceret, `<div` uden `>` → max 87 ms ved 2 MB.
+  Entiteter: `&#99999999;`, `&#x110000;`, 20 hex-F, 400 cifre, `&#0;` → U+FFFD, ingen
+  RangeError; enlig/omvendt surrogat → U+FFFD; RLO/isolater/ALM/ZWSP/shy/BOM/tag-tegn
+  fjernes; C0/C1/DEL/U+2028 → mellemrum; kun usynlige → «intet navn» (kast). (To
+  surrogat-entiteter i træk danner et gyldigt par → emoji: harmløst.)
+  Binding: nabo-widget med markør før/efter, markør i kommentar, markør-id ≠ kanonisk,
+  kanonisk ≠ forventet, kanonisk med `?query`, `parseKampside` uden ihfId (TypeError),
+  rå `</div>`/`<style></div>` (lukker kortet tidligt → kast), `<span title="<div">`
+  (kortet strækkes → dubletanker → kast) — ALT fail-closed. Nabo uden markør med egen
+  `result-a-b` før kortet ignoreres korrekt. Dublet-blok på dagsiden og ot2 efter ulige
+  ot1 kaster nu (sag-afsnittets pkt. 4-5 lukket). PoC: scratchpad sec-r2/{redos,binding,
+  entitet,paritet}.cjs. Ægte fixtures: gammel = ny (sorterede nøgler, score→slutScore).
+- **Ukendt `game.sport` i Ompris-knappens fejlvej (205fa54):** 17 værdier inkl. HTML,
+  1 MB streng, NaN, Timestamp, GeoPoint, Buffer, DocumentReference (toJSON → kun
+  projectId), `__proto__`/`constructor`/`hasOwnProperty` → `visSport` kaster aldrig,
+  knappen giver HttpsError('failed-precondition'), triggeren advarer og kører videre.
+  Kun globalAdmin skriver games/{id} (firestore.rules), ingen kode skriver `sport`, og
+  fladen viser beskeden som React-tekst (escaped). `requireAdmin` står før kaldet,
+  uændret (index.js L349). Andre fejl end `kode:'failed-precondition'` slipper uændret
+  igennem → klienten får stadig «INTERNAL», ingen lækage.
 
 - **`game.sport` som våben (PR #240, 2026-11-01):** 19 værdier (`__proto__`,
   `toString`, `constructor`, `hasOwnProperty`, `valueOf`, tal, bool, `{}`, `[]`,
@@ -2094,6 +2116,9 @@
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
 
+- **En fejlbesked, der citerer fremmed input, skal have et loft.** Et citat uden loft
+  gør skraberens fejl større end Firestores 1 MiB, og så fejler selve alarmen om fejlen
+  tavst. Grep efter `«${` i kast-beskeder og mål med 2 MB fyld (ihfParse, 205fa54).
 - **Tre kvantorer, der alle kan æde mellemrum, er kubiske.** `\s*([^<]*?)\s*X`
   backtracker O(n³) over en whitespace-run, når X ikke følger. Lineært: `([^<]*)X` og
   trim i JS. Målt på ihfParse (4000 mellemrum → 41 s). Grep efter `\s*(` + `*?)\s*`.
@@ -2599,20 +2624,19 @@ autorisation og shell som argument-parser. Gennemgå dem som callables.
 
 ## Håndbold-VM 2027 / IHF (PR #240 del 1 → provider i del 2) — ÅBENT
 
-Del 1 skriver intet og kalder ikke ihf.info fra serveren. Før provideren landes
-(syncProviders.js), SKAL dette være lukket eller eksplicit accepteret:
-1. VIRKER-punktet om ihfParse (a ReDoS, b RangeError, c ubundet kamp-id).
+Del 1 skriver intet og kalder ikke ihf.info fra serveren. Gennemgået på 3b7499e og igen
+på 205fa54 (parser omskrevet, ukendt sport afvist). Status før provideren (syncProviders.js):
+1. ihfParse a/b/c: LUKKET 205fa54 (BEKRÆFTET, se IKKE virker). Ny rest (d): ubegrænsede
+   fejlbeskeder (2 MB målt) → skal afkortes, før de når driftlog/meldAlarm (VIRKER).
 2. Provideren: svar-loft (fx 2 MB via content-length + læst længde), AbortSignal-timeout,
    ingen redirect til fremmed vært, ærlig UA, og INGEN browser-forfalskning (faldgrube).
-3. Holdnavne fra IHF må ikke blive til holdnavne hos os: bind IHF-hold-id → seedet hold.
-   Målt: `__proto__`, «a.b/c`$x» og 100 000 tegn passerer `rens` som navn — og
-   `__proto__` som holdnavn: `eloCurrent[n] = …` (gameScoring.js L149) er en
-   prototype-tildeling → holdet forsvinder TAVST af eloCurrent; i et Firestore-map
-   ville nøglen give 400 (reserveret) = recomputeSeasonElo død for spillet (læst, ikke kørt).
-4. `tjekEfter60` (L286-296) tjekker ikke, at ot2 kun spilles efter lige ot1 (læst, ikke
-   kørt) — påvirker ikke efter60, kun signalet om fejllæsning.
-5. Dagsiden accepterer to blokke med samme ihfId (målt: [202123, 202123, 202125]) —
-   harmløst ved doc-pr-ihfId, farligt hvis provideren TÆLLER.
-PoC'er: scratchpad poc/{sport,ihf1,redos,redos2,fix,dup}.cjs — mønster: læs fixture,
-`replace` ét element, time med `process.hrtime.bigint()`.
-
+   Kald `parseKampside(html, { ihfId })` med det id, der blev BEDT om — ikke et id fra siden.
+3. Holdnavne fra IHF må ikke blive til holdnavne hos os: bind IHF-hold-id → seedet hold
+   (VIRKER e). `__proto__` som holdnavn: `eloCurrent[n] = …` (gameScoring.js) er en
+   prototype-tildeling → holdet forsvinder TAVST; i et Firestore-map 400 (læst, ikke kørt).
+4. `status:'ukendt'` må ALDRIG tolkes som slut; et vedvarende 'ukendt' er providerens alarm.
+5. Påstandene i runde 2 efterprøvet: golden (`npx vite-node scripts/sportprofil-golden.mjs`)
+   byte-identisk med testdata og med scratchpad/golden-gammel.json; ingen kode skriver
+   `game.sport` (scripts/games.mjs har intet felt); fodbold-vejen gennem omprisFraKnap er
+   samme kald + samme svar.
+PoC'er: scratchpad poc/*.cjs (3b7499e) og sec-r2/*.cjs (205fa54).

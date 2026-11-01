@@ -578,6 +578,10 @@ describe('ompris kampene', () => {
     mockReprice.mockResolvedValue({ ok: false, error: 'Du har ikke adgang til denne handling.' });
     fireEvent.click(screen.getByRole('button', { name: /Skriv de 2/i }));
     await waitFor(() => expect(screen.getByText(/ikke adgang/i)).toBeInTheDocument());
+    // … og fejlen står RØDT, ikke grønt (mutant: kind 'err' → 'ok' på skrive-stien
+    // overlevede, så en fejlet skrivning kunne ligne en succes).
+    expect(screen.getByText(/ikke adgang/i).className).toMatch(/badge--red/);
+    expect(screen.getByText(/ikke adgang/i).className).not.toMatch(/badge--green/);
     // Planen SKAL blive stående — ellers har admin hverken skrevet noget eller
     // fået lov at beholde det, han lige har set.
     expect(screen.getByRole('button', { name: /Skriv de 2/i })).toBeInTheDocument();
