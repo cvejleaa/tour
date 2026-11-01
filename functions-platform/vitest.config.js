@@ -37,6 +37,7 @@ export default defineConfig({
       'chanceVagt.test.js',
       'forladSpil.test.js',
       'adminDeleteUser.test.js',
+      'ihfParse.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,
