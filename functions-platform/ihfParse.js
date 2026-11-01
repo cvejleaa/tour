@@ -38,9 +38,14 @@
 //    «læs til slut-tag» er indexOf, ikke `[\s\S]*?`.
 //  • Tag-fjernelsen er `<[^<>]*>`: en scanning stopper ved næste «<», så
 //    100.000 «<» uden «>» er lineært (med `<[^>]*>` tog det 3,4 s).
-// Hver regel har en tidstest på et fjendtligt input i ihfParse.test.js, der
-// kører i en børneproces med timeout (en hængende regex kan ikke afbrydes
-// inde fra testen).
+// Hvert sticky mønster og indexOf i `indhold` har en tidstest i
+// ihfParse.test.js med fjendtligt fyld lige efter ankeret, kørt i en
+// børneproces med timeout (en hængende regex kan ikke afbrydes inde fra
+// testen) — og hver af dem bliver rød, hvis flaget y byttes til g, eller
+// indexOf til `[\s\S]*?`. Undtagelsen er KORT_TEKST: i et lukket resultatkort
+// følger der altid et «<», så første forsøg lykkes, og y og g er her den samme
+// regex (en ækvivalent mutant, ingen test kan skelne dem). Flaget står for at
+// holde reglen, ikke fordi en test bærer det.
 //
 // ═══════════════════════════════════════════════════════════════════════════
 // TING, SIDERNE VISTE, OG SOM IKKE ER HVAD DE LIGNER (målt mod fixtures)
@@ -122,11 +127,14 @@ const STYRETEGN = /\p{Cc}/gu;
 /** Enlige surrogater — fra en entitet eller rå i strengen — bliver U+FFFD. */
 const SURROGAT = /\p{Cs}/gu;
 /**
- * Usynlige retnings- og formateringstegn fjernes helt: U+202E vender teksten
- * («Denmark» kan vises som et andet navn), og nul-bredde-tegn får to ens
- * navne til at være forskellige strenge.
+ * Usynlige formateringstegn fjernes helt — hele Unicode-kategorien Cf, ikke en
+ * håndliste: U+202E vender teksten («Denmark» kan vises som et andet navn),
+ * nul-bredde-tegn og bløde bindestreger (U+00AD) får to ens navne til at være
+ * forskellige strenge, og tag-tegnene (U+E0020–E007F) er usynlig tekst.
+ * Retningstegnene (U+061C, U+200E/F, U+202A–202E, U+2066–2069) er alle Cf;
+ * testen tjekker hvert af dem, så en ændring i Unicode-tabellen ville ses.
  */
-const USYNLIGE = /[\u061C\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+const USYNLIGE = /\p{Cf}/gu;
 
 /**
  * Tekst ud af et HTML-stykke: tags væk, entiteter afkodet, styre- og
@@ -407,18 +415,47 @@ function parseDagside(html) {
     if (set.has(id)) fejl(`dagsiden har kamp ${id} i to kampblokke — det er uklart, hvilken der er kampen.`);
     set.add(id);
   }
-  return blokke.map((blok, i) => parseKampBlok(blok, ider[i + 1][0]));
+  // Hver kampblok er sit EGET <div class="matchDetails">-element, ikke «til
+  // næste blok»: ellers ville dagens sidste blok strække sig til sidens ende og
+  // kunne låne en fase, en hal eller et score-felt fra en sidebar efter kampene.
+  return blokke.map((blok, i) => {
+    const ihfId = ider[i + 1][0];
+    const element = divElement(`<div class="matchDetails"${blok}`, 0);
+    if (element == null) fejl(`kamp ${ihfId}: kampblokken (<div class="matchDetails">) lukkes aldrig.`);
+    return parseKampBlok(element, ihfId);
+  });
+}
+
+/** Hvor en HTML-kommentar eller et <script> slutter: indekset efter den. -1, hvis den aldrig lukkes. */
+const SCRIPT_SLUT = /<\/script\b/gi;
+function forbi(html, aabner, fra) {
+  if (aabner === '<!--') {
+    const j = html.indexOf('-->', fra);
+    return j < 0 ? -1 : j + 3;
+  }
+  SCRIPT_SLUT.lastIndex = fra;
+  return SCRIPT_SLUT.exec(html) ? SCRIPT_SLUT.lastIndex : -1;
 }
 
 /**
  * Det element, der STARTER ved `start` (et «<div»), til og med sit eget
- * </div> — fundet ved at tælle <div og </div>. Null, hvis det aldrig lukkes.
+ * </div> — fundet ved at tælle <div og </div>. Et «<div» i en HTML-kommentar
+ * eller et <script> er tekst, ikke et element, og springes over: ellers ville
+ * «<!-- <div class="gammel"> -->» flytte slutgrænsen ud over en nabo-widget,
+ * og «<!-- </div> -->» lukke kortet før dets felter. Null, hvis elementet —
+ * eller en kommentar eller et script i det — aldrig lukkes.
  */
 function divElement(html, start) {
-  const re = /<(\/?)div\b/gi;
+  const re = /<(\/?)div\b|<!--|<script\b/gi;
   re.lastIndex = start;
   let dybde = 0;
   for (let m = re.exec(html); m; m = re.exec(html)) {
+    if (m[1] === undefined) { // «<!--» eller «<script» — gruppen deltog ikke
+      const j = forbi(html, m[0].toLowerCase(), re.lastIndex);
+      if (j < 0) return null;
+      re.lastIndex = j;
+      continue;
+    }
     dybde += m[1] ? -1 : 1;
     if (dybde === 0) {
       const slut = html.indexOf('>', re.lastIndex);

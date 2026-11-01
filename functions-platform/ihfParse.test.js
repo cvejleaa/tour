@@ -431,6 +431,11 @@ describe('parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «in
     let html = erstat(DAG_2025, '>18:00</time>', '>23:59</time>', 'match-time-202125');
     html = erstat(html, 'GMT 17:00', 'GMT 22:59');
     expect(parseDagside(html)[1]).toMatchObject({ lokalTid: '23:59', gmtTid: '22:59' });
+    // Lokal midnat med GMT 23:00 er et klokkeslæt: kun BEGGE 00:00 betyder «ikke sat».
+    // (En vagt, der kun så på den lokale tid, ville give null her.)
+    let midnat = erstat(DAG_2025, '>18:00</time>', '>00:00</time>', 'match-time-202125');
+    midnat = erstat(midnat, 'GMT 17:00', 'GMT 23:00');
+    expect(parseDagside(midnat)[1]).toMatchObject({ lokalTid: '00:00', gmtTid: '23:00' });
   });
 });
 
@@ -868,6 +873,23 @@ describe('rens — entiteter med loft, styre- og retningstegn væk', () => {
     ['\u061C', 'ARABIC LETTER MARK'],
     ['\u200B', 'nul-bredde mellemrum'],
     ['&#xFEFF;', 'BOM / nul-bredde no-break'],
+    // Resten af retningstegnene — de står ikke i en håndliste, men skal være Cf.
+    ['\u200E', 'LEFT-TO-RIGHT MARK'],
+    ['\u202B', 'RIGHT-TO-LEFT EMBEDDING'],
+    ['\u202C', 'POP DIRECTIONAL FORMATTING'],
+    ['\u202D', 'LEFT-TO-RIGHT OVERRIDE'],
+    ['\u2067', 'RIGHT-TO-LEFT ISOLATE'],
+    ['\u2068', 'FIRST STRONG ISOLATE'],
+    // Formateringstegn, som den gamle håndliste lod gå igennem (hele kategorien Cf fjernes nu).
+    ['\u00AD', 'blød bindestreg'],
+    ['&#xAD;', 'blød bindestreg som entitet'],
+    ['\u206A', 'INHIBIT SYMMETRIC SWAPPING (U+206A)'],
+    ['\u206F', 'NOMINAL DIGIT SHAPES (U+206F)'],
+    ['\uFFF9', 'INTERLINEAR ANNOTATION ANCHOR (U+FFF9)'],
+    ['\uFFFB', 'INTERLINEAR ANNOTATION TERMINATOR (U+FFFB)'],
+    ['\u{E0001}', 'LANGUAGE TAG (U+E0001)'],
+    ['\u{E0041}\u{E007F}', 'tag-tegn «A» + CANCEL TAG'],
+    ['&#xE0020;', 'TAG SPACE som entitet'],
   ])('%s (%s) fjernes helt fra holdnavnet', (tegn) => {
     expect(ude(`Den${tegn}mark`)).toBe('Denmark');
   });
@@ -971,6 +993,58 @@ describe('parseKampside — siden er bundet til sit kamp-id og sit eget resultat
     kaster(() => parseKampside(html, { ihfId: 202123 }), new RegExp(`«${anker_}» står 2 gange i resultatkortet`));
   });
 
+  it('en slutscore, der kun står EFTER resultatkortet, tilhører ikke kampen (kortets slutgrænse)', () => {
+    // Kortets eget felt omdøbt; en nabo lige efter kortets </div> har et result-a-b.
+    // Strakte «kortet» sig til sidens ende, ville 35:34 blive lånt.
+    let html = erstat(KAMP_BRONZE, '<p id="result-a-b">35:34</p>', '<p id="result-x">35:34</p>');
+    html = erstat(html, '<!--End Match result section-->',
+      '<div class="nabo"><p id="result-a-b">35:34</p></div><!--End Match result section-->');
+    expect(html.indexOf('id="result-a-b"')).toBeGreaterThan(html.indexOf(MARKOER_KAMP));
+    kaster(() => parseKampside(html, { ihfId: 202123 }), /kamp 202123 mangler sin slutscore \(result-a-b\)/);
+  });
+
+  it('kampsidens status læses af kampmarkørens EGET tag — ikke af et element inde i kortet', () => {
+    let html = erstat(KAMP_BRONZE, 'data-ihf-competitions-match-results-match-status="E"', 'data-x="E"');
+    html = erstat(html, '<div class="resultCardBody text-center">',
+      '<div class="resultCardBody text-center"><i data-ihf-competitions-match-results-match-status="E"></i>');
+    kaster(() => parseKampside(html, { ihfId: 202123 }), /kamp 202123 mangler sin status/);
+  });
+
+  it('en kampmarkør uden tal-id (match-id="abc") kaster en skraberfejl — ikke TypeError', () => {
+    const html = erstat(KAMP_BRONZE, `${MARKOER_KAMP}"202123"`, `${MARKOER_KAMP}"abc"`);
+    kaster(() => parseKampside(html, { ihfId: 202123 }), /kampsidens kampmarkør har intet tal-id/);
+  });
+
+  // Kortets grænse findes ved at tælle <div og </div>. Hver sag indsættes inde i
+  // kortet, og en nabo med sit eget result-a-b står lige EFTER kortet: forskydes
+  // optællingen udad, står slutscoren to gange; forskydes den indad, mangler
+  // kortets krop. Kun den rigtige optælling giver kampen.
+  it.each([
+    ['<!-- <div class="gammel"> -->', 'et «<div» i en HTML-kommentar'],
+    ['<!-- </div> -->', 'et «</div>» i en HTML-kommentar'],
+    ['<script>var s = \'<div>\';</script>', 'et «<div» i et script'],
+    ['<SCRIPT>var s = \'</div>\';</SCRIPT>', 'et «</div>» i et script med store bogstaver'],
+    ['<DIV class="x">y</div>', 'et <DIV> med store bogstaver, lukket med </div>'],
+    ['<divider>', 'et element, hvis navn blot begynder med «div»'],
+  ])('%s (%s) forskyder ikke resultatkortets slutgrænse', (indsat) => {
+    let html = erstat(KAMP_BRONZE, '<div class="resultCardBody text-center">', `<div class="resultCardBody text-center">${indsat}`);
+    html = erstat(html, '<!--End Match result section-->',
+      '<div class="nabo"><p id="result-a-b">1:0</p></div><!--End Match result section-->');
+    expect(parseKampside(html, { ihfId: 202123 })).toMatchObject({ slut: { h: 35, u: 34 }, efter60: { h: 35, u: 34 } });
+  });
+
+  it.each([
+    ['<!-- aldrig lukket', 'en kommentar', '-->'],
+    ['<script>aldrig lukket', 'et script', '</script'],
+  ])('%s: %s i kortet, der aldrig lukkes, kaster', (indsat, _, luk) => {
+    // Også sidens senere kommentarer/scripts mister deres slutmærke — ellers
+    // lukkes den indsatte af det næste «-->» længere nede, som i en browser.
+    const mi = KAMP_BRONZE.indexOf(MARKOER_KAMP);
+    const aaben = KAMP_BRONZE.slice(0, mi) + erstatAlle(KAMP_BRONZE.slice(mi), luk, '[lukket ikke]');
+    const html = erstat(aaben, '<div class="resultCardBody text-center">', `<div class="resultCardBody text-center">${indsat}`);
+    kaster(() => parseKampside(html, { ihfId: 202123 }), /kamp 202123: resultatkortet .*lukkes aldrig/);
+  });
+
   it('et resultatkort, der aldrig lukkes, kaster', () => {
     const mi = KAMP_BRONZE.indexOf(MARKOER_KAMP);
     const html = KAMP_BRONZE.slice(0, mi) + KAMP_BRONZE.slice(mi).split('</div>').join('</dv>');
@@ -1021,6 +1095,60 @@ describe('felterne læses, hvor de hører til — og mellemrum trimmes', () => {
     kaster(() => parseDagside(html), /kamp 202125 mangler sin status/);
   });
 
+  it('dagsidens status læses kun af åbningstagget — ikke af blokkens første indre tag', () => {
+    let html = erstat(DAG_2025, 'data-ihf-competitions-match-status="E"', 'data-x="E"', 'data-ihf-competitions-match-id="202125"');
+    html = erstat(html, '<div class="col-md-4 col-xs-12 no-padding">',
+      '<div class="col-md-4 col-xs-12 no-padding" data-ihf-competitions-match-status="E">', 'data-ihf-competitions-match-id="202125"');
+    kaster(() => parseDagside(html), /kamp 202125 mangler sin status/);
+  });
+
+  it('dagens sidste kamp låner ikke fase eller hal fra en sidebar efter kampene', () => {
+    // Kampblokken er sit eget <div class="matchDetails">, ikke «resten af siden».
+    const ID = 'data-ihf-competitions-match-id="202125"';
+    const sidebar = '<div class="sidebar"><div class="groupName">Main Round</div>'
+      + '<p class="arena x">Bergen / Spektrum</p></div>';
+    const medSidebar = (html) => erstat(html, '<div class="clearfix"></div>', `${sidebar}<div class="clearfix"></div>`, ID);
+    const udenHal = medSidebar(erstat(DAG_2025, '<p class="arena col-md-8 col-xs-12 no-padding">Oslo / Unity Arena</p>', '', ID));
+    expect(udenHal.indexOf('Bergen')).toBeGreaterThan(udenHal.indexOf(ID));
+    expect(parseDagside(udenHal)[1]).toMatchObject({ ihfId: 202125, by: null, hal: null });
+    const udenFase = medSidebar(erstat(DAG_2025, '<div class="groupName col-md-4 col-xs-12 no-padding">Finals</div>', '', ID));
+    kaster(() => parseDagside(udenFase), /kamp 202125 mangler fase\/gruppe/);
+  });
+
+  it('en kampblok, der aldrig lukkes, kaster', () => {
+    const i = DAG_2025.indexOf('data-ihf-competitions-match-id="202125"');
+    const html = DAG_2025.slice(0, i) + DAG_2025.slice(i).split('</div>').join('</dv>');
+    kaster(() => parseDagside(html), /kamp 202125: kampblokken .*lukkes aldrig/);
+  });
+
+  // Et felt læses LIGE efter sit anker (sticky). Står der noget andet, er feltet
+  // ikke det, vi tror — så må et senere, lignende felt ikke tages i stedet.
+  it('fase/gruppe: et «<» lige efter ankeret er ikke feltet — et senere tag lånes ikke', () => {
+    const html = erstat(DAG_2025, 'class="groupName col-md-4 col-xs-12 no-padding">Finals</div>',
+      'class="groupName"<b class="x">Finals</b></div>', 'data-ihf-competitions-match-id="202125"');
+    kaster(() => parseDagside(html), /kamp 202125 mangler fase\/gruppe/);
+  });
+
+  it('score-feltet: et «<» lige efter ankeret er ikke feltet — det næste tags tekst lånes ikke', () => {
+    const html = erstat(DAG_2025, 'id="ihf-competitions-score-202125"', 'id="ihf-competitions-score-202125"<');
+    kaster(() => parseDagside(html), /kamp 202125 mangler sit score-felt/);
+  });
+
+  it('hold-linket: et id, der ikke står LIGE efter «team-matches/», læses ikke', () => {
+    const html = erstat(DAG_2025, 'team-matches/5647">Portugal</a>', 'team-matches/x5647">Portugal</a>');
+    kaster(() => parseDagside(html), /udeholdets link for kamp 202123 kan ikke læses/);
+  });
+
+  it('en periode: et «<» før periodens «>» er ikke feltet — det næste tags tal lånes ikke', () => {
+    const html = erstat(KAMP_BRONZE, 'id="fh-goals-a" class="col-xs-4 bigFont">19<', 'id="fh-goals-a" class="col-xs-4 bigFont"<b>19<');
+    kaster(() => parseKampside(html, { ihfId: 202123 }), /perioden h1 \(fh-goals-a\) for kamp 202123 mangler/);
+  });
+
+  it('kampsidens hal skal stå LIGE efter GMT-tiden — dommernes <span> længere nede er ikke hallen', () => {
+    const html = erstat(KAMP_BRONZE, '<span>Oslo / Unity Arena</span>', '<i>Oslo / Unity Arena</i>');
+    expect(parseKampside(html, { ihfId: 202123 })).toMatchObject({ by: null, hal: null });
+  });
+
   it('et hold-link, der ikke kan læses, kaster — det er ikke en pladsholder', () => {
     // Uden vagten ville et ødelagt link enten vælte med TypeError eller give hjemmeId null (= «W QF1»).
     const html = erstat(DAG_2025, 'team-matches/117">France</a>', 'team-matches/frankrig">France</a>');
@@ -1056,12 +1184,23 @@ describe('kraevSide — fejlsidens citat', () => {
 });
 
 // ---------------------------------------------------------------------------
-// ReDoS: hvert mønster mod et fjendtligt input. Kørt i en BØRNEPROCES med
-// timeout, for en hængende regex blokerer tråden — en vitest-timeout kan ikke
-// afbryde den. Med de gamle mønstre (`\s*([^<]*?)\s*X`, `<[^>]*>`) hænger hver
-// af dem (Security målte 159 s for 10.000 mellemrum); med de nye svarer de på
-// få millisekunder. Grænsen på 250 ms er langt over et lineært gennemløb af
-// ~0,5 MB og langt under et kvadratisk.
+// ReDoS: fjendtligt input, kørt i en BØRNEPROCES med timeout, for en hængende
+// regex blokerer tråden — en vitest-timeout kan ikke afbryde den. Grænsen på
+// 250 ms er langt over et lineært gennemløb af ~0,5 MB og langt under et
+// kvadratisk.
+//
+// Sagerne er af to slags, og de beviser forskellige ting:
+//  • De gamle mønstre (`\s*([^<]*?)\s*X`, `<[^>]*>`). Mod den gamle parser
+//    (ae285a0) blev 8 af 9 røde (7 dræbt ved timeout, én RangeError) — men
+//    ikke alle: tre af kampsidens sager rammer i dag kortvagten først (se
+//    kommentaren ved dem).
+//  • Det STICKY flag og indexOf: fyld lige efter ankeret, som et mønster med g
+//    i stedet for y prøver forfra fra hver eneste position (kvadratisk).
+//    Hver af de syv sager blev rød (dræbt efter 4000 ms), når netop dens flag
+//    byttedes fra y til g, eller indexOf i `indhold` til `([\s\S]*?)</p>` —
+//    målt med 200.000 tegn; med y svarer de på få ms. KORT_TEKST har ingen
+//    sag: i et lukket kort følger der altid et «<», så y og g er den samme
+//    regex (se ihfParse.js, toppen).
 
 describe('ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input', () => {
   const N = 200_000;
@@ -1078,10 +1217,11 @@ describe('ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendt
       const { slags, html, ihfId } = JSON.parse(data);
       const t0 = process.hrtime.bigint();
       let udfald = 'returnerede';
+      let besked = '';
       try {
         if (slags === 'dag') P.parseDagside(html); else P.parseKampside(html, { ihfId });
-      } catch (e) { udfald = e.name; }
-      process.stdout.write(JSON.stringify({ udfald, ms: Number(process.hrtime.bigint() - t0) / 1e6 }));
+      } catch (e) { udfald = e.name; besked = e.message; }
+      process.stdout.write(JSON.stringify({ udfald, besked, ms: Number(process.hrtime.bigint() - t0) / 1e6 }));
     });`;
 
   /** Kampsiden afskåret lige efter `anker` + fjendtligt fyld: intet «<» følger. */
@@ -1111,18 +1251,57 @@ describe('ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendt
     ['kamp', 'kampside-fejlside med 200.000 «<» uden «>»', () => '<'.repeat(N)],
     ['dag', 'holdnavn med 200.000 «<» uden «>»', () => erstat(DAG_2025, '>Portugal</a>', `>${'<'.repeat(N)}</a>`)],
     ['dag', 'en entitet med 200.000 cifre', () => erstat(DAG_2025, '>Portugal</a>', `>&#${'9'.repeat(N)};</a>`)],
+
+    // ── Sticky (y) og indexOf: fyld LIGE efter ankeret, så første forsøg fejler.
+    // ATTR `([^"]*)"` — status=" og 200.000 «x», intet «"» før tagets «>».
+    ['dag', 'ATTR (status): status=" + 200.000 «x» uden afsluttende «"»',
+      () => erstat(DAG_2025, 'data-ihf-competitions-match-status="E"', `data-ihf-competitions-match-status="${'x'.repeat(N)}`,
+        'data-ihf-competitions-match-id="202125"'), /kamp 202125 mangler sin status/],
+    // TAG_REST `[^<>]*>` — class="groupName, 200.000 mellemrum og så «<».
+    ['dag', 'TAG_REST (fase): class="groupName + 200.000 mellemrum + «<»',
+      () => erstat(DAG_2025, 'class="groupName', `class="groupName${SP}<`, 'data-ihf-competitions-match-id="202125"'),
+      /kamp 202125 mangler fase\/gruppe/],
+    // SCORE_FELT `[^<>]*>([^<]*)<` — score-ankeret, 200.000 mellemrum og så «<».
+    ['dag', 'SCORE_FELT: score-ankeret + 200.000 mellemrum + «<»',
+      () => erstat(DAG_2025, 'id="ihf-competitions-score-202125"', `id="ihf-competitions-score-202125"${SP}<`),
+      /kamp 202125 mangler sit score-felt/],
+    // HOLD_LINK `(\d+)"[^<>]*>` — team-matches/x og 100.000 × «1"», og så «<».
+    ['dag', 'HOLD_LINK: team-matches/x + 100.000 × «1"» + «<»',
+      () => erstat(DAG_2025, 'team-matches/5647">Portugal</a>', `team-matches/x${'1"'.repeat(N / 2)}<`),
+      /udeholdets link for kamp 202123 kan ikke læses/],
+    // indhold: «læs til </p>» er indexOf — hallen i dagens sidste kamp uden </p>
+    // i hele kampblokken (blokken er sit eget element, så sidens senere </p> tæller ikke).
+    ['dag', 'indhold (hal): 200.000 «x» uden </p> i kampblokken',
+      () => erstat(DAG_2025, '>Oslo / Unity Arena</p>', `>${'x'.repeat(N)}`, 'data-ihf-competitions-match-id="202125"'),
+      'returnerede'],
+    // PERIODE_FELT `[^<>]*>([^<]*)<` — periodens tag, 200.000 mellemrum og så «<».
+    ['kamp', 'PERIODE_FELT: periodens tag + 200.000 mellemrum + «<»',
+      () => erstat(KAMP_BRONZE, 'id="fh-goals-a" class="col-xs-4 bigFont">', `id="fh-goals-a" class="col-xs-4 bigFont"${SP}<`),
+      /perioden h1 \(fh-goals-a\) for kamp 202123 mangler/],
+    // KORT_ARENA `\s*<span>…` — 200.000 mellemrum efter GMT-tidens </p>, og så ikke <span>.
+    ['kamp', 'KORT_ARENA: 200.000 mellemrum efter GMT-tiden, og så ikke <span>',
+      () => erstat(KAMP_BRONZE, '<span>Oslo / Unity Arena</span>', `${SP}<i>Oslo / Unity Arena</i>`), 'returnerede'],
+    // divElement: en kommentar i kortet, der aldrig lukkes — ét indexOf, ikke ét pr. «<div».
+    ['kamp', 'resultatkortet med 50.000 «<!--» og intet «-->»',
+      () => erstat(KAMP_BRONZE.split('-->').join(''), '<div class="resultCardBody text-center">',
+        `<div class="resultCardBody text-center">${'<!--'.repeat(N / 4)}`),
+      /resultatkortet .*lukkes aldrig/],
   ];
 
-  it.each(SAGER)('%s: %s', (slags, _, byg) => {
+  // Den valgfri fjerde kolonne siger, HVILKEN vagt der skal svare: ellers kunne
+  // en tidligere vagt kaste, før mønsteret overhovedet køres, og sagen bevise intet.
+  it.each(SAGER)('%s: %s', (slags, _, byg, forvent) => {
     const html = byg();
     const r = spawnSync(process.execPath, ['-e', BARN, PARSER], {
       input: JSON.stringify({ slags, html, ihfId: 202123 }), encoding: 'utf8', timeout: DRAEB_MS,
     });
     expect(r.error?.code, `parseren svarede ikke inden for ${DRAEB_MS} ms (dræbt: ${r.signal})`).toBeUndefined();
     expect(r.status, r.stderr).toBe(0);
-    const { udfald, ms } = JSON.parse(r.stdout);
+    const { udfald, besked, ms } = JSON.parse(r.stdout);
     // Kaster den, er det en skraberfejl — aldrig RangeError eller anden runtime-fejl.
     expect(['returnerede', 'IhfStrukturFejl']).toContain(udfald);
+    if (forvent === 'returnerede') expect(udfald, besked).toBe('returnerede');
+    else if (forvent) expect(besked).toMatch(forvent);
     expect(ms, `${ms.toFixed(1)} ms`).toBeLessThan(GRAENSE_MS);
   }, 15_000);
 });
