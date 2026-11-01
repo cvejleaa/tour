@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import HoldSide from './HoldSide';
+import { medProeveSport } from '../../../test/proeveSport';
 
 const TEAMS = [
   { name: 'FC København', short: 'FCK', color: '#fff', elo: 1600 },
@@ -201,5 +202,28 @@ describe('HoldSide', () => {
     // Tallene tæller kun runde 2: 1 kamp spillet, 2 mål for, 0 imod.
     expect(screen.getByText(/1 kamp spillet i dette spil/)).toBeInTheDocument();
     expect(screen.queryByText(/2 kampe spillet i dette spil/)).not.toBeInTheDocument();
+  });
+});
+
+// Forventningen skal regnes med SPILLETS sportsprofil — den model, spillets
+// odds er prissat med. Kun en profil, der adskiller sig fra fodbold, kan vise
+// det: med fodbold alene er en glemt profil usynlig (src/test/proeveSport.js).
+describe('HoldSide regner forventningen med spillets sportsprofil', () => {
+  medProeveSport();
+  // BIF hjemme mod FCK, FCK vinder ude. Fodbold ventede 1,5 point af FCK
+  // (hjemmebanen trækker mod BIF); prøvesporten — neutral bane, få
+  // uafgjorte — ventede 1,9. Forskellen overlever afrundingen til én decimal.
+  const matches = [kamp('a', 1, 'Brøndby IF', 'FC København', { result: '2' })];
+
+  it('prøvesporten giver prøvesportens tal', () => {
+    vis(<HoldSide game={spil({ sport: 'proeve' })} matches={matches} short="FCK" />);
+    expect(screen.getByText(/modellen ventede 1,9\./)).toBeInTheDocument();
+    expect(screen.queryByText(/modellen ventede 1,5\./)).not.toBeInTheDocument();
+  });
+
+  it('et spil uden sport giver fodboldens tal — som altid', () => {
+    vis(<HoldSide game={spil()} matches={matches} short="FCK" />);
+    expect(screen.getByText(/modellen ventede 1,5\./)).toBeInTheDocument();
+    expect(screen.queryByText(/modellen ventede 1,9\./)).not.toBeInTheDocument();
   });
 });

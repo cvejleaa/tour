@@ -5,19 +5,20 @@
 // klienten. Ingen Firebase-afhængigheder (testbar).
 // ---------------------------------------------------------------------------
 
-import { ELO, outcomeOdds } from './superligaScoring.js';
+import { ELO, outcomeOdds, oddsParametre, sportProfil } from './superligaScoring.js';
 
 /**
  * Slå et holds Elo op. `teams` kan være et map {navn: elo} eller en liste
- * [{name, elo}]. Ukendt hold → ELO.START (neutral).
+ * [{name, elo}]. Ukendt hold → `start` (sportens neutrale rating; fodbold
+ * ELO.START).
  */
-export function teamElo(teams, name) {
-  if (!teams || name == null) return ELO.START;
+export function teamElo(teams, name, start = ELO.START) {
+  if (!teams || name == null) return start;
   if (Array.isArray(teams)) {
     const t = teams.find((x) => x.name === name);
-    return Number.isFinite(t?.elo) ? t.elo : ELO.START;
+    return Number.isFinite(t?.elo) ? t.elo : start;
   }
-  return Number.isFinite(teams[name]) ? teams[name] : ELO.START;
+  return Number.isFinite(teams[name]) ? teams[name] : start;
 }
 
 /** Stabilt kamp-id: runde + hold (små bogstaver, kun a-z0-9). */
@@ -32,14 +33,20 @@ export function matchId({ round, home, away }) {
 
 /**
  * Byg ét kamp-dokument med Elo-snapshot + frosne 1X2-odds.
+ *
+ * Oddsene prises med SPILLETS sportsprofil (`sportProfil(game)`): hjemmebane,
+ * uafgjort-model og odds-gulv. Udelades den, er det fodbold — præcis de tal,
+ * Superligaen og Premier League altid er seedet med.
+ *
  * @param {{round:number, home:string, away:string, kickoff:*}} fx – én fixture
  * @param {object|Array} teams – Elo-kilde
+ * @param {object} [profil] – sportsprofil, se sportProfil i superligaScoring.js
  * @returns {{id,round,home,away,kickoff,eloHome,eloAway,odds}}
  */
-export function buildMatch(fx, teams) {
-  const eloHome = teamElo(teams, fx.home);
-  const eloAway = teamElo(teams, fx.away);
-  const odds = outcomeOdds({ eloHome, eloAway });
+export function buildMatch(fx, teams, profil = sportProfil()) {
+  const eloHome = teamElo(teams, fx.home, profil.elo.START);
+  const eloAway = teamElo(teams, fx.away, profil.elo.START);
+  const odds = outcomeOdds({ eloHome, eloAway, ...oddsParametre(profil) });
   return {
     id: fx.id || matchId(fx),
     round: fx.round,
@@ -52,7 +59,7 @@ export function buildMatch(fx, teams) {
   };
 }
 
-/** Byg flere kampe. */
-export function buildMatches(fixtures, teams) {
-  return (fixtures || []).map((fx) => buildMatch(fx, teams));
+/** Byg flere kampe — alle med samme sportsprofil. */
+export function buildMatches(fixtures, teams, profil = sportProfil()) {
+  return (fixtures || []).map((fx) => buildMatch(fx, teams, profil));
 }

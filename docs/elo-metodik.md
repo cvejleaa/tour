@@ -8,6 +8,14 @@ Kode: `src/lib/superligaScoring.js` (spejlet i `functions-platform/superligaScor
 funktionerne `eloExpectedHome`, `outcomeProbabilities`, `fairOdds`, `outcomeOdds`,
 `updateElo` samt konstanterne `ELO`.
 
+**Sportsprofilen.** Tallene herunder er FODBOLDENS. Kaldestederne (seed,
+`recomputeSeasonElo`, Holdsiden, guiden) henter dem nu gennem
+`sportProfil(game)`, der læser `game.sport` og giver fodbold, når feltet
+mangler — som det gør for Superligaen og Premier League. Fodboldprofilen er
+bygget af `ELO` og `ODDS.MIN` og er altså de samme tal. En anden sport får sin
+egen profil (hjemmebane, uafgjort-model, K, start-rating og odds-gulv), når dens
+tal er målt — ikke før.
+
 ## Formål (hvorfor modellen ser ud som den gør)
 Elo bruges til to ting i tippespillet:
 1. **Generere "fair" 1X2-odds pr. kamp.** Odds fryses pr. kamp — men først når

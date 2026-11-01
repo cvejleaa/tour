@@ -14,6 +14,7 @@
 import { useMemo } from 'react';
 import GameTabLink from '../GameTabLink';
 import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
+import { sportProfil } from '../../../lib/superligaScoring';
 import { teamsOf, teamInfo, visOf, teamByShort } from './teamInfo';
 import {
   holdetsKampe, holdForm, hjemmeUde, maalforskelFordeling,
@@ -98,7 +99,9 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
   const fordeling = maalforskelFordeling(matches, navn);
   const fav = favoritTal(matches, navn);
 
-  const forventning = pointModForventning(matches, navn, game?.eloHistory, seedElo);
+  // Spillets egen sportsprofil: forventningen skal regnes med den model,
+  // spillets odds er prissat med.
+  const forventning = pointModForventning(matches, navn, game?.eloHistory, seedElo, sportProfil(game));
 
   const spillede = kampe.filter((m) => m.result);
   const maalFor = hu.hjemme.maal + hu.ude.maal;

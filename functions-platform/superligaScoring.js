@@ -211,20 +211,64 @@ function outcomeProbabilities({
   return { [OUTCOME.HOME]: rest * e, [OUTCOME.DRAW]: pDraw, [OUTCOME.AWAY]: rest * (1 - e) };
 }
 
-function fairOdds(p) {
+// Gulvet er ODDS.MIN, medmindre sportsprofilen giver et andet (profil.odds.min).
+function fairOdds(p, min = ODDS.MIN) {
   const prob = Number(p);
   if (!Number.isFinite(prob) || prob <= 0) return ODDS.UGYLDIG;
-  const clamped = Math.max(ODDS.MIN, 1 / prob);
+  const clamped = Math.max(min, 1 / prob);
   return Math.round(clamped * 100) / 100;
 }
 
+// Samme felter som outcomeProbabilities + oddsMin — dvs. oddsParametre(profil).
 function outcomeOdds(eloArgs) {
   const p = outcomeProbabilities(eloArgs);
+  const min = eloArgs ? eloArgs.oddsMin : undefined;
   return {
-    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME]),
-    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW]),
-    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY]),
+    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME], min),
+    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW], min),
+    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY], min),
   };
+}
+
+// --- Sportsprofil (spejl af src): tallene, der hører til SPORTEN -------------
+// Fuld begrundelse i src/lib/superligaScoring.js. Kort: et spil uden `sport`
+// er fodbold, fodbold bygges AF ELO/ODDS (intet skrevet af), profilerne er
+// frosset, registret er ikke (testene lægger en prøvesport ind), og der er
+// endnu ingen håndboldprofil — dens tal skal måles først.
+const STANDARD_SPORT = 'fodbold';
+
+function frys(o) {
+  for (const v of Object.values(o)) if (v && typeof v === 'object') frys(v);
+  return Object.freeze(o);
+}
+
+const SPORT_PROFILER = {
+  fodbold: frys({
+    sport: 'fodbold',
+    elo: { ...ELO },
+    odds: { min: ODDS.MIN },
+  }),
+};
+
+function sportProfil(game) {
+  const sport = game ? game.sport : undefined;
+  if (typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_PROFILER, sport)) {
+    return SPORT_PROFILER[sport];
+  }
+  return SPORT_PROFILER[STANDARD_SPORT];
+}
+
+function oddsParametre(profil = sportProfil()) {
+  return {
+    hfa: profil.elo.HFA,
+    drawBase: profil.elo.DRAW_BASE,
+    drawDecay: profil.elo.DRAW_DECAY,
+    oddsMin: profil.odds.min,
+  };
+}
+
+function eloParametre(profil = sportProfil()) {
+  return { hfa: profil.elo.HFA, k: profil.elo.K };
 }
 
 function updateElo(eloHome, eloAway, actualHome, { hfa = ELO.HFA, k = ELO.K } = {}) {
@@ -333,4 +377,5 @@ module.exports = {
   settleChance, scoreBet, chanceMaxStake, clampStake,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
+  STANDARD_SPORT, SPORT_PROFILER, sportProfil, oddsParametre, eloParametre,
 };

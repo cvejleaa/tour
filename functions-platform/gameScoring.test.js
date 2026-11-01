@@ -1,5 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createRequire } from 'module';
+// Facit for sportsprofilen: skrevet af koden FØR profilen (scripts/sportprofil-golden.mjs).
+import golden from './testdata/sportprofil-golden.json';
+import slProgram from '../scripts/superliga-fixtures.json';
+import plProgram from '../scripts/premier-league-fixtures-2627.json';
+import { buildMatches } from '../src/lib/superligaSeed.js';
+import { SUPERLIGA_TEAMS_2026 } from '../src/data/superligaTeams2026.js';
+import { PREMIER_LEAGUE_TEAMS_2026 } from '../src/data/premierLeagueTeams2026.js';
+import { goldenKampe, GOLDEN_NU_MS, makeEloDb as makeGoldenDb } from '../scripts/lib/sportprofilGolden.mjs';
 
 const require = createRequire(import.meta.url);
 const {
@@ -10,6 +18,9 @@ const {
 // Combi-reglen har ét hjem. Testen henter den DERFRA, så en fremtidig dublet
 // ikke kan snige sig ind bag en grøn suite.
 const { combiBonus, buildRoundContext } = require('./pointOpdeling');
+// Samme modul-instans, som gameScoring selv har hentet — så en prøvesport,
+// der lægges i registret her, også er den, recomputeSeasonElo slår op i.
+const scoring = require('./superligaScoring');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
 // Understøtter: games/{g}/bets (where uid==, where matchId==), games/{g}/matches
@@ -1554,5 +1565,97 @@ describe('recomputeSeasonElo (levende Elo)', () => {
     expect(Array.isArray(db._game.eloHistory)).toBe(true);
     expect(db._game.eloHistory.map((h) => h.round)).toEqual([1]); // kun runde 1 komplet
     expect(db._game.eloHistory[0].elo.A).toBeGreaterThan(db._game.eloHistory[0].elo.B);
+  });
+});
+
+// --- Sportsprofilen i recomputeSeasonElo --------------------------------------
+//
+// To ting, og de bevises hver for sig:
+//   1. SL og PL er BYTE-IDENTISKE med koden før profilen — facit i
+//      testdata/sportprofil-golden.json blev skrevet af den gamle kode
+//      (scripts/sportprofil-golden.mjs), på hele programmet.
+//   2. Funktionen bruger SPILLETS profil, både til Elo-opdateringen og de
+//      friske odds. Kun en profil med andre tal end fodboldens kan vise det:
+//      med fodbold alene er en glemt profil usynlig.
+describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
+  const LIGAER = {
+    sl: { fixtures: slProgram.fixtures || slProgram, teams: SUPERLIGA_TEAMS_2026 },
+    pl: { fixtures: plProgram.fixtures || plProgram, teams: PREMIER_LEAGUE_TEAMS_2026 },
+  };
+
+  for (const [liga, { fixtures, teams: holdliste }] of Object.entries(LIGAER)) {
+    it(`${liga}: Elo og omprisning er uændrede — uanset hvordan "fodbold" nås`, async () => {
+      expect(Object.keys(golden[liga].ompris).length).toBeGreaterThan(50); // facit er ikke tomt
+      for (const ekstra of [{}, { sport: 'fodbold' }, { sport: 'haandbold' }, { sport: '__proto__' }]) {
+        const db = makeGoldenDb({ teams: holdliste, ...ekstra }, goldenKampe(buildMatches(fixtures, holdliste)));
+        const res = await recomputeSeasonElo(db, FieldValue, liga, GOLDEN_NU_MS, { dryRun: false });
+        const ompris = Object.fromEntries(res.aendringer.map((a) => [a.id, [a.efter['1'], a.efter.X, a.efter['2']]]));
+        const historik = Object.fromEntries(db._game.eloHistory.map((h) => [String(h.round), h.elo]));
+        const hvad = JSON.stringify(ekstra);
+        expect(db._game.eloCurrent, hvad).toEqual(golden[liga].eloCurrent);
+        expect(historik, hvad).toEqual(golden[liga].eloHistory);
+        expect(ompris, hvad).toEqual(golden[liga].ompris);
+      }
+    });
+  }
+
+  describe('med en prøvesport på spillet', () => {
+    // Prøvesporten: hvert tal er et andet end fodboldens (se
+    // src/test/proeveSport.js — serveren har sit eget register, så den
+    // lægges ind her).
+    const PROEVE = {
+      sport: 'proeve',
+      elo: { START: 1000, HFA: 0, K: 40, DRAW_BASE: 0.05, DRAW_DECAY: 0.2 },
+      odds: { min: 1.01 },
+    };
+    // Skrevet HELT ud, ikke via oddsParametre — så en fejl i oversættelsen
+    // også bliver rød her.
+    const ARGS = { hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01 };
+    beforeAll(() => { scoring.SPORT_PROFILER.proeve = PROEVE; });
+    afterAll(() => { delete scoring.SPORT_PROFILER.proeve; });
+
+    const past = 1_000;
+    const future = 5_000_000_000_000;
+    const kampe = () => [
+      { id: 'm1', round: 1, home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'm2', round: 2, home: 'A', away: 'B', kickoff: future },
+      { id: 'm3', round: 2, home: 'A', away: 'C', kickoff: future }, // C findes ikke i holdlisten
+      { id: 'm4', round: 3, home: 'A', away: 'D', kickoff: future }, // D står uden elo
+    ];
+    const hold = [{ name: 'A', elo: 1500 }, { name: 'B', elo: 1500 }, { name: 'D' }];
+    const kamp = (db, id) => db._matches.find((m) => m.data.id === id).data;
+
+    it('Elo opdateres med profilens K og hjemmebane', async () => {
+      const db = makeGoldenDb({ teams: hold, sport: 'proeve' }, kampe());
+      await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+      // Neutral bane: lige hold er ventet 50/50, så sejren giver præcis K/2 = 20.
+      // Fodbold: hjemmeholdet var ventet at vinde → +8 (1508/1492).
+      expect(db._game.eloCurrent).toEqual({ A: 1520, B: 1480, D: 1000 });
+    });
+
+    it('de friske odds prises med profilens model og gulv', async () => {
+      const db = makeGoldenDb({ teams: hold, sport: 'proeve' }, kampe());
+      await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+      expect(kamp(db, 'm2').odds).toEqual(scoring.outcomeOdds({ eloHome: 1520, eloAway: 1480, ...ARGS }));
+      expect(kamp(db, 'm2').odds).toEqual({ 1: 1.88, X: 20.94, 2: 2.37 });
+      // A (1520) mod et hold på 1000: p(1) = 0,919 → fair 1,088. Gulvet 1,01
+      // lader det stå (1,09); fodboldens 1,1 ville have hævet det.
+      expect(kamp(db, 'm3').odds).toEqual({ 1: 1.09, X: 28.72, 2: 21.71 });
+    });
+
+    it('et ukendt hold og et hold uden elo får SPORTENS neutrale rating', async () => {
+      const db = makeGoldenDb({ teams: hold, sport: 'proeve' }, kampe());
+      await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+      expect(kamp(db, 'm3').eloAway).toBe(1000); // ukendt: get() falder til START
+      expect(kamp(db, 'm4').eloAway).toBe(1000); // uden elo: seed-kortet falder til START
+      expect(kamp(db, 'm4').odds).toEqual(kamp(db, 'm3').odds);
+    });
+
+    it('samme kampe uden sport giver fodboldens tal — som altid', async () => {
+      const db = makeGoldenDb({ teams: hold }, kampe());
+      await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+      expect(db._game.eloCurrent).toEqual({ A: 1508, B: 1492, D: 1500 });
+      expect(kamp(db, 'm3').eloAway).toBe(1500);
+    });
   });
 });

@@ -5,7 +5,9 @@
  */
 import { Link } from 'react-router-dom';
 import GameTabLink from '../GameTabLink';
-import { CHANCE, COMBI, ELO, ODDS, puljeKonfig, roundComboBonus, TRAEF_BONUS } from '../../../lib/superligaScoring';
+import {
+  CHANCE, COMBI, eloExpectedHome, puljeKonfig, roundComboBonus, sportProfil, TRAEF_BONUS,
+} from '../../../lib/superligaScoring';
 import { PULJE_MAKS_STARTRUNDE } from '../../../lib/ligaPoint';
 import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
@@ -63,6 +65,17 @@ export default function FootballHelp({ game }) {
   // 'mesterskabsspillet', PL 'Juletabellen'; hardkodede 6-taller ville lyve
   // i det ene af spillene (QC-fund på planen).
   const pulje = puljeKonfig(game);
+  // Elo- og odds-tallene kommer fra SPILLETS sportsprofil, ikke fra de globale
+  // konstanter — så guiden siger det, spillets odds faktisk er regnet med.
+  const profil = sportProfil(game);
+  const { START, HFA, K } = profil.elo;
+  // "omkring 59 %" stod skrevet af. Det er forventningen for to lige hold med
+  // hjemmebanen oveni — og den regnes nu af samme formel som oddsene.
+  const hjemmeLige = Math.round(eloExpectedHome(START, START, HFA) * 100);
+  // Gulvet med de decimaler, det HAR — ikke fmtDec's faste ene: et gulv på
+  // 1,01 ville ellers stå som "1,0", altså under indsatsen. Fodboldens 1,1
+  // står som altid.
+  const oddsGulv = String(profil.odds.min).replace('.', ',');
   return (
     <div>
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1rem', fontSize: '0.95rem' }}>
@@ -144,7 +157,7 @@ export default function FootballHelp({ game }) {
         <strong>{(4.5 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>. Forkert tip giver 0.
         <p style={{ margin: '0.5rem 0 0' }}>
           Oddsene er <strong>1 delt med sandsynligheden</strong> — mindst{' '}
-          <strong>{fmtDec(ODDS.MIN)}</strong>, og ellers uden loft. Det betyder, at ethvert
+          <strong>{oddsGulv}</strong>, og ellers uden loft. Det betyder, at ethvert
           enkelt tip er lige meget værd i det lange løb: en sikker favorit giver få point ofte, en
           overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre valg altså
           lige gode.
@@ -463,15 +476,15 @@ export default function FootballHelp({ game }) {
         udviklingen. Elo-ratingen er også det, <strong>oddsene bygger på</strong>.
         <p style={{ margin: '0.5rem 0 0' }}><strong>Sådan beregnes Elo:</strong></p>
         <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.2rem' }}>
-          <li><strong>Holdene starter ikke alle på {ELO.START}.</strong> {ELO.START} er blot det neutrale
+          <li><strong>Holdene starter ikke alle på {START}.</strong> {START} er blot det neutrale
             nulpunkt. Hvert hold får en <strong>start-rating</strong>, vi har beregnet ud fra de
             <strong> sidste 3 års resultater</strong> plus en vurdering af holdets aktuelle styrke — så en
-            storklub starter <em>over</em> {ELO.START} og et oprykker-/svagt hold <em>under</em>. Derfor
+            storklub starter <em>over</em> {START} og et oprykker-/svagt hold <em>under</em>. Derfor
             er favoritter og outsidere forskellige allerede fra første kamp.</li>
           <li>Før en kamp regnes en <strong>forventning</strong> til hjemmeholdet ud fra forskellen i rating
-            {' '}plus en <strong>hjemmebanefordel på ~{ELO.HFA}</strong> point. To hold med samme rating er altså
-            ikke 50/50 — hjemmeholdet forventes at tage omkring 59 % takket være hjemmebanen.</li>
-          <li>Efter kampen flyttes rating mod resultatet: <em>ny rating = gammel + {ELO.K} ×
+            {' '}plus en <strong>hjemmebanefordel på ~{HFA}</strong> point. To hold med samme rating er altså
+            ikke 50/50 — hjemmeholdet forventes at tage omkring {hjemmeLige} % takket være hjemmebanen.</li>
+          <li>Efter kampen flyttes rating mod resultatet: <em>ny rating = gammel + {K} ×
             (resultat − forventning)</em>, hvor resultat er 1 (sejr), ½ (uafgjort) eller 0 (nederlag).
             Vinderens point lægges til, taberens trækkes fra — lige meget begge veje.</li>
           <li>Jo mere <strong>overraskende</strong> resultatet er, jo større er udsvinget (slår en outsider
@@ -479,14 +492,14 @@ export default function FootballHelp({ game }) {
         </ul>
         <p style={{ margin: '0.5rem 0 0' }}>
           <em>Eksempel 1 — jævnbyrdige:</em> to lige stærke hold (forventning 50 %). Vinder hjemmeholdet,
-          får det {ELO.K} × (1 − 0,5) = <strong>+{Math.round(ELO.K * 0.5)}</strong> point, og udeholdet
-          {' '}−{Math.round(ELO.K * 0.5)}.
+          får det {K} × (1 − 0,5) = <strong>+{Math.round(K * 0.5)}</strong> point, og udeholdet
+          {' '}−{Math.round(K * 0.5)}.
         </p>
         <p style={{ margin: '0.35rem 0 0' }}>
           <em>Eksempel 2 — outsider slår favorit:</em> favoritten er ventet til at vinde med 80 %, outsideren
-          har altså kun 20 % forventning. Vinder outsideren alligevel, får den {ELO.K} × (1 − 0,2) =
-          {' '}<strong>+{Math.round(ELO.K * 0.8)}</strong> point, og favoritten
-          {' '}<strong>−{Math.round(ELO.K * 0.8)}</strong> — et langt større udsving end mellem jævnbyrdige
+          har altså kun 20 % forventning. Vinder outsideren alligevel, får den {K} × (1 − 0,2) =
+          {' '}<strong>+{Math.round(K * 0.8)}</strong> point, og favoritten
+          {' '}<strong>−{Math.round(K * 0.8)}</strong> — et langt større udsving end mellem jævnbyrdige
           hold, netop fordi resultatet var overraskende.
         </p>
       </Section>

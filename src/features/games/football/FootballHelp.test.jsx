@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import FootballHelp from './FootballHelp';
 import { RUBRIKKER } from './PointOpdeling';
 import { COMBI, ODDS, TRAEF_BONUS } from '../../../lib/superligaScoring';
+import { medProeveSport } from '../../../test/proeveSport';
 
 // Guiden får SPILLET og må kun beskrive de faner, spillet har. Uden gaten
 // forklarede den pulje-tippet og Superligaens tabel-deling i Premier
@@ -488,5 +489,52 @@ describe('guiden forklarer 🔥 mod 👑 — foreløbig mod endelig', () => {
     expect(afsnit.textContent).toMatch(/der 0 \(eller minus, hvis du tabte Chancen\)/);
     expect(afsnit.textContent).not.toMatch(/ikke har point i runden endnu/i);
     expect(afsnit.textContent).not.toMatch(/ikke tippet|deltog ikke|ingen point i runden/i);
+  });
+});
+
+// Elo- og odds-tallene i guiden skal komme fra SPILLETS sportsprofil — det,
+// spillets odds faktisk er regnet med. Kun en profil med andre tal end
+// fodboldens kan vise det (src/test/proeveSport.js): med fodbold alene ville
+// guiden se rigtig ud, også hvis den læste de globale konstanter.
+describe('guidens Elo- og odds-tal kommer fra spillets sportsprofil', () => {
+  medProeveSport();
+  // Renderer guiden ÉN gang og giver et opslag af afsnittenes tekst.
+  const vis = (game) => {
+    render(
+      <MemoryRouter initialEntries={['/spil/x?fane=hjaelp']}>
+        <Routes><Route path="/spil/:gameId" element={<FootballHelp game={game} />} /></Routes>
+      </MemoryRouter>,
+    );
+    return (titel) => screen.getByRole('heading', { name: titel }).closest('.card').textContent;
+  };
+
+  it('fodbold (spil uden sport): dagens tal, ordret', () => {
+    const afsnit = vis({ id: 'sl' });
+    const elo = afsnit(/Elo-tabellen/);
+    expect(elo).toMatch(/Holdene starter ikke alle på 1500\./);
+    expect(elo).toMatch(/hjemmebanefordel på ~60 point/);
+    // Stod skrevet af som "59 %"; regnes nu af hjemmebanen.
+    expect(elo).toMatch(/forventes at tage omkring 59 % takket være hjemmebanen/);
+    expect(elo).toMatch(/gammel \+ 20 ×/);
+    expect(elo).toMatch(/20 × \(1 − 0,5\) = \+10 point/);
+    expect(elo).toMatch(/20 × \(1 − 0,2\) = \+16 point/);
+    expect(afsnit(/Point følger oddsene/)).toMatch(/mindst 1,1, og ellers uden loft/);
+  });
+
+  it('prøvesporten: prøvesportens tal — og ingen af fodboldens', () => {
+    const afsnit = vis({ id: 'x', sport: 'proeve' });
+    const elo = afsnit(/Elo-tabellen/);
+    expect(elo).toMatch(/Holdene starter ikke alle på 1000\./);
+    expect(elo).toMatch(/hjemmebanefordel på ~0 point/);
+    expect(elo).toMatch(/omkring 50 % takket være hjemmebanen/);
+    expect(elo).toMatch(/gammel \+ 40 ×/);
+    expect(elo).toMatch(/40 × \(1 − 0,5\) = \+20 point/);
+    expect(elo).toMatch(/40 × \(1 − 0,2\) = \+32 point/);
+    expect(elo).not.toMatch(/1500|~60|59 %|\+ 20 ×/);
+    // Gulvet med sine egne decimaler: 1,01 — ikke fmtDec's "1,0", som ville
+    // sige, at et ramt tip kan betale mindre end indsatsen.
+    const odds = afsnit(/Point følger oddsene/);
+    expect(odds).toMatch(/mindst 1,01, og ellers uden loft/);
+    expect(odds).not.toMatch(/mindst 1,1,|mindst 1,0,/);
   });
 });

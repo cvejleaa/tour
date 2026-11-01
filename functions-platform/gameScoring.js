@@ -9,7 +9,8 @@
 // ---------------------------------------------------------------------------
 
 const {
-  scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeOdds,
+  scoreBet, updateElo, actualHomeFromOutcome, outcomeOdds,
+  sportProfil, oddsParametre, eloParametre,
   championshipTeams, bundTeams, puljeScore, puljeKonfig, round1,
 } = require('./superligaScoring');
 // Gaten — hvor spillet begynder. Ét modul, spejlet til klienten, fordi den
@@ -97,11 +98,17 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
   const dryRun = opts.dryRun === true;
   const gameRef = db.collection('games').doc(gameId);
   const gameSnap = await gameRef.get();
-  const seedTeams = gameSnap.exists ? gameSnap.data().teams : null;
+  const game = gameSnap.exists ? gameSnap.data() : null;
+  const seedTeams = game ? game.teams : null;
   if (!Array.isArray(seedTeams) || seedTeams.length === 0) return { updated: 0, aendringer: [] };
 
-  const elo = new Map(seedTeams.map((t) => [t.name, Number(t.elo) || ELO.START]));
-  const get = (n) => (elo.has(n) ? elo.get(n) : ELO.START);
+  // SPILLETS sportsprofil — både Elo-opdateringen og de friske odds. Et spil
+  // uden `sport` er fodbold, så SL og PL regnes præcis som før profilen fandtes
+  // (bevist mod facit i testdata/sportprofil-golden.json).
+  const profil = sportProfil(game);
+  const start = profil.elo.START;
+  const elo = new Map(seedTeams.map((t) => [t.name, Number(t.elo) || start]));
+  const get = (n) => (elo.has(n) ? elo.get(n) : start);
 
   const snap = await gameRef.collection('matches').get();
   const matches = snap.docs.map((d) => ({ ...d.data(), id: d.id, ref: d.ref }));
@@ -122,7 +129,7 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
     .sort((a, b) => (kickoffMs(a) ?? 0) - (kickoffMs(b) ?? 0));
   for (const m of played) {
     const outcome = matchOutcome(m);
-    const { home, away } = updateElo(get(m.home), get(m.away), actualHomeFromOutcome(outcome));
+    const { home, away } = updateElo(get(m.home), get(m.away), actualHomeFromOutcome(outcome), eloParametre(profil));
     elo.set(m.home, home);
     elo.set(m.away, away);
     if (m.round != null) {
@@ -174,7 +181,7 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
     // uændret videre (typeof NaN === 'number'), og `NaN <= x` er falsk — så en
     // null-test alene ville lade netop den slippe igennem.
     if (!Number.isFinite(k) || k <= nowMs + LAAS_MARGIN_MS) continue;
-    const odds = outcomeOdds({ eloHome: get(m.home), eloAway: get(m.away) });
+    const odds = outcomeOdds({ eloHome: get(m.home), eloAway: get(m.away), ...oddsParametre(profil) });
     if (oddsEqual(odds, m.odds)) continue;         // uændret
     // Før/efter opsamles ALTID, ikke kun ved dryRun: den, der trykker på
     // knappen for alvor, skal kunne se bagefter hvad der faktisk skete — og
