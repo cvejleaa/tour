@@ -1727,3 +1727,76 @@ pr. mutation, gendanner i exit/SIGINT, vitest `--reporter=json`).
   indeholder mønstret → exit 144): brug `pgrep -f cloud-firestore-emulator` og kill pid.
 - Mutationsværktøj: `scratchpad/tm-op/mut.py NAVN FIL OLD NEW CMD` (en forekomst,
   gendanner selv; "MATCH COUNT 2" = vælg mere kontekst).
+
+## Håndbold-VM del 1: sportsprofil + IHF-parser (PR #240, 1/11 2026)
+
+- **Facit "genereret af den gamle kode" kan efterprøves, ikke bare tros.**
+  `functions-platform/testdata/sportprofil-golden.json` blev genskabt byte-identisk
+  ved `git archive 62e20aa` (før profilen) + kopi af `scripts/sportprofil-golden.mjs`
+  og `scripts/lib/sportprofilGolden.mjs` ind + `npx vite-node` — `diff` tom. JSON'en
+  er kun rørt i 07ebcb6 (aldrig regenereret siden). Gør det samme ved næste "golden".
+- **En fjernet `min` på ÉT af tre `fairOdds`-kald overlevede (`DRAW`).** Gulvet binder
+  aldrig på X (fair ≈ 3,3), så hverken prøvesport (gulv 1,01) eller ude-/hjemme-
+  favorit-testene kunne se det. Kun et gulv OVER X's fair pris (oddsMin 5) viser det.
+  Mønster: ét-kald-pr.-udfald kræver et input, hvor HVERT udfald rammer gulvet.
+- **`elo: { ...ELO }` → `elo: ELO` overlevede**: profilen frøs så konstanten selv. Bind
+  kopien (`not.toBe(ELO)`, `Object.isFrozen(ELO) === false`).
+- **Refaktor-gren uden test: `game ? game.teams : null`** (spil-dokumentet findes ikke)
+  overlevede — ingen test kaldte `recomputeSeasonElo` på et manglende dokument. Når en
+  `x ? x.felt : null`-gren er ny, så kald funktionen med dokumentet væk.
+- **Fraværs-assertion med fremtidigt produktnavn.** `{ sport: 'haandbold' }` blev brugt
+  som "ukendt sport → fodbold" i fire testfiler; i delopgave 4 bliver navnet kendt, og
+  fire steder går røde af en forkert grund. Brug et navn, der aldrig bliver en sport
+  ('curling'). `Object.keys(SPORT_PROFILER) === ['fodbold']` er den ene, bevidste vender.
+- **Script uden tests: bevogt LEDNINGEN som tekst.** `seed-football.mjs` kan ikke køres;
+  `seedKampe` var testet, men ledningen ind i scriptet ikke (en direkte `buildMatches`
+  overlevede). Tekst-vagt i `scripts/lib/seedKampe.test.mjs` (kommentarer filtreret fra).
+  Brug `resolve(dirname(fileURLToPath(import.meta.url)), …)` — `new URL(…, import.meta.url)`
+  er ikke en file-URL i jsdom-miljøet.
+- **ihfParse: overlevere ved regex-løsning, ikke ved logik.** Tidsregex `2[0-4]` og
+  `[0-5]\d?`, score `{1,5}` på én side, `<br/>`-variant, `&AMP;`, ukendt entitet slugt,
+  `fromCodePoint`→`fromCharCode`, `.replace(/\s+/)` fjernet, score-felt uden id-binding,
+  tom hal, `tjekEfter60` der ignorerer 1. forlængelse (`plus(efter60, p.ot2)`): alle
+  overlevede 77 grønne tests og er dræbt af ni nye. Test hver SIDE af en to-sidet
+  regex/sum for sig (h/u, ot1/ot2) og både grænse og én-over-grænsen.
+- **Ækvivalente mutanter (jag dem ikke):** `tjekEfter60` 2. check uden `efter60` (efter
+  første check er `efter60` lige, så den ændrer intet); `|| null` i `sted()` (efter
+  `rens`/trim kan ' / ' hverken stå først eller sidst); `.slice(0,3)` på holdkortet;
+  `/^\d{1,3}$/` på perioder (sum-vagten fanger NaN); `typeof html` i `kraevSide`.
+- Kendt hul, ikke rettet: `fairOdds(p, null/NaN)` — `Math.max(null, x)` fjerner gulvet,
+  `NaN` giver NaN-odds. Uopnåeligt før en profil med slåfejl i `odds.min` (delopgave 4);
+  profilen bør valideres, når håndbold registreres.
+- Mutationsværktøj: `scratchpad/tm-hb1/mut.py <specs.json>` (en forekomst pr. spec,
+  gendanner selv, rapporterer DRAEBT/OVERLEVER; anker-antal ≠ 1 giver FEJL-anker).
+
+### PR #240, runde 2 (205fa54): ~255 mutanter, 44 overlevede (heraf 5 fejlkørt mod forkert suite), 12 reelle — nu dræbt
+
+- **En parameter, der kun er bevist som TEKST/gennemløb, men aldrig ændrer et testet svar, kan
+  droppes.** `omprisFraKnap(…, nowMs, …)`: `nowMs` → `0` overlevede 238+146 tests, fordi
+  `GOLDEN_NU_MS` ligger FØR første kickoff (ingen kamp er låst) og spillede kampe aldrig ompriser.
+  Fixturets "nu" skal ligge MIDT i de ikke-spillede kampe (`ikkeSpillede[20].kickoff`), ellers
+  er låse-vagten usynlig. Tjek ved enhver `nowMs`/`Date.now()`-gennemstilling: findes en låst
+  kamp i fixturet, og er den fraværende i svaret?
+- **Kørte index.js-mutanter mod FORKERT suite**: `cwd: '.'` + `vitest run gameScoring.test.js`
+  kører ROD-vitest (49 tests, ikke functions-platform) og melder OVERLEVER. Sæt `cwd` til
+  `functions-platform` for alt, der testes dér — og læs testantallet i resultatlinjen.
+- **Fejlbeskeder pinnet med `toThrow(/ét-ord/)`**: sport og rå værdi kunne droppes ud af
+  `oddsParametre`-fejlen i begge spejle. Pin hele strengen på mindst ét input pr. gren.
+- **Rød/grøn-klasse pr. STI**: `kind:'err'` → `'ok'` overlevede på Ompris-SKRIVESTIEN, fordi
+  rød-assertionen kun stod på tør-kørsels-stien (to `setPrisMsg(err)`-kald, to tests).
+- **`indexOf(slut, start)` → `indexOf(slut)` i `indhold`** overlevede: ingen fixture har et
+  `</p>`/`</div>` FØR ankeret. Kost: hal tavst null/null. Indsæt et lukke-tag før ankeret.
+- **`if (x == null) fejl(…)` uden test af den gren = TypeError i stedet for IhfStrukturFejl.**
+  Kræver et holdfelt uden `</div>` — men så skal kampblokken stadig lukke (sæt `</div></div>` ind
+  andetsteds), ellers kastes "lukkes aldrig" først. Samme for `!lokal || !gmt`: test HVER side.
+- **Default-parameter `= {}` + TypeError**: `toThrow(TypeError)` fanger også "Cannot destructure".
+  Pin beskeden.
+- **Ækvivalente (jag ikke):** `dybde += ±1` omvendt og `dybde <= 0` i divElement (symmetri);
+  `j + 2` efter `-->`; `forbi` → `html.length` ved uafsluttet script; `toLowerCase()` på
+  `<SCRIPT`; `.slice(0,3)` hold; `KORT_TEKST` y→g; `!m ||` i periode; split-regex→streng;
+  `dryRun: dryRun === true` (boolean); `oddsMin: profil.odds.min` for `min`; `'fodbold'` for
+  `profil.sport` i advarslen (profilen ER fodbold); `snap.exists ? snap.data() : null`.
+- **Åbne (accept-mere/hård-retning, ikke rettet):** `/i` på canonical-regexerne, trailing `/` i
+  `kampIdAf`, `\b` på `<script`/`</script`/`<div`/`datetime=`, `team-matches/` uden `/`.
+  De gør parseren strengere eller giver en højlydt fejl, aldrig tavse data.
+- Værktøj: `scratchpad/tm-hb1-r2/mut.py <specs.json>` (cwd er vigtig, se ovenfor).

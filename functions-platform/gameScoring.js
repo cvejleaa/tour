@@ -9,7 +9,8 @@
 // ---------------------------------------------------------------------------
 
 const {
-  scoreBet, ELO, updateElo, actualHomeFromOutcome, outcomeOdds,
+  scoreBet, updateElo, actualHomeFromOutcome, outcomeOdds,
+  SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
   championshipTeams, bundTeams, puljeScore, puljeKonfig, round1,
 } = require('./superligaScoring');
 // Gaten — hvor spillet begynder. Ét modul, spejlet til klienten, fordi den
@@ -69,6 +70,56 @@ function dryRunFraKald(data) {
   return data?.dryRun !== false;
 }
 
+/**
+ * Fejlen, repriceGameOdds afviser et ukendt sport med. `kode` er
+ * HttpsError-koden — callablen oversætter den uden at kende teksten, så
+ * beskeden bor ét sted og kan testes uden firebase-functions.
+ *
+ * Beskeden siger HVAD der er galt (den rå værdi), at INTET er sket, og hvad
+ * admin skal gøre. "Handlingen blev afvist" lærer ingen noget.
+ */
+function ukendtSportFejl(gameId, vaerdi) {
+  const kendte = Object.keys(SPORT_PROFILER).join(', ');
+  const e = new Error(
+    `Spillet "${gameId}" har sport ${visSport(vaerdi)}, som ikke er en kendt sport (kendte: ${kendte}). `
+    + 'Der er IKKE omprist noget — heller ikke i tør-kørslen, for den ville vise fodboldens odds, som om de var rigtige. '
+    + 'Står sport i scripts/games.mjs, så ret det dér og kør seedGames; skal feltet væk (fodbold), så fjern det i Firebase-konsollen — seedGames kan ikke fjerne et felt.',
+  );
+  e.kode = 'failed-precondition';
+  return e;
+}
+
+/**
+ * Oversæt en fejl fra recomputeSeasonElo til callablens fejl: en fejl med
+ * `kode: 'failed-precondition'` (ukendtSportFejl) bliver en HttpsError med
+ * SAMME besked, så fladen viser serverens tekst. Alt andet (Firestore-fejl,
+ * programfejl) slipper uændret igennem — det er ikke admins at rette, og en
+ * HttpsError med 'failed-precondition' ville påstå det.
+ *
+ * HttpsError gives med som argument, så modulet ikke kræver firebase-functions
+ * og kan unit-testes.
+ */
+function tilHttpsFejl(err, HttpsError) {
+  if (err && err.kode === 'failed-precondition') return new HttpsError('failed-precondition', err.message);
+  return err;
+}
+
+/**
+ * Ompris-knappens HELE vej ind i recomputeSeasonElo: afvisUkendtSport er sat,
+ * og fejlen oversættes. Den bor her og ikke i index.js, fordi index.js ikke
+ * kan unit-testes: dér var oversættelsen kun bevist som tekst, og et kald,
+ * der blev flyttet UD af try'en (eller et `return` uden `await`), lod den rå
+ * fejl gå forbi oversættelsen med hele suiten grøn. Fladen viste så
+ * firebase's "INTERNAL" i stedet for beskeden om, hvad admin skal rette.
+ */
+async function omprisFraKnap(db, FieldValue, gameId, nowMs, dryRun, HttpsError) {
+  try {
+    return await recomputeSeasonElo(db, FieldValue, gameId, nowMs, { dryRun, afvisUkendtSport: true });
+  } catch (err) {
+    throw tilHttpsFejl(err, HttpsError);
+  }
+}
+
 /** Er to odds-objekter ens (afrundet)? */
 function oddsEqual(a, b) {
   if (!a || !b) return false;
@@ -89,19 +140,59 @@ function oddsEqual(a, b) {
  * tør-kørsel på alt, der skriver i produktionsdata, og det her rører hver
  * eneste ikke-låst kamps pointværdi.
  *
- * @param {{dryRun?: boolean}} [opts]
- * @returns {Promise<{updated:number, aendringer:Array}>} antal kampe med
- *   opdaterede odds + hvad der (ville) ændre sig, kamp for kamp
+ * @param {{dryRun?: boolean, afvisUkendtSport?: boolean}} [opts]
+ *   afvisUkendtSport: kast ukendtSportFejl i stedet for at advare (knappen).
+ * @returns {Promise<{updated:number, aendringer:Array}>}
+ *   antal kampe med opdaterede odds + hvad der (ville) ændre sig, kamp for
+ *   kamp. Et ukendt sport sætter IKKE et felt i resultatet: triggeren læser
+ *   ikke resultatet, og knappen kaster i stedet. Advarslen i loggen er
+ *   triggerens eneste signal.
  */
 async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
   const dryRun = opts.dryRun === true;
   const gameRef = db.collection('games').doc(gameId);
   const gameSnap = await gameRef.get();
-  const seedTeams = gameSnap.exists ? gameSnap.data().teams : null;
+  const game = gameSnap.exists ? gameSnap.data() : null;
+  // SPILLETS sportsprofil — både Elo-opdateringen og de friske odds. Et spil
+  // uden `sport` er fodbold, så SL og PL regnes præcis som før profilen fandtes
+  // (bevist mod facit i testdata/sportprofil-golden.json).
+  const profil = sportProfil(game);
+  // En SAT, men ukendt sport (tastefejl som 'handbold') regnes som fodbold.
+  // Hvad der så sker, afhænger af, HVEM der kalder:
+  //
+  //   triggeren (facit ændrede sig)  → advarer og regner videre. Serveren må
+  //     ikke gå i stå midt i en sæson for en tastefejl.
+  //   knappen (repriceGameOdds)      → afvisUkendtSport: kaster, FØR der er
+  //     regnet eller skrevet noget — også i tør-kørslen. En tør-kørsel, der
+  //     viser fodboldens odds på et håndboldspil, ligner et rigtigt svar, og
+  //     det næste klik skriver dem.
+  //
+  // Tjekket står FØR hold-tjekket nedenfor: et spil uden hold ville ellers
+  // give tavst {updated: 0}, og fladen melder så "allerede i takt".
+  //
+  // Den rå værdi (visSport, ikke String(...)) står i advarslen: et array
+  // ['fodbold'] skal ikke kunne stå som "fodbold" i loggen, og NaN ikke som
+  // "null". Ikke på
+  // Drift-kortet: driftlog.meldAlarm kræver en ny alarmtype (ALARM_TYPER,
+  // tripwire-testen, alarm-mailen), og den er IKKE bygget. Vagten mod en
+  // tastefejl i scripts/games.mjs er games.test.mjs (et sat sport skal findes
+  // i registret); et sport, der kun er sat i konsollen, ses kun i Cloud-loggen
+  // og som Ompris-knappens røde besked.
+  // Der er TRE skriveveje: seed-football.mjs afviser at seede et ukendt sport
+  // (scripts/lib/seedKampe.mjs), repriceGameOdds afviser at ompris det
+  // (omprisFraKnap), og triggeren (recomputeGameMatch) advarer kun — bevidst.
+  const ukendt = ukendtSport(game);
+  if (ukendt) {
+    if (opts.afvisUkendtSport === true) throw ukendtSportFejl(gameId, game.sport);
+    console.warn(`recomputeSeasonElo(${gameId}): ukendt sport ${visSport(game.sport)} — regnes som ${profil.sport}. Ret game.sport.`);
+  }
+
+  const seedTeams = game ? game.teams : null;
   if (!Array.isArray(seedTeams) || seedTeams.length === 0) return { updated: 0, aendringer: [] };
 
-  const elo = new Map(seedTeams.map((t) => [t.name, Number(t.elo) || ELO.START]));
-  const get = (n) => (elo.has(n) ? elo.get(n) : ELO.START);
+  const start = profil.elo.START;
+  const elo = new Map(seedTeams.map((t) => [t.name, Number(t.elo) || start]));
+  const get = (n) => (elo.has(n) ? elo.get(n) : start);
 
   const snap = await gameRef.collection('matches').get();
   const matches = snap.docs.map((d) => ({ ...d.data(), id: d.id, ref: d.ref }));
@@ -122,7 +213,7 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
     .sort((a, b) => (kickoffMs(a) ?? 0) - (kickoffMs(b) ?? 0));
   for (const m of played) {
     const outcome = matchOutcome(m);
-    const { home, away } = updateElo(get(m.home), get(m.away), actualHomeFromOutcome(outcome));
+    const { home, away } = updateElo(get(m.home), get(m.away), actualHomeFromOutcome(outcome), eloParametre(profil));
     elo.set(m.home, home);
     elo.set(m.away, away);
     if (m.round != null) {
@@ -174,7 +265,7 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
     // uændret videre (typeof NaN === 'number'), og `NaN <= x` er falsk — så en
     // null-test alene ville lade netop den slippe igennem.
     if (!Number.isFinite(k) || k <= nowMs + LAAS_MARGIN_MS) continue;
-    const odds = outcomeOdds({ eloHome: get(m.home), eloAway: get(m.away) });
+    const odds = outcomeOdds({ eloHome: get(m.home), eloAway: get(m.away), ...oddsParametre(profil) });
     if (oddsEqual(odds, m.odds)) continue;         // uændret
     // Før/efter opsamles ALTID, ikke kun ved dryRun: den, der trykker på
     // knappen for alvor, skal kunne se bagefter hvad der faktisk skete — og
@@ -680,7 +771,7 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
 
 module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo, rescoreAllBets,
-  dryRunFraKald,
+  dryRunFraKald, ukendtSportFejl, tilHttpsFejl, omprisFraKnap,
   computeRanks, snapshotRoundRanks,
   settlePuljeBets, officielTop, puljeTipKomplet, gatedIds, recomputeAllPlayerTotals,
 };

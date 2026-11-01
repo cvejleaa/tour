@@ -52,7 +52,9 @@ const { resolve, isAbsolute } = await import('path');
 // fejlbeskeden ("Cannot find module") peger på Node, ikke på det, der er galt.
 const ROD = new URL('..', import.meta.url).pathname;
 const sti = (p) => (isAbsolute(p) ? p : resolve(ROD, p));
-const { buildMatches } = await import('../src/lib/superligaSeed.js');
+// Kampene prises med SPILLETS sportsprofil (game.sport på spil-dokumentet) —
+// samme felt, serveren omprisser med. Testet i scripts/lib/seedKampe.test.mjs.
+const { seedKampe, sportLinje } = await import('./lib/seedKampe.mjs');
 const { koerTeamsOnly } = await import('./lib/teamsOnly.mjs');
 // Beslutningerne (hvad springes over, hvad ændres) bor i et testet modul.
 // To udgaver af "hvornår må vi skrive odds" er to steder at lave fejlen.
@@ -268,15 +270,20 @@ async function fuldtSeed(fixtures, gameRef, matchesRef, eksisterende) {
     console.log('   Skal odds genberegnes, sker det af recomputeSeasonElo på ULÅSTE kampe.');
   }
 
-  // Den TAVSE fælde: teamElo giver 1500 for et navn, den ikke kender.
+  // Et SAT, men ukendt game.sport kaster i seedKampe (også i tør-kørslen) —
+  // run().catch giver exit 1 med beskeden. Linjen viser det RÅ felt.
+  const { sportRaa, profil, matches } = await seedKampe({ gameRef, fixtures: plan.skriv, teams });
+  console.log(sportLinje({ sportRaa, profil }));
+
+  // Den TAVSE fælde: teamElo giver sportens neutrale rating for et navn, den
+  // ikke kender.
   const ukendte = ukendteHold(fixtures, teams);
   if (ukendte.length) {
     console.log(`\n⚠️  ${ukendte.length} holdnavne i kampprogrammet findes IKKE i holdlisten:`);
     console.log(`   ${ukendte.join(', ')}`);
-    console.log('   De ville få neutral Elo (1500) uden en eneste fejlbesked.');
+    console.log(`   De ville få neutral Elo (${profil.elo.START}) uden en eneste fejlbesked.`);
     if (SKRIV) throw new Error('Ukendte holdnavne — ret holdlisten eller kampprogrammet først.');
   }
-  const matches = buildMatches(plan.skriv, teams);
 
   const eloCurrent = {};
   for (const t of teams) eloCurrent[t.name] = t.elo;

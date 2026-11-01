@@ -332,11 +332,21 @@ export function outcomeProbabilities({
  * sikre kamp — det modsatte af hensigten.
  *
  * MIN bliver stående: et udfald skal betale mere end indsatsen tilbage. Vær
- * dog klar over, at det er et VÆRN, ikke en aktiv grænse: efter DRAW_BASE gik
- * til 0,305, er den højeste sandsynlighed modellen overhovedet kan give
- * 0,8958 — altså laveste odds 1,116. Gulvet kan derfor aldrig binde gennem
- * outcomeOdds, som er den eneste vej i produktion. Det binder kun, hvis nogen
- * kalder fairOdds direkte med en sandsynlighed over 0,909.
+ * dog klar over, at det i FODBOLD er et VÆRN, ikke en aktiv grænse: efter
+ * DRAW_BASE gik til 0,305, er den højeste sandsynlighed fodboldmodellen
+ * overhovedet kan give 0,8958 — altså laveste odds 1,116. Med FODBOLDENS
+ * uafgjort-model kan gulvet derfor aldrig binde gennem outcomeOdds; det binder
+ * kun, hvis nogen kalder fairOdds direkte med en sandsynlighed over 0,909.
+ *
+ * Det gælder IKKE for andre sporter. Loftet over p kommer af uafgjort-modellen
+ * (DRAW_BASE/DRAW_DECAY), og en sport med få uafgjorte (håndbold) kan nå over
+ * 0,909. Prøvesporten i src/test/proeveSport.js giver fx 0,936 ved 1900 mod
+ * 1300 på neutral bane — det er ET EKSEMPEL, ikke et loft: dens p stiger med
+ * styrkeforskellen mod 1 − 0,05·e^(−0,4) ≈ 0,966 (bevist i
+ * src/lib/sportProfil.test.js, "odds-gulvet er en profilværdi"). Dér binder
+ * 1,1 og giver favorittippet positiv forventning. Derfor er gulvet en
+ * profilværdi (`profil.odds.min`, se sportProfil), og MIN her er kun
+ * fodboldens.
  *
  * Måles med scripts/maal-chancen.mjs (tabellen ovenfor) og
  * scripts/maal-spilbalance.mjs (1X2 og combi). Se docs/spilbalance.md.
@@ -350,27 +360,147 @@ export const ODDS = {
 };
 
 /**
- * Fair (EV-neutral) decimal-odds for en sandsynlighed. Kun et GULV (MIN) —
- * intet loft. Afrundes til 2 decimaler. p ≤ 0 eller ugyldigt giver UGYLDIG.
+ * Fair (EV-neutral) decimal-odds for en sandsynlighed. Kun et GULV — intet
+ * loft. Afrundes til 2 decimaler. p ≤ 0 eller ugyldigt giver UGYLDIG.
+ *
+ * Gulvet er ODDS.MIN, medmindre et andet gives. Det andet kommer fra
+ * sportsprofilen (`profil.odds.min`), ikke fra en ny global konstant: et
+ * gulv, der ikke binder i fodbold, kan binde i en sport med få uafgjorte —
+ * og så giver det favorittippet positiv forventning. Se sportProfil.
  */
-export function fairOdds(p) {
+export function fairOdds(p, min = ODDS.MIN) {
   const prob = Number(p);
   // Et umuligt eller ugyldigt udfald har ingen fair pris. Før faldt det
   // tilbage på loftet; nu findes der ikke et. UGYLDIG er derfor et bevidst
   // valgt tal, ikke en grænse for rigtige odds — modellen giver aldrig p ≤ 0.
   if (!Number.isFinite(prob) || prob <= 0) return ODDS.UGYLDIG;
-  const raw = Math.max(ODDS.MIN, 1 / prob);
+  const raw = Math.max(min, 1 / prob);
   return Math.round(raw * 100) / 100;
 }
 
-/** Fair odds for hvert 1X2-udfald ud fra Elo-ratings. */
+/**
+ * Fair odds for hvert 1X2-udfald ud fra Elo-ratings. Tager de samme felter
+ * som outcomeProbabilities plus `oddsMin` (gulvet) — dvs. præcis det,
+ * `oddsParametre(profil)` giver. Mangler et felt, gælder fodbold-værdien.
+ */
 export function outcomeOdds(eloArgs) {
   const p = outcomeProbabilities(eloArgs);
+  const min = eloArgs?.oddsMin;
   return {
-    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME]),
-    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW]),
-    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY]),
+    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME], min),
+    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW], min),
+    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY], min),
   };
+}
+
+// --- Sportsprofil: de tal, der hører til SPORTEN, ikke til spillet ----------
+
+/**
+ * Sporten, et spil uden `sport`-felt spiller. Superligaen og Premier League
+ * har intet felt og skal blive ved at få præcis de tal, de altid har fået.
+ */
+export const STANDARD_SPORT = 'fodbold';
+
+// Profilerne fryses helt ned: profilen deles af alle spil i samme sport i
+// samme proces (serveren kører mange afregninger i én instans), så én kalder,
+// der skrev `profil.elo.HFA = 0`, ville ændre hjemmebanen for alle de andre.
+function frys(o) {
+  for (const v of Object.values(o)) if (v && typeof v === 'object') frys(v);
+  return Object.freeze(o);
+}
+
+/**
+ * Sportsprofilerne. I dag kun Elo- og odds-modellen; senere også sportens ord
+ * og evner (fx "harHjemmebane"), og derfor hedder den sportProfil og ikke
+ * eloProfil.
+ *
+ * Fodbold BYGGES AF de eksisterende konstanter — ingen tal er skrevet af. Så
+ * kan ELO og profilen ikke drive fra hinanden, og en model-ændring i ELO
+ * (målt med scripts/maal-uafgjort.mjs) slår igennem begge steder.
+ *
+ * Der er bevidst INGEN håndboldprofil endnu: dens tal skal måles først
+ * (harness i scripts/, ikke tal uden kode — se CLAUDE.md).
+ *
+ * Selve REGISTRET er ikke frosset, kun profilerne i det. Testene lægger en
+ * prøvesport ind for at bevise, at hvert kaldested faktisk bruger SPILLETS
+ * profil — så længe fodbold er den eneste profil, er en fjernet profil i et
+ * kald ellers usynlig, fordi standardværdierne er de samme tal.
+ */
+export const SPORT_PROFILER = {
+  fodbold: frys({
+    sport: 'fodbold',
+    elo: { ...ELO },
+    odds: { min: ODDS.MIN },
+  }),
+};
+
+/**
+ * Spillets sportsprofil. Manglende, ukendt eller ugyldig `game.sport` giver
+ * fodbold — også navne som 'toString' eller '__proto__', der findes på
+ * ethvert objekt og derfor kun må tælle, hvis de er registreret.
+ */
+export function sportProfil(game) {
+  const sport = game?.sport;
+  return erRegistreret(sport) ? SPORT_PROFILER[sport] : SPORT_PROFILER[STANDARD_SPORT];
+}
+
+// ÉN vagt for "findes denne sport i registret" — sportProfil og ukendtSport
+// læser begge den, så de kan ikke blive uenige om, hvad der er kendt.
+function erRegistreret(sport) {
+  return typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_PROFILER, sport);
+}
+
+/**
+ * Er `game.sport` SAT, men ukendt? Fallbacken i sportProfil er tavs med vilje
+ * (et spil må ikke gå i stå i drift), men så skjuler den også en tastefejl:
+ * `sport: 'handbold'` ville blive prissat som fodbold. Der er TRE skriveveje,
+ * og de svarer forskelligt med vilje: det fulde seed (seedKampe) og
+ * Ompris-knappen (repriceGameOdds) spørger her og afviser, mens triggeren på
+ * facit-ændring (recomputeGameMatch → recomputeSeasonElo) kun advarer og
+ * regner videre — driften må ikke gå i stå for en tastefejl. Mangler feltet
+ * (undefined/null), er det IKKE ukendt — så er det fodbold med vilje, som SL og PL.
+ */
+export function ukendtSport(game) {
+  const sport = game?.sport;
+  return sport != null && !erRegistreret(sport);
+}
+
+/**
+ * Den RÅ sport-værdi, som den skal stå i en fejl eller advarsel. Tal vises med
+ * String: JSON.stringify(NaN) og JSON.stringify(Infinity) giver "null", og
+ * "sport null" er netop det, et sat felt IKKE er. Alt andet med
+ * JSON.stringify, så et array ['fodbold'] står som ["fodbold"] og ikke som en
+ * kendt sport. Spejlet i functions-platform/superligaScoring.js.
+ */
+export function visSport(vaerdi) {
+  return typeof vaerdi === 'number' ? String(vaerdi) : JSON.stringify(vaerdi);
+}
+
+/**
+ * Profilens odds-model i den form, outcomeOdds og outcomeProbabilities tager.
+ *
+ * KASTER, hvis profilens gulv ikke er et endeligt tal over 1. outcomeOdds
+ * falder ellers TAVST tilbage: et manglende `oddsMin` (fx en profil med
+ * `odds: {minimum: 1.01}`) gav fodboldens 1,1, et `null` gav slet intet gulv
+ * (Math.max(null, x) = x), og NaN gav NaN-odds. Profilerne er kode, ikke data
+ * — en forkert profil er en programfejl og skal være højlydt.
+ */
+export function oddsParametre(profil = sportProfil()) {
+  const min = profil.odds?.min;
+  if (!(Number.isFinite(min) && min > 1)) {
+    throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-gulv (odds.min = ${String(min)}).`);
+  }
+  return {
+    hfa: profil.elo.HFA,
+    drawBase: profil.elo.DRAW_BASE,
+    drawDecay: profil.elo.DRAW_DECAY,
+    oddsMin: min,
+  };
+}
+
+/** Profilens Elo-opdatering i den form, updateElo tager. */
+export function eloParametre(profil = sportProfil()) {
+  return { hfa: profil.elo.HFA, k: profil.elo.K };
 }
 
 // --- Chancen: indsats-grænser + afregning ------------------------------------

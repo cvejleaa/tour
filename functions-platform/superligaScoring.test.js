@@ -9,6 +9,7 @@ const {
   PULJE, ELO, ODDS,
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities, fairOdds,
   leagueTable, championshipTeams, puljeScore, bundTeams, puljeKonfig,
+  STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
 } = require('./superligaScoring');
 
 describe('superligaScoring (server-spejl)', () => {
@@ -262,6 +263,165 @@ describe('superligaScoring (server-spejl)', () => {
     expect(fairOdds(0.99)).toBe(1.1);
     expect(ODDS.MIN).toBe(1.1);
     expect(fairOdds(0)).toBe(ODDS.UGYLDIG);
+  });
+});
+
+// Sportsprofilen er spejlet. Driver den, prisser seedet (klienten) og
+// omprisningen (serveren) samme spil med to modeller — og den første
+// omprisning flytter alle odds, uden at nogen har bedt om det.
+describe('sportsprofilen: server-spejlet er identisk med src', () => {
+  // Spil, der rammer hver gren: mangler, ukendt, ugyldig, prototype-navne.
+  const SPIL = [
+    undefined, null, {}, { sport: 'fodbold' }, { sport: 'curling' }, { sport: 'Fodbold' },
+    { sport: 123 }, { sport: '' }, { sport: 'toString' }, { sport: '__proto__' }, { sport: 'constructor' },
+  ];
+
+  it('samme register, samme standard, samme profil for hvert spil', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    expect(STANDARD_SPORT).toBe(src.STANDARD_SPORT);
+    expect(SPORT_PROFILER).toEqual(src.SPORT_PROFILER);
+    expect(Object.keys(SPORT_PROFILER)).toEqual(['fodbold']); // ingen håndbold før delopgave 4
+    for (const g of SPIL) {
+      expect(sportProfil(g), JSON.stringify(g)).toEqual(src.sportProfil(g));
+      // Ikke bare ens med src — det SKAL være fodbold. Ellers ville to spejle,
+      // der begge gav Object.prototype for '__proto__', også være "ens".
+      expect(sportProfil(g), JSON.stringify(g)).toBe(SPORT_PROFILER.fodbold);
+    }
+    expect(sportProfil()).toBe(SPORT_PROFILER.fodbold);
+  });
+
+  // ukendtSport er spejlet: seedet (klient-modulet) afviser, Ompris-knappen
+  // afviser og triggeren advarer (begge server-modulet) — er de uenige om, hvad
+  // der er ukendt, afviser serveren et spil, seedet godtog (eller omvendt).
+  it('ukendtSport: samme svar som src — og manglende felt er IKKE ukendt', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    for (const g of [...SPIL, { sport: 'handbold' }, { sport: null }, { sport: undefined }, { sport: ['fodbold'] }]) {
+      expect(ukendtSport(g), JSON.stringify(g)).toBe(src.ukendtSport(g));
+    }
+    for (const g of [undefined, null, {}, { sport: null }, { sport: undefined }, { sport: 'fodbold' }]) {
+      expect(ukendtSport(g), JSON.stringify(g)).toBe(false);
+    }
+    for (const sport of ['handbold', 'curling', 'Fodbold', '', 123, 'toString', '__proto__', 'constructor', ['fodbold']]) {
+      expect(ukendtSport({ sport }), JSON.stringify(sport)).toBe(true);
+    }
+    // En registreret sport er kendt — kun en streng finder den.
+    SPORT_PROFILER.proeve = { sport: 'proeve', elo: { ...ELO }, odds: { min: 1.01 } };
+    try {
+      expect(ukendtSport({ sport: 'proeve' })).toBe(false);
+      expect(ukendtSport({ sport: ['proeve'] })).toBe(true);
+    } finally {
+      delete SPORT_PROFILER.proeve;
+    }
+  });
+
+  // visSport er spejlet: serverens fejl/advarsel og seedets fejl skal vise den
+  // rå værdi ens. Tal med String — JSON.stringify(NaN/Infinity) er "null", og
+  // "sport null" er netop det, et SAT felt ikke er.
+  it('visSport: tal som sig selv (også NaN/Infinity), alt andet som JSON — og samme svar som src', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const forventet = [
+      [NaN, 'NaN'], [Infinity, 'Infinity'], [-Infinity, '-Infinity'], [123, '123'], [1.5, '1.5'],
+      ['handbold', '"handbold"'], ['', '""'], [['fodbold'], '["fodbold"]'], [{ a: 1 }, '{"a":1}'],
+      [true, 'true'], [null, 'null'],
+    ];
+    for (const [v, vist] of forventet) {
+      expect(visSport(v), String(v)).toBe(vist);
+      expect(src.visSport(v), String(v)).toBe(vist);
+    }
+  });
+
+  // Formen over HELE server-registret (spejl af src/lib/sportProfil.test.js).
+  // En profil med `odds: {minimum: 1.01}` fik før tavst fodboldens gulv.
+  it('hver profil har præcis nøglerne sport/elo/odds, elo som ELO og odds.min endeligt > 1', () => {
+    expect(Object.keys(SPORT_PROFILER).length).toBeGreaterThan(0);
+    for (const [navn, p] of Object.entries(SPORT_PROFILER)) {
+      expect(Object.keys(p).sort(), navn).toEqual(['elo', 'odds', 'sport']);
+      expect(p.sport, navn).toBe(navn);
+      expect(Object.keys(p.elo).sort(), navn).toEqual(Object.keys(ELO).sort());
+      for (const k of Object.keys(ELO)) expect(Number.isFinite(p.elo[k]), `${navn}.elo.${k}`).toBe(true);
+      expect(Object.keys(p.odds), navn).toEqual(['min']);
+      expect(Number.isFinite(p.odds.min) && p.odds.min > 1, `${navn}.odds.min`).toBe(true);
+    }
+  });
+
+  it('oddsParametre afviser et gulv, der ikke er et endeligt tal over 1 — ens med src', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    for (const odds of [{ minimum: 1.01 }, { min: null }, { min: NaN }, { min: Infinity }, { min: 1 }, { min: '1.01' }, {}, undefined]) {
+      const p = { sport: 'x', elo: { ...ELO }, odds };
+      expect(() => oddsParametre(p), JSON.stringify(odds)).toThrow(/odds-gulv/);
+      expect(() => src.oddsParametre(p), JSON.stringify(odds)).toThrow(/odds-gulv/);
+    }
+    // Beskeden bærer sporten og den RÅ værdi (mutant: begge udeladt overlevede /odds-gulv/).
+    const msg = 'Sportsprofilen "haandbold" har intet gyldigt odds-gulv (odds.min = NaN).';
+    expect(() => oddsParametre({ sport: 'haandbold', elo: { ...ELO }, odds: { min: NaN } })).toThrow(msg);
+    expect(() => src.oddsParametre({ sport: 'haandbold', elo: { ...ELO }, odds: { min: NaN } })).toThrow(msg);
+    expect(oddsParametre({ sport: 'x', elo: { ...ELO }, odds: { min: 1.0001 } }).oddsMin).toBe(1.0001);
+  });
+
+  it('fodbold er bygget af ELO/ODDS, har dagens tal og er frosset', () => {
+    const p = sportProfil();
+    expect(p).toEqual({ sport: 'fodbold', elo: { ...ELO }, odds: { min: ODDS.MIN } });
+    // En KOPI — delte profilen objekt med ELO, blev konstanten selv frosset.
+    expect(p.elo).not.toBe(ELO);
+    expect(Object.isFrozen(ELO)).toBe(false);
+    expect(p.elo).toEqual({ START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.305, DRAW_DECAY: 0.55 });
+    expect(Object.isFrozen(p) && Object.isFrozen(p.elo) && Object.isFrozen(p.odds)).toBe(true);
+  });
+
+  it('samme oversættelse til odds- og Elo-parametre — også for en profil med andre tal', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const anden = { elo: { START: 1000, HFA: 0, K: 40, DRAW_BASE: 0.05, DRAW_DECAY: 0.2 }, odds: { min: 1.01 } };
+    for (const p of [sportProfil(), anden]) {
+      expect(oddsParametre(p)).toEqual(src.oddsParametre(p));
+      expect(eloParametre(p)).toEqual(src.eloParametre(p));
+    }
+    expect(oddsParametre(anden)).toEqual({ hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01 });
+    expect(eloParametre(anden)).toEqual({ hfa: 0, k: 40 });
+    expect(oddsParametre()).toEqual(src.oddsParametre());
+    expect(eloParametre()).toEqual(src.eloParametre());
+  });
+
+  // Gulvet som profilværdi SKAL sammenlignes, hvor det binder. Fodbold kan
+  // ikke nå over p = 0,909 (se ODDS i src), så et jævnt par ville kun bevise,
+  // at begge spejle kan dividere.
+  it('outcomeOdds bruger oddsMin ens — der, hvor gulvet binder', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const args = { eloHome: 1900, eloAway: 1300, hfa: 0, drawBase: 0.05, drawDecay: 0.2 };
+    for (const oddsMin of [undefined, 1.01, 1.1, 1.2]) {
+      expect(outcomeOdds({ ...args, oddsMin })).toEqual(src.outcomeOdds({ ...args, oddsMin }));
+    }
+    expect(outcomeOdds({ ...args, oddsMin: 1.01 })['1']).toBe(1.07);
+    expect(outcomeOdds(args)['1']).toBe(1.1);
+    for (const p of [0, -1, 'x', 0.99, 0.95, 0.5]) {
+      expect(fairOdds(p, 1.01)).toBe(src.fairOdds(p, 1.01));
+    }
+    expect(fairOdds(0.99, 1.01)).toBe(1.01);
+  });
+
+  // … og uafgjort har sit eget. X ligger omkring 3-4 i odds, så et almindeligt
+  // gulv binder aldrig dér; et gulv over X's fair pris viser, om kaldet fik det.
+  it('outcomeOdds bruger oddsMin ens — også for uafgjort', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const args = { eloHome: 1500, eloAway: 1500, hfa: 0, drawBase: 0.305, drawDecay: 0.55 };
+    expect(outcomeOdds(args).X).toBeLessThan(5);
+    for (const oddsMin of [undefined, 5]) {
+      expect(outcomeOdds({ ...args, oddsMin })).toEqual(src.outcomeOdds({ ...args, oddsMin }));
+    }
+    expect(outcomeOdds({ ...args, oddsMin: 5 })).toEqual({ 1: 5, X: 5, 2: 5 });
+  });
+
+  // Hvert udfald har sit eget fairOdds-kald. Gulvet på '2' skal derfor bevises
+  // med en UDE-favorit for sig — ellers kunne det kald miste oddsMin, og
+  // ude-favoritter i en sport med lavere gulv ville få fodboldens 1,1.
+  it('outcomeOdds bruger oddsMin ens — også for UDE-favoritten', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const args = { eloHome: 1300, eloAway: 1900, hfa: 0, drawBase: 0.05, drawDecay: 0.2 };
+    for (const oddsMin of [undefined, 1.01, 1.1, 1.2]) {
+      expect(outcomeOdds({ ...args, oddsMin })).toEqual(src.outcomeOdds({ ...args, oddsMin }));
+    }
+    expect(outcomeOdds({ ...args, oddsMin: 1.01 })).toEqual({ 1: 33.78, X: 29.11, 2: 1.07 });
+    expect(src.outcomeOdds({ ...args, oddsMin: 1.01 })['2']).toBe(1.07);
+    expect(outcomeOdds(args)['2']).toBe(1.1);
   });
 });
 

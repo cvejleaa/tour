@@ -49,7 +49,7 @@
  *    Elo-fanen ved siden af. Ordet bruges ikke i denne fil.
  */
 
-import { ELO, OUTCOME, OUTCOMES, outcomeProbabilities } from '../../../lib/superligaScoring';
+import { OUTCOME, OUTCOMES, outcomeProbabilities, oddsParametre, sportProfil } from '../../../lib/superligaScoring';
 
 /** Er værdien et gyldigt 1X2-udfald? */
 function erUdfald(x) {
@@ -578,9 +578,12 @@ function ratingFoerRunden(historik, hold, runde, seed) {
  * @param {string} hold
  * @param {Array<{round:number, elo:Record<string,number>}>} eloHistorik – game.eloHistory
  * @param {Record<string,number>} seedElo – holdenes start-rating (teams[].elo)
+ * @param {object} [profil] – SPILLETS sportsprofil (`sportProfil(game)`).
+ *   Modellen her skal være den, spillets odds er prissat med — ellers er
+ *   "modellens forventning" en anden models. Udeladt: fodbold.
  * @returns {{faktiske:number, ventede:number, forskel:number, kampe:number}}
  */
-export function pointModForventning(matches, hold, eloHistorik, seedElo) {
+export function pointModForventning(matches, hold, eloHistorik, seedElo, profil = sportProfil()) {
   const historik = Array.isArray(eloHistorik) ? eloHistorik : [];
   const seed = seedElo || {};
   let faktiske = 0;
@@ -594,12 +597,12 @@ export function pointModForventning(matches, hold, eloHistorik, seedElo) {
     const modstander = hjemme ? m.away : m.home;
 
     const eloHome = ratingFoerRunden(historik, m.home, m.round,
-      Number(seed[m.home]) || ELO.START);
+      Number(seed[m.home]) || profil.elo.START);
     const eloAway = ratingFoerRunden(historik, m.away, m.round,
-      Number(seed[m.away]) || ELO.START);
+      Number(seed[m.away]) || profil.elo.START);
     if (!modstander) continue;
 
-    const p = outcomeProbabilities({ eloHome, eloAway });
+    const p = outcomeProbabilities({ eloHome, eloAway, ...oddsParametre(profil) });
     const pSejr = hjemme ? p[OUTCOME.HOME] : p[OUTCOME.AWAY];
     ventede += (3 * pSejr) + p[OUTCOME.DRAW];
 

@@ -83,6 +83,27 @@ PR-teksten, ikke her.
   variabel i samme funktion. Modstykket: ikke enhver brug af den snævre liste
   er en fejl, kun der hvor tælleren skal beskrive noget spilleren SER.
 
+- **En ny SPORT/kilde på en eksisterende spiltype arver fladernes ORDFORRÅD
+  og SKALA, ikke kun deres gates.** Spørg pr. ord: hvad betyder det i den nye
+  sport? ("runde" er et FASE-ord i håndbold — "Runde 2" læses som hovedrunden;
+  en konstant i runder, fx `PULJE_MAKS_STARTRUNDE`, var uger og bliver dage.)
+  Grep emoji (⚽/&#9917;), "sæson", "hjemmebane", "den officielle tabel" i
+  guide OG invitationsmail — mailen er den første flade, ejeren bruger.
+- **Inkrementel seeding gør hvert "alle seedede X"-prædikat til en løgn:**
+  `.every(` over kampe (puljeafregning, klient OG server), `rounds[length-1]`
+  som nævner ("Runde 6 af 6"), `nextRound ?? null` ("sæsonen er slut"), og
+  "ingen næste kamp" uden en tilstand, der siger "næste fase kommer". En
+  glemt seed er TAVS — intet strander, intet påmindes. Kræv en kalender, der
+  ved hvad der burde findes.
+- **Et seed-script skriver mere, end dets navn siger** — læs skrive-stien
+  (seed-football skriver `eloCurrent` ubetinget = nulstiller levende Elo
+  midt i en turnering). En runbook med N manuelle trin under tidspres skal
+  helst blive ÉT server-side create-only trin med tør-kørsel.
+- **En nødbremse skal kunne RETTE, ikke kun udfylde** (en liste "uden facit"
+  kan ikke redde et forkert facit), og dialogen skal nævne de IRREVERSIBLE
+  følgevirkninger (Runde-Botten poster ved rundens sidste kamp; en lås mod
+  synken gør tastefejl permanente).
+
 ## Gates, evner og proxier
 
 - **En proxy-gate findes ikke ved grep — den indeholder ikke evnens navn.**
@@ -145,6 +166,32 @@ PR-teksten, ikke her.
 
 ## Data, kilder og målinger
 
+- **En parser, der KASTER på en ukendt statuskode, kaster også på LIVE** — og
+  på en dagside med flere kampe forgifter ét ukendt kampblok hele dagen
+  (tidligere afsluttede kampes facit bliver siddende, alarmen går hver
+  turneringsdag). Spørg: hvad ser siden ud som MENS noget er i gang, og taber en
+  fejl i én blok de andre? Returnér `ukendt` pr. kamp (aldrig tolket som slut),
+  kast først ved strukturbrud. Tæl desuden fixtures mod de SIDEFORMER
+  produktionen møder (hovedrunde manglede ved siden af gruppe/KO/finaledag).
+- **En tavs default på en MANGLENDE konfig-nøgle er en fallback, der skjuler
+  tastefejl** (`sport:'handbold'` → fodbold; `odds:{minimum}` → fodboldens
+  gulv). Kræv en form-test over HELE registret (alle felter endelige tal) og at
+  et skrivende script viser det RÅ felt, ikke den opløste profil.
+- **Afvisning af en tastefejl i et felt skal pege på DET STED, der ikke
+  overskrives.** Skal feltet bo i et seedet script (`games.mjs` + `seedGames`
+  med merge), vinder scriptet over en konsol-rettelse ved næste seed, og merge
+  kan ikke FJERNE et felt. Tjek guide, fejlbesked og script-besked mod hinanden
+  (de pegede på tre forskellige steder) og mod planens fremtidige skrivevej,
+  ikke kun mod i dag. Og en kommentar, der parkerer en alarm hos en fremtidig
+  delopgave ("hører til D7"), skal efterprøves mod planen: ejer den delopgave
+  faktisk DEN alarm, eller en anden?
+- **Opslag i en objekt-literal på en FREMMED nøgle rammer Object.prototype**
+  (`ENTITETER[navn] ?? hel` gav «function Object() {…}» for `&constructor;`).
+  Samme familie som `sportProfil`s hasOwnProperty: `Object.hasOwn`/null-
+  prototype, eller et Map. Test med `constructor`, `__proto__`, `toString`.
+- **Gammel mod ny parser: kør begge over ALLE fixtures og diff feltvist**
+  (`git show <sha>:fil > old.cjs`). Forskellen skal være præcis de omdøbte/
+  tilføjede felter og intet andet — det er beviset for «samme data som før».
 - **Et felt i en plan-tabel uden en målt kilde er en påstand.** Kræv
   fil:linje i måle-scriptet eller en committet payload — ikke en kolonne der
   blot NÆVNER et feltnavn.
@@ -366,6 +413,9 @@ PR-teksten, ikke her.
 
 ## Tests, målinger og selectorer
 
+- **En prøve-fixture kan fastfryse en tekst, der er forkert for netop prøven**
+  (HFA 0 → «ikke 50/50 … omkring 50 % takket være hjemmebanen»): markér i testen,
+  at den VENDES, når teksten gates på evnen — ellers læses den som facit.
 - **En Playwright-selector skal verificeres mod den ÆGTE komponent**, ikke
   antages fra testens egen tekst — grep den i `src/`, og tjek at testens
   udnyttede render-BETINGELSE (ikke bare selectoren) rent faktisk styrer
@@ -420,3 +470,5 @@ PR-teksten, ikke her.
   viser den gamle tilstand.
 - Global admin har klient-læse-bypass på de fleste samlinger, men ikke
   nødvendigvis alle — tjek den konkrete samling, antag det ikke.
+- `strandedMatches` melder en kamp UDEN kickoff som strandet med det samme
+  (bevidst) — seed aldrig kampe med `kickoff:null` i et spil med alarmen.

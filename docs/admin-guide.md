@@ -111,6 +111,11 @@ Liga-admin følger med at have oprettet ligaen.
   **Vigtigt:** allerede afgivne tips på de omprisede kampe afregnes til de
   NYE odds, også Chancen. Ompriser du midt i en runde, så sig det til
   spillerne, mens de stadig kan nå at rette deres tip.
+  Har spillet et `sport`-felt, platformen ikke kender (fx tastefejlen
+  `handbold`), afviser knappen med en **rød besked** — også tør-kørslen, og
+  før der er regnet noget. Står `sport` i `scripts/games.mjs`, så ret det
+  dér og kør `seedGames`; skal feltet væk (fodbold), så fjern det i
+  Firebase-konsollen — `seedGames` kan ikke fjerne et felt. Kør så igen.
 - **🔐 Genopbyg liga-adgang til stillingen** — kun nødvendig, hvis stillingen
   står tom. Se [drift.md](drift.md).
 

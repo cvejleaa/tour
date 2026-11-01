@@ -190,6 +190,11 @@ const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.305, DRAW_DECAY: 0.55 };
 // indsatsen, så en Chance på høje odds fik negativ forventning: den modige
 // tabte 27-47 point pr. sæson på at turde. Fuld begrundelse og måling i
 // src/lib/superligaScoring.js.
+//
+// MIN er FODBOLDENS gulv. I fodbold binder det aldrig gennem outcomeOdds
+// (uafgjort-modellen holder p under 0,896), men en sport med få uafgjorte kan
+// nå over 0,909, og dér binder det — derfor er gulvet en profilværdi
+// (profil.odds.min). Fuld begrundelse ved ODDS i src.
 const ODDS = { MIN: 1.1, UGYLDIG: 100 };
 
 function eloExpectedHome(eloHome, eloAway, hfa = ELO.HFA) {
@@ -211,20 +216,93 @@ function outcomeProbabilities({
   return { [OUTCOME.HOME]: rest * e, [OUTCOME.DRAW]: pDraw, [OUTCOME.AWAY]: rest * (1 - e) };
 }
 
-function fairOdds(p) {
+// Gulvet er ODDS.MIN, medmindre sportsprofilen giver et andet (profil.odds.min).
+function fairOdds(p, min = ODDS.MIN) {
   const prob = Number(p);
   if (!Number.isFinite(prob) || prob <= 0) return ODDS.UGYLDIG;
-  const clamped = Math.max(ODDS.MIN, 1 / prob);
+  const clamped = Math.max(min, 1 / prob);
   return Math.round(clamped * 100) / 100;
 }
 
+// Samme felter som outcomeProbabilities + oddsMin — dvs. oddsParametre(profil).
 function outcomeOdds(eloArgs) {
   const p = outcomeProbabilities(eloArgs);
+  const min = eloArgs ? eloArgs.oddsMin : undefined;
   return {
-    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME]),
-    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW]),
-    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY]),
+    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME], min),
+    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW], min),
+    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY], min),
   };
+}
+
+// --- Sportsprofil (spejl af src): tallene, der hører til SPORTEN -------------
+// Fuld begrundelse i src/lib/superligaScoring.js. Kort: et spil uden `sport`
+// er fodbold, fodbold bygges AF ELO/ODDS (intet skrevet af), profilerne er
+// frosset, registret er ikke (testene lægger en prøvesport ind), og der er
+// endnu ingen håndboldprofil — dens tal skal måles først.
+const STANDARD_SPORT = 'fodbold';
+
+function frys(o) {
+  for (const v of Object.values(o)) if (v && typeof v === 'object') frys(v);
+  return Object.freeze(o);
+}
+
+const SPORT_PROFILER = {
+  fodbold: frys({
+    sport: 'fodbold',
+    elo: { ...ELO },
+    odds: { min: ODDS.MIN },
+  }),
+};
+
+function sportProfil(game) {
+  const sport = game ? game.sport : undefined;
+  return erRegistreret(sport) ? SPORT_PROFILER[sport] : SPORT_PROFILER[STANDARD_SPORT];
+}
+
+// ÉN vagt for "kendt sport" — sportProfil og ukendtSport kan ikke blive uenige.
+function erRegistreret(sport) {
+  return typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_PROFILER, sport);
+}
+
+// game.sport er SAT, men ukendt (tastefejl som 'handbold'). Mangler feltet, er
+// det fodbold med vilje. Der er TRE skriveveje, og de behandler det forskelligt
+// med vilje: det fulde seed (seedKampe) og Ompris-knappen (repriceGameOdds)
+// afviser, mens triggeren på facit-ændring (recomputeGameMatch →
+// recomputeSeasonElo) kun advarer og regner videre som fodbold — driften må
+// ikke gå i stå midt i en sæson for en tastefejl.
+function ukendtSport(game) {
+  const sport = game ? game.sport : undefined;
+  return sport != null && !erRegistreret(sport);
+}
+
+// Den RÅ sport-værdi, som den skal stå i en fejl eller en advarsel. Tal vises
+// med String: JSON.stringify(NaN) og JSON.stringify(Infinity) giver "null", og
+// "sport null" er netop det, et sat felt IKKE er. Alt andet med JSON.stringify,
+// så et array ['fodbold'] står som ["fodbold"] og ikke som en kendt sport.
+// Spejlet i src/lib/superligaScoring.js.
+function visSport(vaerdi) {
+  return typeof vaerdi === 'number' ? String(vaerdi) : JSON.stringify(vaerdi);
+}
+
+// Kaster for et gulv, der ikke er et endeligt tal over 1: outcomeOdds faldt
+// ellers tavst tilbage (manglende → 1,1, null → intet gulv, NaN → NaN-odds).
+// Profilerne er kode — en forkert profil er en programfejl.
+function oddsParametre(profil = sportProfil()) {
+  const min = profil.odds ? profil.odds.min : undefined;
+  if (!(Number.isFinite(min) && min > 1)) {
+    throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-gulv (odds.min = ${String(min)}).`);
+  }
+  return {
+    hfa: profil.elo.HFA,
+    drawBase: profil.elo.DRAW_BASE,
+    drawDecay: profil.elo.DRAW_DECAY,
+    oddsMin: min,
+  };
+}
+
+function eloParametre(profil = sportProfil()) {
+  return { hfa: profil.elo.HFA, k: profil.elo.K };
 }
 
 function updateElo(eloHome, eloAway, actualHome, { hfa = ELO.HFA, k = ELO.K } = {}) {
@@ -333,4 +411,5 @@ module.exports = {
   settleChance, scoreBet, chanceMaxStake, clampStake,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
+  STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
 };

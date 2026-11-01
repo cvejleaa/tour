@@ -1,15 +1,33 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { createRequire } from 'module';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+// Facit for sportsprofilen: skrevet af koden FØR profilen (scripts/sportprofil-golden.mjs).
+import golden from './testdata/sportprofil-golden.json';
+import slProgram from '../scripts/superliga-fixtures.json';
+import plProgram from '../scripts/premier-league-fixtures-2627.json';
+import { buildMatches } from '../src/lib/superligaSeed.js';
+import { SUPERLIGA_TEAMS_2026 } from '../src/data/superligaTeams2026.js';
+import { PREMIER_LEAGUE_TEAMS_2026 } from '../src/data/premierLeagueTeams2026.js';
+import { goldenKampe, GOLDEN_NU_MS, makeEloDb as makeGoldenDb } from '../scripts/lib/sportprofilGolden.mjs';
 
 const require = createRequire(import.meta.url);
 const {
   recomputeGameMatchCore, recomputeSeasonElo,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officielTop, puljeTipKomplet,
-  gatedIds, recomputeAllPlayerTotals, rescoreAllBets, dryRunFraKald,
+  gatedIds, recomputeAllPlayerTotals, rescoreAllBets, dryRunFraKald, ukendtSportFejl,
+  tilHttpsFejl, omprisFraKnap,
 } = require('./gameScoring');
+// Den RIGTIGE HttpsError — ikke en attrap — så oversættelsen bevises mod den
+// klasse, callablen faktisk kaster.
+const { HttpsError } = require('firebase-functions/v2/https');
 // Combi-reglen har ét hjem. Testen henter den DERFRA, så en fremtidig dublet
 // ikke kan snige sig ind bag en grøn suite.
 const { combiBonus, buildRoundContext } = require('./pointOpdeling');
+// Samme modul-instans, som gameScoring selv har hentet — så en prøvesport,
+// der lægges i registret her, også er den, recomputeSeasonElo slår op i.
+const scoring = require('./superligaScoring');
 
 // --- Minimal in-memory fake-Firestore, kun nok til gameScoring-kernen. -------
 // Understøtter: games/{g}/bets (where uid==, where matchId==), games/{g}/matches
@@ -1554,5 +1572,387 @@ describe('recomputeSeasonElo (levende Elo)', () => {
     expect(Array.isArray(db._game.eloHistory)).toBe(true);
     expect(db._game.eloHistory.map((h) => h.round)).toEqual([1]); // kun runde 1 komplet
     expect(db._game.eloHistory[0].elo.A).toBeGreaterThan(db._game.eloHistory[0].elo.B);
+  });
+});
+
+// --- Sportsprofilen i recomputeSeasonElo --------------------------------------
+//
+// To ting, og de bevises hver for sig:
+//   1. SL og PL er BYTE-IDENTISKE med koden før profilen — facit i
+//      testdata/sportprofil-golden.json blev skrevet af den gamle kode
+//      (scripts/sportprofil-golden.mjs), på hele programmet.
+//   2. Funktionen bruger SPILLETS profil, både til Elo-opdateringen og de
+//      friske odds. Kun en profil med andre tal end fodboldens kan vise det:
+//      med fodbold alene er en glemt profil usynlig.
+describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
+  const LIGAER = {
+    sl: { fixtures: slProgram.fixtures || slProgram, teams: SUPERLIGA_TEAMS_2026 },
+    pl: { fixtures: plProgram.fixtures || plProgram, teams: PREMIER_LEAGUE_TEAMS_2026 },
+  };
+
+  for (const [liga, { fixtures, teams: holdliste }] of Object.entries(LIGAER)) {
+    it(`${liga}: Elo og omprisning er uændrede — uanset hvordan "fodbold" nås`, async () => {
+      expect(Object.keys(golden[liga].ompris).length).toBeGreaterThan(50); // facit er ikke tomt
+      for (const ekstra of [{}, { sport: 'fodbold' }, { sport: 'curling' }, { sport: '__proto__' }]) {
+        const db = makeGoldenDb({ teams: holdliste, ...ekstra }, goldenKampe(buildMatches(fixtures, holdliste)));
+        const res = await recomputeSeasonElo(db, FieldValue, liga, GOLDEN_NU_MS, { dryRun: false });
+        const ompris = Object.fromEntries(res.aendringer.map((a) => [a.id, [a.efter['1'], a.efter.X, a.efter['2']]]));
+        const historik = Object.fromEntries(db._game.eloHistory.map((h) => [String(h.round), h.elo]));
+        const hvad = JSON.stringify(ekstra);
+        expect(db._game.eloCurrent, hvad).toEqual(golden[liga].eloCurrent);
+        expect(historik, hvad).toEqual(golden[liga].eloHistory);
+        expect(ompris, hvad).toEqual(golden[liga].ompris);
+      }
+    });
+  }
+
+  // Et SAT, men ukendt sport (tastefejl) regnes som fodbold — serveren må ikke
+  // gå i stå i drift — men det må ikke være TAVST. Advarslen skal bære spil-id
+  // og den RÅ værdi, så den kan findes i Cloud-loggen.
+  //
+  // Prøvet med en tastefejl, et tal og et array: med 'handbold' alene var
+  // mutanten "kun strenge advarer" (`typeof game.sport === 'string' &&`) grøn.
+  // Arrayet ['fodbold'] skal stå som ["fodbold"] — med String(...) stod det
+  // som "fodbold" i loggen, altså som den sport, det netop IKKE er. NaN og
+  // Infinity skal stå som sig selv: JSON.stringify gav "null" for begge.
+  //
+  // Resultatet bærer INTET ukendtSport-felt. Det fandtes, men intet i
+  // produktion læste det: triggeren kasserer resultatet, og knappen kaster,
+  // før der er et resultat. Advarslen er triggerens signal.
+  it('et ukendt sport kaster ikke, regnes som fodbold — og advarer med spil-id og RÅ værdi', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { fixtures, teams: holdliste } = LIGAER.sl;
+      for (const [sport, vist] of [
+        ['handbold', 'sport "handbold" —'], [123, 'sport 123 —'], [['fodbold'], 'sport ["fodbold"] —'],
+        [NaN, 'sport NaN —'], [Infinity, 'sport Infinity —'],
+      ]) {
+        warn.mockClear();
+        const db = makeGoldenDb({ teams: holdliste, sport }, goldenKampe(buildMatches(fixtures, holdliste)));
+        const res = await recomputeSeasonElo(db, FieldValue, 'vm-haandbold', GOLDEN_NU_MS, { dryRun: true });
+        const hvad = String(sport);
+        expect(Object.keys(res).sort(), hvad).toEqual(['aendringer', 'updated']);
+        expect(res.updated, hvad).toBeGreaterThan(0); // regnet videre som fodbold
+        expect(warn, hvad).toHaveBeenCalledTimes(1);
+        const linje = String(warn.mock.calls[0][0]);
+        expect(linje, hvad).toContain('vm-haandbold');
+        expect(linje, hvad).toContain(vist);
+        expect(linje, hvad).not.toContain('sport null');
+        expect(linje, hvad).toMatch(/ukendt sport/);
+        expect(linje, hvad).toMatch(/regnes som fodbold/);
+      }
+      // Arrayet må ALDRIG stå som en kendt sport i loggen.
+      warn.mockClear();
+      const dbA = makeGoldenDb({ teams: holdliste, sport: ['fodbold'] }, goldenKampe(buildMatches(fixtures, holdliste)));
+      await recomputeSeasonElo(dbA, FieldValue, 'x', GOLDEN_NU_MS, { dryRun: true });
+      expect(String(warn.mock.calls[0][0])).not.toMatch(/sport "fodbold"/);
+
+      // Manglende felt og en kendt sport advarer IKKE — ellers ville SL og PL
+      // skrive en advarsel ved hvert eneste resultat, og så læser ingen den.
+      // Og resultatet har så INGEN ukendtSport-nøgle.
+      warn.mockClear();
+      for (const ekstra of [{}, { sport: 'fodbold' }, { sport: null }]) {
+        const db2 = makeGoldenDb({ teams: holdliste, ...ekstra }, goldenKampe(buildMatches(fixtures, holdliste)));
+        const res2 = await recomputeSeasonElo(db2, FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: true });
+        expect(Object.keys(res2).sort(), JSON.stringify(ekstra)).toEqual(['aendringer', 'updated']);
+      }
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  // KNAPPEN (repriceGameOdds) afviser — også i tør-kørslen. Før returnerede
+  // callablen {...out, dryRun} uden et ord: tør-kørslen viste fodboldens odds
+  // på et håndboldspil, som om de var rigtige, og dryRun:false skrev dem.
+  describe('afvisUkendtSport (knappens vej)', () => {
+    const { fixtures, teams: holdliste } = LIGAER.sl;
+    const nytDb = (ekstra) => makeGoldenDb({ teams: holdliste, ...ekstra }, goldenKampe(buildMatches(fixtures, holdliste)));
+
+    for (const dryRun of [true, false]) {
+      it(`kaster failed-precondition, FØR der er regnet eller skrevet noget (dryRun: ${dryRun})`, async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+          for (const sport of ['handbold', '', 123, ['fodbold']]) {
+            const db = nytDb({ sport });
+            const foerKampe = JSON.stringify(db._matches.map((m) => m.data));
+            let fejl = null;
+            try {
+              await recomputeSeasonElo(db, FieldValue, 'vm-haandbold', GOLDEN_NU_MS, { dryRun, afvisUkendtSport: true });
+            } catch (e) { fejl = e; }
+            const hvad = JSON.stringify(sport);
+            expect(fejl, hvad).toBeInstanceOf(Error);
+            expect(fejl.kode, hvad).toBe('failed-precondition');
+            expect(fejl.message, hvad).toBe(ukendtSportFejl('vm-haandbold', sport).message);
+            // Intet skrevet: hverken Elo på spillet eller odds på kampene.
+            expect(db._game.eloCurrent, hvad).toBeUndefined();
+            expect(db._game.eloHistory, hvad).toBeUndefined();
+            expect(JSON.stringify(db._matches.map((m) => m.data)), hvad).toBe(foerKampe);
+          }
+          // Den kaster i stedet for at advare — ikke begge dele.
+          expect(warn).not.toHaveBeenCalled();
+        } finally {
+          warn.mockRestore();
+        }
+      });
+    }
+
+    // Tjekket står FØR hold-tjekket: et spil uden hold gav ellers tavst
+    // {updated: 0}, og fladen meldte "allerede i takt med modellen".
+    it('afviser også et spil uden hold — ikke et tavst {updated: 0}', async () => {
+      const db = makeGoldenDb({ teams: [], sport: 'handbold' }, []);
+      await expect(recomputeSeasonElo(db, FieldValue, 'g', GOLDEN_NU_MS, { dryRun: true, afvisUkendtSport: true }))
+        .rejects.toMatchObject({ kode: 'failed-precondition' });
+      // … og triggerens vej på samme spil siger det i loggen (ikke i resultatet).
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        await expect(recomputeSeasonElo(db, FieldValue, 'g', GOLDEN_NU_MS, { dryRun: true }))
+          .resolves.toEqual({ updated: 0, aendringer: [] });
+        expect(warn).toHaveBeenCalledTimes(1);
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it('en kendt sport og et manglende felt afvises IKKE — svaret er det samme som uden flaget', async () => {
+      for (const ekstra of [{}, { sport: 'fodbold' }, { sport: null }]) {
+        const med = await recomputeSeasonElo(nytDb(ekstra), FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: true, afvisUkendtSport: true });
+        const uden = await recomputeSeasonElo(nytDb(ekstra), FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: true });
+        expect(med, JSON.stringify(ekstra)).toEqual(uden);
+        expect(med.updated).toBeGreaterThan(50);
+      }
+    });
+
+    it('kun et eksplicit true afviser — et truthy ikke-boolean gør ikke', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const res = await recomputeSeasonElo(nytDb({ sport: 'handbold' }), FieldValue, 'g', GOLDEN_NU_MS, { dryRun: true, afvisUkendtSport: 'ja' });
+        expect(res.updated).toBeGreaterThan(50); // regnet videre, ikke afvist
+        expect(warn).toHaveBeenCalledTimes(1); // advaret som triggeren
+      } finally {
+        warn.mockRestore();
+      }
+    });
+  });
+
+  it('ukendtSportFejl: dansk besked med spil-id, RÅ værdi, de kendte sporter og at INTET er sket', () => {
+    const e = ukendtSportFejl('vm-haandbold', ['fodbold']);
+    expect(e).toBeInstanceOf(Error);
+    expect(e.kode).toBe('failed-precondition');
+    expect(e.message).toContain('Spillet "vm-haandbold"');
+    expect(e.message).toContain('sport ["fodbold"]');
+    expect(e.message).not.toContain('sport "fodbold"');
+    expect(e.message).toContain('(kendte: fodbold)');
+    expect(e.message).toMatch(/IKKE omprist noget — heller ikke i tør-kørslen/);
+    expect(e.message).toMatch(/ret det dér og kør seedGames; skal feltet væk \(fodbold\), så fjern det i Firebase-konsollen/);
+    expect(ukendtSportFejl('g', 123).message).toContain('sport 123,');
+    expect(ukendtSportFejl('g', '').message).toContain('sport "",');
+    // JSON.stringify(NaN) og (Infinity) er "null" — et sat felt må ikke stå
+    // som det, det IKKE er.
+    for (const [v, vist] of [[NaN, 'sport NaN,'], [Infinity, 'sport Infinity,'], [-Infinity, 'sport -Infinity,']]) {
+      expect(ukendtSportFejl('g', v).message, vist).toContain(vist);
+      expect(ukendtSportFejl('g', v).message, vist).not.toContain('sport null');
+    }
+  });
+
+  // Med fodbold alene er "kendte: fodbold" også, hvad en hardkodet
+  // `const kendte = 'fodbold'` giver. Listen skal komme af REGISTRET.
+  it('ukendtSportFejl: de kendte sporter læses af registret — en prøvesport står med', () => {
+    scoring.SPORT_PROFILER.proeve = { sport: 'proeve', elo: { START: 1000, HFA: 0, K: 40, DRAW_BASE: 0.05, DRAW_DECAY: 0.2 }, odds: { min: 1.01 } };
+    try {
+      expect(ukendtSportFejl('g', 'handbold').message).toContain('(kendte: fodbold, proeve)');
+    } finally {
+      delete scoring.SPORT_PROFILER.proeve;
+    }
+    expect(ukendtSportFejl('g', 'handbold').message).toContain('(kendte: fodbold)');
+  });
+
+  // Knappens HELE vej: kaldet og oversættelsen. Før stod de i index.js og var
+  // kun bevist som tekst — flyttedes kaldet UD af try'en (eller skrevet som
+  // `return` uden `await`), gik den rå fejl forbi oversættelsen, og fladen
+  // viste firebase's "INTERNAL" med hele suiten grøn.
+  describe('omprisFraKnap (Ompris-knappens vej)', () => {
+    const { fixtures, teams: holdliste } = LIGAER.sl;
+    const nytDb = (ekstra) => makeGoldenDb({ teams: holdliste, ...ekstra }, goldenKampe(buildMatches(fixtures, holdliste)));
+
+    for (const dryRun of [true, false]) {
+      it(`et ukendt sport bliver en HttpsError med serverens besked — og intet skrives (dryRun: ${dryRun})`, async () => {
+        const db = nytDb({ sport: 'handbold' });
+        const foerKampe = JSON.stringify(db._matches.map((m) => m.data));
+        let fejl = null;
+        try {
+          await omprisFraKnap(db, FieldValue, 'vm-haandbold', GOLDEN_NU_MS, dryRun, HttpsError);
+        } catch (e) { fejl = e; }
+        expect(fejl).toBeInstanceOf(HttpsError);
+        expect(fejl.code).toBe('failed-precondition');
+        expect(fejl.message).toBe(ukendtSportFejl('vm-haandbold', 'handbold').message);
+        expect(db._game.eloCurrent).toBeUndefined();
+        expect(JSON.stringify(db._matches.map((m) => m.data))).toBe(foerKampe);
+      });
+    }
+
+    it('en kendt sport giver præcis recomputeSeasonElo-svaret — og dryRun sendes igennem', async () => {
+      const tor = nytDb({});
+      const svar = await omprisFraKnap(tor, FieldValue, 'sl', GOLDEN_NU_MS, true, HttpsError);
+      expect(svar).toEqual(await recomputeSeasonElo(nytDb({}), FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: true }));
+      expect(svar.updated).toBeGreaterThan(50);
+      expect(tor._game.eloCurrent).toBeUndefined(); // tør-kørsel: intet skrevet
+      const vaad = nytDb({});
+      await omprisFraKnap(vaad, FieldValue, 'sl', GOLDEN_NU_MS, false, HttpsError);
+      expect(vaad._game.eloCurrent).toEqual(golden.sl.eloCurrent); // rigtig kørsel: skrevet
+    });
+
+    // nowMs afgør, hvilke kampe der er LÅSTE — og en låst kamps odds må aldrig
+    // ompriser (point afregnes af de frosne odds). GOLDEN_NU_MS ligger før
+    // første kickoff, så ingen kamp er låst: omprisFraKnap kunne glemme nowMs
+    // (eller sende 0) uden at nogen anden test blev rød. Mutant: `nowMs` → `0`
+    // i omprisFraKnaps kald overlevede alle 238+146 tests (Test Manager, PR #240).
+    it('nowMs sendes igennem: låste kampe ompriser IKKE (kampene før "nu" røres ikke)', async () => {
+      // "Nu" = den 21. ikke-spillede kamps kickoff: de 21 første er låste, resten ikke.
+      // (Spillede kampe ompriser aldrig, så et "nu" blandt de spillede ville intet vise.)
+      const ikkeSpillede = nytDb({})._matches.map((m) => m.data).filter((m) => !m.result).sort((a, b) => a.kickoff - b.kickoff);
+      const SENERE = ikkeSpillede[20].kickoff;
+      const tidligt = await omprisFraKnap(nytDb({}), FieldValue, 'sl', GOLDEN_NU_MS, true, HttpsError);
+      const db = nytDb({});
+      const sent = await omprisFraKnap(db, FieldValue, 'sl', SENERE, true, HttpsError);
+      // Fixturet har noget at arbejde på: der ER låste kampe 60 dage inde …
+      expect(tidligt.updated).toBeGreaterThan(50);
+      expect(db._matches.filter((m) => m.data.kickoff <= SENERE).length).toBeGreaterThan(0);
+      // … og de er ikke med i omprisningen.
+      expect(sent.updated).toBeLessThan(tidligt.updated);
+      expect(sent).toEqual(await recomputeSeasonElo(nytDb({}), FieldValue, 'sl', SENERE, { dryRun: true }));
+      const laaste = new Set(ikkeSpillede.filter((m) => m.kickoff <= SENERE).map((m) => m.id));
+      expect(laaste.size).toBeGreaterThanOrEqual(21); // ens kickoff kan give flere
+      for (const a of sent.aendringer) expect(laaste.has(a.id), a.id).toBe(false);
+    });
+
+    it('en anden fejl (fx Firestore) slipper UÆNDRET igennem — den er ikke admins at rette', async () => {
+      const boom = new Error('DEADLINE_EXCEEDED');
+      const db = { collection: () => ({ doc: () => ({ get: async () => { throw boom; } }) }) };
+      await expect(omprisFraKnap(db, FieldValue, 'sl', GOLDEN_NU_MS, true, HttpsError)).rejects.toBe(boom);
+    });
+  });
+
+  it('tilHttpsFejl: kun kode failed-precondition oversættes — alt andet er samme objekt', () => {
+    const e = ukendtSportFejl('g', 'handbold');
+    const h = tilHttpsFejl(e, HttpsError);
+    expect(h).toBeInstanceOf(HttpsError);
+    expect(h.code).toBe('failed-precondition');
+    expect(h.message).toBe(e.message);
+    for (const andet of [new Error('x'), Object.assign(new Error('y'), { kode: 'not-found' }), null, undefined]) {
+      expect(tilHttpsFejl(andet, HttpsError)).toBe(andet);
+    }
+  });
+
+  // index.js kan ikke importeres uden firebase-functions, så LEDNINGEN
+  // bevogtes som tekst (samme mønster som postbud.test.js): knappen skal sætte
+  // flaget og oversætte fejlen til HttpsError — triggeren må IKKE sætte det.
+  describe('index.js: knappen afviser, triggeren advarer', () => {
+    const kilde = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'index.js'), 'utf8')
+      .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    const knap = kilde.split('exports.repriceGameOdds')[1].split('exports.')[0];
+    const trigger = kilde.split('exports.recomputeGameMatch')[1].split('exports.')[0];
+
+    // Kaldet og oversættelsen er unit-testet i omprisFraKnap. Her bevises kun,
+    // at knappen GÅR den vej — med den rigtige HttpsError og spillets dryRun —
+    // og at der ikke findes en vej uden om.
+    it('repriceGameOdds går gennem omprisFraKnap — og ingen anden vej til recomputeSeasonElo', () => {
+      expect(knap).toMatch(/const out = await omprisFraKnap\(db, FieldValue, gameId, Date\.now\(\), dryRun, HttpsError\);/);
+      expect(knap.match(/omprisFraKnap\(/g)).toHaveLength(1);
+      expect(knap).not.toMatch(/recomputeSeasonElo/);
+      // En egen try/catch her ville kunne sluge eller omdøbe omprisFraKnaps fejl.
+      expect(knap).not.toMatch(/\btry\b|\bcatch\b/);
+      // Navnet skal være gameScorings — ikke en lokal kopi i index.js.
+      expect(kilde).toMatch(/dryRunFraKald, omprisFraKnap,[\s\S]*?\} = require\('\.\/gameScoring'\);/);
+      expect(kilde).not.toMatch(/function omprisFraKnap|const omprisFraKnap\s*=/);
+    });
+
+    it('triggeren kalder UDEN flaget — en tastefejl må ikke stoppe afregningen', () => {
+      expect(trigger).toMatch(/await recomputeSeasonElo\(db, FieldValue, gameId, Date\.now\(\)\);/);
+      expect(trigger).not.toMatch(/afvisUkendtSport/);
+    });
+  });
+
+  it('et spil, der ikke findes, giver intet at gøre — og kaster ikke', async () => {
+    // spil-dokumentet læses nu som `game` og slås op til profilen; et id uden
+    // dokument skal stadig give 0 ændringer, ikke en TypeError.
+    const db = {
+      collection: () => ({ doc: () => ({ get: async () => ({ exists: false, data: () => undefined }) }) }),
+    };
+    await expect(recomputeSeasonElo(db, FieldValue, 'findes-ikke', GOLDEN_NU_MS))
+      .resolves.toEqual({ updated: 0, aendringer: [] });
+  });
+
+  describe('med en prøvesport på spillet', () => {
+    // Prøvesporten: hvert tal er et andet end fodboldens (se
+    // src/test/proeveSport.js — serveren har sit eget register, så den
+    // lægges ind her).
+    const PROEVE = {
+      sport: 'proeve',
+      elo: { START: 1000, HFA: 0, K: 40, DRAW_BASE: 0.05, DRAW_DECAY: 0.2 },
+      odds: { min: 1.01 },
+    };
+    // Skrevet HELT ud, ikke via oddsParametre — så en fejl i oversættelsen
+    // også bliver rød her.
+    const ARGS = { hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01 };
+    beforeAll(() => { scoring.SPORT_PROFILER.proeve = PROEVE; });
+    afterAll(() => { delete scoring.SPORT_PROFILER.proeve; });
+
+    const past = 1_000;
+    const future = 5_000_000_000_000;
+    const kampe = () => [
+      { id: 'm1', round: 1, home: 'A', away: 'B', kickoff: past, result: '1' },
+      { id: 'm2', round: 2, home: 'A', away: 'B', kickoff: future },
+      { id: 'm3', round: 2, home: 'A', away: 'C', kickoff: future }, // C findes ikke i holdlisten
+      { id: 'm4', round: 3, home: 'A', away: 'D', kickoff: future }, // D står uden elo
+      { id: 'm5', round: 3, home: 'C', away: 'A', kickoff: future }, // UDE-favorit: m3 spejlet
+    ];
+    const hold = [{ name: 'A', elo: 1500 }, { name: 'B', elo: 1500 }, { name: 'D' }];
+    const kamp = (db, id) => db._matches.find((m) => m.data.id === id).data;
+
+    it('Elo opdateres med profilens K og hjemmebane', async () => {
+      const db = makeGoldenDb({ teams: hold, sport: 'proeve' }, kampe());
+      await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+      // Neutral bane: lige hold er ventet 50/50, så sejren giver præcis K/2 = 20.
+      // Fodbold: hjemmeholdet var ventet at vinde → +8 (1508/1492).
+      expect(db._game.eloCurrent).toEqual({ A: 1520, B: 1480, D: 1000 });
+    });
+
+    it('de friske odds prises med profilens model og gulv', async () => {
+      const db = makeGoldenDb({ teams: hold, sport: 'proeve' }, kampe());
+      await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+      expect(kamp(db, 'm2').odds).toEqual(scoring.outcomeOdds({ eloHome: 1520, eloAway: 1480, ...ARGS }));
+      expect(kamp(db, 'm2').odds).toEqual({ 1: 1.88, X: 20.94, 2: 2.37 });
+      // A (1520) mod et hold på 1000: p(1) = 0,919 → fair 1,088. Gulvet 1,01
+      // lader det stå (1,09); fodboldens 1,1 ville have hævet det.
+      expect(kamp(db, 'm3').odds).toEqual({ 1: 1.09, X: 28.72, 2: 21.71 });
+      // Spejlet på neutral bane: nu er A UDE-favorit, og '2' har sit eget
+      // fairOdds-kald, der også skal have profilens gulv (fodbold: 1,1).
+      expect(kamp(db, 'm5').odds).toEqual({ 1: 21.71, X: 28.72, 2: 1.09 });
+    });
+
+    it('kun en STRENG finder prøvesporten', () => {
+      // Uden typeof-vagten gjorde hasOwnProperty ['proeve'] til nøglen
+      // 'proeve'. Kun synligt, mens en anden sport end fodbold er registreret.
+      expect(scoring.sportProfil({ sport: 'proeve' })).toBe(PROEVE);
+      for (const sport of [['proeve'], { toString: () => 'proeve' }]) {
+        expect(scoring.sportProfil({ sport }), String(sport)).toBe(scoring.SPORT_PROFILER.fodbold);
+      }
+    });
+
+    it('et ukendt hold og et hold uden elo får SPORTENS neutrale rating', async () => {
+      const db = makeGoldenDb({ teams: hold, sport: 'proeve' }, kampe());
+      await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+      expect(kamp(db, 'm3').eloAway).toBe(1000); // ukendt: get() falder til START
+      expect(kamp(db, 'm4').eloAway).toBe(1000); // uden elo: seed-kortet falder til START
+      expect(kamp(db, 'm4').odds).toEqual(kamp(db, 'm3').odds);
+    });
+
+    it('samme kampe uden sport giver fodboldens tal — som altid', async () => {
+      const db = makeGoldenDb({ teams: hold }, kampe());
+      await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+      expect(db._game.eloCurrent).toEqual({ A: 1508, B: 1492, D: 1500 });
+      expect(kamp(db, 'm3').eloAway).toBe(1500);
+    });
   });
 });

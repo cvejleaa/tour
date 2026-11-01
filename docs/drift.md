@@ -79,7 +79,8 @@ service-account-nøglen ind; scriptet siger fra med det samme, hvis filen ikke
 findes.
 
 Scriptet nægter at skrive, hvis et holdnavn i kampprogrammet ikke findes i
-holdlisten. Det er med vilje: `teamElo()` giver **tavst 1500** for et ukendt
+holdlisten. Det er med vilje: `teamElo()` giver **tavst sportens
+start-rating** (`START` i sportsprofilen — 1500 for fodbold) for et ukendt
 navn, så hele klubben ville få odds som et midterhold uden en eneste fejlbesked.
 
 **Spillet skal findes først** (`seedGames`). Peger `--game` på et spil, der ikke

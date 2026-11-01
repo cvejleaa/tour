@@ -376,6 +376,20 @@
 
 ## Angrebsveje der VIRKER (åbne eller kun delvist afbødet)
 
+- **IHF-parseren (PR #240) — a/b/c LUKKET i 205fa54 (se IKKE virker); TO rester ÅBNE
+  til provideren (del 2), begge kræver en fjendtlig/ændret side fra ihf.info:**
+  (d) **`IhfStrukturFejl.message` er ubegrænset.** Rå sidetekst citeres i fejlene for
+  tid (`tider` L231), score (`stilling` L241, L356, L663), periode (L523) og
+  `JSON.stringify(hold)` (L642). BEKRÆFTET: 2 MB i `time-local` eller `result-a-b` →
+  besked på 2 000 097 tegn. driftlog.js afkorter IKKE (`linjer.push(besked)`, meldAlarm
+  `besked`) → over 1 MiB fejler Firestore-skrivningen, og alarmen om skraber-fejlen
+  bliver TAVS. Rettelse: afkort i `IhfStrukturFejl`-konstruktøren (fx 500 tegn) eller
+  hvert citat (som `visKode` = 40). Kun `statusKode` og fejlside-citatet er afkortet.
+  (e) Holdnavne er stadig fri tekst: U+3164/U+2800/U+115F (usynlige Lo/So), Zalgo
+  (50 kombinerende), homoglyffer (kyrillisk а), `__proto__`, `<img onerror>` som tekst
+  passerer `rens` (BEKRÆFTET). Kampsiden giver KUN navne, ingen hold-id. Se sag-afsnittet
+  pkt. 3: bind IHF-hold-id → seedet hold, brug aldrig IHF-navnet som nøgle.
+
 - **`meldAlarm`s dæmpning sluger FORSKELLIGE hændelser, der deler alarm-id**
   (driftlog.js L107-131, BEKRÆFTET i emulator 2026-10-13). Id =
   `[gameId,kampId,type].filter(Boolean)`: en alarm med `gameId:null,kampId:null`
@@ -942,6 +956,39 @@
 
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
+- **IHF-parseren efter omskrivningen (PR #240, 205fa54, 2026-11-01) — BEKRÆFTET lukket:**
+  ReDoS: 40 fjendtlige sager × 100k/2M tegn i børneproces (timeout 15 s) — alle sticky
+  mønstre, `rens` (`<`, `&`, `&#`+cifre), kanonisk `<link`+ws, kalender `href="`, `<br`+ws,
+  divElement med uafsluttet `<!--`/`<script`, 100k kommentarer/scripts, `</script` uden
+  åbner, dyb `<div>` (400k) balanceret og ubalanceret, `<div` uden `>` → max 87 ms ved 2 MB.
+  Entiteter: `&#99999999;`, `&#x110000;`, 20 hex-F, 400 cifre, `&#0;` → U+FFFD, ingen
+  RangeError; enlig/omvendt surrogat → U+FFFD; RLO/isolater/ALM/ZWSP/shy/BOM/tag-tegn
+  fjernes; C0/C1/DEL/U+2028 → mellemrum; kun usynlige → «intet navn» (kast). (To
+  surrogat-entiteter i træk danner et gyldigt par → emoji: harmløst.)
+  Binding: nabo-widget med markør før/efter, markør i kommentar, markør-id ≠ kanonisk,
+  kanonisk ≠ forventet, kanonisk med `?query`, `parseKampside` uden ihfId (TypeError),
+  rå `</div>`/`<style></div>` (lukker kortet tidligt → kast), `<span title="<div">`
+  (kortet strækkes → dubletanker → kast) — ALT fail-closed. Nabo uden markør med egen
+  `result-a-b` før kortet ignoreres korrekt. Dublet-blok på dagsiden og ot2 efter ulige
+  ot1 kaster nu (sag-afsnittets pkt. 4-5 lukket). PoC: scratchpad sec-r2/{redos,binding,
+  entitet,paritet}.cjs. Ægte fixtures: gammel = ny (sorterede nøgler, score→slutScore).
+- **Ukendt `game.sport` i Ompris-knappens fejlvej (205fa54):** 17 værdier inkl. HTML,
+  1 MB streng, NaN, Timestamp, GeoPoint, Buffer, DocumentReference (toJSON → kun
+  projectId), `__proto__`/`constructor`/`hasOwnProperty` → `visSport` kaster aldrig,
+  knappen giver HttpsError('failed-precondition'), triggeren advarer og kører videre.
+  Kun globalAdmin skriver games/{id} (firestore.rules), ingen kode skriver `sport`, og
+  fladen viser beskeden som React-tekst (escaped). `requireAdmin` står før kaldet,
+  uændret (index.js L349). Andre fejl end `kode:'failed-precondition'` slipper uændret
+  igennem → klienten får stadig «INTERNAL», ingen lækage.
+
+- **`game.sport` som våben (PR #240, 2026-11-01):** 19 værdier (`__proto__`,
+  `toString`, `constructor`, `hasOwnProperty`, `valueOf`, tal, bool, `{}`, `[]`,
+  `['fodbold']`, `{toString(){return 'fodbold'}}`, `new String('fodbold')`,
+  'FODBOLD', ' fodbold', ukendt) + game = undefined/null/0/''/[]/Object.create(null)
+  → ALLE fodbold-profilen, ingen kast, ingen NaN-odds. `Object.prototype.haandbold`
+  forurenet → stadig fodbold (hasOwn). Profilen er dybfrosset (HFA=0 ignoreres).
+  Spil-dokumentet kan kun skrives af `isGlobalAdmin()` (rules L768).
+
 - **`players/{uid}.opdelingPerRunde` (D1 9a5a42e, 2026-10-22) — 16 skriveformer afvist i
   emulator, alle 200 mod mains regler (eef35b6):** hele feltet, nested sti
   `opdelingPerRunde.\`3\`.p1x2`, ny nested nøgle, merge-set, fuld overskrivning med alle
@@ -1102,6 +1149,22 @@
   '', null, 'finale' → NaN → filtreret FØR tolkning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **Sportsprofil (PR #240, 07ebcb6+a4ea5ff, 2026-11-01): RENT.** `sportprofil-golden.mjs`
+  kørt på HEAD → byte-identisk med testdata/sportprofil-golden.json (at facit stammer fra
+  62e20aa er efterprøvet af modstanderne, ikke af mig). Kaldesteder UDEN profil, alle
+  fodbold-only og derfor korrekte på standardværdien: scripts/maal-*.mjs,
+  compute-/calibrate-*-elo.mjs, src/test/scenarie/superliga.js:74,
+  e2e/fixtures/seed-e2e.mjs:152. Ingen server-sti uden profil. `fairOdds(p, NaN)` → NaN og
+  `(p, null)` → intet gulv, men `min` kommer kun fra det kode-ejede register.
+- **scripts/probe-ihf.mjs: RENT.** Kun GET mod hardkodede URL'er (intet fra Firestore),
+  ærlig User-Agent, skriver kun med `--gem` til testdata/ og tmpdir med faste filnavne,
+  ingen hemmeligheder. Fixtures bærer kun Drupals anonyme `form_build_id` (offentlig).
+- **IHF-tekst til mail er allerede afbødet:** postbud.js L263/L276 `escapeHtml(afkort(…))`,
+  og `afkort` fjerner URL'er. `IhfStrukturFejl.message` bærer rå fremmed tekst
+  (status-attribut ubegrænset, 80 tegn af fejlsiden) — sikker i dag, skal stadig
+  afkortes ved Drift-kortet. `<script>`/`<img onerror>` via `&lt;` bliver TEKST (React escaper).
+- **3 MB naturlig side** (ægte + 3 MB lukkede tags): dag 12 ms, kamp 8–16 ms, fejlside 57 ms.
 
 - **«Opdeling pr. runde» (D1 9a5a42e + D3 d382b4e, 2026-10-22): RENT.** Rules-suiten 299/299
   grøn; mod mains regler præcis de 2 nye tests røde. Mutation: `opdelingPerRunde` fjernet KUN
@@ -2053,6 +2116,22 @@
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
 
+- **En fejlbesked, der citerer fremmed input, skal have et loft.** Et citat uden loft
+  gør skraberens fejl større end Firestores 1 MiB, og så fejler selve alarmen om fejlen
+  tavst. Grep efter `«${` i kast-beskeder og mål med 2 MB fyld (ihfParse, 205fa54).
+- **Tre kvantorer, der alle kan æde mellemrum, er kubiske.** `\s*([^<]*?)\s*X`
+  backtracker O(n³) over en whitespace-run, når X ikke følger. Lineært: `([^<]*)X` og
+  trim i JS. Målt på ihfParse (4000 mellemrum → 41 s). Grep efter `\s*(` + `*?)\s*`.
+- **En scraper må ALDRIG forfalske en browser** (User-Agent, TLS-/header-fingerprint,
+  headless Chrome) for at komme forbi en blokering. 403 fra ihf.info mod Node's fetch
+  (curl fik 200 fra sandkassen) er værtens beslutning, ikke en fejl at omgå: det er et
+  våbenkapløb, der en dag fejler TAVST midt i en turnering, og det bryder værtens vilkår.
+  Svaret er ærlig UA med kontakt, prøv fra serveren, ellers en anden kilde / spørg IHF.
+- **`String.fromCodePoint` på fremmed input kaster RangeError.** Afkod entiteter med
+  et loft (≤0x10FFFF, ikke surrogater/0) → ellers U+FFFD, og læg rensTekst på grænsen.
+- **En skraber skal binde id'et til det, den BAD om** — samme regel som doc-id'er.
+  En side, der svarer med en andens id, er ikke "et resultat", det er en dublet.
+
 - **`hasOnly([...,'createdAt'])` er en NØGLE-vagt, ikke en TYPE-vagt.** Et klientskrevet
   tidsstempel er et frit felt: map → kast i datoformatering, map/streng → klæber øverst i
   `orderBy desc` (typeorden: timestamp < string < map). Bind det: `createdAt == request.time`
@@ -2540,3 +2619,24 @@ autorisation og shell som argument-parser. Gennemgå dem som callables.
   og `.github/CODEOWNERS` ville styre review-krav. Brug `/^\.github\//`. Samme
   familie: `.env*` matcher INTET mønster, selv om `.env.e2e` afgør, om App Check
   springes over.
+
+---
+
+## Håndbold-VM 2027 / IHF (PR #240 del 1 → provider i del 2) — ÅBENT
+
+Del 1 skriver intet og kalder ikke ihf.info fra serveren. Gennemgået på 3b7499e og igen
+på 205fa54 (parser omskrevet, ukendt sport afvist). Status før provideren (syncProviders.js):
+1. ihfParse a/b/c: LUKKET 205fa54 (BEKRÆFTET, se IKKE virker). Ny rest (d): ubegrænsede
+   fejlbeskeder (2 MB målt) → skal afkortes, før de når driftlog/meldAlarm (VIRKER).
+2. Provideren: svar-loft (fx 2 MB via content-length + læst længde), AbortSignal-timeout,
+   ingen redirect til fremmed vært, ærlig UA, og INGEN browser-forfalskning (faldgrube).
+   Kald `parseKampside(html, { ihfId })` med det id, der blev BEDT om — ikke et id fra siden.
+3. Holdnavne fra IHF må ikke blive til holdnavne hos os: bind IHF-hold-id → seedet hold
+   (VIRKER e). `__proto__` som holdnavn: `eloCurrent[n] = …` (gameScoring.js) er en
+   prototype-tildeling → holdet forsvinder TAVST; i et Firestore-map 400 (læst, ikke kørt).
+4. `status:'ukendt'` må ALDRIG tolkes som slut; et vedvarende 'ukendt' er providerens alarm.
+5. Påstandene i runde 2 efterprøvet: golden (`npx vite-node scripts/sportprofil-golden.mjs`)
+   byte-identisk med testdata og med scratchpad/golden-gammel.json; ingen kode skriver
+   `game.sport` (scripts/games.mjs har intet felt); fodbold-vejen gennem omprisFraKnap er
+   samme kald + samme svar.
+PoC'er: scratchpad poc/*.cjs (3b7499e) og sec-r2/*.cjs (205fa54).

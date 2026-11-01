@@ -8,13 +8,18 @@ const TEAMS = [
 ];
 
 describe('teamElo', () => {
-  it('slår op i liste og i map', () => {
+  it('slår op i listen', () => {
     expect(teamElo(TEAMS, 'FC København')).toBe(1680);
-    expect(teamElo({ 'Vejle BK': 1420 }, 'Vejle BK')).toBe(1420);
   });
   it('ukendt hold → ELO.START', () => {
     expect(teamElo(TEAMS, 'Ukendt')).toBe(ELO.START);
     expect(teamElo(null, 'X')).toBe(ELO.START);
+  });
+  // VENDT MED VILJE: map-formen {navn: elo} er taget ud — ingen kalder
+  // brugte den. Et map er nu "ingen liste" og giver start-ratingen.
+  it('et map er ikke en holdliste', () => {
+    expect(teamElo({ 'Vejle BK': 1420 }, 'Vejle BK')).toBe(ELO.START);
+    expect(teamElo({ 'Vejle BK': 1420 }, 'Vejle BK', 1000)).toBe(1000);
   });
 });
 

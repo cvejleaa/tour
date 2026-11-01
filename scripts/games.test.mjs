@@ -14,6 +14,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { GAMES } from './games.mjs';
+import { SPORT_PROFILER, ukendtSport } from '../src/lib/superligaScoring.js';
 
 // Providerens navn → de nøgler, den præcist skal have. Ingen flere, ingen
 // færre. Et `SHAPES`-objekt frem for if-grene, så en NY provider ikke kan
@@ -190,5 +191,20 @@ describe('pulje — sæson-spørgsmålene pr. spil (#8)', () => {
     // puljeLockAt sættes IKKE i config — den udledes. Står den her, er der to
     // kilder til samme deadline, og de kan drive fra hinanden.
     expect('puljeLockAt' in pl).toBe(false);
+  });
+});
+
+// Seedet skriver `sport` med merge, og merge FJERNER ALDRIG et felt: en tastefejl
+// her (`sport: 'handbold'`) kan kun rettes i konsollen — og Ompris-knappen og det
+// fulde seed afviser spillet, indtil det er gjort. Et spil UDEN sport er fodbold
+// med vilje (SL, PL); et spil MED sport skal være en, registret kender.
+// (PR #240: intet spil i listen sætter i dag `sport`; testen vogter den dag, nogen gør.)
+describe('sport på spillene', () => {
+  it('intet spil i listen har et sat-men-ukendt sport', () => {
+    expect(GAMES.length).toBeGreaterThan(0);
+    for (const g of GAMES) {
+      expect(ukendtSport(g), `${g.id}: sport ${JSON.stringify(g.sport)}`).toBe(false);
+      if (g.sport !== undefined) expect(Object.keys(SPORT_PROFILER), g.id).toContain(g.sport);
+    }
   });
 });

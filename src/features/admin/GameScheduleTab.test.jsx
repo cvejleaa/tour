@@ -4,6 +4,11 @@
 // til en værdi, visningen ikke kender.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { createRequire } from 'module';
+
+// Serverens EGEN afvisningstekst — ikke en kopi. Kopierede testen den, kunne
+// beskeden på serveren ændres (eller tømmes), og fladens test stod grøn.
+const { ukendtSportFejl } = createRequire(import.meta.url)('../../../functions-platform/gameScoring.js');
 
 vi.mock('../../firebase', () => ({ db: {} }));
 
@@ -573,6 +578,10 @@ describe('ompris kampene', () => {
     mockReprice.mockResolvedValue({ ok: false, error: 'Du har ikke adgang til denne handling.' });
     fireEvent.click(screen.getByRole('button', { name: /Skriv de 2/i }));
     await waitFor(() => expect(screen.getByText(/ikke adgang/i)).toBeInTheDocument());
+    // … og fejlen står RØDT, ikke grønt (mutant: kind 'err' → 'ok' på skrive-stien
+    // overlevede, så en fejlet skrivning kunne ligne en succes).
+    expect(screen.getByText(/ikke adgang/i).className).toMatch(/badge--red/);
+    expect(screen.getByText(/ikke adgang/i).className).not.toMatch(/badge--green/);
     // Planen SKAL blive stående — ellers har admin hverken skrevet noget eller
     // fået lov at beholde det, han lige har set.
     expect(screen.getByRole('button', { name: /Skriv de 2/i })).toBeInTheDocument();
@@ -618,6 +627,28 @@ describe('ompris kampene', () => {
     expect(screen.getByText(/Lyngby/)).toBeInTheDocument();
     expect(screen.getByText(/kvitteringen/i)).toBeInTheDocument();
     bekraeft.mockRestore();
+  });
+
+  // Et SAT, men ukendt game.sport ('handbold'): før gav tør-kørslen
+  // fodboldens odds tilbage, som om de var rigtige, og fladen viste dem — eller
+  // "allerede i takt" ved 0 ændringer. Nu afviser callablen (failed-
+  // precondition), og fladen skal vise SERVERENS besked rødt — ikke en succes,
+  // ikke en plan og ikke en skrive-knap.
+  it('viser serverens afvisning af et ukendt sport rødt — og ingen plan, ingen succes', async () => {
+    const besked = ukendtSportFejl('vm-haandbold', 'handbold').message;
+    mockReprice.mockResolvedValue({ ok: false, error: besked });
+    render(<GameScheduleTab />);
+    fireEvent.click(toerKnap());
+    const badge = await screen.findByText(/ikke er en kendt sport/);
+    expect(badge.textContent).toBe(besked);
+    expect(badge.textContent).toContain('"handbold"');
+    expect(badge.textContent).toMatch(/IKKE omprist/);
+    expect(badge.className).toMatch(/badge--red/);
+    expect(badge.className).not.toMatch(/badge--green/);
+    expect(screen.queryByText(/allerede i takt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/kampe ville få nye odds/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Skriv de/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
   it('siger det tydeligt, når intet ville ændre sig', async () => {
