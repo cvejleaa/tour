@@ -85,8 +85,19 @@ describe('konkurrenceIdAf / kalenderAf', () => {
   it('læser konkurrence-id\'et af den kanoniske adresse', () => {
     expect(konkurrenceIdAf(DAG_2027, 'matches')).toBe(263667);
     expect(konkurrenceIdAf(DAG_2025, 'matches')).toBe(177649);
-    expect(konkurrenceIdAf(DAG_2023_KV, 'matches')).toBe(101253); // «/Men/» med stort M
+    expect(konkurrenceIdAf(DAG_2023_KV, 'matches')).toBe(101253);
     expect(konkurrenceIdAf(KAMP_BRONZE, 'match-center')).toBe(177649);
+  });
+
+  it('køns-segmentet er ikke låst til «men»: 2021/2023 skriver «/Men/» med stort M, 2025/2027 «/men/»', () => {
+    // Fixturerne er hvad vi tror: begge stavemåder findes i ægte sider.
+    expect(DAG_2023_KV).toContain('ihf.info/competitions/Men/308/');
+    expect(DAG_2025).toContain('ihf.info/competitions/men/308/');
+    expect(konkurrenceIdAf(KAMP_FORL, 'match-center')).toBe(101253);
+    expect(konkurrenceIdAf(KAMP_STRAFFE, 'match-center')).toBe(22415);
+    // Samme side med lille m giver samme id — stavemåden afgør intet.
+    const smaat = erstat(DAG_2023_KV, 'competitions/Men/308/', 'competitions/men/308/', 'rel="canonical"');
+    expect(konkurrenceIdAf(smaat, 'matches')).toBe(101253);
   });
 
   it('skelner sideform: en kampside er ikke en dagside', () => {
@@ -190,6 +201,28 @@ describe('parseDagside — ægte sider', () => {
     const html = erstat(DAG_2025, '>Portugal</a>', '> Côte d&#039;Ivoire &amp; Co </a>');
     expect(parseDagside(html)[0].ude).toBe("Côte d'Ivoire & Co");
   });
+
+  it('hex-entiteter afkodes også (&#x27; er Drupals apostrof)', () => {
+    const html = erstat(DAG_2025, '>Portugal</a>', '>Côte d&#x27;Ivoire &#X26; Co</a>');
+    const ude = parseDagside(html)[0].ude;
+    expect(ude).toBe("Côte d'Ivoire & Co");
+    expect(ude).not.toContain('&#x');
+  });
+
+  it('navngivne entiteter i holdnavn og hal: apos, quot, lt, gt, nbsp', () => {
+    let html = erstat(DAG_2025, '>Croatia</a>', '>&quot;Hrvatska&quot;&nbsp;&lt;HR&gt; d&apos;Or</a>');
+    html = erstat(html, 'Oslo / Unity Arena', 'Oslo / Unity&nbsp;&quot;Arena&quot; &lt;N&gt; l&apos;Est',
+      'data-ihf-competitions-match-id="202125"');
+    const finale = parseDagside(html)[1];
+    expect(finale.hjemme).toBe('"Hrvatska" <HR> d\'Or');
+    expect(finale).toMatchObject({ by: 'Oslo', hal: 'Unity "Arena" <N> l\'Est' });
+    expect(JSON.stringify(finale)).not.toMatch(/&(quot|nbsp|lt|gt|apos);/);
+  });
+
+  it('entiteter afkodes i ÉT gennemløb — «&#38;lt;» bliver «&lt;», ikke «<»', () => {
+    const html = erstat(DAG_2025, '>Portugal</a>', '>A &#38;lt; B</a>');
+    expect(parseDagside(html)[0].ude).toBe('A &lt; B');
+  });
 });
 
 describe('parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu»)', () => {
@@ -223,9 +256,29 @@ describe('parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «in
     kaster(() => parseDagside(html), /mangler både kalender og kampmarkører/);
   });
 
-  it('flere kamp-id\'er end kampblokke kaster (markuppen er ændret for én kamp)', () => {
+  // Kamp-id'erne har ÉN vagt (én pr. kampblok, ingen før første blok). De fire
+  // tests herunder er dens fire brudformer; en mutation af vagten gør dem røde.
+  it('et kamp-id før første kampblok kaster (første blok har mistet sin markør)', () => {
     const html = erstat(DAG_2027, '<div class="matchDetails"', '<div class="kampDetaljer"');
-    kaster(() => parseDagside(html), /4 kamp-id'er, men 3 kampblokke/);
+    kaster(() => parseDagside(html), /4 kamp-id'er og 3 kampblokke.*før første kampblok står 1/);
+  });
+
+  it('to kampe slået sammen i én blok kaster', () => {
+    const html = erstat(DAG_2027, '<div class="matchDetails"', '<div class="kampDetaljer"',
+      'data-ihf-competitions-match-id="307527"');
+    kaster(() => parseDagside(html), /4 kamp-id'er og 3 kampblokke.*kampblok 2 har 2/);
+  });
+
+  it('en kampblok uden kamp-id kaster', () => {
+    const html = erstat(DAG_2025, 'data-ihf-competitions-match-id="202125"', 'data-kamp-id="202125"');
+    kaster(() => parseDagside(html), /1 kamp-id'er og 2 kampblokke.*kampblok 2 har 0/);
+  });
+
+  it('en blok uden id og et id uden for blokkene kaster, selv om optællingen går op', () => {
+    let html = erstat(DAG_2025, 'data-ihf-competitions-match-id="202125"', 'data-kamp-id="202125"');
+    html = erstat(html, '<body', '<i data-ihf-competitions-match-id="999"></i><body');
+    const e = kaster(() => parseDagside(html), /2 kamp-id'er og 2 kampblokke.*før første kampblok står 1/);
+    expect(e.name).toBe('IhfStrukturFejl');
   });
 
   it('ukendt status-kode kaster og tolkes ikke som slut', () => {
@@ -238,6 +291,11 @@ describe('parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «in
   it('score med kolon i stedet for bindestreg kaster', () => {
     const html = erstat(DAG_2025, '>26-32<', '>26:32<');
     kaster(() => parseDagside(html), /scoren «26:32» for kamp 202125 har et uventet format/);
+  });
+
+  it('score med foranstillet tekst kaster', () => {
+    const html = erstat(DAG_2025, '>35-34<', '>ca. 35-34<');
+    kaster(() => parseDagside(html), /scoren «ca\. 35-34» for kamp 202123 har et uventet format/);
   });
 
   it('score med suffiks kaster', () => {
@@ -265,6 +323,18 @@ describe('parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «in
     kaster(() => parseDagside(html), /kamp 202125 mangler fase\/gruppe/);
   });
 
+  it('manglende status kaster', () => {
+    const html = erstat(DAG_2025, 'data-ihf-competitions-match-status="E"', 'data-status="E"',
+      'data-ihf-competitions-match-id="202125"');
+    kaster(() => parseDagside(html), /kamp 202125 mangler sin status/);
+  });
+
+  it('tre holdfelter kaster', () => {
+    const html = erstat(DAG_2025, '<div class="country', '<div class="country ekstra"><span>Norway</span></div><div class="country',
+      'data-ihf-competitions-match-id="202125"');
+    kaster(() => parseDagside(html), /kamp 202125 har 3 holdfelter, ikke 2/);
+  });
+
   it('et manglende holdfelt kaster', () => {
     const html = erstat(DAG_2025, '<div class="country', '<div class="land', 'data-ihf-competitions-match-id="202125"');
     kaster(() => parseDagside(html), /kamp 202125 har 1 holdfelter, ikke 2/);
@@ -283,6 +353,29 @@ describe('parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «in
   it('tid i uventet format kaster', () => {
     const html = erstat(DAG_2025, 'GMT 17:00', 'GMT 7:00');
     kaster(() => parseDagside(html), /tiden for kamp 202125 har et uventet format \(lokal «18:00», GMT «7:00»/);
+  });
+
+  // Tidsformatet er strengt 00-23:00-59 og hele feltet: hver af de fire løsnede
+  // regex-former (timer, minutter, uden ^, uden $) har sin røde test.
+  it.each([
+    ['25:00', 'timer over 23'],
+    ['12:60', 'minutter over 59'],
+    ['18:00 h', 'suffiks efter tiden'],
+    ['kl. 18:00', 'tekst foran tiden'],
+  ])('tiden «%s» kaster (%s)', (tid) => {
+    const html = erstat(DAG_2025, '>18:00</time>', `>${tid}</time>`, 'match-time-202125');
+    kaster(() => parseDagside(html), new RegExp(`tiden for kamp 202125 har et uventet format \\(lokal «${tid.replace('.', '\\.')}»`));
+  });
+
+  it('også GMT-tiden er streng (25:00)', () => {
+    const html = erstat(DAG_2025, 'GMT 17:00', 'GMT 25:00');
+    kaster(() => parseDagside(html), /tiden for kamp 202125 har et uventet format \(lokal «18:00», GMT «25:00»/);
+  });
+
+  it('grænserne 23:59 og 00:00/GMT 23:00 er gyldige tider', () => {
+    let html = erstat(DAG_2025, '>18:00</time>', '>23:59</time>', 'match-time-202125');
+    html = erstat(html, 'GMT 17:00', 'GMT 22:59');
+    expect(parseDagside(html)[1]).toMatchObject({ lokalTid: '23:59', gmtTid: '22:59' });
   });
 });
 
@@ -379,6 +472,36 @@ describe('parseKampside — struktur-vagterne kaster', () => {
     kaster(() => parseKampside(html), /kamp 202123 mangler sin slutscore/);
   });
 
+  it('manglende resultatkort kaster i stedet for at give hold = null', () => {
+    const html = erstat(KAMP_BRONZE, 'resultCardBody', 'resultatKort');
+    const e = kaster(() => parseKampside(html), /kamp 202123 mangler sit resultatkort \(resultCardBody\)/);
+    expect(e.message).toContain('holdene kan ikke læses');
+  });
+
+  it('holdene læses i resultatkortet, ikke fra et andet «country»-felt tidligere på siden', () => {
+    const html = erstat(KAMP_BRONZE, '<div class="resultCardBody',
+      '<div class="country nabo"><span>Sweden</span></div><div class="country nabo"><span>Spain</span></div><div class="resultCardBody');
+    expect(html.indexOf('<span>Sweden</span>')).toBeLessThan(html.indexOf('resultCardBody'));
+    expect(parseKampside(html)).toMatchObject({ hjemme: 'France', ude: 'Portugal' });
+  });
+
+  it('et resultatkort med kun ét hold kaster', () => {
+    const html = erstat(KAMP_BRONZE, '<div class="country', '<div class="land', 'id="result-a-b"');
+    kaster(() => parseKampside(html), /kamp 202123: resultatkortet har ikke to holdnavne \(fandt \["France"\]\)/);
+  });
+
+  it('et tomt holdnavn i resultatkortet kaster', () => {
+    const html = erstat(KAMP_BRONZE, '<span>France</span>', '<span> </span>', 'resultCardBody');
+    kaster(() => parseKampside(html), /kamp 202123: resultatkortet har ikke to holdnavne \(fandt \["","Portugal"\]\)/);
+  });
+
+  it('kampsidens tid er også streng («18:00 h» og «25:00»)', () => {
+    kaster(() => parseKampside(erstat(KAMP_BRONZE, '<p class="time time-local">15:00</p>', '<p class="time time-local">15:00 h</p>')),
+      /tiden for kamp 202123 har et uventet format \(lokal «15:00 h»/);
+    kaster(() => parseKampside(erstat(KAMP_BRONZE, '14:00 <small>GMT', '25:00 <small>GMT')),
+      /tiden for kamp 202123 har et uventet format \(lokal «15:00», GMT «25:00»/);
+  });
+
   it('manglende tid kaster', () => {
     const html = erstat(KAMP_BRONZE, 'class="time time-gmt"', 'class="tid"');
     kaster(() => parseKampside(html), /kamp 202123 mangler sin lokale tid eller GMT-tid/);
@@ -438,6 +561,38 @@ describe('parseKampside — struktur-vagterne kaster', () => {
     let html = erstat(KAMP_BRONZE, 'id="penalty-score-a" class="col-xs-4 bigFont">0<', 'id="penalty-score-a" class="col-xs-4 bigFont">1<');
     html = erstat(html, '<p id="result-a-b">35:34</p>', '<p id="result-a-b">36:34</p>');
     kaster(() => parseKampside(html), /halvlegene giver 35-34 efter 60 minutter/);
+  });
+
+  it('forlængelse efter en stilling, hvor UDEholdet førte efter 60, kaster', () => {
+    // Norge–Spanien 2023 med Spaniens 2. halvleg 13 → 14: 25-26 efter 60, men
+    // stadig to forlængelser. Summen passer (34-36), stillingen gør ikke.
+    let html = erstat(KAMP_FORL, 'id="sh-goals-b" class="col-xs-4 bigFont">13<', 'id="sh-goals-b" class="col-xs-4 bigFont">14<');
+    html = erstat(html, '<p id="result-a-b">34:35</p>', '<p id="result-a-b">34:36</p>');
+    // Ændringen landede: halvlegene ER nu 25-26 (ikke den ægte sides 25-25).
+    expect(html).toContain('id="sh-goals-b" class="col-xs-4 bigFont">14<');
+    expect(html).not.toContain('id="sh-goals-b" class="col-xs-4 bigFont">13<');
+    kaster(() => parseKampside(html), /forlængelse\/straffekast, men halvlegene giver 25-26 efter 60 minutter/);
+  });
+
+  it('straffekast efter en forlængelse, hvor UDEholdet førte, kaster', () => {
+    // Danmark–Egypten 2021 med Egyptens 2. forlængelse 1 → 2: 28-28 + 6-6 + 1-2 = 35-36.
+    let html = erstat(KAMP_STRAFFE, 'id="fot-2-score-b" class="col-xs-4 bigFont">1<', 'id="fot-2-score-b" class="col-xs-4 bigFont">2<');
+    html = erstat(html, '<p id="result-a-b">39:38</p>', '<p id="result-a-b">39:39</p>');
+    kaster(() => parseKampside(html), /straffekast, men stillingen efter forlængelsen er 35-36/);
+  });
+
+  it('en forlængelse, hvor kun udeholdet scorer (0-1), tæller som forlængelse', () => {
+    // Bronzekampen 2025 (35-34 efter 60) med Portugals 1. forlængelse 0 → 1.
+    let html = erstat(KAMP_BRONZE, 'id="fot-1-score-b" class="col-xs-4 bigFont">0<', 'id="fot-1-score-b" class="col-xs-4 bigFont">1<');
+    html = erstat(html, '<p id="result-a-b">35:34</p>', '<p id="result-a-b">35:35</p>');
+    expect(html).toContain('id="fot-1-score-b" class="col-xs-4 bigFont">1<');
+    kaster(() => parseKampside(html), /forlængelse\/straffekast, men halvlegene giver 35-34 efter 60 minutter/);
+  });
+
+  it('straffekast, hvor kun udeholdet scorer (0-1), tæller som straffekast', () => {
+    let html = erstat(KAMP_BRONZE, 'id="penalty-score-b" class="col-xs-4 bigFont">0<', 'id="penalty-score-b" class="col-xs-4 bigFont">1<');
+    html = erstat(html, '<p id="result-a-b">35:34</p>', '<p id="result-a-b">35:35</p>');
+    kaster(() => parseKampside(html), /forlængelse\/straffekast, men halvlegene giver 35-34 efter 60 minutter/);
   });
 
   it('uafgjort efter 60 uden forlængelse er et gyldigt facit (gruppekamp)', () => {

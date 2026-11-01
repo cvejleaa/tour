@@ -73,12 +73,19 @@ function fejl(besked) {
 
 const ENTITETER = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' };
 
-/** Tekst ud af et HTML-stykke: tags væk, entiteter afkodet, mellemrum samlet. */
+/**
+ * Tekst ud af et HTML-stykke: tags væk, entiteter afkodet, mellemrum samlet.
+ * Decimale (&#39;), hex (&#x27;) og navngivne (&apos;) entiteter afkodes i ÉT
+ * gennemløb, så «&#38;lt;» bliver «&lt;» og ikke dobbelt-afkodes til «<».
+ */
 function rens(s) {
   return String(s ?? '')
     .replace(/<[^>]*>/g, ' ')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&([a-z]+);/gi, (hel, navn) => ENTITETER[navn.toLowerCase()] ?? hel)
+    .replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (hel, dec, hex, navn) => {
+      if (dec) return String.fromCodePoint(Number(dec));
+      if (hex) return String.fromCodePoint(parseInt(hex, 16));
+      return ENTITETER[navn.toLowerCase()] ?? hel;
+    })
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -156,10 +163,10 @@ function holdAf(felt, side, hvor) {
   return { navn, id: link ? Number(link[1]) : null };
 }
 
-function parseKampBlok(blok) {
-  const id = /data-ihf-competitions-match-id="(\d+)"/.exec(blok);
-  if (!id) fejl('en kampblok mangler sit kamp-id.');
-  const ihfId = Number(id[1]);
+/** Kamp-id'et på dagsiden — én pr. kampblok (se vagten i parseDagside). */
+const KAMP_ID = /data-ihf-competitions-match-id="(\d+)"/g;
+
+function parseKampBlok(blok, ihfId) {
   const hvor = `kamp ${ihfId}`;
 
   const kode = /data-ihf-competitions-match-status="([^"]*)"/.exec(blok);
@@ -225,9 +232,8 @@ function parseKampBlok(blok) {
  */
 function parseDagside(html) {
   kraevSide(html, 'matches', 'dagside');
-  const markoerer = (html.match(/data-ihf-competitions-match-id="/g) || []).length;
-  const blokke = html.split(/<div class="matchDetails"/).slice(1);
-  if (blokke.length === 0 || markoerer === 0) {
+  const [foer, ...blokke] = html.split(/<div class="matchDetails"/);
+  if (blokke.length === 0) {
     const kalender = kalenderAf(html);
     if (kalender.length) {
       fejl(`dagsiden har ${kalender.length} spilledage i kalenderen (${kalender[0]} … ${kalender[kalender.length - 1]}), `
@@ -235,10 +241,21 @@ function parseDagside(html) {
     }
     fejl('dagsiden mangler både kalender og kampmarkører (data-ihf-competitions-match-id).');
   }
-  if (blokke.length !== markoerer) {
-    fejl(`dagsiden har ${markoerer} kamp-id'er, men ${blokke.length} kampblokke — markuppen er ændret.`);
+  // ÉN vagt for kamp-id'erne (CLAUDE.md, «Én vagt pr. sikkerhedsregel»): før
+  // første kampblok står ingen, og hver kampblok har præcis ét. Den fanger både
+  // en blok uden id, en blok med to (to kampe slået sammen) og et id uden for
+  // en blok — også når de udligner hinanden i en optælling.
+  const ider = [foer, ...blokke].map((del) => [...del.matchAll(KAMP_ID)].map((m) => Number(m[1])));
+  const skaev = ider.findIndex((liste, i) => liste.length !== (i === 0 ? 0 : 1));
+  if (skaev >= 0) {
+    const iAlt = ider.reduce((n, liste) => n + liste.length, 0);
+    const hvor = skaev === 0
+      ? `før første kampblok står ${ider[0].length}`
+      : `kampblok ${skaev} har ${ider[skaev].length}`;
+    fejl(`dagsiden har ${iAlt} kamp-id'er og ${blokke.length} kampblokke, men hver kampblok skal have præcis ét `
+      + `(${hvor}) — markuppen er ændret.`);
   }
-  return blokke.map(parseKampBlok);
+  return blokke.map((blok, i) => parseKampBlok(blok, ider[i + 1][0]));
 }
 
 /** Én periode på kampsiden → { h, u }. Mangler den eller er den ikke et tal, kastes der. */
@@ -308,9 +325,16 @@ function parseKampside(html) {
   if (!lokal || !gmt) fejl(`${hvor} mangler sin lokale tid eller GMT-tid.`);
   const arena = /class="time time-gmt">[\s\S]*?<\/p>\s*<span>([^<]*)<\/span>/.exec(html);
 
-  const kort = html.slice(html.indexOf('resultCardBody'));
-  const hold = [...kort.matchAll(/<div class="country[^"]*">\s*(?:<img[^>]*>\s*)?<span>([^<]*)<\/span>/g)]
+  // Holdene læses KUN i resultatkortet: andre «country»-felter på siden (fx en
+  // nabokamp) må ikke blive til kampens hold. Mangler kortet, ville indexOf give
+  // -1 og slice(-1) sidste tegn — og så hold = null uden et ord. Derfor kastes der.
+  const kortStart = html.indexOf('resultCardBody');
+  if (kortStart < 0) fejl(`${hvor} mangler sit resultatkort (resultCardBody) — holdene kan ikke læses.`);
+  const hold = [...html.slice(kortStart).matchAll(/<div class="country[^"]*">\s*(?:<img[^>]*>\s*)?<span>([^<]*)<\/span>/g)]
     .slice(0, 2).map((m) => rens(m[1]));
+  if (hold.length < 2 || hold.some((navn) => !navn)) {
+    fejl(`${hvor}: resultatkortet har ikke to holdnavne (fandt ${JSON.stringify(hold)}).`);
+  }
 
   const resultat = /id="result-a-b">\s*([^<]*?)\s*</.exec(html);
   if (!resultat) fejl(`${hvor} mangler sin slutscore (result-a-b).`);
@@ -318,8 +342,8 @@ function parseKampside(html) {
   const faelles = {
     ihfId,
     status: st,
-    hjemme: hold[0] || null,
-    ude: hold[1] || null,
+    hjemme: hold[0],
+    ude: hold[1],
     ...tider(lokal[1], gmt[1], hvor),
     ...sted(arena && arena[1]),
   };
