@@ -101,7 +101,7 @@ Liga-admin følger med at have oprettet ligaen.
 
   | Status | Betyder |
   |---|---|
-  | **Åben** | Kan tilmeldes. Spillerne kan også forlade spillet igen, også med point: de forsvinder fra stillingen og deres ligaer, tips på kommende kampe slettes, men point og historik arkiveres (`forladt: true` på deltagelsen) — kommer de tilbage i sæsonen, får de stillingen igen. Ejer spilleren en liga i spillet, skal ligaen slettes først. |
+  | **Åben** | Kan tilmeldes. Spillerne kan også forlade spillet igen, også med point: de forsvinder fra stillingen og deres ligaer, tips på kommende kampe slettes, men point og historik arkiveres (`forladt: true` på deltagelsen) — kommer de tilbage i sæsonen (eller turneringen), får de stillingen igen. Ejer spilleren en liga i spillet, skal ligaen slettes først. |
   | **I gang** | Forlad-knappen er væk. Påmindelser sendes — medmindre de er sat på pause under 🔔 Påmindelser. |
   | **Afsluttet** | Ude af "Åbne spil — deltag" og af 🔔 Påmindelser-fanen, og det daglige påmindelses-job springer spillet over. Stilling og historik kan stadig ses, og du kan stadig rette facit (✍️ Sæt eller ret facit i hånden) og genberegne. Strandet-alarmen vogter ikke længere et afsluttet spil uden synk. |
 
