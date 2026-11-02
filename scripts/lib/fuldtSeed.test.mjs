@@ -160,6 +160,9 @@ describe('koerFuldtSeed — spil-dokumentet', () => {
     // Forhåndsvisningen, det gamle seed manglede: hver feltændring vises.
     expect(r.log).toMatch(/Stærk {2}elo: 1850 → 1900/);
     expect(r.log).not.toMatch(/BEVARES/);
+    // Vej-teksten hører til gen-seedet: her ER operatøren på den vej, og et
+    // «kør med --overskriv-hold» midt i overskrivningen ville forvirre.
+    expect(r.log).not.toMatch(/rettes med --teams-only|hører det til et fuldt seed/);
   });
 
   it('delvis: spillet har teams men ingen eloCurrent → kun eloCurrent, bygget af SPILLETS hold', async () => {

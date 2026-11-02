@@ -124,6 +124,8 @@ describe('opslagSlaaetFra', () => {
     expect(som({ flags: new Set() })).toBeNull();                // intet spil
     expect(som({ game: 'egen-test', teams: 'a.js' })).toBeNull(); // spil uden post
     expect(opslagSlaaetFra(undefined)).toBeNull();
+    // Kaldt direkte uden egne filer: ingen halv sætning («fordi  er givet»).
+    expect(opslagSlaaetFra({ game: 'superliga2627', kilde: 'argumenter' })).toBeNull();
   });
 });
 
