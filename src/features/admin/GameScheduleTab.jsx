@@ -18,7 +18,7 @@ import { harKickoffSynk, harResultatSynk, harKampdetaljer } from '../games/spilE
 import { erKampspil, uenigTekst } from '../../lib/facit';
 import ManuelFacit from './ManuelFacit';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
-import { rundeEtiket, rundeFlertal, rundeOrd, harFaseKalender, faseKalenderAdvarsel } from '../../lib/faser';
+import { rundeEtiket, rundeFlertal, rundeOrd, rundeOrdene, harFaseKalender, faseKalenderAdvarsel } from '../../lib/faser';
 import { puljeKonfigFejl } from '../../lib/puljeFacit';
 import { fmtDec, fmtPoints } from '../../lib/daNum';
 import { puljeKonfig } from '../../lib/superligaScoring';
@@ -26,11 +26,16 @@ import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/co
 
 // Hvad hver status betyder i praksis — vises under vælgeren, så konsekvensen
 // af "Afsluttet" ikke først opdages, når spillet er væk fra oversigten.
-const STATUS_HELP = {
-  [GAME_STATUS.OPEN]: 'Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er sat til Synligt nedenfor. Spillerne kan forlade spillet igen — også med point: de forsvinder fra stillingen og deres ligaer, tips på kommende kampe slettes, men point og historik arkiveres, og kommer de tilbage i sæsonen, får de stillingen igen.',
-  [GAME_STATUS.LIVE]: 'I gang. Påmindelser sendes (medmindre de er sat på pause under 🔔 Påmindelser), og Forlad-knappen er væk.',
-  [GAME_STATUS.FINISHED]: 'Afsluttet: forsvinder fra "Åbne spil — deltag", og der sendes ikke flere påmindelser. Stilling og historik kan stadig ses.',
-};
+// En funktion af spillet, ikke en konstant: «sæsonen» er ligaens ord — en
+// turnering har en turnering (rundeOrdene). Uden kalender: præcis som før.
+export function statusHjaelp(status, game) {
+  const o = rundeOrdene(game);
+  return {
+    [GAME_STATUS.OPEN]: `Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er sat til Synligt nedenfor. Spillerne kan forlade spillet igen — også med point: de forsvinder fra stillingen og deres ligaer, tips på kommende kampe slettes, men point og historik arkiveres, og kommer de tilbage i ${o.saesonen}, får de stillingen igen.`,
+    [GAME_STATUS.LIVE]: 'I gang. Påmindelser sendes (medmindre de er sat på pause under 🔔 Påmindelser), og Forlad-knappen er væk.',
+    [GAME_STATUS.FINISHED]: 'Afsluttet: forsvinder fra "Åbne spil — deltag", og der sendes ikke flere påmindelser. Stilling og historik kan stadig ses.',
+  }[status] ?? null;
+}
 
 /** ms → værdi til <input type="datetime-local"> i LOKAL tid ('YYYY-MM-DDTHH:mm'). */
 function toLocalInput(ms) {
@@ -297,9 +302,16 @@ function GameRow({ game }) {
     const res = await callAfregnPuljeNu({ gameId: game.id, dryRun: false });
     if (!res.ok) { setAfregnMsg({ kind: 'err', text: res.error }); setAfregnBusy(false); return; }
     // Svaret bærer sit eget dryRun — brug DET (samme fælde som Ompris).
-    setAfregnMsg(res.data?.dryRun === false
-      ? { kind: 'ok', text: `${res.data.settled ?? 0} pulje-tip er afregnet, og stillingen er genberegnet.` }
-      : { kind: 'err', text: 'Serveren tørkørte og skrev INTET. Prøv igen.' });
+    // settled 0 på et skriv betyder, at intet blev afregnet: facit, fasen
+    // eller tippene har ændret sig mellem de to klik (serveren afregner kun,
+    // når puljen kan afgøres, og kun de tip, der findes). Det må ikke stå som
+    // «0 pulje-tip er afregnet, og stillingen er genberegnet» (QC-fund).
+    const settled = Number(res.data?.settled) || 0;
+    setAfregnMsg(res.data?.dryRun !== false
+      ? { kind: 'err', text: 'Serveren tørkørte og skrev INTET. Prøv igen.' }
+      : settled > 0
+        ? { kind: 'ok', text: `${settled} pulje-tip er afregnet, og stillingen er genberegnet.` }
+        : { kind: 'err', text: 'Intet blev afregnet: puljen har ændret sig siden tør-kørslen. Kør 🎖️ Afregn puljen igen for at se, hvordan den står nu.' });
     setAfregnPlan(null);
     setAfregnBusy(false);
   }
@@ -407,10 +419,13 @@ function GameRow({ game }) {
   // timingen. Confirm'en navngiver i stedet konsekvenserne, især den eneste
   // ikke-idempotente: Runde-Bottens opslag lander NU, ikke ved næste sweep.
   async function resultatSynk() {
+    // Turneringens ord, når spillet har en kalender (rundeOrdene) — «hele
+    // sæsonen» og «en runde» er ligaens. Runde-Botten er et navn og bliver.
+    const o = rundeOrdene(game);
     if (!window.confirm(
       `Hent resultater for "${game.name}" hos kilden nu?\n\n`
-      + 'Hele sæsonen tjekkes — det er præcis, hvad den automatiske synk selv gør hver time; du fremrykker den bare.\n\n'
-      + 'Nye facit afregner point og flytter Elo og odds med det samme. Fuldender et facit en runde, poster Runde-Botten sit opslag på liga-væggene NU (højst én gang pr. runde) — så vælg et tidspunkt, hvor folk er vågne.',
+      + `Hele ${o.saesonen} tjekkes — det er præcis, hvad den automatiske synk selv gør hver time; du fremrykker den bare.\n\n`
+      + `Nye facit afregner point og flytter Elo og odds med det samme. Fuldender et facit en ${o.runde}, poster Runde-Botten sit opslag på liga-væggene NU (højst én gang pr. ${o.runde}) — så vælg et tidspunkt, hvor folk er vågne.`,
     )) return;
     setResBusy(true); setResMsg(null);
     const res = await callSyncGameResults(game.id);
@@ -432,7 +447,7 @@ function GameRow({ game }) {
     // næste skridt — og peg på KNAPPEN, ikke på en guide — ellers er alarm →
     // knap → "intet manglede" en blindgyde.
     setResMsg(d.updated > 0
-      ? { kind: 'ok', text: `${kampe(d.updated)} fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en runde, poster Runde-Botten på liga-væggene nu.${manuelle}` }
+      ? { kind: 'ok', text: `${kampe(d.updated)} fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en ${o.runde}, poster Runde-Botten på liga-væggene nu.${manuelle}` }
       : { kind: 'ok', text: `Intet manglede — de ${d.checked} færdige kampe hos kilden står allerede rigtigt. ${tabel}. Står en kamp stadig uden facit, har kilden det ikke endnu — brug ✍️ Sæt eller ret facit i hånden nedenfor.${manuelle}` });
     setResBusy(false);
   }
@@ -596,7 +611,7 @@ function GameRow({ game }) {
             {puljeRundeUdenSynk && (
               <span data-testid="pulje-runde-uden-synk"
                 style={{ display: 'block', fontSize: '0.78rem', color: 'var(--c-muted)', marginTop: '0.25rem' }}>
-                {`Spillet har puljeLockRound (${rundeEtiket(game, game.puljeLockRound)}), men ingen kickoff-synk, så intet udleder deadlinen. Sæt den her — til rundens første kickoff. Får spillet senere en kickoff-synk, flytter den deadlinen til rundens tidligste kickoff, så længe den ikke er passeret.`}
+                {`Pulje-deadlinen hører til ${rundeEtiket(game, game.puljeLockRound)}, men spillet har ingen kickoff-synk, så intet udleder den. Sæt den her — til ${rundeOrdene(game).rundens} første kickoff. Får spillet senere en kickoff-synk, flytter den deadlinen til ${rundeOrdene(game).rundens} tidligste kickoff, så længe den ikke er passeret.`}
               </span>
             )}
           </label>
@@ -613,8 +628,7 @@ function GameRow({ game }) {
                 : 'Endnu ikke sat — kør 🗓️ Synk kamptider nu nedenfor'}
             </div>
             <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--c-muted)', marginTop: '0.25rem' }}>
-              Sættes IKKE i hånden: udledes automatisk til rundens tidligste
-              kickoff ved kickoff-synken og følger med, hvis kampen flyttes.
+              {`Sættes IKKE i hånden: udledes automatisk til ${rundeOrdene(game).rundens} tidligste kickoff ved kickoff-synken og følger med, hvis kampen flyttes.`}
             </span>
           </div>
         )}
@@ -640,7 +654,7 @@ function GameRow({ game }) {
         </select>
       </label>
       <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-        {STATUS_HELP[gameStatus] ?? 'Vælg spillets tilstand.'}
+        {statusHjaelp(gameStatus, game) ?? 'Vælg spillets tilstand.'}
       </p>
 
       {/* Synlighed. Et nyt spil bliver til i samme sekund, som det kan ses —

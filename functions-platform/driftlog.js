@@ -47,9 +47,12 @@ const ALARM_TYPER = {
   kickoff48t: { titel: 'Kamp flyttet til under 48 timer', hast: 'haster' },
   mangler: { titel: 'Kamp mangler som dokument i spillet', hast: 'haster' },
   puljeLockGenaabning: { titel: 'Pulje-deadlinen sidder fast', hast: 'haster' },
-  // En runde-pulje, der ikke kan afgøres (fasen findes ikke, eller dens kampe
-  // er lagt forkert ind). «I dag»: puljen afregnes alligevel først, når den
-  // er rettet, og ingen har en fordel imens — men den lukker ikke af sig selv.
+  // En runde-pulje, der ikke kan afgøres (en konfigurationsfejl, fasens kampe
+  // lagt forkert ind, eller fasen udeblev efter sin startdag). «I dag»: puljen
+  // afregnes alligevel først, når den er rettet, og ingen har en fordel imens.
+  // Meldes og lukkes af gameScoring.meldPuljeAlarm — fra afregningen og fra
+  // times-sweep'et (facitVagt.puljeVagt) — og lukker først, når puljen kan
+  // afgøres; at rette den kræver et menneske.
   puljeFacit: { titel: 'Puljen kan ikke afgøres', hast: 'idag' },
   livetavs: { titel: 'Live-stillingen står stille', hast: 'haster' },
   detaljerLukket: { titel: 'Kilden har lukket os ude', hast: 'udvikler' },

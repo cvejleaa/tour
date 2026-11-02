@@ -72,7 +72,9 @@ describe('puljeFacit: server-spejlet er src', () => {
     ['med bund', { ...HVM, pulje: { ...RUNDE_PULJE, nedSize: 2 } }],
   ];
   // Før, på og efter semifinalernes startdag — og uden ur.
-  const UR = [Date.parse('2027-01-28T12:00:00Z'), Date.parse('2027-01-29T22:00:00Z'), Date.parse('2027-01-30T12:00:00Z'), undefined];
+  // 23.30Z fredag = 00.30 dansk tid lørdag: døgnskiftet, hvor UTC og dansk dato er uenige.
+  const UR = [Date.parse('2027-01-28T12:00:00Z'), Date.parse('2027-01-29T22:00:00Z'), Date.parse('2027-01-29T23:30:00Z'),
+    Date.parse('2027-01-30T12:00:00Z'), undefined];
   const LISTER = [
     ['ingen', []],
     ['kvart spillet', KVART],
@@ -87,6 +89,7 @@ describe('puljeFacit: server-spejlet er src', () => {
       const src = await import('../src/lib/puljeFacit.js');
       const srcKonfig = (await import('../src/lib/superligaScoring.js')).puljeKonfig;
       expect(server.puljeKonfigFejl(spil)).toEqual(src.puljeKonfigFejl(spil));
+      expect(server.puljeSeedFejl(spil)).toEqual(src.puljeSeedFejl(spil));
       expect(server.rundePuljeTekster(spil, puljeKonfig(spil))).toEqual(src.rundePuljeTekster(spil, srcKonfig(spil)));
       expect(server.rundePuljeDato(spil, puljeKonfig(spil))).toEqual(src.rundePuljeDato(spil, srcKonfig(spil)));
       for (const t of UR) {
@@ -114,7 +117,31 @@ describe('puljeFacit: server-spejlet er src', () => {
     expect(server.rundeFacit(puljeKonfig(HVM), HVM, KVART.concat(SEMI))).toEqual(['DK', 'FR', 'SE', 'HR']);
     expect(server.puljeKanAfregnes(puljeKonfig(HVM), HVM, KVART)).toBe(false);
     // …og fase-fejlen rammer både en fejl og intet.
-    expect(server.puljeFaseFejl(HVM, KVART, UR[2])).toMatch(/kun 0 af 2 kampe/);
+    expect(server.puljeFaseFejl(HVM, KVART, UR[3])).toMatch(/kun 0 af 2 kampe/);
     expect(server.puljeFaseFejl(HVM, KVART, UR[0])).toBeNull();
+  });
+
+  // Spejltesten ovenfor kan ikke se en SYMMETRISK fejl (begge ender ens
+  // forkerte). Derfor står serverens egne svar her for de kanter, TM fandt
+  // ubundne: døgnskiftet i dansk tid og en konfigurationsfejl med fasen lagt ind.
+  it('serveren: 00.30 dansk tid er dagen efter — 23.30 dansk tid er ikke', () => {
+    expect(server.puljeFaseFejl(HVM, KVART, Date.parse('2027-01-29T22:30:00Z'))).toBeNull();
+    expect(server.puljeFaseFejl(HVM, KVART, Date.parse('2027-01-29T23:30:00Z')))
+      .toBe('«Semifinaler» skulle være begyndt fredag 29. januar, men kun 0 af 2 kampe er lagt ind');
+  });
+
+  it('serveren: en konfigurationsfejl afgør intet, selv med fasen lagt ind', () => {
+    for (const pulje of [{ ...RUNDE_PULJE, poolSize: 6 }, { ...RUNDE_PULJE, nedSize: 2 }]) {
+      const g = { ...HVM, pulje };
+      expect(server.puljeKanAfregnes(puljeKonfig(g), g, KVART.concat(SEMI)), JSON.stringify(pulje)).toBe(false);
+    }
+  });
+
+  it('serveren: seed-vagten kræver en eksplicit puljegrænse på en runde-pulje — kun dér', () => {
+    expect(server.puljeSeedFejl({ ...HVM, pulje: { ...RUNDE_PULJE, maksStartRunde: 1 } })).toEqual([]);
+    expect(server.puljeSeedFejl(HVM)).toEqual(['maksStartRunde skal sættes eksplicit på en runde-pulje (ejerens valg — håndbold-VM: 1)']);
+    expect(server.puljeSeedFejl({ ...HVM, pulje: { ...RUNDE_PULJE, maksStartRunde: 1.5 } })).toHaveLength(1);
+    expect(server.puljeSeedFejl({ ...HVM, pulje: { ...RUNDE_PULJE, maksStartRunde: 0 } })).toHaveLength(1);
+    expect(server.puljeSeedFejl({ pulje: { poolSize: 6 } })).toEqual([]);
   });
 });

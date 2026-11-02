@@ -97,7 +97,14 @@ function rundeFacit(konfig, game, matches) {
  * svarer serveren præcis som før for et spil uden pulje.
  */
 function puljeKanAfregnes(konfig, game, matches) {
-  if (konfig?.facitKilde === 'runde') return rundeFacit(konfig, game, matches) != null;
+  if (konfig?.facitKilde === 'runde') {
+    // EN KONFIGURATIONSFEJL AFGØR INTET — heller ikke når fasens kampe ser
+    // rigtige ud. Ellers kunne Spil-tidsplan sige «bliver aldrig afregnet»
+    // (puljeKonfigFejl: forkert poolSize, et bundspørgsmål) i samme række,
+    // som serveren afregnede puljen mod fasens hold (QC-fund).
+    if (puljeKonfigFejl(game).length) return false;
+    return rundeFacit(konfig, game, matches) != null;
+  }
   return alleKampeSpillet(matches);
 }
 
@@ -105,7 +112,8 @@ function puljeKanAfregnes(konfig, game, matches) {
  * Hvad er der galt med en runde-pulje? Tom liste = intet (også for alle andre
  * puljer og for et spil uden pulje). En fejl her betyder, at puljen ALDRIG
  * kan afgøres — og det ville ingen opdage før semifinalerne. Derfor tjekkes
- * den før seed (scripts/games.test.mjs) og vises under Spil-tidsplan.
+ * den før seed (puljeSeedFejl, i seed-games.mjs og games.test.mjs), vises
+ * under Spil-tidsplan og afgør intet (puljeKanAfregnes er falsk).
  * @returns {string[]}
  */
 function puljeKonfigFejl(game) {
@@ -129,6 +137,25 @@ function puljeKonfigFejl(game) {
   // Rå værdi, ikke normalizerens: den sætter nedSize til 0 for en runde-pulje,
   // og så ville en bund, nogen HAVDE skrevet ind, forsvinde uden et ord.
   if (Number(p.nedSize) > 0) fejl.push('en runde-pulje har intet bundspørgsmål (nedSize skal være 0)');
+  return fejl;
+}
+
+/**
+ * Hvad der forhindrer et spil i at blive SEEDET med sin pulje: puljeKonfigFejl
+ * plus kravet om en EKSPLICIT puljegrænse på en runde-pulje (ejeren 2/11:
+ * «ingen ny tavs default» — standarden 3 er SL/PL's). Tom liste = må seedes.
+ * Kaldes af scripts/seed-games.mjs, der afviser HELE kørslen ved en fejl,
+ * og af scripts/games.test.mjs — vagten bor her, ikke i testen, så den også
+ * gælder den kørsel, der skriver (seedet skriver med merge, og merge fjerner
+ * aldrig et felt: den første kørsel er den eneste gode chance).
+ * @returns {string[]}
+ */
+function puljeSeedFejl(game) {
+  const fejl = puljeKonfigFejl(game);
+  const v = game?.pulje?.maksStartRunde;
+  if (game?.pulje?.facitKilde === 'runde' && !(Number.isInteger(v) && v >= 1)) {
+    fejl.push('maksStartRunde skal sættes eksplicit på en runde-pulje (ejerens valg — håndbold-VM: 1)');
+  }
   return fejl;
 }
 
@@ -241,6 +268,7 @@ function rundePuljeTekster(game, konfig, nowMs) {
 }
 
 module.exports = {
-  alleKampeSpillet, facitFase, faseHold, rundeFacit, puljeKanAfregnes, puljeKonfigFejl, puljeFaseFejl,
+  alleKampeSpillet, facitFase, faseHold, rundeFacit, puljeKanAfregnes, puljeKonfigFejl, puljeSeedFejl,
+  puljeFaseFejl,
   rundePuljeDato, rundePuljeTekster,
 };

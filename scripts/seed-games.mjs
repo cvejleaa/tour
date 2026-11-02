@@ -34,8 +34,23 @@ const { GAMES } = await import('./games.mjs');
 // så den kan testes: denne fil kan ikke importeres fra en test (firebase-admin
 // initialiseres på øverste niveau).
 const { seedPayload } = await import('./seed-payload.mjs');
+// En runde-pulje, der aldrig kan afgøres, opdages ellers først ved
+// semifinalerne — og seedet skriver med merge, så den første kørsel er den
+// eneste gode chance for at få felterne rigtige. Samme vagt som
+// scripts/games.test.mjs. Hentet fra SERVER-spejlet (CommonJS):
+// src/lib/puljeFacit.js importerer uden filendelse og kan ikke indlæses af
+// node uden vite — og de to ender er bundet byte for byte
+// (functions-platform/puljeFacit.test.js).
+const { createRequire } = await import('module');
+const { puljeSeedFejl } = createRequire(import.meta.url)('../functions-platform/puljeFacit.js');
 
 async function seedGames() {
+  // AFVIS HELE KØRSLEN før den første skrivning: et halvt seedet katalog er
+  // værre end intet.
+  const puljeFejl = GAMES.flatMap((g) => puljeSeedFejl(g).map((f) => `${g.id}: ${f}`));
+  if (puljeFejl.length) {
+    throw new Error(`Puljen kan ikke seedes — intet er skrevet:\n  ${puljeFejl.join('\n  ')}`);
+  }
   console.log(`\nSeeder ${GAMES.length} spil i games-collection'en...`);
   const batch = db.batch();
   for (const { id, ...data } of GAMES) {

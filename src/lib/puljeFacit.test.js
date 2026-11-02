@@ -90,6 +90,21 @@ describe('puljeKanAfregnes — runde-puljen', () => {
     const uden = { ...HVM, faser: TEST_FASER.map((f) => (f.navn === 'Semifinaler' ? { ...f, antalKampe: undefined } : f)) };
     expect(puljeKanAfregnes(puljeKonfig(uden), uden, [...KVART, ...SEMI])).toBe(false);
   });
+
+  // QC-fund: badgen under Spil-tidsplan siger «bliver aldrig afregnet, før det
+  // er rettet» ved ENHVER puljeKonfigFejl. Med fasen rigtigt lagt ind gav
+  // prædikatet før ja til forkert poolSize og et bundspørgsmål — så serveren
+  // afregnede, og PuljeTip viste et facit, under den røde advarsel.
+  it('en konfigurationsfejl afgør intet — også med fasen rigtigt lagt ind', () => {
+    const liste = [...KVART, ...SEMI];
+    for (const pulje of [{ ...RUNDE_PULJE, poolSize: 6 }, { ...RUNDE_PULJE, nedSize: 2 }]) {
+      const g = { ...HVM, pulje };
+      expect(puljeKonfigFejl(g), JSON.stringify(pulje)).toHaveLength(1);
+      expect(puljeKanAfregnes(puljeKonfig(g), g, liste), JSON.stringify(pulje)).toBe(false);
+    }
+    // Kontrol: den rigtige konfiguration afgør på samme liste.
+    expect(puljeKanAfregnes(K, HVM, liste)).toBe(true);
+  });
 });
 
 describe('puljeKanAfregnes — liga-puljerne er uændrede', () => {
@@ -249,6 +264,23 @@ describe('puljeFaseFejl — fasen lagt forkert ind siges højt', () => {
     for (const g of [{ pulje: { poolSize: 6 } }, { pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe' } }, HAANDBOLD_SPIL, null]) {
       expect(puljeFaseFejl(g, KVART, EFTER)).toBeNull();
     }
+  });
+
+  // DANSK DATO, IKKE UTC (TM-fund). 00.30 dansk tid lørdag er 23.30Z fredag:
+  // i UTC er semifinalernes startdag ikke passeret endnu. Testens øvrige
+  // tidspunkter (12.00Z, 22.00Z) ligger, hvor de to datoer er ens, så en
+  // `toISOString()` i stedet for kbhDato overlevede. Begge ender skal ramme
+  // døgnskiftet: 23.30 dansk tid fredag er IKKE begyndt.
+  it('døgnskiftet er dansk: 00.30 lørdag tæller fasen som begyndt, 23.30 fredag gør ikke', () => {
+    const fredag2330 = Date.parse('2027-01-29T22:30:00Z');
+    const loerdag0030 = Date.parse('2027-01-29T23:30:00Z');
+    expect(puljeFaseFejl(HVM, KVART, fredag2330)).toBeNull();
+    expect(puljeFaseFejl(HVM, KVART, loerdag0030))
+      .toBe('«Semifinaler» skulle være begyndt fredag 29. januar, men kun 0 af 2 kampe er lagt ind');
+    expect(rundePuljeTekster(HVM, K, fredag2330).afgoeres)
+      .toBe('Puljen afgøres, når semifinalerne er lagt ind — de spilles fredag 29. januar.');
+    expect(rundePuljeTekster(HVM, K, loerdag0030).afgoeres)
+      .toBe('Puljen afgøres, når semifinalerne er lagt ind — de skulle være begyndt fredag 29. januar.');
   });
 
   it('uden et ur er intet "begyndt" — kun de strukturelle fejl meldes', () => {

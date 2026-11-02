@@ -6,12 +6,13 @@
 // vogtes af PRÆCIS én vej), teksten (uden synk nævnes synk-knappen ikke),
 // kortet (en kørsel uden kort er tavs) og lukningen af et afsluttet spils kort.
 // ---------------------------------------------------------------------------
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createRequire } from 'module';
+import { HAANDBOLD_SPIL } from '../src/test/faseKalender.js';
 
 const require = createRequire(import.meta.url);
 const {
-  kampOrd, meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige,
+  kampOrd, meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige, puljeVagt,
 } = require('./facitVagt');
 const { statusSamler } = require('./driftlog');
 
@@ -231,6 +232,154 @@ describe('facitVagtUdenSynk', () => {
       synkedeIds: ['superliga2627'], nowMs: NU, naesteForventetFoerMs: 1, skriv: s2.skriv, meld: s2.meld, loes: s2.loes,
     });
     expect(s2.skrevet.map((w) => w.id)).toEqual(['facitvagt-hvm2027']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UDEBLIVELSES-ALARMEN for en runde-pulje (QC-fund, server bør 1). Alarmen
+// `puljeFacit` blev før kun regnet i afregningen, og den kører ved et
+// resultat. Netop det scenarie, alarmen er bygget til — semifinalerne bliver
+// aldrig lagt ind — giver ingen kamp og dermed intet resultat. Her tjekkes
+// den i hver times-sweep. Semifinalerne (TEST_FASER) starter fredag 29/1 2027.
+// ---------------------------------------------------------------------------
+describe('puljeVagt — runde-puljen i times-sweep\'et', () => {
+  const PULJE = { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', maksStartRunde: 1 };
+  const HVM = { ...HAANDBOLD_SPIL, id: 'hvm2027', status: 'open', pulje: PULJE };
+  const k = (id, round, home, away, extra = {}) => ({ id, data: { round, home, away, kickoff: LAENGE_SIDEN, ...extra } });
+  const KVART = [
+    k('r14-1', 14, 'DK', 'NO', { result: '1', homeGoals: 30, awayGoals: 28 }),
+    k('r14-2', 14, 'FR', 'ES', { result: '1', homeGoals: 30, awayGoals: 28 }),
+    k('r15-1', 15, 'SE', 'DE', { result: '1', homeGoals: 30, awayGoals: 28 }),
+    k('r15-2', 15, 'HR', 'IS', { result: '1', homeGoals: 30, awayGoals: 28 }),
+  ];
+  const SEMI = [k('r16-1', 16, 'DK', 'FR'), k('r16-2', 16, 'SE', 'HR')];
+  const FOER = Date.parse('2027-01-28T12:00:00Z');
+  const DAGEN = Date.parse('2027-01-29T22:30:00Z');      // 23.30 dansk tid fredag
+  const NATTEN_EFTER = Date.parse('2027-01-29T23:30:00Z'); // 00.30 dansk tid lørdag
+  const tavs = () => vi.spyOn(console, 'error').mockImplementation(() => {});
+
+  it('semifinalerne udeblev: alarm fra dagen efter startdagen (dansk dato) — med tal og remedie', async () => {
+    const fejl = tavs();
+    try {
+      for (const t of [FOER, DAGEN]) {
+        const s = spioner();
+        expect(await puljeVagt({}, FieldValue, { game: HVM, kampe: KVART, nowMs: t, meld: s.meld, loes: s.loes }))
+          .toEqual({ kan: false, fejl: [] });
+        expect(s.meldt, String(t)).toEqual([]);
+        // «Ikke lagt ind endnu» lukker heller ikke en åben alarm.
+        expect(s.loest, String(t)).toEqual([]);
+      }
+      // 00.30 dansk tid er dagen EFTER — i UTC er det stadig fredag.
+      const s = spioner();
+      await puljeVagt({}, FieldValue, { game: HVM, kampe: KVART, nowMs: NATTEN_EFTER, meld: s.meld, loes: s.loes });
+      expect(s.meldt).toHaveLength(1);
+      expect(s.meldt[0]).toMatchObject({ type: 'puljeFacit', gameId: 'hvm2027', nowMs: NATTEN_EFTER });
+      expect(s.meldt[0].besked).toBe('Pulje-tippene i «Håndbold-VM 2027» kan ikke afregnes: '
+        + '«Semifinaler» skulle være begyndt fredag 29. januar, men kun 0 af 2 kampe er lagt ind. '
+        + 'Ret fasens kampe (eller pulje/faser i scripts/games.mjs), og tryk så 🎖️ Afregn puljen under Spil-tidsplan.');
+      expect(s.loest).toEqual([]);
+      expect(fejl).toHaveBeenCalledWith(expect.stringContaining('puljeVagt(hvm2027): puljen kan ikke afgøres'));
+    } finally { fejl.mockRestore(); }
+  });
+
+  it('kun den ene semifinale: alarm efter startdagen', async () => {
+    const fejl = tavs();
+    try {
+      const s = spioner();
+      await puljeVagt({}, FieldValue, { game: HVM, kampe: [...KVART, SEMI[0]], nowMs: NATTEN_EFTER, meld: s.meld, loes: s.loes });
+      expect(s.meldt[0].besked).toContain('kun 1 af 2 kampe er lagt ind');
+    } finally { fejl.mockRestore(); }
+  });
+
+  it('en dublet meldes med det samme; lagt rigtigt ind lukkes alarmen', async () => {
+    const fejl = tavs();
+    try {
+      const s = spioner();
+      await puljeVagt({}, FieldValue, {
+        game: HVM, kampe: [...KVART, SEMI[0], k('r16-2', 16, 'DK', 'HR')], nowMs: FOER, meld: s.meld, loes: s.loes,
+      });
+      expect(s.meldt[0].besked).toContain('DK står i to kampe i «Semifinaler»');
+    } finally { fejl.mockRestore(); }
+    const s = spioner();
+    expect(await puljeVagt({}, FieldValue, { game: HVM, kampe: [...KVART, ...SEMI], nowMs: NATTEN_EFTER, meld: s.meld, loes: s.loes }))
+      .toEqual({ kan: true, fejl: [] });
+    expect(s.meldt).toEqual([]);
+    expect(s.loest).toEqual([{ type: 'puljeFacit', gameId: 'hvm2027', aktuelleKampIds: [], nowMs: NATTEN_EFTER }]);
+  });
+
+  // FRAVÆRS-ASSERTION MED VILJE: Superligaen, Premier League og et spil uden
+  // pulje rører aldrig alarmen — hverken melder eller lukker.
+  it('liga-puljer og spil uden pulje: intet', async () => {
+    for (const game of [
+      { id: 'superliga2627', pulje: { poolSize: 6 } },
+      { id: 'pl', pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe' } },
+      { ...HAANDBOLD_SPIL, id: 'hvm-uden' },
+    ]) {
+      const s = spioner();
+      expect(await puljeVagt({}, FieldValue, { game, kampe: KVART, nowMs: NATTEN_EFTER, meld: s.meld, loes: s.loes }), game.id).toBeNull();
+      expect(s.meldt).toEqual([]);
+      expect(s.loest).toEqual([]);
+    }
+  });
+
+  describe('i facitVagtUdenSynk', () => {
+    const kampeMap = (liste) => Object.fromEntries(liste.map((m) => [m.id, m.data]));
+
+    it('spillet uden synk: alarmen meldes, og kortet er stadig strandede-kortet', async () => {
+      const fejl = tavs();
+      try {
+        const s = spioner();
+        await facitVagtUdenSynk(makeDb({ games: { hvm2027: HVM }, matches: { hvm2027: kampeMap(KVART) } }), FieldValue, {
+          synkedeIds: ['superliga2627'], nowMs: NATTEN_EFTER, naesteForventetFoerMs: 1, skriv: s.skriv, meld: s.meld, loes: s.loes,
+        });
+        expect(s.meldt.map((a) => a.type)).toEqual(['puljeFacit']);
+        expect(s.meldt[0].besked).toContain('kun 0 af 2 kampe er lagt ind');
+        expect(s.skrevet.map((w) => w.id)).toEqual(['facitvagt-hvm2027']);
+        expect(s.skrevet[0].doc.niveau).toBe('ok');
+      } finally { fejl.mockRestore(); }
+    });
+
+    it('et SYNKET spil med runde-pulje vogtes også — uden et kort herfra', async () => {
+      const fejl = tavs();
+      try {
+        const s = spioner();
+        await facitVagtUdenSynk(makeDb({
+          games: { hvm2027: { ...HVM, status: 'live' }, superliga2627: { type: 'football', status: 'live', pulje: { poolSize: 6 } } },
+          matches: { hvm2027: kampeMap(KVART), superliga2627: {} },
+        }), FieldValue, {
+          synkedeIds: ['hvm2027', 'superliga2627'], nowMs: NATTEN_EFTER, naesteForventetFoerMs: 1, skriv: s.skriv, meld: s.meld, loes: s.loes,
+        });
+        expect(s.meldt).toHaveLength(1);
+        expect(s.meldt[0]).toMatchObject({ type: 'puljeFacit', gameId: 'hvm2027' });
+        expect(s.skrevet).toEqual([]);
+        // Et afsluttet spil med runde-pulje vogtes IKKE (ingen alarm, ingen kan handle på).
+        const s2 = spioner();
+        await facitVagtUdenSynk(makeDb({ games: { hvm2027: { ...HVM, status: 'finished' } }, matches: { hvm2027: kampeMap(KVART) } }), FieldValue, {
+          synkedeIds: ['hvm2027'], nowMs: NATTEN_EFTER, naesteForventetFoerMs: 1, skriv: s2.skriv, meld: s2.meld, loes: s2.loes,
+        });
+        expect(s2.meldt).toEqual([]);
+      } finally { fejl.mockRestore(); }
+    });
+
+    it('kaster pulje-tjekket, står det på kortet — og strandede-tjekket er gjort alligevel', async () => {
+      const fejl = tavs();
+      try {
+        const s = spioner();
+        const meld = async (db, FV, a) => {
+          if (a.type === 'puljeFacit') throw new Error('driftAlarmer haltede');
+          s.meldt.push(a);
+        };
+        const kampe = { ...kampeMap(KVART), 'r16-1': { round: 16, home: 'DK', away: 'FR', kickoff: LAENGE_SIDEN } };
+        const ud = await facitVagtUdenSynk(makeDb({ games: { hvm2027: HVM }, matches: { hvm2027: kampe } }), FieldValue, {
+          synkedeIds: [], nowMs: NATTEN_EFTER, naesteForventetFoerMs: 1, skriv: s.skriv, meld, loes: s.loes,
+        });
+        expect(ud).toEqual([{ gameId: 'hvm2027', strandede: 1, fejl: null }]);
+        expect(s.meldt.map((a) => a.type)).toEqual(['strandet']);
+        expect(s.skrevet[0].doc.niveau).toBe('fejl');
+        expect(s.skrevet[0].doc.besked).toContain('Pulje-tjekket fejlede: driftAlarmer haltede');
+        expect(s.skrevet[0].doc.besked).toContain('1 kamp uden facit');
+      } finally { fejl.mockRestore(); }
+    });
   });
 });
 

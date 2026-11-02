@@ -54,6 +54,7 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 import GameScheduleTab, { byggSchedulePatch } from './GameScheduleTab';
+import { HAANDBOLD_SPIL } from '../../test/faseKalender';
 
 const TOUR = {
   id: 'tour2026', name: 'Tour de France 2026', emoji: '🚴',
@@ -1323,11 +1324,13 @@ describe('pulje i en turnering', () => {
     expect(screen.queryByText(/udledt af runde/i)).toBeNull();
     expect(screen.queryByText(/kør 🗓️ Synk kamptider nu/)).toBeNull();
     expect(screen.queryByRole('button', { name: /Synk kamptider nu/i })).toBeNull();
+    // Turneringens ord («dagens»), og intet feltnavn, admin ikke kan se nogen steder.
     expect(screen.getByTestId('pulje-runde-uden-synk').textContent).toBe(
-      'Spillet har puljeLockRound (Kvartfinaler · dag 1), men ingen kickoff-synk, så intet udleder deadlinen. '
-      + 'Sæt den her — til rundens første kickoff. Får spillet senere en kickoff-synk, flytter den deadlinen til '
-      + 'rundens tidligste kickoff, så længe den ikke er passeret.',
+      'Pulje-deadlinen hører til Kvartfinaler · dag 1, men spillet har ingen kickoff-synk, så intet udleder den. '
+      + 'Sæt den her — til dagens første kickoff. Får spillet senere en kickoff-synk, flytter den deadlinen til '
+      + 'dagens tidligste kickoff, så længe den ikke er passeret.',
     );
+    expect(screen.getByTestId('pulje-runde-uden-synk').textContent).not.toMatch(/puljeLockRound|rundens/);
   });
 
   it('… og et Gem skriver den håndsatte deadline', async () => {
@@ -1459,6 +1462,27 @@ describe('pulje i en turnering', () => {
     await waitFor(() => expect(screen.getByTestId('pulje-afregn-besked').textContent).toBe('Kun admin.'));
   });
 
+  // QC-fund: «0 pulje-tip er afregnet, og stillingen er genberegnet» stod,
+  // når facit eller tip havde ændret sig mellem tør-kørslen og skrivningen —
+  // serveren afregnede intet, og beskeden lod som om.
+  it('et skriv, der intet afregnede, siger det — og beder om en ny tør-kørsel', async () => {
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    mockAfregn.mockResolvedValueOnce({
+      ok: true, data: { settled: 0, dryRun: true, kanAfregnes: true, aarsag: null, fejl: [], facit: ['DK', 'FR', 'SE', 'HR'], tip: 2, point: 30 },
+    });
+    render(<GameScheduleTab />);
+    fireEvent.click(afregnKnap());
+    await screen.findByRole('button', { name: 'Afregn de 2 pulje-tip' });
+    mockAfregn.mockResolvedValueOnce({ ok: true, data: { settled: 0, dryRun: false } });
+    fireEvent.click(screen.getByRole('button', { name: 'Afregn de 2 pulje-tip' }));
+    await waitFor(() => expect(screen.getByTestId('pulje-afregn-besked').textContent)
+      .toBe('Intet blev afregnet: puljen har ændret sig siden tør-kørslen. Kør 🎖️ Afregn puljen igen for at se, hvordan den står nu.'));
+    const besked = screen.getByTestId('pulje-afregn-besked');
+    expect(besked.className).toContain('badge--red');
+    expect(besked.textContent).not.toMatch(/er afregnet|genberegnet/);
+    expect(screen.queryByRole('button', { name: /Afregn de/ })).toBeNull();
+  });
+
   it('MED kickoff-synk er deadlinen stadig udledt og låst (Premier League-formen)', () => {
     mockGames.mockReturnValue({ games: [{ ...HVM, sync: { provider: 'pulselive' } }], loading: false });
     render(<GameScheduleTab />);
@@ -1467,5 +1491,87 @@ describe('pulje i en turnering', () => {
     expect(screen.queryByText(/udledt af runde/i)).toBeNull();
     expect(screen.queryByText('🎖️ Bonus-/pulje-deadline')).toBeNull();
     expect(screen.queryByTestId('pulje-runde-uden-synk')).toBeNull();
+    // Turneringens ord i forklaringen — ikke ligaens «rundens».
+    expect(screen.getByText(/Sættes IKKE i hånden/).textContent).toBe(
+      'Sættes IKKE i hånden: udledes automatisk til dagens tidligste kickoff ved kickoff-synken og følger med, hvis kampen flyttes.',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LIGAENS ORD I EN TURNERING (QC-klient bør 2 og 4). Teksterne her stod med
+// «sæsonen», «rundens» og «en runde» for alle spil. En turnering (spil med
+// fasekalender — rundeOrdene) har en turnering og dage. Superligaen skal stå
+// PRÆCIS som før; turneringen må ikke sige «sæson» noget sted på kortet.
+// ---------------------------------------------------------------------------
+describe('turneringens ord — Superligaen uændret, håndbold uden «sæson»', () => {
+  const SL = { id: 'superliga2627', name: 'Superligaen 2026/27', emoji: '⚽', type: 'football', status: 'open' };
+  const HB = { ...HAANDBOLD_SPIL, status: 'open' };
+  const hjaelp = () => screen.getByText(/^Åbent for tilmelding/).textContent;
+
+  it('status-hjælpen: «i sæsonen» i ligaen, «i turneringen» i turneringen', () => {
+    mockGames.mockReturnValue({ games: [SL], loading: false });
+    const { unmount } = render(<GameScheduleTab />);
+    expect(hjaelp()).toBe('Åbent for tilmelding. Vises under "Åbne spil — deltag", hvis spillet er sat til Synligt nedenfor. '
+      + 'Spillerne kan forlade spillet igen — også med point: de forsvinder fra stillingen og deres ligaer, tips på kommende '
+      + 'kampe slettes, men point og historik arkiveres, og kommer de tilbage i sæsonen, får de stillingen igen.');
+    unmount();
+    mockGames.mockReturnValue({ games: [HB], loading: false });
+    render(<GameScheduleTab />);
+    expect(hjaelp()).toContain('og kommer de tilbage i turneringen, får de stillingen igen.');
+    expect(hjaelp()).not.toMatch(/sæson/i);
+  });
+
+  it('⬇️ Synk resultater nu: confirm og kvittering med turneringens ord — ligaen uændret', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({
+      ok: true, data: { checked: 4, updated: 1, rettede: ['r16-1'], standings: { rows: 0, changed: false } },
+    });
+    try {
+      mockGames.mockReturnValue({ games: [{ ...SL, sync: { provider: 'superliga' } }], loading: false });
+      const { unmount } = render(<GameScheduleTab />);
+      fireEvent.click(screen.getByRole('button', { name: /Synk resultater nu/i }));
+      await waitFor(() => expect(screen.getByText(/1 kamp fik nyt facit/)).toBeInTheDocument());
+      const liga = bekraeft.mock.calls[0][0];
+      expect(liga).toContain('Hele sæsonen tjekkes — det er præcis, hvad den automatiske synk selv gør hver time');
+      expect(liga).toContain('Fuldender et facit en runde, poster Runde-Botten sit opslag på liga-væggene NU (højst én gang pr. runde)');
+      expect(screen.getByText(/1 kamp fik nyt facit/).textContent).toContain('Fuldendte et facit en runde, poster Runde-Botten');
+      unmount();
+
+      mockGames.mockReturnValue({ games: [{ ...HB, sync: { provider: 'superliga' } }], loading: false });
+      render(<GameScheduleTab />);
+      fireEvent.click(screen.getByRole('button', { name: /Synk resultater nu/i }));
+      await waitFor(() => expect(screen.getByText(/1 kamp fik nyt facit/)).toBeInTheDocument());
+      const turnering = bekraeft.mock.calls[1][0];
+      expect(turnering).toContain('Hele turneringen tjekkes');
+      expect(turnering).toContain('Fuldender et facit en dag, poster Runde-Botten sit opslag på liga-væggene NU (højst én gang pr. dag)');
+      expect(turnering).not.toMatch(/sæson|en runde|pr\. runde/i);
+      const kvittering = screen.getByText(/1 kamp fik nyt facit/).textContent;
+      expect(kvittering).toContain('Fuldendte et facit en dag');
+      expect(kvittering).not.toMatch(/en runde/);
+    } finally { bekraeft.mockRestore(); }
+  });
+
+  it('pulje-deadlinen uden kickoff-synk: ligaens «rundens» — og aldrig feltnavnet', () => {
+    mockGames.mockReturnValue({ games: [{ ...SL, pulje: { poolSize: 6 }, puljeLockRound: 1 }], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.getByTestId('pulje-runde-uden-synk').textContent).toBe(
+      'Pulje-deadlinen hører til Runde 1, men spillet har ingen kickoff-synk, så intet udleder den. '
+      + 'Sæt den her — til rundens første kickoff. Får spillet senere en kickoff-synk, flytter den deadlinen til '
+      + 'rundens tidligste kickoff, så længe den ikke er passeret.',
+    );
+  });
+
+  // FRAVÆRS-ASSERTION over HELE kortet: en turnering med runde-pulje og
+  // pulje-deadline uden synk — de flader, der før sagde «sæson».
+  it('intet sted på turneringens kort står «sæson»', () => {
+    mockGames.mockReturnValue({
+      games: [{ ...HB, pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', maksStartRunde: 1 }, puljeLockRound: 1 }],
+      loading: false,
+    });
+    render(<GameScheduleTab />);
+    expect(screen.getByTestId('pulje-runde-uden-synk').textContent).toContain('til dagens første kickoff');
+    expect(hjaelp()).toContain('i turneringen');
+    expect(document.body.textContent).not.toMatch(/sæson/i);
   });
 });

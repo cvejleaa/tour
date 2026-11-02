@@ -1524,6 +1524,115 @@ describe('settlePuljeBets', () => {
     expect(db._alarmer.g1_puljeFacit.besked).toContain('fasen «Ottendedele» findes ikke i kalenderen');
   });
 
+  // ALARMEN LUKKER KUN, NÅR PULJEN KAN AFGØRES. Sletter admin dublet-
+  // semifinalen, er fasen bare «ikke lagt ind endnu» — ingen fejl, men heller
+  // intet facit. Lukkede alarmen dér, stod Drift-fanen grøn over en pulje,
+  // der stadig ikke kan afregnes (TM-fund: `rundePulje && plan.kan` →
+  // `rundePulje` overlevede).
+  it('alarmen lukkes IKKE, mens puljen stadig ikke kan afgøres (dublet → slettet → før startdagen)', async () => {
+    const FOER_SEMI = Date.parse('2027-01-28T12:00:00Z');
+    const dublet = [...KVART, SEMI[0], { ...SEMI[1], home: 'DK' }];
+    const db = makeDb([], dublet, SF_SPIL, { P1: {} }, { P1: TO_TIP.P1 });
+    const fejl = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await settlePuljeBets(db, FieldValue, 'g1', dublet, { nowMs: FOER_SEMI });
+      expect(db._alarmer.g1_puljeFacit.loestAt).toBeNull();
+      // Dubletten slettet: KVART alene, før semifinalernes startdag.
+      expect(await settlePuljeBets(db, FieldValue, 'g1', KVART, { nowMs: FOER_SEMI })).toEqual({ settled: 0 });
+    } finally { fejl.mockRestore(); }
+    expect(db._alarmer.g1_puljeFacit.loestAt).toBeNull();
+    expect(db._pulje.P1.points).toBeUndefined();
+  });
+
+  // «uanset om der er tip» (kommentaren i settlePuljeBets) — bevist. Uden den
+  // ville en alarm i et spil, hvor ingen nåede at tippe, stå for evigt.
+  it('alarmen lukkes, når puljen kan afgøres — også uden ét eneste pulje-tip', async () => {
+    const dublet = [...KVART, SEMI[0], { ...SEMI[1], home: 'DK' }];
+    const db = makeDb([], dublet, SF_SPIL, {}, {});
+    const fejl = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await settlePuljeBets(db, FieldValue, 'g1', dublet, { nowMs: SEMI_START });
+    } finally { fejl.mockRestore(); }
+    expect(db._alarmer.g1_puljeFacit.loestAt).toBeNull();
+    expect(await settlePuljeBets(db, FieldValue, 'g1', [...KVART, ...SEMI], { nowMs: EFTER_SEMI })).toEqual({ settled: 0 });
+    expect(db._alarmer.g1_puljeFacit.loestAt).toBe(EFTER_SEMI);
+  });
+
+  // QC-fund (klient bør 1): badgen under Spil-tidsplan siger «bliver aldrig
+  // afregnet, før det er rettet» ved ENHVER puljeKonfigFejl — også forkert
+  // poolSize og et bundspørgsmål, hvor fasens kampe ser rigtige ud. Serveren
+  // afregnede før alligevel. Nu afgør en konfigurationsfejl intet, og alarmen
+  // siger hvorfor.
+  it('en konfigurationsfejl afregner intet — selv med fasen rigtigt lagt ind — og melder alarmen', async () => {
+    const alle = [...KVART, ...SEMI];
+    for (const [pulje, tekst] of [
+      [{ ...SF_SPIL.pulje, poolSize: 6 }, 'puljen beder om 6 hold, men «Semifinaler» har 4 (2 kampe)'],
+      [{ ...SF_SPIL.pulje, nedSize: 2 }, 'en runde-pulje har intet bundspørgsmål (nedSize skal være 0)'],
+    ]) {
+      const spil = { ...SF_SPIL, pulje };
+      const toer = makeDb([], alle, spil, { P1: {} }, { P1: TO_TIP.P1 });
+      const db = makeDb([], alle, spil, { P1: {} }, { P1: TO_TIP.P1 });
+      const fejl = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        expect(await settlePuljeBets(toer, FieldValue, 'g1', alle, { dryRun: true, nowMs: SEMI_START })).toEqual({
+          settled: 0, dryRun: true, kanAfregnes: false, aarsag: tekst, fejl: [tekst], facit: null, tip: 0, point: 0,
+        });
+        expect(await settlePuljeBets(db, FieldValue, 'g1', alle, { nowMs: SEMI_START })).toEqual({ settled: 0 });
+      } finally { fejl.mockRestore(); }
+      expect(db._pulje.P1.points, tekst).toBeUndefined();
+      expect(db._players.P1?.bonusPoints, tekst).toBeUndefined();
+      expect(db._alarmer.g1_puljeFacit.besked, tekst).toContain(tekst);
+    }
+  });
+
+  // AFREGNINGEN AFHÆNGER IKKE AF ALARMEN (QC-bemærkning). Kaster Firestore i
+  // driftAlarmer, skal pulje-tippene stadig afregnes — og en alarm, der ikke
+  // kan meldes, må ikke vælte triggeren.
+  it('kaster alarmen, afregnes puljen alligevel — og fejlen står i konsollen', async () => {
+    const kaster = (db) => {
+      const orig = db.collection;
+      db.collection = (navn) => {
+        if (navn === 'driftAlarmer') throw new Error('Firestore haltede');
+        return orig(navn);
+      };
+      return db;
+    };
+    const fejl = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      // Kan afgøres → lukke-kaldet kaster.
+      const db = kaster(makeDb([], [...KVART, ...SEMI], SF_SPIL, { P1: {} }, { P1: TO_TIP.P1 }));
+      expect(await settlePuljeBets(db, FieldValue, 'g1', [...KVART, ...SEMI], { nowMs: SEMI_START })).toEqual({ settled: 1 });
+      expect(db._pulje.P1).toMatchObject({ correct: 4, points: 26 });
+      expect(db._players.P1.bonusPoints).toBe(26);
+      expect(fejl).toHaveBeenCalledWith(expect.stringContaining('puljeFacit-alarmen kunne ikke skrives'), 'Firestore haltede');
+      // En fejl → melde-kaldet kaster: intet at afregne, men ingen undtagelse.
+      const dublet = [...KVART, SEMI[0], { ...SEMI[1], home: 'DK' }];
+      const db2 = kaster(makeDb([], dublet, SF_SPIL, { P1: {} }, { P1: TO_TIP.P1 }));
+      await expect(settlePuljeBets(db2, FieldValue, 'g1', dublet, { nowMs: SEMI_START })).resolves.toEqual({ settled: 0 });
+    } finally { fejl.mockRestore(); }
+  });
+
+  // UDEN PULJE-TIP (TM-fund): svaret er {settled:0} — IKKE ingenPulje, der
+  // betyder «spillet har ingen pulje» — og tør-kørslen siger, at ingen har
+  // tippet. Gælder både en liga-pulje, en runde-pulje og et spil uden pulje.
+  it('ingen pulje-tip: settled 0 uden ingenPulje, og årsagen siges i tør-kørslen', async () => {
+    const SL = { pulje: { poolSize: 2 }, teams: [{ name: 'A' }, { name: 'B' }, { name: 'C' }, { name: 'D' }] };
+    const spillede = [kv('m1', 1, 'A', 'B', 2, 0), kv('m2', 1, 'C', 'D', 1, 0)];
+    for (const [navn, spil, kampe] of [
+      ['liga-pulje', SL, spillede],
+      ['spil uden pulje', { teams: SL.teams }, spillede],
+      ['runde-pulje', SF_SPIL, [...KVART, ...SEMI]],
+    ]) {
+      const toer = makeDb([], kampe, spil, {}, {});
+      expect(await settlePuljeBets(toer, FieldValue, 'g1', kampe, { dryRun: true, nowMs: SEMI_START }), navn).toEqual({
+        settled: 0, dryRun: true, kanAfregnes: true, aarsag: 'ingen har afgivet et pulje-tip', fejl: [],
+        facit: null, tip: 0, point: 0,
+      });
+      const db = makeDb([], kampe, spil, {}, {});
+      expect(await settlePuljeBets(db, FieldValue, 'g1', kampe, { nowMs: SEMI_START }), navn).toEqual({ settled: 0 });
+    }
+  });
+
   // LIGA-PULJERNE ER UÆNDREDE: samme svar som før (toEqual, ikke toMatchObject),
   // og driftAlarmer læses eller skrives ALDRIG — heller ikke ved afregning.
   it('liga-puljen: samme svar som før og ingen alarm-læsninger', async () => {
@@ -2147,6 +2256,28 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
       // Navnet skal være gameScorings — ikke en lokal kopi i index.js.
       expect(kilde).toMatch(/dryRunFraKald, omprisFraKnap,[\s\S]*?\} = require\('\.\/gameScoring'\);/);
       expect(kilde).not.toMatch(/function omprisFraKnap|const omprisFraKnap\s*=/);
+    });
+
+    // afregnPuljeNu: samme ledning som de andre knapper. Fem mutationer
+    // overlevede, før den stod her (TM-fund): requireAdmin fjernet, en inline
+    // `!== false` vendt til `=== true` (tør-kørsels-knappen SKREV), dryRun
+    // ikke sendt videre, dryRun ikke i svaret (fladen sagde «tørkørte og skrev
+    // INTET» om en skrivning) og timeoutSeconds fjernet.
+    it('afregnPuljeNu: requireAdmin før kernen, dryRunFraKald, dryRun videresendt og i svaret, timeoutSeconds', () => {
+      const afregn = kilde.split('exports.afregnPuljeNu')[1].split('exports.')[0];
+      // 120 s — samme som klientens kald (adminActions.callAfregnPuljeNu).
+      expect(afregn).toMatch(/^ = onCall\(\{ region: REGION, timeoutSeconds: 120 \}, async \(request\) => \{/);
+      const admin = afregn.indexOf('await requireAdmin(db, request);');
+      const kerne = afregn.indexOf('await settlePuljeBets(');
+      expect(admin).toBeGreaterThan(-1);
+      expect(kerne).toBeGreaterThan(admin);
+      expect(afregn).toMatch(/const dryRun = dryRunFraKald\(request\.data\);/);
+      // Ingen egen kopi af reglen ved siden af husets.
+      expect(afregn).not.toMatch(/!==\s*false|===\s*true|dryRun\s*\|\|/);
+      expect(afregn).toMatch(/const res = await settlePuljeBets\(db, FieldValue, gameId, matches, \{ dryRun \}\);/);
+      expect(afregn.match(/settlePuljeBets\(/g)).toHaveLength(1);
+      expect(afregn).toMatch(/return \{ \.\.\.res, dryRun \};/);
+      expect(afregn.match(/return /g)).toHaveLength(1);
     });
 
     it('triggeren kalder UDEN flaget — en tastefejl må ikke stoppe afregningen', () => {

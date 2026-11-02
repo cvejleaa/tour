@@ -24,6 +24,14 @@
 // afviser den). Alarmens tekst siger derfor "ret kickoff", ikke "sæt facit"
 // (driftlog.strandetBesked). Planens regel er: opret aldrig en kamp uden
 // kickoff — og bliver den brudt, er en rød alarm det rigtige svar.
+//
+// RUNDE-PULJEN (puljeVagt). Alarmen `puljeFacit` regnes også i afregningen
+// (settlePuljeBets), men den kører kun ved et resultat eller ved knappen. Det
+// scenarie, alarmen er bygget til — semifinalerne bliver aldrig lagt ind, eller
+// kun den ene — giver INGEN kamp og dermed intet resultat: afregningen ville
+// aldrig se det (QC-fund). Derfor tjekkes hvert åbent eller igangværende spil
+// med runde-pulje her, i hver times-sweep, med SAMME tilstand og SAMME
+// melding som afregningen (gameScoring.rundePuljeTilstand/meldPuljeAlarm).
 // ---------------------------------------------------------------------------
 
 const { strandedMatches, allMatches } = require('./superligaSync');
@@ -31,6 +39,8 @@ const {
   meldAlarm, loesDriftAlarmer, strandetBesked, statusSamler,
 } = require('./driftlog');
 const { forventerFacit, erKampspil, uenigTekst } = require('./facit');
+const { rundePuljeTilstand, meldPuljeAlarm } = require('./gameScoring');
+const { puljeKonfig } = require('./superligaScoring');
 
 /** «1 kamp» / «2 kampe» — Drift-kortenes tekster bøjes, så de ikke siger «1 kampe». */
 function kampOrd(n) {
@@ -60,6 +70,36 @@ async function meldStrandede(db, FieldValue, {
   // døde røde kort sig op, og ejeren lærer at ignorere fladen.
   await loes(db, FieldValue, { type: 'strandet', gameId, aktuelleKampIds: strandede.map((m) => m.id) });
   return strandede;
+}
+
+/** Har spillet en runde-pulje («hvem når semifinalerne?»)? */
+function harRundePulje(game) {
+  return puljeKonfig(game)?.facitKilde === 'runde';
+}
+
+/**
+ * UDEBLIVELSES-VAGTEN for en runde-pulje: kan puljen ikke afgøres, og er det
+ * en FEJL (fasen skulle være begyndt, en dublet, en konfigurationsfejl), så
+ * meld `puljeFacit`; kan den afgøres, så luk den. «Ikke lagt ind endnu» før
+ * fasens startdag gør intet. null for et spil uden runde-pulje.
+ *
+ * @param {{game:object, kampe:Array<{id:string,data:object}>, nowMs?:number,
+ *          meld?:Function, loes?:Function}} args  game med id
+ * @returns {Promise<{kan:boolean, fejl:string[]}|null>}
+ */
+async function puljeVagt(db, FieldValue, {
+  game, kampe, nowMs = Date.now(), meld, loes,
+}) {
+  const matches = (kampe || []).map((k) => ({ ...k.data, id: k.id }));
+  const tilstand = rundePuljeTilstand(game, matches, nowMs);
+  if (!tilstand) return null;
+  if (tilstand.fejl.length) {
+    console.error(`puljeVagt(${game.id}): puljen kan ikke afgøres — ${tilstand.fejl.join('; ')}`);
+  }
+  await meldPuljeAlarm(db, FieldValue, {
+    gameId: game.id, spil: game, tilstand, nowMs, ...(meld ? { meld } : {}), ...(loes ? { loes } : {}),
+  });
+  return tilstand;
 }
 
 /**
@@ -129,6 +169,13 @@ function spilUdenSynk(games, synkedeIds) {
  *          skriv:Function, meld?:Function, loes?:Function}} args
  *   skriv(st, opts) skriver kortet — index.js' skrivDriftStatus, der aldrig
  *   må vælte kørslen.
+ * RUNDE-PULJEN tjekkes for HVERT åbent eller igangværende kampspil med en
+ * (puljeVagt) — også de synkede: sweep-løkken i index.js kender ikke
+ * spil-dokumentet, og et håndboldspil, der får synk, må ikke miste vagten.
+ * For et spil her genbruges kamplisten; et synket spil koster ét opslag.
+ * Fejler pulje-tjekket, står det på spillets kort (eller i konsollen for et
+ * synket spil) — strandede-tjekket kører uafhængigt af det.
+ *
  * @returns {Promise<Array<{gameId:string, strandede:number, fejl:string|null}>>}
  */
 async function facitVagtUdenSynk(db, FieldValue, {
@@ -165,6 +212,12 @@ async function facitVagtUdenSynk(db, FieldValue, {
         gameId: g.id, kampe, harSynk: false, nowMs, meld, loes,
       });
       strandede = liste.length;
+      try {
+        await puljeVagt(db, FieldValue, { game: g, kampe, nowMs, meld, loes });
+      } catch (err) {
+        console.error(`puljeVagt(${g.id}) fejlede (ignoreret):`, err?.message || err);
+        st.fejl(`Pulje-tjekket fejlede: ${err?.message || err}`);
+      }
       if (strandede > 0) {
         console.error(`${g.id}: kampe UDEN facit længe efter kickoff — point er ikke afregnet:`,
           liste.map((m) => m.id).join(', '));
@@ -181,10 +234,19 @@ async function facitVagtUdenSynk(db, FieldValue, {
     await skriv(st, { naesteForventetFoerMs });
     ud.push({ gameId: g.id, strandede, fejl });
   }
+
+  // De synkede spil med runde-pulje (i dag ingen): samme vagt, eget opslag.
+  for (const g of lukkes.filter((x) => synkede.has(x.id) && forventerFacit(x) && harRundePulje(x))) {
+    try {
+      await puljeVagt(db, FieldValue, { game: g, kampe: await allMatches(db, { gameId: g.id }), nowMs, meld, loes });
+    } catch (err) {
+      console.error(`puljeVagt(${g.id}) fejlede (ignoreret):`, err?.message || err);
+    }
+  }
   return ud;
 }
 
 module.exports = {
   kampOrd,
-  meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige,
+  meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige, puljeVagt,
 };

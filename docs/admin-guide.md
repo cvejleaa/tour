@@ -82,11 +82,20 @@ Liga-admin følger med at have oprettet ligaen.
   facit, antal tip og point, og først derefter kommer knappen, der afregner.
   Brug den, hvis fasen er rettet efter sidste kamp — så starter intet resultat
   afregningen. Kan puljen aldrig afgøres (fasen findes ikke i kalenderen,
-  forkert antal hold …), står det med rødt øverst på spillet her. Er fasens
-  kampe lagt forkert ind (for mange kampe, et hold i to kampe, eller — efter
-  fasens startdag — for få kampe eller et manglende hold), kommer drift-alarmen
-  **«Puljen kan ikke afgøres»** under 🩺 Driftstatus og i alarm-mailen; den
-  lukker selv, når puljen kan afgøres.
+  forkert antal hold, et bundspørgsmål …), står det med rødt øverst på spillet
+  her — og så afregnes intet, heller ikke når fasens kampe er rigtige. Drift-
+  alarmen **«Puljen kan ikke afgøres»** (under 🩺 Driftstatus og i
+  alarm-mailen) tjekkes i hver Times-sweep (kl. 02:25 og hver time 13:25–23:25
+  dansk tid, så længe spillet er Åbent eller I gang) og ved hvert nyt facit:
+  - en konfigurationsfejl, for mange kampe i fasen eller et hold i to kampe
+    melder den med det samme;
+  - for få kampe eller et manglende hold melder den først fra dagen **efter**
+    fasens startdag (dansk dato) — i praksis ved sweep'et kl. 02:25 natten
+    efter. Det gælder også, når semifinalerne slet ikke er lagt ind.
+
+  Alarmen lukker selv, når puljen kan afgøres — også selv om ingen har tippet.
+  Den lukker **ikke**, blot fordi den forkerte kamp er slettet: står fasen
+  derefter halvt lagt ind, er puljen stadig ikke afgjort.
 - **🏁 Status** er spillets livscyklus og et bevidst valg — den følger *ikke*
   automatisk starttidspunktet eller sidste kamp:
 

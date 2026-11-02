@@ -11,12 +11,12 @@
 // håndrettelse i konsollen. Testene her beskytter altså den ENESTE chance for
 // at få felterne rigtige: den første kørsel.
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { GAMES } from './games.mjs';
 import { SPORT_PROFILER, ukendtSport } from '../src/lib/superligaScoring.js';
 import { faseKalenderFejl } from '../src/lib/faser.js';
-import { puljeKonfigFejl } from '../src/lib/puljeFacit.js';
+import { puljeSeedFejl } from '../src/lib/puljeFacit.js';
 import { HAANDBOLD_SPIL } from '../src/test/faseKalender.js';
 import { ADMIN_OWNED } from './seed-payload.mjs';
 import { SEED_FILER } from './seed-filer.mjs';
@@ -273,20 +273,9 @@ describe('seed-filer pr. spil', () => {
 // antalKampe, eller passer poolSize ikke til fasens hold, kan puljen ALDRIG
 // afgøres — og det ville først vise sig ved semifinalerne. Skrevet med merge,
 // så den første kørsel er den eneste gode chance (se toppen af filen).
-/**
- * Hvad der forhindrer en post i at blive seedet med sin pulje. Ud over
- * puljeKonfigFejl: en runde-pulje skal have en EKSPLICIT puljegrænse
- * (ejeren 2/11: «ingen ny tavs default» — standarden 3 er SL/PL's).
- */
-function puljeSeedFejl(g) {
-  const fejl = puljeKonfigFejl(g);
-  const v = g?.pulje?.maksStartRunde;
-  if (g?.pulje?.facitKilde === 'runde' && !(Number.isInteger(v) && v >= 1)) {
-    fejl.push('maksStartRunde skal sættes eksplicit på en runde-pulje (ejerens valg — håndbold-VM: 1)');
-  }
-  return fejl;
-}
-
+// Vagten (puljeSeedFejl) bor i src/lib/puljeFacit.js — ikke her — så den
+// også gælder kørslen, der skriver: scripts/seed-games.mjs afviser HELE
+// seedet, før noget skrives, hvis én post har en fejl (beviset nedenfor).
 describe('runde-puljer på spillene', () => {
   it('hver pulje i listen kan afgøres', () => {
     for (const g of GAMES.filter((x) => x.pulje)) {
@@ -312,6 +301,27 @@ describe('runde-puljer på spillene', () => {
     expect(puljeSeedFejl({ ...TILSIGTET, pulje: { ...TILSIGTET.pulje, poolSize: 8 } })).toHaveLength(1);
     // SL/PL-formen kræver ingen grænse — standarden er deres.
     expect(puljeSeedFejl({ pulje: { poolSize: 6 } })).toEqual([]);
+  });
+
+  // seed-games.mjs kan ikke importeres (firebase-admin initialiseres på
+  // øverste niveau), så LEDNINGEN bevogtes som tekst: vagten kaldes på hver
+  // post, og kørslen afvises FØR den første skrivning (batch, set, commit).
+  it('seed-games.mjs afviser hele seedet ved en pulje-fejl — før den første skrivning', () => {
+    const kilde = readFileSync(resolve(process.cwd(), 'scripts/seed-games.mjs'), 'utf8')
+      .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    expect(kilde).toMatch(/const \{ puljeSeedFejl \} = createRequire\(import\.meta\.url\)\('\.\.\/functions-platform\/puljeFacit\.js'\);/);
+    const krop = kilde.split('async function seedGames()')[1];
+    expect(krop).toBeTruthy();
+    const vagt = krop.indexOf('puljeSeedFejl(');
+    const kast = krop.indexOf('throw new Error(');
+    expect(vagt).toBeGreaterThan(-1);
+    expect(kast).toBeGreaterThan(vagt);
+    for (const skriv of ['db.batch(', 'batch.set(', 'batch.commit(']) {
+      expect(krop.indexOf(skriv), skriv).toBeGreaterThan(kast);
+    }
+    // Vagten går over HELE listen og kaster ved MINDST én fejl.
+    expect(krop).toMatch(/const puljeFejl = GAMES\.flatMap\(\(g\) => puljeSeedFejl\(g\)/);
+    expect(krop).toMatch(/if \(puljeFejl\.length\) \{\s*throw new Error\(/);
   });
 
   // FRAVÆRS-ASSERTION MED VILJE: Superligaen og Premier League skal have

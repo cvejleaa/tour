@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
 const { puljeRykMail } = require('./puljeRykMail');
@@ -64,5 +67,36 @@ describe('puljeRykMail', () => {
     expect(html).not.toContain('<i>spil');
     expect(html).not.toContain('<b>d');
     expect(html).toContain('&lt;img src=x&gt;');
+  });
+});
+
+// LEDNINGEN i index.js (gamePuljeStatus). index.js kan ikke importeres uden
+// firebase-functions, så kaldet bevogtes som tekst (mønstret fra
+// gameScoring.test.js). Uden den kunne `game`, `konfig` eller `deadlineTxt`
+// fjernes fra kaldet med hele suiten grøn (TM-fund X1-X3) — og uden `game`
+// fik en turnering igen «sæsonens bonusspørgsmål», præcis den fejl,
+// udtrækket blev lavet for at lukke.
+describe('index.js: gamePuljeStatus sender spillet, konfigurationen og deadlinen med', () => {
+  const kilde = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'index.js'), 'utf8')
+    .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  const kald = kilde.split('exports.gamePuljeStatus')[1].split('exports.')[0];
+
+  it('ét kald med alle felter — game og konfig fra spillet selv', () => {
+    expect(kald.match(/puljeRykMail\(/g)).toHaveLength(1);
+    expect(kald).toMatch(/const \{ subject, html \} = puljeRykMail\(\{\s*navn: m\.name, gameName, deadlineTxt, game, konfig, appUrl: APP_URL, escapeHtml,\s*\}\);/);
+    // konfig er spillets egen — ikke en tom eller en anden pulje.
+    expect(kald).toMatch(/const konfig = puljeKonfig\(game\);/);
+    // deadlineTxt er den formaterede lås — eller null uden lås.
+    expect(kald).toMatch(/const deadlineTxt = lockMs != null\s*\?\s*new Date\(lockMs\)\.toLocaleString\('da-DK', \{ timeZone: TZ,[^}]*\}\)\s*:\s*null;/);
+  });
+
+  it('det er mailens EGET emne og indhold, der sendes', () => {
+    expect(kald).toMatch(/await sendEmail\(db, transporter, \{\s*to: email,\s*subject,\s*html,\s*type: 'pulje-reminder',\s*\}\);/);
+    expect(kald).not.toMatch(/subject:\s*`|html:\s*`/);
+  });
+
+  it('funktionen er index.js\' — ikke en lokal kopi', () => {
+    expect(kilde).toMatch(/const \{ puljeRykMail \} = require\('\.\/puljeRykMail'\);/);
+    expect(kilde).not.toMatch(/function puljeRykMail/);
   });
 });

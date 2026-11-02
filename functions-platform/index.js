@@ -326,7 +326,7 @@ exports.afregnPuljeNu = onCall({ region: REGION, timeoutSeconds: 120 }, async (r
   await requireAdmin(db, request);
   const gameId = String(request.data?.gameId || '').trim();
   if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
-  const dryRun = request.data?.dryRun !== false;
+  const dryRun = dryRunFraKald(request.data);
   const snap = await db.collection('games').doc(gameId).collection('matches').get();
   const matches = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
   const res = await settlePuljeBets(db, FieldValue, gameId, matches, { dryRun });
@@ -641,8 +641,9 @@ exports.syncSuperligaSweep = onSchedule(
   },
   async () => {
     const db = getFirestore();
-    // FØRST: strandede-vagten for kampspil UDEN resultat-synk (facitVagt.js).
-    // Den står før løkken over de synkede spil med vilje: dér ligger xG og
+    // FØRST: strandede-vagten for kampspil UDEN resultat-synk (facitVagt.js)
+    // — og runde-puljens udeblivelses-alarm (puljeFacit) for ALLE åbne og
+    // igangværende spil med runde-pulje, synkede eller ej. Den står før løkken over de synkede spil med vilje: dér ligger xG og
     // kampdetaljer, der kan bruge budgettet op, og en platform-timeout kan
     // ikke fanges af try/catch. Vagten er billig (ét opslag af spillene og
     // ét af hvert spils kampe), så den skal ikke kunne dø af naboens kilde.
