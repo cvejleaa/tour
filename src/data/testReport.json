@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-10-26T10:41:09.064Z",
+  "generatedAt": "2026-11-02T13:00:44.453Z",
   "totals": {
-    "files": 287,
-    "tests": 4896,
-    "passed": 4896,
+    "files": 297,
+    "tests": 5510,
+    "passed": 5510,
     "failed": 0
   },
   "suites": [
@@ -222,7 +222,7 @@
     {
       "file": "scripts/games.test.mjs",
       "area": "frontend",
-      "passed": 15,
+      "passed": 19,
       "failed": 0,
       "tests": [
         {
@@ -283,6 +283,22 @@
         },
         {
           "name": "pulje — sæson-spørgsmålene pr. spil (#8) › PL-formen: 4+3, egne kampe som facit, flad tabel — og deadline i samme skrivning",
+          "status": "passed"
+        },
+        {
+          "name": "sport på spillene › intet spil i listen har et sat-men-ukendt sport",
+          "status": "passed"
+        },
+        {
+          "name": "faser på spillene › hver kalender i listen består formkontrollen",
+          "status": "passed"
+        },
+        {
+          "name": "faser på spillene › Superligaen og Premier League har INGEN kalender",
+          "status": "passed"
+        },
+        {
+          "name": "faser på spillene › faser er ikke admin-ejet",
           "status": "passed"
         }
       ]
@@ -1063,6 +1079,50 @@
         },
         {
           "name": "QC-fund: filer der SKULLE udløse Spilfører og ikke gjorde › er case-insensitiv i BEGGE retninger for samme begreb",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "scripts/lib/seedKampe.test.mjs",
+      "area": "frontend",
+      "passed": 9,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "seed-football.mjs bruger seedKampe › kampene bygges af seedKampe på den fulde plan og spillets egen reference",
+          "status": "passed"
+        },
+        {
+          "name": "seed-football.mjs bruger seedKampe › scriptet kalder ikke buildMatches direkte og importerer det ikke",
+          "status": "passed"
+        },
+        {
+          "name": "seed-football.mjs bruger seedKampe › sport-linjen bygges af det RÅ felt (sportLinje), ikke af den opløste profil alene",
+          "status": "passed"
+        },
+        {
+          "name": "seed-football.mjs bruger seedKampe › en fejl fra seedKampe ender i exit ≠ 0 — run() fanges og afsluttes med 1",
+          "status": "passed"
+        },
+        {
+          "name": "seedKampe › et spil uden sport — og et spil, der ikke findes endnu — seedes som fodbold",
+          "status": "passed"
+        },
+        {
+          "name": "seedKampe › returnerer det RÅ game.sport ved siden af profilen",
+          "status": "passed"
+        },
+        {
+          "name": "seedKampe › et SAT, men ukendt sport afvises med en dansk besked — også i tør-kørslen",
+          "status": "passed"
+        },
+        {
+          "name": "seedKampe › sportLinje viser det rå felt — og siger det, når feltet mangler",
+          "status": "passed"
+        },
+        {
+          "name": "seedKampe › med en prøvesport på spillet › læser sporten AF SPIL-DOKUMENTET og prissætter med den",
           "status": "passed"
         }
       ]
@@ -2830,7 +2890,7 @@
     {
       "file": "src/features/admin/adminActions.test.js",
       "area": "frontend",
-      "passed": 63,
+      "passed": 68,
       "failed": 0,
       "tests": [
         {
@@ -2887,6 +2947,26 @@
         },
         {
           "name": "adminActions › callSyncGameResults › giver fejlen videre i stedet for at kaste",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSaetFacitManuelt og callFrigivFacitTilSynk › kalder saetFacitManuelt med 120 s timeout og tørkører som standard",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSaetFacitManuelt og callFrigivFacitTilSynk › sender slut, aftryk og dryRun:false videre, når de gives",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSaetFacitManuelt og callFrigivFacitTilSynk › kalder frigivFacitTilSynk og tørkører som standard",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSaetFacitManuelt og callFrigivFacitTilSynk › giver serverens fejl videre i stedet for at kaste",
+          "status": "passed"
+        },
+        {
+          "name": "adminActions › callSaetFacitManuelt og callFrigivFacitTilSynk › navnene findes som exports i functions-platform/index.js",
           "status": "passed"
         },
         {
@@ -3386,7 +3466,7 @@
     {
       "file": "src/features/admin/DriftTab.test.jsx",
       "area": "frontend",
-      "passed": 24,
+      "passed": 28,
       "failed": 0,
       "tests": [
         {
@@ -3399,6 +3479,22 @@
         },
         {
           "name": "forventedeKoersler — matrixen maskineri × spil › et spil uden synk får ingen kørsels-kort",
+          "status": "passed"
+        },
+        {
+          "name": "forventedeKoersler — matrixen maskineri × spil › et aktivt kampspil UDEN synk får facit-vagt-kortet (og påmindelser) — intet sweep",
+          "status": "passed"
+        },
+        {
+          "name": "forventedeKoersler — matrixen maskineri × spil › et synket spil får IKKE facit-vagt-kortet — sweep-kortet er dets vagt",
+          "status": "passed"
+        },
+        {
+          "name": "forventedeKoersler — matrixen maskineri × spil › en endnu ikke implementeret provider: facit-vagt-kortet — intet sweep",
+          "status": "passed"
+        },
+        {
+          "name": "forventedeKoersler — matrixen maskineri × spil › tegner facit-vagt-kortet med det danske navn",
           "status": "passed"
         },
         {
@@ -3654,7 +3750,7 @@
     {
       "file": "src/features/admin/GameRecapBotTab.test.jsx",
       "area": "frontend",
-      "passed": 9,
+      "passed": 12,
       "failed": 0,
       "tests": [
         {
@@ -3687,6 +3783,18 @@
         },
         {
           "name": "forhåndsvisning af runde-opslaget › oversætter serverens grund til dansk",
+          "status": "passed"
+        },
+        {
+          "name": "forhåndsvisning af runde-opslaget › i en turnering med fasekalender › grunden «already» nævner dagens navn",
+          "status": "passed"
+        },
+        {
+          "name": "forhåndsvisning af runde-opslaget › i en turnering med fasekalender › kvitteringen og udkastet siger «dag N»",
+          "status": "passed"
+        },
+        {
+          "name": "forhåndsvisning af runde-opslaget › i en turnering med fasekalender › udkastets overskrift siger «dag N»",
           "status": "passed"
         },
         {
@@ -3762,7 +3870,7 @@
     {
       "file": "src/features/admin/GameScheduleTab.test.jsx",
       "area": "frontend",
-      "passed": 75,
+      "passed": 89,
       "failed": 0,
       "tests": [
         {
@@ -3886,6 +3994,18 @@
           "status": "passed"
         },
         {
+          "name": "⬇️ Synk resultater nu — manuel udløsning af resultat-synken › nævner kampe sat i hånden — og hvilke kilden er uenig om",
+          "status": "passed"
+        },
+        {
+          "name": "⬇️ Synk resultater nu — manuel udløsning af resultat-synken › bøjer ental ved én kamp sat i hånden og ét nyt facit",
+          "status": "passed"
+        },
+        {
+          "name": "⬇️ Synk resultater nu — manuel udløsning af resultat-synken › bøjer flertal ved to",
+          "status": "passed"
+        },
+        {
           "name": "⬇️ Synk resultater nu — manuel udløsning af resultat-synken › viser serverens fejl, når synken fejler",
           "status": "passed"
         },
@@ -3926,6 +4046,10 @@
           "status": "passed"
         },
         {
+          "name": "ompris kampene › viser serverens afvisning af et ukendt sport rødt — og ingen plan, ingen succes",
+          "status": "passed"
+        },
+        {
           "name": "ompris kampene › siger det tydeligt, når intet ville ændre sig",
           "status": "passed"
         },
@@ -3959,6 +4083,18 @@
         },
         {
           "name": "startrunde-vælgeren › kan rydde runden igen",
+          "status": "passed"
+        },
+        {
+          "name": "startrunde-vælgeren › viser dagens navn i en turnering med fasekalender",
+          "status": "passed"
+        },
+        {
+          "name": "startrunde-vælgeren › viser admin, at fasekalenderen er ugyldig — og hvad det betyder",
+          "status": "passed"
+        },
+        {
+          "name": "startrunde-vælgeren › ingen kalender-linje for et spil uden faser — eller med en gyldig kalender",
           "status": "passed"
         },
         {
@@ -4063,6 +4199,34 @@
         },
         {
           "name": "⚽ Synk kampdetaljer nu › viser serverens fejl frem for en tom besked",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ Sæt eller ret facit i hånden — hvilke spil har knappen › Superligaen og Premier League har den — ved siden af synk-knappen",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ Sæt eller ret facit i hånden — hvilke spil har knappen › et kampspil UDEN synk har den — men ikke synk-knappen",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ Sæt eller ret facit i hånden — hvilke spil har knappen › også et afsluttet kampspil — en rettelse kan komme efter sidste kamp",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ Sæt eller ret facit i hånden — hvilke spil har knappen › Touren (ikke et kampspil) har den ikke",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ Sæt eller ret facit i hånden — hvilke spil har knappen › spil UDEN synk: en kamp sat i hånden har ingen \"Lad synken overtage igen\"",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ Sæt eller ret facit i hånden — hvilke spil har knappen › spil MED synk: samme kamp har \"Lad synken overtage igen\"",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ Sæt eller ret facit i hånden — hvilke spil har knappen › henter ingen kampe, før knappen trykkes",
           "status": "passed"
         }
       ]
@@ -4191,6 +4355,178 @@
         },
         {
           "name": "applyLegacyResult › uden [TOP5]-token tilføjes blokken til sidst",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "src/features/admin/ManuelFacit.test.jsx",
+      "area": "frontend",
+      "passed": 41,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "✍️ listen og advarslerne › henter FØRST kampene, når knappen trykkes",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ listen og advarslerne › viser holdnavne, runde, tid og facit — ikke dokument-id'er — og kun begyndte kampe",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ listen og advarslerne › advarslerne står ordret — og henviser ikke til en guide",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ listen og advarslerne › med fasekalender: «Dag N» og «dagens sidste kamp» — aldrig «Rd» eller «rundens»",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ listen og advarslerne › uden fasekalender: «Rd N» og «rundens sidste kamp» som før — også med en UGYLDIG kalender",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ listen og advarslerne › melder det, når ingen kamp er begyndt",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ listen og advarslerne › facitKandidater: ældste uden facit først, nyeste med facit først",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › Superligaen (ingen faser): KUN ordinær tid — også ved uafgjort",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › en rettelse starter fra det facit, der står",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › en rettelse af en knockout-kamp starter fra slutresultat og afgørelse",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › knockout + uafgjort: slutresultat og afgørelse kræves, før serveren spørges",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › knockout: Skriv facit sender slut og aftryk, og kvitteringen nævner slutresultatet",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › knockout: en ændring af slutresultatet hjemme fjerner en forældet tør-kørsel",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › knockout: en ændring af slutresultatet ude fjerner en forældet tør-kørsel",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › knockout: en ændring af afgørelsen fjerner en forældet tør-kørsel",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › knockout med en vinder i ordinær tid: ingen slut-felter",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › en UGYLDIG kalender kender ingen knockout — samme svar som serveren",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ felterne — ordinær tid og knockout › en kamp i håndboldspillets indledende runde er ikke knockout",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › skrive-knappen findes FØRST efter tør-kørslen — og prognosen står med tal",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › en ændring af kampen fjerner en forældet tør-kørsel",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › en ændring af mål hjemme fjerner en forældet tør-kørsel",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › en ændring af mål ude fjerner en forældet tør-kørsel",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › Skriv facit sender tør-kørslens plan og aftryk — ikke felternes indhold",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › afviser serveren skrivningen (kampen er ændret), forsvinder skrive-knappen med beskeden",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › confirm navngiver kampen, prognosen og begge advarsler; annuller = intet kald",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › OK skriver med dryRun:false, kvitterer og henter listen igen",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › svarer serveren med en tør-kørsel, siger fladen, at INTET er skrevet",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › svarer serveren dryRun:false men skrevet:false, siger fladen, at INTET er skrevet",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › kvitteringen forsvinder, når panelet lukkes",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › viser serverens afvisning",
+          "status": "passed"
+        },
+        {
+          "name": "✍️ tør-kørsel → skriv › ingen skrive-knap, når facit allerede står sådan i hånden",
+          "status": "passed"
+        },
+        {
+          "name": "↩️ Lad synken overtage igen › vises for en kamp sat i hånden i et spil MED synk — og skriver efter bekræftelse",
+          "status": "passed"
+        },
+        {
+          "name": "↩️ Lad synken overtage igen › frigiver serveren INTET, siger fladen det — og kvitterer ikke",
+          "status": "passed"
+        },
+        {
+          "name": "↩️ Lad synken overtage igen › annulleret bekræftelse frigiver intet",
+          "status": "passed"
+        },
+        {
+          "name": "↩️ Lad synken overtage igen › vises IKKE for en kamp, synken ejer",
+          "status": "passed"
+        },
+        {
+          "name": "↩️ Lad synken overtage igen › vises IKKE i et spil uden synk — der er intet at give kampen tilbage til",
+          "status": "passed"
+        },
+        {
+          "name": "prognoseLinjer › 1X2 uændret: siger, at intet flytter sig — og nævner ingen point",
+          "status": "passed"
+        },
+        {
+          "name": "prognoseLinjer › gatet kamp: ingen point, men Elo og odds",
+          "status": "passed"
+        },
+        {
+          "name": "prognoseLinjer › spillere uden tip på kampen: siger ærligt, at combien kommer senere, og hvordan",
+          "status": "passed"
+        },
+        {
+          "name": "prognoseLinjer › ingen sætning om combi senere, når ingen uden for kampen rammes",
+          "status": "passed"
+        },
+        {
+          "name": "prognoseLinjer › combi nævnes kun, når den flytter sig — og negative tal har ægte minus",
           "status": "passed"
         }
       ]
@@ -5672,6 +6008,98 @@
       ]
     },
     {
+      "file": "src/features/games/faseFlader.test.jsx",
+      "area": "frontend",
+      "passed": 21,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "Pokaler — pokalens navn er sportens ord › håndbold: \"Dagens konge\" og \"dagssejre\" — aldrig \"Rundekongen\"",
+          "status": "passed"
+        },
+        {
+          "name": "Pokaler — pokalens navn er sportens ord › håndbold med ligaens startdag: skalaen hedder \"fra dag 1\"",
+          "status": "passed"
+        },
+        {
+          "name": "Pokaler — pokalens navn er sportens ord › håndbold, tom: «Ingen dage er spillet færdig endnu» — ikke «runder»",
+          "status": "passed"
+        },
+        {
+          "name": "Pokaler — pokalens navn er sportens ord › håndbold, ingen vinder: «Ingen har vundet en dag endnu»",
+          "status": "passed"
+        },
+        {
+          "name": "Pokaler — pokalens navn er sportens ord › Superligaen, tom: tomtilstandens tekster som før",
+          "status": "passed"
+        },
+        {
+          "name": "Pokaler — pokalens navn er sportens ord › Superligaen og intet spil: \"Rundekongen\" og \"rundesejre\" som før",
+          "status": "passed"
+        },
+        {
+          "name": "FootballHelp — faserne læses af kalenderen › håndbold: faserne fra kalenderen, \"Dag 1 af 17\", \"Dagens konge\" og \"Dag X →\"",
+          "status": "passed"
+        },
+        {
+          "name": "FootballHelp — faserne læses af kalenderen › håndbold med pulje: «Starter ligaen efter dag 3»",
+          "status": "passed"
+        },
+        {
+          "name": "FootballHelp — faserne læses af kalenderen › Superligaen med pulje: «Starter ligaen efter runde 3» som før",
+          "status": "passed"
+        },
+        {
+          "name": "FootballHelp — faserne læses af kalenderen › en anden kalender giver andre navne — teksten er ikke skrevet af",
+          "status": "passed"
+        },
+        {
+          "name": "FootballHelp — faserne læses af kalenderen › Superligaen: intet faseafsnit, \"Rundekongen\" og \"Runde X →\" som før",
+          "status": "passed"
+        },
+        {
+          "name": "TipsHistorik — rundens overskrift › håndbold: dagens navn",
+          "status": "passed"
+        },
+        {
+          "name": "TipsHistorik — rundens overskrift › Superligaen og uden spil: \"Runde N\" som før",
+          "status": "passed"
+        },
+        {
+          "name": "MatchElo — udviklingspunkternes title › håndbold: dagens navn",
+          "status": "passed"
+        },
+        {
+          "name": "MatchElo — udviklingspunkternes title › Superligaen: \"Runde N\" som før",
+          "status": "passed"
+        },
+        {
+          "name": "MatchElo — udviklingspunkternes title › håndbold: «Styrke efter seneste spillede dag» og «seneste 2 dage»",
+          "status": "passed"
+        },
+        {
+          "name": "MatchElo — udviklingspunkternes title › håndbold, ét punkt: «seneste dag»",
+          "status": "passed"
+        },
+        {
+          "name": "MatchElo — udviklingspunkternes title › håndbold, ingen punkter: «når der er spillet dage»",
+          "status": "passed"
+        },
+        {
+          "name": "MatchElo — udviklingspunkternes title › Superligaen: de synlige tekster og aria-labels som før",
+          "status": "passed"
+        },
+        {
+          "name": "Indbyrdes — kolonnens navn › håndbold: \"Dag\"",
+          "status": "passed"
+        },
+        {
+          "name": "Indbyrdes — kolonnens navn › Superligaen: \"Runde\"",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/features/games/football/badgeFarver.test.js",
       "area": "frontend",
       "passed": 12,
@@ -5830,7 +6258,7 @@
     {
       "file": "src/features/games/football/FootballHelp.test.jsx",
       "area": "frontend",
-      "passed": 29,
+      "passed": 31,
       "failed": 0,
       "tests": [
         {
@@ -5947,6 +6375,14 @@
         },
         {
           "name": "guiden forklarer 🔥 mod 👑 — foreløbig mod endelig › siger hvad en streg betyder — og at et forbier står som 0",
+          "status": "passed"
+        },
+        {
+          "name": "guidens Elo- og odds-tal kommer fra spillets sportsprofil › fodbold (spil uden sport): dagens tal, ordret",
+          "status": "passed"
+        },
+        {
+          "name": "guidens Elo- og odds-tal kommer fra spillets sportsprofil › prøvesporten: prøvesportens tal — og ingen af fodboldens (sætningerne VENDES I D12)",
           "status": "passed"
         }
       ]
@@ -6322,7 +6758,7 @@
     {
       "file": "src/features/games/football/FootballTip.test.jsx",
       "area": "frontend",
-      "passed": 145,
+      "passed": 157,
       "failed": 0,
       "tests": [
         {
@@ -6904,6 +7340,54 @@
         {
           "name": "FootballTip — kampe fra en anden runde i samme uge › runde 2 viser IKKE sin egen udsatte kamp to gange",
           "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › efter den indledende runde: \"Dag 6 af 17\", dagens navn og hovedrundens dato",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › ← Dag 5 bladrer tilbage til dag 5 — og tælleren følger med",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › en udsat kamp fra en anden dag: ingen ventelinje, selv på en færdig dag",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › dagen efter hovedrundens startdag lover fladen ikke en passeret dato",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › midt i den indledende runde: ingen ventelinje, \"Dag 2 af 17\"",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › en lånt kamp fra en anden dag: «Dag 1 · point tæller dér» og dage, ikke runder",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › hovedrundens første dag er oprettet: \"Dag 7 af 17\" og \"Hovedrunde · dag 1\"",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › delingsteksten bærer spillets tegn og dagens navn — ikke ⚽ og \"R6\"",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › UDEN kalender: alt spillet giver INGEN ventelinje og den gamle tæller",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › UDEN kalender: den lånte kamp og efterslæbs-linjen siger «runde» og «i denne uge» som før",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › en UGYLDIG kalender tæller ikke — fladen viser de gamle tekster",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — fasekalender › UDEN kalender: delingsteksten er præcis som før (⚽ og R-nummer)",
+          "status": "passed"
         }
       ]
     },
@@ -7038,7 +7522,7 @@
     {
       "file": "src/features/games/football/HoldSide.test.jsx",
       "area": "frontend",
-      "passed": 15,
+      "passed": 18,
       "failed": 0,
       "tests": [
         {
@@ -7086,6 +7570,10 @@
           "status": "passed"
         },
         {
+          "name": "HoldSide › siger «dag» i en turnering med fasekalender — ikke «runde»",
+          "status": "passed"
+        },
+        {
           "name": "HoldSide › viser kampene med runde, side og resultat",
           "status": "passed"
         },
@@ -7099,6 +7587,14 @@
         },
         {
           "name": "HoldSide › runder før spillets startrunde er IKKE med — hverken i listen eller i tallene",
+          "status": "passed"
+        },
+        {
+          "name": "HoldSide regner forventningen med spillets sportsprofil › prøvesporten giver prøvesportens tal",
+          "status": "passed"
+        },
+        {
+          "name": "HoldSide regner forventningen med spillets sportsprofil › et spil uden sport giver fodboldens tal — som altid",
           "status": "passed"
         }
       ]
@@ -7786,7 +8282,7 @@
     {
       "file": "src/features/games/football/MyTips.test.jsx",
       "area": "frontend",
-      "passed": 6,
+      "passed": 8,
       "failed": 0,
       "tests": [
         {
@@ -7811,6 +8307,14 @@
         },
         {
           "name": "MyTips › skjuler kampe fra før spillet startede",
+          "status": "passed"
+        },
+        {
+          "name": "MyTips — fasekalender › rundens overskrift er dagens navn i en turnering",
+          "status": "passed"
+        },
+        {
+          "name": "MyTips — fasekalender › uden kalender: \"Runde 1\" som før",
           "status": "passed"
         }
       ]
@@ -8274,7 +8778,7 @@
     {
       "file": "src/features/games/football/SpillerDetalje.test.jsx",
       "area": "frontend",
-      "passed": 11,
+      "passed": 12,
       "failed": 0,
       "tests": [
         {
@@ -8319,6 +8823,10 @@
         },
         {
           "name": "SpillerDetalje › viser det IKKE uden en kendt bruger, og ikke på ens eget navn",
+          "status": "passed"
+        },
+        {
+          "name": "SpillerDetalje — fasekalender › rundens overskrift er dagens navn i en turnering",
           "status": "passed"
         }
       ]
@@ -9750,7 +10258,7 @@
     {
       "file": "src/features/games/GameStandings.test.jsx",
       "area": "frontend",
-      "passed": 67,
+      "passed": 71,
       "failed": 0,
       "tests": [
         {
@@ -9875,6 +10383,22 @@
         },
         {
           "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › viser en streg og ligaens I alt for en spiller uden rubrikker pr. runde — og siger det",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › med fasekalender: «dag», ikke «runde» › regnskabet: «kun point fra dag 12 og frem»",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › med fasekalender: «dag», ikke «runde» › stregens forklaring: «ikke delt op fra dag 12»",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › med fasekalender: «dag», ikke «runde» › spillerpanelet: «kun fra dag 12»",
+          "status": "passed"
+        },
+        {
+          "name": "GameStandings — liga-filter › én liga med startrunde › regnskabet («Hvor kommer pointene fra?») › med fasekalender: «dag», ikke «runde» › alle mine ligaer: «Tæller fra dag 1 — spillets egen skala»",
           "status": "passed"
         },
         {
@@ -10410,7 +10934,7 @@
     {
       "file": "src/features/games/ligaStartRunde.test.jsx",
       "area": "frontend",
-      "passed": 13,
+      "passed": 17,
       "failed": 0,
       "tests": [
         {
@@ -10463,6 +10987,22 @@
         },
         {
           "name": "liga-kortet › liga-tabellen viser ligaens totaler, ikke spillets",
+          "status": "passed"
+        },
+        {
+          "name": "fasekalender: liga-kortet og stillingen siger «dag» › liga-kortet: «Tæller fra dag 20», og valget hedder «dag»",
+          "status": "passed"
+        },
+        {
+          "name": "fasekalender: liga-kortet og stillingen siger «dag» › liga-kortet UDEN kalender: «runde» som før",
+          "status": "passed"
+        },
+        {
+          "name": "fasekalender: liga-kortet og stillingen siger «dag» › stillingen: «Dag 3»-knappen og «Tæller fra dag 2»",
+          "status": "passed"
+        },
+        {
+          "name": "fasekalender: liga-kortet og stillingen siger «dag» › stillingen UDEN kalender: «Runde 3» og «Tæller fra runde 2» som før",
           "status": "passed"
         }
       ]
@@ -13608,6 +14148,222 @@
       ]
     },
     {
+      "file": "src/lib/faser.test.js",
+      "area": "frontend",
+      "passed": 52,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "uden fasekalender: præcis dagens tekster › SL",
+          "status": "passed"
+        },
+        {
+          "name": "uden fasekalender: præcis dagens tekster › PL",
+          "status": "passed"
+        },
+        {
+          "name": "uden fasekalender: præcis dagens tekster › intet spil",
+          "status": "passed"
+        },
+        {
+          "name": "uden fasekalender: præcis dagens tekster › undefined",
+          "status": "passed"
+        },
+        {
+          "name": "uden fasekalender: præcis dagens tekster › tom liste",
+          "status": "passed"
+        },
+        {
+          "name": "uden fasekalender: præcis dagens tekster › ikke en liste",
+          "status": "passed"
+        },
+        {
+          "name": "uden fasekalender: præcis dagens tekster › huller",
+          "status": "passed"
+        },
+        {
+          "name": "uden fasekalender: præcis dagens tekster › starter ikke i 1",
+          "status": "passed"
+        },
+        {
+          "name": "med fasekalender: ejerens ord › kalenderen er gyldig, og sidste dag er 17",
+          "status": "passed"
+        },
+        {
+          "name": "med fasekalender: ejerens ord › etiketten: fase · dag N, og én-dags-faser uden \"dag 1\"",
+          "status": "passed"
+        },
+        {
+          "name": "med fasekalender: ejerens ord › etiketten med dato: \"Indledende runde · dag 2 · tor 14/1\" (dansk tid)",
+          "status": "passed"
+        },
+        {
+          "name": "med fasekalender: ejerens ord › en runde uden for kalenderen hedder \"Dag N\" — aldrig \"Runde N\"",
+          "status": "passed"
+        },
+        {
+          "name": "med fasekalender: ejerens ord › tælleren: \"Dag 7 af 17\" — nævneren er kalenderens, ikke sidst oprettede",
+          "status": "passed"
+        },
+        {
+          "name": "med fasekalender: ejerens ord › flertal: \"dage\" med kalender",
+          "status": "passed"
+        },
+        {
+          "name": "med fasekalender: ejerens ord › korte former: \"Dag 7\" og \"dag 7\"",
+          "status": "passed"
+        },
+        {
+          "name": "med fasekalender: ejerens ord › faseFor giver fase, dag og antal dage",
+          "status": "passed"
+        },
+        {
+          "name": "med fasekalender: ejerens ord › knockout: kun de tre sidste faser",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › næste runde i kalenderen findes, selv om dens kampe ikke er oprettet",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › den ventende runde efter den indledende runde er hovedrundens første dag",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › ingen oprettet runde (0, null, brøk, negativ): intet venter",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › ventetekst: hovedrunden lægges ind — med dato, og uden løfte om en passeret dato",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › ventetekst midt i en fase: dagen, ingen dato (kalenderen kender ikke dagenes datoer)",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › ventetekst er null, når turneringen er slut",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › naesteFase: den første fase, hvis startdag (dansk dato) er i dag eller senere",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › naesteFase: fasens første dag, med fra, dage og nummer",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › naesteFase: en ugyldig kalender har ingen næste fase",
+          "status": "passed"
+        },
+        {
+          "name": "faseovergangen: der kommer mere › datoer i en sætning",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › godkender testkalenderen",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: ikke en liste",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: tom liste",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: ikke et objekt",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: ukendt nøgle (stavefejl)",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: navn mangler",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: tomt navn",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: bestemt ikke tekst",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: fra ikke heltal",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: til før fra",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: start mangler",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: start ugyldig dato",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: knockout ikke boolean",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: antalKampe 0",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: første fase starter i 2",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: hul",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: overlap",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: start ikke stigende",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: næste fase midt i forrige",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › afviser: næste fase dagen før",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › én runde pr. dag: dagen efter sidste dag er tidligst — og hviledage er lov",
+          "status": "passed"
+        },
+        {
+          "name": "formkontrollen på kalenderen › valgfrie felter må mangle",
+          "status": "passed"
+        },
+        {
+          "name": "faseKalenderAdvarsel: hvornår der advares › intet faser-felt (SL, PL, intet spil): ingen advarsel",
+          "status": "passed"
+        },
+        {
+          "name": "faseKalenderAdvarsel: hvornår der advares › gyldig kalender: ingen advarsel",
+          "status": "passed"
+        },
+        {
+          "name": "faseKalenderAdvarsel: hvornår der advares › ugyldig kalender: formkontrollens fejl",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/lib/ligaPoint.test.js",
       "area": "frontend",
       "passed": 27,
@@ -14252,6 +15008,166 @@
       ]
     },
     {
+      "file": "src/lib/sportProfil.test.js",
+      "area": "frontend",
+      "passed": 38,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "sportProfil — hvilken profil et spil får › fodbold er standarden, og den er den eneste profil (endnu)",
+          "status": "passed"
+        },
+        {
+          "name": "sportProfil — hvilken profil et spil får › manglende, ukendt eller ugyldig sport giver fodbold",
+          "status": "passed"
+        },
+        {
+          "name": "sportProfil — hvilken profil et spil får › fodbold er bygget AF ELO og ODDS — og har dagens tal",
+          "status": "passed"
+        },
+        {
+          "name": "sportProfil — hvilken profil et spil får › profilen er frosset hele vejen ned",
+          "status": "passed"
+        },
+        {
+          "name": "sportProfil — hvilken profil et spil får › oversætter profilen til de parametre, odds og Elo tager",
+          "status": "passed"
+        },
+        {
+          "name": "ukendtSport — sat, men ikke i registret › manglende felt er IKKE ukendt (SL og PL)",
+          "status": "passed"
+        },
+        {
+          "name": "ukendtSport — sat, men ikke i registret › en tastefejl, et forkert bogstav, en tom streng og ikke-strenge ER ukendte",
+          "status": "passed"
+        },
+        {
+          "name": "ukendtSport — sat, men ikke i registret › prototype-navne er ukendte — de findes på ethvert objekt, ikke i registret",
+          "status": "passed"
+        },
+        {
+          "name": "ukendtSport — sat, men ikke i registret › med en prøvesport registreret › en registreret sport er kendt — og sportProfil er enig",
+          "status": "passed"
+        },
+        {
+          "name": "hver sportsprofil har præcis den forventede form › hele registret — og prøvesporten, der bruges som stand-in for en anden sport",
+          "status": "passed"
+        },
+        {
+          "name": "hver sportsprofil har præcis den forventede form › formkontrollen fanger de stavefejl, den er skrevet til (ellers beviser den ikke noget)",
+          "status": "passed"
+        },
+        {
+          "name": "hver sportsprofil har præcis den forventede form › oddsParametre AFVISER et gulv, der ikke er et endeligt tal over 1 — i stedet for at falde tavst tilbage",
+          "status": "passed"
+        },
+        {
+          "name": "hjemmebane 0 giver et symmetrisk spil › byttes holdene, byttes 1 og 2 — og X står stille",
+          "status": "passed"
+        },
+        {
+          "name": "hjemmebane 0 giver et symmetrisk spil › lige hold giver 1 = 2 — og det gør fodbold IKKE",
+          "status": "passed"
+        },
+        {
+          "name": "hjemmebane 0 giver et symmetrisk spil › Elo: hjemmesejr mellem lige hold giver præcis K/2 hver vej",
+          "status": "passed"
+        },
+        {
+          "name": "odds-gulvet er en profilværdi › outcomeOdds bruger oddsMin — og fodbold-gulvet, når det mangler",
+          "status": "passed"
+        },
+        {
+          "name": "odds-gulvet er en profilværdi › 0,936 er et eksempel (1900 mod 1300), ikke et loft — p stiger mod ≈ 0,966",
+          "status": "passed"
+        },
+        {
+          "name": "odds-gulvet er en profilværdi › … også for UDE-favoritten",
+          "status": "passed"
+        },
+        {
+          "name": "odds-gulvet er en profilværdi › … også for uafgjort (X har sit eget fairOdds-kald)",
+          "status": "passed"
+        },
+        {
+          "name": "odds-gulvet er en profilværdi › fairOdds tager gulvet som argument",
+          "status": "passed"
+        },
+        {
+          "name": "SL og PL er byte-identiske med koden før sportsprofilen › facit dækker hele programmet",
+          "status": "passed"
+        },
+        {
+          "name": "SL og PL er byte-identiske med koden før sportsprofilen › sl: de frosne odds ved seed er uændrede — uanset hvordan \"fodbold\" nås",
+          "status": "passed"
+        },
+        {
+          "name": "SL og PL er byte-identiske med koden før sportsprofilen › sl: Holdsidens \"mod modellens forventning\" er uændret",
+          "status": "passed"
+        },
+        {
+          "name": "SL og PL er byte-identiske med koden før sportsprofilen › pl: de frosne odds ved seed er uændrede — uanset hvordan \"fodbold\" nås",
+          "status": "passed"
+        },
+        {
+          "name": "SL og PL er byte-identiske med koden før sportsprofilen › pl: Holdsidens \"mod modellens forventning\" er uændret",
+          "status": "passed"
+        },
+        {
+          "name": "kaldestederne bruger SPILLETS profil (prøvesport) › registret finder prøvesporten",
+          "status": "passed"
+        },
+        {
+          "name": "kaldestederne bruger SPILLETS profil (prøvesport) › kun en STRENG finder den — ikke noget, der bliver til \"proeve\" som nøgle",
+          "status": "passed"
+        },
+        {
+          "name": "kaldestederne bruger SPILLETS profil (prøvesport) › buildMatch prissætter med profilen",
+          "status": "passed"
+        },
+        {
+          "name": "kaldestederne bruger SPILLETS profil (prøvesport) › buildMatch prissætter UDE-favoritten med profilens gulv",
+          "status": "passed"
+        },
+        {
+          "name": "kaldestederne bruger SPILLETS profil (prøvesport) › buildMatch giver et ukendt hold SPORTENS neutrale rating",
+          "status": "passed"
+        },
+        {
+          "name": "kaldestederne bruger SPILLETS profil (prøvesport) › buildMatches sender profilen videre til hver kamp",
+          "status": "passed"
+        },
+        {
+          "name": "kaldestederne bruger SPILLETS profil (prøvesport) › pointModForventning regner med profilen",
+          "status": "passed"
+        },
+        {
+          "name": "kaldestederne bruger SPILLETS profil (prøvesport) › pointModForventning giver et hold uden seed SPORTENS neutrale rating",
+          "status": "passed"
+        },
+        {
+          "name": "kaldestederne bruger SPILLETS profil (prøvesport) › … også når holdet uden seed er UDEholdet",
+          "status": "passed"
+        },
+        {
+          "name": "sportOrd — hvad tingene hedder i sporten › fodboldens ord er dagens — literaler, så en ændring bliver rød",
+          "status": "passed"
+        },
+        {
+          "name": "sportOrd — hvad tingene hedder i sporten › håndbold: \"Dagens konge\" (ejerens beslutning) — UDEN en håndboldprofil",
+          "status": "passed"
+        },
+        {
+          "name": "sportOrd — hvad tingene hedder i sporten › manglende, ukendt eller ugyldig sport giver fodboldens ord — også prototype-navne",
+          "status": "passed"
+        },
+        {
+          "name": "sportOrd — hvad tingene hedder i sporten › hver sport har præcis fodboldens nøgler, alle som ikke-tomme tekster",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "src/lib/startGate.test.js",
       "area": "frontend",
       "passed": 19,
@@ -14542,15 +15458,19 @@
     {
       "file": "src/lib/superligaSeed.test.js",
       "area": "frontend",
-      "passed": 6,
+      "passed": 7,
       "failed": 0,
       "tests": [
         {
-          "name": "teamElo › slår op i liste og i map",
+          "name": "teamElo › slår op i listen",
           "status": "passed"
         },
         {
           "name": "teamElo › ukendt hold → ELO.START",
+          "status": "passed"
+        },
+        {
+          "name": "teamElo › et map er ikke en holdliste",
           "status": "passed"
         },
         {
@@ -17430,7 +18350,7 @@
     {
       "file": "functions-platform/driftlog.test.js",
       "area": "platform",
-      "passed": 32,
+      "passed": 36,
       "failed": 0,
       "tests": [
         {
@@ -17474,11 +18394,27 @@
           "status": "passed"
         },
         {
-          "name": "strandetBesked › navngiver kampen, konsekvensen, remediet og hånd-vejen",
+          "name": "strandetBesked › med synk: navngiver kampen, konsekvensen, synk-knappen og hånd-knappen",
           "status": "passed"
         },
         {
-          "name": "strandetBesked › lover ikke, at knappen løser det — kilden kan mangle facit",
+          "name": "strandetBesked › lover ikke, at synk-knappen løser det — kilden kan mangle facit",
+          "status": "passed"
+        },
+        {
+          "name": "strandetBesked › holdnavne og runde står i teksten, når kampen er med",
+          "status": "passed"
+        },
+        {
+          "name": "strandetBesked › uden synk: nævner IKKE synk-knappen, men hånd-knappen og fanen",
+          "status": "passed"
+        },
+        {
+          "name": "strandetBesked › et Firestore Timestamp (toMillis) er et læseligt kickoff",
+          "status": "passed"
+        },
+        {
+          "name": "strandetBesked › uden kickoff: remediet er kickoff — ikke facit, og ikke synk-knappen",
           "status": "passed"
         },
         {
@@ -17559,6 +18495,198 @@
         },
         {
           "name": "ALARM_TYPER — titel og hast ét sted › hver type har en titel og en hast, mailen kender — en tastefejl i hast ville smide alarmen ud af mailen",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions-platform/facit.test.js",
+      "area": "platform",
+      "passed": 18,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "facitFejl — streng validering › godtager et almindeligt facit og uafgjort uden knockout",
+          "status": "passed"
+        },
+        {
+          "name": "facitFejl — streng validering › afviser mål, der ikke er hele tal i [0, 99]",
+          "status": "passed"
+        },
+        {
+          "name": "facitFejl — streng validering › knockout + uafgjort kræver slut; knockout + vinder forbyder det",
+          "status": "passed"
+        },
+        {
+          "name": "facitFejl — streng validering › uden knockout afvises ethvert slut — også et velformet",
+          "status": "passed"
+        },
+        {
+          "name": "facitFejl — streng validering › slut skal have en vinder, en kendt afgørelse og mindst stillingens mål",
+          "status": "passed"
+        },
+        {
+          "name": "facitFelter — formen på et facit-dokument › præcis de fire felter, synken altid har skrevet — og INTET slut uden knockout",
+          "status": "passed"
+        },
+        {
+          "name": "facitFelter — formen på et facit-dokument › null, når der ikke kan udledes et udfald",
+          "status": "passed"
+        },
+        {
+          "name": "facitFelter — formen på et facit-dokument › slut kommer med, når det hænger sammen — og hele facit er ugyldigt, når det ikke gør",
+          "status": "passed"
+        },
+        {
+          "name": "facitFelter — formen på et facit-dokument › kopierer kun slut-felterne — fremmede nøgler slipper ikke med ind",
+          "status": "passed"
+        },
+        {
+          "name": "forventerFacit og erManuelFacit › kampspil, åbne eller i gang — uafhængigt af kilde",
+          "status": "passed"
+        },
+        {
+          "name": "forventerFacit og erManuelFacit › kun mærket \"manuel\" fredner kampen",
+          "status": "passed"
+        },
+        {
+          "name": "uenigTekst — én uenig kamp som tekst (knappen og Drift-kortet) › holdnavne og begge stillinger — ikke id'et",
+          "status": "passed"
+        },
+        {
+          "name": "uenigTekst — én uenig kamp som tekst (knappen og Drift-kortet) › id'et kun, når holdnavnene mangler — og en tom stilling er en tankestreg",
+          "status": "passed"
+        },
+        {
+          "name": "uenigTekst — én uenig kamp som tekst (knappen og Drift-kortet) › spejlet giver samme tekst",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib/facit.js › samme konstanter",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib/facit.js › samme svar fra facitFejl og facitFelter på hver vektor",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib/facit.js › samme svar fra spil-prædikaterne",
+          "status": "passed"
+        },
+        {
+          "name": "spejling mod src/lib/facit.js › kroppene er identiske ud over import/export og hovedkommentaren",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions-platform/facitVagt.test.js",
+      "area": "platform",
+      "passed": 15,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "spilUdenSynk — hvert kampspil vogtes af præcis én vej › synkede spil (også afsluttede) overlades til sweep-løkken; ikke-kampspil er ikke med",
+          "status": "passed"
+        },
+        {
+          "name": "spilUdenSynk — hvert kampspil vogtes af præcis én vej › uden synkede spil vogtes alle aktive kampspil her",
+          "status": "passed"
+        },
+        {
+          "name": "meldStrandede — én kerne for begge veje › melder hver strandet kamp med tekst for spillets situation og lukker resten",
+          "status": "passed"
+        },
+        {
+          "name": "meldStrandede — én kerne for begge veje › lukker alle, når intet er strandet — også når listen er tom",
+          "status": "passed"
+        },
+        {
+          "name": "meldStrandede — én kerne for begge veje › en kamp uden kickoff meldes straks — med kickoff som remedie",
+          "status": "passed"
+        },
+        {
+          "name": "meldStrandede — kickoff som Firestore Timestamp › meldes som manglende facit, ikke som et ulæseligt kickoff",
+          "status": "passed"
+        },
+        {
+          "name": "meldStrandede — kickoff som Firestore Timestamp › et Timestamp lige efter kickoff er ikke strandet",
+          "status": "passed"
+        },
+        {
+          "name": "facitVagtUdenSynk › vogter KUN spillet uden synk og skriver et rødt kort med næste frist",
+          "status": "passed"
+        },
+        {
+          "name": "facitVagtUdenSynk › grønt kort, når intet mangler",
+          "status": "passed"
+        },
+        {
+          "name": "facitVagtUdenSynk › en fejl i ét spils opslag giver et rødt kort — ikke et tavst hul",
+          "status": "passed"
+        },
+        {
+          "name": "facitVagtUdenSynk › lukker kortet for et afsluttet spil ÉN gang (frist null) — og laver aldrig et nyt",
+          "status": "passed"
+        },
+        {
+          "name": "meldManuelleUenige — advarsel på sweep'ets kort › nævner hver kamp med holdnavne og kildens og håndens tal — og de to veje ud",
+          "status": "passed"
+        },
+        {
+          "name": "meldManuelleUenige — advarsel på sweep'ets kort › ental ved én kamp",
+          "status": "passed"
+        },
+        {
+          "name": "meldManuelleUenige — advarsel på sweep'ets kort › ingen uenige → ingen linje, og kortet forbliver grønt",
+          "status": "passed"
+        },
+        {
+          "name": "kampOrd — Drift-kortenes tekster bøjes › 1 kamp, 0 og 2 kampe",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions-platform/faser.test.js",
+      "area": "platform",
+      "passed": 9,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "faser: server-spejlet er src › kilden er den samme (bortset fra hovedet og eksporten)",
+          "status": "passed"
+        },
+        {
+          "name": "faser: server-spejlet er src › eksporterer de samme funktioner",
+          "status": "passed"
+        },
+        {
+          "name": "faser: server-spejlet er src › samme svar: SL",
+          "status": "passed"
+        },
+        {
+          "name": "faser: server-spejlet er src › samme svar: intet",
+          "status": "passed"
+        },
+        {
+          "name": "faser: server-spejlet er src › samme svar: ugyldig",
+          "status": "passed"
+        },
+        {
+          "name": "faser: server-spejlet er src › samme svar: ugyldig med knockout",
+          "status": "passed"
+        },
+        {
+          "name": "faser: server-spejlet er src › samme svar: håndbold",
+          "status": "passed"
+        },
+        {
+          "name": "faser: server-spejlet er src › erKnockout over en ugyldig kalender: nej i begge, også hvor et naivt opslag sagde ja",
+          "status": "passed"
+        },
+        {
+          "name": "faser: server-spejlet er src › samme formkontrol og samme datoer",
           "status": "passed"
         }
       ]
@@ -17726,7 +18854,7 @@
     {
       "file": "functions-platform/gameRecap.test.js",
       "area": "platform",
-      "passed": 39,
+      "passed": 54,
       "failed": 0,
       "tests": [
         {
@@ -17884,15 +19012,87 @@
         {
           "name": "Runde-Botten kender ikke xG — endnu › rundens fakta bærer ingen målchance-felter",
           "status": "passed"
+        },
+        {
+          "name": "Runde-Botten uden fasekalender — uændret › prompten er RECAP_SYSTEM byte for byte (SL, PL og fodbold uden felt)",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten uden fasekalender — uændret › fakta har præcis de nøgler, de altid har haft — ingen kalender-felter",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten uden fasekalender — uændret › nextRound er stadig næste OPRETTEDE runde, og null efter sidste",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med fasekalender › nextRound kommer fra KALENDEREN — hovedrunden findes, selv om dens kampe ikke gør",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med fasekalender › naesteKampeLagtInd er sand, når næste dags kampe findes",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med fasekalender › midt i en fase: ingen startdato (kalenderen kender kun fasens første dag)",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med fasekalender › finaledagen: turneringen ER slut — nextRound null",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med fasekalender › kickoff som Firestore-Timestamp giver samme dato som et tal",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med fasekalender › prompten: håndbold, spilledag, og \"slut\" KUN når nextRound mangler",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med fasekalender › prompten med kalender siger ALDRIG \"uge\" — og eksemplet er \"8 point på dagen\"",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med fasekalender › hver udskiftning står præcis én gang i grund-prompten (ellers kaster recapSystem)",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med fasekalender › håndbold UDEN kalender: kun sportens ord skifter",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med en ugyldig fasekalender › logger formkontrollens fejl — og kører videre på ligaens tekster",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med en ugyldig fasekalender › et spil UDEN faser-felt advarer ikke (SL, PL)",
+          "status": "passed"
+        },
+        {
+          "name": "Runde-Botten med en ugyldig fasekalender › en gyldig kalender advarer ikke",
+          "status": "passed"
         }
       ]
     },
     {
       "file": "functions-platform/gameScoring.test.js",
       "area": "platform",
-      "passed": 90,
+      "passed": 117,
       "failed": 0,
       "tests": [
+        {
+          "name": "spillereTriggerenGenberegner › dem med tip på NETOP kampen — ikke resten af runden, og ikke bets uden uid",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeGameMatchCore — KENDT HUL: combi til spillere uden tip på kampen › facit på k1 genberegner e — men IKKE d, selv om d's combi nu er afgjort",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeGameMatchCore — KENDT HUL: combi til spillere uden tip på kampen › …og d's combi ER der, så snart noget genberegner ham (beviset for, at den mangler)",
+          "status": "passed"
+        },
         {
           "name": "recomputeGameMatchCore › scorer bets og gulver spillerens total (ingen negativ saldo)",
           "status": "passed"
@@ -18251,6 +19451,1038 @@
         },
         {
           "name": "recomputeSeasonElo (levende Elo) › gemmer Elo-historik pr. HELT spillet runde",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › sl: Elo og omprisning er uændrede — uanset hvordan \"fodbold\" nås",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › pl: Elo og omprisning er uændrede — uanset hvordan \"fodbold\" nås",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › et ukendt sport kaster ikke, regnes som fodbold — og advarer med spil-id og RÅ værdi",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › afvisUkendtSport (knappens vej) › kaster failed-precondition, FØR der er regnet eller skrevet noget (dryRun: true)",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › afvisUkendtSport (knappens vej) › kaster failed-precondition, FØR der er regnet eller skrevet noget (dryRun: false)",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › afvisUkendtSport (knappens vej) › afviser også et spil uden hold — ikke et tavst {updated: 0}",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › afvisUkendtSport (knappens vej) › en kendt sport og et manglende felt afvises IKKE — svaret er det samme som uden flaget",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › afvisUkendtSport (knappens vej) › kun et eksplicit true afviser — et truthy ikke-boolean gør ikke",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › ukendtSportFejl: dansk besked med spil-id, RÅ værdi, de kendte sporter og at INTET er sket",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › ukendtSportFejl: de kendte sporter læses af registret — en prøvesport står med",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › omprisFraKnap (Ompris-knappens vej) › et ukendt sport bliver en HttpsError med serverens besked — og intet skrives (dryRun: true)",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › omprisFraKnap (Ompris-knappens vej) › et ukendt sport bliver en HttpsError med serverens besked — og intet skrives (dryRun: false)",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › omprisFraKnap (Ompris-knappens vej) › en kendt sport giver præcis recomputeSeasonElo-svaret — og dryRun sendes igennem",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › omprisFraKnap (Ompris-knappens vej) › nowMs sendes igennem: låste kampe ompriser IKKE (kampene før \"nu\" røres ikke)",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › omprisFraKnap (Ompris-knappens vej) › en anden fejl (fx Firestore) slipper UÆNDRET igennem — den er ikke admins at rette",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › tilHttpsFejl: kun kode failed-precondition oversættes — alt andet er samme objekt",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › index.js: knappen afviser, triggeren advarer › repriceGameOdds går gennem omprisFraKnap — og ingen anden vej til recomputeSeasonElo",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › index.js: knappen afviser, triggeren advarer › triggeren kalder UDEN flaget — en tastefejl må ikke stoppe afregningen",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › et spil, der ikke findes, giver intet at gøre — og kaster ikke",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › med en prøvesport på spillet › Elo opdateres med profilens K og hjemmebane",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › med en prøvesport på spillet › de friske odds prises med profilens model og gulv",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › med en prøvesport på spillet › kun en STRENG finder prøvesporten",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › med en prøvesport på spillet › et ukendt hold og et hold uden elo får SPORTENS neutrale rating",
+          "status": "passed"
+        },
+        {
+          "name": "recomputeSeasonElo bruger spillets sportsprofil › med en prøvesport på spillet › samme kampe uden sport giver fodboldens tal — som altid",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "file": "functions-platform/ihfParse.test.js",
+      "area": "platform",
+      "passed": 232,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "STATUS — det lukkede sæt › kender præcis to koder: ikke spillet og slut",
+          "status": "passed"
+        },
+        {
+          "name": "STATUS — det lukkede sæt › perioderne har IHF's element-id'er (fem stk., i rækkefølge)",
+          "status": "passed"
+        },
+        {
+          "name": "konkurrenceIdAf / kalenderAf › læser konkurrence-id'et af den kanoniske adresse",
+          "status": "passed"
+        },
+        {
+          "name": "konkurrenceIdAf / kalenderAf › køns-segmentet er ikke låst til «men»: 2021/2023 skriver «/Men/» med stort M, 2025/2027 «/men/»",
+          "status": "passed"
+        },
+        {
+          "name": "konkurrenceIdAf / kalenderAf › skelner sideform: en kampside er ikke en dagside",
+          "status": "passed"
+        },
+        {
+          "name": "konkurrenceIdAf / kalenderAf › kalenderen er VM 2027's 17 spilledage",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › VM 2025 finaledag: bronze 35-34 og finalen 26-32, begge slut",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › GMT læses af teksten, ikke af <time datetime=\"…Z\"> (der er lokal tid med forkert Z)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › VM 2027 dag 1: fire kampe, ikke spillet, ingen score og INGEN tid (00:00 = ikke sat)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › 00:00 er kun «ikke sat», når BEGGE tider står som 00:00",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › en sat tid kommer igennem som HH:MM",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › VM 2027 semifinaledag: pladsholdere uden hold-id, og placeringskampe har deres egen fase",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › VM 2023 kvartfinaledag: dagsidens score er slutresultatet INKL. forlængelse",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › holdnavne afkodes (HTML-entiteter) og trimmes",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › hex-entiteter afkodes også (&#x27; er Drupals apostrof)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › navngivne entiteter i holdnavn og hal: apos, quot, lt, gt, nbsp",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › navne fra Object.prototype er ikke entiteter — «&constructor;» står som tekst",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › entiteter afkodes i ÉT gennemløb — «&#38;lt;» bliver «&lt;», ikke «<»",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › fase og gruppe skilles også, når linjeskiftet står som <br/> eller <BR />",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › en hal uden skråstreg er hele hallen (ingen by) — og en tom hal er ingen af dem",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › store bogstaver i en entitet (&AMP;) afkodes; en ukendt (&eacute;) lades stå — ikke sluges",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › tegn uden for det basale plan afkodes som ét tegn (decimal og hex)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › mellemrum og linjeskift i et holdnavn samles til ét mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › score-feltet skal tilhøre kampen: et felt med et andet id tæller ikke",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › en score med fire cifre på den ene side kaster (1000-32)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — ægte sider › en score med fire cifre på den ene side kaster (26-1000)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › fejlside uden konkurrence-markør kaster og citerer sidens tekst",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › en kampside givet som dagside kaster (forkert sideform)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › ingen streng kaster i stedet for at returnere []",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › kalender med datoer, men 0 kampe, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › hverken kalender eller kampmarkører kaster med sin egen besked",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › et kamp-id før første kampblok kaster (første blok har mistet sin markør)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › to kampe slået sammen i én blok kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › en kampblok uden kamp-id kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › en blok uden id og et id uden for blokkene kaster, selv om optællingen går op",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › to kampblokke med samme kamp-id kaster (hvilken af dem er kampen?)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › en fejlbesked har et loft — 2 MB i scorefeltet giver en kort besked",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › en kort fejlbesked afkortes ikke",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › score med kolon i stedet for bindestreg kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › score med foranstillet tekst kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › score med suffiks kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › en ikke-spillet kamp med en score i stedet for «VS» kaster (ukendt tilstand, fx live)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › manglende score-felt kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › tom fase kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › manglende fase/gruppe-felt kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › manglende status kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › tre holdfelter kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › et manglende holdfelt kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › et hold uden navn kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › manglende tid kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › tid i uventet format kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › tiden «25:00» kaster (timer over 23)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › tiden «24:00» kaster (timer = 24 (midnat hedder 00:00))",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › tiden «12:60» kaster (minutter over 59)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › tiden «12:5» kaster (ét ciffer i minutterne)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › tiden «18:00 h» kaster (suffiks efter tiden)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › tiden «kl. 18:00» kaster (tekst foran tiden)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › også GMT-tiden er streng (25:00)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — struktur-vagterne kaster (en tom liste er ALDRIG «intet facit endnu») › grænserne 23:59 og 00:00/GMT 23:00 er gyldige tider",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — ægte sider › bronzekampen 2025: perioder 19-17/16-17, ingen forlængelse, efter60 = slut",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — ægte sider › kvartfinalen 2023 (to forlængelser): 25-25 efter 60, 34-35 til slut",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — ægte sider › kvartfinalen 2021 (straffekast): slutscoren tæller straffene med",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — ægte sider › VM 2027, ikke spillet: 0:0 er ikke et resultat, og 00:00 er ikke en tid",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › fejlside uden konkurrence-markør kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › en dagside givet som kampside kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › manglende kampmarkør kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › manglende status kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › slutscore med bindestreg i stedet for kolon kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › manglende slutscore kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › manglende resultatkort kaster i stedet for at give hold = null",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › holdene læses i resultatkortet, ikke fra et andet «country»-felt tidligere på siden",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › et resultatkort med kun ét hold kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › et tomt holdnavn i resultatkortet kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › kampsidens tid er også streng («18:00 h» og «25:00»)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › manglende tid kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › en ikke-spillet kamp med en anden score end 0:0 kaster (ukendt tilstand)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › en periode, der ikke er et tal, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › en manglende periode kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › perioder, der ikke summerer til slutscoren, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › også udeholdets side af summen er bevogtet",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › forlængelse fra en stilling, der ikke var lige efter 60, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › straffekast fra en stilling, der ikke var lige efter forlængelsen, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › også en forlængelse, der kun står i 2. forlængelse, tæller som forlængelse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › straffekast alene fra en ulige 60-minutters-stilling kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › forlængelse efter en stilling, hvor UDEholdet førte efter 60, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › straffekast efter en forlængelse, hvor UDEholdet førte, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › en forlængelse, hvor kun udeholdet scorer (0-1), tæller som forlængelse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › straffekast, hvor kun udeholdet scorer (0-1), tæller som straffekast",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › straffekast efter en forlængelse, hvor HJEMMEholdet førte i 1. forlængelse, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › 2. forlængelse efter en 1. forlængelse, der ikke endte lige, kaster (7-6 og 0-1)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › 2. forlængelse, efter at hjemmeholdet førte i 1. forlængelse, kaster — uden straffe (Norge–Spanien 2023)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › 2. forlængelse, efter at udeholdet førte i 1. forlængelse, kaster — uden straffe (Norge–Spanien 2023)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › 2. forlængelse efter en lige 1. forlængelse er gyldig — også når 1. forlængelse var 0-0",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › en ikke-spillet kamp med TOM slutscore kaster (ukendt tilstand, ikke «0:0»)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — struktur-vagterne kaster › uafgjort efter 60 uden forlængelse er et gyldigt facit (gruppekamp)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — hovedrundedag med Presidents Cup (VM 2025, 22/1) › otte kampe, alle slut — og den første er en Presidents Cup-kamp",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — hovedrundedag med Presidents Cup (VM 2025, 22/1) › fase og gruppe læses for begge faser: «Main Round» · «Main Round III/IV» og «President's Cup» · «President's Cup II»",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — hovedrundedag med Presidents Cup (VM 2025, 22/1) › Presidents Cup-kampene kan kendes på fasen alene (provideren filtrerer dem fra, §11.4)",
+          "status": "passed"
+        },
+        {
+          "name": "parseDagside — hovedrundedag med Presidents Cup (VM 2025, 22/1) › uafgjort i hovedrunden er et gyldigt slutresultat (Sverige–Portugal 37-37)",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › dagsiden: kampen gives som ukendt med sin rå kode og UDEN score; naboen læses som normalt",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › heller ikke et færdigt resultat i score-feltet giver en ukendt kamp en score",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › koden «e» er ukendt — kun præcis '' og 'E' kendes",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › koden « E» er ukendt — kun præcis '' og 'E' kendes",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › koden «E » er ukendt — kun præcis '' og 'E' kendes",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › koden «slut» er ukendt — kun præcis '' og 'E' kendes",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › koden «__proto__» er ukendt — kun præcis '' og 'E' kendes",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › koden «toString» er ukendt — kun præcis '' og 'E' kendes",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › koden «hasOwnProperty» er ukendt — kun præcis '' og 'E' kendes",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › den rå kode vises renset og afkortet (Drift-kortet må ikke bære en hel fremmed streng)",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › et strukturbrud kaster stadig, også i en ukendt kamp (manglende score-felt)",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › et strukturbrud kaster stadig, også i en ukendt kamp (manglende fase/gruppe)",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › kampsiden: ukendt status giver hold og tider, men intet resultat, ingen perioder og intet afgjort",
+          "status": "passed"
+        },
+        {
+          "name": "ukendt status-kode: kampen er «ukendt», ikke en fejl for hele dagen — og ALDRIG slut › kampsiden: et strukturbrud kaster stadig ved ukendt status (manglende slutscore-felt)",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#99999999; (decimal over U+10FFFF) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#xFFFFFFFFFF; (hex over U+10FFFF) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999; (400 cifre (Infinity)) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF; (400 hex-cifre (Infinity)) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#x110000; (lige over loftet) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#0; (NUL) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#x0; (NUL (hex)) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#xD800; (enlig høj surrogat) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#xDFFF; (enlig lav surrogat) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#55296; (surrogat, decimal) bliver U+FFFD — ikke RangeError",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › grænserne afkodes som ægte tegn: U+10FFFF, U+D7FF og U+E000",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#x202E; (RIGHT-TO-LEFT OVERRIDE som entitet) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ‮ (RIGHT-TO-LEFT OVERRIDE rå) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ‪ (LEFT-TO-RIGHT EMBEDDING) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ⁦ (LEFT-TO-RIGHT ISOLATE) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ⁩ (POP DIRECTIONAL ISOLATE) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ‏ (RIGHT-TO-LEFT MARK) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ؜ (ARABIC LETTER MARK) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ​ (nul-bredde mellemrum) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#xFEFF; (BOM / nul-bredde no-break) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ‎ (LEFT-TO-RIGHT MARK) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ‫ (RIGHT-TO-LEFT EMBEDDING) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ‬ (POP DIRECTIONAL FORMATTING) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ‭ (LEFT-TO-RIGHT OVERRIDE) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ⁧ (RIGHT-TO-LEFT ISOLATE) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ⁨ (FIRST STRONG ISOLATE) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ­ (blød bindestreg) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#xAD; (blød bindestreg som entitet) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ⁪ (INHIBIT SYMMETRIC SWAPPING (U+206A)) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ⁯ (NOMINAL DIGIT SHAPES (U+206F)) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ￹ (INTERLINEAR ANNOTATION ANCHOR (U+FFF9)) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › ￻ (INTERLINEAR ANNOTATION TERMINATOR (U+FFFB)) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › 󠀁 (LANGUAGE TAG (U+E0001)) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › 󠁁󠁿 (tag-tegn «A» + CANCEL TAG) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#xE0020; (TAG SPACE som entitet) fjernes helt fra holdnavnet",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › &#7; (BEL som entitet) bliver til ét mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › \u0007 (BEL rå) bliver til ét mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › \u0000 (NUL rå) bliver til ét mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › \u001b (ESC) bliver til ét mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk ›  (C1-styretegn (NEL)) bliver til ét mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk ›  (C1-styretegn (CSI)) bliver til ét mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › en enlig surrogat i selve strengen (ikke som entitet) bliver U+FFFD",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › også fase, gruppe og hal renses for retningstegn",
+          "status": "passed"
+        },
+        {
+          "name": "rens — entiteter med loft, styre- og retningstegn væk › kampsidens holdnavne renses på samme måde",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › kræver det forventede id: uden { ihfId } er det en programmeringsfejl, ikke en skraberfejl",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › en side for en anden kamp end den, der blev bedt om, kaster (omdirigering / forkert side)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › kampmarkøren skal sige det samme som den kanoniske adresse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › kamp-id'et skal være SIDSTE led i den kanoniske adresse (…/match-center/{id})",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › en nabo-widget med sin egen kampmarkør FØR kampen kaster (Securitys PoC: 35-34 tilskrevet kamp 999999)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › tid, slutscore og perioder FØR resultatkortet tilhører ikke kampen",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › status læses af kampmarkørens eget tag — ikke af en status-attribut tidligere på siden",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › slutscoren to gange i resultatkortet kaster (hvilken er kampens?)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › den lokale tid to gange i resultatkortet kaster (hvilken er kampens?)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › GMT-tiden to gange i resultatkortet kaster (hvilken er kampens?)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › 1. halvleg to gange i resultatkortet kaster (hvilken er kampens?)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › straffekastene to gange i resultatkortet kaster (hvilken er kampens?)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › kortets krop to gange i resultatkortet kaster (hvilken er kampens?)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › en slutscore, der kun står EFTER resultatkortet, tilhører ikke kampen (kortets slutgrænse)",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › kampsidens status læses af kampmarkørens EGET tag — ikke af et element inde i kortet",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › en kampmarkør uden tal-id (match-id=\"abc\") kaster en skraberfejl — ikke TypeError",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › <!-- <div class=\"gammel\"> --> (et «<div» i en HTML-kommentar — udad) forskyder ikke resultatkortets slutgrænse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › <!-- </div> --> (et «</div>» i en HTML-kommentar — indad) forskyder ikke resultatkortets slutgrænse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › <script>var s = '<div>';</script> (et «<div» i et script — udad) forskyder ikke resultatkortets slutgrænse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › <script>var s = '</div>';</script> (et «</div>» i et script — indad) forskyder ikke resultatkortets slutgrænse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › <SCRIPT>var s = '<div>';</SCRIPT> (et script med store bogstaver — udad) forskyder ikke resultatkortets slutgrænse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › <div class=\"x\">y</DIV> (et </DIV> med store bogstaver — udad, hvis det ikke tælles) forskyder ikke resultatkortets slutgrænse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › <DIV class=\"x\">y</div> (et <DIV> med store bogstaver — indad, hvis det ikke tælles) forskyder ikke resultatkortets slutgrænse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › <divider> (et element, hvis navn blot begynder med «div» — udad) forskyder ikke resultatkortets slutgrænse",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › et resultatkort, der aldrig lukkes, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › et resultatkort, hvis sidste </div aldrig får sit «>», kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › en kampmarkør, der ikke står på et <div>, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › afgjort afledes af perioderne: ordinær, forlænget, straffe",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › kun 2. forlængelse scoret (1. forlængelse 0-0) er også «forlaenget»",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › kun udeholdets mål i 1. forlængelse (0-1) er «forlaenget» — ikke ordinær",
+          "status": "passed"
+        },
+        {
+          "name": "parseKampside — siden er bundet til sit kamp-id og sit eget resultatkort › straffe, hvor kun udeholdet scorer (0-1), er «straffe» — også selv om der er spillet forlængelse",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › dagsidens status læses af kampblokkens EGET åbningstag, ikke af et element inde i blokken",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › dagsidens status læses kun af åbningstagget — ikke af blokkens første indre tag",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › dagens sidste kamp låner ikke fase eller hal fra en sidebar efter kampene",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › en kampblok, der aldrig lukkes, kaster",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › fase/gruppe: et «<» lige efter ankeret er ikke feltet — et senere tag lånes ikke",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › score-feltet: et «<» lige efter ankeret er ikke feltet — det næste tags tekst lånes ikke",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › hold-linket: et id, der ikke står LIGE efter «team-matches/», læses ikke",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › en periode: et «<» før periodens «>» er ikke feltet — det næste tags tal lånes ikke",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › kampsidens hal skal stå LIGE efter GMT-tiden — dommernes <span> længere nede er ikke hallen",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › et hold-link, der ikke kan læses, kaster — det er ikke en pladsholder",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › et </a> FØR hold-linket i feltet er ikke navnets slut (søges fra linket)",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › et </span> FØR pladsholderens <span> er ikke navnets slut (søges fra <span>)",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › dagsidens tid trimmes («>  18:00  </time>» er 18:00)",
+          "status": "passed"
+        },
+        {
+          "name": "felterne læses, hvor de hører til — og mellemrum trimmes › kampsidens tider, slutscore og perioder trimmes",
+          "status": "passed"
+        },
+        {
+          "name": "kraevSide — fejlsidens citat › læses kun af sidens første 4 KB — en hel fremmed side renses aldrig",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › dag: dagsidens tid: 200.000 mellemrum uden </time>",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: kampsidens GMT-tid: 200.000 mellemrum uden <small>GMT",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: kampsidens lokale tid: 200.000 mellemrum, intet «<» bagefter",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: kampsidens slutscore: 200.000 mellemrum, intet «<» bagefter",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: kampsidens periode: 200.000 mellemrum, intet «<» bagefter",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › dag: fejlside med 200.000 «<» uden «>» (citatet renses)",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: kampside-fejlside med 200.000 «<» uden «>»",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › dag: holdnavn med 200.000 «<» uden «>»",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › dag: en entitet med 200.000 cifre",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › dag: ATTR (status): status=\" + 200.000 «x» uden afsluttende «\"»",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › dag: TAG_REST (fase): class=\"groupName + 200.000 mellemrum + «<»",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › dag: SCORE_FELT: score-ankeret + 200.000 mellemrum + «<»",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › dag: HOLD_LINK: team-matches/x + 100.000 × «1\"» + «<»",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › dag: indhold (hal): 200.000 «x» uden </p> i kampblokken",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: PERIODE_FELT: periodens tag + 200.000 mellemrum + «<»",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: KORT_ARENA: 200.000 mellemrum efter GMT-tiden, og så ikke <span>",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: resultatkortet med 50.000 «<!--» og intet «-->»",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: resultatkortet med et <script>, der aldrig lukkes",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: MARKOER_ID: kampmarkøren + 200.000 cifre uden afsluttende «\"»",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: forbi: en kommentar i kortet, med et «-->» tidligere på siden",
+          "status": "passed"
+        },
+        {
+          "name": "ReDoS — parseren svarer (kaster eller returnerer) hurtigt på fjendtligt input › kamp: forbi: et script i kortet, med et «</script» tidligere på siden",
+          "status": "passed"
+        },
+        {
+          "name": "divElement — løkken kommer altid videre (fremdriftsvagten) › den rigtige forbi: kommentaren springes over, og elementet findes",
+          "status": "passed"
+        },
+        {
+          "name": "divElement — løkken kommer altid videre (fremdriftsvagten) › en forbi, der svarer «return 0;» (baglæns til sidens start (som søgning fra 0) — uden vagten går løkken i ring), kaster IhfStrukturFejl",
+          "status": "passed"
+        },
+        {
+          "name": "divElement — løkken kommer altid videre (fremdriftsvagten) › en forbi, der svarer «return fra - 4;» (tilbage til selve «<!--» — uden vagten går løkken i ring), kaster IhfStrukturFejl",
+          "status": "passed"
+        },
+        {
+          "name": "divElement — løkken kommer altid videre (fremdriftsvagten) › en forbi, der svarer «return fra;» (blot forbi «<!--», ikke forbi kommentaren — uden vagten tælles kommentarens indhold), kaster IhfStrukturFejl",
+          "status": "passed"
+        },
+        {
+          "name": "feltgrænser og afkodning — huller fra runde 2 › et </div> og et </p> FØR fase- og hal-ankeret er ikke deres slut (søges fra ankeret)",
+          "status": "passed"
+        },
+        {
+          "name": "feltgrænser og afkodning — huller fra runde 2 › et holdfelt uden </div> kaster IhfStrukturFejl — ikke TypeError",
+          "status": "passed"
+        },
+        {
+          "name": "feltgrænser og afkodning — huller fra runde 2 › fejlsidens citat afkortes til 80 tegn — Drift-kortet bærer ikke en hel fremmed tekst",
+          "status": "passed"
+        },
+        {
+          "name": "feltgrænser og afkodning — huller fra runde 2 › &#1; (SOH) er et styretegn og bliver til mellemrum — ikke U+FFFD",
           "status": "passed"
         }
       ]
@@ -19900,6 +22132,214 @@
       ]
     },
     {
+      "file": "functions-platform/manuelFacit.test.js",
+      "area": "platform",
+      "passed": 50,
+      "failed": 0,
+      "tests": [
+        {
+          "name": "saetFacitCore — tør-kørsel er standard og skriver intet › uden dryRun: regner, men skriver ikke",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — skrivningen er facit-kontrakten + mærket, intet andet › skriver result, mål, status, resultatKilde, hvem/hvornår og rydder live, liveMaal og slut",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — skrivningen er facit-kontrakten + mærket, intet andet › afviser at skrive oven i en kamp, der blev ændret imens — med en besked, der siger det",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — skrivningen er facit-kontrakten + mærket, intet andet › skriver intet, når facit allerede står præcis sådan i hånden",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — skrivningen er facit-kontrakten + mærket, intet andet › samme facit som synken satte: skriver mærket (låsen), men ingen point flytter",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — vagterne › afviser en kamp, der ikke er begyndt — tips kan stadig afgives",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — vagterne › accepterer en kamp, hvis kickoff er præcis nu",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — vagterne › afviser en kamp uden læseligt kickoff — og siger, at kickoff er remediet",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — vagterne › afviser mål, der ikke er hele tal",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — vagterne › afviser et slutresultat på en kamp uden knockout (SL har ingen faser)",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — vagterne › afviser et ikke-kampspil og et ukendt spil og en ukendt kamp",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muligt) › uafgjort efter 60 min kræver slutresultat og afgørelse",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muligt) › X står som facit (det, der tippes på), og slut skrives separat",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muligt) › rettes en KO-kamp til et facit i ordinær tid, slettes det gamle slut",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muligt) › ret KUN slutresultatet på en manuel KO-kamp: der er noget at skrive",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muligt) › en UGYLDIG kalender kender ingen knockout: slut afvises, X skrives uden slut",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muligt) › en kamp i en ikke-knockout-fase af samme spil kender ikke slut",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen regner som afregningen › 1X2 skifter: tips, spillere og point-delta = scoreBet efter − gemt før",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen regner som afregningen › henter bets for HELE runden (combi) — men ikke for andre runder",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen regner som afregningen › kun målene rettes (1X2 uændret): intet flytter sig, og der hentes ingen bets",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen regner som afregningen › Runde-Botten poster, når kampen fuldender runden — og ikke, når runden er gjort op før",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen regner som afregningen › Runde-Botten poster ikke, når runden stadig mangler en kamp",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen regner som afregningen › en kamp før spillets startrunde scores aldrig — prognosen siger 0",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen tæller kun dem, triggeren genberegner › d (uden tip på kampen) er IKKE i point-tallene — men står i `senere`",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen tæller kun dem, triggeren genberegner › en spiller uden tip på kampen, hvis combi IKKE flytter sig, står ikke i `senere`",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen tæller kun dem, triggeren genberegner › uden nogen uden for kampen er `senere` 0 — også når 1X2 er uændret",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — prognosen tæller kun dem, triggeren genberegner › prognosen og triggeren bruger SAMME udvælgelses-funktion",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — tør-kørslens aftryk binder skrivningen › et skrive-kald UDEN aftryk afvises — og skriver intet",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — tør-kørslens aftryk binder skrivningen › har synken sat facit siden tør-kørslen, afvises skrivningen med en dansk besked",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — tør-kørslens aftryk binder skrivningen › nye odds eller et nyt mærke siden tør-kørslen afviser også",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — tør-kørslens aftryk binder skrivningen › en live-stilling, der skrives imens, afviser IKKE",
+          "status": "passed"
+        },
+        {
+          "name": "saetFacitCore — tør-kørslens aftryk binder skrivningen › aftrykket afhænger ikke af nøglernes rækkefølge",
+          "status": "passed"
+        },
+        {
+          "name": "frigivFacitCore — lad synken overtage igen › fjerner mærket og hvem/hvornår, men lader facit stå",
+          "status": "passed"
+        },
+        {
+          "name": "frigivFacitCore — lad synken overtage igen › tør-kørsel er standard og skriver intet",
+          "status": "passed"
+        },
+        {
+          "name": "frigivFacitCore — lad synken overtage igen › rører ikke en kamp, synken allerede ejer",
+          "status": "passed"
+        },
+        {
+          "name": "tilHttpsFejl › oversætter kernens fejl med SAMME besked — og lader programfejl gå uændret igennem",
+          "status": "passed"
+        },
+        {
+          "name": "tilHttpsFejl › invalid-argument: koden og beskeden bevares",
+          "status": "passed"
+        },
+        {
+          "name": "tilHttpsFejl › not-found: koden og beskeden bevares",
+          "status": "passed"
+        },
+        {
+          "name": "tilHttpsFejl › failed-precondition: koden og beskeden bevares",
+          "status": "passed"
+        },
+        {
+          "name": "tilHttpsFejl › en ukendt kode slipper uoversat igennem",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › saetFacitManuelt: requireAdmin, dryRunFraKald, saetFacitCore og fejl-oversættelsen",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › frigivFacitTilSynk: requireAdmin, dryRunFraKald, frigivFacitCore og fejl-oversættelsen",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › sweep-løkkens strandede-kort bøjer «1 kamp» (ikke «1 kampe»)",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › saetFacitManuelt sender tør-kørslens aftryk videre til kernen",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › saetFacitManuelt har sit eget timeout-loft",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › saetFacitManuelt sender kalderens uid — ikke et felt fra klienten",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › sweep'et kører facit-vagten for spil uden synk FØR løkken over de synkede",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › facit-vagtens Drift-kort er ledt gennem skrivDriftStatus med sweep'ets frist",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › sweep'ets strandede-sti trækker de netop rettede kampe fra",
+          "status": "passed"
+        },
+        {
+          "name": "index.js: ledningen til kernerne › sweep'et fører synkens manuelleUenige videre til sit Drift-kort",
+          "status": "passed"
+        }
+      ]
+    },
+    {
       "file": "functions-platform/paamindelsesGate.test.js",
       "area": "platform",
       "passed": 5,
@@ -20850,7 +23290,7 @@
     {
       "file": "functions-platform/superligaScoring.test.js",
       "area": "platform",
-      "passed": 23,
+      "passed": 34,
       "failed": 0,
       "tests": [
         {
@@ -20942,7 +23382,51 @@
           "status": "passed"
         },
         {
+          "name": "sportsprofilen: server-spejlet er identisk med src › samme register, samme standard, samme profil for hvert spil",
+          "status": "passed"
+        },
+        {
+          "name": "sportsprofilen: server-spejlet er identisk med src › ukendtSport: samme svar som src — og manglende felt er IKKE ukendt",
+          "status": "passed"
+        },
+        {
+          "name": "sportsprofilen: server-spejlet er identisk med src › visSport: tal som sig selv (også NaN/Infinity), alt andet som JSON — og samme svar som src",
+          "status": "passed"
+        },
+        {
+          "name": "sportsprofilen: server-spejlet er identisk med src › hver profil har præcis nøglerne sport/elo/odds, elo som ELO og odds.min endeligt > 1",
+          "status": "passed"
+        },
+        {
+          "name": "sportsprofilen: server-spejlet er identisk med src › oddsParametre afviser et gulv, der ikke er et endeligt tal over 1 — ens med src",
+          "status": "passed"
+        },
+        {
+          "name": "sportsprofilen: server-spejlet er identisk med src › fodbold er bygget af ELO/ODDS, har dagens tal og er frosset",
+          "status": "passed"
+        },
+        {
+          "name": "sportsprofilen: server-spejlet er identisk med src › samme oversættelse til odds- og Elo-parametre — også for en profil med andre tal",
+          "status": "passed"
+        },
+        {
+          "name": "sportsprofilen: server-spejlet er identisk med src › outcomeOdds bruger oddsMin ens — der, hvor gulvet binder",
+          "status": "passed"
+        },
+        {
+          "name": "sportsprofilen: server-spejlet er identisk med src › outcomeOdds bruger oddsMin ens — også for uafgjort",
+          "status": "passed"
+        },
+        {
+          "name": "sportsprofilen: server-spejlet er identisk med src › outcomeOdds bruger oddsMin ens — også for UDE-favoritten",
+          "status": "passed"
+        },
+        {
           "name": "puljeScore — perfekt-bonus-vagt (server, spejlet) › flere picks end antal giver ikke gratis perfekt-bonus (TM-fund)",
+          "status": "passed"
+        },
+        {
+          "name": "sportOrd: server-spejlet er identisk med src › samme register og samme opslag",
           "status": "passed"
         }
       ]
@@ -20950,7 +23434,7 @@
     {
       "file": "functions-platform/superligaSync.test.js",
       "area": "platform",
-      "passed": 144,
+      "passed": 154,
       "failed": 0,
       "tests": [
         {
@@ -21003,6 +23487,46 @@
         },
         {
           "name": "syncResultsCore › kaster ved API-fejl",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore › skriver præcis de samme felter som før kontrakten — intet slut, intet mærke",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore — kampe med facit sat i hånden › overskriver IKKE en manuelt sat kamp, selv om kilden siger noget andet",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore — kampe med facit sat i hånden › en manuel kamp, kilden er ENIG i, tælles — men ikke som uenig",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore — kampe med facit sat i hånden › uenig på kun udeholdets mål med samme 1X2 tælles som uenig",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore — kampe med facit sat i hånden › uenig, når kun 1X2 i hånden modsiger kilden (mål ens)",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore — kampe med facit sat i hånden › en kamp, der sættes i hånden mellem læsning og skrivning, røres ikke — de andre skrives",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore — kampe med facit sat i hånden › uden kapløb skrives som altid — én transaktion, ingen batch",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore — kampe med facit sat i hånden › intet at skrive → ingen transaktion (ingen ekstra læsninger)",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore — kampe med facit sat i hånden › tomme mål-strenge fra kilden giver INTET facit (før: X med mål '')",
+          "status": "passed"
+        },
+        {
+          "name": "syncResultsCore — kampe med facit sat i hånden › en kamp uden mærket — eller med et andet mærke — synkes som altid",
           "status": "passed"
         },
         {
@@ -21534,7 +24058,7 @@
     {
       "file": "functions-platform/syncProviders.test.js",
       "area": "platform",
-      "passed": 71,
+      "passed": 74,
       "failed": 0,
       "tests": [
         {
@@ -21551,6 +24075,18 @@
         },
         {
           "name": "SYNCED_GAMES ⇄ scripts/games.mjs › hvert games.mjs-spil med en IMPLEMENTERET provider er med i synken",
+          "status": "passed"
+        },
+        {
+          "name": "SYNCED_GAMES ⇄ scripts/games.mjs › klientens RESULTAT_PROVIDERE er præcis de implementerede providere",
+          "status": "passed"
+        },
+        {
+          "name": "SYNCED_GAMES ⇄ scripts/games.mjs › for hvert games.mjs-kampspil: harResultatSynk ⇔ med i SYNCED_GAMES",
+          "status": "passed"
+        },
+        {
+          "name": "SYNCED_GAMES ⇄ scripts/games.mjs › en provider på dokumentet, serveren ikke har, er ikke synk nogen steder",
           "status": "passed"
         },
         {
