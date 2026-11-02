@@ -83,6 +83,13 @@ skrives kun, når spillet ikke har dem (første seed). Har spillet dem, prises n
 kampe af spillets EGEN holdliste, og tør-kørslen siger «teams BEVARES» og
 «eloCurrent BEVARES» — og viser hver feltændring, hvis filens holdliste er
 drevet fra spillets.
+
+**Nye kampe prises af start-Elo, ikke af den levende Elo.** Seedet bruger
+`teams[].elo` (startværdierne), aldrig `eloCurrent`. Seedes en ny fase midt i
+sæsonen (fx næste fase seedet i hånden), står de nye kampe derfor med
+start-odds. De får levende odds ved næste facit — eller tryk **💰 Ompris**
+(Admin → 🗓️ Spil-tidsplan) og skriv ændringerne.
+
 Skal holdlisten med elo eller antal hold virkelig overskrives, så kør med
 `--overskriv-hold` **lokalt**, med produktionsnøglen i
 `GOOGLE_APPLICATION_CREDENTIALS` som i eksemplet ovenfor (der er med vilje intet
@@ -709,7 +716,9 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   dem**. Før blev de skrevet ved hver kørsel, også når nul kampe blev skrevet:
   `eloCurrent` blev sat tilbage til sæsonstart, og `teams` (med `teams[].elo`,
   seed for den levende Elo) blev erstattet af filens liste uden forhåndsvisning.
-  Nu er en kørsel midt i sæsonen en skrivning af kampe og intet andet.
+  Nu er en kørsel midt i sæsonen en skrivning af kampe og intet andet. De nye
+  kampe prises af start-Elo i `teams[].elo`, ikke af den levende Elo (se «Seed
+  et nyt fodbold-spil»).
   Holdfarver **og visningsnavne** redigeret i admin ligger begge i `teamStyles`
   og røres ikke.
 - `seedKampe` (default false, med `seedSpil` og `seedKampeSkriv`) — samme fulde

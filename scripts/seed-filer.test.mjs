@@ -50,6 +50,14 @@ describe('SEED_FILER — opslaget', () => {
     });
   });
 
+  // O11/O11b: begge frysnings-lag kunne fjernes med grøn suite. Opslaget er
+  // det, et workflow-trin skriver i produktion ud fra — det må ikke kunne
+  // ændres af en importør i samme proces.
+  it('opslaget er frosset — både ydre objekt og hver post', () => {
+    expect(Object.isFrozen(SEED_FILER)).toBe(true);
+    for (const [id, post] of Object.entries(SEED_FILER)) expect(Object.isFrozen(post), id).toBe(true);
+  });
+
   it('hver post peger på filer, der findes, med en læselig holdliste og et læseligt program', async () => {
     for (const [id, post] of Object.entries(SEED_FILER)) {
       expect(Object.keys(post).every((k) => ['teams', 'fixtures', 'runder'].includes(k)), id).toBe(true);
@@ -140,6 +148,19 @@ describe('docs/drift.md bærer den vej, fejlbeskederne peger på', () => {
     expect(afsnit).toMatch(/`--overskriv-hold` \*\*lokalt\*\*, med produktionsnøglen i\n`GOOGLE_APPLICATION_CREDENTIALS`/);
     expect(afsnit).toMatch(/intet\nworkflow-input til det/);
   });
+
+  // QC-fund: D6 blev begrundet med, at nye kampe prises af den levende Elo.
+  // Seedet priser af start-Elo i teams[].elo — og drift.md skal sige det, for
+  // det er nødvejen «seed næste fase i hånden», operatøren står i.
+  it('seed-afsnittet siger, at nye kampe prises af start-Elo, og hvordan de får levende odds', () => {
+    const afsnit = /^## Seed et nyt fodbold-spil\n([\s\S]*?)^## /m.exec(DRIFT)?.[1] ?? '';
+    expect(afsnit).toContain(
+      '**Nye kampe prises af start-Elo, ikke af den levende Elo.** Seedet bruger\n'
+      + '`teams[].elo` (startværdierne), aldrig `eloCurrent`.',
+    );
+    expect(afsnit).toMatch(/De får levende odds ved næste facit — eller tryk \*\*💰 Ompris\*\*\n\(Admin → 🗓️ Spil-tidsplan\) og skriv ændringerne\./);
+    expect(DRIFT).not.toMatch(/prises af (den levende Elo|eloCurrent)/);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -210,6 +231,26 @@ describe('deploy-platform.yml — seed-trinnene slår op, de vælger ikke selv',
     expect(t.run).not.toMatch(/--overskriv-hold/);
   });
 
+  // Y1-Y3/Y3b: `default: true` på et skriv-flueben (eller et seed-trin)
+  // overlevede med hele suiten grøn — testen herunder læser kun `run:`. Men
+  // defaulten ER vagten: det er den, operatøren får uden at tage stilling, og
+  // den eneste ting mellem første klik og skrevne tip-deadlines og odds.
+  it('alle skriv-flueben og seed-trin er boolean med default false', () => {
+    const blok = /^ {4}inputs:\n((?: {6,}.*\n|\n)+)/m.exec(YML)?.[1] ?? '';
+    const inputs = new Map(
+      [...blok.matchAll(/^ {6}([A-Za-z]+):\n((?: {8}.*\n)+)/gm)].map((m) => [m[1], m[2]]),
+    );
+    const skriv = [...inputs.keys()].filter((n) => /Skriv$/.test(n)).sort();
+    // Listen er FAST: et nyt skriv-flueben skal med her, ikke slippe udenom.
+    expect(skriv).toEqual(['seedKampeSkriv', 'seedKickoffsSkriv', 'seedTeamsSkriv']);
+    for (const navn of [...skriv, 'seedKampe', 'seedKickoffs', 'seedTeams', 'seedSuperliga', 'seedGames']) {
+      const felter = (inputs.get(navn) ?? '').split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
+      expect(felter, navn).toMatch(/^ {8}type: boolean$/m);
+      expect(felter, navn).toMatch(/^ {8}default: false$/m);
+      expect(felter, navn).not.toMatch(/^ {8}default: (?!false$)/m);
+    }
+  });
+
   it('hvert trin tørkører, indtil SIT EGET skriv-flueben er sat', () => {
     for (const [input, skriv] of [['seedKampe', 'seedKampeSkriv'], ['seedKickoffs', 'seedKickoffsSkriv'], ['seedTeams', 'seedTeamsSkriv']]) {
       const t = efterHvis(input);
@@ -221,6 +262,9 @@ describe('deploy-platform.yml — seed-trinnene slår op, de vælger ikke selv',
     expect(efterHvis('seedKickoffs').run).toMatch(/--kickoffs-only\b/);
     const kampe = efterHvis('seedKampe').run;
     expect(kampe).not.toMatch(/--(teams|kickoffs)-only|--overskriv-hold/);
+    // Y9b: --overskriv-hold har med vilje intet workflow-input — heller ikke
+    // på et af de andre trin (drift.md: det køres lokalt).
+    for (const t of seedTrin) expect(t.run, t.navn).not.toMatch(/--overskriv-hold/);
   });
 
   it('seedSpil er en STRENG med Superligaen som default — ikke en fast liste, der skal spejle games.mjs', () => {
@@ -255,6 +299,21 @@ describe('deploy-platform.yml — seed-trinnene slår op, de vælger ikke selv',
     const teams = /^ {6}seedTeams:\n(?: {8}#.*\n)*\s{8}description: '([^']*)'/m.exec(YML)?.[1] ?? '';
     expect(teams).toMatch(/\(trøjefarver, stadion\)/);
     expect(teams).toMatch(/afviser ændret elo, kortkode eller antal hold/);
+  });
+
+  // Y19/Y21: labelen er det ENESTE, operatøren ser i klik-øjeblikket, og de to
+  // labels kunne skrives om til noget forkert med grøn suite.
+  it('seedKampes og seedKickoffs labels siger, hvad trinnet rører — og hvad det lader være', () => {
+    const label = (navn) => new RegExp(`^ {6}${navn}:\\n(?: {8}#.*\\n)*\\s{8}description: '([^']*)'`, 'm').exec(YML)?.[1] ?? '';
+    expect(label('seedKampe')).toBe(
+      'Seed kampprogrammet for spillet i seedSpil (kampe, der allerede har odds, springes over). '
+      + 'Holdliste og eloCurrent skrives kun, hvis spillet ikke har dem.',
+    );
+    expect(label('seedKickoffs')).toBe(
+      'Ret KUN kickoff-tider fra kampprogram-filen for spillet i seedSpil (rører hverken odds, Elo eller resultater)?',
+    );
+    // Før var kickoff-trinnet låst til Superligaen; labelen må ikke sige det.
+    for (const n of ['seedKampe', 'seedKickoffs']) expect(label(n), n).not.toMatch(/[Ss]uperliga/);
   });
 
   it('holder sig under GitHubs loft på 25 inputs', () => {

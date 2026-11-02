@@ -162,10 +162,15 @@ export function tjekFlagKombination(flags) {
  *     for `recomputeSeasonElo`, så en fil, der var drevet fra produktionen,
  *     ville tavst omskrive sæsonens Elo-historik og prisen på hver ulåst kamp
  *     ved næste facit.
- *   - `eloCurrent` blev sat tilbage til startværdierne. Feltet har i dag ingen
- *     læser (se `teamsPlan`), men næste fases kampe skal prises af det
- *     (håndbold-planen, D9) — og så ville hvert gen-seed nulstille den levende
- *     Elo, som de nye kampe prises af.
+ *   - `eloCurrent` blev sat tilbage til startværdierne. Den levende Elo-tabel
+ *     (som `recomputeSeasonElo` ejer) blev altså overskrevet med tal, ingen
+ *     havde bedt om, og stod forkert indtil næste facit.
+ *
+ * Seedet PRISER IKKE af `eloCurrent` — hverken før eller nu. Nye kampe prises
+ * af START-Elo i `teams[].elo` (`prisHold`, sendt til `seedKampe`). Seedes en
+ * ny fase midt i en sæson, får dens kampe derfor start-odds, indtil
+ * `recomputeSeasonElo` genpriser de ulåste kampe: ved næste facit, eller når
+ * admin trykker 💰 Ompris (Admin → 🗓️ Spil-tidsplan) og skriver ændringerne.
  *
  * Reglen er derfor: hvert felt skrives KUN, når spillet ikke har det (første
  * seed), eller når operatøren beder om det med `--overskriv-hold`. Ellers

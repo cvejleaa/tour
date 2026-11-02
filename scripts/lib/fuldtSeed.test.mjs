@@ -48,6 +48,10 @@ const FX = [
   { round: 2, home: 'Svag', away: 'Stærk', kickoff: '2026-08-08T17:00:00Z' },
 ];
 
+// `overskrivHold` sendes KUN, når testen selv giver den. Ellers kører hvert
+// kald på funktionens EGEN default — det er den, der gør «overskriv» til et
+// aktivt valg. (Mutationsfund F30: med nøglen altid sendt kunne default'en
+// vendes til `true` med hele suiten grøn.)
 const koer = (db, o = {}) => {
   const log = [];
   return koerFuldtSeed({
@@ -58,7 +62,7 @@ const koer = (db, o = {}) => {
     eksisterende: o.eksisterende ?? new Map(),
     teams: o.teams ?? FIL_HOLD,
     skriv: o.skriv ?? true,
-    overskrivHold: o.overskrivHold ?? false,
+    ...(Object.hasOwn(o, 'overskrivHold') ? { overskrivHold: o.overskrivHold } : {}),
     serverTimestamp: 'NU',
     tilTimestamp: (ms) => ({ ms }),
     log: (s) => log.push(s),
@@ -88,9 +92,14 @@ describe('koerFuldtSeed — spil-dokumentet', () => {
     expect(db.gameKald).toHaveLength(0);
     expect(db.batchKald).toHaveLength(2);
     expect(db.commits()).toBe(1);
+    expect(r.skrevet).toBe(true);
     for (const k of db.batchKald) {
       expect(k.data).not.toHaveProperty('teams');
       expect(k.data).not.toHaveProperty('eloCurrent');
+      // `merge` er stedets eneste vagt mod at slette felter på en kamp, der
+      // står i forvejen (F9) — og updatedAt skal følge med (F9b).
+      expect(k.opts).toEqual({ merge: true });
+      expect(k.data.updatedAt).toBe('NU');
     }
     expect(r.dok.grund).toBe('bevar');
     expect(r.log).toMatch(/teams BEVARES \(spillet har 2 hold\)/);
@@ -98,6 +107,32 @@ describe('koerFuldtSeed — spil-dokumentet', () => {
     expect(r.log).toMatch(/Kun kampe skrives/);
     expect(r.log).not.toMatch(/første seed/);
     expect(r.log).not.toMatch(/OVERSKRIVES/);
+  });
+
+  // Kaldet UDEN nøglen: funktionens egen default skal være «bevar».
+  it('et kald uden overskrivHold rører ikke spil-dokumentet ved et gen-seed', async () => {
+    const db = fakeDb({ teams: SPIL_HOLD, eloCurrent: LEVENDE_ELO });
+    const log = [];
+    await koerFuldtSeed({
+      gameRef: db.gameRef, matchesRef: db.matchesRef, batch: db.batch, fixtures: FX,
+      eksisterende: new Map(), teams: FIL_HOLD, skriv: true,
+      serverTimestamp: 'NU', tilTimestamp: (ms) => ({ ms }), log: (s) => log.push(s),
+    });
+    expect(db.gameKald).toHaveLength(0);
+    expect(log.join('\n')).not.toMatch(/OVERSKRIVES/);
+  });
+
+  // QC-fund: kommentaren begrundede D6 med, at nye kampe prises af den
+  // levende Elo. Koden priser af start-Elo i teams[].elo — loggen skal sige
+  // det, og pege på de to veje til levende odds.
+  it('gen-seedets log siger, at nye kampe prises af START-Elo og får levende odds ved facit/Ompris', async () => {
+    const r = await koer(fakeDb({ teams: SPIL_HOLD, eloCurrent: LEVENDE_ELO }), { skriv: false });
+    expect(r.log).toContain(
+      '  Kun kampe skrives. Nye kampe prises af START-Elo i spillets holdliste (teams[].elo),\n'
+      + '  ikke af den levende eloCurrent. Levende odds får de ved næste facit — eller tryk\n'
+      + '  💰 Ompris (Admin → 🗓️ Spil-tidsplan) og skriv ændringerne.',
+    );
+    expect(r.log).not.toMatch(/prises af (den levende|eloCurrent)/);
   });
 
   it('gen-seed prissætter nye kampe med SPILLETS holdliste, ikke filens', async () => {
@@ -238,6 +273,17 @@ describe('koerFuldtSeed — vagterne', () => {
     expect(r.log).toMatch(/1 hold i holdlisten har ingen elo, der er et tal:\n {3}Svag \(—\)/);
   });
 
+  // NaN ER typeof 'number' — et tjek på typen alene lader den slippe igennem
+  // (F19b), og teamElo giver så START, mens den levende Elo regner med NaN.
+  it('en NaN-elo fanges som «ikke et tal» og afvises under --skriv', async () => {
+    const spil = [{ ...SPIL_HOLD[0], elo: NaN }, SPIL_HOLD[1]];
+    const r = await koer(fakeDb({ teams: spil, eloCurrent: LEVENDE_ELO }), { skriv: false });
+    expect(r.log).toMatch(/1 hold i spillets holdliste \(games\/sl-test\.teams\) har ingen elo, der er et tal:\n {3}Stærk \(null\)/);
+    const db = fakeDb({ teams: spil, eloCurrent: LEVENDE_ELO });
+    await expect(koer(db)).rejects.toThrow(/Hold uden en elo, der er et tal/);
+    expect(db.batchKald).toHaveLength(0);
+  });
+
   it('gyldige tal-elo giver ingen advarsel', async () => {
     const r = await koer(fakeDb({}), { skriv: false });
     expect(r.log).not.toMatch(/ingen elo, der er et tal/);
@@ -278,10 +324,39 @@ describe('koerFuldtSeed — vagterne', () => {
     expect(db.gameKald).toHaveLength(0);
   });
 
+  it('har ALLE kampe frosne odds, committes der ingen tom batch', async () => {
+    const db = fakeDb({ teams: SPIL_HOLD, eloCurrent: LEVENDE_ELO });
+    const eks = new Map(FX.map((f) => [matchId(f), { odds: { 1: 1.5, X: 4, 2: 6 } }]));
+    const r = await koer(db, { eksisterende: eks });
+    expect(r.nye).toBe(0);
+    expect(db.batchKald).toHaveLength(0);
+    expect(db.commits()).toBe(0);
+    expect(r.skrevet).toBe(true);
+  });
+
   it('kickoff skrives som tidsstempel fra kickoffMs, ikke som streng', async () => {
     const db = fakeDb({});
     await koer(db);
     expect(db.batchKald[0].data.kickoff).toEqual({ ms: Date.UTC(2026, 7, 1, 17) });
+  });
+
+  // F18: `Timestamp.fromMillis(null)` ville give et tidsstempel (epoch) — en
+  // tip-deadline i fortiden, så kampen var låst fra fødslen. En kamp uden
+  // tidspunkt skal skrives med `kickoff: null`, og tilTimestamp må ikke kaldes.
+  it('en kamp uden kickoff skrives med kickoff: null — tilTimestamp kaldes ikke', async () => {
+    for (const kickoff of [null, '', undefined]) {
+      const db = fakeDb({});
+      const kald = [];
+      const fx = [{ round: 1, home: 'Stærk', away: 'Svag', kickoff }];
+      await koerFuldtSeed({
+        gameRef: db.gameRef, matchesRef: db.matchesRef, batch: db.batch, fixtures: fx,
+        eksisterende: new Map(), teams: FIL_HOLD, skriv: true, serverTimestamp: 'NU',
+        tilTimestamp: (ms) => { kald.push(ms); return { ms }; },
+      });
+      expect(db.batchKald, String(kickoff)).toHaveLength(1);
+      expect(db.batchKald[0].data, String(kickoff)).toHaveProperty('kickoff', null);
+      expect(kald, String(kickoff)).toEqual([]);
+    }
   });
 
   it('et sat-men-ukendt sport afvises, før noget skrives', async () => {
@@ -302,6 +377,36 @@ describe('seed-football.mjs — ledningen til opslaget, vagten og forløbet', ()
 
   it('argumenterne går gennem opslaget og kombinationstjekket, før noget andet', () => {
     expect(kode).toMatch(/args = udfyldFraOpslag\(parseArgs\(process\.argv\.slice\(2\)\)\);\n\s*tjekFlagKombination\(args\.flags\);/);
+  });
+
+  // Mutationsfund P6-P13: regex-vagten bandt kun de to flag. Resten af kaldet
+  // kunne ændres med grøn suite — `eksisterende: new Map()` ville skrive alle
+  // frosne odds om (præcis den fælde, D6 lukkede), `fixtures: []` ville skrive
+  // intet og melde succes. Derfor bindes HELE kaldet, linje for linje.
+  it('HELE kaldet til koerFuldtSeed er bundet — hvert argument, intet ekstra', () => {
+    const kald = /await koerFuldtSeed\(\{\n([\s\S]*?)\n\s*\}\);/.exec(kode)?.[1] ?? '';
+    expect(kald.split('\n').map((l) => l.trim())).toEqual([
+      'gameRef,',
+      'matchesRef,',
+      'batch: db.batch(),',
+      'fixtures,',
+      'eksisterende,',
+      'teams,',
+      'skriv: SKRIV,',
+      'overskrivHold: OVERSKRIV_HOLD,',
+      'serverTimestamp: FieldValue.serverTimestamp(),',
+      'tilTimestamp: (ms) => Timestamp.fromMillis(ms),',
+      'log: (s) => console.log(s),',
+    ]);
+  });
+
+  it('… og de navngivne værdier er de rigtige: hele programmet i intervallet, kampene der står, filens hold', () => {
+    // Intervallet (P13): uden det får PL-efterårsspillet alle 38 runder.
+    expect(kode).toMatch(/^\s*fixtures = iInterval\(fixtures, interval\);$/m);
+    expect(kode).toMatch(/^\s*const eksisterende = new Map\(\);\n\s*const snap = await matchesRef\.get\(\);\n\s*for \(const d of snap\.docs\) eksisterende\.set\(d\.id, d\.data\(\)\);$/m);
+    expect(kode).toMatch(/^\s*const gameRef = db\.collection\('games'\)\.doc\(GAME_ID\);\n\s*const matchesRef = gameRef\.collection\('matches'\);$/m);
+    expect(kode).toMatch(/^\s*return fuldtSeed\(fixtures, gameRef, matchesRef, eksisterende\);$/m);
+    expect(kode).toMatch(/^async function fuldtSeed\(fixtures, gameRef, matchesRef, eksisterende\) \{\n\s*const teams = await loadTeams\(TEAMS_PATH\);$/m);
   });
 
   it('flagene læses af argumenterne og sendes uændret til forløbet', () => {

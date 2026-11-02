@@ -169,7 +169,15 @@ function logSpilDok({ dok, game, teams, log }) {
     else log(`  teams BEVARES (spillet har ${game.teams.length} hold).`);
     if (dok.skrivElo) log(`  eloCurrent mangler på spillet — skrives fra ${dok.skrivTeams ? 'holdlisten' : 'spillets holdliste'}.`);
     else log(`  eloCurrent BEVARES (levende Elo for ${antalElo(game.eloCurrent)} hold).`);
-    if (!dok.skrivTeams && !dok.skrivElo) log('  Kun kampe skrives. Kampene prises af spillets egen holdliste.');
+    // Nye kampe prises af START-Elo i `teams[].elo` (dok.prisHold), IKKE af
+    // den levende eloCurrent — seedKampe får holdlisten, aldrig eloCurrent.
+    // Midt i en sæson (fx næste fase seedet i hånden) står de nye kampe derfor
+    // med start-odds, indtil recomputeSeasonElo genpriser de ulåste kampe.
+    if (!dok.skrivTeams && !dok.skrivElo) {
+      log('  Kun kampe skrives. Nye kampe prises af START-Elo i spillets holdliste (teams[].elo),');
+      log('  ikke af den levende eloCurrent. Levende odds får de ved næste facit — eller tryk');
+      log('  💰 Ompris (Admin → 🗓️ Spil-tidsplan) og skriv ændringerne.');
+    }
     // En DELVIS eloCurrent tæller som "har den" (spilDokPlan) og bevares — men
     // et hold uden nøgle har ingen levende Elo. Feltet har i dag ingen læser;
     // det får det, når håndboldens odds prises af den levende Elo. Seedet
