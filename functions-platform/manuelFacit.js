@@ -152,7 +152,12 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
     udfaldSkifter, gatet, eloFlytter: udfaldSkifter, botPoster: false,
     point: { tips: 0, aendredeTips: 0, spillere: 0, iAlt: 0, combi: 0 },
   };
-  if (!udfaldSkifter || gatet) return tom;
+  if (!udfaldSkifter) return tom;
+  // INGEN egen vagt for en gatet kamp: gaten er hele runder (startGate.js),
+  // så en gatet kamp falder ud af `taelles` og bets-filteret nedenfor og giver
+  // 0 af sig selv — præcis som i afregningen. En ekstra `|| gatet` her var
+  // en anden vagt om samme regel og kunne fjernes med grøn suite (fundet ved
+  // mutation); ÉN vagt pr. regel, så en mutation af den bliver rød.
 
   const taelles = alle.filter((m) => !gated.has(m.id));
   const efterKampe = taelles.map((m) => (m.id === kamp.id ? { ...m, ...felter } : m));
@@ -160,7 +165,9 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
   const ctxEfter = buildRoundContext(efterKampe);
 
   const ids = runde == null ? [kamp.id] : taelles.filter((m) => m.round === runde).map((m) => m.id);
-  const bets = (await betsPaaKampe(db, game.id, ids)).filter((b) => !gated.has(b.matchId));
+  // Kun ikke-gatede kampe er med i `ids` (taelles), så bets på en gatet kamp
+  // hentes slet ikke — ét filter, ikke to.
+  const bets = await betsPaaKampe(db, game.id, ids);
 
   const perUid = new Map();
   const tilfoej = (uid, d) => perUid.set(uid, round1((perUid.get(uid) || 0) + d));
