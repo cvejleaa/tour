@@ -18,6 +18,7 @@ import { groupByRound, activeRound } from '../games/football/footballRounds';
 import { fraStartRunde, startRundeFor } from '../../lib/startGate';
 import { formatKickoff } from '../../lib/daDate';
 import { GAME_STATUS } from '../../lib/constants';
+import { rundeOrdene, rundeEtiket } from '../../lib/faser';
 
 export default function GameReminderTab() {
   const { games, loading } = useGames();
@@ -58,6 +59,9 @@ export default function GameReminderTab() {
   // for samme spil. Tip-status og pulje-status er IKKE påmindelser og virker
   // stadig (QC-fund på planen: gaten må ikke tage dem med i faldet).
   const kanPaamindes = forventerPaamindelser(valgtSpil);
+  // «Dag» og dagens navn i en turnering med fasekalender — dér er «runde» et
+  // fase-ord. Uden kalender: «Runde» og rundenummeret, præcis som før.
+  const o = rundeOrdene(valgtSpil);
   const paused = valgtSpil?.paused === true;
 
   // Pausen læses direkte af spillet — ikke af en lokal kopi. Knappen skriver
@@ -151,7 +155,7 @@ export default function GameReminderTab() {
       <div className="form-group" style={{ maxWidth: 340 }}>
         <label className="form-label" htmlFor="reminder-game">Spil</label>
         {eligible.length === 0 ? (
-          <p style={{ color: 'var(--c-muted)' }}>Ingen aktive fodbold-spil.</p>
+          <p style={{ color: 'var(--c-muted)' }}>Ingen aktive kampspil.</p>
         ) : (
           <select id="reminder-game" className="select" value={gameId} onChange={(e) => setGameId(e.target.value)}>
             {eligible.map((g) => <option key={g.id} value={g.id}>{g.emoji ? `${g.emoji} ` : ''}{g.name}</option>)}
@@ -223,16 +227,20 @@ export default function GameReminderTab() {
         {tipStatus && (
           <div data-testid="tipstatus-resultat">
             <div className="flex items-center" style={{ gap: '0.5rem', flexWrap: 'wrap', marginBottom: 6 }}>
-              <label htmlFor="tipstatus-runde" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Runde</label>
+              <label htmlFor="tipstatus-runde" style={{ fontSize: '0.85rem', fontWeight: 600 }}>{o.Runde}</label>
               <select
                 id="tipstatus-runde" className="select" style={{ width: 'auto' }}
                 value={tipStatus.runde} disabled={busy}
                 onChange={(e) => tjekTipStatus(Number(e.target.value))}
               >
-                {tipRunder.map((r) => <option key={r.round} value={r.round}>{r.round}</option>)}
+                {tipRunder.map((r) => (
+                  <option key={r.round} value={r.round}>
+                    {o.runde === 'runde' ? r.round : `${r.round} · ${rundeEtiket(valgtSpil, r.round)}`}
+                  </option>
+                ))}
               </select>
               <span style={{ fontSize: '0.85rem', color: 'var(--c-muted)' }}>
-                {tipStatus.kampeIRunden} kampe i runden
+                {tipStatus.kampeIRunden} kampe {o.iRunden}
               </span>
             </div>
             {/* Knappens EGET tal — kortets runde-tal kan være større, og de to
@@ -240,10 +248,10 @@ export default function GameReminderTab() {
             <p style={{ fontSize: '0.82rem', margin: '0 0 0.5rem' }} data-testid="tipstatus-knaptal">
               ⚡ <em>Send påmindelser nu</em> rammer lige nu <strong>{tipStatus.rammesAfKnappenNu}</strong>
               {' '}spiller{tipStatus.rammesAfKnappenNu === 1 ? '' : 'e'} — den rykker kun for kampe
-              inden for det <strong>næste døgn</strong>, ikke for hele runden.
+              inden for det <strong>næste døgn</strong>, ikke for hele {o.runden}.
             </p>
             {tipStatus.spillere.every((s) => s.manglende.length === 0) ? (
-              <span className="badge badge--green">Alle har tippet hele runden 🎉</span>
+              <span className="badge badge--green">Alle har tippet hele {o.runden} 🎉</span>
             ) : (
               tipStatus.spillere.map((s) => (
                 <div key={s.uid} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center', padding: '0.15rem 0' }}>

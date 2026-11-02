@@ -15,6 +15,7 @@ import { describe, it, expect } from 'vitest';
 import {
   ELO, ODDS, OUTCOME, SPORT_PROFILER, STANDARD_SPORT, sportProfil, ukendtSport, oddsParametre, eloParametre,
   outcomeOdds, outcomeProbabilities, fairOdds, updateElo, SPORT_ORD, sportOrd,
+  SPORT_EVNER, sportEvner, harHjemmebane,
 } from './superligaScoring';
 import { buildMatch, buildMatches, teamElo } from './superligaSeed';
 import { pointModForventning } from '../features/games/football/holdStatistik';
@@ -428,12 +429,14 @@ describe('sportOrd — hvad tingene hedder i sporten', () => {
   it('fodboldens ord er dagens — literaler, så en ændring bliver rød', () => {
     expect(sportOrd()).toEqual({
       sport: 'fodbold', rundeKonge: 'Rundekongen', rundeSejr: 'rundesejr', rundeSejre: 'rundesejre',
+      ordinaerTid: '90 min', emoji: '⚽',
     });
   });
 
   it('håndbold: "Dagens konge" (ejerens beslutning) — UDEN en håndboldprofil', () => {
     expect(sportOrd({ sport: 'haandbold' })).toEqual({
       sport: 'håndbold', rundeKonge: 'Dagens konge', rundeSejr: 'dagssejr', rundeSejre: 'dagssejre',
+      ordinaerTid: '60 min', emoji: '🤾',
     });
     // Ordene gør IKKE håndbold til en kendt sport for Elo og seed: den må
     // stadig afvises, indtil profilen er målt (delopgave 4).
@@ -460,5 +463,42 @@ describe('sportOrd — hvad tingene hedder i sporten', () => {
     }
     // Hver sport med en profil har også ord — ellers fik den tavst fodboldens.
     for (const navn of Object.keys(SPORT_PROFILER)) expect(SPORT_ORD, navn).toHaveProperty(navn);
+  });
+});
+
+// --- Sportens EVNER ---------------------------------------------------------
+// harHjemmebane kræver JA fra BÅDE sporten (neutral bane?) og modellen
+// (HFA > 0). Prøvesporten har HFA 0 og ingen evne-post; håndbold har en
+// evne-post (neutral bane) og endnu ingen profil.
+describe('harHjemmebane — sporten og modellen skal begge sige ja', () => {
+  it('fodbold (SL, PL, intet sport-felt): ja', () => {
+    for (const g of [undefined, null, {}, { sport: 'fodbold' }, { id: 'superliga2627' }]) {
+      expect(harHjemmebane(g), JSON.stringify(g)).toBe(true);
+    }
+  });
+  it('håndbold: nej — neutral bane, også før håndboldprofilen findes', () => {
+    expect(sportEvner({ sport: 'haandbold' })).toEqual({ hjemmebane: false });
+    expect(harHjemmebane({ sport: 'haandbold' })).toBe(false);
+  });
+  it('ukendt og prototype-navne giver fodboldens evner', () => {
+    for (const sport of ['curling', 'toString', '__proto__', ['haandbold']]) {
+      expect(sportEvner({ sport }), String(sport)).toBe(SPORT_EVNER.fodbold);
+    }
+  });
+  describe('med prøvesporten (HFA 0)', () => {
+    medProeveSport();
+    it('nej: en model uden hjemmebanefordel har ingen hjemmebane at tale om', () => {
+      expect(sportEvner({ sport: 'proeve' })).toBe(SPORT_EVNER.fodbold);
+      expect(harHjemmebane({ sport: 'proeve' })).toBe(false);
+    });
+  });
+  it('registrene modsiger ikke hinanden: har en sport begge, er evnen = HFA > 0', () => {
+    // Måler delopgave 4 en hjemmebanefordel for håndbold, bliver denne rød
+    // og kræver en beslutning: enten er banen ikke neutral, eller tallet er forkert.
+    for (const navn of Object.keys(SPORT_PROFILER).filter((s) => s in SPORT_EVNER)) {
+      expect(SPORT_EVNER[navn].hjemmebane, navn).toBe(SPORT_PROFILER[navn].elo.HFA > 0);
+    }
+    expect(Object.keys(SPORT_EVNER)).toEqual(Object.keys(SPORT_ORD));
+    for (const e of Object.values(SPORT_EVNER)) expect(Object.isFrozen(e)).toBe(true);
   });
 });

@@ -10,7 +10,7 @@ const {
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities, fairOdds,
   leagueTable, championshipTeams, puljeScore, bundTeams, puljeKonfig,
   STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
-  SPORT_ORD, sportOrd,
+  SPORT_ORD, sportOrd, SPORT_EVNER, sportEvner, harHjemmebane,
 } = require('./superligaScoring');
 
 describe('superligaScoring (server-spejl)', () => {
@@ -451,5 +451,21 @@ describe('sportOrd: server-spejlet er identisk med src', () => {
     }
     expect(sportOrd({ sport: 'haandbold' }).rundeKonge).toBe('Dagens konge');
     expect(sportOrd({ sport: 'toString' })).toBe(SPORT_ORD.fodbold);
+  });
+});
+
+// Evnerne er spejlet af samme grund: invitationen (serveren) og guiden
+// (fladen) må ikke være uenige om, hvorvidt der er en hjemmebane.
+describe('sportEvner/harHjemmebane: server-spejlet er identisk med src', () => {
+  it('samme register og samme svar', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    expect(SPORT_EVNER).toEqual(src.SPORT_EVNER);
+    for (const g of [undefined, null, {}, { sport: 'haandbold' }, { sport: 'fodbold' }, { sport: 'toString' },
+      { sport: ['haandbold'] }, { sport: 'curling' }]) {
+      expect(sportEvner(g), JSON.stringify(g)).toEqual(src.sportEvner(g));
+      expect(harHjemmebane(g), JSON.stringify(g)).toBe(src.harHjemmebane(g));
+    }
+    expect(harHjemmebane({ sport: 'haandbold' })).toBe(false);
+    expect(harHjemmebane({})).toBe(true);
   });
 });

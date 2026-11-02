@@ -4,6 +4,7 @@
  */
 import { round1, outcomePoints } from '../../../lib/superligaScoring';
 import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
+import { kampSlut, stillingTekst } from '../../../lib/facit';
 
 /**
  * HVAD CHANCEN KOSTEDE ELLER GAV på ét tip.
@@ -101,6 +102,11 @@ export function buildTipsHistory(rounds, betsByMatch = {}, puljeBonus = 0) {
         id: m.id, home: m.home, away: m.away, kickoff: m.kickoff, odds: m.odds,
         pick, result, settled, hit, points, chanceStake, isChance: chanceStake > 0,
         chanceAfregnet, chanceDelta, chanceGrund: udfald?.grund ?? null, tipPoints,
+        // KNOCKOUT UD OVER ORDINÆR TID: «30-30 · 35-34 e.f.». Ellers stod der
+        // ✗ på et 1-tip til det hold, der gik videre, uden et ord om hvorfor.
+        // Kun når kampen HAR et gyldigt slut (data-gate): rækken for en
+        // Superliga-kamp får ikke én ny nøgle.
+        ...(kampSlut(m) ? { stilling: stillingTekst(m) } : {}),
       };
     });
 

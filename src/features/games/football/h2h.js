@@ -22,6 +22,7 @@
  * tal ville mest af alt vise, at efteråret var tilfældigt. Et indbyrdes opgør
  * i de kampe, hvor man faktisk valgte forskelligt, er derimod en historie.
  */
+import { kampSlut, stillingTekst } from '../../../lib/facit';
 
 /** Har spilleren et brugbart 1X2-valg på kampen? */
 function pickAf(raekker, matchId) {
@@ -91,6 +92,9 @@ export function bygIndbyrdes({ rounds, mine, deres }) {
         // scoring. Er feltet der ikke, er 0 det ærlige svar.
         minPoint: Number(mine?.[m.id]?.points) || 0,
         deresPoint: Number(deres?.[m.id]?.points) || 0,
+        // Knockout ud over ordinær tid: «30-30 · 35-34 e.f.» — ellers ser
+        // et X ud til at have ramt i en kamp, nogen vandt. Data-gate.
+        ...(kampSlut(m) ? { stilling: stillingTekst(m) } : {}),
       });
     }
   }

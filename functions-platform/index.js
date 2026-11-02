@@ -1592,7 +1592,7 @@ exports.sendGameTipRemindersNow = onCall(
     const gSnap = await db.collection('games').doc(gameId).get();
     if (!forventerPaamindelser(gSnap.exists ? gSnap.data() : null)) {
       throw new HttpsError('failed-precondition',
-        'Spillet får ikke påmindelser (kræver et fodbold-spil med status Åbent eller I gang).');
+        'Spillet får ikke påmindelser (kræver et kampspil med status Åbent eller I gang).');
     }
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
@@ -1683,7 +1683,7 @@ exports.sendGameTestReminderToMe = onCall(
     const gSnap = await db.collection('games').doc(gameId).get();
     if (!forventerPaamindelser(gSnap.exists ? gSnap.data() : null)) {
       throw new HttpsError('failed-precondition',
-        'Spillet får ikke påmindelser (kræver et fodbold-spil med status Åbent eller I gang).');
+        'Spillet får ikke påmindelser (kræver et kampspil med status Åbent eller I gang).');
     }
     const contactSnap = await db.collection('userContacts').doc(request.auth.uid).get();
     const email = request.auth.token?.email || contactSnap.data()?.email || caller?.email;

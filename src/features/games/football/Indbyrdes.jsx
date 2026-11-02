@@ -119,7 +119,12 @@ export default function Indbyrdes({ game, rounds, minUid, dueUid, dueNavn, teams
                   {r.uenige.map((u) => (
                     <tr key={u.id}>
                       <td>{u.round}</td>
-                      <td>{visOf(teams, u.home)}–{visOf(teams, u.away)}</td>
+                      <td>
+                        {visOf(teams, u.home)}–{visOf(teams, u.away)}
+                        {u.stilling && (
+                          <span className="mytips__slut" data-testid={`h2h-slut-${u.id}`}>{u.stilling}</span>
+                        )}
+                      </td>
                       {/* data-side binder kolonnen til PARTEN, ikke til
                           rækkefølgen. Uden det kunne de to kolonner byttes om,
                           uden at en test blev rød — og en spiller ville se sit

@@ -295,7 +295,12 @@ at rette et forkert facit.
    knockout-kampe, før kalenderen er rettet), og står den lige efter
    ordinær tid, skal du også taste **slutresultatet efter forlængelse/straffekast**
    og hvordan kampen blev afgjort. Det vises separat og flytter ingen point;
-   X er et gyldigt facit i knockout.
+   X er et gyldigt facit i knockout. Spillerne ser begge stillinger —
+   «30-30 · 35-34 e.f.» eller «28-28 · 33-31 e.str.» — på kampkortet, i Mine
+   tips, i spillerdetaljen, under Jer to imellem og på holdsiden, og
+   Runde-Botten får begge med. Reglen («Knockout: vi tipper stillingen efter
+   60 min. Uafgjort er X, også når nogen vinder i forlængelsen.») står ved
+   1X2-knapperne på hver knockout-kamp, i guiden og i invitationen.
 3. **Vis hvad der ændrer sig** er en tør-kørsel: 1/X/2 før → efter, hvor mange
    tips og spillere der får ændret point, hvor mange point der flytter sig i
    alt (inkl. combi), og om det er rundens sidste kamp. Først derefter dukker

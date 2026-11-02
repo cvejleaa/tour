@@ -10,6 +10,7 @@ import { visOf } from './teamInfo';
 import { formatKickoff } from '../../../lib/daDate';
 import { fmtDec, fmtPoints, fmtSignedPoints } from '../../../lib/daNum';
 import { rundeEtiket } from '../../../lib/faser';
+import { knockoutRegel } from '../../../lib/facit';
 import PointOpdeling, { RUBRIKKER } from './PointOpdeling';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
@@ -163,6 +164,11 @@ export default function TipsHistorik({
                   {visOf(teams, row.home)}
                   <span className="mytips__dash">–</span>
                   {visOf(teams, row.away)}
+                  {/* Kun en knockout-kamp, der gik ud over ordinær tid. Den
+                      første stilling er den, tippet er afgjort af. */}
+                  {row.stilling && (
+                    <span className="mytips__slut" data-testid={`slut-${row.id}`}>{row.stilling}</span>
+                  )}
                 </span>
                 <span className="mytips__pick">
                   {row.pick ? OUTCOME_LABEL[row.pick] : '–'}
@@ -172,6 +178,11 @@ export default function TipsHistorik({
               </div>
             ))}
           </div>
+          {/* Reglen, der forklarer ✗'et ved siden af «30-30 · 35-34 e.f.» —
+              én gang pr. dag, og kun når dagen har sådan en kamp. */}
+          {r.rows.some((row) => row.stilling) && (
+            <p className="mytips__ko-regel" data-testid={`ko-regel-${r.round}`}>{knockoutRegel(game)}</p>
+          )}
         </div>
       ))}
     </div>

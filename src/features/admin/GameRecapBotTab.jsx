@@ -69,7 +69,7 @@ export default function GameRecapBotTab() {
   }
 
   if (loading) return <div className="card">Henter spil…</div>;
-  if (!eligible.length) return <div className="card">Ingen aktive fodbold-spil.</div>;
+  if (!eligible.length) return <div className="card">Ingen aktive kampspil.</div>;
 
   return (
     <div className="card">

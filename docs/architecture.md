@@ -134,7 +134,19 @@ af M"). Tilbagefaldet er ikke tavst: `faseKalenderAdvarsel` melder fejlene i
 Runde-Bottens log og som rød linje under Admin → Spil-tidsplan (et spil uden
 `faser`-felt advarer ikke). Formkontrollen forudsætter én runde pr. dag: næste
 fase kan tidligst starte forrige fases `start` + dens antal dage. Sportens ord ("Dagens konge" i håndbold) står i `SPORT_ORD` ved siden
-af sportsprofilen, ikke i den.
+af sportsprofilen, ikke i den — også den ordinære spilletid ("60 min") og
+sportens tegn. Sportens evner står i `SPORT_EVNER` (fx neutral bane), og
+`harHjemmebane(game)` kræver ja fra BÅDE evnen og profilens HFA > 0; en test
+over begge registre sikrer, at de ikke modsiger hinanden. Ordene for "runde" i
+en sætning ("runden"/"dagen", "i runden"/"på dagen", "sæsonen"/"turneringen")
+kommer fra `rundeOrdene(game)` i `faser.js`, og `harKnockout(game)` siger, om
+kalenderen har knockout-faser (invitationen og guiden). En knockout-kamps
+slutresultat efter forlængelse/straffekast (`slut`) vises med
+`stillingTekst()`/`slutTekst()` fra `facit.js` («30-30 · 35-34 e.f.») — kun når
+det hænger sammen med stillingen efter ordinær tid (data-gate) — og reglen ved
+knapperne kommer fra `knockoutRegel(game)`, gatet på `erKnockout(game, round)`.
+Guidens afsnit om den levende stilling gates på `harLiveStilling` (kilden har
+`hentLive`, spilEvner.js).
 
 **2. `leagueIds` styrer, hvem der ser hvad.** Både stillingen og andres tips er
 jeres indbyrdes opgør: man ser kun spillere, man deler mindst én liga med.

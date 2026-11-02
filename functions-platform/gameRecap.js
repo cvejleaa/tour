@@ -14,8 +14,9 @@ const { buildRoundContext, combiBonus } = require('./pointOpdeling');
 const { rensTekst } = require('./rensTekst');
 const { outcomePoints, sportOrd, SPORT_ORD } = require('./superligaScoring');
 const {
-  harFaseKalender, faseKalenderAdvarsel, rundeEtiket, naesteKalenderRunde, faseFor, fmtFaseStart,
+  harFaseKalender, harKnockout, faseKalenderAdvarsel, rundeEtiket, naesteKalenderRunde, faseFor, fmtFaseStart,
 } = require('./faser');
+const { kampSlut, AFGJORT_NAVN } = require('./facit');
 const { gatedeKampe, startRundeFor } = require('./startGate');
 const {
   ligaPoint, harRundeVektor, vektorStemmer, puljeMaksStartRunde,
@@ -143,6 +144,14 @@ const KALENDER_UDSKIFTNING = [
   ['("8 point i runden", "i alt 31 point")', '("8 point på dagen", "i alt 31 point")'],
 ];
 
+// Ankeret, knockout-forklaringen hægtes på: kampenes linje, som den står
+// EFTER kalender-udskiftningen (knockout findes kun med en kalender).
+const KNOCKOUT_ANKER = '- "matches": dagens kampe PÅ KUPONEN — dem der blev spillet på spilledagen.';
+
+function knockoutForklaring(ord) {
+  return `${KNOCKOUT_ANKER} Har en kamp feltet "slut", var den uafgjort efter ordinær tid (${ord.ordinaerTid}) og blev afgjort bagefter: "score" er stillingen efter ${ord.ordinaerTid} — den, der tippes på, så X var det rigtige tip — og "slut" er slutresultatet, "afgjort" siger hvordan (fx efter forlænget spilletid), og "vinder" gik videre. Kald ALDRIG "score" en sejr, og skriv aldrig, at et X-tip tabte, fordi nogen vandt bagefter.`;
+}
+
 /**
  * System-prompten for ÉT spil. Uden fasekalender og med fodboldens ord er
  * den RECAP_SYSTEM byte for byte — Superligaen og Premier League får præcis
@@ -164,6 +173,11 @@ function recapSystem(game) {
   if (kalender) {
     for (const [gammel, ny] of KALENDER_UDSKIFTNING) s = erstat(s, gammel, ny);
   }
+  // KNOCKOUT: en kamp, der stod lige efter ordinær tid, er X — også når
+  // nogen vandt i forlængelsen (ejerens beslutning §11.1). Uden forklaringen
+  // ville botten kalde 30-30 uafgjort om en kamp, alle så Danmark vinde, eller
+  // — værre — kalde vinderen i forlængelsen for rundens rigtige tip.
+  if (harKnockout(game)) s = erstat(s, KNOCKOUT_ANKER, knockoutForklaring(ord));
   return s;
 }
 
@@ -290,11 +304,23 @@ function buildRoundRecapFacts({
 
   return {
     round,
-    matches: roundMatches.map((m) => ({
-      home: m.home, away: m.away,
-      score: (m.homeGoals != null && m.awayGoals != null) ? `${m.homeGoals}-${m.awayGoals}` : null,
-      surprise: isSurprise(m),
-    })),
+    matches: roundMatches.map((m) => {
+      // Knockout ud over ordinær tid: "score" bliver stillingen efter
+      // ordinær tid (dén, 1X2 afgøres af), og slutresultatet står for sig.
+      // KUN når kampen har et gyldigt slut — en Superliga-kamp får ikke én
+      // ny nøgle.
+      const slut = kampSlut(m);
+      return {
+        home: m.home, away: m.away,
+        score: (m.homeGoals != null && m.awayGoals != null) ? `${m.homeGoals}-${m.awayGoals}` : null,
+        surprise: isSurprise(m),
+        ...(slut ? {
+          slut: `${slut.home}-${slut.away}`,
+          afgjort: AFGJORT_NAVN[slut.afgjort],
+          vinder: slut.home > slut.away ? m.home : m.away,
+        } : {}),
+      };
+    }),
     // De udsatte kampe SKAL med som eget felt. Uden dem får botten fire kampe,
     // tror det er hele runden, og skriver at den er færdigspillet — mens
     // Tip-fladen tre klik væk siger, at to kampe mangler.
@@ -575,5 +601,5 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
 
 module.exports = {
   RECAP_SYSTEM, sanitizeName, isSurprise, buildRoundRecapFacts, generateRecapText, runGameRoundRecap,
-  recapSystem, kalenderFakta, KALENDER_UDSKIFTNING,
+  recapSystem, kalenderFakta, KALENDER_UDSKIFTNING, KNOCKOUT_ANKER,
 };

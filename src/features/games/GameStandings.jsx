@@ -23,7 +23,10 @@ import { fmtSignedPoints } from '../../lib/daNum';
 import { RUBRIKKER, opdelingsAfvigelse, afvigelsesTekst } from './football/PointOpdeling';
 import SpillerDetalje from './football/SpillerDetalje';
 import Pokaler from './Pokaler';
-import { rundeKort, rundeOrd } from '../../lib/faser';
+import { rundeKort, rundeOrd, rundeOrdene } from '../../lib/faser';
+
+// Ligaens ord — standarden for de små celler, der ikke kender spillet.
+const LIGA_ORD = rundeOrdene(null);
 import { useKlubFarver } from './football/useKlubFarver';
 
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
@@ -75,19 +78,21 @@ function rundeTal(p) {
  * siger hvorfor — undtagen ved klar:false, hvor det ikke er sandt (hun kan have
  * et tal, som er afvist): dér forklarer badget «ikke klar» i samme celle.
  */
-function IngenRundePoint({ r }) {
+function IngenRundePoint({ r, o = LIGA_ORD }) {
   return (
-    <span title={r?.klar === false ? undefined : 'Ingen afgjorte tips i runden endnu'} style={{ color: 'var(--c-muted)' }}>–</span>
+    <span title={r?.klar === false ? undefined : `Ingen afgjorte tips ${o.iRunden} endnu`} style={{ color: 'var(--c-muted)' }}>–</span>
   );
 }
 
-function RundeCelle({ r, runde, foerende }) {
+// `o` er spillets ord (rundeOrdene): «i runden» i en liga, «på dagen» i en
+// turnering med fasekalender.
+function RundeCelle({ r, runde, foerende, o = LIGA_ORD }) {
   const p = rundensPoint(r, runde);
-  if (p == null) return <IngenRundePoint r={r} />;
+  if (p == null) return <IngenRundePoint r={r} o={o} />;
   const foerer = foerende.has(r.uid);
   return (
-    <span title={foerer ? 'Flest point i runden indtil videre' : undefined}>
-      {foerer && <span aria-label="Flest point i runden">🔥</span>}
+    <span title={foerer ? `Flest point ${o.iRunden} indtil videre` : undefined}>
+      {foerer && <span aria-label={`Flest point ${o.iRunden}`}>🔥</span>}
       {foerer ? ' ' : ''}
       {rundeTal(p)}
     </span>
@@ -362,6 +367,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // At lægge football:true på selve Stilling-fanen ville fjerne den helt fra
   // cykelspillet — en anden beslutning, som ikke hører til her (opgave #56).
   const harRunder = game?.type === GAME_TYPE.FOOTBALL;
+  const o = rundeOrdene(game);
   const rundeNr = useMemo(
     () => (harRunder ? sidsteRunde(standings, ligaStart) : null),
     [harRunder, standings, ligaStart],
@@ -473,7 +479,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             ? (
               <span
                 title={visning !== 'runde' || r.klar === false ? undefined
-                  : (r.rundePoint == null ? 'Ingen afgjorte tips i runden endnu' : 'Ingen rang — ingen fører runden endnu')}
+                  : (r.rundePoint == null ? `Ingen afgjorte tips ${o.iRunden} endnu` : `Ingen rang — ingen fører ${o.runden} endnu`)}
               >
                 –
               </span>
@@ -500,7 +506,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                   nr. 13 samlet» er selve pointen). En urangeret række viser
                   samme streg og samme title som RundeCelle; klar:false viser
                   badget og aldrig ligaRankings 0. */}
-              {r.rundePoint == null ? <IngenRundePoint r={r} /> : rundeTal(r.rundePoint)}
+              {r.rundePoint == null ? <IngenRundePoint r={r} o={o} /> : rundeTal(r.rundePoint)}
               <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
                 {r.klar === false
                   ? <IkkeKlar />
@@ -520,7 +526,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                   overskriften siger, det er. */}
               {visRunde && (
                 <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
-                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} />
+                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} o={o} />
                 </div>
               )}
             </>
@@ -724,10 +730,10 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
             {visning === 'runde' ? (
               <>
-                {rundeKort(game, rundeNr)} alene — sorteret efter rundens point.
-                {!rundeFaerdig && ' Rækkefølgen er foreløbig — runden er ikke færdigspillet.'}
+                {rundeKort(game, rundeNr)} alene — sorteret efter {o.rundens} point.
+                {!rundeFaerdig && ` Rækkefølgen er foreløbig — ${o.runden} er ikke færdigspillet.`}
                 {' '}Det lille tal er placering og point i Samlet.
-                {viste.some((r) => r.rundePoint == null) && ' Stregen – betyder ingen afgjorte tips i runden endnu.'}
+                {viste.some((r) => r.rundePoint == null) && ` Stregen – betyder ingen afgjorte tips ${o.iRunden} endnu.`}
                 {/* Fredag aften, hvor alle ramte den første kamp forbi (eller én
                     tabte sin Chance): tal, men ingen rang — og en title findes
                     ikke på en telefon, så linjen siger det selv. Spilførers ord:
@@ -737,7 +743,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
               </>
             ) : (
               <>
-                {rundeKort(game, rundeNr)}: tallet under totalen er rundens point.
+                {rundeKort(game, rundeNr)}: tallet under totalen er {o.rundens} point.
                 {foerende.size > 0 && ' 🔥 har flest indtil videre.'}
               </>
             )}
@@ -767,7 +773,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                 </span>
               ) : visRunde && (
                 <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} />
+                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} o={o} />
                 </span>
               )}
               {/* Selve trinnet. Højden følger PLACERINGEN og ikke pladsen i

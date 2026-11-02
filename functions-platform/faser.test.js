@@ -66,12 +66,15 @@ describe('faser: server-spejlet er src', () => {
       expect(server.rundeNavneord(game)).toBe(src.rundeNavneord(game));
       expect(server.rundeFlertal(game)).toBe(src.rundeFlertal(game));
       expect(server.faseKalenderAdvarsel(game)).toEqual(src.faseKalenderAdvarsel(game));
+      expect(server.harKnockout(game)).toBe(src.harKnockout(game));
+      expect(server.rundeOrdene(game)).toEqual(src.rundeOrdene(game));
       for (const r of RUNDER) {
         const k = `${navn} · ${r}`;
         expect(server.faseFor(game, r), k).toEqual(src.faseFor(game, r));
         expect(server.erKnockout(game, r), k).toBe(src.erKnockout(game, r));
         expect(server.rundeKort(game, r), k).toBe(src.rundeKort(game, r));
         expect(server.rundeOrd(game, r), k).toBe(src.rundeOrd(game, r));
+        expect(server.rundeKolonne(game, r), k).toBe(src.rundeKolonne(game, r));
         expect(server.rundeEtiket(game, r), k).toBe(src.rundeEtiket(game, r));
         expect(server.dagTaeller(game, r, 6), k).toBe(src.dagTaeller(game, r, 6));
         expect(server.naesteKalenderRunde(game, r), k).toEqual(src.naesteKalenderRunde(game, r));
@@ -120,5 +123,10 @@ describe('faser: server-spejlet er src', () => {
     expect(server.faseKalenderAdvarsel({ faser: [{ ...TEST_FASER[0], fra: 2 }] }))
       .toEqual(['fase 1: første fase skal starte i runde 1 (ikke 2)']);
     expect(server.faseKalenderAdvarsel({ id: 'superliga2627' })).toBeNull();
+    // De nye ord og knockout-evnen — de rigtige svar, ikke kun de samme.
+    expect(server.harKnockout(HAANDBOLD_SPIL)).toBe(true);
+    expect(server.harKnockout({ id: 'superliga2627' })).toBe(false);
+    expect(server.rundeOrdene(HAANDBOLD_SPIL).runden).toBe('dagen');
+    expect(server.rundeOrdene({}).runden).toBe('runden');
   });
 });

@@ -10,6 +10,8 @@ import { PLATFORM_MODE } from '../lib/platform';
 import { useGames, splitGames } from '../features/games/useGames';
 import { GAME_STATUS_LABEL } from '../lib/constants';
 import { puljeKonfig } from '../lib/superligaScoring';
+import { harKnockout } from '../lib/faser';
+import { knockoutRegel } from '../lib/facit';
 
 function Section({ emoji, title, children }) {
   return (
@@ -50,6 +52,13 @@ const BLURBS = {
     <>Tip Premier League-kampene runde for runde (1X2). Point <strong>følger oddsene</strong>, med
     runde-bonus og Chancen — og følg holdenes Elo og dyst i mini-ligaer.</>
   ),
+  // Håndbold-VM: grundformen alene. Knockout-reglen AFLEDES af spillets
+  // fasekalender nedenfor (harKnockout), så den hverken kan mangle eller stå
+  // på et spil, der ikke har knockout.
+  hvm2027: (
+    <>Tip VM-kampene i håndbold dag for dag (1X2). Point <strong>følger oddsene</strong>, med
+    dagens bonus og Chancen — og følg holdenes Elo og dyst i mini-ligaer.</>
+  ),
   tour2026: (
     <>Cykel-tipning etape for etape: hold på etapevinderen, bedste hold, bjerg- og sprintpoint.</>
   ),
@@ -87,6 +96,7 @@ function SpilleneLigeNu() {
         return (
           <GameBlurb key={g.id} emoji={g.emoji} name={g.name} status={GAME_STATUS_LABEL[g.status] ?? null}>
             {BLURBS[g.id]}
+            {harKnockout(g) && <> {knockoutRegel(g)}</>}
             {pulje && (
               // En runde-pulje NÅR semifinalerne; «står i» er liga-sprog.
               <> Dertil et pulje-tip om, hvem der {pulje.facitKilde === 'runde' ? 'når' : 'står i'} <strong>{pulje.labels.top}</strong>

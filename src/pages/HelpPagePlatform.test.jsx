@@ -19,7 +19,7 @@ vi.mock('../features/games/useGames', async (orig) => ({
 }));
 
 import HelpPage from './HelpPage';
-import { HAANDBOLD_SPIL } from '../test/faseKalender';
+import { HAANDBOLD_SPIL, TEST_FASER } from '../test/faseKalender';
 
 const VM = {
   id: 'vm2026', name: 'VM 2026', emoji: '⚽', type: 'football',
@@ -48,6 +48,32 @@ function renderMed(games, myIds = [], loading = false) {
   mockUse.mockReturnValue({ games, myGameIds: new Set(myIds), loading });
   return render(<MemoryRouter><HelpPage /></MemoryRouter>);
 }
+
+// Håndbold-VM: en redaktionel post (grundformen) — og knockout-reglen AFLEDT
+// af spillets fasekalender, så den hverken kan mangle eller stå på et spil
+// uden knockout.
+describe('HelpPage (platform) — håndbold-VM', () => {
+  beforeEach(() => { mockUse.mockReset(); });
+  const HVM = { ...HAANDBOLD_SPIL, id: 'hvm2027', status: 'open', joinable: true, order: 5 };
+
+  it('posten og knockout-reglen fra kalenderen', () => {
+    const { container } = renderMed([SL, HVM], []);
+    expect(container.textContent).toContain('Tip VM-kampene i håndbold dag for dag (1X2).');
+    expect(container.textContent).toContain('Knockout: vi tipper stillingen efter 60 min. Uafgjort er X, også når nogen vinder i forlængelsen.');
+    // Reglen står ÉN gang — ved håndboldspillet, ikke ved Superligaen.
+    expect(container.textContent.split('Knockout:').length).toBe(2);
+  });
+
+  it('uden knockout-faser: ingen regel', () => {
+    const { container } = renderMed([{ ...HVM, faser: TEST_FASER.slice(0, 2) }], []);
+    expect(container.textContent).not.toContain('Knockout:');
+  });
+
+  it('Superligaen og PL: ingen knockout-regel', () => {
+    const { container } = renderMed([VM, TOUR, SL, PL], ['superliga2627']);
+    expect(container.textContent).not.toMatch(/Knockout|60 min/);
+  });
+});
 
 describe('HelpPage (platform) — Spillene lige nu afledes af games-collectionen', () => {
   beforeEach(() => { mockUse.mockReset(); });

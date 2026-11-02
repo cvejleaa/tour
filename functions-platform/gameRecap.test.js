@@ -6,7 +6,7 @@ import { HAANDBOLD_SPIL, TEST_FASER, kl18 } from '../src/test/faseKalender.js';
 const require = createRequire(import.meta.url);
 const {
   sanitizeName, isSurprise, buildRoundRecapFacts, runGameRoundRecap, RECAP_SYSTEM,
-  recapSystem, KALENDER_UDSKIFTNING,
+  recapSystem, KALENDER_UDSKIFTNING, KNOCKOUT_ANKER,
 } = require('./gameRecap');
 // Stillingens egen vej til combi. Botten og stillingen SKAL sige samme tal.
 const { opdelPoint, buildRoundContext } = require('./pointOpdeling');
@@ -896,6 +896,45 @@ describe('Runde-Botten med fasekalender', () => {
   it('hver udskiftning står præcis én gang i grund-prompten (ellers kaster recapSystem)', () => {
     for (const [gammel] of KALENDER_UDSKIFTNING) expect(RECAP_SYSTEM.split(gammel).length, gammel).toBe(2);
     expect(RECAP_SYSTEM.split('privat fodbold-tippeliga').length).toBe(2);
+  });
+
+  // KNOCKOUT (§11.1): en kamp, der stod 30-30 efter 60 min, er X — også når
+  // nogen vandt i forlængelsen. Uden forklaringen kaldte botten "30-30" en
+  // uafgjort om en kamp, alle så blive vundet — eller vinderen for rigtig.
+  it('knockout: fakta bærer stillingen efter 60 min OG slutresultatet — prompten forklarer dem', () => {
+    const ko = [
+      { id: 'k1', round: 14, home: 'Danmark', away: 'Norge', homeGoals: 30, awayGoals: 30, result: 'X',
+        slut: { home: 35, away: 34, afgjort: 'forlaenget' }, odds: { 1: 1.8, X: 6, 2: 3 } },
+      { id: 'k2', round: 14, home: 'Frankrig', away: 'Spanien', homeGoals: 28, awayGoals: 28, result: 'X',
+        slut: { home: 31, away: 33, afgjort: 'straffe' }, odds: { 1: 2, X: 6, 2: 2.5 } },
+      { id: 'k3', round: 14, home: 'Sverige', away: 'Tyskland', homeGoals: 27, awayGoals: 25, result: '1', odds: { 1: 2, X: 6, 2: 2.5 } },
+      // Et slut, der modsiger stillingen (vundet i ordinær tid), kommer IKKE med.
+      { id: 'k4', round: 14, home: 'Island', away: 'Egypten', homeGoals: 26, awayGoals: 25, result: '1',
+        slut: { home: 26, away: 25, afgjort: 'forlaenget' }, odds: { 1: 2, X: 6, 2: 2.5 } },
+    ];
+    const f = buildRoundRecapFacts({ round: 14, roundMatches: ko, players: [], betsByUid: new Map() });
+    expect(f.matches[0]).toEqual({
+      home: 'Danmark', away: 'Norge', score: '30-30', surprise: true,
+      slut: '35-34', afgjort: 'efter forlænget spilletid', vinder: 'Danmark',
+    });
+    expect(f.matches[1]).toMatchObject({ score: '28-28', slut: '31-33', afgjort: 'efter straffekast', vinder: 'Spanien' });
+    // Afgjort i ordinær tid: præcis de fire felter, som altid.
+    expect(Object.keys(f.matches[2]).sort()).toEqual(['away', 'home', 'score', 'surprise']);
+    expect(Object.keys(f.matches[3]).sort()).toEqual(['away', 'home', 'score', 'surprise']);
+
+    const sys = recapSystem(HAANDBOLD_SPIL);
+    expect(sys).toContain('Har en kamp feltet "slut", var den uafgjort efter ordinær tid (60 min)');
+    expect(sys).toContain('så X var det rigtige tip');
+    expect(sys).toContain('Kald ALDRIG "score" en sejr');
+    expect(sys).not.toContain('(90 min)');
+    // Ankeret står præcis én gang, så forklaringen ikke kan lande to steder.
+    expect(sys.split(KNOCKOUT_ANKER).length).toBe(2);
+  });
+
+  it('kalender UDEN knockout-faser: ingen knockout-forklaring', () => {
+    const udenKo = { ...HAANDBOLD_SPIL, faser: TEST_FASER.slice(0, 2) };
+    expect(recapSystem(udenKo)).not.toContain('"slut"');
+    expect(RECAP_SYSTEM).not.toContain('"slut"');
   });
 
   it('håndbold UDEN kalender: kun sportens ord skifter', () => {

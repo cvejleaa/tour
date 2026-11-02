@@ -296,12 +296,16 @@ const SPORT_ORD = {
     rundeKonge: 'Rundekongen',
     rundeSejr: 'rundesejr',
     rundeSejre: 'rundesejre',
+    ordinaerTid: '90 min',
+    emoji: '⚽',
   }),
   haandbold: frys({
     sport: 'håndbold',
     rundeKonge: 'Dagens konge',
     rundeSejr: 'dagssejr',
     rundeSejre: 'dagssejre',
+    ordinaerTid: '60 min',
+    emoji: '🤾',
   }),
 };
 
@@ -311,6 +315,27 @@ function sportOrd(game) {
   return typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_ORD, sport)
     ? SPORT_ORD[sport]
     : SPORT_ORD[STANDARD_SPORT];
+}
+
+// --- Sportens EVNER (spejl af src) -------------------------------------------
+// Fuld begrundelse i src/lib/superligaScoring.js. Kort: en evne som "spilles
+// der på hjemmebane" er et faktum om sporten, ikke et målt tal, så den bor i
+// sit eget register og kan komme før håndboldprofilen. harHjemmebane kræver
+// JA fra både evnen og modellen (HFA > 0).
+const SPORT_EVNER = {
+  fodbold: frys({ hjemmebane: true }),
+  haandbold: frys({ hjemmebane: false }),
+};
+
+function sportEvner(game) {
+  const sport = game ? game.sport : undefined;
+  return typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_EVNER, sport)
+    ? SPORT_EVNER[sport]
+    : SPORT_EVNER[STANDARD_SPORT];
+}
+
+function harHjemmebane(game) {
+  return sportEvner(game).hjemmebane === true && sportProfil(game).elo.HFA > 0;
 }
 
 // Den RÅ sport-værdi, som den skal stå i en fejl eller en advarsel. Tal vises
@@ -470,5 +495,5 @@ module.exports = {
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
   STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
-  SPORT_ORD, sportOrd,
+  SPORT_ORD, sportOrd, SPORT_EVNER, sportEvner, harHjemmebane,
 };

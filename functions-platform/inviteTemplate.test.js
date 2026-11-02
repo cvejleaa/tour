@@ -7,6 +7,8 @@
 // ---------------------------------------------------------------------------
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
+import { HAANDBOLD_SPIL, TEST_FASER } from '../src/test/faseKalender.js';
 
 const require = createRequire(import.meta.url);
 const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate.js');
@@ -281,5 +283,61 @@ describe('invitationsHtml — en turnering med runde-pulje', () => {
     expect(sl).toContain('pr. hold, der st&aring;r rigtigt');
     expect(sl).not.toContain('pr. hold, du rammer');
     expect(ligaProfil(null).puljeDato).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TURNERINGENS INVITATION (håndbold-VM). Teksterne skifter med EVNERNE —
+// fasekalender, knockout-faser, hjemmebane — og ejerens 60-min-regel (§11.1)
+// skal stå i mailen. Superligaens og Premier Leagues mail er byte for byte
+// den, de altid har fået (hashen nedenfor er taget af udgaven FØR teksterne
+// blev gjort skiftende; ændres de med vilje, skal hashen opdateres med vilje).
+// ---------------------------------------------------------------------------
+describe('invitationsHtml — en turnering med fasekalender', () => {
+  const opts = { joinLink: 'https://tip.vejleaa.dk/tilmeld/x', leagueName: 'Familien' };
+  const html = invitationsHtml({ ...opts, liga: ligaProfil(HAANDBOLD_SPIL) });
+
+  it('dag for dag, turneringen, håndbold — og 60-min-reglen ved kampene', () => {
+    expect(html).toContain('Dag for dag tipper du 1, X eller 2.');
+    expect(html).toContain('hele turneringen');
+    expect(html).toContain('nul håndboldforstand');
+    expect(html).toContain('~2 min pr. dag');
+    expect(html).toContain('Tip dagens kampe');
+    expect(html).toContain('<b>Knockout: vi tipper stillingen efter 60 min. Uafgjort er X, også når nogen vinder i forlængelsen.</b>');
+    expect(html).toContain('Efter dagens sidste kamp');
+    expect(html).toContain('🤾');
+  });
+
+  it('og INTET af ligaens: runde, sæson, fodbold, hjemmebane, en tabel spillet ikke har — eller ⚽', () => {
+    for (const t of ['Runde for runde', 'pr. runde', 'rundens', 's&aelig;sonen', 'sæsonens', 'fodbold',
+      'hjemmesejr', 'udesejr', 'den officielle tabel', '&#9917;', '90 min']) {
+      expect(html, t).not.toContain(t);
+    }
+  });
+
+  it('uden knockout-faser: ingen regel — og en officiel tabel kun med standings', () => {
+    const udenKo = invitationsHtml({ ...opts, liga: ligaProfil({ ...HAANDBOLD_SPIL, faser: TEST_FASER.slice(0, 2) }) });
+    expect(udenKo).not.toContain('Knockout:');
+    expect(udenKo).toContain('Dag for dag');
+    const medTabel = invitationsHtml({ ...opts, liga: ligaProfil({ ...HAANDBOLD_SPIL, standings: true }) });
+    expect(medTabel).toContain(', den officielle tabel og holdenes Elo-udvikling');
+  });
+
+  it('et fodboldspil MED kalender, men med hjemmebane: 1/X/2 forklares som hjemme/ude', () => {
+    const fodboldTurnering = invitationsHtml({ ...opts, liga: ligaProfil({ ...HAANDBOLD_SPIL, sport: undefined }) });
+    expect(fodboldTurnering).toContain('Hver dag sætter du hjemmesejr, uafgjort eller udesejr');
+    expect(fodboldTurnering).toContain('nul fodboldforstand');
+    expect(fodboldTurnering).toContain('stillingen efter 90 min');
+  });
+
+  it('Superligaen og Premier League: byte for byte den mail, de altid har fået', () => {
+    const h = (s) => createHash('sha256').update(s).digest('hex');
+    const sl = invitationsHtml({ ...opts, intro: 'Hej\nmed', liga: ligaProfil({ name: 'Superligaen 2026/27', sync: { provider: 'superliga' }, pulje: { poolSize: 6 } }) });
+    const pl = invitationsHtml({ ...opts, intro: 'Hej\nmed', liga: ligaProfil({ name: 'Premier League 2026/27 — efterår', sync: { provider: 'pulselive', competitionId: 8, season: 2026 } }) });
+    const ukendt = invitationsHtml({ ...opts, intro: 'Hej\nmed', liga: ligaProfil({ name: 'La Liga 2027', shortName: 'La Liga', sync: { provider: 'laliga-api' } }) });
+    expect(h(sl)).toBe('2549416cf8688576940ba16e238bb04a78b44138c4ffc74c6bcbb609b4f1e876');
+    expect(h(pl)).toBe('95a7600473e121268d336a6de0cc4f052cdf2cd78f662b700f7e15e6e9f056f4');
+    expect(h(ukendt)).toBe('0b66615ae9a80b845e645bf970bc4b19600208012b236505747bea773061eabd');
+    expect(h(invitationsHtml())).toBe('84016c7b16ebbb4740e4544b233d5bc50296fcb525c3cd02f40d7dcec0f0d9cc');
   });
 });

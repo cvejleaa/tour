@@ -120,6 +120,65 @@ const FEJL_VEKTORER = [
 const SPIL = [null, {}, { type: 'football', status: 'open' }, { type: 'football', status: 'finished' },
   { type: 'cycling', status: 'live' }, HB];
 
+// Kampe, som visningen skal tåle — gyldige slut, modsigende slut og
+// slut-løse kampe. Facit-dokumenter fra synken kan bære mål som tekst.
+const VIS_VEKTORER = [
+  { homeGoals: 2, awayGoals: 1 },
+  { homeGoals: 0, awayGoals: 0 },
+  { homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' } },
+  { homeGoals: 28, awayGoals: 28, slut: { home: 31, away: 33, afgjort: 'straffe' } },
+  { homeGoals: 31, awayGoals: 30, slut: { home: 31, away: 30, afgjort: 'forlaenget' } },
+  { homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 35, afgjort: 'straffe' } },
+  { homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'slut' } },
+  { homeGoals: 30, awayGoals: 30, slut: 'forlaenget' },
+  { homeGoals: '2', awayGoals: '1' },
+  { homeGoals: null, awayGoals: 1 },
+  { homeGoals: '', awayGoals: '' },
+  {}, null,
+];
+
+describe('knockout-visningen: «30-30 · 35-34 e.f.»', () => {
+  const { kampSlut, slutTekst, stillingTekst, knockoutRegel } = server;
+  it('en gyldig forlængelse og et gyldigt straffekast — med begge stillinger', () => {
+    const ef = { homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' } };
+    const str = { homeGoals: 28, awayGoals: 28, slut: { home: 33, away: 31, afgjort: 'straffe' } };
+    expect(stillingTekst(ef)).toBe('30-30 · 35-34 e.f.');
+    expect(stillingTekst(str)).toBe('28-28 · 33-31 e.str.');
+    expect(slutTekst(ef)).toBe('35-34 e.f.');
+    expect(kampSlut(str)).toEqual({ home: 33, away: 31, afgjort: 'straffe' });
+  });
+  it('vendt til udeholdets side — begge stillinger vendes', () => {
+    const ef = { homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' } };
+    expect(stillingTekst(ef, { vend: true })).toBe('30-30 · 34-35 e.f.');
+    expect(stillingTekst({ homeGoals: 2, awayGoals: 1 }, { vend: true })).toBe('1-2');
+  });
+  it('uden slut: stillingen som altid — og intet «e.f.»', () => {
+    expect(stillingTekst({ homeGoals: 2, awayGoals: 1 })).toBe('2-1');
+    expect(stillingTekst({ homeGoals: 0, awayGoals: 0 })).toBe('0-0');
+    expect(slutTekst({ homeGoals: 2, awayGoals: 1 })).toBeNull();
+    expect(kampSlut({ homeGoals: 2, awayGoals: 1 })).toBeNull();
+  });
+  it('et slut, der modsiger sin egen stilling, vises IKKE', () => {
+    // Afgjort i ordinær tid, intet afgørende mål, ukendt afgørelse, ikke et objekt.
+    for (const k of VIS_VEKTORER.slice(4, 8)) {
+      expect(kampSlut(k), JSON.stringify(k)).toBeNull();
+      expect(stillingTekst(k), JSON.stringify(k)).not.toMatch(/e\.f\.|e\.str\./);
+    }
+    expect(stillingTekst(VIS_VEKTORER[4])).toBe('31-30');
+  });
+  it('ingen mål: null — også når felterne er tomme tekster', () => {
+    expect(stillingTekst({ homeGoals: null, awayGoals: 1 })).toBeNull();
+    expect(stillingTekst({ homeGoals: '', awayGoals: '' })).toBeNull();
+    expect(stillingTekst(null)).toBeNull();
+  });
+  it('reglen bærer SPORTENS spilletid — Spilførerens ordlyd', () => {
+    expect(knockoutRegel({ sport: 'haandbold' }))
+      .toBe('Knockout: vi tipper stillingen efter 60 min. Uafgjort er X, også når nogen vinder i forlængelsen.');
+    expect(knockoutRegel({})).toBe('Knockout: vi tipper stillingen efter 90 min. Uafgjort er X, også når nogen vinder i forlængelsen.');
+    expect(knockoutRegel({ sport: 'haandbold' })).not.toMatch(/90 min/);
+  });
+});
+
 describe('uenigTekst — én uenig kamp som tekst (knappen og Drift-kortet)', () => {
   it('holdnavne og begge stillinger — ikke id\'et', () => {
     const t = server.uenigTekst({ id: 'r5-agf-ob', home: 'AGF', away: 'OB', haand: { home: 1, away: 1 }, kilde: { home: 2, away: 1 } });
@@ -145,6 +204,18 @@ describe('spejling mod src/lib/facit.js', () => {
     expect([...src.AFGJORT]).toEqual([...server.AFGJORT]);
     expect({ ...src.AFGJORT_NAVN }).toEqual({ ...server.AFGJORT_NAVN });
     expect(src.MAKS_MAAL).toBe(server.MAKS_MAAL);
+    expect({ ...src.AFGJORT_KORT }).toEqual({ ...server.AFGJORT_KORT });
+  });
+  it('samme visning af knockout-stillingen og samme regel', async () => {
+    const src = await import('../src/lib/facit.js');
+    for (const k of VIS_VEKTORER) {
+      expect(src.kampSlut(k), JSON.stringify(k)).toEqual(server.kampSlut(k));
+      for (const vend of [false, true]) {
+        expect(src.slutTekst(k, { vend })).toBe(server.slutTekst(k, { vend }));
+        expect(src.stillingTekst(k, { vend })).toBe(server.stillingTekst(k, { vend }));
+      }
+    }
+    for (const g of [...SPIL, { sport: 'haandbold' }]) expect(src.knockoutRegel(g)).toBe(server.knockoutRegel(g));
   });
   it('samme svar fra facitFejl og facitFelter på hver vektor', async () => {
     const src = await import('../src/lib/facit.js');
@@ -170,7 +241,7 @@ describe('spejling mod src/lib/facit.js', () => {
     const { readFileSync } = await import('node:fs');
     const krop = (sti) => readFileSync(new URL(sti, import.meta.url), 'utf8')
       .replace(/^\/\/[^\n]*\n/gm, '') // linjekommentarer (filhovedet varierer)
-      .replace(/^(const|import) \{ outcomeFromScore \}[^\n]*\n/m, '')
+      .replace(/^(const|import) \{ outcomeFromScore, sportOrd \}[^\n]*\n/m, '')
       .replace(/^export /gm, '')
       .replace(/\nmodule\.exports = \{[\s\S]*?\};\n?$/, '\n')
       .trim();

@@ -346,10 +346,13 @@ describe('fasekalender: liga-kortet og stillingen siger «dag»', () => {
     expect(screen.getByRole('button', { name: 'Dag 3' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Runde 3' })).toBeNull();
     expect(c.textContent).toContain('Tæller fra dag 2');
-    expect(c.textContent).toContain('Dag 3: tallet under totalen er rundens point.');
-    expect(c.textContent).not.toMatch(/Tæller fra runde|Runde 3/);
+    // VENDT I D12: «rundens point» om en spilledag var en rest fra D5, som
+    // denne test fastfrøs. Nu siger linjen dagens ord.
+    expect(c.textContent).toContain('Dag 3: tallet under totalen er dagens point.');
+    expect(c.textContent).not.toMatch(/Tæller fra runde|Runde 3|rundens point/);
     fireEvent.click(screen.getByRole('button', { name: 'Dag 3' }));
-    expect(c.textContent).toContain('Dag 3 alene — sorteret efter rundens point.');
+    expect(c.textContent).toContain('Dag 3 alene — sorteret efter dagens point.');
+    expect(c.textContent).not.toMatch(/rundens point|runden er ikke færdigspillet|i runden/);
   });
 
   it('stillingen UDEN kalender: «Runde 3» og «Tæller fra runde 2» som før', () => {
@@ -357,6 +360,6 @@ describe('fasekalender: liga-kortet og stillingen siger «dag»', () => {
     expect(screen.getByRole('button', { name: 'Runde 3' })).toBeInTheDocument();
     expect(c.textContent).toContain('Tæller fra runde 2');
     expect(c.textContent).toContain('Runde 3: tallet under totalen er rundens point.');
-    expect(c.textContent).not.toMatch(/Tæller fra dag|Dag 3/);
+    expect(c.textContent).not.toMatch(/Tæller fra dag|Dag 3|dagens point|på dagen/);
   });
 });
