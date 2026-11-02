@@ -42,6 +42,7 @@ import {
   sendAdminPasswordReset,
   callGenerateLeagueRecapNow,
   callRepriceGameOdds,
+  callAfregnPuljeNu,
   callSyncGameResults,
   callSaetFacitManuelt,
   callFrigivFacitTilSynk,
@@ -180,6 +181,36 @@ describe('adminActions', () => {
       const res = await callRepriceGameOdds({ gameId: 'sl2627', dryRun: false });
       expect(res.ok).toBe(false);
       expect(res.error).toMatch(/ikke adgang/);
+    });
+  });
+
+  // Samme blinde vinkel for pulje-knappen: GameScheduleTab mocker modulet, så
+  // navnet og standarden (tør-kørsel) bevises her.
+  describe('callAfregnPuljeNu', () => {
+    it('kalder afregnPuljeNu med spil og dryRun', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { settled: 2, dryRun: false } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const res = await callAfregnPuljeNu({ gameId: 'hvm2027', dryRun: false });
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'afregnPuljeNu', { timeout: 120000 });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'hvm2027', dryRun: false });
+      expect(res).toEqual({ ok: true, data: { settled: 2, dryRun: false } });
+    });
+
+    it('tørkører som standard — og et sandhedsløst flag skriver ikke', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { settled: 0, dryRun: true } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      await callAfregnPuljeNu({ gameId: 'hvm2027' });
+      expect(mockFn).toHaveBeenLastCalledWith({ gameId: 'hvm2027', dryRun: true });
+      // Kun et EKSPLICIT false skriver — null (fx et felt, der ikke blev sat)
+      // tørkører.
+      await callAfregnPuljeNu({ gameId: 'hvm2027', dryRun: null });
+      expect(mockFn).toHaveBeenLastCalledWith({ gameId: 'hvm2027', dryRun: true });
+    });
+
+    it('giver fejlen videre i stedet for at kaste', async () => {
+      mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('Du har ikke adgang.')));
+      const res = await callAfregnPuljeNu({ gameId: 'hvm2027', dryRun: false });
+      expect(res).toEqual({ ok: false, error: 'Du har ikke adgang.' });
     });
   });
 
