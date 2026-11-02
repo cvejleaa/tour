@@ -12,8 +12,8 @@
 // ---------------------------------------------------------------------------
 import { describe, it, expect } from 'vitest';
 import {
-  faseKalenderFejl, harFaseKalender, sidsteKalenderRunde, faseFor, erKnockout,
-  rundeNavneord, rundeKort, rundeOrd, kortDato, kbhDato, fmtFaseStart, rundeEtiket,
+  faseKalenderFejl, harFaseKalender, faseKalenderAdvarsel, sidsteKalenderRunde, faseFor, erKnockout,
+  rundeNavneord, rundeFlertal, rundeKort, rundeOrd, kortDato, kbhDato, fmtFaseStart, rundeEtiket,
   dagTaeller, naesteKalenderRunde, ventendeRunde, ventetekst, naesteFase,
 } from './faser';
 import { TEST_FASER, HAANDBOLD_SPIL as HB, kl18 } from '../test/faseKalender';
@@ -38,6 +38,7 @@ describe('uden fasekalender: præcis dagens tekster', () => {
       expect(rundeKort(game, 7)).toBe('Runde 7');
       expect(rundeOrd(game, 7)).toBe('runde 7');
       expect(rundeNavneord(game)).toBe('runde');
+      expect(rundeFlertal(game)).toBe('runder');
       expect(dagTaeller(game, 7, 22)).toBe('Runde 7 af 22');
       expect(sidsteKalenderRunde(game)).toBeNull();
       expect(faseFor(game, 7)).toBeNull();
@@ -95,6 +96,11 @@ describe('med fasekalender: ejerens ord', () => {
     expect(dagTaeller(HB, 7, 7)).toBe('Dag 7 af 17');
   });
 
+  it('flertal: "dage" med kalender', () => {
+    expect(rundeFlertal(HB)).toBe('dage');
+    expect(rundeNavneord(HB)).toBe('dag');
+  });
+
   it('korte former: "Dag 7" og "dag 7"', () => {
     expect(rundeKort(HB, 7)).toBe('Dag 7');
     expect(rundeOrd(HB, 7)).toBe('dag 7');
@@ -131,6 +137,18 @@ describe('faseovergangen: der kommer mere', () => {
     expect(v.fase.navn).toBe('Hovedrunde');
     expect(ventendeRunde(HB, 9)).toMatchObject({ runde: 10, foersteDag: false });
     expect(ventendeRunde(HB, 17)).toBeNull();
+  });
+
+  // Kræver en OPRETTET runde. Før gav 0, null og 2.5 alle "runde 1 venter"
+  // — en gren, ingen kalder kunne nå (Tip viser "ingen kampe", før den
+  // spørger), og som gjorde et ikke-tal til en dato-løfte.
+  it('ingen oprettet runde (0, null, brøk, negativ): intet venter', () => {
+    for (const r of [0, null, undefined, 2.5, -1]) {
+      expect(ventendeRunde(HB, r), String(r)).toBeNull();
+      expect(ventetekst(HB, r, kl18('2027-01-10')), String(r)).toBeNull();
+    }
+    // Første oprettede runde er dag 1: næste er dag 2, midt i fasen.
+    expect(ventendeRunde(HB, 1)).toMatchObject({ runde: 2, foersteDag: false });
   });
 
   it('ventetekst: hovedrunden lægges ind — med dato, og uden løfte om en passeret dato', () => {
@@ -171,6 +189,25 @@ describe('faseovergangen: der kommer mere', () => {
     // Dansk dato: 23.30 UTC den 19. er den 20. i Danmark.
     expect(naesteFase(HB, Date.parse('2027-01-20T23:30:00Z')).navn).toBe('Kvartfinaler');
     expect(naesteFase(HB, Date.parse('2027-01-19T23:30:00Z')).navn).toBe('Hovedrunde');
+  });
+
+  // naesteFase giver fasens FØRSTE dag (dag 1, fra) — ikke dens sidste. D9
+  // venter på netop fra-runden; en fase på 7 dage med dag 7 ville få
+  // automatikken til at vente på den forkerte dag.
+  it('naesteFase: fasens første dag, med fra, dage og nummer', () => {
+    expect(naesteFase(HB, kl18('2027-01-14'))).toEqual({
+      navn: 'Hovedrunde', bestemt: 'Hovedrunden', fra: 7, til: 13, start: '2027-01-20',
+      knockout: false, antalKampe: 48, dag: 1, dage: 7, nummer: 2,
+    });
+    expect(naesteFase(HB, kl18('2027-01-21'))).toMatchObject({ navn: 'Kvartfinaler', fra: 14, dag: 1, knockout: true });
+  });
+
+  it('naesteFase: en ugyldig kalender har ingen næste fase', () => {
+    // Fasernes datoer ville ellers give et svar: kalenderen er en liste med
+    // gyldige startdatoer, kun nummereringen er forkert.
+    const ugyldig = { faser: [{ ...TEST_FASER[0] }, { ...TEST_FASER[1], fra: 8 }] };
+    expect(ugyldig.faser.some((f) => f.start >= '2027-01-14')).toBe(true);
+    expect(naesteFase(ugyldig, kl18('2027-01-14'))).toBeNull();
   });
 
   it('datoer i en sætning', () => {
@@ -214,7 +251,12 @@ describe('formkontrollen på kalenderen', () => {
     ['første fase starter i 2', med(0, { fra: 2 }), /første fase skal starte i runde 1/],
     ['hul', med(1, { fra: 8 }), /fase 2: starter i runde 8, men forrige fase sluttede i runde 6/],
     ['overlap', med(1, { fra: 6 }), /fase 2: starter i runde 6/],
-    ['start ikke stigende', med(1, { start: '2027-01-13' }), /fase 2: start 2027-01-13 ligger ikke efter/],
+    ['start ikke stigende', med(1, { start: '2027-01-13' }), /fase 2: start 2027-01-13 ligger før 2027-01-19/],
+    // ÉN RUNDE PR. DAG: hovedrunden har 7 dage fra 20/1 (sidste dag tidligst
+    // 26/1), så kvartfinalerne kan tidligst starte 27/1.
+    ['næste fase midt i forrige', med(2, { start: '2027-01-21' }),
+      /fase 3: start 2027-01-21 ligger før 2027-01-27 — forrige fase har 7 dage fra 2027-01-20/],
+    ['næste fase dagen før', med(2, { start: '2027-01-26' }), /fase 3: start 2027-01-26 ligger før 2027-01-27/],
   ];
   for (const [navn, faser, besked] of tilfaelde) {
     it(`afviser: ${navn}`, () => {
@@ -225,10 +267,42 @@ describe('formkontrollen på kalenderen', () => {
     });
   }
 
+  it('én runde pr. dag: dagen efter sidste dag er tidligst — og hviledage er lov', () => {
+    // Grænsen præcis: kvartfinaler 27/1 efter 7 hovedrundedage fra 20/1.
+    expect(faseKalenderFejl(med(2, { start: '2027-01-27' }))).toEqual([]);
+    // En hviledag mere er fint.
+    expect(faseKalenderFejl(med(4, { start: '2027-02-02' }))).toEqual([]);
+    // En én-dags-fase: næste kan starte dagen efter.
+    expect(faseKalenderFejl([
+      { navn: 'A', fra: 1, til: 1, start: '2027-01-31' },
+      { navn: 'B', fra: 2, til: 2, start: '2027-02-01' },
+    ])).toEqual([]);
+  });
+
   it('valgfrie felter må mangle', () => {
     const minimal = [{ navn: 'A', fra: 1, til: 2, start: '2027-01-01' }, { navn: 'B', fra: 3, til: 3, start: '2027-01-05' }];
     expect(faseKalenderFejl(minimal)).toEqual([]);
     expect(erKnockout({ faser: minimal }, 3)).toBe(false);
     expect(faseFor({ faser: minimal }, 3).antalKampe).toBeNull();
+  });
+});
+
+// En ugyldig kalender slår fra — men ikke tavst (modstanderens fund 2).
+describe('faseKalenderAdvarsel: hvornår der advares', () => {
+  it('intet faser-felt (SL, PL, intet spil): ingen advarsel', () => {
+    for (const game of [SL, PL, null, undefined, {}, { faser: null }]) {
+      expect(faseKalenderAdvarsel(game), JSON.stringify(game)).toBeNull();
+    }
+  });
+
+  it('gyldig kalender: ingen advarsel', () => {
+    expect(faseKalenderAdvarsel(HB)).toBeNull();
+  });
+
+  it('ugyldig kalender: formkontrollens fejl', () => {
+    expect(faseKalenderAdvarsel({ faser: [{ ...TEST_FASER[0], fra: 2 }] }))
+      .toEqual(['fase 1: første fase skal starte i runde 1 (ikke 2)']);
+    expect(faseKalenderAdvarsel({ faser: [] })).toEqual(['faser skal være en ikke-tom liste']);
+    expect(faseKalenderAdvarsel({ faser: { navn: 'x' } })).toEqual(['faser skal være en ikke-tom liste']);
   });
 });

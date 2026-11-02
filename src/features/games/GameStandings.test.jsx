@@ -55,7 +55,7 @@ let container;
 // `matches` skal kunne sendes ind: pokal-kortene regner rundesejre af
 // kampprogrammet, og uden en vej hertil kunne wiringen ikke bevises —
 // Pokaler ville stå med en tom liste og altid sige "ingen runder spillet".
-function setup({ standings = ROWS, leagues = LEAGUES, matches = [] } = {}) {
+function setup({ standings = ROWS, leagues = LEAGUES, matches = [], game } = {}) {
   mockStandings.mockReturnValue({
     standings, leagues, leagueCount: leagues.length, loading: false, error: null,
   });
@@ -64,7 +64,7 @@ function setup({ standings = ROWS, leagues = LEAGUES, matches = [] } = {}) {
   const r = render(
     <MemoryRouter initialEntries={['/spil/sl']}>
       <Routes>
-        <Route path="/spil/:gameId" element={<GameStandings gameId="sl" matches={matches} />} />
+        <Route path="/spil/:gameId" element={<GameStandings gameId="sl" matches={matches} game={game} />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -471,6 +471,56 @@ describe('GameStandings — liga-filter', () => {
           '– : For 1 spiller er pointene ikke delt op fra runde 12 endnu. '
           + 'Totalen er rigtig — kun opdelingen mangler. Bed admin køre 🔄 Genberegn point.',
         )).toBeInTheDocument();
+      });
+
+      // FASEKALENDEREN (delopgave 5): i en turnering hedder runden «dag».
+      // Hver af de fire sætninger testes med kalender og på det, der IKKE må
+      // stå — en sætning, der glemte spillet, ville ellers stå grøn på
+      // fodboldens tekst (modstanderens fund 1).
+      describe('med fasekalender: «dag», ikke «runde»', () => {
+        const HB = {
+          id: 'sl', type: 'football', sport: 'haandbold',
+          faser: [
+            { navn: 'Indledende runde', fra: 1, til: 6, start: '2027-01-13' },
+            { navn: 'Hovedrunde', fra: 7, til: 30, start: '2027-01-20' },
+          ],
+        };
+
+        it('regnskabet: «kun point fra dag 12 og frem»', () => {
+          setup({ standings: MED_VEKTOR, leagues: LIGA12, game: HB });
+          aabn();
+          expect(screen.getByText(
+            'Regnskabet tæller som ligaen: kun point fra dag 12 og frem, uden puljen. '
+            + 'I alt er derfor det samme tal som i stillingen. Hele sæsonen for en spiller: tryk på navnet.',
+          )).toBeInTheDocument();
+          expect(container.textContent).not.toMatch(/fra runde 12/);
+        });
+
+        it('stregens forklaring: «ikke delt op fra dag 12»', () => {
+          setup({ standings: [uden(MED_VEKTOR[0], 'opdelingPerRunde'), MED_VEKTOR[1]], leagues: LIGA12, game: HB });
+          aabn();
+          expect(screen.getByText(
+            '– : For 1 spiller er pointene ikke delt op fra dag 12 endnu. '
+            + 'Totalen er rigtig — kun opdelingen mangler. Bed admin køre 🔄 Genberegn point.',
+          )).toBeInTheDocument();
+          expect(container.textContent).not.toMatch(/fra runde 12/);
+        });
+
+        it('spillerpanelet: «kun fra dag 12»', () => {
+          setup({ standings: MED_VEKTOR, leagues: LIGA12, game: HB });
+          fireEvent.click(screen.getByRole('button', { name: 'Anne' }));
+          const p = screen.getByText(/Tallene herunder er spillets samlede point/);
+          expect(p.textContent).toMatch(/i stillingen ovenfor tæller Familien kun fra dag 12\.$/);
+          expect(p.textContent).not.toMatch(/\brunde/); // \b: «herunder» indeholder «runde»
+        });
+
+        it('alle mine ligaer: «Tæller fra dag 1 — spillets egen skala»', () => {
+          setup({ game: HB });
+          expect(screen.getByText(
+            'Viser de 6 spillere, du deler liga med. Tæller fra dag 1 — spillets egen skala, ikke en ligas.',
+          )).toBeInTheDocument();
+          expect(screen.queryByText(/Tæller fra runde/)).toBeNull();
+        });
       });
 
       it('tæller dem, der mangler — og bruger ALDRIG spil-tilstandens «bygges næste gang»', () => {

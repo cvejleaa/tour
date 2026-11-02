@@ -736,11 +736,27 @@ export default function FootballTip({ game, me, matches }) {
                 kampe uden for ugen, DENNE om andre runders kampe, der spilles
                 i netop denne uge. De to må ikke slås sammen — remedien er
                 forskellig, og det er rundetallet også. */}
-            📅 {efterslaeb.length === 1 ? 'Én kamp fra en anden runde spilles' : `${efterslaeb.length} kampe fra andre runder spilles`}
-            {' '}i denne uge og står derfor med herunder:
-            {' '}{efterslaeb.map((e) => `${visOf(hold, e.match.home)}–${visOf(hold, e.match.away)} (${rundeOrd(game, e.fraRunde)})`).join(', ')}.
-            {' '}{efterslaeb.length === 1 ? 'Den giver point i sin egen runde' : 'De giver point i deres egne runder'}
-            {' '}— ikke i denne — og {efterslaeb.length === 1 ? 'den står' : 'de står'} ikke på kuponen her.
+            {/* MED FASEKALENDER er en runde én spilledag, så «i denne uge»
+                og «sin egen runde» ville tale om en uge og en runde, ingen
+                spiller kender. Vinduet ER stadig ugen (rundensUge), så det
+                siges: «i samme uge som denne dag». Uden kalender: som før. */}
+            {harFaseKalender(game) ? (
+              <>
+                📅 {efterslaeb.length === 1 ? 'Én kamp fra en anden dag spilles' : `${efterslaeb.length} kampe fra andre dage spilles`}
+                {' '}i samme uge som denne dag og står derfor med herunder:
+                {' '}{efterslaeb.map((e) => `${visOf(hold, e.match.home)}–${visOf(hold, e.match.away)} (${rundeOrd(game, e.fraRunde)})`).join(', ')}.
+                {' '}{efterslaeb.length === 1 ? 'Den giver point på sin egen dag' : 'De giver point på deres egne dage'}
+                {' '}— ikke på denne — og {efterslaeb.length === 1 ? 'den står' : 'de står'} ikke på kuponen her.
+              </>
+            ) : (
+              <>
+                📅 {efterslaeb.length === 1 ? 'Én kamp fra en anden runde spilles' : `${efterslaeb.length} kampe fra andre runder spilles`}
+                {' '}i denne uge og står derfor med herunder:
+                {' '}{efterslaeb.map((e) => `${visOf(hold, e.match.home)}–${visOf(hold, e.match.away)} (runde ${e.fraRunde})`).join(', ')}.
+                {' '}{efterslaeb.length === 1 ? 'Den giver point i sin egen runde' : 'De giver point i deres egne runder'}
+                {' '}— ikke i denne — og {efterslaeb.length === 1 ? 'den står' : 'de står'} ikke på kuponen her.
+              </>
+            )}
           </p>
         )}
       </div>

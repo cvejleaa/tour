@@ -14,7 +14,7 @@ const { buildRoundContext, combiBonus } = require('./pointOpdeling');
 const { rensTekst } = require('./rensTekst');
 const { outcomePoints, sportOrd, SPORT_ORD } = require('./superligaScoring');
 const {
-  harFaseKalender, rundeEtiket, naesteKalenderRunde, faseFor, fmtFaseStart,
+  harFaseKalender, faseKalenderAdvarsel, rundeEtiket, naesteKalenderRunde, faseFor, fmtFaseStart,
 } = require('./faser');
 const { gatedeKampe, startRundeFor } = require('./startGate');
 const { ligaPoint, harRundeVektor, vektorStemmer } = require('./ligaPoint');
@@ -113,7 +113,19 @@ const KALENDER_UDSKIFTNING = [
   [
     '- "round": rundens nummer — opslaget handler om denne runde.',
     '- "round": spilledagens nummer i turneringens kalender — opslaget handler om denne dag.\n'
-      + '- "rundeNavn": hvad dagen hedder, fx "Indledende runde · dag 2 · tor 14/1". Brug navnet, når du omtaler dagen — skriv ALDRIG "runde 7" om en spilledag: i en turnering er "runde" et fase-ord (indledende runde, hovedrunde).',
+      + '- "rundeNavn": hvad dagen hedder, fx "Indledende runde · dag 2 · tor 14/1". Brug navnet, når du omtaler dagen — skriv ALDRIG "runde 7" om en spilledag: i en turnering er "runde" et fase-ord (indledende runde, hovedrunde).\n'
+      + '- Hvor denne vejledning siger "runden", menes spilledagen: skriv selv "dagen" (eller dagens navn) i teksten, aldrig "runden".',
+  ],
+  // UGEN FINDES IKKE I EN TURNERING. Kuponen er stadig et tidsvindue, men en
+  // spilledag er én dag: "rundens egen uge" og "ugens kampe" ville få botten
+  // til at skrive om en uge, ingen spiller kender (modstanderens fund 5).
+  [
+    '- "matches": rundens kampe PÅ KUPONEN — dem der blev spillet i rundens egen uge.',
+    '- "matches": dagens kampe PÅ KUPONEN — dem der blev spillet på spilledagen.',
+  ],
+  [
+    '- "udsatte": kampe i runden, der ligger uden for rundens uge og endnu ikke er spillet. Er listen IKKE tom, er runden ikke færdigspillet — skriv da aldrig at den er det, og nævn i ÉN sætning, at runden gøres op på ugens kampe, og at de nævnte kampe spilles senere og giver point til den tid.',
+    '- "udsatte": kampe fra dagen, der er flyttet og endnu ikke er spillet. Er listen IKKE tom, er dagen ikke færdigspillet — skriv da aldrig at den er det, og nævn i ÉN sætning, at dagen gøres op på de spillede kampe, og at de nævnte kampe spilles senere og giver point til den tid.',
   ],
   [
     '- "nextRound": næste rundes nummer (kan mangle, hvis sæsonen er slut).',
@@ -124,6 +136,9 @@ const KALENDER_UDSKIFTNING = [
     'mind om at tippe næste runde, hvis "nextRound" findes.',
     'mind om at tippe næste spilledag (brug "naesteRundeNavn"), hvis "nextRound" findes. Er "naesteKampeLagtInd" false, så sig, at kampene kommer, når holdene kendes — og nævn "naesteRundeStart", hvis den findes.',
   ],
+  // Eksemplet er det, modellen kopierer: "8 point i runden" ville stå ordret
+  // i et opslag om en spilledag.
+  ['("8 point i runden", "i alt 31 point")', '("8 point på dagen", "i alt 31 point")'],
 ];
 
 /**
@@ -352,6 +367,15 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
   if (!gameSnap.exists) return { posted: 0, reason: 'no-game' };
   const game = gameSnap.data();
   if (game.aiRecaps === false) return { posted: 0, reason: 'disabled' };
+  // EN UGYLDIG KALENDER SLÅR FRA — MEN IKKE TAVST. Uden gyldig kalender
+  // regnes næste runde af de oprettede kampe, og efter den indledende runde
+  // ville botten skrive "sæsonen er slut". Spillet kører videre på ligaens
+  // tekster (bedre end halvt rigtige), men loggen siger hvorfor, og admin ser
+  // det samme under Spil-tidsplan. Et spil UDEN faser-felt advarer ikke.
+  const kalenderFejl = faseKalenderAdvarsel(game);
+  if (kalenderFejl) {
+    console.warn(`Runde-Botten ${gameId}: fasekalenderen er ugyldig — næste runde regnes af de oprettede kampe: ${kalenderFejl.join('; ')}`);
+  }
   const matchesSnap = await gameRef.collection('matches').get();
   const alleKampe = matchesSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
   // START-GATE. Samme sæt som pointgivningen bruger — botten må ikke skrive om

@@ -126,7 +126,10 @@ har intet fase-felt — det udledes af `round`. Logikken bor i `faser.js`
 (spejlet src/lib ⇄ functions-platform); fladerne og Runde-Botten gater på
 evnen `harFaseKalender`, og uden kalender (Superligaen, Premier League) — eller
 med en, der ikke består `faseKalenderFejl` — er hver tekst den gamle ("Runde N
-af M"). Sportens ord ("Dagens konge" i håndbold) står i `SPORT_ORD` ved siden
+af M"). Tilbagefaldet er ikke tavst: `faseKalenderAdvarsel` melder fejlene i
+Runde-Bottens log og som rød linje under Admin → Spil-tidsplan (et spil uden
+`faser`-felt advarer ikke). Formkontrollen forudsætter én runde pr. dag: næste
+fase kan tidligst starte forrige fases `start` + dens antal dage. Sportens ord ("Dagens konge" i håndbold) står i `SPORT_ORD` ved siden
 af sportsprofilen, ikke i den.
 
 **2. `leagueIds` styrer, hvem der ser hvad.** Både stillingen og andres tips er

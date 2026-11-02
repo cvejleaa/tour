@@ -137,8 +137,8 @@ export default function FootballHelp({ game }) {
           {harFaseKalender(game) && (
             <li style={{ marginBottom: '0.4rem' }} data-testid="hjaelp-faser">
               <strong>Turneringen har faser:</strong> {game.faser.map((f) => f.navn).join(', ')}.
-              {' '}Hver spilledag er én runde for pointene, så tælleren på <Tab fane="tip">Tip</Tab> siger
-              {' '}fx <strong>Dag 1 af {sidsteKalenderRunde(game)}</strong>. En ny fases kampe lægges ind, så snart
+              {' '}Pointene gøres op pr. spilledag: hver dag har sin egen kupon og sin egen combi, og
+              {' '}tælleren på <Tab fane="tip">Tip</Tab> siger fx <strong>Dag 1 af {sidsteKalenderRunde(game)}</strong>. En ny fases kampe lægges ind, så snart
               holdene kendes — indtil da står der på <Tab fane="tip">Tip</Tab>, hvornår dens første kamp er.
             </li>
           )}

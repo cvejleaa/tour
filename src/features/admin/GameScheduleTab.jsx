@@ -16,7 +16,7 @@ import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds
   callSyncGameKickoffs, callSyncGameResults, callSyncGameKampdetaljer } from './adminActions';
 import { harKickoffSynk, harResultatSynk, harKampdetaljer } from '../games/spilEvner';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
-import { rundeEtiket } from '../../lib/faser';
+import { rundeEtiket, rundeFlertal, harFaseKalender, faseKalenderAdvarsel } from '../../lib/faser';
 import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
 
@@ -108,7 +108,12 @@ function StartRundeVaelger({ game, vaerdi, onVaelg }) {
         onChange={(e) => onVaelg(e.target.value)}
       >
         <option value="">
-          {udledt == null ? '– Ingen gate (alle runder tæller) –' : `– Udled af startdatoen (runde ${udledt}) –`}
+          {/* Samme etiket som valgene nedenfor — ellers står «runde 3» øverst
+              og «Indledende runde · dag 3» under den om samme runde. Uden
+              kalender: præcis som før (lille r). */}
+          {udledt == null
+            ? `– Ingen gate (alle ${rundeFlertal(game)} tæller) –`
+            : `– Udled af startdatoen (${harFaseKalender(game) ? rundeEtiket(game, udledt) : `runde ${udledt}`}) –`}
         </option>
         {runder.map(({ round, matches }) => (
           <option key={round} value={String(round)}>
@@ -117,7 +122,7 @@ function StartRundeVaelger({ game, vaerdi, onVaelg }) {
         ))}
       </select>
       <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--c-muted)', marginTop: '0.25rem' }}>
-        Runder FØR den valgte giver ingen point og vises ikke. Efter en ændring
+        {harFaseKalender(game) ? 'Dage' : 'Runder'} FØR den valgte giver ingen point og vises ikke. Efter en ændring
         skal point genberegnes — knappen står nedenfor.
       </span>
     </>
@@ -177,6 +182,7 @@ function GameRow({ game }) {
   }, [startMs, puljeMs, game.status, game.startRound]);
 
   const isFootball = game.type === 'football';
+  const kalenderFejl = faseKalenderAdvarsel(game);
   // Pulje-deadlinen hører til spil MED en pulje. Uden gaten kunne ejeren i god
   // tro sætte en deadline på Premier League — og så ville et puljetip faktisk
   // blive gemt og senere afregnet mod PL-stillingen, selv om ligaen ikke har
@@ -436,6 +442,18 @@ function GameRow({ game }) {
         </strong>
         <span className="badge badge--muted">{game.id}</span>
       </div>
+
+      {/* EN UGYLDIG FASEKALENDER SLÅR FRA — MEN IKKE TAVST. Fladerne og
+          Runde-Botten falder tilbage til ligaens «Runde N», og botten ville
+          sige «sæsonen er slut» efter den indledende runde. Her ser admin
+          hvorfor (serveren logger det samme). Et spil uden faser-felt
+          (Superligaen, Premier League) får ingen linje. */}
+      {kalenderFejl && (
+        <p className="badge badge--red" data-testid="fasekalender-ugyldig" role="alert"
+          style={{ display: 'block', whiteSpace: 'normal', marginTop: '0.5rem' }}>
+          {`⚠️ Fasekalenderen er ugyldig: ${kalenderFejl.join('; ')}. Spillet vises med «Runde N» i stedet for dagens navn, og Runde-Botten ser ikke de kommende faser. Ret faser i scripts/games.mjs og kør Deploy platform med seedGames.`}
+        </p>
+      )}
 
       <div className="grid-2" style={{ gap: '0.75rem', marginTop: '0.75rem' }}>
         <label style={{ display: 'block' }}>

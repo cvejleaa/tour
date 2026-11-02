@@ -35,7 +35,7 @@ import { useMemo } from 'react';
 import { rundeSejre, faerdigeRunder } from './rundeSejre';
 import { fmtSignedPoints } from '../../lib/daNum';
 import { sportOrd } from '../../lib/superligaScoring';
-import { rundeOrd } from '../../lib/faser';
+import { rundeOrd, rundeNavneord, rundeFlertal } from '../../lib/faser';
 
 /**
  * Navnene på dem, der deler en pokal.
@@ -125,9 +125,11 @@ export default function Pokaler({ rows = [], matches = [], startRunde = null, ga
           </p>
         ) : (
           <p style={TOM}>
+            {/* Ordene følger kortets titel: under «Dagens konge» står der
+                «dage», ikke «runder». Uden kalender: præcis som før. */}
             {runder.length === 0
-              ? 'Ingen runder er spillet færdig endnu.'
-              : 'Ingen har vundet en runde endnu.'}
+              ? `Ingen ${rundeFlertal(game)} er spillet færdig endnu.`
+              : `Ingen har vundet en ${rundeNavneord(game)} endnu.`}
           </p>
         )}
       </Kort>

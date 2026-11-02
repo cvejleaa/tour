@@ -54,6 +54,31 @@ describe('Pokaler — pokalens navn er sportens ord', () => {
     expect(container.textContent).not.toContain('fra runde');
   });
 
+  // Tomtilstanden står UNDER titlen «Dagens konge» — og skal tale om dage
+  // (modstanderens fund 3). Begge grene: intet færdigt, og færdigt uden vinder.
+  it('håndbold, tom: «Ingen dage er spillet færdig endnu» — ikke «runder»', () => {
+    const { container } = render(<Pokaler rows={rows} matches={[{ round: 1, result: null }]} startRunde={null} game={HB} />);
+    expect(container.textContent).toContain('Ingen dage er spillet færdig endnu.');
+    expect(container.textContent).not.toMatch(/\brunde/);
+  });
+
+  it('håndbold, ingen vinder: «Ingen har vundet en dag endnu»', () => {
+    const nul = rows.map((r) => ({ ...r, perRound: { 1: 0, 2: 0 } }));
+    const { container } = render(<Pokaler rows={nul} matches={matches} startRunde={null} game={HB} />);
+    expect(container.textContent).toContain('Ingen har vundet en dag endnu.');
+    expect(container.textContent).not.toMatch(/\brunde/);
+  });
+
+  it('Superligaen, tom: tomtilstandens tekster som før', () => {
+    const tom = render(<Pokaler rows={rows} matches={[{ round: 1, result: null }]} startRunde={null} game={SL} />);
+    expect(tom.container.textContent).toContain('Ingen runder er spillet færdig endnu.');
+    tom.unmount();
+    const nul = rows.map((r) => ({ ...r, perRound: { 1: 0, 2: 0 } }));
+    const ingen = render(<Pokaler rows={nul} matches={matches} startRunde={null} game={SL} />);
+    expect(ingen.container.textContent).toContain('Ingen har vundet en runde endnu.');
+    expect(ingen.container.textContent).not.toMatch(/\bdag/);
+  });
+
   it('Superligaen og intet spil: "Rundekongen" og "rundesejre" som før', () => {
     for (const game of [SL, null]) {
       const { container, unmount } = render(<Pokaler rows={rows} matches={matches} startRunde={1} game={game} />);
@@ -80,11 +105,31 @@ describe('FootballHelp — faserne læses af kalenderen', () => {
     const faser = screen.getByTestId('hjaelp-faser');
     expect(faser.textContent).toContain('Indledende runde, Hovedrunde, Kvartfinaler, Semifinaler, Finaledag.');
     expect(faser.textContent).toContain('Dag 1 af 17');
+    // «Hver spilledag er én runde for pointene» var en sætning, hvor «runde»
+    // betød noget andet end resten af guiden (modstanderen).
+    expect(faser.textContent).toContain('Pointene gøres op pr. spilledag: hver dag har sin egen kupon og sin egen combi');
+    expect(faser.textContent).not.toMatch(/\bén runde/);
     expect(container.textContent).toContain('👑 Dagens konge');
     expect(container.textContent).not.toContain('Rundekongen');
     expect(container.textContent).toContain('Dag X →');
     expect(container.textContent).not.toContain('Runde X →');
     expect(container.textContent).toContain('Med knappen Dag N over podiet');
+  });
+
+  // Puljegrænsen er tre DAGE i en turnering (PULJE_MAKS_STARTRUNDE tæller
+  // runder = dage) — teksten skal sige det, ikke «efter runde 3».
+  it('håndbold med pulje: «Starter ligaen efter dag 3»', () => {
+    const { container } = medSpil({ ...HB, pulje: { type: 'top' } });
+    const t = container.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('Starter ligaen efter dag 3, tæller puljebonussen ikke med');
+    expect(t).not.toContain('efter runde 3');
+  });
+
+  it('Superligaen med pulje: «Starter ligaen efter runde 3» som før', () => {
+    const { container } = medSpil({ ...SL, pulje: { type: 'top' } });
+    const t = container.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('Starter ligaen efter runde 3, tæller puljebonussen ikke med');
+    expect(t).not.toContain('efter dag 3');
   });
 
   it('en anden kalender giver andre navne — teksten er ikke skrevet af', () => {
@@ -150,6 +195,50 @@ describe('MatchElo — udviklingspunkternes title', () => {
     vis(SL);
     expect(screen.getByTitle('Runde 7')).toBeInTheDocument();
     expect(screen.queryByTitle('Hovedrunde · dag 1')).toBeNull();
+  });
+
+  // Den SYNLIGE tekst og aria-labelen fulgte ikke med punkternes title
+  // (modstanderens fund 4). Alle tre former: to punkter, ét punkt, ingen.
+  const visMed = (game, form) => render(
+    <MemoryRouter initialEntries={['/spil/sl']}>
+      <Routes>
+        <Route path="/spil/:gameId" element={<MatchElo home="AGF" away="FCK" eloByTeam={{ AGF: { ...AGF, form } }} game={game} />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  it('håndbold: «Styrke efter seneste spillede dag» og «seneste 2 dage»', () => {
+    const { container } = visMed(HB, AGF.form);
+    expect(container.textContent).toContain('Styrke efter seneste spillede dag — ikke et bud på denne kamp.');
+    expect(screen.getByLabelText('AGF: udvikling over de seneste 2 dage')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/\brunde/);
+  });
+
+  it('håndbold, ét punkt: «seneste dag»', () => {
+    const { container } = visMed(HB, [punkt(7, 15)]);
+    expect(screen.getByLabelText('AGF: udvikling seneste dag')).toBeInTheDocument();
+    expect(container.textContent).toContain('seneste dag');
+    expect(container.textContent).not.toMatch(/\brunde/);
+  });
+
+  it('håndbold, ingen punkter: «når der er spillet dage»', () => {
+    const { container } = visMed(HB, []);
+    expect(container.textContent).toContain('Start-rating — udviklingen kommer, når der er spillet dage.');
+    expect(container.textContent).not.toMatch(/\brunde/);
+  });
+
+  it('Superligaen: de synlige tekster og aria-labels som før', () => {
+    const to = visMed(SL, AGF.form);
+    expect(to.container.textContent).toContain('Styrke efter seneste spillede runde — ikke et bud på denne kamp.');
+    expect(screen.getByLabelText('AGF: udvikling over de seneste 2 runder')).toBeInTheDocument();
+    to.unmount();
+    const et = visMed(SL, [punkt(7, 15)]);
+    expect(screen.getByLabelText('AGF: udvikling seneste runde')).toBeInTheDocument();
+    expect(et.container.textContent).toContain('seneste runde');
+    et.unmount();
+    const ingen = visMed(SL, []);
+    expect(ingen.container.textContent).toContain('Start-rating — udviklingen kommer, når der er spillet runder.');
+    expect(ingen.container.textContent).not.toMatch(/\bdag/);
   });
 });
 

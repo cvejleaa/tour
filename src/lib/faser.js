@@ -31,6 +31,9 @@
 //     start      'YYYY-MM-DD', fasens første spilledag (dansk dato). Den eneste
 //                dato, kalenderen kender: dagene inden i en fase ligger ikke
 //                fast (hviledage), så en kamps dato kommer fra dens kickoff.
+//                Men de ligger ikke TÆTTERE end én runde pr. dag (se
+//                formkontrollen), så næste fase kan tidligst starte forrige
+//                fases start + dens antal dage.
 //     knockout   true for udslagsfaser.
 //     antalKampe forventet antal kampe i fasen (til D9 og puljen).
 //
@@ -52,6 +55,12 @@ function gyldigDato(s) {
   const [y, m, d] = s.split('-').map(Number);
   const t = new Date(Date.UTC(y, m - 1, d));
   return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
+/** 'YYYY-MM-DD' + n kalenderdage (UTC-regning på en ren dato — ingen sommertid). */
+function plusDage(dato, n) {
+  const [y, m, d] = dato.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }
 
 /**
@@ -91,8 +100,21 @@ export function faseKalenderFejl(faser) {
       if (fraOk && Number.isInteger(forrige.til) && f.fra !== forrige.til + 1) {
         fejl.push(`${hvor}: starter i runde ${f.fra}, men forrige fase sluttede i runde ${forrige.til} — ingen huller eller overlap`);
       }
-      if (gyldigDato(f.start) && gyldigDato(forrige.start) && f.start <= forrige.start) {
-        fejl.push(`${hvor}: start ${f.start} ligger ikke efter forrige fases ${forrige.start}`);
+      // ÉN RUNDE PR. DAG. Kalenderen FORUDSÆTTER, at en runde er én
+      // spilledag ("Dag 7 af 17"), så en fase på 7 runder fra 20/1 har sin
+      // sidste dag tidligst 26/1, og næste fase kan tidligst starte 27/1. En
+      // fase fra 21/1 efter den ville være en tastefejl i enten `start` eller
+      // `til` — og ventelinjen ville love en dato midt i forrige fase.
+      // Hviledage er tilladt (senere start), tætpakning er ikke. Kontrollen
+      // dækker også "start skal stige", for hver fase har mindst én dag. Er
+      // forrige fases fra/til ugyldige, er det allerede meldt ovenfor.
+      const forrigeOk = Number.isInteger(forrige.fra) && Number.isInteger(forrige.til) && forrige.til >= forrige.fra;
+      if (forrigeOk && gyldigDato(f.start) && gyldigDato(forrige.start)) {
+        const dageFoer = forrige.til - forrige.fra + 1;
+        const tidligst = plusDage(forrige.start, dageFoer);
+        if (f.start < tidligst) {
+          fejl.push(`${hvor}: start ${f.start} ligger før ${tidligst} — forrige fase har ${dageFoer} ${dageFoer === 1 ? 'dag' : 'dage'} fra ${forrige.start} (én runde pr. dag)`);
+        }
       }
     }
     forrige = f;
@@ -110,6 +132,21 @@ export function harFaseKalender(game) {
   if (!Array.isArray(faser)) return false;
   if (!gyldigCache.has(faser)) gyldigCache.set(faser, faseKalenderFejl(faser).length === 0);
   return gyldigCache.get(faser);
+}
+
+/**
+ * HAR SPILLET EN KALENDER, DER IKKE TÆLLER? `harFaseKalender` falder med vilje
+ * tilbage til ligaens tekster — men tavst var det farligt: botten ville sige
+ * "sæsonen er slut" efter den indledende runde, og ingen ville se hvorfor.
+ *   null      → spillet har intet `faser`-felt (en liga: intet at advare om),
+ *               eller kalenderen er gyldig.
+ *   [fejl…]   → formkontrollens fejl. Serveren logger dem (Runde-Botten), og
+ *               admin ser dem under Spil-tidsplan.
+ */
+export function faseKalenderAdvarsel(game) {
+  if (game?.faser == null) return null;
+  if (harFaseKalender(game)) return null;
+  return faseKalenderFejl(game.faser);
 }
 
 /** Kalenderens sidste runde (sidste fases `til`), eller null uden kalender. */
@@ -150,6 +187,11 @@ export function erKnockout(game, round) {
 /** Navneordet for en runde: 'runde' (liga) eller 'dag' (turnering). */
 export function rundeNavneord(game) {
   return harFaseKalender(game) ? 'dag' : 'runde';
+}
+
+/** Flertal: 'runder' (liga) eller 'dage' (turnering). */
+export function rundeFlertal(game) {
+  return harFaseKalender(game) ? 'dage' : 'runder';
 }
 
 /** Kort form med stort: "Runde 7" / "Dag 7". Til knapper og kolonner. */
@@ -236,11 +278,13 @@ export function naesteKalenderRunde(game, round) {
 /**
  * Den runde, der VENTER: kalenderens næste efter den sidst oprettede. Findes
  * den, er turneringen ikke slut — dens kampe er bare ikke lagt ind endnu.
+ * Kræver en OPRETTET runde (heltal ≥ 1): uden kampe har Tip intet at stå på
+ * (den viser "ingen kampe" før dette kaldes), så der er ingen "før dag 1"-tekst.
  * @returns {{runde:number, fase:object, foersteDag:boolean}|null}
  */
 export function ventendeRunde(game, sidsteOprettede) {
-  const sidst = Number.isInteger(sidsteOprettede) ? sidsteOprettede : 0;
-  const runde = sidst === 0 ? (harFaseKalender(game) ? 1 : null) : naesteKalenderRunde(game, sidst);
+  if (!Number.isInteger(sidsteOprettede) || sidsteOprettede < 1) return null;
+  const runde = naesteKalenderRunde(game, sidsteOprettede);
   if (runde == null) return null;
   const fase = faseFor(game, runde);
   return { runde, fase, foersteDag: fase.dag === 1 };

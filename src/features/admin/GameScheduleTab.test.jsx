@@ -713,7 +713,9 @@ describe('startrunde-vælgeren', () => {
     fireEvent.click(screen.getByRole('button', { name: /vælg runde/i }));
     // startAt 15:59 UTC, runde 2 begynder 16:00 UTC — ét minut efter.
     const standard = await screen.findByRole('option', { name: /Udled af startdatoen/ });
-    expect(standard.textContent).toMatch(/runde 2/);
+    // Præcis — uden kalender er teksten den, den altid har været.
+    expect(standard.textContent).toBe('– Udled af startdatoen (runde 2) –');
+    expect(document.body.textContent).toContain('Runder FØR den valgte giver ingen point');
   });
 
   it('gemmer den valgte runde som et TAL', async () => {
@@ -789,6 +791,32 @@ describe('startrunde-vælgeren', () => {
     expect(r3.textContent).toMatch(/aug/);
     expect(screen.getByRole('option', { name: /^Indledende runde · dag 1 · / })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /^Runde \d/ })).toBeNull();
+    // Første valg bærer SAMME etiket som resten (modstanderens fund 6) —
+    // ikke «runde 2» over «Indledende runde · dag 2».
+    const standard = screen.getByRole('option', { name: /Udled af startdatoen/ });
+    expect(standard.textContent).toBe('– Udled af startdatoen (Indledende runde · dag 2) –');
+    expect(standard.textContent).not.toMatch(/runde 2\)/);
+    expect(document.body.textContent).toContain('Dage FØR den valgte giver ingen point');
+    expect(document.body.textContent).not.toContain('Runder FØR');
+  });
+
+  // EN UGYLDIG KALENDER SLÅR FRA — MEN IKKE TAVST (modstanderens fund 2).
+  it('viser admin, at fasekalenderen er ugyldig — og hvad det betyder', () => {
+    const faser = [{ navn: 'Indledende runde', fra: 2, til: 3, start: '2026-08-01' }];
+    mockGames.mockReturnValue({ games: [{ ...SPIL, faser }], loading: false });
+    render(<GameScheduleTab />);
+    const linje = screen.getByTestId('fasekalender-ugyldig');
+    expect(linje.textContent).toBe('⚠️ Fasekalenderen er ugyldig: fase 1: første fase skal starte i runde 1 (ikke 2). '
+      + 'Spillet vises med «Runde N» i stedet for dagens navn, og Runde-Botten ser ikke de kommende faser. '
+      + 'Ret faser i scripts/games.mjs og kør Deploy platform med seedGames.');
+  });
+
+  it('ingen kalender-linje for et spil uden faser — eller med en gyldig kalender', () => {
+    const gyldig = [{ navn: 'Indledende runde', fra: 1, til: 2, start: '2026-08-01' }];
+    mockGames.mockReturnValue({ games: [SPIL, { ...SPIL, id: 'hb', name: 'HB', faser: gyldig }], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByTestId('fasekalender-ugyldig')).toBeNull();
+    expect(document.body.textContent).not.toContain('Fasekalenderen er ugyldig');
   });
 });
 

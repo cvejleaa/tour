@@ -42,7 +42,7 @@ describe('faser: server-spejlet er src', () => {
   it('eksporterer de samme funktioner', async () => {
     const src = await import('../src/lib/faser.js');
     expect(Object.keys(server).sort()).toEqual(Object.keys(src).sort());
-    expect(Object.keys(server).length).toBeGreaterThanOrEqual(17);
+    expect(Object.keys(server).length).toBeGreaterThanOrEqual(19);
   });
 
   const SPIL = [
@@ -60,6 +60,8 @@ describe('faser: server-spejlet er src', () => {
       expect(server.harFaseKalender(game)).toBe(src.harFaseKalender(game));
       expect(server.sidsteKalenderRunde(game)).toBe(src.sidsteKalenderRunde(game));
       expect(server.rundeNavneord(game)).toBe(src.rundeNavneord(game));
+      expect(server.rundeFlertal(game)).toBe(src.rundeFlertal(game));
+      expect(server.faseKalenderAdvarsel(game)).toEqual(src.faseKalenderAdvarsel(game));
       for (const r of RUNDER) {
         const k = `${navn} · ${r}`;
         expect(server.faseFor(game, r), k).toEqual(src.faseFor(game, r));
@@ -83,7 +85,8 @@ describe('faser: server-spejlet er src', () => {
 
   it('samme formkontrol og samme datoer', async () => {
     const src = await import('../src/lib/faser.js');
-    for (const faser of [TEST_FASER, [], null, [{ ...TEST_FASER[0], knockOut: true }], [{ ...TEST_FASER[0], fra: 2 }]]) {
+    for (const faser of [TEST_FASER, [], null, [{ ...TEST_FASER[0], knockOut: true }], [{ ...TEST_FASER[0], fra: 2 }],
+      [TEST_FASER[0], TEST_FASER[1], { ...TEST_FASER[2], start: '2027-01-21' }]]) {
       expect(server.faseKalenderFejl(faser)).toEqual(src.faseKalenderFejl(faser));
     }
     for (const d of ['2027-01-20', '2027-02-30', 'x']) expect(server.fmtFaseStart(d)).toBe(src.fmtFaseStart(d));
@@ -95,5 +98,8 @@ describe('faser: server-spejlet er src', () => {
     expect(server.rundeEtiket(HAANDBOLD_SPIL, 2, kl18('2027-01-14'))).toBe('Indledende runde · dag 2 · tor 14/1');
     expect(server.naesteKalenderRunde(HAANDBOLD_SPIL, 6)).toBe(7);
     expect(server.rundeEtiket({}, 7)).toBe('Runde 7');
+    expect(server.faseKalenderAdvarsel({ faser: [{ ...TEST_FASER[0], fra: 2 }] }))
+      .toEqual(['fase 1: første fase skal starte i runde 1 (ikke 2)']);
+    expect(server.faseKalenderAdvarsel({ id: 'superliga2627' })).toBeNull();
   });
 });

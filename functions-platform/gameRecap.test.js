@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createRequire } from 'module';
 import { createHash } from 'crypto';
 import { HAANDBOLD_SPIL, TEST_FASER, kl18 } from '../src/test/faseKalender.js';
@@ -868,13 +868,29 @@ describe('Runde-Botten med fasekalender', () => {
     expect(sys).toContain('"rundeNavn"');
     expect(sys).toContain('Turneringen er KUN slut, når "nextRound" mangler');
     // De gamle sætninger må IKKE stå tilbage — især ikke "hvis sæsonen er slut".
-    expect(KALENDER_UDSKIFTNING.length).toBe(4);
+    expect(KALENDER_UDSKIFTNING.length).toBe(7);
     for (const [gammel, ny] of KALENDER_UDSKIFTNING) {
       expect(sys, gammel).not.toContain(gammel);
       expect(sys, ny).toContain(ny);
     }
     expect(sys).not.toContain('kan mangle, hvis sæsonen er slut');
     expect(sys).not.toContain('en rundes egen uge er spillet');
+  });
+
+  // Modstanderens fund 5: prompten med kalender modsagde sig selv — den sagde
+  // "spilledag" ét sted og "rundens egen uge", "ugens kampe" og "8 point i
+  // runden" andre. En spilledag har ingen uge, og eksemplet kopieres ordret.
+  it('prompten med kalender siger ALDRIG "uge" — og eksemplet er "8 point på dagen"', () => {
+    const sys = recapSystem(HAANDBOLD_SPIL);
+    expect(sys).not.toMatch(/\buge/i);
+    expect(sys).not.toContain('8 point i runden');
+    expect(sys).toContain('("8 point på dagen", "i alt 31 point")');
+    expect(sys).toContain('Hvor denne vejledning siger "runden", menes spilledagen');
+    expect(sys).toContain('- "matches": dagens kampe PÅ KUPONEN — dem der blev spillet på spilledagen.');
+    expect(sys).toContain('at dagen gøres op på de spillede kampe');
+    // Og grund-prompten HAR ugen — ellers beviste fraværet ovenfor intet.
+    expect(RECAP_SYSTEM).toMatch(/\buge/);
+    expect(RECAP_SYSTEM).toContain('8 point i runden');
   });
 
   it('hver udskiftning står præcis én gang i grund-prompten (ellers kaster recapSystem)', () => {
@@ -886,5 +902,40 @@ describe('Runde-Botten med fasekalender', () => {
     const sys = recapSystem({ sport: 'haandbold' });
     expect(sys).toBe(RECAP_SYSTEM.replace('privat fodbold-tippeliga', 'privat håndbold-tippeliga'));
     expect(sys).toContain('en rundes egen uge er spillet');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EN UGYLDIG KALENDER SLÅR FRA — MEN IKKE TAVST (modstanderens fund 2).
+// Botten falder tilbage til ligaens næste runde, og efter den indledende
+// runde betyder det "sæsonen er slut". Loggen skal sige hvorfor.
+// ---------------------------------------------------------------------------
+describe('Runde-Botten med en ugyldig fasekalender', () => {
+  afterEach(() => vi.restoreAllMocks());
+  const anth = { messages: { create: async () => ({ content: [{ type: 'text', text: 'ok' }] }) } };
+
+  it('logger formkontrollens fejl — og kører videre på ligaens tekster', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const kald = [];
+    const a = { messages: { create: async (x) => { kald.push(x); return { content: [{ type: 'text', text: 'ok' }] }; } } };
+    const ugyldig = { ...base, game: { ...base.game, faser: [{ ...TEST_FASER[0], fra: 2 }] } };
+    await runGameRoundRecap(makeDb(ugyldig), FieldValue, a, 'g1', 1);
+    const linjer = warn.mock.calls.map((c) => c.join(' '));
+    const linje = linjer.find((l) => l.includes('fasekalenderen er ugyldig'));
+    expect(linje).toBe('Runde-Botten g1: fasekalenderen er ugyldig — næste runde regnes af de oprettede kampe: '
+      + 'fase 1: første fase skal starte i runde 1 (ikke 2)');
+    expect(kald[0].system).toBe(RECAP_SYSTEM);
+  });
+
+  it('et spil UDEN faser-felt advarer ikke (SL, PL)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await runGameRoundRecap(makeDb(base), FieldValue, anth, 'g1', 1);
+    expect(warn.mock.calls.map((c) => c.join(' ')).filter((l) => l.includes('fasekalender'))).toEqual([]);
+  });
+
+  it('en gyldig kalender advarer ikke', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await runGameRoundRecap(makeDb({ ...base, game: { ...base.game, ...HAANDBOLD_SPIL } }), FieldValue, anth, 'g1', 1);
+    expect(warn.mock.calls.map((c) => c.join(' ')).filter((l) => l.includes('fasekalender'))).toEqual([]);
   });
 });
